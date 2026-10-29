@@ -764,7 +764,26 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.35 より前の版に「確認した」の印は無い"
             );
         }
-        // 0.36 から（0085）: 入るお金の行の表の行「雑所得」と、事業所得として扱う副業の行
+        // 0.36 から（0085）: 就業不能・収入が減るの場面の配偶者の働き方（任意）
+        let partner = now["household"]["contingency"]["partnerWork"]
+            .as_object()
+            .is_some_and(|scenes| {
+                !scenes.is_empty()
+                    && scenes.iter().all(|(k, v)| {
+                        (k == "disability" || k == "income")
+                            && v.as_object()
+                                .is_some_and(|m| m.values().all(|w| w["type"].is_string()))
+                    })
+            });
+        if migrate::parse(v).unwrap() >= (0, 36) {
+            assert!(partner, "{v}: 就業不能・収入が減るの場面の配偶者の働き方");
+        } else {
+            assert!(
+                now["household"]["contingency"]["partnerWork"].is_null(),
+                "{v}: 0.36 より前の版に就業不能・収入が減るの配偶者の働き方は無い"
+            );
+        }
+        // 0.37 から（0086）: 入るお金の行の表の行「雑所得」と、事業所得として扱う副業の行
         let rows: Vec<(String, String)> = now["household"]["request"]["input"]["household"]
             ["incomeFlows"]
             .as_array()
@@ -783,7 +802,7 @@ fn every_format_version_has_a_fixture_and_opens() {
         let misc_row = rows
             .iter()
             .any(|(r, _)| r == "cf.income.other.miscellaneous");
-        if migrate::parse(v).unwrap() >= (0, 36) {
+        if migrate::parse(v).unwrap() >= (0, 37) {
             assert!(misc_row, "{v}: 表の行「雑所得」の副業の行");
             assert!(
                 rows.iter()
@@ -791,7 +810,7 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 事業所得として扱う副業の行"
             );
         } else {
-            assert!(!misc_row, "{v}: 0.36 より前の版に表の行「雑所得」は無い");
+            assert!(!misc_row, "{v}: 0.37 より前の版に表の行「雑所得」は無い");
         }
         // 鍵が違えば開かない
         let mut wrong = key;

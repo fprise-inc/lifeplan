@@ -2255,6 +2255,12 @@
     "oldAgeChoice"
    ]
   },
+  "contingencyPremise.partnerWork": {
+   "collection": "contingencyPremise",
+   "path": [
+    "partnerWork"
+   ]
+  },
   "contingencyPremise.protection": {
    "collection": "contingencyPremise",
    "path": [

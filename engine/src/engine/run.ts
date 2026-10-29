@@ -17,7 +17,7 @@ import { tableYear } from "./aggregate.ts";
 import { deepFreeze } from "./freeze.ts";
 import { numTable, type NumTable } from "./numTable.ts";
 import { applyInvestment } from "./investment.ts";
-import { applyContingency, applyStress } from "./overlay.ts";
+import { applyContingency, applyStress, applyWorkChanges } from "./overlay.ts";
 import type { AnnualRow, CalcConventions, DonorInput, EngineInput, EngineRequest, Flow } from "./types.ts";
 
 export interface RunOptions {
@@ -405,7 +405,8 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   const invested = applyInvestment(given, time, parseYm(given.baseMonth), decemberOf(given.endYear));
   const stressed = applyStress(invested.input, time);
   const overlaid = applyContingency(stressed.input, time);
-  const input = overlaid.input;
+  // 0085: 働き方の置き換え（万一の重ねの後。就業不能・収入が減るの場面の配偶者の働き方）
+  const input = applyWorkChanges(overlaid.input, time);
   const h = input.household;
   // 世帯内の物のIDは、その世帯の中で一意（0004 の4）
   const objectIds = [

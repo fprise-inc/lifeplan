@@ -426,4 +426,5 @@ entries:
 - 2026-10-28（収益不動産の税と出口。0081）: 7 の表の不動産の中身の売却に「売ったときにローンを返す」`sale.repayLoan`、民泊・宿に所得の区分 `lodging.incomeKind`、構成員に申告の仕方 `taxReturn` を入れ、形式の版を 0.33 にした（足すだけの MINOR）。
 - 2026-10-29（入力項目の選び方。0083）: 画面の側の値に入力項目の選び方 `household.itemChoice`（`hidden`・`levels`）を入れ、形式の版を 0.34 にした（足すだけの MINOR。計算の要求には入れない）。
 - 2026-10-29（確かめの注意の「確認した」。0041・0055）: 画面の側の値に確かめの注意の「確認した」の印 `household.noticeAcks`（`id`・`of`・`on`）を入れ、形式の版を 0.35 にした（足すだけの MINOR。計算の要求には入れない）。
-- 2026-10-29（雑所得の区分。0085）: 入るお金の行の表の行 `incomeFlows[].row` に選べる値 `cf.income.other.miscellaneous`（雑所得）を足し、形式の版を 0.36 にした（足すだけの MINOR）。
+- 2026-10-29（就業不能・収入が減るの配偶者の働き方。0085）: 画面の側の万一の前提に `household.contingency.partnerWork` を入れ、形式の版を 0.36 にした（足すだけの MINOR。入力項目ID `contingencyPremise.partnerWork`。プランごとの上書きは 0.17 からある差分の形）。
+- 2026-10-29（雑所得の区分。0086）: 入るお金の行の表の行 `incomeFlows[].row` に選べる値 `cf.income.other.miscellaneous`（雑所得）を足し、形式の版を 0.37 にした（足すだけの MINOR）。

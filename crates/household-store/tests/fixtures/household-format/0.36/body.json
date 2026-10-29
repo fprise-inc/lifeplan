@@ -89,6 +89,21 @@
         "recoveryYears": 3
       },
       "oldAgeChoice": {},
+      "partnerWork": {
+        "disability": {
+          "e6983e83-e3f0-41eb-ace3-db4c54919c0a": {
+            "afterMonths": 3,
+            "annualSalary": 3000000,
+            "type": "regular",
+            "untilAge": 60
+          }
+        },
+        "income": {
+          "e6983e83-e3f0-41eb-ace3-db4c54919c0a": {
+            "type": "partTime"
+          }
+        }
+      },
       "protection": {
         "method": "reverse",
         "reverseUntilAge": 90
@@ -1487,7 +1502,6 @@
               "id": "00000000-0000-4000-8000-00000000f002",
               "kind": "sideJob",
               "recipient": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
-              "row": "cf.income.other.miscellaneous",
               "stages": [
                 {
                   "at": {
@@ -1564,38 +1578,6 @@
               "pensionType": "disabilityBasic",
               "recipient": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
               "to": null
-            },
-            {
-              "amount": {
-                "origin": {
-                  "kind": "manual"
-                },
-                "state": "confirmed",
-                "value": 150000
-              },
-              "cost": {
-                "origin": {
-                  "kind": "manual"
-                },
-                "state": "confirmed",
-                "value": 60000
-              },
-              "everyYears": 1,
-              "from": {
-                "at": "2028-01"
-              },
-              "growth": {
-                "kind": "none"
-              },
-              "id": "00000000-0000-4000-8000-000000003601",
-              "kind": "sideJob",
-              "label": "事業として続ける副業",
-              "monthly": true,
-              "row": "cf.income.business",
-              "taxTreatment": "business",
-              "to": {
-                "at": "2032-12"
-              }
             }
           ],
           "insuranceContracts": [
@@ -2747,6 +2729,38 @@
             },
             "state": "confirmed",
             "value": "0.6"
+          }
+        },
+        {
+          "at": [
+            "income",
+            "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+            "annualSalary"
+          ],
+          "before": {
+            "origin": {
+              "kind": "manual"
+            },
+            "state": "confirmed",
+            "value": null
+          },
+          "enabled": true,
+          "id": "00000000-0000-4000-8000-00000000a036",
+          "item": "contingencyPremise.partnerWork",
+          "note": null,
+          "op": "set",
+          "origin": {
+            "kind": "manual"
+          },
+          "target": {
+            "plan": "contingency"
+          },
+          "value": {
+            "origin": {
+              "kind": "manual"
+            },
+            "state": "confirmed",
+            "value": 1500000
           }
         }
       ],

@@ -9,7 +9,7 @@ import { ageAxis, depletionYear, displayYears, familyText, financialOf, sumByYea
 import { ageInYear, roles } from "../roles.ts";
 import { OLD_AGE_CHOICE_LABEL } from "./inputs.ts";
 import type { ContingencyPlan } from "./planData.ts";
-import { INCOME_DROP_DEFAULT, ILLNESS_DEFAULT, MARKET_CLASSES_DEFAULT, type Scenario } from "./requests.ts";
+import { hasInvested, INCOME_DROP_DEFAULT, ILLNESS_DEFAULT, MARKET_CLASSES_DEFAULT, partnerOf, type Scenario } from "./requests.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
 export const REFORM_NOTICE = "N_REFORM_NOT_REFLECTED";
@@ -345,8 +345,30 @@ export function scenarioEvent(sc: Scenario, year: number, drop?: string, o?: { w
 
 const GRADE_TEXT: Record<number, string> = { 0: "障害年金なしの仮定", 1: "障害1級の仮定", 2: "障害2級の仮定", 3: "障害3級の仮定" };
 
+/** 働き方の短い言い方（場面の札） */
+const WORK_SHORT: Readonly<Record<string, string>> = { regular: "正社員", contract: "契約社員", partTime: "パート", selfEmployed: "自営業", none: "働かない" };
+const DISEASE_SHORT: Readonly<Record<string, string>> = { cancer: "がん", heartStroke: "心疾患・脳卒中", other: "そのほかの病気" };
+
+type CardPlan = Pick<ContingencyPlan, "market" | "illness" | "incomeDrop" | "stackMarket" | "partnerWork">;
+
 /**
- * 場面の帯のカード（提示用の値）: 死亡の場面は必要保障額の推移から「保障の不足 最大○万円」か「保障は足りています」、障害の場面は仮定の等級。
+ * 場面の札の見出し（条件を書く。0085）: 収入が減るは「収入が3割減る（5年）」（ご本人のほかの収入なら「配偶者の収入が…」。呼び方は roles から）、相場の下落は「相場が3割下がる」。
+ * 死亡・就業不能・大きな病気は人の言い方のまま（条件は札の下の行）。条件を動かすと文字も変わる
+ */
+export function scenarioCardTitle(req: EngineRequest, sc: Scenario, plan: CardPlan | undefined): string {
+  if (sc.kind === "market") return `相場が${dropText(plan?.market?.drop)}下がる`;
+  if (sc.kind === "income") {
+    const who = plan?.incomeDrop?.member ?? INCOME_DROP_DEFAULT.member;
+    const head = who === "both" && roles(req).some((r) => r.key === "spouse") ? "2人の" : who === "spouse" ? `${incomeWho(req, plan)}の` : "";
+    return `${head}収入が${dropText(plan?.incomeDrop?.ratio ?? INCOME_DROP_DEFAULT.ratio)}減る（${plan?.incomeDrop?.years ?? INCOME_DROP_DEFAULT.years}年）`;
+  }
+  return scenarioTitle(sc);
+}
+
+/**
+ * 場面の帯の札（提示用の値）: 死亡の場面は必要保障額の推移から「保障の不足 最大○万円」か「保障は足りています」、障害の場面は仮定の等級、
+ * 大きな病気は病気の種類と働けない期間、収入が減るは誰の収入か、相場の下落は下げる資産と戻り方。配偶者の働き方を置き換えていれば「配偶者はパート」（呼び方は roles から）、
+ * 相場の下落を重ねていれば「相場も下落」を足す（0085）。
  * 資産が最後まで足りるかは、カードには出さない（カードによって出る・出ないがばらつくため。年ごとの結果の帯とグラフの見出しで分かる）
  */
 export function scenarioCards(input: {
@@ -355,10 +377,20 @@ export function scenarioCards(input: {
   selected: string;
   protection: ContingencyModel["protection"];
   grade: 0 | 1 | 2 | 3 | undefined;
-  /** 大きな病気・相場が下がったときの前提（カードの札に出す） */
-  plan?: Pick<ContingencyPlan, "market" | "illness" | "incomeDrop">;
+  /** 前提（札の見出しと下の行に出す） */
+  plan?: CardPlan;
 }): ScenarioCardModel[] {
   const keyOf = new Map(roles(input.req).map((r) => [r.member.id, r.key]));
+  const h = input.req.input.household;
+  const labelOf = new Map(roles(input.req).map((r) => [r.member.id, r.label]));
+  const stack = input.plan?.stackMarket === true && hasInvested(h) ? "・相場も下落" : "";
+  /** 配偶者の働き方の置き換え（就業不能・収入が減る） */
+  const partnerText = (sc: Scenario): string => {
+    if (sc.kind !== "disability" && sc.kind !== "income") return "";
+    const p = partnerOf(h, sc);
+    const t = p === undefined ? undefined : input.plan?.partnerWork?.[sc.kind]?.[p.id]?.type;
+    return p === undefined || t === undefined || t === "keep" ? "" : `・${labelOf.get(p.id) ?? "配偶者"}は${WORK_SHORT[t] ?? t}`;
+  };
   return input.scenarios.map((sc) => {
     const pk = keyOf.get(sc.member) ?? null;
     const chart = pk === null ? undefined : input.protection.charts.find((c) => c.key === pk);
@@ -369,11 +401,18 @@ export function scenarioCards(input: {
       else if (input.protection.status === "error" || chart === undefined) [status, tone] = ["必要保障額は出していません", "wait"];
       else if (chart.maxShort !== null) [status, tone] = [`保障の不足 最大${man(chart.maxShort.amount)}万円`, "ng"];
       else [status, tone] = ["保障は足りています", "ok"];
-    } else if (sc.kind === "market") [status, tone] = [`下がる幅 ${dropText(input.plan?.market?.drop)}（${input.plan?.market?.classes === undefined || sameSet(input.plan.market.classes, MARKET_CLASSES_DEFAULT) ? "株・REIT" : "選んだ資産"}）`, "wait"];
-    else if (sc.kind === "income") [status, tone] = [`${dropText(input.plan?.incomeDrop?.ratio ?? INCOME_DROP_DEFAULT.ratio)}減・${input.plan?.incomeDrop?.years ?? INCOME_DROP_DEFAULT.years}年`, "wait"];
-    else if (sc.kind === "illness") [status, tone] = [`働けない期間 ${input.plan?.illness?.months ?? ILLNESS_DEFAULT.months}か月・医療費`, "wait"];
-    else [status, tone] = [GRADE_TEXT[input.grade ?? 2] ?? "", "wait"];
+    } else if (sc.kind === "market") {
+      const m = input.plan?.market;
+      const what = m?.classes === undefined || sameSet(m.classes, MARKET_CLASSES_DEFAULT) ? "株・REIT" : "選んだ資産";
+      const after = m?.recoveryYears !== undefined && m.recoveryYears > 0 ? `・その後${m.recoveryYears}年は利回り${Math.round(Number(m.recoveryCap ?? "0") * 1000) / 10}%まで` : "";
+      [status, tone] = [`下げる資産: ${what}${after}`, "wait"];
+    } else if (sc.kind === "income") {
+      [status, tone] = [`${incomeWho(input.req, input.plan)}の給与・事業の所得${partnerText(sc)}${stack}`, "wait"];
+    } else if (sc.kind === "illness") {
+      const il = input.plan?.illness;
+      [status, tone] = [`${DISEASE_SHORT[il?.disease ?? ILLNESS_DEFAULT.disease] ?? ""}・${il?.months ?? ILLNESS_DEFAULT.months}か月働けない${stack}`, "wait"];
+    } else [status, tone] = [`${GRADE_TEXT[input.grade ?? 2] ?? ""}${partnerText(sc)}${stack}`, "wait"];
     const loading = sc.kind === "death" && input.protection.status === "loading";
-    return { key: sc.key, label: sc.label, title: scenarioTitle(sc), status, tone, loading, protection: chart !== undefined ? chart.key : null };
+    return { key: sc.key, label: sc.label, title: scenarioCardTitle(input.req, sc, input.plan), status, tone, loading, protection: chart !== undefined ? chart.key : null };
   });
 }

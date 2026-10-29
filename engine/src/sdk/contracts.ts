@@ -84,7 +84,7 @@ export interface TotalIncomeOutput {
   readonly retirement?: Yen;
   /** 保険の一時所得のうち総所得金額に入れた額（特別控除の後の2分の1。約束の版 1.3 の任意の欄。total に入る） */
   readonly temporary?: Yen;
-  /** 公的年金等以外の雑所得（約束の版 1.3 の任意の欄。total に入る。1.7 から入るお金の行・保険・民泊・宿の雑所得を1つの区分として差し引いた後の額。0085） */
+  /** 公的年金等以外の雑所得（約束の版 1.3 の任意の欄。total に入る。1.7 から入るお金の行・保険・民泊・宿の雑所得を1つの区分として差し引いた後の額。0086） */
   readonly miscellaneous?: Yen;
   /** 不動産所得（住まい以外の不動産。損失は土地の取得のための借入の利息の分を除いて、ほかの所得から引く。約束の版 1.4 の任意の欄。total に入る。0028） */
   readonly realEstate?: Yen;
@@ -100,7 +100,7 @@ export interface TotalIncomeOutput {
   readonly lodging?: { readonly miscellaneous: Yen; readonly business: Yen };
   /**
    * 公的年金等以外の雑所得の赤字のうち、公的年金等の雑所得からも引ききれなかった額（ほかの所得と通算せず、0円として捨てた額。
-   * 約束の版 1.7 の任意の欄。0085）
+   * 約束の版 1.7 の任意の欄。0086）
    */
   readonly miscellaneousLoss?: Yen;
 }
@@ -828,7 +828,7 @@ export interface InsuranceIncomeOutput {
   readonly miscellaneous: Yen;
   /** 約束の版 1.1（0044）: 一時所得の総収入−支出（特別控除の前）。入るお金の行の一時所得と合わせて特別控除を引くため */
   readonly temporaryGross?: Yen;
-  /** 約束の版 1.2（0085）: 雑所得が赤字の年（必要経費が年金額を超える。元本割れの個人年金など）の収入−必要経費（マイナス）。ほかの雑所得と差し引くため */
+  /** 約束の版 1.2（0086）: 雑所得が赤字の年（必要経費が年金額を超える。元本割れの個人年金など）の収入−必要経費（マイナス）。ほかの雑所得と差し引くため */
   readonly miscellaneousNet?: Yen;
 }
 
@@ -848,9 +848,9 @@ export interface IncomeFlowsTaxRow {
   readonly business: Yen;
   /** 分離課税の譲渡所得（収入−取得費） */
   readonly capitalGains: Yen;
-  /** 約束の版 1.1（0085）: 公的年金等以外の雑所得（業務・その他を合わせた収入−必要経費。赤字はマイナス）。雑所得の行がある年だけ */
+  /** 約束の版 1.1（0086）: 公的年金等以外の雑所得（業務・その他を合わせた収入−必要経費。赤字はマイナス）。雑所得の行がある年だけ */
   readonly miscellaneousNet?: Yen;
-  /** 約束の版 1.1（0085）: 事業所得の収入−必要経費（赤字はマイナス）。事業所得の行がある年だけ */
+  /** 約束の版 1.1（0086）: 事業所得の収入−必要経費（赤字はマイナス）。事業所得の行がある年だけ */
   readonly businessNet?: Yen;
 }
 

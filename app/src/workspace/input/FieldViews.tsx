@@ -268,6 +268,22 @@ export function Section({ section, wh, level, onEdit }: { section: SectionDef; w
     return h !== undefined && withMore?.has(h) === true && opened.isOpen(h) ? h : null;
   };
   const shownGroups = section.groups.filter((g) => groupShown(level, g) || headOpen(g) !== null);
+  // 別のまとまりの中に描くまとまり（placeIn。例: 額の変化を行の額の近くに）: 置き先が見えていれば、その中に描く（見えていなければ今までどおり並べる）
+  const shownKeys = new Set(shownGroups.map((g) => g.key));
+  const insides = new Map<string, { group: GroupDef; placeIn: NonNullable<GroupDef["placeIn"]> }[]>();
+  const placed = new Set<string>();
+  for (const g of shownGroups) {
+    const p = g.placeIn;
+    if (p === undefined || p.group === g.key || !shownKeys.has(p.group)) continue;
+    const host = shownGroups.find((x) => x.key === p.group);
+    if (host === undefined || host.placeIn !== undefined) continue;
+    insides.set(p.group, [...(insides.get(p.group) ?? []), { group: g, placeIn: p }]);
+    placed.add(g.key);
+  }
+  const renderGroup = (g: GroupDef) => {
+    const h = headOpen(g);
+    return <Group key={g.key} group={g} wh={wh} level={h !== null ? "detail" : level} onEdit={onEdit} {...(h !== null ? { moreOf: h } : {})} />;
+  };
   const link = useContext(SectionLinks)[section.key];
   const sn = splitNote(section.note);
   const sHelp = sn.help !== null ? <Help label={section.title}>{sn.help}</Help> : null;
@@ -296,15 +312,61 @@ export function Section({ section, wh, level, onEdit }: { section: SectionDef; w
         )}
         {sn.state !== null ? <p class="in-note in-empty">{sn.state}</p> : null}
         {shownGroups.map((g) => {
+          if (placed.has(g.key)) return null;
           const h = headOpen(g);
+          const inner = (insides.get(g.key) ?? []).map((x): InnerGroup => ({ ...x.placeIn, node: renderGroup(x.group) }));
           // 頭のまとまり: 標準の欄の下に「▸ 詳しく」。属するまとまり: 頭を開いているときだけ、詳細の中身まで出す
-          if (withMore?.has(g.key) === true) return <Group key={g.key} group={g} wh={wh} level={level} onEdit={onEdit} more={{ open: h !== null, toggle: () => opened.toggle(g.key) }} />;
-          return <Group key={g.key} group={g} wh={wh} level={h !== null ? "detail" : level} onEdit={onEdit} {...(h !== null ? { moreOf: h } : {})} />;
+          if (withMore?.has(g.key) === true) return <Group key={g.key} group={g} wh={wh} level={level} onEdit={onEdit} more={{ open: h !== null, toggle: () => opened.toggle(g.key) }} inner={inner} />;
+          return <Group key={g.key} group={g} wh={wh} level={h !== null ? "detail" : level} onEdit={onEdit} {...(h !== null ? { moreOf: h } : {})} inner={inner} />;
         })}
         {actions.length > 0 ? <Actions actions={actions} wh={wh} onEdit={onEdit} /> : null}
       </section>
     </InSection.Provider>
   );
+}
+
+/** まとまりの中に描く、別のまとまり（GroupDef の placeIn。before の欄の前か after の欄の後。どちらも無ければ欄の並びの最後） */
+interface InnerGroup {
+  before?: string;
+  after?: string;
+  node: ComponentChildren;
+}
+
+/**
+ * 欄の並びに、中に描くまとまりを差し込む（欄の並びを切って、その間に置く）。差し込めなかった物を返す
+ */
+function fieldsWithInner(list: readonly FieldDef[], inner: readonly InnerGroup[], wh: WorkingHousehold, onEdit: (w: WorkingHousehold) => void, keyHead: string): { nodes: ComponentChildren[]; rest: InnerGroup[] } {
+  const used = new Set<InnerGroup>();
+  const nodes: ComponentChildren[] = [];
+  let run: FieldDef[] = [];
+  const flush = () => {
+    if (run.length === 0) return;
+    const fs = run;
+    run = [];
+    nodes.push(
+      <div class="fields" key={`${keyHead}/f/${fs[0]!.key}`}>
+        {fs.map((f) => (
+          <Field key={f.key} f={f} wh={wh} onEdit={onEdit} />
+        ))}
+      </div>,
+    );
+  };
+  const put = (pred: (x: InnerGroup) => boolean) => {
+    const hit = inner.filter((x) => !used.has(x) && pred(x));
+    if (hit.length === 0) return;
+    flush();
+    for (const x of hit) {
+      used.add(x);
+      nodes.push(x.node);
+    }
+  };
+  for (const f of list) {
+    put((x) => x.before === f.key);
+    run.push(f);
+    put((x) => x.after === f.key);
+  }
+  flush();
+  return { nodes, rest: inner.filter((x) => !used.has(x)) };
 }
 
 /** まとまりの「▸ 詳しく」（頭のまとまりに渡す） */
@@ -313,11 +375,17 @@ interface GroupMore {
   toggle: () => void;
 }
 
+/** 「▸ 詳しく」を開いて入れ替えた欄の知らせ（標準だけの欄 simpleOnly の swapNote。開いていなければ無し） */
+export function swapNotesOf(group: GroupDef, open: boolean): string[] {
+  if (!open) return [];
+  return [...new Set(group.fields.filter((f) => f.simpleOnly === true && f.swapNote !== undefined).map((f) => f.swapNote as string))];
+}
+
 /**
  * 「▸ 詳しく」の小さな文字のリンク。押した所は動かさず、開いた中身はこの下に出す（見えなければ見える所までスクロール）。
  * 押したときに欄からフォーカスを外さない（外すと、欄の値が入れ直されて「保存していない変更」になるため）
  */
-export function MoreToggle({ groupKey, open, toggle, label }: { groupKey: string; open: boolean; toggle: () => void; label?: string }) {
+export function MoreToggle({ groupKey, open, toggle, label, swapNotes = [] }: { groupKey: string; open: boolean; toggle: () => void; label?: string; swapNotes?: readonly string[] }) {
   return (
     <div class="grp-more">
       <button
@@ -334,11 +402,17 @@ export function MoreToggle({ groupKey, open, toggle, label }: { groupKey: string
       >
         {open ? "▾ 詳しく（閉じる）" : "▸ 詳しく"}
       </button>
+      {/* 欄を入れ替えた所は、何が変わったかを短い1行で（閉じると元に戻ることも） */}
+      {open && swapNotes.length > 0 ? (
+        <p class="grp-more-swap" data-more-of={groupKey} data-more-swap>
+          {swapNotes.join("。")}（閉じると元に戻ります）
+        </p>
+      ) : null}
     </div>
   );
 }
 
-export function Group({ group, wh, level, onEdit, more, moreOf }: { group: GroupDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void; more?: GroupMore; moreOf?: string }) {
+export function Group({ group, wh, level, onEdit, more, moreOf, inner = [] }: { group: GroupDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void; more?: GroupMore; moreOf?: string; inner?: readonly InnerGroup[] }) {
   // 詳細の欄が見えているとき（詳細、または標準で「▸ 詳しく」を開いたとき）は、標準だけの欄（simpleOnly）を出さない（代わりに詳細の欄を出す）
   const detailShown = level === "detail" || more?.open === true;
   const fields = group.fields.filter((f) => visible(level, f.level) && !(detailShown && f.simpleOnly === true));
@@ -346,12 +420,16 @@ export function Group({ group, wh, level, onEdit, more, moreOf }: { group: Group
   // 標準で「▸ 詳しく」を開いたときだけ出す欄・ボタン（詳細の欄と、詳細では別の所に出す欄 openFields）
   const extraFields = more?.open === true ? [...group.fields.filter((f) => !visible(level, f.level)), ...(group.openFields ?? [])] : [];
   const extraActions = more?.open === true ? group.actions.filter((a) => !visible(level, a.level)) : [];
-  if (fields.length === 0 && actions.length === 0 && group.note === undefined && more === undefined) return null;
-  if (fields.length === 0 && group.title === undefined) return <Actions actions={actions} wh={wh} onEdit={onEdit} note={group.note} />;
+  if (fields.length === 0 && actions.length === 0 && group.note === undefined && more === undefined && inner.length === 0) return null;
+  if (fields.length === 0 && group.title === undefined && inner.length === 0) return <Actions actions={actions} wh={wh} onEdit={onEdit} note={group.note} />;
+  // 中に描くまとまり: 見えている欄の前後に。見えていなければ「▸ 詳しく」で開いた欄の前後に。どちらにも無ければ見えている欄の並びの最後に
+  const main = fieldsWithInner(fields, inner, wh, onEdit, group.key);
+  const opened = fieldsWithInner(extraFields, main.rest, wh, onEdit, `${group.key}/more`);
+  const mainNodes = opened.rest.length > 0 ? [...main.nodes, ...opened.rest.map((x) => x.node)] : main.nodes;
   // 名前の無いまとまりの説明は、欄の並びの前に「?」だけを置く
   const gn = splitNote(group.note);
   const noteHelp = gn.help !== null ? <Help label={group.title ?? "このまとまり"}>{gn.help}</Help> : null;
-  const compact = more?.open !== true && group.title !== undefined && fields.length > 0 && fields.length <= 3 && fields.every((f) => f.kind === "select" || f.kind === "bool");
+  const compact = more?.open !== true && inner.length === 0 && group.title !== undefined && fields.length > 0 && fields.length <= 3 && fields.every((f) => f.kind === "select" || f.kind === "bool");
   return (
     <div class={`in-group${compact ? " compact" : ""}`} {...(moreOf !== undefined ? { "data-more-of": moreOf } : {})}>
       {group.title !== undefined ? (
@@ -374,21 +452,29 @@ export function Group({ group, wh, level, onEdit, more, moreOf }: { group: Group
       {group.title === undefined ? <PlanGroupTag group={group} wh={wh} /> : null}
       {group.title === undefined && noteHelp !== null ? <div class="in-group-help">{noteHelp}</div> : null}
       {gn.state !== null ? <p class="in-note in-empty">{gn.state}</p> : null}
-      <div class="fields">
-        {fields.map((f) => (
-          <Field key={f.key} f={f} wh={wh} onEdit={onEdit} />
-        ))}
-      </div>
+      {inner.length === 0 ? (
+        <div class="fields">
+          {fields.map((f) => (
+            <Field key={f.key} f={f} wh={wh} onEdit={onEdit} />
+          ))}
+        </div>
+      ) : (
+        mainNodes
+      )}
       {actions.some((a) => a.danger !== true) ? <Actions actions={actions.filter((a) => a.danger !== true)} wh={wh} onEdit={onEdit} /> : null}
-      {more !== undefined ? <MoreToggle groupKey={group.key} open={more.open} toggle={more.toggle} label={group.title ?? "この欄"} /> : null}
+      {more !== undefined ? <MoreToggle groupKey={group.key} open={more.open} toggle={more.toggle} label={group.title ?? "この欄"} swapNotes={swapNotesOf(group, more.open)} /> : null}
       {more?.open === true && (extraFields.length > 0 || extraActions.length > 0) ? (
         <div class="grp-more-body" data-more-of={group.key}>
           {extraFields.length > 0 ? (
-            <div class="fields">
-              {extraFields.map((f) => (
-                <Field key={f.key} f={f} wh={wh} onEdit={onEdit} />
-              ))}
-            </div>
+            inner.length === 0 ? (
+              <div class="fields">
+                {extraFields.map((f) => (
+                  <Field key={f.key} f={f} wh={wh} onEdit={onEdit} />
+                ))}
+              </div>
+            ) : (
+              opened.nodes
+            )
           ) : null}
           {extraActions.length > 0 ? <Actions actions={extraActions} wh={wh} onEdit={onEdit} /> : null}
         </div>
@@ -407,31 +493,35 @@ const actionName = (label: string): string => label.replace(/^＋\s*/, "");
  */
 function Actions({ actions, wh, onEdit, note }: { actions: ActionDef[]; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; note?: string | undefined }) {
   const sn = splitNote(note);
-  const names = actions.map((a) => a.label);
+  const units = actionUnits(actions);
+  const names = units.map((u) => (u.kind === "one" ? u.a.label : u.head.label));
   const noteHelp =
     sn.help !== null ? (
       <Help label={names.length > 0 ? names.map(actionName).join("・") : "この操作"} {...(sn.state === null && names.length > 1 ? { target: names.map((n) => `「${n}」`).join("") } : sn.state === null && names.length === 1 ? { target: names[0]! } : {})}>
         {sn.help}
       </Help>
     ) : null;
-  const buttons = actions.map((a) => (
-    <HelpOf key={a.key} help={actionHelp(a)}>
-      <button
-        type="button"
-        class={a.danger === true ? "link-btn danger" : "add-btn"}
-        onClick={(e) => {
-          // 「＋」で足した物は、見える所へ動かして光らせ、最初の欄に移る（revealAdded）
-          if (a.danger !== true && a.label.startsWith("＋")) revealAdded(e.currentTarget);
-          onEdit(a.run(wh));
-        }}
-        data-action={a.key}
-        {...(a.pressed !== undefined ? { "aria-pressed": a.pressed } : {})}
-        {...(a.title !== undefined ? { title: a.title } : {})}
-      >
-        {a.label}
-      </button>
-    </HelpOf>
-  ));
+  const buttons = units.map((u) => (u.kind === "choice" ? <ChoiceAction key={u.head.key} head={u.head} items={u.list} wh={wh} onEdit={onEdit} /> : oneButton(u.a)));
+  function oneButton(a: ActionDef) {
+    return (
+      <HelpOf key={a.key} help={actionHelp(a)}>
+        <button
+          type="button"
+          class={a.danger === true ? "link-btn danger" : "add-btn"}
+          onClick={(e) => {
+            // 「＋」で足した物は、見える所へ動かして光らせ、最初の欄に移る（revealAdded）
+            if (a.danger !== true && a.label.startsWith("＋")) revealAdded(e.currentTarget);
+            onEdit(a.run(wh));
+          }}
+          data-action={a.key}
+          {...(a.pressed !== undefined ? { "aria-pressed": a.pressed } : {})}
+          {...(a.title !== undefined ? { title: a.title } : {})}
+        >
+          {a.label}
+        </button>
+      </HelpOf>
+    );
+  }
   return (
     <div class="in-actions">
       {sn.state !== null ? (
@@ -450,6 +540,67 @@ function Actions({ actions, wh, onEdit, note }: { actions: ActionDef[]; wh: Work
         </>
       )}
     </div>
+  );
+}
+
+/** ボタンの並びの1つ: ふつうのボタンか、選択肢をまとめた1つのボタン（ActionDef の choice。続いた同じ key の物） */
+type ActionUnit = { kind: "one"; a: ActionDef } | { kind: "choice"; head: NonNullable<ActionDef["choice"]>; list: ActionDef[] };
+
+export function actionUnits(actions: readonly ActionDef[]): ActionUnit[] {
+  const out: ActionUnit[] = [];
+  for (const a of actions) {
+    const last = out.at(-1);
+    if (a.choice === undefined) out.push({ kind: "one", a });
+    else if (last?.kind === "choice" && last.head.key === a.choice.key) last.list.push(a);
+    else out.push({ kind: "choice", head: a.choice, list: [a] });
+  }
+  return out;
+}
+
+/**
+ * 選択肢をまとめた「＋」のボタン（0040 の 2026-10-29 の追記。例: 「＋ 月額の変化」）。押すとすぐ右に選択肢（「この年だけ」「この月から先」）と「やめる」を並べ、
+ * 選ぶとその物を足して（足した物は見える所へ動かして光らせ、最初の欄に移る）選択肢を閉じる。「?」は1つ（選択肢の違いを書く）
+ */
+function ChoiceAction({ head, items, wh, onEdit }: { head: NonNullable<ActionDef["choice"]>; items: readonly ActionDef[]; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
+  const [open, setOpen] = useState(false);
+  const help = head.help !== undefined && head.help !== "" ? <Help label={actionName(head.label)} target={head.label}>{head.help}</Help> : null;
+  return (
+    <span class="add-choice" data-choice={head.key}>
+      <HelpOf help={help}>
+        <button type="button" class="add-btn" aria-expanded={open} onClick={() => setOpen(!open)} data-action={head.key}>
+          {head.label}
+        </button>
+      </HelpOf>
+      {open ? (
+        <span
+          class="add-choice-opts"
+          role="group"
+          aria-label={`${actionName(head.label)}: どちらを足すか`}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setOpen(false);
+          }}
+        >
+          {items.map((a) => (
+            <button
+              type="button"
+              key={a.key}
+              class="add-btn add-choice-opt"
+              onClick={(e) => {
+                revealAdded(e.currentTarget);
+                setOpen(false);
+                onEdit(a.run(wh));
+              }}
+              data-action={a.key}
+            >
+              {a.label}
+            </button>
+          ))}
+          <button type="button" class="link-btn" onClick={() => setOpen(false)} data-choice-cancel>
+            やめる
+          </button>
+        </span>
+      ) : null}
+    </span>
   );
 }
 

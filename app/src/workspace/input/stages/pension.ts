@@ -305,6 +305,7 @@ function claimFields(m: Member, find: Finder, prefix: string, prop: "claim" | "p
     label: "受け取り開始（基礎・厚生とも）",
     level: "simple",
     simpleOnly: true,
+    swapNote: "受け取り開始を、基礎と厚生に分けて出しています",
     kind: "int",
     suffix: "歳から",
     min: 60,
@@ -779,8 +780,8 @@ function receivingGroups(wh: WorkingHousehold, f: IncomeFlow): GroupDef[] {
     title: `入｜${name}（${memberLabel(wh, f.recipient ?? self?.id ?? "")}） ${amount > 0 ? `年${(Math.round(amount / 1000) / 10).toLocaleString("ja-JP")}万円` : "年額を入れてください"}`,
     note:
       isSurvivorType(f.pensionType) || f.pensionType === undefined
-        ? "額だけで計算します（非課税）。65歳からの自分の老齢厚生年金との調整（老齢厚生年金を先に受け、遺族厚生年金は差額）と、再婚などで受けられなくなることは計算に入っていません。65歳から額が変わるときは、詳細の段階で入れてください"
-        : "額だけで計算します（非課税）。65歳からの老齢年金との組み合わせ（手取りの多い方を選ぶ）は計算に入っていません。65歳から額が変わるときは、詳細の段階で入れてください",
+        ? "額だけで計算します（非課税）。65歳からの自分の老齢厚生年金との調整（老齢厚生年金を先に受け、遺族厚生年金は差額）と、再婚などで受けられなくなることは計算に入っていません。65歳から額が変わるときは、詳細の「＋ 年額の変化」で入れてください"
+        : "額だけで計算します（非課税）。65歳からの老齢年金との組み合わせ（手取りの多い方を選ぶ）は計算に入っていません。65歳から額が変わるときは、詳細の「＋ 年額の変化」で入れてください",
     level: "simple",
     fields,
     actions,

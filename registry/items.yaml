@@ -673,6 +673,14 @@ entries:
     replacedBy: null
     collection: contingencyPremise
     path: [oldAgeChoice]
+  - id: contingencyPremise.partnerWork
+    status: active
+    label: "就業不能・収入が減るの場面の配偶者の働き方（場面の種類〔disability・income〕 → 働き方を変える構成員の ID → 働き方・年収・変える時期・何歳まで。0085）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: contingencyPremise
+    path: [partnerWork]
   - id: contingencyPremise.protection
     status: active
     label: "必要保障額の出し方（積み上げ・逆算）と、逆算で資産が尽きないようにする遺族の年齢"

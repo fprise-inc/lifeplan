@@ -538,8 +538,8 @@ export function returnStagesSection(wh: WorkingHousehold): SectionDef {
   }
   return {
     key: "sav/returns",
-    title: "利回りの段階・例外の年",
-    note: "利回り（資産の配分）を年齢・時期で変えるとき、特定の年だけ変えるときに使います。段の時点の属する年から変わり、運用の費用はこの後に引きます",
+    title: "利回りの変化",
+    note: "利回り（資産の配分）を、年齢・時期から先ずっと変えるとき（この年から先）や、特定の年だけ変えるとき（この年だけ）に使います。年の初めから変わり、運用の費用はこの後に引きます",
     level: "detail",
     groups,
     actions: [],

@@ -18,11 +18,11 @@ import { depletionYear, displayYears } from "../present.ts";
 import { roles } from "../roles.ts";
 import { CURRENT } from "../plans/band.ts";
 import { YearSweep, type ContingencyEngine } from "./engine.ts";
-import { contingencyInputSections, oldAgeChoiceField } from "./inputs.ts";
-import type { Level } from "../input/form.ts";
+import { premiseItems, SCENE_NOTES } from "./inputs.ts";
+import { pickScene, premiseStartKinds, protectionOf, protectionText, sameProtection, withProtection, type PremiseChoice, type ProtectionSetting, type SceneChoice } from "./premiseChoice.ts";
 import { overrideCount, premiseFor, writePremise } from "./planPremise.ts";
 import { PremisePanel } from "./PremisePanel.tsx";
-import { protectionChart, scenarioCards, scenarioModel, yearOptions, yearStripModel } from "./present.ts";
+import { protectionChart, scenarioCards, scenarioModel, scenarioTitle, yearOptions, yearStripModel } from "./present.ts";
 import { contractLabels, illnessBenefitNote, illnessBenefits, lapseInsights } from "./insuranceLines.ts";
 import { adults, chartRequests, defaultYear, keptSlots, planSlot, scenarioRequest, scenarios } from "./requests.ts";
 
@@ -39,8 +39,8 @@ export interface ContingencyUi {
   mode: ContingencyMode;
   /** 見るプラン（プランの内部 ID。省略は現状のプランA） */
   plan?: string;
-  /** 前提の欄の形式（簡易・詳細。省略は簡易。0071） */
-  level?: Level;
+  /** 想定の前提に「＋ 動かす項目を追加」で足した項目の種類（足した順。0085。世帯ごとの作業の状態で、世帯ファイルには書かない） */
+  premiseAdded?: string[];
   /** プランを見ているときに前提を直す先（省略は全プラン共通。0071） */
   premiseTo?: "common" | "plan";
 }
@@ -72,6 +72,10 @@ export interface ContingencyTabProps {
   requestOf?: (id: string) => EngineRequest;
   /** 開いたときに見るプラン（URL の #cgplan=B。帯の文字） */
   initialPlan?: string;
+  /** 事務所の既定値（0085）: 想定の前提に最初から出す項目・場面の帯の並べ方・必要保障額の数え方。省略は既定 */
+  office?: { premises: PremiseChoice; scenes: SceneChoice; protection: ProtectionSetting };
+  /** 開いた直後に想定の前提の「＋ 動かす項目を追加」の一覧を開く（画面の確かめ用） */
+  initialPremiseMenu?: boolean;
 }
 
 /** 1年ずつ見せている状態: from は見せ始める前に選んでいた年（止めると戻る） */
@@ -81,7 +85,7 @@ interface Play {
   year: number;
 }
 
-export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui, onUi, initialScenario, plans, requestOf, initialPlan }: ContingencyTabProps) {
+export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui, onUi, initialScenario, plans, requestOf, initialPlan, office, initialPremiseMenu }: ContingencyTabProps) {
   // 前提のスライダーを動かしている間は、画面の側の世帯（draft）で描いて計算する。指を離したら世帯に書く
   const [draft, setDraft] = useState<WorkingHousehold | null>(null);
   // ---- 見るプラン（既定は現状）。前提はそのプランの前提（共通の前提に、そのプランの上書きを当てたもの）、計算の要求はそのプランのもの ----
@@ -117,9 +121,9 @@ export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui
   const [tick, setTick] = useState(0);
   useEffect(() => engine?.subscribe(() => setTick((t) => t + 1)), [engine]);
 
-  const scs = useMemo(() => scenarios(wh), [wh]);
-  const want = ui.selected ?? initialScenario;
-  const sc = scs.find((s) => s.key === want) ?? scs[0];
+  // 場面の帯に並べる場面と選んでいる場面（事務所の既定値。その世帯で最後に見た場面・URL の場面があればそちら。0085）
+  const allScs = useMemo(() => scenarios(wh), [wh]);
+  const { list: scs, selected: sc } = useMemo(() => pickScene(allScs, office?.scenes, ui.selected ?? initialScenario), [allScs, office?.scenes, ui.selected, initialScenario]);
   const [play, setPlay] = useState<Play | null>(null);
   const savedYear = wh.contingency.year ?? defaultYear(wh.request);
   const year = play?.year ?? savedYear;
@@ -299,19 +303,21 @@ export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui
           },
         }
       : undefined;
-  const sections = useMemo(() => contingencyInputSections(edited), [edited]);
-  const used = useMemo(() => {
-    if (sc === undefined) return new Set<string>();
-    const stack = edited.contingency.stackMarket === true ? ["cg/market"] : [];
-    if (sc.kind === "market") return new Set(["cg/market"]);
-    if (sc.kind === "illness") return new Set(["cg/illness", ...stack]);
-    if (sc.kind === "income") return new Set(["cg/income", ...stack]);
-    return new Set(sc.kind === "death" ? ["cg/living", "cg/lump", "cg/horizon", "cg/work", "cg/creditLife", ...stack] : ["cg/disability", "cg/creditLife", ...stack]);
-  }, [sc, edited.contingency.stackMarket]);
-  const extra =
-    sc?.kind === "disability" && (wh.contingency.grade ?? 2) !== 0
-      ? { section: "cg/disability", field: oldAgeChoiceField(sc.member), note: "自動で手取りが多い組み合わせを選びます。選び直すとその組み合わせで計算します" }
-      : null;
+  // ---- 想定の前提（選んでいる場面の項目だけ。最初から出す項目は事務所の既定値。0085）----
+  const items = useMemo(() => premiseItems(edited, sc), [edited, sc]);
+  const start = useMemo(() => premiseStartKinds(office?.premises), [office?.premises]);
+  const added = ui.premiseAdded ?? [];
+  // 必要保障額の数え方が事務所の既定値と違う世帯（前の世帯・世帯で直した値）: 小さな1行で知らせ、事務所の値にできる（勝手に書き換えない）
+  const officeProt = office?.protection ?? {};
+  const ownProt = protectionOf(stored.contingency);
+  const protFoot = sameProtection(ownProt, officeProt) ? null : (
+    <p class="in-note cg-prot-diff" data-cg-protection-diff>
+      必要保障額の数え方: この世帯は「{protectionText(ownProt)}」です（事務所の既定値は「{protectionText(officeProt)}」）。
+      <button type="button" class="link-btn" onClick={() => onEdit({ ...stored, contingency: withProtection(stored.contingency, officeProt) })} data-cg-protection-office>
+        事務所の値にする
+      </button>
+    </p>
+  );
 
   const chartProps = { model, mode, pinnedYear: chartYear, onPinYear: setChartYear, onPick: pick };
   const last = engine?.openings.at(-1);
@@ -331,13 +337,17 @@ export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui
       {/* ④ 想定の前提 */}
       <PremisePanel
         wh={edited}
-        sections={sections}
-        used={used}
-        extra={extra}
+        scene={sc !== undefined ? scenarioTitle(sc) : null}
+        sceneNote={sc !== undefined ? SCENE_NOTES[sc.kind] : null}
+        items={items}
+        start={start}
+        added={added}
+        onAdd={(k) => onUi({ ...ui, premiseAdded: [...added.filter((x) => x !== k), k] })}
+        onRemove={(k) => onUi({ ...ui, premiseAdded: added.filter((x) => x !== k) })}
         onDraft={setDraft}
         onCommit={commit}
-        level={ui.level ?? "simple"}
-        onLevel={(l) => onUi({ ...ui, level: l })}
+        foot={protFoot}
+        {...(initialPremiseMenu === true ? { initialMenu: true } : {})}
         plan={
           planId === CURRENT
             ? null

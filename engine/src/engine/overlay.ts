@@ -8,6 +8,7 @@
 //   働けるようになる月（recovery）があれば、その月から元の働き方の期間に戻る（休職。その期間に結び付いた退職給付は、戻った期間の終わりに
 //   もとの勤続期間で支給する。0026）
 // - 遺族・家族の働き方の変化（survivor.spouseWork）: その期間の始まりから、その人のそれまでの働き方の期間を置き換える
+// 働き方の置き換え（workChanges。0085）: 万一の想定の有無によらず、survivor.spouseWork と同じ当て方で置き換える（万一の重ねの後）
 // ストレステスト（0005・0006 の追記 2026-10-09）: 型（template）と値から、前提の年ごとの列（物価・賃金）・資産の時価の下落（marketShocks）・
 // 変動金利の上乗せ（loanRateShifts）・収入の減少（incomeShocks）に書き換える
 import { EngineError } from "../errors.ts";
@@ -165,17 +166,40 @@ export function applyContingency(input: EngineInput, time: TimeResolver): { inpu
   // 家族の働き方の変化（その期間の始まりから置き換える）
   for (const q of c.survivor?.spouseWork ?? []) {
     if (!members.some((m) => m.id === q.member)) throw new EngineError("E_ARGUMENT", ["contingency.survivor.spouseWork.member"]);
-    const qf = time.resolve(q.from);
-    periods = periods.flatMap((p) => {
-      if (p.member !== q.member) return [p];
-      if (time.resolve(p.from) >= qf) return [];
-      return end(p.to) < qf ? [p] : [{ ...p, to: at(addMonths(qf, -1)) }];
-    });
-    periods.push(q);
+    periods = replaceFrom(periods, q, time);
   }
 
   const household = { ...h, members, relations, employmentPeriods: periods, accounts, ...(benefits !== undefined ? { retirementBenefits: benefits } : {}) };
   return { input: { ...input, household }, header };
+}
+
+/** 働き方の期間 q の始まりから、その人のそれまでの働き方の期間を置き換える（始まりより後の期間は外し、またぐ期間は前の月で終える） */
+function replaceFrom(periods: readonly EmploymentPeriodInput[], q: EmploymentPeriodInput, time: TimeResolver): EmploymentPeriodInput[] {
+  const qf = time.resolve(q.from);
+  const out = periods.flatMap((p) => {
+    if (p.member !== q.member) return [p];
+    if (time.resolve(p.from) >= qf) return [];
+    return p.to !== null && time.resolve(p.to) < qf ? [p] : [{ ...p, to: at(addMonths(qf, -1)) }];
+  });
+  out.push(q);
+  return out;
+}
+
+/**
+ * 働き方の置き換え（入力の workChanges。0085）: 期間ごとに、その始まりから、その人のそれまでの働き方の期間を置き換える
+ * （万一の想定の survivor.spouseWork と同じ当て方）。万一の想定の有無によらず当てる（就業不能・収入が減るの場面で、配偶者の働き方を変えて見る）。
+ * 万一の重ねの後に当てる（万一の想定が区切る人の期間には使わない）
+ */
+export function applyWorkChanges(input: EngineInput, time: TimeResolver): EngineInput {
+  const qs = input.workChanges ?? [];
+  if (qs.length === 0) return input;
+  const h = input.household;
+  let periods: EmploymentPeriodInput[] = [...h.employmentPeriods];
+  for (const q of qs) {
+    if (!h.members.some((m) => m.id === q.member)) throw new EngineError("E_ARGUMENT", ["workChanges.member"]);
+    periods = replaceFrom(periods, q, time);
+  }
+  return { ...input, household: { ...h, employmentPeriods: periods } };
 }
 
 /** ストレステストの見出し（展開した型と値） */

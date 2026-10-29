@@ -263,6 +263,11 @@
       "x-owner": ["member"],
       "items": { "$ref": "#/$defs/contingency" }
     },
+    "workChanges": {
+      "description": "0085: 働き方の置き換え（試しに見る層）。期間ごとに、その始まりから、その人のそれまでの働き方の期間を置き換える（万一の想定の survivor.spouseWork と同じ当て方）。万一の想定の有無によらず、万一の重ねの後に当てる（就業不能・収入が減るの場面で、配偶者の働き方を変えて見る）",
+      "type": "array",
+      "items": { "$ref": "#/$defs/employmentPeriod" }
+    },
     "stressTest": {
       "description": "0006 の6・0005 の追記（2026-10-09）: 型の決まったストレステスト。エンジンが前提の系列（年ごとの列）と資産の時価の下落などに書き換えてから計算する。4つの想定とは別の枠で、FP が選んだときだけ計算する",
       "type": "object",

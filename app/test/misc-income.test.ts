@@ -1,4 +1,4 @@
-// 雑所得の区分（0085）の画面: 表の行「雑所得」・副業の所得の区分（雑所得〔業務〕か事業所得か）を簡易で選ぶ・課税の扱いの効き方の文
+// 雑所得の区分（0086）の画面: 表の行「雑所得」・副業の所得の区分（雑所得〔業務〕か事業所得か）を簡易で選ぶ・課税の扱いの効き方の文
 import { describe, expect, it } from "vitest";
 import type { IncomeFlow } from "../src/engine/types.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";

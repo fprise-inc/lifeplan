@@ -268,6 +268,11 @@ function payUntilField(find: Finder, k: string, id: string, level: "simple" | "d
   );
 }
 
+/** 保険料の欄の名前（払い方に合わせる。1回だけ払う一時払いは名前だけ） */
+export function premiumLabel(what: string, frequency: InsuranceContract["premium"]["frequency"]): string {
+  return frequency === "monthly" ? `${what}（月額）` : frequency === "annual" ? `${what}（年額）` : what;
+}
+
 function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): GroupDef[] {
   const find = byId(contracts, c.id);
   const k = `ins/${c.id}`;
@@ -339,13 +344,14 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
       () => at(c.id, "insurance.insured"),
     ),
   );
-  // 保険料（1回の額）と払い方
+  // 保険料と払い方。保険料の欄の名前は払い方に合わせる（月払いは「保険料（月額）」、年払いは「保険料（年額）」、一時払いは「保険料」。
+  // お金の行の額の呼び方と同じ考え。0055 の 2026-10-29 の追記）
   fields.push(
     withAddress(
       plain({
         key: `${k}/premium`,
         item: "insurance.premium",
-        label: "保険料（1回の額）",
+        label: premiumLabel("保険料", c.premium.frequency),
         level: "simple",
         kind: "yen",
         basis: "once",
@@ -566,7 +572,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
       level: "detail",
       fields: [
         timepointField({ key: `${kr}/at`, item: "insurance.renewals", label: "更新の月", level: "detail", find: findR, path: ["at"], ageOf: insuredOf }),
-        plain({ key: `${kr}/premium`, item: "insurance.renewals", label: "更新後の保険料（1回の額）", level: "detail", kind: "yen", basis: "once", find: findR, path: ["premium"] }),
+        plain({ key: `${kr}/premium`, item: "insurance.renewals", label: premiumLabel("更新後の保険料", c.premium.frequency), level: "detail", kind: "yen", basis: "once", find: findR, path: ["premium"] }),
       ],
       actions: [
         removeAction(`${kr}/remove`, "外す", "detail", (h) => {

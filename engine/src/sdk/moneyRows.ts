@@ -40,7 +40,7 @@ export function incomeTreatment(f: Pick<IncomeFlowInput, "kind" | "taxTreatment"
   return f.taxTreatment ?? INCOME_KIND_DEFAULTS[f.kind].tax;
 }
 
-/** 入るお金の行の所得の区分（税の計算。0085）。null は所得に入れない */
+/** 入るお金の行の所得の区分（税の計算。0086）。null は所得に入れない */
 export function incomeCategory(f: Pick<IncomeFlowInput, "kind" | "taxTreatment">): IncomeCategory | null {
   return INCOME_CATEGORY_OF[incomeTreatment(f)];
 }

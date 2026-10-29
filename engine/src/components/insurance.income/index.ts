@@ -2,7 +2,7 @@
 // （収入−必要経費）の合計から特別控除（50万円まで）を引いた額で、総所得金額にはその2分の1を入れる。雑所得（個人年金・収入保障の月額）は
 // 収入−必要経費（公的年金等以外の雑所得）。受け取りと税の区分・必要経費は insurance.policy が出す
 // 約束の版 1.1（0044）: 一時所得の総収入−支出（特別控除の前）を temporaryGross で添える（入るお金の行の一時所得と合わせて特別控除を引くため）
-// 約束の版 1.2（0085）: 雑所得が赤字の年（必要経費が年金額を超える。元本割れの個人年金など）は、その赤字を miscellaneousNet で添える
+// 約束の版 1.2（0086）: 雑所得が赤字の年（必要経費が年金額を超える。元本割れの個人年金など）は、その赤字を miscellaneousNet で添える
 // （miscellaneous は0円より下げない。tax.totalIncome がほかの公的年金等以外の雑所得と差し引く）
 import { defineComponent, monthIndex, yen, type InsuranceIncomeOutput, type InsuranceReceipt, type Yen } from "../../sdk/index.ts";
 
