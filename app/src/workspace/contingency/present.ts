@@ -366,7 +366,7 @@ export function scenarioCardTitle(req: EngineRequest, sc: Scenario, plan: CardPl
 }
 
 /**
- * 場面の帯のカード（提示用の値）: 死亡の場面は必要保障額の推移から「保障の不足 最大○万円」か「保障は足りています」、障害の場面は仮定の等級、
+ * 場面の帯の札（提示用の値）: 死亡の場面は必要保障額の推移から「保障の不足 最大○万円」か「保障は足りています」、障害の場面は仮定の等級、
  * 大きな病気は病気の種類と働けない期間、収入が減るは誰の収入か、相場の下落は下げる資産と戻り方。配偶者の働き方を置き換えていれば「配偶者はパート」（呼び方は roles から）、
  * 相場の下落を重ねていれば「相場も下落」を足す（0085）。
  * 資産が最後まで足りるかは、カードには出さない（カードによって出る・出ないがばらつくため。年ごとの結果の帯とグラフの見出しで分かる）
@@ -377,7 +377,7 @@ export function scenarioCards(input: {
   selected: string;
   protection: ContingencyModel["protection"];
   grade: 0 | 1 | 2 | 3 | undefined;
-  /** 前提（カードの見出しと札に出す） */
+  /** 前提（札の見出しと下の行に出す） */
   plan?: CardPlan;
 }): ScenarioCardModel[] {
   const keyOf = new Map(roles(input.req).map((r) => [r.member.id, r.key]));
