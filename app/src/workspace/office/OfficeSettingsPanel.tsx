@@ -1,5 +1,6 @@
 // 事務所の既定値の画面（0073。世帯の一覧の「事務所の既定値」から開く中央のパネル）:
-// 入力項目の並び・新しい世帯で出す入力項目と開いたときの入れ方・対策に最初から出す項目（0084）・本人と配偶者の介護を最初から入れるか・受け取る予定の相続・贈与の見込みの既定・前提条件の標準値・
+// 入力項目の並び・新しい世帯で出す入力項目と開いたときの入れ方・対策に最初から出す項目（0084）・万一のときのタブの既定（0085。場面の帯・
+// 開いたときの場面・想定の前提に最初から出す項目・必要保障額の数え方）・ご本人と配偶者の介護を最初から入れるか・受け取る予定の相続・贈与の見込みの既定・前提条件の標準値・
 // 相続税の目安の不動産の評価の割合・FP顧問料の料金表。新しく作る世帯（料金表は新しく足す契約）に写す（作った世帯は変わらない。違うときは確かめの一覧に知らせが出る）
 import { useEffect, useRef, useState } from "preact/hooks";
 import { STAGE_ORDER } from "../input/stages/index.ts";
@@ -8,6 +9,9 @@ import type { Level, StageId } from "../input/form.ts";
 import { ALWAYS_SHOWN, isHiddenIn, levelIn, withLevel, withShown } from "../input/itemChoice.ts";
 import { today } from "../report/assemble.ts";
 import { LEVER_KINDS, startsWith, withStart, type LeverKind } from "../plans/leverChoice.ts";
+import { HORIZON_KINDS, PROTECTION_METHODS } from "../contingency/inputs.ts";
+import { normalProtection, OPEN_SCENES, PREMISE_KINDS, premiseStarts, SCENE_KINDS, sceneShown, withPremiseStart, type OpenScene, type PremiseKind, type ProtectionSetting } from "../contingency/premiseChoice.ts";
+import type { ScenarioKind } from "../contingency/requests.ts";
 import { ASSUMPTION_LABELS, DEFAULT_OFFICE_SETTINGS, FEE_MAX, FEE_STEP_YEAR_MAX, layoutOf, OFFICE_ASSUMPTIONS, type FeeTable, type OfficeAssumption, type OfficeSettings } from "./settings.ts";
 import { revealAdded } from "../../presentation/revealAdded.ts";
 
@@ -70,7 +74,12 @@ const STANDARD_PCT: Readonly<Record<OfficeAssumption, string>> = { inflation: "1
 
 export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSettingsPanelProps) {
   const [s, setS] = useState<OfficeSettings>(value);
-  const [texts, setTexts] = useState<Record<string, string>>(() => ({ ...Object.fromEntries(OFFICE_ASSUMPTIONS.map((k) => [k, rateToPct(value.assumptions[k])])), realEstateRatio: rateToPct(value.realEstateRatio) }));
+  const [texts, setTexts] = useState<Record<string, string>>(() => ({
+    ...Object.fromEntries(OFFICE_ASSUMPTIONS.map((k) => [k, rateToPct(value.assumptions[k])])),
+    realEstateRatio: rateToPct(value.realEstateRatio),
+    horizonAge: String(value.protection.horizon?.age ?? 90),
+    reverseAge: value.protection.protection?.reverseUntilAge !== undefined ? String(value.protection.protection.reverseUntilAge) : "",
+  }));
   const [fee, setFee] = useState<FeeTexts>(() => feeTexts(value.fee));
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -95,8 +104,42 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
   const setLevel = (id: StageId, l: Level) => setS((x) => ({ ...x, items: withLevel(x.items, id, l) }));
   const setStart = (k: LeverKind, on: boolean) => setS((x) => ({ ...x, levers: withStart(x.levers, k, on) }));
   const leverGroups = [...new Set(LEVER_KINDS.map((k) => k.group))];
+  // 万一のときのタブ（0085）
+  const setPremise = (k: PremiseKind, on: boolean) => setS((x) => ({ ...x, premises: withPremiseStart(x.premises, k, on) }));
+  const setScene = (k: ScenarioKind, on: boolean) =>
+    setS((x) => {
+      const hidden = SCENE_KINDS.map((y) => y.kind as ScenarioKind).filter((y) => (y === k ? !on : !sceneShown(x.scenes, y)));
+      const { hidden: _h, ...rest } = x.scenes;
+      void _h;
+      return { ...x, scenes: { ...rest, ...(hidden.length > 0 ? { hidden } : {}) } };
+    });
+  const setOpen = (o: OpenScene) =>
+    setS((x) => {
+      const { open: _o, ...rest } = x.scenes;
+      void _o;
+      return { ...x, scenes: { ...rest, ...(o !== "death:self" ? { open: o } : {}) } };
+    });
+  const shownScenes = SCENE_KINDS.filter((k) => sceneShown(s.scenes, k.kind));
+  const prot = s.protection;
+  const ageText = (t: string | undefined, empty: boolean): number | null | undefined => {
+    const v = (t ?? "").trim();
+    if (v === "") return empty ? null : undefined;
+    if (!/^\d{2,3}$/.test(v) || Number(v) < 50 || Number(v) > 110) return undefined;
+    return Number(v);
+  };
+  /** 文字の欄（年齢）を当てた数え方（読めない年齢は undefined） */
+  const protectionFrom = (p: ProtectionSetting): ProtectionSetting | undefined => {
+    const ha = p.horizon?.kind === "age" ? ageText(texts.horizonAge, false) : null;
+    const ra = p.protection?.method === "reverse" ? ageText(texts.reverseAge, true) : null;
+    if (ha === undefined || ra === undefined) return undefined;
+    return normalProtection({
+      ...(p.horizon !== undefined ? { horizon: { kind: p.horizon.kind, ...(ha !== null ? { age: ha } : {}) } } : {}),
+      ...(p.protection?.method === "reverse" ? { protection: { method: "reverse", ...(ra !== null ? { reverseUntilAge: ra } : {}) } } : {}),
+    });
+  };
+  const protNext = protectionFrom(prot);
   const feeTable = feeFromTexts(s.fee, fee);
-  const bad = [...OFFICE_ASSUMPTIONS.filter((k) => pctToRate(texts[k] ?? "") === undefined), ...(pctToRate(texts.realEstateRatio ?? "", 0, 100) === undefined ? ["realEstateRatio"] : []), ...(feeTable === null ? ["fee"] : [])];
+  const bad = [...OFFICE_ASSUMPTIONS.filter((k) => pctToRate(texts[k] ?? "") === undefined), ...(pctToRate(texts.realEstateRatio ?? "", 0, 100) === undefined ? ["realEstateRatio"] : []), ...(feeTable === null ? ["fee"] : []), ...(protNext === undefined ? ["protection"] : [])];
   const per = s.fee.per === "month" ? "月" : "年";
   const save = async () => {
     const assumptions: OfficeSettings["assumptions"] = {};
@@ -106,13 +149,13 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
     }
     const ratio = pctToRate(texts.realEstateRatio ?? "", 0, 100);
     const sameLayout = JSON.stringify(layout) === JSON.stringify(DEFAULT_LAYOUT);
-    const next: OfficeSettings = { ...s, layout: sameLayout ? null : layout, assumptions, realEstateRatio: typeof ratio === "string" ? ratio : null, fee: feeTable ?? s.fee, changedOn: today() };
+    const next: OfficeSettings = { ...s, layout: sameLayout ? null : layout, assumptions, realEstateRatio: typeof ratio === "string" ? ratio : null, fee: feeTable ?? s.fee, protection: protNext ?? {}, changedOn: today() };
     setBusy(true);
     setMsg(null);
     try {
       await onSave(next);
       setS(next);
-      setMsg({ ok: true, text: "保存しました。これから作る世帯に写します（作った世帯は変わりません。対策に最初から出す項目は、どの世帯にもすぐ効きます）" });
+      setMsg({ ok: true, text: "保存しました。これから作る世帯に写します（作った世帯は変わりません。対策に最初から出す項目と、万一のときのタブの場面・想定の前提に最初から出す項目は、どの世帯にもすぐ効きます）" });
     } catch (e) {
       setMsg({ ok: false, text: `保存できませんでした（${typeof e === "string" ? e : e instanceof Error ? e.message : "E_OFFICE_SETTINGS"}）` });
     } finally {
@@ -212,6 +255,127 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
             </button>
           </p>
         </section>
+        <section class="os-sec" aria-labelledby="os-cg" data-office-contingency>
+          <h3 id="os-cg">万一のときのタブ</h3>
+          <p class="pl-sub">場面の帯・開いたときの場面・想定の前提に最初から出す項目は、どの世帯にもすぐ効きます（世帯ごとには選びません）。必要保障額の数え方は、これから作る世帯に写します。</p>
+          <div class="os-lever-group" data-office-scenes>
+            <h4>場面の帯に並べる場面</h4>
+            <ul class="os-cards os-items">
+              {SCENE_KINDS.map((k) => {
+                const on = sceneShown(s.scenes, k.kind);
+                const last = on && shownScenes.length === 1;
+                return (
+                  <li key={k.kind} data-office-scene={k.kind}>
+                    <label class="os-show">
+                      <input type="checkbox" checked={on} disabled={last} onChange={(e) => setScene(k.kind, (e.currentTarget as HTMLInputElement).checked)} data-office-scene-show={k.kind} {...(last ? { title: "1つは並べます" } : {})} />
+                      <span class="os-name">{k.label}</span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+            <label class="os-pct">
+              <span>開いたときに選んでおく場面</span>
+              <select value={s.scenes.open ?? "death:self"} onChange={(e) => setOpen((e.currentTarget as HTMLSelectElement).value as OpenScene)} data-office-open-scene>
+                {OPEN_SCENES.map((o) => (
+                  <option key={o.key} value={o.key}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <small>その世帯で最後に見た場面があれば、そちらを出します。世帯に無い場面・並べない場面のときは、並べる場面の最初です</small>
+            </label>
+          </div>
+          <div data-office-premises>
+            <h4>想定の前提に最初から出す項目</h4>
+            <p class="pl-sub">選んでいる場面の項目だけが出ます。ほかの項目は、想定の前提の「＋ 動かす項目を追加」でその場で足せます。外した項目も、値を変えていれば出ます。世帯に当てはまらない項目（配偶者がいない世帯の配偶者の働き方など）は出ません。</p>
+            {SCENE_KINDS.map((g) => (
+              <div class="os-lever-group" key={g.kind}>
+                <h4>{g.label}</h4>
+                <ul class="os-cards os-items">
+                  {PREMISE_KINDS.filter((k) => k.scene === g.kind).map((k) => (
+                    <li key={k.kind} data-office-premise={k.kind}>
+                      <label class="os-show">
+                        <input type="checkbox" checked={premiseStarts(s.premises, k.kind)} onChange={(e) => setPremise(k.kind, (e.currentTarget as HTMLInputElement).checked)} data-office-premise-show={k.kind} />
+                        <span class="os-name">{k.label}</span>
+                      </label>
+                      {"note" in k ? <small class="os-note">{k.note}</small> : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <p class="pl-sub">
+            <button type="button" class="link-btn" onClick={() => setS({ ...s, premises: {}, scenes: {} })} data-office-contingency-reset>
+              場面と項目を標準に戻す
+            </button>
+          </p>
+          <div class="os-lever-group" data-office-protection>
+            <h4>必要保障額の数え方</h4>
+            <div class="os-grid">
+              <label class="os-pct">
+                <span>いつまでの資金を数えるか</span>
+                <select
+                  value={prot.horizon?.kind ?? "lifeExpectancy"}
+                  onChange={(e) => {
+                    const kind = (e.currentTarget as HTMLSelectElement).value as NonNullable<ProtectionSetting["horizon"]>["kind"];
+                    const { horizon: _h, ...rest } = prot;
+                    void _h;
+                    setS({ ...s, protection: kind === "lifeExpectancy" ? rest : { ...rest, horizon: { kind } } });
+                  }}
+                  data-office-horizon
+                >
+                  {HORIZON_KINDS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <small>標準は配偶者の平均余命まで（配偶者がいなければ末子の独立まで）</small>
+              </label>
+              {prot.horizon?.kind === "age" ? (
+                <label class="os-pct">
+                  <span>配偶者の年齢</span>
+                  <span class="os-in">
+                    <input inputMode="numeric" size={4} value={texts.horizonAge ?? ""} aria-invalid={ageText(texts.horizonAge, false) === undefined} onInput={(e) => setTexts({ ...texts, horizonAge: (e.currentTarget as HTMLInputElement).value })} data-office-horizon-age />歳
+                  </span>
+                  <small>50〜110歳</small>
+                </label>
+              ) : null}
+              <label class="os-pct">
+                <span>出し方</span>
+                <select
+                  value={prot.protection?.method ?? "accumulation"}
+                  onChange={(e) => {
+                    const m = (e.currentTarget as HTMLSelectElement).value;
+                    const { protection: _p, ...rest } = prot;
+                    void _p;
+                    setS({ ...s, protection: m === "reverse" ? { ...rest, protection: { method: "reverse" } } : rest });
+                  }}
+                  data-office-method
+                >
+                  {PROTECTION_METHODS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <small>積み上げ方式は、遺族の支出から収入と一時の資金を引いた不足の累計。逆算方式は、遺族の資産が決めた年齢まで尽きないのに要る額</small>
+              </label>
+              {prot.protection?.method === "reverse" ? (
+                <label class="os-pct">
+                  <span>遺族が何歳になるまで資産が尽きないようにするか</span>
+                  <span class="os-in">
+                    <input inputMode="numeric" size={4} value={texts.reverseAge ?? ""} placeholder="平均余命" aria-invalid={ageText(texts.reverseAge, true) === undefined} onInput={(e) => setTexts({ ...texts, reverseAge: (e.currentTarget as HTMLInputElement).value })} data-office-reverse-age />歳
+                  </span>
+                  <small>空欄なら遺族の平均余命まで（遺族が子なら末子の独立まで）</small>
+                </label>
+              ) : null}
+            </div>
+            <p class="pl-sub">これから作る世帯の前提に写します。作った世帯はその世帯の値のまま計算し、事務所の値と違えば万一のときのタブの想定の前提の下に出ます（そこで事務所の値にできます）。</p>
+          </div>
+        </section>
         <section class="os-sec" aria-labelledby="os-care">
           <h3 id="os-care">ご本人・配偶者の介護の費用</h3>
           <label class="os-radio">
@@ -305,7 +469,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
             万一のあとも続ける
           </label>
         </section>
-        {bad.length > 0 ? <p class="fatal">数で入れてください（前提は -5〜20%、評価の割合は 0〜100%、料金表の額は円、段階は2〜{FEE_STEP_YEAR_MAX}年目で重ならないように）。</p> : null}
+        {bad.length > 0 ? <p class="fatal">数で入れてください（前提は -5〜20%、評価の割合は 0〜100%、料金表の額は円、段階は2〜{FEE_STEP_YEAR_MAX}年目で重ならないように、必要保障額の年齢は 50〜110歳）。</p> : null}
         {msg !== null ? (
           <p class={msg.ok ? "rp-note" : "fatal"} role="status" data-office-settings-msg>
             {msg.text}
@@ -318,7 +482,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
             onClick={() => {
               setS(DEFAULT_OFFICE_SETTINGS);
               setFee(feeTexts(DEFAULT_OFFICE_SETTINGS.fee));
-              setTexts({ ...Object.fromEntries(OFFICE_ASSUMPTIONS.map((k) => [k, ""])), realEstateRatio: "" });
+              setTexts({ ...Object.fromEntries(OFFICE_ASSUMPTIONS.map((k) => [k, ""])), realEstateRatio: "", horizonAge: "90", reverseAge: "" });
             }}
           >
             全部を標準に戻す
