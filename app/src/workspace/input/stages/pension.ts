@@ -305,6 +305,7 @@ function claimFields(m: Member, find: Finder, prefix: string, prop: "claim" | "p
     label: "受け取り開始（基礎・厚生とも）",
     level: "simple",
     simpleOnly: true,
+    swapNote: "受け取り開始を、基礎と厚生に分けて出しています",
     kind: "int",
     suffix: "歳から",
     min: 60,

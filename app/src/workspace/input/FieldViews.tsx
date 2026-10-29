@@ -375,11 +375,17 @@ interface GroupMore {
   toggle: () => void;
 }
 
+/** 「▸ 詳しく」を開いて入れ替えた欄の知らせ（標準だけの欄 simpleOnly の swapNote。開いていなければ無し） */
+export function swapNotesOf(group: GroupDef, open: boolean): string[] {
+  if (!open) return [];
+  return [...new Set(group.fields.filter((f) => f.simpleOnly === true && f.swapNote !== undefined).map((f) => f.swapNote as string))];
+}
+
 /**
  * 「▸ 詳しく」の小さな文字のリンク。押した所は動かさず、開いた中身はこの下に出す（見えなければ見える所までスクロール）。
  * 押したときに欄からフォーカスを外さない（外すと、欄の値が入れ直されて「保存していない変更」になるため）
  */
-export function MoreToggle({ groupKey, open, toggle, label }: { groupKey: string; open: boolean; toggle: () => void; label?: string }) {
+export function MoreToggle({ groupKey, open, toggle, label, swapNotes = [] }: { groupKey: string; open: boolean; toggle: () => void; label?: string; swapNotes?: readonly string[] }) {
   return (
     <div class="grp-more">
       <button
@@ -396,6 +402,12 @@ export function MoreToggle({ groupKey, open, toggle, label }: { groupKey: string
       >
         {open ? "▾ 詳しく（閉じる）" : "▸ 詳しく"}
       </button>
+      {/* 欄を入れ替えた所は、何が変わったかを短い1行で（閉じると元に戻ることも） */}
+      {open && swapNotes.length > 0 ? (
+        <p class="grp-more-swap" data-more-of={groupKey} data-more-swap>
+          {swapNotes.join("。")}（閉じると元に戻ります）
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -450,7 +462,7 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [] }: { 
         mainNodes
       )}
       {actions.some((a) => a.danger !== true) ? <Actions actions={actions.filter((a) => a.danger !== true)} wh={wh} onEdit={onEdit} /> : null}
-      {more !== undefined ? <MoreToggle groupKey={group.key} open={more.open} toggle={more.toggle} label={group.title ?? "この欄"} /> : null}
+      {more !== undefined ? <MoreToggle groupKey={group.key} open={more.open} toggle={more.toggle} label={group.title ?? "この欄"} swapNotes={swapNotesOf(group, more.open)} /> : null}
       {more?.open === true && (extraFields.length > 0 || extraActions.length > 0) ? (
         <div class="grp-more-body" data-more-of={group.key}>
           {extraFields.length > 0 ? (

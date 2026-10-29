@@ -146,7 +146,9 @@ export function revealChanged(trigger: Element, selector: string): void {
 
 /**
  * まとまりの「▸ 詳しく」を開くときに、開く処理の前に呼ぶ（0078 の追記）。描き直しの後に、開いた中身（data-more-of がそのまとまりのキーの要素）が
- * 見えなければ、押したリンクから中身の終わりまでが見える所へスクロールする（見えているときは動かさない。光らせない・フォーカスも動かさない）
+ * 見えなければ、押したリンクから中身の終わりまでが見える所へスクロールする（見えているときは動かさない。フォーカスは動かさない）。
+ * 開いた中身は「＋」で足した物と同じく少しの間だけ光らせ、何が新しく出たかを分かるようにする（0078 の 2026-10-29 の追記）。
+ * 動きを減らす設定では光らせない（「＋」と違い、値は何も変わっていないので、光らせたままにもしない）
  */
 export function revealOpened(trigger: Element, key: string): void {
   if (typeof document === "undefined" || typeof requestAnimationFrame !== "function") return;
@@ -158,6 +160,12 @@ export function revealOpened(trigger: Element, key: string): void {
       const last = els.at(-1);
       if (last === undefined) return;
       bringIntoView(trigger, last);
+      if (!reducedMotion()) glow(openedParts(els));
     }),
   );
+}
+
+/** 開いた中身のうち光らせる物（ほかの開いた中身の中に入っている物は、外側だけ。二重に光らせない） */
+export function openedParts<T extends { contains: (o: T) => boolean }>(els: readonly T[]): T[] {
+  return els.filter((e) => !els.some((o) => o !== e && o.contains(e)));
 }
