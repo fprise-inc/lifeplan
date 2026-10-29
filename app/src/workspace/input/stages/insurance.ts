@@ -3,7 +3,7 @@
 //   終わりは、定期の保険は保障の終わり、終身の保険は払込の終わり、満期・年金のある保険は両方（0078 の endLevels）
 // - 詳細: 名前・契約者・契約年月・受取人・受け取るお金の税（読むだけ）・満期金などの受取人・保険料控除の区分と新旧・払込の終わり・更新・
 //   払込免除・解約の月と解約返戻金・保障の明細（被保険者・給付の種類・額・期間・推移の形・最低保証の月数・免責の月数・年数・限度日数）
-// - 保険料と保障の額は目安を作らない（新しい契約でも未入力の警告。必要保障額に合わせるボタンは保障の見え方の区画）
+// - 保険料と保障の額は目安を作らない（新しい契約でも未入力の警告。必要保障額との過不足は万一のタブで見る）
 // - 推定の値は物の値の状態の欄に行で持つ。推定のまま（出どころ auto）の値だけ、種類・被保険者・契約年月を直したときに入れ直す
 // - 外貨建て・変額は円の目安の形だけ（計算エンジンの insurance.simple.estimate）
 import type { Coverage, Household, InsuranceContract, Member } from "../../../engine/types.ts";
@@ -36,12 +36,11 @@ import {
 } from "../insuranceKinds.ts";
 import { BENEFITS, DEDUCTION_TYPES, memberLabel, memberOptions, PREMIUM_FREQUENCY } from "../labels.ts";
 import { monthsBetween } from "../loanMath.ts";
-import { formatYearMonth, formatYen } from "../units.ts";
+import { formatYearMonth } from "../units.ts";
 
 type Obj = Record<string, unknown>;
 const contracts = (h: Household) => h.insuranceContracts;
 const withAddress = (f: FieldDef, a: (wh: WorkingHousehold) => Address | null): FieldDef => ({ ...f, address: a });
-const man = (v: number) => `${formatYen(Math.round(v / 10000) * 10000, "man")}万円`;
 const inHousehold = (m: Member) => m.outside === undefined;
 
 /** 計算に使う給付（受け取りを計算する種類） */
@@ -934,19 +933,4 @@ export function insuranceStage(wh: WorkingHousehold): StageDef {
     lead: "加入中の保険契約。種類・被保険者・保険料・主な保障の額・終わりの5つで計算します。証券どおりの明細は「詳細」で入れます。",
     sections: [section],
   };
-}
-
-/** 主な保障の額を必要保障額に合わせる（保障の見え方の区画のボタン。推定の行に根拠を書く。1万円単位） */
-export function fitToNeed(wh: WorkingHousehold, contractId: string, amount: number, year: number): WorkingHousehold {
-  return mutate(wh, (h) => {
-    const x = (h.insuranceContracts ?? []).find((y) => y.id === contractId);
-    if (x === undefined) return;
-    const kd = kindOf(x);
-    const m = mainCoverage(x, kd);
-    if (m === undefined || m.benefit !== "death") return;
-    m.amount = Math.max(0, Math.ceil(amount / 10000) * 10000);
-    if (isDecreasing(x, m)) setDecreasing(h, x, m, true);
-    if (kd.kind === "endowment") syncMaturity(x, m);
-    putRowIn(x as unknown as Obj, "insurance.coverages", [m.id, "amount"], estRow("derived", `必要保障額に合わせた（${year}年の不足 ${man(m.amount)}）`));
-  });
 }
