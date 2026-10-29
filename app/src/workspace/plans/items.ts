@@ -190,7 +190,7 @@ function leverNote(k: LeverKey, wh: WorkingHousehold, selfId: string, demo: Demo
 function leverItems(wh: WorkingHousehold, selfId: string, demo: DemoHousehold | null): MovableItem[] {
   const base = readLevers(wh.request, selfId);
   const steps = leverSteps(demo, base);
-  const who = roles(wh.request).find((r) => r.key === "self")?.label ?? "本人";
+  const who = roles(wh.request).find((r) => r.key === "self")?.label ?? "ご本人";
   const h = wh.request.input.household;
   const targetOf = (k: LeverKey): DiffTarget => {
     if (k === "nisaMonthly") {

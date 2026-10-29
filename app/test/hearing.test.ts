@@ -44,7 +44,7 @@ describe("見本の記入済みシートを空の世帯に取り込む", () => {
     if (!r.ok) return;
     const v = r.view;
     const self = v.candidates.find((c) => c.group === "家族" && c.kind === "changed");
-    expect(self?.title).toBe("ご主人");
+    expect(self?.title).toBe("ご本人");
     expect(v.candidates.filter((c) => c.group === "家族" && c.kind === "new")).toHaveLength(4);
     expect(v.candidates.find((c) => c.group === "生活費")?.kind).toBe("changed");
     expect(v.candidates.filter((c) => c.kind === "new").length).toBeGreaterThan(10);
@@ -110,13 +110,13 @@ describe("見本の記入済みシートを空の世帯に取り込む", () => {
     const wh = blank();
     const r = await importSheet(SAMPLE, wh, seq);
     if (!r.ok) throw new Error("取り込めない");
-    const spouse = r.view.candidates.find((c) => c.title === "奥様");
+    const spouse = r.view.candidates.find((c) => c.title === "配偶者");
     const sel = defaultSelection(r.view);
     sel.delete(spouse?.id ?? "");
     const out = applyImport(wh, r.view, sel, AT);
     expect(out.wh.request.input.household.members.some((m) => m.kind === "spouse")).toBe(false);
     expect(out.skipped.length).toBeGreaterThan(0);
-    expect(out.skipped.every((t) => t.startsWith("奥様"))).toBe(true);
+    expect(out.skipped.every((t) => t.startsWith("配偶者"))).toBe(true);
   });
 });
 
@@ -234,8 +234,8 @@ describe("簡易版の記入済みシートを空の世帯に取り込む", () =
     expect(ranged).toContain("住宅ローン:残高のだいたいの範囲:2,500〜3,000万円");
     const living = v.candidates.find((c) => c.group === "生活費")?.fields.find((f) => f.mark === "range");
     expect(living?.note).toBe("ヒアリングシートの範囲 25〜30万円の真ん中");
-    expect(v.candidates.filter((c) => c.group === "家族").map((c) => c.title)).toEqual(["ご主人", "奥様", "第1子", "第2子", "父", "母", "義母"]);
-    const spouse = v.candidates.find((c) => c.title === "奥様");
+    expect(v.candidates.filter((c) => c.group === "家族").map((c) => c.title)).toEqual(["ご本人", "配偶者", "第1子", "第2子", "父", "母", "義母"]);
+    const spouse = v.candidates.find((c) => c.title === "配偶者");
     expect(spouse?.fields.find((f) => f.label.startsWith("年齢"))).toMatchObject({ answer: "39歳", mark: "assumed" });
     // シートで聞いていない欄を仮の値で補ったものは「聞いていない」と出す
     const work = v.candidates.find((c) => c.group === "仕事と収入");

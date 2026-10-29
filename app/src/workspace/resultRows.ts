@@ -22,7 +22,7 @@ function outsideBase(m: Member): string {
   return "ご家族";
 }
 
-/** 世帯の外の家族の呼び方（例: お母さま）。同じ呼び方の世帯の外の家族が2人以上いれば、誰の家族かを前に付ける（例: 奥様のお母さま） */
+/** 世帯の外の家族の呼び方（例: お母さま）。同じ呼び方の世帯の外の家族が2人以上いれば、誰の家族かを前に付ける（例: 配偶者のお母さま） */
 export function outsideName(req: EngineRequest, m: Member): string {
   // 世帯の外の子は呼び方（離れて暮らす子・離れて暮らす子1 …。roles.ts）のまま
   if (m.kind === "child") return roles(req).find((r) => r.member.id === m.id)?.label ?? "離れて暮らす子";
@@ -38,7 +38,7 @@ export const OUTSIDE_INCOME_NOTE = "世帯の外の家族（家計が別）の�
 
 // ---- 年間収支の赤字の出どころ ----
 
-/** 口座の呼び名（FP が付けた名前か、名義人と種類。例: ご主人のNISA） */
+/** 口座の呼び名（FP が付けた名前か、名義人と種類。例: ご本人のNISA） */
 function accountName(req: EngineRequest, id: string): string {
   const a = (req.input.household.accounts ?? []).find((x) => x.id === id);
   if (a === undefined) return "口座";

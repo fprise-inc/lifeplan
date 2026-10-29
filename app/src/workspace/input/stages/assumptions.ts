@@ -466,7 +466,7 @@ function endYearFields(wh: WorkingHousehold): FieldDef[] {
     optional: true,
     blankIsEstimate: true,
     address,
-    help: "標準は、本人・配偶者のうち若い方が100歳になる年（推定のままなら、家族の生年月を直すと合わせて変わります。確定にすると変わりません）。空にすると標準に戻します",
+    help: "標準は、ご本人・配偶者のうち若い方が100歳になる年（推定のままなら、家族の生年月を直すと合わせて変わります。確定にすると変わりません）。空にすると標準に戻します",
     get: (w) => {
       const h = w.request.input.household;
       const std = standardEndYear(h);
@@ -478,7 +478,7 @@ function endYearFields(wh: WorkingHousehold): FieldDef[] {
       return {
         value: v,
         hint: Number.isFinite(std) ? `${v === std ? "標準の年" : `標準は ${std}年`}${ages !== "" ? `（${ages}の年）` : ""}` : ages !== "" ? `${ages}の年` : null,
-        ...(Number.isFinite(std) && v === std ? { estimated: "標準の値（本人・配偶者のうち若い方が100歳になる年）" } : {}),
+        ...(Number.isFinite(std) && v === std ? { estimated: "標準の値（ご本人・配偶者のうち若い方が100歳になる年）" } : {}),
         ...(notice !== null
           ? {
               warn: notice,
@@ -494,7 +494,7 @@ function endYearFields(wh: WorkingHousehold): FieldDef[] {
         else if (Number.isFinite(std)) req.input.endYear = std;
       }),
   });
-  // 人の年齢で入れる（「奥様が［100］歳になる年まで」）。書くと表の最後の年が変わる（値は年だけを持つ）
+  // 人の年齢で入れる（「配偶者が［100］歳になる年まで」）。書くと表の最後の年が変わる（値は年だけを持つ）
   const byAge = adultsOf(wh.request.input.household).map((m) =>
     field({
       key: `assume/endYear/age/${m.id}`,

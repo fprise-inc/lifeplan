@@ -52,7 +52,7 @@ export interface MarkSheetOptions {
   readonly items: readonly ReviewItem[];
   /** 口座・カードの ID → 呼び名（番号は書かない呼び名） */
   readonly accounts: ReadonlyMap<string, string>;
-  /** 構成員の ID → お客さまに見せる呼び名（ご主人・奥様など） */
+  /** 構成員の ID → お客さまに見せる呼び名（ご本人・配偶者など） */
   readonly owners: ReadonlyMap<string, string>;
   /** 依頼番号（sheetRequestId にアプリ本体の乱数を渡して作る） */
   readonly requestId: string;

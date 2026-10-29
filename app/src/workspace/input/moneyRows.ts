@@ -752,7 +752,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
     taxFields.push(withAddress(plain({ key: `${k}/giftMethod`, item: "incomeFlow.giftMethod", label: "贈与税の課税の方法", level: "detail", kind: "select", options: [{ value: "calendar", label: "暦年課税" }, { value: "settlement", label: "相続時精算課税" }], find, path: ["giftMethod"], optional: true, fallback: "calendar" }), address(f.id, "incomeFlow.giftMethod")));
   // 詳細2: 受け取る人・相手・伸び方・万一のときの扱い・表の行（受け取る相続・贈与は「基本の計算に入れる」も）
   const whoFields: FieldDef[] = [
-    withAddress(plain({ key: `${k}/recipient`, item: "incomeFlow.recipient", label: "受け取る人", level: "detail", kind: "select", options: insiderOptions(wh), find, path: ["recipient"], optional: true, fallback: "", help: "受け取る人を選ぶと、税はその人の所得として計算し、万一のときの扱いもその人に起きたときだけにします（選ばないときの税は本人の所得で計算します）" }), address(f.id, "incomeFlow.recipient")),
+    withAddress(plain({ key: `${k}/recipient`, item: "incomeFlow.recipient", label: "受け取る人", level: "detail", kind: "select", options: insiderOptions(wh), find, path: ["recipient"], optional: true, fallback: "", help: "受け取る人を選ぶと、税はその人の所得として計算し、万一のときの扱いもその人に起きたときだけにします（選ばないときの税はご本人の所得で計算します）" }), address(f.id, "incomeFlow.recipient")),
   ];
   const party = !headParty && incomeHasParty(f);
   if (party) whoFields.push(withAddress(plain({ key: `${k}/counterparty`, item: "incomeFlow.counterparty", label: "相手（誰から）", level: "detail", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "", help: "世帯の外の家族から選びます（介護・親の項目で足します）" }), address(f.id, "incomeFlow.counterparty")));

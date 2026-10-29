@@ -48,7 +48,7 @@ export function ageAxis(rs: readonly Role[], years: readonly number[], gone?: { 
   return rs.filter((r) => r.key === "self" || r.key === "spouse").map((r) => ({ label: r.label, ages: years.map((y) => (inHousehold(r, y, gone) ? ageInYear(r.member, y) : null)) }));
 }
 
-/** その年の家族全員の年齢の文字（例: 「ご主人64歳・奥様62歳・第1子35歳」。世帯にいる人だけ） */
+/** その年の家族全員の年齢の文字（例: 「ご本人64歳・配偶者62歳・第1子35歳」。世帯にいる人だけ） */
 export function familyText(rs: readonly Role[], y: number, gone?: { key: string; year: number }): string {
   return rs
     .filter((r) => inHousehold(r, y, gone))
@@ -304,7 +304,7 @@ export interface FeeInput {
   alt: PreviewResult | null;
 }
 
-/** FP顧問料の一文: 「FP顧問料を払っても、ご主人95歳時点の資産は現状より○万円多い」。顧問料の累計の額は出さない（額は入力・提案書の顧問料の欄で見る） */
+/** FP顧問料の一文: 「FP顧問料を払っても、ご本人95歳時点の資産は現状より○万円多い」。顧問料の累計の額は出さない（額は入力・提案書の顧問料の欄で見る） */
 export function feeLine(input: { fee: FeeInput; targetYear: number; targetLabel: string; finP: Map<number, number>; finC: Map<number, number>; baseLabel?: string }): FeeLine {
   const { fee, targetYear, targetLabel, finP, finC } = input;
   const than = input.baseLabel ?? "現状";

@@ -822,7 +822,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   const age = selIdx >= 0 ? ages[selIdx] : undefined;
   // 年の目盛りの数字: ふつうは5年ごと。狭い幅（スマホの縦の画面）で5年の間が文字の幅より狭いときは10年ごと
   const labelStep = years.length > 5 && Math.abs(s.x(5) - s.x(0)) < 46 * fs ? 10 : 5;
-  // 札の見出し: 年と家族全員の年齢（例: 「2045年 ご主人64歳・奥様62歳・第1子35歳」。yearHead）
+  // 札の見出し: 年と家族全員の年齢（例: 「2045年 ご本人64歳・配偶者62歳・第1子35歳」。yearHead）
   const head = selIdx >= 0 ? yearHead(years[selIdx] as number, model.chart.family[selIdx] ?? (age != null ? `${model.who}${age}歳` : undefined)) : "";
   const valueLine = mark !== null ? `${mark.lead} ● ${model.names.selected} ${mark.selText}${mark.baseText !== null ? `／○ ${model.names.base} ${mark.baseText}` : ""}` : "";
   const tipLines =

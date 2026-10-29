@@ -147,26 +147,26 @@ describe("年ごとの結果の帯（計算と表示）", () => {
   const short = (y: number): YearResult => ({ state: "ready", depletion: y, source: "canonical" });
 
   it("全部の年で足りる: 「2027〜2032年のどの年に起きても、最後まで資産は足ります」", () => {
-    const m = yearStripModel({ options: opts, results: opts.map(() => ok()), who: "ご主人", noneDepletion: null, stale: false });
+    const m = yearStripModel({ options: opts, results: opts.map(() => ok()), who: "ご本人", noneDepletion: null, stale: false });
     expect(m.summary).toBe("2027〜2032年のどの年に起きても、最後まで資産は足ります");
     expect(m.tone).toBe("ok");
     expect(m.cells.every((c) => c.state === "ok")).toBe(true);
-    expect(m.cells[0]!.label).toBe("2027年（ご主人40歳）に起きた場合、最後まで資産は足ります");
+    expect(m.cells[0]!.label).toBe("2027年（ご本人40歳）に起きた場合、最後まで資産は足ります");
   });
 
   it("一部の年で不足: 続いた年をまとめて「2028〜2029年・2032年に起きると、資産が途中で不足します」。万一なしでも不足するときは添える", () => {
     const rs = [ok(), short(2050), short(2049), ok(), ok(), short(2055)];
-    const m = yearStripModel({ options: opts, results: rs, who: "ご主人", noneDepletion: null, stale: false });
+    const m = yearStripModel({ options: opts, results: rs, who: "ご本人", noneDepletion: null, stale: false });
     expect(m.summary).toBe("2028〜2029年・2032年に起きると、資産が途中で不足します");
     expect(m.tone).toBe("short");
-    expect(m.cells[1]).toMatchObject({ state: "short", shortYear: 2050, label: "2028年（ご主人41歳）に起きた場合、2050年に資産が不足" });
-    const all = yearStripModel({ options: opts, results: opts.map(() => short(2040)), who: "ご主人", noneDepletion: 2060, stale: false });
+    expect(m.cells[1]).toMatchObject({ state: "short", shortYear: 2050, label: "2028年（ご本人41歳）に起きた場合、2050年に資産が不足" });
+    const all = yearStripModel({ options: opts, results: opts.map(() => short(2040)), who: "ご本人", noneDepletion: 2060, stale: false });
     expect(all.summary).toBe("2027〜2032年のどの年に起きても、資産が途中で不足します（万一なしでも2060年に不足します）");
     expect(yearRanges([2040, 2031, 2032, 2033])).toBe("2031〜2033年・2040年");
   });
 
   it("計算中の年が残っている間は、一言の代わりに何年分できたか。先出しの結果は確定前の印", () => {
-    const m = yearStripModel({ options: opts, results: [ok("preview"), { state: "pending" }], who: "ご主人", noneDepletion: undefined, stale: false });
+    const m = yearStripModel({ options: opts, results: [ok("preview"), { state: "pending" }], who: "ご本人", noneDepletion: undefined, stale: false });
     expect(m.done).toBe(1);
     expect(m.total).toBe(6);
     expect(m.tone).toBe("wait");
@@ -176,7 +176,7 @@ describe("年ごとの結果の帯（計算と表示）", () => {
   });
 
   it("帯の部品: マスは年・年齢・結果の印（足りる ✓／不足 ▲と不足の始まる年。色だけに頼らない）。選んだ年は aria-checked、← → で動かせる並び", () => {
-    const m = yearStripModel({ options: opts, results: [ok(), short(2050), { state: "pending" }, ok(), ok(), ok()], who: "ご主人", noneDepletion: null, stale: false });
+    const m = yearStripModel({ options: opts, results: [ok(), short(2050), { state: "pending" }, ok(), ok(), ok()], who: "ご本人", noneDepletion: null, stale: false });
     const html = renderToString(h(YearStrip, { model: m, selected: 2028, onSelect: noop, play: null, onPlay: noop, onPause: noop, onStop: noop }));
     expect(html).toContain('role="radiogroup"');
     expect(html.match(/role="radio"/g)).toHaveLength(6);
@@ -438,7 +438,7 @@ describe("グラフを小窓で表示", () => {
     expect(tools.indexOf("data-pip-toggle")).toBeGreaterThan(tools.indexOf("data-settings-open"));
     const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"));
     const protection: ContingencyModel["protection"] = { status: "loading", charts: [], error: null, ms: 0 };
-    const strip: YearStripModel = yearStripModel({ options: [{ value: 2030, age: 40 }], results: [{ state: "ready", depletion: null, source: "canonical" }], who: "ご主人", noneDepletion: null, stale: false });
+    const strip: YearStripModel = yearStripModel({ options: [{ value: 2030, age: 40 }], results: [{ state: "ready", depletion: null, source: "canonical" }], who: "ご本人", noneDepletion: null, stale: false });
     const sc = scenarios(wh).find((x) => x.key === "death:self")!;
     const model: ContingencyModel = { protection, scenarios: scenarioCards({ req: wh.request, scenarios: scenarios(wh), selected: sc.key, protection, grade: undefined }), selected: sc.key, year: 2030, strip, scenario: { status: "loading", model: null, error: null, stale: false } };
     const cg = renderToString(h(ContingencyChartCard, { model, mode: "assets", onMode: noop, pinnedYear: null, onPinYear: noop, onPick: noop }));
@@ -466,7 +466,7 @@ describe("グラフを小窓で表示", () => {
     const none = preview(baseRequest(req));
     const result = preview(scenarioRequest(wh, sc, 2030));
     const protection: ContingencyModel["protection"] = { status: "ready", charts: [], error: null, ms: 1 };
-    const strip: YearStripModel = yearStripModel({ options: [{ value: 2030, age: 40 }], results: [{ state: "ready", depletion: null, source: "canonical" }], who: "ご主人", noneDepletion: null, stale: false });
+    const strip: YearStripModel = yearStripModel({ options: [{ value: 2030, age: 40 }], results: [{ state: "ready", depletion: null, source: "canonical" }], who: "ご本人", noneDepletion: null, stale: false });
     const model: ContingencyModel = {
       protection,
       scenarios: scenarioCards({ req, scenarios: scenarios(wh), selected: sc.key, protection, grade: undefined }),
@@ -504,7 +504,7 @@ describe("言葉の統一", () => {
   it("場面のカード: 不足がなければ「保障は足りています」。結果の行（最後まで足りる・○年に不足）は出さない。起きる年のプルダウンも無い", () => {
     const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"));
     const scs = scenarios(wh);
-    const chart = { key: "self", title: "", sub: "", years: [2030], ages: [40], axis: [{ label: "ご主人", ages: [40] }], need: [0], needWithAssets: [0], coverage: [0], maxShort: null, reformFrom: null, insights: [] };
+    const chart = { key: "self", title: "", sub: "", years: [2030], ages: [40], axis: [{ label: "ご本人", ages: [40] }], need: [0], needWithAssets: [0], coverage: [0], maxShort: null, reformFrom: null, insights: [] };
     const protection: ContingencyModel["protection"] = { status: "ready", charts: [chart], error: null, ms: 1 };
     const cards = scenarioCards({ req: wh.request, scenarios: scs, selected: scs[0]!.key, protection, grade: undefined });
     expect(cards.find((c) => c.key === "death:self")!.status).toBe("保障は足りています");
