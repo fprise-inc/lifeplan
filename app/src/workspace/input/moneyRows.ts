@@ -81,13 +81,11 @@ export const OUT_ROWS: Option[] = [
   { value: "cf.expense.living.car", label: "車の維持費" },
 ];
 
-/** 基本生活費のカードの出るお金の行（年払い・数年おきの暮らしの支出）が選べる表の行 */
-export const LIVING_OUT_ROWS: Option[] = OUT_ROWS.filter((o) => o.value === "cf.expense.living" || o.value === "cf.expense.care.medical" || o.value === "cf.expense.other");
 
 /** 医療費の窓口負担の説明（自動では変えない。段階で額を変える） */
 export const MEDICAL_HELP = "医療費の窓口負担は、70〜74歳は2割、75歳以上は1割（所得によって2〜3割）に下がります。計算では自動で変えないので、額を変えるときは段階で入れてください";
 
-/** 入るお金の行が選べる表の行（エンジンの incomeFlow.row） */
+/** 入るお金の行が選べる表の行の全部（エンジンの incomeFlow.row。「その他の入金」はどれも選べる） */
 export const IN_ROWS: Option[] = [
   "cf.income.lumpSum.other",
   "cf.income.lumpSum.gift",
@@ -102,6 +100,103 @@ export const IN_ROWS: Option[] = [
   "cf.income.benefit.unemployment",
   "cf.income.benefit.education",
 ].map((value) => ({ value, label: ROW_LABELS[value] ?? value }));
+
+/**
+ * 種類ごとに選べる表の行（0044 の追記 2026-10-29）。種類の既定の行（1回・くり返し）を必ず含み、その種類のお金として意味のある行だけにする。
+ * 書いていない種類（その他の入金）は全部（IN_ROWS）。並びの先頭が既定（画面では全部の一覧の順に並べる）
+ */
+export const IN_ROWS_BY_KIND: Readonly<Partial<Record<IncomeFlowKind, readonly string[]>>> = {
+  inheritance: ["cf.income.lumpSum.inheritance", "cf.income.lumpSum.other"],
+  giftReceived: ["cf.income.lumpSum.gift", "cf.income.lumpSum.other", "cf.income.other"],
+  support: ["cf.income.other", "cf.income.lumpSum.other", "cf.income.lumpSum.gift"],
+  educationSupport: ["cf.income.other", "cf.income.lumpSum.other", "cf.income.lumpSum.gift"],
+  childSupport: ["cf.income.other", "cf.income.lumpSum.other"],
+  propertyDivision: ["cf.income.lumpSum.other", "cf.income.other"],
+  householdContribution: ["cf.income.other", "cf.income.lumpSum.other"],
+  benefit: ["cf.income.benefit", "cf.income.lumpSum.other", "cf.income.other"],
+  unemployment: ["cf.income.benefit.unemployment", "cf.income.benefit"],
+  survivorPension: ["cf.income.pension", "cf.income.other"],
+  foreignPension: ["cf.income.pension", "cf.income.other"],
+  scholarshipGrant: ["cf.income.benefit.education", "cf.income.benefit", "cf.income.other"],
+  childPays: ["cf.income.other", "cf.income.lumpSum.other"],
+  sideJob: ["cf.income.other.sideJob", "cf.income.other"],
+  otherWork: ["cf.income.salary", "cf.income.other.sideJob", "cf.income.other"],
+  saleBusiness: ["cf.income.lumpSum.other", "cf.income.other"],
+  saleGoods: ["cf.income.lumpSum.other", "cf.income.other"],
+  temporary: ["cf.income.lumpSum.other", "cf.income.other"],
+  celebration: ["cf.income.lumpSum.other", "cf.income.other", "cf.income.lumpSum.gift"],
+  subsidy: ["cf.income.lumpSum.other", "cf.income.other", "cf.income.benefit"],
+  powerSale: ["cf.income.other", "cf.income.lumpSum.other"],
+  insuranceBenefit: ["cf.income.other.insuranceBenefit", "cf.income.lumpSum.other", "cf.income.other"],
+};
+
+/** 出るお金の種類ごとに選べる表の行（種類の無い古い行・一時的支出・その他の支出は全部〔OUT_ROWS〕。先頭が既定（画面では全部の一覧の順に並べる）） */
+export const OUT_ROWS_BY_KIND: Readonly<Partial<Record<MoneyOutKind, readonly string[]>>> = {
+  childSupport: ["cf.expense.other", "cf.expense.lumpSum.other"],
+  allowance: ["cf.expense.other", "cf.expense.living", "cf.expense.lumpSum.gift"],
+  gift: ["cf.expense.lumpSum.gift", "cf.expense.lumpSum.other", "cf.expense.other"],
+  education: ["cf.expense.education", "cf.expense.lumpSum.other", "cf.expense.other"],
+  repair: ["cf.expense.housing.maintenance", "cf.expense.lumpSum.other", "cf.expense.other"],
+  realEstateCost: ["cf.expense.other", "cf.expense.lumpSum.other"],
+  livingAnnual: ["cf.expense.living", "cf.expense.care.medical", "cf.expense.other"],
+  car: ["cf.expense.living.car", "cf.expense.lumpSum.car", "cf.expense.other"],
+};
+
+/** 前に選んだが、今の種類では選べない行の名前の添え書き（世帯の値は書き換えず、そのまま見せて計算する） */
+export const LEGACY_ROW_SUFFIX = "（前に選んだ行）";
+
+/** 選べる表の行（種類ごと）。今入っている行が一覧に無ければ、添え書きを付けて後ろに残す */
+function rowChoices(all: readonly Option[], allowed: readonly string[] | undefined, current: string | undefined): Option[] {
+  // 並びは全部の一覧の順（どの種類でも同じ行は同じ順に出す）
+  const list = allowed === undefined ? [...all] : all.filter((o) => allowed.includes(o.value));
+  if (current !== undefined && !list.some((o) => o.value === current)) list.push({ value: current, label: `${all.find((o) => o.value === current)?.label ?? ROW_LABELS[current] ?? current}${LEGACY_ROW_SUFFIX}` });
+  return list;
+}
+
+/** 入るお金の行の表の行の選択肢 */
+export const incomeRowChoices = (f: Pick<IncomeFlow, "kind"> & { row?: string | undefined }): Option[] => rowChoices(IN_ROWS, f.kind === undefined ? undefined : IN_ROWS_BY_KIND[f.kind], f.row);
+/** 出るお金の行の表の行の選択肢 */
+export const expenseRowChoices = (p: Pick<PeriodicExpense, "kind"> & { row?: string | undefined }): Option[] => rowChoices(OUT_ROWS, p.kind === undefined ? undefined : OUT_ROWS_BY_KIND[p.kind], p.row);
+
+/**
+ * 相手（誰から・誰へ）を選ぶ意味のある種類（0044 の追記 2026-10-29）: お金が世帯の外の家族・贈与者・前の配偶者などの人から来る（人へ行く）種類。
+ * 相手が亡くなる見込みの月から止める・世帯の外の家族の財布から出す、に使う。働く収入・年金・給付・売却などは人から来ないので欄を出さない
+ * （前に相手を入れた行は、欄を残して見せる）
+ */
+const IN_PARTY: ReadonlySet<IncomeFlowKind> = new Set(["inheritance", "giftReceived", "support", "educationSupport", "childSupport", "propertyDivision", "householdContribution", "celebration", "other"]);
+const OUT_PARTY: ReadonlySet<MoneyOutKind> = new Set(["childSupport", "allowance", "gift", "other"]);
+export const incomeHasParty = (f: Pick<IncomeFlow, "kind" | "counterparty">): boolean => (f.counterparty !== undefined && f.counterparty !== "") || (f.kind !== undefined && IN_PARTY.has(f.kind));
+export const expenseHasParty = (p: Pick<PeriodicExpense, "kind" | "counterparty">): boolean => (p.counterparty !== undefined && p.counterparty !== "") || (p.kind !== undefined && OUT_PARTY.has(p.kind));
+
+/** 入るお金の種類を選び直した後: 表の行がその種類で選べなければ外す（種類の既定の行に戻す） */
+function fixIncomeRow(t: Obj): void {
+  const f = t as unknown as IncomeFlow;
+  const allowed = f.kind === undefined ? undefined : IN_ROWS_BY_KIND[f.kind];
+  if (f.row !== undefined && allowed !== undefined && !allowed.includes(f.row)) delete (t as { row?: string }).row;
+}
+
+/** 出るお金の種類を選び直した後: 表の行がその種類で選べなければ、その種類の既定の行にする（足すときは表の行を書くので、既定の行を書く） */
+function fixExpenseRow(t: Obj): void {
+  const p = t as unknown as PeriodicExpense;
+  const allowed = p.kind === undefined ? undefined : OUT_ROWS_BY_KIND[p.kind];
+  if (allowed !== undefined && (p.row === undefined || !allowed.includes(p.row))) (t as { row?: string }).row = outKind(p.kind).row;
+}
+
+/** 必要経費・取得費の欄の名前（額の欄と同じ単位: 毎月の行は1か月あたり、年ごとの行は1回あたり） */
+function costLabel(tax: IncomeTaxTreatment, c: Cadence): string {
+  const what = tax === "capitalGains" ? "取得費・譲渡の費用" : "必要経費";
+  return c === "monthly" ? `${what}（1か月あたり）` : c === "repeat" ? `${what}（1回あたり）` : what;
+}
+
+/** 必要経費・取得費の欄の説明 */
+function costHelp(tax: IncomeTaxTreatment, c: Cadence): string {
+  const unit = c === "monthly" ? "月額と同じく1か月あたり" : c === "repeat" ? "1回の額と同じく1回あたり" : "受け取る額と同じく、その1回の分";
+  return `${tax === "capitalGains" ? "受け取る額から引く取得費と譲渡の費用" : "受け取る額から引く経費"}です。${unit}を、今の値段で入れます（受け取る額が伸びると、同じ割合で伸ばします）`;
+}
+
+/** 前に選んだ行が今の種類で選べないときの説明 */
+const LEGACY_ROW_HELP = "「前に選んだ行」は、今はこの種類で選べない行です。そのまま計算しています（選び直すと一覧から消えます）";
+const rowHelp = (legacy: boolean): { help?: string } => (legacy ? { help: LEGACY_ROW_HELP } : {});
 
 /** 課税の扱い（9通り）と、結果への効き方の一文 */
 export const TAX_TREATMENTS: readonly { value: IncomeTaxTreatment; label: string; effect: string }[] = [
@@ -594,7 +689,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
     withAddress(plain({ key: `${k}/label`, item: "incomeFlow.label", label: "名前", level: nameLevel(card), kind: "text", find, path: ["label"], optional: true }), address(f.id, "incomeFlow.label")),
   ];
   if (kinds.length > 1 || !kinds.some((x) => x.kind === f.kind))
-    fields.push(withAddress(plain({ key: `${k}/kind`, item: "incomeFlow.kind", label: "種類", level: "simple", kind: "select", options: (kinds.some((x) => x.kind === f.kind) ? kinds : [...kinds, def]).map((x) => ({ value: x.kind, label: x.label })), find, path: ["kind"], structural: true, help: `${def.help !== undefined ? `${def.label}: ${def.help}。` : ""}種類で課税の扱いと表の行の既定が決まります（詳細で変えられます）` }), address(f.id, "incomeFlow.kind")));
+    fields.push(withAddress(plain({ key: `${k}/kind`, item: "incomeFlow.kind", label: "種類", level: "simple", kind: "select", options: (kinds.some((x) => x.kind === f.kind) ? kinds : [...kinds, def]).map((x) => ({ value: x.kind, label: x.label })), find, path: ["kind"], structural: true, after: (_h, t) => fixIncomeRow(t), help: `${def.help !== undefined ? `${def.label}: ${def.help}。` : ""}種類で課税の扱いと表の行の既定が決まります（詳細で変えられます）` }), address(f.id, "incomeFlow.kind")));
   fields.push(cadenceField(`${k}/cadence`, "incomeFlow.monthly", find, f.id));
   fields.push(withAddress(yenBox({ key: `${k}/amount`, item: "incomeFlow.amount", label: c === "monthly" ? "月額" : c === "once" ? "額" : "1回の額", level: "simple", basis: c === "monthly" ? "monthly" : "once", find, path: ["amount"], help: c === "repeat" ? `${EVERY_AMOUNT_HELP}。今の値段で入れます（これからの値上がりは、詳細の「伸び方」に合わせて計算します）` : "今の値段で入れます（これからの値上がりは、詳細の「伸び方」に合わせて計算します）" }), address(f.id, "incomeFlow.amount")));
   fields.push(withAddress(timepointField({ key: `${k}/from`, item: "incomeFlow.from", label: c === "once" ? "受け取る時期" : "始まり", level: "simple", find, path: ["from"], ...selfAge(wh), ...(c === "once" ? { after: (_h: Household, t: Obj) => void (t.to = structuredClone(t.from)) } : {}) }), address(f.id, "incomeFlow.from")));
@@ -611,7 +706,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   // 相手は相続・贈与と家族のカードでは簡易にも出す（0044・家族の行は前の配偶者・子が相手。養育費は養育を受ける子）
   const headParty = inherit || card === "family";
   if (support) fields.push(supportPartyField(wh, "in", `${k}/counterparty`, "incomeFlow.counterparty", find, f.id, f.counterparty));
-  else if (headParty) fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "incomeFlow.counterparty", label: "相手（誰から）", level: "simple", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "" }), address(f.id, "incomeFlow.counterparty")));
+  else if (headParty && incomeHasParty(f)) fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "incomeFlow.counterparty", label: "相手（誰から）", level: "simple", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "" }), address(f.id, "incomeFlow.counterparty")));
   fields.push(badgeField(`${k}/likelihood`, "incomeFlow.likelihood", "見込み", LIKELIHOODS, "likely", find, "likelihood", f.id, inherit ? "「当てにしない」にすると、この相続・贈与を除いて計算します。結果の画面で、入れた場合と比べられます" : "結果の「確実な分だけ」で、「当てにしない」の行を外して見られます", badgeLevel(card)));
   const badge = stagedBadge(f as unknown as Record<string, unknown>, ["stages"], ["exceptions"]);
   const detailNotes = [
@@ -652,24 +747,25 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
     ),
   ];
   if (tax === "temporary" || tax === "miscBusiness" || tax === "miscOther" || tax === "business" || tax === "capitalGains")
-    taxFields.push(withAddress(yenBox({ key: `${k}/cost`, item: "incomeFlow.cost", label: tax === "capitalGains" ? "取得費・譲渡の費用（1回の額と同じ基準）" : "必要経費（1回の額と同じ基準）", level: "detail", basis: c === "monthly" ? "monthly" : "once", find, path: ["cost"], optional: true }), address(f.id, "incomeFlow.cost")));
+    taxFields.push(withAddress(yenBox({ key: `${k}/cost`, item: "incomeFlow.cost", label: costLabel(tax, c), level: "detail", basis: c === "monthly" ? "monthly" : "once", find, path: ["cost"], optional: true, help: costHelp(tax, c) }), address(f.id, "incomeFlow.cost")));
   if (tax === "gift")
     taxFields.push(withAddress(plain({ key: `${k}/giftMethod`, item: "incomeFlow.giftMethod", label: "贈与税の課税の方法", level: "detail", kind: "select", options: [{ value: "calendar", label: "暦年課税" }, { value: "settlement", label: "相続時精算課税" }], find, path: ["giftMethod"], optional: true, fallback: "calendar" }), address(f.id, "incomeFlow.giftMethod")));
   // 詳細2: 受け取る人・相手・伸び方・万一のときの扱い・表の行（受け取る相続・贈与は「基本の計算に入れる」も）
   const whoFields: FieldDef[] = [
     withAddress(plain({ key: `${k}/recipient`, item: "incomeFlow.recipient", label: "受け取る人", level: "detail", kind: "select", options: insiderOptions(wh), find, path: ["recipient"], optional: true, fallback: "", help: "受け取る人を選ぶと、税はその人の所得として計算し、万一のときの扱いもその人に起きたときだけにします（選ばないときの税はご本人の所得で計算します）" }), address(f.id, "incomeFlow.recipient")),
   ];
-  if (!headParty) whoFields.push(withAddress(plain({ key: `${k}/counterparty`, item: "incomeFlow.counterparty", label: "相手（誰から）", level: "detail", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "", help: "世帯の外の家族から選びます（介護・親の項目で足します）" }), address(f.id, "incomeFlow.counterparty")));
+  const party = !headParty && incomeHasParty(f);
+  if (party) whoFields.push(withAddress(plain({ key: `${k}/counterparty`, item: "incomeFlow.counterparty", label: "相手（誰から）", level: "detail", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "", help: "世帯の外の家族から選びます（介護・親の項目で足します）" }), address(f.id, "incomeFlow.counterparty")));
   whoFields.push(...growthFields(k, "incomeFlow.growth", find, f.id, f.growth));
   whoFields.push(...onContingencyFields({ key: `${k}/on`, item: "incomeFlow.onContingency", find, path: ["onContingency"], level: "detail", help: "万一（死亡など）が起きた月の翌月から、この扱いにします。受け取る人を選んだ行は、その人に起きたときだけです" }).map((x) => withAddress(x, address(f.id, "incomeFlow.onContingency"))));
   whoFields.push(...onContingencyDetailFields({ key: `${k}/on`, item: "incomeFlow.onContingency", find, path: ["onContingency"], on: f.onContingency, level: "detail" }).map((x) => withAddress(x, address(f.id, "incomeFlow.onContingency"))));
-  whoFields.push(withAddress(plain({ key: `${k}/row`, item: "incomeFlow.row", label: "キャッシュフロー表の行", level: "detail", kind: "select", options: IN_ROWS, find, path: ["row"], optional: true, fallback: incomeRowOf(h, { ...f, row: undefined } as IncomeFlow) }), address(f.id, "incomeFlow.row")));
+  whoFields.push(withAddress(plain({ key: `${k}/row`, item: "incomeFlow.row", label: "キャッシュフロー表の行", level: "detail", kind: "select", options: incomeRowChoices(f), find, path: ["row"], optional: true, fallback: incomeRowOf(h, { ...f, row: undefined } as IncomeFlow), ...rowHelp(f.row !== undefined && !incomeRowChoices({ kind: f.kind }).some((o) => o.value === f.row)) }), address(f.id, "incomeFlow.row")));
   if (f.kind === "inheritance" || f.kind === "giftReceived")
     whoFields.push(withAddress(plain({ key: `${k}/includeInBase`, item: "incomeFlow.includeInBase", label: "基本の計算に入れる", level: "detail", kind: "bool", find, path: ["includeInBase"], optional: true, fallback: false, help: "見込みが「当てにしない」でも、見込みはそのままで、この行を計算に入れます。プランを直しているときは、このプランでだけ入れます" }), address(f.id, "incomeFlow.includeInBase")));
   return [
     main,
     { key: `${k}/tax`, title: "課税の扱い", level: "detail", fields: taxFields, actions: [] },
-    { key: `${k}/who`, title: "受け取る人・相手・伸び方・万一のときの扱い・表の行", level: "detail", fields: whoFields, actions: [] },
+    { key: `${k}/who`, title: party ? "受け取る人・相手・伸び方・万一のときの扱い・表の行" : "受け取る人・伸び方・万一のときの扱い・表の行", level: "detail", fields: whoFields, actions: [] },
     ...stagedGroups(wh, {
       key: k,
       find,
@@ -716,14 +812,14 @@ export function expenseHeadFields(wh: WorkingHousehold, p: PeriodicExpense, card
   const k = `ev/${p.id}`;
   const kinds = kindsOf(card).outs;
   const fields: FieldDef[] = [];
-  if (kinds.length > 1 && p.kind !== undefined) fields.push(withAddress(plain({ key: `${k}/kind`, item: "periodicExpense.kind", label: "種類", level: "simple", kind: "select", options: kinds.map((x) => ({ value: x.kind, label: x.label })), find, path: ["kind"] }), address(p.id, "periodicExpense.kind")));
+  if (kinds.length > 1 && p.kind !== undefined) fields.push(withAddress(plain({ key: `${k}/kind`, item: "periodicExpense.kind", label: "種類", level: "simple", kind: "select", options: kinds.map((x) => ({ value: x.kind, label: x.label })), find, path: ["kind"], after: (_h, t) => fixExpenseRow(t) }), address(p.id, "periodicExpense.kind")));
   if (card === "family" && p.kind === "childSupport") {
     fields.push(supportPartyField(wh, "out", `${k}/counterparty`, "periodicExpense.counterparty", find, p.id, p.counterparty));
     const birth = supportChildBirth(wh, p);
     if (birth !== null) fields.push(birth);
     const dependent = supportDependentField(wh, p);
     if (dependent !== null) fields.push(dependent);
-  } else if (card === "inherit" || card === "family") fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "periodicExpense.counterparty", label: "相手（誰へ）", level: "simple", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "" }), address(p.id, "periodicExpense.counterparty")));
+  } else if ((card === "inherit" || card === "family") && expenseHasParty(p)) fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "periodicExpense.counterparty", label: "相手（誰へ）", level: "simple", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "" }), address(p.id, "periodicExpense.counterparty")));
   return fields;
 }
 
@@ -758,11 +854,12 @@ export function expenseDetailGroups(wh: WorkingHousehold, p: PeriodicExpense, ca
   const fields: FieldDef[] = [
     withAddress(plain({ key: `${k}/payer`, item: "periodicExpense.payer", label: "払う人", level: "detail", kind: "select", options: insiderOptions(wh), find, path: ["payer"], optional: true, fallback: "", help: "払う人を選ぶと、万一のときの扱いをその人に起きたときだけにします（お金は世帯で1つの財布として計算します）" }), address(p.id, "periodicExpense.payer")),
   ];
-  if (card !== "inherit" && card !== "family") fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "periodicExpense.counterparty", label: "相手（誰へ）", level: "detail", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "" }), address(p.id, "periodicExpense.counterparty")));
+  const party = card !== "inherit" && card !== "family" && expenseHasParty(p);
+  if (party) fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "periodicExpense.counterparty", label: "相手（誰へ）", level: "detail", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "" }), address(p.id, "periodicExpense.counterparty")));
   fields.push(...growthFields(k, "periodicExpense.growth", find, p.id, p.growth));
   fields.push(...onContingencyFields({ key: `${k}/on`, item: "periodicExpense.onContingency", find, path: ["onContingency"], level: "detail" }).map((x) => withAddress(x, address(p.id, "periodicExpense.onContingency"))));
   fields.push(...onContingencyDetailFields({ key: `${k}/on`, item: "periodicExpense.onContingency", find, path: ["onContingency"], on: p.onContingency, level: "detail" }).map((x) => withAddress(x, address(p.id, "periodicExpense.onContingency"))));
-  groups.push({ key: `${k}/who`, title: "払う人・相手・伸び方・万一のときの扱い", level: "detail", fields, actions: [] });
+  groups.push({ key: `${k}/who`, title: party ? "払う人・相手・伸び方・万一のときの扱い" : "払う人・伸び方・万一のときの扱い", level: "detail", fields, actions: [] });
   return groups;
 }
 
@@ -816,8 +913,8 @@ export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense, card: Mo
   const support = card === "family" && p.kind === "childSupport";
   if (!once) fields.push(timepointField({ key: `${k}/to`, item: "periodicExpense.to", label: "終わり", level: "simple", find, path: ["to"], startPath: ["from"], optional: true, nullText: "最後まで", ...(support ? { ...supportAge(wh, p), help: SUPPORT_END_HELP, warn: supportEndWarn(find) } : ageOf) }));
   fields.push(expensePriorityField(p, card));
-  const rows = card === "living" ? (LIVING_OUT_ROWS.some((o) => o.value === p.row) ? LIVING_OUT_ROWS : [...LIVING_OUT_ROWS, ...OUT_ROWS.filter((o) => o.value === p.row)]) : OUT_ROWS;
-  fields.push(plain({ key: `${k}/row`, item: "periodicExpense.row", label: "キャッシュフロー表の行", level: "detail", kind: "select", options: rows, find, path: ["row"], ...(card === "living" ? { help: `「医療・介護」の行にすると、結果の表で医療費として分けて見られます。${MEDICAL_HELP}` } : {}) }));
+  const legacy = p.row !== undefined && !expenseRowChoices({ kind: p.kind }).some((o) => o.value === p.row);
+  fields.push(plain({ key: `${k}/row`, item: "periodicExpense.row", label: "キャッシュフロー表の行", level: "detail", kind: "select", options: expenseRowChoices(p), find, path: ["row"], ...(card === "living" ? { help: `「医療・介護」の行にすると、結果の表で医療費として分けて見られます。${MEDICAL_HELP}${legacy ? `。${LEGACY_ROW_HELP}` : ""}` } : rowHelp(legacy)) }));
   const badge = stagedBadge(p as unknown as Record<string, unknown>, ["stages"], ["exceptions"]);
   const name = p.label !== undefined && p.label !== "" ? p.label : once ? "一時的支出" : "n年ごとの支出";
   const details = [...(p.payer !== undefined ? ["払う人"] : []), ...(p.growth !== undefined ? ["伸び方"] : []), ...(badge !== null ? [`1回の額の${badge}`] : [])];
