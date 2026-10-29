@@ -232,7 +232,7 @@ describe("金融資産が足りなくなる所の印（主画面のグラフ）"
 describe("金融資産が足りなくなる所の印（万一のときのグラフ）", () => {
   it("△と文字は描かず、「!」の段と点線（万一なしは白抜き）。年の目盛りの位置は変えない", () => {
     const cm = { ...m0.chart, depletions: [{ series: "current" as const, year: DEP }, { series: "proposal" as const, year: DEP - 4 }] };
-    const html = renderToString(h(ContingencyChart, { spec: { kind: "assets", model: cm, who: "ご主人", eventYear: m0.chart.years[3]!, pinnedYear: null, onSelectYear: noop } }));
+    const html = renderToString(h(ContingencyChart, { spec: { kind: "assets", model: cm, who: "ご本人", eventYear: m0.chart.years[3]!, pinnedYear: null, onSelectYear: noop } }));
     expect(html).not.toContain("dep-tri");
     expect(html).not.toContain("dep-txt");
     const sk = shorts(html);

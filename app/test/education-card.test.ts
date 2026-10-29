@@ -52,6 +52,28 @@ function fresh(): WorkingHousehold {
   return withRefreshedEstimates(mutate(wh, (h) => void (h.members.find((m) => m.kind === "child")!.birth.birthYearMonth = "2016-05")));
 }
 
+describe("公立・私立はどの段でも標準。進路の型で一度に変わる（0078 の 2026-10-29 の追記）", () => {
+  it("小学校〜大学の公立・私立が標準に出て、型を選ぶと全部の段が変わる。段を型と違う値にすると型は「自分で選ぶ」になる", () => {
+    let wh = fresh();
+    const g = goalOf(wh);
+    const sectors = fields(wh).filter((f) => /\/stage\/\d+\/sector$/.test(f.key));
+    expect(sectors.map((f) => f.level)).toEqual(["simple", "simple", "simple", "simple"]);
+    wh = fieldOf(wh, "/preset").set(wh, "allPrivate");
+    expect(goalOf(wh).education!.stages.map((s) => s.sector)).toEqual(["private", "private", "private", "private"]);
+    expect(fieldOf(wh, "/preset").get(wh).value).toBe("allPrivate");
+    // 中学だけ公立に直すと、どの型にも当たらないので「自分で選ぶ」（値は ""）
+    wh = fieldOf(wh, `edu/${g.id}/stage/1/sector`).set(wh, "public");
+    expect(goalOf(wh).education!.stages.map((s) => s.sector ?? "public")).toEqual(["private", "public", "private", "private"]);
+    expect(fieldOf(wh, "/preset").get(wh).value).toBe("");
+    // 残りの段も型の値にそろえると、型の表示に戻る（欄で「公立」を選んで値が空になっても公立として当たる）
+    for (const [i, v] of [[0, "public"], [2, "public"], [3, "national"]] as const) wh = fieldOf(wh, `edu/${g.id}/stage/${i}/sector`).set(wh, v);
+    expect(fieldOf(wh, "/preset").get(wh).value).toBe("allPublic");
+    // 型を選び直すと、直した段も型の値に戻る
+    wh = fieldOf(wh, "/preset").set(wh, "highPrivate");
+    expect(goalOf(wh).education!.stages.map((s) => s.sector)).toEqual(["public", "public", "private", "private"]);
+  });
+});
+
 describe("推定の進路（新しい世帯は自動・古い世帯はボタンだけ）", () => {
   it("新しい世帯で子を足すと、標準の型「大学だけ私立〔文系・自宅〕」の推定の進路が入り、学校外の費用は統計の平均で始まる", () => {
     const wh = fresh();

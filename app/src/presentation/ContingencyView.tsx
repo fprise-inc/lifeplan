@@ -27,7 +27,7 @@ export interface ScenarioBandProps {
   loadingAfter?: number;
 }
 
-/** 場面の帯: 「ご主人が亡くなったら」などを小さなカードで横に並べる（見通しの案の帯と同じ見た目）。起きる年は下の年ごとの結果の帯で選ぶ */
+/** 場面の帯: 「ご本人が亡くなったら」などを小さなカードで横に並べる（見通しの案の帯と同じ見た目）。起きる年は下の年ごとの結果の帯で選ぶ */
 export function ScenarioBand({ model, onSelect, plan, loadingAfter = LOADING_DELAY_MS }: ScenarioBandProps) {
   const many = model.scenarios.length > 4;
   const showLoading = useDelayed(model.scenarios.some((c) => c.loading), loadingAfter);

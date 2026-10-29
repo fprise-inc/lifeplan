@@ -448,7 +448,7 @@ describe.skipIf(bin === null)("独自帳票の見本: 収益不動産のまと�
     const { input, r } = sample("dualAssetsTwoKids");
     const all = normalize(r.pages.join("\n"));
     expect(all).toContain(normalize("収益不動産のまとめ"));
-    expect(all).toContain(normalize("不動産1（ご主人名義・鉄筋コンクリート造・2008年築・貸している）"));
+    expect(all).toContain(normalize("不動産1（ご本人名義・鉄筋コンクリート造・2008年築・貸している）"));
     expect(r.meta.noticesPageAdded).toBe(false);
     const p = input.realEstate!.proposal[0]!;
     const y = p.years.find((x) => x.held)!;

@@ -14,7 +14,7 @@ export function RetirementLineup({ wh, computeOne }: { wh: WorkingHousehold; com
     <div class="ip-lineup" role="note" data-retirement-lineup>
       <p>
         <b>受け取りの並び</b>
-        <Help label="受け取りの並び">読むだけです。時期・受け取り方はプランで変えて比べられます。</Help>
+        <Help label="受け取りの並び">ここは入力の欄ではなく、上で入れた退職金・企業年金と iDeCo などの受け取りを、受け取る順に並べた一覧です。時期・受け取り方はプランで変えて比べられます。</Help>
       </p>
       {list.map((l) => (
         <div key={l.member} class="ip-lineup-person" data-lineup-member={l.member}>

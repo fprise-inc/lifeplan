@@ -17,7 +17,7 @@ function elderLabel(wh: WorkingHousehold, m: Member): string | undefined {
   return `${inLaw ? "義" : ""}${m.sex === "male" ? "父" : "母"}`;
 }
 
-/** 構成員の呼び方: 続柄（ご主人・奥様・第1子…）と、FP が付けた呼び名（任意） */
+/** 構成員の呼び方: 続柄（ご本人・配偶者・第1子…）と、FP が付けた呼び名（任意） */
 export function memberLabels(wh: WorkingHousehold): Map<string, string> {
   const out = new Map<string, string>();
   const h = wh.request.input.household;
@@ -354,7 +354,7 @@ export const HOUSING_EXEMPTION: Option[] = [
   { value: "none", label: "非課税の特例を使わない" },
 ];
 
-/** 贈与する人の呼び方（氏名は持たない。0012）: 「ご主人の親」など */
+/** 贈与する人の呼び方（氏名は持たない。0012）: 「ご本人の親」など */
 export function donorLabel(wh: WorkingHousehold, d: { kind: string; of?: string }): string {
   const k = DONOR_KINDS.find((o) => o.value === d.kind)?.label ?? "親族";
   if (d.kind === "other") return k;

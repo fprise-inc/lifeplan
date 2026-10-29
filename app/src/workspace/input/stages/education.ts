@@ -68,7 +68,8 @@ export const COURSE_PRESETS: { value: string; label: string; sectors: Record<str
 ];
 
 export function presetOf(stages: readonly EducationStage[]): string {
-  for (const p of COURSE_PRESETS) if (stages.length > 0 && stages.every((s) => p.sectors[s.stage] === undefined || p.sectors[s.stage] === s.sector)) return p.value;
+  // 公立・私立の欄で「公立」を選ぶと値が空になる（空は公立。計算も同じ）ので、空は公立として型と比べる
+  for (const p of COURSE_PRESETS) if (stages.length > 0 && stages.every((s) => p.sectors[s.stage] === undefined || p.sectors[s.stage] === (s.sector ?? "public"))) return p.value;
   return "";
 }
 
@@ -329,10 +330,9 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
     );
     return fields;
   }
-  // 小学校・高校の公立・私立は進路の型に任せて詳細（高校は就学支援金で公私の差が小さい。型と違う段だけ詳細で直す）。
-  // 中学（私立なら1人で数百万円）・大学・幼稚園などは標準。系統は詳細（文系・理系の差は小さい）。0078
-  const sectorLevel = s.stage === "elementary" || s.stage === "highSchool" ? "detail" : "simple";
-  fields.push(plain({ key: `${key}/sector`, item: "goal.education", label: "公立・私立", level: sectorLevel, kind: "select", options: sectorOptions, find, path: ["sector"], optional: true, fallback: "public" }));
+  // 公立・私立は、公立・私立のある段すべてで標準（段によって選べたり選べなかったりすると分かりにくい。
+  // 進路の型でまとめて変えられるので手間は増えない。0078 の 2026-10-29 の追記）。系統は詳細（文系・理系の差は小さい）。0078
+  fields.push(plain({ key: `${key}/sector`, item: "goal.education", label: "公立・私立", level: "simple", kind: "select", options: sectorOptions, find, path: ["sector"], optional: true, fallback: "public" }));
   if (s.stage === "university") fields.push(plain({ key: `${key}/field`, item: "goal.education", label: "系統", level: "detail", kind: "select", options: FIELDS, find, path: ["field"], optional: true, fallback: "humanities" }));
   if (higher) fields.push(plain({ key: `${key}/living`, item: "goal.education", label: "通い方", level: "simple", kind: "select", options: LIVING_PLACE, find, path: ["living"], optional: true, fallback: "home" }));
   // 学費の年額（上書き）。専門学校は統計の目安が無いので簡易で未入力の警告、公立の短大も簡易（私立の短大の平均で仮に計算）

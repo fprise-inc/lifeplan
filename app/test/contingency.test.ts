@@ -90,7 +90,7 @@ describe("万一の画面の要求", () => {
   const spouse = hh.members.find((m) => m.kind === "spouse")!;
 
   it("想定: 大人ごとの死亡と就業不能・大人ごとの大きな病気・収入が減る・（運用する口座があれば）相場の下落。万一なしは世帯の万一の想定・必要保障額の要求を外す", () => {
-    expect(scenarios(wh).map((s) => s.label)).toEqual(["ご主人の死亡", "奥様の死亡", "就業不能（ご主人）", "就業不能（奥様）", "大きな病気（ご主人）", "大きな病気（奥様）", "収入が減る", "相場の下落"]);
+    expect(scenarios(wh).map((s) => s.label)).toEqual(["ご本人の死亡", "配偶者の死亡", "就業不能（ご本人）", "就業不能（配偶者）", "大きな病気（ご本人）", "大きな病気（配偶者）", "収入が減る", "相場の下落"]);
     expect(scenarios(open("investmentCouple")).map((s) => s.key)).toEqual(["death:self", "death:spouse", "disability:self", "disability:spouse", "illness:self", "illness:spouse", "income", "market"]);
     const b = baseRequest(modelHousehold("survivorEmployeeLoan"));
     expect(b.input.contingencies).toBeUndefined();
@@ -210,16 +210,16 @@ describe("提示用の値がエンジンの結果と一致する", () => {
       scenarios: scenarioCards({ req, scenarios: scenarios(memoWh), selected: sc.key, protection, grade: undefined }),
       selected: sc.key,
       year: 2030,
-      strip: yearStripModel({ options: yearOptions(req, self.id).map((o) => ({ value: o.value, age: o.age })), results: [], who: "ご主人", noneDepletion: undefined, stale: false }),
+      strip: yearStripModel({ options: yearOptions(req, self.id).map((o) => ({ value: o.value, age: o.age })), results: [], who: "ご本人", noneDepletion: undefined, stale: false }),
       scenario,
     };
     const card = (mode: "assets" | "protection") => renderToString(h(ContingencyChartCard, { model, mode, onMode: () => undefined, pinnedYear: 2030, onPinYear: () => undefined, onPick: () => undefined }));
     const html = renderToString(h(ScenarioBand, { model, onSelect: () => undefined })) + card("assets") + card("protection");
-    expect(html).toContain("ご主人が亡くなったら");
+    expect(html).toContain("ご本人が亡くなったら");
     expect(html).toContain("保障の不足 最大");
     expect(html).toContain("2030年に亡くなった場合");
     expect(html).toContain("必要保障額の推移");
-    expect(html).toContain("ご主人が2030年に亡くなった場合");
+    expect(html).toContain("ご本人が2030年に亡くなった場合");
     expect(html).toContain("見直し前の制度");
     expect(html).not.toContain("MEMO-MARK");
     for (const m of req.input.household.members) expect(html).not.toContain(m.id);
@@ -230,7 +230,7 @@ describe("提示用の値がエンジンの結果と一致する", () => {
     const scs = scenarios(wh);
     const protection: ContingencyModel["protection"] = { status: "loading", charts: [], error: null, ms: null };
     const scenario: ContingencyModel["scenario"] = { status: "loading", model: null, error: null, stale: false };
-    const strip = yearStripModel({ options: [{ value: 2030, age: 40 }], results: [{ state: "pending" }], who: "ご主人", noneDepletion: undefined, stale: false });
+    const strip = yearStripModel({ options: [{ value: 2030, age: 40 }], results: [{ state: "pending" }], who: "ご本人", noneDepletion: undefined, stale: false });
     const model: ContingencyModel = { protection, scenarios: scenarioCards({ req, scenarios: scs, selected: scs[0]!.key, protection, grade: undefined }), selected: scs[0]!.key, year: 2030, strip, scenario };
     expect(LOADING_DELAY_MS).toBe(300);
     // 描いた直後（待ちの時間の前）は出さない

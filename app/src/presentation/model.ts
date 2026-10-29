@@ -13,13 +13,13 @@ export interface MemberChip {
 }
 
 export interface Headline {
-  /** 例: 「ご主人95歳時点の金融資産（提案）」 */
+  /** 例: 「ご本人95歳時点の金融資産（提案）」 */
   label: string;
   amount: Yen;
   /** 提案−現状 */
   diff: Yen;
   currentAmount: Yen;
-  /** 例: 「ご主人76歳で不足」 */
+  /** 例: 「ご本人76歳で不足」 */
   currentNote: string | null;
 }
 
@@ -44,7 +44,7 @@ export interface Depletion {
  * いない年（亡くなったあと・まだ生まれていない年）は null（その人の段を空ける）
  */
 export interface AgeAxisRow {
-  /** 段の頭に小さく書く呼び方（例: 「ご主人」「奥様」「ご本人」） */
+  /** 段の頭に小さく書く呼び方（例: 「ご本人」「配偶者」） */
   label: string;
   ages: (number | null)[];
 }
@@ -55,7 +55,7 @@ export interface ChartModel {
   ages: (number | null)[];
   /** x 軸の下に添える年齢の段（本人・配偶者） */
   axis: AgeAxisRow[];
-  /** 年ごとの家族全員の年齢（例: 「ご主人64歳・奥様62歳・第1子35歳」）。年を指したとき・固定したときの札に出す */
+  /** 年ごとの家族全員の年齢（例: 「ご本人64歳・配偶者62歳・第1子35歳」）。年を指したとき・固定したときの札に出す */
   family: string[];
   proposal: Yen[];
   current: Yen[];
@@ -168,7 +168,7 @@ export interface PresentationModel {
   baseLines: { net: Yen[] };
   /** 基準の案の積み上げと年のイベント（グラフを左右に並べる表示で、基準の案の側に使う） */
   baseCharts: BaseCharts;
-  /** 本人の呼び方（例: ご主人）。グラフの年の札に使う */
+  /** 本人の呼び方（例: ご本人）。グラフの年の札に使う */
   who: string;
   selectedYear: number;
   yearDetail: YearDetail | null;
@@ -210,9 +210,9 @@ export interface FeeLine {
 export interface ProtectionChartModel {
   /** 提示用の鍵（self・spouse） */
   key: string;
-  /** 例: 「ご主人が亡くなった場合」 */
+  /** 例: 「ご本人が亡くなった場合」 */
   title: string;
-  /** 例: 「奥様の平均余命（2071年）までの資金」 */
+  /** 例: 「配偶者の平均余命（2071年）までの資金」 */
   sub: string;
   years: number[];
   /** 亡くなる人の年齢（各年12月末） */
@@ -233,7 +233,7 @@ export interface ProtectionChartModel {
   insights: ProtectionInsightModel[];
 }
 
-/** 必要保障額の推移の気づき（例: 「2045年に定期保険 1（ご主人）が切れ、その年の不足は1,200万円」） */
+/** 必要保障額の推移の気づき（例: 「2045年に定期保険 1（ご本人）が切れ、その年の不足は1,200万円」） */
 export interface ProtectionInsightModel {
   year: number;
   text: string;
@@ -241,7 +241,7 @@ export interface ProtectionInsightModel {
 
 /** 内訳の行の中の契約ごとの額（大きな病気の場面の保険金・給付金。0055・0071 の追記） */
 export interface BenefitDetailModel {
-  /** 例: 「医療保険 1（ご主人）」 */
+  /** 例: 「医療保険 1（ご本人）」 */
   label: string;
   /** 給付ごとの額（例: 「入院 20日 20万円」「手術 1回 10万円」。画面では「＋」でつなぐ） */
   parts: string[];
@@ -261,9 +261,9 @@ export interface BreakdownRowModel {
 }
 
 export interface ScenarioModel {
-  /** 例: 「ご主人が2027年に亡くなった場合」 */
+  /** 例: 「ご本人が2027年に亡くなった場合」 */
   title: string;
-  /** グラフの年齢の人の呼び方（例: 「ご主人」。chart.ages はこの人の年齢） */
+  /** グラフの年齢の人の呼び方（例: 「ご本人」。chart.ages はこの人の年齢） */
   who: string;
   headline: Headline;
   verdict: Verdict;
@@ -280,9 +280,9 @@ export interface ScenarioModel {
 export interface ScenarioCardModel {
   /** 画面の鍵（death:self など。物の ID を含まない） */
   key: string;
-  /** 例: 「ご主人の死亡」 */
+  /** 例: 「ご本人の死亡」 */
   label: string;
-  /** カードの名前（例: 「ご主人が亡くなったら」） */
+  /** カードの名前（例: 「ご本人が亡くなったら」） */
   title: string;
   /** 小さな状態の札（例: 「保障の不足 最大5,482万円」）。tone の wait は灰の札 */
   status: string;
@@ -304,13 +304,13 @@ export interface YearCellModel {
   shortYear: number | null;
   /** 先出し（確定前）の結果か */
   provisional: boolean;
-  /** 読み上げ（例: 「2031年（ご主人42歳）に起きた場合、2045年に資産が不足」） */
+  /** 読み上げ（例: 「2031年（ご本人42歳）に起きた場合、2045年に資産が不足」） */
   label: string;
 }
 
 /** 年ごとの結果の帯 */
 export interface YearStripModel {
-  /** 年齢の人の呼び方（例: 「ご主人」） */
+  /** 年齢の人の呼び方（例: 「ご本人」） */
   who: string;
   cells: YearCellModel[];
   /** 全体の一言（例: 「2027〜2050年のどの年に起きても、最後まで資産は足ります」） */
@@ -513,7 +513,7 @@ export interface BsYearModel {
   year: number;
   /** 本人の年齢 */
   age: number | null;
-  /** 例: 「ご主人45歳・奥様43歳」 */
+  /** 例: 「ご本人45歳・配偶者43歳」 */
   members: string;
   /** 今の年（入力した値から出した事実）。先の年は見込み */
   fact: boolean;
@@ -618,7 +618,7 @@ export interface BsCustomViewModel {
 }
 
 export interface BalanceTabModel {
-  /** 本人の呼び方（例: ご主人） */
+  /** 本人の呼び方（例: ご本人） */
   who: string;
   /** 分け方の名前と短い名前 */
   groups: Record<BsGroupKey, { name: string; short: string }>;
