@@ -1,8 +1,11 @@
 // 保険のカード（0055）: 簡易の5欄とひな形の推定・保険料と保障の額の未入力・種類を変えたときの入れ直し・学資保険・医療保険の手術・
-// 逓減定期・家族特約・円の目安の形・解約返戻金・受取人・保険料と解約返戻金の行・病気の想定・古い世帯
+// 逓減定期・家族特約・円の目安の形・解約返戻金・受取人・保険料と解約返戻金の行・病気の想定・古い世帯・
+// 区画から移したもの（万一のタブの大きな病気の内訳・保険が切れる年の気づき・確かめの一覧の医療保険・がん保険の重なり）
 import { describe, expect, it } from "vitest";
 import type { InsuranceContract } from "../src/engine/types.ts";
-import { defaultYear, scenarioRequest, scenarios } from "../src/workspace/contingency/requests.ts";
+import { contractLabels, illnessBenefitNote, illnessBenefits, lapseInsights } from "../src/workspace/contingency/insuranceLines.ts";
+import { protectionChart, scenarioModel } from "../src/workspace/contingency/present.ts";
+import { baseRequest, defaultYear, protectionRequest, scenarioRequest, scenarios } from "../src/workspace/contingency/requests.ts";
 import { contingencyInputSections } from "../src/workspace/contingency/inputs.ts";
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
@@ -285,5 +288,61 @@ describe("古い世帯", () => {
     const notices = checkList(fromRequest(req)).filter((r) => r.kind === "notice" && r.card === "insurance").map((r) => r.detail);
     expect(notices.some((d) => d?.includes("死亡保険金 1,000万円"))).toBe(true);
     expect(notices.some((d) => d?.includes("保険料 月5,000円"))).toBe(true);
+  });
+});
+
+describe("保険の入力項目の区画から移したもの（0055 の追記）: 万一のタブの内訳と気づき・確かめの一覧の注意", () => {
+  it("大きな病気の場面: 内訳の「保険金・給付金」に契約ごと・給付ごとの額（計算の結果の額と同じ）と、数え方の一文", () => {
+    let wh = action(family(), "ins/addMedical");
+    wh = set(wh, "/main", 10000);
+    wh = action(wh, "/addCoverage");
+    const cid = contract(wh).coverages!.at(-1)!.id;
+    wh = set(wh, `/cov/${cid}/benefit`, "cancerLump");
+    wh = set(wh, `/cov/${cid}/amount`, 1000000);
+    const sc = scenarios(wh).find((s) => s.kind === "illness" && s.member === self(wh).id)!;
+    const year = wh.contingency.year ?? defaultYear(wh.request);
+    const result = preview(scenarioRequest(wh, sc, year));
+    const none = preview(baseRequest(wh.request));
+    const details = illnessBenefits(wh, sc, year, result, none);
+    expect(details).toEqual([{ label: "医療保険 1（ご主人）", parts: ["入院 20日 20万円", "手術 1回 10万円", "がん一時金 100万円"], firstYear: expect.any(Number), total: 1300000 }]);
+    const m = scenarioModel({ req: wh.request, scenario: sc, year, result, none, targetAge: 95, choice: undefined, benefits: { details, note: illnessBenefitNote(wh) } });
+    const row = m.breakdown.rows.find((r) => r.label === "保険金・給付金")!;
+    expect(row.total).toBe(1300000);
+    expect(row.details).toEqual(details);
+    expect(m.breakdown.note).toContain("がん・入院20日・手術1回");
+    // 限度日数で止まる・がん一時金は出ない（病気の種類を変える）
+    const wh2: WorkingHousehold = { ...wh, contingency: { ...wh.contingency, illness: { disease: "other", hospitalDays: 90, surgeries: 0 } } };
+    const d2 = illnessBenefits(wh2, sc, year, preview(scenarioRequest(wh2, sc, year)), none);
+    expect(d2.map((d) => [d.parts, d.total])).toEqual([[["入院 60日 60万円"], 600000]]);
+    // 死亡の場面には出さない
+    const death = scenarios(wh).find((s) => s.kind === "death")!;
+    const dm = scenarioModel({ req: wh.request, scenario: death, year, result: preview(scenarioRequest(wh, death, year)), none, targetAge: 95, choice: undefined, benefits: { details, note: "" } });
+    expect(dm.breakdown.rows.some((r) => r.details !== undefined)).toBe(false);
+    expect(dm.breakdown.note).toBeNull();
+  });
+
+  it("必要保障額の推移の気づき: 保険が切れる年と、その年の不足", () => {
+    let wh = action(family(), "ins/add");
+    wh = set(wh, "/premium", 3000);
+    wh = set(wh, "/main", 10000000);
+    const me = self(wh).id;
+    const r = preview(protectionRequest(wh, me));
+    const list = lapseInsights(r.protection!, me, contractLabels(wh));
+    expect(list.length).toBe(1);
+    const y = list[0]!.year;
+    const py = r.protection!.members.find((m) => m.member === me)!.years.find((x) => x.year === y)!;
+    const short = py.needWithAssets - py.coverage;
+    expect(list[0]!.text).toBe(short > 0 ? `${y}年に定期保険 1（ご主人）が切れ、その年の不足は${Math.round(short / 10000).toLocaleString("ja-JP")}万円` : `${y}年に定期保険 1（ご主人）が切れます（その年も必要保障額は満たしています）`);
+    expect(protectionChart(protectionRequest(wh, me), r.protection!, r, me, list)!.insights).toEqual(list);
+  });
+
+  it("確かめの一覧: 同じ方の医療保険・がん保険が2本以上なら確かめの注意（1本なら出さない）", () => {
+    let wh = action(family(), "ins/addMedical");
+    const overlap = (w: WorkingHousehold) => checkList(w).filter((r) => r.kind === "notice" && r.id.startsWith("notice:insurance/overlap/"));
+    expect(overlap(wh)).toEqual([]);
+    wh = action(wh, "ins/addMedical");
+    const rows = overlap(wh);
+    expect(rows.map((r) => [r.card, r.label])).toEqual([["insurance", "ご主人の医療保険が2本"]]);
+    expect(rows[0]!.detail).toBe("ご主人の医療保険が2本あります（医療保険 1（ご主人）・医療保険 2（ご主人））。入院・手術の保障が重なっていないか、保険証券で確かめてください");
   });
 });

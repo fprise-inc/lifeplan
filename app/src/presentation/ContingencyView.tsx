@@ -3,6 +3,7 @@
 // → グラフ（ContingencyChartCard。資産の推移／必要保障額の推移の切り替え）→ 想定の前提（作業の層の部品）。グラフは主画面と同じ幅・高さの感覚で、年の選び方（線の上の○・クリックで固定・薄いグレーの実線の補助線）と
 // 補間の動き（tween.ts）も主画面と同じ決まり（yearPick.ts）で描く。色は藍（万一の場合・必要保障額）と灰（万一なし・死亡保険金）、不足は赤のベタ塗りと「▲」。
 // 金融資産が足りなくなる所は主画面と同じ「!」の段と赤い点線（ShortMark.tsx）
+import { Fragment } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { PipButton } from "./ChartPip.tsx";
 import { areaAbove, areaBelow, linePath, scale, type Frame, type Scale } from "./chart.ts";
@@ -705,14 +706,69 @@ export function Breakdown({ model }: { model: ScenarioModel["breakdown"] }) {
       </thead>
       <tbody>
         {model.rows.map((r) => (
-          <tr key={r.label} class={`g-${r.group}`}>
-            <th scope="row">{r.label}</th>
-            <td class={r.firstYear < 0 ? "neg" : ""}>{manDiff(r.firstYear)}万円</td>
-            <td class={r.total < 0 ? "neg" : ""}>{manDiff(r.total)}万円</td>
-          </tr>
+          <Fragment key={r.label}>
+            <tr class={`g-${r.group}`}>
+              <th scope="row">{r.label}</th>
+              <td class={r.firstYear < 0 ? "neg" : ""}>{manDiff(r.firstYear)}万円</td>
+              <td class={r.total < 0 ? "neg" : ""}>{manDiff(r.total)}万円</td>
+            </tr>
+            {/* 大きな病気の場面: 保険金・給付金の契約ごと・給付ごとの内訳（0055・0071 の追記） */}
+            {(r.details ?? []).map((d) => (
+              <Fragment key={`${r.label}/${d.label}`}>
+                <tr class={`g-detail${d.parts.length > 0 ? " has-parts" : ""}`} data-benefit-detail>
+                  <th scope="row">{d.label}</th>
+                  <td class={d.firstYear < 0 ? "neg" : ""}>{manDiff(d.firstYear)}万円</td>
+                  <td class={d.total < 0 ? "neg" : ""}>{manDiff(d.total)}万円</td>
+                </tr>
+                {/* 給付ごとの額は表の幅いっぱいに（狭い幅でも数字の列を細くしない）。給付の切れ目でだけ折り返す */}
+                {d.parts.length > 0 ? (
+                  <tr class="g-detail-parts" data-benefit-parts>
+                    <td colSpan={3}>
+                      {d.parts.map((x, i) => (
+                        <span key={i} class="bd-part">
+                          {i > 0 ? "＋" : ""}
+                          {x}
+                        </span>
+                      ))}
+                    </td>
+                  </tr>
+                ) : null}
+              </Fragment>
+            ))}
+          </Fragment>
         ))}
       </tbody>
+      {model.note != null ? (
+        <tfoot>
+          <tr>
+            <td colSpan={3} class="cg-break-note" data-benefit-note>
+              {model.note}
+            </td>
+          </tr>
+        </tfoot>
+      ) : null}
     </table>
+  );
+}
+
+/** 必要保障額の推移の気づき（保険が切れる年と、その年の不足。0055・0071 の追記）。「その年を見る」でその年に亡くなった場面にする */
+function ProtectionInsights({ model, onYear }: { model: ProtectionChartModel; onYear: (y: number) => void }) {
+  if (model.insights.length === 0) return null;
+  return (
+    <section class="fp-insights cg-insights" aria-label="気づき" data-protection-insights>
+      <h3>気づき（{model.insights.length}）</h3>
+      <ul>
+        {model.insights.map((i) => (
+          <li key={i.text} data-protection-insight={i.year}>
+            <span class="fee-tag">保険が切れる年</span>
+            <span>{i.text}</span>
+            <button type="button" class="link-btn" onClick={() => onYear(i.year)}>
+              その年を見る
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -866,6 +922,7 @@ export function ContingencyChartCard({ model, mode, onMode, pinnedYear, onPinYea
           <ProtectionLegend />
           <ContingencyChart spec={{ kind: "protection", model: prot, eventYear: protEvent, onPick: (y) => onPick(prot.key, y) }} />
           {protEvent !== null ? <ProtectionLine model={prot} year={protEvent} /> : null}
+          <ProtectionInsights model={prot} onYear={(y) => onPick(prot.key, y)} />
           {prot.reformFrom !== null ? <p class="cg-notice">{prot.reformFrom}年から（2028年4月以後に亡くなる年）の遺族年金は、見直し前の制度で計算しています</p> : null}
         </div>
       )}

@@ -628,6 +628,14 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .cg-break th, .cg-break td { border-bottom: 1px solid var(--line-2); padding: 5px 8px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cg-break th[scope="row"], .cg-break thead th:first-child { text-align: left; }
 .cg-break thead th { background: #f6f7f9; font-size: 0.85rem; }
+/* 大きな病気の場面の保険金・給付金の契約ごとの内訳（0055・0071 の追記）: 行の下に字下げして小さく。給付ごとの額は折り返す */
+.cg-break tr.g-detail th, .cg-break tr.g-detail td { font-size: 0.84rem; color: var(--ink-2); border-bottom-style: dashed; }
+.cg-break tr.g-detail th { padding-left: 22px; white-space: normal; word-break: keep-all; font-weight: 400; }
+.cg-break tr.g-detail.has-parts th, .cg-break tr.g-detail.has-parts td { border-bottom: 0; padding-bottom: 0; }
+.cg-break tr.g-detail-parts td { text-align: left; white-space: normal; padding: 0 8px 5px 22px; font-size: 0.8rem; color: var(--ink-2); border-bottom-style: dashed; }
+.cg-break .bd-part { white-space: nowrap; }
+.cg-break .cg-break-note { text-align: left; white-space: normal; font-size: 0.8rem; color: var(--ink-2); border-bottom: 0; padding-top: 6px; }
+.cg-insights { margin-top: 12px; }
 .cg-break tr.g-net th, .cg-break tr.g-net td { font-weight: 700; border-top: 2px solid var(--ink); }
 .cg-break td.neg { color: var(--short-ink); }
 /* 狭い画面: 項目の名前と見出しは折り返し、余白を詰める（表がページの幅を超えない。金額は折り返さない） */

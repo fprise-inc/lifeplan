@@ -23,6 +23,7 @@ import type { Level } from "../input/form.ts";
 import { overrideCount, premiseFor, writePremise } from "./planPremise.ts";
 import { PremisePanel } from "./PremisePanel.tsx";
 import { protectionChart, scenarioCards, scenarioModel, yearOptions, yearStripModel } from "./present.ts";
+import { contractLabels, illnessBenefitNote, illnessBenefits, lapseInsights } from "./insuranceLines.ts";
 import { adults, chartRequests, defaultYear, keptSlots, planSlot, scenarioRequest, scenarios } from "./requests.ts";
 
 /** 1年ずつ見せるときの、1年あたりの時間（ミリ秒） */
@@ -172,6 +173,8 @@ export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui
   }
   opened.current.first = false;
 
+  /** 保険の契約の名前（必要保障額の推移の気づき・大きな病気の場面の保険金・給付金の内訳。0055・0071 の追記） */
+  const insLabels = useMemo(() => contractLabels(wh), [wh]);
   const model: ContingencyModel = useMemo(() => {
     const charts: ProtectionChartModel[] = [];
     let protStatus: ContingencyModel["protection"]["status"] = "ready";
@@ -185,7 +188,7 @@ export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui
       } else if (s?.result == null || req === undefined) {
         if (protStatus !== "error") protStatus = "loading";
       } else if (s.result.protection !== undefined) {
-        const c = protectionChart(req, s.result.protection, s.result, m);
+        const c = protectionChart(req, s.result.protection, s.result, m, lapseInsights(s.result.protection, m, insLabels));
         if (c !== null) charts.push(c);
       }
     });
@@ -196,7 +199,9 @@ export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui
     else if (sc !== undefined && sr?.result != null && none?.result != null)
       scenario = {
         status: "ready",
-        model: scenarioModel({ req: wh.request, scenario: sc, year, result: sr.result, none: none.result, targetAge, choice: wh.contingency.oldAgeChoice[sc.member], plan: wh.contingency, ...(wh.contingency.market?.drop !== undefined ? { drop: wh.contingency.market.drop } : {}) }),
+        model: scenarioModel({ req: wh.request, scenario: sc, year, result: sr.result, none: none.result, targetAge, choice: wh.contingency.oldAgeChoice[sc.member], plan: wh.contingency, ...(wh.contingency.market?.drop !== undefined ? { drop: wh.contingency.market.drop } : {}),
+          ...(sc.kind === "illness" ? { benefits: { details: illnessBenefits(wh, sc, year, sr.result, none.result, insLabels), note: illnessBenefitNote(wh) } } : {}),
+        }),
         error: null,
         stale: sr.stale || none.stale,
       };
@@ -220,7 +225,7 @@ export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui
       scenario,
     };
     // view() は engine の中の結果を読む（engine の知らせのたびに tick が進むので、読み直す）
-  }, [tick, engine, requests, protMembers, sc, scs, wh, year, targetAge, options, sweepList, dragging, planSaved.request, planId]);
+  }, [tick, engine, requests, protMembers, sc, scs, wh, year, targetAge, options, sweepList, dragging, planSaved.request, planId, insLabels]);
 
   // ---- 年を選ぶ・1年ずつ見せる ----
   const setYear = (y: number) => {
