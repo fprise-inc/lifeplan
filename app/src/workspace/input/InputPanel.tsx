@@ -14,7 +14,7 @@ import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import { withRefreshedEstimates } from "./estimates.ts";
 import { withProvisionalHousing } from "./housingCredit.ts";
 import type { WorkingHousehold } from "./household.ts";
-import { Help } from "../../presentation/Help.tsx";
+import { Help, HelpOf } from "../../presentation/Help.tsx";
 import { LEVEL_HELP_COMMON, levelDiffLine } from "./levelHelp.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { isPinned, itemOf, itemStage, pinOfGroup, saveItem, togglePin } from "./items.ts";
@@ -337,13 +337,6 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
             </Help>
           </h2>
           <div class="ip-tools">
-            {/* 標準と詳細の違いは切り替えの左の「?」の中（どのカードも同じ言い回し。levelHelp.ts。0077 の追記） */}
-            <Help label="標準と詳細の違い" id="level">
-              {LEVEL_HELP_COMMON.map((t) => (
-                <p key={t}>{t}</p>
-              ))}
-              <p data-level-diff>{levelDiffLine(stage.id)}</p>
-            </Help>
             <div class="level-switch" role="group" aria-label="入力の細かさ">
               <button type="button" class={level === "simple" ? "on" : ""} aria-pressed={level === "simple"} onClick={() => onLevel("simple")}>
                 標準
@@ -352,6 +345,13 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
                 詳細
               </button>
             </div>
+            {/* 標準と詳細の違いは切り替えのすぐ右の「?」の中（どの入力項目も同じ言い回し。levelHelp.ts。0077 の追記。「?」は説明する物の右に置く＝2026-10-29 の追記） */}
+            <Help label="標準と詳細の違い" id="level">
+              {LEVEL_HELP_COMMON.map((t) => (
+                <p key={t}>{t}</p>
+              ))}
+              <p data-level-diff>{levelDiffLine(stage.id)}</p>
+            </Help>
             <button type="button" class="x-btn" aria-label="閉じる（Esc）" title="閉じる（Esc）" onClick={tryClose}>
               ×
             </button>
@@ -556,17 +556,23 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
             <>
               <p class="ip-note" data-panel-note>
                 {note}
-                <Help label="保存" id="save">
-                  <p>{saveHelp}</p>
-                  {!removed && item.estimated > 0 ? <p>保存しても、推定の欄が残る間は項目は「推定で計算中」のままです。</p> : null}
-                </Help>
               </p>
               <button type="button" class="btn" onClick={onClose}>
                 キャンセル
               </button>
-              <button type="button" class="btn primary" onClick={save} data-save>
-                保存
-              </button>
+              {/* 保存すると何が起きるかは、保存のボタンのすぐ右の「?」の中（前は下の帯の左端にあり、何の説明か分からなかった。0077 の 2026-10-29 の追記） */}
+              <HelpOf
+                help={
+                  <Help label="保存" id="save" target="保存">
+                    <p>{saveHelp}</p>
+                    {!removed && item.estimated > 0 ? <p>保存しても、推定の欄が残る間は項目は「推定で計算中」のままです。</p> : null}
+                  </Help>
+                }
+              >
+                <button type="button" class="btn primary" onClick={save} data-save>
+                  保存
+                </button>
+              </HelpOf>
             </>
           )}
         </div>

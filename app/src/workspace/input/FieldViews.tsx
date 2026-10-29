@@ -2,16 +2,16 @@
 // 値を変えるたびに世帯を作り直して onEdit に渡す（入力のパネルでは下書きに、万一の画面では世帯にそのまま入れる）。
 // 0077: 欄の説明（help・読むだけの理由・ほかへの影響）と区画・まとまりの説明は、名前の横の「?」の中へ。推定の根拠は状態の印を押したときに開く。
 // 灰色の入力例は欄の幅に収まる物だけ（placeholder.ts）
-import { createContext, Fragment, type ComponentChildren } from "preact";
+import { createContext, type ComponentChildren } from "preact";
 import { useContext, useState } from "preact/hooks";
-import { Help } from "../../presentation/Help.tsx";
+import { Help, HelpOf } from "../../presentation/Help.tsx";
 import { PopIcon } from "../../presentation/icons.tsx";
 import { FieldIcon } from "./fieldIcons.tsx";
 import { fittingPlaceholder, textEm } from "./placeholder.ts";
 import type { Timepoint } from "../../engine/types.ts";
 import { groupShown, type ActionDef, type FieldDef, type GroupDef, type Level, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
-import { availableOps, fieldStatus, FILL_LABEL, fillTitle, OP_LABELS, STATUS_LABELS, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
+import { availableOps, fieldStatus, FILL_LABEL, fillTitle, OP_LABELS, OP_TITLES, STATUS_LABELS, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
 import { revealAdded, revealOpened } from "../../presentation/revealAdded.ts";
 import { convertWhen, modeOf, parseWhen, readWhen, readYearMonth, showWhen, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
@@ -360,12 +360,11 @@ export function Group({ group, wh, level, onEdit, more, moreOf }: { group: Group
           <PlanGroupTag group={group} wh={wh} />
           <PinButton group={group} />
           {actions.filter((a) => a.danger === true).map((a) => (
-            <Fragment key={a.key}>
+            <HelpOf key={a.key} help={actionHelp(a)}>
               <button type="button" class="link-btn danger" onClick={() => onEdit(a.run(wh))}>
                 {a.label}
               </button>
-              <ActionHelp action={a} />
-            </Fragment>
+            </HelpOf>
           ))}
         </div>
       ) : null}
@@ -395,38 +394,75 @@ export function Group({ group, wh, level, onEdit, more, moreOf }: { group: Group
   );
 }
 
+/** ボタンの名前から頭の「＋」を外した物（読み上げの名前「〇〇の説明」に使う） */
+const actionName = (label: string): string => label.replace(/^＋\s*/, "");
+
+/**
+ * ボタンの並び。ボタンの「?」は、そのボタンと1つのまとまり（HelpOf）にしてすぐ右に置く（間で折り返さない・次のボタンとの間を空ける）。
+ * まとまりの説明（note）は、状態の言葉（「まだありません」）があればその右、無ければボタンの並び全体の右に置き、開いている間は並びのボタンを
+ * 薄く強調する。説明の1行目に、どのボタンの説明かを出す（0077 の 2026-10-29 の追記。前はボタンの左に置いていて、どれの説明か分からなかった）
+ */
 function Actions({ actions, wh, onEdit, note }: { actions: ActionDef[]; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; note?: string | undefined }) {
+  const sn = splitNote(note);
+  const names = actions.map((a) => a.label);
+  const noteHelp =
+    sn.help !== null ? (
+      <Help label={names.length > 0 ? names.map(actionName).join("・") : "この操作"} {...(sn.state === null && names.length > 1 ? { target: names.map((n) => `「${n}」`).join("") } : sn.state === null && names.length === 1 ? { target: names[0]! } : {})}>
+        {sn.help}
+      </Help>
+    ) : null;
+  const buttons = actions.map((a) => (
+    <HelpOf key={a.key} help={actionHelp(a)}>
+      <button
+        type="button"
+        class={a.danger === true ? "link-btn danger" : "add-btn"}
+        onClick={(e) => {
+          // 「＋」で足した物は、見える所へ動かして光らせ、最初の欄に移る（revealAdded）
+          if (a.danger !== true && a.label.startsWith("＋")) revealAdded(e.currentTarget);
+          onEdit(a.run(wh));
+        }}
+        data-action={a.key}
+        {...(a.pressed !== undefined ? { "aria-pressed": a.pressed } : {})}
+        {...(a.title !== undefined ? { title: a.title } : {})}
+      >
+        {a.label}
+      </button>
+    </HelpOf>
+  ));
   return (
     <div class="in-actions">
-      {splitNote(note).state !== null ? <span class="in-note in-empty">{splitNote(note).state}</span> : null}
-      {splitNote(note).help !== null ? <Help label={actions[0]?.label ?? "この操作"}>{splitNote(note).help}</Help> : null}
-      {actions.map((a) => (
-        <Fragment key={a.key}>
-          <button
-            type="button"
-            class={a.danger === true ? "link-btn danger" : "add-btn"}
-            onClick={(e) => {
-              // 「＋」で足した物は、見える所へ動かして光らせ、最初の欄に移る（revealAdded）
-              if (a.danger !== true && a.label.startsWith("＋")) revealAdded(e.currentTarget);
-              onEdit(a.run(wh));
-            }}
-            data-action={a.key}
-            {...(a.pressed !== undefined ? { "aria-pressed": a.pressed } : {})}
-            {...(a.title !== undefined ? { title: a.title } : {})}
-          >
-            {a.label}
-          </button>
-          <ActionHelp action={a} />
-        </Fragment>
-      ))}
+      {sn.state !== null ? (
+        <HelpOf help={noteHelp}>
+          <span class="in-note in-empty">{sn.state}</span>
+        </HelpOf>
+      ) : null}
+      {sn.state === null && noteHelp !== null && buttons.length > 0 ? (
+        <HelpOf help={noteHelp} all>
+          {buttons}
+        </HelpOf>
+      ) : (
+        <>
+          {sn.state === null ? noteHelp : null}
+          {buttons}
+        </>
+      )}
     </div>
   );
 }
 
-/** ボタンの横の「?」（ボタンの名前に書かない説明。0077 の追記）。説明が無ければ何も出さない */
-export function ActionHelp({ action }: { action: ActionDef }) {
+/** ボタンの横の「?」（ボタンの名前に書かない説明。0077 の追記）。説明が無ければ null。1行目にボタンの名前を出す */
+export function actionHelp(action: ActionDef): ComponentChildren | null {
   if (action.help === undefined || action.help === "") return null;
-  return <Help label={action.label.replace(/^＋\s*/, "")}>{action.help}</Help>;
+  return (
+    <Help label={actionName(action.label)} target={action.label}>
+      {action.help}
+    </Help>
+  );
+}
+
+/** ボタンの横の「?」の部品の形（説明が無ければ何も出さない）。ボタンと並べるときは HelpOf に actionHelp を渡す */
+export function ActionHelp({ action }: { action: ActionDef }) {
+  return <>{actionHelp(action)}</>;
 }
 
 /**
@@ -483,6 +519,27 @@ export function FillButton({ label, status, inside, onFill }: { label: string; s
   );
 }
 
+/**
+ * 欄の下の、値の状態の操作のリンク（推定に戻す・わからない・該当なし。0041 の 2026-10-29 の追記）。その欄でその状態で意味のある物だけを
+ * 並べ、押せばすぐ変わる（前は「わからない・該当なしなど」を押して開く形だった）。「この値にする」は欄の横・中のボタン（FillButton）なので出さない。
+ * 選んだ後は、印（わからない・該当なし）と、戻す操作（推定に戻す・この値にする）が同じ所に出る
+ */
+export function StateOpLinks({ f, ops, run, lead }: { f: FieldDef; ops: readonly StateOp[]; run: (op: StateOp) => void; lead?: ComponentChildren }) {
+  const shown = ops.filter((o) => o !== "confirm");
+  if (shown.length === 0 && (lead === undefined || lead === null)) return null;
+  return (
+    <div class="fld-ops" data-field-ops={f.key}>
+      {lead}
+      {shown.map((o) => (
+        // 押したときに欄からフォーカスを外さない（外すと、欄の値が入れ直されて「保存していない変更」になるため）
+        <button type="button" key={o} class="link-btn" title={OP_TITLES[o]} aria-label={`${f.label}: ${OP_LABELS[o]}`} onMouseDown={(e) => e.preventDefault()} onClick={() => run(o)} data-op={o}>
+          {OP_LABELS[o]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** 欄を離れるときに書くか: 入ったときと同じ文字のまま離れたら書かない（欄に入って離れる・Tab で通るだけで、値も状態も変えない。0041） */
 export const shouldCommitOnBlur = (startText: string | null, text: string): boolean => startText === null || text !== startText;
 
@@ -499,7 +556,6 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
   const [startText, setStartText] = useState<string | null>(null);
   /** 使えない文字のまま欄を離れたときの知らせ（前の値のままにしたこと）。次に打つまで出す */
   const [rejected, setRejected] = useState<string | null>(null);
-  const [opsOpen, setOpsOpen] = useState(false);
   const [unit, setUnit] = useState<YenUnit>(f.kind === "yen" ? (f.unit ?? "man") : "man");
   const [period, setPeriod] = useState<YenPeriod>(f.kind === "yen" && f.basis === "annual" ? "annual" : "monthly");
   const id = fieldDomId(f.key);
@@ -508,7 +564,6 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
   const commitTyped = (v: Val) => onEdit(typeValue(f, wh, v));
   const runOp = (op: StateOp) => {
     if (stateOps === null) return;
-    setOpsOpen(false);
     onEdit(stateOps(wh, f, op));
   };
   const shownStatus: ValueStatus | null = status !== null ? status.status : state.estimated != null || state.assumed != null ? "estimated" : null;
@@ -525,30 +580,11 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
   // 推定の値をそのまま入れる（値の状態の操作の確定と同じ）は、欄の横か中のボタン（0041 の追記）
   const canFill = ops.includes("confirm") && shownStatus !== null;
   const fill = (inside: boolean) => (canFill && shownStatus !== null ? <FillButton label={f.label} status={shownStatus} inside={inside} onFill={() => runOp("confirm")} /> : null);
-  // ほかの操作（わからない・該当なしなど）とプランの印は欄の下（時点の欄でも同じ。0041）
+  // ほかの操作（推定に戻す・わからない・該当なし）とプランの印は欄の下（時点の欄でも同じ。0041）
   const stateLines = (
     <>
       <PlanMarkLine f={f} wh={wh} />
-      {ops.some((o) => o !== "confirm") ? (
-        <div class="fld-ops" data-field-ops={f.key}>
-          {ops.some((o) => o !== "confirm") ? (
-            <>
-              <button type="button" class="link-btn fld-more" aria-expanded={opsOpen} onMouseDown={(e) => e.preventDefault()} onClick={() => setOpsOpen(!opsOpen)} data-op-menu>
-                {opsOpen ? "閉じる" : "わからない・該当なしなど"}
-              </button>
-              {opsOpen
-                ? ops
-                    .filter((o) => o !== "confirm")
-                    .map((o) => (
-                      <button type="button" key={o} class="link-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => runOp(o)} data-op={o}>
-                        {OP_LABELS[o]}
-                      </button>
-                    ))
-                : null}
-            </>
-          ) : null}
-        </div>
-      ) : null}
+      <StateOpLinks f={f} ops={ops} run={runOp} />
     </>
   );
 
@@ -688,8 +724,9 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
           {f.icon !== undefined ? <FieldIcon name={f.icon} /> : null}
           {f.label}
         </label>
-        {badge}
+        {/* 欄の説明の「?」は欄の名前のすぐ右（状態の印はその後ろ。0077 の 2026-10-29 の追記） */}
         {fieldHelp(f)}
+        {badge}
       </div>
       <div class="fld-c">
         {control}
@@ -799,8 +836,8 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
     <div class={`fld when${status === "estimated" ? " is-est" : status !== null && status !== "confirmed" ? ` is-${STATUS_CLASS[status]}` : ""}`} data-when={f.key} data-field={f.key}>
       <div class="fld-l">
         <label for={id}>{label}</label>
-        {badge}
         {fieldHelp(f, [state.raw !== null ? time.when.monthOnly : undefined, mode === "event" && state.ctx.events.length === 0 ? "出来事は、子の独立・持ち家の入居・年金の受け取り開始・介護の始まりや、家族の項目の「出来事」から選べます" : undefined])}
+        {badge}
       </div>
       <div class="fld-c">
         <input
