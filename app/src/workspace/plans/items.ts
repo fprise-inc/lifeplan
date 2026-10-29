@@ -18,6 +18,7 @@ import { buildStages, STAGE_ORDER } from "../input/stages/index.ts";
 import { pctFromRate, sameRate } from "../input/units.ts";
 import { addMonths, advisoryFeeInCurrent, hasAdvisoryFee, LEVER_KEYS, parseYm, readLevers, type LeverKey, type LeverValues } from "../levers.ts";
 import { roles } from "../roles.ts";
+import { resolveKey } from "../store/readings.ts";
 import { bucketShares, expectedReturn, type MixPart } from "./allocation.ts";
 import { addRate, cmpRate, nonNegative, pctText, subRate } from "./decimal.ts";
 import { ageAt } from "../levers.ts";
@@ -817,6 +818,7 @@ const numberOr = (v: unknown): number | null => (typeof v === "number" && Number
 
 function fieldItems(wh: WorkingHousehold, stages: StageDef[], skip: Set<string>): MovableItem[] {
   const members = new Set(wh.request.input.household.members.map((m) => m.id));
+  const input = wh.request.input as unknown as Record<string, unknown>;
   const out: MovableItem[] = [];
   stages.forEach((stage, i) => {
     const stageLabel = STAGE_ORDER[i]?.label ?? stage.label;
@@ -824,6 +826,9 @@ function fieldItems(wh: WorkingHousehold, stages: StageDef[], skip: Set<string>)
       for (const g of section.groups)
         for (const f of g.fields) {
           if (!NUMERIC.has(f.kind) || f.readOnly !== undefined || f.structural === true || skip.has(f.key)) continue;
+          // 画面の鍵を当て先・合成の対策に読み替えられない欄は出さない（出すと、プランに保存するとき差分にならずに落ちる。0036 の追記 2026-10-29）
+          const reading = resolveKey(`field:${f.key}`, input);
+          if (reading === null || reading.kind === "unresolved") continue;
           const id = UUID.exec(f.key)?.[0];
           const target: DiffTarget = id === undefined ? { plan: "assumptions" } : members.has(id) ? { member: id } : { object: id };
           const where = g.title ?? section.title;
@@ -861,9 +866,14 @@ export function buildCatalog(wh: WorkingHousehold, selfId: string, demo: DemoHou
 }
 
 function buildCatalogOf(wh: WorkingHousehold, selfId: string, demo: DemoHousehold | null): Catalog {
+  const items = [...leverItems(wh, selfId, demo), ...spouseWorkItem(wh), ...feeItem(wh), ...investItems(wh), ...surplusItems(wh), ...loanItems(wh), ...mixItems(wh), ...fieldItems(wh, buildStages(wh), fieldSkips(wh, selfId))];
+  return { selfId, items, byKey: new Map(items.map((i) => [i.key, i])) };
+}
+
+/** 対策・よく使う項目と同じものを動かす入力の欄（一覧に重ねて出さない欄のキー） */
+export function fieldSkips(wh: WorkingHousehold, selfId: string): Set<string> {
   const h = wh.request.input.household;
   const base = readLevers(wh.request, selfId);
-  // 対策・よく使う項目と同じものを動かす入力の欄は、一覧に重ねて出さない
   const skip = new Set<string>();
   const living = (h.livingExpenses ?? []).find((l) => l.mode === "total");
   if (living !== undefined && base.livingMonthly !== undefined) skip.add(`living/${living.id}/monthly`);
@@ -886,8 +896,7 @@ function buildCatalogOf(wh: WorkingHousehold, selfId: string, demo: DemoHousehol
   for (const m of h.members) skip.add(`work/${m.id}/now/total`);
   // 推計の区分の受け取り開始の欄（構成員の pensionClaim。0078）は、対策の「年金の受け取り開始」と同じものを動かすので重ねて出さない
   for (const m of h.members) for (const t of ["", "/basic", "/employee"]) skip.add(`pension/${m.id}/estimate/claim${t}`);
-  const items = [...leverItems(wh, selfId, demo), ...spouseWorkItem(wh), ...feeItem(wh), ...investItems(wh), ...surplusItems(wh), ...loanItems(wh), ...mixItems(wh), ...fieldItems(wh, buildStages(wh), skip)];
-  return { selfId, items, byKey: new Map(items.map((i) => [i.key, i])) };
+  return skip;
 }
 
 /** 定年後の予定の条件（働く最後の年齢を延ばすときの働き方） */

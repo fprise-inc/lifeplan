@@ -847,6 +847,22 @@ const LEVER_CARDS: Readonly<Record<string, string>> = {
   carFirstPurchase: "car",
   carLoanYears: "car",
   carUntilAge: "car",
+  // 0.16 より後に足した欄の合成の対策（0036 の追記 2026-10-29）
+  endYearAge: "assumptions",
+  loanMonthlyPayment: "housing",
+  loanDebtorShare: "housing",
+  residenceOwnerShare: "housing",
+  rentalPartBuilding: "rental",
+  rentalPartEquipment: "rental",
+  rentalPartLand: "rental",
+  inheritanceHeirCount: "inheritance",
+  inheritanceTaxNow: "inheritance",
+  inheritanceTaxContingency: "inheritance",
+  inheritanceTaxBothAfter: "inheritance",
+  insuranceMainAmount: "insurance",
+  livingGroupDaily: "living",
+  livingGroupMisc: "living",
+  postRetirementSalary: "work",
 };
 
 /** 万一の前提の差分の行の置き場所（入力のホームのカードではない。万一のタブ） */

@@ -6,6 +6,7 @@
 // 同じ表と同じ決まりで読み、凍結した見本（crates/household-store/tests/fixtures/readings/0.16/）で同じ結果になることを確かめる。
 // 0.16 の世帯のデータには、並びの要素の ID が無い。ID の無い要素は、変換の段が振るのと同じ決まった ID（migrationId）で指す
 import { ITEM_PLACES, READING_ENTRIES } from "../../generated/readings.ts";
+import { LATER_FIELD_ENTRIES } from "./laterFields.ts";
 
 /** 向き先（0036 の2。足す先の物の集まり・合成の対策は読み替えでは作らない） */
 export type Target = { object: string } | { member: string } | { plan: "assumptions" | "input" | "contingency" };
@@ -44,10 +45,29 @@ export interface ReadingEntry {
  * 世帯ファイルには鍵を書かず、合成の対策（向き先 `lever`）で書くので、0.16 の変換の段（本体）は読まない。画面の鍵と合成の対策を行き来するためだけに、
  * 読み替え表の後ろに足して引く（`until` は足したときの形式の版）
  */
-export const LATER_ENTRIES: readonly ReadingEntry[] = [{ from: "spouse:{member}:work", until: "0.35", to: { lever: "spouseWork", member: true } }];
+export const LATER_ENTRIES: readonly ReadingEntry[] = [
+  { from: "spouse:{member}:work", until: "0.35", to: { lever: "spouseWork", member: true } },
+  // 形式 0.16 より後に足した入力の欄のうち、1つの値をそのまま書かない欄（複数の値を動かす・物や要素を作る・単位を直す）。その欄の書き方で当てる
+  // 合成の対策にする（0.16 の欄と同じ。0036 の追記 2026-10-29）。1つの値をそのまま書く欄は laterFields.ts（作る手順で作る）
+  { from: "field:assume/endYear/age/{member}", until: "0.35", to: { lever: "endYearAge", member: true } },
+  { from: "field:housing/debt/{object}/payment", until: "0.35", to: { lever: "loanMonthlyPayment", object: true } },
+  { from: "field:housing/debt/{object}/share", until: "0.35", to: { lever: "loanDebtorShare", object: true } },
+  { from: "field:housing/res/{object}/ownerShare", until: "0.35", to: { lever: "residenceOwnerShare", object: true } },
+  { from: "field:sav/{object}/property/part/building", until: "0.35", to: { lever: "rentalPartBuilding", object: true } },
+  { from: "field:sav/{object}/property/part/equipment", until: "0.35", to: { lever: "rentalPartEquipment", object: true } },
+  { from: "field:sav/{object}/property/part/land", until: "0.35", to: { lever: "rentalPartLand", object: true } },
+  { from: "field:inherit/tax/heirs/{member}", until: "0.35", to: { lever: "inheritanceHeirCount", member: true } },
+  { from: "field:inherit/tax/override/now/{member}", until: "0.35", to: { lever: "inheritanceTaxNow", member: true } },
+  { from: "field:inherit/tax/override/contingency/{member}", until: "0.35", to: { lever: "inheritanceTaxContingency", member: true } },
+  { from: "field:inherit/tax/override/bothAfter", until: "0.35", to: { lever: "inheritanceTaxBothAfter" } },
+  { from: "field:ins/{object}/main", until: "0.35", to: { lever: "insuranceMainAmount", object: true } },
+  { from: "field:living/{object}/group/daily", until: "0.35", to: { lever: "livingGroupDaily", object: true } },
+  { from: "field:living/{object}/group/misc", until: "0.35", to: { lever: "livingGroupMisc", object: true } },
+  { from: "field:work/{member}/postSalary", until: "0.35", to: { lever: "postRetirementSalary", member: true } },
+];
 
-/** 画面が引く表（0.16 の読み替え表と、その後に足した合成の対策） */
-const ENTRIES: readonly ReadingEntry[] = [...READING_ENTRIES, ...LATER_ENTRIES];
+/** 画面が引く表（0.16 の読み替え表と、その後に足した合成の対策と、その後に足した欄の当て先） */
+const ENTRIES: readonly ReadingEntry[] = [...READING_ENTRIES, ...LATER_ENTRIES, ...LATER_FIELD_ENTRIES];
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
