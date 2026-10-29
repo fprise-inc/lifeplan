@@ -1,5 +1,5 @@
 // 入力のパネルの説明の「?」（0077 の追記）: 開いただけでは説明が出ない（フォーカスで開くのはキーボードで移ったときだけ・開いた直後に「?」へ移らない）。
-// 標準／詳細の切り替えの左の「?」は、どのカードも同じ言い回しで、詳細で増える主な欄はそのカードの詳細でだけ出る欄に当たる。
+// 標準／詳細の切り替えの左の「?」は、入力項目ごとの2文（標準で入れるもの・詳細で増えるもの）で、並べるものはその入力項目の標準・詳細に出る欄に当たる。
 // 相続・贈与のパネルの相続税の目安は、入れる区画の下（0060 の追記）
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -10,7 +10,7 @@ import { focusOpensHelp } from "../src/presentation/Help.tsx";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { InputPanel, PANEL_FIRST_FOCUS } from "../src/workspace/input/InputPanel.tsx";
 import { itemStage } from "../src/workspace/input/items.ts";
-import { LEVEL_DIFF, LEVEL_HELP_COMMON, levelDiffLine } from "../src/workspace/input/levelHelp.ts";
+import { LEVEL_HELP, LEVEL_HELP_COMMON, levelDiffLine, levelHelpLines } from "../src/workspace/input/levelHelp.ts";
 import { STAGE_ORDER } from "../src/workspace/input/stages/index.ts";
 import { APP_DIR, REPO_DIR } from "../scripts/lib.ts";
 import { modelHousehold } from "./helpers.ts";
@@ -55,7 +55,7 @@ describe("開いただけでは説明が出ない", () => {
 });
 
 describe("標準／詳細の切り替えの左の「?」", () => {
-  it("どのカードにもあり、切り替えのすぐ左（同じ言い回しの共通の文と、カードごとの1行）", () => {
+  it("どの入力項目にもあり、切り替えのすぐ左（入力項目ごとの2文）", () => {
     const wh = open(MODELS[0]!);
     for (const s of STAGE_ORDER) {
       const html = panel(wh, s.id);
@@ -63,9 +63,13 @@ describe("標準／詳細の切り替えの左の「?」", () => {
       expect(tools, s.label).not.toBeNull();
       expect(tools![1]).toContain('data-help="level"');
       expect(tools![1]).toContain('aria-label="標準と詳細の違いの説明"');
-      for (const t of LEVEL_HELP_COMMON) expect(tools![1]).toContain(t);
+      expect(LEVEL_HELP_COMMON).toEqual([]);
       expect(tools![1]).toContain(levelDiffLine(s.id));
-      expect(levelDiffLine(s.id)).toMatch(/^詳細で増える(主な)?欄: /);
+      const [a, b] = levelHelpLines(s.id);
+      expect(a).toMatch(/^標準では、[^。]+など、結果を大きく動かすものを入れます。$/);
+      expect(b).toMatch(/^詳細では、さらに[^。]+も入れられます。入れなければ(推定|既定の値)で計算します。$/);
+      // 「欄」「項目」とは書かない（「項目」は入力項目のこと）
+      expect(a + b, s.label).not.toMatch(/欄|項目/);
     }
   });
   it("カードの説明の「?」には、標準／詳細の話を重ねない", () => {
@@ -73,8 +77,9 @@ describe("標準／詳細の切り替えの左の「?」", () => {
     const head = /data-help="panel"[\s\S]*?<\/h2>/.exec(html)![0];
     expect(head).not.toContain("標準／詳細");
   });
-  it("詳細で増える主な欄は、そのカードの詳細でだけ出る欄・ボタン・区画の名前に当たる（見本の世帯のどれかで）", () => {
+  it("並べるものは、その入力項目の標準に出る欄・詳細でだけ出る欄（ボタン・区画の名前を含む）に当たる（見本の世帯のどれかで）", () => {
     const names = new Map<string, Set<string>>();
+    const simpleNames = new Map<string, Set<string>>();
     for (const m of MODELS) {
       const wh = open(m);
       for (const s of STAGE_ORDER) {
@@ -82,22 +87,27 @@ describe("標準／詳細の切り替えの左の「?」", () => {
         if (st === null) continue;
         const set = names.get(s.id) ?? new Set<string>();
         names.set(s.id, set);
+        const easy = simpleNames.get(s.id) ?? new Set<string>();
+        simpleNames.set(s.id, easy);
+        const put = (deep: boolean, name: string) => (deep ? set : easy).add(name);
         for (const sec of st.sections) {
-          if (sec.level === "detail") set.add(sec.title);
-          for (const a of sec.actions) if (sec.level === "detail" || a.level === "detail") set.add(a.label);
+          put(sec.level === "detail", sec.title);
+          for (const a of sec.actions) put(sec.level === "detail" || a.level === "detail", a.label);
           for (const g of sec.groups) {
             const deep = sec.level === "detail" || g.level === "detail";
-            for (const f of g.fields) if (deep || f.level === "detail") set.add(f.label);
-            for (const a of g.actions) if (deep || a.level === "detail") set.add(a.label);
+            for (const f of g.fields) put(deep || f.level === "detail", f.label);
+            for (const a of g.actions) put(deep || a.level === "detail", a.label);
           }
         }
       }
     }
     for (const s of STAGE_ORDER) {
-      if (s.id === "fee") continue;
-      const items = LEVEL_DIFF[s.id];
-      const set = [...(names.get(s.id) ?? [])];
-      for (const [text, probe] of items) expect(set.some((n) => n.includes(probe ?? text)), `${s.label}: ${text}`).toBe(true);
+      // FP顧問料は前提条件のパネルの中の区画なので、前提条件の欄で確かめる
+      const at = s.id === "fee" ? "assumptions" : s.id;
+      const set = [...(names.get(at) ?? [])];
+      for (const [text, probe] of LEVEL_HELP[s.id].detail) expect(set.some((n) => n.includes(probe ?? text)), `${s.label}（詳細）: ${text}`).toBe(true);
+      const easy = [...(simpleNames.get(at) ?? [])];
+      for (const [text, probe] of LEVEL_HELP[s.id].simple) expect(easy.some((n) => n.includes(probe ?? text)), `${s.label}（標準）: ${text}`).toBe(true);
     }
   });
 });
