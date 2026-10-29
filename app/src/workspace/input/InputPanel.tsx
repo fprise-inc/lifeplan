@@ -264,7 +264,8 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   if (item === null || stage === null) return null;
   const sections = stage.sections.filter((s) => visible(level, s.level));
   // 見えている欄のうち推定のままの欄（「推定の値をまとめて使う」で確定にする欄）
-  const shownFields = allFields({ ...stage, sections }).filter((f) => visible(level, f.level));
+  // 詳細では、標準だけのまとまり（今の働き方など。同じ値を詳細の欄で入れる）の欄を数えない
+  const shownFields = allFields({ ...stage, sections: sections.map((s) => ({ ...s, groups: s.groups.filter((g) => level === "simple" || g.simpleOnly !== true) })) }).filter((f) => visible(level, f.level));
   const estimatedShown = shownFields.filter((f) => fieldStatus(f, shown).status === "estimated" && availableOps(f, shown).includes("confirm")).length;
   // このカードの入っていない物（古い世帯では自動で推定を入れず、ここと確かめの一覧に出す。fill.ts）
   const gaps = gapsOf(shown).filter((g) => g.card === itemId);

@@ -9,7 +9,7 @@ import { PopIcon } from "../../presentation/icons.tsx";
 import { FieldIcon } from "./fieldIcons.tsx";
 import { fittingPlaceholder, textEm } from "./placeholder.ts";
 import type { Timepoint } from "../../engine/types.ts";
-import type { ActionDef, FieldDef, GroupDef, Level, SectionDef, TimeView, Val, WhenState } from "./form.ts";
+import { groupShown, type ActionDef, type FieldDef, type GroupDef, type Level, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { availableOps, fieldStatus, FILL_LABEL, fillTitle, OP_LABELS, STATUS_LABELS, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
@@ -266,7 +266,7 @@ export function Section({ section, wh, level, onEdit }: { section: SectionDef; w
     const h = units?.get(g.key);
     return h !== undefined && withMore?.has(h) === true && opened.isOpen(h) ? h : null;
   };
-  const shownGroups = section.groups.filter((g) => visible(level, g.level) || headOpen(g) !== null);
+  const shownGroups = section.groups.filter((g) => groupShown(level, g) || headOpen(g) !== null);
   const link = useContext(SectionLinks)[section.key];
   const sn = splitNote(section.note);
   const sHelp = sn.help !== null ? <Help label={section.title}>{sn.help}</Help> : null;

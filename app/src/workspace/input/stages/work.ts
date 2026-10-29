@@ -1,4 +1,4 @@
-// 2. 働き方と収入: 今の働き方と年収（簡易）、定年後の予定（再雇用の年収・何歳まで）、働き方の期間の一覧（詳細）。退職金・企業年金は 3. のカード（retirement.ts）。ここは読むだけの1行
+// 2. 働き方と収入: 今の働き方と年収（簡易）、定年後の予定（再雇用の年収・何歳まで）、働き方 1・2…（詳細。働き方の期間の一覧）。退職金・企業年金は 3. のカード（retirement.ts）。ここは読むだけの1行
 // 被保険者の種別（第1〜3号）は入れない（エンジンが働き方の期間から導く。0008 の4）
 import type { Box, EmploymentPeriod, Household, Member } from "../../../engine/types.ts";
 import type { Timepoint } from "../../../engine/types.ts";
@@ -393,7 +393,7 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
             const ym = tp === null ? null : resolveTimepoint(w.request.input.household, tp);
             if (tp === null) return "空にはできません。年齢を入れてください";
             if (ym === null) return null;
-            if (ageBefore(m, ym) === null) return `定年は「○歳になる前の月まで」で決めます（${formatYearMonth(ym)}は${ageAt(m, ym)}歳の途中です）。月まで決めるときは、詳しく入れるの働き方の期間の終わりで入れてください`;
+            if (ageBefore(m, ym) === null) return `定年は「○歳になる前の月まで」で決めます（${formatYearMonth(ym)}は${ageAt(m, ym)}歳の途中です）。月まで決めるときは、詳細の「働き方 1・2…」の終わりで入れてください`;
             const age = ageBefore(m, ym) as number;
             return age < 40 || age > 80 ? "定年は40歳〜80歳の範囲で入れてください" : null;
           },
@@ -471,7 +471,7 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
         nullText: "終わりを決めていない（最後まで）",
         read: (w) => lastEnd(w),
         check: (w, tp) => {
-          if (tp === null) return "空にはできません（終わりを外すときは、詳しく入れるの働き方の期間で）";
+          if (tp === null) return "空にはできません（終わりを外すときは、詳細の「働き方 1・2…」の終わりで）";
           const ym = resolveTimepoint(w.request.input.household, tp);
           if (ym === null) return null;
           const age = ageAt(m, addMonths(ym, 1));
@@ -559,38 +559,41 @@ function nowGroup(wh: WorkingHousehold, m: Member): GroupDef {
       ],
     };
   const find = byId(periods, cur.id);
-  // 詳しい欄は「働き方の期間（詳しく）」に出す（同じ期間を2か所に出さない）
+  // 詳しい欄は、詳細の「働き方 1・2…」のまとまりに出す（同じ期間を2か所に出さない）。このまとまりは標準のときだけ出す
   const fields = periodFields(wh, m, cur, find, "simple", `work/${m.id}/now`).filter((f) => f.level === "simple");
+  const past = cur.from.at !== undefined && cur.from.at > base;
+  // 標準の「▸ 詳しく」: 住民税と、この期間の詳しい欄（詳細の「働き方 1・2…」と同じ欄。期間の始まり・終わりと、年収・賞与の分け方は詳細で直す。0078 の追記）
+  const shownItems = new Set(fields.map((f) => f.item));
+  const openFields = [residentTaxField(wh, m), ...periodFields(wh, m, cur, find, "detail", `work/period/${cur.id}`).filter((f) => f.item !== null && !NOT_IN_NOW.has(f.item) && !shownItems.has(f.item))];
+  return { key: `work/${m.id}/now`, title: `${who}の今の働き方`, ...(past ? { note: "今は働いていません。次に始まる働き方を出しています" } : {}), level: "simple", fields, actions: [], openFields, simpleOnly: true };
+}
+
+/** 住民税（今年度の年税額）の欄。詳細では今の働き方の期間のまとまり、標準では今の働き方の「▸ 詳しく」に出す（欄の一覧には1回だけ） */
+function residentTaxField(wh: WorkingHousehold, m: Member): FieldDef {
+  const base = wh.request.input.baseMonth;
   const fy = residentTaxYear(base);
   const findTax: Finder = (hh) => ((hh.residentTaxAssessments ?? []) as { member: string; fiscalYear: number }[]).find((a) => a.member === m.id && a.fiscalYear === fy) as Record<string, unknown> | undefined;
-  fields.push(
-    yenBox({
-      key: `work/${m.id}/residentTax`,
-      item: "residentTaxAssessment.amount",
-      label: `住民税（${fy}年度の年税額）`,
-      // 効くのは今年度の1年分だけで、決定通知書を写す書類の値なので詳細（空欄は前の年の所得から概算。0078）
-      level: "detail",
-      basis: "annual",
-      find: findTax,
-      path: ["amount"],
-      optional: true,
-      ensure: (hh) => {
-        const a = { id: newId(), member: m.id, fiscalYear: fy, amount: { value: 0, state: "confirmed", origin: { kind: "manual" } } };
-        ((hh.residentTaxAssessments ??= []) as unknown[]).push(a);
-        return a as unknown as Record<string, unknown>;
-      },
-      estimate: (hh) => {
-        const p = currentPeriod(hh, m.id, base);
-        return residentTaxEstimate((p?.salary?.annual.value ?? 0) + (p?.salary?.bonus?.value ?? 0), p?.business?.income.value ?? 0, fy - 1);
-      },
-      help: "住民税の決定通知書（給与明細の住民税×12）の額。空欄なら前の年の所得から概算します",
-    }),
-  );
-  const past = cur.from.at !== undefined && cur.from.at > base;
-  // 標準の「▸ 詳しく」: この期間の詳しい欄（詳細の「働き方の期間（詳しく）」と同じ欄。期間の始まり・終わりと、年収・賞与の分け方は詳細で直す。0078 の追記）
-  const shownItems = new Set(fields.map((f) => f.item));
-  const openFields = periodFields(wh, m, cur, find, "detail", `work/period/${cur.id}`).filter((f) => f.item !== null && !NOT_IN_NOW.has(f.item) && !shownItems.has(f.item));
-  return { key: `work/${m.id}/now`, title: `${who}の今の働き方`, ...(past ? { note: "今は働いていません。次に始まる働き方を出しています" } : {}), level: "simple", fields, actions: [], openFields };
+  return yenBox({
+    key: `work/${m.id}/residentTax`,
+    item: "residentTaxAssessment.amount",
+    label: `住民税（${fy}年度の年税額）`,
+    // 効くのは今年度の1年分だけで、決定通知書を写す書類の値なので詳細（空欄は前の年の所得から概算。0078）
+    level: "detail",
+    basis: "annual",
+    find: findTax,
+    path: ["amount"],
+    optional: true,
+    ensure: (hh) => {
+      const a = { id: newId(), member: m.id, fiscalYear: fy, amount: { value: 0, state: "confirmed", origin: { kind: "manual" } } };
+      ((hh.residentTaxAssessments ??= []) as unknown[]).push(a);
+      return a as unknown as Record<string, unknown>;
+    },
+    estimate: (hh) => {
+      const p = currentPeriod(hh, m.id, base);
+      return residentTaxEstimate((p?.salary?.annual.value ?? 0) + (p?.salary?.bonus?.value ?? 0), p?.business?.income.value ?? 0, fy - 1);
+    },
+    help: "住民税の決定通知書（給与明細の住民税×12）の額。空欄なら前の年の所得から概算します",
+  });
 }
 
 /** 今の働き方の「▸ 詳しく」に出さない、期間の欄（期間の形・年収の分け方。標準の欄と2通りの入れ方にしない） */
@@ -649,7 +652,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
   if (p.type === "partTime" || p.type === "contract") fields.push(employeeInsuranceField(p, find, prefix, level));
   if (SALARIED.has(p.type)) {
     fields.push(
-      // 標準（今の働き方）は年収（賞与込み）の1欄。賞与の内訳は詳細の「働き方の期間（詳しく）」の年収・賞与で直す（0078）。
+      // 標準（今の働き方）は年収（賞与込み）の1欄。賞与の内訳は詳細の「働き方 1・2…」の年収・賞与で直す（0078）。
       // 役員だけは標準でも月の報酬（年額）と賞与を分けて聞く（社会保険料の上限が月の報酬と賞与で違い、まとめて統計の割合で分けると結果が大きくずれる）
       ...(level === "simple" && p.type === "executive"
         ? [
@@ -688,8 +691,8 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
       plain({ key: `${prefix}/pc`, item: "employment.pensionCategory", label: "厚生年金", level: d, kind: "select", options: PENSION_CATEGORY, find, path: ["pensionCategory"] }),
       plain({ key: `${prefix}/size`, item: "employment.employer.size", label: "勤め先の従業員数", level: d, kind: "int", suffix: "人", min: 1, find, path: ["employer", "size"], help: "社会保険の適用拡大の判定に使います" }),
       plain({ key: `${prefix}/hours`, item: "employment.employer.weeklyHours", label: "週の所定労働時間", level: d, kind: "decimal", suffix: "時間", find, path: ["employer", "weeklyHours"] }),
-      yenBox({ key: `${prefix}/smrH`, item: "employment.standardMonthlyRemuneration", label: "標準報酬月額（健康保険）", level: d, basis: "monthly", unit: "yen", find, path: ["standardMonthlyRemuneration", "health"], optional: true, help: "空欄なら年収から計算します" }),
-      yenBox({ key: `${prefix}/smrP`, item: "employment.standardMonthlyRemuneration", label: "標準報酬月額（厚生年金）", level: d, basis: "monthly", unit: "yen", find, path: ["standardMonthlyRemuneration", "pension"], optional: true }),
+      smrField(wh, find, prefix, "health"),
+      smrField(wh, find, prefix, "pension"),
       { ...yenBox({ key: `${prefix}/commuting`, item: "employment.salary.commutingMonthly", label: "通勤手当（非課税・月額）", level: d, basis: "monthly", unit: "yen", find, path: ["salary", "commutingMonthly"], optional: true, help: "所得税・住民税はかかりませんが、社会保険料の報酬には入ります。空欄は該当なし" }), address: () => ({ target: { object: p.id }, item: "employment.salary.commutingMonthly", at: [] }) },
       { ...plain({ key: `${prefix}/student`, item: "employment.student", label: "学生", level: d, kind: "bool", find, path: ["student"], optional: true, fallback: false, help: "学生は短時間の勤めの社会保険・雇用保険の対象から外れます" }), address: () => ({ target: { object: p.id }, item: "employment.student", at: [] }) },
       { ...plain({ key: `${prefix}/corpDb`, item: "employment.corporatePension", label: "勤め先に確定給付企業年金・共済などがある", level: d, kind: "bool", find, path: ["corporatePension", "db"], optional: true, fallback: false, help: "iDeCo の掛金の上限の判定に使います" }), address: () => ({ target: { object: p.id }, item: "employment.corporatePension", at: ["db"] }) },
@@ -701,6 +704,102 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
     fields.push(yenBox({ key: `${prefix}/business`, item: "employment.business.income", label: "事業所得（年額）", level, basis: "annual", find, path: ["business", "income"], estimate: () => businessEstimate(), help: "確定申告書の所得金額（青色申告特別控除の前）" }), growthField(wh, p, find, prefix, "business", d));
   if (level === "detail") fields.push(...claimFields(wh, m, p, find, prefix));
   return fields;
+}
+
+// ---- 標準報酬月額（0047 の追記 2026-10-29）----
+
+type SmrKind = "health" | "pension";
+type SmrBox = Box<number> & { estimate?: { method?: string; basis?: string } };
+const SMR_LABEL: Record<SmrKind, string> = { health: "健康保険", pension: "厚生年金" };
+/**
+ * 勤め先の健康保険・厚生年金に入る期間か（空欄のときに目安を見せるか）。健康保険は種類が協会けんぽ・健保組合・共済、厚生年金は種別が入るもの。
+ * 勤め先の社会保険を「入っていない」にした期間は見せない（パートの扶養など、標準報酬月額を使わない期間に推定の印を出さない）
+ */
+function smrCovered(x: EmploymentPeriod, kind: SmrKind): boolean {
+  if ((x.employeeInsurance as { value?: boolean } | undefined)?.value === false) return false;
+  if (kind === "health") return x.healthInsurance !== undefined && ["kyokaikenpo", "union", "mutualAid"].includes(x.healthInsurance.kind);
+  return x.pensionCategory !== undefined && x.pensionCategory !== "none";
+}
+/** 非課税の通勤手当の月額（標準報酬月額の報酬に入る） */
+const commutingOf = (x: EmploymentPeriod): number => (x.salary as { commutingMonthly?: Box<number> } | undefined)?.commutingMonthly?.value ?? 0;
+/** 空欄のときの計算の仕方（エンジンの socialInsurance.coverage と同じ: 給与と通勤手当の月額を等級表に当て、毎年9月に4〜6月の平均で決め直す） */
+export const SMR_BLANK_BASIS = "空欄なので、給与（賞与を除く年収÷12）と通勤手当の月額を等級表に当てて計算しています。昇給に合わせて、毎年9月にその年の4〜6月の平均で決め直します";
+
+/**
+ * 標準報酬月額の欄（健康保険・厚生年金）。世帯ファイルの置き換え口 employment.standardMonthlyRemuneration は健康保険と厚生年金の2つの箱がそろった形
+ * （スキーマで両方が必須）なので、片方だけを書くときは、もう片方に、書いた額をその等級表に当てた推定（出どころ auto）を入れる。
+ * - 空欄（置き換え口が無い）: 計算は給与からエンジンが決める（毎年決め直す）。欄にはその目安（今の年収と通勤手当の月額を等級表に当てた額）を推定の印で見せ、
+ *   「この値にする」でその額を書ける。黙って世帯には書かない（書くと期間の間ずっと同じ額になり、昇給が標準報酬月額に入らないため）
+ * - 空にする: もう片方も推定のまま（出どころ auto）なら置き換え口ごと外し（給与から計算に戻す）、そうでなければ、もう片方の額から推定した箱にする
+ */
+function smrField(wh: WorkingHousehold, find: Finder, prefix: string, kind: SmrKind): FieldDef {
+  const item = "employment.standardMonthlyRemuneration";
+  const other: SmrKind = kind === "health" ? "pension" : "health";
+  const base = wh.request.input.baseMonth;
+  const period = (w: WorkingHousehold) => find(w.request.input.household, w) as EmploymentPeriod | undefined;
+  const boxOf = (x: EmploymentPeriod | undefined, k: SmrKind) => x?.standardMonthlyRemuneration?.[k] as SmrBox | undefined;
+  /** 空欄のときの目安（今の年収と通勤手当の月額。年収が無ければ null） */
+  const blank = (x: EmploymentPeriod | undefined): number | null => {
+    const annual = x?.salary?.annual.value;
+    if (x === undefined || annual == null || !smrCovered(x, kind)) return null;
+    return smrEstimate(annual + commutingOf(x) * 12, smrMonth(x, base))[kind].value ?? null;
+  };
+  /** 片方の額から、もう片方の推定の箱（その額をもう片方の等級表に当てる） */
+  const fromOther = (x: EmploymentPeriod, k: SmrKind, v: number): SmrBox => ({
+    ...(smrEstimate(v * 12, smrMonth(x, base))[k] as SmrBox),
+    estimate: { method: "derived", basis: `${SMR_LABEL[k === "health" ? "pension" : "health"]}の標準報酬月額（${v.toLocaleString("ja-JP")}円）を${SMR_LABEL[k]}の等級表に当てた目安` },
+  });
+  const put = (w: WorkingHousehold, box: Record<string, unknown> | undefined): WorkingHousehold =>
+    mutate(w, (h, req) => {
+      const x = find(h, { ...w, request: req }) as EmploymentPeriod | undefined;
+      if (x === undefined) return;
+      const cur = x.standardMonthlyRemuneration;
+      const otherBox = cur?.[other] as SmrBox | undefined;
+      if (box === undefined) {
+        if (cur === undefined) return;
+        const v = otherBox?.state === "estimated" && otherBox.origin.kind === "auto" ? null : (otherBox?.value ?? null);
+        if (v === null) delete x.standardMonthlyRemuneration;
+        else x.standardMonthlyRemuneration = { ...cur, [kind]: fromOther(x, kind, v) } as NonNullable<EmploymentPeriod["standardMonthlyRemuneration"]>;
+        return;
+      }
+      const mine = structuredClone(box) as unknown as SmrBox;
+      const v = typeof mine.value === "number" ? mine.value : (mine as { substitute?: { value?: number } }).substitute?.value;
+      const otherNow = otherBox ?? (typeof v === "number" ? fromOther(x, other, v) : (smrEstimate((x.salary?.annual.value ?? 0) + commutingOf(x) * 12, smrMonth(x, base))[other] as SmrBox));
+      x.standardMonthlyRemuneration = { [kind]: mine, [other]: otherNow } as unknown as NonNullable<EmploymentPeriod["standardMonthlyRemuneration"]>;
+    });
+  return {
+    ...field({
+      key: `${prefix}/${kind === "health" ? "smrH" : "smrP"}`,
+      item,
+      label: `標準報酬月額（${SMR_LABEL[kind]}）`,
+      level: "detail",
+      kind: "yen",
+      basis: "monthly",
+      unit: "yen",
+      optional: true,
+      help:
+        kind === "health"
+          ? "給与明細・標準報酬決定通知書の額。空欄なら給与から計算します（昇給に合わせて毎年9月に決め直します）。入れると、この期間はずっとその額で計算します"
+          : "給与明細・標準報酬決定通知書の額。空欄なら給与から計算します（昇給に合わせて毎年9月に決め直します）。入れると、この期間はずっとその額で計算します。賞与の保険料と年金の額（標準賞与額）は、賞与（年間の合計）から計算します（千円未満を切り捨て、上限あり）",
+      get: (w) => {
+        const x = period(w);
+        const b = boxOf(x, kind);
+        if (b !== undefined) {
+          const value = b.value ?? (b.state === "unknown" ? ((b as { substitute?: Box<number> }).substitute?.value ?? null) : null);
+          return { value, estimated: boxBasis(b) ?? (b.state === "unknown" ? "わからない（代わりの値）" : null) };
+        }
+        const v = blank(x);
+        return v === null ? { value: null } : { value: null, estimated: SMR_BLANK_BASIS, hint: `今の年収なら月 ${v.toLocaleString("ja-JP")}円（推定）` };
+      },
+      set: (w, v) => put(w, v === null ? undefined : { value: Number(v), state: "confirmed", origin: { kind: "manual" } }),
+      blankEstimate: (w) => (boxOf(period(w), kind) === undefined ? blank(period(w)) : null),
+    }),
+    boxed: { read: (w) => boxOf(period(w), kind), write: put },
+    address: (w) => {
+      const x = period(w);
+      return x === undefined ? null : { target: { object: x.id }, item, at: [kind] };
+    },
+  };
 }
 
 // ---- 年収（賞与込み）（0078）----
@@ -771,7 +870,7 @@ function salaryTotalField(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, 
       basis: "annual",
       optional: true,
       blankIsEstimate: true,
-      help: "源泉徴収票の支払金額（給与と賞与の合計）。賞与の内訳は詳細の「働き方の期間」で直せます（入れていなければ統計の割合で分けます）。空欄なら統計の目安で計算します",
+      help: "源泉徴収票の支払金額（給与と賞与の合計）。賞与の内訳は詳細の「働き方 1・2…」で直せます（入れていなければ統計の割合で分けます）。空欄なら統計の目安で計算します",
       get: (w) => {
         const { a, b } = boxes(w);
         const bv = boxValue(b);
@@ -884,7 +983,7 @@ function leaveEndField(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, fin
     monthOnly: PERIOD_MONTH_ONLY,
     optional: true,
     nullText: "戻る時期を決めていない",
-    help: "入れると、翌月から休業の前と同じ働き方に戻ります（戻った後の働き方は、詳細の「働き方の期間」で直せます）",
+    help: "入れると、翌月から休業の前と同じ働き方に戻ります（戻った後の働き方は、詳細の「働き方 1・2…」で直せます）",
     after: (h, t) => {
       const x = t as unknown as EmploymentPeriod;
       const end = x.to?.at;
@@ -911,6 +1010,23 @@ const ENDS_WITH: readonly { value: string; label: string }[] = [
   { value: "sickLeave", label: "休業のまま辞める" },
 ];
 const endsWithLabel = (v: string) => ENDS_WITH.find((x) => x.value === v)?.label ?? v;
+
+/** 辞め方の自動の値と、その理由（欄の選択肢に見せる。エンジンと同じ決まり: 辞める月が60歳以後か定年の出来事なら定年、ほかは自己都合） */
+function autoEnding(h: Household, m: Member, p: EmploymentPeriod): { value: string; why: string } {
+  const value = defaultEndsWith(h, m, p);
+  if (value === "voluntary") return { value, why: "60歳前に辞めるので" };
+  const to = p.to === null ? null : resolveTimepoint(h, p.to);
+  return { value, why: to !== null && to >= ageReachedMonth(m, 60) ? "60歳以後に辞めるので" : "定年の出来事で辞めるので" };
+}
+
+/** 辞め方を書く（null は自動に戻す） */
+const setEnding = (w: WorkingHousehold, find: Finder, v: string | null): WorkingHousehold =>
+  mutate(w, (hh, req) => {
+    const x = find(hh, { ...w, request: req }) as EmploymentPeriod | undefined;
+    if (x === undefined) return;
+    if (v === null) delete x.endsWith;
+    else x.endsWith = v;
+  });
 
 /** 受け取るかの選択（おまかせ＝推定。期間が変わると入れ直す／受け取る／受け取らない） */
 function claimField(o: { key: string; item: typeof UNEMPLOYMENT_ITEM | typeof CONTINUATION_ITEM; label: string; help: string; find: Finder; id: string; estimate: (h: Household, p: EmploymentPeriod) => boolean; basis: string }): FieldDef {
@@ -954,7 +1070,10 @@ function claimFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
   const h = wh.request.input.household;
   const out: FieldDef[] = [];
   if (unemploymentApplies(h, p)) {
-    const auto = defaultEndsWith(h, m, p);
+    const auto = autoEnding(h, m, p);
+    // 定年後の予定の定年で終わる期間（今の勤め先）が、自動のままだと自己都合になるとき（「60歳になる前の月まで」の期間。0047 の追記）
+    const post = wh.postRetirement[m.id];
+    const atRetirement = mainPeriod(h, m, post)?.id === p.id && post !== undefined;
     out.push(
       {
         ...field({
@@ -964,19 +1083,15 @@ function claimFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
           level: "detail",
           kind: "select",
           optional: true,
-          options: [{ value: "", label: `自動（${endsWithLabel(auto)}）` }, ...ENDS_WITH],
-          help: "この期間の終わり方です。「休業のまま辞める」は、病気などで働けないまま辞める形で、失業給付は受けません。失業給付の日数・給付制限に使います。自動は、60歳以上か定年の出来事なら定年、ほかは自己都合です",
+          options: [{ value: "", label: `自動: ${endsWithLabel(auto.value)}（${auto.why}）` }, ...ENDS_WITH],
+          help: "この期間の終わり方です。失業給付の日数・給付制限と、退職金の目安に使います。自動は、辞める月が60歳以後（または終わりを定年の出来事に合わせた期間）なら定年、それより前は自己都合で計算します。「休業のまま辞める」は、病気などで働けないまま辞める形で、失業給付は受けません",
           get: (w) => {
             const x = find(w.request.input.household, w) as EmploymentPeriod | undefined;
-            return x?.endsWith !== undefined ? { value: x.endsWith } : { value: "", implicit: true };
+            if (x?.endsWith !== undefined) return { value: x.endsWith };
+            const warn = atRetirement && auto.value === "voluntary" ? `定年後の予定では、この期間の終わりが定年（${post.fromAge}歳）です。自動のままだと、60歳になる前に辞めるので自己都合で計算します（退職金の目安・失業給付も自己都合）` : null;
+            return { value: "", implicit: true, ...(warn !== null ? { warn, warnFix: { label: "辞め方を定年にする", run: (ww: WorkingHousehold) => setEnding(ww, find, "retirement") } } : {}) };
           },
-          set: (w, v) =>
-            mutate(w, (hh, req) => {
-              const x = find(hh, { ...w, request: req }) as EmploymentPeriod | undefined;
-              if (x === undefined) return;
-              if (v === null || v === "") delete x.endsWith;
-              else x.endsWith = String(v);
-            }),
+          set: (w, v) => setEnding(w, find, v === null || v === "" ? null : String(v)),
         }),
         address: () => ({ target: { object: p.id }, item: "employment.endsWith", at: [] }),
       },
@@ -1045,23 +1160,38 @@ function growthField(wh: WorkingHousehold, p: EmploymentPeriod, find: Finder, pr
   };
 }
 
+/**
+ * 詳細の働き方の期間のまとまり（その人の区画の中。「働き方 1」「働き方 2」…の順に、その下に足すボタン。0047 の追記）。
+ * 今の働き方の期間（計算基準月にしている期間。無ければ次に始まる期間）には住民税の欄も置く（標準の「今の働き方」の詳しい欄と同じ欄）
+ */
 function periodListGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
   const h = wh.request.input.household;
+  const base = wh.request.input.baseMonth;
   const who = memberLabel(wh, m.id);
-  return periodsOf(h, m.id).map((p, i) => ({
-    key: `work/period/${p.id}`,
-    title: `${who}の働き方 ${i + 1}`,
-    level: "detail",
-    fields: periodFields(wh, m, p, byId(periods, p.id), "detail", `work/period/${p.id}`),
-    actions: [removeAction(`work/period/${p.id}/remove`, "この期間を外す", "detail", (hh) => void (hh.employmentPeriods = (hh.employmentPeriods ?? []).filter((x) => x.id !== p.id)))],
-  }));
+  const cur = currentPeriod(h, m.id, base);
+  const ps = periodsOf(h, m.id);
+  const groups: GroupDef[] = ps.map((p, i) => {
+    const now = p.id === cur?.id && (p.from.at ?? "") <= base && (p.to === null || (p.to.at ?? "9999-12") >= base);
+    const fields = periodFields(wh, m, p, byId(periods, p.id), "detail", `work/period/${p.id}`);
+    return {
+      key: `work/period/${p.id}`,
+      title: `${who}の働き方 ${i + 1}${now ? "（今の働き方）" : ""}`,
+      level: "detail",
+      fields: p.id === cur?.id ? [...fields, residentTaxField(wh, m)] : fields,
+      actions: [removeAction(`work/period/${p.id}/remove`, "この期間を外す", "detail", (hh) => void (hh.employmentPeriods = (hh.employmentPeriods ?? []).filter((x) => x.id !== p.id)))],
+    };
+  });
+  // 期間が無い人は、今の働き方のまとまりの「会社員として入れる」などで始める（足すボタンも出す）
+  groups.push({ key: `work/${m.id}/periods`, level: "detail", fields: [], actions: [addPeriodAction(wh, m, ps.length + 1)] });
+  return groups;
 }
 
-function addPeriodAction(wh: WorkingHousehold, m: Member): ActionDef {
+function addPeriodAction(wh: WorkingHousehold, m: Member, n: number): ActionDef {
   return {
     key: `work/${m.id}/addPeriod`,
-    label: `＋ ${memberLabel(wh, m.id)}の働き方の期間を足す`,
+    label: `＋ ${memberLabel(wh, m.id)}の働き方 ${n}`,
     level: "detail",
+    help: "正社員→育休→時短→退職→パート、定年→再雇用のように、働き方を期間に分けて並べます。期間は重ならないようにします。足した期間は、前の期間の次の月からパート・アルバイトで始まります（種類・始まり・終わりは足した後に直せます）",
     run: (w) => {
       const ps = periodsOf(w.request.input.household, m.id);
       const lastEnd = ps.map((p) => p.to?.at).filter((x): x is string => x !== undefined).sort().at(-1);
@@ -1078,8 +1208,9 @@ function addPeriodAction(wh: WorkingHousehold, m: Member): ActionDef {
 export function workStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;
   const people = earners(h);
-  const simple: SectionDef[] = people.map((m) => {
-    const groups: GroupDef[] = [nowGroup(wh, m)];
+  // 人ごとの区画: 標準は今の働き方 → 定年後の予定。詳細は働き方 1・2…（＋ 働き方を足す）→ 定年後の予定（今の働き方のまとまりは標準だけ。0047 の追記）
+  const sections: SectionDef[] = people.map((m) => {
+    const groups: GroupDef[] = [nowGroup(wh, m), ...periodListGroups(wh, m)];
     const r = retirementGroup(wh, m);
     if (r !== null) groups.push(r);
     const benefits = (h.retirementBenefits ?? []).filter((b) => b.member === m.id);
@@ -1088,17 +1219,9 @@ export function workStage(wh: WorkingHousehold): StageDef {
     if (ro !== null) groups.push(ro);
     return { key: `work/${m.id}`, title: memberLabel(wh, m.id), level: "simple", groups, actions: [] };
   });
-  const detail: SectionDef = {
-    key: "work/periods",
-    title: "働き方の期間（詳しく）",
-    note: "正社員→育休→時短→退職→パート、定年→再雇用のように、期間を分けて並べます。期間は重ならないようにします",
-    level: "detail",
-    groups: people.flatMap((m) => periodListGroups(wh, m)),
-    actions: people.map((m) => addPeriodAction(wh, m)),
-  };
   // 欄・ボタンの後に、推定のままの定年後の予定を入れ直し、新しく作った期間に給付を受け取るかの推定を入れる
   const wrap = (sec: SectionDef): SectionDef => ({ ...sec, groups: sec.groups.map((g) => ({ ...g, fields: g.fields.map(wrapField), actions: g.actions.map(wrapAction), ...(g.openFields !== undefined ? { openFields: g.openFields.map(wrapField) } : {}) })), actions: sec.actions.map(wrapAction) });
-  return { id: "work", label: "働き方と収入", lead: "今の働き方・年収と、定年後の予定。", sections: [...simple, detail].map(wrap) };
+  return { id: "work", label: "働き方と収入", lead: "今の働き方・年収と、定年後の予定。", sections: sections.map(wrap) };
 }
 
 const wrapAction = (a: ActionDef): ActionDef => ({ ...a, run: (w) => afterWorkEdit(w, a.run(w)) });

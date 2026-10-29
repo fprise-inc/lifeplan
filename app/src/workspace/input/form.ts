@@ -164,6 +164,19 @@ export interface GroupDef {
    * 欄の一覧（allFields・確かめの一覧）には入れない（同じ欄は別のまとまりに載っている。0078 の追記）
    */
   openFields?: FieldDef[];
+  /**
+   * 標準のときだけ出す（詳細では、同じ値を別のまとまりの欄で入れる。例: 今の働き方は、詳細では働き方 1・2…のまとまりで入れる。0047 の追記）。
+   * 欄の一覧（allFields）には入れたまま（標準の欄は確かめの一覧の行の当て先になる）
+   */
+  simpleOnly?: boolean;
+}
+
+/** まとまりをその入れ方で出すか（標準は標準のまとまりだけ、詳細は標準だけのまとまりを除く全部） */
+export const groupShown = (level: Level, g: Pick<GroupDef, "level" | "simpleOnly">): boolean => (level === "detail" ? g.simpleOnly !== true : g.level === "simple");
+
+/** 標準だけのまとまり（simpleOnly）の欄か（確かめの一覧から詳細のパネルを開いたとき、標準に切り替えて移るため） */
+export function inSimpleOnlyGroup(stage: StageDef, key: string): boolean {
+  return stage.sections.some((s) => s.groups.some((g) => g.simpleOnly === true && g.fields.some((f) => f.key === key)));
 }
 
 export interface SectionDef {
