@@ -34,7 +34,7 @@
  "members": [
   {
    "key": "self",
-   "label": "奥様",
+   "label": "ご本人",
    "ageAtBase": 43,
    "ages": [
     44,
@@ -60,7 +60,7 @@
   },
   {
    "key": "spouse",
-   "label": "ご主人",
+   "label": "配偶者",
    "ageAtBase": 45,
    "ages": [
     46,
@@ -232,7 +232,7 @@
  "summary": {
   "target": {
    "year": 2045,
-   "label": "奥様62歳（2045年）"
+   "label": "ご本人62歳（2045年）"
   },
   "current": {
    "financialAtTarget": 179364024,
@@ -346,21 +346,21 @@
  "events": [
   {
    "year": 2027,
-   "ages": "奥様44歳・ご主人46歳",
+   "ages": "ご本人44歳・配偶者46歳",
    "items": [
     "FP顧問料の支払いを開始"
    ]
   },
   {
    "year": 2035,
-   "ages": "奥様52歳・ご主人54歳",
+   "ages": "ご本人52歳・配偶者54歳",
    "items": [
     "長女が高校に入学"
    ]
   },
   {
    "year": 2038,
-   "ages": "奥様55歳・ご主人57歳",
+   "ages": "ご本人55歳・配偶者57歳",
    "items": [
     "長女が大学に入学（私立理系）"
    ]
@@ -379,7 +379,7 @@
     {
      "kind": "value",
      "key": "salary:self",
-     "label": "奥様の給与",
+     "label": "ご本人の給与",
      "cells": [
       6666000,
       6732660,
@@ -405,7 +405,7 @@
     {
      "kind": "value",
      "key": "salary:spouse",
-     "label": "ご主人の給与",
+     "label": "配偶者の給与",
      "cells": [
       8080000,
       8160800,
@@ -688,7 +688,7 @@
     {
      "kind": "value",
      "key": "salary:self",
-     "label": "奥様の給与",
+     "label": "ご本人の給与",
      "cells": [
       6666000,
       6732660,
@@ -714,7 +714,7 @@
     {
      "kind": "value",
      "key": "salary:spouse",
-     "label": "ご主人の給与",
+     "label": "配偶者の給与",
      "cells": [
       8080000,
       8160800,
@@ -1094,7 +1094,7 @@
     {
      "point": {
       "year": 2036,
-      "label": "10年後（奥様53歳）"
+      "label": "10年後（ご本人53歳）"
      },
      "fact": false,
      "assets": [
@@ -1132,11 +1132,11 @@
     },
     {
      "year": 2036,
-     "label": "10年後（奥様53歳）"
+     "label": "10年後（ご本人53歳）"
     },
     {
      "year": 2045,
-     "label": "奥様62歳"
+     "label": "ご本人62歳"
     }
    ],
    "assets": [
@@ -1320,7 +1320,7 @@
  "changes": {
   "metrics": [
    {
-    "label": "奥様62歳（2045年）の金融資産",
+    "label": "ご本人62歳（2045年）の金融資産",
     "unit": "yen",
     "current": 179364024,
     "proposal": 194678728,

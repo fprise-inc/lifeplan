@@ -135,7 +135,7 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
       label: "呼び名（任意）",
       level: "simple",
       kind: "text",
-      placeholder: "例: 本人の母",
+      placeholder: "例: ご本人の母",
       help: "FP が付ける呼び名です。お名前は入れないでください",
       optional: true,
       get: (w) => ({ value: w.labelsByMember[m.id] ?? null }),
@@ -492,7 +492,7 @@ export function careStage(wh: WorkingHousehold): StageDef {
     {
       key: "care/costs",
       title: "介護の費用",
-      note: note ?? "親・本人・配偶者の介護を、介護を受ける人ごとに入れます。在宅から施設に移るなどは「＋ 次の段階を足す」で段を並べます",
+      note: note ?? "親・ご本人・配偶者の介護を、介護を受ける人ごとに入れます。在宅から施設に移るなどは「＋ 次の段階を足す」で段を並べます",
       level: "simple",
       groups: (h.careExpenses ?? []).map((c) => careCostGroup(wh, c)),
       actions: [

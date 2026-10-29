@@ -16,7 +16,7 @@ export const TAKEAWAY_LEVER_KEYS: readonly TakeawayLeverKey[] = ["retireAge", "p
 
 export interface TakeawayLever {
   key: TakeawayLeverKey;
-  /** 例: 「ご主人が働く最後の年齢」 */
+  /** 例: 「ご本人が働く最後の年齢」 */
   label: string;
   /** 年齢（1歳ずつ）か金額（1万円ずつ） */
   kind: "age" | "amount";

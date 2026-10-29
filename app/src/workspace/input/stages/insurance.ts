@@ -80,7 +80,7 @@ const autoRow = (c: Obj, item: string, path: readonly string[] = []) => isAuto(r
 
 const memberWord = (h: Household, id: string): string => {
   const m = h.members.find((x) => x.id === id);
-  return m === undefined ? "家族" : (({ self: "本人", spouse: "配偶者", child: "子" }) as Record<string, string>)[m.kind] ?? "家族";
+  return m === undefined ? "家族" : (({ self: "ご本人", spouse: "配偶者", child: "子" }) as Record<string, string>)[m.kind] ?? "家族";
 };
 
 /**
@@ -172,7 +172,7 @@ function setHolder(h: Household, c: InsuranceContract): void {
   const self = h.members.find((m) => m.kind === "self");
   const child = insured?.kind === "child";
   c.policyholder = child && self !== undefined ? self.id : c.insured;
-  putRowIn(c as unknown as Obj, "insurance.policyholder", [], estRow("standard", child ? "被保険者が子なので本人（推定）" : `被保険者（${memberWord(h, c.insured)}）と同じ（推定）`));
+  putRowIn(c as unknown as Obj, "insurance.policyholder", [], estRow("standard", child ? "被保険者が子なのでご本人（推定）" : `被保険者（${memberWord(h, c.insured)}）と同じ（推定）`));
 }
 
 function syncMaturity(c: InsuranceContract, main: Coverage): void {
@@ -221,7 +221,7 @@ export function newContract(h: Household, base: string, kind: KindDef): Insuranc
     deductionCategory: { type: "general", regime: regimeOf(date) },
   };
   const o = c as unknown as Obj;
-  putRowIn(o, "insurance.insured", [], estRow("standard", "本人（推定）"));
+  putRowIn(o, "insurance.insured", [], estRow("standard", "ご本人（推定）"));
   putRowIn(o, "insurance.contractDate", [], estRow("standard", `${STANDARD}（1年前。2012年1月以後の契約は新制度の保険料控除。わかれば直してください）`));
   putRowIn(o, "insurance.premium", ["amount"], estRow("standard", UNENTERED_PREMIUM));
   applyKind(h, c, kind, true);

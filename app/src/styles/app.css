@@ -102,7 +102,7 @@ b { font-weight: 700; }
 .chart .axis-label.sub { font-size: 11px; }
 html.big .chart .axis-label { font-size: 14px; }
 html.big .chart .axis-label.sub { font-size: 13px; }
-/* 年齢の段の頭の呼び方（「ご主人」「奥様」。AgeAxis.tsx） */
+/* 年齢の段の頭の呼び方（「ご本人」「配偶者」。AgeAxis.tsx） */
 .chart .axis-who { fill: var(--ink-2); font-size: 10px; }
 html.big .chart .axis-who { font-size: 12px; }
 .chart .unit { fill: var(--ink-2); font-weight: 700; font-size: 12px; }

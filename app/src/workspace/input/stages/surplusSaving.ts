@@ -66,7 +66,7 @@ function changeGroups(wh: WorkingHousehold, preset: SurplusPreset | "custom" | n
       return ym === null ? null : parseYm(ym).y;
     })();
     const age = fromAge(wh);
-    const when = [year !== null ? `${year}年から` : "", age !== null ? `本人${age}歳` : ""].filter((x) => x !== "").join("・");
+    const when = [year !== null ? `${year}年から` : "", age !== null ? `ご本人${age}歳` : ""].filter((x) => x !== "").join("・");
     const ratioField = field({
       key: `living/surplus/change/${i}/ratio`,
       item: ITEM,
@@ -167,7 +167,7 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
     if (p !== "same" && pts[p] === null) return null;
     const v = PRESET_RATIOS[p];
     const at = p === "same" ? null : pts[p];
-    const atText = at === null ? "" : `（${parseYm(at).y}年${self !== undefined ? `・本人${ageAt(self, at)}歳` : ""}で区切る）`;
+    const atText = at === null ? "" : `（${parseYm(at).y}年${self !== undefined ? `・ご本人${ageAt(self, at)}歳` : ""}で区切る）`;
     return {
       key: `living/surplus/preset/${p}`,
       label: `${PRESET_LABELS[p]}${atText}`,
@@ -226,7 +226,7 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
   if (changes.length < MAX_CHANGES)
     actions.push({
       key: "living/surplus/addChange",
-      label: "＋ 本人の年齢で期間を足す",
+      label: "＋ ご本人の年齢で期間を足す",
       level: "simple",
       run: (w) => {
         const next = nextChange(w);

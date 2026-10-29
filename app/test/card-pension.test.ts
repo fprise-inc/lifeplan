@@ -312,3 +312,66 @@ describe("年金の見込み（計算の結果から読む。0067）", () => {
     expect(pensionEstimateSummary(doc, preview(pensionEstimateRequest(doc.request, false)))).toBeNull();
   });
 });
+
+describe("推計のしかたと受け取り開始の欄（0066 の 2026-10-29 の追記）", () => {
+  it("推計（書類なし）のときは、入れ方の欄の横に推計のしかたを出す。書類からのときは出さない", () => {
+    const wh = blankHousehold(BASE, ids());
+    const self = selfOf(wh).id;
+    expect(fieldOf(wh, `pension/${self}/mode`).get(wh).hint).toMatch(/^推計のしかた: 生年月と、働き方と収入の項目の働き方の期間/);
+    const doc = fieldOf(wh, `pension/${self}/mode`).set(wh, "document");
+    expect(fieldOf(doc, `pension/${self}/mode`).get(doc).hint ?? null).toBeNull();
+  });
+
+  it("「基礎・厚生とも」は標準だけの欄（詳細では基礎・厚生の別々の欄を代わりに出す）。別々の欄は詳細", () => {
+    const wh = blankHousehold(BASE, ids());
+    const self = selfOf(wh).id;
+    const both = fieldOf(wh, `pension/${self}/estimate/claim`);
+    expect(both).toMatchObject({ level: "simple", simpleOnly: true });
+    expect(fieldOf(wh, `pension/${self}/estimate/claim/basic`)).toMatchObject({ level: "detail" });
+    expect(fieldOf(wh, `pension/${self}/estimate/claim/employee`).simpleOnly).toBeUndefined();
+  });
+
+  it("繰下げは別々にでき、標準の欄に「違う時期にしています」を出す。標準の欄を直すと両方そろう", () => {
+    const wh = blankHousehold(BASE, ids());
+    const self = selfOf(wh).id;
+    const w = fieldOf(wh, `pension/${self}/estimate/claim/basic`).set(wh, 70);
+    const m = w.request.input.household.members.find((x) => x.id === self)!;
+    expect(m.pensionClaim?.basic).toBeDefined();
+    expect(m.pensionClaim?.employee).toBeUndefined();
+    expect(fieldOf(w, `pension/${self}/estimate/claim`).get(w).warn).toMatch(/基礎と厚生で違う時期にしています/);
+    const w2 = fieldOf(w, `pension/${self}/estimate/claim`).set(w, 68);
+    const m2 = w2.request.input.household.members.find((x) => x.id === self)!;
+    expect(m2.pensionClaim?.basic).toEqual(m2.pensionClaim?.employee);
+    expect(fieldOf(w2, `pension/${self}/estimate/claim`).get(w2).warn ?? null).toBeNull();
+  });
+
+  it("繰上げは両方同時: 片方を65歳より前にすると両方そろえ、繰上げの後に片方を直すと両方を直す", () => {
+    const wh = blankHousehold(BASE, ids());
+    const self = selfOf(wh).id;
+    const early = fieldOf(wh, `pension/${self}/estimate/claim/employee`).set(wh, 62);
+    const m = early.request.input.household.members.find((x) => x.id === self)!;
+    expect(m.pensionClaim?.basic).toEqual(m.pensionClaim?.employee);
+    expect(fieldOf(early, `pension/${self}/estimate/claim/basic`).get(early).value).toBe(62);
+    // 繰上げのまま片方を66歳に → 両方66歳（片方だけ繰上げの形は作らない）
+    const later = fieldOf(early, `pension/${self}/estimate/claim/basic`).set(early, 66);
+    expect(fieldOf(later, `pension/${self}/estimate/claim/employee`).get(later).value).toBe(66);
+    // 片方を65歳（標準）に戻すと、もう片方も標準に戻る
+    const std = fieldOf(early, `pension/${self}/estimate/claim/basic`).set(early, 65);
+    expect(std.request.input.household.members.find((x) => x.id === self)!.pensionClaim).toBeUndefined();
+    // 繰下げどうしは別々のまま
+    const d1 = fieldOf(wh, `pension/${self}/estimate/claim/basic`).set(wh, 70);
+    const d2 = fieldOf(d1, `pension/${self}/estimate/claim/employee`).set(d1, 67);
+    expect(fieldOf(d2, `pension/${self}/estimate/claim/basic`).get(d2).value).toBe(70);
+    expect(fieldOf(d2, `pension/${self}/estimate/claim/employee`).get(d2).value).toBe(67);
+  });
+
+  it("時点の部品で片方を繰上げにしても両方そろえる（書類からの記録の claim）", () => {
+    const { wh, self } = withStatement();
+    const f = fieldOf(wh, `/claim/employee`);
+    const m = wh.request.input.household.members.find((x) => x.id === self)!;
+    const tp = { memberAge: { member: m.id, years: 63, ageSwitch: "monthAfterReach" as const } };
+    const w = f.time!.setWhen(wh, tp, "auto");
+    const rec = recordsOf(w)[0]!;
+    expect(rec.claim?.basic).toEqual(rec.claim?.employee);
+  });
+});

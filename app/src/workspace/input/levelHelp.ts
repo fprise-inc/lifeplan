@@ -20,7 +20,7 @@ export interface LevelHelpDef {
 /** 入力項目ごとの、標準と詳細の主なもの */
 export const LEVEL_HELP: Readonly<Record<StageId, LevelHelpDef>> = {
   family: {
-    simple: [["続柄"], ["生年月"], ["本人の性別", "性別"]],
+    simple: [["続柄"], ["生年月"], ["ご本人の性別", "性別"]],
     detail: [["呼び名"], ["配偶者の性別", "性別"], ["夫婦の関係の始まりと終わり", "関係の始まり"]],
     fallback: "estimate",
   },
@@ -45,8 +45,8 @@ export const LEVEL_HELP: Readonly<Record<StageId, LevelHelpDef>> = {
     fallback: "default",
   },
   education: {
-    simple: [["進路の型"], ["高校のあとの進路"], ["中学と大学の公立か私立か", "公立・私立"], ["通い方"]],
-    detail: [["小学校と高校の公立か私立か", "公立・私立"], ["大学の系統", "系統"], ["独立の時期"], ["塾や習い事などの学校外の費用", "学校外の費用"]],
+    simple: [["進路の型"], ["高校のあとの進路"], ["学校ごとの公立か私立か", "公立・私立"], ["通い方"]],
+    detail: [["大学の系統", "系統"], ["独立の時期"], ["塾や習い事などの学校外の費用", "学校外の費用"]],
     fallback: "default",
   },
   housing: {

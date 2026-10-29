@@ -160,7 +160,7 @@ describe("相続・贈与のカード: 相続税の目安（区画D）", () => {
     const v = view.points.find((p) => p.title.startsWith("二人とも亡くなった後"))!;
     expect(v.answer).toContain("FP が入れた額");
     expect(v.details.some((d) => d.includes("FP が入れた額を使っています"))).toBe(true);
-    expect(view.points.find((p) => p.title === `いま${"ご主人"}が亡くなったら` || p.title.startsWith("いま"))!.details.some((d) => d.includes("（直した数）"))).toBe(true);
+    expect(view.points.find((p) => p.title === `いま${"ご本人"}が亡くなったら` || p.title.startsWith("いま"))!.details.some((d) => d.includes("（直した数）"))).toBe(true);
     // 養子の印を外すと配列から消え、ほかの設定は残る
     const un = fieldOf(wh, `inherit/tax/adopted/${child.id}`).set(wh, false);
     expect(un.request.input.inheritanceTax?.adopted).toBeUndefined();
@@ -185,7 +185,7 @@ describe("相続・贈与のカード: 相続税の目安（区画D）", () => {
     const wh0 = fromRequest(modelHousehold("housingPurchase"));
     const self = wh0.request.input.household.members.find((m) => m.kind === "self")!;
     const wh = fieldOf(wh0, `inherit/tax/override/contingency/${self.id}`).set(wh0, 3000000);
-    const reqs = chartRequests(wh, "current", [], { key: "death:self", kind: "death", member: self.id, label: "ご主人の死亡", who: "ご主人" }, 2030);
+    const reqs = chartRequests(wh, "current", [], { key: "death:self", kind: "death", member: self.id, label: "ご本人の死亡", who: "ご本人" }, 2030);
     const sc = Object.entries(reqs).find(([k]) => k.endsWith("sc"))![1];
     expect(sc.input.inheritanceTax).toMatchObject({ points: ["contingency"], overrides: [{ point: "contingency", decedent: self.id, amount: 3000000 }] });
     const r = preview(forEngine(sc));
