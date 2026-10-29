@@ -55,7 +55,7 @@ export const LEVEL_HELP: Readonly<Record<StageId, LevelHelpDef>> = {
     fallback: "estimate",
   },
   insurance: {
-    simple: [["保険の種類", "種類"], ["被保険者"], ["保険料", "保険料（1回の額）"], ["払い方"], ["死亡保険金などの保障の額", "死亡保険金"], ["保障や払込の終わり", "払込の終わり"]],
+    simple: [["保険の種類", "種類"], ["被保険者"], ["保険料"], ["払い方"], ["死亡保険金などの保障の額", "死亡保険金"], ["保障や払込の終わり", "払込の終わり"]],
     detail: [["契約者"], ["受取人"], ["解約の月"], ["保険料控除の区分", "保険料控除"]],
     fallback: "default",
   },
@@ -70,7 +70,7 @@ export const LEVEL_HELP: Readonly<Record<StageId, LevelHelpDef>> = {
     fallback: "default",
   },
   events: {
-    simple: [["支出や収入の名前", "名前"], ["時期"], ["額", "1回の額"], ["何年ごとか", "何年ごと"]],
+    simple: [["支出や収入の名前", "名前"], ["時期"], ["額"], ["何年ごとか", "何年ごと"]],
     detail: [["優先度"], ["キャッシュフロー表の行"], ["伸び方"]],
     fallback: "default",
   },

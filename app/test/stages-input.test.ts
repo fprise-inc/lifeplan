@@ -83,14 +83,14 @@ describe("住まいの段階と例外の年（修繕費・固定資産税・家�
     expect(fieldOf(wh, "housing", (f) => f.key.endsWith(`/propertyTax/stage/${sid}/at`)).label).toBe("いつから（その年から）");
   });
 
-  it("賃貸の家賃にも段階と例外の年。段・例外の数は簡易のまとまりの札に出る", () => {
+  it("賃貸の家賃にも段階と例外の年。変化の数は簡易のまとまりの札に出る", () => {
     let wh = open("sampleSingle20s");
     const r = wh.request.input.household.residences?.find((x) => x.kind === "rent");
     expect(r).toBeDefined();
     wh = act(wh, "housing", `${r!.id}/rent/addStage`);
     wh = act(wh, "housing", `${r!.id}/rent/addException`);
     const group = buildStage("housing", wh).sections.flatMap((s) => s.groups).find((g) => g.key === `housing/res/${r!.id}`);
-    expect(group?.note).toContain("家賃: この後 1段・例外の年 1件");
+    expect(group?.note).toContain("家賃の変化 2件");
     expect(() => full(wh.request)).not.toThrow();
   });
 });

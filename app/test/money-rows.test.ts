@@ -177,9 +177,12 @@ describe("種類の既定とカードの区画", () => {
     const every = fields.find((f) => f.key === `in/${id(40)}/every`) as FieldDef;
     expect(every.get(yearly).value).toBe(1);
     expect(every.help).toContain("1なら毎年");
-    expect(fields.find((f) => f.key === `in/${id(40)}/amount`)?.label).toBe("1回の額");
+    // 額の欄の名前は、毎年なら「年額」、2以上なら「3年ごとの額」（0044 の 2026-10-29 の追記）
+    expect(fields.find((f) => f.key === `in/${id(40)}/amount`)?.label).toBe("年額");
     const w3 = every.set(yearly, 3);
     expect((w3.request.input.household.incomeFlows ?? [])[0]?.everyYears).toBe(3);
+    expect(allFields(buildStage("work", w3)).find((f) => f.key === `in/${id(40)}/amount`)?.label).toBe("3年ごとの額");
+    expect(allFields(buildStage("work", cad.set(wh, "monthly"))).find((f) => f.key === `in/${id(40)}/amount`)?.label).toBe("月額");
     preview(w3.request);
   });
 });
