@@ -53,7 +53,7 @@ describe("詳細の並び: 働き方 1・2… → ＋ 働き方を足す → 定
     expect(s).not.toContain(`work/${self.id}/periods`);
   });
 
-  it("画面: 詳細では「働き方 1（今の働き方）」が定年後の予定より上、今の働き方の見出しは出さない。足すボタンは「＋ ご主人の働き方 2」の形", () => {
+  it("画面: 詳細では「働き方 1（今の働き方）」が定年後の予定より上、今の働き方の見出しは出さない。足すボタンは「＋ （人の呼び名）の働き方 2」の形", () => {
     const html = panel(wh, "detail");
     const who = stage(wh).sections.find((s) => s.key === `work/${self.id}`)!.title;
     expect(html).toContain(`${who}の働き方 1（今の働き方）`);
