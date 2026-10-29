@@ -1,5 +1,5 @@
 // 主画面で動かせる項目（「動かす項目」）の一覧。
-// - 対策の固定の項目（働く最後の年齢・年金の受け取り開始・NISA・生活費・FP顧問料）
+// - 対策の固定の項目（働く最後の年齢・年金の受け取り開始・NISA・生活費・FP顧問料）と、配偶者の働き方と年収（0084）
 // - よく使う項目（住宅ローンの借入額か繰上返済・金利・変動金利の上昇・資産運用の配分）
 // - 入力の項目の定義（input/stages/ の欄）から作る、数の欄すべて
 // 動かした値は案（plans.ts）の差分にだけ入り、入力（現状）は変えない（0008 の5）
@@ -8,7 +8,12 @@ import { group, monthlyMan } from "../../presentation/format.ts";
 import type { DemoHousehold } from "../catalog.ts";
 import { allFields, resolveTimepoint, type FieldDef, type StageDef } from "../input/form.ts";
 import { mutate, reemploymentOf, type WorkingHousehold } from "../input/household.ts";
-import { ACCOUNT_KINDS, memberLabel } from "../input/labels.ts";
+import { ACCOUNT_KINDS, EMPLOYMENT_TYPES, memberLabel } from "../input/labels.ts";
+import { businessEstimate, ensureResidentTax, salaryAge, salaryEstimate, smrEstimate, smrMonth } from "../input/estimates.ts";
+import { convertPeriod } from "../input/stages/work.ts";
+import { ageReachedMonth } from "../levers.ts";
+import type { Option } from "../input/form.ts";
+import type { Box, EmploymentPeriod, Household, Member } from "../../engine/types.ts";
 import { buildStages, STAGE_ORDER } from "../input/stages/index.ts";
 import { pctFromRate, sameRate } from "../input/units.ts";
 import { addMonths, advisoryFeeInCurrent, hasAdvisoryFee, LEVER_KEYS, parseYm, readLevers, type LeverKey, type LeverValues } from "../levers.ts";
@@ -27,7 +32,13 @@ export interface RateShift {
   from: string;
 }
 
-export type ItemValue = number | string | boolean | MixPart[] | RateShift | null;
+/** 働き方と年収（配偶者の働き方と年収。0084）: 働き方の種類と、1年の収入（給与は賞与込みの年収、自営業は事業所得。働いていないは0） */
+export interface WorkValue {
+  type: string;
+  annual: number;
+}
+
+export type ItemValue = number | string | boolean | MixPart[] | RateShift | WorkValue | null;
 
 /** 差分の向き先（0008 の5）: 物・構成員・プランの前提 */
 export type DiffTarget = { object: string } | { member: string } | { plan: "assumptions" };
@@ -47,6 +58,8 @@ export type Control =
   | { kind: "mix"; accountKind: string }
   /** 変動金利の上昇（幅と始まりの年） */
   | { kind: "shift"; years: number[] }
+  /** 働き方の種類（選ぶ）と年収（1万円の刻みのスライダーと数値の欄）。estimate は種類を選び直したときの年収の目安 */
+  | { kind: "work"; options: Option[]; max: number; estimate: (type: string) => number }
   /** 入力の欄と同じ形の数値の欄（金額の欄は、1万円の刻みのスライダーも付ける） */
   | { kind: "field"; field: FieldDef; slider?: { min: number; max: number; step: number; per: "月" | "年" | "" } };
 
@@ -61,7 +74,8 @@ export interface MovableItem {
   short: string;
   /** 追加のメニューの見出し */
   group: string;
-  /** 対策に最初から出す項目 */
+  /** 対策の固定の項目（働く最後の年齢・年金の受け取り開始・NISA・生活費・FP顧問料。対策の上に専用の形で出す）。
+   * どの項目を対策に最初から出すかは、これではなく事務所の既定値で決める（plans/leverChoice.ts。0084） */
   builtin: boolean;
   /** 当てる順番: 欄 → 対策の固定の項目 → FP顧問料 */
   phase: "field" | "lever" | "fee";
@@ -236,6 +250,131 @@ function feeItem(wh: WorkingHousehold): MovableItem[] {
       apply: (w) => w,
       text: (v) => (v === true ? "入れる" : "入れない"),
       same: jsonSame,
+    },
+  ];
+}
+
+// ---- 配偶者の働き方と年収（0084）: 配偶者の今の働き方の期間の種類と年収を、1つの項目で動かす ----
+
+const WORKING_TYPES = new Set(["regular", "contract", "partTime", "civilServant", "executive"]);
+
+/** 計算基準月にしている働き方の期間か、これから始まる最初の期間（終わった期間だけなら無し。終わった働き方は動かさない） */
+export function nowPeriodOf(h: Household, memberId: string, baseMonth: string): EmploymentPeriod | undefined {
+  const ps = (h.employmentPeriods ?? []).filter((e) => e.member === memberId).sort((a, b) => ((a.from.at ?? "") < (b.from.at ?? "") ? -1 : 1));
+  return ps.find((p) => (p.from.at ?? "") <= baseMonth && (p.to === null || (p.to.at ?? "9999-12") >= baseMonth)) ?? ps.find((p) => (p.from.at ?? "") > baseMonth);
+}
+
+/** その期間の1年の収入（給与は年収＋賞与、自営業は事業所得、ほかは0） */
+function periodIncome(p: EmploymentPeriod | undefined): number {
+  if (p === undefined) return 0;
+  if (WORKING_TYPES.has(p.type)) return (p.salary?.annual.value ?? 0) + (p.salary?.bonus?.value ?? 0);
+  if (p.type === "selfEmployed") return p.business?.income.value ?? 0;
+  return 0;
+}
+
+export function spouseWorkNow(wh: WorkingHousehold, spouseId: string): WorkValue {
+  const p = nowPeriodOf(wh.request.input.household, spouseId, wh.request.input.baseMonth);
+  return { type: p?.type ?? "unemployed", annual: periodIncome(p) };
+}
+
+const manual = (v: number) => ({ value: v, state: "confirmed", origin: { kind: "manual" } }) as Box<number>;
+
+/** 年収を入れる: 給与は今の賞与の割合で年収と賞与に分ける（割合が無ければ賞与0）。自営業は事業所得。推定のままの標準報酬月額は新しい年収に合わせる */
+function setIncome(p: EmploymentPeriod, total: number, baseMonth: string): void {
+  if (WORKING_TYPES.has(p.type)) {
+    const a = p.salary?.annual.value ?? 0;
+    const b = p.salary?.bonus?.value ?? 0;
+    const bonus = a + b > 0 ? Math.round((total * b) / (a + b) / 1000) * 1000 : 0;
+    p.salary = { ...(p.salary ?? {}), annual: manual(total - bonus), bonus: manual(bonus) };
+    const smr = p.standardMonthlyRemuneration;
+    const auto = (x: { state?: string; origin?: { kind?: string } } | undefined) => x === undefined || (x.state === "estimated" && x.origin?.kind === "auto");
+    if (smr === undefined || (auto(smr.health) && auto(smr.pension))) p.standardMonthlyRemuneration = smrEstimate(total - bonus, smrMonth(p, baseMonth));
+  } else if (p.type === "selfEmployed") p.business = { ...(p.business ?? {}), income: manual(total) };
+}
+
+/**
+ * 配偶者の働き方と年収を当てる（元の世帯は変えない）: 今の働き方の期間（無ければ計算基準月から65歳になる前の月までの期間を足す）の種類を変え
+ * （入力の「働き方」を選び直したのと同じ。要る欄を足し、要らない欄を外す）、年収を入れる。休業中は種類だけ変えられない形にしない（選んだ種類にする）
+ */
+function applySpouseWork(w: WorkingHousehold, m: Member, v: WorkValue): WorkingHousehold {
+  const now = spouseWorkNow(w, m.id);
+  if (now.type === v.type && now.annual === v.annual) return w;
+  return mutate(w, (h, req) => {
+    const base = req.input.baseMonth;
+    const list = (h.employmentPeriods ??= []);
+    let p = nowPeriodOf(h, m.id, base);
+    if (p === undefined) {
+      if (v.type === "unemployed") return;
+      const to = addMonths(ageReachedMonth(m, 65), -1);
+      if (to < base) return;
+      p = { id: derivedPeriodId(m.id, base), member: m.id, from: { at: base }, to: { at: to }, type: "unemployed" };
+      list.push(p);
+    }
+    const i = list.indexOf(p);
+    if (p.type !== v.type) {
+      p = convertPeriod(p, v.type, m, base);
+      list[i] = p;
+    }
+    setIncome(p, Math.max(0, Math.round(v.annual)), base);
+    if (v.type !== "unemployed") ensureResidentTax(h, m.id, base, () => derivedPeriodId(m.id, `${base}:tax`));
+  });
+}
+
+/** 足す期間の ID（同じ値なら同じ要求にする。0004 の UUID 第4版の形） */
+function derivedPeriodId(memberId: string, salt: string): string {
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (const ch of `${memberId}|spouseWork|${salt}`) {
+    h1 = Math.imul(h1 ^ ch.charCodeAt(0), 16777619) >>> 0;
+    h2 = Math.imul(h2 ^ ch.charCodeAt(0), 2246822519) >>> 0;
+  }
+  const hex = (h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0") + ((h1 ^ h2) >>> 0).toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0")).slice(0, 32);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
+const typeLabel = (t: string) => EMPLOYMENT_TYPES.find((o) => o.value === t)?.label ?? t;
+export const workText = (v: ItemValue): string => {
+  if (v === null || typeof v !== "object" || Array.isArray(v) || !("type" in v)) return "—";
+  const w = v as WorkValue;
+  return w.type === "unemployed" || w.type === "leave" ? typeLabel(w.type) : `${typeLabel(w.type)}・${w.type === "selfEmployed" ? "所得" : "年収"}${manText(w.annual)}`;
+};
+
+function spouseWorkItem(wh: WorkingHousehold): MovableItem[] {
+  const h = wh.request.input.household;
+  const m = h.members.find((x) => x.kind === "spouse");
+  if (m === undefined) return [];
+  // 今もこれからも働き方の期間が無く、もう65歳を過ぎている配偶者は出さない（足す期間が作れない）
+  if (nowPeriodOf(h, m.id, wh.request.input.baseMonth) === undefined && addMonths(ageReachedMonth(m, 65), -1) < wh.request.input.baseMonth) return [];
+  const now = spouseWorkNow(wh, m.id);
+  const who = memberLabel(wh, m.id);
+  const base = wh.request.input.baseMonth;
+  // 休業中は、今の値のときだけ選べる（対策からは休業にしない。休業の種類と終わりは入力で入れる）
+  const options = EMPLOYMENT_TYPES.filter((o) => o.value !== "leave" || now.type === "leave");
+  const estimate = (type: string): number => {
+    if (type === "selfEmployed") return businessEstimate().value;
+    if (!WORKING_TYPES.has(type)) return 0;
+    const e = salaryEstimate(type, m.sex, { age: salaryAge(m, { from: { at: base } }, base) });
+    return e === null ? 0 : Math.round((e.annual.value + e.bonus.value) / AMOUNT_STEP) * AMOUNT_STEP;
+  };
+  return [
+    {
+      key: `spouse:${m.id}:work`,
+      item: "employment.type",
+      target: { member: m.id },
+      label: `${who}の働き方と年収`,
+      short: `${who}の働き方`,
+      group: "対策",
+      builtin: false,
+      phase: "field",
+      control: { kind: "work", options, max: amountRange(0, Math.max(6_000_000, now.annual * 2)).max, estimate },
+      read: (w) => spouseWorkNow(w, m.id),
+      apply: (w, v) => (v !== null && typeof v === "object" && !Array.isArray(v) && "annual" in v ? applySpouseWork(w, m, v as WorkValue) : w),
+      text: workText,
+      same: jsonSame,
+      note: (v) => {
+        const t = (v as WorkValue | null)?.type;
+        return t === "selfEmployed" ? "事業所得（売上から経費を引いた額）" : t === "unemployed" ? "収入なし" : "税込みの年収（賞与込み）。働く期間は今の働き方のまま（働いていなければ、今から65歳になるまで）";
+      },
     },
   ];
 }
@@ -747,7 +886,7 @@ function buildCatalogOf(wh: WorkingHousehold, selfId: string, demo: DemoHousehol
   for (const m of h.members) skip.add(`work/${m.id}/now/total`);
   // 推計の区分の受け取り開始の欄（構成員の pensionClaim。0078）は、対策の「年金の受け取り開始」と同じものを動かすので重ねて出さない
   for (const m of h.members) for (const t of ["", "/basic", "/employee"]) skip.add(`pension/${m.id}/estimate/claim${t}`);
-  const items = [...leverItems(wh, selfId, demo), ...feeItem(wh), ...investItems(wh), ...surplusItems(wh), ...loanItems(wh), ...mixItems(wh), ...fieldItems(wh, buildStages(wh), skip)];
+  const items = [...leverItems(wh, selfId, demo), ...spouseWorkItem(wh), ...feeItem(wh), ...investItems(wh), ...surplusItems(wh), ...loanItems(wh), ...mixItems(wh), ...fieldItems(wh, buildStages(wh), skip)];
   return { selfId, items, byKey: new Map(items.map((i) => [i.key, i])) };
 }
 

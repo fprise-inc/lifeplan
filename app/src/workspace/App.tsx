@@ -65,6 +65,7 @@ import { usePlanPensions } from "./input/pensionEstimate.ts";
 import { dependentRefRequest, dependentRefRows, useRefResult } from "./resultRows.ts";
 import { addRate } from "./plans/decimal.ts";
 import { ItemMenu, ItemRow } from "./plans/ItemControls.tsx";
+import { leverView, visibleKeys } from "./plans/leverChoice.ts";
 import { amountRange, buildCatalog, leverSteps, type Catalog, type ItemValue, type MovableItem } from "./plans/items.ts";
 import { PlanList } from "./plans/PlanList.tsx";
 import { acknowledge, applyValues, changesOf, changesOfValues, dropChange, effectiveValues, findPlan, headLetter, modernPlanName, normalizeValues, overwritePlan, planLabel, reflectPlan, sameValues, savePlan, suggestName, valueOf, type Values } from "./plans/plans.ts";
@@ -1187,6 +1188,8 @@ export function App() {
     [putWork, history],
   );
 
+  /** 対策に最初から出す項目（事務所の既定値。0084）。描くたびに入れ直す */
+  const fixedRef = useRef<ReadonlySet<string>>(new Set());
   const setValue = useCallback(
     (key: string, v: ItemValue, mode: "slide" | "release" = "slide") => {
       const o = openedRef.current;
@@ -1194,6 +1197,8 @@ export function App() {
       if (o === null || lockReason(w, () => "A") !== null) return;
       const it = o.catalog.byKey.get(key);
       if (it === undefined) return;
+      // 最初から出さない項目を動かしたら、足した項目にする（値が入っていて出していた項目を現状の値に戻しても、動かしている途中で消えないように）
+      if (!fixedRef.current.has(key)) setShown((s) => (s.includes(key) ? s : [...s, key]));
       const cur = valuesOf(o.wh, w, w.sel);
       const prev = valueOf(it, cur, o.wh);
       if (it.same(prev, v) && mode === "slide") return;
@@ -1727,17 +1732,21 @@ export function App() {
   /** 固定した年（グラフの○と表の光る列）。表示する年の外の年は固定しない */
   const pinnedYear = selectedYear !== null && model?.selectedYear === selectedYear ? selectedYear : null;
   const baseValues = opened === null ? {} : valuesOf(opened.wh, work, work.base);
+  // 対策に出す項目: 事務所の既定値で最初から出す項目・足した項目・選んだプランで値が入っている項目（0084）
+  const levView = opened === null ? null : leverView(opened.catalog, officeSettings.levers, shown, work.sel === CURRENT ? {} : selValues);
+  fixedRef.current = levView?.fixed ?? new Set<string>();
+  const onTop = new Set((levView?.top ?? []).map((it) => it.key));
   const leverRows: LeverRow[] =
     opened === null
       ? []
-      : leverItemsOf(opened).flatMap((it): LeverRow[] => {
+      : leverItemsOf(opened).filter((it) => onTop.has(it.key)).flatMap((it): LeverRow[] => {
           const c = it.control;
           if (c.kind !== "age" && c.kind !== "range") return [];
           const v = valueOf(it, selValues, opened.wh);
           const b = valueOf(it, baseValues, opened.wh);
           const vn = typeof v === "number" ? v : undefined;
           const bn = typeof b === "number" ? b : undefined;
-          const common = { key: it.key.slice(6) as LeverKey, label: it.label, valueText: it.text(v), baseText: it.text(b), note: it.note?.(v) ?? null };
+          const common = { key: it.key.slice(6) as LeverKey, label: it.label, valueText: it.text(v), baseText: it.text(b), note: it.note?.(v) ?? null, removable: levView?.fixed.has(it.key) !== true };
           if (c.kind === "age") {
             // 年齢: 1歳ずつ。今の値・基準の値が範囲の外なら範囲を広げる（入力で直接入れたとき）
             const min = Math.min(c.min, vn ?? c.min, bn ?? c.min);
@@ -1749,7 +1758,9 @@ export function App() {
           return [{ ...common, slider: { kind: "amount", min: r.min, max: r.max, step: c.step, value: vn ?? r.min, base: bn ?? r.min, per: c.per ?? "", tick: c.tick } }];
         });
   const feeToggle: FeeToggle | null =
-    opened !== null && hasAdvisoryFee(opened.wh.request) ? { on: feeOn, inBase: feeOf(opened, baseValues), note: feeSummary(opened.wh.request), onToggle: toggleFee } : null;
+    opened !== null && hasAdvisoryFee(opened.wh.request) && onTop.has("lever:fee")
+      ? { on: feeOn, inBase: feeOf(opened, baseValues), note: feeSummary(opened.wh.request), onToggle: toggleFee, onRemove: levView?.fixed.has("lever:fee") === true ? null : () => removeItem(opened, "lever:fee") }
+      : null;
 
   const last = dual.current?.timings.filter((t) => t.kind === "preview").at(-1);
   const lastCanon = dual.current?.timings.filter((t) => t.kind === "canonical").at(-1);
@@ -1779,25 +1790,22 @@ export function App() {
     else drafts[w.sel] = nv;
     putWork({ ...w, drafts }, o, "release");
   };
-  const addedRows =
-    opened === null
-      ? []
-      : shown
-          .map((k) => opened.catalog.byKey.get(k))
-          .filter((it): it is MovableItem => it !== undefined)
-          .map((it) => (
-            <ItemRow
-              key={it.key}
-              item={it}
-              value={valueOf(it, selValues, opened.wh)}
-              base={valueOf(it, baseValues, opened.wh)}
-              baseLabel={`基準（${letterOf(work.base)}）`}
-              wh={opened.wh}
-              onSlide={(k, v) => setValue(k, v)}
-              onRelease={release}
-              onRemove={(k) => removeItem(opened, k)}
-            />
-          ));
+  // 最初から出す項目のうち対策の固定の項目でない物（外せない）と、足した項目・値が入っている項目（外せる）
+  const itemRow = (o: Opened, it: MovableItem, removable: boolean) => (
+    <ItemRow
+      key={it.key}
+      item={it}
+      value={valueOf(it, selValues, o.wh)}
+      base={valueOf(it, baseValues, o.wh)}
+      baseLabel={`基準（${letterOf(work.base)}）`}
+      wh={o.wh}
+      onSlide={(k, v) => setValue(k, v)}
+      onRelease={release}
+      onRemove={removable ? (k) => removeItem(o, k) : null}
+    />
+  );
+  const fixedRows = opened === null || levView === null ? [] : levView.top.filter((it) => it.phase === "field").map((it) => itemRow(opened, it, false));
+  const addedRows = opened === null || levView === null ? [] : levView.added.map((it) => itemRow(opened, it, true));
 
   // 比較の表（現状と帯の案。基準の案との差）と、プランごとの年金の見込み（比較の表を開いている間だけ求める。0075）
   const compareResults = slots.map((id) => resultOf(id));
@@ -2427,7 +2435,9 @@ export function App() {
               modified={modified.has(work.sel)}
               levers={leverRows}
               fee={feeToggle}
+              fixedRows={fixedRows}
               onSlide={slide}
+              onRemove={(k) => removeItem(opened, `lever:${k}`)}
               onRelease={release}
               onReset={resetDraft}
               onOverwrite={work.sel !== CURRENT ? overwrite : null}
@@ -2470,7 +2480,8 @@ export function App() {
                   {menuOpen ? (
                     <ItemMenu
                       catalog={opened.catalog}
-                      shown={shownSet}
+                      shown={levView !== null ? visibleKeys(levView) : shownSet}
+                      fixed={levView?.fixed ?? new Set<string>()}
                       onPick={(k) => {
                         setShown((s) => [...s, k]);
                         setMenuOpen(false);

@@ -8,7 +8,7 @@ import type { WorkingHousehold } from "../input/household.ts";
 import { normalizeNumberText, shiftDecimal } from "../input/units.ts";
 import { BUCKETS, bucketShares, mixFromBuckets, type MixPart } from "./allocation.ts";
 import { pctText } from "./decimal.ts";
-import { AMOUNT_STEP, type Catalog, type ItemValue, type MovableItem, type RateShift } from "./items.ts";
+import { AMOUNT_STEP, type Catalog, type ItemValue, type MovableItem, type RateShift, type WorkValue } from "./items.ts";
 
 // ---- 金額の数値の欄（スライダーの横。万円で直接入れる。1万円単位に丸める）----
 
@@ -81,19 +81,23 @@ const RATE_UNIT = 5;
 const rateToInt = (r: string) => Math.round(Number(shiftDecimal(r, RATE_UNIT)));
 const intToRate = (n: number) => shiftDecimal(String(n), -RATE_UNIT);
 
-export function ItemMenu({ catalog, shown, onPick, onClose }: { catalog: Catalog; shown: ReadonlySet<string>; onPick: (key: string) => void; onClose: () => void }) {
+/**
+ * 「＋ 動かす項目を追加」の一覧。fixed は対策に最初から出す項目（事務所の既定値。plans/leverChoice.ts）で、一覧に出さない。
+ * 最初から出さない対策の固定の項目（事務所が外した物）は、見出し「対策」で一覧に出す
+ */
+export function ItemMenu({ catalog, shown, fixed, onPick, onClose }: { catalog: Catalog; shown: ReadonlySet<string>; fixed: ReadonlySet<string>; onPick: (key: string) => void; onClose: () => void }) {
   const [q, setQ] = useState("");
   const groups = useMemo(() => {
     const m = new Map<string, MovableItem[]>();
     for (const it of catalog.items) {
-      if (it.builtin) continue;
+      if (fixed.has(it.key)) continue;
       if (q !== "" && !it.label.includes(q) && !it.group.includes(q)) continue;
       const g = m.get(it.group) ?? [];
       g.push(it);
       m.set(it.group, g);
     }
     return [...m.entries()];
-  }, [catalog, q]);
+  }, [catalog, fixed, q]);
   return (
     <div class="item-menu" role="group" aria-label="動かす項目を選ぶ" data-item-menu>
       <div class="item-menu-h">
@@ -107,7 +111,7 @@ export function ItemMenu({ catalog, shown, onPick, onClose }: { catalog: Catalog
         {groups.length === 0 ? <p class="in-note">当てはまる項目がありません</p> : null}
         {groups.map(([g, items]) => (
           <section key={g}>
-            <h4>{g === "よく使う" ? "よく使う項目" : g === "資産運用" || g === "貯まり方" ? g : `入力: ${g}`}</h4>
+            <h4>{g === "よく使う" ? "よく使う項目" : g === "対策" || g === "資産運用" || g === "貯まり方" ? g : `入力: ${g}`}</h4>
             {items.map((it) => (
               <button
                 type="button"
@@ -142,7 +146,8 @@ export interface ItemRowProps {
   onSlide: (key: string, v: ItemValue) => void;
   /** 指を離した・欄を確定した（正の計算） */
   onRelease: () => void;
-  onRemove: (key: string) => void;
+  /** 外す（対策に最初から出す項目は外せないので null） */
+  onRemove: ((key: string) => void) | null;
   /** 基準の値の札の見出し（例: 「基準（A）」）。省略は「現状」 */
   baseLabel?: string;
 }
@@ -367,6 +372,61 @@ function AgeRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" }:
   );
 }
 
+/** 働き方と年収（配偶者の働き方と年収。0084）: 働き方を選び、年収を1万円の刻みのスライダーで動かす（数値の欄は上の行） */
+function WorkRow({ item, value, onSlide, onRelease }: ItemRowProps & { item: MovableItem & { control: { kind: "work" } } }) {
+  const c = item.control;
+  const v = (value as WorkValue | null) ?? { type: "unemployed", annual: 0 };
+  const paid = v.type !== "unemployed" && v.type !== "leave";
+  const max = Math.max(c.max, Math.ceil(v.annual / AMOUNT_STEP) * AMOUNT_STEP);
+  return (
+    <div class="work-lever">
+      <label class="shift-from">
+        働き方
+        <select
+          value={v.type}
+          data-item={`${item.key}:type`}
+          onChange={(e) => {
+            const type = (e.currentTarget as HTMLSelectElement).value;
+            // 種類を選び直したら、年収は働いていなかった・0円のときだけ、その種類の目安にする（入れていた年収は残す）
+            const annual = type === "unemployed" ? 0 : v.annual > 0 ? v.annual : c.estimate(type);
+            onSlide(item.key, { type, annual });
+            onRelease();
+          }}
+        >
+          {c.options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {paid ? (
+        <>
+          <input
+            type="range"
+            min={0}
+            max={max}
+            step={AMOUNT_STEP}
+            value={v.annual}
+            data-item={item.key}
+            aria-label={`${item.label}（年収）`}
+            aria-valuetext={item.text(v)}
+            onInput={(e) => onSlide(item.key, { ...v, annual: Number((e.currentTarget as HTMLInputElement).value) })}
+            onChange={onRelease}
+            onPointerUp={onRelease}
+            onKeyUp={onRelease}
+          />
+          <div class="range-scale">
+            <span>0</span>
+            <span class="amt-step">1万円ずつ</span>
+            <span>{(max / AMOUNT_STEP).toLocaleString("en-US")}万</span>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 /** 足した項目の1行（スライダーか数値の欄） */
 export function ItemRow(props: ItemRowProps) {
   const { item, value, base, wh, onSlide, onRelease, onRemove, baseLabel = "現状" } = props;
@@ -378,6 +438,7 @@ export function ItemRow(props: ItemRowProps) {
   else if (c.kind === "mix") control = <MixRow {...props} item={item as MovableItem & { control: typeof c }} />;
   else if (c.kind === "shift") control = <ShiftRow {...props} item={item as MovableItem & { control: typeof c }} />;
   else if (c.kind === "age") control = <AgeRow {...props} item={item as MovableItem & { control: typeof c }} />;
+  else if (c.kind === "work") control = <WorkRow {...props} item={item as MovableItem & { control: typeof c }} />;
   else if (c.kind === "field") {
     // 入力の欄と同じ部品で、案の値を見せる（書いた値は案にだけ入る）
     const view = changed ? item.apply(wh, value) : wh;
@@ -396,9 +457,11 @@ export function ItemRow(props: ItemRowProps) {
     <div class={`lever added${changed ? " changed" : ""}`} data-added={item.key} data-reveal-item>
       <div class="lever-head">
         <span class="lever-label">{item.label}</span>
-        <button type="button" class="link-btn" onClick={() => onRemove(item.key)} title="この項目を対策から外す（動かした値は現状に戻す）">
-          外す
-        </button>
+        {onRemove !== null ? (
+          <button type="button" class="link-btn" onClick={() => onRemove(item.key)} title="この項目を対策から外す（動かした値は現状に戻す）">
+            外す
+          </button>
+        ) : null}
       </div>
       {c.kind === "range" ? (
         <div class="lever-val added-val amt-row">
@@ -409,6 +472,19 @@ export function ItemRow(props: ItemRowProps) {
             label={item.label}
             onCommit={(n) => {
               onSlide(item.key, n);
+              onRelease();
+            }}
+          />
+        </div>
+      ) : c.kind === "work" && value !== null && typeof value === "object" && "annual" in value && value.type !== "unemployed" && value.type !== "leave" ? (
+        <div class="lever-val added-val amt-row">
+          <span>{item.text(value)}</span>
+          <AmountInput
+            value={value.annual}
+            per="年"
+            label={item.label}
+            onCommit={(n) => {
+              onSlide(item.key, { ...(value as WorkValue), annual: n });
               onRelease();
             }}
           />

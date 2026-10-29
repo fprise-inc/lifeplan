@@ -2,7 +2,8 @@
 // - 新しい世帯を作るときに写す（前提条件の標準値・本人と配偶者の介護を最初から入れるか・不動産の評価の割合）。写した値は推定の印で、
 //   根拠「事務所の標準（年月）」。後で事務所の値を変えても、作った世帯は黙って変わらない（確かめの一覧に「事務所の新しい値があります」）
 // - 新しい世帯に写す、入力項目の選び方（出す入力項目と開いたときの入れ方。input/itemChoice.ts）。作った世帯の選び方は世帯ごとに直す
-// - 画面の側で読むだけの既定（入力項目の並び・受け取る予定の相続・贈与の見込みの既定・FP顧問料の料金表）は、その操作のときに読む
+// - 画面の側で読むだけの既定（入力項目の並び・対策に最初から出す項目・受け取る予定の相続・贈与の見込みの既定・FP顧問料の料金表）は、その操作のときに読む。
+//   対策に最初から出す項目（plans/leverChoice.ts。0084）は見せ方だけなので世帯に写さず、変えるとどの世帯の対策にもすぐ効く
 // - 読むときは形を確かめ、読めない値は既定（FPライズの標準）にする
 import type { StageId } from "../input/form.ts";
 import { DEFAULT_LAYOUT, type CardLayout } from "../input/items.ts";
@@ -10,6 +11,7 @@ import { applyCareDefaults, DEFAULT_CARE_DEFAULTS, type CareDefaults } from "../
 import { DEFAULT_ASSUMPTIONS, type WorkingHousehold } from "../input/household.ts";
 import { STAGE_ORDER } from "../input/stages/index.ts";
 import { isEmptyChoice, readItemChoice, type ItemChoice } from "../input/itemChoice.ts";
+import { isEmptyLeverChoice, readLeverChoice, type LeverChoice } from "../plans/leverChoice.ts";
 import { setOfficeNow, STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
 
 export { STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
@@ -35,6 +37,8 @@ export interface OfficeSettings {
   layout: CardLayout | null;
   /** 新しい世帯で出す入力項目と、開いたときの入れ方（空は全部出す・全部標準。新しい世帯に写す） */
   items: ItemChoice;
+  /** 対策に最初から出す項目（既定の組み合わせとの違いだけ。空は既定のまま。世帯には写さない。0084） */
+  levers: LeverChoice;
   /** 本人・配偶者の介護を最初から目安で入れるか */
   care: CareDefaults;
   /** 受け取る予定の相続・贈与の見込みの既定（「当てにしない」〔値は uncertain〕なら、受け取る予定を基本の計算に入れないのが事務所の決まりになる） */
@@ -49,7 +53,7 @@ export interface OfficeSettings {
   changedOn: string | null;
 }
 
-export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { version: 1, layout: null, items: {}, care: DEFAULT_CARE_DEFAULTS, inheritLikelihood: "likely", assumptions: {}, realEstateRatio: null, fee: STANDARD_FEE_TABLE, changedOn: null };
+export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { version: 1, layout: null, items: {}, levers: {}, care: DEFAULT_CARE_DEFAULTS, inheritLikelihood: "likely", assumptions: {}, realEstateRatio: null, fee: STANDARD_FEE_TABLE, changedOn: null };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -89,6 +93,8 @@ export function readOfficeSettings(v: unknown): OfficeSettings {
     if (order.length > 0) layout = { order };
   }
   const items = readItemChoice(v.items);
+  // 対策に最初から出す項目（欄の無い古い事務所データは既定のまま。知らない種類は捨てる）
+  const levers = readLeverChoice(v.levers);
   const care: CareDefaults = isObj(v.care) && (v.care.selfAndSpouse === "fill" || v.care.selfAndSpouse === "warn") ? { selfAndSpouse: v.care.selfAndSpouse } : DEFAULT_CARE_DEFAULTS;
   const inheritLikelihood: InheritLikelihood = v.inheritLikelihood === "uncertain" ? "uncertain" : "likely";
   const assumptions: Partial<Record<OfficeAssumption, string>> = {};
@@ -96,7 +102,7 @@ export function readOfficeSettings(v: unknown): OfficeSettings {
   const realEstateRatio = rateOk(v.realEstateRatio, 0, 1) ? (v.realEstateRatio as string) : null;
   const changedOn = typeof v.changedOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.changedOn) ? v.changedOn : null;
   const fee = readFeeTable(v.fee);
-  return { version: 1, layout, items, care, inheritLikelihood, assumptions, realEstateRatio, fee, changedOn };
+  return { version: 1, layout, items, levers, care, inheritLikelihood, assumptions, realEstateRatio, fee, changedOn };
 }
 
 /** 並びの設定（無ければ標準） */
@@ -109,7 +115,7 @@ export function officeBasis(s: OfficeSettings): string {
 
 /** 標準（FPライズの標準）と同じか（設定を保存するときに、標準と同じ値は持たない） */
 export function isDefaultSettings(s: OfficeSettings): boolean {
-  return s.layout === null && isEmptyChoice(s.items) && s.care.selfAndSpouse === "warn" && s.inheritLikelihood === "likely" && Object.keys(s.assumptions).length === 0 && s.realEstateRatio === null && sameFee(s.fee, STANDARD_FEE_TABLE);
+  return s.layout === null && isEmptyChoice(s.items) && isEmptyLeverChoice(s.levers) && s.care.selfAndSpouse === "warn" && s.inheritLikelihood === "likely" && Object.keys(s.assumptions).length === 0 && s.realEstateRatio === null && sameFee(s.fee, STANDARD_FEE_TABLE);
 }
 
 // ---- 画面の側の操作が読む今の設定（office/current.ts。アプリが開いている間） ----

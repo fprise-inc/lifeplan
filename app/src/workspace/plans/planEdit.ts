@@ -820,6 +820,7 @@ const LEVER_CARDS: Readonly<Record<string, string>> = {
   mainEndAge: "work",
   workEndAge: "work",
   residentTaxThisYear: "work",
+  spouseWork: "work",
   pensionAge: "pension",
   pensionClaimAge: "pension",
   pensionClaimAgeBasic: "pension",

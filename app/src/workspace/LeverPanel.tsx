@@ -1,5 +1,6 @@
 // 対策（作業の層の部品。主画面のグラフの下）: 選んだ案にだけ効くスライダー。基準の案（と現状）を選んでいるときは動かせず、理由を出す。
-// 各項目に基準の案の値を札（薄いグレーの実線の枠）で出す。「＋ 動かす項目を追加」「変更を取り消す」（保存していない変更を全部取り消す。1つずつ戻すのは上部の ↶）「上書き保存」「案として保存」（名前の欄はその場に開く。別の窓は出さない）。
+// 各項目に基準の案の値を札（薄いグレーの実線の枠）で出す。どの項目を最初から出すかは事務所の既定値（plans/leverChoice.ts。0084）で、
+// 最初から出さない対策の固定の項目も、足した・値が入っているときはこの形で出し、「外す」を付ける。「＋ 動かす項目を追加」「変更を取り消す」（保存していない変更を全部取り消す。1つずつ戻すのは上部の ↶）「上書き保存」「案として保存」（名前の欄はその場に開く。別の窓は出さない）。
 // 動かしている間（input）は画面側の先出し、指を離したら（change・pointerup・keyup）正の計算（0005 の5）
 import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
@@ -40,6 +41,8 @@ export interface LeverRow {
   /** 基準の案の値 */
   baseText: string;
   note: string | null;
+  /** 外せる（最初から出す項目でない。足した・値が入っているので出している） */
+  removable?: boolean;
 }
 
 const changedOf = (l: LeverRow) => l.slider.value !== l.slider.base;
@@ -58,6 +61,8 @@ export interface FeeToggle {
   /** 基準の案に入っているか */
   inBase: boolean;
   onToggle: () => void;
+  /** 外す（最初から出す項目でないとき。最初から出すときは省略か null） */
+  onRemove?: (() => void) | null;
 }
 
 export interface LeverCardProps {
@@ -72,6 +77,8 @@ export interface LeverCardProps {
   fee: FeeToggle | null;
   /** 動かした（値。目盛りのスライダーは目盛りの値、金額は円） */
   onSlide: (key: LeverKey, value: number) => void;
+  /** 外せる項目を外す（動かした値は現状に戻す） */
+  onRemove?: (key: LeverKey) => void;
   onRelease: () => void;
   onReset: () => void;
   /** 上書き保存（保存した案でないときは null） */
@@ -86,6 +93,8 @@ export interface LeverCardProps {
   onDrop: ((key: string) => void) | null;
   /** 開いた直後に保存の欄を開く（画面の確かめ用） */
   initialSave?: boolean;
+  /** 最初から出す項目のうち、対策の固定の項目でない物の行（固定の項目の後ろ、FP顧問料の前。0084） */
+  fixedRows?: ComponentChildren;
   /** 足した動かす項目の行 */
   children?: ComponentChildren;
   /** 「＋ 動かす項目を追加」とその一覧 */
@@ -211,7 +220,7 @@ export function LeverCard(p: LeverCardProps) {
         {p.levers.map((l) => {
           const sl = l.slider;
           return (
-            <div class={`lever${changedOf(l) ? " changed" : ""}`} key={l.key} data-lever-kind={sl.kind}>
+            <div class={`lever${changedOf(l) ? " changed" : ""}`} key={l.key} data-lever-kind={sl.kind} data-lever-row={l.key} data-reveal-item>
               <div class="lever-head">
                 <label for={`lv-${l.key}`}>{l.label}</label>
                 {sl.kind === "amount" ? (
@@ -289,12 +298,18 @@ export function LeverCard(p: LeverCardProps) {
               <div class="lever-note">
                 {l.note !== null ? <span>{l.note}</span> : <span />}
                 <span class="base-tag">{baseTag(l.baseText)}</span>
+                {l.removable === true && p.onRemove !== undefined ? (
+                  <button type="button" class="link-btn" onClick={() => p.onRemove?.(l.key)} title="この項目を対策から外す（動かした値は現状に戻す）" data-lever-remove={l.key}>
+                    外す
+                  </button>
+                ) : null}
               </div>
             </div>
           );
         })}
+        {p.fixedRows ?? null}
         {p.fee !== null ? (
-          <div class={`lever toggle${p.fee.on !== p.fee.inBase ? " changed" : ""}`}>
+          <div class={`lever toggle${p.fee.on !== p.fee.inBase ? " changed" : ""}`} data-lever-row="fee" data-reveal-item>
             <div class="lever-head">
               <span class="lever-label">FP顧問料</span>
               <span class="lever-val">{p.fee.on ? "入れる" : "入れない"}</span>
@@ -310,6 +325,11 @@ export function LeverCard(p: LeverCardProps) {
             <div class="lever-note">
               <span>{p.fee.note}</span>
               <span class="base-tag">{baseTag(p.fee.inBase ? "入れる" : "入れない")}</span>
+              {p.fee.onRemove != null ? (
+                <button type="button" class="link-btn" onClick={() => p.fee?.onRemove?.()} title="この項目を対策から外す（入れる・入れないは現状に戻す）" data-lever-remove="fee">
+                  外す
+                </button>
+              ) : null}
             </div>
           </div>
         ) : null}
