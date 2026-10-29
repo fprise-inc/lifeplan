@@ -12,7 +12,7 @@ import { fromRequest, mutate, type WorkingHousehold } from "../src/workspace/inp
 import { InputPanel } from "../src/workspace/input/InputPanel.tsx";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { SMR_BLANK_BASIS } from "../src/workspace/input/stages/work.ts";
-import { applyStateOp, fieldStatus } from "../src/workspace/input/valueState.ts";
+import { applyStateOp, availableOps, fieldStatus } from "../src/workspace/input/valueState.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const noop = () => undefined;
@@ -126,6 +126,13 @@ describe("標準報酬月額: 空欄は給与から計算（目安を推定の�
     expect(smr.pension.value).toBe(Number(/([\d,]+)円/.exec(s.hint ?? "")![1]!.replace(/,/g, "")));
     expect(smr.health.state).toBe("estimated");
     expect(() => preview(w.request)).not.toThrow();
+  });
+
+  it("「わからない」「該当なし」は出さない（分からなければ空欄のまま給与から計算する）", () => {
+    expect(availableOps(fieldOf(blank, smrP), blank)).toEqual(["confirm"]);
+    const w = edit(blank, smrP, 410000);
+    expect(availableOps(fieldOf(w, smrP), w)).not.toContain("unknown");
+    expect(availableOps(fieldOf(w, smrP), w)).not.toContain("notApplicable");
   });
 
   it("厚生年金だけ入れる: 健康保険はその額を健康保険の等級表に当てた推定。計算できる（スキーマは2つとも必須）", () => {

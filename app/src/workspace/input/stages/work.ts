@@ -779,8 +779,8 @@ function smrField(wh: WorkingHousehold, find: Finder, prefix: string, kind: SmrK
       optional: true,
       help:
         kind === "health"
-          ? "給与明細・標準報酬決定通知書の額。空欄なら給与から計算します（昇給に合わせて毎年9月に決め直します）。入れると、この期間はずっとその額で計算します"
-          : "給与明細・標準報酬決定通知書の額。空欄なら給与から計算します（昇給に合わせて毎年9月に決め直します）。入れると、この期間はずっとその額で計算します。賞与の保険料と年金の額（標準賞与額）は、賞与（年間の合計）から計算します（千円未満を切り捨て、上限あり）",
+          ? "給与明細・標準報酬決定通知書の額。分からなければ空欄のままにします（給与から計算し、昇給に合わせて毎年9月に決め直します）。入れると、この期間はずっとその額で計算します"
+          : "給与明細・標準報酬決定通知書の額。分からなければ空欄のままにします（給与から計算し、昇給に合わせて毎年9月に決め直します）。入れると、この期間はずっとその額で計算します。賞与の保険料と年金の額（標準賞与額）は、賞与（年間の合計）から計算します（千円未満を切り捨て、上限あり）",
       get: (w) => {
         const x = period(w);
         const b = boxOf(x, kind);
@@ -792,7 +792,9 @@ function smrField(wh: WorkingHousehold, find: Finder, prefix: string, kind: SmrK
         return v === null ? { value: null } : { value: null, estimated: SMR_BLANK_BASIS, hint: `今の年収なら月 ${v.toLocaleString("ja-JP")}円（推定）` };
       },
       set: (w, v) => put(w, v === null ? undefined : { value: Number(v), state: "confirmed", origin: { kind: "manual" } }),
-      blankEstimate: (w) => (boxOf(period(w), kind) === undefined ? blank(period(w)) : null),
+      // 空欄のときだけ、目安を「この値にする」で書ける。「わからない」は出さない（分からなければ空欄のまま給与から計算するのが正しい。代わりの値を
+      // 書くと期間の間ずっと同じ額になる。0041 の 2026-10-29 の追記の「推定のある欄だけ」の決まりで、空欄の目安は値を書く推定ではないため）
+      ...(boxOf(period(wh), kind) === undefined ? { blankEstimate: (w: WorkingHousehold) => (boxOf(period(w), kind) === undefined ? blank(period(w)) : null) } : {}),
     }),
     boxed: { read: (w) => boxOf(period(w), kind), write: put },
     address: (w) => {
