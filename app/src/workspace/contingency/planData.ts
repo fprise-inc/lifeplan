@@ -18,6 +18,9 @@ export interface SurvivorWork {
   untilAge?: number;
 }
 
+/** 配偶者の働き方を置き換えられる場面（死亡は work） */
+export type PartnerScene = "disability" | "income";
+
 export interface ContingencyPlan {
   /** 遺族の側の前提（生活費の割合・整理資金・予備の生活資金・死亡退職金・弔慰金）。必要保障額の推移と死亡の想定の両方に使う */
   survivor: SurvivorAssumptions;
@@ -27,6 +30,11 @@ export interface ContingencyPlan {
   protection?: { method?: "accumulation" | "reverse"; reverseUntilAge?: number };
   /** 残された人ごとの働き方の変化（構成員の ID → 変化） */
   work: Record<string, SurvivorWork>;
+  /**
+   * 就業不能・収入が減るの場面で、配偶者の働き方を置き換える（場面の種類 → 働き方を変える構成員の ID → 働き方。0085）。
+   * 就業不能は想定の人の配偶者、収入が減るは本人の配偶者。いつから・いつまでは死亡のときの work と同じ決まり（起きた月の○か月後か時点から、○歳まで）
+   */
+  partnerWork?: Partial<Record<PartnerScene, Record<string, SurvivorWork>>>;
   /** 障害・就業不能の想定の等級（該当した場合の仮定）。0 は障害年金に当たらない就業不能。省略は2級 */
   grade?: 0 | 1 | 2 | 3;
   /** 障害・就業不能の想定の医療費（1か月・10割）と月数 */

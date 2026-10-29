@@ -7,7 +7,7 @@ import { smrEstimate } from "../input/estimates.ts";
 import { convertPeriod } from "../input/stages/work.ts";
 import { addMonths, ageReachedMonth, derivedId, parseYm } from "../levers.ts";
 import { roles } from "../roles.ts";
-import type { ContingencyPlan, SurvivorWork } from "./planData.ts";
+import type { ContingencyPlan, PartnerScene, SurvivorWork } from "./planData.ts";
 
 export type ScenarioKind = "death" | "disability" | "illness" | "income" | "market";
 
@@ -167,20 +167,24 @@ export function protectionRequest(wh: WorkingHousehold, memberId: string): Engin
 
 const SALARIED = new Set(["regular", "contract", "partTime"]);
 
-/** 残された人の働き方の変化を、働き方の期間にする（万一の想定の survivor.spouseWork） */
-export function survivorWorkPeriod(h: Household, survivor: Member, w: SurvivorWork | undefined, deathMonth: string): EmploymentPeriod | null {
+/**
+ * 残された人の働き方の変化を、働き方の期間にする（万一の想定の survivor.spouseWork）。
+ * scene を渡すと、就業不能・収入が減るの場面の配偶者の働き方（入力の workChanges。0085）: いつから・いつまでの決まりは同じで、
+ * 配偶者は亡くなっていないので、パートは働き方の目安のまま（扶養に入れるかは今の入力の決まりのまま）
+ */
+export function survivorWorkPeriod(h: Household, survivor: Member, w: SurvivorWork | undefined, deathMonth: string, scene?: PartnerScene): EmploymentPeriod | null {
   if (w === undefined || w.type === undefined || w.type === "keep") return null;
   // 変える時期: 時点（人の年齢・出来事から）があればその月（亡くなった月より前なら亡くなった月）、無ければ亡くなった月の○か月後
   const at = w.from !== undefined ? resolveTimepoint(h, w.from) : null;
   const from = at !== null ? (at < deathMonth ? deathMonth : at) : addMonths(deathMonth, w.afterMonths ?? 6);
-  const id = derivedId(survivor.id, "survivorWork");
+  const id = derivedId(survivor.id, scene === undefined ? "survivorWork" : `partnerWork:${scene}`);
   if (w.type === "none") return { id, member: survivor.id, from: { at: from }, to: null, type: "unemployed" };
   const last = addMonths(ageReachedMonth(survivor, w.untilAge ?? 65), -1);
   if (last < from) return null;
   const p = convertPeriod({ id, member: survivor.id, from: { at: from }, to: { at: last }, type: "regular" }, w.type, survivor, from);
   if (SALARIED.has(w.type)) {
     // 配偶者が亡くなった後は扶養に入れないので、パートは国民健康保険・国民年金にする
-    if (w.type === "partTime") {
+    if (w.type === "partTime" && scene === undefined) {
       p.healthInsurance = { kind: "national" };
       p.pensionCategory = "none";
     }
@@ -191,6 +195,20 @@ export function survivorWorkPeriod(h: Household, survivor: Member, w: SurvivorWo
     if (w.type === "partTime") delete p.standardMonthlyRemuneration;
   } else if (w.type === "selfEmployed" && w.annualSalary !== undefined) p.business = { income: confirmedBox(w.annualSalary) };
   return p;
+}
+
+/** 配偶者の働き方を置き換えられる場面の配偶者（就業不能は想定の人の配偶者、収入が減るは本人の配偶者。いなければ undefined。0085） */
+export function partnerOf(h: Household, sc: Pick<Scenario, "member">): Member | undefined {
+  return adults(h).find((a) => a.member.id === sc.member)?.spouse;
+}
+
+/** 就業不能・収入が減るの場面の配偶者の働き方を、要求の働き方の置き換え（workChanges）に足す（0085。起きた月からの決まりは死亡と同じ） */
+function addPartnerWork(req: EngineRequest, plan: ContingencyPlan, sc: Scenario, scene: PartnerScene, occurs: string): void {
+  const h = req.input.household;
+  const p = partnerOf(h, sc);
+  if (p === undefined) return;
+  const period = survivorWorkPeriod(h, p, plan.partnerWork?.[scene]?.[p.id], occurs, scene);
+  if (period !== null) req.input.workChanges = [...(req.input.workChanges ?? []), period];
 }
 
 /** グラフの枠の名前（見るプランごとに分ける。例: current|none・<プランの ID>|prot:0） */
@@ -262,6 +280,7 @@ export function scenarioRequest(wh: WorkingHousehold, sc: Scenario, year: number
     // 収入が減るとき: 起きた月から○年、その人の給与・事業所得を○割減らす（決まった休業とは別の、試しに見る悪い場合。0071）
     const d = { ...INCOME_DROP_DEFAULT, ...(plan.incomeDrop ?? {}) };
     for (const m of incomeMembers(wh, plan)) addIncomeShock(req, m.id, occurs, d.years * 12, d.ratio);
+    addPartnerWork(req, plan, sc, "income", occurs);
     return req;
   }
   if (sc.kind === "illness") {
@@ -299,6 +318,7 @@ export function scenarioRequest(wh: WorkingHousehold, sc: Scenario, year: number
     if (choice !== undefined && grade !== 0) c.oldAgeChoice = choice;
     const md = plan.medical;
     if (md?.monthly !== undefined && md.monthly > 0) c.medical = { monthly: md.monthly, months: md.months ?? 12 };
+    addPartnerWork(req, plan, sc, "disability", occurs);
   }
   req.input.contingencies = [c];
   return req;

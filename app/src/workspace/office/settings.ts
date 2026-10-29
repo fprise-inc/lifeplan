@@ -2,8 +2,11 @@
 // - 新しい世帯を作るときに写す（前提条件の標準値・本人と配偶者の介護を最初から入れるか・不動産の評価の割合）。写した値は推定の印で、
 //   根拠「事務所の標準（年月）」。後で事務所の値を変えても、作った世帯は黙って変わらない（確かめの一覧に「事務所の新しい値があります」）
 // - 新しい世帯に写す、入力項目の選び方（出す入力項目と開いたときの入れ方。input/itemChoice.ts）。作った世帯の選び方は世帯ごとに直す
-// - 画面の側で読むだけの既定（入力項目の並び・対策に最初から出す項目・受け取る予定の相続・贈与の見込みの既定・FP顧問料の料金表）は、その操作のときに読む。
-//   対策に最初から出す項目（plans/leverChoice.ts。0084）は見せ方だけなので世帯に写さず、変えるとどの世帯の対策にもすぐ効く
+// - 画面の側で読むだけの既定（入力項目の並び・対策に最初から出す項目・万一のタブの想定の前提に最初から出す項目と場面の帯の並べ方・
+//   受け取る予定の相続・贈与の見込みの既定・FP顧問料の料金表）は、その操作のときに読む。
+//   対策に最初から出す項目（plans/leverChoice.ts。0084）と万一のタブの見せ方（contingency/premiseChoice.ts。0085）は見せ方だけなので世帯に写さず、
+//   変えるとどの世帯にもすぐ効く
+// - 新しい世帯に写す、必要保障額の数え方（いつまでの資金を数えるか・出し方。0085。世帯の万一の前提に写す。作った世帯は世帯の値のまま）
 // - 読むときは形を確かめ、読めない値は既定（FPライズの標準）にする
 import type { StageId } from "../input/form.ts";
 import { DEFAULT_LAYOUT, type CardLayout } from "../input/items.ts";
@@ -12,6 +15,7 @@ import { DEFAULT_ASSUMPTIONS, type WorkingHousehold } from "../input/household.t
 import { STAGE_ORDER } from "../input/stages/index.ts";
 import { isEmptyChoice, readItemChoice, type ItemChoice } from "../input/itemChoice.ts";
 import { isEmptyLeverChoice, readLeverChoice, type LeverChoice } from "../plans/leverChoice.ts";
+import { isEmptyPremiseChoice, isEmptySceneChoice, normalProtection, readPremiseChoice, readProtectionSetting, readSceneChoice, withProtection, type PremiseChoice, type ProtectionSetting, type SceneChoice } from "../contingency/premiseChoice.ts";
 import { setOfficeNow, STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
 
 export { STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
@@ -39,6 +43,12 @@ export interface OfficeSettings {
   items: ItemChoice;
   /** 対策に最初から出す項目（既定の組み合わせとの違いだけ。空は既定のまま。世帯には写さない。0084） */
   levers: LeverChoice;
+  /** 万一のタブの想定の前提に最初から出す項目（場面ごと。既定の組み合わせとの違いだけ。世帯には写さない。0085） */
+  premises: PremiseChoice;
+  /** 万一のタブの場面の帯に並べる場面と、開いたときに選んでおく場面（世帯には写さない。0085） */
+  scenes: SceneChoice;
+  /** 必要保障額の数え方（いつまでの資金を数えるか・出し方。新しい世帯の万一の前提に写す。0085） */
+  protection: ProtectionSetting;
   /** 本人・配偶者の介護を最初から目安で入れるか */
   care: CareDefaults;
   /** 受け取る予定の相続・贈与の見込みの既定（「当てにしない」〔値は uncertain〕なら、受け取る予定を基本の計算に入れないのが事務所の決まりになる） */
@@ -53,7 +63,7 @@ export interface OfficeSettings {
   changedOn: string | null;
 }
 
-export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { version: 1, layout: null, items: {}, levers: {}, care: DEFAULT_CARE_DEFAULTS, inheritLikelihood: "likely", assumptions: {}, realEstateRatio: null, fee: STANDARD_FEE_TABLE, changedOn: null };
+export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { version: 1, layout: null, items: {}, levers: {}, premises: {}, scenes: {}, protection: {}, care: DEFAULT_CARE_DEFAULTS, inheritLikelihood: "likely", assumptions: {}, realEstateRatio: null, fee: STANDARD_FEE_TABLE, changedOn: null };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -95,6 +105,10 @@ export function readOfficeSettings(v: unknown): OfficeSettings {
   const items = readItemChoice(v.items);
   // 対策に最初から出す項目（欄の無い古い事務所データは既定のまま。知らない種類は捨てる）
   const levers = readLeverChoice(v.levers);
+  // 万一のタブの既定（0085。欄の無い古い事務所データは既定のまま）
+  const premises = readPremiseChoice(v.premises);
+  const scenes = readSceneChoice(v.scenes);
+  const protection = readProtectionSetting(v.protection);
   const care: CareDefaults = isObj(v.care) && (v.care.selfAndSpouse === "fill" || v.care.selfAndSpouse === "warn") ? { selfAndSpouse: v.care.selfAndSpouse } : DEFAULT_CARE_DEFAULTS;
   const inheritLikelihood: InheritLikelihood = v.inheritLikelihood === "uncertain" ? "uncertain" : "likely";
   const assumptions: Partial<Record<OfficeAssumption, string>> = {};
@@ -102,7 +116,7 @@ export function readOfficeSettings(v: unknown): OfficeSettings {
   const realEstateRatio = rateOk(v.realEstateRatio, 0, 1) ? (v.realEstateRatio as string) : null;
   const changedOn = typeof v.changedOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.changedOn) ? v.changedOn : null;
   const fee = readFeeTable(v.fee);
-  return { version: 1, layout, items, levers, care, inheritLikelihood, assumptions, realEstateRatio, fee, changedOn };
+  return { version: 1, layout, items, levers, premises, scenes, protection, care, inheritLikelihood, assumptions, realEstateRatio, fee, changedOn };
 }
 
 /** 並びの設定（無ければ標準） */
@@ -115,7 +129,7 @@ export function officeBasis(s: OfficeSettings): string {
 
 /** 標準（FPライズの標準）と同じか（設定を保存するときに、標準と同じ値は持たない） */
 export function isDefaultSettings(s: OfficeSettings): boolean {
-  return s.layout === null && isEmptyChoice(s.items) && isEmptyLeverChoice(s.levers) && s.care.selfAndSpouse === "warn" && s.inheritLikelihood === "likely" && Object.keys(s.assumptions).length === 0 && s.realEstateRatio === null && sameFee(s.fee, STANDARD_FEE_TABLE);
+  return s.layout === null && isEmptyChoice(s.items) && isEmptyLeverChoice(s.levers) && isEmptyPremiseChoice(s.premises) && isEmptySceneChoice(s.scenes) && Object.keys(normalProtection(s.protection)).length === 0 && s.care.selfAndSpouse === "warn" && s.inheritLikelihood === "likely" && Object.keys(s.assumptions).length === 0 && s.realEstateRatio === null && sameFee(s.fee, STANDARD_FEE_TABLE);
 }
 
 // ---- 画面の側の操作が読む今の設定（office/current.ts。アプリが開いている間） ----
@@ -135,6 +149,8 @@ export function applyOfficeDefaults(wh: WorkingHousehold, s: OfficeSettings): Wo
   let w = applyCareDefaults(wh, s.care);
   // 出す入力項目と開いたときの入れ方（写した後は世帯ごとに直す。事務所の値を変えても作った世帯は変わらない）
   if (!isEmptyChoice(s.items)) w = { ...w, itemChoice: readItemChoice(s.items) };
+  // 必要保障額の数え方（標準と違うときだけ。写した後は世帯の値のまま。万一のタブに事務所の値と違うと出る）
+  if (Object.keys(normalProtection(s.protection)).length > 0) w = { ...w, contingency: withProtection(w.contingency, s.protection) };
   const basis = officeBasis(s);
   const entries = OFFICE_ASSUMPTIONS.filter((k) => s.assumptions[k] !== undefined);
   if (entries.length === 0 && s.realEstateRatio === null) return w;

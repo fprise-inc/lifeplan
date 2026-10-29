@@ -5,7 +5,8 @@ import { describe, expect, it } from "vitest";
 import type { EngineRequest, ProtectionOutput } from "../src/engine/types.ts";
 import { ContingencyChartCard, LOADING_DELAY_MS, ScenarioBand, YearStrip } from "../src/presentation/ContingencyView.tsx";
 import type { ContingencyModel } from "../src/presentation/model.ts";
-import { contingencyInputSections, oldAgeChoiceField } from "../src/workspace/contingency/inputs.ts";
+import { contingencyInputSections, oldAgeChoiceField, premiseItems } from "../src/workspace/contingency/inputs.ts";
+import { premiseStartKinds, withProtection } from "../src/workspace/contingency/premiseChoice.ts";
 import { planFromRequest } from "../src/workspace/contingency/planData.ts";
 import { chosenCombinations, inheritanceText, protectionChart, scenarioCards, scenarioModel, yearOptions, yearStripModel } from "../src/workspace/contingency/present.ts";
 import { PremisePanel } from "../src/workspace/contingency/PremisePanel.tsx";
@@ -38,7 +39,6 @@ describe("万一の想定の前提の欄", () => {
     for (const pass of [0, 1]) {
       if (pass === 1) {
         for (const f of planFields(wh).filter((x) => x.key.endsWith("/type"))) wh = f.set(wh, "regular");
-        wh = field(wh, "cg/horizon/kind").set(wh, "age");
       }
       const before = JSON.stringify(wh.request);
       for (const f of planFields(wh)) {
@@ -101,7 +101,8 @@ describe("万一の画面の要求", () => {
   it("前提（遺族の生活費の割合・整理資金・期間）は必要保障額と死亡の想定の両方に入る。残された配偶者の働き方は死亡の想定にだけ", () => {
     let w = field(wh, "cg/living/before").set(wh, "0.6");
     w = field(w, "cg/lump/funeral").set(w, 2000000);
-    w = field(w, "cg/horizon/kind").set(w, "youngestIndependence");
+    // 必要保障額の数え方は事務所の既定値から写す（0085。想定の前提の欄には無い）
+    w = { ...w, contingency: withProtection(w.contingency, { horizon: { kind: "youngestIndependence" } }) };
     w = field(w, `cg/work/${spouse.id}/type`).set(w, "regular");
     w = field(w, `cg/work/${spouse.id}/salary`).set(w, 3600000);
     const p = protectionRequest(w, self.id);
@@ -253,14 +254,17 @@ describe("提示用の値がエンジンの結果と一致する", () => {
 
   it("想定の前提の欄: 対策と同じ部品（スライダー・万円の数値の欄・既定の札）で描き、物の ID・FP用のメモは出ない", () => {
     const memoWh = open("salariedCoupleTwoKids", ["MEMO-MARK-pp"]);
-    const sections = contingencyInputSections(memoWh);
-    const html = renderToString(h(PremisePanel, { wh: memoWh, sections, used: new Set(["cg/living"]), extra: { section: "cg/disability", field: oldAgeChoiceField(self.id), note: "組み合わせ" }, onDraft: () => undefined, onCommit: () => undefined }));
+    const panel = (key: string, added: string[] = []) => {
+      const sc = scenarios(memoWh).find((s) => s.key === key)!;
+      return renderToString(h(PremisePanel, { wh: memoWh, scene: "場面", items: premiseItems(memoWh, sc), start: premiseStartKinds({}), added, onAdd: () => undefined, onRemove: () => undefined, onDraft: () => undefined, onCommit: () => undefined }));
+    };
+    const html = panel("death:self");
     expect(html).toContain("想定の前提");
     expect(html).toContain('type="range"');
     expect(html).toContain("既定: 70%");
     expect(html).toContain("1万円ずつ");
-    expect(html).toContain("この場面で使う");
-    expect(html).toContain("65歳からの障害年金と老齢年金の組み合わせ");
+    expect(html).toContain("＋ 動かす項目を追加");
+    expect(panel("disability:self", ["disability:oldAgeChoice"])).toContain("65歳からの障害年金と老齢年金の組み合わせ");
     // 前提の欄は作業の層（FP が直す欄）。FP用のメモは出さない
     expect(html).not.toContain("MEMO-MARK");
   });

@@ -1,13 +1,15 @@
-// 万一の想定の前提の欄（万一の画面のグラフの下に出す。主画面の対策と同じ並べ方・同じ部品で描く: PremisePanel.tsx）。
+// 万一の想定の前提の欄と項目（万一の画面のグラフの下に出す。主画面の対策と同じ並べ方・同じ部品で描く: PremisePanel.tsx）。
+// 選んでいる場面の項目（premiseItems。0085）を、事務所の既定値で最初から出す項目・足した項目・値を変えた項目だけ出す（premiseChoice.ts）。
 // 値は世帯の要求ではなく、画面の側の前提（WorkingHousehold.contingency）を読み書きする。団信だけは住まい・ローンの段階と同じ欄（世帯の要求）
 import type { OldAgeChoice, Timepoint } from "../../engine/types.ts";
-import { field, getPath, resolveTimepoint, setPath, timeView, type FieldDef, type FieldState, type GroupDef, type Level, type Option, type SectionDef, type Val } from "../input/form.ts";
+import { field, getPath, resolveTimepoint, setPath, timeView, type FieldDef, type FieldState, type Level, type Option, type SectionDef, type Val } from "../input/form.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { ASSET_CLASSES, memberLabel } from "../input/labels.ts";
 import { creditLifeGroups } from "../input/stages/housing.ts";
-import type { ContingencyPlan } from "./planData.ts";
+import type { ContingencyPlan, PartnerScene, SurvivorWork } from "./planData.ts";
+import { PREMISE_KINDS, SCENE_KINDS, type PremiseKind } from "./premiseChoice.ts";
 import { PREMISE_ITEMS } from "./premiseItems.ts";
-import { adults, ESOP, HOSPITAL_DAYS_DEFAULT, FX_DEPOSIT, hasInvested, INCOME_DROP_DEFAULT, ILLNESS_DEFAULT, MARKET_CLASSES_DEFAULT, MARKET_DROP_DEFAULT } from "./requests.ts";
+import { adults, ESOP, HOSPITAL_DAYS_DEFAULT, FX_DEPOSIT, hasInvested, INCOME_DROP_DEFAULT, ILLNESS_DEFAULT, MARKET_CLASSES_DEFAULT, MARKET_DROP_DEFAULT, partnerOf, scenarios, type Scenario, type ScenarioKind } from "./requests.ts";
 
 /** 病気の種類（0055） */
 const DISEASES: Option[] = [
@@ -163,9 +165,8 @@ function marketClassField(opt: Option): FieldDef {
   return def;
 }
 
-/** 残された配偶者の働き方を変える時期を、時点（人の年齢・出来事から）で入れる欄（0071。空は「亡くなった月から○か月後」） */
-function workFromField(id: string, k: string): FieldDef {
-  const path = ["work", id, "from"];
+/** 働き方を変える時期を、時点（人の年齢・出来事から）で入れる欄（0071。空は「起きた月から○か月後」）。path は前提の中の場所 */
+function workFromField(path: readonly string[], k: string, o: { label: string; nullText: string; help: string }): FieldDef {
   const read = (wh: WorkingHousehold) => (getPath(wh.contingency, path) as Timepoint | undefined) ?? null;
   const time = timeView({
     read,
@@ -175,20 +176,20 @@ function workFromField(id: string, k: string): FieldDef {
       return { ...wh, contingency: plan as unknown as ContingencyPlan };
     },
     optional: true,
-    nullText: "亡くなった月から○か月後（上の欄）",
+    nullText: o.nullText,
     modes: ["age", "ym", "event"],
     mode: "age",
     ageOf: (h) => h.members.filter((m) => m.kind === "child").sort((a, b) => b.birth.birthYearMonth.localeCompare(a.birth.birthYearMonth))[0],
   });
   const def = field({
     key: `${k}/from`,
-    item: PREMISE_ITEMS.work ?? null,
-    label: "変える時期を時点で（下の子の年齢・出来事から）",
+    item: PREMISE_ITEMS[path[0] ?? ""] ?? null,
+    label: o.label,
     level: "detail",
     kind: "when",
     time,
     optional: true,
-    help: "亡くなった月より前の時点は、亡くなった月にします。空欄なら、亡くなった月から上の欄の月数の後",
+    help: o.help,
     get: (wh) => ({ value: resolveTimepoint(wh.request.input.household, read(wh)), when: time.state(wh), ...(read(wh) === null ? { implicit: true } : {}) }),
     set: (wh, v) => (v === null || typeof v === "object" ? time.setWhen(wh, v as Timepoint | null, "this") : wh),
   });
@@ -242,116 +243,135 @@ export const OLD_AGE_CHOICE_LABEL: Record<OldAgeChoice, string> = {
   oldAge: "老齢基礎年金＋老齢厚生年金",
 };
 
-/** 残された人の働き方（大人ごと。配偶者が亡くなった想定で使う） */
-function workGroups(wh: WorkingHousehold): GroupDef[] {
-  const out: GroupDef[] = [];
-  for (const a of adults(wh.request.input.household)) {
-    if (a.spouse === undefined) continue;
-    const id = a.spouse.id;
-    const k = `cg/work/${id}`;
-    const w = wh.contingency.work[id];
-    const fields: FieldDef[] = [planField({ key: `${k}/type`, label: "働き方", kind: "select", options: SURVIVOR_WORK_TYPES, path: ["work", id, "type"], fallback: "keep" })];
-    if (w?.type !== undefined && w.type !== "keep") {
-      if (w.type !== "none")
-        fields.push(planField({ key: `${k}/salary`, label: w.type === "selfEmployed" ? "事業の所得（年額）" : "年収（賞与を除く）", kind: "yen", basis: "annual", path: ["work", id, "annualSalary"], help: "空欄なら働き方ごとの目安で計算します", maxYen: 1500 * MAN, auto: "働き方ごとの目安" }));
-      fields.push(planField({ key: `${k}/after`, label: "変える時期（亡くなってから）", level: "detail", kind: "int", suffix: "か月後", min: 0, max: 120, path: ["work", id, "afterMonths"], fallback: 6 }), workFromField(id, k));
-      if (w.type !== "none") fields.push(planField({ key: `${k}/until`, label: "何歳まで", level: "detail", kind: "int", suffix: "歳", min: 20, max: 80, path: ["work", id, "untilAge"], fallback: 65 }));
-    }
-    out.push({ key: k, title: `${memberLabel(wh, a.member.id)}が亡くなった後の${memberLabel(wh, id)}の働き方`, level: "simple", fields, actions: [] });
-  }
-  return out;
+
+/** 前提の項目（0085）: 想定の前提の枠のまとまり。対策の項目と同じく、最初から出す・足す・外すの単位 */
+export interface PremiseItem {
+  kind: PremiseKind;
+  /** 枠の名前（欄が1つの項目は、この名前を欄の名前にする） */
+  label: string;
+  /** 欄のまとまり（団信はローンごと。見出しはまとまりの名前） */
+  parts: { title?: string; fields: FieldDef[] }[];
+  /** 描き方: fields は欄ごとの枠、work は働き方と年収を1つの枠、checks はチェックの並びを1つの枠 */
+  shape: "fields" | "work" | "checks";
+  /** 当てはまらないときの説明（枠は出し、欄は動かせない。例: 働き方が「今の働き方を続ける」ときの年収） */
+  inactive?: string;
+  /** 枠の下の説明（省略は欄の説明） */
+  note?: string;
 }
 
-/** まとまり1つの区画 */
-const one = (key: string, title: string, fields: FieldDef[], o: { note?: string; level?: Level } = {}): SectionDef => ({
-  key,
-  title,
-  ...(o.note !== undefined ? { note: o.note } : {}),
-  level: o.level ?? "simple",
-  groups: [{ key: `${key}/fields`, level: o.level ?? "simple", fields, actions: [] }],
-  actions: [],
-});
+/** 項目の欄（まとまりを並べた物） */
+export const itemFields = (it: PremiseItem): FieldDef[] => it.parts.flatMap((p) => p.fields);
+
+/** 場面ごとの前提の説明（想定の前提の見出しの下） */
+export const SCENE_NOTES: Readonly<Record<ScenarioKind, string>> = {
+  death: "遺族の生活費は、今の生活費（節目を当てた後）に掛ける割合です（標準の値。出典は確かめ前）。残された配偶者の働き方は死亡の想定で置き換え、必要保障額の推移は今の働き方のままです",
+  disability: "等級は「該当した場合」の仮定です。ご家族の実際の状態としては記録しません（既定は2級。仮の値）。配偶者の働き方と年収は、働けなくなった月の6か月後から65歳まで置き換えます（時期は「＋ 動かす項目を追加」で直せます）",
+  illness:
+    "働けない間は、会社員は休業して傷病手当金（健康保険）を受け、決めた月数の後に元の働き方に戻ります。医療費は保険診療の10割で入れ、自己負担は高額療養費（厚生労働省）で止めて計算します。目安の値は仮の値です（事務所で根拠を確かめて直してください）",
+  income:
+    "起きる年から、給与・事業の所得を決めた割合だけ減らします（リストラの後の減収・子の入院で親が休む・上下する収入など、試しに見る悪い場合）。決まった休業は働き方と収入の項目の休業で入れます。配偶者の働き方と年収は、減り始めた月の6か月後から65歳まで置き換えます",
+  market: "起きる年の年末に、運用する口座のうち選んだ資産の部分を下げます（配分を入れていない運用の口座は全体を下げます。預金・債券は選ばなければ下げません）。年ごとの帯は、どの年に下がっても最後まで足りるかを1年ずつ見せます",
+};
+
+const PAID = (t: string | undefined) => t !== undefined && t !== "keep" && t !== "none";
 
 /**
- * 前提の欄の区画（万一の画面のグラフの下）。簡易／詳細の2形式（0071）: 簡易は場面ごとに1〜3欄（遺族の生活費は今の世帯に当たる1つ・
- * 整理資金・働き方と年収・病気の働けない期間・収入が減る・下がる幅）、ほかは詳細
+ * 働き方を置き換える人の欄（死亡は残された配偶者の work、就業不能・収入が減るは配偶者の partnerWork。0071・0085）: 働き方・年収・変える時期（○か月後・時点）・何歳まで。
+ * base は前提の中のその人の場所（["work", id] か ["partnerWork", scene, id]）
  */
-export function contingencyInputSections(wh: WorkingHousehold): SectionDef[] {
+function workFields(wh: WorkingHousehold, base: readonly string[], k: string, after: string) {
+  const w = getPath(wh.contingency, base) as SurvivorWork | undefined;
+  const type = planField({ key: `${k}/type`, label: "働き方", kind: "select", options: SURVIVOR_WORK_TYPES, path: [...base, "type"], fallback: "keep" });
+  const salary = planField({
+    key: `${k}/salary`,
+    label: w?.type === "selfEmployed" ? "事業の所得（年額）" : "年収（賞与を除く）",
+    kind: "yen",
+    basis: "annual",
+    path: [...base, "annualSalary"],
+    help: "空欄なら働き方ごとの目安で計算します",
+    maxYen: 1500 * MAN,
+    auto: "働き方ごとの目安",
+  });
+  const when: FieldDef[] = [
+    planField({ key: `${k}/after`, label: `変える時期（${after}）`, kind: "int", suffix: "か月後", min: 0, max: 120, path: [...base, "afterMonths"], fallback: 6 }),
+    workFromField([...base, "from"], k, {
+      label: "変える時期を時点で（下の子の年齢・出来事から）",
+      nullText: `${after.replace(/から$/, "")}月から○か月後（上の欄）`,
+      help: `${after.replace(/てから$/, "た")}月より前の時点は、その月にします。空欄なら、上の欄の月数の後`,
+    }),
+  ];
+  if (w?.type !== "none") when.push(planField({ key: `${k}/until`, label: "何歳まで", kind: "int", suffix: "歳", min: 20, max: 80, path: [...base, "untilAge"], fallback: 65 }));
+  return { w, type, salary, when };
+}
+
+/**
+ * 選んでいる場面の想定の前提の項目（0085。一覧の並び）。その世帯・その場面に当てはまらない項目は出さない（配偶者がいない・子がいない・
+ * 住宅ローンが無い・障害年金に当たらない等級など）。値は世帯の要求ではなく画面の側の前提（WorkingHousehold.contingency）を読み書きする（団信だけは住まい・ローンと同じ欄）
+ */
+export function premiseItems(wh: WorkingHousehold, sc: Scenario | undefined): PremiseItem[] {
+  if (sc === undefined) return [];
   const plan = wh.contingency;
   const h = wh.request.input.household;
   const kids = h.members.some((m) => m.kind === "child");
   const couple = adults(h).some((a) => a.spouse !== undefined);
-  const lv = (simple: boolean): Level => (simple ? "simple" : "detail");
-  const sections: SectionDef[] = [
-    one(
-      "cg/living",
-      "遺族の生活費",
-      [
-        planField({ key: "cg/living/before", label: "子がいる間", level: lv(kids), kind: "pct", path: ["survivor", "livingRatio", "beforeIndependence"], fallback: "0.7" }),
-        planField({ key: "cg/living/after", label: "末子の独立の後", level: "detail", kind: "pct", path: ["survivor", "livingRatio", "afterIndependence"], fallback: "0.5" }),
-        planField({ key: "cg/living/noKids", label: "子がいない世帯", level: lv(!kids), kind: "pct", path: ["survivor", "livingRatio", "noChildren"], fallback: "0.7" }),
-        planField({
-          key: "cg/living/independence",
-          label: "子の独立とみなす年齢",
-          level: "detail",
-          kind: "int",
-          suffix: "歳",
-          min: 15,
-          max: 30,
-          path: ["survivor", "independenceAge"],
-          fallback: 22,
-          help: "子の独立の時点を入れていない子に使います（入れている子はその時点）。その年齢の後の最初の3月末の翌月を独立とみなします",
+  const partner = sc.kind === "market" ? undefined : partnerOf(h, sc);
+  const one = (kind: PremiseKind, f: FieldDef, o: Partial<PremiseItem> = {}): PremiseItem => ({ kind, label: o.label ?? f.label, parts: [{ fields: [f] }], shape: "fields", ...o });
+  const many = (kind: PremiseKind, label: string, fields: FieldDef[], o: Partial<PremiseItem> = {}): PremiseItem => ({ kind, label, parts: [{ fields }], shape: "fields", ...o });
+  const out: (PremiseItem | null)[] = [];
+  const creditLife = (kind: PremiseKind): PremiseItem | null => {
+    const groups = creditLifeGroups(wh);
+    return groups.length === 0 ? null : { kind, label: "団信", parts: groups.map((g) => ({ ...(g.title !== undefined ? { title: g.title } : {}), fields: g.fields })), shape: "fields", note: "住まい・ローンの入力項目と同じ欄です（どちらで直しても同じ住宅ローンの値が変わります）" };
+  };
+  /** 就業不能・収入が減るの配偶者の働き方と年収（1つの枠）と、変える時期と何歳まで */
+  const partnerItems = (scene: PartnerScene, after: string) => {
+    if (partner === undefined) return [null, null] as const;
+    const pl = memberLabel(wh, partner.id);
+    const f = workFields(wh, ["partnerWork", scene, partner.id], `cg/partner/${scene}/${partner.id}`, after);
+    const work: PremiseItem = { kind: `${scene}:partner`, label: `${pl}の働き方と年収`, parts: [{ fields: [f.type, f.salary] }], shape: "work" };
+    const when = PAID(f.w?.type) || f.w?.type === "none" ? many(`${scene}:partnerWhen`, `${pl}の働き方を変える時期と何歳まで`, f.when) : null;
+    return [work, when] as const;
+  };
+
+  if (sc.kind === "death") {
+    // 並びは最後に一覧の並びにそろえる
+    const living = kids
+      ? planField({ key: "cg/living/before", label: "遺族の生活費の割合（子がいる間）", kind: "pct", path: ["survivor", "livingRatio", "beforeIndependence"], fallback: "0.7" })
+      : planField({ key: "cg/living/noKids", label: "遺族の生活費の割合（子がいない世帯）", kind: "pct", path: ["survivor", "livingRatio", "noChildren"], fallback: "0.7" });
+    out.push(one("death:living", living));
+    if (partner !== undefined) {
+      const pl = memberLabel(wh, partner.id);
+      const f = workFields(wh, ["work", partner.id], `cg/work/${partner.id}`, "亡くなってから");
+      out.push(
+        one("death:work", f.type, { label: `残された${pl}の働き方` }),
+        one("death:salary", f.salary, {
+          label: `残された${pl}の${f.w?.type === "selfEmployed" ? "事業の所得（年額）" : "年収（賞与を除く）"}`,
+          ...(PAID(f.w?.type) ? {} : { inactive: f.w?.type === "none" ? "働かないので0円です" : "今の働き方のままです（働き方を選ぶと入れられます）" }),
         }),
-      ],
-      { note: "今の生活費（節目を当てた後）に掛ける割合（標準の値。出典は確かめ前）。必要保障額の推移と死亡の想定に使います" },
-    ),
-    one("cg/lump", "一時の資金", [
-      planField({ key: "cg/lump/funeral", label: "整理資金（葬儀・お墓など）", kind: "yen", path: ["survivor", "funeral"], help: "亡くなった月の翌月の支出にします", maxYen: 1000 * MAN }),
-      planField({ key: "cg/lump/allowance", label: "死亡退職金", level: "detail", kind: "yen", path: ["survivor", "deathBenefits", "retirementAllowance"], help: "空欄なら、退職金の見込みを勤続の月数で按分します（退職給付×亡くなる月までの勤続の月数÷退職までの勤続の月数）", maxYen: 5000 * MAN, auto: "自動（勤続の月数で按分）" }),
-      planField({ key: "cg/lump/condolence", label: "弔慰金", level: "detail", kind: "yen", path: ["survivor", "deathBenefits", "condolence"], maxYen: 1000 * MAN }),
-      planBool({ key: "cg/lump/workRelated", label: "業務上の死亡として見る", path: ["survivor", "deathBenefits", "workRelated"], help: "死亡退職金・弔慰金の非課税の扱いが変わります（労災の給付は計算に入れません）" }),
-      planField({ key: "cg/lump/reserve", label: "予備の生活資金", level: "detail", kind: "int", suffix: "か月分", min: 0, max: 120, path: ["survivor", "reserveMonths"], help: "遺族の生活費の何か月分を、必要保障額に足すか（口座が使えない間の当座のお金を見込むとき）" }),
-    ]),
-    one(
-      "cg/horizon",
-      "必要保障額の出し方",
-      [
-        planField({ key: "cg/horizon/kind", label: "いつまでの資金を数えるか", level: "detail", kind: "select", options: HORIZON_KINDS, path: ["horizon", "kind"], fallback: "lifeExpectancy" }),
-        ...(plan.horizon?.kind === "age" ? [planField({ key: "cg/horizon/age", label: "配偶者の年齢", level: "detail", kind: "int", suffix: "歳", min: 50, max: 110, path: ["horizon", "age"], fallback: 90 })] : []),
-        planField({ key: "cg/horizon/method", label: "出し方", level: "detail", kind: "select", options: PROTECTION_METHODS, path: ["protection", "method"], fallback: "accumulation" }),
-        ...(plan.protection?.method === "reverse"
-          ? [planField({ key: "cg/horizon/reverseAge", label: "遺族が何歳になるまで資産が尽きないようにするか", level: "detail", kind: "int", suffix: "歳", min: 50, max: 110, path: ["protection", "reverseUntilAge"], help: "空欄なら遺族の平均余命まで（遺族が子なら末子の独立まで）", auto: "平均余命まで" })]
-          : []),
-      ],
-      { level: "detail", note: "積み上げ方式は、遺族の支出から収入と一時の資金を引いた不足の累計。逆算方式は、遺族の資産が決めた年齢まで尽きないのに要る額" },
-    ),
-  ];
-  if (couple) sections.push({ key: "cg/work", title: "残された配偶者の働き方", note: "死亡の想定で、残された配偶者の働き方を置き換えます（必要保障額の推移は今の働き方のまま）", level: "simple", groups: workGroups(wh), actions: [] });
-  sections.push(
-    one(
-      "cg/disability",
-      "就業不能・障害の想定",
-      [
-        planField({ key: "cg/disability/grade", label: "仮定の等級", level: "detail", kind: "select", options: GRADES, path: ["grade"], fallback: "2", numeric: true }),
-        planField({ key: "cg/disability/medical", label: "医療費（1か月・10割）", level: "detail", kind: "yen", basis: "monthly", path: ["medical", "monthly"], help: "高額療養費で止めた自己負担を計算します", maxYen: 300 * MAN }),
-        planField({ key: "cg/disability/months", label: "医療費の月数", level: "detail", kind: "int", suffix: "か月", min: 1, max: 600, path: ["medical", "months"], fallback: 12 }),
-      ],
-      { note: "等級は「該当した場合」の仮定です。ご家族の実際の状態としては記録しません（既定は2級。仮の値）" },
-    ),
-    // 0026: 大きな病気のとき・相場が下がったとき。0071: 復帰の後の働き方・収入が減る・下げる資産と戻り方・重ねる
-    one(
-      "cg/illness",
-      "大きな病気のときの前提",
-      [
-        planField({ key: "cg/illness/months", label: "働けない期間", kind: "int", suffix: "か月", min: 1, max: 60, path: ["illness", "months"], fallback: ILLNESS_DEFAULT.months }),
-        planField({ key: "cg/illness/medical", label: "医療費（1か月・10割）", level: "detail", kind: "yen", basis: "monthly", path: ["illness", "medicalMonthly"], fallback: ILLNESS_DEFAULT.medicalMonthly, maxYen: 300 * MAN }),
-        planField({ key: "cg/illness/medicalMonths", label: "医療費の月数", level: "detail", kind: "int", suffix: "か月", min: 1, max: 60, path: ["illness", "medicalMonths"], fallback: ILLNESS_DEFAULT.medicalMonths }),
-        // 0055: 保険の医療・がんの給付（入院日額・手術・がん一時金・三大疾病一時金）を受け取る見込みに使う
-        planField({ key: "cg/illness/disease", label: "病気の種類", level: "detail", kind: "select", options: DISEASES, path: ["illness", "disease"], fallback: ILLNESS_DEFAULT.disease, help: "がん一時金はがん、三大疾病一時金はがん・心疾患・脳卒中のときに受け取ります" }),
+        PAID(f.w?.type) || f.w?.type === "none" ? many("death:workWhen", `残された${pl}の働き方を変える時期と何歳まで`, f.when) : null,
+      );
+    }
+    out.push(one("death:funeral", planField({ key: "cg/lump/funeral", label: "整理資金（葬儀・お墓など）", kind: "yen", path: ["survivor", "funeral"], help: "亡くなった月の翌月の支出にします", maxYen: 1000 * MAN })));
+    if (kids) out.push(one("death:livingAfter", planField({ key: "cg/living/after", label: "遺族の生活費の割合（末子の独立の後）", kind: "pct", path: ["survivor", "livingRatio", "afterIndependence"], fallback: "0.5" })));
+    pushDeathRest(out, kids, one);
+    out.push(creditLife("death:creditLife"));
+  } else if (sc.kind === "disability") {
+    out.push(one("disability:grade", planField({ key: "cg/disability/grade", label: "仮定の等級", kind: "select", options: GRADES, path: ["grade"], fallback: "2", numeric: true })));
+    out.push(one("disability:medical", planField({ key: "cg/disability/medical", label: "医療費（1か月・10割）", kind: "yen", basis: "monthly", path: ["medical", "monthly"], help: "高額療養費で止めた自己負担を計算します", maxYen: 300 * MAN })));
+    out.push(one("disability:medicalMonths", planField({ key: "cg/disability/months", label: "医療費の月数", kind: "int", suffix: "か月", min: 1, max: 600, path: ["medical", "months"], fallback: 12 })));
+    const [work, when] = partnerItems("disability", "働けなくなってから");
+    out.push(work);
+    if ((plan.grade ?? 2) !== 0) out.push(one("disability:oldAgeChoice", oldAgeChoiceField(sc.member), { note: "自動で手取りが多い組み合わせを選びます。選び直すとその組み合わせで計算します" }));
+    out.push(when, creditLife("disability:creditLife"));
+  } else if (sc.kind === "illness") {
+    out.push(
+      one("illness:months", planField({ key: "cg/illness/months", label: "働けない期間", kind: "int", suffix: "か月", min: 1, max: 60, path: ["illness", "months"], fallback: ILLNESS_DEFAULT.months })),
+      // 0055: 保険の医療・がんの給付（入院日額・手術・がん一時金・三大疾病一時金）を受け取る見込みに使う
+      one("illness:disease", planField({ key: "cg/illness/disease", label: "病気の種類", kind: "select", options: DISEASES, path: ["illness", "disease"], fallback: ILLNESS_DEFAULT.disease, help: "がん一時金はがん、三大疾病一時金はがん・心疾患・脳卒中のときに受け取ります" })),
+      one(
+        "illness:hospitalDays",
         planField({
           key: "cg/illness/hospitalDays",
           label: "入院の日数（1回）",
-          level: "detail",
           kind: "int",
           suffix: "日",
           min: 0,
@@ -360,45 +380,111 @@ export function contingencyInputSections(wh: WorkingHousehold): SectionDef[] {
           fallback: HOSPITAL_DAYS_DEFAULT[plan.illness?.disease ?? ILLNESS_DEFAULT.disease],
           help: "空欄は病気の種類ごとの目安（患者調査の平均在院日数の水準。仮の値）",
         }),
-        planField({ key: "cg/illness/surgeries", label: "手術の回数", level: "detail", kind: "int", suffix: "回", min: 0, max: 10, path: ["illness", "surgeries"], fallback: ILLNESS_DEFAULT.surgeries }),
-        planField({ key: "cg/illness/afterMonths", label: "復帰の後に収入が減る期間", level: "detail", kind: "int", suffix: "か月", min: 0, max: 120, path: ["illness", "afterMonths"], help: "働きながら治療を続ける・時短で戻るとき。空欄なら元の働き方に戻ります" }),
-        ...(plan.illness?.afterMonths !== undefined && plan.illness.afterMonths > 0
-          ? [planField({ key: "cg/illness/afterRatio", label: "その間の収入（元の収入に対する割合）", level: "detail", kind: "pct", path: ["illness", "afterRatio"], fallback: "0.7" })]
-          : []),
-      ],
-      { note: "働けない間は、会社員は休業して傷病手当金（健康保険）を受け、決めた月数の後に元の働き方に戻ります。医療費は保険診療の10割で入れ、自己負担は高額療養費（厚生労働省）で止めて計算します。目安の値は仮の値です（事務所で根拠を確かめて直してください）" },
-    ),
-    one(
-      "cg/income",
-      "収入が減るときの前提",
-      [
-        planField({ key: "cg/income/member", label: "誰の収入", kind: "select", options: couple ? INCOME_WHO : INCOME_WHO.slice(0, 1), path: ["incomeDrop", "member"], fallback: INCOME_DROP_DEFAULT.member }),
-        planField({ key: "cg/income/ratio", label: "減る割合", kind: "pct", path: ["incomeDrop", "ratio"], fallback: INCOME_DROP_DEFAULT.ratio }),
-        planField({ key: "cg/income/years", label: "何年", kind: "int", suffix: "年", min: 1, max: 30, path: ["incomeDrop", "years"], fallback: INCOME_DROP_DEFAULT.years }),
-      ],
-      { note: "起きる年から、給与・事業の所得を決めた割合だけ減らします（リストラの後の減収・子の入院で親が休む・上下する収入など、試しに見る悪い場合）。決まった休業は働き方と収入の項目の休業で入れます" },
-    ),
-  );
-  if (hasInvested(h))
-    sections.push(
+      ),
+      one("illness:medical", planField({ key: "cg/illness/medical", label: "医療費（1か月・10割）", kind: "yen", basis: "monthly", path: ["illness", "medicalMonthly"], fallback: ILLNESS_DEFAULT.medicalMonthly, maxYen: 300 * MAN })),
+      one("illness:surgeries", planField({ key: "cg/illness/surgeries", label: "手術の回数", kind: "int", suffix: "回", min: 0, max: 10, path: ["illness", "surgeries"], fallback: ILLNESS_DEFAULT.surgeries })),
+      one("illness:medicalMonths", planField({ key: "cg/illness/medicalMonths", label: "医療費の月数", kind: "int", suffix: "か月", min: 1, max: 60, path: ["illness", "medicalMonths"], fallback: ILLNESS_DEFAULT.medicalMonths })),
+      many("illness:after", "復帰の後の収入", [
+        planField({ key: "cg/illness/afterMonths", label: "復帰の後に収入が減る期間", kind: "int", suffix: "か月", min: 0, max: 120, path: ["illness", "afterMonths"], help: "働きながら治療を続ける・時短で戻るとき。空欄なら元の働き方に戻ります" }),
+        ...(plan.illness?.afterMonths !== undefined && plan.illness.afterMonths > 0 ? [planField({ key: "cg/illness/afterRatio", label: "その間の収入（元の収入に対する割合）", kind: "pct", path: ["illness", "afterRatio"], fallback: "0.7" })] : []),
+      ]),
+    );
+  } else if (sc.kind === "income") {
+    out.push(
+      one("income:member", planField({ key: "cg/income/member", label: "誰の収入", kind: "select", options: couple ? INCOME_WHO : INCOME_WHO.slice(0, 1), path: ["incomeDrop", "member"], fallback: INCOME_DROP_DEFAULT.member })),
+      one("income:ratio", planField({ key: "cg/income/ratio", label: "減る割合", kind: "pct", path: ["incomeDrop", "ratio"], fallback: INCOME_DROP_DEFAULT.ratio })),
+      one("income:years", planField({ key: "cg/income/years", label: "何年", kind: "int", suffix: "年", min: 1, max: 30, path: ["incomeDrop", "years"], fallback: INCOME_DROP_DEFAULT.years })),
+    );
+    const [work, when] = partnerItems("income", "減り始めてから");
+    out.push(work, when);
+  } else if (sc.kind === "market") {
+    out.push(
+      one("market:drop", planField({ key: "cg/market/drop", label: "下がる幅", kind: "select", options: DROPS, path: ["market", "drop"], fallback: MARKET_DROP_DEFAULT })),
+      { kind: "market:classes", label: "下げる資産", parts: [{ fields: MARKET_CLASS_OPTIONS.map(marketClassField) }], shape: "checks", note: "既定は株・REIT と、配分を入れていない持株会です" },
+      one("market:recoveryYears", planField({ key: "cg/market/recoveryYears", label: "下がった後に利回りを抑える年数", kind: "int", suffix: "年", min: 0, max: 20, path: ["market", "recoveryYears"], help: "空欄なら翌年からふだんの利回りに戻ります" })),
       one(
-        "cg/market",
-        "相場が下がったときの前提",
-        [
-          planField({ key: "cg/market/drop", label: "下がる幅", kind: "select", options: DROPS, path: ["market", "drop"], fallback: MARKET_DROP_DEFAULT }),
-          ...MARKET_CLASS_OPTIONS.map(marketClassField),
-          planField({ key: "cg/market/recoveryYears", label: "下がった後に利回りを抑える年数", level: "detail", kind: "int", suffix: "年", min: 0, max: 20, path: ["market", "recoveryYears"], help: "空欄なら翌年からふだんの利回りに戻ります" }),
-          ...(plan.market?.recoveryYears !== undefined && plan.market.recoveryYears > 0
-            ? [planField({ key: "cg/market/recoveryCap", label: "その間の運用の利回り（上限）", level: "detail", kind: "pct", path: ["market", "recoveryCap"], fallback: "0" })]
-            : []),
-          planBool({ key: "cg/market/stack", label: "死亡・就業不能・病気・収入が減るの場面にも、同じ年の相場の下落を重ねる", level: "simple", path: ["stackMarket"], help: "全プラン共通の見方です（プランごとには変えません）" }),
-        ],
-        { note: "起きる年の年末に、運用する口座のうち選んだ資産の部分を下げます（配分を入れていない運用の口座は全体を下げます。預金・債券は選ばなければ下げません）。年ごとの帯は、どの年に下がっても最後まで足りるかを1年ずつ見せます" },
+        "market:recoveryCap",
+        planField({ key: "cg/market/recoveryCap", label: "その間の運用の利回り（上限）", kind: "pct", path: ["market", "recoveryCap"], fallback: "0", help: "利回りを抑える年数を入れたときに使います" }),
+        plan.market?.recoveryYears !== undefined && plan.market.recoveryYears > 0 ? {} : { note: "利回りを抑える年数を入れると使います" },
       ),
     );
-  const cl = creditLifeGroups(wh);
-  if (cl.length > 0) sections.push({ key: "cg/creditLife", title: "団信（住まい・ローンの段階と同じ欄）", note: "どちらで直しても同じ住宅ローンの値が変わります", level: "simple", groups: cl, actions: [] });
-  return sections;
+  }
+  // 相場の下落を重ねる（全プラン共通の見方。死亡・就業不能・病気・収入が減るの場面に効く）
+  if (hasInvested(h))
+    out.push(
+      one("market:stack", planBool({ key: "cg/market/stack", label: "同じ年の相場の下落を重ねる", level: "simple", path: ["stackMarket"], help: "死亡・就業不能・病気・収入が減るの場面に、相場の下落の場面の前提（下がる幅・下げる資産）で同じ年の下落を重ねます。全プラン共通の見方です（プランごとには変えません）" }), {
+        label: "同じ年の相場の下落を重ねる",
+      }),
+    );
+  const order = new Map<string, number>(PREMISE_KINDS.map((k, i) => [k.kind, i]));
+  return out.filter((x): x is PremiseItem => x !== null).sort((a, b) => (order.get(a.kind) ?? 0) - (order.get(b.kind) ?? 0));
+}
+
+/** 死亡の場面の、遺族の生活費・整理資金のほかの項目（子の独立とみなす年齢・死亡退職金・弔慰金・業務上の死亡・予備の生活資金） */
+function pushDeathRest(out: (PremiseItem | null)[], kids: boolean, one: (kind: PremiseKind, f: FieldDef, o?: Partial<PremiseItem>) => PremiseItem): void {
+  if (kids)
+    out.push(
+      one(
+        "death:independence",
+        planField({
+          key: "cg/living/independence",
+          label: "子の独立とみなす年齢",
+          kind: "int",
+          suffix: "歳",
+          min: 15,
+          max: 30,
+          path: ["survivor", "independenceAge"],
+          fallback: 22,
+          help: "子の独立の時点を入れていない子に使います（入れている子はその時点）。その年齢の後の最初の3月末の翌月を独立とみなします",
+        }),
+      ),
+    );
+  out.push(
+    one("death:allowance", planField({ key: "cg/lump/allowance", label: "死亡退職金", kind: "yen", path: ["survivor", "deathBenefits", "retirementAllowance"], help: "空欄なら、退職金の見込みを勤続の月数で按分します（退職給付×亡くなる月までの勤続の月数÷退職までの勤続の月数）", maxYen: 5000 * MAN, auto: "自動（勤続の月数で按分）" })),
+    one("death:condolence", planField({ key: "cg/lump/condolence", label: "弔慰金", kind: "yen", path: ["survivor", "deathBenefits", "condolence"], maxYen: 1000 * MAN })),
+    one("death:workRelated", planBool({ key: "cg/lump/workRelated", label: "業務上の死亡として見る", path: ["survivor", "deathBenefits", "workRelated"], help: "死亡退職金・弔慰金の非課税の扱いが変わります（労災の給付は計算に入れません）" })),
+    one("death:reserve", planField({ key: "cg/lump/reserve", label: "予備の生活資金", kind: "int", suffix: "か月分", min: 0, max: 120, path: ["survivor", "reserveMonths"], help: "遺族の生活費の何か月分を、必要保障額に足すか（口座が使えない間の当座のお金を見込むとき）" })),
+  );
+}
+
+/** 項目の値が既定と違うか（共通の前提か見ているプランで値を入れた。最初から出さない項目でも出す。団信の欄は入力の値なので数えない） */
+export function itemValued(it: PremiseItem, wh: WorkingHousehold): boolean {
+  return itemFields(it).some((f) => {
+    const meta = premiseMeta(f);
+    if (meta === undefined) return false;
+    const st = f.get(wh);
+    const v = st.value;
+    if (st.implicit === true || v === null || v === "") return false;
+    return !(meta.fallback !== undefined && String(v) === String(meta.fallback));
+  });
+}
+
+/** 項目の値を既定に戻した世帯（外すとき。団信の欄は入力の値なので戻さない） */
+export function resetItem(it: PremiseItem, wh: WorkingHousehold): WorkingHousehold {
+  let w = wh;
+  for (const f of itemFields(it)) if (premiseMeta(f) !== undefined && itemValued({ ...it, parts: [{ fields: [f] }] }, w)) w = f.set(w, f.kind === "bool" ? (premiseMeta(f)?.fallback ?? false) : null);
+  return w;
+}
+
+/**
+ * 前提の欄の区画（場面の種類ごと。その世帯の全部の場面の、全部の項目の欄）。画面は premiseItems で選んでいる場面の項目だけを出す。
+ * ここは欄の往復の確かめなど、全部の欄を見る所が使う
+ */
+export function contingencyInputSections(wh: WorkingHousehold): SectionDef[] {
+  const out: SectionDef[] = [];
+  for (const s of SCENE_KINDS) {
+    const seen = new Set<string>();
+    const fields: FieldDef[] = [];
+    for (const sc of scenarios(wh).filter((x) => x.kind === s.kind))
+      for (const it of premiseItems(wh, sc))
+        for (const f of itemFields(it))
+          if (!seen.has(f.key)) {
+            seen.add(f.key);
+            fields.push(f);
+          }
+    if (fields.length > 0) out.push({ key: `cg/${s.kind}`, title: s.label, level: "simple", groups: [{ key: `cg/${s.kind}/fields`, level: "simple", fields, actions: [] }], actions: [] });
+  }
+  return out;
 }
 
 /** 障害年金の65歳からの組み合わせを選び直す欄（障害の想定の人ごと） */

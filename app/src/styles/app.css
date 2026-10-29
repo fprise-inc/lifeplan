@@ -647,11 +647,14 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
   .cg-break th, .cg-break td { padding: 5px 4px; }
   .cg-break th[scope="row"], .cg-break thead th { white-space: normal; }
 }
-/* ③ 想定の前提（対策の欄と同じ部品。広い画面で3列、狭いと2列・1列） */
-.cg-sec { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line-2); }
-.cg-sec:first-of-type { border-top: 0; padding-top: 0; }
-.cg-sec-h { margin: 0; font-size: 0.98rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.cg-sec .in-note { margin: 2px 0 0; }
+/* ③ 想定の前提（対策の欄と同じ部品・同じ操作。選んでいる場面の項目だけ。0085） */
+.cg-scene-note { margin: 2px 0 4px; }
+.cg-premises .lever.inactive .lever-label { color: var(--ink-2); }
+.cg-checks { display: grid; gap: 2px; margin-top: 6px; font-size: 0.88rem; }
+.cg-check { display: flex; gap: 6px; align-items: center; }
+.cg-check input { width: 16px; height: 16px; accent-color: var(--prop); }
+.cg-prot-diff { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid var(--line-2); }
+.cg-prot-diff .link-btn { margin-left: 6px; }
 /* 想定の前提の並びは対策と同じ 4 → 2 → 1 列（大きな文字は 2 → 1。0084） */
 .cg-premises .lv-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .cg-gh { grid-column: 1 / -1; font-weight: 700; font-size: 0.9rem; margin: 8px 0 -4px; display: flex; gap: 4px 10px; flex-wrap: wrap; align-items: baseline; }
@@ -661,8 +664,7 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .cg-premises .lever.field .fld-l > :not(.help), .cg-premises .lever.field .fld-l > .help:has(.help-mark) { display: none; }
 .cg-premises .lever.field .fld-c select { max-width: 100%; font-weight: 700; }
 .cg-premises .cg-auto { margin-left: 8px; font-size: 0.8rem; }
-/* 0071: 前提の欄の形式・直す先・プランで共通と違う値の印（縦線と「共通: ○○」「↺ 共通に戻す」） */
-.cg-premises .lv-head .seg-g { margin-left: auto; }
+/* 0071: 前提を直す先・プランで共通と違う値の印（縦線と「共通: ○○」「↺ 共通に戻す」） */
 .ip-assume-list td:nth-child(4), .ip-assume-list th:nth-child(4) { white-space: nowrap; }
 .ip-assume-list .sub.warn { display: block; color: var(--warn, #9a3412); }
 .cg-plan-to { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 4px 0 8px; font-size: 0.9rem; }

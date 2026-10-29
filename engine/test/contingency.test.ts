@@ -90,6 +90,26 @@ describe("万一の重ね（overlay）と判定の部品（contingency.event）"
     expect(salary("2031-02")).toBeGreaterThan(0);
   });
 
+  it("働き方の置き換え（workChanges。0085）: 万一の想定の有無によらず、期間の始まりからその人の働き方を置き換える", () => {
+    // 妻（今は働いていない）が 2030-07 からパートで働く。万一の想定が無い要求でも、就業不能の想定と重ねても効く
+    const part = { ...period("wp", { member: "w", from: "2030-07", to: "2057-07", annual: 1200000, healthInsurance: { kind: "national" }, pensionCategory: "none" }), type: "partTime" };
+    const wife = (r: EngineResult, from: string, to: string) => sumFlows(r.flows, (f) => f.row.startsWith("cf.income.salary") && f.member === W && f.ym >= from && f.ym <= to);
+    const plain = run(family({ endYear: 2034 }));
+    const alone = run(edit(family({ endYear: 2034 }), (_h, input) => (input.workChanges = [part])));
+    expect(wife(plain, "2026-10", "2034-12")).toBe(0);
+    expect(wife(alone, "2026-10", "2030-06")).toBe(0);
+    expect(wife(alone, "2030-07", "2030-12")).toBe(600000);
+    const both = run(edit(withContingency(family({ endYear: 2034 }), { kind: "disability", member: H, occurs: at("2030-01"), grade: 2 }), (_h, input) => (input.workChanges = [part])));
+    expect(wife(both, "2030-07", "2030-12")).toBe(600000);
+    expect(sumFlows(both.flows, (f) => f.row.startsWith("cf.income.salary") && f.member === H && f.ym > "2030-01")).toBe(0);
+    // 今の期間をまたぐ置き換え: 夫の会社員の期間は置き換えの前の月で終わり、その後は置き換えた期間
+    const switched = run(edit(family({ endYear: 2034 }), (_h, input) => (input.workChanges = [{ ...period("hp", { member: "h", from: "2029-04", annual: 3000000, std: [250000, 250000] }) }])));
+    const husband = (ym: string) => sumFlows(switched.flows, (f) => f.row.startsWith("cf.income.salary") && f.member === H && f.ym === ym);
+    expect(husband("2029-03")).toBe(500000);
+    expect(husband("2029-04")).toBe(250000);
+    expect(() => run(edit(family({ endYear: 2034 }), (_h, input) => (input.workChanges = [{ ...part, member: uid("nobody") }])))).toThrow();
+  });
+
   it("遺族の生活費は、末子の独立まで0.7・独立の後0.5（総額。万一の想定で書き換えられる）", () => {
     const base = edit(family({ endYear: 2050 }), (h) => (h.livingExpenses = [{ id: uid("lv"), mode: "total", monthly: box(300000) }]));
     const year = (req: Req, y: number) => sumFlows(call<{ flows: Flow[] }>(req, "expense.living", {}).flows, (f) => f.ym.startsWith(`${y}-`));

@@ -128,6 +128,16 @@ const LABELS: readonly { at: string; label: string; text?: (v: unknown) => strin
   { at: "work/*/afterMonths", label: "働き方を変える時期", text: (v) => `亡くなってから${String(v)}か月後` },
   { at: "work/*/from", label: "働き方を変える時期", text: () => "時点で指定" },
   { at: "work/*/untilAge", label: "残された配偶者が働く年齢", text: (v) => `${String(v)}歳まで` },
+  ...(["disability", "income"] as const).flatMap((scene) => {
+    const pre = scene === "disability" ? "就業不能のときの配偶者" : "収入が減るときの配偶者";
+    return [
+      { at: `partnerWork/${scene}/*/type`, label: `${pre}の働き方`, text: (v: unknown) => WORK[String(v)] ?? String(v) },
+      { at: `partnerWork/${scene}/*/annualSalary`, label: `${pre}の年収`, text: YEN },
+      { at: `partnerWork/${scene}/*/afterMonths`, label: `${pre}の働き方を変える時期`, text: (v: unknown) => `${scene === "disability" ? "働けなくなってから" : "減り始めてから"}${String(v)}か月後` },
+      { at: `partnerWork/${scene}/*/from`, label: `${pre}の働き方を変える時期`, text: () => "時点で指定" },
+      { at: `partnerWork/${scene}/*/untilAge`, label: `${pre}が働く年齢`, text: (v: unknown) => `${String(v)}歳まで` },
+    ];
+  }),
   { at: "grade", label: "就業不能・障害の仮定の等級", text: (v) => (Number(v) === 0 ? "障害年金に当たらない" : `${String(v)}級`) },
   { at: "medical/monthly", label: "就業不能・障害の医療費（1か月）", text: YEN },
   { at: "medical/months", label: "就業不能・障害の医療費の月数", text: (v) => `${String(v)}か月` },
