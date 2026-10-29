@@ -106,9 +106,9 @@ describe("生まれる予定の欄は子の生年月の欄と同じ見た目・�
     expect(f.kind).toBe(selfBirth.kind);
     expect(f.kind).toBe("ym");
     expect(f.time).toBeUndefined();
-    expect(f.get(w1)).toMatchObject({ value: "2028-10", hint: "今から2年後・ご主人43歳（令和10年10月）" });
+    expect(f.get(w1)).toMatchObject({ value: "2028-10", hint: "今から2年後・ご本人43歳（令和10年10月）" });
     const w2 = f.set(w1, "2027-08");
-    expect(fieldOf(w2, `family/${kid.id}/birth`).get(w2).hint).toBe("今から10か月後・ご主人42歳（令和9年8月）");
+    expect(fieldOf(w2, `family/${kid.id}/birth`).get(w2).hint).toBe("今から10か月後・ご本人42歳（令和9年8月）");
     // 空は入れられない（今の値のまま）
     expect(fieldOf(w2, `family/${kid.id}/birth`).set(w2, null)).toBe(w2);
     expect(fieldOf(w2, `family/${kid.id}/birth`).set(w2, "")).toBe(w2);
@@ -125,7 +125,7 @@ describe("生まれる予定の欄は子の生年月の欄と同じ見た目・�
     k0.joins = { memberAge: { member: self.id, years: 43 } };
     const before = structuredClone(old.request);
     const f = fieldOf(old, `family/${kid.id}/birth`);
-    expect(f.get(old)).toMatchObject({ value: "2028-06", hint: "今から1年8か月後・ご主人43歳（令和10年6月）" });
+    expect(f.get(old)).toMatchObject({ value: "2028-06", hint: "今から1年8か月後・ご本人43歳（令和10年6月）" });
     expect(old.request).toEqual(before);
     // 同じ年月を入れ直しても変えない
     expect(f.set(old, "2028-06")).toBe(old);

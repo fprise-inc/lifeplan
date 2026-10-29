@@ -235,7 +235,7 @@ describe("年金: 推計の区分でも受け取り開始を標準に（構成�
 });
 
 describe("子ども・教育", () => {
-  it("小学校・高校の公立・私立と大学の系統・学校外の費用の入れ方は詳細。中学・大学の公立・私立と進路の型は標準", () => {
+  it("公立・私立はどの段（幼稚園〜大学）でも標準。大学の系統・学校外の費用の入れ方は詳細。進路の型は標準（0078 の 2026-10-29 の追記）", () => {
     const wh = open("salariedCoupleTwoKids");
     const fs = fieldsOf(wh, "education");
     const goals = wh.request.input.household.goals!.filter((g) => g.kind === "education");
@@ -243,7 +243,7 @@ describe("子ども・教育", () => {
       g.education!.stages.forEach((s, i) => {
         const sector = fs.find((f) => f.key === `edu/${g.id}/stage/${i}/sector`);
         if (sector === undefined) return;
-        expect(sector.level, s.stage).toBe(s.stage === "elementary" || s.stage === "highSchool" ? "detail" : "simple");
+        expect(sector.level, s.stage).toBe("simple");
         if (s.stage === "university") expect(fs.find((f) => f.key === `edu/${g.id}/stage/${i}/field`)?.level).toBe("detail");
       });
     expect(fs.filter((f) => f.key.endsWith("/outMode")).every((f) => f.level === "detail")).toBe(true);

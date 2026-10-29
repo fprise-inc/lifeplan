@@ -68,6 +68,7 @@ describe("区画・まとまりの説明", () => {
     expect(splitNote("まだありません（受け取っていれば、通知書の年額を入れます）")).toEqual({ state: "まだありません", help: "受け取っていれば、通知書の年額を入れます" });
     expect(splitNote("まだありません")).toEqual({ state: "まだありません", help: null });
     expect(splitNote("住居費はここで入れます")).toEqual({ state: null, help: "住居費はここで入れます" });
+    expect(splitNote("該当なし。退職金・企業年金は無いとしています")).toEqual({ state: "該当なし", help: "退職金・企業年金は無いとしています" });
     expect(splitNote(undefined)).toEqual({ state: null, help: null });
   });
   it("パネルの区画の説明は見出しの「?」の中（画面の段落には出さない）", () => {

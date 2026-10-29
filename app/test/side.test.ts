@@ -181,7 +181,7 @@ describe("グラフを左右に並べる表示（表示の設定）", () => {
 
   it("基準の案の年のイベントは基準の案の要求から（働く最後の年齢が違えば退職の年も違う）", () => {
     const m = toPresentation({ base: demo.wh.request, proposal: reqB, current: rB, proposed: rA, targetAge: 95, selectedYear: null, provisional: false, names: { selected: "プランA", base: "プランB", same: false }, baseProposal: reqB });
-    const retire = (evs: { icon: string; text: string; year: number }[]) => evs.find((e) => e.icon === "退" && e.text.startsWith("ご主人"))?.year;
+    const retire = (evs: { icon: string; text: string; year: number }[]) => evs.find((e) => e.icon === "退" && e.text.startsWith("ご本人"))?.year;
     expect(retire(m.baseCharts.events)).toBe(retire(toPresentation({ base: demo.wh.request, proposal: reqB, current: rA, proposed: rB, targetAge: 95, selectedYear: null, provisional: false }).events));
   });
 

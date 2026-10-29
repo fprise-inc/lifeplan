@@ -119,7 +119,7 @@ export function addChildWithEducation(wh: WorkingHousehold, id: () => string = n
   return child === undefined ? next : fillEducation(next, child.id);
 }
 
-const SPOUSE_SEX_HELP = "足したときに本人と逆の性別を入れています。同性のご夫婦は選び直してください。遺族年金・寡婦控除・年収の目安・平均余命の計算に使います";
+const SPOUSE_SEX_HELP = "足したときにご本人と逆の性別を入れています。同性のご夫婦は選び直してください。遺族年金・寡婦控除・年収の目安・平均余命の計算に使います";
 
 const oppositeSex = (sex: unknown): "male" | "female" => (sex === "female" ? "male" : "female");
 
@@ -136,7 +136,7 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
       key: `family/${m.id}/nickname`,
       item: null,
       label: "呼び名（任意）",
-      // 表示だけの値（続柄から「ご主人」「第1子」などと出す）。標準には出さない
+      // 表示だけの値（続柄から「ご本人」「第1子」などと出す）。標準には出さない
       level: "detail",
       kind: "text",
       placeholder: "例: 上のお子さん",
@@ -211,7 +211,7 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
     );
   const actions: ActionDef[] = m.kind === "self" ? [] : [{ key: `family/${m.id}/remove`, label: "この家族を外す", level: "simple", danger: true, run: (w) => removeMember(w, m.id) }];
   if (expectedChild) actions.unshift({ key: `family/${m.id}/born`, label: "生まれました（生年月を確かめて家族にする）", level: "simple", run: (w) => markBorn(w, m.id) });
-  if (m.kind === "spouse") actions.push({ key: `family/${m.id}/swap`, label: "本人と配偶者を入れ替える", level: "detail", title: "続柄だけを入れ替えます。働き方・年金・口座・保険の名義は人に付いたままです", run: (w) => swapSelfSpouse(w) });
+  if (m.kind === "spouse") actions.push({ key: `family/${m.id}/swap`, label: "ご本人と配偶者を入れ替える", level: "detail", title: "続柄だけを入れ替えます。働き方・年金・口座・保険の名義は人に付いたままです", run: (w) => swapSelfSpouse(w) });
   return { key: `family/${m.id}`, title: memberLabel(wh, m.id), level: "simple", fields, actions };
 }
 
@@ -219,7 +219,7 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
 
 /**
  * これから生まれる子の「生まれる予定」（生年月と加わる月を同じ月にする）。生年月の欄と同じ年月の欄で入れる（入れ方の選択は出さない）。
- * 読みは「今から2年後・ご主人39歳（令和10年10月）」の形。前の版で加わる月を年齢・出来事の形で持っている世帯は、
+ * 読みは「今から2年後・ご本人39歳（令和10年10月）」の形。前の版で加わる月を年齢・出来事の形で持っている世帯は、
  * 開いただけでは書き換えない（FP が年月を入れ直したときに、生年月と加わる月をその年月にする）
  */
 function expectedBirthField(m: Member): FieldDef {
@@ -243,7 +243,7 @@ function expectedBirthField(m: Member): FieldDef {
   return { ...f, set: (wh, v) => (ok(v) ? f.set(wh, v) : wh), ...(f.write !== undefined ? { write: (wh: WorkingHousehold, v: Val) => (ok(v) ? f.write!(wh, v) : wh) } : {}) };
 }
 
-/** 生まれる予定の読み: 「今から2年後・ご主人39歳（令和10年10月）」。予定の月が今月より前なら「予定の月を過ぎています」 */
+/** 生まれる予定の読み: 「今から2年後・ご本人39歳（令和10年10月）」。予定の月が今月より前なら「予定の月を過ぎています」 */
 export function expectedBirthHint(wh: WorkingHousehold, ym: string): string {
   const base = wh.request.input.baseMonth;
   const idx = (s: string) => Number(s.slice(0, 4)) * 12 + Number(s.slice(5, 7)) - 1;

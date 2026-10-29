@@ -71,7 +71,7 @@ const runOf = (runs: Run[], i: number): Run => runs[i] as Run;
 
 /**
  * 見本1: 会社員の夫婦と子2人（salariedCoupleTwoKids）。生活費の見直し・NISA の積立の増額・FP顧問料の3つの打ち手、
- * ご主人の死亡の想定、夫婦の必要保障額の推移、ご主人の年金の受け取り開始（65歳と70歳）の比較
+ * ご本人の死亡の想定、夫婦の必要保障額の推移、ご本人の年金の受け取り開始（65歳と70歳）の比較
  */
 export function salariedCoupleBundle(): ProposalBundle {
   const current = modelHousehold("salariedCoupleTwoKids");
@@ -105,7 +105,7 @@ export function salariedCoupleBundle(): ProposalBundle {
       { label: "NISAの毎月の積立", current: "1万円", proposal: "3万円（2041年6月まで）" },
       { label: "FP顧問料", current: "なし", proposal: "初回30万円＋年12万円（2030年1月から年15万円）" },
     ],
-    contingencies: [{ title: "ご主人が2031年4月に亡くなった場合", run: runOf(runs, 4) }],
+    contingencies: [{ title: "ご本人が2031年4月に亡くなった場合", run: runOf(runs, 4) }],
     protection: runOf(runs, 5),
     deferral: { memberKey: "self", options: [{ startAge: 65, run: runOf(runs, 3) }, { startAge: 70, run: runOf(runs, 6) }] },
     // 案の比較（主画面の帯に並べた案の見本）: 現状・生活費だけ見直す案・提案
@@ -209,7 +209,7 @@ export function investmentBundle(): ProposalBundle {
 
 /**
  * 見本4: 共働きの夫婦と子2人・資産が多め（dualAssetsTwoKids）。持ち家（土地と建物）と、賃貸に出しているマンション1室（家賃収入・経費・ローン）。
- * 提案は、ご主人の退職の後（60歳の年の6月）にマンションを売り、残っているマンションのローンを売ったお金で返す。
+ * 提案は、ご本人の退職の後（60歳の年の6月）にマンションを売り、残っているマンションのローンを売ったお金で返す。
  * 資産運用の計画の運用の期間は、積立額が3段階（狭い「積み立てる」の帯に段の額が入りきらない形）
  */
 export function rentalPropertyBundle(): ProposalBundle {

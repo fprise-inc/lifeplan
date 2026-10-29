@@ -45,9 +45,9 @@ export interface Scenario {
   key: string;
   kind: ScenarioKind;
   member: string;
-  /** 例: 「ご主人の死亡」 */
+  /** 例: 「ご本人の死亡」 */
   label: string;
-  /** 対象の人の呼び方（ご主人・奥様・ご本人） */
+  /** 対象の人の呼び方（ご本人・配偶者） */
   who: string;
 }
 

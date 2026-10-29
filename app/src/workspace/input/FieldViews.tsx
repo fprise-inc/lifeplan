@@ -127,16 +127,17 @@ export function StateMark({ status, basis, text, label, fieldKey }: { status: Va
 }
 
 /**
- * 区画・まとまりの説明を、状態の言葉（「まだありません」）と説明に分ける。状態は画面に出し、説明は「?」の中へ（0077）。
- * 例: 「まだありません。旅行・家電…」→ 状態「まだありません」・説明「旅行・家電…」、「まだありません（受け取っていれば…）」→ 説明「受け取っていれば…」
+ * 区画・まとまりの説明を、状態の言葉（「まだありません」「該当なし」）と説明に分ける。状態は画面に出し、説明は「?」の中へ（0077）。
+ * 例: 「まだありません。旅行・家電…」→ 状態「まだありません」・説明「旅行・家電…」、「まだありません（受け取っていれば…）」→ 説明「受け取っていれば…」、
+ * 「該当なし。退職金・企業年金は…」→ 状態「該当なし」（0057 の 2026-10-29 の追記）
  */
 export function splitNote(note: string | undefined): { state: string | null; help: string | null } {
   if (note === undefined || note === "") return { state: null, help: null };
-  const m = /^まだありません(。|（)?/.exec(note);
+  const m = /^(まだありません|該当なし)(。|（)?/.exec(note);
   if (m === null) return { state: null, help: note };
   let rest = note.slice(m[0].length);
-  if (m[1] === "（") rest = rest.replace(/）$/, "");
-  return { state: "まだありません", help: rest.trim() === "" ? null : rest };
+  if (m[2] === "（") rest = rest.replace(/）$/, "");
+  return { state: m[1] as string, help: rest.trim() === "" ? null : rest };
 }
 
 /** 欄の横の読みのうち、推定の根拠を書いた物の頭 */
@@ -338,7 +339,9 @@ export function MoreToggle({ groupKey, open, toggle, label }: { groupKey: string
 }
 
 export function Group({ group, wh, level, onEdit, more, moreOf }: { group: GroupDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void; more?: GroupMore; moreOf?: string }) {
-  const fields = group.fields.filter((f) => visible(level, f.level));
+  // 詳細の欄が見えているとき（詳細、または標準で「▸ 詳しく」を開いたとき）は、標準だけの欄（simpleOnly）を出さない（代わりに詳細の欄を出す）
+  const detailShown = level === "detail" || more?.open === true;
+  const fields = group.fields.filter((f) => visible(level, f.level) && !(detailShown && f.simpleOnly === true));
   const actions = group.actions.filter((a) => visible(level, a.level));
   // 標準で「▸ 詳しく」を開いたときだけ出す欄・ボタン（詳細の欄と、詳細では別の所に出す欄 openFields）
   const extraFields = more?.open === true ? [...group.fields.filter((f) => !visible(level, f.level)), ...(group.openFields ?? [])] : [];
