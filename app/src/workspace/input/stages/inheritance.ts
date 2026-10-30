@@ -157,7 +157,8 @@ function writeTax(wh: WorkingHousehold, fn: (t: InheritanceTaxRequest) => void):
 /** 相続税の目安の設定の1つの値の欄（率・円・人数） */
 function taxField(o: { key: string; label: string; kind: "pct" | "yen" | "int"; at: string[]; help: string; get: (t: InheritanceTaxRequest) => number | string | null; set: (t: InheritanceTaxRequest, v: number | string | null) => void }): FieldDef {
   const base = { key: o.key, item: "plan.inheritanceTax", label: o.label, level: "detail" as const, optional: true, help: o.help, get: (w: WorkingHousehold) => ({ value: o.get(taxOf(w)) }), set: (w: WorkingHousehold, v: unknown) => writeTax(w, (t) => o.set(t, v === null || v === "" ? null : (v as number | string))), address: onInput("plan.inheritanceTax", o.at) };
-  if (o.kind === "pct") return field({ ...base, kind: "pct" });
+  // 割合（不動産の評価の割合・亡くなる人の分）は 0〜100%（計算エンジンの入力で 0〜1。外の値は計算が止まる）
+  if (o.kind === "pct") return field({ ...base, kind: "pct", min: 0, max: 100 });
   if (o.kind === "int") return field({ ...base, kind: "int", suffix: "人", min: 0, max: 30 });
   return field({ ...base, kind: "yen", basis: "once" });
 }

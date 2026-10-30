@@ -73,6 +73,9 @@ function changeGroups(wh: WorkingHousehold, preset: SurplusPreset | "custom" | n
       label: named !== null ? `${named.after}の割合` : "この期間の割合",
       level: "simple",
       kind: "pct",
+      // 0〜100%（計算エンジンの入力で 0〜1。外の値は計算が止まる）
+      min: 0,
+      max: 100,
       optional: true,
       get: (w) => ({ value: (surplusOf(w.request)?.changes ?? [])[i]?.ratio ?? null, hint: (surplusOf(w.request)?.changes ?? [])[i]?.ratio === undefined ? "空欄＝100%" : null }),
       set: (w, v) =>
@@ -190,6 +193,9 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
         label: ratioLabel,
         level: "simple",
         kind: "pct",
+        // 0〜100%（計算エンジンの入力で 0〜1。外の値は計算が止まる）
+        min: 0,
+        max: 100,
         optional: true,
         help: "空欄なら100%（黒字をすべて貯金に回す）で計算します。例えば60%なら、残りの4割は使ってしまうお金（ゆとりの支出）として支出に入れます。赤字の年、退職金などまとまったお金が入る年、貯金を取り崩す予定の年には当てはめません",
         get: (w) => ({ value: surplusOf(w.request)?.ratio ?? null, hint: surplusOf(w.request)?.ratio === undefined ? "空欄＝100%" : null }),

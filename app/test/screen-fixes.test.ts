@@ -228,6 +228,22 @@ describe("入れられない値は、欄の近くに理由を言葉で出す", (
     expect(rejectReason(age, "65")).toBeNull();
     expect(rejectReason({ ...yen, kind: "ym" } as FieldDef, "36歳")).toContain("西暦");
   });
+
+  it("0〜100% の割合の欄（貯金に回る割合・不動産の評価の割合・亡くなる人の分）は、外の値を入れられない（入れると計算が止まっていた）", () => {
+    const wh = fromRequest(modelHousehold("dualAssetsTwoKids"));
+    const fields = [fieldOf(wh, "living", "living/surplus/ratio"), fieldOf(wh, "inheritance", "inherit/tax/realEstateRatio"), fieldOf(wh, "inheritance", "inherit/tax/unassignedShare")];
+    for (const f of fields) {
+      expect(rejectReason(f, "120"), f.key).toBe("0%〜100%の範囲で入れてください");
+      expect(rejectReason(f, "-5"), f.key).toBe("0%〜100%の範囲で入れてください");
+      expect(rejectReason(f, "100"), f.key).toBeNull();
+      expect(rejectReason(f, "0"), f.key).toBeNull();
+      expect(rejectReason(f, "37.5"), f.key).toBeNull();
+      // 範囲の端なら計算できる
+      for (const v of ["0", "1"]) expect(() => preview(f.set(wh, v).request), `${f.key}=${v}`).not.toThrow();
+    }
+    // 範囲の無い割合の欄（物価上昇率など）は今までどおりマイナスも入れられる
+    expect(rejectReason(fieldOf(wh, "assumptions", "assume/inflation"), "-1")).toBeNull();
+  });
 });
 
 describe("教育: 進路を入れるボタンの名前と入る型が同じ", () => {

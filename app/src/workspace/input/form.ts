@@ -137,7 +137,8 @@ export type FieldDef = FieldBase &
   (
     | { kind: "yen"; basis: YenBasis; unit?: YenUnit }
     | { kind: "int"; suffix?: string; min?: number; max?: number }
-    | { kind: "pct" }
+    // min・max はパーセントの値（0〜100% の割合の欄など。外の値は欄の下に理由を出して書かない）
+    | { kind: "pct"; min?: number; max?: number }
     | { kind: "decimal"; suffix?: string }
     | { kind: "select"; options: Option[] }
     | { kind: "ym" }
