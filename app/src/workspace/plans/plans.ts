@@ -591,9 +591,11 @@ export function dropChange(wh: WorkingHousehold, cat: Catalog, id: string, key: 
   const p = findPlan(wh.proposals, id);
   if (p === undefined) return wh;
   const e = effectiveDiffs(wh, id).get(key);
-  const ownIds = new Set(p.diffs.filter((d) => rowKeyOf(d, wh) === key).map((d) => d.id));
+  const mine = p.diffs.filter((d) => rowKeyOf(d, wh) === key);
+  const ownIds = new Set(mine.map((d) => d.id));
   const drop = (x: Proposal) => ({ ...x, diffs: x.diffs.filter((d) => !ownIds.has(d.id)) });
-  if (ownIds.size > 0 || e === undefined) return { ...wh, proposals: wh.proposals.map((x) => (x.id === id ? drop(x) : x)) };
+  // 自分のオンの差分があれば消す（同じ所のオフの差分も一緒に）。オフの差分しか無いときは、中身は土台から来ているので、下で現状に戻す差分を足す
+  if (mine.some((d) => d.enabled) || e === undefined) return { ...wh, proposals: wh.proposals.map((x) => (x.id === id ? drop(x) : x)) };
   const back: PlanDiff[] = [];
   const it = cat.byKey.get(key);
   const pair = e.group.length > 1 ? newId() : null;
@@ -617,7 +619,8 @@ export function dropChange(wh: WorkingHousehold, cat: Catalog, id: string, key: 
     }
   }
   if (back.length === 0) return wh;
-  return { ...wh, proposals: wh.proposals.map((x) => (x.id === id ? { ...x, diffs: [...x.diffs, ...back] } : x)) };
+  // 同じ所のオフの差分は、現状に戻す差分に置き換える（残すと、オンに戻したときに戻す差分と重なる）
+  return { ...wh, proposals: wh.proposals.map((x) => (x.id === id ? { ...x, diffs: [...drop(x).diffs, ...back] } : x)) };
 }
 
 const isObjLike = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
