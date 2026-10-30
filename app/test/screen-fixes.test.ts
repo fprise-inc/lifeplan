@@ -5,6 +5,8 @@ import type { PensionRecord } from "../src/engine/types.ts";
 import { allFields, type FieldDef, type Val } from "../src/workspace/input/form.ts";
 import { rejectReason } from "../src/workspace/input/FieldViews.tsx";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
+import { fillEducation } from "../src/workspace/input/fill.ts";
 import { inputItems } from "../src/workspace/input/items.ts";
 import { drawdownStartDefault } from "../src/workspace/input/savings/model.ts";
 import { presetOf } from "../src/workspace/input/stages/education.ts";
@@ -63,27 +65,24 @@ describe("表の最後の年: 標準のままなら家族の生年月に合わ�
 });
 
 describe("子の独立の年月: 新しく足す子は年齢の時点の標準、年月で持つ古い子は標準のままなら生年月に合わせる", () => {
-  it("新しく足す子は「22歳になった後の最初の3月末の翌月」を年齢の時点で持ち、生年月・1日生まれで動く。人が入れた年月は残す", () => {
+  it("新しく足す子は年齢の時点の独立を持ち、進路があれば最後の学校の終わりに合わせる（欄は出さない）。年月で入れた独立は残し、ボタンで合わせる", () => {
     const w0 = set(blankHousehold(BASE, ids()), "family", "/birth", "1985-06");
     const w1 = addMember(w0, "child", ids());
     const child = member(w1, "child")[0]!;
     expect(child.leaves).toEqual({ memberAge: { member: child.id, years: 22, ageSwitch: "schoolYear" } });
-    expect(w1.assumed[`family/${child.id}/leaves`]).toContain("22歳");
-    const birth = (w: WorkingHousehold) => allFields(buildStage("family", w)).find((f) => f.key === `family/${child.id}/birth`)!;
-    // 子の独立は子ども・教育のカードの詳細の「独立の時期」（0078）
-    const leaves = (w: WorkingHousehold) => allFields(buildStage("education", w)).find((f) => f.key === `family/${child.id}/leaves`)!;
-    const w2 = birth(w1).set(w1, "2020-04");
-    expect(leaves(w2).get(w2)).toMatchObject({ value: "2043-04", hint: "23歳" });
-    // 4月1日生まれ: 早生まれと同じ学年（22歳になる年度の終わりが1年早い）
-    const first = allFields(buildStage("family", w2)).find((f) => f.key === `family/${child.id}/bornOnFirst`)!;
-    expect(leaves(first.set(w2, true)).get(first.set(w2, true)).value).toBe("2042-04");
-    // 人が入れた独立の年月は、生年月を直しても変えない。標準に戻すと年齢の時点に戻る
-    const w3 = leaves(w2).set(w2, "2045-03");
-    const w4 = birth(w3).set(w3, "2019-05");
-    expect(leaves(w4).get(w4).value).toBe("2045-03");
-    const back = buildStage("education", w4).sections.flatMap((s) => s.groups.flatMap((g) => g.actions)).find((a) => a.key === `family/${child.id}/leavesStandard`)!;
-    const w5 = back.run(w4);
-    expect(leaves(w5).get(w5).value).toBe("2042-04");
+    expect(w1.assumed[`family/${child.id}/leaves`]).toContain("最後の学校");
+    // 子ども・教育のカードに独立の時期の欄は出さない（最後の学校の終わりとともに独立する。0062 の追記 2026-10-30）
+    expect(allFields(buildStage("education", w1)).some((f) => f.key === `family/${child.id}/leaves`)).toBe(false);
+    // 進路を入れて高校のあとを専門学校（2年）にすると、独立は20歳の後の最初の4月
+    let w2 = withRefreshedEstimates(fillEducation(w1, child.id));
+    expect(member(w2, "child")[0]!.leaves).toEqual({ memberAge: { member: child.id, years: 22, ageSwitch: "schoolYear" } });
+    w2 = withRefreshedEstimates(set(w2, "education", "/higher", "vocational"));
+    expect(member(w2, "child")[0]!.leaves).toEqual({ memberAge: { member: child.id, years: 20, ageSwitch: "schoolYear" } });
+    // 年月で入れた独立（前の版）は変えない。読むだけの1行の「最後の学校の終わりに合わせる」で合わせる
+    const old = withRefreshedEstimates({ ...w2, request: { ...w2.request, input: { ...w2.request.input, household: { ...w2.request.input.household, members: w2.request.input.household.members.map((m) => (m.id === child.id ? { ...m, leaves: { at: "2045-03" } } : m)) } } } });
+    expect(member(old, "child")[0]!.leaves).toEqual({ at: "2045-03" });
+    const back = buildStage("education", old).sections.flatMap((s) => s.groups.flatMap((g) => g.actions)).find((a) => a.key === `family/${child.id}/leavesStandard`)!;
+    expect(member(back.run(old), "child")[0]!.leaves).toEqual({ memberAge: { member: child.id, years: 20, ageSwitch: "schoolYear" } });
   });
 
   it("年月で持つ古い世帯の子は、22歳になる月のままなら生年月を直したときに合わせる（PR の仮の直しのまま）", () => {
@@ -98,15 +97,14 @@ describe("子の独立の年月: 新しく足す子は年齢の時点の標準�
     expect(w2.request.input.household.members.find((m) => m.id === child.id)!.leaves).toEqual({ at: "2041-05" });
   });
 
-  it("これから生まれる子は「-2歳」と出さず、独立は22歳の後の最初の4月", () => {
+  it("これから生まれる子は「-2歳」と出さず、独立は年齢の時点（22歳の後の最初の4月）", () => {
     const w0 = set(blankHousehold(BASE, ids()), "family", "/birth", "1990-06");
     const w1 = addMember(w0, "child", ids());
     const child = member(w1, "child")[0]!;
     const birth = (w: WorkingHousehold) => allFields(buildStage("family", w)).find((f) => f.key === `family/${child.id}/birth`)!;
     const w2 = birth(w1).set(w1, "2028-04");
     expect(birth(w2).get(w2).hint).toBe("今から1年6か月後・ご本人37歳（令和10年4月）");
-    const leaves = allFields(buildStage("education", w2)).find((f) => f.key === `family/${child.id}/leaves`)!;
-    expect(leaves.get(w2)).toMatchObject({ value: "2051-04", hint: "23歳" });
+    expect(member(w2, "child")[0]!.leaves).toEqual({ memberAge: { member: child.id, years: 22, ageSwitch: "schoolYear" } });
     expect(() => preview(w2.request)).not.toThrow();
   });
 });

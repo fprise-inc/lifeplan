@@ -7,13 +7,13 @@ import type { Box, CareExpense, EducationStage, EmploymentPeriod, Household, Mem
 import { careEstimate, lifeExpectancy } from "../../../../hearing/src/estimates.ts";
 import { addMonths, ageAt } from "../levers.ts";
 import { resolveTimepoint, type StageId } from "./form.ts";
-import { mutate, newId, type WorkingHousehold } from "./household.ts";
+import { CHILD_LEAVES_AGE, isSchoolLinkedLeaves, LEAVES_BASIS, mutate, newId, type WorkingHousehold } from "./household.ts";
 import { livingEstimate } from "./estimates.ts";
 import { startLiving } from "./livingStages.ts";
 import { memberLabel } from "./labels.ts";
 import { putRow, rowAt, type StateRow } from "./rows.ts";
 import { COURSE_PRESETS, defaultStages, nurseryFreeMonth, presetOf, STAGE_ORDER } from "./stages/education.ts";
-import { isHigher, stagePeriod } from "./educationCost.ts";
+import { isHigher, STAGE_START_AGE, stagePeriod, stageYears } from "./educationCost.ts";
 import { amountsUnentered, fillMonths, pensionMembers, statementMonthsMissing, substituteMonths, switchPension } from "./stages/pension.ts";
 import { currentPeriodId } from "../store/readings.ts";
 import { missingUnemployment, putEstimate, UNEMPLOYMENT_BASIS, UNEMPLOYMENT_ITEM, unemploymentEstimate } from "./claims.ts";
@@ -147,6 +147,59 @@ export function alignEducationToAge(h: Household, childId: string, baseMonth: st
   }
   if (added.length === 0 && kept.length === stages.length) return;
   g.education.stages = [...kept, ...added].sort((a, b) => STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage));
+}
+
+
+// ---- 子の独立（最後の学校の終わりに合わせる。0062 の追記 2026-10-30）----
+
+/**
+ * 子の最後の学校を出た翌月の4月の学年の年齢（独立の年齢。学年の区切りの年齢の時点で持つ）。段の始まりの年齢＋浪人の年数＋在学年数のいちばん大きい値。
+ * 該当なし・段の無い子は null（今の独立のまま）
+ */
+export function schoolEndAge(h: Household, childId: string): number | null {
+  const g = educationGoalOf(h, childId);
+  const stages = (g?.education?.stages ?? []).filter((s) => s.stage !== "nursery");
+  let end: number | null = null;
+  for (const s of stages) {
+    const start = STAGE_START_AGE[s.stage];
+    if (start === undefined) continue;
+    const age = start + (s.delayYears ?? 0) + stageYears(s);
+    if (end === null || age > end) end = age;
+  }
+  return end;
+}
+
+/** 子の独立を最後の学校の終わりに合わせる（段の無い子は前の標準の22歳）。h をそのまま書き換える */
+function linkLeaves(h: Household, m: Member): void {
+  const years = schoolEndAge(h, m.id) ?? CHILD_LEAVES_AGE;
+  const cur = m.leaves?.memberAge?.years;
+  if (cur !== years || m.leaves?.memberAge?.ageSwitch !== "schoolYear") m.leaves = { memberAge: { member: m.id, years, ageSwitch: "schoolYear" } };
+}
+
+/** 推定の入れ直し: 最後の学校の終わりに合わせる形の子の独立を、今の進路に合わせる（年月などで入れた独立は変えない）。h をそのまま書き換える */
+export function refreshLeaves(h: Household): void {
+  for (const m of h.members) {
+    if (m.kind !== "child" || m.leaves === undefined) continue;
+    if (isSchoolLinkedLeaves(m)) {
+      linkLeaves(h, m);
+      continue;
+    }
+    // 独立の出来事（生活費の節目などが指す）を指す子は、出来事の時点が最後の学校の終わりに合わせる形なら、出来事を合わせる
+    const t = m.leaves;
+    const ev = t?.event === undefined || t.offset !== undefined ? undefined : (h.events ?? []).find((e) => e.id === t.event);
+    if (ev === undefined || !isSchoolLinkedLeaves({ ...m, leaves: ev.at })) continue;
+    const years = schoolEndAge(h, m.id) ?? CHILD_LEAVES_AGE;
+    if (ev.at.memberAge?.years !== years) ev.at = { memberAge: { member: m.id, years, ageSwitch: "schoolYear" } };
+  }
+}
+
+/** 前に年月などで入れた子の独立を、最後の学校の終わりに合わせる形にする（ボタン） */
+export function leavesToSchool(wh: WorkingHousehold, id: string): WorkingHousehold {
+  const next = mutate(wh, (h) => {
+    const m = h.members.find((x) => x.id === id);
+    if (m !== undefined) linkLeaves(h, m);
+  });
+  return { ...next, assumed: { ...next.assumed, [`family/${id}/leaves`]: LEAVES_BASIS } };
 }
 
 // ---- 退職金（0057。種類ごとの形と目安は retirementBenefits.ts）----

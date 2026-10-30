@@ -219,6 +219,7 @@ describe("提案書の推定の値", () => {
     // 年金は記録が無いので、働き方の期間から推計している（物の単位の推定）
     expect(estimatedCards(blank).map((c) => c.label)).toEqual(["家族", "年金", "基本生活費", "前提条件"]);
     // 前提条件は、FPライズの標準（仮の値）と持ち家の評価の目安のままなので推定（0070）
-    expect(estimatedCards(fromRequest(modelHousehold("salariedCoupleTwoKids"))).map((c) => c.label)).toEqual(["前提条件"]);
+    // 子ども・教育は学費を統計の平均（推定）で計算している（0062 の追記 2026-10-30）
+    expect(estimatedCards(fromRequest(modelHousehold("salariedCoupleTwoKids"))).map((c) => c.label)).toEqual(["子ども・教育", "前提条件"]);
   });
 });

@@ -37,6 +37,11 @@ const REGULATION_VALUES: readonly [string, string][] = [
   ["tax", "incomeTax.publicPensionDeduction.over65.tier1"],
   ["tax", "incomeTax.publicPensionDeduction.under65.tier1"],
   ["tax", "incomeTax.publicPensionDeduction.elderlyAge"],
+  // 子ども・教育の推定（公立小学校の給食費の負担軽減の後の学校の費用・保育料の自動の計算の目安。0029・0062）
+  ["educationSupport", "educationSupport.schoolLunch.elementary.public.monthly"],
+  ["educationSupport", "educationSupport.schoolLunch.months"],
+  ["educationSupport", "educationSupport.nursery.fee.standard"],
+  ["educationSupport", "educationSupport.nursery.fee.short"],
 ];
 /** 保険者（協会けんぽの支部）ごとの行を写す制度データの値（管轄 insurer の行。code を持たせる） */
 const INSURER_VALUES: readonly [string, string][] = [["socialInsurance", "socialInsurance.health.kyokaikenpo.rate"]];
