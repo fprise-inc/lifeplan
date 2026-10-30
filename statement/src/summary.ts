@@ -201,7 +201,8 @@ export function paymentSchedule(rows: readonly ClassifiedRow[]): { byMonth: Map<
   const addMonths = (ym: string, n: number) => {
     const y = Number(ym.slice(0, 4));
     const m = Number(ym.slice(5, 7)) - 1 + n;
-    return `${y + Math.floor(m / 12)}-${String((m % 12) + 1).padStart(2, "0")}`;
+    // 月の数が負（前の年へさかのぼる）でも 1〜12 にする（% は負の数で負を返すため）
+    return `${y + Math.floor(m / 12)}-${String((((m % 12) + 12) % 12) + 1).padStart(2, "0")}`;
   };
   for (const r of rows) {
     if (!r.counted || r.parts.excluded !== undefined) continue;

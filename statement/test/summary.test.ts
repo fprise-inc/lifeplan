@@ -141,6 +141,21 @@ describe("払う月の分け方（使った日と払う月のずれ）", () => {
     expect(Object.fromEntries(byMonth)).toEqual({ "2026-02": 33334 + 5000, "2026-03": 33333 + 3000, "2026-04": 33333 });
     expect(unknown).toBe(1);
   });
+
+  it("何回目かの分かる分割は、前の回の払う月を年をまたいでさかのぼる（月の数が負でも年月の形になる）", () => {
+    const log = synth([
+      {
+        id: "a",
+        kind: "card",
+        label: "A",
+        owner: SELF,
+        period: { from: "2025-11-01", to: "2026-01-31" },
+        rows: [{ date: "2025-11-10", merchant: "架空家電", amount: 30000, plan: { kind: "installment", count: 3, index: 3 }, payMonth: "2026-02" }],
+      },
+    ]);
+    const rows = classify({ log, household: HOUSEHOLD, baseMonth: BASE_MONTH, office: [] });
+    expect(Object.fromEntries(paymentSchedule(rows).byMonth)).toEqual({ "2025-12": 10000, "2026-01": 10000, "2026-02": 10000 });
+  });
 });
 
 describe("候補", () => {
