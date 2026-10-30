@@ -1,0 +1,20 @@
+id: education.statistics.graduate.public.admission
+title: 公立大学の大学院の入学料の平均（地域外。2025年度）
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: "2026-03-09"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 358249
+    sources:
+      - {"type": "web", "url": "https://www.mext.go.jp/a_menu/koutou/kouritsu/detail/20260309-ope_dev02-1.pdf", "retrievedAt": "2026-10-30", "sha256": "664cd8263958a70812fc7fd1cced6f3852cbfd1ad8abb4e29aff4a329306c130", "locator": "2025年度 学生納付金調査結果（大学院昼間部）p.4 89大学平均値", "quote": "89大学平均値 29,011 226,611 358,249 537,134"}
+      - {"type": "web", "url": "https://www.mext.go.jp/a_menu/koutou/kouritsu/detail/20260309-ope_dev02-1.pdf", "retrievedAt": "2026-10-30", "sha256": "664cd8263958a70812fc7fd1cced6f3852cbfd1ad8abb4e29aff4a329306c130", "locator": "同 p.3〜4 大学ごとの表（入学検定料・入学料〔地域内・地域外〕・授業料の列）", "quote": "札幌医科大学 30,000 282,000 282,000 535,800"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-30", "tools": ["PDF の本文（公表資料）", "大学ごとの表の列の並びとの突き合わせ", "原本の指紋（sha256）"], "note": "公立大学（89大学）の大学院昼間部の入学料（地域外）の平均。修士・博士で分けていない。入学料は公立大学の学部と同じく地域外の額（地域内は226,611円）。施行日の欄は資料の掲載日"}

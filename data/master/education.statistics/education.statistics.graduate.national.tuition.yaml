@@ -1,0 +1,20 @@
+id: education.statistics.graduate.national.tuition
+title: 国立大学の大学院の授業料の標準額（年額）
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2016-04-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2016-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 535800
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/416M60000080016_20240401_506M60000080012?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "d0cf7e674f89b1ce36ded53825cd4526d4d059f7416032f96c794ac26236fc0e", "locator": "国立大学等の授業料その他の費用に関する省令 別表（第二条関係）大学院の研究科（令和6年4月1日の版）", "quote": "大学院の研究科（次項に掲げるものを除く。）五三五、八〇〇円二八二、〇〇〇円"}
+      - {"type": "law", "lawNumber": "平成十六年文部科学省令第十六号", "egovRevisionId": "416M60000080016_20240401_506M60000080012"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-30", "tools": ["e-Gov法令API（条文の XML）", "学部の行（同じ表）との突き合わせ"], "note": "国立大学の大学院の研究科（法科大学院を除く）の標準額（五三五、八〇〇円）。学部と同じ額で、法科大学院は授業料804,000円。各大学は標準額の120%まで上乗せできる（扱わない）。修士・博士で分けない"}

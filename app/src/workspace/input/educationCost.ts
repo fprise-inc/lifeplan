@@ -8,12 +8,16 @@ import { schoolEntryYear } from "../present.ts";
 const S = "education.statistics";
 const K12 = new Set(["kindergarten", "elementary", "juniorHigh", "highSchool"]);
 /** 段の始まりの年齢（エンジンの START_AGE と同じ） */
-export const STAGE_START_AGE: Readonly<Record<string, number>> = { kindergarten: 3, elementary: 6, juniorHigh: 12, highSchool: 15, university: 18, juniorCollege: 18, vocational: 18 };
+export const STAGE_START_AGE: Readonly<Record<string, number>> = { kindergarten: 3, elementary: 6, juniorHigh: 12, highSchool: 15, university: 18, juniorCollege: 18, vocational: 18, graduateMaster: 22, graduateDoctor: 24 };
 /** 在学年数の標準（エンジンの YEARS と同じ。医歯系の大学は6年） */
-const YEARS: Readonly<Record<string, number>> = { kindergarten: 3, elementary: 6, juniorHigh: 3, highSchool: 3, university: 4, juniorCollege: 2, vocational: 2 };
+const YEARS: Readonly<Record<string, number>> = { kindergarten: 3, elementary: 6, juniorHigh: 3, highSchool: 3, university: 4, juniorCollege: 2, vocational: 2, graduateMaster: 2, graduateDoctor: 3 };
 
 export const isK12 = (stage: string): boolean => K12.has(stage);
 export const isHigher = (stage: string): boolean => stage === "university" || stage === "juniorCollege" || stage === "vocational";
+/** 大学院（修士・博士。0089） */
+export const isGraduate = (stage: string): boolean => stage === "graduateMaster" || stage === "graduateDoctor";
+/** 高校のあとの学校（大学・短大・専門学校・大学院）。通い方・浪人・受験・仕送り・入学金の欄を出す */
+export const isTertiary = (stage: string): boolean => isHigher(stage) || isGraduate(stage);
 
 /** 段の在学年数（入れていなければ標準） */
 export function stageYears(s: EducationStage): number {
@@ -65,6 +69,11 @@ export function stageStatistic(s: EducationStage): StageStatistic | null {
   const sector = s.sector ?? "public";
   if (s.stage === "nursery") return null;
   if (K12.has(s.stage)) {
+    // インターナショナルスクールは統計の目安が無い（学校の費用は入れる。学校外活動費は私立の平均。0089）
+    if (sector === "international") {
+      const out = masterAmount(`${S}.${s.stage}.private.outOfSchool`);
+      return { annual: null, entrance: null, outOfSchool: out, basis: INTERNATIONAL_MISSING, annualBasis: INTERNATIONAL_MISSING, entranceBasis: "入学金は学校の費用に含めて入れてください", lunchRelief: 0, note: INTERNATIONAL_NOTE };
+    }
     const sec = sector === "private" ? "private" : "public";
     const totalId = `${S}.${s.stage}.${sec}.total`;
     const outId = `${S}.${s.stage}.${sec}.outOfSchool`;
@@ -86,6 +95,17 @@ export function stageStatistic(s: EducationStage): StageStatistic | null {
   let ids: string[];
   let admission: string;
   let note: string | null = null;
+  if (s.stage === "graduateMaster" || s.stage === "graduateDoctor") {
+    const course = s.stage === "graduateMaster" ? "master" : "doctor";
+    const x = sector === "private" ? "private" : sector === "national" ? "national" : "public";
+    ids = x === "private" ? [`${S}.graduate.private.${course}.tuition`, `${S}.graduate.private.${course}.facility`] : [`${S}.graduate.${x}.tuition`];
+    admission = x === "private" ? `${S}.graduate.private.${course}.admission` : `${S}.graduate.${x}.admission`;
+    const year = x === "private" ? "令和7年度入学者" : x === "public" ? "2025年度" : "";
+    const who = `${x === "private" ? "私立" : x === "national" ? "国立" : "公立"}大学の大学院${x === "private" ? `・${course === "master" ? "修士" : "博士"}` : ""}`;
+    const annualBasis = x === "national" ? "国立大学の大学院の授業料の標準額（国の省令の額）" : ids.length > 1 ? `統計の平均。授業料と施設設備費を足したもの（${who}・${year}）` : `統計の平均の授業料（${who}・${year}）`;
+    const entranceBasis = x === "national" ? "国立大学の大学院の入学料の標準額（国の省令の額）" : `統計の平均の入学料（${who}・${year}${x === "public" ? "・地域外" : ""}）`;
+    return { annual: sumOf(ids), entrance: masterAmount(admission), outOfSchool: null, basis: titles([...ids, admission]), annualBasis, entranceBasis, lunchRelief: 0, note: null };
+  }
   if (s.stage === "juniorCollege") {
     ids = [`${S}.juniorCollege.private.tuition`, `${S}.juniorCollege.private.facility`];
     admission = `${S}.juniorCollege.private.admission`;
@@ -109,6 +129,10 @@ export function stageStatistic(s: EducationStage): StageStatistic | null {
   const entranceBasis = sector === "national" && s.stage === "university" ? "国立大学の入学料の標準額（国の省令の額）" : `統計の平均の入学料（${who}${year !== "" ? `・${year}` : ""}）`;
   return { annual: sumOf(ids), entrance: masterAmount(admission), outOfSchool: null, basis: titles([...ids, admission]), annualBasis, entranceBasis, lunchRelief: 0, note };
 }
+
+/** インターナショナルスクールの未入力（0089） */
+export const INTERNATIONAL_MISSING = "未入力（インターナショナルスクールの学費の統計の目安はありません。学校の費用の年額を入れるまで0円で計算中）";
+const INTERNATIONAL_NOTE = "インターナショナルスクールの多くは学校教育法第1条の学校ではなく（各種学校・無認可）、高校の就学支援金は計算しません（令和8年4月から外国人学校は対象外）。第1条の学校なら「私立」で入れてください";
 
 /** 幼稚園〜高校の統計の出典の短い名前 */
 const K12_SOURCE = "文部科学省「子供の学習費調査」令和5年度";

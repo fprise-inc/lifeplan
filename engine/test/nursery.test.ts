@@ -325,3 +325,29 @@ describe("留学（education.cost 改訂6。0088）", () => {
     expect(o.enrollments.find((x) => x.stage === "university")?.from).toBe("2030-04");
   });
 });
+
+describe("大学院・インターナショナルスクール（education.cost 改訂7。0089）", () => {
+  const H = { name: "h", birth: "2010-06" };
+  const run = (stages: Obj[]) => runEngine(mk([{ ...H, stages }], { baseMonth: "2026-04", endYear: 2040 }), fictionalPacks(), { checkInternal: true, entry: { component: "education.cost", input: { member: uid("h") } } });
+  const out = (stages: Obj[]) => run(stages).entryOutput as EducationCostOutput;
+
+  it("修士は大学を出た翌月の4月から2年。国立は標準額、私立は授業料＋施設設備費と入学料", () => {
+    const o = out([{ stage: "university", sector: "national" }, { stage: "graduateMaster", sector: "private" }]);
+    const gm = o.enrollments.find((x) => x.stage === "graduateMaster")!;
+    expect(gm.from).toBe("2033-04");
+    expect(gm.years).toBe(2);
+    expect(gm.fees[0]).toMatchObject({ fiscalYear: 2033, tuition: 811006 + 70721, admission: 208987 });
+    // 医歯系6年の大学の後は、6年を出た翌月から
+    const m = out([{ stage: "university", sector: "national", field: "medical" }, { stage: "graduateMaster", sector: "national" }]);
+    expect(m.enrollments.find((x) => x.stage === "graduateMaster")).toMatchObject({ from: "2035-04", fees: [{ fiscalYear: 2035, tuition: 535800, admission: 282000 }, { fiscalYear: 2036, tuition: 535800, admission: 0 }] });
+  });
+
+  it("インターナショナルスクールは学校の年額を入れるまで0円（入力が要ると知らせる）。入れた年額で計算する", () => {
+    const r = run([{ stage: "highSchool", sector: "international" }]);
+    const hs = (r.entryOutput as EducationCostOutput).enrollments.find((x) => x.stage === "highSchool")!;
+    expect(hs.fees.every((f) => f.tuition === 0)).toBe(true);
+    expect(notices(r).some((n) => n.code === "N_INPUT_REQUIRED")).toBe(true);
+    const o = out([{ stage: "highSchool", sector: "international", annualOverride: 2500000 }]);
+    expect(o.enrollments.find((x) => x.stage === "highSchool")!.fees[1]?.tuition).toBe(2500000);
+  });
+});

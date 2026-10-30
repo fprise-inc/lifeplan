@@ -147,6 +147,19 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(d.get("dock").is_none(), "{v}: display.dock は持たない");
             assert!(d.get("metrics").is_none(), "{v}: 結果のタブの値は区画の中");
         }
+        if *v == "0.41" {
+            // 0.41 から: 大学院の段とインターナショナルスクール（0089）
+            let stages: Vec<&serde_json::Value> = now["household"]["request"]["input"]["household"]
+                ["goals"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(|g| g["education"]["stages"].as_array())
+                .flatten()
+                .collect();
+            assert!(stages.iter().any(|s| s["stage"] == "graduateMaster"));
+            assert!(stages.iter().any(|s| s["sector"] == "international"));
+        }
         if *v == "0.40" {
             // 0.40 から: 教育の目標の留学（0088）
             let goals = now["household"]["request"]["input"]["household"]["goals"]

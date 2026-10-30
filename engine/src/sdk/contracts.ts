@@ -669,8 +669,8 @@ export interface RetirementIncomeOutput {
 
 /** 在学の期間（学年の始まりの月・年数）と、その学校の年ごとの授業料（公的支援の部品が読む） */
 export interface Enrollment {
-  readonly stage: "nursery" | "kindergarten" | "elementary" | "juniorHigh" | "highSchool" | "university" | "juniorCollege" | "vocational";
-  readonly sector: "public" | "national" | "private";
+  readonly stage: "nursery" | "kindergarten" | "elementary" | "juniorHigh" | "highSchool" | "university" | "juniorCollege" | "vocational" | "graduateMaster" | "graduateDoctor";
+  readonly sector: "public" | "national" | "private" | "international";
   readonly living: "home" | "away";
   readonly from: string;
   readonly years: number;

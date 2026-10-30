@@ -2847,6 +2847,76 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-09"
  },
+ "education.statistics.graduate.national.admission": {
+  "title": "国立大学の大学院の入学料の標準額",
+  "value": 282000,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.graduate.national.tuition": {
+  "title": "国立大学の大学院の授業料の標準額（年額）",
+  "value": 535800,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.graduate.private.doctor.admission": {
+  "title": "私立大学の大学院の入学料の平均（博士後期課程（博士課程を含む）。令和7年度入学者）",
+  "value": 191055,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
+ "education.statistics.graduate.private.doctor.facility": {
+  "title": "私立大学の大学院の施設設備費の平均（博士後期課程（博士課程を含む）。令和7年度入学者）",
+  "value": 53125,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
+ "education.statistics.graduate.private.doctor.tuition": {
+  "title": "私立大学の大学院の授業料の平均（博士後期課程（博士課程を含む）。令和7年度入学者）",
+  "value": 610798,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
+ "education.statistics.graduate.private.master.admission": {
+  "title": "私立大学の大学院の入学料の平均（博士前期課程（修士課程を含む）。令和7年度入学者）",
+  "value": 208987,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
+ "education.statistics.graduate.private.master.facility": {
+  "title": "私立大学の大学院の施設設備費の平均（博士前期課程（修士課程を含む）。令和7年度入学者）",
+  "value": 70721,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
+ "education.statistics.graduate.private.master.tuition": {
+  "title": "私立大学の大学院の授業料の平均（博士前期課程（修士課程を含む）。令和7年度入学者）",
+  "value": 811006,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
+ "education.statistics.graduate.public.admission": {
+  "title": "公立大学の大学院の入学料の平均（地域外。2025年度）",
+  "value": 358249,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
+ "education.statistics.graduate.public.tuition": {
+  "title": "公立大学の大学院の授業料の平均（年額。2025年度）",
+  "value": 537134,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
  "education.statistics.highSchool.private.extracurricular": {
   "title": "教科外活動費の年額（私立高校。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）",
   "value": 63440,

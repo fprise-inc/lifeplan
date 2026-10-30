@@ -22,6 +22,7 @@
 //   年齢（19歳以上23歳未満）で合計所得金額が95万円以下の子（日本学生支援機構の運用）。学生本人が扶養の子でなければ多子世帯にしない。
 //   扶養の上限の値が無い年（制度データより前の年）は、前の近似で数える。18歳の早生まれの特例・新たに生まれた子の申告による加算は扱わない
 // 支援の額は名目額で、教育費の上昇率を当てない（0010 の5）
+// 改訂（0089）: 高校の段がインターナショナルスクール（sector international）なら就学支援金を計算しない
 import {
   addMonths,
   ageMonth,
@@ -77,7 +78,7 @@ export default defineComponent<{ member: string }, FlowsResult>({
   id: "education.support",
   title: "教育の公的支援（就学支援金・修学支援）",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: { "education.cost": ">=1 <2", "residentTax.annual": ">=1 <2", "tax.totalIncome": ">=1 <2" },
   params: Object.values(P),
   reads: ["member.kind", "member.birth", "member.joins", "member.leaves", "relation.type", "relation.parent", "relation.child", "goal.kind", "goal.owner", "goal.education"],
@@ -175,6 +176,8 @@ export default defineComponent<{ member: string }, FlowsResult>({
     for (const e of enrollments) {
       const from = ctx.time.resolve({ at: e.from });
       if (e.stage === "highSchool") {
+        // インターナショナルスクール（各種学校などの外国人学校）は就学支援金の対象外（令和8年4月から。0089）。学校教育法第1条の学校なら私立で入れる
+        if (e.sector === "international") continue;
         for (const f of e.fees) {
           // 計算基準月より前に終わる年度は判定しない（お金の動きが表に載らず、制度データに無い年度を知らせない）
           if (monthIndex(f.fiscalYear + 1, 3) < base) continue;
