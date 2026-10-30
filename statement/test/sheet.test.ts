@@ -108,6 +108,18 @@ describe("書き出し", () => {
     expect(ws).toContain("<sheetProtection");
   });
 
+  it("顧客番号は世帯の保存と同じ決まり（英数字・ハイフン・下線の16字まで）で書く。決まりに合わないもの（氏名など）は書かない", async () => {
+    const { log } = await setup();
+    const items = reviewList(classified(log));
+    const make = (customerNo: string) => createMarkSheet({ items, accounts: new Map(log.accounts.map((a) => [a.id, a.label])), owners: new Map([[SELF, "ご本人"]]), requestId: RID2, customerNo, exportedAt: AT, appVersion: "0.1.0" });
+    const files = await unzip((await make("A_0042")).bytes);
+    expect(text(files.get(SHEET))).toContain('<t xml:space="preserve">A_0042</t>');
+    expect(text(files.get("docProps/custom.xml"))).toContain('name="lifeplan.customerNo"><vt:lpwstr>A_0042</vt:lpwstr>');
+    expect(text(files.get("xl/worksheets/sheet3.xml"))).toContain('<t xml:space="preserve">A_0042</t>');
+    const other = await unzip((await make("山田")).bytes);
+    expect(text(other.get("docProps/custom.xml"))).toContain('name="lifeplan.customerNo"><vt:lpwstr></vt:lpwstr>');
+  });
+
   it("区分の選択肢は、お使いになった方の働き方で選べるものだけ（会社員の行に事業の経費は出さない）", async () => {
     const { sheet } = await setup();
     const files = await unzip(sheet.bytes);
