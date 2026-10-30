@@ -12,7 +12,7 @@ import { byId, field, getPath, plain, resolveTimepoint, timepointField, yenBox, 
 import { mutate, newId, periodsOf, type WorkingHousehold } from "../household.ts";
 import { clearRetirementNone, fillRetirement, retirementNone, retirementNotApplicable } from "../fill.ts";
 import { ACCOUNT_KINDS, EMPLOYMENT_TYPES, earners, memberLabel } from "../labels.ts";
-import { readGroup, readLine } from "../readLines.ts";
+import { infoNote, readGroup, readLine } from "../readLines.ts";
 import { regulationValue } from "../../../../../hearing/src/statistics.ts";
 import {
   addKindOf,
@@ -496,7 +496,7 @@ export function addBenefitAction(wh: WorkingHousehold, m: Member): ActionDef {
 }
 
 /**
- * 万一のときの死亡退職金の説明の1行（読むだけ）。額は勤め先の規程で決まるもので、勤続の月数での按分はこのアプリの目安の決まり
+ * 万一のときの死亡退職金の説明の文（説明の欄。readLines.ts の infoNote）。額は勤め先の規程で決まるもので、勤続の月数での按分はこのアプリの目安の決まり
  * （万一のときのタブで額を入れられる）。非課税限度額は制度データ（相続税の死亡退職金の非課税限度額の法定相続人1人あたりの額）から
  */
 export function deathLineText(baseMonth: string): string {
@@ -505,9 +505,10 @@ export function deathLineText(baseMonth: string): string {
   return `万一亡くなったときは、受け取る前の退職金が死亡退職金として遺族に支払われることがあり、額は勤め先の退職金の規程で決まります。このアプリでは、勤続の月数で按分した額を目安にします（「万一のとき」のタブで額を入れられます）。相続税の目安では、${ex}を差し引きます`;
 }
 
-function deathLine(wh: WorkingHousehold, m: Member): FieldDef | null {
+/** 死亡退職金の扱いの説明の欄（値ではなく説明なので、幅いっぱいの説明の欄。折りたたみは人が違っても同じ） */
+function deathNote(wh: WorkingHousehold, m: Member): GroupDef | null {
   if (!(wh.request.input.household.retirementBenefits ?? []).some((b) => b.member === m.id && HAS_AMOUNT.has(b.kind))) return null;
-  return readLine(`retirement/${m.id}/death`, "万一亡くなったときの扱い", deathLineText(wh.request.input.baseMonth), "相続・贈与");
+  return infoNote(`retirement/${m.id}/death`, "万一亡くなったときの扱い", deathLineText(wh.request.input.baseMonth), "retirement/death");
 }
 
 /** 該当なしにしてある人の区画の説明（頭の「該当なし」は見出しの下に、残りは「?」の中に出る。FieldViews.tsx の splitNote） */
@@ -517,9 +518,8 @@ export function retirementStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;
   const sections: SectionDef[] = people(h).map((m) => {
     const groups = benefitGroups(wh, m);
-    const d = deathLine(wh, m);
-    const ro = d === null ? null : readGroup(`retirement/${m.id}/death`, undefined, [d]);
-    if (ro !== null) groups.push(ro);
+    const d = deathNote(wh, m);
+    if (d !== null) groups.push(d);
     // 退職給付を外して「該当なし」にしてある人は、見出しの下に「該当なし」と出す（説明は「?」の中。0057 の 2026-10-29 の追記）
     const none = groups.length === 0 && retirementNotApplicable(wh, m.id);
     return { key: `retirement/${m.id}`, title: memberLabel(wh, m.id), ...(none ? { note: NONE_NOTE } : {}), level: "simple", groups, actions: [addBenefitAction(wh, m)] };

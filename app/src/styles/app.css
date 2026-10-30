@@ -296,6 +296,14 @@ html.big .lever input[type="range"] { height: 36px; }
 .in-group.compact .grp-more, .in-group.compact .grp-more-body { grid-column: 1 / -1; }
 /* 「▸ 詳しく」で欄を入れ替えた所の知らせ（例: 受け取り開始を基礎と厚生に分けた。0078 の 2026-10-29 の追記） */
 .grp-more-swap { margin: 4px 0 0; font-size: 0.8rem; color: var(--ink-2); }
+/* 説明の欄（値ではなく説明の文。幅いっぱい・見出しの左に ⓘ・見出しを押して折りたたむ。InfoNote.tsx） */
+.info-note { display: block; background: var(--card); }
+.info-note-h { display: flex; align-items: center; gap: 6px; list-style: none; cursor: pointer; font-size: 0.98rem; font-weight: 700; color: var(--ink); }
+.info-note-h::-webkit-details-marker { display: none; }
+.info-note-h .info-i { flex: none; color: var(--prop); }
+.info-note-fold { margin-left: auto; font-size: 0.78rem; font-weight: 400; color: var(--ink-2); }
+.info-note-h:hover .info-note-fold, .info-note-h:focus-visible .info-note-fold { text-decoration: underline; }
+.info-note-body { margin: 6px 0 0; font-size: 0.88rem; line-height: 1.7; color: var(--ink); }
 .sv-more-row > td { background: #fcfcfb; padding: 2px 10px 10px; }
 .sv-more-row .in-group { margin: 4px 0; background: #fff; }
 /* まとまりの中に描くまとまり（placeIn。行の額の近くに並べる額の変化。0040 の 2026-10-29 の追記）: 左の線で、どの行の物か分かるように */
