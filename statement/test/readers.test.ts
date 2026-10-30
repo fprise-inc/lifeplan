@@ -12,6 +12,7 @@ const ALL: [string, "card" | "bank" | "app"][] = [
   ["card-noheader.tsv", "card"],
   ["card-statement.pdf", "card"],
   ["card-lines.pdf", "card"],
+  ["card-period.pdf", "card"],
 ];
 
 /** 架空の明細に入れた番号（どれも結果に残ってはいけない） */
@@ -214,6 +215,14 @@ describe("PDF（文字の入ったもの）", () => {
       ["2025-12-03", "ローソン 架空店", 620, "lump"],
       ["2025-12-15", "楽天モバイル", 3278, null],
       ["2025-12-30", "架空スポーツクラブ", 33000, "installment"],
+    ]);
+  });
+
+  it("見出しの「ご利用期間」の行（期間の始めの日）では年を補わず、「お支払い分」の日付で補う", async () => {
+    const out = await read("card-period.pdf", "card");
+    expect(out.rows.map((r) => [r.date, r.merchant, r.amount])).toEqual([
+      ["2026-09-20", "架空コンビニ", 620],
+      ["2026-10-03", "架空モバイル", 3278],
     ]);
   });
 

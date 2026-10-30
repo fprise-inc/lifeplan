@@ -146,18 +146,25 @@ export const pdfTextReader: StatementReader = {
   },
 };
 
-/** 明細の見出しの部分に書かれた日付（「2026年10月10日お支払い分」など。表の行より前の行の最初の年月日） */
+/**
+ * 明細の見出しの部分に書かれた日付（「2026年10月10日お支払い分」など。表の行より前の、1つの欄だけの行の年月日）。
+ * 「お支払」「ご請求」「発行」の言葉のある行を先に使う。期間の行（「ご利用期間 2026年9月16日〜2026年10月15日」のように
+ * 年月日が2つ以上ある行）は使わない（期間の始めの日を明細の日付にすると、その日より後の利用がすべて前の年になるため）
+ */
 function findStatementDate(lines: readonly (readonly string[])[]): string | undefined {
+  let first: string | undefined;
   for (const ln of lines.slice(0, 15)) {
-    for (const c of ln) {
-      const m = /((?:19|20)\d{2})[年/.-](\d{1,2})[月/.-](\d{1,2})日?/u.exec(c);
-      if (m !== null && ln.length === 1) {
-        const d = parseDate(`${m[1] as string}/${m[2] as string}/${m[3] as string}`);
-        if (d !== null) return d.date;
-      }
-    }
+    if (ln.length !== 1) continue;
+    const c = ln[0] as string;
+    const found = [...c.matchAll(/((?:19|20)\d{2})[年/.-](\d{1,2})[月/.-](\d{1,2})日?/gu)];
+    if (found.length !== 1) continue;
+    const m = found[0] as RegExpMatchArray;
+    const d = parseDate(`${m[1] as string}/${m[2] as string}/${m[3] as string}`);
+    if (d === null) continue;
+    if (/支払|請求|発行/u.test(c)) return d.date;
+    first ??= d.date;
   }
-  return undefined;
+  return first;
 }
 
 /** 段階1の読み手（段階2・3の読み手はここに足す） */
