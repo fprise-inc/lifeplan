@@ -991,7 +991,7 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
     plain({ key: `${k}/balanceAsOf`, item: "debt.balanceAsOf", label: "残高の時点", level: D, kind: "ym", find, path: ["balanceAsOf"], optional: true, help: "年末残高証明書なら前の年の12月" }),
     plain({ key: `${k}/rateType`, item: "debt.rateSchedule", label: "金利の種類", level: D, kind: "select", options: RATE_TYPES, find: firstRate, path: ["type"] }),
     methodField(wh, d, k),
-    plain({ key: `${k}/bonus`, item: "debt.repayment", label: "ボーナス返済の割合", level: D, kind: "pct", find, path: ["repayment", "bonusShare"], optional: true, fallback: "0" }),
+    plain({ key: `${k}/bonus`, item: "debt.repayment", label: "ボーナス返済の割合", level: D, kind: "pct", min: 0, max: 100, find, path: ["repayment", "bonusShare"], optional: true, fallback: "0" }),
   );
   if (mortgage) {
     fields.push(

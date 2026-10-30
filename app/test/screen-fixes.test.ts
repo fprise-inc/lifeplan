@@ -229,9 +229,18 @@ describe("入れられない値は、欄の近くに理由を言葉で出す", (
     expect(rejectReason({ ...yen, kind: "ym" } as FieldDef, "36歳")).toContain("西暦");
   });
 
-  it("0〜100% の割合の欄（貯金に回る割合・不動産の評価の割合・亡くなる人の分）は、外の値を入れられない（入れると計算が止まっていた）", () => {
+  it("0〜100% の割合の欄（貯金に回る割合・不動産の評価の割合・亡くなる人の分・土地の割合・建物の残りの価値の下限・家賃に対する経費の割合・ボーナス返済の割合）は、外の値を入れられない（入れると計算が止まっていた）", () => {
     const wh = fromRequest(modelHousehold("dualAssetsTwoKids"));
-    const fields = [fieldOf(wh, "living", "living/surplus/ratio"), fieldOf(wh, "inheritance", "inherit/tax/realEstateRatio"), fieldOf(wh, "inheritance", "inherit/tax/unassignedShare")];
+    const fields = [
+      fieldOf(wh, "living", "living/surplus/ratio"),
+      fieldOf(wh, "inheritance", "inherit/tax/realEstateRatio"),
+      fieldOf(wh, "inheritance", "inherit/tax/unassignedShare"),
+      fieldOf(wh, "assumptions", "assume/realEstate/landShare"),
+      fieldOf(wh, "assumptions", "assume/realEstate/floor"),
+      fieldOf(wh, "rental", "/property/landShare"),
+      fieldOf(wh, "rental", "/property/expRate"),
+      fieldOf(wh, "housing", "/bonus"),
+    ];
     for (const f of fields) {
       expect(rejectReason(f, "120"), f.key).toBe("0%〜100%の範囲で入れてください");
       expect(rejectReason(f, "-5"), f.key).toBe("0%〜100%の範囲で入れてください");

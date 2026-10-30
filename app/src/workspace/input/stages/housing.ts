@@ -481,7 +481,7 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
           ...(bought ? { fallback: asOfYear } : {}),
           help: bought ? "空欄なら新築とみなします（その額の時点の年）。中古を買うなら建った年を入れます（住宅ローン控除の新築か中古かにも使います）" : `空欄なら、その額の時点（${asOfYear}年）に新築とみなします。わかれば建った年を入れてください`,
         }),
-        plain({ key: `${kv}/landShare`, item: "residence.valuation", label: "土地の割合", level: "detail", kind: "pct", find, path: ["valuation", "landShare"], optional: true, fallback: setting?.landShare ?? VALUATION_DEFAULTS.landShare, help: "空欄なら前提条件の目安。土地は前提条件の上昇率（空欄なら物価上昇率）で動きます" }),
+        plain({ key: `${kv}/landShare`, item: "residence.valuation", label: "土地の割合", level: "detail", kind: "pct", min: 0, max: 100, find, path: ["valuation", "landShare"], optional: true, fallback: setting?.landShare ?? VALUATION_DEFAULTS.landShare, help: "空欄なら前提条件の目安。土地は前提条件の上昇率（空欄なら物価上昇率）で動きます" }),
       ],
       actions: [],
     },
