@@ -327,8 +327,9 @@ function purchaseGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDef
     fields: [
       { ...timepointField({ key: `${kp}/at`, item: "residence.purchase", label: "購入の時期", level: "simple", find, path: ["purchase", "at"], mode: "ym", ...ageOf }), address: () => at(r.id, "residence.purchase", ["at"]) },
       price,
-      plain({ key: `${kp}/down`, item: "residence.purchase", label: "頭金", level: "simple", kind: "yen", basis: "once", find, path: ["purchase", "downPayment"], optional: true }),
-      plain({ key: `${kp}/costs`, item: "residence.purchase", label: "諸費用", level: "detail", kind: "yen", basis: "once", find, path: ["purchase", "costs"], optional: true, help: "目安は新築で価格の3〜7%、中古で6〜10%" }),
+      // 頭金・諸費用は空にできない（計算エンジンの入力で必須。空にすると欄を消して、計算が止まっていた）。無いときは 0 を入れる
+      plain({ key: `${kp}/down`, item: "residence.purchase", label: "頭金", level: "simple", kind: "yen", basis: "once", find, path: ["purchase", "downPayment"], help: "頭金が無ければ 0 を入れます" }),
+      plain({ key: `${kp}/costs`, item: "residence.purchase", label: "諸費用", level: "detail", kind: "yen", basis: "once", find, path: ["purchase", "costs"], help: "目安は新築で価格の3〜7%、中古で6〜10%。無ければ 0 を入れます" }),
     ],
     actions: [],
   });
