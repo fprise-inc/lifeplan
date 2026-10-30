@@ -469,6 +469,16 @@ describe("説明モード", () => {
     expect(text(4)).toContain("住宅ローンの返済は");
   });
 
+  it("もう年金を受け取っている世帯（受け取り開始が表の最初の年より前）は、表の最初の年の世帯の年金を出す（「表の期間には入りません」にしない）", () => {
+    const req = modelHousehold("pensionCouple");
+    const res = preview(req);
+    const first = displayYears(req)[0]!;
+    const total = sumByYear(res.table, (c) => under(c.row, "cf.income.pension")).get(first)!;
+    expect(total).toBeGreaterThan(0);
+    const text = explainModel(req, res, 95).steps.find((x) => x.key === "pension")!.sentence.map((p) => p.text).join("");
+    expect(text).toBe(`ご本人が65歳からは、年金が 年${Math.round(total / 10000).toLocaleString("en-US")}万円入ります（${first}年の世帯の合計）`);
+  });
+
   it("FPの内部の情報（メモ・物の ID）を含まない（0016 の2）", () => {
     const json = JSON.stringify(m);
     expect(json).not.toContain("MEMO-MARK-plans");

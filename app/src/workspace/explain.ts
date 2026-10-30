@@ -70,6 +70,9 @@ export function explainModel(req: EngineRequest, result: PreviewResult, targetAg
   const pAge = self !== undefined ? readLevers(req, self.member.id).pensionAge : undefined;
   let pYear = span(pension, years)?.from ?? null;
   if (self !== undefined && pAge !== undefined) pYear = parseYm(addMonths(ageReachedMonth(self.member, pAge), 1)).y + 1;
+  // もう受け取っている人（受け取り開始の翌年が表の最初の年より前）は、表の最初の年の世帯の年金
+  const firstYear = years[0];
+  if (pYear !== null && firstYear !== undefined && pYear < firstYear) pYear = firstYear;
   const pi = pYear !== null ? years.indexOf(pYear) : -1;
   steps.push({
     key: "pension",
