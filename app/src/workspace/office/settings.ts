@@ -132,6 +132,12 @@ export function isDefaultSettings(s: OfficeSettings): boolean {
   return s.layout === null && isEmptyChoice(s.items) && isEmptyLeverChoice(s.levers) && isEmptyPremiseChoice(s.premises) && isEmptySceneChoice(s.scenes) && Object.keys(normalProtection(s.protection)).length === 0 && s.care.selfAndSpouse === "warn" && s.inheritLikelihood === "likely" && Object.keys(s.assumptions).length === 0 && s.realEstateRatio === null && sameFee(s.fee, STANDARD_FEE_TABLE);
 }
 
+/**
+ * 新しい世帯で出す入力項目と開いたときの入れ方だけを置き換える（入力のホームの「入力項目を選ぶ」の「この選び方を事務所の既定にする」と、その取り消し。0091）。
+ * 最後に変えた日（changedOn）は変えない: 根拠の文「事務所の標準（年月）」は前提条件などの写す値の年月で、見せ方の選び方とは関係しない
+ */
+export const withOfficeItems = (s: OfficeSettings, items: ItemChoice): OfficeSettings => ({ ...s, items: readItemChoice(items) });
+
 // ---- 画面の側の操作が読む今の設定（office/current.ts。アプリが開いている間） ----
 
 /** 今の事務所の既定値を、操作のときに読む所（office/current.ts）へ入れる */
