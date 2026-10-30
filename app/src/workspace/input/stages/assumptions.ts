@@ -359,6 +359,8 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
             label: "土地の割合",
             level: "detail",
             kind: "pct",
+            min: 0,
+            max: 100,
             find,
             path: [R, "landShare"],
             optional: true,
@@ -394,6 +396,8 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
             label: "建物の残りの価値の下限",
             level: "detail",
             kind: "pct",
+            min: 0,
+            max: 100,
             find,
             path: [R, "residualFloor"],
             optional: true,
@@ -443,6 +447,8 @@ export function endYearNotice(wh: WorkingHousehold): string | null {
 }
 
 function endYearFields(wh: WorkingHousehold): FieldDef[] {
+  // 表の最後の年は計算基準月の年より前にできない（前にすると計算エンジンが止まる〔E_ARGUMENT endYear〕）。欄の下限をその年にする
+  const baseYear = Number(wh.request.input.baseMonth.slice(0, 4));
   const address = (): Address => ({
     target: { plan: "input" },
     item: "plan.endYear",
@@ -461,7 +467,7 @@ function endYearFields(wh: WorkingHousehold): FieldDef[] {
     level: "detail",
     kind: "int",
     suffix: "年",
-    min: 2000,
+    min: baseYear,
     max: 2200,
     optional: true,
     blankIsEstimate: true,
@@ -504,7 +510,8 @@ function endYearFields(wh: WorkingHousehold): FieldDef[] {
       level: "detail",
       kind: "int",
       suffix: "歳",
-      min: 60,
+      // 下限は60歳か、計算基準月の年のその人の年齢の高い方（それより下は表の最後の年が計算基準月の年より前になる）
+      min: Math.min(120, Math.max(60, ageInYear(m, baseYear))),
       max: 120,
       help: "年齢で入れると、その人がその年齢になる年を表の最後の年にします",
       get: (w) => {

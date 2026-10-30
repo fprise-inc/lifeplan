@@ -7,6 +7,7 @@ import { useContext, useState } from "preact/hooks";
 import { Help, HelpOf } from "../../presentation/Help.tsx";
 import { PopIcon } from "../../presentation/icons.tsx";
 import { FieldIcon } from "./fieldIcons.tsx";
+import { InfoNote } from "./InfoNote.tsx";
 import { fittingPlaceholder, textEm } from "./placeholder.ts";
 import type { Timepoint } from "../../engine/types.ts";
 import { groupShown, type ActionDef, type FieldDef, type GroupDef, type Level, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
@@ -413,6 +414,8 @@ export function MoreToggle({ groupKey, open, toggle, label, swapNotes = [] }: { 
 }
 
 export function Group({ group, wh, level, onEdit, more, moreOf, inner = [] }: { group: GroupDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void; more?: GroupMore; moreOf?: string; inner?: readonly InnerGroup[] }) {
+  // 説明の欄（値ではなく説明の文）は、幅いっぱいの説明として描く（readLines.ts の infoNote）
+  if (group.info !== undefined) return <InfoNote title={group.info.title} text={group.info.text} fold={group.info.fold} groupKey={group.key} />;
   // 詳細の欄が見えているとき（詳細、または標準で「▸ 詳しく」を開いたとき）は、標準だけの欄（simpleOnly）を出さない（代わりに詳細の欄を出す）
   const detailShown = level === "detail" || more?.open === true;
   const fields = group.fields.filter((f) => visible(level, f.level) && !(detailShown && f.simpleOnly === true));
@@ -619,6 +622,13 @@ export function ActionHelp({ action }: { action: ActionDef }) {
   return <>{actionHelp(action)}</>;
 }
 
+/** 割合の欄の範囲（min・max はパーセント）に入っているか。率は10進の文字列（"0.25" = 25%） */
+function pctInRange(f: FieldDef, rate: string): boolean {
+  if (f.kind !== "pct") return true;
+  const pct = Number(rate) * 100;
+  return (f.min === undefined || pct >= f.min - 1e-9) && (f.max === undefined || pct <= f.max + 1e-9);
+}
+
 /**
  * 入れた文字を使えない理由（欄のすぐ下に言葉で出す。赤い枠だけにしない）。使える文字なら null。
  * 円の欄は万円か円か（unit）で読む
@@ -640,8 +650,11 @@ export function rejectReason(f: FieldDef, text: string, unit: YenUnit = "man"): 
       const u = (f.suffix ?? "").replace(/(まで|から)$/, "");
       return f.min !== undefined && f.max !== undefined ? `${f.min}${u}〜${f.max}${u}の範囲で入れてください` : f.min !== undefined ? `${f.min}${u}以上で入れてください` : `${f.max ?? ""}${u}以下で入れてください`;
     }
-    case "pct":
-      return rateFromPct(text) === null ? "数字で入れてください（例: 1.5）" : null;
+    case "pct": {
+      const r = rateFromPct(text);
+      if (r === null) return "数字で入れてください（例: 1.5）";
+      return pctInRange(f, r) ? null : `${f.min ?? ""}%〜${f.max ?? ""}%の範囲で入れてください`;
+    }
     case "decimal":
       return /^\d+(\.\d+)?$/.test(t) ? null : "0 以上の数字で入れてください";
     case "ym":
@@ -791,7 +804,10 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
         if ((f.min !== undefined && v < f.min) || (f.max !== undefined && v > f.max)) return undefined;
         return v;
       }
-      if (f.kind === "pct") return rateFromPct(text) ?? undefined;
+      if (f.kind === "pct") {
+        const r = rateFromPct(text);
+        return r === null || !pctInRange(f, r) ? undefined : r;
+      }
       if (f.kind === "decimal") {
         const t = normalizeNumberText(text);
         return /^\d+(\.\d+)?$/.test(t) ? t : undefined;
