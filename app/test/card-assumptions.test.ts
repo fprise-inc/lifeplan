@@ -3,6 +3,7 @@
 // 利回りの選び方、計算の基準の月と計算の決まり（読むだけ）、FP顧問料の料金の段階、前提と推定の一覧と確かめた記録
 import { describe, expect, it } from "vitest";
 import { checkList } from "../src/workspace/input/checkRows.ts";
+import { rejectReason } from "../src/workspace/input/FieldViews.tsx";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, followStandards, fromRequest, mutate, standardEndYear, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { assumptionRows, setAgreed } from "../src/workspace/input/assumptionList.ts";
@@ -137,6 +138,28 @@ describe("表の最後の年", () => {
     expect(w2.request.input.endYear).toBe(Number(spouse.birth.birthYearMonth.slice(0, 4)) + 95);
     expect(fieldStatus(f, w2).status).toBe("confirmed");
     expect(f.set(w2, null).request.input.endYear).toBe(std);
+  });
+
+  it("計算基準月の年より前は入れられない（年の欄も年齢の欄も。前にすると計算が止まっていた）", () => {
+    const wh = open("elderCare");
+    const base = Number(wh.request.input.baseMonth.slice(0, 4));
+    const year = fieldOf(wh, "assume/endYear");
+    expect(year.kind === "int" ? year.min : null).toBe(base);
+    expect(rejectReason(year, String(base - 1))).not.toBeNull();
+    expect(() => preview(year.set(wh, base).request)).not.toThrow();
+    const h = wh.request.input.household;
+    for (const m of h.members.filter((x) => x.kind === "self" || x.kind === "spouse")) {
+      const f = fieldOf(wh, `assume/endYear/age/${m.id}`);
+      const now = base - Number(m.birth.birthYearMonth.slice(0, 4));
+      const min = f.kind === "int" ? (f.min ?? 0) : 0;
+      // 64歳の本人なら、60〜63歳は入れられない
+      expect(now).toBeGreaterThan(60);
+      expect(min).toBe(now);
+      expect(rejectReason(f, "60")).not.toBeNull();
+      const w = f.set(wh, min);
+      expect(w.request.input.endYear).toBe(base);
+      expect(() => preview(w.request)).not.toThrow();
+    }
   });
 
   it("確定にしたら、家族の生年月を直しても追いかけない（推定のままなら追いかける）", () => {
