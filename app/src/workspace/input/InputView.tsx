@@ -28,7 +28,7 @@ import { CheckList, checkSummary } from "./CheckList.tsx";
 import type { NoticeRow } from "../engineNotices.ts";
 import { DiffList, PlanTarget, type PlanEditProps } from "./PlanEdit.tsx";
 import { countsByCard, diffRows, planIndex, planView, recordPlanEdit } from "../plans/planEdit.ts";
-import { ItemChooser } from "./ItemChooser.tsx";
+import { ItemChooser, type OfficeItems } from "./ItemChooser.tsx";
 import { levelIn } from "./itemChoice.ts";
 
 interface Props {
@@ -65,6 +65,8 @@ interface Props {
   imports?: ComponentChildren;
   /** 「入力項目を選ぶ」を開いて始める（URL の #choose。画面の確かめ用） */
   chooseOpen?: boolean;
+  /** 事務所の既定の選び方（入力項目を選ぶの「この選び方を事務所の既定にする」。0091） */
+  officeItems?: OfficeItems;
   /** 取り込みの中身を開いているか（親が持つ。FP のメニューから開く）。省くとホームの中で持つ */
   importsOpen?: boolean;
   onImportsOpen?: (open: boolean) => void;
@@ -276,7 +278,7 @@ export function ImportMenu({ children, off, initialOpen = false, open: outer, on
   );
 }
 
-export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false }: Props) {
+export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false, officeItems }: Props) {
   /** 直しているプラン（直せないときは現状） */
   const editing = plans !== undefined && plans.sel !== null && plans.lock === null ? (plans.list.find((x) => x.id === plans.sel) ?? null) : null;
   const pcat = plans?.cat;
@@ -501,7 +503,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
           </div>
         ) : null}
         {/* 右端: 入力項目を選ぶ（この世帯で出す入力項目と、開いたときの入れ方。選び方は世帯全体の物なので、プランの編集中も現状の世帯に入れる） */}
-        <ItemChooser wh={wh} items={allItems} onChange={onSave} onLevel={forgetLevel} initialOpen={chooseOpen} />
+        <ItemChooser wh={wh} items={allItems} onChange={onSave} onLevel={forgetLevel} initialOpen={chooseOpen} {...(officeItems !== undefined ? { office: officeItems } : {})} />
       </div>
       {tools}
       {imports !== undefined && !fresh ? (
