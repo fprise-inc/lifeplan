@@ -9,7 +9,7 @@ import { followStandards, LEAVES_BASIS, mutate, newId, standardLeavesPoint, type
 import { addExpense, addIncome, defaultSupportChild, moneySections, setSupportChild } from "../moneyRows.ts";
 import { NONE_CLAIMED } from "./events.ts";
 import { creditKey } from "../housingCredit.ts";
-import { fillEducation } from "../fill.ts";
+import { alignEducationToAge, fillEducation } from "../fill.ts";
 import { DONOR_KINDS, KIND_OPTIONS, memberLabel, memberOptions, SEX_OPTIONS } from "../labels.ts";
 import { EVENT_KIND_LABEL, eventName, FP_EVENT_KINDS, freezeTimepoints, refsTo, whenPeople } from "../namedEvents.ts";
 import { wareki } from "../units.ts";
@@ -119,6 +119,12 @@ export function addChildWithEducation(wh: WorkingHousehold, id: () => string = n
   return child === undefined ? next : fillEducation(next, child.id);
 }
 
+/** 子の生年月を直したときの進路の段の合わせ（前の生年月は書く前の世帯から読む） */
+function alignChild(h: Household, id: string, wh: WorkingHousehold): void {
+  const before = wh.request.input.household.members.find((x) => x.id === id);
+  if (before !== undefined) alignEducationToAge(h, id, wh.request.input.baseMonth, before);
+}
+
 const SPOUSE_SEX_HELP = "足したときにご本人と逆の性別を入れています。同性のご夫婦は選び直してください。遺族年金・寡婦控除・年収の目安・平均余命の計算に使います";
 
 const oppositeSex = (sex: unknown): "male" | "female" => (sex === "female" ? "male" : "female");
@@ -178,6 +184,8 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
           path: ["birth", "birthYearMonth"],
           help: "生まれた日は入れません（1日生まれのときだけ、詳細で選びます）",
           hint: (v) => (typeof v === "string" ? ageNow(v) : null),
+          // 子の生年月を直したら、進路の段を新しい年齢に合わせる（終わった段を外し、前の年齢で終わっていた段を足す）
+          ...(m.kind === "child" ? { after: (h: Household, _t: unknown, _v: Val, wh: WorkingHousehold) => alignChild(h, m.id, wh) } : {}),
         })),
     following(plain({ key: `family/${m.id}/bornOnFirst`, item: "member.birth", label: "1日生まれ", level: "detail", kind: "bool", find, path: ["birth", "bornOnFirst"], help: "年齢に達する月が1か月早くなります（年金・定年などの時期）。結果の差は1か月です" })),
     // 性別: 標準は本人だけ（1押し）。配偶者は足したときに本人の逆を入れ、詳細で直す（同性のご夫婦も入れられる）。性別は推定するものではないので、
@@ -234,8 +242,9 @@ function expectedBirthField(m: Member): FieldDef {
     help: "生まれる予定の月（出産予定日の月）。その月から家族に加わります",
     hint: (v, wh) => (typeof v === "string" ? expectedBirthHint(wh, v) : null),
     // 年月を入れたら加わる月も同じ月にする
-    after: (_h, target, v) => {
+    after: (h, target, v, wh) => {
       target.joins = { at: v as string };
+      alignChild(h, m.id, wh);
     },
   });
   // 空にはしない（生年月は要る値。空を入れても今の値のまま）

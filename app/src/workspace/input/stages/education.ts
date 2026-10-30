@@ -27,7 +27,8 @@ import type { Address } from "../../store/readings.ts";
 
 type Obj = Record<string, unknown>;
 const goals = (h: Household) => h.goals;
-const ORDER = ["nursery", "kindergarten", "elementary", "juniorHigh", "highSchool", "university", "juniorCollege", "vocational"];
+/** 段の並び（保育園から） */
+export const STAGE_ORDER = ["nursery", "kindergarten", "elementary", "juniorHigh", "highSchool", "university", "juniorCollege", "vocational"];
 const STAGE_AGE: Record<string, number> = { kindergarten: 3, elementary: 6, juniorHigh: 12, highSchool: 15, university: 18, juniorCollege: 18, vocational: 18 };
 const stageLabel = (stage: string) => SCHOOL_STAGES.find((o) => o.value === stage)?.label ?? stage;
 
@@ -447,7 +448,7 @@ export function replaceHigher(stages: readonly EducationStage[], v: string): Edu
     ...(v === "university" ? { field: f ?? "humanities" } : {}),
     living: cur?.living ?? "home",
   };
-  return [...rest, next].sort((a, b) => ORDER.indexOf(a.stage) - ORDER.indexOf(b.stage));
+  return [...rest, next].sort((a, b) => STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage));
 }
 
 // ---- 奨学金・教育ローン ----
@@ -900,7 +901,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
         const g = find(hh, w) as Goal | undefined;
         if (g?.education === undefined) return;
         const st: EducationStage = o.value === "university" ? { stage: o.value, sector: "private", field: "humanities", living: "home" } : o.value === "nursery" ? { stage: o.value } : { stage: o.value, sector: o.value === "juniorCollege" || o.value === "vocational" ? "private" : "public" };
-        g.education.stages = [...g.education.stages, { id: newId(), ...st }].sort((a, b) => ORDER.indexOf(a.stage) - ORDER.indexOf(b.stage));
+        g.education.stages = [...g.education.stages, { id: newId(), ...st }].sort((a, b) => STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage));
       }),
   }));
   groups.push({ key: `edu/${goal.id}/addStages`, level: "simple", fields: [], actions: addActions });

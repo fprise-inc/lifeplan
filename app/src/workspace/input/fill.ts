@@ -12,7 +12,8 @@ import { livingEstimate } from "./estimates.ts";
 import { startLiving } from "./livingStages.ts";
 import { memberLabel } from "./labels.ts";
 import { putRow, rowAt, type StateRow } from "./rows.ts";
-import { defaultStages } from "./stages/education.ts";
+import { COURSE_PRESETS, defaultStages, nurseryFreeMonth, presetOf, STAGE_ORDER } from "./stages/education.ts";
+import { isHigher, stagePeriod } from "./educationCost.ts";
 import { amountsUnentered, fillMonths, pensionMembers, statementMonthsMissing, substituteMonths, switchPension } from "./stages/pension.ts";
 import { currentPeriodId } from "../store/readings.ts";
 import { missingUnemployment, putEstimate, UNEMPLOYMENT_BASIS, UNEMPLOYMENT_ITEM, unemploymentEstimate } from "./claims.ts";
@@ -102,6 +103,50 @@ export function refreshEducation(h: Household, baseMonth: string): void {
     const strip = (s: readonly EducationStage[]) => JSON.stringify(s.map(({ id: _id, ...rest }) => rest));
     if (strip(next) !== strip(g.education.stages)) g.education.stages = next.map((s) => ({ id: newId(), ...s }));
   }
+}
+
+/** 段が計算基準月の前に終わっているか（保育園は3歳になった後の最初の4月から無償なので、その月が計算基準月までに来ていれば終わり） */
+function stageEnded(child: Member, s: EducationStage, baseMonth: string): boolean {
+  if (s.stage === "nursery") {
+    const free = nurseryFreeMonth(child);
+    return free !== null && free <= baseMonth;
+  }
+  const p = stagePeriod(child, s);
+  return p !== null && p.to < baseMonth;
+}
+
+/** 生年月を直したときに足すことのある段（幼稚園〜高校と大学） */
+const LADDER = ["kindergarten", "elementary", "juniorHigh", "highSchool", "university"] as const;
+
+/**
+ * 子の生年月を直したときに、FP が直した進路の段を新しい年齢に合わせる（推定のままの進路は refreshEducation が入れ直す）。h をそのまま書き換える。
+ * - 新しい年齢で終わった段（計算基準月より前に卒業した段・3歳の4月を過ぎた保育園）は外す（これからの費用に効かず、残すと年齢に合わない段が見える）
+ * - 前の年齢では終わっていたので入っていなかった段（幼稚園〜高校・大学）は、新しい年齢でこれからなら足す。公立・私立は、段の並びが進路の型に
+ *   当たればその型の値、当たらなければ標準の型（大学だけ私立〔文系・自宅〕）の値。FP が自分で外した段（前の年齢でもこれからだった段）は足さない
+ * - 該当なしにした子は変えない
+ */
+export function alignEducationToAge(h: Household, childId: string, baseMonth: string, before: Member): void {
+  const child = h.members.find((m) => m.id === childId && m.kind === "child");
+  const g = child === undefined ? undefined : educationGoalOf(h, childId);
+  if (child === undefined || g?.education === undefined) return;
+  const row = rowAt({ household: h } as unknown as Obj, educationStagesAddress(g.id));
+  if (row?.state === "notApplicable" || (row?.state === "estimated" && row.origin.kind === "auto")) return;
+  const stages = g.education.stages;
+  const preset = COURSE_PRESETS.find((p) => p.value === presetOf(stages));
+  const kept = stages.filter((s) => !stageEnded(child, s, baseMonth));
+  const hasHigher = stages.some((s) => isHigher(s.stage));
+  const standard = defaultStages(child, baseMonth);
+  const added: EducationStage[] = [];
+  for (const stage of LADDER) {
+    if (stages.some((s) => s.stage === stage) || (stage === "university" && hasHigher)) continue;
+    // 前の年齢でこの段が終わっていた（終わっていたので入っていなかった）段だけを足す
+    const now = standard.find((s) => s.stage === stage);
+    if (!stageEnded(before, { stage }, baseMonth) || now === undefined) continue;
+    const sector = preset?.sectors[stage] ?? now.sector;
+    added.push({ id: newId(), ...now, ...(sector !== undefined ? { sector } : {}) });
+  }
+  if (added.length === 0 && kept.length === stages.length) return;
+  g.education.stages = [...kept, ...added].sort((a, b) => STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage));
 }
 
 // ---- 退職金（0057。種類ごとの形と目安は retirementBenefits.ts）----
