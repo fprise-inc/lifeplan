@@ -48,6 +48,8 @@ const devStore = {
 /** 開発用のサーバーの、覚えた明細の辞書と形（メモリの中だけ。本体の事務所データの代わり。0034） */
 type DevDictEntry = { key: string; category: string; at: string; annual?: boolean; by?: string; removed?: boolean };
 type DevFormat = { fingerprint: string; kind: string; mapping: unknown; label?: string; at: string };
+/** 開発用のサーバーの、お知らせの手元の状態（既読の印と受付番号。メモリの中だけ。0087） */
+let devNoticeLocal: unknown = {};
 const devStatement = { data: { dictionary: [] as DevDictEntry[], formats: [] as DevFormat[] }, next: 0, sheet: null as Buffer | null };
 
 function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: unknown } | { ok: false; code: string } {
@@ -688,6 +690,39 @@ function devHost(): Plugin {
           const f = process.env.FINANCIA_DEV_OPEN_FILE || join(REPO_DIR, "hearing", "samples", "basic-1-sample.xlsx");
           res.setHeader("content-type", "application/octet-stream");
           return void res.end(readFileSync(f));
+        }
+        // お知らせ（本体の notices_feed・notice_local_get・notice_local_put・feedback_form_open の代わり。0087）:
+        // 配信元のお知らせは FINANCIA_DEV_NOTICES（ファイルのパス。見本は app/schemas/notices.dev-sample.json）の封筒を、本体の開発用のビルドと同じく署名なしで受け付ける。
+        // 手元の状態はメモリの中だけ（再起動で消える）。フォームはブラウザで開かず、開いた受付番号を記録するだけ
+        const nm = /^notices\/([A-Za-z]+)$/.exec(path);
+        if (nm !== null && req.method === "POST") {
+          void (async () => {
+            const args = JSON.parse((await readBody(req)).toString("utf8") || "{}") as { value?: unknown; code?: string };
+            const json = (v: unknown) => {
+              res.setHeader("content-type", "application/json; charset=utf-8");
+              res.end(JSON.stringify(v));
+            };
+            const op = nm[1];
+            if (op === "feed") {
+              const f = process.env.FINANCIA_DEV_NOTICES;
+              if (f === undefined || f === "" || !existsSync(f)) return json(null);
+              const env = JSON.parse(readFileSync(f, "utf8")) as { format?: string; payload?: string };
+              return json(env.format === "financia-notices-envelope" && typeof env.payload === "string" ? env.payload : null);
+            }
+            if (op === "local") return json(devNoticeLocal);
+            if (op === "putLocal") {
+              devNoticeLocal = args.value ?? {};
+              return json(null);
+            }
+            if (op === "openForm") {
+              if (!/^R-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{4}$/.test(args.code ?? "")) return void ((res.statusCode = 400), res.end("E_RECEIPT"));
+              console.log(`[dev] 要望のフォームを開く（受付番号 ${args.code}。開発用のサーバーでは開きません）`);
+              return json(null);
+            }
+            res.statusCode = 404;
+            res.end();
+          })();
+          return;
         }
         // 明細の取り込み（本体の statement_office・statement_learn・statement_open の代わり。0034）: 覚えた辞書と形はメモリの中だけ。
         // 開くは FINANCIA_DEV_OPEN_STATEMENT（カンマ区切りのパス）か、架空の明細（statement/test/fixtures）を順に返す。statement/reset で最初に戻す

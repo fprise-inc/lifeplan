@@ -1,12 +1,13 @@
 // 上の帯の FP のメニュー（線のアイコン1つ）。顧客と一緒に見る画面に常に出す必要のない FP の操作を、ここにまとめる（0077 の追記）:
-// 控え（この時点を残す・控えの一覧）／面談の準備（世帯の中身の一覧・次の1年に起きること・見直し）／取り込む（今の選択肢）／事務所の設定（今の保存先と事務所の共有の状態・既定値）。
+// 控え（この時点を残す・控えの一覧）／面談の準備（世帯の中身の一覧・次の1年に起きること・見直し）／取り込む（今の選択肢）／事務所の設定（今の保存先と事務所の共有の状態・既定値）／
+// ファイナンシアへ（要望・不具合を送る。0087。お知らせの一覧の下にも同じ入口がある）。
 // 開いた一覧は帯の下に重ねて出す（画面は動かさない）。Esc・外を押すと閉じる。1つを押すと閉じて、その中身を開く
 // （入力のホームの中身なら、親が入力のタブに切り替えて開く。どのタブでも帯は同じ）
 import { useEffect, useRef, useState } from "preact/hooks";
 import { PopIcon } from "../../presentation/icons.tsx";
 
 /** メニューで押せる物 */
-export type FpMenuAction = "snapTake" | "snapList" | "contents" | "year" | "review" | "hearing" | "ai" | "storage" | "office" | "officeDefaults";
+export type FpMenuAction = "snapTake" | "snapList" | "contents" | "year" | "review" | "hearing" | "ai" | "storage" | "office" | "officeDefaults" | "feedback";
 
 export interface FpMenuItem {
   action: FpMenuAction;
@@ -18,7 +19,7 @@ export interface FpMenuItem {
 }
 
 export interface FpMenuGroup {
-  id: "snapshots" | "tools" | "imports" | "office";
+  id: "snapshots" | "tools" | "imports" | "office" | "feedback";
   label: string;
   items: FpMenuItem[];
 }
@@ -71,6 +72,7 @@ export function fpMenuGroups(p: FpMenuInput): FpMenuGroup[] {
         { action: "officeDefaults", label: "事務所の既定値", note: "新しい世帯に写す値・ホームの並び", pop: true },
       ],
     });
+  out.push({ id: "feedback", label: "ファイナンシアへ", items: [{ action: "feedback", label: "要望・不具合を送る", note: "受付番号を作ってフォームを開きます", pop: true }] });
   return out;
 }
 
@@ -108,7 +110,7 @@ export function FpMenu({ groups, onPick, initialOpen = false }: { groups: readon
   }, [open]);
   return (
     <div class="fpm" ref={box}>
-      <button type="button" class="fpm-btn" ref={btn} aria-expanded={open} aria-haspopup="true" aria-label="FP のメニュー" title="FP のメニュー（控え・面談の準備・取り込む・事務所の設定）" onClick={() => setOpen(!open)} data-fp-menu>
+      <button type="button" class="fpm-btn" ref={btn} aria-expanded={open} aria-haspopup="true" aria-label="FP のメニュー" title="FP のメニュー（控え・面談の準備・取り込む・事務所の設定・要望を送る）" onClick={() => setOpen(!open)} data-fp-menu>
         <svg class="fpm-ico" viewBox="0 0 20 20" aria-hidden="true">
           <rect x="2.5" y="6" width="15" height="10.5" rx="2" />
           <path d="M7 6V4.5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 13 4.5V6" />

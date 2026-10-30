@@ -364,7 +364,7 @@ pub fn setup_text(client: &str, exe: &str, runtime: Option<&str>) -> Option<Stri
 }
 
 /// OS のクリップボードに写す（画面を通さない。本物の場所の入った文面を画面に渡さないため）
-fn copy_to_clipboard(text: &str) -> bool {
+pub(crate) fn copy_to_clipboard(text: &str) -> bool {
     use std::io::Write;
     use std::process::{Command, Stdio};
     let run = |cmd: &str, args: &[&str], bytes: &[u8]| -> bool {

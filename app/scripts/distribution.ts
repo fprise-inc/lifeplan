@@ -12,6 +12,7 @@ interface Distribution {
   product_name: { ja: string; en: string };
   publisher: string;
   endpoints: { host: string };
+  feedback: { form: string };
   keys: Record<string, string[]>;
 }
 
@@ -41,12 +42,12 @@ if (before !== after) problems.push("app/src-tauri/tauri.conf.json が config/di
 // 更新の公開鍵・配信先は、配布・更新の回で distribution.toml から入れる（いまは Tauri の updater を使っていない）
 if (conf.plugins !== undefined && "updater" in conf.plugins) problems.push("tauri.conf.json に updater の設定が直接書かれています（distribution.toml から作る）");
 
-// 識別子・配信先のホスト名が、設定の2つのファイルと設計記録（docs/）の外に書かれていないこと
+// 識別子・配信先のホスト名・要望のフォームのひな形（0087）が、設定の2つのファイルと設計記録（docs/）の外に書かれていないこと
 const allowed = new Set(["config/distribution.toml", "app/src-tauri/tauri.conf.json"]);
 const files = execFileSync("git", ["ls-files", "-co", "--exclude-standard"], { cwd: REPO_DIR, encoding: "utf8" })
   .split("\n")
   .filter((f) => f !== "" && !allowed.has(f) && !f.startsWith("docs/") && !/\.(png|ico|icns|woff2?|ttf)$/.test(f) && !f.includes("node_modules/"));
-for (const needle of [dist.identifier, dist.endpoints.host]) {
+for (const needle of [dist.identifier, dist.endpoints.host, dist.feedback.form]) {
   for (const f of files) {
     let text: string;
     try {

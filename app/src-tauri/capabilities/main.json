@@ -71,6 +71,11 @@
     "allow-storage-sync-open",
     "allow-storage-sync-end",
     "allow-storage-notices",
+    "allow-notices-feed",
+    "allow-notice-local-get",
+    "allow-notice-local-put",
+    "allow-feedback-form-open",
+    "allow-feedback-copy",
     "allow-app-close-ready"
   ]
 }

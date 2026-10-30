@@ -17,6 +17,12 @@ packs       = "https://updates.fprise.com/v1/packs/index.json"
 notices     = "https://updates.fprise.com/v1/notices/notices.json"
 revocations = "https://updates.fprise.com/v1/revocations/revocations.json"
 
+[feedback]
+# 「要望・不具合を送る」のフォームの URL のひな形（0087 の6）。押すと既定のブラウザでこのフォームを開く（アプリ自身は送らない・通信しない）。
+# 差し込む印は {受付番号}・{版}・{OS} の3つだけ（世帯の情報・FP や PC を識別する値は入れない。0012）。https のみ。
+# 仮の値（受け付けるフォームが決まったら差し替える）。画面には app/ の prepare-assets が、本体には build.rs が、ここから写す
+form = "https://example.com/financia/feedback?no={受付番号}&ver={版}&os={OS}"
+
 [keys]
 # 公開鍵（それぞれ現用＋次期）。署名を入れる回で足す。秘密鍵はどのリポジトリにも置かない（0017 の5・0021）
 app_update    = []

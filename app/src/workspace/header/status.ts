@@ -1,8 +1,11 @@
 // 上の帯に出す札と通知を決める（画面の部品から切り離した決まり。テストで確かめる）。
+// 通知はお知らせの一覧（ベル。0087）の「世帯」「事務所」の種類に入る。
 // ふだんは何も出さない。出すのは:
 //   札（急ぎ）: 保存に失敗した・閲覧だけで保存しない・ほかの人が開いていて自動保存を止めている・この世帯をAIと共有中
 //   通知（行動を求める）: 本体が返す保存先と同期の通知（復元キーの保管・復元キーで加わった人／PC・参加の申請・衝突の写し など）と、ほかの人が開いていること
+// 一覧の入れ物（お知らせの一覧。0087）に入れるときの種類（世帯・事務所）・急ぎ具合・見出しも、ここで決める（文と開く画面は前のまま）
 import type { StorageNotice } from "../../engine/host.ts";
+import type { NoticeUrgency } from "../notices/center.ts";
 import type { SaveState } from "../store/autosave.ts";
 import { storageNoticeText } from "../store/storage.ts";
 
@@ -47,6 +50,12 @@ export interface NoticeSpec {
   target: NoticeTarget;
   text: string;
   action: string;
+  /** お知らせの一覧の種類（世帯の知らせは世帯、保存先・復元キー・事務所の共有・編集中は事務所） */
+  category: "household" | "office";
+  /** 急ぎ具合（本体の通知の level: alert＝重大・warn＝ふつう・info＝参考。ほかはふつう） */
+  urgency: NoticeUrgency;
+  /** 何があったか（一覧の見出し。文は text のまま） */
+  title: string;
 }
 
 export function barAlerts(i: BarInputs): AlertSpec[] {
@@ -63,15 +72,15 @@ export function barAlerts(i: BarInputs): AlertSpec[] {
 const ACTION: Record<NoticeTarget, string> = { recovery: "復元キー", restore: "復元キー", storage: "保存先", office: "事務所の共有", households: "世帯の一覧", presence: "編集を始める", family: "介護・親の項目", work: "働き方と収入", plans: "プランの一覧" };
 
 /** 開いたときの知らせの文（0035 の8） */
-export function householdNoticeText(n: { kind: string; count?: number; plans?: number }): { text: string; target: NoticeTarget } | null {
+export function householdNoticeText(n: { kind: string; count?: number; plans?: number }): { text: string; target: NoticeTarget; title: string } | null {
   if (n.kind === "outsideFamily")
-    return { target: "family", text: "親・祖父母を世帯の外の家族（家計が別）にしました。年金などは世帯の収入に入らないので、結果が前と変わります。家計を1つにする期間は介護・親の項目で入れられます" };
+    return { target: "family", title: "親・祖父母を世帯の外の家族にしました", text: "親・祖父母を世帯の外の家族（家計が別）にしました。年金などは世帯の収入に入らないので、結果が前と変わります。家計を1つにする期間は介護・親の項目で入れられます" };
   // 給与からの推定のままの標準報酬月額を空欄にした（0.38 の変換の段。0047 の追記 2026-10-29 の2）
   if (n.kind === "smrBlank") {
     const where = [(n.count ?? 0) > 0 ? `働き方の期間 ${n.count}件` : "", (n.plans ?? 0) > 0 ? `プランの変更 ${n.plans}件` : ""].filter((x) => x !== "").join("と");
-    return { target: "work", text: `給与から推定して書いていた標準報酬月額（${where}）を空欄にしました。空欄のときは、給与から毎年9月に決め直して計算するので、昇給が保険料と厚生年金の額に入ります（結果が前と変わることがあります）。入れた額はそのままです` };
+    return { target: "work", title: "推定の標準報酬月額を空欄にしました", text: `給与から推定して書いていた標準報酬月額（${where}）を空欄にしました。空欄のときは、給与から毎年9月に決め直して計算するので、昇給が保険料と厚生年金の額に入ります（結果が前と変わることがあります）。入れた額はそのままです` };
   }
-  if (n.kind === "unresolvedDiffs") return { target: "plans", text: `古い形式のプランの変更のうち ${n.count ?? 0}件を読み替えられませんでした。プランの一覧の「要確認」で確かめてください` };
+  if (n.kind === "unresolvedDiffs") return { target: "plans", title: "読み替えられなかったプランの変更があります", text: `古い形式のプランの変更のうち ${n.count ?? 0}件を読み替えられませんでした。プランの一覧の「要確認」で確かめてください` };
   return null;
 }
 
@@ -84,6 +93,37 @@ export function noticeTarget(n: StorageNotice): NoticeTarget {
   return "office";
 }
 
+/** 本体の通知の見出し（何があったか） */
+export function storageNoticeTitle(n: StorageNotice): string {
+  const personal = n.scope === "personal";
+  switch (n.kind) {
+    case "needsRecovery":
+      return "事務所の鍵が見つかりません";
+    case "recoveryNotKept":
+      return "復元キーをまだ保管していません";
+    case "unavailable":
+      return personal ? "同期フォルダを使えません" : "共有フォルダを使えません";
+    case "closed":
+      return personal ? "同期フォルダを使えなくなりました" : "事務所の共有が終わりました";
+    case "removed":
+      return personal ? "このPCが同期フォルダから外されました" : "事務所の共有から外されました";
+    case "pending":
+      return "参加の承認を待っています";
+    case "recoveryJoin":
+      return personal ? "復元キーで PC が加わりました" : "復元キーで加わった人がいます";
+    case "joinRequest":
+      return "参加の申請があります";
+    case "localHouseholds":
+      return "まだ移していない世帯があります";
+    case "syncCopies":
+      return "衝突の写しがある世帯があります";
+    default:
+      return "保存先の通知";
+  }
+}
+
+const LEVEL: Record<StorageNotice["level"], NoticeUrgency> = { alert: "critical", warn: "normal", info: "info" };
+
 export function barNotices(i: BarInputs): NoticeSpec[] {
   const out: NoticeSpec[] = [];
   i.storage.forEach((n, k) => {
@@ -92,12 +132,12 @@ export function barNotices(i: BarInputs): NoticeSpec[] {
     if ((target === "recovery" || target === "restore") && i.showing.recovery) return;
     if (target === "office" && i.showing.office) return;
     if (target === "storage" && i.showing.storage) return;
-    out.push({ id: `${n.kind}:${k}`, target, text: storageNoticeText(n), action: ACTION[target] });
+    out.push({ id: `${n.kind}:${k}`, target, text: storageNoticeText(n), action: ACTION[target], category: "office", urgency: LEVEL[n.level] ?? "normal", title: storageNoticeTitle(n) });
   });
-  if (i.opened && i.stored && i.presence !== null) out.push({ id: "presence", target: "presence", text: i.presence, action: ACTION.presence });
+  if (i.opened && i.stored && i.presence !== null) out.push({ id: "presence", target: "presence", text: i.presence, action: ACTION.presence, category: "office", urgency: "normal", title: "ほかの人がこの世帯を開いています" });
   for (const n of i.opened ? (i.household ?? []) : []) {
     const t = householdNoticeText(n);
-    if (t !== null) out.push({ id: `household:${n.id}`, target: t.target, text: t.text, action: ACTION[t.target] });
+    if (t !== null) out.push({ id: `household:${n.id}`, target: t.target, text: t.text, action: ACTION[t.target], category: "household", urgency: "normal", title: t.title });
   }
   return out;
 }

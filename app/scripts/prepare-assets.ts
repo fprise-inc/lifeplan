@@ -3,8 +3,10 @@
 // 2. 登録簿（registry/rows.yaml・params.yaml・items.yaml）から、表の行・制度の値・入力項目の名前の表（src/generated/labels.ts）を作る
 //    入力項目の場所と読み替え表（registry/items.yaml・readings.yaml）から src/generated/readings.ts を作る（0035 の9）
 // 3. 持ち帰り用のレポートの画面の部品を1つの JS・CSS にまとめる（scripts/build-takeaway.ts）
+// 4. 配布元の設定（config/distribution.toml）から、画面が使う値（要望・不具合のフォームの URL のひな形。0087）を src/generated/distribution.ts に写す
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { parse as parseToml } from "smol-toml";
 import { parse } from "yaml";
 import { APP_DIR, ENGINE_DIST, REPO_DIR } from "./lib.ts";
 
@@ -100,6 +102,21 @@ const readingsText = [
 ].join("\n");
 const readingsTarget = join(APP_DIR, "src", "generated", "readings.ts");
 if (!existsSync(readingsTarget) || readFileSync(readingsTarget, "utf8") !== readingsText) writeFileSync(readingsTarget, readingsText);
+
+// 4. 配布元の設定から画面が使う値（0017 の2: フォームのひな形は config/distribution.toml の1か所だけに書き、ここで写す。本体は build.rs が写す）
+const dist = parseToml(readFileSync(join(REPO_DIR, "config", "distribution.toml"), "utf8")) as { feedback?: { form?: unknown } };
+const feedbackForm = dist.feedback?.form;
+if (typeof feedbackForm !== "string" || !feedbackForm.startsWith("https://")) throw new Error("config/distribution.toml: [feedback] の form は https:// で始まる URL のひな形にしてください");
+const marks: string[] = feedbackForm.match(/\{[^}]*\}/g) ?? [];
+if (marks.some((m) => !["{受付番号}", "{版}", "{OS}"].includes(m)) || !marks.includes("{受付番号}")) throw new Error("config/distribution.toml: [feedback] の form に差し込めるのは {受付番号}・{版}・{OS} だけです（{受付番号} は必ず入れる）");
+const distText = [
+  "// 自動生成（scripts/prepare-assets.ts）。手で書き換えない。配布元の設定（config/distribution.toml。0017 の2・0087）",
+  "/** 「要望・不具合を送る」のフォームの URL のひな形（差し込む印は {受付番号}・{版}・{OS} だけ） */",
+  `export const FEEDBACK_FORM = ${JSON.stringify(feedbackForm)};`,
+  "",
+].join("\n");
+const distTarget = join(APP_DIR, "src", "generated", "distribution.ts");
+if (!existsSync(distTarget) || readFileSync(distTarget, "utf8") !== distText) writeFileSync(distTarget, distText);
 
 // 3. 持ち帰り用のレポート（0030）の画面の部品（public/takeaway/viewer.js・viewer.css）。中身が変わっていなければ作り直さない
 await (await import("./build-takeaway.ts")).buildTakeaway();

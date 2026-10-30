@@ -502,6 +502,19 @@ export interface AiHost {
 }
 
 /** 本体の命令（0016 の1: 用途ごとの命令だけ） */
+/** お知らせの一覧（0087）: 配信元のお知らせを読む口（1か所）・手元の既読の印と受付番号・要望のフォームを開く */
+export interface NoticesHost {
+  /** 配信元のお知らせ（本体が署名を確かめた一覧の JSON。無ければ null。今は通信しないので、開発用のビルドの見本だけ） */
+  feed(): Promise<string | null>;
+  /** 手元の状態（既読の印と受付番号。この PC のアプリのデータ） */
+  local(): Promise<unknown>;
+  putLocal(value: unknown): Promise<void>;
+  /** 要望・不具合のフォームを既定のブラウザで開く（受付番号だけを渡す。版と OS は本体が入れる） */
+  openForm(code: string): Promise<void>;
+  /** 受付番号を写す（クリップボード。写せたら true） */
+  copy(code: string): Promise<boolean>;
+}
+
 export interface HostApi {
   readonly kind: "tauri" | "browser-dev";
   /** 制度データ・マスタのパック（JSON の配列の文字列） */
@@ -519,6 +532,7 @@ export interface HostApi {
   ai: AiHost;
   office: OfficeHost;
   statements: StatementHost;
+  notices: NoticesHost;
 }
 
 const bytesOf = (b: ArrayBuffer | Uint8Array | number[]): Uint8Array => (b instanceof Uint8Array ? b : b instanceof ArrayBuffer ? new Uint8Array(b) : Uint8Array.from(b));
@@ -585,6 +599,13 @@ export function tauriHost(): HostApi {
       syncOpen: (name, key) => invoke<OfficeStatus | null>("storage_sync_open", { name, key }),
       syncEnd: (confirm) => invoke<OfficeStatus>("storage_sync_end", { confirm }),
       notices: () => invoke<StorageNotice[]>("storage_notices"),
+    },
+    notices: {
+      feed: () => invoke<string | null>("notices_feed"),
+      local: () => invoke<unknown>("notice_local_get"),
+      putLocal: (value) => invoke<void>("notice_local_put", { value }),
+      openForm: (code) => invoke<void>("feedback_form_open", { code }),
+      copy: (code) => invoke<boolean>("feedback_copy", { code }),
     },
     ai: {
       status: () => invoke<AiStatus>("ai_status"),
@@ -660,6 +681,7 @@ async function devJson<T>(res: Response): Promise<T> {
 
 const devAi = (op: string, args: Record<string, unknown> = {}) => fetch(`/__dev/ai/${op}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(args) });
 const devOffice = (op: string, args: Record<string, unknown> = {}) => fetch(`/__dev/office/${op}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(args) });
+const devNotices = (op: string, args: Record<string, unknown> = {}) => fetch(`/__dev/notices/${op}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(args) });
 const devStore = (op: string, args: Record<string, string> = {}) => fetch(`/__dev/store/${op}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(args) });
 
 /**
@@ -768,6 +790,15 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       syncOpen: async (name, key) => devJson<OfficeStatus | null>(await devOffice("syncOpen", { name, key })),
       syncEnd: async (confirm) => devJson<OfficeStatus>(await devOffice("syncEnd", { confirm })),
       notices: async () => devJson<StorageNotice[]>(await devOffice("notices")),
+    },
+    // お知らせ: 開発用のサーバーが FINANCIA_DEV_NOTICES の見本を確かめて返す。手元の状態はサーバーのメモリの中だけ。フォームは開かない（記録だけ）
+    notices: {
+      feed: async () => devJson<string | null>(await devNotices("feed")),
+      local: async () => devJson<unknown>(await devNotices("local")),
+      putLocal: async (value) => void (await devJson<unknown>(await devNotices("putLocal", { value }))),
+      openForm: async (code) => void (await devJson<unknown>(await devNotices("openForm", { code }))),
+      // 開発用のサーバーでは本体で写さない（画面がブラウザの仕組みで写す）
+      copy: async () => false,
     },
     // AI接続口: 開発用のサーバーのメモリの中の代わり（本物の受け口は開けない。画面の確かめ用）
     ai: {

@@ -1,5 +1,5 @@
 /* 上の帯（workspace/header/TopBar.tsx）。画面の上に固定しない（スクロールで流れる）。色と線は app.css の変数を使う。
-   並び: 左＝ロゴと世帯の選択（と急ぎの札）、中＝タブ、右＝↶↷・メモ・FP のメニュー・文字の大きさ（中・大）・通知の印。
+   並び: 左＝ロゴと世帯の選択（と急ぎの札）、中＝タブ、右＝↶↷・メモ・FP のメニュー・文字の大きさ（中・大）・お知らせのベル。
    文字を「大」にしたとき・窓が狭いときは、data-fit（header/fit.ts が測って決める）で段階的に詰める。どの段でも見切れさせない:
      0 = すべて文字つき / 1 = 右側をアイコンだけに / 2 = 世帯のボタンを省略して詰める / 3 = タブを2行目に折り返す */
 .top { display: grid; grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr); grid-template-areas: "l t r"; align-items: center; gap: 8px 16px; padding: 9px 20px; background: #fff; border-bottom: 1px solid var(--card-line); }
@@ -69,11 +69,76 @@
 .bell-btn[aria-expanded="true"] { background: var(--est-ink); border-color: var(--est-ink); color: #fff; }
 .bell-ico { width: 1.15em; height: 1.15em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; flex: none; }
 .bell-n { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; border-radius: 99px; background: var(--est); color: #fff; font-size: 0.78em; padding: 0 0.3em; }
-.bell-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; list-style: none; margin: 0; padding: 6px; width: max-content; min-width: 18em; max-width: min(30em, calc(100vw - 32px)); background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(20, 30, 50, 0.16); }
-.bell-item { display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 14px; background: none; border: 0; border-radius: 7px; padding: 8px 10px; text-align: left; cursor: pointer; font-size: 0.9rem; }
-.bell-item:hover { background: var(--est-bg); }
-.bell-text { font-weight: 700; }
-.bell-act { color: var(--ink-2); font-size: 0.82rem; white-space: nowrap; }
+/* お知らせの一覧（workspace/notices/NoticeCenter.tsx。0087）。未読が0件のときのベルは落ち着いた色（数字なし） */
+.bell-btn.quiet { border-color: var(--line); background: #fff; color: var(--ink-2); }
+.bell-btn.quiet[aria-expanded="true"] { background: var(--ink-2); border-color: var(--ink-2); color: #fff; }
+.nc { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; width: min(34em, calc(100vw - 32px)); max-height: min(70vh, 640px); overflow-y: auto; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(20, 30, 50, 0.16); padding: 10px 12px 8px; font-size: 0.9rem; }
+.nc .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.nc-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.nc-ttl { font-weight: 700; font-size: 1rem; }
+.nc-tabs { display: inline-flex; border: 1.5px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: 6px; }
+.nc-tabs button { border: 0; background: #fff; padding: 3px 12px; font-weight: 700; cursor: pointer; color: var(--ink-2); }
+.nc-tabs button.on { background: var(--prop); color: #fff; }
+.nc-cats { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-bottom: 6px; }
+.nc-cat-pick { border: 1.5px solid var(--line); background: #fff; border-radius: 99px; padding: 1px 10px; font-size: 0.8rem; cursor: pointer; color: var(--ink-2); }
+.nc-cat-pick.on { border-color: var(--ink); color: var(--ink); font-weight: 700; background: var(--base-bg); }
+.nc-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-2); }
+.nc-list li { border-bottom: 1px solid var(--line-2); }
+.nc-item { display: flex; width: 100%; align-items: center; gap: 8px; background: none; border: 0; padding: 8px 6px; text-align: left; cursor: pointer; }
+.nc-item:hover { background: var(--prop-bg); }
+.nc-dot { width: 8px; height: 8px; border-radius: 99px; background: var(--prop); flex: none; }
+.nc-item.read .nc-dot { background: transparent; }
+.nc-item:not(.counts):not(.read) .nc-dot { background: var(--base); }
+.nc-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.nc-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.nc-item-title { font-weight: 700; }
+.nc-item.read .nc-item-title { font-weight: 400; color: var(--ink-2); }
+.nc-hh { font-size: 0.8rem; color: var(--ink-2); }
+.nc-more { color: var(--ink-2); flex: none; }
+.nc-marks { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.nc-cat, .nc-urg, .nc-rcpt { display: inline-block; border-radius: 4px; padding: 0 6px; font-size: 0.74rem; font-weight: 700; line-height: 1.6; white-space: nowrap; }
+.c-app.nc-cat { background: var(--prop-bg); color: var(--prop-ink); }
+.c-data.nc-cat { background: var(--good-bg); color: var(--good); }
+.c-household.nc-cat { background: var(--est-bg); color: var(--est-ink); }
+.c-office.nc-cat { background: var(--base-bg); color: var(--base-ink); }
+.nc-cat-pick.c-app::before, .nc-cat-pick.c-data::before, .nc-cat-pick.c-household::before, .nc-cat-pick.c-office::before { content: ""; display: inline-block; width: 0.6em; height: 0.6em; border-radius: 2px; margin-right: 5px; vertical-align: 0.05em; }
+.nc-cat-pick.c-app::before { background: var(--prop); }
+.nc-cat-pick.c-data::before { background: var(--good); }
+.nc-cat-pick.c-household::before { background: var(--est); }
+.nc-cat-pick.c-office::before { background: var(--base); }
+.u-critical.nc-urg { background: var(--short); color: #fff; }
+.u-info.nc-urg { background: #fff; color: var(--ink-2); border: 1px solid var(--line); }
+.nc-rcpt { background: var(--good); color: #fff; }
+.nc-date { font-size: 0.78rem; color: var(--ink-2); }
+.nc-empty { color: var(--ink-2); margin: 14px 4px; }
+.nc-foot { border-top: 1px solid var(--line-2); margin-top: 6px; padding-top: 6px; text-align: right; }
+.nc-detail { padding: 2px 2px 6px; }
+.nc-back { margin-bottom: 8px; }
+.nc-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.nc-h { margin: 12px 0 2px; font-size: 0.78rem; color: var(--ink-2); font-weight: 700; }
+.nc-title { margin: 0; font-weight: 700; font-size: 1rem; }
+.nc-body { margin: 0; line-height: 1.65; }
+.nc-rcpt-note { margin: 10px 0 0; padding: 6px 10px; border-radius: 8px; background: var(--good-bg); color: var(--good); font-weight: 700; }
+.nc-go { margin-top: 14px; }
+
+/* 要望・不具合を送る（workspace/notices/FeedbackPanel.tsx） */
+.fb-panel { width: min(640px, calc(100vw - 32px)); }
+.fb-code { display: flex; align-items: center; gap: 14px; margin: 12px 0 6px; padding: 10px 16px; border: 2px solid var(--prop); border-radius: 10px; background: var(--prop-bg); }
+.fb-code-lbl { font-weight: 700; color: var(--prop-ink); }
+.fb-code-no { font-size: 2rem; font-weight: 700; letter-spacing: 0.12em; font-variant-numeric: tabular-nums; color: var(--ink); user-select: all; }
+.fb-code .btn { margin-left: auto; }
+.fb-note { font-size: 0.86rem; color: var(--ink-2); line-height: 1.6; margin: 6px 0 10px; }
+.fb-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.fb-msg { margin: 8px 0 0; color: var(--good); font-weight: 700; font-size: 0.88rem; word-break: break-all; }
+.fb-msg.err { color: var(--short-ink); }
+.fb-sec { margin-top: 14px; border-top: 1px solid var(--line-2); }
+.fb-list { list-style: none; margin: 4px 0 0; padding: 0; }
+.fb-list li { display: flex; gap: 14px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--line-2); }
+.fb-list-no { font-weight: 700; letter-spacing: 0.06em; min-width: 5em; }
+.fb-list-on, .fb-list-how { color: var(--ink-2); font-size: 0.86rem; }
+.fb-add { display: flex; gap: 8px; align-items: center; }
+.fb-add input { font-size: 1rem; padding: 5px 8px; width: 9em; border: 1.5px solid var(--field); border-radius: 6px; letter-spacing: 0.06em; }
+.fb-panel .rk-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
 
 /* 1: 右側の操作をアイコンだけにする（読み上げの名前は aria-label に残す）・世帯の要約を短く。文字の大きさの［中］［大］はそのまま */
 .top[data-fit]:not([data-fit="0"]) .lbl { display: none; }

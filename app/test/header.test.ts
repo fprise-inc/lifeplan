@@ -12,7 +12,12 @@ import { BasisLine, HouseholdNow } from "../src/workspace/header/HouseholdNow.ts
 import type { StorageNotice } from "../src/engine/host.ts";
 import { barAlerts, barNotices, noticeTarget, saveText, type BarInputs } from "../src/workspace/header/status.ts";
 import { storageNoticeText } from "../src/workspace/store/storage.ts";
-import { NoticeBell, TextSizePick, TopBar } from "../src/workspace/header/TopBar.tsx";
+import { TextSizePick, TopBar } from "../src/workspace/header/TopBar.tsx";
+import { NoticeCenter } from "../src/workspace/notices/NoticeCenter.tsx";
+import type { CenterItem } from "../src/workspace/notices/center.ts";
+
+const centerItem = (over: Partial<CenterItem> = {}): CenterItem => ({ key: "office:recoveryNotKept:復元キーを保管してください", category: "office", urgency: "normal", date: null, title: "復元キーをまだ保管していません", body: "復元キーを保管してください", household: null, receipts: [], action: { label: "復元キー", run: () => undefined }, read: false, ...over });
+const NO_NOTICES = { items: [], onRead: () => undefined };
 
 const noop = () => undefined;
 const message = (code: string) => `失敗（${code}）`;
@@ -44,10 +49,12 @@ describe("上の帯の札（ふだんは出さない）", () => {
 });
 
 describe("通知の印にまとめる通知", () => {
-  it("ふだんは0件（通知の印も出さない）", () => {
+  it("ふだんは0件。ベルは0件でも出し、数字は出さない（0087）", () => {
     expect(barNotices(base)).toEqual([]);
-    const html = renderToString(h(TopBar, { tabs: [{ id: "a", label: "入力" }], tab: "a", onTab: noop, household: null, alerts: [], notices: [], tools: null, big: false, onBig: noop }));
-    expect(html).not.toContain("data-notice-bell");
+    const html = renderToString(h(TopBar, { tabs: [{ id: "a", label: "入力" }], tab: "a", onTab: noop, household: null, alerts: [], notices: NO_NOTICES, tools: null, big: false, onBig: noop }));
+    expect(html).toContain('data-notice-bell="0"');
+    expect(html).toContain('aria-label="お知らせ"');
+    expect(html).not.toContain("bell-n");
   });
 
   const sn = (kind: string, scope: StorageNotice["scope"], extra: Partial<StorageNotice> = {}): StorageNotice => ({ kind, level: "warn", scope, count: null, name: null, at: null, code: null, ...extra });
@@ -82,10 +89,10 @@ describe("通知の印にまとめる通知", () => {
     expect(barNotices({ ...base, storage, showing: { recovery: false, office: true, storage: false } }).map((x) => x.target)).toEqual(["recovery", "storage"]);
   });
 
-  it("通知の印は件数つき。読み上げの名前にも件数を入れる", () => {
-    const html = renderToString(h(NoticeBell, { notices: [{ id: "recovery", text: "復元キーを保管してください", action: "復元キー", onClick: noop }] }));
+  it("ベルは未読の件数つき。読み上げの名前にも件数を入れる", () => {
+    const html = renderToString(h(NoticeCenter, { items: [centerItem()], onRead: noop }));
     expect(html).toContain('data-notice-bell="1"');
-    expect(html).toContain('aria-label="通知（1件）"');
+    expect(html).toContain('aria-label="お知らせ（未読 1件）"');
   });
 });
 
@@ -100,7 +107,7 @@ describe("上の帯の並びと、アイコンだけにしたときの名前", (
       onTab: noop,
       household: { no: "D0001", sub: "本人・配偶者・子2人", open: false, onToggle: noop },
       alerts: [{ id: "saveError", text: "保存できませんでした", short: "保存の失敗", title: "詳しい文", tone: "err", onClick: noop }],
-      notices: [{ id: "recovery", text: "復元キーを保管してください", action: "復元キー", onClick: noop }],
+      notices: { items: [centerItem()], onRead: noop },
       tools: h("button", { type: "button", class: "memo-btn", "data-memo-toggle": true }, "メモ"),
       big: true,
       onBig: noop,
@@ -296,7 +303,7 @@ describe("世帯の選択の出方（箱のすぐ下から一覧が下へ伸び�
     expect(renderToString(h(HouseholdDrop, { open: false, onClose: noop }, h("p", null, "中身")))).toBe("");
   });
   it("箱の ▼ は開いている間 ▲。押すと一覧（dialog）が開くことを読み上げで伝える", () => {
-    const bar = (open: boolean) => renderToString(h(TopBar, { tabs: [{ id: "main", label: "結果" }], tab: "main", onTab: noop, household: { no: "D0001", sub: "", open, onToggle: noop }, alerts: [], notices: [], tools: null, big: false, onBig: noop }));
+    const bar = (open: boolean) => renderToString(h(TopBar, { tabs: [{ id: "main", label: "結果" }], tab: "main", onTab: noop, household: { no: "D0001", sub: "", open, onToggle: noop }, alerts: [], notices: NO_NOTICES, tools: null, big: false, onBig: noop }));
     const btn = (html: string) => html.slice(html.indexOf("data-household-button"), html.indexOf("</button>", html.indexOf("data-household-button")));
     expect(btn(bar(false))).toContain("▼");
     expect(btn(bar(false))).not.toContain("▲");
