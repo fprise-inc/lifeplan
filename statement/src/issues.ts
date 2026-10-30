@@ -8,6 +8,7 @@ export type IssueCode =
   | "S_FORMAT_UNKNOWN"
   | "S_TOO_MANY_ROWS"
   | "S_ENCODING"
+  | "S_CSV_QUOTE"
   | "S_NO_HEADER"
   | "S_MAPPING_NEEDED"
   | "S_MAPPING_INVALID"

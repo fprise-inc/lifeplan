@@ -193,6 +193,20 @@ describe("文字コードと列の対応付け", () => {
   });
 });
 
+describe("CSV の形の崩れ", () => {
+  it("二重引用符が閉じていないと、後ろの行を読めていないことを、始まった行の番号つきで知らせる", async () => {
+    const csv = '利用日,利用店名,利用金額\n2026/10/01,架空商店A,100\n2026/10/02,"架空商店B,200\n2026/10/03,架空商店C,300\n2026/10/04,架空商店D,400\n';
+    const out = await readStatement(new TextEncoder().encode(csv), { kind: "card" });
+    expect(out.issues.find((i) => i.code === "S_CSV_QUOTE")).toMatchObject({ level: "warning", line: 3 });
+  });
+
+  it("引用符の中の改行・カンマは知らせない", async () => {
+    const csv = '利用日,利用店名,利用金額\n2026/10/01,"架空商店A\n本店",100\n2026/10/02,"架空商店B, 支店","1,200"\n';
+    const out = await readStatement(new TextEncoder().encode(csv), { kind: "card" });
+    expect(out.issues.some((i) => i.code === "S_CSV_QUOTE")).toBe(false);
+  });
+});
+
 describe("PDF（文字の入ったもの）", () => {
   it("見出しのある明細の PDF（圧縮・オブジェクトストリーム・Type0 フォントと ToUnicode）", async () => {
     const out = await read("card-statement.pdf", "card");

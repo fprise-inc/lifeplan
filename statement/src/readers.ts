@@ -66,7 +66,7 @@ export const csvReader: StatementReader = {
   async table(bytes) {
     const dec = decodeText(bytes);
     const issues: Issue[] = [];
-    let parsed: { cells: string[][]; lines: number[] };
+    let parsed: ReturnType<typeof parseCsv>;
     try {
       parsed = parseCsv(dec.text);
     } catch (e) {
@@ -74,6 +74,10 @@ export const csvReader: StatementReader = {
       throw e;
     }
     if (dec.text.includes("�")) issues.push(issue("warning", "S_ENCODING", "読めない文字がありました。文字コードを確かめてください"));
+    if (parsed.unclosedQuote !== undefined) {
+      const at = parsed.unclosedQuote;
+      issues.push(issue("warning", "S_CSV_QUOTE", `${at}行目の二重引用符（"）が閉じていないため、その行から後ろの行を読めていません。元のファイルを確かめてください`, at));
+    }
     const m = maskTable(parsed.cells);
     return { table: { cells: m.cells, lines: parsed.lines, masked: m.masked }, encoding: dec.encoding, issues };
   },

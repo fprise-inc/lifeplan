@@ -120,6 +120,11 @@ describe("文字のそろえ方・文字コード・CSV", () => {
     expect(r.lines).toEqual([1, 3]);
   });
 
+  it("閉じていない二重引用符は、始まった行を返す（閉じていれば返さない）", () => {
+    expect(parseCsv('a,b\n1,"x\n2,y\n3,z\n').unclosedQuote).toBe(2);
+    expect(parseCsv('a,"b\nc",d\n').unclosedQuote).toBeUndefined();
+  });
+
   it("タブ区切りも読む", () => {
     expect(parseCsv("a\tb\n1\t2\n").cells).toEqual([
       ["a", "b"],
