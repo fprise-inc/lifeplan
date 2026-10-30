@@ -431,6 +431,16 @@ export function savePlan(wh: WorkingHousehold, cat: Catalog, input: SaveInput): 
   return { wh: { ...wh, proposals: [...wh.proposals, p] }, id };
 }
 
+/**
+ * プランを複製する（入力の画面の「このプランを複製」）: 土台・印・差分をそのまま写す。値から作り直さないので、オフにした差分・値の箱の状態
+ * （推定など）・差分の出どころ・要確認の材料（作った時点の値）も元のプランのまま残る。差分の ID は付け直す
+ */
+export function copyPlan(wh: WorkingHousehold, src: Proposal, name: string, now: string): { wh: WorkingHousehold; id: string } {
+  const id = newId();
+  const p: Proposal = { id, name: name.trim() || "名前のないプラン", createdAt: now, updatedAt: now, base: src.base, tags: [...src.tags], diffs: structuredClone(copyWithNewIds(src.diffs)) };
+  return { wh: { ...wh, proposals: [...wh.proposals, p] }, id };
+}
+
 /** 開いているプランを上書きする */
 export function overwritePlan(wh: WorkingHousehold, cat: Catalog, id: string, values: Values, now: string): WorkingHousehold {
   return {

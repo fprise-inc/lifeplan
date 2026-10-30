@@ -68,7 +68,7 @@ import { ItemMenu, ItemRow } from "./plans/ItemControls.tsx";
 import { leverView, visibleKeys } from "./plans/leverChoice.ts";
 import { amountRange, buildCatalog, leverSteps, type Catalog, type ItemValue, type MovableItem } from "./plans/items.ts";
 import { PlanList } from "./plans/PlanList.tsx";
-import { acknowledge, applyValues, changesOf, changesOfValues, dropChange, effectiveValues, findPlan, headLetter, modernPlanName, normalizeValues, overwritePlan, planLabel, reflectPlan, sameValues, savePlan, suggestName, valueOf, type Values } from "./plans/plans.ts";
+import { acknowledge, applyValues, changesOf, changesOfValues, copyPlan, dropChange, effectiveValues, findPlan, headLetter, modernPlanName, normalizeValues, overwritePlan, planLabel, reflectPlan, sameValues, savePlan, suggestName, valueOf, type Values } from "./plans/plans.ts";
 import { cashflowTable, displayYears, eventsOf, toPresentation, withDiff } from "./present.ts";
 import { withoutRemovedAssumptions } from "./surplus.ts";
 import { roles } from "./roles.ts";
@@ -1449,7 +1449,7 @@ export function App() {
       const head = suggestName(o.wh.proposals, {}, o.wh, o.catalog);
       const src = copyOf !== undefined ? findPlan(o.wh.proposals, copyOf) : undefined;
       const name = src !== undefined ? `${head} ${planLabel(ls.get(src.id)?.letter ?? "")}の複製` : base !== null ? `${head} ${planLabel(ls.get(base)?.letter ?? "")}を土台に` : head;
-      const r = savePlan(o.wh, o.catalog, { name, base: src !== undefined ? src.base : base, values: src !== undefined ? savedValues(o.wh, src.id) : {}, now: nowIso() });
+      const r = src !== undefined ? copyPlan(o.wh, src, name, nowIso()) : savePlan(o.wh, o.catalog, { name, base, values: {}, now: nowIso() });
       setInputPlanOn(true);
       const letter = planLetters(r.wh.proposals).get(r.id)?.letter ?? "";
       placeNew(w, r.wh, r.id, w.drafts, `${planLabel(letter)}を作りました。入力項目を開いて直すと、${planLabel(letter)}の差分になります`);
