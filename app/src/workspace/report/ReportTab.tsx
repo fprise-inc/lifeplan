@@ -6,7 +6,7 @@
 // - タブの上の切り替えで「持ち帰り用のレポート」（顧客に渡す HTML ファイル1つ。0030。workspace/takeaway/TakeawayPanel.tsx）も作る。
 //   どちらも「顧客に渡すもの」で、載せるプランの選び方・宛名・平文の書き出しの出口が同じなので、上のタブを増やさずに同じタブの中に置く
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { CHAPTERS, hasMaterial, type CashflowLayout, type ChapterId, type Orientation, type ProposalInput } from "../../../../report/src/index.ts";
+import { CHAPTERS, E_REPORT_NO_YEARS, hasMaterial, type CashflowLayout, type ChapterId, type Orientation, type ProposalInput } from "../../../../report/src/index.ts";
 import type { HostApi, RenderInfo, SaveOutcome } from "../../engine/host.ts";
 import { forEngine } from "../../engine/moneyRows.ts";
 import { isEngineError, type PreviewResult } from "../../engine/types.ts";
@@ -108,6 +108,12 @@ const CASHFLOWS: { id: CashflowLayout; label: string; note: string }[] = [
   { id: "excerpt", label: "抜粋（全部の行・5年ごと）", note: "最初と最後の年・5年ごと・主なできごとの年だけ" },
   { id: "full", label: "全年（全部の行）", note: "内訳まですべて。ページが増えます" },
 ];
+
+/** 作れなかったときの文。直し方が決まっているものは案内を出し、ほかは符号をそのまま出す */
+export function reportErrorText(code: string): string {
+  if (code === E_REPORT_NO_YEARS) return "作れませんでした（表に載る年がありません。表は計算基準月の翌年から載せます。入力の「表の最後の年」を計算基準の年より後にしてください）";
+  return `作れませんでした（${code}）`;
+}
 
 /** 並べる時点の呼び方（例: 今・退職の年・75歳。年を直に選んだ時点は「2040年」） */
 export function bsPointsText(columns: readonly BsColumn[] | null, defaults: readonly BsPointKey[]): string {
@@ -241,7 +247,7 @@ function ProposalPdf(p: Props) {
             {status.step}
           </p>
         ) : null}
-        {status.kind === "error" ? <p class="fatal">作れませんでした（{status.code}）</p> : null}
+        {status.kind === "error" ? <p class="fatal" data-report-error>{reportErrorText(status.code)}</p> : null}
         {stale && !busy ? <p class="rp-note warn">設定を変えました。「作り直す」を押すと見本と保存する PDF が新しくなります。</p> : null}
         {built !== null && !busy ? (
           <p class="rp-note" data-report-ready>
