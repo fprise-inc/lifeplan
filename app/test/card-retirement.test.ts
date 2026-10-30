@@ -219,11 +219,15 @@ describe("人ごとに何件でも・種類ごとに要る欄", () => {
     expect(retirementNotApplicable(w, self)).toBe(true);
   });
 
-  it("死亡退職金の1行: 説明の文（額は勤め先の規程・按分はこのアプリの目安。非課税限度額は制度データから）", () => {
+  it("死亡退職金の説明の欄: 説明の文（額は勤め先の規程・按分はこのアプリの目安。非課税限度額は制度データから）", () => {
     const { wh, self } = salaried();
-    const line = fields(wh, "retirement").find((f) => f.key === `ro/retirement/${self}/death`);
-    expect(line?.label).toBe("万一亡くなったときの扱い");
-    const text = String(line?.get(wh).value);
+    // 値の欄ではなく説明の欄（幅いっぱい・ⓘ・折りたたみ）。欄の一覧には入らない
+    expect(fields(wh, "retirement").some((f) => f.key === `ro/retirement/${self}/death`)).toBe(false);
+    const note = buildStage("retirement", wh).sections.flatMap((s) => s.groups).find((g) => g.key === `info/retirement/${self}/death`);
+    expect(note?.fields).toEqual([]);
+    expect(note?.info?.title).toBe("万一亡くなったときの扱い");
+    expect(note?.info?.fold).toBe("retirement/death");
+    const text = String(note?.info?.text);
     expect(text).toMatch(/^万一亡くなったときは、/);
     expect(text).toMatch(/勤め先の退職金の規程で決まります。このアプリでは、勤続の月数で按分した額を目安にします/);
     expect(text).toMatch(/死亡退職金の非課税限度額（500万円×法定相続人の数）/);

@@ -7,6 +7,7 @@ import { useContext, useState } from "preact/hooks";
 import { Help, HelpOf } from "../../presentation/Help.tsx";
 import { PopIcon } from "../../presentation/icons.tsx";
 import { FieldIcon } from "./fieldIcons.tsx";
+import { InfoNote } from "./InfoNote.tsx";
 import { fittingPlaceholder, textEm } from "./placeholder.ts";
 import type { Timepoint } from "../../engine/types.ts";
 import { groupShown, type ActionDef, type FieldDef, type GroupDef, type Level, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
@@ -413,6 +414,8 @@ export function MoreToggle({ groupKey, open, toggle, label, swapNotes = [] }: { 
 }
 
 export function Group({ group, wh, level, onEdit, more, moreOf, inner = [] }: { group: GroupDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void; more?: GroupMore; moreOf?: string; inner?: readonly InnerGroup[] }) {
+  // 説明の欄（値ではなく説明の文）は、幅いっぱいの説明として描く（readLines.ts の infoNote）
+  if (group.info !== undefined) return <InfoNote title={group.info.title} text={group.info.text} fold={group.info.fold} groupKey={group.key} />;
   // 詳細の欄が見えているとき（詳細、または標準で「▸ 詳しく」を開いたとき）は、標準だけの欄（simpleOnly）を出さない（代わりに詳細の欄を出す）
   const detailShown = level === "detail" || more?.open === true;
   const fields = group.fields.filter((f) => visible(level, f.level) && !(detailShown && f.simpleOnly === true));
