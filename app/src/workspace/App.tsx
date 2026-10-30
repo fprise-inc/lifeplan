@@ -98,6 +98,10 @@ import { UndoButtons } from "./undo/UndoButtons.tsx";
 import { HouseholdDrop } from "./header/HouseholdDrop.tsx";
 import { BasisLine, HouseholdNow } from "./header/HouseholdNow.tsx";
 import { barAlerts, barNotices, saveText, type AlertKind, type BarInputs, type NoticeTarget } from "./header/status.ts";
+import { FEEDBACK_FORM } from "../generated/distribution.ts";
+import { EMPTY_LOCAL, feedKey, householdKey, localDate, markRead, parseFeed, readLocal, visibleFeed, type CenterItem, type LocalState } from "./notices/center.ts";
+import { FeedbackPanel } from "./notices/FeedbackPanel.tsx";
+import { addReceipt, osName } from "./notices/receipts.ts";
 import { TopBar } from "./header/TopBar.tsx";
 
 type Tab = "input" | "main" | "balance" | "rental" | "contingency" | "report";
@@ -151,6 +155,10 @@ export function parseHash(hash: string): {
   officeDefaults?: boolean;
   /** 結果のタブの計算の知らせを開いた状態で開く（#notices） */
   notices?: boolean;
+  /** #bell: 上の帯のお知らせの一覧を開いて開く（#bell=鍵 はその1件の詳しい中身。画面の確かめ用。0087） */
+  bell?: string | null;
+  /** #feedback: 「要望・不具合を送る」を開いて開く（画面の確かめ用） */
+  feedback?: boolean;
   /** #statement=review: 入力で明細のパネルをその手順で開く（閉じると基本生活費のパネルに戻る。0034。画面の確かめ用） */
   statement?: "accounts" | "import" | "review" | "result";
   /** #report=takeaway: 提案書のタブを「持ち帰り用のレポート」で開く（0030） */
@@ -226,6 +234,8 @@ export function parseHash(hash: string): {
     else if (k === "officedefaults") out.officeDefaults = true;
     else if (k === "premisemenu") out.premiseMenu = true;
     else if (k === "notices") out.notices = true;
+    else if (k === "bell") out.bell = v !== undefined && v !== "" ? decodeURIComponent(v) : null;
+    else if (k === "feedback") out.feedback = true;
     else if (k === "statement" && (v === "accounts" || v === "import" || v === "review" || v === "result")) out.statement = v;
     else if (k === "report" && (v === "takeaway" || v === "pdf")) out.reportMode = v;
     else if (k === "selfcheck") {
@@ -361,6 +371,8 @@ function thisMonth(): string {
 }
 
 const nowIso = () => new Date().toISOString();
+/** 配信元のお知らせの関係する画面の、開くボタンの名前（世帯・事務所の知らせのボタンと同じ呼び方） */
+const SCREEN_LABEL: Record<"plans" | "work" | "family" | "storage" | "office" | "households" | "recovery", string> = { plans: "プランの一覧", work: "働き方と収入", family: "介護・親の項目", storage: "保存先", office: "事務所の共有", households: "世帯の一覧", recovery: "復元キー" };
 
 const codeOf = (e: unknown) => (typeof e === "string" ? e : e instanceof Error ? e.message : "E_STORE");
 
@@ -455,6 +467,12 @@ export function App() {
   const [officeSettings, setOfficeSettings] = useState<OfficeSettings>(DEFAULT_OFFICE_SETTINGS);
   const officeSettingsRef = useRef<OfficeSettings>(DEFAULT_OFFICE_SETTINGS);
   const [officeSettingsOpen, setOfficeSettingsOpen] = useState(initial.officeDefaults === true);
+  // お知らせの一覧（0087）: 配信元のお知らせ（本体が確かめた一覧）と、手元の既読の印・受付番号（この PC のアプリのデータ。何も送り返さない）
+  const [feedText, setFeedText] = useState<string | null>(null);
+  const [noticeLocal, setNoticeLocal] = useState<LocalState>(EMPTY_LOCAL);
+  const noticeLocalRef = useRef<LocalState>(EMPTY_LOCAL);
+  const [noticeFocus, setNoticeFocus] = useState<{ key: string | null; n: number } | null>(initial.bell !== undefined ? { key: initial.bell, n: 1 } : null);
+  const [feedbackOpen, setFeedbackOpen] = useState(initial.feedback === true);
   const putOfficeSettings = (v: OfficeSettings) => {
     officeSettingsRef.current = v;
     setOfficeSettings(v);
@@ -564,6 +582,11 @@ export function App() {
         }
         void h.office.status().then(setOfficeStatus, () => undefined);
         void h.office.notices().then(setStorageNotices, () => undefined);
+        void h.notices.feed().then(setFeedText, () => undefined);
+        void h.notices.local().then((v) => {
+          noticeLocalRef.current = readLocal(v);
+          setNoticeLocal(noticeLocalRef.current);
+        }, () => undefined);
         void h.store.devFileKeys().then((dev) => {
           setDevKeys(dev);
           // 取り違えないよう、窓の名前にも出す（上の帯には出さない）
@@ -1855,15 +1878,8 @@ export function App() {
     message: storeMessage,
     household: opened?.wh.notices ?? [],
   };
-  /** 開いたときの知らせを押した: その知らせを世帯から消し（1回だけ見せる。0035 の8）、扱う画面を開く */
-  const openHouseholdNotice = (id: string, target: NoticeTarget) => {
-    const o = openedRef.current;
-    if (o !== null && o.wh.notices !== undefined) {
-      const rest = o.wh.notices.filter((n) => `household:${n.id}` !== id);
-      const { notices: _old, ...wh } = o.wh;
-      void _old;
-      setPlans(rest.length > 0 ? { ...wh, notices: rest } : wh);
-    }
+  /** 開いたときの知らせの「その画面を開く」: 扱う画面を開く（知らせは世帯から消さない。既読の印は手元に置く。0087 の4） */
+  const openHouseholdNotice = (target: NoticeTarget) => {
     if (target === "family" || target === "work") {
       setTab("input");
       setCardOpen((c) => ({ id: target, n: (c?.n ?? 0) + 1 }));
@@ -1900,6 +1916,54 @@ export function App() {
     setStorageOpen("default");
   };
   const noticeActions: Record<NoticeTarget, () => void> = { recovery: () => setRecovery("manage"), restore: () => setRecovery("restore"), storage: openStorage, office: openOffice, households: showHousehold, presence: toPresence, family: () => setTab("input"), work: () => setTab("input"), plans: () => setTab("main") };
+  /** 手元の状態（既読の印・受付番号）を変えて、この PC のアプリのデータに書く（本体・開発用のサーバーが無いときは画面の中だけ） */
+  const updateLocal = (f: (s: LocalState) => LocalState) => {
+    const next = f(noticeLocalRef.current);
+    if (next === noticeLocalRef.current) return;
+    noticeLocalRef.current = next;
+    setNoticeLocal(next);
+    void host?.notices.putLocal(next).catch(() => undefined);
+  };
+  // お知らせの一覧の中身: 事務所・世帯の知らせ（文と開く画面は前のまま）と、配信元のお知らせ（版の範囲・受付番号で絞る）
+  const hhLabel = storedInfo !== null ? (storedInfo.sample !== undefined ? `見本 ${storedInfo.sample.no}` : storedInfo.customerNo) : opened?.demo != null ? `見本 ${opened.demo.sampleNo}` : "この世帯";
+  const hhId = storedInfo?.id ?? opened?.demo?.id ?? "unsaved";
+  const centerItems: CenterItem[] = [
+    ...barNotices(barIn).map((n): CenterItem => {
+      const key = n.category === "household" ? householdKey(hhId, n.id.slice("household:".length)) : `office:${n.id.replace(/:\d+$/, "")}:${n.text}`;
+      return {
+        key,
+        category: n.category,
+        urgency: n.urgency,
+        date: null,
+        title: n.title,
+        body: n.text,
+        household: n.category === "household" || n.target === "presence" ? hhLabel : null,
+        receipts: [],
+        action: { label: n.action, run: n.category === "household" ? () => openHouseholdNotice(n.target) : noticeActions[n.target] },
+        read: noticeLocal.read[key] !== undefined,
+      };
+    }),
+    ...visibleFeed(parseFeed(feedText), { appVersion: APP_VERSION, receipts: noticeLocal.receipts }).map((n): CenterItem => {
+      const target = n.screen;
+      return {
+        key: feedKey(n.id),
+        category: n.kind,
+        urgency: n.urgency,
+        date: n.date,
+        title: n.title,
+        body: n.body,
+        household: null,
+        receipts: n.matched,
+        action: target === undefined ? null : { label: SCREEN_LABEL[target], run: target === "family" || target === "work" || target === "plans" ? () => openHouseholdNotice(target) : noticeActions[target] },
+        read: noticeLocal.read[feedKey(n.id)] !== undefined,
+      };
+    }),
+  ];
+  const readNotices = (keys: string[]) => updateLocal((st) => markRead(st, keys, localDate()));
+  // 重大なお知らせ（未読）は、上の帯の札でも出す。押すとお知らせの一覧でその1件を開く
+  const criticalAlerts = centerItems
+    .filter((i) => i.urgency === "critical" && !i.read)
+    .map((i) => ({ id: `notice:${i.key}`, text: "重大なお知らせ", short: "重大", title: i.title, tone: "err" as const, onClick: () => setNoticeFocus((f) => ({ key: i.key, n: (f?.n ?? 0) + 1 })) }));
   /** 入力で直しているプラン（取り込みは現状に入るので、このときは取り込みの中身に「現状に切り替える」を出す） */
   const inputPlanSel = opened !== null && inputPlanOn && work.sel !== CURRENT && opened.wh.proposals.some((p) => p.id === work.sel) ? work.sel : null;
   // FP のメニューで押した物: 入力のホームの中身は、入力のタブに切り替えてホームの上部に開く（パネルの入力は閉じる）。事務所の設定・AI は中央のパネル
@@ -1909,6 +1973,7 @@ export function App() {
     if (a === "storage") return openStorage();
     if (a === "office") return openOffice();
     if (a === "officeDefaults") return setOfficeSettingsOpen(true);
+    if (a === "feedback") return setFeedbackOpen(true);
     const to = home[a] ?? "imports";
     setFpOpen(to);
     if (tab !== "input") setTab("input");
@@ -1932,8 +1997,8 @@ export function App() {
               }
             : null
         }
-        alerts={barAlerts(barIn).map((a) => ({ id: a.kind, text: a.text, short: a.short, title: a.title, tone: a.tone, onClick: alertActions[a.kind] }))}
-        notices={barNotices(barIn).map((n) => ({ id: n.id, text: n.text, action: n.action, onClick: n.id.startsWith("household:") ? () => openHouseholdNotice(n.id, n.target) : noticeActions[n.target] }))}
+        alerts={[...barAlerts(barIn).map((a) => ({ id: a.kind, text: a.text, short: a.short, title: a.title, tone: a.tone, onClick: alertActions[a.kind] })), ...criticalAlerts]}
+        notices={{ items: centerItems, onRead: readNotices, onFeedback: () => setFeedbackOpen(true), focus: noticeFocus }}
         tools={
           opened !== null ? (
             <>
@@ -2570,6 +2635,22 @@ export function App() {
           }}
           onOpenConnector={() => setAiPanel("connector")}
           onClose={() => setAiPanel(null)}
+        />
+      ) : null}
+      {feedbackOpen ? (
+        <FeedbackPanel
+          receipts={noticeLocal.receipts}
+          template={FEEDBACK_FORM}
+          appVersion={APP_VERSION}
+          os={osName()}
+          onSend={async (code) => {
+            updateLocal((st) => ({ ...st, receipts: addReceipt(st.receipts, { code, on: localDate() }) }));
+            if (host === null) throw "E_NO_HOST";
+            await host.notices.openForm(code);
+          }}
+          onAdd={(code) => updateLocal((st) => ({ ...st, receipts: addReceipt(st.receipts, { code, on: localDate(), manual: true }) }))}
+          onCopy={host !== null ? (code) => host.notices.copy(code) : undefined}
+          onClose={() => setFeedbackOpen(false)}
         />
       ) : null}
       {officeSettingsOpen && host !== null ? (

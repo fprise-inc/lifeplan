@@ -1,9 +1,10 @@
 // 上の帯（画面の上に固定しない。スクロールで流れる）。
-// 並び: 左＝ロゴと世帯の選択（と、急ぎの札）、中＝タブ、右＝↶↷・メモ・FP のメニュー・文字の大きさ（中・大）・通知の印。
-// ふだんは状態の札を出さない。急ぎのもの（保存の失敗・保存を止めている・AIと共有中）だけ札で出し、
-// 利用者に行動を求める通知（復元キーの保管など）は通知の印にまとめる。詳しい状態は世帯の選択のメニューの中で見る
+// 並び: 左＝ロゴと世帯の選択（と、急ぎの札）、中＝タブ、右＝↶↷・メモ・FP のメニュー・文字の大きさ（中・大）・お知らせのベル。
+// ふだんは状態の札を出さない。急ぎのもの（保存の失敗・保存を止めている・AIと共有中・重大なお知らせ）だけ札で出し、
+// 利用者に行動を求める通知（復元キーの保管など）と配信元のお知らせは、お知らせの一覧（ベル。常に出す。0087）にまとめる。詳しい状態は世帯の選択のメニューの中で見る
 import type { ComponentChildren } from "preact";
-import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
+import { NoticeCenter, type NoticeCenterProps } from "../notices/NoticeCenter.tsx";
 import { fitBar } from "./fit.ts";
 
 /** 急ぎの札（左側。押すと詳しい場所を開く） */
@@ -18,14 +19,6 @@ export interface BarAlert {
   onClick: () => void;
 }
 
-/** 通知の一覧の1件 */
-export interface BarNotice {
-  id: string;
-  text: string;
-  /** 押したときにすること（開く画面の名前を添える） */
-  action: string;
-  onClick: () => void;
-}
 
 export interface TopBarProps<T extends string> {
   tabs: readonly { id: T; label: string }[];
@@ -34,7 +27,8 @@ export interface TopBarProps<T extends string> {
   /** 世帯の選択（本体・開発用のサーバーにつながっていないときは null） */
   household: { no: string; sub: string; open: boolean; onToggle: () => void } | null;
   alerts: readonly BarAlert[];
-  notices: readonly BarNotice[];
+  /** お知らせの一覧（ベル。常に出す。0087） */
+  notices: NoticeCenterProps;
   /** 世帯を開いているときの右側の操作（↶↷・メモ） */
   tools: ComponentChildren;
   /** 文字の大きさが「大」 */
@@ -117,7 +111,7 @@ export function TopBar<T extends string>(p: TopBarProps<T>) {
       <div class="top-r">
         {p.tools}
         <TextSizePick big={p.big} onPick={p.onBig} />
-        {p.notices.length > 0 ? <NoticeBell notices={p.notices} /> : null}
+        <NoticeCenter {...p.notices} />
       </div>
     </header>
   );
@@ -166,61 +160,6 @@ export function TextSizePick({ big, onPick }: { big: boolean; onPick: (big: bool
           {s.label}
         </button>
       ))}
-    </div>
-  );
-}
-
-/** 通知の印（件数つき）。押すと一覧が開き、1件を押すとその画面を開く */
-export function NoticeBell({ notices }: { notices: readonly BarNotice[] }) {
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    const onDown = (e: MouseEvent) => {
-      if (box.current !== null && e.target instanceof Node && !box.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onDown);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onDown);
-    };
-  }, [open]);
-  return (
-    <div class="bell" ref={box}>
-      <button type="button" class="bell-btn" aria-expanded={open} aria-haspopup="true" aria-label={`通知（${notices.length}件）`} title={`通知（${notices.length}件）`} onClick={() => setOpen(!open)} data-notice-bell={notices.length}>
-        <svg class="bell-ico" viewBox="0 0 20 20" aria-hidden="true">
-          <path d="M10 2.5a5 5 0 0 0-5 5v3.2L3.5 13.5h13L15 10.7V7.5a5 5 0 0 0-5-5Z" />
-          <path d="M8 15.5a2 2 0 0 0 4 0" />
-        </svg>
-        <span class="lbl" aria-hidden="true">
-          通知
-        </span>
-        <span class="bell-n" aria-hidden="true">
-          {notices.length}
-        </span>
-      </button>
-      {open ? (
-        <ul class="bell-list" role="list" aria-label="通知" data-notice-list>
-          {notices.map((n) => (
-            <li key={n.id}>
-              <button
-                type="button"
-                class="bell-item"
-                onClick={() => {
-                  setOpen(false);
-                  n.onClick();
-                }}
-                data-notice={n.id}
-              >
-                <span class="bell-text">{n.text}</span>
-                <span class="bell-act">{n.action} ›</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
     </div>
   );
 }

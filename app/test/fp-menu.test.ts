@@ -16,9 +16,9 @@ const noop = () => undefined;
 describe("FP のメニューの中身", () => {
   it("控え・面談の準備・取り込む・事務所の設定の順。本体につながっていないときは取り込むと事務所の設定を出さない", () => {
     const full = fpMenuGroups({ snapshots: 2, review: { last: "2026年10月", next: "2027年10月" }, imports: { ai: true }, office: { storage: "このPCの中", share: "オフ（既定）" } });
-    expect(full.map((g) => g.id)).toEqual(["snapshots", "tools", "imports", "office"]);
+    expect(full.map((g) => g.id)).toEqual(["snapshots", "tools", "imports", "office", "feedback"]);
     // 見出しは「面談の準備」（前の名前は「FPの道具」。識別子の tools はそのまま）
-    expect(full.map((g) => g.label)).toEqual(["控え", "面談の準備", "取り込む", "事務所の設定"]);
+    expect(full.map((g) => g.label)).toEqual(["控え", "面談の準備", "取り込む", "事務所の設定", "ファイナンシアへ"]);
     expect(full[0]!.items.map((i) => i.label)).toEqual(["この時点を残す", "控えの一覧（2件）"]);
     expect(full[1]!.items.map((i) => i.action)).toEqual(["contents", "year", "review"]);
     expect(full[1]!.items[2]!.note).toContain("2027年10月");
@@ -29,7 +29,7 @@ describe("FP のメニューの中身", () => {
       ["officeDefaults", "新しい世帯に写す値・ホームの並び"],
     ]);
     const bare = fpMenuGroups({ snapshots: 0, review: null, imports: null, office: null });
-    expect(bare.map((g) => g.id)).toEqual(["snapshots", "tools"]);
+    expect(bare.map((g) => g.id)).toEqual(["snapshots", "tools", "feedback"]);
     expect(bare[1]!.items[2]!.note).toBeUndefined();
     // 保存していない世帯は AI に資料を渡せない
     expect(fpMenuGroups({ snapshots: 0, review: null, imports: { ai: false }, office: null })[2]!.items.map((i) => i.action)).toEqual(["hearing"]);

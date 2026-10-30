@@ -40,7 +40,8 @@ function fakeSession() {
 
 /** 提案書・ヒアリングシート・世帯の保存の命令（この試験では使わない） */
 const no = async () => Promise.reject("E");
-const NO_FILES: Pick<HostApi, "report" | "sheets" | "takeaway" | "store" | "ai" | "office" | "statements"> = {
+const NO_FILES: Pick<HostApi, "report" | "sheets" | "takeaway" | "store" | "ai" | "office" | "statements" | "notices"> = {
+  notices: { feed: async () => null, local: async () => ({}), putLocal: async () => undefined, openForm: no, copy: async () => false },
   report: { render: no, page: no, pageSvg: no, save: no, discard: async () => undefined },
   sheets: { save: no, open: async () => null },
   takeaway: { save: no },

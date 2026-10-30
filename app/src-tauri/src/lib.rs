@@ -14,6 +14,8 @@
 //!   覚えた辞書と形は事務所データ（household-store）に持つ。
 //! - 事務所での共有（office.rs。0023）: 共有フォルダは本体のダイアログで選ばせ、パスを画面に渡さない。参加の承認は指紋の入力が必須。
 //!   開いている印は裏で定期的に新しくし、閉じるときに消す。
+//! - お知らせの一覧（notices.rs。0087）: 配信元のお知らせを読む口は1か所（署名を確かめた中身だけを渡す。今は通信しない）。
+//!   既読の印と受付番号はこの PC のアプリのデータにだけ置き、何も送り返さない。要望・不具合のフォームは受付番号だけを受け取って本体が開く。
 //! - macOS のメニュー（menu.rs）: 標準の編集メニューを付け、元に戻す・やり直すは画面のアプリ全体の履歴へ渡す。
 //!   Windows・Linux はメニューバーを出さない（キー操作は画面が受ける）。
 
@@ -24,6 +26,7 @@ mod dev_keystore;
 mod engine;
 mod export;
 mod menu;
+mod notices;
 mod office;
 mod report;
 mod statement;
@@ -356,6 +359,11 @@ pub fn run() {
             office::storage_sync_open,
             office::storage_sync_end,
             office::storage_notices,
+            notices::notices_feed,
+            notices::notice_local_get,
+            notices::notice_local_put,
+            notices::feedback_form_open,
+            notices::feedback_copy,
             app_close_ready
         ])
         .setup(|app| {

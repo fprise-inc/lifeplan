@@ -78,6 +78,12 @@ const COMMANDS: &[&str] = &[
     "storage_sync_open",
     "storage_sync_end",
     "storage_notices",
+    // 0087: お知らせの一覧（配信元のお知らせを読む口・手元の既読の印と受付番号）と、要望・不具合のフォームを開く（受付番号だけを受け取る）
+    "notices_feed",
+    "notice_local_get",
+    "notice_local_put",
+    "feedback_form_open",
+    "feedback_copy",
     "app_close_ready",
 ];
 
@@ -89,6 +95,48 @@ fn list_json(dir: &Path) -> Vec<PathBuf> {
         .collect();
     v.sort();
     v
+}
+
+/// 配布元の設定（config/distribution.toml）の `[feedback]` の `form`（要望・不具合のフォームの URL のひな形。0087）。
+/// TOML の部品は入れず、この1行の形（`form = "…"`）だけを読む
+fn feedback_form(toml: &str) -> String {
+    let mut in_section = false;
+    for line in toml.lines() {
+        let t = line.trim();
+        if t.starts_with('[') {
+            in_section = t == "[feedback]";
+            continue;
+        }
+        if !in_section {
+            continue;
+        }
+        if let Some(rest) = t.strip_prefix("form") {
+            let v = rest
+                .trim_start()
+                .strip_prefix('=')
+                .map(str::trim)
+                .unwrap_or("");
+            let v = v
+                .strip_prefix('"')
+                .and_then(|x| x.strip_suffix('"'))
+                .unwrap_or_else(|| {
+                    panic!("config/distribution.toml: [feedback] の form は \"…\" で書く")
+                });
+            if !v.starts_with("https://") || !v.contains("{受付番号}") || v.contains('\\') {
+                panic!("config/distribution.toml: [feedback] の form は https:// で始め、{{受付番号}} を入れる");
+            }
+            let mut rest = v;
+            while let Some(i) = rest.find('{') {
+                let end = rest[i..].find('}').map(|j| i + j + 1).unwrap_or(rest.len());
+                if !["{受付番号}", "{版}", "{OS}"].contains(&&rest[i..end]) {
+                    panic!("config/distribution.toml: [feedback] の form に差し込めるのは {{受付番号}}・{{版}}・{{OS}} だけ");
+                }
+                rest = &rest[end..];
+            }
+            return v.to_owned();
+        }
+    }
+    panic!("config/distribution.toml に [feedback] の form がありません");
 }
 
 fn main() {
@@ -133,6 +181,16 @@ fn main() {
     out.push_str("];\n");
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     std::fs::write(out_dir.join("assets.rs"), out).unwrap();
+
+    // 0087: 要望・不具合のフォームのひな形（config/distribution.toml の1か所から写す）
+    let dist = repo.join("config/distribution.toml");
+    println!("cargo:rerun-if-changed={}", dist.display());
+    let form = feedback_form(&std::fs::read_to_string(&dist).unwrap());
+    std::fs::write(
+        out_dir.join("distribution.rs"),
+        format!("/// 要望・不具合のフォームの URL のひな形（config/distribution.toml の [feedback] の form）\npub const FEEDBACK_FORM: &str = {form:?};\n"),
+    )
+    .unwrap();
 
     tauri_build::try_build(
         tauri_build::Attributes::new()
