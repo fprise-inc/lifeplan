@@ -642,7 +642,7 @@ function k12Fields(goalId: string, i: number, s: EducationStage, key: string, fi
       field({
         key: `${key}/outOfSchool`,
         item: "goal.education",
-        label: "学校外の費用（塾・習い事など）（月額）",
+        label: "学校外の費用（月額）",
         level: "detail",
         kind: "yen",
         basis: "monthly",
