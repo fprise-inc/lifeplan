@@ -25,7 +25,10 @@
 // - 貸与の奨学金（scholarships）: 在学中に受け取り（cf.income.other.scholarship）、返済は debt.schedule（返す人は既定で子。返済の始まりの
 //   既定は受け取りの終わりの7か月後）。教育ローン（loans）は借りる月に受け取り、翌月から返す
 // - 子への援助（gifts。結婚・住宅資金）: 額の入力まで（cf.expense.lumpSum.wedding・gift。贈与の税は贈与の作業で扱う）
-// 教育費の上昇率は学校の費用・学校外活動費・仕送りに当て、公的支援には当てない（0010 の5）
+// - 改訂6（0088）: 留学（abroad。1回ずつ）。在学中の学校の段の、その学年の始まり（短期はその年の8月）に1回の額（計算基準年の価格。教育費の上昇率で
+//   伸ばす）を表の行「教育費」に。休学して1年（leave）は、その段の在学が1年延び、その年は学費・学校の費用・学校外活動費・仕送りがかからない（後の学年と
+//   後の段が1年ずつうしろにずれる）。万一のときの扱いが stop なら、世帯の万一の想定（contingency.event）の月の翌月より後の留学は払わない
+// 教育費の上昇率は学校の費用・学校外活動費・仕送り・留学に当て、公的支援には当てない（0010 の5）
 import {
   addMonths,
   defineComponent,
@@ -34,6 +37,8 @@ import {
   monthIndex,
   yearOf,
   yen,
+  type ContingencyEvent,
+  type ContingencyEventOutput,
   type DebtScheduleOutput,
   type EducationCostOutput,
   type EducationGoalInput,
@@ -73,8 +78,8 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
   id: "education.cost",
   title: "教育費",
   contract: "1.0",
-  revision: 5,
-  requires: { "debt.schedule": ">=1 <2" },
+  revision: 6,
+  requires: { "debt.schedule": ">=1 <2", "contingency.event": ">=1 <2" },
   params: PARAMS,
   reads: ["goal.kind", "goal.owner", "goal.education", "member.kind", "relation.type", "relation.parent", "relation.child", "assumptions.inflation", "assumptions.educationInflation"],
   memberScope: ["goal"],
@@ -115,9 +120,41 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
       if (y <= anchor) return amount;
       return grownByYear(ctx, amount, { kind: "inflation" }, anchor, y, "educationInflation").get(y) ?? amount;
     };
+    // 世帯の万一の想定（留学の「やめる」に使う。いちばん初めに見つかった構成員の万一）
+    let household: ContingencyEvent | null | undefined;
+    const householdEvent = (): ContingencyEvent | null => {
+      if (household === undefined) {
+        household = null;
+        for (const m of ctx.list<{ id: string }>("member")) {
+          const ev = ctx.call<ContingencyEventOutput>("contingency.event", { member: m.id }).event;
+          if (ev !== null) {
+            household = ev;
+            break;
+          }
+        }
+      }
+      return household;
+    };
     for (const g of ctx.list<GoalInput>("goal")) {
       if (g.kind !== "education" || g.education === undefined || g.owner !== child) continue;
       const e: EducationGoalInput = g.education;
+      // 留学の休学の年（段ごとの学年。小さい順）と、前の段の休学で後の段がずれる年数（改訂6）
+      const abroad = e.abroad ?? [];
+      const leavesOf = (stage: SchoolStage): number[] => abroad.filter((a) => a.kind === "leave" && a.stage === stage).map((a) => a.grade).sort((a, b) => a - b);
+      const shiftOf = new Map<SchoolStage, number>();
+      {
+        let acc = 0;
+        for (const st of [...e.stages].sort((a, b) => START_AGE[a.stage] - START_AGE[b.stage])) {
+          shiftOf.set(st.stage, acc);
+          acc += leavesOf(st.stage).length;
+        }
+      }
+      /** 段の学年 grade の年が在学の何年目（0から）か（その学年より前の休学の年を足す） */
+      const yearIndex = (stage: SchoolStage, grade: number, self: boolean): number => {
+        const ls = leavesOf(stage);
+        return grade - 1 + ls.filter((x) => (self ? x < grade : x <= grade)).length + (self ? ls.filter((x) => x === grade).length - 1 : 0);
+      };
+      const leaveYears = (stage: SchoolStage): Set<number> => new Set(leavesOf(stage).map((gr, j) => gr - 1 + j));
       const mode = e.outOfSchoolMode;
       const push = (m: MonthIndex, row: string, amount: Yen, formula: string, member: string = child) => {
         if (amount > 0 && m >= base && m <= end) flows.push({ row, ym: formatYm(m), amount, accrualYear: yearOf(m), member, object: g.id, formula });
@@ -128,8 +165,9 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
         const living = st.living ?? "home";
         // 保育所は education.nurseryFee（0029）
         if (st.stage === "nursery") continue;
-        const start = addMonths(ctx.time.ageSwitch(child, { years: START_AGE[st.stage] }, "schoolYear"), 12 * (st.delayYears ?? 0));
-        const years = st.years ?? (st.stage === "university" && st.field === "medical" ? 6 : YEARS[st.stage]);
+        const start = addMonths(ctx.time.ageSwitch(child, { years: START_AGE[st.stage] }, "schoolYear"), 12 * ((st.delayYears ?? 0) + (shiftOf.get(st.stage) ?? 0)));
+        const leave = leaveYears(st.stage);
+        const years = (st.years ?? (st.stage === "university" && st.field === "medical" ? 6 : YEARS[st.stage])) + leave.size;
         const fees: { fiscalYear: number; tuition: Yen; admission: Yen }[] = [];
         const fy0 = yearOf(start);
         // 学費データの行（学校が決まっているとき）
@@ -142,12 +180,13 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
           const termStart = st.school.termStartMonth ?? 4;
           for (const r of rows) {
             if (r.entryYear !== ref || r.grade > years) continue;
-            const m = addMonths(monthIndex(fy0 + r.grade - 1, termStart), r.monthOffset);
+            const lag = leavesOf(st.stage).filter((x) => x <= r.grade).length;
+            const m = addMonths(monthIndex(fy0 + r.grade - 1 + lag, termStart), r.monthOffset);
             // 推計: 最も近い入学年度の額に、その入学年度からの教育費の上昇率を当てる（計算基準年より前の年の分は計算基準年の額から）
             const amount = exact ? r.amount : grownFrom(r.amount, Math.max(ref, baseYear), yearOf(m));
             const admission = r.item === "tuition.admission";
             push(m, admission ? "cf.expense.education.entrance" : "cf.expense.education.school", amount, "education.cost.schoolTuition");
-            const fy = fy0 + r.grade - 1;
+            const fy = fy0 + r.grade - 1 + lag;
             let f = fees.find((x) => x.fiscalYear === fy);
             if (f === undefined) {
               f = { fiscalYear: fy, tuition: yen(0), admission: yen(0) };
@@ -178,6 +217,7 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
             return lunch < cap ? lunch : cap;
           };
           for (let k = 0; k < years; k++) {
+            if (leave.has(k)) continue;
             const fy = fy0 + k;
             const off = lunchOff(fy);
             const cost = yen(grown(schoolCost, fy) - off);
@@ -192,6 +232,7 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
           const outMonthly: Yen | null = out === "none" ? null : out === "statistics" ? (outStat === null ? null : outStat) : ctx.money.mulRatio(out.monthly, 12, 1, "conv.exact");
           if (outMonthly !== null) {
             for (let k = 0; k < years; k++) {
+              if (leave.has(k)) continue;
               const parts = ctx.money.allocate(grown(outMonthly, fy0 + k), Array.from({ length: 12 }, () => 1), "conv.expense.share", "first");
               for (let i = 0; i < 12; i++) push(addMonths(start, 12 * k + i), "cf.expense.education.outOfSchool", parts[i] as Yen, "education.cost.outOfSchool");
             }
@@ -221,6 +262,7 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
           const admissionMonth = addMonths(start, sector === "private" ? -2 : -1);
           push(admissionMonth, "cf.expense.education.entrance", grown(admission, fy0), "education.cost.entrance");
           for (let k = 0; k < years; k++) {
+            if (leave.has(k)) continue;
             const fy = fy0 + k;
             const annual = grown(tuition, fy);
             const halves = ctx.money.allocate(annual, [1, 1], "conv.expense.share", "first");
@@ -240,11 +282,24 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
           const initial = st.boarding?.initial ?? statOr0(`${S}.boarding.initial`);
           push(addMonths(start, -1), "cf.expense.education.boarding", grown(initial, fy0), "education.cost.boardingInitial");
           for (let k = 0; k < years; k++) {
+            if (leave.has(k)) continue;
             const parts = ctx.money.allocate(grown(annual, fy0 + k), Array.from({ length: 12 }, () => 1), "conv.expense.share", "first");
             for (let i = 0; i < 12; i++) push(addMonths(start, 12 * k + i), "cf.expense.education.boarding", parts[i] as Yen, "education.cost.boarding");
           }
         }
         enrollments.push({ stage: st.stage, sector, living, from: formatYm(start), years, scienceAgriculture: st.scienceAgriculture === true, fees });
+      }
+      // 留学（改訂6。0088）: 在学中の段の、その学年の始まり（短期は8月）に1回の額
+      for (const a of abroad) {
+        const st = e.stages.find((x) => x.stage === a.stage);
+        if (st === undefined || a.amount <= 0) continue;
+        const start = addMonths(ctx.time.ageSwitch(child, { years: START_AGE[st.stage] }, "schoolYear"), 12 * ((st.delayYears ?? 0) + (shiftOf.get(st.stage) ?? 0)));
+        const m = addMonths(start, 12 * yearIndex(st.stage, a.grade, a.kind === "leave") + (a.kind === "short" ? 4 : 0));
+        if (a.onContingency?.mode === "stop") {
+          const ev = householdEvent();
+          if (ev !== null && ev.kind === "death" && m > monthIndex(Number(ev.month.slice(0, 4)), Number(ev.month.slice(5, 7)))) continue;
+        }
+        push(m, "cf.expense.education", grown(a.amount, yearOf(m)), "education.cost.abroad");
       }
       // 塾・習い事（統計の平均で入れるときは数えない。0062）
       for (const l of mode === "statistics" ? [] : (e.lessons ?? [])) {

@@ -159,11 +159,14 @@ export function alignEducationToAge(h: Household, childId: string, baseMonth: st
 export function schoolEndAge(h: Household, childId: string): number | null {
   const g = educationGoalOf(h, childId);
   const stages = (g?.education?.stages ?? []).filter((s) => s.stage !== "nursery");
+  // 休学して1年の留学（0088）は、その段と後の段の終わりを1年ずつうしろにする
+  const leaves = (g?.education?.abroad ?? []).filter((a) => a.kind === "leave");
   let end: number | null = null;
   for (const s of stages) {
     const start = STAGE_START_AGE[s.stage];
     if (start === undefined) continue;
-    const age = start + (s.delayYears ?? 0) + stageYears(s);
+    const shift = leaves.filter((a) => (STAGE_START_AGE[a.stage] ?? 99) <= start && stages.some((x) => x.stage === a.stage)).length;
+    const age = start + (s.delayYears ?? 0) + stageYears(s) + shift;
     if (end === null || age > end) end = age;
   }
   return end;

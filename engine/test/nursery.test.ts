@@ -275,3 +275,53 @@ describe("保育料とは別にかかるお金・段ごとの給食費・部活�
     expect(tuition(ov, 2031, "juniorHigh")).toBe(250000);
   });
 });
+
+describe("留学（education.cost 改訂6。0088）", () => {
+  // 2010年6月生まれ: 高校 2026年4月〜2029年3月、大学 2029年4月〜2033年3月
+  const H = { name: "h", birth: "2010-06" };
+  const run = (req: Req) => runEngine(req, fictionalPacks(), { checkInternal: true, entry: { component: "education.cost", input: { member: uid("h") } } }).entryOutput as EducationCostOutput;
+  const flowsOf = (o: EducationCostOutput, formula: string) => (o.flows as unknown as Flow[]).filter((f) => f.formula === formula);
+  const stages = [{ stage: "highSchool", sector: "public" }, { stage: "university", sector: "national" }];
+  const withAbroad = (abroad: Obj[]) => {
+    const req = mk([{ ...H, stages }], { baseMonth: "2026-04", endYear: 2036 });
+    ((((req.input as unknown as Obj).household as Obj).goals as Obj[])[0]!.education as Obj).abroad = abroad;
+    return req;
+  };
+
+  it("単位が認められる1年（延びない）: 大学3年の4月に1回の額。学費・在学の期間は変わらない", () => {
+    const base = run(withAbroad([]));
+    const o = run(withAbroad([{ stage: "university", grade: 3, kind: "credit", amount: 2000000 }]));
+    const a = flowsOf(o, "education.cost.abroad");
+    expect(a.map((f) => [f.ym, f.row])).toEqual([["2031-04", "cf.expense.education"]]);
+    expect(flowsOf(o, "education.cost.tuition")).toEqual(flowsOf(base, "education.cost.tuition"));
+  });
+
+  it("短期は8月。休学して1年（延びる）: その年の学費はかからず、後の学年・卒業が1年うしろ", () => {
+    const short = run(withAbroad([{ stage: "university", grade: 2, kind: "short", amount: 500000 }]));
+    expect(flowsOf(short, "education.cost.abroad").map((f) => f.ym)).toEqual(["2030-08"]);
+    const o = run(withAbroad([{ stage: "university", grade: 3, kind: "leave", amount: 2500000 }]));
+    expect(flowsOf(o, "education.cost.abroad").map((f) => f.ym)).toEqual(["2031-04"]);
+    const tuitionYm = flowsOf(o, "education.cost.tuition").map((f) => f.ym);
+    expect(tuitionYm.some((ym) => ym.startsWith("2031"))).toBe(false);
+    expect(tuitionYm.at(-1)).toBe("2033-10");
+    const uni = o.enrollments.find((x) => x.stage === "university")!;
+    expect(uni.years).toBe(5);
+    expect(uni.fees.map((f) => f.fiscalYear)).toEqual([2029, 2030, 2032, 2033]);
+  });
+
+  it("万一のときの扱いが「やめる」なら、世帯の万一の想定の月より後の留学は払わない（続けるなら払う）", () => {
+    const req = (mode: "stop" | "continue") => {
+      const r = withAbroad([{ stage: "university", grade: 3, kind: "credit", amount: 2000000, onContingency: { mode } }]);
+      (r.input as unknown as Obj).contingencies = [{ id: uid("cg"), member: uid("a"), kind: "death", occurs: at("2030-06") }];
+      return r;
+    };
+    expect(flowsOf(run(req("stop")), "education.cost.abroad")).toEqual([]);
+    expect(flowsOf(run(req("continue")), "education.cost.abroad").length).toBe(1);
+  });
+
+  it("高校で休学して1年留学すると、大学の入学も1年うしろ", () => {
+    const o = run(withAbroad([{ stage: "highSchool", grade: 2, kind: "leave", amount: 2000000 }]));
+    expect(flowsOf(o, "education.cost.abroad").map((f) => f.ym)).toEqual(["2027-04"]);
+    expect(o.enrollments.find((x) => x.stage === "university")?.from).toBe("2030-04");
+  });
+});

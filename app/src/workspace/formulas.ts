@@ -22,6 +22,7 @@ export const FORMULA_LABELS: Readonly<Record<string, { label: string; text: stri
   },
   "education.nurseryFee.input": { label: "保育料", text: "保育料 ＝ 入力した月額 × 教育費の上昇率での延ばし（3歳になった後の4月からは0円）" },
   "education.nurseryFee.extra": { label: "保育料とは別にかかるお金", text: "保育料とは別にかかるお金 ＝ 教材・被服・保護者会・遠足・通園などの年額（入力か統計の目安）÷ 12 × 教育費の上昇率での延ばし（3歳になった後の4月の前の月まで）" },
+  "education.cost.abroad": { label: "留学", text: "留学 ＝ 1回の額（今の値段）× 教育費の上昇率での延ばし（その学年の4月。短期は8月）" },
   "education.cost.school": { label: "学校の費用", text: "学校の費用 ＝ 学習費総額 − 学校外活動費（子供の学習費調査の平均。部活動などの費用を入れた段は教科外活動費をその額に入れ替える。教育費の上昇率で延ばす）" },
   "education.cost.outOfSchool": { label: "学校外活動費", text: "学校外活動費 ＝ 子供の学習費調査の平均（塾・習い事など。教育費の上昇率で延ばす）" },
   "education.cost.schoolLunchRelief": {
