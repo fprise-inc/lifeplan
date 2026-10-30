@@ -63,3 +63,16 @@ describe("子の年齢を直すと、学校の段が年齢に合わせて変わ�
     expect(stages(wh)).toEqual(["elementary:public", "juniorHigh:public", "highSchool:public", "university:private"]);
   });
 });
+
+describe("段を足すボタンも年齢に合わせる", () => {
+  it("終わった段（14歳の子の保育園・幼稚園・小学校）のボタンは出さず、年下にすると出る", () => {
+    let wh = setBirth(fresh(), "2012-05");
+    const labels = () => buildStage("education", wh).sections.flatMap((s) => s.groups.flatMap((g) => g.actions)).filter((a) => a.key.includes("/addStage/")).map((a) => a.key.split("/").at(-1));
+    expect(labels()).not.toContain("nursery");
+    expect(labels()).not.toContain("kindergarten");
+    expect(labels()).not.toContain("elementary");
+    wh = withRefreshedEstimates(fieldOf(wh, "education", "/preset").set(wh, "allPrivate"));
+    wh = setBirth(wh, "2025-05");
+    expect(labels()).toContain("nursery");
+  });
+});
