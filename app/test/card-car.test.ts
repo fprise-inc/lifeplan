@@ -176,7 +176,7 @@ describe("今返している自動車ローン・一生の費用・カードの�
     expect(sec(wh).groups.some((g) => g.key === `housing/debt/${d.id}`)).toBe(true);
     const housing = itemStage(wh, "housing") as StageDef;
     expect(housing.sections.flatMap((s) => s.groups).some((g) => g.key === `housing/debt/${d.id}`)).toBe(false);
-    expect(allFields(housing).find((f) => f.key === "ro/housing/carLoans")?.readOnly).toBe("車の項目で入れます");
+    expect(allFields(housing).find((f) => f.key === "ro/housing/carLoans")?.readOnly).toBe("この欄はここでは変えられません。「車」の項目で入れます");
     // 車が無くても、ローンがあれば車のカードは物がある
     expect(buildStage("car", wh).sections[0]!.groups).toEqual([]);
   });

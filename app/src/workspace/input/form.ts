@@ -191,6 +191,11 @@ export interface GroupDef {
    * before の欄の前か after の欄の後に置き、どちらも見えていなければ欄の並びの最後に置く。見せ方だけで、欄の一覧（allFields）・確かめの一覧は今のまま
    */
   placeIn?: { group: string; before?: string; after?: string };
+  /**
+   * 説明の欄（readLines.ts の infoNote）。欄の代わりに、見出し（左に ⓘ・折りたためる）と説明の文を幅いっぱいに出す。
+   * fold は折りたたみを覚えるキー。値を持たないので、欄の一覧（allFields）には何も入らない
+   */
+  info?: { title: string; text: string; fold: string };
 }
 
 /** まとまりをその入れ方で出すか（標準は標準のまとまりだけ、詳細は標準だけのまとまりを除く全部） */

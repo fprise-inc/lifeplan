@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 import type { Debt, PreviewResult, Residence } from "../src/engine/types.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
+import { rejectReason } from "../src/workspace/input/FieldViews.tsx";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withProvisionalHousing } from "../src/workspace/input/housingCredit.ts";
 import { fittedRateText, monthlyPayment, monthsFromPayment, principalFromPayment, rateFromPayment } from "../src/workspace/input/loanMath.ts";
@@ -159,6 +160,17 @@ describe("購入の予定と住宅資金の援助", () => {
     wh = set(wh, "/purchase/down", 8000000);
     wh = set(wh, "/purchase/price", 60000000);
     expect(residencesOf(wh).find((r) => r.purchase !== undefined)!.purchase).toMatchObject({ downPayment: 8000000, costs: 3000000 });
+  });
+
+  it("頭金・諸費用は空にできない（計算エンジンの入力で必須。空にすると欄が消えて計算が止まっていた）。0 なら計算できる", () => {
+    const wh = action(salaried(), "housing/addPurchase");
+    for (const suffix of ["/purchase/down", "/purchase/costs"]) {
+      const f = fieldOf(wh, suffix);
+      expect(f.optional).not.toBe(true);
+      expect(rejectReason(f, "")).not.toBeNull();
+      const zero = set(wh, suffix, 0);
+      expect(() => preview(zero.request)).not.toThrow();
+    }
   });
 
   it("援助の額は目安を作らず未入力（0円で計算中）。入れると確定", () => {

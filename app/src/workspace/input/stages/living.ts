@@ -591,7 +591,7 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
       help: "選ばないときは、亡くなったときだけ、遺族の生活費の割合（万一のタブで決めます）で減らします。障害・働けないときは変えません。選ぶと、遺族の生活費の割合の代わりに、その扱いにします",
     }).map((f) => withAddress(survivorDefault(f), addr(l.id, onItem))),
     ...onContingencyDetailFields({ key: `${key}/on`, item: onItem, find, path: ["onContingency"], on: l.onContingency, level: "detail" }).map((f) => withAddress(f, addr(l.id, onItem))),
-    { ...readLine(`living/${l.id}/survivor`, "万一（死亡）のときの遺族の生活費", survivorText(wh), "万一のタブ"), level: "detail" },
+    { ...readLine(`living/${l.id}/survivor`, "万一（死亡）のときの遺族の生活費", survivorText(wh), "万一のとき", "tab"), level: "detail" },
   );
   const stages = l.stages ?? [];
   const autoCount = stages.filter((s) => s.id !== undefined && isAutoStage(l, s.id)).length;
