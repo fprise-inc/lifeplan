@@ -403,7 +403,15 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
     const at = approvalTime();
     const r = addImport(log, reading.out, { id: newId(), account: reading.account, at, period: reading.period });
     if (!r.ok) {
-      setMsg(r.reason === "duplicate" ? "このファイルはもう取り込んでいます（同じファイルは2回取り込みません）" : r.reason === "period" ? "期間を確かめてください" : "取り込める行がありません。列の対応付けを確かめてください");
+      setMsg(
+        r.reason === "duplicate"
+          ? "このファイルはもう取り込んでいます（同じファイルは2回取り込みません）"
+          : r.reason === "period"
+            ? "期間を確かめてください"
+            : r.reason === "tooMany"
+              ? "明細の行が多すぎるため取り込みませんでした（1つの世帯で5万行まで）。使わない明細を外してから取り込んでください"
+              : "取り込める行がありません。列の対応付けを確かめてください",
+      );
       return;
     }
     onLog(r.log);

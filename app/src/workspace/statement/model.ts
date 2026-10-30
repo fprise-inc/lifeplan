@@ -21,6 +21,7 @@ import {
   learnFromDecisions,
   looseKey,
   maskText,
+  MAX_ROWS_PER_HOUSEHOLD,
   memberStyles,
   parseShare,
   planMarkSheet,
@@ -179,14 +180,18 @@ export function formatToLearn(out: ReadOk, kind: SourceKind, at: string): Learne
   return { fingerprint: out.fingerprint, kind, mapping: out.mapping, at };
 }
 
-export type AddImportResult = { ok: true; log: StatementLog; rows: number } | { ok: false; reason: "duplicate" | "noRows" | "period" };
+export type AddImportResult = { ok: true; log: StatementLog; rows: number } | { ok: false; reason: "duplicate" | "noRows" | "period" | "tooMany" };
 
-/** 読んだ明細を取り込む（同じファイルは2回取り込まない） */
+/**
+ * 読んだ明細を取り込む（同じファイルは2回取り込まない）。1つの世帯の行の上限（すべての取り込みの合計）を超えるなら取り込まない
+ * （開き直したときの読み込みが、上限を超えた分の取り込みを丸ごと捨てるため）
+ */
 export function addImport(log: StatementLog, out: ReadOk, o: { id: string; account: string; at: string; period?: { from: string; to: string } }): AddImportResult {
   if (out.rows.length === 0) return { ok: false, reason: "noRows" };
   if (o.period !== undefined && periodProblem(o.period) !== null) return { ok: false, reason: "period" };
   const imp = createImport(log, out, o);
   if (imp === null) return { ok: false, reason: "duplicate" };
+  if (log.imports.reduce((n, i) => n + i.rows.length, 0) + imp.rows.length > MAX_ROWS_PER_HOUSEHOLD) return { ok: false, reason: "tooMany" };
   return { ok: true, log: { ...log, imports: [...log.imports, imp] }, rows: imp.rows.length };
 }
 

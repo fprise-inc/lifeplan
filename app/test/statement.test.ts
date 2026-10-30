@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { SHEET_HEADER_ROW, type StatementCandidate } from "../../statement/src/index.ts";
+import { MAX_ROWS_PER_HOUSEHOLD, readLog, SHEET_HEADER_ROW, type StatementCandidate } from "../../statement/src/index.ts";
 import { approvalTime } from "../src/workspace/hearing/sheet.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
@@ -123,6 +123,23 @@ describe("明細を読んで取り込む", () => {
     // 覚えた形で読むと、確かめなくてよい
     const learned = await readFile(file("card-year-utf8bom.csv"), "card", [f!]);
     expect(learned.ok && learned.mappingSource === "learned" && !learned.needsMapping).toBe(true);
+  });
+
+  it("1つの世帯の行の上限を超える明細は取り込まない（開き直したときに取り込みが丸ごと消えないように）", async () => {
+    const out = await readOk("card-year-utf8bom.csv", "card");
+    const big = (k: number, rows: number): ReadOk => ({ ...out, file: { sha256: `sha256:${String(k).repeat(64)}`, bytes: 1 }, rows: Array.from({ length: rows }, (_, i) => ({ ...out.rows[0]!, line: i + 2 })) });
+    let log = addAccount(logOf(household()), { kind: "card", label: "カード", owner: null }, "acc");
+    for (const k of [1, 2]) {
+      const r = addImport(log, big(k, 20000), { id: seq(), account: "acc", at: AT });
+      if (!r.ok) throw new Error(r.reason);
+      log = r.log;
+    }
+    expect(addImport(log, big(3, 20000), { id: seq(), account: "acc", at: AT })).toEqual({ ok: false, reason: "tooMany" });
+    const fits = addImport(log, big(4, MAX_ROWS_PER_HOUSEHOLD - 40000), { id: seq(), account: "acc", at: AT });
+    expect(fits.ok).toBe(true);
+    if (!fits.ok) return;
+    // 上限ちょうどまでは、開き直しても全部の取り込みが残る
+    expect(readLog(JSON.parse(JSON.stringify(fits.log))).imports.map((i) => i.rows.length)).toEqual([20000, 20000, MAX_ROWS_PER_HOUSEHOLD - 40000]);
   });
 
   it("元のファイル・ファイル名は世帯に残らない（指紋と大きさだけ）", async () => {
