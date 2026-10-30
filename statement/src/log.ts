@@ -16,6 +16,21 @@ import type { PaymentPlan } from "./text/values.ts";
 export const STATEMENT_LOG_VERSION = 1;
 /** 1つの世帯に持つ行の上限（すべての取り込みの合計） */
 export const MAX_ROWS_PER_HOUSEHOLD = 50000;
+/** 1行に持つ文字の長さの上限（店の名前・メモ・家計簿アプリの分類）。読み込み（readRow）も同じ上限で確かめる */
+const MAX_MERCHANT = 200;
+const MAX_MEMO = 200;
+const MAX_SOURCE_CATEGORY = 60;
+
+/** 文字の数（UTF-16 の長さ）を上限までに切る（サロゲートペアの途中では切らない） */
+function cut(s: string, max: number): string {
+  if (s.length <= max) return s;
+  let out = "";
+  for (const ch of s) {
+    if (out.length + ch.length > max) break;
+    out += ch;
+  }
+  return out;
+}
 
 /** 明細の持ち主の口座・カード（FP が付けた呼び名。カード番号・口座番号は書かない） */
 export interface StatementAccount {
@@ -157,7 +172,18 @@ export const emptyLog = (): StatementLog => ({ version: STATEMENT_LOG_VERSION, a
 /** 読んだ結果から取り込みの記録を作る（同じファイルをもう取り込んでいれば null） */
 export function createImport(log: StatementLog, out: Extract<ReadOutcome, { ok: true }>, o: { id: string; account: string; at: string; period?: { from: string; to: string } }): StatementImport | null {
   if (log.imports.some((i) => i.file.sha256 === out.file.sha256)) return null;
-  const rows: StatementRow[] = out.rows.map((r) => ({ ...r, id: `r${r.line}`, key: merchantKey(r.merchant) }));
+  // 長い欄は保存の上限で切る（切らずに持つと、開き直したときの読み込みで行ごと・欄ごと捨てられるため）。店の鍵は切った後の名前から作る（読み込みと同じ）
+  const rows: StatementRow[] = out.rows.map((r) => {
+    const merchant = cut(r.merchant, MAX_MERCHANT);
+    return {
+      ...r,
+      merchant,
+      ...(r.memo !== undefined ? { memo: cut(r.memo, MAX_MEMO) } : {}),
+      ...(r.sourceCategory !== undefined ? { sourceCategory: cut(r.sourceCategory, MAX_SOURCE_CATEGORY) } : {}),
+      id: `r${r.line}`,
+      key: merchantKey(merchant),
+    };
+  });
   // 同じ行の番号が2つ出たとき（PDF の複数ページなど）は番号を付け直す
   const seen = new Set<string>();
   const fixed = rows.map((r, i) => {
@@ -193,7 +219,7 @@ function readPlan(v: unknown): PaymentPlan | undefined {
 }
 
 function readRow(v: unknown): StatementRow | null {
-  if (!isObj(v) || !str(v.id, 40) || !Number.isInteger(v.line) || !str(v.date) || !DATE.test(v.date) || !str(v.merchant, 200) || !Number.isSafeInteger(v.amount)) return null;
+  if (!isObj(v) || !str(v.id, 40) || !Number.isInteger(v.line) || !str(v.date) || !DATE.test(v.date) || !str(v.merchant, MAX_MERCHANT) || !Number.isSafeInteger(v.amount)) return null;
   const plan = readPlan(v.plan);
   return {
     id: v.id,
@@ -207,9 +233,9 @@ function readRow(v: unknown): StatementRow | null {
     ...(Number.isSafeInteger(v.payAmount) ? { payAmount: v.payAmount as number } : {}),
     ...(plan !== undefined ? { plan } : {}),
     ...(v.cardUser === "self" || v.cardUser === "family" ? { cardUser: v.cardUser } : {}),
-    ...(str(v.sourceCategory, 60) ? { sourceCategory: v.sourceCategory } : {}),
+    ...(str(v.sourceCategory, MAX_SOURCE_CATEGORY) ? { sourceCategory: v.sourceCategory } : {}),
     ...(v.transfer === true ? { transfer: true as const } : {}),
-    ...(str(v.memo, 200) ? { memo: v.memo } : {}),
+    ...(str(v.memo, MAX_MEMO) ? { memo: v.memo } : {}),
     ...(v.yearGuessed === true ? { yearGuessed: true as const } : {}),
     ...(str(v.owner, 64) ? { owner: v.owner } : {}),
     ...(isCategory(v.category) ? { category: v.category } : {}),
