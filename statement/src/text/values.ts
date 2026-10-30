@@ -91,18 +91,18 @@ export function parseDate(raw: string, yearHint?: number): DateResult | null {
   return null;
 }
 
-/** 年月を YYYY-MM に（支払月の欄。「2026年11月」「2026/11」「202611」「11月」＋年の手がかり） */
+/** 年月を YYYY-MM に（支払月・支払日の欄。「2026年11月」「2026年11月27日」「2026/11」「202611」「26/11/27」「11月」＋年の手がかり） */
 export function parseYearMonth(raw: string, yearHint?: number): string | null {
   const s = nfkc(raw).replace(/\s+/g, "").replace(/(?:支払|払い|分|請求)+$/u, "");
   if (s === "") return null;
-  let m = /^(\d{4})[/.\-年](\d{1,2})月?(?:[/.-]\d{1,2}日?)?$/u.exec(s);
+  let m = /^(\d{4})[/.\-年](\d{1,2})(?:月(?:\d{1,2}日?)?|[/.-]\d{1,2}日?)?$/u.exec(s);
   if (m === null) m = /^((?:19|20)\d{2})(\d{2})(?:\d{2})?$/u.exec(s);
   if (m !== null) {
     const y = Number(m[1]);
     const mo = Number(m[2]);
     return y >= 1990 && y <= 2100 && mo >= 1 && mo <= 12 ? `${y}-${pad(mo)}` : null;
   }
-  m = /^(\d{2})[/.-](\d{1,2})$/u.exec(s);
+  m = /^(\d{2})[/.-](\d{1,2})(?:[/.-]\d{1,2})?$/u.exec(s);
   if (m !== null) {
     const mo = Number(m[2]);
     return mo >= 1 && mo <= 12 ? `${2000 + Number(m[1])}-${pad(mo)}` : null;
