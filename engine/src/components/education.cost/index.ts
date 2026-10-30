@@ -17,6 +17,10 @@
 // - 改訂4（0062）: 学校外の費用の入れ方（outOfSchoolMode）。statistics は段の学校外活動費だけを数え、塾・習い事の行は数えない（行は残す）。
 //   rows は塾・習い事の行だけを数え、段の学校外活動費（統計の平均・月額）は数えない（統計の平均は塾・習い事を含むので、行と二重にしない）。
 //   省略は前の形（段の学校外活動費に行を足す）
+// - 改訂5（0062 の追記 2026-10-30）: 段ごとの給食費の選び方（段の schoolLunch。省略は教育の目標の schoolLunch）。
+//   部活動などの費用（段の clubAnnual。幼〜高）: 統計の平均で計算する段は、学校の費用から統計の教科外活動費（education.statistics.<段>.<公私>.extracurricular。
+//   クラブ活動・部活動・学芸会・運動会など）を引いて入れた額を足す（部活動の費用は学校教育費の教科外活動費に含まれるので、二重にしない）。
+//   学校の年額を直接入れた段は、その年額に足す
 // - 自宅外の生活費（boarding）: 仕送り（月額。省略は統計の年額÷12）を在学中毎月、初期費用（省略は統計）を入学の前の3月に
 // - 貸与の奨学金（scholarships）: 在学中に受け取り（cf.income.other.scholarship）、返済は debt.schedule（返す人は既定で子。返済の始まりの
 //   既定は受け取りの終わりの7か月後）。教育ローン（loans）は借りる月に受け取り、翌月から返す
@@ -54,6 +58,7 @@ const LUNCH_STAGES: ReadonlySet<SchoolStage> = new Set(["elementary", "juniorHig
 const PARAMS = [
   ...[...K12].flatMap((s) => K12_SECTORS.flatMap((x) => [`${S}.${s}.${x}.total`, `${S}.${s}.${x}.outOfSchool`])),
   ...[...LUNCH_STAGES].map((s) => `${S}.${s}.public.schoolLunch`),
+  ...[...K12].flatMap((s) => K12_SECTORS.map((x) => `${S}.${s}.${x}.extracurricular`)),
   LUNCH_MONTHLY,
   LUNCH_MONTHS,
   ...FIELDS.flatMap((f) => ["tuition", "admission", "facility"].map((i) => `${S}.university.private.${f}.${i}`)),
@@ -68,7 +73,7 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
   id: "education.cost",
   title: "教育費",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: { "debt.schedule": ">=1 <2" },
   params: PARAMS,
   reads: ["goal.kind", "goal.owner", "goal.education", "member.kind", "relation.type", "relation.parent", "relation.child", "assumptions.inflation", "assumptions.educationInflation"],
@@ -113,13 +118,13 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
     for (const g of ctx.list<GoalInput>("goal")) {
       if (g.kind !== "education" || g.education === undefined || g.owner !== child) continue;
       const e: EducationGoalInput = g.education;
-      const lunchChoice = e.schoolLunch;
       const mode = e.outOfSchoolMode;
       const push = (m: MonthIndex, row: string, amount: Yen, formula: string, member: string = child) => {
         if (amount > 0 && m >= base && m <= end) flows.push({ row, ym: formatYm(m), amount, accrualYear: yearOf(m), member, object: g.id, formula });
       };
       for (const st of e.stages) {
         const sector = st.sector ?? "public";
+        const lunchChoice = st.schoolLunch ?? e.schoolLunch;
         const living = st.living ?? "home";
         // 保育所は education.nurseryFee（0029）
         if (st.stage === "nursery") continue;
@@ -156,7 +161,10 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
           const sec = sector === "private" ? "private" : "public";
           const total = statOr0(`${S}.${st.stage}.${sec}.total`);
           const outStat = stat(`${S}.${st.stage}.${sec}.outOfSchool`);
-          const schoolCost = st.annualOverride ?? (outStat === null ? total : yen(total - outStat));
+          // 部活動などの費用（改訂5）: 統計の平均の段は統計の教科外活動費と入れ替え、年額を入れた段はその年額に足す
+          const extra = st.clubAnnual === undefined || st.annualOverride !== undefined ? null : (stat(`${S}.${st.stage}.${sec}.extracurricular`) ?? yen(0));
+          const base0 = st.annualOverride ?? (outStat === null ? total : yen(total - outStat));
+          const schoolCost = st.clubAnnual === undefined ? base0 : yen(Math.max(0, base0 - (extra ?? 0)) + st.clubAnnual);
           // 学校給食費の負担軽減（公立の小学校・中学校。学校の年額を直接入れた段は引かない）
           const lunchStat = sec === "public" && LUNCH_STAGES.has(st.stage) && st.annualOverride === undefined ? stat(`${S}.${st.stage}.public.schoolLunch`) : null;
           const lunchOff = (fy: number): Yen => {

@@ -2365,7 +2365,10 @@
                       "initial": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
                     }
                   },
-                  "scienceAgriculture": { "type": "boolean", "description": "理工農系（修学支援の第IV区分の対象）" }
+                  "scienceAgriculture": { "type": "boolean", "description": "理工農系（修学支援の第IV区分の対象）" },
+                  "schoolLunch": { "description": "段ごとの給食費の選び方（公立の小学校・中学校。free は自治体が無償化、paid は全額を払う。省略は教育の目標の schoolLunch）", "enum": ["free", "paid"] },
+                  "clubAnnual": { "description": "部活動などの費用の年額（幼〜高。統計の平均の段は統計の教科外活動費と入れ替え、学校の年額を入れた段はその年額に足す。計算基準年の価格）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "extraAnnual": { "description": "保育所の段の、保育料とは別にかかるお金（教材・被服・保護者会・行事・通園など）の年額（省略は統計の目安。計算基準年の価格）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
                 }
               }
             },

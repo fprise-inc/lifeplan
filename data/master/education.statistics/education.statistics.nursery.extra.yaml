@@ -1,0 +1,24 @@
+id: education.statistics.nursery.extra
+title: 保育所の保育料とは別にかかるお金の年額の目安（実費徴収。3歳以上児の主食費を除く）
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2011-04-01"
+    appliesTo: null
+    enforcedOn: "2013-02-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 8843
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/list/dl/163-1a.pdf", "retrievedAt": "2026-10-30", "sha256": "8ba5e05924e834a64cea0be29869fc3c341fc2037e43f039ccf81a532e8683d4", "locator": "幼稚園・保育所等の経営実態調査結果（収支状況等）（文部科学省・厚生労働省。平成25年2月調査、実費徴収は平成23年度の状況）p.39「（３）実費徴収の状況」＜保育所＞ イ 通園費", "quote": "1,543か所 6.7% 17,540円"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/list/dl/163-1a.pdf", "retrievedAt": "2026-10-30", "sha256": "8ba5e05924e834a64cea0be29869fc3c341fc2037e43f039ccf81a532e8683d4", "locator": "幼稚園・保育所等の経営実態調査結果（収支状況等）（文部科学省・厚生労働省。平成25年2月調査、実費徴収は平成23年度の状況）p.39「（３）実費徴収の状況」＜保育所＞ ウ 遠足等の園外活動費", "quote": "8,746か所 38.1% 1,886円"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/list/dl/163-1a.pdf", "retrievedAt": "2026-10-30", "sha256": "8ba5e05924e834a64cea0be29869fc3c341fc2037e43f039ccf81a532e8683d4", "locator": "幼稚園・保育所等の経営実態調査結果（収支状況等）（文部科学省・厚生労働省。平成25年2月調査、実費徴収は平成23年度の状況）p.39「（３）実費徴収の状況」＜保育所＞ エ 教材費", "quote": "9,332か所 40.6% 3,810円"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/list/dl/163-1a.pdf", "retrievedAt": "2026-10-30", "sha256": "8ba5e05924e834a64cea0be29869fc3c341fc2037e43f039ccf81a532e8683d4", "locator": "幼稚園・保育所等の経営実態調査結果（収支状況等）（文部科学省・厚生労働省。平成25年2月調査、実費徴収は平成23年度の状況）p.39「（３）実費徴収の状況」＜保育所＞ オ 被服費", "quote": "12,135か所 52.8% 4,014円"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/list/dl/163-1a.pdf", "retrievedAt": "2026-10-30", "sha256": "8ba5e05924e834a64cea0be29869fc3c341fc2037e43f039ccf81a532e8683d4", "locator": "幼稚園・保育所等の経営実態調査結果（収支状況等）（文部科学省・厚生労働省。平成25年2月調査、実費徴収は平成23年度の状況）p.39「（３）実費徴収の状況」＜保育所＞ カ 保護者会等の会費", "quote": "15,021か所 65.4% 3,876円"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/list/dl/163-1a.pdf", "retrievedAt": "2026-10-30", "sha256": "8ba5e05924e834a64cea0be29869fc3c341fc2037e43f039ccf81a532e8683d4", "locator": "幼稚園・保育所等の経営実態調査結果（収支状況等）（文部科学省・厚生労働省。平成25年2月調査、実費徴収は平成23年度の状況）p.39「（３）実費徴収の状況」＜保育所＞ キ その他", "quote": "6,683か所 29.1% 2,570円"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-30", "tools": ["PDF の本文（公表資料）", "費目ごとの実施率×1人当たり徴収額の計算し直し", "原本の指紋（sha256）"], "note": "加工した値: 保育所の実費徴収の費目（通園費・園外活動費・教材費・被服費・保護者会等の会費・その他）ごとに、実施率×実施している施設の入所児童1人当たりの徴収額（年額）を足した期待値（1,175＋719＋1,547＋2,119＋2,535＋748＝8,843円）。3歳以上児の主食費は0〜2歳の保育料に含まれるので除く。公立・私立（公営・私営）に分けた値は表に無い。平成23年度の額で、無償化の後の国の調査は見つからなかった。施行日の欄は調査の期日"}

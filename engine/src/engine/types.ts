@@ -973,6 +973,12 @@ export interface EducationStageInput {
   readonly outOfSchool?: "statistics" | "none" | { readonly monthly: Yen };
   readonly boarding?: { readonly monthly?: Yen; readonly initial?: Yen };
   readonly scienceAgriculture?: boolean;
+  /** 段ごとの給食費の選び方（公立の小学校・中学校。省略は教育の目標の schoolLunch。0062 の追記 2026-10-30） */
+  readonly schoolLunch?: "free" | "paid";
+  /** 部活動などの費用の年額（幼〜高。統計の平均の教科外活動費と入れ替える。0062 の追記 2026-10-30） */
+  readonly clubAnnual?: Yen;
+  /** 保育所の段の、保育料とは別にかかるお金の年額（省略は統計の目安。0029 の追記 2026-10-30） */
+  readonly extraAnnual?: Yen;
 }
 
 /** 学校外の費用の行の種類（塾・習い事・その他。表示と既定の名前だけ。0062） */
