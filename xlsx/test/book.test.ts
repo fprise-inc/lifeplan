@@ -75,6 +75,24 @@ describe("書き出したブックを読み戻す", () => {
     expect((await open(b)).book.definedNames.size).toBe(0);
   });
 
+  it("XML 1.0 で使えない文字（タブ・改行のほかの制御文字、U+FFFE・U+FFFF）は書き出さない（入れると表計算のソフトが開けないファイルになる）", async () => {
+    const bad = "架空\u0000の\u0001店\u0008\u000b\u000c\u001f￾￿";
+    const b = new SheetBuilder();
+    b.set(1, "A", STYLE.text, text(bad));
+    b.set(2, "A", STYLE.text, text("改行\nと\tタブ\rは残す"));
+    b.validations.push(listValidation("B1", new Lists(), ["はい"], `選んで\u0007ください`));
+    const book = writeBook({ sheets: [{ name: `記\u0002入`, xml: b.xml({ widths: [10], protect: false }) }], styles: buildStyles(), title: `題\u0003名`, application: "a", properties: [["k", `値\u0004`]], date: "2026-10-23" });
+    const files = await unzip(book);
+    // eslint-disable-next-line no-control-regex
+    const invalid = /[\u0000-\u0008\u000b\u000c\u000e-\u001f￾￿]/u;
+    for (const [name, data] of files) expect(invalid.test(utf8(data)), name).toBe(false);
+    const { book: read } = await open(book);
+    const sh = await read.sheet("記入");
+    expect(read.text(sh, "A1")).toBe("架空の店");
+    expect(read.text(sh, "A2")).toBe("改行\nと\tタブ\rは残す");
+    expect(await read.properties(PROPERTY_PREFIX, ["k"])).toEqual({ k: "値" });
+  });
+
   it("別のソフトで保存し直した形（共有文字列）も読む。数式は評価せず、結果が無いものは noValue", async () => {
     const edited = await editXlsx(sample(), (files) => {
       toSharedStrings(files);
