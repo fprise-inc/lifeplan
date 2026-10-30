@@ -46,7 +46,7 @@ import { blankHousehold, fromRequest, sampleRequest, withElementIds, type Workin
 import { InputView } from "./input/InputView.tsx";
 import { addItem, saveItem } from "./input/items.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
-import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, publishOfficeSettings, readOfficeSettings, type OfficeSettings } from "./office/settings.ts";
+import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, publishOfficeSettings, readOfficeSettings, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
 import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
 import { FpTools } from "./tools/FpTools.tsx";
 import { Insights, useInheritanceFor } from "./tools/Insights.tsx";
@@ -2210,6 +2210,19 @@ export function App() {
               computeOne={computeOne}
               level={level}
               chooseOpen={initial.choose === true}
+              {...(host !== null
+                ? {
+                    // 入力項目を選ぶの「この選び方を事務所の既定にする」（0091）: 事務所データの新しい世帯で出す入力項目と開いたときの入れ方だけを置き換える
+                    officeItems: {
+                      items: officeSettings.items,
+                      onSave: async (items) => {
+                        const next = withOfficeItems(officeSettingsRef.current, items);
+                        await host.office.putDefaults(next as unknown as Record<string, unknown>);
+                        putOfficeSettings(next);
+                      },
+                    },
+                  }
+                : {})}
               {...(cardOpen !== null ? { initialOpen: cardOpen.id } : initial.open !== undefined ? { initialOpen: initial.open } : {})}
               {...(host !== null
                 ? {

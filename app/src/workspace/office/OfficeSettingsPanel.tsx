@@ -203,7 +203,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
         </section>
         <section class="os-sec" aria-labelledby="os-items" data-office-items>
           <h3 id="os-items">新しい世帯で出す入力項目と、開いたときの入れ方</h3>
-          <p class="pl-sub">新しく作る世帯に写します（作った世帯は、入力のホームの「入力項目を選ぶ」で世帯ごとに直せます）。出さない入力項目も、値が入ればホームに出ます。</p>
+          <p class="pl-sub">新しく作る世帯に写します（作った世帯は、入力のホームの「入力項目を選ぶ」で世帯ごとに直せます。そこから、その世帯の選び方を事務所の既定にもできます）。出さない入力項目も、値が入ればホームに出ます。</p>
           <ol class="os-cards os-items">
             {order.map((id) => {
               const always = ALWAYS_SHOWN.includes(id);
@@ -226,6 +226,11 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
               );
             })}
           </ol>
+          <p class="pl-sub">
+            <button type="button" class="link-btn" onClick={() => setS({ ...s, items: {} })} data-office-items-reset>
+              標準に戻す（全部出す・全部標準で開く）
+            </button>
+          </p>
         </section>
         <section class="os-sec" aria-labelledby="os-levers" data-office-levers>
           <h3 id="os-levers">対策に最初から出す項目</h3>

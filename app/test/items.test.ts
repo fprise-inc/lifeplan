@@ -126,12 +126,12 @@ describe("物の置き場所（1つの物は1つのカードにだけ。ほか�
     }
     const workRo = allFields(itemStage(wh, "work") as StageDef).filter((f) => f.readOnly !== undefined && f.label === "退職金・企業年金");
     expect(workRo.length).toBeGreaterThan(0);
-    expect(workRo[0]!.readOnly).toBe("退職金・企業年金の項目で入れます");
+    expect(workRo[0]!.readOnly).toBe("この欄はここでは変えられません。「退職金・企業年金」の項目で入れます");
     // iDeCo の受け取り（物は貯蓄・運用の口座）
     const ideco = open("idecoPayout");
     const dc = (itemStage(ideco, "retirement") as StageDef).sections.find((s) => s.key === "retirement/dc");
     expect(dc).toBeDefined();
-    expect(dc!.groups[0]!.fields.every((f) => f.readOnly === "貯蓄・運用の項目で入れます")).toBe(true);
+    expect(dc!.groups[0]!.fields.every((f) => f.readOnly === "この欄はここでは変えられません。「貯蓄・運用」の項目で入れます")).toBe(true);
     expect(dc!.groups[0]!.fields[0]!.get(ideco).value).toMatch(/から$/);
     // 「＋ 退職金・企業年金を足す」も退職金・企業年金のカード
     const civil = open("civilServant");
@@ -146,7 +146,7 @@ describe("物の置き場所（1つの物は1つのカードにだけ。ほか�
     const parent = h0.members.find((m) => m.kind === "parent")!;
     expect(groupKeys(wh, "care")).toContain(`family/${parent.id}`);
     expect(groupKeys(wh, "family")).not.toContain(`family/${parent.id}`);
-    expect(allFields(itemStage(wh, "family") as StageDef).find((f) => f.key === "ro/family/outside")?.readOnly).toBe("介護・親の項目で入れます");
+    expect(allFields(itemStage(wh, "family") as StageDef).find((f) => f.key === "ro/family/outside")?.readOnly).toBe("この欄はここでは変えられません。「介護・親」の項目で入れます");
     for (const c of h0.careExpenses ?? []) {
       expect(groupKeys(wh, "care")).toContain(`ev/care/${c.id}`);
       expect(groupKeys(wh, "events")).not.toContain(`ev/care/${c.id}`);
@@ -163,7 +163,7 @@ describe("物の置き場所（1つの物は1つのカードにだけ。ほか�
     const lp = leave.request.input.household.employmentPeriods!.find((p) => p.type === "leave")!;
     const withCare = { ...leave, request: { ...leave.request, input: { ...leave.request.input, household: { ...leave.request.input.household, employmentPeriods: leave.request.input.household.employmentPeriods!.map((p) => (p.id === lp.id ? { ...p, leaveKind: "care" } : p)) } } } };
     const careRo = (itemStage(withCare, "care") as StageDef).sections.find((s) => s.key === "care/leaves");
-    expect(careRo?.groups[0]!.fields[0]!.readOnly).toBe("働き方と収入の項目で入れます");
+    expect(careRo?.groups[0]!.fields[0]!.readOnly).toBe("この欄はここでは変えられません。「働き方と収入」の項目で入れます");
   });
 
   it("相続・贈与: 贈与する人は家族のカードから移す。子への援助・住宅資金の援助は物を今のカードに置いたまま、読むだけで並べる", () => {
@@ -176,13 +176,13 @@ describe("物の置き場所（1つの物は1つのカードにだけ。ほか�
     const stage = itemStage(wh, "inheritance") as StageDef;
     const ro = allFields(stage).filter((f) => f.readOnly !== undefined);
     expect(ro.length).toBeGreaterThan(0);
-    expect(ro.some((f) => f.readOnly === "住まい・ローンの項目で入れます")).toBe(true);
+    expect(ro.some((f) => f.readOnly === "この欄はここでは変えられません。「住まい・ローン」の項目で入れます")).toBe(true);
     // 受け取る予定・あげる贈与のお金の行の置き場所（区画）
     expect(stage.sections.map((s) => s.key)).toEqual(expect.arrayContaining(["inherit/receive", "inherit/give", "family/donors"]));
     // 援助の物はもとのカードで入れる（読むだけの1行は書き換えない）
     for (const f of ro) expect(f.set(wh, "x")).toBe(wh);
     const edu = open("educationTwoKids");
-    expect(allFields(itemStage(edu, "inheritance") as StageDef).some((f) => f.readOnly === "子ども・教育の項目で入れます")).toBe(true);
+    expect(allFields(itemStage(edu, "inheritance") as StageDef).some((f) => f.readOnly === "この欄はここでは変えられません。「子ども・教育」の項目で入れます")).toBe(true);
   });
 
   it("介護・親（仕送り・援助）と相続・贈与（受け取る予定・あげる贈与・受け継ぐ借金）のお金の行は、それぞれのカードの区画に出す（ライフイベントには出さない）", () => {
