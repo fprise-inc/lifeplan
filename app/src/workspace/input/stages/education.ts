@@ -957,6 +957,8 @@ const ABROAD_CONTINGENCY = [
   { value: "stop", label: "やめる" },
 ];
 const ABROAD_STAGES = new Set(["highSchool", "university", "juniorCollege", "vocational"]);
+/** 見出しの短い名前 */
+const ABROAD_SHORT: Readonly<Record<string, string>> = { credit: "1年（延びない）", leave: "1年（休学で延びる）", short: "短期" };
 
 /**
  * 留学1回の額の推定（今の値段）。留学の費用の平均を出す公的な統計は見つからないので、国の留学の支援制度の支給の上限から作った目安（0088）:
@@ -1029,7 +1031,7 @@ function abroadGroups(wh: WorkingHousehold, goal: Goal): GroupDef[] {
     });
     return {
       key: k,
-      title: `留学 ${i + 1}: ${stageLabel(a.stage)}${a.grade}年生・${kindLabel.replace(/（.*）$/, "")} ${manText(a.amount)}`,
+      title: `留学 ${i + 1}: ${stageLabel(a.stage)}${a.grade}年生・${ABROAD_SHORT[a.kind] ?? kindLabel} ${manText(a.amount)}`,
       note: `${a.kind === "leave" ? "休学して留学する1年は、在籍する学校の学費・仕送りはかからず、卒業と独立が1年うしろにずれます。" : a.kind === "credit" ? "在籍する学校の学費は払い続け、卒業の時期は変わりません。" : ""}額は今の値段で入れ、教育費の上昇率で伸ばします。表の行は「教育費」で、世帯から払います`,
       level: "simple",
       fields: [
