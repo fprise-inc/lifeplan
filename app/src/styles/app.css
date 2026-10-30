@@ -415,6 +415,10 @@ html.big .lever input[type="range"] { height: 36px; }
 .ih-choose-list li, .os-items li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--line-2); font-size: 0.88rem; }
 .ih-choose-show, .os-show { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; flex-wrap: wrap; }
 .ih-choose-show small { color: var(--ink-2); font-size: 0.74rem; }
+.ih-choose-office { margin-top: 8px; padding-top: 6px; font-size: 0.84rem; }
+.ih-choose-office p { margin: 4px 0; }
+.ih-choose-state { color: var(--ink-2); }
+.ih-choose-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .level-switch.mini { border-width: 1.5px; border-radius: 6px; flex: none; }
 .level-switch.mini button { padding: 1px 9px; font-size: 0.78rem; flex: none; }
 .ih-prog-bar i { flex: 1; border-radius: 3px; border: 1.5px solid var(--prop); background: #fff; }
