@@ -247,10 +247,23 @@ interface Compiled {
   entry: ReadingEntry;
   re: RegExp;
   slots: ("object" | "member" | "id" | "n")[];
+  /** 型の頭の、ID・番号の入る所より前の文字（合う鍵は必ずこれで始まる。正規表現を試す前に絞る） */
+  head: string;
 }
 
-const compiledTables = new WeakMap<readonly ReadingEntry[], Compiled[]>();
-function table(entries: readonly ReadingEntry[]): Compiled[] {
+type Matched = { entry: ReadingEntry; object?: string; member?: string; ids: string[]; ns: number[] };
+
+/** 表ごとの、正規表現にした行と、引いた鍵の答え（表は変わらないので、同じ鍵の答えは同じ） */
+interface Table {
+  compiled: Compiled[];
+  seen: Map<string, Matched | null>;
+}
+
+/** 覚えておく鍵の数の上限（超えたら忘れて覚え直す。世帯の欄の鍵は数百） */
+const SEEN_LIMIT = 4096;
+
+const compiledTables = new WeakMap<readonly ReadingEntry[], Table>();
+function table(entries: readonly ReadingEntry[]): Table {
   const done = compiledTables.get(entries);
   if (done !== undefined) return done;
   const compiled = entries.map((entry) => {
@@ -260,18 +273,34 @@ function table(entries: readonly ReadingEntry[]): Compiled[] {
       slots.push(name as Compiled["slots"][number]);
       return name === "n" ? "(\\d+)" : `(${UUID})`;
     });
-    return { entry, re: new RegExp(`^${src}$`), slots };
+    const brace = entry.from.search(/\{(object|member|id|n)\}/);
+    return { entry, re: new RegExp(`^${src}$`), slots, head: brace < 0 ? entry.from : entry.from.slice(0, brace) };
   });
-  compiledTables.set(entries, compiled);
-  return compiled;
+  const t: Table = { compiled, seen: new Map() };
+  compiledTables.set(entries, t);
+  return t;
 }
 
-/** 鍵に合う表の行と、入っている ID・番号 */
-export function matchKey(key: string, entries: readonly ReadingEntry[] = ENTRIES): { entry: ReadingEntry; object?: string; member?: string; ids: string[]; ns: number[] } | null {
-  for (const c of table(entries)) {
+/**
+ * 鍵に合う表の行と、入っている ID・番号。同じ表で同じ鍵を引いたら、前の答え（凍らせた同じもの）を返す
+ * （入力の画面は描くたびに欄ごとに引くので、毎回すべての行の正規表現を試さない）
+ */
+export function matchKey(key: string, entries: readonly ReadingEntry[] = ENTRIES): Matched | null {
+  const t = table(entries);
+  const known = t.seen.get(key);
+  if (known !== undefined) return known;
+  const found = firstMatch(key, t.compiled);
+  if (t.seen.size >= SEEN_LIMIT) t.seen.clear();
+  t.seen.set(key, found);
+  return found;
+}
+
+function firstMatch(key: string, compiled: readonly Compiled[]): Matched | null {
+  for (const c of compiled) {
+    if (!key.startsWith(c.head)) continue;
     const m = c.re.exec(key);
     if (m === null) continue;
-    const out: { entry: ReadingEntry; object?: string; member?: string; ids: string[]; ns: number[] } = { entry: c.entry, ids: [], ns: [] };
+    const out: Matched = { entry: c.entry, ids: [], ns: [] };
     c.slots.forEach((s, i) => {
       const v = m[i + 1] as string;
       if (s === "object") out.object = v;
@@ -279,7 +308,9 @@ export function matchKey(key: string, entries: readonly ReadingEntry[] = ENTRIES
       else if (s === "id") out.ids.push(v);
       else out.ns.push(Number(v));
     });
-    return out;
+    Object.freeze(out.ids);
+    Object.freeze(out.ns);
+    return Object.freeze(out);
   }
   return null;
 }
