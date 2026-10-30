@@ -16,7 +16,7 @@ import { addMonths } from "../../levers.ts";
 import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { isSchoolLinkedLeaves, mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
 import { formatYearMonth, formatYen } from "../units.ts";
-import { EDUCATION_BASIS, educationStagesAddress, fillEducation, leavesToSchool } from "../fill.ts";
+import { EDUCATION_BASIS, educationStagesAddress, fillEducation, leavesToSchool, stageEnded } from "../fill.ts";
 import { putRow, rowAt, type StateRow } from "../rows.ts";
 import { addIncome, expenseCard, incomeCard, incomeGroups, moneySections, periodicGroups } from "../moneyRows.ts";
 import { boardingStatistic, INTERNATIONAL_MISSING, isGraduate, isHigher, isK12, isTertiary, manText, stagePeriod, stageStatistic, stageYears } from "../educationCost.ts";
@@ -1383,7 +1383,9 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
   });
   const have = new Set(stages.map((s) => s.stage));
   const tertiary = stages.find((s) => isHigher(s.stage));
-  const addActions: ActionDef[] = SCHOOL_STAGES.filter((o) => !have.has(o.value) && !(isHigher(o.value) && stages.some((s) => isHigher(s.stage))) && !(isGraduate(o.value) && tertiary === undefined)).map((o) => ({
+  // 足すボタンは、この子の年齢でこれからの段だけ（終わった段・3歳の4月を過ぎた保育園は出さない。0062 の追記 2026-10-30）
+  const upcoming = SCHOOL_STAGES.filter((o) => !stageEnded(child, { stage: o.value }, base));
+  const addActions: ActionDef[] = upcoming.filter((o) => !have.has(o.value) && !(isHigher(o.value) && stages.some((s) => isHigher(s.stage))) && !(isGraduate(o.value) && tertiary === undefined)).map((o) => ({
     key: `edu/${goal.id}/addStage/${o.value}`,
     label: `＋ ${o.label}`,
     level: o.value === "university" || o.value === "highSchool" ? "simple" : "detail",

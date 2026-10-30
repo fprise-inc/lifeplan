@@ -106,7 +106,7 @@ export function refreshEducation(h: Household, baseMonth: string): void {
 }
 
 /** 段が計算基準月の前に終わっているか（保育園は3歳になった後の最初の4月から無償なので、その月が計算基準月までに来ていれば終わり） */
-function stageEnded(child: Member, s: EducationStage, baseMonth: string): boolean {
+export function stageEnded(child: Member, s: EducationStage, baseMonth: string): boolean {
   if (s.stage === "nursery") {
     const free = nurseryFreeMonth(child);
     return free !== null && free <= baseMonth;
