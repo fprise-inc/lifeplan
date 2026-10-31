@@ -231,10 +231,10 @@ function eventRowGroups(wh: WorkingHousehold, p: PeriodicExpense): GroupDef[] {
   return [{ ...head, actions: [...more, ...head.actions] }, ...rest];
 }
 
-/** この世帯の予定（ほかのカードを含む。読むだけ） */
+/** この世帯の予定（ほかのカードを含む。読むだけ）。入る・出るが1つの一覧に混ざるので「入るお金：」「出るお金：」を名前の前に付ける */
 function scheduleSection(wh: WorkingHousehold): SectionDef {
   const items = scheduleItems(wh);
-  const lines = items.map((x, i) => readLine(`events/schedule/${i}`, yearLabel(wh, x.year), `${x.dir === "—" ? "" : `${x.dir}｜`}${x.name}${x.amount !== "" ? `（${x.amount}）` : ""}`, x.card));
+  const lines = items.map((x, i) => readLine(`events/schedule/${i}`, yearLabel(wh, x.year), `${x.dir === "—" ? "" : `${x.dir}るお金：`}${x.name}${x.amount !== "" ? `（${x.amount}）` : ""}`, x.card));
   const overlap = overlapYears(items);
   const note = [
     "ほかの項目に入れた予定も含めて、年の順に並べます（額は今の値段。くり返しは最初の年）。直すときは、それぞれの項目で",
