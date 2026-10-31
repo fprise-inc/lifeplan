@@ -18,6 +18,8 @@ export const FREE_TEXT: Readonly<Record<string, "drop" | "generic" | "keep">> = 
   // 周期的な支出（出るお金の行）・入るお金の行の見出し（FP が書いた文。決まった言葉に置き換える。0044）
   "engine.input#/$defs/periodicExpense/properties/label": "generic",
   "engine.input#/$defs/incomeFlow/properties/label": "generic",
+  // 夢のひとことメモ（なぜかなえたいか。顧客の言葉。外す。0103）
+  "engine.input#/$defs/periodicExpense/properties/dream/properties/note": "drop",
   // ローンの名前（FP が書いた文。外す。種類の細目から見せる。0052）
   "engine.input#/$defs/debt/properties/label": "drop",
   // 退職給付の名前（FP が書いた文。外す。種類から見せる。0057）
@@ -109,6 +111,8 @@ function walk(v: Json, ids: IdMap, path: readonly string[]): Json {
   if (grand === "incomeFlows" || parent === "incomeFlows") {
     if (typeof o.label === "string") o.label = GENERIC_TEXT.incomeFlow;
   }
+  // 夢のひとことメモ（なぜかなえたいか。0103）
+  if (parent === "dream" && grand === "periodicExpenses") delete o.note;
   if (parent === "transfers" || grand === "transfers") delete o.label;
   // ローンの名前
   if (parent === "debts") delete o.label;

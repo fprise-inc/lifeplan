@@ -20,6 +20,7 @@ import { onContingencyDetailFields, onContingencyFields } from "./stages/onConti
 import { stagedBadge, stagedGroups } from "./staged.ts";
 import { wareki } from "./units.ts";
 import { readYearMonth } from "./when.ts";
+import { toDream } from "./dreams.ts";
 
 type Obj = Record<string, unknown>;
 
@@ -65,6 +66,8 @@ export const OUT_KINDS: readonly { kind: MoneyOutKind; label: string; help?: str
   { kind: "livingAnnual", label: "年払い・数年おきの暮らしの支出", row: "cf.expense.living", card: "living", cadence: "repeat", amount: 100000, everyYears: 1, preset: "年払いの支出 年10万円" },
   { kind: "car", label: "車の修理・用品など", row: "cf.expense.living.car", card: "car", cadence: "repeat", amount: 50000, everyYears: 1, preset: "車の用品など 年5万円" },
   { kind: "other", label: "その他の支出", row: "cf.expense.other", card: "events", cadence: "once", amount: 100000, preset: "その他の支出 10万円" },
+  // 夢プラン（0103）: ライフイベントの入力項目の「夢プラン（やりたいこと）」の区画だけで足す（種類の選択には出さない）。額は未入力から
+  { kind: "dream", label: "夢（やりたいこと）", row: "cf.expense.lumpSum.other", card: "events", cadence: "once", amount: 0, preset: "夢 額は未入力" },
 ];
 
 /** 出るお金の行が選べる表の行（今の8種＋教育費・車の維持費。0044） */
@@ -299,7 +302,8 @@ export function expenseCard(h: Household, p: Pick<PeriodicExpense, "kind" | "cou
 export function kindsOf(card: MoneyCard): { incomes: (typeof INCOME_KINDS)[number][]; outs: (typeof OUT_KINDS)[number][] } {
   return {
     incomes: INCOME_KINDS.filter((k) => k.card === card),
-    outs: OUT_KINDS.filter((k) => k.card === card || (card === "family" && k.kind === "allowance")),
+    // 夢は夢プランの区画だけで足す（種類の選択・「＋」の一覧には出さない。0103）
+    outs: OUT_KINDS.filter((k) => k.kind !== "dream" && (k.card === card || (card === "family" && k.kind === "allowance"))),
   };
 }
 
@@ -1072,6 +1076,8 @@ export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense, card: Mo
     fields,
     actions: [
       ...(support ? supportActions(wh, "out", k, p, (h) => h.periodicExpenses) : []),
+      // 古い値の優先度「夢」（wish）の行は「できれば」で見せ、FP が夢プランへ移せる（0103。自動では移さない）
+      ...(p.priority === "wish" && p.kind !== "dream" ? [{ key: `${k}/toDream`, label: "夢にする", help: "この行を夢プラン（やりたいこと）の1件にします（名前・額・時期はそのまま）", level: "simple" as const, run: (w: WorkingHousehold) => toDream(w, p.id) }] : []),
       removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.periodicExpenses = (h.periodicExpenses ?? []).filter((x) => x.id !== p.id))),
     ],
   };

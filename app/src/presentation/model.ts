@@ -120,12 +120,16 @@ export interface GoalCard {
   ready: boolean | null;
   /** 不足のときの文（例: 「2061年から資金が不足」） */
   shortNote: string | null;
+  /** 夢プランの1件（0103）: 順位と、計算に入れているか（今の見方で）。額は amount（未入力は null） */
+  dream?: { rank: number; included: boolean };
 }
 
 export interface GoalsModel {
   needTotal: number;
   needReady: number;
   cards: GoalCard[];
+  /** 夢のひとことの要約（「夢をすべて入れても100歳まで足ります」など。夢が無い・計算中は null。0103） */
+  dreamLine: string | null;
 }
 
 /** 主画面の結論の1文（例: 「B案は100歳まで足ります」＋「A案（基準）は80歳で資産が尽きます」） */

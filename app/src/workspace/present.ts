@@ -7,6 +7,7 @@ import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
 import { ageInYear, leaveYear, roles, type Role } from "./roles.ts";
 import { DEFICIT_NOTE, deficitSources, OUTSIDE_INCOME_NOTE, outsideName } from "./resultRows.ts";
 import { resolveTimepoint } from "./timepoint.ts";
+import { dreamIncluded, dreamList, dreamSummary } from "../../../report/src/dreams.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
 /** ゆとりの支出の行（黒字のうち貯まらない分。0031） */
@@ -242,7 +243,60 @@ export function resultVerdict(names: SeriesNames, self: Role | undefined, depP: 
   return { tone: better, parts: [{ text: names.selected, strong: true }, { text: "は" }, { text: st(depP), strong: true }], sub: [{ text: `${names.base}（基準）は${st(depC)}` }] };
 }
 
-function goals(req: EngineRequest, proposed: readonly TableCell[], years: readonly number[], depP: number | null): GoalsModel {
+/**
+ * 目標の区画の夢の材料（0103）: 見方で外す前の要求（夢の並び。見方で外した夢も出す）と、夢を全部外した1回の計算の結果（まだ無ければ null）。
+ * 見方で外した後の要求（提案の要求）に残っていて「計算に入れない」でない夢を、計算に入れている夢と数える
+ */
+export interface DreamsInput {
+  raw: EngineRequest;
+  withoutDreams: PreviewResult | null;
+}
+
+/** 夢の時期の文（「2031年（ご本人60歳）」「2031〜2040年・毎年」） */
+function dreamWhen(req: EngineRequest, self: Role | undefined, p: NonNullable<EngineRequest["input"]["household"]["periodicExpenses"]>[number]): string {
+  const h = req.input.household;
+  const from = resolveTimepoint(h, p.from);
+  if (from === null) return "時期は未定";
+  const y0 = parseYm(from).y;
+  const who = (y: number) => (self !== undefined ? `（${self.label}${ageInYear(self.member, y)}歳）` : "");
+  const to = p.to == null ? null : resolveTimepoint(h, p.to);
+  if (to !== null && to === from && p.monthly !== true) return `${y0}年${who(y0)}`;
+  const every = p.monthly === true ? "毎月" : p.everyYears === 1 ? "毎年" : `${p.everyYears}年ごと`;
+  return `${y0}年${who(y0)}から${to === null ? "最後まで" : `${parseYm(to).y}年まで`}・${every}`;
+}
+
+/** 夢のカードと要約の1文 */
+function dreamGoals(req: EngineRequest, dreams: DreamsInput | undefined, years: readonly number[], depP: number | null): { cards: GoalCard[]; line: string | null } {
+  const raw = dreams?.raw ?? req;
+  const list = dreamList(raw.input.household.periodicExpenses);
+  const self = roles(raw).find((r) => r.key === "self");
+  if (list.length === 0)
+    return { cards: [{ category: "夢", priority: "できれば", title: "まだ入れていません", when: "ライフイベントの入力項目の「夢プラン（やりたいこと）」で入れます", amount: null, ready: null, shortNote: null }], line: null };
+  const inView = new Map((req.input.household.periodicExpenses ?? []).map((p) => [p.id, p]));
+  const cards: GoalCard[] = list.map((p, i) => {
+    const now = inView.get(p.id);
+    const v = p.amount.value ?? 0;
+    return {
+      category: `夢${i + 1}`,
+      priority: "できれば",
+      title: p.label !== undefined && p.label !== "" ? p.label : "夢",
+      when: dreamWhen(raw, self, p),
+      amount: v > 0 ? v : null,
+      ready: null,
+      shortNote: null,
+      dream: { rank: i + 1, included: now !== undefined && dreamIncluded(now) },
+    };
+  });
+  const included = cards.filter((c) => c.dream?.included === true).length;
+  const last = years.at(-1) ?? req.input.endYear;
+  const until = self !== undefined ? `${ageInYear(self.member, last)}歳まで` : "最後まで";
+  const ageText = (y: number) => (self !== undefined ? `${ageInYear(self.member, y)}歳` : `${y}年`);
+  const withoutYear = included === 0 ? depP : dreams?.withoutDreams == null ? undefined : depletionYear(dreams.withoutDreams.table, years);
+  const line = withoutYear === undefined ? null : dreamSummary({ total: cards.length, included, withYear: depP, withoutYear, ageText, until });
+  return { cards, line };
+}
+
+function goals(req: EngineRequest, proposed: readonly TableCell[], years: readonly number[], depP: number | null, dreams?: DreamsInput): GoalsModel {
   const rs = roles(req);
   const h = req.input.household;
   const self = rs.find((r) => r.key === "self");
@@ -288,13 +342,16 @@ function goals(req: EngineRequest, proposed: readonly TableCell[], years: readon
   const last = years.at(-1) ?? req.input.endYear;
   cards.push({ category: "退職", priority: "必ず", title: "老後の生活資金", when: self !== undefined ? `${self.label}${ageInYear(self.member, last)}歳まで` : `${last}年まで`, amount: null, ...status(last) });
   for (const p of h.periodicExpenses ?? []) {
+    if (p.kind === "dream") continue;
     const amount = p.amount.value ?? 0;
     const to = resolveTimepoint(h, p.to) ?? undefined;
     cards.push({ category: "その他", priority: "できれば", title: ROW_LABELS[p.row] === undefined || p.row === "cf.expense.lumpSum.other" ? "定期的な支出（旅行など）" : (ROW_LABELS[p.row] as string), when: `${p.everyYears}年ごとに ${man(amount)}万円`, amount: null, ...status(to !== undefined ? parseYm(to).y : last) });
   }
-  cards.push({ category: "やりたいこと", priority: "できれば", title: "まだ入れていません", when: "例: 夫婦で海外旅行、車の買い替え", amount: null, ready: null, shortNote: null });
+  // 夢プランの夢（0103。前の「やりたいこと」の仮のカードの代わり。夢が無ければ入れる所を案内する1枚）
+  const d = dreamGoals(req, dreams, years, depP);
+  cards.push(...d.cards);
   const need = cards.filter((c) => c.priority === "必ず");
-  return { needTotal: need.length, needReady: need.filter((c) => c.ready === true).length, cards };
+  return { needTotal: need.length, needReady: need.filter((c) => c.ready === true).length, cards, dreamLine: d.line };
 }
 
 /** FP顧問料の ON/OFF の材料（顧問料の契約があるときだけ） */
@@ -341,6 +398,8 @@ export interface PresentInput {
   names?: SeriesNames;
   /** 基準の案の要求（基準の案の年のイベントに使う）。省略は base */
   baseProposal?: EngineRequest;
+  /** 目標の区画の夢の材料（0103。省略は提案の要求の夢だけで、要約の1文は出さない） */
+  dreams?: DreamsInput;
 }
 
 export function toPresentation(input: PresentInput): PresentationModel {
@@ -414,7 +473,7 @@ export function toPresentation(input: PresentInput): PresentationModel {
     yearDetail,
     events: evs,
     table,
-    goals: goals(proposal, proposed.table, years, depP),
+    goals: goals(proposal, proposed.table, years, depP, input.dreams),
     fee: input.fee === undefined ? null : feeLine({ fee: input.fee, targetYear, targetLabel: self !== undefined ? `${self.label}${age(targetYear)}歳` : `${targetYear}年`, finP, finC, ...(custom ? { baseLabel: `${names.base}（基準）` } : {}) }),
     provisional: input.provisional,
   };

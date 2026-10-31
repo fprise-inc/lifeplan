@@ -1,4 +1,4 @@
-// 3. 世帯サマリー　4. 基本項目　5. ライフイベント表
+// 3. 世帯サマリー　4. 基本項目　ご家族の夢（夢プラン。0103）　5. ライフイベント表
 #import "../parts/format.typ": *
 #import "../parts/layout.typ": *
 
@@ -107,4 +107,21 @@
     align: (x, y) => left + horizon,
     data.events.map(e => (str(e.year), text(fill: muted, e.ages), e.items.join("\n"))).flatten(),
   )
+  // 夢プランの夢は★（0103）
+  if data.events.any(e => e.items.any(i => i.starts-with("★"))) { note("★はご家族の夢（夢プラン）です。") }
+}
+
+/// ご家族の夢（夢プラン。0103）: 順位・夢・時期・金額・計算に入れているかと、夢を入れた・入れない計算の要約の1文
+#let dreams(data) = {
+  let d = data.dreams
+  chapter("ご家族の夢", sub: "ご家族がかなえたいことを、大切な順に並べました。")
+  if d.summary != none { callout(text(size: 11pt, d.summary)) }
+  v(6pt)
+  data-table(
+    columns: (auto, 1fr, auto, auto, auto),
+    header: ("順位", "夢", "時期", "金額", "計算"),
+    align: (x, y) => if x == 0 or x == 4 { center + horizon } else if x == 3 { right + horizon } else { left + horizon },
+    d.rows.map(r => (str(r.rank), r.name, r.when, if r.amount == none { text(fill: muted, "未定") } else { man-unit(r.amount) }, if r.included { "入れる" } else { text(fill: muted, "入れない") })).flatten(),
+  )
+  note("金額は今の値段です。「計算」が「入れない」の夢は、キャッシュフロー表に入れていません。")
 }

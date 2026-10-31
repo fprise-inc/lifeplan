@@ -10,6 +10,7 @@
 //   saleVariants のうち今の予定でないもの。鍵は rentalSale:<物の ID>:<売り方の鍵>）を足す。今の予定の売り方は提案の計算を使う
 import { buildProposalInput, CHAPTERS, DEFAULT_LAYOUT, saleVariantRequest, saleVariants, type ChapterId, type ProposalBundle, type ProposalInput, type ReportLayout, type Run, type SaleVariant } from "../../../../report/src/index.ts";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
+import { withoutDreams } from "../../engine/moneyRows.ts";
 import { adults, baseRequest, defaultYear, occursMonth, scenarioRequest, scenarios, survivorOf } from "../contingency/requests.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { inputItems } from "../input/items.ts";
@@ -121,6 +122,11 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
   });
   const feeOn = values["lever:fee"] === true || (values["lever:fee"] === undefined && (current.input.household.advisoryFees ?? []).some((c) => c.enabled !== false));
   if (on.has("changes") && hasAdvisoryFee(current) && feeOn) requests.withoutFee = applyValues(wh, { ...values, "lever:fee": false }, cat);
+  // ご家族の夢の要約の1文: 夢を全部外した提案（計算に入れた夢があるときだけ。0103）
+  if (on.has("dreams")) {
+    const nd = withoutDreams(proposal);
+    if (nd !== proposal) requests.withoutDreams = nd;
+  }
 
   // 万一: 提案の世帯で、大人ごとの死亡（遺族がいるとき）を計算基準年の翌年に。必要保障額は大人をまとめて1つの要求で
   const whP: WorkingHousehold = { ...wh, request: proposal };
@@ -201,6 +207,7 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
     if (on.has("cashflow")) b.balancePoints = balancePointsOf(proposal, results.proposal as PreviewResult, choice.bsColumns ?? null, choice.bsPoints ?? DEFAULT_BS_POINTS);
     if (steps.length > 0) b.steps = steps.map((s, i) => ({ label: s.label, investment: s.investment, run: i === steps.length - 1 ? proposalRun : run(s.key) }));
     if (requests.withoutFee !== undefined) b.proposalWithoutFee = run("withoutFee");
+    if (requests.withoutDreams !== undefined) b.proposalWithoutDreams = run("withoutDreams");
     if (deaths.length > 0) {
       const occurs = occursMonth(proposal, year);
       b.contingencies = deaths.map((s, i) => ({ title: `${s.who}が${ymText(occurs)}に亡くなった場合`, run: run(`death${i}`) }));

@@ -10,7 +10,9 @@ import { livingEstimate } from "../estimates.ts";
 import { byId, field, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
 import { CARE_PLACE, memberLabel, memberOptions } from "../labels.ts";
-import { addExpense, addIncome, cadenceOf, expenseCard, growthFields, incomeCard, moneySections, OUT_ROWS, OUT_ROWS_BY_KIND, periodicGroups } from "../moneyRows.ts";
+import { addExpense, addIncome, cadenceOf, expenseCard, growthFields, incomeCard, moneySections, OUT_ROWS, OUT_ROWS_BY_KIND, periodicGroup, periodicGroups } from "../moneyRows.ts";
+import { isDream } from "../../../engine/moneyRows.ts";
+import { addDream, DREAM_TEMPLATES, dreamRows, moveDream } from "../dreams.ts";
 import { deathEstimate, hasBirth } from "../fill.ts";
 import { manYen, readGroup, readLine } from "../readLines.ts";
 import { overlapYears, scheduleItems, yearLabel } from "../schedule.ts";
@@ -70,8 +72,8 @@ export function childOfPeriodic(h: Household, p: PeriodicExpense): string | null
   return id !== undefined && h.members.some((m) => m.id === id && m.kind === "child") ? id : null;
 }
 
-/** ライフイベントのカードに出す出るお金の行（種類がライフイベントの行。子の年齢で始まる行は除く） */
-export const eventExpenses = (h: Household): PeriodicExpense[] => (h.periodicExpenses ?? []).filter((p) => expenseCard(h, p) === "events" && childOfPeriodic(h, p) === null);
+/** ライフイベントのカードに出す出るお金の行（種類がライフイベントの行。子の年齢で始まる行と、夢プランの夢は除く） */
+export const eventExpenses = (h: Household): PeriodicExpense[] => (h.periodicExpenses ?? []).filter((p) => expenseCard(h, p) === "events" && !isDream(p) && childOfPeriodic(h, p) === null);
 
 /** ピンにした物も、属するカードに出す（ピンは見せ方だけ。0045） */
 export const NONE_CLAIMED: ReadonlySet<string> = new Set();
@@ -114,7 +116,7 @@ const ONCE_ONLY: ReadonlySet<string> = new Set(["specialTrip"]);
 export const OUT_TEMPLATES: readonly EventTemplate[] = [
   { key: "wedding", label: "結婚の費用", name: "結婚の費用", group: "family", amount: null, everyYears: null, priority: "need", help: "時期は、配偶者が家族に加わる時期（入っていなければ1年後）です。額は入れてください", match: /結婚の費用|挙式|結婚式/u },
   { key: "comingOfAge", label: "子の成人式（振袖・スーツ・写真）", name: "成人式", group: "family", amount: 150000, everyYears: null, priority: "need", help: "20歳前の子ごとに、その子が20歳になる時期で1行ずつ足します（1人15万円の目安）", match: /成人式/u },
-  { key: "childWedding", label: "子の結婚の援助", name: "結婚の援助", group: "family", amount: 1000000, everyYears: null, priority: "want", help: "子ども・教育の入力項目の「子への援助（結婚資金）」として、30歳前の子ごとに、その子が30歳になる時期で足します（1人100万円の目安）。直すときは子ども・教育の入力項目で直します。援助は「必ず」の支出として計算します", match: /結婚の援助/u },
+  { key: "childWedding", label: "子の結婚の援助", name: "結婚の援助", group: "family", amount: 1000000, everyYears: null, priority: "want", help: "子ども・教育の入力項目の「子への援助（結婚資金）」として、30歳前の子ごとに、その子が30歳になる時期で足します（1人100万円の目安）。直すときは子ども・教育の入力項目で直します。援助の優先度は「できれば」にします（結果の「確実な分だけ」で外して見られます。子ども・教育の入力項目で直せます）", match: /結婚の援助/u },
   { key: "funeral", label: "親の葬儀（世帯が払う分）", name: "葬儀", group: "parents", amount: 1200000, everyYears: null, priority: "need", help: "親ごとに1行ずつ、世帯が払う分を足します（1回120万円の目安）。時期は、親の年齢と性別から平均余命で見た推定です（亡くなる見込みが入っていればその時期）。香典は入るお金で入れられます。葬儀の費用を相続税から引く扱いは、相続・贈与の入力項目で見ます", match: /葬儀|葬式/u },
   { key: "memorial", label: "法事", name: "法事", group: "parents", amount: 200000, everyYears: null, priority: "need", help: "時期は、葬儀の行があればその1年後（一周忌）、無ければ1年後です", match: /法事|法要|一周忌|回忌/u },
   { key: "grave", label: "お墓・仏壇", name: "お墓・仏壇", group: "parents", amount: null, everyYears: null, priority: "need", help: "お墓や仏壇の費用は、墓じまい・永代供養・新しく建てるなどで0〜300万円ほどと幅があります。額を入れてください", match: /墓|仏壇/u },
@@ -286,12 +288,12 @@ function childWeddingKids(wh: WorkingHousehold): { ok: Member[]; noGoal: Member[
 }
 
 /** 子への援助（結婚資金。子ども・教育の入力項目の物）の一覧（ライフイベントには読むだけで出す） */
-export function childWeddingGifts(h: Household): { child: Member; at: Timepoint; amount: number }[] {
-  const out: { child: Member; at: Timepoint; amount: number }[] = [];
+export function childWeddingGifts(h: Household): { child: Member; at: Timepoint; amount: number; priority?: "need" | "want" }[] {
+  const out: { child: Member; at: Timepoint; amount: number; priority?: "need" | "want" }[] = [];
   for (const g of h.goals ?? []) {
     const child = h.members.find((m) => m.id === g.owner && m.kind === "child");
     if (g.kind !== "education" || child === undefined) continue;
-    for (const gift of g.education?.gifts ?? []) if (gift.purpose === "wedding") out.push({ child, at: gift.at, amount: gift.amount });
+    for (const gift of g.education?.gifts ?? []) if (gift.purpose === "wedding") out.push({ child, at: gift.at, amount: gift.amount, ...(gift.priority !== undefined ? { priority: gift.priority } : {}) });
   }
   return out;
 }
@@ -316,7 +318,7 @@ export function addChildWedding(wh: WorkingHousehold, ids: () => string = newId)
         (h.goals ??= []).push(g);
       }
       if (g.education === undefined) g.education = { stages: [] };
-      (g.education.gifts ??= []).push({ id: ids(), at: { memberAge: { member: m.id, years: 30 } }, amount, purpose: "wedding" } as EducationGift);
+      (g.education.gifts ??= []).push({ id: ids(), at: { memberAge: { member: m.id, years: 30 } }, amount, purpose: "wedding", priority: "want" } as EducationGift);
     }
   });
 }
@@ -447,7 +449,7 @@ function childWeddingLines(wh: WorkingHousehold): GroupDef | null {
   const h = wh.request.input.household;
   const lines = childWeddingGifts(h).map((x, i) => {
     const ym = resolveTimepoint(h, x.at);
-    return readLine(`events/childWedding/${String(i)}`, `${memberLabel(wh, x.child.id)}の結婚の援助`, `${ym === null ? "" : `${String(Number(ym.slice(0, 4)))}年・`}${manYen(x.amount)}`, "子ども・教育");
+    return readLine(`events/childWedding/${String(i)}`, `${memberLabel(wh, x.child.id)}の結婚の援助`, `${ym === null ? "" : `${String(Number(ym.slice(0, 4)))}年・`}${manYen(x.amount)}・${x.priority === "want" ? "できれば" : "必ず"}`, "子ども・教育");
   });
   return readGroup("events/childWedding", "子への援助（結婚資金）", lines, "子ども・教育の入力項目の「子への援助」です。直すときは子ども・教育の入力項目で直します（ここと二重には数えません）");
 }
@@ -611,6 +613,96 @@ export function addOtherExpense(wh: WorkingHousehold, id: string = newId()): Wor
   });
 }
 
+// ---- 夢プラン（やりたいこと。0103） ----
+
+/** 夢プランの区画の説明（車・住まいそのものを夢にするときの行き先） */
+export const DREAM_NOTE = "車・住まいそのものを夢にするときも、ここでは額と時期で入れます。維持費・ローンは車・住まいの入力項目で";
+
+/** 夢の見出しの額と時期（「額は未入力」「300万円・1回」「年50万円・毎年」） */
+function dreamAmountText(h: Household, p: PeriodicExpense): string {
+  const v = p.amount.value ?? 0;
+  const c = cadenceOf(h, p);
+  if (v <= 0) return "額は未入力";
+  return c === "once" ? `${manYen(v)}・1回` : c === "monthly" ? `月${manYen(v)}・毎月` : p.everyYears === 1 ? `年${manYen(v)}・毎年` : `${manYen(v)}・${String(p.everyYears)}年ごと`;
+}
+
+/**
+ * 夢の1件のまとまり（1件を1つの枠に。0077 の追記）: 名前・時期（1回／年ごと）・額・始まり・何年ごと・終わり・ひとことメモ・計算に入れる。
+ * 優先度の欄は無い（夢はふつうの行の「必ず」「できれば」と別の物）。順位は「↑ 上へ」「↓ 下へ」で動かす
+ */
+function dreamGroup(wh: WorkingHousehold, p: PeriodicExpense, rank: number, count: number): GroupDef {
+  const h = wh.request.input.household;
+  const base = periodicGroup(wh, p, "events");
+  const k = `ev/${p.id}`;
+  const find = (hh: Household) => (hh.periodicExpenses ?? []).find((x) => x.id === p.id) as unknown as Record<string, unknown> | undefined;
+  const fields: FieldDef[] = [];
+  for (const f of base.fields) {
+    if (f.key === `${k}/kind` || f.key === `${k}/row` || f.key === `${k}/priority`) continue;
+    if (f.key === `${k}/cadence`) fields.push(p.monthly === true ? f : ({ ...f, options: EVENT_CADENCES } as FieldDef));
+    else if (f.key === `${k}/from`) fields.push(clearsAssumed(f));
+    else fields.push(f);
+  }
+  const address = (item: string, at: string[] = []) => () => ({ target: { object: p.id }, item, at });
+  fields.push(
+    { ...plain({ key: `${k}/dreamNote`, item: "periodicExpense.dreamNote", label: "ひとことメモ（なぜかなえたいか）", level: "simple", kind: "text", find, path: ["dream", "note"], optional: true }), address: address("periodicExpense.dreamNote") },
+    { ...plain({ key: `${k}/dreamInclude`, item: "periodicExpense.dream", label: "計算に入れる", level: "simple", kind: "bool", find, path: ["dream", "include"], optional: true, fallback: true, help: "外すと、この夢を除いて計算します。結果の画面の「外している物」で、入れた場合を見られます" }), address: address("periodicExpense.dream", ["include"]) },
+  );
+  const off = p.dream?.include === false;
+  const name = p.label !== undefined && p.label !== "" ? p.label : "夢";
+  const actions: ActionDef[] = [
+    ...(rank > 1 ? [{ key: `${k}/up`, label: "↑ 上へ", title: "順位を1つ上げます", level: "simple" as const, run: (w: WorkingHousehold) => moveDream(w, p.id, -1) }] : []),
+    ...(rank < count ? [{ key: `${k}/down`, label: "↓ 下へ", title: "順位を1つ下げます", level: "simple" as const, run: (w: WorkingHousehold) => moveDream(w, p.id, 1) }] : []),
+    ...base.actions.filter((a) => a.key === `${k}/remove`),
+  ];
+  return {
+    key: k,
+    title: `夢${String(rank)}｜${name} ${dreamAmountText(h, p)} ${rowWhen(h, p)}${off ? "（計算に入れない）" : ""}`,
+    ...(p.monthly === true ? { note: MONTHLY_NOTE } : {}),
+    level: "simple",
+    fields,
+    actions,
+  };
+}
+
+/** 夢の見出しの時期（「2031年4月」「2031年4月〜最後まで」） */
+function rowWhen(h: Household, p: PeriodicExpense): string {
+  const ym = (t: Timepoint | null | undefined) => {
+    const v = resolveTimepoint(h, t);
+    return v === null ? "時期は未定" : `${String(Number(v.slice(0, 4)))}年${String(Number(v.slice(5, 7)))}月`;
+  };
+  return cadenceOf(h, p) === "once" ? ym(p.from) : `${ym(p.from)}〜${p.to == null ? "最後まで" : ym(p.to)}`;
+}
+
+/** 夢のひな形のボタン（名前と時期だけ。額は未入力の警告。行を足した後も出す） */
+function dreamTemplateGroup(wh: WorkingHousehold): GroupDef {
+  const h = wh.request.input.household;
+  const ds = dreamRows(h);
+  return {
+    key: "ev/dreamTemplates",
+    title: "よくある夢（名前と時期だけ）",
+    level: "simple",
+    chips: true,
+    fields: [],
+    actions: DREAM_TEMPLATES.map((t): ActionDef => {
+      const n = ds.filter((p) => p.label === t.label).length;
+      return { key: `ev/dream/template/${t.key}`, label: `＋ ${t.label}`, level: "simple", ...(t.help !== undefined ? { help: t.help } : {}), chip: { group: "夢", ...(n > 0 ? { added: `入れた（${String(n)}件）` } : {}) }, run: (w) => addDream(w, t) };
+    }),
+  };
+}
+
+/** 区画「夢プラン（やりたいこと）」（ライフイベントの入力項目のいちばん上。ヒアリングで最初に聞くため） */
+function dreamSection(wh: WorkingHousehold): SectionDef {
+  const ds = dreamRows(wh.request.input.household);
+  return {
+    key: "ev/dreams",
+    title: "夢プラン（やりたいこと）",
+    note: `${ds.length === 0 ? "まだありません。" : ""}ご家族がかなえたいことを、上から順に並べます。${DREAM_NOTE}`,
+    level: "simple",
+    groups: [...ds.map((p, i) => dreamGroup(wh, p, i + 1, ds.length)), dreamTemplateGroup(wh)],
+    actions: [{ key: "ev/addDream", label: "＋ 夢を足す", help: "よくある夢に無い夢を、1回・1年後で足します（名前・額・時期を入れてください）", level: "simple", run: (w) => addDream(w) }],
+  };
+}
+
 export function eventsStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;
   const rows = eventExpenses(h);
@@ -643,6 +735,6 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
           ],
           actions: inSec.actions,
         };
-  const sections: SectionDef[] = [outSection, ...(inSection !== null ? [inSection] : []), scheduleSection(wh)];
-  return { id: "events", label: "ライフイベント", lead: "一時的な収支（結婚・成人式・葬儀・特別な旅行・大きな買い物・祝い金など）と、世帯の予定の一覧。", sections };
+  const sections: SectionDef[] = [dreamSection(wh), outSection, ...(inSection !== null ? [inSection] : []), scheduleSection(wh)];
+  return { id: "events", label: "ライフイベント", lead: "夢プラン（やりたいこと）と、一時的な収支（結婚・成人式・葬儀・特別な旅行・大きな買い物・祝い金など）、世帯の予定の一覧。", sections };
 }

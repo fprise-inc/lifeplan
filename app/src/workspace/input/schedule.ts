@@ -66,7 +66,9 @@ export function scheduleItems(wh: WorkingHousehold): ScheduleItem[] {
   for (const p of h.periodicExpenses ?? []) {
     const card = childOfPeriodic(h, p) !== null ? "education" : expenseCard(h, p);
     const c = cadenceText(h, p);
-    const name = p.label !== undefined && p.label !== "" ? p.label : (OUT_KINDS.find((k) => k.kind === (p.kind ?? "general"))?.label ?? "出るお金");
+    const named = p.label !== undefined && p.label !== "" ? p.label : (OUT_KINDS.find((k) => k.kind === (p.kind ?? "general"))?.label ?? "出るお金");
+    // 夢プランの夢は★を付ける（計算に入れない夢はそう添える。0103）
+    const name = p.kind === "dream" ? `★${named}${p.dream?.include === false ? "（計算に入れない）" : ""}` : named;
     const v = p.amount.value;
     add(yearOf(resolveTimepoint(h, p.from)), { dir: "出", name, amount: `${v === null || v === undefined ? "額は未入力" : manYen(v)}・${c === "毎月" ? "月額・毎月" : c}`, lump: c === "1回", card: CARD_LABEL[card] });
   }

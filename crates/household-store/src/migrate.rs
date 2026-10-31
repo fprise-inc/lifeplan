@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.45";
+pub const CURRENT: &str = "0.46";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -146,11 +146,14 @@ pub const CURRENT: &str = "0.45";
 /// - 0.45: 車の買い替え `cars[].purchase.replace`（買い替え続ける・この1台だけ・○歳まで）と、リース・長期レンタル `cars[].lease`（種類・月額・
 ///   借り始め・契約の年数・月額に含む物）を足した（0101。足すだけの MINOR。リースの車は `purchase` を持たない。前の版のアプリは、知らない欄を
 ///   読み落として書き戻し、リースの車を読めないので、版を上げて閲覧だけにする）。変換の段は形式の版だけを書き換える（買い替えの無い車は買い替え続ける）
+/// - 0.46: 夢プラン（やりたいこと）を出るお金の行の種類 `dream` と、その行の `dream`（順位・計算に入れるか・ひとことメモ）で持ち、子への援助
+///   `goals[].education.gifts[]` に優先度 `priority`（必ず・できれば）を足した（0103。足すだけの MINOR。前の版のアプリは種類 dream の行を読めず、
+///   援助の優先度を読み落として書き戻すので、版を上げて閲覧だけにする）。変換の段は形式の版だけを書き換える（前の援助は「必ず」のまま）
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
-    "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45",
+    "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46",
 ];
 
 /// 1段分の変換
@@ -381,6 +384,11 @@ pub const STEPS: &[Step] = &[
         from: "0.44",
         to: "0.45",
         apply: v0_44_to_0_45,
+    },
+    Step {
+        from: "0.45",
+        to: "0.46",
+        apply: v0_45_to_0_46,
     },
 ];
 
@@ -1547,6 +1555,15 @@ fn v0_44_to_0_45(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.45 → 0.46: 足した欄（夢プランの種類 `dream` と行の `dream`、子への援助の優先度 `priority`。0103）は任意なので足さない。形式の版だけを書き換える
+fn v0_45_to_0_46(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.46".into());
+    }
+    Ok(body)
+}
+
 /// 0.17 で ID を振る並び（物の集まり → その物から並びまでの欄の名前。0035 の5）
 const ELEMENT_LISTS: &[(&str, &[&[&str]])] = &[
     ("livingExpenses", &[&["stages"], &["categories"]]),
@@ -2087,7 +2104,8 @@ mod tests {
         assert_eq!(access("0.43").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.44").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.45").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.46").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.46").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.47").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -2100,7 +2118,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.46", b.clone()).unwrap(),
+            upgrade("0.47", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -2337,7 +2355,7 @@ mod tests {
             ]}}}}
         });
         let u = upgrade("0.43", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.45");
+        assert_eq!(u["meta"]["formatVersion"], "0.46");
         assert_eq!(u["household"], b["household"]);
     }
 
@@ -2351,7 +2369,22 @@ mod tests {
             ]}}}}
         });
         let u = upgrade("0.44", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.45");
+        assert_eq!(u["meta"]["formatVersion"], "0.46");
+        assert_eq!(u["household"], b["household"]);
+    }
+
+    #[test]
+    fn v0_45_to_0_46_only_bumps_version() {
+        // 足した欄（夢プラン・子への援助の優先度。0103）は任意なので、前の版の行と援助はそのまま（援助は「必ず」）
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.45"},
+            "household": {"request": {"input": {"baseMonth": "2026-10", "household": {
+                "periodicExpenses": [{"id": "p1", "row": "cf.expense.lumpSum.other", "from": {"at": "2030-04"}, "to": {"at": "2030-04"}, "everyYears": 1, "amount": {"value": 500000, "state": "confirmed", "origin": {"kind": "manual"}}, "priority": "wish"}],
+                "goals": [{"id": "g1", "kind": "education", "owner": "c1", "education": {"stages": [], "gifts": [{"id": "x1", "at": {"at": "2050-04"}, "amount": 1000000, "purpose": "wedding"}]}}]
+            }}}}
+        });
+        let u = upgrade("0.45", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.46");
         assert_eq!(u["household"], b["household"]);
     }
 

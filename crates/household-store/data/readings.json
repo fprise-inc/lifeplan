@@ -3089,6 +3089,19 @@
     "counterparty"
    ]
   },
+  "periodicExpense.dream": {
+   "collection": "periodicExpense",
+   "path": [
+    "dream"
+   ]
+  },
+  "periodicExpense.dreamNote": {
+   "collection": "periodicExpense",
+   "path": [
+    "dream",
+    "note"
+   ]
+  },
   "periodicExpense.everyYears": {
    "collection": "periodicExpense",
    "path": [

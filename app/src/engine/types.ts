@@ -301,6 +301,8 @@ export interface EducationGift {
   purpose: string;
   payer?: string;
   donor?: string;
+  /** 優先度（必ず need・できれば want。省略は必ず。計算には使わない。「確実な分だけ」の見方で「できれば」を外す。0103） */
+  priority?: "need" | "want";
   [key: string]: unknown;
 }
 
@@ -357,7 +359,19 @@ export interface PeriodicExpense {
   payer?: string;
   priority?: Priority;
   gift?: { method?: "calendar" | "settlement"; purpose?: "general" | "housing" | "asNeeded" };
+  /** 夢プラン（やりたいこと。種類 dream の行だけ。0103）: 順位・計算に入れるか（省略は入れる）・ひとことメモ。計算には使わない（入れない夢は要求を作るときに外す） */
+  dream?: DreamInfo;
   [key: string]: unknown;
+}
+
+/** 夢プランの1件の、行の外の値（0103） */
+export interface DreamInfo {
+  /** 順位（1が最初。同じ順位・省略は並びの順） */
+  rank?: number;
+  /** 計算に入れるか（省略は入れる） */
+  include?: boolean;
+  /** ひとことメモ（なぜかなえたいか） */
+  note?: string;
 }
 
 /** お金の行（0044）の見込み・優先度 */
@@ -365,7 +379,7 @@ export type Likelihood = "certain" | "likely" | "uncertain";
 export type Priority = "need" | "want" | "wish";
 
 /** 出るお金の種類（0044。エンジンの moneyOutKind） */
-export type MoneyOutKind = "general" | "allowance" | "childSupport" | "gift" | "education" | "repair" | "realEstateCost" | "livingAnnual" | "car" | "other";
+export type MoneyOutKind = "general" | "allowance" | "childSupport" | "gift" | "education" | "repair" | "realEstateCost" | "livingAnnual" | "car" | "other" | "dream";
 
 /** 入るお金の種類（0044。エンジンの incomeFlow.kind） */
 export type IncomeFlowKind =

@@ -132,7 +132,7 @@ html.big .chart .dep-txt { font-size: 15px; }
 .chip.on { border-color: var(--sel); border-width: 2.5px; background: var(--sel-bg); }
 
 /* 目標カード */
-.goals { display: grid; gap: 10px; }
+.goals { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
 .goal { border: 1px solid var(--card-line); border-radius: 9px; padding: 10px 12px; background: #fff; border-bottom: 4px solid var(--prop); }
 .goal.ng { border-bottom-color: var(--short); }
 .goal-top { display: flex; justify-content: space-between; gap: 6px; align-items: center; font-size: 0.8rem; }
@@ -142,6 +142,8 @@ html.big .chart .dep-txt { font-size: 15px; }
 .goal .amt { font-weight: 700; font-size: 1.05rem; margin-top: 2px; }
 .goal .st { margin-top: 6px; }
 .goal.dream { border: 2px dashed var(--ink-2); background: transparent; color: var(--ink-2); }
+.goal.dream.off { opacity: 0.6; }
+.goal-dream-line { font-weight: 700; font-size: 0.92rem; margin: 0 0 8px; }
 .goal-sum { font-weight: 700; font-size: 0.92rem; margin-bottom: 8px; }
 .goal-sum .big { font-size: 1.25rem; }
 .st { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-size: 0.88rem; border-radius: 99px; padding: 1px 10px 1px 4px; white-space: nowrap; }

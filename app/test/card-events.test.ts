@@ -55,7 +55,7 @@ describe("ライフイベントのひな形（小さなボタン。標準と詳�
   it("10のひな形を、まとまりごと（家族の節目・親・お墓・楽しみ・学び・備え）に標準で出す。上の1行で、当てはまるものだけと案内する", () => {
     const wh = bare("parentCare");
     const s = events(wh);
-    expect(s.sections.map((x) => x.key)).toEqual(["ev/periodic", "money/events/in", "events/schedule"]);
+    expect(s.sections.map((x) => x.key)).toEqual(["ev/dreams", "ev/periodic", "money/events/in", "events/schedule"]);
     const g = chips(wh);
     expect(g.chips).toBe(true);
     expect(g.level).toBe("simple");
@@ -81,7 +81,7 @@ describe("ライフイベントのひな形（小さなボタン。標準と詳�
     expect(outSection(wh).note).toContain("ふだんの旅行・帰省は基本生活費に入れます。ここには特別な旅行を入れます");
     expect(outSection(wh).note).toContain("住まい・車・教育・介護・贈与はそれぞれの入力項目");
     // 入るお金のひな形も小さなボタン
-    const inn = s.sections[1]!.groups.find((x) => x.key === "in/templates")!;
+    const inn = s.sections.find((x) => x.key === "money/events/in")!.groups.find((x) => x.key === "in/templates")!;
     expect(inn.chips).toBe(true);
     expect(inn.actions.map((a) => a.key)).toEqual(["in/template/weddingGift", "in/template/birthGift", "in/template/benefit"]);
     expect(inn.actions.find((a) => a.key === "in/template/birthGift")!.help).toContain("出産育児一時金は自動で計算します");
@@ -141,7 +141,7 @@ describe("ライフイベントのひな形（小さなボタン。標準と詳�
     const later = addOutTemplate(bare(), "wedding", seq());
     expect(rowsOf(later).at(-1)!.from).toEqual({ at: "2027-10" });
     // 入るお金のひな形も、行を足した後に出し続け、「入れた」を出す
-    const inn = events(gift).sections[1]!.groups.find((x) => x.key === "in/templates")!;
+    const inn = events(gift).sections.find((x) => x.key === "money/events/in")!.groups.find((x) => x.key === "in/templates")!;
     expect(inn.actions.find((a) => a.key === "in/template/weddingGift")!.chip!.added).toBe("入れた（2028年・額は未入力）");
   });
 
@@ -309,7 +309,7 @@ describe("入る⇄出るの付け替え・基本生活費へ移す・介護は�
     expect(rowsOf(wh).some((x) => x.id === p.id)).toBe(false);
     const f = wh.request.input.household.incomeFlows!.find((x) => x.id.endsWith("e7"))!;
     expect(f).toMatchObject({ label: p.label, kind: "other", from: p.from, to: p.to, everyYears: p.everyYears, amount: p.amount });
-    expect(events(wh).sections[1]!.groups[0]!.actions.some((a) => a.key.endsWith("/toExpense"))).toBe(true);
+    expect(events(wh).sections.find((x) => x.key === "money/events/in")!.groups[0]!.actions.some((a) => a.key.endsWith("/toExpense"))).toBe(true);
     const back = incomeToExpense(wh, f.id, "00000000-0000-4000-8000-0000000000e8");
     expect(rowsOf(back).find((x) => x.id.endsWith("e8"))).toMatchObject({ label: p.label, kind: "general", row: "cf.expense.lumpSum.other", amount: p.amount });
     const repeat = mutate(wh, (h) => void Object.assign(h.incomeFlows!.find((x) => x.id === f.id)!, { to: null, everyYears: 2 }));
@@ -332,7 +332,7 @@ describe("入る⇄出るの付け替え・基本生活費へ移す・介護は�
 
   it("介護の費用はライフイベントの出るお金に出さない（介護・親のカード）", () => {
     const wh = open("parentCare");
-    expect(events(wh).sections[0]!.groups.some((g) => g.key.startsWith("ro/ev/care"))).toBe(false);
+    expect(events(wh).sections.find((x) => x.key === "ev/periodic")!.groups.some((g) => g.key.startsWith("ro/ev/care"))).toBe(false);
   });
 });
 

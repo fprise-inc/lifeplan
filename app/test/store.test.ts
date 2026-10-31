@@ -644,6 +644,28 @@ function sample045(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/**
+ * 0.46 の見本の世帯（0103）: sample045() に、夢プランの夢を3件（2件目は「計算に入れない」・順位は2→1→3の並び・ひとことメモつき）と、
+ * 第1子への援助（結婚資金・優先度「できれば」）を足す
+ */
+function sample046(): BodyState {
+  const s = sample045();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const id = (n: number) => `00000000-0000-4000-8000-0000000046${String(n).padStart(2, "0")}`;
+  const box = (v: number) => ({ value: v, state: "confirmed", origin: { kind: "manual" } }) as never;
+  hh.periodicExpenses = [
+    ...(hh.periodicExpenses ?? []),
+    { id: id(1), label: "二拠点や別荘", kind: "dream", row: "cf.expense.lumpSum.other", from: { memberAge: { member: self.id, years: 62 } }, to: { memberAge: { member: self.id, years: 62 } }, everyYears: 1, amount: box(8000000), dream: { rank: 2, include: false, note: "海の近くで暮らしたい" } },
+    { id: id(2), label: "夫婦で海外旅行", kind: "dream", row: "cf.expense.lumpSum.other", from: { memberAge: { member: self.id, years: 65 } }, to: { memberAge: { member: self.id, years: 65 } }, everyYears: 1, amount: box(1200000), dream: { rank: 1, note: "結婚30周年に" } },
+    { id: id(3), label: "趣味を始める", kind: "dream", row: "cf.expense.lumpSum.other", from: { at: "2028-04" }, to: { at: "2032-04" }, everyYears: 1, amount: box(200000), dream: { rank: 3 } },
+  ];
+  const kid = roles(req).find((r) => r.key === "child1")!.member;
+  hh.goals = (hh.goals ?? []).map((g) => (g.kind === "education" && g.owner === kid.id && g.education !== undefined ? { ...g, education: { ...g.education, gifts: [...(g.education.gifts ?? []), { id: id(10), at: { memberAge: { member: kid.id, years: 30 } }, amount: 1000000, purpose: "wedding", priority: "want" as const }] } } : g));
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -767,7 +789,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.45");
+    expect(BODY_FORMAT_VERSION).toBe("0.46");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -921,7 +943,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample045())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample046())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1180,6 +1202,24 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const lease2032 = of(id(4), (c) => c.row === "cf.expense.living.car" && c.year === 2032).reduce((x, c) => x + c.amount, 0);
     expect(lease2032).toBeGreaterThanOrEqual(45000 * 12 + 150000);
     expect(of(id(4), (c) => c.row === "cf.expense.lumpSum.car")).toHaveLength(0);
+  });
+
+  it("0.46 の形（0103）: 夢プランの夢（順位・計算に入れるか・ひとことメモ）と子への援助の優先度を保存して読み戻し、計算に入れない夢だけを外して計算する", () => {
+    const s = sample046();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const h = stored.household.request.input.household;
+    const dreams = (h.periodicExpenses ?? []).filter((p) => p.kind === "dream");
+    expect(dreams.map((p) => p.dream)).toEqual([{ rank: 2, include: false, note: "海の近くで暮らしたい" }, { rank: 1, note: "結婚30周年に" }, { rank: 3 }]);
+    expect((h.goals ?? []).flatMap((g) => g.education?.gifts ?? []).find((x) => x.purpose === "wedding")?.priority).toBe("want");
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    const r = preview(forEngine(back.wh.request));
+    const id = (n: number) => `00000000-0000-4000-8000-0000000046${String(n).padStart(2, "0")}`;
+    const lump = (object: string) => r.table.filter((c) => c.object === object && c.row === "cf.expense.lumpSum.other").reduce((x, c) => x + c.amount, 0);
+    // 計算に入れない夢は表に出ない。入れる夢は一時的支出の行（くり返す夢は毎年）
+    expect(lump(id(1))).toBe(0);
+    expect(lump(id(2))).toBeGreaterThanOrEqual(1200000);
+    expect(r.table.filter((c) => c.object === id(3) && c.row === "cf.expense.lumpSum.other" && c.amount > 0).map((c) => c.year)).toEqual([2028, 2029, 2030, 2031, 2032]);
   });
 
   it("0.42 の形（0090）: 高専と専門職大学院（法科大学院）の段を保存して読み戻し、計算に使う", () => {
