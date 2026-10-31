@@ -188,6 +188,23 @@ describe("候補", () => {
     expect(cands[2]?.confidence).toBe("medium");
   });
 
+  it("住まいの修繕の年1回の支払いは、住まいの「修繕・リフォーム」の行の候補（種類 repair。ライフイベントに出さない）", () => {
+    const log = synth([
+      {
+        id: "a",
+        kind: "card",
+        label: "A",
+        owner: SELF,
+        period: YEAR,
+        rows: [...monthly(10, "イオン 架空店", 30000), { date: "2024-12-10", merchant: "架空管理組合 修繕積立金", amount: 150000 }, { date: "2025-12-10", merchant: "架空管理組合 修繕積立金", amount: 150000 }],
+      },
+    ]);
+    const cands = buildCandidates(summaryOf(log), {}, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids("c") });
+    const repair = cands.find((c) => c.collection === "periodicExpenses");
+    expect(repair?.title).toBe("修繕・リフォーム: 架空管理組合 修繕積立金");
+    expect(repair?.value).toMatchObject({ kind: "repair", row: "cf.expense.housing.maintenance", everyYears: 1, to: null });
+  });
+
   it("今の欄の形に合わせる: 内訳なら内訳を置き換え（明細に出ない内訳は残す）、合計なら合計を置き換える", () => {
     const s = summaryOf(yearLog());
     const box = (v: number) => ({ value: v, state: "confirmed" as const, origin: { kind: "manual" } });
