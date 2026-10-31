@@ -1,7 +1,7 @@
 // 基本生活費のカードの「毎年の黒字のうち、貯金に回る割合」（0031。前提の assumptions.surplusSaving）。
 // 貯まらない分は使ってしまうお金（ゆとりの支出）なので、生活費の欄に置く（前提条件は FP の側の設定で、顧客と一緒に見る所ではないため。0031 の追記）。
 // - 目安から選ぶ: ずっと同じ・子育て中と子の独立後で分ける・退職の前後で分ける（期間はこの世帯の末子の独立・退職の時点で入る）
-// - 自由に組む: 「本人の○歳から○%」の組を足す（最大4つ）
+// - カスタム（自由に組む）: 「本人の○歳から○%」の組を足す（最大4つ）。目安の区切りの後でカスタムを選ぶと、区切りを年齢の形にして自分で直せるようにする（0100 の追記）
 // - 上限（年○万円まで）・控えから見た実際の割合の提案（欄のキー living/surplus/ratio。surplusSuggest.ts）も同じ所に
 import type { Timepoint } from "../../../engine/types.ts";
 import { ageAt, parseYm } from "../../levers.ts";
@@ -146,6 +146,34 @@ function nextChange(wh: WorkingHousehold): { from: Timepoint; ratio: string } | 
   return { from: { memberAge: { member: self.id, years: age, months: 0 } }, ratio: "0.8" };
 }
 
+/**
+ * カスタムにする: 期間の組の始まりを本人の年齢の形にする（目安の区切りの年月のままだと、また目安として読まれるため）。組が無ければ1つ足す。
+ * 割合・上限・区切りの年は変えない（年齢は区切りの年月の本人の年齢）
+ */
+function toCustom(wh: WorkingHousehold): WorkingHousehold["request"] {
+  const req = wh.request;
+  if (presetOf(req) === "custom") return req;
+  const self = req.input.household.members.find((m) => m.kind === "self");
+  if (self === undefined) return req;
+  const cur = surplusOf(req) ?? {};
+  const changes = (cur.changes ?? []).map((c) => {
+    if (c.from.memberAge !== undefined) return c;
+    const ym = resolveTimepoint(req.input.household, c.from);
+    if (ym === null) return c;
+    // 区切りの年月と同じ月になるよう、年齢を年と月で（本人がその年齢になる月が区切りの月。1日生まれは前の月に年齢が上がる）
+    const a = parseYm(ym);
+    const b = parseYm(self.birth.birthYearMonth);
+    const months = a.y * 12 + a.m - (b.y * 12 + b.m) + (self.birth.bornOnFirst ? 1 : 0);
+    return months < 0 ? c : { ...c, from: { memberAge: { member: self.id, years: Math.floor(months / 12), months: months % 12 } } };
+  });
+  if (changes.length === 0) {
+    const next = nextChange(wh);
+    if (next === null) return req;
+    changes.push(next);
+  }
+  return setSurplus(req, { ...cur, ...(cur.ratio === undefined ? { ratio: PRESET_RATIOS.same.before } : {}), changes });
+}
+
 /** 黒字の行き先（貯蓄・運用のカードの「収支が入る口座」） */
 function destinationText(wh: WorkingHousehold): string {
   const h = wh.request.input.household;
@@ -178,6 +206,15 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
     };
   };
   const presets = (["same", "children", "retirement"] as const).map(presetAction).filter((a): a is ActionDef => a !== null);
+  // カスタム: 期間と割合を自分で組む（今の期間の組を、本人の年齢の形にして残す。組が無ければ1つ足す）
+  presets.push({
+    key: "living/surplus/preset/custom",
+    label: "カスタム",
+    level: "simple",
+    pressed: preset === "custom",
+    title: "期間（ご本人の年齢から）と割合を自分で組みます",
+    run: (w) => withReq(w, toCustom(w)),
+  });
 
   const ratioLabel = named !== null ? `${named.before}の割合${firstChangeYear !== null ? `（〜${firstChangeYear - 1}年）` : ""}` : preset === "custom" ? "はじめの割合" : "毎年の黒字のうち、貯金に回る割合";
   const main: GroupDef = {
@@ -239,13 +276,12 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
   return {
     key: "living/surplus",
     title: "毎年の黒字のうち、貯金に回る割合",
-    note: "黒字の年でも、全部が貯金に回るとは限りません（外食や買い物などで、なんとなく使ってしまう分があるためです）。黒字のうち、実際に貯金に回るのは何割くらいかを入れてください。貯金に回らない分は「ゆとりの支出」として支出に入れて計算します。空欄のときは、黒字をすべて貯金に回して計算します",
+    note: "黒字の年でも、全部が貯金に回るとは限りません（外食や買い物などで、なんとなく使ってしまう分があるためです）。黒字のうち、実際に貯金に回るのは何割くらいかを入れてください。貯金に回らない分は「ゆとりの支出」として支出に入れて計算します。空欄のときは、黒字をすべて貯金に回して計算します。目安の割合は統計ではないので、ご家庭の実感に合わせて直してください",
     level: "simple",
     groups: [
       {
         key: "living/surplus/presets",
         level: "simple",
-        note: "時期によって割合を変えるときは、下の目安から選べます（区切りは、お子さまの独立や退職の時期に合わせて入ります）。目安の割合は統計ではないので、ご家庭の実感に合わせて直してください",
         fields: [],
         actions: presets,
       },
