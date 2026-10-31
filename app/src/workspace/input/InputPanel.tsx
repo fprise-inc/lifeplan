@@ -135,7 +135,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
     const cur = latest.current;
     if (plan === undefined) {
       if (next === cur) return;
-      // 値が変わった所の前からの値の状態の行（わからない・該当なし・承認など）を外してから、推定のままの値を入れ直す（0041）
+      // 値が変わった所の前からの値の状態の行（書類待ち・該当なし・承認など）を外してから、推定のままの値を入れ直す（0041）
       commit(withProvisionalHousing(withRefreshedEstimates(dropStaleRows(cur, next))));
       return;
     }

@@ -1915,7 +1915,7 @@ export function App() {
     void host?.office.status().then(setOfficeStatus, () => undefined);
     setStorageOpen("default");
   };
-  const noticeActions: Record<NoticeTarget, () => void> = { recovery: () => setRecovery("manage"), restore: () => setRecovery("restore"), storage: openStorage, office: openOffice, households: showHousehold, presence: toPresence, family: () => setTab("input"), work: () => setTab("input"), living: () => setTab("input"), plans: () => setTab("main") };
+  const noticeActions: Record<NoticeTarget, () => void> = { recovery: () => setRecovery("manage"), restore: () => setRecovery("restore"), storage: openStorage, office: openOffice, households: showHousehold, presence: toPresence, family: () => setTab("input"), work: () => setTab("input"), living: () => setTab("input"), input: () => setTab("input"), plans: () => setTab("main") };
   /** 手元の状態（既読の印・受付番号）を変えて、この PC のアプリのデータに書く（本体・開発用のサーバーが無いときは画面の中だけ） */
   const updateLocal = (f: (s: LocalState) => LocalState) => {
     const next = f(noticeLocalRef.current);

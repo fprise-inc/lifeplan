@@ -147,6 +147,24 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(d.get("dock").is_none(), "{v}: display.dock は持たない");
             assert!(d.get("metrics").is_none(), "{v}: 結果のタブの値は区画の中");
         }
+        if *v == "0.44" {
+            // 0.44 から: 書類で確かめる欄（住民税の年税額）の「わからない」（書類待ち）は残る（0041 の追記 2026-10-31）
+            let t = &now["household"]["request"]["input"]["household"]["residentTaxAssessments"][0];
+            assert_eq!(t["amount"]["state"], "unknown", "{v}: 住民税の書類待ち");
+        }
+        if migrate::parse(v).unwrap() < (0, 44) {
+            // 0.44 への変換の後は、書類で確かめる欄でない所に「わからない」が残らない（年収など）
+            for p in now["household"]["request"]["input"]["household"]["employmentPeriods"]
+                .as_array()
+                .into_iter()
+                .flatten()
+            {
+                assert_ne!(
+                    p["salary"]["annual"]["state"], "unknown",
+                    "{v}: 年収の「わからない」は推定に"
+                );
+            }
+        }
         if *v == "0.43" {
             // 0.43 から: 基本生活費の新しい内訳と前の分け方の内訳（0100）
             let cats: Vec<&str> = now["household"]["request"]["input"]["household"]

@@ -13,13 +13,13 @@ export function useFieldStatus(f: FieldDef | undefined, wh: WorkingHousehold): V
   return ops === null || f === undefined ? null : fieldStatus(f, wh).status;
 }
 
-/** 状態の印（推定・わからない・該当なし・未入力）。確定なら何も出さない。根拠は印を押すと開く（0077） */
+/** 状態の印（推定・書類待ち・該当なし・未入力）。確定なら何も出さない。根拠は印を押すと開く（0077） */
 export function FieldStateBadge({ f, wh }: { f: FieldDef | undefined; wh: WorkingHousehold }) {
   const ops = useContext(FieldStateOps);
   if (ops === null || f === undefined) return null;
   const s = fieldStatus(f, wh);
   if (s.status === "confirmed") return null;
-  return <StateMark status={s.status} basis={s.status === "notApplicable" ? null : s.basis} text={s.status === "missing" ? "未入力" : STATUS_LABELS[s.status]} label={f.label} fieldKey={f.key} />;
+  return <StateMark status={s.status} basis={s.status === "notApplicable" ? null : s.basis} text={s.status === "missing" ? "未入力" : STATUS_LABELS[s.status]} label={f.label} fieldKey={f.key} doc={f.docCheck} />;
 }
 
 /**

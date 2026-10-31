@@ -46,6 +46,7 @@ import { putRow } from "../rows.ts";
 import { formatYearMonth } from "../units.ts";
 import { defaultPayoutAge, payoutAgeOf } from "../savings/model.ts";
 import { currentPeriod } from "./work.ts";
+import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 
 type Obj = Record<string, unknown>;
 
@@ -116,7 +117,9 @@ function amountField(wh: WorkingHousehold, b: RetirementBenefit, prefix: string,
   // 勤め先がパートなどに変わったのに、FP が入れた退職一時金が残っている（前の勤め先の退職金として残す。文書の3-5）
   const kept = b.kind === "lumpSum" && p !== undefined && !ESTIMATE_FOR_WARN.has(p.type) && b.amount !== undefined && !isEstimateBox(b.amount) && !isUnenteredBox(b.amount);
   const warn = kept ? `勤め先の働き方が「${EMPLOYMENT_TYPES.find((o) => o.value === p.type)?.label ?? p.type}」になっています。前の勤め先の退職金として残しています` : null;
-  return withAddress(warn === null ? f : { ...f, get: (w) => ({ ...f.get(w), warn }) }, benefitAt(b.id, "retirementBenefit.amount"));
+  // 見込み額は会社の規程・制度の資料で確かめる値（「書類で確かめる」を出す。0041 の追記 2026-10-31）
+  const g: FieldDef = { ...f, docCheck: CHECK_DOCUMENTS.retirement };
+  return withAddress(warn === null ? g : { ...g, get: (w) => ({ ...g.get(w), warn }) }, benefitAt(b.id, "retirementBenefit.amount"));
 }
 
 /** 年金の年数（null は終身） */
@@ -297,7 +300,8 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
     const required = ANNUITY_ONLY.has(kind);
     fields.push(
       withAddress(
-        plain({
+        {
+          ...plain({
           key: `${prefix}/annual`,
           item: "retirementBenefit.receipt",
           label: "年金の年額",
@@ -314,7 +318,10 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
                 ? "共済組合の年金払い退職給付の見込額（終身の分と有期の分を、それぞれの行に）。旧職域加算は年金の項目の定期便の額に含めます。入れるまでは0円で計算します"
                 : "年金見込額のお知らせの「年金で受けた場合の年額」。空欄のときは、一時金の額を年数と予定利率で年金に直した額です",
           hint: (v, w) => (v === null && !required ? annuityHint((w.request.input.household.retirementBenefits ?? []).find((x) => x.id === b.id) ?? b) : null),
-        }),
+          }),
+          // 企業年金の見込みの年額も、制度の資料で確かめる値
+          docCheck: CHECK_DOCUMENTS.retirement,
+        },
         benefitAt(b.id, "retirementBenefit.receipt", ["annualAmount"]),
       ),
     );

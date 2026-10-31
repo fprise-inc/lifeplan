@@ -45,17 +45,61 @@ describe("取り込み", () => {
     }
   });
 
-  it("「わからない」は値の状態 unknown（代わりの値つき）にして、面談のチェックリストに載せる（基本生活費は推定にする）", () => {
+  it("書類で確かめる欄でない項目の「わからない」は推定にして、面談のチェックリストに載せる（年収・基本生活費）", () => {
     const r = run(...minimal, a("hs.work.type", "regular", 1), a("hs.income.salary", "unknown", 1), a("hs.expense.living", "unknown"));
     const p = r.request.input.household.employmentPeriods[0];
-    expect(p?.salary?.annual).toMatchObject({ state: "unknown", origin: { kind: "hearing" }, substitute: { state: "estimated", value: 4120800 } });
+    // 年収は書類で確かめる欄でない（0041 の追記 2026-10-31）: 統計の目安の推定にし、根拠に「ヒアリングで『わからない』」と書く
+    expect(p?.salary?.annual).toMatchObject({ state: "estimated", value: 4120800, origin: { kind: "auto" }, estimate: { method: "statistic" } });
+    expect((p?.salary?.annual as { estimate?: { basis?: string } } | undefined)?.estimate?.basis?.startsWith("ヒアリングで「わからない」。")).toBe(true);
+    expect(r.candidates.find((c) => c.collection === "employmentPeriods")?.fields.find((f) => f.key === "hs.income.salary")?.state).toBe("estimated");
     // 基本生活費は「わからない」を持たない（0100）: 統計の目安の推定にし、根拠に「ヒアリングで『わからない』」と書く（チェックリストには載る）
     const living = r.request.input.household.livingExpenses?.[0]?.monthly;
     expect(living).toMatchObject({ state: "estimated", value: 140000, origin: { kind: "auto" }, estimate: { method: "statistic" } });
     expect((living as { estimate?: { basis?: string } } | undefined)?.estimate?.basis?.startsWith("ヒアリングで「わからない」。")).toBe(true);
     expect(r.candidates.find((c) => c.collection === "livingExpenses")?.fields.find((f) => f.key === "hs.expense.living")?.state).toBe("estimated");
     expect(r.checklist.filter((c) => c.reason === "unknown").map((c) => c.key)).toEqual(["hs.income.salary", "hs.expense.living"]);
-    expect(r.checklist.find((c) => c.key === "hs.income.salary")?.label).toBe("ご本人 給与の年収（賞与を含む）");
+    expect(r.checklist.find((c) => c.key === "hs.income.salary")).toMatchObject({ label: "ご本人 給与の年収（賞与を含む）", message: "わからない" });
+    // どこにも unknown の値の箱が残らない
+    expect(JSON.stringify(r.request)).not.toContain('"state":"unknown"');
+  });
+
+  it("書類で確かめる欄（住民税・退職金・年金の加入月数）の「わからない」は書類待ち（unknown）で取り込み、チェックリストに書類を添える", () => {
+    const r = run(
+      ...minimal,
+      a("hs.work.type", "regular", 1),
+      a("hs.work.since", "2008-04", 1),
+      a("hs.income.salary", 5000000, 1),
+      a("hs.income.bonus", 1000000, 1),
+      a("hs.income.residentTax", "unknown", 1),
+      a("hs.retirement.lumpSum", "unknown", 1),
+      a("hs.pension.notice.type", "statementUnder50", 1),
+      a("hs.pension.notice.asOf", "2026-06", 1),
+      a("hs.pension.months.total", "unknown", 1),
+      a("hs.pension.amount.basic", 700000, 1),
+      a("hs.pension.amount.employee", 900000, 1),
+    );
+    const h = r.request.input.household;
+    expect(h.residentTaxAssessments?.[0]?.amount).toMatchObject({ state: "unknown", origin: { kind: "hearing" }, substitute: { state: "estimated" } });
+    // 退職金: 会社員の退職一時金の目安を代わりの値にした書類待ち
+    const rb = h.retirementBenefits?.[0];
+    expect(rb).toMatchObject({ kind: "lumpSum", amount: { state: "unknown", origin: { kind: "hearing" }, substitute: { state: "estimated", estimate: { method: "statistic" } } } });
+    expect((rb?.amount as { substitute?: { value?: number } } | undefined)?.substitute?.value).toBeGreaterThan(0);
+    // 年金の加入月数: 20歳の月（2005-04）から書類の作成年月（2026-06）まで＝255か月、厚生年金は働き方の期間（2008-04〜2026-06）＝219か月
+    const rec = h.pensionRecords?.[0];
+    expect(rec?.months).toEqual({ basic: 255, employee: 219 });
+    const rows = (rec as { valueStates?: Record<string, { state: string }> } | undefined)?.valueStates ?? {};
+    expect(rows["pensionRecord.months/basic"]).toMatchObject({ state: "unknown", origin: { kind: "hearing" } });
+    expect(rows["pensionRecord.months/employee"]).toMatchObject({ state: "unknown" });
+    const msgs = Object.fromEntries(r.checklist.filter((c) => c.reason === "unknown").map((c) => [c.key, c.message]));
+    expect(msgs).toEqual({
+      "hs.income.residentTax": "わからない（書類で確かめる: 住民税の決定通知書）",
+      "hs.retirement.lumpSum": "わからない（書類で確かめる: 会社の退職金規程・制度の資料）",
+      "hs.pension.months.total": "わからない（書類で確かめる: ねんきん定期便）",
+    });
+    // 承認すると書類待ちの行にも承認の記録が付き、計算できる
+    const approved = approveAll(r, "2026-10-17T10:00:00+09:00");
+    const arow = ((approved.input.household.pensionRecords?.[0] as { valueStates?: Record<string, { approval?: unknown }> } | undefined)?.valueStates ?? {})["pensionRecord.months/basic"];
+    expect(arow?.approval).toBeDefined();
   });
 
   it("賞与が空欄なら、年収を統計の割合で分けて推定の印を付ける", () => {

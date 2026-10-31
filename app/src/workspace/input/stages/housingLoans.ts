@@ -14,6 +14,7 @@ import { fittedRateText, monthlyPayment, monthsBetween, monthsFromPayment, princ
 import { putRow, rowAt, type StateRow } from "../rows.ts";
 import { formatYearMonth, formatYen } from "../units.ts";
 import { readYearMonth } from "../when.ts";
+import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 
 type Obj = Record<string, unknown>;
 const debts = (h: Household) => h.debts;
@@ -973,6 +974,13 @@ function rateOutlookField(d: Debt, k: string): FieldDef {
 }
 
 /** ローン1本の欄（入れ方の区分ごとに簡易に出す欄を変える） */
+/** 今借りている住宅ローン（収益不動産のローンでなく、借入の年月が計算の基準の月まで。これから家を買うときのローンは含めない） */
+export function currentHomeLoan(wh: WorkingHousehold, d: Debt): boolean {
+  if (!isHomeLoan(d)) return false;
+  const start = resolveTimepoint(wh.request.input.household, d.start);
+  return start === null || start <= wh.request.input.baseMonth;
+}
+
 export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
   const mode = entryOf(wh, d.id);
   const mortgage = d.kind === "mortgage";
@@ -981,10 +989,16 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
   const S = "simple" as const;
   const D = "detail" as const;
   const fields: FieldDef[] = [];
+  // 今借りている住宅ローンの借入額・金利・返済期間・残高は、返済予定表で確かめる値（「書類で確かめる」を出す。これから借りるローンには出さない。0041 の追記 2026-10-31）
+  const doc = currentHomeLoan(wh, d) ? { docCheck: CHECK_DOCUMENTS.loan } : {};
+  const principal = (level: "simple" | "detail"): FieldDef => ({ ...principalField(wh, d, k, level), ...doc });
+  const rate = (level: "simple" | "detail"): FieldDef => ({ ...rateField(wh, d, k, level), ...doc });
+  const term = (level: "simple" | "detail"): FieldDef => ({ ...termField(wh, d, k, level), ...doc });
+  const balance = (level: "simple" | "detail"): FieldDef => ({ ...balanceField(wh, d, k, level), ...doc });
   if (d.property === undefined) fields.push(entryField(d, k, mortgage ? S : D));
-  if (mode === "principal") fields.push(principalField(wh, d, k, S), startField(wh, d, k, S), rateField(wh, d, k, S), termField(wh, d, k, S), paymentField(wh, d, k, S), balanceField(wh, d, k, D));
-  else if (mode === "payment") fields.push(paymentField(wh, d, k, S), rateField(wh, d, k, S), startField(wh, d, k, S), termField(wh, d, k, S), principalField(wh, d, k, D), balanceField(wh, d, k, D));
-  else fields.push(balanceField(wh, d, k, S), paymentField(wh, d, k, S), payoffField(wh, d, k, mortgage ? S : D), rateField(wh, d, k, D), startField(wh, d, k, D), principalField(wh, d, k, D));
+  if (mode === "principal") fields.push(principal(S), startField(wh, d, k, S), rate(S), term(S), paymentField(wh, d, k, S), balance(D));
+  else if (mode === "payment") fields.push(paymentField(wh, d, k, S), rate(S), startField(wh, d, k, S), term(S), principal(D), balance(D));
+  else fields.push(balance(S), paymentField(wh, d, k, S), payoffField(wh, d, k, mortgage ? S : D), rate(D), startField(wh, d, k, D), principal(D));
   // 変動金利の住宅ローンは、金利の見込みを標準に1欄（今の金利のままは楽観。0078）
   if (mortgage && isVariableNow(wh.request.input.household, d, wh.request.input.baseMonth)) fields.push(rateOutlookField(d, k));
   fields.push(

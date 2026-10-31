@@ -14,6 +14,7 @@ import { ensureRetirement } from "../fill.ts";
 import { earners, EMPLOYMENT_TYPES, HEALTH_INSURANCE, KYOKAI_BRANCHES, LEAVE_KINDS, memberLabel, PENSION_CATEGORY, POST_RETIREMENT_TYPES } from "../labels.ts";
 import { formatYearMonth } from "../units.ts";
 import { readGroup, readLine } from "../readLines.ts";
+import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 
 /** 働き方の期間の時点は年月で持つ（定年・再雇用の見つけ方などが年月で読むため。0038） */
 const PERIOD_MONTH_ONLY = "働き方の期間は年月で持ちます（年齢・今からで入れても、その年月にします）";
@@ -576,7 +577,8 @@ function residentTaxField(wh: WorkingHousehold, m: Member): FieldDef {
   const base = wh.request.input.baseMonth;
   const fy = residentTaxYear(base);
   const findTax: Finder = (hh) => ((hh.residentTaxAssessments ?? []) as { member: string; fiscalYear: number }[]).find((a) => a.member === m.id && a.fiscalYear === fy) as Record<string, unknown> | undefined;
-  return yenBox({
+  // 決定通知書を見るまでの「書類で確かめる」を出す（0041 の追記 2026-10-31）
+  const f = yenBox({
     key: `work/${m.id}/residentTax`,
     item: "residentTaxAssessment.amount",
     label: `住民税（${fy}年度の年税額）`,
@@ -597,6 +599,7 @@ function residentTaxField(wh: WorkingHousehold, m: Member): FieldDef {
     },
     help: "住民税の決定通知書（給与明細の住民税×12）の額。空欄なら前の年の所得から概算します",
   });
+  return { ...f, docCheck: CHECK_DOCUMENTS.residentTax };
 }
 
 /** 今の働き方の「▸ 詳しく」に出さない、期間の欄（期間の形・年収の分け方。標準の欄と2通りの入れ方にしない） */
@@ -789,13 +792,13 @@ function smrField(wh: WorkingHousehold, find: Finder, prefix: string, kind: SmrK
         const b = boxOf(x, kind);
         if (b !== undefined) {
           const value = b.value ?? (b.state === "unknown" ? ((b as { substitute?: Box<number> }).substitute?.value ?? null) : null);
-          return { value, estimated: boxBasis(b) ?? (b.state === "unknown" ? "わからない（代わりの値）" : null) };
+          return { value, estimated: boxBasis(b) ?? (b.state === "unknown" ? "書類待ち（代わりの値）" : null) };
         }
         const v = blank(x);
         return v === null ? { value: null } : { value: null, estimated: SMR_BLANK_BASIS, hint: `今の年収なら月 ${v.toLocaleString("ja-JP")}円（推定）` };
       },
       set: (w, v) => put(w, v === null ? undefined : { value: Number(v), state: "confirmed", origin: { kind: "manual" } }),
-      // 空欄のときだけ、目安を「この値にする」で書ける。「わからない」は出さない（分からなければ空欄のまま給与から計算するのが正しい。代わりの値を
+      // 空欄のときだけ、目安を「この値にする」で書ける。「書類で確かめる」は出さない（分からなければ空欄のまま給与から計算するのが正しい。代わりの値を
       // 書くと期間の間ずっと同じ額になる。0041 の 2026-10-29 の追記の「推定のある欄だけ」の決まりで、空欄の目安は値を書く推定ではないため）
       ...(boxOf(period(wh), kind) === undefined ? { blankEstimate: (w: WorkingHousehold) => (boxOf(period(w), kind) === undefined ? blank(period(w)) : null) } : {}),
     }),
@@ -818,10 +821,10 @@ export const BONUS_SPLIT_METHOD = "derived";
 
 /**
  * 年収（賞与込み）の欄（標準の今の働き方。0078）。世帯ファイルは年収（賞与を除く）と賞与の2つの値の箱のまま（形を変えない）。
- * - 見せる値は2つの合計。状態は年収の箱の状態（推定・わからない・該当なし・確定）
+ * - 見せる値は2つの合計。状態は年収の箱の状態（推定・書類待ち・該当なし・確定）
  * - 合計を入れると: 賞与が確定（人が入れた・書類の値）で合計以下なら、賞与はそのままで年収＝合計−賞与。そうでなければ、賃金の統計（年齢・性別・
  *   働き方の平均）の年収と賞与の割合で賞与を分け（千円単位）、賞与は推定の印（出し方 derived）、年収は確定にする
- * - 空にすると、年収・賞与とも統計の推定に戻す（2つの欄を空にしたのと同じ）。わからないの操作は年収の箱に当てる（賞与はそのまま）。
+ * - 空にすると、年収・賞与とも統計の推定に戻す（2つの欄を空にしたのと同じ）。前に入れた書類待ち（前の「わからない」）は年収の箱にある（賞与はそのまま）。
  *   「この値にする」（確定）は年収の箱と、推定のままの賞与をその値のまま確定にする（見えている合計を確定にする。0077 の追記）
  * - 年収が確定で賞与だけが推定なら、欄の名前の横に「推定」の印（partEstimated）
  */
@@ -881,7 +884,7 @@ function salaryTotalField(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, 
         const bv = boxValue(b);
         const basisA = boxBasis(a);
         const basisB = boxBasis(b);
-        const estimated = basisA !== null ? (basisB !== null && b?.estimate?.method === "statistic" ? `年収: ${basisA}／賞与: ${basisB}` : basisA) : a?.state === "unknown" ? "わからない（代わりの値）" : null;
+        const estimated = basisA !== null ? (basisB !== null && b?.estimate?.method === "statistic" ? `年収: ${basisA}／賞与: ${basisB}` : basisA) : a?.state === "unknown" ? "書類待ち（代わりの値）" : null;
         // 年収は確定で賞与だけ推定（合計を入れて統計の割合で分けた・賞与が統計の推定のまま）なら、欄に「推定」の印を出す
         const partEstimated = basisA === null && a?.state === "confirmed" && basisB !== null ? `賞与は${basisB}` : null;
         return { value: total(w), estimated, partEstimated, hint: bv !== null && bv > 0 ? `うち賞与 ${manText(bv)}${basisB !== null ? "（推定）" : ""}` : null };

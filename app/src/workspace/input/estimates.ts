@@ -59,6 +59,9 @@ export function smrMonth(p: Pick<EmploymentPeriod, "from">, baseMonth: string): 
 
 const isAuto = (b: Box<number> | undefined) => b !== undefined && b.state === "estimated" && b.origin.kind === "auto";
 
+/** 入れ直した推定の根拠。ヒアリングシートの「わからない」から入れた推定は、根拠の頭の「ヒアリングで『わからない』」を残す（0100・0041 の追記 2026-10-31） */
+const keepHearingHead = (was: string | undefined, basis: string): string => ((was ?? "").startsWith(HEARING_UNKNOWN_BASIS) ? `${HEARING_UNKNOWN_BASIS}。${basis}` : basis);
+
 /**
  * 自動で入れた推定の値を、ほかの入力に合わせて入れ直す（FP が入れた値・確定の値は変えない）。
  * 「推定は入力の時点で世帯に入れ、元の入力が変わったら入れ直す」（0008 の未確定の決定）
@@ -70,9 +73,7 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
     const size = householdSize(h, baseMonth);
     if (l.mode === "total" && isAuto(l.monthly) && !isLegacyLivingEstimate(l.monthly?.value, size)) {
       const e = livingEstimate(h, baseMonth);
-      // ヒアリングシートの「わからない」から入れた推定は、根拠の頭の「ヒアリングで『わからない』」を残す（0100）
-      const was = (l.monthly as { estimate?: { basis?: string } } | undefined)?.estimate?.basis ?? "";
-      const basis = was.startsWith(HEARING_UNKNOWN_BASIS) ? `${HEARING_UNKNOWN_BASIS}。${e.basis}` : e.basis;
+      const basis = keepHearingHead((l.monthly as { estimate?: { basis?: string } } | undefined)?.estimate?.basis, e.basis);
       l.monthly = { ...(l.monthly as Box<number>), value: e.value, estimate: { method: "statistic", basis } } as Box<number>;
     }
   }
@@ -84,7 +85,8 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
     if (est === null) continue;
     const redo = (b: Box<number> | undefined, e: Estimate): Box<number> | undefined => {
       const cur = (b as { estimate?: { method?: string; basis?: string } } | undefined)?.estimate;
-      return b !== undefined && isAuto(b) && cur?.method === "statistic" && (b.value !== e.value || cur.basis !== e.basis) ? ({ ...b, value: e.value, estimate: { method: "statistic", basis: e.basis } } as Box<number>) : b;
+      const basis = keepHearingHead(cur?.basis, e.basis);
+      return b !== undefined && isAuto(b) && cur?.method === "statistic" && (b.value !== e.value || cur.basis !== basis) ? ({ ...b, value: e.value, estimate: { method: "statistic", basis } } as Box<number>) : b;
     };
     const annual = redo(p.salary.annual, est.annual) as Box<number>;
     const bonus = redo(p.salary.bonus, est.bonus);

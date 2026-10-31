@@ -17,6 +17,7 @@ import { oneMinus } from "../units.ts";
 import { carLoanGroups, newCarLoan } from "./housing.ts";
 import { fixGrowth } from "./living.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./onContingency.ts";
+import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 
 type Obj = Record<string, unknown>;
 const cars = (h: Household) => h.cars;
@@ -396,9 +397,11 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
     }),
   ];
   if (c.loan !== undefined) {
+    // 自動車ローンの頭金・年数・金利は、返済予定表で確かめる値（「書類で確かめる」を出す。0041 の追記 2026-10-31）
+    const doc = { docCheck: CHECK_DOCUMENTS.loan };
     fields.push(
       withAddress(
-        field({
+        { ...field({
           key: `${k}/down`,
           item: "car.loan",
           label: "頭金（下取りを引いた額に対する割合）",
@@ -419,11 +422,11 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
               if (v === null || Number(v) === 0) delete x.loan.share;
               else x.loan.share = oneMinus(String(v));
             }),
-        }),
+        }), ...doc },
         addr(c.id, "car.loan", ["share"]),
       ),
       withAddress(
-        field({
+        { ...field({
           key: `${k}/term`,
           item: "car.loan",
           label: "ローンの年数",
@@ -442,10 +445,10 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
               const x = car(h, { ...w, request: req });
               if (x?.loan !== undefined && v !== null) x.loan.termMonths = Number(v) * 12;
             }),
-        }),
+        }), ...doc },
         addr(c.id, "car.loan", ["termMonths"]),
       ),
-      withAddress(plain({ key: `${k}/rate`, item: "car.loan", label: "ローンの金利（年・固定）", level: "detail", kind: "pct", find, path: ["loan", "rate"] }), addr(c.id, "car.loan", ["rate"])),
+      withAddress({ ...plain({ key: `${k}/rate`, item: "car.loan", label: "ローンの金利（年・固定）", level: "detail", kind: "pct", find, path: ["loan", "rate"] }), ...doc }, addr(c.id, "car.loan", ["rate"])),
     );
   }
   // 維持費（入れ方: 合計／内訳。どちらの値も残し、計算は入れ方の側だけを数える。0069）

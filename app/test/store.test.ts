@@ -579,6 +579,19 @@ function sample043(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/**
+ * 0.44 の見本の世帯（0041 の追記 2026-10-31）: sample043() の本人の住民税の年税額を「書類で確かめる」（書類待ち。状態 unknown・前に入っていた値を
+ * 代わりに使う）にした物。書類で確かめる欄の unknown は 0.44 でも残る
+ */
+function sample044(): BodyState {
+  const s = sample043();
+  const req = structuredClone(s.wh.request);
+  const t = (req.input.household.residentTaxAssessments as unknown as { amount: Record<string, unknown> }[])[0]!;
+  const v = t.amount.value as number;
+  t.amount = { state: "unknown", origin: { kind: "manual" }, substitute: { value: v, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "前に入っていた値を代わりに使う" } } };
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -702,7 +715,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.43");
+    expect(BODY_FORMAT_VERSION).toBe("0.44");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -856,7 +869,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample043())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample044())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1074,6 +1087,25 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(n).toMatchObject({ id: "household:n1", target: "living", action: "基本生活費" });
     expect(n?.text).toContain("2か所とプランの変更 1件");
     expect(n?.text).toContain("結果は変わりません");
+  });
+
+  it("0.43 → 0.44 の変換の段が「わからない」を推定にした世帯には、開いたときの知らせを見せる（押すと入力の画面を開く）", () => {
+    const i: BarInputs = { opened: true, stored: true, save: { kind: "idle" } as never, paused: false, aiSharing: false, storage: [], showing: { recovery: false, office: false, storage: false }, presence: null, message: (c) => c, household: [{ id: "n1", kind: "unknownEstimated", count: 3, plans: 1 }] };
+    const [n] = barNotices(i);
+    expect(n).toMatchObject({ id: "household:n1", target: "input", action: "入力" });
+    expect(n?.text).toContain("3か所とプランの変更 1件");
+    expect(n?.text).toContain("書類で確かめる");
+    expect(n?.text).toContain("結果は変わりません");
+  });
+
+  it("0.44 の形（0041 の追記）: 書類で確かめる欄（住民税）の書類待ちを保存して読み戻し、代わりの値で計算する。確かめの一覧に書類待ちとして出る", () => {
+    const s = sample044();
+    const back = fromBody(JSON.stringify(bodyObject(s)));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect((back.wh.request.input.household.residentTaxAssessments as unknown as { amount: unknown }[])[0]!.amount).toMatchObject({ state: "unknown" });
+    expect(() => preview(back.wh.request)).not.toThrow();
+    const row = checkList(back.wh).find((r) => r.kind === "unknown");
+    expect(row?.detail).toContain("住民税の決定通知書で確かめる");
   });
 
   it("0.42 の形（0090）: 高専と専門職大学院（法科大学院）の段を保存して読み戻し、計算に使う", () => {
