@@ -5,7 +5,7 @@
 // - 大きさ・中のファイル数・展開した後の大きさに上限を置く（zip.ts）。DOCTYPE を含む XML は読まない（xml.ts）
 // - 読むのは、使う側が指したシートとセルだけ（シートは指されたときに初めて展開する）
 import type { CellValue } from "./cells.ts";
-import { child, childrenNamed, parseXml, textOf, XmlError, type XmlElement } from "./xml.ts";
+import { child, childrenNamed, decodeXstring, parseXml, textOf, XmlError, type XmlElement } from "./xml.ts";
 import { DEFAULT_LIMITS, ZipError, ZipReader, type ZipLimits } from "./zip.ts";
 
 /** 読めなかった理由 */
@@ -191,7 +191,7 @@ async function readRels(zip: ZipReader, path: string): Promise<Map<string, { pat
 async function readShared(zip: ZipReader, path: string): Promise<string[]> {
   const t = await zip.readText(path);
   if (t === null) return [];
-  return childrenNamed(parseXml(t), "si").map(textOf);
+  return childrenNamed(parseXml(t), "si").map((si) => decodeXstring(textOf(si)));
 }
 
 async function readSheet(zip: ZipReader, path: string): Promise<Map<string, RawCell>> {
@@ -209,9 +209,10 @@ async function readSheet(zip: ZipReader, path: string): Promise<Map<string, RawC
       const is = child(c, "is");
       out.set(ref, {
         ...(c.attrs.t !== undefined ? { t: c.attrs.t } : {}),
-        ...(v !== undefined ? { v: textOf(v) } : {}),
+        // 文字のセル（数式の結果の文字 str・セルの中の文字 inlineStr）は「_xHHHH_」を戻す（共有文字列は readShared で戻す）
+        ...(v !== undefined ? { v: c.attrs.t === "str" ? decodeXstring(textOf(v)) : textOf(v) } : {}),
         f: child(c, "f") !== undefined,
-        ...(is !== undefined ? { inline: textOf(is as XmlElement) } : {}),
+        ...(is !== undefined ? { inline: decodeXstring(textOf(is as XmlElement)) } : {}),
       });
     }
   }
