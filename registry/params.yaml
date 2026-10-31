@@ -2044,7 +2044,7 @@ entries:
     replacedBy: null
   - id: living.statistics.categoryMonthly.communication
     status: active
-    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の通信（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の通信と、インターネット接続料（品目分類の全国の月平均）の合計（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
     since: draft
     aliases: []
     replacedBy: null
@@ -2086,7 +2086,7 @@ entries:
     replacedBy: null
   - id: living.statistics.categoryMonthly.recreation
     status: active
-    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の教養娯楽（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の教養娯楽から、インターネット接続料（品目分類の全国の月平均）を除いた額（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
     since: draft
     aliases: []
     replacedBy: null

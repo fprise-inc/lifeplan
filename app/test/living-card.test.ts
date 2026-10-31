@@ -278,7 +278,9 @@ describe("総額と内訳（0048 の2・0100）", () => {
     expect(help("transit")).toContain("ガソリン・駐車場・高速代・車の保険などは「車」の入力項目で入れます");
     expect(help("transit")).toContain("カーシェア・レンタカー");
     expect(help("furniture")).toContain("家電・家具の買い替え");
-    expect(help("communication")).toContain("インターネットの回線の料金は「趣味・娯楽」の中");
+    expect(help("communication")).toContain("スマホ・固定電話・ネット回線");
+    expect(help("communication")).not.toContain("趣味・娯楽の中");
+    expect(help("recreation")).toContain("ネット回線の料金は「通信費」で入れます");
     expect(help("recreation")).toContain("習い事の月謝");
     expect(help("other")).toContain("掛け捨ての保険料");
     expect(help("other")).toContain("保育の費用");
@@ -341,8 +343,8 @@ describe("前の分け方の内訳（0.42 までの世帯。0100）", () => {
     const transit = cs.find((c) => c.category === "transit")!;
     const comm = cs.find((c) => c.category === "communication")!;
     expect(transit.monthly.value! + comm.monthly.value!).toBe(30000);
-    // 3人の世帯の交通 6,239・通信 12,438 の割合（交通は千円単位）
-    expect(transit.monthly.value).toBe(Math.round((30000 * 6239) / (6239 + 12438) / 1000) * 1000);
+    // 3人の世帯の交通 6,239・通信 15,392（インターネット接続料を含む）の割合（交通は千円単位）
+    expect(transit.monthly.value).toBe(Math.round((30000 * 6239) / (6239 + 15392) / 1000) * 1000);
     expect(transit.monthly.state).toBe("estimated");
     expect(comm.monthly.state).toBe("estimated");
     expect(transit.id).toBe("00000000-0000-4000-8000-00000000c002");
