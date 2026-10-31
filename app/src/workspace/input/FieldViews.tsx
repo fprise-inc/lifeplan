@@ -262,15 +262,17 @@ export function useGroupOpen(): GroupOpenState {
  * 物1件の中のまとまり（1件 = 1つの枠）: まとまりのキー → それを中に描く、物の頭のまとまりのキー。
  * キーが直前の物のキー＋「/」で始まり、間が途切れずに続くまとまり（お金の行の課税の扱い・受け取る人など、ローンの金利の段階、保険の保障、
  * 物件の土地と建物・家賃収入・経費など）は、その物の枠の中に描く（枠を別に描くと、1件足しただけで何件も足したように見えるため）。
- * 渡す並びは見えているまとまりだけ。入れ子もそのまま（中のまとまりの中のまとまり）。1つずつ足して外せる物を同じ並びに置くときは ownBox で自分の枠にする
+ * 渡す並びは見えているまとまりだけ。入れ子もそのまま（中のまとまりの中のまとまり）。1つずつ足して外せる物を同じ並びに置くときは ownBox で自分の枠にする。
+ * キーの形が別の物を中に入れるときは partOf（直後に続けて並べる）
  */
-export function entryParts(groups: readonly Pick<GroupDef, "key" | "ownBox">[]): Map<string, string> {
+export function entryParts(groups: readonly Pick<GroupDef, "key" | "ownBox" | "partOf">[]): Map<string, string> {
   const out = new Map<string, string>();
   const open: string[] = [];
   for (const g of groups) {
     // 自分の枠に描く物（ownBox）: 前の枠には入れず、続くまとまりも前の枠に戻さない（並びの順番を変えないため）
     if (g.ownBox === true) open.length = 0;
-    while (open.length > 0 && !g.key.startsWith(`${open[open.length - 1]!}/`)) open.pop();
+    // キーの形が別でも、partOf の物の中のまとまり（直後に続けて並べたときだけ）
+    while (open.length > 0 && !g.key.startsWith(`${open[open.length - 1]!}/`) && g.partOf !== open[open.length - 1]) open.pop();
     const parent = open[open.length - 1];
     if (parent !== undefined) out.set(g.key, parent);
     open.push(g.key);

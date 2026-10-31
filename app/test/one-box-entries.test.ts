@@ -71,6 +71,12 @@ describe("物1件の中のまとまり（entryParts）", () => {
     expect(parts.get("r/1/buy/gift")).toBe("r/1/buy");
     expect(parts.get("r/1/value")).toBe("r/1");
   });
+  it("キーの形が別でも partOf の物の中（直後に続けて並べたときだけ）", () => {
+    const parts = entryParts([{ key: "family/s" }, { key: "family/relation/1", partOf: "family/s" }, { key: "family/relation/2", partOf: "family/s" }, { key: "family/c" }, { key: "family/relation/3", partOf: "family/s" }]);
+    expect(parts.get("family/relation/1")).toBe("family/s");
+    expect(parts.get("family/relation/2")).toBe("family/s");
+    expect(parts.has("family/relation/3")).toBe(false);
+  });
   it("自分の枠に描く物（ownBox）は中に入れず、続くまとまりも前の枠に戻さない", () => {
     const parts = entryParts([{ key: "e/1" }, { key: "e/1/stage/0", ownBox: true }, { key: "e/1/stage/0/x" }, { key: "e/1/out" }]);
     expect(parts.has("e/1/stage/0")).toBe(false);
@@ -111,6 +117,27 @@ describe("「＋」で1件足すと、外の枠は1つだけ増える", () => {
         // 標準で出ない物（詳細だけの足すボタン）は増えない
         expect(outerCount(after) - outerCount(before)).toBe(level === "simple" && outerCount(after) === outerCount(before) ? 0 : n);
       });
+
+  it("配偶者・パートナーを足すと外の枠は1つ。「夫婦の関係」は配偶者の枠の中", () => {
+    const single = fromRequest(modelHousehold("single25"), {});
+    for (const label of ["＋ 配偶者", "＋ パートナー（事実婚）"])
+      for (const level of ["detail", "simple"] as const) {
+        const after = actionOf(single, "family", label).run(single);
+        expect(outerCount(panel(after, "family", level)) - outerCount(panel(single, "family", level))).toBe(1);
+        const spouse = after.request.input.household.members.find((m) => m.kind === "spouse");
+        const rel = boxes(panel(after, "family", "detail")).filter((b) => b.key.startsWith("family/relation/"));
+        expect(rel.length).toBeGreaterThan(0);
+        for (const b of rel) expect(b).toMatchObject({ inside: true, sub: true });
+        expect(panel(after, "family", "detail")).toMatch(new RegExp(`data-group="family/${spouse?.id ?? ""}"[\\s\\S]*?<h4>夫婦の関係`));
+      }
+  });
+
+  it("収益不動産の「申告」は物件の枠の外で、持ち主ごとの欄だと見出しで分かる", () => {
+    const html = panel(actionOf(wh, "rental", "＋ 物件を足す").run(wh), "rental", "detail");
+    const tax = boxes(html).find((b) => b.key.startsWith("rental/taxReturn/"));
+    expect(tax).toMatchObject({ inside: false, sub: false });
+    expect(html).toContain("<h4>申告（ご本人）: 持ち主ごと・その人の物件をまとめて");
+  });
 
   it("収益不動産の物件1件: 土地と建物・家賃収入・経費・売却は物件の枠の中", () => {
     const html = panel(actionOf(wh, "rental", "＋ 物件を足す").run(wh), "rental", "detail");
