@@ -262,6 +262,46 @@ describe("候補", () => {
     expect(c2?.note).toContain("前の分け方のその他の消費（こづかい・交際費など）は、明細のこづかい・交際費で置き換えます");
   });
 
+  it("家電・家具の店の3万円以上の買い物は月平均の日用品から外し、「家電・家具の買い替え」の1つの候補にまとめる（いつも要確認）", () => {
+    const log = synth([
+      {
+        id: "a",
+        kind: "card",
+        label: "A",
+        owner: SELF,
+        period: YEAR,
+        rows: [
+          ...monthly(10, "イオン 架空店", 30000),
+          ...monthly(10, "ニトリ 架空店", 2000),
+          { date: "2026-02-11", merchant: "ニトリ 架空店", amount: 59800 },
+          { date: "2026-06-20", merchant: "ヤマダデンキ 架空店", amount: 128000 },
+        ],
+      },
+    ]);
+    const s = summaryOf(log);
+    // 日用品は小さな買い物だけ
+    expect(s.living.find((l) => l.category === "furniture")?.monthly).toBe(monthlyAverage(24000, 365));
+    expect(s.oneOffs.filter((o) => o.durable === true).map((o) => [o.key, o.amount])).toEqual([
+      [merchantKey("ヤマダデンキ"), 128000],
+      [merchantKey("ニトリ"), 59800],
+    ]);
+    expect(s.notices.find((n) => n.code === "S_DURABLE")?.message).toContain("2 件（合計 187,800円）");
+    const cands = buildCandidates(s, {}, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids("c") });
+    // 店ごとの年1回の候補にはしない。1つの候補にまとめる
+    expect(cands.map((c) => c.title)).toEqual(["基本生活費（内訳）", "年払いの暮らしの支出: 家電・家具の買い替え"]);
+    const d = cands[1];
+    expect(d).toMatchObject({ collection: "periodicExpenses", op: "add", status: "needsReview" });
+    expect(d?.value).toMatchObject({ label: "家電・家具の買い替え", kind: "livingAnnual", row: "cf.expense.living", everyYears: 8, from: { at: "2034-06" }, to: null, amount: { value: 187800, state: "estimated", origin: { kind: "import", ref: "stmt-1" }, estimate: { method: "statementAnnual" } } });
+    expect(d?.note).toContain("2026-02-11 ニトリ");
+    expect(d?.note).toContain("3万円未満の買い物は日用品のまま");
+    expect(d?.note).not.toContain("すでにあります");
+    // 世帯にもう家電・家具の支出があれば、そう書く
+    const has = buildCandidates(s, { periodicExpenses: [{ id: "p1", label: "家電の買い替え", row: "cf.expense.living" }] }, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids("c") });
+    expect(has[1]?.note).toContain("家電・家具の支出がすでにあります");
+    // 3万円以上の家電・家具の買い物が無ければ候補は出ない
+    expect(buildCandidates(summaryOf(yearLog()), {}, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids("c") }).some((c) => c.title.includes("家電・家具"))).toBe(false);
+  });
+
   it("期間が短い・迷う行が残るときは要確認", () => {
     const short = synth([{ id: "a", kind: "card", label: "A", owner: SELF, period: { from: "2026-08-01", to: "2026-09-29" }, rows: [{ date: "2026-08-12", merchant: "イオン", amount: 12000 }] }]);
     expect(buildCandidates(summaryOf(short), {}, { ref: "r", baseMonth: BASE_MONTH, newId: ids() })[0]?.status).toBe("needsReview");

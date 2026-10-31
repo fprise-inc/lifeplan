@@ -70,6 +70,8 @@ export interface OneOffItem {
   readonly amount: number;
   /** 年の額（年1回なら1回の額。2年に1回なら半分。年1回でなければ期間の合計を年の額に直したもの） */
   readonly perYear: number;
+  /** 家電・家具の買い替えの行（家電・家具の店の3万円以上の買い物。基本生活費の年払いの「家電・家具の買い替え」の候補にまとめる） */
+  readonly durable?: true;
 }
 
 export interface StatementSummary {
@@ -159,8 +161,12 @@ export function summarize(log: StatementLog, rows: readonly ClassifiedRow[]): St
 
   // 一時的支出（区分が一時的の行を店ごとに）
   const groups = new Map<string, ClassifiedRow[]>();
-  for (const r of rows) if (r.counted && r.parts.oneOff !== undefined) groups.set(r.row.key, [...(groups.get(r.row.key) ?? []), r]);
-  const oneOffs: OneOffItem[] = [...groups].map(([key, list]) => {
+  // 家電・家具の買い替えの行は、同じ店のほかの一時的な支出と分けてまとめる
+  const groupKey = (r: ClassifiedRow) => (r.flags.includes("durable") ? `durable\u001f${r.row.key}` : r.row.key);
+  for (const r of rows) if (r.counted && r.parts.oneOff !== undefined) groups.set(groupKey(r), [...(groups.get(groupKey(r)) ?? []), r]);
+  const oneOffs: OneOffItem[] = [...groups].map(([gk, list]) => {
+    const key = list[0]?.row.key ?? gk;
+    const durable = list[0]?.flags.includes("durable") === true;
     const sorted = [...list].sort((a, b) => (a.row.date < b.row.date ? -1 : 1));
     const last = sorted[sorted.length - 1] as ClassifiedRow;
     const occurrences = sorted.map((r) => ({ date: r.row.date, amount: r.parts.oneOff as number }));
@@ -168,7 +174,7 @@ export function summarize(log: StatementLog, rows: readonly ClassifiedRow[]): St
     const annual = last.annual;
     const amount = last.parts.oneOff as number;
     const perYear = annual !== undefined && annual.confidence !== "low" ? (annual.everyYears === 2 ? Math.floor(amount / 2) : amount) : days > 0 ? monthlyAverage(total, days) * 12 : total;
-    return { key, label: displayMerchant(last.row.merchant), category: last.category, ...(annual !== undefined ? { annual } : {}), occurrences, amount, perYear };
+    return { key, label: displayMerchant(last.row.merchant), category: last.category, ...(annual !== undefined ? { annual } : {}), occurrences, amount, perYear, ...(durable ? { durable: true as const } : {}) };
   });
   oneOffs.sort((a, b) => b.perYear - a.perYear);
 
@@ -187,6 +193,11 @@ export function summarize(log: StatementLog, rows: readonly ClassifiedRow[]): St
   if (revolving > 0) notices.push(issue("info", "S_REVOLVING", `リボ払いの行が ${revolving} 件あります。使った日で月平均に入れています（払う月の分け方は分かりません）`));
   const unmatched = rows.filter((r) => r.counted && r.flags.includes("refundUnmatched")).length;
   if (unmatched > 0) notices.push(issue("info", "S_REFUND_UNMATCHED", `元の行が見つからない返品・取り消しが ${unmatched} 件あり、その月の項目から差し引いています`));
+  const durables = rows.filter((r) => r.counted && r.flags.includes("durable"));
+  if (durables.length > 0) {
+    const total = durables.reduce((n, r) => n + (r.parts.oneOff ?? 0), 0);
+    notices.push(issue("info", "S_DURABLE", `家電・家具の店の3万円以上の買い物 ${durables.length} 件（合計 ${total.toLocaleString("ja-JP")}円）は、月平均の日用品から外し、「家電・家具の買い替え」の候補にしました（3万円未満は日用品のまま）`));
+  }
   const dups = rows.filter((r) => r.flags.includes("duplicate")).length;
   if (dups > 0) notices.push(issue("info", "S_DUPLICATE_ROWS", `別の明細と同じ行が ${dups} 件あり、二重に数えていません（分割の2回目以降・期間の重なった明細）`));
 

@@ -38,6 +38,7 @@ const PRIORITY: Record<Flag, number> = {
   cardPaymentExcluded: 9,
   duplicate: 9,
   refund: 9,
+  durable: 9,
   familyCard: 9,
   engineTax: 9,
 };

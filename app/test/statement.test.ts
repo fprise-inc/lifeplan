@@ -7,6 +7,7 @@ import { SHEET_HEADER_ROW, type StatementCandidate } from "../../statement/src/i
 import { approvalTime } from "../src/workspace/hearing/sheet.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
+import { ANNUAL_TEMPLATES } from "../src/workspace/input/stages/living.ts";
 import {
   accountLabelProblem,
   addAccount,
@@ -255,6 +256,17 @@ describe("候補の承認", () => {
     expect(cats.map((c) => c.category)).toEqual(["food", "communication", "transit", "clothing", "health", "recreation", "pocketAndSocial", "other", "allowance"]);
     expect(living.note).toContain("前の分け方の交通・通信費は、明細の通信費・交通費で置き換えます");
     expect(() => preview(next.request)).not.toThrow();
+    // 家具の店の3万円以上の買い物は、日用品ではなく基本生活費の年払いの「家電・家具の買い替え」の候補（要確認）
+    expect(cats.some((c) => c.category === "furniture")).toBe(false);
+    const durable = candidatesOf(wh, an.summary, "00000000-0000-4000-8000-0000000000a2", seq).find((c) => c.title === "年払いの暮らしの支出: 家電・家具の買い替え")!;
+    expect(durable.status).toBe("needsReview");
+    expect(defaultCandidateSelection([durable]).size).toBe(0);
+    const withDurable = approve(next, [durable], new Set([durable.id]), an.summary, "00000000-0000-4000-8000-0000000000a2", AT);
+    const added = withDurable.request.input.household.periodicExpenses!.find((p) => p.id === (durable.value as { id: string }).id)!;
+    expect(added).toMatchObject({ label: "家電・家具の買い替え", kind: "livingAnnual", row: "cf.expense.living", everyYears: 8, amount: { value: 59800 } });
+    // 入力の確かめの一覧のひな形「家電・家具の買い替え」に当たる（入れた、と出る）
+    expect(ANNUAL_TEMPLATES.find((t) => t.key === "appliances")!.match.test(added.label ?? "")).toBe(true);
+    expect(() => preview(withDurable.request)).not.toThrow();
   });
 
   it("チェックしていない候補は入らない（承認しないと現状は変わらない）", async () => {

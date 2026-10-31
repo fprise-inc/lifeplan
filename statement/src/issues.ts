@@ -30,6 +30,7 @@ export type IssueCode =
   | "S_REVOLVING"
   | "S_REFUND_UNMATCHED"
   | "S_DUPLICATE_ROWS"
+  | "S_DURABLE"
   | "S_LOG_SHAPE"
   // 前もってお客さまに印を付けてもらう確認シート（0034 の9）
   | "S_SHEET_PLAINTEXT"
