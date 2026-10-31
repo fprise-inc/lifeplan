@@ -183,6 +183,15 @@ describe("人ごとのひな形", () => {
     }
     // もう一度押すと、行の無い子だけに足す（どの子にもあれば全員に）
     expect(rowsOf(addOutTemplate(wh, "comingOfAge", seq("f"))).filter((p) => /成人式/u.test(p.label ?? ""))).toHaveLength(4);
+    // 時期を式の月（年月）に直した子も、名前でその子の行と見る（生まれる予定の子を足してもう一度押すと、その子にだけ足す）
+    const first = rows[0]!;
+    const retimed = groupOf(wh, first.id).fields.find((f) => f.key === `ev/${first.id}/from`)!.time!.setWhen(wh, { at: "2033-01" }, "auto");
+    const baby: Member = { id: "00000000-0000-4000-8000-0000000000b1", kind: "child", sex: "female", birth: { birthYearMonth: "2027-06", bornOnFirst: false }, joins: null, leaves: null, expected: true };
+    const more = addOutTemplate(mutate(retimed, (hh) => void hh.members.push(baby)), "comingOfAge", seq("g"));
+    const again = rowsOf(more).filter((p) => /成人式/u.test(p.label ?? ""));
+    expect(again).toHaveLength(3);
+    expect(again.filter((p) => p.label === "第1子の成人式").map((p) => p.from)).toEqual([{ at: "2033-01" }]);
+    expect(again.at(-1)!.from).toEqual({ memberAge: { member: baby.id, years: 20 } });
     // 種類の無い古い行で子の年齢で始まる物（前の留学など）は、今までどおり子ども・教育
     const legacy = { ...rows[0]!, kind: undefined } as unknown as PeriodicExpense;
     expect(childOfPeriodic(h, legacy)).toBe(kids[0]!.id);

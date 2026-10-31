@@ -332,6 +332,12 @@ function pending<T extends { id: string }>(people: readonly T[], done: (m: T) =>
   return rest.length > 0 ? rest : [...people];
 }
 
+/**
+ * その人の行か: 時期がその人の年齢の行か、名前が「（その人の呼び方）の…」の行。時期を年月などに直した行も、名前でその人の行と見る
+ * （成人式の時期を式の月に直した後に、もう一度押して同じ子に二重に足さない）
+ */
+const rowOf = (wh: WorkingHousehold, p: PeriodicExpense, m: Member): boolean => p.from.memberAge?.member === m.id || (p.label ?? "").startsWith(`${memberLabel(wh, m.id)}の`);
+
 /** ひな形のボタンを押したとき（人ごとのひな形は人ごとに行を足す） */
 export function addOutTemplate(wh: WorkingHousehold, key: string, ids: () => string = newId): WorkingHousehold {
   const t = tmpl(key);
@@ -346,7 +352,7 @@ export function addOutTemplate(wh: WorkingHousehold, key: string, ids: () => str
     case "comingOfAge": {
       const rows = templateRows(h, t);
       let w = wh;
-      for (const m of pending(comingOfAgeKids(wh), (c) => rows.some((p) => p.from.memberAge?.member === c.id)))
+      for (const m of pending(comingOfAgeKids(wh), (c) => rows.some((p) => rowOf(wh, p, c))))
         w = addEventTemplate(w, t, ids(), { from: { memberAge: { member: m.id, years: 20 } }, name: `${memberLabel(wh, m.id)}の成人式`, per: "1人 " });
       return w;
     }
@@ -358,7 +364,7 @@ export function addOutTemplate(wh: WorkingHousehold, key: string, ids: () => str
         return addEventTemplate(wh, t, ids(), { from: tm.from, name: "親の葬儀", fromBasis: tm.basis });
       }
       let w = wh;
-      for (const m of pending(parents, (pa) => rows.some((p) => (p.label ?? "").startsWith(memberLabel(wh, pa.id))))) {
+      for (const m of pending(parents, (pa) => rows.some((p) => rowOf(wh, p, pa)))) {
         const tm = funeralTiming(wh, m);
         w = addEventTemplate(w, t, ids(), { from: tm.from, name: `${memberLabel(wh, m.id)}の葬儀`, fromBasis: tm.basis });
       }
