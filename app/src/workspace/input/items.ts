@@ -19,6 +19,7 @@ import { outsideMembers } from "./stages/care.ts";
 import { isRentalProperty, rentalProperties } from "./stages/rental.ts";
 import { expenseCard, incomeCard, type MoneyCard } from "./moneyRows.ts";
 import { childOfPeriodic, eventExpenses } from "./stages/events.ts";
+import { addAbroad } from "./stages/education.ts";
 import { buildStage, STAGE_ORDER } from "./stages/index.ts";
 import { giftLines } from "./stages/inheritance.ts";
 import { statementMonthsMissing } from "./stages/pension.ts";
@@ -861,6 +862,9 @@ export const ADD_OPTIONS: readonly AddOption[] = [
   { key: "care", label: "介護の費用", note: "介護を受ける人・期間", art: "events" },
 ];
 
+/** 留学を足せる段（高校・大学・短大・専門学校。0088） */
+const ABROAD_STAGE_KINDS = new Set(["highSchool", "university", "juniorCollege", "vocational"]);
+
 /** 足すときの選択肢（留学は、子がいれば子ごとにも選べる。子を選ぶと、物は子ども・教育のカードのその子の所に入る） */
 export function addOptions(wh: WorkingHousehold): AddOption[] {
   const kids = wh.request.input.household.members.filter((m) => m.kind === "child" && m.expected !== true);
@@ -882,6 +886,11 @@ export function addItem(wh: WorkingHousehold, key: string, id: () => string = ne
   if (self === undefined) return null;
   const child: Member | undefined = childId === undefined ? undefined : h.members.find((m) => m.id === childId && m.kind === "child");
   if (childId !== undefined && (child === undefined || head !== "abroad")) return null;
+  // 子を選んだ留学で、その子の進路に高校・大学などがあれば、子ども・教育のカードの留学（1回ずつ。0088）を足してそのカードを開く（0090）
+  if (child !== undefined) {
+    const goal = (h.goals ?? []).find((g) => g.kind === "education" && g.owner === child.id);
+    if (goal !== undefined && (goal.education?.stages ?? []).some((s) => ABROAD_STAGE_KINDS.has(s.stage))) return { wh: addAbroad(wh, goal.id, id()), itemId: "education" };
+  }
   const ref = id();
   let next: WorkingHousehold;
   let kind: "periodic" | "care";

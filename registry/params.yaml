@@ -158,6 +158,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: education.statistics.graduate.national.law.admission
+    status: active
+    label: "国立大学の法科大学院の入学料の標準額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.graduate.national.law.tuition
+    status: active
+    label: "国立大学の法科大学院の授業料の標準額（年額）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: education.statistics.graduate.national.tuition
     status: active
     label: "国立大学の大学院の授業料の標準額（年額）"
@@ -182,6 +194,24 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: education.statistics.graduate.private.law.admission
+    status: active
+    label: "私立大学の大学院の入学料の平均（法科大学院。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.graduate.private.law.facility
+    status: active
+    label: "私立大学の大学院の施設設備費の平均（法科大学院。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.graduate.private.law.tuition
+    status: active
+    label: "私立大学の大学院の授業料の平均（法科大学院。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: education.statistics.graduate.private.master.admission
     status: active
     label: "私立大学の大学院の入学料の平均（博士前期課程（修士課程を含む）。令和7年度入学者）"
@@ -197,6 +227,24 @@ entries:
   - id: education.statistics.graduate.private.master.tuition
     status: active
     label: "私立大学の大学院の授業料の平均（博士前期課程（修士課程を含む）。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.graduate.private.professional.admission
+    status: active
+    label: "私立大学の大学院の入学料の平均（専門職学位課程（法科大学院以外）。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.graduate.private.professional.facility
+    status: active
+    label: "私立大学の大学院の施設設備費の平均（専門職学位課程（法科大学院以外）。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.graduate.private.professional.tuition
+    status: active
+    label: "私立大学の大学院の授業料の平均（専門職学位課程（法科大学院以外）。令和7年度入学者）"
     since: draft
     aliases: []
     replacedBy: null
@@ -344,6 +392,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: education.statistics.kosen.national.admission
+    status: active
+    label: "国立高等専門学校の入学料"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.kosen.national.tuition
+    status: active
+    label: "国立高等専門学校の授業料（年額）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: education.statistics.nursery.extra
     status: active
     label: "保育所の保育料とは別にかかるお金の年額の目安（実費徴収。3歳以上児の主食費を除く）"
@@ -443,6 +503,12 @@ entries:
   - id: education.statistics.university.public.tuition
     status: active
     label: "公立大学の授業料の平均（年額。令和5年度）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.highSchool.kosenPublicAnnual
+    status: active
+    label: "高等学校等就学支援金の年額（国公立の高等専門学校の1〜3年。所得の制限なし）"
     since: draft
     aliases: []
     replacedBy: null

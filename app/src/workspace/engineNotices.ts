@@ -55,6 +55,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_NOT_SUPPORTED|civilServant.retirementAllowance.adjustmentAmount": { kind: "missing", text: "公務員の退職手当の調整額は、計算に入れていません（基本額だけで計算しています）", card: "retirement" },
   "N_NOT_SUPPORTED|educationSupport.higher.assetTest": { kind: "missing", text: "大学などの修学支援（授業料の減免・給付型奨学金）は、資産の要件と理工農系の学部への支援を見ずに計算しています" },
   "N_NOT_SUPPORTED|educationSupport.higher.juniorCollegeVocational": { kind: "missing", text: "短大・専門学校の修学支援（授業料の減免・給付型奨学金）は、まだ計算していません" },
+  "N_NOT_SUPPORTED|educationSupport.higher.kosenUpper": { kind: "missing", text: "高専の4・5年の修学支援（授業料の減免・給付型奨学金）は、まだ計算していません" },
   "N_NOT_SUPPORTED|socialInsurance.nationalHealth.preschoolReduction": { kind: "missing", text: "国民健康保険の未就学児の均等割の軽減と、産前産後の保険料の免除は、計算に入れていません" },
   "N_NOT_SUPPORTED|highCostMedical.over70": { kind: "missing", text: "70歳以上の高額療養費（自己負担の上限）は、まだ計算していません（70歳以後の医療費は上限なしで数えています）" },
   "N_NOT_SUPPORTED|incomeTax.housingLoanCredit.period.specialSpecified": { kind: "missing", text: "消費税10%で取得した住宅（令和元年10月〜令和3年の入居）の11〜13年目の住宅ローン控除は、建物の価格が要るので計算に入れていません", card: "housing" },

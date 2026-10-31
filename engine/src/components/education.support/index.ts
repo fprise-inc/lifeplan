@@ -22,6 +22,7 @@
 //   年齢（19歳以上23歳未満）で合計所得金額が95万円以下の子（日本学生支援機構の運用）。学生本人が扶養の子でなければ多子世帯にしない。
 //   扶養の上限の値が無い年（制度データより前の年）は、前の近似で数える。18歳の早生まれの特例・新たに生まれた子の申告による加算は扱わない
 // 支援の額は名目額で、教育費の上昇率を当てない（0010 の5）
+// 改訂（0090）: 高専（kosen）の1〜3年に就学支援金（国公立は高専の額、私立は私立の額）。4・5年の修学支援はまだ計算しない
 // 改訂（0089）: 高校の段がインターナショナルスクール（sector international）なら就学支援金を計算しない
 import {
   addMonths,
@@ -51,6 +52,8 @@ const U = "educationSupport.higher";
 const P = {
   hsPublic: `${H}.publicAnnual`,
   hsPrivate: `${H}.privateAnnual`,
+  /** 国公立の高専（1〜3年）の就学支援金の年額（0090） */
+  hsKosenPublic: `${H}.kosenPublicAnnual`,
   calcRate: `${U}.calcRate`,
   calcRounding: `${U}.calcRounding`,
   categories: `${U}.categories`,
@@ -78,7 +81,7 @@ export default defineComponent<{ member: string }, FlowsResult>({
   id: "education.support",
   title: "教育の公的支援（就学支援金・修学支援）",
   contract: "1.0",
-  revision: 5,
+  revision: 6,
   requires: { "education.cost": ">=1 <2", "residentTax.annual": ">=1 <2", "tax.totalIncome": ">=1 <2" },
   params: Object.values(P),
   reads: ["member.kind", "member.birth", "member.joins", "member.leaves", "relation.type", "relation.parent", "relation.child", "goal.kind", "goal.owner", "goal.education"],
@@ -87,7 +90,7 @@ export default defineComponent<{ member: string }, FlowsResult>({
   compute(input, ctx) {
     const child = input.member;
     const enrollments = ctx.call<EducationCostOutput>("education.cost", { member: child }).enrollments;
-    if (!enrollments.some((e) => e.stage === "highSchool" || e.stage === "university" || e.stage === "juniorCollege" || e.stage === "vocational")) return { flows: [] };
+    if (!enrollments.some((e) => e.stage === "highSchool" || e.stage === "kosen" || e.stage === "university" || e.stage === "juniorCollege" || e.stage === "vocational")) return { flows: [] };
     const { base, end } = ctx.time;
     // 判定に使う住民税の最初の年度（計算基準月に払っている住民税の年度）
     const firstTaxYear = residentTaxYearOf(base);
@@ -172,17 +175,21 @@ export default defineComponent<{ member: string }, FlowsResult>({
     // 判定に使う住民税の年度（taxYear）の扶養（その前年の12月31日）で数える。値が無ければ在学の年度（fy）の4月の近似
     const multiChildCount = (taxYear: number, fy: number): number => dependentChildren(taxYear - 1) ?? childrenIn(fy);
     let unsupported = false;
+    let kosenUpper = false;
     const hsEligibility = ctx.list<{ kind: string; owner: string; education?: { highSchoolSupport?: string } }>("goal").find((g) => g.kind === "education" && g.owner === child)?.education?.highSchoolSupport;
     for (const e of enrollments) {
       const from = ctx.time.resolve({ at: e.from });
-      if (e.stage === "highSchool") {
+      if (e.stage === "highSchool" || e.stage === "kosen") {
         // インターナショナルスクール（各種学校などの外国人学校）は就学支援金の対象外（令和8年4月から。0089）。学校教育法第1条の学校なら私立で入れる
         if (e.sector === "international") continue;
-        for (const f of e.fees) {
+        // 高専は1〜3年だけが就学支援金の対象（4・5年は高等教育の修学支援の対象で、まだ計算しない。0090）
+        const fees = e.stage === "kosen" ? e.fees.slice(0, 3) : e.fees;
+        if (e.stage === "kosen" && e.fees.length > 3) kosenUpper = true;
+        for (const f of fees) {
           // 計算基準月より前に終わる年度は判定しない（お金の動きが表に載らず、制度データに無い年度を知らせない）
           if (monthIndex(f.fiscalYear + 1, 3) < base) continue;
           const at = ctx.at(monthIndex(f.fiscalYear, 4));
-          const id = e.sector === "private" ? P.hsPrivate : P.hsPublic;
+          const id = e.sector === "private" ? P.hsPrivate : e.stage === "kosen" ? P.hsKosenPublic : P.hsPublic;
           if (!at.has(id)) {
             ctx.notice("N_PARAM_MISSING", [id, String(f.fiscalYear)]);
             continue;
@@ -245,6 +252,7 @@ export default defineComponent<{ member: string }, FlowsResult>({
       ctx.notice("N_NOT_SUPPORTED", ["educationSupport.higher.assetTest", "educationSupport.higher.scienceAgricultureMinimum"]);
     }
     if (unsupported) ctx.notice("N_NOT_SUPPORTED", ["educationSupport.higher.juniorCollegeVocational"]);
+    if (kosenUpper) ctx.notice("N_NOT_SUPPORTED", ["educationSupport.higher.kosenUpper"]);
     return { flows };
   },
 });

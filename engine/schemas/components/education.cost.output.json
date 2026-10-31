@@ -85,7 +85,9 @@
               "juniorCollege",
               "vocational",
               "graduateMaster",
-              "graduateDoctor"
+              "graduateDoctor",
+              "graduateProfessional",
+              "kosen"
             ]
           },
           "sector": {

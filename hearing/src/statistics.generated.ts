@@ -2854,6 +2854,20 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-09"
  },
+ "education.statistics.graduate.national.law.admission": {
+  "title": "国立大学の法科大学院の入学料の標準額",
+  "value": 282000,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.graduate.national.law.tuition": {
+  "title": "国立大学の法科大学院の授業料の標準額（年額）",
+  "value": 804000,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
  "education.statistics.graduate.national.tuition": {
   "title": "国立大学の大学院の授業料の標準額（年額）",
   "value": 535800,
@@ -2882,6 +2896,27 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-30"
  },
+ "education.statistics.graduate.private.law.admission": {
+  "title": "私立大学の大学院の入学料の平均（法科大学院。令和7年度入学者）",
+  "value": 203311,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
+ "education.statistics.graduate.private.law.facility": {
+  "title": "私立大学の大学院の施設設備費の平均（法科大学院。令和7年度入学者）",
+  "value": 134172,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
+ "education.statistics.graduate.private.law.tuition": {
+  "title": "私立大学の大学院の授業料の平均（法科大学院。令和7年度入学者）",
+  "value": 1194241,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
  "education.statistics.graduate.private.master.admission": {
   "title": "私立大学の大学院の入学料の平均（博士前期課程（修士課程を含む）。令和7年度入学者）",
   "value": 208987,
@@ -2899,6 +2934,27 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
  "education.statistics.graduate.private.master.tuition": {
   "title": "私立大学の大学院の授業料の平均（博士前期課程（修士課程を含む）。令和7年度入学者）",
   "value": 811006,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
+ "education.statistics.graduate.private.professional.admission": {
+  "title": "私立大学の大学院の入学料の平均（専門職学位課程（法科大学院以外）。令和7年度入学者）",
+  "value": 209723,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
+ "education.statistics.graduate.private.professional.facility": {
+  "title": "私立大学の大学院の施設設備費の平均（専門職学位課程（法科大学院以外）。令和7年度入学者）",
+  "value": 31500,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
+ "education.statistics.graduate.private.professional.tuition": {
+  "title": "私立大学の大学院の授業料の平均（専門職学位課程（法科大学院以外）。令和7年度入学者）",
+  "value": 1035086,
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-30"
@@ -3070,6 +3126,20 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "rev": 2,
   "reviewed": true,
   "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.kosen.national.admission": {
+  "title": "国立高等専門学校の入学料",
+  "value": 84600,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
+ "education.statistics.kosen.national.tuition": {
+  "title": "国立高等専門学校の授業料（年額）",
+  "value": 234600,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
  },
  "education.statistics.nursery.extra": {
   "title": "保育所の保育料とは別にかかるお金の年額の目安（実費徴収。3歳以上児の主食費を除く）",

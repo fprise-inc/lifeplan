@@ -517,12 +517,12 @@ describe("ピン", () => {
     const child = wh.request.input.household.members.find((m) => m.kind === "child")!;
     expect(opts.map((o) => o.key)).toContain(`abroad:${child.id}`);
     expect(opts.find((o) => o.key === "abroad")!.label).toBe("留学（子を選ばない）");
+    // 子を選んだ留学は、子ども・教育のカードのその子の留学（1回ずつ）を足してカードを開く（ピンにしない。0090）
     const ab = addItem(wh, `abroad:${child.id}`, seq())!;
-    const p = ab.wh.request.input.household.periodicExpenses!.at(-1)!;
-    expect(p.from.memberAge?.member).toBe(child.id);
-    expect(pinItems(ab.wh)[0]!.owner).toBe("education");
-    expect(groupKeys(ab.wh, "education")).toContain(`ev/${p.id}`);
-    expect(groupKeys(ab.wh, "events")).not.toContain(`ev/${p.id}`);
+    expect(ab.itemId).toBe("education");
+    expect(pinItems(ab.wh)).toEqual([]);
+    const goal = (ab.wh.request.input.household.goals ?? []).find((g) => g.kind === "education" && g.owner === child.id)!;
+    expect(goal.education!.abroad!.length).toBe(1);
     expect(() => preview(ab.wh.request)).not.toThrow();
     // 子を選ばない留学はライフイベント
     const plain = addItem(wh, "abroad", seq())!;
