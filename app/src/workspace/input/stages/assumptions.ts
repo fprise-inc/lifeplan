@@ -286,7 +286,7 @@ function shiftFields(wh: WorkingHousehold): FieldDef[] {
   const ro = (key: string, item: string, label: string, how: string, read: (w: WorkingHousehold) => string | null) =>
     field({ key, item, label, level: "simple", kind: "text", readOnly: how, get: (w) => ({ value: read(w) }), set: (w) => w });
   const returns = (a?.returnShifts ?? []).map((_s, i) =>
-    ro(`assume/returnShifts/${i}`, "assumptions.returnShifts", "運用の利回りの書き換え", "結果のタブの「運用の利回り」で動かします。口座の利回りの欄の値はそのままで、計算でこの幅を足します", (w) => {
+    ro(`assume/returnShifts/${i}`, "assumptions.returnShifts", "運用の利回りの書き換え", "結果のタブの「運用の利回り」で動かします。口座の利回りの欄の値はそのままで、計算でこの幅を足します。現状に反映し直すと1件にまとめ、元の利回りに戻したプランを反映すると無くなります", (w) => {
       const x = w.request.input.assumptions?.returnShifts?.[i];
       return x === undefined ? null : returnShiftText(x);
     }),
