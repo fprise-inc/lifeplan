@@ -66,7 +66,7 @@ import { dependentRefRequest, dependentRefRows, useRefResult } from "./resultRow
 import { addRate } from "./plans/decimal.ts";
 import { ItemMenu, ItemRow } from "./plans/ItemControls.tsx";
 import { leverView, visibleKeys } from "./plans/leverChoice.ts";
-import { amountRange, buildCatalog, leverSteps, type Catalog, type ItemValue, type MovableItem } from "./plans/items.ts";
+import { ageSliderBounds, amountRange, buildCatalog, leverSteps, type Catalog, type ItemValue, type MovableItem } from "./plans/items.ts";
 import { PlanList } from "./plans/PlanList.tsx";
 import { acknowledge, applyValues, changesOf, changesOfValues, dropChange, effectiveValues, findPlan, headLetter, modernPlanName, normalizeValues, overwritePlan, planLabel, reflectPlan, sameValues, savePlan, suggestName, valueOf, type Values } from "./plans/plans.ts";
 import { cashflowTable, displayYears, eventsOf, toPresentation, withDiff } from "./present.ts";
@@ -1774,9 +1774,8 @@ export function App() {
           const bn = typeof b === "number" ? b : undefined;
           const common = { key: it.key.slice(6) as LeverKey, label: it.label, valueText: it.text(v), baseText: it.text(b), note: it.note?.(v) ?? null, removable: levView?.fixed.has(it.key) !== true };
           if (c.kind === "age") {
-            // 年齢: 1歳ずつ。今の値・基準の値が範囲の外なら範囲を広げる（入力で直接入れたとき）
-            const min = Math.min(c.min, vn ?? c.min, bn ?? c.min);
-            const max = Math.max(c.max, vn ?? c.max, bn ?? c.max);
+            // 年齢: 1歳ずつ。今の値・基準の値が上の端より上なら広げる（入力で直接入れたとき）。下の端は広げない（過ぎた年齢を選べないように）
+            const { min, max } = ageSliderBounds(c, vn, bn);
             return [{ ...common, slider: { kind: "age", min, max, value: vn ?? min, base: bn ?? min, ticks: c.ticks, stepText: c.tick } }];
           }
           // 金額: 1万円の刻み。今の値・基準の値が範囲の外なら範囲を広げる（数値の欄で直接入れたとき）

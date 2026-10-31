@@ -140,13 +140,27 @@ export const PENSION_AGE_RANGE = { min: 60, max: 75 } as const;
 /** 働く最後の年齢のスライダーの広さ: 目盛りの外でも、50歳（まだ来ていなければ次の年齢）から75歳までは選べる */
 export const RETIRE_AGE_REACH = { min: 50, max: 75 } as const;
 
-/** 働く最後の年齢のスライダー: 目盛り（見本の世帯の段）より広く、今の年齢の次から選べる（早期退職の55歳など） */
+/**
+ * 働く最後の年齢のスライダー: 目盛り（見本の世帯の段）より広く、今の年齢の次から選べる（早期退職の55歳など）。
+ * 下の端は今の年齢の次より前にしない（その年齢になる月の前月まで働くので、今の年齢以下はもう過ぎた月になる）。
+ * 見本の段（60・62歳など）が今の年齢より前でも、下の端を広げない
+ */
 export function retireAgeControl(steps: readonly number[], tick: (v: number) => string, nowAge: number | null): Control & { kind: "age" } {
   const lo = Math.max(RETIRE_AGE_REACH.min, nowAge === null ? RETIRE_AGE_REACH.min : nowAge + 1);
-  const min = Math.min(Math.min(...steps), lo);
-  const max = Math.max(Math.max(...steps), RETIRE_AGE_REACH.max);
-  // 目盛りの数字は、見本の世帯の段に範囲の両端を足す（目盛りの外でも選べることが見えるように）
-  return { kind: "age", min, max, ticks: [...new Set([min, ...steps, max])].sort((a, b) => a - b), tick };
+  const ahead = steps.filter((v) => v >= lo);
+  const min = Math.min(...ahead, lo);
+  const max = Math.max(...ahead, RETIRE_AGE_REACH.max, lo);
+  // 目盛りの数字は、見本の世帯の段（範囲の中のもの）に範囲の両端を足す（目盛りの外でも選べることが見えるように）
+  return { kind: "age", min, max, ticks: [...new Set([min, ...ahead, max])].sort((a, b) => a - b), tick };
+}
+
+/**
+ * 年齢のスライダーの画面での幅: 上の端は、今の値・基準の値（入力で直接入れた80歳など）が外にあれば広げる。
+ * 下の端は広げない（働く最後の年齢の下の端は今の年齢の次。もう退職した人の過ぎた年齢を今の値に持っていても、その間の過ぎた年齢を選べるようにしない）
+ */
+export function ageSliderBounds(c: Control & { kind: "age" }, ...values: (number | null | undefined)[]): { min: number; max: number } {
+  const xs = values.filter((x): x is number => typeof x === "number" && Number.isFinite(x));
+  return { min: c.min, max: Math.max(c.max, ...xs) };
 }
 
 /** 年齢のスライダー: 目盛りの最小〜最大を1歳ずつ（limit があればその中に収める）。目盛りの数字は今の段を残す */

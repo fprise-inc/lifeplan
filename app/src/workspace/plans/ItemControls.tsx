@@ -8,7 +8,7 @@ import type { WorkingHousehold } from "../input/household.ts";
 import { normalizeNumberText, shiftDecimal } from "../input/units.ts";
 import { BUCKETS, bucketShares, mixFromBuckets, type MixPart } from "./allocation.ts";
 import { pctText } from "./decimal.ts";
-import { AMOUNT_STEP, type Catalog, type ItemValue, type MovableItem, type RateShift, type WorkValue } from "./items.ts";
+import { ageSliderBounds, AMOUNT_STEP, type Catalog, type ItemValue, type MovableItem, type RateShift, type WorkValue } from "./items.ts";
 
 // ---- 金額の数値の欄（スライダーの横。万円で直接入れる。1万円単位に丸める）----
 
@@ -345,12 +345,14 @@ function AgeRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" }:
   const c = item.control;
   const v = typeof value === "number" ? value : c.min;
   const b = typeof base === "number" ? base : c.min;
+  // 上の端は今の値が外にあれば広げ、下の端は広げない（過ぎた年齢を選べないように）
+  const { min, max } = ageSliderBounds(c, v);
   return (
     <>
       <input
         type="range"
-        min={Math.min(c.min, v)}
-        max={Math.max(c.max, v)}
+        min={min}
+        max={max}
         step={1}
         value={v}
         data-item={item.key}
@@ -362,11 +364,11 @@ function AgeRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" }:
         onKeyUp={onRelease}
       />
       <div class="range-scale">
-        <span>{c.tick(Math.min(c.min, v))}歳</span>
+        <span>{c.tick(min)}歳</span>
         <span class="base-mark">
           {baseLabel} {item.text(b)}
         </span>
-        <span>{c.tick(Math.max(c.max, v))}歳</span>
+        <span>{c.tick(max)}歳</span>
       </div>
     </>
   );
