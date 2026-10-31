@@ -778,8 +778,9 @@ function AccountsTable(p: {
               {open ? (
                 <tr class="sv-more-row" data-more-of={moreKey}>
                   <td colSpan={4} class="l">
+                    {/* 口座1つの中身（表の行がその口座の枠。中のまとまりに枠を重ねない） */}
                     {more.map((g) => (
-                      <Group key={g.key} group={g} wh={wh} level="detail" onEdit={onEdit} />
+                      <Group key={g.key} group={g} wh={wh} level="detail" onEdit={onEdit} nested />
                     ))}
                   </td>
                 </tr>

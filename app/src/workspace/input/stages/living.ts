@@ -607,10 +607,11 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
     },
   ];
   if (l.mode === "byCategory") groups.push(categoryGroup(l, find));
-  groups.push(...stageGroups(wh, l, find));
+  // 段階は1段ずつ足して外せる物（それぞれ自分の枠。足すボタンも生活費の枠の外に置く。ownBox）
+  groups.push(...stageGroups(wh, l, find).map((g) => ({ ...g, ownBox: true })));
   const acts = stageActions(l, find);
-  if (acts.simple.length > 0) groups.push({ key: `${key}/stages/auto`, level: "simple", note: "子の誕生・独立、退職、70歳・80歳などで生活費が変わる段階がまだありません", fields: [], actions: acts.simple });
-  groups.push({ key: `${key}/stages/add`, title: "段階を足す", level: "detail", note: "段階は、その時点から「最初の額に対する割合」か「月額（今の値段）」に変えます。何段でも足せます", fields: [], actions: acts.detail });
+  if (acts.simple.length > 0) groups.push({ key: `${key}/stages/auto`, level: "simple", note: "子の誕生・独立、退職、70歳・80歳などで生活費が変わる段階がまだありません", fields: [], actions: acts.simple, ownBox: true });
+  groups.push({ key: `${key}/stages/add`, title: "段階を足す", level: "detail", note: "段階は、その時点から「最初の額に対する割合」か「月額（今の値段）」に変えます。何段でも足せます", fields: [], actions: acts.detail, ownBox: true });
   return groups;
 }
 

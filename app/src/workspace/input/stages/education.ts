@@ -944,7 +944,9 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
       },
     ],
   });
-  return { key: `edu/${child.id}`, title: who, level: "simple", groups, actions: [] };
+  // 進路の段・学校外の費用・奨学金・援助などは、1つずつ足して外せる物（それぞれ自分の枠。進路の枠の中に入れない。ownBox）
+  const own = (g: GroupDef): GroupDef => (g.key.startsWith(`edu/${goal.id}/`) ? { ...g, ownBox: true } : g);
+  return { key: `edu/${child.id}`, title: who, level: "simple", groups: groups.map(own), actions: [] };
 }
 
 export function educationStage(wh: WorkingHousehold): StageDef {

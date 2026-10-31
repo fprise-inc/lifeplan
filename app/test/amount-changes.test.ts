@@ -147,7 +147,7 @@ describe("足した変化の並びと置き場所", () => {
     expect(panel(w, "work", "simple")).not.toContain("年額の変化（");
     const html = panel(w, "work", "simple", [`in/${id}`]);
     expect(html).toContain("年額の変化（");
-    expect(html).toMatch(new RegExp(`<div class="in-group" data-more-of="in/${id}"><div class="in-group-h"><h4>年額の変化（`));
+    expect(html).toMatch(new RegExp(`<div class="in-group in-sub" data-group="[^"]+" data-more-of="in/${id}"><div class="in-group-h"><h4>年額の変化（`));
     expect(html).toContain(`data-choice="in/${id}/addChange"`);
     // 押す前は選択肢を出さない
     expect(html).not.toContain(`data-action="in/${id}/addStage"`);
