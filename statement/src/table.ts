@@ -260,8 +260,8 @@ export function sanitizeMerchant(kind: SourceKind, text: string): string {
   return s;
 }
 
-/** 年の無い日付を補う年: 同じ表の年つきの日付のうち一番多い年（無ければ手がかり） */
-function inferYear(table: Table, col: number, start: number, hint?: number): number | undefined {
+/** 年の無い日付を補う年: 同じ表の年つきの日付のうち一番多い年（無ければ undefined。そのときは外の手がかりの年を使う） */
+function inferYear(table: Table, col: number, start: number): number | undefined {
   const counts = new Map<number, number>();
   for (let i = start; i < table.cells.length; i++) {
     const d = parseDate(table.cells[i]?.[col] ?? "");
@@ -273,7 +273,40 @@ function inferYear(table: Table, col: number, start: number, hint?: number): num
   let best: number | undefined;
   let n = 0;
   for (const [y, c] of counts) if (c > n) [best, n] = [y, c];
-  return best ?? hint;
+  return best;
+}
+
+/** 年の書かれていない日付（月日だけ）の行の数と、いちばん新しい月日 */
+export interface Yearless {
+  readonly rows: number;
+  /** いちばん新しい月日（MM-DD）。月日を1年の輪に並べ、いちばん長い間（使っていない期間）の前の月日（11/05〜02/10 の明細なら 02-10） */
+  readonly end: string;
+}
+
+/** 年の書かれていない日付の行を数え、いちばん新しい月日を出す（無ければ null） */
+export function yearlessDates(table: Table, col: number, start: number): Yearless | null {
+  const days = new Set<number>();
+  let rows = 0;
+  for (let i = start; i < table.cells.length; i++) {
+    const raw = table.cells[i]?.[col] ?? "";
+    if (parseDate(raw) !== null) continue;
+    // うるう年（2000年）で読み、1月1日からの日の番号にする
+    const d = parseDate(raw, 2000);
+    if (d === null || !d.yearGuessed) continue;
+    rows++;
+    days.add((Date.parse(`${d.date}T00:00:00Z`) - Date.UTC(2000, 0, 1)) / 86_400_000);
+  }
+  if (rows === 0) return null;
+  const sorted = [...days].sort((a, b) => a - b);
+  // いちばん長い間の前の日がいちばん新しい日（輪の切れ目。年をまたがなければ最後の日の後ろの間）
+  let endAt = sorted.length - 1;
+  let gap = (sorted[0] as number) + 366 - (sorted[endAt] as number);
+  for (let k = 0; k < sorted.length - 1; k++) {
+    const g = (sorted[k + 1] as number) - (sorted[k] as number);
+    if (g > gap) [gap, endAt] = [g, k];
+  }
+  const end = new Date(Date.UTC(2000, 0, 1) + (sorted[endAt] as number) * 86_400_000).toISOString().slice(5, 10);
+  return { rows, end };
 }
 
 export interface TableRowsResult {
@@ -281,6 +314,8 @@ export interface TableRowsResult {
   readonly issues: Issue[];
   /** 明細として読まなかった行の数（合計の行・空の行など） */
   readonly skipped: number;
+  /** 年の書かれていない日付があり、表の中の日付から年を決められなかった（年は外の手がかりの年。無ければ読めない） */
+  readonly yearless?: Yearless;
 }
 
 /** 欄の表を、列の対応付けで明細の行にする */
@@ -291,7 +326,11 @@ export function tableToRows(table: Table, m: ColumnMapping, kind: SourceKind, hi
   let skipped = 0;
   const start = m.headerRow === null ? 0 : m.headerRow + 1;
   const dateCol = c.date as number;
-  const year = inferYear(table, dateCol, start, hint.year);
+  const tableYear = inferYear(table, dateCol, start);
+  const year = tableYear ?? hint.year;
+  // 表の中に年が無い明細（月日だけ）: 外の手がかりの年を、いちばん新しい月日の年として読む。それより後の月日は前の年（11/05〜02/10 の明細の 11/05 は前の年）
+  const yearless = tableYear === undefined ? yearlessDates(table, dateCol, start) : null;
+  const notAfter = hint.notAfter ?? (yearless !== null && year !== undefined ? `${year}-${yearless.end}` : undefined);
   const cell = (r: readonly string[], role: ColumnRole): string => {
     const j = c[role];
     return j === undefined ? "" : nfkc(r[j] ?? "");
@@ -308,7 +347,7 @@ export function tableToRows(table: Table, m: ColumnMapping, kind: SourceKind, hi
     const dateRaw = cell(r, "date");
     let d = parseDate(dateRaw, year);
     // 年を補った日付が明細の日付より後になるとき（1月の明細の12月の利用など）は前の年
-    if (d !== null && d.yearGuessed && hint.notAfter !== undefined && d.date > hint.notAfter && year !== undefined) d = parseDate(dateRaw, year - 1);
+    if (d !== null && d.yearGuessed && notAfter !== undefined && d.date > notAfter && year !== undefined) d = parseDate(dateRaw, year - 1);
     let amount: number | null = null;
     let fromPayment = false;
     const sgn = m.sign === "expenseNegative" ? -1 : 1;
@@ -372,7 +411,7 @@ export function tableToRows(table: Table, m: ColumnMapping, kind: SourceKind, hi
   }
   if (missingYear > 0) issues.push(issue("warning", "S_ROW_YEAR", `年の書かれていない日付が ${missingYear} 行あり、年を決められませんでした。明細の年を選んでから読み直してください`));
   if (rows.length === 0) issues.push(issue("error", "S_NO_ROWS", "明細の行を1行も読めませんでした。列の対応付けを確かめてください"));
-  return { rows, issues, skipped };
+  return { rows, issues, skipped, ...(yearless !== null ? { yearless } : {}) };
 }
 
 /** 列ごと消す列（見出しが口座番号・カード番号など、または全部の行が同じ7桁以上の数字）を消した表にする */

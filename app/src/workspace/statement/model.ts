@@ -168,8 +168,23 @@ export function ownerOptions(wh: WorkingHousehold): { value: string; label: stri
 // ---- 読む・取り込む ----
 
 /** 明細のファイルを読む（PC の中だけ。番号らしき数字は読んだ時点で消える） */
-export function readFile(bytes: Uint8Array, kind: SourceKind, formats: readonly LearnedFormat[], mapping?: ColumnMapping): Promise<ReadOutcome> {
-  return readStatement(bytes, { kind, formats, ...(mapping !== undefined ? { mapping } : {}) });
+export function readFile(bytes: Uint8Array, kind: SourceKind, formats: readonly LearnedFormat[], mapping?: ColumnMapping, year?: number): Promise<ReadOutcome> {
+  return readStatement(bytes, { kind, formats, ...(mapping !== undefined ? { mapping } : {}), ...(year !== undefined ? { yearHint: year } : {}) });
+}
+
+/**
+ * 明細を読む（年の書かれていない日付だけの明細は、年を選んでいなければ推定の年で読み直す。選んだ年は yearless.year に入る）。
+ * FP は画面で年を選び直せる（yearChoices）
+ */
+export async function readFileWithYear(bytes: Uint8Array, kind: SourceKind, formats: readonly LearnedFormat[], mapping?: ColumnMapping, year?: number): Promise<ReadOutcome> {
+  const out = await readFile(bytes, kind, formats, mapping, year);
+  if (!out.ok || out.yearless === undefined || out.yearless.year !== undefined) return out;
+  return readFile(bytes, kind, formats, mapping, out.yearless.suggested);
+}
+
+/** 年の書かれていない明細で選べる年（推定の年の翌年から10年前まで。新しい順） */
+export function yearChoices(suggested: number): { value: number; label: string }[] {
+  return Array.from({ length: 12 }, (_, i) => suggested + 1 - i).map((y) => ({ value: y, label: `${y}年${y === suggested ? "（推定）" : ""}` }));
 }
 
 /** 覚える形（FP が確かめた・選び直した対応付け。読み手が決めた形・覚えた形のままなら覚えない） */

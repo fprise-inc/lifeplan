@@ -38,7 +38,7 @@ export {
   type StatementRow,
 } from "./log.ts";
 export { displayMerchant, MAX_KEY, merchantKey } from "./merchant.ts";
-export { csvReader, DEFAULT_READERS, fileDigest, MAX_FILE_BYTES, pdfTextReader, readStatement, type ReadContext, type ReaderTable, type ReadOutcome, type StatementReader } from "./readers.ts";
+export { csvReader, DEFAULT_READERS, fileDigest, MAX_FILE_BYTES, pdfTextReader, readStatement, suggestYear, type ReadContext, type ReaderTable, type ReadOutcome, type StatementReader } from "./readers.ts";
 export { addRule, applyDecisions, DecisionError, learnFromDecisions, removeRule, reviewList, unknownMerchants, type ReviewItem, type RowDecision, type UnknownMerchant } from "./review.ts";
 export { coveredDays, FULL_YEAR_DAYS, MIN_DAYS_FOR_CANDIDATE, monthlyAverage, monthsText, paymentSchedule, summarize, type AccountCoverage, type LivingLine, type OneOffItem, type StatementSummary } from "./summary.ts";
 export { checkMapping, COLUMN_ROLES, guessMapping, headerFingerprint, ROLE_LABELS, tableToRows, type ColumnMapping, type ColumnRole, type LearnedFormat, type ReadRow, type SourceKind, type Table } from "./table.ts";

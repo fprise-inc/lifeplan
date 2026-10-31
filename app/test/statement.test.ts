@@ -29,6 +29,7 @@ import {
   periodProblem,
   putRule,
   readFile,
+  readFileWithYear,
   readSheet,
   requestSize,
   sheetPlan,
@@ -40,6 +41,7 @@ import {
   styleRows,
   withLog,
   withSheetRequest,
+  yearChoices,
   type ReadOk,
 } from "../src/workspace/statement/model.ts";
 import { bodyOf, EMPTY_CARRY, fromBody } from "../src/workspace/store/body.ts";
@@ -355,5 +357,28 @@ describe("本体の命令（0016 の1）", () => {
     for (const c of calls) expect((c[2] ?? "").split(",").map((x) => x.trim()).filter((x) => x !== "").every((a) => a === "entries" || a === "formats")).toBe(true);
     const rust = readFileSync(join(APP_DIR, "src-tauri", "src", "statement.rs"), "utf8");
     expect(rust).not.toMatch(/std::fs::write|File::create/);
+  });
+});
+
+describe("年の書かれていない明細", () => {
+  // 年の書かれていない日付だけの CSV は、案内が「年を選んで」なのに年を選ぶ欄が無く、取り込めなかった
+  it("年の書かれていない日付だけの明細は、推定の年で読み、選び直した年で読み直せる", async () => {
+    const csv = new TextEncoder().encode("利用日,利用店名,利用金額\n10/03,架空スーパー,1200\n10/05,架空コンビニ,500\n");
+    const before = await readFile(csv, "card", []);
+    expect(before.ok && before.rows.length).toBe(0);
+    const out = await readFileWithYear(csv, "card", []);
+    if (!out.ok || out.yearless === undefined) throw new Error("年を選べない");
+    const suggested = out.yearless.suggested;
+    expect(out.yearless.year).toBe(suggested);
+    expect(out.rows.map((r) => r.date)).toEqual([`${suggested}-10-03`, `${suggested}-10-05`]);
+    expect(out.issues.map((i) => i.code)).not.toContain("S_ROW_YEAR");
+    const again = await readFileWithYear(csv, "card", [], undefined, suggested - 2);
+    expect(again.ok && again.rows.map((r) => r.date)).toEqual([`${suggested - 2}-10-03`, `${suggested - 2}-10-05`]);
+    const choices = yearChoices(2026);
+    expect(choices[0]).toEqual({ value: 2027, label: "2027年" });
+    expect(choices.find((c) => c.value === 2026)?.label).toBe("2026年（推定）");
+    // 年つきの明細はそのまま（年を選ぶ欄を出さない）
+    const dated = await readFileWithYear(file("card-year-utf8bom.csv"), "card", []);
+    expect(dated.ok && dated.yearless).toBeUndefined();
   });
 });

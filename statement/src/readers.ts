@@ -169,8 +169,10 @@ export interface ReadContext {
   readonly formats?: readonly LearnedFormat[];
   /** FP が選んだ対応付け（選び直したとき） */
   readonly mapping?: ColumnMapping;
-  /** 年の書かれていない日付の年 */
+  /** 年の書かれていない日付の年（表の中に年が無い明細では、いちばん新しい月日の年。それより後の月日は前の年として読む） */
   readonly yearHint?: number;
+  /** 今日（YYYY-MM-DD）。年の書かれていない明細の推定の年に使う（無ければ PC の今日） */
+  readonly today?: string;
   readonly fileName?: string;
   readonly readers?: readonly StatementReader[];
 }
@@ -192,8 +194,25 @@ export type ReadOutcome =
       readonly rows: readonly ReadRow[];
       readonly skipped: number;
       readonly issues: readonly Issue[];
+      /**
+       * 年の書かれていない日付だけの明細（表の中にも、明細の見出しにも年が無い）。FP が年を選ぶ（yearHint）。
+       * suggested は推定の年（いちばん新しい月日が今日より後にならない、いちばん近い年）。year は読むのに使った年（選んでいなければ無い）
+       */
+      readonly yearless?: { readonly rows: number; readonly end: string; readonly suggested: number; readonly year?: number };
     }
   | { readonly ok: false; readonly issues: readonly Issue[] };
+
+/** 今日（PC の時計の、その地域の日付） */
+function localToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** 年の書かれていない明細の推定の年: いちばん新しい月日（MM-DD）が今日より後にならない、いちばん近い年 */
+export function suggestYear(end: string, today: string = localToday()): number {
+  const y = Number(today.slice(0, 4));
+  return end <= today.slice(5, 10) ? y : y - 1;
+}
 
 export async function fileDigest(bytes: Uint8Array): Promise<string> {
   const d = await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>);
@@ -249,5 +268,23 @@ export async function readStatement(bytes: Uint8Array, ctx: ReadContext): Promis
   const tr = tableToRows(table, mapping, ctx.kind, { ...(ctx.yearHint !== undefined ? { year: ctx.yearHint } : rt.statementDate !== undefined ? { year: Number(rt.statementDate.slice(0, 4)) } : {}), ...(rt.statementDate !== undefined ? { notAfter: rt.statementDate } : {}) });
   issues.push(...tr.issues);
   const needsMapping = source === "guessed" || tr.rows.length === 0;
-  return { ok: true, reader: { id: best.id, version: best.version }, file: { sha256, bytes: bytes.length }, ...(rt.encoding !== undefined ? { encoding: rt.encoding } : {}), table, mapping, mappingSource: source, fingerprint, needsMapping, rows: tr.rows, skipped: tr.skipped, issues };
+  const yearless =
+    tr.yearless !== undefined && rt.statementDate === undefined
+      ? { rows: tr.yearless.rows, end: tr.yearless.end, suggested: suggestYear(tr.yearless.end, ctx.today), ...(ctx.yearHint !== undefined ? { year: ctx.yearHint } : {}) }
+      : undefined;
+  return {
+    ok: true,
+    reader: { id: best.id, version: best.version },
+    file: { sha256, bytes: bytes.length },
+    ...(rt.encoding !== undefined ? { encoding: rt.encoding } : {}),
+    table,
+    mapping,
+    mappingSource: source,
+    fingerprint,
+    needsMapping,
+    rows: tr.rows,
+    skipped: tr.skipped,
+    issues,
+    ...(yearless !== undefined ? { yearless } : {}),
+  };
 }
