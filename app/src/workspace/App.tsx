@@ -59,7 +59,8 @@ import { DrawdownCalc } from "./invest/DrawdownCalc.tsx";
 import { advisoryFeeInCurrent, feeSummary, hasAdvisoryFee, LEVER_KEYS, type LeverKey } from "./levers.ts";
 import { MemoDrawer } from "./MemoDrawer.tsx";
 import { mixFromBuckets } from "./plans/allocation.ts";
-import { addToBand, assignColors, bandModel, cleanBand, CURRENT, MAX_BAND, planLetters, planLinesModel, removeFromBand } from "./plans/band.ts";
+import { addToBand, assignColors, bandModel, cleanBand, CURRENT, hideFromBand, MAX_BAND, planLetters, planLinesModel, removeFromBand, unsavedRemoval, type UnsavedRemoval } from "./plans/band.ts";
+import { BandDropDialog, type BandDropChoice } from "./plans/BandDropDialog.tsx";
 import { compareTable, metricsOf } from "./plans/compare.ts";
 import { usePlanPensions } from "./input/pensionEstimate.ts";
 import { dependentRefRequest, dependentRefRows, useRefResult } from "./resultRows.ts";
@@ -1536,7 +1537,27 @@ export function App() {
     delete drafts[w.sel];
     putWork({ ...w, drafts }, o, "release");
   }, [putWork]);
-  /** 案の一覧で、帯に出す・外す */
+  /** 帯から外す前の確かめ（外すプランに保存していない変更があるとき。BandDropDialog。0096 の追記） */
+  const [bandDrop, setBandDrop] = useState<UnsavedRemoval | null>(null);
+  /** 一覧で帯から外す（overwrite: 保存していない変更で上書きしてから外す。そうでなければ、その変更は捨てる） */
+  const hidePlan = useCallback(
+    (id: string, overwriteFirst: boolean) => {
+      const o = openedRef.current;
+      const w = workRef.current;
+      if (o === null) return;
+      const label = planLabel(planLetters(o.wh.proposals).get(id)?.letter ?? "");
+      const dropped = modifiedSet(o.wh, o.catalog, w).has(id);
+      if (overwriteFirst) {
+        setPlans(overwritePlan(o.wh, o.catalog, id, valuesOf(o.wh, w, id), nowIso()), hideFromBand(w, id));
+        say(`${label}を上書きして、帯から外しました（一覧に残っています）`);
+        return;
+      }
+      putWork(hideFromBand(w, id), o, "set");
+      if (dropped) say(`${label}の保存していない変更を捨てて、帯から外しました（一覧に残っています）`, true);
+    },
+    [putWork, setPlans, say],
+  );
+  /** 案の一覧で、帯に出す・外す（保存していない変更があるプランを外すときは、先に確かめる） */
   const toggleBand = useCallback(
     (id: string, on: boolean) => {
       const o = openedRef.current;
@@ -1545,34 +1566,58 @@ export function App() {
       if (on) {
         if (w.band.length >= MAX_BAND) return;
         putWork({ ...w, band: [...w.band, id] }, o, "set");
-      } else {
-        const band = w.band.filter((x) => x !== id);
-        const drafts = { ...w.drafts };
-        delete drafts[id];
-        putWork({ band, base: w.base === id ? CURRENT : w.base, sel: w.sel === id ? (band[0] ?? CURRENT) : w.sel, drafts }, o, "set");
+        return;
       }
+      const ask = unsavedRemoval(o.wh, w, modifiedSet(o.wh, o.catalog, w), id, "hide");
+      if (ask !== null) setBandDrop(ask);
+      else hidePlan(id, false);
     },
-    [putWork],
+    [putWork, hidePlan],
   );
-  /** 帯のカードの × でプランを外す（確認の窓は出さず、知らせの「元に戻す」か ⌘Z で戻す。表示していたら基準のプランに戻す） */
+  /** 帯のカードの × でプランを外す（知らせの「元に戻す」か ⌘Z で戻す。表示していたら基準のプランに戻す）。overwrite は上書きしてから外す */
+  const dropPlan = useCallback(
+    (id: string, overwriteFirst: boolean) => {
+      const o = openedRef.current;
+      const w0 = workRef.current;
+      if (o === null) return;
+      const dropped = modifiedSet(o.wh, o.catalog, w0).has(id);
+      const drafts = { ...w0.drafts };
+      if (overwriteFirst) delete drafts[id];
+      const w = { ...w0, drafts };
+      const wh = overwriteFirst ? overwritePlan(o.wh, o.catalog, id, valuesOf(o.wh, w0, id), nowIso()) : o.wh;
+      const r = removeFromBand(wh, w, id);
+      if (r === null) return;
+      if (r.sel !== w.sel) {
+        const v = valuesOf(wh, w, r.sel);
+        setShown((s) => [...new Set([...s, ...Object.keys(v).filter((k) => o.catalog.byKey.get(k)?.builtin === false)])]);
+        setTableKey(null);
+      }
+      setPlans(r.wh, { ...w, band: r.band, sel: r.sel });
+      say(overwriteFirst ? `上書きしてから${r.message}` : dropped ? `${r.message}（保存していない変更も捨てました）` : r.message, true);
+    },
+    [setPlans, say],
+  );
+  /** 帯のカードの × （保存していない変更があるプランは、先に確かめる） */
   const removePlan = useCallback(
     (letter: string) => {
       const o = openedRef.current;
       const w = workRef.current;
       if (o === null) return;
       const id = slotOfLetter(planLetters(o.wh.proposals), [CURRENT, ...w.band], letter);
-      const r = id === undefined ? null : removeFromBand(o.wh, w, id);
-      if (r === null) return;
-      if (r.sel !== w.sel) {
-        const v = valuesOf(o.wh, w, r.sel);
-        setShown((s) => [...new Set([...s, ...Object.keys(v).filter((k) => o.catalog.byKey.get(k)?.builtin === false)])]);
-        setTableKey(null);
-      }
-      setPlans(r.wh, { ...w, band: r.band, sel: r.sel });
-      say(r.message, true);
+      if (id === undefined || removeFromBand(o.wh, w, id) === null) return;
+      const ask = unsavedRemoval(o.wh, w, modifiedSet(o.wh, o.catalog, w), id, "delete");
+      if (ask !== null) setBandDrop(ask);
+      else dropPlan(id, false);
     },
-    [setPlans, say],
+    [dropPlan],
   );
+  const chooseBandDrop = (c: BandDropChoice) => {
+    const r = bandDrop;
+    setBandDrop(null);
+    if (r === null || c === "cancel") return;
+    if (r.mode === "hide") hidePlan(r.id, c === "overwrite");
+    else dropPlan(r.id, c === "overwrite");
+  };
   const reflect = useCallback(
     (planId: string) => {
       const o = openedRef.current;
@@ -2811,6 +2856,7 @@ export function App() {
           onClose={() => setRecovery(null)}
         />
       ) : null}
+      {bandDrop !== null ? <BandDropDialog removal={bandDrop} onChoose={chooseBandDrop} /> : null}
       {leave !== null ? (
         <LeaveDialog
           customerNo={storedInfo?.customerNo ?? ""}

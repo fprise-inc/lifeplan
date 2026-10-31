@@ -108,6 +108,31 @@ export function removeFromBand(wh: WorkingHousehold, w: { band: readonly string[
   };
 }
 
+/** 帯から外す前の確かめ（保存していない変更があるプランだけ。0096 の追記）: hide は一覧で帯から外す（プランは一覧に残る）、delete は帯の「×」（一覧からも外す） */
+export interface UnsavedRemoval {
+  id: string;
+  letter: string;
+  mode: "hide" | "delete";
+  /** このプランを元にしたプラン（外すと中身を引き継ぐ。例: プランD） */
+  heirs: string[];
+}
+
+/** 外すプランに保存していない変更があれば、確かめる中身（無ければ null で、そのまま外す） */
+export function unsavedRemoval(wh: WorkingHousehold, w: { band: readonly string[] }, modified: ReadonlySet<string>, id: string, mode: "hide" | "delete"): UnsavedRemoval | null {
+  if (id === CURRENT || !modified.has(id) || !w.band.includes(id)) return null;
+  const ls = planLetters(wh.proposals);
+  const heirs = mode === "delete" ? wh.proposals.filter((p) => p.base === id).map((p) => planLabel(ls.get(p.id)?.letter ?? "")) : [];
+  return { id, letter: ls.get(id)?.letter ?? "", mode, heirs };
+}
+
+/** 一覧で帯から外す: 帯から外し、そのプランの保存していない変更も捨てる。基準・表示していたプランなら、基準は現状・表示は帯の先頭へ */
+export function hideFromBand<W extends { band: string[]; base: string; sel: string; drafts: Record<string, unknown> }>(w: W, id: string): W {
+  const band = w.band.filter((x) => x !== id);
+  const drafts = { ...w.drafts };
+  delete drafts[id];
+  return { ...w, band, base: w.base === id ? CURRENT : w.base, sel: w.sel === id ? (band[0] ?? CURRENT) : w.sel, drafts };
+}
+
 /** 帯を今のプランの一覧に合わせる（消えたプランを外し、5つまでにする） */
 export function cleanBand(band: readonly string[], list: readonly Proposal[]): string[] {
   const ids = new Set(list.map((p) => p.id));
