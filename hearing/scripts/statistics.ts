@@ -12,7 +12,7 @@ const REPO = join(import.meta.dirname, "..", "..");
 const TARGET = join(import.meta.dirname, "..", "src", "statistics.generated.ts");
 
 /** マスタデータのうち、推定の目安に使うパック（フォルダの値をすべて写す） */
-const MASTER_PACKS = ["wageStats", "retirementBenefit", "living.statistics", "education.statistics", "care.statistics", "housing.statistics"];
+const MASTER_PACKS = ["wageStats", "retirementBenefit", "living.statistics", "education.statistics", "care.statistics", "housing.statistics", "loanRates"];
 /** マスタデータのうち、条件（性別など）ごとの行を写す値（id に「.<条件の値>」を付けて写す。例: lifeTable.lifeExpectancy.male） */
 const CONDITIONED_MASTER: readonly [string, string, string][] = [["lifeTable", "lifeTable.lifeExpectancy", "sex"]];
 /** 制度データのうち、推定の目安の式と入力の画面の知らせ（退職所得の控除の重なりの年数など）に使う値（適用期間ごとの行を写す） */
@@ -105,7 +105,7 @@ function build(): string {
   }
   return [
     "// 自動生成（hearing/scripts/statistics.ts。npm run statistics）。手で書き換えない。",
-    "// 正本は data/master（wageStats・retirementBenefit・living.statistics・education.statistics・care.statistics・housing.statistics・lifeTable）と data/regulation の YAML（0007）。推定の目安の数の写し",
+    "// 正本は data/master（wageStats・retirementBenefit・living.statistics・education.statistics・care.statistics・housing.statistics・loanRates・lifeTable）と data/regulation の YAML（0007）。推定の目安の数の写し",
     'import type { DatedValue, MasterValue } from "./statistics.ts";',
     "",
     `export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = ${JSON.stringify(master, null, 1)};`,

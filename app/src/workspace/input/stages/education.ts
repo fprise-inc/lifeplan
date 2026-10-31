@@ -24,6 +24,7 @@ import { boardingStatistic, isHigher, isK12, manText, stagePeriod, stageStatisti
 import { childOfPeriodic } from "./events.ts";
 import { donorOptions, FIELDS, GIFT_PURPOSES, HOUSING_EXEMPTION, LIVING_PLACE, memberLabel, memberOptions, NURSERY_HOURS, SCHOOL_LUNCH, SCHOOL_STAGES, SECTORS, TAX_METHODS } from "../labels.ts";
 import type { Address } from "../../store/readings.ts";
+import { scholarshipRateEstimate } from "../../../../../hearing/src/loanRates.ts";
 
 type Obj = Record<string, unknown>;
 const goals = (h: Household) => h.goals;
@@ -475,8 +476,11 @@ const yearsField = (key: string, label: string, find: Finder, max: number, addre
   ...(address !== undefined ? { address } : {}),
 });
 
-/** 足したときのひな形の値（推定）。日本学生支援機構・日本政策金融公庫の公表の条件は原本で確かめる前の目安 */
-export const SCHOLARSHIP_BASIS = presetBasis("貸与の奨学金 月5万円・在学中・返す人は子・20年で返す・利率は仮の値");
+/**
+ * 足したときのひな形の値（推定）。貸与の奨学金の利率は、ほかのローンの「奨学金の返済」と同じ目安（日本学生支援機構の第二種奨学金の貸与利率。
+ * マスタデータ master.loanRates。hearing/src/loanRates.ts）。日本政策金融公庫の教育ローンの条件は原本で確かめる前の目安
+ */
+export const SCHOLARSHIP_BASIS = presetBasis(`貸与の奨学金 月5万円・在学中・返す人は子・20年で返す・利率 ${scholarshipRateEstimate().basis}`);
 export const LOAN_BASIS = presetBasis("教育ローン 200万円・入学の前の1月・15年で返す・金利は仮の値");
 
 const estimatedRowAt = (input: Obj, goalId: string, list: string, id: string, keys: readonly string[], basis: string) => {
@@ -573,7 +577,7 @@ export function addScholarship(wh: WorkingHousehold, goalId: string, id: string 
     const child = h.members.find((m) => m.id === g?.owner);
     if (g?.education === undefined || child === undefined) return;
     const p = higherPeriod(g, child);
-    const s: EducationScholarship = { id, monthly: 50000, from: { at: p.from }, to: { at: p.to }, rate: "0.01", termMonths: 240, debtor: "child" };
+    const s: EducationScholarship = { id, monthly: 50000, from: { at: p.from }, to: { at: p.to }, rate: scholarshipRateEstimate().rate, termMonths: 240, debtor: "child" };
     (g.education.scholarships ??= []).push(s);
     estimatedRowAt(req.input as unknown as Obj, g.id, "scholarships", id, ["monthly", "rate", "termMonths"], SCHOLARSHIP_BASIS);
   });

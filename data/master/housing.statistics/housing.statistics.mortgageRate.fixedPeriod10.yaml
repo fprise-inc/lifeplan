@@ -1,0 +1,23 @@
+id: housing.statistics.mortgageRate.fixedPeriod10
+title: 主要な銀行が公表する当初10年の固定期間選択型の最も低い適用金利の平均（新規の住宅ローン。2026年11月の借入〔1行は10月〕の4行の平均。固定期間選択型の住宅ローンの当初の金利の目安）
+unit: rate
+kind: constant
+basis: {"type": "month"}
+entries:
+  - rev: 1
+    appliesFrom: "2026-11-01"
+    appliesTo: null
+    enforcedOn: "2026-11-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.0380"
+    sources:
+      - {"type": "web", "url": "https://www.bk.mufg.jp/kariru/jutaku/index.html", "retrievedAt": "2026-10-31", "sha256": "b91098f77e99bd1ae44976ed9f222b7979034008cada8b01fdfe60b4edd10b67", "locator": "新規お借り入れの金利（2026年11月にお借り入れの場合）", "quote": "変動金利は年1.195%　固定10年は年3.89%"}
+      - {"type": "web", "url": "https://www.smbc.co.jp/kojin/cmn/scripts/kinri.json", "retrievedAt": "2026-10-31", "sha256": "b8f920d459ef076e30ea6d89aabbe9e933cfad7a3c68669a42188fd2819a7376", "locator": "住宅ローンの店頭金利（2026年11月1日。kotei10 6.30）", "quote": "\"kotei10\": \"6.30\""}
+      - {"type": "web", "url": "https://www.smbc.co.jp/kojin/jutaku_loan/kinri/", "retrievedAt": "2026-10-31", "sha256": "5e63fa928a61821e1f7e14a6a79cff1a40274dde6a3f1b4f91a1a4e5dc26d70d", "locator": "金利プラン内容の引き下げ幅（当初お借入時の固定金利特約型の店頭金利より最大▲年2.6%）"}
+      - {"type": "web", "url": "https://www.mizuhobank.co.jp/loan_housing/index.html", "retrievedAt": "2026-10-31", "sha256": "71d3adbfa22550b6eaf3deb4d5207f8b2da1dabc8d0e0d8ffab908eaac2247c1", "locator": "新規借入をお考えの方 2026年11月1日現在の本文の表示（固定金利選択 借入期間10年で年3.40％~。ブラウザで取得した HTML。ページの説明の欄の 3.60% は古い表示）"}
+      - {"type": "web", "url": "https://www.resonabank.co.jp/common/kinri/json/jutaku.json", "retrievedAt": "2026-10-31", "sha256": "da12f742283d3e053493f1f3f1155c1146a9ad5fb0bbe221413c2ede7409e73b", "locator": "住宅ローンの金利（2026年10月1日。new1 fixed10Rate apply 4.205）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-31", "tools": ["HTML の本文（公表の金利の表示）", "JSON（公表の金利のデータ）", "店頭金利から引き下げ幅を引いて計算し直した結果", "引用と原本の指紋（sha256）の機械照合"], "note": "4行の当初10年の最も低い適用金利 3.89%・3.70%（店頭6.30%−最大2.6%）・3.40%・4.205% の平均 3.79875% を 0.01% 単位に丸めて 3.80%。2つ目の読み方: 表示の金利と、店頭金利・引き下げ幅のデータが一致。当初の固定の期間の後の金利は入れていない（金利の段階で入れる）。市場の金利で毎月変わるので、リリースのたびに見直す"}

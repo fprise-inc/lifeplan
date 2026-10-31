@@ -11,6 +11,7 @@ import { BUILDING_STRUCTURES, donorOptions, HOUSING_EXEMPTION, memberLabel, memb
 import type { StateRow } from "../rows.ts";
 import { formatYen } from "../units.ts";
 import { rentGrowthStatistic } from "../../../../../hearing/src/housingEstimates.ts";
+import { carLoanRateEstimate } from "../../../../../hearing/src/loanRates.ts";
 import { readGroup, readLine } from "../readLines.ts";
 import { stagedBadge, stagedGroups, type StagedSpec } from "../staged.ts";
 import { at, creditLifeFields, creditLifeGroups, estRow, loanFields, loanMoreActions, loanTitle, LOAN_SUBTYPES, newMortgage, newOtherLoan, otherLoanHeadFields, withEntry } from "./housingLoans.ts";
@@ -225,15 +226,15 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
       plain({
         key: `${k}/rentGrowth`,
         item: "residence.rent",
-        // 計算エンジンは更新のたびに1回この率で家賃を変える（年ごとではない）
-        label: "家賃の変動率（更新ごと）",
+        // 年率。計算エンジンは更新の月に、前の更新から経った年数分をまとめて上げ下げする（housing.residence の改訂3）
+        label: "家賃の変動率（年）",
         level: "detail",
         kind: "pct",
         find,
         path: ["rent", "growth"],
         optional: true,
         fallback: "0",
-        help: "更新のたびに、この率で家賃を上げ下げして計算します（更新の間隔が2年なら2年に1回）。空欄なら変えません",
+        help: "年あたりの率です。更新の年に、その間の年数分をまとめて上げ下げします。空欄なら変えません",
         hint: (_v, w) => {
           const x = find(w.request.input.household, w) as Residence | undefined;
           const st = rentGrowthStatistic();
@@ -745,10 +746,11 @@ export function newCarLoan(wh: WorkingHousehold): WorkingHousehold {
     if (self === undefined) return;
     const id = newId();
     const rid = newId();
-    const d: Debt = { id, kind: "car", debtors: [{ member: self.id, role: "primary" }], principal: 2000000, start: { at: base }, rateSchedule: [{ id: rid, from: { at: base }, type: "fixed", rate: "0.02" }], repayment: { method: "equalPayment", termMonths: 60 } };
+    const d: Debt = { id, kind: "car", debtors: [{ member: self.id, role: "primary" }], principal: 2000000, start: { at: base }, rateSchedule: [{ id: rid, from: { at: base }, type: "fixed", rate: carLoanRateEstimate().rate }], repayment: { method: "equalPayment", termMonths: 60 } };
     const o = d as unknown as Obj;
     setState(o, "debt.principal", estRow("standard", presetBasis("借入額 200万円")));
-    setState(o, `debt.rateSchedule/${rid}/rate`, estRow("standard", presetBasis("固定金利 年2%")));
+    // 金利は車の入力項目の自動車ローンと同じ目安（マスタデータ master.loanRates）
+    setState(o, `debt.rateSchedule/${rid}/rate`, estRow("standard", presetBasis(`固定金利 ${carLoanRateEstimate().basis}`)));
     setState(o, "debt.repayment/termMonths", estRow("standard", presetBasis("返済期間5年")));
     (hh.debts ??= []).push(d);
   });

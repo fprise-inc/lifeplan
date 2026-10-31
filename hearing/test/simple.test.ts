@@ -243,7 +243,7 @@ describe("見本のシート basic-2（通常版）", () => {
     expect((p1?.salary?.annual.value ?? 0) + (p1?.salary?.bonus.value ?? 0)).toBe(6500000);
     expect(p1?.salary?.annual).toMatchObject({ state: "estimated", certainty: "rough" });
     expect(p2?.salary?.annual.value).toBe(1200000);
-    expect(h.debts?.[0]).toMatchObject({ principal: 27500000, balance: { value: 27500000, state: "estimated", certainty: "rough" }, repayment: { termMonths: 313 } }); // 期間は変動金利の目安（マスタデータ）で逆算する
+    expect(h.debts?.[0]).toMatchObject({ principal: 27500000, balance: { value: 27500000, state: "estimated", certainty: "rough" }, repayment: { termMonths: 336 } }); // 期間は変動金利の目安（マスタデータ）で逆算する（目安を直したら、ここも直す）
     expect(h.accounts.map((x) => `${x.kind}:${x.marketValue.value}:${x.marketValue.state}`)).toEqual(["deposit:6000000:estimated", "taxable:1800000:confirmed"]);
     expect(h.livingExpenses?.[0]?.monthly).toMatchObject({ value: 275000, state: "estimated", certainty: "rough" });
     expect(r.memo[0]).toBe("【生命保険・医療保険などの保険料の合計（月）】2〜3万円（だいたいの範囲）");

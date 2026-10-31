@@ -15,11 +15,12 @@ export interface RateEstimate {
 
 const FIXED_ID = "housing.statistics.mortgageRate.fixed";
 const VARIABLE_ID = "housing.statistics.mortgageRate.variable";
+const FIXED_PERIOD_ID = "housing.statistics.mortgageRate.fixedPeriod10";
 const RENT_GROWTH_ID = "housing.statistics.rentGrowth";
 
 /** 写しに値が無いとき（正本の YAML を読めないとき）の予備の値。仮の値で、根拠の文にそう書く */
 const FALLBACK: Readonly<Record<MortgageRateType, string>> = { variable: "0.008", fixedPeriod: "0.02", fixed: "0.02" };
-const LABEL: Readonly<Record<MortgageRateType, string>> = { variable: "変動金利", fixedPeriod: "固定期間選択型", fixed: "全期間固定" };
+const LABEL: Readonly<Record<MortgageRateType, string>> = { variable: "変動金利", fixedPeriod: "固定期間選択型（当初10年）", fixed: "全期間固定" };
 
 /** 年率の文字を「0.85%」の形に（小数点以下3桁まで。末尾の0は付けない） */
 export const pctText = (rate: string | number): string => `${(Math.round(Number(rate) * 100000) / 1000).toLocaleString("ja-JP", { maximumFractionDigits: 3 })}%`;
@@ -34,20 +35,18 @@ function masterRate(id: string): { rate: string; pending: boolean; source: strin
 /**
  * 住宅ローンの当初の金利の目安（金利の種類ごと）。
  * - 全期間固定: 住宅金融支援機構の【フラット３５】の最も多い金利（借入期間21年以上35年以下・融資率9割以下）
- * - 変動: 同機構の住宅ローン利用者調査の借入金利の中央値（変動型が4分の3を占める利用者全体）
- * - 固定期間選択型: 種類を分けた公的な統計が無いので、全期間固定の目安を使う（当初の固定の期間が長いほど全期間固定に近く、控えめに高めの見込み）
+ * - 変動・固定期間選択型（当初10年）: 主要な銀行が公表する最も低い適用金利の平均（民間の公表の金利。銀行の名前は画面に出さない）
  */
 export function mortgageRateEstimate(type: MortgageRateType): RateEstimate {
-  const m = masterRate(type === "variable" ? VARIABLE_ID : FIXED_ID);
+  const m = masterRate(type === "variable" ? VARIABLE_ID : type === "fixedPeriod" ? FIXED_PERIOD_ID : FIXED_ID);
   if (m === null) return { rate: FALLBACK[type], basis: `${LABEL[type]} 年${pctText(FALLBACK[type])}（仮の値。統計の写しが読めません）` };
   const pending = m.pending ? "（原本での確かめ前）" : "";
   const p = pctText(m.rate);
-  if (type === "fixedPeriod") return { rate: m.rate, basis: `${LABEL[type]} 年${p}（金利の種類ごとの公的な統計が無いので、全期間固定の目安〔${m.source}〕を使っています）${pending}` };
   return { rate: m.rate, basis: `${LABEL[type]} 年${p}（${m.source}）${pending}` };
 }
 
 /** 推定の根拠の文から、目安の金利の文か（金利の種類を変えたときに入れ直してよい値か）を見分ける頭の言葉 */
-export const RATE_ESTIMATE_HEADS: readonly string[] = ["変動金利 年", "全期間固定 年", "固定期間選択型 年"];
+export const RATE_ESTIMATE_HEADS: readonly string[] = ["変動金利 年", "全期間固定 年", "固定期間選択型 年", "固定期間選択型（当初10年） 年"];
 
 /** 家賃の変動率の統計（消費者物価指数の民営家賃の、長い期間の年平均の変化）。写しに値が無ければ null */
 export function rentGrowthStatistic(): { rate: string; text: string } | null {

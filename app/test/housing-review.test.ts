@@ -62,10 +62,11 @@ describe("修繕・管理の費用の呼び方（建て方ごと）", () => {
 });
 
 describe("家賃の変動率", () => {
-  it("呼び方は計算どおり「更新ごと」、空欄なら統計の目安（民営家賃の10年の年平均）を知らせる。「当てる」は使わない", () => {
+  it("年率（ほかの率の欄と同じ）。空欄なら統計の目安（民営家賃の10年の年平均）を知らせる。「当てる」は使わない", () => {
     const wh = action(salaried(), "housing/addRent");
     const f = fieldOf(wh, "/rentGrowth");
-    expect(f.label).toBe("家賃の変動率（更新ごと）");
+    expect(f.label).toBe("家賃の変動率（年）");
+    expect(f.help).toContain("年あたりの率");
     expect(f.help).not.toContain("当て");
     const hint = f.get(wh).hint ?? "";
     expect(hint).toContain("消費者物価指数の民営家賃");
@@ -131,9 +132,13 @@ describe("住宅ローンの金利: 種類を金利の前に、種類ごとの�
     expect(() => preview(wh.request)).not.toThrow();
   });
   it("目安の金利はマスタデータの写しから（出典を確かめた値）", () => {
-    for (const id of ["housing.statistics.mortgageRate.variable", "housing.statistics.mortgageRate.fixed"]) expect(masterValue(id)?.reviewed).toBe(true);
+    for (const id of ["housing.statistics.mortgageRate.variable", "housing.statistics.mortgageRate.fixedPeriod10", "housing.statistics.mortgageRate.fixed"]) expect(masterValue(id)?.reviewed).toBe(true);
     expect(mortgageRateEstimate("fixed").basis).toContain("住宅金融支援機構");
-    expect(mortgageRateEstimate("fixedPeriod").basis).toContain("公的な統計が無い");
+    // 変動・固定期間選択型は主要な銀行の公表の金利の平均（画面の文に銀行の名前を出さない）
+    expect(mortgageRateEstimate("variable").basis).toContain("主要な銀行が公表する");
+    expect(mortgageRateEstimate("fixedPeriod").basis).toContain("当初10年");
+    // 根拠の文は値の題名の頭（会社の名前を書かない題名）から作る
+    for (const t of ["variable", "fixedPeriod"] as const) expect(mortgageRateEstimate(t).basis).toMatch(/（主要な銀行が公表する[^（]*の平均）$/);
   });
 });
 
@@ -195,5 +200,20 @@ describe("修繕・リフォームの時期に「毎月」を出さない", () =
     expect(optionsOf(g)).toEqual(["once", "monthly", "repeat"]);
     expect(g.get(legacy)).toMatchObject({ value: "monthly" });
     expect(g.get(legacy).hint).toContain("前の版");
+  });
+});
+
+describe("奨学金・自動車ローンの金利の目安は1つの定義（マスタデータ master.loanRates）", () => {
+  it("子ども・教育の貸与の奨学金とほかのローンの「奨学金の返済」、車の入力項目の自動車ローンと今返している自動車ローンが同じ目安", async () => {
+    const { scholarshipRateEstimate, carLoanRateEstimate } = await import("../../hearing/src/loanRates.ts");
+    const { LOAN_SUBTYPES } = await import("../src/workspace/input/stages/housingLoans.ts");
+    const { SCHOLARSHIP_BASIS } = await import("../src/workspace/input/stages/education.ts");
+    expect(masterValue("loanRates.scholarship")?.reviewed).toBe(true);
+    expect(masterValue("loanRates.carLoan")?.reviewed).toBe(true);
+    expect(LOAN_SUBTYPES.find((s) => s.value === "scholarship")?.rate).toBe(scholarshipRateEstimate().rate);
+    expect(SCHOLARSHIP_BASIS).toContain(scholarshipRateEstimate().basis);
+    const wh = action(salaried(), "housing/add/scholarship");
+    expect(wh.request.input.household.debts?.[0]?.rateSchedule[0]?.rate).toBe(scholarshipRateEstimate().rate);
+    expect(carLoanRateEstimate().basis).toMatch(/（主要な銀行が公表する[^（]*の平均）$/);
   });
 });

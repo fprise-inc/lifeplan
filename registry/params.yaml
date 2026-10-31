@@ -1046,9 +1046,15 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: housing.statistics.mortgageRate.fixedPeriod10
+    status: active
+    label: "主要な銀行が公表する当初10年の固定期間選択型の最も低い適用金利の平均（新規の住宅ローン。2026年11月の借入〔1行は10月〕の4行の平均。固定期間選択型の住宅ローンの当初の金利の目安）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: housing.statistics.mortgageRate.variable
     status: active
-    label: "住宅金融支援機構 住宅ローン利用者の実態調査 2026年1月調査の借入金利の中央値（住宅ローン利用者調査。2025年4月〜9月に借りた人。区分の割合から按分した値。利用した金利の種類は変動型が75.0%。変動金利の住宅ローンの当初の金利の目安）"
+    label: "主要な銀行が公表する変動金利の最も低い適用金利の平均（新規の住宅ローン。2026年11月の借入〔1行は10月〕の4行の平均。変動金利の住宅ローンの当初の金利の目安）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1919,6 +1925,18 @@ entries:
   - id: living.statistics.categoryMonthly.utilities
     status: active
     label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の光熱・水道（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: loanRates.carLoan
+    status: active
+    label: "主要な銀行が公表する自動車ローンの最も低い金利の平均（2026年10月。2行の平均。自動車ローンの金利の目安）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: loanRates.scholarship
+    status: active
+    label: "日本学生支援機構 第二種奨学金の貸与利率（令和8年9月に貸与を終えた人。基本月額・利率固定方式。貸与の奨学金の利率の目安）"
     since: draft
     aliases: []
     replacedBy: null

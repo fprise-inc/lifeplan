@@ -15,6 +15,7 @@ import { putRow, rowAt, type StateRow } from "../rows.ts";
 import { formatYearMonth, formatYen } from "../units.ts";
 import { readYearMonth } from "../when.ts";
 import { mortgageRateEstimate, RATE_ESTIMATE_HEADS, type MortgageRateType } from "../../../../../hearing/src/housingEstimates.ts";
+import { scholarshipRateEstimate } from "../../../../../hearing/src/loanRates.ts";
 
 type Obj = Record<string, unknown>;
 const debts = (h: Household) => h.debts;
@@ -1050,7 +1051,8 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
 
 export const LOAN_SUBTYPES = [
   { value: "cardLoan", label: "カードローン・リボ", kind: "other", rate: "0.15", rateBasis: "カードローン・リボの金利の目安 年15%" },
-  { value: "scholarship", label: "奨学金の返済", kind: "scholarship", rate: "0.005", rateBasis: "貸与型の奨学金の金利の目安 年0.5%" },
+  // 奨学金は子ども・教育の入力項目の貸与の奨学金と同じ目安（マスタデータ master.loanRates）
+  { value: "scholarship", label: "奨学金の返済", kind: "scholarship", rate: scholarshipRateEstimate().rate, rateBasis: `貸与の奨学金の利率の目安 ${scholarshipRateEstimate().basis}` },
   { value: "renovation", label: "リフォームローン", kind: "other", rate: "0.025", rateBasis: "リフォームローンの金利の目安 年2.5%" },
   { value: "policyLoan", label: "契約者貸付（保険）", kind: "other", rate: "0.03", rateBasis: "契約者貸付の金利の目安 年3%" },
   { value: "personal", label: "親・知人からの借入", kind: "other", rate: "0", rateBasis: "親・知人からの借入は利息なし" },

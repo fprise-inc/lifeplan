@@ -1,20 +1,23 @@
 id: housing.statistics.mortgageRate.variable
-title: 住宅金融支援機構 住宅ローン利用者の実態調査 2026年1月調査の借入金利の中央値（住宅ローン利用者調査。2025年4月〜9月に借りた人。区分の割合から按分した値。利用した金利の種類は変動型が75.0%。変動金利の住宅ローンの当初の金利の目安）
+title: 主要な銀行が公表する変動金利の最も低い適用金利の平均（新規の住宅ローン。2026年11月の借入〔1行は10月〕の4行の平均。変動金利の住宅ローンの当初の金利の目安）
 unit: rate
 kind: constant
 basis: {"type": "month"}
 entries:
   - rev: 1
-    appliesFrom: "2026-03-01"
+    appliesFrom: "2026-11-01"
     appliesTo: null
-    enforcedOn: {"notAfter": "2026-02-28"}
+    enforcedOn: "2026-11-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
-    value: "0.0085"
+    value: "0.0131"
     sources:
-      - {"type": "web", "url": "https://www.jhf.go.jp/files/topics/4955_ext_99_2.pdf", "retrievedAt": "2026-10-31", "sha256": "7698e949df88c752e06709b5ebfc00c9d02ad8f2785a819d1e7d2c31b225c68f", "locator": "住宅ローン利用者の実態調査（住宅ローン利用者調査 2026年1月調査）p.4 借入金利の水準（年0.5%以下 13.1%・年0.5%超～年1.0%以下 53.4%・年1.0%超～年1.5%以下 19.2%）", "quote": "「年0.5％超～年1.0％以下」が53.4％と最も多く"}
-      - {"type": "web", "url": "https://www.jhf.go.jp/files/topics/4955_ext_99_0.pdf", "retrievedAt": "2026-10-31", "sha256": "c918950fd18df363586314301814965e271ca121cd960ca7e74d472f04350bd8", "locator": "同調査の概要 II 1. 利用した住宅ローンの金利タイプ（2026年2月。調査の対象は2025年4月から2025年9月までに住宅ローンを利用して住宅を取得した人）", "quote": "「変動型」       ：75.0％"}
+      - {"type": "web", "url": "https://www.bk.mufg.jp/kariru/jutaku/index.html", "retrievedAt": "2026-10-31", "sha256": "b91098f77e99bd1ae44976ed9f222b7979034008cada8b01fdfe60b4edd10b67", "locator": "新規お借り入れの金利（2026年11月にお借り入れの場合）", "quote": "変動金利は年1.195%　固定10年は年3.89%"}
+      - {"type": "web", "url": "https://www.smbc.co.jp/kojin/cmn/scripts/kinri.json", "retrievedAt": "2026-10-31", "sha256": "b8f920d459ef076e30ea6d89aabbe9e933cfad7a3c68669a42188fd2819a7376", "locator": "住宅ローンの店頭金利（2026年11月1日。hendo 3.375・kotei10 6.30）", "quote": "\"hendo\": \"3.375\""}
+      - {"type": "web", "url": "https://www.smbc.co.jp/kojin/jutaku_loan/kinri/", "retrievedAt": "2026-10-31", "sha256": "5e63fa928a61821e1f7e14a6a79cff1a40274dde6a3f1b4f91a1a4e5dc26d70d", "locator": "金利プラン内容の引き下げ幅（変動金利型 店頭金利より最大▲年1.85%。固定金利特約型 当初 最大▲年2.6%）"}
+      - {"type": "web", "url": "https://www.mizuhobank.co.jp/loan_housing/index.html", "retrievedAt": "2026-10-31", "sha256": "71d3adbfa22550b6eaf3deb4d5207f8b2da1dabc8d0e0d8ffab908eaac2247c1", "locator": "新規借入をお考えの方 2026年11月1日現在の本文の表示（変動金利 年1.275％~・借入期間10年で年3.40％~。ブラウザで取得した HTML）"}
+      - {"type": "web", "url": "https://www.resonabank.co.jp/common/kinri/json/jutaku.json", "retrievedAt": "2026-10-31", "sha256": "da12f742283d3e053493f1f3f1155c1146a9ad5fb0bbe221413c2ede7409e73b", "locator": "住宅ローンの金利（2026年10月1日。new1 floatingRate apply 1.25・fixed10Rate apply 4.205）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-31", "tools": ["PDF の本文（公表資料）", "PDF の図の数値の表示（公表資料）", "区分の割合から中央値を計算し直した結果"], "note": "中央値 = 0.5% + 0.5% ×（50 − 13.1）÷ 53.4 = 0.8455% を 0.05% 単位に丸めて 0.85%。2つ目の読み方: 本文の 53.4% と図の区分の割合（13.1・53.4・19.2・9.0・3.3・1.2・0.8、計100.0）が一致。金利の種類を分けた金利の公的な統計は無いので、変動型が4分の3を占める利用者全体の分布で代える（全期間固定・固定期間選択型を含むので、変動金利だけより少し高めに出る）。2025年4〜9月の借入なので、その後の金利の動きは入っていない。公表日は原本に無いので、施行日の欄は概要の日付（2026年2月）の末日。次の調査の公表で入れ替える"}
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-31", "tools": ["HTML の本文（公表の金利の表示）", "JSON（公表の金利のデータ）", "店頭金利から引き下げ幅を引いて計算し直した結果", "引用と原本の指紋（sha256）の機械照合"], "note": "4行の最も低い適用金利 1.195%・1.525%（店頭3.375%−最大1.85%）・1.275%・1.25% の平均 1.31125% を 0.01% 単位に丸めて 1.31%。2つ目の読み方: 表示の金利と、店頭金利・引き下げ幅のデータ（JSON・本文）が一致。最も低い適用金利は審査で決まる上限の引き下げなので、実際の適用金利はこれより高いことがある。参考: 住宅金融支援機構「住宅ローン利用者の実態調査」2026年1月調査（2025年4〜9月の借入）の借入金利の中央値は約0.85%。市場の金利で毎月変わるので、リリースのたびに見直す（docs/estimates-review.md）"}

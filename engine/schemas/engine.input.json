@@ -1201,7 +1201,7 @@
           "required": ["monthly"],
           "properties": {
             "monthly": { "$ref": "urn:financia:schema:common#/$defs/boxYen" },
-            "growth": { "description": "家賃の上昇率（年率。更新のたびに当てる。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "growth": { "description": "家賃の上昇率（年率。更新の月に、前の更新から経った年数分をまとめて上げ下げする。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
             "renewalFee": { "description": "更新料（家賃の何か月分か。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
             "renewalEveryMonths": { "description": "更新の間隔（省略は24か月）", "type": "integer", "minimum": 1, "maximum": 120 },
             "stages": { "description": "段階（0040。その時点から額を変える。段の数に上限なし）", "type": "array", "items": { "$ref": "#/$defs/amountStage" } },

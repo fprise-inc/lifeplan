@@ -17,6 +17,7 @@ import { oneMinus } from "../units.ts";
 import { carLoanGroups, newCarLoan } from "./housing.ts";
 import { fixGrowth } from "./living.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./onContingency.ts";
+import { carLoanRateEstimate } from "../../../../../hearing/src/loanRates.ts";
 
 type Obj = Record<string, unknown>;
 const cars = (h: Household) => h.cars;
@@ -25,11 +26,11 @@ const addr = (id: string, item: string, at: string[] = []): Address => ({ target
 const estRow = (basis: string): StateRow => ({ state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis } });
 const withAddress = (f: FieldDef, a: Address): FieldDef => ({ ...f, address: () => a });
 
-/** ローンの目安（借入8割・5年・年2.5%。目安のボタンの値＝推定） */
+/** ローンの目安（借入8割・5年。金利は今返している自動車ローンと同じ目安〔マスタデータ master.loanRates〕。目安のボタンの値＝推定） */
 const LOAN_SHARE = "0.8";
-const LOAN_RATE = "0.025";
+const LOAN_RATE = carLoanRateEstimate().rate;
 const LOAN_TERM = 60;
-const LOAN_BASIS = { share: presetBasis("借入 下取りを引いた額の8割"), rate: presetBasis("金利 年2.5%"), term: presetBasis("5年で返す") };
+const LOAN_BASIS = { share: presetBasis("借入 下取りを引いた額の8割"), rate: presetBasis(`金利 ${carLoanRateEstimate().basis}`), term: presetBasis("5年で返す") };
 /** 次の買い替え・購入の時期の標準の値（3年後） */
 const FIRST_BASIS = "標準の値（3年後。この世帯に合わせて直してください）";
 
