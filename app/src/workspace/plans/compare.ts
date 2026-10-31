@@ -3,8 +3,7 @@ import type { EngineRequest, TableCell } from "../../engine/types.ts";
 import { group, man, manDiff } from "../../presentation/format.ts";
 import type { CompareCell, CompareTableModel } from "../../presentation/model.ts";
 import type { PlanPension } from "../input/pensionEstimate.ts";
-import { parseYm } from "../levers.ts";
-import { depletionYear, displayYears, financialOf } from "../present.ts";
+import { atAgeIn, depletionYear, displayYears, financialOf, targetYearOf } from "../present.ts";
 import { ageInYear, roles } from "../roles.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
@@ -13,6 +12,8 @@ const under = (row: string, prefix: string) => row === prefix || row.startsWith(
 export interface PlanMetrics {
   /** 主役の年（本人の目標の年齢の年） */
   targetYear: number;
+  /** 主役の年齢（選んだ年齢。今より前の年齢なら表の最初の年の年齢。present.ts の atAgeIn） */
+  targetAge: number;
   /** その年の金融資産 */
   target: number;
   /** 資産が尽きる年（尽きなければ null） */
@@ -27,12 +28,7 @@ export interface PlanMetrics {
   loan: number;
 }
 
-export function targetYearOf(req: EngineRequest, targetAge: number): number {
-  const years = displayYears(req);
-  const last = years.at(-1) ?? req.input.endYear;
-  const self = roles(req).find((r) => r.key === "self");
-  return self !== undefined ? Math.min(last, parseYm(self.member.birth.birthYearMonth).y + targetAge) : last;
-}
+export { targetYearOf };
 
 export function metricsOf(req: EngineRequest, table: readonly TableCell[], targetAge: number): PlanMetrics {
   const years = displayYears(req);
@@ -57,7 +53,7 @@ export function metricsOf(req: EngineRequest, table: readonly TableCell[], targe
   }
   if (!Number.isFinite(min.amount)) min = { ...min, amount: 0 };
   const targetYear = targetYearOf(req, targetAge);
-  return { targetYear, target: fin.get(targetYear) ?? 0, depletion: depletionYear(table, years), takeHome, expense, min, loan };
+  return { targetYear, targetAge: atAgeIn(req, targetAge), target: fin.get(targetYear) ?? 0, depletion: depletionYear(table, years), takeHome, expense, min, loan };
 }
 
 export interface ComparedPlan {
