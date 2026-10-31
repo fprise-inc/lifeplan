@@ -85,6 +85,7 @@ const COMMANDS: &[&str] = &[
     "feedback_form_open",
     "feedback_copy",
     "app_close_ready",
+    "app_close_cancel",
 ];
 
 fn list_json(dir: &Path) -> Vec<PathBuf> {

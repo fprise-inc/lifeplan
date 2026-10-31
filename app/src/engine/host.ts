@@ -331,6 +331,8 @@ export interface StoreHost {
   restoreWithRecoveryKey(key: string): Promise<StoreStatus>;
   /** アプリを閉じる前の保存が済んだことを本体に知らせる（本体が閉じる） */
   closeReady(): Promise<void>;
+  /** アプリを閉じるのを待ってもらう・やめる（保存できていない変更をどうするか FP に聞くとき。待つ時間の上限で閉じない） */
+  closeCancel(): Promise<void>;
   /** 分岐を選ぶ画面の材料（0023 の7） */
   forkInfo(id: string): Promise<ForkInfo>;
   /** 分岐を選ぶ（keepOurs: こちらで上書き／false: 相手の内容を残す）。開き直した世帯を返す */
@@ -568,6 +570,7 @@ export function tauriHost(): HostApi {
       testRecoveryKey: (key) => invoke<StoreStatus>("recovery_key_test", { key }),
       restoreWithRecoveryKey: (key) => invoke<StoreStatus>("recovery_key_restore", { key }),
       closeReady: () => invoke<void>("app_close_ready"),
+      closeCancel: () => invoke<void>("app_close_cancel"),
       forkInfo: (id) => invoke<ForkInfo>("store_fork_info", { id }),
       resolveFork: (id, keepOurs) => invoke<StoredOpened>("store_fork_resolve", { id, keepOurs }),
       resolveSyncCopies: (id, adopt) => invoke<void>("store_sync_copies_resolve", { id, adopt }),
@@ -758,6 +761,7 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       testRecoveryKey: async (key) => devJson<StoreStatus>(await devStore("test", { key })),
       restoreWithRecoveryKey: async (key) => devJson<StoreStatus>(await devStore("restore", { key })),
       closeReady: async () => undefined,
+      closeCancel: async () => undefined,
       forkInfo: async (id) => devJson<ForkInfo>(await devStore("forkInfo", { id })),
       resolveFork: async (id, keepOurs) => devJson<StoredOpened>(await devStore("resolveFork", { id, keepOurs: keepOurs ? "1" : "" })),
       resolveSyncCopies: async (id, adopt) => void (await devJson<unknown>(await devStore("resolveSyncCopies", { id, adopt: adopt ? "1" : "" }))),
