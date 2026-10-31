@@ -1,0 +1,20 @@
+id: housing.statistics.mortgageRate.variable
+title: 住宅金融支援機構 住宅ローン利用者の実態調査 2026年1月調査の借入金利の中央値（住宅ローン利用者調査。2025年4月〜9月に借りた人。区分の割合から按分した値。利用した金利の種類は変動型が75.0%。変動金利の住宅ローンの当初の金利の目安）
+unit: rate
+kind: constant
+basis: {"type": "month"}
+entries:
+  - rev: 1
+    appliesFrom: "2026-03-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2026-02-28"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.0085"
+    sources:
+      - {"type": "web", "url": "https://www.jhf.go.jp/files/topics/4955_ext_99_2.pdf", "retrievedAt": "2026-10-31", "sha256": "7698e949df88c752e06709b5ebfc00c9d02ad8f2785a819d1e7d2c31b225c68f", "locator": "住宅ローン利用者の実態調査（住宅ローン利用者調査 2026年1月調査）p.4 借入金利の水準（年0.5%以下 13.1%・年0.5%超～年1.0%以下 53.4%・年1.0%超～年1.5%以下 19.2%）", "quote": "「年0.5％超～年1.0％以下」が53.4％と最も多く"}
+      - {"type": "web", "url": "https://www.jhf.go.jp/files/topics/4955_ext_99_0.pdf", "retrievedAt": "2026-10-31", "sha256": "c918950fd18df363586314301814965e271ca121cd960ca7e74d472f04350bd8", "locator": "同調査の概要 II 1. 利用した住宅ローンの金利タイプ（2026年2月。調査の対象は2025年4月から2025年9月までに住宅ローンを利用して住宅を取得した人）", "quote": "「変動型」       ：75.0％"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-31", "tools": ["PDF の本文（公表資料）", "PDF の図の数値の表示（公表資料）", "区分の割合から中央値を計算し直した結果"], "note": "中央値 = 0.5% + 0.5% ×（50 − 13.1）÷ 53.4 = 0.8455% を 0.05% 単位に丸めて 0.85%。2つ目の読み方: 本文の 53.4% と図の区分の割合（13.1・53.4・19.2・9.0・3.3・1.2・0.8、計100.0）が一致。金利の種類を分けた金利の公的な統計は無いので、変動型が4分の3を占める利用者全体の分布で代える（全期間固定・固定期間選択型を含むので、変動金利だけより少し高めに出る）。2025年4〜9月の借入なので、その後の金利の動きは入っていない。公表日は原本に無いので、施行日の欄は概要の日付（2026年2月）の末日。次の調査の公表で入れ替える"}

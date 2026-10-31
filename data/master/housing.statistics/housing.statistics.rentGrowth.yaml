@@ -1,0 +1,20 @@
+id: housing.statistics.rentGrowth
+title: 総務省 消費者物価指数の民営家賃 全国の2015〜2025年の年平均の変化（2025年基準 品目別価格指数 年平均の2015年と2025年から。家賃の変動率の目安）
+unit: rate
+kind: constant
+basis: {"type": "month"}
+entries:
+  - rev: 1
+    appliesFrom: "2026-09-01"
+    appliesTo: null
+    enforcedOn: "2026-08-07"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "-0.0001"
+    sources:
+      - {"type": "web", "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040482831&fileKind=1", "retrievedAt": "2026-10-31", "sha256": "cfa494f77d7b56469672c11ce97d966dbd54f59f930040ac3cb27729334e6c10", "locator": "2025年基準消費者物価指数 長期時系列データ 品目別価格指数 全国 年平均（1970年～最新年）zni2025a.csv 民営家賃（類・品目符号 0047）の 2015年 100.1・2025年 100.0"}
+      - {"type": "web", "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040482835&fileKind=1", "retrievedAt": "2026-10-31", "sha256": "003c6feb4aafd13908aee0b7fbc55dfe56866af482c10f4f63d6969427ae6ff8", "locator": "同 品目別価格指数 全国 年平均 前年比 zny2025a.csv 民営家賃 2016年〜2025年（−0.3・−0.3・−0.2・0.0・0.0・−0.1・0.0・0.1・0.3・0.5%）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-31", "tools": ["CSV（公表の統計表）", "前年比の表から計算し直した結果", "引用と原本の指紋（sha256）の機械照合"], "note": "(100.0 ÷ 100.1)^(1/10) − 1 = −0.010%（年。ほぼ横ばい）。2つ目の読み方: 前年比10年分を積み上げた年平均も約0.0%。参考: 2005〜2025年の20年は年 −0.21%、直近の2025年は前年比 +0.5%。施行日の欄は e-Stat の長期時系列データ（年平均）の公開日"}
