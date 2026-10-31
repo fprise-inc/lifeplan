@@ -120,6 +120,38 @@ describe.skipIf(bin === null)("PDF の収益不動産のまとめのページ", 
   });
 });
 
+describe("物件が2件の世帯: 全体の1枚の月の手残り", () => {
+  // 円未満の端数が物件ごとに出るよう、見本の世帯に駐車場（月の賃料を 60,001〜60,012円で変える・年の経費 120,005円）を足す
+  const reqs = Array.from({ length: 12 }, (_, i) => {
+    const req = modelHousehold("dualAssetsTwoKids");
+    const first = (req.input.household.accounts ?? []).find((x) => x.property !== undefined)!;
+    const second = JSON.parse(JSON.stringify(first)) as typeof first;
+    (second as { id: string }).id = "0b9a1c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2e";
+    (second as unknown as { property: Record<string, unknown> }).property = { structure: "wood", name: "月極駐車場", kind: "parking", rental: { monthly: { value: 60001 + i, state: "confirmed", origin: { kind: "manual" } } }, expenses: { annual: { value: 120005, state: "confirmed", origin: { kind: "manual" } } } };
+    (req.input.household as unknown as { accounts: unknown[] }).accounts = [...(req.input.household.accounts ?? []), second];
+    return req;
+  });
+  const runs = runAll(reqs);
+
+  it("合計の行の月の手残り（税引前・税引後）は、物件の行の月の手残り（円未満を物件ごとに切り捨てた額）の合計（1円もずれない）", () => {
+    let fractional = 0;
+    for (const run of runs) {
+      const r = buildProposalInput({ document: { issuedOn: "2026-10-20" }, current: run, proposal: run }).rental!;
+      const t = r.total!.point!;
+      const ps = r.properties.map((p) => p.point!);
+      expect(ps.every((x) => x.year === t.year)).toBe(true);
+      expect(t.monthlyBeforeTax).toBe(ps.reduce((s, x) => s + x.monthlyBeforeTax, 0));
+      expect(t.monthlyAfterTax).toBe(ps.reduce((s, x) => s + x.monthlyAfterTax, 0));
+      const ra = run.result.summary.realEstateAnalysis!;
+      const ys = ra.properties.map((p) => p.years.find((y) => y.year === t.year)!);
+      const raw = (k: "cashBeforeTax" | "cashAfterTax") => Math.trunc(ys.reduce((s, y) => s + y[k] / y.months, 0));
+      if (raw("cashBeforeTax") !== t.monthlyBeforeTax || raw("cashAfterTax") !== t.monthlyAfterTax) fractional++;
+    }
+    // 端数を足してから切り捨てると1円ずれる世帯がある（この見本で確かめになっていること）
+    expect(fractional).toBeGreaterThan(0);
+  });
+});
+
 describe.skipIf(bin === null)("物件が2件の世帯: 全体の1枚と物件ごとの1枚", () => {
   // 見本の世帯の物件をもう1件（駐車場。ローンなし・取得の入力なし）足す
   const req = modelHousehold("dualAssetsTwoKids");

@@ -192,16 +192,51 @@ describe("収益不動産のタブ: 民泊・宿と全体", () => {
     expect(v.rows[1]!.cells[2]).toBe("—");
     const t = a.total.find((x) => x.year === 2027)!;
     expect(v.totalRow.slice(0, 4)).toEqual(["合計（2件）", "", pctText(t.grossYield), pctText(t.netYield)]);
-    // 合計の月の手残りは物件の月の手残りの合計
+    // 合計の月の手残りは物件の月の手残り（円未満を切り捨てた、行に出す額）の合計
     const ys = a.properties.map((p) => p.years.find((x) => x.year === 2027)!);
     expect(v.totalRow[4]).toBe(`${(() => {
-      const s = Math.trunc(ys.reduce((acc, y) => acc + y.cashBeforeTax / y.months, 0));
+      const s = ys.reduce((acc, y) => acc + Math.trunc(y.cashBeforeTax / y.months), 0);
       return `${s < 0 ? "▲" : ""}${Math.abs(s).toLocaleString("en-US")}`;
     })()}円`);
     expect(v.table.rows[0]!.cells[0]).toBe(man1(t.rent));
     const html = renderToString(h(RentalTab, { model: m, band: null, onView: () => {}, onYear: () => {} }));
     expect(html).toContain("data-rental-view=\"total\"");
     expect(html).toContain("合計（2件）");
+  });
+
+  it("全体の月の手残りは、どの年も物件の行の月の手残りを足した額（円未満を物件ごとに切り捨ててから足す。合計の行と1円もずれない）", () => {
+    // 円未満の端数が物件ごとに出るよう、駐車場の物件を足す（月 60,001円・年の経費 120,005円）
+    const more = mutate(wh, (hh) => {
+      const self = hh.members.find((m) => m.kind === "self")!;
+      hh.accounts!.push({
+        id: "00000000-0000-4000-8000-00000000a002",
+        kind: "realEstate",
+        owner: self.id,
+        marketValue: confirmedBox(5_000_000),
+        asOf: wh.request.input.baseMonth,
+        contributions: [],
+        property: { name: "月極の駐車場", kind: "parking", rental: { monthly: confirmedBox(60_001) }, expenses: { annual: confirmedBox(120_005) } },
+      } as Account);
+    });
+    const rq = more.request;
+    const an = analysisOf(preview(rq))!;
+    const parse = (s: string) => (s === "—" ? null : (s.startsWith("▲") ? -1 : 1) * Number(s.replace(/[▲,円]/g, "")));
+    let fractional = 0;
+    for (const t of an.total) {
+      const m = rentalTabModel({ req: rq, result: preview(rq), ui: ui("total", t.year), sale: null, provisional: false })!;
+      const v = m.view as RentalTotalViewModel;
+      if (v.year !== t.year) continue;
+      const rows = v.rows.map((x) => parse(x.cells[4]!)).filter((x): x is number => x !== null);
+      if (rows.length === 0) continue;
+      expect(parse(v.totalRow[4]!), `${t.year}年`).toBe(rows.reduce((s, x) => s + x, 0));
+      // 端数を足してから切り捨てると1円ずれる年がある（この見本の世帯で確かめになっていること）
+      const raw = an.properties.map((p) => p.years.find((y) => y.year === t.year)).filter((y) => y !== undefined && y.months > 0).map((y) => y!.cashBeforeTax / y!.months);
+      if (Math.trunc(raw.reduce((s, x) => s + x, 0)) !== rows.reduce((s, x) => s + x, 0)) fractional++;
+    }
+    expect(fractional).toBeGreaterThan(0);
+    // 入力項目の一覧表の合計の行も同じ
+    const f = rentalFigures(rq, an)!;
+    expect(f.total.monthly).toBe([...f.byObject.values()].reduce((s, x) => s + (x.monthly ?? 0), 0));
   });
 
   it("民泊・宿は表面利回りの代わりに稼働率・1泊の単価・営業日数・年の売上。損益分岐は稼働率", () => {

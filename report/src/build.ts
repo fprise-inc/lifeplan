@@ -1354,12 +1354,13 @@ function rental(ctx: Ctx): RentalView | null {
   if (a.properties.length >= 2) {
     const ty = a.total.filter((y) => shown.has(y.year));
     const t = ty.find((y) => y.year === pointYear) ?? ty[0];
-    // 合計の月の手残りは物件ごとの（手残り÷月数）の合計（画面と同じ）
+    // 合計の月の手残りは物件ごとの月の手残り（円未満を切り捨てた、物件の行に出す額）の合計（画面と同じ）。
+    // 端数を足してから切り捨てると、物件の行の合計と合計の行が1円ずれるため
     const monthly = (k: "cashBeforeTax" | "cashAfterTax") =>
-      Math.trunc(a.properties.reduce((s, p) => {
+      a.properties.reduce((s, p) => {
         const y = p.years.find((x) => x.year === t?.year);
-        return y === undefined || y.months === 0 ? s : s + y[k] / y.months;
-      }, 0));
+        return y === undefined || y.months === 0 ? s : s + monthlyOf(y[k], y.months);
+      }, 0);
     total = {
       point:
         t === undefined
