@@ -7,7 +7,7 @@ import { CsvError, parseCsv } from "./csv/parse.ts";
 import { issue, type Issue } from "./issues.ts";
 import { PdfError } from "./pdf/objects.ts";
 import { extractPdfLines } from "./pdf/text.ts";
-import { checkMapping, findHeaderRow, guessMapping, headerFingerprint, maskNumberColumns, tableToRows, type ColumnMapping, type LearnedFormat, type ReadRow, type SourceKind, type Table } from "./table.ts";
+import { checkMapping, findHeaderRow, guessMapping, headerFingerprint, maskNumberColumns, tableToRows, upgradeLearnedMapping, type ColumnMapping, type LearnedFormat, type ReadRow, type SourceKind, type Table } from "./table.ts";
 import { decodeText, type Encoding } from "./text/decode.ts";
 import { maskCell } from "./text/mask.ts";
 import { parseAmount, parseDate, parsePlan } from "./text/values.ts";
@@ -234,7 +234,7 @@ export async function readStatement(bytes: Uint8Array, ctx: ReadContext): Promis
     mapping = rt.fixedMapping;
     source = "reader";
   } else if (learned !== undefined) {
-    mapping = learned.mapping;
+    mapping = upgradeLearnedMapping(learned.mapping, table, ctx.kind);
     source = "learned";
   } else {
     mapping = guessMapping(table, ctx.kind);

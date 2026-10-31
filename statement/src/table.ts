@@ -128,6 +128,29 @@ export function guessFromHeader(header: readonly string[], kind: SourceKind): Pa
   return out;
 }
 
+/**
+ * 前の版で覚えた形を今の列の役割に合わせる。家計簿アプリの書き出しの中項目の列は、前は見出し「中項目」をメモとして読んでいたので、
+ * 覚えた形（推し量った形も覚える）のままだと中項目が読まれない。見出しから中項目の列が分かり、その列がメモか、どの役割にも使っていないときだけ
+ * 中項目に付け替える（メモは、見出しから分かる別の列が空いていればその列）。中項目の役割がもう入っている形は変えない
+ */
+export function upgradeLearnedMapping(m: ColumnMapping, table: Table, kind: SourceKind): ColumnMapping {
+  if (kind !== "app" || m.headerRow === null || m.columns.subCategory !== undefined) return m;
+  const header = table.cells[m.headerRow];
+  if (header === undefined) return m;
+  const g = guessFromHeader(header, kind);
+  const j = g.subCategory;
+  if (j === undefined) return m;
+  const owner = COLUMN_ROLES.find((r) => m.columns[r] === j);
+  if (owner !== undefined && owner !== "memo") return m;
+  const columns: Partial<Record<ColumnRole, number>> = { ...m.columns, subCategory: j };
+  if (owner === "memo") {
+    delete columns.memo;
+    const mj = g.memo;
+    if (mj !== undefined && !Object.values(columns).includes(mj)) columns.memo = mj;
+  }
+  return { ...m, columns };
+}
+
 function headerScore(row: readonly string[], kind: SourceKind): number {
   const g = guessFromHeader(row, kind);
   const has = (r: ColumnRole) => g[r] !== undefined;

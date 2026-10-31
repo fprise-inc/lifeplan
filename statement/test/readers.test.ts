@@ -128,6 +128,23 @@ describe("文字コードと列の対応付け", () => {
     expect(back.imports[0]?.format.mapping.columns.subCategory).toBe(4);
   });
 
+  it("前の版で覚えた形（中項目の列をメモとして読む形）でも、中項目は中項目として、メモはメモの列として読む", async () => {
+    const fresh = await read("app-subcategory-utf8bom.csv", "app");
+    // 前の版の推し量り: 見出し「中項目」をメモにしていた（推し量った形も覚える）
+    const old = { headerRow: 0, columns: { date: 0, merchant: 1, amount: 2, category: 3, memo: 4, transfer: 6 }, sign: "expenseNegative" as const };
+    const formats = [{ fingerprint: fresh.fingerprint, kind: "app" as const, mapping: old, at: "2026-09-01T00:00:00+09:00" }];
+    const out = await read("app-subcategory-utf8bom.csv", "app", { formats });
+    expect(out.mappingSource).toBe("learned");
+    expect(out.mapping.columns).toEqual({ date: 0, merchant: 1, amount: 2, category: 3, subCategory: 4, memo: 5, transfer: 6 });
+    expect(out.rows[1]).toMatchObject({ sourceSubCategory: "ATM引き出し" });
+    expect(out.rows[1]?.memo).toBeUndefined();
+    expect(out.rows.find((r) => r.merchant === "架空サロン")).toMatchObject({ sourceSubCategory: "美容院", memo: "前髪だけ" });
+    // 中項目の列をほかの役割に選んでいる形は変えない
+    const other = { ...old, columns: { date: 0, merchant: 4, amount: 2 } };
+    const kept = await read("app-subcategory-utf8bom.csv", "app", { formats: [{ ...formats[0]!, mapping: other }] });
+    expect(kept.mapping.columns).toEqual({ date: 0, merchant: 4, amount: 2 });
+  });
+
   it("見出しの無い表は欄の形から推し量る", async () => {
     const out = await read("card-noheader.tsv", "card");
     expect(out.mapping).toEqual({ headerRow: null, columns: { date: 0, merchant: 1, amount: 2 }, sign: "expensePositive" });
