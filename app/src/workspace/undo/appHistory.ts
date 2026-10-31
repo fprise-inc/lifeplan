@@ -85,15 +85,23 @@ export function useHistoryBook<S>(opts: HistoryBookOptions<S>, c: UndoController
     }
   }, []);
 
-  /** 世帯を開いた（読み直した）: その世帯の履歴を空にする */
-  const reset = useCallback((id: string) => {
+  /** 世帯を開いた（読み直した）: その世帯の履歴を空にする。戻せる・やり直せる履歴を捨てたら true */
+  const reset = useCallback((id: string): boolean => {
+    const lost = book.current?.has(id) ?? false;
     book.current?.reset(id);
     c.changed();
+    return lost;
   }, []);
 
   /** 世帯を開いた（中身が前に開いていたときと同じ）: その世帯の履歴を続きから使う */
   const select = useCallback((id: string) => {
     book.current?.select(id);
+    c.changed();
+  }, []);
+
+  /** 開いている世帯を新しい世帯として保存した: いまの履歴をその世帯の名前で持ち直す（続きから使う） */
+  const rename = useCallback((id: string) => {
+    book.current?.rename(id);
     c.changed();
   }, []);
 
@@ -119,5 +127,5 @@ export function useHistoryBook<S>(opts: HistoryBookOptions<S>, c: UndoController
     c,
   );
 
-  return useMemo(() => ({ track, reset, select, drop }), [track, reset, select, drop]);
+  return useMemo(() => ({ track, reset, select, rename, drop }), [track, reset, select, rename, drop]);
 }
