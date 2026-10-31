@@ -24,7 +24,7 @@ export interface MoneyThreeHouseholdRequest {
     household: {
       members: readonly { id: string; kind: string; sex: string; birth: { birthYearMonth: string; bornOnFirst: boolean } }[];
       goals?: readonly { kind: string; owner?: string; education?: { stages: readonly { stage: string }[] } }[];
-      cars?: readonly { id: string; purchase: { first: unknown; owned?: boolean } }[];
+      cars?: readonly { id: string; purchase?: { first: unknown; owned?: boolean } }[];
       periodicExpenses?: readonly { id: string; row: string; label?: string; everyYears: number }[];
       accounts?: readonly { kind: string; uninvested?: number }[];
       residences?: readonly { id: string }[];
@@ -207,9 +207,9 @@ function partLabeler(req: MoneyThreeHouseholdRequest): (year: number, p: MoneyTh
       }
       case "carPurchase": {
         const c = p.object !== undefined ? cars.get(p.object) : undefined;
-        const at = c !== undefined && typeof c.purchase.first === "object" && c.purchase.first !== null ? (c.purchase.first as { at?: unknown }).at : undefined;
+        const at = c?.purchase !== undefined && typeof c.purchase.first === "object" && c.purchase.first !== null ? (c.purchase.first as { at?: unknown }).at : undefined;
         const first = typeof at === "string" ? parseYm(at).y : null;
-        return c !== undefined && c.purchase.owned !== true && first === year ? "車の購入" : "車の買い替え";
+        return c?.purchase !== undefined && c.purchase.owned !== true && first === year ? "車の購入" : "車の買い替え";
       }
       case "carLoan":
         return "車のローンの返済";

@@ -14,7 +14,7 @@ import { educationStagesAddress, fillAll, gapsOf, retirementNotApplicable, type 
 import { mutate, newId, standardBox, type AddedItem, type WorkingHousehold } from "./household.ts";
 import { earners, memberLabel } from "./labels.ts";
 import { isRow, rowAt } from "./rows.ts";
-import { carDebts, upkeepAnnual } from "./stages/cars.ts";
+import { carDebts, leaseAnnual, upkeepAnnual } from "./stages/cars.ts";
 import { outsideMembers } from "./stages/care.ts";
 import { isRentalProperty, rentalProperties } from "./stages/rental.ts";
 import { expenseCard, incomeCard, type MoneyCard } from "./moneyRows.ts";
@@ -279,7 +279,8 @@ function feeSummary(list: AdvisoryFee[]): Summary | null {
 /** 車のカードの要約: 「1台・維持費 年36万円」（維持費は内訳を年額にならした合計を、全部の車で足す） */
 export function carSummary(list: readonly Car[]): Summary | null {
   if (list.length === 0) return null;
-  const upkeep = list.reduce((s, c) => s + upkeepAnnual(c), 0);
+  // リース・長期レンタルの月額も、表の行「車の維持費」に入るので維持費に数える（0101）
+  const upkeep = list.reduce((s, c) => s + upkeepAnnual(c) + leaseAnnual(c), 0);
   return { main: String(list.length), unit: `台・維持費 年${manText(upkeep)}万円` };
 }
 

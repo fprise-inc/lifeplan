@@ -385,6 +385,14 @@ entries:
     replacedBy: null
     collection: car
     path: [insurance]
+  - id: car.lease
+    status: active
+    label: "リース・長期レンタル（月額を始まりから手放す時期まで。契約の年数は表示だけ。月額に含む物は内訳から数えない。購入・ローン・下取り・評価額は無い。0101）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: car
+    path: [lease]
   - id: car.loan
     status: active
     label: "自動車ローン（購入のたびに借りる）"
@@ -425,6 +433,14 @@ entries:
     replacedBy: null
     collection: car
     path: [purchase]
+  - id: car.replace
+    status: active
+    label: "買い替え（repeat: 周期ごとに買い替え続ける〔省略と同じ〕／none: 買い替えない〔これから買う車は1回だけ、今の車は乗り続ける〕／until: until の月まで買い替え、その後は手放す時期まで乗る。0101）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: car
+    path: [purchase, replace]
   - id: car.tax
     status: active
     label: "自動車税の年額（毎年5月）"

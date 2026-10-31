@@ -9,6 +9,7 @@ import { ageInYear, roles } from "../roles.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { memberLabel } from "./labels.ts";
+import { carPurchaseYms } from "./carPurchases.ts";
 import { cadenceOf, expenseCard, INCOME_KINDS, incomeCard, OUT_KINDS, type MoneyCard } from "./moneyRows.ts";
 import { eventName, FP_EVENT_KINDS } from "./namedEvents.ts";
 import { manYen } from "./readLines.ts";
@@ -75,16 +76,19 @@ export function scheduleItems(wh: WorkingHousehold): ScheduleItem[] {
     const v = f.amount.value;
     add(yearOf(resolveTimepoint(h, f.from)), { dir: "入", name, amount: `${v === null || v === undefined || v === 0 ? "額は未入力" : manYen(v)}・${c === "毎月" ? "月額・毎月" : c}`, lump: false, card: CARD_LABEL[incomeCard(f)] });
   }
-  // 車の購入・買い替え・手放す
+  // 車の購入・買い替え・手放す（購入の月は計算エンジンと同じ決まり。手放す月には買わない。0101）・リースの借り始め
   for (const c of h.cars ?? []) {
     const who = memberLabel(wh, c.owner);
-    const firstYm = resolveTimepoint(h, c.purchase.first);
     const untilYm = c.until == null ? null : resolveTimepoint(h, c.until);
-    if (firstYm !== null) {
-      for (let m = firstYm, k = 0; parseYm(m).y <= last && (untilYm === null || m <= untilYm); m = addMonths(m, 12 * c.purchase.everyYears), k++) {
-        const net = Math.max(0, c.purchase.price - (k > 0 || c.purchase.owned === true ? (c.purchase.tradeIn ?? 0) : 0));
-        add(parseYm(m).y, { dir: "出", name: `${c.purchase.owned === true || k > 0 ? "車の買い替え" : "車の購入"}（${who}）`, amount: `${manYen(net)}・下取りを引いた額`, lump: true, card: "車" });
-      }
+    const p = c.purchase;
+    if (p !== undefined)
+      carPurchaseYms(h, c, `${last}-12`).forEach((m, k) => {
+        const net = Math.max(0, p.price - (k > 0 || p.owned === true ? (p.tradeIn ?? 0) : 0));
+        add(parseYm(m).y, { dir: "出", name: `${p.owned === true || k > 0 ? "車の買い替え" : "車の購入"}（${who}）`, amount: `${manYen(net)}・下取りを引いた額`, lump: true, card: "車" });
+      });
+    else if (c.lease !== undefined) {
+      const from = c.lease.from === undefined ? null : resolveTimepoint(h, c.lease.from);
+      if (from !== null && from >= base) add(yearOf(from), { dir: "出", name: `${c.lease.type === "longRental" ? "長期レンタル" : "カーリース"}の借り始め（${who}）`, amount: `${manYen(c.lease.monthly)}・月額・毎月`, lump: false, card: "車" });
     }
     if (untilYm !== null) add(yearOf(untilYm), { dir: "—", name: `車を手放す（${who}）`, amount: "", lump: false, card: "車" });
   }

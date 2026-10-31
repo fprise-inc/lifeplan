@@ -872,10 +872,37 @@ export interface TransferInput {
   readonly linked?: string;
 }
 
+/** 車の買い替え（0101） */
+export type CarReplaceInput = { readonly kind: "repeat" } | { readonly kind: "none" } | { readonly kind: "until"; readonly until: Timepoint };
+
+/** 車のリース・長期レンタル（0101）。月額は from（省略は今もう借りている）から手放す時期まで。契約の年数は表示だけ（終わっても同じ月額で続ける） */
+export interface CarLeaseInput {
+  readonly type: "carLease" | "longRental";
+  readonly monthly: Yen;
+  readonly from?: Timepoint;
+  readonly termYears?: number;
+  /** 月額に含む物（省略は種類の既定: カーリースは税・自賠責と車検・メンテ、長期レンタルは全部） */
+  readonly includes?: { readonly taxAndCompulsory?: boolean; readonly inspectionMaintenance?: boolean; readonly insurance?: boolean };
+}
+
 export interface CarInput {
   readonly id: string;
   readonly owner: string;
-  readonly purchase: { readonly first: Timepoint; readonly everyYears: number; readonly price: Yen; readonly tradeIn?: Yen; readonly owned?: boolean };
+  /** 買い替え（買って持つ車。リースの車は持たない。どちらか1つ。0101） */
+  readonly purchase?: {
+    readonly first: Timepoint;
+    readonly everyYears: number;
+    readonly price: Yen;
+    readonly tradeIn?: Yen;
+    readonly owned?: boolean;
+    /**
+     * 買い替え（0101）: repeat（省略）は周期ごとに買い替え続ける。none は買い替えない（これから買う車は1回だけ、今の車は乗り続ける）。
+     * until は until の月（「○歳まで」の、その年齢になる前の月）まで買い替え、その後は手放す時期まで乗る
+     */
+    readonly replace?: CarReplaceInput;
+  };
+  /** リース・長期レンタル（月額。0101）。購入・ローン・下取り・評価額は無い */
+  readonly lease?: CarLeaseInput;
   readonly until?: Timepoint | null;
   readonly loan?: { readonly share?: string; readonly rate: string; readonly termMonths: number; readonly method?: "equalPayment" | "equalPrincipal" };
   readonly inspection?: { readonly amount: Yen; readonly firstAfterYears?: number; readonly everyYears?: number };

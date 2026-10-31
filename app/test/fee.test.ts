@@ -29,7 +29,7 @@ describe("車の入力", () => {
   it("目安の値で足す（推定の印）。値を入れると確定、空にすると目安に戻る", () => {
     const wh = addCar(open("salariedCoupleTwoKids"), ids());
     const car = wh.request.input.household.cars![0]!;
-    expect(car.purchase.owned).toBe(true);
+    expect(car.purchase!.owned).toBe(true);
     const price = fieldOf(wh, "/price");
     expect(price.get(wh)).toMatchObject({ value: 2500000 });
     expect(price.get(wh).estimated).toContain("新車の価格");

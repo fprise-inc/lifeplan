@@ -34,23 +34,23 @@ describe("下取りの残価の目安（ひな形）", () => {
   it("推定のままの下取りは、価格・周期を直したら目安を入れ直す。打った下取りは変えない", () => {
     let wh = addCar(open("salariedCoupleTwoKids"), ids());
     wh = fieldOf(wh, "/price").set(wh, 4000000);
-    expect(car0(wh).purchase.tradeIn).toBe(600000);
+    expect(car0(wh).purchase!.tradeIn).toBe(600000);
     wh = fieldOf(wh, "/every").set(wh, 5);
-    expect(car0(wh).purchase.tradeIn).toBe(1400000);
+    expect(car0(wh).purchase!.tradeIn).toBe(1400000);
     expect(fieldStatus(fieldOf(wh, "/every"), wh).status).toBe("confirmed");
     expect(fieldStatus(fieldOf(wh, "/tradeIn"), wh).status).toBe("estimated");
     wh = fieldOf(wh, "/tradeIn").set(wh, 1000000);
     wh = fieldOf(wh, "/price").set(wh, 3000000);
-    expect(car0(wh).purchase.tradeIn).toBe(1000000);
+    expect(car0(wh).purchase!.tradeIn).toBe(1000000);
     expect(fieldStatus(fieldOf(wh, "/tradeIn"), wh).status).toBe("confirmed");
   });
 
-  it("簡易は名義・次の買い替えの時期・周期・価格・買い方・維持費の合計・手放す時期。下取り・今の車か・入れ方・万一は詳細", () => {
+  it("簡易は名義・買い替え・次の買い替えの時期・周期・価格・買い方・維持費の合計・手放す時期。下取り・今の車か・入れ方・万一・「○歳まで」を選べる買い替えは詳細", () => {
     const wh = addCar(open("salariedCoupleTwoKids"), ids());
     const simple = allFields(buildStage("car", wh)).filter((f) => f.level === "simple" && f.key.startsWith("ev/car/")).map((f) => f.key.split("/").at(-1));
-    expect(simple).toEqual(["owner", "first", "every", "price", "pay", "upkeep", "untilAge"]);
+    expect(simple).toEqual(["owner", "replace", "first", "every", "price", "pay", "upkeep", "untilAge"]);
     const detail = allFields(buildStage("car", wh)).filter((f) => f.level === "detail" && f.key.startsWith("ev/car/")).map((f) => f.key.split("/").slice(3).join("/"));
-    expect(detail).toEqual(expect.arrayContaining(["tradeIn", "owned", "upkeepMode", "growth", "on/mode"]));
+    expect(detail).toEqual(expect.arrayContaining(["replaceAll", "tradeIn", "owned", "upkeepMode", "growth", "on/mode"]));
   });
 });
 
@@ -160,7 +160,7 @@ describe("車のひな形のボタン（出来事に結ぶ）", () => {
     const [a, b] = wh.request.input.household.cars! as [Car, Car];
     const ev = wh.request.input.household.events!.find((e) => e.kind === "carRelease")!;
     expect(a.until).toEqual({ event: ev.id });
-    expect(b).toMatchObject({ purchase: { first: { event: ev.id, offset: { years: 0, months: 1 } }, owned: false, price: a.purchase.price }, until: null });
+    expect(b).toMatchObject({ purchase: { first: { event: ev.id, offset: { years: 0, months: 1 } }, owned: false, price: a.purchase!.price }, until: null });
     expect(wh.assumed[`ev/car/${b.id}/price`]).toBe(wh.assumed[`ev/car/${a.id}/price`]);
     expect(() => preview(wh.request)).not.toThrow();
   });
@@ -186,21 +186,16 @@ describe("今返している自動車ローン・一生の費用・カードの�
     const c = car0(wh);
     const life = lifetimeCost(wh.request.input.household, c, wh.request.input.baseMonth, wh.request.input.endYear)!;
     expect(life.purchases).toBeGreaterThan(3);
-    expect(life.total).toBeGreaterThan(life.purchases * (c.purchase.price - (c.purchase.tradeIn ?? 0)));
+    expect(life.total).toBeGreaterThan(life.purchases * (c.purchase!.price - (c.purchase!.tradeIn ?? 0)));
     const head = buildStage("car", wh).sections[0]!.groups.find((g) => g.key === `ev/car/${c.id}`)!;
     expect(head.note).toMatch(/^この車の一生の費用（今の値段で・最後まで）約[\d,.]+万円（買い替え\d+回・維持費 年36万円/);
   });
 
-  it("車を持たない移動の費用: 空のときカーシェアのひな形（月1万円・推定・車の維持費の行）", () => {
+  it("車の入力項目の出るお金の区画にカーシェアのひな形は無い（ときどき使うカーシェアは基本生活費の交通費）", () => {
     const wh0 = open("salariedCoupleTwoKids");
     const sec = buildStage("car", wh0).sections.find((s) => s.key === "money/car/out")!;
-    const wh = sec.actions.find((a) => a.key === "money/car/out/template/carshare")!.run(wh0);
-    const p = wh.request.input.household.periodicExpenses!.at(-1)!;
-    expect(sec.actions.find((a) => a.key === "money/car/out/template/carshare")!.label).toBe("＋ カーシェア・レンタカー");
-    expect(p).toMatchObject({ label: "カーシェア・レンタカー", kind: "car", row: "cf.expense.living.car", monthly: true, amount: { value: 10000, state: "estimated" } });
-    expect(fieldStatus(fieldOf(wh, `ev/${p.id}/amount`), wh).basis).toBe("よくある額の目安（カーシェア・レンタカー 月1万円。この世帯に合わせて直してください）");
-    // 毎月の行には何年ごとの仮の印を付けない
-    expect(wh.assumed[`ev/${p.id}/every`]).toBeUndefined();
-    expect(mutate(wh, () => undefined).request.input.household.cars).toBeUndefined();
+    expect(sec.actions.some((a) => a.key === "money/car/out/template/carshare")).toBe(false);
+    expect(sec.note).toContain("基本生活費の「交通費」");
+    expect(mutate(wh0, () => undefined).request.input.household.cars).toBeUndefined();
   });
 });

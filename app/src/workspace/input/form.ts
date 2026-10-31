@@ -6,7 +6,7 @@ import { ageAt } from "../levers.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import type { Estimate } from "./estimates.ts";
 import { boxBasis, confirmedBox, estimatedBox, mutate, newId, type WorkingHousehold } from "./household.ts";
-import { eventChoices, materializeEvent, pointsToCandidate, refsTo, whenPeople } from "./namedEvents.ts";
+import { eventChoices, eventName, materializeEvent, pointsToCandidate, refsTo, whenPeople } from "./namedEvents.ts";
 import { sameRate, type YenBasis, type YenUnit } from "./units.ts";
 import { readWhen, sameWhen, WHEN_MODES, type AgeMeans, type WhenCtx, type WhenMode } from "./when.ts";
 
@@ -80,6 +80,11 @@ export interface WhenSpec {
   dateStyle?: "birth";
   /** 入れられない時点の理由（欄ごとの範囲など）。入れられれば null */
   check?: (wh: WorkingHousehold, tp: Timepoint | null) => string | null;
+  /**
+   * 使える入れ方だけで見せる（0101。例: 車の次の買い替えの時期は「今から」だけ）。ほかの形で入っている前の値（年齢・出来事から）は、同じ月の
+   * 既定の入れ方で見せ、その旨を1行添える。直すと既定の入れ方の形で書く（出来事が正本の欄で出来事を指しているときは、出来事のほうを動かす）
+   */
+  strictModes?: boolean;
 }
 
 interface FieldBase {
@@ -501,6 +506,8 @@ export interface WhenOptions {
   /** 年月の形の読みの言い方（欄の人そのものの日付で、生年月の欄と同じ「23歳（令和30年4月）」にする欄は birth。欄の表記はどの欄も「2041-06」） */
   dateStyle?: "birth";
   check?: (wh: WorkingHousehold, tp: Timepoint | null) => string | null;
+  /** 使える入れ方だけで見せる（ほかの形の前の値は既定の入れ方に直して見せる。WhenSpec.strictModes） */
+  strictModes?: boolean;
   /** 空のときに、読み替えた形の代わりに見せる省略のときの時点（例: 年金の受け取り開始は65歳になった翌月） */
   fallback?: (h: Household) => Timepoint | null;
 }
@@ -514,6 +521,7 @@ const specOf = (o: WhenOptions): WhenSpec => ({
   ...(o.monthOnly !== undefined ? { monthOnly: o.monthOnly } : {}),
   ...(o.dateStyle !== undefined ? { dateStyle: o.dateStyle } : {}),
   ...(o.check !== undefined ? { check: o.check } : {}),
+  ...(o.strictModes === true ? { strictModes: true } : {}),
 });
 
 /**
@@ -528,7 +536,8 @@ export function timeView(o: WhenOptions & { read: (wh: WorkingHousehold) => Time
     const start = o.start?.(wh);
     const ctx = whenContext(wh, spec, { person: o.ageOf?.(h)?.id ?? null, optional: o.optional === true, current: t, ...(start !== undefined ? { start } : {}) });
     const ev = linkedEvent(h, spec, t);
-    const linked = ev === undefined ? null : { event: ev.id, label: ctx.events.find((e) => e.id === ev.id)?.label ?? "出来事", refs: refsTo(h, ev.id), at: ev.at };
+    // 出来事から選べない欄（「今から」だけの欄など）でも、指している出来事の名前を出す
+    const linked = ev === undefined ? null : { event: ev.id, label: ctx.events.find((e) => e.id === ev.id)?.label ?? eventName(wh, ev), refs: refsTo(h, ev.id), at: ev.at };
     const fb = t === null ? (o.fallback?.(h) ?? null) : null;
     const read = fb !== null ? `${o.nullText ?? "空欄"}: ${readWhen(fb, ctx)}` : linked !== null ? readWhen(linked.at, { ...ctx, current: linked.at }) : readWhen(t, ctx, o.nullText);
     return { raw: t, ctx, read, linked };

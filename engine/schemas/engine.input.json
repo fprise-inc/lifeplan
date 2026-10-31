@@ -1981,7 +1981,8 @@
       "description": "0008 の追記: 車のひな形（買い替えの周期・ローン・車検・保険・手放す時期）",
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "owner", "purchase"],
+      "required": ["id", "owner"],
+      "oneOf": [{ "required": ["purchase"], "not": { "required": ["lease"] } }, { "required": ["lease"], "not": { "required": ["purchase"] } }],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
@@ -1997,7 +1998,33 @@
             "everyYears": { "type": "integer", "minimum": 1, "maximum": 30 },
             "price": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
             "tradeIn": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-            "owned": { "type": "boolean", "description": "最初の購入の月より前から持っている（最初の購入は買い替えの1回目から）" }
+            "owned": { "type": "boolean", "description": "最初の購入の月より前から持っている（最初の購入は買い替えの1回目から）" },
+            "replace": {
+              "title": "買い替え（repeat: 周期ごとに買い替え続ける〔省略と同じ〕／none: 買い替えない〔これから買う車は1回だけ、今の車は乗り続ける〕／until: until の月まで買い替え、その後は手放す時期まで乗る。0101）",
+              "x-item": "car.replace",
+              "oneOf": [
+                { "type": "object", "additionalProperties": false, "required": ["kind"], "properties": { "kind": { "enum": ["repeat", "none"] } } },
+                { "type": "object", "additionalProperties": false, "required": ["kind", "until"], "properties": { "kind": { "const": "until" }, "until": { "$ref": "urn:financia:schema:common#/$defs/timepoint" } } }
+              ]
+            }
+          }
+        },
+        "lease": {
+          "title": "リース・長期レンタル（月額を始まりから手放す時期まで。契約の年数は表示だけ。月額に含む物は内訳から数えない。購入・ローン・下取り・評価額は無い。0101）",
+          "x-item": "car.lease",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "monthly"],
+          "properties": {
+            "type": { "enum": ["carLease", "longRental"] },
+            "monthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+            "termYears": { "type": "integer", "minimum": 1, "maximum": 30 },
+            "includes": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": { "taxAndCompulsory": { "type": "boolean" }, "inspectionMaintenance": { "type": "boolean" }, "insurance": { "type": "boolean" } }
+            }
           }
         },
         "until": { "title": "手放す月（その月まで。null・省略は最後まで）", "x-item": "car.until", "$ref": "#/$defs/timepointOrNull" },

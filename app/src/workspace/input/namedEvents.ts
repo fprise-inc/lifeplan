@@ -165,15 +165,16 @@ function anchors(h: Household): Anchor[] {
   // 車の購入（次の買い替え・購入の時期）と手放す時期（0069）。手放した後の移動の費用・古くなってからの修理費・続きの車が指す
   for (const c of h.cars ?? []) {
     const car = (hh: Household) => (hh.cars ?? []).find((x) => x.id === c.id);
-    if (!isEventForm(c.purchase.first))
+    // リース・長期レンタルの車（買い替えが無い）は、車の購入の出来事を持たない（0101）
+    if (c.purchase !== undefined && !isEventForm(c.purchase.first))
       out.push({
         id: `new:carPurchase:${c.id}`,
         kind: "carPurchase",
         member: c.owner,
-        read: (hh) => car(hh)?.purchase.first ?? null,
+        read: (hh) => car(hh)?.purchase?.first ?? null,
         point: (hh, ev) => {
           const x = car(hh);
-          if (x !== undefined) x.purchase.first = { event: ev };
+          if (x?.purchase !== undefined) x.purchase.first = { event: ev };
         },
       });
     if (c.until != null && !isEventForm(c.until))
