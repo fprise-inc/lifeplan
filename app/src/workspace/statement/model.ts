@@ -188,7 +188,7 @@ export type AddImportResult = { ok: true; log: StatementLog; rows: number } | { 
  */
 export function addImport(log: StatementLog, out: ReadOk, o: { id: string; account: string; at: string; period?: { from: string; to: string } }): AddImportResult {
   if (out.rows.length === 0) return { ok: false, reason: "noRows" };
-  if (o.period !== undefined && periodProblem(o.period) !== null) return { ok: false, reason: "period" };
+  if (o.period !== undefined && periodProblem(o.period, rowsSpan(out)) !== null) return { ok: false, reason: "period" };
   const imp = createImport(log, out, o);
   if (imp === null) return { ok: false, reason: "duplicate" };
   if (log.imports.reduce((n, i) => n + i.rows.length, 0) + imp.rows.length > MAX_ROWS_PER_HOUSEHOLD) return { ok: false, reason: "tooMany" };
@@ -197,15 +197,31 @@ export function addImport(log: StatementLog, out: ReadOk, o: { id: string; accou
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/u;
 
-/** 期間の問題（形・順番）。問題が無ければ null */
-export function periodProblem(p: { from: string; to: string }): string | null {
+/**
+ * 期間の問題（形・順番、行の使った日を含むか）。問題が無ければ null。
+ * 期間は明細の行の使った日の最初と最後を含める（狭くすると、期間の外の行も合計に入ったまま狭い日数で割るので、月平均が多く出る）。
+ * 広げるのはよい（12か月分の明細を、明細の初日・末日にする）
+ */
+export function periodProblem(p: { from: string; to: string }, span?: { from: string; to: string } | null): string | null {
   if (!DATE.test(p.from) || !DATE.test(p.to) || Number.isNaN(Date.parse(p.from)) || Number.isNaN(Date.parse(p.to))) return "日付を入れてください";
   if (p.from > p.to) return "始めの日が終わりの日より後になっています";
+  if (span != null && (p.from > span.from || p.to < span.to)) return `期間は、使った日の最初（${span.from.replace(/-/gu, "/")}）から最後（${span.to.replace(/-/gu, "/")}）までを含めてください（狭くすると、月平均が多く出ます）`;
   return null;
 }
 
+/** 取り込んだ明細の行の使った日の最初と最後 */
+function importSpan(log: StatementLog, importId: string): { from: string; to: string } | null {
+  const d = (log.imports.find((i) => i.id === importId)?.rows ?? []).map((r) => r.date).sort();
+  return d.length === 0 ? null : { from: d[0] as string, to: d[d.length - 1] as string };
+}
+
+/** 取り込んだ明細の期間を直すときの問題（periodProblem と同じ。行の使った日を含むか） */
+export function importPeriodProblem(log: StatementLog, importId: string, period: { from: string; to: string }): string | null {
+  return periodProblem(period, importSpan(log, importId));
+}
+
 export function setPeriod(log: StatementLog, importId: string, period: { from: string; to: string }): StatementLog {
-  if (periodProblem(period) !== null) return log;
+  if (importPeriodProblem(log, importId, period) !== null) return log;
   return { ...log, imports: log.imports.map((i) => (i.id === importId ? { ...i, period: { from: period.from, to: period.to } } : i)) };
 }
 
