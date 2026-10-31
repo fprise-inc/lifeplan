@@ -238,3 +238,23 @@ describe("PDF（文字の入ったもの）", () => {
     expect(["S_PDF_BROKEN", "S_PDF_NO_TEXT"]).toContain(r.issues[0]?.code);
   });
 });
+
+describe("合計の行", () => {
+  it("合計の行は、言い方が揺れても（括弧・空白・「ご利用合計」「今回ご請求額」など）明細として数えない", async () => {
+    const totals = ["ご利用合計", "【合計】", "＜合計＞", "合 計", "合　計", "今回ご請求額", "今回ご請求金額", "お支払い合計", "ショッピング合計", "ご本人様ご利用分合計", "ご利用金額合計", "当月お支払金額", "■小計", "総計", "TOTAL"];
+    const csv = ["利用日,利用店名,利用金額", "2026/10/03,架空スーパー,1200", "2026/10/05,架空コンビニ,500", ...totals.map((t) => `2026/10/27,${t},1700`), ",ご利用合計,1700"].join("\n");
+    const out = await readStatement(new TextEncoder().encode(csv), { kind: "card", fileName: "a.csv" });
+    if (!out.ok) throw new Error("読めない");
+    expect(out.rows.map((r) => r.merchant)).toEqual(["架空スーパー", "架空コンビニ"]);
+    expect(out.skipped).toBe(totals.length + 1);
+    // 日付の無い合計の行も「使った日が読めない行」と知らせない
+    expect(out.issues.filter((i) => i.code === "S_ROW_DATE")).toEqual([]);
+  });
+
+  it("合計の言葉で始まる・含む店の名前は、明細として読む", async () => {
+    const csv = ["利用日,利用店名,利用金額", "2026/10/03,合計屋 架空店,1200", "2026/10/05,架空トータルサービス,500", "2026/10/06,架空ストア（請求書払い）,300"].join("\n");
+    const out = await readStatement(new TextEncoder().encode(csv), { kind: "card", fileName: "a.csv" });
+    if (!out.ok) throw new Error("読めない");
+    expect(out.rows.map((r) => r.merchant)).toEqual(["合計屋 架空店", "架空トータルサービス", "架空ストア(請求書払い)"]);
+  });
+});
