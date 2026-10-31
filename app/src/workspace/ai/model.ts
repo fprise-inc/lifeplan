@@ -8,6 +8,7 @@ import type { WorkingHousehold } from "../input/household.ts";
 import type { Catalog, DiffTarget, ItemValue, MovableItem } from "../plans/items.ts";
 import { savePlan, suggestName, type Values } from "../plans/plans.ts";
 import { currentPeriodId, resolveKey } from "../store/readings.ts";
+import { rangeText, rateInRange, type PctRange } from "../input/rateRanges.ts";
 
 /** 本体の失敗の符号 → FP に見せる文 */
 export const AI_MESSAGES: Record<string, string> = {
@@ -172,6 +173,14 @@ const short = (v: unknown): string => {
   return s.length > 60 ? `${s.slice(0, 60)}…` : s;
 };
 
+/** 率の項目の入れてよい範囲（割合の欄の min・max か、率のスライダーの limit。0098）。無ければ null */
+function rangeOf(it: MovableItem): PctRange | { min?: number; max?: number } | null {
+  const c = it.control;
+  if (c.kind === "rate") return c.limit ?? null;
+  if (c.kind === "field" && c.field.kind === "pct" && (c.field.min !== undefined || c.field.max !== undefined)) return { ...(c.field.min !== undefined ? { min: c.field.min } : {}), ...(c.field.max !== undefined ? { max: c.field.max } : {}) };
+  return null;
+}
+
 /** 候補の変更を、主画面の動かす項目に当てはめる（当てはまらないものは理由つきで返す） */
 export function candidateRows(c: AiCandidate, wh: WorkingHousehold, cat: Catalog): CandidateRow[] {
   return c.diffs.map((d) => {
@@ -204,6 +213,8 @@ export function candidateRows(c: AiCandidate, wh: WorkingHousehold, cat: Catalog
     const v = coerce(it, d.value);
     const now = it.read(wh);
     if (v === undefined) return { ...base, label: it.label, from: it.text(now), to: short(unbox(d.value)), key: null, value: null, reason: "値の形がこの項目に合わないため、取り込みません" };
+    const range = rangeOf(it);
+    if (range !== null && typeof v === "string" && !rateInRange(v, range)) return { ...base, label: it.label, from: it.text(now), to: short(unbox(d.value)), key: null, value: null, reason: `入れてよい範囲（${rangeText(range)}）の外の値のため、取り込みません` };
     return { ...base, label: it.label, from: it.text(now), to: it.text(v), key: it.key, value: v, reason: it.same(v, now) ? "今と同じ値です" : null };
   });
 }

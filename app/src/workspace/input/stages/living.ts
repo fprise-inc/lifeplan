@@ -19,6 +19,7 @@ import { putRow } from "../rows.ts";
 import type { Address } from "../../store/readings.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./onContingency.ts";
 import { surplusSection } from "./surplusSaving.ts";
+import { GROWTH_RANGE } from "../rateRanges.ts";
 
 type Obj = Record<string, unknown>;
 type Stage = NonNullable<LivingExpense["stages"]>[number];
@@ -564,7 +565,7 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
   if (l.growth?.kind === "rate")
     main.push(
       withAddress(
-        plain({ key: `${key}/growthRate`, item: "livingExpense.growth", label: "決まった変動率（年）", level: "detail", kind: "pct", find, path: ["growth", "rate"], help: "マイナスも入れられます" }),
+        plain({ key: `${key}/growthRate`, item: "livingExpense.growth", label: "決まった変動率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["growth", "rate"], help: "マイナスも入れられます" }),
         addr(l.id, "livingExpense.growth", ["rate"]),
       ),
     );

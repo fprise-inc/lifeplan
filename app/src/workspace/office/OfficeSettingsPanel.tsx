@@ -12,7 +12,8 @@ import { LEVER_KINDS, startsWith, withStart, type LeverKind } from "../plans/lev
 import { HORIZON_KINDS, PROTECTION_METHODS } from "../contingency/inputs.ts";
 import { normalProtection, OPEN_SCENES, PREMISE_KINDS, premiseStarts, SCENE_KINDS, sceneShown, withPremiseStart, type OpenScene, type PremiseKind, type ProtectionSetting } from "../contingency/premiseChoice.ts";
 import type { ScenarioKind } from "../contingency/requests.ts";
-import { ASSUMPTION_LABELS, DEFAULT_OFFICE_SETTINGS, FEE_MAX, FEE_STEP_YEAR_MAX, layoutOf, OFFICE_ASSUMPTIONS, type FeeTable, type OfficeAssumption, type OfficeSettings } from "./settings.ts";
+import { rangeText } from "../input/rateRanges.ts";
+import { ASSUMPTION_LABELS, ASSUMPTION_RANGES, DEFAULT_OFFICE_SETTINGS, FEE_MAX, FEE_STEP_YEAR_MAX, layoutOf, OFFICE_ASSUMPTIONS, type FeeTable, type OfficeAssumption, type OfficeSettings } from "./settings.ts";
 import { revealAdded } from "../../presentation/revealAdded.ts";
 
 export interface OfficeSettingsPanelProps {
@@ -139,12 +140,12 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
   };
   const protNext = protectionFrom(prot);
   const feeTable = feeFromTexts(s.fee, fee);
-  const bad = [...OFFICE_ASSUMPTIONS.filter((k) => pctToRate(texts[k] ?? "") === undefined), ...(pctToRate(texts.realEstateRatio ?? "", 0, 100) === undefined ? ["realEstateRatio"] : []), ...(feeTable === null ? ["fee"] : []), ...(protNext === undefined ? ["protection"] : [])];
+  const bad = [...OFFICE_ASSUMPTIONS.filter((k) => pctToRate(texts[k] ?? "", ASSUMPTION_RANGES[k].min, ASSUMPTION_RANGES[k].max) === undefined), ...(pctToRate(texts.realEstateRatio ?? "", 0, 100) === undefined ? ["realEstateRatio"] : []), ...(feeTable === null ? ["fee"] : []), ...(protNext === undefined ? ["protection"] : [])];
   const per = s.fee.per === "month" ? "月" : "年";
   const save = async () => {
     const assumptions: OfficeSettings["assumptions"] = {};
     for (const k of OFFICE_ASSUMPTIONS) {
-      const r = pctToRate(texts[k] ?? "");
+      const r = pctToRate(texts[k] ?? "", ASSUMPTION_RANGES[k].min, ASSUMPTION_RANGES[k].max);
       if (typeof r === "string") assumptions[k] = r;
     }
     const ratio = pctToRate(texts.realEstateRatio ?? "", 0, 100);
@@ -406,7 +407,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
         <section class="os-sec" aria-labelledby="os-assume">
           <h3 id="os-assume">前提条件の標準値</h3>
           <div class="os-grid">
-            {OFFICE_ASSUMPTIONS.map((k) => pct(k, ASSUMPTION_LABELS[k], STANDARD_PCT[k], `空欄は FPライズの標準（${STANDARD_PCT[k]}%。仮の値）`))}
+            {OFFICE_ASSUMPTIONS.map((k) => pct(k, ASSUMPTION_LABELS[k], STANDARD_PCT[k], `空欄は FPライズの標準（${STANDARD_PCT[k]}%。仮の値）。${rangeText(ASSUMPTION_RANGES[k])}`))}
             {pct("realEstateRatio", "相続税の目安: 不動産の評価の割合（時価に掛ける）", "80", "空欄は時価の80%")}
           </div>
           <p class="pl-sub">長い期間の平均の目安です。根拠（出典・期間）は事務所で確かめてください。商品のおすすめではありません。</p>
@@ -474,7 +475,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
             万一のあとも続ける
           </label>
         </section>
-        {bad.length > 0 ? <p class="fatal">数で入れてください（前提は -5〜20%、評価の割合は 0〜100%、料金表の額は円、段階は2〜{FEE_STEP_YEAR_MAX}年目で重ならないように、必要保障額の年齢は 50〜110歳）。</p> : null}
+        {bad.length > 0 ? <p class="fatal">数で入れてください（前提は欄の下の範囲〔物価・賃金は -10〜10%、運用利回りは -10〜20%、年金の調整率は 0〜5%〕、評価の割合は 0〜100%、料金表の額は円、段階は2〜{FEE_STEP_YEAR_MAX}年目で重ならないように、必要保障額の年齢は 50〜110歳）。</p> : null}
         {msg !== null ? (
           <p class={msg.ok ? "rp-note" : "fatal"} role="status" data-office-settings-msg>
             {msg.text}

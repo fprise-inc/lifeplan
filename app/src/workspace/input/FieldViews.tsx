@@ -14,6 +14,7 @@ import { groupShown, type ActionDef, type FieldDef, type GroupDef, type Level, t
 import type { WorkingHousehold } from "./household.ts";
 import { availableOps, fieldStatus, FILL_LABEL, fillTitle, OP_LABELS, OP_TITLES, STATUS_LABELS, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
+import { rangeText, rateInRange } from "./rateRanges.ts";
 import { revealAdded, revealOpened } from "../../presentation/revealAdded.ts";
 import { convertWhen, modeOf, parseWhen, readWhen, readYearMonth, showWhen, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 
@@ -622,11 +623,9 @@ export function ActionHelp({ action }: { action: ActionDef }) {
   return <>{actionHelp(action)}</>;
 }
 
-/** 割合の欄の範囲（min・max はパーセント）に入っているか。率は10進の文字列（"0.25" = 25%） */
+/** 割合の欄の範囲（min・max はパーセント）に入っているか。率は10進の文字列（"0.25" = 25%。0098） */
 function pctInRange(f: FieldDef, rate: string): boolean {
-  if (f.kind !== "pct") return true;
-  const pct = Number(rate) * 100;
-  return (f.min === undefined || pct >= f.min - 1e-9) && (f.max === undefined || pct <= f.max + 1e-9);
+  return f.kind !== "pct" || rateInRange(rate, f);
 }
 
 /**
@@ -653,7 +652,7 @@ export function rejectReason(f: FieldDef, text: string, unit: YenUnit = "man"): 
     case "pct": {
       const r = rateFromPct(text);
       if (r === null) return "数字で入れてください（例: 1.5）";
-      return pctInRange(f, r) ? null : `${f.min ?? ""}%〜${f.max ?? ""}%の範囲で入れてください`;
+      return pctInRange(f, r) ? null : `${rangeText(f)}の範囲で入れてください`;
     }
     case "decimal":
       return /^\d+(\.\d+)?$/.test(t) ? null : "0 以上の数字で入れてください";

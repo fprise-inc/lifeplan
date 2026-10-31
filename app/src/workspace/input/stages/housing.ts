@@ -13,6 +13,7 @@ import { formatYen } from "../units.ts";
 import { readGroup, readLine } from "../readLines.ts";
 import { stagedBadge, stagedGroups, type StagedSpec } from "../staged.ts";
 import { at, creditLifeFields, creditLifeGroups, estRow, loanFields, loanMoreActions, loanTitle, LOAN_SUBTYPES, newMortgage, newOtherLoan, otherLoanHeadFields, withEntry } from "./housingLoans.ts";
+import { GROWTH_RANGE } from "../rateRanges.ts";
 
 export { creditLifeFields, creditLifeGroups, loanFields };
 
@@ -210,7 +211,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
   if (r.kind === "rent" && !free) {
     fields.push(
       yenBox({ key: `${k}/rent`, item: "residence.rent", label: "家賃（管理費込み）", level: "simple", basis: "monthly", find, path: ["rent", "monthly"] }),
-      plain({ key: `${k}/rentGrowth`, item: "residence.rent", label: "家賃の変動率（年）", level: "detail", kind: "pct", find, path: ["rent", "growth"], optional: true, fallback: "0", help: "更新のたびに当てます。空欄なら変えません" }),
+      plain({ key: `${k}/rentGrowth`, item: "residence.rent", label: "家賃の変動率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["rent", "growth"], optional: true, fallback: "0", help: "更新のたびに当てます。空欄なら変えません" }),
       plain({ key: `${k}/renewalFee`, item: "residence.rent", label: "更新料（家賃の何か月分）", level: "detail", kind: "decimal", suffix: "か月分", find, path: ["rent", "renewalFee"], optional: true, fallback: "0" }),
       { ...plain({ key: `${k}/renewalEvery`, item: "residence.rent", label: "更新の間隔", level: "detail", kind: "int", suffix: "か月ごと", min: 1, max: 120, find, path: ["rent", "renewalEveryMonths"], optional: true, fallback: 24 }), address: () => at(r.id, "residence.rent", ["renewalEveryMonths"]) },
     );
@@ -218,9 +219,9 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
     fields.push(
       styleField(r, k),
       yenBox({ key: `${k}/tax`, item: "residence.propertyTax", label: "固定資産税・都市計画税", level: "detail", basis: "annual", find, path: ["propertyTax", "annual"] }),
-      { ...plain({ key: `${k}/taxGrowth`, item: "residence.propertyTax", label: "固定資産税の変動率（年）", level: "detail", kind: "pct", find, path: ["propertyTax", "growth"], optional: true, fallback: "0", help: "空欄なら変えません。建物の評価が下がる分は、「＋ 固定資産税の変化」で入れられます" }), address: () => at(r.id, "residence.propertyTax", ["growth"]) },
+      { ...plain({ key: `${k}/taxGrowth`, item: "residence.propertyTax", label: "固定資産税の変動率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["propertyTax", "growth"], optional: true, fallback: "0", help: "空欄なら変えません。建物の評価が下がる分は、「＋ 固定資産税の変化」で入れられます" }), address: () => at(r.id, "residence.propertyTax", ["growth"]) },
       yenBox({ key: `${k}/maint`, item: "residence.maintenance", label: "修繕費・管理費（毎月）", level: "simple", basis: "monthly", find, path: ["maintenance", "monthly"] }),
-      plain({ key: `${k}/maintGrowth`, item: "residence.maintenance", label: "修繕費の変動率（年）", level: "detail", kind: "pct", find, path: ["maintenance", "growth"], optional: true, help: "空欄なら変えません。外壁・屋根などの大きな修繕は、下の「出るお金」の修繕・リフォームの行で入れます" }),
+      plain({ key: `${k}/maintGrowth`, item: "residence.maintenance", label: "修繕費の変動率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["maintenance", "growth"], optional: true, help: "空欄なら変えません。外壁・屋根などの大きな修繕は、下の「出るお金」の修繕・リフォームの行で入れます" }),
       ...ownershipFields(wh, r, k),
     );
   }

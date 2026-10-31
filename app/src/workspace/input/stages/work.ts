@@ -14,6 +14,7 @@ import { ensureRetirement } from "../fill.ts";
 import { earners, EMPLOYMENT_TYPES, HEALTH_INSURANCE, KYOKAI_BRANCHES, LEAVE_KINDS, memberLabel, PENSION_CATEGORY, POST_RETIREMENT_TYPES } from "../labels.ts";
 import { formatYearMonth } from "../units.ts";
 import { readGroup, readLine } from "../readLines.ts";
+import { GROWTH_RANGE } from "../rateRanges.ts";
 
 /** 働き方の期間の時点は年月で持つ（定年・再雇用の見つけ方などが年月で読むため。0038） */
 const PERIOD_MONTH_ONLY = "働き方の期間は年月で持ちます（年齢・今からで入れても、その年月にします）";
@@ -1142,6 +1143,7 @@ function growthField(wh: WorkingHousehold, p: EmploymentPeriod, find: Finder, pr
       label: "この期間の伸び（年率）",
       level,
       kind: "pct",
+      ...GROWTH_RANGE,
       optional: true,
       help: "毎年この率で伸ばします（マイナスも入れられます）。空欄は前提条件の賃金上昇率",
       get: (w) => {
