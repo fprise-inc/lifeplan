@@ -579,19 +579,19 @@ export interface AnnualTemplate {
 }
 
 /**
- * 聞き漏れの確かめの一覧（ひな形の目安。統計ではない）。並びの初めの5つ（帰省・家電と家具・年会費・スマホ・パソコン）は、行が無いときの簡易のボタンにもする。
+ * 聞き漏れの確かめの一覧（ひな形の目安。統計ではない）。並びはボタンの並び（0100 の追記: どのボタンも確かめの一覧のまとまりの中に、標準と詳細で同じ形で並べる）。
  * 家電と家具は1つにまとめた（前の家電 8年ごとに25万円と家具 10年ごとに20万円の年あたりとほぼ同じ 8年ごとに40万円）。名前の当て方は家電・家具の両方。
- * 冠婚葬祭のつきあい・お年玉と贈り物は、毎月の生活費の「その他の消費（こづかい・交際費など）」と重なりやすいので一覧に置かない（前に入れた行はふつうの行のまま）
+ * 冠婚葬祭のつきあい・お年玉と贈り物は、毎月の生活費の「こづかい・交際費」と重なりやすいので一覧に置かない。旅行はライフイベントの「家族旅行」で入れるので置かない
+ * （前に入れた行はふつうの行のまま）
  */
 export const ANNUAL_TEMPLATES: readonly AnnualTemplate[] = [
+  { key: "medical", label: "通院・歯の治療", amount: 50000, everyYears: 1, row: "cf.expense.care.medical", match: /通院|歯|治療|医療|病院/u },
+  { key: "pet", label: "ペットの医療", amount: 50000, everyYears: 1, match: /ペット|動物病院/u },
   { key: "homecoming", label: "帰省", amount: 100000, everyYears: 1, match: /帰省/u },
   { key: "appliances", label: "家電・家具の買い替え", amount: 400000, everyYears: 8, match: /家電|家具/u },
   { key: "fees", label: "年会費・サブスクの年払い", amount: 30000, everyYears: 1, match: /年会費|サブスク|会費/u },
-  { key: "smartphone", label: "スマホの買い替え", amount: 120000, everyYears: 4, per: "1台", help: "1台分の額です。家族の分も入れるときは、1人1行ずつ足してください（2行目からは「＋ 年払い・数年おきの支出」で足せます）", match: /スマホ|スマートフォン|携帯電話/u },
+  { key: "smartphone", label: "スマホの買い替え", amount: 120000, everyYears: 4, per: "1台", help: "1台分の額です。家族の分も入れるときは、1人1行ずつ足してください（2行目からは「＋ その他の年払い・数年おきの支出」で足せます）", match: /スマホ|スマートフォン|携帯電話/u },
   { key: "pc", label: "パソコンの買い替え", amount: 150000, everyYears: 5, match: /パソコン/u },
-  { key: "medical", label: "通院・歯の治療", amount: 50000, everyYears: 1, row: "cf.expense.care.medical", match: /通院|歯|治療|医療|病院/u },
-  { key: "pet", label: "ペットの医療", amount: 50000, everyYears: 1, match: /ペット|動物病院/u },
-  { key: "travel", label: "旅行", amount: 200000, everyYears: 1, match: /旅行/u },
 ];
 
 /** ひな形の額と間隔の文字（「年10万円」「8年ごとに40万円」）。ボタンには出さず、推定の根拠の文に使う */
@@ -623,8 +623,14 @@ export function addAnnual(wh: WorkingHousehold, t: AnnualTemplate, id: string = 
 
 const CARD_NAMES: Record<string, string> = { events: "ライフイベント", housing: "住まい・ローン", car: "車", education: "子ども・教育", care: "介護・親", living: "基本生活費" };
 
-/** 聞き漏れの確かめ（入れた所を自動で見る。読むだけの行と、まだ無い物を足すボタン） */
-function annualChecklist(wh: WorkingHousehold, skip: ReadonlySet<string>): GroupDef {
+/** 年払いの区画の「その他」のボタンの名前（ひな形に無い行を足す） */
+export const ANNUAL_OTHER_LABEL = "＋ その他の年払い・数年おきの支出";
+
+/**
+ * 聞き漏れの確かめ（入れた所を自動で見る。読むだけの「入れた」の行と、まだ無い物を足すボタン）。どのボタンもこのまとまりの中に、標準と詳細で同じ形で
+ * 並べる（ひな形の後ろに「その他」）。ほかの入力項目で入れる物（固定資産税・車検・保険の年払い）の読むだけの行は置かない（生活費ではなく、入れる所は FP が分かる）
+ */
+function annualChecklist(wh: WorkingHousehold, other: readonly ActionDef[]): GroupDef {
   const h = wh.request.input.household;
   const rows = h.periodicExpenses ?? [];
   const fields: FieldDef[] = [];
@@ -633,34 +639,29 @@ function annualChecklist(wh: WorkingHousehold, skip: ReadonlySet<string>): Group
     const hit = rows.find((p) => t.match.test(p.label ?? ""));
     if (hit !== undefined) {
       const card = expenseCard(h, hit);
-      fields.push({ ...readLine(`living/annual/check/${t.key}`, t.label, `入れた（${hit.label ?? t.label}）`, CARD_NAMES[card] ?? "ライフイベント"), level: "detail" });
-    } else if (!skip.has(t.key)) actions.push({ key: `living/annual/add/${t.key}`, label: `＋ ${t.label}`, ...(t.help !== undefined ? { help: t.help } : {}), level: "detail", run: (w) => addAnnual(w, t) });
+      fields.push({ ...readLine(`living/annual/check/${t.key}`, t.label, `入れた（${hit.label ?? t.label}）`, CARD_NAMES[card] ?? "ライフイベント"), level: "simple" });
+    } else actions.push({ key: `living/annual/add/${t.key}`, label: `＋ ${t.label}`, ...(t.help !== undefined ? { help: t.help } : {}), level: "simple", run: (w) => addAnnual(w, t) });
   }
-  // ほかのカードで入れる物（入れたかを、そのカードの物から見る）
-  const owned = (h.residences ?? []).some((r) => r.kind === "own");
-  fields.push({ ...readLine("living/annual/check/propertyTax", "固定資産税・修繕", owned ? "持ち家の固定資産税・修繕費は、住まいの物で入れます" : "持ち家なし", "住まい・ローン"), level: "detail" });
-  fields.push({ ...readLine("living/annual/check/car", "自動車税・車検", (h.cars ?? []).length > 0 ? `車 ${(h.cars ?? []).length}台（税・車検は車の維持費で入れます）` : "車なし", "車"), level: "detail" });
-  fields.push({ ...readLine("living/annual/check/insurance", "保険の年払い", (h.insuranceContracts ?? []).length > 0 ? `保険 ${(h.insuranceContracts ?? []).length}件（保険料は保険の契約で入れます）` : "まだありません", "保険"), level: "detail" });
-  return { key: "living/annual/check", title: "年1回・数年に1回の支出（入れ忘れがないか）", note: "よくある年払い・数年おきの支出です。まだ入れていない物は、よくある額と間隔の目安で足せます（足した後で実際の額に直してください）", level: "detail", fields, actions };
+  actions.push(...other.map((a) => ({ ...a, label: ANNUAL_OTHER_LABEL, level: "simple" as const })));
+  return {
+    key: "living/annual/check",
+    title: "年1回・数年に1回の支出（入れ忘れがないか）",
+    note: "よくある年払い・数年おきの支出です。まだ入れていない物は、よくある額と間隔の目安で足せます（足した後で実際の額に直してください）",
+    level: "simple",
+    fields,
+    actions,
+  };
 }
 
 function annualSection(wh: WorkingHousehold): SectionDef | null {
   const out = moneySections(wh, "living", { claimed: NONE, level: "simple", outTitle: "年払い・数年おきの暮らしの支出" }).find((s) => s.key.endsWith("/out"));
   if (out === undefined) return null;
   const empty = out.groups.length === 0;
-  const QUICK = new Set(["homecoming", "appliances", "fees", "smartphone", "pc"]);
-  const quick = ANNUAL_TEMPLATES.filter((t) => QUICK.has(t.key)).map((t): ActionDef => ({
-    key: `money/living/out/template/${t.key}`,
-    label: `＋ ${t.label}`,
-    ...(t.help !== undefined ? { help: t.help } : {}),
-    level: "simple",
-    run: (w) => addAnnual(w, t),
-  }));
   return {
     ...out,
     note: `${empty ? "まだありません。" : ""}帰省・家電や家具・スマホ・パソコンの買い替え・年会費など、年1回・数年に1回の暮らしの支出です`,
-    groups: [...out.groups, annualChecklist(wh, empty ? QUICK : new Set<string>())],
-    actions: [...(empty ? quick : []), ...out.actions.map((a) => ({ ...a, label: "＋ 年払い・数年おきの支出" }))],
+    groups: [...out.groups, annualChecklist(wh, out.actions)],
+    actions: [],
   };
 }
 

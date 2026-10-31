@@ -64,7 +64,7 @@ const ICONS: Readonly<Record<string, JSX.Element>> = {
       <path d="M8 17l-2 4M16 17l2 4" />
     </>
   ),
-  // 趣味・旅行（教養娯楽）: スーツケース
+  // 趣味・娯楽: スーツケース
   recreation: (
     <>
       <rect x="4" y="7" width="16" height="12" rx="2" />
