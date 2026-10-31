@@ -370,6 +370,54 @@ describe("前の分け方の内訳（0.42 までの世帯。0100）", () => {
   });
 });
 
+describe("時期・何年ごとを変えたときの額（0100 の追記）", () => {
+  const added = (wh: WorkingHousehold) => wh.request.input.household.periodicExpenses!.at(-1)!;
+  const amountOf = (wh: WorkingHousehold) => added(wh).amount as { value: number; state: string; estimate?: { basis: string } };
+  it("推定の額（通院・歯の治療 年5万円）は、毎月にすると年あたりが同じ月額（100円の単位）に直し、推定の印のまま。年ごとに戻すと千円の単位で戻る", () => {
+    let wh = annualBtn(family(), "medical").run(family());
+    const id = added(wh).id;
+    wh = fieldOf(wh, `ev/${id}/cadence`).set(wh, "monthly");
+    expect(amountOf(wh)).toMatchObject({ value: 4200, state: "estimated" });
+    expect(amountOf(wh).estimate!.basis).toContain("時期に合わせて直した額。元は年額");
+    expect(fieldStatus(fieldOf(wh, `ev/${id}/amount`), wh).status).toBe("estimated");
+    wh = fieldOf(wh, `ev/${id}/cadence`).set(wh, "repeat");
+    // 元の時期に戻すと、額も根拠も元のまま
+    expect(amountOf(wh)).toMatchObject({ value: 50000, state: "estimated" });
+    expect(amountOf(wh).estimate!.basis).not.toContain("時期に合わせて直した額");
+    // 1回にすると年あたりが無いので変えない
+    const once = fieldOf(wh, `ev/${id}/cadence`).set(wh, "once");
+    expect(amountOf(once).value).toBe(50000);
+  });
+
+  it("推定の額は、何年ごとを変えても年あたりが同じになるよう直す（家電・家具 8年ごとに40万円 → 10年ごとに50万円）", () => {
+    let wh = annualBtn(family(), "appliances").run(family());
+    const id = added(wh).id;
+    wh = fieldOf(wh, `ev/${id}/every`).set(wh, 10);
+    expect(added(wh).everyYears).toBe(10);
+    expect(amountOf(wh)).toMatchObject({ value: 500000, state: "estimated" });
+  });
+
+  it("FP が入れた額は、時期（毎月 ↔ 年ごと）を変えたときだけ年あたりが同じになるよう直し、欄の下に1行の知らせ。何年ごとだけを変えたときは変えない。打ち直すと知らせは消える", () => {
+    let wh = annualBtn(family(), "fees").run(family());
+    const id = added(wh).id;
+    wh = fieldOf(wh, `ev/${id}/amount`).set(wh, 120000);
+    expect(amountOf(wh).state).toBe("confirmed");
+    wh = fieldOf(wh, `ev/${id}/cadence`).set(wh, "monthly");
+    expect(amountOf(wh)).toMatchObject({ value: 10000, state: "confirmed" });
+    const amount = fieldOf(wh, `ev/${id}/amount`);
+    expect(amount.get(wh).hint).toContain("年額 12万円を月額に直しました");
+    const typed = amount.set(wh, 9000);
+    expect(fieldOf(typed, `ev/${id}/amount`).get(typed).hint ?? null).toBeNull();
+    // 何年ごとだけ（FP の額）: 1回あたりの額のまま
+    let w2 = fieldOf(wh, `ev/${id}/cadence`).set(wh, "repeat");
+    expect(amountOf(w2).value).toBe(120000);
+    w2 = fieldOf(w2, `ev/${id}/amount`).set(w2, 100000);
+    w2 = fieldOf(w2, `ev/${id}/every`).set(w2, 3);
+    expect(amountOf(w2)).toMatchObject({ value: 100000, state: "confirmed" });
+    expect(() => preview(w2.request)).not.toThrow();
+  });
+});
+
 describe("毎月の生活費の始まり・終わり（0100 の追記）", () => {
   const keys = (wh: WorkingHousehold) => allFields(stage(wh)).map((f) => f.item);
   it("毎月の生活費が1つなら、始まり・終わりの欄を出さない。2つ以上なら、どれにも出す", () => {
