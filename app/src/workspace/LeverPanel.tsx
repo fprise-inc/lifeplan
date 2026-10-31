@@ -246,6 +246,8 @@ export function LeverCard(p: LeverCardProps) {
                     max={sl.max}
                     step={1}
                     value={sl.value}
+                    // 動かせる幅が無い（もう年金を受け取り始めている人の受け取り開始）ときは押せない形にする
+                    disabled={sl.min >= sl.max}
                     data-lever={l.key}
                     aria-valuetext={l.valueText}
                     onInput={(e) => p.onSlide(l.key, Number((e.currentTarget as HTMLInputElement).value))}

@@ -84,6 +84,8 @@ export function leverItems(ctx: TakeawayContext, requests: readonly EngineReques
     if (c.kind === "age") {
       // 上の端は載せるプランの値が外にあれば広げ、下の端は広げない（過ぎた年齢を選べないように）
       const { min, max } = ageSliderBounds(c, ...vals);
+      // 動かせないつまみ（もう年金を受け取り始めている人の受け取り開始で、載せるプランも同じ値）は載せない
+      if (min >= max) continue;
       out.push({ key: k, label: it.label, kind: "age", min, max, step: 1, ticks: [...c.ticks], per: "", note });
     } else {
       const r = amountRange(c.min, c.max, ...vals);

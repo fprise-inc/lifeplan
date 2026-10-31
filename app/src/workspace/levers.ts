@@ -85,6 +85,23 @@ export function readLevers(req: EngineRequest, memberId: string): Partial<LeverV
   return out;
 }
 
+/** 年金の受け取りの開始の月（その年齢に達した月の翌月。下の applyLevers と同じ決まり） */
+export const pensionClaimMonth = (member: Member, age: number): string => addMonths(ageReachedMonth(member, age), 1);
+
+/**
+ * もう老齢年金を受け取り始めているか: 受給中の記録（計算エンジンは受け取りの開始を読まない）があるか、基礎・厚生のどちらかの
+ * 受け取りの開始が計算基準月より前（記録・構成員の受け取り開始に無い方は、計算エンジンと同じく65歳に達した月の翌月）
+ */
+export function pensionStarted(req: EngineRequest, memberId: string): boolean {
+  const h = req.input.household;
+  const member = memberOf(req, memberId);
+  const recs = (h.pensionRecords ?? []).filter((r) => r.member === memberId);
+  if (recs.some((r) => r.kind === "receiving")) return true;
+  const normal = pensionClaimMonth(member, 65);
+  const claims = recs.length > 0 ? recs.map((r) => r.claim) : [member.pensionClaim];
+  return claims.some((c) => [c?.basic, c?.employee].some((t) => (atOf(h, t) ?? normal) < req.input.baseMonth));
+}
+
 /** どの打ち手がこの世帯で使えるか（読めた打ち手だけ） */
 export function availableLevers(req: EngineRequest, memberId: string): Set<LeverKey> {
   return new Set(Object.keys(readLevers(req, memberId)) as LeverKey[]);
