@@ -2,6 +2,9 @@
 // わからない（代わりの値）・推定で埋める・受け取っている遺族年金・障害年金（種類・終わりの推定・再婚の知らせ）・外国の年金・
 // 年金の見込み（計算の結果から読む）・世帯の外の家族を混ぜない・古い世帯を黙って書き換えない
 import { describe, expect, it } from "vitest";
+import { h } from "preact";
+import { renderToString } from "preact-render-to-string";
+import { Field, FieldStateOps } from "../src/workspace/input/FieldViews.tsx";
 import type { EngineRequest, IncomeFlow, PensionRecord } from "../src/engine/types.ts";
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { fillAll, gapsOf } from "../src/workspace/input/fill.ts";
@@ -142,6 +145,19 @@ describe("定期便の加入月数（わからない・代わりの値）", () =
     const w = applyStateOp(wh, f, "unknown");
     expect(recordsOf(w)[0]!.months?.basic).toBeGreaterThan(200);
     expect(fieldStatus(fieldOf(w, "/months/basic"), w).status).toBe("unknown");
+  });
+
+  it("書類待ちの行と状態の印の文は「代わりの値」を重ねない（根拠がもう「代わりの値（…）」で始まる）", () => {
+    const { wh: w0 } = withStatement();
+    const w = actionOf(w0, "/months/unknown").run(w0);
+    const f = fieldOf(w, "/months/basic");
+    const row = checkList(w).find((r) => r.fieldKey === f.key)!;
+    expect(row).toMatchObject({ kind: "unknown" });
+    expect(row.detail).toMatch(/^ねんきん定期便で確かめる（代わりの値（国民年金は/);
+    expect(row.detail).not.toContain("代わりの値: 代わりの値");
+    const html = renderToString(h(FieldStateOps.Provider, { value: applyStateOp }, h(Field, { f, wh: w, onEdit: () => undefined })));
+    expect(html).toContain("書類待ち（ねんきん定期便で確かめるまで、代わりの値（国民年金は");
+    expect(html).not.toContain("代わりの値: 代わりの値");
   });
 });
 

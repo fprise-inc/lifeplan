@@ -11,7 +11,7 @@ import { fittingPlaceholder, textEm } from "./placeholder.ts";
 import type { Timepoint } from "../../engine/types.ts";
 import { groupShown, type ActionDef, type FieldDef, type GroupDef, type Level, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
-import { availableOps, fieldStatus, FILL_LABEL, fillTitle, OP_LABELS, opTitle, STATUS_LABELS, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
+import { availableOps, fieldStatus, FILL_LABEL, fillTitle, OP_LABELS, opTitle, STATUS_LABELS, substituteText, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
 import { revealAdded, revealOpened } from "../../presentation/revealAdded.ts";
 import { convertWhen, modeOf, parseWhen, readWhen, readYearMonth, showWhen, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
@@ -107,7 +107,7 @@ export function StateMark({ status, basis, text, label, fieldKey, doc }: { statu
     status === "estimated" && basis !== null
       ? `推定: ${basis}`
       : status === "unknown"
-        ? `書類待ち（${doc !== undefined ? `${doc}で確かめるまで、` : ""}代わりの値: ${basis ?? "推定"}）`
+        ? `書類待ち（${doc !== undefined ? `${doc}で確かめるまで、` : ""}${substituteText(basis ?? "推定")}）`
         : status === "missing"
           ? (basis ?? "空欄（0円で計算しています）")
           : basis;

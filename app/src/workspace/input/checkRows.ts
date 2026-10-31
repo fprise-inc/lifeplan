@@ -17,7 +17,7 @@ import { insuranceOverlapNotices } from "./insuranceView.ts";
 import { ackOf, ackToday, setNoticeAck } from "./noticeAck.ts";
 import { inputItems, itemStage } from "./items.ts";
 import { holderOf, rowAt } from "./rows.ts";
-import { applyStateOp, availableOps, confirmAll, fieldAddress, fieldStatus, type FieldStatus } from "./valueState.ts";
+import { applyStateOp, availableOps, confirmAll, fieldAddress, fieldStatus, substituteText, type FieldStatus } from "./valueState.ts";
 import { fieldValueText } from "../plans/planEdit.ts";
 
 export type CheckKind = "missing" | "notStarted" | "unknown" | "notice" | "calc" | "estimated" | "certainty";
@@ -154,7 +154,7 @@ export function valueMeta(f: FieldDef, wh: WorkingHousehold): { origin: OriginKi
 
 /** 書類待ちの行の文: 確かめる書類（欄の定義の docCheck）と、それまで使う代わりの値（0041 の追記 2026-10-31） */
 function unknownDetail(f: FieldDef, s: FieldStatus): string {
-  const sub = s.basis !== null ? `代わりの値: ${s.basis}` : "代わりの値で計算しています";
+  const sub = s.basis !== null ? substituteText(s.basis) : "代わりの値で計算しています";
   return f.docCheck !== undefined ? `${f.docCheck}で確かめる（${sub}）` : sub;
 }
 
