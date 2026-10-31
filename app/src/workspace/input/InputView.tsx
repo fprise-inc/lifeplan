@@ -25,6 +25,8 @@ import { pensionEstimateSummary, usePensionEstimate } from "./pensionEstimate.ts
 import { STAGE_ORDER } from "./stages/index.ts";
 import { StatusBadge, statusText } from "./StatusBadge.tsx";
 import { CheckList, checkSummary } from "./CheckList.tsx";
+import { DocRequests } from "./DocRequests.tsx";
+import { docRequests } from "./docRequests.ts";
 import type { NoticeRow } from "../engineNotices.ts";
 import { DiffList, PlanTarget, type PlanEditProps } from "./PlanEdit.tsx";
 import { countsByCard, diffRows, planIndex, planView, recordPlanEdit } from "../plans/planEdit.ts";
@@ -313,6 +315,9 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   /** 確かめの一覧から開いたときに移る欄 */
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const check = useMemo(() => checkSummary(wh, calcNotices), [wh, calcNotices]);
+  /** 書類のお願い（書類待ちの欄から作る送ってほしい書類の一覧。0102） */
+  const [docsOpen, setDocsOpen] = useState(initialOpen === "docs");
+  const docCount = useMemo(() => (check.counts.unknown > 0 ? docRequests(wh).length : 0), [wh, check.counts.unknown]);
   /**
    * カードごとの入れ方（標準／詳細）。パネルの見出しで切り替えた入れ方は画面の中だけで持ち、保存しない（0077）。
    * 切り替えていないカードは、世帯の選び方の「開いたときの入れ方」（ピンは物が属するカードの入れ方）、無ければ level（初め）
@@ -457,6 +462,11 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
               確かめの一覧（未入力 {check.counts.missing}・書類待ち {check.counts.unknown}・注意 {check.counts.notice}
               {check.counts.calc > 0 ? `・計算の知らせ ${check.counts.calc}` : ""}・推定 {check.counts.estimated}）
             </button>
+            {docCount > 0 || docsOpen ? (
+              <button type="button" class="add-btn" aria-expanded={docsOpen} onClick={() => setDocsOpen(!docsOpen)} data-docs-open>
+                書類のお願い（{docCount}通）
+              </button>
+            ) : null}
           </div>
         </div>
         <div class="ih-prog" aria-live="polite">
@@ -510,9 +520,11 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
         </ImportMenu>
       ) : null}
       {editing !== null && pcat !== undefined && diffOpen && plans !== undefined ? <DiffList rows={rows} wh={wh} planId={editing.id} cat={pcat} onEdit={plans.onSavePlan} onOpen={open} /> : null}
+      {docsOpen ? <DocRequests wh={wh} onOpen={openField} onClose={() => setDocsOpen(false)} /> : null}
       {checkOpen ? (
         <CheckList
           wh={wh}
+          onDocRequests={() => setDocsOpen(true)}
           notices={calcNotices}
           onOpen={openField}
           onEdit={(next, done) => {

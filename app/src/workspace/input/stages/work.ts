@@ -599,7 +599,7 @@ function residentTaxField(wh: WorkingHousehold, m: Member): FieldDef {
     },
     help: "住民税の決定通知書（給与明細の住民税×12）の額。空欄なら前の年の所得から概算します",
   });
-  return { ...f, docCheck: CHECK_DOCUMENTS.residentTax };
+  return { ...f, docCheck: CHECK_DOCUMENTS.residentTax, docFor: m.id };
 }
 
 /** 今の働き方の「▸ 詳しく」に出さない、期間の欄（期間の形・年収の分け方。標準の欄と2通りの入れ方にしない） */

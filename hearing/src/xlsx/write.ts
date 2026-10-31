@@ -21,7 +21,16 @@ export interface OfficeInfo {
 export interface WriteOptions {
   readonly management: Management;
   readonly office: OfficeInfo;
+  /**
+   * この世帯でお願いしたい書類（世帯の書類待ちの欄から作った見出し。例: ねんきん定期便（ご本人））。あれば1枚目の配置の後ろに
+   * 「今回お願いしたい書類」として足す。シート定義の配置の外の行で、取り込みは読まない（配置の指紋・版は変わらない。0018 の追記 2026-10-31）
+   */
+  readonly requestedDocuments?: readonly string[];
 }
+
+/** 「今回お願いしたい書類」の見出しと、番号を隠してよいことの一文 */
+export const REQUESTED_DOCUMENTS_HEADING = "今回お願いしたい書類";
+export const REQUESTED_DOCUMENTS_NOTE = "証券番号・口座番号などは隠していただいてかまいません。お手元に無いものは、その旨をお知らせください。";
 
 export { META_SHEET, PROPERTY_PREFIX };
 
@@ -173,6 +182,19 @@ export function writeSheetXlsx(def: SheetDefinition, answers: readonly Answer[],
         break;
       }
         break;
+    }
+  }
+
+  // この世帯でお願いしたい書類（配置の外。1枚目の最後の行の1行あけた下）
+  const requested = options.requestedDocuments ?? [];
+  if (requested.length > 0) {
+    let r = Math.max(0, ...def.layout.rows.filter((x) => x.sheet === def.layout.introSheet).map((x) => x.row)) + 2;
+    intro.set(r++, c.label, S.heading, text(REQUESTED_DOCUMENTS_HEADING));
+    for (const t of [...requested.map((d) => `・${d}`), REQUESTED_DOCUMENTS_NOTE]) {
+      intro.set(r, c.label, S.text, text(t));
+      mergeAll(intro, r, c.label);
+      intro.height(r, 18 * lines(t, widths.slice(1).reduce((s, w) => s + w, 0)));
+      r++;
     }
   }
 
