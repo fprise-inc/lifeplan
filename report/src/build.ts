@@ -412,6 +412,76 @@ function carPurchases(req: EngineRequest): { year: number; text: string }[] {
   return out;
 }
 
+/** 額の文字（「120万円」「3.5万円」）。0円は null（額の無い行は名前だけ） */
+const manText = (v: number): string | null => (v > 0 ? `${(Math.round(v / 1000) / 10).toLocaleString("ja-JP")}万円` : null);
+
+type RowLike = { from: Timepoint; to?: Timepoint | null; monthly?: boolean; everyYears: number; amount: { value?: number | null } };
+
+/** 1回の行か（何年ごとが1で、終わりが始まりと同じ月） */
+const onceRow = (h: Household, r: RowLike): boolean => r.monthly !== true && r.everyYears === 1 && r.to != null && monthOfTimepoint(h, r.to) !== null && monthOfTimepoint(h, r.to) === monthOfTimepoint(h, r.from);
+
+/** お金の行の額と時期の言い方（1回は額だけ、くり返しは「毎年30万円」「3年ごとに40万円」「毎月3万円」）。0円は null */
+function rowAmountText(h: Household, r: RowLike): string | null {
+  const v = manText(r.amount.value ?? 0);
+  if (v === null) return null;
+  if (r.monthly === true) return `毎月${v}`;
+  return onceRow(h, r) ? v : r.everyYears === 1 ? `毎年${v}` : `${r.everyYears}年ごとに${v}`;
+}
+
+/** ライフイベントの入力項目の出るお金の種類（種類の無い古い行も。子の年齢で始まる種類の無い行は子ども・教育の物）と入るお金の種類 */
+const EVENT_OUT_KINDS: ReadonlySet<string | undefined> = new Set([undefined, "general", "other"]);
+const EVENT_IN_KINDS: ReadonlySet<string> = new Set(["celebration", "saleGoods", "temporary", "other"]);
+
+/**
+ * 提案書の「ライフイベント」の表に載せる、ライフイベントの入力項目の行（0068 の追記 2026-10-31）: 出るお金・入るお金の行（くり返す行は最初の年。
+ * アプリの「この世帯の予定」と同じ）と、子への援助（結婚資金）。名前と額（額が0円の行は名前だけ）
+ */
+function lifeEventItems(ctx: Ctx): { year: number; text: string }[] {
+  const req = ctx.bundle.proposal.request;
+  const h = req.input.household;
+  const base = req.input.baseMonth;
+  const out: { year: number; text: string }[] = [];
+  const firstYear = (r: { from: Timepoint; to?: Timepoint | null; monthly?: boolean; everyYears: number }): number | null => {
+    const from = monthOfTimepoint(h, r.from);
+    if (from === null) return null;
+    if (from >= base) return parseYm(from).y;
+    // もう始まっているくり返す行は、計算の基準の月より後の最初の支払いの年（毎月は今年）
+    if (r.monthly === true) return parseYm(base).y;
+    const to = r.to == null ? null : monthOfTimepoint(h, r.to);
+    let m = from;
+    while (m < base) m = addMonths(m, 12 * Math.max(1, r.everyYears));
+    return to !== null && m > to ? null : parseYm(m).y;
+  };
+  const isChild = (id: string | undefined) => id !== undefined && h.members.some((m) => m.id === id && m.kind === "child");
+  for (const p of h.periodicExpenses ?? []) {
+    if (!EVENT_OUT_KINDS.has(p.kind) || (p.kind === undefined && isChild((p.from as { memberAge?: { member: string } }).memberAge?.member))) continue;
+    const y = firstYear(p);
+    if (y === null) continue;
+    const amt = rowAmountText(h, p);
+    const name = p.label !== undefined && p.label !== "" ? p.label : onceRow(h, p) ? "一時的な支出" : "くり返しの支出";
+    out.push({ year: y, text: amt === null ? name : `${name}（${amt}）` });
+  }
+  for (const f of h.incomeFlows ?? []) {
+    if (!EVENT_IN_KINDS.has(f.kind)) continue;
+    const y = firstYear(f);
+    if (y === null) continue;
+    const name = f.label !== undefined && f.label !== "" ? f.label : "一時的な入金";
+    const amt = rowAmountText(h, f);
+    out.push({ year: y, text: `${name}（受け取り${amt === null ? "" : ` ${amt}`}）` });
+  }
+  for (const g of h.goals ?? []) {
+    const r = ctx.rs.find((x) => x.member.id === g.owner);
+    if (g.kind !== "education" || r === undefined) continue;
+    for (const gift of g.education?.gifts ?? []) {
+      const m = gift.purpose === "wedding" ? monthOfTimepoint(h, gift.at) : null;
+      if (m === null || m < base) continue;
+      const amt = manText(gift.amount);
+      out.push({ year: parseYm(m).y, text: `${r.label}の結婚の援助${amt === null ? "" : `（${amt}）`}` });
+    }
+  }
+  return out;
+}
+
 function events(ctx: Ctx): ProposalInput["events"] {
   const req = ctx.bundle.proposal.request;
   const h = req.input.household;
@@ -446,6 +516,7 @@ function events(ctx: Ctx): ProposalInput["events"] {
     add(parseYm(ps).y, `${r.label}が年金の受け取りを開始（${ageAt(r.member, addMonths(ps, -1))}歳）`);
   }
   for (const e of carPurchases(req)) add(e.year, e.text);
+  for (const e of lifeEventItems(ctx)) add(e.year, e.text);
   const loan = sumByYear(ctx.bundle.proposal.result.table, (c) => under(c.row, "cf.expense.housing.loan"));
   const paid = [...loan.entries()].filter(([, v]) => v > 0).map(([y]) => y).sort((a, b) => a - b).at(-1);
   if (paid !== undefined && paid < req.input.endYear) add(paid, "住宅ローンの返済が終わる");

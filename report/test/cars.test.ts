@@ -110,3 +110,36 @@ describe.skipIf(bin === null)("車を2台持つ世帯の PDF", () => {
     expect(all).toContain(normalize(ESTIMATED_NOTE));
   });
 });
+
+describe("ライフイベント表に、ライフイベントの入力項目の行を出す（0068 の追記 2026-10-31）", () => {
+  it("出るお金の行（1回は額、くり返しは最初の年に「毎年」「3年ごとに」）・入るお金の行・子への援助（結婚資金）", () => {
+    const req = structuredClone(modelHousehold("salariedCoupleTwoKids"));
+    const h = req.input.household as unknown as {
+      members: { id: string; kind: string }[];
+      periodicExpenses?: unknown[];
+      incomeFlows?: unknown[];
+      goals?: { kind: string; owner?: string; education?: { gifts?: unknown[] } }[];
+    };
+    const box = (value: number) => ({ value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "よくある額の目安" } });
+    h.periodicExpenses = [
+      ...(h.periodicExpenses ?? []),
+      { id: "00000000-0000-4000-8000-0000000000c1", label: "特別な旅行", kind: "general", row: "cf.expense.lumpSum.other", from: { at: "2029-04" }, to: { at: "2029-04" }, everyYears: 1, amount: box(800000) },
+      { id: "00000000-0000-4000-8000-0000000000c2", label: "予備費", kind: "general", row: "cf.expense.lumpSum.other", from: { at: "2027-10" }, to: null, everyYears: 1, amount: box(300000) },
+      // ほかの入力項目の行（車の修理）は出さない
+      { id: "00000000-0000-4000-8000-0000000000c3", label: "車の修理", kind: "car", row: "cf.expense.living.car", from: { at: "2028-01" }, to: { at: "2028-01" }, everyYears: 1, amount: box(100000) },
+    ];
+    h.incomeFlows = [{ id: "00000000-0000-4000-8000-0000000000c4", label: "結婚のお祝い", kind: "celebration", from: { at: "2030-06" }, to: { at: "2030-06" }, everyYears: 1, amount: box(300000) }];
+    const child = h.members.find((m) => m.kind === "child")!;
+    const goal = h.goals!.find((g) => g.kind === "education" && g.owner === child.id)!;
+    goal.education!.gifts = [{ id: "00000000-0000-4000-8000-0000000000c5", at: { memberAge: { member: child.id, years: 30 } }, amount: 1000000, purpose: "wedding" }];
+    const input = buildProposalInput(bundleOf(req));
+    const items = input.events.flatMap((e) => e.items.map((t) => `${e.year}:${t}`));
+    expect(items).toContain("2029:特別な旅行（80万円）");
+    expect(items).toContain("2027:予備費（毎年30万円）");
+    expect(items).toContain("2030:結婚のお祝い（受け取り 30万円）");
+    expect(items).toContain("2042:第1子の結婚の援助（100万円）");
+    // もとからある種類の無い3年ごとの行（名前なし）
+    expect(items.some((t) => /^2027:くり返しの支出（3年ごとに/u.test(t))).toBe(true);
+    expect(items.some((t) => t.includes("車の修理"))).toBe(false);
+  });
+});

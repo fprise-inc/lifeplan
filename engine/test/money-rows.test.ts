@@ -49,7 +49,7 @@ const withIncome = (...fs: Obj[]) => edit(base(), (h) => (h.incomeFlows = fs));
 const total = (req: EngineRequest, year: number, member = S) => call<{ total: number; temporary?: number; miscellaneous?: number; other?: number; separate?: number; employment: number }>(req, "tax.totalIncome", { member, year });
 
 describe("入るお金の行（income.flows）", () => {
-  it("種類の既定の表の行に、受け取る月の額で入る（1回・n年ごと・月額）。行が無ければ今と同じ結果", () => {
+  it("種類の既定の表の行に、受け取る月の額で入る（1回・何年かごと・月額）。行が無ければ今と同じ結果", () => {
     const req = withIncome(
       flow("inh", { kind: "inheritance", amount: box(20000000) }),
       flow("cs", { kind: "childSupport", from: at("2027-04"), to: at("2028-03"), monthly: true, amount: box(50000) }),

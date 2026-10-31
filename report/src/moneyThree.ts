@@ -25,7 +25,7 @@ export interface MoneyThreeHouseholdRequest {
       members: readonly { id: string; kind: string; sex: string; birth: { birthYearMonth: string; bornOnFirst: boolean } }[];
       goals?: readonly { kind: string; owner?: string; education?: { stages: readonly { stage: string }[] } }[];
       cars?: readonly { id: string; purchase: { first: unknown; owned?: boolean } }[];
-      periodicExpenses?: readonly { id: string; row: string; label?: string; everyYears: number }[];
+      periodicExpenses?: readonly { id: string; row: string; label?: string; everyYears: number; monthly?: boolean; to?: unknown }[];
       accounts?: readonly { kind: string; uninvested?: number }[];
       residences?: readonly { id: string }[];
       debts?: readonly { id: string; kind: string; property?: string }[];
@@ -229,7 +229,7 @@ function partLabeler(req: MoneyThreeHouseholdRequest): (year: number, p: MoneyTh
         const e = p.object !== undefined ? periodic.get(p.object) : undefined;
         const label = e?.label?.trim();
         if (label !== undefined && label !== "") return label;
-        return PERIODIC_ROW[p.row] ?? (e !== undefined ? `${e.everyYears}年ごとの支出` : "周期的な支出");
+        return PERIODIC_ROW[p.row] ?? (e === undefined ? "周期的な支出" : e.everyYears >= 2 ? `${e.everyYears}年ごとの支出` : "一時的な支出");
       }
       default:
         return "一時的な支出";

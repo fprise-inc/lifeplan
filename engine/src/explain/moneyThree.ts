@@ -2,7 +2,7 @@
 // - 計算の結果（年ごとの表のマス）から出すだけで、キャッシュフロー表・結果の計算（runEngine）には混ぜない。計算エンジンのまとめた JS にも入れない
 //   （画面・持ち帰り用のレポート・提案書の側が、この関数を同じ形で呼ぶ）。
 // - 今の時点は計算基準年（資産と負債のタブの「今」と同じ、その年の年末の残高）。先の年は、その翌年から数える。
-// - 使うお金 ＝ ふだんの支出（毎年続く支出）の月額 × 何か月。ふだんの支出は計算基準年の値（基準月が年の途中なら、1年分そろう翌年の値）。
+// - 使うお金 ＝ ふだんの支出（毎年続く支出。周期的な支出の1回の行・2年以上ごとの行は、できごとの支出）の月額 × 何か月。ふだんの支出は計算基準年の値（基準月が年の途中なら、1年分そろう翌年の値）。
 // - 貯めるお金 ＝ 今後 N 年の各年の「できごとの支出 − 収入の残り（手取り収入 − ふだんの支出）」のうち、プラスの年だけの合計（黒字の繰り越しはしない）。
 // - 増やすお金 ＝ 金融資産の合計 − 使うお金 − 貯めるお金（マイナスのこともある）。
 // - 差（預金など − 使うお金 − 貯めるお金）が、ふだんの支出の1か月分より小さいときは「ほぼ同じ」。
@@ -26,7 +26,7 @@ export interface MoneyThreeRequest {
   readonly input: {
     readonly baseMonth: string;
     readonly endYear: number;
-    readonly household: { readonly periodicExpenses?: readonly { readonly id: string; readonly everyYears: number }[] };
+    readonly household: { readonly periodicExpenses?: readonly { readonly id: string; readonly everyYears: number; readonly monthly?: boolean; readonly to?: unknown }[] };
   };
 }
 
@@ -174,13 +174,22 @@ export function moneyThree(req: MoneyThreeRequest, table: readonly MoneyThreeCel
   const liquid = yen(placement.liquid);
   const financial = yen(placement.financial);
 
-  // 周期的な支出: 2年以上ごとならできごと、毎年ならふだんの支出（載せる行に関係なく）
-  const periodic = new Map((req.input.household.periodicExpenses ?? []).map((p) => [p.id, p.everyYears]));
+  // 周期的な支出: 2年以上ごとの行と1回の行はできごと、毎年・毎月の行はふだんの支出（載せる行に関係なく）。
+  // 1回の行（何年ごとが1で終わりがある行）は、表の中で払う年が1つだけの行（1回の行は終わりを始まりと同じ月にする。時点の形によらず、払った年で見る）
+  const periodicRows = req.input.household.periodicExpenses ?? [];
+  const yearsOf = new Map<string, Set<number>>();
+  for (const c of table) {
+    if (c.object === undefined || !under(c.row, "cf.expense") || c.amount === 0) continue;
+    let ys = yearsOf.get(c.object);
+    if (ys === undefined) yearsOf.set(c.object, (ys = new Set()));
+    ys.add(c.year);
+  }
+  const periodic = new Map(periodicRows.map((p) => [p.id, p.everyYears >= 2 || (p.monthly !== true && p.to != null && (yearsOf.get(p.id)?.size ?? 0) <= 1)]));
   type Sort = { event: MoneyThreeEventKind } | { regular: MoneyThreeRegularKind } | null;
   const sortOf = (c: MoneyThreeCell): Sort => {
     if (!under(c.row, "cf.expense") || EXCLUDED.has(c.row)) return null;
-    const every = c.object !== undefined ? periodic.get(c.object) : undefined;
-    if (every !== undefined) return every >= 2 ? { event: "periodic" } : { regular: regularKindOfRow(c.row) };
+    const event = c.object !== undefined ? periodic.get(c.object) : undefined;
+    if (event !== undefined) return event ? { event: "periodic" } : { regular: regularKindOfRow(c.row) };
     const ev = eventKindOfRow(c.row);
     return ev !== null ? { event: ev } : { regular: regularKindOfRow(c.row) };
   };

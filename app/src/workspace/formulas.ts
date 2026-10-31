@@ -31,7 +31,7 @@ export const FORMULA_LABELS: Readonly<Record<string, { label: string; text: stri
   },
   "expense.living.monthly": { label: "基本生活費", text: "基本生活費 ＝ 毎月の生活費 × 物価上昇率での延ばし" },
   "expense.living.stage": { label: "基本生活費（段階）", text: "段階の後の生活費 ＝ 毎月の生活費 × 段階の割合（子の独立・退職・80歳など） × 物価上昇率での延ばし" },
-  "expense.periodic.payment": { label: "定期的な支出", text: "定期的な支出 ＝ 1回の額（n年ごと）" },
+  "expense.periodic.payment": { label: "定期的な支出", text: "定期的な支出 ＝ 1回の額（何年かごとに払う）" },
   "debt.schedule.equalPayment": { label: "住宅ローンの返済", text: "毎月の返済額 ＝ 元利均等返済（金利の見直し・5年ルール・125%ルールを含む）" },
   "housing.residence.propertyTax": { label: "固定資産税", text: "固定資産税 ＝ 入力した年額" },
   "housing.residence.maintenance": { label: "修繕費", text: "修繕費 ＝ 月額 × 上昇率での延ばし" },

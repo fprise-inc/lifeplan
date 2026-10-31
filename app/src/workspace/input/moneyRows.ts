@@ -44,8 +44,8 @@ export const INCOME_KINDS: readonly { kind: IncomeFlowKind; label: string; help?
   { kind: "sideJob", label: "副業・雑所得", help: "副業の収入です。所得の区分（雑所得・事業所得）を選べます", tax: "miscBusiness", once: "cf.income.other.sideJob", repeat: "cf.income.other.sideJob", card: "work", cadence: "repeat" },
   { kind: "otherWork", label: "その他の働く収入", help: "給与として本業と合わせて税を計算し、社会保険料はかけません", tax: "salary", once: "cf.income.salary", repeat: "cf.income.salary", card: "work", cadence: "repeat" },
   { kind: "saleBusiness", label: "売却代金（事業・出資持分）", tax: "capitalGains", once: "cf.income.lumpSum.other", repeat: "cf.income.lumpSum.other", card: "work", cadence: "once" },
-  { kind: "saleGoods", label: "動産の売却（車以外）", tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.lumpSum.other", card: "events", cadence: "once" },
-  { kind: "temporary", label: "一時所得", help: "懸賞・保険以外の満期の一時金などです", tax: "temporary", once: "cf.income.lumpSum.other", repeat: "cf.income.other", card: "events", cadence: "once" },
+  { kind: "saleGoods", label: "動産の売却（車以外）", help: "実家じまい・遺品整理での家財や骨董品、住み替えでの家具、貴金属・時計・ブランド品・美術品・コレクション・楽器、バイクなど車以外の乗り物の売却です。1個30万円を超える貴金属・美術品などは税がかかることがあります（課税の扱いを選び直してください）", tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.lumpSum.other", card: "events", cadence: "once" },
+  { kind: "temporary", label: "一時所得", help: "懸賞の賞金・競馬の払戻し・法人からもらうお金など。生命保険の満期・解約は保険の項目で計算します", tax: "temporary", once: "cf.income.lumpSum.other", repeat: "cf.income.other", card: "events", cadence: "once" },
   { kind: "celebration", label: "祝い金・お見舞い・一時の給付金", tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.lumpSum.other", card: "events", cadence: "once" },
   { kind: "subsidy", label: "住まいの補助金・移住の支援金", tax: "temporary", once: "cf.income.lumpSum.other", repeat: "cf.income.other", card: "housing", cadence: "once" },
   { kind: "powerSale", label: "売電の収入", tax: "miscOther", once: "cf.income.other", repeat: "cf.income.other", card: "housing", cadence: "repeat" },
@@ -55,7 +55,7 @@ export const INCOME_KINDS: readonly { kind: IncomeFlowKind; label: string; help?
 
 /** 出るお金の種類: 名前・表の行の既定・置くカード・足すときのひな形（額・時期。推定） */
 export const OUT_KINDS: readonly { kind: MoneyOutKind; label: string; help?: string; row: string; card: MoneyCard; cadence: Cadence; amount: number; everyYears?: number; preset: string }[] = [
-  { kind: "general", label: "一時的支出・n年ごとの支出", row: "cf.expense.lumpSum.other", card: "events", cadence: "once", amount: 500000, preset: "一時的支出 50万円" },
+  { kind: "general", label: "ライフイベントの支出", row: "cf.expense.lumpSum.other", card: "events", cadence: "once", amount: 500000, preset: "一時的支出 50万円" },
   { kind: "childSupport", label: "養育費を払う", row: "cf.expense.other", card: "family", cadence: "monthly", amount: 40000, preset: "養育費 月4万円" },
   { kind: "allowance", label: "仕送り", row: "cf.expense.other", card: "care", cadence: "monthly", amount: 30000, preset: "仕送り 月3万円" },
   { kind: "gift", label: "あげる贈与", help: "孫などへの贈与です", row: "cf.expense.lumpSum.gift", card: "inherit", cadence: "once", amount: 1100000, preset: "贈与 110万円" },
@@ -560,7 +560,7 @@ export function supportDependentYears(h: Household, kid: Member, p: PeriodicExpe
 
 // ---- 時期・何年ごとを変えたときの額の直し方（0100 の追記） ----
 
-/** 1年に何回か（毎月は12回、n年ごとは 1/n 回）。1回は年あたりが無いので null */
+/** 1年に何回か（毎月は12回、何年かごとの行は「1÷何年ごと」回）。1回は年あたりが無いので null */
 const timesPerYear = (c: Cadence, every: number): number | null => (c === "monthly" ? 12 : c === "repeat" ? 1 / Math.max(1, every) : null);
 /** 直した額の根拠・知らせの文の頭（入れ直すたびに前の文を外して付け直す） */
 const REEXPRESSED = "時期に合わせて直した額";
@@ -691,8 +691,8 @@ const withoutAssumedKey = (wh: WorkingHousehold, key: string): WorkingHousehold 
   wh.assumed[key] === undefined ? wh : { ...wh, assumed: Object.fromEntries(Object.entries(wh.assumed).filter(([k]) => k !== key)) };
 
 /**
- * 札（見込み・優先度）の欄。ライフイベントのカードの行では詳細（今の結果には効かず、「確実な分だけ」の見方でだけ効く。既定の必ず・確実のままで
- * 結果は同じ。0078）。ほかのカード（受け取る相続の見込みは基本の計算に入れるかが決まる）は標準
+ * 札（見込み）の欄。ライフイベントのカードの入るお金の行では詳細（今の結果には効かず、「確実な分だけ」の見方でだけ効く。既定の確実のままで
+ * 結果は同じ。0078）。ほかのカード（受け取る相続の見込みは基本の計算に入れるかが決まる）は標準。出るお金の行の優先度は、どのカードでも標準
  */
 const badgeLevel = (card: MoneyCard): Level => (card === "events" ? "detail" : "simple");
 /** 行の名前の欄。相続・贈与のカードの行は詳細（名前が空なら種類の名前を見出しに出し、相手は標準の欄で選ぶ。0078） */
@@ -764,11 +764,19 @@ export function rowTitle(h: Household, dir: "入" | "出", name: string, r: RowS
 /** 入るお金の行の名前（名前が空なら種類の名前） */
 export const incomeName = (f: IncomeFlow): string => (f.label !== undefined && f.label !== "" ? f.label : incomeKind(f.kind).label);
 
-/** 出るお金の行の名前（名前が空なら種類の名前。種類の無い行は時期で「一時的支出」「n年ごとの支出」） */
+/** 出るお金の行の名前（名前が空なら種類の名前。種類の無い行・ライフイベントの支出は時期で「一時的支出」「毎年の支出」「3年ごとの支出」「毎月の支出」） */
 export function expenseName(h: Household, p: PeriodicExpense): string {
   if (p.label !== undefined && p.label !== "") return p.label;
   if (p.kind !== undefined && p.kind !== "general") return outKind(p.kind).label;
-  return cadenceOf(h, p) === "once" ? "一時的支出" : "n年ごとの支出";
+  return unnamedExpense(h, p);
+}
+
+/** 名前の無い行の呼び方（時期で決める） */
+export function unnamedExpense(h: Household, p: Pick<PeriodicExpense, "from" | "to" | "monthly" | "everyYears">): string {
+  const c = cadenceOf(h, p);
+  if (c === "once") return "一時的支出";
+  if (c === "monthly") return "毎月の支出";
+  return p.everyYears > 1 ? `${String(p.everyYears)}年ごとの支出` : "毎年の支出";
 }
 
 /** 受け継ぐ借金の額と時期の文字（残高か借入額、借り始め） */
@@ -961,9 +969,9 @@ export function expenseHeadFields(wh: WorkingHousehold, p: PeriodicExpense, card
   return fields;
 }
 
-/** 出るお金の行の札（優先度） */
-export function expensePriorityField(p: PeriodicExpense, card: MoneyCard): FieldDef {
-  return badgeField(`ev/${p.id}/priority`, "periodicExpense.priority", "優先度", PRIORITIES, "need", byId(periodic, p.id), "priority", p.id, "結果の「確実な分だけ」で、「できれば」の行を外して見られます", badgeLevel(card));
+/** 出るお金の行の札（優先度）。どのカードでも標準に出す（ライフイベントの行も、行の右で「必ず」「できれば」を選ぶ。0068 の追記 2026-10-31） */
+export function expensePriorityField(p: PeriodicExpense): FieldDef {
+  return badgeField(`ev/${p.id}/priority`, "periodicExpense.priority", "優先度", PRIORITIES, "need", byId(periodic, p.id), "priority", p.id, "結果の「確実な分だけ」で、「できれば」の行を外して見られます", "simple");
 }
 
 /** 出るお金の行の詳細のまとまり（あげる贈与／払う人・相手・伸び方・万一のときの扱い） */
@@ -1050,11 +1058,11 @@ export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense, card: Mo
   if (c === "repeat") fields.push(everyField(`${k}/every`, "periodicExpense.everyYears", find, EVERY_HELP));
   const support = card === "family" && p.kind === "childSupport";
   if (!once) fields.push(timepointField({ key: `${k}/to`, item: "periodicExpense.to", label: "終わり", level: "simple", find, path: ["to"], startPath: ["from"], optional: true, nullText: "最後まで", ...(support ? { ...supportAge(wh, p), help: SUPPORT_END_HELP, warn: supportEndWarn(find) } : ageOf) }));
-  fields.push(expensePriorityField(p, card));
+  fields.push(expensePriorityField(p));
   const legacy = p.row !== undefined && !expenseRowChoices({ kind: p.kind }).some((o) => o.value === p.row);
   fields.push(plain({ key: `${k}/row`, item: "periodicExpense.row", label: "キャッシュフロー表の行", level: "detail", kind: "select", options: expenseRowChoices(p), find, path: ["row"], ...(card === "living" ? { help: `「医療・介護」の行にすると、結果の表で医療費として分けて見られます。${MEDICAL_HELP}${legacy ? `。${LEGACY_ROW_HELP}` : ""}` } : rowHelp(legacy)) }));
   const badge = stagedBadge(p as unknown as Record<string, unknown>, ["stages"], ["exceptions"], amountName(c, p.everyYears));
-  const name = p.label !== undefined && p.label !== "" ? p.label : once ? "一時的支出" : "n年ごとの支出";
+  const name = p.label !== undefined && p.label !== "" ? p.label : unnamedExpense(h0, p);
   const details = [...(p.payer !== undefined ? ["払う人"] : []), ...(p.growth !== undefined ? ["伸び方"] : []), ...(badge !== null ? [badge] : [])];
   return {
     key: k,

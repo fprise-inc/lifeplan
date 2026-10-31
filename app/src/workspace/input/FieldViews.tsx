@@ -421,6 +421,7 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [] }: { 
   const extraFields = more?.open === true ? [...group.fields.filter((f) => !visible(level, f.level)), ...(group.openFields ?? [])] : [];
   const extraActions = more?.open === true ? group.actions.filter((a) => !visible(level, a.level)) : [];
   if (fields.length === 0 && actions.length === 0 && group.note === undefined && more === undefined && inner.length === 0) return null;
+  if (group.chips === true) return <Chips group={group} actions={actions} wh={wh} onEdit={onEdit} />;
   if (fields.length === 0 && group.title === undefined && inner.length === 0) return <Actions actions={actions} wh={wh} onEdit={onEdit} note={group.note} />;
   // 中に描くまとまり: 見えている欄の前後に。見えていなければ「▸ 詳しく」で開いた欄の前後に。どちらにも無ければ見えている欄の並びの最後に
   const main = fieldsWithInner(fields, inner, wh, onEdit, group.key);
@@ -479,6 +480,51 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [] }: { 
           {extraActions.length > 0 ? <Actions actions={extraActions} wh={wh} onEdit={onEdit} /> : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * ひな形の小さなボタンの並び（0068 の追記 2026-10-31）: 上に1行の案内（まとまりの title）、ボタンの chip の group ごとに1行で、小さな見出しの後に
+ * ボタンを並べる。足したひな形はボタンの横に「入れた（…）」の小さな字（押せるまま）。足す相手がいないボタンは押せない
+ */
+function Chips({ group, actions, wh, onEdit }: { group: GroupDef; actions: ActionDef[]; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
+  const rows: { head: string; list: ActionDef[] }[] = [];
+  for (const a of actions) {
+    const head = a.chip?.group ?? "";
+    const last = rows.at(-1);
+    if (last?.head === head) last.list.push(a);
+    else rows.push({ head, list: [a] });
+  }
+  return (
+    <div class="in-group in-chips" data-chips={group.key}>
+      {group.title !== undefined ? <p class="in-chips-lead">{group.title}</p> : null}
+      {rows.map((r) => (
+        <div class="in-chips-row" key={r.head}>
+          {r.head !== "" ? <span class="in-chips-h">{r.head}</span> : null}
+          <div class="in-chips-list">
+            {r.list.map((a) => (
+              <span class="in-chip" key={a.key}>
+                <HelpOf help={actionHelp(a)}>
+                  <button
+                    type="button"
+                    class="add-btn chip-btn"
+                    data-action={a.key}
+                    disabled={a.chip?.disabled === true}
+                    onClick={(e) => {
+                      if (a.label.startsWith("＋")) revealAdded(e.currentTarget);
+                      onEdit(a.run(wh));
+                    }}
+                  >
+                    {a.label}
+                  </button>
+                </HelpOf>
+                {a.chip?.added !== undefined ? <span class="in-chip-added">{a.chip.added}</span> : null}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

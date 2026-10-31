@@ -168,8 +168,8 @@ describe("候補", () => {
     const cands = buildCandidates(s, {}, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids("c") });
     expect(cands.map((c) => [c.collection, c.op, c.title, c.status])).toEqual([
       ["livingExpenses", "add", "基本生活費（内訳）", "pending"],
-      ["periodicExpenses", "add", "一時的支出: 架空車検センター", "pending"],
-      ["periodicExpenses", "add", "一時的支出: 自動車税 架空県", "needsReview"],
+      ["periodicExpenses", "add", "車の修理・用品など: 架空車検センター", "pending"],
+      ["periodicExpenses", "add", "車の修理・用品など: 自動車税 架空県", "needsReview"],
     ]);
     const living = cands[0]?.value as { mode: string; categories: { category: string; monthly: { value: number; state: string; origin: unknown; estimate: { method: string; basis: string } } }[] };
     expect(living.mode).toBe("byCategory");
@@ -180,8 +180,9 @@ describe("候補", () => {
     expect(living.categories[0]?.monthly).toMatchObject({ state: "estimated", origin: { kind: "import", ref: "stmt-1" }, estimate: { method: "statementAverage" } });
     expect(living.categories[0]?.monthly.estimate.basis).toContain("2025-10-01〜2026-09-30、12.0か月");
     expect(cands[0]).toMatchObject({ source: "import", sourceRef: "stmt-1", origin: { kind: "import", ref: "stmt-1" }, enabled: true, before: null });
-    const shaken = cands[1]?.value as { row: string; everyYears: number; from: { at: string }; to: null; amount: { value: number } };
-    expect(shaken).toMatchObject({ row: "cf.expense.lumpSum.car", everyYears: 2, from: { at: "2028-03" }, to: null, amount: { value: 102000 } });
+    const shaken = cands[1]?.value as { kind: string; row: string; everyYears: number; from: { at: string }; to: null; amount: { value: number } };
+    // 車の候補は車の入力項目の行（種類 car。ライフイベントに出さない）
+    expect(shaken).toMatchObject({ kind: "car", row: "cf.expense.lumpSum.car", everyYears: 2, from: { at: "2028-03" }, to: null, amount: { value: 102000 } });
     const carTax = cands[2]?.value as { from: { at: string }; everyYears: number };
     expect(carTax).toMatchObject({ from: { at: "2027-05" }, everyYears: 1 });
     expect(cands[2]?.confidence).toBe("medium");
