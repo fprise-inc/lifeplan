@@ -5,7 +5,7 @@
 // - 12か月に満たないときも同じ出し方（季節の補正はしない）で、注意を出す: 3か月未満は候補を「要確認」にする、
 //   水道・光熱などの季節で変わる項目は偏ると知らせる。年1回の支払いは月平均に入れず、一時的支出（年額・時期）として別に出す
 import type { ClassifiedRow } from "./classify/classify.ts";
-import { categoryInfo, LIVING_ORDER, type LivingCategory, type StatementCategory } from "./classify/categories.ts";
+import { categoryInfo, LIVING_ORDER, UNKNOWN_LIVING, type CurrentLivingCategory, type StatementCategory } from "./classify/categories.ts";
 import { issue, type Issue } from "./issues.ts";
 import type { StatementLog } from "./log.ts";
 import { displayMerchant } from "./merchant.ts";
@@ -50,7 +50,8 @@ export interface AccountCoverage {
 }
 
 export interface LivingLine {
-  readonly category: LivingCategory;
+  /** 基本生活費の内訳（0100 の10費目と仕送り。前の分け方の内訳は出さない） */
+  readonly category: CurrentLivingCategory;
   readonly monthly: number;
   /** 内訳（仕分けの項目ごとの月平均） */
   readonly detail: readonly { readonly category: StatementCategory | "unknown"; readonly monthly: number }[];
@@ -81,7 +82,7 @@ export interface StatementSummary {
   readonly months: string;
   readonly living: readonly LivingLine[];
   readonly livingTotal: number;
-  /** 辞書で分からない店の月平均（基本生活費の「その他の消費」に入れてある） */
+  /** 辞書で分からない店の月平均（基本生活費の「その他」に入れてある） */
   readonly unknownMonthly: number;
   /** 参考（それぞれの入力の欄で入れる）: 住居・教育・保険・車・税（計算で出す税・社会保険料を除く） */
   readonly reference: Readonly<Record<"housing" | "education" | "insurance" | "car" | "tax", number>>;
@@ -133,7 +134,7 @@ export function summarize(log: StatementLog, rows: readonly ClassifiedRow[]): St
   for (const lc of LIVING_ORDER) {
     const detail: { category: StatementCategory | "unknown"; monthly: number }[] = [];
     for (const [k, v] of monthlyBy) {
-      const liv = k === "unknown" ? "otherConsumption" : categoryInfo(k as StatementCategory).living;
+      const liv = k === "unknown" ? UNKNOWN_LIVING : categoryInfo(k as StatementCategory).living;
       if (liv === lc && v !== 0) detail.push({ category: k as StatementCategory | "unknown", monthly: v });
     }
     const monthly = detail.reduce((n, x) => n + x.monthly, 0);

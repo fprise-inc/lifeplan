@@ -39,8 +39,12 @@ export const CARD_ISSUERS: readonly { readonly id: string; readonly label: strin
 /** どのカード会社か分からない引き落としの言葉（銀行の明細だけで見る） */
 export const GENERIC_CARD_PAYMENT: readonly string[] = ["カード", "クレジット"];
 
-/** 辞書の版（中身を変えたら上げる。取り込みの記録の自動の仕分けの根拠に残す） */
-export const BUILTIN_VERSION = 1;
+/**
+ * 辞書の版（中身を変えたら上げる。取り込みの記録の自動の仕分けの根拠に残す）。この辞書と、家計簿アプリの分類の言葉（dictionary.ts の
+ * 大項目と中項目の組・大項目だけの言葉）と、項目から基本生活費の内訳への対応（categories.ts）を合わせた版。
+ * 2: 基本生活費の新しい内訳（0100）への対応、家計簿アプリの書き出しの中項目を読む（0034 の 2026-10-31 の追記）
+ */
+export const BUILTIN_VERSION = 2;
 
 export const BUILTIN: readonly BuiltinEntry[] = [
   // 食費（スーパー・コンビニ・外食・宅配）

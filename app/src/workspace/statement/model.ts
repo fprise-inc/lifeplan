@@ -459,7 +459,7 @@ export function approveMarks(log: StatementLog, read: SheetRead, selected: Reado
   return { log: addReceipt(r.log, read.request.id, { at, file: read.file, decided: decisions.length }), learn: r.learn, decided: decisions.length, lines: chosen.length };
 }
 
-/** 印の文（「教養娯楽・家計」「事業の経費 60%」） */
+/** 印の文（「趣味・娯楽・家計」「事業の経費 60%」） */
 export function markText(c: MarkCandidate): string {
   const parts: string[] = [];
   if (c.mark.category !== undefined) parts.push(categoryShort(c.mark.category));

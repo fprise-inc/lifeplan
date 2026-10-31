@@ -33,10 +33,11 @@ export type ColumnRole =
   | "installmentIndex"
   | "user"
   | "category"
+  | "subCategory"
   | "memo"
   | "transfer";
 
-export const COLUMN_ROLES: readonly ColumnRole[] = ["date", "merchant", "amount", "withdrawal", "deposit", "payAmount", "payMonth", "plan", "installmentCount", "installmentIndex", "user", "category", "memo", "transfer"];
+export const COLUMN_ROLES: readonly ColumnRole[] = ["date", "merchant", "amount", "withdrawal", "deposit", "payAmount", "payMonth", "plan", "installmentCount", "installmentIndex", "user", "category", "subCategory", "memo", "transfer"];
 
 export const ROLE_LABELS: Record<ColumnRole, string> = {
   date: "使った日",
@@ -50,7 +51,8 @@ export const ROLE_LABELS: Record<ColumnRole, string> = {
   installmentCount: "分割の回数",
   installmentIndex: "何回目",
   user: "利用者（本人・家族）",
-  category: "分類（家計簿アプリ）",
+  category: "分類・大項目（家計簿アプリ）",
+  subCategory: "中項目（家計簿アプリ）",
   memo: "メモ",
   transfer: "振替の印",
 };
@@ -89,7 +91,9 @@ const HEADER_WORDS: Record<ColumnRole, { readonly exact: readonly string[]; read
   installmentIndex: { exact: ["何回目", "支払回", "回目", "今回回数"], contains: ["回目"] },
   user: { exact: ["利用者", "ご利用者", "利用者区分", "本人家族", "カード利用者", "使用者", "ご利用者区分"], contains: ["利用者", "本人家族"] },
   category: { exact: ["大項目", "分類", "カテゴリ", "カテゴリー", "費目", "項目", "大分類"], contains: ["大項目", "カテゴリ", "大分類"] },
-  memo: { exact: ["メモ", "備考", "中項目", "MEMO"], contains: ["メモ", "備考"] },
+  // 家計簿アプリの書き出しの分類の内訳（大項目の下の中項目）。仕分けの手がかりに使う（前はメモとして読んでいた）
+  subCategory: { exact: ["中項目", "中分類", "小項目", "小分類", "カテゴリの内訳", "カテゴリー内訳", "内訳", "サブカテゴリ", "サブカテゴリー"], contains: ["中項目", "中分類", "内訳"] },
+  memo: { exact: ["メモ", "備考", "MEMO"], contains: ["メモ", "備考"] },
   transfer: { exact: ["振替", "振替フラグ"], contains: ["振替"] },
 };
 
@@ -97,7 +101,7 @@ const HEADER_WORDS: Record<ColumnRole, { readonly exact: readonly string[]; read
 const ROLE_ORDER: Record<SourceKind, readonly ColumnRole[]> = {
   card: ["date", "merchant", "payAmount", "amount", "payMonth", "plan", "installmentCount", "installmentIndex", "user", "memo"],
   bank: ["date", "merchant", "withdrawal", "deposit", "amount", "memo"],
-  app: ["date", "merchant", "amount", "category", "memo", "transfer", "withdrawal", "deposit"],
+  app: ["date", "merchant", "amount", "category", "subCategory", "memo", "transfer", "withdrawal", "deposit"],
 };
 
 function roleOf(cell: string, role: ColumnRole, contains: boolean): boolean {
@@ -237,8 +241,10 @@ export interface ReadRow {
   readonly payAmount?: number;
   readonly plan?: PaymentPlan;
   readonly cardUser?: "self" | "family";
-  /** 家計簿アプリの分類（番号を消した後） */
+  /** 家計簿アプリの分類・大項目（番号を消した後） */
   readonly sourceCategory?: string;
+  /** 家計簿アプリの中項目（番号を消した後）。大項目と組で仕分けの手がかりにする */
+  readonly sourceSubCategory?: string;
   /** 振替の印（家計簿アプリ） */
   readonly transfer?: true;
   readonly memo?: string;
@@ -353,6 +359,7 @@ export function tableToRows(table: Table, m: ColumnMapping, kind: SourceKind, hi
     const payMonth = c.payMonth !== undefined ? parseYearMonth(cell(r, "payMonth"), year) : null;
     const user = c.user !== undefined ? parseUser(cell(r, "user")) : null;
     const category = cell(r, "category");
+    const subCategory = cell(r, "subCategory");
     const memo = cell(r, "memo");
     rows.push({
       line,
@@ -365,6 +372,7 @@ export function tableToRows(table: Table, m: ColumnMapping, kind: SourceKind, hi
       ...(plan !== null ? { plan } : {}),
       ...(user !== null ? { cardUser: user } : {}),
       ...(category !== "" ? { sourceCategory: category } : {}),
+      ...(subCategory !== "" ? { sourceSubCategory: subCategory.slice(0, 60) } : {}),
       ...(c.transfer !== undefined && truthy(cell(r, "transfer")) ? { transfer: true as const } : {}),
       ...(memo !== "" ? { memo } : {}),
       ...(d.yearGuessed ? { yearGuessed: true as const } : {}),

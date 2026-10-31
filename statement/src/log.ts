@@ -208,6 +208,7 @@ function readRow(v: unknown): StatementRow | null {
     ...(plan !== undefined ? { plan } : {}),
     ...(v.cardUser === "self" || v.cardUser === "family" ? { cardUser: v.cardUser } : {}),
     ...(str(v.sourceCategory, 60) ? { sourceCategory: v.sourceCategory } : {}),
+    ...(str(v.sourceSubCategory, 60) ? { sourceSubCategory: v.sourceSubCategory } : {}),
     ...(v.transfer === true ? { transfer: true as const } : {}),
     ...(str(v.memo, 200) ? { memo: v.memo } : {}),
     ...(v.yearGuessed === true ? { yearGuessed: true as const } : {}),

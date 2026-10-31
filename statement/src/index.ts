@@ -11,7 +11,7 @@
 // ファイルを開くダイアログ・大きさの確かめ・事務所データ（覚えた辞書・覚えた形）の保存はアプリ本体が受け持つ
 export { applyCandidates, buildCandidates, type Box, type CandidateHousehold, type CandidateOptions, type LivingExpenseLike, type PeriodicExpenseLike, type StatementCandidate } from "./candidates.ts";
 export { BUILTIN, BUILTIN_VERSION, CARD_ISSUERS, GENERIC_CARD_PAYMENT, type BuiltinEntry, type BuiltinFlag } from "./classify/builtin.ts";
-export { CATEGORIES, CATEGORY_IDS, categoryInfo, isCategory, LIVING_LABELS, LIVING_ORDER, periodicRowOf, type CategoryInfo, type LivingCategory, type StatementCategory } from "./classify/categories.ts";
+export { CATEGORIES, CATEGORY_IDS, categoryInfo, isCategory, LEGACY_LIVING_SPLIT, LIVING_LABELS, LIVING_ORDER, periodicRowOf, UNKNOWN_LIVING, type CategoryInfo, type CurrentLivingCategory, type LegacyLivingCategory, type LivingCategory, type StatementCategory } from "./classify/categories.ts";
 export { ANNUAL_MIN, classify, YEAR_DAYS, FLAG_LABELS, HIGH_AMOUNT, includedImports, REFUND_WINDOW_DAYS, REVIEW_FLAGS, type AnnualInfo, type ClassifiedRow, type ClassifyContext, type Flag } from "./classify/classify.ts";
 export { forgetEntry, learnEntry, lookup, lookupBuiltin, lookupSourceCategory, MAX_DICTIONARY, mergeEntries, officeIndex, readEntry, type DictionaryEntry, type Match } from "./classify/dictionary.ts";
 export { BUCKET_LABELS, BUCKETS_BY_STYLE, bucketsOf, memberStyles, parseShare, splitByShare, WORK_STYLE_LABELS, workStyleAt, type Bucket, type HouseholdLike, type WorkStyle } from "./classify/work.ts";

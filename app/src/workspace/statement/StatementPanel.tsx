@@ -1129,7 +1129,7 @@ function ResultStep({ wh, log, an, onApprove }: { wh: WorkingHousehold; log: Sta
               </li>
             ))}
           </ul>
-          {s.unknownMonthly !== 0 ? <p class="rp-note warn">分からない店の月平均 {yen(s.unknownMonthly)} を「その他の消費」に入れています（ヒアリングで決めると移ります）。</p> : null}
+          {s.unknownMonthly !== 0 ? <p class="rp-note warn">分からない店の月平均 {yen(s.unknownMonthly)} を「その他」に入れています（ヒアリングで決めると移ります）。</p> : null}
         </section>
         <section class="st-side" aria-label="参考の値">
           <h3 class="st-h3">参考（それぞれの入力の欄で入れます）</h3>

@@ -5,7 +5,7 @@
 // - 取り込む先: 基本生活費（今の欄が内訳なら内訳を、合計なら合計を置き換える。無ければ足す）、年1回の支払い（基本生活費のカードの「年払い・数年おきの
 //   暮らしの支出」の行として足す。車・住まいの修繕は一時的支出の行）。
 //   住居・教育・保険・車は、それぞれの入力の欄で入れるので候補にしない（summary.reference の参考の値）
-import { categoryInfo, LIVING_LABELS, periodicRowOf, type LivingCategory } from "./classify/categories.ts";
+import { categoryInfo, LEGACY_LIVING_SPLIT, LIVING_LABELS, periodicRowOf, type LegacyLivingCategory, type LivingCategory } from "./classify/categories.ts";
 import { monthsText, MIN_DAYS_FOR_CANDIDATE, type StatementSummary } from "./summary.ts";
 import { looseKey } from "./text/normalize.ts";
 
@@ -99,9 +99,17 @@ export function buildCandidates(summary: StatementSummary, household: CandidateH
       const id = o.newId();
       out.push({ ...base, id: o.newId(), target: { object: id }, collection: "livingExpenses", item: "livingExpense.mode", op: "add", value: { id, mode: "byCategory", categories: cats, growth: { kind: "inflation" } }, before: null, status, title: "基本生活費（内訳）", note });
     } else if (cur.mode === "byCategory") {
-      // 明細に出てこない内訳（仕送りなど）は今の値を残す
-      const kept = (cur.categories ?? []).filter((c) => !cats.some((x) => x.category === c.category));
-      out.push({ ...base, id: o.newId(), target: { object: cur.id }, collection: "livingExpenses", item: "livingExpense.categories", op: "set", value: [...cats, ...kept], before: cur.categories ?? null, status, title: "基本生活費の内訳", note: kept.length > 0 ? `${note}。明細に出てこない内訳（${kept.map((k) => LIVING_LABELS[k.category]).join("・")}）は今の値を残します` : note });
+      // 明細に出てこない内訳（仕送りなど）は今の値を残す。前の分け方の内訳（交通・通信費、その他の消費）は、それを分けた今の内訳のどれかが
+      // 明細に出てくれば残さない（明細の値で置き換える。残すと同じ支出を二重に数える。0100）
+      const has = (c: LivingCategory) => cats.some((x) => x.category === c);
+      const replaced = (c: LivingCategory) => has(c) || (c in LEGACY_LIVING_SPLIT && LEGACY_LIVING_SPLIT[c as LegacyLivingCategory].some(has));
+      const kept = (cur.categories ?? []).filter((c) => !replaced(c.category));
+      const legacy = (cur.categories ?? []).filter((c) => !has(c.category) && replaced(c.category));
+      const notesHere = [
+        ...(kept.length > 0 ? [`明細に出てこない内訳（${kept.map((k) => LIVING_LABELS[k.category]).join("・")}）は今の値を残します`] : []),
+        ...legacy.map((k) => `前の分け方の${LIVING_LABELS[k.category]}は、明細の${LEGACY_LIVING_SPLIT[k.category as LegacyLivingCategory].filter(has).map((c) => LIVING_LABELS[c]).join("・")}で置き換えます`),
+      ];
+      out.push({ ...base, id: o.newId(), target: { object: cur.id }, collection: "livingExpenses", item: "livingExpense.categories", op: "set", value: [...cats, ...kept], before: cur.categories ?? null, status, title: "基本生活費の内訳", note: [note, ...notesHere].join("。") });
     } else {
       out.push({ ...base, id: o.newId(), target: { object: cur.id }, collection: "livingExpenses", item: "livingExpense.monthly", op: "set", value: box(summary.livingTotal, o.ref, "statementAverage", basis), before: cur.monthly ?? null, status, title: "基本生活費（月の合計）", note });
     }

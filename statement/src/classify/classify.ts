@@ -194,7 +194,12 @@ export function classify(ctx: ClassifyContext): ClassifiedRow[] {
         category = "transfer";
         source = "transferMark";
       } else {
-        const m = lookup(r.key, { office, ...(r.sourceCategory !== undefined ? { sourceCategory: r.sourceCategory } : {}), bank: acc.kind === "bank" });
+        const m = lookup(r.key, {
+          office,
+          ...(r.sourceCategory !== undefined ? { sourceCategory: r.sourceCategory } : {}),
+          ...(r.sourceSubCategory !== undefined ? { sourceSubCategory: r.sourceSubCategory } : {}),
+          bank: acc.kind === "bank",
+        });
         if (m !== null) {
           category = m.category;
           source = m.source;

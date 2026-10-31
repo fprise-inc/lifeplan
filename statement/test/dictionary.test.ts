@@ -80,6 +80,65 @@ describe("同梱の辞書", () => {
     expect(lookupSourceCategory("未分類")).toBeNull();
     expect(lookupSourceCategory(undefined)).toBeNull();
   });
+
+  it("大項目の言葉の違いを吸収する（エンタメ・クルマ・大型出費・税と社会保険）", () => {
+    expect(lookupSourceCategory("エンタメ")).toBe("recreation");
+    expect(lookupSourceCategory("クルマ")).toBe("car");
+    expect(lookupSourceCategory("大型出費")).toBe("lumpSum");
+    expect(lookupSourceCategory("税・社会保険")).toBe("tax");
+    expect(lookupSourceCategory("健康・医療")).toBe("medical");
+    expect(lookupSourceCategory("保険")).toBe("insurance");
+  });
+
+  it.each([
+    // 現金・カード: 引き落とし・チャージは除外、引き出し・使途不明金は数える
+    ["現金・カード", "カード引き落とし", "transfer"],
+    ["現金・カード", "電子マネー", "transfer"],
+    ["現金・カード", "チャージ", "transfer"],
+    ["現金・カード", "ATM引き出し", "cash"],
+    ["現金・カード", "使途不明金", "cash"],
+    ["その他", "使途不明金", "cash"],
+    // 医療・保険: 病院代・薬代は医療、保険料は保険
+    ["医療・保険", "病院代", "medical"],
+    ["医療・保険", "薬代", "medical"],
+    ["医療・保険", "生命保険", "insurance"],
+    ["医療・保険", "医療保険", "insurance"],
+    ["健康・医療", "医療費", "medical"],
+    ["健康・医療", "フィットネス", "recreation"],
+    // 教養・教育: 書籍・新聞雑誌は趣味・娯楽、学費・塾・習いごとは教育
+    ["教養・教育", "書籍", "recreation"],
+    ["教養・教育", "新聞・雑誌", "recreation"],
+    ["教育・教養", "学費", "education"],
+    ["教養・教育", "塾", "education"],
+    ["教養・教育", "習いごと", "education"],
+    ["教養・教育", "習い事", "education"],
+    // ほかの大項目の中の組
+    ["日用品", "おこづかい", "allowance"],
+    ["日用品", "タバコ", "otherLiving"],
+    ["住宅", "地震・火災保険", "insurance"],
+    ["通信費", "放送視聴料", "recreation"],
+    ["交際費", "冠婚葬祭", "lumpSum"],
+    ["税・社会保険", "固定資産税", "housing"],
+    ["税・社会保険", "健康保険", "tax"],
+    // 組に無い中項目は大項目の言葉で
+    ["食費", "外食", "food"],
+    ["交通費", "電車", "transport"],
+    ["通信費", "携帯電話", "communication"],
+  ] as const)("（%s, %s）→ %s", (major, sub, want) => expect(lookupSourceCategory(major, sub)).toBe(want));
+
+  it("中項目で決まらない現金・カード、医療・保険、教養・教育は決めない（店の名前の辞書で引き、分からなければ迷う行）", () => {
+    expect(lookupSourceCategory("現金・カード")).toBeNull();
+    expect(lookupSourceCategory("現金・カード", "その他現金・カード")).toBeNull();
+    expect(lookupSourceCategory("医療・保険", "その他")).toBeNull();
+    expect(lookupSourceCategory("教養・教育")).toBeNull();
+    // 店の名前で決まるときはそちら
+    const office = officeIndex([]);
+    expect(lookup(merchantKey("ATM 架空駅前"), { office, sourceCategory: "現金・カード", bank: false })).toMatchObject({ category: "cash", source: "builtin" });
+    expect(lookup(merchantKey("架空クリニック"), { office, sourceCategory: "医療・保険", bank: false })).toMatchObject({ category: "medical", source: "builtin" });
+    expect(lookup(merchantKey("架空の謎の店"), { office, sourceCategory: "現金・カード", bank: false })).toBeNull();
+    // 組で決まるときは店の名前の辞書より先（ドラッグストアの薬代は医療）
+    expect(lookup(merchantKey("架空ドラッグ"), { office, sourceCategory: "医療・保険", sourceSubCategory: "薬代", bank: false })).toMatchObject({ category: "medical", source: "sourceCategory" });
+  });
 });
 
 describe("覚えた辞書（事務所データ）", () => {

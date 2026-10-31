@@ -271,6 +271,29 @@ describe("迷う行と自動の区分", () => {
     expect(one(rows, "架空マルシェ").allowed).toEqual(["household", "oneOff", "excluded"]);
   });
 
+  it("家計簿アプリの書き出しの大項目と中項目で仕分ける（引き落とし・チャージは除外、引き出し・使途不明金は数える）", async () => {
+    const log = await buildLog([{ name: "app-subcategory-utf8bom.csv", kind: "app", account: "app", owner: null }]);
+    const rows = run(log);
+    const got = (m: string) => [one(rows, m).category, one(rows, m).bucket];
+    expect(got("架空駅前出張所")).toEqual(["cash", "household"]);
+    expect(got("財布の残高の差")).toEqual(["cash", "household"]);
+    expect(got("架空カードサービス")).toEqual(["transfer", "excluded"]);
+    expect(got("架空ペイ")).toEqual(["transfer", "excluded"]);
+    expect(got("架空ケア")).toEqual(["medical", "household"]);
+    expect(got("架空ドラッグ")).toEqual(["medical", "household"]);
+    expect(got("架空ライフ")).toEqual(["insurance", "household"]);
+    expect(got("架空ブックス")).toEqual(["recreation", "household"]);
+    expect(got("架空スタンド")).toEqual(["recreation", "household"]);
+    expect(got("架空ゼミ")).toEqual(["education", "household"]);
+    expect(got("架空教室")).toEqual(["education", "household"]);
+    expect(got("架空シアター")).toEqual(["recreation", "household"]);
+    expect(got("架空の給油所")).toEqual(["car", "household"]);
+    expect(got("架空の宿")).toEqual(["lumpSum", "oneOff"]);
+    // 中項目の無い現金・カードの行は、店の名前でも分からなければ迷う行（前のように黙って除外しない）
+    expect(one(rows, "架空の手渡し")).toMatchObject({ category: null, bucket: "household", review: true });
+    expect(one(rows, "架空の手渡し").flags).toContain("unknownMerchant");
+  });
+
   it("外した取り込みは仕分けない", () => {
     const log = synth([{ id: "c", kind: "card", label: "C", owner: SELF, rows: [{ date: "2026-09-01", merchant: "架空商店", amount: 100 }] }]);
     expect(run({ ...log, imports: log.imports.map((i) => ({ ...i, include: false })) })).toEqual([]);
