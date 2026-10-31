@@ -302,6 +302,29 @@ describe("候補", () => {
     expect(buildCandidates(summaryOf(yearLog()), {}, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids("c") }).some((c) => c.title.includes("家電・家具"))).toBe(false);
   });
 
+  it("家電・家具の買い替えの一部の返品は、候補の額から差し引き、日用品の月平均は減らさない", () => {
+    const log = synth([
+      {
+        id: "a",
+        kind: "card",
+        label: "A",
+        owner: SELF,
+        period: YEAR,
+        rows: [...monthly(10, "ニトリ 架空店", 2000), { date: "2026-02-11", merchant: "ニトリ 架空店", amount: 80000 }, { date: "2026-02-25", merchant: "ニトリ 架空店", amount: -20000 }],
+      },
+    ]);
+    const s = summaryOf(log);
+    expect(s.living.find((l) => l.category === "furniture")?.monthly).toBe(monthlyAverage(24000, 365));
+    const d = s.oneOffs.find((o) => o.durable === true);
+    // 1回の額は買い物の額（返品の行ではない）
+    expect(d).toMatchObject({ amount: 80000, occurrences: [{ date: "2026-02-11", amount: 80000 }, { date: "2026-02-25", amount: -20000 }] });
+    expect(s.notices.find((n) => n.code === "S_DURABLE")?.message).toContain("1 件（返品 1 件を差し引いた合計 60,000円）");
+    expect(s.notices.some((n) => n.code === "S_REFUND_UNMATCHED")).toBe(false);
+    const c = buildCandidates(s, {}, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids("c") }).find((x) => x.title.includes("家電・家具"));
+    expect(c?.value).toMatchObject({ from: { at: "2034-02" }, amount: { value: 60000 } });
+    expect((c?.value as { amount: { estimate: { basis: string } } }).amount.estimate.basis).toContain("買い物 1件の合計（返品を差し引く）");
+  });
+
   it("期間が短い・迷う行が残るときは要確認", () => {
     const short = synth([{ id: "a", kind: "card", label: "A", owner: SELF, period: { from: "2026-08-01", to: "2026-09-29" }, rows: [{ date: "2026-08-12", merchant: "イオン", amount: 12000 }] }]);
     expect(buildCandidates(summaryOf(short), {}, { ref: "r", baseMonth: BASE_MONTH, newId: ids() })[0]?.status).toBe("needsReview");

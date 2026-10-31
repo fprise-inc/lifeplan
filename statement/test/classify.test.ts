@@ -335,6 +335,31 @@ describe("迷う行と自動の区分", () => {
     expect(biz[0]?.flags).toEqual(expect.arrayContaining(["durable", "bucketUndecided"]));
   });
 
+  it("家電・家具の買い替えの一部の返品は買い替えに入れ、日用品から引かない。買い物を家計にしたときは返品も家計", () => {
+    const rowsOf = (buy: RowIn) =>
+      run(synth([{ id: "c", kind: "card", label: "C", owner: SELF, period: { from: "2025-10-01", to: "2026-09-30" }, rows: [buy, { date: "2026-03-20", merchant: "架空の家具店", amount: -20000 }, { date: "2026-09-20", merchant: "架空の家具店", amount: -3000 }] }]));
+    const buy = { date: "2026-03-10", merchant: "架空の家具店", amount: 80000, category: "furniture" as const };
+    const rows = rowsOf(buy);
+    const at = (rs: readonly ClassifiedRow[], d: string) => rs.find((r) => r.row.date === d) as ClassifiedRow;
+    expect(at(rows, "2026-03-20")).toMatchObject({ bucket: "oneOff", parts: { oneOff: -20000 } });
+    expect(at(rows, "2026-03-20").flags).toEqual(expect.arrayContaining(["durable", "refundUnmatched"]));
+    // 120日より後の返品は、ほかの返品と同じ（その月の項目から差し引く）
+    expect(at(rows, "2026-09-20")).toMatchObject({ bucket: "household" });
+    expect(at(rows, "2026-09-20").flags).not.toContain("durable");
+    // 買い物を FP が家計にしたら、その返品も日用品から差し引く
+    const hh = rowsOf({ ...buy, bucket: "household", decidedAt: "2026-10-21T00:00:00+09:00" });
+    expect(at(hh, "2026-03-20")).toMatchObject({ bucket: "household" });
+    expect(at(hh, "2026-03-20").flags).not.toContain("durable");
+  });
+
+  it("覚えた辞書で年1回の印を付けた家具・家電の店は、家電・家具の買い替えではなく年1回の支払い", () => {
+    const log = synth([{ id: "c", kind: "card", label: "C", owner: SELF, period: { from: "2025-10-01", to: "2026-09-30" }, rows: [{ date: "2026-03-10", merchant: "架空の貸し家具", amount: 36000 }] }]);
+    const rows = classify({ log, household: HOUSEHOLD, baseMonth: BASE_MONTH, office: [{ key: merchantKey("架空の貸し家具"), category: "furniture", annual: true, at: "2026-10-01T00:00:00+09:00" }] });
+    expect(rows[0]).toMatchObject({ category: "furniture", bucket: "oneOff", annual: { confidence: "medium", everyYears: 1 } });
+    expect(rows[0]?.flags).toContain("annual");
+    expect(rows[0]?.flags).not.toContain("durable");
+  });
+
   it("外した取り込みは仕分けない", () => {
     const log = synth([{ id: "c", kind: "card", label: "C", owner: SELF, rows: [{ date: "2026-09-01", merchant: "架空商店", amount: 100 }] }]);
     expect(run({ ...log, imports: log.imports.map((i) => ({ ...i, include: false })) })).toEqual([]);

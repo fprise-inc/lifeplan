@@ -161,10 +161,12 @@ export function buildCandidates(summary: StatementSummary, household: CandidateH
   // 1行にまとめる。額は期間の買い物の合計、間隔はよくある目安（アプリのひな形と同じ8年ごと）。年に何回あるかは明細から分からないので、
   // いつも要確認にして、FP がその場で額・間隔・入れるかを決める
   const durables = summary.oneOffs.filter((it) => it.durable === true);
-  if (durables.length > 0) {
-    const occ = durables.flatMap((it) => it.occurrences.map((x) => ({ ...x, label: it.label }))).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-    const total = occ.reduce((n, x) => n + x.amount, 0);
-    const last = occ[occ.length - 1] as { date: string };
+  const occ = durables.flatMap((it) => it.occurrences.map((x) => ({ ...x, label: it.label }))).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  // 一部の返品（負の行）は合計から差し引く。件数と次の回は買い物の行で数える
+  const buys = occ.filter((x) => x.amount > 0);
+  const total = occ.reduce((n, x) => n + x.amount, 0);
+  if (buys.length > 0 && total > 0) {
+    const last = buys[buys.length - 1] as { date: string };
     const id = o.newId();
     const dup = (household.periodicExpenses ?? []).some((p) => /家電|家具/u.test(p.label ?? ""));
     const list = occ.map((x) => `${x.date} ${x.label.slice(0, 20)} ${x.amount.toLocaleString("ja-JP")}円`).join("・");
@@ -183,7 +185,7 @@ export function buildCandidates(summary: StatementSummary, household: CandidateH
         from: { at: nextOccurrence(last.date, DURABLE_EVERY_YEARS, o.baseMonth) },
         to: null,
         everyYears: DURABLE_EVERY_YEARS,
-        amount: box(total, o.ref, "statementAnnual", `明細の取り込み（家電・家具の店の3万円以上の買い物 ${occ.length}件の合計。${occ.map((x) => x.date).join("・")}）。間隔はよくある目安の${DURABLE_EVERY_YEARS}年ごと`),
+        amount: box(total, o.ref, "statementAnnual", `明細の取り込み（家電・家具の店の3万円以上の買い物 ${buys.length}件の合計${occ.length > buys.length ? "（返品を差し引く）" : ""}。${occ.map((x) => x.date).join("・")}）。間隔はよくある目安の${DURABLE_EVERY_YEARS}年ごと`),
       },
       before: null,
       status: "needsReview",

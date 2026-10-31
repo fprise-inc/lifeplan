@@ -172,7 +172,9 @@ export function summarize(log: StatementLog, rows: readonly ClassifiedRow[]): St
     const occurrences = sorted.map((r) => ({ date: r.row.date, amount: r.parts.oneOff as number }));
     const total = occurrences.reduce((n, o) => n + o.amount, 0);
     const annual = last.annual;
-    const amount = last.parts.oneOff as number;
+    // 家電・家具の買い替えは一部の返品を同じまとまりに入れるので、1回の額は最後の買い物（返品の行ではなく）
+    const lastBuy = durable ? ([...sorted].reverse().find((r) => (r.parts.oneOff ?? 0) > 0) ?? last) : last;
+    const amount = lastBuy.parts.oneOff as number;
     const perYear = annual !== undefined && annual.confidence !== "low" ? (annual.everyYears === 2 ? Math.floor(amount / 2) : amount) : days > 0 ? monthlyAverage(total, days) * 12 : total;
     return { key, label: displayMerchant(last.row.merchant), category: last.category, ...(annual !== undefined ? { annual } : {}), occurrences, amount, perYear, ...(durable ? { durable: true as const } : {}) };
   });
@@ -191,12 +193,15 @@ export function summarize(log: StatementLog, rows: readonly ClassifiedRow[]): St
   if (excluded > 0) notices.push(issue("info", "S_CARD_PAYMENT_EXCLUDED", `カード会社への引き落とし ${excluded} 件は、カードの明細で数えるので除外しました`));
   const revolving = rows.filter((r) => r.counted && r.flags.includes("revolving")).length;
   if (revolving > 0) notices.push(issue("info", "S_REVOLVING", `リボ払いの行が ${revolving} 件あります。使った日で月平均に入れています（払う月の分け方は分かりません）`));
-  const unmatched = rows.filter((r) => r.counted && r.flags.includes("refundUnmatched")).length;
+  // 家電・家具の買い替えの一部の返品は、買い替えの候補から差し引く（S_DURABLE で知らせる）
+  const unmatched = rows.filter((r) => r.counted && r.flags.includes("refundUnmatched") && !r.flags.includes("durable")).length;
   if (unmatched > 0) notices.push(issue("info", "S_REFUND_UNMATCHED", `元の行が見つからない返品・取り消しが ${unmatched} 件あり、その月の項目から差し引いています`));
   const durables = rows.filter((r) => r.counted && r.flags.includes("durable"));
-  if (durables.length > 0) {
+  const durableBuys = durables.filter((r) => r.row.amount > 0).length;
+  if (durableBuys > 0) {
     const total = durables.reduce((n, r) => n + (r.parts.oneOff ?? 0), 0);
-    notices.push(issue("info", "S_DURABLE", `家電・家具の店の3万円以上の買い物 ${durables.length} 件（合計 ${total.toLocaleString("ja-JP")}円）は、月平均の日用品から外し、「家電・家具の買い替え」の候補にしました（3万円未満は日用品のまま）`));
+    const refunds = durables.length - durableBuys;
+    notices.push(issue("info", "S_DURABLE", `家電・家具の店の3万円以上の買い物 ${durableBuys} 件（${refunds > 0 ? `返品 ${refunds} 件を差し引いた` : ""}合計 ${total.toLocaleString("ja-JP")}円）は、月平均の日用品から外し、「家電・家具の買い替え」の候補にしました（3万円未満は日用品のまま）`));
   }
   const dups = rows.filter((r) => r.flags.includes("duplicate")).length;
   if (dups > 0) notices.push(issue("info", "S_DUPLICATE_ROWS", `別の明細と同じ行が ${dups} 件あり、二重に数えていません（分割の2回目以降・期間の重なった明細）`));

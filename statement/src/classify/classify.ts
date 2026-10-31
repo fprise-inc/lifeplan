@@ -185,6 +185,8 @@ export function classify(ctx: ClassifyContext): ClassifiedRow[] {
     annual?: AnnualInfo;
     annualHint: boolean;
     issuer?: string;
+    /** 家電・家具の買い替えの一部の返品のとき、その元の買い物（候補から差し引く） */
+    durableOf?: Work;
   }
   const work: Work[] = [];
   for (const imp of imports) {
@@ -222,7 +224,8 @@ export function classify(ctx: ClassifyContext): ClassifiedRow[] {
         }
       }
       if (category === "tax") flags.add("engineTax");
-      if (DURABLE_CATEGORIES.includes(category) && r.amount >= DURABLE_MIN && !flags.has("cardPaymentExcluded")) flags.add("durable");
+      // 覚えた辞書・同梱の辞書の年1回の印がある店は、年1回の支払いの検出に任せる（FP が教えた年払いを買い替えにしない）
+      if (DURABLE_CATEGORIES.includes(category) && r.amount >= DURABLE_MIN && !flags.has("cardPaymentExcluded") && !annualHint) flags.add("durable");
       if (r.cardUser === "family" && r.owner === undefined) flags.add("familyCard");
       if (r.plan?.kind === "revolving") flags.add("revolving");
       const counted = !dup.has(r);
@@ -265,7 +268,18 @@ export function classify(ctx: ClassifyContext): ClassifiedRow[] {
         neg.flags.add("refund");
         orig.counted = false;
         neg.counted = false;
-      } else neg.flags.add("refundUnmatched");
+      } else {
+        neg.flags.add("refundUnmatched");
+        // 家電・家具の買い替えの一部の返品（同じ店の前の120日の、返品より大きい買い替えの行）: 買い替えの候補から差し引く。
+        // 日用品の月平均から引くと、買い替えの候補は買った額のまま、日用品だけが少なく出る
+        const buy = list
+          .filter((p) => !used.has(p) && p.flags.has("durable") && p.r.amount > -neg.r.amount && p.r.key === neg.r.key && dayOf(p.r.date) <= d && d - dayOf(p.r.date) <= REFUND_WINDOW_DAYS)
+          .sort((a, b) => dayOf(b.r.date) - dayOf(a.r.date))[0];
+        if (buy !== undefined) {
+          neg.flags.add("durable");
+          neg.durableOf = buy;
+        }
+      }
     }
   }
 
@@ -307,26 +321,22 @@ export function classify(ctx: ClassifyContext): ClassifiedRow[] {
   }
 
   // 6. 区分と迷う印
+  const decide = (w: Work): { bucket: Bucket; bucketSource: ClassifiedRow["bucketSource"]; share?: string } => {
+    const r = w.r;
+    const rule = ruleFor(ctx.log.rules, r, w.category, w.owner, w.allowed);
+    if (r.bucket !== undefined && w.allowed.includes(r.bucket)) return { bucket: r.bucket, bucketSource: "fp", ...(r.bucket === "business" && r.share !== undefined ? { share: r.share } : {}) };
+    if (r.bucket !== undefined) w.flags.add("bucketNotAllowed");
+    if (rule !== undefined) return { bucket: rule.bucket, bucketSource: "rule", ...(rule.bucket === "business" && rule.share !== undefined ? { share: rule.share } : {}) };
+    return { bucket: autoBucket(w.category, w.flags), bucketSource: "auto" };
+  };
+  // FP・世帯の決まりで一時的な支出でない区分にした買い物は、家電・家具の買い替えの候補にしない（日用品などとして数える）。
+  // その一部の返品も、元の買い物に合わせる（買い物を日用品にしたなら、返品も日用品から差し引く）
+  for (const w of work) if (w.durableOf === undefined && w.flags.has("durable") && decide(w).bucket !== "oneOff") w.flags.delete("durable");
+  for (const w of work) if (w.durableOf !== undefined && !w.durableOf.flags.has("durable")) w.flags.delete("durable");
   return work.map((w): ClassifiedRow => {
     const r = w.r;
     const flags = w.flags;
-    let bucket: Bucket;
-    let bucketSource: ClassifiedRow["bucketSource"] = "auto";
-    let share: string | undefined;
-    const rule = ruleFor(ctx.log.rules, r, w.category, w.owner, w.allowed);
-    if (r.bucket !== undefined && w.allowed.includes(r.bucket)) {
-      bucket = r.bucket;
-      bucketSource = "fp";
-      share = r.bucket === "business" ? r.share : undefined;
-    } else {
-      if (r.bucket !== undefined) flags.add("bucketNotAllowed");
-      if (rule !== undefined) {
-        bucket = rule.bucket;
-        bucketSource = "rule";
-        share = rule.bucket === "business" ? rule.share : undefined;
-      } else bucket = autoBucket(w.category, flags);
-    }
-    // FP・世帯の決まりで一時的な支出でない区分にした行は、家電・家具の買い替えの候補にしない（日用品などとして数える）
+    const { bucket, bucketSource, share } = decide(w);
     if (bucket !== "oneOff") flags.delete("durable");
     if (w.category === null && w.source === null) flags.add("unknownMerchant");
     if (bucketSource === "auto" && (bucket === "household" || flags.has("durable")) && (w.st.includes("selfEmployed") || w.st.includes("executive")) && BUSINESS_PRONE.includes(w.category)) flags.add("bucketUndecided");
