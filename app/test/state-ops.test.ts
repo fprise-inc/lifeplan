@@ -12,6 +12,7 @@ import { allFields, type ActionDef, type FieldDef, type GroupDef } from "../src/
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { InputPanel } from "../src/workspace/input/InputPanel.tsx";
 import { buildStages, STAGE_ORDER } from "../src/workspace/input/stages/index.ts";
+import { addCar } from "../src/workspace/input/stages/cars.ts";
 import { applyStateOp, availableOps, fieldStatus, OP_LABELS } from "../src/workspace/input/valueState.ts";
 import { REPO_DIR } from "../scripts/lib.ts";
 import { modelHousehold } from "./helpers.ts";
@@ -21,6 +22,8 @@ const MODELS = readdirSync(join(REPO_DIR, "data", "modelHouseholds"))
   .map((f) => f.slice(0, -5));
 const open = (m: string): WorkingHousehold => fromRequest(modelHousehold(m), {});
 const noop = () => undefined;
+let idn = 0;
+const seq = () => () => `00000000-0000-4000-8000-${String(++idn).padStart(12, "0")}`;
 /** 前提条件・表の期間の入力項目（FP が決める値） */
 const PREMISE = /^(assumptions|plan)\./;
 const MAY_BE_NONE = new Set(["employment.salary.bonus", "residentTaxAssessment.amount", "retirementBenefit.amount"]);
@@ -67,6 +70,24 @@ describe("書類で確かめる・該当なしは、意味のある欄にだけ�
     for (const [k, ops] of seen) if (ops.has("unknown")) expect(ALLOWED.has(k), k).toBe(true);
     for (const k of ["employment.salary.annual", "employment.business.income", "car.purchase", "car.upkeep", "car.tax", "car.insurance", "car.inspection", "residence.rent", "residence.propertyTax", "residence.maintenance", "periodicExpense.amount", "account.marketValue", "insurance.premium"])
       expect(seen.get(k)?.has("unknown") ?? false, k).toBe(false);
+  });
+
+  it("書類で確かめるは、見せるだけの既定の値（世帯に書いていない値）の欄には出さない（自動車ローンの頭金0の割合）", () => {
+    const carFields = (w: WorkingHousehold) => allFields(buildStages(w).find((s) => s.id === "car")!);
+    let wh = addCar(open("salariedCoupleTwoKids"), seq());
+    wh = carFields(wh).find((x) => x.key.endsWith("/pay"))!.set(wh, "loan");
+    // 頭金を0にすると、借りる割合は書かない（見せるのは既定の0）
+    wh = carFields(wh).find((x) => x.key.endsWith("/down"))!.set(wh, "0");
+    expect(wh.request.input.household.cars!.at(-1)!.loan).toBeDefined();
+    expect(wh.request.input.household.cars!.at(-1)!.loan!.share).toBeUndefined();
+    const fields = carFields(wh);
+    const down = fields.find((x) => x.key.endsWith("/down"))!;
+    expect(down.docCheck).toBe("返済予定表");
+    expect(down.get(wh).value).toBe("0");
+    expect(availableOps(down, wh)).not.toContain("unknown");
+    // 年数・金利は世帯に書いてあるので出す。出す操作はどれも押すと世帯が変わる
+    expect(availableOps(fields.find((x) => x.item === "car.loan" && x.key.endsWith("/rate"))!, wh)).toContain("unknown");
+    for (const f of fields) for (const o of availableOps(f, wh).filter((x) => x !== "confirm")) expect(applyStateOp(wh, f, o), `${f.label} ${o}`).not.toBe(wh);
   });
 
   it("学歴に「わからない」の選び方は無い（選んでいなければ今までどおり大学・大学院卒の値で目安）", () => {

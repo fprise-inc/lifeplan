@@ -51,6 +51,9 @@ export const OP_TITLES: Readonly<Record<StateOp, string>> = {
 export const opTitle = (f: Pick<FieldDef, "docCheck">, op: StateOp): string =>
   op === "unknown" && f.docCheck !== undefined ? `${f.docCheck}で確かめるまで、今の値（無ければ推定の値）を代わりに使って計算します（確かめの一覧の「書類待ち」に出ます）` : OP_TITLES[op];
 
+/** 書類待ちの代わりの値の文（状態の印・確かめの一覧の行）。根拠がもう「代わりの値（…）」で始まる（年金の加入月数など）ときは重ねない */
+export const substituteText = (basis: string): string => (basis.startsWith("代わりの値") ? basis : `代わりの値: ${basis}`);
+
 /**
  * 欄の横（数の欄は欄の中）に出す、推定の値をそのまま欄に入れるボタン（値の状態の操作の確定と同じ。0041 の追記）。
  * 推定の値は欄に灰色で見えているので、「入れる」の1押しで確定にする
@@ -158,7 +161,10 @@ export function availableOps(f: FieldDef, wh: WorkingHousehold, s: FieldStatus =
   if ((s.status === "estimated" && confirmable(f, wh, a)) || (s.status === "unknown" && value !== null)) out.push("confirm");
   if (f.blankIsEstimate === true && s.status !== "estimated") out.push("revert");
   const asked = stateful && (f.item === null || !PREMISE_ITEM.test(f.item));
-  if (asked && f.docCheck !== undefined && NUMERIC.has(f.kind) && s.status !== "unknown" && s.status !== "missing" && (value !== null || (f.blankIsEstimate === true && hasEstimate(f, s)))) out.push("unknown");
+  // 箱でない値は、見せている値が世帯にある（その物の行に書ける）か、空欄の推定を書ける欄だけ（見せるだけの既定の値〔自動車ローンの頭金0の割合など〕は
+  // 押しても書く所が無いので出さない。applyStateOp の unknown と同じ決まり）
+  const placed = f.boxed !== undefined || (a !== null && (readAt(input(wh), a) !== undefined || (value === null && f.blankIsEstimate === true)));
+  if (asked && placed && f.docCheck !== undefined && NUMERIC.has(f.kind) && s.status !== "unknown" && s.status !== "missing" && (value !== null || (f.blankIsEstimate === true && hasEstimate(f, s)))) out.push("unknown");
   if (asked && f.kind === "yen" && f.optional === true && s.status !== "notApplicable" && f.blankIsEstimate === true && f.item !== null && MAY_BE_NONE.has(f.item)) out.push("notApplicable");
   return out;
 }
