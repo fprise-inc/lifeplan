@@ -37,6 +37,7 @@ import {
   mixFromWeights,
   monthlyAt,
   nisaHitOf,
+  returnShiftNote,
   accountName,
   payoutAgeOf,
   payoutEstimate,
@@ -223,6 +224,8 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
   const stopAge = stopAgeOf(h);
   const estimate = stopEstimateOf(req);
   const stopShown = stopAge ?? estimate.age;
+  // 結果のタブの「運用の利回り」で動かした前提の書き換え（口座の利回りの欄には出ないので、ここで知らせる）
+  const shiftNote = returnShiftNote(req);
 
   /** 口座の入れ方の編集: 書き換えた後に、まだ分けていない分が0になったら外して知らせる */
   const editAcc = (fn: (hh: typeof h, r: EngineRequest) => void) => {
@@ -330,6 +333,11 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
         </p>
       ) : null}
       {carry !== null ? <CarryNote req={req} carry={carry} /> : null}
+      {shiftNote !== null ? (
+        <p class="sv-note" role="note" data-return-shifts>
+          {shiftNote}
+        </p>
+      ) : null}
       {note !== null ? (
         <div class="sv-carry" role="status">
           {note}
