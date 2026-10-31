@@ -378,11 +378,15 @@ function ownDiffs(values: Values, baseValues: Values, wh: WorkingHousehold, cat:
     else prevByKey.set(k, d);
   }
   const out: PlanDiff[] = [];
+  // 今の一覧に無く、当て先の欄にも読めない鍵（現状から物を外している間の、その物の対策。FP顧問料の契約を外している間の顧問料など）。
+  // 画面では動かせないので値から作り直さず、前の差分をそのまま残す（物を現状に戻すと、また当たる）
+  const unlisted = (k: string) => !cat.byKey.has(k) && resolveKey(k, inputOf(wh))?.kind !== "address";
   for (const [k, v] of Object.entries(values)) {
     if (k === PLAN_SLOT) continue;
     const it = cat.byKey.get(k);
     if (it !== undefined && (Object.hasOwn(baseValues, k) ? it.same(v, baseValues[k] ?? null) : it.same(v, it.read(wh)))) continue;
     if (it === undefined) {
+      if (unlisted(k)) continue;
       // 一覧に無い欄の値（入力画面で直した欄の差分）: 土台・現状と同じなら差分にしない
       const r = resolveKey(k, inputOf(wh));
       if (r === null || r.kind !== "address") continue;
@@ -391,9 +395,9 @@ function ownDiffs(values: Values, baseValues: Values, wh: WorkingHousehold, cat:
     const d = diffFromValue(it, k, v, wh, prevByKey.get(k));
     if (d !== null) out.push(d);
   }
-  // オフにした差分（Values に出ない）は、同じキーを動かしていなければ残す（0036 の4 の enabled）
+  // オフにした差分（Values に出ない）は、同じキーを動かしていなければ残す（0036 の4 の enabled）。今の一覧に無い鍵の差分も残す（上）
   const now = new Set(out.map((d) => diffKey(d, wh)));
-  const off = [...prevByKey.entries()].filter(([k, d]) => !d.enabled && !now.has(k)).map(([, d]) => d);
+  const off = [...prevByKey.entries()].filter(([k, d]) => (!d.enabled || unlisted(k)) && !now.has(k)).map(([, d]) => d);
   return [...kept, ...off, ...out];
 }
 
