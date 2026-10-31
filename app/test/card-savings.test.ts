@@ -1,14 +1,16 @@
 // 貯蓄・運用のカードの中身（0050）: お金の行き先（取り崩す順番を口座ごとに・取り崩さない・決済口座・預金に残しておく額と目安のボタン）、
 // 足した口座の未入力の印、口座ごとの詳細の欄（運用の費用・引き出せない期間・受け取りの年数と割合・加入の始まり・旧NISA の内訳）、
-// 小規模企業共済の受け取り、貸していない不動産（貸している物件は収益不動産へ。0079）、利回りの選び方、専用の部品の欄の値の状態の操作、プランでの編集
+// 小規模企業共済の受け取り、貸していない不動産（貸している物件は収益不動産へ。0079）、合計の入れ方の平均の利回り（率をそのまま入れる）、専用の部品の欄の値の状態の操作、プランでの編集
 import { describe, expect, it } from "vitest";
 import type { Account, EngineRequest, PreviewResult } from "../src/engine/types.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { applyStateOp, availableOps, fieldStatus } from "../src/workspace/input/valueState.ts";
-import { accountName, editTotal, livingMonthlyOf, reservePreset, resetWithdrawOrder, setSettlement, settlementOf, setWithdrawOrder, STANDARD_ORDER_KINDS, switchMethod, UNENTERED_BALANCE, withdrawViewOf } from "../src/workspace/input/savings/model.ts";
-import { RATE_PRESETS } from "../src/workspace/input/savings/SavingsPanel.tsx";
+import { accountName, editTotal, livingMonthlyOf, reservePreset, resetWithdrawOrder, setSettlement, settlementOf, setWithdrawOrder, STANDARD_ORDER_KINDS, switchMethod, totalViewOf, UNENTERED_BALANCE, withdrawViewOf } from "../src/workspace/input/savings/model.ts";
+import { h } from "preact";
+import { renderToString } from "preact-render-to-string";
+import { SavingsPanel } from "../src/workspace/input/savings/SavingsPanel.tsx";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { planView, recordPlanEdit } from "../src/workspace/plans/planEdit.ts";
 import type { Proposal } from "../src/workspace/plans/plans.ts";
@@ -282,13 +284,40 @@ describe("貸していない不動産（評価額だけ。貸している物件�
   });
 });
 
-describe("合計の入れ方の利回りの選び方", () => {
-  it("控えめ・ふつう・積極的は平均の利回りに入る値（仮の値 1%・2%・3%）", () => {
-    expect(RATE_PRESETS.map((x) => x.rate)).toEqual(["0.01", "0.02", "0.03"]);
+describe("合計の入れ方の平均の利回り（名前の付いた選び方を置かない。0050 の 2026-10-31 の追記）", () => {
+  const total = () => {
     const t = switchMethod(open(), "total");
-    const p = (t.request.input.household.accounts ?? []).find((a) => a.kind === "pooled") as Account;
+    return { t, p: (t.request.input.household.accounts ?? []).find((a) => a.kind === "pooled") as Account };
+  };
+  const html = (wh: WorkingHousehold, level: "simple" | "detail") => renderToString(h(SavingsPanel, { wh, level, onEdit: () => undefined }));
+
+  it("標準でも詳細でも、平均の利回りの欄をそのまま出す。選び方のボタンは出さない", () => {
+    const { t } = total();
+    for (const level of ["simple", "detail"] as const) {
+      const out = html(t, level);
+      expect(out).toContain('data-sv="total-rate"');
+      expect(out).not.toContain("data-rate-preset");
+      expect(out).not.toContain("利回りの選び方");
+      expect(out).not.toMatch(/控えめ（|積極的|ふつう（/);
+      expect(out).toContain("-10%〜15%の範囲で入れます");
+    }
+  });
+
+  it("入れた率がそのまま平均の利回りに入る", () => {
+    const { t, p } = total();
     const w = fieldOf(t, `sav/${p.id}/rate`).set(t, "0.03");
     expect((w.request.input.household.accounts ?? []).find((a) => a.kind === "pooled")?.expectedReturn).toBe("0.03");
+  });
+
+  it("空欄にすると前提条件の運用利回りで計算し、その率を欄の薄い字と説明に出す（2% と決めて見せない）", () => {
+    const { t, p } = total();
+    let w = fieldOf(t, `sav/${p.id}/rate`).set(t, null);
+    w = mutate(w, (_h, req) => void (req.input.assumptions = { ...req.input.assumptions, investmentReturn: { default: "0.035" } }));
+    expect((w.request.input.household.accounts ?? []).find((a) => a.kind === "pooled")?.expectedReturn).toBeUndefined();
+    expect(totalViewOf(w.request).rate).toBe("0.035");
+    const out = html(w, "simple");
+    expect(out).toContain('placeholder="3.5"');
+    expect(out).toContain("空欄のときは、前提条件の運用利回り（年3.5%）で計算しています。");
   });
 });
 

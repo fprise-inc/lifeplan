@@ -287,7 +287,7 @@ export function unallocatedOf(req: EngineRequest): Unallocated | null {
   const rest = new Map<string, number>();
   for (const [m, v] of mine) rest.set(m, Math.max(0, v - (theirs.get(m) ?? 0)));
   const steps = stepsFromMonthly(h, base, rest, stopAge);
-  return { value, steps, rate: p.expectedReturn ?? "0.02" };
+  return { value, steps, rate: rateOf(req, p) };
 }
 
 /** まだ分けていない分が残っているか */
@@ -305,7 +305,8 @@ export interface TotalView {
 export function totalViewOf(req: EngineRequest): TotalView {
   const h = req.input.household;
   const p = pooledOf(h);
-  if (methodOf(req) === "total" && p !== undefined) return { value: valueOf(p), steps: stepsOf(h, req.input.baseMonth, p), rate: p.expectedReturn ?? "0.02", uninvested: p.uninvested ?? null };
+  // 平均の利回りが空欄なら、計算と同じ前提条件の運用利回り（0050 の 2026-10-31 の追記）
+  if (methodOf(req) === "total" && p !== undefined) return { value: valueOf(p), steps: stepsOf(h, req.input.baseMonth, p), rate: rateOf(req, p), uninvested: p.uninvested ?? null };
   const base = req.input.baseMonth;
   const end = `${req.input.endYear}-12`;
   const stopAge = stopAgeOrEstimate(req);
@@ -786,12 +787,3 @@ export function setDrawdown(req: EngineRequest, v: DrawdownView): void {
   setInvestment(req, { drawdown: { start: { at: ageReachedMonth(self, v.startAge) }, method: v.method, ...(v.method === "fixed" ? { monthly: Math.max(0, Math.round(v.monthly)) } : { rate: v.rate }) } });
 }
 
-/**
- * 利回りの選び方（合計の入れ方と、前提条件の運用利回り。事務所の標準の値。どれも仮の値で、商品のおすすめではない。押すと平均の利回りに入る。
- * 前提条件のカードと同じ値の表を使う。0070）
- */
-export const RATE_PRESETS: readonly { id: string; label: string; rate: string }[] = [
-  { id: "low", label: "控えめ", rate: "0.01" },
-  { id: "mid", label: "ふつう", rate: "0.02" },
-  { id: "high", label: "積極的", rate: "0.03" },
-];

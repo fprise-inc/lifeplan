@@ -67,6 +67,8 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .sv-fld .ctl { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .sv-fld .u { color: var(--ink-2); }
 .sv-fld .help { grid-column: 2; margin: 0; font-size: 0.8rem; color: var(--ink-2); }
+/* 範囲の外の率の知らせ（0098。入力の画面の欄の知らせと同じ色） */
+.sv-fld .help.bad { color: var(--short-ink); font-weight: 700; }
 @media (max-width: 720px) { .sv-fld { grid-template-columns: 1fr; } .sv-fld .help { grid-column: 1; } }
 .seg-g.sm button { font-size: 0.85rem; padding: 3px 10px; }
 .sv-nisa { margin-top: 12px; border: 1.5px solid var(--est-band); background: var(--est-bg); border-radius: 8px; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }

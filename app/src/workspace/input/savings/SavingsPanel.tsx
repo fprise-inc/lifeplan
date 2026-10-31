@@ -15,6 +15,7 @@ import { buildStage } from "../stages/index.ts";
 import { MAIN_ADD_KINDS } from "../stages/savings.ts";
 import { revealAdded } from "../../../presentation/revealAdded.ts";
 import { formatYen, normalizeNumberText, parseInteger, parseYen, pctFromRate, rateFromPct } from "../units.ts";
+import { outOfRangeText, rangeText, rateInRange, RETURN_RANGE, type PctRange } from "../rateRanges.ts";
 import {
   accountMonthlyAt,
   accountsOf,
@@ -55,7 +56,6 @@ import {
   stopAgeOrEstimate,
   stopEstimateOf,
   switchMethod,
-  RATE_PRESETS,
   totalViewOf,
   unallocatedOf,
   valueOf,
@@ -81,7 +81,22 @@ type Unit = "man" | "pct" | "age" | "num";
  * 数の欄: 打っている間は下書きの文字を持ち、読める値になったらすぐ入れる。空欄は null（optional のとき）。
  * 入ったときと同じ文字のまま離れたら書かない（欄に入って離れる・Tab で通るだけで、値も状態も変えない。0041）
  */
-function NumBox(p: { value: number | string | null; unit: Unit; onCommit: (v: number | string | null) => void; optional?: boolean; placeholder?: string; est?: boolean; label: string; size?: "s" | "xs"; data?: string; id?: string }) {
+function NumBox(p: {
+  value: number | string | null;
+  unit: Unit;
+  onCommit: (v: number | string | null) => void;
+  optional?: boolean;
+  placeholder?: string;
+  est?: boolean;
+  label: string;
+  size?: "s" | "xs";
+  data?: string;
+  id?: string;
+  /** 率の欄の範囲（0098）。外の値は書かず、onProblem に知らせの文を渡す */
+  range?: PctRange;
+  onProblem?: (text: string | null) => void;
+  describedBy?: string;
+}) {
   const [draft, setDraft] = useState<string | null>(null);
   const [start, setStart] = useState<string | null>(null);
   const shown = p.value === null ? "" : p.unit === "man" ? formatYen(p.value as number, "man") : p.unit === "pct" ? pctFromRate(String(p.value)) : String(p.value);
@@ -91,7 +106,10 @@ function NumBox(p: { value: number | string | null; unit: Unit; onCommit: (v: nu
       const v = parseYen(t, "man");
       return v === null || v < 0 ? undefined : v;
     }
-    if (p.unit === "pct") return rateFromPct(t) ?? undefined;
+    if (p.unit === "pct") {
+      const r = rateFromPct(t);
+      return r === null || (p.range !== undefined && !rateInRange(r, p.range)) ? undefined : r;
+    }
     if (p.unit === "age") {
       const v = parseInteger(t);
       return v === null || v < 0 || v > 110 ? undefined : v;
@@ -100,6 +118,12 @@ function NumBox(p: { value: number | string | null; unit: Unit; onCommit: (v: nu
     return Number.isFinite(v) && v >= 0 ? v : undefined;
   };
   const bad = draft !== null && parse(draft) === undefined;
+  // 範囲の外の率の知らせ（「15%より大きい値は設定できません。」。読めない文字は赤い枠だけ）
+  const rangeProblem = (t: string): string | null => {
+    if (p.unit !== "pct" || p.range === undefined) return null;
+    const r = rateFromPct(t);
+    return r === null ? null : outOfRangeText(r, p.range);
+  };
   return (
     <input
       type="text"
@@ -109,6 +133,7 @@ function NumBox(p: { value: number | string | null; unit: Unit; onCommit: (v: nu
       placeholder={p.placeholder ?? ""}
       aria-label={p.label}
       aria-invalid={bad ? true : undefined}
+      {...(p.describedBy !== undefined ? { "aria-describedby": p.describedBy } : {})}
       data-sv={p.data}
       {...(p.id !== undefined ? { id: p.id } : {})}
       onFocus={() => {
@@ -118,6 +143,7 @@ function NumBox(p: { value: number | string | null; unit: Unit; onCommit: (v: nu
       onInput={(e) => {
         const t = (e.currentTarget as HTMLInputElement).value;
         setDraft(t);
+        p.onProblem?.(rangeProblem(t));
         const v = parse(t);
         if (v !== undefined && t.trim() !== "") p.onCommit(v);
       }}
@@ -126,6 +152,8 @@ function NumBox(p: { value: number | string | null; unit: Unit; onCommit: (v: nu
         if (shouldCommitOnBlur(start, t)) {
           const v = parse(t);
           if (v !== undefined) p.onCommit(v);
+          const why = rangeProblem(t);
+          p.onProblem?.(why !== null ? `「${t}」は入れられないため、前の値のままです。${why}` : null);
         }
         setDraft(null);
         setStart(null);
@@ -519,9 +547,6 @@ function CarryNote({ req, carry }: { req: EngineRequest; carry: { from: Method; 
   );
 }
 
-/** 利回りの選び方（model.ts。前提条件の運用利回りと同じ値の表） */
-export { RATE_PRESETS };
-
 function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; level: Level; fields: FieldMap; onEdit: (w: WorkingHousehold) => void }) {
   const req = wh.request;
   const t = totalViewOf(req);
@@ -530,10 +555,13 @@ function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; lev
   const fValue = p === undefined ? undefined : fields.get(`sav/${p.id}/value`);
   const fRate = p === undefined ? undefined : fields.get(`sav/${p.id}/rate`);
   const fUn = p === undefined ? undefined : fields.get(`sav/${p.id}/uninvested`);
-  const preset = RATE_PRESETS.find((x) => sameRateText(x.rate, t.rate));
-  const [byRate, setByRate] = useState(false);
-  const showRate = level === "detail" || byRate || preset === undefined;
-  const setRate = (rate: string) => (fRate !== undefined ? onEdit(fRate.set(wh, rate)) : onEdit(editTotal(wh, { rate })));
+  // 平均の利回りは率をそのまま入れる（名前の付いた選び方は置かない。空欄は前提条件の運用利回り。0050 の 2026-10-31 の追記）
+  const ownRate = p === undefined ? t.rate : (p.expectedReturn ?? null);
+  const [rateProblem, setRateProblem] = useState<string | null>(null);
+  const setRate = (rate: string | null) => {
+    if (fRate !== undefined) onEdit(fRate.set(wh, rate));
+    else if (rate !== null) onEdit(editTotal(wh, { rate }));
+  };
   return (
     <section class="sv-sec" aria-label="金融資産">
       <h3>
@@ -558,38 +586,38 @@ function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; lev
         <p class="help">預金への積立も含めます（会社が出す企業型DC の掛金は含めません）。空欄（0円）なら積み立てず、黒字は預金に貯まります。年齢で額を変えるときは「＋期間を追加」。</p>
       </div>
       <div class="sv-fld">
-        <span class="lbl">利回りの選び方</span>
+        <span class="lbl">
+          平均の利回り（年）
+          <FieldStateBadge f={fRate} wh={wh} />
+        </span>
         <div class="ctl">
-          <span class="seg-g sm" role="group" aria-label="利回りの選び方">
-            {RATE_PRESETS.map((x) => (
-              <button type="button" key={x.id} aria-pressed={preset?.id === x.id && !byRate} onClick={() => {
-                  setByRate(false);
-                  setRate(x.rate);
-                }} data-rate-preset={x.id}>
-                {x.label}（{pct1(Number(x.rate))}%）
-              </button>
-            ))}
-            <button type="button" aria-pressed={byRate || preset === undefined} onClick={() => setByRate(true)} data-rate-preset="own">
-              率で入れる
-            </button>
-          </span>
+          <NumBox
+            value={ownRate}
+            unit="pct"
+            size="s"
+            optional={fRate !== undefined}
+            placeholder={pctFromRate(t.rate)}
+            label="平均の利回り"
+            data="total-rate"
+            range={RETURN_RANGE}
+            onProblem={setRateProblem}
+            {...(fRate !== undefined ? { id: fieldDomId(fRate.key), describedBy: `${fieldDomId(fRate.key)}-problem` } : {})}
+            onCommit={(v) => (typeof v === "string" || v === null) && setRate(v)}
+          />
+          <span class="u">%</span>
         </div>
-        <p class="help">長い期間の平均の年率の目安です（事務所の標準の値。いまは仮の値）。商品のおすすめではありません。</p>
+        {rateProblem !== null ? (
+          <p class="help bad" role="alert" data-rate-problem {...(fRate !== undefined ? { id: `${fieldDomId(fRate.key)}-problem` } : {})}>
+            {rateProblem}
+          </p>
+        ) : null}
+        <FieldStateLine f={fRate} wh={wh} onEdit={onEdit} />
+        <p class="help">
+          {t.uninvested !== null ? "運用しない分を除いた、運用する分の平均。" : "預金も含めた全体の平均。迷ったら、預金が多いほど低めに。"}
+          長い期間の平均の年率を、{rangeText(RETURN_RANGE)}の範囲で入れます。
+          {ownRate === null ? `空欄のときは、前提条件の運用利回り（年${pct1(Number(t.rate))}%）で計算しています。` : ""}
+        </p>
       </div>
-      {showRate ? (
-        <div class="sv-fld">
-          <span class="lbl">
-            平均の利回り（年）
-            <FieldStateBadge f={fRate} wh={wh} />
-          </span>
-          <div class="ctl">
-            <NumBox value={t.rate} unit="pct" size="s" label="平均の利回り" data="total-rate" {...(fRate !== undefined ? { id: fieldDomId(fRate.key) } : {})} onCommit={(v) => typeof v === "string" && setRate(v)} />
-            <span class="u">%</span>
-          </div>
-          <FieldStateLine f={fRate} wh={wh} onEdit={onEdit} />
-          <p class="help">{t.uninvested !== null ? "運用しない分を除いた、運用する分の平均。" : "預金も含めた全体の平均。迷ったら、預金が多いほど低めに。"}</p>
-        </div>
-      ) : null}
       {level === "detail" ? (
         <div class="sv-fld">
           <span class="lbl">
@@ -609,9 +637,6 @@ function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; lev
     </section>
   );
 }
-
-/** 率の文字（10進）が同じか */
-const sameRateText = (a: string, b: string) => Math.abs(Number(a) - Number(b)) < 1e-9;
 
 function AccountsTable(p: {
   wh: WorkingHousehold;

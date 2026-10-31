@@ -14,7 +14,6 @@ import type { Address } from "../../store/readings.ts";
 import { field, getPath, plain, type ActionDef, type FieldDef, type FieldState, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { DEFAULT_ASSUMPTIONS, mutate, standardEndYear, type WorkingHousehold } from "../household.ts";
 import { ASSET_CLASSES, BUILDING_STRUCTURES, memberLabel, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
-import { RATE_PRESETS } from "../savings/model.ts";
 import { sameRate } from "../units.ts";
 import { pctText } from "../../plans/decimal.ts";
 import { feeSections } from "./fees.ts";
@@ -618,16 +617,6 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
     exGroups.push(...ex.groups);
     exAdds.push(ex.add);
   }
-  const ir = wh.request.input.assumptions?.investmentReturn?.default;
-  const irField = seriesField("investmentReturn", "運用利回り（年）", "", "simple");
-  const presets: ActionDef[] = RATE_PRESETS.map((p) => ({
-    key: `assume/investmentReturn/preset/${p.id}`,
-    label: `運用利回り: ${p.label}（${pctText(p.rate)}）`,
-    level: "simple" as const,
-    pressed: ir !== undefined && sameRate(ir, p.rate),
-    title: "運用利回りの目安（事務所の標準の値）。商品のおすすめではありません",
-    run: (w: WorkingHousehold) => irField.set(w, p.rate),
-  }));
   const std = standardCount(wh);
   const sections: SectionDef[] = [
     {
@@ -639,8 +628,9 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
         {
           key: "assume/main/fields",
           level: "simple",
+          // 運用利回りは率をそのまま入れる（名前の付いた選び方のボタンは置かない。0070 の 2026-10-31 の追記）
           fields: [...series.map(([n, l, h, lv]) => seriesField(n, l, h, lv)), ...endYearFields(wh), baseMonth, ...conventionFields()],
-          actions: presets,
+          actions: [],
         },
       ],
       actions: [],
