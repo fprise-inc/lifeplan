@@ -382,14 +382,50 @@ function pensionStartMonth(req: EngineRequest, member: Member): string {
   return claim ?? addMonths(ageReachedMonth(member, 65), 1);
 }
 
-/** 年月か構成員の年齢で決めた時点を年月にする（ほかの形は読めない: null） */
-function monthOfTimepoint(h: Household, t: Timepoint | null | undefined): string | null {
+/**
+ * 構成員がその年齢（月まで）に関わる月（計算エンジンの time/ageSwitch.ts と同じ決まり。省略は達する月）。
+ * 「○歳の4月」（schoolYear）・「○歳になった翌月」（monthAfterReach）なども、計算と同じ年月にする
+ */
+function ageSwitchMonth(m: Member, years: number, months: number, rule: string | undefined): string {
+  const birthday = addMonths(m.birth.birthYearMonth, years * 12 + months);
+  const reach = m.birth.bornOnFirst ? addMonths(birthday, -1) : birthday;
+  const { y, m: mo } = parseYm(reach);
+  switch (rule) {
+    case "monthAfterReach":
+      return addMonths(reach, 1);
+    case "birthdayMonth":
+      return birthday;
+    case "monthAfterBirthday":
+      return addMonths(birthday, 1);
+    case "firstMarch31AfterReach":
+      return ym(mo <= 3 ? y : y + 1, 3);
+    case "schoolYear": {
+      const b = parseYm(birthday);
+      const same = b.m < 4 || (b.m === 4 && m.birth.bornOnFirst);
+      return ym(same ? b.y : b.y + 1, 4);
+    }
+    default:
+      return reach;
+  }
+}
+
+/**
+ * 時点を年月にする（計算エンジンの time/timepoint.ts と同じ決まり）: 年月、構成員の年齢（年齢の切り替えの規則つき）、名前つきの出来事（の年月＋ずらし）。
+ * 解けない時点（いない構成員・無い出来事・出来事の循環）は null
+ */
+function monthOfTimepoint(h: Household, t: Timepoint | null | undefined, stack: readonly string[] = []): string | null {
   if (t === null || t === undefined) return null;
   if ("at" in t && typeof t.at === "string") return t.at;
-  const ma = (t as { memberAge?: { member: string; years: number; months?: number } }).memberAge;
-  if (ma === undefined) return null;
-  const m = h.members.find((x) => x.id === ma.member);
-  return m === undefined ? null : addMonths(ageReachedMonth(m, ma.years), ma.months ?? 0);
+  const ma = (t as { memberAge?: { member: string; years: number; months?: number; ageSwitch?: string } }).memberAge;
+  if (ma !== undefined) {
+    const m = h.members.find((x) => x.id === ma.member);
+    return m === undefined ? null : ageSwitchMonth(m, ma.years, ma.months ?? 0, ma.ageSwitch);
+  }
+  const ev = t as { event?: string; offset?: { years?: number; months?: number } };
+  if (ev.event === undefined || stack.includes(ev.event)) return null;
+  const e = (h.events ?? []).find((x) => x.id === ev.event);
+  const base = e === undefined ? null : monthOfTimepoint(h, e.at, [...stack, ev.event]);
+  return base === null ? null : addMonths(base, (ev.offset?.years ?? 0) * 12 + (ev.offset?.months ?? 0));
 }
 
 /** 車の買い替え（購入）の年: 計算エンジンの車の部品と同じ決め方（最初の年月から周期ごと、手放す時点と表の最後まで）。車が2台以上なら「車1」「車2」と分ける */

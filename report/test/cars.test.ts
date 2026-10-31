@@ -142,4 +142,33 @@ describe("ライフイベント表に、ライフイベントの入力項目の�
     expect(items.some((t) => /^2027:くり返しの支出（3年ごとに/u.test(t))).toBe(true);
     expect(items.some((t) => t.includes("車の修理"))).toBe(false);
   });
+
+  it("出来事から決めた時期（入居の時）・年齢の切り替えの規則つきの時期（○歳の4月）の行も、計算と同じ年に出す", () => {
+    const req = structuredClone(modelHousehold("housingPurchase"));
+    const h = req.input.household as unknown as {
+      members: { id: string; kind: string }[];
+      events?: { id: string; at: { at?: string } }[];
+      periodicExpenses?: unknown[];
+    };
+    const move = h.events![0]!;
+    const child = h.members.find((m) => m.kind === "child")!;
+    const box = (value: number) => ({ value, state: "confirmed", origin: { kind: "manual" } });
+    const atMove = { event: move.id };
+    // 2025年5月生まれの子の「6歳の4月」は、6歳になった後の最初の4月（2032年4月。6歳に達する月は2031年5月）
+    const april = { memberAge: { member: child.id, years: 6, ageSwitch: "schoolYear" } };
+    h.periodicExpenses = [
+      ...(h.periodicExpenses ?? []),
+      { id: "00000000-0000-4000-8000-0000000000d1", label: "引っ越しの費用", kind: "general", row: "cf.expense.lumpSum.other", from: atMove, to: atMove, everyYears: 1, amount: box(300000) },
+      { id: "00000000-0000-4000-8000-0000000000d2", label: "入学の記念の旅行", kind: "general", row: "cf.expense.lumpSum.other", from: april, to: april, everyYears: 1, amount: box(400000) },
+    ];
+    const bundle = bundleOf(req);
+    const paid = (id: string) => bundle.proposal.result.table.filter((c) => c.object === id && c.amount > 0).map((c) => c.year);
+    expect(move.at.at).toBe("2028-04");
+    expect(paid("00000000-0000-4000-8000-0000000000d1")).toEqual([2028]);
+    expect(paid("00000000-0000-4000-8000-0000000000d2")).toEqual([2032]);
+    const items = buildProposalInput(bundle).events.flatMap((e) => e.items.map((t) => `${e.year}:${t}`));
+    expect(items).toContain("2028:引っ越しの費用（30万円）");
+    expect(items).toContain("2032:入学の記念の旅行（40万円）");
+    expect(items.some((t) => t.includes("入学の記念の旅行") && !t.startsWith("2032:"))).toBe(false);
+  });
 });
