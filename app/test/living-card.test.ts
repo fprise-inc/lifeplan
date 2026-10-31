@@ -370,6 +370,30 @@ describe("前の分け方の内訳（0.42 までの世帯。0100）", () => {
   });
 });
 
+describe("毎月の生活費の始まり・終わり（0100 の追記）", () => {
+  const keys = (wh: WorkingHousehold) => allFields(stage(wh)).map((f) => f.item);
+  it("毎月の生活費が1つなら、始まり・終わりの欄を出さない。2つ以上なら、どれにも出す", () => {
+    const wh = family();
+    expect(keys(wh)).not.toContain("livingExpense.from");
+    expect(keys(wh)).not.toContain("livingExpense.to");
+    const two = mutate(wh, (h) => void h.livingExpenses!.push({ ...structuredClone(h.livingExpenses![0]!), id: "00000000-0000-4000-8000-00000000f0f0", from: { at: "2040-04" } }));
+    const fs = allFields(stage(two));
+    expect(fs.filter((f) => f.item === "livingExpense.from")).toHaveLength(2);
+    expect(fs.filter((f) => f.item === "livingExpense.to")).toHaveLength(2);
+  });
+  it("1つでも、前に値を入れた欄は出す（結果に効く値を隠さない）。「最後まで」（null）は値に数えない", () => {
+    const wh = mutate(family(), (h) => {
+      h.livingExpenses![0]!.to = { at: "2050-03" };
+    });
+    expect(keys(wh)).toContain("livingExpense.to");
+    expect(keys(wh)).not.toContain("livingExpense.from");
+    const open = mutate(family(), (h) => {
+      h.livingExpenses![0]!.to = null;
+    });
+    expect(keys(open)).not.toContain("livingExpense.to");
+  });
+});
+
 describe("区画（0048 の3〜5）", () => {
   it("年払い・数年おきの暮らしの支出: ひな形で足すと基本生活費のカードの行（表の行は基本生活費に含める）、確かめの一覧で「入れた」になる", () => {
     let wh = family();

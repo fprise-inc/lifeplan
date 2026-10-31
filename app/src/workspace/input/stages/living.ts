@@ -519,16 +519,23 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
     );
   const selfId = wh.request.input.household.members.find((m) => m.kind === "self")?.id;
   const selfAge = selfId !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === selfId), mode: "ym" as const } : {};
-  main.push(
-    withAddress(
-      timepointField({ key: `${key}/from`, item: "livingExpense.from", label: "始まり", level: "detail", find, path: ["from"], ...selfAge, optional: true, absentWhenEmpty: true, nullText: "計算の初めから" }),
-      addr(l.id, "livingExpense.from"),
-    ),
-    withAddress(
-      timepointField({ key: `${key}/to`, item: "livingExpense.to", label: "終わり", level: "detail", find, path: ["to"], startPath: ["from"], ...selfAge, optional: true, absentWhenEmpty: true, nullText: "最後まで" }),
-      addr(l.id, "livingExpense.to"),
-    ),
-  );
+  // 始まり・終わりは、毎月の生活費が2つ以上あるときだけ出す（1つなら計算の初めから最後まで。0100 の追記）。
+  // 1つでも前に値を入れていれば、その欄は出す（結果に効く値を隠さない）
+  const several = (wh.request.input.household.livingExpenses ?? []).length >= 2;
+  if (several || l.from != null)
+    main.push(
+      withAddress(
+        timepointField({ key: `${key}/from`, item: "livingExpense.from", label: "始まり", level: "detail", find, path: ["from"], ...selfAge, optional: true, absentWhenEmpty: true, nullText: "計算の初めから" }),
+        addr(l.id, "livingExpense.from"),
+      ),
+    );
+  if (several || l.to != null)
+    main.push(
+      withAddress(
+        timepointField({ key: `${key}/to`, item: "livingExpense.to", label: "終わり", level: "detail", find, path: ["to"], startPath: ["from"], ...selfAge, optional: true, absentWhenEmpty: true, nullText: "最後まで" }),
+        addr(l.id, "livingExpense.to"),
+      ),
+    );
   const onItem = "livingExpense.onContingency";
   main.push(
     ...onContingencyFields({
