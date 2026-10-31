@@ -99,6 +99,9 @@ const SUB_RULES: readonly SubRule[] = [
   { major: ["日用"], sub: [["こづかい", "allowance"], ["小遣い", "allowance"], ["タバコ", "otherLiving"], ["煙草", "otherLiving"], ["ペット", "recreation"]] },
   // 住まいの中の保険・家具・家電
   { major: ["住宅", "住まい", "住居"], sub: [["保険", "insurance"], ["家具", "furniture"], ["家電", "furniture"]] },
+  // 特別な支出・大型出費の中の家具・家電（家具・家電の店の行と同じ。3万円以上は家電・家具の買い替えの候補、小さな買い物は日用品。
+  // 一時的な支出にすると、1年分の明細の1回の買い物が店ごとの年払いの候補になる）
+  { major: ["特別", "大型出費"], sub: [["家具", "furniture"], ["家電", "furniture"]] },
   // 通信の中の放送の受信料（統計の分け方では趣味・娯楽）
   { major: ["通信"], sub: [["放送", "recreation"], ["受信料", "recreation"]] },
   // 交際の中の冠婚葬祭（一時的な支出）
