@@ -791,20 +791,40 @@ export function rateEstimateOf(type: string | undefined): { rate: string; basis:
 const isRateEstimate = (r: StateRow | undefined): boolean => r?.state === "estimated" && r.origin.kind === "auto" && RATE_ESTIMATE_HEADS.some((head) => (r.estimate?.basis ?? "").includes(`（${head}`));
 
 /**
+ * 変動金利の見込みの欄（rateOutlookField）で置いた段（5年後・10年後）を持つか。見込みの欄は、今の金利の段が最初の段で変動金利のときだけ出るので、
+ * 最初の段の種類を変えると欄が隠れる。隠れた見込みの段が計算に残らないように、種類を変動金利から変えたときに外す
+ */
+function hasOutlookSteps(h: Household, d: Debt, baseMonth: string): boolean {
+  if (outlookBase(h, d, baseMonth).index !== 0 || !isVariableNow(h, d, baseMonth)) return false;
+  const o = rateOutlookOf(h, d, baseMonth);
+  return RATE_OUTLOOKS.some((x) => x.adds.length > 0 && x.value === o);
+}
+
+/**
  * 金利の種類の欄（最初の段）。住宅ローンは金利の欄の前に置き、種類を変えたときに金利が種類の目安（推定）のままなら、新しい種類の目安に入れ直す
- * （変動・固定期間選択型・全期間固定で当初の金利の水準が違うため）
+ * （変動・固定期間選択型・全期間固定で当初の金利の水準が違うため）。変動金利から変えるときは、変動金利の見込みの段も外す
  */
 function rateTypeField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | "detail"): FieldDef {
   const firstRate: Finder = (h, w) => (getPath(byId(debts, d.id)(h, w), ["rateSchedule", "0"]) as Record<string, unknown> | undefined) ?? undefined;
   const inner = plain({ key: `${k}/rateType`, item: "debt.rateSchedule", label: "金利の種類", level, kind: "select", options: RATE_TYPES, find: firstRate, path: ["type"] });
   if (d.kind !== "mortgage") return inner;
+  const notes = [
+    ...(isRateEstimate(rowOf(wh, addrRate(d))) ? ["金利が目安のままなら、選んだ種類の目安の金利に入れ直します"] : []),
+    ...(hasOutlookSteps(wh.request.input.household, d, wh.request.input.baseMonth) ? ["変動金利以外にすると、変動金利の見込みの段（5年後・10年後）を外します"] : []),
+  ];
   return field({
     ...inner,
-    ...(isRateEstimate(rowOf(wh, addrRate(d))) ? { sideEffects: "金利が目安のままなら、選んだ種類の目安の金利に入れ直します" } : {}),
+    ...(notes.length > 0 ? { sideEffects: notes.join("。") } : {}),
     help: "変動・固定期間選択型・全期間固定で、金利の目安が変わります（金利を入れていれば変えません）",
     set: (w, v) => {
-      const next = inner.write?.(w, v) ?? inner.set(w, v);
-      if (next === w || !isRateEstimate(rowOf(w, addrRate(d)))) return next;
+      const h0 = w.request.input.household;
+      const d0 = (h0.debts ?? []).find((x) => x.id === d.id);
+      const dropOutlook = v !== "variable" && d0 !== undefined && hasOutlookSteps(h0, d0, w.request.input.baseMonth);
+      const typed = inner.write?.(w, v) ?? inner.set(w, v);
+      if (typed === w) return typed;
+      // 見込みの段（変動金利の5年後・10年後）は全期間固定・固定期間選択型に残さない（見込みの欄は隠れるのに、隠れた段で金利が変わってしまう）
+      const next = dropOutlook ? editDebt(typed, d.id, (x) => void (x.rateSchedule = x.rateSchedule.slice(0, 1))) : typed;
+      if (!isRateEstimate(rowOf(w, addrRate(d)))) return next;
       const e = rateEstimateOf(typeof v === "string" ? v : undefined);
       const w2 = editDebt(next, d.id, (x, req) => {
         const step = x.rateSchedule[0];

@@ -389,7 +389,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
           if (!loan) delete x.loan;
           else x.loan ??= { share: LOAN_SHARE, rate: LOAN_RATE, termMonths: LOAN_TERM };
         });
-        // ローンの目安（借入8割・5年・年2.5%）は推定の印。現金に戻したら印も外す
+        // ローンの目安（借入8割・5年・金利は自動車ローンの目安）は推定の印。現金に戻したら印も外す
         const keys = { [`${k}/down`]: LOAN_BASIS.share, [`${k}/term`]: LOAN_BASIS.term, [`${k}/rate`]: LOAN_BASIS.rate };
         const assumed = Object.fromEntries(Object.entries(next.assumed).filter(([key]) => !(key in keys)));
         return { ...next, assumed: loan && c.loan === undefined ? { ...assumed, ...keys } : loan ? next.assumed : assumed };

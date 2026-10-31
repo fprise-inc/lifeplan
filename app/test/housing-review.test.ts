@@ -131,6 +131,29 @@ describe("住宅ローンの金利: 種類を金利の前に、種類ごとの�
     expect(loan(wh).rateSchedule[0]).toMatchObject({ type: "variable", rate: "0.012" });
     expect(() => preview(wh.request)).not.toThrow();
   });
+  it("変動金利の見込み（5年ごとの段）を選んだあとで種類を全期間固定にすると、見込みの段を外す（隠れた段で固定の金利が下がらない）", () => {
+    let wh = action(action(salaried(), "housing/addPurchase"), "housing/addMortgage");
+    const d = loan(wh);
+    wh = set(wh, `${d.id}/rateOutlook`, "up1");
+    expect(loan(wh).rateSchedule).toHaveLength(3);
+    expect(fieldOf(wh, `${d.id}/rateType`).sideEffects).toContain("見込みの段");
+    wh = set(wh, `${d.id}/rateType`, "fixed");
+    expect(loan(wh).rateSchedule).toHaveLength(1);
+    expect(loan(wh).rateSchedule[0]).toMatchObject({ type: "fixed", rate: mortgageRateEstimate("fixed").rate });
+    expect(allFields(stage(wh)).some((f) => f.key.endsWith(`${d.id}/rateOutlook`))).toBe(false);
+    // 金利の段階で入れた段（見込みの型に当たらない段）は外さない
+    wh = set(wh, `${d.id}/rateType`, "variable");
+    wh = set(wh, `${d.id}/rateOutlook`, "up2");
+    const steps = loan(wh).rateSchedule;
+    expect(steps).toHaveLength(3);
+    wh = mutate(wh, (hh) => {
+      const x = (hh.debts ?? []).find((y) => y.id === d.id);
+      if (x !== undefined) x.rateSchedule = steps.map((s, i) => (i === 1 ? { ...s, rate: "0.03" } : s));
+    });
+    wh = set(wh, `${d.id}/rateType`, "fixedPeriod");
+    expect(loan(wh).rateSchedule).toHaveLength(3);
+    expect(() => preview(wh.request)).not.toThrow();
+  });
   it("目安の金利はマスタデータの写しから（出典を確かめた値）", () => {
     for (const id of ["housing.statistics.mortgageRate.variable", "housing.statistics.mortgageRate.fixedPeriod10", "housing.statistics.mortgageRate.fixed"]) expect(masterValue(id)?.reviewed).toBe(true);
     expect(mortgageRateEstimate("fixed").basis).toContain("住宅金融支援機構");
