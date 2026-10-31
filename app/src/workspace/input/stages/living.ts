@@ -166,10 +166,11 @@ function splitTransportAction(l: LivingExpense, find: Finder): ActionDef | null 
         if (sp === null) return;
         const basis = `交通・通信費（月${man(total)}）を${sp.basis}で分けた目安`;
         const box = (value: number): Box<number> => ({ value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis } }) as Box<number>;
-        // 交通費は前の交通・通信の要素の ID を引き継ぐ（プランの差分などが同じ要素を指せるように）。並びは前の交通・通信の場所に
+        // 交通費・通信費は新しい要素（前の交通・通信の ID を引き継ぐと、交通・通信を直したプランの差分が交通費だけに効き、通信費の分が
+        // 二重になる。その差分はプランの一覧の要確認に出る）。並びは前の交通・通信の場所に
         const at = (t.categories ?? []).indexOf(cur);
         const rest = (t.categories ?? []).filter((x) => x !== cur && x.category !== "transit" && x.category !== "communication");
-        rest.splice(Math.max(0, Math.min(at, rest.length)), 0, { id: newId(), category: "communication", monthly: box(sp.communication) }, { id: cur.id ?? newId(), category: "transit", monthly: box(sp.transit) });
+        rest.splice(Math.max(0, Math.min(at, rest.length)), 0, { id: newId(), category: "communication", monthly: box(sp.communication) }, { id: newId(), category: "transit", monthly: box(sp.transit) });
         t.categories = rest;
       }),
   };
@@ -579,6 +580,8 @@ export interface AnnualTemplate {
   everyYears: number;
   row?: string;
   match: RegExp;
+  /** 名前が match に合っても、これに合う行は入れたと見ない（「ペットの医療」の行を「通院・歯の治療」と読まないため） */
+  unless?: RegExp;
   /** 額の数え方（「1台」。根拠の文に書く） */
   per?: string;
   /** ボタンの「?」 */
@@ -592,7 +595,7 @@ export interface AnnualTemplate {
  * （前に入れた行はふつうの行のまま）
  */
 export const ANNUAL_TEMPLATES: readonly AnnualTemplate[] = [
-  { key: "medical", label: "通院・歯の治療", amount: 50000, everyYears: 1, row: "cf.expense.care.medical", match: /通院|歯|治療|医療|病院/u },
+  { key: "medical", label: "通院・歯の治療", amount: 50000, everyYears: 1, row: "cf.expense.care.medical", match: /通院|歯|治療|医療|病院/u, unless: /ペット|動物/u },
   { key: "pet", label: "ペットの医療", amount: 50000, everyYears: 1, match: /ペット|動物病院/u },
   { key: "homecoming", label: "帰省", amount: 100000, everyYears: 1, match: /帰省/u },
   { key: "appliances", label: "家電・家具の買い替え", amount: 400000, everyYears: 8, match: /家電|家具/u },
@@ -643,7 +646,7 @@ function annualChecklist(wh: WorkingHousehold, other: readonly ActionDef[]): Gro
   const fields: FieldDef[] = [];
   const actions: ActionDef[] = [];
   for (const t of ANNUAL_TEMPLATES) {
-    const hit = rows.find((p) => t.match.test(p.label ?? ""));
+    const hit = rows.find((p) => t.match.test(p.label ?? "") && t.unless?.test(p.label ?? "") !== true);
     if (hit !== undefined) {
       const card = expenseCard(h, hit);
       fields.push({ ...readLine(`living/annual/check/${t.key}`, t.label, `入れた（${hit.label ?? t.label}）`, CARD_NAMES[card] ?? "ライフイベント"), level: "simple" });

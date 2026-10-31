@@ -15,6 +15,9 @@ import { applyStateOp, availableOps, fieldStatus } from "../src/workspace/input/
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { bodyOf, EMPTY_CARRY, fromBody, type BodyState } from "../src/workspace/store/body.ts";
 import { CURRENT } from "../src/workspace/plans/band.ts";
+import type { PlanDiff } from "../src/workspace/plans/diffs.ts";
+import { buildCatalog } from "../src/workspace/plans/items.ts";
+import { applyDiffs } from "../src/workspace/plans/plans.ts";
 import { readAt } from "../src/workspace/store/readings.ts";
 import { buildCandidates } from "../../statement/src/candidates.ts";
 import { renderToString } from "preact-render-to-string";
@@ -347,7 +350,8 @@ describe("前の分け方の内訳（0.42 までの世帯。0100）", () => {
     expect(transit.monthly.value).toBe(Math.round((30000 * 6239) / (6239 + 15392) / 1000) * 1000);
     expect(transit.monthly.state).toBe("estimated");
     expect(comm.monthly.state).toBe("estimated");
-    expect(transit.id).toBe("00000000-0000-4000-8000-00000000c002");
+    // 交通費は前の交通・通信の ID を引き継がない（交通・通信を直したプランの差分は要確認に出す）
+    expect(transit.id).not.toBe("00000000-0000-4000-8000-00000000c002");
     expect(cs.reduce((s, c) => s + c.monthly.value!, 0)).toBe(170000);
     // 分けた後はボタンを出さない。推定の交通・通信にも出さない
     expect(() => actionOf(w1, `living/${id}/splitTransport`)).toThrow();
@@ -368,7 +372,60 @@ describe("前の分け方の内訳（0.42 までの世帯。0100）", () => {
     expect(cs.map((c) => c.category)).toEqual(["food", "utilities", "communication", "transit", "furniture", "clothing", "health", "recreation", "pocketAndSocial", "other", "allowance"]);
     expect(cs.reduce((s, c) => s + c.monthly.value!, 0)).toBe(300000);
     expect(isPureSplit(living(w1))).toBe(true);
-    expect(cs.find((c) => c.category === "other")!.id).toBe("00000000-0000-4000-8000-000000000707");
+    // 「その他」は前の「その他の消費」の ID を引き継がない。同じ内訳（食費）の ID は引き継ぐ
+    expect(cs.find((c) => c.category === "other")!.id).not.toBe("00000000-0000-4000-8000-000000000707");
+    expect(cs.find((c) => c.category === "food")!.id).toBe("00000000-0000-4000-8000-000000000700");
+  });
+});
+
+describe("年払いの区画の確かめの一覧: ペットの医療の行は、通院・歯の治療と読まない", () => {
+  it("ペットの医療を足しても、通院・歯の治療のボタンは残る（「入れた（ペットの医療）」と出さない）", () => {
+    const wh = annualBtn(family(), "pet").run(family());
+    expect(annualCheck(wh).fields.map((f) => f.key)).toEqual(["ro/living/annual/check/pet"]);
+    expect(annualBtn(wh, "medical")).toBeDefined();
+    const w2 = annualBtn(wh, "medical").run(wh);
+    expect(annualCheck(w2).fields.map((f) => f.key)).toEqual(["ro/living/annual/check/medical", "ro/living/annual/check/pet"]);
+  });
+});
+
+describe("前の交通・通信を直したプランの差分は、分けた後に交通費だけに効かせない（通信費の二重を防ぐ。0100）", () => {
+  const TRANSPORT = "00000000-0000-4000-8000-00000000c002";
+  const sum = (l: LivingExpense) => (l.categories ?? []).reduce((s, c) => s + (c.monthly.value ?? 0), 0);
+  const planned = (wh: WorkingHousehold) => {
+    const l = living(wh);
+    const diff: PlanDiff = { id: "00000000-0000-4000-8000-0000000d0001", op: "set", target: { object: l.id }, item: "livingExpense.categories", at: [TRANSPORT, "monthly"], value: { value: 20000, state: "confirmed", origin: { kind: "manual" } }, before: null, enabled: true, origin: { kind: "manual" }, note: null };
+    const r = applyDiffs(wh, [{ id: "P", diffs: [diff] }], buildCatalog(wh, wh.request.input.household.members[0]!.id, null));
+    return { total: sum(r.request.input.household.livingExpenses![0]!), review: r.reviews.get(diff.id)?.state };
+  };
+  it("「交通と通信に分ける」の後: プランの差分は要確認になり、交通費を2万円にして通信費と二重にしない", () => {
+    const wh = mutate(family(), (h) => {
+      const l = h.livingExpenses![0]!;
+      l.mode = "byCategory";
+      const conf = (value: number) => ({ value, state: "confirmed" as const, origin: { kind: "manual" as const } });
+      l.categories = [
+        { id: "00000000-0000-4000-8000-00000000c001", category: "food", monthly: conf(90000) },
+        { id: TRANSPORT, category: "transport", monthly: conf(30000) },
+      ] as typeof l.categories;
+    });
+    expect(planned(wh)).toEqual({ total: 110000, review: "ok" });
+    const w1 = edit(wh, actionOf(wh, `living/${living(wh).id}/splitTransport`).run(wh));
+    expect(sum(living(w1))).toBe(120000);
+    // 前は交通費 2万円＋通信費の推定で、交通・通信を減らしたプランの生活費が現状より増えていた
+    expect(planned(w1)).toEqual({ total: 120000, review: "missing" });
+  });
+  it("前の分け方の按分のままの内訳を分け直した後: プランの差分は要確認になる", () => {
+    const old = mutate(family(), (h) => {
+      const l = h.livingExpenses![0]!;
+      l.mode = "byCategory";
+      l.monthly = { value: 300000, state: "confirmed", origin: { kind: "manual" } };
+      const est = (value: number) => ({ value, state: "estimated" as const, origin: { kind: "auto" as const }, estimate: { method: "derived", basis: "総額を内訳に分けた目安（前の版）" } });
+      const cats = ["food", "utilities", "furniture", "clothing", "health", "transport", "recreation", "otherConsumption", "allowance"];
+      l.categories = cats.map((category, i) => ({ id: category === "transport" ? TRANSPORT : `00000000-0000-4000-8000-0000000007${String(i).padStart(2, "0")}`, category, monthly: est(category === "allowance" ? 0 : category === "otherConsumption" ? 300000 - 7 * 30000 : 30000) })) as typeof l.categories;
+    });
+    expect(planned(old)).toEqual({ total: 290000, review: "ok" });
+    const w1 = edit(old, old);
+    expect(sum(living(w1))).toBe(300000);
+    expect(planned(w1)).toEqual({ total: 300000, review: "missing" });
   });
 });
 

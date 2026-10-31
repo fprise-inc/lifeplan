@@ -201,7 +201,9 @@ describe("基本生活費の総額の推定は千円単位（前に保存した�
         const cs = living(edited).categories!;
         expect(cs.map((c) => c.category)).toEqual([...LIVING_CATEGORY_ORDER]);
         expect(cs.reduce((s, c) => s + c.monthly.value!, 0)).toBe(living(old).categories!.reduce((s, c) => s + c.monthly.value!, 0));
-        expect(cs.find((c) => c.category === "transit")!.id).toBe(living(old).categories!.find((c) => c.category === "transport")!.id);
+        // 前の交通・通信の要素の ID は交通費に引き継がない（交通・通信を直したプランの差分が交通費だけに効かないように）。同じ内訳の ID は引き継ぐ
+        expect(cs.find((c) => c.category === "transit")!.id).not.toBe(living(old).categories!.find((c) => c.category === "transport")!.id);
+        expect(cs.find((c) => c.category === "food")!.id).toBe(living(old).categories!.find((c) => c.category === "food")!.id);
         expect(withRefreshedEstimates(edited)).toBe(edited);
       }
     }

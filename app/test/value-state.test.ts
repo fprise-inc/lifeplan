@@ -13,6 +13,7 @@ import { carryRows, dropStaleRows, rowAt } from "../src/workspace/input/rows.ts"
 import { addCar } from "../src/workspace/input/stages/cars.ts";
 import { addChildWithEducation } from "../src/workspace/input/stages/family.ts";
 import { buildStage, buildStages, STAGE_ORDER } from "../src/workspace/input/stages/index.ts";
+import { addAnnual, ANNUAL_TEMPLATES } from "../src/workspace/input/stages/living.ts";
 import { applyStateOp, availableOps, confirmAll, fieldAddress, fieldStatus, planStateOp } from "../src/workspace/input/valueState.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { applyPlan, type Proposal } from "../src/workspace/plans/plans.ts";
@@ -133,8 +134,14 @@ describe("4つの操作（どの欄も同じ部品）", () => {
     expect(fieldStatus(f, back).status).toBe("estimated");
     expect(availableOps(f, back)).toEqual(["confirm"]);
     // 年払い・数年おきの暮らしの支出（お金の行の種類 livingAnnual）の額にも出さない（入力項目でなく行の種類で見る）
-    const annual = allFields(buildStage("living", wh)).filter((x) => x.item === "periodicExpense.amount");
-    for (const a of annual) expect(availableOps(a, wh), a.key).not.toContain("unknown");
+    // （見本の世帯には年払いの行が無いので、ひな形の行を足して確かめる）
+    const withRow = addAnnual(wh, ANNUAL_TEMPLATES.find((t) => t.key === "appliances")!);
+    const annual = allFields(buildStage("living", withRow)).filter((x) => x.item === "periodicExpense.amount");
+    expect(annual.length).toBeGreaterThan(0);
+    for (const a of annual) {
+      expect(fieldStatus(a, withRow).status, a.key).toBe("estimated");
+      expect(availableOps(a, withRow), a.key).not.toContain("unknown");
+    }
   });
 
   it("値の箱の欄の該当なし（住民税）: 推定の額を使わず無いものとして計算し、推定に戻す・わからないで戻せる", () => {

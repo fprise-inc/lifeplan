@@ -120,8 +120,6 @@ export const SPLIT_BASIS = "総額を内訳に分けた目安";
 const SPLIT_BASIS_OLD = "総額を費目に分けた目安";
 /** 内訳の並び（10費目と仕送り。0100。仕送りは0円の推定、端は「その他」） */
 export const LIVING_CATEGORY_ORDER = ["food", "utilities", "communication", "transit", "furniture", "clothing", "health", "recreation", "pocketAndSocial", "other", "allowance"] as const;
-/** 前の分け方の内訳（0.42 までの世帯）を按分し直すとき、要素の ID を引き継ぐ先（プランの差分などが同じ要素を指せるように） */
-const LEGACY_ID_TO: Readonly<Record<string, string>> = { transit: "transport", other: "otherConsumption" };
 const splitBox = (value: number, basis: string): Box<number> => ({ value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis } }) as Box<number>;
 
 /** 総額（月額）を10費目と仕送りに分けた推定の箱（仕送りは0円。端は「その他」） */
@@ -131,8 +129,9 @@ export function splitCategories(h: Household, baseMonth: string, total: number, 
   const basis = `${SPLIT_BASIS}（${sp?.basis ?? "割合の表がありません"}）`;
   return LIVING_CATEGORY_ORDER.map((category) => {
     const v = category === "allowance" ? 0 : sp === null ? (category === "other" ? total : 0) : sp.parts[category];
-    const legacy = LEGACY_ID_TO[category];
-    const old = keep?.find((c) => c.category === category)?.id ?? (legacy !== undefined ? keep?.find((c) => c.category === legacy)?.id : undefined);
+    // 要素の ID は同じ内訳のものだけ引き継ぐ。前の分け方の交通・通信・その他の消費の ID は、交通費・その他に引き継がない
+    // （引き継ぐと、交通・通信を直したプランの差分が交通費だけに効き、別に分けた通信費の分が二重になる。差分はプランの一覧の要確認に出る）
+    const old = keep?.find((c) => c.category === category)?.id;
     return { id: old ?? id(), category, monthly: splitBox(v, category === "allowance" ? `${SPLIT_BASIS}（仕送りは子ども・教育、介護・親の項目で入れるので0円）` : basis) };
   });
 }
