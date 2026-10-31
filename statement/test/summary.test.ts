@@ -226,4 +226,21 @@ describe("候補", () => {
     // 何も選ばなければ何も変えない
     expect(applyCandidates(h, cands, new Set(), at)).toEqual(h);
   });
+
+  // 内訳を置き換える候補は、明細に出てこない今の内訳（前の明細の取り込みで承認した仕送りなど）を残す。
+  // 残す内訳の値の箱は今回承認したものではないので、承認の記録（日時・候補）を付け直さない
+  it("内訳を置き換えるとき、残した今の内訳の承認の記録は付け直さない（今回の候補の値の箱だけに付ける）", () => {
+    const s = summaryOf(yearLog());
+    const old = { by: "fp" as const, at: "2026-04-01T10:00:00+09:00", candidate: "c-old" };
+    const kept = { value: 20000, state: "estimated" as const, origin: { kind: "import", ref: "stmt-old" }, approval: old, estimate: { method: "statementAverage", basis: "前の明細" } };
+    const h: CandidateHousehold = { livingExpenses: [{ id: "le1", mode: "byCategory", categories: [{ category: "food", monthly: { value: 50000, state: "confirmed", origin: { kind: "manual" } } }, { category: "allowance", monthly: kept }] }] };
+    const cands = buildCandidates(s, h, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids() });
+    const c = cands[0];
+    expect(c?.item).toBe("livingExpense.categories");
+    const at = "2026-10-23T10:00:00+09:00";
+    const next = applyCandidates(h, cands, new Set([c?.id as string]), at);
+    const cats = next.livingExpenses?.[0]?.categories ?? [];
+    expect(cats.find((x) => x.category === "allowance")?.monthly).toEqual(kept);
+    expect(cats.find((x) => x.category === "food")?.monthly).toMatchObject({ origin: { kind: "import", ref: "stmt-1" }, approval: { by: "fp", at, candidate: c?.id } });
+  });
 });

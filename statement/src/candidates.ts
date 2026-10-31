@@ -151,18 +151,20 @@ export function buildCandidates(summary: StatementSummary, household: CandidateH
 /** 承認した候補を計算の要求の世帯に入れる（承認の記録を値の箱に付ける）。世帯は写して返す */
 export function applyCandidates<H extends CandidateHousehold>(household: H, candidates: readonly StatementCandidate[], selected: ReadonlySet<string>, at: string): H {
   const h = structuredClone(household) as H & { livingExpenses?: LivingExpenseLike[]; periodicExpenses?: PeriodicExpenseLike[] };
-  const stamp = (v: unknown, candidate: string): unknown => {
-    if (Array.isArray(v)) return v.map((x) => stamp(x, candidate));
+  // 承認の記録は、この候補が作った値の箱（出どころがこの取り込みの記録 ref のもの）にだけ付ける。内訳を置き換える候補が残す今の内訳
+  // （前の明細の取り込みで承認した仕送りなど）は、今回承認したものではないので、前の承認の記録のまま写す
+  const stamp = (v: unknown, c: StatementCandidate): unknown => {
+    if (Array.isArray(v)) return v.map((x) => stamp(x, c));
     if (v === null || typeof v !== "object") return v;
     const o = { ...(v as Record<string, unknown>) };
-    for (const k of Object.keys(o)) o[k] = stamp(o[k], candidate);
-    const origin = o.origin as { kind?: string } | undefined;
-    if (typeof o.state === "string" && origin?.kind === "import") o.approval = { by: "fp", at, candidate };
+    for (const k of Object.keys(o)) o[k] = stamp(o[k], c);
+    const origin = o.origin as { kind?: string; ref?: string } | undefined;
+    if (typeof o.state === "string" && origin?.kind === "import" && origin.ref === c.origin.ref) o.approval = { by: "fp", at, candidate: c.id };
     return o;
   };
   for (const c of candidates) {
     if (!selected.has(c.id)) continue;
-    const value = stamp(c.value, c.id);
+    const value = stamp(c.value, c);
     if (c.collection === "livingExpenses") {
       const list = (h.livingExpenses = [...(h.livingExpenses ?? [])]);
       if (c.op === "add") list.push(value as LivingExpenseLike);
