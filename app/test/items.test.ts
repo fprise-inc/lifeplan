@@ -251,9 +251,9 @@ describe("カードの状態（4つ）", () => {
     const items = inputItems(wh);
     expect(items.filter((i) => i.status === "missing").map((i) => i.id)).toEqual(["work", "insurance"]);
     expect(items.filter((i) => i.status === "empty").map((i) => i.id)).toEqual(["rental", "car", "care", "inheritance"]);
-    // 子ども・教育は、学費を統計の平均（推定）で計算しているので「推定で計算中」（0062 の追記 2026-10-30）
-    expect(byId(items, "education").status).toBe("est");
-    expect(progressOf(items)).toEqual({ total: 15, done: 8, est: 1, missing: 2, na: 0, empty: 4 });
+    // 子ども・教育の学費の統計の平均（学校の種類で決まる推定）は数えないので、進路を入れた子ども・教育は入力済み（0062 の追記 2026-10-31）
+    expect(byId(items, "education").status).toBe("done");
+    expect(progressOf(items)).toEqual({ total: 15, done: 9, est: 0, missing: 2, na: 0, empty: 4 });
     // 失業給付を「受け取らない」と決めると、働き方と収入は入力済み
     const decided = notApplicableCard(wh, "work");
     expect(byId(inputItems(decided), "work").status).toBe("done");

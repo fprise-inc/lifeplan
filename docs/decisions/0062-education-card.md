@@ -116,3 +116,10 @@
   - 実装: `app/src/workspace/input/stages/education.ts`（`withEstimate`・`annualEstimate`・`dropStaleEstimates`・`DELAY_HELP`・`jassoRepayYears`・`leavesGroups`）、`input/educationCost.ts`（短い根拠 `annualBasis`・`entranceBasis`、給食費の負担軽減 `lunchRelief`）、`input/fill.ts`（`schoolEndAge`・`refreshLeaves`・`leavesToSchool`）、`input/household.ts`（`isSchoolLinkedLeaves`）、`input/estimates.ts`、`input/levelHelp.ts`、`input/items.ts`（カードの案内）。推定の目安の写しに制度データ（学校給食費の負担軽減の基準額と月数・保育料の国の基準の表）を足した（`hearing/scripts/statistics.ts`）。テスト: `app/test/education-estimates.test.ts` ほか。
 - 2026-10-30（留学。0088）: 子の区画の「＋ 留学」は、出るお金の行ではなく教育の目標の留学（`abroad`。段・何年生・留学の形〔延びる・延びない・短期〕・1回の額・万一のときの扱い〔続ける・やめる〕を1つのまとまりに）を1回ずつ足す。推定の額と根拠は 0088。前に足した留学の行はそのまま出る。
 - 2026-10-30（大学院・インターナショナルスクール。0089）: 学校の段に大学院（修士・博士）を足し（大学などがある進路に「＋ 大学院（修士）」「＋ 大学院（博士）」）、幼稚園〜高校の公立・私立に「インターナショナルスクール」を足した（学費を入れるまで未入力の警告。就学支援金は計算しない）。未確定の「学校の種類（大学院・高専…）」のうち大学院を決めた。高専は未確定のまま。
+- 2026-10-31（推定の数え方）: 2026-10-30 の追記で「推定で計算中」に数えるようにした学費などの統計の平均（段の学費・学校の費用・入学金・学校外の費用・部活動などの費用・自宅外の仕送りと初期費用・保育料とは別にかかるお金）は、**数えない**ことにした。欄の印「推定」と根拠・「この値にする」は今のまま出す。
+  - 数えないもの: 学校の種類（進路の型・公立・私立・系統・通い方）を選べば決まる統計の平均。入力項目の状態（推定で計算中）・確かめの一覧の「推定」・保存の下の「推定・仮の値のままの欄」・「推定の値をまとめて使う」のどれにも入れない（欄の定義の `quietEstimate`）。
+  - 数えるもの: 推定のままの進路（標準の進路の型で入れた進路。子ごとに1つ）、奨学金・教育ローン・留学の足したときのひな形の値、専門学校の在学年数、未入力（専門学校・インターナショナルスクールの学費）。
+  - 理由: FP が確かめるべきなのは、その子の進路（どの学校に行くか）と、ひな形で仮に置いた額。進路を確かめれば、段ごとの学費は統計の平均で計算するのがこのカードの決まり（標準でも統計の平均で入る）で、段・欄の数だけ「推定」に数えると、見本の世帯で20項目になり、確かめるべきものが埋もれる。ほかの入力項目も、推定に数えるのは FP が額を入れ替えるべき目安の値（年収の統計・生活費の統計・車の価格の目安など）で、ここでの「学校の種類を選んで決まる統計の平均」は、前提条件の標準の値（数えない。`countEstimates`）と同じ扱いにした。
+  - 「推定の値をまとめて使う」で統計の平均を年額に書かないのは、書くと学校の種類を変えたときに前の額が残る（同日の追記の `dropStaleEstimates` で外すのは推定と同じ額のときだけ）ため。1つずつ「この値にする」は使える。
+  - カードの案内（推定で計算中のとき）は「進路・奨学金などに推定のままの所があります（学費は学校の種類ごとの統計の平均で計算します）」。
+  - 実装: `app/src/workspace/input/form.ts`（`quietEstimate`）、`input/items.ts`・`input/checkRows.ts`・`input/valueState.ts`（`confirmAll`）・`input/InputPanel.tsx`、`input/stages/education.ts`（`withEstimate`）。テスト: `app/test/education-estimates.test.ts`・`items.test.ts`・`decisions.test.ts`。

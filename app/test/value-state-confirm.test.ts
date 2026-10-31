@@ -81,7 +81,8 @@ describe("空欄のまま推定で計算する欄の確定", () => {
   it("「推定の値をまとめて使う」は、空欄が推定の欄も確定にする", () => {
     const r = confirmAllEstimates(wh);
     for (const f of blank) {
-      const stays = f.blankEstimate!(wh) === null;
+      // 数えない推定（学校の種類で決まる統計の平均。quietEstimate）はまとめて確定にしない（0062 の追記 2026-10-31）
+      const stays = f.blankEstimate!(wh) === null || f.quietEstimate !== undefined;
       expect(fieldStatus(f, r.wh).status === "estimated", f.key).toBe(stays);
     }
   });
