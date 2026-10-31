@@ -11,6 +11,9 @@
 // 改訂8: 表の最後の年の年度の加入の月数に、表の外の翌年1〜3月も数える（表の長さで、その年の保険料を変えない。0003 の追記）
 // 改訂9（0081）: 所得割と軽減の判定の総所得金額等から、青色申告の純損失の繰越控除（tax.lossCarryforward）を引く（国民健康保険法施行令29条の7第2項4号・5号:
 //   地方税法314条の2第1項の総所得金額等。雑損失の繰越控除だけ除く）。土地建物等の譲渡所得は separate として入る（特別控除の後の額。特別控除は扱わない）
+// 改訂10（0099）: 子ども・子育て支援金の区分は、その区分が始まった年度（令和8年度。18歳未満の均等割をかけない年齢の値の最初の行）より前の年度には
+//   かけない。計算基準月が令和8年1〜3月の世帯は、令和7年度（前の年の社会保険料控除と、1〜3月の納期）も計算するが、料率の入力に支援金の欄があっても
+//   その年度には当てない（前はその年齢の値が無く E_PARAM_NO_VALUE で止まった）
 import {
   addYen,
   ageMonth,
@@ -64,7 +67,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
   id: "socialInsurance.nationalHealth",
   title: "国民健康保険料",
   contract: "1.0",
-  revision: 9,
+  revision: 10,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -144,6 +147,8 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
     // 料率の入力が無い区分・欄に全国の目安を使ったか
     let defaultUsed = false;
     for (const { part, row } of PARTS) {
+      // 子ども・子育て支援金の区分が始まる前の年度（改訂10）
+      if (part === "childSupport" && !at.has(AGE.childUntil)) continue;
       const o = override?.parts?.[part];
       // 料率の入力にその区分があれば入力の欄だけを使い（無い欄は0。平等割の無い市町村など）、区分が無ければ全国の目安を使う
       const pick = <T>(given: T | null, id: string, read: (id: string) => T | null): T | null => {

@@ -10,6 +10,8 @@ export interface ParamUse {
   readonly packVersion: string;
   /** 延長の仮定で使った（0007 の追記） */
   readonly extended?: true;
+  /** さかのぼりの仮定（制度データが持っている時期より前の日に最初の行）で使った（0099） */
+  readonly backfilled?: true;
 }
 
 export type TraceNode =
@@ -23,6 +25,7 @@ export type TraceNode =
       readonly appliesTo: string | null;
       readonly sources: readonly Json[];
       readonly extended?: true;
+      readonly backfilled?: true;
     }
   | { readonly type: "input"; readonly item?: string; readonly collection?: string; readonly object?: string; readonly value: Json }
   | { readonly type: "rounding"; readonly rule: string; readonly op: string; readonly input: string; readonly result: Json }
@@ -82,9 +85,16 @@ export class Tracer {
   param(frame: Frame, node: Extract<TraceNode, { type: "param" }>): void {
     if (this.mode === "none") return;
     const e = this.entry(frame.component);
-    const key = node.extended === true ? `${node.ref}+` : node.ref;
+    const key = node.extended === true ? `${node.ref}+` : node.backfilled === true ? `${node.ref}-` : node.ref;
     if (!e.params.has(key)) {
-      e.params.set(key, { id: node.id, ref: node.ref, value: node.value, packVersion: node.packVersion, ...(node.extended === true ? { extended: true as const } : {}) });
+      e.params.set(key, {
+        id: node.id,
+        ref: node.ref,
+        value: node.value,
+        packVersion: node.packVersion,
+        ...(node.extended === true ? { extended: true as const } : {}),
+        ...(node.backfilled === true ? { backfilled: true as const } : {}),
+      });
     }
     if (this.mode === "full") frame.uses.add(this.intern(`p|${key}`, () => node));
   }

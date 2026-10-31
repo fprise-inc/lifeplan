@@ -8,7 +8,7 @@ import type { Json, PackJson } from "../regulation/reader.ts";
 import { RegulationStore } from "../regulation/reader.ts";
 import { contractMajor, satisfiesRange } from "../regulation/versions.ts";
 import { assemble, type Assembly, type Extension, type Replacement } from "../registry/assemble.ts";
-import { collectEffects, invoke, keepLane, newKeyTable, newParamCache, newPartition, nextEpoch, type Partition, type RunState, type Variant } from "../registry/ctx.ts";
+import { BACKFILLED, collectEffects, invoke, keepLane, newKeyTable, newParamCache, newPartition, nextEpoch, type Partition, type RunState, type Variant } from "../registry/ctx.ts";
 import { ITEMS } from "../registry/items.ts";
 import { Tracer } from "../registry/trace.ts";
 import { decemberOf, formatYm, parseYm, yearOf } from "../time/month.ts";
@@ -623,11 +623,15 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     ...(stressed.header !== null ? { stressTest: stressed.header as unknown as Json } : {}),
     components: assembly.refs as unknown as Json[],
     data: store.packs() as unknown as Json[],
-    // 計算に反映していないこと（未対応の制度など）と、延長の仮定で使った値（値の行・最初の年・最後の年）。ID だけ
+    // 計算に反映していないこと（未対応の制度など）と、延長の仮定・さかのぼりの仮定（0099）で使った値（値の行・最初の年・最後の年）。ID だけ
     notices: [
       ...mergeProjected([...state.notices.values()]),
       ...invested.notices,
-      ...[...state.extended.entries()].map(([ref, r]) => ({ code: "N_PARAM_EXTENDED", ids: [ref, String(r.first), String(r.last)] })),
+      ...[...state.extended.entries()].map(([key, r]) =>
+        key.startsWith(BACKFILLED)
+          ? { code: "N_PARAM_BACKFILLED", ids: [key.slice(BACKFILLED.length), String(r.first), String(r.last)] }
+          : { code: "N_PARAM_EXTENDED", ids: [key, String(r.first), String(r.last)] },
+      ),
     ].sort((a, b) => cmp(`${a.code}|${a.ids.join(",")}`, `${b.code}|${b.ids.join(",")}`)) as unknown as Json[],
   };
   // undefined の欄を除くのは見出しと根拠の記録だけ（お金の動き・年ごとの行・表は部品と上の集計が欄を省いて作り、JSON にしたときも同じ）

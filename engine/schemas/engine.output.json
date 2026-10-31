@@ -504,7 +504,8 @@
         "ref": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9.]*@[0-9]+$" },
         "value": true,
         "packVersion": { "type": "string" },
-        "extended": { "description": "延長の仮定で使った（0007 の追記）", "const": true }
+        "extended": { "description": "延長の仮定で使った（0007 の追記）", "const": true },
+        "backfilled": { "description": "さかのぼりの仮定で使った（制度データが持っている時期より前の日に最初の行の値。0099）", "const": true }
       }
     },
     "traceSummary": {
@@ -566,7 +567,8 @@
                   "appliesFrom": { "type": "string" },
                   "appliesTo": { "type": ["string", "null"] },
                   "sources": { "type": "array" },
-                  "extended": { "const": true }
+                  "extended": { "const": true },
+                  "backfilled": { "const": true }
                 }
               },
               {
