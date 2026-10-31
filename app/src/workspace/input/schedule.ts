@@ -5,7 +5,7 @@
 import type { Household, PeriodicExpense } from "../../engine/types.ts";
 import { addMonths, ageReachedMonth, parseYm } from "../levers.ts";
 import { schoolEntryYear } from "../present.ts";
-import { ageInYear, roles } from "../roles.ts";
+import { ageInYear, presentInYear, roles } from "../roles.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { memberLabel } from "./labels.ts";
@@ -135,9 +135,9 @@ export function overlapYears(items: readonly ScheduleItem[]): { year: number; na
     .map(([year, names]) => ({ year, names: [...names, ...items.filter((x) => x.year === year && x.dir === "—" && x.name.includes("入学")).map((x) => x.name)] }));
 }
 
-/** 予定の行の見出し（「2034年（本人52歳・配偶者50歳）」） */
+/** 予定の行の見出し（「2034年（本人52歳・配偶者50歳）」。結婚の予定の配偶者は加わる年から） */
 export function yearLabel(wh: WorkingHousehold, year: number): string {
-  const rs = roles(wh.request).filter((r) => r.member.kind === "self" || r.member.kind === "spouse");
+  const rs = roles(wh.request).filter((r) => (r.member.kind === "self" || r.member.kind === "spouse") && presentInYear(r, year));
   const ages = rs.map((r) => `${r.label}${ageInYear(r.member, year)}歳`);
   return ages.length === 0 ? `${year}年` : `${year}年（${ages.join("・")}）`;
 }

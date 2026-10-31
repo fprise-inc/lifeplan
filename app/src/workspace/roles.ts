@@ -10,18 +10,20 @@ export interface Role {
   member: Member;
   /** 世帯から抜ける月（独立など。年齢・出来事で決めた時点も解いた年月）。抜けない人は null */
   leaves: string | null;
+  /** 世帯に加わる月（結婚の予定・これから生まれる子など。年齢・出来事で決めた時点も解いた年月）。最初からいる人は null */
+  joins: string | null;
 }
 
 export function roles(req: EngineRequest): Role[] {
   const h = req.input.household;
-  return rolesOf(req).map((r) => ({ ...r, leaves: resolveTimepoint(h, r.member.leaves) }));
+  return rolesOf(req).map((r) => ({ ...r, leaves: resolveTimepoint(h, r.member.leaves), joins: resolveTimepoint(h, r.member.joins) }));
 }
 
-function rolesOf(req: EngineRequest): Omit<Role, "leaves">[] {
+function rolesOf(req: EngineRequest): Omit<Role, "leaves" | "joins">[] {
   const ms = req.input.household.members;
   const self = ms.find((m) => m.kind === "self");
   const spouse = ms.find((m) => m.kind === "spouse");
-  const out: Omit<Role, "leaves">[] = [];
+  const out: Omit<Role, "leaves" | "joins">[] = [];
   if (self !== undefined) out.push({ key: "self", label: "ご本人", member: self });
   if (spouse !== undefined) out.push({ key: "spouse", label: "配偶者", member: spouse });
   const children = ms.filter((m) => m.kind === "child").sort((a, b) => (a.birth.birthYearMonth < b.birth.birthYearMonth ? -1 : 1));
@@ -47,4 +49,14 @@ export function ageInYear(m: Member, year: number): number {
 export function leaveYear(r: Role | Member): number | null {
   const at = "member" in r ? r.leaves : resolveTimepoint({ members: [r], events: [] }, r.leaves);
   return at === null ? null : parseYm(at).y;
+}
+
+/**
+ * その年に世帯にいるか（年齢を出すか）: 生まれていて、加わる年より後でなく、抜ける年より前でない。
+ * 加わる年・抜ける年は、月が年の途中でもその年を含める（年齢は各年12月末の年齢）。結婚の予定の配偶者は加わる年から出す
+ */
+export function presentInYear(r: Role, y: number): boolean {
+  const leave = leaveYear(r);
+  const join = r.joins === null ? null : parseYm(r.joins).y;
+  return ageInYear(r.member, y) >= 0 && (join === null || y >= join) && (leave === null || y <= leave);
 }
