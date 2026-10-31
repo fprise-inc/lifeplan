@@ -242,8 +242,8 @@ describe("入れられない値は、欄の近くに理由を言葉で出す", (
       fieldOf(wh, "housing", "/bonus"),
     ];
     for (const f of fields) {
-      expect(rejectReason(f, "120"), f.key).toBe("0%〜100%の範囲で入れてください");
-      expect(rejectReason(f, "-5"), f.key).toBe("0%〜100%の範囲で入れてください");
+      expect(rejectReason(f, "120"), f.key).toBe("100%より大きい値は設定できません。");
+      expect(rejectReason(f, "-5"), f.key).toBe("0%より小さい値は設定できません。");
       expect(rejectReason(f, "100"), f.key).toBeNull();
       expect(rejectReason(f, "0"), f.key).toBeNull();
       expect(rejectReason(f, "37.5"), f.key).toBeNull();

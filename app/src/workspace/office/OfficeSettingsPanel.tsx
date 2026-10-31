@@ -12,7 +12,8 @@ import { LEVER_KINDS, startsWith, withStart, type LeverKind } from "../plans/lev
 import { HORIZON_KINDS, PROTECTION_METHODS } from "../contingency/inputs.ts";
 import { normalProtection, OPEN_SCENES, PREMISE_KINDS, premiseStarts, SCENE_KINDS, sceneShown, withPremiseStart, type OpenScene, type PremiseKind, type ProtectionSetting } from "../contingency/premiseChoice.ts";
 import type { ScenarioKind } from "../contingency/requests.ts";
-import { rangeText } from "../input/rateRanges.ts";
+import { outOfRangeText, rangeText, type PctRange } from "../input/rateRanges.ts";
+import { rateFromPct } from "../input/units.ts";
 import { ASSUMPTION_LABELS, ASSUMPTION_RANGES, DEFAULT_OFFICE_SETTINGS, FEE_MAX, FEE_STEP_YEAR_MAX, layoutOf, OFFICE_ASSUMPTIONS, type FeeTable, type OfficeAssumption, type OfficeSettings } from "./settings.ts";
 import { revealAdded } from "../../presentation/revealAdded.ts";
 
@@ -163,15 +164,25 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
       setBusy(false);
     }
   };
-  const pct = (key: string, lbl: string, placeholder: string, note: string) => (
-    <label class="os-pct" key={key}>
-      <span>{lbl}</span>
-      <span class="os-in">
-        <input inputMode="decimal" value={texts[key] ?? ""} placeholder={placeholder} aria-invalid={bad.includes(key)} onInput={(e) => setTexts({ ...texts, [key]: (e.currentTarget as HTMLInputElement).value })} data-office-setting={key} />%
-      </span>
-      <small>{note}</small>
-    </label>
-  );
+  const pct = (key: string, lbl: string, placeholder: string, note: string, range?: PctRange) => {
+    // 範囲の外の数を入れたら、欄の下に越えた側の端を出す（「15%より大きい値は設定できません。」。入力の画面の欄と同じ。0098）
+    const r = range === undefined ? null : rateFromPct((texts[key] ?? "").trim().replace(/[％%]$/, ""));
+    const over = range === undefined || r === null ? null : outOfRangeText(r, range);
+    return (
+      <label class="os-pct" key={key}>
+        <span>{lbl}</span>
+        <span class="os-in">
+          <input inputMode="decimal" value={texts[key] ?? ""} placeholder={placeholder} aria-invalid={bad.includes(key)} onInput={(e) => setTexts({ ...texts, [key]: (e.currentTarget as HTMLInputElement).value })} data-office-setting={key} />%
+        </span>
+        {over !== null ? (
+          <span class="fld-help bad" role="alert" data-office-setting-problem={key}>
+            {over}
+          </span>
+        ) : null}
+        <small>{note}</small>
+      </label>
+    );
+  };
   return (
     <>
       <div class="scrim" aria-hidden="true" onClick={onClose} />
@@ -407,7 +418,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
         <section class="os-sec" aria-labelledby="os-assume">
           <h3 id="os-assume">前提条件の標準値</h3>
           <div class="os-grid">
-            {OFFICE_ASSUMPTIONS.map((k) => pct(k, ASSUMPTION_LABELS[k], STANDARD_PCT[k], `空欄は FPライズの標準（${STANDARD_PCT[k]}%。仮の値）。${rangeText(ASSUMPTION_RANGES[k])}`))}
+            {OFFICE_ASSUMPTIONS.map((k) => pct(k, ASSUMPTION_LABELS[k], STANDARD_PCT[k], `空欄は FPライズの標準（${STANDARD_PCT[k]}%。仮の値）。${rangeText(ASSUMPTION_RANGES[k])}`, ASSUMPTION_RANGES[k]))}
             {pct("realEstateRatio", "相続税の目安: 不動産の評価の割合（時価に掛ける）", "80", "空欄は時価の80%")}
           </div>
           <p class="pl-sub">長い期間の平均の目安です。根拠（出典・期間）は事務所で確かめてください。商品のおすすめではありません。</p>
@@ -475,7 +486,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
             万一のあとも続ける
           </label>
         </section>
-        {bad.length > 0 ? <p class="fatal">数で入れてください（前提は欄の下の範囲〔物価・賃金は -10〜10%、運用利回りは -10〜20%、年金の調整率は 0〜5%〕、評価の割合は 0〜100%、料金表の額は円、段階は2〜{FEE_STEP_YEAR_MAX}年目で重ならないように、必要保障額の年齢は 50〜110歳）。</p> : null}
+        {bad.length > 0 ? <p class="fatal">数で入れてください（前提は欄の下の範囲〔物価・賃金は -10〜10%、運用利回りは -10〜15%、年金の調整率は 0〜5%〕、評価の割合は 0〜100%、料金表の額は円、段階は2〜{FEE_STEP_YEAR_MAX}年目で重ならないように、必要保障額の年齢は 50〜110歳）。</p> : null}
         {msg !== null ? (
           <p class={msg.ok ? "rp-note" : "fatal"} role="status" data-office-settings-msg>
             {msg.text}

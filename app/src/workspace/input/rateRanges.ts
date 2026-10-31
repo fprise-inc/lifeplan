@@ -1,5 +1,5 @@
 // 率の欄の範囲（0098）。min・max はパーセントの値（割合の欄の min・max と同じ形。form.ts の FieldDef）。
-// 範囲の外の値は欄に書かず、欄の下に範囲を出す（FieldViews.tsx の rejectReason）。古い世帯・取り込んだ世帯に範囲の外の値が
+// 範囲の外の値は欄に書かず（前の値のまま）、欄の下に「15%より大きい値は設定できません。」のように出す（FieldViews.tsx の rejectReason）。古い世帯・取り込んだ世帯に範囲の外の値が
 // 入っていたら、値は変えずに計算し、欄と確かめの一覧に知らせを出して「範囲の端にする」で直せるようにする（form.ts の field）
 import { cmpRate } from "../plans/decimal.ts";
 import { rateFromPct } from "./units.ts";
@@ -44,4 +44,17 @@ export function rangeText(r: { min?: number | undefined; max?: number | undefine
   if (r.min !== undefined && r.max !== undefined) return `${r.min}%〜${r.max}%`;
   if (r.min !== undefined) return `${r.min}%以上`;
   return `${r.max ?? ""}%以下`;
+}
+
+/**
+ * 入れようとした率が範囲の外のときの知らせ（「15%より大きい値は設定できません。」「-10%より小さい値は設定できません。」）。
+ * 範囲の中・読めない率は null（読めない文字の知らせは欄の側で出す。0098）
+ */
+export function outOfRangeText(rate: string, r: { min?: number | undefined; max?: number | undefined }): string | null {
+  if (!/^-?\d+(\.\d+)?$/.test(rate)) return null;
+  const lo = r.min === undefined ? null : rateFromPct(String(r.min));
+  const hi = r.max === undefined ? null : rateFromPct(String(r.max));
+  if (hi !== null && cmpRate(rate, hi) > 0) return `${r.max}%より大きい値は設定できません。`;
+  if (lo !== null && cmpRate(rate, lo) < 0) return `${r.min}%より小さい値は設定できません。`;
+  return null;
 }

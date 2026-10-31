@@ -3,6 +3,8 @@
 // 古い世帯に入っていた範囲の外の値は値を変えずに知らせて押したときだけ直す・つまみ・AIの候補・事務所の既定値も同じ範囲
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
+import { h } from "preact";
+import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
 import type { AiCandidate } from "../src/engine/host.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
@@ -14,10 +16,10 @@ import { checkList } from "../src/workspace/input/checkRows.ts";
 import { rejectReason } from "../src/workspace/input/FieldViews.tsx";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
-import { FEE_RANGE, GROWTH_RANGE, rangeText, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../src/workspace/input/rateRanges.ts";
+import { FEE_RANGE, GROWTH_RANGE, outOfRangeText, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../src/workspace/input/rateRanges.ts";
 import { buildStage, buildStages } from "../src/workspace/input/stages/index.ts";
-import { pctToRate } from "../src/workspace/office/OfficeSettingsPanel.tsx";
-import { ASSUMPTION_RANGES } from "../src/workspace/office/settings.ts";
+import { OfficeSettingsPanel, pctToRate } from "../src/workspace/office/OfficeSettingsPanel.tsx";
+import { ASSUMPTION_RANGES, DEFAULT_OFFICE_SETTINGS } from "../src/workspace/office/settings.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { modelHousehold, preview } from "./helpers.ts";
@@ -87,7 +89,7 @@ function widened(id: string): EngineRequest {
 }
 
 describe("率の欄の範囲（0098）", () => {
-  it("利回り・上昇率・変化率の欄は、範囲の外の値（999%・-100% など）を入れられず、欄の下に範囲を出す", () => {
+  it("利回り・上昇率・変化率の欄は、範囲の外の値（999%・-100% など）を入れられず、欄の下に越えた側の端を出す（「15%より大きい値は設定できません。」）", () => {
     const found = new Map<string, number>();
     for (const id of IDS) {
       const wh = fromRequest(widened(id));
@@ -98,12 +100,13 @@ describe("率の欄の範囲（0098）", () => {
         if (range === undefined) continue;
         const name = ex !== null ? `例外の年（${ex[1]}）` : f.label;
         found.set(name, (found.get(name) ?? 0) + 1);
-        const msg = `${rangeText(range)}の範囲で入れてください`;
+        const over = `${range.max}%より大きい値は設定できません。`;
+        const under = `${range.min}%より小さい値は設定できません。`;
         expect([f.min, f.max], `${id} ${f.key}`).toEqual([range.min, range.max]);
-        expect(rejectReason(f, "999"), f.key).toBe(msg);
-        expect(rejectReason(f, "-100"), f.key).toBe(msg);
-        expect(rejectReason(f, String(range.max + 0.5)), f.key).toBe(msg);
-        expect(rejectReason(f, String(range.min - 0.5)), f.key).toBe(msg);
+        expect(rejectReason(f, "999"), f.key).toBe(over);
+        expect(rejectReason(f, "-100"), f.key).toBe(under);
+        expect(rejectReason(f, String(range.max + 0.5)), f.key).toBe(over);
+        expect(rejectReason(f, String(range.min - 0.5)), f.key).toBe(under);
         expect(rejectReason(f, String(range.max)), f.key).toBeNull();
         expect(rejectReason(f, String(range.min)), f.key).toBeNull();
       }
@@ -230,5 +233,28 @@ describe("率の欄の範囲（0098）", () => {
     expect(at("investmentReturn", "16")).toBeUndefined();
     expect(at("pensionMacroSlide", "-0.1")).toBeUndefined();
     expect(at("pensionMacroSlide", "5")).toBe("0.05");
+  });
+
+  it("範囲の外の率の知らせは、越えた側の端を言う（上なら「より大きい」、下なら「より小さい」）", () => {
+    expect(outOfRangeText("0.16", RETURN_RANGE)).toBe("15%より大きい値は設定できません。");
+    expect(outOfRangeText("9.99", RETURN_RANGE)).toBe("15%より大きい値は設定できません。");
+    expect(outOfRangeText("0.105", GROWTH_RANGE)).toBe("10%より大きい値は設定できません。");
+    expect(outOfRangeText("-0.11", RETURN_RANGE)).toBe("-10%より小さい値は設定できません。");
+    expect(outOfRangeText("-1", GROWTH_RANGE)).toBe("-10%より小さい値は設定できません。");
+    expect(outOfRangeText("0.06", SLIDE_RANGE)).toBe("5%より大きい値は設定できません。");
+    expect(outOfRangeText("-0.001", FEE_RANGE)).toBe("0%より小さい値は設定できません。");
+    // 端の値・範囲の中・読めない率は知らせない
+    expect(outOfRangeText("0.15", RETURN_RANGE)).toBeNull();
+    expect(outOfRangeText("-0.1", RETURN_RANGE)).toBeNull();
+    expect(outOfRangeText("0.03", GROWTH_RANGE)).toBeNull();
+    expect(outOfRangeText("abc", RETURN_RANGE)).toBeNull();
+  });
+
+  it("事務所の既定値の前提条件の欄も、範囲の外の数なら欄の下に同じ知らせを出す（保存はできない）", () => {
+    const html = renderToString(h(OfficeSettingsPanel, { value: { ...DEFAULT_OFFICE_SETTINGS, assumptions: { investmentReturn: "0.2", wageGrowth: "-0.12", inflation: "0.02" } }, onSave: async () => undefined, shared: false, onClose: () => undefined }));
+    expect(html).toMatch(/data-office-setting-problem="investmentReturn"[^>]*>15%より大きい値は設定できません。</);
+    expect(html).toMatch(/data-office-setting-problem="wageGrowth"[^>]*>-10%より小さい値は設定できません。</);
+    expect(html).not.toContain('data-office-setting-problem="inflation"');
+    expect(html).toContain("運用利回りは -10〜15%");
   });
 });

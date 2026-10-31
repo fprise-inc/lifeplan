@@ -14,7 +14,7 @@ import { groupShown, type ActionDef, type FieldDef, type GroupDef, type Level, t
 import type { WorkingHousehold } from "./household.ts";
 import { availableOps, fieldStatus, FILL_LABEL, fillTitle, OP_LABELS, OP_TITLES, STATUS_LABELS, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
-import { rangeText, rateInRange } from "./rateRanges.ts";
+import { outOfRangeText, rateInRange } from "./rateRanges.ts";
 import { revealAdded, revealOpened } from "../../presentation/revealAdded.ts";
 import { convertWhen, modeOf, parseWhen, readWhen, readYearMonth, showWhen, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 
@@ -652,7 +652,8 @@ export function rejectReason(f: FieldDef, text: string, unit: YenUnit = "man"): 
     case "pct": {
       const r = rateFromPct(text);
       if (r === null) return "数字で入れてください（例: 1.5）";
-      return pctInRange(f, r) ? null : `${rangeText(f)}の範囲で入れてください`;
+      // 範囲の外は、越えた側の端を出す（「15%より大きい値は設定できません。」。0098）
+      return pctInRange(f, r) ? null : (outOfRangeText(r, f) ?? "この値は入れられません");
     }
     case "decimal":
       return /^\d+(\.\d+)?$/.test(t) ? null : "0 以上の数字で入れてください";
