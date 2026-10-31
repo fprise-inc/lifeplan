@@ -2032,13 +2032,19 @@ entries:
     replacedBy: null
   - id: living.statistics.basicMonthly
     status: active
-    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の消費支出から、住居・教育・自動車等関係費を除いた額（upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の消費支出から、住居・教育・自動車等関係費・家庭用耐久財・仕送り金を除いた額（upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
     since: draft
     aliases: []
     replacedBy: null
   - id: living.statistics.categoryMonthly.clothing
     status: active
-    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の被服及び履物（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の被服及び履物と理美容サービス・理美容用品の合計（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: living.statistics.categoryMonthly.communication
+    status: active
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の通信（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
     since: draft
     aliases: []
     replacedBy: null
@@ -2050,7 +2056,7 @@ entries:
     replacedBy: null
   - id: living.statistics.categoryMonthly.furniture
     status: active
-    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の家具・家事用品（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の家具・家事用品から家庭用耐久財を除いた額（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
     since: draft
     aliases: []
     replacedBy: null
@@ -2060,15 +2066,33 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: living.statistics.categoryMonthly.other
+    status: active
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月のその他の消費支出から、理美容サービス・理美容用品・こづかい（使途不明）・交際費・仕送り金を除いた額（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: living.statistics.categoryMonthly.otherConsumption
     status: active
     label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月のその他の消費支出（仕送り金を含む）（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
     since: draft
     aliases: []
     replacedBy: null
+  - id: living.statistics.categoryMonthly.pocketAndSocial
+    status: active
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月のこづかい（使途不明）と交際費の合計（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: living.statistics.categoryMonthly.recreation
     status: active
     label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の教養娯楽（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: living.statistics.categoryMonthly.transit
+    status: active
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の交通（自動車等関係費・通信を除く）（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
     since: draft
     aliases: []
     replacedBy: null

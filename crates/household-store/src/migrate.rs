@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.42";
+pub const CURRENT: &str = "0.43";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -135,11 +135,15 @@ pub const CURRENT: &str = "0.42";
 ///   知らずに計算できないので、版を上げて閲覧だけにする）。前の版の段は書き換えない
 /// - 0.42: 教育の段の種類に高専 `stage: kosen`・専門職大学院 `graduateProfessional`、系統に法科大学院 `field: law` を足した（0090。選べる値を
 ///   足すだけの MINOR。前の版のエンジンはこの値を知らずに計算できないので、版を上げて閲覧だけにする）。前の版の段は書き換えない
+/// - 0.43: 基本生活費の内訳に通信費 `communication`・交通費 `transit`・こづかいと交際費 `pocketAndSocial`・その他 `other` を足し（0100。選べる値を
+///   足すだけの MINOR。前の版の内訳の交通・通信 `transport` とその他の消費 `otherConsumption` は書き換えない）、基本生活費の入力項目から「わからない」を
+///   なくした。変換の段は、基本生活費（`livingExpenses`）と年払い・数年おきの暮らしの支出（`periodicExpenses` の種類 `livingAnnual`）の「わからない」を
+///   推定にし、内訳の束の合計を動かしたプランの差分（`livingGroupDaily`・`livingGroupMisc`）を代表の内訳の差分にする
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
-    "0.38", "0.39", "0.40", "0.41", "0.42",
+    "0.38", "0.39", "0.40", "0.41", "0.42", "0.43",
 ];
 
 /// 1段分の変換
@@ -355,6 +359,11 @@ pub const STEPS: &[Step] = &[
         from: "0.41",
         to: "0.42",
         apply: v0_41_to_0_42,
+    },
+    Step {
+        from: "0.42",
+        to: "0.43",
+        apply: v0_42_to_0_43,
     },
 ];
 
@@ -941,6 +950,272 @@ fn v0_41_to_0_42(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// わからないにしたとき、前に入っていた確定の値を代わりにした印（画面の valueState.ts の PREVIOUS_VALUE と同じ）
+const PREVIOUS_VALUE: &str = "前に入っていた値を代わりに使う";
+
+/// 基本生活費の「わからない」の値の箱を推定の箱にする（0100）。変えたら true
+/// - 代わりの値が自動の推定（統計・按分・ひな形の目安）なら、その推定の箱にする（値は同じ。推定の入れ直しの対象になる）
+/// - 代わりの値が FP の入れた値（前に入っていた値・自動でない値）なら、その値のまま推定の印を付ける（出どころ manual。入れ直さないので結果は黙って変わらない）
+fn living_unknown_box(b: &mut Value) -> bool {
+    let Some(o) = b.as_object() else {
+        return false;
+    };
+    if o.get("state").and_then(Value::as_str) != Some("unknown") {
+        return false;
+    }
+    let Some(sub) = o.get("substitute").filter(|s| s.is_object()) else {
+        return false;
+    };
+    let Some(value) = sub.get("value").filter(|v| !v.is_null()).cloned() else {
+        return false;
+    };
+    let method = sub["estimate"]["method"]
+        .as_str()
+        .unwrap_or("standard")
+        .to_string();
+    let basis = sub["estimate"]["basis"].as_str().unwrap_or("").to_string();
+    let auto = sub["origin"]["kind"] == "auto" && basis != PREVIOUS_VALUE && !basis.is_empty();
+    let approval = o.get("approval").cloned();
+    let mut next = if auto {
+        let mut s = sub.clone();
+        s["state"] = "estimated".into();
+        s
+    } else {
+        let note = if basis.is_empty() || basis == PREVIOUS_VALUE {
+            "「わからない」の代わりに使っていた値（前に入っていた値）".to_string()
+        } else {
+            format!("「わからない」の代わりに使っていた値（{basis}）")
+        };
+        serde_json::json!({
+            "value": value,
+            "state": "estimated",
+            "origin": {"kind": "manual"},
+            "estimate": {"method": method, "basis": note},
+        })
+    };
+    // 承認の記録（ヒアリングの候補を承認した物）は残す
+    if let (Some(a), Some(n)) = (approval, next.as_object_mut()) {
+        n.insert("approval".into(), a);
+    }
+    *b = next;
+    true
+}
+
+/// 物の中の「わからない」をすべて推定にする（値の箱は living_unknown_box、値の状態の行〔valueStates〕は状態だけを推定に）。変えた数を返す
+fn living_unknowns_in(v: &mut Value) -> usize {
+    let mut n = 0;
+    match v {
+        Value::Object(o) => {
+            if let Some(states) = o.get_mut("valueStates").and_then(Value::as_object_mut) {
+                for row in states.values_mut() {
+                    if row.get("state").and_then(Value::as_str) == Some("unknown") {
+                        row["state"] = "estimated".into();
+                        n += 1;
+                    }
+                }
+            }
+            for (k, x) in o.iter_mut() {
+                if k == "valueStates" {
+                    continue;
+                }
+                if living_unknown_box(x) {
+                    n += 1;
+                } else {
+                    n += living_unknowns_in(x);
+                }
+            }
+        }
+        Value::Array(a) => {
+            for x in a {
+                if living_unknown_box(x) {
+                    n += 1;
+                } else {
+                    n += living_unknowns_in(x);
+                }
+            }
+        }
+        _ => {}
+    }
+    n
+}
+
+/// プランの差分の値（箱、または箱でない値の状態つきの形）の「わからない」を推定にする。変えたら true
+fn living_unknown_diff_value(v: &mut Value) -> bool {
+    if living_unknown_box(v) {
+        return true;
+    }
+    // 箱でない値（段の割合など）の差分の値: 値と状態の行を1つにした形。代わりの値は無く、根拠は estimate に持つ
+    if v.get("state").and_then(Value::as_str) == Some("unknown") && v.get("substitute").is_none() {
+        v["state"] = "estimated".into();
+        return true;
+    }
+    false
+}
+
+/// 内訳の束の合計の合成の対策（0048 の2。束は 0100 でなくした）: 束の名前 → 差を置く代表の内訳と、束のほかの内訳
+const LIVING_BUNDLES: &[(&str, &str, &[&str])] = &[
+    ("livingGroupDaily", "furniture", &["clothing"]),
+    (
+        "livingGroupMisc",
+        "otherConsumption",
+        &["health", "allowance"],
+    ),
+];
+
+/// 束の合計を動かしたプランの差分を、代表の内訳の月額の差分にする（束の直し方と同じ: 代表＝束の合計−ほかの内訳の今の値。ほかの内訳は現状の値で数える）。
+/// 代表の内訳が現状に無いときは変えない（プランの一覧の「要確認」に読み替えられない差分として出る）
+fn living_bundle_diff(d: &mut Value, livings: &[Value]) -> bool {
+    let Some(lever) = d["target"]["lever"].as_str() else {
+        return false;
+    };
+    let Some((_, rep, others)) = LIVING_BUNDLES.iter().find(|(k, _, _)| *k == lever) else {
+        return false;
+    };
+    let Some(object) = d["target"]["object"].as_str().map(str::to_string) else {
+        return false;
+    };
+    let Some(l) = livings.iter().find(|l| l["id"] == object.as_str()) else {
+        return false;
+    };
+    let cats: Vec<&Value> = l["categories"]
+        .as_array()
+        .map(|a| a.iter().collect())
+        .unwrap_or_default();
+    let Some(rep_el) = cats.iter().find(|c| c["category"] == *rep) else {
+        return false;
+    };
+    let Some(rep_id) = rep_el["id"].as_str() else {
+        return false;
+    };
+    let mut value = d["value"].clone();
+    living_unknown_box(&mut value);
+    let Some(total) = value.get("value").and_then(Value::as_f64) else {
+        return false;
+    };
+    let rest: f64 = cats
+        .iter()
+        .filter(|c| others.iter().any(|o| c["category"] == *o))
+        .filter_map(|c| box_number(&c["monthly"]))
+        .sum();
+    // 円の金額（整数）
+    value["value"] = Value::from((total - rest).max(0.0).round() as i64);
+    d["target"] = serde_json::json!({ "object": object });
+    d["item"] = "livingExpense.categories".into();
+    d["at"] = serde_json::json!([rep_id, "monthly"]);
+    d["value"] = value;
+    d["before"] = rep_el["monthly"].clone();
+    true
+}
+
+/// 0.42 → 0.43: 基本生活費の内訳の分け直し（0100）。
+/// - 内訳に足した値（通信費・交通費・こづかいと交際費・その他）は選べる値が増えただけ。前の版の内訳（交通・通信・その他の消費）は書き換えない
+/// - 基本生活費の物（`livingExpenses[]`）と、年払い・数年おきの暮らしの支出（`periodicExpenses[]` の種類 `livingAnnual`）の中の「わからない」を推定にする
+///   （値の箱は living_unknown_box、値の状態の行は状態だけを推定に。値は変えない）
+/// - プランの差分: 基本生活費の入力項目（`livingExpense.*`）・livingAnnual の行を向き先にする差分の値と前の値、足す物の中の「わからない」も同じく推定にする。
+///   束の合計の合成の対策（`livingGroupDaily`・`livingGroupMisc`）は代表の内訳の差分にする
+/// - 控え（`snapshots`）・ヒアリングの記録の中身は変えない
+/// - 「わからない」を推定にした物があれば、開いたときの知らせ `{"kind": "livingUnknown", "count": 現状で変えた数, "plans": プランの差分を変えた数}` を足す
+fn v0_42_to_0_43(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    let mut count = 0usize;
+    let mut annual: Vec<String> = Vec::new();
+    let mut livings: Vec<Value> = Vec::new();
+    if let Some(h) = obj
+        .get_mut("household")
+        .and_then(|h| h.get_mut("request"))
+        .and_then(|r| r.get_mut("input"))
+        .and_then(|i| i.get_mut("household"))
+        .and_then(Value::as_object_mut)
+    {
+        if let Some(list) = h.get_mut("livingExpenses").and_then(Value::as_array_mut) {
+            for l in list.iter_mut() {
+                count += living_unknowns_in(l);
+            }
+            livings = list.clone();
+        }
+        if let Some(list) = h.get_mut("periodicExpenses").and_then(Value::as_array_mut) {
+            for p in list.iter_mut().filter(|p| p["kind"] == "livingAnnual") {
+                if let Some(id) = p["id"].as_str() {
+                    annual.push(id.to_string());
+                }
+                count += living_unknowns_in(p);
+            }
+        }
+    }
+    let mut plans = 0usize;
+    if let Some(list) = obj.get_mut("proposals").and_then(Value::as_array_mut) {
+        for plan in list {
+            let Some(diffs) = plan.get_mut("diffs").and_then(Value::as_array_mut) else {
+                continue;
+            };
+            // このプランで足した年払いの行も向き先に数える
+            let mut rows = annual.clone();
+            for d in diffs.iter() {
+                if d["op"] == "add"
+                    && d["target"]["collection"] == "periodicExpense"
+                    && d["value"]["kind"] == "livingAnnual"
+                {
+                    if let Some(id) = d["value"]["id"].as_str() {
+                        rows.push(id.to_string());
+                    }
+                }
+            }
+            for d in diffs.iter_mut() {
+                let item = d["item"].as_str().unwrap_or("").to_string();
+                let target = d["target"]["object"].as_str().unwrap_or("").to_string();
+                let op = d["op"].as_str().unwrap_or("").to_string();
+                let mut changed = false;
+                if living_bundle_diff(d, &livings) {
+                    // 束の合計の差分は値の意味が変わらない（代表の内訳に置き直しただけ）ので、知らせの数には入れない
+                    continue;
+                }
+                let living = item.starts_with("livingExpense.")
+                    || (item.starts_with("periodicExpense.") && rows.contains(&target));
+                if op == "add" {
+                    let added = (d["target"]["collection"] == "livingExpense")
+                        || (d["target"]["collection"] == "periodicExpense"
+                            && d["value"]["kind"] == "livingAnnual")
+                        || living;
+                    if added
+                        && d.get_mut("value")
+                            .is_some_and(|v| living_unknowns_in(v) > 0 || living_unknown_box(v))
+                    {
+                        changed = true;
+                    }
+                } else if op == "set" && living {
+                    for k in ["value", "before"] {
+                        if d.get_mut(k).is_some_and(living_unknown_diff_value) && k == "value" {
+                            changed = true;
+                        }
+                    }
+                }
+                if changed {
+                    plans += 1;
+                }
+            }
+        }
+    }
+    if count > 0 || plans > 0 {
+        if let Some(screen) = obj.get_mut("household").and_then(Value::as_object_mut) {
+            let list = screen
+                .entry("notices")
+                .or_insert_with(|| Value::Array(Vec::new()));
+            if let Some(list) = list.as_array_mut() {
+                list.push(serde_json::json!({
+                    "id": readings::migration_id(&format!("notices/livingUnknown/{count}/{plans}")),
+                    "kind": "livingUnknown",
+                    "count": count,
+                    "plans": plans,
+                }));
+            }
+        }
+    }
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.43".into());
+    }
+    Ok(body)
+}
+
 /// 0.17 で ID を振る並び（物の集まり → その物から並びまでの欄の名前。0035 の5）
 const ELEMENT_LISTS: &[(&str, &[&[&str]])] = &[
     ("livingExpenses", &[&["stages"], &["categories"]]),
@@ -1478,7 +1753,8 @@ mod tests {
         assert_eq!(access("0.40").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.41").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.42").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.43").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.43").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.44").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -1491,7 +1767,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.43", b.clone()).unwrap(),
+            upgrade("0.44", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -1512,6 +1788,104 @@ mod tests {
     }
 
     #[test]
+    fn v0_42_to_0_43_turns_living_unknowns_into_estimates() {
+        let stat = serde_json::json!({"value": 235000, "state": "estimated", "origin": {"kind": "auto"}, "estimate": {"method": "statistic", "basis": "家計調査"}});
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.42"},
+            "household": {"request": {"input": {"household": {
+                "livingExpenses": [{
+                    "id": "l1", "mode": "byCategory",
+                    "monthly": {"state": "unknown", "origin": {"kind": "manual"}, "substitute": stat},
+                    "categories": [
+                        {"id": "c1", "category": "transport", "monthly": {"state": "unknown", "origin": {"kind": "manual"}, "substitute": {"value": 30000, "state": "estimated", "origin": {"kind": "auto"}, "estimate": {"method": "standard", "basis": "前に入っていた値を代わりに使う"}}}},
+                        {"id": "c2", "category": "otherConsumption", "monthly": {"value": 50000, "state": "confirmed", "origin": {"kind": "manual"}}},
+                        {"id": "c3", "category": "furniture", "monthly": {"value": 10000, "state": "confirmed", "origin": {"kind": "manual"}}},
+                        {"id": "c4", "category": "clothing", "monthly": {"value": 8000, "state": "confirmed", "origin": {"kind": "manual"}}}
+                    ],
+                    "stages": [{"id": "s1", "at": {"at": "2040-04"}, "ratio": "0.8"}],
+                    "valueStates": {"livingExpense.stages/s1/ratio": {"state": "unknown", "origin": {"kind": "manual"}, "estimate": {"method": "derived", "basis": "推定の段階"}}}
+                }],
+                "periodicExpenses": [
+                    {"id": "p1", "kind": "livingAnnual", "amount": {"state": "unknown", "origin": {"kind": "manual"}, "substitute": {"value": 100000, "state": "estimated", "origin": {"kind": "auto"}, "estimate": {"method": "standard", "basis": "よくある額の目安"}}}},
+                    {"id": "p2", "kind": "general", "amount": {"state": "unknown", "origin": {"kind": "manual"}, "substitute": {"value": 500000, "state": "estimated", "origin": {"kind": "auto"}, "estimate": {"method": "standard", "basis": "目安"}}}}
+                ],
+                "employmentPeriods": [{"id": "e1", "salary": {"annual": {"state": "unknown", "origin": {"kind": "manual"}, "substitute": {"value": 4000000, "state": "estimated", "origin": {"kind": "auto"}, "estimate": {"method": "statistic", "basis": "賃金"}}}}}]
+            }}}},
+            "proposals": [{"id": "P", "diffs": [
+                {"id": "d1", "op": "set", "target": {"lever": "livingMonthly"}, "item": "livingExpense.monthly", "at": [], "value": {"state": "unknown", "origin": {"kind": "manual"}, "substitute": {"value": 280000, "state": "estimated", "origin": {"kind": "auto"}, "estimate": {"method": "standard", "basis": "前に入っていた値を代わりに使う"}}}, "before": {"value": 235000, "state": "estimated", "origin": {"kind": "auto"}, "estimate": {"method": "statistic", "basis": "家計調査"}}},
+                {"id": "d2", "op": "set", "target": {"object": "l1"}, "item": "livingExpense.stages", "at": ["s1", "ratio"], "value": {"value": "0.7", "state": "unknown", "origin": {"kind": "manual"}, "estimate": {"method": "standard", "basis": "前に入っていた値を代わりに使う"}}},
+                {"id": "d3", "op": "set", "target": {"lever": "livingGroupDaily", "object": "l1"}, "item": "livingExpense.categories", "at": [], "value": {"value": 30000, "state": "confirmed", "origin": {"kind": "manual"}}, "before": null},
+                {"id": "d4", "op": "set", "target": {"object": "e1"}, "item": "employment.salary.annual", "at": [], "value": {"state": "unknown", "origin": {"kind": "manual"}, "substitute": {"value": 1, "state": "estimated", "origin": {"kind": "auto"}, "estimate": {"method": "standard", "basis": "前に入っていた値を代わりに使う"}}}}
+            ]}]
+        });
+        let u = upgrade("0.42", b).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.43");
+        let h = &u["household"]["request"]["input"]["household"];
+        let l = &h["livingExpenses"][0];
+        // 統計の代わりの値は、その推定の箱（値は同じ）
+        assert_eq!(
+            l["monthly"],
+            serde_json::json!({"value": 235000, "state": "estimated", "origin": {"kind": "auto"}, "estimate": {"method": "statistic", "basis": "家計調査"}})
+        );
+        // FP の前の値の代わりは、その値のまま推定の印（出どころ manual。入れ直さない）
+        assert_eq!(l["categories"][0]["monthly"]["value"], 30000);
+        assert_eq!(l["categories"][0]["monthly"]["state"], "estimated");
+        assert_eq!(l["categories"][0]["monthly"]["origin"]["kind"], "manual");
+        assert!(l["categories"][0]["monthly"]["estimate"]["basis"]
+            .as_str()
+            .unwrap()
+            .contains("「わからない」の代わりに使っていた値"));
+        // 前の版の内訳（交通・通信・その他の消費）の名前は書き換えない
+        assert_eq!(l["categories"][0]["category"], "transport");
+        assert_eq!(l["categories"][1]["monthly"]["state"], "confirmed");
+        // 段の割合の行は推定の行に
+        assert_eq!(
+            l["valueStates"]["livingExpense.stages/s1/ratio"]["state"],
+            "estimated"
+        );
+        // 年払い・数年おきの暮らしの支出だけ（ほかの種類の行・年収は変えない）
+        assert_eq!(h["periodicExpenses"][0]["amount"]["state"], "estimated");
+        assert_eq!(h["periodicExpenses"][0]["amount"]["value"], 100000);
+        assert_eq!(h["periodicExpenses"][1]["amount"]["state"], "unknown");
+        assert_eq!(
+            h["employmentPeriods"][0]["salary"]["annual"]["state"],
+            "unknown"
+        );
+        // プランの差分
+        let d = &u["proposals"][0]["diffs"];
+        assert_eq!(d[0]["value"]["state"], "estimated");
+        assert_eq!(d[0]["value"]["value"], 280000);
+        assert_eq!(d[0]["value"]["origin"]["kind"], "manual");
+        assert_eq!(d[1]["value"]["state"], "estimated");
+        assert_eq!(d[1]["value"]["value"], "0.7");
+        // 束の合計（日用品・衣服 30,000）は、代表の内訳（家具・家事用品）＝30,000−被服 8,000 の差分に
+        assert_eq!(d[2]["target"], serde_json::json!({"object": "l1"}));
+        assert_eq!(d[2]["at"], serde_json::json!(["c3", "monthly"]));
+        assert_eq!(d[2]["value"]["value"], 22000);
+        assert_eq!(d[2]["before"]["value"], 10000);
+        assert_eq!(d[3]["value"]["state"], "unknown");
+        // 開いたときの知らせ（現状 4件: 総額・内訳・段の割合・年払い。プラン 2件）
+        let n = u["household"]["notices"].as_array().unwrap();
+        assert_eq!(n.len(), 1);
+        assert_eq!(n[0]["kind"], "livingUnknown");
+        assert_eq!(n[0]["count"], 4);
+        assert_eq!(n[0]["plans"], 2);
+    }
+
+    #[test]
+    fn v0_42_to_0_43_without_unknowns_only_bumps_version() {
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.42"},
+            "household": {"request": {"input": {"household": {"livingExpenses": [
+                {"id": "l1", "mode": "total", "monthly": {"value": 264000, "state": "estimated", "origin": {"kind": "auto"}, "estimate": {"method": "statistic", "basis": "家計調査"}}}
+            ]}}}}
+        });
+        let u = upgrade("0.42", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.43");
+        assert_eq!(u["household"], b["household"]);
+    }
+
+    #[test]
     fn v0_41_to_0_42_only_bumps_version() {
         // 高専・専門職大学院の段・法科大学院の系統は選べる値が増えただけ。前の版の段は書き換えない
         let b = serde_json::json!({
@@ -1521,7 +1895,7 @@ mod tests {
             ]}}}}
         });
         let u = upgrade("0.41", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.42");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
     }
 

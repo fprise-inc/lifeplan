@@ -372,7 +372,7 @@ function thisMonth(): string {
 
 const nowIso = () => new Date().toISOString();
 /** 配信元のお知らせの関係する画面の、開くボタンの名前（世帯・事務所の知らせのボタンと同じ呼び方） */
-const SCREEN_LABEL: Record<"plans" | "work" | "family" | "storage" | "office" | "households" | "recovery", string> = { plans: "プランの一覧", work: "働き方と収入", family: "介護・親の項目", storage: "保存先", office: "事務所の共有", households: "世帯の一覧", recovery: "復元キー" };
+const SCREEN_LABEL: Record<"plans" | "work" | "family" | "living" | "storage" | "office" | "households" | "recovery", string> = { plans: "プランの一覧", work: "働き方と収入", family: "介護・親の項目", living: "基本生活費", storage: "保存先", office: "事務所の共有", households: "世帯の一覧", recovery: "復元キー" };
 
 const codeOf = (e: unknown) => (typeof e === "string" ? e : e instanceof Error ? e.message : "E_STORE");
 
@@ -1880,7 +1880,7 @@ export function App() {
   };
   /** 開いたときの知らせの「その画面を開く」: 扱う画面を開く（知らせは世帯から消さない。既読の印は手元に置く。0087 の4） */
   const openHouseholdNotice = (target: NoticeTarget) => {
-    if (target === "family" || target === "work") {
+    if (target === "family" || target === "work" || target === "living") {
       setTab("input");
       setCardOpen((c) => ({ id: target, n: (c?.n ?? 0) + 1 }));
     } else if (target === "plans") {
@@ -1915,7 +1915,7 @@ export function App() {
     void host?.office.status().then(setOfficeStatus, () => undefined);
     setStorageOpen("default");
   };
-  const noticeActions: Record<NoticeTarget, () => void> = { recovery: () => setRecovery("manage"), restore: () => setRecovery("restore"), storage: openStorage, office: openOffice, households: showHousehold, presence: toPresence, family: () => setTab("input"), work: () => setTab("input"), plans: () => setTab("main") };
+  const noticeActions: Record<NoticeTarget, () => void> = { recovery: () => setRecovery("manage"), restore: () => setRecovery("restore"), storage: openStorage, office: openOffice, households: showHousehold, presence: toPresence, family: () => setTab("input"), work: () => setTab("input"), living: () => setTab("input"), plans: () => setTab("main") };
   /** 手元の状態（既読の印・受付番号）を変えて、この PC のアプリのデータに書く（本体・開発用のサーバーが無いときは画面の中だけ） */
   const updateLocal = (f: (s: LocalState) => LocalState) => {
     const next = f(noticeLocalRef.current);

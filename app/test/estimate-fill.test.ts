@@ -41,10 +41,10 @@ describe("推定の欄の「この値にする」", () => {
     expect(html).toMatch(/<span class="fld-box"><input [^>]*class="num has-fill"[^>]*\/><button type="button" class="fld-fill inside"[^>]*data-op="confirm" data-fill-estimate="true">この値にする<\/button><\/span>/);
     expect(html).toContain('aria-label="基本生活費（月額）: 推定の値をこの欄にそのまま入れます（確定になります）"');
     expect(count(html, "この値にする")).toBe(1);
-    // ほかの操作は欄の下に、意味のある物だけを直接押せるリンクで（基本生活費は「わからない」だけ。開く形の「わからない・該当なしなど」は無い）
+    // ほかの操作は欄の下に、意味のある物だけを直接押せるリンクで（基本生活費は「わからない」も出さない。0100。開く形の「わからない・該当なしなど」は無い）
     expect(html).not.toContain("data-op-menu");
     expect(html).not.toContain("など");
-    expect(html).toMatch(/<div class="fld-ops"[^>]*><button type="button" class="link-btn"[^>]*data-op="unknown">わからない<\/button><\/div>/);
+    expect(html).not.toContain('data-op="unknown"');
     expect(count(html, "data-fill-estimate")).toBe(1);
   });
 
@@ -167,6 +167,8 @@ describe("基本生活費の総額の推定は千円単位（前に保存した�
     return wh;
   };
   const living = (wh: WorkingHousehold) => wh.request.input.household.livingExpenses![0]!;
+  /** 前の分け方の9費目（0.42 まで） */
+  const OLD_ORDER = ["food", "utilities", "furniture", "clothing", "health", "transport", "recreation", "otherConsumption", "allowance"] as const;
   /** 前の版で保存した形: 総額の推定が表の額のまま（丸める前） */
   const legacy = (wh: WorkingHousehold, byCategory: boolean): WorkingHousehold =>
     mutate(wh, (h) => {
@@ -175,25 +177,33 @@ describe("基本生活費の総額の推定は千円単位（前に保存した�
       l.monthly = { ...(l.monthly as object), value: raw } as typeof l.monthly;
       if (byCategory) {
         l.mode = "byCategory";
-        // 前の版の按分（1円単位。端は「その他の消費」）
-        l.categories = LIVING_CATEGORY_ORDER.map((category, i) => ({ id: `00000000-0000-4000-8000-0000000009${String(i).padStart(2, "0")}`, category, monthly: { value: category === "allowance" ? 0 : category === "otherConsumption" ? raw - 7 * 12345 : 12345, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis: "総額を費目に分けた目安（前の版）" } } })) as typeof l.categories;
+        // 前の版の按分（1円単位。前の分け方の9費目で、端は「その他の消費」）
+        l.categories = OLD_ORDER.map((category, i) => ({ id: `00000000-0000-4000-8000-0000000009${String(i).padStart(2, "0")}`, category, monthly: { value: category === "allowance" ? 0 : category === "otherConsumption" ? raw - 7 * 12345 : 12345, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis: "総額を費目に分けた目安（前の版）" } } })) as typeof l.categories;
       }
     });
 
   it("新しく入れる推定は千円単位", () => {
     const wh = two();
     expect(householdSize(wh.request.input.household, BASE)).toBe(2);
-    expect(living(wh).monthly!.value).toBe(235000);
+    expect(living(wh).monthly!.value).toBe(227000);
   });
 
   it("前の版の推定（丸める前の額）は、ほかを直しても人数が同じなら書き換えない（総額で・費目で）", () => {
     for (const byCategory of [false, true]) {
       const old = legacy(two(), byCategory);
-      // 推定の入れ直し（パネルで何かを直すたびに通る）
-      expect(withRefreshedEstimates(old), String(byCategory)).toBe(old);
+      // 推定の入れ直し（パネルで何かを直すたびに通る）。総額で入れた世帯は何も変えない
+      if (!byCategory) expect(withRefreshedEstimates(old), String(byCategory)).toBe(old);
       const edited = withRefreshedEstimates(mutate(old, (h) => void (h.members[0]!.birth.birthYearMonth = "1980-01")));
       expect(living(edited).monthly!.value).toBe(livingStatistic(2).value);
-      expect(living(edited).categories).toEqual(living(old).categories);
+      if (!byCategory) expect(living(edited).categories).toEqual(living(old).categories);
+      else {
+        // 前の分け方の按分のままの内訳は、同じ合計で今の分け方に分け直す（0100。合計は変えない）
+        const cs = living(edited).categories!;
+        expect(cs.map((c) => c.category)).toEqual([...LIVING_CATEGORY_ORDER]);
+        expect(cs.reduce((s, c) => s + c.monthly.value!, 0)).toBe(living(old).categories!.reduce((s, c) => s + c.monthly.value!, 0));
+        expect(cs.find((c) => c.category === "transit")!.id).toBe(living(old).categories!.find((c) => c.category === "transport")!.id);
+        expect(withRefreshedEstimates(edited)).toBe(edited);
+      }
     }
   });
 
@@ -203,8 +213,8 @@ describe("基本生活費の総額の推定は千円単位（前に保存した�
     expect(isPureSplit(living(pure))).toBe(true);
     const three = withRefreshedEstimates(addMember(pure, "child"));
     const l = living(three);
-    expect(l.monthly!.value).toBe(264000);
-    expect(l.categories!.reduce((s, c) => s + c.monthly.value!, 0)).toBe(264000);
+    expect(l.monthly!.value).toBe(251000);
+    expect(l.categories!.reduce((s, c) => s + c.monthly.value!, 0)).toBe(251000);
     for (const c of l.categories!) expect(c.monthly.value! % 1000, c.category).toBe(0);
   });
 });

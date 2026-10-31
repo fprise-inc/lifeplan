@@ -43,7 +43,7 @@ describe("わからない・該当なしは、意味のある欄にだけ出す"
       }
   });
 
-  it("残す欄: 年収・賞与・住民税・基本生活費・退職金の見込み額・車の費用・年金の加入月数（推定のある欄）。外す欄: 前提条件・推定の無い欄", () => {
+  it("残す欄: 年収・賞与・住民税・退職金の見込み額・車の費用・年金の加入月数（推定のある欄）。外す欄: 前提条件・推定の無い欄・基本生活費", () => {
     const seen = new Map<string, Set<string>>();
     for (const m of MODELS) {
       const wh = open(m);
@@ -54,7 +54,8 @@ describe("わからない・該当なしは、意味のある欄にだけ出す"
     expect(seen.get("employment.salary.bonus")).toEqual(new Set(["unknown", "notApplicable"]));
     expect(seen.get("residentTaxAssessment.amount")).toEqual(new Set(["unknown", "notApplicable"]));
     expect(seen.get("retirementBenefit.amount")).toEqual(new Set(["unknown", "notApplicable"]));
-    expect(seen.get("livingExpense.monthly")).toEqual(new Set(["unknown"]));
+    // 基本生活費（総額・内訳・段階）と年払い・数年おきの暮らしの支出には「わからない」を出さない（0100）
+    for (const k of seen.keys()) expect(k.startsWith("livingExpense."), k).toBe(false);
     expect(seen.get("pensionRecord.months")).toEqual(new Set(["unknown"]));
     for (const k of seen.keys()) expect(PREMISE.test(k), k).toBe(false);
     // 推定の無い欄（口座の残高・ローンの金利・保険料など）には出さない
@@ -95,7 +96,9 @@ describe("値の状態の操作は直接押すリンク（開く形にしない�
   });
   it("専用の部品の欄（表の中も）も同じリンク。「…」でたたまない", () => {
     const wh = open("salariedCoupleTwoKids");
-    const f = allFields(buildStages(wh).find((s) => s.id === "living")!).find((x) => x.item === "livingExpense.monthly")!;
+    const f = buildStages(wh)
+      .flatMap((s) => allFields(s))
+      .find((x) => x.item === "employment.salary.annual")!;
     const out = renderToString(h(FieldStateOps.Provider, { value: applyStateOp }, h(FieldStateLine, { f, wh, onEdit: noop, compact: true })));
     expect(out).not.toContain("…");
     expect(out).toContain('data-op="unknown">わからない</button>');

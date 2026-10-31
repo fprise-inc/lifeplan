@@ -1,5 +1,5 @@
 // 5. 基本生活費のカード（0048）: 毎月の生活費（住居費・教育費・保険料・車の費用・税と社会保険料を除く）と、その時期ごとの変化。
-// - 入れ方: 総額で／内訳で（簡易は6つの束、詳細は家計調査の9費目）。両方の値を持ち、選んだほうで計算する（切り替えても片方を消さない）
+// - 入れ方: 総額で／内訳で（内訳は10費目と仕送りを並べて全部出す。0100）。両方の値を持ち、選んだほうで計算する（切り替えても片方を消さない）
 // - 段階: 推定の段階（子の誕生と独立・自宅外の在学・同居・施設の介護・退職・70歳・80歳。livingStages.ts。0049）と FP が足す段。表は詳細、簡易は札
 // - 区画: 毎月の生活費／年払い・数年おきの暮らしの支出（お金の行。0044）／毎年の黒字のうち貯金に回る割合（0031。surplusSaving.ts）／
 //   実際に貯められている額（答え合わせ。savingsChecks）
@@ -7,8 +7,8 @@
 import type { Box, Household, LivingExpense, PeriodicExpense, Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth, readLevers } from "../../levers.ts";
 import { resolveTimepoint } from "../../timepoint.ts";
-import { livingCategoryAverages } from "../../../../../hearing/src/estimates.ts";
-import { householdSize, isPureSplit, livingEstimate, splitCategories } from "../estimates.ts";
+import { livingCategoryAverages, splitTransport } from "../../../../../hearing/src/estimates.ts";
+import { householdSize, isPureSplit, LIVING_CATEGORY_ORDER, livingEstimate, splitCategories } from "../estimates.ts";
 import { byId, field, getPath, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { confirmedBox, mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
 import { GROWTH_KINDS, LIVING_CATEGORIES, LIVING_STAGE_LABELS, memberLabel } from "../labels.ts";
@@ -68,33 +68,32 @@ export function fixGrowth(t: Record<string, unknown>, v: unknown): void {
 /** 節目のボタンの割合（目安のボタンの値。最初の額に対して） */
 const DEFAULT_RATIO: Record<string, string> = { childIndependence: "0.85", retirement: "0.8", age70: "0.75", age80: "0.7", other: "0.9" };
 
-// ---- 費目（簡易の6つの束・詳細の9費目） ----
+// ---- 内訳（10費目と仕送り。0100） ----
 
-interface Bundle {
-  key: string;
-  label: string;
-  cats: readonly string[];
-  /** 束の合計を直したとき、差を置く費目（比例で配り直さない） */
-  rep: string;
-}
-
-/** 簡易の6つの束（家計調査の9費目をまとめる） */
-export const BUNDLES: readonly Bundle[] = [
-  { key: "food", label: "食費", cats: ["food"], rep: "food" },
-  { key: "utilities", label: "水道・光熱費", cats: ["utilities"], rep: "utilities" },
-  { key: "daily", label: "日用品・衣服", cats: ["furniture", "clothing"], rep: "furniture" },
-  { key: "transport", label: "交通・通信費（車を除く）", cats: ["transport"], rep: "transport" },
-  { key: "recreation", label: "趣味・旅行（教養娯楽）", cats: ["recreation"], rep: "recreation" },
-  { key: "misc", label: "医療・こづかい・その他", cats: ["health", "otherConsumption", "allowance"], rep: "otherConsumption" },
-];
+/** 前の分け方の内訳（0.42 までの世帯。値があるときだけ、前の名前で出す。新しくは作らない） */
+const LEGACY_CATEGORIES: readonly string[] = ["transport", "otherConsumption"];
+/** 前の分け方の内訳を出す位置（この内訳の後ろ） */
+const LEGACY_AFTER: Readonly<Record<string, string>> = { transport: "transit", otherConsumption: "other" };
 
 const catLabel = (c: string) => LIVING_CATEGORIES.find((o) => o.value === c)?.label ?? c;
 const catOf = (l: LivingExpense | undefined, c: string): Category | undefined => (l?.categories ?? []).find((x) => x.category === c);
+/** 統計の目安に一部が入っている物（引かずに、欄の説明に書く） */
+const OVERLAP_NOTE = "統計の目安なので、ほかの入力項目で入れる物と少し重なることがあります";
 const CAT_HELP: Record<string, string> = {
+  food: "食材・外食・お弁当など",
+  utilities: "電気・ガス・灯油・水道",
+  communication: "スマホ・固定電話・インターネットの回線など。同じ人数の世帯の平均（家計調査）では、インターネットの回線の料金は「趣味・娯楽」の中にあり、この欄の平均には入っていません",
+  transit:
+    "電車・バス・タクシー・飛行機などの運賃。ガソリン・駐車場・高速代・車の保険などは「車」の入力項目で入れます。ときどき使うカーシェア・レンタカーはここに入れます（同じ人数の世帯の平均には入っていないので、使う世帯だけ足してください）",
+  furniture: "洗剤・ティッシュなどの消耗品・台所用品・寝具など。家電・家具の買い替えは「年払い・数年おきの暮らしの支出」の「家電・家具の買い替え」で入れます（同じ人数の世帯の平均からも除いています）",
+  clothing: "服・靴・クリーニングと、美容院・理容・化粧品など",
   health: `通院・薬・医療用品など。${MEDICAL_HELP}（医療費だけを分けて伸ばしたいときは「年払い・数年おきの暮らしの支出」に「医療・介護」の行を足します）`,
-  transport: "電車・バスの運賃・通信費。車の費用（ガソリン・駐車場・保険など）は車の項目で入れます",
+  recreation: `本・スポーツ・映画・旅行・ペットなど。同じ人数の世帯の平均（家計調査）には、インターネットの回線の料金と、習い事の月謝も入っています（習い事は子ども・教育の入力項目でも入れられます。${OVERLAP_NOTE}）`,
+  pocketAndSocial: "使い道を決めていないこづかいと、お祝い・贈り物・つきあいの費用",
+  other: `たばこ・身の回り用品など、ほかの内訳に当てはまらない支出。内訳に分けていない分もここに入ります。同じ人数の世帯の平均（家計調査）には、掛け捨ての保険料（火災保険など）と保育の費用も入っています（${OVERLAP_NOTE}）`,
   allowance: "親への仕送りは介護・親の項目の「親への仕送り」、子の自宅外の在学の仕送りは子ども・教育の項目でも入れられます（相手ごとに分けて見られます）。両方に入れると二重になります",
-  otherConsumption: "こづかい・交際費・理美容など。内訳に分けていない分もここに入ります",
+  transport: "前の分け方の内訳です（電車・バスの運賃と通信費。車の費用は「車」の入力項目で入れます）。「交通と通信に分ける」で、交通費と通信費に分けられます",
+  otherConsumption: "前の分け方の内訳です（こづかい・交際費・理美容など）。内訳に分けていない分もここに入ります",
 };
 
 /** 同じ人数の世帯の平均（欄の横の目安） */
@@ -126,8 +125,8 @@ function categoryField(l: LivingExpense, find: Finder, c: string, level: "simple
     ...(CAT_HELP[c] !== undefined ? { help: CAT_HELP[c] } : {}),
     hint: (w) => averageHint(w, [c]),
   });
-  // 名前の左のアイコン（簡易の束は束の絵、詳細の「うち」は費目ごとの絵）
-  f.icon = c;
+  // 名前の左のアイコン（内訳ごとの絵。前の分け方の交通・通信費は交通費と同じ絵）
+  f.icon = c === "transport" ? "transit" : c;
   // 空にしたら、その費目を外す（入れていない費目は物を持たない）
   const g: FieldDef = {
     ...f,
@@ -146,102 +145,52 @@ function dropCategory(wh: WorkingHousehold, find: Finder, c: string): WorkingHou
   });
 }
 
-/** 束の合計の欄（2つ以上の費目の束）。直すと、差を束の代表の費目に置く（ほかの費目はそのままの値で確定） */
-function bundleField(l: LivingExpense, find: Finder, b: Bundle): FieldDef {
-  const rep = catOf(l, b.rep);
-  const f = field({
-    key: `living/${l.id}/group/${b.key}`,
-    item: "livingExpense.categories",
-    label: b.label,
+/** 前の分け方の交通・通信を、交通費と通信費に分けるボタン（確定の値のとき。統計の割合で分けて推定の印。合計は変えない。0100） */
+function splitTransportAction(l: LivingExpense, find: Finder): ActionDef | null {
+  const legacy = catOf(l, "transport");
+  if (legacy === undefined || legacy.monthly.state !== "confirmed" || (legacy.monthly.value ?? 0) <= 0) return null;
+  // 交通費・通信費に値があるときは出さない（足し合わせると、FP が入れた値が推定になる）
+  if (["transit", "communication"].some((c) => (catOf(l, c)?.monthly.value ?? 0) > 0)) return null;
+  return {
+    key: `living/${l.id}/splitTransport`,
+    label: "交通と通信に分ける",
+    help: "前の分け方の「交通・通信費」を、同じ人数の世帯の平均（家計調査）の割合で「交通費」と「通信費」に分けます。合計は変えず、分けた額は推定になります（直すと確定になります）",
     level: "simple",
-    kind: "yen",
-    basis: "monthly",
-    optional: true,
-    help: `${b.cats.map(catLabel).join("・")}の合計。直すと、差を「${catLabel(b.rep)}」に置きます（ほかの内訳は今の値のまま）${b.key === "misc" ? `。${MEDICAL_HELP}` : ""}`,
-    get: (wh) => {
-      const t = find(wh.request.input.household, wh) as unknown as LivingExpense | undefined;
-      const cs = b.cats.map((c) => catOf(t, c)).filter((x): x is Category => x !== undefined);
-      if (cs.length === 0) return { value: null, hint: averageHint(wh, b.cats) };
-      const est = cs.find((x) => x.monthly.state === "estimated");
-      const basis = est === undefined ? null : ((est.monthly as { estimate?: { basis?: string } }).estimate?.basis ?? "推定");
-      return { value: cs.reduce((s, x) => s + (x.monthly.value ?? 0), 0), estimated: basis, hint: averageHint(wh, b.cats) };
-    },
-    set: (wh, v) =>
-      v === null
-        ? wh
-        : mutate(wh, (h, req) => {
-            const t = find(h, { ...wh, request: req }) as unknown as LivingExpense | undefined;
-            if (t === undefined) return;
-            const list = (t.categories ??= []);
-            const others = b.cats.filter((c) => c !== b.rep).reduce((s, c) => s + (catOf(t, c)?.monthly.value ?? 0), 0);
-            const value = Math.max(0, Number(v) - others);
-            const cur = catOf(t, b.rep);
-            if (cur === undefined) list.push({ id: newId(), category: b.rep, monthly: confirmedBox(value) });
-            else cur.monthly = confirmedBox(value);
-            // 束の合計を FP が決めたので、束の中の推定の費目は今の値のまま確定にする（根拠は残す）
-            for (const c of b.cats) {
-              const x = catOf(t, c);
-              if (x === undefined || c === b.rep || x.monthly.state !== "estimated") continue;
-              const est = (x.monthly as { estimate?: unknown }).estimate;
-              x.monthly = { ...confirmedBox(x.monthly.value ?? 0), ...(est !== undefined ? { estimate: est } : {}) } as Box<number>;
-            }
-          }),
-  });
-  // 値の状態の操作（確定・わからない・該当なし）は、束をまとめた箱で受ける: 確定は束の中の推定の費目を今の値のまま確定にし、
-  // ほかの状態は代表の費目に当てる（代わりの値は、束の合計からほかの費目を引いた額）
-  const membersOf = (t: LivingExpense | undefined) => b.cats.map((c) => catOf(t, c)).filter((x): x is Category => x !== undefined);
-  const boxed: NonNullable<FieldDef["boxed"]> = {
-    read: (wh) => {
-      const cs = membersOf(find(wh.request.input.household, wh) as unknown as LivingExpense | undefined);
-      if (cs.length === 0) return undefined;
-      const est = cs.find((x) => x.monthly.state === "estimated");
-      const value = cs.reduce((n, x) => n + (x.monthly.value ?? 0), 0);
-      return est !== undefined ? { value, state: "estimated", origin: { kind: "auto" }, estimate: (est.monthly as { estimate?: unknown }).estimate ?? { method: "derived", basis: "推定" } } : { value, state: "confirmed", origin: { kind: "manual" } };
-    },
-    write: (wh, box) =>
-      box === undefined
-        ? wh
-        : mutate(wh, (h, req) => {
-            const t = find(h, { ...wh, request: req }) as unknown as LivingExpense | undefined;
-            if (t === undefined) return;
-            if (box.state === "confirmed") {
-              for (const x of membersOf(t)) {
-                if (x.monthly.state !== "estimated") continue;
-                const est = (x.monthly as { estimate?: unknown }).estimate;
-                x.monthly = { ...confirmedBox(x.monthly.value ?? 0), ...(est !== undefined ? { estimate: est } : {}) } as Box<number>;
-              }
-              return;
-            }
-            const others = b.cats.filter((c) => c !== b.rep).reduce((n, c) => n + (catOf(t, c)?.monthly.value ?? 0), 0);
-            const next = structuredClone(box) as Record<string, unknown> & { substitute?: { value?: number } };
-            if (typeof next.value === "number") next.value = Math.max(0, next.value - others);
-            if (next.substitute !== undefined && typeof next.substitute.value === "number") next.substitute.value = Math.max(0, next.substitute.value - others);
-            const cur = catOf(t, b.rep);
-            if (cur === undefined) (t.categories ??= []).push({ id: newId(), category: b.rep, monthly: next as unknown as Box<number> });
-            else cur.monthly = next as unknown as Box<number>;
-          }),
+    run: (w) =>
+      mutate(w, (h, req) => {
+        const t = find(h, { ...w, request: req }) as unknown as LivingExpense | undefined;
+        const cur = catOf(t, "transport");
+        if (t === undefined || cur === undefined) return;
+        const total = cur.monthly.value ?? 0;
+        const sp = splitTransport(total, householdSize(h, req.input.baseMonth));
+        if (sp === null) return;
+        const basis = `交通・通信費（月${man(total)}）を${sp.basis}で分けた目安`;
+        const box = (value: number): Box<number> => ({ value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis } }) as Box<number>;
+        // 交通費は前の交通・通信の要素の ID を引き継ぐ（プランの差分などが同じ要素を指せるように）。並びは前の交通・通信の場所に
+        const at = (t.categories ?? []).indexOf(cur);
+        const rest = (t.categories ?? []).filter((x) => x !== cur && x.category !== "transit" && x.category !== "communication");
+        rest.splice(Math.max(0, Math.min(at, rest.length)), 0, { id: newId(), category: "communication", monthly: box(sp.communication) }, { id: cur.id ?? newId(), category: "transit", monthly: box(sp.transit) });
+        t.categories = rest;
+      }),
   };
-  const g: FieldDef = { ...f, boxed, icon: b.key };
-  return rep?.id !== undefined ? withAddress(g, addr(l.id, "livingExpense.categories", [rep.id, "monthly"])) : g;
 }
 
 function categoryGroup(l: LivingExpense, find: Finder): GroupDef {
-  const fields: FieldDef[] = [];
-  for (const b of BUNDLES) {
-    if (b.cats.length === 1) {
-      fields.push(categoryField(l, find, b.rep, "simple", b.label));
-      continue;
-    }
-    fields.push(bundleField(l, find, b));
-    for (const c of b.cats) fields.push(categoryField(l, find, c, "detail", `うち ${catLabel(c)}`));
+  // 10費目と仕送りを並べて全部出す（束・「詳しく」の折りたたみは無い。0100）。前の分け方の内訳は、値があるときだけ前の名前で
+  const order: string[] = [];
+  for (const c of LIVING_CATEGORY_ORDER) {
+    order.push(c);
+    for (const old of LEGACY_CATEGORIES) if (LEGACY_AFTER[old] === c && catOf(l, old) !== undefined) order.push(old);
   }
+  const fields = order.map((c) => categoryField(l, find, c, "simple", catLabel(c)));
   const total = (l.categories ?? []).reduce((s, c) => s + (c.monthly.value ?? 0), 0);
-  const other = catOf(l, "otherConsumption");
-  const moved = (other?.monthly as { estimate?: { basis?: string } } | undefined)?.estimate?.basis;
+  const moved = ["other", "otherConsumption"].map((c) => (catOf(l, c)?.monthly as { estimate?: { basis?: string } } | undefined)?.estimate?.basis).find((b) => b !== undefined && b.startsWith("総額で"));
   const notes = [`合計 月${man(total)}`];
-  if (moved !== undefined && moved.startsWith("総額で")) notes.push(moved);
+  if (moved !== undefined) notes.push(moved);
   if (isPureSplit(l)) notes.push("総額を家計調査の同じ人数の世帯の割合で分けた目安です（直した内訳だけ確定になります）");
-  return { key: `living/${l.id}/categories`, title: "内訳（月額）", note: notes.join("。"), level: "simple", fields, actions: [] };
+  if (LEGACY_CATEGORIES.some((c) => catOf(l, c) !== undefined)) notes.push("「交通・通信費」「その他の消費」は前の分け方の内訳です（そのまま計算に使います）");
+  const split = splitTransportAction(l, find);
+  return { key: `living/${l.id}/categories`, title: "内訳（月額）", note: notes.join("。"), level: "simple", fields, actions: split !== null ? [split] : [] };
 }
 
 /** 入れ方を切り替えたときの始末（総額と費目は両方持ち、片方を消さない。0048 の2） */
@@ -253,18 +202,18 @@ function switchMode(h: Household, wh: WorkingHousehold, t: LivingExpense, v: unk
       t.categories = splitCategories(h, base, total, newId, t.categories);
       return;
     }
-    // 費目で入れた後に総額を直したとき: 差は「その他の消費（まだ分けていない）」に置き、推定の印（比例で配り直さない）
+    // 内訳で入れた後に総額を直したとき: 差は「その他（まだ分けていない）」に置き、推定の印（比例で配り直さない）
     const sum = (t.categories ?? []).reduce((s, c) => s + (c.monthly.value ?? 0), 0);
     if (t.monthly?.value == null || sum === total) return;
     const diff = total - sum;
     const list = (t.categories ??= []);
-    let other = list.find((c) => c.category === "otherConsumption");
+    let other = list.find((c) => c.category === "other");
     if (other === undefined) {
-      other = { id: newId(), category: "otherConsumption", monthly: confirmedBox(0) };
+      other = { id: newId(), category: "other", monthly: confirmedBox(0) };
       list.push(other);
     }
     const next = Math.max(0, (other.monthly.value ?? 0) + diff);
-    const text = `総額で月${man(total)}に変えました。差の${man(Math.abs(diff))}を「その他の消費（まだ分けていない）」${diff >= 0 ? "に足しています" : "から引いています"}`;
+    const text = `総額で月${man(total)}に変えました。差の${man(Math.abs(diff))}を「その他（まだ分けていない）」${diff >= 0 ? "に足しています" : "から引いています"}`;
     other.monthly = { value: next, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis: text } } as Box<number>;
   } else if (v === "total" && (t.categories ?? []).length > 0) {
     const sum = (t.categories ?? []).reduce((s, c) => s + (c.monthly.value ?? 0), 0);

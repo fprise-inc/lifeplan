@@ -9,6 +9,7 @@ import { refreshEducation, refreshLeaves } from "./fill.ts";
 import { refreshRetirement } from "./retirementBenefits.ts";
 import { applyAutoStages, countAt } from "./livingStages.ts";
 import {
+  HEARING_UNKNOWN_BASIS,
   livingEstimate as livingBySize,
   isLegacyLivingEstimate,
   residentTaxEstimate,
@@ -58,13 +59,6 @@ export function smrMonth(p: Pick<EmploymentPeriod, "from">, baseMonth: string): 
 
 const isAuto = (b: Box<number> | undefined) => b !== undefined && b.state === "estimated" && b.origin.kind === "auto";
 
-/** わからない（unknown）の代わりの値が、統計の推定のまま（入れ直す対象。0035 の3。FP の前の値を代わりにしたものは入れ直さない） */
-const statSubstitute = (b: Box<number> | undefined): Box<number> | undefined => {
-  if (b === undefined || b.state !== "unknown") return undefined;
-  const sub = (b as { substitute?: Box<number> & { estimate?: { method?: string } } }).substitute;
-  return sub !== undefined && sub.origin.kind === "auto" && sub.estimate?.method === "statistic" ? sub : undefined;
-};
-
 /**
  * 自動で入れた推定の値を、ほかの入力に合わせて入れ直す（FP が入れた値・確定の値は変えない）。
  * 「推定は入力の時点で世帯に入れ、元の入力が変わったら入れ直す」（0008 の未確定の決定）
@@ -76,11 +70,10 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
     const size = householdSize(h, baseMonth);
     if (l.mode === "total" && isAuto(l.monthly) && !isLegacyLivingEstimate(l.monthly?.value, size)) {
       const e = livingEstimate(h, baseMonth);
-      l.monthly = { ...(l.monthly as Box<number>), value: e.value, estimate: { method: "statistic", basis: e.basis } } as Box<number>;
-    } else if (l.mode === "total" && statSubstitute(l.monthly) !== undefined && !isLegacyLivingEstimate(statSubstitute(l.monthly)?.value, size)) {
-      // わからないの代わりの値も、推定のままなら入れ直す（わからないの印は残す）
-      const e = livingEstimate(h, baseMonth);
-      l.monthly = { ...(l.monthly as Box<number>), substitute: { ...(statSubstitute(l.monthly) as Box<number>), value: e.value, estimate: { method: "statistic", basis: e.basis } } } as Box<number>;
+      // ヒアリングシートの「わからない」から入れた推定は、根拠の頭の「ヒアリングで『わからない』」を残す（0100）
+      const was = (l.monthly as { estimate?: { basis?: string } } | undefined)?.estimate?.basis ?? "";
+      const basis = was.startsWith(HEARING_UNKNOWN_BASIS) ? `${HEARING_UNKNOWN_BASIS}。${e.basis}` : e.basis;
+      l.monthly = { ...(l.monthly as Box<number>), value: e.value, estimate: { method: "statistic", basis } } as Box<number>;
     }
   }
   // 給与・賞与の統計の推定（年齢・性別・働き方の種類で決まる。統計の目安が新しくなったときも入れ直す）
@@ -119,24 +112,27 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
   for (const p of h.employmentPeriods ?? []) if (isAutoSmr((p as EmploymentPeriod).standardMonthlyRemuneration)) delete (p as EmploymentPeriod).standardMonthlyRemuneration;
 }
 
-// ---- 費目の按分（総額を家計調査の同じ人数の世帯の割合で分けた推定。0048）----
+// ---- 費目の按分（総額を家計調査の同じ人数の世帯の割合で分けた推定。0048・0100）----
 
 /** 按分の推定の根拠の文の頭（この頭の箱を「按分のまま」と読む） */
 export const SPLIT_BASIS = "総額を内訳に分けた目安";
 /** 前の言い方の按分の根拠（前に保存した世帯の推定も按分のままと読む。書き換えない） */
 const SPLIT_BASIS_OLD = "総額を費目に分けた目安";
-/** 9費目の並び（家計調査の区分。仕送りは0円の推定） */
-export const LIVING_CATEGORY_ORDER = ["food", "utilities", "furniture", "clothing", "health", "transport", "recreation", "otherConsumption", "allowance"] as const;
+/** 内訳の並び（10費目と仕送り。0100。仕送りは0円の推定、端は「その他」） */
+export const LIVING_CATEGORY_ORDER = ["food", "utilities", "communication", "transit", "furniture", "clothing", "health", "recreation", "pocketAndSocial", "other", "allowance"] as const;
+/** 前の分け方の内訳（0.42 までの世帯）を按分し直すとき、要素の ID を引き継ぐ先（プランの差分などが同じ要素を指せるように） */
+const LEGACY_ID_TO: Readonly<Record<string, string>> = { transit: "transport", other: "otherConsumption" };
 const splitBox = (value: number, basis: string): Box<number> => ({ value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis } }) as Box<number>;
 
-/** 総額（月額）を9費目に分けた推定の箱（仕送りは0円。端は「その他の消費」） */
+/** 総額（月額）を10費目と仕送りに分けた推定の箱（仕送りは0円。端は「その他」） */
 export function splitCategories(h: Household, baseMonth: string, total: number, id: () => string, keep?: readonly { id?: string; category: string }[]): { id: string; category: string; monthly: Box<number> }[] {
   const size = householdSize(h, baseMonth);
   const sp = splitLiving(total, size);
   const basis = `${SPLIT_BASIS}（${sp?.basis ?? "割合の表がありません"}）`;
   return LIVING_CATEGORY_ORDER.map((category) => {
-    const v = category === "allowance" ? 0 : sp === null ? (category === "otherConsumption" ? total : 0) : sp.parts[category];
-    const old = keep?.find((c) => c.category === category)?.id;
+    const v = category === "allowance" ? 0 : sp === null ? (category === "other" ? total : 0) : sp.parts[category];
+    const legacy = LEGACY_ID_TO[category];
+    const old = keep?.find((c) => c.category === category)?.id ?? (legacy !== undefined ? keep?.find((c) => c.category === legacy)?.id : undefined);
     return { id: old ?? id(), category, monthly: splitBox(v, category === "allowance" ? `${SPLIT_BASIS}（仕送りは子ども・教育、介護・親の項目で入れるので0円）` : basis) };
   });
 }
@@ -148,15 +144,30 @@ export function isPureSplit(l: Pick<LivingExpense, "categories">): boolean {
   return cs.length > 0 && cs.every((c) => c.monthly.state === "estimated" && c.monthly.origin.kind === "auto" && (basisOf(c).startsWith(SPLIT_BASIS) || basisOf(c).startsWith(SPLIT_BASIS_OLD)));
 }
 
-/** 費目で入れていて、費目が按分のまま・総額が統計の推定のままなら、総額と按分を入れ直す（人数が変わったとき） */
+/** 内訳が今の分け方の並びと違う（前の分け方の内訳がある・足りない内訳がある） */
+const isOldSplit = (l: Pick<LivingExpense, "categories">): boolean => {
+  const cs = (l.categories ?? []).map((c) => c.category);
+  return cs.length !== LIVING_CATEGORY_ORDER.length || LIVING_CATEGORY_ORDER.some((c, i) => cs[i] !== c);
+};
+
+/**
+ * 内訳で入れていて、内訳が按分のままなら入れ直す:
+ * - 総額が統計の推定のままなら、総額と按分を入れ直す（人数が変わったとき・統計の目安が新しくなったとき）
+ * - 総額を FP が入れていても、内訳が前の分け方（0.42 までの9費目）の按分のままなら、同じ合計を今の分け方で分け直す（0100。合計は変えない）
+ */
 function refreshSplit(h: Household, baseMonth: string, l: LivingExpense): void {
-  if (l.mode !== "byCategory" || !isPureSplit(l) || !isAuto(l.monthly)) return;
-  // 総額が前の版の推定（丸める前の額）で人数も同じなら、総額も費目も書き換えない
-  if (isLegacyLivingEstimate(l.monthly?.value, householdSize(h, baseMonth))) return;
-  const e = livingEstimate(h, baseMonth);
-  l.monthly = { ...(l.monthly as Box<number>), value: e.value, estimate: { method: "statistic", basis: e.basis } } as Box<number>;
-  const next = splitCategories(h, baseMonth, e.value, () => crypto.randomUUID(), l.categories);
-  if (JSON.stringify(next) !== JSON.stringify(l.categories)) l.categories = next;
+  if (l.mode !== "byCategory" || !isPureSplit(l)) return;
+  // 総額が前の版の推定（丸める前の額）で人数も同じなら、総額は書き換えない（前の分け方の按分だけ、同じ合計で分け直す）
+  if (isAuto(l.monthly) && !isLegacyLivingEstimate(l.monthly?.value, householdSize(h, baseMonth))) {
+    const e = livingEstimate(h, baseMonth);
+    l.monthly = { ...(l.monthly as Box<number>), value: e.value, estimate: { method: "statistic", basis: e.basis } } as Box<number>;
+    const next = splitCategories(h, baseMonth, e.value, () => crypto.randomUUID(), l.categories);
+    if (JSON.stringify(next) !== JSON.stringify(l.categories)) l.categories = next;
+    return;
+  }
+  if (!isOldSplit(l)) return;
+  const sum = (l.categories ?? []).reduce((s, c) => s + (c.monthly.value ?? 0), 0);
+  l.categories = splitCategories(h, baseMonth, sum, () => crypto.randomUUID(), l.categories);
 }
 
 /** 推定を入れ直した世帯（変わらなければ同じものを返す） */

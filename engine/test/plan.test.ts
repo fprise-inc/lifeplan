@@ -63,6 +63,17 @@ describe("生活費（expense.living）", () => {
     expect(sumFlows(fs, (f) => f.ym === "2028-03" && f.row === "cf.expense.living.food")).toBe(30000);
     expect(sumFlows(fs, (f) => f.ym === "2028-03" && f.row === "cf.expense.living.utilities")).toBe(10000);
   });
+
+  it("内訳の10費目と仕送り・前の分け方の2費目（0100）: どれも内訳ごとの行で、計算は内訳の合計", () => {
+    const keys = ["food", "utilities", "communication", "transit", "furniture", "clothing", "health", "recreation", "pocketAndSocial", "other", "allowance", "transport", "otherConsumption"];
+    const req = edit(quiet(), (h) => {
+      h.livingExpenses = [{ id: uid("lv"), mode: "byCategory", categories: keys.map((category, i) => ({ category, monthly: box(1000 * (i + 1)) })), growth: { kind: "none" } }];
+    });
+    const fs = call<{ flows: Flow[] }>(req, "expense.living", {}).flows;
+    for (const [i, c] of keys.entries()) expect(sumFlows(fs, (f) => f.ym === "2027-03" && f.row === `cf.expense.living.${c}`), c).toBe(1000 * (i + 1));
+    expect(sumFlows(fs, (f) => f.ym === "2027-03")).toBe((1000 * keys.length * (keys.length + 1)) / 2);
+    expect(() => full(req)).not.toThrow();
+  });
 });
 
 describe("周期的な支出・車（expense.periodic・expense.car）", () => {

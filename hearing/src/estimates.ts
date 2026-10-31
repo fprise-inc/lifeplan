@@ -35,12 +35,16 @@ export function livingStatistic(size: number): Estimate {
   return { value: amount, basis: `${titleOf(LIVING_ID)}・${n >= 6 ? "6人以上" : `${n}人`}の世帯${pendingOf(LIVING_ID)}` };
 }
 
+/** 基本生活費のシートの「わからない」を推定にした根拠の頭（入力の画面の推定の入れ直しでも残す。0100） */
+export const HEARING_UNKNOWN_BASIS = "ヒアリングで「わからない」";
+
 /** 基本生活費の推定の額の単位（円。千円単位。万円の欄で小数1桁に見える） */
 export const LIVING_STEP = 1000;
 
 /**
  * 基本生活費の目安（月額・円）。住居費・教育費・保険料・車両費を除く。世帯の人数ごと。
- * 2人以上は家計調査（二人以上の世帯の世帯人員別）の消費支出から住居・教育・自動車等関係費を除いた額。1人は仮の値。
+ * 2人以上は家計調査（二人以上の世帯の世帯人員別）の消費支出から住居・教育・自動車等関係費・家庭用耐久財・仕送り金を除いた額（0100。家電・家具の買い替えは
+ * 年払い・数年おきの暮らしの支出、仕送りは子ども・教育、介護・親の項目で入れる）。1人は仮の値。
  * 欄に入れる推定なので千円単位に丸める（表の額のままだと「26.4456」万円のように見え、入れた値と見た値が食い違う）
  */
 export function livingEstimate(size: number): Estimate {
@@ -57,23 +61,37 @@ export const isLegacyLivingEstimate = (value: number | null | undefined, size: n
   return value === raw && raw !== livingEstimate(size).value;
 };
 
-/** 総額を費目に分けるときの費目（家計調査の区分。仕送りは教育・介護・親のカードで入れるので0円にし、端は「その他の消費」） */
-export const LIVING_SPLIT_CATEGORIES = ["food", "utilities", "furniture", "clothing", "health", "transport", "recreation", "otherConsumption"] as const;
+/**
+ * 総額を内訳に分けるときの費目（0100）。仕送りは子ども・教育、介護・親の項目で入れるので0円にし、端は「その他」（other）。
+ * 前の分け方の交通・通信（transport）とその他の消費支出（otherConsumption）には分けない
+ */
+export const LIVING_SPLIT_CATEGORIES = ["food", "utilities", "communication", "transit", "furniture", "clothing", "health", "recreation", "pocketAndSocial", "other"] as const;
 export type LivingSplitCategory = (typeof LIVING_SPLIT_CATEGORIES)[number];
-const livingCategoryId = (c: LivingSplitCategory) => `living.statistics.categoryMonthly.${c}`;
+/** 前の分け方の費目（0.42 までの世帯の内訳。同じ人数の世帯の平均だけ出す） */
+export const LIVING_LEGACY_CATEGORIES = ["transport", "otherConsumption"] as const;
+export type LivingLegacyCategory = (typeof LIVING_LEGACY_CATEGORIES)[number];
+const livingCategoryId = (c: LivingSplitCategory | LivingLegacyCategory) => `living.statistics.categoryMonthly.${c}`;
+const tableAmount = (id: string, n: number): number | undefined => {
+  const table = masterValue(id)?.value;
+  return Array.isArray(table) ? bracketStep(table as readonly BracketStep[], n)?.amount : undefined;
+};
 
 /**
- * 基本生活費の費目の目安（月額・円）。家計調査の同じ世帯人員の世帯の費目の額（交通・通信は自動車等関係費を除く。その他の消費は仕送り金を含む）。
+ * 基本生活費の費目の目安（月額・円）。家計調査の同じ世帯人員の世帯の費目の額（0100: 通信と交通〔自動車等関係費を除く〕を分け、日用品は家庭用耐久財を除き、
+ * 被服に理美容を足し、こづかいと交際費を分け、その他は仕送り金を除く）。前の分け方の2費目（交通・通信、その他の消費支出）の平均も添える。
  * 1人の世帯は表に無いので2人の世帯の額を使う。値が無ければ null
  */
-export function livingCategoryAverages(size: number): { amounts: Readonly<Record<LivingSplitCategory, number>>; basis: string } | null {
+export function livingCategoryAverages(size: number): { amounts: Readonly<Record<LivingSplitCategory, number> & Partial<Record<LivingLegacyCategory, number>>>; basis: string } | null {
   const n = Math.max(2, size);
-  const out: Partial<Record<LivingSplitCategory, number>> = {};
+  const out: Partial<Record<LivingSplitCategory | LivingLegacyCategory, number>> = {};
   for (const c of LIVING_SPLIT_CATEGORIES) {
-    const table = masterValue(livingCategoryId(c))?.value;
-    const amount = Array.isArray(table) ? bracketStep(table as readonly BracketStep[], n)?.amount : undefined;
+    const amount = tableAmount(livingCategoryId(c), n);
     if (amount === undefined) return null;
     out[c] = amount;
+  }
+  for (const c of LIVING_LEGACY_CATEGORIES) {
+    const amount = tableAmount(livingCategoryId(c), n);
+    if (amount !== undefined) out[c] = amount;
   }
   const label = n >= 6 ? "6人以上" : `${n}人`;
   const pending = LIVING_SPLIT_CATEGORIES.some((c) => pendingOf(livingCategoryId(c)) !== "") ? PENDING : "";
@@ -86,29 +104,43 @@ export function livingCategoryAverages(size: number): { amounts: Readonly<Record
 /** 按分した費目の額の単位（円。千円単位） */
 export const SPLIT_STEP = 1000;
 
-/** 総額（月額）を費目に分ける（家計調査の同じ人数の世帯の割合。千円単位に丸め、端は「その他の消費」）。割合の表が無ければ null */
+/** 総額（月額）を費目に分ける（家計調査の同じ人数の世帯の割合。千円単位に丸め、端は「その他」）。割合の表が無ければ null */
 export function splitLiving(total: number, size: number): { parts: Readonly<Record<LivingSplitCategory, number>>; basis: string } | null {
   const avg = livingCategoryAverages(size);
   if (avg === null) return null;
   const sum = LIVING_SPLIT_CATEGORIES.reduce((s, c) => s + avg.amounts[c], 0);
   // 費目の額は千円単位に丸める（欄は万円で見せるので小数1桁。1円単位の按分だと「11.0888」のように見え、入れた値と見た値が食い違う）。
-  // 端は「その他の消費」に置くので、費目の合計は総額のまま（計算の結果は変わらない）
+  // 端は「その他」に置くので、費目の合計は総額のまま（計算の結果は変わらない）
   const share = (c: LivingSplitCategory, step: number) => (sum > 0 ? Math.round((total * avg.amounts[c]) / sum / step) * step : 0);
   const split = (step: number) => {
     const parts: Partial<Record<LivingSplitCategory, number>> = {};
     let used = 0;
     for (const c of LIVING_SPLIT_CATEGORIES) {
-      if (c === "otherConsumption") continue;
+      if (c === "other") continue;
       parts[c] = share(c, step);
       used += parts[c];
     }
-    parts.otherConsumption = total - used;
+    parts.other = total - used;
     return parts;
   };
   let parts = split(SPLIT_STEP);
   // 総額がとても小さく、丸めた額の合計が総額を超えるときは1円単位で分ける
-  if ((parts.otherConsumption ?? 0) < 0) parts = split(1);
+  if ((parts.other ?? 0) < 0) parts = split(1);
   return { parts: parts as Record<LivingSplitCategory, number>, basis: avg.basis };
+}
+
+/**
+ * 前の分け方の交通・通信（月額）を、交通（車を除く）と通信に分ける（家計調査の同じ人数の世帯の割合。0100）。
+ * 交通を千円単位に丸め、残りを通信に置く（合計は元の額のまま）。割合の表が無ければ null
+ */
+export function splitTransport(total: number, size: number): { transit: number; communication: number; basis: string } | null {
+  const avg = livingCategoryAverages(size);
+  if (avg === null) return null;
+  const sum = avg.amounts.transit + avg.amounts.communication;
+  if (sum <= 0) return null;
+  let transit = Math.round((total * avg.amounts.transit) / sum / SPLIT_STEP) * SPLIT_STEP;
+  if (transit > total) transit = Math.round((total * avg.amounts.transit) / sum);
+  return { transit, communication: total - transit, basis: avg.basis };
 }
 
 // ---- 給与・賞与 ----

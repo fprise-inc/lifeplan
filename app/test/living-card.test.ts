@@ -1,5 +1,5 @@
 // 基本生活費のカード（0048）と推定の段階（0049）: 生活費の人数の数え方・推定の段階（新しい世帯だけ自動・推定のままの段だけ入れ直す・
-// 直した段は確定・外した段は足し直さない）・総額と費目の切り替え（両方を持つ・差は「その他の消費」）・束の合計・年払いの暮らしの支出の区画・
+// 直した段は確定・外した段は足し直さない）・総額と内訳の切り替え（両方を持つ・差は「その他」）・10費目の内訳と前の分け方（0100）・年払いの暮らしの支出の区画・
 // 明細の年1回の支払い・答え合わせ・医療費の説明
 import { describe, expect, it } from "vitest";
 import type { Household, LivingExpense, Member } from "../src/engine/types.ts";
@@ -10,7 +10,8 @@ import { autoActive, autoStages, countAt, isAutoStage } from "../src/workspace/i
 import { rowAt } from "../src/workspace/input/rows.ts";
 import { addMember } from "../src/workspace/input/stages/family.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
-import { applyStateOp, fieldStatus } from "../src/workspace/input/valueState.ts";
+import { addAnnual, ANNUAL_TEMPLATES } from "../src/workspace/input/stages/living.ts";
+import { applyStateOp, availableOps, fieldStatus } from "../src/workspace/input/valueState.ts";
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { bodyOf, EMPTY_CARRY, fromBody, type BodyState } from "../src/workspace/store/body.ts";
 import { CURRENT } from "../src/workspace/plans/band.ts";
@@ -106,16 +107,16 @@ describe("推定の段階（0049 の2・3）", () => {
 
   it("家族を足すと、子の独立の段が入り、割合は世帯人員別の目安の比×退職・年齢の目安", () => {
     const wh = family();
-    // 3人（表の額 264,456円）→ 子の独立で2人（235,225円）: 0.89、退職で ×0.8、70歳 ×0.75、80歳 ×0.7（比は表の額のままで出す）
+    // 3人（表の額 250,811円）→ 子の独立で2人（227,080円）: 0.91、退職で ×0.8、70歳 ×0.75、80歳 ×0.7（比は表の額のままで出す）
     expect(ratios(wh)).toEqual([
-      ["childIndependence", "0.89"],
-      ["retirement", "0.71"],
-      ["age70", "0.67"],
-      ["age80", "0.62"],
+      ["childIndependence", "0.91"],
+      ["retirement", "0.72"],
+      ["age70", "0.68"],
+      ["age80", "0.63"],
     ]);
     expect(householdSize(wh.request.input.household, BASE)).toBe(3);
     // 欄に入れる総額の推定は千円単位
-    expect(living(wh).monthly!.value).toBe(264000);
+    expect(living(wh).monthly!.value).toBe(251000);
   });
 
   it("推定のままの段は入れ直し、FP が直した段は確定のまま残る。外した段は足し直さない", () => {
@@ -199,27 +200,27 @@ describe("推定の段階（0049 の2・3）", () => {
   });
 });
 
-describe("総額と費目（0048 の2）", () => {
-  it("費目で入れるに切り替えると、総額を家計調査の割合で9費目に分けた推定（仕送りは0円、合計は総額と同じ）。総額は消さない", () => {
+describe("総額と内訳（0048 の2・0100）", () => {
+  it("内訳で入れるに切り替えると、総額を家計調査の割合で10費目と仕送りに分けた推定（仕送りは0円、合計は総額と同じ）。総額は消さない", () => {
     const wh = family();
     const l = living(wh);
     const mode = fieldOf(wh, `living/${l.id}/mode`);
     const w1 = mode.set(wh, "byCategory");
     const l1 = living(w1);
     expect(l1.mode).toBe("byCategory");
-    expect(l1.monthly!.value).toBe(264000);
-    expect(l1.categories).toHaveLength(9);
-    expect(l1.categories!.reduce((s, c) => s + c.monthly.value!, 0)).toBe(264000);
+    expect(l1.monthly!.value).toBe(251000);
+    expect(l1.categories!.map((c) => c.category)).toEqual(["food", "utilities", "communication", "transit", "furniture", "clothing", "health", "recreation", "pocketAndSocial", "other", "allowance"]);
+    expect(l1.categories!.reduce((s, c) => s + c.monthly.value!, 0)).toBe(251000);
     expect(l1.categories!.find((c) => c.category === "allowance")!.monthly.value).toBe(0);
-    // 3人の世帯の食料 92,240 ÷ 264,455（8費目の合計）× 264,000 を千円単位に丸めた額（欄は万円の小数1桁で見える）
-    expect(l1.categories!.find((c) => c.category === "food")!.monthly.value).toBe(Math.round((264000 * 92240) / 264455 / 1000) * 1000);
-    // 総額が千円単位なので、端を置く「その他の消費」も含めて千円単位
+    // 3人の世帯の食料 92,240 ÷ 250,810（10費目の合計）× 251,000 を千円単位に丸めた額（欄は万円の小数1桁で見える）
+    expect(l1.categories!.find((c) => c.category === "food")!.monthly.value).toBe(Math.round((251000 * 92240) / 250810 / 1000) * 1000);
+    // 総額が千円単位なので、端を置く「その他」も含めて千円単位
     for (const c of l1.categories!) expect(c.monthly.value! % 1000, c.category).toBe(0);
     expect(isPureSplit(l1)).toBe(true);
     expect(() => preview(w1.request)).not.toThrow();
   });
 
-  it("費目を直して総額に戻すと、総額＝費目の合計。総額を直してまた費目にすると、差は「その他の消費（まだ分けていない）」に推定で置く", () => {
+  it("内訳を直して総額に戻すと、総額＝内訳の合計。総額を直してまた内訳にすると、差は「その他（まだ分けていない）」に推定で置く", () => {
     let wh = family();
     const id = living(wh).id;
     wh = fieldOf(wh, `living/${id}/mode`).set(wh, "byCategory");
@@ -229,59 +230,140 @@ describe("総額と費目（0048 の2）", () => {
     const sum = living(wh).categories!.reduce((s, c) => s + c.monthly.value!, 0);
     wh = fieldOf(wh, `living/${id}/mode`).set(wh, "total");
     expect(living(wh).monthly!.value).toBe(sum);
-    expect(living(wh).categories).toHaveLength(9);
+    expect(living(wh).categories).toHaveLength(11);
     wh = edit(wh, fieldOf(wh, `living/${id}/monthly`).set(wh, sum + 20000));
-    const otherBefore = living(wh).categories!.find((c) => c.category === "otherConsumption")!.monthly.value!;
+    const otherBefore = living(wh).categories!.find((c) => c.category === "other")!.monthly.value!;
     wh = fieldOf(wh, `living/${id}/mode`).set(wh, "byCategory");
-    const other = living(wh).categories!.find((c) => c.category === "otherConsumption")!;
+    const other = living(wh).categories!.find((c) => c.category === "other")!;
     expect(other.monthly.value).toBe(otherBefore + 20000);
     expect(other.monthly.state).toBe("estimated");
-    expect((other.monthly as { estimate?: { basis: string } }).estimate!.basis).toContain("その他の消費（まだ分けていない）");
+    expect((other.monthly as { estimate?: { basis: string } }).estimate!.basis).toContain("その他（まだ分けていない）");
     const note = stage(wh)
       .sections.flatMap((s) => s.groups)
       .find((g) => g.key === `living/${id}/categories`)!.note!;
     expect(note).toContain("差の2万円");
   });
 
-  it("簡易の束の合計を直すと、差は束の代表の費目に置き、比例で配り直さない", () => {
+  it("内訳は束にまとめず、10費目と仕送りを全部、標準で並べる（「詳しく」に畳まない）。「わからない」は出さない", () => {
     let wh = family();
     const id = living(wh).id;
     wh = fieldOf(wh, `living/${id}/mode`).set(wh, "byCategory");
-    const before = Object.fromEntries(living(wh).categories!.map((c) => [c.category, c.monthly.value!]));
-    const misc = fieldOf(wh, `living/${id}/group/misc`);
-    expect(misc.level).toBe("simple");
-    expect(misc.help).toContain("75歳以上は1割");
-    const total = before.health! + before.otherConsumption! + before.allowance!;
-    wh = misc.set(wh, total + 30000);
-    const after = Object.fromEntries(living(wh).categories!.map((c) => [c.category, c.monthly.value!]));
-    expect(after.health).toBe(before.health);
-    expect(after.otherConsumption).toBe(before.otherConsumption! + 30000);
-    expect(misc.get(wh).value).toBe(total + 30000);
-    expect(misc.get(wh).estimated).toBeNull();
+    const rows = allFields(stage(wh)).filter((f) => f.item === "livingExpense.categories");
+    expect(rows.map((f) => f.label)).toEqual(["食費", "水道・光熱費", "通信費", "交通費", "日用品", "被服・美容", "医療費", "趣味・娯楽", "こづかい・交際費", "その他", "仕送り"]);
+    expect(rows.every((f) => f.level === "simple")).toBe(true);
+    expect(rows.some((f) => f.key.includes("/group/"))).toBe(false);
+    const group = stage(wh)
+      .sections.flatMap((s) => s.groups)
+      .find((g) => g.key === `living/${id}/categories`)!;
+    expect(group.level).toBe("simple");
+    for (const f of rows) expect(availableOps(f, wh)).not.toContain("unknown");
+    expect(availableOps(fieldOf(wh, `living/${id}/cat/0`), wh)).toContain("confirm");
   });
 
-  it("束の「この値にする」は、束の中の推定の費目を今の値のまま確定にする（行は書かない）", () => {
+  it("年払い・数年おきの暮らしの支出（行の種類 livingAnnual）の額にも「わからない」を出さない（ひな形の目安の推定のまま）", () => {
+    const wh = edit(family(), addAnnual(family(), ANNUAL_TEMPLATES[0]!));
+    const amount = allFields(stage(wh)).filter((f) => f.item === "periodicExpense.amount");
+    expect(amount.length).toBeGreaterThan(0);
+    for (const f of amount) expect(availableOps(f, wh)).not.toContain("unknown");
+  });
+
+  it("交通費の説明に、ガソリン・駐車場などは車の入力項目で入れることと、カーシェア・レンタカーはここに入れること。日用品は家電・家具の買い替えを年払いで", () => {
     let wh = family();
     const id = living(wh).id;
     wh = fieldOf(wh, `living/${id}/mode`).set(wh, "byCategory");
-    const misc = fieldOf(wh, `living/${id}/group/misc`);
-    expect(fieldStatus(misc, wh).status).toBe("estimated");
-    const w1 = applyStateOp(wh, misc, "confirm");
-    const cs = living(w1).categories!.filter((c) => ["health", "otherConsumption", "allowance"].includes(c.category));
-    expect(cs.every((c) => c.monthly.state === "confirmed")).toBe(true);
-    expect(living(w1).categories!.find((c) => c.category === "food")!.monthly.state).toBe("estimated");
-    expect(fieldStatus(fieldOf(w1, `living/${id}/group/misc`), w1).status).toBe("confirmed");
-    expect((living(w1) as { valueStates?: Record<string, unknown> }).valueStates ?? {}).not.toHaveProperty(`livingExpense.categories/${cs[0]!.id}/monthly`);
+    const help = (c: string) => fieldOf(wh, `living/${id}/cat/${living(wh).categories!.findIndex((x) => x.category === c)}`).help ?? "";
+    expect(help("transit")).toContain("ガソリン・駐車場・高速代・車の保険などは「車」の入力項目で入れます");
+    expect(help("transit")).toContain("カーシェア・レンタカー");
+    expect(help("furniture")).toContain("家電・家具の買い替え");
+    expect(help("communication")).toContain("インターネットの回線の料金は「趣味・娯楽」の中");
+    expect(help("recreation")).toContain("習い事の月謝");
+    expect(help("other")).toContain("掛け捨ての保険料");
+    expect(help("other")).toContain("保育の費用");
   });
 
-  it("保健医療の費目に、窓口負担は自動で変えないことと段階で額を変える説明がある", () => {
+  it("保健医療の内訳に、窓口負担は自動で変えないことと段階で額を変える説明がある", () => {
     let wh = family();
     const id = living(wh).id;
     wh = fieldOf(wh, `living/${id}/mode`).set(wh, "byCategory");
     const i = living(wh).categories!.findIndex((c) => c.category === "health");
     const f = fieldOf(wh, `living/${id}/cat/${i}`);
-    expect(f.level).toBe("detail");
+    expect(f.level).toBe("simple");
     expect(f.help).toContain("自動で変えない");
+  });
+});
+
+describe("前の分け方の内訳（0.42 までの世帯。0100）", () => {
+  /** 前の分け方の9費目で確定の値を入れた世帯 */
+  const oldConfirmed = (): WorkingHousehold => {
+    const wh = family();
+    return mutate(wh, (h) => {
+      const l = h.livingExpenses![0]!;
+      l.mode = "byCategory";
+      const conf = (value: number) => ({ value, state: "confirmed" as const, origin: { kind: "manual" as const } });
+      l.categories = [
+        { id: "00000000-0000-4000-8000-00000000c001", category: "food", monthly: conf(90000) },
+        { id: "00000000-0000-4000-8000-00000000c002", category: "transport", monthly: conf(30000) },
+        { id: "00000000-0000-4000-8000-00000000c003", category: "otherConsumption", monthly: conf(50000) },
+      ] as typeof l.categories;
+    });
+  };
+
+  it("確定の交通・通信とその他の消費は書き換えず、前の名前で出す（計算もそのまま）", () => {
+    const wh = edit(oldConfirmed(), oldConfirmed());
+    const l = living(wh);
+    expect(l.categories!.map((c) => [c.category, c.monthly.value, c.monthly.state])).toEqual([
+      ["food", 90000, "confirmed"],
+      ["transport", 30000, "confirmed"],
+      ["otherConsumption", 50000, "confirmed"],
+    ]);
+    const labels = allFields(stage(wh))
+      .filter((f) => f.item === "livingExpense.categories")
+      .map((f) => f.label);
+    expect(labels).toContain("交通・通信費");
+    expect(labels).toContain("その他の消費（こづかい・交際費など）");
+    expect(labels.indexOf("交通・通信費")).toBe(labels.indexOf("交通費") + 1);
+    expect(labels.indexOf("その他の消費（こづかい・交際費など）")).toBe(labels.indexOf("その他") + 1);
+    const before = preview(wh.request);
+    expect(before).toBeDefined();
+  });
+
+  it("「交通と通信に分ける」: 確定の交通・通信を統計の割合で交通費と通信費に分け、推定の印を付ける。合計は変えない", () => {
+    const wh = oldConfirmed();
+    const id = living(wh).id;
+    const act = actionOf(wh, `living/${id}/splitTransport`);
+    expect(act.label).toBe("交通と通信に分ける");
+    const w1 = edit(wh, act.run(wh));
+    const cs = living(w1).categories!;
+    expect(cs.some((c) => c.category === "transport")).toBe(false);
+    const transit = cs.find((c) => c.category === "transit")!;
+    const comm = cs.find((c) => c.category === "communication")!;
+    expect(transit.monthly.value! + comm.monthly.value!).toBe(30000);
+    // 3人の世帯の交通 6,239・通信 12,438 の割合（交通は千円単位）
+    expect(transit.monthly.value).toBe(Math.round((30000 * 6239) / (6239 + 12438) / 1000) * 1000);
+    expect(transit.monthly.state).toBe("estimated");
+    expect(comm.monthly.state).toBe("estimated");
+    expect(transit.id).toBe("00000000-0000-4000-8000-00000000c002");
+    expect(cs.reduce((s, c) => s + c.monthly.value!, 0)).toBe(170000);
+    // 分けた後はボタンを出さない。推定の交通・通信にも出さない
+    expect(() => actionOf(w1, `living/${id}/splitTransport`)).toThrow();
+  });
+
+  it("前の分け方の按分のまま（推定）の内訳は、入れ直しで今の分け方に分け直す（総額が FP の値なら合計は変えない）", () => {
+    const wh = family();
+    const old = mutate(wh, (h) => {
+      const l = h.livingExpenses![0]!;
+      l.mode = "byCategory";
+      l.monthly = { value: 300000, state: "confirmed", origin: { kind: "manual" } };
+      const est = (value: number) => ({ value, state: "estimated" as const, origin: { kind: "auto" as const }, estimate: { method: "derived", basis: "総額を内訳に分けた目安（前の版）" } });
+      const cats = ["food", "utilities", "furniture", "clothing", "health", "transport", "recreation", "otherConsumption", "allowance"];
+      l.categories = cats.map((category, i) => ({ id: `00000000-0000-4000-8000-0000000007${String(i).padStart(2, "0")}`, category, monthly: est(category === "allowance" ? 0 : category === "otherConsumption" ? 300000 - 7 * 30000 : 30000) })) as typeof l.categories;
+    });
+    const w1 = edit(old, old);
+    const cs = living(w1).categories!;
+    expect(cs.map((c) => c.category)).toEqual(["food", "utilities", "communication", "transit", "furniture", "clothing", "health", "recreation", "pocketAndSocial", "other", "allowance"]);
+    expect(cs.reduce((s, c) => s + c.monthly.value!, 0)).toBe(300000);
+    expect(isPureSplit(living(w1))).toBe(true);
+    expect(cs.find((c) => c.category === "other")!.id).toBe("00000000-0000-4000-8000-000000000707");
   });
 });
 
@@ -469,20 +551,14 @@ describe("入れ方の言葉と内訳の行のアイコン", () => {
     expect(living(w1).categories!.every((c) => ((c.monthly as { estimate?: { basis?: string } }).estimate?.basis ?? "").startsWith("総額を内訳に分けた目安"))).toBe(true);
   });
 
-  it("標準の6行・詳細の内訳の行（9つの内訳すべて）に名前の左のアイコンがある。名前は文字だけ", () => {
+  it("内訳の行（10費目と仕送り、前の分け方の2つ）すべてに名前の左のアイコンがある。名前は文字だけ", () => {
     const wh = family();
     const w1 = fieldOf(wh, `living/${living(wh).id}/mode`).set(wh, "byCategory");
     const rows = allFields(stage(w1)).filter((f) => f.item === "livingExpense.categories");
-    const simple = rows.filter((f) => f.level === "simple");
-    const detail = rows.filter((f) => f.level === "detail");
-    expect(simple.map((f) => f.label)).toEqual(["食費", "水道・光熱費", "日用品・衣服", "交通・通信費（車を除く）", "趣味・旅行（教養娯楽）", "医療・こづかい・その他"]);
-    expect(simple.map((f) => f.icon)).toEqual(["food", "utilities", "daily", "transport", "recreation", "misc"]);
-    expect(detail.map((f) => f.icon)).toEqual(["furniture", "clothing", "health", "otherConsumption", "allowance"]);
-    // 詳細で見える内訳の行（束の合計の行を除く）は9つの内訳すべてで、どれもアイコンを持つ
-    const leaves = rows.filter((f) => !f.key.includes("/group/"));
-    expect(leaves).toHaveLength(9);
+    expect(rows.map((f) => f.icon)).toEqual(["food", "utilities", "communication", "transit", "furniture", "clothing", "health", "recreation", "pocketAndSocial", "other", "allowance"]);
     for (const f of rows) expect(hasFieldIcon(f.icon ?? "")).toBe(true);
     for (const f of rows) expect(f.label).not.toMatch(/[<>]/);
+    for (const old of ["transit", "otherConsumption"]) expect(hasFieldIcon(old)).toBe(true);
   });
 
   it("アイコンは読み上げない（aria-hidden）。大きさは文字に合わせる（em）。知らない名前は何も出さない", () => {

@@ -1,0 +1,25 @@
+id: living.statistics.categoryMonthly.transit
+title: 家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の交通（自動車等関係費・通信を除く）（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）
+unit: JPY
+kind: bracketTable
+basis: {"type": "month"}
+entries:
+  - rev: 1
+    appliesFrom: "2026-03-01"
+    appliesTo: null
+    enforcedOn: "2026-02-06"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 1}
+      - {"upTo": 2, "amount": 4781}
+      - {"upTo": 3, "amount": 6239}
+      - {"upTo": 4, "amount": 7099}
+      - {"upTo": 5, "amount": 4927}
+      - {"upTo": null, "amount": 4007}
+    sources:
+      - {"type": "web", "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040409532&fileKind=0", "retrievedAt": "2026-10-26", "sha256": "d4b70ce423f636409c34a3ca9da23791442ed803d78e91a4771bd035483f7fd4", "locator": "家計調査 家計収支編 二人以上の世帯 詳細結果表 2025年 第3-1表 世帯人員別1世帯当たり1か月間の収入と支出（交通）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-31", "tools": ["Excel（公表の統計表）", "表の内訳から計算し直した結果", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "表の値のまま（円。一連番号102の7.1 交通）。2つ目の読み方: 交通・通信＝交通＋自動車等関係費＋通信が表の内訳と一致（表の丸めで1円の差の世帯人員あり）。ガソリン・駐車場・レンタカーなどは自動車等関係費（自動車等維持）で、ここに含まない。10費目（食料・光熱・水道・通信・交通・家具・家事用品から家庭用耐久財を除いた額・被服と理美容・保健医療・教養娯楽・こづかいと交際費・その他）の合計が基本生活費の目安（living.statistics.basicMonthly）と一致（丸めの1円の差を除く）。施行日の欄は e-Stat の公開日"}
