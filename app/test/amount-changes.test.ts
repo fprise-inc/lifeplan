@@ -11,6 +11,7 @@ import { InputPanel } from "../src/workspace/input/InputPanel.tsx";
 import { addIncome } from "../src/workspace/input/moneyRows.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { full, modelHousehold } from "./helpers.ts";
+import { maintenanceLabels } from "../src/workspace/input/stages/housing.ts";
 
 const noop = () => undefined;
 const open = (m: string): WorkingHousehold => fromRequest(modelHousehold(m), {});
@@ -159,16 +160,18 @@ describe("足した変化の並びと置き場所", () => {
     const k = `housing/res/${res.id}`;
     const w = act(wh, "housing", `${k}/maintenance/addStage`);
     const html = panel(w, "housing", "detail");
+    // 呼び方は建て方で変わる（マンションは管理費・修繕積立金、戸建ては修繕の積み立て）
+    const what = maintenanceLabels(res).what;
     const growth = html.indexOf(`id="${fieldDomId(`${k}/maintGrowth`)}"`);
-    const change = html.indexOf("修繕費の変化（");
+    const change = html.indexOf(`${what}の変化（`);
     expect(growth).toBeGreaterThan(0);
     expect(growth).toBeLessThan(change);
-    expect(groupsOf(buildStage("housing", w)).find((g) => g.key === k)?.note).toContain("修繕費の変化 1件");
+    expect(groupsOf(buildStage("housing", w)).find((g) => g.key === k)?.note).toContain(`${what}の変化 1件`);
     // 標準で「▸ 詳しく」を開いたとき: 変動率の欄は開いた中身の中にあるので、変化もその中（変動率の欄の後）に描く
     const opened = panel(w, "housing", "simple", [k]);
     const body = opened.indexOf(`<div class="grp-more-body" data-more-of="${k}">`);
     const g2 = opened.indexOf(`id="${fieldDomId(`${k}/maintGrowth`)}"`);
-    const c2 = opened.indexOf("修繕費の変化（");
+    const c2 = opened.indexOf(`${what}の変化（`);
     expect(body).toBeGreaterThan(0);
     expect(body).toBeLessThan(g2);
     expect(g2).toBeLessThan(c2);

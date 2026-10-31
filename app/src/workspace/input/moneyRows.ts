@@ -562,7 +562,10 @@ export function supportDependentYears(h: Household, kid: Member, p: PeriodicExpe
  * 時期の入れ方の欄（1回／毎月／年ごと）。1回は終わりを始まりと同じ月に、毎月は monthly を立てる（何年ごとは1）。年ごとに変えると、何年ごとは
  * 1（毎年）から始まる。1回・毎月に変えると何年ごとの欄は消えるので、何年ごとの仮の印（ひな形の推定）も外す
  */
-export function cadenceField(key: string, item: string, find: Finder, id: string): FieldDef {
+export function cadenceField(key: string, item: string, find: Finder, id: string, o: { noMonthly?: { help: string; legacy: string; monthlyNow: boolean } } = {}): FieldDef {
+  // 毎月を選べない行（修繕・リフォーム）: 前の版で毎月にした行だけ、読めるように「毎月」を残して知らせる
+  const nm = o.noMonthly;
+  const options = nm === undefined ? CADENCES : nm.monthlyNow ? CADENCES.map((c) => (c.value === "monthly" ? { ...c, label: "毎月（前の版の入れ方）" } : c)) : CADENCES.filter((c) => c.value !== "monthly");
   return withAddress(
     field({
       key,
@@ -570,11 +573,13 @@ export function cadenceField(key: string, item: string, find: Finder, id: string
       label: "時期",
       level: "simple",
       kind: "select",
-      options: CADENCES,
+      options,
       structural: true,
+      ...(nm !== undefined ? { help: nm.help } : {}),
       get: (wh) => {
         const r = find(wh.request.input.household, wh) as unknown as PeriodicExpense | undefined;
-        return { value: r === undefined ? null : cadenceOf(wh.request.input.household, r) };
+        const c = r === undefined ? null : cadenceOf(wh.request.input.household, r);
+        return { value: c, ...(nm !== undefined && c === "monthly" ? { hint: nm.legacy } : {}) };
       },
       set: (wh, v) => {
         const next = mutate(wh, (h) => {
@@ -599,6 +604,11 @@ export function cadenceField(key: string, item: string, find: Finder, id: string
     address(id, item),
   );
 }
+
+/** 修繕・リフォームの行の時期（毎月は選べない。毎月かかる分は住まいの修繕の積み立て・管理費の欄で入れる） */
+const REPAIR_CADENCE_HELP = "外壁・屋根・水回りなどの大きな修繕を、1回か年ごと（10年ごとなど）で入れます。毎月の積み立て・管理費は、住まいの「修繕の積み立て（毎月）」（マンションは「管理費・修繕積立金（毎月）」）の欄で入れます";
+/** 前の版で毎月にした修繕・リフォームの行の知らせ（毎月のまま計算する） */
+const REPAIR_MONTHLY_LEGACY = "前の版で「毎月」にした行です。今の額を毎月として計算しています。毎月の分は住まいの修繕の積み立ての欄に移し、この行は1回か年ごとに直してください";
 
 /** 年ごとの行の何年ごとの欄の説明（1から50まで。1は毎年） */
 const EVERY_HELP = "1なら毎年、2以上ならその年数ごとです（50年まで）";
@@ -960,7 +970,7 @@ export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense, card: Mo
   const fields: FieldDef[] = [
     plain({ key: `${k}/label`, item: "periodicExpense.label", label: "名前", level: nameLevel(card), kind: "text", find, path: ["label"], optional: true }),
     ...expenseHeadFields(wh, p, card),
-    cadenceField(`${k}/cadence`, "periodicExpense.monthly", find, p.id),
+    cadenceField(`${k}/cadence`, "periodicExpense.monthly", find, p.id, p.kind === "repair" ? { noMonthly: { help: REPAIR_CADENCE_HELP, legacy: REPAIR_MONTHLY_LEGACY, monthlyNow: c === "monthly" } } : {}),
     yenBox({ key: `${k}/amount`, item: "periodicExpense.amount", label: amountName(c, p.everyYears), level: "simple", basis: c === "monthly" ? "monthly" : "once", find, path: ["amount"], ...(c === "repeat" ? { help: everyAmountHelp(p.everyYears) } : {}) }),
     timepointField({ key: `${k}/from`, item: "periodicExpense.from", label: once ? "時期" : "初め", level: "simple", find, path: ["from"], ...ageOf, ...(once ? { after: (_h: Household, t: Record<string, unknown>) => void (t.to = structuredClone(t.from)) } : {}) }),
   ];

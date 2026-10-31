@@ -212,8 +212,8 @@ export const toggledSet = (s: ReadonlySet<string>, key: string): ReadonlySet<str
   return n;
 };
 
-/** 物1件・1組の欄の頭のまとまり（「▸ 詳しく」を付けられる）: 標準のまとまりで、名前があるか標準の欄がある */
-const isHead = (g: GroupDef): boolean => g.level === "simple" && (g.title !== undefined || g.fields.some((f) => f.level === "simple"));
+/** 物1件・1組の欄の頭のまとまり（「▸ 詳しく」を付けられる）: 標準のまとまりで、名前があるか標準の欄がある。物の中の中枠（band）は頭にしない */
+const isHead = (g: GroupDef): boolean => g.band !== true && g.level === "simple" && (g.title !== undefined || g.fields.some((f) => f.level === "simple"));
 
 /**
  * 区画のまとまりを、物1件ごとに分ける（標準のときの「▸ 詳しく」の単位）。まとまりのキー → 属する頭のまとまりのキー。
@@ -317,9 +317,10 @@ export function Section({ section, wh, level, onEdit }: { section: SectionDef; w
   const draw = (g: GroupDef, nested: boolean): ComponentChildren => {
     const h = headOpen(g);
     const inner = (insides.get(g.key) ?? []).map((x): InnerGroup => ({ ...x.placeIn, node: renderGroup(x.group) }));
-    const sub = (partsOf.get(g.key) ?? []).map((x) => draw(x, true));
-    // 頭のまとまり: 標準の欄の下に「▸ 詳しく」。属するまとまり: 頭を開いているときだけ、詳細の中身まで出す
-    if (withMore?.has(g.key) === true) return <Group key={g.key} group={g} wh={wh} level={level} onEdit={onEdit} more={{ open: h !== null, toggle: () => opened.toggle(g.key) }} inner={inner} sub={sub} nested={nested} />;
+    const subs = partsOf.get(g.key) ?? [];
+    const sub = subs.map((x) => draw(x, true));
+    // 頭のまとまり: 標準の欄の下に「▸ 詳しく」（中枠〔band〕に分けた物は、中枠の後の枠の最後に）。属するまとまり: 頭を開いているときだけ、詳細の中身まで出す
+    if (withMore?.has(g.key) === true) return <Group key={g.key} group={g} wh={wh} level={level} onEdit={onEdit} more={{ open: h !== null, toggle: () => opened.toggle(g.key) }} inner={inner} sub={sub} nested={nested} moreLast={subs.some((x) => x.band === true)} />;
     return <Group key={g.key} group={g} wh={wh} level={h !== null ? "detail" : level} onEdit={onEdit} {...(h !== null ? { moreOf: h } : {})} inner={inner} sub={sub} nested={nested} />;
   };
   const link = useContext(SectionLinks)[section.key];
@@ -447,7 +448,7 @@ export function MoreToggle({ groupKey, open, toggle, label, swapNotes = [] }: { 
  * まとまり1つ。sub は物1件の中のまとまり（entryParts。枠の最後に描く）。
  * nested は、ほかのまとまりの枠の中に描くまとまり（枠と地の色を付けず、見出しと薄い区切りの線だけ。1件 = 1つの枠）
  */
-export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub = [], nested = false }: { group: GroupDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void; more?: GroupMore; moreOf?: string; inner?: readonly InnerGroup[]; sub?: readonly ComponentChildren[]; nested?: boolean }) {
+export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub = [], nested = false, moreLast = false }: { group: GroupDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void; more?: GroupMore; moreOf?: string; inner?: readonly InnerGroup[]; sub?: readonly ComponentChildren[]; nested?: boolean; moreLast?: boolean }) {
   // 説明の欄（値ではなく説明の文）は、幅いっぱいの説明として描く（readLines.ts の infoNote）
   if (group.info !== undefined) return <InfoNote title={group.info.title} text={group.info.text} fold={group.info.fold} groupKey={group.key} />;
   // 詳細の欄が見えているとき（詳細、または標準で「▸ 詳しく」を開いたとき）は、標準だけの欄（simpleOnly）を出さない（代わりに詳細の欄を出す）
@@ -466,9 +467,9 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
   // 名前の無いまとまりの説明は、欄の並びの前に「?」だけを置く
   const gn = splitNote(group.note);
   const noteHelp = gn.help !== null ? <Help label={group.title ?? "このまとまり"}>{gn.help}</Help> : null;
-  const compact = more?.open !== true && inner.length === 0 && sub.length === 0 && group.title !== undefined && fields.length > 0 && fields.length <= 3 && fields.every((f) => f.kind === "select" || f.kind === "bool");
+  const compact = group.band !== true && more?.open !== true && inner.length === 0 && sub.length === 0 && group.title !== undefined && fields.length > 0 && fields.length <= 3 && fields.every((f) => f.kind === "select" || f.kind === "bool");
   return (
-    <div class={`in-group${nested ? " in-sub" : ""}${compact ? " compact" : ""}`} data-group={group.key} {...(moreOf !== undefined ? { "data-more-of": moreOf } : {})}>
+    <div class={`in-group${nested ? " in-sub" : ""}${group.band === true ? " in-band" : ""}${compact ? " compact" : ""}`} data-group={group.key} {...(moreOf !== undefined ? { "data-more-of": moreOf } : {})}>
       {group.title !== undefined ? (
         <div class="in-group-h">
           <h4>
@@ -498,7 +499,10 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
       ) : (
         mainNodes
       )}
+      {/* 中枠（band）は、中のまとまり（金利の段階など）を「＋」のボタンの前に（足した物の並びの後ろに、足すボタン） */}
+      {group.band === true ? sub : null}
       {actions.some((a) => a.danger !== true) ? <Actions actions={actions.filter((a) => a.danger !== true)} wh={wh} onEdit={onEdit} /> : null}
+      {moreLast && group.band !== true ? sub : null}
       {more !== undefined ? <MoreToggle groupKey={group.key} open={more.open} toggle={more.toggle} label={group.title ?? "この欄"} swapNotes={swapNotesOf(group, more.open)} /> : null}
       {more?.open === true && (extraFields.length > 0 || extraActions.length > 0) ? (
         <div class="grp-more-body" data-more-of={group.key}>
@@ -516,7 +520,7 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
           {extraActions.length > 0 ? <Actions actions={extraActions} wh={wh} onEdit={onEdit} /> : null}
         </div>
       ) : null}
-      {sub}
+      {moreLast || group.band === true ? null : sub}
     </div>
   );
 }
