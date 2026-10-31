@@ -27,6 +27,8 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .sv-tw { overflow-x: auto; }
 .sv-acc, .sv-cls { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
 .sv-acc th, .sv-acc td, .sv-cls th, .sv-cls td { padding: 8px 8px; border-bottom: 1px solid var(--line-2); text-align: right; vertical-align: top; white-space: nowrap; }
+/* 表の中の利回りの欄の知らせ（範囲の外の率。0098）は折り返して、列を広げない */
+.sv-acc td .sv-rate-msg { white-space: normal; max-width: 13em; margin-left: auto; text-align: left; font-size: 0.78rem; }
 .sv-acc th, .sv-cls th { font-size: 0.82rem; color: var(--ink-2); background: #f6f7f8; }
 .sv-acc .l, .sv-cls .l { text-align: left; }
 .sv-acc td.l:first-child { white-space: normal; min-width: 12em; max-width: 17em; }
@@ -69,6 +71,8 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .sv-fld .help { grid-column: 2; margin: 0; font-size: 0.8rem; color: var(--ink-2); }
 /* 範囲の外の率の知らせ（0098。入力の画面の欄の知らせと同じ色） */
 .sv-fld .help.bad { color: var(--short-ink); font-weight: 700; }
+.sv-fld > .sv-rate-msg { grid-column: 2; margin: 0; }
+@media (max-width: 720px) { .sv-fld > .sv-rate-msg { grid-column: 1; } }
 @media (max-width: 720px) { .sv-fld { grid-template-columns: 1fr; } .sv-fld .help { grid-column: 1; } }
 .seg-g.sm button { font-size: 0.85rem; padding: 3px 10px; }
 .sv-nisa { margin-top: 12px; border: 1.5px solid var(--est-band); background: var(--est-bg); border-radius: 8px; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }

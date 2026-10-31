@@ -78,6 +78,17 @@ const pct1 = (r: number) => (Math.round(r * 1000) / 10).toFixed(1);
 type Unit = "man" | "pct" | "age" | "num";
 
 /**
+ * 率の欄の文字を読む（パーセント）。範囲（0098）の外なら率は undefined で、越えた側の端の知らせ（「15%より大きい値は設定できません。」）を返す。
+ * 読めない文字は率も知らせも無し（赤い枠だけ）
+ */
+export function readPct(t: string, range?: PctRange): { rate: string | undefined; problem: string | null } {
+  const r = rateFromPct(t);
+  if (r === null) return { rate: undefined, problem: null };
+  if (range === undefined || rateInRange(r, range)) return { rate: r, problem: null };
+  return { rate: undefined, problem: outOfRangeText(r, range) };
+}
+
+/**
  * 数の欄: 打っている間は下書きの文字を持ち、読める値になったらすぐ入れる。空欄は null（optional のとき）。
  * 入ったときと同じ文字のまま離れたら書かない（欄に入って離れる・Tab で通るだけで、値も状態も変えない。0041）
  */
@@ -106,10 +117,7 @@ function NumBox(p: {
       const v = parseYen(t, "man");
       return v === null || v < 0 ? undefined : v;
     }
-    if (p.unit === "pct") {
-      const r = rateFromPct(t);
-      return r === null || (p.range !== undefined && !rateInRange(r, p.range)) ? undefined : r;
-    }
+    if (p.unit === "pct") return readPct(t, p.range).rate;
     if (p.unit === "age") {
       const v = parseInteger(t);
       return v === null || v < 0 || v > 110 ? undefined : v;
@@ -119,11 +127,7 @@ function NumBox(p: {
   };
   const bad = draft !== null && parse(draft) === undefined;
   // 範囲の外の率の知らせ（「15%より大きい値は設定できません。」。読めない文字は赤い枠だけ）
-  const rangeProblem = (t: string): string | null => {
-    if (p.unit !== "pct" || p.range === undefined) return null;
-    const r = rateFromPct(t);
-    return r === null ? null : outOfRangeText(r, p.range);
-  };
+  const rangeProblem = (t: string): string | null => (p.unit === "pct" ? readPct(t, p.range).problem : null);
   return (
     <input
       type="text"
@@ -547,6 +551,50 @@ function CarryNote({ req, carry }: { req: EngineRequest; carry: { from: Method; 
   );
 }
 
+/** 範囲の外の値が入っている率の欄の知らせ（古い世帯・取り込んだ世帯。値は変えずに計算し、直すボタンは確かめの一覧に出す。欄の部品と同じ。0098） */
+function RateWarn({ f, wh }: { f: FieldDef | undefined; wh: WorkingHousehold }) {
+  const warn = f?.get(wh).warn ?? null;
+  return warn !== null ? (
+    <div class="fld-help warn sv-rate-msg" data-field-warn={f?.key}>
+      {warn}
+    </div>
+  ) : null;
+}
+
+/** 口座の表の利回りの欄（範囲は 0098 の運用の利回りと同じ。範囲の外は書かず、越えた側の端を出す） */
+function AccountRate(p: { a: Account; name: string; f: FieldDef | undefined; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; onCommit: (v: number | string | null) => void }) {
+  const [problem, setProblem] = useState<string | null>(null);
+  const { a, name, f, wh } = p;
+  const id = fieldDomId(`sav/${a.id}/rate`);
+  return (
+    <>
+      <NumBox
+        value={a.expectedReturn ?? null}
+        unit="pct"
+        size="s"
+        optional
+        placeholder={pctFromRate(rateOf(wh.request, { ...a, expectedReturn: undefined } as Account))}
+        label={`${name}の利回り`}
+        data={`rate-${a.kind}`}
+        id={id}
+        range={RETURN_RANGE}
+        onProblem={setProblem}
+        describedBy={`${id}-problem`}
+        onCommit={p.onCommit}
+      />{" "}
+      %
+      <FieldStateBadge f={f} wh={wh} />
+      {problem !== null ? (
+        <div class="fld-help bad sv-rate-msg" role="alert" id={`${id}-problem`} data-rate-problem>
+          {problem}
+        </div>
+      ) : null}
+      <RateWarn f={f} wh={wh} />
+      <FieldStateLine f={f} wh={wh} onEdit={p.onEdit} compact />
+    </>
+  );
+}
+
 function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; level: Level; fields: FieldMap; onEdit: (w: WorkingHousehold) => void }) {
   const req = wh.request;
   const t = totalViewOf(req);
@@ -611,6 +659,7 @@ function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; lev
             {rateProblem}
           </p>
         ) : null}
+        <RateWarn f={fRate} wh={wh} />
         <FieldStateLine f={fRate} wh={wh} onEdit={onEdit} />
         <p class="help">
           {t.uninvested !== null ? "運用しない分を除いた、運用する分の平均。" : "預金も含めた全体の平均。迷ったら、預金が多いほど低めに。"}
@@ -784,7 +833,13 @@ function AccountsTable(p: {
                     </span>
                   ) : (
                     <>
-                      <NumBox value={a.expectedReturn ?? null} unit="pct" size="s" optional placeholder={pctFromRate(rateOf(req, { ...a, expectedReturn: undefined } as Account))} label={`${name}の利回り`} data={`rate-${a.kind}`} id={fieldDomId(`sav/${a.id}/rate`)} onCommit={(v) =>
+                      <AccountRate
+                        a={a}
+                        name={name}
+                        f={fields.get(`sav/${a.id}/rate`)}
+                        wh={wh}
+                        onEdit={onEdit}
+                        onCommit={(v) =>
                           fields.has(`sav/${a.id}/rate`)
                             ? editField(fields.get(`sav/${a.id}/rate`), v)
                             : editAcc((hh) => {
@@ -793,9 +848,7 @@ function AccountsTable(p: {
                                 else if (typeof v === "string") x.expectedReturn = v;
                               })
                         }
-                      /> %
-                      <FieldStateBadge f={fields.get(`sav/${a.id}/rate`)} wh={wh} />
-                      <FieldStateLine f={fields.get(`sav/${a.id}/rate`)} wh={wh} onEdit={onEdit} compact />
+                      />
                     </>
                   )}
                 </td>

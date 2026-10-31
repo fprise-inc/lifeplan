@@ -10,7 +10,9 @@ import { applyStateOp, availableOps, fieldStatus } from "../src/workspace/input/
 import { accountName, editTotal, livingMonthlyOf, reservePreset, resetWithdrawOrder, setSettlement, settlementOf, setWithdrawOrder, STANDARD_ORDER_KINDS, switchMethod, totalViewOf, UNENTERED_BALANCE, withdrawViewOf } from "../src/workspace/input/savings/model.ts";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
-import { SavingsPanel } from "../src/workspace/input/savings/SavingsPanel.tsx";
+import { readPct, SavingsPanel } from "../src/workspace/input/savings/SavingsPanel.tsx";
+import { checkList } from "../src/workspace/input/checkRows.ts";
+import { RETURN_RANGE } from "../src/workspace/input/rateRanges.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { planView, recordPlanEdit } from "../src/workspace/plans/planEdit.ts";
 import type { Proposal } from "../src/workspace/plans/plans.ts";
@@ -318,6 +320,48 @@ describe("合計の入れ方の平均の利回り（名前の付いた選び方�
     const out = html(w, "simple");
     expect(out).toContain('placeholder="3.5"');
     expect(out).toContain("空欄のときは、前提条件の運用利回り（年3.5%）で計算しています。");
+  });
+});
+
+describe("貯蓄・運用の利回りの欄の範囲（-10%〜15%。0098）", () => {
+  const html = (wh: WorkingHousehold) => renderToString(h(SavingsPanel, { wh, level: "simple", onEdit: () => undefined }));
+
+  it("口座の表の利回り・合計の入れ方の平均の利回りの欄: 範囲の外の値は書かず、越えた側の端を出す（範囲の端は入る）", () => {
+    expect(readPct("16", RETURN_RANGE)).toEqual({ rate: undefined, problem: "15%より大きい値は設定できません。" });
+    expect(readPct("-11", RETURN_RANGE)).toEqual({ rate: undefined, problem: "-10%より小さい値は設定できません。" });
+    expect(readPct("15", RETURN_RANGE)).toEqual({ rate: "0.15", problem: null });
+    expect(readPct("-10", RETURN_RANGE)).toEqual({ rate: "-0.1", problem: null });
+    expect(readPct("abc", RETURN_RANGE)).toEqual({ rate: undefined, problem: null });
+    // 範囲を渡さない欄（取り崩し率など）は今までどおり
+    expect(readPct("40")).toEqual({ rate: "0.4", problem: null });
+    // 口座の利回りの欄の定義も同じ範囲
+    const nisa = acc(open(), "nisa");
+    const f = fieldOf(open(), `sav/${nisa.id}/rate`);
+    expect(f.kind === "pct" ? [f.min, f.max] : null).toEqual([-10, 15]);
+  });
+
+  it("古い世帯の口座に範囲の外の利回り（25%）: 値は変えずに計算し、表の欄の下と確かめの一覧に知らせ、押したときだけ 15% にする", () => {
+    const wh = mutate(open(), (h) => void ((h.accounts ?? []).find((a) => a.kind === "nisa")!.expectedReturn = "0.25"));
+    const nisa = acc(wh, "nisa");
+    expect(nisa.expectedReturn).toBe("0.25");
+    const out = html(wh);
+    expect(out).toContain(`data-field-warn="sav/${nisa.id}/rate"`);
+    expect(out).toContain("範囲（-10%〜15%）の外の値（25%）が入っています");
+    const row = checkList(wh).find((r) => r.id === `field:sav/${nisa.id}/rate`);
+    expect(row?.actions.map((x) => x.label)).toEqual(["15%にする"]);
+    const fixed = row!.actions[0]!.run(wh);
+    expect(acc(fixed, "nisa").expectedReturn).toBe("0.15");
+    expect(html(fixed)).not.toContain(`data-field-warn="sav/${nisa.id}/rate"`);
+  });
+
+  it("古い世帯の合計の入れ方に範囲の外の平均の利回り（-20%）: 値は変えずに知らせ、確かめの一覧で -10% にできる", () => {
+    const t = switchMethod(open(), "total");
+    const wh = mutate(t, (h) => void ((h.accounts ?? []).find((a) => a.kind === "pooled")!.expectedReturn = "-0.2"));
+    const p = acc(wh, "pooled");
+    expect(html(wh)).toContain("範囲（-10%〜15%）の外の値（-20%）が入っています");
+    const row = checkList(wh).find((r) => r.id === `field:sav/${p.id}/rate`);
+    expect(row?.actions.map((x) => x.label)).toEqual(["-10%にする"]);
+    expect(acc(row!.actions[0]!.run(wh), "pooled").expectedReturn).toBe("-0.1");
   });
 });
 
