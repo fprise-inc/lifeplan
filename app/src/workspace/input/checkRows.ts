@@ -97,7 +97,7 @@ export const PRESET_VALUES: Readonly<Record<string, { values: readonly { value: 
   "residence.rent": { values: [{ value: 80000 }], what: "家賃 月8万円" },
   "residence.propertyTax": { values: [{ value: 120000 }], what: "固定資産税・都市計画税 年12万円" },
   "residence.maintenance": { values: [{ value: 15000 }], what: "修繕費・管理費 月1.5万円" },
-  // 一時的支出・n年ごとの支出は、ボタンが入れた名前のままのときだけ
+  // 一時的支出・何年かごとの支出は、ボタンが入れた名前のままのときだけ
   "periodicExpense.amount": { values: [{ value: 500000, label: "一時的支出" }, { value: 300000, label: "家電の買い替え" }], what: "一時的支出 50万円・家電の買い替え 30万円" },
   "debt.principal": { values: [{ value: 30000000 }], what: "住宅ローンの借入額 3,000万円" },
   "insurance.premium": { values: [{ value: 5000 }], what: "保険料 月5,000円" },

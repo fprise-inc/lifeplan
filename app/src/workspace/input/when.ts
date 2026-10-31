@@ -305,10 +305,10 @@ export function parseWhen(text: string, ctx: WhenCtx): WhenParse {
   if (dur !== null) {
     const n = spanMonths(dur[1] as string);
     if (n !== null) {
-      if (ctx.start === undefined) return { ok: false, reason: "「n年間」は終わりの欄だけで使えます" };
+      if (ctx.start === undefined) return { ok: false, reason: "「10年間」のような入れ方は、終わりの欄だけで使えます" };
       if (n < 1) return { ok: false, reason: "1か月以上で入れてください" };
       const tp = durationEnd(ctx, ctx.start, n);
-      return tp === null ? { ok: false, reason: "始まりが決まっていないので「n年間」では入れられません。終わりの時点で入れてください" } : { ok: true, tp, via: "duration" };
+      return tp === null ? { ok: false, reason: "始まりが決まっていないので「10年間」のような入れ方はできません。終わりの時点で入れてください" } : { ok: true, tp, via: "duration" };
     }
   }
 

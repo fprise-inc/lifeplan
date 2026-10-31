@@ -180,6 +180,11 @@ export interface ActionDef {
    * 欄の定義の上では、選択肢はそれぞれ1つのボタンのまま（足す処理・テスト・プランの包み直しは今のまま）
    */
   choice?: { key: string; label: string; help?: string };
+  /**
+   * ひな形の小さなボタン（chips のまとまりの中。0068 の追記 2026-10-31）。group はボタンを並べる1行の見出し、added はボタンの横の1行
+   * （「入れた（2031年・80万円）」・押せない理由）、disabled は足す相手がいなくて押せないとき
+   */
+  chip?: { group: string; added?: string; disabled?: boolean };
 }
 
 /** まとまり（物1件、または区画の中の1組の欄） */
@@ -201,6 +206,8 @@ export interface GroupDef {
    * 欄の一覧（allFields）には入れたまま（標準の欄は確かめの一覧の行の当て先になる）
    */
   simpleOnly?: boolean;
+  /** ひな形の小さなボタンの並び（ボタンの chip の group ごとに1行。title は並びの上の1行の案内。0068 の追記 2026-10-31） */
+  chips?: boolean;
   /**
    * 別のまとまり（group。同じ区画の中）の欄の並びの中に描く（0040 の 2026-10-29 の追記。例: 月額の変化は、行の額の近く〔見込みの欄の前〕に並べる）。
    * before の欄の前か after の欄の後に置き、どちらも見えていなければ欄の並びの最後に置く。見せ方だけで、欄の一覧（allFields）・確かめの一覧は今のまま

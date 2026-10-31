@@ -460,7 +460,7 @@ describe("新しく作る世帯は最初から推定", () => {
     expect(wh.request.input.household.residences![0]!.rent!.monthly).toMatchObject({ value: 80000, state: "estimated", estimate: { method: "standard" } });
     const own = runAction(blankHousehold(BASE, ids()), "housing", "housing/addOwn");
     expect(own.request.input.household.residences![0]!.propertyTax!.annual).toMatchObject({ state: "estimated", estimate: { method: "standard" } });
-    const ev = runAction(blankHousehold(BASE, ids()), "events", "ev/addOnce");
+    const ev = runAction(blankHousehold(BASE, ids()), "events", "ev/addOther");
     expect(ev.request.input.household.periodicExpenses![0]!.amount).toMatchObject({ state: "estimated", estimate: { method: "standard" } });
   });
 });

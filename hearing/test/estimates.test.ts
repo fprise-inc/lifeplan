@@ -128,7 +128,10 @@ describe("基本生活費の10費目（0100）", () => {
       const sum = LIVING_SPLIT_CATEGORIES.reduce((s, c) => s + avg.amounts[c], 0);
       expect(Math.abs(sum - livingStatistic(n).value), `${n}人`).toBeLessThanOrEqual(1);
     }
-    expect(livingCategoryAverages(2)!.amounts).toMatchObject({ food: 79340, utilities: 22691, communication: 10101, transit: 4781, furniture: 7503, clothing: 15125, health: 16280, recreation: 28411, pocketAndSocial: 26059, other: 16788 });
+    expect(livingCategoryAverages(2)!.amounts).toMatchObject({ food: 79340, utilities: 22691, communication: 13055, transit: 4781, furniture: 7503, clothing: 15125, health: 16280, recreation: 25457, pocketAndSocial: 26059, other: 16788 });
+    // インターネット接続料（品目分類の全国の月平均 2,954円）を、どの世帯人員も教養娯楽から通信へ移した（合計は同じ）
+    expect([2, 3, 4, 5, 6].map((n) => livingCategoryAverages(n)!.amounts.communication)).toEqual([13055, 15392, 16282, 17276, 20017]);
+    expect([2, 3, 4, 5, 6].map((n) => livingCategoryAverages(n)!.amounts.recreation)).toEqual([25457, 26479, 33756, 32905, 33436]);
   });
   it("前の分け方の交通・通信とその他の消費支出の平均も添える（前の世帯の内訳の目安）", () => {
     expect(livingCategoryAverages(2)!.amounts).toMatchObject({ transport: 14883 });
@@ -138,7 +141,7 @@ describe("基本生活費の10費目（0100）", () => {
     const sp = splitTransport(30000, 2)!;
     expect(sp.transit + sp.communication).toBe(30000);
     expect(sp.transit % SPLIT_STEP).toBe(0);
-    expect(sp.transit).toBe(10000);
+    expect(sp.transit).toBe(Math.round((30000 * 4781) / (4781 + 13055) / 1000) * 1000);
     const tiny = splitTransport(400, 2)!;
     expect(tiny.transit + tiny.communication).toBe(400);
     expect(tiny.transit).toBeGreaterThanOrEqual(0);

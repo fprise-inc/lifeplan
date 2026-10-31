@@ -96,7 +96,7 @@ describe("住まいの段階と例外の年（修繕費・固定資産税・家�
 });
 
 describe("周期的な支出・不動産の段階と例外の年", () => {
-  it("n年ごとの支出の1回の額の段と例外の年（当て先は周期的な支出の入力項目ID）", () => {
+  it("何年かごとの支出の1回の額の段と例外の年（当て先は周期的な支出の入力項目ID）", () => {
     const wh0 = open("dualAssetsTwoKids");
     const pe = wh0.request.input.household.periodicExpenses![0]!;
     let wh = act(wh0, "events", `ev/${pe.id}/addStage`);

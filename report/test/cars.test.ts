@@ -110,3 +110,65 @@ describe.skipIf(bin === null)("車を2台持つ世帯の PDF", () => {
     expect(all).toContain(normalize(ESTIMATED_NOTE));
   });
 });
+
+describe("ライフイベント表に、ライフイベントの入力項目の行を出す（0068 の追記 2026-10-31）", () => {
+  it("出るお金の行（1回は額、くり返しは最初の年に「毎年」「3年ごとに」）・入るお金の行・子への援助（結婚資金）", () => {
+    const req = structuredClone(modelHousehold("salariedCoupleTwoKids"));
+    const h = req.input.household as unknown as {
+      members: { id: string; kind: string }[];
+      periodicExpenses?: unknown[];
+      incomeFlows?: unknown[];
+      goals?: { kind: string; owner?: string; education?: { gifts?: unknown[] } }[];
+    };
+    const box = (value: number) => ({ value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "よくある額の目安" } });
+    h.periodicExpenses = [
+      ...(h.periodicExpenses ?? []),
+      { id: "00000000-0000-4000-8000-0000000000c1", label: "特別な旅行", kind: "general", row: "cf.expense.lumpSum.other", from: { at: "2029-04" }, to: { at: "2029-04" }, everyYears: 1, amount: box(800000) },
+      { id: "00000000-0000-4000-8000-0000000000c2", label: "予備費", kind: "general", row: "cf.expense.lumpSum.other", from: { at: "2027-10" }, to: null, everyYears: 1, amount: box(300000) },
+      // ほかの入力項目の行（車の修理）は出さない
+      { id: "00000000-0000-4000-8000-0000000000c3", label: "車の修理", kind: "car", row: "cf.expense.living.car", from: { at: "2028-01" }, to: { at: "2028-01" }, everyYears: 1, amount: box(100000) },
+    ];
+    h.incomeFlows = [{ id: "00000000-0000-4000-8000-0000000000c4", label: "結婚のお祝い", kind: "celebration", from: { at: "2030-06" }, to: { at: "2030-06" }, everyYears: 1, amount: box(300000) }];
+    const child = h.members.find((m) => m.kind === "child")!;
+    const goal = h.goals!.find((g) => g.kind === "education" && g.owner === child.id)!;
+    goal.education!.gifts = [{ id: "00000000-0000-4000-8000-0000000000c5", at: { memberAge: { member: child.id, years: 30 } }, amount: 1000000, purpose: "wedding" }];
+    const input = buildProposalInput(bundleOf(req));
+    const items = input.events.flatMap((e) => e.items.map((t) => `${e.year}:${t}`));
+    expect(items).toContain("2029:特別な旅行（80万円）");
+    expect(items).toContain("2027:予備費（毎年30万円）");
+    expect(items).toContain("2030:結婚のお祝い（受け取り 30万円）");
+    expect(items).toContain("2042:第1子の結婚の援助（100万円）");
+    // もとからある種類の無い3年ごとの行（名前なし）
+    expect(items.some((t) => /^2027:くり返しの支出（3年ごとに/u.test(t))).toBe(true);
+    expect(items.some((t) => t.includes("車の修理"))).toBe(false);
+  });
+
+  it("出来事から決めた時期（入居の時）・年齢の切り替えの規則つきの時期（○歳の4月）の行も、計算と同じ年に出す", () => {
+    const req = structuredClone(modelHousehold("housingPurchase"));
+    const h = req.input.household as unknown as {
+      members: { id: string; kind: string }[];
+      events?: { id: string; at: { at?: string } }[];
+      periodicExpenses?: unknown[];
+    };
+    const move = h.events![0]!;
+    const child = h.members.find((m) => m.kind === "child")!;
+    const box = (value: number) => ({ value, state: "confirmed", origin: { kind: "manual" } });
+    const atMove = { event: move.id };
+    // 2025年5月生まれの子の「6歳の4月」は、6歳になった後の最初の4月（2032年4月。6歳に達する月は2031年5月）
+    const april = { memberAge: { member: child.id, years: 6, ageSwitch: "schoolYear" } };
+    h.periodicExpenses = [
+      ...(h.periodicExpenses ?? []),
+      { id: "00000000-0000-4000-8000-0000000000d1", label: "引っ越しの費用", kind: "general", row: "cf.expense.lumpSum.other", from: atMove, to: atMove, everyYears: 1, amount: box(300000) },
+      { id: "00000000-0000-4000-8000-0000000000d2", label: "入学の記念の旅行", kind: "general", row: "cf.expense.lumpSum.other", from: april, to: april, everyYears: 1, amount: box(400000) },
+    ];
+    const bundle = bundleOf(req);
+    const paid = (id: string) => bundle.proposal.result.table.filter((c) => c.object === id && c.amount > 0).map((c) => c.year);
+    expect(move.at.at).toBe("2028-04");
+    expect(paid("00000000-0000-4000-8000-0000000000d1")).toEqual([2028]);
+    expect(paid("00000000-0000-4000-8000-0000000000d2")).toEqual([2032]);
+    const items = buildProposalInput(bundle).events.flatMap((e) => e.items.map((t) => `${e.year}:${t}`));
+    expect(items).toContain("2028:引っ越しの費用（30万円）");
+    expect(items).toContain("2032:入学の記念の旅行（40万円）");
+    expect(items.some((t) => t.includes("入学の記念の旅行") && !t.startsWith("2032:"))).toBe(false);
+  });
+});

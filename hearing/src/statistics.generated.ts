@@ -2568,30 +2568,30 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "retrievedAt": "2026-10-26"
  },
  "living.statistics.categoryMonthly.communication": {
-  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の通信（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の通信と、インターネット接続料（品目分類の全国の月平均）の合計（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
   "value": [
    {
     "upTo": 1
    },
    {
     "upTo": 2,
-    "amount": 10101
+    "amount": 13055
    },
    {
     "upTo": 3,
-    "amount": 12438
+    "amount": 15392
    },
    {
     "upTo": 4,
-    "amount": 13328
+    "amount": 16282
    },
    {
     "upTo": 5,
-    "amount": 14322
+    "amount": 17276
    },
    {
     "upTo": null,
-    "amount": 17063
+    "amount": 20017
    }
   ],
   "rev": 1,
@@ -2785,33 +2785,33 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "retrievedAt": "2026-10-26"
  },
  "living.statistics.categoryMonthly.recreation": {
-  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の教養娯楽（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の教養娯楽から、インターネット接続料（品目分類の全国の月平均）を除いた額（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
   "value": [
    {
     "upTo": 1
    },
    {
     "upTo": 2,
-    "amount": 28411
+    "amount": 25457
    },
    {
     "upTo": 3,
-    "amount": 29433
+    "amount": 26479
    },
    {
     "upTo": 4,
-    "amount": 36710
+    "amount": 33756
    },
    {
     "upTo": 5,
-    "amount": 35859
+    "amount": 32905
    },
    {
     "upTo": null,
-    "amount": 36390
+    "amount": 33436
    }
   ],
-  "rev": 1,
+  "rev": 2,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },

@@ -278,7 +278,9 @@ describe("総額と内訳（0048 の2・0100）", () => {
     expect(help("transit")).toContain("ガソリン・駐車場・高速代・車の保険などは「車」の入力項目で入れます");
     expect(help("transit")).toContain("カーシェア・レンタカー");
     expect(help("furniture")).toContain("家電・家具の買い替え");
-    expect(help("communication")).toContain("インターネットの回線の料金は「趣味・娯楽」の中");
+    expect(help("communication")).toContain("スマホ・固定電話・ネット回線");
+    expect(help("communication")).not.toContain("趣味・娯楽の中");
+    expect(help("recreation")).toContain("ネット回線の料金は「通信費」で入れます");
     expect(help("recreation")).toContain("習い事の月謝");
     expect(help("other")).toContain("掛け捨ての保険料");
     expect(help("other")).toContain("保育の費用");
@@ -341,8 +343,8 @@ describe("前の分け方の内訳（0.42 までの世帯。0100）", () => {
     const transit = cs.find((c) => c.category === "transit")!;
     const comm = cs.find((c) => c.category === "communication")!;
     expect(transit.monthly.value! + comm.monthly.value!).toBe(30000);
-    // 3人の世帯の交通 6,239・通信 12,438 の割合（交通は千円単位）
-    expect(transit.monthly.value).toBe(Math.round((30000 * 6239) / (6239 + 12438) / 1000) * 1000);
+    // 3人の世帯の交通 6,239・通信 15,392（インターネット接続料を含む）の割合（交通は千円単位）
+    expect(transit.monthly.value).toBe(Math.round((30000 * 6239) / (6239 + 15392) / 1000) * 1000);
     expect(transit.monthly.state).toBe("estimated");
     expect(comm.monthly.state).toBe("estimated");
     expect(transit.id).toBe("00000000-0000-4000-8000-00000000c002");
@@ -535,7 +537,7 @@ describe("区画（0048 の3〜5）", () => {
     expect(() => preview(wh.request)).not.toThrow();
   });
 
-  it("明細の年1回の支払いは、年払いの暮らしの支出の行の候補（車・住まいの修繕は今までどおり）", () => {
+  it("明細の年1回の支払いは、年払いの暮らしの支出の行の候補（車は車の入力項目、住まいの修繕は住まいの入力項目の行）", () => {
     const summary = {
       days: 400,
       from: "2025-09",
@@ -554,8 +556,10 @@ describe("区画（0048 の3〜5）", () => {
     const fee = out.find((c) => c.title.includes("年会費"))!;
     expect(fee.title).toBe("年払いの暮らしの支出: 年会費 架空カード");
     expect(fee.value).toMatchObject({ kind: "livingAnnual", row: "cf.expense.living" });
+    // 車の候補は車の入力項目の「車の修理・用品など」の行（種類 car。ライフイベントには出さない）
     const car = out.find((c) => c.title.includes("車検"))!;
-    expect((car.value as { kind?: string }).kind).toBeUndefined();
+    expect(car.value).toMatchObject({ kind: "car", row: "cf.expense.lumpSum.car" });
+    expect(car.title).toBe("車の修理・用品など: 架空車検センター");
   });
 
   it("答え合わせ: 実際の年間の貯蓄額を入れると現状の検算の物ができ、空にすると外れる", () => {

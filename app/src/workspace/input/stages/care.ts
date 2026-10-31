@@ -47,7 +47,7 @@ function infoLine(key: string, label: string, value: string, note: string): Fiel
 }
 
 /** 仮の印（household.assumed）を持つ時点の欄: 書いたら印を外す（出来事を動かすときも） */
-function clearsAssumed(f: FieldDef): FieldDef {
+export function clearsAssumed(f: FieldDef): FieldDef {
   const drop = (before: WorkingHousehold, after: WorkingHousehold): WorkingHousehold => {
     if (after === before || after.assumed[f.key] === undefined) return after;
     const { [f.key]: _gone, ...rest } = after.assumed;
