@@ -271,7 +271,7 @@ function dreamGoals(req: EngineRequest, dreams: DreamsInput | undefined, years: 
   const list = dreamList(raw.input.household.periodicExpenses);
   const self = roles(raw).find((r) => r.key === "self");
   if (list.length === 0)
-    return { cards: [{ category: "夢", priority: "できれば", title: "まだ入れていません", when: "ライフイベントの入力項目の「夢プラン（やりたいこと）」で入れます", amount: null, ready: null, shortNote: null }], line: null };
+    return { cards: [{ category: "夢", priority: "できれば", title: "まだ入れていません", when: "ライフイベントの入力項目の「夢プラン」で入れます", amount: null, ready: null, shortNote: null }], line: null };
   const inView = new Map((req.input.household.periodicExpenses ?? []).map((p) => [p.id, p]));
   const cards: GoalCard[] = list.map((p, i) => {
     const now = inView.get(p.id);

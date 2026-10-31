@@ -1,4 +1,4 @@
-// 夢プラン（やりたいこと。0103）の1件の作り方と並べ方: 夢は出るお金の行（periodicExpenses）の種類 dream で持ち、順位・計算に入れるか・ひとことメモを
+// 夢プラン（0103）の1件の作り方と並べ方: 夢は出るお金の行（periodicExpenses）の種類 dream で持ち、順位・計算に入れるか・ひとことメモを
 // 行の dream に書く。表の行は一時的支出（ほかのライフイベントの行と同じ）。ふつうの行の優先度（必ず・できれば）とは別の物で、優先度の欄は持たない。
 // 画面の区画は stages/events.ts（ライフイベントの入力項目のいちばん上）。このファイルは moneyRows.ts から読むので、moneyRows.ts を読まない
 import type { Household, PeriodicExpense, Timepoint } from "../../engine/types.ts";
@@ -43,7 +43,12 @@ export function moveDream(wh: WorkingHousehold, id: string, dir: -1 | 1): Workin
   return mutate(wh, (h) => renumber(h, order));
 }
 
-/** 夢のひな形（名前と時期だけ。額は未入力の警告。0103）。時期は本人の年齢（その年齢を過ぎていれば1年後）か今から○年後 */
+/**
+ * 夢のひな形（名前と時期だけ。額は未入力の警告。0103）。時期は本人の年齢（その年齢を過ぎていれば1年後）か今から○年後。
+ * ライフイベントのひな形の「楽しみ・学び」（特別な旅行・大きな買い物・資格・学び直し）をここへまとめた（0103 の追記 2026-11-01）。
+ * names は「入れた」に数える夢の名前（前のひな形の名前を含む）、eventMatch は前にライフイベントで足した行の名前の形（その行も「入れた」に数える。
+ * onceOnly は1回の行だけ数える）
+ */
 export interface DreamTemplate {
   key: string;
   label: string;
@@ -52,18 +57,30 @@ export interface DreamTemplate {
   /** 今から○年後 */
   years?: number;
   help?: string;
+  /** 「入れた」に数える夢の名前（ひな形の名前のほか、前の名前） */
+  names?: readonly string[];
+  /** 前にライフイベントのひな形で足した行の名前の形（夢の名前にも当てはめる） */
+  eventMatch?: RegExp;
+  /** ライフイベントの行は1回の行だけ数える（前の「家族旅行」〔毎年〕は数えない） */
+  onceOnly?: boolean;
 }
 
 export const DREAM_TEMPLATES: readonly DreamTemplate[] = [
-  { key: "trip", label: "夫婦で海外旅行", age: 65, help: "時期は仮に、ご本人が65歳になる月です（退職のころ）。行き先と額を入れてください" },
-  { key: "secondHome", label: "二拠点や別荘", age: 60, help: "時期は仮に、ご本人が60歳になる月です。買う・借りるときの最初の費用を入れます。毎年の費用は「年ごと」にして入れます" },
+  { key: "trip", label: "旅行（海外・記念の旅行）", age: 65, names: ["夫婦で海外旅行"], eventMatch: /旅行/u, onceOnly: true, help: "時期は仮に、ご本人が65歳になる月です（退職のころ）。名前の欄に中身を書きます（ハワイ旅行・結婚20周年の旅行など）。額は、海外なら80万円・国内なら30万円ほどが目安です。毎年のふだんの旅行は基本生活費の「趣味・娯楽」に入れます" },
+  { key: "hobby", label: "趣味を始める（道具など）", years: 1, names: ["趣味を始める"], eventMatch: /大きな買い物|趣味の道具/u, help: "時期は仮に今から1年後です。道具・楽器・教室などの最初の費用を入れます（大きな道具なら1回50万円ほどが目安です）。毎年かかるなら「年ごと」にします。家電・家具・スマホの買い替えは基本生活費で入れます" },
+  { key: "study", label: "学び直し・資格", years: 1, names: ["学び直し"], eventMatch: /資格|学び直し/u, help: "時期は仮に今から1年後です。学費・講座の費用を入れます（1回30万円ほどが目安です）。教育訓練給付を受けるときは、働き方と収入の入力項目で入るお金を入れます" },
   { key: "car", label: "憧れの車", years: 3, help: "時期は仮に今から3年後です。車の額を入れます。維持費・ローンは車の入力項目で入れます" },
-  { key: "hobby", label: "趣味を始める", years: 1, help: "時期は仮に今から1年後です。道具・教室などの最初の費用を入れます。毎年かかるなら「年ごと」にします" },
-  { key: "study", label: "学び直し", years: 1, help: "時期は仮に今から1年後です。学費・講座の費用を入れます" },
-  { key: "business", label: "起業", years: 3, help: "時期は仮に今から3年後です。始めるときの費用を入れます。事業の収入は働き方と収入の入力項目で入れます" },
+  { key: "secondHome", label: "二拠点や別荘", age: 60, help: "時期は仮に、ご本人が60歳になる月です。買う・借りるときの最初の費用を入れます。毎年の費用は「年ごと」にして入れます" },
   { key: "move", label: "移住", age: 60, help: "時期は仮に、ご本人が60歳になる月です。引っ越し・家財などの費用を入れます。住まいの売り買い・家賃は住まいの入力項目で入れます" },
-  { key: "anniversary", label: "家族の記念", years: 5, help: "時期は仮に今から5年後です。記念の旅行・写真・お祝いなど、名前の欄に中身を書きます" },
+  { key: "business", label: "起業", years: 3, help: "時期は仮に今から3年後です。始めるときの費用を入れます。事業の収入は働き方と収入の入力項目で入れます" },
+  { key: "anniversary", label: "家族の記念", years: 5, help: "時期は仮に今から5年後です。記念の写真・お祝いなど、名前の欄に中身を書きます（記念の旅行は「旅行」で入れます）" },
 ];
+
+/** その夢がひな形の夢か（ひな形の名前・前の名前・前のライフイベントの名前の形） */
+export function dreamOfTemplate(t: DreamTemplate, p: PeriodicExpense): boolean {
+  const l = p.label ?? "";
+  return l === t.label || (t.names ?? []).includes(l) || (t.eventMatch?.test(l) ?? false);
+}
 
 /** ひな形の時期と、その仮の印の文 */
 export function dreamTiming(wh: WorkingHousehold, t: Pick<DreamTemplate, "age" | "years">): { from: Timepoint; basis: string } {

@@ -785,7 +785,7 @@ export interface PeriodicExpenseInput {
   readonly priority?: "need" | "want" | "wish";
   /** お金の行（0044）: あげる贈与（相手は世帯の外の家族。贈与税は受け取る人が払うので世帯から出さず、要約に出す） */
   readonly gift?: OutgoingGiftInput;
-  /** 夢プラン（やりたいこと。種類 dream の行だけ。順位・計算に入れるか・ひとことメモ。計算には使わない。画面が計算に入れない夢を要求から外す。0103） */
+  /** 夢プラン（種類 dream の行だけ。順位・計算に入れるか・ひとことメモ。計算には使わない。画面が計算に入れない夢を要求から外す。0103） */
   readonly dream?: DreamInput;
 }
 

@@ -1853,7 +1853,7 @@
         "payer": { "title": "払う人（世帯の中の構成員。万一のときの扱いは、この人の万一だけに当てる。省略は世帯。0044）", "x-item": "periodicExpense.payer", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "priority": { "title": "優先度（必要・希望・夢。計算には使わない。0044）", "x-item": "periodicExpense.priority", "$ref": "#/$defs/priority" },
         "dream": {
-          "title": "夢プラン（やりたいこと。種類 dream の行だけ。順位・計算に入れるか〔省略は入れる〕・ひとことメモ。計算には使わない。画面が計算に入れない夢を要求から外す。0103）",
+          "title": "夢プラン（種類 dream の行だけ。順位・計算に入れるか〔省略は入れる〕・ひとことメモ。計算には使わない。画面が計算に入れない夢を要求から外す。0103）",
           "x-item": "periodicExpense.dream",
           "type": "object",
           "additionalProperties": false,
@@ -1877,7 +1877,7 @@
       "allOf": [{ "if": { "required": ["monthly"], "properties": { "monthly": { "const": true } } }, "then": { "properties": { "everyYears": { "const": 1 } } } }]
     },
     "moneyOutKind": {
-      "description": "0044: 出るお金の種類（general 一時的支出・その他／allowance 仕送り／childSupport 養育費を払う／gift あげる贈与／education 塾・習い事・留学／repair 修繕・リフォーム／realEstateCost 不動産の一時の経費／livingAnnual 年払い・数年おきの暮らしの支出／car 車の修理・用品など／other その他／dream 夢プラン〔やりたいこと〕の1件。0103）",
+      "description": "0044: 出るお金の種類（general 一時的支出・その他／allowance 仕送り／childSupport 養育費を払う／gift あげる贈与／education 塾・習い事・留学／repair 修繕・リフォーム／realEstateCost 不動産の一時の経費／livingAnnual 年払い・数年おきの暮らしの支出／car 車の修理・用品など／other その他／dream 夢プランの1件。0103）",
       "enum": ["general", "allowance", "childSupport", "gift", "education", "repair", "realEstateCost", "livingAnnual", "car", "other", "dream"]
     },
     "priority": { "description": "0044: 優先度（need 必要・want 希望・wish 夢）", "enum": ["need", "want", "wish"] },

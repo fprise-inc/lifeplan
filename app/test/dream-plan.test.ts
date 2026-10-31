@@ -1,4 +1,4 @@
-// 夢プラン（やりたいこと。0103）: ライフイベントの入力項目のいちばん上の区画・夢のひな形（名前と時期だけ）・順位の上下・計算に入れる／入れない・
+// 夢プラン（0103）: ライフイベントの入力項目のいちばん上の区画・夢のひな形（名前と時期だけ）・順位の上下・計算に入れる／入れない・
 // ひとことメモ・古い「夢」（wish）の行を夢にする・結果の見方（理由「夢」・確実な分だけで外す）・夢を外した1回の計算と要約の1文・
 // 目標の区画の夢のカード・子への援助の優先度
 import { describe, expect, it } from "vitest";
@@ -35,7 +35,7 @@ const tpl = (key: string) => DREAM_TEMPLATES.find((t) => t.key === key)!;
 const dreamsOf = (wh: WorkingHousehold) => dreamRows(wh.request.input.household);
 const ids = ["00000000-0000-4000-8000-d00000000001", "00000000-0000-4000-8000-d00000000002", "00000000-0000-4000-8000-d00000000003"] as const;
 
-/** 夢を3件足した世帯（海外旅行・憧れの車・学び直し。額を入れる） */
+/** 夢を3件足した世帯（旅行・憧れの車・学び直し・資格。額を入れる） */
 function threeDreams(): WorkingHousehold {
   let wh = bare();
   wh = addDream(wh, tpl("trip"), ids[0]);
@@ -50,16 +50,21 @@ function threeDreams(): WorkingHousehold {
 }
 
 describe("夢プランの区画（ライフイベントの入力項目のいちばん上）", () => {
-  it("区画「夢プラン（やりたいこと）」を出るお金より上に置く。説明に車・住まいの行き先、ひな形は8つの小さなボタン", () => {
+  it("区画「夢プラン」を出るお金より上に置く。説明に車・住まいの行き先、ひな形は8つの小さなボタン", () => {
     const wh = bare();
     const s = events(wh);
     expect(s.sections.map((x) => x.key)).toEqual(["ev/dreams", "ev/periodic", "money/events/in", "events/schedule"]);
     const d = dreamSec(wh);
-    expect(d.title).toBe("夢プラン（やりたいこと）");
+    expect(d.title).toBe("夢プラン");
     expect(d.note).toContain("車・住まいそのものを夢にするときも、ここでは額と時期で入れます。維持費・ローンは車・住まいの入力項目で");
     const chips = d.groups.find((g) => g.key === "ev/dreamTemplates")!;
     expect(chips.chips).toBe(true);
-    expect(chips.actions.map((a) => a.label)).toEqual(["＋ 夫婦で海外旅行", "＋ 二拠点や別荘", "＋ 憧れの車", "＋ 趣味を始める", "＋ 学び直し", "＋ 起業", "＋ 移住", "＋ 家族の記念"]);
+    expect(chips.actions.map((a) => a.label)).toEqual(["＋ 旅行（海外・記念の旅行）", "＋ 趣味を始める（道具など）", "＋ 学び直し・資格", "＋ 憧れの車", "＋ 二拠点や別荘", "＋ 移住", "＋ 起業", "＋ 家族の記念"]);
+    // ライフイベントの「楽しみ・学び」から移したひな形も、額は入れない（目安は「?」に書く）
+    expect(tpl("trip").help).toContain("海外なら80万円・国内なら30万円ほどが目安");
+    expect(tpl("hobby").help).toContain("1回50万円ほどが目安");
+    expect(tpl("study").help).toContain("1回30万円ほどが目安");
+    expect([tpl("hobby").years, tpl("study").years, tpl("trip").age]).toEqual([1, 1, 65]);
     expect(d.actions.map((a) => a.label)).toEqual(["＋ 夢を足す"]);
   });
 
@@ -67,7 +72,7 @@ describe("夢プランの区画（ライフイベントの入力項目のいち�
     const wh = threeDreams();
     const self = wh.request.input.household.members.find((m) => m.kind === "self")!;
     const [trip, car, study] = dreamsOf(wh);
-    expect([trip!.label, car!.label, study!.label]).toEqual(["夫婦で海外旅行", "憧れの車", "学び直し"]);
+    expect([trip!.label, car!.label, study!.label]).toEqual(["旅行（海外・記念の旅行）", "憧れの車", "学び直し・資格"]);
     expect(trip!.from).toEqual({ memberAge: { member: self.id, years: 65 } });
     expect(car!.from).toEqual({ at: addMonths(wh.request.input.baseMonth, 36) });
     expect([trip, car, study].map((p) => [p!.kind, p!.row, p!.everyYears, p!.dream?.rank])).toEqual([
@@ -114,8 +119,8 @@ describe("夢プランの区画（ライフイベントの入力項目のいち�
     expect(acts(ids[2])).toEqual(["↑ 上へ", "外す"]);
     const up = groupOf(wh, ids[2]).actions.find((a) => a.label === "↑ 上へ")!.run(wh);
     expect(dreamsOf(up).map((p) => [p.label, p.dream?.rank])).toEqual([
-      ["夫婦で海外旅行", 1],
-      ["学び直し", 2],
+      ["旅行（海外・記念の旅行）", 1],
+      ["学び直し・資格", 2],
       ["憧れの車", 3],
     ]);
     expect(moveDream(up, ids[0], -1)).toBe(up);
@@ -126,7 +131,7 @@ describe("夢プランの区画（ライフイベントの入力項目のいち�
     expect(eventExpenses(wh.request.input.household)).toHaveLength(0);
     expect(events(wh).sections.find((s) => s.key === "ev/periodic")!.groups.some((g) => ids.some((id) => g.key === `ev/${id}`))).toBe(false);
     const names = scheduleItems(wh).map((x) => x.name);
-    expect(names).toEqual(expect.arrayContaining(["★夫婦で海外旅行", "★憧れの車", "★学び直し"]));
+    expect(names).toEqual(expect.arrayContaining(["★旅行（海外・記念の旅行）", "★憧れの車", "★学び直し・資格"]));
   });
 });
 
@@ -148,6 +153,44 @@ describe("古い「夢」（wish）の行は「できれば」で見せ、「夢
     const want = { ...old, priority: "want" as const };
     expect(periodicGroup(mutate(base, (h) => void h.periodicExpenses!.push(want)), want, "events").actions.some((a) => a.label === "夢にする")).toBe(false);
     expect(toDream(moved, ids[1])).toEqual(moved);
+  });
+});
+
+describe("前にライフイベントの「楽しみ・学び」のひな形で足した行", () => {
+  const box = (v: number) => ({ value: v, state: "confirmed", origin: { kind: "manual" } }) as PeriodicExpense["amount"];
+  const row = (id: string, label: string, extra: Partial<PeriodicExpense> = {}): PeriodicExpense => ({ id, label, kind: "general", row: "cf.expense.lumpSum.other", from: { at: "2028-04" }, to: { at: "2028-04" }, everyYears: 1, amount: box(500000), priority: "want", ...extra });
+  const dreamChip = (wh: WorkingHousehold, key: string) => dreamSec(wh).groups.find((g) => g.key === "ev/dreamTemplates")!.actions.find((a) => a.key === `ev/dream/template/${key}`)!;
+  const old = [
+    row(ids[0], "特別な旅行", { amount: box(800000) }),
+    row(ids[1], "大きな買い物"),
+    row(ids[2], "資格・学び直し", { amount: box(300000) }),
+    // 前の「家族旅行」（毎年）は夢の旅行に数えない
+    row("00000000-0000-4000-8000-d00000000009", "家族旅行", { to: null, amount: box(300000) }),
+  ];
+  const legacy = () => mutate(bare(), (h) => void (h.periodicExpenses ??= []).push(...structuredClone(old)));
+
+  it("ふつうのライフイベントの行のまま（書き換えない）。夢のひな形の「入れた」に数える。行に「夢にする」", () => {
+    const wh = legacy();
+    expect(dreamsOf(wh)).toHaveLength(0);
+    expect(eventExpenses(wh.request.input.household).map((p) => p.label)).toEqual(["特別な旅行", "大きな買い物", "資格・学び直し", "家族旅行"]);
+    expect(dreamChip(wh, "trip").chip!.added).toBe("入れた（ライフイベントに1件）");
+    expect(dreamChip(wh, "hobby").chip!.added).toBe("入れた（ライフイベントに1件）");
+    expect(dreamChip(wh, "study").chip!.added).toBe("入れた（ライフイベントに1件）");
+    expect(dreamChip(wh, "car").chip!.added).toBeUndefined();
+    const out = events(wh).sections.find((s) => s.key === "ev/periodic")!;
+    const acts = (id: string) => out.groups.find((g) => g.key === `ev/${id}`)!.actions.map((a) => a.label);
+    for (const id of ids) expect(acts(id)).toContain("夢にする");
+    expect(acts("00000000-0000-4000-8000-d00000000009")).not.toContain("夢にする");
+    // 夢にすると夢の「入れた」の数に入り、ライフイベントの行から外れる
+    const moved = out.groups.find((g) => g.key === `ev/${ids[0]}`)!.actions.find((a) => a.label === "夢にする")!.run(wh);
+    expect(dreamsOf(moved).map((p) => [p.label, p.kind, p.amount.value])).toEqual([["特別な旅行", "dream", 800000]]);
+    expect(dreamChip(moved, "trip").chip!.added).toBe("入れた（1件）");
+    // 夢とライフイベントの行の両方
+    const both = addDream(legacy(), tpl("hobby"), "00000000-0000-4000-8000-d0000000000a");
+    expect(dreamChip(both, "hobby").chip!.added).toBe("入れた（2件。うちライフイベントに1件）");
+    // 前のひな形の名前の夢も数える
+    const prev = mutate(addDream(bare(), tpl("trip"), ids[0]), (h) => void (h.periodicExpenses!.find((p) => p.id === ids[0])!.label = "夫婦で海外旅行"));
+    expect(dreamChip(prev, "trip").chip!.added).toBe("入れた（1件）");
   });
 });
 
@@ -176,9 +219,9 @@ describe("計算と結果の見方", () => {
     ]);
     const rows = viewRows([h], viewMode(false));
     expect(rows.filter((r) => r.tag === "夢").map((r) => [r.name, r.excluded])).toEqual([
-      ["夫婦で海外旅行", false],
+      ["旅行（海外・記念の旅行）", false],
       ["憧れの車", true],
-      ["学び直し", false],
+      ["学び直し・資格", false],
     ]);
     // 確実な分だけ: 夢を全部外す
     const certain = certainOnly(reqOf(wh));
@@ -223,9 +266,9 @@ describe("計算と結果の見方", () => {
     const m = toPresentation({ base: req, proposal: req, current: r, proposed: r, targetAge: 90, selectedYear: null, provisional: false, dreams: { raw: req, withoutDreams: nd } });
     const dreams = m.goals.cards.filter((c) => c.dream !== undefined);
     expect(dreams.map((c) => [c.category, c.title, c.amount, c.dream!.included])).toEqual([
-      ["夢1", "夫婦で海外旅行", 1500000, true],
+      ["夢1", "旅行（海外・記念の旅行）", 1500000, true],
       ["夢2", "憧れの車", 6000000, true],
-      ["夢3", "学び直し", 400000, false],
+      ["夢3", "学び直し・資格", 400000, false],
     ]);
     expect(dreams[0]!.when).toMatch(/^\d{4}年（ご本人65歳）$/u);
     expect(m.goals.cards.some((c) => c.category === "やりたいこと")).toBe(false);

@@ -359,7 +359,7 @@ export interface PeriodicExpense {
   payer?: string;
   priority?: Priority;
   gift?: { method?: "calendar" | "settlement"; purpose?: "general" | "housing" | "asNeeded" };
-  /** 夢プラン（やりたいこと。種類 dream の行だけ。0103）: 順位・計算に入れるか（省略は入れる）・ひとことメモ。計算には使わない（入れない夢は要求を作るときに外す） */
+  /** 夢プラン（種類 dream の行だけ。0103）: 順位・計算に入れるか（省略は入れる）・ひとことメモ。計算には使わない（入れない夢は要求を作るときに外す） */
   dream?: DreamInfo;
   [key: string]: unknown;
 }
