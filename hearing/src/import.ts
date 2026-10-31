@@ -1007,7 +1007,7 @@ function lumpSumSubstitute(m: Member, p: EmploymentPeriod): Estimate | null {
  * 定期便の加入月数の代わりの値（入力の画面の pension.ts の substituteMonths と同じ: 国民年金＝20歳の月から書類の作成年月まで〔60歳になる前の月まで〕、
  * 厚生年金＝その月までの働き方の期間の厚生年金の月）
  */
-function substituteMonths(h: Household, m: Member, asOf: string): { basic: number; employee: number; basis: string } {
+function substituteMonths(h: Household, m: Member, asOf: string): { basic: number; employee: number; basis: string; basicBasis: string; employeeBasis: string } {
   const between = (a: string, b: string) => Math.max(0, ymIndex(b) - ymIndex(a) + 1);
   const from20 = reachedMonth(m, 20);
   const last = addMonths(reachedMonth(m, 60), -1);
@@ -1022,7 +1022,10 @@ function substituteMonths(h: Household, m: Member, asOf: string): { basic: numbe
     employee += between(a, ymIndex(b0) > ymIndex(asOf) ? asOf : b0);
   }
   employee = Math.min(900, employee);
-  return { basic, employee, basis: `代わりの値（国民年金は20歳の月から書類の作成年月まで〔60歳まで〕の${String(basic)}か月、厚生年金は働き方の期間の厚生年金の${String(employee)}か月）` };
+  const b = `国民年金は20歳の月から書類の作成年月まで〔60歳まで〕の${String(basic)}か月`;
+  const e = `厚生年金は働き方の期間の厚生年金の${String(employee)}か月`;
+  // 2つとも代わりの値なら入力の画面の「加入月数を書類で確かめる」と同じ文。片方だけ（もう片方はシートの値）なら、その片方の文だけ
+  return { basic, employee, basis: `代わりの値（${b}、${e}）`, basicBasis: `代わりの値（${b}）`, employeeBasis: `代わりの値（${e}）` };
 }
 
 // ---- 公的年金 ----
@@ -1063,7 +1066,7 @@ function importPension(c: Ctx, h: Household, adults: Adults, asOf: string): void
       if (total.status === "unknown" && sub !== null) {
         const e = emp.status === "value" ? emp.value : sub.employee;
         rec.months = { basic: sub.basic, employee: e };
-        const rows: Record<string, unknown> = { "pensionRecord.months/basic": docRow(sub.basis) };
+        const rows: Record<string, unknown> = { "pensionRecord.months/basic": docRow(emp.status === "value" || emp.status === "notApplicable" ? sub.basicBasis : sub.basis) };
         c.field(id, "hs.pension.months.total", n, "pensionRecord.months", "/months/basic", "unknown");
         if (emp.status === "value") c.field(id, "hs.pension.months.employee", n, "pensionRecord.months", "/months/employee", "confirmed");
         else if (emp.status !== "notApplicable") {
@@ -1075,7 +1078,7 @@ function importPension(c: Ctx, h: Household, adults: Adults, asOf: string): void
         c.field(id, "hs.pension.months.total", n, "pensionRecord.months", "/months/basic", "confirmed");
         c.field(id, "hs.pension.months.employee", n, "pensionRecord.months", "/months/employee", "unknown");
         rec.months = { basic: total.value, employee: sub.employee };
-        (rec as { valueStates?: Record<string, unknown> }).valueStates = { "pensionRecord.months/employee": docRow(sub.basis) };
+        (rec as { valueStates?: Record<string, unknown> }).valueStates = { "pensionRecord.months/employee": docRow(sub.employeeBasis) };
       } else if (total.status === "value") {
         c.field(id, "hs.pension.months.total", n, "pensionRecord.months", "/months/basic", "confirmed");
         let e = 0;

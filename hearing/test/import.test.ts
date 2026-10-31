@@ -102,6 +102,21 @@ describe("取り込み", () => {
     expect(arow?.approval).toBeDefined();
   });
 
+  it("加入月数の片方だけが「わからない」なら、書類待ちの行の根拠はその片方の代わりの値だけを書く（もう片方はシートの値）", () => {
+    const common = [...minimal, a("hs.work.type", "regular", 1), a("hs.work.since", "2008-04", 1), a("hs.income.salary", 5000000, 1), a("hs.pension.notice.type", "statementUnder50", 1), a("hs.pension.notice.asOf", "2026-06", 1), a("hs.pension.amount.basic", 700000, 1), a("hs.pension.amount.employee", 900000, 1)];
+    const rowsOf = (r: ReturnType<typeof run>) => (r.request.input.household.pensionRecords?.[0] as { valueStates?: Record<string, { state: string; estimate?: { basis?: string } }> } | undefined)?.valueStates ?? {};
+    // 厚生年金だけ「わからない」: 国民年金はシートの 250か月、厚生年金は働き方の期間（2008-04〜2026-06）の 219か月
+    const empOnly = run(...common, a("hs.pension.months.total", 250, 1), a("hs.pension.months.employee", "unknown", 1));
+    expect(empOnly.request.input.household.pensionRecords?.[0]?.months).toEqual({ basic: 250, employee: 219 });
+    expect(Object.keys(rowsOf(empOnly))).toEqual(["pensionRecord.months/employee"]);
+    expect(rowsOf(empOnly)["pensionRecord.months/employee"]?.estimate?.basis).toBe("代わりの値（厚生年金は働き方の期間の厚生年金の219か月）");
+    // 合計だけ「わからない」: 厚生年金はシートの 200か月、国民年金は20歳の月（2005-04）から作成年月まで 255か月
+    const totalOnly = run(...common, a("hs.pension.months.total", "unknown", 1), a("hs.pension.months.employee", 200, 1));
+    expect(totalOnly.request.input.household.pensionRecords?.[0]?.months).toEqual({ basic: 255, employee: 200 });
+    expect(Object.keys(rowsOf(totalOnly))).toEqual(["pensionRecord.months/basic"]);
+    expect(rowsOf(totalOnly)["pensionRecord.months/basic"]?.estimate?.basis).toBe("代わりの値（国民年金は20歳の月から書類の作成年月まで〔60歳まで〕の255か月）");
+  });
+
   it("賞与が空欄なら、年収を統計の割合で分けて推定の印を付ける", () => {
     const r = run(...minimal, a("hs.work.type", "regular", 1), a("hs.income.salary", 5000000, 1));
     const s = r.request.input.household.employmentPeriods[0]?.salary;
