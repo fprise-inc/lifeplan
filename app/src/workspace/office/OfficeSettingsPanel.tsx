@@ -24,11 +24,11 @@ export interface OfficeSettingsPanelProps {
   onClose: () => void;
 }
 
-/** 「1.5」（%）→ "0.015"。空は null。読めない・範囲の外は undefined */
+/** 「1.5」（%）→ "0.015"。空は null。読めない・範囲の外は undefined（整数の部分は3桁まで読む。評価の割合の 100% を入れられるように） */
 export function pctToRate(text: string, lo = -5, hi = 20): string | null | undefined {
   const t = text.trim().replace(/[％%]$/, "");
   if (t === "") return null;
-  if (!/^-?\d{1,2}(\.\d{1,4})?$/.test(t)) return undefined;
+  if (!/^-?\d{1,3}(\.\d{1,4})?$/.test(t)) return undefined;
   const v = Number(t);
   if (v < lo || v > hi) return undefined;
   return String(Number((v / 100).toFixed(6)));
