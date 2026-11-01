@@ -72,7 +72,7 @@ export function barAlerts(i: BarInputs): AlertSpec[] {
 const ACTION: Record<NoticeTarget, string> = { recovery: "復元キー", restore: "復元キー", storage: "保存先", office: "事務所の共有", households: "世帯の一覧", presence: "編集を始める", family: "介護・親の項目", work: "働き方と収入", living: "基本生活費", input: "入力", plans: "プランの一覧" };
 
 /** 開いたときの知らせの文（0035 の8） */
-export function householdNoticeText(n: { kind: string; count?: number; plans?: number }): { text: string; target: NoticeTarget; title: string } | null {
+export function householdNoticeText(n: { kind: string; count?: number; plans?: number; amount?: number }): { text: string; target: NoticeTarget; title: string } | null {
   if (n.kind === "outsideFamily")
     return { target: "family", title: "親・祖父母を世帯の外の家族にしました", text: "親・祖父母を世帯の外の家族（家計が別）にしました。年金などは世帯の収入に入らないので、結果が前と変わります。家計を1つにする期間は介護・親の項目で入れられます" };
   // 給与からの推定のままの標準報酬月額を空欄にした（0.38 の変換の段。0047 の追記 2026-10-29 の2）
@@ -102,6 +102,15 @@ export function householdNoticeText(n: { kind: string; count?: number; plans?: n
   if (n.kind === "carLoanEstimated") {
     const where = [(n.count ?? 0) > 0 ? `${n.count}か所` : "", (n.plans ?? 0) > 0 ? `プランの変更 ${n.plans}件` : ""].filter((x) => x !== "").join("と");
     return { target: "input", title: "これから買う車のローンの「書類待ち」を推定にしました", text: `返済予定表で確かめるのは今返している自動車ローンだけにしたので、これから買う車のローンの条件（${where}）を推定にしました。値はそのままで、結果は変わりません` };
+  }
+  // 基本生活費の内訳から仕送りをなくした（読むときの知らせ。値は変えない。0106）
+  if (n.kind === "livingAllowance") {
+    const amount = n.amount !== undefined && n.amount > 0 ? `（月${(Math.round(n.amount / 1000) / 10).toLocaleString("ja-JP")}万円）` : "";
+    return {
+      target: "living",
+      title: "基本生活費の内訳の「仕送り」を移してください",
+      text: `基本生活費の内訳から「仕送り」をなくしました。前に入れていた仕送り${amount}は「仕送り（前の内訳）」として、そのまま計算に使っています（結果は変わりません）。子の在学中の仕送りは子ども・教育、親への仕送りは介護・親の入力項目に移し、内訳の欄を空にしてください`,
+    };
   }
   if (n.kind === "unresolvedDiffs") return { target: "plans", title: "読み替えられなかったプランの変更があります", text: `古い形式のプランの変更のうち ${n.count ?? 0}件を読み替えられませんでした。プランの一覧の「要確認」で確かめてください` };
   return null;

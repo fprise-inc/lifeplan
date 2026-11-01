@@ -27,7 +27,7 @@ export const CHECK_KIND_LABELS: Readonly<Record<CheckKind, string>> = {
   notStarted: "まだ入れていない項目",
   unknown: "書類待ち",
   notice: "確かめの注意",
-  calc: "計算の知らせ（入力で直せる所）",
+  calc: "計算のお知らせ（入力で直せる所）",
   estimated: "推定",
   certainty: "確かさが申告・概算の値",
 };

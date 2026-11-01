@@ -195,7 +195,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
         <h2>
           確かめの一覧
           <Help label="確かめの一覧" id="checklist">
-            <p>未入力・まだ入れていない項目・書類待ち・確かめの注意・計算の知らせ・推定の欄を並べます。いつも現状の世帯を見ます（プランの編集中は、そのプランで足した物の行も出します）。</p>
+            <p>未入力・まだ入れていない項目・書類待ち・確かめの注意・計算のお知らせ・推定の欄を並べます。いつも現状の世帯を見ます（プランの編集中は、そのプランで足した物の行も出します）。</p>
             <p>書類待ちは、欄で「書類で確かめる」にした所です（住民税は住民税の決定通知書、退職金・企業年金は会社の退職金規程・制度の資料、年金の加入月数はねんきん定期便、住宅ローン・自動車ローンは返済予定表、手術の額は保険証券）。確かめるまでは代わりの値で計算し、書類の値を打つか「この値にする」で消えます。「書類のお願いにまとめる」で、送ってもらう書類の一覧とお願いの文を出せます。</p>
             <p>「開く」でその欄に移ります（移るだけでは値も状態も変わりません）。推定・書類待ち・確かさの行は「根拠」で根拠が開きます。</p>
             <p>確かさが申告・概算の値は、確かさか状態で絞り込んだときだけ出します。「次回確かめる」は、次の面談・見直しで確かめる所の印です（世帯に残ります。計算は変わりません）。</p>
@@ -205,7 +205,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
         <p class="ck-lead">
           未入力 {counts.missing}
           {counts.notStarted > 0 ? `・まだ入れていない ${counts.notStarted}` : ""}・書類待ち {counts.unknown}・確かめの注意 {counts.notice}
-          {counts.calc > 0 ? `・計算の知らせ ${counts.calc}` : ""}・推定 {counts.estimated}
+          {counts.calc > 0 ? `・計算のお知らせ ${counts.calc}` : ""}・推定 {counts.estimated}
           {marks.length > 0 ? `・次回確かめる ${marks.length}` : ""}
           {acked.length > 0 ? `・確認した注意 ${acked.length}` : ""}
         </p>

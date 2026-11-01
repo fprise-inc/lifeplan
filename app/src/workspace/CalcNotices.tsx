@@ -12,7 +12,7 @@ export function CalcNotices({ rows, onOpenCard, initialOpen = false }: { rows: r
   return (
     <div class={`calc-notices${urgent > 0 ? " urgent" : ""}`} data-calc-notices={rows.length}>
       <div class="cn-bar">
-        <span class="fee-tag">計算の知らせ</span>
+        <span class="fee-tag">計算のお知らせ</span>
         <span class="cn-counts">
           {NOTICE_KINDS.filter((k) => counts[k.id] > 0)
             .map((k) => `${k.short} ${counts[k.id]}`)

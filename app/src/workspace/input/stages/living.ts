@@ -1,9 +1,9 @@
 // 5. 基本生活費のカード（0048）: 毎月の生活費（住居費・教育費・保険料・車の費用・税と社会保険料を除く）と、その時期ごとの変化。
-// - 入れ方: 総額で／内訳で（内訳は10費目と仕送りを並べて全部出す。0100）。両方の値を持ち、選んだほうで計算する（切り替えても片方を消さない）
+// - 入れ方: 総額で／内訳で（内訳は10費目を並べて全部出し、最後に合計の行。0100・0106）。両方の値を持ち、選んだほうで計算する（切り替えても片方を消さない）
 // - 段階: 推定の段階（子の誕生と独立・自宅外の在学・同居・施設の介護・退職・70歳・80歳。livingStages.ts。0049）と FP が足す段。表は詳細、簡易は札
 // - 区画: 毎月の生活費／年払い・数年おきの暮らしの支出（お金の行。0044）／毎年の黒字のうち貯金に回る割合（0031。surplusSaving.ts）／
 //   実際に貯められている額（答え合わせ。savingsChecks）
-// - 医療費の窓口負担（70歳・75歳）は自動で変えない。保健医療の費目と「医療・介護」の行の説明に、段階で額を変えるよう書く
+// - 医療費の窓口負担（70歳・75歳）は自動で変えない。年をとった後の生活費は、推定の段階（70歳・80歳）で生活費の全体が下がる（0106）
 import type { Box, Household, LivingExpense, PeriodicExpense, Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth, readLevers } from "../../levers.ts";
 import { resolveTimepoint } from "../../timepoint.ts";
@@ -13,7 +13,7 @@ import { byId, field, getPath, plain, removeAction, timepointField, yenBox, type
 import { confirmedBox, mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
 import { GROWTH_KINDS, LIVING_CATEGORIES, LIVING_STAGE_LABELS, memberLabel } from "../labels.ts";
 import { applyAutoStages, autoActive, autoBasis, autoStages, autoStageTitle, isAutoStage, rememberDropped, settleStage, startLiving } from "../livingStages.ts";
-import { addExpense, expenseCard, MEDICAL_HELP, moneySections } from "../moneyRows.ts";
+import { addExpense, expenseCard, moneySections } from "../moneyRows.ts";
 import { readLine } from "../readLines.ts";
 import { putRow } from "../rows.ts";
 import type { Address } from "../../store/readings.ts";
@@ -69,33 +69,59 @@ export function fixGrowth(t: Record<string, unknown>, v: unknown): void {
 /** 節目のボタンの割合（目安のボタンの値。最初の額に対して） */
 const DEFAULT_RATIO: Record<string, string> = { childIndependence: "0.85", retirement: "0.8", age70: "0.75", age80: "0.7", other: "0.9" };
 
-// ---- 内訳（10費目と仕送り。0100） ----
+// ---- 内訳（10費目。0100・0106） ----
 
 /** 前の分け方の内訳（0.42 までの世帯。値があるときだけ、前の名前で出す。新しくは作らない） */
 const LEGACY_CATEGORIES: readonly string[] = ["transport", "otherConsumption"];
 /** 前の分け方の内訳を出す位置（この内訳の後ろ） */
 const LEGACY_AFTER: Readonly<Record<string, string>> = { transport: "transit", otherConsumption: "other" };
+/** 前の内訳の仕送り（0106。並びから外した。前の世帯で値があるときだけ、内訳の最後に出す） */
+export const LEGACY_ALLOWANCE = "allowance";
 
 const catLabel = (c: string) => LIVING_CATEGORIES.find((o) => o.value === c)?.label ?? c;
 const catOf = (l: LivingExpense | undefined, c: string): Category | undefined => (l?.categories ?? []).find((x) => x.category === c);
-/** 統計の目安に一部が入っている物（引かずに、欄の説明に書く） */
-const OVERLAP_NOTE = "統計の平均なので、ほかの入力項目で入れる物と少し重なることがあります";
+/** 前の内訳の仕送りに値があるか（0円・空は出さない） */
+export const hasLegacyAllowance = (l: LivingExpense | undefined): boolean => (catOf(l, LEGACY_ALLOWANCE)?.monthly.value ?? 0) > 0;
+/** 年1回・数年に1回の支出の確かめの一覧の名前（欄の説明で入れる所を言うとき） */
+const ANNUAL = "「年1回・数年に1回の支出」";
 const CAT_HELP: Record<string, string> = {
-  food: "食材・外食・お弁当など",
+  food: "食材・外食・お弁当・お菓子・飲み物・お酒など。学校給食は子ども・教育の入力項目で入れます（同じ人数の世帯の平均からも除いています）",
   utilities: "電気・ガス・灯油・水道",
-  communication: "スマホ・固定電話・ネット回線の料金など（同じ人数の世帯の平均にも、ネット回線の料金を入れています）",
+  communication: `スマホ・固定電話・ネット回線の料金、郵便・宅配便など。スマホ本体の買い替えは${ANNUAL}で入れます（同じ人数の世帯の平均は、ネット回線を入れ、スマホ本体を除いた額です）`,
   transit:
-    "電車・バス・タクシー・飛行機などの運賃。ガソリン・駐車場・高速代・車の保険などは「車」の入力項目で入れます。ときどき使うカーシェア・レンタカーはここに入れます（同じ人数の世帯の平均には入っていないので、使う世帯だけ足してください）",
-  furniture: "洗剤・ティッシュなどの消耗品・台所用品・寝具など。家電・家具の買い替えは「年払い・数年おきの暮らしの支出」の「家電・家具の買い替え」で入れます（同じ人数の世帯の平均からも除いています）",
+    "電車・バス・タクシーの運賃など。ガソリン・駐車場・車検・自動車税・車の保険と、通勤・ふだんの車の高速代は「車」の入力項目で入れます。旅行の高速代は、旅行と一緒に「趣味・娯楽」に入れます（平均からも高速代を除いています）。ときどき使うカーシェア・レンタカーはここに入れます（平均には入っていないので、使う世帯だけ足してください）",
+  furniture: `洗剤・ティッシュなどの消耗品、食器・台所用品、家事代行など。家電・家具の買い替えは${ANNUAL}の「家電・家具の買い替え」で入れます（同じ人数の世帯の平均からも除いています）`,
   clothing: "服・靴・クリーニングと、美容院・理容・化粧品など",
-  health: `通院・薬・医療用品など。${MEDICAL_HELP}（医療費だけを分けて伸ばしたいときは「年払い・数年おきの暮らしの支出」に「医療・介護」の行を足します）`,
-  recreation: `本・スポーツ・映画・旅行・ペットなど（ネット回線は「通信費」）。ふだんの旅行はここ、特別な旅行はライフイベントの夢プランで入れます。家計調査の平均には、旅行の費用（年6万〜9万円ほど）と習い事の月謝が入っています（${OVERLAP_NOTE}）`,
-  pocketAndSocial: "使い道を決めていないこづかいと、お祝い・贈り物・つきあいの費用",
-  other: `たばこ・身の回り用品など、ほかの内訳に当てはまらない支出。内訳に分けていない分もここに入ります。同じ人数の世帯の平均（家計調査）には、掛け捨ての保険料（火災保険など）と保育の費用も入っています（${OVERLAP_NOTE}）`,
-  allowance: "親への仕送りは介護・親の項目の「親への仕送り」、子の自宅外の在学の仕送りは子ども・教育の項目でも入れられます（相手ごとに分けて見られます）。両方に入れると二重になります",
+  health: "通院・薬・サプリ・メガネ・コンタクトなど。70歳・80歳からは、推定の段階で生活費の全体が下がります",
+  recreation: [
+    "本・新聞・NHKなどの受信料・スポーツ・映画・旅行・ペットのえさと用品・ペット保険など。",
+    "・ふだんの旅行はここに入れます（旅行の高速代も。平均に宿泊・パック旅行が年6万〜9万円ほど入っています）。特別な旅行はライフイベントの夢プランで入れます",
+    `・子の習い事は子ども・教育、テレビ・パソコンの買い替えとペットの病気・けがは${ANNUAL}で入れます（平均からも除いています）`,
+    "・大人の習い事の月謝は、ここに足してください（平均からは月謝を除いています）",
+  ].join("\n"),
+  pocketAndSocial: "使い道を決めていないこづかいと、お祝い・お年玉・香典・贈り物・つきあいの費用",
+  other:
+    "たばこ、傘・かばん・アクセサリー・腕時計などの身の回り用品、お賽銭・お布施・寄付など。内訳に分けていない分もここに入ります。保険料・保育料・介護の費用・結婚や葬儀の費用は、それぞれの入力項目で入れます（同じ人数の世帯の平均からも除いています）",
+  allowance: "前の内訳です。子の在学中の仕送りは子ども・教育、親への仕送りは介護・親の入力項目に移し、移したらこの欄を空にしてください（空にすると欄は消えます）。移すまでは、この額のまま計算します",
   transport: "前の分け方の内訳です（電車・バスの運賃と通信費。車の費用は「車」の入力項目で入れます）。「交通と通信に分ける」で、交通費と通信費に分けられます",
   otherConsumption: "前の分け方の内訳です（こづかい・交際費・理美容など）。内訳に分けていない分もここに入ります",
 };
+
+/** 内訳のまとまりの「?」: 推定の作り方と、迷いやすい物の入れ先（0106。家計調査の区分と、アプリの入力項目の作りに合わせる） */
+export const CATEGORY_GROUP_HELP = [
+  "推定は、同じ人数の世帯の平均（家計調査）から、ほかの入力項目で入れる物を除いた額です。迷いやすい物の入れ先:",
+  "・子の下宿・一人暮らしへの仕送り → 子ども・教育（在学中）、家族（在学でない子）",
+  "・親への仕送り・介護の費用 → 介護・親",
+  "・生命保険・医療保険・火災保険などの保険料 → 保険",
+  "・家賃・住宅ローン・管理費・修繕積立金・固定資産税 → 住まい・ローン",
+  "・ガソリン・駐車場・自動車税・車検・車の保険、通勤・ふだんの高速代 → 車",
+  "・学費・給食費・塾・子の習い事・保育料 → 子ども・教育",
+  `・家電・家具・スマホ・パソコンの買い替え、ペットの病気・けが、年払いの物 → この入力項目の${ANNUAL}`,
+  "・結婚・葬儀・お墓 → ライフイベント",
+  "・ネット回線 → 通信費",
+  "・新聞・NHK受信料・ペットのえさ・ペット保険、旅行の高速代 → 趣味・娯楽",
+  "・たばこ → その他",
+].join("\n");
 
 /** 同じ人数の世帯の平均（欄の横の目安） */
 function averageHint(wh: WorkingHousehold, cats: readonly string[]): string | null {
@@ -178,21 +204,47 @@ function splitTransportAction(l: LivingExpense, find: Finder): ActionDef | null 
 }
 
 function categoryGroup(l: LivingExpense, find: Finder): GroupDef {
-  // 10費目と仕送りを並べて全部出す（束・「詳しく」の折りたたみは無い。0100）。前の分け方の内訳は、値があるときだけ前の名前で
+  // 10費目を並べて全部出す（束・「詳しく」の折りたたみは無い。0100）。前の分け方の内訳は、値があるときだけ前の名前で。
+  // 前の内訳の仕送りは、値があるときだけ最後に（0106）。その後ろに合計の行（読むだけ）
   const order: string[] = [];
   for (const c of LIVING_CATEGORY_ORDER) {
     order.push(c);
     for (const old of LEGACY_CATEGORIES) if (LEGACY_AFTER[old] === c && catOf(l, old) !== undefined) order.push(old);
   }
+  if (hasLegacyAllowance(l)) order.push(LEGACY_ALLOWANCE);
   const fields = order.map((c) => categoryField(l, find, c, "simple", catLabel(c)));
-  const total = (l.categories ?? []).reduce((s, c) => s + (c.monthly.value ?? 0), 0);
+  fields.push(totalField(l, find));
   const moved = ["other", "otherConsumption"].map((c) => (catOf(l, c)?.monthly as { estimate?: { basis?: string } } | undefined)?.estimate?.basis).find((b) => b !== undefined && b.startsWith("総額で"));
-  const notes = [`合計 月${man(total)}`];
+  const notes = [CATEGORY_GROUP_HELP];
   if (moved !== undefined) notes.push(moved);
   if (isPureSplit(l)) notes.push("総額を家計調査の同じ人数の世帯の割合で分けた推定です（直した内訳だけ確定になります）");
   if (LEGACY_CATEGORIES.some((c) => catOf(l, c) !== undefined)) notes.push("「交通・通信費」「その他の消費」は前の分け方の内訳です（そのまま計算に使います）");
+  if (hasLegacyAllowance(l)) notes.push("「仕送り（前の内訳）」は、子ども・教育か介護・親の入力項目に移してください（移すまでは、そのまま計算に使います）");
   const split = splitTransportAction(l, find);
-  return { key: `living/${l.id}/categories`, title: "内訳（月額）", note: notes.join("。"), level: "simple", fields, actions: split !== null ? [split] : [] };
+  return { key: `living/${l.id}/categories`, title: "内訳（月額）", note: notes.join("\n"), level: "simple", fields, actions: split !== null ? [split] : [] };
+}
+
+/** 内訳の合計（読むだけの行。内訳の欄を直すと変わる。月額と、小さく年額。0106） */
+function totalField(l: LivingExpense, find: Finder): FieldDef {
+  const sum = (w: WorkingHousehold): number | null => {
+    const t = find(w.request.input.household, w) as unknown as LivingExpense | undefined;
+    const cs = t?.categories ?? [];
+    return cs.length === 0 ? null : cs.reduce((s, c) => s + (c.monthly.value ?? 0), 0);
+  };
+  return field({
+    key: `ro/living/${l.id}/categories/total`,
+    item: null,
+    label: "合計",
+    level: "simple",
+    kind: "yen",
+    basis: "monthly",
+    readOnly: "内訳の合計です。内訳の欄を直すと、自動で変わります（この額で計算します）",
+    get: (w) => {
+      const v = sum(w);
+      return { value: v, hint: v === null ? null : `年 ${man(v * 12)}` };
+    },
+    set: (w) => w,
+  });
 }
 
 /** 入れ方を切り替えたときの始末（総額と費目は両方持ち、片方を消さない。0048 の2） */
@@ -598,11 +650,11 @@ export interface AnnualTemplate {
  */
 export const ANNUAL_TEMPLATES: readonly AnnualTemplate[] = [
   { key: "medical", label: "通院・歯の治療", amount: 50000, everyYears: 1, row: "cf.expense.care.medical", match: /通院|歯|治療|医療|病院/u, unless: /ペット|動物/u },
-  { key: "pet", label: "ペットの医療", amount: 50000, everyYears: 1, match: /ペット|動物病院/u },
+  { key: "pet", label: "ペットの病気・けが", amount: 50000, everyYears: 1, help: "動物病院の費用です。ペット保険に入っているなら、保険料は毎月の生活費の「趣味・娯楽」に入れます", match: /ペット|動物病院/u },
   { key: "homecoming", label: "帰省", amount: 100000, everyYears: 1, match: /帰省/u },
   { key: "appliances", label: "家電・家具の買い替え", amount: 400000, everyYears: 8, match: /家電|家具/u },
   { key: "fees", label: "年会費・サブスクの年払い", amount: 30000, everyYears: 1, match: /年会費|サブスク|会費/u },
-  { key: "smartphone", label: "スマホの買い替え", amount: 120000, everyYears: 4, per: "1台", help: "1台分の額です。家族の分も入れるときは、1人1行ずつ足してください（2行目からは「＋ その他の年払い・数年おきの支出」で足せます）", match: /スマホ|スマートフォン|携帯電話/u },
+  { key: "smartphone", label: "スマホの買い替え", amount: 120000, everyYears: 4, per: "1台", help: "1台分の額です。家族の分も入れるときは、1人1行ずつ足してください（2行目からは「＋ その他の年1回・数年に1回の支出」で足せます）", match: /スマホ|スマートフォン|携帯電話/u },
   { key: "pc", label: "パソコンの買い替え", amount: 150000, everyYears: 5, match: /パソコン/u },
 ];
 
@@ -636,7 +688,7 @@ export function addAnnual(wh: WorkingHousehold, t: AnnualTemplate, id: string = 
 const CARD_NAMES: Record<string, string> = { events: "ライフイベント", housing: "住まい・ローン", car: "車", education: "子ども・教育", care: "介護・親", living: "基本生活費" };
 
 /** 年払いの区画の「その他」のボタンの名前（ひな形に無い行を足す） */
-export const ANNUAL_OTHER_LABEL = "＋ その他の年払い・数年おきの支出";
+export const ANNUAL_OTHER_LABEL = "＋ その他の年1回・数年に1回の支出";
 
 /**
  * 聞き漏れの確かめ（入れた所を自動で見る。読むだけの「入れた」の行と、まだ無い物を足すボタン）。どのボタンもこのまとまりの中に、標準と詳細で同じ形で
@@ -657,8 +709,8 @@ function annualChecklist(wh: WorkingHousehold, other: readonly ActionDef[]): Gro
   actions.push(...other.map((a) => ({ ...a, label: ANNUAL_OTHER_LABEL, level: "simple" as const })));
   return {
     key: "living/annual/check",
-    title: "年1回・数年に1回の支出（入れ忘れがないか）",
-    note: "よくある年払い・数年おきの支出です。まだ入れていない物は、よくある額と間隔の目安で足せます（足した後で実際の額に直してください）",
+    title: "入れ忘れがないか",
+    note: "よくある年1回・数年に1回の支出です。まだ入れていない物は、よくある額と間隔の目安で足せます（足した後で実際の額に直してください）",
     level: "simple",
     fields,
     actions,
@@ -666,7 +718,7 @@ function annualChecklist(wh: WorkingHousehold, other: readonly ActionDef[]): Gro
 }
 
 function annualSection(wh: WorkingHousehold): SectionDef | null {
-  const out = moneySections(wh, "living", { claimed: NONE, level: "simple", outTitle: "年払い・数年おきの暮らしの支出" }).find((s) => s.key.endsWith("/out"));
+  const out = moneySections(wh, "living", { claimed: NONE, level: "simple", outTitle: "年1回・数年に1回の支出" }).find((s) => s.key.endsWith("/out"));
   if (out === undefined) return null;
   const empty = out.groups.length === 0;
   return {
@@ -688,12 +740,39 @@ interface SavingsCheck {
 }
 const checksOf = (h: Household) => (h as { savingsChecks?: SavingsCheck[] }).savingsChecks;
 
+// 答え合わせの説明（0106。計算エンジン expense.reconcile の決まりのとおりに書く: 比べるのはその年の年間収支〔器の間の移動は貯蓄に含む〕、
+// 計算基準年の途中からなら12か月そろう翌年、差は物価上昇率で伸ばして終わりの月まで毎月、実際のほうが多ければ載せずに知らせ）
+/** 区画の説明 */
+export const CHECK_NOTE = "1年で実際に貯められた額を入れると、計算の貯蓄額との差（使途不明金）を、毎年の支出として見込みます";
+/** まだ入れていないときの欄の説明 */
+export const CHECK_NEW_HELP = [
+  "その年の1年で実際に増えた貯蓄の額（預金・積立・投資・iDeCo などの合計）を入れます。",
+  "・入れると: 計算の年間収支（その年の黒字）と比べ、足りない分を使途不明金として、その年から毎年の支出に入れます（物価上昇率で伸ばします）。結果の表では「その他の支出」の行に入ります",
+  "・役に立つこと: 計算の黒字がそのまま貯まるという前提の甘さを外せます。実際との差を見て、家計の見直しの元にできます",
+  "・入れないと: 計算の黒字はすべて貯蓄に回る前提です（「毎年の黒字のうち貯金に回る割合」を入れていれば、その割合）",
+  "・実際のほうが多いときは差を入れず、お知らせだけ出します",
+].join("\n");
+/** 入れた後の欄の説明 */
+export const CHECK_ACTUAL_HELP = [
+  "1年で実際に増えた貯蓄の額（預金・積立・投資・iDeCo などの合計）です。",
+  "・計算の年間収支との差を使途不明金として、確かめる年から「差を見込む終わり」まで毎年の支出に入れます（物価上昇率で伸ばします）",
+  "・今年の途中から計算するときは、12か月そろう翌年の計算と比べます",
+  "・実際のほうが多いときは差を入れず、お知らせだけ出します",
+  "・入れないと、計算の黒字はすべて貯蓄に回る前提になります",
+].join("\n");
+/** 差の扱いの説明 */
+export const CHECK_TREATMENT_HELP = [
+  "・使途不明金として残す（既定の値）: 結果の表の「その他の支出」に入ります。基本生活費は変えないので、使い道が分からない分として分けて見ることができます",
+  "・生活費に足す: 結果の表の「基本生活費」の行に足します（生活費の段階の割合では変わりません）",
+  "どちらも年間収支と金融資産への効き方は同じです",
+].join("\n");
+
 function checkSection(wh: WorkingHousehold): SectionDef {
   const h = wh.request.input.household;
   const c = (checksOf(h) ?? [])[0];
   const year0 = Number(wh.request.input.baseMonth.slice(0, 4));
   const title = "実際に貯められている額";
-  const note = "1年で実際に貯められている額が分かれば、計算上の貯蓄額との差（使途不明金）を、その年から見込みます。差は結果の表の「使途不明金」（または基本生活費）の行に出ます";
+  const note = CHECK_NOTE;
   if (c === undefined) {
     return {
       key: "living/check",
@@ -713,7 +792,7 @@ function checkSection(wh: WorkingHousehold): SectionDef {
               kind: "yen",
               basis: "annual",
               optional: true,
-              help: "入れると答え合わせを始めます（差の扱いは「使途不明金として残す」から）",
+              help: CHECK_NEW_HELP,
               get: (w) => ({ value: (checksOf(w.request.input.household) ?? [])[0]?.actualSavings.value ?? null }),
               set: (w, v) =>
                 mutate(w, (hh) => {
@@ -759,7 +838,7 @@ function checkSection(wh: WorkingHousehold): SectionDef {
             }),
             a("savingsCheck.year"),
           ),
-          withAddress(yenBox({ key: `savings/${c.id}/actual`, item: "savingsCheck.actualSavings", label: "実際の年間の貯蓄額", level: "detail", basis: "annual", find, path: ["actualSavings"] }), a("savingsCheck.actualSavings")),
+          withAddress(yenBox({ key: `savings/${c.id}/actual`, item: "savingsCheck.actualSavings", label: "実際の年間の貯蓄額", level: "detail", basis: "annual", find, path: ["actualSavings"], help: CHECK_ACTUAL_HELP }), a("savingsCheck.actualSavings")),
           withAddress(
             plain({
               key: `savings/${c.id}/treatment`,
@@ -773,6 +852,7 @@ function checkSection(wh: WorkingHousehold): SectionDef {
               ],
               find,
               path: ["treatment"],
+              help: CHECK_TREATMENT_HELP,
             }),
             a("savingsCheck.treatment"),
           ),

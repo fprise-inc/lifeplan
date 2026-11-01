@@ -28,8 +28,9 @@ export type StatementCategory =
   | "income";
 
 /**
- * 計算エンジンの基本生活費の内訳（engine の LivingCategory と同じ値。0100 の10費目と仕送り）。
- * transport（交通・通信費）と otherConsumption（その他の消費）は前の分け方の内訳で、世帯にあれば読むが、明細の取り込みでは作らない
+ * 計算エンジンの基本生活費の内訳（engine の LivingCategory と同じ値。0100 の10費目と、前の内訳）。
+ * transport（交通・通信費）と otherConsumption（その他の消費）は前の分け方の内訳、allowance（仕送り）は内訳の並びから外した前の内訳（0106。
+ * 仕送りは子ども・教育、介護・親の入力項目で入れる）。どれも世帯にあれば読むが、明細の取り込みでは作らない
  */
 export type LivingCategory =
   | "food"
@@ -46,8 +47,8 @@ export type LivingCategory =
   | "transport"
   | "otherConsumption";
 
-/** 前の分け方の内訳（明細の取り込みでは作らない） */
-export type LegacyLivingCategory = "transport" | "otherConsumption";
+/** 前の分け方の内訳と、前の内訳の仕送り（明細の取り込みでは作らない） */
+export type LegacyLivingCategory = "transport" | "otherConsumption" | "allowance";
 /** 明細の取り込みが作る内訳 */
 export type CurrentLivingCategory = Exclude<LivingCategory, LegacyLivingCategory>;
 
@@ -114,13 +115,13 @@ export const LIVING_LABELS: Record<LivingCategory, string> = {
   recreation: "趣味・娯楽",
   pocketAndSocial: "こづかい・交際費",
   other: "その他",
-  allowance: "仕送り",
+  allowance: "仕送り（前の内訳）",
   transport: "交通・通信費",
   otherConsumption: "その他の消費（こづかい・交際費など）",
 };
 
 /** 明細の取り込みが出す内訳の順番（アプリの入力の画面と同じ。前の分け方の内訳は作らない） */
-export const LIVING_ORDER: readonly CurrentLivingCategory[] = ["food", "utilities", "communication", "transit", "furniture", "clothing", "health", "recreation", "pocketAndSocial", "other", "allowance"];
+export const LIVING_ORDER: readonly CurrentLivingCategory[] = ["food", "utilities", "communication", "transit", "furniture", "clothing", "health", "recreation", "pocketAndSocial", "other"];
 
 /** 辞書で分からない店を入れる内訳 */
 export const UNKNOWN_LIVING: CurrentLivingCategory = "other";
@@ -132,6 +133,8 @@ export const UNKNOWN_LIVING: CurrentLivingCategory = "other";
 export const LEGACY_LIVING_SPLIT: Readonly<Record<LegacyLivingCategory, readonly CurrentLivingCategory[]>> = {
   transport: ["communication", "transit"],
   otherConsumption: ["pocketAndSocial", "other"],
+  // 前の内訳の仕送りは、明細のどの内訳でも置き換えない（明細に出てこない内訳として今の値を残す。FP が子ども・教育、介護・親の入力項目に移す。0106）
+  allowance: [],
 };
 
 /** 一時的支出の行（アプリの「名前を付けた支出」の行と同じ値）を項目から選ぶ */

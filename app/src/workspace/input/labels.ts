@@ -148,8 +148,9 @@ export const LIVING_STAGE_LABELS: Option[] = [
 ];
 
 /**
- * 基本生活費の内訳の名前（0100。家計簿アプリでよくある分け方に寄せた10費目と仕送り）。
- * 交通・通信費（transport）とその他の消費（otherConsumption）は前の分け方の内訳で、前に保存した世帯に値があるときだけ出す（前の名前のまま）
+ * 基本生活費の内訳の名前（0100。家計簿アプリでよくある分け方に寄せた10費目）。
+ * 交通・通信費（transport）とその他の消費（otherConsumption）は前の分け方の内訳で、前に保存した世帯に値があるときだけ出す（前の名前のまま）。
+ * 仕送り（allowance）は内訳の並びから外した前の内訳で、前の世帯に値があるときだけ出す（0106）
  */
 export const LIVING_CATEGORIES: Option[] = [
   { value: "food", label: "食費" },
@@ -162,7 +163,7 @@ export const LIVING_CATEGORIES: Option[] = [
   { value: "recreation", label: "趣味・娯楽" },
   { value: "pocketAndSocial", label: "こづかい・交際費" },
   { value: "other", label: "その他" },
-  { value: "allowance", label: "仕送り" },
+  { value: "allowance", label: "仕送り（前の内訳）" },
   { value: "transport", label: "交通・通信費" },
   { value: "otherConsumption", label: "その他の消費（こづかい・交際費など）" },
 ];

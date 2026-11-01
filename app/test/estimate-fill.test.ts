@@ -185,7 +185,7 @@ describe("基本生活費の総額の推定は千円単位（前に保存した�
   it("新しく入れる推定は千円単位", () => {
     const wh = two();
     expect(householdSize(wh.request.input.household, BASE)).toBe(2);
-    expect(living(wh).monthly!.value).toBe(227000);
+    expect(living(wh).monthly!.value).toBe(211000);
   });
 
   it("前の版の推定（丸める前の額）は、ほかを直しても人数が同じなら書き換えない（総額で・費目で）", () => {
@@ -215,8 +215,8 @@ describe("基本生活費の総額の推定は千円単位（前に保存した�
     expect(isPureSplit(living(pure))).toBe(true);
     const three = withRefreshedEstimates(addMember(pure, "child"));
     const l = living(three);
-    expect(l.monthly!.value).toBe(251000);
-    expect(l.categories!.reduce((s, c) => s + c.monthly.value!, 0)).toBe(251000);
+    expect(l.monthly!.value).toBe(233000);
+    expect(l.categories!.reduce((s, c) => s + c.monthly.value!, 0)).toBe(233000);
     for (const c of l.categories!) expect(c.monthly.value! % 1000, c.category).toBe(0);
   });
 });

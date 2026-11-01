@@ -1,5 +1,5 @@
 id: living.statistics.categoryMonthly.recreation
-title: 家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の教養娯楽から、インターネット接続料（品目分類の全国の月平均）を除いた額（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）
+title: 家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の教養娯楽から、インターネット接続料・テレビ・ビデオレコーダー・パソコン・動物病院代（品目分類の全国の月平均）と月謝類を除いた額（基本生活費の費目の割合の目安。子の習い事は子ども・教育、テレビ・パソコンの買い替えとペットの医療は年払い・数年おきの暮らしの支出で入れる。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）
 unit: JPY
 kind: bracketTable
 basis: {"type": "month"}
@@ -41,5 +41,25 @@ entries:
       - {"type": "web", "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040409532&fileKind=0", "retrievedAt": "2026-10-26", "sha256": "d4b70ce423f636409c34a3ca9da23791442ed803d78e91a4771bd035483f7fd4", "locator": "家計調査 家計収支編 二人以上の世帯 詳細結果表 2025年 第3-1表 世帯人員別1世帯当たり1か月間の収入と支出（教養娯楽・他の教養娯楽サービス）"}
       - {"type": "web", "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040409546&fileKind=0", "retrievedAt": "2026-10-31", "sha256": "6141f526aeac0cefac80affa12cd55ccaba8ec75ad6a8893a241981a60efefdb", "locator": "家計調査 家計収支編 二人以上の世帯 詳細結果表 2025年 第4-1表 都市階級・地方・都道府県庁所在市別1世帯当たり支出金額，購入数量及び平均価格（品目分類。全国 インターネット接続料〔88Y〕 年 35,447円）"}
     recordedIn: "2026.3.0"
-    supersededIn: null
+    supersededIn: "2026.4.0"
     approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-31", "tools": ["Excel（公表の統計表）", "表の内訳から計算し直した結果", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "教養娯楽（第3-1表）−インターネット接続料の月平均（第4-1表の全国の年 35,447円÷12＝2,954円。どの世帯人員も同じ額で、その世帯人員の他の教養娯楽サービスの額を上限にした。上限に当たる世帯人員は無い）（円。通信費〔communication〕へ移した）。2つ目の読み方: 教養娯楽＝教養娯楽用耐久財＋教養娯楽用品＋書籍・他の印刷物＋教養娯楽サービスと一致。10費目の合計が基本生活費の目安（living.statistics.basicMonthly）と一致（丸めの1円の差を除く）。施行日の欄は e-Stat の公開日"}
+  - rev: 3
+    appliesFrom: "2026-03-01"
+    appliesTo: null
+    enforcedOn: "2026-02-06"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 1}
+      - {"upTo": 2, "amount": 21688}
+      - {"upTo": 3, "amount": 21746}
+      - {"upTo": 4, "amount": 25250}
+      - {"upTo": 5, "amount": 24248}
+      - {"upTo": null, "amount": 24958}
+    sources:
+      - {"type": "web", "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040409532&fileKind=0", "retrievedAt": "2026-10-26", "sha256": "d4b70ce423f636409c34a3ca9da23791442ed803d78e91a4771bd035483f7fd4", "locator": "家計調査 家計収支編 二人以上の世帯 詳細結果表 2025年 第3-1表 世帯人員別1世帯当たり1か月間の収入と支出（教養娯楽・教養娯楽用耐久財・教養娯楽用品・他の教養娯楽サービス・月謝類）"}
+      - {"type": "web", "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040409546&fileKind=0", "retrievedAt": "2026-10-31", "sha256": "6141f526aeac0cefac80affa12cd55ccaba8ec75ad6a8893a241981a60efefdb", "locator": "家計調査 家計収支編 二人以上の世帯 詳細結果表 2025年 第4-1表 都市階級・地方・都道府県庁所在市別1世帯当たり支出金額，購入数量及び平均価格（品目分類。全国 インターネット接続料〔88Y〕 年 35,447円・テレビ〔801〕 年 5,530円・ビデオレコーダー・プレイヤー〔813〕 年 845円・パソコン〔810〕 年 15,124円・動物病院代〔84X〕 年 10,042円）"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-11-01", "tools": ["Excel（公表の統計表）", "表の内訳から計算し直した結果", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "教養娯楽（第3-1表）−インターネット接続料の月平均 2,954円−月謝類（第3-1表の世帯人員ごとの額）−テレビ・ビデオレコーダー・プレイヤー・パソコンの月平均（第4-1表の全国の年 21,499円÷12＝1,792円。教養娯楽用耐久財の額を上限にした）−動物病院代の月平均（同じ表の年 10,042円÷12＝837円。教養娯楽用品の額を上限にした。上限に当たる世帯人員は無い）（円。子の習い事は子ども・教育の入力項目の推定〔学校外活動費〕に入り、テレビ・パソコンの買い替えとペットの医療は年払い・数年おきの暮らしの支出のひな形で入れるので除いた。大人の習い事の月謝は FP が足す）。2つ目の読み方: rev 2 の額から月謝類と 2,629円 を引いた額と一致。10費目の合計が基本生活費の目安（living.statistics.basicMonthly）と一致（丸めの1円の差を除く）。施行日の欄は e-Stat の公開日"}

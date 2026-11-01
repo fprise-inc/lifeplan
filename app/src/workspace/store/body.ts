@@ -89,6 +89,7 @@ import { emptyPlan } from "../contingency/planData.ts";
 import type { HearingLog } from "../hearing/sheet.ts";
 import { withElementIds, withoutPlainMarks, type WorkingHousehold } from "../input/household.ts";
 import { withoutFutureCarLoanDocs } from "../input/carLoanDocs.ts";
+import { withLegacyAllowanceNotice } from "../input/livingAllowance.ts";
 import { CURRENT } from "../plans/band.ts";
 import type { Proposal } from "../plans/plans.ts";
 import { readSnapshots, type Snapshot } from "../snapshots/snapshots.ts";
@@ -187,8 +188,9 @@ export function fromBody(json: string): BodyState {
   void _st;
   const proposals: Proposal[] = (Array.isArray(b.proposals) ? (b.proposals as StoredProposal[]) : []).map(({ title, ...p }) => ({ ...p, name: title }));
   // 推定と呼ばない欄（性別）に前の版の画面で付けた仮の印は、読むときに外す（値はそのまま。household.ts の withoutPlainMarks）。
-  // これから買う車のローンに付けた「書類で確かめる」は、読むときに推定にする（値はそのまま。carLoanDocs.ts。0041 の追記 2026-11-01）
-  const wh: WorkingHousehold = withoutFutureCarLoanDocs(withoutPlainMarks({
+  // これから買う車のローンに付けた「書類で確かめる」は、読むときに推定にする（値はそのまま。carLoanDocs.ts。0041 の追記 2026-11-01）。
+  // 内訳の仕送り（前の内訳）に値があれば、ほかの入力項目に移すよう知らせる（値はそのまま。livingAllowance.ts。0106）
+  const wh: WorkingHousehold = withLegacyAllowanceNotice(withoutFutureCarLoanDocs(withoutPlainMarks({
     labelsByMember: {},
     postRetirement: {},
     memo: [],
@@ -201,7 +203,7 @@ export function fromBody(json: string): BodyState {
     request: withElementIds(h.request),
     proposals,
     ...(isObj(b.hearing) ? { hearing: b.hearing as unknown as HearingLog } : {}),
-  }));
+  })));
   // 次回確かめるの印（0.29 から）: 形の合わない行は捨て、空なら欄を持たない
   const recheck = readRecheck(wh.recheck);
   if (recheck.length > 0) wh.recheck = recheck;
