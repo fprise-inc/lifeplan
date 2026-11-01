@@ -5,7 +5,7 @@ import type { EngineRequest, PreviewResult, TableCell } from "../engine/types.ts
 import { man } from "../presentation/format.ts";
 import type { ExplainModel, ExplainStep, VerdictPart } from "../presentation/model.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
-import { depletionYear, displayYears, financialOf, SURPLUS_ROW, sumByYear } from "./present.ts";
+import { depletionYear, displayYears, financialOf, personLabel, SURPLUS_ROW, sumByYear } from "./present.ts";
 import { ruleFor, ruleText, surplusOf, yearOfTimepoint } from "./surplus.ts";
 import { ageInYear, roles } from "./roles.ts";
 
@@ -53,17 +53,30 @@ export function explainModel(req: EngineRequest, result: PreviewResult, targetAg
   const steps: ExplainStep[] = [];
   const s = (parts: VerdictPart[]) => parts;
 
-  // 1. 収入
-  const salary = byYears(t, years, (c) => under(c.row, "cf.income.salary") || under(c.row, "cf.income.business"));
+  // 1. 収入: 働いて得る収入（給与・事業。収支の推移のグラフの「給与」と同じ）の最後の年とその人の年齢、いちばん多い年。
+  // 棒（給与・退職金など）は年金のほかの収入をすべて含むので、退職金などを合わせた額がいちばん多い年より多いときは別に言う
+  const isSalary = (c: TableCell) => under(c.row, "cf.income.salary");
+  const isBusiness = (c: TableCell) => under(c.row, "cf.income.business");
+  const isWork = (c: TableCell) => isSalary(c) || isBusiness(c);
+  const salary = byYears(t, years, isWork);
   const sw = span(salary, years);
+  const sp = peak(salary, years);
   const wp = peak(work, years);
+  const has = (p: (c: TableCell) => boolean) => t.some((c) => p(c) && c.amount > 0 && years.includes(c.year));
+  const workWord = has(isSalary) && has(isBusiness) ? "給与・事業の収入" : has(isBusiness) ? "事業の収入" : "給与の収入";
+  // 最後の年に働いて得る収入がある人（本人を先に）。その人の年齢を添える
+  const lastWorker = sw === null ? undefined : rs.find((r) => t.some((c) => c.year === sw.to && c.member === r.member.id && isWork(c) && c.amount > 0));
+  const workerAge = (y: number) => (lastWorker !== undefined ? `${personLabel(req, lastWorker)}${ageInYear(lastWorker.member, y)}歳` : ageText(y));
+  const more: VerdictPart[] = wp.amount > sp.amount ? [{ text: `。退職金などを合わせると、いちばん多い${wp.year}年は ` }, { text: `年${man(wp.amount)}万円`, strong: true }, { text: "です" }] : [];
   steps.push({
     key: "income",
     title: "収入",
     sentence:
       sw !== null
-        ? s([{ text: "給与の収入は、" }, { text: `${sw.to}年（${ageText(sw.to)}）まで`, strong: true }, { text: "入ります。いちばん多い年は " }, { text: `年${man(wp.amount)}万円`, strong: true }, { text: "です" }])
-        : s([{ text: "給与の収入はありません。収入は " }, { text: `年${man(wp.amount)}万円`, strong: true }, { text: "（いちばん多い年）です" }]),
+        ? s([{ text: `${workWord}は、` }, { text: `${sw.to}年（${workerAge(sw.to)}）まで`, strong: true }, { text: `入ります。いちばん多い${sp.year}年は ` }, { text: `年${man(sp.amount)}万円`, strong: true }, { text: "です" }, ...more])
+        : wp.amount > 0
+          ? s([{ text: "給与・事業の収入はありません。年金のほかの収入（退職金など）は、いちばん多い" }, { text: `${wp.year}年で 年${man(wp.amount)}万円`, strong: true }, { text: "です" }])
+          : s([{ text: "給与・事業の収入はありません" }]),
   });
 
   // 2. 年金: 本人の受け取り開始の翌年（1年分そろう年）の世帯の年金

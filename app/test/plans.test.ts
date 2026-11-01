@@ -18,7 +18,7 @@ import { addRate, mulRate, pctText, subRate } from "../src/workspace/plans/decim
 import { buildCatalog, loanStarted, type Catalog } from "../src/workspace/plans/items.ts";
 import { acknowledge, applyValues, changesOf, deletePlan, diffKey, dropChange, effectiveValues, normalizeValues, overwritePlan, reflectPlan, savePlan, suggestName, type Values } from "../src/workspace/plans/plans.ts";
 import { diffCashflowTable, displayYears, financialOf, flowChart, sumByYear, toPresentation } from "../src/workspace/present.ts";
-import { roles } from "../src/workspace/roles.ts";
+import { ageInYear, roles } from "../src/workspace/roles.ts";
 import { bsPlan } from "../src/workspace/balanceTab.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
@@ -467,6 +467,37 @@ describe("説明モード", () => {
     expect(text(5)).toBe("その結果、100歳まで資産が足ります");
     expect(text(3)).toMatch(/^教育費がかかるのは\d{4}〜\d{4}年/);
     expect(text(4)).toContain("住宅ローンの返済は");
+  });
+
+  // 収入の段は「給与の収入は…まで入ります。いちばん多い年は…」と言いながら、いちばん多い年の額に退職金などを含めていた。
+  // 事業の収入も「給与」と呼び、配偶者の給与が後まで続いても本人の年齢を添えていた。グラフの棒（給与・退職金など）・収支の推移と呼び方をそろえる
+  it("収入の段: 給与（事業）の収入の最後の年と、その人の年齢。いちばん多い年の額は給与だけ。退職金などを合わせた額は別に言う", () => {
+    const words = (req: typeof proposal, res: typeof r) => {
+      const t = res.table;
+      const years = displayYears(req);
+      const isWork = (c: (typeof t)[number]) => under(c.row, "cf.income.salary") || under(c.row, "cf.income.business");
+      const work = sumByYear(t, isWork);
+      const inYears = years.filter((y) => (work.get(y) ?? 0) > 0);
+      const last = inYears.at(-1)!;
+      const peakYear = inYears.reduce((a, y) => ((work.get(y) ?? 0) > (work.get(a) ?? 0) ? y : a), inYears[0]!);
+      const all = sumByYear(t, (c) => under(c.row, "cf.income") && !under(c.row, "cf.income.pension"));
+      const allPeak = years.reduce((a, y) => ((all.get(y) ?? 0) > (all.get(a) ?? 0) ? y : a), years[0]!);
+      const rs = roles(req);
+      const lastOf = (id: string) => years.filter((y) => t.some((c) => c.year === y && c.member === id && isWork(c) && c.amount > 0)).at(-1);
+      const who = rs.find((x) => lastOf(x.member.id) === last)!;
+      return { last, peakYear, peak: work.get(peakYear)!, allPeak, all: all.get(allPeak)!, who: `${who.label}${ageInYear(who.member, last)}歳` };
+    };
+    const man = (v: number) => Math.round(v / 10000).toLocaleString("en-US");
+    const w = words(proposal, r);
+    const income = m.steps[0]!.sentence.map((p) => p.text).join("");
+    expect(w.all).toBeGreaterThan(w.peak);
+    expect(income).toBe(`給与の収入は、${w.last}年（${w.who}）まで入ります。いちばん多い${w.peakYear}年は 年${man(w.peak)}万円です。退職金などを合わせると、いちばん多い${w.allPeak}年は 年${man(w.all)}万円です`);
+    // 個人事業主の世帯は「事業の収入」（給与と呼ばない）
+    const se = modelHousehold("sampleSelfEmployedFamily");
+    const seRes = preview(se);
+    const seText = explainModel(se, seRes, 95).steps[0]!.sentence.map((p) => p.text).join("");
+    expect(seText).toMatch(/^(事業の収入|給与・事業の収入)は、\d{4}年（(ご本人|配偶者)\d+歳）まで入ります。いちばん多い\d{4}年は 年[\d,]+万円です/);
+    expect(seText).not.toMatch(/^給与の収入/);
   });
 
   it("もう年金を受け取っている世帯（受け取り開始が表の最初の年より前）は、表の最初の年の世帯の年金を出す（「表の期間には入りません」にしない）", () => {
