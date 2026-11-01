@@ -11,6 +11,7 @@ publisher    = "FPRISE, INC."
 
 [endpoints]
 # 自動通信の相手はこのホストだけ（0017 の4）。更新の仕組みはまだ入れていない
+# 欄を足すときは、外部送信の一覧（docs/decisions/0012 の5）にも載せる（載っていないと npm run check:distribution が止める）
 host        = "updates.fprise.com"
 app         = "https://updates.fprise.com/v1/app/latest.json"
 packs       = "https://updates.fprise.com/v1/packs/index.json"

@@ -21,6 +21,8 @@ import { isEmptyPremiseChoice, isEmptySceneChoice, normalProtection, readPremise
 import { setOfficeNow, STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
 import { GROWTH_RANGE, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../input/rateRanges.ts";
 import { readLivingLayout, setLivingLayoutNow, type LivingLayout } from "./livingLayout.ts";
+import type { OfficeHost } from "../../engine/host.ts";
+import type { FeatureStatus } from "./featureCodes.ts";
 
 export { STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
 
@@ -151,6 +153,22 @@ export const layoutOf = (s: OfficeSettings): CardLayout => s.layout ?? DEFAULT_L
 /** 推定の根拠の文（例: 「事務所の標準（2026-10）」） */
 export function officeBasis(s: OfficeSettings): string {
   return `事務所の既定値（${(s.changedOn ?? "").slice(0, 7) || "設定"}）`;
+}
+
+/** 起動したときに読む、事務所の既定値と機能を有効にするコード（0110）の状態。読めなかったものは null */
+export interface OfficeStart {
+  settings: OfficeSettings | null;
+  features: FeatureStatus | null;
+}
+
+/**
+ * 事務所の既定値と、機能を有効にするコードの状態を読む。**両方を読み終わってから**返す（片方が読めなくても待つ。読めないものは null）。
+ * 事務所の既定値のパネルは、これを待ってから出す（読み終わる前に出すと、パネルが最初の値〔既定〕で欄と印を作ってしまい、
+ * 保存してある合算BS の「使う」の印などが外れて見える。URL の #officedefaults で起動直後に開いたとき）
+ */
+export async function loadOfficeStart(office: Pick<OfficeHost, "defaults" | "featureStatus">): Promise<OfficeStart> {
+  const [d, f] = await Promise.allSettled([office.defaults(), office.featureStatus()]);
+  return { settings: d.status === "fulfilled" ? readOfficeSettings(d.value) : null, features: f.status === "fulfilled" ? f.value : null };
 }
 
 /** 標準（既定の値）と同じか（基本生活費の内訳の並べ方の分は下の isDefaultSettings で見る） */

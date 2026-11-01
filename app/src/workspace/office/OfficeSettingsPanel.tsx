@@ -85,6 +85,14 @@ export function feeFromTexts(base: FeeTable, t: FeeTexts): FeeTable | null {
   return { ...base, oneTime, amount, steps };
 }
 
+/** 事務所の既定値から、％・年齢の欄の文字 */
+const settingTexts = (v: OfficeSettings): Record<string, string> => ({
+  ...Object.fromEntries(OFFICE_ASSUMPTIONS.map((k) => [k, rateToPct(v.assumptions[k])])),
+  realEstateRatio: rateToPct(v.realEstateRatio),
+  horizonAge: String(v.protection.horizon?.age ?? 90),
+  reverseAge: v.protection.protection?.reverseUntilAge !== undefined ? String(v.protection.protection.reverseUntilAge) : "",
+});
+
 const STANDARD_PCT: Readonly<Record<OfficeAssumption, string>> = { inflation: "1", wageGrowth: "1", investmentReturn: "1", pensionMacroSlide: "0.4" };
 
 export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onCheckCodes, onDecideCandidate }: OfficeSettingsPanelProps) {
@@ -155,13 +163,24 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
       setCodeBusy(false);
     }
   };
-  const [texts, setTexts] = useState<Record<string, string>>(() => ({
-    ...Object.fromEntries(OFFICE_ASSUMPTIONS.map((k) => [k, rateToPct(value.assumptions[k])])),
-    realEstateRatio: rateToPct(value.realEstateRatio),
-    horizonAge: String(value.protection.horizon?.age ?? 90),
-    reverseAge: value.protection.protection?.reverseUntilAge !== undefined ? String(value.protection.protection.reverseUntilAge) : "",
-  }));
+  const [texts, setTexts] = useState<Record<string, string>>(() => settingTexts(value));
   const [fee, setFee] = useState<FeeTexts>(() => feeTexts(value.fee));
+  // 開いている間に事務所の既定値を読み直したとき（保存先を開いた後など）: まだ何も変えていなければ、新しい値で欄と印を作り直す
+  // （欄と印は開いたときの値から作るので、読み直した値が届いても前の値のまま見える。変えた後は、FP の入れた値を上書きしない）
+  const base = useRef({ value, s, texts, fee });
+  useEffect(() => {
+    const b = base.current;
+    if (value === b.value) return;
+    if (s !== b.s || texts !== b.texts || fee !== b.fee) {
+      base.current = { ...b, value };
+      return;
+    }
+    const next = { value, s: value, texts: settingTexts(value), fee: feeTexts(value.fee) };
+    base.current = next;
+    setS(next.s);
+    setTexts(next.texts);
+    setFee(next.fee);
+  }, [value]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const panel = useRef<HTMLDivElement>(null);

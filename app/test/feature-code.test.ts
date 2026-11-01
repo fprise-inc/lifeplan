@@ -5,7 +5,7 @@ import { generateKeyPairSync, sign } from "node:crypto";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { OfficeSettingsPanel } from "../src/workspace/office/OfficeSettingsPanel.tsx";
-import { DEFAULT_OFFICE_SETTINGS } from "../src/workspace/office/settings.ts";
+import { DEFAULT_OFFICE_SETTINGS, loadOfficeStart } from "../src/workspace/office/settings.ts";
 import { candidateChange, checkText, codeFor, combinedHiddenText, enabledLine, expiredFor, expiredText, featureErrorText, featureOn, NO_FEATURES, renewText, type FeatureCandidateView, type FeatureCodeView, type FeatureStatus } from "../src/workspace/office/featureCodes.ts";
 import { balanceTabModel } from "../src/workspace/balanceTab.ts";
 import { addCode, applyFetch, featureStatus, publicKeys, reference, revokedIds, todayJst } from "../scripts/devFeatureCode.ts";
@@ -233,5 +233,43 @@ describe("開発用のサーバーの代わりの止めた一覧（本体と同�
     r = applyFetch(saved, list(2, []), rkeys);
     expect(r.result).toBe("ok");
     expect(featureStatus([c], keys, "2026-11-01", revokedIds(r.saved, rkeys)).active).toEqual(["combinedBs"]);
+  });
+});
+
+describe("起動直後に事務所の既定値のパネルを開いたとき（#officedefaults）", () => {
+  // 合算BS の「使う」の印の入力（renderToString の出力から。checked が付いているか）
+  const mark = (html: string): string => /<input[^>]*data-office-feature="combinedBs"[^>]*>/.exec(html)?.[0] ?? "";
+  const deferred = <T,>() => {
+    let resolve!: (v: T) => void;
+    let reject!: (e: unknown) => void;
+    const promise = new Promise<T>((res, rej) => ((resolve = res), (reject = rej)));
+    return { promise, resolve, reject };
+  };
+  const render = (value: typeof DEFAULT_OFFICE_SETTINGS, features: FeatureStatus) =>
+    renderToString(h(OfficeSettingsPanel, { value, onSave: async () => undefined, shared: false, onClose: () => undefined, features }));
+
+  it("事務所の既定値とコードの状態の両方を読み終わってから返す。読み終わった値で出すと、保存してある印が付いて出る", async () => {
+    const d = deferred<unknown>();
+    const f = deferred<FeatureStatus>();
+    let done = false;
+    const p = loadOfficeStart({ defaults: () => d.promise, featureStatus: () => f.promise }).then((r) => ((done = true), r));
+    f.resolve(st([code()]));
+    await new Promise((r) => setTimeout(r, 0));
+    // コードの状態だけ先に届いても、まだ返さない（ここでパネルを出すと、既定の値で印が外れて見える）
+    expect(done).toBe(false);
+    expect(mark(render(DEFAULT_OFFICE_SETTINGS, st([code()])))).not.toContain("checked");
+    d.resolve({ features: { combinedBs: true } });
+    const r = await p;
+    expect(r.settings?.features.combinedBs).toBe(true);
+    expect(r.features?.active).toEqual(["combinedBs"]);
+    expect(mark(render(r.settings!, r.features!))).toContain("checked");
+  });
+
+  it("読めなかったものは null（片方が読めなくても、もう片方を待って返す）", async () => {
+    const r = await loadOfficeStart({ defaults: () => Promise.reject(new Error("E_STORE")), featureStatus: async () => st([code()]) });
+    expect(r).toEqual({ settings: null, features: st([code()]) });
+    const r2 = await loadOfficeStart({ defaults: async () => ({ features: { combinedBs: true } }), featureStatus: () => Promise.reject(new Error("E")) });
+    expect(r2.settings?.features.combinedBs).toBe(true);
+    expect(r2.features).toBeNull();
   });
 });
