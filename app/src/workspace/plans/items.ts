@@ -3,7 +3,7 @@
 // - よく使う項目（住宅ローンの借入額か繰上返済・金利・変動金利の上昇・資産運用の配分）
 // - 入力の項目の定義（input/stages/ の欄）から作る、数の欄すべて
 // 動かした値は案（plans.ts）の差分にだけ入り、入力（現状）は変えない（0008 の5）
-import type { Debt, EngineRequest } from "../../engine/types.ts";
+import type { Debt, EngineRequest, ReturnShift } from "../../engine/types.ts";
 import { group, monthlyMan } from "../../presentation/format.ts";
 import type { DemoHousehold } from "../catalog.ts";
 import { allFields, resolveTimepoint, type FieldDef, type StageDef } from "../input/form.ts";
@@ -401,6 +401,28 @@ export function investRateNow(req: EngineRequest): string {
   return (req.input.assumptions?.returnShifts ?? []).reduce((r, s) => (s.add !== undefined && s.from <= y && (s.to === undefined || s.to >= y) ? addRate(r, s.add) : r), investRateBase(req));
 }
 
+/**
+ * 運用の利回りの書き換えの並びに、計算基準の年からの幅（delta）を足す。現状に反映するたびに1件ずつ足すと、反映を重ねるほど並びが
+ * 長くなり、入力の画面にも同じ書き換えが何件も並ぶ。そこで、計算基準の年までに始まり終わりの年の無い「幅を足すだけ」の書き換えを
+ * 1件にまとめ（計算基準の年からにする）、そこに幅を足す。合計が 0 になれば外す。
+ * 計算は変わらない: エンジンは書き換えを並びの順に当て、幅は足し算なので順を問わない。まとめる書き換えは計算基準の年より後の
+ * どの年にもかかっていたので、始まりを計算基準の年にしても表の年の利回りは同じ（計算基準の年より前の年は計算しない）。
+ * 上限（cap）のある書き換えがあるときは、幅と上限を当てる順で利回りが変わるので、まとめずに今までどおり後ろに足す
+ */
+function withReturnDelta(list: readonly ReturnShift[], year: number, delta: string): ReturnShift[] {
+  const open = (s: ReturnShift) => s.add !== undefined && s.cap === undefined && s.to === undefined && s.from <= year;
+  if (list.some((s) => s.cap !== undefined) || !list.some(open)) return [...list, { from: year, add: delta }];
+  const total = list.filter(open).reduce((t, s) => addRate(t, s.add as string), delta);
+  const first = list.findIndex(open);
+  const out: ReturnShift[] = [];
+  list.forEach((s, i) => {
+    if (i === first) {
+      if (cmpRate(total, "0") !== 0) out.push({ ...s, from: year, add: total });
+    } else if (!open(s)) out.push(s);
+  });
+  return out;
+}
+
 /** 運用の利回りの、前提の書き換え（returnShifts）を当てる前の値 */
 function investRateBase(req: EngineRequest): string {
   const m = methodOf(req);
@@ -480,7 +502,9 @@ function investItems(wh: WorkingHousehold): MovableItem[] {
         if (cmpRate(delta, "0") === 0) return w;
         const request = structuredClone(w.request);
         const a = (request.input.assumptions ??= { investmentReturn: { default: "0.01" } });
-        a.returnShifts = [...(a.returnShifts ?? []), { from: parseYm(request.input.baseMonth).y, add: delta }];
+        const list = withReturnDelta(a.returnShifts ?? [], parseYm(request.input.baseMonth).y, delta);
+        if (list.length > 0) a.returnShifts = list;
+        else delete a.returnShifts;
         return { ...w, request };
       },
       text: (v) => (typeof v === "string" ? `年${pctText(v, 1)}` : "—"),
