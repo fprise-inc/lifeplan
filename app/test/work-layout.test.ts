@@ -155,6 +155,33 @@ describe("標準報酬月額: 空欄は給与から計算（目安を推定の�
     expect(smr.health).toMatchObject({ value: 470000, state: "estimated" });
   });
 
+  it("前の形式の「わからない（代わりの値）」の箱が片方にある世帯: もう片方を空にしても、その箱（代わりの値）は消さない", () => {
+    const manual = { kind: "manual" } as const;
+    const legacy = (other: Record<string, unknown>) =>
+      mutate(blank, (h) => {
+        const p = h.employmentPeriods!.find((x) => x.id === p0.id)!;
+        p.standardMonthlyRemuneration = { health: other, pension: { value: 410000, state: "confirmed", origin: manual } } as unknown as NonNullable<typeof p.standardMonthlyRemuneration>;
+      });
+    const unknown = { state: "unknown", origin: manual, substitute: { value: 380000, state: "estimated", origin: manual, estimate: { method: "standard", basis: "FP の前の値" } } };
+    const w = legacy(unknown);
+    expect(fieldOf(w, smrH).get(w).value).toBe(380000);
+    const back = edit(w, smrP, null);
+    const smr = mine(back)[0]!.standardMonthlyRemuneration!;
+    // 触っていない健康保険の箱はそのまま
+    expect(smr.health).toEqual(unknown);
+    expect(fieldOf(back, smrH).get(back).value).toBe(380000);
+    // 空にした厚生年金は、代わりの値を厚生年金の等級表に当てた推定
+    expect(smr.pension).toMatchObject({ value: 380000, state: "estimated", estimate: { method: "derived" } });
+    expect(() => preview(back.request)).not.toThrow();
+    // 額の無い箱（該当なし）なら、空にした側は今の給与から
+    const na = { state: "notApplicable", origin: manual };
+    const back2 = edit(legacy(na), smrP, null);
+    const smr2 = mine(back2)[0]!.standardMonthlyRemuneration!;
+    expect(smr2.health).toEqual(na);
+    expect(smr2.pension.state).toBe("estimated");
+    expect(typeof smr2.pension.value).toBe("number");
+  });
+
   it("勤め先の健康保険・厚生年金に入らない期間（扶養のパートなど）には目安を出さない", () => {
     const part = mine(blank, spouse.id).find((p) => p.pensionCategory === "none" || p.healthInsurance?.kind === "dependent");
     expect(part).toBeDefined();

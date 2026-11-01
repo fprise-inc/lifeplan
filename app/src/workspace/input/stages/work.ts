@@ -760,9 +760,16 @@ function smrField(wh: WorkingHousehold, find: Finder, prefix: string, kind: SmrK
       const otherBox = cur?.[other] as SmrBox | undefined;
       if (box === undefined) {
         if (cur === undefined) return;
-        const v = otherBox?.state === "estimated" && otherBox.origin.kind === "auto" ? null : (otherBox?.value ?? null);
-        if (v === null) delete x.standardMonthlyRemuneration;
-        else x.standardMonthlyRemuneration = { ...cur, [kind]: fromOther(x, kind, v) } as NonNullable<EmploymentPeriod["standardMonthlyRemuneration"]>;
+        // もう片方が無いか、片方を入れたときに作った推定（自動）なら、置き換え口ごと外す（給与から計算に戻る）
+        if (otherBox === undefined || (otherBox.state === "estimated" && otherBox.origin.kind === "auto")) {
+          delete x.standardMonthlyRemuneration;
+          return;
+        }
+        // もう片方は FP が書いた箱（前の形式の「わからない（代わりの値）」・該当なしを含む）: 触らずに残し、こちらはその額から推定する。
+        // 額の無い箱なら、こちらは今の給与から（スキーマは2つとも必須）
+        const v = otherBox.value ?? (otherBox as { substitute?: Box<number> }).substitute?.value ?? null;
+        const mineNow = typeof v === "number" ? fromOther(x, kind, v) : (smrEstimate((x.salary?.annual.value ?? 0) + commutingOf(x) * 12, smrMonth(x, base))[kind] as SmrBox);
+        x.standardMonthlyRemuneration = { ...cur, [kind]: mineNow } as NonNullable<EmploymentPeriod["standardMonthlyRemuneration"]>;
         return;
       }
       const mine = structuredClone(box) as unknown as SmrBox;
