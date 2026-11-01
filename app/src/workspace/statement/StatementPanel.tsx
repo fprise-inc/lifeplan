@@ -36,6 +36,7 @@ import {
   otherReview,
   ownerOptions,
   percentText,
+  importPeriodProblem,
   periodProblem,
   putRule,
   readFile,
@@ -361,6 +362,13 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
   const [showMap, setShowMap] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  /** 取り込んだ明細の期間を直せなかったとき（行の使った日より狭いなど）の知らせ */
+  const [periodMsg, setPeriodMsg] = useState<{ id: string; text: string } | null>(null);
+  const changePeriod = (id: string, period: { from: string; to: string }) => {
+    const p = importPeriodProblem(log, id, period);
+    setPeriodMsg(p === null ? null : { id, text: p });
+    if (p === null) onLog(setPeriod(log, id, period));
+  };
   const acc = log.accounts.find((a) => a.id === account) ?? null;
   const accLabel = (id: string) => log.accounts.find((a) => a.id === id)?.label ?? "（外した口座）";
   void wh;
@@ -439,7 +447,7 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
       </div>
     );
   const out = reading?.out;
-  const pp = reading !== null ? periodProblem(reading.period) : null;
+  const pp = reading !== null ? periodProblem(reading.period, rowsSpan(reading.out)) : null;
   return (
     <div class="st-step" data-statement-step="import">
       <p class="st-lead">口座・カードを選んでから、明細のファイル（CSV・TSV・文字の入った PDF）を選びます。読むのはこの PC の中だけで、外には送りません。</p>
@@ -489,7 +497,7 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
             <input type="date" value={reading.period.from} onInput={(e) => setReading({ ...reading, period: { ...reading.period, from: (e.currentTarget as HTMLInputElement).value } })} aria-label="期間の始め" data-statement-from />
             〜
             <input type="date" value={reading.period.to} onInput={(e) => setReading({ ...reading, period: { ...reading.period, to: (e.currentTarget as HTMLInputElement).value } })} aria-label="期間の終わり" data-statement-to />
-            <small>使った日の最初と最後から入れています。12か月分の明細なら、明細の初日・末日に直すと月平均が正しくなります。</small>
+            <small>使った日の最初と最後から入れています。12か月分の明細なら、明細の初日・末日に直すと月平均が正しくなります（使った日より狭くはできません）。</small>
           </div>
           {pp !== null ? <p class="fatal">{pp}</p> : null}
           <div class="rp-actions">
@@ -520,9 +528,14 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
                 <tr key={i.id} class={i.include ? "" : "off"} data-statement-import>
                   <td>{accLabel(i.account)}</td>
                   <td class="st-imp-period">
-                    <input type="date" value={i.period.from} aria-label="期間の始め" onChange={(e) => onLog(setPeriod(log, i.id, { from: (e.currentTarget as HTMLInputElement).value, to: i.period.to }))} />
+                    <input type="date" value={i.period.from} aria-label="期間の始め" onChange={(e) => changePeriod(i.id, { from: (e.currentTarget as HTMLInputElement).value, to: i.period.to })} />
                     〜
-                    <input type="date" value={i.period.to} aria-label="期間の終わり" onChange={(e) => onLog(setPeriod(log, i.id, { from: i.period.from, to: (e.currentTarget as HTMLInputElement).value }))} />
+                    <input type="date" value={i.period.to} aria-label="期間の終わり" onChange={(e) => changePeriod(i.id, { from: i.period.from, to: (e.currentTarget as HTMLInputElement).value })} />
+                    {periodMsg?.id === i.id ? (
+                      <p class="fatal" role="alert" data-statement-period-problem>
+                        {periodMsg.text}
+                      </p>
+                    ) : null}
                   </td>
                   <td class="num">{i.rows.length}</td>
                   <td>

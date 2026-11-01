@@ -26,6 +26,7 @@ import {
   markDateText,
   markText,
   otherReview,
+  importPeriodProblem,
   periodProblem,
   putRule,
   readFile,
@@ -157,6 +158,30 @@ describe("明細を読んで取り込む", () => {
     expect(periodProblem({ from: "2025-10-01", to: "2025-09-30" })).not.toBeNull();
     expect(setPeriod(log, id, { from: "2025-13-01", to: "2026-09-30" })).toBe(log);
     expect(setPeriod(log, id, { from: "2025-10-01", to: "2026-09-30" }).imports[0]?.period).toEqual({ from: "2025-10-01", to: "2026-09-30" });
+  });
+
+  // 期間を使った日より狭く直すと、期間の外の行も合計に入ったまま狭い日数で割るので、月平均が多く出ていた
+  it("期間は使った日の最初と最後を含める（狭くはできない。広げるのはよい）", async () => {
+    const { wh } = await imported();
+    const log = logOf(wh);
+    const imp = log.imports[0]!;
+    const dates = imp.rows.map((r) => r.date).sort();
+    const span = { from: dates[0]!, to: dates.at(-1)! };
+    const next = (d: string, k: number) => new Date(Date.parse(`${d}T00:00:00Z`) + k * 86400000).toISOString().slice(0, 10);
+    const narrow = { from: next(span.from, 1), to: span.to };
+    expect(periodProblem(narrow, span)).toContain(`${span.from.replace(/-/g, "/")}`);
+    expect(periodProblem({ from: span.from, to: next(span.to, -1) }, span)).not.toBeNull();
+    expect(periodProblem({ from: next(span.from, -10), to: next(span.to, 10) }, span)).toBeNull();
+    expect(importPeriodProblem(log, imp.id, narrow)).not.toBeNull();
+    expect(setPeriod(log, imp.id, narrow)).toBe(log);
+    const before = analyze(wh, []).summary.livingTotal;
+    expect(analyze(withLog(wh, setPeriod(log, imp.id, narrow)), []).summary.livingTotal).toBe(before);
+    // 取り込む前の期間も同じ
+    const out = await readOk("card-year-utf8bom.csv", "card");
+    const fresh = addAccount(logOf(household()), { kind: "card", label: "カード", owner: null }, "acc");
+    const rs = out.rows.map((r) => r.date).sort();
+    expect(addImport(fresh, out, { id: seq(), account: "acc", at: AT, period: { from: next(rs[0]!, 1), to: rs.at(-1)! } })).toEqual({ ok: false, reason: "period" });
+    expect(addImport(fresh, out, { id: seq(), account: "acc", at: AT, period: { from: next(rs[0]!, -5), to: rs.at(-1)! } }).ok).toBe(true);
   });
 });
 
