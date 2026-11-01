@@ -19,7 +19,7 @@ import { buildStages, STAGE_ORDER } from "../input/stages/index.ts";
 import { pctFromRate, sameRate } from "../input/units.ts";
 import { addMonths, advisoryFeeInCurrent, hasAdvisoryFee, LEVER_KEYS, parseYm, readLevers, type LeverKey, type LeverValues } from "../levers.ts";
 import { roles } from "../roles.ts";
-import { resolveKey } from "../store/readings.ts";
+import { keyOf, resolveKey, type Reading } from "../store/readings.ts";
 import { bucketShares, expectedReturn, type MixPart } from "./allocation.ts";
 import { addRate, cmpRate, nonNegative, pctText, subRate } from "./decimal.ts";
 import { ageAt } from "../levers.ts";
@@ -820,6 +820,7 @@ function fieldItems(wh: WorkingHousehold, stages: StageDef[], skip: Set<string>)
   const members = new Set(wh.request.input.household.members.map((m) => m.id));
   const input = wh.request.input as unknown as Record<string, unknown>;
   const out: MovableItem[] = [];
+  const readings = new Map<string, Reading>();
   stages.forEach((stage, i) => {
     const stageLabel = STAGE_ORDER[i]?.label ?? stage.label;
     for (const section of stage.sections)
@@ -829,6 +830,7 @@ function fieldItems(wh: WorkingHousehold, stages: StageDef[], skip: Set<string>)
           // 画面の鍵を当て先・合成の対策に読み替えられない欄は出さない（出すと、プランに保存するとき差分にならずに落ちる。0036 の追記 2026-10-29）
           const reading = resolveKey(`field:${f.key}`, input);
           if (reading === null || reading.kind === "unresolved") continue;
+          readings.set(`field:${f.key}`, reading);
           const id = UUID.exec(f.key)?.[0];
           const target: DiffTarget = id === undefined ? { plan: "assumptions" } : members.has(id) ? { member: id } : { object: id };
           const where = g.title ?? section.title;
@@ -849,7 +851,32 @@ function fieldItems(wh: WorkingHousehold, stages: StageDef[], skip: Set<string>)
           });
         }
   });
-  return out;
+  return withoutSamePlace(out, readings, input);
+}
+
+/**
+ * 同じ当て先の欄を動かす項目が2つ以上あれば（役員・自営業の「今の働き方」の年収の欄と、働き方の期間の年収の欄など）、差分を動かす項目の
+ * キーに戻すときに選ぶ鍵（plans.ts の diffKey と同じ選び方）の1つだけを残す。両方を出すと、保存したプランの値は片方にしか出ず、
+ * 両方の値が下書きに入ると、計算に入る値と見えている値が食い違う
+ */
+function withoutSamePlace(items: MovableItem[], readings: ReadonlyMap<string, Reading>, input: Record<string, unknown>): MovableItem[] {
+  const groups = new Map<string, { reading: Reading; keys: Set<string> }>();
+  for (const it of items) {
+    const r = readings.get(it.key);
+    if (r === undefined || r.kind !== "address") continue;
+    const place = JSON.stringify([r.address.target, r.address.item, r.address.at]);
+    const g = groups.get(place);
+    if (g === undefined) groups.set(place, { reading: r, keys: new Set([it.key]) });
+    else g.keys.add(it.key);
+  }
+  const drop = new Set<string>();
+  for (const { reading, keys } of groups.values()) {
+    if (keys.size < 2) continue;
+    const keep = keyOf(reading, input, "item", undefined, (k) => keys.has(k));
+    if (keep === null || !keys.has(keep)) continue;
+    for (const k of keys) if (k !== keep) drop.add(k);
+  }
+  return drop.size === 0 ? items : items.filter((it) => !drop.has(it.key));
 }
 
 /** 現状の世帯の要求の入力 → 動かす項目のキー（差分を動かす項目のキーに戻すとき、一覧にある鍵を選ぶため。plans.ts の diffKey） */
