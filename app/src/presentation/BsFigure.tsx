@@ -140,7 +140,7 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
     return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
   });
   const nw = t.nw?.[0] ?? year.netWorth;
-  const shown = { lines, netWorth: nw };
+  const shown = { lines, netWorth: nw, ...(year.netParts !== undefined ? { netParts: year.netParts } : {}) };
   const A = lines.filter((l) => l.group !== "mortgage" && l.group !== "debt").reduce((s, l) => s + l.amount, 0);
   const L = lines.filter((l) => l.group === "mortgage" || l.group === "debt").reduce((s, l) => s + l.amount, 0);
   const Tot = Math.max(A, L, 1);
@@ -248,12 +248,12 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
 
   const openBox = drawn.find((d) => d.box.key === open && d.box.value > 0.5) ?? null;
   // 札の中身は描いている値（補間の途中）ではなく、その年の値
-  const amountOf = (key: string) => (key === "netWorth" || key === "neg" ? Math.abs(year.netWorth) : (year.lines.find((l) => l.key === key)?.amount ?? 0));
+  const amountOf = (key: string) => (key === "netWorth" || key === "neg" ? Math.abs(year.netWorth) : (year.lines.find((l) => l.key === key)?.amount ?? year.netParts?.find((p) => p.key === key)?.amount ?? 0));
   const tipAt = (d: Drawn, y: number): Pick<FigTipData, "x" | "y" | "side"> => (d.box.side === "L" ? { x: d.x + colW + 6, y, side: "r" } : { x: d.x - 6, y, side: "l" });
   const partTip = (d: Drawn, q: Drawn["parts"][number]): FigTipData => {
     const isNw = q.key === "netWorth";
     const isNeg = q.key === "neg";
-    const gname = d.box.key === "netWorth" || d.box.key === "neg" ? "" : groups[d.box.key].name;
+    const gname = d.box.key === "netWorth" ? (isNw ? "" : "純資産") : d.box.key === "neg" ? "" : groups[d.box.key].name;
     const many = d.parts.filter((x) => x.value > 0.5).length > 1;
     const note = isNw ? "資産 − 負債" : isNeg ? "資産より負債が多い分（債務超過）" : q.key === "short" ? "金融資産が尽きた後の足りない分" : many ? `${gname}のうち` : gname !== q.label ? gname : undefined;
     return {
@@ -267,6 +267,7 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
   };
   const boxTip = (d: Drawn): FigTipData => {
     const k = d.box.key;
+    if (k === "netWorth" && d.parts.length > 1) return { key: "g.netWorth", title: "純資産", amount: year.netWorth, rows: d.parts.map((q) => ({ label: q.label, amount: amountOf(q.key) })), swatch: "var(--bs-netWorth)", ...tipAt(d, (d.top + d.bot) / 2) };
     if (k === "netWorth" || k === "neg") return partTip(d, d.parts[0] as Drawn["parts"][number]);
     const ls = year.lines.filter((l) => l.group === k);
     return { key: `g.${k}`, title: groups[k].name, amount: ls.reduce((a, l) => a + l.amount, 0), ...(ls.length > 1 ? { rows: ls.map((l) => ({ label: l.label, amount: l.amount })) } : {}), swatch: lineColor(ls[0]?.key ?? k, k), ...tipAt(d, (d.top + d.bot) / 2) };
@@ -518,7 +519,8 @@ function BoxPop({ d, year, name, colW, xL, xR, W, onClose }: { d: Drawn; year: B
   if (k === "netWorth" || k === "neg") {
     const illiquid = year.lines.filter((l) => l.group === "illiquid").reduce((s, l) => s + l.amount, 0);
     rows.push(row("a", "資産の合計", year.totalAssets), row("l", "− 負債の合計", year.totalLiabilities), row("n", k === "neg" ? "＝ 足りない分" : "＝ 純資産", year.netWorth, "tot"));
-    if (k === "netWorth") rows.push(row("x", "うち 換金しにくい資産を除くと", year.netWorth - illiquid));
+    if (k === "netWorth" && (year.netParts ?? []).length > 0) for (const p of year.netParts ?? []) rows.push(row(`np-${p.key}`, `うち ${p.label}`, p.amount, "", lineColor(p.key, "netWorth")));
+    else if (k === "netWorth") rows.push(row("x", "うち 換金しにくい資産を除くと", year.netWorth - illiquid));
   } else {
     for (const l of lines) rows.push(row(l.key, l.label, l.amount, "", lineColor(l.key, l.group)));
     if (lines.length > 1) rows.push(row("t", "合計", lines.reduce((s, l) => s + l.amount, 0), "tot"));

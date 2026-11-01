@@ -541,6 +541,8 @@ export interface BsYearModel {
   loanPay: Yen;
   /** 会社の借入の連帯保証の額（役員として働く人の今の額。今の年だけ。先の年と保証の無い世帯は 0。負債の合計には入れない。0105） */
   guarantee: Yen;
+  /** 純資産の箱の中の内訳（任意。会社と合わせたバランスシートの1枚の「会社の財産」「個人の財産」など。どれも0以上で、合計は純資産。0107） */
+  netParts?: { key: string; label: string; amount: Yen }[];
   /** この年の出来事（例: 退職・住宅ローン完済） */
   events: { kind: BsMarkKind; text: string }[];
   /** 箱を押したときの説明（分け方ごと・純資産・純資産のマイナス） */
@@ -624,13 +626,64 @@ export interface BsPrevModel {
  * カスタマイズで足す見るもの（例: 合算BS）の差し込み口。カスタム層の計算部品が値を出し、画面は同じ図の部品で並べて描く（0027）。
  * 今は公式の画面からは作らない。何も足していなければ、タブの上の「見るもの」の切り替えは行ごと出さない
  */
+/** 見るものの1枚（名前と、BsYearModel の形の BS。sub は名前の下の小さな説明） */
+export interface BsCustomColumn {
+  name: string;
+  sub?: string;
+  at: BsYearModel;
+}
+
+/** 見るものの欄（宣言型。値は文字で持ち、作業の層へ返す。0107。後でカスタム層の入力欄 fields/ に移せる形） */
+export interface BsCustomField {
+  id: string;
+  label: string;
+  /** yen: 万円の数（negative なら「−」も入る）・month: 年月（YYYY-MM）・choice: 選ぶ・check: 印 */
+  kind: "yen" | "month" | "choice" | "check";
+  value: string;
+  unit?: string;
+  help?: string;
+  placeholder?: string;
+  negative?: boolean;
+  options?: { value: string; label: string }[];
+}
+
+/** 図の下に並べる表・文（宣言型） */
+export interface BsCustomSection {
+  key: string;
+  title: string;
+  note?: string;
+  table?: { head: string[]; rows: { cells: string[]; tone?: "total" | "muted" }[] };
+  lines?: string[];
+  field?: BsCustomField;
+}
+
+/**
+ * カスタマイズで足す見るもの（0027 の8。例: 会社と合わせたバランスシート）。columns だけなら同じ図の部品で共通の縮尺で並べる。
+ * steps・sections・form・notices は任意（0107 で足した。値を作るのは作業の層の部品で、画面は受け取ったものを出すだけ）
+ */
 export interface BsCustomViewModel {
   key: string;
   /** 例: 「合算BS」 */
   label: string;
   /** 並べる図（例: 会社・経営者個人（家計）・合算）。共通の縮尺で描く */
-  columns: { name: string; at: BsYearModel }[];
+  columns: BsCustomColumn[];
   note: string;
+  /** 見出しの下の説明の1文（任意） */
+  lead?: string;
+  /** 段を切り替えて見せる（任意。例: ①並べる・②相殺・③合算）。あれば columns の代わりに選んだ段の図を出す */
+  steps?: { key: string; label: string; columns: BsCustomColumn[]; note: string }[];
+  /** 共通の縮尺（任意。段をまたいでそろえる。無ければ並べる図から） */
+  scale?: Yen;
+  /** 分け方の名前の置き換え（任意。会社の科目を並べるときなど） */
+  groups?: Partial<Record<BsGroupKey, { name: string; short: string }>>;
+  /** お知らせ（任意。落ち着いた文） */
+  notices?: string[];
+  /** 図の下の表・文（任意） */
+  sections?: BsCustomSection[];
+  /** 入力欄（任意。open は最初から開いておくか） */
+  form?: { title: string; note: string; open: boolean; groups: { title: string; note?: string; fields: BsCustomField[] }[] };
+  /** 入力が足りず図を出せないときの文（任意。あれば図の代わりに出す） */
+  empty?: string;
 }
 
 export interface BalanceTabModel {

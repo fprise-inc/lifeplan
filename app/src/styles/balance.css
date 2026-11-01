@@ -41,6 +41,25 @@
   /* 純資産: ほかの箱と同じベタ塗り */
   --bs-netWorth: #355ba4;
   --bs-netWorth-ink: var(--prop-ink); /* 図の外の純資産の金額の文字（アプリの藍の文字の色） */
+  /* 会社と合わせたバランスシート（法人の顧問向けの機能。0107）の会社の科目と、純資産の内訳。家計の項目と隣り合っても分かれる明るさにした */
+  --bs-co-cash: #1d4f86;
+  --bs-co-receivables: #5a6b80;
+  --bs-co-inventory: #44546a;
+  --bs-co-otherCurrent: #607080;
+  --bs-co-land: #3e4f66;
+  --bs-co-buildings: #66737d;
+  --bs-co-investments: #4a5868;
+  --bs-co-otherFixed: #5c6773;
+  --bs-co-loanToOwner: #52606b;
+  --bs-co-advanceToOwner: #46535e;
+  --bs-co-shortDebt: #7a4a26;
+  --bs-co-longDebt: #5e3a1d;
+  --bs-co-loanFromOwner: #6a3f22;
+  --bs-co-otherLiabilities: #624228;
+  --bs-co-guaranteed: #704526;
+  --bs-netCompany: #2c4a86;
+  --bs-netOthers: #4a5f8a;
+  --bs-netOwner: #355ba4;
   /* 分け方の色（推移のグラフ・分からない項目）。図の箱と同じ色 */
   --bs-g-liquid: #0f61a5;
   --bs-g-market: #007fa4;
@@ -417,4 +436,41 @@
   .m3-say .s1 { font-size: 1rem; }
   .m3-card { padding: 8px 10px; }
   .m3-am { font-size: 1.1rem; }
+}
+
+/* カスタマイズで足した見るもの（会社と合わせたバランスシート。0107）: お知らせは落ち着いた色（赤で煽らない） */
+.bs-custom { display: flex; flex-direction: column; gap: 10px; }
+.bs-cnotice { border: 1px solid var(--line); border-left: 4px solid var(--prop); background: var(--prop-bg); border-radius: 8px; padding: 8px 12px; font-size: 0.88rem; }
+.bs-cnotice b { color: var(--prop-ink); }
+.bs-cnotice ul { margin: 4px 0 0; padding-left: 1.2em; }
+.bs-cnotice li + li { margin-top: 2px; }
+.bs-cempty { border: 1.5px dashed var(--line); border-radius: 8px; padding: 14px; color: var(--ink-2); margin: 0; }
+.bs-cparts { margin: 2px 0 0; font-size: 0.82rem; color: var(--ink-2); }
+.bs-csec { border-top: 1px solid var(--card-line); padding-top: 8px; }
+.bs-csec h3 { font-size: 0.98rem; margin: 0 0 6px; }
+.bs-cline { margin: 4px 0; }
+.bs-ctable-wrap { overflow-x: auto; }
+.bs-ctable { border-collapse: collapse; font-size: 0.88rem; min-width: 100%; }
+.bs-ctable th, .bs-ctable td { border-bottom: 1px solid var(--card-line); padding: 4px 8px; text-align: left; vertical-align: top; }
+.bs-ctable th { font-size: 0.8rem; color: var(--ink-2); font-weight: 700; }
+.bs-ctable tr.total td { font-weight: 700; }
+.bs-ctable tr.muted td { color: var(--ink-2); }
+.bs-cform { border: 1px solid var(--card-line); border-radius: 10px; padding: 8px 12px; background: #fcfcfb; }
+.bs-cform summary { font-weight: 700; cursor: pointer; }
+.bs-cgroup { border: 0; padding: 0; margin: 10px 0 0; min-width: 0; }
+.bs-cgroup legend { font-weight: 700; font-size: 0.9rem; padding: 0; }
+.bs-cfields { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 14px; margin-top: 4px; }
+.bs-cfield { display: flex; flex-direction: column; gap: 2px; font-size: 0.86rem; }
+.bs-cfield > span:first-child { font-weight: 700; }
+.bs-cfield .in { display: flex; align-items: center; gap: 4px; }
+.bs-cfield .in input { width: 9em; text-align: right; }
+.bs-cfield small { color: var(--ink-2); font-size: 0.74rem; }
+.bs-cfield small.bad { color: var(--base-ink); font-weight: 700; }
+.bs-cfield.check { flex-direction: row; align-items: center; gap: 6px; }
+.bs-csec .bs-cfield { max-width: 260px; margin-bottom: 4px; }
+.bs-guarantee.compact { margin-top: 6px; padding: 4px 8px; }
+.bs-guarantee.compact small { display: none; }
+/* 3枚を並べるときは、右の合算の1枚を少し広く（純資産の内訳の箱に名前と金額が入るように） */
+@media (min-width: 900px) {
+  .bs-custom .bs-pair.many { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.45fr); }
 }

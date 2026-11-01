@@ -48,6 +48,9 @@ import { addItem, saveItem } from "./input/items.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
 import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, publishOfficeSettings, readOfficeSettings, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
 import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
+import { combinedBsView, withCombinedField } from "./combined/combinedView.ts";
+import { hasExecutive } from "./input/officer.ts";
+import type { CombinedBsInput } from "../../../report/src/index.ts";
 import { FpTools } from "./tools/FpTools.tsx";
 import { Insights, useInheritanceFor } from "./tools/Insights.tsx";
 import { pensionNotices } from "./input/stages/pension.ts";
@@ -1304,6 +1307,23 @@ export function App() {
     openedRef.current = n;
     setOpened(n);
   }, []);
+  /**
+   * 会社と合わせたバランスシートの入力を変える（0107。世帯ファイルの household.companyBs。計算の要求の外なので計算し直さない。
+   * 元に戻す・やり直すの履歴には積む。保存した世帯なら自動保存で世帯ファイルに書く）
+   */
+  const putCompanyBs = useCallback(
+    (next: CombinedBsInput | null) =>
+      history.track(() => {
+        const o = openedRef.current;
+        if (o === null) return;
+        const { companyBs: _old, ...rest } = o.wh;
+        void _old;
+        const n: Opened = { ...o, wh: next !== null ? { ...rest, companyBs: next } : rest };
+        openedRef.current = n;
+        setOpened(n);
+      }),
+    [history],
+  );
   /** 控えを作る（その時点の現状・プラン・保存していないプランの変更の写し。0009 の2） */
   const takeSnapshot = useCallback(
     async (draft: SnapshotDraft) => {
@@ -1821,6 +1841,25 @@ export function App() {
     const snapshot = r === null ? { error: "この控えの内容は、今の計算エンジン・制度データでは計算できませんでした（控えの時点が古いなど）。" } : { req: withoutRemovedAssumptions(s.inputs.request), table: r.table };
     return { status: "ready", model: bsPrev({ key: bsPrevRun.key, label: bsPrevChoices[i]?.label ?? "控え", createdAt: s.createdAt, baseMonth: opened.wh.request.input.baseMonth, actual, snapshot }) };
   }, [bsPrevRun, opened, bsPlans, bsSnaps, letters]);
+  // 会社と合わせたバランスシート（法人の顧問向けの機能。0107）: 事務所の設定で使うと決め、役員として働く人のいる世帯のときだけ。
+  // 家計の側は現状のプランの今の年（入力した値から出した事実）
+  const combinedOn = officeSettings.features.combinedBs && opened !== null && hasExecutive(opened.wh.request.input.household);
+  const combinedViews = useMemo(() => {
+    if (!combinedOn || opened === null || bsPlans === null) return [];
+    const home = bsPlans.find((p) => p.key === (letters.get(CURRENT)?.letter ?? "A"))?.years[0];
+    return home === undefined ? [] : [combinedBsView(opened.wh.companyBs ?? null, home)];
+  }, [combinedOn, opened?.wh.companyBs, bsPlans, letters]);
+  const onCustomField = useCallback(
+    (_view: string, id: string, value: string): boolean => {
+      const o = openedRef.current;
+      if (o === null) return false;
+      const next = withCombinedField(o.wh.companyBs ?? null, id, value);
+      if (next === undefined) return false;
+      putCompanyBs(next);
+      return true;
+    },
+    [putCompanyBs],
+  );
   // 資産運用（資産の推移のとき。0026）: 口座の内訳・運用の期間の帯・相場が下がった場合の線
   const stressRes = STRESS_KEYS.map((k) => (stressOn ? resultOf(`stress:${k}`) : null));
   const investModel = useMemo(() => {
@@ -2520,6 +2559,7 @@ export function App() {
             bsPoints={bsSettings.points}
             bsColumns={bsSettings.columns}
             moneyThree={bsSettings.moneyThree}
+            combinedBs={combinedOn}
             onSnapshot={takeSnapshot}
             {...(initial.reportMode !== undefined ? { initialMode: initial.reportMode } : {})}
           />
@@ -2542,7 +2582,9 @@ export function App() {
                   prev: bsPrevModel,
                   provisional: model.provisional,
                   who: model.who,
+                  customViews: combinedViews,
                 })}
+                onCustomField={onCustomField}
                 band={<PlanBand model={band} onSelect={select} onBase={setBase} onAdd={duplicate} onRemove={removePlan} />}
                 onPrev={onBsPrev}
                 onGuide={(g) => putBsSettings({ guide: g })}

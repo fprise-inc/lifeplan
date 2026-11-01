@@ -3,6 +3,7 @@
 import type { ChildScholarship } from "./childScholarships.ts";
 import type { EngineRequest } from "../../engine/src/engine/types.ts";
 import type { ChapterId } from "./chapters.ts";
+import type { CombinedBsInput, CombinedHousehold } from "./combinedBs.ts";
 import type { ReportLayout } from "./input.ts";
 import type { MoneyThreeSettings } from "./moneyThree.ts";
 import type { SaleVariant } from "./rentalSale.ts";
@@ -185,6 +186,11 @@ export interface ProposalBundle {
    * 省略は「今・退職の年・75歳」（無い時点は10年後で埋める）。年の抜粋の表も、この時点と目標の年を必ず入れる
    */
   balancePoints?: { year: number; name: string | null }[];
+  /**
+   * 会社と合わせたバランスシート（法人の顧問向けの機能。0107）: 世帯ファイルの会社の入力と、現状の今の年の家計のバランスシート
+   * （資産と負債のタブと同じ値）・毎月の固定の支出（生活費＋ローン返済の月額）・連帯保証の額。FP が使うと決め、章を選んだときだけ
+   */
+  combinedBs?: { input: CombinedBsInput; household: CombinedHousehold };
   /** 資産運用の計画（0026）: 画面が入力から作る文（入れ方・取り崩しの条件・運用の期間）と、相場が下がった場合の計算（提案に型を重ねたもの） */
   investment?: InvestmentMaterial;
   /**

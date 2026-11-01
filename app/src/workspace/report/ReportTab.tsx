@@ -40,6 +40,8 @@ interface Props {
   bsColumns?: readonly BsColumn[] | null;
   /** お金の3つの分け方（資産と負債のタブの表示の設定。0032） */
   moneyThree?: MoneyThreeSettings;
+  /** 会社と合わせたバランスシートの章を選べるか（事務所の設定で使うと決め、役員として働く人のいる世帯のときだけ。0107） */
+  combinedBs?: boolean;
   /** PDF を保存したときに控えを残す（App が現状とプランの写しを足して世帯に入れる） */
   onSnapshot?: (d: SnapshotDraft) => Promise<void>;
   /** 最初に開く形（提案書の PDF・持ち帰り用のレポート） */
@@ -127,6 +129,8 @@ function ProposalPdf(p: Props) {
   const [proposal, setProposal] = useState(firstProposal);
   const [compare, setCompare] = useState<string[]>(slots);
   const [chapters, setChapters] = useState<Set<ChapterId>>(new Set(DEFAULT_CHAPTERS));
+  // 法人の顧問向けの章（会社と合わせたバランスシート。0107）は、事務所の設定で使うと決めた世帯だけに出す
+  const shownChapters = CHAPTERS.filter((c) => c.id !== "combinedBs" || p.combinedBs === true);
   const [addressee, setAddressee] = useState("");
   const [preparedBy, setPreparedBy] = useState("");
   const [orientation, setOrientation] = useState<Orientation>(DEFAULT_LAYOUT.orientation);
@@ -148,11 +152,11 @@ function ProposalPdf(p: Props) {
   useEffect(() => () => void p.host.report.discard().catch(() => undefined), [p.host]);
 
   const choice: ReportChoice = useMemo(
-    () => ({ proposal, compare: slots.filter((id) => compare.includes(id) || id === proposal), base: p.base, chapters: CHAPTERS.filter((c) => c.fixed || chapters.has(c.id)).map((c) => c.id), targetAge: p.targetAge, issuedOn: today(), preparedBy, layout: { orientation, cashflow }, bsPoints: p.bsPoints ?? DEFAULT_BS_POINTS, bsColumns: p.bsColumns ?? null, ...(p.moneyThree !== undefined ? { moneyThree: p.moneyThree } : {}) }),
-    [proposal, compare.join(","), p.base, [...chapters].join(","), p.targetAge, preparedBy, slots.join(","), orientation, cashflow, JSON.stringify(p.bsPoints ?? null), JSON.stringify(p.bsColumns ?? null), JSON.stringify(p.moneyThree ?? null)],
+    () => ({ proposal, compare: slots.filter((id) => compare.includes(id) || id === proposal), base: p.base, chapters: shownChapters.filter((c) => c.fixed || chapters.has(c.id)).map((c) => c.id), targetAge: p.targetAge, issuedOn: today(), preparedBy, layout: { orientation, cashflow }, bsPoints: p.bsPoints ?? DEFAULT_BS_POINTS, bsColumns: p.bsColumns ?? null, ...(p.moneyThree !== undefined ? { moneyThree: p.moneyThree } : {}) }),
+    [proposal, compare.join(","), p.base, [...chapters].join(","), p.combinedBs, p.targetAge, preparedBy, slots.join(","), orientation, cashflow, JSON.stringify(p.bsPoints ?? null), JSON.stringify(p.bsColumns ?? null), JSON.stringify(p.moneyThree ?? null)],
   );
   // 何を変えたら作り直しが要るか（宛名も PDF に入るので含める。帳票の入力そのものは保存しない）
-  const key = JSON.stringify({ choice, addressee: addressee.trim(), wh: p.wh.request, values: slots.map((id) => p.valuesOf(id)) });
+  const key = JSON.stringify({ choice, addressee: addressee.trim(), wh: p.wh.request, company: p.wh.companyBs ?? null, values: slots.map((id) => p.valuesOf(id)) });
   const stale = built !== null && built.key !== key;
   const busy = status.kind === "busy";
 
@@ -289,7 +293,7 @@ function ProposalPdf(p: Props) {
         <fieldset class="rp-set">
           <legend>章</legend>
           <div class="rp-checks cols" role="group" aria-label="載せる章">
-            {CHAPTERS.map((c) => (
+            {shownChapters.map((c) => (
               <label key={c.id} class={`rp-check${material(c.id) ? "" : " none"}`}>
                 <input
                   type="checkbox"

@@ -1,6 +1,7 @@
 // 画面の中で編集する世帯（作業の層）。計算エンジンに渡す要求（0008 の形の世帯と前提条件）と、
 // エンジンに渡さない画面の側の値（FP が付ける呼び名・定年後の予定の条件・FP用のメモ・万一の想定の前提・FPが足した項目・保存した項目）を1つにまとめる。
 // 保存・暗号化はまだ無い（次の回。世帯ファイルの封筒 0011 に入れる）。アプリを閉じると消える
+import type { CombinedBsInput } from "../../../../report/src/index.ts";
 import type { Box, EmploymentPeriod, EngineRequest, Household, Member, PensionRecord, Timepoint } from "../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth, parseYm, type Reemployment } from "../levers.ts";
 import { emptyPlan, planFromRequest, type ContingencyPlan } from "../contingency/planData.ts";
@@ -94,6 +95,11 @@ export interface WorkingHousehold {
    * 見せ方だけの画面の側の値で、計算の要求には入れない。決めていなければ欄を持たない
    */
   itemChoice?: ItemChoice;
+  /**
+   * 会社と合わせたバランスシート（合算BS。法人の顧問向けの機能）の入力（形式の版 0.50 から。0107）: 会社の今のバランスシート・毎月の固定の支出・
+   * 会社の段階・実力に直した額。事務所の設定で使うと決めたときだけ画面に出す。画面の側の値で、計算の要求には入れない。入れていなければ欄を持たない
+   */
+  companyBs?: CombinedBsInput;
   /**
    * 案（0008 の5 のプランの層の「提案」）。現状からの差分だけを持ち、数に上限は付けない。保存の回で世帯ファイル（0011）の
    * 世帯データの proposals に入れる（いまは画面の中で持ち、アプリを閉じると消える）

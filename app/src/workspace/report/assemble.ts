@@ -4,11 +4,12 @@
 // - 目標の年齢は表示の設定の「○歳時点」、比較のページの基準は主画面の基準の案（主画面の比較の表と同じ数字）
 // - バランスシートの図の時点は、資産と負債のタブで並べている時点（表示の設定。この世帯で選んだ時点か既定の時点）を、提案のプランの年に解いたもの
 //   （候補の鍵はそのプランの年。退職の年が違うプランなら、そのプランの退職の年）。画面の図と提案書の図を同じ時点にする（0027）
+// - 会社と合わせたバランスシート（法人の顧問向けの機能。0107）: 章を選んだときだけ、世帯の会社の入力と現状の今の年の家計のバランスシートを材料に入れる
 // - 宛名は材料に入れない（本体が出力の PDF に重ねるだけ。0009 の3・0012）
 // - 推定の値: 提案書には「一部は統計の平均で補っています」とだけ書く。どの欄が推定かは FP 向けの画面（提案書のタブ・入力のカード）だけで示す
 // - 収益不動産のまとめ（0082）: 章を載せるときだけ、提案の世帯の物件ごとに、売る年だけを変えた写しの要求（report/src/rentalSale.ts の
 //   saleVariants のうち今の予定でないもの。鍵は rentalSale:<物の ID>:<売り方の鍵>）を足す。今の予定の売り方は提案の計算を使う
-import { buildProposalInput, CHAPTERS, DEFAULT_LAYOUT, saleVariantRequest, saleVariants, type ChapterId, type ProposalBundle, type ProposalInput, type ReportLayout, type Run, type SaleVariant } from "../../../../report/src/index.ts";
+import { buildProposalInput, CHAPTERS, hasCompanyAmounts, DEFAULT_LAYOUT, saleVariantRequest, saleVariants, type ChapterId, type ProposalBundle, type ProposalInput, type ReportLayout, type Run, type SaleVariant } from "../../../../report/src/index.ts";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import { withoutDreams } from "../../engine/moneyRows.ts";
 import { adults, baseRequest, defaultYear, occursMonth, scenarioRequest, scenarios, survivorOf } from "../contingency/requests.ts";
@@ -26,6 +27,8 @@ import { BS_POINT_CHOICES, bsPlan, DEFAULT_BS_POINTS } from "../balanceTab.ts";
 import { bandOf, donutYear, drawdownText, stressLabel, stressRequests, STRESS_KEYS } from "../invest/present.ts";
 import { displayYears } from "../present.ts";
 import { ageInYear, roles } from "../roles.ts";
+import { homeOf } from "../combined/combinedView.ts";
+import { hasExecutive } from "../input/officer.ts";
 
 export const DEFAULT_CHAPTERS: readonly ChapterId[] = CHAPTERS.map((c) => c.id);
 
@@ -204,6 +207,12 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
       estimated: estimatedCards(wh).length > 0,
     };
     if (choice.moneyThree !== undefined) b.moneyThree = { ...choice.moneyThree };
+    // 会社と合わせたバランスシート（0107）: 章を選び（事務所の設定で使うと決めたときだけ選べる）、役員として働く人がいて、会社の数字を入れたときだけ。
+    // 家計の側は資産と負債のタブと同じ（現状の今の年）
+    if (on.has("combinedBs") && hasExecutive(current.input.household) && wh.companyBs !== undefined && hasCompanyAmounts(wh.companyBs)) {
+      const home = bsPlan({ key: "current", letter: "", name: "", title: "", base: true, req: current, table: (results.current as PreviewResult).table }).years[0];
+      if (home !== undefined) b.combinedBs = { input: wh.companyBs, household: homeOf(home) };
+    }
     if (on.has("cashflow")) b.balancePoints = balancePointsOf(proposal, results.proposal as PreviewResult, choice.bsColumns ?? null, choice.bsPoints ?? DEFAULT_BS_POINTS);
     if (steps.length > 0) b.steps = steps.map((s, i) => ({ label: s.label, investment: s.investment, run: i === steps.length - 1 ? proposalRun : run(s.key) }));
     if (requests.withoutFee !== undefined) b.proposalWithoutFee = run("withoutFee");
