@@ -7,7 +7,7 @@
 //   全部の年は本体の正の計算（画面とは別のスレッドで、並べて計算する）で出して確かめ、先出しを差し替える。
 //   覚えるのは年ごとの要約（資産が尽きる年）だけで、表そのものは持たない。要求の中身（の指紋）ごとに覚えるので、同じ内容なら計算しない。
 //   見るプランを切り替えると要求の中身が変わるので、プランごとに別に覚える（要約の決め方は、計算を始めたときの帯のものを使う）
-import { DualEngine } from "../../engine/dual.ts";
+import { DualEngine, type SlotView } from "../../engine/dual.ts";
 import type { HostApi, WebEngine, WebSession } from "../../engine/host.ts";
 import { forEngine } from "../../engine/moneyRows.ts";
 import { isEngineError, type EngineError, type EngineRequest, type PreviewResult } from "../../engine/types.ts";
@@ -22,6 +22,17 @@ export function fingerprint(text: string): string {
     h2 = Math.imul(h2 ^ c, 2246822519);
   }
   return `${(h1 >>> 0).toString(36)}.${(h2 >>> 0).toString(36)}.${text.length.toString(36)}`;
+}
+
+/**
+ * 選んだ想定の枠の結果のうち、今の場面（key）のものだけ（違う場面の結果なら null）。場面を切り替えた直後は、枠に前の場面の結果が
+ * 残っている（画面を描いてから新しい要求を置き、先出し・正の計算が出るまで）。そのまま出すと、新しい場面の見出しの下に前の場面の
+ * 数字や行が並ぶので、計算が終わるまでは「計算しています」にする。同じ場面で年や前提を変えたときは、前の結果を薄くして出したまま。
+ * エラーは今の要求のものなので、そのまま返す（札の合う結果が出ないまま「計算しています」が続かないように）
+ */
+export function sceneView(v: SlotView | null, key: string | undefined): SlotView | null {
+  if (v === null || key === undefined) return null;
+  return v.tag === key || v.error !== null ? v : null;
 }
 
 /** 1つの年の結果（要約）。source は先出し（画面の側）か正の計算（本体）か */

@@ -27,6 +27,11 @@ export interface SlotView {
   source: ResultSource | null;
   /** 要求が変わって、正の計算がまだ終わっていない */
   stale: boolean;
+  /**
+   * 表示する結果を計算した要求の札（set・slide で要求と一緒に渡した文字。無ければ null）。要求を置き直してから新しい結果が出るまでは、
+   * 前の要求の札のまま（呼ぶ側は、見出しと違う要求の結果を出さないために、今の札と比べる）
+   */
+  tag: string | null;
 }
 
 export interface Timing {
@@ -39,9 +44,13 @@ export interface Timing {
 
 interface Slot {
   request: string;
+  /** 今の要求の札 */
+  tag: string | null;
   rev: number;
   result: PreviewResult | null;
   resultRev: number;
+  /** 表示する結果を計算した要求の札 */
+  resultTag: string | null;
   source: ResultSource | null;
   error: string | null;
   errorIds: readonly string[];
@@ -82,8 +91,8 @@ export class DualEngine {
 
   view(id: string): SlotView {
     const s = this.slots.get(id);
-    if (s === undefined) return { result: null, error: null, errorIds: [], source: null, stale: false };
-    return { result: s.result, error: s.error, errorIds: s.errorIds, source: s.source, stale: s.resultRev !== s.rev || s.source !== "canonical" };
+    if (s === undefined) return { result: null, error: null, errorIds: [], source: null, stale: false, tag: null };
+    return { result: s.result, error: s.error, errorIds: s.errorIds, source: s.source, stale: s.resultRev !== s.rev || s.source !== "canonical", tag: s.resultTag };
   }
 
   /** すべての枠が正の計算の結果になっているか */
@@ -96,20 +105,26 @@ export class DualEngine {
     if (this.timings.length > MAX_TIMINGS) this.timings.shift();
   }
 
-  /** 枠の要求を置く（変わった枠だけ番号が進む）。変わった枠の名前を返す */
-  private put(requests: Record<string, EngineRequest>): string[] {
+  /** 枠の要求を置く（変わった枠だけ番号が進む）。変わった枠の名前を返す。tags は枠ごとの要求の札（省略した枠は札なし） */
+  private put(requests: Record<string, EngineRequest>, tags: Readonly<Record<string, string>> = {}): string[] {
     const changed: string[] = [];
     for (const [id, req] of Object.entries(requests)) {
       // 基本の計算に入れない物（見込みが「当てにしない」の受け取る相続・贈与など）は、エンジンへ渡す要求から外す（0044）
       const text = JSON.stringify(forEngine(req));
+      const tag = tags[id] ?? null;
       const s = this.slots.get(id);
       if (s === undefined) {
-        this.slots.set(id, { request: text, rev: 1, result: null, resultRev: 0, source: null, error: null, errorIds: [], previewTable: null });
+        this.slots.set(id, { request: text, tag, rev: 1, result: null, resultRev: 0, resultTag: null, source: null, error: null, errorIds: [], previewTable: null });
         changed.push(id);
       } else if (s.request !== text) {
         s.request = text;
+        s.tag = tag;
         s.rev++;
         changed.push(id);
+      } else if (s.tag !== tag) {
+        // 要求が同じで札だけ違う: 結果はそのまま使える
+        s.tag = tag;
+        if (s.resultRev === s.rev) s.resultTag = tag;
       }
     }
     return changed;
@@ -125,6 +140,7 @@ export class DualEngine {
     const r = out as PreviewResult;
     s.result = r;
     s.resultRev = s.rev;
+    s.resultTag = s.tag;
     s.source = "preview";
     setError(s, null);
     s.previewTable = { rev: s.rev, table: JSON.stringify(r.table) };
@@ -146,8 +162,8 @@ export class DualEngine {
   }
 
   /** 世帯を開いたとき・リセットのとき: すべての枠を先出しで出し、すぐ正の計算をする */
-  async set(requests: Record<string, EngineRequest>): Promise<void> {
-    const changed = this.put(requests);
+  async set(requests: Record<string, EngineRequest>, tags?: Readonly<Record<string, string>>): Promise<void> {
+    const changed = this.put(requests, tags);
     const session = this.opts.session;
     if (session !== null && changed.length > 0) {
       const t = this.opts.now();
@@ -163,8 +179,8 @@ export class DualEngine {
   }
 
   /** スライダーの1刻み: 枠を置き直し、見ている1枠だけを先に出す。正の計算は操作が止まってから */
-  slide(focusId: string, requests: Record<string, EngineRequest>): void {
-    const changed = this.put(requests);
+  slide(focusId: string, requests: Record<string, EngineRequest>, tags?: Readonly<Record<string, string>>): void {
+    const changed = this.put(requests, tags);
     if (changed.length === 0) return;
     const session = this.opts.session;
     if (session !== null) {
@@ -202,13 +218,13 @@ export class DualEngine {
     }
     const todo = [...this.slots.entries()].filter(([, s]) => !(s.source === "canonical" && s.resultRev === s.rev));
     if (todo.length === 0) return;
-    const sent = todo.map(([id, s]) => ({ id, rev: s.rev, request: s.request }));
+    const sent = todo.map(([id, s]) => ({ id, rev: s.rev, request: s.request, tag: s.tag }));
     const t = this.opts.now();
     const run = (async () => {
       try {
-        const res = await this.opts.host.compute(sent);
+        const res = await this.opts.host.compute(sent.map(({ id, rev, request }) => ({ id, rev, request })));
         this.record({ kind: "canonical", ms: this.opts.now() - t, hostMs: res.ms });
-        for (const { id, rev } of sent) {
+        for (const { id, rev, tag } of sent) {
           const s = this.slots.get(id);
           const r = res.slots[id];
           // 計算している間に要求が変わった枠は捨てる（次の正の計算を待つ）
@@ -223,6 +239,7 @@ export class DualEngine {
           }
           s.result = r.result;
           s.resultRev = rev;
+          s.resultTag = tag;
           s.source = "canonical";
           setError(s, null);
         }

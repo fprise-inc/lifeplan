@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DualEngine } from "../src/engine/dual.ts";
 import type { ComputeResponse, HostApi, SlotRequest } from "../src/engine/host.ts";
 import type { EngineRequest, PreviewResult } from "../src/engine/types.ts";
+import { sceneView } from "../src/workspace/contingency/engine.ts";
 import { applyLevers } from "../src/workspace/levers.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { modelHousehold, realEngine } from "./helpers.ts";
@@ -167,6 +168,60 @@ describe("二本立て（0005 の5）", () => {
     h.answer();
     await p;
     expect(d.view("proposal").result!.table[0]!.amount).toBe(7);
+  });
+
+  it("要求の札: 結果はそれを計算した要求の札を持つ。置き直してから新しい結果が出るまでは前の札のまま", async () => {
+    // 画面側のエンジンが無いとき（本体の結果を待つ間、前の要求の結果が残る）
+    const h = fakeHost();
+    const d = new DualEngine({ session: null, host: h.host, onChange: () => undefined, ...timers() });
+    const p = d.set({ sc: req(1) }, { sc: "death:a" });
+    expect(d.view("sc").tag).toBeNull();
+    await tick();
+    h.answer();
+    await p;
+    expect(d.view("sc").tag).toBe("death:a");
+    const q = d.set({ sc: req(2) }, { sc: "disability:a" });
+    // 前の要求（死亡）の結果が残っている間は、札も前のまま
+    expect(d.view("sc").result!.table[0]!.amount).toBe(1);
+    expect(d.view("sc").tag).toBe("death:a");
+    expect(sceneView(d.view("sc"), "disability:a")).toBeNull();
+    await tick();
+    h.answer();
+    await q;
+    expect(d.view("sc").tag).toBe("disability:a");
+    expect(sceneView(d.view("sc"), "disability:a")!.result!.table[0]!.amount).toBe(2);
+    // 札を付けない枠は null
+    const r = d.set({ none: req(3) });
+    await tick();
+    h.answer();
+    await r;
+    expect(d.view("none").tag).toBeNull();
+  });
+
+  it("要求の札: 先出し・スライダーの結果は今の要求の札になる。札は本体に送らない", async () => {
+    const s = fakeSession();
+    const h = fakeHost();
+    const t = timers();
+    const d = new DualEngine({ session: s, host: h.host, onChange: () => undefined, ...t });
+    const p = d.set({ sc: req(1) }, { sc: "death:a" });
+    expect(d.view("sc").tag).toBe("death:a");
+    await tick();
+    expect(Object.keys(h.pending[0]!.slots[0]!)).toEqual(["id", "rev", "request"]);
+    h.answer();
+    await p;
+    d.slide("sc", { sc: req(5) }, { sc: "death:a" });
+    expect(d.view("sc").tag).toBe("death:a");
+    void d.set({ sc: req(6) }, { sc: "illness:a" });
+    expect(d.view("sc").tag).toBe("illness:a");
+    expect(d.view("sc").result!.table[0]!.amount).toBe(6);
+  });
+
+  it("要求の札: 場面の枠のエラーは札が違っても出す（「計算しています」のまま止まらない）", () => {
+    const v = { result: null, error: "E_X", errorIds: [], source: null, stale: true, tag: "death:a" } as const;
+    expect(sceneView(v, "disability:a")).toBe(v);
+    expect(sceneView({ ...v, error: null }, "disability:a")).toBeNull();
+    expect(sceneView(v, undefined)).toBeNull();
+    expect(sceneView(null, "death:a")).toBeNull();
   });
 
   it("本物のエンジン: 先出し（セッション）と1件ずつの計算の表が一致する", async () => {
