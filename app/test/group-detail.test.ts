@@ -21,15 +21,17 @@ const debt = wh.request.input.household.debts?.find((d) => d.kind === "mortgage"
 const loanKey = `housing/debt/${debt?.id ?? ""}`;
 const housing = buildStage("housing", wh);
 const loanSec = housing.sections.find((s) => s.key === "housing/loans");
-const loanHead = loanSec?.groups.find((g) => g.key === loanKey);
-const detailOfLoan = (loanHead?.fields ?? []).filter((f) => f.level === "detail");
+// 住宅ローン1件の欄は、1件の枠の中の中枠（借入の内容・金利・返済…。band）に分けて並べる（0077 の追記）
+const loanBands = (loanSec?.groups ?? []).filter((g) => g.band === true && g.key.startsWith(`${loanKey}/band/`));
+const detailOfLoan = loanBands.flatMap((g) => g.fields).filter((f) => f.level === "detail");
 
 describe("物1件ごとの単位", () => {
   it("住宅ローン1件: 金利の段階・ボタンのまとまりは、そのローンに属する", () => {
     const units = groupUnits(loanSec?.groups ?? []);
     expect(units.get(loanKey)).toBe(loanKey);
     expect(units.get(`${loanKey}/rate/1`)).toBe(loanKey);
-    expect(units.get(`${loanKey}/more`)).toBe(loanKey);
+    expect(units.get(`${loanKey}/band/rate`)).toBe(loanKey);
+    expect(units.get(`${loanKey}/band/prepay`)).toBe(loanKey);
     expect(headsWithMore(loanSec?.groups ?? []).has(loanKey)).toBe(true);
     expect(detailOfLoan.length).toBeGreaterThan(0);
   });

@@ -15,6 +15,8 @@ import { putRow, rowAt, type StateRow } from "../rows.ts";
 import { formatYearMonth, formatYen } from "../units.ts";
 import { readYearMonth } from "../when.ts";
 import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
+import { mortgageRateEstimate, RATE_ESTIMATE_HEADS, type MortgageRateType } from "../../../../../hearing/src/housingEstimates.ts";
+import { scholarshipRateEstimate } from "../../../../../hearing/src/loanRates.ts";
 
 type Obj = Record<string, unknown>;
 const debts = (h: Household) => h.debts;
@@ -779,6 +781,63 @@ function rateField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | "
   return field({ ...inner, ...followNote(wh, d), set: (w, v) => followLoan(w, inner.write?.(w, v) ?? inner.set(w, v), d.id, "rate") });
 }
 
+/** 金利の種類ごとの当初の金利の目安（住宅ローン。マスタデータ master.housing.statistics の写しから。hearing/src/housingEstimates.ts） */
+export function rateEstimateOf(type: string | undefined): { rate: string; basis: string } {
+  const t: MortgageRateType = type === "fixed" || type === "fixedPeriod" ? type : "variable";
+  const e = mortgageRateEstimate(t);
+  return { rate: e.rate, basis: presetBasis(e.basis) };
+}
+
+/** 金利の値の状態の行が、種類ごとの目安の金利（推定）のままか（種類を変えたら目安を入れ直してよい値か） */
+const isRateEstimate = (r: StateRow | undefined): boolean => r?.state === "estimated" && r.origin.kind === "auto" && RATE_ESTIMATE_HEADS.some((head) => (r.estimate?.basis ?? "").includes(`（${head}`));
+
+/**
+ * 変動金利の見込みの欄（rateOutlookField）で置いた段（5年後・10年後）を持つか。見込みの欄は、今の金利の段が最初の段で変動金利のときだけ出るので、
+ * 最初の段の種類を変えると欄が隠れる。隠れた見込みの段が計算に残らないように、種類を変動金利から変えたときに外す
+ */
+function hasOutlookSteps(h: Household, d: Debt, baseMonth: string): boolean {
+  if (outlookBase(h, d, baseMonth).index !== 0 || !isVariableNow(h, d, baseMonth)) return false;
+  const o = rateOutlookOf(h, d, baseMonth);
+  return RATE_OUTLOOKS.some((x) => x.adds.length > 0 && x.value === o);
+}
+
+/**
+ * 金利の種類の欄（最初の段）。住宅ローンは金利の欄の前に置き、種類を変えたときに金利が種類の目安（推定）のままなら、新しい種類の目安に入れ直す
+ * （変動・固定期間選択型・全期間固定で当初の金利の水準が違うため）。変動金利から変えるときは、変動金利の見込みの段も外す
+ */
+function rateTypeField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | "detail"): FieldDef {
+  const firstRate: Finder = (h, w) => (getPath(byId(debts, d.id)(h, w), ["rateSchedule", "0"]) as Record<string, unknown> | undefined) ?? undefined;
+  const inner = plain({ key: `${k}/rateType`, item: "debt.rateSchedule", label: "金利の種類", level, kind: "select", options: RATE_TYPES, find: firstRate, path: ["type"] });
+  if (d.kind !== "mortgage") return inner;
+  const notes = [
+    ...(isRateEstimate(rowOf(wh, addrRate(d))) ? ["金利が目安のままなら、選んだ種類の目安の金利に入れ直します"] : []),
+    ...(hasOutlookSteps(wh.request.input.household, d, wh.request.input.baseMonth) ? ["変動金利以外にすると、変動金利の見込みの段（5年後・10年後）を外します"] : []),
+  ];
+  return field({
+    ...inner,
+    ...(notes.length > 0 ? { sideEffects: notes.join("。") } : {}),
+    help: "変動・固定期間選択型・全期間固定で、金利の目安が変わります（金利を入れていれば変えません）",
+    set: (w, v) => {
+      const h0 = w.request.input.household;
+      const d0 = (h0.debts ?? []).find((x) => x.id === d.id);
+      const dropOutlook = v !== "variable" && d0 !== undefined && hasOutlookSteps(h0, d0, w.request.input.baseMonth);
+      const typed = inner.write?.(w, v) ?? inner.set(w, v);
+      if (typed === w) return typed;
+      // 見込みの段（変動金利の5年後・10年後）は全期間固定・固定期間選択型に残さない（見込みの欄は隠れるのに、隠れた段で金利が変わってしまう）
+      const next = dropOutlook ? editDebt(typed, d.id, (x) => void (x.rateSchedule = x.rateSchedule.slice(0, 1))) : typed;
+      if (!isRateEstimate(rowOf(w, addrRate(d)))) return next;
+      const e = rateEstimateOf(typeof v === "string" ? v : undefined);
+      const w2 = editDebt(next, d.id, (x, req) => {
+        const step = x.rateSchedule[0];
+        if (step === undefined) return;
+        step.rate = e.rate;
+        putRow(inputOf(req), at(x.id, "debt.rateSchedule", [rateId(x), "rate"]), estRow("standard", e.basis));
+      });
+      return followLoan(next, w2, d.id, "rate");
+    },
+  });
+}
+
 /** 逆算し直す欄の説明（逆算の推定があるローンだけ。往復の確かめで別に扱う） */
 function followNote(wh: WorkingHousehold, d: Debt): { sideEffects?: string } {
   const solved = [rowOf(wh, addrPrincipal(d.id)), rowOf(wh, addrRate(d)), rowOf(wh, addrTerm(d.id))].some((r) => isEstimate(r, SOLVED) || isEstimate(r, "仮"));
@@ -985,25 +1044,24 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
   const mode = entryOf(wh, d.id);
   const mortgage = d.kind === "mortgage";
   const find = byId(debts, d.id);
-  const firstRate: Finder = (h, w) => (getPath(find(h, w), ["rateSchedule", "0"]) as Record<string, unknown> | undefined) ?? undefined;
   const S = "simple" as const;
   const D = "detail" as const;
   const fields: FieldDef[] = [];
   // 今借りている住宅ローンの借入額・金利・返済期間・残高は、返済予定表で確かめる値（「書類で確かめる」を出す。これから借りるローンには出さない。0041 の追記 2026-10-31）
   const doc = currentHomeLoan(wh, d) ? { docCheck: CHECK_DOCUMENTS.loan } : {};
   const principal = (level: "simple" | "detail"): FieldDef => ({ ...principalField(wh, d, k, level), ...doc });
-  const rate = (level: "simple" | "detail"): FieldDef => ({ ...rateField(wh, d, k, level), ...doc });
+  // 金利の種類は金利の欄のすぐ前（住宅ローンは種類で金利の目安が変わるので、金利の欄が標準なら種類も標準）
+  const rate = (level: "simple" | "detail"): FieldDef[] => [rateTypeField(wh, d, k, mortgage ? level : D), { ...rateField(wh, d, k, level), ...doc }];
   const term = (level: "simple" | "detail"): FieldDef => ({ ...termField(wh, d, k, level), ...doc });
   const balance = (level: "simple" | "detail"): FieldDef => ({ ...balanceField(wh, d, k, level), ...doc });
   if (d.property === undefined) fields.push(entryField(d, k, mortgage ? S : D));
-  if (mode === "principal") fields.push(principal(S), startField(wh, d, k, S), rate(S), term(S), paymentField(wh, d, k, S), balance(D));
-  else if (mode === "payment") fields.push(paymentField(wh, d, k, S), rate(S), startField(wh, d, k, S), term(S), principal(D), balance(D));
-  else fields.push(balance(S), paymentField(wh, d, k, S), payoffField(wh, d, k, mortgage ? S : D), rate(D), startField(wh, d, k, D), principal(D));
+  if (mode === "principal") fields.push(principal(S), startField(wh, d, k, S), ...rate(S), term(S), paymentField(wh, d, k, S), balance(D));
+  else if (mode === "payment") fields.push(paymentField(wh, d, k, S), ...rate(S), startField(wh, d, k, S), term(S), principal(D), balance(D));
+  else fields.push(balance(S), paymentField(wh, d, k, S), payoffField(wh, d, k, mortgage ? S : D), ...rate(D), startField(wh, d, k, D), principal(D));
   // 変動金利の住宅ローンは、金利の見込みを標準に1欄（今の金利のままは楽観。0078）
   if (mortgage && isVariableNow(wh.request.input.household, d, wh.request.input.baseMonth)) fields.push(rateOutlookField(d, k));
   fields.push(
     plain({ key: `${k}/balanceAsOf`, item: "debt.balanceAsOf", label: "残高の時点", level: D, kind: "ym", find, path: ["balanceAsOf"], optional: true, help: "年末残高証明書なら前の年の12月" }),
-    plain({ key: `${k}/rateType`, item: "debt.rateSchedule", label: "金利の種類", level: D, kind: "select", options: RATE_TYPES, find: firstRate, path: ["type"] }),
     methodField(wh, d, k),
     plain({ key: `${k}/bonus`, item: "debt.repayment", label: "ボーナス返済の割合", level: D, kind: "pct", min: 0, max: 100, find, path: ["repayment", "bonusShare"], optional: true, fallback: "0" }),
   );
@@ -1026,7 +1084,8 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
 
 export const LOAN_SUBTYPES = [
   { value: "cardLoan", label: "カードローン・リボ", kind: "other", rate: "0.15", rateBasis: "カードローン・リボの金利の目安 年15%" },
-  { value: "scholarship", label: "奨学金の返済", kind: "scholarship", rate: "0.005", rateBasis: "貸与型の奨学金の金利の目安 年0.5%" },
+  // 奨学金は子ども・教育の入力項目の貸与の奨学金と同じ目安（マスタデータ master.loanRates）
+  { value: "scholarship", label: "奨学金の返済", kind: "scholarship", rate: scholarshipRateEstimate().rate, rateBasis: `貸与の奨学金の利率の目安 ${scholarshipRateEstimate().basis}` },
   { value: "renovation", label: "リフォームローン", kind: "other", rate: "0.025", rateBasis: "リフォームローンの金利の目安 年2.5%" },
   { value: "policyLoan", label: "契約者貸付（保険）", kind: "other", rate: "0.03", rateBasis: "契約者貸付の金利の目安 年3%" },
   { value: "personal", label: "親・知人からの借入", kind: "other", rate: "0", rateBasis: "親・知人からの借入は利息なし" },
@@ -1123,7 +1182,7 @@ export function standardTermMonths(h: Household, memberId: string, start: string
 
 /**
  * 新しい住宅ローン（目安のボタンの値は推定。0041）: 購入の予定とつながるなら「借入額から」（借入額は物件の価格−頭金の推定）、
- * 今住んでいる家のローンは「今の残高から」（今の残高 3,000万円の目安。借りた年と借入額は仮）。金利は変動 年0.8%、期間は35年（80歳まで）の標準の値
+ * 今住んでいる家のローンは「今の残高から」（今の残高 3,000万円の目安。借りた年と借入額は仮）。金利は変動金利の目安（マスタデータ）、期間は35年（80歳まで）の標準の値
  */
 export function newMortgage(wh: WorkingHousehold, pairOf?: string): WorkingHousehold {
   const id = newId();
@@ -1149,7 +1208,7 @@ export function newMortgage(wh: WorkingHousehold, pairOf?: string): WorkingHouse
       debtors: [{ member: debtor, role: "primary" }],
       principal: 30000000,
       start: { at: start },
-      rateSchedule: [{ id: rid, from: { at: start }, type: partner?.rateSchedule[0]?.type ?? "variable", rate: partner?.rateSchedule[0]?.rate ?? "0.008" }],
+      rateSchedule: [{ id: rid, from: { at: start }, type: partner?.rateSchedule[0]?.type ?? "variable", rate: partner?.rateSchedule[0]?.rate ?? rateEstimateOf("variable").rate }],
       repayment: { method: "equalPayment", termMonths: partner?.repayment.termMonths ?? term, variableRules: { fiveYear: true, cap125: true } },
       creditLife: { covered: [debtor], events: ["death", "highDisability"] },
       ...(partner !== undefined ? { pairWith: partner.id } : {}),
@@ -1179,7 +1238,7 @@ export function newMortgage(wh: WorkingHousehold, pairOf?: string): WorkingHouse
       putRow(input, addrPrincipal(id), tentativePrincipal(d.principal));
       putRow(input, addrStart(id), estRow("standard", TENTATIVE));
     }
-    if (partner === undefined) putRow(input, at(id, "debt.rateSchedule", [rid, "rate"]), estRow("standard", presetBasis("変動金利 年0.8%")));
+    if (partner === undefined) putRow(input, at(id, "debt.rateSchedule", [rid, "rate"]), estRow("standard", rateEstimateOf("variable").basis));
     putRow(input, addrTerm(id), estRow("standard", `標準の値（返済期間${Math.round(d.repayment.termMonths / 12)}年。完済が80歳を超えないように）`));
     // 購入の予定とつながるなら、借入額は物件の価格−頭金（推定）
     const e = linked && partner === undefined ? estimatedPrincipal(hh, d) : null;

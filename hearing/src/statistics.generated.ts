@@ -1,5 +1,5 @@
 // 自動生成（hearing/scripts/statistics.ts。npm run statistics）。手で書き換えない。
-// 正本は data/master（wageStats・retirementBenefit・living.statistics・education.statistics・care.statistics・lifeTable）と data/regulation の YAML（0007）。推定の目安の数の写し
+// 正本は data/master（wageStats・retirementBenefit・living.statistics・education.statistics・care.statistics・housing.statistics・loanRates・lifeTable）と data/regulation の YAML（0007）。推定の目安の数の写し
 import type { DatedValue, MasterValue } from "./statistics.ts";
 
 export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
@@ -3418,6 +3418,48 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "rev": 2,
   "reviewed": true,
   "retrievedAt": "2026-10-09"
+ },
+ "housing.statistics.mortgageRate.fixed": {
+  "title": "住宅金融支援機構【フラット３５】2026年10月の最も多い借入金利（借入期間21年以上35年以下・融資率9割以下・新機構団信付き。取扱金融機関が提供する金利の中で最も多い金利。全期間固定の住宅ローンの当初の金利の目安）",
+  "value": "0.0383",
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-31"
+ },
+ "housing.statistics.mortgageRate.fixedPeriod10": {
+  "title": "主要な銀行が公表する当初10年の固定期間選択型の最も低い適用金利の平均（新規の住宅ローン。2026年11月の借入〔1行は10月〕の4行の平均。固定期間選択型の住宅ローンの当初の金利の目安）",
+  "value": "0.0380",
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-31"
+ },
+ "housing.statistics.mortgageRate.variable": {
+  "title": "主要な銀行が公表する変動金利の最も低い適用金利の平均（新規の住宅ローン。2026年11月の借入〔1行は10月〕の4行の平均。変動金利の住宅ローンの当初の金利の目安）",
+  "value": "0.0131",
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-31"
+ },
+ "housing.statistics.rentGrowth": {
+  "title": "総務省 消費者物価指数の民営家賃 全国の2015〜2025年の年平均の変化（2025年基準 品目別価格指数 年平均の2015年と2025年から。家賃の変動率の目安）",
+  "value": "-0.0001",
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-31"
+ },
+ "loanRates.carLoan": {
+  "title": "主要な銀行が公表する自動車ローンの最も低い金利の平均（2026年10月。2行の平均。自動車ローンの金利の目安）",
+  "value": "0.0214",
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-31"
+ },
+ "loanRates.scholarship": {
+  "title": "日本学生支援機構 第二種奨学金の貸与利率（令和8年9月に貸与を終えた人。基本月額・利率固定方式。貸与の奨学金の利率の目安）",
+  "value": "0.03",
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-31"
  },
  "lifeTable.lifeExpectancy.female": {
   "title": "主な年齢の平均余命（簡易生命表。upTo は年齢、rate は平均余命の年数。最後の段は90歳の値）",

@@ -49,7 +49,8 @@ const BY_LABEL: Readonly<Record<string, PctRange>> = {
   "この期間の伸び（年率）": GROWTH_RANGE,
   "家賃の変動率（年）": GROWTH_RANGE,
   "固定資産税の変動率（年）": GROWTH_RANGE,
-  "修繕費の変動率（年）": GROWTH_RANGE,
+  // 修繕・管理の費用の変動率は、建て方で名前が変わる（マンション「管理費・修繕積立金の変動率（年）」・戸建て「修繕の積み立ての変動率（年）」）。見本の世帯は建て方を選んでいない
+  "修繕・管理の費用の変動率（年）": GROWTH_RANGE,
   "土地の評価額の増減率（年）": GROWTH_RANGE,
   "家賃の変化率（年）": GROWTH_RANGE,
   "年額の変化率（年）": GROWTH_RANGE,

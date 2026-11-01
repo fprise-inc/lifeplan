@@ -1,0 +1,20 @@
+id: loanRates.scholarship
+title: 日本学生支援機構 第二種奨学金の貸与利率（令和8年9月に貸与を終えた人。基本月額・利率固定方式。貸与の奨学金の利率の目安）
+unit: rate
+kind: constant
+basis: {"type": "month"}
+entries:
+  - rev: 1
+    appliesFrom: "2026-10-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2026-10-31"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.03"
+    sources:
+      - {"type": "web", "url": "https://www.jasso.go.jp/shogakukin/about/taiyo/taiyo_2shu/riritsu/2007ikou.html", "retrievedAt": "2026-10-31", "sha256": "0a41cc2b6f57ebef6f85eb30dc565d0a400994654e1faf2d40829c32c2b5ecc2", "locator": "貸与利率の推移 令和8年度 貸与利率一覧（年利％） 平成19年4月以降の採用者 基本月額 利率固定方式 9月", "quote": "利率固定 方式 2.722 2.922 2.922 3.000 3.000 3.000"}
+      - {"type": "web", "url": "https://www.jasso.go.jp/shogakukin/about/taiyo/taiyo_2shu/riritsu/index.html", "retrievedAt": "2026-10-31", "sha256": "f5ccfac728b4e34dcdcad0d4e4dc2635f33d5249235f16936122d18323cbe233", "locator": "第二種奨学金の貸与利率（利率は貸与が終了した月に決まる。上限は年3%）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-31", "tools": ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合"], "note": "令和8年9月 利率固定方式 3.000%（7〜9月は同じ）。利率見直し方式は 2.400%。2つ目の読み方: 推移の表の月ごとの並びと、案内のページの決まり（貸与が終わった月の利率・上限年3%）が合う。利率は貸与を終えた月で決まるので、今から借りる子の利率は将来の値になる（今の利率で代える）。公表日は原本に無いので、施行日の欄は取得日。毎月変わるので、リリースのたびに見直す"}

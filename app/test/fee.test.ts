@@ -15,6 +15,7 @@ import { advisoryFeeInCurrent, applyAdvisoryFee, applyLevers, hasAdvisoryFee } f
 import { financialOf, toPresentation } from "../src/workspace/present.ts";
 import { feeSummary } from "../src/workspace/App.tsx";
 import { modelHousehold, preview } from "./helpers.ts";
+import { carLoanRateEstimate } from "../../hearing/src/loanRates.ts";
 
 const ids = () => {
   let n = 0;
@@ -49,11 +50,11 @@ describe("車の入力", () => {
     wh = fieldOf(wh, "/pay").set(wh, "loan");
     const down = fieldOf(wh, "/down");
     wh = down.set(wh, "0.25");
-    expect(wh.request.input.household.cars![0]!.loan).toEqual({ share: "0.75", rate: "0.025", termMonths: 60 });
+    expect(wh.request.input.household.cars![0]!.loan).toEqual({ share: "0.75", rate: carLoanRateEstimate().rate, termMonths: 60 });
     wh = fieldOf(wh, "/term").set(wh, 7);
     expect(wh.request.input.household.cars![0]!.loan!.termMonths).toBe(84);
-    // ローンの目安は推定の印（借入8割・5年・年2.5%）。打った欄は印が外れる
-    expect(fieldOf(wh, "/rate").get(wh).assumed).toContain("年2.5%");
+    // ローンの目安は推定の印（借入8割・5年・金利はマスタデータの自動車ローンの目安）。打った欄は印が外れる
+    expect(fieldOf(wh, "/rate").get(wh).assumed).toContain(carLoanRateEstimate().basis);
     expect(fieldOf(wh, "/down").get(wh).assumed).toBeNull();
     // 合計 → 内訳（年額の合計は変えない。合計の値は残す。0069）→ 合計（内訳の値は残す）
     const total = upkeepAnnual(wh.request.input.household.cars![0]!);

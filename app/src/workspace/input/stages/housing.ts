@@ -10,6 +10,8 @@ import { dropProvisionalEvent, withProvisionalHousing } from "../housingCredit.t
 import { BUILDING_STRUCTURES, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS, TAX_METHODS, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
 import type { StateRow } from "../rows.ts";
 import { formatYen } from "../units.ts";
+import { rentGrowthStatistic } from "../../../../../hearing/src/housingEstimates.ts";
+import { carLoanRateEstimate } from "../../../../../hearing/src/loanRates.ts";
 import { readGroup, readLine } from "../readLines.ts";
 import { stagedBadge, stagedGroups, type StagedSpec } from "../staged.ts";
 import { at, creditLifeFields, creditLifeGroups, estRow, loanFields, loanMoreActions, loanTitle, LOAN_SUBTYPES, newMortgage, newOtherLoan, otherLoanHeadFields, withEntry } from "./housingLoans.ts";
@@ -75,6 +77,16 @@ function setKind(h: Household, res: Residence, v: string): void {
 }
 
 // ---- 建て方・名義 ----
+
+/**
+ * 毎月の修繕・管理の費用の欄の呼び方（建て方で変える。マンションは管理費と修繕積立金、戸建ては自分で積み立てる修繕の費用）。
+ * 建て方が入っていなければ、どちらにも当てはまる呼び方にする
+ */
+export function maintenanceLabels(r: Pick<Residence, "style">): { amount: string; growth: string; what: string } {
+  if (r.style === "condo") return { amount: "管理費・修繕積立金（毎月）", growth: "管理費・修繕積立金の変動率（年）", what: "管理費・修繕積立金" };
+  if (r.style === "house") return { amount: "修繕の積み立て（毎月）", growth: "修繕の積み立ての変動率（年）", what: "修繕の積み立て" };
+  return { amount: "修繕・管理の費用（毎月）", growth: "修繕・管理の費用の変動率（年）", what: "修繕・管理の費用" };
+}
 
 const STYLES = [
   { value: "house", label: "戸建て" },
@@ -183,6 +195,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
   // 住み替え（住まいが2つ以上）なら、住み始め・住み終わりを簡易に出す
   const moving = (h0.residences ?? []).length > 1;
   const free = isFree(r);
+  const ml = maintenanceLabels(r);
   const fields: FieldDef[] = [
     {
       ...field({
@@ -211,7 +224,25 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
   if (r.kind === "rent" && !free) {
     fields.push(
       yenBox({ key: `${k}/rent`, item: "residence.rent", label: "家賃（管理費込み）", level: "simple", basis: "monthly", find, path: ["rent", "monthly"] }),
-      plain({ key: `${k}/rentGrowth`, item: "residence.rent", label: "家賃の変動率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["rent", "growth"], optional: true, fallback: "0", help: "更新のたびに当てます。空欄なら変えません" }),
+      plain({
+        key: `${k}/rentGrowth`,
+        item: "residence.rent",
+        // 年率。計算エンジンは更新の月に、前の更新から経った年数分をまとめて上げ下げする（housing.residence の改訂3）
+        label: "家賃の変動率（年）",
+        level: "detail",
+        kind: "pct",
+        ...GROWTH_RANGE,
+        find,
+        path: ["rent", "growth"],
+        optional: true,
+        fallback: "0",
+        help: "年あたりの率です。更新の年に、その間の年数分をまとめて上げ下げします。空欄なら変えません",
+        hint: (_v, w) => {
+          const x = find(w.request.input.household, w) as Residence | undefined;
+          const st = rentGrowthStatistic();
+          return x?.rent?.growth === undefined && st !== null ? `目安: ${st.text}。空欄（変えない）はこれに近い計算です` : null;
+        },
+      }),
       plain({ key: `${k}/renewalFee`, item: "residence.rent", label: "更新料（家賃の何か月分）", level: "detail", kind: "decimal", suffix: "か月分", find, path: ["rent", "renewalFee"], optional: true, fallback: "0" }),
       { ...plain({ key: `${k}/renewalEvery`, item: "residence.rent", label: "更新の間隔", level: "detail", kind: "int", suffix: "か月ごと", min: 1, max: 120, find, path: ["rent", "renewalEveryMonths"], optional: true, fallback: 24 }), address: () => at(r.id, "residence.rent", ["renewalEveryMonths"]) },
     );
@@ -220,8 +251,17 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
       styleField(r, k),
       yenBox({ key: `${k}/tax`, item: "residence.propertyTax", label: "固定資産税・都市計画税", level: "detail", basis: "annual", find, path: ["propertyTax", "annual"] }),
       { ...plain({ key: `${k}/taxGrowth`, item: "residence.propertyTax", label: "固定資産税の変動率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["propertyTax", "growth"], optional: true, fallback: "0", help: "空欄なら変えません。建物の評価が下がる分は、「＋ 固定資産税の変化」で入れられます" }), address: () => at(r.id, "residence.propertyTax", ["growth"]) },
-      yenBox({ key: `${k}/maint`, item: "residence.maintenance", label: "修繕費・管理費（毎月）", level: "simple", basis: "monthly", find, path: ["maintenance", "monthly"] }),
-      plain({ key: `${k}/maintGrowth`, item: "residence.maintenance", label: "修繕費の変動率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["maintenance", "growth"], optional: true, help: "空欄なら変えません。外壁・屋根などの大きな修繕は、下の「出るお金」の修繕・リフォームの行で入れます" }),
+      yenBox({
+        key: `${k}/maint`,
+        item: "residence.maintenance",
+        label: ml.amount,
+        level: "simple",
+        basis: "monthly",
+        find,
+        path: ["maintenance", "monthly"],
+        help: r.style === "condo" ? "管理組合に払う管理費と修繕積立金の合計です" : r.style === "house" ? "将来の修繕のために毎月積み立てておく額です" : "マンションなら管理費と修繕積立金の合計、戸建てなら将来の修繕のための毎月の積み立てです（建て方は詳細で選べます）",
+      }),
+      plain({ key: `${k}/maintGrowth`, item: "residence.maintenance", label: ml.growth, level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["maintenance", "growth"], optional: true, help: "空欄なら変えません。外壁・屋根などの大きな修繕は、下の「出るお金」の修繕・リフォームの行で入れます" }),
       ...ownershipFields(wh, r, k),
     );
   }
@@ -245,16 +285,19 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
       // 額の変化は、その額の欄（と変動率の欄）のすぐ後に並べる
       place: { group: k, after: `${k}/${part === "rent" ? "rentGrowth" : part === "maintenance" ? "maintGrowth" : "taxGrowth"}` },
     });
-  const stagedParts = r.kind === "rent" ? (r.rent !== undefined && !free ? [["rent", "家賃"]] : []) : [...(r.maintenance !== undefined ? [["maintenance", "修繕費"]] : []), ...(r.propertyTax !== undefined ? [["propertyTax", "固定資産税"]] : [])];
+  const stagedParts = r.kind === "rent" ? (r.rent !== undefined && !free ? [["rent", "家賃"]] : []) : [...(r.maintenance !== undefined ? [["maintenance", ml.what]] : []), ...(r.propertyTax !== undefined ? [["propertyTax", "固定資産税"]] : [])];
   const badges = stagedParts.map(([part, what]) => {
     return stagedBadge(r as unknown as Record<string, unknown>, [part as string, "stages"], [part as string, "exceptions"], what as string);
   }).filter((x) => x !== null);
   const actions: ActionDef[] = [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.residences = (h.residences ?? []).filter((x) => x.id !== r.id)))];
   if (free && r.to === null) actions.unshift({ key: `${k}/inherit`, label: "この家を相続する", help: "住まいを持ち家に切り替えます", level: "detail", run: (w) => inheritHome(w, r.id) });
+  // 購入の予定の持ち家は「住宅の購入」の1件（購入の欄を頭に、住まいの欄をその後に。別の住まいを足したように見せない）
+  const buying = r.kind === "own" && r.purchase !== undefined;
+  if (buying) fields.unshift(...purchaseFields(wh, r, k));
   const groups: GroupDef[] = [
     {
       key: k,
-      title: `住まい ${i + 1}（${free ? "家賃なし" : r.kind === "rent" ? "賃貸" : "持ち家"}）`,
+      title: buying ? "住宅の購入" : `住まい ${i + 1}（${free ? "家賃なし" : r.kind === "rent" ? "賃貸" : "持ち家"}）`,
       ...(badges.length > 0 ? { note: `${badges.join("、")}（詳細で直せます）` } : free ? { note: "家賃はかかりません。住んでいる家を相続するなら、詳細の「この家を相続する」で持ち家に切り替えます（貯蓄・運用の不動産には入れません）" } : {}),
       level: "simple",
       fields,
@@ -263,10 +306,10 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
   ];
   if (r.kind === "rent" && r.rent !== undefined && !free) groups.push(...staged("rent", "家賃", "monthly", (x) => x.rent?.monthly.value ?? null));
   if (r.kind === "own") {
-    if (r.maintenance !== undefined) groups.push(...staged("maintenance", "修繕費", "monthly", (x) => x.maintenance?.monthly.value ?? null));
+    if (r.maintenance !== undefined) groups.push(...staged("maintenance", ml.what, "monthly", (x) => x.maintenance?.monthly.value ?? null));
     if (r.propertyTax !== undefined) groups.push(...staged("propertyTax", "固定資産税", "annual", (x) => x.propertyTax?.annual.value ?? null, true));
   }
-  if (r.kind === "own" && r.purchase !== undefined) groups.push(...purchaseGroups(wh, r, k));
+  if (buying) groups.push(...giftGroups(wh, r, k));
   if (r.kind === "own") groups.push(...valuationGroups(wh, r, k));
   return groups;
 }
@@ -291,12 +334,12 @@ export function inheritHome(wh: WorkingHousehold, id: string): WorkingHousehold 
 
 // ---- 購入の予定と住宅資金の援助 ----
 
-function purchaseGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDef[] {
+/** 購入の予定の欄（「住宅の購入」の1件の頭に並べる。欄のキーは前の版の購入のまとまりと同じ <住まい>/purchase/…） */
+function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef[] {
   const find = byId(residences, r.id);
   const self = wh.request.input.household.members.find((m) => m.kind === "self");
   const ageOf = self !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === self.id) } : {};
   const kp = `${k}/purchase`;
-  const groups: GroupDef[] = [];
   const price = plain({
     key: `${kp}/price`,
     item: "residence.purchase",
@@ -321,19 +364,21 @@ function purchaseGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDef
       }
     },
   });
-  groups.push({
-    key: kp,
-    title: "住宅の購入",
-    level: "simple",
-    fields: [
-      { ...timepointField({ key: `${kp}/at`, item: "residence.purchase", label: "購入の時期", level: "simple", find, path: ["purchase", "at"], mode: "ym", ...ageOf }), address: () => at(r.id, "residence.purchase", ["at"]) },
-      price,
-      // 頭金・諸費用は空にできない（計算エンジンの入力で必須。空にすると欄を消して、計算が止まっていた）。無いときは 0 を入れる
-      plain({ key: `${kp}/down`, item: "residence.purchase", label: "頭金", level: "simple", kind: "yen", basis: "once", find, path: ["purchase", "downPayment"], help: "頭金が無ければ 0 を入れます" }),
-      plain({ key: `${kp}/costs`, item: "residence.purchase", label: "諸費用", level: "detail", kind: "yen", basis: "once", find, path: ["purchase", "costs"], help: "目安は新築で価格の3〜7%、中古で6〜10%。無ければ 0 を入れます" }),
-    ],
-    actions: [],
-  });
+  return [
+    { ...timepointField({ key: `${kp}/at`, item: "residence.purchase", label: "購入の時期", level: "simple", find, path: ["purchase", "at"], mode: "ym", ...ageOf }), address: () => at(r.id, "residence.purchase", ["at"]) },
+    price,
+    // 頭金・諸費用は空にできない（計算エンジンの入力で必須。空にすると欄を消して、計算が止まっていた）。無いときは 0 を入れる
+    plain({ key: `${kp}/down`, item: "residence.purchase", label: "頭金", level: "simple", kind: "yen", basis: "once", find, path: ["purchase", "downPayment"], help: "頭金が無ければ 0 を入れます" }),
+    // 諸費用は購入の月の出費として大きいので標準に出す（物件の価格の数%。「▸ 詳しく」に隠さない）
+    plain({ key: `${kp}/costs`, item: "residence.purchase", label: "諸費用", level: "simple", kind: "yen", basis: "once", find, path: ["purchase", "costs"], help: "登記・ローンの手数料・保険料・税など。目安は新築で価格の3〜7%、中古で6〜10%。無ければ 0 を入れます" }),
+  ];
+}
+
+/** 住宅資金の援助（購入の予定の「住宅の購入」の1件の中に描く。キーが <住まい>/purchase/gift/… なので、その枠の中のまとまりになる） */
+function giftGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDef[] {
+  const find = byId(residences, r.id);
+  const kp = `${k}/purchase`;
+  const groups: GroupDef[] = [];
   (r.purchase?.gifts ?? []).forEach((g, j) => {
     const findG: Finder = (h, w) => (getPath(find(h, w), ["purchase", "gifts", String(j)]) as Record<string, unknown> | undefined) ?? undefined;
     const kg = `${kp}/gift/${j}`;
@@ -459,7 +504,9 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
           path: ["valuation", "value"],
           // 今の持ち家で評価額が無ければ未入力の警告（購入の予定は物件の価格を使うので空欄でよい）
           optional: bought,
-          help: bought ? "空欄なら物件の価格を購入の月の評価額にします" : "土地と建物の合計。わからなければ購入の価格を入れます。購入の価格を入れたときは、時点に購入の年月を入れます。相続する家は相続の見込みの額",
+          help: bought
+            ? "空欄なら、物件の価格を購入の月の評価額にし、土地の割合で土地と建物に分けて、建物は構造の耐用年数で毎年減らします（土地は前提条件の上昇率で動きます）。新築の値段の上乗せ分などで買った直後の売値が下がると見込むなら、その額を入れます"
+            : "土地と建物の合計。わからなければ購入の価格を入れます。購入の価格を入れたときは、時点に購入の年月を入れます。相続する家は相続の見込みの額",
           hint: (w) => valuationHint(w, r),
         }),
         plain({ key: `${kv}/asOf`, item: "residence.valuation", label: bought ? "その額の時点" : "その額の時点（購入の年月）", level: "detail", kind: "ym", find, path: ["valuation", "asOf"], optional: true, fallback: asOf }),
@@ -471,7 +518,8 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
         plain({
           key: `${kv}/builtYear`,
           item: "residence.valuation",
-          label: "建物が建った年",
+          // 購入の予定は、これから建つ（完成する）年。今住んでいる家は建った年
+          label: bought ? "建物が完成する年" : "建物が建った年",
           level: "detail",
           kind: "int",
           suffix: "年",
@@ -481,7 +529,7 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
           path: ["valuation", "builtYear"],
           optional: true,
           ...(bought ? { fallback: asOfYear } : {}),
-          help: bought ? "空欄なら新築とみなします（その額の時点の年）。中古を買うなら建った年を入れます（住宅ローン控除の新築か中古かにも使います）" : `空欄なら、その額の時点（${asOfYear}年）に新築とみなします。わかれば建った年を入れてください`,
+          help: bought ? "空欄なら、その額の時点の年（購入の年）に完成する新築とみなします。中古を買うなら、建物が建った年を入れます（住宅ローン控除の新築か中古かにも使います）" : `空欄なら、その額の時点（${asOfYear}年）に新築とみなします。わかれば建った年を入れてください`,
         }),
         plain({ key: `${kv}/landShare`, item: "residence.valuation", label: "土地の割合", level: "detail", kind: "pct", min: 0, max: 100, find, path: ["valuation", "landShare"], optional: true, fallback: setting?.landShare ?? VALUATION_DEFAULTS.landShare, help: "空欄なら前提条件の目安。土地は前提条件の上昇率（空欄なら物価上昇率）で動きます" }),
       ],
@@ -620,16 +668,56 @@ function refinanceGroups(d: Debt, k: string): GroupDef[] {
   });
 }
 
+/** 住宅ローンの1件の中枠（band。0077 の追記）: 欄のキーの末尾（物のキーの後）→ 中枠。どれにも当たらない欄は「借入の内容」 */
+const LOAN_BANDS: readonly { id: string; title: string; keys: readonly string[] }[] = [
+  { id: "loan", title: "借入の内容", keys: ["entry", "principal", "start", "balance", "balanceAsOf", "product", "debtors", "share", "pair"] },
+  { id: "rate", title: "金利", keys: ["rateType", "rate", "rateOutlook"] },
+  { id: "repay", title: "返済", keys: ["payment", "term", "payoff", "method", "bonus", "fiveYear", "cap125"] },
+  { id: "prepay", title: "繰上返済", keys: [] },
+  { id: "creditLife", title: "団体信用生命保険", keys: ["creditLife", "clHigh", "clIncapacity", "clDisease", "clMonths", "clRatio", "clJoint"] },
+  { id: "credit", title: "住宅ローン控除", keys: ["creditSummary", "credit"] },
+];
+/** ボタンの置き場所の中枠（ボタンのキーの末尾 → 中枠） */
+const LOAN_BAND_ACTIONS: Readonly<Record<string, string>> = { addPair: "loan", addRate: "rate", addPrepay: "prepay", creditNa: "credit" };
+
+/**
+ * 住宅ローン1件を中枠に分ける（借入の内容・金利・返済・繰上返済・団体信用生命保険・住宅ローン控除。0077 の追記）。
+ * 欄とボタンのキー・中身は今のまま、まとまりだけを分ける。金利の段階・繰上返済のまとまりは、それぞれの中枠の中（partOf）に描く。
+ * 中枠の欄・ボタンが詳細だけなら、中枠も詳細（標準では物の「▸ 詳しく」で開く）
+ */
+function mortgageBands(wh: WorkingHousehold, d: Debt, k: string): GroupDef[] {
+  const bandOfKey = (key: string): string => {
+    const tail = key.slice(k.length + 1).split("/")[0] ?? "";
+    return LOAN_BANDS.find((b) => b.keys.includes(tail))?.id ?? "loan";
+  };
+  const fields = loanFields(wh, d, k);
+  const actions = loanMoreActions(wh, d, k);
+  const steps = loanStepGroups(d, k);
+  const out: GroupDef[] = [];
+  for (const b of LOAN_BANDS) {
+    const bk = `${k}/band/${b.id}`;
+    const fs = fields.filter((f) => bandOfKey(f.key) === b.id);
+    const as = actions.filter((a) => LOAN_BAND_ACTIONS[a.key.slice(k.length + 1)] === b.id);
+    const inner = steps.filter((g) => (b.id === "rate" && g.key.startsWith(`${k}/rate/`)) || (b.id === "prepay" && g.key.startsWith(`${k}/prepay/`))).map((g) => ({ ...g, partOf: bk }));
+    if (fs.length === 0 && as.length === 0 && inner.length === 0) continue;
+    const simple = fs.some((f) => f.level === "simple") || as.some((a) => a.level === "simple");
+    out.push({ key: bk, title: b.title, band: true, level: simple ? "simple" : "detail", fields: fs, actions: as }, ...inner);
+  }
+  return out;
+}
+
 function loanGroups(wh: WorkingHousehold, d: Debt, i: number): GroupDef[] {
   const k = `housing/debt/${d.id}`;
   const debtor = d.debtors.find((x) => x.role === "primary") ?? d.debtors[0];
   const title = d.kind === "mortgage" ? `住宅ローン ${i + 1}（${memberLabel(wh, debtor?.member)}）` : `${loanTitle(d)}（${memberLabel(wh, debtor?.member)}）`;
+  // 住まいの住宅ローン（ペアローンの2本目も同じ）は欄が多いので、1件の枠の中を中枠に分ける
+  const banded = d.kind === "mortgage" && d.property === undefined;
   const groups: GroupDef[] = [
     {
       key: k,
       title,
       level: "simple",
-      fields: [...otherLoanHeadFields(wh, d, k), ...loanFields(wh, d, k)],
+      fields: banded ? [] : [...otherLoanHeadFields(wh, d, k), ...loanFields(wh, d, k)],
       actions: [
         removeAction(`${k}/remove`, "外す", "simple", (h, w) => {
           h.debts = (h.debts ?? []).filter((x) => x.id !== d.id);
@@ -640,6 +728,7 @@ function loanGroups(wh: WorkingHousehold, d: Debt, i: number): GroupDef[] {
       ],
     },
   ];
+  if (banded) return [...groups, ...mortgageBands(wh, d, k)];
   groups.push(...loanStepGroups(d, k));
   const more = loanMoreActions(wh, d, k);
   const simpleMore = more.filter((a) => a.level === "simple");
@@ -659,10 +748,11 @@ export function newCarLoan(wh: WorkingHousehold): WorkingHousehold {
     if (self === undefined) return;
     const id = newId();
     const rid = newId();
-    const d: Debt = { id, kind: "car", debtors: [{ member: self.id, role: "primary" }], principal: 2000000, start: { at: base }, rateSchedule: [{ id: rid, from: { at: base }, type: "fixed", rate: "0.02" }], repayment: { method: "equalPayment", termMonths: 60 } };
+    const d: Debt = { id, kind: "car", debtors: [{ member: self.id, role: "primary" }], principal: 2000000, start: { at: base }, rateSchedule: [{ id: rid, from: { at: base }, type: "fixed", rate: carLoanRateEstimate().rate }], repayment: { method: "equalPayment", termMonths: 60 } };
     const o = d as unknown as Obj;
     setState(o, "debt.principal", estRow("standard", presetBasis("借入額 200万円")));
-    setState(o, `debt.rateSchedule/${rid}/rate`, estRow("standard", presetBasis("固定金利 年2%")));
+    // 金利は車の入力項目の自動車ローンと同じ目安（マスタデータ master.loanRates）
+    setState(o, `debt.rateSchedule/${rid}/rate`, estRow("standard", presetBasis(`固定金利 ${carLoanRateEstimate().basis}`)));
     setState(o, "debt.repayment/termMonths", estRow("standard", presetBasis("返済期間5年")));
     (hh.debts ??= []).push(d);
   });

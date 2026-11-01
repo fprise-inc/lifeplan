@@ -105,23 +105,36 @@ describe("住まい（housing.residence）の段階と例外の年", () => {
   const own = (o: Obj) => ({ id: uid("h"), kind: "own", from: at("2027-04"), to: null, ownership: [{ member: A, share: "1" }], ...o });
   const flowsOf = (req: Req) => call<{ flows: Flow[] }>(req, "housing.residence", {}).flows;
 
-  it("家賃: 段の月から段の額に、住み始めからの更新の回数だけ上昇率を当てる。例外の年は0円。更新料は前の月の家賃（例外は当てない）×月数", () => {
+  it("家賃: 段の月から段の額に、住み始めから直近の更新までの年数だけ上昇率（年率）を重ねる。例外の年は0円。更新料は前の月の家賃（例外は当てない）×月数", () => {
     const fs = flowsOf(
       mk([{ id: uid("r"), kind: "rent", from: at("2025-04"), to: null, rent: { monthly: box(100000), growth: "0.1", renewalFee: "1", stages: [stage("r1", { at: at("2028-01"), amount: box(80000) })], exceptions: [exception("r2", 2030, 0)] } }]),
     );
     const f = (ym: string, row = "cf.expense.housing.rent") => sum(fs, (x) => x.ym === ym && x.row === row);
     expect(f("2027-03")).toBe(100000);
     expect(f("2027-04", "cf.expense.housing.rent.renewal")).toBe(100000);
-    expect(f("2027-04")).toBe(110000);
-    expect(f("2027-12")).toBe(110000);
-    // 段の月から（更新1回分を当てる）
-    expect(f("2028-01")).toBe(88000);
-    expect(f("2029-04", "cf.expense.housing.rent.renewal")).toBe(88000);
-    expect(f("2029-04")).toBe(96800);
+    // 更新（2年ごと）の月に、その間の2年分をまとめて上げる（年率10%を2回）
+    expect(f("2027-04")).toBe(121000);
+    expect(f("2027-12")).toBe(121000);
+    // 段の月から（直近の更新までの2年分を当てる）
+    expect(f("2028-01")).toBe(96800);
+    expect(f("2029-04", "cf.expense.housing.rent.renewal")).toBe(96800);
+    expect(f("2029-04")).toBe(117128);
     expect(fs.some((x) => x.ym.startsWith("2030-"))).toBe(false);
-    expect(f("2031-01")).toBe(96800);
-    expect(f("2031-04", "cf.expense.housing.rent.renewal")).toBe(96800);
-    expect(f("2031-04")).toBe(106480);
+    expect(f("2031-01")).toBe(117128);
+    expect(f("2031-04", "cf.expense.housing.rent.renewal")).toBe(117128);
+    expect(f("2031-04")).toBe(141724);
+  });
+
+  it("家賃: 更新の間隔が12の倍数でないときは、住み始めからの経った年数（1年未満は切り捨て）のうち、前の更新から増えた年数分を上げる", () => {
+    const fs = flowsOf(mk([{ id: uid("r"), kind: "rent", from: at("2025-04"), to: null, rent: { monthly: box(100000), growth: "0.1", renewalEveryMonths: 18 } }]));
+    const f = (ym: string) => sum(fs, (x) => x.ym === ym && x.row === "cf.expense.housing.rent");
+    expect(f("2026-09")).toBe(100000);
+    // 18か月目（1年6か月）: 1年分
+    expect(f("2026-10")).toBe(110000);
+    // 36か月目（3年）: 前の更新から増えた2年分
+    expect(f("2028-04")).toBe(133100);
+    // 54か月目（4年6か月）: 1年分
+    expect(f("2029-10")).toBe(146410);
   });
 
   it("修繕費: 段（年齢の時点）の月から段の額に、計算基準年からの年数だけ上昇率を当てる。例外の年はその年だけ", () => {

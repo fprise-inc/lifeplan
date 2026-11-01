@@ -8,6 +8,7 @@ FP（ファイナンシャルプランナー）向けの無料ライフプラン
 ## 開発
 
 - 設計の決定は [`docs/decisions/`](docs/decisions/README.md)（ADR）にある。作業の前に関係する記録を読む。
+- **リリースの前に**、推定の目安（市場の金利・値段・調査の年がある統計・よくある額のひな形）を [`docs/estimates-review.md`](docs/estimates-review.md) の一覧で見直す（「毎リリース」の行は必ず）。
 - `engine/` … 計算エンジン（TypeScript）。`npm ci` の後、`npm run typecheck`・`npm run lint`・`npm test`・`npm run build`
 - `crates/engine-host/` … エンジンを quickjs-ng で動かす Rust のホストと、JSON を受けて JSON を返すコマンド `engine-host`
 - `crates/lifeplan/` … AI接続口（MCP サーバー。`lifeplan mcp`、標準入出力だけ。0015）。`crates/ai-share/` はアプリ本体に組み込む側（共有の台帳・縮約版・文章の包み方・AIに渡した記録・受け口。0014・0015）、`crates/ai-ipc/` は両者の間の取り決め。つなぎ方は [`docs/ai-connector.md`](docs/ai-connector.md)。テストは `cargo test --release -p lifeplan -p ai-share -p ai-ipc`（`engine/dist` が要る）
