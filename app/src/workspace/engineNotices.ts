@@ -153,9 +153,11 @@ const FALLBACK: Readonly<Record<string, Msg>> = {
 const FUTURE: Msg = { kind: "data", text: "制度の値が決まっていない先の年は、最後に決まっている値をそのまま使うか、前提（賃金・物価）で延ばして計算しています", group: "future" };
 const MISSING_PARAM: Msg = { kind: "data", text: "制度データに値が無い（原本での確認待ちの）所は、その分を計算していないか、いまの水準の値で計算しています", group: "paramMissing" };
 const RECORDED_LATER: Msg = { kind: "data", text: "制度データの後の版で記録した値を、前の時点の計算に使った所があります", group: "recordedLater" };
+// さかのぼりの仮定（0099）: 制度データが持っている時期より前の値（計算基準月より前の年の所得に対する住民税・保険料の控除、年金を受け取り始めた頃の額など）
+const BACKFILLED: Msg = { kind: "data", text: "制度データが持っている時期より前の値は、制度データのいちばん古い値で計算しています（その時期の実際の制度の値とは違うことがあります）", group: "backfilled" };
 
 /** 部品の ID が前に付かない知らせ（エンジンの全体の段が出す） */
-const NO_COMPONENT_CODES = new Set(["N_PARAM_EXTENDED", "N_PARAM_RECORDED_LATER"]);
+const NO_COMPONENT_CODES = new Set(["N_PARAM_EXTENDED", "N_PARAM_RECORDED_LATER", "N_PARAM_BACKFILLED"]);
 const NO_COMPONENT_TOPICS = new Set(["account.contributions.afterRetirement"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -187,6 +189,7 @@ function messageOf(code: string, component: string | null, topics: readonly stri
   const topic = topics[0] ?? "";
   if (code === "N_PARAM_EXTENDED" || code === "N_PARAM_PROJECTED") return { msg: FUTURE, key: "future", part: paramName(topic) };
   if (code === "N_PARAM_RECORDED_LATER") return { msg: RECORDED_LATER, key: "recordedLater", part: paramName(topic) };
+  if (code === "N_PARAM_BACKFILLED") return { msg: BACKFILLED, key: "backfilled", part: paramName(topic) };
   const hit = MESSAGES[`${code}|${component ?? ""}|${topic}`] ?? MESSAGES[`${code}|${topic}`] ?? MESSAGES[`${code}|${component ?? ""}`] ?? MESSAGES[code];
   if (hit !== undefined) return { msg: hit, key: hit.group ?? `${code}|${component ?? ""}|${topic}`, part: hit.part ?? null };
   if (code === "N_PARAM_MISSING") return { msg: MISSING_PARAM, key: "paramMissing", part: [...new Set(topics.map(paramName))].join("・") };

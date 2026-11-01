@@ -98,15 +98,22 @@ export interface Selected {
    * 値を引いた日の年（見出しの notices に出す）
    */
   readonly extendedYear?: number;
+  /**
+   * さかのぼりの仮定（0099）: 引く日が、同じ条件・管轄の最初の行より前（制度データが持っている時期より前）なので、最初の行の値を使った。
+   * 値を引いた日の年（見出しの notices に N_PARAM_BACKFILLED で出す）
+   */
+  readonly backfilledYear?: number;
   /** プランの dataSet の版ではこの値IDの行を1つも知らなかったので、最新の版の行を使った（PR の提案） */
   readonly recordedLater?: true;
 }
 
-/** 区間で選ぶ行（sel）、または延長の仮定で続くとみなす行（ext。引く年ごとに byYear） */
+/** 区間で選ぶ行（sel）、または延長の仮定で続くとみなす行・さかのぼりの仮定で前にもあるとみなす行（ext と back。引く年ごとに byYear） */
 interface RegionHit {
   readonly def: ValueDef;
   readonly sel: Selected | null;
   readonly ext: Visible | null;
+  /** ext が、さかのぼりの仮定（最初の行より前）で使う行か（0099） */
+  readonly back: boolean;
   readonly byYear: Map<number, Selected>;
 }
 
@@ -126,7 +133,10 @@ export interface MatchContext {
   readonly jurisdiction?: Jurisdiction;
   /** 条件 sex を使う値のための構成員の性別 */
   readonly sex?: "female" | "male";
-  /** 延長の仮定を使わない（値が無ければ E_PARAM_NO_VALUE）。改定率のように前提で延ばす値の有無を確かめるため */
+  /**
+   * 延長の仮定・さかのぼりの仮定を使わない（値が無ければ E_PARAM_NO_VALUE）。改定率のように前提で延ばす値の有無や、
+   * 制度が始まる前か（最初の行より前）を確かめるため
+   */
   readonly noExtension?: boolean;
 }
 
@@ -295,7 +305,7 @@ export class RegulationStore {
           ref: `${id}@${ext.entry.rev}`,
           packVersion: ext.entry.recordedIn,
           effectiveTo: ext.effectiveTo,
-          extendedYear: date.year,
+          ...(r.back ? { backfilledYear: date.year } : { extendedYear: date.year }),
           ...(this.later.has(id) ? { recordedLater: true as const } : {}),
         });
         r.byYear.set(date.year, s);
@@ -317,14 +327,19 @@ export class RegulationStore {
     }
     if (hits.length === 0) {
       // 延長の仮定（0007 の追記）: 期限の後の値が分からない（同じ条件・管轄の最後の行が、引く日より前に終わる）ときは、
-      // 計算を止めずに最後の行が続くとみなす。最初の行より前の日は値が無いので止める
-      const ext = mc.noExtension === true ? null : this.extension(id, key, want, mc);
-      return { def, sel: null, ext, byYear: new Map() };
+      // 計算を止めずに最後の行が続くとみなす。
+      // さかのぼりの仮定（0099）: 引く日が同じ条件・管轄のどの行よりも前（制度データが持っている時期より前）なら、計算を止めずに
+      // 最初の行の値を使う。行と行の間が空いている日は、データの誤りなので今までどおり止める
+      if (mc.noExtension === true) return { def, sel: null, ext: null, back: false, byYear: new Map() };
+      const ext = this.extension(id, key, want, mc);
+      if (ext !== null) return { def, sel: null, ext, back: false, byYear: new Map() };
+      const first = this.backfill(id, key, want, mc);
+      return { def, sel: null, ext: first, back: first !== null, byYear: new Map() };
     }
     if (hits.length > 1) throw new EngineError("E_PARAM_AMBIGUOUS", [id]);
     const hit = hits[0] as Visible;
     const sel: Selected = Object.freeze({ def, entry: hit.entry, ref: `${id}@${hit.entry.rev}`, packVersion: hit.entry.recordedIn, effectiveTo: hit.effectiveTo, ...(this.later.has(id) ? { recordedLater: true as const } : {}) });
-    return { def, sel, ext: null, byYear: new Map() };
+    return { def, sel, ext: null, back: false, byYear: new Map() };
   }
 
   /** 引く日より前に終わる行のうち最後のもの（その後に始まる行が無いときだけ）。同じ条件の組で1つに決まらなければエラー */
@@ -338,6 +353,24 @@ export class RegulationStore {
       const g = JSON.stringify(v.entry.conditions);
       const cur = groups.get(g);
       if (cur === undefined || (cur.toKey as number) < v.toKey) groups.set(g, v);
+    }
+    if (groups.size > 1) throw new EngineError("E_PARAM_AMBIGUOUS", [id]);
+    return [...groups.values()][0] ?? null;
+  }
+
+  /**
+   * さかのぼりの仮定（0099）で使う行: 同じ条件・管轄の行がどれも引く日より後に始まるとき、その最初の行。
+   * 引く日より前に始まる行が1つでもあれば（行の間の空き）null。同じ条件の組で1つに決まらなければエラー
+   */
+  private backfill(id: string, key: number, want: string, mc: MatchContext): Visible | null {
+    const groups = new Map<string, Visible>();
+    for (const v of this.visibleOf(id)) {
+      if (v.jurisdiction !== want) continue;
+      if (!matchConditions(v.entry.conditions, mc, id)) continue;
+      if (v.fromKey <= key) return null;
+      const g = JSON.stringify(v.entry.conditions);
+      const cur = groups.get(g);
+      if (cur === undefined || cur.fromKey > v.fromKey) groups.set(g, v);
     }
     if (groups.size > 1) throw new EngineError("E_PARAM_AMBIGUOUS", [id]);
     return [...groups.values()][0] ?? null;

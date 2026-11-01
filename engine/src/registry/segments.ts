@@ -171,7 +171,13 @@ export function segmentsOf(
         for (let m = a + 1; m <= b; m++) {
           const s = check(id, o, m as MonthIndex);
           if (s === first) continue;
-          if (s === null || first === null || s.entry !== first.entry || (s.extendedYear === undefined) !== (first.extendedYear === undefined)) {
+          if (
+            s === null ||
+            first === null ||
+            s.entry !== first.entry ||
+            (s.extendedYear === undefined) !== (first.extendedYear === undefined) ||
+            (s.backfilledYear === undefined) !== (first.backfilledYear === undefined)
+          ) {
             throw new EngineError("E_ARGUMENT", [id, "segments.notConstant"]);
           }
         }

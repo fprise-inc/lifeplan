@@ -24,6 +24,18 @@ describe("知らせを分ける", () => {
     expect(parseNotice({ code: "N_ASSUMED", ids: ["account.contributions.afterRetirement", id] }).component).toBeNull();
   });
 
+  it("制度データより前の時期の値（さかのぼりの仮定。0099）は部品が付かず、データの種類の1行に値の名前と年をまとめる", () => {
+    const n = { code: "N_PARAM_BACKFILLED", ids: ["incomeTax.employmentIncomeDeduction@1", "2024", "2024"] };
+    expect(parseNotice(n)).toEqual({ component: null, topics: ["incomeTax.employmentIncomeDeduction@1"], subjects: [], years: [2024, 2024] });
+    expect(knownNotice(n)).toBe(true);
+    const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"));
+    const rows = noticeRows(wh, [{ label: "現状", result: result([n, { code: "N_PARAM_BACKFILLED", ids: ["residentTax.dependentIncomeLimit@2", "2025", "2025"] }]) }]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.kind).toBe("data");
+    expect(rows[0]?.text).toContain("いちばん古い値");
+    expect(rows[0]?.parts).toEqual([`${paramName("incomeTax.employmentIncomeDeduction@1")}（2024年）`, `${paramName("residentTax.dependentIncomeLimit@2")}（2025年）`]);
+  });
+
   it("制度の値の名前は登録簿の名前（後ろの括弧の注と版を省く）", () => {
     expect(paramName("socialInsurance.care.firstInsured.baseMonthly@1")).toBe("介護保険の第1号被保険者の保険料の基準額");
     expect(paramName("no.such.param")).toBe("制度の値");

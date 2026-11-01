@@ -398,7 +398,10 @@ export interface RunState {
   /** 部品ごと・集まりごと（・構成員ごと）の絞った写し（1回の計算の中で使い回す） */
   readonly projections: Map<string, readonly Record<string, unknown>[]>;
   readonly notices: Map<string, { readonly code: string; readonly ids: readonly string[] }>;
-  /** 延長の仮定で使った値の行（<値ID>@<rev>）→ 使った年の範囲（見出しの notices に出す。0007 の追記） */
+  /**
+   * 延長の仮定で使った値の行（<値ID>@<rev>）→ 使った年の範囲（見出しの notices に出す。0007 の追記）。
+   * さかのぼりの仮定（0099）で使った値の行は、鍵の頭に BACKFILLED を付けて同じ表に置く
+   */
   readonly extended: Map<string, { first: number; last: number }>;
   readonly checkInternal: boolean;
   readonly base: MonthIndex;
@@ -435,6 +438,9 @@ const RATE_API: RateApi = Object.freeze({
   toString: rateToString,
   fraction: rateFraction,
 });
+
+/** 延長の仮定の表（extended）の鍵の頭の印: さかのぼりの仮定（0099）で使った値の行 */
+export const BACKFILLED = "-";
 
 function mergeExtended(to: Map<string, { first: number; last: number }>, ref: string, first: number, last: number): void {
   const r = to.get(ref);
@@ -1512,7 +1518,7 @@ class CtxImpl implements Ctx {
   checkSame(id: string, opts: ParamOptions, month: MonthIndex, s: Selected): void {
     if (!this.#state.checkInternal) return;
     const direct = this.#selectAt(id, month, opts);
-    if (direct.entry !== s.entry || (direct.extendedYear === undefined) !== (s.extendedYear === undefined) || direct.extendedYear !== s.extendedYear) {
+    if (direct.entry !== s.entry || direct.extendedYear !== s.extendedYear || direct.backfilledYear !== s.backfilledYear) {
       throw new EngineError("E_ARGUMENT", [id, "segments.notConstant"]);
     }
   }
@@ -1706,6 +1712,15 @@ class CtxImpl implements Ctx {
       }
       this.#addExtended(sel.ref, sel.extendedYear, last);
     }
+    if (sel.backfilledYear !== undefined) {
+      let last = sel.backfilledYear;
+      if (until !== month) {
+        const { basis, lc } = this.#lookupBasis(id, opts);
+        last = lookupFor(basis, until, lc).date.year;
+      }
+      // さかのぼりの仮定（0099）も同じ表に、鍵の頭に印を付けて残す（見出しの notices で N_PARAM_BACKFILLED にする）
+      this.#addExtended(`${BACKFILLED}${sel.ref}`, sel.backfilledYear, last);
+    }
     if (state.traceOn) {
       const tracer = state.tracer;
       tracer.param(this.#frame, {
@@ -1718,6 +1733,7 @@ class CtxImpl implements Ctx {
         appliesTo: sel.effectiveTo,
         sources: sel.entry.sources,
         ...(sel.extendedYear !== undefined ? { extended: true } : {}),
+        ...(sel.backfilledYear !== undefined ? { backfilled: true } : {}),
       });
     }
     return sel;
