@@ -9,7 +9,7 @@ import type { TakeawayData } from "../src/takeaway/model.ts";
 import { applyLevers } from "../src/workspace/levers.ts";
 import { CURRENT } from "../src/workspace/plans/band.ts";
 import { applyValues } from "../src/workspace/plans/plans.ts";
-import { buildPayload, dataSetLabel, probeRequests } from "../src/workspace/takeaway/build.ts";
+import { buildPayload, cleanText, dataSetLabel, probeRequests } from "../src/workspace/takeaway/build.ts";
 import { makeTakeawayFile } from "../src/workspace/takeaway/file.ts";
 import { choosePacks } from "../src/workspace/takeaway/packs.ts";
 import { FREE_TEXT, IdMap, sanitizeRequest, SCHOOL_PLACEHOLDER } from "../src/workspace/takeaway/sanitize.ts";
@@ -129,6 +129,33 @@ describe("持ち帰り用のレポート: 内部情報を入れない", () => {
     expect(out).not.toContain(MARK);
     expect(out).not.toContain("A123456789012");
     expect(out).toContain(SCHOOL_PLACEHOLDER);
+  });
+});
+
+describe("持ち帰り用のレポート: 文字の欄の長さの上限", () => {
+  // 上限の文字数で切るとき、UTF-16 の単位で切っていたので、絵文字（サロゲートペア・家族の絵文字・肌の色・旗）の片割れが残っていた
+  it("上限で切るときは、見える1文字（書記素）の切れ目で切る。上限（UTF-16 の単位）は今までどおり超えない", () => {
+    const lone = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u;
+    for (const [s, max] of [
+      ["あ".repeat(39) + "😀", 40],
+      ["架空様👨‍👩‍👧‍👦ご一家", 6],
+      ["案👍🏽", 3],
+      ["旗🇯🇵🇯🇵", 4],
+      ["は\u3099じめ", 1],
+    ] as const) {
+      const t = cleanText(s, max) ?? "";
+      expect(t.length).toBeLessThanOrEqual(max);
+      expect(lone.test(t), JSON.stringify(t)).toBe(false);
+      expect(s.startsWith(t)).toBe(true);
+    }
+    expect(cleanText("あ".repeat(39) + "😀", 40)).toBe("あ".repeat(39));
+    expect(cleanText("架空様👨‍👩‍👧‍👦ご一家", 6)).toBe("架空様");
+    expect(cleanText("案👍🏽", 3)).toBe("案");
+    expect(cleanText("旗🇯🇵🇯🇵", 5)).toBe("旗🇯🇵");
+    // 切らないときはそのまま（前後の空白・制御文字の扱いは今までどおり）
+    expect(cleanText(" 架空様👨‍👩‍👧‍👦 ", 40)).toBe("架空様👨‍👩‍👧‍👦");
+    expect(cleanText("a\u0001b", 40)).toBe("a b");
+    expect(cleanText("  ", 40)).toBeNull();
   });
 });
 
