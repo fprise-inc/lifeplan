@@ -250,7 +250,7 @@ function PremiseWorkLever({ it, wh, onDraft, onCommit, mark, onRemove }: BoxProp
           {paid ? `${salaryF.label}。空欄は働き方ごとの目安` : "働き方を選ぶと、その働き方と年収に置き換えます"}
           {paid && !isAuto ? (
             <button type="button" class="link-btn cg-auto" onClick={() => onCommit(salaryF.set(wh, null))}>
-              目安に戻す
+              推定に戻す
             </button>
           ) : null}
         </span>

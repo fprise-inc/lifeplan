@@ -303,7 +303,7 @@ const stageAddress = (goalId: string, stageId: string | undefined, ...rest: stri
 /** 短大・専門学校の修学支援はまだ計算しない（計算エンジンの知らせは画面に出ないので、段の1行で知らせる） */
 export const HIGHER_SUPPORT_NOTE = "国の修学支援（授業料等の減免・給付型奨学金）は、短大・専門学校ではまだ計算していません。受ける見込みなら、減免の後の額を年額に入れてください";
 /** 専門学校の学費の未入力 */
-export const VOCATIONAL_MISSING = "未入力（専門学校の学費の統計の目安はまだありません。年額を入れるまで0円で計算中）";
+export const VOCATIONAL_MISSING = "未入力（専門学校の学費の統計はまだありません。年額を入れるまで0円で計算中）";
 
 /** 段の見出しの下の1行（統計の平均か、入れた額） */
 function stageNote(s: EducationStage, lunch: LunchChoice): string | undefined {
@@ -609,7 +609,7 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
 }
 
 /** 保育料とは別にかかるお金の推定の根拠（短い文）と「?」 */
-const NURSERY_EXTRA_BASIS = "統計の目安。教材・被服・保護者会・遠足・通園などの実費（文部科学省・厚生労働省「幼稚園・保育所等の経営実態調査」の保育所の実費徴収。平成23年度）";
+const NURSERY_EXTRA_BASIS = "統計の平均。教材・被服・保護者会・遠足・通園などの実費（文部科学省・厚生労働省「幼稚園・保育所等の経営実態調査」の保育所の実費徴収。平成23年度）";
 const NURSERY_EXTRA_HELP =
   "0〜2歳の保育料には給食（主食・副食）の費用が含まれるので、ここは教材・被服・保護者会・遠足・通園など、保育所が保育料とは別に集める実費です。" +
   "推定は、国の調査の費目ごとの実施率×1人当たりの額を足した目安で、公立・私立に分けた値はありません。3歳からの給食の副食費（国の目安は月4,500円）などは「保育園・幼稚園（3歳から）」の段の学校の費用に入っています";
@@ -778,7 +778,7 @@ function fieldHelp(): string {
 
 function annualHelp(s: EducationStage): string {
   if (isK12(s.stage)) return "学校教育費（授業料・学用品・通学・修学旅行など）と学校給食費の年額です。学校外活動費（塾・習い事）は含めません。志望校の額が分かれば入れてください";
-  if (s.stage === "vocational") return "授業料・実習費・設備費などの年額（入学金は別）。専門学校の学費の統計の目安はまだ入れていないので、志望校の額を入れてください";
+  if (s.stage === "vocational") return "授業料・実習費・設備費などの年額（入学金は別）。専門学校の学費の統計はまだ入れていないので、志望校の額を入れてください";
   return "授業料と施設設備費の年額（入学金は別）。志望校の学費が分かれば入れてください";
 }
 
@@ -1365,7 +1365,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
     kind: "select",
     options: HIGHER_OPTIONS,
     structural: true,
-    help: "選び直しても、通い方・浪人・仕送り・入れた年額はそのまま残ります。専門学校は統計の目安が無いので、年額を入れてください",
+    help: "選び直しても、通い方・浪人・仕送り・入れた年額はそのまま残ります。専門学校は学費の統計が無いので、年額を入れてください",
     get: (w) => ({ value: (((find(w.request.input.household, w) as Goal | undefined)?.education?.stages ?? []) as EducationStage[]).find((s) => isHigher(s.stage))?.stage ?? "none" }),
     set: (w, v) =>
       mutate(w, (hh) => {

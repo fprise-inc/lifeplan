@@ -91,7 +91,7 @@ export function stageStatistic(s: EducationStage): StageStatistic | null {
       note: out === null ? "この区分は学校外活動費を学校の費用に含めて数えています" : null,
     };
   }
-  if (s.stage === "vocational") return { annual: null, entrance: null, outOfSchool: null, basis: "専門学校の学費の統計の目安はまだありません", annualBasis: "専門学校の学費の統計の目安はまだありません", entranceBasis: "専門学校の入学金の統計の目安はまだありません", lunchRelief: 0, note: null };
+  if (s.stage === "vocational") return { annual: null, entrance: null, outOfSchool: null, basis: "専門学校の学費の統計はまだありません", annualBasis: "専門学校の学費の統計はまだありません", entranceBasis: "専門学校の入学金の統計はまだありません", lunchRelief: 0, note: null };
   let ids: string[];
   let admission: string;
   let note: string | null = null;
@@ -126,7 +126,7 @@ export function stageStatistic(s: EducationStage): StageStatistic | null {
   if (s.stage === "juniorCollege") {
     ids = [`${S}.juniorCollege.private.tuition`, `${S}.juniorCollege.private.facility`];
     admission = `${S}.juniorCollege.private.admission`;
-    if (sector !== "private") note = "公立の短大の統計の目安はまだないので、私立の短大の平均で仮に計算しています";
+    if (sector !== "private") note = "公立の短大の統計はまだないので、私立の短大の平均で仮に計算しています";
   } else if (sector === "private") {
     const f = s.field === undefined || s.field === "other" ? "all" : s.field;
     ids = [`${S}.university.private.${f}.tuition`, `${S}.university.private.${f}.facility`];
@@ -148,9 +148,9 @@ export function stageStatistic(s: EducationStage): StageStatistic | null {
 }
 
 /** 公立・私立の高専の未入力（0090） */
-export const KOSEN_MISSING = "未入力（公立・私立の高専の学費の統計の目安はありません。年額を入れるまで0円で計算中）";
+export const KOSEN_MISSING = "未入力（公立・私立の高専の学費の統計はありません。年額を入れるまで0円で計算中）";
 /** インターナショナルスクールの未入力（0089） */
-export const INTERNATIONAL_MISSING = "未入力（インターナショナルスクールの学費の統計の目安はありません。学校の費用の年額を入れるまで0円で計算中）";
+export const INTERNATIONAL_MISSING = "未入力（インターナショナルスクールの学費の統計はありません。学校の費用の年額を入れるまで0円で計算中）";
 const INTERNATIONAL_NOTE = "インターナショナルスクールの多くは学校教育法第1条の学校ではなく（各種学校・無認可）、高校の就学支援金は計算しません（令和8年4月から外国人学校は対象外）。第1条の学校なら「私立」で入れてください";
 
 /** 幼稚園〜高校の統計の出典の短い名前 */

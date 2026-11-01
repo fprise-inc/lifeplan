@@ -29,7 +29,7 @@ export function AssumptionList({ wh, planId, onAgree, onLevel }: { wh: WorkingHo
     <div class="ip-lineup ip-assume-list" data-assumption-list>
       <p>
         <b>前提と推定の一覧</b>
-        <Help label="前提と推定の一覧">計算の前提・推定の目安・万一の前提の一覧です。提案書・持ち帰り用のレポートの前提の一覧と同じ形です。</Help>
+        <Help label="前提と推定の一覧">計算の前提・推定の根拠・万一の前提の一覧です。提案書・持ち帰り用のレポートの前提の一覧と同じ形です。</Help>
         <button type="button" class="link-btn" aria-expanded={open} onClick={() => setOpen(!open)}>
           {open ? "閉じる" : `開く（${rows.length}行）`}
         </button>

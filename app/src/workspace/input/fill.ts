@@ -303,7 +303,7 @@ export function retirementNotices(wh: WorkingHousehold): RetirementNotice[] {
     if (isAutoBenefit(b)) {
       out.push({
         id: `retirement/auto/${b.id}`,
-        label: `${who}の退職金（目安で足した物）`,
+        label: `${who}の退職金（推定で足した物）`,
         detail: `勤め先に退職金の制度があるか確かめてください${prevalenceText()}。無ければ外すと「該当なし」になり、もう足しません`,
         actions: [
           {
@@ -355,7 +355,7 @@ const basisOfBox = (x: Box<number>): string => (x as { estimate?: { basis?: stri
 // ---- 住まい ----
 
 /** 賃貸の家賃を推定で入れたときの根拠（統計の家賃の目安はまだ無い。目安のボタンと同じ値） */
-export const RENT_BASIS = "目安のボタンの値（家賃 月8万円。地域・人数の統計の目安はまだありません）";
+export const RENT_BASIS = "よくある額（家賃 月8万円。地域・人数の統計はまだありません）";
 export const RENT_STANDARD = 80000;
 
 function fillHousing(wh: WorkingHousehold): WorkingHousehold {
@@ -541,7 +541,7 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
       });
   }
   if ((h.insuranceContracts ?? []).length === 0 && !confirmed.has("insurance"))
-    out.push({ id: "insurance", card: "insurance", label: "保険", note: "保険が入っていません（保険料・保障を0円で計算しています。保障の額は目安で入れません）", none: (w) => markCard(w, "insurance"), noneLabel: "保険に入っていない" });
+    out.push({ id: "insurance", card: "insurance", label: "保険", note: "保険が入っていません（保険料・保障を0円で計算しています。保障の額は推定で入れません）", none: (w) => markCard(w, "insurance"), noneLabel: "保険に入っていない" });
   return out;
 }
 

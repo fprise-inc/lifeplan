@@ -669,7 +669,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
         : level === "simple"
         ? [salaryTotalField(wh, m, p, find, prefix)]
         : [
-            yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "年収（税込み・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "源泉徴収票の支払金額から賞与を除いた額。空欄なら統計の目安で計算します" }),
+            yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "年収（税込み・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "源泉徴収票の支払金額から賞与を除いた額。空欄なら統計の平均で計算します" }),
             growthField(wh, p, find, prefix, "salary", d),
             yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null }),
           ]),
@@ -886,7 +886,7 @@ function salaryTotalField(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, 
       basis: "annual",
       optional: true,
       blankIsEstimate: true,
-      help: "源泉徴収票の支払金額（給与と賞与の合計）。賞与の内訳は詳細の「働き方 1・2…」で直せます（入れていなければ統計の割合で分けます）。空欄なら統計の目安で計算します",
+      help: "源泉徴収票の支払金額（給与と賞与の合計）。賞与の内訳は詳細の「働き方 1・2…」で直せます（入れていなければ統計の割合で分けます）。空欄なら統計の平均で計算します",
       get: (w) => {
         const { a, b } = boxes(w);
         const bv = boxValue(b);

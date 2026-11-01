@@ -951,7 +951,7 @@ function importSalary(c: Ctx, p: EmploymentPeriod, m: Member, n: number, baseMon
       annual = c.unknownAsEstimate("hs.income.salary", n, annualEst, "statistic");
       c.field(id, "hs.income.salary", n, "employment.salary.annual", "/salary/annual", "estimated");
     } else {
-      if (total.status === "blank") c.missing("hs.income.salary", n, "給与の年収がありません（統計の目安で補いました）");
+      if (total.status === "blank") c.missing("hs.income.salary", n, "給与の年収がありません（統計の平均で補いました）");
       annual = c.estimated(annualEst, "statistic");
       c.field(id, "hs.income.salary", n, "employment.salary.annual", "/salary/annual", "estimated");
     }

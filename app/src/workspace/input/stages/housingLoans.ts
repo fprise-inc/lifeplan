@@ -813,7 +813,7 @@ function rateTypeField(wh: WorkingHousehold, d: Debt, k: string, level: "simple"
   const inner = plain({ key: `${k}/rateType`, item: "debt.rateSchedule", label: "金利の種類", level, kind: "select", options: RATE_TYPES, find: firstRate, path: ["type"] });
   if (d.kind !== "mortgage") return inner;
   const notes = [
-    ...(isRateEstimate(rowOf(wh, addrRate(d))) ? ["金利が目安のままなら、選んだ種類の目安の金利に入れ直します"] : []),
+    ...(isRateEstimate(rowOf(wh, addrRate(d))) ? ["金利が推定のままなら、選んだ種類の推定の金利に入れ直します"] : []),
     ...(hasOutlookSteps(wh.request.input.household, d, wh.request.input.baseMonth) ? ["変動金利以外にすると、変動金利の見込みの段（5年後・10年後）を外します"] : []),
   ];
   return field({

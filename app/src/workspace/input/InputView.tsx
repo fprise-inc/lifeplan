@@ -143,7 +143,7 @@ function Card({ item, onOpen, flash, diffs, acts }: { item: InputItem; onOpen: (
             <div class="ih-hint-acts">
               {showFill ? (
                 <button type="button" class="btn small" onClick={() => acts.onFill?.(item.id)} disabled={acts.onFill === undefined} {...(acts.onFill === undefined ? { title: CARD_ACT_OFF } : {})} data-card-fill={item.id}>
-                  目安で入れる
+                  推定で入れる
                 </button>
               ) : null}
               {showNa ? (
@@ -415,7 +415,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
           onFill: (id) => {
             onSave(fillCard(wh, id));
             setFlashId(id);
-            setToast(`「${items.find((i) => i.id === id)?.label ?? ""}」を目安で入れました（推定の印）`);
+            setToast(`「${items.find((i) => i.id === id)?.label ?? ""}」を推定で入れました`);
           },
         };
   const unpin = (pin: PinItem) => {
@@ -454,7 +454,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
           <Help label="入力のホーム" id="home">
             <p>入力項目を押すと、入力のパネルが開きます。入れ方（標準／詳細）は、パネルの見出しで項目ごとに切り替えます。</p>
             <p>右の「入力項目を選ぶ」で、この世帯で出す入力項目と、開いたときの入れ方を選べます。</p>
-            <p>空欄は統計の目安などで補って計算します（「推定で計算中」の印）。</p>
+            <p>空欄は統計の平均などで補って計算します（「推定で計算中」の印）。</p>
             <p>保存した世帯は、世帯ごとに暗号化して自動で保存します（見本の世帯は保存しません。上の「世帯」から保存できます）。</p>
             <p>進み具合の「未入力」「入力済み」などを押すと、その入力項目だけに絞ります。</p>
           </Help>

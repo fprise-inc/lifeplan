@@ -519,7 +519,7 @@ function deathNote(wh: WorkingHousehold, m: Member): GroupDef | null {
 }
 
 /** 該当なしにしてある人の区画の説明（頭の「該当なし」は見出しの下に、残りは「?」の中に出る。FieldViews.tsx の splitNote） */
-export const NONE_NOTE = "該当なし。退職金・企業年金は無いとしています（働き方を選び直しても、目安で足しません）。「＋ 退職金・企業年金を足す」で足すと、該当なしを外します";
+export const NONE_NOTE = "該当なし。退職金・企業年金は無いとしています（働き方を選び直しても、推定で足しません）。「＋ 退職金・企業年金を足す」で足すと、該当なしを外します";
 
 export function retirementStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;
