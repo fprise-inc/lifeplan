@@ -160,11 +160,17 @@ fn feature_code_keys(toml: &str) -> Vec<String> {
         let Some(rest) = t.strip_prefix("feature_code") else {
             continue;
         };
-        let v = rest.trim_start().strip_prefix('=').map(str::trim).unwrap_or("");
+        let v = rest
+            .trim_start()
+            .strip_prefix('=')
+            .map(str::trim)
+            .unwrap_or("");
         let inner = v
             .strip_prefix('[')
             .and_then(|x| x.strip_suffix(']'))
-            .unwrap_or_else(|| panic!("config/distribution.toml: [keys] の feature_code は1行の [\"…\"] で書く"));
+            .unwrap_or_else(|| {
+                panic!("config/distribution.toml: [keys] の feature_code は1行の [\"…\"] で書く")
+            });
         let keys: Vec<String> = inner
             .split(',')
             .map(str::trim)
@@ -172,16 +178,23 @@ fn feature_code_keys(toml: &str) -> Vec<String> {
             .map(|x| {
                 x.strip_prefix('"')
                     .and_then(|y| y.strip_suffix('"'))
-                    .unwrap_or_else(|| panic!("config/distribution.toml: [keys] の feature_code の値は \"…\" で書く"))
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "config/distribution.toml: [keys] の feature_code の値は \"…\" で書く"
+                        )
+                    })
                     .to_owned()
             })
             .collect();
         for k in &keys {
             let ok = k.split_once(':').is_some_and(|(kid, b)| {
                 (1..=16).contains(&kid.len())
-                    && kid.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
+                    && kid
+                        .bytes()
+                        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
                     && b.len() == 43
-                    && b.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+                    && b.bytes()
+                        .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
             });
             if !ok {
                 panic!("config/distribution.toml: [keys] の feature_code の {k:?} は「鍵の名前:公開鍵（base64url の43文字）」の形にする");

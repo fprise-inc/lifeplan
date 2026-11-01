@@ -2192,7 +2192,9 @@ impl Store {
     pub fn set_feature_codes(&self, codes: Vec<String>) -> Result<(), StoreError> {
         if codes.len() > FEATURE_CODES_MAX
             || codes.iter().any(|c| {
-                c.is_empty() || c.len() > FEATURE_CODE_MAX_BYTES || c.chars().any(|x| x.is_whitespace() || x.is_control())
+                c.is_empty()
+                    || c.len() > FEATURE_CODE_MAX_BYTES
+                    || c.chars().any(|x| x.is_whitespace() || x.is_control())
             })
         {
             return Err(StoreError::FEATURE_CODES);

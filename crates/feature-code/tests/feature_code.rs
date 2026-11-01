@@ -57,7 +57,14 @@ fn tampered_code_is_rejected() {
     let renamed = format!("LPFC1-{}.{sig}", b64.encode(renamed.as_bytes()));
     assert_eq!(verify(&renamed, &[k.public()]), Err(Error::SIGNATURE));
     // 形の違うもの
-    for bad in ["", "LPFC1-", "LPFC1-abc", "LPFC2-abc.def", "hello", &code[..code.len() - 3]] {
+    for bad in [
+        "",
+        "LPFC1-",
+        "LPFC1-abc",
+        "LPFC2-abc.def",
+        "hello",
+        &code[..code.len() - 3],
+    ] {
         assert!(verify(bad, &[k.public()]).is_err(), "{bad}");
     }
     // 長すぎるもの
@@ -74,7 +81,9 @@ fn issuing_checks_the_input() {
     };
     assert!(bad(&|r| r.features = vec!["unknownFeature".into()]).contains("ありません"));
     assert!(bad(&|r| r.features = vec![]).contains("機能"));
-    assert!(bad(&|r| r.features = vec!["combinedBs".into(), "combinedBs".into()]).contains("重なって"));
+    assert!(
+        bad(&|r| r.features = vec!["combinedBs".into(), "combinedBs".into()]).contains("重なって")
+    );
     assert!(bad(&|r| r.expires = "2026-02-30".into()).contains("日付"));
     assert!(bad(&|r| r.expires = "2026-10-01".into()).contains("発行日より前"));
     assert!(bad(&|r| r.name = "".into()).contains("名前"));
@@ -98,7 +107,9 @@ fn secret_key_file_round_trip() {
     // 公開鍵の行が秘密鍵と合わない（取り違え）
     let other = key("dev-1").public().line();
     let mixed = text.replace(&line, &other);
-    assert!(SecretKey::from_text(&mixed).unwrap_err().contains("合いません"));
+    assert!(SecretKey::from_text(&mixed)
+        .unwrap_err()
+        .contains("合いません"));
     assert!(SecretKey::from_text("kid = x\nsecret = y\n").is_err());
     assert!(PublicKey::parse("dev-1:short").is_err());
     assert!(PublicKey::parse("UPPER:AAAA").is_err());
@@ -127,9 +138,15 @@ fn status_marks_expiring_and_expired() {
     assert_eq!(s.codes[0].state, CodeState::Active);
     assert_eq!(s.codes[0].reference, reference(&code));
     // 30日前から更新の知らせ
-    assert_eq!(status(&codes, &keys, "2027-05-01").codes[0].state, CodeState::Expiring);
+    assert_eq!(
+        status(&codes, &keys, "2027-05-01").codes[0].state,
+        CodeState::Expiring
+    );
     assert_eq!(status(&codes, &keys, "2027-05-01").codes[0].days_left, 30);
-    assert_eq!(status(&codes, &keys, "2027-04-30").codes[0].state, CodeState::Active);
+    assert_eq!(
+        status(&codes, &keys, "2027-04-30").codes[0].state,
+        CodeState::Active
+    );
     // 期限の日の終わりまで使える
     let last = status(&codes, &keys, "2027-05-31");
     assert_eq!(last.codes[0].state, CodeState::Expiring);
@@ -154,7 +171,10 @@ fn adding_replaces_the_older_code_and_rejects_expired() {
     let list = add(&[], &old, &keys, "2026-11-01").unwrap();
     assert_eq!(list, vec![normalize(&old)]);
     // 同じコードをもう一度: 増えない
-    assert_eq!(add(&list, &format!(" {old}\n"), &keys, "2026-11-01").unwrap(), list);
+    assert_eq!(
+        add(&list, &format!(" {old}\n"), &keys, "2026-11-01").unwrap(),
+        list
+    );
     // 更新のコード（新しい番号・遅い期限）: 古いコードを外す
     let renewed = issue(&k, &req("0002", "2027-11-30")).unwrap();
     let list2 = add(&list, &renewed, &keys, "2027-05-20").unwrap();
@@ -165,12 +185,26 @@ fn adding_replaces_the_older_code_and_rejects_expired() {
     let s = status(&list, &keys, "2027-06-10");
     assert!(s.active.is_empty());
     let back = add(&list, &renewed, &keys, "2027-06-10").unwrap();
-    assert_eq!(status(&back, &keys, "2027-06-10").active, vec!["combinedBs"]);
+    assert_eq!(
+        status(&back, &keys, "2027-06-10").active,
+        vec!["combinedBs"]
+    );
     assert_eq!(back.len(), 1);
     // 偽物・知らない鍵
-    assert_eq!(add(&[], &issue(&key("test-1"), &req("9", "2027-05-31")).unwrap(), &keys, "2026-11-01"), Err(Error::SIGNATURE));
+    assert_eq!(
+        add(
+            &[],
+            &issue(&key("test-1"), &req("9", "2027-05-31")).unwrap(),
+            &keys,
+            "2026-11-01"
+        ),
+        Err(Error::SIGNATURE)
+    );
     // 外す
-    assert_eq!(remove(&back, &reference(&renewed)).unwrap(), Vec::<String>::new());
+    assert_eq!(
+        remove(&back, &reference(&renewed)).unwrap(),
+        Vec::<String>::new()
+    );
     assert_eq!(remove(&back, "0000"), Err(Error::NOT_FOUND));
 }
 
@@ -187,7 +221,9 @@ fn record_csv_and_batch() {
     issuer::append_records(&log, std::slice::from_ref(&c)).unwrap();
     assert_eq!(issuer::logged_ids(&log).unwrap(), vec!["0001"]);
     // 同じ番号は足さない
-    assert!(issuer::append_records(&log, &[c]).unwrap_err().contains("既に"));
+    assert!(issuer::append_records(&log, &[c])
+        .unwrap_err()
+        .contains("既に"));
     // 一覧からまとめて（番号の無い行は続きの番号。カンマ・引用符を含む名前）
     let list = "\u{feff}id,name,features,expires\n,\"山田, 一郎\",combinedBs,2027-05-31\nA-7,\"引用\"\"符\",combinedBs,2027-06-30\n,三人目,combinedBs,2027-07-31\n";
     let rows = issuer::read_batch(list).unwrap();
@@ -203,26 +239,53 @@ fn record_csv_and_batch() {
     }
     let claims: Vec<_> = out.iter().map(|(c, _)| c.clone()).collect();
     issuer::append_records(&log, &claims).unwrap();
-    assert_eq!(issuer::logged_ids(&log).unwrap(), vec!["0001", "0002", "A-7", "0003"]);
+    assert_eq!(
+        issuer::logged_ids(&log).unwrap(),
+        vec!["0001", "0002", "A-7", "0003"]
+    );
     let text = std::fs::read_to_string(&log).unwrap();
     assert!(text.starts_with("\u{feff}id,name,features,expires,issued\n"));
     assert!(text.contains("\"山田, 一郎\""));
     // 誤りが1つでもあれば1件も発行しない
     let bad = "name,features,expires\n四人目,combinedBs,2027-05-31\n五人目,unknownX,2027-05-31\n六人目,combinedBs,2020-01-01\n";
-    let err = issuer::issue_batch(&k, &issuer::read_batch(bad).unwrap(), &issuer::logged_ids(&log).unwrap(), "2026-11-01").unwrap_err();
-    assert!(err.contains("3行目") && err.contains("4行目") && !err.contains("2行目"), "{err}");
+    let err = issuer::issue_batch(
+        &k,
+        &issuer::read_batch(bad).unwrap(),
+        &issuer::logged_ids(&log).unwrap(),
+        "2026-11-01",
+    )
+    .unwrap_err();
+    assert!(
+        err.contains("3行目") && err.contains("4行目") && !err.contains("2行目"),
+        "{err}"
+    );
     // 記録にある番号を一覧に書いた
     let dup = "id,name,features,expires\nA-7,七人目,combinedBs,2027-05-31\n";
-    assert!(issuer::issue_batch(&k, &issuer::read_batch(dup).unwrap(), &issuer::logged_ids(&log).unwrap(), "2026-11-01").unwrap_err().contains("既に"));
+    assert!(issuer::issue_batch(
+        &k,
+        &issuer::read_batch(dup).unwrap(),
+        &issuer::logged_ids(&log).unwrap(),
+        "2026-11-01"
+    )
+    .unwrap_err()
+    .contains("既に"));
     // 秘密鍵のファイル: 作る・上書きしない・読む
     let kp = dir.join("keys").join("signing.key");
     issuer::write_new_key(&kp, &k).unwrap();
-    assert!(issuer::write_new_key(&kp, &key("test-1")).unwrap_err().contains("上書きしません"));
-    assert_eq!(issuer::read_key(&kp).unwrap().public().line(), k.public().line());
+    assert!(issuer::write_new_key(&kp, &key("test-1"))
+        .unwrap_err()
+        .contains("上書きしません"));
+    assert_eq!(
+        issuer::read_key(&kp).unwrap().public().line(),
+        k.public().line()
+    );
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt as _;
-        assert_eq!(std::fs::metadata(&kp).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            std::fs::metadata(&kp).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -231,7 +294,9 @@ fn record_csv_and_batch() {
 fn issuer_refuses_paths_inside_a_repository() {
     // この crate はリポジトリの中にある
     let inside = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("signing.key");
-    assert!(issuer::outside_repository(&inside).unwrap_err().contains("git"));
+    assert!(issuer::outside_repository(&inside)
+        .unwrap_err()
+        .contains("git"));
     assert!(issuer::write_new_key(&inside, &key("test-1")).is_err());
     assert!(!inside.exists());
 }
@@ -239,8 +304,14 @@ fn issuer_refuses_paths_inside_a_repository() {
 #[test]
 fn csv_parsing() {
     let rows = issuer::parse_csv("a,b\r\n\"x,y\",\"q\"\"\"\n\n,last").unwrap();
-    assert_eq!(rows, vec![vec!["a", "b"], vec!["x,y", "q\""], vec!["", "last"]]);
+    assert_eq!(
+        rows,
+        vec![vec!["a", "b"], vec!["x,y", "q\""], vec!["", "last"]]
+    );
     assert!(issuer::parse_csv("\"open").is_err());
-    assert_eq!(issuer::next_id(&["0009".into(), "A-1".into(), "12".into()]), "0013");
+    assert_eq!(
+        issuer::next_id(&["0009".into(), "A-1".into(), "12".into()]),
+        "0013"
+    );
     assert_eq!(issuer::next_id(&[]), "0001");
 }

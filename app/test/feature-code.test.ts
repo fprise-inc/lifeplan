@@ -16,7 +16,7 @@ const panel = (features: FeatureStatus, combinedBs = true) =>
   renderToString(h(OfficeSettingsPanel, { value: { ...DEFAULT_OFFICE_SETTINGS, features: { combinedBs } }, onSave: async () => undefined, shared: false, onClose: () => undefined, features, onAddCode: async () => features, onRemoveCode: async () => features }));
 
 describe("区画の出し方", () => {
-  it("コードを入れていないと、法人の顧問向けの区画を出さない（印が付いたままの古い設定でも）。いちばん下に小さな入れ口だけ", () => {
+  it("コードを入れていないと、法人経営者向けの区画を出さない（印が付いたままの古い設定でも）。いちばん下に小さな入れ口だけ", () => {
     for (const html of [panel(NO_FEATURES, false), panel(NO_FEATURES, true)]) {
       expect(html).not.toContain("data-office-features");
       expect(html).not.toContain("合算BS（経営者個人と会社のバランスシート）を使う");

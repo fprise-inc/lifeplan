@@ -76,7 +76,11 @@ impl Args {
     }
 
     fn only(&self, allowed: &[&str]) -> Result<(), String> {
-        match self.flags.iter().find(|(n, _)| !allowed.contains(&n.as_str())) {
+        match self
+            .flags
+            .iter()
+            .find(|(n, _)| !allowed.contains(&n.as_str()))
+        {
             Some((n, _)) => Err(format!("--{n} はこの命令では使えません")),
             None => Ok(()),
         }
@@ -88,9 +92,9 @@ impl Args {
 }
 
 fn default_path(file: &str) -> Result<PathBuf, String> {
-    issuer::default_dir()
-        .map(|d| d.join(file))
-        .ok_or_else(|| "ホームのフォルダが分かりません。--key・--log で場所を指定してください".into())
+    issuer::default_dir().map(|d| d.join(file)).ok_or_else(|| {
+        "ホームのフォルダが分かりません。--key・--log で場所を指定してください".into()
+    })
 }
 
 fn key_path(a: &Args) -> Result<PathBuf, String> {
@@ -142,7 +146,9 @@ fn run(argv: &[String]) -> Result<(), String> {
             Ok(())
         }
         "issue" => {
-            a.only(&["key", "log", "no-log", "id", "name", "features", "expires", "issued"])?;
+            a.only(&[
+                "key", "log", "no-log", "id", "name", "features", "expires", "issued",
+            ])?;
             let key = issuer::read_key(&key_path(&a)?)?;
             let log = log_path(&a)?;
             let logged = match &log {
@@ -230,7 +236,8 @@ fn run(argv: &[String]) -> Result<(), String> {
             let code = a.rest.first().ok_or("コードを渡してください")?;
             let claims = if a.get("key").is_some() || key_path(&a).is_ok_and(|p| p.exists()) {
                 let key = issuer::read_key(&key_path(&a)?)?;
-                verify(code, &[key.public()]).map_err(|e| format!("コードを確かめられません（{e}）"))?
+                verify(code, &[key.public()])
+                    .map_err(|e| format!("コードを確かめられません（{e}）"))?
             } else {
                 decode_unverified(code).map_err(|e| format!("コードを読めません（{e}）"))?
             };
@@ -245,11 +252,13 @@ fn run(argv: &[String]) -> Result<(), String> {
             let path = key_path(&a)?;
             if path.exists() {
                 let key = issuer::read_key(&path)?;
-                let c = verify(code, &[key.public()]).map_err(|e| format!("この秘密鍵の署名ではありません（{e}）"))?;
+                let c = verify(code, &[key.public()])
+                    .map_err(|e| format!("この秘密鍵の署名ではありません（{e}）"))?;
                 print_claims(&c);
                 println!("署名: この秘密鍵の署名です");
             } else {
-                let c = decode_unverified(code).map_err(|e| format!("コードを読めません（{e}）"))?;
+                let c =
+                    decode_unverified(code).map_err(|e| format!("コードを読めません（{e}）"))?;
                 print_claims(&c);
                 println!("署名: 確かめていません（秘密鍵が見つかりません）");
             }

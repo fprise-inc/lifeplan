@@ -250,9 +250,7 @@ fn claims_problem(c: &Claims) -> Option<String> {
     }
     for (i, f) in c.features.iter().enumerate() {
         if !valid_feature_name(f) || c.features[..i].contains(f) {
-            return Some(format!(
-                "機能の名前「{f}」が正しくないか、重なっています"
-            ));
+            return Some(format!("機能の名前「{f}」が正しくないか、重なっています"));
         }
     }
     let (Some(issued), Some(expires)) = (parse_date(&c.issued), parse_date(&c.expires)) else {
@@ -615,7 +613,9 @@ pub fn add(
         .iter()
         .filter(|c| normalize(c) != n)
         .filter(|c| match view_of(c, keys, t) {
-            Ok(old) => !(old.expires <= v.expires && old.features.iter().all(|f| v.features.contains(f))),
+            Ok(old) => {
+                !(old.expires <= v.expires && old.features.iter().all(|f| v.features.contains(f)))
+            }
             Err(_) => true,
         })
         .cloned()

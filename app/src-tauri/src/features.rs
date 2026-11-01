@@ -67,8 +67,8 @@ pub async fn feature_codes_status(app: AppHandle) -> Result<Status, String> {
 pub async fn feature_code_add(app: AppHandle, code: String) -> Result<Status, String> {
     blocking(app, move |s| {
         let codes = s.feature_codes().map_err(store_code)?;
-        let next = feature_code::add(&codes, &code, &keys(), &today())
-            .map_err(|e| e.code().to_owned())?;
+        let next =
+            feature_code::add(&codes, &code, &keys(), &today()).map_err(|e| e.code().to_owned())?;
         s.set_feature_codes(next).map_err(store_code)?;
         status_of(s)
     })

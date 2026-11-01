@@ -75,7 +75,8 @@ pub fn write_new_key(path: &Path, key: &SecretKey) -> Result<(), String> {
 
 pub fn read_key(path: &Path) -> Result<SecretKey, String> {
     let text = zeroize::Zeroizing::new(
-        fs::read_to_string(path).map_err(|e| format!("秘密鍵 {} を読めません: {e}", path.display()))?,
+        fs::read_to_string(path)
+            .map_err(|e| format!("秘密鍵 {} を読めません: {e}", path.display()))?,
     );
     SecretKey::from_text(&text)
 }
@@ -150,7 +151,8 @@ pub fn logged_ids(log: &Path) -> Result<Vec<String>, String> {
     if !log.exists() {
         return Ok(vec![]);
     }
-    let text = fs::read_to_string(log).map_err(|e| format!("記録 {} を読めません: {e}", log.display()))?;
+    let text =
+        fs::read_to_string(log).map_err(|e| format!("記録 {} を読めません: {e}", log.display()))?;
     let rows = parse_csv(&text)?;
     let Some((head, body)) = rows.split_first() else {
         return Ok(vec![]);
@@ -234,9 +236,12 @@ pub fn read_batch(text: &str) -> Result<Vec<BatchRow>, String> {
         return Err("一覧が空です".into());
     };
     let col = |n: &str| head.iter().position(|h| h.trim() == n);
-    let (Some(name), Some(features), Some(expires)) = (col("name"), col("features"), col("expires"))
+    let (Some(name), Some(features), Some(expires)) =
+        (col("name"), col("features"), col("expires"))
     else {
-        return Err("一覧の見出しの行に name・features・expires の列が要ります（id・issued は任意）".into());
+        return Err(
+            "一覧の見出しの行に name・features・expires の列が要ります（id・issued は任意）".into(),
+        );
     };
     let (id, issued) = (col("id"), col("issued"));
     let get = |r: &[String], i: usize| r.get(i).map(|s| s.trim().to_owned()).unwrap_or_default();
@@ -308,7 +313,9 @@ pub fn issue_batch(
 /// 期限の目安の確かめ（発行日より前・今日より前の期限は道具が止める）
 pub fn expires_problem(expires: &str, today: &str) -> Option<String> {
     let (Some(e), Some(t)) = (parse_date(expires), parse_date(today)) else {
-        return Some(format!("期限「{expires}」は YYYY-MM-DD の形の、ある日付にしてください"));
+        return Some(format!(
+            "期限「{expires}」は YYYY-MM-DD の形の、ある日付にしてください"
+        ));
     };
     (e < t).then(|| format!("期限 {expires} は今日（{today}）より前です"))
 }

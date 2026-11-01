@@ -81,11 +81,16 @@ fn feature_codes_are_kept_encrypted_and_reopen() {
     assert!(s.feature_codes().unwrap().is_empty());
     let codes = vec!["LPFC1-eyJzYW1wbGUiOjF9.c2lnbmF0dXJl".to_owned()];
     s.set_feature_codes(codes.clone()).unwrap();
-    s.set_office_defaults(serde_json::json!({"version": 1})).unwrap();
+    s.set_office_defaults(serde_json::json!({"version": 1}))
+        .unwrap();
     for e in std::fs::read_dir(&root).unwrap() {
         let p = e.unwrap().path();
         if p.is_file() {
-            assert!(!String::from_utf8_lossy(&std::fs::read(&p).unwrap()).contains("LPFC1-"), "{}", p.display());
+            assert!(
+                !String::from_utf8_lossy(&std::fs::read(&p).unwrap()).contains("LPFC1-"),
+                "{}",
+                p.display()
+            );
         }
     }
     drop(s);
@@ -96,8 +101,16 @@ fn feature_codes_are_kept_encrypted_and_reopen() {
     s2.set_office_defaults(serde_json::json!({})).unwrap();
     assert_eq!(s2.feature_codes().unwrap(), codes);
     // 空白・改行を含む・多すぎる・長すぎるものは受けない
-    for bad in [vec!["a b".to_owned()], vec![String::new()], vec!["x".repeat(3000)], vec!["c".to_owned(); 17]] {
-        assert_eq!(s2.set_feature_codes(bad).unwrap_err(), StoreError::FEATURE_CODES);
+    for bad in [
+        vec!["a b".to_owned()],
+        vec![String::new()],
+        vec!["x".repeat(3000)],
+        vec!["c".to_owned(); 17],
+    ] {
+        assert_eq!(
+            s2.set_feature_codes(bad).unwrap_err(),
+            StoreError::FEATURE_CODES
+        );
     }
     assert_eq!(s2.feature_codes().unwrap(), codes);
     s2.set_feature_codes(vec![]).unwrap();
