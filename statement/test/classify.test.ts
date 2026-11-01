@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addRule, bucketsOf, classify, emptyLog, merchantKey, splitByShare, workStyleAt, type ClassifiedRow, type HouseholdLike, type StatementAccount, type StatementLog, type StatementRow } from "../src/index.ts";
+import { addRule, bucketsOf, classify, createImport, emptyLog, merchantKey, readStatement, splitByShare, workStyleAt, type ClassifiedRow, type HouseholdLike, type StatementAccount, type StatementLog, type StatementRow } from "../src/index.ts";
 import { BASE_MONTH, buildLog, CHILD, HOUSEHOLD, SELF, SPOUSE } from "./helpers.ts";
 
 type RowIn = Partial<StatementRow> & { date: string; merchant: string; amount: number };
@@ -166,6 +166,20 @@ describe("カードならではの扱い（二重に数えない）", () => {
     const tv = find(run(log), "カクウデンキ");
     expect(tv.map((r) => r.counted)).toEqual([true, false]);
     expect(tv[1]?.flags).toContain("duplicate");
+  });
+
+  it("支払日が「2026年11月27日」の形でも、月ごとの明細の分割の支払いを二重とみなさない", async () => {
+    let log: StatementLog = { ...emptyLog(), accounts: [{ id: "c", kind: "card", label: "カード", owner: SELF }] };
+    for (const m of ["09", "10", "11"]) {
+      const csv = `利用日,利用店名,支払区分,お支払金額,お支払日\n2026/08/10,架空家電,分割3回,10000,2026年${Number(m)}月27日\n`;
+      const out = await readStatement(new TextEncoder().encode(csv), { kind: "card" });
+      if (!out.ok) throw new Error(JSON.stringify(out.issues));
+      expect(out.rows[0]?.payMonth).toBe(`2026-${m}`);
+      const imp = createImport(log, out, { id: `imp-${m}`, account: "c", at: `2026-${m}-28T00:00:00+09:00` });
+      if (imp === null) throw new Error("同じファイル");
+      log = { ...log, imports: [...log.imports, imp] };
+    }
+    expect(find(run(log), "架空家電").map((r) => r.counted)).toEqual([true, true, true]);
   });
 
   it("同じ取り込みの中の同じ行は別の買い物として数え、別の取り込みの同じ行だけを重ねない", () => {
