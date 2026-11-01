@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import { parse as parseToml } from "smol-toml";
 import { APP_DIR, ENGINE_DIST, REPO_DIR } from "./scripts/lib.ts";
-import { addCode, featureStatus, publicKeys, reference, todayJst } from "./scripts/devFeatureCode.ts";
+import { addCode, applyFetch, featureStatus, publicKeys, reference, revokedIds, todayJst, verifyCode, verifyRevocations } from "./scripts/devFeatureCode.ts";
 
 /**
  * 開発用のサーバーだけの入口（本番のビルドには入らない）: Tauri の外（ふつうのブラウザ・ヘッドレスの Chrome）で画面を確かめるために、
@@ -260,10 +260,64 @@ const devOffice = {
 const devOfficeDefaults: { value: Record<string, unknown> } = { value: {} };
 
 /** 機能を有効にするコード（本体の feature_code_* の代わり。0110）: メモリの中だけ。公開鍵は本体と同じ配布元の設定から読む。
- * 今日は FINANCIA_DEV_TODAY（YYYY-MM-DD）か、開発用の op「featureToday」で変えられる（期限が近い・切れたの見え方を確かめるため） */
-const devFeatureKeys = publicKeys(((parseToml(readFileSync(join(REPO_DIR, "config", "distribution.toml"), "utf8")) as { keys?: { feature_code?: string[] } }).keys?.feature_code ?? []) as string[]);
-const devFeatures: { codes: string[]; today: string | null } = { codes: [], today: /^\d{4}-\d{2}-\d{2}$/.test(process.env.FINANCIA_DEV_TODAY ?? "") ? (process.env.FINANCIA_DEV_TODAY as string) : null };
+ * 今日は FINANCIA_DEV_TODAY（YYYY-MM-DD）か、開発用の op「featureToday」で変えられる（期限が近い・切れたの見え方を確かめるため）。
+ * 止めた一覧（0110 の追記）は、FINANCIA_DEV_FEATURE_REVOCATIONS に書いた手元のファイルを「配信元」とみなして読む（無い・読めないときは「つながらない」）。
+ * 本体と同じく、コードが入っているときだけ、最初に状態を読んだときと1日1回と「今すぐ確かめる」で読む */
+const devDist = parseToml(readFileSync(join(REPO_DIR, "config", "distribution.toml"), "utf8")) as { keys?: { feature_code?: string[]; feature_code_revocation?: string[] } };
+const devFeatureKeys = publicKeys((devDist.keys?.feature_code ?? []) as string[]);
+const devRevocationKeys = publicKeys((devDist.keys?.feature_code_revocation ?? []) as string[]);
+type DevCandidate = { id: string; receivedAt: string; code: string; connector: string | null };
+const devFeatures: { codes: string[]; today: string | null; saved: string | null; checkedAt: string | null; okAt: string | null; result: "ok" | "offline" | "rejected" | null; lastCheckMs: number | null; candidates: DevCandidate[] } = {
+  codes: [],
+  today: /^\d{4}-\d{2}-\d{2}$/.test(process.env.FINANCIA_DEV_TODAY ?? "") ? (process.env.FINANCIA_DEV_TODAY as string) : null,
+  saved: null,
+  checkedAt: null,
+  okAt: null,
+  result: null,
+  lastCheckMs: null,
+  candidates: [],
+};
 const devFeatureToday = () => devFeatures.today ?? todayJst();
+const devRevoked = () => revokedIds(devFeatures.saved, devRevocationKeys);
+/** 止めた一覧を「配信元」（手元のファイル）から取る */
+function devFeatureCheck() {
+  const f = process.env.FINANCIA_DEV_FEATURE_REVOCATIONS ?? "";
+  let fetched: string | null;
+  try {
+    fetched = f === "" ? null : readFileSync(f, "utf8");
+  } catch {
+    fetched = null;
+  }
+  const r = applyFetch(devFeatures.saved, fetched, devRevocationKeys);
+  const now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+  Object.assign(devFeatures, { saved: r.saved, checkedAt: now, result: r.result, lastCheckMs: Date.now(), ...(r.result === "ok" ? { okAt: now } : {}) });
+}
+function devFeatureView() {
+  if (devFeatures.codes.length > 0 && (devFeatures.lastCheckMs === null || Date.now() - devFeatures.lastCheckMs > (devFeatures.result === "ok" ? 24 : 1) * 3600_000)) devFeatureCheck();
+  const today = devFeatureToday();
+  const revoked = devRevoked();
+  const st = featureStatus(devFeatures.codes, devFeatureKeys, today, revoked);
+  const saved = devFeatures.saved === null ? null : verifyRevocations(devFeatures.saved, devRevocationKeys);
+  const candidates = devFeatures.candidates.map((c) => {
+    const v = verifyCode(c.code, devFeatureKeys);
+    const r = addCode(devFeatures.codes, c.code, devFeatureKeys, today, revoked);
+    const after = r.ok ? featureStatus(r.codes, devFeatureKeys, today, revoked).active : st.active;
+    return {
+      id: c.id,
+      receivedAt: c.receivedAt,
+      connector: c.connector,
+      ok: r.ok,
+      error: r.ok ? null : r.error,
+      name: v.ok ? v.claims.name : null,
+      features: v.ok ? v.claims.features : [],
+      expires: v.ok ? (v.claims.expires ?? null) : null,
+      before: st.active,
+      after,
+      replaces: r.ok ? devFeatures.codes.filter((x) => !r.codes.includes(x)).length : 0,
+    };
+  });
+  return { ...st, check: { checkedAt: devFeatures.checkedAt, okAt: devFeatures.okAt, result: devFeatures.result, serial: saved !== null && saved.ok ? saved.list.serial : null, listed: devRevoked().length }, candidates };
+}
 
 function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?: unknown } | { ok: false; code: string } {
   const o = devOffice;
@@ -424,23 +478,41 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
       return { ok: true, value: null };
     }
     case "featureStatus":
-      return { ok: true, value: featureStatus(devFeatures.codes, devFeatureKeys, devFeatureToday()) };
+      return { ok: true, value: devFeatureView() };
     case "featureAdd": {
-      const r = addCode(devFeatures.codes, String(a.code ?? ""), devFeatureKeys, devFeatureToday());
+      const r = addCode(devFeatures.codes, String(a.code ?? ""), devFeatureKeys, devFeatureToday(), devRevoked());
       if (!r.ok) return { ok: false, code: r.error };
       devFeatures.codes = r.codes;
-      return { ok: true, value: featureStatus(devFeatures.codes, devFeatureKeys, devFeatureToday()) };
+      devFeatures.lastCheckMs = null;
+      return { ok: true, value: devFeatureView() };
     }
     case "featureRemove": {
       const next = devFeatures.codes.filter((c) => reference(c) !== String(a.ref ?? ""));
       if (next.length === devFeatures.codes.length) return { ok: false, code: "E_FEATURE_CODE_NOT_FOUND" };
       devFeatures.codes = next;
-      return { ok: true, value: featureStatus(devFeatures.codes, devFeatureKeys, devFeatureToday()) };
+      return { ok: true, value: devFeatureView() };
+    }
+    case "featureCheck":
+      // 本体の feature_codes_check の代わり（本体は裏で取りに行く。ここではすぐ読む）
+      if (devFeatures.codes.length > 0) devFeatureCheck();
+      return { ok: true, value: devFeatureView() };
+    case "featureCandidateDecide": {
+      // 本体の feature_code_candidate_decide の代わり（入れられないコードは候補を残して符号を返す）
+      const c = devFeatures.candidates.find((x) => x.id === a.id);
+      if (c === undefined) return { ok: false, code: "E_FEATURE_CODE_CANDIDATE_UNKNOWN" };
+      if (a.accept === true) {
+        const r = addCode(devFeatures.codes, c.code, devFeatureKeys, devFeatureToday(), devRevoked());
+        if (!r.ok) return { ok: false, code: r.error };
+        devFeatures.codes = r.codes;
+        devFeatures.lastCheckMs = null;
+      }
+      devFeatures.candidates = devFeatures.candidates.filter((x) => x !== c);
+      return { ok: true, value: devFeatureView() };
     }
     case "featureToday":
       // 開発用のサーバーだけ: 期限の判定に使う今日を変える（空なら PC の今日）
       devFeatures.today = typeof a.today === "string" && /^\d{4}-\d{2}-\d{2}$/.test(a.today) ? a.today : null;
-      return { ok: true, value: featureStatus(devFeatures.codes, devFeatureKeys, devFeatureToday()) };
+      return { ok: true, value: devFeatureView() };
     case "moveLocal":
       return { ok: true, value: o.state === "member" ? devStore.households.size : 0 };
     case "reset":
@@ -496,7 +568,8 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
 /**
  * 開発用のサーバーの AI接続口（本体の ai_* の代わり。メモリの中だけ）。画面の確かめ用で、本物の受け口は開けない。
  * 決まり（既定はオフ・同意が無ければ渡さない・撤回で共有を止める・候補は判断を1回だけ）は本体（ai-share）と同じにしてある。
- * `/__dev/ai/simulate?kind=read|propose` で、AI からの読み取り・プランの候補が届いたことにする
+ * `/__dev/ai/simulate?kind=read|propose` で、AI からの読み取り・プランの候補が届いたことにする。
+ * `/__dev/ai/proposeFeatureCode`（POST {code}）で、機能を有効にするコードの候補が届いたことにする
  */
 const devAi = {
   enabled: false,
@@ -551,13 +624,28 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
           ],
           durations: [15, 60, 120, 240, 480],
           dev: true,
+          featureCodeCandidates: devFeatures.candidates.length,
         },
       };
     }
     case "setEnabled":
       devAi.enabled = a.enabled === true;
-      if (!devAi.enabled) end("revoked");
+      if (!devAi.enabled) {
+        end("revoked");
+        devFeatures.candidates = [];
+      }
       return devAiOp("status", {});
+    case "proposeFeatureCode": {
+      // 接続口の propose_feature_code が届いたことにする（本体の受け口と同じ決まり: AI接続口がオンのときだけ・形だけ見る・同じコードはまとめる・4件まで）
+      if (!devAi.enabled) return { ok: false, code: "E_AI_OFF" };
+      const code = String(a.code ?? "").replace(/\s+/g, "");
+      if (code.length > 2048 || !/^LPFC1-[A-Za-z0-9_.-]+$/.test(code)) return { ok: false, code: "INVALID" };
+      if (!devFeatures.candidates.some((c) => c.code === code)) {
+        if (devFeatures.candidates.length >= 4) return { ok: false, code: "INVALID" };
+        devFeatures.candidates.push({ id: crypto.randomUUID(), receivedAt: now, code, connector: "dev-client 1.0" });
+      }
+      return { ok: true, value: { status: "pendingReview" } };
+    }
     case "copySetup":
       return { ok: true, value: false };
     case "household":

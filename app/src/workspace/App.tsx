@@ -28,6 +28,7 @@ import { colorStyle, PLAN_COLORS } from "../presentation/planLines.tsx";
 import { AiCandidates } from "./ai/AiCandidates.tsx";
 import { AiConnectorPanel } from "./ai/AiConnectorPanel.tsx";
 import { AiShareBand } from "./ai/AiShareBand.tsx";
+import { AiCodeCandidateBand } from "./ai/AiCodeCandidateBand.tsx";
 import { AiSharePanel } from "./ai/AiSharePanel.tsx";
 import { acceptCandidate as acceptAiCandidate, aiMessage, candidatePlanName, candidateRows, candidateValues, shareState, SHARE_STATE_TEXT } from "./ai/model.ts";
 import { AI_POLL_MS, useAi } from "./ai/useAi.ts";
@@ -112,6 +113,9 @@ import { EMPTY_LOCAL, feedKey, householdKey, localDate, markRead, parseFeed, rea
 import { FeedbackPanel } from "./notices/FeedbackPanel.tsx";
 import { addReceipt, osName } from "./notices/receipts.ts";
 import { TopBar } from "./header/TopBar.tsx";
+
+/** 機能を有効にするコードの状態を読み直す間隔（提供元が止めた・外したを、本体の裏の確かめのあとに画面へ出す） */
+const FEATURE_POLL_MS = 60_000;
 
 type Tab = "input" | "main" | "balance" | "rental" | "contingency" | "report";
 /** FP のメニューから開く、入力のホームの中身 */
@@ -1521,6 +1525,15 @@ export function App() {
   );
   // ---- AI接続口（0014・0015）: 状態と世帯の記録は本体から読む。AIからの候補は FP が承認したときだけプランになる ----
   const ai = useAi(host?.ai ?? null, storeStatus?.state === "ready", storedInfo?.id ?? null);
+  // 機能を有効にするコード（0110 の追記）: 提供元が止めたかの確かめは本体の裏で行うので、状態を1分ごとに読み直す。
+  // AIからコードの候補が届いた・減ったときもすぐ読み直す（候補の中身は featureStatus に入る）
+  const codeCandidates = ai.status?.featureCodeCandidates ?? 0;
+  useEffect(() => {
+    if (host === null || storeStatus?.state !== "ready") return;
+    void host.office.featureStatus().then(putFeatureStatus, () => undefined);
+    const t = setInterval(() => void host.office.featureStatus().then(putFeatureStatus, () => undefined), FEATURE_POLL_MS);
+    return () => clearInterval(t);
+  }, [host, storeStatus?.state, codeCandidates]);
   // 「○分前から」（開いている人の表示）は描くときの時刻で書くので、出している間は AI の読み直しと同じ間隔で描き直す
   // （AI の状態は中身が変わらなければ置き直さず、画面全体を描き直さないので、それに頼らない）
   const [, setSinceClock] = useState(0);
@@ -2271,6 +2284,7 @@ export function App() {
         onBig={setBig}
       />
       <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
+      <AiCodeCandidateBand count={officeSettingsOpen ? 0 : (ai.status?.featureCodeCandidates ?? 0)} onOpen={() => setOfficeSettingsOpen(true)} />
       <main class="wrap">
         {presence !== null && storedInfo !== null ? (
           <div class="presence-band" role="status" data-presence-band>
@@ -2939,6 +2953,27 @@ export function App() {
           onRemoveCode={async (ref) => {
             const st = await host.office.removeFeatureCode(ref);
             putFeatureStatus(st);
+            return st;
+          }}
+          onCheckCodes={async () => {
+            const st = await host.office.checkFeatureCodes();
+            putFeatureStatus(st);
+            // 確かめは本体の裏で行う（結果は少しあとに読み直す）
+            setTimeout(() => void host.office.featureStatus().then(putFeatureStatus, () => undefined), 3000);
+            return st;
+          }}
+          onDecideCandidate={async (id, accept) => {
+            const before = featureStatusRef.current;
+            const st = await host.office.decideFeatureCandidate(id, accept);
+            putFeatureStatus(st);
+            void ai.refresh();
+            // AIからの候補を入れて新しく使えるようになった機能も、事務所の設定の印を付ける（コードを入れ口から入れたときと同じ）
+            const cur = officeSettingsRef.current;
+            if (accept && featureOn(st, "combinedBs") && !featureOn(before, "combinedBs") && !cur.features.combinedBs) {
+              const next: OfficeSettings = { ...cur, features: { ...cur.features, combinedBs: true } };
+              await host.office.putDefaults(next as unknown as Record<string, unknown>);
+              putOfficeSettings(next);
+            }
             return st;
           }}
         />

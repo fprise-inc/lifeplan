@@ -264,3 +264,75 @@ async fn second_app_cannot_take_over_a_running_one() {
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// 機能を有効にするコードの候補（0015 の追記の2段目）: 世帯を渡していなくても出せる。承認待ちに入るだけで、形の違うものは INVALID。
+/// 同じコードは1つにまとめ、承認待ちは4件まで
+#[tokio::test(flavor = "multi_thread")]
+async fn feature_code_candidates_wait_for_the_fp() {
+    let dir = temp_dir("fc");
+    let reg = Arc::new(ShareRegistry::new());
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    let propose = |code: &str| {
+        let dir = dir.clone();
+        let code = code.to_owned();
+        async move { call_app(&dir, &hello(), Request::ProposeFeatureCode { code }).await }
+    };
+    let got = propose("LPFC1-eyJ2IjoyfQ\n.c2ln").await.unwrap();
+    let v: Value = serde_json::from_str(&got).unwrap();
+    assert_eq!(v["status"], "pendingReview");
+    assert!(v["message"]
+        .as_str()
+        .unwrap()
+        .contains("この道具ではコードは入りません"));
+    let list = reg.feature_code_candidates();
+    assert_eq!(list.len(), 1);
+    // 空白・改行を外して持つ。名乗った名前は自己申告として残す
+    assert_eq!(list[0].code, "LPFC1-eyJ2IjoyfQ.c2ln");
+    assert_eq!(list[0].connector.as_deref(), Some("test-client 1"));
+    // 同じコードはまとめる
+    let again: Value =
+        serde_json::from_str(&propose(" LPFC1-eyJ2IjoyfQ.c2ln ").await.unwrap()).unwrap();
+    assert_eq!(again["candidateId"], v["candidateId"]);
+    assert_eq!(reg.feature_code_candidates().len(), 1);
+    // 形の違うもの
+    for bad in [
+        "",
+        "hello",
+        "LPFC1-",
+        "LPFC1-<script>",
+        &format!("LPFC1-{}", "A".repeat(3000)),
+    ] {
+        let e = propose(bad).await.unwrap_err();
+        assert!(
+            matches!(
+                &e,
+                AppError::Refused {
+                    code: ErrorCode::Invalid,
+                    ..
+                }
+            ),
+            "{bad:.20}: {e:?}"
+        );
+    }
+    // 4件まで
+    for i in 0..3 {
+        propose(&format!("LPFC1-x{i}.y")).await.unwrap();
+    }
+    let e = propose("LPFC1-x9.y").await.unwrap_err();
+    assert!(matches!(
+        e,
+        AppError::Refused {
+            code: ErrorCode::Invalid,
+            ..
+        }
+    ));
+    // FPが画面で判断すると外れる（入れるのはアプリ本体）
+    let id = reg.feature_code_candidates()[0].candidate_id.clone();
+    assert!(reg.take_feature_code_candidate(&id).is_some());
+    assert!(reg.take_feature_code_candidate(&id).is_none());
+    assert_eq!(reg.feature_code_candidates().len(), 3);
+    reg.clear_feature_code_candidates();
+    assert!(reg.feature_code_candidates().is_empty());
+    ep.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}

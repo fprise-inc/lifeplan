@@ -42,6 +42,11 @@ ai-share = { path = "../../crates/ai-share" }
 ai-ipc = { path = "../../crates/ai-ipc" }
 # 0110: 機能を有効にするコード（提供元の署名を、埋め込んだ公開鍵で確かめる。ネットにはつながない）
 feature-code = { path = "../../crates/feature-code" }
+# 0110 の追記・0017 の4: 配信元の「止めた一覧」を取りに行く HTTP の部品（本体だけが通信する。画面には HTTP の権限を与えない）。
+# reqwest は Tauri が既に使っている版。TLS は rustls（暗号は ring）で、証明書は OS の仕組みで確かめる（rustls-platform-verifier）。
+# クッキー・プロキシ・圧縮・HTTP/2 は入れない（既定の機能を外す）
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 
 [profile.dev.package."*"]
 # 開発用の起動（npx tauri dev）でも、依存の crate（Typst の組版・PDF・画像など）は最適化する。

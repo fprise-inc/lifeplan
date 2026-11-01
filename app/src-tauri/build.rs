@@ -73,6 +73,9 @@ const COMMANDS: &[&str] = &[
     "feature_codes_status",
     "feature_code_add",
     "feature_code_remove",
+    // 0110 の追記: 止めた一覧を今すぐ確かめる・AIからのコードの候補を入れるか捨てる（0015 の追記の2段目）
+    "feature_codes_check",
+    "feature_code_candidate_decide",
     "store_fork_info",
     "store_fork_resolve",
     "store_sync_copies_resolve",
@@ -144,65 +147,95 @@ fn feedback_form(toml: &str) -> String {
     panic!("config/distribution.toml に [feedback] の form がありません");
 }
 
-/// 配布元の設定の `[keys]` の `feature_code`（機能を有効にするコードの公開鍵。0110）。1行の配列（`feature_code = ["鍵の名前:公開鍵", …]`）だけを読む。
-/// 形（鍵の名前は英小文字・数字・「-」、公開鍵は 32バイトの base64url の43文字）を確かめる。中身の鍵としての確かめは本体の起動のとき
-fn feature_code_keys(toml: &str) -> Vec<String> {
+/// 配布元の設定の `[section]` の `name = …` の値（右辺の文字列のまま）。TOML の部品は入れず、1行の形だけを読む。
+/// 名前はちょうど同じものだけ（`feature_code` と `feature_code_revocation` を取り違えない）
+fn toml_value<'a>(toml: &'a str, section: &str, name: &str) -> Option<&'a str> {
     let mut in_section = false;
     for line in toml.lines() {
         let t = line.trim();
         if t.starts_with('[') {
-            in_section = t == "[keys]";
+            in_section = t == format!("[{section}]");
             continue;
         }
         if !in_section {
             continue;
         }
-        let Some(rest) = t.strip_prefix("feature_code") else {
+        let Some((k, v)) = t.split_once('=') else {
             continue;
         };
-        let v = rest
-            .trim_start()
-            .strip_prefix('=')
-            .map(str::trim)
-            .unwrap_or("");
-        let inner = v
-            .strip_prefix('[')
-            .and_then(|x| x.strip_suffix(']'))
-            .unwrap_or_else(|| {
-                panic!("config/distribution.toml: [keys] の feature_code は1行の [\"…\"] で書く")
-            });
-        let keys: Vec<String> = inner
-            .split(',')
-            .map(str::trim)
-            .filter(|x| !x.is_empty())
-            .map(|x| {
-                x.strip_prefix('"')
-                    .and_then(|y| y.strip_suffix('"'))
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "config/distribution.toml: [keys] の feature_code の値は \"…\" で書く"
-                        )
-                    })
-                    .to_owned()
-            })
-            .collect();
-        for k in &keys {
-            let ok = k.split_once(':').is_some_and(|(kid, b)| {
-                (1..=16).contains(&kid.len())
-                    && kid
-                        .bytes()
-                        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
-                    && b.len() == 43
-                    && b.bytes()
-                        .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
-            });
-            if !ok {
-                panic!("config/distribution.toml: [keys] の feature_code の {k:?} は「鍵の名前:公開鍵（base64url の43文字）」の形にする");
-            }
+        if k.trim() == name {
+            return Some(v.trim());
         }
-        return keys;
     }
-    vec![]
+    None
+}
+
+/// 配布元の設定の `[keys]` の公開鍵の並び（`name = ["鍵の名前:公開鍵", …]` の1行の配列）。0110 の機能を有効にするコード（`feature_code`）と、
+/// その止めた一覧（`feature_code_revocation`）。形（鍵の名前は英小文字・数字・「-」、公開鍵は 32バイトの base64url の43文字）を確かめる。
+/// 中身の鍵としての確かめは本体の起動のとき
+fn key_list(toml: &str, name: &str) -> Vec<String> {
+    let Some(v) = toml_value(toml, "keys", name) else {
+        return vec![];
+    };
+    let inner = v
+        .strip_prefix('[')
+        .and_then(|x| x.strip_suffix(']'))
+        .unwrap_or_else(|| {
+            panic!("config/distribution.toml: [keys] の {name} は1行の [\"…\"] で書く")
+        });
+    let keys: Vec<String> = inner
+        .split(',')
+        .map(str::trim)
+        .filter(|x| !x.is_empty())
+        .map(|x| {
+            x.strip_prefix('"')
+                .and_then(|y| y.strip_suffix('"'))
+                .unwrap_or_else(|| {
+                    panic!("config/distribution.toml: [keys] の {name} の値は \"…\" で書く")
+                })
+                .to_owned()
+        })
+        .collect();
+    for k in &keys {
+        let ok = k.split_once(':').is_some_and(|(kid, b)| {
+            (1..=16).contains(&kid.len())
+                && kid
+                    .bytes()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
+                && b.len() == 43
+                && b.bytes()
+                    .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+        });
+        if !ok {
+            panic!("config/distribution.toml: [keys] の {name} の {k:?} は「鍵の名前:公開鍵（base64url の43文字）」の形にする");
+        }
+    }
+    keys
+}
+
+/// 配布元の設定の `[endpoints]` の `host` と、止めた一覧の URL（0110 の追記）。URL は https で、host のものだけ。クエリ・転送の印は付けない
+fn revocations_endpoint(toml: &str) -> (String, String) {
+    let unquote = |name: &str| {
+        let v = toml_value(toml, "endpoints", name).unwrap_or_else(|| {
+            panic!("config/distribution.toml に [endpoints] の {name} がありません")
+        });
+        v.strip_prefix('"')
+            .and_then(|x| x.strip_suffix('"'))
+            .unwrap_or_else(|| {
+                panic!("config/distribution.toml: [endpoints] の {name} は \"…\" で書く")
+            })
+            .to_owned()
+    };
+    let host = unquote("host");
+    let url = unquote("feature_code_revocations");
+    let rest = url.strip_prefix("https://").unwrap_or_else(|| {
+        panic!("config/distribution.toml: [endpoints] の feature_code_revocations は https:// で始める")
+    });
+    let (h, path) = rest.split_once('/').unwrap_or((rest, ""));
+    if h != host || path.is_empty() || url.contains(['?', '#', '@', '\\', ' ']) {
+        panic!("config/distribution.toml: [endpoints] の feature_code_revocations は https://{host}/… の形にする（ほかのホスト・クエリは使わない）");
+    }
+    (host, url)
 }
 
 fn main() {
@@ -258,13 +291,19 @@ fn main() {
     )
     .unwrap();
 
-    // 0110: 機能を有効にするコードの公開鍵（config/distribution.toml の [keys] の feature_code から写す）
+    // 0110: 機能を有効にするコードの公開鍵（config/distribution.toml の [keys] の feature_code から写す）と、
+    // 止めた一覧の公開鍵（feature_code_revocation）・場所（[endpoints] の feature_code_revocations）・自動通信の相手のホスト（host）
     let toml = std::fs::read_to_string(&dist).unwrap();
+    let (host, url) = revocations_endpoint(&toml);
     std::fs::write(
         out_dir.join("feature_keys.rs"),
         format!(
-            "/// 機能を有効にするコードの公開鍵（config/distribution.toml の [keys] の feature_code。「鍵の名前:公開鍵」）\npub const FEATURE_CODE_KEYS: &[&str] = &{:?};\n",
-            feature_code_keys(&toml)
+            "/// 機能を有効にするコードの公開鍵（config/distribution.toml の [keys] の feature_code。「鍵の名前:公開鍵」）\npub const FEATURE_CODE_KEYS: &[&str] = &{:?};\n\
+             /// 止めた一覧の公開鍵（config/distribution.toml の [keys] の feature_code_revocation）\npub const FEATURE_REVOCATION_KEYS: &[&str] = &{:?};\n\
+             /// 止めた一覧の場所（config/distribution.toml の [endpoints] の feature_code_revocations）\npub const FEATURE_REVOCATIONS_URL: &str = {url:?};\n\
+             /// 自動通信の相手のホスト（config/distribution.toml の [endpoints] の host。0017 の4）\npub const DISTRIBUTION_HOST: &str = {host:?};\n",
+            key_list(&toml, "feature_code"),
+            key_list(&toml, "feature_code_revocation"),
         ),
     )
     .unwrap();

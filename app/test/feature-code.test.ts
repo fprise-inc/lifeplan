@@ -6,14 +6,14 @@ import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { OfficeSettingsPanel } from "../src/workspace/office/OfficeSettingsPanel.tsx";
 import { DEFAULT_OFFICE_SETTINGS } from "../src/workspace/office/settings.ts";
-import { codeFor, combinedHiddenText, enabledLine, expiredFor, featureErrorText, featureOn, NO_FEATURES, renewText, type FeatureCodeView, type FeatureStatus } from "../src/workspace/office/featureCodes.ts";
+import { candidateChange, checkText, codeFor, combinedHiddenText, enabledLine, expiredFor, expiredText, featureErrorText, featureOn, NO_FEATURES, renewText, type FeatureCandidateView, type FeatureCodeView, type FeatureStatus } from "../src/workspace/office/featureCodes.ts";
 import { balanceTabModel } from "../src/workspace/balanceTab.ts";
-import { addCode, featureStatus, publicKeys, reference, todayJst } from "../scripts/devFeatureCode.ts";
+import { addCode, applyFetch, featureStatus, publicKeys, reference, revokedIds, todayJst } from "../scripts/devFeatureCode.ts";
 
 const code = (over: Partial<FeatureCodeView> = {}): FeatureCodeView => ({ ref: "r1", id: "0001", name: "見本 花子", features: ["combinedBs"], issued: "2026-11-01", expires: "2027-05-31", state: "active", daysLeft: 211, ...over });
-const st = (codes: FeatureCodeView[]): FeatureStatus => ({ today: "2026-11-01", active: codes.some((c) => c.state !== "expired") ? ["combinedBs"] : [], codes, invalid: [] });
+const st = (codes: FeatureCodeView[], more: Partial<FeatureStatus> = {}): FeatureStatus => ({ today: "2026-11-01", active: codes.some((c) => c.state === "active" || c.state === "expiring") ? ["combinedBs"] : [], codes, invalid: [], ...more });
 const panel = (features: FeatureStatus, combinedBs = true) =>
-  renderToString(h(OfficeSettingsPanel, { value: { ...DEFAULT_OFFICE_SETTINGS, features: { combinedBs } }, onSave: async () => undefined, shared: false, onClose: () => undefined, features, onAddCode: async () => features, onRemoveCode: async () => features }));
+  renderToString(h(OfficeSettingsPanel, { value: { ...DEFAULT_OFFICE_SETTINGS, features: { combinedBs } }, onSave: async () => undefined, shared: false, onClose: () => undefined, features, onAddCode: async () => features, onRemoveCode: async () => features, onCheckCodes: async () => features, onDecideCandidate: async () => features }));
 
 describe("区画の出し方", () => {
   it("コードを入れていないと、法人経営者向けの区画を出さない（印が付いたままの古い設定でも）。いちばん下に小さな入れ口だけ", () => {
@@ -117,5 +117,121 @@ describe("開発用のサーバーの代わりの確かめ（本体と同じ形�
   it("日本の今日（UTC+9）", () => {
     expect(todayJst(Date.parse("2026-11-01T14:59:59Z"))).toBe("2026-11-01");
     expect(todayJst(Date.parse("2026-11-01T15:00:00Z"))).toBe("2026-11-02");
+  });
+});
+
+describe("期限なしのコードと、提供元が止めたコード（0110 の追記）", () => {
+  it("期限なしのコードは「期限なし」と出し、更新の知らせを出さない", () => {
+    const c = code({ expires: null, daysLeft: null });
+    expect(enabledLine(c)).toBe("見本 花子さん向けに有効（期限なし）");
+    expect(renewText(c)).toBeNull();
+    // 期限なしがいちばん遅い
+    expect(codeFor(st([code({ ref: "r2" }), c]), "combinedBs")?.ref).toBe("r1");
+    expect(panel(st([c]))).toContain("期限なし");
+  });
+
+  it("止めたコードは区画を出さず、データは消さない旨と、止めるのをやめれば自動で戻ることを知らせる", () => {
+    const c = code({ state: "revoked", expires: null, daysLeft: null });
+    const s = st([c]);
+    expect(featureOn(s, "combinedBs")).toBe(false);
+    expect(expiredFor(s, "combinedBs")).toEqual(c);
+    expect(expiredText(c)).toContain("提供元が止めました");
+    expect(expiredText(c)).toContain("消していません");
+    expect(expiredText(c)).toContain("自動で戻ります");
+    expect(combinedHiddenText(c)).toContain("提供元が止めた");
+    const html = panel(s);
+    expect(html).not.toContain("data-office-features");
+    expect(html).toContain("data-feature-revoked");
+    // 止めた・切れたの両方があれば、止めた方を知らせる
+    expect(expiredFor(st([code({ ref: "r2", state: "expired", daysLeft: -3 }), c]), "combinedBs")?.state).toBe("revoked");
+  });
+
+  it("止めた一覧の確かめの様子（コードを入れている FP にだけ出す）", () => {
+    expect(checkText(undefined)).toBeNull();
+    expect(checkText({ checkedAt: null, okAt: null, result: null, serial: null, listed: 0 })).toContain("まだ確かめていません");
+    expect(checkText({ checkedAt: "2026-11-01T03:00:00Z", okAt: "2026-11-01T03:00:00Z", result: "ok", serial: 2, listed: 1 })).toBe("提供元が止めたコードの一覧は 2026-11-01 に確かめました。");
+    // 日本の日付で出す（UTC の 15時は翌日）
+    expect(checkText({ checkedAt: "2026-11-01T15:00:00Z", okAt: "2026-11-01T15:00:00Z", result: "ok", serial: 2, listed: 1 })).toContain("2026-11-02");
+    const off = checkText({ checkedAt: "2026-11-03T00:00:00Z", okAt: "2026-10-30T00:00:00Z", result: "offline", serial: 2, listed: 1 }) ?? "";
+    expect(off).toContain("つながりませんでした");
+    expect(off).toContain("2026-10-30 に取れた一覧");
+    expect(off).toContain("今の状態のまま");
+    expect(checkText({ checkedAt: "2026-11-03T00:00:00Z", okAt: null, result: "offline", serial: null, listed: 0 })).toContain("どのコードも止めていません");
+    expect(checkText({ checkedAt: "2026-11-03T00:00:00Z", okAt: null, result: "rejected", serial: null, listed: 0 })).toContain("署名ではなかった");
+    const check = { checkedAt: "2026-11-01T03:00:00Z", okAt: "2026-11-01T03:00:00Z", result: "ok" as const, serial: 2, listed: 1 };
+    expect(panel(st([code()], { check }))).toContain("data-feature-check-now");
+    // コードを入れていなければ出さない
+    expect(panel({ ...NO_FEATURES, check })).not.toContain("data-feature-check");
+    expect(featureErrorText("E_FEATURE_CODE_REVOKED")).toContain("提供元が止めて");
+  });
+
+  it("AIからのコードの候補: 入れる前と後を並べ、押すまで入らない", () => {
+    const cand: FeatureCandidateView = { id: "c1", receivedAt: "2026-11-01T03:00:00Z", connector: "test-ai 1", ok: true, error: null, name: "見本 花子", features: ["combinedBs"], expires: null, before: [], after: ["combinedBs"], replaces: 0 };
+    expect(candidateChange(cand)).toEqual([{ feature: "合算BS（経営者個人と会社のバランスシート）", before: false, after: true }]);
+    const html = panel({ ...NO_FEATURES, candidates: [cand] });
+    expect(html).toContain("data-feature-candidate=\"c1\"");
+    expect(html).toContain("このコードを入れる");
+    expect(html).toContain("捨てる");
+    expect(html).toContain("使えない");
+    expect(html).toContain("見本 花子さん向け・期限なし");
+    expect(html).toContain("確かめられない参考の情報");
+    // まだ入っていないので、区画は出さない
+    expect(html).not.toContain("data-office-features");
+    // 入れられない候補は「入れる」を出さず、理由と「捨てる」だけ
+    const bad = panel({ ...NO_FEATURES, candidates: [{ ...cand, ok: false, error: "E_FEATURE_CODE_SIGNATURE", name: null, after: [] }] });
+    expect(bad).toContain("data-feature-candidate-error");
+    expect(bad).not.toContain("data-feature-candidate-accept");
+    expect(bad).toContain("data-feature-candidate-reject");
+  });
+});
+
+describe("開発用のサーバーの代わりの止めた一覧（本体と同じ形）", () => {
+  const ck = generateKeyPairSync("ed25519");
+  const rk = generateKeyPairSync("ed25519");
+  const rawOf = (k: typeof ck) => (k.publicKey.export({ format: "der", type: "spki" }) as Buffer).subarray(12).toString("base64url");
+  const keys = publicKeys([`test-1:${rawOf(ck)}`]);
+  const rkeys = publicKeys([`rv-1:${rawOf(rk)}`]);
+  const issue = (claims: Record<string, unknown>) => {
+    const payload = Buffer.from(JSON.stringify({ v: 2, kid: "test-1", id: "0001", name: "見本 花子", features: ["combinedBs"], issued: "2026-11-01", ...claims }), "utf8");
+    const sig = sign(null, Buffer.concat([Buffer.from("lifeplan-feature-code/1\0", "utf8"), payload]), ck.privateKey);
+    return `LPFC1-${payload.toString("base64url")}.${sig.toString("base64url")}`;
+  };
+  const list = (serial: number, revoked: string[], key = rk.privateKey, kid = "rv-1") => {
+    const payload = JSON.stringify({ v: 1, serial, issued: "2026-11-01", revoked });
+    const sig = sign(null, Buffer.concat([Buffer.from("lifeplan-feature-code-revocations/1\0", "utf8"), Buffer.from(payload, "utf8")]), key);
+    return JSON.stringify({ format: "lifeplan-feature-code-revocations", kid, payload, sig: sig.toString("base64url") });
+  };
+
+  it("期限なしのコードは切れない。版 1 で期限の無いものは形が違う", () => {
+    const c = issue({});
+    const r = addCode([], c, keys, "2026-11-01");
+    expect(r.ok).toBe(true);
+    expect(featureStatus([c], keys, "2999-12-31").active).toEqual(["combinedBs"]);
+    expect(featureStatus([c], keys, "2999-12-31").codes[0]?.expires).toBeNull();
+    expect(addCode([], issue({ v: 1 }), keys, "2026-11-01")).toEqual({ ok: false, error: "E_FEATURE_CODE_FORMAT" });
+  });
+
+  it("一覧に載ると止まり、外れると戻る。つながらない・署名が合わない・古い一覧は無視する", () => {
+    const c = issue({});
+    let saved: string | null = null;
+    // 一度も取れていない: 止めない
+    expect(featureStatus([c], keys, "2026-11-01", revokedIds(saved, rkeys)).active).toEqual(["combinedBs"]);
+    let r = applyFetch(saved, list(1, ["0001"]), rkeys);
+    expect(r.result).toBe("ok");
+    saved = r.saved;
+    const stopped = featureStatus([c], keys, "2026-11-01", revokedIds(saved, rkeys));
+    expect(stopped.active).toEqual([]);
+    expect(stopped.codes[0]?.state).toBe("revoked");
+    expect(addCode([], c, keys, "2026-11-01", revokedIds(saved, rkeys))).toEqual({ ok: false, error: "E_FEATURE_CODE_REVOKED" });
+    // つながらない・偽の一覧・古い一覧: 止まったまま
+    for (const f of [null, list(2, [], ck.privateKey), "<html>", list(0, [])]) {
+      r = applyFetch(saved, f, rkeys);
+      expect(r.saved).toBe(saved);
+      expect(r.result).toBe(f === null ? "offline" : "rejected");
+    }
+    // 外した一覧: 戻る
+    r = applyFetch(saved, list(2, []), rkeys);
+    expect(r.result).toBe("ok");
+    expect(featureStatus([c], keys, "2026-11-01", revokedIds(r.saved, rkeys)).active).toEqual(["combinedBs"]);
   });
 });

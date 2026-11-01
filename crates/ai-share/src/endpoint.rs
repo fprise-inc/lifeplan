@@ -171,6 +171,9 @@ async fn serve(
             Request::Propose { share_id, proposal } => {
                 registry.handle_propose(share_id, proposal, &caller)
             }
+            Request::ProposeFeatureCode { code } => {
+                registry.handle_propose_feature_code(code, &caller)
+            }
         };
         let resp = match result {
             Ok(json) => Response::ok(env.id, json),

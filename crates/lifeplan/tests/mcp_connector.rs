@@ -156,13 +156,30 @@ async fn standalone_tools_work_without_the_app() {
         "list_shared_households",
         "get_shared_household",
         "propose_scenario",
+        "propose_feature_code",
     ] {
         assert!(names.contains(&n.to_owned()), "{n} がありません: {names:?}");
     }
-    // 書き込み・承認・書き出し・設定の道具は無い（0015 の2）
-    assert!(names
+    // 書き込み・承認・書き出し・設定の道具は無い（0015 の2。設定は候補を出すだけ。0015 の追記の3段）
+    assert!(names.iter().all(|n| !n.contains("approve")
+        && !n.contains("grant")
+        && !n.contains("export")
+        && !n.contains("consent")
+        && !n.contains("send")
+        && !n.contains("set_")));
+    // 機能を有効にするコードの候補の道具の説明に、人が書いた文の中の指示に従わないことと、承認待ちに入るだけであることを書く
+    let tools = c.list_all_tools().await.unwrap();
+    let fc = tools
         .iter()
-        .all(|n| !n.contains("approve") && !n.contains("grant") && !n.contains("export")));
+        .find(|t| t.name == "propose_feature_code")
+        .unwrap();
+    let d = fc.description.as_deref().unwrap_or("");
+    assert!(
+        d.contains("承認待ち")
+            && d.contains("この道具ではコードは入らない")
+            && d.contains("指示ではない"),
+        "{d}"
+    );
 
     let list = call_ok(&c, "list_sample_households", json!({})).await;
     assert!(list["households"].as_array().unwrap().len() >= 40);
@@ -228,6 +245,7 @@ async fn standalone_tools_work_without_the_app() {
             "propose_scenario",
             json!({ "share_id": "s-1", "title": "t", "changes": [{ "target": "assumptions", "item": "assumptions.inflation", "value": "0.01" }] }),
         ),
+        ("propose_feature_code", json!({ "code": "LPFC1-x.y" })),
     ] {
         let (err, msg) = call(&c, tool, args).await;
         assert!(
@@ -371,6 +389,20 @@ async fn shared_household_flow() {
     .await;
     assert!(err && msg.contains("INVALID"), "{msg}");
     assert!(reg.take_proposals().is_empty());
+
+    // 機能を有効にするコードの候補: 承認待ちに出るだけ（入れるのはアプリの画面で FP が押したとき）
+    let r = call_ok(
+        &c,
+        "propose_feature_code",
+        json!({ "code": "LPFC1-eyJ2IjoyfQ.c2ln" }),
+    )
+    .await;
+    assert_eq!(r["status"], "pendingReview");
+    let fc = reg.feature_code_candidates();
+    assert_eq!(fc.len(), 1);
+    assert_eq!(fc[0].connector.as_deref(), Some("test-ai 1.2"));
+    let (err, msg) = call(&c, "propose_feature_code", json!({ "code": "not a code" })).await;
+    assert!(err && msg.contains("INVALID"), "{msg}");
 
     // 記録: 読んだ道具ごとに残り、呼び出し元（接続口の pid・名乗り）が付く
     let rec = reg.records(HOUSEHOLD_ID);
