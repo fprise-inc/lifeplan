@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.39";
+pub const CURRENT: &str = "0.40";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -127,11 +127,14 @@ pub const CURRENT: &str = "0.39";
 /// - 0.39: 教育の目標の段に、段ごとの給食費の選び方 `goals[].education.stages[].schoolLunch`・部活動などの費用の年額 `clubAnnual`・
 ///   保育所の段の保育料とは別にかかるお金の年額 `extraAnnual` を足した（0062・0029 の追記 2026-10-30。どれも任意で計算に使う。足すだけの MINOR）。
 ///   前の版のアプリは知らない欄を読み落として書き戻すので、版を上げて閲覧だけにする
+/// - 0.40: 教育の目標に留学 `goals[].education.abroad`（0088。段・学年・留学の形〔休学して1年・単位が認められる1年・短期〕・1回の額・万一のときの扱い。
+///   任意で計算に使う。足すだけの MINOR）。前の版の出るお金の行の留学は書き換えない。前の版のアプリは知らない欄を読み落として書き戻すので、
+///   版を上げて閲覧だけにする
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
-    "0.38", "0.39",
+    "0.38", "0.39", "0.40",
 ];
 
 /// 1段分の変換
@@ -332,6 +335,11 @@ pub const STEPS: &[Step] = &[
         from: "0.38",
         to: "0.39",
         apply: v0_38_to_0_39,
+    },
+    Step {
+        from: "0.39",
+        to: "0.40",
+        apply: v0_39_to_0_40,
     },
 ];
 
@@ -891,6 +899,15 @@ fn v0_38_to_0_39(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.39 → 0.40: 足した欄（教育の目標の留学。0088）は任意なので足さない。前の版の出るお金の行の留学は書き換えない。形式の版だけを書き換える
+fn v0_39_to_0_40(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.40".into());
+    }
+    Ok(body)
+}
+
 /// 0.17 で ID を振る並び（物の集まり → その物から並びまでの欄の名前。0035 の5）
 const ELEMENT_LISTS: &[(&str, &[&[&str]])] = &[
     ("livingExpenses", &[&["stages"], &["categories"]]),
@@ -1425,7 +1442,8 @@ mod tests {
         assert_eq!(access("0.37").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.38").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.39").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.40").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.40").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.41").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -1438,7 +1456,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.40", b.clone()).unwrap(),
+            upgrade("0.41", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -1454,7 +1472,22 @@ mod tests {
             ]}}}}
         });
         let u = upgrade("0.38", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.39");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+    }
+
+    #[test]
+    fn v0_39_to_0_40_keeps_old_abroad_rows() {
+        // 前の版の留学（出るお金の行・種類 教育費）はそのまま残し、教育の目標の留学（0088）は足さない
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.39"},
+            "household": {"request": {"input": {"household": {
+                "goals": [{"id": "g1", "kind": "education", "owner": "c1", "education": {"stages": [{"stage": "university", "sector": "private"}]}}],
+                "periodicExpenses": [{"id": "e1", "label": "留学", "kind": "education", "row": "cf.expense.education", "from": {"memberAge": {"member": "c1", "years": 20}}, "everyYears": 1}]
+            }}}}
+        });
+        let u = upgrade("0.39", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.40");
         assert_eq!(u["household"], b["household"]);
     }
 

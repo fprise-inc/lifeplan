@@ -2450,7 +2450,30 @@
             },
             "childAllowance": { "description": "児童手当を計算するか（省略は計算する）", "type": "boolean" },
             "highSchoolSupport": { "description": "高等学校等就学支援金の対象か（国籍・在留資格の要件。令和8年4月から。省略は対象。ineligible は支給しない）", "enum": ["eligible", "ineligible"] },
-            "schoolLunch": { "description": "公立の小学校・中学校の学校給食費（free は自治体が無償化して払わない、paid は全額を払う。省略は制度データどおり: 令和8年度から公立小学校は国の負担軽減の基準額まで引く）", "enum": ["free", "paid"] }
+            "schoolLunch": { "description": "公立の小学校・中学校の学校給食費（free は自治体が無償化して払わない、paid は全額を払う。省略は制度データどおり: 令和8年度から公立小学校は国の負担軽減の基準額まで引く）", "enum": ["free", "paid"] },
+            "abroad": {
+              "description": "留学（0088。1回ずつ）: 在学中の学校の段と何年生のときか・留学の形（leave は休学して1年で在学が1年延びる、credit は単位が認められる1年で延びない、short は短期）・1回の額（計算基準年の価格）",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["stage", "grade", "kind", "amount"],
+                "properties": {
+                  "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+                  "stage": { "enum": ["highSchool", "university", "juniorCollege", "vocational"] },
+                  "grade": { "type": "integer", "minimum": 1, "maximum": 6 },
+                  "kind": { "enum": ["leave", "credit", "short"] },
+                  "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "onContingency": {
+                    "description": "万一のときの扱い（stop は世帯の万一の想定の月の翌月より後なら払わない。省略は続ける）",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["mode"],
+                    "properties": { "mode": { "enum": ["continue", "stop"] } }
+                  }
+                }
+              }
+            }
           }
         }
       }
