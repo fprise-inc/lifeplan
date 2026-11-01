@@ -18,6 +18,8 @@ export const LATER_FIELD_ENTRIES: readonly ReadingEntry[] = [
   {"from":"field:edu/{object}/stage/{n}/entrance","until":"0.35","to":{"target":"object","item":"goal.education","at":["stages",{"n":1},"entranceOverride"]}},
   {"from":"field:edu/{object}/stage/{n}/extra","until":"0.39","to":{"target":"object","item":"goal.education","at":["stages",{"n":1},"extraAnnual"]}},
   {"from":"field:edu/{object}/stage/{n}/outOfSchool","until":"0.39","to":{"target":"object","item":"goal.education","at":["stages",{"n":1},"outOfSchool","monthly"]}},
+  {"from":"field:ev/car/{object}/lease/monthly","until":"0.45","to":{"target":"object","item":"car.lease","at":["monthly"]}},
+  {"from":"field:ev/car/{object}/lease/term","until":"0.45","to":{"target":"object","item":"car.lease","at":["termYears"]}},
   {"from":"field:ev/car/{object}/other/{id}/annual","until":"0.35","to":{"target":"object","item":"car.upkeepOther","at":[{"id":1},"annual"]}},
   {"from":"field:ev/fee/{object}/rec/monthly","until":"0.35","to":{"target":"object","item":"advisoryFee.terms","at":["recurring","monthly"]}},
   {"from":"field:ev/fee/{object}/rec/step/{id}/annual","until":"0.35","to":{"target":"object","item":"advisoryFee.terms","at":["recurring","revision","steps",{"id":1},"annual"]}},

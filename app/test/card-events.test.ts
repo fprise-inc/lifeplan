@@ -357,8 +357,8 @@ describe("この世帯の予定（ほかのカードを含む）", () => {
     // 大きな買い物を車の買い替えと同じ年にする
     const shifted = { ...wh, request: structuredClone(wh.request) };
     const p = shifted.request.input.household.periodicExpenses!.find((x) => x.id === at("大きな買い物").id)!;
-    p.from = structuredClone(car.purchase.first);
-    p.to = structuredClone(car.purchase.first);
+    p.from = structuredClone(car.purchase!.first);
+    p.to = structuredClone(car.purchase!.first);
     const items = scheduleItems(shifted);
     expect(items.map((x) => x.year)).toEqual([...items.map((x) => x.year)].sort((a, b) => a - b));
     expect(items.some((x) => x.name.startsWith("車の買い替え") && x.year === year && x.card === "車")).toBe(true);

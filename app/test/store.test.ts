@@ -592,6 +592,58 @@ function sample044(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/**
+ * 0.45 の見本の世帯（0101）: sample044() に、今の車に乗り続ける車（手放す時期は今から5年の推定）・この1台だけのこれから買う車（手放す時期は
+ * 出来事「車の購入」から13年後の推定）・70歳まで買い替える車・長期レンタルの車（月額・借り始め・契約の年数・月額に含む物）を足す
+ */
+function sample045(): BodyState {
+  const s = sample044();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const id = (n: number) => `00000000-0000-4000-8000-0000000045${String(n).padStart(2, "0")}`;
+  const est = (basis: string) => ({ state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis } });
+  hh.events = [...(hh.events ?? []), { id: id(10), kind: "carPurchase", member: self.id, at: { at: "2030-04" } }];
+  hh.cars = [
+    ...(hh.cars ?? []),
+    {
+      id: id(1),
+      owner: self.id,
+      purchase: { first: { at: "2029-04" }, everyYears: 8, price: 2500000, tradeIn: 380000, owned: true, replace: { kind: "none" } },
+      until: { at: "2031-10" },
+      upkeepMode: "total",
+      upkeep: { annual: 300000 },
+      valueStates: { "car.until": est("標準の値（今から5年。今の車を手放す時期に合わせて直してください）") },
+    },
+    {
+      id: id(2),
+      owner: self.id,
+      purchase: { first: { event: id(10) }, everyYears: 8, price: 2000000, replace: { kind: "none" } },
+      until: { event: id(10), offset: { years: 13 } },
+      upkeepMode: "total",
+      upkeep: { annual: 240000 },
+      valueStates: { "car.until": est("平均使用年数の目安（買ってから13年）") },
+    },
+    {
+      id: id(3),
+      owner: self.id,
+      purchase: { first: { at: "2028-04" }, everyYears: 7, price: 3000000, tradeIn: 400000, owned: true, replace: { kind: "until", until: { memberAge: { member: self.id, years: 69, months: 11 } } } },
+      until: { memberAge: { member: self.id, years: 78, months: 0 } },
+      upkeepMode: "total",
+      upkeep: { annual: 360000 },
+    },
+    {
+      id: id(4),
+      owner: self.id,
+      lease: { type: "longRental", monthly: 45000, from: { at: "2031-01" }, termYears: 5, includes: { insurance: false } },
+      until: { memberAge: { member: self.id, years: 75, months: 0 } },
+      upkeepMode: "total",
+      upkeep: { annual: 150000 },
+    },
+  ];
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -715,7 +767,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.44");
+    expect(BODY_FORMAT_VERSION).toBe("0.45");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -869,7 +921,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample044())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample045())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1106,6 +1158,28 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(() => preview(back.wh.request)).not.toThrow();
     const row = checkList(back.wh).find((r) => r.kind === "unknown");
     expect(row?.detail).toContain("住民税の決定通知書で確かめる");
+  });
+
+  it("0.45 の形（0101）: 車の買い替え（この1台だけ・○歳まで）とリース・長期レンタルを保存して読み戻し、計算に使う", () => {
+    const s = sample045();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const cars = stored.household.request.input.household.cars ?? [];
+    expect(cars.filter((c) => c.purchase?.replace?.kind === "none")).toHaveLength(2);
+    expect(cars.find((c) => c.purchase?.replace?.kind === "until")?.purchase?.replace).toMatchObject({ until: { memberAge: { years: 69, months: 11 } } });
+    expect(cars.find((c) => c.lease !== undefined)).toMatchObject({ lease: { type: "longRental", monthly: 45000, termYears: 5 } });
+    expect(cars.find((c) => c.lease !== undefined)?.purchase).toBeUndefined();
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    const r = preview(back.wh.request);
+    const of = (object: string, f: (c: (typeof r.table)[number]) => boolean) => r.table.filter((c) => c.object === object && f(c));
+    const id = (n: number) => `00000000-0000-4000-8000-0000000045${String(n).padStart(2, "0")}`;
+    // 今の車に乗り続ける: 買わない。この1台だけ: 2030年に1回だけ買う
+    expect(of(id(1), (c) => c.row === "cf.expense.lumpSum.car")).toHaveLength(0);
+    expect(of(id(2), (c) => c.row === "cf.expense.lumpSum.car").map((c) => c.year)).toEqual([2030]);
+    // 長期レンタル: 2031年から月額×12（物価で伸ばさない）が車の維持費の行に入る
+    const lease2032 = of(id(4), (c) => c.row === "cf.expense.living.car" && c.year === 2032).reduce((x, c) => x + c.amount, 0);
+    expect(lease2032).toBeGreaterThanOrEqual(45000 * 12 + 150000);
+    expect(of(id(4), (c) => c.row === "cf.expense.lumpSum.car")).toHaveLength(0);
   });
 
   it("0.42 の形（0090）: 高専と専門職大学院（法科大学院）の段を保存して読み戻し、計算に使う", () => {

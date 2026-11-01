@@ -1,9 +1,15 @@
 // 車のカード（0069）: 車ごとの買い替え（買い方・下取り・ローン）・維持費（入れ方 合計／内訳・名前つきの行）・手放す時期と、
 // 車のカードの出るお金の行（車を持たない移動の費用・手放した後の移動の費用・古くなってからの修理費・車の用品）と、今返している自動車ローン。
 // エンジンの cars（0008 の追記）をそのまま読み書きする。値の箱を持たない項目なので、空欄を目安で補った値は「推定」の印を
-// 画面の側（assumed。0.16 の欄のキーで読み替えられる欄）か物の値の状態の欄（valueStates。新しい欄）に持つ
+// 画面の側（assumed。0.16 の欄のキーで読み替えられる欄）か物の値の状態の欄（valueStates。新しい欄）に持つ。
+// 0101: 車ごとの「買い替え」（買い替え続ける・この1台だけ・○歳まで）、リース・長期レンタル（月額）、手放す月に買わない、
+// 次の買い替え・購入の時期は「今から○年後」だけで入れる、手放した後の移動の費用は世帯が最後に手放す車だけ
+import { carLeaseIncludes } from "../../../../../engine/src/sdk/cars.ts";
 import type { Car, Debt, Household, Member, PeriodicExpense, Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageAt, parseYm } from "../../levers.ts";
+import { carPurchaseYms } from "../carPurchases.ts";
+import { monthIndex } from "../../timepoint.ts";
+import { wareki } from "../units.ts";
 import type { Address } from "../../store/readings.ts";
 import { CAR_ESTIMATE, type Estimate } from "../estimates.ts";
 import { byId, field, getPath, plain, resolveTimepoint, setPath, timepointField, timeView, type ActionDef, type FieldDef, type Finder, type GroupDef, type Level, type SectionDef, type StageDef } from "../form.ts";
@@ -12,7 +18,7 @@ import { GROWTH_KINDS, memberLabel, memberOptions } from "../labels.ts";
 import { addExpense, moneySections } from "../moneyRows.ts";
 import { materializeEvent } from "../namedEvents.ts";
 import { manYen } from "../readLines.ts";
-import { putRow, type StateRow } from "../rows.ts";
+import { putRow, rowAt, type StateRow } from "../rows.ts";
 import { oneMinus } from "../units.ts";
 import { carLoanGroups, newCarLoan } from "./housing.ts";
 import { fixGrowth } from "./living.ts";
@@ -109,6 +115,19 @@ function carYen(o: {
 
 const hasBreakdown = (c: Car): boolean => c.tax !== undefined || c.insurance !== undefined || c.inspection !== undefined || c.parking !== undefined || c.fuel !== undefined || (c.upkeepOther ?? []).length > 0;
 
+/** 買い替え（0101）。省略は買い替え続ける */
+export type ReplaceKind = "repeat" | "none" | "until";
+export const replaceKind = (c: Car): ReplaceKind => c.purchase?.replace?.kind ?? "repeat";
+
+/** リース・長期レンタルの車か（買い替えの欄を持たない。0101） */
+export const isLeaseCar = (c: Car): boolean => c.purchase === undefined && c.lease !== undefined;
+
+/** リースの月額に含む物（書いていない物は種類の既定。リースでなければ null） */
+export const leaseIncludes = (c: Car): ReturnType<typeof carLeaseIncludes> | null => (isLeaseCar(c) && c.lease !== undefined ? carLeaseIncludes(c.lease) : null);
+
+/** リース・長期レンタルの月額の年額（リースでなければ0） */
+export const leaseAnnual = (c: Car): number => (isLeaseCar(c) ? (c.lease?.monthly ?? 0) * 12 : 0);
+
 /** 維持費の入れ方: 合計の1欄か、内訳（自動車税・保険・車検・駐車場・燃料・名前つきの行）か。入れ方の無い古い車は入っている物から読む */
 export function upkeepMode(c: Car): "total" | "detail" {
   if (c.upkeepMode !== undefined) return c.upkeepMode;
@@ -116,17 +135,43 @@ export function upkeepMode(c: Car): "total" | "detail" {
   return hasBreakdown(c) ? "detail" : "total";
 }
 
-/** 内訳を年額にならした合計（車検は1回の額÷周期。名前つきの行を含む） */
+/** 内訳を年額にならした合計（車検は1回の額÷周期。名前つきの行を含む。リースの月額に含む物は数えない） */
 export function breakdownAnnual(c: Car): number {
-  const insp = c.inspection === undefined ? 0 : Math.round(c.inspection.amount / (c.inspection.everyYears ?? 2));
-  return (c.tax?.annual ?? 0) + (c.insurance?.annual ?? 0) + insp + (c.parking?.annual ?? 0) + (c.fuel?.annual ?? 0) + (c.upkeepOther ?? []).reduce((s, o) => s + o.annual, 0);
+  const inc = leaseIncludes(c);
+  const insp = c.inspection === undefined || inc?.inspectionMaintenance === true ? 0 : Math.round(c.inspection.amount / (c.inspection.everyYears ?? 2));
+  const tax = inc?.taxAndCompulsory === true ? 0 : (c.tax?.annual ?? 0);
+  const insurance = inc?.insurance === true ? 0 : (c.insurance?.annual ?? 0);
+  return tax + insurance + insp + (c.parking?.annual ?? 0) + (c.fuel?.annual ?? 0) + (c.upkeepOther ?? []).reduce((s, o) => s + o.annual, 0);
 }
 
-/** 計算に入る維持費の年額（入れ方のとおり。入れ方の無い古い車は入っている物を全部） */
+/** 計算に入る維持費の年額（入れ方のとおり。入れ方の無い古い車は入っている物を全部。リースの月額は含まない） */
 export function upkeepAnnual(c: Car): number {
   if (c.upkeepMode === "total") return c.upkeep?.annual ?? 0;
   if (c.upkeepMode === "detail") return breakdownAnnual(c);
   return (c.upkeep?.annual ?? 0) + breakdownAnnual(c);
+}
+
+/**
+ * 維持費の合計の目安（買う車は車の目安。リース・長期レンタルは、月額に含む自動車税・車検・保険の目安を引いた額。0101）
+ */
+export function upkeepEstimate(c: Car): Estimate {
+  const inc = leaseIncludes(c);
+  if (inc === null) return CAR_ESTIMATE.upkeep;
+  let value = CAR_ESTIMATE.upkeep.value;
+  const parts: string[] = [];
+  if (inc.taxAndCompulsory) {
+    value -= CAR_ESTIMATE.tax.value;
+    parts.push("自動車税");
+  }
+  if (inc.inspectionMaintenance) {
+    value -= Math.round(CAR_ESTIMATE.inspection.value / 2);
+    parts.push("車検");
+  }
+  if (inc.insurance) {
+    value -= CAR_ESTIMATE.insurance.value;
+    parts.push("保険");
+  }
+  return parts.length === 0 ? CAR_ESTIMATE.upkeep : { value, basis: `${CAR_ESTIMATE.upkeep.basis}から、月額に含む${parts.join("・")}の目安を引いた額` };
 }
 
 /** 2つの年月の間の月数（b − a） */
@@ -137,23 +182,31 @@ function monthsBetween(a: string, b: string): number {
 }
 
 /**
- * この車の一生の費用（今の値段で）: 計算の最後か手放す月までの、買い替え（下取りを引いた額）と維持費の合計。ローンの利息・物価の伸びは入れない
- * （エンジンの計算とは別の、見出しの目安）。買い替えの回数も返す
+ * この車の一生の費用（今の値段で）: 計算の最後か手放す月までの、買い替え（下取りを引いた額）・リースの月額と維持費の合計。ローンの利息・物価の伸びは入れない
+ * （エンジンの計算とは別の、見出しの目安。購入の月はエンジンと同じ決まり）。買い替えの回数も返す
  */
 export function lifetimeCost(h: Household, c: Car, baseMonth: string, endYear: number): { total: number; purchases: number } | null {
-  const first = resolveTimepoint(h, c.purchase.first);
-  if (first === null) return null;
   const endYm = `${endYear}-12`;
   const untilYm = c.until == null ? endYm : (resolveTimepoint(h, c.until) ?? endYm);
   const last = untilYm < endYm ? untilYm : endYm;
   let total = 0;
   let purchases = 0;
-  for (let m = first, k = 0; m <= last; m = addMonths(m, 12 * c.purchase.everyYears), k++) {
-    if (m < baseMonth) continue;
-    total += Math.max(0, c.purchase.price - (k > 0 || c.purchase.owned === true ? (c.purchase.tradeIn ?? 0) : 0));
-    purchases++;
-  }
-  const from = c.purchase.owned === true || first < baseMonth ? baseMonth : first;
+  let from: string;
+  const p = c.purchase;
+  if (p !== undefined) {
+    const first = resolveTimepoint(h, p.first);
+    if (first === null) return null;
+    carPurchaseYms(h, c, endYm).forEach((m, k) => {
+      if (m < baseMonth) return;
+      total += Math.max(0, p.price - (k > 0 || p.owned === true ? (p.tradeIn ?? 0) : 0));
+      purchases++;
+    });
+    from = p.owned === true || first < baseMonth ? baseMonth : first;
+  } else if (c.lease !== undefined) {
+    const f = c.lease.from === undefined ? baseMonth : (resolveTimepoint(h, c.lease.from) ?? baseMonth);
+    from = f < baseMonth ? baseMonth : f;
+    total += c.lease.monthly * Math.max(0, monthsBetween(from, last) + 1);
+  } else return null;
   const months = Math.max(0, monthsBetween(from, last) + 1);
   total += Math.round((upkeepAnnual(c) * months) / 12);
   return { total, purchases };
@@ -164,7 +217,7 @@ const isEventForm = (t: Timepoint | null | undefined): boolean => t?.event !== u
 
 /** 車の購入・手放す時期を指す出来事の時点（まだ出来事でなければ出来事にする。書き換える世帯 h の上で）。offsetMonths は足すずらし（月） */
 function carEventAt(h: Household, c: Car, kind: "carPurchase" | "carRelease", offsetMonths: number): Timepoint | null {
-  const cur = kind === "carPurchase" ? c.purchase.first : c.until;
+  const cur = kind === "carPurchase" ? c.purchase?.first : c.until;
   if (cur == null) return null;
   const tp = isEventForm(cur) ? structuredClone(cur) : materializeEvent(h, { event: `new:${kind}:${c.id}` }, newId);
   if (tp === null) return null;
@@ -178,8 +231,6 @@ function carEventAt(h: Household, c: Car, kind: "carPurchase" | "carRelease", of
 // 次の3つのひな形のボタンは名前だけ（額を出さない）。足した行の額は推定で、根拠はよくある目安（原本で確かめた統計ではない。0044 の追記 2026-10-29）
 /** 手放した後の移動の費用（タクシー・バスなど。よくある額の目安 月1万円。始まりは出来事「車を手放す」の翌月） */
 export const AFTER_CAR_PRESET = { monthly: 10000, basis: "よくある額の目安（手放した後の移動の費用 月1万円。この世帯に合わせて直してください）" };
-/** 車を持たない移動の費用（カーシェア・レンタカー。よくある額の目安 月1万円） */
-export const CARSHARE_PRESET = { monthly: 10000, basis: "よくある額の目安（カーシェア・レンタカー 月1万円。この世帯に合わせて直してください）" };
 /** 古くなってからの修理費（よくある額の目安 年10万円・毎年。始まりは出来事「車の購入」から10年後） */
 export const REPAIR_PRESET = {
   annual: 100000,
@@ -245,6 +296,7 @@ export function addRepair(wh: WorkingHousehold, carId: string, id: string = newI
       from: (h) => {
         const c = (h.cars ?? []).find((x) => x.id === carId);
         if (c === undefined) return null;
+        if (c.purchase === undefined) return null;
         const back = c.purchase.owned === true ? c.purchase.everyYears : 0;
         return carEventAt(h, c, "carPurchase", (REPAIR_PRESET.afterYears - back) * 12);
       },
@@ -257,7 +309,7 @@ export function addRepair(wh: WorkingHousehold, carId: string, id: string = newI
   );
 }
 
-/** この車の続きを足す: 手放す時期の翌月に、同じ名義・同じ欄の車（これから買う車）を足す。手放す時期が動けば次の車の購入も動く */
+/** この車の続きを足す: 手放す時期の翌月に、同じ名義・同じ欄の車（これから買う車。リースは同じ月額のリース）を足す。手放す時期が動けば次の車の購入も動く */
 export function addNextCar(wh: WorkingHousehold, carId: string, id: string = newId()): WorkingHousehold {
   const k = `ev/car/${id}`;
   let ok = false;
@@ -269,7 +321,10 @@ export function addNextCar(wh: WorkingHousehold, carId: string, id: string = new
     const copy = structuredClone(c);
     delete copy.valueStates;
     const others = copy.upkeepOther?.map((o) => ({ ...o, id: newId() }));
-    (h.cars ??= []).push({ ...copy, id, purchase: { ...copy.purchase, first, owned: false }, until: null, ...(others !== undefined ? { upkeepOther: others } : {}) });
+    const body: Car = { ...copy, id, until: null, ...(others !== undefined ? { upkeepOther: others } : {}) };
+    if (copy.purchase !== undefined) body.purchase = { ...copy.purchase, first, owned: false };
+    else if (copy.lease !== undefined) body.lease = { ...copy.lease, from: first };
+    (h.cars ??= []).push(body);
     ok = true;
   });
   if (!ok) return wh;
@@ -277,14 +332,118 @@ export function addNextCar(wh: WorkingHousehold, carId: string, id: string = new
   const src = `ev/car/${carId}/`;
   const assumed = { ...next.assumed };
   for (const [key, v] of Object.entries(wh.assumed)) if (key.startsWith(src)) assumed[`${k}/${key.slice(src.length)}`] = v;
-  return { ...next, assumed };
+  // 買い替えない車の続きは、手放す時期を目安で入れる（この1台だけの車と同じ）
+  return withOneTimeUntil({ ...next, assumed }, id);
 }
 
-/** その車を手放す出来事を、手放した後の移動の費用の行がもう指しているか */
-function afterCarAdded(h: Household, carId: string): boolean {
-  const ev = (h.cars ?? []).find((x) => x.id === carId)?.until?.event;
-  return ev !== undefined && (h.periodicExpenses ?? []).some((p) => p.from.event === ev && p.kind === "car");
+/** 買い替えない車の手放す時期の目安（0101）: これから買う車は買ってから13年（出来事「車の購入」から。購入が動けば一緒に動く）、今の車は今から5年 */
+export const KEEP_ESTIMATE = { future: CAR_ESTIMATE.keepYears, owned: CAR_ESTIMATE.keepYearsOwned };
+const KEEP_BASES: readonly string[] = [KEEP_ESTIMATE.future.basis, KEEP_ESTIMATE.owned.basis];
+
+/** 手放す時期が、買い替えない車の目安（推定）のままか */
+function untilIsKeepEstimate(wh: WorkingHousehold, carId: string): boolean {
+  const row = rowAt(inputOf(wh.request), addr(carId, "car.until"));
+  return row?.state === "estimated" && KEEP_BASES.includes(row.estimate?.basis ?? "");
 }
+
+/**
+ * 買い替えない車（この1台だけ）で手放す時期が空なら、目安を推定で入れる（0101）。これから買う車は出来事「車の購入」から13年後、今の車は今から5年後。
+ * ほかの車・手放す時期が入っている車はそのまま
+ */
+export function withOneTimeUntil(wh: WorkingHousehold, carId: string): WorkingHousehold {
+  const c = (wh.request.input.household.cars ?? []).find((x) => x.id === carId);
+  if (c?.purchase === undefined || replaceKind(c) !== "none" || c.until != null) return wh;
+  return mutate(wh, (h, req) => {
+    const x = (h.cars ?? []).find((y) => y.id === carId);
+    if (x?.purchase === undefined) return;
+    if (x.purchase.owned === true) {
+      x.until = { at: addMonths(req.input.baseMonth, 12 * KEEP_ESTIMATE.owned.value) };
+      putRow(inputOf(req), addr(carId, "car.until"), estRow(KEEP_ESTIMATE.owned.basis));
+      return;
+    }
+    const tp = carEventAt(h, x, "carPurchase", 12 * KEEP_ESTIMATE.future.value);
+    if (tp === null) return;
+    x.until = tp;
+    putRow(inputOf(req), addr(carId, "car.until"), estRow(KEEP_ESTIMATE.future.basis));
+  });
+}
+
+/** 「○歳まで買い替える」を選んだときの標準（70歳まで。その年齢になる前の月まで買い替える） */
+const REPLACE_UNTIL_AGE = 70;
+const REPLACE_UNTIL_BASIS = `標準の値（${REPLACE_UNTIL_AGE}歳まで買い替え、その後は手放すまで乗る。この世帯に合わせて直してください）`;
+
+/**
+ * 買い替えを変える（0101）。買い替え続けるは省略（replace を消す）。この1台だけは、手放す時期が空なら目安を推定で入れる。
+ * ○歳までは70歳まで（推定）。買い替える形に戻したとき、推定のままの手放す時期（この1台だけの目安）は外す（最後まで）。周期・下取りなどの値は残す
+ */
+export function setReplace(wh: WorkingHousehold, carId: string, kind: ReplaceKind): WorkingHousehold {
+  const cur = (wh.request.input.household.cars ?? []).find((x) => x.id === carId);
+  if (cur?.purchase === undefined || replaceKind(cur) === kind) return wh;
+  const dropUntil = kind !== "none" && untilIsKeepEstimate(wh, carId);
+  const next = mutate(wh, (h, req) => {
+    const x = (h.cars ?? []).find((y) => y.id === carId);
+    if (x?.purchase === undefined) return;
+    const input = inputOf(req);
+    if (kind === "repeat") delete x.purchase.replace;
+    else if (kind === "none") x.purchase.replace = { kind: "none" };
+    else {
+      x.purchase.replace = { kind: "until", until: { memberAge: { member: x.owner, years: REPLACE_UNTIL_AGE - 1, months: 11 } } };
+      putRow(input, addr(carId, "car.replace", ["until"]), estRow(REPLACE_UNTIL_BASIS));
+    }
+    if (kind !== "until") putRow(input, addr(carId, "car.replace", ["until"]), undefined);
+    if (dropUntil) {
+      x.until = null;
+      putRow(input, addr(carId, "car.until"), undefined);
+    }
+  });
+  return kind === "none" ? withOneTimeUntil(next, carId) : next;
+}
+
+/** その車を手放す出来事を、手放した後の移動の費用の行がもう指しているか（手放す時期の翌月から始まる車の行） */
+function afterCarAdded(h: Household, carId: string): boolean {
+  const u = (h.cars ?? []).find((x) => x.id === carId)?.until;
+  const ev = u?.event;
+  if (ev === undefined || u == null) return false;
+  const off = (t: Timepoint) => (t.offset?.years ?? 0) * 12 + (t.offset?.months ?? 0);
+  return (h.periodicExpenses ?? []).some((p) => p.kind === "car" && p.from.event === ev && off(p.from) === off(u) + 1);
+}
+
+/**
+ * 世帯が最後に手放す車か（0101）: どの車も手放す時期が入っていて、この車の手放す月がいちばん後（同じ月なら並びの後の車）。
+ * 「手放した後の移動の費用」はこの車にだけ出す（ほかの車がまだあるうちは移動の費用はかからない）
+ */
+export function lastCarOfHousehold(h: Household, carId: string): boolean {
+  const list = h.cars ?? [];
+  if (list.length === 0 || list.some((x) => x.until == null)) return false;
+  let best: { id: string; ym: string } | null = null;
+  for (const x of list) {
+    const ym = resolveTimepoint(h, x.until);
+    if (ym === null) return false;
+    if (best === null || ym >= best.ym) best = { id: x.id, ym };
+  }
+  return best?.id === carId;
+}
+
+/** 続きの車（購入の時期が、ほかの車を手放す出来事から決まる車）の、元の車（無ければ null） */
+function predecessorOf(h: Household, c: Car): { car: Car; index: number; offset: number } | null {
+  const ev = c.purchase?.first.event;
+  if (ev === undefined) return null;
+  const e = (h.events ?? []).find((x) => x.id === ev);
+  if (e === undefined || e.kind !== "carRelease") return null;
+  const list = h.cars ?? [];
+  const index = list.findIndex((x) => x.id !== c.id && x.until?.event === ev && x.until.offset === undefined);
+  if (index < 0) return null;
+  const f = c.purchase?.first;
+  return { car: list[index] as Car, index, offset: (f?.offset?.years ?? 0) * 12 + (f?.offset?.months ?? 0) };
+}
+
+/** 年数の文（「12年後」「3年6か月後」） */
+const laterText = (months: number): string => {
+  const y = Math.floor(Math.abs(months) / 12);
+  const m = Math.abs(months) % 12;
+  const t = y > 0 && m > 0 ? `${y}年${m}か月` : y > 0 ? `${y}年` : `${m}か月`;
+  return months === 0 ? "今月" : months > 0 ? `${t}後` : `${t}前`;
+};
 
 export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly Car[]): GroupDef[] {
   const find = byId(cars, c.id);
@@ -293,165 +452,103 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
   const owner = (h: Household) => ownerOf(h, (h.cars ?? []).find((x) => x.id === c.id));
   const mode = upkeepMode(c);
   const h0 = wh.request.input.household;
+  const base = wh.request.input.baseMonth;
+  const lease = isLeaseCar(c);
+  const kind = replaceKind(c);
+  const owned = c.purchase?.owned === true;
+  // 今の車に乗り続ける（買い替えない）: 次の買い替えの時期・価格・買い方・周期・下取りを出さない（値は残す）。手放す時期を買い替えのすぐ下に
+  const keepCurrent = !lease && owned && kind === "none";
+  const inc = leaseIncludes(c);
   // 推定のままの下取りは、価格・周期を直したら目安を入れ直す
   const refreshTradeIn = (w: WorkingHousehold): WorkingHousehold => {
     const key = `${k}/tradeIn`;
     if (w.assumed[key] === undefined) return w;
     const x = car(w.request.input.household, w);
-    if (x === undefined) return w;
+    if (x?.purchase === undefined) return w;
     const e = tradeInEstimate(x.purchase.price, x.purchase.everyYears);
     const moved = mutate(w, (h, req) => {
       const t = car(h, { ...w, request: req });
-      if (t !== undefined) t.purchase.tradeIn = e.value;
+      if (t?.purchase !== undefined) t.purchase.tradeIn = e.value;
     });
     return { ...moved, assumed: { ...moved.assumed, [key]: e.basis } };
   };
-  const fields: FieldDef[] = [
-    plain({ key: `${k}/owner`, item: "car.owner", label: "名義（使う人）", level: "simple", kind: "select", options: memberOptions(wh), find, path: ["owner"] }),
-    withAddress(
-      timepointField({
-        key: `${k}/first`,
-        item: "car.purchase",
-        label: c.purchase.owned === true ? "次の買い替えの時期" : "購入の時期",
-        level: "simple",
-        find,
-        path: ["purchase", "first"],
-        ageOf: owner,
-        mode: "now",
-        anchor: "carPurchase",
-        help: "「今から○年後」・名義の人の年齢・年月で入れます",
-      }),
-      addr(c.id, "car.purchase", ["first"]),
-    ),
-    field({
-      key: `${k}/every`,
-      item: "car.purchase",
-      label: "買い替えの周期",
-      level: "simple",
-      kind: "int",
-      suffix: "年ごと",
-      min: 1,
-      max: 30,
-      get: (w) => ({ value: car(w.request.input.household, w)?.purchase.everyYears ?? null, assumed: w.assumed[`${k}/every`] ?? null }),
-      set: (w, v) => {
-        if (v === null) return w;
-        const next = mutate(w, (h, req) => {
-          const t = car(h, { ...w, request: req });
-          if (t !== undefined) t.purchase.everyYears = Number(v);
-        });
-        const rest = Object.fromEntries(Object.entries(next.assumed).filter(([key]) => key !== `${k}/every`));
-        return refreshTradeIn({ ...next, assumed: rest });
-      },
-    }),
-    carYen({ key: `${k}/price`, item: "car.purchase", label: "車両の価格", level: "simple", basis: "once", find, path: ["purchase", "price"], estimate: CAR_ESTIMATE.price, help: "今の価格で入れます（物価上昇率で伸ばします）。空欄なら目安で計算します", after: refreshTradeIn }),
-    carYen({
-      key: `${k}/tradeIn`,
-      item: "car.purchase",
-      label: "下取り",
-      level: "detail",
-      basis: "once",
-      find,
-      path: ["purchase", "tradeIn"],
-      estimate: (w) => {
-        const x = car(w.request.input.household, w);
-        return tradeInEstimate(x?.purchase.price ?? CAR_ESTIMATE.price.value, x?.purchase.everyYears ?? CAR_ESTIMATE.everyYears.value);
-      },
-      help: "次の買い替えで車両の価格から引く額です。空欄なら、車両の価格と周期から残価の目安で入れます。下取りを引いた額を車両の価格に入れたときは0円に",
-    }),
-    plain({
-      key: `${k}/owned`,
-      item: "car.purchase",
-      label: "今の車を持っている",
-      level: "detail",
-      kind: "bool",
-      find,
-      path: ["purchase", "owned"],
-      optional: true,
-      fallback: false,
-      help: "持っているときは、上の時期から買い替えます（その前の車検も数え、1回目から下取りを引きます）",
-    }),
-    field({
-      key: `${k}/pay`,
-      item: "car.loan",
-      label: "買い方",
-      level: "simple",
-      kind: "select",
-      structural: true,
-      options: [
-        { value: "cash", label: "現金" },
-        { value: "loan", label: "ローン" },
-      ],
-      help: "残価設定ローン・カーリースは、まだ計算に入っていません（リースは車両の価格を0円にして、リース料を下の出るお金の行で入れてください）",
-      get: (w) => ({ value: car(w.request.input.household, w)?.loan === undefined ? "cash" : "loan" }),
-      set: (w, v) => {
-        const loan = v === "loan";
-        const next = mutate(w, (h, req) => {
-          const x = car(h, { ...w, request: req });
-          if (x === undefined) return;
-          if (!loan) delete x.loan;
-          else x.loan ??= { share: LOAN_SHARE, rate: LOAN_RATE, termMonths: LOAN_TERM };
-        });
-        // ローンの目安（借入8割・5年・金利は自動車ローンの目安）は推定の印。現金に戻したら印も外す
-        const keys = { [`${k}/down`]: LOAN_BASIS.share, [`${k}/term`]: LOAN_BASIS.term, [`${k}/rate`]: LOAN_BASIS.rate };
-        const assumed = Object.fromEntries(Object.entries(next.assumed).filter(([key]) => !(key in keys)));
-        return { ...next, assumed: loan && c.loan === undefined ? { ...assumed, ...keys } : loan ? next.assumed : assumed };
-      },
-    }),
-  ];
-  if (c.loan !== undefined) {
-    // 自動車ローンの頭金・年数・金利は、返済予定表で確かめる値（「書類で確かめる」を出す。0041 の追記 2026-10-31）
-    const doc = { docCheck: CHECK_DOCUMENTS.loan };
-    fields.push(
-      withAddress(
-        { ...field({
-          key: `${k}/down`,
-          item: "car.loan",
-          label: "頭金（下取りを引いた額に対する割合）",
-          // ローンの条件（頭金・年数・金利）は目安で十分なので詳細。標準はローンかどうかの選び方だけ（0078）
-          level: "detail",
-          kind: "pct",
-          optional: true,
-          help: "残りをローンで借ります。買い替えのたびに同じ割合で借ります",
-          get: (w) => {
-            const share = car(w.request.input.household, w)?.loan?.share;
-            const assumed = w.assumed[`${k}/down`] ?? null;
-            return share === undefined ? { value: "0", implicit: true, assumed } : { value: oneMinus(share), assumed };
-          },
-          set: (w, v) =>
-            mutate(w, (h, req) => {
-              const x = car(h, { ...w, request: req });
-              if (x?.loan === undefined) return;
-              if (v === null || Number(v) === 0) delete x.loan.share;
-              else x.loan.share = oneMinus(String(v));
-            }),
-        }), ...doc },
-        addr(c.id, "car.loan", ["share"]),
-      ),
-      withAddress(
-        { ...field({
-          key: `${k}/term`,
-          item: "car.loan",
-          label: "ローンの年数",
-          level: "detail",
+  // 推定のままの維持費の合計は、リースの種類・月額に含む物を直したら目安を入れ直す
+  const refreshUpkeep = (w: WorkingHousehold): WorkingHousehold => {
+    const key = `${k}/upkeep`;
+    if (w.assumed[key] === undefined) return w;
+    const x = car(w.request.input.household, w);
+    if (x === undefined || x.upkeep === undefined) return w;
+    const e = upkeepEstimate(x);
+    const moved = mutate(w, (h, req) => {
+      const t = car(h, { ...w, request: req });
+      if (t?.upkeep !== undefined) t.upkeep.annual = e.value;
+    });
+    return { ...moved, assumed: { ...moved.assumed, [key]: e.basis } };
+  };
+  const fields: FieldDef[] = [plain({ key: `${k}/owner`, item: "car.owner", label: "名義（使う人）", level: "simple", kind: "select", options: memberOptions(wh), find, path: ["owner"] })];
+  if (lease) fields.push(...leaseFields(c, k, find, refreshUpkeep));
+  else {
+    fields.push(...replaceFields(c, i, k));
+    if (kind === "until") fields.push(replaceUntilField(c, k, find, owner));
+    if (keepCurrent) fields.push(untilField(c, k, car, owner, true));
+    else fields.push(firstField(wh, c, k, find, owner));
+    if (kind !== "none")
+      fields.push(
+        field({
+          key: `${k}/every`,
+          item: "car.purchase",
+          label: "買い替えの周期",
+          level: "simple",
           kind: "int",
-          suffix: "年",
+          suffix: "年ごと",
           min: 1,
-          max: 10,
-          get: (w) => {
-            const t = car(w.request.input.household, w)?.loan?.termMonths;
-            const assumed = w.assumed[`${k}/term`] ?? null;
-            return t === undefined ? { value: null, assumed } : { value: Math.round(t / 12), derived: t % 12 !== 0 ? `${t}か月（年に直すとずれる）` : null, assumed };
+          max: 30,
+          get: (w) => ({ value: car(w.request.input.household, w)?.purchase?.everyYears ?? null, assumed: w.assumed[`${k}/every`] ?? null }),
+          set: (w, v) => {
+            if (v === null) return w;
+            const next = mutate(w, (h, req) => {
+              const t = car(h, { ...w, request: req });
+              if (t?.purchase !== undefined) t.purchase.everyYears = Number(v);
+            });
+            const rest = Object.fromEntries(Object.entries(next.assumed).filter(([key]) => key !== `${k}/every`));
+            return refreshTradeIn({ ...next, assumed: rest });
           },
-          set: (w, v) =>
-            mutate(w, (h, req) => {
-              const x = car(h, { ...w, request: req });
-              if (x?.loan !== undefined && v !== null) x.loan.termMonths = Number(v) * 12;
-            }),
-        }), ...doc },
-        addr(c.id, "car.loan", ["termMonths"]),
-      ),
-      withAddress({ ...plain({ key: `${k}/rate`, item: "car.loan", label: "ローンの金利（年・固定）", level: "detail", kind: "pct", find, path: ["loan", "rate"] }), ...doc }, addr(c.id, "car.loan", ["rate"])),
+        }),
+      );
+    if (!keepCurrent)
+      fields.push(carYen({ key: `${k}/price`, item: "car.purchase", label: "車両の価格", level: "simple", basis: "once", find, path: ["purchase", "price"], estimate: CAR_ESTIMATE.price, help: "今の価格で入れます（物価上昇率で伸ばします）。空欄なら目安で計算します", after: refreshTradeIn }));
+    if (kind !== "none")
+      fields.push(
+        carYen({
+          key: `${k}/tradeIn`,
+          item: "car.purchase",
+          label: "下取り",
+          level: "detail",
+          basis: "once",
+          find,
+          path: ["purchase", "tradeIn"],
+          estimate: (w) => {
+            const x = car(w.request.input.household, w)?.purchase;
+            return tradeInEstimate(x?.price ?? CAR_ESTIMATE.price.value, x?.everyYears ?? CAR_ESTIMATE.everyYears.value);
+          },
+          help: "次の買い替えで車両の価格から引く額です。空欄なら、車両の価格と周期から残価の目安で入れます。下取りを引いた額を車両の価格に入れたときは0円に",
+        }),
+      );
+    fields.push(
+      plain({
+        key: `${k}/owned`,
+        item: "car.purchase",
+        label: "今の車を持っている",
+        level: "detail",
+        kind: "bool",
+        find,
+        path: ["purchase", "owned"],
+        optional: true,
+        fallback: false,
+        help: "持っているときは、上の時期から買い替えます（その前の車検も数え、1回目から下取りを引きます）",
+      }),
     );
+    if (!keepCurrent) fields.push(...payFields(c, k, car));
   }
   // 維持費（入れ方: 合計／内訳。どちらの値も残し、計算は入れ方の側だけを数える。0069）
   fields.push(
@@ -477,9 +574,25 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
       addr(c.id, "car.upkeepMode"),
     ),
   );
+  const leaseUpkeepHelp = "月額に含まれない分（駐車場・燃料など）を入れます。空欄なら、車の目安から月額に含む分を引いた額で計算します";
   const detailGroups: GroupDef[] = [];
   if (mode === "total")
-    fields.push(carYen({ key: `${k}/upkeep`, item: "car.upkeep", label: "維持費（年額の合計）", level: "simple", basis: "annual", find, path: ["upkeep", "annual"], estimate: CAR_ESTIMATE.upkeep, help: "自動車税・保険・車検・駐車場・燃料などの合計。空欄なら目安で計算します（車の修理・用品などは下の出るお金の行でも足せます）" }));
+    fields.push(
+      carYen({
+        key: `${k}/upkeep`,
+        item: "car.upkeep",
+        label: "維持費（年額の合計）",
+        level: "simple",
+        basis: "annual",
+        find,
+        path: ["upkeep", "annual"],
+        estimate: (w) => {
+          const x = car(w.request.input.household, w);
+          return x === undefined ? CAR_ESTIMATE.upkeep : upkeepEstimate(x);
+        },
+        help: lease ? leaseUpkeepHelp : "自動車税・保険・車検・駐車場・燃料などの合計。空欄なら目安で計算します（車の修理・用品などは下の出るお金の行でも足せます）",
+      }),
+    );
   else {
     fields.push(
       field({
@@ -489,167 +602,51 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
         level: "simple",
         kind: "yen",
         basis: "annual",
-        readOnly: "内訳で入れています（詳細で直せます）。車検は1回の額を周期でならしています",
+        readOnly: `内訳で入れています（詳細で直せます）。車検は1回の額を周期でならしています${lease ? "。リース・長期レンタルの月額に含む分は数えません" : ""}`,
         get: (w) => {
           const x = car(w.request.input.household, w);
           return { value: x === undefined ? null : breakdownAnnual(x) };
         },
         set: (w) => w,
       }),
-      carYen({ key: `${k}/tax`, item: "car.tax", label: "自動車税（年額）", level: "detail", basis: "annual", find, path: ["tax", "annual"], estimate: CAR_ESTIMATE.tax }),
-      carYen({ key: `${k}/insurance`, item: "car.insurance", label: "自動車保険（年額）", level: "detail", basis: "annual", find, path: ["insurance", "annual"], estimate: CAR_ESTIMATE.insurance }),
-      carYen({ key: `${k}/inspection`, item: "car.inspection", label: "車検（1回の額）", level: "detail", basis: "once", find, path: ["inspection", "amount"], estimate: CAR_ESTIMATE.inspection }),
-      plain({ key: `${k}/inspFirst`, item: "car.inspection", label: "最初の車検（購入から）", level: "detail", kind: "int", suffix: "年後", min: 1, max: 10, find, path: ["inspection", "firstAfterYears"], optional: true, fallback: 3 }),
-      plain({ key: `${k}/inspEvery`, item: "car.inspection", label: "その後の車検の周期", level: "detail", kind: "int", suffix: "年ごと", min: 1, max: 10, find, path: ["inspection", "everyYears"], optional: true, fallback: 2 }),
+    );
+    // リースの月額に含む物は、内訳の欄を出さない（値は残す。0101）
+    if (inc?.taxAndCompulsory !== true) fields.push(carYen({ key: `${k}/tax`, item: "car.tax", label: "自動車税（年額）", level: "detail", basis: "annual", find, path: ["tax", "annual"], estimate: CAR_ESTIMATE.tax }));
+    if (inc?.insurance !== true) fields.push(carYen({ key: `${k}/insurance`, item: "car.insurance", label: "自動車保険（年額）", level: "detail", basis: "annual", find, path: ["insurance", "annual"], estimate: CAR_ESTIMATE.insurance }));
+    if (inc?.inspectionMaintenance !== true)
+      fields.push(
+        carYen({ key: `${k}/inspection`, item: "car.inspection", label: "車検（1回の額）", level: "detail", basis: "once", find, path: ["inspection", "amount"], estimate: CAR_ESTIMATE.inspection }),
+        plain({ key: `${k}/inspFirst`, item: "car.inspection", label: lease ? "最初の車検（借り始めから）" : "最初の車検（購入から）", level: "detail", kind: "int", suffix: "年後", min: 1, max: 10, find, path: ["inspection", "firstAfterYears"], optional: true, fallback: 3 }),
+        plain({ key: `${k}/inspEvery`, item: "car.inspection", label: "その後の車検の周期", level: "detail", kind: "int", suffix: "年ごと", min: 1, max: 10, find, path: ["inspection", "everyYears"], optional: true, fallback: 2 }),
+      );
+    fields.push(
       carYen({ key: `${k}/parking`, item: "car.parking", label: "駐車場（年額）", level: "detail", basis: "annual", find, path: ["parking", "annual"], optional: true }),
       carYen({ key: `${k}/fuel`, item: "car.fuel", label: "ガソリン・電気代（年額）", level: "detail", basis: "annual", find, path: ["fuel", "annual"], optional: true }),
     );
-    // 内訳の名前つきの行（タイヤ・防錆など）
-    for (const o of c.upkeepOther ?? []) {
-      const ok = `${k}/other/${o.id}`;
-      const ofind: Finder = (h, w) => ((car(h, w)?.upkeepOther ?? []).find((x) => x.id === o.id) as Obj | undefined) ?? undefined;
-      detailGroups.push({
-        key: ok,
-        title: `内訳: ${o.label !== undefined && o.label !== "" ? o.label : "名前のない行"}`,
-        level: "detail",
-        fields: [
-          withAddress(plain({ key: `${ok}/label`, item: "car.upkeepOther", label: "名前", level: "detail", kind: "text", find: ofind, path: ["label"], optional: true }), addr(c.id, "car.upkeepOther", [o.id, "label"])),
-          withAddress(
-            field({
-              key: `${ok}/annual`,
-              item: "car.upkeepOther",
-              label: "年額",
-              level: "detail",
-              kind: "yen",
-              basis: "annual",
-              get: (w) => {
-                const v = getPath(ofind(w.request.input.household, w), ["annual"]);
-                return { value: typeof v === "number" ? v : null, assumed: w.assumed[`${ok}/annual`] ?? null };
-              },
-              set: (w, v) =>
-                v === null
-                  ? w
-                  : mutate(w, (h, req) => {
-                      const t = ofind(h, { ...w, request: req });
-                      if (t !== undefined) t.annual = Number(v);
-                    }),
-            }),
-            addr(c.id, "car.upkeepOther", [o.id, "annual"]),
-          ),
-        ],
-        actions: [
-          {
-            key: `${ok}/remove`,
-            label: "外す",
-            level: "detail",
-            danger: true,
-            run: (w) => {
-              const next = mutate(w, (h, req) => {
-                const x = car(h, { ...w, request: req });
-                if (x === undefined) return;
-                x.upkeepOther = (x.upkeepOther ?? []).filter((y) => y.id !== o.id);
-                if (x.upkeepOther.length === 0) delete x.upkeepOther;
-              });
-              return { ...next, assumed: Object.fromEntries(Object.entries(next.assumed).filter(([key]) => !key.startsWith(`${ok}/`))) };
-            },
-          },
-        ],
-      });
-    }
-    detailGroups.push({
-      key: `${k}/other/add`,
-      level: "detail",
-      fields: [],
-      actions: [
-        {
-          key: `${k}/other/add`,
-          label: "＋ 内訳の行", help: "タイヤ・防錆など、名前をつけて足す維持費の行です",
-          level: "detail",
-          run: (w) =>
-            mutate(w, (h, req) => {
-              const x = car(h, { ...w, request: req });
-              if (x !== undefined) (x.upkeepOther ??= []).push({ id: newId(), label: "", annual: 0 });
-            }),
-        },
-      ],
-    });
+    detailGroups.push(...upkeepOtherGroups(c, k, car));
   }
-  // いつまで乗るか（名義の人の年齢で）
-  fields.push(
-    field({
-      key: `${k}/untilAge`,
-      item: "car.until",
-      label: "手放す時期",
-      level: "simple",
-      kind: "int",
-      suffix: "歳",
-      min: 18,
-      max: 100,
-      optional: true,
-      help: "名義の人の年齢で入れます。その年齢に達する月で手放します（空欄は最後まで乗る）。手放すときの売却額は、まだ計算に入っていません",
-      get: (w) => {
-        const h = w.request.input.household;
-        const x = car(h, w);
-        const raw = x?.until;
-        if (raw == null) return { value: null, hint: "最後まで", implicit: true };
-        // 出来事「車を手放す」を指しているときは、出来事の時点で読む
-        const ev = raw.event !== undefined && raw.offset === undefined ? (h.events ?? []).find((e) => e.id === raw.event) : undefined;
-        const u = ev?.at ?? raw;
-        if (u.memberAge !== undefined && u.memberAge.member === x?.owner && (u.memberAge.months ?? 0) === 0) return { value: u.memberAge.years };
-        const o = ownerOf(h, x);
-        const ym = resolveTimepoint(h, u);
-        return { value: o !== undefined && ym !== null ? ageAt(o, ym) : null, derived: u.at !== undefined ? `年月（${u.at}）で入っています。書き換えると年齢の形にします` : "ほかの形の時点で入っています" };
-      },
-      set: (w, v) =>
-        mutate(w, (h, req) => {
-          const x = car(h, { ...w, request: req });
-          if (x === undefined) return;
-          if (v === null) {
-            if (x.until !== undefined) x.until = null;
-            return;
-          }
-          const at = { memberAge: { member: x.owner, years: Number(v), months: 0 } };
-          // 出来事「車を手放す」を指しているときは、出来事のほうを動かす（手放した後の移動の費用・続きの車も一緒に動く）
-          const ev = x.until?.event !== undefined && x.until.offset === undefined ? (h.events ?? []).find((e) => e.id === x.until?.event && e.kind === "carRelease") : undefined;
-          if (ev !== undefined) ev.at = at;
-          else x.until = at;
-        }),
-      // 時点の部品（0038）: 名義の人の年齢（既定）・年月・今から・出来事からで入れる。結果のタブで動かす項目は年齢の整数のまま
-      time: timeView({
-        ageOf: owner,
-        optional: true,
-        nullText: "最後まで",
-        anchor: "carRelease",
-        read: (w) => car(w.request.input.household, w)?.until ?? null,
-        write: (w, tp) =>
-          mutate(w, (h, req) => {
-            const x = car(h, { ...w, request: req });
-            if (x === undefined) return;
-            if (tp === null) {
-              if (x.until !== undefined) x.until = null;
-            } else x.until = tp;
-          }),
-      }),
-    }),
-    plain({ key: `${k}/growth`, item: "car.growth", label: "価格・維持費の伸び方", level: "detail", kind: "select", options: GROWTH_KINDS, find, path: ["growth", "kind"], fallback: "inflation", optional: true, after: (_h, t, v) => fixGrowth(t, v) }),
-  );
+  // いつまで乗るか（名義の人の年齢で）。今の車に乗り続けるときは、買い替えのすぐ下に出している
+  if (!keepCurrent) fields.push(untilField(c, k, car, owner, false));
+  fields.push(plain({ key: `${k}/growth`, item: "car.growth", label: lease ? "維持費の伸び方" : "価格・維持費の伸び方", level: "detail", kind: "select", options: GROWTH_KINDS, find, path: ["growth", "kind"], fallback: "inflation", optional: true, after: (_h, t, v) => fixGrowth(t, v), ...(lease ? { help: "リース・長期レンタルの月額は伸ばしません（契約の額のまま）" } : {}) }));
   if (c.growth?.kind === "rate") fields.push(plain({ key: `${k}/growthRate`, item: "car.growth", label: "決まった伸び率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["growth", "rate"] }));
-  fields.push(...onContingencyFields({ key: `${k}/on`, item: "car.onContingency", find, path: ["onContingency"], level: "detail", help: "名義の人などの万一の月の翌月から、買い替えと維持費をこの扱いにします。組んだローンの返済は続きます" }));
+  fields.push(...onContingencyFields({ key: `${k}/on`, item: "car.onContingency", find, path: ["onContingency"], level: "detail", help: lease ? "名義の人などの万一の月の翌月から、リースの月額と維持費をこの扱いにします" : "名義の人などの万一の月の翌月から、買い替えと維持費をこの扱いにします。組んだローンの返済は続きます" }));
   fields.push(...onContingencyDetailFields({ key: `${k}/on`, item: "car.onContingency", find, path: ["onContingency"], on: c.onContingency, level: "detail" }));
   // 見出しの一生の費用（今の値段で）
-  const life = lifetimeCost(h0, c, wh.request.input.baseMonth, wh.request.input.endYear);
-  const lifeNote = life === null ? null : `この車の一生の費用（今の値段で・${c.until == null ? "最後まで" : "手放すまで"}）約${manYen(Math.round(life.total / 10000) * 10000)}（買い替え${life.purchases}回・維持費 年${manYen(upkeepAnnual(c))}。ローンの利息・物価の伸びは含みません）`;
+  const life = lifetimeCost(h0, c, base, wh.request.input.endYear);
+  const lifeNote =
+    life === null
+      ? null
+      : `この車の一生の費用（今の値段で・${c.until == null ? "最後まで" : "手放すまで"}）約${manYen(Math.round(life.total / 10000) * 10000)}（${lease ? `月額 ${(c.lease?.monthly ?? 0) > 0 ? manYen(c.lease?.monthly ?? 0) : "未入力"}` : `買い替え${life.purchases}回`}・維持費 年${manYen(upkeepAnnual(c))}。${lease ? "" : "ローンの利息・"}物価の伸びは含みません）`;
   // 車のメニュー（続きの車・手放した後の移動の費用・古くなってからの修理費）
   const actions: ActionDef[] = [];
-  const firstYm = resolveTimepoint(h0, c.purchase.first);
+  const firstYm = c.purchase === undefined ? null : resolveTimepoint(h0, c.purchase.first);
   const untilYm = c.until == null ? null : resolveTimepoint(h0, c.until);
   const lastCar = all.filter((x) => x.owner === c.owner).at(-1)?.id === c.id;
-  if (c.until != null && lastCar) {
-    actions.push({ key: `${k}/next`, label: "＋ この車の続きを足す", help: "手放した翌月から次の車を持つ形で足します", level: "detail", run: (w) => addNextCar(w, c.id) });
-    if (!afterCarAdded(h0, c.id)) actions.push({ key: `${k}/afterCar`, label: "＋ 手放した後の移動の費用を足す", help: "タクシー・バスなど、車を手放した翌月からの移動の費用を、よくある額の目安で足します（足した後に直せます）", level: "simple", run: (w) => addAfterCar(w, c.id) });
+  if (c.until != null && lastCar) actions.push({ key: `${k}/next`, label: "＋ この車の続きを足す", help: "手放した翌月から次の車を持つ形で足します", level: "detail", run: (w) => addNextCar(w, c.id) });
+  if (c.purchase !== undefined) {
+    const neverReplaced = kind === "none" || (untilYm !== null && firstYm !== null && (owned ? untilYm < firstYm : untilYm < addMonths(firstYm, 12 * c.purchase.everyYears)));
+    if (c.purchase.everyYears >= 10 || neverReplaced) actions.push({ key: `${k}/repair`, label: "＋ 古くなってからの修理費を足す", help: "買ってから10年たった頃からの修理費を、よくある額の目安で毎年足します（足した後に直せます）", level: "detail", run: (w) => addRepair(w, c.id) });
   }
-  const neverReplaced = untilYm !== null && firstYm !== null && (c.purchase.owned === true ? untilYm < firstYm : untilYm < addMonths(firstYm, 12 * c.purchase.everyYears));
-  if (c.purchase.everyYears >= 10 || neverReplaced) actions.push({ key: `${k}/repair`, label: "＋ 古くなってからの修理費を足す", help: "買ってから10年たった頃からの修理費を、よくある額の目安で毎年足します（足した後に直せます）", level: "detail", run: (w) => addRepair(w, c.id) });
   actions.push({
     key: `${k}/remove`,
     label: "外す",
@@ -663,8 +660,497 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
       return { ...next, assumed: Object.fromEntries(Object.entries(next.assumed).filter(([key]) => !key.startsWith(`${k}/`))) };
     },
   });
-  const head: GroupDef = { key: k, title: `車 ${i + 1}（${memberLabel(wh, c.owner)}）`, ...(lifeNote !== null ? { note: lifeNote } : {}), level: "simple", fields, actions };
-  return [head, ...detailGroups];
+  const head: GroupDef = { key: k, title: `車 ${i + 1}（${memberLabel(wh, c.owner)}${lease ? `・${c.lease?.type === "longRental" ? "長期レンタル" : "カーリース"}` : ""}）`, ...(lifeNote !== null ? { note: lifeNote } : {}), level: "simple", fields, actions };
+  // 世帯が最後に手放す車にだけ、手放した後の移動の費用（0101。各名義の最後の車ではない）
+  const after: GroupDef[] =
+    lastCarOfHousehold(h0, c.id) && !afterCarAdded(h0, c.id)
+      ? [
+          {
+            key: `${k}/afterCar`,
+            title: "この後、世帯に車がありません",
+            level: "simple",
+            fields: [],
+            actions: [{ key: `${k}/afterCar`, label: "＋ 手放した後の移動の費用を足す", help: "タクシー・バスなど、世帯の最後の車を手放した翌月からの移動の費用を、よくある額の目安で足します（足した後に直せます）", level: "simple", run: (w) => addAfterCar(w, c.id) }],
+          },
+        ]
+      : [];
+  return [head, ...detailGroups, ...after];
+}
+
+/** 買い替えの選び方（0101）。標準は「買い替え続ける」「この1台だけ」（「○歳まで」はこの車がその形のときだけ）、詳細は3つとも */
+function replaceFields(c: Car, i: number, k: string): FieldDef[] {
+  const every = c.purchase?.everyYears ?? CAR_ESTIMATE.everyYears.value;
+  const owned = c.purchase?.owned === true;
+  const opts = {
+    repeat: { value: "repeat", label: `買い替え続ける（${every}年ごと）` },
+    none: { value: "none", label: owned ? "今の車に乗り続ける（買い替えない）" : "この1台だけ（買い替えない）" },
+    until: { value: "until", label: "○歳まで買い替える" },
+  };
+  const help = [
+    owned ? "今の車に乗り続けるときは、手放す時期まで買い替えずに乗ります" : "この1台だけのときは、買った後は手放す時期まで乗ります",
+    "「○歳まで買い替える」は詳細で選べます（最後の買い替えの後は、手放す時期まで乗ります）",
+    ...(i > 0 ? ["2台目は、買い替えずにこの1台だけのことも多いです"] : []),
+  ].join("。");
+  const def = (key: string, level: Level, options: { value: string; label: string }[], simpleOnly: boolean): FieldDef =>
+    withAddress(
+      {
+        ...field({
+          key,
+          item: "car.replace",
+          label: "買い替え",
+          level,
+          kind: "select",
+          structural: true,
+          options,
+          help,
+          get: (w) => {
+            const x = (w.request.input.household.cars ?? []).find((y) => y.id === c.id);
+            return { value: x === undefined ? null : replaceKind(x) };
+          },
+          set: (w, v) => setReplace(w, c.id, v === "none" ? "none" : v === "until" ? "until" : "repeat"),
+        }),
+        ...(simpleOnly ? { simpleOnly: true } : {}),
+      },
+      addr(c.id, "car.replace"),
+    );
+  const kind = replaceKind(c);
+  return [def(`${k}/replace`, "simple", kind === "until" ? [opts.repeat, opts.none, opts.until] : [opts.repeat, opts.none], true), def(`${k}/replaceAll`, "detail", [opts.repeat, opts.none, opts.until], false)];
+}
+
+/** 「○歳まで買い替える」の年齢（その年齢になる前の月まで買い替える。働く最後の「○歳まで」と同じ読み方。0101） */
+function replaceUntilField(c: Car, k: string, find: Finder, owner: (h: Household) => Member | undefined): FieldDef {
+  return withAddress(
+    timepointField({
+      key: `${k}/replaceUntil`,
+      item: "car.replace",
+      label: "買い替える年齢（○歳まで）",
+      // この形を選んでいる車は、標準でも出す（選んでいない車には出さない）
+      level: "simple",
+      find,
+      path: ["purchase", "replace", "until"],
+      ageOf: owner,
+      mode: "age",
+      modes: ["age", "ym"],
+      ageMeans: "before",
+      help: "名義の人がこの年齢になる前の月までに来る買い替えまで数えます。その後は手放す時期まで、最後に買った車に乗ります",
+      warn: (w) => {
+        const h = w.request.input.household;
+        const x = (h.cars ?? []).find((y) => y.id === c.id);
+        const r = x?.purchase?.replace;
+        if (x === undefined || r?.kind !== "until" || x.until == null) return null;
+        const lastAt = resolveTimepoint(h, r.until);
+        const release = resolveTimepoint(h, x.until);
+        return lastAt !== null && release !== null && lastAt >= release ? "手放す時期より後の年齢なので、「買い替え続ける」と同じです" : null;
+      },
+    }),
+    addr(c.id, "car.replace", ["until"]),
+  );
+}
+
+/**
+ * 次の買い替えの時期／購入の時期（0101）。「今から○年後」だけで入れる（年齢・出来事から決めた前の値は、同じ月の「今から」で見せ、直すと「今から」の形にする）。
+ * 出来事「この車の購入」を指しているときは出来事を動かす。続きの車（ほかの車を手放した翌月）は読むだけ（元の車の手放す時期で直す）
+ */
+function firstField(wh: WorkingHousehold, c: Car, k: string, find: Finder, owner: (h: Household) => Member | undefined): FieldDef {
+  const h0 = wh.request.input.household;
+  const owned = c.purchase?.owned === true;
+  const label = owned ? "次の買い替えの時期" : "購入の時期";
+  const pre = predecessorOf(h0, c);
+  if (pre !== null) {
+    const name = `車${pre.index + 1}`;
+    const ym = resolveTimepoint(h0, c.purchase?.first);
+    const when = ym === null ? "" : `（今から${laterText(monthIndex(ym) - monthIndex(wh.request.input.baseMonth))}）`;
+    const rel = pre.offset === 1 ? "手放した翌月" : pre.offset === 0 ? "手放した月" : `手放してから${laterText(pre.offset)}`;
+    return withAddress(field({ key: `${k}/first`, item: "car.purchase", label, level: "simple", kind: "text", readOnly: `${name}の手放す時期で直します`, get: () => ({ value: `${name}を${rel}${when}` }), set: (w) => w }), addr(c.id, "car.purchase", ["first"]));
+  }
+  return withAddress(
+    timepointField({
+      key: `${k}/first`,
+      item: "car.purchase",
+      label,
+      level: "simple",
+      find,
+      path: ["purchase", "first"],
+      ageOf: owner,
+      mode: "now",
+      modes: ["now"],
+      strictModes: true,
+      anchor: "carPurchase",
+      help: "「今から○年後」で入れます",
+      warn: (w) => {
+        const h = w.request.input.household;
+        const ym = resolveTimepoint(h, (h.cars ?? []).find((x) => x.id === c.id)?.purchase?.first);
+        return ym !== null && ym < w.request.input.baseMonth ? `過ぎた時点（${wareki(ym)}）が入っています。「今から○年後」で入れ直してください` : null;
+      },
+    }),
+    addr(c.id, "car.purchase", ["first"]),
+  );
+}
+
+/** 買い方（現金／ローン）とローンの条件 */
+function payFields(c: Car, k: string, car: (h: Household, w: WorkingHousehold) => Car | undefined): FieldDef[] {
+  const fields: FieldDef[] = [
+    field({
+      key: `${k}/pay`,
+      item: "car.loan",
+      label: "買い方",
+      level: "simple",
+      kind: "select",
+      structural: true,
+      options: [
+        { value: "cash", label: "現金" },
+        { value: "loan", label: "ローン" },
+      ],
+      help: "残価設定ローンは、まだ計算に入っていません。リース・長期レンタルは「＋ リース・長期レンタル（月額）」で足します",
+      get: (w) => ({ value: car(w.request.input.household, w)?.loan === undefined ? "cash" : "loan" }),
+      set: (w, v) => {
+        const loan = v === "loan";
+        const next = mutate(w, (h, req) => {
+          const x = car(h, { ...w, request: req });
+          if (x === undefined) return;
+          if (!loan) delete x.loan;
+          else x.loan ??= { share: LOAN_SHARE, rate: LOAN_RATE, termMonths: LOAN_TERM };
+        });
+        // ローンの目安（借入8割・5年・金利は自動車ローンの目安）は推定の印。現金に戻したら印も外す
+        const keys = { [`${k}/down`]: LOAN_BASIS.share, [`${k}/term`]: LOAN_BASIS.term, [`${k}/rate`]: LOAN_BASIS.rate };
+        const assumed = Object.fromEntries(Object.entries(next.assumed).filter(([key]) => !(key in keys)));
+        return { ...next, assumed: loan && c.loan === undefined ? { ...assumed, ...keys } : loan ? next.assumed : assumed };
+      },
+    }),
+  ];
+  if (c.loan === undefined) return fields;
+  const find: Finder = (h, w) => car(h, w) as Obj | undefined;
+  // 自動車ローンの頭金・年数・金利は、返済予定表で確かめる値（「書類で確かめる」を出す。0041 の追記 2026-10-31）
+  const doc = { docCheck: CHECK_DOCUMENTS.loan };
+  fields.push(
+    withAddress(
+      {
+        ...field({
+          key: `${k}/down`,
+          item: "car.loan",
+          label: "頭金（下取りを引いた額に対する割合）",
+          // ローンの条件（頭金・年数・金利）は目安で十分なので詳細。標準はローンかどうかの選び方だけ（0078）
+          level: "detail",
+          kind: "pct",
+          optional: true,
+          help: "残りをローンで借ります。買い替えのたびに同じ割合で借ります",
+          get: (w) => {
+            const share = car(w.request.input.household, w)?.loan?.share;
+            const assumed = w.assumed[`${k}/down`] ?? null;
+            return share === undefined ? { value: "0", implicit: true, assumed } : { value: oneMinus(share), assumed };
+          },
+          set: (w, v) =>
+            mutate(w, (h, req) => {
+              const x = car(h, { ...w, request: req });
+              if (x?.loan === undefined) return;
+              if (v === null || Number(v) === 0) delete x.loan.share;
+              else x.loan.share = oneMinus(String(v));
+            }),
+        }),
+        ...doc,
+      },
+      addr(c.id, "car.loan", ["share"]),
+    ),
+    withAddress(
+      {
+        ...field({
+          key: `${k}/term`,
+          item: "car.loan",
+          label: "ローンの年数",
+          level: "detail",
+          kind: "int",
+          suffix: "年",
+          min: 1,
+          max: 10,
+          get: (w) => {
+            const t = car(w.request.input.household, w)?.loan?.termMonths;
+            const assumed = w.assumed[`${k}/term`] ?? null;
+            return t === undefined ? { value: null, assumed } : { value: Math.round(t / 12), derived: t % 12 !== 0 ? `${t}か月（年に直すとずれる）` : null, assumed };
+          },
+          set: (w, v) =>
+            mutate(w, (h, req) => {
+              const x = car(h, { ...w, request: req });
+              if (x?.loan !== undefined && v !== null) x.loan.termMonths = Number(v) * 12;
+            }),
+        }),
+        ...doc,
+      },
+      addr(c.id, "car.loan", ["termMonths"]),
+    ),
+    withAddress({ ...plain({ key: `${k}/rate`, item: "car.loan", label: "ローンの金利（年・固定）", level: "detail", kind: "pct", find, path: ["loan", "rate"] }), ...doc }, addr(c.id, "car.loan", ["rate"])),
+  );
+  return fields;
+}
+
+/** リースの月額が空（未入力）の印 */
+export const LEASE_UNENTERED = "未入力（リース・長期レンタルの月額を入れてください。0円で計算中）";
+
+/** リース・長期レンタルの欄（種類・月額・始まり・契約の年数・月額に含む物。0101）。キーは ev/car/<ID>/lease/… */
+function leaseFields(c: Car, k: string, find: Finder, refreshUpkeep: (w: WorkingHousehold) => WorkingHousehold): FieldDef[] {
+  const lk = `${k}/lease`;
+  const leaseOf = (w: WorkingHousehold) => (w.request.input.household.cars ?? []).find((x) => x.id === c.id)?.lease;
+  const monthlyAddr = addr(c.id, "car.lease", ["monthly"]);
+  const incField = (key: "taxAndCompulsory" | "inspectionMaintenance" | "insurance", label: string, help: string): FieldDef =>
+    withAddress(
+      field({
+        key: `${lk}/inc/${key}`,
+        item: "car.lease",
+        label,
+        level: "detail",
+        kind: "bool",
+        optional: true,
+        help,
+        get: (w) => {
+          const l = leaseOf(w);
+          if (l === undefined) return { value: null };
+          const v = l.includes?.[key];
+          return v === undefined ? { value: carLeaseIncludes(l)[key], implicit: true } : { value: v };
+        },
+        set: (w, v) =>
+          refreshUpkeep(
+            mutate(w, (h) => {
+              const l = (h.cars ?? []).find((x) => x.id === c.id)?.lease;
+              if (l === undefined) return;
+              const inc = { ...(l.includes ?? {}) };
+              // 種類の既定と同じなら書かない（種類を変えたときに既定に従う）
+              const d = carLeaseIncludes({ type: l.type })[key];
+              if (v === null || v === d) delete inc[key];
+              else inc[key] = v === true;
+              if (Object.keys(inc).length === 0) delete l.includes;
+              else l.includes = inc;
+            }),
+          ),
+      }),
+      addr(c.id, "car.lease", ["includes", key]),
+    );
+  return [
+    withAddress(
+      field({
+        key: `${lk}/type`,
+        item: "car.lease",
+        label: "種類",
+        level: "simple",
+        kind: "select",
+        structural: true,
+        options: [
+          { value: "carLease", label: "カーリース" },
+          { value: "longRental", label: "長期レンタル" },
+        ],
+        help: "月額に含む物の既定が変わります（カーリース: 自動車税・自賠責と車検・メンテ、長期レンタル: それに保険も）。詳細で直せます",
+        get: (w) => ({ value: leaseOf(w)?.type ?? null }),
+        set: (w, v) =>
+          refreshUpkeep(
+            mutate(w, (h) => {
+              const l = (h.cars ?? []).find((x) => x.id === c.id)?.lease;
+              if (l !== undefined && (v === "carLease" || v === "longRental")) l.type = v;
+            }),
+          ),
+      }),
+      addr(c.id, "car.lease", ["type"]),
+    ),
+    withAddress(
+      field({
+        key: `${lk}/monthly`,
+        item: "car.lease",
+        label: "月額",
+        level: "simple",
+        kind: "yen",
+        basis: "monthly",
+        help: "契約の月額です（物価では伸ばしません）。契約の年数が終わっても、手放す時期まで同じ月額で続けます",
+        get: (w) => ({ value: leaseOf(w)?.monthly ?? null }),
+        set: (w, v) =>
+          mutate(w, (h, req) => {
+            const l = (h.cars ?? []).find((x) => x.id === c.id)?.lease;
+            if (l === undefined) return;
+            l.monthly = v === null ? 0 : Number(v);
+            putRow(inputOf(req), monthlyAddr, v === null ? estRow(LEASE_UNENTERED) : undefined);
+          }),
+      }),
+      monthlyAddr,
+    ),
+    withAddress(
+      timepointField({
+        key: `${lk}/from`,
+        item: "car.lease",
+        label: "借り始め",
+        level: "simple",
+        find,
+        path: ["lease", "from"],
+        optional: true,
+        absentWhenEmpty: true,
+        nullText: "もう借りている",
+        mode: "now",
+        modes: ["now", "ym"],
+        help: "これから借りるときに入れます（空欄は、もう借りている）",
+      }),
+      addr(c.id, "car.lease", ["from"]),
+    ),
+    withAddress(
+      plain({ key: `${lk}/term`, item: "car.lease", label: "契約の年数", level: "detail", kind: "int", suffix: "年", min: 1, max: 30, find, path: ["lease", "termYears"], optional: true, help: "表示だけです（計算には使いません。終わった後も同じ月額で続け、精算はしません）" }),
+      addr(c.id, "car.lease", ["termYears"]),
+    ),
+    incField("taxAndCompulsory", "月額に含む: 自動車税・自賠責", "含むときは自動車税を数えません。この入力項目では、自賠責保険は車検（1回の額）の中に入れています（自賠責は車検・メンテのほうで数えます）"),
+    incField("inspectionMaintenance", "月額に含む: 車検・メンテ", "含むときは車検（自賠責を含む）を数えません"),
+    incField("insurance", "月額に含む: 自動車保険", "含むときは自動車保険を数えません"),
+  ];
+}
+
+/** 内訳の名前つきの行（タイヤ・防錆など）と、行を足すボタン */
+function upkeepOtherGroups(c: Car, k: string, car: (h: Household, w: WorkingHousehold) => Car | undefined): GroupDef[] {
+  const groups: GroupDef[] = [];
+  for (const o of c.upkeepOther ?? []) {
+    const ok = `${k}/other/${o.id}`;
+    const ofind: Finder = (h, w) => ((car(h, w)?.upkeepOther ?? []).find((x) => x.id === o.id) as Obj | undefined) ?? undefined;
+    groups.push({
+      key: ok,
+      title: `内訳: ${o.label !== undefined && o.label !== "" ? o.label : "名前のない行"}`,
+      level: "detail",
+      fields: [
+        withAddress(plain({ key: `${ok}/label`, item: "car.upkeepOther", label: "名前", level: "detail", kind: "text", find: ofind, path: ["label"], optional: true }), addr(c.id, "car.upkeepOther", [o.id, "label"])),
+        withAddress(
+          field({
+            key: `${ok}/annual`,
+            item: "car.upkeepOther",
+            label: "年額",
+            level: "detail",
+            kind: "yen",
+            basis: "annual",
+            get: (w) => {
+              const v = getPath(ofind(w.request.input.household, w), ["annual"]);
+              return { value: typeof v === "number" ? v : null, assumed: w.assumed[`${ok}/annual`] ?? null };
+            },
+            set: (w, v) =>
+              v === null
+                ? w
+                : mutate(w, (h, req) => {
+                    const t = ofind(h, { ...w, request: req });
+                    if (t !== undefined) t.annual = Number(v);
+                  }),
+          }),
+          addr(c.id, "car.upkeepOther", [o.id, "annual"]),
+        ),
+      ],
+      actions: [
+        {
+          key: `${ok}/remove`,
+          label: "外す",
+          level: "detail",
+          danger: true,
+          run: (w) => {
+            const next = mutate(w, (h, req) => {
+              const x = car(h, { ...w, request: req });
+              if (x === undefined) return;
+              x.upkeepOther = (x.upkeepOther ?? []).filter((y) => y.id !== o.id);
+              if (x.upkeepOther.length === 0) delete x.upkeepOther;
+            });
+            return { ...next, assumed: Object.fromEntries(Object.entries(next.assumed).filter(([key]) => !key.startsWith(`${ok}/`))) };
+          },
+        },
+      ],
+    });
+  }
+  groups.push({
+    key: `${k}/other/add`,
+    level: "detail",
+    fields: [],
+    actions: [
+      {
+        key: `${k}/other/add`,
+        label: "＋ 内訳の行",
+        help: "タイヤ・防錆など、名前をつけて足す維持費の行です",
+        level: "detail",
+        run: (w) =>
+          mutate(w, (h, req) => {
+            const x = car(h, { ...w, request: req });
+            if (x !== undefined) (x.upkeepOther ??= []).push({ id: newId(), label: "", annual: 0 });
+          }),
+      },
+    ],
+  });
+  return groups;
+}
+
+/** 手放す時期（名義の人の年齢で）。prominent は今の車に乗り続けるとき（買い替えのすぐ下に出す） */
+function untilField(c: Car, k: string, car: (h: Household, w: WorkingHousehold) => Car | undefined, owner: (h: Household) => Member | undefined, prominent: boolean): FieldDef {
+  const oneTime = !isLeaseCar(c) && replaceKind(c) === "none";
+  const help = [
+    prominent ? "今の車を手放す時期です。名義の人の年齢で入れます" : "名義の人の年齢で入れます",
+    `その年齢に達する月で手放します（${oneTime ? (c.purchase?.owned === true ? "空欄なら今から5年で計算します" : "空欄なら、買ってから13年〔乗用車の平均使用年数の目安〕で計算します") : "空欄は最後まで乗る"}）`,
+    "運転免許の更新で認知機能の検査が始まる75歳ごろを目安にするFPも多いです",
+    isLeaseCar(c) ? "リース・長期レンタルは、手放す月まで月額を数えます" : "手放すときの売却額は、まだ計算に入っていません",
+  ].join("。");
+  const setNull = (w: WorkingHousehold, write: (x: Car) => void): WorkingHousehold => {
+    const next = mutate(w, (h, req) => {
+      const x = car(h, { ...w, request: req });
+      if (x === undefined) return;
+      write(x);
+      putRow(inputOf(req), addr(c.id, "car.until"), undefined);
+    });
+    // 買い替えない車は、空にしたら目安（推定）に戻す
+    return withOneTimeUntil(next, c.id);
+  };
+  return field({
+    key: `${k}/untilAge`,
+    item: "car.until",
+    label: "手放す時期",
+    level: "simple",
+    kind: "int",
+    suffix: "歳",
+    min: 18,
+    max: 100,
+    optional: true,
+    ...(oneTime ? { blankIsEstimate: true } : {}),
+    help,
+    get: (w) => {
+      const h = w.request.input.household;
+      const x = car(h, w);
+      const raw = x?.until;
+      if (raw == null) return { value: null, hint: "最後まで", implicit: true };
+      // 買い替えない車の目安（推定）は、物の値の状態の行で持つ（欄の当て先は結果のタブで動かす項目のまま。0101）
+      const row = rowAt(inputOf(w.request), addr(c.id, "car.until"));
+      const estimated = row?.state === "estimated" ? (row.estimate?.basis ?? "推定") : null;
+      // 出来事「車を手放す」を指しているときは、出来事の時点で読む
+      const ev = raw.event !== undefined && raw.offset === undefined ? (h.events ?? []).find((e) => e.id === raw.event) : undefined;
+      const u = ev?.at ?? raw;
+      if (u.memberAge !== undefined && u.memberAge.member === x?.owner && (u.memberAge.months ?? 0) === 0) return { value: u.memberAge.years, estimated };
+      const o = ownerOf(h, x);
+      const ym = resolveTimepoint(h, u);
+      return { value: o !== undefined && ym !== null ? ageAt(o, ym) : null, estimated, derived: u.at !== undefined ? `年月（${u.at}）で入っています。書き換えると年齢の形にします` : "ほかの形の時点で入っています" };
+    },
+    set: (w, v) => {
+      if (v === null)
+        return setNull(w, (x) => {
+          if (x.until !== undefined) x.until = null;
+        });
+      return mutate(w, (h, req) => {
+        const x = car(h, { ...w, request: req });
+        if (x === undefined) return;
+        const at = { memberAge: { member: x.owner, years: Number(v), months: 0 } };
+        // 出来事「車を手放す」を指しているときは、出来事のほうを動かす（手放した後の移動の費用・続きの車も一緒に動く）
+        const ev = x.until?.event !== undefined && x.until.offset === undefined ? (h.events ?? []).find((e) => e.id === x.until?.event && e.kind === "carRelease") : undefined;
+        if (ev !== undefined) ev.at = at;
+        else x.until = at;
+      });
+    },
+    // 時点の部品（0038）: 名義の人の年齢（既定）・年月・今から・出来事からで入れる。結果のタブで動かす項目は年齢の整数のまま
+    time: timeView({
+      ageOf: owner,
+      optional: true,
+      nullText: oneTime ? "目安（推定）" : "最後まで",
+      anchor: "carRelease",
+      read: (w) => car(w.request.input.household, w)?.until ?? null,
+      write: (w, tp) => {
+        if (tp === null)
+          return setNull(w, (x) => {
+            if (x.until !== undefined) x.until = null;
+          });
+        return mutate(w, (h, req) => {
+          const x = car(h, { ...w, request: req });
+          if (x !== undefined) x.until = tp;
+        });
+      },
+    }),
+  });
 }
 
 /** 合計と内訳の差を置く名前つきの行の名前 */
@@ -691,16 +1177,31 @@ export function setUpkeepMode(wh: WorkingHousehold, carId: string, to: "total" |
     }
     const total = x.upkeep?.annual;
     if (!hasBreakdown(x)) {
-      const t = total ?? CAR_ESTIMATE.upkeep.value;
-      x.tax = { annual: CAR_ESTIMATE.tax.value };
-      x.insurance = { annual: CAR_ESTIMATE.insurance.value };
-      x.inspection = { amount: CAR_ESTIMATE.inspection.value };
-      const rest = t - CAR_ESTIMATE.tax.value - CAR_ESTIMATE.insurance.value - Math.round(CAR_ESTIMATE.inspection.value / 2);
+      const t = total ?? upkeepEstimate(x).value;
+      // リース・長期レンタルの月額に含む物は、合計に入っていないので分けない（欄も出さない。0101）
+      const inc = leaseIncludes(x);
+      const parts: string[] = [];
+      let rest = t;
+      if (inc?.taxAndCompulsory !== true) {
+        x.tax = { annual: CAR_ESTIMATE.tax.value };
+        assumed[`${k}/tax`] = CAR_ESTIMATE.tax.basis;
+        rest -= CAR_ESTIMATE.tax.value;
+        parts.push("自動車税");
+      }
+      if (inc?.insurance !== true) {
+        x.insurance = { annual: CAR_ESTIMATE.insurance.value };
+        assumed[`${k}/insurance`] = CAR_ESTIMATE.insurance.basis;
+        rest -= CAR_ESTIMATE.insurance.value;
+        parts.push("保険");
+      }
+      if (inc?.inspectionMaintenance !== true) {
+        x.inspection = { amount: CAR_ESTIMATE.inspection.value };
+        assumed[`${k}/inspection`] = CAR_ESTIMATE.inspection.basis;
+        rest -= Math.round(CAR_ESTIMATE.inspection.value / 2);
+        parts.push("車検");
+      }
       if (rest > 0) x.fuel = { annual: rest };
-      assumed[`${k}/tax`] = CAR_ESTIMATE.tax.basis;
-      assumed[`${k}/insurance`] = CAR_ESTIMATE.insurance.basis;
-      assumed[`${k}/inspection`] = CAR_ESTIMATE.inspection.basis;
-      if (rest > 0) assumed[`${k}/fuel`] = `維持費の合計（年${manYen(t)}）から自動車税・保険・車検の目安を引いた残り`;
+      if (rest > 0) assumed[`${k}/fuel`] = parts.length === 0 ? `維持費の合計（年${manYen(t)}）` : `維持費の合計（年${manYen(t)}）から${parts.join("・")}の目安を引いた残り`;
       return;
     }
     if (total === undefined) return;
@@ -742,21 +1243,32 @@ export function addCar(wh: WorkingHousehold, id: () => string = newId, owned = t
   return { ...next, assumed: { ...next.assumed, [`${k}/every`]: CAR_ESTIMATE.everyYears.basis, [`${k}/price`]: CAR_ESTIMATE.price.basis, [`${k}/tradeIn`]: trade.basis, [`${k}/upkeep`]: CAR_ESTIMATE.upkeep.basis } };
 }
 
-/** 車のカードの出るお金の行の区画（車を持たない移動の費用・車の修理・用品など。空ならカーシェアのひな形のボタン） */
-function moveSection(wh: WorkingHousehold, _list: readonly Car[]): SectionDef | null {
+/**
+ * リース・長期レンタルの車を足す（0101）。月額は目安を入れず、未入力の印（0円で計算中）。維持費の合計は、月額に含む物（カーリース: 自動車税・車検）を引いた目安（推定）
+ */
+export function addLeaseCar(wh: WorkingHousehold, id: () => string = newId): WorkingHousehold {
+  const h = wh.request.input.household;
+  const owner = h.members.find((m) => m.kind === "self") ?? h.members[0];
+  if (owner === undefined) return wh;
+  const carId = id();
+  const k = `ev/car/${carId}`;
+  const body: Car = { id: carId, owner: owner.id, lease: { type: "carLease", monthly: 0 }, upkeepMode: "total" };
+  const est = upkeepEstimate(body);
+  const next = mutate(wh, (hh, req) => {
+    (hh.cars ??= []).push({ ...body, upkeep: { annual: est.value } });
+    putRow(inputOf(req), addr(carId, "car.lease", ["monthly"]), estRow(LEASE_UNENTERED));
+  });
+  return { ...next, assumed: { ...next.assumed, [`${k}/upkeep`]: est.basis } };
+}
+
+/** 車の入力項目の出るお金の行の区画（車の修理・用品・手放した後の移動の費用など。ときどき使うカーシェア・レンタカーは基本生活費の交通費で入れる。0101） */
+function moveSection(wh: WorkingHousehold): SectionDef | null {
   const out = moneySections(wh, "car", { claimed: new Set(), level: "simple", outTitle: "出るお金" }).find((s) => s.key.endsWith("/out"));
   if (out === undefined) return null;
   const empty = out.groups.length === 0;
-  const share: ActionDef = {
-    key: "money/car/out/template/carshare",
-    label: "＋ カーシェア・レンタカー",
-    level: "simple",
-    run: (w) => addCarRow(w, { label: "カーシェア・レンタカー", amount: CARSHARE_PRESET.monthly, monthly: true, basis: CARSHARE_PRESET.basis }),
-  };
   return {
     ...out,
-    note: `${empty ? "まだありません。" : ""}車の修理・用品、車を持たない移動の費用（カーシェア・レンタカー・タクシー）、手放した後の移動の費用を入れます`,
-    actions: [...(empty ? [share] : []), ...out.actions],
+    note: `${empty ? "まだありません。" : ""}車の修理・用品、手放した後の移動の費用などを入れます（ときどき使うカーシェア・レンタカーは、基本生活費の「交通費」で入れます）`,
   };
 }
 
@@ -779,28 +1291,36 @@ function carLoanSection(wh: WorkingHousehold): SectionDef {
 /** 車のパネル: 持っている車を1台ずつ（台数に上限なし）、車のカードの出るお金の行、今返している自動車ローン */
 export function carStage(wh: WorkingHousehold): StageDef {
   const list = wh.request.input.household.cars ?? [];
-  const move = moveSection(wh, list);
+  const move = moveSection(wh);
   return {
     id: "car",
     label: "車",
-    lead: "車ごとの買い替え・維持費・手放す時期と、車を持たない移動の費用。",
+    lead: "車ごとの買い替え・リース・維持費・手放す時期と、手放した後の移動の費用。",
     sections: [
       {
         key: "ev/cars",
         title: "車",
-        note: "買い替え（下取り・ローン）と維持費を、車ごとに入れます。2台目からは「＋ もう1台」で足します。基本生活費の「交通」には車の費用を入れないでください（二重になります）",
+        note: "買い替え（下取り・ローン）・リースの月額と維持費を、車ごとに入れます。2台目からは「＋ もう1台」で足します。基本生活費の「交通費」には車の費用を入れないでください（二重になります）",
         level: "simple",
         groups: list.flatMap((c, i) => carGroups(wh, c, i, list)),
-        actions:
-          list.length === 0
+        actions: [
+          ...(list.length === 0
             ? [
-                { key: "ev/addCar", label: "＋ 今の車", help: "価格・維持費などは目安の値で入れます（あとで直せます）", level: "simple", run: (w) => addCar(w) },
-                { key: "ev/addCarNew", label: "＋ これから買う車", help: "価格・維持費などは目安の値で入れます（あとで直せます）", level: "simple", run: (w) => addCar(w, newId, false) },
+                { key: "ev/addCar", label: "＋ 今の車", help: "価格・維持費などは目安の値で入れます（あとで直せます）", level: "simple" as const, run: (w: WorkingHousehold) => addCar(w) },
+                { key: "ev/addCarNew", label: "＋ これから買う車", help: "価格・維持費などは目安の値で入れます（あとで直せます）", level: "simple" as const, run: (w: WorkingHousehold) => addCar(w, newId, false) },
               ]
             : [
-                { key: "ev/addCar", label: "＋ もう1台（今の車）", help: "価格・維持費などは目安の値で入れます（あとで直せます）", level: "simple", run: (w) => addCar(w) },
-                { key: "ev/addCarNew", label: "＋ もう1台（これから買う車）", help: "価格・維持費などは目安の値で入れます（あとで直せます）", level: "simple", run: (w) => addCar(w, newId, false) },
-              ],
+                { key: "ev/addCar", label: "＋ もう1台（今の車）", help: "価格・維持費などは目安の値で入れます（あとで直せます）", level: "simple" as const, run: (w: WorkingHousehold) => addCar(w) },
+                { key: "ev/addCarNew", label: "＋ もう1台（これから買う車）", help: "価格・維持費などは目安の値で入れます（あとで直せます）", level: "simple" as const, run: (w: WorkingHousehold) => addCar(w, newId, false) },
+              ]),
+          {
+            key: "ev/addCarLease",
+            label: "＋ リース・長期レンタル（月額）",
+            help: "カーリース・長期レンタルの車を、月額で足します。月額は契約書の額を入れてください（空欄のうちは0円で計算します）",
+            level: "simple",
+            run: (w: WorkingHousehold) => addLeaseCar(w),
+          },
+        ],
       },
       ...(move !== null ? [move] : []),
       carLoanSection(wh),

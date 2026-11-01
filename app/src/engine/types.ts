@@ -618,10 +618,25 @@ export interface OnContingency {
   kinds?: ("death" | "disability" | "incapacity")[];
 }
 
+/** 車の買い替え（0101）: 買い替え続ける（省略と同じ）・この1台だけ・○歳まで（その年齢になる前の月まで買い替える） */
+export type CarReplace = { kind: "repeat" } | { kind: "none" } | { kind: "until"; until: Timepoint };
+
+/** 車のリース・長期レンタル（0101） */
+export interface CarLease {
+  type: "carLease" | "longRental";
+  monthly: number;
+  from?: Timepoint;
+  termYears?: number;
+  includes?: { taxAndCompulsory?: boolean; inspectionMaintenance?: boolean; insurance?: boolean };
+}
+
 export interface Car {
   id: string;
   owner: string;
-  purchase: { first: Timepoint; everyYears: number; price: number; tradeIn?: number; owned?: boolean };
+  /** 買い替え（買って持つ車。リースの車は持たない。0101） */
+  purchase?: { first: Timepoint; everyYears: number; price: number; tradeIn?: number; owned?: boolean; replace?: CarReplace };
+  /** リース・長期レンタル（月額。0101） */
+  lease?: CarLease;
   until?: Timepoint | null;
   loan?: { share?: string; rate: string; termMonths: number; method?: string };
   inspection?: { amount: number; firstAfterYears?: number; everyYears?: number };

@@ -9,6 +9,7 @@ import { pctText, timesText } from "./rentalText.ts";
 import { selectChapters } from "./chapters.ts";
 import { bsSeries, BS_GROUP_LABEL, groupTotal, type BsGroup } from "./bsGroups.ts";
 import { DEFAULT_MONEY_THREE, moneyThreeModel, type MoneyThreeModel } from "./moneyThree.ts";
+import { carPurchaseMonths } from "../../engine/src/sdk/cars.ts";
 import {
   type Comparison,
   DEFAULT_LAYOUT,
@@ -430,22 +431,32 @@ function monthOfTimepoint(h: Household, t: Timepoint | null | undefined, stack: 
   return base === null ? null : addMonths(base, (ev.offset?.years ?? 0) * 12 + (ev.offset?.months ?? 0));
 }
 
-/** 車の買い替え（購入）の年: 計算エンジンの車の部品と同じ決め方（最初の年月から周期ごと、手放す時点と表の最後まで）。車が2台以上なら「車1」「車2」と分ける */
+/**
+ * 車の買い替え（購入）の年: 計算エンジンの車の部品と同じ決め方（SDK の carPurchaseMonths。最初の年月から周期ごと、手放す月より前と表の最後まで、
+ * 買い替えの決まり。0101）。車が2台以上なら「車1」「車2」と分ける。リース・長期レンタルの車は購入が無い
+ */
 function carPurchases(req: EngineRequest): { year: number; text: string }[] {
   const h = req.input.household;
   const cars = h.cars ?? [];
   const base = req.input.baseMonth;
   const end = `${req.input.endYear}-12`;
   const out: { year: number; text: string }[] = [];
+  const idx = (ym: string) => { const p = parseYm(ym); return p.y * 12 + p.m - 1; };
   cars.forEach((c, i) => {
-    const first = monthOfTimepoint(h, c.purchase.first);
-    if (first === null || c.purchase.everyYears < 1) return;
-    const until = c.until === undefined || c.until === null ? end : (monthOfTimepoint(h, c.until) ?? end);
+    const p = c.purchase;
+    if (p === undefined) return;
+    const first = monthOfTimepoint(h, p.first);
+    if (first === null || p.everyYears < 1) return;
+    const until = c.until === undefined || c.until === null ? null : monthOfTimepoint(h, c.until);
+    const r = p.replace;
+    const lastAt = r?.kind === "until" ? monthOfTimepoint(h, r.until) : null;
+    const replace = r === undefined || r.kind === "repeat" || (r.kind === "until" && lastAt === null) ? "repeat" : r.kind === "none" ? "none" : { lastAt: idx(lastAt as string) };
     const name = cars.length > 1 ? `車${i + 1}` : "車";
-    for (let m = first, k = 0; m <= until && m <= end; m = addMonths(m, 12 * c.purchase.everyYears), k++) {
-      if (m < base) continue;
-      out.push({ year: parseYm(m).y, text: k === 0 && c.purchase.owned !== true ? `${name}を購入` : `${name}の買い替え` });
-    }
+    const months = carPurchaseMonths({ first: idx(first), everyYears: p.everyYears, owned: p.owned === true, release: until === null ? null : idx(until), end: idx(end), replace });
+    months.forEach((m, k) => {
+      if (m < idx(base)) return;
+      out.push({ year: Math.floor(m / 12), text: k === 0 && p.owned !== true ? `${name}を購入` : `${name}の買い替え` });
+    });
   });
   return out;
 }
