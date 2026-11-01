@@ -254,7 +254,7 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
           impact: 0,
           actions: [{ key: "office", label: "事務所の値にする", title: "推定の印のまま、事務所の今の値にします", run: (w) => withOfficeValue(w, f, v) }],
         });
-      } else if (s.status === "estimated")
+      } else if (s.status === "estimated" && f.quietEstimate === undefined)
         rows.push({ ...base, id: `field:${f.key}`, kind: "estimated", detail: s.basis, impact: impactOf(f, wh), actions: availableOps(f, wh, s).includes("confirm") ? [{ key: "confirm", label: "この値にする", title: "この値のまま確定にします", run: (w) => applyStateOp(w, f, "confirm") }] : [] });
       else if (isPresetCandidate(f, wh, s)) {
         const what = PRESET_VALUES[f.item as string]?.what ?? "目安";
@@ -353,7 +353,7 @@ export function estimatedFields(wh: WorkingHousehold, card?: string): FieldDef[]
       const id = a !== null ? JSON.stringify(a) : `key:${f.key}`;
       if (seen.has(id)) continue;
       seen.add(id);
-      if (fieldStatus(f, wh).status === "estimated") out.push(f);
+      if (fieldStatus(f, wh).status === "estimated" && f.quietEstimate === undefined) out.push(f);
     }
   }
   return out;

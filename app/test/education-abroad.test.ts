@@ -43,8 +43,10 @@ describe("留学", () => {
     const a = goalOf(wh).education!.abroad!;
     expect(a.length).toBe(2);
     expect(a[0]).toMatchObject({ stage: "university", grade: 3, kind: "credit", amount: abroadEstimate("university", "credit").value });
-    expect(abroadEstimate("university", "credit").value).toBe(160000 * 12 + 350000);
-    expect(abroadEstimate("university", "leave").value).toBe(160000 * 12 + 350000 + 300000);
+    // 大学などの1年は文部科学省の委託調査のひと月あたりの費用（0088 の追記 2026-10-31）
+    expect(abroadEstimate("university", "credit").value).toBe(170000 * 12);
+    expect(abroadEstimate("university", "leave").value).toBe(240000 * 12);
+    expect(abroadEstimate("highSchool", "credit").value).toBe(160000 * 12 + 350000);
     expect(abroadEstimate("highSchool", "short").value).toBe(160000 + 350000);
     const amount = fieldOf(wh, `/abroad/${a[0]!.id}/amount`);
     expect(fieldStatus(amount, wh).status).toBe("estimated");

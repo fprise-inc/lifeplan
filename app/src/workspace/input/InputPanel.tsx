@@ -270,7 +270,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   // 見えている欄のうち推定のままの欄（「推定の値をまとめて使う」で確定にする欄）
   // 詳細では、標準だけのまとまり（今の働き方など。同じ値を詳細の欄で入れる）の欄を数えない
   const shownFields = allFields({ ...stage, sections: sections.map((s) => ({ ...s, groups: s.groups.filter((g) => level === "simple" || g.simpleOnly !== true) })) }).filter((f) => visible(level, f.level));
-  const estimatedShown = shownFields.filter((f) => fieldStatus(f, shown).status === "estimated" && availableOps(f, shown).includes("confirm")).length;
+  const estimatedShown = shownFields.filter((f) => f.quietEstimate === undefined && fieldStatus(f, shown).status === "estimated" && availableOps(f, shown).includes("confirm")).length;
   // このカードの入っていない物（古い世帯では自動で推定を入れず、ここと確かめの一覧に出す。fill.ts）
   const gaps = gapsOf(shown).filter((g) => g.card === itemId);
   // まだ何も入れていない項目（赤い帯を出さない）
@@ -278,7 +278,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   const confirmShown = () => {
     if (plan === undefined) return edit(confirmAll(draft, shownFields).wh);
     let w = latest.current;
-    for (const f of shownFields) if (fieldStatus(f, planView(w, plan.cat, plan.id)).status === "estimated") w = planStateOp(w, plan.cat, plan.id, f, "confirm");
+    for (const f of shownFields) if (f.quietEstimate === undefined && fieldStatus(f, planView(w, plan.cat, plan.id)).status === "estimated") w = planStateOp(w, plan.cat, plan.id, f, "confirm");
     commit(w);
   };
   const removed = item.added !== null && item.summary === null;
