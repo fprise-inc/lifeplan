@@ -78,7 +78,15 @@ export const categoryShort = (id: StatementCategory): string => categoryLabel(id
 
 const norm = looseKey;
 
-const CATEGORY_WORDS: ReadonlyMap<string, StatementCategory> = new Map(SHEET_CATEGORIES.flatMap((id) => [[norm(categoryLabel(id)), id] as const, [norm(categoryShort(id)), id] as const, [norm(id), id] as const]));
+const CATEGORY_WORDS: ReadonlyMap<string, StatementCategory> = new Map(
+  SHEET_CATEGORIES.flatMap((id) => [
+    [norm(categoryLabel(id)), id] as const,
+    [norm(categoryShort(id)), id] as const,
+    [norm(id), id] as const,
+    // 前の言葉（言葉を変える前に書き出したシートの選択肢）
+    ...(CATEGORIES.find((c) => c.id === id)?.aliases ?? []).map((a) => [norm(a), id] as const),
+  ]),
+);
 
 const BUCKET_WORDS: ReadonlyMap<string, Bucket> = new Map(
   (Object.keys(SHEET_BUCKET_LABELS) as Bucket[]).flatMap((b) => [[norm(SHEET_BUCKET_LABELS[b]), b] as const, [norm(BUCKET_LABELS[b]), b] as const, [norm(SHEET_BUCKET_LABELS[b].replace(/（.*）$/u, "")), b] as const, [norm(b), b] as const]),

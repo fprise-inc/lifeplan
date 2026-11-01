@@ -19,6 +19,14 @@ export const ANNUAL_MIN = 30_000;
 export const YEAR_DAYS = 335;
 /** 返品・取り消しの元の行を探す日数 */
 export const REFUND_WINDOW_DAYS = 120;
+/**
+ * 家電・家具の店の1行の金額がこれ以上なら、家電・家具の買い替え（数年おきの支出）とみなし、月平均の日用品から外して
+ * 基本生活費の年払いの「家電・家具の買い替え」の候補にする（0034 の 2026-10-31 の追記）。高額の印（10万円）より低くしたのは、
+ * 電子レンジ・掃除機・テレビ・椅子など3〜10万円のよくある買い替えも、毎月の日用品に入れると多く見えるため。これより小さい買い物は日用品のまま
+ */
+export const DURABLE_MIN = 30_000;
+/** 家電・家具の買い替えとみなす項目（家具・家電の店。ドラッグストア・ホームセンターの日用品は入れない） */
+const DURABLE_CATEGORIES: readonly (StatementCategory | null)[] = ["furniture"];
 
 export type Flag =
   | "unknownMerchant"
@@ -34,7 +42,8 @@ export type Flag =
   | "refundUnmatched"
   | "revolving"
   | "familyCard"
-  | "engineTax";
+  | "engineTax"
+  | "durable";
 
 /** 迷う行の印（ヒアリングの画面で FP が決める） */
 export const REVIEW_FLAGS: readonly Flag[] = ["unknownMerchant", "bucketUndecided", "bucketNotAllowed", "highAmount", "annualUnsure", "cardPaymentKept", "revolving", "refundUnmatched"];
@@ -54,6 +63,7 @@ export const FLAG_LABELS: Record<Flag, string> = {
   revolving: "リボ払い（払う月が決まらない）",
   familyCard: "家族カードの行",
   engineTax: "税・社会保険料（計算で出すので除外）",
+  durable: "家電・家具の店の3万円以上の買い物（月平均から外し、家電・家具の買い替えの候補）",
 };
 
 export interface AnnualInfo {
@@ -175,6 +185,8 @@ export function classify(ctx: ClassifyContext): ClassifiedRow[] {
     annual?: AnnualInfo;
     annualHint: boolean;
     issuer?: string;
+    /** 家電・家具の買い替えの一部の返品のとき、その元の買い物（候補から差し引く） */
+    durableOf?: Work;
   }
   const work: Work[] = [];
   for (const imp of imports) {
@@ -194,7 +206,12 @@ export function classify(ctx: ClassifyContext): ClassifiedRow[] {
         category = "transfer";
         source = "transferMark";
       } else {
-        const m = lookup(r.key, { office, ...(r.sourceCategory !== undefined ? { sourceCategory: r.sourceCategory } : {}), bank: acc.kind === "bank" });
+        const m = lookup(r.key, {
+          office,
+          ...(r.sourceCategory !== undefined ? { sourceCategory: r.sourceCategory } : {}),
+          ...(r.sourceSubCategory !== undefined ? { sourceSubCategory: r.sourceSubCategory } : {}),
+          bank: acc.kind === "bank",
+        });
         if (m !== null) {
           category = m.category;
           source = m.source;
@@ -207,6 +224,8 @@ export function classify(ctx: ClassifyContext): ClassifiedRow[] {
         }
       }
       if (category === "tax") flags.add("engineTax");
+      // 覚えた辞書・同梱の辞書の年1回の印がある店は、年1回の支払いの検出に任せる（FP が教えた年払いを買い替えにしない）
+      if (DURABLE_CATEGORIES.includes(category) && r.amount >= DURABLE_MIN && !flags.has("cardPaymentExcluded") && !annualHint) flags.add("durable");
       if (r.cardUser === "family" && r.owner === undefined) flags.add("familyCard");
       if (r.plan?.kind === "revolving") flags.add("revolving");
       const counted = !dup.has(r);
@@ -249,7 +268,18 @@ export function classify(ctx: ClassifyContext): ClassifiedRow[] {
         neg.flags.add("refund");
         orig.counted = false;
         neg.counted = false;
-      } else neg.flags.add("refundUnmatched");
+      } else {
+        neg.flags.add("refundUnmatched");
+        // 家電・家具の買い替えの一部の返品（同じ店の前の120日の、返品より大きい買い替えの行）: 買い替えの候補から差し引く。
+        // 日用品の月平均から引くと、買い替えの候補は買った額のまま、日用品だけが少なく出る
+        const buy = list
+          .filter((p) => !used.has(p) && p.flags.has("durable") && p.r.amount > -neg.r.amount && p.r.key === neg.r.key && dayOf(p.r.date) <= d && d - dayOf(p.r.date) <= REFUND_WINDOW_DAYS)
+          .sort((a, b) => dayOf(b.r.date) - dayOf(a.r.date))[0];
+        if (buy !== undefined) {
+          neg.flags.add("durable");
+          neg.durableOf = buy;
+        }
+      }
     }
   }
 
@@ -259,7 +289,8 @@ export function classify(ctx: ClassifyContext): ClassifiedRow[] {
   for (const a of log.accounts) spanOf.set(a.id, countDays(imports.filter((i) => i.account === a.id).map((i) => i.period)));
   const groups = new Map<string, Work[]>();
   for (const w of work) {
-    if (!w.counted || w.r.amount <= 0 || w.flags.has("cardPaymentExcluded") || w.flags.has("cardPaymentKept") || w.flags.has("engineTax")) continue;
+    // 家電・家具の買い替えは年1回の支払いにしない（数年おきの1つの候補にまとめる）
+    if (!w.counted || w.r.amount <= 0 || w.flags.has("cardPaymentExcluded") || w.flags.has("cardPaymentKept") || w.flags.has("engineTax") || w.flags.has("durable")) continue;
     if (w.r.bucket !== undefined && w.r.bucket !== "oneOff" && w.r.bucket !== "household") continue;
     groups.set(w.r.key, [...(groups.get(w.r.key) ?? []), w]);
   }
@@ -290,27 +321,25 @@ export function classify(ctx: ClassifyContext): ClassifiedRow[] {
   }
 
   // 6. 区分と迷う印
+  const decide = (w: Work): { bucket: Bucket; bucketSource: ClassifiedRow["bucketSource"]; share?: string } => {
+    const r = w.r;
+    const rule = ruleFor(ctx.log.rules, r, w.category, w.owner, w.allowed);
+    if (r.bucket !== undefined && w.allowed.includes(r.bucket)) return { bucket: r.bucket, bucketSource: "fp", ...(r.bucket === "business" && r.share !== undefined ? { share: r.share } : {}) };
+    if (r.bucket !== undefined) w.flags.add("bucketNotAllowed");
+    if (rule !== undefined) return { bucket: rule.bucket, bucketSource: "rule", ...(rule.bucket === "business" && rule.share !== undefined ? { share: rule.share } : {}) };
+    return { bucket: autoBucket(w.category, w.flags), bucketSource: "auto" };
+  };
+  // FP・世帯の決まりで一時的な支出でない区分にした買い物は、家電・家具の買い替えの候補にしない（日用品などとして数える）。
+  // その一部の返品も、元の買い物に合わせる（買い物を日用品にしたなら、返品も日用品から差し引く）
+  for (const w of work) if (w.durableOf === undefined && w.flags.has("durable") && decide(w).bucket !== "oneOff") w.flags.delete("durable");
+  for (const w of work) if (w.durableOf !== undefined && !w.durableOf.flags.has("durable")) w.flags.delete("durable");
   return work.map((w): ClassifiedRow => {
     const r = w.r;
     const flags = w.flags;
-    let bucket: Bucket;
-    let bucketSource: ClassifiedRow["bucketSource"] = "auto";
-    let share: string | undefined;
-    const rule = ruleFor(ctx.log.rules, r, w.category, w.owner, w.allowed);
-    if (r.bucket !== undefined && w.allowed.includes(r.bucket)) {
-      bucket = r.bucket;
-      bucketSource = "fp";
-      share = r.bucket === "business" ? r.share : undefined;
-    } else {
-      if (r.bucket !== undefined) flags.add("bucketNotAllowed");
-      if (rule !== undefined) {
-        bucket = rule.bucket;
-        bucketSource = "rule";
-        share = rule.bucket === "business" ? rule.share : undefined;
-      } else bucket = autoBucket(w.category, flags);
-    }
+    const { bucket, bucketSource, share } = decide(w);
+    if (bucket !== "oneOff") flags.delete("durable");
     if (w.category === null && w.source === null) flags.add("unknownMerchant");
-    if (bucketSource === "auto" && bucket === "household" && (w.st.includes("selfEmployed") || w.st.includes("executive")) && BUSINESS_PRONE.includes(w.category)) flags.add("bucketUndecided");
+    if (bucketSource === "auto" && (bucket === "household" || flags.has("durable")) && (w.st.includes("selfEmployed") || w.st.includes("executive")) && BUSINESS_PRONE.includes(w.category)) flags.add("bucketUndecided");
     if (r.amount >= HIGH_AMOUNT && bucket === "household" && !flags.has("annual") && !flags.has("annualUnsure") && !flags.has("cardPaymentKept")) {
       const g = w.category === null ? null : categoryInfo(w.category).group;
       if (g === null || g === "living" || g === "oneOff") flags.add("highAmount");
@@ -344,11 +373,11 @@ export function classify(ctx: ClassifyContext): ClassifiedRow[] {
   });
 }
 
-/** 自動の区分: 振替・収入・計算で出す税は除外、年会費・一時的な支出・年1回の候補は一時的、ほかは家計 */
+/** 自動の区分: 振替・収入・計算で出す税は除外、年会費・一時的な支出・年1回の候補・家電・家具の買い替えは一時的、ほかは家計 */
 function autoBucket(category: StatementCategory | null, flags: Set<Flag>): Bucket {
   if (flags.has("cardPaymentKept")) return "household";
   if (flags.has("cardPaymentExcluded") || flags.has("engineTax")) return "excluded";
   if (category === "transfer" || category === "income") return "excluded";
-  if (category === "cardFee" || category === "lumpSum" || flags.has("annual")) return "oneOff";
+  if (category === "cardFee" || category === "lumpSum" || flags.has("annual") || flags.has("durable")) return "oneOff";
   return "household";
 }

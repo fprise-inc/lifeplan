@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCandidates, buildCandidates, classify, coveredDays, emptyLog, merchantKey, monthlyAverage, monthsText, paymentSchedule, summarize, type CandidateHousehold, type StatementAccount, type StatementLog, type StatementRow } from "../src/index.ts";
+import { applyCandidates, buildCandidates, CATEGORIES, categoryInfo, classify, coveredDays, LIVING_ORDER, emptyLog, merchantKey, monthlyAverage, monthsText, paymentSchedule, summarize, type CandidateHousehold, type StatementAccount, type StatementLog, type StatementRow } from "../src/index.ts";
 import { BASE_MONTH, buildLog, HOUSEHOLD, ids, SELF, SPOUSE } from "./helpers.ts";
 
 type RowIn = Partial<StatementRow> & { date: string; merchant: string; amount: number };
@@ -62,7 +62,7 @@ describe("月平均の出し方", () => {
     expect(s.notices.filter((n) => n.code === "S_SHORT_PERIOD" || n.code === "S_VERY_SHORT_PERIOD")).toEqual([]);
   });
 
-  it("基本生活費の内訳にまとめ、住居・教育・保険・車・税は参考の値に、分からない店は「その他の消費」に入れて別にも出す", () => {
+  it("基本生活費の内訳にまとめ、住居・教育・保険・車・税は参考の値に、分からない店は「その他」に入れて別にも出す", () => {
     const log = synth([
       {
         id: "a",
@@ -75,17 +75,63 @@ describe("月平均の出し方", () => {
     ]);
     const s = summaryOf(log);
     const by = Object.fromEntries(s.living.map((l) => [l.category, l.monthly]));
-    expect(by).toEqual({ transport: 8806, furniture: monthlyAverage(24000, 365), otherConsumption: monthlyAverage(12000, 365) });
+    expect(by).toEqual({ communication: 8806, furniture: monthlyAverage(24000, 365), other: monthlyAverage(12000, 365) });
     expect(s.unknownMonthly).toBe(monthlyAverage(12000, 365));
     expect(s.reference.education).toBe(monthlyAverage(240000, 365));
     expect(s.reference.car).toBe(monthlyAverage(72000, 365));
     expect(s.livingTotal).toBe(8806 + monthlyAverage(24000, 365) + monthlyAverage(12000, 365));
   });
 
+  it("項目から基本生活費の内訳への対応（10費目と仕送り。前の分け方の交通・通信費とその他の消費には入れない）", () => {
+    expect(Object.fromEntries(CATEGORIES.filter((c) => c.living !== undefined).map((c) => [c.id, c.living]))).toEqual({
+      food: "food",
+      dailyGoods: "furniture",
+      utilities: "utilities",
+      communication: "communication",
+      transport: "transit",
+      medical: "health",
+      clothing: "clothing",
+      furniture: "furniture",
+      recreation: "recreation",
+      allowance: "pocketAndSocial",
+      social: "pocketAndSocial",
+      otherLiving: "other",
+      cash: "other",
+    });
+    for (const c of CATEGORIES) if (c.living !== undefined) expect(LIVING_ORDER).toContain(c.living);
+    expect(LIVING_ORDER).not.toContain("transport");
+    expect(LIVING_ORDER).not.toContain("otherConsumption");
+    expect(categoryInfo("transport").living).toBe("transit");
+  });
+
+  it("家計簿アプリの書き出し（大項目と中項目）から基本生活費の内訳", async () => {
+    const log = await buildLog([{ name: "app-subcategory-utf8bom.csv", kind: "app", account: "app", owner: null }]);
+    const s = summaryOf(log);
+    const by = Object.fromEntries(s.living.map((l) => [l.category, l.detail.map((d) => d.category)]));
+    expect(by).toEqual({
+      food: ["food"],
+      communication: ["communication"],
+      transit: ["transport"],
+      clothing: ["clothing"],
+      health: ["medical"],
+      recreation: ["recreation"],
+      pocketAndSocial: ["social"],
+      // 現金の引き出し・使途不明金と、分からない行（中項目の無い現金・カード）は「その他」
+      other: expect.arrayContaining(["cash", "unknown"]),
+    });
+    expect(s.living.map((l) => l.category)).toEqual(["food", "communication", "transit", "clothing", "health", "recreation", "pocketAndSocial", "other"]);
+    // 保険・教育・車は参考の値。カードの引き落とし・電子マネーへのチャージは数えない
+    expect(s.reference.insurance).toBeGreaterThan(0);
+    expect(s.reference.education).toBeGreaterThan(0);
+    expect(s.reference.car).toBeGreaterThan(0);
+    const days = s.days;
+    expect(s.living.find((l) => l.category === "other")?.monthly).toBe(monthlyAverage(10000 + 2000, days) + monthlyAverage(1000, days));
+  });
+
   it("事業の割合で分けた分は家計から外し、持ち主ごとに別に出す", () => {
     const log = synth([{ id: "w", kind: "card", label: "妻", owner: SPOUSE, period: YEAR, rows: monthly(10, "NTTドコモ", 8800).map((r) => ({ ...r, bucket: "business" as const, share: "0.6", decidedAt: "x" })) }]);
     const s = summaryOf(log);
-    expect(s.living[0]).toMatchObject({ category: "transport", monthly: monthlyAverage(12 * 3520, 365) });
+    expect(s.living[0]).toMatchObject({ category: "communication", monthly: monthlyAverage(12 * 3520, 365) });
     expect(s.outside).toEqual([{ owner: SPOUSE, bucket: "business", monthly: monthlyAverage(12 * 5280, 365) }]);
   });
 
@@ -190,7 +236,7 @@ describe("候補", () => {
     expect(living.mode).toBe("byCategory");
     expect(living.categories.map((c) => [c.category, c.monthly.value])).toEqual([
       ["food", 30021],
-      ["transport", 8806],
+      ["communication", 8806],
     ]);
     expect(living.categories[0]?.monthly).toMatchObject({ state: "estimated", origin: { kind: "import", ref: "stmt-1" }, estimate: { method: "statementAverage" } });
     expect(living.categories[0]?.monthly.estimate.basis).toContain("2025-10-01〜2026-09-30、12.0か月");
@@ -208,7 +254,7 @@ describe("候補", () => {
     const byCat: CandidateHousehold = { livingExpenses: [{ id: "le1", mode: "byCategory", categories: [{ category: "food", monthly: box(50000) }, { category: "allowance", monthly: box(20000) }] }] };
     const c1 = buildCandidates(s, byCat, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids() })[0];
     expect(c1).toMatchObject({ op: "set", item: "livingExpense.categories", target: { object: "le1" } });
-    expect((c1?.value as { category: string }[]).map((x) => x.category)).toEqual(["food", "transport", "allowance"]);
+    expect((c1?.value as { category: string }[]).map((x) => x.category)).toEqual(["food", "communication", "allowance"]);
     expect(c1?.before).toEqual(byCat.livingExpenses?.[0]?.categories);
     expect(c1?.note).toContain("仕送り");
     const total: CandidateHousehold = { livingExpenses: [{ id: "le1", mode: "total", monthly: box(250000) }] };
@@ -216,7 +262,85 @@ describe("候補", () => {
     expect(c2).toMatchObject({ op: "set", item: "livingExpense.monthly", value: { value: 30021 + 8806 }, before: { value: 250000 } });
   });
 
-  it("今の分け方の内訳（0100）の世帯: 明細の交通・通信が含む交通費・通信費は残さない（二重に数えない）。残す内訳の名前は入力の画面と同じ", () => {
+  it("世帯の前の分け方の内訳（交通・通信費、その他の消費）は、それを分けた今の内訳が明細に出てくれば置き換え、出てこなければ残す", () => {
+    const box = (v: number) => ({ value: v, state: "confirmed" as const, origin: { kind: "manual" } });
+    const old: CandidateHousehold = { livingExpenses: [{ id: "le1", mode: "byCategory", categories: [{ category: "food", monthly: box(50000) }, { category: "transport", monthly: box(20000) }, { category: "otherConsumption", monthly: box(30000) }] }] };
+    // 通信（NTTドコモ）が出てくる → 交通・通信費は置き換える。こづかい・その他は出てこない → その他の消費は残す
+    const c = buildCandidates(summaryOf(yearLog()), old, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids() })[0];
+    expect((c?.value as { category: string }[]).map((x) => x.category)).toEqual(["food", "communication", "otherConsumption"]);
+    expect(c?.note).toContain("前の分け方の交通・通信費は、明細の通信費で置き換えます");
+    expect(c?.note).toContain("明細に出てこない内訳（その他の消費（こづかい・交際費など））は今の値を残します");
+    // 交際（居酒屋）が出てくる → その他の消費も置き換える
+    const social = synth([{ id: "a", kind: "card", label: "A", owner: SELF, period: YEAR, rows: [...monthly(10, "イオン 架空店", 30000), ...monthly(10, "架空居酒屋", 4000)] }]);
+    const c2 = buildCandidates(summaryOf(social), old, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids() })[0];
+    expect((c2?.value as { category: string }[]).map((x) => x.category)).toEqual(["food", "pocketAndSocial", "transport"]);
+    expect(c2?.note).toContain("前の分け方のその他の消費（こづかい・交際費など）は、明細のこづかい・交際費で置き換えます");
+  });
+
+  it("家電・家具の店の3万円以上の買い物は月平均の日用品から外し、「家電・家具の買い替え」の1つの候補にまとめる（いつも要確認）", () => {
+    const log = synth([
+      {
+        id: "a",
+        kind: "card",
+        label: "A",
+        owner: SELF,
+        period: YEAR,
+        rows: [
+          ...monthly(10, "イオン 架空店", 30000),
+          ...monthly(10, "ニトリ 架空店", 2000),
+          { date: "2026-02-11", merchant: "ニトリ 架空店", amount: 59800 },
+          { date: "2026-06-20", merchant: "ヤマダデンキ 架空店", amount: 128000 },
+        ],
+      },
+    ]);
+    const s = summaryOf(log);
+    // 日用品は小さな買い物だけ
+    expect(s.living.find((l) => l.category === "furniture")?.monthly).toBe(monthlyAverage(24000, 365));
+    expect(s.oneOffs.filter((o) => o.durable === true).map((o) => [o.key, o.amount])).toEqual([
+      [merchantKey("ヤマダデンキ"), 128000],
+      [merchantKey("ニトリ"), 59800],
+    ]);
+    expect(s.notices.find((n) => n.code === "S_DURABLE")?.message).toContain("2 件（合計 187,800円）");
+    const cands = buildCandidates(s, {}, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids("c") });
+    // 店ごとの年1回の候補にはしない。1つの候補にまとめる
+    expect(cands.map((c) => c.title)).toEqual(["基本生活費（内訳）", "年払いの暮らしの支出: 家電・家具の買い替え"]);
+    const d = cands[1];
+    expect(d).toMatchObject({ collection: "periodicExpenses", op: "add", status: "needsReview" });
+    expect(d?.value).toMatchObject({ label: "家電・家具の買い替え", kind: "livingAnnual", row: "cf.expense.living", everyYears: 8, from: { at: "2034-06" }, to: null, amount: { value: 187800, state: "estimated", origin: { kind: "import", ref: "stmt-1" }, estimate: { method: "statementAnnual" } } });
+    expect(d?.note).toContain("2026-02-11 ニトリ");
+    expect(d?.note).toContain("3万円未満の買い物は日用品のまま");
+    expect(d?.note).not.toContain("すでにあります");
+    // 世帯にもう家電・家具の支出があれば、そう書く
+    const has = buildCandidates(s, { periodicExpenses: [{ id: "p1", label: "家電の買い替え", row: "cf.expense.living" }] }, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids("c") });
+    expect(has[1]?.note).toContain("家電・家具の支出がすでにあります");
+    // 3万円以上の家電・家具の買い物が無ければ候補は出ない
+    expect(buildCandidates(summaryOf(yearLog()), {}, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids("c") }).some((c) => c.title.includes("家電・家具"))).toBe(false);
+  });
+
+  it("家電・家具の買い替えの一部の返品は、候補の額から差し引き、日用品の月平均は減らさない", () => {
+    const log = synth([
+      {
+        id: "a",
+        kind: "card",
+        label: "A",
+        owner: SELF,
+        period: YEAR,
+        rows: [...monthly(10, "ニトリ 架空店", 2000), { date: "2026-02-11", merchant: "ニトリ 架空店", amount: 80000 }, { date: "2026-02-25", merchant: "ニトリ 架空店", amount: -20000 }],
+      },
+    ]);
+    const s = summaryOf(log);
+    expect(s.living.find((l) => l.category === "furniture")?.monthly).toBe(monthlyAverage(24000, 365));
+    const d = s.oneOffs.find((o) => o.durable === true);
+    // 1回の額は買い物の額（返品の行ではない）
+    expect(d).toMatchObject({ amount: 80000, occurrences: [{ date: "2026-02-11", amount: 80000 }, { date: "2026-02-25", amount: -20000 }] });
+    expect(s.notices.find((n) => n.code === "S_DURABLE")?.message).toContain("1 件（返品 1 件を差し引いた合計 60,000円）");
+    expect(s.notices.some((n) => n.code === "S_REFUND_UNMATCHED")).toBe(false);
+    const c = buildCandidates(s, {}, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids("c") }).find((x) => x.title.includes("家電・家具"));
+    expect(c?.value).toMatchObject({ from: { at: "2034-02" }, amount: { value: 60000 } });
+    expect((c?.value as { amount: { estimate: { basis: string } } }).amount.estimate.basis).toContain("買い物 1件の合計（返品を差し引く）");
+  });
+
+  it("今の分け方の内訳（0100）の世帯: 明細に出てくる内訳は明細の値で置き換え、出てこない内訳は残す（二重に数えない）。残す内訳の名前は入力の画面と同じ", () => {
     const s = summaryOf(yearLog());
     const box = (v: number) => ({ value: v, state: "estimated" as const, origin: { kind: "auto" } });
     const cats = [
@@ -229,9 +353,9 @@ describe("候補", () => {
     ] as const;
     const byCat: CandidateHousehold = { livingExpenses: [{ id: "le1", mode: "byCategory", categories: cats }] };
     const c = buildCandidates(s, byCat, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids() })[0];
-    // 明細の区分は食費・交通・通信だけ。交通費・通信費は交通・通信に含まれるので外し、日用品・こづかいと交際費・その他は残す
-    expect((c?.value as { category: string }[]).map((x) => x.category)).toEqual(["food", "transport", "furniture", "pocketAndSocial", "other"]);
-    expect(c?.note).toContain("明細に出てこない内訳（日用品・こづかい・交際費・その他）は今の値を残します");
+    // 明細の区分は食費・通信費だけ。通信費は明細の値で置き換え、交通費・日用品・こづかいと交際費・その他は残す
+    expect((c?.value as { category: string }[]).map((x) => x.category)).toEqual(["food", "communication", "transit", "furniture", "pocketAndSocial", "other"]);
+    expect(c?.note).toContain("明細に出てこない内訳（交通費・日用品・こづかい・交際費・その他）は今の値を残します");
   });
 
   it("期間が短い・迷う行が残るときは要確認", () => {
