@@ -16,7 +16,7 @@ import { bsPlan } from "../src/workspace/balanceTab.ts";
 import { scenarioModel } from "../src/workspace/contingency/present.ts";
 import { baseRequest, scenarioRequest, scenarios } from "../src/workspace/contingency/requests.ts";
 import { fromRequest } from "../src/workspace/input/household.ts";
-import { ageAxis, displayYears, familyText, toPresentation } from "../src/workspace/present.ts";
+import { ageAxis, cashflowTable, displayYears, familyText, personLabel, toPresentation } from "../src/workspace/present.ts";
 import { ageInYear, roles } from "../src/workspace/roles.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
@@ -117,6 +117,33 @@ describe("年齢の段（主画面のグラフ）", () => {
     // 子が独立したあとの年は夫婦だけ
     expect(couple.chart.family.at(-1)).toMatch(/^ご本人\d+歳・配偶者\d+歳$/);
     expect(yearHead(2045, "")).toBe("2045年");
+  });
+});
+
+describe("グラフの札の家族の呼び方", () => {
+  // グラフの年の札は世帯の外の家族（親など）を「ご家族」と呼び、結果の表の年齢の行（「お母さま」）と呼び方が違っていた
+  it("世帯の外の家族は、結果の表と同じ呼び方（お母さま・ご本人のお母さま など）", () => {
+    const req = modelHousehold("parentMoney");
+    const res = preview(req);
+    const m = toPresentation({ base: req, proposal: req, current: res, proposed: res, targetAge: 95, selectedYear: null, provisional: false });
+    const years = displayYears(req);
+    const table = cashflowTable(req, res.table, years, "表");
+    const ageRow = table.rows.find((x) => x.key === "age:other1");
+    expect(ageRow?.label).toBe("お母さま");
+    const y = years[0]!;
+    expect(m.chart.family[0]).toContain("お母さま");
+    expect(m.chart.family[0]).not.toContain("ご家族");
+    expect(m.yearDetail!.members).not.toContain("ご家族");
+    const parent = req.input.household.members.find((x) => x.kind === "parent")!;
+    expect(m.chart.family[0]).toContain(`お母さま${ageInYear(parent, y)}歳`);
+    // 同じ呼び方の人が2人なら、表と同じく誰の家族かを前に付ける
+    const two = modelHousehold("parentMoney");
+    const self = two.input.household.members.find((x) => x.kind === "self")!;
+    const spouse = two.input.household.members.find((x) => x.kind === "spouse");
+    const p0 = two.input.household.members.find((x) => x.kind === "parent")!;
+    two.input.household.members.push({ ...p0, id: "00000000-0000-4000-8000-0000000000c1", outside: { of: spouse?.id ?? self.id, periods: [] } });
+    const text = familyText(roles(two), years[0]!, undefined, (r) => personLabel(two, r));
+    expect(text).toContain(`${roles(two).find((r) => r.key === "self")!.label}のお母さま`);
   });
 });
 

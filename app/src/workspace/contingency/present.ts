@@ -5,7 +5,7 @@ import type { BenefitDetailModel, BreakdownRowModel, ChartModel, ContingencyMode
 import { man } from "../../presentation/format.ts";
 import { REFORM_TEXT } from "../engineNotices.ts";
 import { parseYm } from "../levers.ts";
-import { ageAxis, depletionYear, displayYears, familyText, financialOf, sumByYear } from "../present.ts";
+import { ageAxis, depletionYear, displayYears, familyText, financialOf, personLabel, sumByYear } from "../present.ts";
 import { ageInYear, roles } from "../roles.ts";
 import { OLD_AGE_CHOICE_LABEL } from "./inputs.ts";
 import type { ContingencyPlan } from "./planData.ts";
@@ -197,7 +197,7 @@ export function scenarioModel(input: ScenarioInput): ScenarioModel {
   if (depS !== null) depletions.push({ series: "proposal", year: depS });
   // 年齢の段と年の札: 亡くなった人は、亡くなった年の翌年から空ける
   const gone = sc.kind === "death" && target !== undefined ? { key: target.key, year } : undefined;
-  const chart: ChartModel = { years, ages: years.map((y) => age(y)), axis: ageAxis(rs, years, gone), family: years.map((y) => familyText(rs, y, gone)), proposal: years.map((y) => finS.get(y) ?? 0), current: years.map((y) => finN.get(y) ?? 0), depletions };
+  const chart: ChartModel = { years, ages: years.map((y) => age(y)), axis: ageAxis(rs, years, gone), family: years.map((y) => familyText(rs, y, gone, (r) => personLabel(req, r))), proposal: years.map((y) => finS.get(y) ?? 0), current: years.map((y) => finN.get(y) ?? 0), depletions };
 
   // 内訳（万一なしとの差）: 万一の翌年と、万一の年から最後の年までの累計
   const first = Math.min(year + 1, lastYear);
