@@ -183,7 +183,7 @@ describe("今返している住宅ローンの金利の目安（住宅ローン�
   it("今返している住宅ローンの金利の種類を変えても、目安のままなら同じ中央値（種類を問わない値）。入れた金利は変えない", () => {
     let wh = action(action(salaried(), "housing/addOwn"), "housing/addMortgage");
     const d = loan(wh);
-    expect(fieldOf(wh, `${d.id}/rateType`).sideEffects).toContain("目安の金利に入れ直します");
+    expect(fieldOf(wh, `${d.id}/rateType`).sideEffects).toContain("今返している住宅ローンの推定の金利のままにします");
     wh = set(wh, `${d.id}/rateType`, "fixed");
     expect(loan(wh).rateSchedule[0]).toMatchObject({ type: "fixed", rate: currentMortgageRateEstimate().rate });
     expect(rateRow(wh, loan(wh))?.estimate?.basis).toContain("今返している住宅ローン");
