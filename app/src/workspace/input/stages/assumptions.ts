@@ -8,7 +8,7 @@
 // - 表の最後の年は、標準（本人・配偶者のうち若い方が100歳になる年）と同じなら推定。確定にしたら家族の生年月を直しても追いかけない。
 //   古い世帯で若い方が表の最後の年に105歳を超える（か85歳に届かない）ときは、確かめの注意に「標準にする」を出す（押したときだけ直す）
 // 黒字のうち貯まる割合（0031）は、顧客と一緒に見る基本生活費のカードへ移した（stages/surplusSaving.ts。0031 の追記）
-import type { Household, YearSeries } from "../../../engine/types.ts";
+import type { Household, ReturnShift, YearSeries } from "../../../engine/types.ts";
 import { ageInYear } from "../../roles.ts";
 import type { Address } from "../../store/readings.ts";
 import { field, getPath, plain, type ActionDef, type FieldDef, type FieldState, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
@@ -16,7 +16,7 @@ import { DEFAULT_ASSUMPTIONS, mutate, standardEndYear, type WorkingHousehold } f
 import { ASSET_CLASSES, BUILDING_STRUCTURES, memberLabel, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
 import { RATE_PRESETS } from "../savings/model.ts";
 import { sameRate } from "../units.ts";
-import { pctText } from "../../plans/decimal.ts";
+import { cmpRate, pctText } from "../../plans/decimal.ts";
 import { feeSections } from "./fees.ts";
 
 type Obj = Record<string, unknown>;
@@ -261,6 +261,43 @@ function exceptionGroups(wh: WorkingHousehold, key: string, sp: SeriesPlace, wha
     run: (w) => rewriteRange(w, sp, Number.MAX_SAFE_INTEGER, { from, to: from, rate: seriesAt(w, sp)?.default ?? fallback }, fallback),
   };
   return { groups, add };
+}
+
+/** 率の幅の見せ方（足す幅なので、プラスにも符号を付ける） */
+const signedPct = (r: string): string => (cmpRate(r, "0") > 0 ? `+${pctText(r, 1)}` : pctText(r, 1));
+
+type LoanRateShift = { from: string; add: string };
+
+/** 運用の利回りの書き換え1件の言葉（例: 「2026年から、運用する口座の利回りに -2%」） */
+function returnShiftText(s: ReturnShift): string {
+  const span = `${s.from}年${s.to !== undefined ? `〜${s.to}年` : "から"}`;
+  const what = [s.add !== undefined ? `運用する口座の利回りに ${signedPct(s.add)}` : null, s.cap !== undefined ? `利回りの上限 ${pctText(s.cap, 1)}` : null].filter((x) => x !== null).join("・");
+  return `${span}、${what === "" ? "変えない" : what}`;
+}
+
+/**
+ * 結果のタブで動かした利回り・金利（前提の書き換え。読むだけ）: 「運用の利回り」の項目は口座の利回りの欄を書き換えず、運用する器の利回りに
+ * 幅を足す書き換え（returnShifts。0026）を、「変動金利の上昇」の項目は変動金利の段に足す上乗せ（loanRateShifts）を作る。どちらも口座・
+ * ローンの欄には出ないので、ある物だけここに出す（プランを入力で開いたとき、現状の利回り・金利だけが見えて、計算と違って見えないように）。
+ * 動かすのは結果のタブで（0043 の3: 結果のタブの対策で変わる値は、入力では直さない。直すと項目の差分と重なる）
+ */
+function shiftFields(wh: WorkingHousehold): FieldDef[] {
+  const a = wh.request.input.assumptions;
+  const ro = (key: string, item: string, label: string, how: string, read: (w: WorkingHousehold) => string | null) =>
+    field({ key, item, label, level: "simple", kind: "text", readOnly: how, get: (w) => ({ value: read(w) }), set: (w) => w });
+  const returns = (a?.returnShifts ?? []).map((_s, i) =>
+    ro(`assume/returnShifts/${i}`, "assumptions.returnShifts", "運用の利回りの書き換え", "結果のタブの「運用の利回り」で動かします。口座の利回りの欄の値はそのままで、計算でこの幅を足します", (w) => {
+      const x = w.request.input.assumptions?.returnShifts?.[i];
+      return x === undefined ? null : returnShiftText(x);
+    }),
+  );
+  const loans = ((a?.loanRateShifts as LoanRateShift[] | undefined) ?? []).map((_s, i) =>
+    ro(`assume/loanRateShifts/${i}`, "assumptions.loanRateShifts", "変動金利の上乗せ", "結果のタブの「変動金利の上昇」で動かします。ローンの金利の欄の値はそのままで、変動金利の段の金利にこの幅を足して計算します（固定金利の段は変わりません）", (w) => {
+      const x = (w.request.input.assumptions?.loanRateShifts as LoanRateShift[] | undefined)?.[i];
+      return x === undefined ? null : `${Number(x.from.slice(0, 4))}年${Number(x.from.slice(5, 7))}月から、変動金利の段の金利に ${signedPct(x.add)}`;
+    }),
+  );
+  return [...returns, ...loans];
 }
 
 function assetReturnGroups(wh: WorkingHousehold): GroupDef[] {
@@ -614,6 +651,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
     run: (w: WorkingHousehold) => irField.set(w, p.rate),
   }));
   const std = standardCount(wh);
+  const shifts = shiftFields(wh);
   const sections: SectionDef[] = [
     {
       key: "assume/main",
@@ -630,6 +668,18 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
       ],
       actions: [],
     },
+    ...(shifts.length > 0
+      ? [
+          {
+            key: "assume/shifts",
+            title: "結果のタブで動かした利回り・金利",
+            note: "結果のタブの「運用の利回り」「変動金利の上昇」で動かした前提です。口座の利回り・ローンの金利の欄の値は変えずに、計算でこの幅を足します。動かすのは結果のタブで",
+            level: "simple" as const,
+            groups: [{ key: "assume/shifts/list", level: "simple" as const, fields: shifts, actions: [] }],
+            actions: [],
+          },
+        ]
+      : []),
     {
       key: "assume/exceptions",
       title: "例外の年（経済の前提）",

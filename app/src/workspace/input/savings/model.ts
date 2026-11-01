@@ -5,6 +5,7 @@
 import type { Account, EngineRequest, Household, InvestmentSetting, Member, Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth, parseYm, readLevers } from "../../levers.ts";
 import { expectedReturn } from "../../plans/allocation.ts";
+import { cmpRate, pctText } from "../../plans/decimal.ts";
 import { resolveTimepoint } from "../form.ts";
 import { confirmedBox, mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
 
@@ -227,6 +228,22 @@ export function stopAgeOrEstimate(req: EngineRequest): number {
 }
 
 // ---- 利回り ----
+
+/**
+ * 前提の運用の利回りの書き換え（returnShifts。結果のタブの「運用の利回り」で動かすと作る。0026）の知らせ。口座の利回りの欄は書き換えず、
+ * 計算で運用する器の利回りに幅を足すので、このパネルの利回りだけを見ると書き換える前の値に見える。書き換えが無ければ null
+ */
+export function returnShiftNote(req: EngineRequest): string | null {
+  const parts = (req.input.assumptions?.returnShifts ?? []).flatMap((s) => {
+    const span = `${s.from}年${s.to !== undefined ? `〜${s.to}年` : "から"}`;
+    const add = s.add !== undefined && cmpRate(s.add, "0") !== 0 ? `${cmpRate(s.add, "0") > 0 ? "+" : ""}${pctText(s.add, 1)}を足す` : null;
+    const cap = s.cap !== undefined ? `上限を${pctText(s.cap, 1)}にする` : null;
+    const what = [add, cap].filter((x) => x !== null).join("・");
+    return what === "" ? [] : [`${span} ${what}`];
+  });
+  if (parts.length === 0) return null;
+  return `運用の利回りの書き換え: 運用する口座（預金を除く）の利回りに ${parts.join("、")}計算にしています（結果のタブの「運用の利回り」で動かした前提。下の利回りの欄の値はそのまま）。動かすのは結果のタブで`;
+}
 
 /** 器の利回り（FP が入れた値か、資産の配分・前提から。10進の文字列） */
 export function rateOf(req: EngineRequest, a: Account): string {
