@@ -147,6 +147,20 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(d.get("dock").is_none(), "{v}: display.dock は持たない");
             assert!(d.get("metrics").is_none(), "{v}: 結果のタブの値は区画の中");
         }
+        if *v == "0.49" {
+            // 0.49 から: 子の貸与の奨学金の種類（第一種・無利子。0104 の追記）
+            let h = &now["household"]["request"]["input"]["household"];
+            assert!(
+                h["goals"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .filter_map(|g| g["education"]["scholarships"].as_array())
+                    .flatten()
+                    .any(|s| s["type"] == "first" && s["rate"] == "0"),
+                "{v}: 第一種の奨学金"
+            );
+        }
         if *v == "0.48" {
             // 0.48 から: 役員として働く人の家計の側（自社株〔出資額〕・会社への貸付金・会社からの借入金・会社の借入の連帯保証の額）と、
             // 家計の体力の目安の分母（0105）

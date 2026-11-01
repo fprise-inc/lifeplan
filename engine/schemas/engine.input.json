@@ -2453,7 +2453,8 @@
                   "termMonths": { "type": "integer", "minimum": 1, "maximum": 360 },
                   "repaymentStart": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
                   "debtor": { "description": "世帯で返すときの名義（parent は親、省略・child は子）。子が返すときは使わない", "enum": ["child", "parent"] },
-                  "repaidBy": { "description": "返すのは誰か（0104）: child は子が返す（返済を世帯の収支・負債に入れず、出力の childRepaid に出す）、household は世帯で返す。省略は子", "enum": ["child", "household"] }
+                  "repaidBy": { "description": "返すのは誰か（0104）: child は子が返す（返済を世帯の収支・負債に入れず、出力の childRepaid に出す）、household は世帯で返す。省略は子", "enum": ["child", "household"] },
+                  "type": { "description": "種類（0104 の追記）: first は第一種（無利子）、second は第二種（有利子）。省略は第二種。表示と利率の目安の元だけで、計算は rate", "enum": ["first", "second"] }
                 }
               }
             },

@@ -290,6 +290,8 @@ export interface EducationScholarship {
   debtor?: "child" | "parent";
   /** 返すのは誰か（0104）: child は子が返す（返済を世帯の収支に入れない）、household は世帯で返す。省略は子 */
   repaidBy?: "child" | "household";
+  /** 種類（0104 の追記）: first は第一種（無利子）、second は第二種（有利子）。省略は第二種。表示と利率の目安の元だけで、計算は rate */
+  type?: "first" | "second";
 }
 
 /** 教育ローン（0062。エンジンの loans） */
