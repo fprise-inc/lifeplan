@@ -66,7 +66,8 @@ classify() {
 while IFS= read -r f; do [ -n "$f" ] && classify "$f"; done <<< "$files"
 
 echo "判定: $mode"
-[ -n "$files" ] && echo "違うファイル: $(echo "$files" | wc -l | tr -d ' ') 件" && echo "$files" | head -50
+# 先頭の50件だけ出す（head への管だと、51件以上のとき echo が SIGPIPE で失敗し、pipefail でジョブが落ちるので、管を使わない）
+[ -n "$files" ] && echo "違うファイル: $(wc -l <<< "$files" | tr -d ' ') 件" && sed -n '1,50p' <<< "$files"
 out run "$run"; out heavy "$heavy"
 for j in "${ALL[@]}"; do out "$j" "$([ "$run" = true ] && [ -n "${on[$j]:-}" ] && echo true || echo false)"; done
 # engine のジョブは、まとめた JS を使うジョブ（app・report・hearing・host）のためにも流す（テストは engine の変更のときだけ）
