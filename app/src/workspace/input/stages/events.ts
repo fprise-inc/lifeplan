@@ -5,7 +5,7 @@
 import type { CareExpense, EducationGift, Household, IncomeFlow, Member, PeriodicExpense, Timepoint } from "../../../engine/types.ts";
 import { lifeExpectancy } from "../../../../../hearing/src/estimates.ts";
 import { addMonths, ageAt } from "../../levers.ts";
-import { resolveTimepoint } from "../../timepoint.ts";
+import { ageSwitchMonth, resolveTimepoint } from "../../timepoint.ts";
 import { livingEstimate } from "../estimates.ts";
 import { byId, field, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
@@ -111,7 +111,7 @@ export interface EventTemplate {
  */
 export const OUT_TEMPLATES: readonly EventTemplate[] = [
   { key: "wedding", label: "結婚の費用", name: "結婚の費用", group: "family", amount: null, everyYears: null, priority: "need", help: "時期は、配偶者が家族に加わる時期（入っていなければ1年後）です。額は入れてください", match: /結婚の費用|挙式|結婚式/u },
-  { key: "comingOfAge", label: "子の成人式（振袖・スーツ・写真）", name: "成人式", group: "family", amount: 150000, everyYears: null, priority: "need", help: "20歳前の子ごとに、その子が20歳になる時期で1行ずつ足します（1人15万円の目安）", match: /成人式/u },
+  { key: "comingOfAge", label: "子の成人式（振袖・スーツ・写真）", name: "成人式", group: "family", amount: 150000, everyYears: null, priority: "need", help: "これから成人式を迎える子ごとに、その子が20歳になる年度（4月〜翌年3月）の1月で1行ずつ足します（1人15万円の目安）", match: /成人式/u },
   { key: "childWedding", label: "子の結婚の援助", name: "結婚の援助", group: "family", amount: 1000000, everyYears: null, priority: "want", help: "子ども・教育の入力項目の「子への援助（結婚資金）」として、30歳前の子ごとに、その子が30歳になる時期で足します（1人100万円の目安）。直すときは子ども・教育の入力項目で直します。援助の優先度は「できれば」にします（結果の「確実な分だけ」で外して見られます。子ども・教育の入力項目で直せます）", match: /結婚の援助/u },
   { key: "funeral", label: "親の葬儀（世帯が払う分）", name: "葬儀", group: "parents", amount: 1200000, everyYears: null, priority: "need", help: "親ごとに1行ずつ、世帯が払う分を足します（1回120万円の目安）。時期は、親の年齢と性別から平均余命で見た推定です（亡くなる見込みが入っていればその時期）。香典は入るお金で入れられます。葬儀の費用を相続税から引く扱いは、相続・贈与の入力項目で見ます", match: /葬儀|葬式/u },
   { key: "memorial", label: "法事", name: "法事", group: "parents", amount: 200000, everyYears: null, priority: "need", help: "時期は、葬儀の行があればその1年後（一周忌）、無ければ1年後です", match: /法事|法要|一周忌|回忌/u },
@@ -267,8 +267,15 @@ export function memorialTiming(wh: WorkingHousehold): { from: Timepoint; basis: 
 
 const tmpl = (key: string): EventTemplate => OUT_TEMPLATES.find((t) => t.key === key) as EventTemplate;
 
-/** 成人式を足す子（20歳になる前の子） */
-const comingOfAgeKids = (wh: WorkingHousehold): Member[] => homeChildren(wh.request.input.household).filter((m) => ageAt(m, wh.request.input.baseMonth) < 20);
+/**
+ * 子の成人式の月（0068 の追記 2026-11-01）: その子が20歳になる年度（4月〜翌年3月）の1月。年度の分け方は学年と同じ（4月2日〜翌年4月1日生まれを
+ * 同じ年度。教育の入学の月の決まり schoolYear と同じ）なので、20歳の学年の決まりの月（20歳の誕生日以後の最初の4月）の3か月前。
+ * 1〜3月生まれ（と4月1日生まれ）は、20歳の誕生日の前の1月になる
+ */
+export const comingOfAgeMonth = (m: Pick<Member, "birth">): string => addMonths(ageSwitchMonth(m, 20, 0, "schoolYear"), -3);
+
+/** 成人式を足す子（成人式の月が計算の基準の月以後の子。20歳になっていても、その年度の1月がまだなら足す） */
+const comingOfAgeKids = (wh: WorkingHousehold): Member[] => homeChildren(wh.request.input.household).filter((m) => comingOfAgeMonth(m) >= wh.request.input.baseMonth);
 
 /** 結婚の援助を足す子（30歳になる前の子）。子ども・教育の進路（教育の目標）がまだ無く、これからの学校がある子は除く（進路の推定を先に入れる） */
 function childWeddingKids(wh: WorkingHousehold): { ok: Member[]; noGoal: Member[] } {
@@ -348,7 +355,7 @@ export function addOutTemplate(wh: WorkingHousehold, key: string, ids: () => str
       const rows = templateRows(h, t);
       let w = wh;
       for (const m of pending(comingOfAgeKids(wh), (c) => rows.some((p) => rowOf(wh, p, c))))
-        w = addEventTemplate(w, t, ids(), { from: { memberAge: { member: m.id, years: 20 } }, name: `${memberLabel(wh, m.id)}の成人式`, per: "1人 " });
+        w = addEventTemplate(w, t, ids(), { from: { at: comingOfAgeMonth(m) }, name: `${memberLabel(wh, m.id)}の成人式`, per: "1人 " });
       return w;
     }
     case "funeral": {
@@ -389,7 +396,7 @@ function addedText(h: Household, list: readonly { at: Timepoint; amount: number 
 
 /** ひな形のボタンが押せないときの理由（足す相手の人がいない） */
 function unavailable(wh: WorkingHousehold, key: string): string | null {
-  if (key === "comingOfAge" && comingOfAgeKids(wh).length === 0) return "（20歳前の子がいません）";
+  if (key === "comingOfAge" && comingOfAgeKids(wh).length === 0) return "（これから成人式を迎える子がいません）";
   if (key === "childWedding") {
     const k = childWeddingKids(wh);
     if (k.ok.length === 0) return k.noGoal.length > 0 ? "（先に子ども・教育で進路を入れてください）" : "（30歳前の子がいません）";

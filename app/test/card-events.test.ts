@@ -16,6 +16,7 @@ import {
   addOutTemplate,
   addReserve,
   childOfPeriodic,
+  comingOfAgeMonth,
   expenseToIncome,
   incomeToExpense,
   livingMonthlyNow,
@@ -169,12 +170,45 @@ describe("ライフイベントのひな形（小さなボタン。標準と詳�
 });
 
 describe("人ごとのひな形", () => {
-  it("子の成人式: 20歳前の子ごとに20歳の時期で1行（1人15万円）。子の年齢で始まってもライフイベントに残す（子ども・教育に移さない）", () => {
+  it("子の成人式の月: 20歳になる年度（4月〜翌年3月。学年と同じく4月2日〜翌年4月1日生まれを同じ年度）の1月", () => {
+    const born = (birthYearMonth: string, bornOnFirst = false) => ({ birth: { birthYearMonth, bornOnFirst } });
+    // 2010年5月生まれは2030年5月に20歳（2030年度）→ 2031年1月。2011年2月生まれは2031年2月に20歳（2030年度）→ 2031年1月（誕生日の前）
+    expect(comingOfAgeMonth(born("2010-05"))).toBe("2031-01");
+    expect(comingOfAgeMonth(born("2011-02"))).toBe("2031-01");
+    expect(comingOfAgeMonth(born("2011-03"))).toBe("2031-01");
+    expect(comingOfAgeMonth(born("2010-12"))).toBe("2031-01");
+    expect(comingOfAgeMonth(born("2011-01"))).toBe("2031-01");
+    // 4月1日生まれは前の年度（早生まれ）、4月2日以後の生まれはその年度
+    expect(comingOfAgeMonth(born("2011-04", true))).toBe("2031-01");
+    expect(comingOfAgeMonth(born("2011-04"))).toBe("2032-01");
+    // 5月1日生まれ（1日生まれでも4月以外は変わらない）
+    expect(comingOfAgeMonth(born("2010-05", true))).toBe("2031-01");
+  });
+
+  it("成人式を足す子: 成人式の月が計算の基準の月以後の子（20歳でも、その年度の1月がまだなら足す。19歳でも1月が過ぎていれば足さない）", () => {
+    const base = bare();
+    const withKids = (births: string[], baseMonth: string): WorkingHousehold => {
+      const wh = mutate(base, (hh) => {
+        hh.members = hh.members.filter((m) => m.kind !== "child");
+        births.forEach((b, i) => hh.members.push({ id: `00000000-0000-4000-8000-0000000000c${String(i)}`, kind: "child", sex: "female", birth: { birthYearMonth: b, bornOnFirst: false }, joins: null, leaves: null } as Member));
+      });
+      return { ...wh, request: { ...wh.request, input: { ...wh.request.input, baseMonth } } };
+    };
+    // 基準 2026年10月: 2006年5月生まれ（20歳。2026年度 → 2027年1月）は足す。2006年2月生まれ（20歳。2025年度 → 2026年1月で過ぎた）は足さない
+    const a = addOutTemplate(withKids(["2006-02", "2006-05"], "2026-10"), "comingOfAge", seq("h"));
+    expect(rowsOf(a).filter((p) => /成人式/u.test(p.label ?? "")).map((p) => p.from)).toEqual([{ at: "2027-01" }]);
+    // 基準 2027年2月: 2007年3月生まれ（19歳。2026年度 → 2027年1月で過ぎた）は足さない
+    expect(chip(withKids(["2007-03"], "2027-02"), "comingOfAge").chip).toMatchObject({ disabled: true, added: "（これから成人式を迎える子がいません）" });
+  });
+
+  it("子の成人式: これから成人式を迎える子ごとに、20歳になる年度の1月で1行（1人15万円）。子の年齢で始まってもライフイベントに残す（子ども・教育に移さない）", () => {
     const wh = addOutTemplate(bare(), "comingOfAge", seq());
     const h = wh.request.input.household;
     const kids = h.members.filter((m) => m.kind === "child").sort((a, b) => a.birth.birthYearMonth.localeCompare(b.birth.birthYearMonth));
     const rows = rowsOf(wh).filter((p) => /成人式/u.test(p.label ?? ""));
-    expect(rows.map((p) => p.from)).toEqual(kids.map((k) => ({ memberAge: { member: k.id, years: 20 } })));
+    // 2012年5月生まれ → 2033年1月、2015年8月生まれ → 2036年1月
+    expect(kids.map((k) => k.birth.birthYearMonth)).toEqual(["2012-05", "2015-08"]);
+    expect(rows.map((p) => p.from)).toEqual([{ at: "2033-01" }, { at: "2036-01" }]);
     expect(rows[0]).toMatchObject({ label: "第1子の成人式", kind: "general", amount: { value: 150000, state: "estimated" } });
     for (const p of rows) {
       expect(childOfPeriodic(h, p)).toBeNull();
@@ -191,12 +225,22 @@ describe("人ごとのひな形", () => {
     const again = rowsOf(more).filter((p) => /成人式/u.test(p.label ?? ""));
     expect(again).toHaveLength(3);
     expect(again.filter((p) => p.label === "第1子の成人式").map((p) => p.from)).toEqual([{ at: "2033-01" }]);
-    expect(again.at(-1)!.from).toEqual({ memberAge: { member: baby.id, years: 20 } });
+    expect(again.at(-1)!.from).toEqual({ at: "2048-01" });
+    // 前に足した、子の年齢（20歳）で持つ成人式の行も、その子の行と見る（二重に足さない）
+    const old = mutate(wh, (hh) => {
+      const list = (hh.periodicExpenses ?? []).filter((p) => /成人式/u.test(p.label ?? ""));
+      const p0 = list[0]!;
+      p0.from = { memberAge: { member: kids[0]!.id, years: 20 } };
+      p0.to = p0.from;
+      p0.label = "成人式";
+      hh.periodicExpenses = (hh.periodicExpenses ?? []).filter((p) => p !== list[1]);
+    });
+    expect(rowsOf(addOutTemplate(old, "comingOfAge", seq("i"))).filter((p) => /成人式/u.test(p.label ?? "")).map((p) => p.from)).toEqual([{ memberAge: { member: kids[0]!.id, years: 20 } }, { at: "2036-01" }]);
     // 種類の無い古い行で子の年齢で始まる物（前の留学など）は、今までどおり子ども・教育
-    const legacy = { ...rows[0]!, kind: undefined } as unknown as PeriodicExpense;
+    const legacy = { ...rows[0]!, kind: undefined, from: { memberAge: { member: kids[0]!.id, years: 20 } } } as unknown as PeriodicExpense;
     expect(childOfPeriodic(h, legacy)).toBe(kids[0]!.id);
     // 子のいない世帯では押せない
-    expect(chip(bare("dualNoKids"), "comingOfAge").chip).toMatchObject({ disabled: true, added: "（20歳前の子がいません）" });
+    expect(chip(bare("dualNoKids"), "comingOfAge").chip).toMatchObject({ disabled: true, added: "（これから成人式を迎える子がいません）" });
   });
 
   it("子の結婚の援助: 子ども・教育の「子への援助（結婚資金）」に、30歳の時期で1人100万円（ライフイベントの行にはしない。ここには読むだけの行）", () => {
