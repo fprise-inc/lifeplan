@@ -563,13 +563,41 @@ describe("教育費（education.cost）・公的支援（education.support）・
     }
   });
 
-  it("貸与の奨学金: 在学中に受け取り、受け取りの終わりの7か月後から debt.schedule で返す", () => {
-    const req = mk([{ stage: "university", sector: "national" }], { scholarships: [{ monthly: 50000, from: at("2031-04"), to: at("2033-03"), rate: "0", termMonths: 120 }] });
+  it("貸与の奨学金（世帯で返す）: 在学中に受け取り、受け取りの終わりの7か月後から debt.schedule で返す", () => {
+    const req = mk([{ stage: "university", sector: "national" }], { scholarships: [{ monthly: 50000, from: at("2031-04"), to: at("2033-03"), rate: "0", termMonths: 120, repaidBy: "household" }] });
     const out = flowsOf(req);
     const f = out.flows as unknown as Flow[];
     expect(sumFlows(f, (x) => x.row === "cf.income.other.scholarship")).toBe(1200000);
     expect(f.find((x) => x.row === "cf.expense.debt.scholarship")?.ym).toBe("2033-10");
     expect(out.loans[0]?.member).toBe(C);
+    expect(out.childRepaid).toBeUndefined();
+    // 名義を親にすると、負債の名義は親（返済は世帯のまま）
+    const p = flowsOf(edit(req, (h) => (((h.goals as Obj[])[0]!.education as Obj).scholarships = [{ monthly: 50000, from: at("2031-04"), to: at("2033-03"), rate: "0", termMonths: 120, repaidBy: "household", debtor: "parent" }])));
+    expect(p.loans[0]?.member).toBe(A);
+  });
+
+  it("貸与の奨学金（子が返す。省略も子。0104）: 受け取りは世帯の入るお金のまま、返済は世帯のお金の動き・負債に入れず、要約の childScholarships に出す", () => {
+    const sch = { monthly: 50000, from: at("2031-04"), to: at("2033-03"), rate: "0", termMonths: 120 };
+    const byChild = mk([{ stage: "university", sector: "national" }], { scholarships: [sch] });
+    const byHousehold = mk([{ stage: "university", sector: "national" }], { scholarships: [{ ...sch, repaidBy: "household" }] });
+    const out = flowsOf(byChild);
+    const f = out.flows as unknown as Flow[];
+    expect(sumFlows(f, (x) => x.row === "cf.income.other.scholarship")).toBe(1200000);
+    expect(f.some((x) => x.row === "cf.expense.debt.scholarship")).toBe(false);
+    expect(out.loans).toEqual([]);
+    // 120万円を0%・120か月: 月1万円を2033年10月から（表の最後の2036年12月まで39か月）
+    expect(out.childRepaid).toEqual([{ object: uid("g"), member: C, principal: 1200000, monthly: 10000, from: "2033-10", to: "2036-12", total: 390000 }]);
+    const r = full(byChild);
+    const h = full(byHousehold);
+    expect(cells(r, "cf.expense.debt.scholarship", 2034)).toBe(0);
+    expect(cells(h, "cf.expense.debt.scholarship", 2034)).toBe(120000);
+    expect(cells(r, "cf.balance.debt.other", 2034)).toBe(0);
+    expect(cells(h, "cf.balance.debt.other", 2034)).toBeGreaterThan(0);
+    expect(cells(r, "cf.net", 2034) - cells(h, "cf.net", 2034)).toBe(120000);
+    expect((r.summary as { childScholarships?: unknown }).childScholarships).toEqual(out.childRepaid);
+    expect((h.summary as { childScholarships?: unknown }).childScholarships).toBeUndefined();
+    // repaidBy: child と書いても同じ
+    expect(flowsOf(mk([{ stage: "university", sector: "national" }], { scholarships: [{ ...sch, repaidBy: "child", debtor: "parent" }] })).childRepaid?.[0]?.member).toBe(C);
   });
 });
 

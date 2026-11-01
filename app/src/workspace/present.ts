@@ -8,6 +8,7 @@ import { ageInYear, leaveYear, presentInYear, roles, type Role } from "./roles.t
 import { DEFICIT_NOTE, deficitSources, OUTSIDE_INCOME_NOTE, outsideName } from "./resultRows.ts";
 import { resolveTimepoint } from "./timepoint.ts";
 import { dreamIncluded, dreamList, dreamSummary } from "../../../report/src/dreams.ts";
+import { childScholarshipNotes } from "../../../report/src/childScholarships.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
 /** ゆとりの支出の行（黒字のうち貯まらない分。0031） */
@@ -327,7 +328,7 @@ function dreamGoals(req: EngineRequest, dreams: DreamsInput | undefined, years: 
   return { cards, line };
 }
 
-function goals(req: EngineRequest, proposed: readonly TableCell[], years: readonly number[], depP: number | null, dreams?: DreamsInput): GoalsModel {
+function goals(req: EngineRequest, proposed: readonly TableCell[], years: readonly number[], depP: number | null, dreams?: DreamsInput, summary?: unknown): GoalsModel {
   const rs = roles(req);
   const h = req.input.household;
   const self = rs.find((r) => r.key === "self");
@@ -382,7 +383,9 @@ function goals(req: EngineRequest, proposed: readonly TableCell[], years: readon
   const d = dreamGoals(req, dreams, years, depP);
   cards.push(...d.cards);
   const need = cards.filter((c) => c.priority === "必ず");
-  return { needTotal: need.length, needReady: need.filter((c) => c.ready === true).length, cards, dreamLine: d.line };
+  // 子が返す貸与の奨学金（世帯の収支に入れていない返済の額を書き添える。0104）
+  const childRepaid = childScholarshipNotes(summary, (id) => rs.find((r) => r.member.id === id)?.label ?? "子");
+  return { needTotal: need.length, needReady: need.filter((c) => c.ready === true).length, cards, dreamLine: d.line, childRepaid };
 }
 
 /** FP顧問料の ON/OFF の材料（顧問料の契約があるときだけ） */
@@ -504,7 +507,7 @@ export function toPresentation(input: PresentInput): PresentationModel {
     yearDetail,
     events: evs,
     table,
-    goals: goals(proposal, proposed.table, years, depP, input.dreams),
+    goals: goals(proposal, proposed.table, years, depP, input.dreams, proposed.summary),
     fee: input.fee === undefined ? null : feeLine({ fee: input.fee, targetYear, targetLabel: self !== undefined ? `${self.label}${age(targetYear)}歳` : `${targetYear}年`, finP, finC, ...(custom ? { baseLabel: `${names.base}（基準）` } : {}) }),
     provisional: input.provisional,
   };

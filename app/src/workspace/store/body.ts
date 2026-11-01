@@ -1,5 +1,5 @@
 // 世帯ファイルの本文（0011 の2）を、画面の側の状態から組み立てる・読み取る。暗号化とファイルの読み書きは本体（0013・0016 の1）。
-// 本文の区画（形式の版 0.46。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
+// 本文の区画（形式の版 0.47。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
 // 0.17 から（0035・0036）: 差分は当て先で、仮の印は物の値の状態の欄で、贈与者は世帯の外の家族の構成員で書き、並びの要素は ID を持つ。
 // 0.18 から（0040）: 段階と例外の年（周期的な支出・家賃・修繕費・固定資産税・不動産の家賃と経費・器の利回り・資産配分）と、働き方の期間ごとの
 // 伸び（給与・事業所得の年率）。足すだけの形（本体の変換の段は版だけを書き換える）
@@ -57,6 +57,9 @@
 //   借り始め・契約の年数・月額に含む物。リースの車は purchase を持たない）（0101。足すだけ。本体の変換の段は版だけを書き換える）
 //   0.46 から: 夢プランを出るお金の行の種類 dream と行の dream（順位 rank・計算に入れるか include・ひとことメモ note）で、
 //   子への援助 goals[].education.gifts[] の優先度 priority（必ず・できれば）を持つ（0103。足すだけ。本体の変換の段は版だけを書き換える）
+//   0.47 から: 子の貸与の奨学金に返すのは誰か goals[].education.scholarships[].repaidBy（子が返す・世帯で返す。省略は子）、ほかのローンの種類
+//   scholarshipFree（第一種・無利子）、時点の年齢の規則 schoolYearJanuary（子の成人式の行は子の年齢の時点）を持つ（0104。本体の変換の段は、
+//   前の奨学金を世帯で返すにし、子が1人に決まる成人式の行をその子の年齢の時点に置き直す）
 //   （0.46 のまま。0041 の追記 2026-11-01）: 「書類で確かめる」は今の自動車ローン（kind car の負債）の欄に出し、これから買う車のローン
 //   （cars[].valueStates の car.loan/…）には出さない。前に付けた所は読むときに推定にし、開いたときの知らせ carLoanEstimated を足す（形は変えない）
 // - proposals: 案（数に上限なし。0008 の5）。案の名前は `title` に入れる（0012 の禁止語の検査に当たらない名前）
@@ -96,7 +99,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.46";
+export const BODY_FORMAT_VERSION = "0.47";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 

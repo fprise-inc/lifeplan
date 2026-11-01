@@ -52,6 +52,17 @@ describe("年齢の切り替え（ageSwitch）", () => {
     expect(at(b("2020-05"), 6, "schoolYear")).toBe("2027-04");
   });
 
+  it("schoolYearJanuary: その年齢になる年度（学年と同じ区切り）の1月。schoolYear の3か月前（子の成人式。0104）", () => {
+    expect(at(b("2006-07"), 20, "schoolYearJanuary")).toBe("2027-01"); // 2026年7月に20歳 → 2026年度の1月
+    expect(at(b("2007-02"), 20, "schoolYearJanuary")).toBe("2027-01"); // 1〜3月生まれは20歳の誕生日の前の1月
+    expect(at(b("2006-04", true), 20, "schoolYearJanuary")).toBe("2026-01"); // 4月1日生まれは早い年度
+    expect(at(b("2006-04"), 20, "schoolYearJanuary")).toBe("2027-01");
+    for (const x of [b("2006-07"), b("2007-02"), b("2006-04", true), b("2006-04")]) {
+      const sy = at(x, 20, "schoolYear");
+      expect(at(x, 20, "schoolYearJanuary")).toBe(`${Number(sy.slice(0, 4))}-01`);
+    }
+  });
+
   it("年齢の月まで指定できる", () => {
     expect(at(b("1960-05"), 64, "reachMonth", 6)).toBe("2024-11");
     expect(() => at(b("1960-05"), 64, "reachMonth", 12)).toThrow(EngineError);

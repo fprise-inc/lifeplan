@@ -3,6 +3,7 @@
 //   2つの計算の差（提案−現状など）もここで取る。帳票（Typst）の側では計算しない。
 // - 世帯の内部 ID（構成員・物の ID）、氏名・宛名、FP のメモ、カスタム計算の印は写さない（0009 の9・0016 の2）。
 // - 構成員の呼び方と表の行の決め方は、アプリの提示の値（app/src/workspace/roles.ts・present.ts）と同じにしている。
+import { childScholarshipNotes } from "./childScholarships.ts";
 import type { EngineOutput, EngineRequest, ProposalBundle, RealEstateAnalysisAmounts, RealEstateAnalysisYear, RealEstateDetail, Run, TableCell } from "./bundle.ts";
 import { saleCompareOf, type SaleResult } from "./rentalSale.ts";
 import { pctText, timesText } from "./rentalText.ts";
@@ -408,6 +409,12 @@ function ageSwitchMonth(m: Member, years: number, months: number, rule: string |
       const b = parseYm(birthday);
       const same = b.m < 4 || (b.m === 4 && m.birth.bornOnFirst);
       return ym(same ? b.y : b.y + 1, 4);
+    }
+    case "schoolYearJanuary": {
+      // その年齢になる年度の1月（子の成人式。0104）
+      const b = parseYm(birthday);
+      const same = b.m < 4 || (b.m === 4 && m.birth.bornOnFirst);
+      return ym(same ? b.y : b.y + 1, 1);
     }
     default:
       return reach;
@@ -1144,6 +1151,8 @@ function assumptions(ctx: Ctx): ProposalInput["assumptions"] {
   const advisoryFee = advisoryFeeAssumption(ctx);
   const notes: string[] = [];
   if (advisoryFee !== null) notes.push("ご本人が払うFP顧問料は、所得から差し引かない扱いで計算しています。");
+  // 子が返す貸与の奨学金の返済（世帯の収支に入れていない額。0104）
+  for (const n of childScholarshipNotes(ctx.bundle.proposal.result.summary, (id) => ctx.rs.find((r) => r.member.id === id)?.label ?? "お子さま")) notes.push(`${n}。`);
   // 推定の値: どの欄かは書かない（FP 向けの画面だけで示す）
   if (ctx.bundle.estimated === true || hasEstimatedBox(ctx.bundle.current.request.input.household) || hasEstimatedBox(ctx.bundle.proposal.request.input.household)) notes.push(ESTIMATED_NOTE);
   return { rates, dataSet, survivor, survivorReform: reform, advisoryFee, notes };

@@ -22,8 +22,11 @@
 //   クラブ活動・部活動・学芸会・運動会など）を引いて入れた額を足す（部活動の費用は学校教育費の教科外活動費に含まれるので、二重にしない）。
 //   学校の年額を直接入れた段は、その年額に足す
 // - 自宅外の生活費（boarding）: 仕送り（月額。省略は統計の年額÷12）を在学中毎月、初期費用（省略は統計）を入学の前の3月に
-// - 貸与の奨学金（scholarships）: 在学中に受け取り（cf.income.other.scholarship）、返済は debt.schedule（返す人は既定で子。返済の始まりの
+// - 貸与の奨学金（scholarships）: 在学中に受け取り（cf.income.other.scholarship）、返済は debt.schedule（返済の始まりの
 //   既定は受け取りの終わりの7か月後）。教育ローン（loans）は借りる月に受け取り、翌月から返す
+// - 改訂9（約束の版 1.1。0104）: 奨学金を返すのが子（repaidBy が child。省略も子）なら、返済は世帯のお金の動きにも負債の残高にも入れず、
+//   出力の childRepaid（子・月額・返す期間・表の期間の中の合計）に出す（受け取りは今までどおり世帯の入るお金）。世帯で返す（household）なら
+//   今までどおり返済をお金の動きと負債に入れ、名義は debtor（parent なら親、省略・child なら子）
 // - 子への援助（gifts。結婚・住宅資金）: 額の入力まで（cf.expense.lumpSum.wedding・gift。贈与の税は贈与の作業で扱う）
 // - 改訂6（0088）: 留学（abroad。1回ずつ）。在学中の学校の段の、その学年の始まり（短期はその年の8月）に1回の額（計算基準年の価格。教育費の上昇率で
 //   伸ばす）を表の行「教育費」に。休学して1年（leave）は、その段の在学が1年延び、その年は学費・学校の費用・学校外活動費・仕送りがかからない（後の学年と
@@ -93,8 +96,8 @@ const PARAMS = [
 export default defineComponent<{ member: string }, EducationCostOutput>({
   id: "education.cost",
   title: "教育費",
-  contract: "1.0",
-  revision: 8,
+  contract: "1.1",
+  revision: 9,
   requires: { "debt.schedule": ">=1 <2", "contingency.event": ">=1 <2" },
   params: PARAMS,
   reads: ["goal.kind", "goal.owner", "goal.education", "member.kind", "relation.type", "relation.parent", "relation.child", "assumptions.inflation", "assumptions.educationInflation"],
@@ -108,6 +111,7 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
     const endYear = yearOf(end);
     const flows: Flow[] = [];
     const loans: EducationCostOutput["loans"][number][] = [];
+    const childRepaid: NonNullable<EducationCostOutput["childRepaid"]>[number][] = [];
     const enrollments: Enrollment[] = [];
     // 子の親（関係 parentOf の最初の親。関係が無ければ本人）。奨学金を親が返す・援助を払う人の既定
     const rel = ctx.list<{ type: string; parent?: string; child?: string }>("relation").find((r) => r.type === "parentOf" && r.child === child);
@@ -380,7 +384,8 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
           push(m, "cf.income.other.scholarship", s.monthly, "education.cost.scholarship");
         }
         const repay = s.repaymentStart !== undefined ? ctx.time.resolve(s.repaymentStart) : addMonths(to, 7);
-        const who = debtor ?? parent;
+        const byChild = s.repaidBy !== "household";
+        const who = byChild ? child : (debtor ?? parent);
         const out = ctx.call<DebtScheduleOutput>("debt.schedule", {
           loan: {
             id: g.id,
@@ -392,6 +397,15 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
             repayment: { method: "equalPayment", termMonths: s.termMonths },
           },
         });
+        if (byChild) {
+          // 子が返す: 世帯の収支・負債に入れず、何をいくら返すかだけを出す（表の期間の中の分）
+          const paid = out.flows.filter((f) => f.amount > 0).sort((a, b) => (a.ym < b.ym ? -1 : a.ym > b.ym ? 1 : 0));
+          const first = paid[0];
+          const last = paid.at(-1);
+          if (first !== undefined && last !== undefined)
+            childRepaid.push({ object: g.id, member: child, principal: yen(principal), monthly: first.amount, from: first.ym, to: last.ym, total: yen(paid.reduce((x, f) => x + f.amount, 0)) });
+          continue;
+        }
         for (const f of out.flows) flows.push(f);
         loans.push({ object: g.id, member: who, yearEnd: out.yearEnd });
       }
@@ -422,6 +436,6 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
       if ((e.gifts ?? []).length > 0) ctx.notice("N_NOT_SUPPORTED", ["giftTax"]);
     }
     if (missing.size > 0) ctx.notice("N_PARAM_MISSING", [...missing].sort());
-    return { flows, loans, enrollments };
+    return { flows, loans, enrollments, ...(childRepaid.length > 0 ? { childRepaid } : {}) };
   },
 });

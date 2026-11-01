@@ -139,6 +139,10 @@
           }
         }
       }
+    },
+    "childRepaid": {
+      "description": "約束の版 1.1（0104）: 子が返す貸与の奨学金（世帯のお金の動き・負債には入れない）。plan.cashflow が details の childScholarships に写す",
+      "$ref": "urn:financia:schema:engine.output#/$defs/childScholarships"
     }
   }
 }

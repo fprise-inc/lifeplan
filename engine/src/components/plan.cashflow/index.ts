@@ -49,6 +49,8 @@
 //   （エンジンが summary の realEstate に写す。帳票の入力の物件ごとの数字の材料。計算は変えない）
 // - 改訂18（約束の版 1.7。0082）: 収益不動産の分析の数字（asset.realEstateAnalysis の出力のまま）を details の realEstateAnalysis に写す
 //   （エンジンが summary の realEstateAnalysis に写す。計算は変えない）
+// - 改訂19（約束の版 1.8。0104）: 子が返す貸与の奨学金（education.cost の childRepaid）を details の childScholarships に写す
+//   （エンジンが summary の childScholarships に写す。返済は世帯のお金の動き・負債に入れない）
 // - 改訂17（0081）: details の realEstate に、asset.realEstate の約束の版 1.1 の任意の欄（所得の区分 incomeKind・事業的規模の目安の units。
 //   売却の譲渡所得の内訳は sale の中）も写す。計算は変えない
 import {
@@ -80,6 +82,7 @@ import {
   type CashflowDetails,
   type DebtInput,
   type DebtScheduleOutput,
+  type EducationCostOutput,
   type Flow,
   type GiftTaxOutput,
   type IdecoAccountOutput,
@@ -173,8 +176,8 @@ const under = (row: string, prefix: string) => row === prefix || row.startsWith(
 export default defineComponent<Record<string, never>, { flows: readonly Flow[]; annual: AnnualRow[]; parts: readonly (readonly Flow[])[]; details?: CashflowDetails }>({
   id: "plan.cashflow",
   title: "キャッシュフロー表",
-  contract: "1.7",
-  revision: 18,
+  contract: "1.8",
+  revision: 19,
   requires: {
     "plan.flows": ">=1 <2",
     "outside.wallet": ">=1 <2",
@@ -359,11 +362,17 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         debts.push({ d: { id: l.object, kind: "car", debtors: [{ member: m.id, role: "primary" }] }, out: { yearEnd: l.yearEnd } });
       }
     }
+    // 子が返す貸与の奨学金（education.cost の約束の版 1.1。世帯の負債に入れない。details に写す。0104）
+    const childScholarships: NonNullable<EducationCostOutput["childRepaid"]>[number][] = [];
+    const eduMembers = new Set<string>();
     for (const g of ctx.list<{ kind: string; owner: string }>("goal")) {
       if (g.kind !== "education") continue;
-      for (const l of ctx.call<{ loans: readonly { object: string; member: string; yearEnd: DebtScheduleOutput["yearEnd"] }[] }>("education.cost", { member: g.owner }).loans) {
+      const edu = ctx.call<EducationCostOutput>("education.cost", { member: g.owner });
+      for (const l of edu.loans) {
         debts.push({ d: { id: l.object, kind: "other", debtors: [{ member: l.member, role: "primary" }] }, out: { yearEnd: l.yearEnd } });
       }
+      if (!eduMembers.has(g.owner)) for (const c of edu.childRepaid ?? []) childScholarships.push(c);
+      eduMembers.add(g.owner);
     }
     // 持ち家の評価額（年ごと）と車の評価額（金融資産の合計には入れない）
     const rentals = ctx.call<RealEstateOutput>("asset.realEstate", {}).properties;
@@ -818,11 +827,12 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     // 世帯の外の家族のお金が尽きる見込みの月（0042）
     const wallets = members.filter(hasWallet).map((m) => ({ member: m.id, depleted: ctx.call<{ depleted: string | null }>("outside.wallet", { member: m.id }).depleted }));
     if (wallets.length > 0) details.outsideWallets = wallets;
+    if (childScholarships.length > 0) details.childScholarships = childScholarships;
     // 住まい以外の不動産の物件ごとの数字（asset.realEstate の出力のまま。帳票の入力の材料）
     if (rentals.length > 0) details.realEstate = rentals.map((p) => ({ object: p.object, owner: p.owner, years: p.years, income: p.income, sale: p.sale, ...(p.incomeKind !== undefined ? { incomeKind: p.incomeKind } : {}), ...(p.units !== undefined ? { units: p.units } : {}) }));
     // 収益不動産の分析の数字（約束の版 1.7。0082。計算は変えない）
     if (rentals.length > 0) details.realEstateAnalysis = ctx.call<RealEstateAnalysisOutput>("asset.realEstateAnalysis", {});
-    const hasDetails = details.insurance !== undefined || details.gifts !== undefined || details.outsideWallets !== undefined || details.realEstate !== undefined;
+    const hasDetails = details.insurance !== undefined || details.gifts !== undefined || details.outsideWallets !== undefined || details.realEstate !== undefined || details.childScholarships !== undefined;
     return { flows: own.length === 0 ? collected.flows : [...collected.flows, ...own], annual, parts, ...(hasDetails ? { details } : {}) };
   },
 });

@@ -259,13 +259,33 @@ describe("奨学金・教育ローン", () => {
     const w = addScholarship(wh, g.id, "00000000-0000-4000-8000-0000000000c1");
     const s = goalOf(w).education!.scholarships![0]!;
     // 日本学生支援機構: 第二種の利率固定方式の年3.0%、返す年数は返還年数算出表（貸与総額240万円は基礎額16万円で15年）
-    expect(s).toMatchObject({ monthly: 50000, from: { at: "2035-04" }, to: { at: "2039-03" }, rate: "0.03", termMonths: 180, debtor: "child" });
+    expect(s).toMatchObject({ monthly: 50000, from: { at: "2035-04" }, to: { at: "2039-03" }, rate: "0.03", termMonths: 180, repaidBy: "child" });
     const k = `edu/${g.id}/scholar/${s.id}`;
     expect(fieldStatus(fieldOf(w, `${k}/monthly`), w).status).toBe("estimated");
     const term = fieldOf(w, `${k}/term`);
     expect(term.get(w).value).toBe(15);
     expect(goalOf(term.set(w, 20)).education!.scholarships![0]!.termMonths).toBe(240);
     expect(preview(w.request).table.filter((c) => c.row === "cf.income.other.scholarship").reduce((a, c) => a + c.amount, 0)).toBe(50000 * 48);
+  });
+
+  it("返す人（0104）: 子が返す（既定）なら返済は世帯の収支に入れず要約に出し、世帯で返すなら返済が世帯の支出に入る。受け取りはどちらも入るお金", () => {
+    const wh = fresh();
+    const g = goalOf(wh);
+    const w = addScholarship(wh, g.id, "00000000-0000-4000-8000-0000000000c1");
+    const k = `edu/${g.id}/scholar/00000000-0000-4000-8000-0000000000c1`;
+    const f = fieldOf(w, `${k}/repaidBy`);
+    expect(f.get(w).value).toBe("child");
+    expect(f.label).toBe("返す人");
+    const sum = (wx: WorkingHousehold, row: string) => preview(wx.request).table.filter((c) => c.row === row).reduce((a, c) => a + c.amount, 0);
+    expect(sum(w, "cf.expense.debt.scholarship")).toBe(0);
+    expect(sum(w, "cf.income.other.scholarship")).toBe(50000 * 48);
+    const cs = (preview(w.request).summary as { childScholarships?: { principal: number }[] }).childScholarships ?? [];
+    expect(cs.map((c) => c.principal)).toEqual([50000 * 48]);
+    const hh = f.set(w, "household");
+    expect(goalOf(hh).education!.scholarships![0]!.repaidBy).toBe("household");
+    expect(sum(hh, "cf.expense.debt.scholarship")).toBeGreaterThan(0);
+    expect(sum(hh, "cf.income.other.scholarship")).toBe(50000 * 48);
+    expect((preview(hh.request).summary as { childScholarships?: unknown }).childScholarships).toBeUndefined();
   });
 
   it("教育ローンを足すと入学の前の1月に本人が借り、借りた額が入金になる", () => {

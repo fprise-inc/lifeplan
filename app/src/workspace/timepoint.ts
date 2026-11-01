@@ -3,7 +3,7 @@
 import type { Household, Member, Timepoint } from "../engine/types.ts";
 
 /** 年齢の切り替えの規則（0003 の4） */
-export type AgeSwitch = "reachMonth" | "monthAfterReach" | "birthdayMonth" | "monthAfterBirthday" | "firstMarch31AfterReach" | "schoolYear";
+export type AgeSwitch = "reachMonth" | "monthAfterReach" | "birthdayMonth" | "monthAfterBirthday" | "firstMarch31AfterReach" | "schoolYear" | "schoolYearJanuary";
 
 const idx = (ym: string): number => {
   const [y, m] = ym.split("-").map(Number) as [number, number];
@@ -41,6 +41,13 @@ export function ageSwitchMonth(m: Pick<Member, "birth">, years: number, months: 
       const mo = (birthday % 12) + 1;
       const same = mo < 4 || (mo === 4 && m.birth.bornOnFirst);
       return ymOf((same ? y : y + 1) * 12 + 3);
+    }
+    case "schoolYearJanuary": {
+      // その年齢になる年度の1月（schoolYear の月の3か月前。子の成人式。0104）
+      const y = Math.floor(birthday / 12);
+      const mo = (birthday % 12) + 1;
+      const same = mo < 4 || (mo === 4 && m.birth.bornOnFirst);
+      return ymOf((same ? y : y + 1) * 12);
     }
   }
 }

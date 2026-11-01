@@ -2,7 +2,7 @@
 import { EngineError } from "../errors.ts";
 import { addMonths, monthIndex, monthOf, parseYm, yearOf, type MonthIndex } from "./month.ts";
 
-export type AgeSwitch = "reachMonth" | "monthAfterReach" | "birthdayMonth" | "monthAfterBirthday" | "firstMarch31AfterReach" | "schoolYear";
+export type AgeSwitch = "reachMonth" | "monthAfterReach" | "birthdayMonth" | "monthAfterBirthday" | "firstMarch31AfterReach" | "schoolYear" | "schoolYearJanuary";
 
 export const AGE_SWITCHES: readonly AgeSwitch[] = [
   "reachMonth",
@@ -11,6 +11,7 @@ export const AGE_SWITCHES: readonly AgeSwitch[] = [
   "monthAfterBirthday",
   "firstMarch31AfterReach",
   "schoolYear",
+  "schoolYearJanuary",
 ];
 
 /** 0012: 生年月日は「生年月＋1日生まれか」で持つ */
@@ -56,6 +57,14 @@ export function resolveAgeSwitch(birth: Birth, age: Age, rule: AgeSwitch): Month
       const m = monthOf(birthday);
       const sameYear = m < 4 || (m === 4 && birth.bornOnFirst);
       return monthIndex(sameYear ? y : y + 1, 4);
+    }
+    case "schoolYearJanuary": {
+      // その年齢になる年度（学年と同じく4月2日〜翌年4月1日生まれを同じ年度とする）の1月。schoolYear の月の3か月前
+      // （子の成人式の月。0104。1〜3月生まれと4月1日生まれは、その年齢の誕生日の前の1月）
+      const y = yearOf(birthday);
+      const m = monthOf(birthday);
+      const sameYear = m < 4 || (m === 4 && birth.bornOnFirst);
+      return monthIndex(sameYear ? y : y + 1, 1);
     }
     default:
       throw new EngineError("E_ARGUMENT", ["ageSwitch"]);

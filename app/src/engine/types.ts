@@ -282,7 +282,10 @@ export interface EducationScholarship {
   rate: string;
   termMonths: number;
   repaymentStart?: Timepoint;
+  /** 世帯で返すときの名義（parent は親、省略・child は子）。子が返すときは使わない */
   debtor?: "child" | "parent";
+  /** 返すのは誰か（0104）: child は子が返す（返済を世帯の収支に入れない）、household は世帯で返す。省略は子 */
+  repaidBy?: "child" | "household";
 }
 
 /** 教育ローン（0062。エンジンの loans） */
@@ -469,7 +472,7 @@ export interface Debt {
   pairWith?: string;
   /** 0052: 名前と種類の細目（表示と推定の元だけ。計算には使わない） */
   label?: string;
-  subtype?: "cardLoan" | "scholarship" | "renovation" | "policyLoan" | "personal" | "other";
+  subtype?: "cardLoan" | "scholarship" | "scholarshipFree" | "renovation" | "policyLoan" | "personal" | "other";
   /** この借入で取得した住まい以外の不動産（不動産の器の ID。0028） */
   property?: string;
   /** 0044: 相続で受け継ぐ借金の元の借り手・見込み・基本の計算に入れるか（計算には使わない。不確かなら要求から外す） */
