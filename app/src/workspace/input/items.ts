@@ -856,9 +856,10 @@ export interface AddOption {
 }
 
 /** 足せる項目（今ある任意の項目の型。FP が自由な項目を作る仕組みは、拡張領域の約束（0011 の4・0016 の3）に沿って次の回）。
- * 車は「車」のカードの中の「＋ もう1台」、FP顧問料は「前提条件」のカードの中の「＋ FP顧問料の契約」で足す */
+ * 車は「車」のカードの中の「＋ もう1台」、FP顧問料は「前提条件」のカードの中の「＋ FP顧問料の契約」で足す。
+ * ペット（えさ・医療・保険の年18万円）はやめた: えさ・用品・ペット保険は基本生活費の「趣味・娯楽」、動物病院の費用は「年1回・数年に1回の支出」の
+ * 「ペットの病気・けが」で入れる（0106 の追記）。前に足したペットの行（ピンの絵 pet）は、そのまま読んで計算する（petTemplate.ts の知らせ） */
 export const ADD_OPTIONS: readonly AddOption[] = [
-  { key: "pet", label: "ペット", note: "毎年の費用（えさ・医療・保険）", art: "pet" },
   { key: "abroad", label: "留学", note: "1回の費用", art: "abroad" },
   { key: "periodic", label: "名前を付けた支出", note: "一時的支出・何年かごとの支出", art: "events" },
   { key: "care", label: "介護の費用", note: "介護を受ける人・期間", art: "events" },
@@ -896,18 +897,16 @@ export function addItem(wh: WorkingHousehold, key: string, id: () => string = ne
   const ref = id();
   let next: WorkingHousehold;
   let kind: "periodic" | "care";
-  if (head === "pet" || head === "abroad" || head === "periodic") {
+  if (head === "abroad" || head === "periodic") {
     kind = "periodic";
     const at = addMonths(base, head === "abroad" ? 60 : 12);
     // 子を選んだ留学は、その子の年齢で時期を持つ（20歳か、もう過ぎていれば来年の年齢）。子の年齢で始まる支出は子ども・教育のカードに出る
     const childAt = child === undefined ? null : { memberAge: { member: child.id, years: Math.max(20, ageAt(child, base) + 1) } };
     const p: PeriodicExpense =
-      head === "pet"
-        ? { id: ref, label: "ペット", row: "cf.expense.other", from: { at }, to: { at: addMonths(at, 14 * 12) }, everyYears: 1, amount: standardBox(180000, PRESET_BASIS) }
-        : head === "abroad"
-          ? // 子を選んだ留学は子ども・教育の出るお金の行（種類 教育費。0062）
-            { id: ref, label: "留学", ...(childAt !== null ? { kind: "education" as const, row: "cf.expense.education" } : { row: "cf.expense.lumpSum.other" }), from: childAt ?? { at }, to: childAt ?? { at }, everyYears: 1, amount: standardBox(3500000, PRESET_BASIS) }
-          : { id: ref, label: "新しい支出", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, amount: standardBox(300000, PRESET_BASIS) };
+      head === "abroad"
+        ? // 子を選んだ留学は子ども・教育の出るお金の行（種類 教育費。0062）
+          { id: ref, label: "留学", ...(childAt !== null ? { kind: "education" as const, row: "cf.expense.education" } : { row: "cf.expense.lumpSum.other" }), from: childAt ?? { at }, to: childAt ?? { at }, everyYears: 1, amount: standardBox(3500000, PRESET_BASIS) }
+        : { id: ref, label: "新しい支出", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, amount: standardBox(300000, PRESET_BASIS) };
     next = mutate(wh, (hh) => void (hh.periodicExpenses ??= []).push(p));
   } else {
     kind = "care";

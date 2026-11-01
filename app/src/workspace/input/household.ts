@@ -31,7 +31,7 @@ export interface PostRetirement {
 /** 開いたときの知らせ（0035 の8） */
 export interface HouseholdNotice {
   id: string;
-  kind: "outsideFamily" | "unresolvedDiffs" | "smrBlank" | "livingUnknown" | "unknownEstimated" | "carLoanEstimated" | "livingAllowance" | string;
+  kind: "outsideFamily" | "unresolvedDiffs" | "smrBlank" | "livingUnknown" | "unknownEstimated" | "carLoanEstimated" | "livingAllowance" | "petTemplate" | string;
   members?: string[];
   count?: number;
   /** smrBlank・livingUnknown・unknownEstimated・carLoanEstimated: プランの差分を変えた数 */

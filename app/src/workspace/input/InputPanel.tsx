@@ -10,6 +10,7 @@ import type { Catalog } from "../plans/items.ts";
 import { diffRows, fieldMark, groupMark, planView, recordPlanEdit, referrersOf, removedObjects, removedRows, revertField, revertRow, settleFields, withoutObjects, type Referrer } from "../plans/planEdit.ts";
 import { fillAll, gapsOf } from "./fill.ts";
 import { useSurplusSuggestion } from "./surplusSuggest.ts";
+import { useSavingsCheckLine } from "./savingsCheckLine.ts";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import { withRefreshedEstimates } from "./estimates.ts";
 import { withProvisionalHousing } from "./housingCredit.ts";
@@ -98,7 +99,10 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   const item = useMemo(() => itemOf(shown, itemId, { inheritanceTax: inheritanceTaxNote(inheritance), pension: pensionEstimateSummary(shown, pensionEst.std) }), [shown, itemId, inheritance, pensionEst]);
   const stage = useMemo(() => itemStage(shown, itemId), [shown, itemId]);
   const adding = initialDraft !== undefined;
-  const suggestions = useSurplusSuggestion(shown, itemId === "living", computeOne);
+  const surplusSug = useSurplusSuggestion(shown, itemId === "living", computeOne);
+  /** 答え合わせの「実際の年間の貯蓄額」の欄の下の1行（計算の年間収支・実際の額・差。計算の結果を読むだけ。0106 の追記） */
+  const checkLine = useSavingsCheckLine(shown, itemId === "living", computeOne);
+  const suggestions = useMemo(() => ({ ...surplusSug, ...checkLine }), [surplusSug, checkLine]);
   /** 外したときの連鎖の確かめ（外す物を指す物を並べ、一緒に外す物を選ぶ。0036 の8） */
   const [chain, setChain] = useState<{ target: WorkingHousehold; refs: Referrer[]; chosen: Set<string> } | null>(null);
 

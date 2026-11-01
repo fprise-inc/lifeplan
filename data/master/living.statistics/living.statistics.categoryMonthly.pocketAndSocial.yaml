@@ -1,5 +1,5 @@
 id: living.statistics.categoryMonthly.pocketAndSocial
-title: 家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月のこづかい（使途不明）と交際費の合計（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）
+title: 家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月のこづかい（使途不明）と交際費の合計から、住宅関係負担費（品目分類の全国の月平均。共益費・住宅組合費など）を除いた額（基本生活費の費目の割合の目安。集合住宅の共益費・管理費は住まい・ローンの入力項目で入れる。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）
 unit: JPY
 kind: bracketTable
 basis: {"type": "month"}
@@ -21,5 +21,26 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040409532&fileKind=0", "retrievedAt": "2026-10-26", "sha256": "d4b70ce423f636409c34a3ca9da23791442ed803d78e91a4771bd035483f7fd4", "locator": "家計調査 家計収支編 二人以上の世帯 詳細結果表 2025年 第3-1表 世帯人員別1世帯当たり1か月間の収入と支出（こづかい(使途不明)・交際費）"}
     recordedIn: "2026.3.0"
-    supersededIn: null
+    supersededIn: "2026.5.0"
     approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-31", "tools": ["Excel（公表の統計表）", "表の内訳から計算し直した結果", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "こづかい(使途不明)＋交際費（円）。2つ目の読み方: 交際費＝交際費の内訳（食料〜他の交際費）の合計と一致（表の丸めで1円の差の世帯人員あり）。10費目（食料・光熱・水道・通信・交通・家具・家事用品から家庭用耐久財を除いた額・被服と理美容・保健医療・教養娯楽・こづかいと交際費・その他）の合計が基本生活費の目安（living.statistics.basicMonthly）と一致（丸めの1円の差を除く）。施行日の欄は e-Stat の公開日"}
+  - rev: 2
+    appliesFrom: "2026-03-01"
+    appliesTo: null
+    enforcedOn: "2026-02-06"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 1}
+      - {"upTo": 2, "amount": 24303}
+      - {"upTo": 3, "amount": 19581}
+      - {"upTo": 4, "amount": 15841}
+      - {"upTo": 5, "amount": 13354}
+      - {"upTo": null, "amount": 16532}
+    sources:
+      - {"type": "web", "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040409532&fileKind=0", "retrievedAt": "2026-10-26", "sha256": "d4b70ce423f636409c34a3ca9da23791442ed803d78e91a4771bd035483f7fd4", "locator": "家計調査 家計収支編 二人以上の世帯 詳細結果表 2025年 第3-1表 世帯人員別1世帯当たり1か月間の収入と支出（こづかい(使途不明)・交際費・他の交際費）"}
+      - {"type": "web", "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040409546&fileKind=0", "retrievedAt": "2026-10-31", "sha256": "6141f526aeac0cefac80affa12cd55ccaba8ec75ad6a8893a241981a60efefdb", "locator": "家計調査 家計収支編 二人以上の世帯 詳細結果表 2025年 第4-1表 都市階級・地方・都道府県庁所在市別1世帯当たり支出金額，購入数量及び平均価格（品目分類。全国 住宅関係負担費〔973〕 年 21,066円）"}
+      - {"type": "web", "url": "https://www.stat.go.jp/data/kakei/kou2025/zuhyou/kouh2025.xlsx", "retrievedAt": "2026-11-01", "sha256": "54cc837eb6c26b81b8f205ac358a8670638840c684baa2e419b64a365d910817", "locator": "総務省統計局 家計調査 収支項目分類及びその内容例示（令和7年（2025年）1月改定） 2消費支出 10.3.7 他の交際費 973 住宅関係負担費（集合住宅などに住む際、必要な共益費などの負担費。例示: 共益費・住宅組合費・アパートの階段電灯代・マンションの冷暖房費・給湯料の負担費）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-11-01", "tools": ["Excel（公表の統計表）", "表の内訳から計算し直した結果", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "rev 1（こづかい(使途不明)＋交際費）−住宅関係負担費の月平均（第4-1表の全国の年 21,066円÷12＝1,755.5円を1,756円に。どの世帯人員も同じ額で、その世帯人員の他の交際費〔第3-1表〕の額を上限にした。上限に当たる世帯人員は無い）（円。収支項目分類の内容例示では、住宅関係負担費は集合住宅などに住む際に必要な共益費などの負担費〔共益費・住宅組合費・アパートの階段電灯代・マンションの冷暖房費・給湯料の負担費〕で、住まい・ローンの入力項目の家賃（管理費込み）・管理費・修繕積立金と重なるので除いた。分譲マンションの管理費・修繕積立金の語は例示に無い）。2つ目の読み方: こづかい(使途不明)＋交際費の内訳（食料〜他の交際費）の合計から 1,756円 を引いた額と一致（表の丸めで1円の差の世帯人員あり）。10費目の合計が基本生活費の目安（living.statistics.basicMonthly）と一致（丸めの1円の差を除く）。施行日の欄は e-Stat の公開日"}
