@@ -4,7 +4,7 @@ import { ROW_LABELS } from "../generated/labels.ts";
 import type { AgeAxisRow, CashflowTableModel, ChartModel, Depletion, EventChip, EventIcon, FeeLine, FlowChartModel, GoalCard, GoalsModel, Headline, PresentationModel, ResultVerdict, SeriesNames, StackSeries, TableRowModel, Verdict, VerdictPart, YearDetail } from "../presentation/model.ts";
 import { man } from "../presentation/format.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
-import { ageInYear, leaveYear, roles, type Role } from "./roles.ts";
+import { ageInYear, leaveYear, presentInYear, roles, type Role } from "./roles.ts";
 import { DEFICIT_NOTE, deficitSources, OUTSIDE_INCOME_NOTE, outsideName } from "./resultRows.ts";
 import { resolveTimepoint } from "./timepoint.ts";
 
@@ -36,11 +36,10 @@ export function depletionYear(table: readonly TableCell[], years: readonly numbe
   return null;
 }
 
-/** その年に世帯にいるか（生まれていて、独立などで抜けていない。gone: 亡くなった人の鍵と亡くなる年。翌年からいない） */
+/** その年に世帯にいるか（生まれていて、加わる前でなく、独立などで抜けていない。gone: 亡くなった人の鍵と亡くなる年。翌年からいない） */
 export function inHousehold(r: Role, y: number, gone?: { key: string; year: number }): boolean {
   if (gone !== undefined && r.key === gone.key && y > gone.year) return false;
-  const leave = leaveYear(r);
-  return ageInYear(r.member, y) >= 0 && (leave === null || y <= leave);
+  return presentInYear(r, y);
 }
 
 /** 年の目盛りの下の年齢の段: 本人と配偶者（単身の世帯は本人だけ）。いない年は null */
