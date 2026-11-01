@@ -83,14 +83,17 @@
               "highSchool",
               "university",
               "juniorCollege",
-              "vocational"
+              "vocational",
+              "graduateMaster",
+              "graduateDoctor"
             ]
           },
           "sector": {
             "enum": [
               "public",
               "national",
-              "private"
+              "private",
+              "international"
             ]
           },
           "living": {

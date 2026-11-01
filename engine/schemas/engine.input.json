@@ -2322,8 +2322,8 @@
                 "required": ["stage"],
                 "properties": {
                   "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
-                  "stage": { "enum": ["nursery", "kindergarten", "elementary", "juniorHigh", "highSchool", "university", "juniorCollege", "vocational"] },
-                  "sector": { "enum": ["public", "national", "private"], "description": "公立・国立・私立（保育所は使わない）" },
+                  "stage": { "enum": ["nursery", "kindergarten", "elementary", "juniorHigh", "highSchool", "university", "juniorCollege", "vocational", "graduateMaster", "graduateDoctor"], "description": "学校の段（graduateMaster は大学院の修士・博士前期、graduateDoctor は博士・博士後期。0089）" },
+                  "sector": { "enum": ["public", "national", "private", "international"], "description": "公立・国立・私立・インターナショナルスクール（international は幼稚園〜高校だけ。統計の目安が無いので学校の年額を入れる。0089。保育所は使わない）" },
                   "field": { "enum": ["humanities", "science", "medical", "other"], "description": "大学の系統（文科系・理科系・医歯系・その他）" },
                   "living": { "enum": ["home", "away"], "description": "自宅・自宅外" },
                   "years": { "type": "integer", "minimum": 1, "maximum": 6, "description": "在学年数（省略は学校の種類の標準）" },

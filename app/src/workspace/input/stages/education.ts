@@ -19,7 +19,7 @@ import { formatYearMonth, formatYen } from "../units.ts";
 import { EDUCATION_BASIS, educationStagesAddress, fillEducation, leavesToSchool, stageEnded } from "../fill.ts";
 import { putRow, rowAt, type StateRow } from "../rows.ts";
 import { addIncome, expenseCard, incomeCard, incomeGroups, moneySections, periodicGroups } from "../moneyRows.ts";
-import { boardingStatistic, isHigher, isK12, manText, stagePeriod, stageStatistic, stageYears } from "../educationCost.ts";
+import { boardingStatistic, INTERNATIONAL_MISSING, isGraduate, isHigher, isK12, isTertiary, manText, stagePeriod, stageStatistic, stageYears } from "../educationCost.ts";
 import { masterAmount, regulationValue } from "../../../../../hearing/src/statistics.ts";
 import { childOfPeriodic } from "./events.ts";
 import { donorOptions, FIELDS, GIFT_PURPOSES, HOUSING_EXEMPTION, LIVING_PLACE, memberLabel, memberOptions, NURSERY_HOURS, SCHOOL_STAGES, SECTORS, TAX_METHODS } from "../labels.ts";
@@ -28,7 +28,7 @@ import type { Address } from "../../store/readings.ts";
 type Obj = Record<string, unknown>;
 const goals = (h: Household) => h.goals;
 /** 段の並び（保育園から） */
-export const STAGE_ORDER = ["nursery", "kindergarten", "elementary", "juniorHigh", "highSchool", "university", "juniorCollege", "vocational"];
+export const STAGE_ORDER = ["nursery", "kindergarten", "elementary", "juniorHigh", "highSchool", "university", "juniorCollege", "vocational", "graduateMaster", "graduateDoctor"];
 const STAGE_AGE: Record<string, number> = { kindergarten: 3, elementary: 6, juniorHigh: 12, highSchool: 15, university: 18, juniorCollege: 18, vocational: 18 };
 const stageLabel = (stage: string) => SCHOOL_STAGES.find((o) => o.value === stage)?.label ?? stage;
 
@@ -313,13 +313,13 @@ function stageNote(s: EducationStage, lunch: LunchChoice): string | undefined {
   const est = annualEstimate(s, lunch);
   if (s.annualOverride !== undefined) parts.push(`${school} 年${manText(s.annualOverride)}（入れた額）`);
   else if (est !== null) parts.push(`${school} 年約${manText(est.value)}（統計の平均・今の値段）`);
-  else if (s.stage === "vocational") parts.push("⚠ 学費が未入力です（0円で計算中）。年額を入れてください");
+  else if (s.stage === "vocational" || s.sector === "international") parts.push("⚠ 学費が未入力です（0円で計算中）。年額を入れてください");
   if (isK12(s.stage) && stat?.outOfSchool != null && s.outOfSchool !== "none") parts.push(`学校外 年約${manText(stat.outOfSchool)}（入れ方は「学校外の費用」で）`);
-  if (isHigher(s.stage) && s.stage !== "vocational") {
+  if (isTertiary(s.stage) && s.stage !== "vocational") {
     const entrance = s.entranceOverride ?? stat?.entrance ?? null;
     if (entrance !== null) parts.push(`入学金 約${manText(entrance)}`);
   }
-  if (isHigher(s.stage) && s.living === "away") {
+  if (isTertiary(s.stage) && s.living === "away") {
     const b = boardingStatistic();
     const monthly = s.boarding?.monthly ?? (b.annual === null ? null : Math.round(b.annual / 12));
     if (monthly !== null) parts.push(`仕送り 月${manText(monthly)}${s.boarding?.monthly === undefined ? "（推定）" : ""}`);
@@ -341,12 +341,12 @@ const lunchOf = (g: Goal | undefined): LunchChoice => (g?.education?.schoolLunch
 export function annualEstimate(s: EducationStage, lunch: LunchChoice): { value: number; basis: string } | null {
   const stat = stageStatistic(s);
   if (stat === null || stat.annual === null) return null;
-  const pub = (s.sector ?? "public") !== "private";
+  const pub = (s.sector ?? "public") === "public";
   const lunchStat = pub && (s.stage === "elementary" || s.stage === "juniorHigh") ? masterAmount(`education.statistics.${s.stage}.public.schoolLunch`) : null;
   const choice = (s.schoolLunch as LunchChoice | undefined) ?? lunch;
   const off = lunchStat === null || choice === "paid" ? 0 : choice === "free" ? lunchStat : stat.lunchRelief;
   // 部活動などの費用を入れた段は、学校の費用の推定から統計の教科外活動費を除く（計算エンジンは入れた部活動の費用を年額に足すので、二重にしない）
-  const sec = (s.sector ?? "public") === "private" ? "private" : "public";
+  const sec = (s.sector ?? "public") === "private" || s.sector === "international" ? "private" : "public";
   const club = s.clubAnnual === undefined ? 0 : (masterAmount(`education.statistics.${s.stage}.${sec}.extracurricular`) ?? 0);
   const notes = [
     ...(off > 0 ? [`${choice === "free" ? "自治体が給食費を無償にしている分" : "公立小学校の給食費の国の負担軽減の分"}（年${manText(off)}）`] : []),
@@ -363,7 +363,7 @@ export function annualEstimate(s: EducationStage, lunch: LunchChoice): { value: 
 export function dropStaleEstimates(prev: EducationStage, next: EducationStage, lunch: LunchChoice): void {
   if (next.annualOverride !== undefined && next.annualOverride === annualEstimate(prev, lunch)?.value) delete next.annualOverride;
   const entrance = stageStatistic(prev)?.entrance ?? null;
-  if (next.entranceOverride !== undefined && isHigher(prev.stage) && next.entranceOverride === entrance) delete next.entranceOverride;
+  if (next.entranceOverride !== undefined && isTertiary(prev.stage) && next.entranceOverride === entrance) delete next.entranceOverride;
 }
 
 /** 空欄のとき推定の値を見せる（印「推定」・根拠・「この値にする」で書ける。0041）。est が null なら元の欄のまま */
@@ -394,9 +394,16 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
   const stageNow = (wh: WorkingHousehold) => find(wh.request.input.household, wh) as EducationStage | undefined;
   const lunchNow = (wh: WorkingHousehold) => lunchOf((wh.request.input.household.goals ?? []).find((g) => g.id === goalId));
   const key = `edu/${goalId}/stage/${i}`;
-  const higher = isHigher(s.stage);
+  const higher = isTertiary(s.stage);
   const sid = typeof s.id === "string" ? s.id : undefined;
-  const sectorOptions = s.stage === "nursery" ? [] : s.stage === "university" ? SECTORS : SECTORS.filter((o) => o.value !== "national" || s.stage === "elementary" || s.stage === "juniorHigh" || s.stage === "highSchool");
+  const sectorOptions =
+    s.stage === "nursery"
+      ? []
+      : s.stage === "university" || isGraduate(s.stage)
+        ? SECTORS
+        : isK12(s.stage)
+          ? [...SECTORS.filter((o) => o.value !== "national" || s.stage !== "kindergarten"), { value: "international", label: "インターナショナルスクール" }]
+          : SECTORS.filter((o) => o.value !== "national");
   const fields: FieldDef[] = [];
   if (s.stage === "nursery") {
     fields.push(
@@ -454,7 +461,7 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
   if (s.stage === "university") fields.push(plain({ key: `${key}/field`, item: "goal.education", label: "系統", level: "detail", kind: "select", options: FIELDS, find, path: ["field"], optional: true, fallback: "humanities", help: fieldHelp(), after: reestimate }));
   if (higher) fields.push(plain({ key: `${key}/living`, item: "goal.education", label: "通い方", level: "simple", kind: "select", options: LIVING_PLACE, find, path: ["living"], optional: true, fallback: "home" }));
   // 学費の年額。空欄は統計の平均の推定（専門学校は統計の目安が無いので簡易で未入力の警告、公立の短大も簡易。私立の短大の平均で仮に計算）
-  const simpleAnnual = s.stage === "vocational" || (s.stage === "juniorCollege" && (s.sector ?? "public") !== "private");
+  const simpleAnnual = s.stage === "vocational" || s.sector === "international" || (s.stage === "juniorCollege" && (s.sector ?? "public") !== "private");
   const annual = withEstimate(
     plain({
       key: `${key}/annual`,
@@ -478,11 +485,11 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
   fields.push({
     ...annual,
     ...stageAddress(goalId, sid, "annualOverride"),
-    ...(s.stage === "vocational"
+    ...(s.stage === "vocational" || s.sector === "international"
       ? {
           get: (wh: WorkingHousehold) => {
             const st = annual.get(wh);
-            return st.value === null ? { ...st, estimated: VOCATIONAL_MISSING } : st;
+            return st.value === null ? { ...st, estimated: s.stage === "vocational" ? VOCATIONAL_MISSING : INTERNATIONAL_MISSING } : st;
           },
         }
       : {}),
@@ -600,7 +607,7 @@ function k12Fields(goalId: string, i: number, s: EducationStage, key: string, fi
   const out: FieldDef[] = [];
   const goalNow = (wh: WorkingHousehold) => (wh.request.input.household.goals ?? []).find((g) => g.id === goalId);
   const stageNow = (wh: WorkingHousehold) => find(wh.request.input.household, wh) as EducationStage | undefined;
-  const pub = (s.sector ?? "public") !== "private";
+  const pub = (s.sector ?? "public") === "public";
   if (pub && (s.stage === "elementary" || s.stage === "juniorHigh")) {
     const lunch = lunchStat(s.stage);
     const options = s.stage === "elementary" ? LUNCH_ELEMENTARY : s.schoolLunch === "paid" ? [...LUNCH_JUNIOR, { value: "paid", label: "全額を払う" }] : LUNCH_JUNIOR;
@@ -659,7 +666,7 @@ function k12Fields(goalId: string, i: number, s: EducationStage, key: string, fi
   });
   // 部活動などの費用（中学校・高校）。空欄は統計の教科外活動費（学校の費用に含めて数えている）
   if (s.stage === "juniorHigh" || s.stage === "highSchool") {
-    const sec = pub ? "public" : "private";
+    const sec = pub || s.sector === "national" ? "public" : "private";
     const club = masterAmount(`education.statistics.${s.stage}.${sec}.extracurricular`);
     out.push({
       ...withEstimate(
@@ -1364,6 +1371,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
     groups.push({
       key: `edu/${goal.id}/stage/${i}`,
       title: `${stageLabel(s.stage)}${entryAge !== undefined && s.stage !== "kindergarten" ? `（${entryAge}歳から）` : ""}`,
+      // 大学院は前の学校を出た翌月の4月から（STAGE_AGE に無いので年齢は添えない）
       ...(note !== undefined && note !== "" ? { note } : {}),
       level: "simple",
       fields: stageFields(goal.id, i, s, `${start.ym}（${start.reason}）`, outOfSchoolModeOf(goal) === "rows"),
@@ -1376,9 +1384,10 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
     });
   });
   const have = new Set(stages.map((s) => s.stage));
+  const tertiary = stages.find((s) => isHigher(s.stage));
   // 足すボタンは、この子の年齢でこれからの段だけ（終わった段・3歳の4月を過ぎた保育園は出さない。0062 の追記 2026-10-30）
   const upcoming = SCHOOL_STAGES.filter((o) => !stageEnded(child, { stage: o.value }, base));
-  const addActions: ActionDef[] = upcoming.filter((o) => !have.has(o.value) && !(isHigher(o.value) && stages.some((s) => isHigher(s.stage)))).map((o) => ({
+  const addActions: ActionDef[] = upcoming.filter((o) => !have.has(o.value) && !(isHigher(o.value) && stages.some((s) => isHigher(s.stage))) && !(isGraduate(o.value) && tertiary === undefined)).map((o) => ({
     key: `edu/${goal.id}/addStage/${o.value}`,
     label: `＋ ${o.label}`,
     level: o.value === "university" || o.value === "highSchool" ? "simple" : "detail",
@@ -1386,7 +1395,15 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
       mutate(w, (hh) => {
         const g = find(hh, w) as Goal | undefined;
         if (g?.education === undefined) return;
-        const st: EducationStage = o.value === "university" ? { stage: o.value, sector: "private", field: "humanities", living: "home" } : o.value === "nursery" ? { stage: o.value } : { stage: o.value, sector: o.value === "juniorCollege" || o.value === "vocational" ? "private" : "public" };
+        const prev = g.education.stages.find((s) => isHigher(s.stage));
+        const st: EducationStage =
+          o.value === "university"
+            ? { stage: o.value, sector: "private", field: "humanities", living: "home" }
+            : o.value === "nursery"
+              ? { stage: o.value }
+              : isGraduate(o.value)
+                ? { stage: o.value, sector: prev?.sector === "national" || prev?.sector === "public" ? prev.sector : "private", living: prev?.living ?? "home" }
+                : { stage: o.value, sector: o.value === "juniorCollege" || o.value === "vocational" ? "private" : "public" };
         g.education.stages = [...g.education.stages, { id: newId(), ...st }].sort((a, b) => STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage));
       }),
   }));

@@ -174,6 +174,8 @@ export const SCHOOL_STAGES: Option[] = [
   { value: "university", label: "大学" },
   { value: "juniorCollege", label: "短大" },
   { value: "vocational", label: "専門学校" },
+  { value: "graduateMaster", label: "大学院（修士）" },
+  { value: "graduateDoctor", label: "大学院（博士）" },
 ];
 
 export const NURSERY_HOURS: Option[] = [
