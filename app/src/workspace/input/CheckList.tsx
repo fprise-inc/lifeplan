@@ -38,6 +38,8 @@ interface Props {
   notices?: readonly NoticeRow[];
   /** プランの編集中（そのプランで足した物の行を出す） */
   plan?: CheckPlan;
+  /** 書類待ちの行を、送ってほしい書類の一覧（書類のお願い。0102）にまとめて開く */
+  onDocRequests?: () => void;
 }
 
 /** 入力のホームの見出しの下に出す、確かめの一覧の入口の数（未入力・書類待ち・推定） */
@@ -79,7 +81,7 @@ export function passesFilter(r: CheckRow, f: CheckFilter, marked: (id: string) =
   return true;
 }
 
-export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Props) {
+export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDocRequests }: Props) {
   const all = useMemo(() => checkList(wh, notices), [wh, notices]);
   const planRows = useMemo(() => (plan === undefined ? [] : planOnlyRows(wh, plan.view)), [wh, plan?.view]);
   const acked = useMemo(() => ackedRows(wh), [wh]);
@@ -194,7 +196,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
           確かめの一覧
           <Help label="確かめの一覧" id="checklist">
             <p>未入力・まだ入れていない項目・書類待ち・確かめの注意・計算の知らせ・推定の欄を並べます。いつも現状の世帯を見ます（プランの編集中は、そのプランで足した物の行も出します）。</p>
-            <p>書類待ちは、欄で「書類で確かめる」にした所です（住民税は住民税の決定通知書、退職金・企業年金は会社の退職金規程・制度の資料、年金の加入月数はねんきん定期便、住宅ローン・自動車ローンは返済予定表、手術の額は保険証券）。確かめるまでは代わりの値で計算し、書類の値を打つか「この値にする」で消えます。</p>
+            <p>書類待ちは、欄で「書類で確かめる」にした所です（住民税は住民税の決定通知書、退職金・企業年金は会社の退職金規程・制度の資料、年金の加入月数はねんきん定期便、住宅ローン・自動車ローンは返済予定表、手術の額は保険証券）。確かめるまでは代わりの値で計算し、書類の値を打つか「この値にする」で消えます。「書類のお願いにまとめる」で、送ってもらう書類の一覧とお願いの文を出せます。</p>
             <p>「開く」でその欄に移ります（移るだけでは値も状態も変わりません）。推定・書類待ち・確かさの行は「根拠」で根拠が開きます。</p>
             <p>確かさが申告・概算の値は、確かさか状態で絞り込んだときだけ出します。「次回確かめる」は、次の面談・見直しで確かめる所の印です（世帯に残ります。計算は変わりません）。</p>
             <p>確かめの注意のうち、お客さまと確かめてそのままでよいもの（医療保険を2本とも続けるなど）は「確認した」で出さないようにできます（世帯に残ります）。保険を足す・外すなどで中身が変わると、また出ます。確認した注意は、状態の「確認した注意」で見られ、「また出す」で戻せます。</p>
@@ -312,6 +314,11 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
           <div class={`ck-kind ck-${k}`} key={k} data-ck-kind={k}>
             <h3>
               {CHECK_KIND_LABELS[k]}（{list.length}）
+              {k === "unknown" && onDocRequests !== undefined ? (
+                <button type="button" class="link-btn ck-docs" onClick={onDocRequests} data-ck-doc-requests title="書類待ちの欄を、お客さまに送ってもらう書類の一覧にまとめます">
+                  書類のお願いにまとめる
+                </button>
+              ) : null}
             </h3>
             <ul>{list.map((r) => line(r, false))}</ul>
           </div>

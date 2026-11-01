@@ -87,6 +87,11 @@ export interface CheckRow {
   certainty?: Certainty | null;
   /** 欄の当て先の物・構成員の ID（プランで足した物の行を見分ける） */
   holder?: string | null;
+  /**
+   * 書類待ちの行だけ: 確かめる書類（欄の定義の docCheck）・書類の持ち主（docFor か当て先の物）・欄の名前（まとまりの名前を付けない）。
+   * 書類のお願いの一覧（docRequests.ts）が、書類と持ち主ごとにまとめるのに使う（0102）
+   */
+  doc?: { name: string; holder: string | null; field: string };
 }
 
 /**
@@ -248,7 +253,8 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
       const value = s.status === "missing" || s.status === "notApplicable" ? null : st.value === null || st.value === undefined ? null : fieldValueText(f, st.value, wh);
       const base = { card: item.id, cardLabel: item.label, label: labelOf(group.title ?? section.title, f), fieldKey: f.key, level, value, origin: meta.origin, certainty: meta.certainty, holder };
       if (s.status === "missing") rows.push({ ...base, id: `field:${f.key}`, kind: "missing", detail: s.basis ?? "空欄（0円で計算しています）", impact: 0, actions: [] });
-      else if (s.status === "unknown") rows.push({ ...base, id: `field:${f.key}`, kind: "unknown", detail: unknownDetail(f, s), impact: impactOf(f, wh), actions: [] });
+      else if (s.status === "unknown")
+        rows.push({ ...base, id: `field:${f.key}`, kind: "unknown", detail: unknownDetail(f, s), impact: impactOf(f, wh), actions: [], ...(f.docCheck !== undefined ? { doc: { name: f.docCheck, holder: f.docFor ?? holder, field: f.label } } : {}) });
       else if (s.status === "estimated" && officeNewer(f, wh) !== null) {
         // 事務所の既定値が、この世帯の推定の値と違う（作った後に事務所の値を変えた・事務所の値を決める前の世帯。0073）。値は変えない
         const v = officeNewer(f, wh) as string;

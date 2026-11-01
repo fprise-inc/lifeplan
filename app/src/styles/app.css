@@ -1401,6 +1401,21 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .ck-plan li { border-left: 4px solid var(--plan-c, var(--base)); }
 .ck-gone li, .ck-acked li { border-left: 4px dotted var(--line-2); }
 .ck-copy { width: 100%; margin-top: 6px; font: inherit; font-size: 0.84rem; }
+/* 書類のお願い（0102）: 書類1通ごとの見出しと、写す欄の行（確かめの一覧の行と同じ形） */
+.ck-docs { margin-left: 10px; font-size: 0.8rem; font-weight: 400; }
+.dr-list { margin: 6px 0 0; padding-left: 1.6em; }
+.dr-list > li { margin: 6px 0 10px; }
+.dr-title { font-weight: 700; }
+.dr-list ul { list-style: none; margin: 2px 0 0; padding: 0; }
+.dr-list ul li { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; padding: 4px 8px; border-bottom: 1px solid var(--line-2); border-left: 4px solid var(--est); font-size: 0.86rem; }
+.dr-msg h3 { font-size: 0.92rem; margin: 12px 0 4px; }
+.dr-msg input[type="text"] { margin-left: 4px; width: 12em; }
+.dr-pre { white-space: pre-wrap; font: inherit; font-size: 0.84rem; background: var(--bg, transparent); border: 1px solid var(--line-2); border-radius: var(--radius); padding: 8px 10px; margin: 4px 0 0; }
+.dr-preview, .dr-safe { margin-top: 8px; font-size: 0.86rem; }
+.dr-safe ul { margin: 4px 0 0; padding-left: 1.2em; }
+.dr-safe li { margin: 4px 0; }
+.dr-safe li b { display: block; }
+.dr-safe li span { color: var(--ink-2); }
 /* 入力のホームの帯（全部のカードの入れ方・小さな結果）・進み具合の絞り込み・取り込むの入口（0072） */
 button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 .ih-prog-f { font: inherit; font-weight: 700; border: 0; background: transparent; cursor: pointer; padding: 0 2px; border-bottom: 1px dashed var(--line); }
