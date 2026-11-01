@@ -93,6 +93,45 @@ describe("書き出したブックを読み戻す", () => {
     expect(await read.properties(PROPERTY_PREFIX, ["k"])).toEqual({ k: "値" });
   });
 
+  // 表計算のソフトは、セルの文字の中の「_xHHHH_」の形を文字の番号として読む（「_x0041_」は「A」、「_x000D_」は復帰）。
+  // そのまま書くと、店の名前・メモに「_x0041_」の形があったとき別の文字に読まれていた。頭の「_」を「_x005F_」にして逃がす
+  it("「_xHHHH_」の形の文字は「_x005F_」で逃がして書き、読み戻すと元の文字になる", async () => {
+    const odd = ["_x0041_", "架空_x000D_店", "a_x005F_b", "_X00ff_", "_x12G4_", "__x0041__"];
+    const b = new SheetBuilder();
+    odd.forEach((t, i) => b.set(i + 1, "A", STYLE.text, text(t)));
+    b.validations.push(listValidation("B1", new Lists(), ["はい"], "_x0041_を選んでください"));
+    const book = writeBook({ sheets: [{ name: "記入", xml: b.xml({ widths: [10], protect: false }) }], styles: buildStyles(), title: "題名", application: "a", properties: [], date: "2026-10-23" });
+    const xml = utf8((await unzip(book)).get("xl/worksheets/sheet1.xml"));
+    expect(xml).toContain(">_x005F_x0041_<");
+    expect(xml).toContain(">架空_x005F_x000D_店<");
+    expect(xml).toContain(">a_x005F_x005F_b<");
+    expect(xml).toContain(">_x005F_X00ff_<");
+    expect(xml).toContain(">_x12G4_<");
+    expect(xml).toContain('error="_x005F_x0041_を選んでください"');
+    const { book: read } = await open(book);
+    const sh = await read.sheet("記入");
+    expect(odd.map((_, i) => read.text(sh, `A${i + 1}`))).toEqual(odd);
+    // 共有文字列にした形（表計算のソフトで保存し直した形）でも同じ
+    const { book: again } = await open(await editXlsx(book, (files) => toSharedStrings(files)));
+    const sh2 = await again.sheet("記入");
+    expect(odd.map((_, i) => again.text(sh2, `A${i + 1}`))).toEqual(odd);
+  });
+
+  it("表計算のソフトが書いた「_xHHHH_」（改行・復帰など）は、その文字として読む", async () => {
+    const edited = await editXlsx(sample(), (files) => {
+      setCell(files, "xl/worksheets/sheet1.xml", "B2", '<c t="inlineStr"><is><t>1行目_x000D_\n2行目</t></is></c>');
+      setCell(files, "xl/worksheets/sheet1.xml", "C2", '<c t="str"><f>A1</f><v>_x005F_x0041_</v></c>');
+    });
+    const { book } = await open(edited);
+    const sh = await book.sheet("記入");
+    expect(book.text(sh, "B2")).toBe("1行目\r\n2行目");
+    expect(book.text(sh, "C2")).toBe("_x0041_");
+    // XML に入れられない制御文字になるものは除く（書き出しで除くのと同じ）
+    const ctrl = await editXlsx(sample(), (files) => setCell(files, "xl/worksheets/sheet1.xml", "B2", '<c t="inlineStr"><is><t>架空_x0001_店_x0009_</t></is></c>'));
+    const { book: b2 } = await open(ctrl);
+    expect(b2.text(await b2.sheet("記入"), "B2")).toBe("架空店\t");
+  });
+
   it("別のソフトで保存し直した形（共有文字列）も読む。数式は評価せず、結果が無いものは noValue", async () => {
     const edited = await editXlsx(sample(), (files) => {
       toSharedStrings(files);
