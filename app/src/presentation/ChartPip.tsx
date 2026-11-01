@@ -156,7 +156,7 @@ export function PipBackIcon() {
 }
 
 /** 小窓のボタンの説明（カーソルを乗せたとき・フォーカスしたときの小さな札と、読み上げ） */
-export const PIP_LABEL = { open: "グラフを小窓で表示", close: "小窓を閉じる" } as const;
+export const PIP_LABEL = { open: "グラフを浮かせて表示", close: "浮かせたグラフを閉じる" } as const;
 
 /**
  * 小窓の上の帯の右端の閉じるボタン: ほかの閉じる（年の札の固定を外す・内訳の小窓・世帯の一覧）と同じ「×」の字（app.css の .pip-x）。
@@ -244,7 +244,7 @@ function PipPanel({ head, extra, children }: { head?: ComponentChildren; extra: 
     <section
       class={`pip card${active === "move" ? " is-moving" : ""}${active !== null && active !== "move" ? " is-sizing" : ""}`}
       style={{ left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.w}px`, height: `${rect.h}px` }}
-      aria-label="小窓のグラフ（上の帯をドラッグで移動、端をドラッグで大きさを変えられます）"
+      aria-label="浮かせたグラフ（上の帯をドラッグで移動、端をドラッグで大きさを変えられます）"
       data-pip-panel
     >
       <div class="pip-head pip-grip grip" onPointerDown={drag("move")} onKeyDown={onKey} tabIndex={0} aria-label={gripLabel(true)} data-pip-grip>

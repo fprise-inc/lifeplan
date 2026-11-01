@@ -184,7 +184,7 @@ describe("お金の3つの分け方の提示用の値（0032）", () => {
     expect(head).toContain('class="m3-pop-h grip"');
     expect(head).toContain("data-m3-grip");
     expect(head).toContain('tabindex="0"');
-    expect(head).toContain('aria-label="小窓を動かす帯（ドラッグで移動。矢印キーで移動）"');
+    expect(head).toContain('aria-label="浮かせた表示を動かす帯（ドラッグで移動。矢印キーで移動）"');
     expect(head).toContain('class="grip-mark"');
     // 名前・額・× は帯の中（× は押せるボタンのまま）
     expect(head).toContain("の内訳</b>");
