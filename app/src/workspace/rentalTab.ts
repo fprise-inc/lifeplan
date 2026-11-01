@@ -2,7 +2,8 @@
 // - 数字はエンジンの分析の数字（summary.realEstateAnalysis。asset.realEstateAnalysis の出力）を読むだけで、ここでは計算し直さない。
 //   率の書き方は提案書と同じ部品（report/src/rentalText.ts の pctText・timesText）。金額は万円（小数1桁）、月の手残りは円
 // - 年は他の画面と同じ並び（displayYears。計算基準月が1月でなければ翌年から）。指標を見る年の既定は表の最初の年
-// - 月の手残り＝年換算÷12＝その年の手残り÷貸している月数（円未満は0の側へ切り捨て）。全体の月の手残りは物件の月の手残りの合計
+// - 月の手残り＝年換算÷12＝その年の手残り÷貸している月数（円未満は0の側へ切り捨て）。全体の月の手残りは物件の月の手残り（切り捨てた後の、
+//   行に出す額）の合計。端数を足してから切り捨てると、物件の行の合計と合計の行が1円ずれるため（提案書の全体の1枚も同じ）
 // - 売る年を変えた比べ（report/src/rentalSale.ts）: 見ているプランの要求から、見ている物件の売る年だけを変えた写しの要求を作り、画面の側の計算で求める。
 //   今の予定の売り方は計算し直さず、そのプランの結果を使う。タブを開いて物件を見ている間だけ求め、計算し直している間は前の結果を見せる
 // - 入力項目「収益不動産」の物件の一覧表の利回り・月の手残り（rentalFigures）も、同じ数字の表の最初の年から読む
@@ -184,11 +185,12 @@ function figuresAt(a: RealEstateAnalysis, year: number): { byObject: Map<string,
   for (const p of a.properties) {
     const y = p.years.find((x) => x.year === year);
     const monthly = y === undefined ? null : monthlyOf(y.cashBeforeTax, y.months);
-    if (monthly !== null) sum = (sum ?? 0) + (y as RealEstateAnalysisYear).cashBeforeTax / (y as RealEstateAnalysisYear).months;
+    // 物件の行に出す額（円未満を切り捨てた額）を足す。合計の行が物件の行の足し算と一致するように
+    if (monthly !== null) sum = (sum ?? 0) + monthly;
     byObject.set(p.object, { grossYield: p.lodging ? dash : pctText(y?.grossYield), netYield: pctText(y?.netYield), monthly });
   }
   const t = a.total.find((x) => x.year === year);
-  return { byObject, total: { grossYield: pctText(t?.grossYield), netYield: pctText(t?.netYield), monthly: sum === null ? null : Math.trunc(sum) } };
+  return { byObject, total: { grossYield: pctText(t?.grossYield), netYield: pctText(t?.netYield), monthly: sum } };
 }
 
 const TOTAL_COLUMNS = [
