@@ -5,7 +5,7 @@
 // - 管理の値を3か所に書く（0018 の2）: 非常に隠したシート（metaSheetXml）・文書のユーザー設定のプロパティ（writeBook の properties）・
 //   1枚目の見える管理欄（使う側がシートに書く）
 import { colIndex, colLetter, type CellValue } from "./cells.ts";
-import { escapeXml } from "./xml.ts";
+import { escapeXml, escapeXstring } from "./xml.ts";
 import { writeZip } from "./zip.ts";
 
 export const XML_HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
@@ -86,7 +86,7 @@ function cellXml(ref: string, c: Cell): string {
   if (c.value === undefined) return `<c r="${ref}" s="${c.style}"/>`;
   if (c.value.kind === "number") return `<c r="${ref}" s="${c.style}"><v>${escapeXml(c.value.text)}</v></c>`;
   if (c.value.kind === "bool") return `<c r="${ref}" s="${c.style}" t="b"><v>${c.value.value ? 1 : 0}</v></c>`;
-  return `<c r="${ref}" s="${c.style}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(c.value.text)}</t></is></c>`;
+  return `<c r="${ref}" s="${c.style}" t="inlineStr"><is><t xml:space="preserve">${escapeXstring(c.value.text)}</t></is></c>`;
 }
 
 /** 全角の文字の幅で、行の数を見積もる（結合したセル・折り返しの行の高さ用） */
@@ -121,7 +121,7 @@ export class Lists {
 
 /** 入力規則の始まりのタグ（閉じる </dataValidation> は使う側が式の後に付ける） */
 export function validation(sqref: string, body: string, error: string): string {
-  return `<dataValidation ${body} allowBlank="1" showErrorMessage="1" errorTitle="ご記入の内容" error="${escapeXml(error)}" sqref="${sqref}">`;
+  return `<dataValidation ${body} allowBlank="1" showErrorMessage="1" errorTitle="ご記入の内容" error="${escapeXstring(error)}" sqref="${sqref}">`;
 }
 
 /** 選択肢から選ぶ入力規則 */
