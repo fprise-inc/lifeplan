@@ -1245,6 +1245,12 @@ function leavesGroups(child: Member): GroupDef[] {
   ];
 }
 
+/** 子への援助の優先度（0103。ふつうの出るお金の行と同じ2つ） */
+const GIFT_PRIORITIES = [
+  { value: "need", label: "必ず" },
+  { value: "want", label: "できれば" },
+];
+
 function giftGroups(wh: WorkingHousehold, goal: Goal, child: Member, who: string): GroupDef[] {
   const find = byId(goals, goal.id);
   return (goal.education?.gifts ?? []).map((gift, i) => {
@@ -1259,6 +1265,8 @@ function giftGroups(wh: WorkingHousehold, goal: Goal, child: Member, who: string
         plain({ key: `${k}/purpose`, item: "goal.education", label: "使い道", level: "simple", kind: "select", options: GIFT_PURPOSES, find: findG, path: ["purpose"] }),
         plain({ key: `${k}/amount`, item: "goal.education", label: "額", level: "simple", kind: "yen", basis: "once", find: findG, path: ["amount"] }),
         timepointField({ key: `${k}/at`, item: "goal.education", label: "時期", level: "simple", find: findG, path: ["at"], ageOf: (hh) => hh.members.find((m) => m.id === child.id) }),
+        // 優先度（0103）: ふつうの出るお金の行と同じ「必ず」「できれば」。「確実な分だけ」の見方で「できれば」の援助を外す。省略は必ず
+        plain({ key: `${k}/priority`, item: "goal.education", label: "優先度", level: "simple", kind: "select", options: GIFT_PRIORITIES, find: findG, path: ["priority"], optional: true, fallback: "need", help: "結果の「確実な分だけ」で、「できれば」の援助を外して見られます" }),
         plain({ key: `${k}/donor`, item: "goal.education", label: "贈与する人", level: "simple", kind: "select", options: donorOptions(wh), find: findG, path: ["donor"], optional: true, fallback: "", help: "家族の段階で登録した親・祖父母から選びます" }),
         plain({ key: `${k}/payer`, item: "goal.education", label: "出す人（世帯の中）", level: "detail", kind: "select", options: [{ value: "", label: "指定しない" }, ...memberOptions(wh, (m) => m.kind === "self" || m.kind === "spouse")], find: findG, path: ["payer"], optional: true, fallback: "" }),
         plain({ key: `${k}/tax`, item: "goal.education", label: "贈与税の課税方法", level: "detail", kind: "select", options: TAX_METHODS, find: findG, path: ["taxMethod"], optional: true, fallback: "calendar" }),

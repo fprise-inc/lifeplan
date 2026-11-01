@@ -1852,6 +1852,17 @@
         "counterparty": { "title": "相手（誰へ。構成員。多くは世帯の外の家族。0044）", "x-item": "periodicExpense.counterparty", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "payer": { "title": "払う人（世帯の中の構成員。万一のときの扱いは、この人の万一だけに当てる。省略は世帯。0044）", "x-item": "periodicExpense.payer", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "priority": { "title": "優先度（必要・希望・夢。計算には使わない。0044）", "x-item": "periodicExpense.priority", "$ref": "#/$defs/priority" },
+        "dream": {
+          "title": "夢プラン（種類 dream の行だけ。順位・計算に入れるか〔省略は入れる〕・ひとことメモ。計算には使わない。画面が計算に入れない夢を要求から外す。0103）",
+          "x-item": "periodicExpense.dream",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "rank": { "description": "順位（1が最初。同じ順位・省略は並びの順）", "type": "integer", "minimum": 1, "maximum": 999 },
+            "include": { "description": "計算に入れるか（省略は入れる）", "type": "boolean" },
+            "note": { "title": "夢のひとことメモ（なぜかなえたいか）", "x-item": "periodicExpense.dreamNote", "type": "string", "maxLength": 200 }
+          }
+        },
         "gift": {
           "title": "あげる贈与（相手は世帯の外の家族。贈与税は受け取る人が払うので世帯から出さず、要約に出す。0044）",
           "x-item": "periodicExpense.gift",
@@ -1866,8 +1877,8 @@
       "allOf": [{ "if": { "required": ["monthly"], "properties": { "monthly": { "const": true } } }, "then": { "properties": { "everyYears": { "const": 1 } } } }]
     },
     "moneyOutKind": {
-      "description": "0044: 出るお金の種類（general 一時的支出・その他／allowance 仕送り／childSupport 養育費を払う／gift あげる贈与／education 塾・習い事・留学／repair 修繕・リフォーム／realEstateCost 不動産の一時の経費／livingAnnual 年払い・数年おきの暮らしの支出／car 車の修理・用品など／other その他）",
-      "enum": ["general", "allowance", "childSupport", "gift", "education", "repair", "realEstateCost", "livingAnnual", "car", "other"]
+      "description": "0044: 出るお金の種類（general 一時的支出・その他／allowance 仕送り／childSupport 養育費を払う／gift あげる贈与／education 塾・習い事・留学／repair 修繕・リフォーム／realEstateCost 不動産の一時の経費／livingAnnual 年払い・数年おきの暮らしの支出／car 車の修理・用品など／other その他／dream 夢プランの1件。0103）",
+      "enum": ["general", "allowance", "childSupport", "gift", "education", "repair", "realEstateCost", "livingAnnual", "car", "other", "dream"]
     },
     "priority": { "description": "0044: 優先度（need 必要・want 希望・wish 夢）", "enum": ["need", "want", "wish"] },
     "likelihood": { "description": "0044: 見込み（certain 確実・likely たぶん・uncertain 不確か。省略は「たぶん」と読む）", "enum": ["certain", "likely", "uncertain"] },
@@ -2471,7 +2482,8 @@
                   "payer": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
                   "donor": { "description": "世帯の外の贈与者（donors の ID）が出すとき（世帯からは出さない）。同じ贈与者からの贈与を合わせて数える", "$ref": "urn:financia:schema:common#/$defs/uuid" },
                   "taxMethod": { "description": "贈与税の課税の方法（省略は暦年課税）", "enum": ["calendar", "settlement"] },
-                  "housingExemption": { "description": "住宅資金の援助で住宅取得等資金の非課税を使うか・住宅の種類（省略は使う・省エネ等住宅でない）", "enum": ["energySaving", "other", "none"] }
+                  "housingExemption": { "description": "住宅資金の援助で住宅取得等資金の非課税を使うか・住宅の種類（省略は使う・省エネ等住宅でない）", "enum": ["energySaving", "other", "none"] },
+                  "priority": { "description": "0103: 優先度（need 必ず・want できれば。省略は必ず。計算には使わない。画面の「確実な分だけ」の見方で「できれば」を外す）", "enum": ["need", "want"] }
                 }
               }
             },

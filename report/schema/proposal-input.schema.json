@@ -159,6 +159,24 @@
         "properties": { "year": { "$ref": "#/$defs/year" }, "ages": { "type": "string" }, "items": { "type": "array", "items": { "type": "string" } } }
       }
     },
+    "dreams": {
+      "description": "ご家族の夢（夢プラン。0103）: 順位の順の夢（名前・時期・額・計算に入れているか）と、夢を入れた・入れない計算の要約の1文。夢が無い・章を外したときは null。省略は、この欄の前の版の入力",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["rows", "summary"],
+      "properties": {
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["rank", "name", "when", "amount", "included"],
+            "properties": { "rank": { "type": "integer", "minimum": 1 }, "name": { "type": "string" }, "when": { "type": "string" }, "amount": { "$ref": "#/$defs/yenOrNull" }, "included": { "type": "boolean" } }
+          }
+        },
+        "summary": { "type": ["string", "null"] }
+      }
+    },
     "cashflow": {
       "type": "object",
       "additionalProperties": false,
@@ -447,7 +465,7 @@
       "description": "載せる章（帳票の並び）。省略はすべての章。cover・assumptions は必ず入れる（宛名欄と必須の記載の欄。0009 の3・6）",
       "type": "array",
       "uniqueItems": true,
-      "items": { "enum": ["cover", "assumptions", "summary", "basics", "events", "cashflow", "moneyThree", "education", "housing", "retirement", "investment", "marketDrop", "contingency", "insurance", "changes", "comparison"] },
+      "items": { "enum": ["cover", "assumptions", "summary", "basics", "dreams", "events", "cashflow", "moneyThree", "education", "housing", "retirement", "investment", "marketDrop", "contingency", "insurance", "changes", "comparison"] },
       "allOf": [{ "contains": { "const": "cover" } }, { "contains": { "const": "assumptions" } }]
     },
     "investment": {

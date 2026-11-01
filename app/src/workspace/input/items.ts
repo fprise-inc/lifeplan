@@ -19,6 +19,7 @@ import { outsideMembers } from "./stages/care.ts";
 import { isRentalProperty, rentalProperties } from "./stages/rental.ts";
 import { expenseCard, incomeCard, type MoneyCard } from "./moneyRows.ts";
 import { childOfPeriodic, eventExpenses } from "./stages/events.ts";
+import { dreamRows } from "./dreams.ts";
 import { addAbroad } from "./stages/education.ts";
 import { buildStage, STAGE_ORDER } from "./stages/index.ts";
 import { giftLines } from "./stages/inheritance.ts";
@@ -305,9 +306,9 @@ function familySummary(wh: WorkingHousehold): Summary {
   return { main: String(inside), unit: `人（${[...kinds].map(([k, n]) => `＋${k}${n}`).join("・")}）` };
 }
 
-/** カードに属するお金の行の数（出るお金・入るお金。moneyRows.ts の区画。0044）。ライフイベントの出るお金は子の年齢で始まる行を除く */
+/** カードに属するお金の行の数（出るお金・入るお金。moneyRows.ts の区画。0044）。ライフイベントの出るお金は子の年齢で始まる行を除き、夢プランの夢を足す（0103） */
 function moneyRows(h: Household, card: MoneyCard): number {
-  const out = card === "events" ? eventExpenses(h).length : (h.periodicExpenses ?? []).filter((p) => expenseCard(h, p) === card).length;
+  const out = card === "events" ? eventExpenses(h).length + dreamRows(h).length : (h.periodicExpenses ?? []).filter((p) => expenseCard(h, p) === card).length;
   return out + (h.incomeFlows ?? []).filter((f) => incomeCard(f) === card).length;
 }
 const inheritedDebts = (h: Household) => (h.debts ?? []).filter((d) => d.inheritedFrom !== undefined).length;

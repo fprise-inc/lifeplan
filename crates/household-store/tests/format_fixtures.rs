@@ -147,6 +147,36 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(d.get("dock").is_none(), "{v}: display.dock は持たない");
             assert!(d.get("metrics").is_none(), "{v}: 結果のタブの値は区画の中");
         }
+        if *v == "0.46" {
+            // 0.46 から: 夢プランの夢（種類 dream・順位・計算に入れるか・ひとことメモ）と子への援助の優先度（0103）
+            let h = &now["household"]["request"]["input"]["household"];
+            let dreams: Vec<&serde_json::Value> = h["periodicExpenses"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|p| p["kind"] == "dream")
+                .collect();
+            assert_eq!(dreams.len(), 3, "{v}: 夢が3件");
+            assert!(
+                dreams.iter().any(|p| p["dream"]["include"] == false),
+                "{v}: 計算に入れない夢がある"
+            );
+            assert!(
+                dreams.iter().all(|p| p["dream"]["rank"].is_u64()),
+                "{v}: 夢は順位を持つ"
+            );
+            let gifts: Vec<&serde_json::Value> = h["goals"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(|g| g["education"]["gifts"].as_array())
+                .flatten()
+                .collect();
+            assert!(
+                gifts.iter().any(|x| x["priority"] == "want"),
+                "{v}: 「できれば」の子への援助がある"
+            );
+        }
         if *v == "0.45" {
             // 0.45 から: 車の買い替え（この1台だけ・○歳まで）とリース・長期レンタル（0101）
             let cars = now["household"]["request"]["input"]["household"]["cars"]

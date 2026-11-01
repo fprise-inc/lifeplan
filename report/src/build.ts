@@ -10,6 +10,7 @@ import { selectChapters } from "./chapters.ts";
 import { bsSeries, BS_GROUP_LABEL, groupTotal, type BsGroup } from "./bsGroups.ts";
 import { DEFAULT_MONEY_THREE, moneyThreeModel, type MoneyThreeModel } from "./moneyThree.ts";
 import { carPurchaseMonths } from "../../engine/src/sdk/cars.ts";
+import { dreamIncluded, dreamList, dreamSummary } from "./dreams.ts";
 import {
   type Comparison,
   DEFAULT_LAYOUT,
@@ -22,6 +23,7 @@ import {
   type InvestmentView,
   type MarketDropView,
   type CfTable,
+  type DreamsView,
   type NamedAmount,
   type Outcome,
   type ProposalInput,
@@ -478,7 +480,7 @@ function rowAmountText(h: Household, r: RowLike): string | null {
 }
 
 /** ライフイベントの入力項目の出るお金の種類（種類の無い古い行も。子の年齢で始まる種類の無い行は子ども・教育の物）と入るお金の種類 */
-const EVENT_OUT_KINDS: ReadonlySet<string | undefined> = new Set([undefined, "general", "other"]);
+const EVENT_OUT_KINDS: ReadonlySet<string | undefined> = new Set([undefined, "general", "other", "dream"]);
 const EVENT_IN_KINDS: ReadonlySet<string> = new Set(["celebration", "saleGoods", "temporary", "other"]);
 
 /**
@@ -504,10 +506,13 @@ function lifeEventItems(ctx: Ctx): { year: number; text: string }[] {
   const isChild = (id: string | undefined) => id !== undefined && h.members.some((m) => m.id === id && m.kind === "child");
   for (const p of h.periodicExpenses ?? []) {
     if (!EVENT_OUT_KINDS.has(p.kind) || (p.kind === undefined && isChild((p.from as { memberAge?: { member: string } }).memberAge?.member))) continue;
+    // 夢プランの夢は★を付ける。計算に入れない夢は、前提の出来事でないので載せない（ご家族の夢の章には載る。0103）
+    if (p.kind === "dream" && !dreamIncluded(p)) continue;
     const y = firstYear(p);
     if (y === null) continue;
     const amt = rowAmountText(h, p);
-    const name = p.label !== undefined && p.label !== "" ? p.label : onceRow(h, p) ? "一時的な支出" : "くり返しの支出";
+    const named = p.label !== undefined && p.label !== "" ? p.label : p.kind === "dream" ? "夢" : onceRow(h, p) ? "一時的な支出" : "くり返しの支出";
+    const name = p.kind === "dream" ? `★${named}` : named;
     out.push({ year: y, text: amt === null ? name : `${name}（${amt}）` });
   }
   for (const f of h.incomeFlows ?? []) {
@@ -581,6 +586,44 @@ function events(ctx: Ctx): ProposalInput["events"] {
       ages: ctx.rs.filter((r) => presentIn(r, year) && (r.key === "self" || r.key === "spouse")).map((r) => `${r.label}${ageInYear(r.member, year)}歳`).join("・"),
       items,
     }));
+}
+
+/** 夢の時期の文（「2031年（ご本人60歳）」「2031年から2040年まで・毎年」） */
+function dreamWhen(ctx: Ctx, h: Household, p: { from: Timepoint; to?: Timepoint | null; monthly?: boolean; everyYears: number }): string {
+  const from = monthOfTimepoint(h, p.from);
+  if (from === null) return "時期は未定";
+  const y0 = parseYm(from).y;
+  const who = (y: number) => (ctx.self !== undefined ? `（${ctx.self.label}${ageInYear(ctx.self.member, y)}歳）` : "");
+  const to = p.to == null ? null : monthOfTimepoint(h, p.to);
+  if (to !== null && to === from && p.monthly !== true) return `${y0}年${who(y0)}`;
+  const every = p.monthly === true ? "毎月" : p.everyYears === 1 ? "毎年" : `${p.everyYears}年ごと`;
+  return `${y0}年${who(y0)}から${to === null ? "最後まで" : `${parseYm(to).y}年まで`}・${every}`;
+}
+
+/**
+ * ご家族の夢（夢プラン。0103）: 順位の順の夢（名前・時期・額・計算に入れているか）と、要約の1文（夢を入れた提案と、夢を全部外した提案の
+ * 資産が尽きる年から。夢を外した計算が無ければ null）。夢が無ければ null
+ */
+function dreams(ctx: Ctx): DreamsView | null {
+  const req = ctx.bundle.proposal.request;
+  const h = req.input.household;
+  const list = dreamList(h.periodicExpenses);
+  if (list.length === 0) return null;
+  const rows = list.map((p, i) => {
+    const v = p.amount.value ?? 0;
+    return { rank: i + 1, name: p.label !== undefined && p.label !== "" ? p.label : "夢", when: dreamWhen(ctx, h, p), amount: v > 0 ? v : null, included: dreamIncluded(p) };
+  });
+  const included = rows.filter((r) => r.included).length;
+  const withYear = depletionYear(ctx.bundle.proposal.result, ctx.years);
+  const without = ctx.bundle.proposalWithoutDreams;
+  const withoutYear = included === 0 ? withYear : without === undefined ? undefined : depletionYear(without.result, ctx.years);
+  const last = ctx.years.at(-1) ?? req.input.endYear;
+  const self = ctx.self;
+  const summary =
+    withoutYear === undefined
+      ? null
+      : dreamSummary({ total: rows.length, included, withYear, withoutYear, ageText: (y) => (self !== undefined ? `${ageInYear(self.member, y)}歳` : `${y}年`), until: self !== undefined ? `${ageInYear(self.member, last)}歳まで` : "最後まで" });
+  return { rows, summary };
 }
 
 function basics(ctx: Ctx): ProposalInput["basics"] {
@@ -1524,6 +1567,7 @@ export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
     },
     basics: basics(ctx),
     events: events(ctx),
+    dreams: dreams(ctx),
     cashflow: { current: cashflowTable(bundle.current, years, "キャッシュフロー表（現状）"), proposal: cashflowTable(bundle.proposal, years, "キャッシュフロー表（提案）") },
     assets: { current: seriesOf(financialOf(bundle.current.result), years), proposal: seriesOf(financialOf(bundle.proposal.result), years) },
     balanceSheet: balanceSheet(ctx),
