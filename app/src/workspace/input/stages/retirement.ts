@@ -475,8 +475,20 @@ export function benefitGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
     .filter((b) => b.member === m.id)
     .map((b) => {
       const prefix = `retirement/${b.id}`;
-      return { key: prefix, title: `${who}の${b.label ?? KIND_SHORT[b.kind] ?? "退職金・企業年金"}`, level: "simple", fields: benefitFields(wh, m, b, prefix), actions: [removeBenefitAction(b, prefix)] };
+      return { key: prefix, title: `${who}の${b.label ?? KIND_SHORT[b.kind] ?? "退職金・企業年金"}`, level: "simple", moreLabel: benefitMoreLabel(b), fields: benefitFields(wh, m, b, prefix), actions: [removeBenefitAction(b, prefix)] };
     });
+}
+
+/**
+ * 退職給付1件の「▸ 続きを見る」の文（0078 の追記 2026-11-01）: 種類で開く欄が違うので、種類ごとに代表の欄を書く。
+ * 確定給付企業年金は、一時金で受け取るときは年金の欄が無いので退職一時金と同じ文
+ */
+export function benefitMoreLabel(b: Pick<RetirementBenefit, "kind" | "receipt">): string {
+  const method = ANNUITY_ONLY.has(b.kind) ? "annuity" : LUMP_ONLY.has(b.kind) ? "lumpSum" : (b.receipt?.method ?? "lumpSum");
+  if (b.kind === "officerAllowance") return "功績倍率・在任期間を入れる";
+  if (b.kind === "civilServantAllowance") return "退職の理由・勤続期間を入れる";
+  if (b.kind === "nationalPensionFund") return "保証期間・支給の月を入れる";
+  return method === "lumpSum" ? "勤続期間・受け取る時期を入れる" : "年金の受け取り方を入れる";
 }
 
 /** 「＋ 退職金・企業年金を足す」（何件でも）。最初の1件で、今の働き方が正社員・公務員なら目安で入れる。種類の既定は働き方から。該当なしにしてあれば外して足す */

@@ -801,6 +801,11 @@ export function debtParts(h: Household, d: Debt): { amount: string; when: string
 // ---- 入るお金の行 ----
 
 /** 入るお金の行のまとまり（簡易の1行・詳細の3まとまり） */
+/** 入るお金の行の「▸ 続きを見る」の文（開くと出る詳細のまとまり: 課税の扱いか必要経費〔無いこともある〕と、受け取る人・伸び方など） */
+export function incomeMoreLabel(tax: "tax" | "cost" | null): string {
+  return tax === "tax" ? "課税の扱い・受け取る人を入れる" : tax === "cost" ? "必要経費・受け取る人を入れる" : "受け取る人・伸び方を入れる";
+}
+
 export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCard): GroupDef[] {
   const h = wh.request.input.household;
   const find = byId(incomes, f.id);
@@ -916,6 +921,8 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   whoFields.push(withAddress(plain({ key: `${k}/row`, item: "incomeFlow.row", label: "キャッシュフロー表の行", level: "detail", kind: "select", options: incomeRowChoices(f), find, path: ["row"], optional: true, fallback: incomeRowOf(h, { ...f, row: undefined } as IncomeFlow), ...rowHelp(f.row !== undefined && !incomeRowChoices({ kind: f.kind }).some((o) => o.value === f.row)) }), address(f.id, "incomeFlow.row")));
   if (f.kind === "inheritance" || f.kind === "giftReceived")
     whoFields.push(withAddress(plain({ key: `${k}/includeInBase`, item: "incomeFlow.includeInBase", label: "基本の計算に入れる", level: "detail", kind: "bool", find, path: ["includeInBase"], optional: true, fallback: false, help: "見込みが「当てにしない」でも、見込みはそのままで、この行を計算に入れます。プランを直しているときは、このプランでだけ入れます" }), address(f.id, "incomeFlow.includeInBase")));
+  // 「▸ 続きを見る」の文（0078 の追記 2026-11-01）: 開くと出るまとまりの代表（副業は課税の扱いを標準で選ぶので必要経費）
+  main.moreLabel = incomeMoreLabel(taxFields.length > 0 ? (sideJob ? "cost" : "tax") : null);
   return [
     main,
     ...(taxFields.length > 0 ? [{ key: `${k}/tax`, title: sideJob ? "必要経費" : "課税の扱い", level: "detail" as const, fields: taxFields, actions: [] }] : []),
@@ -1082,6 +1089,8 @@ export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense, card: Mo
     title: rowTitle(h0, name, p),
     ...(details.length > 0 ? { note: `詳細あり: ${details.join("・")}（「詳細」で直せます）` } : {}),
     level: "simple",
+    // 「▸ 続きを見る」の文（0078 の追記 2026-11-01）: あげる贈与は使い道と課税の方法、ほかは払う人と伸び方（expenseDetailGroups）
+    moreLabel: p.kind === "gift" || p.gift !== undefined ? "使い道・課税の方法を入れる" : "払う人・伸び方を入れる",
     fields,
     actions: [
       ...(support ? supportActions(wh, "out", k, p, (h) => h.periodicExpenses) : []),

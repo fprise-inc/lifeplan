@@ -555,6 +555,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
       title: `${c.label !== undefined && c.label !== "" ? c.label : kind.label} ${i + 1}（被保険者: ${memberLabel(wh, c.insured)}）`,
       ...(notes.length > 0 ? { note: notes.join("。") } : {}),
       level: "simple",
+      moreLabel: insuranceMoreLabel(kind.kind),
       fields,
       actions,
     },
@@ -888,6 +889,32 @@ function coverageGroup(wh: WorkingHousehold, c: InsuranceContract, cov: Coverage
       }),
     ],
   };
+}
+
+/**
+ * 保険契約1件の「▸ 続きを見る」の文（0078 の追記 2026-11-01）: 種類で開く欄が違うので、種類ごとに代表の欄を書く。
+ * 損害保険は保障の明細が出ない（保険料だけを計算する）ので、契約の欄で書く
+ */
+export function insuranceMoreLabel(kind: string): string {
+  switch (kind) {
+    case "nonLife":
+      return "契約者・契約年月などを入れる";
+    case "medical":
+      return "手術・入院の限度日数などを入れる";
+    case "incomeProtection":
+      return "最低保証の月数などを入れる";
+    case "incapacity":
+      return "免責の月数などを入れる";
+    case "education":
+    case "endowment":
+      return "受取人・解約返戻率などを入れる";
+    case "privateAnnuity":
+      return "年金の年数・受取人などを入れる";
+    case "wholeLife":
+      return "解約返戻率・保障の明細などを入れる";
+    default:
+      return "契約者・保障の明細などを入れる";
+  }
 }
 
 function amountLabel(benefit: string): string {

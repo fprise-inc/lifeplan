@@ -674,6 +674,7 @@ function stageGroups(wh: WorkingHousehold, l: LivingExpense, find: Finder): Grou
       title: `段階 ${n + 1}: ${name}${when}`,
       ...(auto ? { note: "家族の人数と年齢から、推定で作った段階です。家族・進路・働き方を変えると作り直します。直した段は、作り直しても変わりません" } : {}),
       level: valueLevel,
+      moreLabel: "節目・入れ方を変える",
       fields,
       actions: [
         removeAction(`${key}/remove`, "この段階を外す", "detail", (hh, w) => {
@@ -855,6 +856,7 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
       title: index === 0 ? "毎月の生活費" : `毎月の生活費 ${index + 1}`,
       note: [LIVING_NOTE, badge].filter((x) => x !== null).join("。"),
       level: "simple",
+      moreLabel: "退職後などの段階を入れる",
       fields: main,
       actions: index === 0 ? [] : [removeAction(`${key}/remove`, "外す", "detail", (h) => void (h.livingExpenses = (h.livingExpenses ?? []).filter((x) => x.id !== l.id)))],
     },

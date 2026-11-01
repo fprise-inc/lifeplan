@@ -439,6 +439,9 @@ function monthsField(m: Member, rec: PensionRecord, part: "basic" | "employee", 
 export const ESTIMATE_HOW =
   "推計のしかた: 生年月と、働き方と収入の項目の働き方の期間（働き方・始まりと終わり・年収）から、国民年金・厚生年金に入る月数と平均の報酬を出して、老齢基礎年金と老齢厚生年金を計算します。過去の報酬は今の年収の水準とみなします";
 
+/** 公的年金の「▸ 続きを見る」の文（開くと、受け取り開始が基礎と厚生に分かれる。0078 の追記 2026-11-01） */
+const PENSION_MORE = "受け取り開始を基礎と厚生で分ける";
+
 function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
   const h = wh.request.input.household;
   const base = wh.request.input.baseMonth;
@@ -474,6 +477,7 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
         // 推計のしかたは入れ方の欄の横に出す（ESTIMATE_HOW）。ここは前に入れた記録を残しているときの説明だけ
         ...(back.length > 0 ? { note: `前に入れた記録（${back.join("・")}）を残しています。入れ方を戻すと戻ります` } : {}),
         level: "simple",
+        moreLabel: PENSION_MORE,
         // 推計でも受け取り開始は標準（繰上げ・繰下げで結果が大きく動く。記録の無い人は構成員の pensionClaim に持つ。0078）
         fields: [modeField, ...claimFields(m, byId((hh: Household) => hh.members, m.id), `pension/${m.id}/estimate`, "pensionClaim", (part) => ({ target: { member: m.id }, item: "member.pensionClaim", at: part === null ? [] : [part] }))],
         actions: [{ key: `pension/${m.id}/toDocument`, label: "書類の額で置き換える", level: "simple", run: (w) => modeField.set(w, "document") }],
@@ -520,7 +524,7 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
   const missing = statementMonthsMissing(rec);
   const actions: ActionDef[] = missing ? [{ key: `${prefix}/months/unknown`, label: "加入月数を書類で確かめる（それまで代わりの値で計算する）", level: "simple", run: (w) => fillMonths(w, m.id, "unknown") }] : [];
   const notes = [...(missing ? [monthsMissingText(rec.kind)] : []), ...(kept.length > 0 ? ["前の入れ方の記録を残しています（入れ方を戻すと戻ります）"] : [])];
-  const groups: GroupDef[] = [{ key: `pension/${m.id}`, title: `${who}の公的年金`, ...(notes.length > 0 ? { note: notes.join("。") } : {}), level: "simple", fields, actions }];
+  const groups: GroupDef[] = [{ key: `pension/${m.id}`, title: `${who}の公的年金`, ...(notes.length > 0 ? { note: notes.join("。") } : {}), level: "simple", moreLabel: PENSION_MORE, fields, actions }];
 
   if (STATEMENTS.has(rec.kind)) {
     const c1 = rec.months?.category1;
@@ -792,6 +796,8 @@ function receivingGroups(wh: WorkingHousehold, f: IncomeFlow): GroupDef[] {
   const detail = incomeGroups(wh, f, "pension")
     .slice(1)
     .map((g) => ({ ...g, fields: g.fields.filter((x) => x.key !== `${k}/recipient`) }));
+  // 「▸ 続きを見る」の文（0078 の追記 2026-11-01）: 受け取る人は上に出しているので、課税の扱いと伸び方
+  head.moreLabel = detail.some((g) => g.key === `${k}/tax`) ? "課税の扱い・伸び方を入れる" : "伸び方・万一のときの扱いを入れる";
   return [head, ...detail];
 }
 

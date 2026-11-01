@@ -311,6 +311,8 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
       title: buying ? "住宅の購入" : `住まい ${i + 1}（${free ? "家賃なし" : r.kind === "rent" ? "賃貸" : "持ち家"}）`,
       ...(badges.length > 0 ? { note: `${badges.join("、")}（「詳細」で直せます）` } : free ? { note: "家賃はかかりません。住んでいる家を相続するなら、「この家を相続する」で持ち家に切り替えます（貯蓄・運用の不動産には入れません）" } : {}),
       level: "simple",
+      // 「▸ 続きを見る」の文（0078 の追記 2026-11-01）: 住まいの種類で開く欄が違う
+      moreLabel: buying ? "名義・固定資産税などを入れる" : free ? "住む期間を入れる" : r.kind === "rent" ? "更新料・家賃の変化を入れる" : "評価額・固定資産税などを入れる",
       fields,
       actions,
     },
@@ -400,6 +402,7 @@ function giftGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDef[] {
       title: `住宅資金の援助 ${j + 1}`,
       ...(g.donor !== undefined ? { note: "贈与する人から出すので、援助の額は世帯の資産から出しません。受け取るのは購入の月です" } : { note: "受け取るのは購入の月です" }),
       level: "simple",
+      moreLabel: "受け取る人・課税の方法を入れる",
       fields: [
         plain({ key: `${kg}/donor`, item: "residence.purchase", label: "援助する人", level: "simple", kind: "select", options: donorOptions(wh), find: findG, path: ["donor"], optional: true, fallback: "", help: "家族の項目で足した親・祖父母（世帯の外の家族）から選びます" }),
         gid === undefined ? amount : { ...amount, address: () => at(r.id, "residence.purchase", ["gifts", gid, "amount"]) },
@@ -728,6 +731,8 @@ function loanGroups(wh: WorkingHousehold, d: Debt, i: number): GroupDef[] {
       key: k,
       title,
       level: "simple",
+      // 「▸ 続きを見る」の文（0078 の追記 2026-11-01）: 住宅ローンは団信・控除の中枠まで開く。ほかのローン・自動車ローンは金利と返済
+      moreLabel: banded ? "団信・住宅ローン控除などを入れる" : "金利・返済方法を入れる",
       fields: banded ? [] : [...otherLoanHeadFields(wh, d, k), ...loanFields(wh, d, k)],
       actions: [
         removeAction(`${k}/remove`, "外す", "simple", (h, w) => {

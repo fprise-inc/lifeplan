@@ -128,6 +128,7 @@ function changeGroups(wh: WorkingHousehold, preset: SurplusPreset | "custom" | n
       title: `${named !== null ? named.after : `期間を変える ${i + 1}`}${when !== "" ? `（${when}）` : ""}`,
       ...(preset === "children" || preset === "retirement" ? { note: AFTER_NOTES[preset] } : {}),
       level: "simple",
+      moreLabel: "始まる年齢・上限を入れる",
       fields,
       actions: named !== null ? [] : [{ key: `living/surplus/change/${i}/remove`, label: "外す", level: "simple", danger: true, run: (w) => edit(w, () => null) }],
     };

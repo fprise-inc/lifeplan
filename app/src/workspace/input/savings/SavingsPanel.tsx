@@ -12,7 +12,7 @@ import { allFields, type FieldDef, type GroupDef, type Level, type SectionDef } 
 import { mutate, type WorkingHousehold } from "../household.ts";
 import { memberLabel, memberOptions } from "../labels.ts";
 import { buildStage } from "../stages/index.ts";
-import { MAIN_ADD_KINDS } from "../stages/savings.ts";
+import { accountMoreLabel, MAIN_ADD_KINDS } from "../stages/savings.ts";
 import { revealAdded } from "../../../presentation/revealAdded.ts";
 import { formatYen, normalizeNumberText, parseInteger, parseYen, pctFromRate, rateFromPct } from "../units.ts";
 import { outOfRangeText, rangeText, rateInRange, RETURN_RANGE, type PctRange } from "../rateRanges.ts";
@@ -799,7 +799,7 @@ function AccountsTable(p: {
                       外す
                     </button>
                   </span>
-                  {more.length > 0 ? <MoreToggle groupKey={moreKey} open={open} toggle={() => opened.toggle(moreKey)} label={name} /> : null}
+                  {more.length > 0 ? <MoreToggle groupKey={moreKey} open={open} toggle={() => opened.toggle(moreKey)} label={name} text={accountMoreLabel(a)} /> : null}
                 </td>
                 <td>
                   <NumBox value={valueOf(a)} unit="man" label={`${name}の残高`} data={`bal-${a.kind}`} id={fieldDomId(`sav/${a.id}/value`)} onCommit={(v) => typeof v === "number" && editField(fields.get(`sav/${a.id}/value`), v)} /> 万円

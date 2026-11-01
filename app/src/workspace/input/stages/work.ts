@@ -571,7 +571,7 @@ function nowGroup(wh: WorkingHousehold, m: Member): GroupDef {
   // 標準の「▸ 詳しく」: 住民税と、この期間の詳しい欄（詳細の「働き方 1・2…」と同じ欄。期間の始まり・終わりと、年収・賞与の分け方は詳細で直す。0078 の追記）
   const shownItems = new Set(fields.map((f) => f.item));
   const openFields = [residentTaxField(wh, m), ...periodFields(wh, m, cur, find, "detail", `work/period/${cur.id}`).filter((f) => f.item !== null && !NOT_IN_NOW.has(f.item) && !shownItems.has(f.item))];
-  return { key: `work/${m.id}/now`, title: `${who}の今の働き方`, ...(past ? { note: "今は働いていません。次に始まる働き方を出しています" } : {}), level: "simple", fields, actions: [], openFields, simpleOnly: true };
+  return { key: `work/${m.id}/now`, title: `${who}の今の働き方`, ...(past ? { note: "今は働いていません。次に始まる働き方を出しています" } : {}), level: "simple", moreLabel: "住民税・社会保険などを入れる", fields, actions: [], openFields, simpleOnly: true };
 }
 
 /** 住民税（今年度の年税額）の欄。詳細では今の働き方の期間のまとまり、標準では今の働き方の「▸ 詳しく」に出す（欄の一覧には1回だけ） */

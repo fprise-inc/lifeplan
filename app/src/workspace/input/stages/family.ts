@@ -220,7 +220,10 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const actions: ActionDef[] = m.kind === "self" ? [] : [{ key: `family/${m.id}/remove`, label: "この家族を外す", level: "simple", danger: true, run: (w) => removeMember(w, m.id) }];
   if (expectedChild) actions.unshift({ key: `family/${m.id}/born`, label: "生まれました（生年月を確かめて家族にする）", level: "simple", run: (w) => markBorn(w, m.id) });
   if (m.kind === "spouse") actions.push({ key: `family/${m.id}/swap`, label: "ご本人と配偶者を入れ替える", level: "detail", title: "続柄だけを入れ替えます。働き方・年金・口座・保険の名義は人に付いたままです", run: (w) => swapSelfSpouse(w) });
-  return { key: `family/${m.id}`, title: memberLabel(wh, m.id), level: "simple", fields, actions };
+  // 「▸ 続きを見る」の文（0078 の追記 2026-11-01）: 開くと出る欄の代表。ご本人の性別は標準で出ていて、子の性別は出さず、
+  // これから生まれる子は加わる時期を生まれる予定で入れるので、続柄で変える
+  const moreLabel = m.kind === "spouse" ? "呼び名・性別などを入れる" : m.kind === "self" || expectedChild ? "呼び名・1日生まれを入れる" : "呼び名・加わる時期を入れる";
+  return { key: `family/${m.id}`, title: memberLabel(wh, m.id), level: "simple", moreLabel, fields, actions };
 }
 
 // ---- これから生まれる子・独立の標準・本人と配偶者の入れ替え ----

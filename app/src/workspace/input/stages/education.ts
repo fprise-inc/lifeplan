@@ -18,7 +18,7 @@ import { isSchoolLinkedLeaves, mutate, newId, presetBasis, standardBox, type Wor
 import { formatYearMonth, formatYen } from "../units.ts";
 import { EDUCATION_BASIS, educationStagesAddress, fillEducation, leavesToSchool, stageEnded } from "../fill.ts";
 import { putRow, rowAt, type StateRow } from "../rows.ts";
-import { addIncome, expenseCard, incomeCard, incomeGroups, moneySections, periodicGroups } from "../moneyRows.ts";
+import { addIncome, expenseCard, incomeCard, incomeGroups, incomeMoreLabel, moneySections, periodicGroups } from "../moneyRows.ts";
 import { boardingStatistic, INTERNATIONAL_MISSING, KOSEN_MISSING, isGraduate, isHigher, isK12, isTertiary, manText, stagePeriod, stageStatistic, stageYears } from "../educationCost.ts";
 import { masterAmount, regulationValue } from "../../../../../hearing/src/statistics.ts";
 import { childOfPeriodic } from "./events.ts";
@@ -394,6 +394,16 @@ export const DELAY_HELP =
 
 /** 在学年数の標準が1つに決まらない段（推定で見せる）。専門学校は1〜4年で2年制が多い */
 const YEARS_VARY: Readonly<Record<string, string>> = { vocational: "専門学校は1〜4年の課程があり、ここでは2年制で計算しています" };
+
+/**
+ * 進路の段1つの「▸ 続きを見る」の文（0078 の追記 2026-11-01）: 段の種類で開く欄が違うので、種類ごとに代表の欄を書く。
+ * 高校のあとの学校は、自宅外のときだけ仕送りの欄が出るので、通い方でも変える
+ */
+export function stageMoreLabel(s: Pick<EducationStage, "stage" | "living">): string {
+  if (s.stage === "nursery") return "保育料の水準などを入れる";
+  if (isTertiary(s.stage)) return s.living === "away" ? "仕送り・受験の費用を入れる" : s.stage === "university" ? "系統・受験の費用などを入れる" : "入学金・受験の費用などを入れる";
+  return "入学金・在学年数などを入れる";
+}
 
 function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart: string, rowsMode = false): FieldDef[] {
   const find: Finder = (h) => (getPath((h.goals ?? []).find((g) => g.id === goalId), ["education", "stages", String(i)]) as Obj | undefined) ?? undefined;
@@ -1269,7 +1279,9 @@ const hideTax = (f: IncomeFlow, g: GroupDef): boolean => g.key === `in/${f.id}/t
 
 function childMoneyGroups(wh: WorkingHousehold, child: Member, goal?: Goal): { groups: GroupDef[]; actions: ActionDef[] } {
   const h = wh.request.input.household;
-  const groups: GroupDef[] = [...childIncomes(h, child.id).flatMap((f) => incomeGroups(wh, f, "education").filter((g) => !hideTax(f, g))), ...childExpenses(h, child.id).flatMap((p) => periodicGroups(wh, p))];
+  // 課税の扱いを隠した行（子が払う分・給付型の奨学金）は、「▸ 続きを見る」の文も課税の扱いを書かない
+  const childIncomeGroups = (f: IncomeFlow): GroupDef[] => incomeGroups(wh, f, "education").map((g, i, all) => (i === 0 && all.some((x) => hideTax(f, x)) ? { ...g, moreLabel: incomeMoreLabel(null) } : g)).filter((g) => !hideTax(f, g));
+  const groups: GroupDef[] = [...childIncomes(h, child.id).flatMap(childIncomeGroups), ...childExpenses(h, child.id).flatMap((p) => periodicGroups(wh, p))];
   const k = `edu/${child.id}/money`;
   const actions: ActionDef[] = [
     { key: `${k}/in/educationSupport`, label: "＋ 教育資金の援助を受ける", help: "祖父母などから受け取る教育資金です", level: "simple", run: (w) => addChildIncome(w, child.id, "educationSupport") },
@@ -1330,6 +1342,7 @@ function giftGroups(wh: WorkingHousehold, goal: Goal, child: Member, who: string
       title: `${who}への援助 ${i + 1}`,
       note: `結婚・住宅資金などの援助です。相続・贈与の項目にも出ます${gift.donor !== undefined ? "。贈与する人から出すので、援助の額を世帯から出しません" : ""}`,
       level: "simple",
+      moreLabel: "出す人・課税の方法を入れる",
       fields: [
         plain({ key: `${k}/purpose`, item: "goal.education", label: "使い道", level: "simple", kind: "select", options: GIFT_PURPOSES, find: findG, path: ["purpose"] }),
         plain({ key: `${k}/amount`, item: "goal.education", label: "額", level: "simple", kind: "yen", basis: "once", find: findG, path: ["amount"] }),
@@ -1454,6 +1467,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
           ? { note: `進路は、ふつうの進み方${(row.estimate?.basis === EDUCATION_BASIS || row.estimate?.basis === EDUCATION_BASIS.replace("既定", "標準")) ? `（「${defaultCourseLabel(child, base)}」）` : ""}の目安で計算しています。実際の予定に合わせて直せます` }
           : {}),
       level: "simple",
+      moreLabel: "奨学金・塾などを入れる",
       fields: [
         course,
         ...(row?.state === "notApplicable" ? [] : [higher]),
@@ -1502,6 +1516,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
       // 大学院は前の学校を出た翌月の4月から（STAGE_AGE に無いので年齢は添えない）
       ...(note !== undefined && note !== "" ? { note } : {}),
       level: "simple",
+      moreLabel: stageMoreLabel(s),
       fields: stageFields(goal.id, i, s, `${start.ym}（${start.reason}）`, outOfSchoolModeOf(goal) === "rows"),
       actions: [
         removeAction(`edu/${goal.id}/stage/${i}/remove`, s.stage === "university" ? "大学に行かない" : "この段を外す", "simple", (hh) => {

@@ -290,10 +290,16 @@ html.big .lever input[type="range"] { height: 36px; }
 .in-group.compact { display: grid; grid-template-columns: 170px minmax(0, 1fr); align-items: center; gap: 4px 12px; padding: 8px 12px; }
 .in-group.compact .in-group-h { margin: 0; flex-direction: column; align-items: flex-start; gap: 0; }
 .in-group.compact .fields { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+/* 欄が1つだけのまとまりは、その欄を行の幅いっぱいに置く（選ぶ欄の選択肢が長いとき、1列の幅で切れないように。例: 学校外の費用の入れ方） */
+.in-group.compact .fields > .fld:only-child { grid-column: 1 / -1; }
 /* まとまりの「▸ 詳しく」（標準のときだけ。控えめな文字のリンク。開いた中身はリンクの下に出す。0078 の追記） */
 .grp-more { margin-top: 6px; }
-.grp-more .grp-more-btn { font-size: 0.78rem; text-decoration: none; color: var(--ink-2); padding: 2px 0; }
-.grp-more .grp-more-btn:hover, .grp-more .grp-more-btn:focus-visible { text-decoration: underline; }
+/* 文は場所ごと（「▸ 呼び名・性別などを入れる」。0078 の 2026-11-01 の追記）。幅が狭い所（表の行の中など）で折り返すときも、
+   2行目を「▸」の後ろにそろえ、「・」の後ろで折り返す（言葉の途中で切らない） */
+.grp-more .grp-more-btn { display: inline-flex; align-items: baseline; gap: 0.3em; max-width: 100%; font-size: 0.78rem; line-height: 1.45; text-align: left; text-decoration: none; color: var(--ink-2); padding: 2px 0; }
+.grp-more .grp-more-mark { flex: none; }
+.grp-more .grp-more-text { min-width: 0; word-break: keep-all; overflow-wrap: anywhere; }
+.grp-more .grp-more-btn:hover .grp-more-text, .grp-more .grp-more-btn:focus-visible .grp-more-text { text-decoration: underline; }
 .grp-more-body { margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--card-line); }
 .in-group.compact .grp-more, .in-group.compact .grp-more-body { grid-column: 1 / -1; }
 /* 「▸ 詳しく」で欄を入れ替えた所の知らせ（例: 受け取り開始を基礎と厚生に分けた。0078 の 2026-10-29 の追記） */

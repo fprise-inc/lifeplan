@@ -59,6 +59,8 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
       title: `FP顧問料 ${n + 1}${byOther ? `（${memberLabel(wh, c.payer)}が払う）` : ""}`,
       note: "金額は税込。個人が払う顧問料は所得から差し引かずに計算します",
       level: "simple",
+      // 「▸ 続きを見る」は、本人のほかの人が払う契約で払う人の欄を開くときだけ出る（0078 の追記 2026-11-01）
+      moreLabel: "払う人を選ぶ",
       fields: main,
       actions: [
         {
@@ -188,6 +190,7 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
     key: `${k}/rec`,
     title: "継続の顧問料",
     level: "simple",
+    moreLabel: "値上げ・料金の段階を入れる",
     fields: recFields,
     actions: [
       {

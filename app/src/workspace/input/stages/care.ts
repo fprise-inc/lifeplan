@@ -224,7 +224,7 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
   if (allowance > 0 && !hasRow) actions.push({ key: `${k}/allowanceRow`, label: "＋ 仕送りを出るお金の行にする", level: "simple", run: (w) => allowanceRow(w, m.id, allowance) });
   if (hasBirth(m) && !(h.careExpenses ?? []).some((c) => c.member === m.id)) actions.push({ key: `${k}/care/estimate`, label: "＋ 介護を推定で入れる（この人）", level: "simple", run: (w) => fillCareFor(w, m.id) });
   const notes = [...(m.outside !== undefined ? [OUTSIDE_NOTE] : []), ...(allowance > 0 && !hasRow ? ["仕送りの額は扶養の判定にだけ使い、支出には入っていません。支出にするなら「＋ 仕送りを出るお金の行にする」を押してください"] : [])];
-  return { key: k, title: outsideTitle(wh, m), level: "simple", ...(notes.length > 0 ? { note: notes.join("。") } : {}), fields, actions };
+  return { key: k, title: outsideTitle(wh, m), level: "simple", moreLabel: "扶養・仕送りなどを入れる", ...(notes.length > 0 ? { note: notes.join("。") } : {}), fields, actions };
 }
 
 /** 亡くなる見込みを平均余命で入れる（仮の印つき） */
@@ -378,7 +378,7 @@ function careCostGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
   const g = careGroup(wh, c);
   const est = careEstimate(placeOf(c));
   const next: ActionDef = { key: `ev/care/${c.id}/nextStage`, label: "＋ 次の段階を足す", help: "在宅から施設へなど、次の段階の介護を足します", level: "simple", run: (w) => addNextCareStage(w, c.id) };
-  return { ...g, title: careTitle(wh, c), note: `入れていない額・期間は、統計の平均で推定します（${est?.basis ?? "生命保険文化センターの調査"}）`, actions: [next, ...g.actions] };
+  return { ...g, title: careTitle(wh, c), moreLabel: "期間・一時費用などを入れる", note: `入れていない額・期間は、統計の平均で推定します（${est?.basis ?? "生命保険文化センターの調査"}）`, actions: [next, ...g.actions] };
 }
 
 /** 本人・配偶者の介護が無いときの説明（未入力の警告。確かめの一覧のいちばん上にも出る。fill.ts の gapsOf） */

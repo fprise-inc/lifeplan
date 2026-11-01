@@ -555,6 +555,33 @@ export function returnStagesSection(wh: WorkingHousehold): SectionDef {
   };
 }
 
+/**
+ * 貯蓄・運用の表の口座1つの「▸ 続きを見る」の文（0078 の追記 2026-11-01。SavingsPanel が表の行に出す）: 口座の種類で開く欄が違うので、
+ * 種類ごとに代表の欄を書く。積立の終わりは、積立がある口座だけに出る（外貨預金は表に積立の欄が無い）。無ければ「続きを見る」のまま
+ */
+export function accountMoreLabel(a: Pick<Account, "kind" | "contributions">): string | undefined {
+  switch (a.kind) {
+    case "legacyNisa":
+    case "juniorNisa":
+      return "買付の年・資産の配分を入れる";
+    case "nisa":
+    case "childNisa":
+    case "taxable":
+    case "esop":
+    case "ideco":
+    case "corporateDc":
+      return "運用の費用・資産の配分を入れる";
+    case "deposit":
+    case "zaikei":
+      return (a.contributions ?? []).some((c) => c.payer !== "employer") ? "積立の終わり・配分などを入れる" : "残高の時点・配分などを入れる";
+    case "fxDeposit":
+    case "smallBusinessMutualAid":
+      return "残高の時点・配分などを入れる";
+    default:
+      return undefined;
+  }
+}
+
 /** 「＋ 口座を足す」の主な4つ（簡易）。ほかは「そのほか」（SavingsPanel が簡易からも開ける） */
 export const MAIN_ADD_KINDS: ReadonlySet<string> = new Set(["deposit", "nisa", "ideco", "taxable"]);
 /** お子さまの名義で作る器 */
