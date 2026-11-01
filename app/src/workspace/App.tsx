@@ -61,6 +61,8 @@ import { MemoDrawer } from "./MemoDrawer.tsx";
 import { mixFromBuckets } from "./plans/allocation.ts";
 import { addToBand, assignColors, bandModel, cleanBand, CURRENT, hideFromBand, MAX_BAND, planLetters, planLinesModel, removeFromBand, unsavedRemoval, type UnsavedRemoval } from "./plans/band.ts";
 import { BandDropDialog, type BandDropChoice } from "./plans/BandDropDialog.tsx";
+import { DraftsLeaveDialog, type DraftsLeaveChoice } from "./plans/DraftsLeaveDialog.tsx";
+import { overwriteDrafts, unsavedPlanNames } from "./plans/leaveDrafts.ts";
 import { compareTable, metricsOf } from "./plans/compare.ts";
 import { usePlanPensions } from "./input/pensionEstimate.ts";
 import { dependentRefRequest, dependentRefRows, useRefResult } from "./resultRows.ts";
@@ -613,6 +615,11 @@ export function App() {
   /** 世帯を離れる前の確かめ（自動保存に失敗したまま、切り替える・閉じるとき。LeaveDialog）と、その答えを受け取る口 */
   const [leave, setLeave] = useState<{ code: string; action: "switch" | "close"; busy: boolean; error: string | null } | null>(null);
   const leaveAnswer = useRef<((c: LeaveDialogChoice) => void) | null>(null);
+  /** 離れる前の、プランの保存していない変更の確かめ（DraftsLeaveDialog）と、その答えを受け取る口 */
+  const [leaveDrafts, setLeaveDrafts] = useState<{ names: string[]; action: "switch" | "close" } | null>(null);
+  const draftsAnswer = useRef<((c: DraftsLeaveChoice) => void) | null>(null);
+  /** 離れる前に、保存していない変更でプランを上書きする（下で定める。setPlans を使う） */
+  const overwriteOnLeave = useRef<(ids: string[]) => void>(() => undefined);
   /** 分岐を選ぶ画面を開く（下で定める openFork。離れる前の確かめから呼ぶ） */
   const openForkRef = useRef<(id: string) => void>(() => undefined);
   /**
@@ -621,6 +628,30 @@ export function App() {
    */
   const leaveCurrent = useCallback(async (action: "switch" | "close", onAsk?: () => Promise<void>): Promise<boolean> => {
     let asked = 0;
+    let waited = false;
+    const wait = async () => {
+      if (waited) return;
+      waited = true;
+      await onAsk?.();
+    };
+    // プランの保存していない変更（結果のタブで動かした値）は世帯ファイルに入らない。保存する世帯なら、離れる前に確かめる（0096 の追記）
+    const o0 = openedRef.current;
+    const sr0 = storedRef.current;
+    if (o0 !== null && sr0 !== null && !sr0.readOnly && pausedBody.current === null) {
+      const modified = modifiedSet(o0.wh, o0.catalog, workRef.current);
+      const names = unsavedPlanNames(o0.wh, modified);
+      if (names.length > 0) {
+        await wait();
+        const c = await new Promise<DraftsLeaveChoice>((resolve) => {
+          draftsAnswer.current = resolve;
+          setLeaveDrafts({ names, action });
+        });
+        draftsAnswer.current = null;
+        setLeaveDrafts(null);
+        if (c === "cancel") return false;
+        if (c === "overwrite") overwriteOnLeave.current([...modified]);
+      }
+    }
     const current = () => {
       const o = openedRef.current;
       const sr = storedRef.current;
@@ -630,7 +661,7 @@ export function App() {
       return await saveBeforeLeave(
         autosaver.current,
         async (code) => {
-          if (asked === 0) await onAsk?.();
+          await wait();
           asked += 1;
           const c = await new Promise<LeaveDialogChoice>((resolve) => {
             leaveAnswer.current = resolve;
@@ -1263,6 +1294,18 @@ export function App() {
       }),
     [putWork, history],
   );
+
+  // 離れる前に「上書き保存して切り替える（閉じる）」: 保存していない変更で全部のプランを上書きし、待たずに保存する本文にする
+  overwriteOnLeave.current = (ids) => {
+    const o = openedRef.current;
+    const w = workRef.current;
+    if (o === null) return;
+    const r = overwriteDrafts(o.wh, o.catalog, w.drafts, ids, nowIso());
+    setPlans(r.wh, { ...w, drafts: r.drafts });
+    const n = openedRef.current;
+    const sr = storedRef.current;
+    if (n !== null && sr !== null) autosaver.current?.change(bodyFor(n, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, sr.carry));
+  };
 
   /** 対策に最初から出す項目（事務所の既定値。0084）。描くたびに入れ直す */
   const fixedRef = useRef<ReadonlySet<string>>(new Set());
@@ -2866,6 +2909,7 @@ export function App() {
         />
       ) : null}
       {bandDrop !== null ? <BandDropDialog removal={bandDrop} onChoose={chooseBandDrop} /> : null}
+      {leaveDrafts !== null ? <DraftsLeaveDialog names={leaveDrafts.names} action={leaveDrafts.action} onChoose={(c) => draftsAnswer.current?.(c)} /> : null}
       {leave !== null ? (
         <LeaveDialog
           customerNo={storedInfo?.customerNo ?? ""}
