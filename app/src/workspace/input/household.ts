@@ -14,6 +14,7 @@ import type { NoticeAck } from "./noticeAck.ts";
 import type { ItemChoice } from "./itemChoice.ts";
 import { giveElementIds, lacksElementIds, randomId } from "../store/elementIds.ts";
 import { isAutoSmr } from "./smr.ts";
+import type { LivingPart } from "./livingParts.ts";
 
 /** 定年の後に働くときの条件（D: 入力画面の「定年後の予定」。主画面の「働く最後の年齢」を延ばすときにも使う） */
 export interface PostRetirement {
@@ -72,6 +73,12 @@ export interface WorkingHousehold {
    * 書類の数字を消さず、その入れ方に戻すと戻る（隠すだけで消さない）。画面の側の値で、計算の要求には入れない
    */
   pensionKept?: Record<string, PensionRecord[]>;
+  /**
+   * 基本生活費の内訳を分けた行の額（0109。livingParts.ts）: 事務所の並べ方で1つの内訳を分けた行（食費の自炊・外食など）の名前と月額。
+   * 内訳の要素の ID（プランは「プランの ID:要素の ID」）→ 分けた行。計算には使わない（計算は内訳の額）。世帯ファイルでは拡張領域
+   * ext.official.livingParts に置く（store/body.ts。household の区画には入れない）。分けていなければ欄を持たない
+   */
+  livingParts?: Record<string, LivingPart[]>;
   /**
    * 確かめの一覧の「次回確かめる」の印（0072。形式の版 0.29 から。recheck.ts）。行の ID・付けたときのカードと見出し・付けた日。
    * 画面の側の値で、計算の要求には入れない

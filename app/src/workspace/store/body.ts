@@ -82,6 +82,8 @@
 //   （依頼番号・書き出した日時・書き出したファイルの指紋・シートの番号 → 行の対応・取り込んだ記録）。0.16 から: 店ごとにまとめた
 //   シートの1行は、同じ番号に複数の行を対応させる
 // - extDefinitions / ext: 拡張領域（0011 の4。読んだものをそのまま書き戻し、失わない）
+//   公式の項目 ext.official.livingParts: 基本生活費の内訳を分けた行の額（0109。input/livingParts.ts。作業中の世帯の livingParts と行き来する。
+//   形式の版は上げない。知らないアプリも拡張領域のまま書き戻す）
 // 保存しないもの: 提案書の宛名（0012 の2。出力のときだけ）、保存していない案の変更（「案として保存」「上書き」で保存する）、
 // 画面の一時的な状態（開いているタブ・パネル・文字の大きさなど）
 import type { EngineRequest } from "../../engine/types.ts";
@@ -90,6 +92,7 @@ import type { HearingLog } from "../hearing/sheet.ts";
 import { withElementIds, withoutPlainMarks, type WorkingHousehold } from "../input/household.ts";
 import { withoutFutureCarLoanDocs } from "../input/carLoanDocs.ts";
 import { withLegacyAllowanceNotice } from "../input/livingAllowance.ts";
+import { extWithParts, LIVING_PARTS_EXT, partsToSave, readLivingParts } from "../input/livingParts.ts";
 import { CURRENT } from "../plans/band.ts";
 import type { Proposal } from "../plans/plans.ts";
 import { readSnapshots, type Snapshot } from "../snapshots/snapshots.ts";
@@ -149,7 +152,10 @@ export interface BodyState {
 export const EMPTY_CARRY: BodyState["carry"] = { extDefinitions: {}, ext: {} };
 
 export function bodyObject(s: BodyState): HouseholdBody {
-  const { proposals, hearing, snapshots, statements, ...household } = s.wh;
+  const { proposals, hearing, snapshots, statements, livingParts: _parts, ...household } = s.wh;
+  void _parts;
+  // 内訳を分けた行の額は拡張領域に（0109。合計が今の額と同じ物だけ）
+  const extra = extWithParts(s.carry, partsToSave(s.wh));
   return toStoredBody({
     household,
     proposals: proposals.map(({ name, ...p }) => ({ ...p, title: name })),
@@ -158,8 +164,8 @@ export function bodyObject(s: BodyState): HouseholdBody {
     ...(statements !== undefined && hasStatements(statements) ? { statements } : {}),
     workspace: s.workspace,
     display: s.display,
-    extDefinitions: s.carry.extDefinitions,
-    ext: s.carry.ext,
+    extDefinitions: extra.extDefinitions,
+    ext: extra.ext,
     ...(s.carry.outside !== undefined && Object.keys(s.carry.outside).length > 0 ? { [OUTSIDE_KEPT]: s.carry.outside } : {}),
   } as unknown as Record<string, unknown>) as unknown as HouseholdBody;
 }
@@ -231,11 +237,21 @@ export function fromBody(json: string): BodyState {
     shownItems: strings(w.shownItems),
   };
   const display = readDisplay(b.display);
+  // 内訳を分けた行の額（0109。拡張領域から作業中の世帯へ。書き戻すときは bodyObject が入れ直す）
+  const ext = isObj(b.ext) ? b.ext : {};
+  const parts = readLivingParts(ext[LIVING_PARTS_EXT]);
+  if (Object.keys(parts).length > 0) wh.livingParts = parts;
+  else delete wh.livingParts;
+  const { [LIVING_PARTS_EXT]: _parts, ...restExt } = ext;
+  void _parts;
+  const defs = isObj(b.extDefinitions) ? b.extDefinitions : {};
+  const { [LIVING_PARTS_EXT]: _def, ...restDefs } = defs;
+  void _def;
   return {
     wh,
     workspace,
     display,
-    carry: { extDefinitions: isObj(b.extDefinitions) ? b.extDefinitions : {}, ext: isObj(b.ext) ? b.ext : {}, ...(isObj(b[OUTSIDE_KEPT]) ? { outside: b[OUTSIDE_KEPT] } : {}) },
+    carry: { extDefinitions: restDefs, ext: restExt, ...(isObj(b[OUTSIDE_KEPT]) ? { outside: b[OUTSIDE_KEPT] } : {}) },
   };
 }
 
