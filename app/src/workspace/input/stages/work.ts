@@ -1100,7 +1100,7 @@ function claimFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
           kind: "select",
           optional: true,
           options: [{ value: "", label: `自動: ${endsWithLabel(auto.value)}（${auto.why}）` }, ...ENDS_WITH],
-          help: "この期間の終わり方です。失業給付の日数・給付制限と、退職金の目安に使います。自動は、辞める月が60歳以後（または終わりを定年の出来事に合わせた期間）なら定年、それより前は自己都合で計算します。「休業のまま辞める」は、病気などで働けないまま辞める形で、失業給付は受けません",
+          help: "この期間の終わり方です（失業給付と退職金の推定に使います）。自動は、辞める月が60歳以後（か定年の出来事に合わせた期間）なら定年、それより前は自己都合です。「休業のまま辞める」は働けないまま辞める形で、失業給付は受けません",
           get: (w) => {
             const x = find(w.request.input.household, w) as EmploymentPeriod | undefined;
             if (x?.endsWith !== undefined) return { value: x.endsWith };
