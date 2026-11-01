@@ -6,6 +6,9 @@ const DATE = /^(\d{4})-(\d{2})-\d{2}$/;
 
 /** 「計算できませんでした」の後に続ける文。知らない符号は今までどおり（符号）だけ */
 export function engineErrorText(code: string, ids: readonly string[], baseMonth: string | null): string {
+  // 金額が安全に扱える整数を超えた・率で割れない（-100% の率など）: 率の欄の範囲の外の値か、長すぎる表の期間で起きる（0098）
+  if (code === "E_UNSAFE_INTEGER") return "。金額が大きくなりすぎて計算できません。運用の利回り・上昇率が高いか、表の最後の年が遠いと起きます。入力の確かめの一覧に出る範囲の外の率と、表の最後の年を見直してください（E_UNSAFE_INTEGER）";
+  if (code === "E_ARGUMENT" && ids[0] === "rateDiv.zero") return "。計算に使えない率（-100% の上昇率など）が入っています。入力の確かめの一覧に出る範囲の外の率を見直してください（E_ARGUMENT）";
   const id = ids[0];
   if (code !== "E_PARAM_NO_VALUE" || id === undefined) return `（${code}）`;
   const label = PARAM_LABELS[id] ?? id;

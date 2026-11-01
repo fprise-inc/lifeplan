@@ -17,12 +17,21 @@ import { isEmptyChoice, readItemChoice, type ItemChoice } from "../input/itemCho
 import { isEmptyLeverChoice, readLeverChoice, type LeverChoice } from "../plans/leverChoice.ts";
 import { isEmptyPremiseChoice, isEmptySceneChoice, normalProtection, readPremiseChoice, readProtectionSetting, readSceneChoice, withProtection, type PremiseChoice, type ProtectionSetting, type SceneChoice } from "../contingency/premiseChoice.ts";
 import { setOfficeNow, STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
+import { GROWTH_RANGE, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../input/rateRanges.ts";
 
 export { STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
 
 /** 前提条件の標準値にできる系列（新しい世帯に写す。値は小数の文字。例: "0.01"） */
 export const OFFICE_ASSUMPTIONS = ["inflation", "wageGrowth", "investmentReturn", "pensionMacroSlide"] as const;
 export type OfficeAssumption = (typeof OFFICE_ASSUMPTIONS)[number];
+
+/** 前提条件の標準値の欄の範囲（パーセント。入力の画面の前提条件の欄と同じ。0098） */
+export const ASSUMPTION_RANGES: Readonly<Record<OfficeAssumption, PctRange>> = {
+  inflation: GROWTH_RANGE,
+  wageGrowth: GROWTH_RANGE,
+  investmentReturn: RETURN_RANGE,
+  pensionMacroSlide: SLIDE_RANGE,
+};
 
 export const ASSUMPTION_LABELS: Readonly<Record<OfficeAssumption, string>> = {
   inflation: "物価上昇率（年）",

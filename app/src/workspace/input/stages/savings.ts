@@ -10,6 +10,7 @@ import { ACCOUNT_KINDS, ASSET_CLASSES, memberLabel, memberOptions } from "../lab
 import { isRentalProperty, UNENTERED_RENT } from "./rental.ts";
 import { accountName, UNENTERED_BALANCE, defaultPayoutAge, editPayout, INVEST_KINDS, methodOf, payoutAgeOf, rateOf, reservePreset, setSettlement, settlementOf, setStopAge, stopAgeOf, stopEstimateOf } from "../savings/model.ts";
 import { allocationStageGroups, returnStageGroups } from "../staged.ts";
+import { FEE_RANGE, RETURN_RANGE } from "../rateRanges.ts";
 
 const accounts = (h: Household) => h.accounts;
 const UNENTERED_VALUE = "未入力（評価額を入れてください。0円で計算中）";
@@ -39,6 +40,7 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       label: "評価額の増減率（年）",
       level: "simple",
       kind: "pct",
+      ...RETURN_RANGE,
       find,
       path: ["valueGrowth"],
       optional: true,
@@ -124,6 +126,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
         label: "利回り（年）",
         level: "simple",
         kind: "pct",
+        ...RETURN_RANGE,
         optional: true,
         help: "1年あたりの見込みの利回りを、信託報酬などの費用を引いた後で入れます。空欄なら、資産の配分や前提条件の目安の利回りで計算します（費用を別に入れる形は詳細で）",
         get: (w) => {
@@ -143,7 +146,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   if (methodOf(wh.request) === "accounts" && INVEST_KINDS.has(a.kind))
     fields.push(
       withAddress(
-        plain({ key: `${k}/fee`, item: "account.fee", label: "運用の費用（年）", level: "detail", kind: "pct", find, path: ["fee"], optional: true, help: "信託報酬など。ここに費用を入れると、上の利回りから費用を引いて計算します（そのときは上の利回りを費用を引く前の見込みにします）。空欄は0で、上の利回りを費用を引いた後の見込みとして使います（税は計算で引きます）" }),
+        plain({ key: `${k}/fee`, item: "account.fee", label: "運用の費用（年）", level: "detail", kind: "pct", ...FEE_RANGE, find, path: ["fee"], optional: true, help: "信託報酬など。ここに費用を入れると、上の利回りから費用を引いて計算します（そのときは上の利回りを費用を引く前の見込みにします）。空欄は0で、上の利回りを費用を引いた後の見込みとして使います（税は計算で引きます）" }),
         onAccount(a.id, "account.fee"),
       ),
     );
@@ -458,7 +461,7 @@ function pooledGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       level: "simple",
       fields: [
         yenBox({ key: `${k}/value`, item: "account.marketValue", label: "金融資産の合計", level: "simple", basis: "once", find, path: ["marketValue"] }),
-        plain({ key: `${k}/rate`, item: "account.expectedReturn", label: "平均の利回り（年）", level: "simple", kind: "pct", find, path: ["expectedReturn"], optional: true }),
+        plain({ key: `${k}/rate`, item: "account.expectedReturn", label: "平均の利回り（年）", level: "simple", kind: "pct", ...RETURN_RANGE, find, path: ["expectedReturn"], optional: true }),
         withAddress(plain({ key: `${k}/uninvested`, item: "account.uninvested", label: "運用しない分", level: "detail", kind: "yen", basis: "once", find, path: ["uninvested"], optional: true }), onAccount(a.id, "account.uninvested")),
       ],
       actions: [],

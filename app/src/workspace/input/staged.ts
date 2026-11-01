@@ -11,6 +11,7 @@ import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "
 import { ASSET_CLASSES } from "./labels.ts";
 import type { YenBasis } from "./units.ts";
 import type { Address, Target } from "../store/readings.ts";
+import { RETURN_RANGE } from "./rateRanges.ts";
 
 type Obj = Record<string, unknown>;
 const LEVEL: Level = "detail";
@@ -350,7 +351,7 @@ export function returnStageGroups(wh: WorkingHousehold, o: { key: string; find: 
         address: () => ad([]),
       },
     ];
-    if (!byMix) fields.push({ ...plain({ key: `${k}/rate`, item: stagesPlace.item, label: "利回り（年・この段から）", level: LEVEL, kind: "pct", find, path: ["expectedReturn"] }), address: () => ad(["expectedReturn"]) });
+    if (!byMix) fields.push({ ...plain({ key: `${k}/rate`, item: stagesPlace.item, label: "利回り（年・この段から）", level: LEVEL, kind: "pct", ...RETURN_RANGE, find, path: ["expectedReturn"] }), address: () => ad(["expectedReturn"]) });
     if (n < stages.length - 1) fields.push(rampField(`${k}/ramp`, stagesPlace.item, find, ad(["rampYears"])));
     groups.push({
       key: k,
@@ -373,7 +374,7 @@ export function returnStageGroups(wh: WorkingHousehold, o: { key: string; find: 
       level: LEVEL,
       fields: [
         { ...plain({ key: `${k}/year`, item: excPlace.item, label: "年", level: LEVEL, kind: "int", suffix: "年", min: 1900, max: 2200, find, path: ["year"] }), address: () => ad(["year"]) },
-        { ...plain({ key: `${k}/rate`, item: excPlace.item, label: "その年の利回り（年）", level: LEVEL, kind: "pct", find, path: ["expectedReturn"], help: "マイナスも入れられます（運用の費用はこの後に引きます）" }), address: () => ad(["expectedReturn"]) },
+        { ...plain({ key: `${k}/rate`, item: excPlace.item, label: "その年の利回り（年）", level: LEVEL, kind: "pct", ...RETURN_RANGE, find, path: ["expectedReturn"], help: "マイナスも入れられます（運用の費用はこの後に引きます）" }), address: () => ad(["expectedReturn"]) },
       ],
       actions: [removeAction(`${k}/remove`, "この変化を外す", LEVEL, (hh, w) => dropFrom(o.find(hh, w), excPlace.path, id))],
     });

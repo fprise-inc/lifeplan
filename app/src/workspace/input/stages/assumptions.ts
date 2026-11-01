@@ -18,6 +18,7 @@ import { RATE_PRESETS } from "../savings/model.ts";
 import { sameRate } from "../units.ts";
 import { cmpRate, pctText } from "../../plans/decimal.ts";
 import { feeSections } from "./fees.ts";
+import { GROWTH_RANGE, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../rateRanges.ts";
 
 type Obj = Record<string, unknown>;
 type Assumptions = NonNullable<WorkingHousehold["request"]["input"]["assumptions"]>;
@@ -31,6 +32,16 @@ const STANDARD: Readonly<Record<string, string>> = {
   wageGrowth: DEFAULT_ASSUMPTIONS.wageGrowth.default,
   investmentReturn: DEFAULT_ASSUMPTIONS.investmentReturn.default,
   pensionMacroSlide: DEFAULT_ASSUMPTIONS.pensionMacroSlide.default,
+};
+
+/** 経済の前提の列の範囲（0098。例外の年の率も同じ範囲） */
+const SERIES_RANGES: Readonly<Record<string, PctRange>> = {
+  inflation: GROWTH_RANGE,
+  wageGrowth: GROWTH_RANGE,
+  educationInflation: GROWTH_RANGE,
+  investmentReturn: RETURN_RANGE,
+  pensionMacroSlide: SLIDE_RANGE,
+  pensionMacroSlideEmployee: SLIDE_RANGE,
 };
 
 /** 空欄のとき、ほかの前提と同じ値になる前提（教育費は物価、厚生年金の調整率は基礎年金の調整率） */
@@ -106,6 +117,7 @@ function seriesField(name: string, label: string, help: string, level: "simple" 
     label,
     level,
     kind: "pct",
+    ...SERIES_RANGES[name],
     optional: true,
     blankIsEstimate: true,
     help,
@@ -195,7 +207,7 @@ function rewriteRange(wh: WorkingHousehold, sp: SeriesPlace, i: number, next: Ye
 }
 
 /** 例外の年のまとまり（範囲ごと）と「＋ 例外の年」 */
-function exceptionGroups(wh: WorkingHousehold, key: string, sp: SeriesPlace, what: string, fallback: string): { groups: GroupDef[]; add: ActionDef } {
+function exceptionGroups(wh: WorkingHousehold, key: string, sp: SeriesPlace, what: string, fallback: string, range: PctRange): { groups: GroupDef[]; add: ActionDef } {
   const ranges = yearRanges(seriesAt(wh, sp)?.byYear);
   const by = Number(wh.request.input.baseMonth.slice(0, 4));
   const rangeAt = (w: WorkingHousehold, i: number) => yearRanges(seriesAt(w, sp)?.byYear)[i];
@@ -234,6 +246,7 @@ function exceptionGroups(wh: WorkingHousehold, key: string, sp: SeriesPlace, wha
           label: "その間の率（年）",
           level: "detail",
           kind: "pct",
+          ...range,
           get: (w) => ({ value: rangeAt(w, i)?.rate ?? null }),
           set: (w, v) => {
             const x = rangeAt(w, i);
@@ -304,7 +317,7 @@ function assetReturnGroups(wh: WorkingHousehold): GroupDef[] {
   const ar = wh.request.input.assumptions?.assetReturns ?? {};
   return Object.keys(ar).flatMap((cls) => {
     const label = ASSET_CLASSES.find((o) => o.value === cls)?.label ?? cls;
-    const ex = exceptionGroups(wh, `assume/assetReturns/${cls}`, { path: ["assetReturns", cls], item: "assumptions.assetReturns" }, label, "0.03");
+    const ex = exceptionGroups(wh, `assume/assetReturns/${cls}`, { path: ["assetReturns", cls], item: "assumptions.assetReturns" }, label, "0.03", RETURN_RANGE);
     const main: GroupDef = {
       key: `assume/assetReturns/${cls}`,
       title: label,
@@ -316,6 +329,7 @@ function assetReturnGroups(wh: WorkingHousehold): GroupDef[] {
           label: "利回り（年・費用と税を引く前）",
           level: "detail",
           kind: "pct",
+          ...RETURN_RANGE,
           find: (_h, w) => (getPath(w.request.input.assumptions, ["assetReturns", cls]) as Obj | undefined) ?? undefined,
           path: ["default"],
           hint: (v) => (v !== null && Number(v) > 0.08 ? "年8%を超えています（事務所の注意の線）" : null),
@@ -358,7 +372,7 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
       return st.implicit === true && owns(w) ? { ...st, estimated: basis } : st;
     },
   });
-  const ex = exceptionGroups(wh, "assume/realEstate/landGrowth", { path: [R, "landGrowth"], item }, "土地の上昇率", wh.request.input.assumptions?.inflation?.default ?? "0");
+  const ex = exceptionGroups(wh, "assume/realEstate/landGrowth", { path: [R, "landGrowth"], item }, "土地の上昇率", wh.request.input.assumptions?.inflation?.default ?? "0", GROWTH_RANGE);
   return [
     {
       key: "assume/realEstate/fields",
@@ -370,6 +384,7 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
           label: "土地の上昇率（年）",
           level: "detail",
           kind: "pct",
+          ...GROWTH_RANGE,
           optional: true,
           blankIsEstimate: true,
           help: "空欄なら物価上昇率と同じ",
@@ -636,7 +651,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
   for (const [name, label] of series) {
     const fol = FOLLOWS[name];
     const fb = fol !== undefined ? ((getPath(wh.request.input.assumptions, [fol.name, "default"]) as string | undefined) ?? "0") : (STANDARD[name] ?? "0");
-    const ex = exceptionGroups(wh, `assume/${name}`, { path: [name], item: `assumptions.${name}` }, label.replace(/（.*$/, ""), fb);
+    const ex = exceptionGroups(wh, `assume/${name}`, { path: [name], item: `assumptions.${name}` }, label.replace(/（.*$/, ""), fb, SERIES_RANGES[name] ?? GROWTH_RANGE);
     exGroups.push(...ex.groups);
     exAdds.push(ex.add);
   }
