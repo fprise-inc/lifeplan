@@ -130,7 +130,7 @@
   let points = bs.figure.columns.map(c => bs-point-short(c.point.label, if who == none { none } else { who.label }))
   section("バランスシートの図（提案。" + points.join("・") + "）")
   bs-figure(bs.figure, height: if land { 130pt } else { 165pt })
-  // 会社の借入の連帯保証（0105）: 負債には入れず、図の下に1行で（今の額。0108）
+  // 会社の借入の連帯保証（0105）: 負債には入れず、図の下に1行で（今の額。0107）
   let gu = bs.at("guarantee", default: none)
   if gu != none {
     note("会社の借入の連帯保証（" + man-unit(gu.amount) + "）は負債に入れていません（会社が返している間は、家計から返済は出ないため）。保証を含めると、今の純資産は" + man-unit(gu.netWorthWith) + "です。")

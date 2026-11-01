@@ -40,7 +40,7 @@ interface Props {
   bsColumns?: readonly BsColumn[] | null;
   /** お金の3つの分け方（資産と負債のタブの表示の設定。0032） */
   moneyThree?: MoneyThreeSettings;
-  /** 会社と合わせたバランスシートの章を選べるか（事務所の設定で使うと決め、役員として働く人のいる世帯のときだけ。0108） */
+  /** 会社と合わせたバランスシートの章を選べるか（事務所の設定で使うと決め、役員として働く人のいる世帯のときだけ。0107） */
   combinedBs?: boolean;
   /** PDF を保存したときに控えを残す（App が現状とプランの写しを足して世帯に入れる） */
   onSnapshot?: (d: SnapshotDraft) => Promise<void>;
@@ -129,7 +129,7 @@ function ProposalPdf(p: Props) {
   const [proposal, setProposal] = useState(firstProposal);
   const [compare, setCompare] = useState<string[]>(slots);
   const [chapters, setChapters] = useState<Set<ChapterId>>(new Set(DEFAULT_CHAPTERS));
-  // 法人の顧問向けの章（会社と合わせたバランスシート。0108）は、事務所の設定で使うと決めた世帯だけに出す
+  // 法人の顧問向けの章（会社と合わせたバランスシート。0107）は、事務所の設定で使うと決めた世帯だけに出す
   const shownChapters = CHAPTERS.filter((c) => c.id !== "combinedBs" || p.combinedBs === true);
   const [addressee, setAddressee] = useState("");
   const [preparedBy, setPreparedBy] = useState("");

@@ -4,7 +4,7 @@
 // - 目標の年齢は表示の設定の「○歳時点」、比較のページの基準は主画面の基準の案（主画面の比較の表と同じ数字）
 // - バランスシートの図の時点は、資産と負債のタブで並べている時点（表示の設定。この世帯で選んだ時点か既定の時点）を、提案のプランの年に解いたもの
 //   （候補の鍵はそのプランの年。退職の年が違うプランなら、そのプランの退職の年）。画面の図と提案書の図を同じ時点にする（0027）
-// - 会社と合わせたバランスシート（法人の顧問向けの機能。0108）: 章を選んだときだけ、世帯の会社の入力と現状の今の年の家計のバランスシートを材料に入れる
+// - 会社と合わせたバランスシート（法人の顧問向けの機能。0107）: 章を選んだときだけ、世帯の会社の入力と現状の今の年の家計のバランスシートを材料に入れる
 // - 宛名は材料に入れない（本体が出力の PDF に重ねるだけ。0009 の3・0012）
 // - 推定の値: 提案書には「一部は統計の平均で補っています」とだけ書く。どの欄が推定かは FP 向けの画面（提案書のタブ・入力のカード）だけで示す
 // - 収益不動産のまとめ（0082）: 章を載せるときだけ、提案の世帯の物件ごとに、売る年だけを変えた写しの要求（report/src/rentalSale.ts の
@@ -207,7 +207,7 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
       estimated: estimatedCards(wh).length > 0,
     };
     if (choice.moneyThree !== undefined) b.moneyThree = { ...choice.moneyThree };
-    // 会社と合わせたバランスシート（0108）: 章を選び（事務所の設定で使うと決めたときだけ選べる）、役員として働く人がいて、会社の数字を入れたときだけ。
+    // 会社と合わせたバランスシート（0107）: 章を選び（事務所の設定で使うと決めたときだけ選べる）、役員として働く人がいて、会社の数字を入れたときだけ。
     // 家計の側は資産と負債のタブと同じ（現状の今の年）
     if (on.has("combinedBs") && hasExecutive(current.input.household) && wh.companyBs !== undefined && hasCompanyAmounts(wh.companyBs)) {
       const home = bsPlan({ key: "current", letter: "", name: "", title: "", base: true, req: current, table: (results.current as PreviewResult).table }).years[0];

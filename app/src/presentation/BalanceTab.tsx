@@ -39,7 +39,7 @@ export interface BalanceTabProps {
   onPointDefaults: (k: BsPointKey[]) => void;
   /** お金の3つの分け方（図の下の区画。0032）。flash が変わると区画へ移って光らせる（#bsm3 で開いたとき） */
   moneyThree?: { model: MoneyThreeModel | null; onSettings: (s: Partial<MoneyThreeSettings>) => void; flash: number; nameChoices: readonly MoneyThreeNameChoice[] };
-  /** カスタマイズで足した見るものの欄を変えた（view は見るものの鍵、id は欄の ID、value は欄の文字。読めない値なら false を返す。0108） */
+  /** カスタマイズで足した見るものの欄を変えた（view は見るものの鍵、id は欄の ID、value は欄の文字。読めない値なら false を返す。0107） */
   onCustomField?: (view: string, id: string, value: string) => boolean;
   /** 画面の確かめ用の最初の状態（open: "combined" はカスタマイズで足した最初の見るものを開く。足したものが無ければ家計のバランスシート） */
   initial?: { view?: BsView; year?: number; open?: "combined"; table?: boolean; settings?: boolean };
@@ -324,7 +324,7 @@ function OneYear({ model, plan, year, yi, onPick, onAdjusted, height }: { model:
 
 /**
  * 会社の借入の連帯保証（0105）: 負債の合計には入れず、図の外に点線の箱で見せる。今の年だけ（保証の額は今の額で、先の年は見込まない）。
- * 時点を並べる・プランを比較するときも、今の年の図の下にだけ出す（compact。0108）
+ * 時点を並べる・プランを比較するときも、今の年の図の下にだけ出す（compact。0107）
  */
 function GuaranteeNote({ year, compact = false }: { year: BsYearModel; compact?: boolean }) {
   return (
@@ -1166,7 +1166,7 @@ function SheetTable({ plan, yi, groups }: { plan: BsPlanModel; yi: number; group
   );
 }
 
-// ---- カスタマイズで足した見るもの（例: 合算BS。0027 の8・0108） ----
+// ---- カスタマイズで足した見るもの（例: 合算BS。0027 の8・0107） ----
 // 受け取った値を出すだけ: 段の切り替え（あれば）・同じ図の部品で共通の縮尺の図・お知らせ・表と文・宣言型の入力欄
 
 function CustomView({ model, view: cv, onField }: { model: BalanceTabModel; view: BsCustomViewModel; onField: (id: string, value: string) => boolean }) {

@@ -24,7 +24,7 @@ export function figureBoxes(y: Pick<BsYearModel, "lines" | "netWorth" | "netPart
   const left = LEFT_GROUPS.map((g) => mk("L", g));
   if (y.netWorth < 0) left.push({ side: "L", key: "neg", value: -y.netWorth, parts: [{ key: "neg", label: "純資産のマイナス", value: -y.netWorth }] });
   const right = RIGHT_GROUPS.map((g) => mk("R", g));
-  // 純資産の内訳（会社と合わせたバランスシートの「会社の財産」「個人の財産」など。0108）があれば、純資産の箱の中に分けて積む
+  // 純資産の内訳（会社と合わせたバランスシートの「会社の財産」「個人の財産」など。0107）があれば、純資産の箱の中に分けて積む
   const np = (y.netParts ?? []).filter((p) => p.amount > 0);
   const nwParts = y.netWorth > 0 && np.length > 0 ? np.map((p) => ({ key: p.key, label: p.label, value: p.amount })) : [{ key: "netWorth", label: "純資産", value: Math.max(0, y.netWorth) }];
   right.push({ side: "R", key: "netWorth", value: Math.max(0, y.netWorth), parts: nwParts });

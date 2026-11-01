@@ -1639,12 +1639,13 @@
                     },
                     "id": "00000000-0000-4000-8000-000000004701",
                     "monthly": 50000,
-                    "rate": "0.03",
+                    "rate": "0",
                     "repaidBy": "child",
                     "termMonths": 180,
                     "to": {
                       "at": "2033-03"
-                    }
+                    },
+                    "type": "first"
                   },
                   {
                     "debtor": "parent",

@@ -585,7 +585,7 @@ export function App() {
             setStoredList(await h.store.list());
             void h.store.listSamples().then(setStoredSamples, () => undefined);
             void h.store.categories().then(applyCategories, () => undefined);
-            // 事務所の既定値も起動のときに読む（世帯の一覧を開き直さなくても、法人の顧問向けの機能・対策に最初から出す項目などが効く。0108）
+            // 事務所の既定値も起動のときに読む（世帯の一覧を開き直さなくても、法人の顧問向けの機能・対策に最初から出す項目などが効く。0107）
             void h.office.defaults().then((v) => putOfficeSettings(readOfficeSettings(v)), () => undefined);
           }
           if (st.state === "needsRecovery") setRecovery("restore");
@@ -1301,7 +1301,7 @@ export function App() {
     setOpened(n);
   }, []);
   /**
-   * 会社と合わせたバランスシートの入力を変える（0108。世帯ファイルの household.companyBs。計算の要求の外なので計算し直さない。
+   * 会社と合わせたバランスシートの入力を変える（0107。世帯ファイルの household.companyBs。計算の要求の外なので計算し直さない。
    * 元に戻す・やり直すの履歴には積む。保存した世帯なら自動保存で世帯ファイルに書く）
    */
   const putCompanyBs = useCallback(
@@ -1834,7 +1834,7 @@ export function App() {
     const snapshot = r === null ? { error: "この控えの内容は、今の計算エンジン・制度データでは計算できませんでした（控えの時点が古いなど）。" } : { req: withoutRemovedAssumptions(s.inputs.request), table: r.table };
     return { status: "ready", model: bsPrev({ key: bsPrevRun.key, label: bsPrevChoices[i]?.label ?? "控え", createdAt: s.createdAt, baseMonth: opened.wh.request.input.baseMonth, actual, snapshot }) };
   }, [bsPrevRun, opened, bsPlans, bsSnaps, letters]);
-  // 会社と合わせたバランスシート（法人の顧問向けの機能。0108）: 事務所の設定で使うと決め、役員として働く人のいる世帯のときだけ。
+  // 会社と合わせたバランスシート（法人の顧問向けの機能。0107）: 事務所の設定で使うと決め、役員として働く人のいる世帯のときだけ。
   // 家計の側は現状のプランの今の年（入力した値から出した事実）
   const combinedOn = officeSettings.features.combinedBs && opened !== null && hasExecutive(opened.wh.request.input.household);
   const combinedViews = useMemo(() => {

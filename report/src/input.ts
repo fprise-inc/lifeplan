@@ -240,7 +240,7 @@ export interface ProposalInput {
     currentNetWorth: Yen[];
     /** 純資産の推移（basis.years と同じ並び） */
     netWorth: { current: Yen[]; proposal: Yen[] };
-    /** 会社の借入の連帯保証（今の額。負債には入れない。図の下の1行の注。保証の無い世帯は省く。0105・0108） */
+    /** 会社の借入の連帯保証（今の額。負債には入れない。図の下の1行の注。保証の無い世帯は省く。0105・0107） */
     guarantee?: { amount: Yen; netWorthWith: Yen };
   } | null;
   education: { years: number[]; rows: { label: string; amounts: Yen[]; total: Yen }[]; total: Yen[]; grandTotal: Yen } | null;
@@ -295,7 +295,7 @@ export interface ProposalInput {
   marketDrop?: MarketDropView | null;
   /** お金の3つの分け方（説明用の図。提案のプランの今の時点。アプリの区画と同じ値・同じ言葉。0032。省略・null は載せない） */
   moneyThree?: MoneyThreeModel | null;
-  /** 会社と合わせたバランスシート（法人の顧問向けの機能。FP が使うと決め、章を選んだときだけ。0108。省略・null は載せない） */
+  /** 会社と合わせたバランスシート（法人の顧問向けの機能。FP が使うと決め、章を選んだときだけ。0107。省略・null は載せない） */
   combinedBs?: CombinedBsView | null;
   /**
    * 住まい以外の不動産の物件ごとの数字（0009 の追記）。公式の帳票は使わない。FP の独自帳票（収益不動産のまとめなど）の材料。
@@ -530,7 +530,7 @@ export interface CombinedFigureColumn {
   netWorth: Yen;
 }
 
-/** 会社と合わせたバランスシート（合算BS。0108）。値は report/src/combinedBs.ts の部品（アプリの見るものと同じ） */
+/** 会社と合わせたバランスシート（合算BS。0107）。値は report/src/combinedBs.ts の部品（アプリの見るものと同じ） */
 export interface CombinedBsView {
   /** 会社の試算表の基準日の文（無ければ null） */
   asOf: string | null;

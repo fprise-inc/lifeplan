@@ -147,8 +147,22 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(d.get("dock").is_none(), "{v}: display.dock は持たない");
             assert!(d.get("metrics").is_none(), "{v}: 結果のタブの値は区画の中");
         }
+        if *v == "0.49" {
+            // 0.49 から: 子の貸与の奨学金の種類（第一種・無利子。0104 の追記）
+            let h = &now["household"]["request"]["input"]["household"];
+            assert!(
+                h["goals"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .filter_map(|g| g["education"]["scholarships"].as_array())
+                    .flatten()
+                    .any(|s| s["type"] == "first" && s["rate"] == "0"),
+                "{v}: 第一種の奨学金"
+            );
+        }
         if *v == "0.50" {
-            // 0.50 から: 会社と合わせたバランスシートの入力（計算の要求の外。0108）
+            // 0.50 から: 会社と合わせたバランスシートの入力（計算の要求の外。0107）
             let c = &now["household"]["companyBs"];
             assert_eq!(c["version"], 1, "{v}: 会社の入力の形の版");
             assert!(c["amounts"]["cash"].is_u64(), "{v}: 会社の現預金");

@@ -541,7 +541,7 @@ export interface BsYearModel {
   loanPay: Yen;
   /** 会社の借入の連帯保証の額（役員として働く人の今の額。今の年だけ。先の年と保証の無い世帯は 0。負債の合計には入れない。0105） */
   guarantee: Yen;
-  /** 純資産の箱の中の内訳（任意。会社と合わせたバランスシートの1枚の「会社の財産」「個人の財産」など。どれも0以上で、合計は純資産。0108） */
+  /** 純資産の箱の中の内訳（任意。会社と合わせたバランスシートの1枚の「会社の財産」「個人の財産」など。どれも0以上で、合計は純資産。0107） */
   netParts?: { key: string; label: string; amount: Yen }[];
   /** この年の出来事（例: 退職・住宅ローン完済） */
   events: { kind: BsMarkKind; text: string }[];
@@ -633,7 +633,7 @@ export interface BsCustomColumn {
   at: BsYearModel;
 }
 
-/** 見るものの欄（宣言型。値は文字で持ち、作業の層へ返す。0108。後でカスタム層の入力欄 fields/ に移せる形） */
+/** 見るものの欄（宣言型。値は文字で持ち、作業の層へ返す。0107。後でカスタム層の入力欄 fields/ に移せる形） */
 export interface BsCustomField {
   id: string;
   label: string;
@@ -659,7 +659,7 @@ export interface BsCustomSection {
 
 /**
  * カスタマイズで足す見るもの（0027 の8。例: 会社と合わせたバランスシート）。columns だけなら同じ図の部品で共通の縮尺で並べる。
- * steps・sections・form・notices は任意（0108 で足した。値を作るのは作業の層の部品で、画面は受け取ったものを出すだけ）
+ * steps・sections・form・notices は任意（0107 で足した。値を作るのは作業の層の部品で、画面は受け取ったものを出すだけ）
  */
 export interface BsCustomViewModel {
   key: string;

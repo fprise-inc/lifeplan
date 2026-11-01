@@ -1,4 +1,4 @@
-// 会社と合わせたバランスシート（合算BS。法人の顧問向けの機能。0108）の部品と、提案書の章
+// 会社と合わせたバランスシート（合算BS。法人の顧問向けの機能。0107）の部品と、提案書の章
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
@@ -152,7 +152,7 @@ describe("提案書の章（会社と合わせたバランスシート）", () =
   });
 });
 
-describe("提案書のバランスシートの図の注（会社の借入の連帯保証。0108）", () => {
+describe("提案書のバランスシートの図の注（会社の借入の連帯保証。0107）", () => {
   it("保証のある世帯だけ、今の額と保証を含めた今の純資産を1行の注に。保証の無い世帯は欄を持たない", () => {
     const b = salariedCoupleBundle();
     const withG = structuredClone(b);

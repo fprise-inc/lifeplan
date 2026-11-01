@@ -1062,6 +1062,8 @@ export interface EducationGoalInput {
     readonly debtor?: "child" | "parent";
     /** 返すのは誰か（0104）: child は子が返す（返済を世帯の収支・負債に入れない）、household は世帯で返す。省略は子 */
     readonly repaidBy?: "child" | "household";
+    /** 種類（0104 の追記）: first は第一種（無利子）、second は第二種（有利子）。省略は第二種。表示と利率の目安の元だけで、計算は rate */
+    readonly type?: "first" | "second";
   }[];
   readonly loans?: readonly { readonly at: Timepoint; readonly amount: Yen; readonly rate: string; readonly termMonths: number; readonly borrower: string }[];
   readonly gifts?: readonly {

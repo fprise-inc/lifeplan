@@ -841,7 +841,7 @@ function balanceSheet(ctx: Ctx): NonNullable<ProposalInput["balanceSheet"]> {
   const cur = ctx.bundle.current.result.table;
   const prop = ctx.bundle.proposal.result.table;
   const fig = balanceFigure(ctx, figure);
-  // 会社の借入の連帯保証（0105）: 負債には入れず、図の下の1行の注に（今の額。保証を含めた今の純資産を添える。0108）
+  // 会社の借入の連帯保証（0105）: 負債には入れず、図の下の1行の注に（今の額。保証を含めた今の純資産を添える。0107）
   const guarantee = ctx.bundle.proposal.request.input.household.members.reduce((s, m) => s + (m.companyGuarantee?.value ?? 0), 0);
   const nowNetWorth = fig.columns.find((c) => c.fact)?.netWorth ?? netWorthOf(prop, [ctx.baseYear])[0] ?? 0;
   return {
@@ -853,7 +853,7 @@ function balanceSheet(ctx: Ctx): NonNullable<ProposalInput["balanceSheet"]> {
   };
 }
 
-/** 会社と合わせたバランスシート（0108）: アプリの見るものと同じ部品で作り、帳票の形（分け方のまとまりの箱）にする */
+/** 会社と合わせたバランスシート（0107）: アプリの見るものと同じ部品で作り、帳票の形（分け方のまとまりの箱）にする */
 function combinedBsOf(ctx: Ctx): CombinedBsView | null {
   const m = ctx.bundle.combinedBs;
   if (m === undefined || !hasCompanyAmounts(m.input)) return null;

@@ -1,4 +1,4 @@
-// 会社と合わせたバランスシート（合算BS）の部品（法人の顧問向けの機能。事務所の設定で FP が使うと決めたときだけ使う。0108）。
+// 会社と合わせたバランスシート（合算BS）の部品（法人の顧問向けの機能。事務所の設定で FP が使うと決めたときだけ使う。0107）。
 // アプリの「資産と負債」のタブ（見るものの差し込み口 customViews。0027 の8）と、提案書の任意の章で同じ部品を使う。
 // - 入力は、会社の今のバランスシート（試算表の主な科目）と毎月の固定の支出・返済。家計の側は、今の年の家計のバランスシート（bsGroups.ts の BsAt）
 // - 3つの段: ①2枚を並べる ②経営者と会社の間の4つの組を相殺する ③科目ごとに足して1枚にする（純資産は「会社の財産（剰余金）」と「個人の財産」）
@@ -79,7 +79,7 @@ export const RESTATE_ITEMS = [
 export type RestateKey = Exclude<(typeof RESTATE_ITEMS)[number]["key"], "loanToOwner">;
 const RESTATE_KEYS: readonly RestateKey[] = ["receivables", "inventory", "buildings", "land", "investments", "guaranteed"];
 
-/** 世帯ファイルに持つ入力（household.companyBs。計算の要求には入れない。0108） */
+/** 世帯ファイルに持つ入力（household.companyBs。計算の要求には入れない。0107） */
 export interface CombinedBsInput {
   version: 1;
   /** 会社のバランスシートの基準日（会社の最新の試算表の月末。YYYY-MM）。空は null */

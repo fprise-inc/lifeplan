@@ -41,7 +41,7 @@
   /* 純資産: ほかの箱と同じベタ塗り */
   --bs-netWorth: #355ba4;
   --bs-netWorth-ink: var(--prop-ink); /* 図の外の純資産の金額の文字（アプリの藍の文字の色） */
-  /* 会社と合わせたバランスシート（法人の顧問向けの機能。0108）の会社の科目と、純資産の内訳。家計の項目と隣り合っても分かれる明るさにした */
+  /* 会社と合わせたバランスシート（法人の顧問向けの機能。0107）の会社の科目と、純資産の内訳。家計の項目と隣り合っても分かれる明るさにした */
   --bs-co-cash: #1d4f86;
   --bs-co-receivables: #5a6b80;
   --bs-co-inventory: #44546a;
@@ -438,7 +438,7 @@
   .m3-am { font-size: 1.1rem; }
 }
 
-/* カスタマイズで足した見るもの（会社と合わせたバランスシート。0108）: お知らせは落ち着いた色（赤で煽らない） */
+/* カスタマイズで足した見るもの（会社と合わせたバランスシート。0107）: お知らせは落ち着いた色（赤で煽らない） */
 .bs-custom { display: flex; flex-direction: column; gap: 10px; }
 .bs-cnotice { border: 1px solid var(--line); border-left: 4px solid var(--prop); background: var(--prop-bg); border-radius: 8px; padding: 8px 12px; font-size: 0.88rem; }
 .bs-cnotice b { color: var(--prop-ink); }
