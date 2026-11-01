@@ -121,7 +121,7 @@ describe("明細を読んで取り込む", () => {
     const f = formatToLearn(out, "card", AT);
     expect(f).toMatchObject({ fingerprint: out.fingerprint, kind: "card", mapping: out.mapping });
     // 覚える形に金額・日付・店の名前は入らない
-    expect(JSON.stringify(f)).not.toMatch(/セブン|1,280|2025/);
+    expect(JSON.stringify(f)).not.toMatch(/あおば|マート|1,280|2025/);
     const { wh } = await imported();
     const again = addImport(logOf(wh), out, { id: "x", account: "acc-card", at: AT });
     expect(again).toEqual({ ok: false, reason: "duplicate" });

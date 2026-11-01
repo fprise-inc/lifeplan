@@ -1,21 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { forgetEntry, learnEntry, lookup, lookupBuiltin, lookupSourceCategory, merchantKey, mergeEntries, officeIndex, readEntry, type DictionaryEntry } from "../src/index.ts";
+import { BUILTIN, CARD_ISSUERS, forgetEntry, learnEntry, lookup, lookupBuiltin, lookupSourceCategory, merchantKey, mergeEntries, officeIndex, readEntry, type DictionaryEntry } from "../src/index.ts";
 
 describe("店の名前をそろえる", () => {
+  // 店の名前は架空（実在のチェーンの名前は使わない）。決済の前置き（PAYPAY*・SQ*・楽天ペイ・ID・d払い）は、取る決まりを確かめるためそのまま
   it.each([
-    ["セブン－イレブン　渋谷一丁目店", "セブンイレブン"],
-    ["ｾﾌﾞﾝｲﾚﾌﾞﾝ ｶｸｳｴｷﾏｴﾃﾝ", "セブンイレブン"],
+    ["あおば－マート　みどり一丁目店", "アオバマート"],
+    ["ｱｵﾊﾞﾏｰﾄ ﾐﾄﾞﾘｴｷﾏｴﾃﾝ", "アオバマート"],
     ["PAYPAY*架空カフェ", "架空カフエ"],
     ["ＰａｙＰａｙ＊架空カフェ", "架空カフエ"],
     ["SQ *架空パン", "架空パン"],
     ["楽天ペイ 架空書店", "架空書店"],
-    ["ID ローソン 架空店", "ローソン"],
-    ["d払い ファミリーマート", "フアミリーマート"],
-    ["ENEOS 2", "ENEOS"],
-    ["マツモトキヨシ #1234", "マツモトキヨシ"],
-    ["ユニクロ 架空店", "ユニクロ"],
+    ["ID ひかりマート みなみ店", "ヒカリマート"],
+    ["d払い フォレストマート", "フオレストマート"],
+    ["MIDORI 2", "MIDORI"],
+    ["みどりドラッグ #1234", "ミドリドラツグ"],
+    ["そよかぜクリーニング 駅前店", "ソヨカゼクリーニング"],
     ["自動車税(架空県)", "自動車税架空県"],
-    ["NTTドコモ", "NTTドコモ"],
+    ["XYZ携帯", "XYZ携帯"],
     ["ちょっとカフェ", "チヨツトカフエ"],
   ])("%s → %s", (raw, want) => expect(merchantKey(raw)).toBe(want));
 
@@ -28,19 +29,18 @@ describe("店の名前をそろえる", () => {
 
 describe("同梱の辞書", () => {
   const cat = (raw: string, bank = false) => lookupBuiltin(merchantKey(raw), bank)?.category ?? null;
+  // 一般の言葉（含む・同じ）で決まる架空の店
   it.each([
-    ["セブン-イレブン 架空店", "food"],
-    ["ｾﾌﾞﾝｲﾚﾌﾞﾝ", "food"],
-    ["イオン 架空SC店", "food"],
-    ["マツモトキヨシ 架空店", "dailyGoods"],
-    ["ニトリ 架空店", "furniture"],
-    ["ヤマダデンキ 架空店", "furniture"],
-    ["東京電力エナジーパートナー", "utilities"],
+    ["あおば－マート みどり店", "food"],
+    ["ｱｵﾊﾞﾏｰﾄ", "food"],
+    ["ひかりスーパー 駅前店", "food"],
+    ["みどりドラッグ みなみ店", "dailyGoods"],
+    ["ﾐﾄﾞﾘﾄﾞﾗｯｸﾞ ﾐﾅﾐﾃﾝ", "dailyGoods"],
+    ["みどり電力", "utilities"],
     ["水道局 架空市", "utilities"],
-    ["NTTドコモ", "communication"],
-    ["ソフトバンク", "communication"],
-    ["ENEOS 架空SS", "car"],
-    ["ｴﾈｵｽ ｶｸｳSS", "car"],
+    ["XYZ携帯", "communication"],
+    ["みどりガソリン みなみSS", "car"],
+    ["ﾐﾄﾞﾘｶﾞｿﾘﾝ ﾐﾅﾐSS", "car"],
     ["架空クリニック", "medical"],
     ["架空ホテル", "lumpSum"],
     ["年会費", "cardFee"],
@@ -51,20 +51,45 @@ describe("同梱の辞書", () => {
     ["架空生命保険", "insurance"],
     ["ATM 架空駅前", "cash"],
     ["給与 架空商事", "income"],
-    ["ライフ", "food"],
   ])("%s → %s", (raw, want) => expect(cat(raw)).toBe(want));
+
+  // 店の名前で決まる言葉（店の鍵がその言葉で始まる）は、辞書の言葉そのものに架空の支店名を付けて引く（テストに店の名前を書かない）
+  it.each(["food", "dailyGoods", "furniture", "clothing", "utilities", "communication", "transport", "car"] as const)("店の名前の言葉＋支店名 → %s", (want) => {
+    const names = BUILTIN.filter(([, c, m]) => c === want && m === undefined).map(([p]) => p);
+    expect(names.length).toBeGreaterThan(0);
+    for (const p of names) {
+      expect(cat(p)).toBe(want);
+      // 決済の前置きと同じ言葉（「モバイルSUICA」など）は、後ろに区切りがあると前置きとして取るので、支店名を付けて引かない
+      const branch = merchantKey(`${p} みなみ店`);
+      if (branch !== merchantKey("みなみ店")) expect(cat(`${p} みなみ店`)).toBe(want);
+    }
+  });
+
+  it("名前と同じときだけの言葉（exact）は、その名前だけ。後ろに続く名前には当てない", () => {
+    const exact = BUILTIN.filter(([, , m]) => m === "exact");
+    expect(exact.length).toBeGreaterThan(0);
+    for (const [p, c] of exact) {
+      expect(cat(p)).toBe(c);
+      expect(cat(`${p}ミナミ`)).toBeNull();
+    }
+  });
 
   it("分からない店は null", () => {
     expect(cat("架空の謎の店")).toBeNull();
   });
 
   it("カード会社への引き落としは銀行の明細だけで見る（カードの明細の「…カード」は振替にしない）", () => {
-    expect(lookupBuiltin(merchantKey("ミツイスミトモカード"), true)).toMatchObject({ category: "transfer", flags: ["cardPayment"], issuer: "smbc" });
-    expect(lookupBuiltin(merchantKey("ラクテンカード"), true)?.issuer).toBe("rakuten");
+    // カード会社の言葉（銀行の明細に出る形）は同梱の辞書のものをそのまま使う
+    for (const ci of CARD_ISSUERS) {
+      for (const p of ci.patterns) {
+        expect(lookupBuiltin(merchantKey(p), true)).toMatchObject({ category: "transfer", flags: ["cardPayment"], issuer: ci.id });
+        expect(lookupBuiltin(merchantKey(p), false)?.category).not.toBe("transfer");
+      }
+    }
     expect(lookupBuiltin(merchantKey("カード 架空"), true)).toMatchObject({ category: "transfer", flags: ["cardPayment"] });
     expect(lookupBuiltin(merchantKey("カード 架空"), true)?.issuer).toBeUndefined();
-    expect(lookupBuiltin(merchantKey("ライフカード"), true)?.issuer).toBe("life");
-    expect(lookupBuiltin(merchantKey("ライフカード"), false)).toBeNull();
+    expect(lookupBuiltin(merchantKey("アオバカード"), true)).toMatchObject({ category: "transfer", flags: ["cardPayment"] });
+    expect(lookupBuiltin(merchantKey("アオバカード"), false)).toBeNull();
   });
 
   it("年1回の印・計算で出す税の印", () => {
@@ -150,11 +175,11 @@ describe("覚えた辞書（事務所データ）", () => {
   const e = (key: string, category: DictionaryEntry["category"], at: string, extra: Partial<DictionaryEntry> = {}): DictionaryEntry => ({ key, category, at, ...extra });
 
   it("引き当ての順番: 覚えた辞書 → 家計簿アプリの分類 → 同梱の辞書（カードの引き落としは分類より強い）", () => {
-    const office = officeIndex([e(merchantKey("架空の謎の店"), "recreation", "2026-10-01T00:00:00Z"), e(merchantKey("セブンイレブン"), "allowance", "2026-10-01T00:00:00Z")]);
+    const office = officeIndex([e(merchantKey("架空の謎の店"), "recreation", "2026-10-01T00:00:00Z"), e(merchantKey("ひかりスーパー"), "allowance", "2026-10-01T00:00:00Z")]);
     expect(lookup(merchantKey("架空の謎の店"), { office, bank: false })?.source).toBe("office");
-    expect(lookup(merchantKey("セブンイレブン 架空店"), { office, bank: false })).toMatchObject({ category: "allowance", source: "office" });
-    expect(lookup(merchantKey("イオン"), { office, sourceCategory: "日用品", bank: false })).toMatchObject({ category: "dailyGoods", source: "sourceCategory" });
-    expect(lookup(merchantKey("ミツイスミトモカード"), { office, sourceCategory: "食費", bank: true })?.category).toBe("transfer");
+    expect(lookup(merchantKey("ひかりスーパー みなみ店"), { office, bank: false })).toMatchObject({ category: "allowance", source: "office" });
+    expect(lookup(merchantKey("あおばマート"), { office, sourceCategory: "日用品", bank: false })).toMatchObject({ category: "dailyGoods", source: "sourceCategory" });
+    expect(lookup(merchantKey("アオバカード"), { office, sourceCategory: "食費", bank: true })?.category).toBe("transfer");
   });
 
   it("共有の PC どうしでまとめる: 新しい日時が勝ち、同じ日時なら消した印、次に名簿の ID の大きいほう", () => {
@@ -178,11 +203,11 @@ describe("覚えた辞書（事務所データ）", () => {
 
   it("覚える行を作る: 同梱の辞書と同じ答えは覚えない・覚えた違う答えは消す・同じなら何もしない", () => {
     const empty = officeIndex([]);
-    expect(learnEntry(merchantKey("セブンイレブン"), "food", "2026-10-03T00:00:00Z", { office: empty })).toBeNull();
+    expect(learnEntry(merchantKey("ひかりスーパー"), "food", "2026-10-03T00:00:00Z", { office: empty })).toBeNull();
     expect(learnEntry(merchantKey("架空の謎の店"), "recreation", "2026-10-03T00:00:00Z", { office: empty, by: "m1" })).toEqual({ key: "架空ノ謎ノ店", category: "recreation", at: "2026-10-03T00:00:00Z", by: "m1" });
-    const office = officeIndex([e(merchantKey("セブンイレブン"), "allowance", "2026-10-01T00:00:00Z")]);
-    expect(learnEntry(merchantKey("セブンイレブン"), "food", "2026-10-03T00:00:00Z", { office })).toMatchObject({ key: "セブンイレブン", removed: true });
-    expect(learnEntry(merchantKey("セブンイレブン"), "allowance", "2026-10-03T00:00:00Z", { office })).toBeNull();
+    const office = officeIndex([e(merchantKey("ひかりスーパー"), "allowance", "2026-10-01T00:00:00Z")]);
+    expect(learnEntry(merchantKey("ひかりスーパー"), "food", "2026-10-03T00:00:00Z", { office })).toMatchObject({ key: "ヒカリスーパー", removed: true });
+    expect(learnEntry(merchantKey("ひかりスーパー"), "allowance", "2026-10-03T00:00:00Z", { office })).toBeNull();
     expect(learnEntry("", "food", "2026-10-03T00:00:00Z", { office })).toBeNull();
   });
 

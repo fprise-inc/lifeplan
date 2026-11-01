@@ -151,13 +151,13 @@ describe("支払い方法・利用者", () => {
   it("利用者は本人・家族だけを読み、名前は読まない", () => {
     expect(parseUser("ご本人")).toBe("self");
     expect(parseUser("家族カード")).toBe("family");
-    expect(parseUser("ヤマダ ハナコ")).toBeNull();
+    expect(parseUser("ミドリ ハナコ")).toBeNull();
   });
 });
 
 describe("文字のそろえ方・文字コード・CSV", () => {
   it("全角・半角・カナ", () => {
-    expect(nfkc("ｾﾌﾞﾝｲﾚﾌﾞﾝ　ＡＢＣ１２３")).toBe("セブンイレブン ABC123");
+    expect(nfkc("ｱｵﾊﾞﾏｰﾄ　ＡＢＣ１２３")).toBe("アオバマート ABC123");
     expect(foldKana("ちょっと")).toBe("チヨツト");
     expect(looseKey("ご利用 日")).toBe(looseKey("ゴ利用日"));
     expect(looseKey("ご利用・金額（円）")).toBe("ゴ利用金額円");
