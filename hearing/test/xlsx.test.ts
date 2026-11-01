@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createHearingSheet, readSheetXlsx, OFFICIAL_SHEETS, type HearingRequest, type ReadResult } from "../src/index.ts";
+import { createHearingSheet, layoutDigest, readSheetXlsx, OFFICIAL_SHEETS, REQUESTED_DOCUMENTS_HEADING, REQUESTED_DOCUMENTS_NOTE, type HearingRequest, type ReadResult } from "../src/index.ts";
 import { answerCells } from "../src/definition.ts";
 import { full, bytes, editXlsx, HEARING_DIR, insertRow, modelHousehold, OFFICE, rezip, setCell, text, toSharedStrings, unzip } from "./helpers.ts";
 
@@ -215,5 +215,39 @@ describe("返ってきたシートの読み方", () => {
       f.set("xl/worksheets/sheet4.xml", bytes(text(f.get("xl/worksheets/sheet4.xml")).replace(/(formatVersion<\/t><\/is><\/c><c r="B2" s="0" t="inlineStr"><is><t xml:space="preserve">)0\.1/, "$19.0")));
     });
     expect(codes(await read(b))).toEqual(["H_FORMAT_NEWER"]);
+  });
+});
+
+describe("この世帯でお願いしたい書類（1枚目の配置の後ろ。0018 の追記 2026-10-31）", () => {
+  const docs = ["ねんきん定期便（ご本人）", "住宅ローンの返済予定表（ご本人）"];
+  const make = (requestedDocuments?: readonly string[]) =>
+    createHearingSheet({ definition: def, requestId: "R-ABCDEF", customerNo: "B0007", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-10-17", ...(requestedDocuments !== undefined ? { requestedDocuments } : {}) });
+
+  it("渡すと1枚目の最後の行の下に見出し・書類・番号を隠してよい一文を書く。記入欄のシートと管理の値・指紋は変わらない", async () => {
+    const plain = await make();
+    const withDocs = await make(docs);
+    const a = await unzip(plain.bytes);
+    const b = await unzip(withDocs.bytes);
+    const intro = text(b.get("xl/worksheets/sheet1.xml"));
+    const last = Math.max(...def.layout.rows.filter((r) => r.sheet === def.layout.introSheet).map((r) => r.row));
+    expect(intro).toContain(`<row r="${last + 2}"`);
+    for (const t of [REQUESTED_DOCUMENTS_HEADING, ...docs.map((d) => `・${d}`), REQUESTED_DOCUMENTS_NOTE]) expect(intro).toContain(t);
+    expect(text(a.get("xl/worksheets/sheet1.xml"))).not.toContain(REQUESTED_DOCUMENTS_HEADING);
+    // 記入欄のシート・名前の定義・管理の値（隠したシート）は同じ
+    for (const name of [ANS, "xl/workbook.xml", "xl/worksheets/sheet4.xml", "docProps/custom.xml"]) expect(text(b.get(name)), name).toBe(text(a.get(name)));
+    expect(withDocs.request).toEqual(plain.request);
+    expect(withDocs.request.layoutDigest).toBe(await layoutDigest(def));
+  });
+
+  it("取り込みは足した行を読まない（同じ回答・同じ知らせ）。空の一覧は何も足さない", async () => {
+    const plain = await make();
+    const withDocs = await make(docs);
+    const r1 = await read(plain.bytes, [plain.request]);
+    const r2 = await read(withDocs.bytes, [withDocs.request]);
+    expect(r2.ok).toBe(true);
+    expect(r2.ok && r1.ok ? r2.filled : null).toEqual(r1.ok ? r1.filled : null);
+    expect(codes(r2)).toEqual(codes(r1));
+    const empty = await make([]);
+    expect(text((await unzip(empty.bytes)).get("xl/worksheets/sheet1.xml"))).toBe(text((await unzip(plain.bytes)).get("xl/worksheets/sheet1.xml")));
   });
 });

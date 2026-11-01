@@ -23,7 +23,7 @@ export { approveAll, DEFAULT_ASSUMPTIONS, importAnswers, keyLabel, type Candidat
 export type { Issue, IssueCode, IssueLevel } from "./issues.ts";
 export { layoutDigest } from "./layout.ts";
 export { readSheetXlsx, type HearingRequest, type ReadOptions, type ReadResult } from "./xlsx/read.ts";
-export { writeSheetXlsx, type OfficeInfo, type WriteOptions } from "./xlsx/write.ts";
+export { REQUESTED_DOCUMENTS_HEADING, REQUESTED_DOCUMENTS_NOTE, writeSheetXlsx, type OfficeInfo, type WriteOptions } from "./xlsx/write.ts";
 export { DEFAULT_LIMITS, type ZipLimits } from "../../xlsx/src/zip.ts";
 
 /** アプリに同梱する公式のシート定義（公開したすべての版を残し続ける。0018 の7） */
@@ -52,6 +52,8 @@ export interface CreateSheetOptions {
   readonly appVersion: string;
   /** 書き出す日（YYYY-MM-DD） */
   readonly exportedOn: string;
+  /** この世帯でお願いしたい書類（1枚目の配置の後ろに足す。取り込みは読まない。WriteOptions.requestedDocuments） */
+  readonly requestedDocuments?: readonly string[];
 }
 
 export interface CreateSheetResult {
@@ -80,7 +82,7 @@ export async function createHearingSheet(o: CreateSheetOptions): Promise<CreateS
     issues.push(issue("warning", "H_EXPORT_PREFILL", "暗号化されない Excel に、金額などの前回の値が載ります。送り方に気をつけてください（書き出したことを記録します）"), ...ex.issues);
   }
   const filled: FilledSheet = { management: m, answers };
-  const bytes = writeSheetXlsx(o.definition, answers, { management: m, office: o.office });
+  const bytes = writeSheetXlsx(o.definition, answers, { management: m, office: o.office, ...(o.requestedDocuments !== undefined && o.requestedDocuments.length > 0 ? { requestedDocuments: o.requestedDocuments } : {}) });
   const request: HearingRequest = { requestId: o.requestId, sheetId: o.definition.sheetId, sheetVersion: o.definition.version, layoutDigest: digest, customerNo: o.customerNo, exportedOn: o.exportedOn, prefilled: o.household != null };
   return { bytes, request, filled, issues };
 }

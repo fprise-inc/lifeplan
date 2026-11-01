@@ -45,6 +45,8 @@ export interface ExportInput {
   exportedOn: string;
   /** 依頼番号の乱数（6バイト以上。アプリの側で作る） */
   random: Uint8Array;
+  /** この世帯でお願いしたい書類（書類のお願いの一覧の見出し。1枚目の後ろに載る。0102） */
+  requestedDocuments?: readonly string[];
 }
 
 export interface ExportOutput {
@@ -90,6 +92,7 @@ export async function exportSheet(wh: WorkingHousehold, o: ExportInput): Promise
     office: o.office,
     appVersion: o.appVersion,
     exportedOn: o.exportedOn,
+    ...(o.requestedDocuments !== undefined ? { requestedDocuments: o.requestedDocuments } : {}),
   });
   return { bytes: r.bytes, request: r.request, issues: r.issues };
 }

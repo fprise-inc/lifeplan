@@ -3,11 +3,12 @@
 //   （OS の保存のダイアログ）で保存する。見直し（前回の値を記入する）を選ぶたびに警告する（0018 の9）
 // - 取り込み: 本体の開くダイアログで選んだ .xlsx を hearing/ の部品で読み（返ってきたファイルは信用しない。0018 の6）、
 //   候補（新規・変更・同じ・要確認・矛盾）をこのパネルで確かめ、承認したものだけを現状に入れる（0008 の5）
-import { useState } from "preact/hooks";
+import { useMemo, useState } from "preact/hooks";
 import { version as APP_VERSION } from "../../../package.json";
 import type { SaveOutcome, SheetHost } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { today } from "../report/assemble.ts";
+import { docRequests, docRequestTitles } from "../input/docRequests.ts";
 import { applyImport, approvalTime, CUSTOMER_NO_PATTERN, defaultSelection, exportSheet, importSheet, randomBytes, sheetFor, SHEET_KINDS, withRequest, type CandidateView, type FieldView, type ImportView, type Issue, type SheetKind } from "./sheet.ts";
 
 interface Props {
@@ -76,6 +77,9 @@ function ExportPanel({ wh, sheets, onSave, onClose }: Props & { onClose: () => v
   const [done, setDone] = useState<SaveOutcome | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const okNo = CUSTOMER_NO_PATTERN.test(form.customerNo);
+  // 書類のお願い（書類待ちの欄から作る。0102）: 1枚目の後ろに「今回お願いしたい書類」として載せる（既定で載せる。外せる）
+  const docs = useMemo(() => docRequestTitles(docRequests(wh)), [wh]);
+  const [withDocs, setWithDocs] = useState(true);
   const set = (k: keyof typeof form) => (e: Event) => setForm({ ...form, [k]: (e.currentTarget as HTMLInputElement).value });
   const go = async () => {
     setBusy(true);
@@ -83,7 +87,7 @@ function ExportPanel({ wh, sheets, onSave, onClose }: Props & { onClose: () => v
     Object.assign(office, form);
     try {
       const on = today();
-      const r = await exportSheet(wh, { definition: sheetFor(kind), prefill, customerNo: form.customerNo, office: { name: form.name, purpose: form.purpose, privacyContact: form.privacyContact }, appVersion: APP_VERSION, exportedOn: on, random: randomBytes() });
+      const r = await exportSheet(wh, { definition: sheetFor(kind), prefill, customerNo: form.customerNo, office: { name: form.name, purpose: form.purpose, privacyContact: form.privacyContact }, appVersion: APP_VERSION, exportedOn: on, random: randomBytes(), ...(withDocs && docs.length > 0 ? { requestedDocuments: docs } : {}) });
       const out = await sheets.save(r.bytes, { customerNo: form.customerNo, exportedOn: on, prefilled: prefill });
       setDone(out);
       // 依頼の記録は保存したときだけ残す（取り込むときに、これを正にして読む）
@@ -129,6 +133,15 @@ function ExportPanel({ wh, sheets, onSave, onClose }: Props & { onClose: () => v
             </label>
           ))}
         </fieldset>
+        {docs.length > 0 ? (
+          <label class="hs-check" data-hearing-docs>
+            <input type="checkbox" checked={withDocs} onChange={(e) => setWithDocs((e.currentTarget as HTMLInputElement).checked)} data-hearing-docs-check />
+            <span>
+              書類のお願いを載せる（{docs.length}通）
+              <small> — 1枚目の最後に「今回お願いしたい書類」として、{docs.join("、")}</small>
+            </span>
+          </label>
+        ) : null}
         {prefill ? (
           <p class="hs-warn" role="alert">
             暗号化されない表計算のファイルに、家族の生年月や金額などの今の値が載ります。送り方と保管に気をつけてください（書き出したことを記録します）。
