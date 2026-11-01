@@ -14,7 +14,7 @@ import { isAutoSmr } from "../input/smr.ts";
 import { convertPeriod } from "../input/stages/work.ts";
 import { ageReachedMonth } from "../levers.ts";
 import type { Option } from "../input/form.ts";
-import type { Box, EmploymentPeriod, Household, Member } from "../../engine/types.ts";
+import type { Box, EmploymentPeriod, Household, Member, Timepoint } from "../../engine/types.ts";
 import { buildStages, STAGE_ORDER } from "../input/stages/index.ts";
 import { pctFromRate, sameRate } from "../input/units.ts";
 import { addMonths, advisoryFeeInCurrent, hasAdvisoryFee, LEVER_KEYS, parseYm, readLevers, type LeverKey, type LeverValues } from "../levers.ts";
@@ -435,7 +435,7 @@ function investRateBase(req: EngineRequest): string {
   return rateText(avg);
 }
 
-/** 毎月の積立額を変える: 増やした分は本人の NISA のつみたて投資枠（無ければ合計の器・預金）のどの期間にも足し、減らした分はどの積立も同じ割合で減らす */
+/** 毎月の積立額を変える: 増やした分は本人の NISA のつみたて投資枠（無ければ合計の器・預金）のどの期間にも足し（今の月にかかる期間が無ければ今から次の期間の前までを足す）、減らした分はどの積立も同じ割合で減らす */
 function applyMonthly(w: WorkingHousehold, v: number): WorkingHousehold {
   const now = investMonthlyNow(w.request);
   const delta = v - now;
@@ -448,8 +448,19 @@ function applyMonthly(w: WorkingHousehold, v: number): WorkingHousehold {
       const target = list.find((a) => a.kind === "nisa" && a.owner === self?.id) ?? list.find((a) => a.kind === "pooled") ?? list.find((a) => a.kind === "deposit") ?? list[0];
       if (target === undefined) return;
       const own = (target.contributions ?? []).filter((c) => c.tranche !== "growth" && c.payer !== "employer");
-      if (own.length === 0) (target.contributions ??= []).push({ from: { at: req.input.baseMonth }, to: null, monthly: delta });
-      else for (const c of own) c.monthly += delta;
+      const base = req.input.baseMonth;
+      if (own.length === 0) (target.contributions ??= []).push({ from: { at: base }, to: null, monthly: delta });
+      else {
+        for (const c of own) c.monthly += delta;
+        // 今の月にかかる積立が無いとき（積立が来年から始まるなど）は、今の月から次の積立の前の月までの積立を足す（足さないと「今の額」を上げても今は積み立てない）
+        const at = (t: Timepoint | null | undefined) => (t == null ? null : resolveTimepoint(h, t));
+        const covers = own.some((c) => (at(c.from) ?? base) <= base && (c.to == null || (at(c.to) ?? base) >= base));
+        if (!covers) {
+          const next = own.map((c) => at(c.from)).filter((x): x is string => x !== null && x > base).sort()[0];
+          const tranche = own.find((c) => c.tranche !== undefined)?.tranche;
+          (target.contributions ??= []).push({ from: { at: base }, to: next !== undefined ? { at: addMonths(next, -1) } : null, monthly: delta, ...(tranche !== undefined ? { tranche } : {}) });
+        }
+      }
       return;
     }
     const k = now > 0 ? Math.max(0, v) / now : 0;
