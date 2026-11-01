@@ -36,7 +36,8 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     plain({ key: `${k}/kind`, item: "account.kind", label: "種類", level: "simple", kind: "select", options: ACCOUNT_KINDS, find, path: ["kind"], structural: true }),
     plain({ key: `${k}/owner`, item: "account.owner", label: "名義", level: "simple", kind: "select", options: memberOptions(wh), find, path: ["owner"] }),
     yenBox({ key: `${k}/value`, item: "account.marketValue", label: a.subtype === "ownCompanyShares" ? "出資額（払い込んだ額）" : a.subtype === "loanToCompany" ? "今の貸付金の残り" : "今の評価額", level: "simple", basis: "once", find, path: ["marketValue"] }),
-    plain({ key: `${k}/asOf`, item: "account.asOf", label: "評価額の時点", level: "detail", kind: "ym", find, path: ["asOf"] }),
+    // 開いても欄が1つだけになるので、標準でも出す
+    plain({ key: `${k}/asOf`, item: "account.asOf", label: "評価額の時点", level: "simple", kind: "ym", find, path: ["asOf"] }),
     plain({
       key: `${k}/growth`,
       item: "account.valueGrowth",

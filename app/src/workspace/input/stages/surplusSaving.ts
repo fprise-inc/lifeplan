@@ -247,7 +247,8 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
         key: "living/surplus/cap",
         item: ITEM,
         label: "貯金に回る額の上限（年）",
-        level: "detail",
+        // 開いても欄が1つだけになるので、標準でも出す（期間を変える行の上限は詳細のまま）
+        level: "simple",
         kind: "yen",
         basis: "annual",
         optional: true,

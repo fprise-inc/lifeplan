@@ -42,7 +42,7 @@ export const LEVEL_HELP: Readonly<Record<StageId, LevelHelpDef>> = {
   },
   living: {
     simple: [["毎月の生活費", "基本生活費（月額）"], ["退職後の生活費", "退職後の生活費（今の額に対する割合）"], ["黒字のうち貯金に回る割合", "毎年の黒字のうち、貯金に回る割合"]],
-    detail: [["伸び方"], ["退職後のほかの節目の段階", "節目"], ["貯金に回る額の上限"]],
+    detail: [["伸び方"], ["退職後のほかの節目の段階", "節目"]],
     fallback: "default",
   },
   education: {

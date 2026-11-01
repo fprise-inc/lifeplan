@@ -213,8 +213,8 @@ function outOfSchoolGroups(wh: WorkingHousehold, goal: Goal, child: Member): Gro
       key: `edu/${goal.id}/outMode`,
       item: "goal.education",
       label: "学校外の費用の入れ方",
-      // 統計の平均で十分なことが多いので詳細（塾の予定がはっきりしている人だけ行で入れる。0078）
-      level: "detail",
+      // 統計の平均で入れるときは、まとまりごと詳細でだけ出す（下の out）。行で入れているときは、標準でも欄を出す（開いても欄が1つだけになるため）
+      level: "simple",
       kind: "select",
       options: [...OUT_OF_SCHOOL_MODES, ...(mode === "legacy" ? [LEGACY_MODE] : [])],
       structural: true,
@@ -1163,7 +1163,8 @@ function abroadGroups(wh: WorkingHousehold, goal: Goal): GroupDef[] {
             key: `${k}/on`,
             item: "goal.education",
             label: "万一のときの扱い",
-            level: "detail",
+            // 開いても欄が1つだけになるので、標準でも出す
+            level: "simple",
             kind: "select",
             options: ABROAD_CONTINGENCY,
             help: "万一（死亡）の想定の月の翌月より後の留学を、やめる（払わない）か続けるか",

@@ -690,6 +690,9 @@ function replaceFields(c: Car, i: number, k: string): FieldDef[] {
     "「○歳まで買い替える」は「詳細」で選べます（最後の買い替えの後は、手放す時期まで乗ります）",
     ...(i > 0 ? ["2台目は、買い替えずにこの1台だけのことも多いです"] : []),
   ].join("。");
+  const kind = replaceKind(c);
+  // 標準の「買い替え」を「▸ 続きを見る」で詳細の欄に入れ替えたときの知らせ（選べる物が増えるときだけ。「○歳まで」を選んでいる車は、標準でも3つとも出す）
+  const swapNote = kind === "until" ? undefined : "買い替えに、「○歳まで買い替える」を足して出しています";
   const def = (key: string, level: Level, options: { value: string; label: string }[], simpleOnly: boolean): FieldDef =>
     withAddress(
       {
@@ -708,11 +711,10 @@ function replaceFields(c: Car, i: number, k: string): FieldDef[] {
           },
           set: (w, v) => setReplace(w, c.id, v === "none" ? "none" : v === "until" ? "until" : "repeat"),
         }),
-        ...(simpleOnly ? { simpleOnly: true } : {}),
+        ...(simpleOnly ? { simpleOnly: true, ...(swapNote !== undefined ? { swapNote } : {}) } : {}),
       },
       addr(c.id, "car.replace"),
     );
-  const kind = replaceKind(c);
   return [def(`${k}/replace`, "simple", kind === "until" ? [opts.repeat, opts.none, opts.until] : [opts.repeat, opts.none], true), def(`${k}/replaceAll`, "detail", [opts.repeat, opts.none, opts.until], false)];
 }
 

@@ -647,10 +647,10 @@ describe("区画（0048 の3〜5）", () => {
     expect((w2.request.input.household as { savingsChecks?: unknown }).savingsChecks).toBeUndefined();
   });
 
-  it("黒字の上限は詳細、黒字の行き先と遺族の生活費は読むだけの1行。欄はどれも当て先を持つ（読むだけの行を除く）", () => {
+  it("黒字の上限は標準（開いても欄が1つだけになるため）、黒字の行き先と遺族の生活費は読むだけの1行。欄はどれも当て先を持つ（読むだけの行を除く）", () => {
     const wh = family();
     const fields = allFields(stage(wh));
-    expect(fields.find((f) => f.key === "living/surplus/cap")!.level).toBe("detail");
+    expect(fields.find((f) => f.key === "living/surplus/cap")!.level).toBe("simple");
     const dest = fields.find((f) => f.key === "ro/living/surplus/destination")!;
     expect(dest.readOnly).toBeDefined();
     expect(dest.get(wh).value).toContain("収支が入る口座");

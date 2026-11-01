@@ -108,8 +108,8 @@ describe("FP顧問料の入力", () => {
     expect(fieldOf(wh, "/inCurrent").get(wh).value).toBe(false);
     // 現状には入らない（現状の計算に顧問料の行が無い）
     expect(advisoryFeeSummary(preview(wh.request))).toBeNull();
-    // 標準の欄は単発の料金・継続の顧問料（月額）・終わり（と現状にも入れるか）。払う人・払い方・始まり・万一のときの扱いは詳細、値上げの率は無い
-    expect(std(wh)).toEqual(["inCurrent", "one/0/amount", "rec/monthly", "rec/to"]);
+    // 標準の欄は単発の料金と払う年月・継続の顧問料（月額）・終わり（と現状にも入れるか）。払う人・払い方・始まり・万一のときの扱いは詳細、値上げの率は無い
+    expect(std(wh)).toEqual(["inCurrent", "one/0/amount", "one/0/at", "rec/monthly", "rec/to"]);
     expect(fields(wh).some((f) => f.key.endsWith("/payer") || f.key.endsWith("/rec/rate"))).toBe(false);
     expect(fieldOf(wh, "/rec/basis").level).toBe("detail");
     expect(fieldOf(wh, "/rec/from").level).toBe("detail");

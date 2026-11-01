@@ -193,9 +193,9 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
   const h0 = wh.request.input.household;
   const self = h0.members.find((m) => m.kind === "self");
   const ageOf = self !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === self.id) } : {};
-  // 住み替え（住まいが2つ以上）なら、住み始め・住み終わりを簡易に出す
-  const moving = (h0.residences ?? []).length > 1;
+  // 住み替え（住まいが2つ以上）か家賃なしの住まいなら、住み始め・住み終わりを標準でも出す（家賃なしは、ほかの欄が少ないため）
   const free = isFree(r);
+  const showPeriod = (h0.residences ?? []).length > 1 || free;
   const ml = maintenanceLabels(r);
   const fields: FieldDef[] = [
     {
@@ -219,8 +219,8 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
       }),
       address: () => at(r.id, "residence.kind"),
     },
-    timepointField({ key: `${k}/from`, item: "residence.from", label: "住み始め", level: moving ? "simple" : "detail", find, path: ["from"], mode: "ym", anchor: "moveIn", ...ageOf }),
-    timepointField({ key: `${k}/to`, item: "residence.to", label: "住み終わり", level: moving ? "simple" : "detail", find, path: ["to"], startPath: ["from"], optional: true, nullText: "最後まで住む", ...ageOf }),
+    timepointField({ key: `${k}/from`, item: "residence.from", label: "住み始め", level: showPeriod ? "simple" : "detail", find, path: ["from"], mode: "ym", anchor: "moveIn", ...ageOf }),
+    timepointField({ key: `${k}/to`, item: "residence.to", label: "住み終わり", level: showPeriod ? "simple" : "detail", find, path: ["to"], startPath: ["from"], optional: true, nullText: "最後まで住む", ...ageOf }),
   ];
   if (r.kind === "rent" && !free) {
     fields.push(
@@ -301,7 +301,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
     return stagedBadge(r as unknown as Record<string, unknown>, [part as string, "stages"], [part as string, "exceptions"], what as string);
   }).filter((x) => x !== null);
   const actions: ActionDef[] = [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.residences = (h.residences ?? []).filter((x) => x.id !== r.id)))];
-  if (free && r.to === null) actions.unshift({ key: `${k}/inherit`, label: "この家を相続する", help: "住まいを持ち家に切り替えます", level: "detail", run: (w) => inheritHome(w, r.id) });
+  if (free && r.to === null) actions.unshift({ key: `${k}/inherit`, label: "この家を相続する", help: "住まいを持ち家に切り替えます", level: "simple", run: (w) => inheritHome(w, r.id) });
   // 購入の予定の持ち家は「住宅の購入」の1件（購入の欄を頭に、住まいの欄をその後に。別の住まいを足したように見せない）
   const buying = r.kind === "own" && r.purchase !== undefined;
   if (buying) fields.unshift(...purchaseFields(wh, r, k));
@@ -309,7 +309,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
     {
       key: k,
       title: buying ? "住宅の購入" : `住まい ${i + 1}（${free ? "家賃なし" : r.kind === "rent" ? "賃貸" : "持ち家"}）`,
-      ...(badges.length > 0 ? { note: `${badges.join("、")}（「詳細」で直せます）` } : free ? { note: "家賃はかかりません。住んでいる家を相続するなら、「詳細」の「この家を相続する」で持ち家に切り替えます（貯蓄・運用の不動産には入れません）" } : {}),
+      ...(badges.length > 0 ? { note: `${badges.join("、")}（「詳細」で直せます）` } : free ? { note: "家賃はかかりません。住んでいる家を相続するなら、「この家を相続する」で持ち家に切り替えます（貯蓄・運用の不動産には入れません）" } : {}),
       level: "simple",
       fields,
       actions,
