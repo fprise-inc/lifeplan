@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.47";
+pub const CURRENT: &str = "0.48";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -155,11 +155,16 @@ pub const CURRENT: &str = "0.47";
 ///   版を上げて閲覧だけにする）。変換の段は、前の奨学金を世帯で返す（`repaidBy: household`。前の計算は返済を世帯の収支に入れていたので、結果を
 ///   変えない）にし、子の成人式の行（名前に「成人式」・時期が年月の1回の行）のうち、時期がちょうど1人の子の成人式の月（20歳になる年度の1月）で、
 ///   名前の「第N子」がほかの子を指していない行を、その子の年齢の時点に置き直す（月は変わらない）。プランで足した物も同じに直す
+/// - 0.48: 役員として働く人の家計の側の欄を足した（0105。足すだけの MINOR）: その他の資産の細目 `accounts[].subtype`（自社株〔出資額〕
+///   `ownCompanyShares`・会社への貸付金 `loanToCompany`）、ローンの種類の細目 `debts[].subtype` の `companyLoan`（会社からの借入金）、構成員の
+///   `companyGuarantee`（会社の借入の連帯保証の額。負債には入れない）、資産と負債のタブの家計の体力の目安の分母 `display.balance.guide.basis`
+///   （生活費 `living`・生活費＋ローン返済 `livingLoan`。省略は世帯から決める）。前の版のアプリは細目と保証の額を読み落として書き戻すので、
+///   版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
-    "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47",
+    "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48",
 ];
 
 /// 1段分の変換
@@ -400,6 +405,11 @@ pub const STEPS: &[Step] = &[
         from: "0.46",
         to: "0.47",
         apply: v0_46_to_0_47,
+    },
+    Step {
+        from: "0.47",
+        to: "0.48",
+        apply: v0_47_to_0_48,
     },
 ];
 
@@ -1766,6 +1776,16 @@ fn v0_46_to_0_47(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.47 → 0.48: 足した欄（その他の資産の細目 `subtype`・ローンの細目 `companyLoan`・構成員の `companyGuarantee`・体力の目安の分母 `basis`。0105）は
+/// 任意なので足さない。形式の版だけを書き換える（前の版の世帯は細目なしの「その他の資産」「その他のローン」のまま。分母は世帯から決める）
+fn v0_47_to_0_48(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.48".into());
+    }
+    Ok(body)
+}
+
 /// 0.17 で ID を振る並び（物の集まり → その物から並びまでの欄の名前。0035 の5）
 const ELEMENT_LISTS: &[(&str, &[&[&str]])] = &[
     ("livingExpenses", &[&["stages"], &["categories"]]),
@@ -2308,7 +2328,8 @@ mod tests {
         assert_eq!(access("0.45").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.46").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.47").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.48").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.48").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.49").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -2321,7 +2342,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.48", b.clone()).unwrap(),
+            upgrade("0.49", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -2558,7 +2579,7 @@ mod tests {
             ]}}}}
         });
         let u = upgrade("0.43", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.47");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
     }
 
@@ -2572,7 +2593,7 @@ mod tests {
             ]}}}}
         });
         let u = upgrade("0.44", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.47");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
     }
 
@@ -2610,7 +2631,7 @@ mod tests {
             ]}]
         });
         let u = upgrade("0.46", b).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.47");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         let h = &u["household"]["request"]["input"]["household"];
         let s = &h["goals"][0]["education"]["scholarships"];
         // 前の奨学金は世帯で返す（前の計算のまま）。もう返す人がある物は変えない
@@ -2647,6 +2668,22 @@ mod tests {
     }
 
     #[test]
+    fn v0_47_to_0_48_only_bumps_version() {
+        // 足した欄（自社株・会社への貸付金・会社からの借入金・保証の額・体力の目安の分母。0105）は任意なので、前の版の資産と負債はそのまま
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.47"},
+            "household": {"request": {"input": {"baseMonth": "2026-10", "household": {
+                "accounts": [{"id": "a1", "kind": "otherAsset", "owner": "m1", "marketValue": {"value": 3000000, "state": "confirmed", "origin": {"kind": "manual"}}, "asOf": "2026-09", "contributions": []}]
+            }}}},
+            "display": {"balance": {"guide": {"months": [6, 12], "risk": [10, 40], "debt": 50}}}
+        });
+        let u = upgrade("0.47", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.48");
+        assert_eq!(u["household"], b["household"]);
+        assert_eq!(u["display"], b["display"]);
+    }
+
+    #[test]
     fn v0_45_to_0_46_only_bumps_version() {
         // 足した欄（夢プラン・子への援助の優先度。0103）は任意なので、前の版の行と援助はそのまま（援助は「必ず」）
         let b = serde_json::json!({
@@ -2657,7 +2694,7 @@ mod tests {
             }}}}
         });
         let u = upgrade("0.45", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.47");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
     }
 

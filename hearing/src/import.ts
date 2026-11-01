@@ -4,7 +4,7 @@
 // - 不足（計算に要る欄が空）・矛盾・読めない値を知らせ、面談のチェックリストに載せる（「わからない」も載せる。0018 の6）
 // - 空欄・「わからない」を目安で補った欄には、入力の画面の「推定あり」（0008 の 2026-10-11 の追記の2）と同じ印を付ける:
 //   値の箱を持つ欄は state: estimated（わからないは unknown＋substitute）、値の箱を持たない欄は assumed（欄のキー → 理由）
-import full1 from "../sheets/full/1.json" with { type: "json" };
+import full2 from "../sheets/full/2.json" with { type: "json" };
 import { answerKey, type Answer, type FilledSheet } from "./answers.ts";
 import { axisOf, itemByKey, type SheetDefinition, type SheetItem } from "./definition.ts";
 import { bonusShareEstimate, businessEstimate, careerStartMonth, HEARING_UNKNOWN_BASIS, healthRateEstimate, livingEstimate, residentTaxEstimate, residentTaxYear, retirementLumpSumEstimate, salaryEstimate, type Estimate } from "./estimates.ts";
@@ -124,7 +124,8 @@ export interface ImportResult {
   readonly pending: readonly Answer[];
   readonly record: ImportRecord;
   /**
-   * ローンの入れ方の区分（入力の画面の住まい・ローンのカード。負債の ID → 「今の残高から」）。簡易版の残高と毎月の返済額から作った住宅ローン。
+   * ローンの入れ方の区分（入力の画面の住まい・ローンのカード。負債の ID → 「今の残高から」）。簡易版の残高と毎月の返済額から作った住宅ローンと、
+   * 詳細版の会社からの借入金の残高から作った借入。
    * 画面の見せ方と逆算の決まりだけで、計算の要求には入れない
    */
   readonly loanEntry: Readonly<Record<string, "balance">>;
@@ -151,8 +152,8 @@ type Got<T> =
 const SALARIED = new Set(["regular", "contract", "partTime", "civilServant", "executive"]);
 const MAIN_JOB = new Set(["regular", "contract", "civilServant", "executive"]);
 
-/** シートの外の項目キーの表示名（簡易版のシートで聞かない欄を補ったときの知らせ・面談のチェックリストに使う。詳細版の言葉） */
-const FALLBACK = full1 as unknown as SheetDefinition;
+/** シートの外の項目キーの表示名（簡易版のシートで聞かない欄を補ったときの知らせ・面談のチェックリストに使う。詳細版の今の版の言葉） */
+const FALLBACK = full2 as unknown as SheetDefinition;
 const FALLBACK_ITEMS = itemByKey(FALLBACK);
 
 /** 項目キーの表示名（シート定義に無い項目は詳細版の言葉。どちらにも無ければキーのまま） */
@@ -474,6 +475,7 @@ export function importAnswers(def: SheetDefinition, filled: FilledSheet, options
   importHousing(c, h, adults, asOf, options.baseMonth);
   importEducation(c, h);
   importAssets(c, h, adults, periods, asOf);
+  importCompany(c, h, adults, asOf);
   importInsurance(c, h, adults, options.baseMonth);
   importLiving(c, h, asOf, options.baseMonth);
   importMemoAndConsent(c);
@@ -544,6 +546,10 @@ const SPOUSE_KEYS = [
   "hs.assets.deposit",
   "hs.assets.nisa",
   "hs.assets.ideco",
+  "hs.company.shares",
+  "hs.company.loanToCompany",
+  "hs.company.loanFromCompany",
+  "hs.company.guarantee",
 ];
 
 function importFamily(c: Ctx, h: Household, baseMonth: string, asOf: string): Adults {
@@ -579,6 +585,7 @@ function importFamily(c: Ctx, h: Household, baseMonth: string, asOf: string): Ad
     c.assume(`family/${selfId}/birth`, "仮の値（40歳として計算）", { objectId: selfId, key: B, index: 1, item: "member.birth", path: "/birth/birthYearMonth" });
   }
   const self: Member = { id: selfId, kind: "self", birth: { birthYearMonth: birth, bornOnFirst: false }, sex: sexOf(c, selfId, S, 1, "male"), joins: null, leaves: null, expected: false };
+  companyGuarantee(c, self, 1);
   h.members.push(self);
   c.candidate("members", "member.kind", self);
 
@@ -601,6 +608,7 @@ function importFamily(c: Ctx, h: Household, baseMonth: string, asOf: string): Ad
       c.assume(`family/${id}/birth`, "仮の値（ご本人と同じ年月として計算）", { objectId: id, key: B, index: 2, item: "member.birth", path: "/birth/birthYearMonth" });
     }
     spouse = { id, kind: "spouse", birth: { birthYearMonth: sBirth, bornOnFirst: false }, sex: sexOf(c, id, S, 2, self.sex === "male" ? "female" : "male"), joins: null, leaves: null, expected: false };
+    companyGuarantee(c, spouse, 2);
     h.members.push(spouse);
     const mg = c.get<string>("hs.family.spouse.marriage");
     let marriage: "legal" | "deFacto" = "legal";
@@ -1448,6 +1456,112 @@ function importAssets(c: Ctx, h: Household, adults: Adults, periods: Map<string,
     h.accounts.unshift(a);
     c.candidate("accounts", "account.kind", a);
   }
+}
+
+// ---- 会社役員の方の会社とのお金（0105） ----
+
+const COMPANY_ACCOUNTS: readonly [string, NonNullable<Account["subtype"]>, string][] = [
+  ["hs.company.shares", "ownCompanyShares", "出資額"],
+  ["hs.company.loanToCompany", "loanToCompany", "会社への貸付金"],
+];
+const COMPANY_LOAN = "hs.company.loanFromCompany";
+const COMPANY_LOAN_MONTHLY = "hs.company.loanFromCompanyMonthly";
+/** 会社からの借入金の仮の利率（入力の画面の会社からの借入金の既定の値と同じ: 利息なし） */
+const COMPANY_LOAN_RATE = "0";
+/** 毎月の返済額が無いときの返済期間（入力の画面の「今の残高から」のほかのローンと同じ: 5年） */
+const COMPANY_LOAN_TERM = 60;
+/** 毎月の返済額から逆算した返済期間の仮の印の理由の頭（書き出しで、返済額を記入し直してよい期間かの見分けに使う） */
+export const DERIVED_TERM = "逆算";
+const COMPANY_LOAN_NOTE =
+  "会社からの借入金の残高から置いた借入です（入れ方は「今の残高から」）。利率は契約で決めた率を入れてください（入れなければ利息なしで計算します）。借りた年月・借入額・返済期間は仮の値なので、面談で確かめてください";
+
+/** 会社の借入の連帯保証の額（構成員の欄。負債には入れない） */
+function companyGuarantee(c: Ctx, m: Member, n: number): void {
+  const K = "hs.company.guarantee";
+  if (!c.has(K)) return;
+  const g = c.get<number>(K, n);
+  if (g.status === "value") {
+    m.companyGuarantee = c.confirmed(g.value);
+    c.field(m.id, K, n, "member.companyGuarantee", "/companyGuarantee", "confirmed");
+  } else if (g.status === "notApplicable") {
+    m.companyGuarantee = c.notApplicable();
+    c.field(m.id, K, n, "member.companyGuarantee", "/companyGuarantee", "notApplicable");
+  } else if (g.status === "unknown") {
+    // わからない（状態 unknown）。値の箱の決まりで代わりの値が要るので0円を置く（計算には使わない欄。面談のチェックリストには載る）
+    m.companyGuarantee = c.unknown({ value: 0, basis: "連帯保証の額がわからないため0円（計算には使わない）" }, "derived");
+    c.field(m.id, K, n, "member.companyGuarantee", "/companyGuarantee", "unknown");
+  }
+}
+
+/**
+ * 自社株の出資額・会社への貸付金（その他の資産の器。細目つき）と、会社からの借入金（ほかのローン。細目 companyLoan）。
+ * 借入金は入力の画面の「今の残高から」の形: 借りたのは記入の年月・借入額は残高（仮）、利率は利息なし（仮）、
+ * 毎月の返済額があれば利息なしとして返済期間を逆算し、無ければ5年で返すとみなす（仮）
+ */
+function importCompany(c: Ctx, h: Household, adults: Adults, asOf: string): void {
+  adults.forEach((m, i) => {
+    const n = i + 1;
+    if (m === undefined) return;
+    for (const [key, subtype, what] of COMPANY_ACCOUNTS) {
+      if (!c.has(key)) continue;
+      const g = c.get<number>(key, n);
+      if (g.status !== "value" && g.status !== "unknown") continue;
+      const id = c.newId();
+      let mv: ValueBox<number>;
+      if (g.status === "value") {
+        mv = c.box(key, n, g.value);
+        c.field(id, key, n, "account.marketValue", "/marketValue", "confirmed");
+      } else {
+        mv = c.unknownAsEstimate(key, n, { value: 0, basis: `${what}がわからないため0円として計算` }, "derived");
+        c.field(id, key, n, "account.marketValue", "/marketValue", "estimated");
+      }
+      const a: Account = { id, kind: "otherAsset", subtype, owner: m.id, marketValue: mv, asOf, contributions: [] };
+      h.accounts.push(a);
+      c.candidate("accounts", "account.kind", a);
+    }
+    importCompanyLoan(c, h, m, n, asOf);
+  });
+}
+
+function importCompanyLoan(c: Ctx, h: Household, m: Member, n: number, asOf: string): void {
+  if (!c.has(COMPANY_LOAN)) return;
+  const bal = c.get<number>(COMPANY_LOAN, n);
+  const pay = c.get<number>(COMPANY_LOAN_MONTHLY, n);
+  const payV = pay.status === "value" && pay.value > 0 ? pay.value : null;
+  if (bal.status !== "value" || bal.value <= 0) {
+    if (payV !== null && bal.status !== "unknown") c.missing(COMPANY_LOAN, n, "毎月の返済額がありますが、残高がありません（取り込みませんでした）");
+    return;
+  }
+  const id = c.newId();
+  const at = (k: string, item: string, path: string) => ({ objectId: id, key: k, index: n, item, path });
+  c.field(id, COMPANY_LOAN, n, "debt.balance", "/balance", "confirmed");
+  let termMonths = COMPANY_LOAN_TERM;
+  const months = payV === null ? null : monthsFromPayment(bal.value, payV, Number(COMPANY_LOAN_RATE));
+  if (payV !== null && months !== null && months <= 600) {
+    termMonths = months;
+    c.assume(`housing/debt/${id}/term`, `${DERIVED_TERM}（残高 ${bal.value.toLocaleString("ja-JP")}円・毎月の返済額 ${payV.toLocaleString("ja-JP")}円・利息なしとして ${months}か月）`, at(COMPANY_LOAN_MONTHLY, "debt.repayment", "/repayment/termMonths"));
+  } else {
+    if (payV !== null) c.contradiction(COMPANY_LOAN_MONTHLY, n, "毎月の返済額では、残高を50年で返しきれない計算になります（返済期間は5年として計算しました。面談で確かめてください）");
+    c.assume(`housing/debt/${id}/term`, "仮の値（毎月の返済額が無いため、5年で返すとみなしています）", at(COMPANY_LOAN, "debt.repayment", "/repayment/termMonths"));
+  }
+  c.assume(`housing/debt/${id}/fromBalance`, "仮の値（残高の時点〔記入の年月〕から借りたとみなす。借りた年月・借入額は面談で確かめてください）", at(COMPANY_LOAN, "debt.principal", "/principal"));
+  c.field(id, COMPANY_LOAN, n, "debt.start", "/start/at", "assumed");
+  c.assume(`housing/debt/${id}/rate`, "仮の値（会社からの借入の利率は契約で決めた率を入れてください。入れなければ利息なしで計算します）", at(COMPANY_LOAN, "debt.rateSchedule", "/rateSchedule/0/rate"));
+  const d: Debt = {
+    id,
+    kind: "other",
+    subtype: "companyLoan",
+    debtors: [{ member: m.id, role: "primary" }],
+    principal: bal.value,
+    start: { at: asOf },
+    balance: c.box(COMPANY_LOAN, n, bal.value),
+    balanceAsOf: asOf,
+    rateSchedule: [{ from: { at: asOf }, type: "fixed", rate: COMPANY_LOAN_RATE }],
+    repayment: { method: "equalPayment", termMonths },
+  };
+  (h.debts ??= []).push(d);
+  c.loanEntry[id] = "balance";
+  c.candidate("debts", "debt.kind", d, undefined, COMPANY_LOAN_NOTE);
 }
 
 // ---- 保険 ----

@@ -12,7 +12,7 @@ import { healthOf, monthsValue, scaleFor, type HealthItem } from "./bsLayout.ts"
 import { FALLBACK, colsOf, resolveColumns, nextColumns, type ResolvedColumn } from "./bsColumns.ts";
 import { group, man, manDiff } from "./format.ts";
 import { PopIcon } from "./icons.tsx";
-import type { BalanceTabModel, BsColumn, BsCustomViewModel, BsGroupKey, BsGuide, BsPlanModel, BsPointKey, BsYearModel, MoneyThreeModel, MoneyThreeWording, MoneyThreeSettings, VerdictPart, Yen } from "./model.ts";
+import type { BalanceTabModel, BsColumn, BsCustomViewModel, BsGroupKey, BsGuide, BsGuideBasis, BsPlanModel, BsPointKey, BsYearModel, MoneyThreeModel, MoneyThreeWording, MoneyThreeSettings, VerdictPart, Yen } from "./model.ts";
 import { MoneyThreeSection } from "./MoneyThree.tsx";
 import { revealAdded } from "./revealAdded.ts";
 
@@ -313,8 +313,25 @@ function OneYear({ model, plan, year, yi, onPick, onAdjusted, height }: { model:
             <span class="bs-ev none">この年の出来事なし</span>
           )}
         </div>
+        {year.guarantee > 0 ? <GuaranteeNote year={year} /> : null}
         <Spark plan={plan} yi={yi} onPick={onPick} />
       </aside>
+    </div>
+  );
+}
+
+/**
+ * 会社の借入の連帯保証（0105）: 負債の合計には入れず、図の外に点線の箱で見せる。今の年だけ（保証の額は今の額で、先の年は見込まない）
+ */
+function GuaranteeNote({ year }: { year: BsYearModel }) {
+  return (
+    <div class="bs-guarantee" data-bs-guarantee>
+      <span class="k">会社の借入の連帯保証</span>
+      <span class="v num">{mn(year.guarantee)}</span>
+      <span class="t">
+        保証を含めると純資産は<b class="num">{mn(year.netWorth - year.guarantee)}</b>
+      </span>
+      <small>保証は負債の合計に入れていません（会社が返している間は、家計から返済は出ないため）</small>
     </div>
   );
 }
@@ -324,7 +341,7 @@ function OneYearBelow({ model, plan, year, adjusted, onEditGuide }: { model: Bal
   return (
     <>
       {adjusted ? <p class="bs-adjnote">※小さい項目は読める高さにしているため、その箱だけ高さが金額の比例より少し大きめです</p> : null}
-      <HealthCard year={year} first={plan.years[0] as BsYearModel} guide={model.guide} onEditGuide={onEditGuide} wide />
+      <HealthCard year={year} first={plan.years[0] as BsYearModel} guide={{ ...model.guide, basis: model.guide.basis ?? model.guideBasis }} onEditGuide={onEditGuide} wide />
     </>
   );
 }
@@ -409,13 +426,14 @@ const HealthText = ({ item }: { item: HealthItem }) => (
 /** 家計の体力の目安。onEditGuide を渡すと「目安の幅を変える」（このタブの表示の設定を開く）を出す。wide は横いっぱいに4つ並べる（狭い幅では折り返す） */
 export function HealthCard({ year, first, guide, onEditGuide, wide = false }: { year: BsYearModel; first: BsYearModel; guide: BsGuide; onEditGuide?: () => void; wide?: boolean }) {
   const h = healthOf(year, guide);
-  const mv = h.months.value !== null ? monthsValue(h.months.value) : null;
+  const withLoan = guide.basis === "livingLoan";
+  const mv = h.months.value !== null ? monthsValue(h.months.value, withLoan) : null;
   const d = year.netWorth - first.netWorth;
   return (
-    <div class={`bs-health${wide ? " wide" : ""}`} data-bs-health>
+    <div class={`bs-health${wide ? " wide" : ""}`} data-bs-health data-bs-basis={withLoan ? "livingLoan" : "living"}>
       <div class="hh2">
         家計の体力の目安 <KindTag fact={year.fact} />
-        <small>{year.living > 0 ? `生活費 月${man(year.living / 12)}万円で計算` : ""}</small>
+        <small>{year.living > 0 ? (withLoan ? `生活費＋ローン返済 月${man((year.living + year.loanPay) / 12)}万円で計算` : `生活費 月${man(year.living / 12)}万円で計算`) : ""}</small>
       </div>
       <div class="hm" data-health="months">
         <span class="hk">すぐ使えるお金</span>
@@ -463,7 +481,14 @@ export function HealthCard({ year, first, guide, onEditGuide, wide = false }: { 
   );
 }
 
-function GuideEditor({ guide, onGuide }: { guide: BsGuide; onGuide: (g: BsGuide) => void }) {
+/** 「何か月分」の分母の選択肢（0105） */
+const GUIDE_BASES: readonly { key: BsGuideBasis; label: string }[] = [
+  { key: "living", label: "生活費の何か月分" },
+  { key: "livingLoan", label: "生活費＋ローン返済の何か月分" },
+];
+
+function GuideEditor({ guide, basisDefault, onGuide }: { guide: BsGuide; basisDefault: BsGuideBasis; onGuide: (g: BsGuide) => void }) {
+  const basis = guide.basis ?? basisDefault;
   const num = (v: string, def: number) => {
     const x = Number(v);
     return Number.isFinite(x) && x >= 0 ? x : def;
@@ -482,6 +507,17 @@ function GuideEditor({ guide, onGuide }: { guide: BsGuide; onGuide: (g: BsGuide)
   return (
     <div class="hg-edit" role="group" aria-label="家計の体力の目安の幅">
       <p>家計の体力の目安で、ゲージに帯で見せる幅です（最初の値: 6〜12か月分・10〜40%・50%未満）。</p>
+      <div class="hg-row" role="radiogroup" aria-label="すぐ使えるお金の分母">
+        すぐ使えるお金を
+        {GUIDE_BASES.map((b) => (
+          <label key={b.key} class="hg-f">
+            <input type="radio" name="bs-guide-basis" value={b.key} checked={basis === b.key} onChange={() => onGuide({ ...guide, basis: b.key })} data-guide-basis={b.key} />
+            <span>{b.label}</span>
+          </label>
+        ))}
+        で見る
+      </div>
+      <p class="hg-note">分母の初めの値は、役員として働く方のいる世帯は「生活費＋ローン返済」、ほかの世帯は「生活費」です（ローン返済に、家賃収入で返す不動産のローンは入れません）。</p>
       <div class="hg-row">
         すぐ使えるお金 {box("下限", guide.months[0], (v) => set({ months: [v, guide.months[1]] }), "か月分", "months0")}〜{box("上限", guide.months[1], (v) => set({ months: [guide.months[0], v] }), "か月分", "months1")}
       </div>
@@ -839,7 +875,7 @@ export function BalanceSettingsPanel({
       </div>
       <div class="ds-layout ds-bspoints" data-bs-guide-setting>
         <span class="ds-k">家計の体力の目安の幅</span>
-        <GuideEditor guide={model.guide} onGuide={onGuide} />
+        <GuideEditor guide={model.guide} basisDefault={model.guideBasis} onGuide={onGuide} />
       </div>
       {moneyThree !== undefined ? (
         <div class="ds-layout" role="radiogroup" aria-label="お金の3つの分け方の呼び方" data-m3-names-setting>

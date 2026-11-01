@@ -6,7 +6,7 @@
 //   貯めるお金の全部の表（年・できごと・支出・収入の残り・賄えない分）は別に持つ（画面では「内訳を見る」で開く）。
 // - 文は事実だけ（勧める言葉は書かない）。物の ID・FP のメモは入れない
 import { moneyThree, MONEY_THREE_MONTHS, MONEY_THREE_YEARS, type MoneyThreeEventPart, type MoneyThreeRegularKind, type MoneyThreeResult } from "../../engine/src/explain/moneyThree.ts";
-import { bsSeries, type BsGroup, type Yen } from "./bsGroups.ts";
+import { bsHouseholdOf, bsSeries, type BsGroup, type Yen } from "./bsGroups.ts";
 import type { TableCell } from "./bundle.ts";
 import { parseYm, roles } from "./build.ts";
 
@@ -26,7 +26,7 @@ export interface MoneyThreeHouseholdRequest {
       goals?: readonly { kind: string; owner?: string; education?: { stages: readonly { stage: string }[] } }[];
       cars?: readonly { id: string; purchase?: { first: unknown; owned?: boolean } }[];
       periodicExpenses?: readonly { id: string; row: string; label?: string; everyYears: number; monthly?: boolean; to?: unknown }[];
-      accounts?: readonly { kind: string; uninvested?: number }[];
+      accounts?: readonly { id: string; kind: string; subtype?: string; uninvested?: number }[];
       residences?: readonly { id: string }[];
       debts?: readonly { id: string; kind: string; property?: string }[];
     };
@@ -251,7 +251,7 @@ function yearLabel(year: number, parts: readonly MoneyThreeEventPart[], label: (
 export function placementOf(req: MoneyThreeHouseholdRequest, table: readonly TableCell[]): MoneyThreePlace[] {
   const h = req.input.household;
   const y0 = parseYm(req.input.baseMonth).y;
-  const at = bsSeries(table, [y0], { residences: h.residences ?? [], debts: (h.debts ?? []).map((d) => ({ id: d.id, kind: d.kind, ...(d.property !== undefined ? { property: d.property } : {}) })) })[0];
+  const at = bsSeries(table, [y0], bsHouseholdOf(h))[0];
   if (at === undefined) return [];
   const uninvested = (h.accounts ?? []).filter((a) => a.kind === "pooled").reduce((s, a) => s + Math.max(0, a.uninvested ?? 0), 0);
   const fin: BsGroup[] = ["liquid", "market", "locked"];

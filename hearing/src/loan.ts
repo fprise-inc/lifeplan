@@ -19,6 +19,16 @@ export function principalFromPayment(payment: number, annualRate: number, months
   return Math.round(r === 0 ? payment * months : (payment * (1 - Math.pow(1 + r, -months))) / r);
 }
 
+/**
+ * 今の残高・年利・月数から、毎月の返済額（円。切り上げ: その額で返すと、monthsFromPayment が同じ月数に戻る）。解けなければ null。
+ * 詳細版のシートに会社からの借入金の前回の値を記入するときに使う
+ */
+export function paymentFromBalance(balance: number, annualRate: number, months: number): number | null {
+  if (months <= 0 || balance <= 0 || !Number.isFinite(annualRate)) return null;
+  const r = annualRate / 12;
+  return Math.ceil((r === 0 ? balance / months : (balance * r) / (1 - Math.pow(1 + r, -months))) - 1e-9);
+}
+
 /** 返済期間の標準の値: 35年。完済が80歳を超えるなら80歳まで（年の単位。入力の画面の新しい住宅ローンと同じ） */
 export function standardTermMonths(m: Pick<Member, "birth">, start: string): number {
   const at80 = addMonths(m.birth.birthYearMonth, 80 * 12);

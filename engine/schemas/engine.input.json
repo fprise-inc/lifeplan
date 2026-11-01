@@ -485,6 +485,11 @@
             "blueDeduction": { "description": "青色申告特別控除の区分（65万円 electronic・55万円 doubleEntry・10万円 simple。省略は simple）。55万円・65万円は不動産所得の事業的規模か事業所得があるときだけ（無ければ10万円で計算する）", "enum": ["electronic", "doubleEntry", "simple"] }
           }
         },
+        "companyGuarantee": {
+          "title": "会社の借入の連帯保証の額（役員として働く人の、今の額。負債には入れず、資産と負債のタブで図の外に見せる。計算には使わない。0105）",
+          "x-item": "member.companyGuarantee",
+          "$ref": "urn:financia:schema:common#/$defs/boxYen"
+        },
         "outside": {
           "title": "世帯の外の家族（0035 の4。家計を世帯と別にする家族。生年月・性別を省ける）",
           "x-item": "member.outside",
@@ -793,6 +798,7 @@
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "kind": { "title": "器の種類", "x-item": "account.kind", "$ref": "#/$defs/accountKind" },
+        "subtype": { "title": "その他の資産の細目（ownCompanyShares 自社株〔出資額〕・loanToCompany 会社への貸付金。種類 otherAsset だけ。表示だけで、計算には使わない。0105）", "x-item": "account.subtype", "enum": ["ownCompanyShares", "loanToCompany"] },
         "owner": { "title": "名義の構成員", "x-item": "account.owner", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "marketValue": { "title": "時価", "x-item": "account.marketValue", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
         "costBasis": { "title": "取得価額（省略は時価と同じ）", "x-item": "account.costBasis", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
@@ -1067,7 +1073,7 @@
         },
         "pairWith": { "title": "ペアローンの相手のローン", "x-item": "debt.pairWith", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "label": { "title": "名前（表示用。計算には使わない。0052）", "x-item": "debt.label", "type": "string", "maxLength": 80 },
-        "subtype": { "title": "ローンの種類の細目（表示と推定の元だけ。計算の種類は kind。0052）", "x-item": "debt.subtype", "enum": ["cardLoan", "scholarship", "scholarshipFree", "renovation", "policyLoan", "personal", "other"] },
+        "subtype": { "title": "ローンの種類の細目（表示と推定の元だけ。計算の種類は kind。0052。companyLoan は役員の会社からの借入金。0105）", "x-item": "debt.subtype", "enum": ["cardLoan", "scholarship", "scholarshipFree", "renovation", "policyLoan", "personal", "other", "companyLoan"] },
         "property": { "title": "この借入で取得した住まい以外の不動産（不動産の器の ID。利息を不動産所得の必要経費にする。0028）", "x-item": "debt.property", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "inheritedFrom": { "title": "相続で受け継ぐ借金の、元の借り手（構成員。多くは世帯の外の家族。計算には使わない。見込みが不確かなら、アプリが要求から外す。0044）", "x-item": "debt.inheritedFrom", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "likelihood": { "title": "見込み（相続で受け継ぐ借金だけ。計算には使わない。0035 の7）", "x-item": "debt.likelihood", "$ref": "#/$defs/likelihood" },

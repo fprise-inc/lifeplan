@@ -17,6 +17,7 @@ import { readYearMonth } from "../when.ts";
 import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 import { currentMortgageRateEstimate, mortgageRateEstimate, RATE_ESTIMATE_HEADS, type MortgageRateType } from "../../../../../hearing/src/housingEstimates.ts";
 import { repayingScholarshipRateEstimate } from "../../../../../hearing/src/loanRates.ts";
+import { executiveMembers, hasExecutive } from "../officer.ts";
 
 type Obj = Record<string, unknown>;
 const debts = (h: Household) => h.debts;
@@ -1104,6 +1105,8 @@ export const LOAN_SUBTYPES = [
   { value: "policyLoan", label: "契約者貸付（保険）", kind: "other", rate: "0.03", rateBasis: "契約者貸付の金利の目安 年3%" },
   { value: "personal", label: "親・知人からの借入", kind: "other", rate: "0", rateBasis: "親・知人からの借入は利息なし" },
   { value: "other", label: "その他のローン", kind: "other", rate: "0.03", rateBasis: "その他のローンの金利の目安 年3%" },
+  // 役員を務める会社からの借入金（0105。役員として働く人がいる世帯だけ選べる。返済はほかのローンと同じくキャッシュフローに入る）
+  { value: "companyLoan", label: "会社からの借入金", kind: "other", rate: "0", rateBasis: "会社からの借入の利率は契約で決めた率を入れてください（入れなければ利息なしで計算します）" },
 ] as const;
 type SubtypeDef = (typeof LOAN_SUBTYPES)[number];
 const subtypeDef = (v: string | undefined): SubtypeDef | undefined => LOAN_SUBTYPES.find((s) => s.value === v);
@@ -1129,7 +1132,7 @@ export function otherLoanHeadFields(wh: WorkingHousehold, d: Debt, k: string): F
         level: "simple",
         kind: "select",
         structural: true,
-        options: LOAN_SUBTYPES.map((s) => ({ value: s.value, label: s.label })),
+        options: LOAN_SUBTYPES.filter((s) => s.value !== "companyLoan" || d.subtype === "companyLoan" || hasExecutive(wh.request.input.household)).map((s) => ({ value: s.value, label: s.label })),
         help: "種類で金利の目安が決まります（金利を入れていれば変えません）",
         get: (w) => ({ value: (find(w.request.input.household, w) as Debt | undefined)?.subtype ?? (d.kind === "scholarship" ? "scholarship" : "other") }),
         set: (w, v) =>
@@ -1160,7 +1163,8 @@ export function newOtherLoan(wh: WorkingHousehold, subtype: SubtypeDef["value"])
   const rid = newId();
   const base = wh.request.input.baseMonth;
   const next = mutate(wh, (h, req) => {
-    const self = h.members.find((m) => m.kind === "self");
+    // 会社からの借入金は、役員として働く人が借りる（いなければ本人）
+    const self = (sub.value === "companyLoan" ? executiveMembers(h)[0] : undefined) ?? h.members.find((m) => m.kind === "self");
     if (self === undefined) return;
     const d: Debt = {
       id,

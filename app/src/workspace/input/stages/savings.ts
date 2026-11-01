@@ -11,6 +11,7 @@ import { isRentalProperty, UNENTERED_RENT } from "./rental.ts";
 import { accountName, UNENTERED_BALANCE, defaultPayoutAge, editPayout, INVEST_KINDS, methodOf, payoutAgeOf, rateOf, reservePreset, setSettlement, settlementOf, setStopAge, stopAgeOf, stopEstimateOf } from "../savings/model.ts";
 import { allocationStageGroups, returnStageGroups } from "../staged.ts";
 import { FEE_RANGE, RETURN_RANGE } from "../rateRanges.ts";
+import { ASSET_SUBTYPES, executiveMembers } from "../officer.ts";
 
 const accounts = (h: Household) => h.accounts;
 const UNENTERED_VALUE = "未入力（評価額を入れてください。0円で計算中）";
@@ -29,10 +30,12 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   const find = byId(accounts, a.id);
   const k = `sav/${a.id}`;
   const estate = a.kind === "realEstate";
+  // 自社株（出資額）・会社への貸付金（役員として働く人の家計の側。0105）: 種類は「その他の資産」のまま、細目で名前と説明を変える
+  const sub = a.kind === "otherAsset" && a.subtype !== undefined ? ASSET_SUBTYPES[a.subtype] : undefined;
   const fields: FieldDef[] = [
     plain({ key: `${k}/kind`, item: "account.kind", label: "種類", level: "simple", kind: "select", options: ACCOUNT_KINDS, find, path: ["kind"], structural: true }),
     plain({ key: `${k}/owner`, item: "account.owner", label: "名義", level: "simple", kind: "select", options: memberOptions(wh), find, path: ["owner"] }),
-    yenBox({ key: `${k}/value`, item: "account.marketValue", label: "今の評価額", level: "simple", basis: "once", find, path: ["marketValue"] }),
+    yenBox({ key: `${k}/value`, item: "account.marketValue", label: a.subtype === "ownCompanyShares" ? "出資額（払い込んだ額）" : a.subtype === "loanToCompany" ? "今の貸付金の残り" : "今の評価額", level: "simple", basis: "once", find, path: ["marketValue"] }),
     plain({ key: `${k}/asOf`, item: "account.asOf", label: "評価額の時点", level: "detail", kind: "ym", find, path: ["asOf"] }),
     plain({
       key: `${k}/growth`,
@@ -47,6 +50,8 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       help: estate ? "入れなければ前提条件の不動産の利回り（入れていなければ0）。マイナスも入れられます" : "入れなければ0（評価額のまま）。値下がりするものはマイナスで入れます",
     }),
   ];
+  // 細目のある資産は種類を変えない（名前が細目で決まるため）・増減させない（出資額・貸付金の残りのまま）
+  if (sub !== undefined) for (const key of [`${k}/growth`, `${k}/kind`]) fields.splice(fields.findIndex((f) => f.key === key), 1);
   const actions: ActionDef[] = [
     removeAction(`${k}/remove`, "外す", "simple", (h) => {
       h.accounts = (h.accounts ?? []).filter((x) => x.id !== a.id);
@@ -69,8 +74,8 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   return [
     {
       key: k,
-      title: `${estate ? "貸していない不動産" : "その他の資産"}（${memberLabel(wh, a.owner)}）`,
-      ...(estate ? { note: "評価額だけで持つ不動産（貸していない土地・別荘など）です。人に貸している物件は「収益不動産」で入れます（「収益不動産へ移す」で移せます）" } : {}),
+      title: `${estate ? "貸していない不動産" : (sub?.label ?? "その他の資産")}（${memberLabel(wh, a.owner)}）`,
+      ...(estate ? { note: "評価額だけで持つ不動産（貸していない土地・別荘など）です。人に貸している物件は「収益不動産」で入れます（「収益不動産へ移す」で移せます）" } : sub !== undefined ? { note: sub.note } : {}),
       level: "simple",
       fields,
       actions,
@@ -630,6 +635,18 @@ export function savingsStage(wh: WorkingHousehold): StageDef {
   const child = h.members.find((m) => m.kind === "child" && m.outside === undefined);
   // 貸している不動産（中身を持つ不動産の器）は収益不動産の項目に出す（0079）
   const others = (h.accounts ?? []).filter((a) => NON_FINANCIAL.has(a.kind) && !isRentalProperty(a));
+  // 役員として働く人がいれば、その他の資産に「自社株（出資額）」「会社への貸付金」を足せる（名義はその人。0105）
+  const officer = executiveMembers(h)[0];
+  const addOfficer = (subtype: keyof typeof ASSET_SUBTYPES): ActionDef => ({
+    key: `sav/add/${subtype}`,
+    label: `＋ ${ASSET_SUBTYPES[subtype].label}`,
+    level: "simple",
+    run: (w: WorkingHousehold) =>
+      mutate(w, (hh) => {
+        if (officer === undefined) return;
+        (hh.accounts ??= []).push({ id: newId(), kind: "otherAsset", subtype, owner: officer.id, marketValue: standardBox(0, UNENTERED_VALUE), asOf: w.request.input.baseMonth, contributions: [] });
+      }),
+  });
   const add = (kind: string, label: string) => ({
     key: `sav/add/${kind}`,
     label: `＋ ${label}`,
@@ -679,10 +696,10 @@ export function savingsStage(wh: WorkingHousehold): StageDef {
       {
         key: "sav/others",
         title: "その他の資産",
-        note: "貸していない土地・別荘などの不動産と、貴金属・美術品・貸付金など。資産と負債の推移・提案書のバランスシートに入ります（金融資産には入れず、取り崩しにも使いません）。人に貸している不動産は「収益不動産」、住まいは「住まい・ローン」、車は「車」で入れます",
-        level: others.length > 0 ? "simple" : "detail",
+        note: `貸していない土地・別荘などの不動産と、貴金属・美術品・貸付金など。資産と負債の推移・提案書のバランスシートに入ります（金融資産には入れず、取り崩しにも使いません）。人に貸している不動産は「収益不動産」、住まいは「住まい・ローン」、車は「車」で入れます${officer !== undefined ? "。役員を務める会社の自社株（出資額）と、会社への貸付金もここで入れます（会社からの借入金は「住まい・ローン」のほかのローン）" : ""}`,
+        level: others.length > 0 || officer !== undefined ? "simple" : "detail",
         groups: others.flatMap((a) => otherAssetGroups(wh, a)),
-        actions: [add("realEstate", "貸していない不動産"), add("otherAsset", "その他の資産")],
+        actions: [add("realEstate", "貸していない不動産"), add("otherAsset", "その他の資産"), ...(officer !== undefined ? [addOfficer("ownCompanyShares"), addOfficer("loanToCompany")] : [])],
       },
       returnStagesSection(wh),
       ...(methodOf(wh.request) === "total" ? [] : [flowSection(wh)]),

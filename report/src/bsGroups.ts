@@ -6,6 +6,8 @@
 // - 不動産は土地と建物の項目に分ける（エンジンの cf.balance.account.realEstate.land・.building。持ち家と、中身を入れた住まい以外の不動産の合計）。
 //   土地と建物に分けていない不動産（中身の無い不動産の器）は「その他の不動産」。建物は年数とともに減り、土地は残る（0028）。
 // - 住まい以外の不動産のローン（負債の property）は「不動産のローン」。
+// - 役員として働く人の家計の側（0105）: その他の資産の細目の自社株（出資額）・会社への貸付金は換金しにくい資産の項目、ローンの細目の
+//   会社からの借入金は「その他の負債」の項目にする（細目は表示だけ。額はエンジンの行のまま）。会社の借入の連帯保証は負債に入れない。
 // - 資産の合計＝負債の合計＋純資産（純資産は資産の合計−負債の合計で出すので、どの年も必ず合う）。
 // 計算はしない（エンジンの表のマスを年ごとに分けて足すだけ。円の整数のまま）
 import type { TableCell } from "./bundle.ts";
@@ -62,10 +64,20 @@ export interface BsAt {
   shortfall: Yen;
 }
 
-/** 世帯のうち、項目の名前を決めるのに使うところ（負債の種類と、住まい以外の不動産のローンか。ID は画面・帳票に出さない） */
+/** 世帯のうち、項目の名前を決めるのに使うところ（負債の種類と細目・住まい以外の不動産のローンか、その他の資産の細目。ID は画面・帳票に出さない） */
 export interface BsHousehold {
   residences?: readonly { id: string }[];
-  debts?: readonly { id: string; kind: string; property?: string }[];
+  debts?: readonly { id: string; kind: string; property?: string; subtype?: string }[];
+  accounts?: readonly { id: string; kind: string; subtype?: string }[];
+}
+
+/** 世帯から、項目の名前を決めるのに使うところだけを写す（アプリの画面・提案書・お金の3つの分け方で同じ） */
+export function bsHouseholdOf(h: BsHousehold): BsHousehold {
+  return {
+    residences: h.residences ?? [],
+    debts: (h.debts ?? []).map((d) => ({ id: d.id, kind: d.kind, ...(d.property !== undefined ? { property: d.property } : {}), ...(d.subtype !== undefined ? { subtype: d.subtype } : {}) })),
+    accounts: (h.accounts ?? []).filter((a) => a.subtype !== undefined).map((a) => ({ id: a.id, kind: a.kind, subtype: a.subtype as string })),
+  };
 }
 
 /** 器の種類 → 分け方・項目の鍵・名前（並びは箱の中の上からの順） */
@@ -88,11 +100,17 @@ const ILLIQUID: readonly { kind: string; key: string; label: string }[] = [
   { kind: "insurance", key: "insurance", label: "保険の解約返戻金" },
   { kind: "otherAsset", key: "otherAsset", label: "その他の資産" },
 ];
+/** その他の資産の細目（0105。項目の鍵と名前） */
+const ASSET_SUBTYPE: Record<string, { key: string; label: string }> = {
+  ownCompanyShares: { key: "ownShares", label: "自社株（出資額）" },
+  loanToCompany: { key: "loanToCompany", label: "会社への貸付金" },
+};
 const NON_FINANCIAL = new Set(["realEstate", ...ILLIQUID.map((x) => x.kind)]);
 const DEBT_LABEL: Record<string, { key: string; label: string }> = {
   property: { key: "propertyLoan", label: "不動産のローン" },
   car: { key: "carLoan", label: "車のローン" },
   scholarship: { key: "scholarship", label: "奨学金" },
+  companyLoan: { key: "companyLoan", label: "会社からの借入金" },
 };
 
 const ACCOUNT_PREFIX = "cf.balance.account.";
@@ -105,17 +123,20 @@ const ORDER: readonly string[] = [
   "building",
   "realEstateOther",
   ...ILLIQUID.map((x) => x.key),
+  ...Object.values(ASSET_SUBTYPE).map((x) => x.key),
   "mortgage",
   "propertyLoan",
   "carLoan",
   "scholarship",
+  "companyLoan",
   "debtOther",
   "short",
 ];
 
 /** 年ごとのバランスシート（years の並び） */
 export function bsSeries(table: readonly TableCell[], years: readonly number[], household: BsHousehold): BsAt[] {
-  const debtKind = new Map((household.debts ?? []).map((d) => [d.id, d.property !== undefined ? "property" : d.kind]));
+  const debtKind = new Map((household.debts ?? []).map((d) => [d.id, d.property !== undefined ? "property" : d.subtype === "companyLoan" ? "companyLoan" : d.kind]));
+  const assetSub = new Map((household.accounts ?? []).filter((a) => a.kind === "otherAsset" && a.subtype !== undefined && ASSET_SUBTYPE[a.subtype] !== undefined).map((a) => [a.id, (ASSET_SUBTYPE[a.subtype as string] as { key: string }).key]));
   const index = new Map(years.map((y, i) => [y, i]));
   // 年ごと: 項目の鍵 → 額（金融資産の器は器の種類ごとに足してから、マイナスを資金の不足へ回す）
   const fin: Map<string, number>[] = years.map(() => new Map());
@@ -129,6 +150,7 @@ export function bsSeries(table: readonly TableCell[], years: readonly number[], 
       if (kind === "realEstate.land") add(other[i] as Map<string, number>, "land", c.amount);
       else if (kind === "realEstate.building") add(other[i] as Map<string, number>, "building", c.amount);
       else if (kind === "realEstate" || kind.startsWith("realEstate.")) add(other[i] as Map<string, number>, "realEstateOther", c.amount);
+      else if (kind === "otherAsset" && c.object !== undefined && assetSub.has(c.object)) add(other[i] as Map<string, number>, assetSub.get(c.object) as string, c.amount);
       else if (NON_FINANCIAL.has(kind)) add(other[i] as Map<string, number>, ILLIQUID.find((x) => x.kind === kind)?.key ?? "otherAsset", c.amount);
       else add(fin[i] as Map<string, number>, kind, c.amount);
     } else if (c.row === "cf.balance.debt.mortgage" || c.row === "cf.balance.debt.unpaidInterest") add(other[i] as Map<string, number>, "mortgage", c.amount);
@@ -169,7 +191,7 @@ export function groupTotal(at: BsAt, g: BsGroup): Yen {
 function lineLabel(key: string): string {
   const a = ACCOUNT.find((x) => x.key === key);
   if (a !== undefined) return a.label;
-  const o = ILLIQUID.find((x) => x.key === key);
+  const o = ILLIQUID.find((x) => x.key === key) ?? Object.values(ASSET_SUBTYPE).find((x) => x.key === key);
   if (o !== undefined) return o.label;
   const d = Object.values(DEBT_LABEL).find((x) => x.key === key);
   if (d !== undefined) return d.label;
@@ -191,6 +213,6 @@ function groupOf(key: string): BsGroup {
   if (a !== undefined) return a.group;
   if (key === "finOther") return "liquid";
   if (key === "mortgage") return "mortgage";
-  if (key === "propertyLoan" || key === "carLoan" || key === "scholarship" || key === "debtOther" || key === "short") return "debt";
+  if (key === "propertyLoan" || key === "carLoan" || key === "scholarship" || key === "companyLoan" || key === "debtOther" || key === "short") return "debt";
   return "illiquid";
 }

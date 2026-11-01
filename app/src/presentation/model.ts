@@ -536,6 +536,11 @@ export interface BsYearModel {
   shortfall: Yen;
   /** その年の生活費（年額。家計の体力の目安の「何か月分」に使う） */
   living: Yen;
+  /** その年のローンの返済（年額。住宅ローン・車のローン・奨学金・ほかのローン。家賃収入で返す住まい以外の不動産のローンは除く。
+   * 家計の体力の目安の分母を「生活費＋ローン返済」にしたときに使う。0105） */
+  loanPay: Yen;
+  /** 会社の借入の連帯保証の額（役員として働く人の今の額。今の年だけ。先の年と保証の無い世帯は 0。負債の合計には入れない。0105） */
+  guarantee: Yen;
   /** この年の出来事（例: 退職・住宅ローン完済） */
   events: { kind: BsMarkKind; text: string }[];
   /** 箱を押したときの説明（分け方ごと・純資産・純資産のマイナス） */
@@ -583,8 +588,13 @@ export interface BsPointModel {
 /** 並べる時点の1つ: 候補の鍵（プランごとに年を解く。退職の年を動かすと付いてくる）か、決まった年 */
 export type BsColumn = { point: BsPointKey } | { year: number };
 
+/** 家計の体力の目安の「何か月分」の分母（living 生活費・livingLoan 生活費＋ローン返済。0105） */
+export type BsGuideBasis = "living" | "livingLoan";
+
 /** 家計の体力の目安の幅（事務所の設定。FP が変えられる） */
 export interface BsGuide {
+  /** 「何か月分」の分母。省略は世帯から決める（役員として働く人のいる世帯は生活費＋ローン返済、ほかは生活費。BalanceTabModel.guideBasis） */
+  basis?: BsGuideBasis;
   /** すぐ使えるお金が生活費の何か月分か（下限・上限） */
   months: [number, number];
   /** 資産のうち値動きのある資産の割合（%。下限・上限） */
@@ -633,6 +643,8 @@ export interface BalanceTabModel {
   selected: string;
   base: string;
   guide: BsGuide;
+  /** 分母を選んでいないときの分母（役員として働く人のいる世帯は生活費＋ローン返済、ほかは生活費。0105） */
+  guideBasis: BsGuideBasis;
   /** 時点を並べるときの既定の時点（事務所の設定。2〜4つ） */
   pointDefaults: BsPointKey[];
   /** この世帯で選んだ並べる時点（2〜4つ）。null は既定のまま */

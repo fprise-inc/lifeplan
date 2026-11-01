@@ -702,6 +702,28 @@ function sample047(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+function sample048(): BodyState {
+  const s = sample047();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const id = (n: number) => `00000000-0000-4000-8000-0000000048${String(n).padStart(2, "0")}`;
+  const box = (v: number) => ({ value: v, state: "confirmed", origin: { kind: "manual" } }) as never;
+  // 本人は役員（今の勤め先の期間を役員にする）。自社株（出資額）・会社への貸付金・会社からの借入金・会社の借入の連帯保証の額（0105）
+  hh.employmentPeriods = (hh.employmentPeriods ?? []).map((p) => (p.member === self.id && p.salary !== undefined ? { ...p, type: "executive" } : p));
+  hh.accounts = [
+    ...(hh.accounts ?? []),
+    { id: id(1), kind: "otherAsset", subtype: "ownCompanyShares", owner: self.id, marketValue: box(3000000), asOf: req.input.baseMonth, contributions: [] },
+    { id: id(2), kind: "otherAsset", subtype: "loanToCompany", owner: self.id, marketValue: box(5000000), asOf: req.input.baseMonth, contributions: [] },
+  ];
+  hh.debts = [
+    ...(hh.debts ?? []),
+    { id: id(3), kind: "other", subtype: "companyLoan", debtors: [{ member: self.id, role: "primary" }], principal: 2000000, start: { at: req.input.baseMonth }, balance: box(2000000), balanceAsOf: req.input.baseMonth, rateSchedule: [{ id: id(4), from: { at: req.input.baseMonth }, type: "fixed", rate: "0" }], repayment: { method: "equalPayment", termMonths: 40 } },
+  ];
+  hh.members = hh.members.map((m) => (m.id === self.id ? { ...m, companyGuarantee: box(30000000) } : m));
+  return { ...s, wh: { ...s.wh, request: req }, display: { ...s.display, balance: { ...s.display.balance, guide: { ...s.display.balance.guide, basis: "livingLoan" } } } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -825,7 +847,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.47");
+    expect(BODY_FORMAT_VERSION).toBe("0.48");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -979,7 +1001,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample047())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample048())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1279,6 +1301,27 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const moved = structuredClone(back.wh.request);
     moved.input.household.members.find((m) => m.id === kid2.id)!.birth = { birthYearMonth: "2015-05", bornOnFirst: false };
     expect(preview(forEngine(moved)).table.filter((c) => c.object === id(3) && c.amount > 0).map((c) => c.year)).toEqual([2036]);
+  });
+
+  it("0.48 の形（0105）: 自社株（出資額）・会社への貸付金・会社からの借入金・会社の借入の連帯保証の額と、体力の目安の分母を保存して読み戻し、借入金の返済だけを計算に入れる", () => {
+    const s = sample048();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request }; display: { balance: { guide: { basis?: string } } } };
+    const h = stored.household.request.input.household;
+    expect((h.accounts ?? []).filter((a) => a.subtype !== undefined).map((a) => a.subtype)).toEqual(["ownCompanyShares", "loanToCompany"]);
+    expect((h.debts ?? []).find((d) => d.subtype === "companyLoan")?.kind).toBe("other");
+    expect(h.members.find((m) => m.kind === "self")?.companyGuarantee?.value).toBe(30000000);
+    expect(stored.display.balance.guide.basis).toBe("livingLoan");
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(back.display.balance.guide.basis).toBe("livingLoan");
+    const id = (n: number) => `00000000-0000-4000-8000-0000000048${String(n).padStart(2, "0")}`;
+    const r = preview(forEngine(back.wh.request));
+    // 借入金の返済はほかのローンの行に出る（40か月で200万円）。保証の額・細目は計算に使わない
+    expect(r.table.filter((c) => c.object === id(3) && c.row === "cf.expense.debt.other").reduce((x, c) => x + c.amount, 0)).toBe(2000000);
+    const plain = structuredClone(back.wh.request);
+    for (const m of plain.input.household.members) delete m.companyGuarantee;
+    for (const a of plain.input.household.accounts ?? []) delete a.subtype;
+    expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(plain)).table);
   });
 
   it("0.42 の形（0090）: 高専と専門職大学院（法科大学院）の段を保存して読み戻し、計算に使う", () => {

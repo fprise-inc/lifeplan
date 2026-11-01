@@ -89,7 +89,7 @@ const groups = {
 };
 const year = (lines: BsYearModel["lines"], netWorth: number): BsYearModel => {
   const assets = lines.filter((l) => l.group !== "mortgage" && l.group !== "debt").reduce((s, l) => s + l.amount, 0);
-  return { year: 2026, age: 45, members: "", fact: true, lines, totalAssets: assets, totalLiabilities: assets - netWorth, netWorth, financial: 0, shortfall: 0, living: 3_600_000, events: [], notes: {} };
+  return { year: 2026, age: 45, members: "", fact: true, lines, totalAssets: assets, totalLiabilities: assets - netWorth, netWorth, financial: 0, shortfall: 0, living: 3_600_000, loanPay: 0, guarantee: 0, events: [], notes: {} };
 };
 const plus = year(
   [

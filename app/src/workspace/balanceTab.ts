@@ -4,12 +4,13 @@
 // - 年は計算基準年（今。入力した値から出した事実）から表の最後の年まで。先の年は見込み。
 // - ひと言の解説・箱の説明・この年の出来事もここで作る（提示層は受け取った文を出すだけ）。物の ID・FP のメモは渡さない
 import type { EngineRequest, TableCell } from "../engine/types.ts";
-import { bsSeries, BS_GROUP_LABEL, BS_GROUP_SHORT, groupTotal, type BsAt, type BsGroup } from "../../../report/src/index.ts";
-import type { BalanceTabModel, BsColumn, BsGroupKey, BsGuide, BsMarkKind, BsPlanModel, BsPointKey, BsPointModel, BsPrevModel, BsYearModel, VerdictPart } from "../presentation/model.ts";
+import { bsHouseholdOf, bsSeries, BS_GROUP_LABEL, BS_GROUP_SHORT, groupTotal, type BsAt, type BsGroup } from "../../../report/src/index.ts";
+import type { BalanceTabModel, BsColumn, BsGroupKey, BsGuide, BsGuideBasis, BsMarkKind, BsPlanModel, BsPointKey, BsPointModel, BsPrevModel, BsYearModel, VerdictPart } from "../presentation/model.ts";
 import { man } from "../presentation/format.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
 import { ageAxis, depletionYear, eventsOf, SURPLUS_ROW } from "./present.ts";
 import { ageInYear, leaveYear, presentInYear, roles, type Role } from "./roles.ts";
+import { guaranteeTotal, hasExecutive } from "./input/officer.ts";
 
 /** 家計の体力の目安の幅の最初の値（事務所の設定で FP が変えられる） */
 export const DEFAULT_BS_GUIDE: BsGuide = { months: [6, 12], risk: [10, 40], debt: 50 };
@@ -25,8 +26,17 @@ export function readBsGuide(v: unknown): BsGuide {
     return typeof a === "number" && typeof b === "number" && a >= 0 && b > a && b <= max ? [a, b] : def;
   };
   const debt = typeof o.debt === "number" && o.debt > 0 && o.debt <= 100 ? o.debt : d.debt;
-  return { months: pair(o.months, d.months, 120), risk: pair(o.risk, d.risk, 100), debt };
+  const basis = o.basis === "living" || o.basis === "livingLoan" ? { basis: o.basis as BsGuideBasis } : {};
+  return { ...basis, months: pair(o.months, d.months, 120), risk: pair(o.risk, d.risk, 100), debt };
 }
+
+/** 分母を選んでいないときの分母: 役員として働く人のいる世帯は生活費＋ローン返済、ほかは生活費（0105） */
+export function defaultGuideBasis(req: EngineRequest): BsGuideBasis {
+  return hasExecutive(req.input.household) ? "livingLoan" : "living";
+}
+
+/** ローンの返済の行（家計の体力の目安の「生活費＋ローン返済」に数える。繰上返済・手数料の行は数えない） */
+const LOAN_PAY_ROWS: ReadonlySet<string> = new Set(["cf.expense.housing.loan", "cf.expense.debt.car", "cf.expense.debt.scholarship", "cf.expense.debt.other"]);
 
 /** 時点を並べるときの候補（並びは選ぶ画面の順）。年齢は本人の年齢 */
 export const BS_POINT_CHOICES: readonly { key: BsPointKey; label: string; note: string }[] = [
@@ -130,15 +140,20 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
   const who = self?.label ?? "";
   const ageText = (y: number) => (self !== undefined ? `${who}${ageInYear(self.member, y)}歳` : `${y}年`);
   const h = req.input.household;
-  const at: BsAt[] = bsSeries(p.table, years, { residences: h.residences ?? [], debts: (h.debts ?? []).map((d) => ({ id: d.id, kind: d.kind, ...(d.property !== undefined ? { property: d.property } : {}) })) });
+  const at: BsAt[] = bsSeries(p.table, years, bsHouseholdOf(h));
   const lineOf = (i: number, key: string) => (at[i] as BsAt).lines.find((l) => l.key === key)?.amount ?? 0;
   const living = byYear(p.table, years, (c) => under(c.row, "cf.expense.living") && c.row !== "cf.expense.living.drawdown" && c.row !== SURPLUS_ROW);
   const loanPay = byYear(p.table, years, (c) => c.row === "cf.expense.housing.loan");
+  // 家賃収入で返す住まい以外の不動産のローンは、家計の体力の目安の返済に数えない（0105）
+  const propertyDebts = new Set((h.debts ?? []).filter((d) => d.property !== undefined).map((d) => d.id));
+  const allLoanPay = byYear(p.table, years, (c) => LOAN_PAY_ROWS.has(c.row) && !(c.object !== undefined && propertyDebts.has(c.object)));
   // 計算基準年が年の途中から始まるとき、その年のお金の動きは数か月分しかないので、生活費と返済額は翌年（1年分）の値で見る
   if (parseYm(req.input.baseMonth).m > 1 && years.length > 1) {
     living[0] = living[1] as number;
     loanPay[0] = loanPay[1] as number;
+    allLoanPay[0] = allLoanPay[1] as number;
   }
+  const guarantee = guaranteeTotal(h);
   const g = (i: number, k: BsGroup) => groupTotal(at[i] as BsAt, k);
 
   // 年の出来事（グラフの下の丸と同じ）と、つまみの札
@@ -209,9 +224,9 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
       liquid: `今日・明日にでも使えるお金です。${monthly > 0 ? `生活費（月${mn(monthly)}）の${monthsText(liquid / monthly)}。` : ""}急な出費や、収入で足りない分はまずここから出ます。`,
       market: "株や投資信託など。売ればお金になりますが、そのときの相場で金額が変わります（口座に分けずにまとめて入れた金融資産も、ここに数えています）。",
       locked: "iDeCo・企業型DC・小規模企業共済など。原則として決まった年齢（iDeCo・企業型DCは60歳）まで引き出せません。受け取ると「すぐ使えるお金」に移ります。",
-      illiquid: `住んでいる家・貸している不動産・使っている車・保険の解約返戻金など、すぐにはお金にしにくいもの。${land + building > 0 ? `不動産は土地（${mn(land)}）と建物（${mn(building)}）に分けて見込んでいます。土地は上昇率で動かし、建物は構造の耐用年数で定額で減らして、建てたときの価値の一定の割合を下限に残します。建物は年数とともに価値が減りますが、土地は残ります。` : ""}`,
+      illiquid: `住んでいる家・貸している不動産・使っている車・保険の解約返戻金など、すぐにはお金にしにくいもの。${lineOf(i, "ownShares") > 0 ? "自社株は出資額（払い込んだ額）で見ています。実際の株の価値はずっと高いことがあり、相続税に影響します。" : ""}${land + building > 0 ? `不動産は土地（${mn(land)}）と建物（${mn(building)}）に分けて見込んでいます。土地は上昇率で動かし、建物は構造の耐用年数で定額で減らして、建てたときの価値の一定の割合を下限に残します。建物は年数とともに価値が減りますが、土地は残ります。` : ""}`,
       mortgage: `${(loanPay[i] ?? 0) > 0 ? `年間の返済額は${mn(loanPay[i] ?? 0)}。` : ""}${loanEnd !== null && year <= loanEnd ? `${loanEnd}年（${ageText(loanEnd)}）に返し終わる見込みです。` : ""}返済のうち元金の分は、純資産として残ります。`,
-      debt: a.shortfall > 0 ? "「資金の不足」は、金融資産が尽きた後に足りない分を、借りている状態として負債に置いたものです（実際には家の売却などで補う必要があります）。" : "車のローン・奨学金など、住宅ローンのほかに借りているお金です。",
+      debt: a.shortfall > 0 ? "「資金の不足」は、金融資産が尽きた後に足りない分を、借りている状態として負債に置いたものです（実際には家の売却などで補う必要があります）。" : `車のローン・奨学金など、住宅ローンのほかに借りているお金です。${lineOf(i, "companyLoan") > 0 ? "会社からの借入金の返済は、毎年の支出に入っています。" : ""}`,
       netWorth: "持っているものを全部お金に換えて、借りているものを返したときに残る額です。家や車はすぐには使えないので、それを除いた額も添えています。",
       neg: "負債が資産より多い状態（債務超過）です。家や持ち物を全部お金に換えても、借りている分を返しきれません。左の箱の下に点線で置き、左右の高さをそろえています。",
     };
@@ -227,6 +242,8 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
       financial: a.financial,
       shortfall: a.shortfall,
       living: living[i] ?? 0,
+      loanPay: allLoanPay[i] ?? 0,
+      guarantee: i === 0 ? guarantee : 0,
       events,
       notes,
     };
@@ -300,7 +317,7 @@ export function bsPrev(o: { key: string; label: string; createdAt: string; baseM
   return { key: o.key, label: o.label, ago, expected, reason: null, actual, summary, items: prevItems(expected, actual) };
 }
 
-export function balanceTabModel(o: { plans: BsPlanModel[]; selected: string; base: string; guide: BsGuide; pointDefaults: BsPointKey[]; columns: BsColumn[] | null; prevChoices: { key: string; label: string }[]; prev: BalanceTabModel["prev"]; provisional: boolean; who: string }): BalanceTabModel {
+export function balanceTabModel(o: { plans: BsPlanModel[]; selected: string; base: string; guide: BsGuide; guideBasis?: BsGuideBasis; pointDefaults: BsPointKey[]; columns: BsColumn[] | null; prevChoices: { key: string; label: string }[]; prev: BalanceTabModel["prev"]; provisional: boolean; who: string }): BalanceTabModel {
   const groups = Object.fromEntries((Object.keys(BS_GROUP_LABEL) as BsGroup[]).map((k) => [k, { name: BS_GROUP_LABEL[k], short: BS_GROUP_SHORT[k] }])) as BalanceTabModel["groups"];
-  return { ...o, groups, pointChoices: BS_POINT_CHOICES, customViews: [] };
+  return { ...o, guideBasis: o.guideBasis ?? "living", groups, pointChoices: BS_POINT_CHOICES, customViews: [] };
 }

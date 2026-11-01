@@ -147,6 +147,42 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(d.get("dock").is_none(), "{v}: display.dock は持たない");
             assert!(d.get("metrics").is_none(), "{v}: 結果のタブの値は区画の中");
         }
+        if *v == "0.48" {
+            // 0.48 から: 役員として働く人の家計の側（自社株〔出資額〕・会社への貸付金・会社からの借入金・会社の借入の連帯保証の額）と、
+            // 家計の体力の目安の分母（0105）
+            let h = &now["household"]["request"]["input"]["household"];
+            let subs: Vec<&str> = h["accounts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(|a| a["subtype"].as_str())
+                .collect();
+            assert_eq!(
+                subs,
+                ["ownCompanyShares", "loanToCompany"],
+                "{v}: その他の資産の細目"
+            );
+            assert!(
+                h["debts"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|d| d["subtype"] == "companyLoan" && d["kind"] == "other"),
+                "{v}: 会社からの借入金"
+            );
+            assert!(
+                h["members"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|m| m["companyGuarantee"]["value"].is_u64()),
+                "{v}: 会社の借入の連帯保証の額"
+            );
+            assert_eq!(
+                now["display"]["balance"]["guide"]["basis"], "livingLoan",
+                "{v}: 体力の目安の分母"
+            );
+        }
         if *v == "0.47" {
             // 0.47 から: 奨学金を返す人・第一種の奨学金の返済・子の年齢で持つ成人式（0104）
             let h = &now["household"]["request"]["input"]["household"];
@@ -183,7 +219,7 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 子の年齢で持つ成人式の行がある"
             );
         }
-        if *v != "0.47" {
+        if migrate::parse(v).unwrap() < (0, 47) {
             // 前の版の奨学金は、変換の段で世帯で返す（前の計算のまま）
             for s in now["household"]["request"]["input"]["household"]["goals"]
                 .as_array()

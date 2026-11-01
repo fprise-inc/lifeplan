@@ -131,4 +131,5 @@ export const LATER_FIELD_ENTRIES: readonly ReadingEntry[] = [
   {"from":"field:work/period/{object}/commuting","until":"0.35","to":{"target":"object","item":"employment.salary.commutingMonthly","at":[]}},
   {"from":"field:work/period/{object}/corpDbMonthly","until":"0.35","to":{"target":"object","item":"employment.corporatePension","at":["dbEquivalentMonthly"]}},
   {"from":"field:work/period/{object}/salaryGrowth","until":"0.35","to":{"target":"object","item":"employment.salary.growth","at":["rate"]}},
+  {"from":"field:work/{member}/officer/guarantee","until":"0.48","to":{"target":"member","item":"member.companyGuarantee","at":[]}},
 ];

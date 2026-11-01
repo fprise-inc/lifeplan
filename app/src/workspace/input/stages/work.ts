@@ -16,6 +16,7 @@ import { formatYearMonth } from "../units.ts";
 import { readGroup, readLine } from "../readLines.ts";
 import { GROWTH_RANGE } from "../rateRanges.ts";
 import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
+import { executiveMembers } from "../officer.ts";
 
 /** 働き方の期間の時点は年月で持つ（定年・再雇用の見つけ方などが年月で読むため。0038） */
 const PERIOD_MONTH_ONLY = "働き方の期間は年月で持ちます（年齢・今からで入れても、その年月にします）";
@@ -1222,6 +1223,28 @@ function addPeriodAction(wh: WorkingHousehold, m: Member, n: number): ActionDef 
   };
 }
 
+/**
+ * 役員として働く人の、会社とのお金（0105）: 会社の借入の連帯保証の額（今の額）。負債には入れず、資産と負債のタブで図の外に見せる。
+ * 自社株（出資額）・会社への貸付金は貯蓄・運用、会社からの借入金は住まい・ローンで入れる（ここは読むだけの1行で案内する）
+ */
+function officerGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
+  const h = wh.request.input.household;
+  if (!executiveMembers(h).some((x) => x.id === m.id)) return null;
+  const find = byId((x) => x.members, m.id);
+  const k = `work/${m.id}/officer`;
+  const owned = (h.accounts ?? []).filter((a) => a.owner === m.id && a.kind === "otherAsset" && a.subtype !== undefined).length;
+  const borrowed = (h.debts ?? []).filter((d) => d.subtype === "companyLoan" && d.debtors.some((x) => x.member === m.id)).length;
+  const guarantee = yenBox({ key: `${k}/guarantee`, item: "member.companyGuarantee", label: "会社の借入の連帯保証の額", level: "simple", basis: "once", find, path: ["companyGuarantee"], optional: true, help: "役員を務める会社の借入のうち、連帯保証している額（今の額）。負債の合計には入れず、資産と負債のタブで「保証を含めると純資産は○円」と別に見せます。計算には使いません" });
+  return {
+    key: k,
+    title: `${memberLabel(wh, m.id)}の会社とのお金（役員）`,
+    note: `自社株（出資額）と会社への貸付金は「貯蓄・運用」のその他の資産${owned > 0 ? `（${owned}件）` : ""}、会社からの借入金は「住まい・ローン」のほかのローン${borrowed > 0 ? `（${borrowed}件）` : ""}で入れます。会社の側の数字（会社の決算・会社の資産と負債）は入れません`,
+    level: "simple",
+    fields: [{ ...guarantee, address: () => ({ target: { member: m.id }, item: "member.companyGuarantee", at: [] }) }],
+    actions: [],
+  };
+}
+
 export function workStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;
   const people = earners(h);
@@ -1234,6 +1257,8 @@ export function workStage(wh: WorkingHousehold): StageDef {
     // 退職金・企業年金は退職金・企業年金のカードに出す（ここは読むだけの1行）
     const ro = readGroup(`work/${m.id}/benefits`, undefined, benefits.length > 0 ? [readLine(`work/${m.id}/benefits`, "退職金・企業年金", `${benefits.length}件`, "退職金・企業年金")] : []);
     if (ro !== null) groups.push(ro);
+    const og = officerGroup(wh, m);
+    if (og !== null) groups.push(og);
     return { key: `work/${m.id}`, title: memberLabel(wh, m.id), level: "simple", groups, actions: [] };
   });
   // 欄・ボタンの後に、推定のままの定年後の予定を入れ直し、新しく作った期間に給付を受け取るかの推定を入れる
