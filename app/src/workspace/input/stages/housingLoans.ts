@@ -723,7 +723,7 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         kind: "yen",
         basis: "once",
         optional: true,
-        help: "家を買った値段です。空欄なら借入額の上限を置きません。年末残高が取得対価より多いときは、取得対価までで控除します",
+        help: "家を買った値段です。入れなければ借入額の上限を置きません。年末残高が取得対価より多いときは、取得対価までで控除します",
         get: (w) => ({ value: hsOf(w)?.acquisitionCost ?? null }),
         set: (w, v) =>
           edit(w, (x) => {
@@ -896,12 +896,12 @@ function balanceField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" 
     find,
     path: ["balance"],
     optional: mode !== "balance",
-    help: mode === "balance" ? "年末残高証明書・返済予定表の残高。時点は「残高の時点」（空欄なら今月）" : "返済予定表の残高。空欄なら借入額と金利から計算します",
+    help: mode === "balance" ? "年末残高証明書・返済予定表の残高。時点は「残高の時点」（入れなければ今月）" : "返済予定表の残高。入れなければ借入額と金利から計算します",
   });
   if (mode !== "balance") return inner;
   return field({
     ...inner,
-    sideEffects: "残高の時点が空なら計算の基準の月にし、入れ方の決まりで金利・完済の年を逆算し直します",
+    sideEffects: "残高の時点を入れなければ計算の基準の月にし、入れ方の決まりで金利・完済の年を逆算し直します",
     set: (w, v) => {
       const next = mutate(inner.write?.(w, v) ?? inner.set(w, v), (h, req) => {
         const x = (h.debts ?? []).find((y) => y.id === d.id);

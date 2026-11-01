@@ -97,7 +97,7 @@ function nextStageAt(wh: WorkingHousehold, list: readonly Obj[]): Timepoint {
 /** 次に足す例外の年（いちばん後の例外の翌年。無ければ計算の基準の年の翌年） */
 const nextYear = (wh: WorkingHousehold, list: readonly Obj[]): number => Math.max(Number(wh.request.input.baseMonth.slice(0, 4)), ...list.map((e) => Number(e.year))) + 1;
 
-const RAMP_HELP = "段の時点から1年ごとに、次の段の額へ同じ幅で近づけます。届いた後は次の段の時点までその額のまま。空欄はこの段のまま、次の段の時点で変わります";
+const RAMP_HELP = "段の時点から1年ごとに、次の段の額へ同じ幅で近づけます。届いた後は次の段の時点までその額のまま。入れなければ、この段のまま次の段の時点で変わります";
 
 /** 「ここから○年かけて次の段へ」の欄（次の段がある段だけ） */
 function rampField(key: string, item: string, find: Finder, address: Address): FieldDef {

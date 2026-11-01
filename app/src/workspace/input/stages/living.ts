@@ -487,7 +487,7 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
           find,
           path: ["monthly"],
           estimate: (h) => livingEstimate(h, wh.request.input.baseMonth),
-          help: "空欄なら統計の平均（世帯の人数ごと）で計算します。結果の対策「毎月の生活費」でも動かせます",
+          help: "推定は統計の平均（同じ人数の世帯）です。結果の対策「毎月の生活費」でも動かせます",
         }),
         addr(l.id, "livingExpense.monthly"),
       ),

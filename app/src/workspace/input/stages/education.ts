@@ -1426,7 +1426,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
           ? `${nurseryMethodNote()}${free !== null ? `${free.slice(0, 4)}年4月からは無償化で0円。` : ""}月額が分かれば「詳細」で入れられます`
           : s.monthly === 0
             ? "保育料なし（月額 0 円を入れています）"
-            : `保育料は入力した月額（${formatYen(s.monthly, "yen")}円）で計算します。空欄にすると収入から自動で計算します`;
+            : `保育料は入力した月額（${formatYen(s.monthly, "yen")}円）で計算します。消すと収入から自動で計算します`;
     groups.push({
       key: `edu/${goal.id}/stage/${i}`,
       title: `${stageLabel(s.stage)}${entryAge !== undefined && s.stage !== "kindergarten" ? `（${entryAge}歳から）` : ""}`,

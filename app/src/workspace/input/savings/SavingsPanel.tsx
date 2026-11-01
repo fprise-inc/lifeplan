@@ -301,7 +301,7 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
       : {
           key: "sav/details",
           title: "口座ごとの詳細",
-          note: "残高の時点・積立の終わり・引き出せない期間・資産の配分など。空欄なら、残高は今月の時点、積立は退職の年まで続く形で計算します",
+          note: "残高の時点・積立の終わり・引き出せない期間・資産の配分など。入れなければ、残高は今月の時点、積立は退職の年までとして計算します",
           level: "detail",
           groups: accountsSec.groups
             .filter((g) => !g.key.startsWith("sav/period") && !g.key.endsWith("/addMix") && !/\/mix\/\d+$/.test(g.key) && !(h.accounts ?? []).some((a) => a.kind === "pooled" && g.key === `sav/${a.id}`))
@@ -383,7 +383,7 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
           <h3>
             口座ごとの残高・積立額{method === "accounts" ? "・利回り" : ""}
             <Help label="口座ごとの残高・積立額">
-              残高は今の時価。{method === "accounts" ? "利回りは1年あたりの見込みを、信託報酬などの費用を引いた後で入れます。空欄なら、前提条件の目安の利回りで計算します（費用を別に入れる形は「詳細」で）。" : "運用する口座の利回りは、下の資産の割合から計算します。"}年齢で積立額を変えるときは「＋期間を追加」。
+              残高は今の時価。{method === "accounts" ? "利回りは1年あたりの見込みを、信託報酬などの費用を引いた後で入れます。入れなければ、前提条件の利回りで計算します（費用を別に入れる形は「詳細」で）。" : "運用する口座の利回りは、下の資産の割合から計算します。"}年齢で積立額を変えるときは「＋期間を追加」。
             </Help>
           </h3>
           <AccountsTable wh={wh} level={level} method={method} stopAge={stopAge} editAcc={editAcc} editField={editField} find={find} fields={fields} onEdit={onEdit} {...(moreOf !== undefined ? { moreOf } : {})} />
@@ -639,7 +639,7 @@ function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; lev
       <div class="sv-fld top">
         <span class="lbl">毎月の積立額</span>
         <StepsEditor steps={t.steps} now={t.steps[0]?.fromAge ?? 0} stopAge={stopAgeOrEstimate(req)} label="合計" onChange={(steps) => onEdit(editTotal(wh, { steps }))} />
-        <p class="help">預金への積立も含めます（会社が出す企業型DC の掛金は含めません）。空欄（0円）なら積み立てず、黒字は預金に貯まります。年齢で額を変えるときは「＋期間を追加」。</p>
+        <p class="help">預金への積立も含めます（会社が出す企業型DC の掛金は含めません）。入れなければ積み立てず、黒字は預金に貯まります。年齢で額を変えるときは「＋期間を追加」。</p>
       </div>
       <div class="sv-fld">
         <span class="lbl">
@@ -672,7 +672,7 @@ function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; lev
         <p class="help">
           {t.uninvested !== null ? "運用しない分を除いた、運用する分の平均。" : "預金も含めた全体の平均。迷ったら、預金が多いほど低めに。"}
           長い期間の平均の年率を、{rangeText(RETURN_RANGE)}の範囲で入れます。
-          {ownRate === null ? `空欄のときは、前提条件の運用利回り（年${pct1(Number(t.rate))}%）で計算しています。` : ""}
+          {ownRate === null ? `入れていないので、前提条件の運用利回り（年${pct1(Number(t.rate))}%）で計算しています。` : ""}
         </p>
       </div>
       {level === "detail" ? (
@@ -687,7 +687,7 @@ function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; lev
           </div>
           <FieldStateLine f={fUn} wh={wh} onEdit={onEdit} />
           <p class="help">
-            預金のまま置いておくお金など。この額には平均の利回りをかけず、預金の利回り（前提条件の「現金・預金」の利回り）で計算します。空欄なら全部に平均の利回り。
+            預金のまま置いておくお金など。この額には平均の利回りをかけず、預金の利回り（前提条件の「現金・預金」の利回り）で計算します。入れなければ、全部に平均の利回りを使います。
           </p>
         </div>
       ) : null}
@@ -980,7 +980,7 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
       <section class="sv-sec" aria-label="資産の種類ごとの割合">
         <h3>
           資産の種類ごとの割合
-          <Help label="資産の種類ごとの割合">運用する口座（NISA・iDeCo・企業型DC・課税口座）に共通の、資産の種類ごとの割合です。預金は現金のまま。商品は選ばず、資産の種類で入れます。期待リターンと値動きの大きさの空欄は、事務所の標準の値で計算します。</Help>
+          <Help label="資産の種類ごとの割合">運用する口座（NISA・iDeCo・企業型DC・課税口座）に共通の、資産の種類ごとの割合です。預金は現金のまま。商品は選ばず、資産の種類で入れます。期待リターンと値動きの大きさは、入れなければ事務所の既定値で計算します。</Help>
         </h3>
         <div class="sv-tw">
           <table class="sv-cls">
@@ -1123,8 +1123,8 @@ function PayoutSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; le
       <h3>
         {aids.length > 0 ? "iDeCo・企業型DC・小規模企業共済の受け取り方" : "iDeCo・企業型DC の受け取り方"}
         <Help label="受け取り方">
-          {dcs.length > 0 ? <p>空欄は「退職の年（60〜65歳）に一時金」で計算します（推定）。受け取ったお金は、預金に入れるか、運用を続けるかを選べます。年金で受け取る年数（空欄は10年）・併用の一時金の割合（空欄は半分）は「詳細」で。</p> : null}
-          {aids.length > 0 ? <p>小規模企業共済は、受け取りを始める時期（廃業・退職など）を入れると、その月に受け取ります。空欄なら受け取らずに残高のまま持ちます。一括は退職所得、分割は公的年金等の雑所得として税を計算します。</p> : null}
+          {dcs.length > 0 ? <p>推定は「退職の年（60〜65歳）に一時金」です。受け取ったお金は、預金に入れるか、運用を続けるかを選べます。年金で受け取る年数（推定は10年）・併用の一時金の割合（推定は半分）は「詳細」で。</p> : null}
+          {aids.length > 0 ? <p>小規模企業共済は、受け取りを始める時期（廃業・退職など）を入れると、その月に受け取ります。入れなければ、受け取らずに残高のまま持ちます。一括は退職所得、分割は公的年金等の雑所得として税を計算します。</p> : null}
         </Help>
       </h3>
       {dcs.map((a) => {

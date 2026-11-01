@@ -515,7 +515,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
         }),
       );
     if (!keepCurrent)
-      fields.push(carYen({ key: `${k}/price`, item: "car.purchase", label: "車両の価格", level: "simple", basis: "once", find, path: ["purchase", "price"], estimate: CAR_ESTIMATE.price, help: "今の価格で入れます（物価上昇率で伸ばします）。空欄なら目安で計算します", after: refreshTradeIn }));
+      fields.push(carYen({ key: `${k}/price`, item: "car.purchase", label: "車両の価格", level: "simple", basis: "once", find, path: ["purchase", "price"], estimate: CAR_ESTIMATE.price, help: "今の価格で入れます（物価上昇率で伸ばします）", after: refreshTradeIn }));
     if (kind !== "none")
       fields.push(
         carYen({
@@ -530,7 +530,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
             const x = car(w.request.input.household, w)?.purchase;
             return tradeInEstimate(x?.price ?? CAR_ESTIMATE.price.value, x?.everyYears ?? CAR_ESTIMATE.everyYears.value);
           },
-          help: "次の買い替えで車両の価格から引く額です。空欄なら、車両の価格と周期から残価の目安で入れます。下取りを引いた額を車両の価格に入れたときは0円に",
+          help: "次の買い替えで車両の価格から引く額です。推定は、車両の価格と周期からの残価です。下取りを引いた額を車両の価格に入れたときは0円に",
         }),
       );
     fields.push(
@@ -573,7 +573,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
       addr(c.id, "car.upkeepMode"),
     ),
   );
-  const leaseUpkeepHelp = "月額に含まれない分（駐車場・燃料など）を入れます。空欄なら、車の目安から月額に含む分を引いた額で計算します";
+  const leaseUpkeepHelp = "月額に含まれない分（駐車場・燃料など）を入れます。入れなければ、車の目安から月額に含む分を引いた額で計算します";
   const detailGroups: GroupDef[] = [];
   if (mode === "total")
     fields.push(
@@ -589,7 +589,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
           const x = car(w.request.input.household, w);
           return x === undefined ? CAR_ESTIMATE.upkeep : upkeepEstimate(x);
         },
-        help: lease ? leaseUpkeepHelp : "自動車税・保険・車検・駐車場・燃料などの合計。空欄なら目安で計算します（車の修理・用品などは下の出るお金の行でも足せます）",
+        help: lease ? leaseUpkeepHelp : "自動車税・保険・車検・駐車場・燃料などの合計。車の修理・用品などは、下の出るお金の行でも足せます",
       }),
     );
   else {
@@ -978,7 +978,7 @@ function leaseFields(c: Car, k: string, find: Finder, refreshUpkeep: (w: Working
         nullText: "もう借りている",
         mode: "now",
         modes: ["now", "ym"],
-        help: "これから借りるときに入れます（空欄は、もう借りている）",
+        help: "これから借りるときに入れます（入れなければ、もう借りているとみなします）",
       }),
       addr(c.id, "car.lease", ["from"]),
     ),
@@ -1072,7 +1072,7 @@ function untilField(c: Car, k: string, car: (h: Household, w: WorkingHousehold) 
   const oneTime = !isLeaseCar(c) && replaceKind(c) === "none";
   const help = [
     prominent ? "今の車を手放す時期です。名義の人の年齢で入れます" : "名義の人の年齢で入れます",
-    `その年齢に達する月で手放します（${oneTime ? (c.purchase?.owned === true ? "空欄なら今から5年で計算します" : "空欄なら、買ってから13年〔乗用車の平均使用年数の目安〕で計算します") : "空欄は最後まで乗る"}）`,
+    `その年齢に達する月で手放します（${oneTime ? (c.purchase?.owned === true ? "推定は今から5年です" : "推定は、買ってから13年〔乗用車の平均使用年数の目安〕です") : "入れなければ最後まで乗ります"}）`,
     "運転免許の更新で認知機能の検査が始まる75歳ごろを目安にするFPも多いです",
     isLeaseCar(c) ? "リース・長期レンタルは、手放す月まで月額を数えます" : "手放すときの売却額は、まだ計算に入っていません",
   ].join("。");
@@ -1313,7 +1313,7 @@ export function carStage(wh: WorkingHousehold): StageDef {
           {
             key: "ev/addCarLease",
             label: "＋ リース・長期レンタル（月額）",
-            help: "カーリース・長期レンタルの車を、月額で足します。月額は契約書の額を入れてください（空欄のうちは0円で計算します）",
+            help: "カーリース・長期レンタルの車を、月額で足します。月額は契約書の額を入れてください（入れるまでは0円で計算します）",
             level: "simple",
             run: (w: WorkingHousehold) => addLeaseCar(w),
           },

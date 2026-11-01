@@ -252,7 +252,7 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
   const p = a.property ?? {};
   const whole = p.kind !== undefined && WHOLE_BUILDING.has(p.kind);
   const shareField = withAddress(
-    plain({ key: `${kp}/share`, item: "account.property", label: "持分", level: "detail", kind: "pct", find: findP, path: ["share"], optional: true, help: "共有名義のとき、名義の人の持分です（例: 2分の1なら 50%）。空欄は全部（単独の名義）" }),
+    plain({ key: `${kp}/share`, item: "account.property", label: "持分", level: "detail", kind: "pct", find: findP, path: ["share"], optional: true, help: "共有名義のとき、名義の人の持分です（例: 2分の1なら 50%）。入れなければ全部（単独の名義）" }),
     onAccount(a.id, "account.property", ["share"]),
   );
   const kindBase = withAddress(
@@ -279,7 +279,7 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
   const kindField: FieldDef = kindBase;
   const fields: FieldDef[] = [
     withAddress(
-      plain({ key: `${kp}/name`, item: "account.property.name", label: "物件名", level: "simple", kind: "text", find: findP, path: ["name"], optional: true, help: "空欄なら「物件1」「物件2」と呼びます。ふだんの呼び方（「○○のアパート」など）で入れると見分けやすくなります" }),
+      plain({ key: `${kp}/name`, item: "account.property.name", label: "物件名", level: "simple", kind: "text", find: findP, path: ["name"], optional: true, help: "入れなければ「物件1」「物件2」と呼びます。ふだんの呼び方（「○○のアパート」など）で入れると見分けやすくなります" }),
       onAccount(a.id, "account.property.name"),
     ),
     kindField,
@@ -296,7 +296,7 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
       find,
       path: ["valueGrowth"],
       optional: true,
-      help: "空欄なら前提条件の土地の上昇率（入れていなければ物価上昇率）。建物は構造の耐用年数で減らします",
+      help: "入れなければ前提条件の土地の上昇率（入れていなければ物価上昇率）。建物は構造の耐用年数で減らします",
     }),
     withAddress(plain({ key: `${kp}/location`, item: "account.property.location", label: "所在地", level: "detail", kind: "text", find: findP, path: ["location"], optional: true, help: "都道府県・市区町村まで（例: 埼玉県さいたま市）。番地は入れません" }), onAccount(a.id, "account.property.location")),
     {
@@ -363,7 +363,7 @@ function acquisitionFields(wh: WorkingHousehold, a: Account): FieldDef[] {
   if ((p.acquisition?.parts?.equipment ?? 0) > 0)
     fields.push(
       withAddress(
-        plain({ key: `${kp}/equipmentLife`, item: "account.property", label: "建物附属設備の耐用年数", level: "detail", kind: "int", suffix: "年", min: 2, max: 50, find: findP, path: ["acquisition", "equipmentLife"], optional: true, fallback: EQUIPMENT_LIFE, help: "定額法で減価償却します。空欄なら法定の15年（中古は建物と同じ経過年数で簡便法に直した年数）。入れたときは、その年数のまま使います" }),
+        plain({ key: `${kp}/equipmentLife`, item: "account.property", label: "建物附属設備の耐用年数", level: "detail", kind: "int", suffix: "年", min: 2, max: 50, find: findP, path: ["acquisition", "equipmentLife"], optional: true, fallback: EQUIPMENT_LIFE, help: "定額法で減価償却します。入れなければ法定の15年（中古は建物と同じ経過年数で簡便法に直した年数）。入れたときは、その年数のまま使います" }),
         onAccount(a.id, "account.property", ["acquisition", "equipmentLife"]),
       ),
     );
@@ -428,7 +428,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
           onAccount(a.id, "account.property", ["holdFrom"]),
         ),
         plain({ key: `${kp}/structure`, item: "account.property", label: "建物の構造", level: "simple", kind: "select", options: BUILDING_STRUCTURES, find: findP, path: ["structure"], optional: true, fallback: "wood", help: "評価額の建物の部分を耐用年数（木造22年・軽量鉄骨19年・重量鉄骨34年・鉄筋コンクリート47年）で減らします。減価償却の耐用年数にも使います" }),
-        plain({ key: `${kp}/builtYear`, item: "account.property", label: "建物が建った年", level: "simple", kind: "int", suffix: "年", min: 1900, max: 2200, find: findP, path: ["builtYear"], optional: true, fallback: acquisitionYear ?? Number(asOf.slice(0, 4)), help: "空欄なら取得の年（取得が空欄なら評価額の時点の年）に新築とみなします" }),
+        plain({ key: `${kp}/builtYear`, item: "account.property", label: "建物が建った年", level: "simple", kind: "int", suffix: "年", min: 1900, max: 2200, find: findP, path: ["builtYear"], optional: true, fallback: acquisitionYear ?? Number(asOf.slice(0, 4)), help: "入れなければ取得の年（取得の年が無ければ評価額の時点の年）に新築とみなします" }),
         plain({
           key: `${kp}/landShare`,
           item: "account.property",
@@ -441,7 +441,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
           path: ["landShare"],
           optional: true,
           fallback: partsShare ?? setting?.landShare ?? VALUATION_DEFAULTS.landShare,
-          help: "評価額と取得価額を土地と建物に分けます。マンションは土地の割合が小さめです。取得価額の内訳を入れたときは、取得価額は内訳で分け、この割合は評価額だけに使います（空欄なら内訳の土地の割合）",
+          help: "評価額と取得価額を土地と建物に分けます。マンションは土地の割合が小さめです。取得価額の内訳を入れたときは、取得価額は内訳で分け、この割合は評価額だけに使います（入れなければ内訳の土地の割合）",
         }),
         acqPriceField(plain({
           key: `${kp}/acqPrice`,
@@ -453,7 +453,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
           find: findP,
           path: ["acquisition", "price"],
           optional: true,
-          help: "減価償却費（建物の分）の計算に使います。空欄なら減価償却費を入れません。取得価額の内訳を入れたときは、その合計です",
+          help: "減価償却費（建物の分）の計算に使います。入れなければ減価償却費は計算しません。取得価額の内訳を入れたときは、その合計です",
           after: (h, _t, v, w) => {
             const x = find(h, w) as Account | undefined;
             if (x?.property === undefined) return;
@@ -601,7 +601,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   if (p.sale !== undefined)
     saleFields.push(
       timepointField({ key: `${kp}/saleAt`, item: "account.property", label: "売る時期", level: "simple", find: findP, path: ["sale", "at"], ...ageOf }),
-      plain({ key: `${kp}/salePrice`, item: "account.property", label: "売却価格", level: "simple", kind: "yen", basis: "once", find: findP, path: ["sale", "price"], optional: true, help: "空欄ならその年の評価額で売るとみなします" }),
+      plain({ key: `${kp}/salePrice`, item: "account.property", label: "売却価格", level: "simple", kind: "yen", basis: "once", find: findP, path: ["sale", "price"], optional: true, help: "入れなければ、その年の評価額で売るとみなします" }),
       plain({ key: `${kp}/saleCost`, item: "account.property", label: "売却の費用（売却価格に対する割合）", level: "detail", kind: "pct", find: findP, path: ["sale", "costRate"], optional: true, fallback: setting?.saleCostRate ?? VALUATION_DEFAULTS.saleCostRate, help: "仲介手数料・印紙税など。譲渡所得の計算では譲渡費用として引きます" }),
     );
   if (p.sale !== undefined && propertyLoans(wh.request.input.household, a.id).length > 0)
@@ -665,12 +665,12 @@ function lodgingSalesFields(wh: WorkingHousehold, a: Account): FieldDef[] {
       options: LODGING_INCOME_KINDS,
       optional: true,
       fallback: l.business === "inn" ? "business" : "miscellaneous",
-      help: `空欄なら営業の形から、住宅宿泊事業・特区民泊は雑所得、旅館業は事業所得とします（国税庁の住宅宿泊事業の所得の扱い）。雑所得の赤字は給与などほかの所得から引けません。事業所得の赤字は引け、青色申告特別控除も使えます。賃貸の合間に一時的に貸すときは不動産所得にできます。${LODGING_NOTE}`,
+      help: `入れなければ営業の形から、住宅宿泊事業・特区民泊は雑所得、旅館業は事業所得とします（国税庁の住宅宿泊事業の所得の扱い）。雑所得の赤字は給与などほかの所得から引けません。事業所得の赤字は引け、青色申告特別控除も使えます。賃貸の合間に一時的に貸すときは不動産所得にできます。${LODGING_NOTE}`,
     }),
   ];
   if (l.salesBy === "night") {
     const cap = l.business === "privateLodging";
-    const days = lp("days", ["days"], { label: "営業日数（年）", level: "simple", kind: "int", suffix: "日", min: 1, max: 366, optional: true, fallback: cap ? PRIVATE_LODGING_DAYS : 365, help: "1年のうち宿として営業する日数です。空欄なら、住宅宿泊事業は180日、ほかは365日" });
+    const days = lp("days", ["days"], { label: "営業日数（年）", level: "simple", kind: "int", suffix: "日", min: 1, max: 366, optional: true, fallback: cap ? PRIVATE_LODGING_DAYS : 365, help: "1年のうち宿として営業する日数です。入れなければ、住宅宿泊事業は180日、ほかは365日" });
     fields.push(
       lp("nightly", ["nightly"], { label: "1泊の単価", level: "simple", kind: "yen", basis: "once", unit: "yen", optional: true, help: "1泊あたりの宿泊料（清掃料などを含めた、受け取る額）の平均です" }),
       lp("occupancy", ["occupancy"], { label: "稼働率", level: "simple", kind: "pct", optional: true, help: "営業日数のうち、泊まりのある日の割合です（例: 70%）" }),

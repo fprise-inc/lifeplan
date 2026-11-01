@@ -319,7 +319,7 @@ describe("合計の入れ方の平均の利回り（名前の付いた選び方�
     expect(totalViewOf(w.request).rate).toBe("0.035");
     const out = html(w, "simple");
     expect(out).toContain('placeholder="3.5"');
-    expect(out).toContain("空欄のときは、前提条件の運用利回り（年3.5%）で計算しています。");
+    expect(out).toContain("入れていないので、前提条件の運用利回り（年3.5%）で計算しています。");
   });
 });
 
