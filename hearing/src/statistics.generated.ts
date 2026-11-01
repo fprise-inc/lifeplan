@@ -2798,6 +2798,13 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-09"
  },
+ "education.statistics.elementary.private.extracurricular": {
+  "title": "教科外活動費の年額（私立小学校。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）",
+  "value": 13032,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
  "education.statistics.elementary.private.outOfSchool": {
   "title": "学校外活動費の年額（私立小学校）",
   "value": 709667,
@@ -2811,6 +2818,13 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "rev": 2,
   "reviewed": true,
   "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.elementary.public.extracurricular": {
+  "title": "教科外活動費の年額（公立小学校。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）",
+  "value": 3154,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
  },
  "education.statistics.elementary.public.outOfSchool": {
   "title": "学校外活動費の年額（公立小学校）",
@@ -2833,6 +2847,13 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-09"
  },
+ "education.statistics.highSchool.private.extracurricular": {
+  "title": "教科外活動費の年額（私立高校。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）",
+  "value": 63440,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
  "education.statistics.highSchool.private.outOfSchool": {
   "title": "学校外活動費の年額（私立高校）",
   "value": 346611,
@@ -2846,6 +2867,13 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "rev": 2,
   "reviewed": true,
   "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.highSchool.public.extracurricular": {
+  "title": "教科外活動費の年額（公立高校。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）",
+  "value": 49499,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
  },
  "education.statistics.highSchool.public.outOfSchool": {
   "title": "学校外活動費の年額（公立高校）",
@@ -2882,6 +2910,13 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-09"
  },
+ "education.statistics.juniorHigh.private.extracurricular": {
+  "title": "教科外活動費の年額（私立中学校。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）",
+  "value": 65131,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
  "education.statistics.juniorHigh.private.outOfSchool": {
   "title": "学校外活動費の年額（私立中学校）",
   "value": 422981,
@@ -2895,6 +2930,13 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "rev": 2,
   "reviewed": true,
   "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.juniorHigh.public.extracurricular": {
+  "title": "教科外活動費の年額（公立中学校。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）",
+  "value": 27316,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
  },
  "education.statistics.juniorHigh.public.outOfSchool": {
   "title": "学校外活動費の年額（公立中学校）",
@@ -2917,6 +2959,13 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-09"
  },
+ "education.statistics.kindergarten.private.extracurricular": {
+  "title": "教科外活動費の年額（私立幼稚園。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）",
+  "value": 3727,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
  "education.statistics.kindergarten.private.outOfSchool": {
   "title": "学校外活動費の年額（私立幼稚園）",
   "value": 157535,
@@ -2931,6 +2980,13 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-09"
  },
+ "education.statistics.kindergarten.public.extracurricular": {
+  "title": "教科外活動費の年額（公立幼稚園。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）",
+  "value": 907,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
+ },
  "education.statistics.kindergarten.public.outOfSchool": {
   "title": "学校外活動費の年額（公立幼稚園）",
   "value": 100049,
@@ -2944,6 +3000,13 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "rev": 2,
   "reviewed": true,
   "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.nursery.extra": {
+  "title": "保育所の保育料とは別にかかるお金の年額の目安（実費徴収。3歳以上児の主食費を除く）",
+  "value": 8843,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-30"
  },
  "education.statistics.university.national.admission": {
   "title": "国立大学の入学料の標準額",

@@ -497,6 +497,23 @@ function sample038(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/**
+ * 0.39 の見本の世帯（0062・0029 の追記 2026-10-30）: sample038() の教育の目標の段に、段ごとの給食費の選び方（公立小学校を自治体の無償化）・
+ * 部活動などの費用（中学校）・保育料とは別にかかるお金（保育所の段）を足す
+ */
+function sample039(): BodyState {
+  const s = sample038();
+  const req = structuredClone(s.wh.request);
+  for (const g of req.input.household.goals ?? []) {
+    for (const st of g.education?.stages ?? []) {
+      if (st.stage === "elementary") st.schoolLunch = "free";
+      if (st.stage === "juniorHigh") st.clubAnnual = 84000;
+      if (st.stage === "nursery") st.extraAnnual = 12000;
+    }
+  }
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -620,7 +637,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.38");
+    expect(BODY_FORMAT_VERSION).toBe("0.39");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -774,7 +791,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample038())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample039())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -974,6 +991,24 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(premiseFor(back.wh, planId).partnerWork?.income?.[spouse.id]).toEqual({ type: "partTime", annualSalary: 1500000 });
     // 0.35 の見本には欄が無い
     expect("partnerWork" in (bodyObject(sample035()).household as unknown as { contingency: Record<string, unknown> }).contingency).toBe(false);
+  });
+
+  it("0.39 の形（0062・0029 の追記 2026-10-30）: 段の給食費の選び方・部活動などの費用・保育料とは別にかかるお金を保存して読み戻し、計算に使う", () => {
+    const s = sample039();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const stages = (stored.household.request.input.household.goals ?? []).flatMap((g) => g.education?.stages ?? []);
+    expect(stages.find((x) => x.stage === "elementary")?.schoolLunch).toBe("free");
+    expect(stages.find((x) => x.stage === "juniorHigh")?.clubAnnual).toBe(84000);
+    expect(stages.find((x) => x.stage === "nursery")?.extraAnnual).toBe(12000);
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    const plain = structuredClone(back.wh.request);
+    for (const g of plain.input.household.goals ?? []) for (const st of g.education?.stages ?? []) {
+      delete st.schoolLunch;
+      delete st.clubAnnual;
+      delete st.extraAnnual;
+    }
+    expect(preview(back.wh.request).table).not.toEqual(preview(plain).table);
   });
 
   it("0.38 の形（0047 の追記 2026-10-29 の2）: 標準報酬月額が空欄の期間を空欄のまま保存して読み戻し、給与から毎年決め直して計算する（昇給が厚生年金の額に入る）", () => {

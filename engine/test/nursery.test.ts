@@ -237,3 +237,41 @@ describe("学校給食費の負担軽減（education.cost。改訂3）", () => {
     expect(tuition(paid, 2027)).toBe(110110);
   });
 });
+
+describe("保育料とは別にかかるお金・段ごとの給食費・部活動の費用（0029・0062 の追記 2026-10-30）", () => {
+  const E = { name: "e", birth: "2018-06" };
+  const cost = (req: Req) => runEngine(req, fictionalPacks(), { checkInternal: true, entry: { component: "education.cost", input: { member: uid("e") } } }).entryOutput as EducationCostOutput;
+  const tuition = (o: EducationCostOutput, fy: number, stage = "elementary") => o.enrollments.find((x) => x.stage === stage)?.fees.find((f) => f.fiscalYear === fy)?.tuition;
+
+  it("保育所の段: 保育料とは別のお金（年額÷12）を、通い始めから3歳の4月の前の月まで学校の費用の行に。統計の目安の無いパックでは数えない", () => {
+    // 2026年6月生まれ: 3歳の4月は2030年4月。通い始め 2027-04（架空の見本のパックには目安が無いので、年額を入れて確かめる）
+    const none = nursery(mk([{ ...C, stages: [{ stage: "nursery", from: at("2027-04"), monthly: 30000 }] }]), "c", () => 100000);
+    expect((none.entryOutput as { flows: Flow[] }).flows.some((f) => f.formula === "education.nurseryFee.extra")).toBe(false);
+    const r = nursery(mk([{ ...C, stages: [{ stage: "nursery", from: at("2027-04"), monthly: 30000, extraAnnual: 12000 }] }]), "c", () => 100000);
+    const extra = (r.entryOutput as { flows: Flow[] }).flows.filter((f) => f.formula === "education.nurseryFee.extra");
+    expect(extra.length).toBe(36);
+    expect(extra[0]).toMatchObject({ row: "cf.expense.education.school", ym: "2027-04", amount: 1000 });
+    expect(extra.at(-1)?.ym).toBe("2030-03");
+    const r2 = nursery(mk([{ ...C, stages: [{ stage: "nursery", from: at("2027-04"), monthly: 0, extraAnnual: 24000 }] }]), "c", () => 100000);
+    const e2 = (r2.entryOutput as { flows: Flow[] }).flows.filter((f) => f.formula === "education.nurseryFee.extra");
+    expect(e2[0]?.amount).toBe(2000);
+    // 保育料なし（月額 0）でも、別のお金は数える
+    expect((r2.entryOutput as { flows: Flow[] }).flows.some((f) => f.row === "cf.expense.education.nursery")).toBe(false);
+  });
+
+  it("段ごとの給食費の選び方は、教育の目標の選び方より優先する", () => {
+    const o = cost(mk([{ ...E, lunch: "paid", stages: [{ stage: "elementary", sector: "public", schoolLunch: "free" }, { stage: "juniorHigh", sector: "public" }] }], { baseMonth: "2025-01" }));
+    expect(tuition(o, 2027)).toBe(110110 - 35774);
+    const jh = cost(mk([{ ...E, stages: [{ stage: "juniorHigh", sector: "public" }] }]));
+    const jhFree = cost(mk([{ ...E, stages: [{ stage: "juniorHigh", sector: "public", schoolLunch: "free" }] }]));
+    expect(tuition(jh, 2031, "juniorHigh")! - tuition(jhFree, 2031, "juniorHigh")!).toBe(35671);
+  });
+
+  it("部活動の費用: 統計の平均の段は統計の教科外活動費と入れ替え、年額を入れた段はその年額に足す", () => {
+    const base = cost(mk([{ ...E, stages: [{ stage: "juniorHigh", sector: "public" }] }]));
+    const club = cost(mk([{ ...E, stages: [{ stage: "juniorHigh", sector: "public", clubAnnual: 84000 }] }]));
+    expect(tuition(club, 2031, "juniorHigh")! - tuition(base, 2031, "juniorHigh")!).toBe(84000 - 27316);
+    const ov = cost(mk([{ ...E, stages: [{ stage: "juniorHigh", sector: "public", annualOverride: 200000, clubAnnual: 50000 }] }]));
+    expect(tuition(ov, 2031, "juniorHigh")).toBe(250000);
+  });
+});

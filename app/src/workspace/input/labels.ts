@@ -166,8 +166,8 @@ export const GROWTH_KINDS: Option[] = [
 ];
 
 export const SCHOOL_STAGES: Option[] = [
-  { value: "nursery", label: "保育園" },
-  { value: "kindergarten", label: "幼稚園" },
+  { value: "nursery", label: "保育園（2歳まで）" },
+  { value: "kindergarten", label: "保育園・幼稚園（3歳から）" },
   { value: "elementary", label: "小学校" },
   { value: "juniorHigh", label: "中学校" },
   { value: "highSchool", label: "高校" },
