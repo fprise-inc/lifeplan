@@ -17,7 +17,7 @@ import type { Option } from "../input/form.ts";
 import type { Box, EmploymentPeriod, Household, Member, Timepoint } from "../../engine/types.ts";
 import { buildStages, STAGE_ORDER } from "../input/stages/index.ts";
 import { pctFromRate, sameRate } from "../input/units.ts";
-import { addMonths, advisoryFeeInCurrent, hasAdvisoryFee, LEVER_KEYS, parseYm, readLevers, type LeverKey, type LeverValues } from "../levers.ts";
+import { addMonths, advisoryFeeInCurrent, hasAdvisoryFee, LEVER_KEYS, parseYm, pensionClaimMonth, pensionStarted, readLevers, type LeverKey, type LeverValues } from "../levers.ts";
 import { roles } from "../roles.ts";
 import { keyOf, resolveKey, type Reading } from "../store/readings.ts";
 import { bucketShares, expectedReturn, type MixPart } from "./allocation.ts";
@@ -163,6 +163,25 @@ export function ageSliderBounds(c: Control & { kind: "age" }, ...values: (number
   return { min: c.min, max: Math.max(c.max, ...xs) };
 }
 
+/**
+ * 年金の受け取り開始のスライダー: 60〜75歳のうち、受け取りの開始の月（その年齢に達した月の翌月）が計算基準月より前にならない年齢から。
+ * 目盛り（見本の世帯の段）のうち過ぎた年齢は出さず、下の端を目盛りに足す（働く最後の年齢と同じ考え）。
+ * もう受け取り始めている人（started）は、受け取りの開始を後から変えられないので、今の値だけの動かせないスライダーにする
+ * （受給中の記録は計算エンジンが受け取りの開始を読まないので、動かしても結果が変わらない）
+ */
+export function pensionAgeControl(steps: readonly number[], tick: (v: number) => string, member: Member | null, baseMonth: string, started: boolean, now: number): Control & { kind: "age" } {
+  const fixed = { kind: "age" as const, min: now, max: now, ticks: [now], tick };
+  if (started) return fixed;
+  let lo: number = PENSION_AGE_RANGE.min;
+  while (member !== null && lo <= PENSION_AGE_RANGE.max && pensionClaimMonth(member, lo) < baseMonth) lo++;
+  if (lo > PENSION_AGE_RANGE.max) return fixed;
+  // 幅は今までどおり目盛りの最小〜最大（60〜75歳の中）で、下の端だけ過ぎていない年齢まで上げる
+  const min = Math.max(lo, Math.min(...steps));
+  const max = Math.max(min, Math.min(PENSION_AGE_RANGE.max, Math.max(...steps)));
+  const ahead = steps.filter((v) => v >= min && v <= max);
+  return { kind: "age", min, max, ticks: [...new Set([min, ...ahead])].sort((a, b) => a - b), tick };
+}
+
 /** 年齢のスライダー: 目盛りの最小〜最大を1歳ずつ（limit があればその中に収める）。目盛りの数字は今の段を残す */
 export function ageControl(steps: readonly number[], tick: (v: number) => string, limit: { min: number; max: number } | null): Control & { kind: "age" } {
   let min = Math.min(...steps);
@@ -195,7 +214,10 @@ function leverNote(k: LeverKey, wh: WorkingHousehold, selfId: string, demo: Demo
     if (p?.type != null && p.annualSalary !== null) return `${p.fromAge}歳から${p.type === "selfEmployed" ? "自営業" : p.type === "partTime" ? "パート" : "再雇用"}（年収${Math.round(p.annualSalary / 10000)}万円）`;
     return null;
   }
-  if (k === "pensionAge") return v === 65 ? "原則の65歳" : null;
+  if (k === "pensionAge") {
+    if (h.members.some((m) => m.id === selfId) && pensionStarted(wh.request, selfId)) return "もう受け取り始めています（受け取りの開始は後から変えられません）";
+    return v === 65 ? "原則の65歳" : null;
+  }
   if (k === "nisaMonthly") return demo?.notes?.nisaMonthly ?? "働いている間、毎月積み立てる";
   const st = (h.livingExpenses ?? []).find((l) => l.mode === "total")?.stages ?? [];
   const names: Record<string, string> = { childIndependence: "子の独立後は", retirement: "退職後は", age70: "70歳から", age80: "80歳から" };
@@ -226,7 +248,10 @@ function leverItems(wh: WorkingHousehold, selfId: string, demo: DemoHousehold | 
       const self = h.members.find((m) => m.id === selfId);
       return retireAgeControl(steps[k], tick, self === undefined ? null : ageAt(self, wh.request.input.baseMonth));
     }
-    if (k === "pensionAge") return ageControl(steps[k], tick, PENSION_AGE_RANGE);
+    if (k === "pensionAge") {
+      const self = h.members.find((m) => m.id === selfId) ?? null;
+      return pensionAgeControl(steps[k], tick, self, wh.request.input.baseMonth, self !== null && pensionStarted(wh.request, selfId), base.pensionAge ?? 65);
+    }
     const r = amountRange(Math.min(...steps[k]), Math.max(...steps[k]));
     return { kind: "range", min: r.min, max: r.max, step: AMOUNT_STEP, ticks: steps[k], tick, per: "月" };
   };
