@@ -62,22 +62,16 @@ describe("最初の5枚の標準の欄の数", () => {
   });
 });
 
-describe("家族: 呼び名は詳細・子の性別は出さない、子の独立は子ども・教育のカードの詳細に1つだけ", () => {
-  it("本人の性別は標準、配偶者の性別と呼び名は詳細、子の性別は出さない。家族のカードに独立の欄は無く、子ども・教育のカードの詳細にある", () => {
+describe("家族: 呼び名は詳細・子の性別は出さない、子の独立の欄は出さない", () => {
+  it("本人の性別は標準、配偶者の性別と呼び名は詳細、子の性別は出さない。独立の欄は家族のカードにも子ども・教育のカードにも無い（最後の学校の終わりに合わせる。0062 の追記 2026-10-30）", () => {
     const wh = open("salariedCoupleTwoKids");
     const fam = fieldsOf(wh, "family");
     for (const m of members(wh)) {
       expect(fam.find((f) => f.key === `family/${m.id}/nickname`)?.level).toBe("detail");
       expect(fam.find((f) => f.key === `family/${m.id}/sex`)?.level).toBe(m.kind === "self" ? "simple" : m.kind === "child" ? undefined : "detail");
       expect(fam.some((f) => f.key === `family/${m.id}/leaves`)).toBe(false);
+      expect(fieldsOf(wh, "education").some((f) => f.key === `family/${m.id}/leaves`)).toBe(false);
     }
-    const child = members(wh).find((m) => m.kind === "child")!;
-    const leaves = fieldOf(wh, "education", `family/${child.id}/leaves`);
-    expect(leaves.level).toBe("detail");
-    expect(leaves.label).toContain("独立の時期");
-    // 書くと家族の値（member.leaves）が変わる
-    const w2 = leaves.set(wh, "2045-03");
-    expect(members(w2).find((m) => m.id === child.id)!.leaves).toEqual({ at: "2045-03" });
   });
 });
 

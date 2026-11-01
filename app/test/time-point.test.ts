@@ -10,7 +10,7 @@ import { REPO_DIR } from "../scripts/lib.ts";
 import type { EngineRequest, Household, Member, Timepoint } from "../src/engine/types.ts";
 import { readLevers } from "../src/workspace/levers.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
-import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { eventChoices } from "../src/workspace/input/namedEvents.ts";
 import { removeMember } from "../src/workspace/input/stages/family.ts";
 import { buildStage, buildStages } from "../src/workspace/input/stages/index.ts";
@@ -288,19 +288,12 @@ const byKey = (wh: WorkingHousehold, key: string) => buildStages(wh).flatMap((s)
 const tableOf = (req: EngineRequest) => JSON.stringify(preview(req).table);
 
 describe("時点の欄の読み書き", () => {
-  it("独立の時期・加わる時期は生年月の欄と同じ表記（2048-04）と読み（○歳（和暦））。入れ方の選択は残し、年齢・出来事の形は書き換えない", () => {
+  it("加わる時期は生年月の欄と同じ表記（2048-04）と読み（○歳（和暦））。入れ方の選択は残し、年齢・出来事の形は書き換えない（子の独立の欄は出さない。0062 の追記 2026-10-30）", () => {
     const wh = open("salariedCoupleTwoKids");
     const h = wh.request.input.household;
     const son = h.members.find((m) => m.kind === "child")!;
     const sp = h.members.find((m) => m.kind === "spouse")!;
-    const f = byKey(wh, `family/${son.id}/leaves`);
-    expect(f.time!.when.modes.length).toBeGreaterThan(1);
-    const w1 = f.set(wh, "2048-04");
-    const st = f.get(w1).when!;
-    expect(st.raw).toEqual({ at: "2048-04" });
-    expect(showWhen(st.raw, { ...st.ctx, mode: "ym" })).toBe("2048-04");
-    expect(st.read).toBe(`${Math.floor((Number("2048") * 12 + 3 - (Number(son.birth.birthYearMonth.slice(0, 4)) * 12 + Number(son.birth.birthYearMonth.slice(5, 7)) - 1)) / 12)}歳（令和30年4月）`);
-    expect(parseWhen("2048-04", { ...st.ctx, mode: "ym" })).toMatchObject({ ok: true, tp: { at: "2048-04" } });
+    expect(byKey(wh, `family/${son.id}/leaves`)).toBeUndefined();
     // 加わる時期（詳細）: 年月で入れると「○歳（和暦）」。年齢の形で持つ世帯は開いても変えない
     const j = byKey(wh, `family/${sp.id}/joins`);
     expect(j.time!.when.modes).toEqual(WHEN_MODES);
@@ -318,15 +311,14 @@ describe("時点の欄の読み書き", () => {
   it("年齢で入れた時点は年齢のまま持ち、欄の値は年月に解いて見せる（同じ時点の入れ直しは世帯を変えない）", () => {
     const wh = open("salariedCoupleTwoKids");
     const h = wh.request.input.household;
-    const son = h.members.find((m) => m.kind === "child")!;
-    const f = byKey(wh, `family/${son.id}/leaves`);
-    const w1 = f.time!.setWhen(wh, { memberAge: { member: son.id, years: 22, ageSwitch: "firstMarch31AfterReach" } }, "auto");
-    const leaves = w1.request.input.household.members.find((m) => m.id === son.id)!.leaves;
-    expect(leaves).toEqual({ memberAge: { member: son.id, years: 22, ageSwitch: "firstMarch31AfterReach" } });
-    expect(f.get(w1).value).toBe("2035-03");
-    expect(f.get(w1).when?.read).toBe("第1子が22歳になった後の最初の3月（令和17年3月）");
-    expect(f.time!.setWhen(w1, structuredClone(leaves) as Timepoint, "auto")).toBe(w1);
-    expect(f.set(w1, "2035-03")).toBe(w1);
+    const sp = h.members.find((m) => m.kind === "spouse")!;
+    const f = byKey(wh, `family/${sp.id}/joins`);
+    const w1 = f.time!.setWhen(wh, { memberAge: { member: sp.id, years: 60 } }, "auto");
+    const joins = w1.request.input.household.members.find((m) => m.id === sp.id)!.joins;
+    expect(joins).toEqual({ memberAge: { member: sp.id, years: 60 } });
+    expect(f.get(w1).value).toBe(resolveTimepoint(w1.request.input.household, joins!));
+    expect(f.time!.setWhen(w1, structuredClone(joins) as Timepoint, "auto")).toBe(w1);
+    expect(f.set(w1, f.get(w1).value)).toBe(w1);
     expect(() => preview(w1.request)).not.toThrow();
   });
 
@@ -367,10 +359,8 @@ describe("時点の欄の読み書き", () => {
     expect(h1.livingExpenses![0]!.stages![0]!.at).toEqual({ event: ev.id });
     // 出来事にしても結果は同じ
     expect(tableOf(w1.request)).toBe(tableOf(wh.request));
-    // 独立の欄（出来事の正本）を「23歳」にすると、出来事の時点が年齢の形になり、生活費の節目も動く
-    const leaves = byKey(w1, `family/${daughter.id}/leaves`);
-    expect(leaves.get(w1).when!.linked?.refs).toBe(2);
-    const w2 = leaves.time!.setWhen(w1, { memberAge: { member: daughter.id, years: 23 } }, "auto");
+    // 独立の出来事（正本）を「23歳」にすると、生活費の節目も動く（子の独立の欄は出さないので、出来事を直に動かす。0062 の追記 2026-10-30）
+    const w2 = mutate(w1, (hh) => void (hh.events!.find((e) => e.id === ev.id)!.at = { memberAge: { member: daughter.id, years: 23 } }));
     const h2 = w2.request.input.household;
     expect(h2.events!.find((e) => e.id === ev.id)!.at).toEqual({ memberAge: { member: daughter.id, years: 23 } });
     expect(resolveTimepoint(h2, h2.livingExpenses![0]!.stages![0]!.at)).toBe("2038-08");
