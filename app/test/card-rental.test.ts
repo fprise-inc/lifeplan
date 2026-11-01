@@ -65,7 +65,7 @@ describe("収益不動産の入力項目", () => {
     const a = rentalProperties(wh.request.input.household)[0]!;
     const k = `sav/${a.id}`;
     const titles = stageOf(wh).sections[0]!.groups.map((g) => g.title).filter((t) => t !== undefined);
-    expect(titles).toEqual(["物件1（評価額 0万円）", "土地と建物", "家賃収入", "経費", "売却", "申告（ご本人）"]);
+    expect(titles).toEqual(["物件1（評価額 0万円）", "土地と建物", "家賃収入", "経費", "売却", "申告（ご本人）: 持ち主ごと・その人の物件をまとめて"]);
     expect(stageOf(wh).sections[0]!.groups.flatMap((g) => g.actions).map((x) => x.key)).toContain(`${k}/property/addLoan`);
     expect(fieldStatus(fieldOf(wh, `${k}/value`), wh).status).toBe("missing");
     expect(fieldStatus(fieldOf(wh, `${k}/property/rent`), wh).status).toBe("missing");

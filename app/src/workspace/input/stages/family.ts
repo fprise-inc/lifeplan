@@ -390,6 +390,8 @@ function fixRelations(h: Household, before: Household, memberId: string, relId: 
 }
 
 /** 詳細の「夫婦の関係」のまとまり（段ごと）。関係の形・始まり・終わり。離婚した後の注意と、財産分与・養育費の行を足すボタン */
+const RELATION_NOTE = "事実婚から入籍・離婚のように、関係を期間で分けて入れられます。期間は重ならないように、前後の段の時点を合わせます";
+
 function relationGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
   const h = wh.request.input.household;
   const rs = spouseRelations(h, m.id);
@@ -455,7 +457,9 @@ function relationGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
     const notes = [
       ...(ended ? [`関係が終わった翌月から、${who}は世帯を離れます。${who}の名義の口座・保険・住まい・車は、各項目で外すか名義を直すまで世帯の物として計算します。分ける額は財産分与の行で入れてください`] : []),
     ];
-    return [{ key: k, title: rs.length > 1 ? `夫婦の関係 ${i + 1}（${MARRIAGE_LABEL[r.marriage] ?? r.marriage}）` : "夫婦の関係", ...(notes.length > 0 ? { note: notes.join("。") } : {}), level: "detail", fields, actions }];
+    // 配偶者の枠の中のまとまり（partOf。1件の配偶者 = 1つの枠）。区画の説明だった文は最初の段の「?」へ
+    if (i === 0) notes.unshift(RELATION_NOTE);
+    return [{ key: k, title: rs.length > 1 ? `夫婦の関係 ${i + 1}（${MARRIAGE_LABEL[r.marriage] ?? r.marriage}）` : "夫婦の関係", note: notes.join("。"), level: "detail", fields, actions, partOf: `family/${m.id}` }];
   });
 }
 
@@ -701,7 +705,8 @@ export function familyStage(wh: WorkingHousehold): StageDef {
       title: "家族の構成",
       note: "お名前の欄はありません。続柄と、必要なら FP が付ける呼び名で表します",
       level: "simple",
-      groups: [...order.filter((m) => !outsidePerson(m)).map((m) => memberGroup(wh, m)), ...(ro !== null ? [ro] : [])],
+      // 配偶者の「夫婦の関係」は、配偶者のまとまりの直後（配偶者の枠の中に描く。partOf）
+      groups: [...order.filter((m) => !outsidePerson(m)).flatMap((m) => [memberGroup(wh, m), ...(m.id === spouse?.id ? relations : [])]), ...(ro !== null ? [ro] : [])],
       actions: [
         ...(hasSpouse
           ? []
@@ -714,18 +719,6 @@ export function familyStage(wh: WorkingHousehold): StageDef {
         { key: "family/add/expectedChild", label: "＋ これから生まれる子", level: "simple", run: (w) => addChildWithEducation(w, newId, true) },
       ],
     },
-    ...(relations.length > 0
-      ? [
-          {
-            key: "family/relations",
-            title: "夫婦の関係",
-            note: "事実婚から入籍・離婚のように、関係を期間で分けて入れられます。期間は重ならないように、前後の段の時点を合わせます",
-            level: "detail" as const,
-            groups: relations,
-            actions: [],
-          },
-        ]
-      : []),
     {
       key: "family/events",
       title: "出来事",
