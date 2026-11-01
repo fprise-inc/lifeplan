@@ -526,6 +526,20 @@ function sample040(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/** 0.41 の見本の世帯（0089）: sample040() の大学の段がある子に大学院（修士・国立）を足し、高校の段がある子の高校をインターナショナルスクール（年額を入れる）にする */
+function sample041(): BodyState {
+  const s = sample040();
+  const req = structuredClone(s.wh.request);
+  const goals = req.input.household.goals ?? [];
+  const uni = goals.find((x) => (x.education?.stages ?? []).some((st) => st.stage === "university"))!;
+  uni.education!.stages.push({ id: "00000000-0000-4000-8000-000000004101", stage: "graduateMaster", sector: "national", living: "home" });
+  const hs = goals.filter((x) => x !== uni).find((x) => (x.education?.stages ?? []).some((st) => st.stage === "highSchool"))!;
+  const st = hs.education!.stages.find((x) => x.stage === "highSchool")!;
+  st.sector = "international";
+  st.annualOverride = 2400000;
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -649,7 +663,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.40");
+    expect(BODY_FORMAT_VERSION).toBe("0.41");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -803,7 +817,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample040())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample041())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1003,6 +1017,17 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(premiseFor(back.wh, planId).partnerWork?.income?.[spouse.id]).toEqual({ type: "partTime", annualSalary: 1500000 });
     // 0.35 の見本には欄が無い
     expect("partnerWork" in (bodyObject(sample035()).household as unknown as { contingency: Record<string, unknown> }).contingency).toBe(false);
+  });
+
+  it("0.41 の形（0089）: 大学院の段とインターナショナルスクールを保存して読み戻し、計算に使う", () => {
+    const s = sample041();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const stages = (stored.household.request.input.household.goals ?? []).flatMap((g) => g.education?.stages ?? []);
+    expect(stages.some((x) => x.stage === "graduateMaster" && x.sector === "national")).toBe(true);
+    expect(stages.some((x) => x.sector === "international" && x.annualOverride === 2400000)).toBe(true);
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(() => preview(back.wh.request)).not.toThrow();
   });
 
   it("0.40 の形（0088）: 教育の目標の留学を保存して読み戻し、計算に使う（休学の年は学費がかからない）", () => {

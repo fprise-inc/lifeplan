@@ -152,6 +152,66 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: education.statistics.graduate.national.admission
+    status: active
+    label: "国立大学の大学院の入学料の標準額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.graduate.national.tuition
+    status: active
+    label: "国立大学の大学院の授業料の標準額（年額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.graduate.private.doctor.admission
+    status: active
+    label: "私立大学の大学院の入学料の平均（博士後期課程（博士課程を含む）。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.graduate.private.doctor.facility
+    status: active
+    label: "私立大学の大学院の施設設備費の平均（博士後期課程（博士課程を含む）。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.graduate.private.doctor.tuition
+    status: active
+    label: "私立大学の大学院の授業料の平均（博士後期課程（博士課程を含む）。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.graduate.private.master.admission
+    status: active
+    label: "私立大学の大学院の入学料の平均（博士前期課程（修士課程を含む）。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.graduate.private.master.facility
+    status: active
+    label: "私立大学の大学院の施設設備費の平均（博士前期課程（修士課程を含む）。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.graduate.private.master.tuition
+    status: active
+    label: "私立大学の大学院の授業料の平均（博士前期課程（修士課程を含む）。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.graduate.public.admission
+    status: active
+    label: "公立大学の大学院の入学料の平均（地域外。2025年度）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.graduate.public.tuition
+    status: active
+    label: "公立大学の大学院の授業料の平均（年額。2025年度）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: education.statistics.highSchool.private.extracurricular
     status: active
     label: "教科外活動費の年額（私立高校。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）"

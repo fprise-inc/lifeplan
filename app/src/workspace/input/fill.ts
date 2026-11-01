@@ -162,10 +162,13 @@ export function schoolEndAge(h: Household, childId: string): number | null {
   // 休学して1年の留学（0088）は、その段と後の段の終わりを1年ずつうしろにする
   const leaves = (g?.education?.abroad ?? []).filter((a) => a.kind === "leave");
   let end: number | null = null;
-  for (const s of stages) {
-    const start = STAGE_START_AGE[s.stage];
-    if (start === undefined) continue;
-    const shift = leaves.filter((a) => (STAGE_START_AGE[a.stage] ?? 99) <= start && stages.some((x) => x.stage === a.stage)).length;
+  for (const s of [...stages].sort((a, b) => (STAGE_START_AGE[a.stage] ?? 0) - (STAGE_START_AGE[b.stage] ?? 0))) {
+    const nominal = STAGE_START_AGE[s.stage];
+    if (nominal === undefined) continue;
+    const shift = leaves.filter((a) => (STAGE_START_AGE[a.stage] ?? 99) <= nominal && stages.some((x) => x.stage === a.stage)).length;
+    // 大学院は前の学校を出た後から（0089）
+    const graduate = s.stage === "graduateMaster" || s.stage === "graduateDoctor";
+    const start: number = graduate && end !== null ? end - shift : nominal;
     const age = start + (s.delayYears ?? 0) + stageYears(s) + shift;
     if (end === null || age > end) end = age;
   }

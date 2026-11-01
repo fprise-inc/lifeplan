@@ -28,6 +28,10 @@
 // - 改訂6（0088）: 留学（abroad。1回ずつ）。在学中の学校の段の、その学年の始まり（短期はその年の8月）に1回の額（計算基準年の価格。教育費の上昇率で
 //   伸ばす）を表の行「教育費」に。休学して1年（leave）は、その段の在学が1年延び、その年は学費・学校の費用・学校外活動費・仕送りがかからない（後の学年と
 //   後の段が1年ずつうしろにずれる）。万一のときの扱いが stop なら、世帯の万一の想定（contingency.event）の月の翌月より後の留学は払わない
+// - 改訂7（0089）: 大学院（graduateMaster 修士・博士前期 2年、graduateDoctor 博士・博士後期 3年）。前の段（大学など・修士）を出た翌月の4月から
+//   （前の段が無ければ22歳・24歳の学年。浪人の年数はその後に足す）。学費は国立の標準額・公立の平均・私立の課程ごとの平均（授業料＋施設設備費）と入学料。
+//   インターナショナルスクール（幼〜高の sector international）は統計の目安が無いので、学校の年額を入れるまで0円（知らせ N_INPUT_REQUIRED）。
+//   学校外活動費は私立の統計の平均
 // 教育費の上昇率は学校の費用・学校外活動費・仕送り・留学に当て、公的支援には当てない（0010 の5）
 import {
   addMonths,
@@ -52,8 +56,11 @@ import {
 
 const S = "education.statistics";
 const K12: ReadonlySet<SchoolStage> = new Set(["kindergarten", "elementary", "juniorHigh", "highSchool"]);
-const START_AGE: Readonly<Record<SchoolStage, number>> = { nursery: 1, kindergarten: 3, elementary: 6, juniorHigh: 12, highSchool: 15, university: 18, juniorCollege: 18, vocational: 18 };
-const YEARS: Readonly<Record<SchoolStage, number>> = { nursery: 2, kindergarten: 3, elementary: 6, juniorHigh: 3, highSchool: 3, university: 4, juniorCollege: 2, vocational: 2 };
+const START_AGE: Readonly<Record<SchoolStage, number>> = { nursery: 1, kindergarten: 3, elementary: 6, juniorHigh: 12, highSchool: 15, university: 18, juniorCollege: 18, vocational: 18, graduateMaster: 22, graduateDoctor: 24 };
+const YEARS: Readonly<Record<SchoolStage, number>> = { nursery: 2, kindergarten: 3, elementary: 6, juniorHigh: 3, highSchool: 3, university: 4, juniorCollege: 2, vocational: 2, graduateMaster: 2, graduateDoctor: 3 };
+/** 大学院の段（改訂7。0089）: 前の段（大学・短大・専門学校・修士）を出た翌月の4月から（浪人の年数はその後に足す） */
+const GRADUATE: ReadonlySet<SchoolStage> = new Set(["graduateMaster", "graduateDoctor"]);
+const AFTER_HIGH: ReadonlySet<SchoolStage> = new Set(["university", "juniorCollege", "vocational", "graduateMaster", "graduateDoctor"]);
 const K12_SECTORS = ["public", "private"] as const;
 const FIELDS = ["all", "humanities", "science", "medical"] as const;
 /** 学校給食費の負担軽減（制度）と統計の学校給食費（公立の小学校・中学校） */
@@ -69,6 +76,8 @@ const PARAMS = [
   ...FIELDS.flatMap((f) => ["tuition", "admission", "facility"].map((i) => `${S}.university.private.${f}.${i}`)),
   ...["national", "public"].flatMap((x) => ["tuition", "admission"].map((i) => `${S}.university.${x}.${i}`)),
   ...["tuition", "admission", "facility"].map((i) => `${S}.juniorCollege.private.${i}`),
+  ...["national", "public"].flatMap((x) => ["tuition", "admission"].map((i) => `${S}.graduate.${x}.${i}`)),
+  ...["master", "doctor"].flatMap((c) => ["tuition", "admission", "facility"].map((i) => `${S}.graduate.private.${c}.${i}`)),
   `${S}.boarding.annual`,
   `${S}.boarding.initial`,
 ];
@@ -78,7 +87,7 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
   id: "education.cost",
   title: "教育費",
   contract: "1.0",
-  revision: 6,
+  revision: 7,
   requires: { "debt.schedule": ">=1 <2", "contingency.event": ">=1 <2" },
   params: PARAMS,
   reads: ["goal.kind", "goal.owner", "goal.education", "member.kind", "relation.type", "relation.parent", "relation.child", "assumptions.inflation", "assumptions.educationInflation"],
@@ -155,6 +164,18 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
         return grade - 1 + ls.filter((x) => (self ? x < grade : x <= grade)).length + (self ? ls.filter((x) => x === grade).length - 1 : 0);
       };
       const leaveYears = (stage: SchoolStage): Set<number> => new Set(leavesOf(stage).map((gr, j) => gr - 1 + j));
+      const yearsOf = (st: (typeof e.stages)[number]): number => (st.years ?? (st.stage === "university" && st.field === "medical" ? 6 : YEARS[st.stage])) + leaveYears(st.stage).size;
+      // 段の在学の始まり（年齢の学年の始まり＋浪人＋前の段の休学。大学院は前の段を出た翌月の4月＋浪人。改訂7）
+      const startOf = new Map<SchoolStage, MonthIndex>();
+      {
+        let prevEnd: MonthIndex | null = null;
+        for (const st of [...e.stages].sort((a, b) => START_AGE[a.stage] - START_AGE[b.stage])) {
+          const byAge = addMonths(ctx.time.ageSwitch(child, { years: START_AGE[st.stage] }, "schoolYear"), 12 * ((st.delayYears ?? 0) + (shiftOf.get(st.stage) ?? 0)));
+          const s0 = GRADUATE.has(st.stage) && prevEnd !== null ? addMonths(prevEnd, 12 * (st.delayYears ?? 0)) : byAge;
+          startOf.set(st.stage, s0);
+          if (AFTER_HIGH.has(st.stage)) prevEnd = addMonths(s0, 12 * yearsOf(st));
+        }
+      }
       const mode = e.outOfSchoolMode;
       const push = (m: MonthIndex, row: string, amount: Yen, formula: string, member: string = child) => {
         if (amount > 0 && m >= base && m <= end) flows.push({ row, ym: formatYm(m), amount, accrualYear: yearOf(m), member, object: g.id, formula });
@@ -165,9 +186,9 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
         const living = st.living ?? "home";
         // 保育所は education.nurseryFee（0029）
         if (st.stage === "nursery") continue;
-        const start = addMonths(ctx.time.ageSwitch(child, { years: START_AGE[st.stage] }, "schoolYear"), 12 * ((st.delayYears ?? 0) + (shiftOf.get(st.stage) ?? 0)));
+        const start = startOf.get(st.stage) ?? addMonths(ctx.time.ageSwitch(child, { years: START_AGE[st.stage] }, "schoolYear"), 12 * (st.delayYears ?? 0));
         const leave = leaveYears(st.stage);
-        const years = (st.years ?? (st.stage === "university" && st.field === "medical" ? 6 : YEARS[st.stage])) + leave.size;
+        const years = yearsOf(st);
         const fees: { fiscalYear: number; tuition: Yen; admission: Yen }[] = [];
         const fy0 = yearOf(start);
         // 学費データの行（学校が決まっているとき）
@@ -197,15 +218,18 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
           }
           if (st.school.source.fictional === true) ctx.notice("N_FICTIONAL_DATA", [st.school.source.pack]);
         } else if (K12.has(st.stage)) {
-          const sec = sector === "private" ? "private" : "public";
-          const total = statOr0(`${S}.${st.stage}.${sec}.total`);
+          const intl = sector === "international";
+          const sec = sector === "private" || intl ? "private" : "public";
+          // インターナショナルスクールは統計の目安が無い（学校の年額を入れるまで0円。学校外活動費は私立の統計の平均。改訂7）
+          if (intl && st.annualOverride === undefined) ctx.notice("N_INPUT_REQUIRED", [g.id, "goal.education.stages.annualOverride"]);
+          const total = intl ? yen(0) : statOr0(`${S}.${st.stage}.${sec}.total`);
           const outStat = stat(`${S}.${st.stage}.${sec}.outOfSchool`);
           // 部活動などの費用（改訂5）: 統計の平均の段は統計の教科外活動費と入れ替え、年額を入れた段はその年額に足す
           const extra = st.clubAnnual === undefined || st.annualOverride !== undefined ? null : (stat(`${S}.${st.stage}.${sec}.extracurricular`) ?? yen(0));
-          const base0 = st.annualOverride ?? (outStat === null ? total : yen(total - outStat));
+          const base0 = st.annualOverride ?? (intl ? yen(0) : outStat === null ? total : yen(total - outStat));
           const schoolCost = st.clubAnnual === undefined ? base0 : yen(Math.max(0, base0 - (extra ?? 0)) + st.clubAnnual);
           // 学校給食費の負担軽減（公立の小学校・中学校。学校の年額を直接入れた段は引かない）
-          const lunchStat = sec === "public" && LUNCH_STAGES.has(st.stage) && st.annualOverride === undefined ? stat(`${S}.${st.stage}.public.schoolLunch`) : null;
+          const lunchStat = sector === "public" && LUNCH_STAGES.has(st.stage) && st.annualOverride === undefined ? stat(`${S}.${st.stage}.public.schoolLunch`) : null;
           const lunchOff = (fy: number): Yen => {
             if (lunchStat === null || lunchChoice === "paid") return yen(0);
             const lunch = grown(lunchStat, fy);
@@ -245,6 +269,16 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
             tuition = yen(0);
             admission = yen(0);
             if (st.annualOverride === undefined) ctx.notice("N_INPUT_REQUIRED", [g.id, "goal.education.stages.annualOverride"]);
+          } else if (GRADUATE.has(st.stage)) {
+            const course = st.stage === "graduateMaster" ? "master" : "doctor";
+            if (sector === "private") {
+              tuition = yen(statOr0(`${S}.graduate.private.${course}.tuition`) + statOr0(`${S}.graduate.private.${course}.facility`));
+              admission = statOr0(`${S}.graduate.private.${course}.admission`);
+            } else {
+              const x = sector === "national" ? "national" : "public";
+              tuition = statOr0(`${S}.graduate.${x}.tuition`);
+              admission = statOr0(`${S}.graduate.${x}.admission`);
+            }
           } else if (st.stage === "juniorCollege") {
             tuition = yen(statOr0(`${S}.juniorCollege.private.tuition`) + statOr0(`${S}.juniorCollege.private.facility`));
             admission = statOr0(`${S}.juniorCollege.private.admission`);
@@ -293,7 +327,7 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
       for (const a of abroad) {
         const st = e.stages.find((x) => x.stage === a.stage);
         if (st === undefined || a.amount <= 0) continue;
-        const start = addMonths(ctx.time.ageSwitch(child, { years: START_AGE[st.stage] }, "schoolYear"), 12 * ((st.delayYears ?? 0) + (shiftOf.get(st.stage) ?? 0)));
+        const start = startOf.get(st.stage) ?? addMonths(ctx.time.ageSwitch(child, { years: START_AGE[st.stage] }, "schoolYear"), 12 * (st.delayYears ?? 0));
         const m = addMonths(start, 12 * yearIndex(st.stage, a.grade, a.kind === "leave") + (a.kind === "short" ? 4 : 0));
         if (a.onContingency?.mode === "stop") {
           const ev = householdEvent();
