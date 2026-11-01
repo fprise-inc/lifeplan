@@ -1133,7 +1133,7 @@ function untilField(c: Car, k: string, car: (h: Household, w: WorkingHousehold) 
     time: timeView({
       ageOf: owner,
       optional: true,
-      nullText: oneTime ? "目安（推定）" : "最後まで",
+      nullText: oneTime ? "推定" : "最後まで",
       anchor: "carRelease",
       read: (w) => car(w.request.input.household, w)?.until ?? null,
       write: (w, tp) => {

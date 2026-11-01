@@ -100,7 +100,7 @@ function changeGroups(wh: WorkingHousehold, preset: SurplusPreset | "custom" | n
           x === undefined || x.from.memberAge !== undefined
             ? null
             : named !== null
-              ? "目安で入れた時点（年月）を年齢で見せています（書き換えると年齢の形になり、自分で組む形になります）"
+              ? "推定で入れた時点（年月）を年齢で見せています（書き換えると年齢の形になり、自分で組む形になります）"
               : "年月・できごとで決めた時点を年齢で見せています（書き換えると年齢の形になります）";
         return { value: fromAge(w), derived };
       },

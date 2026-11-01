@@ -79,7 +79,7 @@ const LEGACY_AFTER: Readonly<Record<string, string>> = { transport: "transit", o
 const catLabel = (c: string) => LIVING_CATEGORIES.find((o) => o.value === c)?.label ?? c;
 const catOf = (l: LivingExpense | undefined, c: string): Category | undefined => (l?.categories ?? []).find((x) => x.category === c);
 /** 統計の目安に一部が入っている物（引かずに、欄の説明に書く） */
-const OVERLAP_NOTE = "統計の目安なので、ほかの入力項目で入れる物と少し重なることがあります";
+const OVERLAP_NOTE = "統計の平均なので、ほかの入力項目で入れる物と少し重なることがあります";
 const CAT_HELP: Record<string, string> = {
   food: "食材・外食・お弁当など",
   utilities: "電気・ガス・灯油・水道",
@@ -189,7 +189,7 @@ function categoryGroup(l: LivingExpense, find: Finder): GroupDef {
   const moved = ["other", "otherConsumption"].map((c) => (catOf(l, c)?.monthly as { estimate?: { basis?: string } } | undefined)?.estimate?.basis).find((b) => b !== undefined && b.startsWith("総額で"));
   const notes = [`合計 月${man(total)}`];
   if (moved !== undefined) notes.push(moved);
-  if (isPureSplit(l)) notes.push("総額を家計調査の同じ人数の世帯の割合で分けた目安です（直した内訳だけ確定になります）");
+  if (isPureSplit(l)) notes.push("総額を家計調査の同じ人数の世帯の割合で分けた推定です（直した内訳だけ確定になります）");
   if (LEGACY_CATEGORIES.some((c) => catOf(l, c) !== undefined)) notes.push("「交通・通信費」「その他の消費」は前の分け方の内訳です（そのまま計算に使います）");
   const split = splitTransportAction(l, find);
   return { key: `living/${l.id}/categories`, title: "内訳（月額）", note: notes.join("。"), level: "simple", fields, actions: split !== null ? [split] : [] };
@@ -377,7 +377,7 @@ function stageGroups(wh: WorkingHousehold, l: LivingExpense, find: Finder): Grou
     return {
       key,
       title: `段階 ${n + 1}: ${name}${when}`,
-      ...(auto ? { note: "家族の人数と年齢から、目安で作った段階です。家族・進路・働き方を変えると作り直します。直した段は、作り直しても変わりません" } : {}),
+      ...(auto ? { note: "家族の人数と年齢から、推定で作った段階です。家族・進路・働き方を変えると作り直します。直した段は、作り直しても変わりません" } : {}),
       level: valueLevel,
       fields,
       actions: [
@@ -487,7 +487,7 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
           find,
           path: ["monthly"],
           estimate: (h) => livingEstimate(h, wh.request.input.baseMonth),
-          help: "空欄なら統計の目安（世帯の人数ごと）で計算します。結果の対策「毎月の生活費」でも動かせます",
+          help: "空欄なら統計の平均（世帯の人数ごと）で計算します。結果の対策「毎月の生活費」でも動かせます",
         }),
         addr(l.id, "livingExpense.monthly"),
       ),

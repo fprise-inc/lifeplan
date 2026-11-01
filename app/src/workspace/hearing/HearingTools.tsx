@@ -193,7 +193,7 @@ function ReviewPanel({ wh, view, onSave, onClose }: { wh: WorkingHousehold; view
           {view.candidates.some((c) => c.contradictions.length > 0) ? `・矛盾 ${view.candidates.filter((c) => c.contradictions.length > 0).length}` : ""}
         </span>
       </div>
-      <p class="rp-note">チェックした候補だけを現状に入れます。入れるまでは計算に使いません。「推定」「仮」の印は入力の画面と同じです（目安で補った値・仮の値）。</p>
+      <p class="rp-note">チェックした候補だけを現状に入れます。入れるまでは計算に使いません。「推定」「仮」の印は入力の画面と同じです（推定で補った値・仮の値）。</p>
       <IssueList issues={view.issues} />
       {groups.map((g) => (
         <div class="hs-group" key={g}>

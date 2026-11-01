@@ -453,7 +453,7 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
     kind: "select",
     options: PENSION_MODES,
     structural: true,
-    help: "手元の書類で選びます。書類が無ければ、働き方から計算した目安のままで構いません",
+    help: "手元の書類で選びます。書類が無ければ、働き方から計算した推定のままで構いません",
     // 推計のときは、どう推計しているかを欄の横に出す（0066 の 2026-10-29 の追記）
     get: (w) => {
       const value = modeOf(recordOf(w.request.input.household, m.id));
