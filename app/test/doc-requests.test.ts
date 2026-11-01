@@ -77,7 +77,7 @@ describe("送ってほしい書類の一覧", () => {
     expect(() => preview(wh.request)).not.toThrow();
   });
 
-  it("保険証券は契約ごと（種類の名前・被保険者）、自動車ローンは車が1台なら持ち主を付けない", () => {
+  it("保険証券は契約ごと（種類の名前・被保険者）。自動車ローンの返済予定表は今返している自動車ローンごと（これから買う車のローンからは作らない）", () => {
     const req = modelHousehold("salariedCoupleTwoKids");
     req.input.household.insuranceContracts = [];
     let wh = fromRequest(req);
@@ -89,12 +89,20 @@ describe("送ってほしい書類の一覧", () => {
     wh = allFields(buildStage("car", wh)).find((f) => f.key.endsWith("/pay"))!.set(wh, "loan");
     const surgery = allFields(buildStage("insurance", wh)).find((f) => f.docCheck === "保険証券")!;
     wh = applyStateOp(wh, surgery, "unknown");
-    const rate = allFields(buildStage("car", wh)).find((f) => f.key.endsWith("/rate"))!;
-    wh = applyStateOp(wh, rate, "unknown");
+    // これから買う車のローン（車の買い方）には書類で確かめるが無い
+    expect(allFields(buildStage("car", wh)).filter((f) => f.item === "car.loan" && f.docCheck !== undefined)).toEqual([]);
+    const addLoan = buildStage("car", wh).sections.flatMap((s) => s.actions).find((a) => a.key === "car/addCarLoan")!;
+    wh = addLoan.run(wh);
+    const debt = wh.request.input.household.debts!.find((d) => d.kind === "car")!;
+    for (const k of ["rate", "term"]) wh = applyStateOp(wh, allFields(buildStage("car", wh)).find((f) => f.key === `housing/debt/${debt.id}/${k}`)!, "unknown");
     const titles = docRequests(wh).map((r) => r.title);
     expect(titles).toContain("保険証券（医療保険・ご本人）");
-    expect(titles).toContain("自動車ローンの返済予定表");
+    expect(titles).toContain("自動車ローンの返済予定表（ご本人）");
     expect(docRequests(wh).find((r) => r.doc === "保険証券")!.values.map((v) => v.field)).toEqual(["手術（1回の額）"]);
+    const car = docRequests(wh).find((r) => r.doc === "自動車ローンの返済予定表")!;
+    expect(car.values.map((v) => v.fieldKey)).toEqual([`housing/debt/${debt.id}/rate`, `housing/debt/${debt.id}/term`]);
+    expect(car.values.every((v) => v.card === "car")).toBe(true);
+    expect(requestMessage(docRequests(wh))).toContain("・自動車ローンの返済予定表（ご本人）");
   });
 });
 

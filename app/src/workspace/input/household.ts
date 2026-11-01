@@ -29,10 +29,10 @@ export interface PostRetirement {
 /** 開いたときの知らせ（0035 の8） */
 export interface HouseholdNotice {
   id: string;
-  kind: "outsideFamily" | "unresolvedDiffs" | "smrBlank" | "livingUnknown" | "unknownEstimated" | string;
+  kind: "outsideFamily" | "unresolvedDiffs" | "smrBlank" | "livingUnknown" | "unknownEstimated" | "carLoanEstimated" | string;
   members?: string[];
   count?: number;
-  /** smrBlank・livingUnknown・unknownEstimated: プランの差分を変えた数 */
+  /** smrBlank・livingUnknown・unknownEstimated・carLoanEstimated: プランの差分を変えた数 */
   plans?: number;
 }
 

@@ -49,7 +49,7 @@ describe("書類で確かめる・該当なしは、意味のある欄にだけ�
       }
   });
 
-  it("書類で確かめるを出す欄: 住民税・退職金の見込み額・年金の加入月数・今の住宅ローン・自動車ローン。出さない欄: 年収・賞与・車の費用・基本生活費・前提条件など", () => {
+  it("書類で確かめるを出す欄: 住民税・退職金の見込み額・年金の加入月数・今の住宅ローン・今の自動車ローン。出さない欄: 年収・賞与・車の費用・これから買う車のローン・基本生活費・前提条件など", () => {
     const seen = new Map<string, Set<string>>();
     for (const m of MODELS) {
       const wh = open(m);
@@ -61,33 +61,42 @@ describe("書類で確かめる・該当なしは、意味のある欄にだけ�
     expect(seen.get("pensionRecord.months")).toEqual(new Set(["unknown"]));
     // 今の住宅ローンの借入額・金利・返済期間（見本の世帯の住宅ローンは借入の年月が計算の基準の月より前）
     for (const k of ["debt.principal", "debt.rateSchedule", "debt.repayment"]) expect(seen.get(k), k).toEqual(new Set(["unknown"]));
-    expect(seen.get("car.loan")).toEqual(new Set(["unknown"]));
+    // これから買う車のローン（車の買い方）には出さない（今の自動車ローンは debt.* の欄。0041 の追記 2026-11-01）
+    expect(seen.get("car.loan")).toBeUndefined();
     // 賞与は該当なしだけ。年収・事業所得・車の費用・住まいの費用・基本生活費（0100）・お金の行には出さない
     expect(seen.get("employment.salary.bonus")).toEqual(new Set(["notApplicable"]));
     for (const k of seen.keys()) expect(k.startsWith("livingExpense."), k).toBe(false);
     for (const k of seen.keys()) expect(PREMISE.test(k), k).toBe(false);
-    const ALLOWED = new Set(["residentTaxAssessment.amount", "retirementBenefit.amount", "retirementBenefit.receipt", "pensionRecord.months", "debt.principal", "debt.rateSchedule", "debt.repayment", "debt.balance", "insurance.coverages", "car.loan"]);
+    const ALLOWED = new Set(["residentTaxAssessment.amount", "retirementBenefit.amount", "retirementBenefit.receipt", "pensionRecord.months", "debt.principal", "debt.rateSchedule", "debt.repayment", "debt.balance", "insurance.coverages"]);
     for (const [k, ops] of seen) if (ops.has("unknown")) expect(ALLOWED.has(k), k).toBe(true);
-    for (const k of ["employment.salary.annual", "employment.business.income", "car.purchase", "car.upkeep", "car.tax", "car.insurance", "car.inspection", "residence.rent", "residence.propertyTax", "residence.maintenance", "periodicExpense.amount", "account.marketValue", "insurance.premium"])
+    for (const k of ["employment.salary.annual", "employment.business.income", "car.purchase", "car.loan", "car.upkeep", "car.tax", "car.insurance", "car.inspection", "residence.rent", "residence.propertyTax", "residence.maintenance", "periodicExpense.amount", "account.marketValue", "insurance.premium"])
       expect(seen.get(k)?.has("unknown") ?? false, k).toBe(false);
   });
 
-  it("書類で確かめるは、見せるだけの既定の値（世帯に書いていない値）の欄には出さない（自動車ローンの頭金0の割合）", () => {
+  it("書類で確かめるは今返している自動車ローンの欄に出し、これから買う車のローン（車の買い方の頭金・年数・金利）には出さない（0041 の追記 2026-11-01）", () => {
     const carFields = (w: WorkingHousehold) => allFields(buildStages(w).find((s) => s.id === "car")!);
     let wh = addCar(open("salariedCoupleTwoKids"), seq());
     wh = carFields(wh).find((x) => x.key.endsWith("/pay"))!.set(wh, "loan");
-    // 頭金を0にすると、借りる割合は書かない（見せるのは既定の0）
-    wh = carFields(wh).find((x) => x.key.endsWith("/down"))!.set(wh, "0");
-    expect(wh.request.input.household.cars!.at(-1)!.loan).toBeDefined();
-    expect(wh.request.input.household.cars!.at(-1)!.loan!.share).toBeUndefined();
-    const fields = carFields(wh);
-    const down = fields.find((x) => x.key.endsWith("/down"))!;
-    expect(down.docCheck).toBe("返済予定表");
-    expect(down.get(wh).value).toBe("0");
-    expect(availableOps(down, wh)).not.toContain("unknown");
-    // 年数・金利は世帯に書いてあるので出す。出す操作はどれも押すと世帯が変わる
-    expect(availableOps(fields.find((x) => x.item === "car.loan" && x.key.endsWith("/rate"))!, wh)).toContain("unknown");
-    for (const f of fields) for (const o of availableOps(f, wh).filter((x) => x !== "confirm")) expect(applyStateOp(wh, f, o), `${f.label} ${o}`).not.toBe(wh);
+    const future = carFields(wh).filter((x) => x.item === "car.loan" && /\/(down|term|rate)$/.test(x.key));
+    expect(future.map((x) => x.key.split("/").at(-1))).toEqual(["down", "term", "rate"]);
+    for (const f of future) {
+      expect(f.docCheck, f.label).toBeUndefined();
+      expect(availableOps(f, wh), f.label).not.toContain("unknown");
+    }
+    // 今返している自動車ローン: 借入額・金利・返済期間・残高は返済予定表で確かめる（金利の種類には出さない）
+    const add = buildStages(wh).find((s) => s.id === "car")!.sections.flatMap((s) => s.actions).find((a) => a.key === "car/addCarLoan")!;
+    wh = add.run(wh);
+    const debt = wh.request.input.household.debts!.find((d) => d.kind === "car")!;
+    const loan = carFields(wh).filter((x) => x.key.startsWith(`housing/debt/${debt.id}/`));
+    const doc = new Set(loan.filter((x) => x.docCheck !== undefined).map((x) => x.key.split("/").at(-1)));
+    expect(doc).toEqual(new Set(["principal", "rate", "term", "balance"]));
+    for (const x of loan.filter((f) => f.docCheck !== undefined)) expect(x.docCheck).toBe("返済予定表");
+    expect(loan.find((x) => x.key.endsWith("/rateType"))?.docCheck).toBeUndefined();
+    expect(availableOps(loan.find((x) => x.key.endsWith("/rate"))!, wh)).toContain("unknown");
+    for (const f of carFields(wh)) for (const o of availableOps(f, wh).filter((x) => x !== "confirm")) expect(applyStateOp(wh, f, o), `${f.label} ${o}`).not.toBe(wh);
+    // これから借りる自動車ローン（借入の年月が計算の基準の月より後）には出さない
+    const later = { ...wh, request: { ...wh.request, input: { ...wh.request.input, household: { ...wh.request.input.household, debts: wh.request.input.household.debts!.map((d) => (d.id === debt.id ? { ...d, start: { at: "2028-04" } } : d)) } } } };
+    expect(carFields(later).filter((x) => x.key.startsWith(`housing/debt/${debt.id}/`) && x.docCheck !== undefined)).toEqual([]);
   });
 
   it("学歴に「わからない」の選び方は無い（選んでいなければ今までどおり大学・大学院卒の値で目安）", () => {

@@ -2,7 +2,7 @@
 // - 一覧は確かめの一覧の書類待ちの行（checkRows.ts）から毎回作る（保存しない。世帯ファイルの形は変えない）。書類の値を打つ・「この値にする」で
 //   欄が書類待ちでなくなると、一覧からも消える
 // - 同じ書類は持ち主ごとに1行にまとめる: 人の書類（ねんきん定期便・住民税の決定通知書・退職金の規程）は構成員ごと、保険証券は契約ごと、
-//   返済予定表はローン・車ごと。1行には、その書類で確かめる欄（名前・今の代わりの値・欄へ移る先）を並べる（写すときの手引き）
+//   返済予定表はローンごと（今の住宅ローン・今返している自動車ローン）。1行には、その書類で確かめる欄（名前・今の代わりの値・欄へ移る先）を並べる（写すときの手引き）
 // - お客さまへの文（requestMessage）は書類の名前と確かめる欄の名前だけで、金額・番号・顧客番号は入れない。呼び方は「ご本人」「配偶者」
 //   （FP が付けた呼び名は使わない。0012）。お名前・事務所名は FP がその場で入れたときだけ入れ、無ければ置きかえる所の印にする
 // - 受け取り方の注意（SAFE_SENDING）は FP 向けの説明。後でアプリの中の暗号化した受け取りを作るときも、この一覧の1行を受け取りの単位にする
@@ -75,12 +75,8 @@ function ownerOf(wh: WorkingHousehold, doc: string, holder: string | null, who: 
     case "debts": {
       const debtors = Array.isArray(obj.debtors) ? obj.debtors : [];
       const first = isObj(debtors[0]) ? debtors[0].member : undefined;
-      const kind = obj.kind === "mortgage" ? "住宅ローン" : "ローン";
+      const kind = obj.kind === "mortgage" ? "住宅ローン" : obj.kind === "car" ? "自動車ローン" : "ローン";
       return { group: holder, doc: doc === CHECK_DOCUMENTS.loan ? `${kind}の${doc}` : doc, whose: str(obj.label) ?? who(first) };
-    }
-    case "cars": {
-      const cars = (wh.request.input.household.cars ?? []).length;
-      return { group: holder, doc: doc === CHECK_DOCUMENTS.loan ? `自動車ローンの${doc}` : doc, whose: cars > 1 ? `${who(obj.owner)}の車` : null };
     }
     default:
       return { group: holder, doc, whose: null };

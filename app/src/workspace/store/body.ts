@@ -57,6 +57,8 @@
 //   借り始め・契約の年数・月額に含む物。リースの車は purchase を持たない）（0101。足すだけ。本体の変換の段は版だけを書き換える）
 //   0.46 から: 夢プランを出るお金の行の種類 dream と行の dream（順位 rank・計算に入れるか include・ひとことメモ note）で、
 //   子への援助 goals[].education.gifts[] の優先度 priority（必ず・できれば）を持つ（0103。足すだけ。本体の変換の段は版だけを書き換える）
+//   （0.46 のまま。0041 の追記 2026-11-01）: 「書類で確かめる」は今の自動車ローン（kind car の負債）の欄に出し、これから買う車のローン
+//   （cars[].valueStates の car.loan/…）には出さない。前に付けた所は読むときに推定にし、開いたときの知らせ carLoanEstimated を足す（形は変えない）
 // - proposals: 案（数に上限なし。0008 の5）。案の名前は `title` に入れる（0012 の禁止語の検査に当たらない名前）
 // - hearing: ヒアリングの依頼・取り込み・同意の下書きの記録（0018。取り込みの記録・同意の記録への分け方は後の版）
 // - workspace: 案の帯の並び・基準の案・選んだ案・対策に足した項目・出発点にした見本
@@ -80,6 +82,7 @@ import type { EngineRequest } from "../../engine/types.ts";
 import { emptyPlan } from "../contingency/planData.ts";
 import type { HearingLog } from "../hearing/sheet.ts";
 import { withElementIds, withoutPlainMarks, type WorkingHousehold } from "../input/household.ts";
+import { withoutFutureCarLoanDocs } from "../input/carLoanDocs.ts";
 import { CURRENT } from "../plans/band.ts";
 import type { Proposal } from "../plans/plans.ts";
 import { readSnapshots, type Snapshot } from "../snapshots/snapshots.ts";
@@ -177,8 +180,9 @@ export function fromBody(json: string): BodyState {
   void _inHousehold;
   void _st;
   const proposals: Proposal[] = (Array.isArray(b.proposals) ? (b.proposals as StoredProposal[]) : []).map(({ title, ...p }) => ({ ...p, name: title }));
-  // 推定と呼ばない欄（性別）に前の版の画面で付けた仮の印は、読むときに外す（値はそのまま。household.ts の withoutPlainMarks）
-  const wh: WorkingHousehold = withoutPlainMarks({
+  // 推定と呼ばない欄（性別）に前の版の画面で付けた仮の印は、読むときに外す（値はそのまま。household.ts の withoutPlainMarks）。
+  // これから買う車のローンに付けた「書類で確かめる」は、読むときに推定にする（値はそのまま。carLoanDocs.ts。0041 の追記 2026-11-01）
+  const wh: WorkingHousehold = withoutFutureCarLoanDocs(withoutPlainMarks({
     labelsByMember: {},
     postRetirement: {},
     memo: [],
@@ -191,7 +195,7 @@ export function fromBody(json: string): BodyState {
     request: withElementIds(h.request),
     proposals,
     ...(isObj(b.hearing) ? { hearing: b.hearing as unknown as HearingLog } : {}),
-  });
+  }));
   // 次回確かめるの印（0.29 から）: 形の合わない行は捨て、空なら欄を持たない
   const recheck = readRecheck(wh.recheck);
   if (recheck.length > 0) wh.recheck = recheck;
