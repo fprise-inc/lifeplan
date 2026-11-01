@@ -135,5 +135,6 @@ describe("この世帯の予定（ほかのカードを含む）", () => {
     expect(sec.level).toBe("detail");
     expect(sec.groups[0]!.note).toContain(`${year}年（`);
     expect(sec.groups[0]!.fields.every((f) => f.readOnly !== undefined)).toBe(true);
+    expect(sec.groups[0]!.fields.some((f) => String(f.get(shifted).value).startsWith("出るお金：大きな買い物（"))).toBe(true);
   });
 });
