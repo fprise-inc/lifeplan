@@ -15,7 +15,7 @@ export const ON_CONTINGENCY_KINDS: Option[] = [
   { value: "all", label: "死亡・障害・就業不能のとき" },
 ];
 
-/** 万一のときの扱いの欄（やり方・割合・当てる万一）。path は物の中の onContingency の場所 */
+/** 万一のときの扱いの欄（やり方・割合・該当する万一）。path は物の中の onContingency の場所 */
 export function onContingencyFields(o: { key: string; item: string; find: Finder; path: readonly string[]; level?: Level; help?: string }): FieldDef[] {
   const level = o.level ?? "simple";
   const read = (h: Household, wh: Parameters<Finder>[1]) => getPath(o.find(h, wh), o.path) as OnContingency | undefined;
@@ -45,7 +45,7 @@ export function onContingencyFields(o: { key: string; item: string; find: Finder
   return fields;
 }
 
-/** 割合と当てる万一（やり方が決まっているときだけ出す） */
+/** 割合と該当する万一（やり方が決まっているときだけ出す） */
 export function onContingencyDetailFields(o: { key: string; item: string; find: Finder; path: readonly string[]; on: OnContingency | undefined; level?: Level }): FieldDef[] {
   if (o.on === undefined) return [];
   const out: FieldDef[] = [];
@@ -54,7 +54,7 @@ export function onContingencyDetailFields(o: { key: string; item: string; find: 
     field({
       key: `${o.key}/kinds`,
       item: o.item,
-      label: "当てる万一",
+      label: "該当する万一",
       level: "detail",
       kind: "select",
       options: ON_CONTINGENCY_KINDS,

@@ -322,7 +322,19 @@ export const standardLeaves = (child: Member): string => ageReachedMonth(child, 
 export const standardLeavesPoint = (childId: string): Timepoint => ({ memberAge: { member: childId, years: CHILD_LEAVES_AGE, ageSwitch: "schoolYear" } });
 
 /** 子の独立の標準の根拠の文（仮の印） */
-export const LEAVES_BASIS = "標準（22歳になった後の最初の3月末の翌月。大学を出る年度末）";
+export const LEAVES_BASIS = "標準（最後の学校を出た翌月の4月。大学なら22歳の後の最初の4月）";
+
+/**
+ * 子の独立が、最後の学校の終わりに合わせて決める形（その子の年齢・学年の区切りの時点。standardLeavesPoint の形）か。
+ * 年月・出来事・ずらしで入れた独立と「独立しない」（null）は、FP が入れた値として合わせない
+ */
+export function isSchoolLinkedLeaves(m: Member): boolean {
+  const t = m.leaves;
+  if (t === undefined) return true;
+  if (t === null) return false;
+  const a = t.memberAge;
+  return a !== undefined && a.member === m.id && a.ageSwitch === "schoolYear" && (a.months ?? 0) === 0 && t.at === undefined && t.event === undefined && t.offset === undefined;
+}
 
 /**
  * 標準の値を追いかける（0008 の追記 2026-10-25）: 家族の生年月・続柄を変えた・家族を足した・外した後に、

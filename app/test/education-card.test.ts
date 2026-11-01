@@ -183,7 +183,11 @@ describe("段ごとの費用", () => {
     expect(note).toContain("統計の平均");
     const annual = fieldOf(wh, `edu/${g.id}/stage/${uni}/annual`);
     expect(annual.level).toBe("detail");
-    expect(annual.get(wh).hint).toContain("空欄: 統計の平均");
+    // 空欄は統計の平均の推定（印「推定」・根拠は短く・「この値にする」で書ける）
+    expect(annual.label).toBe("学費（年額）");
+    expect(annual.get(wh)).toMatchObject({ value: null, estimated: "統計の平均。授業料と施設設備費を足したもの（私立大学・文科系・令和7年度入学者）", hint: `年${(Math.round(stat.annual! / 1000) / 10).toLocaleString("ja-JP")}万円（推定）` });
+    expect(fieldStatus(annual, wh).status).toBe("estimated");
+    expect(annual.blankEstimate?.(wh)).toBe(stat.annual);
     const w = annual.set(wh, 1300000);
     expect(goalOf(w).education!.stages[uni]!.annualOverride).toBe(1300000);
     expect(annual.address?.(w)?.at).toEqual(["stages", g.education!.stages[uni]!.id, "annualOverride"]);
@@ -254,12 +258,13 @@ describe("奨学金・教育ローン", () => {
     const g = goalOf(wh);
     const w = addScholarship(wh, g.id, "00000000-0000-4000-8000-0000000000c1");
     const s = goalOf(w).education!.scholarships![0]!;
-    expect(s).toMatchObject({ monthly: 50000, from: { at: "2035-04" }, to: { at: "2039-03" }, termMonths: 240, debtor: "child" });
+    // 日本学生支援機構: 第二種の利率固定方式の年3.0%、返す年数は返還年数算出表（貸与総額240万円は基礎額16万円で15年）
+    expect(s).toMatchObject({ monthly: 50000, from: { at: "2035-04" }, to: { at: "2039-03" }, rate: "0.03", termMonths: 180, debtor: "child" });
     const k = `edu/${g.id}/scholar/${s.id}`;
     expect(fieldStatus(fieldOf(w, `${k}/monthly`), w).status).toBe("estimated");
     const term = fieldOf(w, `${k}/term`);
-    expect(term.get(w).value).toBe(20);
-    expect(goalOf(term.set(w, 15)).education!.scholarships![0]!.termMonths).toBe(180);
+    expect(term.get(w).value).toBe(15);
+    expect(goalOf(term.set(w, 20)).education!.scholarships![0]!.termMonths).toBe(240);
     expect(preview(w.request).table.filter((c) => c.row === "cf.income.other.scholarship").reduce((a, c) => a + c.amount, 0)).toBe(50000 * 48);
   });
 
@@ -268,9 +273,13 @@ describe("奨学金・教育ローン", () => {
     const g = goalOf(wh);
     const w = addEducationLoan(wh, g.id, "00000000-0000-4000-8000-0000000000c2");
     const l = goalOf(w).education!.loans![0]!;
-    expect(l).toMatchObject({ at: { at: "2035-01" }, amount: 2000000, termMonths: 180 });
+    // 国の教育ローン: 入学の年の学費（入学金と1年目の学費の統計の平均。上限350万円）・年4.05%・20年
+    const uni = goalOf(w).education!.stages.find((x) => x.stage === "university")!;
+    const st = stageStatistic(uni)!;
+    const amount = Math.round((st.annual! + st.entrance!) / 10000) * 10000;
+    expect(l).toMatchObject({ at: { at: "2035-01" }, amount, rate: "0.0405", termMonths: 240 });
     expect(fieldStatus(fieldOf(w, `edu/${g.id}/loan/${l.id}/amount`), w).status).toBe("estimated");
-    expect(preview(w.request).table.filter((c) => c.row === "cf.income.other.scholarship" && c.year === 2035).reduce((a, c) => a + c.amount, 0)).toBe(2000000);
+    expect(preview(w.request).table.filter((c) => c.row === "cf.income.other.scholarship" && c.year === 2035).reduce((a, c) => a + c.amount, 0)).toBe(amount);
     // 住まい・ローンのカードには読むだけの1行
     const line = allFields(buildStage("housing", w)).find((f) => f.key === "ro/housing/eduLoans");
     expect(line?.get(w).value).toBe("1件");

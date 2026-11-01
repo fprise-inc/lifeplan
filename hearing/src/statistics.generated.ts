@@ -5173,6 +5173,88 @@ export const REGULATION_VALUES: Readonly<Record<string, readonly DatedValue[]>> 
    "value": 65
   }
  ],
+ "educationSupport.schoolLunch.elementary.public.monthly": [
+  {
+   "from": "2026-04-01",
+   "to": null,
+   "rev": 1,
+   "value": 5200
+  }
+ ],
+ "educationSupport.schoolLunch.months": [
+  {
+   "from": "2026-04-01",
+   "to": null,
+   "rev": 1,
+   "value": 11
+  }
+ ],
+ "educationSupport.nursery.fee.standard": [
+  {
+   "from": "2019-10-01",
+   "to": null,
+   "rev": 1,
+   "value": [
+    {
+     "upTo": 48599,
+     "amount": 19500
+    },
+    {
+     "upTo": 96999,
+     "amount": 30000
+    },
+    {
+     "upTo": 168999,
+     "amount": 44500
+    },
+    {
+     "upTo": 300999,
+     "amount": 61000
+    },
+    {
+     "upTo": 396999,
+     "amount": 80000
+    },
+    {
+     "upTo": null,
+     "amount": 104000
+    }
+   ]
+  }
+ ],
+ "educationSupport.nursery.fee.short": [
+  {
+   "from": "2019-10-01",
+   "to": null,
+   "rev": 1,
+   "value": [
+    {
+     "upTo": 48599,
+     "amount": 19300
+    },
+    {
+     "upTo": 96999,
+     "amount": 29600
+    },
+    {
+     "upTo": 168999,
+     "amount": 43900
+    },
+    {
+     "upTo": 300999,
+     "amount": 60100
+    },
+    {
+     "upTo": 396999,
+     "amount": 78800
+    },
+    {
+     "upTo": null,
+     "amount": 102400
+    }
+   ]
+  }
+ ],
  "socialInsurance.health.kyokaikenpo.rate": [
   {
    "from": "2024-03-01",
