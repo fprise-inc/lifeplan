@@ -7,7 +7,7 @@
 //   対策に最初から出す項目（plans/leverChoice.ts。0084）と万一のタブの見せ方（contingency/premiseChoice.ts。0085）は見せ方だけなので世帯に写さず、
 //   変えるとどの世帯にもすぐ効く
 // - 新しい世帯に写す、必要保障額の数え方（いつまでの資金を数えるか・出し方。0085。世帯の万一の前提に写す。作った世帯は世帯の値のまま）
-// - 法人の顧問向けの機能（features。0107）: 会社と合わせたバランスシート（合算BS）を使うか。既定は使わない（ふつうの FP・世帯には出さない）。
+// - 法人経営者向けの機能（features。0107）: 会社と合わせたバランスシート（合算BS）を使うか。既定は使わない（ふつうの FP・世帯には出さない）。
 //   見せ方だけで計算の結果は変えないので世帯には写さず、変えるとどの世帯にもすぐ効く
 // - 読むときは形を確かめ、読めない値は既定（既定の値）にする
 import type { StageId } from "../input/form.ts";
@@ -43,7 +43,7 @@ export const ASSUMPTION_LABELS: Readonly<Record<OfficeAssumption, string>> = {
   pensionMacroSlide: "年金の調整率（マクロ経済スライド）",
 };
 
-/** 法人の顧問向けの機能（既定はどれも使わない。0107） */
+/** 法人経営者向けの機能（既定はどれも使わない。0107） */
 export interface OfficeFeatures {
   /** 会社と合わせたバランスシート（合算BS）: 役員として働く人のいる世帯で、資産と負債のタブの見るものと提案書の章に出す */
   combinedBs: boolean;
@@ -79,7 +79,7 @@ export interface OfficeSettings {
   realEstateRatio: string | null;
   /** FP顧問料の料金表（契約を足すときに写す。足した契約は後で料金表を変えても変わらない） */
   fee: FeeTable;
-  /** 法人の顧問向けの機能（既定は使わない。世帯には写さない。0107） */
+  /** 法人経営者向けの機能（既定は使わない。世帯には写さない。0107） */
   features: OfficeFeatures;
   /** 最後に変えた日（YYYY-MM-DD）。根拠の文の年月に使う */
   changedOn: string | null;
@@ -140,7 +140,7 @@ function readCoreSettings(v: unknown): OfficeSettings {
   const realEstateRatio = rateOk(v.realEstateRatio, 0, 1) ? (v.realEstateRatio as string) : null;
   const changedOn = typeof v.changedOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.changedOn) ? v.changedOn : null;
   const fee = readFeeTable(v.fee);
-  // 法人の顧問向けの機能（欄の無い古い事務所データ・読めない値は使わない）
+  // 法人経営者向けの機能（欄の無い古い事務所データ・読めない値は使わない）
   const features: OfficeFeatures = { combinedBs: isObj(v.features) && v.features.combinedBs === true };
   return { version: 1, layout, items, levers, premises, scenes, protection, care, inheritLikelihood, assumptions, realEstateRatio, fee, features, changedOn };
 }

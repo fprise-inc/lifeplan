@@ -1851,7 +1851,7 @@ export function App() {
     const snapshot = r === null ? { error: "この控えの内容は、今の計算エンジン・制度データでは計算できませんでした（控えの時点が古いなど）。" } : { req: withoutRemovedAssumptions(s.inputs.request), table: r.table };
     return { status: "ready", model: bsPrev({ key: bsPrevRun.key, label: bsPrevChoices[i]?.label ?? "控え", createdAt: s.createdAt, baseMonth: opened.wh.request.input.baseMonth, actual, snapshot }) };
   }, [bsPrevRun, opened, bsPlans, bsSnaps, letters]);
-  // 会社と合わせたバランスシート（法人の顧問向けの機能。0107）: 事務所の設定で使うと決め、役員として働く人のいる世帯のときだけ。
+  // 会社と合わせたバランスシート（法人経営者向けの機能。0107）: 事務所の設定で使うと決め、役員として働く人のいる世帯のときだけ。
   // 家計の側は現状のプランの今の年（入力した値から出した事実）
   // コード（0110）で有効にしたときだけ。印（事務所の設定）は、コードが無い・切れたときも残すが、出さない
   const combinedOn = featureOn(featureStatus, "combinedBs") && officeSettings.features.combinedBs && opened !== null && hasExecutive(opened.wh.request.input.household);
