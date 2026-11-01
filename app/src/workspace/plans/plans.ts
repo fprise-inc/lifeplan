@@ -451,7 +451,8 @@ export function deletePlan(wh: WorkingHousehold, id: string): WorkingHousehold {
     .filter((p) => p.id !== id)
     .map((p) => {
       if (p.base !== id) return p;
-      const own = new Set(p.diffs.map((d) => rowKeyOf(d, wh)));
+      // 自分で上書きしている所（オンの差分だけ。オフにした差分は中身に効かないので、土台の差分の代わりにならない。オフの差分は残す）
+      const own = new Set(p.diffs.filter((d) => d.enabled).map((d) => rowKeyOf(d, wh)));
       // 写す差分は新しい ID にする（置き換えの組・連鎖の ID も付け直す）
       const copied = copyWithNewIds(gone.diffs.filter((d) => !own.has(rowKeyOf(d, wh))));
       return { ...p, base: gone.base, diffs: [...copied, ...p.diffs] };
