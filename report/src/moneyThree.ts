@@ -229,10 +229,10 @@ function partLabeler(req: MoneyThreeHouseholdRequest): (year: number, p: MoneyTh
         const e = p.object !== undefined ? periodic.get(p.object) : undefined;
         const label = e?.label?.trim();
         if (label !== undefined && label !== "") return label;
-        return PERIODIC_ROW[p.row] ?? (e === undefined ? "周期的な支出" : e.everyYears >= 2 ? `${e.everyYears}年ごとの支出` : "一時的な支出");
+        return PERIODIC_ROW[p.row] ?? (e === undefined ? "何年かごとの支出" : e.everyYears >= 2 ? `${e.everyYears}年ごとの支出` : "一時的支出");
       }
       default:
-        return "一時的な支出";
+        return "一時的支出";
     }
   };
 }

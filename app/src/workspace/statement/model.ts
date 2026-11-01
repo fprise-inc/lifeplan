@@ -72,7 +72,7 @@ export const BUCKET_BUTTONS: Record<Bucket, string> = {
   reimbursable: "立替（会社に請求）",
   business: "事業の経費",
   company: "会社の経費",
-  oneOff: "一時的な支出",
+  oneOff: "一時的支出",
   excluded: "除外",
 };
 
@@ -86,7 +86,7 @@ export const STYLE_CHOICES: readonly Exclude<WorkStyle, "none">[] = ["employee",
 export const CATEGORY_GROUPS: readonly { readonly label: string; readonly ids: readonly StatementCategory[] }[] = [
   { label: "基本生活費", ids: CATEGORIES.filter((c) => c.group === "living").map((c) => c.id) },
   { label: "住居・教育・保険・車・税", ids: ["housing", "education", "insurance", "car", "tax"] },
-  { label: "一時的な支出", ids: ["lumpSum", "cardFee"] },
+  { label: "一時的支出", ids: ["lumpSum", "cardFee"] },
   { label: "数えないもの", ids: ["transfer", "income"] },
 ];
 

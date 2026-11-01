@@ -142,7 +142,7 @@ entries:
     replacedBy: null
   - id: expense.periodic
     status: active
-    label: "周期的な支出（出るお金の行）"
+    label: "何年かごとの支出（出るお金の行）"
     since: draft
     aliases: []
     replacedBy: null

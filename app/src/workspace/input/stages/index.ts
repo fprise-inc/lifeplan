@@ -66,7 +66,7 @@ const BUILDERS: Record<StageId, (wh: WorkingHousehold) => StageDef> = {
  * 収益不動産は不動産の一時の経費（大規模修繕・原状回復など。もとは貯蓄・運用の中。0079）
  */
 const MONEY_CARDS: ReadonlySet<StageId> = new Set(["work", "housing", "insurance", "rental"]);
-const RENTAL_MONEY_NOTE = "大規模修繕・原状回復など、物件にかかる一時の支出です。家計の支出として出ます（不動産所得の経費には、まだ入れていません。毎年かかる経費は物件の「経費」の年額で入れます）";
+const RENTAL_MONEY_NOTE = "大規模修繕・原状回復など、物件にかかる一時的支出です。家計の支出として出ます（不動産所得の経費には、まだ入れていません。毎年かかる経費は物件の「経費」の年額で入れます）";
 
 export function buildStage(id: StageId, wh: WorkingHousehold): StageDef {
   const stage = BUILDERS[id](wh);

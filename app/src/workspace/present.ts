@@ -148,7 +148,7 @@ export function rowDefs(req: EngineRequest): RowDef[] {
     { key: "housing", label: "住居費（ローン・税・修繕）", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.housing"), evidence: true },
     { key: "education", label: "教育費", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.education"), evidence: true },
     { key: "insurance", label: "保険料", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.insurance")), evidence: true },
-    { key: "lumpSum", label: "一時的な支出（旅行など）", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.lumpSum")), evidence: true },
+    { key: "lumpSum", label: "一時的支出（旅行など）", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.lumpSum")), evidence: true },
     ...(hasCar ? [{ key: "car", label: "車の費用", group: "expense" as const, kind: "value" as const, match: car, evidence: true }] : []),
     ...(hasReExp ? [{ key: "realEstateExpense", label: "不動産の経費", group: "expense" as const, kind: "value" as const, match: isReExp, evidence: true }] : []),
     {
@@ -376,7 +376,7 @@ function goals(req: EngineRequest, proposed: readonly TableCell[], years: readon
     if (p.kind === "dream") continue;
     const amount = p.amount.value ?? 0;
     const to = resolveTimepoint(h, p.to) ?? undefined;
-    cards.push({ category: "その他", priority: "できれば", title: ROW_LABELS[p.row] === undefined || p.row === "cf.expense.lumpSum.other" ? "定期的な支出（旅行など）" : (ROW_LABELS[p.row] as string), when: `${p.everyYears}年ごとに ${man(amount)}万円`, amount: null, ...status(to !== undefined ? parseYm(to).y : last) });
+    cards.push({ category: "その他", priority: "できれば", title: ROW_LABELS[p.row] === undefined || p.row === "cf.expense.lumpSum.other" ? "何年かごとの支出" : (ROW_LABELS[p.row] as string), when: `${p.everyYears}年ごとに ${man(amount)}万円`, amount: null, ...status(to !== undefined ? parseYm(to).y : last) });
   }
   // 夢プランの夢（0103。前の「やりたいこと」の仮のカードの代わり。夢が無ければ入れる所を案内する1枚）
   const d = dreamGoals(req, dreams, years, depP);
