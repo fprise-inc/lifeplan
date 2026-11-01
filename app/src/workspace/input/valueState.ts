@@ -1,5 +1,5 @@
-// 欄の値の状態（0035 の3・0041）: どの欄も同じ決まりで「推定・わからない・該当なし・確定・未入力（0円で計算中）」を読み、
-// 4つの操作（この値にする・推定に戻す・わからない・該当なし）で変える。呼ぶ側は、状態が値の箱にあるか、値の状態の欄（valueStates）・
+// 欄の値の状態（0035 の3・0041）: どの欄も同じ決まりで「推定・書類待ち・該当なし・確定・未入力（0円で計算中）」を読み、
+// 4つの操作（この値にする・推定に戻す・書類で確かめる・該当なし）で変える。書類待ちの状態の名前は世帯ファイルでは unknown（前の「わからない」）。呼ぶ側は、状態が値の箱にあるか、値の状態の欄（valueStates）・
 // 仮の印（assumed）にあるかを分けない（ここだけが分ける）。
 // - 確定は明示の操作だけ: 欄に入って離れる・Tab で通る・同じ文字を書き戻す、では何も変えない（form.ts の field）。推定の値をそのまま
 //   使うときは「この値にする」。推定の根拠を残した確定（値の箱・行の estimate）にして、記録の無い確定（打った値・古い世帯の値）と見分ける
@@ -21,7 +21,7 @@ export type ValueStatus = "estimated" | "unknown" | "notApplicable" | "confirmed
 
 export interface FieldStatus {
   status: ValueStatus;
-  /** 推定・わからない（代わりの値）・明示の確定の根拠 */
+  /** 推定・書類待ち（代わりの値）・明示の確定の根拠 */
   basis: string | null;
   /** FP が「この値にする」で確定した（推定の根拠を残した確定） */
   explicit: boolean;
@@ -29,12 +29,13 @@ export interface FieldStatus {
   approved: boolean;
 }
 
+/** 値の状態の操作。unknown は「書類で確かめる」（書類を見るまで今の値か推定を代わりに使う。前の「わからない」。0041 の追記 2026-10-31） */
 export type StateOp = "confirm" | "revert" | "unknown" | "notApplicable";
 
 export const OP_LABELS: Readonly<Record<StateOp, string>> = {
   confirm: "この値にする",
   revert: "推定に戻す",
-  unknown: "わからない",
+  unknown: "書類で確かめる",
   notApplicable: "該当なし",
 };
 
@@ -42,9 +43,16 @@ export const OP_LABELS: Readonly<Record<StateOp, string>> = {
 export const OP_TITLES: Readonly<Record<StateOp, string>> = {
   confirm: "推定の値をこの欄にそのまま入れます（確定になります）",
   revert: "入れた値を消して、推定の値で計算します",
-  unknown: "わからないことを残して、推定の値を代わりに使って計算します",
+  unknown: "書類で確かめるまで、今の値（無ければ推定の値）を代わりに使って計算します（確かめの一覧の「書類待ち」に出ます）",
   notApplicable: "この額は無いものとして計算します",
 };
+
+/** 操作のリンクの説明（欄ごと）。書類で確かめるは、確かめる書類を添える */
+export const opTitle = (f: Pick<FieldDef, "docCheck">, op: StateOp): string =>
+  op === "unknown" && f.docCheck !== undefined ? `${f.docCheck}で確かめるまで、今の値（無ければ推定の値）を代わりに使って計算します（確かめの一覧の「書類待ち」に出ます）` : OP_TITLES[op];
+
+/** 書類待ちの代わりの値の文（状態の印・確かめの一覧の行）。根拠がもう「代わりの値（…）」で始まる（年金の加入月数など）ときは重ねない */
+export const substituteText = (basis: string): string => (basis.startsWith("代わりの値") ? basis : `代わりの値: ${basis}`);
 
 /**
  * 欄の横（数の欄は欄の中）に出す、推定の値をそのまま欄に入れるボタン（値の状態の操作の確定と同じ。0041 の追記）。
@@ -57,7 +65,7 @@ export const fillTitle = (s: ValueStatus): string => (s === "unknown" ? "代わ�
 
 export const STATUS_LABELS: Readonly<Record<ValueStatus, string>> = {
   estimated: "推定",
-  unknown: "わからない",
+  unknown: "書類待ち",
   notApplicable: "該当なし",
   confirmed: "確定",
   missing: "未入力（0円で計算中）",
@@ -115,11 +123,11 @@ export function fieldStatus(f: FieldDef, wh: WorkingHousehold): FieldStatus {
   return plainStatus("confirmed");
 }
 
-/** 状態を変えられる数の欄か（選択・オンオフ・名前・年月の欄は「わからない」「該当なし」を持たない） */
+/** 状態を変えられる数の欄か（選択・オンオフ・名前・年月の欄は「書類で確かめる」「該当なし」を持たない） */
 const NUMERIC = new Set(["yen", "int", "pct", "decimal"]);
 
 /**
- * 「わからない」を出さない入力項目（前提条件・表の期間など、FP が決める値。世帯に聞く値ではないので、わからないは意味を持たない。
+ * 「書類で確かめる」「該当なし」を出さない入力項目（前提条件・表の期間など、FP が決める値。世帯に聞く値ではない。
  * 決まらなければ空欄のまま既定の値で計算する）
  */
 const PREMISE_ITEM = /^(assumptions|plan)\./;
@@ -131,28 +139,18 @@ const PREMISE_ITEM = /^(assumptions|plan)\./;
  */
 const MAY_BE_NONE = new Set(["employment.salary.bonus", "residentTaxAssessment.amount", "retirementBenefit.amount"]);
 
-/**
- * 「わからない」を出さない物（0100）: 基本生活費（総額・内訳・段階など。入力項目 livingExpense.*）と、年払い・数年おきの暮らしの支出
- * （お金の行の種類 livingAnnual。入力項目でなく行の種類で見る）。分からなければ統計やよくある額の目安の推定のままにする（推定がそのまま代わりの値なので、
- * 「わからない」の印を別に持つ意味が無い）
- */
-function livingCost(f: FieldDef, wh: WorkingHousehold, a: Address | null): boolean {
-  if (f.item !== null && f.item.startsWith("livingExpense.")) return true;
-  const t = a?.target;
-  if (t === undefined || !("object" in t)) return false;
-  return (wh.request.input.household.periodicExpenses ?? []).some((p) => p.id === t.object && p.kind === "livingAnnual");
-}
-
-/** 欄が推定の値を持つか（空欄にすると推定で計算する・今の値が推定）。「わからない」の代わりの値になる */
+/** 欄が推定の値を持つか（空欄にすると推定で計算する・今の値が推定）。「書類で確かめる」の代わりの値になる */
 const hasEstimate = (f: FieldDef, s: FieldStatus): boolean => f.blankIsEstimate === true || f.blankEstimate !== undefined || s.status === "estimated";
 
 /**
  * 欄で使える操作（その欄・その状態で意味のあるものだけ。0041 の 2026-10-29 の追記）
- * - この値にする: 推定（わからないなら代わりの値）を、その値のまま確定にできる
+ * - この値にする: 推定（書類待ちなら代わりの値）を、その値のまま確定にできる
  * - 推定に戻す: 空欄にすると推定で計算する欄で、今は推定でない
- * - わからない: 世帯に聞く数の値で、代わりに使う推定がある欄（推定の無い欄は、わからないにしても代わりの値が無いので出さない）。基本生活費の入力項目には出さない（0100）
+ * - 書類で確かめる（前の「わからない」）: 書類から写す数の値の欄（欄の定義の docCheck。住民税・退職金と企業年金の見込み額・年金の加入月数・
+ *   今の住宅ローン・手術の額・自動車ローン）で、代わりに使う値（今の値か推定）がある欄だけ。ほかの欄（年収・住まい・教育・車の費用・お金の行など）は、
+ *   分からなければ推定のままにすればよいので出さない（0041 の追記 2026-10-31。基本生活費は 0100）
  * - 該当なし: 推定の額のある欄のうち、物そのものが無いことがある額（MAY_BE_NONE）
- * 前に入れた「わからない」「該当なし」が今は出さない欄にあっても、戻す操作（この値にする・推定に戻す・打ち直す）は今までどおり
+ * 前に入れた「書類待ち」「該当なし」が今は出さない欄にあっても、戻す操作（この値にする・推定に戻す・打ち直す）は今までどおり
  */
 export function availableOps(f: FieldDef, wh: WorkingHousehold, s: FieldStatus = fieldStatus(f, wh)): StateOp[] {
   if (f.readOnly !== undefined) return [];
@@ -163,7 +161,10 @@ export function availableOps(f: FieldDef, wh: WorkingHousehold, s: FieldStatus =
   if ((s.status === "estimated" && confirmable(f, wh, a)) || (s.status === "unknown" && value !== null)) out.push("confirm");
   if (f.blankIsEstimate === true && s.status !== "estimated") out.push("revert");
   const asked = stateful && (f.item === null || !PREMISE_ITEM.test(f.item));
-  if (asked && NUMERIC.has(f.kind) && s.status !== "unknown" && hasEstimate(f, s) && (value !== null || f.blankIsEstimate === true) && s.status !== "missing" && !livingCost(f, wh, a)) out.push("unknown");
+  // 箱でない値は、見せている値が世帯にある（その物の行に書ける）か、空欄の推定を書ける欄だけ（見せるだけの既定の値〔自動車ローンの頭金0の割合など〕は
+  // 押しても書く所が無いので出さない。applyStateOp の unknown と同じ決まり）
+  const placed = f.boxed !== undefined || (a !== null && (readAt(input(wh), a) !== undefined || (value === null && f.blankIsEstimate === true)));
+  if (asked && placed && f.docCheck !== undefined && NUMERIC.has(f.kind) && s.status !== "unknown" && s.status !== "missing" && (value !== null || (f.blankIsEstimate === true && hasEstimate(f, s)))) out.push("unknown");
   if (asked && f.kind === "yen" && f.optional === true && s.status !== "notApplicable" && f.blankIsEstimate === true && f.item !== null && MAY_BE_NONE.has(f.item)) out.push("notApplicable");
   return out;
 }
@@ -180,7 +181,7 @@ function confirmable(f: FieldDef, wh: WorkingHousehold, a: Address | null): bool
   return readAt(input(wh), a) !== undefined || (f.write !== undefined && f.get(wh).value !== null);
 }
 
-/** わからないにしたときの代わりの値の根拠（前に入っていた確定の値をそのまま使う） */
+/** 書類で確かめるにしたときの代わりの値の根拠（前に入っていた確定の値をそのまま使う） */
 const PREVIOUS_VALUE = "前に入っていた値を代わりに使う";
 
 const confirmedBox = (value: unknown, estimate: { method: string; basis: string } | null): Obj => ({ value, state: "confirmed", origin: { kind: "manual" }, ...(estimate !== null ? { estimate } : {}) });
@@ -206,9 +207,9 @@ function estimateFor(f: FieldDef, wh: WorkingHousehold): { value: Val; basis: st
 
 /**
  * 値の状態の操作（0035 の3・0041）。現状の世帯を直す。使えない操作（availableOps に無い）なら同じ世帯を返す
- * - confirm: 推定（わからないなら代わりの値）を、その値のまま確定にする。根拠は estimate に残す
- * - revert: 空欄にしたときの推定に戻す（行・わからない・該当なしを外す）
- * - unknown: わからない。今の値（無ければ推定）を代わりの値にする
+ * - confirm: 推定（書類待ちなら代わりの値）を、その値のまま確定にする。根拠は estimate に残す
+ * - revert: 空欄にしたときの推定に戻す（行・書類待ち・該当なしを外す）
+ * - unknown: 書類で確かめる（書類待ち）。今の値（無ければ推定）を代わりの値にする
  * - notApplicable: 該当なし（値を省く。値の箱は該当なしの箱）
  */
 export function applyStateOp(wh: WorkingHousehold, f: FieldDef, op: StateOp): WorkingHousehold {

@@ -1,4 +1,4 @@
-// 確かめの一覧（入力のホームの道具。0041・0072）: 未入力・わからない・確かめの注意・計算の知らせ・推定を並べ、行から欄へ移る（「開く」）。
+// 確かめの一覧（入力のホームの道具。0041・0072）: 未入力・書類待ち・確かめの注意・計算の知らせ・推定を並べ、行から欄へ移る（「開く」）。
 // 行の操作（推定で埋める・該当なし・確定）とまとめての操作は、世帯を直す（元に戻すで戻せる）。欄に移るだけでは何も変えない。
 // - 絞り込み: カード・状態（種類と「次回確かめる」）・出どころ（手で・ヒアリング・取り込み・AI・自動）・確かさ（書類・申告・概算）。
 //   確かさが申告・概算の確定の値は、確かさか種類で絞り込んだときだけ出す
@@ -15,7 +15,7 @@ import { ackedRows, CERTAINTY_LABELS, CHECK_KIND_LABELS, checkCounts, checkList,
 import { isRechecked, recheckMarks, recheckText, setRecheck } from "./recheck.ts";
 import { Help } from "../../presentation/Help.tsx";
 
-/** 根拠を、行を開いたときだけ出す種類（推定・わからない・確かさ。0077）。ほかの種類の文は状態の知らせなので常に出す */
+/** 根拠を、行を開いたときだけ出す種類（推定・書類待ち・確かさ。0077）。ほかの種類の文は状態の知らせなので常に出す */
 export const BASIS_ON_OPEN: ReadonlySet<CheckKind> = new Set<CheckKind>(["estimated", "unknown", "certainty"]);
 
 /** プランの編集中に、そのプランで足した物の行を出すための道具 */
@@ -40,7 +40,7 @@ interface Props {
   plan?: CheckPlan;
 }
 
-/** 入力のホームの見出しの下に出す、確かめの一覧の入口の数（未入力・わからない・推定） */
+/** 入力のホームの見出しの下に出す、確かめの一覧の入口の数（未入力・書類待ち・推定） */
 export function checkSummary(wh: WorkingHousehold, notices: readonly NoticeRow[] = []): { total: number; counts: Record<CheckKind, number> } {
   const counts = checkCounts(checkList(wh, notices));
   return { total: counts.missing + counts.notStarted + counts.unknown + counts.notice + counts.calc + counts.estimated, counts };
@@ -193,15 +193,16 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
         <h2>
           確かめの一覧
           <Help label="確かめの一覧" id="checklist">
-            <p>未入力・まだ入れていない項目・わからない・確かめの注意・計算の知らせ・推定の欄を並べます。いつも現状の世帯を見ます（プランの編集中は、そのプランで足した物の行も出します）。</p>
-            <p>「開く」でその欄に移ります（移るだけでは値も状態も変わりません）。推定・わからない・確かさの行は「根拠」で根拠が開きます。</p>
+            <p>未入力・まだ入れていない項目・書類待ち・確かめの注意・計算の知らせ・推定の欄を並べます。いつも現状の世帯を見ます（プランの編集中は、そのプランで足した物の行も出します）。</p>
+            <p>書類待ちは、欄で「書類で確かめる」にした所です（住民税は住民税の決定通知書、退職金・企業年金は会社の退職金規程・制度の資料、年金の加入月数はねんきん定期便、住宅ローン・自動車ローンは返済予定表、手術の額は保険証券）。確かめるまでは代わりの値で計算し、書類の値を打つか「この値にする」で消えます。</p>
+            <p>「開く」でその欄に移ります（移るだけでは値も状態も変わりません）。推定・書類待ち・確かさの行は「根拠」で根拠が開きます。</p>
             <p>確かさが申告・概算の値は、確かさか状態で絞り込んだときだけ出します。「次回確かめる」は、次の面談・見直しで確かめる所の印です（世帯に残ります。計算は変わりません）。</p>
             <p>確かめの注意のうち、お客さまと確かめてそのままでよいもの（医療保険を2本とも続けるなど）は「確認した」で出さないようにできます（世帯に残ります）。保険を足す・外すなどで中身が変わると、また出ます。確認した注意は、状態の「確認した注意」で見られ、「また出す」で戻せます。</p>
           </Help>
         </h2>
         <p class="ck-lead">
           未入力 {counts.missing}
-          {counts.notStarted > 0 ? `・まだ入れていない ${counts.notStarted}` : ""}・わからない {counts.unknown}・確かめの注意 {counts.notice}
+          {counts.notStarted > 0 ? `・まだ入れていない ${counts.notStarted}` : ""}・書類待ち {counts.unknown}・確かめの注意 {counts.notice}
           {counts.calc > 0 ? `・計算の知らせ ${counts.calc}` : ""}・推定 {counts.estimated}
           {marks.length > 0 ? `・次回確かめる ${marks.length}` : ""}
           {acked.length > 0 ? `・確認した注意 ${acked.length}` : ""}

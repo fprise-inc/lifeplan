@@ -225,7 +225,7 @@ function ownerChanges(a: Obj, b: Obj, target: Target, items: readonly string[], 
       covered.push({ target, item, at: [] });
     }
   }
-  // 値の状態の行だけが変わった所（確定・わからない・該当なしなど。値は同じ）
+  // 値の状態の行だけが変わった所（確定・書類待ち・該当なしなど。値は同じ）
   const rowsA = isObj(a.valueStates) ? a.valueStates : {};
   const rowsB = isObj(b.valueStates) ? b.valueStates : {};
   for (const key of new Set([...Object.keys(rowsA), ...Object.keys(rowsB)])) {
@@ -732,13 +732,13 @@ export function fieldValueText(f: FieldDef | undefined, v: unknown, wh: WorkingH
   return s.length > 40 ? `${s.slice(0, 40)}…` : s;
 }
 
-/** 値の箱を言葉で（わからない・該当なしも） */
+/** 値の箱を言葉で（書類待ち・該当なしも） */
 function boxText(f: FieldDef | undefined, box: unknown, wh: WorkingHousehold): string {
   if (box === null || box === undefined) return "なし";
   if (isBox(box)) {
     const b = box as Obj;
     if (b.state === "notApplicable") return "該当なし";
-    if (b.state === "unknown") return `わからない（${fieldValueText(f, unbox(box), wh)}）`;
+    if (b.state === "unknown") return `書類待ち（${fieldValueText(f, unbox(box), wh)}）`;
     const t = fieldValueText(f, b.value, wh);
     return b.state === "estimated" ? `${t}（推定）` : t;
   }

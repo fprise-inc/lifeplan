@@ -12,7 +12,7 @@ import { fittingPlaceholder, textEm } from "./placeholder.ts";
 import type { Timepoint } from "../../engine/types.ts";
 import { groupShown, type ActionDef, type FieldDef, type GroupDef, type Level, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
-import { availableOps, fieldStatus, FILL_LABEL, fillTitle, OP_LABELS, OP_TITLES, STATUS_LABELS, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
+import { availableOps, fieldStatus, FILL_LABEL, fillTitle, OP_LABELS, opTitle, STATUS_LABELS, substituteText, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
 import { outOfRangeText, rateInRange } from "./rateRanges.ts";
 import { revealAdded, revealOpened } from "../../presentation/revealAdded.ts";
@@ -33,7 +33,7 @@ export interface FieldSuggestion {
 export const FieldSuggestions = createContext<Readonly<Record<string, FieldSuggestion>>>({});
 
 /**
- * 値の状態の操作（0041）: 欄の「この値にする」「推定に戻す」「わからない」「該当なし」を押したときに、世帯（かプランの差分）を直す関数。
+ * 値の状態の操作（0041）: 欄の「この値にする」「推定に戻す」「書類で確かめる」「該当なし」を押したときに、世帯（かプランの差分）を直す関数。
  * 入力のパネルが渡す（現状なら valueState.ts の applyStateOp、プランを選んでいるならそのプランの差分にする planStateOp）。
  * 渡さない画面（結果のタブの項目・万一の前提）では、操作を出さない
  */
@@ -99,17 +99,17 @@ export const fieldDomId = (key: string): string => `fld-${key.replace(/[^A-Za-z0
 const STATUS_CLASS: Record<ValueStatus, string> = { estimated: "est", unknown: "unk", notApplicable: "na", confirmed: "", missing: "missing" };
 
 /**
- * 状態の印（推定・仮・わからない・該当なし・未入力）。根拠（推定の出どころ・代わりの値・0円の理由）があれば、印を押すと根拠が開く（0077）。
- * 確定の欄には何も出さない
+ * 状態の印（推定・仮・書類待ち・該当なし・未入力）。根拠（推定の出どころ・代わりの値・0円の理由）があれば、印を押すと根拠が開く（0077）。
+ * 書類待ちは、確かめる書類（欄の定義の docCheck）を添える。確定の欄には何も出さない
  */
-export function StateMark({ status, basis, text, label, fieldKey }: { status: ValueStatus; basis: string | null; text: string; label: string; fieldKey?: string }) {
+export function StateMark({ status, basis, text, label, fieldKey, doc }: { status: ValueStatus; basis: string | null; text: string; label: string; fieldKey?: string; doc?: string | undefined }) {
   const cls = `badge ${STATUS_CLASS[status]}`;
   const data: Record<string, string> = { "data-state": status, ...(fieldKey !== undefined ? { "data-state-of": fieldKey } : {}) };
   const body =
     status === "estimated" && basis !== null
       ? `推定: ${basis}`
       : status === "unknown"
-        ? `わからない（代わりの値: ${basis ?? "推定"}）`
+        ? `書類待ち（${doc !== undefined ? `${doc}で確かめるまで、` : ""}${substituteText(basis ?? "推定")}）`
         : status === "missing"
           ? (basis ?? "空欄（0円で計算しています）")
           : basis;
@@ -687,9 +687,9 @@ export function FillButton({ label, status, inside, onFill }: { label: string; s
 }
 
 /**
- * 欄の下の、値の状態の操作のリンク（推定に戻す・わからない・該当なし。0041 の 2026-10-29 の追記）。その欄でその状態で意味のある物だけを
- * 並べ、押せばすぐ変わる（前は「わからない・該当なしなど」を押して開く形だった）。「この値にする」は欄の横・中のボタン（FillButton）なので出さない。
- * 選んだ後は、印（わからない・該当なし）と、戻す操作（推定に戻す・この値にする）が同じ所に出る
+ * 欄の下の、値の状態の操作のリンク（推定に戻す・書類で確かめる・該当なし。0041 の 2026-10-29 の追記）。その欄でその状態で意味のある物だけを
+ * 並べ、押せばすぐ変わる（前は「わからない・該当なしなど」を押して開く形だった。「わからない」は 2026-10-31 に「書類で確かめる」にした）。「この値にする」は欄の横・中のボタン（FillButton）なので出さない。
+ * 選んだ後は、印（書類待ち・該当なし）と、戻す操作（推定に戻す・この値にする）が同じ所に出る
  */
 export function StateOpLinks({ f, ops, run, lead }: { f: FieldDef; ops: readonly StateOp[]; run: (op: StateOp) => void; lead?: ComponentChildren }) {
   const shown = ops.filter((o) => o !== "confirm");
@@ -699,7 +699,7 @@ export function StateOpLinks({ f, ops, run, lead }: { f: FieldDef; ops: readonly
       {lead}
       {shown.map((o) => (
         // 押したときに欄からフォーカスを外さない（外すと、欄の値が入れ直されて「保存していない変更」になるため）
-        <button type="button" key={o} class="link-btn" title={OP_TITLES[o]} aria-label={`${f.label}: ${OP_LABELS[o]}`} onMouseDown={(e) => e.preventDefault()} onClick={() => run(o)} data-op={o}>
+        <button type="button" key={o} class="link-btn" title={opTitle(f, o)} aria-label={`${f.label}: ${OP_LABELS[o]}`} onMouseDown={(e) => e.preventDefault()} onClick={() => run(o)} data-op={o}>
           {OP_LABELS[o]}
         </button>
       ))}
@@ -738,7 +738,7 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
   // 状態の印（根拠は印を押すと開く。0077）
   const badge =
     shownStatus !== null && shownStatus !== "confirmed" ? (
-      <StateMark status={shownStatus} basis={shownStatus === "notApplicable" ? null : basisText} text={shownStatus === "estimated" && status === null && state.estimated == null ? "仮" : shownStatus === "missing" ? "未入力" : STATUS_LABELS[shownStatus]} label={f.label} />
+      <StateMark status={shownStatus} basis={shownStatus === "notApplicable" ? null : basisText} text={shownStatus === "estimated" && status === null && state.estimated == null ? "仮" : shownStatus === "missing" ? "未入力" : STATUS_LABELS[shownStatus]} label={f.label} doc={f.docCheck} />
     ) : state.partEstimated != null ? (
       // 欄の値は確定でも、内訳の一部が推定（年収〔賞与込み〕の賞与など）なら「推定」の印（押すと根拠。0077 の追記）
       <StateMark status="estimated" basis={state.partEstimated} text="推定" label={f.label} />
@@ -747,7 +747,7 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
   // 推定の値をそのまま入れる（値の状態の操作の確定と同じ）は、欄の横か中のボタン（0041 の追記）
   const canFill = ops.includes("confirm") && shownStatus !== null;
   const fill = (inside: boolean) => (canFill && shownStatus !== null ? <FillButton label={f.label} status={shownStatus} inside={inside} onFill={() => runOp("confirm")} /> : null);
-  // ほかの操作（推定に戻す・わからない・該当なし）とプランの印は欄の下（時点の欄でも同じ。0041）
+  // ほかの操作（推定に戻す・書類で確かめる・該当なし）とプランの印は欄の下（時点の欄でも同じ。0041）
   const stateLines = (
     <>
       <PlanMarkLine f={f} wh={wh} />

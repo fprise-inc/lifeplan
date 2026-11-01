@@ -108,7 +108,7 @@ export interface InputItem {
   /** ピンなら、その記録 */
   added: AddedItem | null;
   status: ItemStatus;
-  /** 推定・わからない（代わりの値）の欄の数 */
+  /** 推定・書類待ち（代わりの値）の欄の数 */
   estimated: number;
   /** 未入力（0円で計算中）の欄と、入っていない物の数 */
   missing: number;
@@ -495,14 +495,14 @@ function declaredNone(id: StageId, wh: WorkingHousehold): boolean {
   return false;
 }
 
-/** 欄に FP が入れた印があるか: 出どころが自動（推定）でない値の箱か、値の状態の行（確定・わからない・該当なし・承認など） */
+/** 欄に FP が入れた印があるか: 出どころが自動（推定）でない値の箱か、値の状態の行（確定・書類待ち・該当なし・承認など） */
 function touchedField(f: FieldDef, wh: WorkingHousehold, a: ReturnType<typeof fieldAddress>): boolean {
   const own = (v: unknown) => isRow(v) && v.origin.kind !== "auto";
   if (f.boxed !== undefined) return own(f.boxed.read(wh));
   return a !== null && own(rowAt(wh.request.input as unknown as Record<string, unknown>, a));
 }
 
-/** カードの欄の数（推定・わからない／未入力と、FP が入れた印のある欄）。同じ値を見せる欄（同じ当て先）は1つに数え、見せるだけの欄は数えない */
+/** カードの欄の数（推定・書類待ち／未入力と、FP が入れた印のある欄）。同じ値を見せる欄（同じ当て先）は1つに数え、見せるだけの欄は数えない */
 function fieldCounts(stage: StageDef, wh: WorkingHousehold): { estimated: number; missing: number; touched: number } {
   let estimated = 0;
   let missing = 0;
@@ -524,7 +524,7 @@ function fieldCounts(stage: StageDef, wh: WorkingHousehold): { estimated: number
 
 /**
  * 入れ始めた項目か（世帯ファイルの今の情報だけで決める。形は変えない）: 項目に属する物がある・FP が保存したか「当てはまらない」を押した
- * （保存した項目の印 confirmed）・無いと決めてある・欄に FP が入れた印（確定・わからない・該当なしの行など）がある・0円で計算している欄がある（欄は物の上にある）。
+ * （保存した項目の印 confirmed）・無いと決めてある・欄に FP が入れた印（確定・書類待ち・該当なしの行など）がある・0円で計算している欄がある（欄は物の上にある）。
  * どれでもない項目は「まだ入れていない」で、入っていない物があっても赤い知らせを出さない（確かめの一覧では「まだ入れていない項目」にまとめる）
  */
 export function startedOf(c: { hasData: boolean; confirmed: boolean; none: boolean; touched: number; fieldMissing: number }): boolean {
@@ -535,7 +535,7 @@ export function startedOf(c: { hasData: boolean; confirmed: boolean; none: boole
  * カードの状態（4つと、まだ入れていない）:
  * 0. まだ入れていない: 入れ始める前（startedOf が偽。started を渡したときだけ）で、下の 1 に当たるとき
  * 1. 未入力（0円の所あり）: 0円で計算している欄か、入っていない物がある。物が無く「当てはまらない」も決めていないときも
- * 2. 推定で計算中: 推定・わからない（代わりの値）の欄がある（前提条件の標準の値は数えない）
+ * 2. 推定で計算中: 推定・書類待ち（代わりの値）の欄がある（前提条件の標準の値は数えない）
  * 3. 当てはまらない: 無いと決めてある（子がいない・退職金の制度が無いなど）か、物が無くて FP が保存した・「当てはまらない」を押した
  * 4. 入力済み: 物があり、上のどれでもない
  */

@@ -37,6 +37,7 @@ import {
 import { BENEFITS, DEDUCTION_TYPES, memberLabel, memberOptions, PREMIUM_FREQUENCY } from "../labels.ts";
 import { monthsBetween } from "../loanMath.ts";
 import { formatYearMonth } from "../units.ts";
+import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 
 type Obj = Record<string, unknown>;
 const contracts = (h: Household) => h.insuranceContracts;
@@ -806,7 +807,8 @@ function coverageGroup(wh: WorkingHousehold, c: InsuranceContract, cov: Coverage
       },
     }),
     withAddress(
-      plain({
+      {
+        ...plain({
         key: `${kc}/amount`,
         item: "insurance.coverages",
         label: amountLabel(cov.benefit),
@@ -817,7 +819,10 @@ function coverageGroup(wh: WorkingHousehold, c: InsuranceContract, cov: Coverage
         path: ["amount"],
         ...(cov.benefit === "hospitalDaily" || cov.benefit === "surgery" || cov.benefit === "incomeProtection" || cov.benefit === "incapacity" || cov.benefit === "annuity" ? { unit: "yen" as const } : {}),
         after: (h, target) => followDecreasing(h, target),
-      }),
+        }),
+        // 手術の1回の額は、保険証券で確かめる値（推定は入院日額の10倍。「書類で確かめる」を出す。0041 の追記 2026-10-31）
+        ...(cov.benefit === "surgery" ? { docCheck: CHECK_DOCUMENTS.surgery } : {}),
+      },
       () => at(c.id, "insurance.coverages", [cov.id, "amount"]),
     ),
     timepointField({ key: `${kc}/from`, item: "insurance.coverages", label: cov.benefit === "annuity" ? "受け取りの始まり" : "保障の始まり", level: "detail", find: findCov, path: ["from"], ageOf: covInsured, mode: "ym" }),

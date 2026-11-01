@@ -22,7 +22,8 @@ const KIND_TEXT: Record<CandidateView["kind"], string> = { new: "新規", change
 const office = { name: "", purpose: "ライフプランの作成と、家計・保険・資産運用のご相談のため", privacyContact: "", customerNo: "A0001" };
 
 function Mark({ f }: { f: FieldView }) {
-  // 入力の画面と同じ印: 推定（目安で補った・わからないの代わり）・推定（範囲の真ん中）・仮（値の箱の無い欄の仮の値）
+  // 入力の画面と同じ印: 推定（目安で補った・シートの「わからない」を推定にした）・推定（範囲の真ん中）・書類待ち（書類で確かめる欄の「わからない」。
+  // 代わりの値で計算する。0041 の追記 2026-10-31）・仮（値の箱の無い欄の仮の値）
   if (f.mark === "range")
     return (
       <>
@@ -32,7 +33,13 @@ function Mark({ f }: { f: FieldView }) {
         {f.note !== null ? <small class="hs-basis">{f.note}</small> : null}
       </>
     );
-  if (f.mark === "estimated" || f.mark === "unknown")
+  if (f.mark === "unknown")
+    return (
+      <span class="badge est" title={f.note ?? "書類で確かめるまで代わりの値で計算します"} data-hearing-mark="unknown">
+        書類待ち
+      </span>
+    );
+  if (f.mark === "estimated")
     return (
       <span class="badge est" title={f.note ?? "推定"}>
         推定

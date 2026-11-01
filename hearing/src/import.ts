@@ -7,7 +7,7 @@
 import full1 from "../sheets/full/1.json" with { type: "json" };
 import { answerKey, type Answer, type FilledSheet } from "./answers.ts";
 import { axisOf, itemByKey, type SheetDefinition, type SheetItem } from "./definition.ts";
-import { bonusShareEstimate, businessEstimate, careerStartMonth, HEARING_UNKNOWN_BASIS, healthRateEstimate, livingEstimate, residentTaxEstimate, residentTaxYear, salaryEstimate, type Estimate } from "./estimates.ts";
+import { bonusShareEstimate, businessEstimate, careerStartMonth, HEARING_UNKNOWN_BASIS, healthRateEstimate, livingEstimate, residentTaxEstimate, residentTaxYear, retirementLumpSumEstimate, salaryEstimate, type Estimate } from "./estimates.ts";
 import { issue, type Issue } from "./issues.ts";
 import { monthsFromPayment, principalFromPayment, standardTermMonths } from "./loan.ts";
 import { addMonths, ageAt, reachedMonth, ymIndex } from "./months.ts";
@@ -273,7 +273,10 @@ class Ctx {
       return;
     }
     this.got.set(k, { status: a.status });
-    if (a.status === "unknown") this.check(a.key, a.index, "unknown", "わからない");
+    if (a.status === "unknown") {
+      const doc = DOC_CHECK_ITEMS[a.key];
+      this.check(a.key, a.index, "unknown", doc !== undefined ? `わからない（書類で確かめる: ${doc}）` : "わからない");
+    }
   }
 
   /**
@@ -408,12 +411,22 @@ class Ctx {
     return { value: e.value, state: "estimated", origin: { kind: "auto" }, estimate: { method, basis: e.basis } };
   }
 
+  /** 書類で確かめる（書類待ち。状態 unknown）。入力の画面で「書類で確かめる」を出す欄（DOC_CHECK_ITEMS）だけに使う */
   unknown(e: Estimate | null, method: "statistic" | "derived"): ValueBox<number> {
     return { state: "unknown", origin: { kind: "hearing", ref: this.ref }, ...(e !== null ? { substitute: this.estimated(e, method) } : {}) };
   }
 
   /**
-   * 金額の欄を値の箱にする。空欄は目安で補い（estimated）、わからないは代わりの値つき（unknown）。目安が無ければ null（欄を作らない）。
+   * シートの「わからない」を推定にした値の箱（書類で確かめる欄でない欄。0041 の追記 2026-10-31・0100）。根拠の頭に「ヒアリングで『わからない』」。
+   * 面談のチェックリストには今までどおり載る（read）
+   */
+  unknownAsEstimate(key: string, index: number | undefined, e: Estimate, method: "statistic" | "derived"): ValueBox<number> {
+    this.issues.push(issue("info", "H_ESTIMATED", `${this.label(key, index)}: 「わからない」のため目安（${e.value.toLocaleString("ja-JP")}円）の推定にしました（${e.basis}）`, this.src(key, index)));
+    return this.estimated({ value: e.value, basis: `${HEARING_UNKNOWN_BASIS}。${e.basis}` }, method);
+  }
+
+  /**
+   * 金額の欄を値の箱にする。空欄は目安で補い（estimated）、わからないも目安の推定（根拠の頭に「ヒアリングで『わからない』」）。目安が無ければ null（欄を作らない）。
    * 範囲の答えから読んだ値は推定（box）
    */
   moneyBox(objectId: string, key: string, index: number | undefined, item: string, path: string, estimate: (() => Estimate | null) | null, method: "statistic" | "derived" = "statistic"): ValueBox<number> | null {
@@ -429,8 +442,9 @@ class Ctx {
     const e = estimate?.() ?? null;
     if (g.status === "unknown") {
       if (e === null) return null;
-      this.field(objectId, key, index, item, path, "unknown");
-      return this.unknown(e, method);
+      // 金額の欄（事業の所得など）は書類で確かめる欄でないので、「わからない」は推定にする（0041 の追記 2026-10-31）
+      this.field(objectId, key, index, item, path, "estimated");
+      return this.unknownAsEstimate(key, index, e, method);
     }
     if (e === null) return null;
     this.field(objectId, key, index, item, path, "estimated");
@@ -845,6 +859,16 @@ function importWork(c: Ctx, h: Household, adults: Adults, baseMonth: string): Ma
       const rb: RetirementBenefit = { id: bid, member: m.id, kind: "lumpSum", employment: id, amount: c.confirmed(ls.value) };
       (h.retirementBenefits ??= []).push(rb);
       c.candidate("retirementBenefits", "retirementBenefit.kind", rb);
+    } else if (ls.status === "unknown" && LUMP_SUM_TYPES.has(type)) {
+      // 「わからない」は書類で確かめる（会社の退職金規程・制度の資料を見るまで、勤続年数と辞め方の目安を代わりに使う。0041 の追記 2026-10-31）
+      const e = lumpSumSubstitute(m, p);
+      if (e !== null) {
+        const bid = c.newId();
+        c.field(bid, "hs.retirement.lumpSum", n, "retirementBenefit.amount", "/amount", "unknown");
+        const rb: RetirementBenefit = { id: bid, member: m.id, kind: "lumpSum", employment: id, amount: c.unknown(e, "statistic") };
+        (h.retirementBenefits ??= []).push(rb);
+        c.candidate("retirementBenefits", "retirementBenefit.kind", rb);
+      }
     }
   });
   return out;
@@ -906,9 +930,10 @@ function importSalary(c: Ctx, p: EmploymentPeriod, m: Member, n: number, baseMon
       const tr = c.rangeOf("hs.income.salary", n);
       const rest: Estimate = { value: total.value - share.value, basis: tr !== null ? `${rangeBasis(tr)}（${total.value.toLocaleString("ja-JP")}円）から賞与の目安を引いた額` : `年収（記入）${total.value.toLocaleString("ja-JP")}円から賞与の目安を引いた額` };
       if (bonus.status === "unknown") {
-        bonusBox = c.unknown(share, "derived");
-        annual = { ...c.unknown(rest, "derived") };
-        c.field(id, "hs.income.bonus", n, "employment.salary.bonus", "/salary/bonus", "unknown");
+        // 賞与・年収は書類で確かめる欄でないので、「わからない」は推定にする（0041 の追記 2026-10-31）
+        bonusBox = c.unknownAsEstimate("hs.income.bonus", n, share, "derived");
+        annual = c.estimated({ value: rest.value, basis: `${HEARING_UNKNOWN_BASIS}。${rest.basis}` }, "derived");
+        c.field(id, "hs.income.bonus", n, "employment.salary.bonus", "/salary/bonus", "estimated");
       } else {
         bonusBox = c.estimated(share, "derived");
         // 範囲の答えから分けた年収は、出どころ「ヒアリング」の概算の推定（承認の記録が付く）
@@ -922,8 +947,8 @@ function importSalary(c: Ctx, p: EmploymentPeriod, m: Member, n: number, baseMon
     const annualEst = est?.annual ?? { value: 0, basis: "目安なし" };
     const bonusEst = est?.bonus ?? { value: 0, basis: "目安なし" };
     if (total.status === "unknown") {
-      annual = c.unknown(annualEst, "statistic");
-      c.field(id, "hs.income.salary", n, "employment.salary.annual", "/salary/annual", "unknown");
+      annual = c.unknownAsEstimate("hs.income.salary", n, annualEst, "statistic");
+      c.field(id, "hs.income.salary", n, "employment.salary.annual", "/salary/annual", "estimated");
     } else {
       if (total.status === "blank") c.missing("hs.income.salary", n, "給与の年収がありません（統計の目安で補いました）");
       annual = c.estimated(annualEst, "statistic");
@@ -936,13 +961,71 @@ function importSalary(c: Ctx, p: EmploymentPeriod, m: Member, n: number, baseMon
       bonusBox = c.confirmed(0);
       c.field(id, "hs.income.bonus", n, "employment.salary.bonus", "/salary/bonus", "confirmed");
     } else {
-      bonusBox = bonus.status === "unknown" ? c.unknown(bonusEst, "statistic") : c.estimated(bonusEst, "statistic");
-      c.field(id, "hs.income.bonus", n, "employment.salary.bonus", "/salary/bonus", bonus.status === "unknown" ? "unknown" : "estimated");
+      bonusBox = bonus.status === "unknown" ? c.unknownAsEstimate("hs.income.bonus", n, bonusEst, "statistic") : c.estimated(bonusEst, "statistic");
+      c.field(id, "hs.income.bonus", n, "employment.salary.bonus", "/salary/bonus", "estimated");
     }
   }
   p.salary = { annual, bonus: bonusBox };
   // 標準報酬月額は聞かず、書かない（空欄なら、計算エンジンが給与から毎年9月に決め直す。推定の額を書くと期間の間ずっと同じ額になり、
   // 昇給が保険料と厚生年金に入らない。入力の画面と同じ）
+}
+
+// ---- 書類で確かめる（前の「わからない」。0041 の追記 2026-10-31） ----
+
+/**
+ * シートの項目のうち、入力の画面で「書類で確かめる」を出す欄に入る物と、確かめる書類（入力の画面の checkDocuments.ts と同じ）。
+ * ここの「わからない」は書類待ち（状態 unknown）で取り込み、面談のチェックリストに書類を添える。ほかの項目の「わからない」は推定にする
+ */
+const DOC_CHECK_ITEMS: Readonly<Record<string, string>> = {
+  "hs.income.residentTax": "住民税の決定通知書",
+  "hs.retirement.lumpSum": "会社の退職金規程・制度の資料",
+  "hs.pension.months.total": "ねんきん定期便",
+  "hs.pension.months.employee": "ねんきん定期便",
+  "hs.loan.balance": "返済予定表",
+  "hs.loan.balanceTotal": "返済予定表",
+};
+
+/** 退職一時金の目安を代わりにする働き方（入力の画面で、退職一時金の目安を出す会社員の働き方） */
+const LUMP_SUM_TYPES = new Set(["regular", "contract"]);
+
+/**
+ * 退職一時金の代わりの値（入力の画面の retirementBenefits.ts の lumpEstimate と同じ考え方: 勤続は勤め先の働き方の期間〔終わりの無い期間は
+ * 60歳になる前の月まで〕、辞め方は終わりが無いか60歳に達した月以後なら定年、ほかは自己都合、学歴は大学・大学院卒とみなす）
+ */
+function lumpSumSubstitute(m: Member, p: EmploymentPeriod): Estimate | null {
+  const from = "at" in p.from ? p.from.at : null;
+  const to = p.to === null ? addMonths(reachedMonth(m, 60), -1) : "at" in p.to ? p.to.at : null;
+  if (from === null || to === null || ymIndex(to) < ymIndex(from)) return null;
+  const years = Math.floor((ymIndex(to) - ymIndex(from) + 1) / 12);
+  if (years <= 0) return null;
+  const reason = p.to === null || ymIndex(to) >= ymIndex(reachedMonth(m, 60)) ? "mandatory" : "voluntary";
+  const est = retirementLumpSumEstimate({ reason, yearsOfService: years, ageAtRetirement: ageAt(m, addMonths(to, 1)) });
+  return est === null ? null : { value: est.value, basis: `${est.basis}（${reason === "mandatory" ? "定年" : "自己都合"}・大学・大学院卒とみなす）` };
+}
+
+/**
+ * 定期便の加入月数の代わりの値（入力の画面の pension.ts の substituteMonths と同じ: 国民年金＝20歳の月から書類の作成年月まで〔60歳になる前の月まで〕、
+ * 厚生年金＝その月までの働き方の期間の厚生年金の月）
+ */
+function substituteMonths(h: Household, m: Member, asOf: string): { basic: number; employee: number; basis: string; basicBasis: string; employeeBasis: string } {
+  const between = (a: string, b: string) => Math.max(0, ymIndex(b) - ymIndex(a) + 1);
+  const from20 = reachedMonth(m, 20);
+  const last = addMonths(reachedMonth(m, 60), -1);
+  const end = ymIndex(asOf) < ymIndex(last) ? asOf : last;
+  const basic = ymIndex(end) < ymIndex(from20) ? 0 : Math.min(480, between(from20, end));
+  let employee = 0;
+  for (const p of h.employmentPeriods ?? []) {
+    if (p.member !== m.id || p.pensionCategory === undefined || p.pensionCategory === "none" || !("at" in p.from)) continue;
+    const a = p.from.at;
+    if (ymIndex(a) > ymIndex(asOf)) continue;
+    const b0 = p.to === null ? asOf : "at" in p.to ? p.to.at : asOf;
+    employee += between(a, ymIndex(b0) > ymIndex(asOf) ? asOf : b0);
+  }
+  employee = Math.min(900, employee);
+  const b = `国民年金は20歳の月から書類の作成年月まで〔60歳まで〕の${String(basic)}か月`;
+  const e = `厚生年金は働き方の期間の厚生年金の${String(employee)}か月`;
+  // 2つとも代わりの値なら入力の画面の「加入月数を書類で確かめる」と同じ文。片方だけ（もう片方はシートの値）なら、その片方の文だけ
+  return { basic, employee, basis: `代わりの値（${b}、${e}）`, basicBasis: `代わりの値（${b}）`, employeeBasis: `代わりの値（${e}）` };
 }
 
 // ---- 公的年金 ----
@@ -977,7 +1060,26 @@ function importPension(c: Ctx, h: Household, adults: Adults, asOf: string): void
     if (rec.kind !== "receiving") {
       const total = c.get<number>("hs.pension.months.total", n);
       const emp = c.get<number>("hs.pension.months.employee", n);
-      if (total.status === "value") {
+      // 「わからない」は書類で確かめる（ねんきん定期便を見るまで代わりの値。入力の画面の「加入月数を書類で確かめる」と同じ。0041 の追記 2026-10-31）
+      const sub = total.status === "unknown" || (total.status === "value" && emp.status === "unknown") ? substituteMonths(h, m, recAsOf) : null;
+      const docRow = (basis: string) => ({ state: "unknown" as const, origin: { kind: "hearing" as const, ref: c.ref }, estimate: { method: "derived" as const, basis } });
+      if (total.status === "unknown" && sub !== null) {
+        const e = emp.status === "value" ? emp.value : sub.employee;
+        rec.months = { basic: sub.basic, employee: e };
+        const rows: Record<string, unknown> = { "pensionRecord.months/basic": docRow(emp.status === "value" || emp.status === "notApplicable" ? sub.basicBasis : sub.basis) };
+        c.field(id, "hs.pension.months.total", n, "pensionRecord.months", "/months/basic", "unknown");
+        if (emp.status === "value") c.field(id, "hs.pension.months.employee", n, "pensionRecord.months", "/months/employee", "confirmed");
+        else if (emp.status !== "notApplicable") {
+          rows["pensionRecord.months/employee"] = docRow(sub.basis);
+          c.field(id, "hs.pension.months.employee", n, "pensionRecord.months", "/months/employee", "unknown");
+        } else rec.months = { basic: sub.basic, employee: 0 };
+        (rec as { valueStates?: Record<string, unknown> }).valueStates = rows;
+      } else if (total.status === "value" && emp.status === "unknown" && sub !== null) {
+        c.field(id, "hs.pension.months.total", n, "pensionRecord.months", "/months/basic", "confirmed");
+        c.field(id, "hs.pension.months.employee", n, "pensionRecord.months", "/months/employee", "unknown");
+        rec.months = { basic: total.value, employee: sub.employee };
+        (rec as { valueStates?: Record<string, unknown> }).valueStates = { "pensionRecord.months/employee": docRow(sub.employeeBasis) };
+      } else if (total.status === "value") {
         c.field(id, "hs.pension.months.total", n, "pensionRecord.months", "/months/basic", "confirmed");
         let e = 0;
         if (emp.status === "value") {
@@ -1312,8 +1414,9 @@ function importAssets(c: Ctx, h: Household, adults: Adults, periods: Map<string,
         mv = c.box(key, n, g.value);
         c.field(id, key, n, "account.marketValue", "/marketValue", "confirmed");
       } else if (g.status === "unknown") {
-        mv = c.unknown({ value: 0, basis: "残高がわからないため0円として計算" }, "derived");
-        c.field(id, key, n, "account.marketValue", "/marketValue", "unknown");
+        // 口座の残高は書類で確かめる欄でないので、「わからない」は推定にする（0041 の追記 2026-10-31）
+        mv = c.unknownAsEstimate(key, n, { value: 0, basis: "残高がわからないため0円として計算" }, "derived");
+        c.field(id, key, n, "account.marketValue", "/marketValue", "estimated");
       } else {
         mv = c.estimated({ value: 0, basis: "積立の記入があり残高の記入が無いため0円として計算" }, "derived");
         c.field(id, key, n, "account.marketValue", "/marketValue", "estimated");

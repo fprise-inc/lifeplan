@@ -1,6 +1,6 @@
-// 確かめの一覧（推定の一覧。0041）: 推定・わからない・未入力の所と確かめの注意を、カードごとに並べる。行から欄へ移れる（「開く」）。
+// 確かめの一覧（推定の一覧。0041）: 推定・書類待ち・未入力の所と確かめの注意を、カードごとに並べる。行から欄へ移れる（「開く」）。
 // 並び（上から）: ① 未入力（0円で計算中）② まだ入れていない項目（入れ始める前の項目。警告にせず、見落としに気づける所として1か所にまとめる。0045 の追記）
-// ③ わからない ④ 確かめの注意（目安のボタンと同じ確定の値・ほかの入力と合わない値）
+// ③ 書類待ち（「書類で確かめる」にした欄。確かめる書類を添える）④ 確かめの注意（目安のボタンと同じ確定の値・ほかの入力と合わない値）
 // ⑤ 計算の知らせ（現状の計算結果の知らせのうち、入力で直せるもの。0064）⑥ 推定（影響の大きい順）⑦ 確かさが申告・概算の確定の値（絞り込みで出す）
 // - 1行は「カード › まとまり: 欄」・今の値・状態の印・根拠・出どころ（手で・ヒアリング・取り込み・AI）・確かさ（書類・申告・概算）と操作
 // - 同じ値を2つの欄が見せる（今の働き方の欄と、働き方の期間の欄など）ときは、当て先で1行にまとめる
@@ -17,7 +17,7 @@ import { insuranceOverlapNotices } from "./insuranceView.ts";
 import { ackOf, ackToday, setNoticeAck } from "./noticeAck.ts";
 import { inputItems, itemStage } from "./items.ts";
 import { holderOf, rowAt } from "./rows.ts";
-import { applyStateOp, availableOps, confirmAll, fieldAddress, fieldStatus, type FieldStatus } from "./valueState.ts";
+import { applyStateOp, availableOps, confirmAll, fieldAddress, fieldStatus, substituteText, type FieldStatus } from "./valueState.ts";
 import { fieldValueText } from "../plans/planEdit.ts";
 
 export type CheckKind = "missing" | "notStarted" | "unknown" | "notice" | "calc" | "estimated" | "certainty";
@@ -25,7 +25,7 @@ export type CheckKind = "missing" | "notStarted" | "unknown" | "notice" | "calc"
 export const CHECK_KIND_LABELS: Readonly<Record<CheckKind, string>> = {
   missing: "未入力（0円で計算中）",
   notStarted: "まだ入れていない項目",
-  unknown: "わからない",
+  unknown: "書類待ち",
   notice: "確かめの注意",
   calc: "計算の知らせ（入力で直せる所）",
   estimated: "推定",
@@ -152,6 +152,12 @@ export function valueMeta(f: FieldDef, wh: WorkingHousehold): { origin: OriginKi
   return { origin: o, certainty: c };
 }
 
+/** 書類待ちの行の文: 確かめる書類（欄の定義の docCheck）と、それまで使う代わりの値（0041 の追記 2026-10-31） */
+function unknownDetail(f: FieldDef, s: FieldStatus): string {
+  const sub = s.basis !== null ? substituteText(s.basis) : "代わりの値で計算しています";
+  return f.docCheck !== undefined ? `${f.docCheck}で確かめる（${sub}）` : sub;
+}
+
 /** 欄の見出し（まとまりの名前: 欄の名前） */
 const labelOf = (where: string | undefined, f: FieldDef) => (where !== undefined && where !== f.label ? `${where}: ${f.label}` : f.label);
 
@@ -181,7 +187,7 @@ function gapRow(g: Gap, cardLabel: string, notStarted: boolean): CheckRow {
 const NOT_STARTED_DETAIL = "まだ何も入れていません（入れるまでは、この項目のお金を無しで計算しています）";
 
 /**
- * 確かめの一覧（並びは ①未入力 ②わからない ③確かめの注意 ④計算の知らせ ⑤推定。同じ種類の中はカードの順。推定は影響の大きい順）。
+ * 確かめの一覧（並びは ①未入力 ②書類待ち ③確かめの注意 ④計算の知らせ ⑤推定。同じ種類の中はカードの順。推定は影響の大きい順）。
  * notices は現状の計算結果の知らせ（engineNotices.ts の行）。入るカードを持つものだけを出す（開くだけ。行の操作は無い）
  */
 export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = []): CheckRow[] {
@@ -242,7 +248,7 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
       const value = s.status === "missing" || s.status === "notApplicable" ? null : st.value === null || st.value === undefined ? null : fieldValueText(f, st.value, wh);
       const base = { card: item.id, cardLabel: item.label, label: labelOf(group.title ?? section.title, f), fieldKey: f.key, level, value, origin: meta.origin, certainty: meta.certainty, holder };
       if (s.status === "missing") rows.push({ ...base, id: `field:${f.key}`, kind: "missing", detail: s.basis ?? "空欄（0円で計算しています）", impact: 0, actions: [] });
-      else if (s.status === "unknown") rows.push({ ...base, id: `field:${f.key}`, kind: "unknown", detail: s.basis !== null ? `代わりの値: ${s.basis}` : "代わりの値で計算しています", impact: impactOf(f, wh), actions: [] });
+      else if (s.status === "unknown") rows.push({ ...base, id: `field:${f.key}`, kind: "unknown", detail: unknownDetail(f, s), impact: impactOf(f, wh), actions: [] });
       else if (s.status === "estimated" && officeNewer(f, wh) !== null) {
         // 事務所の既定値が、この世帯の推定の値と違う（作った後に事務所の値を変えた・事務所の値を決める前の世帯。0073）。値は変えない
         const v = officeNewer(f, wh) as string;

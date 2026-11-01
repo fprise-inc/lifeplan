@@ -119,6 +119,12 @@ interface FieldBase {
    * （子ども・教育の段の学費・入学金・学校外の費用など）。欄の印「推定」と「この値にする」は今のまま出す（0062 の追記 2026-10-31）
    */
   quietEstimate?: string;
+  /**
+   * 値の状態の操作「書類で確かめる」（状態は unknown）を出す欄の、確かめる書類（例: 住民税の決定通知書）。書類から写す値で、書類を見るまで
+   * 今の値（無ければ推定）を代わりに使う欄だけが持つ（住民税・退職金と企業年金の見込み額・年金の加入月数・今の住宅ローン・手術の額・自動車ローン）。
+   * 持たない欄には出さない（0041 の追記 2026-10-31）
+   */
+  docCheck?: string;
   /** 見せるだけの欄（書き換えられない）。その理由 */
   readOnly?: string;
   /** ほかの値もいっしょに変える欄（例: 働く最後の年齢は、退職後の生活費の節目・積立の終わりも合わせる）。その説明 */
@@ -241,7 +247,7 @@ export function sameVal(a: Val, b: Val, kind: FieldDef["kind"]): boolean {
 
 /**
  * 欄を作る: 同じ値を入れ直しても世帯を変えない（推定の値と同じ値を書き戻しても確定にしない。確定は「この値にする」だけ。0035 の3・0041）。
- * 値を変えたら、その欄の仮の印を外し、値が変わった所の値の状態の行（わからない・該当なし・承認など）を外す（rows.ts の dropStaleRows）
+ * 値を変えたら、その欄の仮の印を外し、値が変わった所の値の状態の行（書類待ち・該当なし・承認など）を外す（rows.ts の dropStaleRows）
  */
 export function field(def: FieldDef): FieldDef {
   const raw = def.set;
@@ -367,7 +373,7 @@ export function yenBox(o: {
     get: (wh) => {
       const box = getPath(o.find(wh.request.input.household, wh), o.path) as Box<number> | undefined;
       const value = box?.value ?? (box?.state === "unknown" ? ((box as { substitute?: Box<number> }).substitute?.value ?? null) : null);
-      return { value, estimated: boxBasis(box) ?? (box?.state === "unknown" ? "わからない（代わりの値）" : null), ...(o.hint !== undefined ? { hint: o.hint(wh) } : {}) };
+      return { value, estimated: boxBasis(box) ?? (box?.state === "unknown" ? "書類待ち（代わりの値）" : null), ...(o.hint !== undefined ? { hint: o.hint(wh) } : {}) };
     },
     boxed: boxAccess(o.find, o.path, o.ensure),
     set: (wh, v) =>
@@ -395,7 +401,7 @@ export function rateBox(o: { key: string; item: string; label: string; level: Le
     ...(o.optional === true ? { optional: true } : {}),
     get: (wh) => {
       const box = getPath(o.find(wh.request.input.household, wh), o.path) as { value?: string; state?: string; estimate?: { basis?: string }; substitute?: { value?: string } } | undefined;
-      if (box?.state === "unknown") return { value: box.substitute?.value ?? null, estimated: "わからない（代わりの値）" };
+      if (box?.state === "unknown") return { value: box.substitute?.value ?? null, estimated: "書類待ち（代わりの値）" };
       return { value: box?.value ?? null, estimated: box?.state === "estimated" ? (box.estimate?.basis ?? "推定") : null };
     },
     boxed: boxAccess(o.find, o.path),
