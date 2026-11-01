@@ -56,9 +56,25 @@ export interface TakeawayContext {
   letterOf: (id: string) => { letter: string; name: string };
 }
 
+const graphemes = typeof Intl.Segmenter === "function" ? new Intl.Segmenter("ja", { granularity: "grapheme" }) : null;
+
+/**
+ * 長さの上限（UTF-16 の単位）で切る。切るのは見える1文字（書記素）の切れ目だけ（絵文字・肌の色・旗・濁点の結合文字の片割れを残さない）。
+ * 書記素で分けられない環境では、コードポイントの切れ目で切る
+ */
+function clip(t: string, max: number): string {
+  if (t.length <= max) return t;
+  let out = "";
+  for (const g of graphemes !== null ? Array.from(graphemes.segment(t), (x) => x.segment) : Array.from(t)) {
+    if (out.length + g.length > max) break;
+    out += g;
+  }
+  return out;
+}
+
 /** 文字の欄を整える（前後の空白を外し、長さの上限で切る。空なら null） */
 export function cleanText(s: string, max: number): string | null {
-  const t = [...s].map((c) => (c.charCodeAt(0) < 0x20 || c.charCodeAt(0) === 0x7f ? " " : c)).join("").trim().slice(0, max);
+  const t = clip([...s].map((c) => (c.charCodeAt(0) < 0x20 || c.charCodeAt(0) === 0x7f ? " " : c)).join("").trim(), max);
   return t === "" ? null : t;
 }
 
