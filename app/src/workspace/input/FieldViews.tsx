@@ -16,7 +16,7 @@ import { availableOps, fieldStatus, FILL_LABEL, fillTitle, OP_LABELS, opTitle, S
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
 import { outOfRangeText, rateInRange } from "./rateRanges.ts";
 import { revealAdded, revealOpened } from "../../presentation/revealAdded.ts";
-import { convertWhen, modeOf, parseWhen, readWhen, readYearMonth, showWhen, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
+import { convertWhen, modeOf, parseWhen, readWhen, readYearMonth, showWhen, strictShown, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 
 export const visible = (level: Level, l: Level) => level === "detail" || l === "simple";
 
@@ -1052,7 +1052,10 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
   const [rejected, setRejected] = useState<string | null>(null);
   const [picked, setPicked] = useState<WhenMode | null>(null);
   // 出来事が正本の欄は、出来事の時点を見せて直す（出来事を指していることは下の行で知らせる）
-  const shownRaw = state.linked?.at ?? state.raw;
+  const actualRaw = state.linked?.at ?? state.raw;
+  // 使える入れ方だけで見せる欄は、ほかの形の前の値を同じ月の既定の入れ方で見せる（直すとその形で書く。0101）
+  const strict = time.when.strictModes === true ? strictShown(actualRaw, state.ctx) : null;
+  const shownRaw = strict?.tp ?? actualRaw;
   const mode = picked ?? modeOf(shownRaw, state.ctx);
   const ctx: WhenCtx = { ...state.ctx, mode, current: shownRaw };
   const shown = showWhen(shownRaw, ctx);
@@ -1154,6 +1157,11 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
         {reading}
       </div>
       {mode === "event" && state.ctx.events.length === 0 ? <div class="fld-help">選べる出来事がまだありません</div> : null}
+      {strict !== null ? (
+        <div class="fld-help" data-when-strict>
+          {strict.note}
+        </div>
+      ) : null}
       {state.linked !== null ? (
         <div class="fld-help warn" data-when-linked>
           「{state.linked.label}」の出来事の時点です。ここを直すと出来事が動き、{state.linked.refs > 1 ? `この出来事を指すほかの${state.linked.refs - 1}件も一緒に動きます` : "この出来事を指す物も一緒に動きます"}

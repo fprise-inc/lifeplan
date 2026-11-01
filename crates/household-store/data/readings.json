@@ -2039,6 +2039,12 @@
     "insurance"
    ]
   },
+  "car.lease": {
+   "collection": "car",
+   "path": [
+    "lease"
+   ]
+  },
   "car.loan": {
    "collection": "car",
    "path": [
@@ -2067,6 +2073,13 @@
    "collection": "car",
    "path": [
     "purchase"
+   ]
+  },
+  "car.replace": {
+   "collection": "car",
+   "path": [
+    "purchase",
+    "replace"
    ]
   },
   "car.tax": {

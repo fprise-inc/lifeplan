@@ -397,6 +397,16 @@ export const CAR_ESTIMATE = {
   inspection: { value: 100000, basis: `${CAR_BASIS}・車検1回（法定費用と整備）` },
   parking: { value: 0, basis: `${CAR_BASIS}・駐車場（自宅に置く）` },
   fuel: { value: 100000, basis: `${CAR_BASIS}・燃料` },
+  /**
+   * 買い替えない車（この1台だけ）の、これから買う車を手放すまでの年数（0101）。乗用車（軽自動車を除く）の平均使用年数 13.35年（令和7年3月末）を
+   * 年に丸めた値。原本（自動車検査登録情報協会の平均使用年数の公表資料 PDF。https://www.airia.or.jp/publish/file/shiyounensuu_2025.pdf）で確かめた（2026-10-31）
+   */
+  keepYears: {
+    value: 13,
+    basis: "平均使用年数の目安（買ってから13年。一般財団法人 自動車検査登録情報協会「平均使用年数」令和7年3月末の乗用車〔軽自動車を除く〕13.35年。この世帯に合わせて直してください）",
+  },
+  /** 今の車に乗り続ける（買い替えない）ときの、手放すまでの年数の標準（今から5年。0101） */
+  keepYearsOwned: { value: 5, basis: "標準の値（今から5年。今の車を手放す時期に合わせて直してください）" },
 } as const satisfies Record<string, Estimate>;
 
 // ---- 退職給付（会社員） ----

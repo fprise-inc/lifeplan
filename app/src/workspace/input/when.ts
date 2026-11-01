@@ -539,6 +539,25 @@ export function withPerson(tp: Timepoint | null | undefined, person: string, ctx
   return convertWhen(tp, "age", ctx, { person });
 }
 
+/**
+ * 使える入れ方だけで見せる欄（WhenSpec.strictModes。0101）で、入っている時点がほかの形（年齢・出来事から）のとき、同じ月の既定の入れ方の形と、
+ * 欄に添える1行。使える入れ方の形なら null。過ぎた年月（「今から」で言えない月）は年月のまま見せる（欄の知らせで直してもらう）
+ */
+export function strictShown(tp: Timepoint | null | undefined, ctx: WhenCtx): { tp: Timepoint; note: string } | null {
+  if (tp == null) return null;
+  const actual = modeOf(tp, { ...ctx, mode: ctx.defaultMode });
+  if (ctx.modes.includes(actual)) return null;
+  if (tp.at !== undefined) return null;
+  const conv = convertWhen(tp, ctx.defaultMode, ctx);
+  if (conv === null) return null;
+  const how = WHEN_MODE_LABEL[ctx.defaultMode];
+  const note =
+    tp.event !== undefined
+      ? `出来事（${showWhen(tp, { ...ctx, mode: "event" })}）から決めた時点です。直すと「${how}」の形にし、出来事から切り離します`
+      : `年齢（${showWhen(tp, { ...ctx, mode: "age" })}）で入っています。直すと「${how}」の形で入れ直します`;
+  return { tp: conv, note };
+}
+
 /** 時点どうしが同じ形・同じ値か（キーの順や省略できる 0 の違いは見ない） */
 export function sameWhen(a: Timepoint | null | undefined, b: Timepoint | null | undefined): boolean {
   if (a == null || b == null) return a == b;

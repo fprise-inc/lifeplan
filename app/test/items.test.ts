@@ -657,10 +657,10 @@ describe("車を複数台・FP顧問料は前提条件の中", () => {
     for (const c of cars) expect(p.table.some((x) => x.object === c.id && x.row.startsWith("cf.expense")), c.id).toBe(true);
   });
 
-  it("車が無いときは「＋ 今の車」「＋ これから買う車」。次の買い替えの時期は時点の部品（今から○年後は年月に直す）で、3年後の推定", () => {
+  it("車が無いときは「＋ 今の車」「＋ これから買う車」「＋ リース・長期レンタル（月額）」。次の買い替えの時期は時点の部品（今から○年後は年月に直す）で、3年後の推定", () => {
     const wh = open("salariedCoupleTwoKids");
     const acts = (itemStage(wh, "car") as StageDef).sections[0]!.actions;
-    expect(acts.map((a) => a.label)).toEqual(["＋ 今の車", "＋ これから買う車"]);
+    expect(acts.map((a) => a.label)).toEqual(["＋ 今の車", "＋ これから買う車", "＋ リース・長期レンタル（月額）"]);
     const one = acts[0]!.run(wh);
     const first = fieldOf(itemStage(one, "car"), "/first");
     const base = one.request.input.baseMonth;
@@ -668,12 +668,12 @@ describe("車を複数台・FP顧問料は前提条件の中", () => {
     expect(first.get(one).value).toBe(in3);
     expect(fieldStatus(first, one).status).toBe("estimated");
     const w = first.set(one, `${Number(base.slice(0, 4)) + 5}${base.slice(4)}`);
-    expect(w.request.input.household.cars![0]!.purchase.first).toEqual({ at: `${Number(base.slice(0, 4)) + 5}${base.slice(4)}` });
+    expect(w.request.input.household.cars![0]!.purchase!.first).toEqual({ at: `${Number(base.slice(0, 4)) + 5}${base.slice(4)}` });
     expect(fieldStatus(first, w).status).toBe("confirmed");
     expect(fieldOf(itemStage(one, "car"), "/firstIn")).toBeUndefined();
     // これから買う車は owned なし（購入の時期）
     const later = acts[1]!.run(wh);
-    expect(later.request.input.household.cars![0]!.purchase.owned).toBe(false);
+    expect(later.request.input.household.cars![0]!.purchase!.owned).toBe(false);
   });
 
   it("FP顧問料は前提条件のカードの中（前提条件の要約は変えない）", () => {

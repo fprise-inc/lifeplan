@@ -147,6 +147,31 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(d.get("dock").is_none(), "{v}: display.dock は持たない");
             assert!(d.get("metrics").is_none(), "{v}: 結果のタブの値は区画の中");
         }
+        if *v == "0.45" {
+            // 0.45 から: 車の買い替え（この1台だけ・○歳まで）とリース・長期レンタル（0101）
+            let cars = now["household"]["request"]["input"]["household"]["cars"]
+                .as_array()
+                .unwrap();
+            let kinds: Vec<&str> = cars
+                .iter()
+                .filter_map(|c| c["purchase"]["replace"]["kind"].as_str())
+                .collect();
+            assert_eq!(
+                kinds.iter().filter(|k| **k == "none").count(),
+                2,
+                "{v}: 今の車に乗り続ける・この1台だけ"
+            );
+            assert!(kinds.contains(&"until"), "{v}: ○歳まで買い替える");
+            let lease = cars
+                .iter()
+                .find(|c| c.get("lease").is_some())
+                .expect("0.45 の見本にはリース・長期レンタルの車がある");
+            assert!(
+                lease.get("purchase").is_none(),
+                "{v}: リースの車は購入を持たない"
+            );
+            assert_eq!(lease["lease"]["type"], "longRental");
+        }
         if *v == "0.44" {
             // 0.44 から: 書類で確かめる欄（住民税の年税額）の「わからない」（書類待ち）は残る（0041 の追記 2026-10-31）
             let t = &now["household"]["request"]["input"]["household"]["residentTaxAssessments"][0];

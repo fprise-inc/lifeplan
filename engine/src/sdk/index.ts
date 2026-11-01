@@ -61,6 +61,8 @@ export type {
   OutgoingGiftInput,
   TransferInput,
   CarInput,
+  CarLeaseInput,
+  CarReplaceInput,
   AdvisoryFeeInput,
   AdvisoryFeeTerms,
   SavingsCheckInput,
@@ -81,6 +83,7 @@ export { bracketFor, gradeFor, periodRateFor, type Bracket, type Grade, type Per
 export { isUnder } from "../ids/cfTree.ts";
 export { netByYear, tableYear } from "../engine/aggregate.ts";
 export { boxValue } from "./box.ts";
+export { carPurchaseMonths, carKeptToRelease, carLeaseIncludes, CAR_LEASE_INCLUDES, type CarReplaceRule, type CarPurchaseMonthsInput } from "./cars.ts";
 export { stagedYen, stageSteps, stageAt, type StagedYen, type StageStep } from "./stages.ts";
 export { INCOME_CATEGORY_OF, INCOME_KIND_DEFAULTS, incomeCategory, incomeTreatment, incomeRow, isOnceRow, moneyRowPayments, counterpartyStop, COUNTERPARTY_DEATH_TOPIC, outsideChildSupported, OUTSIDE_CHILD_SUPPORT_READS, type MoneyRowPayment, type MoneyRowInput, type IncomeCategory } from "./moneyRows.ts";
 export type * from "./contracts.ts";
