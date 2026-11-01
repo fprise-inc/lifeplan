@@ -39,13 +39,14 @@ import {
   importPeriodProblem,
   periodProblem,
   putRule,
-  readFile,
+  readFileWithYear,
   readSheet,
   removeAccount,
   removeImport,
   removeRule,
   requestSize,
   rowsSpan,
+  yearChoices,
   setInclude,
   setPeriod,
   setStyles,
@@ -381,7 +382,7 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
     try {
       const bytes = await host.open();
       if (bytes === null) return;
-      const out = await readFile(bytes, acc.kind, office.formats);
+      const out = await readFileWithYear(bytes, acc.kind, office.formats);
       if (!out.ok) {
         setFailed(out.issues);
         setReading(null);
@@ -399,7 +400,19 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
     if (reading === null) return;
     setBusy(true);
     try {
-      const out = await readFile(reading.bytes, reading.kind, office.formats, m);
+      const out = await readFileWithYear(reading.bytes, reading.kind, office.formats, m, reading.out.yearless?.year);
+      if (!out.ok) setFailed(out.issues);
+      else setReading({ ...reading, out, period: rowsSpan(out) ?? reading.period });
+    } finally {
+      setBusy(false);
+    }
+  };
+  // 年の書かれていない明細の年を選び直す（FP が選び直した列の対応付けはそのまま）
+  const reyear = async (year: number) => {
+    if (reading === null) return;
+    setBusy(true);
+    try {
+      const out = await readFileWithYear(reading.bytes, reading.kind, office.formats, reading.out.mappingSource === "fp" ? reading.out.mapping : undefined, year);
       if (!out.ok) setFailed(out.issues);
       else setReading({ ...reading, out, period: rowsSpan(out) ?? reading.period });
     } finally {
@@ -485,6 +498,23 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
           </h3>
           <p class={`rp-note${out.needsMapping ? " warn" : ""}`}>{SOURCE_TEXT[out.mappingSource]}</p>
           <IssueList issues={out.issues} info />
+          {out.yearless !== undefined ? (
+            <div class="st-period st-year" data-statement-year>
+              <label>
+                <span class="st-period-h">年の書かれていない日付の年</span>{" "}
+                <select value={String(out.yearless.year ?? out.yearless.suggested)} disabled={busy} onChange={(e) => void reyear(Number((e.currentTarget as HTMLSelectElement).value))} data-statement-year-select>
+                  {yearChoices(out.yearless.suggested).map((o) => (
+                    <option key={o.value} value={String(o.value)}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <small>
+                日付に年が書かれていない明細です（{out.yearless.rows}行）。いちばん新しい日（{Number(out.yearless.end.slice(0, 2))}月{Number(out.yearless.end.slice(3, 5))}日）の年を選んでください。それより後の月日は前の年として読みます（推定の年は、いちばん新しい日が今日より後にならない年です）。
+              </small>
+            </div>
+          ) : null}
           {showMap ? (
             <MappingEditor out={out} busy={busy} onMapping={(m) => void remap(m)} />
           ) : (

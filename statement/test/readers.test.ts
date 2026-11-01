@@ -1,6 +1,6 @@
 import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
-import { createImport, csvReader, emptyLog, guessMapping, maskCell, maskText, MASK, readLog, readStatement, type StatementReader } from "../src/index.ts";
+import { createImport, csvReader, emptyLog, guessMapping, maskCell, maskText, MASK, readLog, readStatement, suggestYear, type StatementReader } from "../src/index.ts";
 import { fixture, read } from "./helpers.ts";
 
 const ALL: [string, "card" | "bank" | "app"][] = [
@@ -90,6 +90,41 @@ describe("文字コードと列の対応付け", () => {
     expect(tv).toMatchObject({ date: "2026-01-15", amount: 90000, payAmount: 30000, payMonth: "2026-02", plan: { kind: "installment", count: 3 } });
     expect(out.rows.find((r) => r.amount < 0)).toMatchObject({ merchant: "ユニクロ 架空店", amount: -5990 });
     expect(out.rows.filter((r) => r.cardUser === "family")).toHaveLength(12);
+  });
+
+  // 年の書かれていない日付だけの CSV は、案内が「年を選んで」なのに、年を選ぶ手がかりを返していなかった
+  it("年の書かれていない日付だけの明細: 行の数・いちばん新しい月日・推定の年を返し、選んだ年で読む", async () => {
+    const csv = new TextEncoder().encode("利用日,利用店名,利用金額\n10/03,架空スーパー,1200\n10/05,架空コンビニ,500\n");
+    const none = await readStatement(csv, { kind: "card", fileName: "a.csv", today: "2026-10-31" });
+    if (!none.ok) throw new Error("読めない");
+    expect(none.rows).toEqual([]);
+    expect(none.yearless).toEqual({ rows: 2, end: "10-05", suggested: 2026 });
+    expect(none.issues.map((i) => i.code)).toContain("S_ROW_YEAR");
+    const picked = await readStatement(csv, { kind: "card", fileName: "a.csv", today: "2026-10-31", yearHint: 2025 });
+    if (!picked.ok) throw new Error("読めない");
+    expect(picked.rows.map((r) => [r.date, r.yearGuessed])).toEqual([
+      ["2025-10-03", true],
+      ["2025-10-05", true],
+    ]);
+    expect(picked.yearless).toEqual({ rows: 2, end: "10-05", suggested: 2026, year: 2025 });
+    // 今日より後の月日は前の年と推し量る
+    expect((await readStatement(csv, { kind: "card", fileName: "a.csv", today: "2026-10-04" })).ok && suggestYear("10-05", "2026-10-04")).toBe(2025);
+  });
+
+  it("年の書かれていない明細が年をまたぐとき（11月〜2月）は、選んだ年をいちばん新しい月日の年にし、それより後の月日を前の年にする", async () => {
+    const csv = new TextEncoder().encode("利用日,利用店名,利用金額\n11/05,架空スーパー,1200\n12/20,架空コンビニ,500\n01/03,架空書店,800\n02/10,架空薬局,300\n");
+    const out = await readStatement(csv, { kind: "card", fileName: "a.csv", today: "2026-10-31", yearHint: 2026 });
+    if (!out.ok) throw new Error("読めない");
+    expect(out.yearless).toMatchObject({ end: "02-10", suggested: 2026 });
+    expect(out.rows.map((r) => r.date)).toEqual(["2025-11-05", "2025-12-20", "2026-01-03", "2026-02-10"]);
+    expect(suggestYear("02-10", "2026-01-31")).toBe(2025);
+  });
+
+  it("年つきの日付のある明細・明細の見出しに年のある PDF は、年を選ばない", async () => {
+    const out = await read("card-year-utf8bom.csv", "card");
+    expect(out.yearless).toBeUndefined();
+    const pdf = await read("card-statement.pdf", "card");
+    expect(pdf.yearless).toBeUndefined();
   });
 
   it("Shift_JIS・半角カナ・「円」つきの金額・何回目の列", async () => {
