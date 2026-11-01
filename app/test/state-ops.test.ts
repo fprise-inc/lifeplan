@@ -13,6 +13,7 @@ import { fromRequest, type WorkingHousehold } from "../src/workspace/input/house
 import { InputPanel } from "../src/workspace/input/InputPanel.tsx";
 import { buildStages, STAGE_ORDER } from "../src/workspace/input/stages/index.ts";
 import { addCar } from "../src/workspace/input/stages/cars.ts";
+import { currentHomeLoan } from "../src/workspace/input/stages/housingLoans.ts";
 import { applyStateOp, availableOps, fieldStatus, OP_LABELS } from "../src/workspace/input/valueState.ts";
 import { REPO_DIR } from "../scripts/lib.ts";
 import { modelHousehold } from "./helpers.ts";
@@ -97,6 +98,23 @@ describe("書類で確かめる・該当なしは、意味のある欄にだけ�
     // これから借りる自動車ローン（借入の年月が計算の基準の月より後）には出さない
     const later = { ...wh, request: { ...wh.request, input: { ...wh.request.input, household: { ...wh.request.input.household, debts: wh.request.input.household.debts!.map((d) => (d.id === debt.id ? { ...d, start: { at: "2028-04" } } : d)) } } } };
     expect(carFields(later).filter((x) => x.key.startsWith(`housing/debt/${debt.id}/`) && x.docCheck !== undefined)).toEqual([]);
+  });
+
+  it("住宅ローンの金利の種類（選ぶ欄）には書類で確かめるを出さない（金利・借入額・返済期間・残高には出す）", () => {
+    let checked = 0;
+    for (const m of MODELS) {
+      const wh = open(m);
+      for (const d of (wh.request.input.household.debts ?? []).filter((x) => currentHomeLoan(wh, x))) {
+        const fields = allFields(buildStages(wh).find((s) => s.id === "housing")!).filter((f) => f.key.startsWith(`housing/debt/${d.id}/`));
+        const type = fields.find((f) => f.key.endsWith("/rateType"));
+        expect(type?.label, m).toBe("金利の種類");
+        expect(type!.docCheck, m).toBeUndefined();
+        expect(availableOps(type!, wh), m).not.toContain("unknown");
+        expect(fields.find((f) => f.key.endsWith("/rate"))?.docCheck, m).toBe("返済予定表");
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
   });
 
   it("学歴に「わからない」の選び方は無い（選んでいなければ今までどおり大学・大学院卒の値で目安）", () => {
