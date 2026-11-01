@@ -1,5 +1,6 @@
 // 5. 基本生活費のカード（0048）: 毎月の生活費（住居費・教育費・保険料・車の費用・税と社会保険料を除く）と、その時期ごとの変化。
 // - 入れ方: 総額で／内訳で（内訳は10費目を並べて全部出し、最後に合計の行。0100・0106）。両方の値を持ち、選んだほうで計算する（切り替えても片方を消さない）
+//   内訳の行は事務所の並べ方（名前・まとめた行・隠した内訳・分けた行。office/livingLayout.ts。0109）で出す。計算は10の内訳のまま
 // - 段階: 推定の段階（子の誕生と独立・自宅外の在学・同居・施設の介護・退職・70歳・80歳。livingStages.ts。0049）と FP が足す段。表は詳細、簡易は札
 // - 区画: 毎月の生活費／年払い・数年おきの暮らしの支出（お金の行。0044）／毎年の黒字のうち貯金に回る割合（0031。surplusSaving.ts）／
 //   実際に貯められている額（答え合わせ。savingsChecks）
@@ -20,6 +21,8 @@ import type { Address } from "../../store/readings.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./onContingency.ts";
 import { surplusSection } from "./surplusSaving.ts";
 import { GROWTH_RANGE } from "../rateRanges.ts";
+import { apportion, hasShares, livingLayoutNow, partShares, rowLabel, rowMembers, STANDARD_LIVING_NAMES, type LivingLayout, type LivingRow } from "../../office/livingLayout.ts";
+import { partsOf, withParts, type LivingPart } from "../livingParts.ts";
 
 type Obj = Record<string, unknown>;
 type Stage = NonNullable<LivingExpense["stages"]>[number];
@@ -150,7 +153,7 @@ function categoryField(l: LivingExpense, find: Finder, c: string, level: "simple
     path: ["monthly"],
     optional: true,
     ...(CAT_HELP[c] !== undefined ? { help: CAT_HELP[c] } : {}),
-    hint: (w) => averageHint(w, [c]),
+    hint: (w) => [averageHint(w, [c]), storedPartsHint(w, find, c)].filter((x) => x !== null).join("。") || null,
   });
   // 名前の左のアイコン（内訳ごとの絵。前の分け方の交通・通信費は交通費と同じ絵）
   f.icon = c === "transport" ? "transit" : c;
@@ -204,24 +207,264 @@ function splitTransportAction(l: LivingExpense, find: Finder): ActionDef | null 
 }
 
 function categoryGroup(l: LivingExpense, find: Finder): GroupDef {
-  // 10費目を並べて全部出す（束・「詳しく」の折りたたみは無い。0100）。前の分け方の内訳は、値があるときだけ前の名前で。
-  // 前の内訳の仕送りは、値があるときだけ最後に（0106）。その後ろに合計の行（読むだけ）
-  const order: string[] = [];
-  for (const c of LIVING_CATEGORY_ORDER) {
-    order.push(c);
-    for (const old of LEGACY_CATEGORIES) if (LEGACY_AFTER[old] === c && catOf(l, old) !== undefined) order.push(old);
-  }
-  if (hasLegacyAllowance(l)) order.push(LEGACY_ALLOWANCE);
-  const fields = order.map((c) => categoryField(l, find, c, "simple", catLabel(c)));
+  // 10費目を並べて全部出す（束・「詳しく」の折りたたみは無い。0100）。事務所の並べ方があれば、その行で出す（0109）。
+  // 前の分け方の内訳は、値があるときだけ前の名前で（その内訳の行の後ろ）。前の内訳の仕送りは、値があるときだけ最後に（0106）。その後ろに合計の行（読むだけ）
+  const layout = livingLayoutNow();
+  const fields: FieldDef[] = [];
+  const legacyAfter = (c: string) => {
+    for (const old of LEGACY_CATEGORIES) if (LEGACY_AFTER[old] === c && catOf(l, old) !== undefined) fields.push(categoryField(l, find, old, "simple", catLabel(old)));
+  };
+  if (layout === null)
+    for (const c of LIVING_CATEGORY_ORDER) {
+      fields.push(categoryField(l, find, c, "simple", catLabel(c)));
+      legacyAfter(c);
+    }
+  else
+    for (const r of layout.rows) {
+      fields.push(...layoutRowFields(l, find, layout, r));
+      for (const c of rowMembers(layout, r)) legacyAfter(c);
+    }
+  if (hasLegacyAllowance(l)) fields.push(categoryField(l, find, LEGACY_ALLOWANCE, "simple", catLabel(LEGACY_ALLOWANCE)));
   fields.push(totalField(l, find));
   const moved = ["other", "otherConsumption"].map((c) => (catOf(l, c)?.monthly as { estimate?: { basis?: string } } | undefined)?.estimate?.basis).find((b) => b !== undefined && b.startsWith("総額で"));
   const notes = [CATEGORY_GROUP_HELP];
+  if (layout !== null) notes.push(LAYOUT_NOTE);
   if (moved !== undefined) notes.push(moved);
   if (isPureSplit(l)) notes.push("総額を家計調査の同じ人数の世帯の割合で分けた推定です（直した内訳だけ確定になります）");
   if (LEGACY_CATEGORIES.some((c) => catOf(l, c) !== undefined)) notes.push("「交通・通信費」「その他の消費」は前の分け方の内訳です（そのまま計算に使います）");
   if (hasLegacyAllowance(l)) notes.push("「仕送り（前の内訳）」は、子ども・教育か介護・親の入力項目に移してください（移すまでは、そのまま計算に使います）");
   const split = splitTransportAction(l, find);
   return { key: `living/${l.id}/categories`, title: "内訳（月額）", note: notes.join("\n"), level: "simple", fields, actions: split !== null ? [split] : [] };
+}
+
+// ---- 事務所の並べ方の行（0109）: 名前を変えた行・まとめた行・隠した内訳を入れるその他の行・分けた行 ----
+
+/** 事務所の並べ方で出しているときの、まとまりの「?」の1行 */
+export const LAYOUT_NOTE = "内訳は事務所の並べ方で出しています（名前を変えた行・まとめた行・分けた行の中身は、行の「?」にあります）。計算は10の内訳のままで、推定も同じです";
+
+const std = (c: string) => STANDARD_LIVING_NAMES[c as keyof typeof STANDARD_LIVING_NAMES] ?? catLabel(c);
+const firstLine = (c: string) => (CAT_HELP[c] ?? "").split("\n")[0] ?? "";
+const quoted = (cs: readonly string[]) => cs.map((c) => `「${std(c)}」`).join("");
+const elOf = (find: Finder, w: WorkingHousehold, c: string) => catOf(find(w.request.input.household, w) as unknown as LivingExpense | undefined, c);
+const boxBasisOf = (b: Box<number>): string | null => (b as { estimate?: { basis?: string } }).estimate?.basis ?? null;
+
+/** ほかの並べ方で分けた行の額があれば、その1行（名前と額。合計が今の額と同じ物だけ） */
+function storedPartsHint(w: WorkingHousehold, find: Finder, c: string): string | null {
+  const el = elOf(find, w, c);
+  const ps = partsOf(w, el?.id, el?.monthly.value ?? null);
+  return ps === null ? null : `分けた行: ${ps.map((p) => `${p.label} ${man(p.monthly)}`).join("・")}`;
+}
+
+/** 新しい内訳の要素を、標準の並びの場所に入れる */
+function placeCategory(t: LivingExpense, el: Category): void {
+  const list = (t.categories ??= []);
+  const rank = (c: string) => {
+    const i = (LIVING_CATEGORY_ORDER as readonly string[]).indexOf(c);
+    return i < 0 ? LIVING_CATEGORY_ORDER.length : i;
+  };
+  const at = list.findIndex((x) => rank(x.category) > rank(el.category));
+  if (at < 0) list.push(el);
+  else list.splice(at, 0, el);
+}
+
+function layoutRowFields(l: LivingExpense, find: Finder, layout: LivingLayout, r: LivingRow): FieldDef[] {
+  if (r.kind === "split") return splitFields(l, find, r);
+  const members = rowMembers(layout, r);
+  const label = rowLabel(r);
+  const hidden = members.filter((c) => !(r.kind === "group" ? r.categories : [r.category]).includes(c));
+  const hiddenLine = hidden.length > 0 ? `隠している内訳（${hidden.map(std).join("・")}）の分も、ここに入れます` : null;
+  // 1つの内訳の行（隠した内訳に値が無いその他の行も）: 今までの欄に名前と説明だけを足す
+  if (r.kind === "one" && (hidden.length === 0 || hidden.every((c) => catOf(l, c) === undefined))) {
+    const f = categoryField(l, find, r.category, "simple", label);
+    const renamed = label !== std(r.category) ? `中身は内訳の「${std(r.category)}」です。` : null;
+    const help = [renamed, CAT_HELP[r.category] ?? null, hiddenLine].filter((x): x is string => x !== null).join("\n");
+    return [{ ...f, help }];
+  }
+  return [groupField(l, find, r.kind === "group" ? r.categories : [r.category], members, label, hiddenLine)];
+}
+
+/**
+ * まとめた行（2つ以上の内訳を1つの額で入れる。隠した内訳を入れるその他の行も）。入れた額は内訳の今の額の割合で分け、
+ * どれも0円・空なら同じ人数の世帯の平均の割合で分ける（千円単位。端は割合の一番大きい内訳）。分けた額はどれも確定。空にすると、まとめた内訳を外す
+ */
+function groupField(l: LivingExpense, find: Finder, own: readonly string[], members: readonly string[], label: string, hiddenLine: string | null): FieldDef {
+  const els = (w: WorkingHousehold) => members.map((c) => elOf(find, w, c)).filter((x): x is Category => x !== undefined);
+  const help = [
+    own.length > 1 ? `${quoted(own)}をまとめた行です。` : `中身は内訳の「${std(own[0] ?? "other")}」です。`,
+    hiddenLine,
+    "入れた額は、今の内訳の額の割合（どれも0円なら同じ人数の世帯の平均の割合）で分けて計算します。",
+    ...members.map((c) => `・${std(c)}: ${firstLine(c)}`),
+  ]
+    .filter((x): x is string => x !== null)
+    .join("\n");
+  const read = (w: WorkingHousehold): Box<number> | undefined => {
+    const xs = els(w);
+    if (xs.length === 0) return undefined;
+    const value = xs.reduce((s, x) => s + (x.monthly.value ?? 0), 0);
+    const est = xs.filter((x) => x.monthly.state === "estimated");
+    if (est.length === 0) return confirmedBox(value);
+    if (est.length < xs.length) return confirmedBox(value);
+    const bases = [...new Set(est.map((x) => boxBasisOf(x.monthly)))];
+    const basis = bases.length === 1 && bases[0] !== null ? (bases[0] as string) : `${est.map((x) => std(x.category)).join("・")}の推定の合計`;
+    return { value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis } } as Box<number>;
+  };
+  const writeAmount = (w: WorkingHousehold, v: number): WorkingHousehold =>
+    mutate(w, (h, req) => {
+      const t = find(h, { ...w, request: req }) as unknown as LivingExpense | undefined;
+      if (t === undefined) return;
+      const cur = members.map((c) => catOf(t, c));
+      let weights = cur.map((x) => x?.monthly.value ?? 0);
+      if (weights.every((x) => x <= 0)) {
+        const avg = livingCategoryAverages(householdSize(h, req.input.baseMonth));
+        weights = members.map((c) => (avg === null ? (c === (members.includes("other") ? "other" : members[0]) ? 1 : 0) : ((avg.amounts as Record<string, number>)[c] ?? 0)));
+      }
+      const amounts = apportion(v, weights) ?? members.map((_c, i) => (i === 0 ? v : 0));
+      members.forEach((c, i) => {
+        const a = amounts[i] ?? 0;
+        const el = cur[i];
+        if (el !== undefined) el.monthly = confirmedBox(a);
+        else if (a > 0) placeCategory(t, { id: newId(), category: c, monthly: confirmedBox(a) });
+      });
+      // 0円を入れたときも、入れた印として代表の内訳を1つ持つ（中身の内訳がどれも無いとき）
+      if (!members.some((c) => catOf(t, c) !== undefined)) placeCategory(t, { id: newId(), category: members.includes("other") ? "other" : (members[0] ?? "other"), monthly: confirmedBox(v) });
+    });
+  const drop = (w: WorkingHousehold): WorkingHousehold =>
+    mutate(w, (h, req) => {
+      const t = find(h, { ...w, request: req }) as unknown as LivingExpense | undefined;
+      if (t === undefined) return;
+      t.categories = (t.categories ?? []).filter((x) => !members.includes(x.category));
+      if (t.categories.length === 0) delete t.categories;
+    });
+  const f = field({
+    key: `living/${l.id}/row/${members.join("+")}`,
+    item: "livingExpense.categories",
+    label,
+    level: "simple",
+    kind: "yen",
+    basis: "monthly",
+    optional: true,
+    help,
+    get: (w) => {
+      const b = read(w);
+      const xs = els(w);
+      const est = xs.filter((x) => x.monthly.state === "estimated");
+      const part = b !== undefined && b.state !== "estimated" && est.length > 0 ? `うち${est.map((x) => std(x.category)).join("・")}は推定（${boxBasisOf(est[0]?.monthly as Box<number>) ?? "推定"}）` : null;
+      return { value: b?.value ?? null, estimated: b?.state === "estimated" ? boxBasisOf(b) : null, ...(part !== null ? { partEstimated: part } : {}), hint: averageHint(w, members) };
+    },
+    set: (w, v) => (v === null ? drop(w) : writeAmount(w, Number(v))),
+    // 値の状態の操作（この値にする）: まとめた内訳の推定を、どれもその額のまま確定にする
+    boxed: {
+      read,
+      write: (w, box) => {
+        if (box === undefined) return drop(w);
+        if (box.state !== "confirmed") return w;
+        return mutate(w, (h, req) => {
+          const t = find(h, { ...w, request: req }) as unknown as LivingExpense | undefined;
+          for (const x of t?.categories ?? [])
+            if (members.includes(x.category) && x.monthly.state === "estimated") {
+              const est = (x.monthly as { estimate?: unknown }).estimate;
+              x.monthly = { value: x.monthly.value, state: "confirmed", origin: { kind: "manual" }, ...(est !== undefined ? { estimate: est } : {}) } as Box<number>;
+            }
+        });
+      },
+    },
+  });
+  f.icon = own[0] ?? "other";
+  return f;
+}
+
+/**
+ * 分けた行（1つの内訳を2〜6の行で入れる。行の合計がその内訳の額）。分けた額は世帯の側に残す（livingParts.ts。計算は内訳の額）。
+ * 分けていない（入れていない・額がほかで変わった）ときは、内訳の額を事務所の割合（決めていなければ等分）で分けた目安を、推定として見せる。
+ * 1つの行を入れると、ほかの行は見せていた目安のまま推定で残り、内訳の額は行の合計になる
+ */
+function splitFields(l: LivingExpense, find: Finder, r: Extract<LivingRow, { kind: "split" }>): FieldDef[] {
+  const c = r.category;
+  const parent = rowLabel(r);
+  const labels = r.parts.map((p) => p.label);
+  const shares = partShares(r.parts);
+  const named = hasShares(r.parts);
+  const current = (w: WorkingHousehold): LivingPart[] | null => {
+    const el = elOf(find, w, c);
+    const v = el?.monthly.value ?? null;
+    if (el === undefined || v === null) return null;
+    const ps = partsOf(w, el.id, v, labels);
+    if (ps !== null) return ps;
+    const amounts = apportion(v, shares) ?? labels.map((_x, i) => (i === labels.length - 1 ? v : 0));
+    const how = named ? `事務所の割合（${labels.map((x, i) => `${x} ${shares[i]}%`).join("・")}）` : "等分";
+    const basis = `${parent}（月${man(v)}）を${how}で分けた目安`;
+    return labels.map((label, i) => ({ label, monthly: amounts[i] ?? 0, estimated: basis }));
+  };
+  const writePart = (w: WorkingHousehold, i: number, amount: number): WorkingHousehold => {
+    const parts: LivingPart[] = (current(w) ?? labels.map((label): LivingPart => ({ label, monthly: 0 }))).map((p) => ({ ...p }));
+    parts[i] = { label: labels[i] ?? "", monthly: amount };
+    const total = parts.reduce((s, p) => s + p.monthly, 0);
+    const est = parts.filter((p) => p.estimated !== undefined);
+    let id: string | undefined;
+    const next = mutate(w, (h, req) => {
+      const t = find(h, { ...w, request: req }) as unknown as LivingExpense | undefined;
+      if (t === undefined) return;
+      let el = catOf(t, c);
+      if (el === undefined) {
+        el = { id: newId(), category: c, monthly: confirmedBox(0) };
+        placeCategory(t, el);
+      }
+      id = el.id;
+      el.monthly =
+        est.length === 0
+          ? confirmedBox(total)
+          : ({ value: total, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis: `${labels.join("・")}の合計（${est.map((p) => p.label).join("・")}は${named ? "事務所の割合" : "等分"}の目安）` } } as Box<number>);
+    });
+    return id === undefined ? next : withParts(next, id, parts, w);
+  };
+  const subtotal = field({
+    key: `ro/living/${l.id}/split/${c}`,
+    item: null,
+    label: parent,
+    level: "simple",
+    kind: "yen",
+    basis: "monthly",
+    readOnly: [`${labels.map((x) => `「${x}」`).join("")}の合計です（この額で計算します）。分けた行を直すと、自動で変わります。`, ...(parent !== std(c) ? [`中身は内訳の「${std(c)}」です。`] : []), CAT_HELP[c] ?? ""].filter((x) => x !== "").join("\n"),
+    get: (w) => {
+      const el = elOf(find, w, c);
+      const v = el?.monthly.value ?? null;
+      // ほかの並べ方で分けた額があれば、その名前と額を添える（この並べ方の行とは名前が違うので、目安で見せている）
+      const other = partsOf(w, el?.id, v) !== null && partsOf(w, el?.id, v, labels) === null ? storedPartsHint(w, find, c) : null;
+      return { value: v, hint: [averageHint(w, [c]), other !== null ? `前の${other}` : null].filter((x) => x !== null).join("。") || null };
+    },
+    set: (w) => w,
+  });
+  subtotal.icon = c;
+  const rows = labels.map((label, i): FieldDef => {
+    const share = shares[i] ?? 0;
+    return field({
+      key: `living/${l.id}/part/${c}/${i}`,
+      item: "livingExpense.categories",
+      label: `${label}（${parent}）`,
+      level: "simple",
+      kind: "yen",
+      basis: "monthly",
+      optional: true,
+      help: [`${parent}を分けた行です（分けた行の合計が${parent}になり、この額で計算します）。`, `分けていないときは、${parent}の額を${named ? `事務所の割合（${share}%）` : "等分"}で分けた目安を、推定として見せています。`, firstLine(c)].join("\n"),
+      get: (w) => {
+        const p = current(w)?.[i];
+        const avg = livingCategoryAverages(householdSize(w.request.input.household, w.request.input.baseMonth));
+        const a = avg === null ? 0 : ((avg.amounts as Record<string, number>)[c] ?? 0);
+        return { value: p?.monthly ?? null, estimated: p?.estimated ?? null, hint: named && a > 0 ? `同じ人数の世帯の平均 月${man(Math.round((a * share) / 100))}（${parent}の平均の${share}%）` : null };
+      },
+      set: (w, v) => writePart(w, i, v === null ? 0 : Number(v)),
+      // 値の状態の操作（この値にする）: 目安のままの行を、その額のまま確定にする
+      boxed: {
+        read: (w) => {
+          const p = current(w)?.[i];
+          if (p === undefined) return undefined;
+          return p.estimated !== undefined ? { value: p.monthly, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis: p.estimated } } : confirmedBox(p.monthly);
+        },
+        write: (w, box) => (box !== undefined && box.state === "confirmed" ? writePart(w, i, Number(box.value ?? 0)) : w),
+      },
+    });
+  });
+  return [subtotal, ...rows];
 }
 
 /** 内訳の合計（読むだけの行。内訳の欄を直すと変わる。月額と、小さく年額。0106） */

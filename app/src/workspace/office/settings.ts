@@ -18,6 +18,7 @@ import { isEmptyLeverChoice, readLeverChoice, type LeverChoice } from "../plans/
 import { isEmptyPremiseChoice, isEmptySceneChoice, normalProtection, readPremiseChoice, readProtectionSetting, readSceneChoice, withProtection, type PremiseChoice, type ProtectionSetting, type SceneChoice } from "../contingency/premiseChoice.ts";
 import { setOfficeNow, STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
 import { GROWTH_RANGE, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../input/rateRanges.ts";
+import { readLivingLayout, setLivingLayoutNow, type LivingLayout } from "./livingLayout.ts";
 
 export { STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
 
@@ -70,6 +71,8 @@ export interface OfficeSettings {
   fee: FeeTable;
   /** 最後に変えた日（YYYY-MM-DD）。根拠の文の年月に使う */
   changedOn: string | null;
+  /** 基本生活費の内訳の並べ方（0109。無ければ標準。世帯には写さない。下の「基本生活費の内訳の並べ方」の区切り） */
+  living?: LivingLayout;
 }
 
 export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { version: 1, layout: null, items: {}, levers: {}, premises: {}, scenes: {}, protection: {}, care: DEFAULT_CARE_DEFAULTS, inheritLikelihood: "likely", assumptions: {}, realEstateRatio: null, fee: STANDARD_FEE_TABLE, changedOn: null };
@@ -101,8 +104,8 @@ const sameFee = (a: FeeTable, b: FeeTable) => JSON.stringify(a) === JSON.stringi
 const RATE = /^-?\d(\.\d{1,6})?$/;
 const rateOk = (v: unknown, lo: number, hi: number): v is string => typeof v === "string" && RATE.test(v) && Number(v) >= lo && Number(v) <= hi;
 
-/** 読んだ値から設定（読めない所は既定） */
-export function readOfficeSettings(v: unknown): OfficeSettings {
+/** 読んだ値から設定（読めない所は既定。基本生活費の内訳の並べ方は下の readOfficeSettings で足す） */
+function readCoreSettings(v: unknown): OfficeSettings {
   if (!isObj(v)) return DEFAULT_OFFICE_SETTINGS;
   const known = new Set<string>(STAGE_ORDER.map((s) => s.id));
   let layout: CardLayout | null = null;
@@ -136,8 +139,8 @@ export function officeBasis(s: OfficeSettings): string {
   return `事務所の既定値（${(s.changedOn ?? "").slice(0, 7) || "設定"}）`;
 }
 
-/** 標準（既定の値）と同じか（設定を保存するときに、標準と同じ値は持たない） */
-export function isDefaultSettings(s: OfficeSettings): boolean {
+/** 標準（既定の値）と同じか（基本生活費の内訳の並べ方の分は下の isDefaultSettings で見る） */
+function isDefaultCore(s: OfficeSettings): boolean {
   return s.layout === null && isEmptyChoice(s.items) && isEmptyLeverChoice(s.levers) && isEmptyPremiseChoice(s.premises) && isEmptySceneChoice(s.scenes) && Object.keys(normalProtection(s.protection)).length === 0 && s.care.selfAndSpouse === "warn" && s.inheritLikelihood === "likely" && Object.keys(s.assumptions).length === 0 && s.realEstateRatio === null && sameFee(s.fee, STANDARD_FEE_TABLE);
 }
 
@@ -149,8 +152,8 @@ export const withOfficeItems = (s: OfficeSettings, items: ItemChoice): OfficeSet
 
 // ---- 画面の側の操作が読む今の設定（office/current.ts。アプリが開いている間） ----
 
-/** 今の事務所の既定値を、操作のときに読む所（office/current.ts）へ入れる */
-export function publishOfficeSettings(s: OfficeSettings): void {
+/** 今の事務所の既定値を、操作のときに読む所（office/current.ts）へ入れる（基本生活費の内訳の並べ方は下の publishOfficeSettings で入れる） */
+function publishCore(s: OfficeSettings): void {
   setOfficeNow({ inheritLikelihood: s.inheritLikelihood, assumptions: { ...s.assumptions }, basis: officeBasis(s), fee: s.fee });
 }
 
@@ -182,4 +185,39 @@ export function applyOfficeDefaults(wh: WorkingHousehold, s: OfficeSettings): Wo
   }
   w = { ...w, request, assumed };
   return w;
+}
+
+// ---- 基本生活費の内訳の並べ方（0109。office/livingLayout.ts）----
+// 事務所データの defaults.living（足すだけの欄）。見せ方だけなので世帯には写さず、変えるとどの世帯の内訳の行にもすぐ効く。
+// 欄の無い古い事務所データ・読めない値・標準と同じ並べ方は「標準」（欄を持たない）
+
+/** 読んだ値から設定（読めない所は既定） */
+export function readOfficeSettings(v: unknown): OfficeSettings {
+  const s = readCoreSettings(v);
+  const living = readLivingLayout(isObj(v) ? v.living : undefined);
+  return living === null ? s : { ...s, living };
+}
+
+/** 標準（既定の値）と同じか（設定を保存するときに、標準と同じ値は持たない） */
+export const isDefaultSettings = (s: OfficeSettings): boolean => isDefaultCore(s) && readLivingLayout(s.living) === null;
+
+/** 今の事務所の既定値を、操作のときに読む所へ入れる（内訳の並べ方は office/livingLayout.ts へ） */
+export function publishOfficeSettings(s: OfficeSettings): void {
+  publishCore(s);
+  setLivingLayoutNow(readLivingLayout(s.living));
+}
+
+/** 内訳の並べ方を置き換えた設定（標準なら欄を外す） */
+export function withLivingLayout(s: OfficeSettings, l: LivingLayout | null | undefined): OfficeSettings {
+  const { living: _old, ...rest } = s;
+  void _old;
+  const next = readLivingLayout(l);
+  return next === null ? rest : { ...rest, living: next };
+}
+
+/** 編集中の内訳の並べ方を置いた設定（整えない。保存・読み込みのときに readLivingLayout で整える） */
+export function withLivingDraft(s: OfficeSettings, l: LivingLayout | undefined): OfficeSettings {
+  const { living: _old, ...rest } = s;
+  void _old;
+  return l === undefined ? rest : { ...rest, living: l };
 }

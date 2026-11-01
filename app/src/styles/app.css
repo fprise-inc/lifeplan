@@ -1508,3 +1508,25 @@ html.big .help-pop { font-size: 0.92rem; }
 .fld-l:has(> .help > .help-btn:not(.help-mark)[aria-expanded="true"]) > label { background: var(--prop-bg); box-shadow: 0 0 0 2px var(--prop-bg); border-radius: 3px; }
 /* 説明の1行目の、何の説明か（ボタンの名前など） */
 .help-pop .help-for { display: block; margin-bottom: 4px; font-weight: 700; color: var(--ink-2); font-size: 0.92em; }
+
+/* 事務所の既定値: 基本生活費の内訳の並べ方（0109。office/LivingLayoutEditor.tsx） */
+.os-lv { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 12px 18px; align-items: start; }
+@media (max-width: 640px) { .os-lv { grid-template-columns: minmax(0, 1fr); } }
+.os-lv-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.os-lv-row { border: 1px solid var(--line-2); border-radius: 6px; padding: 6px 8px; display: grid; gap: 4px; font-size: 0.88rem; }
+.os-lv-head { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.os-lv-name { flex: 1 1 9em; min-width: 0; }
+.os-lv-btns { display: flex; flex-wrap: wrap; gap: 2px 8px; }
+.os-lv-parts { display: grid; gap: 4px; padding-left: 1.2em; border-left: 2px solid var(--line-2); }
+.os-lv-part { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.os-lv-part > input { flex: 1 1 8em; min-width: 0; }
+.os-lv-part .os-in input { width: 3.5em; }
+.os-lv-preview { font-size: 0.86rem; position: sticky; top: 0; }
+.os-lv-preview h4 { margin: 0 0 4px; font-size: 0.88rem; }
+.os-lv-preview table { width: 100%; border-collapse: collapse; }
+.os-lv-preview th, .os-lv-preview td { padding: 2px 4px; border-bottom: 1px solid var(--line-2); text-align: left; font-weight: 400; }
+.os-lv-preview td { text-align: right; white-space: nowrap; }
+.os-lv-preview th small { color: var(--ink-2); font-size: 0.74rem; margin-left: 2px; }
+.os-lv-preview tr.sub th, .os-lv-preview tr.sub td { color: var(--ink-2); font-size: 0.82rem; }
+.os-lv-preview tr.total th, .os-lv-preview tr.total td { font-weight: 700; border-bottom: none; }
+.os-lv-hidden { display: inline-flex; gap: 4px; margin-left: 8px; }
