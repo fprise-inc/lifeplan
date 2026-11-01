@@ -7,6 +7,7 @@ import { MAX_ROWS_PER_HOUSEHOLD, readLog, SHEET_HEADER_ROW, type StatementCandid
 import { approvalTime } from "../src/workspace/hearing/sheet.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
+import { ANNUAL_TEMPLATES } from "../src/workspace/input/stages/living.ts";
 import {
   accountLabelProblem,
   addAccount,
@@ -269,6 +270,49 @@ describe("候補の承認", () => {
     expect(again.some((c: StatementCandidate) => c.collection === "livingExpenses")).toBe(false);
   });
 
+  it("家計簿アプリの書き出し（大項目と中項目）を取り込むと、基本生活費は今の内訳（10費目）に入り、前の分け方の内訳は置き換わる", async () => {
+    let wh = household();
+    const conf = (v: number) => ({ value: v, state: "confirmed" as const, origin: { kind: "manual" as const } });
+    const h0 = wh.request.input.household;
+    const le0 = h0.livingExpenses![0]!;
+    // 前の分け方（0.42 までの世帯）の確定の内訳
+    const legacy = {
+      ...le0,
+      mode: "byCategory" as const,
+      categories: [
+        { id: "00000000-0000-4000-8000-00000000d001", category: "food" as const, monthly: conf(60000) },
+        { id: "00000000-0000-4000-8000-00000000d002", category: "transport" as const, monthly: conf(30000) },
+        { id: "00000000-0000-4000-8000-00000000d003", category: "otherConsumption" as const, monthly: conf(50000) },
+        { id: "00000000-0000-4000-8000-00000000d004", category: "allowance" as const, monthly: conf(10000) },
+      ],
+    };
+    wh = { ...wh, request: { ...wh.request, input: { ...wh.request.input, household: { ...h0, livingExpenses: [legacy, ...h0.livingExpenses!.slice(1)] } } } };
+    const log = addAccount(logOf(wh), { kind: "app", label: "家計簿アプリ", owner: null }, "acc-app");
+    const r = addImport(log, await readOk("app-subcategory-utf8bom.csv", "app"), { id: seq(), account: "acc-app", at: AT });
+    if (!r.ok) throw new Error(r.reason);
+    wh = withLog(wh, r.log);
+    const an = analyze(wh, []);
+    const living = candidatesOf(wh, an.summary, "00000000-0000-4000-8000-0000000000a1", seq).find((c) => c.collection === "livingExpenses")!;
+    expect(living.item).toBe("livingExpense.categories");
+    const next = approve(wh, [living], new Set([living.id]), an.summary, "00000000-0000-4000-8000-0000000000a1", AT);
+    const cats = next.request.input.household.livingExpenses![0]!.categories!;
+    // 明細に出てこない仕送りは残し、交通・通信費とその他の消費は明細の値（通信費・交通費、こづかい・交際費・その他）で置き換える
+    expect(cats.map((c) => c.category)).toEqual(["food", "communication", "transit", "clothing", "health", "recreation", "pocketAndSocial", "other", "allowance"]);
+    expect(living.note).toContain("前の分け方の交通・通信費は、明細の通信費・交通費で置き換えます");
+    expect(() => preview(next.request)).not.toThrow();
+    // 家具の店の3万円以上の買い物は、日用品ではなく基本生活費の年払いの「家電・家具の買い替え」の候補（要確認）
+    expect(cats.some((c) => c.category === "furniture")).toBe(false);
+    const durable = candidatesOf(wh, an.summary, "00000000-0000-4000-8000-0000000000a2", seq).find((c) => c.title === "年払いの暮らしの支出: 家電・家具の買い替え")!;
+    expect(durable.status).toBe("needsReview");
+    expect(defaultCandidateSelection([durable]).size).toBe(0);
+    const withDurable = approve(next, [durable], new Set([durable.id]), an.summary, "00000000-0000-4000-8000-0000000000a2", AT);
+    const added = withDurable.request.input.household.periodicExpenses!.find((p) => p.id === (durable.value as { id: string }).id)!;
+    expect(added).toMatchObject({ label: "家電・家具の買い替え", kind: "livingAnnual", row: "cf.expense.living", everyYears: 8, amount: { value: 59800 } });
+    // 入力の確かめの一覧のひな形「家電・家具の買い替え」に当たる（入れた、と出る）
+    expect(ANNUAL_TEMPLATES.find((t) => t.key === "appliances")!.match.test(added.label ?? "")).toBe(true);
+    expect(() => preview(withDurable.request)).not.toThrow();
+  });
+
   it("チェックしていない候補は入らない（承認しないと現状は変わらない）", async () => {
     const { wh } = await imported();
     const an = analyze(wh, []);
@@ -344,13 +388,14 @@ describe("確認シート（前もってお客さまに印を付けてもらう�
     const ws = utf8((await unzip(sheet.bytes)).get(SHEET));
     const row = Number(new RegExp(`<c r="C(\\d+)"[^>]*><is><t xml:space="preserve">${target.merchant}</t>`).exec(ws)?.[1]);
     const filled = await editXlsx(sheet.bytes, (f) => {
+      // 前の言葉（言葉を「趣味・娯楽」に変える前に書き出したシートの選択肢）でも読める
       setCell(f, SHEET, `H${row}`, '<c t="inlineStr"><is><t>教養娯楽</t></is></c>');
       setCell(f, SHEET, `I${row}`, '<c t="inlineStr"><is><t>家計（ふだんの暮らし）</t></is></c>');
     });
     const r = await readSheet(filled, wh, analyze(wh, []));
     if (!r.ok) throw new Error(JSON.stringify(r.issues));
     expect(r.candidates.map((c) => c.merchant)).toEqual([target.merchant]);
-    expect(markText(r.candidates[0]!)).toBe("教養娯楽・家計");
+    expect(markText(r.candidates[0]!)).toBe("趣味・娯楽・家計");
     const sel = defaultMarkSelection(r.candidates);
     const done = approveMarks(logOf(wh), r, sel, [], AT);
     expect(done.decided).toBe(1);

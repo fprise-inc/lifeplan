@@ -234,6 +234,7 @@ function readRow(v: unknown): StatementRow | null {
     ...(plan !== undefined ? { plan } : {}),
     ...(v.cardUser === "self" || v.cardUser === "family" ? { cardUser: v.cardUser } : {}),
     ...(str(v.sourceCategory, MAX_SOURCE_CATEGORY) ? { sourceCategory: v.sourceCategory } : {}),
+    ...(str(v.sourceSubCategory, MAX_SOURCE_CATEGORY) ? { sourceSubCategory: v.sourceSubCategory } : {}),
     ...(v.transfer === true ? { transfer: true as const } : {}),
     ...(str(v.memo, MAX_MEMO) ? { memo: v.memo } : {}),
     ...(v.yearGuessed === true ? { yearGuessed: true as const } : {}),

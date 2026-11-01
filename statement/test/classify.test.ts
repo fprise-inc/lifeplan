@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addRule, bucketsOf, classify, createImport, emptyLog, merchantKey, readStatement, splitByShare, workStyleAt, type ClassifiedRow, type HouseholdLike, type StatementAccount, type StatementLog, type StatementRow } from "../src/index.ts";
+import { addRule, bucketsOf, classify, createImport, DURABLE_MIN, emptyLog, merchantKey, readStatement, splitByShare, workStyleAt, type ClassifiedRow, type HouseholdLike, type StatementAccount, type StatementLog, type StatementRow } from "../src/index.ts";
 import { BASE_MONTH, buildLog, CHILD, HOUSEHOLD, SELF, SPOUSE } from "./helpers.ts";
 
 type RowIn = Partial<StatementRow> & { date: string; merchant: string; amount: number };
@@ -283,6 +283,95 @@ describe("迷う行と自動の区分", () => {
     expect(one(rows, "架空マルシェ")).toMatchObject({ category: "food", categorySource: "sourceCategory" });
     // 持ち主の無い口座は働き方「なし」（家計・一時的・除外だけ）
     expect(one(rows, "架空マルシェ").allowed).toEqual(["household", "oneOff", "excluded"]);
+  });
+
+  it("家計簿アプリの書き出しの大項目と中項目で仕分ける（引き落とし・チャージは除外、引き出し・使途不明金は数える）", async () => {
+    const log = await buildLog([{ name: "app-subcategory-utf8bom.csv", kind: "app", account: "app", owner: null }]);
+    const rows = run(log);
+    const got = (m: string) => [one(rows, m).category, one(rows, m).bucket];
+    expect(got("架空駅前出張所")).toEqual(["cash", "household"]);
+    expect(got("財布の残高の差")).toEqual(["cash", "household"]);
+    expect(got("架空カードサービス")).toEqual(["transfer", "excluded"]);
+    expect(got("架空ペイ")).toEqual(["transfer", "excluded"]);
+    expect(got("架空ケア")).toEqual(["medical", "household"]);
+    expect(got("架空ドラッグ")).toEqual(["medical", "household"]);
+    expect(got("架空ライフ")).toEqual(["insurance", "household"]);
+    expect(got("架空ブックス")).toEqual(["recreation", "household"]);
+    expect(got("架空スタンド")).toEqual(["recreation", "household"]);
+    expect(got("架空ゼミ")).toEqual(["education", "household"]);
+    expect(got("架空教室")).toEqual(["education", "household"]);
+    expect(got("架空シアター")).toEqual(["recreation", "household"]);
+    expect(got("架空の給油所")).toEqual(["car", "household"]);
+    expect(got("架空の宿")).toEqual(["lumpSum", "oneOff"]);
+    // 住まいの中の家具（3万円以上）は家電・家具の買い替えの候補
+    expect(got("架空の家具店")).toEqual(["furniture", "oneOff"]);
+    expect(one(rows, "架空の家具店").flags).toContain("durable");
+    // 中項目の無い現金・カードの行は、店の名前でも分からなければ迷う行（前のように黙って除外しない）
+    expect(one(rows, "架空の手渡し")).toMatchObject({ category: null, bucket: "household", review: true });
+    expect(one(rows, "架空の手渡し").flags).toContain("unknownMerchant");
+  });
+
+  it("家電・家具の店の3万円以上の買い物は一時的（家電・家具の買い替えの候補）、3万円未満と日用品の店は家計のまま", () => {
+    const rows = run(
+      synth([
+        {
+          id: "c",
+          kind: "card",
+          label: "C",
+          owner: SELF,
+          period: { from: "2025-10-01", to: "2026-09-30" },
+          rows: [
+            { date: "2026-03-10", merchant: "ニトリ 架空店", amount: 59800 },
+            { date: "2026-04-10", merchant: "ニトリ 架空店", amount: 2980 },
+            { date: "2026-05-10", merchant: "ヤマダデンキ 架空店", amount: DURABLE_MIN },
+            { date: "2026-06-10", merchant: "ヤマダデンキ 架空店", amount: DURABLE_MIN - 1 },
+            { date: "2026-07-10", merchant: "マツモトキヨシ 架空店", amount: 35000 },
+            // FP が家計にした行は日用品のまま（候補にしない）
+            { date: "2026-08-10", merchant: "ビックカメラ 架空店", amount: 80000, bucket: "household", decidedAt: "2026-10-21T00:00:00+09:00" },
+          ],
+        },
+      ]),
+    );
+    const at = (d: string) => rows.find((r) => r.row.date === d) as ClassifiedRow;
+    expect(at("2026-03-10")).toMatchObject({ category: "furniture", bucket: "oneOff", review: false });
+    expect(at("2026-03-10").flags).toContain("durable");
+    // 1年分の明細の1回の3万円以上の買い物でも、年1回の支払いにはしない
+    expect(at("2026-03-10").flags).not.toContain("annual");
+    expect(at("2026-03-10").annual).toBeUndefined();
+    expect(at("2026-05-10")).toMatchObject({ bucket: "oneOff" });
+    for (const d of ["2026-04-10", "2026-06-10", "2026-07-10", "2026-08-10"]) {
+      expect(at(d).bucket).toBe("household");
+      expect(at(d).flags).not.toContain("durable");
+    }
+    // 個人事業主の買い物は、事業の分かを聞く
+    const biz = run(synth([{ id: "w", kind: "card", label: "妻", owner: SPOUSE, rows: [{ date: "2026-03-10", merchant: "ヨドバシカメラ 架空店", amount: 120000 }] }]));
+    expect(biz[0]).toMatchObject({ bucket: "oneOff", review: true });
+    expect(biz[0]?.flags).toEqual(expect.arrayContaining(["durable", "bucketUndecided"]));
+  });
+
+  it("家電・家具の買い替えの一部の返品は買い替えに入れ、日用品から引かない。買い物を家計にしたときは返品も家計", () => {
+    const rowsOf = (buy: RowIn) =>
+      run(synth([{ id: "c", kind: "card", label: "C", owner: SELF, period: { from: "2025-10-01", to: "2026-09-30" }, rows: [buy, { date: "2026-03-20", merchant: "架空の家具店", amount: -20000 }, { date: "2026-09-20", merchant: "架空の家具店", amount: -3000 }] }]));
+    const buy = { date: "2026-03-10", merchant: "架空の家具店", amount: 80000, category: "furniture" as const };
+    const rows = rowsOf(buy);
+    const at = (rs: readonly ClassifiedRow[], d: string) => rs.find((r) => r.row.date === d) as ClassifiedRow;
+    expect(at(rows, "2026-03-20")).toMatchObject({ bucket: "oneOff", parts: { oneOff: -20000 } });
+    expect(at(rows, "2026-03-20").flags).toEqual(expect.arrayContaining(["durable", "refundUnmatched"]));
+    // 120日より後の返品は、ほかの返品と同じ（その月の項目から差し引く）
+    expect(at(rows, "2026-09-20")).toMatchObject({ bucket: "household" });
+    expect(at(rows, "2026-09-20").flags).not.toContain("durable");
+    // 買い物を FP が家計にしたら、その返品も日用品から差し引く
+    const hh = rowsOf({ ...buy, bucket: "household", decidedAt: "2026-10-21T00:00:00+09:00" });
+    expect(at(hh, "2026-03-20")).toMatchObject({ bucket: "household" });
+    expect(at(hh, "2026-03-20").flags).not.toContain("durable");
+  });
+
+  it("覚えた辞書で年1回の印を付けた家具・家電の店は、家電・家具の買い替えではなく年1回の支払い", () => {
+    const log = synth([{ id: "c", kind: "card", label: "C", owner: SELF, period: { from: "2025-10-01", to: "2026-09-30" }, rows: [{ date: "2026-03-10", merchant: "架空の貸し家具", amount: 36000 }] }]);
+    const rows = classify({ log, household: HOUSEHOLD, baseMonth: BASE_MONTH, office: [{ key: merchantKey("架空の貸し家具"), category: "furniture", annual: true, at: "2026-10-01T00:00:00+09:00" }] });
+    expect(rows[0]).toMatchObject({ category: "furniture", bucket: "oneOff", annual: { confidence: "medium", everyYears: 1 } });
+    expect(rows[0]?.flags).toContain("annual");
+    expect(rows[0]?.flags).not.toContain("durable");
   });
 
   it("外した取り込みは仕分けない", () => {

@@ -9,6 +9,7 @@ const ALL: [string, "card" | "bank" | "app"][] = [
   ["card-sjis-2026-06.csv", "card"],
   ["bank-utf8.csv", "bank"],
   ["app-utf8bom.csv", "app"],
+  ["app-subcategory-utf8bom.csv", "app"],
   ["card-noheader.tsv", "card"],
   ["card-statement.pdf", "card"],
   ["card-lines.pdf", "card"],
@@ -147,6 +148,37 @@ describe("文字コードと列の対応付け", () => {
     expect(out.rows[0]).toMatchObject({ merchant: "架空マルシェ", amount: 3200, sourceCategory: "食費" });
     expect(out.rows.find((r) => r.transfer === true)?.merchant).toBe("口座振替(架空カード)");
     expect(out.rows.find((r) => r.sourceCategory === "収入")?.amount).toBe(-280000);
+  });
+
+  it("家計簿アプリの書き出しの中項目の列を、メモとは別に分類の内訳として読む", async () => {
+    const out = await read("app-subcategory-utf8bom.csv", "app");
+    expect(out.mapping.columns).toMatchObject({ date: 0, merchant: 1, amount: 2, category: 3, subCategory: 4, memo: 5, transfer: 6 });
+    expect(out.rows[1]).toMatchObject({ merchant: "架空駅前出張所", amount: 10000, sourceCategory: "現金・カード", sourceSubCategory: "ATM引き出し" });
+    expect(out.rows.find((r) => r.merchant === "架空サロン")).toMatchObject({ sourceSubCategory: "美容院", memo: "前髪だけ" });
+    // 中項目が空の行は中項目を持たない
+    expect(out.rows.find((r) => r.merchant === "架空の手渡し")?.sourceSubCategory).toBeUndefined();
+    // 保存して読み直しても中項目は残る
+    const imp = createImport(emptyLog(), out, { id: "i1", account: "a1", at: "2026-10-31T10:00:00+09:00" });
+    const back = readLog(JSON.parse(JSON.stringify({ ...emptyLog(), accounts: [{ id: "a1", kind: "app", label: "家計簿", owner: null }], imports: [imp] })));
+    expect(back.imports[0]?.rows[1]?.sourceSubCategory).toBe("ATM引き出し");
+    expect(back.imports[0]?.format.mapping.columns.subCategory).toBe(4);
+  });
+
+  it("前の版で覚えた形（中項目の列をメモとして読む形）でも、中項目は中項目として、メモはメモの列として読む", async () => {
+    const fresh = await read("app-subcategory-utf8bom.csv", "app");
+    // 前の版の推し量り: 見出し「中項目」をメモにしていた（推し量った形も覚える）
+    const old = { headerRow: 0, columns: { date: 0, merchant: 1, amount: 2, category: 3, memo: 4, transfer: 6 }, sign: "expenseNegative" as const };
+    const formats = [{ fingerprint: fresh.fingerprint, kind: "app" as const, mapping: old, at: "2026-09-01T00:00:00+09:00" }];
+    const out = await read("app-subcategory-utf8bom.csv", "app", { formats });
+    expect(out.mappingSource).toBe("learned");
+    expect(out.mapping.columns).toEqual({ date: 0, merchant: 1, amount: 2, category: 3, subCategory: 4, memo: 5, transfer: 6 });
+    expect(out.rows[1]).toMatchObject({ sourceSubCategory: "ATM引き出し" });
+    expect(out.rows[1]?.memo).toBeUndefined();
+    expect(out.rows.find((r) => r.merchant === "架空サロン")).toMatchObject({ sourceSubCategory: "美容院", memo: "前髪だけ" });
+    // 中項目の列をほかの役割に選んでいる形は変えない
+    const other = { ...old, columns: { date: 0, merchant: 4, amount: 2 } };
+    const kept = await read("app-subcategory-utf8bom.csv", "app", { formats: [{ ...formats[0]!, mapping: other }] });
+    expect(kept.mapping.columns).toEqual({ date: 0, merchant: 4, amount: 2 });
   });
 
   it("見出しの無い表は欄の形から推し量る", async () => {
