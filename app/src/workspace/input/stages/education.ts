@@ -10,7 +10,7 @@
 //   子を決めていない教育のお金の行は、カードの後ろの区画
 // - 保育園（0〜2歳）は「通う・通わない」と通い始めだけを簡易で聞き、保育料は月額を入れなければ収入から自動で計算する（目安。0029）。
 // - 学校名から学費を出す検索は、学校のデータを同梱してから（今は「学校未定（平均で計算）」だけ）
-import type { EducationLesson, EducationLoan, EducationScholarship, EducationStage, Goal, Household, IncomeFlow, IncomeFlowKind, Member, PeriodicExpense, Timepoint } from "../../../engine/types.ts";
+import type { EducationAbroad, EducationLesson, EducationLoan, EducationScholarship, EducationStage, Goal, Household, IncomeFlow, IncomeFlowKind, Member, PeriodicExpense, Timepoint } from "../../../engine/types.ts";
 import { schoolEntryYear } from "../../present.ts";
 import { addMonths } from "../../levers.ts";
 import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
@@ -938,6 +938,142 @@ export function addEducationLoan(wh: WorkingHousehold, goalId: string, id: strin
   });
 }
 
+// ---- 留学（0088） ----
+
+export const ABROAD_KINDS = [
+  { value: "credit", label: "1年（単位が認められ、在学は延びない）" },
+  { value: "leave", label: "1年（休学して留学し、在学が1年延びる）" },
+  { value: "short", label: "短期（1か月ほど）" },
+];
+const ABROAD_CONTINGENCY = [
+  { value: "continue", label: "続ける" },
+  { value: "stop", label: "やめる" },
+];
+const ABROAD_STAGES = new Set(["highSchool", "university", "juniorCollege", "vocational"]);
+/** 見出しの短い名前 */
+const ABROAD_SHORT: Readonly<Record<string, string>> = { credit: "1年（延びない）", leave: "1年（休学で延びる）", short: "短期" };
+
+/**
+ * 留学1回の額の推定（今の値段）。留学の費用の平均を出す公的な統計は見つからないので、国の留学の支援制度の支給の上限から作った目安（0088）:
+ * 文部科学省「トビタテ！留学JAPAN」の月額の奨学金（北米・欧州などの地域 月16万円）・留学準備金（その他の地域 25万円＋増額10万円）・
+ * 大学生等の留学先の授業料（30万円）。1年は12か月、短期は1か月。単位が認められる大学の1年は、交換留学で留学先の授業料が免除されることが多いので
+ * 授業料を入れない（在籍する大学の学費は払い続ける）。休学して留学する大学の1年は授業料を入れる（日本政策金融公庫の国の教育ローンの
+ * 令和7年度の「外国の大学等」の1件当たりの平均融資額 261万円とほぼ同じ）
+ */
+export function abroadEstimate(stage: string, kind: string): { value: number; basis: string } {
+  const monthly = 160000;
+  const prep = 250000 + 100000;
+  const tuition = 300000;
+  const months = kind === "short" ? 1 : 12;
+  const withTuition = stage !== "highSchool" && kind === "leave";
+  const value = monthly * months + prep + (withTuition ? tuition : 0);
+  const parts = [`月額の奨学金 16万円×${months}か月`, "留学準備金 35万円", ...(withTuition ? ["留学先の授業料 30万円"] : [])];
+  return { value, basis: presetBasis(`国の留学の支援制度（文部科学省「トビタテ！留学JAPAN」）の支給の上限から作った目安: ${parts.join("・")}（北米・欧州など）`) };
+}
+
+const abroadAddress = (goalId: string, id: string, f: string): Address => ({ target: { object: goalId }, item: "goal.education", at: ["abroad", id, f] });
+
+/** 留学を足す（大学などがあれば大学など3年、無ければ高校2年。単位が認められる1年。額は推定） */
+export function addAbroad(wh: WorkingHousehold, goalId: string, id: string = newId()): WorkingHousehold {
+  return mutate(wh, (h, req) => {
+    const g = (h.goals ?? []).find((x) => x.id === goalId);
+    if (g?.education === undefined) return;
+    const st = g.education.stages.find((s) => isHigher(s.stage)) ?? g.education.stages.find((s) => s.stage === "highSchool");
+    if (st === undefined) return;
+    const est = abroadEstimate(st.stage, "credit");
+    (g.education.abroad ??= []).push({ id, stage: st.stage, grade: st.stage === "highSchool" ? 2 : Math.min(3, stageYears(st)), kind: "credit", amount: est.value });
+    putRow(req.input as unknown as Obj, abroadAddress(g.id, id, "amount"), { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: est.basis } });
+  });
+}
+
+/** 学校か留学の形を変えたとき、額が推定のままなら新しい推定にする */
+function reestimateAbroad(input: Obj, goalId: string, a: EducationAbroad): void {
+  if (a.id === undefined) return;
+  const addr = abroadAddress(goalId, a.id, "amount");
+  if (rowAt(input, addr)?.state !== "estimated") return;
+  const est = abroadEstimate(a.stage, a.kind);
+  a.amount = est.value;
+  putRow(input, addr, { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: est.basis } });
+}
+
+function abroadGroups(wh: WorkingHousehold, goal: Goal): GroupDef[] {
+  const stages = (goal.education?.stages ?? []).filter((s) => ABROAD_STAGES.has(s.stage));
+  return (goal.education?.abroad ?? []).map((a, i) => {
+    const find: Finder = (hh) => (getPath((hh.goals ?? []).find((g) => g.id === goal.id), ["education", "abroad", String(i)]) as Obj | undefined) ?? undefined;
+    const k = `edu/${goal.id}/abroad/${a.id ?? `n${i}`}`;
+    const at = (f: string) => (a.id !== undefined ? { address: () => abroadAddress(goal.id, a.id as string, f) } : {});
+    const st = stages.find((s) => s.stage === a.stage);
+    const kindLabel = ABROAD_KINDS.find((x) => x.value === a.kind)?.label ?? "";
+    const reest = (field: "stage" | "kind") =>
+      field === "stage"
+        ? (h: Household, t: Obj) => {
+            const x = t as unknown as EducationAbroad;
+            const s2 = (h.goals ?? []).find((g) => g.id === goal.id)?.education?.stages.find((s) => s.stage === x.stage);
+            if (s2 !== undefined && x.grade > stageYears(s2)) x.grade = stageYears(s2);
+          }
+        : undefined;
+    const withReestimate = (f: FieldDef): FieldDef => ({
+      ...f,
+      set: (w, v) => {
+        const next = f.set(w, v);
+        return mutate(next, (h, req) => {
+          const x = (h.goals ?? []).find((g) => g.id === goal.id)?.education?.abroad?.[i];
+          if (x !== undefined) reestimateAbroad(req.input as unknown as Obj, goal.id, x);
+        });
+      },
+    });
+    return {
+      key: k,
+      title: `留学 ${i + 1}: ${stageLabel(a.stage)}${a.grade}年生・${ABROAD_SHORT[a.kind] ?? kindLabel} ${manText(a.amount)}`,
+      note: `${a.kind === "leave" ? "休学して留学する1年は、在籍する学校の学費・仕送りはかからず、卒業と独立が1年うしろにずれます。" : a.kind === "credit" ? "在籍する学校の学費は払い続け、卒業の時期は変わりません。" : ""}額は今の値段で入れ、教育費の上昇率で伸ばします。表の行は「教育費」で、世帯から払います`,
+      level: "simple",
+      fields: [
+        { ...withReestimate(plain({ key: `${k}/stage`, item: "goal.education", label: "学校", level: "simple", kind: "select", options: stages.map((s) => ({ value: s.stage, label: stageLabel(s.stage) })), find, path: ["stage"], ...(reest("stage") !== undefined ? { after: reest("stage") as (h: Household, t: Obj) => void } : {}) })), ...at("stage") },
+        { ...plain({ key: `${k}/grade`, item: "goal.education", label: "何年生のとき", level: "simple", kind: "int", suffix: "年生", min: 1, max: st === undefined ? 6 : stageYears(st), find, path: ["grade"], help: a.kind === "short" ? "その学年の夏（8月）に払う計算です" : "その学年の4月に払う計算です" }), ...at("grade") },
+        { ...withReestimate(plain({ key: `${k}/kind`, item: "goal.education", label: "留学の形", level: "simple", kind: "select", options: ABROAD_KINDS, find, path: ["kind"], help: ABROAD_KIND_HELP })), ...at("kind") },
+        { ...plain({ key: `${k}/amount`, item: "goal.education", label: "1回の額", level: "simple", kind: "yen", basis: "once", find, path: ["amount"], help: ABROAD_AMOUNT_HELP }), ...at("amount") },
+        {
+          ...field({
+            key: `${k}/on`,
+            item: "goal.education",
+            label: "万一のときの扱い",
+            level: "detail",
+            kind: "select",
+            options: ABROAD_CONTINGENCY,
+            help: "万一（死亡）の想定の月の翌月より後の留学を、やめる（払わない）か続けるか",
+            get: (w) => ({ value: (find(w.request.input.household, w) as unknown as EducationAbroad | undefined)?.onContingency?.mode ?? "continue", implicit: a.onContingency === undefined }),
+            set: (w, v) =>
+              mutate(w, (h, req) => {
+                const x = find(h, { ...w, request: req }) as unknown as EducationAbroad | undefined;
+                if (x === undefined) return;
+                if (v === "stop") x.onContingency = { mode: "stop" };
+                else delete x.onContingency;
+              }),
+          }),
+          ...at("onContingency"),
+        },
+      ],
+      actions: [
+        removeAction(`${k}/remove`, "外す", "simple", (hh) => {
+          const g = (hh.goals ?? []).find((x) => x.id === goal.id);
+          if (g?.education?.abroad !== undefined) {
+            g.education.abroad = g.education.abroad.filter((_, j) => j !== i);
+            if (g.education.abroad.length === 0) delete g.education.abroad;
+          }
+        }),
+      ],
+    };
+  });
+}
+
+const ABROAD_KIND_HELP =
+  "高校は、校長が認めた外国の高校での学習を36単位まで認められるので（学校教育法施行規則第93条）、1年の留学でも3年で卒業できることが多いです。" +
+  "大学は、交換留学・認定留学なら単位が認められて（大学設置基準第28条。60単位まで）卒業は延びず、休学して留学すると在学が1年延びます（休学の扱いは学校ごとの決まり）。" +
+  "休学の年は、在籍する学校の学費・仕送りを計算しません（休学中の在籍料は入れていません）";
+const ABROAD_AMOUNT_HELP =
+  "渡航・滞在・留学先の学費などの合計（今の値段）。推定は、国の留学の支援制度（文部科学省「トビタテ！留学JAPAN」）の支給の上限（北米・欧州など: 月額の奨学金16万円・留学準備金35万円・大学生等の授業料30万円）から作った目安で、" +
+  "留学の費用の平均の公的な統計はありません。アジアなどは支援の月額が12万円・準備金21万円で、これより少なめです";
+
 // ---- この子のお金の行（0044） ----
 
 /** 教育のお金の行の子（入るお金は受け取る人か時期の年齢の子、出るお金は時期の年齢の子）。子を決めていなければ null */
@@ -1004,7 +1140,7 @@ export function addChildExpense(wh: WorkingHousehold, childId: string, what: "ab
  */
 const hideTax = (f: IncomeFlow, g: GroupDef): boolean => g.key === `in/${f.id}/tax` && (f.kind === "childPays" || f.kind === "scholarshipGrant") && f.taxTreatment === undefined;
 
-function childMoneyGroups(wh: WorkingHousehold, child: Member): { groups: GroupDef[]; actions: ActionDef[] } {
+function childMoneyGroups(wh: WorkingHousehold, child: Member, goal?: Goal): { groups: GroupDef[]; actions: ActionDef[] } {
   const h = wh.request.input.household;
   const groups: GroupDef[] = [...childIncomes(h, child.id).flatMap((f) => incomeGroups(wh, f, "education").filter((g) => !hideTax(f, g))), ...childExpenses(h, child.id).flatMap((p) => periodicGroups(wh, p))];
   const k = `edu/${child.id}/money`;
@@ -1012,7 +1148,7 @@ function childMoneyGroups(wh: WorkingHousehold, child: Member): { groups: GroupD
     { key: `${k}/in/educationSupport`, label: "＋ 教育資金の援助を受ける", help: "祖父母などから受け取る教育資金です", level: "simple", run: (w) => addChildIncome(w, child.id, "educationSupport") },
     { key: `${k}/in/scholarshipGrant`, label: "＋ 給付型の奨学金・学費の助成", help: "額を入れます", level: "detail", run: (w) => addChildIncome(w, child.id, "scholarshipGrant") },
     { key: `${k}/in/childPays`, label: "＋ 子が払う分", help: "子のアルバイト・子の貯金から学費に充てる分です", level: "detail", run: (w) => addChildIncome(w, child.id, "childPays") },
-    { key: `${k}/out/abroad`, label: "＋ 留学", level: "simple", run: (w) => addChildExpense(w, child.id, "abroad") },
+    ...(goal !== undefined && (goal.education?.stages ?? []).some((s) => ABROAD_STAGES.has(s.stage)) ? [{ key: `${k}/out/abroad`, label: "＋ 留学", help: "1回ずつ足します。何回も留学するときは、もう一度押して足します", level: "simple" as const, run: (w: WorkingHousehold) => addAbroad(w, goal.id) }] : []),
     { key: `${k}/out/other`, label: "＋ その他の教育費", help: "寮費・部活などの教育費です", level: "detail", run: (w) => addChildExpense(w, child.id, "other") },
   ];
   return { groups, actions };
@@ -1088,7 +1224,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
   const base = wh.request.input.baseMonth;
   const goal = (h.goals ?? []).find((g) => g.kind === "education" && g.owner === child.id);
   const who = memberLabel(wh, child.id);
-  const money = childMoneyGroups(wh, child);
+  const money = childMoneyGroups(wh, child, goal);
   const noneAction: ActionDef = { key: `edu/${child.id}/none`, label: "この子の教育費を入れない", help: "この子の教育費を「該当なし」にします", level: "detail", run: (w) => educationNotApplicable(w, child.id) };
   if (goal === undefined) {
     const course = defaultCourseLabel(child, base);
@@ -1274,7 +1410,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
   });
 
   // この子の入るお金・出るお金（0044）と、子への援助（あげる側。物は今の形のまま）
-  groups.push(...money.groups, ...giftGroups(wh, goal, child, who));
+  groups.push(...abroadGroups(wh, goal), ...money.groups, ...giftGroups(wh, goal, child, who));
   groups.push({
     key: `edu/${goal.id}/addMore`,
     level: "simple",

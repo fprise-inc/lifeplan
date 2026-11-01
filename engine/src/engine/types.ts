@@ -1016,6 +1016,22 @@ export interface EducationGoalInput {
   readonly highSchoolSupport?: "eligible" | "ineligible";
   /** 公立の小学校・中学校の学校給食費（free は自治体が無償化、paid は全額を払う。省略は制度データどおり。0029） */
   readonly schoolLunch?: "free" | "paid";
+  /** 留学（1回ずつ。0088）。leave は休学して1年（在学が1年延び、その年の学費・仕送りはかからない）、credit は単位が認められる1年（延びない）、short は短期 */
+  readonly abroad?: readonly EducationAbroadInput[];
+}
+
+/** 留学1回（0088） */
+export interface EducationAbroadInput {
+  readonly id?: string;
+  /** 在学中の学校の段（高校・大学・短大・専門学校） */
+  readonly stage: SchoolStage;
+  /** 何年生のとき（1〜） */
+  readonly grade: number;
+  readonly kind: "leave" | "credit" | "short";
+  /** 1回の額（計算基準年の価格。教育費の上昇率で伸ばす） */
+  readonly amount: Yen;
+  /** 万一のときの扱い（stop は世帯の万一の想定の月の翌月より後なら払わない。省略は続ける） */
+  readonly onContingency?: { readonly mode: "continue" | "stop" };
 }
 
 export interface GoalInput {

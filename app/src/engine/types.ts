@@ -304,6 +304,16 @@ export interface EducationGift {
   [key: string]: unknown;
 }
 
+/** 留学1回（0088）。leave は休学して1年（在学が1年延びる）、credit は単位が認められる1年（延びない）、short は短期 */
+export interface EducationAbroad {
+  id?: string;
+  stage: string;
+  grade: number;
+  kind: "leave" | "credit" | "short";
+  amount: number;
+  onContingency?: { mode: "continue" | "stop" };
+}
+
 export interface Goal {
   id: string;
   kind: string;
@@ -320,6 +330,7 @@ export interface Goal {
     childAllowance?: boolean;
     highSchoolSupport?: "eligible" | "ineligible";
     schoolLunch?: "free" | "paid";
+    abroad?: EducationAbroad[];
     [key: string]: unknown;
   };
   [key: string]: unknown;
