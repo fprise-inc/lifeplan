@@ -52,13 +52,13 @@ function representative(): WorkingHousehold {
 }
 
 describe("最初の5枚の標準の欄の数", () => {
-  it("代表の世帯で、家族8・働き方と収入10・基本生活費4・住まい8〜10・貯蓄8（今の残高から入れたローンで合計38。配偶者の性別は詳細。住宅ローンは金利の種類も標準）", () => {
+  it("代表の世帯で、家族8・働き方と収入10・基本生活費5・住まい8〜10・貯蓄8（今の残高から入れたローンで合計39。黒字の上限は標準。配偶者の性別は詳細。住宅ローンは金利の種類も標準）", () => {
     let wh = representative();
     const count = (w: WorkingHousehold) => (["family", "work", "living", "housing", "savings"] as const).map((s) => simpleFields(w, s).length);
-    expect(count(wh)).toEqual([8, 10, 4, 10, 8]);
+    expect(count(wh)).toEqual([8, 10, 5, 10, 8]);
     for (const d of wh.request.input.household.debts ?? []) wh = switchEntry(wh, d.id, "balance");
-    expect(count(wh)).toEqual([8, 10, 4, 8, 8]);
-    expect(count(wh).reduce((a, b) => a + b, 0)).toBe(38);
+    expect(count(wh)).toEqual([8, 10, 5, 8, 8]);
+    expect(count(wh).reduce((a, b) => a + b, 0)).toBe(39);
   });
 });
 
@@ -229,7 +229,7 @@ describe("年金: 推計の区分でも受け取り開始を標準に（構成�
 });
 
 describe("子ども・教育", () => {
-  it("公立・私立はどの段（幼稚園〜大学）でも標準。大学の系統・学校外の費用の入れ方は詳細。進路の型は標準（0078 の 2026-10-29 の追記）", () => {
+  it("公立・私立はどの段（幼稚園〜大学）でも標準。大学の系統は詳細。学校外の費用の入れ方は、行で入れているときは標準（統計の平均のときはまとまりごと詳細）。進路の型は標準（0078 の 2026-10-29 の追記）", () => {
     const wh = open("salariedCoupleTwoKids");
     const fs = fieldsOf(wh, "education");
     const goals = wh.request.input.household.goals!.filter((g) => g.kind === "education");
@@ -240,7 +240,8 @@ describe("子ども・教育", () => {
         expect(sector.level, s.stage).toBe("simple");
         if (s.stage === "university") expect(fs.find((f) => f.key === `edu/${g.id}/stage/${i}/field`)?.level).toBe("detail");
       });
-    expect(fs.filter((f) => f.key.endsWith("/outMode")).every((f) => f.level === "detail")).toBe(true);
+    // 学校外の費用の入れ方: 欄は標準（統計の平均のときは、まとまりごと詳細でだけ出す。行で入れているときは、開いても欄が1つだけになるので最初から出す）
+    expect(fs.filter((f) => f.key.endsWith("/outMode")).every((f) => f.level === "simple")).toBe(true);
     expect(fs.filter((f) => f.key.endsWith("/preset")).every((f) => f.level === "simple")).toBe(true);
   });
 });

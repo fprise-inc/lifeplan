@@ -550,7 +550,7 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
               },
             ]
           : [
-              removeAction(`${prefix}/c1/remove`, "免除・猶予の内訳を外す", "detail", (hh) => {
+              removeAction(`${prefix}/c1/remove`, "免除・猶予の内訳を外す", "simple", (hh) => {
                 const r = recordOf(hh, m.id) as PensionRecord;
                 if (r.months !== undefined) delete r.months.category1;
               }),

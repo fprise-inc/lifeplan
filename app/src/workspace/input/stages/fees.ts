@@ -25,7 +25,7 @@ function oneTimeFields(k: string, find: Finder, i: number): FieldDef[] {
   const findOne: Finder = (h, w) => (getPath(find(h, w), ["terms", "oneTime", String(i)]) as Record<string, unknown> | undefined) ?? undefined;
   return [
     plain({ key: `${k}/one/${i}/amount`, item: "advisoryFee.terms", label: `単発の料金 ${i + 1}（税込み）`, help: "相談料・プラン作成料など、1回の料金", level: "simple", kind: "yen", basis: "once", find: findOne, path: ["amount"] }),
-    timepointField({ key: `${k}/one/${i}/at`, item: "advisoryFee.terms", label: "払う年月", level: "detail", find: findOne, path: ["at"] }),
+    timepointField({ key: `${k}/one/${i}/at`, item: "advisoryFee.terms", label: "払う年月", level: "simple", find: findOne, path: ["at"] }),
   ];
 }
 
