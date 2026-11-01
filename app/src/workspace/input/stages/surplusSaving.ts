@@ -234,7 +234,7 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
         min: 0,
         max: 100,
         optional: true,
-        help: "入れなければ100%（黒字をすべて貯金に回す）で計算します。例えば60%なら、残りの4割は使ってしまうお金（ゆとりの支出）として支出に入れます。赤字の年、退職金などまとまったお金が入る年、貯金を取り崩す予定の年には当てはめません",
+        help: "入れなければ100%（黒字をすべて貯金に回す）で計算します。例えば60%なら、残りの4割は使ってしまうお金（ゆとりの支出）として支出に入れます。赤字の年、退職金などまとまったお金が入る年、貯金を取り崩す予定の年には使いません",
         get: (w) => ({ value: surplusOf(w.request)?.ratio ?? null, hint: surplusOf(w.request)?.ratio === undefined ? "空欄＝100%" : null }),
         set: (w, v) => {
           const cur = surplusOf(w.request) ?? {};

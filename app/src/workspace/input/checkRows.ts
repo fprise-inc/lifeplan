@@ -46,7 +46,7 @@ export const ORIGIN_LABELS: Readonly<Record<OriginKind, string>> = {
   import: "取り込み",
   ai: "AI",
   auto: "自動（推定）",
-  override: "上書き",
+  override: "手で直した",
 };
 
 /** 値の確かさ（どこで確かめたか。計算には使わない） */

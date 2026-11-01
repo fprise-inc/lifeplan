@@ -730,7 +730,7 @@ function smrCovered(x: EmploymentPeriod, kind: SmrKind): boolean {
 /** 非課税の通勤手当の月額（標準報酬月額の報酬に入る） */
 const commutingOf = (x: EmploymentPeriod): number => (x.salary as { commutingMonthly?: Box<number> } | undefined)?.commutingMonthly?.value ?? 0;
 /** 空欄のときの計算の仕方（エンジンの socialInsurance.coverage と同じ: 給与と通勤手当の月額を等級表に当て、毎年9月に4〜6月の平均で決め直す） */
-export const SMR_BLANK_BASIS = "空欄なので、給与（賞与を除く年収÷12）と通勤手当の月額を等級表に当てて計算しています。昇給に合わせて、毎年9月にその年の4〜6月の平均で決め直します";
+export const SMR_BLANK_BASIS = "入れていないので、給与（賞与を除く年収÷12）と通勤手当の月額から等級表で決めて計算しています。昇給に合わせて、毎年9月にその年の4〜6月の平均で決め直します";
 
 /**
  * 標準報酬月額の欄（健康保険・厚生年金）。世帯ファイルの置き換え口 employment.standardMonthlyRemuneration は健康保険と厚生年金の2つの箱がそろった形
@@ -754,7 +754,7 @@ function smrField(wh: WorkingHousehold, find: Finder, prefix: string, kind: SmrK
   /** 片方の額から、もう片方の推定の箱（その額をもう片方の等級表に当てる） */
   const fromOther = (x: EmploymentPeriod, k: SmrKind, v: number): SmrBox => ({
     ...(smrEstimate(v * 12, smrMonth(x, base))[k] as SmrBox),
-    estimate: { method: "derived", basis: `${SMR_LABEL[k === "health" ? "pension" : "health"]}の標準報酬月額（${v.toLocaleString("ja-JP")}円）を${SMR_LABEL[k]}の等級表に当てた目安` },
+    estimate: { method: "derived", basis: `${SMR_LABEL[k === "health" ? "pension" : "health"]}の標準報酬月額（${v.toLocaleString("ja-JP")}円）を${SMR_LABEL[k]}の等級表で決めた推定` },
   });
   const put = (w: WorkingHousehold, box: Record<string, unknown> | undefined): WorkingHousehold =>
     mutate(w, (h, req) => {

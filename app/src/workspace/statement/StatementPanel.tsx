@@ -793,7 +793,7 @@ function SheetSection({ wh, log, an, office, host, customerNo, onLog, onLearn }:
       {asking ? (
         <div class="st-sheet-ask" role="alert" data-statement-sheet-warn>
           <IssueList issues={markSheetWarnings(plan)} info />
-          <p class="rp-note">シートには、使った日・店の名前・金額・カード／口座の呼び名・お使いになった方と、選ぶ欄（何に使ったか・どこに入るか・事業の割合・メモ）だけが載ります。お名前・世帯の番号は載りません。辞書で分からない店・区分だけが迷う店・カードの引き落としは、同じ持ち主・同じカード／口座の同じ店を1行にまとめ（期間・回数・合計を載せます）、答えをその店の行すべてに当てます。高額の行などは1行ずつ載せます。</p>
+          <p class="rp-note">シートには、使った日・店の名前・金額・カード／口座の呼び名・お使いになった方と、選ぶ欄（何に使ったか・どこに入るか・事業の割合・メモ）だけが載ります。お名前・世帯の番号は載りません。辞書で分からない店・区分だけが迷う店・カードの引き落としは、同じ持ち主・同じカード／口座の同じ店を1行にまとめ（期間・回数・合計を載せます）、答えはその店の行すべてに使います。高額の行などは1行ずつ載せます。</p>
           <div class="rp-actions">
             <button type="button" class="btn primary" disabled={busy} onClick={() => void write()} data-statement-sheet-go>
               {busy ? "作っています…" : "分かったうえで書き出す"}
@@ -1014,7 +1014,7 @@ function ReviewStep({ wh, log, an, office, host, customerNo, onLog, onLearn, onN
           </h3>
           <label class="hs-check st-asrule">
             <input type="checkbox" checked={asRule} onChange={(e) => setAsRule((e.currentTarget as HTMLInputElement).checked)} data-statement-asrule />
-            決めた区分を、同じ店の世帯の決まりにする（この世帯の同じ店の行にも当てる）
+            決めた区分を、同じ店の世帯の決まりにする（この世帯の同じ店の行にも使う）
           </label>
           <ul class="st-items">
             {others.map((it) => (
@@ -1089,7 +1089,7 @@ function ReviewStep({ wh, log, an, office, host, customerNo, onLog, onLearn, onN
             決まりを足す
           </button>
         </div>
-        <p class="rp-note">持ち主の働き方で選べない区分の決まりは当てません（会社員の行に「事業の経費」など）。</p>
+        <p class="rp-note">持ち主の働き方で選べない区分の決まりは使いません（会社員の行に「事業の経費」など）。</p>
       </section>
 
       {decided.length > 0 ? (

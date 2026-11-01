@@ -88,7 +88,7 @@ function masked(t: string): string {
 export function markSheetWarnings(items: readonly ReviewItem[] | SheetPlan): Issue[] {
   const plan = "lines" in items ? items : planMarkSheet(items);
   const out = [issue("warning", "S_SHEET_PLAINTEXT", "暗号化されない表計算のファイルに、店の名前・金額・使った日が載ります（カード番号・口座番号は消してあります）。送り方と保管に気をつけてください（書き出したことを記録します）")];
-  if (plan.shops > 0) out.push(issue("info", "S_SHEET_GROUPED", `同じ店の ${plan.grouped}行を、店ごとに ${plan.shops}行にまとめます（お客さまが選んだ答えは、その店の行すべてに当てます）`));
+  if (plan.shops > 0) out.push(issue("info", "S_SHEET_GROUPED", `同じ店の ${plan.grouped}行を、店ごとに ${plan.shops}行にまとめます（お客さまが選んだ答えは、その店の行すべてに使います）`));
   if (plan.overflow > 0) out.push(issue("warning", "S_SHEET_OVERFLOW", `迷う行が ${plan.items}行あります。シートには迷う度合いの重いものから ${plan.lines.length}行（明細の ${plan.items - plan.overflow}行）を載せます（シートは ${MAX_REQUEST_ROWS}行まで）`));
   return out;
 }
@@ -139,7 +139,7 @@ export async function createMarkSheet(o: MarkSheetOptions): Promise<MarkSheetRes
     b.set(MANAGE_ROWS[k], MANAGE_VALUE_COL, STYLE.manageValue, text(k === "exportedOn" ? dateText(exportedOn) : management[k]));
   }
   b.set(7, "A", STYLE.heading, text("ご記入のしかた"));
-  const shopNote = "同じお店を何度もお使いの分は、1行にまとめています（ご利用日の欄に期間と回数、金額の欄に合計）。選んだ答えは、そのお店の分すべてに当てます。回によって使い道が違うときは、メモの欄に書いてください。";
+  const shopNote = "同じお店を何度もお使いの分は、1行にまとめています（ご利用日の欄に期間と回数、金額の欄に合計）。選んだ答えは、そのお店の分すべてに使います。回によって使い道が違うときは、メモの欄に書いてください。";
   const noteTexts: [string, number][] = [
     ["カード・口座の明細のうち、使い道や、家計に入れるかどうかを確かめたい行です。黄色の欄を ▼ から選んでください。分からない行は空欄のままで構いません。", STYLE.text],
     ...(plan.shops > 0 ? [[shopNote, STYLE.text] as [string, number]] : []),

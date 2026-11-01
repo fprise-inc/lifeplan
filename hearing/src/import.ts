@@ -1307,7 +1307,7 @@ function importLoan(c: Ctx, h: Household, adults: Adults, n: number, asOf: strin
     d.balanceAsOf = asOf;
     c.field(id, "hs.loan.balance", n, "debt.balance", "/balance", "confirmed");
     if (bal.value > principal) c.contradiction("hs.loan.balance", n, "いまの残高が借入額より多くなっています");
-  } else c.check("hs.loan.balance", n, bal.status === "unknown" ? "unknown" : "missing", "残高が無いため、借入額と金利から計算します（いまの金利を借りたときから当てるため、ずれることがあります）");
+  } else c.check("hs.loan.balance", n, bal.status === "unknown" ? "unknown" : "missing", "残高が無いため、借入額と金利から計算します（いまの金利を借りたときから使うため、ずれることがあります）");
   const cl = c.get<string>("hs.loan.creditLife", n);
   if (cl.status === "value" && cl.value === "covered") {
     d.creditLife = { covered: [member.id] };

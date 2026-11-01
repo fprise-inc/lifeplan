@@ -61,7 +61,7 @@ export function InvestBar(p: InvestBarProps) {
               </li>
             );
           })}
-          <li class="note">行き過ぎた予測ではなく、よくある下がり方を当てはめた目安です。線を押すと外せます</li>
+          <li class="note">行き過ぎた予測ではなく、よくある下がり方で計算した目安です。線を押すと外せます</li>
         </ul>
       ) : null}
     </div>
