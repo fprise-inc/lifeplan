@@ -897,7 +897,7 @@ function retirement(ctx: Ctx): ProposalInput["retirement"] {
   const years = trimYears([all], ctx.years);
   const ageText = (y: number) => adults.filter((r) => presentIn(r, y)).map((r) => `${r.label}${ageInYear(r.member, y)}歳`).join("・");
   const table: YearTable = {
-    columns: [...adults.map((r) => `${r.label}の年金`), "世帯の合計"],
+    columns: [...adults.map((r) => `${r.label}の年金`), "ご家族の合計"],
     rows: years.map((y) => ({ year: y, ages: ageText(y), cells: [...maps.map((x) => x.m.get(y) ?? 0), all.get(y) ?? 0] })),
   };
   const finP = financialOf(run.result);

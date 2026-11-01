@@ -15,7 +15,7 @@ export interface ChapterDef {
 export const CHAPTERS: readonly ChapterDef[] = [
   { id: "cover", label: "表紙（目次）", fixed: true },
   { id: "assumptions", label: "前提条件と注意書き", fixed: true },
-  { id: "summary", label: "世帯サマリー", fixed: false },
+  { id: "summary", label: "ご家族のまとめ", fixed: false },
   { id: "basics", label: "基本項目", fixed: false },
   { id: "dreams", label: "ご家族の夢（夢プラン）", fixed: false },
   { id: "events", label: "ライフイベント表", fixed: false },

@@ -1,4 +1,4 @@
-// 3. 世帯サマリー　4. 基本項目　ご家族の夢（夢プラン。0103）　5. ライフイベント表
+// 3. ご家族のまとめ　4. 基本項目　ご家族の夢（夢プラン。0103）　5. ライフイベント表
 #import "../parts/format.typ": *
 #import "../parts/layout.typ": *
 
@@ -15,7 +15,7 @@
 }
 
 #let summary(data) = {
-  chapter("世帯サマリー")
+  chapter("ご家族のまとめ")
   let s = data.summary
   {
     set text(size: 9pt)
