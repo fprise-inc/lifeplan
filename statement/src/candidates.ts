@@ -130,9 +130,11 @@ export function buildCandidates(summary: StatementSummary, household: CandidateH
     const at = nextOccurrence(last.date, it.annual.everyYears, o.baseMonth);
     const dupName = existing.has(looseKey(it.label));
     const n = [`${it.occurrences.map((x) => `${x.date} ${x.amount.toLocaleString("ja-JP")}円`).join("・")}`, it.annual.everyYears === 2 ? "2年に1回" : "年1回", ...(dupName ? ["同じ名前の支出がすでにあります"] : [])].join("。");
-    // 車・住まいの修繕は今までどおり一時的支出の行（それぞれのカードの物と見比べる）。ほかは基本生活費のカードの「年払い・数年おきの暮らしの支出」（表の行は基本生活費に含める。医療は医療・介護）
+    // 車は車の入力項目の「車の修理・用品など」（種類 car）、住まいの修繕は住まいの「修繕・リフォーム」（種類 repair）の行（表の行は今までどおり。それぞれの入力項目の物と
+    // 見比べる）。ほかは基本生活費のカードの「年払い・数年おきの暮らしの支出」（表の行は基本生活費に含める。医療は医療・介護）
     const row = it.category === null ? "cf.expense.lumpSum.other" : periodicRowOf(it.category, it.label);
-    const annual = row !== "cf.expense.lumpSum.car" && row !== "cf.expense.housing.maintenance";
+    const kind = row === "cf.expense.lumpSum.car" ? "car" : row === "cf.expense.housing.maintenance" ? "repair" : "livingAnnual";
+    const annual = kind === "livingAnnual";
     out.push({
       ...base,
       id: o.newId(),
@@ -143,7 +145,7 @@ export function buildCandidates(summary: StatementSummary, household: CandidateH
       value: {
         id,
         label: it.label.slice(0, 40),
-        ...(annual ? { kind: "livingAnnual" } : {}),
+        kind,
         row: annual ? (row === "cf.expense.care.medical" ? row : "cf.expense.living") : row,
         from: { at },
         to: null,
@@ -153,7 +155,7 @@ export function buildCandidates(summary: StatementSummary, household: CandidateH
       before: null,
       status: dupName || it.annual.confidence !== "high" || short ? "needsReview" : "pending",
       confidence: it.annual.confidence,
-      title: `${annual ? "年払いの暮らしの支出" : "一時的支出"}: ${it.label.slice(0, 40)}`,
+      title: `${annual ? "年払いの暮らしの支出" : kind === "car" ? "車の修理・用品など" : "修繕・リフォーム"}: ${it.label.slice(0, 40)}`,
       note: n,
     });
   }
