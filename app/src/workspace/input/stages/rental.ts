@@ -857,7 +857,8 @@ export function taxReturnGroups(wh: WorkingHousehold): GroupDef[] {
         set: (w) => w,
       }),
     );
-    return { key: k, title: `申告（${labels.get(id) ?? "ご家族"}）`, level: "detail", fields, actions: [] };
+    // 物件1件の一部ではなく、持ち主ごとの欄（その人の物件をまとめて申告する）。物件の枠の外に置くので、見出しでそうと分かるように
+    return { key: k, title: `申告（${labels.get(id) ?? "ご家族"}）: 持ち主ごと・その人の物件をまとめて`, level: "detail", fields, actions: [] };
   });
 }
 
