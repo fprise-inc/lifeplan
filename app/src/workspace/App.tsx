@@ -96,6 +96,7 @@ import { FpMenu, fpMenuGroups, officeShareText, storageText, type FpMenuAction }
 import { reviewTiming } from "./tools/FpTools.tsx";
 import { formatYearMonth } from "./input/units.ts";
 import { describeSnap, sameSnap, useHistoryBook, type AppSnap } from "./undo/appHistory.ts";
+import { reopenHistory, sameBodyContent } from "./undo/reopen.ts";
 import { version as APP_VERSION } from "../../package.json";
 import { installUndo, undoController } from "./undo/controller.ts";
 import { UndoButtons } from "./undo/UndoButtons.tsx";
@@ -500,7 +501,10 @@ export function App() {
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
   const storedRef = useRef<StoredRef | null>(null);
   const autosaver = useRef<Autosaver | null>(null);
-  /** 保存した世帯ごとの、最後に保存した（読んだ）本文（開き直したときに元に戻すの履歴を続けてよいかの目安） */
+  /**
+   * 保存した世帯ごとの、最後に保存した（読んだ）本文（開き直したときに元に戻すの履歴を続けてよいかの目安。0097）。
+   * 世帯を離れるときに画面の中身がこれと違えば（保存できなかった変更を捨てた・保存を止めて開いていた）、消して履歴を続けない
+   */
   const savedBodies = useRef(new Map<string, string>());
   const shownRef = useRef<string[]>([]);
   const openedRef = useRef<Opened | null>(null);
@@ -788,16 +792,19 @@ export function App() {
 
   const addOnce = useRef(false);
   const seedOnce = useRef(false);
-  /** 開いた世帯を画面に置き、計算する（見本・空・保存した世帯で共通） */
+  /**
+   * 開いた世帯を画面に置き、計算する（見本・空・保存した世帯で共通）。履歴を続けないときに、前に開いていたときの履歴を捨てたら
+   * resetNote を知らせる（元に戻すで前の操作に戻れないことが分かるように。0097）
+   */
   const install = useCallback(
-    async (o: Opened, w: Work, shownKeys: string[], historyKey: string, keepHistory: boolean) => {
+    async (o: Opened, w: Work, shownKeys: string[], historyKey: string, keepHistory: boolean, resetNote?: string) => {
       if (host === null) return;
       openedRef.current = o;
       workRef.current = w;
       shownRef.current = shownKeys;
       // 元に戻すの履歴はその世帯のもの。開いた直後の状態は履歴に積まない
       if (keepHistory) history.select(historyKey);
-      else history.reset(historyKey);
+      else if (history.reset(historyKey) && resetNote !== undefined) say(resetNote);
       setOpened(o);
       setWork(w);
       setShown(shownKeys);
@@ -815,14 +822,25 @@ export function App() {
       compareTimings.current.push({ ms: performance.now() - t0, hostMs: canon?.hostMs ?? 0, slots: Object.keys(all).length });
       setTick((t) => t + 1);
     },
-    [host, requestsFor, history],
+    [host, requestsFor, history, say],
   );
+
+  /** 世帯を離れる: 画面の中身が最後に保存した（読んだ）本文と違えば、その本文を忘れる（開き直しても、その世帯の履歴を続けない。0097） */
+  const forgetUnsavedScreen = useCallback(() => {
+    const sr = storedRef.current;
+    const o = openedRef.current;
+    if (sr === null || o === null) return;
+    const last = savedBodies.current.get(sr.id);
+    const now = bodyFor(o, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, sr.carry);
+    if (last === undefined || !sameBodyContent(last, now)) savedBodies.current.delete(sr.id);
+  }, []);
 
   /** 見本・空の世帯を開く（保存しない。保存するときは persistCurrent）。開いたら true（離れるのをやめた・開けなかったら false） */
   const open = useCallback(
     async (id: string, hashLevers?: number[]): Promise<boolean> => {
       if (host === null) return false;
       if (!(await leaveCurrent("switch"))) return false;
+      forgetUnsavedScreen();
       setInputPlanOn(false);
       // 保存した世帯から離れる: 事務所で共有しているときの、自分の開いている印を消す（0023 の7）
       if (storedRef.current !== null) void host.store.leave().catch(() => undefined);
@@ -896,10 +914,11 @@ export function App() {
       const pickSel = initial.sel !== undefined ? slotOfLetter(letters, slots, initial.sel) : initial.seedOpen === true ? band[1] : band[0];
       const pickBase = initial.base !== undefined ? slotOfLetter(letters, slots, initial.base) : undefined;
       const w: Work = { band, base: pickBase ?? CURRENT, sel: pickSel ?? band[0] ?? CURRENT, drafts: {} };
-      await install(o, w, shownKeys, id, false);
+      // 見本・空の世帯は保存しないので、開くたびに最初の中身から（前に動かした履歴は続けない）
+      await install(o, w, shownKeys, id, false, "見本は開くたびに最初の中身から始まります。元に戻す（↶）の履歴も、ここからです");
       return true;
     },
-    [host, install, initial, leaveCurrent],
+    [host, install, initial, leaveCurrent, forgetUnsavedScreen],
   );
 
   /**
@@ -931,8 +950,9 @@ export function App() {
       bsSettingsRef.current = st.display.balance;
       setBsSettings(st.display.balance);
       const loaded = bodyFor(o, w, shownKeys, st.display.result, st.display.balance, st.carry);
-      // この画面で前に開いて保存したときと同じ中身なら、元に戻すの履歴を続きから使う（違えば空から）
-      const keep = savedBodies.current.get(r.id) === loaded;
+      // この画面で前に開いて保存したときと同じ中身なら、元に戻すの履歴を続きから使う（違えば空から）。
+      // 本体は本文を読み直して書くので欄の並びが変わる。文字列ではなく中身で比べる（0097）
+      const keep = reopenHistory(savedBodies.current.get(r.id), loaded) === "continue";
       savedBodies.current.set(r.id, loaded);
       // ほかのメンバーが開いているときは、自動保存を止めた状態で開く（「編集を始める」で始める。0023 の7）
       const others = r.othersOpen.length > 0 && !r.readOnly;
@@ -943,7 +963,7 @@ export function App() {
       pausedBody.current = others || viewSample ? (stored ?? loaded) : null;
       autosaver.current?.reset(r.readOnly || others || viewSample ? null : (stored ?? loaded));
       if (r.readOnly) setSaveState({ kind: "error", code: "E_STORE_READ_ONLY" });
-      await install(o, w, shownKeys, `stored:${r.id}`, keep);
+      await install(o, w, shownKeys, `stored:${r.id}`, keep, "前にこの世帯を開いていたときと中身が違うため、元に戻す（↶）の履歴はここから始めます");
       if (stored !== undefined && stored !== loaded && !others && !viewSample) autosaver.current?.change(loaded);
     },
     [host, install],
@@ -954,10 +974,11 @@ export function App() {
     async (id: string): Promise<boolean> => {
       if (host === null) return false;
       if (!(await leaveCurrent("switch"))) return false;
+      forgetUnsavedScreen();
       await loadStored(await host.store.open(id));
       return true;
     },
-    [host, loadStored, leaveCurrent],
+    [host, loadStored, leaveCurrent, forgetUnsavedScreen],
   );
 
   /** 見本を開く（アプリの見本は保存しない世帯として、自分で作った見本は保存しないで開く。動かしても見本は変わらない。0033） */
@@ -1057,12 +1078,14 @@ export function App() {
       pausedBody.current = null;
       setSampleMode(r.sample !== undefined ? "edit" : null);
       savedBodies.current.set(r.id, body);
+      // 元に戻すの履歴は、作った世帯の履歴として続ける（開き直したときに続きから使う。0097）
+      history.rename(`stored:${r.id}`);
       autosaver.current?.reset(body, nowIso());
       setStoredList(await host.store.list());
       void host.store.listSamples().then(setStoredSamples, () => undefined);
       say(r.sample !== undefined ? `見本 ${r.customerNo} を作りました。手直しは自動で保存します` : `世帯 ${r.customerNo} として保存しました。これからは自動で保存します`);
     },
-    [host, say],
+    [host, say, history],
   );
 
   // 起動: 前回の世帯を開く（無ければ見本）。画面の確かめ用の # があるときは見本

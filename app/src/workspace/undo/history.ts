@@ -139,10 +139,27 @@ export class HistoryBook<S> {
     return h;
   }
 
+  /** その世帯に、戻せる・やり直せる履歴があるか（開き直して空にする前に、捨てる履歴があるかを見る） */
+  has(id: string): boolean {
+    const h = this.books.get(id);
+    return h !== undefined && (h.canUndo || h.canRedo);
+  }
+
   /** 世帯を開き直した（中身を読み直した）: その世帯の履歴を空にして切り替える */
   reset(id: string): UndoHistory<S> {
     this.books.delete(id);
     return this.select(id);
+  }
+
+  /** いまの世帯の履歴を、別の世帯の名前で持ち直す（開いている世帯を新しい世帯として保存した。中身は同じなので続きから使う） */
+  rename(to: string): void {
+    const from = this.currentId;
+    if (from === null || from === to) return;
+    const h = this.books.get(from);
+    this.books.delete(from);
+    if (h !== undefined) this.books.set(to, h);
+    else this.books.delete(to);
+    this.currentId = to;
   }
 
   /** 世帯を閉じた・消した: 履歴を捨てる */
