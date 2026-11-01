@@ -8,11 +8,12 @@ import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/works
 import { withProvisionalHousing } from "../src/workspace/input/housingCredit.ts";
 import { fittedRateText, monthlyPayment, monthsFromPayment, principalFromPayment, rateFromPayment } from "../src/workspace/input/loanMath.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
-import { principalRow, rateRow, termRow } from "../src/workspace/input/stages/housingLoans.ts";
+import { principalRow, rateEstimateOf, rateRow, termRow } from "../src/workspace/input/stages/housingLoans.ts";
 import { confirmAll, fieldStatus } from "../src/workspace/input/valueState.ts";
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { inputItems } from "../src/workspace/input/items.ts";
 import { modelHousehold, preview } from "./helpers.ts";
+import { scholarshipRateEstimate } from "../../hearing/src/loanRates.ts";
 
 const BASE = "2026-10";
 
@@ -251,7 +252,7 @@ describe("住宅ローンの入れ方の区分", () => {
     wh = set(wh, `${id}/entry`, "payment");
     wh = set(wh, `${id}/payment`, 100000);
     const p1 = loan(wh).principal;
-    expect(p1).toBe(principalFromPayment(100000, 0.008, loan(wh).repayment.termMonths, "equalPayment"));
+    expect(p1).toBe(principalFromPayment(100000, Number(rateEstimateOf("variable").rate), loan(wh).repayment.termMonths, "equalPayment"));
     expect(principalRow(wh, id)?.estimate?.basis).toContain("逆算");
     expect(wh.assumed[`housing/debt/${id}/principal`]).toBeUndefined();
     wh = set(wh, `${id}/rate`, "0.015");
@@ -397,7 +398,7 @@ describe("ほかのローン", () => {
     let wh = action(salaried(), "housing/add/cardLoan");
     const id = debtsOf(wh)[0]!.id;
     wh = set(wh, `${id}/subtype`, "scholarship");
-    expect(debtsOf(wh)[0]).toMatchObject({ kind: "scholarship", subtype: "scholarship", rateSchedule: [{ rate: "0.005" }] });
+    expect(debtsOf(wh)[0]).toMatchObject({ kind: "scholarship", subtype: "scholarship", rateSchedule: [{ rate: scholarshipRateEstimate().rate }] });
     wh = set(wh, `${id}/rate`, "0.01");
     wh = set(wh, `${id}/subtype`, "renovation");
     expect(debtsOf(wh)[0]!.rateSchedule[0]!.rate).toBe("0.01");

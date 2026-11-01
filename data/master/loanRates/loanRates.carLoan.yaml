@@ -1,0 +1,21 @@
+id: loanRates.carLoan
+title: 主要な銀行が公表する自動車ローンの最も低い金利の平均（2026年10月。2行の平均。自動車ローンの金利の目安）
+unit: rate
+kind: constant
+basis: {"type": "month"}
+entries:
+  - rev: 1
+    appliesFrom: "2026-10-01"
+    appliesTo: null
+    enforcedOn: "2026-10-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.0214"
+    sources:
+      - {"type": "web", "url": "https://www.bk.mufg.jp/cdocs/list_j/kinri/js/loan.js", "retrievedAt": "2026-10-31", "sha256": "300fcd129e1fa9d3b9fa214e379001785b4eb89debfdcfbca7218dbad45d347a", "locator": "ローン金利の表示のデータ（2026年10月1日現在。インターネット受付の自動車ローン 変動タイプ 年2.175％～年3.500％の下限 M213）", "quote": "\"M213\":\"2.175\""}
+      - {"type": "web", "url": "https://www.bk.mufg.jp/ippan/kinri/loan.html", "retrievedAt": "2026-10-31", "sha256": "a03d5e0ad164fd11889bf09e2a5cf5ef676ed0f7e15bb9ecd56cbf10af2d57aa", "locator": "ローン金利（上のデータを表示するページ）"}
+      - {"type": "web", "url": "https://www.resonabank.co.jp/common/kinri/json/mycar.json", "retrievedAt": "2026-10-31", "sha256": "d6de0b15f3ce4f03df9c2bc80e8980187994b271296e908e317aef3cd03a0a63", "locator": "自動車ローンの金利（2026年10月1日。standard rate1 2.100〜rate4 4.700）", "quote": "\"rate1\": 2.100"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-31", "tools": ["JS・JSON のデータ（公表の金利）", "HTML の本文（ブラウザでの表示）", "引用と原本の指紋（sha256）の機械照合"], "note": "2行の最も低い金利 2.175%・2.100% の平均 2.1375% を 0.01% 単位に丸めて 2.14%。2つ目の読み方: データの値と、ブラウザでの表示（年2.175％～年3.500％）が一致。審査で金利が上がることがある（上限は 3.5%〜4.7%）。主要な銀行のうち自動車ローンの金利を公表のデータで読めた2行だけの平均。市場の金利で変わるので、リリースのたびに見直す"}

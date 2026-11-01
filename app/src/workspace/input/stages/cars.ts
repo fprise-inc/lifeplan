@@ -19,6 +19,7 @@ import { fixGrowth } from "./living.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./onContingency.ts";
 import { GROWTH_RANGE } from "../rateRanges.ts";
 import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
+import { carLoanRateEstimate } from "../../../../../hearing/src/loanRates.ts";
 
 type Obj = Record<string, unknown>;
 const cars = (h: Household) => h.cars;
@@ -27,11 +28,11 @@ const addr = (id: string, item: string, at: string[] = []): Address => ({ target
 const estRow = (basis: string): StateRow => ({ state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis } });
 const withAddress = (f: FieldDef, a: Address): FieldDef => ({ ...f, address: () => a });
 
-/** ローンの目安（借入8割・5年・年2.5%。目安のボタンの値＝推定） */
+/** ローンの目安（借入8割・5年。金利は今返している自動車ローンと同じ目安〔マスタデータ master.loanRates〕。目安のボタンの値＝推定） */
 const LOAN_SHARE = "0.8";
-const LOAN_RATE = "0.025";
+const LOAN_RATE = carLoanRateEstimate().rate;
 const LOAN_TERM = 60;
-const LOAN_BASIS = { share: presetBasis("借入 下取りを引いた額の8割"), rate: presetBasis("金利 年2.5%"), term: presetBasis("5年で返す") };
+const LOAN_BASIS = { share: presetBasis("借入 下取りを引いた額の8割"), rate: presetBasis(`金利 ${carLoanRateEstimate().basis}`), term: presetBasis("5年で返す") };
 /** 次の買い替え・購入の時期の標準の値（3年後） */
 const FIRST_BASIS = "標準の値（3年後。この世帯に合わせて直してください）";
 
@@ -390,7 +391,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
           if (!loan) delete x.loan;
           else x.loan ??= { share: LOAN_SHARE, rate: LOAN_RATE, termMonths: LOAN_TERM };
         });
-        // ローンの目安（借入8割・5年・年2.5%）は推定の印。現金に戻したら印も外す
+        // ローンの目安（借入8割・5年・金利は自動車ローンの目安）は推定の印。現金に戻したら印も外す
         const keys = { [`${k}/down`]: LOAN_BASIS.share, [`${k}/term`]: LOAN_BASIS.term, [`${k}/rate`]: LOAN_BASIS.rate };
         const assumed = Object.fromEntries(Object.entries(next.assumed).filter(([key]) => !(key in keys)));
         return { ...next, assumed: loan && c.loan === undefined ? { ...assumed, ...keys } : loan ? next.assumed : assumed };

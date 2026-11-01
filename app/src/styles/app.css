@@ -314,6 +314,13 @@ html.big .lever input[type="range"] { height: 36px; }
 .in-group .in-group .in-group-h h4, .in-group.in-sub .in-group-h h4 { font-size: 0.9rem; color: var(--ink-2); }
 .in-group.in-sub.compact { padding: 8px 0 0; }
 .sv-more-row .in-group.in-sub:first-child { border-top: 0; margin-top: 4px; padding-top: 0; }
+/*
+ * 物1件の中の中枠（band。欄の多い物を、題名のある区切りに分ける。例: 住宅ローンの借入の内容・金利・返済…。0077 の追記）:
+ * 枠と地の色は付けず、左の薄い線と、中のまとまりより少し強い見出しだけ（1件 = 1つの枠のまま、どこからどこまでが同じ区切りか分かるように）
+ */
+.in-group.in-sub.in-band { border-top: 0; border-left: 3px solid var(--card-line); margin: 14px 0 0; padding: 2px 0 4px 12px; }
+.in-group.in-sub.in-band > .in-group-h h4 { font-size: 0.95rem; font-weight: 700; color: var(--ink); }
+.in-group.in-sub.in-band .in-group.in-sub:not(.in-band) { margin-top: 8px; }
 .in-group .in-group + .in-actions, .in-group > .in-actions:not(:last-child) { margin-bottom: 6px; }
 /* 選択肢をまとめた「＋」のボタン（「＋ 月額の変化」→「この年だけ」「この月から先」） */
 .add-choice { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }

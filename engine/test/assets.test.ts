@@ -409,12 +409,13 @@ describe("器ごとの残高・取り崩し・NISA の枠（plan.cashflow）", (
 
 describe("住まい（housing.residence）", () => {
   const mk = (residences: Obj[]) => withInput(household({ members: [member("a", "self", "1990-01")], endYear: 2032 }), (h) => (h.residences = residences));
-  it("家賃は更新の月に更新料（家賃×月数）を払い、上昇率を当てる", () => {
+  it("家賃は更新の月に更新料（家賃×月数）を払い、上昇率（年率）をその間の年数分まとめて当てる", () => {
     const r = full(mk([{ id: uid("r"), kind: "rent", from: at("2025-04"), to: null, rent: { monthly: box(100000), growth: "0.1", renewalFee: "1" } }]));
     const f = (ym: string, row = "cf.expense.housing.rent") => r.flows.filter((x) => x.ym === ym && x.row === row).reduce((s, x) => s + x.amount, 0);
     expect(f("2027-03")).toBe(100000);
     expect(f("2027-04", "cf.expense.housing.rent.renewal")).toBe(100000);
-    expect(f("2027-04")).toBe(110000);
+    // 2年ごとの更新で、年10%の2年分
+    expect(f("2027-04")).toBe(121000);
   });
   it("購入: 頭金・諸費用、親からの資金援助（贈与の税は贈与の作業で扱う）、固定資産税を4回、修繕費", () => {
     const r = full(

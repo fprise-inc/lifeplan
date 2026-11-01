@@ -1,5 +1,6 @@
 // 住まい（賃貸・持ち家）のお金の動き。住まいの期間（from〜to）の月だけ。
-// - 家賃: 毎月。更新の月（住み始めから renewalEveryMonths ごと。既定24か月）に更新料（家賃×renewalFee か月分）を払い、家賃に上昇率を当てる
+// - 家賃: 毎月。更新の月（住み始めから renewalEveryMonths ごと。既定24か月）に更新料（家賃×renewalFee か月分）を払う。上昇率は年率で、
+//   更新の月に、住み始めからの経った年数（1年未満は切り捨て）のうち前の更新から増えた年数の分だけ、1年ずつ重ねる（改訂3。前は更新1回に1年分だけ当てていた）
 // - 購入: 購入の月（省略は住み始め）に頭金と諸費用を払う。親・祖父母からの資金援助は受け取る構成員の一時金の収入にする
 //   （贈与税・住宅取得等資金の非課税は贈与の作業で扱う。ここは額の入力まで）
 // - 固定資産税・都市計画税: 年額（上昇率は計算基準年からの年ごと）を、その年の4月・7月・12月と翌年2月の4回に分ける（端数は最初の回）。
@@ -7,7 +8,7 @@
 // - 修繕費・管理費: 月額（上昇率は計算基準年からの年ごと）
 // 持ち家の価額（不動産の残高）は plan.cashflow が購入の額から出す（properties）
 // 段階と例外の年（改訂2。0040）: 家賃・修繕費は月ごと、固定資産税は年ごとに、元の額の代わりに段の額（割合の段は元の額×割合）を使い、
-// 同じ上昇率をそのまま重ねる（家賃は住み始めからの更新の回数、修繕費・固定資産税は計算基準年からの年数）。例外の年は、その年だけ例外の額
+// 同じ上昇率をそのまま重ねる（家賃は住み始めから直近の更新までの経った年数、修繕費・固定資産税は計算基準年からの年数）。例外の年は、その年だけ例外の額
 // （元の額と同じ基準。上昇率は重ねる。0円はその年に払わない）。更新料は更新の前の月の家賃（例外の年は当てない）×月数
 import {
   addMonths,
@@ -53,7 +54,7 @@ export default defineComponent<Record<string, never>, ResidenceOutput>({
   id: "housing.residence",
   title: "住まい（家賃・購入・固定資産税・修繕費）",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: {},
   params: [],
   reads: [
@@ -88,22 +89,25 @@ export default defineComponent<Record<string, never>, ResidenceOutput>({
         const g = growth(h.rent.growth);
         const fee = h.rent.renewalFee === undefined ? null : ctx.rate.of(h.rent.renewalFee);
         const staged = stagedYen(ctx, monthly0, h.rent, "conv.housing.growth");
+        // 更新 r 回目までに当てる年数（住み始めから r 回目の更新までの経った年数。1年未満は切り捨て）
+        const yearsAt = (renewals: number): number => Math.floor((renewals * every) / 12);
         if (staged.plain) {
           let rent = monthly0;
           for (let m = from, k = 0; m <= to && m <= end; m = addMonths(m, 1), k++) {
             if (k > 0 && k % every === 0) {
               if (fee !== null) push(m, "cf.expense.housing.rent.renewal", ctx.money.mulRate(rent, fee, "conv.housing.growth"), "housing.residence.renewalFee");
-              rent = grown(ctx, rent, g, 1);
+              const r = k / every;
+              rent = grown(ctx, rent, g, yearsAt(r) - yearsAt(r - 1));
             }
             push(m, "cf.expense.housing.rent", rent, "housing.residence.rent");
           }
         } else {
-          // 段の額（例外の年はその額）に、住み始めからの更新の回数だけ上昇率を当てる
+          // 段の額（例外の年はその額）に、住み始めから直近の更新までの経った年数だけ上昇率を当てる
           const up = grower(ctx, g);
           for (let m = from, k = 0; m <= to && m <= end; m = addMonths(m, 1), k++) {
             const renewals = Math.floor(k / every);
-            if (k > 0 && k % every === 0 && fee !== null) push(m, "cf.expense.housing.rent.renewal", ctx.money.mulRate(up(staged.stageAt(addMonths(m, -1)), renewals - 1), fee, "conv.housing.growth"), "housing.residence.renewalFee");
-            push(m, "cf.expense.housing.rent", up(staged.at(m), renewals), "housing.residence.rent");
+            if (k > 0 && k % every === 0 && fee !== null) push(m, "cf.expense.housing.rent.renewal", ctx.money.mulRate(up(staged.stageAt(addMonths(m, -1)), yearsAt(renewals - 1)), fee, "conv.housing.growth"), "housing.residence.renewalFee");
+            push(m, "cf.expense.housing.rent", up(staged.at(m), yearsAt(renewals)), "housing.residence.rent");
           }
         }
       }

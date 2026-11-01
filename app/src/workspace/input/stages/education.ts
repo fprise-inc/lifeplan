@@ -24,6 +24,7 @@ import { masterAmount, regulationValue } from "../../../../../hearing/src/statis
 import { childOfPeriodic } from "./events.ts";
 import { donorOptions, FIELDS, GIFT_PURPOSES, HOUSING_EXEMPTION, LIVING_PLACE, memberLabel, memberOptions, NURSERY_HOURS, SCHOOL_STAGES, SECTORS, TAX_METHODS } from "../labels.ts";
 import type { Address } from "../../store/readings.ts";
+import { scholarshipRateEstimate } from "../../../../../hearing/src/loanRates.ts";
 
 type Obj = Record<string, unknown>;
 const goals = (h: Household) => h.goals;
@@ -843,11 +844,12 @@ const yearsField = (key: string, label: string, find: Finder, max: number, addre
  * 足したときのひな形の値（推定）の根拠（0062 の追記 2026-10-30）。
  * - 貸与の奨学金: 日本学生支援機構の第二種（月2万〜12万円から1万円刻みで選ぶ）の月5万円。利率は第二種の利率固定方式の令和8年7〜9月に
  *   貸与が終わった人の年3.0%（上限も年3.0%。在学中は無利子）。返す年数は「奨学金返還年数算出表」（貸与総額で割賦金の基礎額が決まり、
- *   総額÷基礎額の年数）。返し始めは貸与の終わりの翌月から数えて7か月目
+ *   総額÷基礎額の年数）。返し始めは貸与の終わりの翌月から数えて7か月目。利率の数は、ほかのローンの「奨学金の返済」と同じ目安
+ *   （マスタデータ master.loanRates。hearing/src/loanRates.ts）から読む
  * - 教育ローン: 日本政策金融公庫「国の教育ローン」。額は入学の年にかかる学費（入学金と1年目の学費。統計の平均）で、融資の上限（子1人350万円。
  *   自宅外通学・大学院・海外留学などは450万円）まで。金利は固定の年4.05%（令和8年7月1日現在。保証料は別）、返す年数は上限の20年
  */
-export const SCHOLARSHIP_BASIS = presetBasis("貸与の奨学金（日本学生支援機構の第二種）月5万円・在学中。利率は利率固定方式の年3.0%（令和8年7〜9月。上限も3.0%）。返す年数は貸与総額から返還年数算出表で");
+export const SCHOLARSHIP_BASIS = presetBasis(`貸与の奨学金（日本学生支援機構の第二種）月5万円・在学中。利率は${scholarshipRateEstimate().basis}・利率固定方式（上限も年3%）。返す年数は貸与総額から返還年数算出表で`);
 export const LOAN_BASIS = presetBasis("国の教育ローン（日本政策金融公庫）: 入学の年の学費（入学金と1年目の学費の統計の平均。上限350万円）・固定金利 年4.05%（令和8年7月1日現在）・返済期間は上限の20年");
 
 /** 日本学生支援機構「奨学金返還年数算出表」: 貸与総額（以下）→ 割賦金の基礎額。340万円を超えると総額の20分の1 */
@@ -969,7 +971,7 @@ export function addScholarship(wh: WorkingHousehold, goalId: string, id: string 
     if (g?.education === undefined || child === undefined) return;
     const p = higherPeriod(g, child);
     const months = (Number(p.to.slice(0, 4)) - Number(p.from.slice(0, 4))) * 12 + Number(p.to.slice(5, 7)) - Number(p.from.slice(5, 7)) + 1;
-    const s: EducationScholarship = { id, monthly: 50000, from: { at: p.from }, to: { at: p.to }, rate: "0.03", termMonths: jassoRepayYears(50000 * months) * 12, debtor: "child" };
+    const s: EducationScholarship = { id, monthly: 50000, from: { at: p.from }, to: { at: p.to }, rate: scholarshipRateEstimate().rate, termMonths: jassoRepayYears(50000 * months) * 12, debtor: "child" };
     (g.education.scholarships ??= []).push(s);
     estimatedRowAt(req.input as unknown as Obj, g.id, "scholarships", id, ["monthly", "rate", "termMonths"], SCHOLARSHIP_BASIS);
   });

@@ -52,10 +52,10 @@ function representative(): WorkingHousehold {
 }
 
 describe("最初の5枚の標準の欄の数", () => {
-  it("代表の世帯で、家族8・働き方と収入10・基本生活費4・住まい8〜9・貯蓄8（今の残高から入れたローンで合計38。配偶者の性別は詳細）", () => {
+  it("代表の世帯で、家族8・働き方と収入10・基本生活費4・住まい8〜10・貯蓄8（今の残高から入れたローンで合計38。配偶者の性別は詳細。住宅ローンは金利の種類も標準）", () => {
     let wh = representative();
     const count = (w: WorkingHousehold) => (["family", "work", "living", "housing", "savings"] as const).map((s) => simpleFields(w, s).length);
-    expect(count(wh)).toEqual([8, 10, 4, 9, 8]);
+    expect(count(wh)).toEqual([8, 10, 4, 10, 8]);
     for (const d of wh.request.input.household.debts ?? []) wh = switchEntry(wh, d.id, "balance");
     expect(count(wh)).toEqual([8, 10, 4, 8, 8]);
     expect(count(wh).reduce((a, b) => a + b, 0)).toBe(38);

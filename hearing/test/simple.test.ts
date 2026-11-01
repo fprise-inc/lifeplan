@@ -9,6 +9,11 @@ import { birthFromAge } from "../src/import.ts";
 import { formatValue, parseValue, rangeEstimate } from "../src/values.ts";
 import { basic, engineAvailable, full, HEARING_DIR, idSeq, modelHousehold, OFFICE, preview, simple } from "./helpers.ts";
 import { sampleBytes, type SampleFile } from "./sample.ts";
+import { mortgageRateEstimate } from "../src/housingEstimates.ts";
+import { monthsFromPayment } from "../src/loan.ts";
+
+/** 簡易版の住宅ローンに置く仮の金利（変動金利の目安。マスタデータの写しから） */
+const VARIABLE_RATE = mortgageRateEstimate("variable").rate;
 
 const def = simple();
 const items = itemByKey(def);
@@ -157,7 +162,7 @@ describe("合計の欄・住宅ローン・ご両親・メモ", () => {
   it("住宅ローンの残高と毎月の返済額から「今の残高から」の形で1本置き、仮の金利で返済期間を逆算する（控除は計算しない）", () => {
     const r = run(...base.slice(0, 4), a("hs.housing.type", "own"), a("hs.loan.monthlyTotal", 98000), a("hs.loan.balanceTotal", 29800000));
     const d = r.request.input.household.debts?.[0];
-    expect(d).toMatchObject({ kind: "mortgage", principal: 29800000, start: { at: "2026-10" }, balance: { value: 29800000, state: "confirmed" }, balanceAsOf: "2026-10", rateSchedule: [{ type: "variable", rate: "0.008" }], repayment: { method: "equalPayment", termMonths: 340 } });
+    expect(d).toMatchObject({ kind: "mortgage", principal: 29800000, start: { at: "2026-10" }, balance: { value: 29800000, state: "confirmed" }, balanceAsOf: "2026-10", rateSchedule: [{ type: "variable", rate: VARIABLE_RATE }], repayment: { method: "equalPayment", termMonths: monthsFromPayment(29800000, 98000, Number(VARIABLE_RATE)) } });
     expect(d?.housing).toBeUndefined();
     expect(r.loanEntry).toEqual({ [d?.id ?? ""]: "balance" });
     expect(Object.keys(r.assumed).filter((k) => k.startsWith(`housing/debt/${d?.id ?? ""}/`)).map((k) => k.split("/").at(-1)).sort()).toEqual(["debtor", "fromBalance", "rate", "term"]);
@@ -238,7 +243,7 @@ describe("見本のシート basic-2（通常版）", () => {
     expect((p1?.salary?.annual.value ?? 0) + (p1?.salary?.bonus.value ?? 0)).toBe(6500000);
     expect(p1?.salary?.annual).toMatchObject({ state: "estimated", certainty: "rough" });
     expect(p2?.salary?.annual.value).toBe(1200000);
-    expect(h.debts?.[0]).toMatchObject({ principal: 27500000, balance: { value: 27500000, state: "estimated", certainty: "rough" }, repayment: { termMonths: 311 } });
+    expect(h.debts?.[0]).toMatchObject({ principal: 27500000, balance: { value: 27500000, state: "estimated", certainty: "rough" }, repayment: { termMonths: 336 } }); // 期間は変動金利の目安（マスタデータ）で逆算する（目安を直したら、ここも直す）
     expect(h.accounts.map((x) => `${x.kind}:${x.marketValue.value}:${x.marketValue.state}`)).toEqual(["deposit:6000000:estimated", "taxable:1800000:confirmed"]);
     expect(h.livingExpenses?.[0]?.monthly).toMatchObject({ value: 275000, state: "estimated", certainty: "rough" });
     expect(r.memo[0]).toBe("【生命保険・医療保険などの保険料の合計（月）】2〜3万円（だいたいの範囲）");

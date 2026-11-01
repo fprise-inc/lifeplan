@@ -1,0 +1,20 @@
+id: housing.statistics.mortgageRate.fixed
+title: 住宅金融支援機構【フラット３５】2026年10月の最も多い借入金利（借入期間21年以上35年以下・融資率9割以下・新機構団信付き。取扱金融機関が提供する金利の中で最も多い金利。全期間固定の住宅ローンの当初の金利の目安）
+unit: rate
+kind: constant
+basis: {"type": "month"}
+entries:
+  - rev: 1
+    appliesFrom: "2026-10-01"
+    appliesTo: null
+    enforcedOn: "2026-10-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.0383"
+    sources:
+      - {"type": "web", "url": "https://www.simulation.jhf.go.jp/flat35/kinri/index.php/rates/top", "retrievedAt": "2026-10-31", "sha256": "44999ca2fed518d1f2cfd80be5b4c19d07e1c742943cbabb1d3241c0d2bbe72c", "locator": "最新の金利情報 新機構団信付きの【フラット３５】等の借入金利水準（2026年10月） 【フラット３５】借入期間21年以上35年以下 融資率9割以下", "quote": "年3.830％〜年5.840％ 年3.830％"}
+      - {"type": "web", "url": "https://www.flat35.com/files/topics/6008_ext_99_0.pdf", "retrievedAt": "2026-10-31", "sha256": "12575807d6fb9986a17f444e2e9160f442b102408be5a2ce6be6f396ba24ad6f", "locator": "【フラット３５】借入金利の推移（最低～最高）令和５年４月から 借入期間が21年以上35年以下、融資率が９割以下、新機構団信付きの場合 R8.10 の最低（令和8年10月1日現在）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-31", "tools": ["HTML の本文（公表資料）", "PDF の図の数値の表示（公表資料）", "引用と原本の指紋（sha256）の機械照合"], "note": "最も多い金利 年3.830%。2つ目の読み方: 借入金利の推移の図の令和8年10月の最低 3.830%・最高 5.840% が金利情報の金利の範囲と一致。施行日の欄はその月の資金受取分の金利の公表（毎月第1営業日）。市場の金利で毎月変わるので、リリースのたびに見直す"}
