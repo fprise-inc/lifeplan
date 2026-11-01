@@ -625,8 +625,20 @@ export function addOtherExpense(wh: WorkingHousehold, id: string = newId()): Wor
 
 // ---- 夢プラン（0103） ----
 
-/** 夢プランの区画の説明（車・住まいそのものを夢にするときの行き先） */
-export const DREAM_NOTE = "車・住まいそのものを夢にするときも、ここでは額と時期で入れます。維持費・ローンは車・住まいの入力項目で";
+/** 夢プランの区画の説明（車・住まいそのものを夢にするときも、ここで額と時期で入れる） */
+export const DREAM_NOTE = "車・住まいそのものを夢にするときも、ここでは額と時期で入れます";
+
+/** 夢の「最初から計算に入れる」を外した夢の印（見出し・この世帯の予定。0103 の追記 2026-11-01 の3） */
+export const DREAM_CANDIDATE = "（候補として置く）";
+
+/** 夢の「最初から計算に入れる」の説明（入れる・入れないで計算と結果がどう変わるか、入れない夢の使い方） */
+export const DREAM_INCLUDE_HELP = [
+  "入れると、この夢の額をキャッシュフロー表の一時的支出に入れて、ふだんの結果（お金の推移・足りなくなる時期）を計算します。",
+  "外すと、この夢は候補として夢プランに置いておき、ふだんの計算には入れません。結果の画面の夢のカードには「候補として置く」と出ます。",
+  "候補の夢は、結果の画面の「外している物」で1件ずつ入れて、かなえた場合と比べられます（見方の切り替えで、保存はしません）。",
+  "たとえば、まず必ずかなえたい夢だけを入れて結果を見ていただき、ほかの夢は候補として置いて、その夢にかかるお金と、かなえたときの違いを別に示しながら、お客さまとあとで決められます。",
+  "順位とひとことメモは、入れても外しても残ります。あとからいつでも、ここで切り替えられます。",
+].join("");
 
 /** 夢の見出しの額と時期（「額は未入力」「300万円・1回」「年50万円・毎年」） */
 function dreamAmountText(h: Household, p: PeriodicExpense): string {
@@ -637,7 +649,7 @@ function dreamAmountText(h: Household, p: PeriodicExpense): string {
 }
 
 /**
- * 夢の1件のまとまり（1件を1つの枠に。0077 の追記）: 名前・時期（1回／年ごと）・額・始まり・何年ごと・終わり・ひとことメモ・計算に入れる。
+ * 夢の1件のまとまり（1件を1つの枠に。0077 の追記）: 名前・時期（1回／年ごと）・額・始まり・何年ごと・終わり・ひとことメモ・最初から計算に入れる。
  * 優先度の欄は無い（夢はふつうの行の「必ず」「できれば」と別の物）。順位は「↑ 上へ」「↓ 下へ」で動かす
  */
 function dreamGroup(wh: WorkingHousehold, p: PeriodicExpense, rank: number, count: number): GroupDef {
@@ -655,7 +667,7 @@ function dreamGroup(wh: WorkingHousehold, p: PeriodicExpense, rank: number, coun
   const address = (item: string, at: string[] = []) => () => ({ target: { object: p.id }, item, at });
   fields.push(
     { ...plain({ key: `${k}/dreamNote`, item: "periodicExpense.dreamNote", label: "ひとことメモ（なぜかなえたいか）", level: "simple", kind: "text", find, path: ["dream", "note"], optional: true }), address: address("periodicExpense.dreamNote") },
-    { ...plain({ key: `${k}/dreamInclude`, item: "periodicExpense.dream", label: "計算に入れる", level: "simple", kind: "bool", find, path: ["dream", "include"], optional: true, fallback: true, help: "外すと、この夢を除いて計算します。結果の画面の「外している物」で、入れた場合を見られます" }), address: address("periodicExpense.dream", ["include"]) },
+    { ...plain({ key: `${k}/dreamInclude`, item: "periodicExpense.dream", label: "最初から計算に入れる", level: "simple", kind: "bool", find, path: ["dream", "include"], optional: true, fallback: true, help: DREAM_INCLUDE_HELP }), address: address("periodicExpense.dream", ["include"]) },
   );
   const off = p.dream?.include === false;
   const name = p.label !== undefined && p.label !== "" ? p.label : "夢";
@@ -666,7 +678,7 @@ function dreamGroup(wh: WorkingHousehold, p: PeriodicExpense, rank: number, coun
   ];
   return {
     key: k,
-    title: `夢${String(rank)}｜${name} ${dreamAmountText(h, p)} ${rowWhen(h, p)}${off ? "（計算に入れない）" : ""}`,
+    title: `夢${String(rank)}｜${name} ${dreamAmountText(h, p)} ${rowWhen(h, p)}${off ? DREAM_CANDIDATE : ""}`,
     ...(p.monthly === true ? { note: MONTHLY_NOTE } : {}),
     level: "simple",
     fields,
@@ -706,13 +718,14 @@ function dreamTemplateGroup(wh: WorkingHousehold): GroupDef {
   const ds = dreamRows(h);
   return {
     key: "ev/dreamTemplates",
-    title: "よくある夢（名前と時期だけ）",
+    title: "こんな夢はありませんか",
     level: "simple",
     chips: true,
+    chipsFull: true,
     fields: [],
     actions: DREAM_TEMPLATES.map((t): ActionDef => {
       const added = dreamAddedText(ds.filter((p) => dreamOfTemplate(t, p)).length, legacyDreamRows(h, t).length);
-      return { key: `ev/dream/template/${t.key}`, label: `＋ ${t.label}`, level: "simple", ...(t.help !== undefined ? { help: t.help } : {}), chip: { group: "夢", ...(added !== undefined ? { added } : {}) }, run: (w) => addDream(w, t) };
+      return { key: `ev/dream/template/${t.key}`, label: `＋ ${t.label}`, level: "simple", ...(t.help !== undefined ? { help: t.help } : {}), chip: { group: "", ...(added !== undefined ? { added } : {}) }, run: (w) => addDream(w, t) };
     }),
   };
 }
@@ -726,7 +739,7 @@ function dreamSection(wh: WorkingHousehold): SectionDef {
     note: `${ds.length === 0 ? "まだありません。" : ""}ご家族がかなえたいことを、上から順に並べます。${DREAM_NOTE}`,
     level: "simple",
     groups: [...ds.map((p, i) => dreamGroup(wh, p, i + 1, ds.length)), dreamTemplateGroup(wh)],
-    actions: [{ key: "ev/addDream", label: "＋ 夢を足す", help: "よくある夢に無い夢を、1回・1年後で足します（名前・額・時期を入れてください）", level: "simple", run: (w) => addDream(w) }],
+    actions: [{ key: "ev/addDream", label: "＋ 夢を足す", help: "上の例に無い夢を、1回・1年後で足します（名前・額・時期を入れてください）", level: "simple", run: (w) => addDream(w) }],
   };
 }
 

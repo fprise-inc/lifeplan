@@ -412,6 +412,8 @@ html.big .lever input[type="range"] { height: 36px; }
 .add-btn.chip-btn { border-radius: 999px; padding: 1px 10px; font-size: 0.8rem; font-weight: 600; }
 .add-btn.chip-btn:disabled { border-color: var(--line); color: var(--ink-2); cursor: default; background: #fff; }
 .in-chip-added { font-size: 0.76rem; color: var(--ink-2); }
+/* ほかの「＋」のボタンと同じ大きさのひな形（夢プラン。0103 の追記）: ボタンの間を少し広く */
+.in-chips.full .in-chips-list { gap: 8px 12px; }
 @media (max-width: 640px) { .in-chips-h { min-width: 0; flex-basis: 100%; } }
 .link-btn { background: none; border: 0; padding: 2px 4px; font-size: 0.82rem; cursor: pointer; text-decoration: underline; color: var(--ink-2); }
 .link-btn.danger { color: var(--short-ink); }

@@ -540,7 +540,7 @@ function Chips({ group, actions, wh, onEdit }: { group: GroupDef; actions: Actio
     else rows.push({ head, list: [a] });
   }
   return (
-    <div class="in-group in-chips" data-chips={group.key}>
+    <div class={`in-group in-chips${group.chipsFull === true ? " full" : ""}`} data-chips={group.key}>
       {group.title !== undefined ? <p class="in-chips-lead">{group.title}</p> : null}
       {rows.map((r) => (
         <div class="in-chips-row" key={r.head}>
@@ -551,7 +551,7 @@ function Chips({ group, actions, wh, onEdit }: { group: GroupDef; actions: Actio
                 <HelpOf help={actionHelp(a)}>
                   <button
                     type="button"
-                    class="add-btn chip-btn"
+                    class={group.chipsFull === true ? "add-btn" : "add-btn chip-btn"}
                     data-action={a.key}
                     disabled={a.chip?.disabled === true}
                     onClick={(e) => {
