@@ -78,8 +78,8 @@ describe("ライフイベントのひな形（小さなボタン。標準と詳�
     // 区画のボタンは「＋ ほかの支出を足す」の1つ（1回・何年ごと・その他のボタンはやめた）
     expect(outSection(wh).actions.map((a) => [a.key, a.label, a.level])).toEqual([["ev/addOther", "＋ ほかの支出を足す", "simple"]]);
     // 区画の説明: 起きること・備えを入れ、やりたいことはすぐ上の夢プラン。ふだんの旅行・帰省は基本生活費、ほかの物はそれぞれの入力項目
-    expect(outSection(wh).note).toContain("ここには、ご家族に起きること（結婚・成人式・葬儀・法事など）と備えを入れます。旅行・趣味・学び直しなど、ご家族のやりたいことはすぐ上の夢プランに入れます");
-    expect(outSection(wh).note).toContain("ふだんの旅行・帰省、家電・スマホの買い替えは基本生活費");
+    expect(outSection(wh).note).toContain("ご家族に起きること（結婚・成人式・葬儀・法事など）と備えを入れます。やりたいこと（旅行・趣味など）は上の夢プラン");
+    expect(outSection(wh).note).toContain("ふだんの旅行・家電の買い替えは基本生活費");
     expect(s.lead).toBe("夢プランと、ご家族に起きること・備えの一時的な収支（結婚・成人式・葬儀・法事・予備費・祝い金など）、世帯の予定の一覧。");
     expect(outSection(wh).note).toContain("住まい・車・教育・介護・贈与はそれぞれの入力項目");
     // 入るお金のひな形も小さなボタン

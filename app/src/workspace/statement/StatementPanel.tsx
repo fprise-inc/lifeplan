@@ -793,7 +793,7 @@ function SheetSection({ wh, log, an, office, host, customerNo, onLog, onLearn }:
       {asking ? (
         <div class="st-sheet-ask" role="alert" data-statement-sheet-warn>
           <IssueList issues={markSheetWarnings(plan)} info />
-          <p class="rp-note">シートには、使った日・店の名前・金額・カード／口座の呼び名・お使いになった方と、選ぶ欄（何に使ったか・どこに入るか・事業の割合・メモ）だけが載ります。お名前・世帯の番号は載りません。辞書で分からない店・区分だけが迷う店・カードの引き落としは、同じ持ち主・同じカード／口座の同じ店を1行にまとめ（期間・回数・合計を載せます）、答えはその店の行すべてに使います。高額の行などは1行ずつ載せます。</p>
+          <p class="rp-note">シートには、日付・店・金額・口座の呼び名・お使いになった方と、選ぶ欄だけが載ります（お名前・世帯の番号は載りません）。迷う店は同じ店を1行にまとめ（期間・回数・合計）、答えはその店の行すべてに使います。高額の行などは1行ずつ載せます。</p>
           <div class="rp-actions">
             <button type="button" class="btn primary" disabled={busy} onClick={() => void write()} data-statement-sheet-go>
               {busy ? "作っています…" : "分かったうえで書き出す"}

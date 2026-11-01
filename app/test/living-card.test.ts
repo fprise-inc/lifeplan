@@ -283,7 +283,7 @@ describe("総額と内訳（0048 の2・0100）", () => {
     expect(help("furniture")).toContain("家電・家具の買い替え");
     expect(help("communication")).toContain("スマホ・固定電話・ネット回線");
     expect(help("communication")).not.toContain("趣味・娯楽の中");
-    expect(help("recreation")).toContain("ネット回線の料金は「通信費」で入れます");
+    expect(help("recreation")).toContain("ネット回線は「通信費」");
     expect(help("recreation")).toContain("習い事の月謝");
     expect(help("other")).toContain("掛け捨ての保険料");
     expect(help("other")).toContain("保育の費用");
