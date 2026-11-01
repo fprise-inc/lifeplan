@@ -9,21 +9,23 @@ import { modelHousehold, realEngine } from "./helpers.ts";
 type Err = { error: { code: string; ids: string[] } };
 
 describe("制度データに値が無いとき（E_PARAM_NO_VALUE）の文", () => {
-  it("本物のエンジン: 計算基準月が2026年4月で今年度の住民税の決定額が無いと、2024年分の所得税の値が無く止まる。どの値のどの時期かと避け方を出す", () => {
+  it("本物のエンジン: 計算基準月が2026年4月で今年度の住民税の決定額が無くても止まらず、制度データより前の値を最初の行で計算したことを知らせる（0099。前は2024年分の所得税の値が無く止まった）", () => {
     const req = modelHousehold("salariedCoupleTwoKids");
     (req.input as { baseMonth: string }).baseMonth = "2026-04";
     (req.input.household as { residentTaxAssessments?: unknown[] }).residentTaxAssessments = [];
     const { engine, packs } = realEngine();
-    const out = JSON.parse(engine.runBatch(JSON.stringify([req]), packs, '{"preview":true}')) as Err[];
-    const e = out[0]!.error;
-    expect(e.code).toBe("E_PARAM_NO_VALUE");
-    expect(e.ids).toHaveLength(2);
+    const out = JSON.parse(engine.runBatch(JSON.stringify([req]), packs, '{"preview":true}')) as (Partial<Err> & { header?: { notices: { code: string; ids: string[] }[] } })[];
+    expect(out[0]!.error).toBeUndefined();
+    const back = out[0]!.header!.notices.filter((n) => n.code === "N_PARAM_BACKFILLED");
+    expect(back.length).toBeGreaterThan(0);
     // 引く日は計算基準月より前（2024年分の値は制度データにまだ無い）
-    expect(e.ids[1]! < "2025-01-01").toBe(true);
-    const [y, m] = e.ids[1]!.split("-").map(Number);
-    const text = engineErrorText(e.code, e.ids, req.input.baseMonth);
-    expect(text).toContain(`${y}年${m}月の時点の値がありません`);
-    expect(text).not.toContain(`「${e.ids[0]}」`); // 値 ID ではなく登録簿の名前
+    for (const n of back) expect(Number(n.ids[1]) < 2026, n.ids.join(" ")).toBe(true);
+  });
+
+  it("計算基準月より前の時期の値が無いときは、住民税の避け方を出す", () => {
+    const text = engineErrorText("E_PARAM_NO_VALUE", ["incomeTax.employmentIncomeDeduction", "2024-01-01"], "2026-04");
+    expect(text).toContain("2024年1月の時点の値がありません");
+    expect(text).not.toContain("「incomeTax.employmentIncomeDeduction」"); // 値 ID ではなく登録簿の名前
     expect(text).toContain("「働き方と収入」の項目で、住民税（今年度の年税額）が空の人に入れると計算できます");
   });
 
