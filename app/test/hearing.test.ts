@@ -197,8 +197,10 @@ describe("書き出しから取り込みまでの往復（画面の中の流れ�
     expect(r.view.candidates.filter((c) => c.group === "仕事と収入")).toEqual([]);
   });
 
-  it("顧客番号は英数字だけ（氏名を入れない）", async () => {
+  it("顧客番号は世帯の保存と同じ決まり（英数字・ハイフン・下線の16字まで。氏名を入れない）", async () => {
     await expect(exportSheet(blank(), { definition: defaultSheet(), prefill: false, customerNo: "山田", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-10-18", random: new Uint8Array(6) })).rejects.toThrow("E_HEARING_CUSTOMER_NO");
+    const r = await exportSheet(blank(), { definition: defaultSheet(), prefill: false, customerNo: "A_0042", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-10-18", random: new Uint8Array(6) });
+    expect(r.request.customerNo).toBe("A_0042");
   });
 
   it("壊れたファイル・.xlsx 以外は、分かる言葉で止まり、現状は変わらない", async () => {

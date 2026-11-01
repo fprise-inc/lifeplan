@@ -37,7 +37,7 @@ export interface ExportInput {
   definition: SheetDefinition;
   /** 前回の値を記入するか（0018 の9。暗号化されないシートに金額が載るので、画面で毎回警告してから） */
   prefill: boolean;
-  /** 表示用の顧客番号（英数字。氏名は入れない） */
+  /** 表示用の顧客番号（英数字・ハイフン・下線。氏名は入れない） */
   customerNo: string;
   office: OfficeInfo;
   appVersion: string;
@@ -53,7 +53,8 @@ export interface ExportOutput {
   issues: readonly Issue[];
 }
 
-export const CUSTOMER_NO_PATTERN = /^[A-Za-z0-9-]{1,16}$/;
+/** 顧客番号の決まり（世帯の保存と同じ: 英数字・ハイフン・下線の16字まで。氏名は入れない） */
+export const CUSTOMER_NO_PATTERN = /^[A-Za-z0-9_-]{1,16}$/;
 
 /**
  * 書き出すシートの種類: 通常（初回の前の軽い票。basic）・詳細（full）・見直し（詳細のシートに前回の値を記入する。0018 の9）。
