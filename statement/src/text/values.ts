@@ -46,6 +46,15 @@ function valid(y: number, m: number, d: number): string | null {
   return `${y}-${pad(m)}-${pad(d)}`;
 }
 
+/**
+ * 2桁の年を4桁に: 下2桁が同じ年のうち、今年の翌年までで一番近い年（明細の日付は先の年にならないため。翌年までは時計のずれを見込む）。
+ * 2026年に読むなら「26」は2026年、「27」は2027年、「28」〜「99」は1928〜1999年（1990年より前は日付として読まない）
+ */
+export function twoDigitYear(yy: number, thisYear: number = new Date().getFullYear()): number {
+  const limit = thisYear + 1;
+  return limit - ((((limit - yy) % 100) + 100) % 100);
+}
+
 export interface DateResult {
   /** YYYY-MM-DD */
   readonly date: string;
@@ -55,7 +64,7 @@ export interface DateResult {
 
 /**
  * 日付を YYYY-MM-DD に（読めなければ null）。年の無い月日（10/03）は yearHint で補う（補ったことを返す）。
- * 2桁の年は 2000 年代として読む。日の無い年月は読まない（使った日が要るため）
+ * 2桁の年は今年の翌年までのうち一番近い年として読む（twoDigitYear）。日の無い年月は読まない（使った日が要るため）
  */
 export function parseDate(raw: string, yearHint?: number): DateResult | null {
   // 後ろの時刻（空白か T の後の 12:34・12:34:56）は空白を取る前に外す（取った後だと「1 12:00」が「112:00」になり、日を「11」と読むため）
@@ -90,7 +99,7 @@ export function parseDate(raw: string, yearHint?: number): DateResult | null {
   }
   m = /^(\d{2})[/.-](\d{1,2})[/.-](\d{1,2})$/u.exec(s);
   if (m !== null) {
-    const d = valid(2000 + Number(m[1]), Number(m[2]), Number(m[3]));
+    const d = valid(twoDigitYear(Number(m[1])), Number(m[2]), Number(m[3]));
     return d === null ? null : { date: d, yearGuessed: false };
   }
   m = /^(\d{1,2})[/.\-月](\d{1,2})日?$/u.exec(s);
@@ -114,8 +123,9 @@ export function parseYearMonth(raw: string, yearHint?: number): string | null {
   }
   m = /^(\d{2})[/.-](\d{1,2})(?:[/.-]\d{1,2})?$/u.exec(s);
   if (m !== null) {
+    const y = twoDigitYear(Number(m[1]));
     const mo = Number(m[2]);
-    return mo >= 1 && mo <= 12 ? `${2000 + Number(m[1])}-${pad(mo)}` : null;
+    return y >= 1990 && mo >= 1 && mo <= 12 ? `${y}-${pad(mo)}` : null;
   }
   m = /^(\d{1,2})月$/u.exec(s);
   if (m !== null && yearHint !== undefined) {
