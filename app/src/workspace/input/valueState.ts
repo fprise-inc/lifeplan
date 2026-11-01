@@ -290,7 +290,8 @@ export function confirmAll(wh: WorkingHousehold, fields: readonly FieldDef[]): {
   let w = wh;
   let count = 0;
   for (const f of fields) {
-    if (fieldStatus(f, w).status !== "estimated") continue;
+    // 数えない推定（学校の種類で決まる統計の平均など。FieldDef の quietEstimate）は、まとめて確定にしない（1つずつ「この値にする」で）
+    if (f.quietEstimate !== undefined || fieldStatus(f, w).status !== "estimated") continue;
     const next = applyStateOp(w, f, "confirm");
     if (next !== w) count++;
     w = next;

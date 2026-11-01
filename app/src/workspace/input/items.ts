@@ -187,7 +187,7 @@ const ART_COLOR: Record<AddedItem["art"], string> = { pet: "#B0704E", abroad: "#
 const HINTS: Partial<Record<StageId, { missing?: string; est?: string }>> = {
   retirement: { missing: "入れなくても計算できます（退職金は無しで計算中）", est: "目安の退職金で計算中です" },
   pension: { est: "働き方の期間から推計して計算中です" },
-  education: { missing: "入れなくても計算できます（教育費は無しで計算中）", est: "学費は統計の平均（推定）で計算中です。志望校の額が分かれば詳細で入れられます" },
+  education: { missing: "入れなくても計算できます（教育費は無しで計算中）", est: "進路・奨学金などに推定のままの所があります（学費は学校の種類ごとの統計の平均で計算します）" },
   insurance: { missing: "入れなくても計算できます（保障は無しで計算中）" },
   rental: { missing: "入れなくても計算できます（貸している不動産は無しで計算中）" },
   events: { missing: "入れなくても計算できます（一時的な収支は無しで計算中）" },
@@ -515,7 +515,7 @@ function fieldCounts(stage: StageDef, wh: WorkingHousehold): { estimated: number
     seen.add(k);
     const s = fieldStatus(f, wh).status;
     if (s === "missing") missing++;
-    else if (s === "estimated" || s === "unknown") estimated++;
+    else if ((s === "estimated" && f.quietEstimate === undefined) || s === "unknown") estimated++;
     if (touchedField(f, wh, a)) touched++;
   }
   return { estimated, missing, touched };

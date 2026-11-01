@@ -177,3 +177,28 @@ describe("独立は最後の学校の終わり", () => {
     expect(wh.request.input.household.events!.find((e) => e.id === "ev-ind")!.at).toEqual({ memberAge: { member: child, years: 18, ageSwitch: "schoolYear" } });
   });
 });
+
+describe("推定の数え方（0062 の追記 2026-10-31）", () => {
+  it("学校の種類で決まる統計の平均は、欄に推定の印を出すが、入力項目の状態・確かめの一覧・まとめて確定では数えない。推定のままの進路は子ごとに1つ数える", async () => {
+    const { inputItems } = await import("../src/workspace/input/items.ts");
+    const { checkList } = await import("../src/workspace/input/checkRows.ts");
+    const { confirmAll } = await import("../src/workspace/input/valueState.ts");
+    const wh = fresh();
+    const g = goalOf(wh);
+    const u = g.education!.stages.findIndex((s) => s.stage === "university");
+    const annual = fieldOf(wh, `edu/${g.id}/stage/${u}/annual`);
+    expect(fieldStatus(annual, wh).status).toBe("estimated");
+    expect(annual.quietEstimate).toBeDefined();
+    const edu = inputItems(wh).find((i) => i.id === "education")!;
+    // 推定のまま数えるのは進路（推定の進路の型）の1つだけ
+    expect(edu.estimated).toBe(1);
+    const rows = checkList(wh).filter((r) => r.card === "education" && r.kind === "estimated");
+    expect(rows.length).toBe(1);
+    // まとめて確定にしても、統計の平均の欄は空欄のまま（学校の種類を変えれば推定が変わる）
+    const all = confirmAll(wh, fields(wh));
+    expect(goalOf(all.wh).education!.stages[u]!.annualOverride).toBeUndefined();
+    // 進路を確かめる（型を選び直す）と、子ども・教育に推定のまま数える欄は無い
+    const w2 = fieldOf(wh, "/preset").set(wh, "allPublic");
+    expect(inputItems(w2).find((i) => i.id === "education")!.estimated).toBe(0);
+  });
+});

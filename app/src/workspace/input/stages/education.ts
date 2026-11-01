@@ -366,10 +366,15 @@ export function dropStaleEstimates(prev: EducationStage, next: EducationStage, l
   if (next.entranceOverride !== undefined && isTertiary(prev.stage) && next.entranceOverride === entrance) delete next.entranceOverride;
 }
 
+/** 数えない推定の理由（学校の種類で決まる統計の平均） */
+const QUIET_STAT = "学校の種類で決まる統計の平均（進路を確かめれば、ここは数えない）";
+
 /** 空欄のとき推定の値を見せる（印「推定」・根拠・「この値にする」で書ける。0041）。est が null なら元の欄のまま */
 function withEstimate(f: FieldDef, est: (wh: WorkingHousehold) => { value: number; basis: string; hint: string } | null): FieldDef {
   return {
     ...f,
+    // 学校の種類（進路）を選べば決まる統計の平均なので、入力項目の状態・確かめの一覧では数えない（進路の推定は進路の欄で1つと数える。0062 の追記 2026-10-31）
+    quietEstimate: QUIET_STAT,
     get: (wh) => {
       const st = f.get(wh);
       if (st.value !== null) return st;
@@ -961,21 +966,25 @@ const ABROAD_STAGES = new Set(["highSchool", "university", "juniorCollege", "voc
 const ABROAD_SHORT: Readonly<Record<string, string>> = { credit: "1年（延びない）", leave: "1年（休学で延びる）", short: "短期" };
 
 /**
- * 留学1回の額の推定（今の値段）。留学の費用の平均を出す公的な統計は見つからないので、国の留学の支援制度の支給の上限から作った目安（0088）:
- * 文部科学省「トビタテ！留学JAPAN」の月額の奨学金（北米・欧州などの地域 月16万円）・留学準備金（その他の地域 25万円＋増額10万円）・
- * 大学生等の留学先の授業料（30万円）。1年は12か月、短期は1か月。単位が認められる大学の1年は、交換留学で留学先の授業料が免除されることが多いので
- * 授業料を入れない（在籍する大学の学費は払い続ける）。休学して留学する大学の1年は授業料を入れる（日本政策金融公庫の国の教育ローンの
- * 令和7年度の「外国の大学等」の1件当たりの平均融資額 261万円とほぼ同じ）
+ * 留学1回の額の推定（今の値段。0088 の追記 2026-10-31）
+ * - 大学など（短大・専門学校を含む）の1年: 文部科学省の委託調査「海外大学に長期留学する者の留学資金調達の現状に係る調査研究」（令和8年3月。
+ *   半年以上の留学をした学生・社会人へのWebアンケート、2025年9〜11月、有効回答875件）の図表2-34「学位取得以外（1年以上）」のひと月あたりの費用
+ *   （n=238。入学金・授業料・その他の教育関連費用 7万円、住居・光熱費・生活費・その他 17万円、合計 24万円）×12か月。休学して留学する1年は合計（288万円）、
+ *   単位が認められる1年は、交換留学で留学先の授業料が免除されることが多い（在籍する大学の学費は払い続ける）ので住居・生活費などだけ（204万円）
+ * - 高校の1年と短期: この調査は半年以上の大学などの留学だけなので、国の留学の支援制度（文部科学省「トビタテ！留学JAPAN」）の支給の上限から作った目安
+ *   （北米・欧州など: 月額の奨学金16万円×月数＋留学準備金35万円）
  */
 export function abroadEstimate(stage: string, kind: string): { value: number; basis: string } {
+  if (stage !== "highSchool" && kind !== "short") {
+    const value = kind === "leave" ? 240000 * 12 : 170000 * 12;
+    const what = kind === "leave" ? "ひと月あたりの合計 24万円（留学先の授業料などを含む）×12か月" : "ひと月あたりの住居・光熱費・生活費・その他 17万円×12か月（交換留学で留学先の授業料は免除が多いので入れない）";
+    return { value, basis: presetBasis(`文部科学省の委託調査（令和8年3月。2025年のWebアンケート875件）の、学位の取得でない1年以上の留学の${what}`) };
+  }
   const monthly = 160000;
   const prep = 250000 + 100000;
-  const tuition = 300000;
   const months = kind === "short" ? 1 : 12;
-  const withTuition = stage !== "highSchool" && kind === "leave";
-  const value = monthly * months + prep + (withTuition ? tuition : 0);
-  const parts = [`月額の奨学金 16万円×${months}か月`, "留学準備金 35万円", ...(withTuition ? ["留学先の授業料 30万円"] : [])];
-  return { value, basis: presetBasis(`国の留学の支援制度（文部科学省「トビタテ！留学JAPAN」）の支給の上限から作った目安: ${parts.join("・")}（北米・欧州など）`) };
+  const value = monthly * months + prep;
+  return { value, basis: presetBasis(`国の留学の支援制度（文部科学省「トビタテ！留学JAPAN」）の支給の上限から作った目安: 月額の奨学金 16万円×${months}か月・留学準備金 35万円（北米・欧州など）`) };
 }
 
 const abroadAddress = (goalId: string, id: string, f: string): Address => ({ target: { object: goalId }, item: "goal.education", at: ["abroad", id, f] });
@@ -1078,8 +1087,8 @@ const ABROAD_KIND_HELP =
   "大学は、交換留学・認定留学なら単位が認められて（大学設置基準第28条。60単位まで）卒業は延びず、休学して留学すると在学が1年延びます（休学の扱いは学校ごとの決まり）。" +
   "休学の年は、在籍する学校の学費・仕送りを計算しません（休学中の在籍料は入れていません）";
 const ABROAD_AMOUNT_HELP =
-  "渡航・滞在・留学先の学費などの合計（今の値段）。推定は、国の留学の支援制度（文部科学省「トビタテ！留学JAPAN」）の支給の上限（北米・欧州など: 月額の奨学金16万円・留学準備金35万円・大学生等の授業料30万円）から作った目安で、" +
-  "留学の費用の平均の公的な統計はありません。アジアなどは支援の月額が12万円・準備金21万円で、これより少なめです";
+  "渡航・滞在・留学先の学費などの合計（今の値段）。大学などの1年の推定は、文部科学省の委託調査（令和8年3月。半年以上の留学の経験者875件のWebアンケート）の、学位の取得でない1年以上の留学のひと月あたりの費用（合計24万円。うち授業料などは7万円）×12か月です。" +
+  "地域で違い、ひと月あたり北米39万円・オセアニア41万円・ヨーロッパ28万円・アジア19万円です。高校の1年と短期の推定は、国の留学の支援制度（トビタテ！留学JAPAN）の支給の上限（月額16万円・準備金35万円）から作った目安です";
 
 // ---- この子のお金の行（0044） ----
 
