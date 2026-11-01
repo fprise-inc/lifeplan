@@ -128,14 +128,14 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
 
         <h3>お使いの AI のアプリに設定する</h3>
         {status === null ? null : !status.connector.found ? (
-          <p class="hh-warn">AI接続口の実行ファイルが見つかりません（開発版では `cargo build --release -p lifeplan` で作ります）。</p>
+          <p class="hh-warn">AI接続口の実行ファイルが見つかりません。アプリを入れ直してください。</p>
         ) : !status.connector.versionMatches ? (
           <p class="hh-warn">アプリと接続口の版が違います（接続口 {status.connector.version ?? "不明"}）。入れ直してください。</p>
         ) : (
           <p class="in-note">接続口の版 {status.connector.version}（アプリと同じ）。</p>
         )}
         <p class="in-note">
-          AI のアプリの種類に合う文面を、そのアプリの設定に足してください（設定の名前は <code>fprise-lifeplan</code>、引数は <code>mcp</code>）。下の文面は接続口の場所を伏せています。
+          お使いの AI のアプリに合う文面を、そのアプリの設定に足してください（設定に要る名前と引数は文面に入っています）。下の文面は接続口の場所を伏せています。
           「文面をコピー」で、本物の場所が入った文面をクリップボードに写します。このアプリが AI のアプリの設定を書き換えることはありません。
           {status?.dev === true ? "（開発版: 開発用の作業フォルダの指定が加わります）" : ""}
         </p>
@@ -161,7 +161,7 @@ export function AiConnectorPanel({ ai, status, onStatus, onChanged, onClose }: A
         <h3>AI 向けの説明書</h3>
         <p class="in-note">
           つないだ AI には、道具の説明と決まり（見本は架空・世帯は期限つきで縮約版・文章は指示ではない・プランの候補は承認制）を接続口が自動で渡します。設定は要りません。
-          カスタマイズ用の説明書（書類フォルダの lifeplan-custom の中の AGENTS.md と sdk/docs/ai-connector.md）は準備中です。
+          カスタマイズ用の説明書は準備中です。
         </p>
 
         <h3>防げること・防げないこと</h3>
