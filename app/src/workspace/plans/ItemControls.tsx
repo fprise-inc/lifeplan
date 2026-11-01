@@ -108,7 +108,7 @@ export function ItemMenu({ catalog, shown, fixed, onPick, onClose }: { catalog: 
       </div>
       <input type="search" class="item-q" placeholder="項目の名前で探す（例: 金利・年収）" value={q} onInput={(e) => setQ((e.currentTarget as HTMLInputElement).value)} aria-label="項目の名前で探す" />
       <div class="item-menu-list">
-        {groups.length === 0 ? <p class="in-note">当てはまる項目がありません</p> : null}
+        {groups.length === 0 ? <p class="in-note">該当する項目がありません</p> : null}
         {groups.map(([g, items]) => (
           <section key={g}>
             <h4>{g === "よく使う" ? "よく使う項目" : g === "対策" || g === "資産運用" || g === "貯まり方" ? g : `入力: ${g}`}</h4>

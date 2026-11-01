@@ -600,7 +600,7 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         const x = (h.debts ?? []).find((y) => y.id === d.id);
         const hs = x?.housing;
         if (x === undefined || hs === undefined) {
-          if (balanceMode) return { value: creditNotApplicable(w, d.id) ? "控除は当てはまらない（該当なし）" : "今の残高から入れたローンは借りた年が分からないので、入居の年月を入れるまで控除を計算しません" };
+          if (balanceMode) return { value: creditNotApplicable(w, d.id) ? "控除は該当なし" : "今の残高から入れたローンは借りた年が分からないので、入居の年月を入れるまで控除を計算しません" };
           const ym = x === undefined ? null : resolveTimepoint(h, x.start);
           return { value: ym !== null && Number(ym.slice(0, 4)) < CREDIT_DATA_FROM_YEAR ? `${CREDIT_DATA_FROM_YEAR - 1}年以前に借りたローンの控除は計算しません` : "控除は計算しません" };
         }
@@ -1297,7 +1297,7 @@ export function loanMoreActions(wh: WorkingHousehold, d: Debt, k: string): Actio
     out.unshift(
       creditNotApplicable(wh, d.id)
         ? { key: `${k}/creditNa`, label: "住宅ローン控除の「該当なし」を外す", level: "simple", run: (w) => setCreditNotApplicable(w, d.id, false) }
-        : { key: `${k}/creditNa`, label: "住宅ローン控除は当てはまらない", level: "simple", title: "入居から13年を過ぎた・要件を満たさないなどで控除を受けないとき", run: (w) => setCreditNotApplicable(w, d.id, true) },
+        : { key: `${k}/creditNa`, label: "住宅ローン控除は該当なし", level: "simple", title: "入居から13年を過ぎた・要件を満たさないなどで控除を受けないとき", run: (w) => setCreditNotApplicable(w, d.id, true) },
     );
   return out;
 }

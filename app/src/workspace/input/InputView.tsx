@@ -75,7 +75,7 @@ interface Props {
 }
 
 /** 進み具合の状態の名前（絞り込みの文） */
-const STATUS_NAMES: Record<ItemStatus, string> = { missing: "未入力（0円の所あり）", done: "入力済み", est: "推定で計算中", na: "当てはまらない", empty: "まだ入れていない" };
+const STATUS_NAMES: Record<ItemStatus, string> = { missing: "未入力（0円の所あり）", done: "入力済み", est: "推定で計算中", na: "該当なし", empty: "まだ入れていない" };
 
 interface CardActions {
   /** 「当てはまらない」の1押し（プランの編集中は押せない。ボタンは出したまま、配置を動かさない） */
@@ -148,7 +148,7 @@ function Card({ item, onOpen, flash, diffs, acts }: { item: InputItem; onOpen: (
               ) : null}
               {showNa ? (
                 <button type="button" class="btn small" onClick={() => acts.onNa?.(item.id)} disabled={acts.onNa === undefined} {...(acts.onNa === undefined ? { title: CARD_ACT_OFF } : {})} data-card-na={item.id}>
-                  当てはまらない
+                  該当なし
                 </button>
               ) : null}
             </div>
@@ -410,7 +410,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
           onNa: (id) => {
             onSave(notApplicableCard(wh, id));
             setFlashId(id);
-            setToast(`「${items.find((i) => i.id === id)?.label ?? ""}」を当てはまらないにしました`);
+            setToast(`「${items.find((i) => i.id === id)?.label ?? ""}」を該当なしにしました`);
           },
           onFill: (id) => {
             onSave(fillCard(wh, id));
@@ -487,7 +487,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
               </button>
               ・
               <button type="button" class={`ih-prog-f${statusFilter === "na" ? " sel" : ""}`} aria-pressed={statusFilter === "na"} onClick={() => filterBy("na")} data-progress-filter="na">
-                当てはまらない <span class="n">{p.na}</span>
+                該当なし <span class="n">{p.na}</span>
               </button>
               ・
               <button type="button" class={`ih-prog-f${statusFilter === "empty" ? " sel" : ""}`} aria-pressed={statusFilter === "empty"} onClick={() => filterBy("empty")} data-progress-filter="empty">

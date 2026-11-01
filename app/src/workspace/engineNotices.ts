@@ -147,7 +147,7 @@ const FALLBACK: Readonly<Record<string, Msg>> = {
   N_ASSUMED: { kind: "assumed", text: "前提を置いて計算した所があります" },
   N_APPROXIMATED: { kind: "assumed", text: "近い値で計算した所があります" },
   N_LIMIT_APPLIED: { kind: "outside", text: "制度の上限で、額を抑えて計算した所があります" },
-  N_NOT_ENTITLED: { kind: "outside", text: "受け取る条件に当てはまらないので、0円にした給付があります" },
+  N_NOT_ENTITLED: { kind: "outside", text: "受け取る条件を満たさないので、0円にした給付があります" },
   N_NOT_ELIGIBLE: { kind: "outside", text: "対象外として計算した制度があります" },
 };
 

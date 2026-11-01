@@ -125,7 +125,7 @@ describe("入力項目を選ぶ（小さな一覧）", () => {
     expect(html).toContain('data-item-locked="rental"');
     expect(html).toMatch(/class="on" aria-pressed="true" data-item-level="rental:detail"/);
     expect(html).toMatch(/class="on" aria-pressed="true" data-item-level="work:simple"/);
-    for (const w of ["当てはまらない", "見せ方だけ", "事務所の既定値"]) expect(html).toContain(w);
+    for (const w of ["該当なし", "見せ方だけ", "事務所の既定値"]) expect(html).toContain(w);
   });
 
   it("開いたときの入れ方: 世帯の選び方の詳細で開く（パネルの切り替えはその場だけ）", () => {
