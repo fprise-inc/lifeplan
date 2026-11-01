@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { applyCandidates, buildCandidates, CATEGORIES, categoryInfo, classify, coveredDays, LIVING_ORDER, emptyLog, merchantKey, monthlyAverage, monthsText, paymentSchedule, summarize, type CandidateHousehold, type StatementAccount, type StatementLog, type StatementRow } from "../src/index.ts";
+import { applyCandidates, buildCandidates, BUILTIN, CATEGORIES, categoryInfo, classify, coveredDays, LIVING_ORDER, emptyLog, merchantKey, monthlyAverage, monthsText, paymentSchedule, summarize, type CandidateHousehold, type StatementAccount, type StatementLog, type StatementRow } from "../src/index.ts";
 import { BASE_MONTH, buildLog, HOUSEHOLD, ids, SELF, SPOUSE } from "./helpers.ts";
+
+/** 家具・家電の店（同梱の辞書の家具・家電の店の言葉をそのまま使う。テストに店の名前を書かない） */
+const [F0, F1] = BUILTIN.filter(([, c, m]) => c === "furniture" && m === undefined).map(([p]) => p) as [string, string];
 
 type RowIn = Partial<StatementRow> & { date: string; merchant: string; amount: number };
 
@@ -52,8 +55,8 @@ describe("月平均の出し方", () => {
 
   it("口座ごとの期間で割ってから足す（期間の違う明細を混ぜても少なく出ない）", () => {
     const log = synth([
-      { id: "a", kind: "card", label: "A", owner: SELF, period: YEAR, rows: monthly(10, "イオン 架空店", 30000) },
-      { id: "b", kind: "card", label: "B", owner: SPOUSE, period: { from: "2026-07-01", to: "2026-09-29" }, rows: [{ date: "2026-08-01", merchant: "イオン 架空店", amount: 30000 }] },
+      { id: "a", kind: "card", label: "A", owner: SELF, period: YEAR, rows: monthly(10, "ひかりスーパー みなみ店", 30000) },
+      { id: "b", kind: "card", label: "B", owner: SPOUSE, period: { from: "2026-07-01", to: "2026-09-29" }, rows: [{ date: "2026-08-01", merchant: "ひかりスーパー みなみ店", amount: 30000 }] },
     ]);
     const s = summaryOf(log);
     expect(s.coverage.map((c) => c.days)).toEqual([365, 91]);
@@ -70,7 +73,7 @@ describe("月平均の出し方", () => {
         label: "A",
         owner: SELF,
         period: YEAR,
-        rows: [...monthly(10, "NTTドコモ", 8800), ...monthly(10, "マツモトキヨシ", 2000), ...monthly(10, "架空学習塾", 20000), ...monthly(10, "架空の謎の店", 1000), ...monthly(10, "ENEOS", 6000)],
+        rows: [...monthly(10, "XYZ携帯", 8800), ...monthly(10, "みどりドラッグ", 2000), ...monthly(10, "架空学習塾", 20000), ...monthly(10, "架空の謎の店", 1000), ...monthly(10, "みどりガソリン", 6000)],
       },
     ]);
     const s = summaryOf(log);
@@ -129,17 +132,17 @@ describe("月平均の出し方", () => {
   });
 
   it("事業の割合で分けた分は家計から外し、持ち主ごとに別に出す", () => {
-    const log = synth([{ id: "w", kind: "card", label: "妻", owner: SPOUSE, period: YEAR, rows: monthly(10, "NTTドコモ", 8800).map((r) => ({ ...r, bucket: "business" as const, share: "0.6", decidedAt: "x" })) }]);
+    const log = synth([{ id: "w", kind: "card", label: "妻", owner: SPOUSE, period: YEAR, rows: monthly(10, "XYZ携帯", 8800).map((r) => ({ ...r, bucket: "business" as const, share: "0.6", decidedAt: "x" })) }]);
     const s = summaryOf(log);
     expect(s.living[0]).toMatchObject({ category: "communication", monthly: monthlyAverage(12 * 3520, 365) });
     expect(s.outside).toEqual([{ owner: SPOUSE, bucket: "business", monthly: monthlyAverage(12 * 5280, 365) }]);
   });
 
   it("12か月に満たない期間の注意（3か月未満は強い注意・季節で変わる項目の注意）", () => {
-    const short = synth([{ id: "a", kind: "card", label: "A", owner: SELF, period: { from: "2026-08-01", to: "2026-09-29" }, rows: [{ date: "2026-08-12", merchant: "東京電力", amount: 12000 }] }]);
+    const short = synth([{ id: "a", kind: "card", label: "A", owner: SELF, period: { from: "2026-08-01", to: "2026-09-29" }, rows: [{ date: "2026-08-12", merchant: "みどり電力", amount: 12000 }] }]);
     const s = summaryOf(short);
     expect(s.notices.map((n) => n.code)).toEqual(expect.arrayContaining(["S_VERY_SHORT_PERIOD", "S_SEASONAL"]));
-    const half = synth([{ id: "a", kind: "card", label: "A", owner: SELF, period: { from: "2026-04-01", to: "2026-09-30" }, rows: [{ date: "2026-08-12", merchant: "イオン", amount: 12000 }] }]);
+    const half = synth([{ id: "a", kind: "card", label: "A", owner: SELF, period: { from: "2026-04-01", to: "2026-09-30" }, rows: [{ date: "2026-08-12", merchant: "ひかりスーパー", amount: 12000 }] }]);
     const s2 = summaryOf(half);
     expect(s2.notices.map((n) => n.code)).toContain("S_SHORT_PERIOD");
     expect(s2.notices.map((n) => n.code)).not.toContain("S_SEASONAL");
@@ -176,8 +179,8 @@ describe("払う月の分け方（使った日と払う月のずれ）", () => {
         period: { from: "2026-01-01", to: "2026-03-31" },
         rows: [
           { date: "2026-01-15", merchant: "架空家電", amount: 100000, plan: { kind: "installment", count: 3 }, payMonth: "2026-02" },
-          { date: "2026-01-20", merchant: "イオン", amount: 5000, payMonth: "2026-02" },
-          { date: "2026-02-20", merchant: "イオン", amount: 3000 },
+          { date: "2026-01-20", merchant: "ひかりスーパー", amount: 5000, payMonth: "2026-02" },
+          { date: "2026-02-20", merchant: "ひかりスーパー", amount: 3000 },
           { date: "2026-03-01", merchant: "架空リボ", amount: 9000, plan: { kind: "revolving" } },
         ],
       },
@@ -214,8 +217,8 @@ describe("候補", () => {
         owner: SELF,
         period: YEAR,
         rows: [
-          ...monthly(10, "イオン 架空店", 30000),
-          ...monthly(10, "NTTドコモ", 8800),
+          ...monthly(10, "ひかりスーパー みなみ店", 30000),
+          ...monthly(10, "XYZ携帯", 8800),
           { date: "2026-05-08", merchant: "自動車税 架空県", amount: 39500 },
           { date: "2024-03-01", merchant: "架空車検センター", amount: 98000 },
           { date: "2026-03-05", merchant: "架空車検センター", amount: 102000 },
@@ -257,7 +260,7 @@ describe("候補", () => {
         label: "A",
         owner: SELF,
         period: YEAR,
-        rows: [...monthly(10, "イオン 架空店", 30000), { date: "2024-12-10", merchant: "架空管理組合 修繕積立金", amount: 150000 }, { date: "2025-12-10", merchant: "架空管理組合 修繕積立金", amount: 150000 }],
+        rows: [...monthly(10, "ひかりスーパー みなみ店", 30000), { date: "2024-12-10", merchant: "架空管理組合 修繕積立金", amount: 150000 }, { date: "2025-12-10", merchant: "架空管理組合 修繕積立金", amount: 150000 }],
       },
     ]);
     const cands = buildCandidates(summaryOf(log), {}, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids("c") });
@@ -283,13 +286,13 @@ describe("候補", () => {
   it("世帯の前の分け方の内訳（交通・通信費、その他の消費）は、それを分けた今の内訳が明細に出てくれば置き換え、出てこなければ残す", () => {
     const box = (v: number) => ({ value: v, state: "confirmed" as const, origin: { kind: "manual" } });
     const old: CandidateHousehold = { livingExpenses: [{ id: "le1", mode: "byCategory", categories: [{ category: "food", monthly: box(50000) }, { category: "transport", monthly: box(20000) }, { category: "otherConsumption", monthly: box(30000) }] }] };
-    // 通信（NTTドコモ）が出てくる → 交通・通信費は置き換える。こづかい・その他は出てこない → その他の消費は残す
+    // 通信（XYZ携帯）が出てくる → 交通・通信費は置き換える。こづかい・その他は出てこない → その他の消費は残す
     const c = buildCandidates(summaryOf(yearLog()), old, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids() })[0];
     expect((c?.value as { category: string }[]).map((x) => x.category)).toEqual(["food", "communication", "otherConsumption"]);
     expect(c?.note).toContain("前の分け方の交通・通信費は、明細の通信費で置き換えます");
     expect(c?.note).toContain("明細に出てこない内訳（その他の消費（こづかい・交際費など））は今の値を残します");
     // 交際（居酒屋）が出てくる → その他の消費も置き換える
-    const social = synth([{ id: "a", kind: "card", label: "A", owner: SELF, period: YEAR, rows: [...monthly(10, "イオン 架空店", 30000), ...monthly(10, "架空居酒屋", 4000)] }]);
+    const social = synth([{ id: "a", kind: "card", label: "A", owner: SELF, period: YEAR, rows: [...monthly(10, "ひかりスーパー みなみ店", 30000), ...monthly(10, "架空居酒屋", 4000)] }]);
     const c2 = buildCandidates(summaryOf(social), old, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids() })[0];
     expect((c2?.value as { category: string }[]).map((x) => x.category)).toEqual(["food", "pocketAndSocial", "transport"]);
     expect(c2?.note).toContain("前の分け方のその他の消費（こづかい・交際費など）は、明細のこづかい・交際費で置き換えます");
@@ -304,10 +307,10 @@ describe("候補", () => {
         owner: SELF,
         period: YEAR,
         rows: [
-          ...monthly(10, "イオン 架空店", 30000),
-          ...monthly(10, "ニトリ 架空店", 2000),
-          { date: "2026-02-11", merchant: "ニトリ 架空店", amount: 59800 },
-          { date: "2026-06-20", merchant: "ヤマダデンキ 架空店", amount: 128000 },
+          ...monthly(10, "ひかりスーパー みなみ店", 30000),
+          ...monthly(10, `${F0} みなみ店`, 2000),
+          { date: "2026-02-11", merchant: `${F0} みなみ店`, amount: 59800 },
+          { date: "2026-06-20", merchant: `${F1} 駅前店`, amount: 128000 },
         ],
       },
     ]);
@@ -315,8 +318,8 @@ describe("候補", () => {
     // 日用品は小さな買い物だけ
     expect(s.living.find((l) => l.category === "furniture")?.monthly).toBe(monthlyAverage(24000, 365));
     expect(s.oneOffs.filter((o) => o.durable === true).map((o) => [o.key, o.amount])).toEqual([
-      [merchantKey("ヤマダデンキ"), 128000],
-      [merchantKey("ニトリ"), 59800],
+      [merchantKey(F1), 128000],
+      [merchantKey(F0), 59800],
     ]);
     expect(s.notices.find((n) => n.code === "S_DURABLE")?.message).toContain("2 件（合計 187,800円）");
     const cands = buildCandidates(s, {}, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids("c") });
@@ -325,7 +328,7 @@ describe("候補", () => {
     const d = cands[1];
     expect(d).toMatchObject({ collection: "periodicExpenses", op: "add", status: "needsReview" });
     expect(d?.value).toMatchObject({ label: "家電・家具の買い替え", kind: "livingAnnual", row: "cf.expense.living", everyYears: 8, from: { at: "2034-06" }, to: null, amount: { value: 187800, state: "estimated", origin: { kind: "import", ref: "stmt-1" }, estimate: { method: "statementAnnual" } } });
-    expect(d?.note).toContain("2026-02-11 ニトリ");
+    expect(d?.note).toContain(`2026-02-11 ${F0}`);
     expect(d?.note).toContain("3万円未満の買い物は日用品のまま");
     expect(d?.note).not.toContain("すでにあります");
     // 世帯にもう家電・家具の支出があれば、そう書く
@@ -343,7 +346,7 @@ describe("候補", () => {
         label: "A",
         owner: SELF,
         period: YEAR,
-        rows: [...monthly(10, "ニトリ 架空店", 2000), { date: "2026-02-11", merchant: "ニトリ 架空店", amount: 80000 }, { date: "2026-02-25", merchant: "ニトリ 架空店", amount: -20000 }],
+        rows: [...monthly(10, `${F0} みなみ店`, 2000), { date: "2026-02-11", merchant: `${F0} みなみ店`, amount: 80000 }, { date: "2026-02-25", merchant: `${F0} みなみ店`, amount: -20000 }],
       },
     ]);
     const s = summaryOf(log);
@@ -377,9 +380,9 @@ describe("候補", () => {
   });
 
   it("期間が短い・迷う行が残るときは要確認", () => {
-    const short = synth([{ id: "a", kind: "card", label: "A", owner: SELF, period: { from: "2026-08-01", to: "2026-09-29" }, rows: [{ date: "2026-08-12", merchant: "イオン", amount: 12000 }] }]);
+    const short = synth([{ id: "a", kind: "card", label: "A", owner: SELF, period: { from: "2026-08-01", to: "2026-09-29" }, rows: [{ date: "2026-08-12", merchant: "ひかりスーパー", amount: 12000 }] }]);
     expect(buildCandidates(summaryOf(short), {}, { ref: "r", baseMonth: BASE_MONTH, newId: ids() })[0]?.status).toBe("needsReview");
-    const unknown = synth([{ id: "a", kind: "card", label: "A", owner: SELF, period: YEAR, rows: [...monthly(10, "イオン", 1000), { date: "2026-01-01", merchant: "架空の謎の店", amount: 500 }] }]);
+    const unknown = synth([{ id: "a", kind: "card", label: "A", owner: SELF, period: YEAR, rows: [...monthly(10, "ひかりスーパー", 1000), { date: "2026-01-01", merchant: "架空の謎の店", amount: 500 }] }]);
     const c = buildCandidates(summaryOf(unknown), {}, { ref: "r", baseMonth: BASE_MONTH, newId: ids() })[0];
     expect(c?.status).toBe("needsReview");
     expect(c?.note).toContain("迷う行が 1 行");

@@ -29,7 +29,7 @@ describe("カード番号・口座番号らしき数字を読んだ時点で消�
     ["お客様番号 0009876543", `お客様番号 ${MASK}`],
     ["普通 1234567", `普通 ${MASK}`],
     ["電話 03-1234-5678", `電話 ${MASK}`],
-    ["ｾﾌﾞﾝｲﾚﾌﾞﾝ 店番号123", "セブンイレブン 店番号123"],
+    ["ｱｵﾊﾞﾏｰﾄ 店番号123", "アオバマート 店番号123"],
   ])("%s", (raw, want) => expect(maskText(raw).text).toBe(want));
 
   it("日付・金額として読める欄はそのまま（10桁以上の数は金額として読まない）", () => {
@@ -72,7 +72,8 @@ describe("カード番号・口座番号らしき数字を読んだ時点で消�
 
   it("振込の相手の名前は残さない", async () => {
     const out = await read("bank-utf8.csv", "bank");
-    expect(JSON.stringify(out.rows)).not.toContain("ヤマダ");
+    expect(JSON.stringify(out.rows)).not.toContain("ミドリ タロウ");
+    expect(JSON.stringify(out.rows)).not.toContain("タロウ");
     expect(out.rows.some((r) => r.merchant === "振込（相手の名前は残しません）")).toBe(true);
   });
 });
@@ -87,9 +88,9 @@ describe("文字コードと列の対応付け", () => {
     expect(out.needsMapping).toBe(true);
     expect(out.rows).toHaveLength(81);
     expect(out.skipped).toBe(1);
-    const tv = out.rows.find((r) => r.merchant.startsWith("ヤマダデンキ"));
+    const tv = out.rows.find((r) => r.merchant.startsWith("あおばホームセンター"));
     expect(tv).toMatchObject({ date: "2026-01-15", amount: 90000, payAmount: 30000, payMonth: "2026-02", plan: { kind: "installment", count: 3 } });
-    expect(out.rows.find((r) => r.amount < 0)).toMatchObject({ merchant: "ユニクロ 架空店", amount: -5990 });
+    expect(out.rows.find((r) => r.amount < 0)).toMatchObject({ merchant: "そよかぜクリーニング 駅前店", amount: -5990 });
     expect(out.rows.filter((r) => r.cardUser === "family")).toHaveLength(12);
   });
 
@@ -132,7 +133,7 @@ describe("文字コードと列の対応付け", () => {
     const out = await read("card-sjis-2026-05.csv", "card");
     expect(out.encoding).toBe("shift_jis");
     expect(out.rows[0]).toMatchObject({ merchant: "カクウデンキ ホンテン", amount: 60000, payAmount: 20000, plan: { kind: "installment", count: 3, index: 2 } });
-    expect(out.rows[1]).toMatchObject({ merchant: "セブンイレブン カクウエキマエテン", amount: 540 });
+    expect(out.rows[1]).toMatchObject({ merchant: "アオバマート ミドリエキマエテン", amount: 540 });
   });
 
   it("銀行の明細は出金・入金の2列（入金は負）", async () => {
@@ -280,10 +281,10 @@ describe("PDF（文字の入ったもの）", () => {
     const out = await read("card-statement.pdf", "card");
     expect(out.reader.id).toBe("pdfText");
     expect(out.rows.map((r) => [r.date, r.merchant, r.amount])).toEqual([
-      ["2026-09-02", "ファミリーマート 架空店", 756],
-      ["2026-09-06", "ガスト 架空店", 2849],
-      ["2026-09-14", "ソフトバンク", 6578],
-      ["2026-09-21", "ENEOS 架空SS", 5400],
+      ["2026-09-02", "あおばマート みどり店", 756],
+      ["2026-09-06", "ひかり食堂 駅前店", 2849],
+      ["2026-09-14", "XYZ携帯", 6578],
+      ["2026-09-21", "みどりガソリン みなみSS", 5400],
       ["2026-09-27", "架空ホテル 湖畔", 48000],
     ]);
     expect(out.skipped).toBe(1);
@@ -293,8 +294,8 @@ describe("PDF（文字の入ったもの）", () => {
     const out = await read("card-lines.pdf", "card");
     expect(out.mappingSource).toBe("reader");
     expect(out.rows.map((r) => [r.date, r.merchant, r.amount, r.plan?.kind ?? null])).toEqual([
-      ["2025-12-03", "ローソン 架空店", 620, "lump"],
-      ["2025-12-15", "楽天モバイル", 3278, null],
+      ["2025-12-03", "ひかりマート みなみ店", 620, "lump"],
+      ["2025-12-15", "ほしぞら携帯", 3278, null],
       ["2025-12-30", "架空スポーツクラブ", 33000, "installment"],
     ]);
   });
@@ -342,9 +343,9 @@ describe("合計の行", () => {
   });
 
   it("合計の言葉で始まる・含む店の名前は、明細として読む", async () => {
-    const csv = ["利用日,利用店名,利用金額", "2026/10/03,合計屋 架空店,1200", "2026/10/05,架空トータルサービス,500", "2026/10/06,架空ストア（請求書払い）,300"].join("\n");
+    const csv = ["利用日,利用店名,利用金額", "2026/10/03,合計屋 みなみ店,1200", "2026/10/05,架空トータルサービス,500", "2026/10/06,架空ストア（請求書払い）,300"].join("\n");
     const out = await readStatement(new TextEncoder().encode(csv), { kind: "card", fileName: "a.csv" });
     if (!out.ok) throw new Error("読めない");
-    expect(out.rows.map((r) => r.merchant)).toEqual(["合計屋 架空店", "架空トータルサービス", "架空ストア(請求書払い)"]);
+    expect(out.rows.map((r) => r.merchant)).toEqual(["合計屋 みなみ店", "架空トータルサービス", "架空ストア(請求書払い)"]);
   });
 });

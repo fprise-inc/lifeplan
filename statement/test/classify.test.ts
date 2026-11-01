@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addRule, bucketsOf, classify, createImport, DURABLE_MIN, emptyLog, merchantKey, readStatement, splitByShare, workStyleAt, type ClassifiedRow, type HouseholdLike, type StatementAccount, type StatementLog, type StatementRow } from "../src/index.ts";
+import { addRule, bucketsOf, BUILTIN, CARD_ISSUERS, classify, createImport, DURABLE_MIN, emptyLog, merchantKey, readStatement, splitByShare, workStyleAt, type ClassifiedRow, type HouseholdLike, type StatementAccount, type StatementLog, type StatementRow } from "../src/index.ts";
 import { BASE_MONTH, buildLog, CHILD, HOUSEHOLD, SELF, SPOUSE } from "./helpers.ts";
 
 type RowIn = Partial<StatementRow> & { date: string; merchant: string; amount: number };
@@ -62,11 +62,11 @@ describe("働き方と区分", () => {
 
   it("複数の働き方の世帯: 行の持ち主の働き方で区分が変わる（夫は会社員・妻は個人事業主）", () => {
     const log = synth([
-      { id: "h", kind: "card", label: "夫のカード", owner: SELF, rows: [{ date: "2026-09-01", merchant: "NTTドコモ", amount: 8800, bucket: "business", share: "0.6", decidedAt: "x" }, { date: "2026-09-02", merchant: "架空タクシー", amount: 3000, bucket: "reimbursable", decidedAt: "x" }] },
-      { id: "w", kind: "card", label: "妻のカード", owner: SPOUSE, rows: [{ date: "2026-09-01", merchant: "NTTドコモ", amount: 8800, bucket: "business", share: "0.6", decidedAt: "x" }, { date: "2026-09-02", merchant: "架空タクシー", amount: 3000, bucket: "reimbursable", decidedAt: "x" }] },
+      { id: "h", kind: "card", label: "夫のカード", owner: SELF, rows: [{ date: "2026-09-01", merchant: "XYZ携帯", amount: 8800, bucket: "business", share: "0.6", decidedAt: "x" }, { date: "2026-09-02", merchant: "架空タクシー", amount: 3000, bucket: "reimbursable", decidedAt: "x" }] },
+      { id: "w", kind: "card", label: "妻のカード", owner: SPOUSE, rows: [{ date: "2026-09-01", merchant: "XYZ携帯", amount: 8800, bucket: "business", share: "0.6", decidedAt: "x" }, { date: "2026-09-02", merchant: "架空タクシー", amount: 3000, bucket: "reimbursable", decidedAt: "x" }] },
     ]);
     const rows = run(log);
-    const [hDocomo, wDocomo] = find(rows, "NTTドコモ") as [ClassifiedRow, ClassifiedRow];
+    const [hDocomo, wDocomo] = find(rows, "XYZ携帯") as [ClassifiedRow, ClassifiedRow];
     const [hTaxi, wTaxi] = find(rows, "架空タクシー") as [ClassifiedRow, ClassifiedRow];
     // 夫（会社員）は事業を選べない → 自動の区分に戻し、印を付ける
     expect(hDocomo.bucket).toBe("household");
@@ -95,7 +95,7 @@ describe("働き方と区分", () => {
 
   it("法人役員は会社の経費", () => {
     const exec: HouseholdLike = { members: [{ id: SELF, kind: "self" }], employmentPeriods: [{ member: SELF, from: { at: "2010-01" }, to: null, type: "executive" }] };
-    const log = synth([{ id: "h", kind: "card", label: "カード", owner: SELF, rows: [{ date: "2026-09-01", merchant: "架空会食", amount: 12000, bucket: "company", decidedAt: "x" }, { date: "2026-09-02", merchant: "ソフトバンク", amount: 6000 }] }]);
+    const log = synth([{ id: "h", kind: "card", label: "カード", owner: SELF, rows: [{ date: "2026-09-01", merchant: "架空会食", amount: 12000, bucket: "company", decidedAt: "x" }, { date: "2026-09-02", merchant: "ほしぞら携帯", amount: 6000 }] }]);
     const rows = run(log, exec);
     expect(rows[0]).toMatchObject({ bucket: "company", parts: { company: 12000 } });
     // 役員・個人事業主の通信・交通などは「区分が決まらない」の印
@@ -104,11 +104,11 @@ describe("働き方と区分", () => {
 
   it("世帯の決まり: 店の鍵の決まりは項目の決まりより強く、持ち主を決めた決まりはその人の行だけ", () => {
     let log = synth([
-      { id: "w", kind: "card", label: "妻", owner: SPOUSE, rows: [{ date: "2026-09-01", merchant: "ソフトバンク", amount: 6000 }, { date: "2026-09-02", merchant: "NTTドコモ", amount: 8000 }] },
-      { id: "h", kind: "card", label: "夫", owner: SELF, rows: [{ date: "2026-09-01", merchant: "ソフトバンク", amount: 6000 }] },
+      { id: "w", kind: "card", label: "妻", owner: SPOUSE, rows: [{ date: "2026-09-01", merchant: "ほしぞら携帯", amount: 6000 }, { date: "2026-09-02", merchant: "XYZ携帯", amount: 8000 }] },
+      { id: "h", kind: "card", label: "夫", owner: SELF, rows: [{ date: "2026-09-01", merchant: "ほしぞら携帯", amount: 6000 }] },
     ]);
     log = addRule(log, { id: "r1", match: { category: "communication" }, owner: SPOUSE, bucket: "business", share: "0.6", at: "x" });
-    log = addRule(log, { id: "r2", match: { key: merchantKey("NTTドコモ") }, owner: SPOUSE, bucket: "business", share: "0.3", at: "x" });
+    log = addRule(log, { id: "r2", match: { key: merchantKey("XYZ携帯") }, owner: SPOUSE, bucket: "business", share: "0.3", at: "x" });
     const rows = run(log);
     expect(rows[0]).toMatchObject({ bucketSource: "rule", parts: { business: 3600, household: 2400 } });
     expect(rows[1]).toMatchObject({ bucketSource: "rule", parts: { business: 2400, household: 5600 } });
@@ -126,32 +126,34 @@ describe("カードならではの扱い（二重に数えない）", () => {
       { name: "bank-utf8.csv", kind: "bank", account: "bank", owner: SELF },
     ]);
     const rows = run(withCard);
-    const pays = find(rows, "ミツイスミトモカード");
+    const pays = find(rows, "アオバカード");
     expect(pays).toHaveLength(12);
     expect(pays.every((r) => r.bucket === "excluded" && r.flags.includes("cardPaymentExcluded") && !r.review)).toBe(true);
 
     const bankOnly = await buildLog([{ name: "bank-utf8.csv", kind: "bank", account: "bank", owner: SELF }]);
-    const kept = find(run(bankOnly), "ミツイスミトモカード");
+    const kept = find(run(bankOnly), "アオバカード");
     expect(kept.every((r) => r.bucket === "household" && r.flags.includes("cardPaymentKept") && r.review)).toBe(true);
   });
 
-  it("カード会社を決めたカードの明細は、同じカード会社の引き落としだけを除外する", async () => {
-    const log = await buildLog([
-      { name: "card-year-utf8bom.csv", kind: "card", account: "cardA", owner: SELF },
-      { name: "bank-utf8.csv", kind: "bank", account: "bank", owner: SELF },
+  it("カード会社を決めたカードの明細は、同じカード会社の引き落としだけを除外する", () => {
+    // 引き落としの名前は同梱の辞書のカード会社の言葉（銀行の明細に出る形）をそのまま使う
+    const [a, b] = CARD_ISSUERS.slice(0, 2) as [(typeof CARD_ISSUERS)[number], (typeof CARD_ISSUERS)[number]];
+    const log = synth([
+      { id: "cardA", kind: "card", label: "カード", owner: SELF, rows: [{ date: "2026-01-05", merchant: "架空商店", amount: 1000 }], period: { from: "2026-01-01", to: "2026-01-31" } },
+      { id: "bank", kind: "bank", label: "銀行", owner: SELF, rows: [{ date: "2026-02-10", merchant: a.patterns[0] as string, amount: 1000 }, { date: "2026-02-12", merchant: b.patterns[0] as string, amount: 2000 }] },
     ]);
-    const withIssuer = { ...log, accounts: log.accounts.map((a) => (a.id === "cardA" ? { ...a, issuer: "smbc" } : a)) };
+    const withIssuer = { ...log, accounts: log.accounts.map((x) => (x.id === "cardA" ? { ...x, issuer: a.id } : x)) };
     const rows = run(withIssuer);
-    expect(find(rows, "ミツイスミトモカード").every((r) => r.flags.includes("cardPaymentExcluded"))).toBe(true);
-    expect(one(rows, "ラクテンカード").flags).toContain("cardPaymentKept");
+    expect(one(rows, a.patterns[0] as string).flags).toContain("cardPaymentExcluded");
+    expect(one(rows, b.patterns[0] as string).flags).toContain("cardPaymentKept");
     // カード会社を決めていなければ、どの引き落としもそのカードの明細で覆う
-    expect(one(run(log), "ラクテンカード").flags).toContain("cardPaymentExcluded");
+    expect(one(run(log), b.patterns[0] as string).flags).toContain("cardPaymentExcluded");
   });
 
   it("引き落としの頃をカードの明細が覆っていなければ除外しない（期間の外）", () => {
     const log = synth([
       { id: "c", kind: "card", label: "カード", owner: SELF, rows: [{ date: "2026-01-05", merchant: "架空商店", amount: 1000 }], period: { from: "2026-01-01", to: "2026-01-31" } },
-      { id: "b", kind: "bank", label: "銀行", owner: SELF, rows: [{ date: "2026-02-10", merchant: "ミツイスミトモカード", amount: 1000 }, { date: "2026-06-10", merchant: "ミツイスミトモカード", amount: 5000 }] },
+      { id: "b", kind: "bank", label: "銀行", owner: SELF, rows: [{ date: "2026-02-10", merchant: "アオバカード", amount: 1000 }, { date: "2026-06-10", merchant: "アオバカード", amount: 5000 }] },
     ]);
     const rows = run(log);
     expect(rows[1]?.flags).toContain("cardPaymentExcluded");
@@ -198,7 +200,7 @@ describe("カードならではの扱い（二重に数えない）", () => {
 
   it("返品・取り消しは元の行と組にして数えない。元の行が無ければ差し引いて印を付ける", async () => {
     const log = await buildLog([{ name: "card-year-utf8bom.csv", kind: "card", account: "cardA", owner: SELF }]);
-    const uniqlo = find(run(log), "ユニクロ");
+    const uniqlo = find(run(log), "そよかぜクリーニング");
     expect(uniqlo.map((r) => [r.row.amount, r.counted, r.flags.includes("refund")])).toEqual([
       [5990, false, true],
       [-5990, false, true],
@@ -229,7 +231,7 @@ describe("年1回の支払い", () => {
     // 印の無い3万円以上の1回だけの支払い（年払いの保険料）も候補
     expect(one(rows, "架空保険料")).toMatchObject({ bucket: "oneOff", annual: { confidence: "medium" } });
     // ふだんの買い物（食費）は年1回にしない
-    expect(find(rows, "イオン").every((r) => r.annual === undefined)).toBe(true);
+    expect(find(rows, "ひかりスーパー").every((r) => r.annual === undefined)).toBe(true);
   });
 
   it("同じ店で約1年おき・似た額なら確かさ高、約2年おきなら2年に1回", () => {
@@ -312,6 +314,8 @@ describe("迷う行と自動の区分", () => {
   });
 
   it("家電・家具の店の3万円以上の買い物は一時的（家電・家具の買い替えの候補）、3万円未満と日用品の店は家計のまま", () => {
+    // 家具・家電の店は、同梱の辞書の家具・家電の店の言葉（店の名前）をそのまま使う
+    const furniture = BUILTIN.filter(([, c, m]) => c === "furniture" && m === undefined).map(([p]) => p);
     const rows = run(
       synth([
         {
@@ -321,13 +325,13 @@ describe("迷う行と自動の区分", () => {
           owner: SELF,
           period: { from: "2025-10-01", to: "2026-09-30" },
           rows: [
-            { date: "2026-03-10", merchant: "ニトリ 架空店", amount: 59800 },
-            { date: "2026-04-10", merchant: "ニトリ 架空店", amount: 2980 },
-            { date: "2026-05-10", merchant: "ヤマダデンキ 架空店", amount: DURABLE_MIN },
-            { date: "2026-06-10", merchant: "ヤマダデンキ 架空店", amount: DURABLE_MIN - 1 },
-            { date: "2026-07-10", merchant: "マツモトキヨシ 架空店", amount: 35000 },
+            { date: "2026-03-10", merchant: `${furniture[0]} みなみ店`, amount: 59800 },
+            { date: "2026-04-10", merchant: `${furniture[0]} みなみ店`, amount: 2980 },
+            { date: "2026-05-10", merchant: `${furniture[1]} 駅前店`, amount: DURABLE_MIN },
+            { date: "2026-06-10", merchant: `${furniture[1]} 駅前店`, amount: DURABLE_MIN - 1 },
+            { date: "2026-07-10", merchant: "みどりドラッグ みなみ店", amount: 35000 },
             // FP が家計にした行は日用品のまま（候補にしない）
-            { date: "2026-08-10", merchant: "ビックカメラ 架空店", amount: 80000, bucket: "household", decidedAt: "2026-10-21T00:00:00+09:00" },
+            { date: "2026-08-10", merchant: `${furniture[2]} 駅前店`, amount: 80000, bucket: "household", decidedAt: "2026-10-21T00:00:00+09:00" },
           ],
         },
       ]),
@@ -344,7 +348,7 @@ describe("迷う行と自動の区分", () => {
       expect(at(d).flags).not.toContain("durable");
     }
     // 個人事業主の買い物は、事業の分かを聞く
-    const biz = run(synth([{ id: "w", kind: "card", label: "妻", owner: SPOUSE, rows: [{ date: "2026-03-10", merchant: "ヨドバシカメラ 架空店", amount: 120000 }] }]));
+    const biz = run(synth([{ id: "w", kind: "card", label: "妻", owner: SPOUSE, rows: [{ date: "2026-03-10", merchant: `${furniture[3]} 駅前店`, amount: 120000 }] }]));
     expect(biz[0]).toMatchObject({ bucket: "oneOff", review: true });
     expect(biz[0]?.flags).toEqual(expect.arrayContaining(["durable", "bucketUndecided"]));
   });

@@ -129,7 +129,7 @@ describe("迷う行の一覧と、FP が決めたこと", () => {
       log,
       [
         { importId: imp.id, rowId: id("架空の謎の店"), category: "recreation" },
-        { importId: imp.id, rowId: id("セブン-イレブン"), category: "food" },
+        { importId: imp.id, rowId: id("あおば-マート"), category: "food" },
         { importId: imp.id, rowId: id("架空リボショップ"), category: "cardFee" },
         { importId: imp.id, rowId: id("架空ベーカリー"), bucket: "oneOff" },
       ],
