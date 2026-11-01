@@ -1,0 +1,21 @@
+id: education.statistics.kindergarten.private.extracurricular
+title: 教科外活動費の年額（私立幼稚園。子供の学習費調査。学校教育費のうち。クラブ活動・部活動など）
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2023-04-01"
+    appliesTo: null
+    enforcedOn: "2026-01-16"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 3727
+    sources:
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260116-mxt_chousa01-000039333_1.pdf", "retrievedAt": "2026-10-30", "sha256": "c07853cbbcdbfe151e582f3f0da9f9d6975e65f8a00c068d0b79df64fe58a0c8", "locator": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）図1-2 p.4", "quote": "教科外活動費 3,727円"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260116-mxt_chousa01-000039333_1.pdf", "retrievedAt": "2026-10-30", "sha256": "c07853cbbcdbfe151e582f3f0da9f9d6975e65f8a00c068d0b79df64fe58a0c8", "locator": "同 図1-2 p.4（学校教育費の合計）", "quote": "合計 154,062円"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260116-mxt_chousa01-000039333_1.pdf", "retrievedAt": "2026-10-30", "sha256": "c07853cbbcdbfe151e582f3f0da9f9d6975e65f8a00c068d0b79df64fe58a0c8", "locator": "同 p.15 項目別定義", "quote": "クラブ活動（課外の部活動を含む）、学芸会・運動会・芸術鑑賞会"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-30", "tools": ["PDF の本文（公表資料）", "図の内訳の合計と表1の学校教育費の突き合わせ", "原本の指紋（sha256）"], "note": "令和5年度の私立幼稚園の教科外活動費（訂正版）。図1-2の内訳の合計が表1の学校教育費（154,062円）と一致。部活動の費用の入力で、学校の費用から差し引いて入れ替えるのに使う"}

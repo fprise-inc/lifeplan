@@ -29,6 +29,8 @@ import { InsuranceOverview } from "./InsuranceOverview.tsx";
 import { RentalOverview } from "./RentalOverview.tsx";
 import { useRentalFigures } from "../rentalTab.ts";
 import { useInsuranceView } from "./insuranceView.ts";
+import { useNurseryFee } from "./nurseryFeeView.ts";
+import { nurseryMethodNote } from "./stages/education.ts";
 import { historyScope, undoController, useUndoScope } from "../undo/controller.ts";
 import { deepEqual, UndoHistory } from "../undo/history.ts";
 
@@ -89,6 +91,8 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   const rentalFig = useRentalFigures(shown.request, itemId === "rental", computeOne);
   /** 保険の入力項目の保険料と解約返戻金（今のままの計算を読むだけ。0055 の追記） */
   const insurance = useInsuranceView(shown, itemId === "insurance", computeOne);
+  /** 子ども・教育のカードの保育料の自動の計算の結果（読むだけ。0029 の追記 2026-10-30） */
+  const nurseryFee = useNurseryFee(shown, itemId === "education", computeOne);
   /** 年金のカードの年金の見込み（計算の結果から読むだけ。プランを直しているときは、そのプランの額） */
   const pensionEst = usePensionEstimate(shown, itemId === "pension", computeOne);
   const item = useMemo(() => itemOf(shown, itemId, { inheritanceTax: inheritanceTaxNote(inheritance), pension: pensionEstimateSummary(shown, pensionEst.std) }), [shown, itemId, inheritance, pensionEst]);
@@ -466,6 +470,20 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
                   <Section key={s.key} section={s} wh={shown} level={level} onEdit={edit} />
                 ))}
                 {sections.length === 0 ? <p class="in-note">この項目の欄は「詳細」で出ます</p> : null}
+                {/* 子ども・教育: 保育料を自動で計算している段の、年ごとの月の平均（読むだけ。0029 の追記 2026-10-30） */}
+                {itemId === "education" && nurseryFee.length > 0 ? (
+                  <div class="ip-inherit" role="note" data-nursery-fee>
+                    <p>
+                      <b>保育料（自動計算の目安）</b>
+                      <Help label="保育料（自動計算の目安）">{nurseryMethodNote()}</Help>
+                    </p>
+                    <ul>
+                      {nurseryFee.map((l) => (
+                        <li key={l.child}>{l.text}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 {/* 保険: 入れる区画の下に保険料と解約返戻金（読むだけ。過不足は万一のタブで見る。0055 の追記） */}
                 {itemId === "insurance" ? <InsuranceOverview view={insurance} /> : null}
                 {/* 相続・贈与: 入れる区画の下に相続税の目安（読むだけ。ほかのカードと同じく、入れる欄を先に出す。0060 の追記） */}

@@ -14,6 +14,9 @@
 //     （第1子からの無償化など）は扱わない。FP は月額を入れる（0 なら保育料なし）か、割合を変えて合わせる
 // - 通い始め（from）の省略は、その子の育児休業（働き方の期間の leave・childcare）の終わりの翌月。育児休業の入力が無ければ1歳の学年の4月
 // 改訂3: 世帯の外の家族（0035 の4）は世帯の子の数に入れない
+// 改訂4（0029 の追記 2026-10-30）: 保育料とは別にかかるお金（教材・被服・保護者会・行事・通園など。段の extraAnnual。省略は統計の目安
+//   education.statistics.nursery.extra）を、通い始めから3歳の4月の前の月まで毎月（年額÷12。教育費の上昇率で伸ばす）。表の行は学校の費用。
+//   目安の値が無いパックでは数えない（知らせない。保育料の計算とは別の目安のため）
 import {
   addMonths,
   bracketFor,
@@ -48,6 +51,8 @@ const P = {
   lowIncomeLimit: `${N}.multiChild.lowIncomeLimit`,
 };
 const LEVY_ROUNDING = "residentTax.incomeLevy.rounding";
+/** 保育料とは別にかかるお金の年額の統計の目安（0029 の追記 2026-10-30） */
+const EXTRA = "education.statistics.nursery.extra";
 /** 自治体の保育料の水準（国の基準に対する割合）の目安。根拠と限界は 0029 */
 export const NURSERY_FEE_RATIO_DEFAULT = "0.8";
 
@@ -80,9 +85,9 @@ export default defineComponent<{ member: string }, FlowsResult>({
   id: "education.nurseryFee",
   title: "保育料（0〜2歳。収入から自動で計算）",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: { "residentTax.annual": ">=1 <2" },
-  params: [...Object.values(P), LEVY_ROUNDING],
+  params: [...Object.values(P), LEVY_ROUNDING, EXTRA],
   reads: [
     "member.outside",
     "goal.kind",
@@ -190,6 +195,17 @@ export default defineComponent<{ member: string }, FlowsResult>({
         const push = (m: MonthIndex, amount: Yen, formula: string) => {
           if (amount > 0 && m >= base && m <= end) flows.push({ row: "cf.expense.education.nursery", ym: formatYm(m), amount, accrualYear: yearOf(m), member: child, object: g.id, formula });
         };
+        // 保育料とは別にかかるお金（計算基準年の価格の年額を12で割り、教育費の上昇率で伸ばす。改訂4）
+        const at0 = ctx.at(base);
+        const extra = st.extraAnnual ?? (at0.has(EXTRA) ? at0.paramYen(EXTRA) : null);
+        if (extra !== null && extra > 0) {
+          const s = grownByYear(ctx, yen(extra), { kind: "inflation" }, baseYear, Math.max(endYear, baseYear), "educationInflation");
+          for (let m = from < base ? base : from; m < free && m <= end; m = addMonths(m, 1)) {
+            const y = yearOf(m) < baseYear ? baseYear : yearOf(m) > endYear ? endYear : yearOf(m);
+            const amount = ctx.money.mulRatio(s.get(y) ?? yen(extra), 1, 12, "conv.expense.share");
+            if (amount > 0) flows.push({ row: "cf.expense.education.school", ym: formatYm(m), amount, accrualYear: yearOf(m), member: child, object: g.id, formula: "education.nurseryFee.extra" });
+          }
+        }
         // 月額を入れた段（計算基準年の価格。教育費の上昇率で伸ばす）
         if (st.monthly !== undefined) {
           if (st.monthly === 0) continue;

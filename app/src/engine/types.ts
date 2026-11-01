@@ -254,6 +254,12 @@ export interface EducationStage {
   boarding?: { monthly?: number; initial?: number };
   scienceAgriculture?: boolean;
   outOfSchool?: "statistics" | "none" | { monthly: number };
+  /** 段ごとの給食費の選び方（公立の小学校・中学校。省略は目標の schoolLunch） */
+  schoolLunch?: "free" | "paid";
+  /** 部活動などの費用の年額（統計の教科外活動費と入れ替える） */
+  clubAnnual?: number;
+  /** 保育所の段の、保育料とは別にかかるお金の年額（省略は統計の目安） */
+  extraAnnual?: number;
   [key: string]: unknown;
 }
 

@@ -1,7 +1,7 @@
 // 子ども・教育の入力: 保育園に通う（はい／いいえ）・通い始めの既定・給食費の欄（0029）
 import { describe, expect, it } from "vitest";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
-import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { nurseryDefaultStart, nurseryFreeMonth } from "../src/workspace/input/stages/education.ts";
 import { modelHousehold } from "./helpers.ts";
@@ -36,13 +36,25 @@ describe("保育園の入力（簡易）", () => {
     expect(nurseryFreeMonth(c2)).toBe("2030-04");
   });
 
-  it("給食費の欄（詳細）: 省略は制度どおり、なし・ありを選べる", () => {
+  it("給食費の欄（詳細）: 公立の小学校・中学校の段ごとに出し、省略は制度どおり。前に目標に入れた選び方は段に写してから直す（0062 の追記 2026-10-30）", () => {
     let wh = fromRequest(modelHousehold("lifetime100Plan"));
-    const lunch = fieldOf(wh, "/lunch");
+    const g = () => (wh.request.input.household.goals ?? []).find((x) => x.kind === "education")!;
+    const lunches = () => allFields(buildStage("education", wh)).filter((f) => f.key.endsWith("/lunch"));
+    expect(lunches().length).toBeGreaterThan(0);
+    const lunch = lunches()[0]!;
     expect(lunch.level).toBe("detail");
+    expect(lunch.get(wh)).toMatchObject({ value: "", implicit: true });
     wh = lunch.set(wh, "free");
-    expect((wh.request.input.household.goals ?? [])[0]?.education?.schoolLunch).toBe("free");
-    wh = fieldOf(wh, "/lunch").set(wh, "");
-    expect((wh.request.input.household.goals ?? [])[0]?.education?.schoolLunch).toBeUndefined();
+    const i = Number(/\/stage\/(\d+)\/lunch$/.exec(lunch.key)![1]);
+    expect(g().education!.stages[i]!.schoolLunch).toBe("free");
+    wh = lunches()[0]!.set(wh, "");
+    expect(g().education!.stages[i]!.schoolLunch).toBeUndefined();
+    // 前の版で目標に入れた選び方（自治体の無償化）は、段の欄で見え、段を直すと残りの段に写して目標からは外す
+    wh = mutate(wh, (h) => void ((h.goals ?? []).find((x) => x.kind === "education")!.education!.schoolLunch = "free"));
+    expect(lunches().every((f) => f.get(wh).value === "free")).toBe(true);
+    wh = lunches()[0]!.set(wh, "");
+    expect(g().education!.schoolLunch).toBeUndefined();
+    expect(lunches()[0]!.get(wh).value).toBe("");
+    if (lunches().length > 1) expect(lunches()[1]!.get(wh).value).toBe("free");
   });
 });
