@@ -1220,6 +1220,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: housing.statistics.mortgageRate.current
+    status: active
+    label: "住宅ローン利用者の借入金利の中央値〔住宅金融支援機構「住宅ローン利用者の実態調査」2026年1月調査〕（2025年4〜9月に住宅ローンを借りた人。借入金利の区分ごとの割合から比例で求めた中央値。今返している住宅ローンの金利の目安）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: housing.statistics.mortgageRate.fixed
     status: active
     label: "住宅金融支援機構【フラット３５】2026年10月の最も多い借入金利（借入期間21年以上35年以下・融資率9割以下・新機構団信付き。取扱金融機関が提供する金利の中で最も多い金利。全期間固定の住宅ローンの当初の金利の目安）"
@@ -2141,6 +2147,12 @@ entries:
   - id: loanRates.scholarship
     status: active
     label: "日本学生支援機構 第二種奨学金の貸与利率（令和8年9月に貸与を終えた人。基本月額・利率固定方式。貸与の奨学金の利率の目安）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: loanRates.scholarship.repaying
+    status: active
+    label: "今返している人の第二種奨学金の利率の平均〔日本学生支援機構 第二種奨学金の貸与利率〕（平成24年3月〜令和8年3月の15年の各年3月に貸与を終えた人の、基本月額・利率固定方式の利率の平均。今返している奨学金の利率の目安）"
     since: draft
     aliases: []
     replacedBy: null

@@ -13,7 +13,7 @@ import { confirmAll, fieldStatus } from "../src/workspace/input/valueState.ts";
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { inputItems } from "../src/workspace/input/items.ts";
 import { modelHousehold, preview } from "./helpers.ts";
-import { scholarshipRateEstimate } from "../../hearing/src/loanRates.ts";
+import { repayingScholarshipRateEstimate } from "../../hearing/src/loanRates.ts";
 
 const BASE = "2026-10";
 
@@ -398,7 +398,7 @@ describe("ほかのローン", () => {
     let wh = action(salaried(), "housing/add/cardLoan");
     const id = debtsOf(wh)[0]!.id;
     wh = set(wh, `${id}/subtype`, "scholarship");
-    expect(debtsOf(wh)[0]).toMatchObject({ kind: "scholarship", subtype: "scholarship", rateSchedule: [{ rate: scholarshipRateEstimate().rate }] });
+    expect(debtsOf(wh)[0]).toMatchObject({ kind: "scholarship", subtype: "scholarship", rateSchedule: [{ rate: repayingScholarshipRateEstimate().rate }] });
     wh = set(wh, `${id}/rate`, "0.01");
     wh = set(wh, `${id}/subtype`, "renovation");
     expect(debtsOf(wh)[0]!.rateSchedule[0]!.rate).toBe("0.01");
