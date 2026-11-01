@@ -16,14 +16,18 @@ function delimiterOf(text: string): string {
   return tabs > commas ? "\t" : ",";
 }
 
-/** CSV の文字列を行と欄にする（空の行は飛ばす）。行の番号（1始まり）も返す */
-export function parseCsv(text: string, limits: CsvLimits = CSV_LIMITS): { cells: string[][]; lines: number[] } {
+/**
+ * CSV の文字列を行と欄にする（空の行は飛ばす）。行の番号（1始まり）も返す。
+ * 二重引用符が閉じないまま終わったときは、その引用符の始まった行を unclosedQuote に返す（その行から後ろは1つの欄になっている）
+ */
+export function parseCsv(text: string, limits: CsvLimits = CSV_LIMITS): { cells: string[][]; lines: number[]; unclosedQuote?: number } {
   const d = delimiterOf(text);
   const rows: string[][] = [];
   const lines: number[] = [];
   let row: string[] = [];
   let cell = "";
   let quoted = false;
+  let quoteLine = 0;
   let line = 1;
   let rowLine = 1;
   const pushCell = () => {
@@ -57,6 +61,7 @@ export function parseCsv(text: string, limits: CsvLimits = CSV_LIMITS): { cells:
     }
     if (ch === '"' && cell.trim() === "") {
       quoted = true;
+      quoteLine = line;
       cell = "";
     } else if (ch === d) pushCell();
     else if (ch === "\r") {
@@ -71,5 +76,5 @@ export function parseCsv(text: string, limits: CsvLimits = CSV_LIMITS): { cells:
     } else cell += ch;
   }
   if (cell !== "" || row.length > 0) pushRow();
-  return { cells: rows, lines };
+  return { cells: rows, lines, ...(quoted ? { unclosedQuote: quoteLine } : {}) };
 }
