@@ -109,6 +109,11 @@ fn author_of(store: &Store) -> Option<ai_share::Author> {
 // ------------------------------------------------------------------ 世帯の保存とのつなぎ（store.rs から呼ぶ）
 
 impl AiState {
+    /// 共有の台帳（機能を有効にするコードの候補も、ここに承認待ちで置く。features.rs が読む）
+    pub fn registry(&self) -> &ShareRegistry {
+        &self.registry
+    }
+
     /// 世帯を開いた: 帳面を作り（同じ起動で2回目なら、持っている記録を使う）、画面に返す本文からアプリだけが書く区画を外す
     pub fn on_opened(&self, mut o: Opened, summary: String) -> Result<Opened, String> {
         let (book, screen) =
@@ -436,6 +441,8 @@ pub struct AiStatus {
     durations: Vec<u32>,
     /// 開発用のビルド（作業フォルダの指定が文面に加わる）
     dev: bool,
+    /// AIから届いた、機能を有効にするコードの候補の数（承認待ち。中身は feature_codes_status で読む）
+    feature_code_candidates: usize,
 }
 
 fn status(ai: &AiState, store: &Store) -> AiStatus {
@@ -470,6 +477,7 @@ fn status(ai: &AiState, store: &Store) -> AiStatus {
             .collect(),
         durations: DURATIONS_MIN.to_vec(),
         dev,
+        feature_code_candidates: ai.registry.feature_code_candidates().len(),
     }
 }
 
@@ -511,6 +519,7 @@ pub async fn ai_set_enabled(app: AppHandle, enabled: bool) -> Result<AiStatus, S
         store.set_ai_connector_enabled(enabled).map_err(code)?;
         if !enabled {
             ai.registry.revoke_all();
+            ai.registry.clear_feature_code_candidates();
             ai.persist_all(store);
             ai.close_endpoint();
         }

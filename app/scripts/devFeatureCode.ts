@@ -3,6 +3,8 @@
 // - 形: "LPFC1-" ＋ 中身の JSON（base64url）＋ "." ＋ Ed25519 の署名（base64url）。署名するのは「前置き＋中身の JSON のバイト列」
 // - 公開鍵は config/distribution.toml の [keys] の feature_code（「鍵の名前:公開鍵」）
 // - 期限は日本の日付で、期限の日の終わりまで。30日前から更新の知らせ。同じ機能を同じか遅い期限まで含む古いコードは、新しいコードを入れると外す
+// - 期限は省ける（中身の形の版 2。期限のあるコードは版 1）
+// - 提供元が止めた一覧（0110 の追記）: 別の鍵で署名した JSON。載っているコードは「止めた」。最後に確かめられた一覧で判断し、取れない・署名が合わない・古い一覧は無視する
 import { createHash, createPublicKey, verify, type KeyObject } from "node:crypto";
 
 export const FEATURES = ["combinedBs"] as const;
@@ -18,7 +20,7 @@ interface Claims {
   name: string;
   features: string[];
   issued: string;
-  expires: string;
+  expires?: string;
 }
 
 export interface DevCodeView {
@@ -27,9 +29,9 @@ export interface DevCodeView {
   name: string;
   features: string[];
   issued: string;
-  expires: string;
-  state: "active" | "expiring" | "expired";
-  daysLeft: number;
+  expires: string | null;
+  state: "active" | "expiring" | "expired" | "revoked";
+  daysLeft: number | null;
 }
 
 export interface DevFeatureStatus {
@@ -78,8 +80,9 @@ export function verifyCode(code: string, keys: Map<string, KeyObject>): { ok: tr
   const key = typeof claims.kid === "string" ? keys.get(claims.kid) : undefined;
   if (key === undefined) return { ok: false, error: "E_FEATURE_CODE_KEY" };
   if (sig.length !== 64 || !verify(null, Buffer.concat([CONTEXT, payload]), key, sig)) return { ok: false, error: "E_FEATURE_CODE_SIGNATURE" };
+  const versionOk = (claims.v === 1 && claims.expires !== undefined) || claims.v === 2;
   const shapeOk =
-    claims.v === 1 &&
+    versionOk &&
     typeof claims.id === "string" &&
     typeof claims.name === "string" &&
     claims.name.length > 0 &&
@@ -87,44 +90,49 @@ export function verifyCode(code: string, keys: Map<string, KeyObject>): { ok: tr
     claims.features.length > 0 &&
     claims.features.every((f) => typeof f === "string") &&
     dayOf(claims.issued) !== null &&
-    dayOf(claims.expires) !== null;
+    (claims.expires === undefined || dayOf(claims.expires) !== null);
   return shapeOk ? { ok: true, claims } : { ok: false, error: "E_FEATURE_CODE_FORMAT" };
 }
 
-function viewOf(code: string, keys: Map<string, KeyObject>, today: number): { ok: true; view: DevCodeView } | { ok: false; error: string } {
+/** 期限の遅い順に比べる鍵（期限なしがいちばん遅い） */
+const rank = (e: string | null): string => (e === null ? "~" : e);
+
+function viewOf(code: string, keys: Map<string, KeyObject>, today: number, revoked: readonly string[]): { ok: true; view: DevCodeView } | { ok: false; error: string } {
   const r = verifyCode(code, keys);
   if (!r.ok) return r;
   const features = r.claims.features.filter((f) => (FEATURES as readonly string[]).includes(f));
   if (features.length === 0) return { ok: false, error: "E_FEATURE_CODE_NO_FEATURE" };
-  const daysLeft = (dayOf(r.claims.expires) as number) - today;
-  const state = daysLeft < 0 ? "expired" : daysLeft <= RENEW_NOTICE_DAYS ? "expiring" : "active";
-  return { ok: true, view: { ref: reference(code), id: r.claims.id, name: r.claims.name, features, issued: r.claims.issued, expires: r.claims.expires, state, daysLeft } };
+  const expires = r.claims.expires ?? null;
+  const daysLeft = expires === null ? null : (dayOf(expires) as number) - today;
+  const state = revoked.includes(r.claims.id) ? "revoked" : daysLeft === null ? "active" : daysLeft < 0 ? "expired" : daysLeft <= RENEW_NOTICE_DAYS ? "expiring" : "active";
+  return { ok: true, view: { ref: reference(code), id: r.claims.id, name: r.claims.name, features, issued: r.claims.issued, expires, state, daysLeft } };
 }
 
-export function featureStatus(codes: readonly string[], keys: Map<string, KeyObject>, today: string): DevFeatureStatus {
+export function featureStatus(codes: readonly string[], keys: Map<string, KeyObject>, today: string, revoked: readonly string[] = []): DevFeatureStatus {
   const t = dayOf(today) ?? 0;
   const views: DevCodeView[] = [];
   const invalid: { ref: string; error: string }[] = [];
   for (const c of codes) {
-    const r = viewOf(c, keys, t);
+    const r = viewOf(c, keys, t, revoked);
     if (r.ok) views.push(r.view);
     else invalid.push({ ref: reference(c), error: r.error });
   }
-  views.sort((a, b) => (a.expires === b.expires ? a.id.localeCompare(b.id) : a.expires < b.expires ? 1 : -1));
-  const active = FEATURES.filter((f) => views.some((v) => v.state !== "expired" && v.features.includes(f)));
+  views.sort((a, b) => (a.expires === b.expires ? a.id.localeCompare(b.id) : rank(a.expires) < rank(b.expires) ? 1 : -1));
+  const active = FEATURES.filter((f) => views.some((v) => (v.state === "active" || v.state === "expiring") && v.features.includes(f)));
   return { today, active, codes: views, invalid };
 }
 
-export function addCode(codes: readonly string[], code: string, keys: Map<string, KeyObject>, today: string): { ok: true; codes: string[] } | { ok: false; error: string } {
+export function addCode(codes: readonly string[], code: string, keys: Map<string, KeyObject>, today: string, revoked: readonly string[] = []): { ok: true; codes: string[] } | { ok: false; error: string } {
   const t = dayOf(today) ?? 0;
   const n = normalize(code);
-  const r = viewOf(n, keys, t);
+  const r = viewOf(n, keys, t, revoked);
   if (!r.ok) return r;
   if (r.view.state === "expired") return { ok: false, error: "E_FEATURE_CODE_EXPIRED" };
+  if (r.view.state === "revoked") return { ok: false, error: "E_FEATURE_CODE_REVOKED" };
   const next = codes.filter((c) => {
     if (normalize(c) === n) return false;
-    const o = viewOf(c, keys, t);
-    return !(o.ok && o.view.expires <= r.view.expires && o.view.features.every((f) => r.view.features.includes(f)));
+    const o = viewOf(c, keys, t, revoked);
+    return !(o.ok && rank(o.view.expires) <= rank(r.view.expires) && o.view.features.every((f) => r.view.features.includes(f)));
   });
   next.push(n);
   return next.length > MAX_CODES ? { ok: false, error: "E_FEATURE_CODE_LIMIT" } : { ok: true, codes: next };
@@ -132,3 +140,58 @@ export function addCode(codes: readonly string[], code: string, keys: Map<string
 
 /** 日本の今日（UTC+9） */
 export const todayJst = (now = Date.now()): string => new Date(now + 9 * 3600_000).toISOString().slice(0, 10);
+
+// ---- 止めた一覧（0110 の追記。本体の crates/feature-code の revocation と同じ形）----
+
+const REV_FORMAT = "lifeplan-feature-code-revocations";
+const REV_CONTEXT = Buffer.from("lifeplan-feature-code-revocations/1\0", "utf8");
+const REV_MAX_BYTES = 256 * 1024;
+
+export interface RevocationList {
+  v: number;
+  serial: number;
+  issued: string;
+  revoked: string[];
+}
+
+/** 署名と形を確かめた一覧（確かめられなければ符号） */
+export function verifyRevocations(text: string, keys: Map<string, KeyObject>): { ok: true; list: RevocationList } | { ok: false; error: string } {
+  if (Buffer.byteLength(text, "utf8") > REV_MAX_BYTES) return { ok: false, error: "E_REVOCATIONS_FORMAT" };
+  let env: { format?: unknown; kid?: unknown; payload?: unknown; sig?: unknown };
+  try {
+    env = JSON.parse(text) as typeof env;
+  } catch {
+    return { ok: false, error: "E_REVOCATIONS_FORMAT" };
+  }
+  if (env.format !== REV_FORMAT || typeof env.payload !== "string" || typeof env.sig !== "string" || typeof env.kid !== "string") return { ok: false, error: "E_REVOCATIONS_FORMAT" };
+  const key = keys.get(env.kid);
+  if (key === undefined) return { ok: false, error: "E_REVOCATIONS_KEY" };
+  const sig = Buffer.from(env.sig, "base64url");
+  if (sig.length !== 64 || !verify(null, Buffer.concat([REV_CONTEXT, Buffer.from(env.payload, "utf8")]), key, sig)) return { ok: false, error: "E_REVOCATIONS_SIGNATURE" };
+  let list: RevocationList;
+  try {
+    list = JSON.parse(env.payload) as RevocationList;
+  } catch {
+    return { ok: false, error: "E_REVOCATIONS_FORMAT" };
+  }
+  const shapeOk = list.v === 1 && Number.isInteger(list.serial) && dayOf(list.issued) !== null && Array.isArray(list.revoked) && list.revoked.every((x) => typeof x === "string");
+  return shapeOk ? { ok: true, list } : { ok: false, error: "E_REVOCATIONS_FORMAT" };
+}
+
+/** 取りに行った結果を当てる（本体の apply_fetch と同じ: 取れない・確かめられない・古いときは、最後に取れた一覧のまま） */
+export function applyFetch(saved: string | null, fetched: string | null, keys: Map<string, KeyObject>): { saved: string | null; result: "ok" | "offline" | "rejected" } {
+  const cur = saved === null ? null : verifyRevocations(saved, keys);
+  const keep = cur !== null && cur.ok ? saved : null;
+  if (fetched === null) return { saved: keep, result: "offline" };
+  const r = verifyRevocations(fetched, keys);
+  if (!r.ok) return { saved: keep, result: "rejected" };
+  if (cur !== null && cur.ok && r.list.serial < cur.list.serial) return { saved: keep, result: "rejected" };
+  return { saved: fetched, result: "ok" };
+}
+
+/** 保存しておいた一覧の止めた番号（確かめられなければ空） */
+export function revokedIds(saved: string | null, keys: Map<string, KeyObject>): string[] {
+  if (saved === null) return [];
+  const r = verifyRevocations(saved, keys);
+  return r.ok ? r.list.revoked : [];
+}

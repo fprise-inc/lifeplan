@@ -18,7 +18,7 @@ import { ASSUMPTION_LABELS, ASSUMPTION_RANGES, DEFAULT_OFFICE_SETTINGS, FEE_MAX,
 import { revealAdded } from "../../presentation/revealAdded.ts";
 import { LivingLayoutEditor } from "./LivingLayoutEditor.tsx";
 import { withLivingDraft } from "./settings.ts";
-import { codeFor, enabledLine, expiredText, FEATURE_LABELS, featureErrorText, featureOn, NO_FEATURES, renewText, type FeatureId, type FeatureStatus } from "./featureCodes.ts";
+import { candidateChange, checkText, codeFor, enabledLine, expiredText, expiresLabel, FEATURE_LABELS, featureErrorText, featureOn, NO_FEATURES, renewText, type FeatureId, type FeatureStatus } from "./featureCodes.ts";
 
 export interface OfficeSettingsPanelProps {
   value: OfficeSettings;
@@ -33,6 +33,10 @@ export interface OfficeSettingsPanelProps {
   onAddCode?: (code: string) => Promise<FeatureStatus>;
   /** コードを外す（ref は状態の印） */
   onRemoveCode?: (ref: string) => Promise<FeatureStatus>;
+  /** 提供元が止めたコードの一覧を今すぐ確かめる（0110 の追記） */
+  onCheckCodes?: () => Promise<FeatureStatus>;
+  /** AIから届いたコードの候補を入れる（accept）か捨てる（0015 の追記の2段目） */
+  onDecideCandidate?: (id: string, accept: boolean) => Promise<FeatureStatus>;
 }
 
 /** 「1.5」（%）→ "0.015"。空は null。読めない・範囲の外は undefined（整数の部分は3桁まで読む。評価の割合の 100% を入れられるように） */
@@ -83,7 +87,7 @@ export function feeFromTexts(base: FeeTable, t: FeeTexts): FeeTable | null {
 
 const STANDARD_PCT: Readonly<Record<OfficeAssumption, string>> = { inflation: "1", wageGrowth: "1", investmentReturn: "1", pensionMacroSlide: "0.4" };
 
-export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode }: OfficeSettingsPanelProps) {
+export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onCheckCodes, onDecideCandidate }: OfficeSettingsPanelProps) {
   const [s, setS] = useState<OfficeSettings>(value);
   // 機能を有効にするコード（0110）: いちばん下の小さなリンクから開く欄
   const [codeOpen, setCodeOpen] = useState(false);
@@ -105,6 +109,32 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
       setCodeText("");
       setCodeOpen(false);
       setCodeMsg({ ok: true, text: c !== null ? `コードを入れました。${FEATURE_LABELS.combinedBs}を使えます（${enabledLine(c)}）。上の区画に出ています（保存は要りません）。` : "コードを入れました。" });
+    } catch (e) {
+      setCodeMsg({ ok: false, text: featureErrorText(e) });
+    } finally {
+      setCodeBusy(false);
+    }
+  };
+  const decideCandidate = async (id: string, accept: boolean) => {
+    setCodeBusy(true);
+    setCodeMsg(null);
+    try {
+      if (onDecideCandidate === undefined) return;
+      const st = await onDecideCandidate(id, accept);
+      if (accept && featureOn(st, "combinedBs") && !featureOn(features, "combinedBs")) setS((x) => ({ ...x, features: { ...x.features, combinedBs: true } }));
+      const c = codeFor(st, "combinedBs");
+      setCodeMsg({ ok: true, text: !accept ? "AIからの候補を捨てました（コードは入れていません）。" : c !== null ? `AIからの候補のコードを入れました。${FEATURE_LABELS.combinedBs}を使えます（${enabledLine(c)}）。上の区画に出ています（保存は要りません）。` : "AIからの候補のコードを入れました。" });
+    } catch (e) {
+      setCodeMsg({ ok: false, text: featureErrorText(e) });
+    } finally {
+      setCodeBusy(false);
+    }
+  };
+  const checkCodes = async () => {
+    setCodeBusy(true);
+    try {
+      if (onCheckCodes !== undefined) await onCheckCodes();
+      setCodeMsg({ ok: true, text: "提供元が止めたコードの一覧を確かめに行きました。結果は少しあとに、この下に出ます。" });
     } catch (e) {
       setCodeMsg({ ok: false, text: featureErrorText(e) });
     } finally {
@@ -601,10 +631,61 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
         </div>
         {onAddCode !== undefined ? (
         <div class="os-code" data-feature-code-area>
+          {(features.candidates ?? []).map((c) => (
+            <div class="os-code-cand" key={c.id} role="group" aria-label="AIからの、機能を有効にするコードの候補" data-feature-candidate={c.id}>
+              <p class="os-code-cand-title">
+                <b>AIからの候補: 機能を有効にするコードを入れる</b>
+                <span class="pl-sub">
+                  {c.receivedAt.slice(0, 16).replace("T", " ")}（UTC）に届きました{c.connector !== null ? `（AIのアプリの名乗り: ${c.connector}。確かめられない参考の情報です）` : ""}
+                </span>
+              </p>
+              {c.ok ? (
+                <>
+                  <p class="pl-sub">
+                    {c.name}さん向け・{expiresLabel(c.expires)}
+                    {c.replaces > 0 ? `。入れると、今のコード（更新の前のもの）${c.replaces}つは外れます` : ""}
+                  </p>
+                  <table class="os-code-diff" data-feature-candidate-diff>
+                    <thead>
+                      <tr>
+                        <th scope="col">機能</th>
+                        <th scope="col">今</th>
+                        <th scope="col">入れた後</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {candidateChange(c).map((d) => (
+                        <tr key={d.feature}>
+                          <th scope="row">{d.feature}</th>
+                          <td>{d.before ? "使える" : "使えない"}</td>
+                          <td class={d.before !== d.after ? "os-code-diff-new" : undefined}>{d.after ? "使える" : "使えない"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p class="pl-sub">AIが出したのは候補だけです。中身を確かめて、入れてよいときだけ押してください（世帯のデータは変わりません）。</p>
+                </>
+              ) : (
+                <p class="fatal" data-feature-candidate-error>
+                  このコードは入れられません。{featureErrorText(c.error ?? "")}
+                </p>
+              )}
+              <div class="rp-actions">
+                {c.ok ? (
+                  <button type="button" class="btn primary" disabled={codeBusy} onClick={() => void decideCandidate(c.id, true)} data-feature-candidate-accept>
+                    このコードを入れる
+                  </button>
+                ) : null}
+                <button type="button" class="btn" disabled={codeBusy} onClick={() => void decideCandidate(c.id, false)} data-feature-candidate-reject>
+                  捨てる
+                </button>
+              </div>
+            </div>
+          ))}
           {features.codes
-            .filter((c) => c.state === "expired" && !c.features.some((f) => featureOn(features, f as FeatureId)))
+            .filter((c) => (c.state === "expired" || c.state === "revoked") && !c.features.some((f) => featureOn(features, f as FeatureId)))
             .map((c) => (
-              <p class="pl-sub os-code-expired" key={c.ref} data-feature-expired={c.ref}>
+              <p class="pl-sub os-code-expired" key={c.ref} data-feature-expired={c.ref} {...(c.state === "revoked" ? { "data-feature-revoked": c.ref } : {})}>
                 {expiredText(c)}
                 <button type="button" class="link-btn" disabled={codeBusy} onClick={() => void removeCode(c.ref)}>
                   このコードを外す
@@ -624,13 +705,23 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
               {codeMsg.text}
             </p>
           ) : null}
+          {features.codes.length > 0 && checkText(features.check) !== null ? (
+            <p class="pl-sub os-code-check" data-feature-check={features.check?.result ?? "none"}>
+              {checkText(features.check)}
+              {onCheckCodes !== undefined ? (
+                <button type="button" class="link-btn" disabled={codeBusy} onClick={() => void checkCodes()} data-feature-check-now>
+                  今すぐ確かめる
+                </button>
+              ) : null}
+            </p>
+          ) : null}
           {codeOpen ? (
             <div class="os-code-form">
               <label class="os-code-label">
                 <span>機能を有効にするコード</span>
                 <textarea rows={3} value={codeText} spellcheck={false} autoComplete="off" onInput={(e) => setCodeText((e.currentTarget as HTMLTextAreaElement).value)} data-feature-code-input />
               </label>
-              <p class="pl-sub">受け取ったコードを、そのまま貼り付けてください（途中に改行が入っていてもかまいません）。本物か・期限内かを、この PC の中で確かめます（ネットにはつなぎません）。入れるとすぐ効きます（保存のボタンは押さなくてかまいません）。</p>
+              <p class="pl-sub">受け取ったコードを、そのまま貼り付けてください（途中に改行が入っていてもかまいません）。本物か・期限内かは、この PC の中で確かめます。入れるとすぐ効きます（保存のボタンは押さなくてかまいません）。コードを入れている間は、提供元が止めたコードかどうかを、起動したときと1日1回、配信元の一覧で確かめます（送るのは一覧を取る依頼だけで、コード・お名前・世帯の情報は送りません。つながらないときは今のまま使えます）。</p>
               <div class="rp-actions">
                 <button type="button" class="btn primary" disabled={codeBusy || codeText.trim() === ""} onClick={() => void addCode()} data-feature-code-add>
                   確かめて入れる

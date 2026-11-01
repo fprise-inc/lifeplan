@@ -10,12 +10,16 @@ product_name = { ja = "ファイナンシア", en = "Financia" }
 publisher    = "FPRISE, INC."
 
 [endpoints]
-# 自動通信の相手はこのホストだけ（0017 の4）。更新の仕組みはまだ入れていない（アプリは通信しない）
+# 自動通信の相手はこのホストだけ（0017 の4）。更新の仕組みはまだ入れていない
 host        = "updates.fprise.com"
 app         = "https://updates.fprise.com/v1/app/latest.json"
 packs       = "https://updates.fprise.com/v1/packs/index.json"
 notices     = "https://updates.fprise.com/v1/notices/notices.json"
 revocations = "https://updates.fprise.com/v1/revocations/revocations.json"
+# 機能を有効にするコードの「止めた一覧」（0110 の追記）。今アプリが自動で取りに行くのはこれだけ
+# （機能を有効にするコードを入れている PC だけが、起動したときと、動いている間は1日1回取りに行く。送るのは取得の依頼だけで、クエリも付けない）。
+# 今は開発用の URL（公開の前に本番の URL に差し替える。置き場所は未定）。https で、上の host のものだけ（本体は build.rs が、ここから写す）
+feature_code_revocations = "https://updates.fprise.com/dev/v1/feature-codes/revocations.json"
 
 [feedback]
 # 「要望・不具合を送る」のフォームの URL のひな形（0087 の6）。押すと既定のブラウザでこのフォームを開く（アプリ自身は送らない・通信しない）。
@@ -33,3 +37,6 @@ revocation    = []
 # 今は開発用の鍵（dev-1）。公開の前に、提供元が作った本番の鍵に差し替える（開発用の鍵で発行したコードはそこで使えなくなる）。
 # 本体は build.rs が、開発用のサーバーの代わりは vite.config.ts が、ここから読む
 feature_code  = ["dev-1:ZBASfURNQY54lJZUQjeJy59Ed87C11WGMxJHsLB1znk"]
+# 機能を有効にするコードの「止めた一覧」の公開鍵（0110 の追記。コードの鍵とは別の鍵。「鍵の名前:公開鍵（base64url）」。現用＋次期を並べられる）。
+# 今は開発用の鍵（dev-rv1）。公開の前に、提供元が作った本番の鍵に差し替える。本体は build.rs が、開発用のサーバーの代わりは vite.config.ts が、ここから読む
+feature_code_revocation = ["dev-rv1:z-4RhY4SiORx3E3t3KnpcP3X1bs3WqOO8Y_VTwBKkKI"]

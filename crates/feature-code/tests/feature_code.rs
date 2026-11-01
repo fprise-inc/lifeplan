@@ -16,7 +16,7 @@ fn req(id: &str, expires: &str) -> Request {
         name: "見本 花子".into(),
         features: vec!["combinedBs".into()],
         issued: "2026-11-01".into(),
-        expires: expires.into(),
+        expires: Some(expires.into()),
     }
 }
 
@@ -28,7 +28,8 @@ fn issued_code_verifies_with_the_public_key_only() {
     let c = verify(&code, &[k.public()]).unwrap();
     assert_eq!(c.name, "見本 花子");
     assert_eq!(c.features, vec!["combinedBs"]);
-    assert_eq!(c.expires, "2027-05-31");
+    assert_eq!(c.expires.as_deref(), Some("2027-05-31"));
+    assert_eq!(c.v, 1);
     assert_eq!(c.kid, "test-1");
     // 写すときに入った改行・空白は無視する
     let wrapped = format!("  {}\n{} \r\n", &code[..40], &code[40..]);
@@ -84,8 +85,8 @@ fn issuing_checks_the_input() {
     assert!(
         bad(&|r| r.features = vec!["combinedBs".into(), "combinedBs".into()]).contains("重なって")
     );
-    assert!(bad(&|r| r.expires = "2026-02-30".into()).contains("日付"));
-    assert!(bad(&|r| r.expires = "2026-10-01".into()).contains("発行日より前"));
+    assert!(bad(&|r| r.expires = Some("2026-02-30".into())).contains("日付"));
+    assert!(bad(&|r| r.expires = Some("2026-10-01".into())).contains("発行日より前"));
     assert!(bad(&|r| r.name = "".into()).contains("名前"));
     assert!(bad(&|r| r.name = " 前に空白".into()).contains("空白"));
     assert!(bad(&|r| r.name = "改行\nあり".into()).contains("制御"));
@@ -133,31 +134,34 @@ fn status_marks_expiring_and_expired() {
     let keys = [k.public()];
     let code = issue(&k, &req("0001", "2027-05-31")).unwrap();
     let codes = vec![code.clone()];
-    let s = status(&codes, &keys, "2027-01-01");
+    let s = status(&codes, &keys, "2027-01-01", &[]);
     assert_eq!(s.active, vec!["combinedBs"]);
     assert_eq!(s.codes[0].state, CodeState::Active);
     assert_eq!(s.codes[0].reference, reference(&code));
     // 30日前から更新の知らせ
     assert_eq!(
-        status(&codes, &keys, "2027-05-01").codes[0].state,
+        status(&codes, &keys, "2027-05-01", &[]).codes[0].state,
         CodeState::Expiring
     );
-    assert_eq!(status(&codes, &keys, "2027-05-01").codes[0].days_left, 30);
     assert_eq!(
-        status(&codes, &keys, "2027-04-30").codes[0].state,
+        status(&codes, &keys, "2027-05-01", &[]).codes[0].days_left,
+        Some(30)
+    );
+    assert_eq!(
+        status(&codes, &keys, "2027-04-30", &[]).codes[0].state,
         CodeState::Active
     );
     // 期限の日の終わりまで使える
-    let last = status(&codes, &keys, "2027-05-31");
+    let last = status(&codes, &keys, "2027-05-31", &[]);
     assert_eq!(last.codes[0].state, CodeState::Expiring);
     assert_eq!(last.active, vec!["combinedBs"]);
     // 翌日から切れる（中身は見えるまま。機能は出さない）
-    let after = status(&codes, &keys, "2027-06-01");
+    let after = status(&codes, &keys, "2027-06-01", &[]);
     assert_eq!(after.codes[0].state, CodeState::Expired);
     assert!(after.active.is_empty());
     assert_eq!(after.codes[0].name, "見本 花子");
     // 鍵を差し替えたあとは確かめられないコードとして残る（外せる）
-    let swapped = status(&codes, &[key("test-1").public()], "2027-01-01");
+    let swapped = status(&codes, &[key("test-1").public()], "2027-01-01", &[]);
     assert!(swapped.active.is_empty());
     assert_eq!(swapped.invalid[0].error, "E_FEATURE_CODE_SIGNATURE");
     assert_eq!(swapped.invalid[0].reference, reference(&code));
@@ -168,25 +172,28 @@ fn adding_replaces_the_older_code_and_rejects_expired() {
     let k = key("test-1");
     let keys = [k.public()];
     let old = issue(&k, &req("0001", "2027-05-31")).unwrap();
-    let list = add(&[], &old, &keys, "2026-11-01").unwrap();
+    let list = add(&[], &old, &keys, "2026-11-01", &[]).unwrap();
     assert_eq!(list, vec![normalize(&old)]);
     // 同じコードをもう一度: 増えない
     assert_eq!(
-        add(&list, &format!(" {old}\n"), &keys, "2026-11-01").unwrap(),
+        add(&list, &format!(" {old}\n"), &keys, "2026-11-01", &[]).unwrap(),
         list
     );
     // 更新のコード（新しい番号・遅い期限）: 古いコードを外す
     let renewed = issue(&k, &req("0002", "2027-11-30")).unwrap();
-    let list2 = add(&list, &renewed, &keys, "2027-05-20").unwrap();
+    let list2 = add(&list, &renewed, &keys, "2027-05-20", &[]).unwrap();
     assert_eq!(list2, vec![renewed.clone()]);
     // 期限の切れたコードは入れない
-    assert_eq!(add(&[], &old, &keys, "2027-06-01"), Err(Error::EXPIRED));
-    // 期限の切れたコードの後に、新しいコードを入れると戻る（切れたコードは外れる）
-    let s = status(&list, &keys, "2027-06-10");
-    assert!(s.active.is_empty());
-    let back = add(&list, &renewed, &keys, "2027-06-10").unwrap();
     assert_eq!(
-        status(&back, &keys, "2027-06-10").active,
+        add(&[], &old, &keys, "2027-06-01", &[]),
+        Err(Error::EXPIRED)
+    );
+    // 期限の切れたコードの後に、新しいコードを入れると戻る（切れたコードは外れる）
+    let s = status(&list, &keys, "2027-06-10", &[]);
+    assert!(s.active.is_empty());
+    let back = add(&list, &renewed, &keys, "2027-06-10", &[]).unwrap();
+    assert_eq!(
+        status(&back, &keys, "2027-06-10", &[]).active,
         vec!["combinedBs"]
     );
     assert_eq!(back.len(), 1);
@@ -196,7 +203,8 @@ fn adding_replaces_the_older_code_and_rejects_expired() {
             &[],
             &issue(&key("test-1"), &req("9", "2027-05-31")).unwrap(),
             &keys,
-            "2026-11-01"
+            "2026-11-01",
+            &[]
         ),
         Err(Error::SIGNATURE)
     );

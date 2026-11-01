@@ -66,6 +66,8 @@
     "allow-feature-codes-status",
     "allow-feature-code-add",
     "allow-feature-code-remove",
+    "allow-feature-codes-check",
+    "allow-feature-code-candidate-decide",
     "allow-store-fork-info",
     "allow-store-fork-resolve",
     "allow-store-sync-copies-resolve",

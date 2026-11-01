@@ -30,6 +30,8 @@ pub enum Request {
     GetShare { share_id: String, tool: String },
     /// AIのプランの候補を「AIからの候補」に承認待ちで入れる（世帯は変えない。0015 の7）
     Propose { share_id: String, proposal: Value },
+    /// 機能を有効にするコードを、アプリの画面に承認待ちの候補として出す（コードは入れない。FPが画面で押したときだけ入る。0015 の追記の2段目）
+    ProposeFeatureCode { code: String },
 }
 
 /// 失敗のコード（0015 の4）

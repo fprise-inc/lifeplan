@@ -31,6 +31,7 @@ mod menu;
 mod notices;
 mod office;
 mod report;
+mod revocations;
 mod statement;
 mod store;
 mod takeaway;
@@ -375,6 +376,8 @@ pub fn run() {
             features::feature_codes_status,
             features::feature_code_add,
             features::feature_code_remove,
+            features::feature_codes_check,
+            features::feature_code_candidate_decide,
             office::store_fork_info,
             office::store_fork_resolve,
             office::store_sync_copies_resolve,
@@ -397,6 +400,9 @@ pub fn run() {
             app.manage(store::init(app.handle())?);
             app.manage(ai::init(app.handle())?);
             ai::start_watch(app.handle());
+            // 0110 の追記: 機能を有効にするコードの止めた一覧（コードが入っているときだけ、起動したときと1日1回、配信元から取る）
+            app.manage(revocations::init(app.handle()));
+            revocations::start_watch(app.handle());
             office::start_heartbeat(app.handle());
             let config = app
                 .config()

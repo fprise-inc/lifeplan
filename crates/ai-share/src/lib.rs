@@ -27,5 +27,7 @@ pub use endpoint::AppEndpoint;
 pub use proposal::PendingProposal;
 pub use record::{verify_append_only, AiShareRecord, EndReason};
 pub use reduce::Scope;
-pub use registry::{GrantError, GrantOptions, Granted, ShareRegistry, ShareStatus};
+pub use registry::{
+    FeatureCodeCandidate, GrantError, GrantOptions, Granted, ShareRegistry, ShareStatus,
+};
 pub use source::{ConsentDecision, ConsentRef, SharedHouseholdSource, SourceText};

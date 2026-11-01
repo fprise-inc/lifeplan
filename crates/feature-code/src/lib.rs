@@ -4,7 +4,10 @@
 //!   署名した鍵の名前。提供元の秘密鍵で Ed25519 の署名を付ける。
 //! - アプリは公開鍵（配布元の設定 `config/distribution.toml` の `[keys]` の `feature_code`）を埋め込み、ネットにつながずに
 //!   本物か（[`verify`]）・期限内か（[`status`]）を確かめる。期限は日本の日付（UTC+9）で、期限の日の終わりまで使える。
-//! - 期限で止める（途中でやめた人を止める方法は期限だけ。ネットで確かめない）。期限の長さは発行のときに決め、アプリは決めない。
+//! - 期限は省ける（期限なしのコード。中身の形の版 2）。期限のあるコードは今までどおり版 1 で出し、前の版のアプリでも読める。
+//! - 提供元は、途中でやめた人のコードを「止めた一覧」（[`revocation`]。別の鍵で署名した小さな JSON）に載せて止める。
+//!   アプリは配信元から一覧を取りに行き、載っているコードの機能を止める（データは消さない）。一覧から外れたら、次に確かめたときに戻る。
+//!   つながらない・一覧を取れないときは、最後に取れた一覧で判断する（今の状態のまま使える）。
 //! - 形: `LPFC1-` ＋ 中身の JSON（base64url）＋ `.` ＋ 署名（base64url）。署名するのは「決まった前置き＋中身の JSON のバイト列」。
 //!   写すときに入った空白・改行は無視する（[`normalize`]）。
 //!
@@ -19,13 +22,16 @@ use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
 pub mod issuer;
+pub mod revocation;
 
 /// コードの最初の印（形の版 1）
 pub const PREFIX: &str = "LPFC1-";
 /// 署名する前置き（ほかの用途の署名と取り違えないため）
 const CONTEXT: &[u8] = b"lifeplan-feature-code/1\0";
-/// 中身の形の版
+/// 中身の形の版（期限のあるコード。最初の版から同じ形）
 pub const CLAIMS_VERSION: u32 = 1;
+/// 中身の形の版（期限を省けるようにした版。期限のないコードはこの版で出す）
+pub const CLAIMS_VERSION_NO_EXPIRY: u32 = 2;
 
 /// 期限の何日前から更新の知らせを出すか
 pub const RENEW_NOTICE_DAYS: i64 = 30;
@@ -68,6 +74,8 @@ impl Error {
     pub const SIGNATURE: Error = Error("E_FEATURE_CODE_SIGNATURE");
     /// 期限が切れている（入れるとき）
     pub const EXPIRED: Error = Error("E_FEATURE_CODE_EXPIRED");
+    /// 提供元が止めたコード（最後に取れた止めた一覧に載っている。入れるとき）
+    pub const REVOKED: Error = Error("E_FEATURE_CODE_REVOKED");
     /// この版のアプリで使える機能が入っていない
     pub const NO_FEATURE: Error = Error("E_FEATURE_CODE_NO_FEATURE");
     /// 入れておけるコードの数を超える
@@ -92,7 +100,7 @@ impl std::error::Error for Error {}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Claims {
-    /// 中身の形の版（1）
+    /// 中身の形の版（1: 期限が要る。2: 期限を省ける）
     pub v: u32,
     /// 署名した鍵の名前（公開鍵を選ぶ）
     pub kid: String,
@@ -104,8 +112,9 @@ pub struct Claims {
     pub features: Vec<String>,
     /// 発行日（YYYY-MM-DD）
     pub issued: String,
-    /// 期限（YYYY-MM-DD。この日の終わりまで。日本の日付）
-    pub expires: String,
+    /// 期限（YYYY-MM-DD。この日の終わりまで。日本の日付）。無ければ期限なし（版 2 だけ）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires: Option<String>,
 }
 
 /// 発行の入力
@@ -115,7 +124,8 @@ pub struct Request {
     pub name: String,
     pub features: Vec<String>,
     pub issued: String,
-    pub expires: String,
+    /// 期限（無ければ期限なしのコード）
+    pub expires: Option<String>,
 }
 
 // ---- 日付（日本の日付。UTC+9 の固定。夏時間は無い）----
@@ -231,8 +241,10 @@ pub fn name_problem(s: &str) -> Option<&'static str> {
 }
 
 fn claims_problem(c: &Claims) -> Option<String> {
-    if c.v != CLAIMS_VERSION {
-        return Some("中身の形の版が違います".into());
+    match (c.v, &c.expires) {
+        (CLAIMS_VERSION, Some(_)) | (CLAIMS_VERSION_NO_EXPIRY, _) => {}
+        (CLAIMS_VERSION, None) => return Some("版 1 のコードには期限が要ります".into()),
+        _ => return Some("中身の形の版が違います".into()),
     }
     if !valid_kid(&c.kid) {
         return Some("鍵の名前は英小文字・数字・「-」の16文字までです".into());
@@ -253,11 +265,16 @@ fn claims_problem(c: &Claims) -> Option<String> {
             return Some(format!("機能の名前「{f}」が正しくないか、重なっています"));
         }
     }
-    let (Some(issued), Some(expires)) = (parse_date(&c.issued), parse_date(&c.expires)) else {
-        return Some("発行日と期限は YYYY-MM-DD の形の、ある日付にしてください".into());
+    let Some(issued) = parse_date(&c.issued) else {
+        return Some("発行日は YYYY-MM-DD の形の、ある日付にしてください".into());
     };
-    if expires < issued {
-        return Some("期限が発行日より前です".into());
+    if let Some(e) = &c.expires {
+        let Some(expires) = parse_date(e) else {
+            return Some("期限は YYYY-MM-DD の形の、ある日付にしてください".into());
+        };
+        if expires < issued {
+            return Some("期限が発行日より前です".into());
+        }
     }
     None
 }
@@ -385,17 +402,22 @@ impl SecretKey {
     }
 }
 
-fn signed_bytes(payload: &[u8]) -> Vec<u8> {
-    let mut m = Vec::with_capacity(CONTEXT.len() + payload.len());
-    m.extend_from_slice(CONTEXT);
+fn signed_bytes(context: &[u8], payload: &[u8]) -> Vec<u8> {
+    let mut m = Vec::with_capacity(context.len() + payload.len());
+    m.extend_from_slice(context);
     m.extend_from_slice(payload);
     m
 }
 
-/// コードを発行する（入力の誤りは日本語の文で返す）
+/// コードを発行する（入力の誤りは日本語の文で返す）。期限のあるコードは版 1（前の版のアプリでも読める形のまま）、
+/// 期限のないコードは版 2 で出す
 pub fn issue(key: &SecretKey, req: &Request) -> Result<String, String> {
     let claims = Claims {
-        v: CLAIMS_VERSION,
+        v: if req.expires.is_some() {
+            CLAIMS_VERSION
+        } else {
+            CLAIMS_VERSION_NO_EXPIRY
+        },
         kid: key.kid.clone(),
         id: req.id.clone(),
         name: req.name.clone(),
@@ -414,7 +436,7 @@ pub fn issue(key: &SecretKey, req: &Request) -> Result<String, String> {
         ));
     }
     let payload = serde_json::to_vec(&claims).map_err(|_| "中身を作れませんでした".to_owned())?;
-    let sig: Signature = key.signing.sign(&signed_bytes(&payload));
+    let sig: Signature = key.signing.sign(&signed_bytes(CONTEXT, &payload));
     Ok(format!(
         "{PREFIX}{}.{}",
         B64.encode(&payload),
@@ -462,7 +484,10 @@ pub fn verify(code: &str, keys: &[PublicKey]) -> Result<Claims, Error> {
     let kid: Kid = serde_json::from_slice(&payload).map_err(|_| Error::FORMAT)?;
     let key = keys.iter().find(|k| k.kid == kid.kid).ok_or(Error::KEY)?;
     key.key
-        .verify(&signed_bytes(&payload), &Signature::from_bytes(&sig))
+        .verify(
+            &signed_bytes(CONTEXT, &payload),
+            &Signature::from_bytes(&sig),
+        )
         .map_err(|_| Error::SIGNATURE)?;
     claims_of(&payload)
 }
@@ -491,6 +516,15 @@ pub enum CodeState {
     Expiring,
     /// 期限が切れた（機能は出さない。データは消さない）
     Expired,
+    /// 提供元が止めた（最後に取れた止めた一覧に載っている。機能は出さない。データは消さない。一覧から外れたら戻る）
+    Revoked,
+}
+
+impl CodeState {
+    /// 機能を使える状態か
+    pub fn usable(self) -> bool {
+        matches!(self, CodeState::Active | CodeState::Expiring)
+    }
 }
 
 /// 入れたコード1つ（確かめた中身。この版のアプリが知っている機能だけ）
@@ -503,10 +537,11 @@ pub struct CodeView {
     pub name: String,
     pub features: Vec<String>,
     pub issued: String,
-    pub expires: String,
+    /// 期限（期限なしのコードは null）
+    pub expires: Option<String>,
     pub state: CodeState,
-    /// 期限までの日数（期限の日は 0。切れたら負）
-    pub days_left: i64,
+    /// 期限までの日数（期限の日は 0。切れたら負。期限なしのコードは null）
+    pub days_left: Option<i64>,
 }
 
 /// 確かめられなかったコード（鍵を差し替えた後の古いコードなど。外せるように印と符号だけ）
@@ -530,7 +565,12 @@ pub struct Status {
     pub invalid: Vec<InvalidView>,
 }
 
-fn view_of(code: &str, keys: &[PublicKey], today: i64) -> Result<CodeView, Error> {
+fn view_of(
+    code: &str,
+    keys: &[PublicKey],
+    today: i64,
+    revoked: &[String],
+) -> Result<CodeView, Error> {
     let c = verify(code, keys)?;
     let features: Vec<String> = c
         .features
@@ -541,14 +581,18 @@ fn view_of(code: &str, keys: &[PublicKey], today: i64) -> Result<CodeView, Error
     if features.is_empty() {
         return Err(Error::NO_FEATURE);
     }
-    let expires = parse_date(&c.expires).ok_or(Error::FORMAT)?;
-    let days_left = expires - today;
-    let state = if days_left < 0 {
-        CodeState::Expired
-    } else if days_left <= RENEW_NOTICE_DAYS {
-        CodeState::Expiring
+    let days_left = match &c.expires {
+        Some(e) => Some(parse_date(e).ok_or(Error::FORMAT)? - today),
+        None => None,
+    };
+    let state = if revoked.contains(&c.id) {
+        CodeState::Revoked
     } else {
-        CodeState::Active
+        match days_left {
+            Some(d) if d < 0 => CodeState::Expired,
+            Some(d) if d <= RENEW_NOTICE_DAYS => CodeState::Expiring,
+            _ => CodeState::Active,
+        }
     };
     Ok(CodeView {
         reference: reference(code),
@@ -562,13 +606,21 @@ fn view_of(code: &str, keys: &[PublicKey], today: i64) -> Result<CodeView, Error
     })
 }
 
-/// 入れたコードの状態（today は日本の日付 YYYY-MM-DD）
-pub fn status(codes: &[String], keys: &[PublicKey], today: &str) -> Status {
+/// 期限の遅い順に並べるための鍵（期限なしがいちばん遅い）
+fn expiry_rank(e: &Option<String>) -> (bool, &str) {
+    match e {
+        None => (true, ""),
+        Some(d) => (false, d.as_str()),
+    }
+}
+
+/// 入れたコードの状態（today は日本の日付 YYYY-MM-DD。revoked は最後に取れた止めた一覧のコードの番号）
+pub fn status(codes: &[String], keys: &[PublicKey], today: &str, revoked: &[String]) -> Status {
     let t = parse_date(today).unwrap_or(0);
     let mut views = vec![];
     let mut invalid = vec![];
     for code in codes {
-        match view_of(code, keys, t) {
+        match view_of(code, keys, t, revoked) {
             Ok(v) => views.push(v),
             Err(e) => invalid.push(InvalidView {
                 reference: reference(code),
@@ -576,14 +628,18 @@ pub fn status(codes: &[String], keys: &[PublicKey], today: &str) -> Status {
             }),
         }
     }
-    views.sort_by(|a, b| b.expires.cmp(&a.expires).then(a.id.cmp(&b.id)));
+    views.sort_by(|a, b| {
+        expiry_rank(&b.expires)
+            .cmp(&expiry_rank(&a.expires))
+            .then(a.id.cmp(&b.id))
+    });
     let active = FEATURES
         .iter()
         .map(|f| f.id)
         .filter(|f| {
             views
                 .iter()
-                .any(|v| v.state != CodeState::Expired && v.features.iter().any(|x| x == f))
+                .any(|v| v.state.usable() && v.features.iter().any(|x| x == f))
         })
         .map(str::to_owned)
         .collect();
@@ -595,26 +651,30 @@ pub fn status(codes: &[String], keys: &[PublicKey], today: &str) -> Status {
     }
 }
 
-/// コードを足した一覧を返す。本物で、この版で使える機能が入っていて、期限内のものだけ受ける。
-/// 同じコードは足さない。新しいコードが同じ機能を同じか遅い期限まで含む古いコード（更新の前のコード）は外す
+/// コードを足した一覧を返す。本物で、この版で使える機能が入っていて、期限内で、止めた一覧に載っていないものだけ受ける。
+/// 同じコードは足さない。新しいコードが同じ機能を同じか遅い期限まで（期限なしはいちばん遅い）含む古いコード（更新の前のコード）は外す
 pub fn add(
     codes: &[String],
     new: &str,
     keys: &[PublicKey],
     today: &str,
+    revoked: &[String],
 ) -> Result<Vec<String>, Error> {
     let t = parse_date(today).unwrap_or(0);
     let n = normalize(new);
-    let v = view_of(&n, keys, t)?;
-    if v.state == CodeState::Expired {
-        return Err(Error::EXPIRED);
+    let v = view_of(&n, keys, t, revoked)?;
+    match v.state {
+        CodeState::Expired => return Err(Error::EXPIRED),
+        CodeState::Revoked => return Err(Error::REVOKED),
+        CodeState::Active | CodeState::Expiring => {}
     }
     let mut next: Vec<String> = codes
         .iter()
         .filter(|c| normalize(c) != n)
-        .filter(|c| match view_of(c, keys, t) {
+        .filter(|c| match view_of(c, keys, t, revoked) {
             Ok(old) => {
-                !(old.expires <= v.expires && old.features.iter().all(|f| v.features.contains(f)))
+                !(expiry_rank(&old.expires) <= expiry_rank(&v.expires)
+                    && old.features.iter().all(|f| v.features.contains(f)))
             }
             Err(_) => true,
         })

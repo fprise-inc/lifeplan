@@ -11,7 +11,7 @@ interface Distribution {
   identifier: string;
   product_name: { ja: string; en: string };
   publisher: string;
-  endpoints: { host: string };
+  endpoints: { host: string; feature_code_revocations?: string };
   feedback: { form: string };
   keys: Record<string, string[]>;
 }
@@ -47,8 +47,14 @@ const allowed = new Set(["config/distribution.toml", "app/src-tauri/tauri.conf.j
 const files = execFileSync("git", ["ls-files", "-co", "--exclude-standard"], { cwd: REPO_DIR, encoding: "utf8" })
   .split("\n")
   .filter((f) => f !== "" && !allowed.has(f) && !f.startsWith("docs/") && !/\.(png|ico|icns|woff2?|ttf)$/.test(f) && !f.includes("node_modules/"));
-// 機能を有効にするコードの公開鍵（0110）も、このファイルの外に直接書かない（差し替えるときに1か所で済むように）
-const featureKeys = (dist.keys.feature_code ?? []).map((k) => k.slice(k.indexOf(":") + 1)).filter((k) => k.length >= 40);
+// 機能を有効にするコードの公開鍵（0110）と、その止めた一覧の公開鍵（0110 の追記。コードの鍵とは別）も、このファイルの外に直接書かない（差し替えるときに1か所で済むように）
+const featureKeys = [...(dist.keys.feature_code ?? []), ...(dist.keys.feature_code_revocation ?? [])].map((k) => k.slice(k.indexOf(":") + 1)).filter((k) => k.length >= 40);
+// 止めた一覧の場所は、自動通信の相手（host）の https だけ。クエリは付けない（0017 の4・0110 の追記）
+const revUrl = dist.endpoints.feature_code_revocations;
+if (revUrl === undefined) problems.push("config/distribution.toml に [endpoints] の feature_code_revocations がありません（0110 の追記）");
+else if (!revUrl.startsWith(`https://${dist.endpoints.host}/`) || /[?#@\\ ]/.test(revUrl)) problems.push(`config/distribution.toml の feature_code_revocations（${revUrl}）は https://${dist.endpoints.host}/… の形にする`);
+const revKeys = new Set(dist.keys.feature_code_revocation ?? []);
+if ((dist.keys.feature_code ?? []).some((k) => revKeys.has(k))) problems.push("config/distribution.toml: 止めた一覧の鍵（feature_code_revocation）は、コードの鍵（feature_code）と別の鍵にする");
 for (const needle of [dist.identifier, dist.endpoints.host, dist.feedback.form, ...featureKeys]) {
   for (const f of files) {
     let text: string;

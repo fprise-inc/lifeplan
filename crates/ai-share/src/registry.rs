@@ -87,12 +87,30 @@ struct Share {
     record_index: usize,
 }
 
+/// 承認待ちにしておける、機能を有効にするコードの候補の数（0015 の追記の2段目）
+pub const MAX_FEATURE_CODE_CANDIDATES: usize = 4;
+/// 候補のコードの長さの上限（空白・改行を外したあと。コードの上限と同じ）
+const MAX_FEATURE_CODE_CHARS: usize = 2048;
+
+/// AIが出した、機能を有効にするコードの候補（承認待ち。アプリのメモリの中だけに置き、アプリを閉じると消える）。
+/// 本物か・何が有効になるかはアプリ本体が画面に出すときに確かめる（ここでは形だけを見る）
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeatureCodeCandidate {
+    pub candidate_id: String,
+    pub received_at: String,
+    /// 空白・改行を外したコード
+    pub code: String,
+    /// MCP のあいさつでAIのアプリが名乗った名前（自己申告。認証ではない）
+    pub connector: Option<String>,
+}
+
 #[derive(Default)]
 struct State {
     shares: HashMap<String, Share>,
     issued: u32,
     logs: HashMap<String, Vec<AiShareRecord>>,
     proposals: Vec<PendingProposal>,
+    feature_codes: Vec<FeatureCodeCandidate>,
     /// 外部AIへの提供の同意が `given` の世帯だけを渡せるようにする（アプリ本体の方針。下の `require_consent`）
     require_consent: bool,
     /// 記録が変わるたびに1つ増える（アプリ本体が世帯ファイルへ書き戻す合図）
@@ -399,7 +417,75 @@ impl ShareRegistry {
         std::mem::take(&mut self.lock().proposals)
     }
 
+    /// 承認待ちの、機能を有効にするコードの候補（届いた順）
+    pub fn feature_code_candidates(&self) -> Vec<FeatureCodeCandidate> {
+        self.lock().feature_codes.clone()
+    }
+
+    /// 候補を承認待ちから外す（FPが画面で入れた・捨てた）。外した候補を返す
+    pub fn take_feature_code_candidate(&self, candidate_id: &str) -> Option<FeatureCodeCandidate> {
+        let mut st = self.lock();
+        let i = st
+            .feature_codes
+            .iter()
+            .position(|c| c.candidate_id == candidate_id)?;
+        Some(st.feature_codes.remove(i))
+    }
+
+    /// 承認待ちの候補をすべて外す（AI接続口をオフにしたとき）
+    pub fn clear_feature_code_candidates(&self) {
+        self.lock().feature_codes.clear();
+    }
+
     // ------------------------------------------------------------ 接続口からの依頼（受け口（endpoint）から呼ぶ。成功は返す JSON の文字列）
+
+    /// 機能を有効にするコードを、承認待ちの候補に入れる（コードは入れない）。同じコードの候補が既にあれば、それを返す
+    pub fn handle_propose_feature_code(
+        &self,
+        code: &str,
+        caller: &Caller,
+    ) -> Result<String, Refusal> {
+        let code: String = code.chars().filter(|c| !c.is_whitespace()).collect();
+        let shape_ok = code.len() <= MAX_FEATURE_CODE_CHARS
+            && code.strip_prefix("LPFC1-").is_some_and(|b| {
+                !b.is_empty()
+                    && b.bytes()
+                        .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'-' | b'_' | b'.'))
+            });
+        if !shape_ok {
+            return Err((
+                ErrorCode::Invalid,
+                "機能を有効にするコードの形ではありません（「LPFC1-」で始まる文字列をそのまま渡してください）。".to_owned(),
+            ));
+        }
+        let now = self.now();
+        let mut st = self.lock();
+        let id = match st.feature_codes.iter().find(|c| c.code == code) {
+            Some(c) => c.candidate_id.clone(),
+            None => {
+                if st.feature_codes.len() >= MAX_FEATURE_CODE_CANDIDATES {
+                    return Err((
+                        ErrorCode::Invalid,
+                        "承認待ちのコードの候補が多すぎます。FPがアプリの画面で今の候補を入れるか捨てるまで、新しい候補は出せません。".to_owned(),
+                    ));
+                }
+                let id = reduce::random_uuid_v4();
+                st.feature_codes.push(FeatureCodeCandidate {
+                    candidate_id: id.clone(),
+                    received_at: iso8601(now),
+                    code,
+                    connector: caller.mcp_client_declared.clone(),
+                });
+                id
+            }
+        };
+        Ok(json!({
+            "candidateId": id,
+            "status": "pendingReview",
+            "message": "機能を有効にするコードの候補を、アプリの画面（世帯の一覧の「事務所の既定値」のいちばん下）に承認待ちで出しました。FPが画面で中身（有効になる機能・名前・期限）と、入れる前と後を確かめて「このコードを入れる」を押したときだけ入ります。この道具ではコードは入りません。",
+        })
+        .to_string())
+    }
 
     pub fn handle_list(&self) -> Result<String, Refusal> {
         let now = self.now();

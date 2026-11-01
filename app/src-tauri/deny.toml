@@ -30,6 +30,9 @@ exceptions = [
   { name = "selectors", allow = ["MPL-2.0"] },
   { name = "dtoa-short", allow = ["MPL-2.0"] },
   { name = "option-ext", allow = ["MPL-2.0"] },
+  # 0110 の追記: 止めた一覧を取りに行く HTTP の部品（reqwest の rustls）の、証明書を OS で確かめる部品（rustls-platform-verifier）が、
+  # WebAssembly のときだけ使う証明書の一覧（CDLA-Permissive-2.0。データの使用許諾）。アプリ（Windows・Mac）の配布物には入らない
+  { name = "webpki-root-certs", allow = ["CDLA-Permissive-2.0"] },
 ]
 confidence-threshold = 0.9
 # 許可の一覧のうち、今は使っていないものがあっても警告しない

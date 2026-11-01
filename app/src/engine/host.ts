@@ -274,12 +274,44 @@ export interface FeatureCodeView {
   /** 有効にする機能の名前（例: combinedBs） */
   features: string[];
   issued: string;
-  /** 期限（YYYY-MM-DD。この日の終わりまで。日本の日付） */
-  expires: string;
-  /** 期限内・期限まで30日以内（更新の知らせ）・切れた */
-  state: "active" | "expiring" | "expired";
-  /** 期限までの日数（期限の日は 0。切れたら負） */
-  daysLeft: number;
+  /** 期限（YYYY-MM-DD。この日の終わりまで。日本の日付）。期限なしのコードは null */
+  expires: string | null;
+  /** 期限内・期限まで30日以内（更新の知らせ）・切れた・提供元が止めた（止めた一覧に載っている。外れたら戻る） */
+  state: "active" | "expiring" | "expired" | "revoked";
+  /** 期限までの日数（期限の日は 0。切れたら負。期限なしのコードは null） */
+  daysLeft: number | null;
+}
+
+/** 止めた一覧（0110 の追記）の確かめの様子。中身の一覧は返さない */
+export interface FeatureCheckView {
+  /** 最後に取りに行った日時（UTC） */
+  checkedAt: string | null;
+  /** 最後に取れた日時（UTC） */
+  okAt: string | null;
+  /** 最後に取りに行った結果（一度も取りに行っていなければ null） */
+  result: "ok" | "offline" | "rejected" | null;
+  /** 今使っている一覧の通し番号（一度も取れていなければ null） */
+  serial: number | null;
+  listed: number;
+}
+
+/** AIから届いた、機能を有効にするコードの候補（0015 の追記の2段目。入れる前と後。コードの文字列は返さない） */
+export interface FeatureCandidateView {
+  id: string;
+  receivedAt: string;
+  /** AIのアプリが名乗った名前（自己申告） */
+  connector: string | null;
+  /** 入れられるか */
+  ok: boolean;
+  /** 入れられないときの符号（E_FEATURE_CODE_…） */
+  error: string | null;
+  name: string | null;
+  features: string[];
+  expires: string | null;
+  before: string[];
+  after: string[];
+  /** 入れると外れる今のコードの数 */
+  replaces: number;
 }
 
 /** 機能を有効にするコードの状態（0110。本体が確かめる。画面は出すだけ） */
@@ -292,6 +324,10 @@ export interface FeatureStatus {
   codes: FeatureCodeView[];
   /** 確かめられなかったコード（鍵を差し替えた後の古いコードなど。外せる） */
   invalid: { ref: string; error: string }[];
+  /** 止めた一覧の確かめの様子（古い本体・開発用のサーバーの代わりでは無いことがある） */
+  check?: FeatureCheckView;
+  /** AIから届いた、コードを入れる候補（承認待ち） */
+  candidates?: FeatureCandidateView[];
 }
 
 export interface StorageNotice {
@@ -336,6 +372,10 @@ export interface OfficeHost {
   addFeatureCode(code: string): Promise<FeatureStatus>;
   /** コードを外す（ref は状態の印） */
   removeFeatureCode(ref: string): Promise<FeatureStatus>;
+  /** 止めた一覧を今すぐ確かめる（結果は少し後の状態に出る） */
+  checkFeatureCodes(): Promise<FeatureStatus>;
+  /** AIから届いたコードの候補を入れる（accept）か捨てる */
+  decideFeatureCandidate(id: string, accept: boolean): Promise<FeatureStatus>;
   /** 保存先を同期フォルダにする（1人で複数の PC。0024）。本体がフォルダのダイアログを出す（選ばなかったら null）。name はこの PC の呼び名 */
   syncStart(name: string): Promise<OfficeStatus | null>;
   /** 2台目の PC: すでに使っている同期フォルダを、本体のダイアログで選び、復元キーで開く（選ばなかったら null） */
@@ -426,6 +466,8 @@ export interface AiStatus {
   /** 共有の期限の選択肢（分） */
   durations: number[];
   dev: boolean;
+  /** AIから届いた、機能を有効にするコードの候補の数（承認待ち。中身は featureStatus で読む） */
+  featureCodeCandidates?: number;
 }
 
 export type AiConsentDecision = "given" | "refused" | "withdrawn";
@@ -638,6 +680,8 @@ export function tauriHost(): HostApi {
       featureStatus: () => invoke<FeatureStatus>("feature_codes_status"),
       addFeatureCode: (code) => invoke<FeatureStatus>("feature_code_add", { code }),
       removeFeatureCode: (ref) => invoke<FeatureStatus>("feature_code_remove", { codeRef: ref }),
+      checkFeatureCodes: () => invoke<FeatureStatus>("feature_codes_check"),
+      decideFeatureCandidate: (id, accept) => invoke<FeatureStatus>("feature_code_candidate_decide", { candidate: id, accept }),
       syncStart: (name) => invoke<OfficeStatus | null>("storage_sync_start", { name }),
       syncOpen: (name, key) => invoke<OfficeStatus | null>("storage_sync_open", { name, key }),
       syncEnd: (confirm) => invoke<OfficeStatus>("storage_sync_end", { confirm }),
@@ -833,6 +877,8 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       featureStatus: async () => devJson<FeatureStatus>(await devOffice("featureStatus")),
       addFeatureCode: async (code) => devJson<FeatureStatus>(await devOffice("featureAdd", { code })),
       removeFeatureCode: async (ref) => devJson<FeatureStatus>(await devOffice("featureRemove", { ref })),
+      checkFeatureCodes: async () => devJson<FeatureStatus>(await devOffice("featureCheck")),
+      decideFeatureCandidate: async (id, accept) => devJson<FeatureStatus>(await devOffice("featureCandidateDecide", { id, accept })),
       syncStart: async (name) => devJson<OfficeStatus | null>(await devOffice("syncStart", { name })),
       syncOpen: async (name, key) => devJson<OfficeStatus | null>(await devOffice("syncOpen", { name, key })),
       syncEnd: async (confirm) => devJson<OfficeStatus>(await devOffice("syncEnd", { confirm })),

@@ -1458,6 +1458,17 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 .os-code-expired { display: block; }
 .os-code-expired .link-btn { margin-left: 6px; }
 .os-code-label { display: grid; gap: 4px; font-size: 0.86rem; }
+/* 止めた一覧の確かめの様子と、AIからのコードの候補（0110 の追記・0015 の追記の2段目）: 入れる前と後を並べる */
+.os-code-check { display: block; }
+.os-code-check .link-btn { margin-left: 6px; }
+.os-code-cand { margin: 8px 0 10px; padding: 8px 12px; border: 1px solid var(--line); border-left: 4px solid var(--ink-2); border-radius: 6px; background: var(--card); }
+.os-code-cand-title { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; margin: 0 0 4px; font-size: 0.88rem; }
+.os-code-diff { border-collapse: collapse; margin: 4px 0; font-size: 0.84rem; }
+.os-code-diff th, .os-code-diff td { padding: 3px 12px 3px 0; text-align: left; border-bottom: 1px solid var(--line-2); }
+.os-code-diff thead th { font-weight: 400; color: var(--ink-2); }
+.os-code-diff-new { font-weight: 700; }
+/* AIからのコードの候補が届いている帯（画面の上） */
+.ai-code-band { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding: 6px 16px; border-bottom: 1px solid var(--line); background: var(--card); font-size: 0.86rem; }
 /* 資産と負債のタブ: コードの期限が切れて見られなくなった見るものの知らせ（0110） */
 .bs-hidden-note { margin: 0 0 10px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); font-size: 0.86rem; color: var(--ink-2); }
 .os-code-label textarea { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem; word-break: break-all; }
