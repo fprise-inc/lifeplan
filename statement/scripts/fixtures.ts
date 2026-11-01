@@ -247,6 +247,18 @@ function pdfLines(): Uint8Array {
   return pdf(lines, { compress: false, objectStream: false });
 }
 
+// 見出しに「ご利用期間」の行（2つの日付）がある見出しの無い明細。年を補うのは「お支払い分」の日付で、期間の始めの日ではない
+function pdfPeriod(): Uint8Array {
+  const lines: { y: number; cells: Cell[] }[] = [
+    { y: 800, cells: [{ x: 50, text: "【架空】サンプルカード ご利用代金明細書" }] },
+    { y: 785, cells: [{ x: 50, text: "ご利用期間 2026年9月16日〜2026年10月15日" }] },
+    { y: 770, cells: [{ x: 50, text: "2026年11月10日お支払い分" }] },
+    { y: 740, cells: [{ x: 50, text: "09/20" }, { x: 90, text: "架空コンビニ" }, { x: 480, text: "620" }] },
+    { y: 722, cells: [{ x: 50, text: "10/03" }, { x: 90, text: "架空モバイル" }, { x: 480, text: "3,278" }] },
+  ];
+  return pdf(lines, { compress: false, objectStream: false });
+}
+
 const FILES: Record<string, () => Uint8Array> = {
   "card-year-utf8bom.csv": cardYear,
   "card-sjis-2026-05.csv": () => cardSjis(5),
@@ -256,6 +268,7 @@ const FILES: Record<string, () => Uint8Array> = {
   "card-noheader.tsv": noHeader,
   "card-statement.pdf": pdfStatement,
   "card-lines.pdf": pdfLines,
+  "card-period.pdf": pdfPeriod,
 };
 
 const check = process.argv.includes("--check");
