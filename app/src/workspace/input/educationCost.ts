@@ -8,20 +8,20 @@ import { schoolEntryYear } from "../present.ts";
 const S = "education.statistics";
 const K12 = new Set(["kindergarten", "elementary", "juniorHigh", "highSchool"]);
 /** 段の始まりの年齢（エンジンの START_AGE と同じ） */
-export const STAGE_START_AGE: Readonly<Record<string, number>> = { kindergarten: 3, elementary: 6, juniorHigh: 12, highSchool: 15, university: 18, juniorCollege: 18, vocational: 18, graduateMaster: 22, graduateDoctor: 24 };
+export const STAGE_START_AGE: Readonly<Record<string, number>> = { kindergarten: 3, elementary: 6, juniorHigh: 12, highSchool: 15, university: 18, juniorCollege: 18, vocational: 18, graduateMaster: 22, graduateDoctor: 24, graduateProfessional: 22, kosen: 15 };
 /** 在学年数の標準（エンジンの YEARS と同じ。医歯系の大学は6年） */
-const YEARS: Readonly<Record<string, number>> = { kindergarten: 3, elementary: 6, juniorHigh: 3, highSchool: 3, university: 4, juniorCollege: 2, vocational: 2, graduateMaster: 2, graduateDoctor: 3 };
+const YEARS: Readonly<Record<string, number>> = { kindergarten: 3, elementary: 6, juniorHigh: 3, highSchool: 3, university: 4, juniorCollege: 2, vocational: 2, graduateMaster: 2, graduateDoctor: 3, graduateProfessional: 2, kosen: 5 };
 
 export const isK12 = (stage: string): boolean => K12.has(stage);
 export const isHigher = (stage: string): boolean => stage === "university" || stage === "juniorCollege" || stage === "vocational";
 /** 大学院（修士・博士。0089） */
-export const isGraduate = (stage: string): boolean => stage === "graduateMaster" || stage === "graduateDoctor";
+export const isGraduate = (stage: string): boolean => stage === "graduateMaster" || stage === "graduateDoctor" || stage === "graduateProfessional";
 /** 高校のあとの学校（大学・短大・専門学校・大学院）。通い方・浪人・受験・仕送り・入学金の欄を出す */
 export const isTertiary = (stage: string): boolean => isHigher(stage) || isGraduate(stage);
 
 /** 段の在学年数（入れていなければ標準） */
 export function stageYears(s: EducationStage): number {
-  return s.years ?? (s.stage === "university" && s.field === "medical" ? 6 : (YEARS[s.stage] ?? 1));
+  return s.years ?? (s.stage === "university" && s.field === "medical" ? 6 : s.stage === "graduateProfessional" && s.field === "law" ? 3 : (YEARS[s.stage] ?? 1));
 }
 
 /** 段の在学の期間（入学の年の4月〜卒業の年の3月。浪人の年数を足す）。生年月から決まらなければ null */
@@ -95,6 +95,23 @@ export function stageStatistic(s: EducationStage): StageStatistic | null {
   let ids: string[];
   let admission: string;
   let note: string | null = null;
+  if (s.stage === "kosen") {
+    // 高専（0090）: 国立は国立高等専門学校機構の授業料・入学料。公立・私立は統計の目安が無い（年額を入れる）
+    if (sector !== "national") return { annual: null, entrance: null, outOfSchool: null, basis: KOSEN_MISSING, annualBasis: KOSEN_MISSING, entranceBasis: "公立・私立の高専の入学金の目安はありません", lunchRelief: 0, note: null };
+    return { annual: masterAmount(`${S}.kosen.national.tuition`), entrance: masterAmount(`${S}.kosen.national.admission`), outOfSchool: null, basis: titles([`${S}.kosen.national.tuition`, `${S}.kosen.national.admission`]), annualBasis: "国立高等専門学校の授業料（国立高等専門学校機構の募集要項）", entranceBasis: "国立高等専門学校の入学料（国立高等専門学校機構の募集要項）", lunchRelief: 0, note: null };
+  }
+  if (s.stage === "graduateProfessional") {
+    // 専門職大学院（0090）: 法科大学院（law）とそれ以外
+    const law = s.field === "law";
+    const x = sector === "private" ? "private" : sector === "national" ? "national" : "public";
+    const c = law ? "law" : "professional";
+    const ids = x === "private" ? [`${S}.graduate.private.${c}.tuition`, `${S}.graduate.private.${c}.facility`] : x === "national" && law ? [`${S}.graduate.national.law.tuition`] : [`${S}.graduate.${x}.tuition`];
+    const admission = x === "private" ? `${S}.graduate.private.${c}.admission` : x === "national" && law ? `${S}.graduate.national.law.admission` : `${S}.graduate.${x}.admission`;
+    const what = law ? "法科大学院" : "専門職大学院";
+    const annualBasis = x === "national" ? `国立大学の${law ? "法科大学院" : "大学院"}の授業料の標準額（国の省令の額）` : x === "private" ? `統計の平均。授業料と施設設備費を足したもの（私立の${what}・令和7年度入学者）` : "統計の平均の授業料（公立大学の大学院・2025年度）";
+    const entranceBasis = x === "national" ? `国立大学の${law ? "法科大学院" : "大学院"}の入学料の標準額（国の省令の額）` : x === "private" ? `統計の平均の入学料（私立の${what}・令和7年度入学者）` : "統計の平均の入学料（公立大学の大学院・2025年度・地域外）";
+    return { annual: sumOf(ids), entrance: masterAmount(admission), outOfSchool: null, basis: titles([...ids, admission]), annualBasis, entranceBasis, lunchRelief: 0, note: null };
+  }
   if (s.stage === "graduateMaster" || s.stage === "graduateDoctor") {
     const course = s.stage === "graduateMaster" ? "master" : "doctor";
     const x = sector === "private" ? "private" : sector === "national" ? "national" : "public";
@@ -130,6 +147,8 @@ export function stageStatistic(s: EducationStage): StageStatistic | null {
   return { annual: sumOf(ids), entrance: masterAmount(admission), outOfSchool: null, basis: titles([...ids, admission]), annualBasis, entranceBasis, lunchRelief: 0, note };
 }
 
+/** 公立・私立の高専の未入力（0090） */
+export const KOSEN_MISSING = "未入力（公立・私立の高専の学費の統計の目安はありません。年額を入れるまで0円で計算中）";
 /** インターナショナルスクールの未入力（0089） */
 export const INTERNATIONAL_MISSING = "未入力（インターナショナルスクールの学費の統計の目安はありません。学校の費用の年額を入れるまで0円で計算中）";
 const INTERNATIONAL_NOTE = "インターナショナルスクールの多くは学校教育法第1条の学校ではなく（各種学校・無認可）、高校の就学支援金は計算しません（令和8年4月から外国人学校は対象外）。第1条の学校なら「私立」で入れてください";

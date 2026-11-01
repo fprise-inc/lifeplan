@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.41";
+pub const CURRENT: &str = "0.42";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -133,11 +133,13 @@ pub const CURRENT: &str = "0.41";
 /// - 0.41: 教育の段の種類に大学院 `stage: graduateMaster`（修士・博士前期）・`graduateDoctor`（博士・博士後期）、公立・私立の選び方に
 ///   インターナショナルスクール `sector: international`（幼稚園〜高校）を足した（0089。選べる値を足すだけの MINOR。前の版のエンジンはこの値を
 ///   知らずに計算できないので、版を上げて閲覧だけにする）。前の版の段は書き換えない
+/// - 0.42: 教育の段の種類に高専 `stage: kosen`・専門職大学院 `graduateProfessional`、系統に法科大学院 `field: law` を足した（0090。選べる値を
+///   足すだけの MINOR。前の版のエンジンはこの値を知らずに計算できないので、版を上げて閲覧だけにする）。前の版の段は書き換えない
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
-    "0.38", "0.39", "0.40", "0.41",
+    "0.38", "0.39", "0.40", "0.41", "0.42",
 ];
 
 /// 1段分の変換
@@ -348,6 +350,11 @@ pub const STEPS: &[Step] = &[
         from: "0.40",
         to: "0.41",
         apply: v0_40_to_0_41,
+    },
+    Step {
+        from: "0.41",
+        to: "0.42",
+        apply: v0_41_to_0_42,
     },
 ];
 
@@ -925,6 +932,15 @@ fn v0_40_to_0_41(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.41 → 0.42: 足した値（高専・専門職大学院の段・法科大学院の系統。0090）は選べる値が増えただけで、前の版の段は書き換えない。形式の版だけを書き換える
+fn v0_41_to_0_42(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.42".into());
+    }
+    Ok(body)
+}
+
 /// 0.17 で ID を振る並び（物の集まり → その物から並びまでの欄の名前。0035 の5）
 const ELEMENT_LISTS: &[(&str, &[&[&str]])] = &[
     ("livingExpenses", &[&["stages"], &["categories"]]),
@@ -1461,7 +1477,8 @@ mod tests {
         assert_eq!(access("0.39").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.40").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.41").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.42").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.42").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.43").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -1474,7 +1491,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.42", b.clone()).unwrap(),
+            upgrade("0.43", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -1495,6 +1512,20 @@ mod tests {
     }
 
     #[test]
+    fn v0_41_to_0_42_only_bumps_version() {
+        // 高専・専門職大学院の段・法科大学院の系統は選べる値が増えただけ。前の版の段は書き換えない
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.41"},
+            "household": {"request": {"input": {"household": {"goals": [
+                {"id": "g1", "kind": "education", "owner": "c1", "education": {"stages": [{"stage": "highSchool", "sector": "public"}, {"stage": "graduateMaster", "sector": "national"}]}}
+            ]}}}}
+        });
+        let u = upgrade("0.41", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.42");
+        assert_eq!(u["household"], b["household"]);
+    }
+
+    #[test]
     fn v0_40_to_0_41_only_bumps_version() {
         // 大学院の段・インターナショナルスクールは選べる値が増えただけ。前の版の段は書き換えない
         let b = serde_json::json!({
@@ -1504,7 +1535,7 @@ mod tests {
             ]}}}}
         });
         let u = upgrade("0.40", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.41");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
     }
 

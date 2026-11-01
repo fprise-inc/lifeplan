@@ -1,0 +1,20 @@
+id: education.statistics.kosen.national.tuition
+title: 国立高等専門学校の授業料（年額）
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: "2026-07-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 234600
+    sources:
+      - {"type": "web", "url": "https://www.kosen-k.go.jp/wp/wp-content/uploads/2026/07/2027KOSEN_yoko.pdf", "retrievedAt": "2026-10-30", "sha256": "16807f2f81964973eb1e8b94a47e0594db8689d0bb0c2cba6a040a71c485bfdc", "locator": "国立高等専門学校 第3学年編入学試験学生募集要項［外国人対象］（2027年度。独立行政法人国立高等専門学校機構）p.21〔8〕入学に必要な費用", "quote": "②授業料：年額 234,600 円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/422CO0000000112_20260401_508CO0000000088?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "234262fe093c48f859477f6659dec268bf3b8b5722bc25ab316017d6243a58e8", "locator": "高等学校等就学支援金の支給に関する法律施行令 第2条第1項第1号ハ（国の設置する高等専門学校。令和8年4月1日の版）", "quote": "高等専門学校（第一学年から第三学年までに限る。）一万九千五百五十円"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-31", "tools": ["PDF の本文（公表資料）", "高等学校等就学支援金の支給に関する法律施行令の国立の高専の額（月19,550円×12＝234,600円）との突き合わせ", "原本の指紋（sha256）"], "note": "国立高等専門学校（51校）の授業料の年額。額を定めた規則の条文は見つけられなかったので、国立高等専門学校機構の募集要項（2027年度）で確かめ、就学支援金の国立の高専の月額（授業料の全額に当たる）×12 と一致を照らし合わせた。施行日の欄は資料の掲載の月"}

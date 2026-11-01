@@ -1,0 +1,19 @@
+# 【架空の見本】テスト用。実在の制度の値ではない（製品の値の形を写したもの）
+id: test.education.statistics.graduate.national.law.tuition
+title: 【架空の見本】education.statistics.graduate.national.law.tuition
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2023-04-01"
+    appliesTo: null
+    enforcedOn: "2026-01-16"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 804000
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
