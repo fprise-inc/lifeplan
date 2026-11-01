@@ -19,6 +19,10 @@ const OFFICE = { name: "【架空】みらいFP事務所", purpose: "ライフ�
 const SAMPLE = new Uint8Array(readFileSync(join(REPO_DIR, "hearing", "samples", "basic-1-sample.xlsx")));
 /** 簡易版（basic 版2。初回の前の軽い票）の見本 */
 const SIMPLE = new Uint8Array(readFileSync(join(REPO_DIR, "hearing", "samples", "basic-2-sample.xlsx")));
+/** 詳細版（full 版2）の見本（ご本人は会社役員で、会社とのお金の欄を記入。0105） */
+const FULL2 = new Uint8Array(readFileSync(join(REPO_DIR, "hearing", "samples", "full-2-sample.xlsx")));
+/** 配った full 版1（廃止）の見本（会社とのお金の欄が無い） */
+const FULL1 = new Uint8Array(readFileSync(join(REPO_DIR, "hearing", "samples", "full-1-sample.xlsx")));
 const AT = approvalTime(new Date(2026, 9, 18, 10, 0, 0));
 
 let n = 0;
@@ -215,11 +219,11 @@ describe("シートの種類（簡易・詳細・見直し）", () => {
   it("既定は簡易（basic の最新の版）。詳細と見直しは詳細のシート（full）で、見直しだけ前回の値を記入する", async () => {
     expect(SHEET_KINDS.map((k) => k.value)).toEqual(["simple", "detail", "review"]);
     expect(`${defaultSheet().sheetId}-${defaultSheet().version}`).toBe("basic-2");
-    expect(`${sheetFor("detail").sheetId}-${sheetFor("detail").version}`).toBe("full-1");
+    expect(`${sheetFor("detail").sheetId}-${sheetFor("detail").version}`).toBe("full-2");
     expect(sheetFor("review")).toBe(sheetFor("detail"));
     const src = fromRequest(modelHousehold("salariedCoupleTwoKids"));
     const review = await exportSheet(src, { definition: sheetFor("review"), prefill: true, customerNo: "A0001", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-10-27", random: new Uint8Array([1, 2, 3, 4, 5, 6]) });
-    expect(review.request).toMatchObject({ sheetId: "full", sheetVersion: 1, prefilled: true });
+    expect(review.request).toMatchObject({ sheetId: "full", sheetVersion: 2, prefilled: true });
     expect(review.issues.some((i) => i.code === "H_EXPORT_PREFILL")).toBe(true);
     // 簡易のシートには前回の値を記入しない（範囲・合計の欄の形が違う）
     await expect(exportSheet(src, { definition: sheetFor("simple"), prefill: true, customerNo: "A0001", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-10-27", random: new Uint8Array(6) })).rejects.toThrow("詳細版");
@@ -272,6 +276,46 @@ describe("簡易版の記入済みシートを空の世帯に取り込む", () =
     const before = parents.map((p) => JSON.stringify(p.leaves));
     expect(out2.wh.request.input.household.members.filter((m) => m.kind === "parent").map((p) => JSON.stringify(p.leaves))).toEqual(before);
     expect(out2.wh.request.input.household.members.filter((m) => m.kind === "parent")).toHaveLength(3);
+  });
+});
+
+describe("会社役員の方の会社とのお金（詳細版 full 版2。0105）", () => {
+  it("自社株・会社への貸付金・会社からの借入金の候補になり、承認すると借入金は「今の残高から」、連帯保証の額はご本人の欄に入る。取り込み直すと「同じ」", async () => {
+    const wh = blank();
+    const r = await importSheet(FULL2, wh, seq);
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(`${r.view.definition.sheetId}-${r.view.definition.version}`).toBe("full-2");
+    const titles = r.view.candidates.map((c) => `${c.group}:${c.title}`);
+    expect(titles).toContain("貯蓄・投資:ご本人の自社株（出資額）");
+    expect(titles).toContain("貯蓄・投資:ご本人の会社への貸付金");
+    expect(titles).toContain("借入金:ご本人の会社からの借入金");
+    const self = r.view.candidates.find((c) => c.group === "家族" && c.title === "ご本人");
+    expect(self?.fields.find((f) => f.label === "会社の借入の連帯保証の額")).toMatchObject({ answer: "3,000万円", mark: null });
+    const out = applyImport(wh, r.view, new Set(r.view.candidates.map((c) => c.id)), AT);
+    const h = out.wh.request.input.household;
+    const me = h.members.find((m) => m.kind === "self");
+    expect((h.accounts ?? []).filter((x) => x.kind === "otherAsset").map((x) => `${x.subtype ?? ""}:${x.owner === me?.id ? "self" : "?"}:${x.marketValue?.value ?? ""}`)).toEqual(["ownCompanyShares:self:3000000", "loanToCompany:self:5000000"]);
+    const loan = (h.debts ?? []).find((d) => d.subtype === "companyLoan");
+    expect(loan).toMatchObject({ kind: "other", balance: { value: 2000000 }, repayment: { termMonths: 40 } });
+    expect(entryOf(out.wh, loan?.id ?? "")).toBe("balance");
+    expect(me?.companyGuarantee).toMatchObject({ value: 30000000, state: "confirmed", approval: { by: "fp" } });
+    expect(unapproved(out.wh.request)).toBe(0);
+    expect(preview(withRefreshedEstimates(out.wh).request).table.length).toBeGreaterThan(0);
+    const again = await importSheet(FULL2, out.wh, seq);
+    if (!again.ok) throw new Error("取り込めない");
+    const company = again.view.candidates.filter((c) => /自社株|会社への貸付金|会社からの借入金/.test(c.title));
+    expect(company.map((c) => c.kind)).toEqual(["same", "same", "same"]);
+  });
+
+  it("連帯保証の額の欄が無い版1 のシートを取り込み直しても、今の連帯保証の額を残す", async () => {
+    const wh = blank();
+    const r = await importSheet(FULL2, wh, seq);
+    if (!r.ok) throw new Error("取り込めない");
+    const out = applyImport(wh, r.view, new Set(r.view.candidates.map((c) => c.id)), AT);
+    const old = await importSheet(FULL1, out.wh, seq);
+    if (!old.ok) throw new Error("取り込めない");
+    const out2 = applyImport(out.wh, old.view, new Set(old.view.candidates.map((c) => c.id)), AT);
+    expect(out2.wh.request.input.household.members.find((m) => m.kind === "self")?.companyGuarantee).toMatchObject({ value: 30000000 });
   });
 });
 

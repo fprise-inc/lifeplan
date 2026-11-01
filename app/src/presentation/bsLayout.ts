@@ -139,11 +139,13 @@ const groupSum = (y: Pick<BsYearModel, "lines">, g: BsGroupKey) => y.lines.reduc
  * 家計の体力の目安: すぐ使えるお金が生活費の何か月分か／資産のうち値動きのある資産の割合／負債の重さ（負債 ÷ 資産）。
  * 目安の幅は事務所の設定（guide）。赤で煽らず「少なめ」「多め」「目安の幅の中」で言う
  */
-export function healthOf(y: Pick<BsYearModel, "lines" | "living" | "totalAssets" | "totalLiabilities" | "fact">, guide: BsGuide): Health {
+export function healthOf(y: Pick<BsYearModel, "lines" | "living" | "totalAssets" | "totalLiabilities" | "fact"> & Partial<Pick<BsYearModel, "loanPay">>, guide: BsGuide): Health {
   const liquid = groupSum(y, "liquid");
   const market = groupSum(y, "market");
   const mortgage = groupSum(y, "mortgage");
-  const months = y.living > 0 ? liquid / (y.living / 12) : null;
+  // 分母: 生活費、または生活費＋ローン返済（0105。生活費が入っていなければ出さない）
+  const outgo = y.living + (guide.basis === "livingLoan" ? (y.loanPay ?? 0) : 0);
+  const months = y.living > 0 ? liquid / (outgo / 12) : null;
   const risk = y.totalAssets > 0 ? (market / y.totalAssets) * 100 : null;
   const debt = y.totalAssets > 0 ? (y.totalLiabilities / y.totalAssets) * 100 : null;
   const [m0, m1] = guide.months;
@@ -154,7 +156,7 @@ export function healthOf(y: Pick<BsYearModel, "lines" | "living" | "totalAssets"
     months === null
       ? { value: null, tone: "none", text: [{ text: "生活費が入っていないため、出せません。" }] }
       : months < m0
-        ? { value: months, tone: "low", text: [{ text: `${mRange}より` }, { text: "少なめ", strong: true }, { text: `です。${market > 0 ? "急な出費は値動きのある運用を崩すことになります。" : ""}` }] }
+        ? { value: months, tone: "low", text: [{ text: `${mRange}より` }, { text: "少なめ", strong: true }, { text: `です。${monthSteps(months, m0, m1)}` }] }
         : months <= m1
           ? { value: months, tone: "in", text: [{ text: `${mRange}の中です。` }] }
           : { value: months, tone: "high", text: [{ text: `${mRange}より` }, { text: "多め", strong: true }, { text: `です。${y.fact ? "一部を運用に回す余地があります。" : ""}` }] };
@@ -177,7 +179,19 @@ export function healthOf(y: Pick<BsYearModel, "lines" | "living" | "totalAssets"
   return { months: monthsItem, risk: riskItem, debt: debtItem };
 }
 
-/** 月数の見せ方（2年以上は年） */
-export function monthsValue(m: number): { value: string; unit: string } {
-  return m >= 24 ? { value: (m / 12).toFixed(1), unit: "年分の生活費" } : { value: m.toFixed(1), unit: "か月分の生活費" };
+/**
+ * 目安に届かないときの、段で目指す文（0105）: 3か月分 → 目安の下限 → 上限の順に、今より上の2つを示す。
+ * 例: 1.5か月分・目安6〜12か月分なら「まず3か月分、次に6か月分を目指しましょう。」
+ */
+export function monthSteps(months: number, m0: number, m1: number): string {
+  const steps = [3, m0, m1].filter((v, i, a) => v > months && a.indexOf(v) === i).sort((a, b) => a - b);
+  const [first, second] = steps;
+  if (first === undefined) return "";
+  return second !== undefined ? `まず${first}か月分、次に${second}か月分を目指しましょう。` : `まず${first}か月分を目指しましょう。`;
+}
+
+/** 月数の見せ方（2年以上は年）。withLoan は分母が生活費＋ローン返済のとき */
+export function monthsValue(m: number, withLoan = false): { value: string; unit: string } {
+  const of = withLoan ? "生活費＋返済" : "生活費";
+  return m >= 24 ? { value: (m / 12).toFixed(1), unit: `年分の${of}` } : { value: m.toFixed(1), unit: `か月分の${of}` };
 }

@@ -264,7 +264,7 @@ describe("図の置き方（縮尺・最低限の高さ）", () => {
 
 describe("家計の体力の目安", () => {
   const year = (o: Partial<BsYearModel>): BsYearModel => ({
-    year: 2026, age: 45, members: "", fact: true, totalAssets: 0, totalLiabilities: 0, netWorth: 0, financial: 0, shortfall: 0, living: 3_600_000, events: [], notes: {}, lines: [], ...o,
+    year: 2026, age: 45, members: "", fact: true, totalAssets: 0, totalLiabilities: 0, netWorth: 0, financial: 0, shortfall: 0, living: 3_600_000, loanPay: 0, guarantee: 0, events: [], notes: {}, lines: [], ...o,
   });
   const y = year({
     lines: [
@@ -352,7 +352,7 @@ describe("前回と比べる（控え）", () => {
   });
 
   it("差の項目と「○年前」", () => {
-    const y = (lines: BsYearModel["lines"]): BsYearModel => ({ year: 2026, age: null, members: "", fact: false, totalAssets: 0, totalLiabilities: 0, netWorth: 0, financial: 0, shortfall: 0, living: 0, events: [], notes: {}, lines });
+    const y = (lines: BsYearModel["lines"]): BsYearModel => ({ year: 2026, age: null, members: "", fact: false, totalAssets: 0, totalLiabilities: 0, netWorth: 0, financial: 0, shortfall: 0, living: 0, loanPay: 0, guarantee: 0, events: [], notes: {}, lines });
     const items = prevItems(
       y([{ key: "deposit", label: "預金", group: "liquid", amount: 6_900_000 }, { key: "mortgage", label: "住宅ローン", group: "mortgage", amount: 24_000_000 }]),
       y([{ key: "deposit", label: "預金", group: "liquid", amount: 5_600_000 }, { key: "mortgage", label: "住宅ローン", group: "mortgage", amount: 24_500_000 }, { key: "nisa", label: "NISA", group: "market", amount: 3_000 }]),

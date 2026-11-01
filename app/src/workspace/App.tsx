@@ -19,7 +19,7 @@ import { CashflowTable, FeeNote, GoalCards, PipResult, ResultCard, ResultVerdict
 import { PlanBand } from "../presentation/PlanBand.tsx";
 import { BalanceTab, type BsView } from "../presentation/BalanceTab.tsx";
 import type { BsPlanModel, BsPrevModel } from "../presentation/model.ts";
-import { balanceTabModel, bsPlan, bsPrev } from "./balanceTab.ts";
+import { balanceTabModel, bsPlan, bsPrev, defaultGuideBasis } from "./balanceTab.ts";
 import { RentalTab } from "../presentation/RentalTab.tsx";
 import { analysisOf, hasRentalProperty, rentalTabModel, resolveRentalView, useRentalSale, type RentalUi } from "./rentalTab.ts";
 import { MONEY_THREE_NAME_CHOICES, moneyThreeModel } from "./moneyThree.ts";
@@ -2526,6 +2526,7 @@ export function App() {
                   selected: letterOf(work.sel),
                   base: letterOf(work.base),
                   guide: bsSettings.guide,
+                  guideBasis: defaultGuideBasis(opened.wh.request),
                   pointDefaults: bsSettings.points,
                   columns: bsSettings.columns,
                   prevChoices: bsPrevChoices,

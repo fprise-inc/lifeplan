@@ -163,6 +163,14 @@ entries:
     replacedBy: null
     collection: account
     path: [settlement]
+  - id: account.subtype
+    status: active
+    label: "その他の資産の細目（ownCompanyShares 自社株〔出資額〕・loanToCompany 会社への貸付金。種類 otherAsset だけ。表示だけで、計算には使わない。0105）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: account
+    path: [subtype]
   - id: account.uninvested
     status: active
     label: "運用しない分（金額。まとめた金融資産の器 pooled だけで使う。この額までは預金の利回り。0031）"
@@ -875,7 +883,7 @@ entries:
     path: [start]
   - id: debt.subtype
     status: active
-    label: "ローンの種類の細目（表示と推定の元だけ。計算の種類は kind。0052）"
+    label: "ローンの種類の細目（表示と推定の元だけ。計算の種類は kind。0052。companyLoan は役員の会社からの借入金。0105）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1609,6 +1617,14 @@ entries:
     replacedBy: null
     collection: member
     path: [birth]
+  - id: member.companyGuarantee
+    status: active
+    label: "会社の借入の連帯保証の額（役員として働く人の、今の額。負債には入れず、資産と負債のタブで図の外に見せる。計算には使わない。0105）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: member
+    path: [companyGuarantee]
   - id: member.expected
     status: active
     label: "まだいない家族か（出産予定・結婚予定）"

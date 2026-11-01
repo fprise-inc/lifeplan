@@ -1861,6 +1861,12 @@
     "settlement"
    ]
   },
+  "account.subtype": {
+   "collection": "account",
+   "path": [
+    "subtype"
+   ]
+  },
   "account.uninvested": {
    "collection": "account",
    "path": [
@@ -2973,6 +2979,12 @@
    "collection": "member",
    "path": [
     "birth"
+   ]
+  },
+  "member.companyGuarantee": {
+   "collection": "member",
+   "path": [
+    "companyGuarantee"
    ]
   },
   "member.expected": {

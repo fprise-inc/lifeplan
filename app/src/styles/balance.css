@@ -27,11 +27,14 @@
   --bs-car: #414f5a;
   --bs-insurance: #5f6973;
   --bs-otherAsset: #495962;
+  --bs-ownShares: #3f5260; /* 自社株（出資額。0105） */
+  --bs-loanToCompany: #52606b; /* 会社への貸付金（0105） */
   /* 負債 */
   --bs-mortgage: #a46738;
   --bs-propertyLoan: #663b1b;
   --bs-carLoan: #65411f;
   --bs-scholarship: #643b29;
+  --bs-companyLoan: #6a3f22; /* 会社からの借入金（0105） */
   --bs-debtOther: #624228;
   --bs-short: #f7dcd8;
   --bs-short-line: #c2867f;
@@ -80,6 +83,12 @@
 .bs-evs { display: flex; flex-wrap: wrap; gap: 6px; }
 .bs-ev { font-size: 0.76rem; font-weight: 700; border: 1.5px solid var(--line); border-radius: 999px; padding: 1px 9px; background: #fff; }
 .bs-ev.none { border-style: dashed; color: var(--ink-2); }
+/* 会社の借入の連帯保証（0105）: 負債の合計に入れず、図の外の点線の箱 */
+.bs-guarantee { display: flex; flex-direction: column; gap: 2px; border: 1.5px dashed var(--ink-2); border-radius: 8px; padding: 6px 10px; background: var(--card); }
+.bs-guarantee .k { font-size: 0.78rem; font-weight: 700; color: var(--ink-2); }
+.bs-guarantee .v { font-weight: 700; }
+.bs-guarantee .t { font-size: 0.86rem; }
+.bs-guarantee small { font-size: 0.72rem; color: var(--ink-2); }
 .bs-ev.k-retire { border-color: var(--prop); color: var(--prop-ink); background: var(--prop-bg); }
 .bs-ev.k-loan { border-color: var(--bs-mortgage); color: #5d4a26; background: #f5efe3; }
 .bs-ev.k-short, .bs-ev.k-neg { border-color: var(--bs-short-line); color: #7d3a33; background: #fbefed; }
@@ -144,6 +153,7 @@
 }
 .hg-edit { margin-top: 6px; padding: 8px 10px; border: 1.5px dashed var(--field); border-radius: 8px; background: #fafbfc; display: flex; flex-direction: column; gap: 6px; }
 .hg-edit p { margin: 0; color: var(--ink-2); font-size: 0.78rem; }
+.hg-edit .hg-note { font-size: 0.74rem; }
 .hg-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-weight: 700; }
 .hg-f { display: inline-flex; align-items: center; gap: 4px; font-weight: 400; }
 .hg-f > span:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

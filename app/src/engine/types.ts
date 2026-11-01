@@ -30,6 +30,8 @@ export interface Member {
   /** 0081: 所得税の申告の仕方（青色・白色）と青色申告特別控除の区分（65万円 electronic・55万円 doubleEntry・10万円 simple。省略は simple）。省略は白色 */
   taxReturn?: { method: "blue" | "white"; blueDeduction?: "electronic" | "doubleEntry" | "simple" };
   support?: { dependent?: boolean; cohabiting?: boolean; allowance?: number };
+  /** 0105: 会社の借入の連帯保証の額（役員として働く人の今の額。負債には入れず、資産と負債のタブで図の外に見せる。計算には使わない） */
+  companyGuarantee?: Box<number>;
   /** 世帯の外の家族（0035 の4。家計を世帯と別にする家族）。期間は家計を1つにする期間（living は生活費の人数、income は収入を世帯に入れる） */
   outside?: OutsideFamily;
   /** 世帯の外の家族のお金（0042。簡易の家計）。預金を入れたときだけ計算する。その人が介護を受ける費用は、まずこのお金から払い、尽きた月から世帯が払う */
@@ -123,6 +125,8 @@ export interface ReturnStage {
 export interface Account {
   id: string;
   kind: string;
+  /** 0105: その他の資産の細目（自社株〔出資額〕・会社への貸付金。種類 otherAsset だけ。表示だけで、計算には使わない） */
+  subtype?: "ownCompanyShares" | "loanToCompany";
   owner: string;
   marketValue?: Box<number>;
   costBasis?: Box<number>;
@@ -472,7 +476,8 @@ export interface Debt {
   pairWith?: string;
   /** 0052: 名前と種類の細目（表示と推定の元だけ。計算には使わない） */
   label?: string;
-  subtype?: "cardLoan" | "scholarship" | "scholarshipFree" | "renovation" | "policyLoan" | "personal" | "other";
+  /** companyLoan は役員の会社からの借入金（0105） */
+  subtype?: "cardLoan" | "scholarship" | "scholarshipFree" | "renovation" | "policyLoan" | "personal" | "other" | "companyLoan";
   /** この借入で取得した住まい以外の不動産（不動産の器の ID。0028） */
   property?: string;
   /** 0044: 相続で受け継ぐ借金の元の借り手・見込み・基本の計算に入れるか（計算には使わない。不確かなら要求から外す） */

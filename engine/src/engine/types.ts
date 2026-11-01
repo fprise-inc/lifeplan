@@ -41,6 +41,8 @@ export interface MemberInput {
   readonly support?: { readonly dependent: boolean; readonly cohabiting: boolean; readonly allowance?: Yen };
   /** 0081: 所得税の申告の仕方（青色・白色）と青色申告特別控除の区分（65万円 electronic・55万円 doubleEntry・10万円 simple。省略は simple）。省略は白色 */
   readonly taxReturn?: { readonly method: "blue" | "white"; readonly blueDeduction?: "electronic" | "doubleEntry" | "simple" };
+  /** 0105: 会社の借入の連帯保証の額（役員として働く人の今の額。負債には入れない。計算には使わない） */
+  readonly companyGuarantee?: ValueBox<Yen>;
   /** 0035 の4: 世帯の外の家族（家計を世帯と別にする家族）。お金の動きは家計を1つにする期間のうち収入を世帯に入れる期間だけ世帯に入れ、世帯の判定の顔ぶれに入れない（sdk の isOutside・sameHousehold） */
   readonly outside?: OutsideFamilyInput;
   /** 世帯の外の家族のお金（簡易の家計。outside.wallet の部品が月ごとに積む。生年月のある世帯の外の家族だけ） */
@@ -226,6 +228,8 @@ export type AccountKind =
 export interface AccountInput {
   readonly id: string;
   readonly kind: AccountKind;
+  /** 0105: その他の資産の細目（自社株〔出資額〕・会社への貸付金。種類 otherAsset だけ。表示だけで、計算には使わない） */
+  readonly subtype?: "ownCompanyShares" | "loanToCompany";
   readonly owner: string;
   readonly marketValue: ValueBox<Yen>;
   readonly costBasis?: ValueBox<Yen>;
@@ -368,7 +372,8 @@ export interface DebtInput {
   readonly pairWith?: string;
   /** 0052: 名前と種類の細目（表示と推定の元だけ。計算には使わない） */
   readonly label?: string;
-  readonly subtype?: "cardLoan" | "scholarship" | "scholarshipFree" | "renovation" | "policyLoan" | "personal" | "other";
+  /** companyLoan は役員の会社からの借入金（0105） */
+  readonly subtype?: "cardLoan" | "scholarship" | "scholarshipFree" | "renovation" | "policyLoan" | "personal" | "other" | "companyLoan";
   /** 0044: 相続で受け継ぐ借金の元の借り手・見込み・基本の計算に入れるか（計算には使わない。アプリが要求から外す） */
   readonly inheritedFrom?: string;
   readonly likelihood?: "certain" | "likely" | "uncertain";

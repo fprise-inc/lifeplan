@@ -5,7 +5,8 @@
 // 書き出した回答を取り込み、もう一度書き出すと同じ回答になる（往復。test/roundtrip.test.ts）
 import { HEARING_FORMAT, HEARING_FORMAT_VERSION, type Answer, type FilledSheet, type Management } from "./answers.ts";
 import { itemByKey, type SheetDefinition } from "./definition.ts";
-import { DEATH_TEMPLATES } from "./import.ts";
+import { DEATH_TEMPLATES, DERIVED_TERM } from "./import.ts";
+import { paymentFromBalance } from "./loan.ts";
 import { issue, type Issue } from "./issues.ts";
 import { addMonths, ageAt, resolveAt, ymIndex } from "./months.ts";
 import type { Account, EducationStage, EmploymentPeriod, EngineRequest, Household, Member, ValueBox } from "./types.ts";
@@ -245,6 +246,31 @@ export function exportAnswers(def: SheetDefinition, request: EngineRequest, opti
         if (monthly > 0) put(monthlyKey, n, v(monthly));
       }
     }
+  });
+
+  // 会社役員の方の会社とのお金（自社株の出資額・会社への貸付金・会社からの借入金・連帯保証の額。0105）。この項目の無い版のシートには書かない
+  adults.forEach((m, i) => {
+    const n = i + 1;
+    if (m === undefined || !items.has("hs.company.shares")) return;
+    for (const [key, subtype] of [
+      ["hs.company.shares", "ownCompanyShares"],
+      ["hs.company.loanToCompany", "loanToCompany"],
+    ] as const) {
+      const list = h.accounts.filter((a) => a.owner === m.id && a.kind === "otherAsset" && a.subtype === subtype);
+      if (list.length > 0) put(key, n, sumBoxes(list.map((a) => a.marketValue)));
+    }
+    const loans = (h.debts ?? []).filter((d) => d.subtype === "companyLoan" && d.debtors.some((x) => x.member === m.id && x.role === "primary"));
+    if (loans.length > 0) {
+      put("hs.company.loanFromCompany", n, sumBoxes(loans.map((d) => d.balance)));
+      // 毎月の返済額は、残高・返済期間・利率から求める（切り上げ。取り込み直すと同じ期間に戻る）。返済期間が仮の値（返済額が無いので5年とみなした）のローンは書かない
+      const one = loans.length === 1 ? loans[0] : undefined;
+      const term = one === undefined ? undefined : assumed[`housing/debt/${one.id}/term`];
+      if (one !== undefined && (term === undefined || term.startsWith(DERIVED_TERM)) && one.balance?.state === "confirmed" && one.balance.value !== undefined) {
+        const pay = paymentFromBalance(one.balance.value, Number(one.rateSchedule[0]?.rate ?? "0"), one.repayment.termMonths);
+        if (pay !== null) put("hs.company.loanFromCompanyMonthly", n, v(pay));
+      }
+    }
+    if (m.companyGuarantee !== undefined) put("hs.company.guarantee", n, boxVal(m.companyGuarantee));
   });
 
   // 保険

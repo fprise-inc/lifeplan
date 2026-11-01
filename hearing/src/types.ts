@@ -27,6 +27,8 @@ export interface Member {
   outside?: { of?: string; periods: { id: string; from: Timepoint | null; to: Timepoint | null; living?: boolean; income?: boolean }[] };
   /** 親・祖父母の扶養と同居 */
   support?: { dependent: boolean; cohabiting: boolean; allowance?: number };
+  /** 会社の借入の連帯保証の額（会社役員の方。負債には入れない。計算には使わない。0105） */
+  companyGuarantee?: ValueBox<number>;
 }
 
 export type Relation =
@@ -67,6 +69,8 @@ export interface ResidentTaxAssessment {
 export interface Account {
   id: string;
   kind: string;
+  /** その他の資産の細目（自社株〔出資額〕・会社への貸付金。種類 otherAsset だけ。0105） */
+  subtype?: "ownCompanyShares" | "loanToCompany";
   owner: string;
   marketValue: ValueBox<number>;
   asOf: string;
@@ -82,6 +86,8 @@ export interface RateStep {
 export interface Debt {
   id: string;
   kind: "mortgage" | "car" | "scholarship" | "other";
+  /** ローンの種類の細目（表示と推定の元だけ。companyLoan は会社からの借入金。0105） */
+  subtype?: "cardLoan" | "scholarship" | "renovation" | "policyLoan" | "personal" | "other" | "companyLoan";
   debtors: { member: string; role: "primary" | "joint" | "guarantor"; share?: string }[];
   principal: number;
   start: Timepoint;

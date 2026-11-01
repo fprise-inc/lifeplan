@@ -221,10 +221,19 @@ function keepParent(prev: Obj, next: Obj): Obj {
   return out as unknown as Obj;
 }
 
-/** 物の対応の鍵: 一覧・種類・指している構成員（今の世帯の ID に読み替えたもの） */
+/** 細目で見分ける一覧（その他の資産の自社株・会社への貸付金、会社からの借入金。0105）。保険の細目は対応づけに使わない */
+const SUBTYPE_COLLECTIONS = new Set(["accounts", "debts"]);
+
+/** 連帯保証の額（0105）をシートで聞いていない（版1 のシート・空欄）ときは、今の値を残す */
+function keepGuarantee(prev: Obj, next: Obj): Obj {
+  return next.companyGuarantee === undefined && prev.companyGuarantee !== undefined ? { ...next, companyGuarantee: prev.companyGuarantee } : next;
+}
+
+/** 物の対応の鍵: 一覧・種類（その他の資産・ローンは細目も）・指している構成員（今の世帯の ID に読み替えたもの） */
 function signature(collection: string, o: Obj, members: Map<string, string>): string {
   const parts: string[] = [collection];
   for (const k of KIND_FIELDS) if (typeof o[k] === "string") parts.push(`${k}=${o[k] as string}`);
+  if (SUBTYPE_COLLECTIONS.has(collection) && typeof o.subtype === "string") parts.push(`subtype=${o.subtype}`);
   for (const k of MEMBER_REFS) if (typeof o[k] === "string") parts.push(`${k}=${members.get(o[k] as string) ?? (o[k] as string)}`);
   return parts.join("|");
 }
@@ -283,11 +292,29 @@ function markOf(obj: Obj | undefined, f: Pick<FieldRecord, "path" | "state" | "r
   return { mark: null, note: null };
 }
 
-/** 候補の見出し（例: ご本人の仕事と収入・お子さま（2人目）） */
+/** 会社役員の方の会社とのお金の候補の名前（細目 → 名前。0105） */
+const COMPANY_TITLES: Record<string, string> = {
+  ownCompanyShares: "自社株（出資額）",
+  loanToCompany: "会社への貸付金",
+  companyLoan: "会社からの借入金",
+};
+
+/** 候補の分野（会社からの借入金は住宅ローンでなく「借入金」） */
+function groupOf(c: Candidate): string {
+  if (c.collection === "debts" && (c.value as Obj).subtype === "companyLoan") return "借入金";
+  return GROUP[c.collection] ?? c.collection;
+}
+
+/** 候補の見出し（例: ご本人の仕事と収入・お子さま（2人目）・ご本人の会社からの借入金） */
 function titleOf(c: Candidate, imp: EngineRequest): string {
-  const group = GROUP[c.collection] ?? c.collection;
+  const group = groupOf(c);
   const label = new Map(roles(imp).map((r) => [r.member.id, r.label]));
   const v = c.value as Obj;
+  const company = typeof v.subtype === "string" && (c.collection === "accounts" || c.collection === "debts") ? COMPANY_TITLES[v.subtype] : undefined;
+  if (company !== undefined) {
+    const who = c.collection === "debts" ? (v.debtors as { member: string }[] | undefined)?.[0]?.member : (v.owner as string | undefined);
+    return who !== undefined && label.has(who) ? `${label.get(who) as string}の${company}` : company;
+  }
   // 親・祖父母（世帯の外の家族）は父・母・義父・義母と呼ぶ（介護・親の項目と同じ）
   if (c.collection === "members" && (v.kind === "parent" || v.kind === "grandparent")) return memberLabels({ request: imp, assumed: {}, labelsByMember: {} } as unknown as WorkingHousehold).get(v.id) ?? "ご家族";
   if (c.collection === "members") return label.get(v.id) ?? "ご家族";
@@ -325,6 +352,11 @@ export async function importSheet(bytes: Uint8Array, wh: WorkingHousehold, newId
       }
     }
     const mapped = remap(v, match);
+    // 連帯保証の額をシートで聞いていない（版1・空欄）なら、今の値と比べない（承認しても今の値を残す。keepGuarantee）
+    if (found !== undefined && c.collection === "members" && mapped.companyGuarantee === undefined && found.companyGuarantee !== undefined) {
+      found = { ...found };
+      delete found.companyGuarantee;
+    }
     let changedFields = 0;
     if (found !== undefined) {
       for (const f of c.fields) {
@@ -352,7 +384,7 @@ export async function importSheet(bytes: Uint8Array, wh: WorkingHousehold, newId
       fields.push({ label, answer: answerText(r.definition, a, f.key), ...mark });
     }
     const cons = [...new Set(c.fields.flatMap((f) => contradictions.get(f.key) ?? []))];
-    return { id: c.id, group: GROUP[c.collection] ?? c.collection, title: titleOf(c, imp), kind, review: c.status === "needsReview", contradictions: cons, fields, changedFields, note: c.note };
+    return { id: c.id, group: groupOf(c), title: titleOf(c, imp), kind, review: c.status === "needsReview", contradictions: cons, fields, changedFields, note: c.note };
   });
   return { ok: true, view: { definition: r.definition, candidates, checklist: r.checklist, issues: r.issues, memo: r.memo, consents: r.consents, pending: r.pending, result: r, match } };
 }
@@ -416,7 +448,7 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
       // 前の物の値の状態の行のうち、取り込みで値が変わらない所の行（FP が決めた「該当なし」「わからない」・確定の記録）は残す。
       // 値が変わった所は取り込んだ値と承認の記録が正（0041）
       const prev = list[at] as Obj;
-      const merged = c.collection === "members" && obj.kind === "parent" ? keepParent(prev, obj) : obj;
+      const merged = c.collection === "members" ? (obj.kind === "parent" ? keepParent(prev, obj) : keepGuarantee(prev, obj)) : obj;
       carryRows(prev, merged, c.collection === "members" ? { member: merged.id } : { object: merged.id });
       list[at] = merged;
       replaced++;

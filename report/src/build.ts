@@ -8,7 +8,7 @@ import type { EngineOutput, EngineRequest, ProposalBundle, RealEstateAnalysisAmo
 import { saleCompareOf, type SaleResult } from "./rentalSale.ts";
 import { pctText, timesText } from "./rentalText.ts";
 import { selectChapters } from "./chapters.ts";
-import { bsSeries, BS_GROUP_LABEL, groupTotal, type BsGroup } from "./bsGroups.ts";
+import { bsHouseholdOf, bsSeries, BS_GROUP_LABEL, groupTotal, type BsGroup } from "./bsGroups.ts";
 import { DEFAULT_MONEY_THREE, moneyThreeModel, type MoneyThreeModel } from "./moneyThree.ts";
 import { carPurchaseMonths } from "../../engine/src/sdk/cars.ts";
 import { dreamIncluded, dreamList, dreamSummary } from "./dreams.ts";
@@ -805,7 +805,7 @@ function balancePoints(ctx: Ctx, figure: readonly YearPoint[]): YearPoint[] {
 /** バランスシートの図（提案。アプリの「資産と負債」のタブと同じ分け方。共通の縮尺） */
 function balanceFigure(ctx: Ctx, points: readonly YearPoint[]): BalanceFigure {
   const h = ctx.bundle.proposal.request.input.household;
-  const at = bsSeries(ctx.bundle.proposal.result.table, points.map((p) => p.year), { residences: h.residences ?? [], debts: (h.debts ?? []).map((d) => ({ id: d.id, kind: d.kind, ...(d.property !== undefined ? { property: d.property } : {}) })) });
+  const at = bsSeries(ctx.bundle.proposal.result.table, points.map((p) => p.year), bsHouseholdOf(h));
   const box = (a: (typeof at)[number], g: BsGroup) => ({ key: g, label: BS_GROUP_LABEL[g], amount: groupTotal(a, g) });
   const line = (a: (typeof at)[number], key: string) => a.lines.filter((l) => l.key === key).reduce((s, l) => s + l.amount, 0);
   // 換金しにくい資産は、土地・建物・そのほか（車・保険の解約返戻金・分けていない不動産など）の箱に分ける（建物は年数とともに減り、土地は残る）

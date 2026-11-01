@@ -68,6 +68,36 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: hs.company.guarantee
+    status: active
+    label: "会社の借入の連帯保証の額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.company.loanFromCompany
+    status: active
+    label: "会社からの借入金（いまの残高）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.company.loanFromCompanyMonthly
+    status: active
+    label: "会社からの借入金の毎月の返済額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.company.loanToCompany
+    status: active
+    label: "会社への貸付金（いまの残高）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.company.shares
+    status: active
+    label: "自社株の出資額"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: hs.consent.externalAi
     status: active
     label: "（任意）分析のために、外部のAIサービスに情報を渡すことに同意します"
