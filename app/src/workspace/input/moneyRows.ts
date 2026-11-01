@@ -673,10 +673,10 @@ export function rowParts(h: Household, r: RowShape): { amount: string; when: str
   return { amount: `${yenText(r.amount.value ?? 0)}・${unit}`, when: c === "once" ? from : `${from}〜${to}` };
 }
 
-/** 閉じた行の見出し: 「入｜父からの相続 2,000万円・1回 2041年7月」 */
-export function rowTitle(h: Household, dir: "入" | "出", name: string, r: RowShape): string {
+/** 閉じた行の見出し: 「父からの相続 2,000万円・1回 2041年7月」（入る・出るはカードの区画で分かるので書かない） */
+export function rowTitle(h: Household, name: string, r: RowShape): string {
   const p = rowParts(h, r);
-  return `${dir}｜${name} ${p.amount} ${p.when}`;
+  return `${name} ${p.amount} ${p.when}`;
 }
 
 /** 入るお金の行の名前（名前が空なら種類の名前） */
@@ -739,7 +739,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   ];
   const main: GroupDef = {
     key: k,
-    title: rowTitle(h, "入", f.label !== undefined && f.label !== "" ? f.label : def.label, f),
+    title: rowTitle(h, f.label !== undefined && f.label !== "" ? f.label : def.label, f),
     ...(excluded || detailNotes.length > 0
       ? { note: [...(excluded ? ["計算に入れていません（見込みを「当てにしない」にした受け取る相続・贈与）。詳細の「基本の計算に入れる」で入れられます"] : []), ...(detailNotes.length > 0 ? [`詳細あり: ${detailNotes.join("・")}`] : [])].join("。") }
       : {}),
@@ -976,7 +976,7 @@ export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense, card: Mo
   const details = [...(p.payer !== undefined ? ["払う人"] : []), ...(p.growth !== undefined ? ["伸び方"] : []), ...(badge !== null ? [badge] : [])];
   return {
     key: k,
-    title: rowTitle(h0, "出", name, p),
+    title: rowTitle(h0, name, p),
     ...(details.length > 0 ? { note: `詳細あり: ${details.join("・")}（詳細で直せます）` } : {}),
     level: "simple",
     fields,
@@ -1065,7 +1065,7 @@ export function inheritedDebtGroups(wh: WorkingHousehold): GroupDef[] {
     const k = `inherit/debt/${d.id}`;
     return {
       key: k,
-      title: `出｜相続で受け継ぐ借金（${memberLabel(wh, d.debtors[0]?.member)}）`,
+      title: `相続で受け継ぐ借金（${memberLabel(wh, d.debtors[0]?.member)}）`,
       note: [
         ...(excludedDebt(d) ? ["計算に入れていません（見込みが「当てにしない」）。「基本の計算に入れる」で入れられます"] : []),
         "借入額・金利・返済は住まい・ローンの項目の「住宅ローン以外のローン」で入れます",
