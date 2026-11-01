@@ -43,6 +43,7 @@ import {
   readSheet,
   removeAccount,
   removeImport,
+  oneOffNote,
   removeRule,
   requestSize,
   rowsSpan,
@@ -1219,11 +1220,7 @@ function ResultStep({ wh, log, an, onApprove }: { wh: WorkingHousehold; log: Sta
                   <li key={o.durable === true ? `durable/${o.key}` : o.key}>
                     <span class="nm">{o.label}</span>
                     <span class="v">{yen(o.amount)}</span>
-                    <small>
-                      {o.durable === true ? "家電・家具の買い替えの候補・" : ""}
-                      {o.annual !== undefined ? (o.annual.confidence === "low" ? "年1回かは分からない" : o.annual.everyYears === 2 ? "2年に1回" : "年1回") : `${o.occurrences.length}回`}
-                      {o.annual !== undefined && o.annual.confidence !== "low" ? `（確かさ ${o.annual.confidence === "high" ? "高" : "中"}）` : ""}・年 {yen(o.perYear)}
-                    </small>
+                    <small>{oneOffNote(o)}</small>
                   </li>
                 ))}
               </ul>

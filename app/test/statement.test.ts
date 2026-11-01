@@ -28,6 +28,7 @@ import {
   markText,
   otherReview,
   importPeriodProblem,
+  oneOffNote,
   periodProblem,
   putRule,
   readFile,
@@ -311,6 +312,12 @@ describe("候補の承認", () => {
     // 入力の確かめの一覧のひな形「家電・家具の買い替え」に当たる（入れた、と出る）
     expect(ANNUAL_TEMPLATES.find((t) => t.key === "appliances")!.match.test(added.label ?? "")).toBe(true);
     expect(() => preview(withDurable.request)).not.toThrow();
+    // 一時的支出の一覧: 家電・家具の買い替えの候補には年の額（「年○円」）を出さない。ほかの行は今までどおり年の額を出す
+    const durableItem = an.summary.oneOffs.find((o) => o.durable === true)!;
+    expect(oneOffNote(durableItem)).toMatch(/^家電・家具の買い替えの候補・/u);
+    expect(oneOffNote(durableItem)).not.toContain("年 ");
+    expect(oneOffNote(durableItem)).not.toMatch(/円/u);
+    expect(oneOffNote({ ...durableItem, durable: undefined as unknown as true })).toContain(`・年 ${durableItem.perYear.toLocaleString("ja-JP")}円`);
   });
 
   it("チェックしていない候補は入らない（承認しないと現状は変わらない）", async () => {
