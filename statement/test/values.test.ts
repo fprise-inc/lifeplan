@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseCsv } from "../src/csv/parse.ts";
 import { decodeText, parseAmount, parseDate, parsePlan, parseUser, parseYearMonth } from "../src/index.ts";
+import { twoDigitYear } from "../src/text/values.ts";
 import { foldKana, looseKey, nfkc } from "../src/text/normalize.ts";
 
 describe("金額の書き方", () => {
@@ -98,6 +99,32 @@ describe("日付の書き方", () => {
   ])("支払日の欄: %s → %s", (raw, want) => expect(parseYearMonth(raw)).toBe(want));
 
   it.each(["2026年13月27日", "26/13/27", "2026年11月27x"])("支払月として読まない: %s", (raw) => expect(parseYearMonth(raw)).toBeNull());
+
+  // 2桁の年は、明細の日付として自然な年（今年の翌年までのうち一番近い年）。前は 2000 年代と決めて「95/10/03」を 2095年にしていた
+  it("2桁の年は今年の翌年までのうち一番近い年（これより先の年は前の100年）", () => {
+    expect(twoDigitYear(26, 2026)).toBe(2026);
+    expect(twoDigitYear(27, 2026)).toBe(2027);
+    expect(twoDigitYear(28, 2026)).toBe(1928);
+    expect(twoDigitYear(95, 2026)).toBe(1995);
+    expect(twoDigitYear(0, 2026)).toBe(2000);
+    expect(twoDigitYear(5, 2099)).toBe(2005);
+    expect(twoDigitYear(0, 2099)).toBe(2100);
+  });
+
+  it.each([
+    ["95/10/03", "1995-10-03"],
+    ["99/12/31", "1999-12-31"],
+    ["00/01/05", "2000-01-05"],
+    ["26/10/03", "2026-10-03"],
+  ])("2桁の年の日付: %s → %s", (raw, want) => expect(parseDate(raw)?.date).toBe(want));
+
+  it("2桁の年の支払月・支払日も同じ読み方。1990年より前になる年は読まない", () => {
+    expect(parseYearMonth("95/10")).toBe("1995-10");
+    expect(parseYearMonth("95/10/27")).toBe("1995-10");
+    expect(parseYearMonth("26/11")).toBe("2026-11");
+    expect(parseYearMonth("80/10")).toBeNull();
+    expect(parseDate("80/10/03")).toBeNull();
+  });
 });
 
 describe("支払い方法・利用者", () => {
