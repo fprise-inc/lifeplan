@@ -246,8 +246,24 @@ export interface ReadRow {
   readonly yearGuessed?: true;
 }
 
-/** 合計・小計などの行（明細ではない） */
-const TOTAL_ROW = /^(?:合計|小計|総合計|ご請求額|お支払合計|前回残高|今回残高|繰越|残高)/u;
+/**
+ * 合計・小計などの行（明細ではない）。欄の文字を looseKey でそろえ、文字と数字のほかを外した形で比べる
+ * （「【合計】」「合 計」「＜小計＞」「合計（5件）」もそろう。ひらがなはカタカナになる）。
+ * - 「合計」「小計」「総計」で終わる（「ご利用合計」「ショッピング合計」「ご本人様ご利用分合計」「ご利用金額合計」。後ろの件数は許す）
+ * - 請求・支払の額だけの欄（「ご請求額」「今回ご請求金額」「当月お支払金額」）、残高・繰越の欄
+ * 「合計屋 架空店」のように合計の言葉で始まる店の名前は、明細として読む
+ */
+const TOTAL_KEYS = [
+  /^.{0,20}?(?:合計|小計|総計|TOTAL|SUBTOTAL)(?:額|金額)?(?:\d{1,5}件|\d{1,9}円)?$/u,
+  /^(?:今回|当月|前回|次回)?[ゴオ]?(?:請求|支払イ?)(?:金)?額$/u,
+  /^(?:前回|今回|前日|本日|前月|当月|次月|月末)?(?:繰越)?残高$/u,
+  /^(?:前月|次月|前回)?繰越(?:金|額)?$/u,
+];
+
+export function isTotalRow(text: string): boolean {
+  const k = looseKey(text).replace(/[^\p{L}\p{N}]/gu, "");
+  return k !== "" && TOTAL_KEYS.some((re) => re.test(k));
+}
 
 /** 振込・送金の相手の名前は残さない（0012。前の言葉だけ残す） */
 const TRANSFER_PREFIX = /^(振込|振替|送金|フリコミ|フリカエ|ソウキン|ﾌﾘｺﾐ|ﾌﾘｶｴ|仕送り|PAYPAY送金|ペイペイ送金)(?:[\s:：*＊/／]|$)/iu;
@@ -301,7 +317,7 @@ export function tableToRows(table: Table, m: ColumnMapping, kind: SourceKind, hi
     const r = table.cells[i] as readonly string[];
     const line = table.lines[i] ?? i + 1;
     const merchantRaw = cell(r, "merchant");
-    if (TOTAL_ROW.test(merchantRaw) || TOTAL_ROW.test(cell(r, "date"))) {
+    if (isTotalRow(merchantRaw) || isTotalRow(cell(r, "date"))) {
       skipped++;
       continue;
     }
