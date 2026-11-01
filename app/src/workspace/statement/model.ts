@@ -42,6 +42,7 @@ import {
   type LearnedFormat,
   type MarkCandidate,
   type MarkSheetResult,
+  type OneOffItem,
   type ReadMarkSheetResult,
   type ReadOutcome,
   type ReviewItem,
@@ -432,6 +433,17 @@ export function approve(wh: WorkingHousehold, list: readonly StatementCandidate[
 
 /** 円の表示（1,234円） */
 export const yen = (n: number) => `${n.toLocaleString("ja-JP")}円`;
+
+/**
+ * 一時的支出の一覧の1行の説明（年1回か・確かさ・年の額）。家電・家具の買い替えの候補（耐久財の店の3万円以上の買い物）は、
+ * 年の額（「年○円」）を出さない: 何年かに1回の買い物を明細の期間の年の額に直しても、買い替えの年の額の目安にならないため
+ * （年払いの「家電・家具の買い替え」の候補の額は、候補の側で決める。0034 の追記 2026-11-01）
+ */
+export function oneOffNote(o: OneOffItem): string {
+  const when = o.annual !== undefined ? (o.annual.confidence === "low" ? "年1回かは分からない" : o.annual.everyYears === 2 ? "2年に1回" : "年1回") : `${o.occurrences.length}回`;
+  const sure = o.annual !== undefined && o.annual.confidence !== "low" ? `（確かさ ${o.annual.confidence === "high" ? "高" : "中"}）` : "";
+  return o.durable === true ? `家電・家具の買い替えの候補・${when}${sure}` : `${when}${sure}・年 ${yen(o.perYear)}`;
+}
 
 // ---- 確認シート（前もってお客さまに印を付けてもらう表計算のファイル。0034 の9） ----
 
