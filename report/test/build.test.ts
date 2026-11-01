@@ -3,10 +3,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
-import { buildProposalInput, percent } from "../src/build.ts";
+import { buildProposalInput, E_REPORT_NO_YEARS, percent } from "../src/build.ts";
 import type { EngineRequest, ProposalBundle, Run } from "../src/bundle.ts";
 import type { ProposalInput } from "../src/input.ts";
-import { REPO_DIR, REPORT_DIR, run } from "../scripts/engine.ts";
+import { modelHousehold, REPO_DIR, REPORT_DIR, run } from "../scripts/engine.ts";
 import { SAMPLES } from "../scripts/sampleBundles.ts";
 import { byYear, ROWS, UUID } from "./helpers.ts";
 
@@ -425,5 +425,25 @@ describe("黒字のうち貯まる割合（0031）", () => {
     const fin = byYear(bundle.proposal.result, (c) => c.row === "cf.balance.financial");
     const dep = input.basis.years.find((yy) => (fin.get(yy) ?? 0) < 0) ?? null;
     expect(input.summary.proposal.depletion?.year ?? null).toBe(dep);
+  });
+});
+
+describe("表に載る年が無い世帯", () => {
+  // 表は計算基準月が年の途中なら翌年から載せる。表の最後の年が計算基準の年だと、載る年が無い（帳票の入力の形では years は1つ以上）
+  it("表の最後の年が計算基準の年（計算基準月が年の途中）なら、決まった符号で止める", () => {
+    const h = modelHousehold("single45");
+    expect(Number(h.input.baseMonth.slice(5, 7))).toBeGreaterThan(1);
+    const req = { ...h, input: { ...h.input, endYear: Number(h.input.baseMonth.slice(0, 4)) } };
+    const r = run(req);
+    expect(() => buildProposalInput({ document: { issuedOn: "2026-10-31", preparedBy: null }, current: r, proposal: r, targetAge: 95 })).toThrow(E_REPORT_NO_YEARS);
+  });
+
+  it("表の最後の年が計算基準の翌年なら、その1年だけの帳票の入力を作る", () => {
+    const h = modelHousehold("single45");
+    const req = { ...h, input: { ...h.input, endYear: Number(h.input.baseMonth.slice(0, 4)) + 1 } };
+    const r = run(req);
+    const input = buildProposalInput({ document: { issuedOn: "2026-10-31", preparedBy: null }, current: r, proposal: r, targetAge: 95 });
+    expect(input.basis.years).toEqual([req.input.endYear]);
+    expect(validate(input)).toBe(true);
   });
 });

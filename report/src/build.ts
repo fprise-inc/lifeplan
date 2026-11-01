@@ -1371,9 +1371,13 @@ function rental(ctx: Ctx): RentalView | null {
   return { pointYear, properties, total };
 }
 
+/** 表に載る年が1つも無い（表の最後の年が計算基準の年で、計算基準月が年の途中）ときの符号。帳票は年の並びが空でないことを前提にしている */
+export const E_REPORT_NO_YEARS = "E_REPORT_NO_YEARS";
+
 export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
   const req = bundle.proposal.request;
   const years = displayYears(req);
+  if (years.length === 0) throw new Error(E_REPORT_NO_YEARS);
   const rs = roles(req);
   const self = rs.find((r) => r.key === "self");
   const lastYear = years.at(-1) ?? req.input.endYear;

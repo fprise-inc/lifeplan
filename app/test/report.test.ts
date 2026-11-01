@@ -12,7 +12,7 @@ import { effectiveValues, savePlan } from "../src/workspace/plans/plans.ts";
 import { DEFAULT_CHAPTERS, isInvestmentKey, planReport, reportInput, type ReportChoice } from "../src/workspace/report/assemble.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { bsPlan, DEFAULT_BS_POINTS } from "../src/workspace/balanceTab.ts";
-import { bsPointsText } from "../src/workspace/report/ReportTab.tsx";
+import { bsPointsText, reportErrorText } from "../src/workspace/report/ReportTab.tsx";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const NOW = "2026-10-18T10:00:00.000Z";
@@ -201,5 +201,30 @@ describe("提案書の材料: バランスシートの図の時点（資産と�
   it("提案書の画面に、図の時点の呼び方を出す", () => {
     expect(bsPointsText(null, DEFAULT_BS_POINTS)).toBe("今・退職の年・75歳");
     expect(bsPointsText([{ point: "now" }, { year: 2040 }, { point: "loanEnd" }, { point: "age85" }], DEFAULT_BS_POINTS)).toBe("今・2040年・ローン完済・85歳");
+  });
+});
+
+describe("提案書の材料: 表に載る年が無い世帯", () => {
+  it("表の最後の年が計算基準の年（計算基準月が年の途中）なら、帳票に渡さずに止め、直し方の案内を出す", () => {
+    const req = modelHousehold("single45");
+    req.input.endYear = Number(req.input.baseMonth.slice(0, 4));
+    const self = roles(req).find((r) => r.key === "self")!.member;
+    let wh = fromRequest(req, {});
+    const cat = buildCatalog(wh, self.id, null);
+    const b = savePlan(wh, cat, { name: "プランB", base: null, values: {}, now: NOW });
+    wh = b.wh;
+    const letters = planLetters(wh.proposals);
+    const ctx = { wh, catalog: cat, valuesOf: (pid: string) => (pid === CURRENT ? {} : effectiveValues(wh, pid)), letterOf: (pid: string) => letters.get(pid) ?? { letter: "?", name: "" } };
+    const plan = planReport(ctx, { proposal: b.id, compare: [CURRENT, b.id], base: CURRENT, chapters: DEFAULT_CHAPTERS, targetAge: 95, issuedOn: "2026-10-31", preparedBy: "" });
+    const results = run(plan);
+    let code = "";
+    try {
+      reportInput(plan.bundle(results));
+    } catch (e) {
+      code = e instanceof Error ? e.message : String(e);
+    }
+    expect(code).toBe("E_REPORT_NO_YEARS");
+    expect(reportErrorText(code)).toContain("「表の最後の年」を計算基準の年より後に");
+    expect(reportErrorText("E_REPORT_COMPUTE")).toBe("作れませんでした（E_REPORT_COMPUTE）");
   });
 });
