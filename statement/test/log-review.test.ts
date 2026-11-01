@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addRule, applyDecisions, classify, createImport, DecisionError, emptyLog, forgetEntry, learnFromDecisions, merchantKey, readLog, reviewList, unknownMerchants, type StatementLog } from "../src/index.ts";
+import { addRule, applyDecisions, classify, createImport, DecisionError, emptyLog, forgetEntry, learnFromDecisions, merchantKey, readLog, readStatement, reviewList, unknownMerchants, type StatementLog } from "../src/index.ts";
 import { BASE_MONTH, buildLog, HOUSEHOLD, read, SELF, SPOUSE } from "./helpers.ts";
 
 const classified = (log: StatementLog) => classify({ log, household: HOUSEHOLD, baseMonth: BASE_MONTH, office: [] });
@@ -30,6 +30,23 @@ describe("取り込みの記録（世帯ファイルの本文の区画 statement
     const withRules = addRule({ ...log, styles: { [SELF]: ["employee", "selfEmployed"] } }, { id: "r1", match: { category: "communication" }, owner: SPOUSE, bucket: "business", share: "0.6", at: "2026-10-21T00:00:00+09:00" });
     const json = JSON.parse(JSON.stringify(withRules));
     expect(readLog(json)).toEqual(withRules);
+  });
+
+  it("長い店の名前・メモ・分類の行も、読み戻したときに消えない（取り込むときに保存の上限で切る）", async () => {
+    const long = `架空商店${"あ".repeat(250)}`;
+    const csv = `日付,内容,金額,大項目,メモ\n2026/10/01,${long},-1000,${"食".repeat(70)},${"メ".repeat(250)}\n2026/10/02,架空カフェ,-500,食費,x\n`;
+    const out = await readStatement(new TextEncoder().encode(csv), { kind: "app" });
+    if (!out.ok) throw new Error(JSON.stringify(out.issues));
+    const base: StatementLog = { ...emptyLog(), accounts: [{ id: "a", kind: "app", label: "A", owner: null }] };
+    const imp = createImport(base, out, { id: "i1", account: "a", at: "2026-10-20T10:00:00+09:00" });
+    if (imp === null) throw new Error("同じファイル");
+    const log: StatementLog = { ...base, imports: [imp] };
+    const row = imp.rows[0];
+    expect(row?.merchant.length).toBe(200);
+    expect(row?.memo?.length).toBe(200);
+    expect(row?.sourceCategory?.length).toBe(60);
+    expect(row?.key).toBe(merchantKey(row?.merchant ?? ""));
+    expect(readLog(JSON.parse(JSON.stringify(log)))).toEqual(log);
   });
 
   it("形の合わないものは捨てて読む（返ってきた本文を信用しない）", () => {
