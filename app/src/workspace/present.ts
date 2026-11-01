@@ -20,6 +20,30 @@ export function displayYears(req: EngineRequest): number[] {
   return out;
 }
 
+/** 本人の、表の最初の年の年齢（本人がいない・表に年が無いときは null） */
+export function firstAgeOf(req: EngineRequest): number | null {
+  const first = displayYears(req)[0];
+  const self = roles(req).find((r) => r.key === "self");
+  return first === undefined || self === undefined ? null : ageInYear(self.member, first);
+}
+
+/**
+ * 「○歳時点の金融資産」に使う年齢: 今より前の年齢（保存した表示の設定・別の世帯で選んだ年齢が残っていたとき）は、表の最初の年の年齢にする。
+ * 表に無い年を引くと「0万円」になるため（表の最後の年より後の年齢は、今までどおり表の最後の年で引く）
+ */
+export function atAgeIn(req: EngineRequest, targetAge: number): number {
+  const first = firstAgeOf(req);
+  return first === null ? targetAge : Math.max(targetAge, first);
+}
+
+/** 「○歳時点の金融資産」の年: 本人のその年齢の年（今より前の年齢は表の最初の年、表の最後の年より後は表の最後の年）。本人がいなければ表の最後の年 */
+export function targetYearOf(req: EngineRequest, targetAge: number): number {
+  const years = displayYears(req);
+  const last = years.at(-1) ?? req.input.endYear;
+  const self = roles(req).find((r) => r.key === "self");
+  return self !== undefined ? Math.min(last, parseYm(self.member.birth.birthYearMonth).y + atAgeIn(req, targetAge)) : last;
+}
+
 /** 条件に合うマスを年ごとに合計する */
 export function sumByYear(table: readonly TableCell[], pred: (c: TableCell) => boolean): Map<number, number> {
   const out = new Map<number, number>();
@@ -364,7 +388,7 @@ export function toPresentation(input: PresentInput): PresentationModel {
   const lastYear = years.at(-1) ?? base.input.endYear;
   const endAge = self !== undefined ? ageInYear(self.member, lastYear) : null;
 
-  const targetYear = self !== undefined ? Math.min(lastYear, parseYm(self.member.birth.birthYearMonth).y + input.targetAge) : lastYear;
+  const targetYear = targetYearOf(base, input.targetAge);
   const age = (y: number) => (self !== undefined ? ageInYear(self.member, y) : null);
   const headline: Headline = {
     label: `${self !== undefined ? `${self.label}${age(targetYear)}歳` : `${targetYear}年`}時点の金融資産（${names.selected}）`,

@@ -69,7 +69,7 @@ import { leverView, visibleKeys } from "./plans/leverChoice.ts";
 import { ageSliderBounds, amountRange, buildCatalog, leverSteps, type Catalog, type ItemValue, type MovableItem } from "./plans/items.ts";
 import { PlanList } from "./plans/PlanList.tsx";
 import { acknowledge, applyValues, changesOf, changesOfValues, copyPlan, dropChange, effectiveValues, findPlan, headLetter, modernPlanName, normalizeValues, overwritePlan, planLabel, reflectPlan, sameValues, savePlan, suggestName, valueOf, type Values } from "./plans/plans.ts";
-import { cashflowTable, displayYears, eventsOf, toPresentation, withDiff } from "./present.ts";
+import { cashflowTable, displayYears, eventsOf, firstAgeOf, toPresentation, withDiff } from "./present.ts";
 import { withoutRemovedAssumptions } from "./surplus.ts";
 import { roles } from "./roles.ts";
 import { runContingencyCheck, runInputCheck, runPlansCheck, runSelfCheck } from "./selfcheck.ts";
@@ -2495,6 +2495,7 @@ export function App() {
                     <DisplaySettingsPanel
                       value={settings}
                       feeAvailable={hasAdvisoryFee(opened.wh.request)}
+                      firstAge={firstAgeOf(opened.wh.request)}
                       onChange={(s) =>
                         history.track(() => {
                           settingsRef.current = s;

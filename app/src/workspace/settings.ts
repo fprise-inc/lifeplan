@@ -13,7 +13,7 @@ import type { BsColumn, BsGuide, BsPointKey, MoneyThreeSettings } from "../prese
 import { DEFAULT_BS_GUIDE, DEFAULT_BS_POINTS } from "./balanceTab.ts";
 import { DEFAULT_MONEY_THREE } from "./moneyThree.ts";
 import type { PlanMetrics } from "./plans/compare.ts";
-import { targetYearOf } from "./plans/compare.ts";
+import { atAgeIn, targetYearOf } from "./present.ts";
 
 export type MetricKey = "assetsAtAge" | "takeHome" | "minAssets" | "feeLine";
 
@@ -63,6 +63,16 @@ export const METRIC_CHOICES: readonly { key: MetricKey; label: string; note: str
 /** 「○歳時点」の年齢の選択肢 */
 export const AGE_OPTIONS: readonly number[] = [60, 65, 70, 75, 80, 85, 90, 95, 100];
 
+/**
+ * 表示の設定に出す年齢の選択肢: 本人の表の最初の年の年齢（firstAge）より前の年齢は出さない（その年は表に無く、金融資産を引けない）。
+ * 今の値（今より前なら firstAge にした年齢）は選択肢に無くても足す（選んだ形に見せるため）
+ */
+export function ageOptionsFor(firstAge: number | null, atAge: number): { options: number[]; value: number } {
+  const value = firstAge === null ? atAge : Math.max(atAge, firstAge);
+  const options = [...new Set([...AGE_OPTIONS.filter((a) => firstAge === null || a >= firstAge), value])].sort((a, b) => a - b);
+  return { options, value };
+}
+
 export function toggleMetric(s: DisplaySettings, key: MetricKey, on: boolean): DisplaySettings {
   const set = new Set(s.metrics);
   if (on) set.add(key);
@@ -76,7 +86,7 @@ export const shows = (s: DisplaySettings, key: MetricKey) => s.metrics.includes(
 export function cardMetrics(s: DisplaySettings, m: PlanMetrics | null): { label: string; text: string; neg: boolean }[] {
   if (m === null) return [];
   const out: { label: string; text: string; neg: boolean }[] = [];
-  if (shows(s, "assetsAtAge")) out.push({ label: `${s.atAge}歳時点`, text: `${man(m.target)}万円`, neg: m.target < 0 });
+  if (shows(s, "assetsAtAge")) out.push({ label: `${m.targetAge}歳時点`, text: `${man(m.target)}万円`, neg: m.target < 0 });
   if (shows(s, "takeHome")) out.push({ label: "生涯の手取り", text: `${man(m.takeHome)}万円`, neg: false });
   if (shows(s, "minAssets")) out.push({ label: `いちばん少ない（${m.min.year}年）`, text: `${man(m.min.amount)}万円`, neg: m.min.amount < 0 });
   return out;
@@ -89,7 +99,7 @@ export function verdictMetrics(s: DisplaySettings, sel: { name: string; m: PlanM
     parts.push({ text: `${parts.length > 0 ? "／" : "\u3000"}${label}: ${sel.name} ${man(a)}万円` });
     if (b !== null && base !== null) parts.push({ text: `・${base.name} ${man(b)}万円（差 ${manDiff(a - b)}万円）` });
   };
-  if (shows(s, "assetsAtAge")) add(`${s.atAge}歳時点`, sel.m.target, base?.m.target ?? null);
+  if (shows(s, "assetsAtAge")) add(`${sel.m.targetAge}歳時点`, sel.m.target, base?.m.target ?? null);
   if (shows(s, "takeHome")) add("生涯の手取り", sel.m.takeHome, base?.m.takeHome ?? null);
   if (shows(s, "minAssets")) add("いちばん少ない年の金融資産", sel.m.min.amount, base?.m.min.amount ?? null);
   return parts;
@@ -98,5 +108,5 @@ export function verdictMetrics(s: DisplaySettings, sel: { name: string; m: PlanM
 /** グラフの「○歳時点」の印（○歳時点の金融資産を選んだときだけ） */
 export function ageMarkOf(s: DisplaySettings, req: EngineRequest): AgeMark | null {
   if (!shows(s, "assetsAtAge")) return null;
-  return { year: targetYearOf(req, s.atAge), label: `${s.atAge}歳` };
+  return { year: targetYearOf(req, s.atAge), label: `${atAgeIn(req, s.atAge)}歳` };
 }
