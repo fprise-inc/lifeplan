@@ -1040,6 +1040,13 @@ export function currentHomeLoan(wh: WorkingHousehold, d: Debt): boolean {
   return start === null || start <= wh.request.input.baseMonth;
 }
 
+/** 今返している自動車ローン（車のカードの「今返している自動車ローン」。借入の年月が計算の基準の月まで。これから買う車のローン〔車の買い方〕は含めない） */
+export function currentCarLoan(wh: WorkingHousehold, d: Debt): boolean {
+  if (d.kind !== "car" || d.property !== undefined || d.inheritedFrom !== undefined) return false;
+  const start = resolveTimepoint(wh.request.input.household, d.start);
+  return start === null || start <= wh.request.input.baseMonth;
+}
+
 export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
   const mode = entryOf(wh, d.id);
   const mortgage = d.kind === "mortgage";
@@ -1047,8 +1054,9 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
   const S = "simple" as const;
   const D = "detail" as const;
   const fields: FieldDef[] = [];
-  // 今借りている住宅ローンの借入額・金利・返済期間・残高は、返済予定表で確かめる値（「書類で確かめる」を出す。これから借りるローンには出さない。0041 の追記 2026-10-31）
-  const doc = currentHomeLoan(wh, d) ? { docCheck: CHECK_DOCUMENTS.loan } : {};
+  // 今借りている住宅ローンと今返している自動車ローンの借入額・金利・返済期間・残高は、返済予定表で確かめる値（「書類で確かめる」を出す。
+  // これから借りるローンには出さない。0041 の追記 2026-10-31・2026-11-01）。金利の種類（選ぶ欄）には出さない
+  const doc = currentHomeLoan(wh, d) || currentCarLoan(wh, d) ? { docCheck: CHECK_DOCUMENTS.loan } : {};
   const principal = (level: "simple" | "detail"): FieldDef => ({ ...principalField(wh, d, k, level), ...doc });
   // 金利の種類は金利の欄のすぐ前（住宅ローンは種類で金利の目安が変わるので、金利の欄が標準なら種類も標準）
   const rate = (level: "simple" | "detail"): FieldDef[] => [rateTypeField(wh, d, k, mortgage ? level : D), { ...rateField(wh, d, k, level), ...doc }];

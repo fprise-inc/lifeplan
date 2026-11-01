@@ -166,7 +166,7 @@ describe("4つの操作（どの欄も同じ部品）", () => {
     expect(fieldStatus(f, applyStateOp(na, f, "revert")).status).toBe("estimated");
   });
 
-  it("箱でない値（仮の印の推定）: 確定は行に根拠を残し、仮の印を外す。書類で確かめる（自動車ローン）は向き先の物の行に書く", () => {
+  it("箱でない値（仮の印の推定）: 確定は行に根拠を残し、仮の印を外す。書類で確かめる（今の自動車ローン）は向き先の物の行に書く", () => {
     const wh0 = addCar(open("salariedCoupleTwoKids"), ids());
     const f = fieldOf(wh0, "car", "/price");
     // 車両の価格には書類で確かめるを出さない（目安のままにすればよい）
@@ -181,15 +181,22 @@ describe("4つの操作（どの欄も同じ部品）", () => {
     expect(rowAt(input(c), a)).toMatchObject({ state: "confirmed", origin: { kind: "manual" }, estimate: { basis: wh.assumed[f.key] } });
     expect(fieldStatus(f, c)).toMatchObject({ status: "confirmed", explicit: true });
     expect(readAt(input(c), a)).toBe(readAt(input(wh), a));
-    // 書類で確かめる（自動車ローンの金利。返済予定表）: 値はそのまま、行に代わりの値の根拠
-    const rate = fieldOf(wh, "car", "/rate");
+    // これから買う車のローンの金利には書類で確かめるを出さない（0041 の追記 2026-11-01）
+    const future = fieldOf(wh, "car", "/rate");
+    expect(future.docCheck).toBeUndefined();
+    expect(applyStateOp(wh, future, "unknown")).toBe(wh);
+    // 書類で確かめる（今返している自動車ローンの金利。返済予定表）: 値はそのまま、向き先の負債の行に代わりの値の根拠
+    const withLoan = runAction(wh, "car", "car/addCarLoan");
+    const debt = withLoan.request.input.household.debts!.find((d) => d.kind === "car")!;
+    const rate = fieldOf(withLoan, "car", `housing/debt/${debt.id}/rate`);
     expect(rate.docCheck).toBe("返済予定表");
-    const ra = fieldAddress(rate, wh)!;
-    expect(fieldStatus(rate, wh).status).toBe("estimated");
-    const u = applyStateOp(wh, rate, "unknown");
-    expect(u.assumed[rate.key]).toBeUndefined();
-    expect(rowAt(input(u), ra)).toMatchObject({ state: "unknown", estimate: { basis: wh.assumed[rate.key] } });
-    expect(readAt(input(u), ra)).toBe(readAt(input(wh), ra));
+    const ra = fieldAddress(rate, withLoan)!;
+    expect(ra.target).toEqual({ object: debt.id });
+    const before = fieldStatus(rate, withLoan);
+    expect(before.status).toBe("estimated");
+    const u = applyStateOp(withLoan, rate, "unknown");
+    expect(rowAt(input(u), ra)).toMatchObject({ state: "unknown", estimate: { basis: before.basis } });
+    expect(readAt(input(u), ra)).toBe(readAt(input(withLoan), ra));
     computes(u);
     // 推定に戻す: 行を外し、仮の印の推定に戻る
     const r = applyStateOp(c, f, "revert");
@@ -326,7 +333,10 @@ describe("プランを選んでいるときの操作（状態の変更もその�
   });
 
   it("このプランで足した物の中の値なら、足す差分の物を直す（set を重ねない）", () => {
-    const withCar = mutate(addCar(blankHousehold(BASE, ids()), ids()), (h) => void (h.cars![0]!.loan = { share: "0.8", rate: "0.025", termMonths: 60 }));
+    const withCar = mutate(addCar(blankHousehold(BASE, ids()), ids()), (h) => {
+      h.cars![0]!.loan = { share: "0.8", rate: "0.025", termMonths: 60 };
+      (h.cars![0] as unknown as Obj).valueStates = { "car.loan/rate": { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "自動車ローンの金利の目安" } } };
+    });
     const car = withCar.request.input.household.cars![0]!;
     const wh: WorkingHousehold = {
       ...mutate(withCar, (h) => void (h.cars = [])),
@@ -336,10 +346,10 @@ describe("プランを選んでいるときの操作（状態の変更もその�
     const cat = buildCatalog(wh, self.member.id, null);
     const work = { ...wh, request: applyPlan(wh, "P", cat).request };
     const f = fieldOf(work, "car", "/rate");
-    const p = planStateOp(wh, cat, "P", f, "unknown");
+    const p = planStateOp(wh, cat, "P", f, "confirm");
     const diffs = p.proposals[0]!.diffs;
     expect(diffs).toHaveLength(1);
-    expect(((diffs[0]!.value as Obj).valueStates as Obj)["car.loan/rate"]).toMatchObject({ state: "unknown" });
+    expect(((diffs[0]!.value as Obj).valueStates as Obj)["car.loan/rate"]).toMatchObject({ state: "confirmed" });
   });
 });
 

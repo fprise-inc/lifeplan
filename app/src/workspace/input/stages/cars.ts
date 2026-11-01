@@ -24,7 +24,6 @@ import { carLoanGroups, newCarLoan } from "./housing.ts";
 import { fixGrowth } from "./living.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./onContingency.ts";
 import { GROWTH_RANGE } from "../rateRanges.ts";
-import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 import { carLoanRateEstimate } from "../../../../../hearing/src/loanRates.ts";
 
 type Obj = Record<string, unknown>;
@@ -820,8 +819,8 @@ function payFields(c: Car, k: string, car: (h: Household, w: WorkingHousehold) =
   ];
   if (c.loan === undefined) return fields;
   const find: Finder = (h, w) => car(h, w) as Obj | undefined;
-  // 自動車ローンの頭金・年数・金利は、返済予定表で確かめる値（「書類で確かめる」を出す。0041 の追記 2026-10-31）
-  const doc = { docCheck: CHECK_DOCUMENTS.loan };
+  // これから買う車のローンの条件には「書類で確かめる」を出さない（まだ返済予定表が無い。目安のままにすればよい）。返済予定表で確かめるのは
+  // 今返している自動車ローン（carLoanSection。0041 の追記 2026-11-01）
   fields.push(
     withAddress(
       {
@@ -847,7 +846,6 @@ function payFields(c: Car, k: string, car: (h: Household, w: WorkingHousehold) =
               else x.loan.share = oneMinus(String(v));
             }),
         }),
-        ...doc,
       },
       addr(c.id, "car.loan", ["share"]),
     ),
@@ -873,11 +871,10 @@ function payFields(c: Car, k: string, car: (h: Household, w: WorkingHousehold) =
               if (x?.loan !== undefined && v !== null) x.loan.termMonths = Number(v) * 12;
             }),
         }),
-        ...doc,
       },
       addr(c.id, "car.loan", ["termMonths"]),
     ),
-    withAddress({ ...plain({ key: `${k}/rate`, item: "car.loan", label: "ローンの金利（年・固定）", level: "detail", kind: "pct", find, path: ["loan", "rate"] }), ...doc }, addr(c.id, "car.loan", ["rate"])),
+    withAddress(plain({ key: `${k}/rate`, item: "car.loan", label: "ローンの金利（年・固定）", level: "detail", kind: "pct", find, path: ["loan", "rate"] }), addr(c.id, "car.loan", ["rate"])),
   );
   return fields;
 }
