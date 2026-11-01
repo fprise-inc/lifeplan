@@ -391,8 +391,18 @@ export function investMonthlyNow(req: EngineRequest): number {
   return v.steps[0]?.monthly ?? 0;
 }
 
-/** 運用の利回り（運用する口座の残高で平均。資産配分の入れ方は割合から、合計の入れ方は平均の利回り）。10進の文字列 */
+/**
+ * 運用の利回り（運用する口座の残高で平均。資産配分の入れ方は割合から、合計の入れ方は平均の利回り）。10進の文字列。
+ * 前提の利回りの書き換え（returnShifts の add）のうち、計算基準の年にかかっているものを足す（計算は運用する器の利回りに足す）。
+ * 足さないと、この項目で書き換えたプランを現状に反映したあと、今の利回りが書き換える前の値に見え、次のプランの書き換えが重なる
+ */
 export function investRateNow(req: EngineRequest): string {
+  const y = parseYm(req.input.baseMonth).y;
+  return (req.input.assumptions?.returnShifts ?? []).reduce((r, s) => (s.add !== undefined && s.from <= y && (s.to === undefined || s.to >= y) ? addRate(r, s.add) : r), investRateBase(req));
+}
+
+/** 運用の利回りの、前提の書き換え（returnShifts）を当てる前の値 */
+function investRateBase(req: EngineRequest): string {
   const m = methodOf(req);
   if (m === "total") return totalViewOf(req).rate;
   if (m === "allocation") return rateText(portfolioOf(req).net);
