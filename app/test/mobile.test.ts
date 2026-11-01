@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { boxTextFit, boxTextW, BsFigure } from "../src/presentation/BsFigure.tsx";
-import { MainChart, MainLegend, TOUCH_HINT } from "../src/presentation/MainChart.tsx";
+import { MainChart, MainLegend } from "../src/presentation/MainChart.tsx";
 import type { BsYearModel } from "../src/presentation/model.ts";
 import { NARROW_QUERY } from "../src/presentation/narrow.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
@@ -66,11 +66,10 @@ describe("狭い画面: 資産の推移のグラフ", () => {
     expect(small).toContain("data-short=");
   });
 
-  it("使い方の文は長い文と短い文の両方を持ち、狭い画面・タッチの端末では短い文だけを見せる（CSS）", () => {
+  it("結果のグラフの凡例には使い方の文を出さない。プランを並べるグラフの使い方の文は、狭い画面・タッチの端末では短い文だけを見せる（CSS）", () => {
     const html = renderToString(h(MainLegend, { model: m, mode: "assets", explain: null }));
-    expect(html).toContain('class="hint-long"');
-    expect(html).toContain(`<span class="hint-short">${TOUCH_HINT}</span>`);
-    expect(TOUCH_HINT).not.toMatch(/クリック|Esc/);
+    expect(html).not.toContain("hint-long");
+    expect(html).not.toContain("グラフに合わせると");
     const css = readFileSync(join(APP_DIR, "src", "styles", "app.css"), "utf8");
     expect(css).toMatch(/\.hint-short \{ display: none; \}/);
     expect(css).toContain("@media (max-width: 639.98px), (hover: none)");

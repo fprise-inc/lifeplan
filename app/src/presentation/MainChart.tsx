@@ -24,8 +24,6 @@ import { crossIndex, SHORT_R, SHORT_ROW, ShortDotsSvg, ShortLinesSvg, ShortTip, 
 
 export type ChartMode = "assets" | "flows";
 
-/** 狭い画面・タッチの端末でのグラフの使い方の文（長い文の代わり。app.css の .hint-short） */
-export const TOUCH_HINT = "グラフを押すとその年の数字が出ます";
 export const CHART_MODES: readonly { id: ChartMode; label: string }[] = [
   { id: "assets", label: "資産の推移" },
   { id: "flows", label: "収支の推移" },
@@ -1078,16 +1076,11 @@ export function MainLegend({ model, mode, explain, side = false }: { model: Main
   return (
     <div class="legend main-legend">
       {items}
-      <span class="hint">
-        {explain !== null
-          ? "説明モード: 「次へ」で1段ずつ足します"
-          : (
-            <>
-              <span class="hint-long">{`${side ? "2つのグラフは縦の目盛りをそろえています。" : ""}グラフに合わせるとその年の数字。クリックで固定（下の表の同じ年が光る。もう一度クリックか Esc で外す）。下の丸はその年のできごと`}</span>
-              <span class="hint-short">{TOUCH_HINT}</span>
-            </>
-          )}
-      </span>
+      {explain !== null ? (
+        <span class="hint">説明モード: 「次へ」で1段ずつ足します</span>
+      ) : side ? (
+        <span class="hint">2つのグラフは縦の目盛りをそろえています</span>
+      ) : null}
     </div>
   );
 }
