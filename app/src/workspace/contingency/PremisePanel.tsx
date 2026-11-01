@@ -247,7 +247,7 @@ function PremiseWorkLever({ it, wh, onDraft, onCommit, mark, onRemove }: BoxProp
       {paid ? <PremiseRange f={salaryF} wh={wh} onDraft={onDraft} onCommit={onCommit} meta={meta} text={text} /> : null}
       <div class="lever-note">
         <span>
-          {paid ? `${salaryF.label}。空欄は働き方ごとの目安` : "働き方を選ぶと、その働き方と年収に置き換えます"}
+          {paid ? `${salaryF.label}。推定は働き方ごとの目安` : "働き方を選ぶと、その働き方と年収に置き換えます"}
           {paid && !isAuto ? (
             <button type="button" class="link-btn cg-auto" onClick={() => onCommit(salaryF.set(wh, null))}>
               推定に戻す

@@ -246,11 +246,11 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
         path: ["rent", "growth"],
         optional: true,
         fallback: "0",
-        help: "年あたりの率です。更新の年に、その間の年数分をまとめて上げ下げします。空欄なら変えません",
+        help: "年あたりの率です。更新の年に、その間の年数分をまとめて上げ下げします。入れなければ変えません",
         hint: (_v, w) => {
           const x = find(w.request.input.household, w) as Residence | undefined;
           const st = rentGrowthStatistic();
-          return x?.rent?.growth === undefined && st !== null ? `目安: ${st.text}。空欄（変えない）はこれに近い計算です` : null;
+          return x?.rent?.growth === undefined && st !== null ? `目安: ${st.text}。入れないとき（変えない）はこれに近い計算です` : null;
         },
       }),
       plain({ key: `${k}/renewalFee`, item: "residence.rent", label: "更新料（家賃の何か月分）", level: "detail", kind: "decimal", suffix: "か月分", find, path: ["rent", "renewalFee"], optional: true, fallback: "0" }),
@@ -260,7 +260,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
     fields.push(
       styleField(r, k),
       yenBox({ key: `${k}/tax`, item: "residence.propertyTax", label: "固定資産税・都市計画税", level: "detail", basis: "annual", find, path: ["propertyTax", "annual"] }),
-      { ...plain({ key: `${k}/taxGrowth`, item: "residence.propertyTax", label: "固定資産税の変動率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["propertyTax", "growth"], optional: true, fallback: "0", help: "空欄なら変えません。建物の評価が下がる分は、「＋ 固定資産税の変化」で入れられます" }), address: () => at(r.id, "residence.propertyTax", ["growth"]) },
+      { ...plain({ key: `${k}/taxGrowth`, item: "residence.propertyTax", label: "固定資産税の変動率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["propertyTax", "growth"], optional: true, fallback: "0", help: "入れなければ変えません。建物の評価が下がる分は、「＋ 固定資産税の変化」で入れられます" }), address: () => at(r.id, "residence.propertyTax", ["growth"]) },
       yenBox({
         key: `${k}/maint`,
         item: "residence.maintenance",
@@ -271,7 +271,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
         path: ["maintenance", "monthly"],
         help: r.style === "condo" ? "管理組合に払う管理費と修繕積立金の合計です" : r.style === "house" ? "将来の修繕のために毎月積み立てておく額です" : "マンションなら管理費と修繕積立金の合計、戸建てなら将来の修繕のための毎月の積み立てです（建て方は「詳細」で選べます）",
       }),
-      plain({ key: `${k}/maintGrowth`, item: "residence.maintenance", label: ml.growth, level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["maintenance", "growth"], optional: true, help: "空欄なら変えません。外壁・屋根などの大きな修繕は、下の「出るお金」の修繕・リフォームの行で入れます" }),
+      plain({ key: `${k}/maintGrowth`, item: "residence.maintenance", label: ml.growth, level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["maintenance", "growth"], optional: true, help: "入れなければ変えません。外壁・屋根などの大きな修繕は、下の「出るお金」の修繕・リフォームの行で入れます" }),
       ...ownershipFields(wh, r, k),
     );
   }
@@ -515,7 +515,7 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
           // 今の持ち家で評価額が無ければ未入力の警告（購入の予定は物件の価格を使うので空欄でよい）
           optional: bought,
           help: bought
-            ? "空欄なら、物件の価格を購入の月の評価額にし、土地の割合で土地と建物に分けて、建物は構造の耐用年数で毎年減らします（土地は前提条件の上昇率で動きます）。新築の値段の上乗せ分などで買った直後の売値が下がると見込むなら、その額を入れます"
+            ? "入れなければ、物件の価格を購入の月の評価額にし、土地の割合で土地と建物に分けて、建物は構造の耐用年数で毎年減らします（土地は前提条件の上昇率で動きます）。新築の値段の上乗せ分などで買った直後の売値が下がると見込むなら、その額を入れます"
             : "土地と建物の合計。わからなければ購入の価格を入れます。購入の価格を入れたときは、時点に購入の年月を入れます。相続する家は相続の見込みの額",
           hint: (w) => valuationHint(w, r),
         }),
@@ -539,9 +539,9 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
           path: ["valuation", "builtYear"],
           optional: true,
           ...(bought ? { fallback: asOfYear } : {}),
-          help: bought ? "空欄なら、その額の時点の年（購入の年）に完成する新築とみなします。中古を買うなら、建物が建った年を入れます（住宅ローン控除の新築か中古かにも使います）" : `空欄なら、その額の時点（${asOfYear}年）に新築とみなします。わかれば建った年を入れてください`,
+          help: bought ? "入れなければ、その額の時点の年（購入の年）に完成する新築とみなします。中古を買うなら、建物が建った年を入れます（住宅ローン控除の新築か中古かにも使います）" : `入れなければ、その額の時点（${asOfYear}年）に新築とみなします。わかれば建った年を入れてください`,
         }),
-        plain({ key: `${kv}/landShare`, item: "residence.valuation", label: "土地の割合", level: "detail", kind: "pct", min: 0, max: 100, find, path: ["valuation", "landShare"], optional: true, fallback: setting?.landShare ?? VALUATION_DEFAULTS.landShare, help: "空欄なら前提条件の目安。土地は前提条件の上昇率（空欄なら物価上昇率）で動きます" }),
+        plain({ key: `${kv}/landShare`, item: "residence.valuation", label: "土地の割合", level: "detail", kind: "pct", min: 0, max: 100, find, path: ["valuation", "landShare"], optional: true, fallback: setting?.landShare ?? VALUATION_DEFAULTS.landShare, help: "入れなければ前提条件の値。土地は前提条件の上昇率（入れていなければ物価上昇率）で動きます" }),
       ],
       actions: [],
     },
@@ -570,7 +570,7 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
     ];
     if (r.sale !== undefined)
       fields.push(
-        plain({ key: `${ks}/price`, item: "residence.sale", label: "売却価格", level: "simple", kind: "yen", basis: "once", find, path: ["sale", "price"], optional: true, help: "空欄ならその年の評価額で売るとみなします" }),
+        plain({ key: `${ks}/price`, item: "residence.sale", label: "売却価格", level: "simple", kind: "yen", basis: "once", find, path: ["sale", "price"], optional: true, help: "入れなければ、その年の評価額で売るとみなします" }),
         plain({ key: `${ks}/cost`, item: "residence.sale", label: "売却の費用（売却価格に対する割合）", level: "detail", kind: "pct", find, path: ["sale", "costRate"], optional: true, fallback: setting?.saleCostRate ?? VALUATION_DEFAULTS.saleCostRate, help: "仲介手数料・印紙税など。住宅ローンが残るときは、売る月の繰上返済で返します" }),
         {
           ...yenBox({

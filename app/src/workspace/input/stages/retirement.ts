@@ -102,11 +102,11 @@ function amountField(wh: WorkingHousehold, b: RetirementBenefit, prefix: string,
     ...(lumpEst ? { estimate: (hh: Household) => lumpEstimate(hh, (hh.retirementBenefits ?? []).find((x) => x.id === b.id) ?? b) } : {}),
     help:
       b.kind === "civilServantAllowance"
-        ? "空欄のときは見込みの計算（退職時の俸給月額×勤続年数と退職の理由の支給率。調整額は含みません）を使います"
+        ? "推定は見込みの計算（退職時の俸給月額×勤続年数と退職の理由の支給率。調整額は含みません）です"
         : b.kind === "officerAllowance"
-          ? "空欄のときは見込みの計算（最終報酬月額×役員の在任年数×功績倍率）を使います"
+          ? "推定は見込みの計算（最終報酬月額×役員の在任年数×功績倍率）です"
           : lumpEst
-            ? "会社の見込み額の通知・退職金の規程の早見表の額を写します（定年の時点の額か、今辞めた場合の額かを確かめて）。空欄のときは目安（勤続年数・辞め方・学歴からの平均）で計算し、勤続や学歴を直すと目安も直ります"
+            ? "会社の見込み額の通知・退職金の規程の早見表の額を写します（定年の時点の額か、今辞めた場合の額かを確かめて）。推定は勤続年数・辞め方・学歴からの平均で、勤続や学歴を直すと推定も直ります"
             : "定年の時点の額か、今辞めた場合の額かを確かめて写してください。0円は「該当なし」か0円と入れたときだけです",
     hint: (w) => {
       const x = (w.request.input.household.retirementBenefits ?? []).find((y) => y.id === b.id);
@@ -316,7 +316,7 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
               ? "加入員証・年金見込額のお知らせの年金額（1口目と2口目以降を合わせた年額）。入れるまでは0円で計算します"
               : kind === "civilServantPension"
                 ? "共済組合の年金払い退職給付の見込額（終身の分と有期の分を、それぞれの行に）。旧職域加算は年金の項目の定期便の額に含めます。入れるまでは0円で計算します"
-                : "年金見込額のお知らせの「年金で受けた場合の年額」。空欄のときは、一時金の額を年数と予定利率で年金に直した額です",
+                : "年金見込額のお知らせの「年金で受けた場合の年額」。推定は、一時金の額を年数と予定利率で年金に直した額です",
           hint: (v, w) => (v === null && !required ? annuityHint((w.request.input.household.retirementBenefits ?? []).find((x) => x.id === b.id) ?? b) : null),
           }),
           // 企業年金の見込みの年額も、制度の資料で確かめる値
@@ -329,7 +329,7 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
     if (b.receipt?.years === null || b.receipt?.years === undefined)
       fields.push(
         withAddress(
-          plain({ key: `${prefix}/guarantee`, item: "retirementBenefit.receipt", label: "保証期間", level: "detail", kind: "int", suffix: "年", min: 0, max: 40, find, path: ["receipt", "guaranteeYears"], optional: true, help: "空欄は保証なし。保証期間の残りは、万一のとき遺族に一時金で渡ります" }),
+          plain({ key: `${prefix}/guarantee`, item: "retirementBenefit.receipt", label: "保証期間", level: "detail", kind: "int", suffix: "年", min: 0, max: 40, find, path: ["receipt", "guaranteeYears"], optional: true, help: "入れなければ保証なし。保証期間の残りは、万一のとき遺族に一時金で渡ります" }),
           benefitAt(b.id, "retirementBenefit.receipt", ["guaranteeYears"]),
         ),
       );

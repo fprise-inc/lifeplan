@@ -289,7 +289,7 @@ function workFields(wh: WorkingHousehold, base: readonly string[], k: string, af
     kind: "yen",
     basis: "annual",
     path: [...base, "annualSalary"],
-    help: "空欄なら働き方ごとの目安で計算します",
+    help: "入れなければ、働き方ごとの目安で推定します",
     maxYen: 1500 * MAN,
     auto: "働き方ごとの目安",
   });
@@ -298,7 +298,7 @@ function workFields(wh: WorkingHousehold, base: readonly string[], k: string, af
     workFromField([...base, "from"], k, {
       label: "変える時期を時点で（下の子の年齢・出来事から）",
       nullText: `${after.replace(/てから$/, "た")}月から○か月後（上の欄）`,
-      help: `${after.replace(/てから$/, "た")}月より前の時点は、その月にします。空欄なら、上の欄の月数の後`,
+      help: `${after.replace(/てから$/, "た")}月より前の時点は、その月にします。入れなければ、上の欄の月数の後`,
     }),
   ];
   if (w?.type !== "none") when.push(planField({ key: `${k}/until`, label: "何歳まで", kind: "int", suffix: "歳", min: 20, max: 80, path: [...base, "untilAge"], fallback: 65 }));
@@ -379,14 +379,14 @@ export function premiseItems(wh: WorkingHousehold, sc: Scenario | undefined): Pr
           max: 365,
           path: ["illness", "hospitalDays"],
           fallback: HOSPITAL_DAYS_DEFAULT[plan.illness?.disease ?? ILLNESS_DEFAULT.disease],
-          help: "空欄は病気の種類ごとの目安（患者調査の平均在院日数の水準。仮の値）",
+          help: "推定は病気の種類ごとの目安（患者調査の平均在院日数の水準。仮の値）",
         }),
       ),
       one("illness:medical", planField({ key: "cg/illness/medical", label: "医療費（1か月・10割）", kind: "yen", basis: "monthly", path: ["illness", "medicalMonthly"], fallback: ILLNESS_DEFAULT.medicalMonthly, maxYen: 300 * MAN })),
       one("illness:surgeries", planField({ key: "cg/illness/surgeries", label: "手術の回数", kind: "int", suffix: "回", min: 0, max: 10, path: ["illness", "surgeries"], fallback: ILLNESS_DEFAULT.surgeries })),
       one("illness:medicalMonths", planField({ key: "cg/illness/medicalMonths", label: "医療費の月数", kind: "int", suffix: "か月", min: 1, max: 60, path: ["illness", "medicalMonths"], fallback: ILLNESS_DEFAULT.medicalMonths })),
       many("illness:after", "復帰の後の収入", [
-        planField({ key: "cg/illness/afterMonths", label: "復帰の後に収入が減る期間", kind: "int", suffix: "か月", min: 0, max: 120, path: ["illness", "afterMonths"], help: "働きながら治療を続ける・時短で戻るとき。空欄なら元の働き方に戻ります" }),
+        planField({ key: "cg/illness/afterMonths", label: "復帰の後に収入が減る期間", kind: "int", suffix: "か月", min: 0, max: 120, path: ["illness", "afterMonths"], help: "働きながら治療を続ける・時短で戻るときに選びます。選ばなければ元の働き方に戻ります" }),
         ...(plan.illness?.afterMonths !== undefined && plan.illness.afterMonths > 0 ? [planField({ key: "cg/illness/afterRatio", label: "その間の収入（元の収入に対する割合）", kind: "pct", path: ["illness", "afterRatio"], fallback: "0.7" })] : []),
       ]),
     );
@@ -402,7 +402,7 @@ export function premiseItems(wh: WorkingHousehold, sc: Scenario | undefined): Pr
     out.push(
       one("market:drop", planField({ key: "cg/market/drop", label: "下がる幅", kind: "select", options: DROPS, path: ["market", "drop"], fallback: MARKET_DROP_DEFAULT })),
       { kind: "market:classes", label: "下げる資産", parts: [{ fields: MARKET_CLASS_OPTIONS.map(marketClassField) }], shape: "checks", note: "既定は株・REIT と、配分を入れていない持株会です" },
-      one("market:recoveryYears", planField({ key: "cg/market/recoveryYears", label: "下がった後に利回りを抑える年数", kind: "int", suffix: "年", min: 0, max: 20, path: ["market", "recoveryYears"], help: "空欄なら翌年からふだんの利回りに戻ります" })),
+      one("market:recoveryYears", planField({ key: "cg/market/recoveryYears", label: "下がった後に利回りを抑える年数", kind: "int", suffix: "年", min: 0, max: 20, path: ["market", "recoveryYears"], help: "入れなければ、翌年からふだんの利回りに戻ります" })),
       one(
         "market:recoveryCap",
         planField({ key: "cg/market/recoveryCap", label: "その間の運用の利回り（上限）", kind: "pct", ...RETURN_RANGE, path: ["market", "recoveryCap"], fallback: "0", help: "利回りを抑える年数を入れたときに使います" }),
@@ -441,7 +441,7 @@ function pushDeathRest(out: (PremiseItem | null)[], kids: boolean, one: (kind: P
       ),
     );
   out.push(
-    one("death:allowance", planField({ key: "cg/lump/allowance", label: "死亡退職金", kind: "yen", path: ["survivor", "deathBenefits", "retirementAllowance"], help: "空欄なら、退職金の見込みを勤続の月数で按分します（退職給付×亡くなる月までの勤続の月数÷退職までの勤続の月数）", maxYen: 5000 * MAN, auto: "自動（勤続の月数で按分）" })),
+    one("death:allowance", planField({ key: "cg/lump/allowance", label: "死亡退職金", kind: "yen", path: ["survivor", "deathBenefits", "retirementAllowance"], help: "推定は、退職金の見込みを勤続の月数で按分した額です（退職給付×亡くなる月までの勤続の月数÷退職までの勤続の月数）", maxYen: 5000 * MAN, auto: "自動（勤続の月数で按分）" })),
     one("death:condolence", planField({ key: "cg/lump/condolence", label: "弔慰金", kind: "yen", path: ["survivor", "deathBenefits", "condolence"], maxYen: 1000 * MAN })),
     one("death:workRelated", planBool({ key: "cg/lump/workRelated", label: "業務上の死亡として見る", path: ["survivor", "deathBenefits", "workRelated"], help: "死亡退職金・弔慰金の非課税の扱いが変わります（労災の給付は計算に入れません）" })),
     one("death:reserve", planField({ key: "cg/lump/reserve", label: "予備の生活資金", kind: "int", suffix: "か月分", min: 0, max: 120, path: ["survivor", "reserveMonths"], help: "遺族の生活費の何か月分を、必要保障額に足すか（口座が使えない間の当座のお金を見込むとき）" })),

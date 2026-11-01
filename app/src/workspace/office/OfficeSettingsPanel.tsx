@@ -386,7 +386,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
                   <span class="os-in">
                     <input inputMode="numeric" size={4} value={texts.reverseAge ?? ""} placeholder="平均余命" aria-invalid={ageText(texts.reverseAge, true) === undefined} onInput={(e) => setTexts({ ...texts, reverseAge: (e.currentTarget as HTMLInputElement).value })} data-office-reverse-age />歳
                   </span>
-                  <small>空欄なら遺族の平均余命まで（遺族が子なら末子の独立まで）</small>
+                  <small>入れなければ遺族の平均余命まで（遺族が子なら末子の独立まで）</small>
                 </label>
               ) : null}
             </div>
@@ -418,8 +418,8 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
         <section class="os-sec" aria-labelledby="os-assume">
           <h3 id="os-assume">前提条件の既定値</h3>
           <div class="os-grid">
-            {OFFICE_ASSUMPTIONS.map((k) => pct(k, ASSUMPTION_LABELS[k], STANDARD_PCT[k], `空欄は既定の値（${STANDARD_PCT[k]}%。仮の値）。${rangeText(ASSUMPTION_RANGES[k])}`, ASSUMPTION_RANGES[k]))}
-            {pct("realEstateRatio", "相続税の目安: 不動産の評価の割合（時価に掛ける）", "80", "空欄は時価の80%")}
+            {OFFICE_ASSUMPTIONS.map((k) => pct(k, ASSUMPTION_LABELS[k], STANDARD_PCT[k], `入れなければ既定の値（${STANDARD_PCT[k]}%。仮の値）。${rangeText(ASSUMPTION_RANGES[k])}`, ASSUMPTION_RANGES[k]))}
+            {pct("realEstateRatio", "相続税の目安: 不動産の評価の割合（時価に掛ける）", "80", "入れなければ時価の80%")}
           </div>
           <p class="pl-sub">長い期間の平均の目安です。根拠（出典・期間）は事務所で確かめてください。商品のおすすめではありません。</p>
         </section>

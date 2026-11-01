@@ -240,7 +240,7 @@ describe("入れ方の選択の欄は置かない（見込み額の欄だけで�
     const b = benefitsOf(wh)[0]!;
     expect(fields(wh, "retirement").some((f) => f.key.endsWith("/mode"))).toBe(false);
     const amount = fieldOf(wh, "retirement", `retirement/${b.id}/amount`);
-    expect(amount.help).toMatch(/空欄のときは目安（勤続年数・辞め方・学歴からの平均）で計算/);
+    expect(amount.help).toMatch(/推定は勤続年数・辞め方・学歴からの平均/);
     const typed = amount.set(wh, 15000000);
     expect(benefitsOf(typed)[0]!.amount).toMatchObject({ value: 15000000, state: "confirmed" });
     const back = fieldOf(typed, "retirement", `retirement/${b.id}/amount`).set(typed, null);

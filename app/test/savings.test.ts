@@ -240,7 +240,7 @@ describe("もう退職した人の積立をやめる年（エンジンの読み�
 
   it("もう退職していれば、空欄は取り崩しを始める前まで（取り崩しの予定が無ければ最後まで）。欄にそう書く", () => {
     expect(stopEstimateOf(retired())).toEqual({ age: 65, retired: true, until: "取り崩しを始める前（65歳）" });
-    expect(stopField(retired()).state?.estimated).toBe("退職の年はもう過ぎているので、空欄は取り崩しを始める前（65歳）まで積み立てる計算");
+    expect(stopField(retired()).state?.estimated).toBe("退職の年はもう過ぎているので、取り崩しを始める前（65歳）まで積み立てる計算");
     expect(stopEstimateOf(retired(false))).toMatchObject({ retired: true, until: "最後" });
     expect(stopField(retired(false)).state?.hint).toBe("最後まで（推定）");
   });

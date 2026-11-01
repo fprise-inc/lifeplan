@@ -503,7 +503,7 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
     fields.push(
       monthsField(m, rec, "basic", "国民年金の加入月数", 600, "定期便の「加入期間」の欄の国民年金（計）。免除・猶予の月は含めません。定期便が手元に無ければ「書類で確かめる」（代わりの値で計算）"),
       monthsField(m, rec, "employee", "厚生年金の加入月数", 900),
-      plain({ key: `${prefix}/months/qualifying`, item: "pensionRecord.months", label: "受給資格期間の月数", level: "detail", kind: "int", suffix: "か月", min: 0, max: 900, find, path: ["months", "qualifying"], optional: true, help: "空欄なら、加入月数と免除・猶予の月数の合計" }),
+      plain({ key: `${prefix}/months/qualifying`, item: "pensionRecord.months", label: "受給資格期間の月数", level: "detail", kind: "int", suffix: "か月", min: 0, max: 900, find, path: ["months", "qualifying"], optional: true, help: "入れなければ、加入月数と免除・猶予の月数の合計" }),
     );
   }
   const labels = AMOUNT_LABEL[rec.kind];
@@ -512,8 +512,8 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
     fields.push(
       yenBox({ key: `${prefix}/amounts/basic`, item: "pensionRecord.amounts", label: labels[0], level: "simple", basis: "annual", find, path: ["amounts", "basic"], optional: true, ...(help !== undefined ? { help } : {}) }),
       yenBox({ key: `${prefix}/amounts/employee`, item: "pensionRecord.amounts", label: labels[1], level: "simple", basis: "annual", find, path: ["amounts", "employee"], optional: true, ...(help !== undefined ? { help } : {}) }),
-      yenBox({ key: `${prefix}/amounts/transitional`, item: "pensionRecord.amounts", label: "経過的加算", level: "detail", basis: "annual", find, path: ["amounts", "transitional"], optional: true, help: "空欄なら加入月数から計算します" }),
-      yenBox({ key: `${prefix}/amounts/special`, item: "pensionRecord.amounts", label: "特別支給の老齢厚生年金（報酬比例部分）", level: "detail", basis: "annual", find, path: ["amounts", "special"], optional: true, help: "空欄なら生年月と加入の記録から計算します（当たる生年月の人だけ）" }),
+      yenBox({ key: `${prefix}/amounts/transitional`, item: "pensionRecord.amounts", label: "経過的加算", level: "detail", basis: "annual", find, path: ["amounts", "transitional"], optional: true, help: "入れなければ加入月数から計算します" }),
+      yenBox({ key: `${prefix}/amounts/special`, item: "pensionRecord.amounts", label: "特別支給の老齢厚生年金（報酬比例部分）", level: "detail", basis: "annual", find, path: ["amounts", "special"], optional: true, help: "入れなければ生年月と加入の記録から計算します（対象の生年月の人だけ）" }),
     );
   }
   fields.push(...claimFields(m, find, prefix));

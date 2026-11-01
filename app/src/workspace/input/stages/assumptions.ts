@@ -386,7 +386,7 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
           ...GROWTH_RANGE,
           optional: true,
           blankIsEstimate: true,
-          help: "空欄なら物価上昇率と同じ",
+          help: "入れなければ物価上昇率と同じ",
           address: () => ({ target: { plan: "assumptions" }, item, at: ["landGrowth", "default"] }),
           // 空欄は物価上昇率と同じ（推定。見せる値は物価上昇率）
           get: (w) => {
@@ -641,9 +641,9 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
     ["inflation", "物価上昇率（年）", "基本生活費などの変動率に使います（今の値段で入れた額を、この率で伸ばします）", "simple"],
     ["wageGrowth", "賃金上昇率（年）", "給与の伸び（年齢ごとの昇給カーブとは別。名目の率）", "simple"],
     ["investmentReturn", "運用利回り（年）", "資産の配分を入れていない口座の利回り（費用・税を引く前。長い期間の平均の目安）", "simple"],
-    ["educationInflation", "教育費の上昇率（年）", "空欄なら物価上昇率と同じ", "detail"],
+    ["educationInflation", "教育費の上昇率（年）", "入れなければ物価上昇率と同じ", "detail"],
     ["pensionMacroSlide", "年金の調整率（基礎年金・年）", "マクロ経済スライドの率。将来の年金額の伸びから差し引く率", "detail"],
-    ["pensionMacroSlideEmployee", "年金の調整率（厚生年金・年）", "空欄なら基礎年金の調整率と同じ", "detail"],
+    ["pensionMacroSlideEmployee", "年金の調整率（厚生年金・年）", "入れなければ基礎年金の調整率と同じ", "detail"],
   ];
   const exGroups: GroupDef[] = [];
   const exAdds: ActionDef[] = [];
@@ -696,7 +696,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
     {
       key: "assume/realEstate",
       title: "持ち家の評価",
-      note: "土地は上昇率で動き、建物は構造の耐用年数で定額で減らします。空欄は目安（推定）を使います",
+      note: "土地は上昇率で動き、建物は構造の耐用年数で定額で減らします。入れなければ推定で計算します",
       level: "detail",
       groups: valuationGroups(wh),
       actions: [],

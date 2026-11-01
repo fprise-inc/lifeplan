@@ -420,7 +420,7 @@ function relationGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
           optional: true,
           nullText: "最初から",
           after: (hh, _t, _v, w0) => fixRelations(hh, w0.request.input.household, m.id, rid, "from"),
-          help: i === 0 ? "空欄は「最初から」（今も続いている関係）" : "前の段の終わりは、この前の月に合わせます",
+          help: i === 0 ? "入れなければ「最初から」（今も続いている関係）" : "前の段の終わりは、この前の月に合わせます",
         }),
         address: at("relation.from"),
       },

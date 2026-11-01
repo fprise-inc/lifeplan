@@ -506,7 +506,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
     taxField(c, k),
   );
   if ((c.coverages ?? []).some((x) => x.benefit === "maturity" || x.benefit === "annuity" || x.benefit === "survival"))
-    fields.push(plain({ key: `${k}/annuitant`, item: "insurance.annuitant", label: "満期金・年金・祝金の受取人", level: "detail", kind: "select", options: memberOptions(wh, inHousehold), find, path: ["annuitant"], optional: true, fallback: c.policyholder, help: "空欄は契約者（契約者が受け取れば一時所得・雑所得、ほかの人なら贈与税）" }));
+    fields.push(plain({ key: `${k}/annuitant`, item: "insurance.annuitant", label: "満期金・年金・祝金の受取人", level: "detail", kind: "select", options: memberOptions(wh, inHousehold), find, path: ["annuitant"], optional: true, fallback: c.policyholder, help: "入れなければ契約者（契約者が受け取れば一時所得・雑所得、ほかの人なら贈与税）" }));
   fields.push(
     withAddress(plain({ key: `${k}/deduction`, item: "insurance.deductionCategory", label: "保険料控除の区分", level: "detail", kind: "select", options: DEDUCTION_TYPES, find, path: ["deductionCategory", "type"], after: (_h, target, v) => fitRegime(target as unknown as InsuranceContract, String(v)) }), () => at(c.id, "insurance.deductionCategory", ["type"])),
   );
@@ -866,7 +866,7 @@ function coverageGroup(wh: WorkingHousehold, c: InsuranceContract, cov: Coverage
     );
   if (cov.benefit === "incomeProtection") fields.push(intField("minimumMonths", "最低保証の月数", "か月", 600, 0, "亡くなった月から保障の終わりまでがこの月数より短くても、この月数は受け取ります"));
   if (cov.benefit === "incapacity") fields.push(intField("waitingMonths", "免責の月数", "か月", 120, 0, "働けなくなった月の翌月から、この月数の後に給付が始まります"));
-  if (cov.benefit === "annuity") fields.push(intField("years", "年金の年数", "年", 100, undefined, "空欄は保障の終わりまで"));
+  if (cov.benefit === "annuity") fields.push(intField("years", "年金の年数", "年", 100, undefined, "入れなければ保障の終わりまで"));
   if (cov.benefit === "survival") fields.push(intField("everyYears", "祝金の間隔", "年", 50, undefined, "保障の始まりから、この年ごとに受け取ります"));
   if (cov.benefit === "hospitalDaily") fields.push(intField("maxDays", "入院の1回の限度日数", "日", 1095, DEFAULT_MAX_DAYS, "病気の想定の入院の日数がこれを超えた分は受け取りません"));
   const who = cov.insured !== undefined && cov.insured !== c.insured ? `・被保険者: ${memberLabel(wh, cov.insured)}` : "";

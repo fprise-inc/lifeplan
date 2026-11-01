@@ -44,7 +44,7 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       find,
       path: ["valueGrowth"],
       optional: true,
-      help: estate ? "空欄なら前提条件の不動産の利回り（入れていなければ0）。マイナスも入れられます" : "空欄なら0（評価額のまま）。値下がりするものはマイナスで入れます",
+      help: estate ? "入れなければ前提条件の不動産の利回り（入れていなければ0）。マイナスも入れられます" : "入れなければ0（評価額のまま）。値下がりするものはマイナスで入れます",
     }),
   ];
   const actions: ActionDef[] = [
@@ -90,7 +90,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     yenBox({ key: `${k}/value`, item: "account.marketValue", label: "今の残高（時価）", level: "simple", basis: "once", find, path: ["marketValue"] }),
     plain({ key: `${k}/asOf`, item: "account.asOf", label: "残高の時点", level: "detail", kind: "ym", find, path: ["asOf"] }),
   ];
-  if (WITH_COST.has(a.kind)) fields.push(yenBox({ key: `${k}/cost`, item: "account.costBasis", label: "取得価額（元本）", level: "detail", basis: "once", find, path: ["costBasis"], optional: true, help: "空欄なら時価と同じ。NISA の枠・課税口座の税の計算に使います" }));
+  if (WITH_COST.has(a.kind)) fields.push(yenBox({ key: `${k}/cost`, item: "account.costBasis", label: "取得価額（元本）", level: "detail", basis: "once", find, path: ["costBasis"], optional: true, help: "入れなければ時価と同じとします。NISA の枠・課税口座の税の計算に使います" }));
   fields.push(
     field({
       key: `${k}/monthly`,
@@ -128,7 +128,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
         kind: "pct",
         ...RETURN_RANGE,
         optional: true,
-        help: "1年あたりの見込みの利回りを、信託報酬などの費用を引いた後で入れます。空欄なら、資産の配分や前提条件の目安の利回りで計算します（費用を別に入れる形は「詳細」で）",
+        help: "1年あたりの見込みの利回りを、信託報酬などの費用を引いた後で入れます。入れなければ、資産の配分や前提条件の利回りで計算します（費用を別に入れる形は「詳細」で）",
         get: (w) => {
           const x = find(w.request.input.household, w) as Account | undefined;
           return { value: x?.expectedReturn ?? null, ...(x !== undefined && x.expectedReturn === undefined ? { hint: `空欄: 年${(Number(rateOf(w.request, x)) * 100).toFixed(1)}%` } : {}) };
@@ -146,7 +146,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   if (methodOf(wh.request) === "accounts" && INVEST_KINDS.has(a.kind))
     fields.push(
       withAddress(
-        plain({ key: `${k}/fee`, item: "account.fee", label: "運用の費用（年）", level: "detail", kind: "pct", ...FEE_RANGE, find, path: ["fee"], optional: true, help: "信託報酬など。ここに費用を入れると、上の利回りから費用を引いて計算します（そのときは上の利回りを費用を引く前の見込みにします）。空欄は0で、上の利回りを費用を引いた後の見込みとして使います（税は計算で引きます）" }),
+        plain({ key: `${k}/fee`, item: "account.fee", label: "運用の費用（年）", level: "detail", kind: "pct", ...FEE_RANGE, find, path: ["fee"], optional: true, help: "信託報酬など。ここに費用を入れると、上の利回りから費用を引いて計算します（そのときは上の利回りを費用を引く前の見込みにします）。入れなければ0で、上の利回りを費用を引いた後の見込みとして使います（税は計算で引きます）" }),
         onAccount(a.id, "account.fee"),
       ),
     );
@@ -254,7 +254,7 @@ function payoutFields(wh: WorkingHousehold, a: Account, k: string): FieldDef[] {
       structural: true,
       get: (w) => {
         const x = acc(w);
-        return x?.payout === undefined ? { value: null, estimated: "空欄は退職の年に一時金で受け取る計算（推定）" } : { value: x.payout.method };
+        return x?.payout === undefined ? { value: null, estimated: "退職の年に一時金で受け取る計算" } : { value: x.payout.method };
       },
       blankEstimate: () => "lumpSum",
       set: (w, v) => (v === null && acc(w)?.payout === undefined ? w : mutate(w, (h) => editPayout(h, find(h, w) as Account, { method: v === null || v === "" ? null : (v as "lumpSum" | "annuity" | "mixed") }))),
@@ -273,7 +273,7 @@ function payoutFields(wh: WorkingHousehold, a: Account, k: string): FieldDef[] {
         const x = acc(w);
         if (x === undefined) return { value: null };
         const age = payoutAgeOf(w.request.input.household, x);
-        if (age === null) return { value: null, estimated: `空欄は退職の年（${defaultPayoutAge(w.request, x)}歳。60〜65歳）`, hint: `${defaultPayoutAge(w.request, x)}歳（推定）` };
+        if (age === null) return { value: null, estimated: `退職の年（${defaultPayoutAge(w.request, x)}歳。60〜65歳）`, hint: `${defaultPayoutAge(w.request, x)}歳（推定）` };
         const at = resolveTimepoint(w.request.input.household, x.payout?.start);
         const owner = w.request.input.household.members.find((m) => m.id === x.owner);
         const exact = owner === undefined || at === null || at === ageReachedMonth(owner, age);
@@ -296,7 +296,7 @@ function payoutFields(wh: WorkingHousehold, a: Account, k: string): FieldDef[] {
       set: (w, v) => mutate(w, (h) => editPayout(h, find(h, w) as Account, { destination: v === "invest" ? "invest" : "deposit" })),
     }),
     ...payoutDetailFields(a, k, { years: "年金で受け取る年数", share: "一時金で受け取る割合", min: 5, max: 20 }),
-    enrolledField(a, k, "加入者期間の始まり", "受け取りを始められる年齢の判定に使います（加入者等期間が10年に満たないと、60歳からは受け取れません）。空欄は残高の時点から"),
+    enrolledField(a, k, "加入者期間の始まり", "受け取りを始められる年齢の判定に使います（加入者等期間が10年に満たないと、60歳からは受け取れません）。入れなければ残高の時点から"),
   ];
 }
 
@@ -392,7 +392,7 @@ function mutualAidFields(wh: WorkingHousehold, a: Account, k: string): FieldDef[
       ),
       ...payoutDetailFields(a, k, { years: "分割で受け取る年数", share: "一括で受け取る割合", min: 10, max: 15, options: [{ value: "10", label: "10年" }, { value: "15", label: "15年" }] }),
     );
-  fields.push(enrolledField(a, k, "加入した年月", "一括で受け取るときの退職所得の勤続期間（掛金を納めた期間の近似）に使います。空欄は残高の時点から"));
+  fields.push(enrolledField(a, k, "加入した年月", "一括で受け取るときの退職所得の勤続期間（掛金を納めた期間の近似）に使います。入れなければ残高の時点から"));
   return fields;
 }
 
@@ -499,8 +499,8 @@ function periodGroup(wh: WorkingHousehold): GroupDef {
           const age = stopAgeOf(h);
           if (age !== null) return { value: age };
           const e = stopEstimateOf(w.request);
-          if (e.retired) return { value: null, estimated: `退職の年はもう過ぎているので、空欄は${e.until}まで積み立てる計算`, hint: e.until === "最後" ? "最後まで（推定）" : `${e.age}歳（推定）` };
-          return { value: null, estimated: `空欄は${e.until}まで積み立てる計算`, hint: `${e.age}歳（推定）` };
+          if (e.retired) return { value: null, estimated: `退職の年はもう過ぎているので、${e.until}まで積み立てる計算`, hint: e.until === "最後" ? "最後まで（推定）" : `${e.age}歳（推定）` };
+          return { value: null, estimated: `${e.until}まで積み立てる計算`, hint: `${e.age}歳（推定）` };
         },
         set: (w, v) => (v === null && stopAgeOf(w.request.input.household) === null ? w : mutate(w, (h, req) => setStopAge(h, req.input.baseMonth, typeof v === "number" ? v : null))),
         // 空欄の推定は「口座ごとに持ち主の退職の年まで」の決まりで、年齢を書くと全部の積立を本人の年齢にそろえる（結果が変わる）ので、
@@ -584,7 +584,7 @@ export function flowSection(wh: WorkingHousehold): SectionDef {
         level: "detail",
         kind: "select",
         options: deposits.map((a, i) => ({ value: a.id, label: `${accountName(a, own(a.id))}${deposits.filter((x) => x.owner === a.owner).length > 1 ? ` ${i + 1}` : ""}` })),
-        help: "給与・年金が入り、生活費・ローンを払う預金。ここが足りなくなると、下の順番でほかの口座から取り崩します。空欄なら最初の預金",
+        help: "給与・年金が入り、生活費・ローンを払う預金。ここが足りなくなると、下の順番でほかの口座から取り崩します。入れなければ最初の預金",
         get: (w) => {
           const st = settlementOf(w.request.input.household);
           return { value: st?.id ?? null, ...(st?.settlement !== true ? { implicit: true } : {}) };

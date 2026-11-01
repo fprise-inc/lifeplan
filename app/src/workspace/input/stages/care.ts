@@ -210,7 +210,7 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
           ageOf: (hh) => hh.members.find((x) => x.id === m.id),
           optional: true,
           nullText: "入れない（表の最後まで）",
-          help: "この人の家計（親のお金）を見る期間と、相続人の数え方は、この時点までです。空欄なら「平均余命で入れる」で目安を入れられます",
+          help: "この人の家計（親のお金）を見る期間と、相続人の数え方は、この時点までです。「平均余命で入れる」で推定を入れられます",
         }),
       )),
     );
@@ -378,7 +378,7 @@ function careCostGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
   const g = careGroup(wh, c);
   const est = careEstimate(placeOf(c));
   const next: ActionDef = { key: `ev/care/${c.id}/nextStage`, label: "＋ 次の段階を足す", help: "在宅から施設へなど、次の段階の介護を足します", level: "simple", run: (w) => addNextCareStage(w, c.id) };
-  return { ...g, title: careTitle(wh, c), note: `空欄の額・期間は統計の平均で計算します（${est?.basis ?? "生命保険文化センターの調査"}）`, actions: [next, ...g.actions] };
+  return { ...g, title: careTitle(wh, c), note: `入れていない額・期間は、統計の平均で推定します（${est?.basis ?? "生命保険文化センターの調査"}）`, actions: [next, ...g.actions] };
 }
 
 /** 本人・配偶者の介護が無いときの説明（未入力の警告。確かめの一覧のいちばん上にも出る。fill.ts の gapsOf） */
@@ -394,7 +394,7 @@ function adultsNote(wh: WorkingHousehold): string | null {
 
 /** 世帯の外の家族のお金（0042）の説明 */
 const WALLET_NOTE =
-  "この人のお金（預金・生活費・年金・一時の入金）を入れると、この人が介護を受ける費用は、まずこの人のお金から払い、尽きた月から世帯が払います（尽きる見込みは結果のできごとに出ます）。世帯からの仕送りはこの人のお金に入り、この人からの援助はこの人のお金から出ます。預金が空欄のあいだは、介護の費用を世帯が全部払います。所得税などは年金の推計から出した目安です";
+  "この人のお金（預金・生活費・年金・一時の入金）を入れると、この人が介護を受ける費用は、まずこの人のお金から払い、尽きた月から世帯が払います（尽きる見込みは結果のできごとに出ます）。世帯からの仕送りはこの人のお金に入り、この人からの援助はこの人のお金から出ます。預金を入れるまでは、介護の費用を世帯が全部払います。所得税などは年金の推計から出した目安です";
 
 /** 一時の入金の「未入力」の印（0円で計算。0041） */
 const LUMP_UNENTERED = "未入力（0円で計算。入金の額を入れてください）";
@@ -410,10 +410,10 @@ function walletGroup(wh: WorkingHousehold, m: Member): GroupDef {
   };
   const at = (...path: string[]) => () => ({ target: { member: m.id }, item: "member.wallet", at: path });
   const fields: FieldDef[] = [
-    { ...yenBox({ key: `family/${m.id}/wallet/balance`, item: "member.wallet", label: "預金など（今の残高）", level: "detail", basis: "once", find, path: ["wallet", "balance"], help: "空欄のあいだは、この人のお金を見ません（介護の費用は世帯が全部払います）" }), address: at("balance") },
+    { ...yenBox({ key: `family/${m.id}/wallet/balance`, item: "member.wallet", label: "預金など（今の残高）", level: "detail", basis: "once", find, path: ["wallet", "balance"], help: "入れるまでは、この人のお金を見ません（介護の費用は世帯が全部払います）" }), address: at("balance") },
     { ...yenBox({ key: `family/${m.id}/wallet/living`, item: "member.wallet", label: "この人の生活費（月額）", level: "detail", basis: "monthly", find, path: ["wallet", "living"], help: "物価上昇率で伸ばします。家計を1つにする期間で「生活費の人数に入れる」月は引きません" }), address: at("living") },
     {
-      ...yenBox({ key: `family/${m.id}/wallet/pension`, item: "member.wallet", label: "この人の年金（年額）", level: "detail", basis: "annual", find, path: ["wallet", "pension"], optional: true, help: "空欄は年金の推計を使います。入れると、今から毎年この額（額面）を入れます。「収入を世帯に入れる」月は世帯の収入に入ります。扶養の境目（目安）と比べるときも、この額を使います" }),
+      ...yenBox({ key: `family/${m.id}/wallet/pension`, item: "member.wallet", label: "この人の年金（年額）", level: "detail", basis: "annual", find, path: ["wallet", "pension"], optional: true, help: "推定は年金の推計です。入れると、今から毎年この額（額面）を入れます。「収入を世帯に入れる」月は世帯の収入に入ります。扶養の境目（目安）と比べるときも、この額を使います" }),
       address: at("pension"),
     },
   ];

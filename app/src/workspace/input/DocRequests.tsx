@@ -92,7 +92,7 @@ export function DocRequests({ wh, onOpen, onClose }: Props) {
                 value={name}
                 maxLength={40}
                 autocomplete="off"
-                placeholder="空なら「〇〇」"
+                placeholder="入れなければ「〇〇」"
                 onInput={(e) => {
                   remembered.name = (e.currentTarget as HTMLInputElement).value;
                   setName(remembered.name);
@@ -107,7 +107,7 @@ export function DocRequests({ wh, onOpen, onClose }: Props) {
                 value={office}
                 maxLength={60}
                 autocomplete="off"
-                placeholder="空なら「（事務所名）」"
+                placeholder="入れなければ「（事務所名）」"
                 onInput={(e) => {
                   remembered.office = (e.currentTarget as HTMLInputElement).value;
                   setOffice(remembered.office);

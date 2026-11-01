@@ -598,7 +598,7 @@ function residentTaxField(wh: WorkingHousehold, m: Member): FieldDef {
       const p = currentPeriod(hh, m.id, base);
       return residentTaxEstimate((p?.salary?.annual.value ?? 0) + (p?.salary?.bonus?.value ?? 0), p?.business?.income.value ?? 0, fy - 1);
     },
-    help: "住民税の決定通知書（給与明細の住民税×12）の額。空欄なら前の年の所得から概算します",
+    help: "住民税の決定通知書（給与明細の住民税×12）の額。入れなければ前の年の所得から概算します",
   });
   return { ...f, docCheck: CHECK_DOCUMENTS.residentTax, docFor: m.id };
 }
@@ -663,13 +663,13 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
       // 役員だけは標準でも月の報酬（年額）と賞与を分けて聞く（社会保険料の上限が月の報酬と賞与で違い、まとめて統計の割合で分けると結果が大きくずれる）
       ...(level === "simple" && p.type === "executive"
         ? [
-            yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "月の報酬（年額・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "毎月の役員報酬の12か月分（定期同額給与）。空欄なら目安で計算します" }),
+            yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "月の報酬（年額・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "毎月の役員報酬の12か月分（定期同額給与）" }),
             yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null, help: "役員の賞与（事前確定届出給与など）の年間の合計。無ければ0" }),
           ]
         : level === "simple"
         ? [salaryTotalField(wh, m, p, find, prefix)]
         : [
-            yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "年収（税込み・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "源泉徴収票の支払金額から賞与を除いた額。空欄なら統計の平均で計算します" }),
+            yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "年収（税込み・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "源泉徴収票の支払金額から賞与を除いた額" }),
             growthField(wh, p, find, prefix, "salary", d),
             yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null }),
           ]),
@@ -700,12 +700,12 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
       plain({ key: `${prefix}/hours`, item: "employment.employer.weeklyHours", label: "週の所定労働時間", level: d, kind: "decimal", suffix: "時間", find, path: ["employer", "weeklyHours"] }),
       smrField(wh, find, prefix, "health"),
       smrField(wh, find, prefix, "pension"),
-      { ...yenBox({ key: `${prefix}/commuting`, item: "employment.salary.commutingMonthly", label: "通勤手当（非課税・月額）", level: d, basis: "monthly", unit: "yen", find, path: ["salary", "commutingMonthly"], optional: true, help: "所得税・住民税はかかりませんが、社会保険料の報酬には入ります。空欄は該当なし" }), address: () => ({ target: { object: p.id }, item: "employment.salary.commutingMonthly", at: [] }) },
+      { ...yenBox({ key: `${prefix}/commuting`, item: "employment.salary.commutingMonthly", label: "通勤手当（非課税・月額）", level: d, basis: "monthly", unit: "yen", find, path: ["salary", "commutingMonthly"], optional: true, help: "所得税・住民税はかかりませんが、社会保険料の報酬には入ります。入れなければ0円" }), address: () => ({ target: { object: p.id }, item: "employment.salary.commutingMonthly", at: [] }) },
       { ...plain({ key: `${prefix}/student`, item: "employment.student", label: "学生", level: d, kind: "bool", find, path: ["student"], optional: true, fallback: false, help: "学生は短時間の勤めの社会保険・雇用保険の対象から外れます" }), address: () => ({ target: { object: p.id }, item: "employment.student", at: [] }) },
       { ...plain({ key: `${prefix}/corpDb`, item: "employment.corporatePension", label: "勤め先に確定給付企業年金・共済などがある", level: d, kind: "bool", find, path: ["corporatePension", "db"], optional: true, fallback: false, help: "iDeCo の掛金の上限の判定に使います" }), address: () => ({ target: { object: p.id }, item: "employment.corporatePension", at: ["db"] }) },
     );
     if (p.corporatePension !== undefined && (p.corporatePension as { db?: boolean }).db === true)
-      fields.push({ ...plain({ key: `${prefix}/corpDbMonthly`, item: "employment.corporatePension", label: "他制度掛金相当額（月額）", level: d, kind: "yen", basis: "monthly", find, path: ["corporatePension", "dbEquivalentMonthly"], optional: true, help: "勤め先から知らされる額。空欄は iDeCo の上限を他制度ありの決まりで見ます" }), address: () => ({ target: { object: p.id }, item: "employment.corporatePension", at: ["dbEquivalentMonthly"] }) });
+      fields.push({ ...plain({ key: `${prefix}/corpDbMonthly`, item: "employment.corporatePension", label: "他制度掛金相当額（月額）", level: d, kind: "yen", basis: "monthly", find, path: ["corporatePension", "dbEquivalentMonthly"], optional: true, help: "勤め先から知らされる額。入れなければ、iDeCo の上限を他制度ありの決まりで見ます" }), address: () => ({ target: { object: p.id }, item: "employment.corporatePension", at: ["dbEquivalentMonthly"] }) });
   }
   if (p.type === "selfEmployed")
     fields.push(yenBox({ key: `${prefix}/business`, item: "employment.business.income", label: "事業所得（年額）", level, basis: "annual", find, path: ["business", "income"], estimate: () => businessEstimate(), help: "確定申告書の所得金額（青色申告特別控除の前）" }), growthField(wh, p, find, prefix, "business", d));
@@ -793,8 +793,8 @@ function smrField(wh: WorkingHousehold, find: Finder, prefix: string, kind: SmrK
       optional: true,
       help:
         kind === "health"
-          ? "給与明細・標準報酬決定通知書の額。分からなければ空欄のままにします（給与から計算し、昇給に合わせて毎年9月に決め直します）。入れると、この期間はずっとその額で計算します"
-          : "給与明細・標準報酬決定通知書の額。分からなければ空欄のままにします（給与から計算し、昇給に合わせて毎年9月に決め直します）。入れると、この期間はずっとその額で計算します。賞与の保険料と年金の額（標準賞与額）は、賞与（年間の合計）から計算します（千円未満を切り捨て、上限あり）",
+          ? "給与明細・標準報酬決定通知書の額。分からなければ入れずに推定のままにします（給与から計算し、昇給に合わせて毎年9月に決め直します）。入れると、この期間はずっとその額で計算します"
+          : "給与明細・標準報酬決定通知書の額。分からなければ入れずに推定のままにします（給与から計算し、昇給に合わせて毎年9月に決め直します）。入れると、この期間はずっとその額で計算します。賞与の保険料と年金の額（標準賞与額）は、賞与（年間の合計）から計算します（千円未満を切り捨て、上限あり）",
       get: (w) => {
         const x = period(w);
         const b = boxOf(x, kind);
@@ -886,7 +886,7 @@ function salaryTotalField(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, 
       basis: "annual",
       optional: true,
       blankIsEstimate: true,
-      help: "源泉徴収票の支払金額（給与と賞与の合計）。賞与の内訳は「詳細」の「働き方 1・2…」で直せます（入れていなければ統計の割合で分けます）。空欄なら統計の平均で計算します",
+      help: "源泉徴収票の支払金額（給与と賞与の合計）。賞与の内訳は「詳細」の「働き方 1・2…」で直せます（入れていなければ統計の割合で分けます）",
       get: (w) => {
         const { a, b } = boxes(w);
         const bv = boxValue(b);
@@ -1155,7 +1155,7 @@ function growthField(wh: WorkingHousehold, p: EmploymentPeriod, find: Finder, pr
       kind: "pct",
       ...GROWTH_RANGE,
       optional: true,
-      help: "毎年この率で伸ばします（マイナスも入れられます）。空欄は前提条件の賃金上昇率",
+      help: "毎年この率で伸ばします（マイナスも入れられます）。入れなければ前提条件の賃金上昇率",
       get: (w) => {
         const x = find(w.request.input.household, w) as EmploymentPeriod | undefined;
         const g = (x?.[part] as { growth?: { rate?: string; curve?: string } } | undefined)?.growth;
