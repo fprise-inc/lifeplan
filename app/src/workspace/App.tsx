@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks"
 import { DualEngine } from "../engine/dual.ts";
 import { devBrowserHost, isTauri, singleCompute, tauriHost, webEngine, type AiCandidate, type ForkInfo, type HostApi, type OfficeStatus, type PresenceView, type StorageNotice, type StoredHousehold, type StoredOpened, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
 import { isEngineError } from "../engine/types.ts";
-import { ALL_ROWS, applyRowsView, forEngine, pickRow, viewMode, type RowsView } from "../engine/moneyRows.ts";
+import { ALL_ROWS, applyRowsView, forEngine, pickRow, viewMode, withoutDreams, type RowsView } from "../engine/moneyRows.ts";
 import { RowsViewBar } from "./RowsViewBar.tsx";
 import { viewRows } from "./rowsView.ts";
 import { CalcNotices } from "./CalcNotices.tsx";
@@ -15,7 +15,7 @@ import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
 import { multiOn, type ChartLayout, type ChartMode } from "../presentation/MainChart.tsx";
 import { ChartPip, closePip, openPip } from "../presentation/ChartPip.tsx";
-import { CashflowTable, FeeNote, PipResult, ResultCard, ResultVerdictView } from "../presentation/MainView.tsx";
+import { CashflowTable, FeeNote, GoalCards, PipResult, ResultCard, ResultVerdictView } from "../presentation/MainView.tsx";
 import { PlanBand } from "../presentation/PlanBand.tsx";
 import { BalanceTab, type BsView } from "../presentation/BalanceTab.tsx";
 import type { BsPlanModel, BsPrevModel } from "../presentation/model.ts";
@@ -753,6 +753,12 @@ export function App() {
       for (const id of w.band) out[id] = reqOf(o, valuesOf(o.wh, w, id));
       const alt = altFor(o, w, s);
       if (alt !== null) out.alt = alt;
+      // 夢を全部外した選んでいるプラン（目標の区画の要約の1文。計算に入る夢があるときだけ。0103）
+      const sel = out[w.sel];
+      if (sel !== undefined) {
+        const nd = withoutDreams(sel);
+        if (nd !== sel) out.nodream = nd;
+      }
       // 相場が下がった場合（重ねているときだけ。選んだプランに3つの型を重ねた枠。0026）
       if (stressRef.current) {
         const sr = stressRequests(out[w.sel] as EngineRequest);
@@ -779,8 +785,8 @@ export function App() {
       if (all.alt !== undefined) focus.alt = all.alt;
       dual.current.slide(w.sel, focus);
       if (mode === "release") void dual.current.release();
-      // 相場が下がった場合の枠は、指を離してから計算し直す
-      const stress = Object.entries(all).filter(([k]) => k.startsWith("stress:"));
+      // 相場が下がった場合の枠と夢を外した枠は、指を離してから計算し直す
+      const stress = Object.entries(all).filter(([k]) => k.startsWith("stress:") || k === "nodream");
       if (mode === "release" && stress.length > 0) void dual.current.set(Object.fromEntries(stress));
     },
     [requestsFor],
@@ -1717,6 +1723,8 @@ export function App() {
   const baseRes = resultOf(work.base);
   const selView = views.get(work.sel) ?? null;
   const altRes = dual.current?.view("alt").result ?? null;
+  const ndView = dual.current?.view("nodream") ?? null;
+  const noDreamRes = ndView === null || ndView.stale ? null : ndView.result;
   const selValues = opened === null ? {} : valuesOf(opened.wh, work, work.sel);
   /** 結果の見方の一覧（選んでいるプランと現状の世帯から） */
   const viewList = useMemo(
@@ -1732,10 +1740,11 @@ export function App() {
   const model = useMemo(() => {
     if (opened === null || selReq === null || selRes === null || baseRes === null) return null;
     const fee = feeShown ? { on: feeOn, alt: altRes } : undefined;
-    const m = toPresentation({ base: opened.wh.request, proposal: selReq, current: baseRes, proposed: selRes, targetAge: settings.atAge, selectedYear, provisional, names, ...(baseReq !== null ? { baseProposal: baseReq } : {}), ...(fee !== undefined ? { fee } : {}) });
+    const dreams = { raw: rawReqOf(opened, valuesOf(opened.wh, work, work.sel)), withoutDreams: noDreamRes };
+    const m = toPresentation({ base: opened.wh.request, proposal: selReq, current: baseRes, proposed: selRes, targetAge: settings.atAge, selectedYear, provisional, names, dreams, ...(baseReq !== null ? { baseProposal: baseReq } : {}), ...(fee !== undefined ? { fee } : {}) });
     const extra = verdictMetrics(settings, { name: names.selected, m: metricsOf(opened.wh.request, selRes.table, settings.atAge) }, names.same ? null : { name: names.base, m: metricsOf(opened.wh.request, baseRes.table, settings.atAge) });
     return extra.length > 0 ? { ...m, result: { ...m.result, sub: [...m.result.sub, ...extra] } } : m;
-  }, [opened, selReq, baseReq, selRes, baseRes, altRes, feeOn, feeShown, selectedYear, provisional, settings, names.selected, names.base, names.same]);
+  }, [opened, work, rawReqOf, selReq, baseReq, selRes, baseRes, altRes, noDreamRes, feeOn, feeShown, selectedYear, provisional, settings, names.selected, names.base, names.same]);
   const explain = useMemo(
     () => (explainStep === null || opened === null || selReq === null || selRes === null ? null : explainModel(selReq, selRes, settings.atAge)),
     [explainStep !== null, opened, selReq, selRes, settings.atAge],
@@ -2751,6 +2760,8 @@ export function App() {
             >
               {addedRows}
             </LeverCard>
+            {/* 目標と夢プラン（0103。夢のカードと、夢を入れた・入れない計算の要約の1文） */}
+            <GoalCards model={model.goals} />
             {/* ④ 生涯キャッシュフロー表 */}
             {table !== null ? (
               <CashflowTable

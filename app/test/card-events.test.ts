@@ -1,4 +1,4 @@
-// ライフイベントのカードの中身（0068）: ひな形（10。まとまりごとの小さなボタン、足した後も出す・「入れた（…）」）・予備費・子の成人式（ライフイベントに残す）・
+// ライフイベントのカードの中身（0068）: ひな形（7。ご家族に起きること・備え。まとまりごとの小さなボタン、足した後も出す・「入れた（…）」）・予備費・子の成人式（ライフイベントに残す）・
 // 子の結婚の援助（子ども・教育の子への援助を使う）・親の葬儀（聞かずに平均余命で推定）・法事・祝い金の時期・入る⇄出るの付け替え・基本生活費へ移す・
 // 種類と表の行と毎月は選ばない・介護はここに出さない・この世帯の予定（ほかのカードを含む。重なる年）
 import { describe, expect, it } from "vitest";
@@ -52,10 +52,10 @@ const fieldIn = (g: GroupDef, suffix: string): FieldDef | undefined => g.fields.
 const optionValues = (f: FieldDef | undefined) => (f !== undefined && f.kind === "select" ? f.options.map((o) => o.value) : []);
 
 describe("ライフイベントのひな形（小さなボタン。標準と詳細、行を足した後も出す）", () => {
-  it("10のひな形を、まとまりごと（家族の節目・親・お墓・楽しみ・学び・備え）に標準で出す。上の1行で、当てはまるものだけと案内する", () => {
+  it("7のひな形を、まとまりごと（家族の節目・親・お墓・備え）に標準で出す。上の1行で、当てはまるものだけと案内する", () => {
     const wh = bare("parentCare");
     const s = events(wh);
-    expect(s.sections.map((x) => x.key)).toEqual(["ev/periodic", "money/events/in", "events/schedule"]);
+    expect(s.sections.map((x) => x.key)).toEqual(["ev/dreams", "ev/periodic", "money/events/in", "events/schedule"]);
     const g = chips(wh);
     expect(g.chips).toBe(true);
     expect(g.level).toBe("simple");
@@ -68,61 +68,61 @@ describe("ライフイベントのひな形（小さなボタン。標準と詳�
       ["親・お墓", "＋ 親の葬儀（世帯が払う分）"],
       ["親・お墓", "＋ 法事"],
       ["親・お墓", "＋ お墓・仏壇"],
-      ["楽しみ・学び", "＋ 特別な旅行"],
-      ["楽しみ・学び", "＋ 大きな買い物（趣味の道具など）"],
-      ["楽しみ・学び", "＋ 資格・学び直し"],
       ["備え", "＋ 予備費"],
     ]);
     // 外したひな形（家族旅行・長寿のお祝い）と、置かないひな形（孫の誕生のお祝い）
     expect(OUT_TEMPLATES.some((t) => /家族旅行|長寿|孫/u.test(t.label))).toBe(false);
+    // 楽しみ・学び（特別な旅行・大きな買い物・資格・学び直し）は夢プランのひな形へまとめた
+    expect(OUT_TEMPLATES.some((t) => /旅行|買い物|資格|学び直し/u.test(t.label))).toBe(false);
     // 区画のボタンは「＋ ほかの支出を足す」の1つ（1回・何年ごと・その他のボタンはやめた）
     expect(outSection(wh).actions.map((a) => [a.key, a.label, a.level])).toEqual([["ev/addOther", "＋ ほかの支出を足す", "simple"]]);
-    // 区画の説明: ふだんの旅行・帰省は基本生活費、ほかの物はそれぞれの入力項目
-    expect(outSection(wh).note).toContain("ふだんの旅行・帰省は基本生活費に入れます。ここには特別な旅行を入れます");
+    // 区画の説明: 起きること・備えを入れ、やりたいことはすぐ上の夢プラン。ふだんの旅行・帰省は基本生活費、ほかの物はそれぞれの入力項目
+    expect(outSection(wh).note).toContain("ここには、ご家族に起きること（結婚・成人式・葬儀・法事など）と備えを入れます。旅行・趣味・学び直しなど、ご家族のやりたいことはすぐ上の夢プランに入れます");
+    expect(outSection(wh).note).toContain("ふだんの旅行・帰省、家電・スマホの買い替えは基本生活費");
+    expect(s.lead).toBe("夢プランと、ご家族に起きること・備えの一時的な収支（結婚・成人式・葬儀・法事・予備費・祝い金など）、世帯の予定の一覧。");
     expect(outSection(wh).note).toContain("住まい・車・教育・介護・贈与はそれぞれの入力項目");
     // 入るお金のひな形も小さなボタン
-    const inn = s.sections[1]!.groups.find((x) => x.key === "in/templates")!;
+    const inn = s.sections.find((x) => x.key === "money/events/in")!.groups.find((x) => x.key === "in/templates")!;
     expect(inn.chips).toBe(true);
     expect(inn.actions.map((a) => a.key)).toEqual(["in/template/weddingGift", "in/template/birthGift", "in/template/benefit"]);
     expect(inn.actions.find((a) => a.key === "in/template/birthGift")!.help).toContain("出産育児一時金は自動で計算します");
   });
 
   it("足したひな形は「入れた（年・額）」をボタンの横に出し、押せるまま（もう一度押すと、もう1行）", () => {
-    const wh = addOutTemplate(bare(), "purchase", seq());
+    const wh = addOutTemplate(bare(), "memorial", seq());
     const p = rowsOf(wh).at(-1)!;
     const year = Number(ym(wh, p)!.slice(0, 4));
-    const c = chip(wh, "purchase");
-    expect(c.chip!.added).toBe(`入れた（${year}年・50万円）`);
+    const c = chip(wh, "memorial");
+    expect(c.chip!.added).toBe(`入れた（${year}年・20万円）`);
     expect(c.chip!.disabled).toBeUndefined();
     const again = c.run(wh);
-    expect(rowsOf(again).filter((x) => x.label === "大きな買い物")).toHaveLength(2);
-    expect(chip(again, "purchase").chip!.added).toBe(`入れた（${year}年・50万円、${year}年・50万円）`);
+    expect(rowsOf(again).filter((x) => x.label === "法事")).toHaveLength(2);
+    expect(chip(again, "memorial").chip!.added).toBe(`入れた（${year}年・20万円、${year}年・20万円）`);
     // 行を足した後も、ほかのひな形は標準に残る
-    expect(chip(again, "study").level).toBe("simple");
+    expect(chip(again, "grave").level).toBe("simple");
     // 額の無いひな形は「額は未入力」
-    const trip = addOutTemplate(bare(), "specialTrip", seq());
-    expect(chip(trip, "specialTrip").chip!.added).toMatch(/^入れた（\d{4}年・額は未入力）$/u);
+    const grave = addOutTemplate(bare(), "grave", seq());
+    expect(chip(grave, "grave").chip!.added).toMatch(/^入れた（\d{4}年・額は未入力）$/u);
   });
 
-  it("額は推定（根拠はよくある目安）、額の無いひな形は未入力の警告。表の行はどれも一時的支出、優先度はひな形どおり（できればの物）", () => {
+  it("額は推定（根拠はよくある目安）、額の無いひな形は未入力の警告。表の行はどれも一時的支出、優先度はひな形どおり", () => {
     let wh = bare();
     const ids = seq();
-    for (const k of ["wedding", "purchase", "study", "specialTrip", "grave"]) wh = addOutTemplate(wh, k, ids);
+    for (const k of ["wedding", "memorial", "grave"]) wh = addOutTemplate(wh, k, ids);
     const byLabel = (l: string) => rowsOf(wh).find((p) => p.label === l)!;
-    expect(byLabel("大きな買い物")).toMatchObject({ kind: "general", row: "cf.expense.lumpSum.other", everyYears: 1, priority: "want", amount: { value: 500000, state: "estimated" } });
-    expect(byLabel("資格・学び直し")).toMatchObject({ priority: "want", amount: { value: 300000, state: "estimated" } });
+    expect(byLabel("法事")).toMatchObject({ kind: "general", row: "cf.expense.lumpSum.other", everyYears: 1, amount: { value: 200000, state: "estimated" } });
     expect(byLabel("結婚の費用")).toMatchObject({ row: "cf.expense.lumpSum.other" });
-    expect(byLabel("結婚の費用").priority).toBeUndefined();
-    expect(byLabel("特別な旅行")).toMatchObject({ priority: "want" });
+    for (const l of ["結婚の費用", "法事", "お墓・仏壇"]) expect(byLabel(l).priority).toBeUndefined();
+    // できればのひな形は子の結婚の援助だけ（ほかは必ず）
+    expect(OUT_TEMPLATES.filter((t) => t.priority === "want").map((t) => t.key)).toEqual(["childWedding"]);
     for (const p of rowsOf(wh).filter((x) => expenseCard(wh.request.input.household, x) === "events")) expect(p.to).toEqual(p.from);
     const f = (id: string, suffix: string) => allFields(events(wh)).find((x) => x.key === `ev/${id}/${suffix}`)!;
-    expect(fieldStatus(f(byLabel("大きな買い物").id, "amount"), wh)).toMatchObject({ status: "estimated", basis: "よくある額の目安（大きな買い物（趣味の道具など） 1回50万円。この世帯に合わせて直してください）" });
-    for (const l of ["結婚の費用", "特別な旅行", "お墓・仏壇"]) expect(statusOf(wh, `${byLabel(l).id}/amount`)).toBe("missing");
+    expect(fieldStatus(f(byLabel("法事").id, "amount"), wh)).toMatchObject({ status: "estimated", basis: "よくある額の目安（法事 1回20万円。この世帯に合わせて直してください）" });
+    for (const l of ["結婚の費用", "お墓・仏壇"]) expect(statusOf(wh, `${byLabel(l).id}/amount`)).toBe("missing");
     // 1回の行には何年ごとの欄も仮の印も無い
     expect(Object.keys(wh.assumed).some((k) => k.endsWith("/every"))).toBe(false);
     // 「?」の説明
     expect(tpl("grave").help).toContain("0〜300万円");
-    expect(tpl("specialTrip").help).toContain("海外なら80万円・国内なら30万円");
     expect(() => preview(wh.request)).not.toThrow();
   });
 
@@ -141,7 +141,7 @@ describe("ライフイベントのひな形（小さなボタン。標準と詳�
     const later = addOutTemplate(bare(), "wedding", seq());
     expect(rowsOf(later).at(-1)!.from).toEqual({ at: "2027-10" });
     // 入るお金のひな形も、行を足した後に出し続け、「入れた」を出す
-    const inn = events(gift).sections[1]!.groups.find((x) => x.key === "in/templates")!;
+    const inn = events(gift).sections.find((x) => x.key === "money/events/in")!.groups.find((x) => x.key === "in/templates")!;
     expect(inn.actions.find((a) => a.key === "in/template/weddingGift")!.chip!.added).toBe("入れた（2028年・額は未入力）");
   });
 
@@ -161,10 +161,10 @@ describe("ライフイベントのひな形（小さなボタン。標準と詳�
 
   it("当てはまる人のいないまとまり（親のいない世帯の親・お墓、子がいなくて結婚もしない世帯の家族の節目）は後ろに回す（隠さない）", () => {
     const h = (id: string) => bare(id).request.input.household;
-    expect(templateGroupOrder(h("salariedCoupleTwoKids"))).toEqual(["family", "fun", "reserve", "parents"]);
-    expect(templateGroupOrder(h("parentCare"))).toEqual(["family", "parents", "fun", "reserve"]);
-    expect(templateGroupOrder(h("dualNoKids"))).toEqual(["fun", "reserve", "family", "parents"]);
-    expect(chips(bare("dualNoKids")).actions).toHaveLength(10);
+    expect(templateGroupOrder(h("salariedCoupleTwoKids"))).toEqual(["family", "reserve", "parents"]);
+    expect(templateGroupOrder(h("parentCare"))).toEqual(["family", "parents", "reserve"]);
+    expect(templateGroupOrder(h("dualNoKids"))).toEqual(["reserve", "family", "parents"]);
+    expect(chips(bare("dualNoKids")).actions).toHaveLength(7);
   });
 });
 
@@ -303,13 +303,13 @@ describe("ライフイベントの行の欄", () => {
 
 describe("入る⇄出るの付け替え・基本生活費へ移す・介護は出さない", () => {
   it("出るお金の行を入るお金にする（同じ名前・額・時期）、戻すと出るお金（表の行は1回でもくり返しでも一時的支出）", () => {
-    const wh0 = addEventTemplate(bare(), tpl("purchase"), "00000000-0000-4000-8000-0000000000e6");
+    const wh0 = addEventTemplate(bare(), tpl("memorial"), "00000000-0000-4000-8000-0000000000e6");
     const p = rowsOf(wh0).find((x) => x.id.endsWith("e6"))!;
     const wh = expenseToIncome(wh0, p.id, "00000000-0000-4000-8000-0000000000e7");
     expect(rowsOf(wh).some((x) => x.id === p.id)).toBe(false);
     const f = wh.request.input.household.incomeFlows!.find((x) => x.id.endsWith("e7"))!;
     expect(f).toMatchObject({ label: p.label, kind: "other", from: p.from, to: p.to, everyYears: p.everyYears, amount: p.amount });
-    expect(events(wh).sections[1]!.groups[0]!.actions.some((a) => a.key.endsWith("/toExpense"))).toBe(true);
+    expect(events(wh).sections.find((x) => x.key === "money/events/in")!.groups[0]!.actions.some((a) => a.key.endsWith("/toExpense"))).toBe(true);
     const back = incomeToExpense(wh, f.id, "00000000-0000-4000-8000-0000000000e8");
     expect(rowsOf(back).find((x) => x.id.endsWith("e8"))).toMatchObject({ label: p.label, kind: "general", row: "cf.expense.lumpSum.other", amount: p.amount });
     const repeat = mutate(wh, (h) => void Object.assign(h.incomeFlows!.find((x) => x.id === f.id)!, { to: null, everyYears: 2 }));
@@ -332,7 +332,7 @@ describe("入る⇄出るの付け替え・基本生活費へ移す・介護は�
 
   it("介護の費用はライフイベントの出るお金に出さない（介護・親のカード）", () => {
     const wh = open("parentCare");
-    expect(events(wh).sections[0]!.groups.some((g) => g.key.startsWith("ro/ev/care"))).toBe(false);
+    expect(events(wh).sections.find((x) => x.key === "ev/periodic")!.groups.some((g) => g.key.startsWith("ro/ev/care"))).toBe(false);
   });
 });
 
@@ -352,11 +352,11 @@ describe("この世帯の予定（ほかのカードを含む）", () => {
     const wh0 = addCar(open("salariedCoupleTwoKids"));
     const car = wh0.request.input.household.cars![0]!;
     const year = Number(wh0.request.input.baseMonth.slice(0, 4)) + 3;
-    const wh = addEventTemplate(wh0, tpl("purchase"));
+    const wh = addEventTemplate(wh0, tpl("memorial"));
     const at = (id: string) => rowsOf(wh).find((p) => p.label === id)!;
-    // 大きな買い物を車の買い替えと同じ年にする
+    // 法事を車の買い替えと同じ年にする
     const shifted = { ...wh, request: structuredClone(wh.request) };
-    const p = shifted.request.input.household.periodicExpenses!.find((x) => x.id === at("大きな買い物").id)!;
+    const p = shifted.request.input.household.periodicExpenses!.find((x) => x.id === at("法事").id)!;
     p.from = structuredClone(car.purchase!.first);
     p.to = structuredClone(car.purchase!.first);
     const items = scheduleItems(shifted);
@@ -364,11 +364,11 @@ describe("この世帯の予定（ほかのカードを含む）", () => {
     expect(items.some((x) => x.name.startsWith("車の買い替え") && x.year === year && x.card === "車")).toBe(true);
     expect(items.some((x) => x.name.includes("大学の入学") && x.card === "子ども・教育")).toBe(true);
     expect(items.some((x) => x.name.includes("年金の受け取り開始"))).toBe(true);
-    expect(overlapYears(items).find((o) => o.year === year)?.names).toEqual(expect.arrayContaining(["大きな買い物", expect.stringMatching(/^車の買い替え/)]));
+    expect(overlapYears(items).find((o) => o.year === year)?.names).toEqual(expect.arrayContaining(["法事", expect.stringMatching(/^車の買い替え/)]));
     const sec = events(shifted).sections.find((s) => s.key === "events/schedule")!;
     expect(sec.level).toBe("detail");
     expect(sec.groups[0]!.note).toContain(`${year}年（`);
     expect(sec.groups[0]!.fields.every((f) => f.readOnly !== undefined)).toBe(true);
-    expect(sec.groups[0]!.fields.some((f) => String(f.get(shifted).value).startsWith("出るお金：大きな買い物（"))).toBe(true);
+    expect(sec.groups[0]!.fields.some((f) => String(f.get(shifted).value).startsWith("出るお金：法事（"))).toBe(true);
   });
 });

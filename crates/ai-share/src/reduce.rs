@@ -20,6 +20,7 @@ const ALLOWLIST_JSON: &str = include_str!("../data/reduced-allowlist.json");
 /// 計算の入力の中の文章の項目（入力項目ID と、誰が書いたか）。既定で外す
 pub const TEXT_ITEMS: &[(&str, &str)] = &[
     ("periodicExpense.label", "FP（見出し）"),
+    ("periodicExpense.dreamNote", "FP（夢のひとことメモ）"),
     ("incomeFlow.label", "FP（見出し）"),
     ("transfer.label", "FP（見出し）"),
     ("debt.label", "FP（ローンの名前）"),

@@ -82,9 +82,32 @@ export function GoalCards({ model }: { model: GoalsModel }) {
       <div class="goal-sum">
         「必ず」の目標 {model.needTotal}件中 <span class="big">{model.needReady}件</span> 準備OK
       </div>
+      {model.dreamLine !== null ? (
+        <p class="goal-dream-line" data-dream-line>
+          {model.dreamLine}
+        </p>
+      ) : null}
       <div class="goals">
         {model.cards.map((g, i) =>
-          g.ready === null ? (
+          g.dream !== undefined ? (
+            // 夢プランの1件（0103）: 順位・名前・時期・額・計算に入れているか
+            <div class={`goal dream${g.dream.included ? "" : " off"}`} key={i} data-dream-card={g.dream.rank}>
+              <div class="goal-top">
+                <span class="goal-cat">{g.category}</span>
+                <span class="prio p2">{g.dream.included ? "計算に入れる" : "計算に入れない"}</span>
+              </div>
+              <h3>{g.title}</h3>
+              <div class="when">{g.when}</div>
+              {g.amount !== null ? (
+                <div class="amt num">
+                  {man(g.amount)}
+                  <span class="u">万円</span>
+                </div>
+              ) : (
+                <div class="amt">額は未入力</div>
+              )}
+            </div>
+          ) : g.ready === null ? (
             <div class="goal dream" key={i}>
               <div class="goal-top">
                 <span class="goal-cat">{g.category}</span>

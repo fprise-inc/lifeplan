@@ -90,6 +90,7 @@ export const LATER_FIELD_ENTRIES: readonly ReadingEntry[] = [
   {"from":"field:sav/{object}/property/equity","until":"0.35","to":{"target":"object","item":"account.property","at":["acquisition","equity"]}},
   {"from":"field:sav/{object}/property/expItem/cleaning","until":"0.35","to":{"target":"object","item":"account.property","at":["expenses","items","cleaning"]}},
   {"from":"field:sav/{object}/property/expItem/facility","until":"0.35","to":{"target":"object","item":"account.property","at":["expenses","items","facility"]}},
+  {"from":"field:sav/{object}/property/expItem/groundRent","until":"0.46","to":{"target":"object","item":"account.property","at":["expenses","items","groundRent"]}},
   {"from":"field:sav/{object}/property/expItem/insurance","until":"0.35","to":{"target":"object","item":"account.property","at":["expenses","items","insurance"]}},
   {"from":"field:sav/{object}/property/expItem/leasing","until":"0.35","to":{"target":"object","item":"account.property","at":["expenses","items","leasing"]}},
   {"from":"field:sav/{object}/property/expItem/management","until":"0.35","to":{"target":"object","item":"account.property","at":["expenses","items","management"]}},

@@ -8,7 +8,7 @@
 #import "parts/format.typ": *
 #import "parts/layout.typ": *
 #import "pages/front.typ": cover, assumptions
-#import "pages/household.typ": summary, basics, events
+#import "pages/household.typ": summary, basics, dreams, events
 #import "pages/cashflow.typ": cashflow
 #import "pages/topics.typ": assets-page, balance-page, education, housing, retirement
 #import "pages/risk.typ": contingency, insurance
@@ -47,6 +47,7 @@
   assumptions(data, frame)
   if on("summary") { summary(data) }
   if on("basics") { basics(data) }
+  if on("dreams") and data.at("dreams", default: none) != none { dreams(data) }
   if on("events") and data.events.len() > 0 { events(data) }
   if on("cashflow") {
     cashflow(data, band-height)

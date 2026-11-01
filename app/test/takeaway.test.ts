@@ -92,7 +92,7 @@ describe("持ち帰り用のレポート: 内部情報を入れない", () => {
     living.approval = { by: "fp", at: "2026-10-01T10:00:00+09:00", candidate: "0b1c2d3e-4f50-4a6b-8c7d-8e9fa0b1c2d3" };
     const fee = h.advisoryFees?.[0] as unknown as Record<string, unknown>;
     fee.menu = { id: "office.standard", label: `${MARK}-menu` };
-    (h as unknown as Record<string, unknown>).periodicExpenses = [{ id: "5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8d", label: `${MARK}-periodic`, row: "cf.expense.other", from: { at: "2030-01" }, everyYears: 5, amount: { value: 100000, state: "estimated", origin: { kind: "auto" }, estimate: { method: "statistic", basis: `${MARK}-basis` } } }];
+    (h as unknown as Record<string, unknown>).periodicExpenses = [{ id: "5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8d", label: `${MARK}-periodic`, row: "cf.expense.other", from: { at: "2030-01" }, everyYears: 5, amount: { value: 100000, state: "estimated", origin: { kind: "auto" }, estimate: { method: "statistic", basis: `${MARK}-basis` } } }, { id: "5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8e", label: `${MARK}-dream`, kind: "dream", row: "cf.expense.lumpSum.other", from: { at: "2031-04" }, to: { at: "2031-04" }, everyYears: 1, amount: { value: 300000, state: "confirmed", origin: { kind: "manual" } }, dream: { rank: 1, note: `${MARK}-dreamNote` } }];
     o.wh.proposals.forEach((p) => p.diffs.forEach((d) => (d.note = `${MARK}-note`)));
     const original = JSON.stringify(o.wh);
     const ids = new Set(original.match(UUID) ?? []);

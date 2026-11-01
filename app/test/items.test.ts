@@ -211,7 +211,7 @@ describe("物の置き場所（1つの物は1つのカードにだけ。ほか�
     expect(groupKeys(wh, "inheritance")).toContain(`inherit/debt/${debt.id}`);
     const acts = (itemStage(wh, "inheritance") as StageDef).sections.flatMap((s) => s.actions.map((x) => x.key));
     expect(acts).toEqual(expect.arrayContaining(["money/inherit/addDebt", "money/inherit/addGrandchild"]));
-    expect((itemStage(wh, "events") as StageDef).sections.map((s) => s.key)).toEqual(["ev/periodic", "money/events/in", "events/schedule"]);
+    expect((itemStage(wh, "events") as StageDef).sections.map((s) => s.key)).toEqual(["ev/dreams", "ev/periodic", "money/events/in", "events/schedule"]);
     // 主な表示は入れた中身（受け取る予定の行は額が0円のままなので、あげる贈与の額だけ。0060 の 2026-10-29 の追記）
     expect(sumText(byId(inputItems(wh), "inheritance"))).toBe("贈与 110万円");
   });

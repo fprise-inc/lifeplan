@@ -1761,6 +1761,22 @@ entries:
     replacedBy: null
     collection: periodicExpense
     path: [counterparty]
+  - id: periodicExpense.dream
+    status: active
+    label: "夢プラン（種類 dream の行だけ。順位・計算に入れるか〔省略は入れる〕・ひとことメモ。計算には使わない。画面が計算に入れない夢を要求から外す。0103）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: periodicExpense
+    path: [dream]
+  - id: periodicExpense.dreamNote
+    status: active
+    label: "夢のひとことメモ（なぜかなえたいか）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: periodicExpense
+    path: [dream, note]
   - id: periodicExpense.everyYears
     status: active
     label: "何年ごとか（1は毎年）"

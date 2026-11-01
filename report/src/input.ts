@@ -224,7 +224,10 @@ export interface ProposalInput {
     /** 計算基準年の年末のバランスシート（現状。1列） */
     balance: BalanceSheetView;
   };
+  /** ライフイベント表（夢プランの夢は★を付けた項目。計算に入れない夢は載せない） */
   events: { year: number; ages: string; items: string[] }[];
+  /** ご家族の夢（夢プラン。0103）。夢が無い・章を外したときは null。省略は、この欄の前の版の入力 */
+  dreams?: DreamsView | null;
   cashflow: { current: CfTable; proposal: CfTable };
   assets: { current: Yen[]; proposal: Yen[] };
   /** 資産と負債の推移（キャッシュフロー表の章の続き。章を外したときは null） */
@@ -490,4 +493,20 @@ export interface MarketDropView {
   proposal: Yen[];
   lasts: string;
   lines: { label: string; lasts: string; values: Yen[] }[];
+}
+
+/** ご家族の夢（夢プラン。0103）: 順位の順の夢と、夢を入れた・入れない計算の要約の1文 */
+export interface DreamsView {
+  rows: {
+    rank: number;
+    name: string;
+    /** 時期（「2031年（ご本人60歳）」「2031年から2040年まで・毎年」） */
+    when: string;
+    /** 額（1回の額。くり返す夢は1回ごとの額。未入力は null） */
+    amount: Yen | null;
+    /** 計算に入れているか */
+    included: boolean;
+  }[];
+  /** 「夢をすべて入れても100歳まで足ります」など（材料の計算が無ければ null） */
+  summary: string | null;
 }
