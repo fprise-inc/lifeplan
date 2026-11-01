@@ -53,7 +53,12 @@ export interface DateResult {
  * 2桁の年は 2000 年代として読む。日の無い年月は読まない（使った日が要るため）
  */
 export function parseDate(raw: string, yearHint?: number): DateResult | null {
-  const s = nfkc(raw).replace(/\s+/g, "").replace(/\(.\)$/u, "").replace(/（.）$/u, "");
+  // 後ろの時刻（空白か T の後の 12:34・12:34:56）は空白を取る前に外す（取った後だと「1 12:00」が「112:00」になり、日を「11」と読むため）
+  const s = nfkc(raw)
+    .replace(/(?:\s+|(?<=\d)T)\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/u, "")
+    .replace(/\s+/g, "")
+    .replace(/\(.\)$/u, "")
+    .replace(/（.）$/u, "");
   if (s === "") return null;
   let m = /^(令和|平成|昭和|[RHS])(\d{1,2}|元)[/.\-年](\d{1,2})[/.\-月](\d{1,2})日?$/iu.exec(s);
   if (m !== null) {
