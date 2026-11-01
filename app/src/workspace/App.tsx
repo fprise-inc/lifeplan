@@ -30,7 +30,7 @@ import { AiConnectorPanel } from "./ai/AiConnectorPanel.tsx";
 import { AiShareBand } from "./ai/AiShareBand.tsx";
 import { AiSharePanel } from "./ai/AiSharePanel.tsx";
 import { acceptCandidate as acceptAiCandidate, aiMessage, candidatePlanName, candidateRows, candidateValues, shareState, SHARE_STATE_TEXT } from "./ai/model.ts";
-import { useAi } from "./ai/useAi.ts";
+import { AI_POLL_MS, useAi } from "./ai/useAi.ts";
 import { DEMO_HOUSEHOLDS, demoHousehold, type DemoHousehold } from "./catalog.ts";
 import { seedDemo } from "./demoSeed.ts";
 import { ContingencyEngine } from "./contingency/engine.ts";
@@ -1360,6 +1360,15 @@ export function App() {
   );
   // ---- AI接続口（0014・0015）: 状態と世帯の記録は本体から読む。AIからの候補は FP が承認したときだけプランになる ----
   const ai = useAi(host?.ai ?? null, storeStatus?.state === "ready", storedInfo?.id ?? null);
+  // 「○分前から」（開いている人の表示）は描くときの時刻で書くので、出している間は AI の読み直しと同じ間隔で描き直す
+  // （AI の状態は中身が変わらなければ置き直さず、画面全体を描き直さないので、それに頼らない）
+  const [, setSinceClock] = useState(0);
+  const showsSince = (presence !== null && storedInfo !== null) || hhOpen;
+  useEffect(() => {
+    if (!showsSince) return;
+    const t = setInterval(() => setSinceClock((n) => n + 1), AI_POLL_MS);
+    return () => clearInterval(t);
+  }, [showsSince]);
   const acceptCandidate = useCallback(
     async (c: AiCandidate, name: string) => {
       const o = openedRef.current;
