@@ -64,7 +64,7 @@ export const OUT_KINDS: readonly { kind: MoneyOutKind; label: string; help?: str
   { kind: "education", label: "留学・寮費・部活などの教育費", row: "cf.expense.education", card: "education", cadence: "repeat", amount: 100000, everyYears: 1, preset: "その他の教育費 年10万円" },
   { kind: "repair", label: "修繕・リフォーム", row: "cf.expense.housing.maintenance", card: "housing", cadence: "repeat", amount: 1000000, everyYears: 10, preset: "修繕 10年ごとに100万円" },
   { kind: "realEstateCost", label: "不動産の一時の経費", help: "大規模修繕・原状回復などの一時の経費です", row: "cf.expense.other", card: "rental", cadence: "once", amount: 1000000, preset: "不動産の一時の経費 100万円" },
-  { kind: "livingAnnual", label: "年払い・数年おきの暮らしの支出", row: "cf.expense.living", card: "living", cadence: "repeat", amount: 100000, everyYears: 1, preset: "年払いの支出 年10万円" },
+  { kind: "livingAnnual", label: "年1回・数年に1回の支出", row: "cf.expense.living", card: "living", cadence: "repeat", amount: 100000, everyYears: 1, preset: "年払いの支出 年10万円" },
   { kind: "car", label: "車の修理・用品など", row: "cf.expense.living.car", card: "car", cadence: "repeat", amount: 50000, everyYears: 1, preset: "車の用品など 年5万円" },
   { kind: "other", label: "その他の支出", row: "cf.expense.other", card: "events", cadence: "once", amount: 100000, preset: "その他の支出 10万円" },
   // 夢プラン（0103）: ライフイベントの入力項目の「夢プラン」の区画だけで足す（種類の選択には出さない）。額は未入力から
@@ -86,8 +86,6 @@ export const OUT_ROWS: Option[] = [
 ];
 
 
-/** 医療費の窓口負担の説明（自動では変えない。段階で額を変える） */
-export const MEDICAL_HELP = "医療費の窓口負担は、70〜74歳は2割、75歳以上は1割（所得によって2〜3割）に下がります。計算では自動で変えないので、額を変えるときは段階で入れてください";
 
 /** 入るお金の行が選べる表の行の全部（エンジンの incomeFlow.row。「その他の入金」はどれも選べる） */
 export const IN_ROWS: Option[] = [
@@ -1075,7 +1073,7 @@ export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense, card: Mo
   if (!once) fields.push(timepointField({ key: `${k}/to`, item: "periodicExpense.to", label: "終わり", level: "simple", find, path: ["to"], startPath: ["from"], optional: true, nullText: "最後まで", ...(support ? { ...supportAge(wh, p), help: SUPPORT_END_HELP, warn: supportEndWarn(find) } : ageOf) }));
   fields.push(expensePriorityField(p));
   const legacy = p.row !== undefined && !expenseRowChoices({ kind: p.kind }).some((o) => o.value === p.row);
-  fields.push(plain({ key: `${k}/row`, item: "periodicExpense.row", label: "キャッシュフロー表の行", level: "detail", kind: "select", options: expenseRowChoices(p), find, path: ["row"], ...(card === "living" ? { help: `「医療・介護」の行にすると、結果の表で医療費として分けて見られます。${MEDICAL_HELP}${legacy ? `。${LEGACY_ROW_HELP}` : ""}` } : rowHelp(legacy)) }));
+  fields.push(plain({ key: `${k}/row`, item: "periodicExpense.row", label: "キャッシュフロー表の行", level: "detail", kind: "select", options: expenseRowChoices(p), find, path: ["row"], ...(card === "living" ? { help: `「医療・介護」の行にすると、結果の表で医療費として分けて見られます${legacy ? `。${LEGACY_ROW_HELP}` : ""}` } : rowHelp(legacy)) }));
   const badge = stagedBadge(p as unknown as Record<string, unknown>, ["stages"], ["exceptions"], amountName(c, p.everyYears));
   const name = p.label !== undefined && p.label !== "" ? p.label : unnamedExpense(h0, p);
   const details = [...(p.payer !== undefined ? ["払う人"] : []), ...(p.growth !== undefined ? ["伸び方"] : []), ...(badge !== null ? [badge] : [])];

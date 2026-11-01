@@ -145,17 +145,41 @@ export function splitNote(note: string | undefined): { state: string | null; hel
 /** 欄の横の読みのうち、推定の根拠を書いた物の頭 */
 const BASIS_HINT = /^推定(あり)?: /;
 
+/**
+ * 「?」の中の説明の文を段落と箇条書きにする（0106）。改行（\n）で区切った行のうち「・」で始まる行は続けて1つの箇条書きに、ほかの行は段落にする。
+ * 改行の無い文は今までどおり1つの段落
+ */
+export function helpBlocks(text: string, key = "h"): ComponentChildren[] {
+  const out: ComponentChildren[] = [];
+  let items: string[] = [];
+  const flush = () => {
+    if (items.length === 0) return;
+    out.push(
+      <ul key={`${key}-${out.length}`}>
+        {items.map((x, i) => (
+          <li key={i}>{x}</li>
+        ))}
+      </ul>,
+    );
+    items = [];
+  };
+  for (const line of text.split("\n")) {
+    if (line.startsWith("・")) {
+      items.push(line.slice(1));
+      continue;
+    }
+    flush();
+    if (line.trim() !== "") out.push(<p key={`${key}-${out.length}`}>{line}</p>);
+  }
+  flush();
+  return out;
+}
+
 /** 欄の説明（「?」の中に入れる文）。無ければ null */
 function fieldHelp(f: FieldDef, extra: readonly (string | null | undefined)[] = []): ComponentChildren | null {
   const lines = [f.readOnly ?? f.help, f.sideEffects, ...extra].filter((x): x is string => x !== undefined && x !== null && x !== "");
   if (lines.length === 0) return null;
-  return (
-    <Help label={f.label}>
-      {lines.map((l, i) => (
-        <p key={i}>{l}</p>
-      ))}
-    </Help>
-  );
+  return <Help label={f.label}>{lines.flatMap((l, i) => helpBlocks(l, String(i)))}</Help>;
 }
 
 /** 区画の見出しの横に出す小さな文字のリンク。別のパネルを開く（例: 基本生活費の「明細から出す」。0034） */
@@ -326,7 +350,7 @@ export function Section({ section, wh, level, onEdit }: { section: SectionDef; w
   };
   const link = useContext(SectionLinks)[section.key];
   const sn = splitNote(section.note);
-  const sHelp = sn.help !== null ? <Help label={section.title}>{sn.help}</Help> : null;
+  const sHelp = sn.help !== null ? <Help label={section.title}>{helpBlocks(sn.help)}</Help> : null;
   // 空の区画（お金の行などがまだ入らない置き場所）は出さない
   if (section.note === undefined && actions.length === 0 && shownGroups.length === 0) return null;
   return (
@@ -468,7 +492,7 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
   const mainNodes = opened.rest.length > 0 ? [...main.nodes, ...opened.rest.map((x) => x.node)] : main.nodes;
   // 名前の無いまとまりの説明は、欄の並びの前に「?」だけを置く
   const gn = splitNote(group.note);
-  const noteHelp = gn.help !== null ? <Help label={group.title ?? "このまとまり"}>{gn.help}</Help> : null;
+  const noteHelp = gn.help !== null ? <Help label={group.title ?? "このまとまり"}>{helpBlocks(gn.help)}</Help> : null;
   const compact = group.band !== true && more?.open !== true && inner.length === 0 && sub.length === 0 && group.title !== undefined && fields.length > 0 && fields.length <= 3 && fields.every((f) => f.kind === "select" || f.kind === "bool");
   return (
     <div class={`in-group${nested ? " in-sub" : ""}${group.band === true ? " in-band" : ""}${compact ? " compact" : ""}`} data-group={group.key} {...(moreOf !== undefined ? { "data-more-of": moreOf } : {})}>

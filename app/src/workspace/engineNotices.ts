@@ -194,7 +194,7 @@ function messageOf(code: string, component: string | null, topics: readonly stri
   const hit = MESSAGES[`${code}|${component ?? ""}|${topic}`] ?? MESSAGES[`${code}|${topic}`] ?? MESSAGES[`${code}|${component ?? ""}`] ?? MESSAGES[code];
   if (hit !== undefined) return { msg: hit, key: hit.group ?? `${code}|${component ?? ""}|${topic}`, part: hit.part ?? null };
   if (code === "N_PARAM_MISSING") return { msg: MISSING_PARAM, key: "paramMissing", part: [...new Set(topics.map(paramName))].join("・") };
-  const fb = FALLBACK[code] ?? { kind: "data" as const, text: "計算の前提についての知らせがあります" };
+  const fb = FALLBACK[code] ?? { kind: "data" as const, text: "計算の前提についてのお知らせがあります" };
   return { msg: fb, key: fb.group ?? code, part: null };
 }
 
@@ -202,7 +202,7 @@ function messageOf(code: string, component: string | null, topics: readonly stri
 export function knownNotice(n: { code: string; ids: readonly string[] }): boolean {
   const p = parseNotice(n);
   const m = messageOf(n.code, p.component, p.topics).msg;
-  return !Object.values(FALLBACK).includes(m) && !(m.text === "計算の前提についての知らせがあります");
+  return !Object.values(FALLBACK).includes(m) && !(m.text === "計算の前提についてのお知らせがあります");
 }
 
 /** 知らせの1行（同じ知らせをまとめた後） */
