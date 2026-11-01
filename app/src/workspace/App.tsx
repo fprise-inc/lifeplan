@@ -2087,7 +2087,7 @@ export function App() {
     );
   }, [panel, opened, slots, work.base, settings.atAge, letters, planPensions, ...compareResults]);
 
-  // 小窓はタブごと: 別のタブに移ったら閉じる（各タブのグラフの見出しから出し直す。位置と大きさは覚えている）
+  // 小窓はタブごと: 別のタブに移ったら閉じる（各タブのグラフの右上のボタンから出し直す。位置と大きさは覚えている）
   const pipFirst = useRef(initial.pip === true);
   useEffect(() => {
     if (pipFirst.current) {
