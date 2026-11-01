@@ -147,6 +147,25 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(d.get("dock").is_none(), "{v}: display.dock は持たない");
             assert!(d.get("metrics").is_none(), "{v}: 結果のタブの値は区画の中");
         }
+        if *v == "0.43" {
+            // 0.43 から: 基本生活費の新しい内訳と前の分け方の内訳（0100）
+            let cats: Vec<&str> = now["household"]["request"]["input"]["household"]
+                ["livingExpenses"][0]["categories"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(|c| c["category"].as_str())
+                .collect();
+            for c in [
+                "communication",
+                "transit",
+                "pocketAndSocial",
+                "other",
+                "transport",
+            ] {
+                assert!(cats.contains(&c), "{v}: 内訳 {c}");
+            }
+        }
         if *v == "0.42" {
             // 0.42 から: 高専と専門職大学院（法科大学院）の段（0090）
             let stages: Vec<&serde_json::Value> = now["household"]["request"]["input"]["household"]

@@ -129,6 +129,38 @@ describe("基本生活費のカードの欄（毎年の黒字のうち、貯金�
   });
 });
 
+describe("目安の選び方の「カスタム」と「?」（0100 の追記）", () => {
+  const stageOf = (w: WorkingHousehold) => buildStage("living", w);
+  const presetsGroup = (w: WorkingHousehold) => stageOf(w).sections.find((s) => s.key === "living/surplus")!.groups.find((g) => g.key === "living/surplus/presets")!;
+  it("目安の選び方のまとまりには説明（「?」）を付けない。選び方の最後に「カスタム」", () => {
+    const g = presetsGroup(wh0);
+    expect(g.note).toBeUndefined();
+    expect(g.actions.every((a) => a.help === undefined)).toBe(true);
+    expect(g.actions.at(-1)).toMatchObject({ key: "living/surplus/preset/custom", label: "カスタム", pressed: false });
+  });
+  it("何も入れていない世帯でカスタムを選ぶと、はじめの割合（目安の60%）と本人の年齢の期間を1つ入れる。押した状態になり、期間は直せる", () => {
+    const w = action(wh0, "living/surplus/preset/custom")!.run(wh0);
+    const s = w.request.input.assumptions?.surplusSaving;
+    expect(s?.ratio).toBe("0.6");
+    expect(s?.changes).toHaveLength(1);
+    expect(s?.changes?.[0]?.from.memberAge?.member).toBe(selfId);
+    expect(presetOf(w.request)).toBe("custom");
+    expect(action(w, "living/surplus/preset/custom")!.pressed).toBe(true);
+    expect(field(w, "living/surplus/change/0/age")).toBeDefined();
+    expect(action(w, "living/surplus/addChange")).toBeDefined();
+  });
+  it("目安（子育て中と子の独立後）からカスタムにすると、区切りを同じ月の本人の年齢にして残す（割合も同じで、計算は変わらない）", () => {
+    const k = fromRequest(applyPreset(req, "children"));
+    const w = action(k, "living/surplus/preset/custom")!.run(k);
+    const c = w.request.input.assumptions?.surplusSaving?.changes ?? [];
+    expect(c).toHaveLength(1);
+    expect(c[0]!.ratio).toBe("0.8");
+    expect(c[0]!.from.memberAge).toBeDefined();
+    expect(presetOf(w.request)).toBe("custom");
+    expect(preview(w.request).table).toEqual(preview(k.request).table);
+  });
+});
+
 describe("生活防衛資金をなくした（0031 の追記）", () => {
   it("控えに残っている生活防衛資金の前提は、計算するときに外す（控えの中身は変えない）", () => {
     const old = structuredClone(req);

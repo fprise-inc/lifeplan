@@ -7,6 +7,7 @@
 //   遺族の生活費の割合（万一の想定の survivor.livingRatio。省略は末子の独立まで0.7、独立の後0.5。子のいない世帯は noChildren で省略は0.7）を総額に掛ける（費目別の生活費も同じ割合）。
 //   末子の独立は、子の leaves があればその月、無ければ独立とみなす年齢（survivor.independenceAge。省略は22）に達した後の最初の3月31日の翌月
 // 改訂3: 世帯の外の家族（0035 の4）の子は遺族の生活費の子に数えない
+// 改訂4（0100）: 内訳に通信費・交通費（車を除く）・こづかいと交際費・その他を足した（計算は内訳の合計のまま。前の分け方の交通・通信とその他の消費支出も同じ）
 import {
   addMonths,
   boxValue,
@@ -34,20 +35,25 @@ import {
 const ROW: Readonly<Record<LivingCategory, string>> = {
   food: "cf.expense.living.food",
   utilities: "cf.expense.living.utilities",
+  communication: "cf.expense.living.communication",
+  transit: "cf.expense.living.transit",
   furniture: "cf.expense.living.furniture",
   clothing: "cf.expense.living.clothing",
   health: "cf.expense.living.health",
-  transport: "cf.expense.living.transport",
   recreation: "cf.expense.living.recreation",
-  otherConsumption: "cf.expense.living.otherConsumption",
+  pocketAndSocial: "cf.expense.living.pocketAndSocial",
+  other: "cf.expense.living.other",
   allowance: "cf.expense.living.allowance",
+  // 前の分け方（0.42 までの世帯の内訳。0100）
+  transport: "cf.expense.living.transport",
+  otherConsumption: "cf.expense.living.otherConsumption",
 };
 
 export default defineComponent<Record<string, never>, FlowsResult>({
   id: "expense.living",
   title: "生活費",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: { "contingency.event": ">=1 <2" },
   params: [],
   reads: [

@@ -147,16 +147,24 @@ export const LIVING_STAGE_LABELS: Option[] = [
   { value: "other", label: "その他の節目" },
 ];
 
+/**
+ * 基本生活費の内訳の名前（0100。家計簿アプリでよくある分け方に寄せた10費目と仕送り）。
+ * 交通・通信費（transport）とその他の消費（otherConsumption）は前の分け方の内訳で、前に保存した世帯に値があるときだけ出す（前の名前のまま）
+ */
 export const LIVING_CATEGORIES: Option[] = [
   { value: "food", label: "食費" },
   { value: "utilities", label: "水道・光熱費" },
-  { value: "furniture", label: "家具・家事用品" },
-  { value: "clothing", label: "被服費" },
-  { value: "health", label: "保健医療費" },
-  { value: "transport", label: "交通・通信費" },
-  { value: "recreation", label: "教養娯楽費" },
-  { value: "otherConsumption", label: "その他の消費（こづかい・交際費など）" },
+  { value: "communication", label: "通信費" },
+  { value: "transit", label: "交通費" },
+  { value: "furniture", label: "日用品" },
+  { value: "clothing", label: "被服・美容" },
+  { value: "health", label: "医療費" },
+  { value: "recreation", label: "趣味・娯楽" },
+  { value: "pocketAndSocial", label: "こづかい・交際費" },
+  { value: "other", label: "その他" },
   { value: "allowance", label: "仕送り" },
+  { value: "transport", label: "交通・通信費" },
+  { value: "otherConsumption", label: "その他の消費（こづかい・交際費など）" },
 ];
 
 export const GROWTH_KINDS: Option[] = [

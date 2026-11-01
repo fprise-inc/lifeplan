@@ -23,30 +23,39 @@ const ICONS: Readonly<Record<string, JSX.Element>> = {
       <path d="M9.5 20h5M10.5 22h3" />
     </>
   ),
-  // 日用品・衣服（束）: 手提げの袋
-  daily: (
+  // 日用品: 手提げの袋
+  furniture: (
     <>
       <path d="M5 8h14l-1 12.5H6z" />
       <path d="M9 10.5V7a3 3 0 0 1 6 0v3.5" />
       <path d="M8.5 14h7" stroke={ACCENT} stroke-width="2.4" />
     </>
   ),
-  // 家具・家事用品: 電気スタンド
-  furniture: (
-    <>
-      <path d="M8 3.5h8l3 7H5z" fill={ACCENT} />
-      <path d="M12 10.5v8.5M8 20.5h8" />
-      <path d="M15 10.5v2.5" />
-    </>
-  ),
-  // 被服費: シャツ
+  // 被服・美容: シャツ
   clothing: (
     <>
       <path d="M9 4l-5 3 2 3.5 2-1V20h8V9.5l2 1L20 7l-5-3" />
       <path d="M9 4a3 2.2 0 0 0 6 0" fill={ACCENT} />
     </>
   ),
-  // 交通・通信費: 電車の前の形
+  // 通信費: スマートフォン
+  communication: (
+    <>
+      <rect x="7" y="2.5" width="10" height="19" rx="2.2" />
+      <path d="M9 5.5h6v11H9z" fill={ACCENT} />
+      <path d="M11 19h2" />
+    </>
+  ),
+  // 交通費: 電車の前の形（前の分け方の交通・通信費も同じ絵）
+  transit: (
+    <>
+      <rect x="5.5" y="3" width="13" height="14" rx="3" />
+      <path d="M7.5 6.5h9v4h-9z" fill={ACCENT} />
+      <path d="M9 14h.01M15 14h.01" stroke-width="2.4" />
+      <path d="M8 17l-2 4M16 17l2 4" />
+    </>
+  ),
+  // 交通・通信費（前の分け方）: 電車の前の形
   transport: (
     <>
       <rect x="5.5" y="3" width="13" height="14" rx="3" />
@@ -55,7 +64,7 @@ const ICONS: Readonly<Record<string, JSX.Element>> = {
       <path d="M8 17l-2 4M16 17l2 4" />
     </>
   ),
-  // 趣味・旅行（教養娯楽）: スーツケース
+  // 趣味・娯楽: スーツケース
   recreation: (
     <>
       <rect x="4" y="7" width="16" height="12" rx="2" />
@@ -64,15 +73,7 @@ const ICONS: Readonly<Record<string, JSX.Element>> = {
       <path d="M10.2 11.5h3.6v3h-3.6z" fill={ACCENT} stroke="none" />
     </>
   ),
-  // 医療・こづかい・その他（束）: 財布
-  misc: (
-    <>
-      <path d="M4 8h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
-      <path d="M4 8l11-3.5V8" />
-      <path d="M15 12h5v4h-5a2 2 0 0 1 0-4z" fill={ACCENT} />
-    </>
-  ),
-  // 保健医療費: 救急箱
+  // 医療費: 救急箱
   health: (
     <>
       <rect x="3.5" y="7" width="17" height="12.5" rx="2" />
@@ -80,7 +81,23 @@ const ICONS: Readonly<Record<string, JSX.Element>> = {
       <path d="M10.5 10h3v2.5H16v3h-2.5V18h-3v-2.5H8v-3h2.5z" fill={ACCENT} />
     </>
   ),
-  // その他の消費（こづかい・交際費など）: 湯気の立つカップ
+  // こづかい・交際費: 財布
+  pocketAndSocial: (
+    <>
+      <path d="M4 8h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
+      <path d="M4 8l11-3.5V8" />
+      <path d="M15 12h5v4h-5a2 2 0 0 1 0-4z" fill={ACCENT} />
+    </>
+  ),
+  // その他: 箱
+  other: (
+    <>
+      <path d="M3.5 8.5L12 4.5l8.5 4v9L12 21.5l-8.5-4z" />
+      <path d="M3.5 8.5L12 12.5l8.5-4M12 12.5v9" />
+      <path d="M7.7 6.5l8.5 4v3" stroke={ACCENT} stroke-width="2.2" />
+    </>
+  ),
+  // その他の消費（前の分け方。こづかい・交際費など）: 湯気の立つカップ
   otherConsumption: (
     <>
       <path d="M4.5 10h12v4.5a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5z" />
