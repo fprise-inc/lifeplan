@@ -683,6 +683,19 @@ export interface EducationCostOutput {
   readonly flows: readonly Flow[];
   readonly loans: readonly { readonly object: string; readonly member: string; readonly yearEnd: DebtScheduleOutput["yearEnd"] }[];
   readonly enrollments: readonly Enrollment[];
+  /**
+   * 約束の版 1.1（0104）: 子が返す貸与の奨学金（世帯のお金の動き・負債には入れない）。目標の物・子・借りた総額・最初の月の返済額・
+   * 返す期間（表の期間の中の最初と最後の月）・表の期間の中の返済の合計。無ければ欄が無い
+   */
+  readonly childRepaid?: readonly {
+    readonly object: string;
+    readonly member: string;
+    readonly principal: Yen;
+    readonly monthly: Yen;
+    readonly from: string;
+    readonly to: string;
+    readonly total: Yen;
+  }[];
 }
 
 /** expense.car: 車のお金の動きと、自動車ローンの年末残高 */
@@ -927,6 +940,8 @@ export interface CashflowDetails {
   realEstate?: RealEstateOutput["properties"];
   /** 収益不動産の分析の数字（asset.realEstateAnalysis の出力のまま。約束の版 1.7。0082） */
   realEstateAnalysis?: RealEstateAnalysisOutput;
+  /** 子が返す貸与の奨学金（education.cost の childRepaid。約束の版 1.8。0104） */
+  childScholarships?: NonNullable<EducationCostOutput["childRepaid"]>;
 }
 
 /** benefit.unemployment: 雇用保険の基本手当・高年齢求職者給付金を受ける日のある月（日数は30日を1か月とみなす近似。日額は基本手当日額） */

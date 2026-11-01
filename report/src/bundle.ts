@@ -1,5 +1,6 @@
 // 帳票の入力を組み立てる材料（ProposalBundle）: 計算の要求と、その正の計算の結果の組。
 // 結果は本体の quickjs-ng で計算したもの（0005 の2。画面側の先出しの結果は渡さない）。形は表示の形（preview: 見出し・表・要約）でよい。
+import type { ChildScholarship } from "./childScholarships.ts";
 import type { EngineRequest } from "../../engine/src/engine/types.ts";
 import type { ChapterId } from "./chapters.ts";
 import type { ReportLayout } from "./input.ts";
@@ -130,6 +131,8 @@ export interface EngineOutput {
     realEstate?: RealEstateDetail[];
     /** 収益不動産の分析の数字（エンジンの asset.realEstateAnalysis の出力。持っていなければ無い。0082） */
     realEstateAnalysis?: RealEstateAnalysis;
+    /** 子が返す貸与の奨学金（世帯の収支に入れない返済。持っていなければ無い。0104） */
+    childScholarships?: ChildScholarship[];
   };
   protection?: ProtectionOutput;
 }

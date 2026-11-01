@@ -774,14 +774,14 @@ function educationDebtLines(wh: WorkingHousehold): GroupDef[] {
   let scholarships = 0;
   for (const g of wh.request.input.household.goals ?? []) {
     loans += (g.education?.loans ?? []).length;
-    scholarships += (g.education?.scholarships ?? []).filter((x) => x.debtor === "parent").length;
+    scholarships += (g.education?.scholarships ?? []).filter((x) => x.repaidBy === "household").length;
   }
   // 今返している自動車ローンは車のカードで入れる（0069）
   const carLoans = (wh.request.input.household.debts ?? []).filter((d) => d.kind === "car" && d.property === undefined && d.inheritedFrom === undefined).length;
   const lines = [
     ...(carLoans > 0 ? [readLine("housing/carLoans", "自動車ローン", `${carLoans}件`, "車")] : []),
     ...(loans > 0 ? [readLine("housing/eduLoans", "教育ローン", `${loans}件`, "子ども・教育")] : []),
-    ...(scholarships > 0 ? [readLine("housing/eduScholarships", "子の貸与の奨学金（親が返す）", `${scholarships}件`, "子ども・教育")] : []),
+    ...(scholarships > 0 ? [readLine("housing/eduScholarships", "子の貸与の奨学金（世帯で返す）", `${scholarships}件`, "子ども・教育")] : []),
   ];
   const g = readGroup("housing/eduDebts", undefined, lines);
   return g === null ? [] : [g];
@@ -861,7 +861,7 @@ export function housingStage(wh: WorkingHousehold): StageDef {
     level: "simple",
     groups: [...[...others, ...inherited].flatMap((d, i) => loanGroups(wh, d, i)), ...educationDebtLines(wh)],
     actions: [
-      ...LOAN_SUBTYPES.filter((s) => s.value !== "policyLoan" && s.value !== "personal").map((s) => ({ key: `housing/add/${s.value}`, label: `＋ ${s.label}`, level: s.value === "cardLoan" || s.value === "scholarship" ? ("simple" as const) : ("detail" as const), run: (w: WorkingHousehold) => newOtherLoan(w, s.value) })),
+      ...LOAN_SUBTYPES.filter((s) => s.value !== "policyLoan" && s.value !== "personal" && s.value !== "scholarshipFree").map((s) => ({ key: `housing/add/${s.value}`, label: `＋ ${s.value === "scholarship" ? "奨学金の返済" : s.label}`, level: s.value === "cardLoan" || s.value === "scholarship" ? ("simple" as const) : ("detail" as const), run: (w: WorkingHousehold) => newOtherLoan(w, s.value) })),
     ],
   };
   return { id: "housing", label: "住まい・ローン", lead: "賃貸か持ち家か、購入の予定、住宅ローンとほかのローン。", sections: [resSection, loanSection, otherSection] };

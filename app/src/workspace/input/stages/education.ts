@@ -880,6 +880,12 @@ const estimatedRowAt = (input: Obj, goalId: string, list: string, id: string, ke
   for (const f of keys) putRow(input, { target: { object: goalId }, item: "goal.education", at: [list, id, f] }, { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis } });
 };
 
+/** 奨学金を返す人（0104）。省略は子が返す */
+const REPAID_BY = [
+  { value: "child", label: "子が返す" },
+  { value: "household", label: "世帯で返す" },
+];
+
 function scholarshipGroups(goal: Goal, child: Member): GroupDef[] {
   const ageOf = (hh: Household) => hh.members.find((m) => m.id === child.id);
   return (goal.education?.scholarships ?? []).map((s, i) => {
@@ -894,7 +900,7 @@ function scholarshipGroups(goal: Goal, child: Member): GroupDef[] {
     return {
       key: k,
       title: `貸与の奨学金 月${formatYen(s.monthly, "yen")}円`,
-      note: "在学中に受け取り（入るお金）、卒業の後に返します。返す人が子なら、子の返済は世帯の支出に入れません",
+      note: (s.repaidBy ?? "child") === "child" ? "在学中に受け取り（入るお金）、卒業の後に子が返します。子の返済は世帯の支出に入れません（結果の画面と提案書に返済の額を書き添えます）" : "在学中に受け取り（入るお金）、卒業の後に世帯で返します（返済は世帯の支出に入ります）",
       level: "detail",
       fields: [
         { ...plain({ key: `${k}/monthly`, item: "goal.education", label: "月額", level: "detail", kind: "yen", basis: "monthly", find, path: ["monthly"] }), ...at("monthly") },
@@ -903,7 +909,19 @@ function scholarshipGroups(goal: Goal, child: Member): GroupDef[] {
         { ...plain({ key: `${k}/rate`, item: "goal.education", label: "利率（年）", level: "detail", kind: "pct", find, path: ["rate"] }), ...at("rate") },
         yearsField(`${k}/term`, "返す年数", find, 30, addr("termMonths")),
         timepointField({ key: `${k}/repay`, item: "goal.education", label: "返し始め", level: "detail", find, path: ["repaymentStart"], ageOf, optional: true, absentWhenEmpty: true, nullText: "空欄: 受け取りの終わりの7か月後" }),
-        plain({ key: `${k}/debtor`, item: "goal.education", label: "返す人", level: "detail", kind: "select", options: [{ value: "child", label: "子" }, { value: "parent", label: "親" }], find, path: ["debtor"], optional: true, fallback: "child" }),
+        plain({
+          key: `${k}/repaidBy`,
+          item: "goal.education",
+          label: "返す人",
+          level: "detail",
+          kind: "select",
+          options: REPAID_BY,
+          find,
+          path: ["repaidBy"],
+          optional: true,
+          fallback: "child",
+          help: "子が返すなら、返済は世帯の支出に入れません（受け取った奨学金は学費に使う入るお金のまま）。親が代わりに返すなど、世帯のお金から返すなら「世帯で返す」にします",
+        }),
       ],
       actions: [
         removeAction(`${k}/remove`, "外す", "detail", (hh) => {
@@ -971,7 +989,7 @@ export function addScholarship(wh: WorkingHousehold, goalId: string, id: string 
     if (g?.education === undefined || child === undefined) return;
     const p = higherPeriod(g, child);
     const months = (Number(p.to.slice(0, 4)) - Number(p.from.slice(0, 4))) * 12 + Number(p.to.slice(5, 7)) - Number(p.from.slice(5, 7)) + 1;
-    const s: EducationScholarship = { id, monthly: 50000, from: { at: p.from }, to: { at: p.to }, rate: scholarshipRateEstimate().rate, termMonths: jassoRepayYears(50000 * months) * 12, debtor: "child" };
+    const s: EducationScholarship = { id, monthly: 50000, from: { at: p.from }, to: { at: p.to }, rate: scholarshipRateEstimate().rate, termMonths: jassoRepayYears(50000 * months) * 12, repaidBy: "child" };
     (g.education.scholarships ??= []).push(s);
     estimatedRowAt(req.input as unknown as Obj, g.id, "scholarships", id, ["monthly", "rate", "termMonths"], SCHOLARSHIP_BASIS);
   });

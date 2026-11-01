@@ -1067,7 +1067,7 @@
         },
         "pairWith": { "title": "ペアローンの相手のローン", "x-item": "debt.pairWith", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "label": { "title": "名前（表示用。計算には使わない。0052）", "x-item": "debt.label", "type": "string", "maxLength": 80 },
-        "subtype": { "title": "ローンの種類の細目（表示と推定の元だけ。計算の種類は kind。0052）", "x-item": "debt.subtype", "enum": ["cardLoan", "scholarship", "renovation", "policyLoan", "personal", "other"] },
+        "subtype": { "title": "ローンの種類の細目（表示と推定の元だけ。計算の種類は kind。0052）", "x-item": "debt.subtype", "enum": ["cardLoan", "scholarship", "scholarshipFree", "renovation", "policyLoan", "personal", "other"] },
         "property": { "title": "この借入で取得した住まい以外の不動産（不動産の器の ID。利息を不動産所得の必要経費にする。0028）", "x-item": "debt.property", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "inheritedFrom": { "title": "相続で受け継ぐ借金の、元の借り手（構成員。多くは世帯の外の家族。計算には使わない。見込みが不確かなら、アプリが要求から外す。0044）", "x-item": "debt.inheritedFrom", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "likelihood": { "title": "見込み（相続で受け継ぐ借金だけ。計算には使わない。0035 の7）", "x-item": "debt.likelihood", "$ref": "#/$defs/likelihood" },
@@ -2446,7 +2446,8 @@
                   "rate": { "$ref": "urn:financia:schema:common#/$defs/rate" },
                   "termMonths": { "type": "integer", "minimum": 1, "maximum": 360 },
                   "repaymentStart": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
-                  "debtor": { "enum": ["child", "parent"] }
+                  "debtor": { "description": "世帯で返すときの名義（parent は親、省略・child は子）。子が返すときは使わない", "enum": ["child", "parent"] },
+                  "repaidBy": { "description": "返すのは誰か（0104）: child は子が返す（返済を世帯の収支・負債に入れず、出力の childRepaid に出す）、household は世帯で返す。省略は子", "enum": ["child", "household"] }
                 }
               }
             },

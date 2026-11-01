@@ -24,6 +24,8 @@ const FALLBACK: Readonly<Record<MortgageRateType, string>> = { variable: "0.008"
 const CURRENT_FALLBACK = "0.008";
 /** 今返している住宅ローンの目安の根拠の文の頭 */
 const CURRENT_LABEL = "今返している住宅ローン";
+/** 今返している住宅ローンの目安の根拠の文の種類の書き方（かっこを重ねない） */
+const CURRENT_TYPE_LABEL: Readonly<Record<"fixed" | "fixedPeriod", string>> = { fixed: "全期間固定", fixedPeriod: "固定期間選択型・当初10年" };
 const LABEL: Readonly<Record<MortgageRateType, string>> = { variable: "変動金利", fixedPeriod: "固定期間選択型（当初10年）", fixed: "全期間固定" };
 
 /** 年率の文字を「0.85%」の形に（小数点以下3桁まで。末尾の0は付けない） */
@@ -50,17 +52,34 @@ export function mortgageRateEstimate(type: MortgageRateType): RateEstimate {
 }
 
 /**
- * 今返している住宅ローン（借りたのが計算の基準の月まで）の金利の目安。上の種類ごとの目安は新しく借りるときの金利で、今返している人には高すぎるので、
- * 住宅ローン利用者の借入金利の中央値（住宅金融支援機構「住宅ローン利用者の実態調査」。金利の種類を問わない1つの値）を使う
+ * 今返している住宅ローン（借りたのが計算の基準の月まで）の金利の目安（金利の種類ごと）。
+ * - 変動金利（省略も）: 上の種類ごとの目安は新しく借りるときの金利で、今返している人には高すぎるので、住宅ローン利用者の借入金利の中央値
+ *   （住宅金融支援機構「住宅ローン利用者の実態調査」。利用者の75%が変動型）を使う
+ * - 全期間固定・固定期間選択型: 利用者の中央値は変動型の金利に寄っているので使わない。過去の年に借りた人の金利の公表の数（表の形）が無いので、
+ *   前からの種類ごとの目安（新しく借りるときの金利）で代え、根拠の文にそう書く（借りたときの金利は返済予定表でわかれば直す）
  */
-export function currentMortgageRateEstimate(): RateEstimate {
+export function currentMortgageRateEstimate(type: MortgageRateType = "variable"): RateEstimate {
+  if (type !== "variable") {
+    const head = `${CURRENT_LABEL}（${CURRENT_TYPE_LABEL[type]}）`;
+    const f = masterRate(type === "fixedPeriod" ? FIXED_PERIOD_ID : FIXED_ID);
+    if (f === null) return { rate: FALLBACK[type], basis: `${head} 年${pctText(FALLBACK[type])}（仮の値。統計の写しが読めません）` };
+    return { rate: f.rate, basis: `${head} 年${pctText(f.rate)}（${f.source}。借りた年ごとの金利の公表の数が無いので、新しく借りるときの目安で代えています）${f.pending ? "（原本での確かめ前）" : ""}` };
+  }
   const m = masterRate(CURRENT_ID);
   if (m === null) return { rate: CURRENT_FALLBACK, basis: `${CURRENT_LABEL} 年${pctText(CURRENT_FALLBACK)}（仮の値。統計の写しが読めません）` };
   return { rate: m.rate, basis: `${CURRENT_LABEL} 年${pctText(m.rate)}（${m.source}）${m.pending ? "（原本での確かめ前）" : ""}` };
 }
 
 /** 推定の根拠の文から、目安の金利の文か（金利の種類を変えたときに入れ直してよい値か）を見分ける頭の言葉 */
-export const RATE_ESTIMATE_HEADS: readonly string[] = ["変動金利 年", "全期間固定 年", "固定期間選択型 年", "固定期間選択型（当初10年） 年", `${CURRENT_LABEL} 年`];
+export const RATE_ESTIMATE_HEADS: readonly string[] = [
+  "変動金利 年",
+  "全期間固定 年",
+  "固定期間選択型 年",
+  "固定期間選択型（当初10年） 年",
+  `${CURRENT_LABEL} 年`,
+  `${CURRENT_LABEL}（${CURRENT_TYPE_LABEL.fixed}） 年`,
+  `${CURRENT_LABEL}（${CURRENT_TYPE_LABEL.fixedPeriod}） 年`,
+];
 
 /** 家賃の変動率の統計（消費者物価指数の民営家賃の、長い期間の年平均の変化）。写しに値が無ければ null */
 export function rentGrowthStatistic(): { rate: string; text: string } | null {

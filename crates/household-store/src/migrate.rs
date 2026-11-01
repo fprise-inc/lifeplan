@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.46";
+pub const CURRENT: &str = "0.47";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -149,11 +149,17 @@ pub const CURRENT: &str = "0.46";
 /// - 0.46: 夢プランを出るお金の行の種類 `dream` と、その行の `dream`（順位・計算に入れるか・ひとことメモ）で持ち、子への援助
 ///   `goals[].education.gifts[]` に優先度 `priority`（必ず・できれば）を足した（0103。足すだけの MINOR。前の版のアプリは種類 dream の行を読めず、
 ///   援助の優先度を読み落として書き戻すので、版を上げて閲覧だけにする）。変換の段は形式の版だけを書き換える（前の援助は「必ず」のまま）
+/// - 0.47: 子の貸与の奨学金 `goals[].education.scholarships[]` に返すのは誰か `repaidBy`（`child` 子が返す・`household` 世帯で返す。省略は子）を
+///   足し、ほかのローンの種類 `debts[].subtype` に `scholarshipFree`（第一種・無利子）を、時点の年齢の規則 `ageSwitch` に `schoolYearJanuary`
+///   （その年齢になる年度の1月。子の成人式）を足した（0104。MINOR。前の版のアプリは返す人を読み落として書き戻し、新しい規則の時点を読めないので、
+///   版を上げて閲覧だけにする）。変換の段は、前の奨学金を世帯で返す（`repaidBy: household`。前の計算は返済を世帯の収支に入れていたので、結果を
+///   変えない）にし、子の成人式の行（名前に「成人式」・時期が年月の1回の行）のうち、時期がちょうど1人の子の成人式の月（20歳になる年度の1月）で、
+///   名前の「第N子」がほかの子を指していない行を、その子の年齢の時点に置き直す（月は変わらない）。プランで足した物も同じに直す
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
-    "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46",
+    "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47",
 ];
 
 /// 1段分の変換
@@ -389,6 +395,11 @@ pub const STEPS: &[Step] = &[
         from: "0.45",
         to: "0.46",
         apply: v0_45_to_0_46,
+    },
+    Step {
+        from: "0.46",
+        to: "0.47",
+        apply: v0_46_to_0_47,
     },
 ];
 
@@ -1564,6 +1575,197 @@ fn v0_45_to_0_46(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.47 の変換: 奨学金1件に返すのは誰かが無ければ、世帯で返す（前の計算のまま）にする。直したら true
+fn scholarship_repaid_by_household(s: &mut Value) -> bool {
+    match s.as_object_mut() {
+        Some(o) if !o.contains_key("repaidBy") => {
+            o.insert("repaidBy".into(), "household".into());
+            true
+        }
+        _ => false,
+    }
+}
+
+/// 0.47 の変換: 教育の目標の中身（`education`）の奨学金を世帯で返すにする。直した件数
+fn education_repaid_by_household(education: &mut Value) -> usize {
+    let mut n = 0;
+    for s in education
+        .get_mut("scholarships")
+        .and_then(Value::as_array_mut)
+        .into_iter()
+        .flatten()
+    {
+        if scholarship_repaid_by_household(s) {
+            n += 1;
+        }
+    }
+    n
+}
+
+/// 子の成人式の月（20歳になる年度の1月。学年と同じく4月2日〜翌年4月1日生まれを同じ年度とする。画面の comingOfAgeMonth と同じ）
+fn coming_of_age_month(member: &Value) -> Option<String> {
+    let birth = &member["birth"];
+    let (y, m) = birth["birthYearMonth"].as_str()?.split_once('-')?;
+    let (y, m): (i64, i64) = (y.parse().ok()?, m.parse().ok()?);
+    let same = m < 4 || (m == 4 && birth["bornOnFirst"] == true);
+    Some(format!("{:04}-01", if same { y + 20 } else { y + 21 }))
+}
+
+/// 0.47 の変換: 子の成人式の行の時期を、その子の年齢の時点（20歳になる年度の1月）に置き直す。直したら true。
+/// 名前に「成人式」があり、時期が年月だけの1回の行（終わりが空か始まりと同じ）で、その月がちょうど1人の一緒に暮らす子の成人式の月であり、
+/// 名前の頭の「第N子」（生まれた順の一緒に暮らす子の番号）がほかの子を指していないときだけ（月は変わらない）。ほかは年月のまま
+fn coming_of_age_row(p: &mut Value, kids: &[(String, String)]) -> bool {
+    if !p["label"].as_str().is_some_and(|l| l.contains("成人式")) {
+        return false;
+    }
+    let Some(at) = p["from"]
+        .as_object()
+        .filter(|f| f.len() == 1)
+        .and_then(|f| f.get("at"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
+    else {
+        return false;
+    };
+    if !(p["to"].is_null() || p["to"] == p["from"]) {
+        return false;
+    }
+    let hits: Vec<usize> = kids
+        .iter()
+        .enumerate()
+        .filter(|(_, (_, ym))| *ym == at)
+        .map(|(i, _)| i)
+        .collect();
+    let [only] = hits[..] else {
+        return false;
+    };
+    let label = p["label"].as_str().unwrap_or("");
+    if let Some(rest) = label.strip_prefix('第') {
+        let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
+        if let (Ok(n), true) = (
+            digits.parse::<usize>(),
+            rest[digits.len()..].starts_with('子'),
+        ) {
+            if n != only + 1 {
+                return false;
+            }
+        }
+    }
+    let tp = serde_json::json!({"memberAge": {"member": kids[only].0, "years": 20, "ageSwitch": "schoolYearJanuary"}});
+    let one_time = p["to"] == p["from"];
+    p["from"] = tp.clone();
+    if one_time {
+        p["to"] = tp;
+    }
+    true
+}
+
+/// 0.46 → 0.47: 前の子の貸与の奨学金を世帯で返す（`repaidBy: household`）にし、子の成人式の行を子の年齢の時点に置き直す（0104。結果は変わらない）。
+/// プランの差分で足した物（教育の目標・奨学金・出るお金の行）も同じに直す。控え（`snapshots`）・ヒアリングの記録の中身は変えない
+fn v0_46_to_0_47(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    // 一緒に暮らす子（生まれた順）と成人式の月
+    let mut kids: Vec<(String, String, String)> = Vec::new();
+    if let Some(h) = obj
+        .get_mut("household")
+        .and_then(|h| h.get_mut("request"))
+        .and_then(|r| r.get_mut("input"))
+        .and_then(|i| i.get_mut("household"))
+    {
+        for m in h["members"].as_array().into_iter().flatten() {
+            if m["kind"] != "child" || m.get("outside").is_some_and(|o| !o.is_null()) {
+                continue;
+            }
+            if let (Some(id), Some(ym), Some(by)) = (
+                m["id"].as_str(),
+                coming_of_age_month(m),
+                m["birth"]["birthYearMonth"].as_str(),
+            ) {
+                kids.push((by.to_string(), id.to_string(), ym));
+            }
+        }
+        kids.sort_by(|a, b| a.0.cmp(&b.0));
+        let kids: Vec<(String, String)> = kids
+            .iter()
+            .map(|(_, id, ym)| (id.clone(), ym.clone()))
+            .collect();
+        for g in h
+            .get_mut("goals")
+            .and_then(Value::as_array_mut)
+            .into_iter()
+            .flatten()
+        {
+            if let Some(e) = g.get_mut("education") {
+                education_repaid_by_household(e);
+            }
+        }
+        for p in h
+            .get_mut("periodicExpenses")
+            .and_then(Value::as_array_mut)
+            .into_iter()
+            .flatten()
+        {
+            coming_of_age_row(p, &kids);
+        }
+    }
+    let kids: Vec<(String, String)> = kids
+        .iter()
+        .map(|(_, id, ym)| (id.clone(), ym.clone()))
+        .collect();
+    for plan in obj
+        .get_mut("proposals")
+        .and_then(Value::as_array_mut)
+        .into_iter()
+        .flatten()
+    {
+        for d in plan
+            .get_mut("diffs")
+            .and_then(Value::as_array_mut)
+            .into_iter()
+            .flatten()
+        {
+            let op = d["op"].as_str().unwrap_or("").to_string();
+            let coll = d["target"]["collection"].as_str().unwrap_or("").to_string();
+            let item = d["item"].as_str().unwrap_or("").to_string();
+            let at: Vec<String> = d["at"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|x| x.as_str().map(str::to_string))
+                .collect();
+            let Some(v) = d.get_mut("value") else {
+                continue;
+            };
+            if op == "add" && coll == "goal" {
+                if let Some(e) = v.get_mut("education") {
+                    education_repaid_by_household(e);
+                }
+            } else if op == "add" && coll == "periodicExpense" {
+                coming_of_age_row(v, &kids);
+            } else if item == "goal.education" {
+                match at.iter().map(String::as_str).collect::<Vec<_>>()[..] {
+                    [] => {
+                        education_repaid_by_household(v);
+                    }
+                    ["scholarships"] => {
+                        for s in v.as_array_mut().into_iter().flatten() {
+                            scholarship_repaid_by_household(s);
+                        }
+                    }
+                    ["scholarships", _] => {
+                        scholarship_repaid_by_household(v);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.47".into());
+    }
+    Ok(body)
+}
+
 /// 0.17 で ID を振る並び（物の集まり → その物から並びまでの欄の名前。0035 の5）
 const ELEMENT_LISTS: &[(&str, &[&[&str]])] = &[
     ("livingExpenses", &[&["stages"], &["categories"]]),
@@ -2105,7 +2307,8 @@ mod tests {
         assert_eq!(access("0.44").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.45").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.46").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.47").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.47").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.48").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -2118,7 +2321,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.47", b.clone()).unwrap(),
+            upgrade("0.48", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -2355,7 +2558,7 @@ mod tests {
             ]}}}}
         });
         let u = upgrade("0.43", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.46");
+        assert_eq!(u["meta"]["formatVersion"], "0.47");
         assert_eq!(u["household"], b["household"]);
     }
 
@@ -2369,8 +2572,78 @@ mod tests {
             ]}}}}
         });
         let u = upgrade("0.44", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.46");
+        assert_eq!(u["meta"]["formatVersion"], "0.47");
         assert_eq!(u["household"], b["household"]);
+    }
+
+    #[test]
+    fn v0_46_to_0_47_scholarships_to_household_and_coming_of_age_to_age() {
+        // 子は2人（第1子 2007-02 生まれ → 成人式 2027-01、第2子 2010-06 生まれ → 2031-01）と、世帯の外の子（数えない）
+        let kid1 = "00000000-0000-4000-8000-000000004701";
+        let kid2 = "00000000-0000-4000-8000-000000004702";
+        let row = |id: &str, label: &str, at: &str| serde_json::json!({"id": id, "label": label, "row": "cf.expense.lumpSum.other", "from": {"at": at}, "to": {"at": at}, "everyYears": 1, "amount": {"value": 150000, "state": "estimated", "origin": {"kind": "auto"}}});
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.46"},
+            "household": {"request": {"input": {"baseMonth": "2026-10", "household": {
+                "members": [
+                    {"id": "s", "kind": "self", "birth": {"birthYearMonth": "1980-05", "bornOnFirst": false}},
+                    {"id": kid2, "kind": "child", "birth": {"birthYearMonth": "2010-06", "bornOnFirst": false}},
+                    {"id": kid1, "kind": "child", "birth": {"birthYearMonth": "2007-02", "bornOnFirst": false}},
+                    {"id": "apart", "kind": "child", "outside": {"of": "s", "periods": []}, "birth": {"birthYearMonth": "2007-02", "bornOnFirst": false}}
+                ],
+                "goals": [{"id": "g1", "kind": "education", "owner": kid2, "education": {"stages": [], "scholarships": [
+                    {"id": "x1", "monthly": 50000, "from": {"at": "2029-04"}, "to": {"at": "2033-03"}, "rate": "0.03", "termMonths": 180, "debtor": "child"},
+                    {"id": "x2", "monthly": 30000, "from": {"at": "2029-04"}, "to": {"at": "2033-03"}, "rate": "0", "termMonths": 120, "repaidBy": "child"}
+                ]}}],
+                "periodicExpenses": [
+                    row("p1", "第1子の成人式", "2027-01"),
+                    row("p2", "第2子（太郎）の成人式", "2031-01"),
+                    row("p3", "第1子の成人式", "2031-01"),
+                    row("p4", "成人式の写真", "2031-02"),
+                    row("p5", "成人式", "2031-01")
+                ]
+            }}}},
+            "proposals": [{"id": "pr", "diffs": [
+                {"op": "add", "target": {"collection": "periodicExpense"}, "item": null, "at": [], "value": row("p9", "第2子の成人式", "2031-01")},
+                {"op": "set", "target": {"object": "g1"}, "item": "goal.education", "at": ["scholarships", "x3"], "value": {"id": "x3", "monthly": 20000, "from": {"at": "2029-04"}, "to": {"at": "2033-03"}, "rate": "0.03", "termMonths": 120}},
+                {"op": "add", "target": {"collection": "goal"}, "item": null, "at": [], "value": {"id": "g2", "kind": "education", "owner": kid1, "education": {"stages": [], "scholarships": [{"id": "x4", "monthly": 20000, "from": {"at": "2026-04"}, "to": {"at": "2029-03"}, "rate": "0.03", "termMonths": 120}]}}}
+            ]}]
+        });
+        let u = upgrade("0.46", b).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.47");
+        let h = &u["household"]["request"]["input"]["household"];
+        let s = &h["goals"][0]["education"]["scholarships"];
+        // 前の奨学金は世帯で返す（前の計算のまま）。もう返す人がある物は変えない
+        assert_eq!(s[0]["repaidBy"], "household");
+        assert_eq!(s[0]["debtor"], "child");
+        assert_eq!(s[1]["repaidBy"], "child");
+        let age = |id: &str| serde_json::json!({"memberAge": {"member": id, "years": 20, "ageSwitch": "schoolYearJanuary"}});
+        let p = &h["periodicExpenses"];
+        assert_eq!(p[0]["from"], age(kid1), "第1子で月も合う");
+        assert_eq!(p[0]["to"], age(kid1));
+        assert_eq!(p[1]["from"], age(kid2), "呼び名つきの第2子で月も合う");
+        assert_eq!(
+            p[2]["from"],
+            serde_json::json!({"at": "2031-01"}),
+            "名前の子と月の子が違う: 年月のまま"
+        );
+        assert_eq!(
+            p[3]["from"],
+            serde_json::json!({"at": "2031-02"}),
+            "どの子の成人式の月でもない: 年月のまま"
+        );
+        assert_eq!(p[4]["from"], age(kid2), "名前に子が無く、月が1人の子に合う");
+        let d = &u["proposals"][0]["diffs"];
+        assert_eq!(
+            d[0]["value"]["from"],
+            age(kid2),
+            "プランで足した成人式の行も直す"
+        );
+        assert_eq!(d[1]["value"]["repaidBy"], "household");
+        assert_eq!(
+            d[2]["value"]["education"]["scholarships"][0]["repaidBy"],
+            "household"
+        );
     }
 
     #[test]
@@ -2384,7 +2657,7 @@ mod tests {
             }}}}
         });
         let u = upgrade("0.45", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.46");
+        assert_eq!(u["meta"]["formatVersion"], "0.47");
         assert_eq!(u["household"], b["household"]);
     }
 

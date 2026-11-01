@@ -180,12 +180,22 @@ describe("今返している住宅ローンの金利の目安（住宅ローン�
     expect(basis).toContain("住宅金融支援機構「住宅ローン利用者の実態調査」");
     expect(() => preview(wh.request)).not.toThrow();
   });
-  it("今返している住宅ローンの金利の種類を変えても、目安のままなら同じ中央値（種類を問わない値）。入れた金利は変えない", () => {
+  it("今返している住宅ローンの金利の種類を変えると、目安のままなら種類ごとの目安（変動は中央値、固定は新しく借りるときの目安で代える）。入れた金利は変えない", () => {
     let wh = action(action(salaried(), "housing/addOwn"), "housing/addMortgage");
     const d = loan(wh);
-    expect(fieldOf(wh, `${d.id}/rateType`).sideEffects).toContain("今返している住宅ローンの推定の金利のままにします");
+    expect(fieldOf(wh, `${d.id}/rateType`).sideEffects).toContain("今返している住宅ローンの推定の金利（選んだ種類の分）に入れ直します");
     wh = set(wh, `${d.id}/rateType`, "fixed");
-    expect(loan(wh).rateSchedule[0]).toMatchObject({ type: "fixed", rate: currentMortgageRateEstimate().rate });
+    expect(loan(wh).rateSchedule[0]).toMatchObject({ type: "fixed", rate: mortgageRateEstimate("fixed").rate });
+    expect(currentMortgageRateEstimate("fixed").rate).toBe(mortgageRateEstimate("fixed").rate);
+    const fixedBasis = rateRow(wh, loan(wh))?.estimate?.basis ?? "";
+    expect(fixedBasis).toContain("今返している住宅ローン（全期間固定） 年");
+    expect(fixedBasis).toContain("新しく借りるときの目安で代えています");
+    wh = set(wh, `${d.id}/rateType`, "fixedPeriod");
+    expect(loan(wh).rateSchedule[0]).toMatchObject({ type: "fixedPeriod", rate: mortgageRateEstimate("fixedPeriod").rate });
+    expect(rateRow(wh, loan(wh))?.estimate?.basis).toContain("今返している住宅ローン（固定期間選択型・当初10年） 年");
+    wh = set(wh, `${d.id}/rateType`, "variable");
+    expect(loan(wh).rateSchedule[0]).toMatchObject({ type: "variable", rate: currentMortgageRateEstimate().rate });
+    wh = set(wh, `${d.id}/rateType`, "fixed");
     expect(rateRow(wh, loan(wh))?.estimate?.basis).toContain("今返している住宅ローン");
     wh = set(wh, `${d.id}/rate`, "0.013");
     wh = set(wh, `${d.id}/rateType`, "variable");
@@ -280,7 +290,12 @@ describe("奨学金・自動車ローンの金利の目安（マスタデータ 
     const basis = d === undefined ? "" : (rateRow(wh, d)?.estimate?.basis ?? "");
     expect(basis).toContain("今返している奨学金の利率の目安 年0.75%");
     expect(basis).toContain("日本学生支援機構");
-    expect(basis).toContain("第一種なら0%");
+    expect(basis).toContain("第一種なら種類で選んでください");
+    // 第一種（無利子）を選ぶと、目安のままなら利率0%（0104）
+    const free = set(wh, `${d?.id}/subtype`, "scholarshipFree");
+    expect(free.request.input.household.debts?.[0]).toMatchObject({ kind: "scholarship", subtype: "scholarshipFree", rateSchedule: [{ rate: "0" }] });
+    const back = set(free, `${d?.id}/subtype`, "scholarship");
+    expect(back.request.input.household.debts?.[0]?.rateSchedule[0]?.rate).toBe(r.rate);
     expect(carLoanRateEstimate().basis).toMatch(/（主要な銀行が公表する[^（]*の平均）$/);
   });
 });

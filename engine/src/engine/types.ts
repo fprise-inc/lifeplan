@@ -368,7 +368,7 @@ export interface DebtInput {
   readonly pairWith?: string;
   /** 0052: 名前と種類の細目（表示と推定の元だけ。計算には使わない） */
   readonly label?: string;
-  readonly subtype?: "cardLoan" | "scholarship" | "renovation" | "policyLoan" | "personal" | "other";
+  readonly subtype?: "cardLoan" | "scholarship" | "scholarshipFree" | "renovation" | "policyLoan" | "personal" | "other";
   /** 0044: 相続で受け継ぐ借金の元の借り手・見込み・基本の計算に入れるか（計算には使わない。アプリが要求から外す） */
   readonly inheritedFrom?: string;
   readonly likelihood?: "certain" | "likely" | "uncertain";
@@ -1053,7 +1053,10 @@ export interface EducationGoalInput {
     readonly rate: string;
     readonly termMonths: number;
     readonly repaymentStart?: Timepoint;
+    /** 世帯で返すときの名義（parent は親、省略・child は子）。子が返すときは使わない */
     readonly debtor?: "child" | "parent";
+    /** 返すのは誰か（0104）: child は子が返す（返済を世帯の収支・負債に入れない）、household は世帯で返す。省略は子 */
+    readonly repaidBy?: "child" | "household";
   }[];
   readonly loans?: readonly { readonly at: Timepoint; readonly amount: Yen; readonly rate: string; readonly termMonths: number; readonly borrower: string }[];
   readonly gifts?: readonly {

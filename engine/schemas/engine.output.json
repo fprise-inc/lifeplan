@@ -24,6 +24,7 @@
         "insurance": { "$ref": "#/$defs/insurance" },
         "gifts": { "$ref": "#/$defs/gifts" },
         "outsideWallets": { "$ref": "#/$defs/outsideWallets" },
+        "childScholarships": { "$ref": "#/$defs/childScholarships" },
         "realEstate": {
           "description": "住まい以外の不動産（中身を入れた不動産の器）の物件ごとの年末の評価額（土地・建物）・不動産所得の内訳（計算基準年の2年前から）・売却。asset.realEstate の出力の properties のまま（plan.cashflow の details から。0009 の追記）。持っていなければ欄が無い",
           "$ref": "urn:financia:schema:component:asset.realEstate.output#/properties/properties"
@@ -322,6 +323,24 @@
               }
             }
           }
+        }
+      }
+    },
+    "childScholarships": {
+      "description": "子が返す貸与の奨学金（0104）: 返済は世帯のお金の動き・負債の残高に入れない。教育の目標の物・子・借りた総額・最初の月の返済額・返す期間（表の期間の中の最初と最後の月）・表の期間の中の返済の合計。持っていなければ欄が無い",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["object", "member", "principal", "monthly", "from", "to", "total"],
+        "properties": {
+          "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "principal": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "monthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "from": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "to": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "total": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
         }
       }
     },

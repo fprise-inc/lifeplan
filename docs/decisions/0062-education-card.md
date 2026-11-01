@@ -123,3 +123,4 @@
   - 「推定の値をまとめて使う」で統計の平均を年額に書かないのは、書くと学校の種類を変えたときに前の額が残る（同日の追記の `dropStaleEstimates` で外すのは推定と同じ額のときだけ）ため。1つずつ「この値にする」は使える。
   - カードの案内（推定で計算中のとき）は「進路・奨学金などに推定のままの所があります（学費は学校の種類ごとの統計の平均で計算します）」。
   - 実装: `app/src/workspace/input/form.ts`（`quietEstimate`）、`input/items.ts`・`input/checkRows.ts`・`input/valueState.ts`（`confirmAll`）・`input/InputPanel.tsx`、`input/stages/education.ts`（`withEstimate`）。テスト: `app/test/education-estimates.test.ts`・`items.test.ts`・`decisions.test.ts`。
+- 2026-11-01（奨学金を誰が返すか。0104）: 4 の貸与の奨学金の「返す人」を、名義（子・親）から返すのは誰か（`repaidBy`: 子が返す・世帯で返す。既定は子が返す）にした。子が返す返済は世帯の支出・負債に入れず（前は名義が子でも世帯の支出に入っていた）、結果の画面の目標の区画と提案書の前提の注に額を書き添える。住まい・ローンの読むだけの1行は「子の貸与の奨学金（世帯で返す）n件」。前の世帯の奨学金は、形式 0.47 の変換の段で世帯で返すになる（結果は変わらない）。

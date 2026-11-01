@@ -193,7 +193,7 @@ function personPrefix(ctx: WhenCtx, s: string): { id: string; rest: string } | n
 
 /** 年齢の文字（「60歳」「60歳3か月」「60歳の前月」「22歳の年度末」）。人は personPrefix で外してから */
 function parseAge(ctx: WhenCtx, member: string, s: string): WhenParse | null {
-  const m = /^(\d{1,3})歳(?:(\d{1,2})か月)?(の前月|になる前の月|の翌月|になった翌月|になった次の月|になる月|になった月|の誕生月の翌月|の誕生月|の年度末|になった後の最初の3月|の4月|になった後の最初の4月)?(から|まで|以降|以後)?$/.exec(s);
+  const m = /^(\d{1,3})歳(?:(\d{1,2})か月)?(の前月|になる前の月|の翌月|になった翌月|になった次の月|になる月|になった月|の誕生月の翌月|の誕生月|の年度末|になった後の最初の3月|の4月|になった後の最初の4月|の年度の1月|になる年度の1月)?(から|まで|以降|以後)?$/.exec(s);
   if (m === null) return null;
   const years = Number(m[1]);
   const months = Number(m[2] ?? 0);
@@ -229,6 +229,10 @@ function parseAge(ctx: WhenCtx, member: string, s: string): WhenParse | null {
     case "の4月":
     case "になった後の最初の4月":
       tp = ageTimepoint(member, total, "reach", "schoolYear");
+      break;
+    case "の年度の1月":
+    case "になる年度の1月":
+      tp = ageTimepoint(member, total, "reach", "schoolYearJanuary");
       break;
     default:
       tp = ageTimepoint(member, total, ctx.ageMeans);
@@ -397,6 +401,8 @@ function ageWords(a: NonNullable<Timepoint["memberAge"]>, means: AgeMeans): stri
       return `${ageText(total)}の年度末`;
     case "schoolYear":
       return `${ageText(total)}の4月`;
+    case "schoolYearJanuary":
+      return `${ageText(total)}の年度の1月`;
     default:
       // 欄の決まりで「○歳」と言える月はその形、言えない月は「○歳になる月」と書く（打ち直すと同じ時点に読める）
       if (means === "before") return (total + 1) % 12 === 0 ? ageText(total + 1) : `${ageText(total)}になる月`;
@@ -469,6 +475,8 @@ export function readWhen(tp: Timepoint | null | undefined, ctx: WhenCtx, nullTex
               ? `${ageText(total)}になった後の最初の3月`
               : rule === "schoolYear"
                 ? `${ageText(total)}になった後の最初の4月`
+                : rule === "schoolYearJanuary"
+                  ? `${ageText(total)}になる年度の1月`
                 : ctx.ageMeans === "before"
                   ? `${ageText(total + 1)}になる前の月`
                   : ctx.ageMeans === "after" && total >= 1

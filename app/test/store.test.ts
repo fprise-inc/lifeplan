@@ -666,6 +666,42 @@ function sample046(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/**
+ * 0.47 の見本の世帯（0104）: sample046() の第1子に貸与の奨学金を2件（子が返す・世帯で返す）、第2子の成人式の行（子の年齢の時点。20歳になる年度の1月）、
+ * ご本人のほかのローンに第一種（無利子）の奨学金の返済を足す
+ */
+function sample047(): BodyState {
+  const s = sample046();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const kid1 = roles(req).find((r) => r.key === "child1")!.member;
+  const kid2 = roles(req).find((r) => r.key === "child2")!.member;
+  const id = (n: number) => `00000000-0000-4000-8000-0000000047${String(n).padStart(2, "0")}`;
+  const box = (v: number) => ({ value: v, state: "confirmed", origin: { kind: "manual" } }) as never;
+  hh.goals = (hh.goals ?? []).map((g) =>
+    g.kind === "education" && g.owner === kid1.id && g.education !== undefined
+      ? {
+          ...g,
+          education: {
+            ...g.education,
+            scholarships: [
+              { id: id(1), monthly: 50000, from: { at: "2029-04" }, to: { at: "2033-03" }, rate: "0.03", termMonths: 180, repaidBy: "child" as const },
+              { id: id(2), monthly: 20000, from: { at: "2029-04" }, to: { at: "2033-03" }, rate: "0", termMonths: 120, repaidBy: "household" as const, debtor: "parent" as const },
+            ],
+          },
+        }
+      : g,
+  );
+  const coming = { memberAge: { member: kid2.id, years: 20, ageSwitch: "schoolYearJanuary" } };
+  hh.periodicExpenses = [...(hh.periodicExpenses ?? []), { id: id(3), label: "第2子の成人式", kind: "general", row: "cf.expense.lumpSum.other", from: coming, to: coming, everyYears: 1, amount: box(150000) } as never];
+  hh.debts = [
+    ...(hh.debts ?? []),
+    { id: id(4), kind: "scholarship", subtype: "scholarshipFree", debtors: [{ member: self.id, role: "primary" }], principal: 2400000, start: { at: "2020-10" }, rateSchedule: [{ id: id(5), from: { at: "2020-10" }, type: "fixed", rate: "0" }], repayment: { method: "equalPayment", termMonths: 180 } },
+  ];
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -789,7 +825,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.46");
+    expect(BODY_FORMAT_VERSION).toBe("0.47");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -943,7 +979,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample046())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample047())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1220,6 +1256,29 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(lump(id(1))).toBe(0);
     expect(lump(id(2))).toBeGreaterThanOrEqual(1200000);
     expect(r.table.filter((c) => c.object === id(3) && c.row === "cf.expense.lumpSum.other" && c.amount > 0).map((c) => c.year)).toEqual([2028, 2029, 2030, 2031, 2032]);
+  });
+
+  it("0.47 の形（0104）: 奨学金を返す人・第一種の奨学金の返済・子の年齢の成人式を保存して読み戻し、子が返す返済は世帯の収支に入れず要約に出す", () => {
+    const s = sample047();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const h = stored.household.request.input.household;
+    expect((h.goals ?? []).flatMap((g) => g.education?.scholarships ?? []).map((x) => x.repaidBy)).toEqual(["child", "household"]);
+    expect((h.debts ?? []).find((d) => d.subtype === "scholarshipFree")?.kind).toBe("scholarship");
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    const r = preview(forEngine(back.wh.request));
+    const id = (n: number) => `00000000-0000-4000-8000-0000000047${String(n).padStart(2, "0")}`;
+    const kid1 = roles(s.wh.request).find((x) => x.key === "child1")!.member;
+    const kid2 = roles(s.wh.request).find((x) => x.key === "child2")!.member;
+    // 第2子（2014年5月生まれ）の成人式は 20歳になる年度（2034年度）の1月
+    expect(r.table.filter((c) => c.object === id(3) && c.amount > 0).map((c) => c.year)).toEqual([2035]);
+    // 子が返す奨学金は要約に（世帯で返す分は出ない）
+    const cs = (r.summary as { childScholarships?: { member: string; principal: number }[] }).childScholarships ?? [];
+    expect(cs.map((c) => [c.member, c.principal])).toEqual([[kid1.id, 50000 * 48]]);
+    // 生年月を直すと成人式の年も動く
+    const moved = structuredClone(back.wh.request);
+    moved.input.household.members.find((m) => m.id === kid2.id)!.birth = { birthYearMonth: "2015-05", bornOnFirst: false };
+    expect(preview(forEngine(moved)).table.filter((c) => c.object === id(3) && c.amount > 0).map((c) => c.year)).toEqual([2036]);
   });
 
   it("0.42 の形（0090）: 高専と専門職大学院（法科大学院）の段を保存して読み戻し、計算に使う", () => {

@@ -87,6 +87,11 @@ export function GoalCards({ model }: { model: GoalsModel }) {
           {model.dreamLine}
         </p>
       ) : null}
+      {(model.childRepaid ?? []).map((t, i) => (
+        <p class="goal-dream-line" key={`c${i}`} data-child-repaid>
+          {t}
+        </p>
+      ))}
       <div class="goals">
         {model.cards.map((g, i) =>
           g.dream !== undefined ? (

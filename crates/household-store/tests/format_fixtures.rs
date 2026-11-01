@@ -147,6 +147,54 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(d.get("dock").is_none(), "{v}: display.dock は持たない");
             assert!(d.get("metrics").is_none(), "{v}: 結果のタブの値は区画の中");
         }
+        if *v == "0.47" {
+            // 0.47 から: 奨学金を返す人・第一種の奨学金の返済・子の年齢で持つ成人式（0104）
+            let h = &now["household"]["request"]["input"]["household"];
+            let repaid: Vec<&serde_json::Value> = h["goals"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(|g| g["education"]["scholarships"].as_array())
+                .flatten()
+                .map(|s| &s["repaidBy"])
+                .collect();
+            assert!(
+                repaid.iter().any(|r| *r == "child"),
+                "{v}: 子が返す奨学金がある"
+            );
+            assert!(
+                repaid.iter().any(|r| *r == "household"),
+                "{v}: 世帯で返す奨学金がある"
+            );
+            assert!(
+                h["debts"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|d| d["subtype"] == "scholarshipFree"),
+                "{v}: 第一種の奨学金の返済がある"
+            );
+            assert!(
+                h["periodicExpenses"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|p| p["from"]["memberAge"]["ageSwitch"] == "schoolYearJanuary"),
+                "{v}: 子の年齢で持つ成人式の行がある"
+            );
+        }
+        if *v != "0.47" {
+            // 前の版の奨学金は、変換の段で世帯で返す（前の計算のまま）
+            for s in now["household"]["request"]["input"]["household"]["goals"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|g| g["education"]["scholarships"].as_array())
+                .flatten()
+            {
+                assert_eq!(s["repaidBy"], "household", "{v}: 前の奨学金は世帯で返す");
+            }
+        }
         if *v == "0.46" {
             // 0.46 から: 夢プランの夢（種類 dream・順位・計算に入れるか・ひとことメモ）と子への援助の優先度（0103）
             let h = &now["household"]["request"]["input"]["household"];

@@ -783,11 +783,12 @@ function rateField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | "
 
 /**
  * 住宅ローンの当初の金利の目安（マスタデータ master.housing.statistics の写しから。hearing/src/housingEstimates.ts）。
- * これから借りるローンは金利の種類ごとの目安（新しく借りるときの金利）、今返しているローン（current）は住宅ローン利用者の借入金利の中央値（種類を問わない）
+ * これから借りるローンは金利の種類ごとの目安（新しく借りるときの金利）、今返しているローン（current）は、変動金利なら住宅ローン利用者の借入金利の中央値、
+ * 全期間固定・固定期間選択型なら種類ごとの目安（借りた年ごとの金利の公表の数が無いので、新しく借りるときの目安で代える）
  */
 export function rateEstimateOf(type: string | undefined, current = false): { rate: string; basis: string } {
   const t: MortgageRateType = type === "fixed" || type === "fixedPeriod" ? type : "variable";
-  const e = current ? currentMortgageRateEstimate() : mortgageRateEstimate(t);
+  const e = current ? currentMortgageRateEstimate(t) : mortgageRateEstimate(t);
   return { rate: e.rate, basis: presetBasis(e.basis) };
 }
 
@@ -813,7 +814,7 @@ function rateTypeField(wh: WorkingHousehold, d: Debt, k: string, level: "simple"
   const inner = plain({ key: `${k}/rateType`, item: "debt.rateSchedule", label: "金利の種類", level, kind: "select", options: RATE_TYPES, find: firstRate, path: ["type"] });
   if (d.kind !== "mortgage") return inner;
   const notes = [
-    ...(isRateEstimate(rowOf(wh, addrRate(d))) ? [currentHomeLoan(wh, d) ? "金利が推定のままなら、今返している住宅ローンの推定の金利のままにします（種類で変わりません）" : "金利が推定のままなら、選んだ種類の推定の金利に入れ直します"] : []),
+    ...(isRateEstimate(rowOf(wh, addrRate(d))) ? [currentHomeLoan(wh, d) ? "金利が推定のままなら、今返している住宅ローンの推定の金利（選んだ種類の分）に入れ直します" : "金利が推定のままなら、選んだ種類の推定の金利に入れ直します"] : []),
     ...(hasOutlookSteps(wh.request.input.household, d, wh.request.input.baseMonth) ? ["変動金利以外にすると、変動金利の見込みの段（5年後・10年後）を外します"] : []),
   ];
   return field({
@@ -1096,7 +1097,9 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
 export const LOAN_SUBTYPES = [
   { value: "cardLoan", label: "カードローン・リボ", kind: "other", rate: "0.15", rateBasis: "カードローン・リボの金利の目安 年15%" },
   // 奨学金は今返している分の目安（マスタデータ master.loanRates。過去に貸与を終えた人の利率。これから借りる子ども・教育の入力項目の貸与の奨学金とは別）
-  { value: "scholarship", label: "奨学金の返済", kind: "scholarship", rate: repayingScholarshipRateEstimate().rate, rateBasis: `今返している奨学金の利率の目安 ${repayingScholarshipRateEstimate().basis}。無利子の第一種なら0%` },
+  // 第一種（無利子）は利率0%（0104）。第二種（有利子）は今返している分の目安
+  { value: "scholarship", label: "奨学金の返済（第二種・有利子）", kind: "scholarship", rate: repayingScholarshipRateEstimate().rate, rateBasis: `今返している奨学金の利率の目安 ${repayingScholarshipRateEstimate().basis}。無利子の第一種なら種類で選んでください` },
+  { value: "scholarshipFree", label: "奨学金の返済（第一種・無利子）", kind: "scholarship", rate: "0", rateBasis: "第一種奨学金（無利子）は利率0%" },
   { value: "renovation", label: "リフォームローン", kind: "other", rate: "0.025", rateBasis: "リフォームローンの金利の目安 年2.5%" },
   { value: "policyLoan", label: "契約者貸付（保険）", kind: "other", rate: "0.03", rateBasis: "契約者貸付の金利の目安 年3%" },
   { value: "personal", label: "親・知人からの借入", kind: "other", rate: "0", rateBasis: "親・知人からの借入は利息なし" },
