@@ -25,6 +25,7 @@ import { addRate, cmpRate, nonNegative, pctText, subRate } from "./decimal.ts";
 import { ageAt } from "../levers.ts";
 import { setSurplusRatio, surplusRatioOf } from "../surplus.ts";
 import { accountsOf, drawdownOf, drawdownStartDefault, INVEST_KINDS, methodOf, NOT_FINANCIAL, portfolioOf, rateOf, rateText, setDrawdown, setStopAge, stopAgeOf, stopAgeOrEstimate, stopEstimateOf, totalViewOf, valueOf } from "../input/savings/model.ts";
+import { clampRate, RETURN_RANGE, type PctRange } from "../input/rateRanges.ts";
 
 /** 変動金利の上乗せ（前提の assumptions.loanRateShifts の1件） */
 export interface RateShift {
@@ -53,8 +54,8 @@ export type Control =
   | { kind: "age"; min: number; max: number; ticks: number[]; tick: (v: number) => string }
   /** 円などの数のスライダー（金額は1万円の刻み。per は月額・年額の別） */
   | { kind: "range"; min: number; max: number; step: number; ticks: number[]; tick: (v: number) => string; per?: "月" | "年" | "" }
-  /** 率のスライダー（10進の文字列） */
-  | { kind: "rate"; min: string; max: string; step: string }
+  /** 率のスライダー（10進の文字列）。limit は入れてよい範囲（パーセント。AI の候補などスライダーの外から来た値を確かめる。0098） */
+  | { kind: "rate"; min: string; max: string; step: string; limit?: PctRange }
   | { kind: "toggle" }
   /** 配分（株式・債券・預金） */
   | { kind: "mix"; accountKind: string }
@@ -544,7 +545,8 @@ function investItems(wh: WorkingHousehold): MovableItem[] {
       group: "資産運用",
       builtin: false,
       phase: "field",
-      control: { kind: "rate", min: "0", max: addRate(rate, "0.03"), step: "0.0005" },
+      // 右の端は今の利回り＋3ポイント（運用の利回りの範囲の上の端 15% まで。0098）。今の利回りがマイナスなら左の端もそこまで（-10% まで）
+      control: { kind: "rate", min: cmpRate(rate, "0") < 0 ? clampRate(rate, RETURN_RANGE) : "0", max: clampRate(addRate(rate, "0.03"), RETURN_RANGE), step: "0.0005", limit: RETURN_RANGE },
       read: (w) => investRateNow(w.request),
       apply: (w, v) => {
         if (typeof v !== "string") return w;

@@ -17,6 +17,7 @@ import { oneMinus } from "../units.ts";
 import { carLoanGroups, newCarLoan } from "./housing.ts";
 import { fixGrowth } from "./living.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./onContingency.ts";
+import { GROWTH_RANGE } from "../rateRanges.ts";
 
 type Obj = Record<string, unknown>;
 const cars = (h: Household) => h.cars;
@@ -628,7 +629,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
     }),
     plain({ key: `${k}/growth`, item: "car.growth", label: "価格・維持費の伸び方", level: "detail", kind: "select", options: GROWTH_KINDS, find, path: ["growth", "kind"], fallback: "inflation", optional: true, after: (_h, t, v) => fixGrowth(t, v) }),
   );
-  if (c.growth?.kind === "rate") fields.push(plain({ key: `${k}/growthRate`, item: "car.growth", label: "決まった伸び率（年）", level: "detail", kind: "pct", find, path: ["growth", "rate"] }));
+  if (c.growth?.kind === "rate") fields.push(plain({ key: `${k}/growthRate`, item: "car.growth", label: "決まった伸び率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["growth", "rate"] }));
   fields.push(...onContingencyFields({ key: `${k}/on`, item: "car.onContingency", find, path: ["onContingency"], level: "detail", help: "名義の人などの万一の月の翌月から、買い替えと維持費をこの扱いにします。組んだローンの返済は続きます" }));
   fields.push(...onContingencyDetailFields({ key: `${k}/on`, item: "car.onContingency", find, path: ["onContingency"], on: c.onContingency, level: "detail" }));
   // 見出しの一生の費用（今の値段で）

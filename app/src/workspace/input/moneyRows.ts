@@ -20,6 +20,7 @@ import { onContingencyDetailFields, onContingencyFields } from "./stages/onConti
 import { stagedBadge, stagedGroups } from "./staged.ts";
 import { wareki } from "./units.ts";
 import { readYearMonth } from "./when.ts";
+import { GROWTH_RANGE } from "./rateRanges.ts";
 
 type Obj = Record<string, unknown>;
 
@@ -639,7 +640,7 @@ function aliasBadge(f: FieldDef): FieldDef {
 /** 伸び方の欄（物価に合わせる＝既定／決まった率〔マイナスも〕／変えない） */
 export function growthFields(key: string, item: string, find: Finder, id: string, cur: { kind: string; rate?: string } | undefined): FieldDef[] {
   const out = [withAddress(plain({ key: `${key}/growth`, item, label: "伸び方", level: "detail", kind: "select", options: GROWTH_KINDS, find, path: ["growth", "kind"], fallback: "inflation", optional: true, structural: true, after: (_h, t, v) => fixGrowth(t, v), help: "額は今の値段で入れます。選ばないときは、毎年、物価の上がり方に合わせて伸ばします" }), address(id, item, ["kind"]))];
-  if (cur?.kind === "rate") out.push(withAddress(plain({ key: `${key}/growthRate`, item, label: "決まった変動率（年）", help: "マイナスも入れられます", level: "detail", kind: "pct", find, path: ["growth", "rate"] }), address(id, item, ["rate"])));
+  if (cur?.kind === "rate") out.push(withAddress(plain({ key: `${key}/growthRate`, item, label: "決まった変動率（年）", help: "マイナスも入れられます", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["growth", "rate"] }), address(id, item, ["rate"])));
   return out;
 }
 

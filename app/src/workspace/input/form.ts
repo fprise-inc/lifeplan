@@ -7,7 +7,8 @@ import { resolveTimepoint } from "../timepoint.ts";
 import type { Estimate } from "./estimates.ts";
 import { boxBasis, confirmedBox, estimatedBox, mutate, newId, type WorkingHousehold } from "./household.ts";
 import { eventChoices, materializeEvent, pointsToCandidate, refsTo, whenPeople } from "./namedEvents.ts";
-import { sameRate, type YenBasis, type YenUnit } from "./units.ts";
+import { clampRate, rangeText, rateInRange } from "./rateRanges.ts";
+import { pctFromRate, sameRate, type YenBasis, type YenUnit } from "./units.ts";
 import { readWhen, sameWhen, WHEN_MODES, type AgeMeans, type WhenCtx, type WhenMode } from "./when.ts";
 
 export { resolveTimepoint };
@@ -250,6 +251,7 @@ export function field(def: FieldDef): FieldDef {
   return {
     ...def,
     write,
+    ...(def.kind === "pct" && (def.min !== undefined || def.max !== undefined) ? { get: outOfRangeNotice(def, write) } : {}),
     set: (wh, v) => {
       const cur = def.get(wh);
       // 時点の欄は、時点の形で渡されたら入っている形と比べる（年月の文字なら年月で比べる）。同じなら推定でも何も変えない（0041）
@@ -257,6 +259,24 @@ export function field(def: FieldDef): FieldDef {
       if (sameVal(now, v, def.kind)) return wh;
       return write(wh, v);
     },
+  };
+}
+
+/**
+ * 割合の欄の範囲の外の値（古い世帯・取り込んだ世帯に入っていた値）の知らせ（0098）。値は変えずに計算し、欄の下と確かめの一覧に
+ * 範囲を出して、押したときだけ範囲の端にする。ほかの知らせより先に出す（範囲の外の値は計算が止まることがあるため）
+ */
+function outOfRangeNotice(def: FieldDef & { kind: "pct" }, write: (wh: WorkingHousehold, v: Val) => WorkingHousehold): (wh: WorkingHousehold) => FieldState {
+  return (wh) => {
+    const st = def.get(wh);
+    const v = st.value;
+    if (typeof v !== "string" || rateInRange(v, def)) return st;
+    const to = clampRate(v, def);
+    return {
+      ...st,
+      warn: `範囲（${rangeText(def)}）の外の値（${pctFromRate(v)}%）が入っています。今はこの値のまま計算しています（大きすぎる値では計算が止まります）。${rangeText(def)}の範囲で入れ直してください`,
+      warnFix: { label: `${pctFromRate(to)}%にする`, run: (w) => write(w, to) },
+    };
   };
 }
 

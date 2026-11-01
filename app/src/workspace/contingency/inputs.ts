@@ -10,6 +10,7 @@ import type { ContingencyPlan, PartnerScene, SurvivorWork } from "./planData.ts"
 import { PREMISE_KINDS, SCENE_KINDS, type PremiseKind } from "./premiseChoice.ts";
 import { PREMISE_ITEMS } from "./premiseItems.ts";
 import { adults, ESOP, HOSPITAL_DAYS_DEFAULT, FX_DEPOSIT, hasInvested, INCOME_DROP_DEFAULT, ILLNESS_DEFAULT, MARKET_CLASSES_DEFAULT, MARKET_DROP_DEFAULT, partnerOf, scenarios, type Scenario, type ScenarioKind } from "./requests.ts";
+import { RETURN_RANGE } from "../input/rateRanges.ts";
 
 /** 病気の種類（0055） */
 const DISEASES: Option[] = [
@@ -404,7 +405,7 @@ export function premiseItems(wh: WorkingHousehold, sc: Scenario | undefined): Pr
       one("market:recoveryYears", planField({ key: "cg/market/recoveryYears", label: "下がった後に利回りを抑える年数", kind: "int", suffix: "年", min: 0, max: 20, path: ["market", "recoveryYears"], help: "空欄なら翌年からふだんの利回りに戻ります" })),
       one(
         "market:recoveryCap",
-        planField({ key: "cg/market/recoveryCap", label: "その間の運用の利回り（上限）", kind: "pct", path: ["market", "recoveryCap"], fallback: "0", help: "利回りを抑える年数を入れたときに使います" }),
+        planField({ key: "cg/market/recoveryCap", label: "その間の運用の利回り（上限）", kind: "pct", ...RETURN_RANGE, path: ["market", "recoveryCap"], fallback: "0", help: "利回りを抑える年数を入れたときに使います" }),
         plan.market?.recoveryYears !== undefined && plan.market.recoveryYears > 0 ? {} : { note: "利回りを抑える年数を入れると使います" },
       ),
     );

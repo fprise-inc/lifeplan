@@ -14,6 +14,7 @@ import { mutate, newId, type WorkingHousehold } from "../household.ts";
 import { memberLabel, memberOptions } from "../labels.ts";
 import { monthsBetween } from "../loanMath.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./onContingency.ts";
+import { GROWTH_RANGE } from "../rateRanges.ts";
 
 const fees = (h: Household) => h.advisoryFees;
 
@@ -172,6 +173,7 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
             label: "値上げの率（年）",
             level: "detail",
             kind: "pct",
+            ...GROWTH_RANGE,
             find: findRec,
             path: ["revision", "rate"],
             optional: true,
