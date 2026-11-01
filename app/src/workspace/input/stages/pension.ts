@@ -1,7 +1,7 @@
 // 3. 年金（0066）: 人ごとに入れ方の区分を3つ（推計／書類から／加入歴から）から選び、書類からのときは書類の種類（ねんきん定期便の
 // 50歳未満・50歳以上、年金額改定通知書、見込額）を選ぶ。区分は画面の側（記録の型 kind から決まる）。
 // - 推計に戻しても書類の記録は消さず、画面の側に残す（pensionKept。その入れ方に戻すと戻る）
-// - 定期便の加入月数は「わからない」でよい（代わりの値: 国民年金＝20歳の月から作成年月まで〔60歳まで〕、厚生年金＝働き方の期間の厚生年金の月）
+// - 定期便の加入月数は「書類で確かめる」でよい（定期便を見るまでの代わりの値: 国民年金＝20歳の月から作成年月まで〔60歳まで〕、厚生年金＝働き方の期間の厚生年金の月）
 // - 受け取り開始（繰上げ・繰下げ）は基礎と厚生を別々に、時点の部品で月まで（0038）
 // - 受け取っている遺族年金・障害年金（受け取る人・種類・年額・終わりの推定）と外国の年金は、お金の行（0044）で額を入れる
 // - 世帯の外の家族（親など）の年金は介護・親の項目。このカードは本人・配偶者だけ
@@ -17,6 +17,7 @@ import { incomeGroups, moneySections } from "../moneyRows.ts";
 import { readGroup, readLine } from "../readLines.ts";
 import { putRow, type StateRow } from "../rows.ts";
 import type { Address } from "../../store/readings.ts";
+import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 
 type Obj = Record<string, unknown>;
 const records = (h: Household) => h.pensionRecords;
@@ -148,12 +149,12 @@ export function switchPension(wh: WorkingHousehold, memberId: string, target: st
   return withKept(w, memberId, kept);
 }
 
-// ---- 定期便の加入月数（わからないの代わりの値） ----
+// ---- 定期便の加入月数（書類で確かめるまでの代わりの値） ----
 
 const monthsAddress = (recId: string, part: "basic" | "employee"): Address => ({ target: { object: recId }, item: "pensionRecord.months", at: [part] });
 const MONTHS_ROW_KEYS = ["pensionRecord.months/basic", "pensionRecord.months/employee"];
 
-/** ねんきん定期便の入れ方で、加入月数が国民年金・厚生年金とも0か月のまま（写していない。わからない・推定の印も無い） */
+/** ねんきん定期便の入れ方で、加入月数が国民年金・厚生年金とも0か月のまま（写していない。書類待ち・推定の印も無い） */
 export function statementMonthsMissing(rec: PensionRecord | undefined): boolean {
   if (rec === undefined || !STATEMENTS.has(rec.kind)) return false;
   const states = rec.valueStates as Obj | undefined;
@@ -188,7 +189,7 @@ export function substituteMonths(h: Household, m: Member, asOf0: string | undefi
 }
 
 /**
- * 加入月数を代わりの値で入れる（2つとも）。state "unknown" は欄の「わからない」と同じ（聞いたが分からない）、"estimated" は推定で埋める。
+ * 加入月数を代わりの値で入れる（2つとも）。state "unknown" は欄の「書類で確かめる」と同じ（定期便を見るまで代わりの値）、"estimated" は推定で埋める。
  * 写してある月数があれば変えない（0か月のままの定期便だけ）
  */
 export function fillMonths(wh: WorkingHousehold, memberId: string, state: "unknown" | "estimated"): WorkingHousehold {
@@ -208,8 +209,8 @@ export function fillMonths(wh: WorkingHousehold, memberId: string, state: "unkno
 /** 加入月数が0か月のままのときの知らせ（年金のパネル・入力のカード・結果のタブで同じ文を使う） */
 export function monthsMissingText(kind: string): string {
   return kind === "statementOver50"
-    ? "加入月数が0か月のままです。このままでは受給資格期間（10年）に届かないため、見込額を入れても年金は0円で計算します。定期便の「加入期間」の月数を写すか、分からなければ「加入月数がわからない」で代わりの値にしてください"
-    : "加入月数が0か月のままです。このままでは、これまでの加入の分を数えずに年金を少なく計算します（受給資格期間の10年に届かなければ0円）。定期便の「加入期間」の月数を写すか、分からなければ「加入月数がわからない」で代わりの値にしてください";
+    ? "加入月数が0か月のままです。このままでは受給資格期間（10年）に届かないため、見込額を入れても年金は0円で計算します。定期便の「加入期間」の月数を写すか、手元に無ければ「加入月数を書類で確かめる」で代わりの値にしてください"
+    : "加入月数が0か月のままです。このままでは、これまでの加入の分を数えずに年金を少なく計算します（受給資格期間の10年に届かなければ0円）。定期便の「加入期間」の月数を写すか、手元に無ければ「加入月数を書類で確かめる」で代わりの値にしてください";
 }
 
 /** 結果のタブに出す、年金の入力の知らせ（加入月数が0か月のままの人） */
@@ -390,7 +391,7 @@ const EXEMPT: [string, string][] = [
   ["deferred", "納付猶予・学生納付特例の月数（追納していない分）"],
 ];
 
-/** 定期便の加入月数の欄（0か月のまま〔写していない〕は空欄で見せる。空欄・わからないは代わりの値。0066） */
+/** 定期便の加入月数の欄（0か月のまま〔写していない〕は空欄で見せる。空欄・書類待ちは代わりの値。0066。「書類で確かめる」を出す） */
 function monthsField(m: Member, rec: PensionRecord, part: "basic" | "employee", label: string, max: number, help?: string): FieldDef {
   const find = byId(records, rec.id);
   const a = monthsAddress(rec.id, part);
@@ -398,8 +399,9 @@ function monthsField(m: Member, rec: PensionRecord, part: "basic" | "employee", 
     key: `pension/${rec.id}/months/${part}`,
     item: "pensionRecord.months",
     label,
-    // 加入月数は詳細（空欄の代わりの値〔20歳から書類の年月まで・働き方の期間〕でほぼ当たる。0か月のままの知らせと「わからない」のボタンは標準にも出す。0078）
+    // 加入月数は詳細（空欄の代わりの値〔20歳から書類の年月まで・働き方の期間〕でほぼ当たる。0か月のままの知らせと「書類で確かめる」のボタンは標準にも出す。0078）
     level: "detail",
+    docCheck: CHECK_DOCUMENTS.pension,
     kind: "int",
     suffix: "か月",
     min: 0,
@@ -410,7 +412,7 @@ function monthsField(m: Member, rec: PensionRecord, part: "basic" | "employee", 
     get: (w) => {
       const r = find(w.request.input.household, w) as PensionRecord | undefined;
       const missing = statementMonthsMissing(r);
-      return { value: missing ? null : (r?.months?.[part] ?? 0), ...(missing ? { warn: "0か月のままです（写していません）。見込額を入れても、加入月数を写すか「わからない」にするまでは年金を正しく計算できません" } : {}) };
+      return { value: missing ? null : (r?.months?.[part] ?? 0), ...(missing ? { warn: "0か月のままです（写していません）。見込額を入れても、加入月数を写すか「書類で確かめる」にするまでは年金を正しく計算できません" } : {}) };
     },
     set: (w, v) =>
       mutate(w, (h, req) => {
@@ -499,7 +501,7 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
   fields.push(plain({ key: `${prefix}/asOf`, item: "pensionRecord.asOf", label: rec.kind === "history" ? "加入歴の終わりの月" : "書類の作成年月", level: "simple", kind: "ym", find, path: ["asOf"], help: "この月より後の加入は、働き方の期間から足します" }));
   if (STATEMENTS.has(rec.kind)) {
     fields.push(
-      monthsField(m, rec, "basic", "国民年金の加入月数", 600, "定期便の「加入期間」の欄の国民年金（計）。免除・猶予の月は含めません。分からなければ「わからない」（代わりの値で計算）"),
+      monthsField(m, rec, "basic", "国民年金の加入月数", 600, "定期便の「加入期間」の欄の国民年金（計）。免除・猶予の月は含めません。定期便が手元に無ければ「書類で確かめる」（代わりの値で計算）"),
       monthsField(m, rec, "employee", "厚生年金の加入月数", 900),
       plain({ key: `${prefix}/months/qualifying`, item: "pensionRecord.months", label: "受給資格期間の月数", level: "detail", kind: "int", suffix: "か月", min: 0, max: 900, find, path: ["months", "qualifying"], optional: true, help: "空欄なら、加入月数と免除・猶予の月数の合計" }),
     );
@@ -516,7 +518,7 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
   }
   fields.push(...claimFields(m, find, prefix));
   const missing = statementMonthsMissing(rec);
-  const actions: ActionDef[] = missing ? [{ key: `${prefix}/months/unknown`, label: "加入月数がわからない（代わりの値で計算する）", level: "simple", run: (w) => fillMonths(w, m.id, "unknown") }] : [];
+  const actions: ActionDef[] = missing ? [{ key: `${prefix}/months/unknown`, label: "加入月数を書類で確かめる（それまで代わりの値で計算する）", level: "simple", run: (w) => fillMonths(w, m.id, "unknown") }] : [];
   const notes = [...(missing ? [monthsMissingText(rec.kind)] : []), ...(kept.length > 0 ? ["前の入れ方の記録を残しています（入れ方を戻すと戻ります）"] : [])];
   const groups: GroupDef[] = [{ key: `pension/${m.id}`, title: `${who}の公的年金`, ...(notes.length > 0 ? { note: notes.join("。") } : {}), level: "simple", fields, actions }];
 

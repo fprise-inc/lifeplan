@@ -1,4 +1,5 @@
-// 値の状態の操作を、意味のある欄にだけ・直接押せる形で出す（0041 の 2026-10-29 の追記）と、
+// 値の状態の操作を、意味のある欄にだけ・直接押せる形で出す（0041 の 2026-10-29 の追記。「わからない」は 2026-10-31 に「書類で確かめる」にし、
+// 書類から写す欄だけにした）と、
 // 「?」を説明する物のすぐ右に置く（0077 の 2026-10-29 の追記）
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -11,6 +12,7 @@ import { allFields, type ActionDef, type FieldDef, type GroupDef } from "../src/
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { InputPanel } from "../src/workspace/input/InputPanel.tsx";
 import { buildStages, STAGE_ORDER } from "../src/workspace/input/stages/index.ts";
+import { addCar } from "../src/workspace/input/stages/cars.ts";
 import { applyStateOp, availableOps, fieldStatus, OP_LABELS } from "../src/workspace/input/valueState.ts";
 import { REPO_DIR } from "../scripts/lib.ts";
 import { modelHousehold } from "./helpers.ts";
@@ -20,12 +22,14 @@ const MODELS = readdirSync(join(REPO_DIR, "data", "modelHouseholds"))
   .map((f) => f.slice(0, -5));
 const open = (m: string): WorkingHousehold => fromRequest(modelHousehold(m), {});
 const noop = () => undefined;
+let idn = 0;
+const seq = () => () => `00000000-0000-4000-8000-${String(++idn).padStart(12, "0")}`;
 /** 前提条件・表の期間の入力項目（FP が決める値） */
 const PREMISE = /^(assumptions|plan)\./;
 const MAY_BE_NONE = new Set(["employment.salary.bonus", "residentTaxAssessment.amount", "retirementBenefit.amount"]);
 
-describe("わからない・該当なしは、意味のある欄にだけ出す", () => {
-  it.each(MODELS)("%s: 出す操作はどれも押すと世帯が変わる。わからないは推定のある世帯の値だけ、該当なしは物そのものが無いことがある額だけ", (m) => {
+describe("書類で確かめる・該当なしは、意味のある欄にだけ出す", () => {
+  it.each(MODELS)("%s: 出す操作はどれも押すと世帯が変わる。書類で確かめるは書類から写す欄（docCheck）だけ、該当なしは物そのものが無いことがある額だけ", (m) => {
     const wh = open(m);
     for (const stage of buildStages(wh))
       for (const f of allFields(stage)) {
@@ -33,8 +37,10 @@ describe("わからない・該当なしは、意味のある欄にだけ出す"
         const ops = availableOps(f, wh, s);
         for (const o of ops.filter((x) => x !== "confirm")) expect(applyStateOp(wh, f, o), `${stage.id} ${f.label} ${o}`).not.toBe(wh);
         if (ops.includes("unknown")) {
-          expect(f.item === null || !PREMISE.test(f.item), `${f.label}: 前提にわからないは無い`).toBe(true);
-          expect(f.blankIsEstimate === true || f.blankEstimate !== undefined || s.status === "estimated", `${f.label}: 推定の無い欄にわからないは無い`).toBe(true);
+          expect(f.item === null || !PREMISE.test(f.item), `${f.label}: 前提に書類で確かめるは無い`).toBe(true);
+          expect(f.docCheck, `${f.label}: 書類の無い欄に書類で確かめるは無い`).toBeDefined();
+          // 代わりに使う値（今の値か、空欄の推定）がある
+          expect(f.get(wh).value !== null || f.blankIsEstimate === true, f.label).toBe(true);
         }
         if (ops.includes("notApplicable")) {
           expect(f.blankIsEstimate, f.label).toBe(true);
@@ -43,23 +49,45 @@ describe("わからない・該当なしは、意味のある欄にだけ出す"
       }
   });
 
-  it("残す欄: 年収・賞与・住民税・退職金の見込み額・車の費用・年金の加入月数（推定のある欄）。外す欄: 前提条件・推定の無い欄・基本生活費", () => {
+  it("書類で確かめるを出す欄: 住民税・退職金の見込み額・年金の加入月数・今の住宅ローン・自動車ローン。出さない欄: 年収・賞与・車の費用・基本生活費・前提条件など", () => {
     const seen = new Map<string, Set<string>>();
     for (const m of MODELS) {
       const wh = open(m);
       for (const stage of buildStages(wh))
         for (const f of allFields(stage)) for (const o of availableOps(f, wh)) if (o === "unknown" || o === "notApplicable") seen.set(f.item ?? f.key, (seen.get(f.item ?? f.key) ?? new Set()).add(o));
     }
-    expect(seen.get("employment.salary.annual")).toEqual(new Set(["unknown"]));
-    expect(seen.get("employment.salary.bonus")).toEqual(new Set(["unknown", "notApplicable"]));
     expect(seen.get("residentTaxAssessment.amount")).toEqual(new Set(["unknown", "notApplicable"]));
     expect(seen.get("retirementBenefit.amount")).toEqual(new Set(["unknown", "notApplicable"]));
-    // 基本生活費（総額・内訳・段階）と年払い・数年おきの暮らしの支出には「わからない」を出さない（0100）
-    for (const k of seen.keys()) expect(k.startsWith("livingExpense."), k).toBe(false);
     expect(seen.get("pensionRecord.months")).toEqual(new Set(["unknown"]));
+    // 今の住宅ローンの借入額・金利・返済期間（見本の世帯の住宅ローンは借入の年月が計算の基準の月より前）
+    for (const k of ["debt.principal", "debt.rateSchedule", "debt.repayment"]) expect(seen.get(k), k).toEqual(new Set(["unknown"]));
+    expect(seen.get("car.loan")).toEqual(new Set(["unknown"]));
+    // 賞与は該当なしだけ。年収・事業所得・車の費用・住まいの費用・基本生活費（0100）・お金の行には出さない
+    expect(seen.get("employment.salary.bonus")).toEqual(new Set(["notApplicable"]));
+    for (const k of seen.keys()) expect(k.startsWith("livingExpense."), k).toBe(false);
     for (const k of seen.keys()) expect(PREMISE.test(k), k).toBe(false);
-    // 推定の無い欄（口座の残高・ローンの金利・保険料など）には出さない
-    for (const k of ["account.marketValue", "debt.rateSchedule", "insurance.premium", "employment.standardMonthlyRemuneration", "employment.employer.weeklyHours"]) expect(seen.has(k), k).toBe(false);
+    const ALLOWED = new Set(["residentTaxAssessment.amount", "retirementBenefit.amount", "retirementBenefit.receipt", "pensionRecord.months", "debt.principal", "debt.rateSchedule", "debt.repayment", "debt.balance", "insurance.coverages", "car.loan"]);
+    for (const [k, ops] of seen) if (ops.has("unknown")) expect(ALLOWED.has(k), k).toBe(true);
+    for (const k of ["employment.salary.annual", "employment.business.income", "car.purchase", "car.upkeep", "car.tax", "car.insurance", "car.inspection", "residence.rent", "residence.propertyTax", "residence.maintenance", "periodicExpense.amount", "account.marketValue", "insurance.premium"])
+      expect(seen.get(k)?.has("unknown") ?? false, k).toBe(false);
+  });
+
+  it("書類で確かめるは、見せるだけの既定の値（世帯に書いていない値）の欄には出さない（自動車ローンの頭金0の割合）", () => {
+    const carFields = (w: WorkingHousehold) => allFields(buildStages(w).find((s) => s.id === "car")!);
+    let wh = addCar(open("salariedCoupleTwoKids"), seq());
+    wh = carFields(wh).find((x) => x.key.endsWith("/pay"))!.set(wh, "loan");
+    // 頭金を0にすると、借りる割合は書かない（見せるのは既定の0）
+    wh = carFields(wh).find((x) => x.key.endsWith("/down"))!.set(wh, "0");
+    expect(wh.request.input.household.cars!.at(-1)!.loan).toBeDefined();
+    expect(wh.request.input.household.cars!.at(-1)!.loan!.share).toBeUndefined();
+    const fields = carFields(wh);
+    const down = fields.find((x) => x.key.endsWith("/down"))!;
+    expect(down.docCheck).toBe("返済予定表");
+    expect(down.get(wh).value).toBe("0");
+    expect(availableOps(down, wh)).not.toContain("unknown");
+    // 年数・金利は世帯に書いてあるので出す。出す操作はどれも押すと世帯が変わる
+    expect(availableOps(fields.find((x) => x.item === "car.loan" && x.key.endsWith("/rate"))!, wh)).toContain("unknown");
+    for (const f of fields) for (const o of availableOps(f, wh).filter((x) => x !== "confirm")) expect(applyStateOp(wh, f, o), `${f.label} ${o}`).not.toBe(wh);
   });
 
   it("学歴に「わからない」の選び方は無い（選んでいなければ今までどおり大学・大学院卒の値で目安）", () => {
@@ -94,14 +122,16 @@ describe("値の状態の操作は直接押すリンク（開く形にしない�
       }
     expect(n).toBeGreaterThan(0);
   });
-  it("専用の部品の欄（表の中も）も同じリンク。「…」でたたまない", () => {
+  it("専用の部品の欄（表の中も）も同じリンク。「…」でたたまない。書類で確かめるの説明に確かめる書類", () => {
     const wh = open("salariedCoupleTwoKids");
     const f = buildStages(wh)
       .flatMap((s) => allFields(s))
-      .find((x) => x.item === "employment.salary.annual")!;
+      .find((x) => x.item === "residentTaxAssessment.amount")!;
     const out = renderToString(h(FieldStateOps.Provider, { value: applyStateOp }, h(FieldStateLine, { f, wh, onEdit: noop, compact: true })));
     expect(out).not.toContain("…");
-    expect(out).toContain('data-op="unknown">わからない</button>');
+    expect(out).toContain('data-op="unknown">書類で確かめる</button>');
+    expect(out).toContain("住民税の決定通知書で確かめるまで");
+    expect(out).not.toContain("わからない");
   });
 });
 

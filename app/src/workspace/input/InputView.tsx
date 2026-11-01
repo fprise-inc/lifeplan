@@ -456,7 +456,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
         </h1>
           <div class="ih-check">
             <button type="button" class="add-btn" aria-expanded={checkOpen} onClick={() => setCheckOpen(!checkOpen)} data-check-open>
-              確かめの一覧（未入力 {check.counts.missing}・わからない {check.counts.unknown}・注意 {check.counts.notice}
+              確かめの一覧（未入力 {check.counts.missing}・書類待ち {check.counts.unknown}・注意 {check.counts.notice}
               {check.counts.calc > 0 ? `・計算の知らせ ${check.counts.calc}` : ""}・推定 {check.counts.estimated}）
             </button>
           </div>

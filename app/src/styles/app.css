@@ -332,7 +332,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-help.bad { color: var(--short-ink); font-weight: 700; }
 .fld-help.est-basis { color: var(--base-ink); }
 .ro { font-size: 0.92rem; color: var(--ink-2); }
-/* 値の状態の印（0041）: 推定・仮・わからない・該当なし・未入力。枠も地の色も付けず、色の付いた文字だけで見せる（色だけに頼らず文字で見せる。0077 の追記） */
+/* 値の状態の印（0041）: 推定・仮・書類待ち・該当なし・未入力。枠も地の色も付けず、色の付いた文字だけで見せる（色だけに頼らず文字で見せる。0077 の追記） */
 .badge { font-size: 0.7rem; font-weight: 700; border: 0; border-radius: 3px; padding: 0 2px; background: none; }
 .badge.est { color: var(--base-ink); }
 .badge.unk { color: var(--est-ink); }

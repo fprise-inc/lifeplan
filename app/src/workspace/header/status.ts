@@ -33,7 +33,7 @@ export interface BarInputs {
 
 export type AlertKind = "saveError" | "readOnly" | "paused" | "aiSharing";
 /** 通知を押したときに開く画面 */
-export type NoticeTarget = "recovery" | "restore" | "storage" | "office" | "households" | "presence" | "family" | "work" | "living" | "plans";
+export type NoticeTarget = "recovery" | "restore" | "storage" | "office" | "households" | "presence" | "family" | "work" | "living" | "input" | "plans";
 
 export interface AlertSpec {
   kind: AlertKind;
@@ -69,7 +69,7 @@ export function barAlerts(i: BarInputs): AlertSpec[] {
   return out;
 }
 
-const ACTION: Record<NoticeTarget, string> = { recovery: "復元キー", restore: "復元キー", storage: "保存先", office: "事務所の共有", households: "世帯の一覧", presence: "編集を始める", family: "介護・親の項目", work: "働き方と収入", living: "基本生活費", plans: "プランの一覧" };
+const ACTION: Record<NoticeTarget, string> = { recovery: "復元キー", restore: "復元キー", storage: "保存先", office: "事務所の共有", households: "世帯の一覧", presence: "編集を始める", family: "介護・親の項目", work: "働き方と収入", living: "基本生活費", input: "入力", plans: "プランの一覧" };
 
 /** 開いたときの知らせの文（0035 の8） */
 export function householdNoticeText(n: { kind: string; count?: number; plans?: number }): { text: string; target: NoticeTarget; title: string } | null {
@@ -87,6 +87,15 @@ export function householdNoticeText(n: { kind: string; count?: number; plans?: n
       target: "living",
       title: "基本生活費の「わからない」を推定にしました",
       text: `基本生活費の入力項目では「わからない」を使わなくなったので、「わからない」にしていた値（${where}）を推定にしました。代わりに使っていた額のまま推定の印を付けたので、結果は変わりません（統計の目安を代わりにしていた所は、今の統計の目安で計算します）`,
+    };
+  }
+  // 「わからない」を「書類で確かめる」にし、書類で確かめる欄だけに残した（0.44 の変換の段。0041 の追記 2026-10-31）
+  if (n.kind === "unknownEstimated") {
+    const where = [(n.count ?? 0) > 0 ? `${n.count}か所` : "", (n.plans ?? 0) > 0 ? `プランの変更 ${n.plans}件` : ""].filter((x) => x !== "").join("と");
+    return {
+      target: "input",
+      title: "「わからない」にしていた値を推定にしました",
+      text: `「わからない」は「書類で確かめる」になり、書類で確かめる欄（住民税・退職金と企業年金の見込み額・年金の加入月数・今の住宅ローン・手術の額・自動車ローン）だけに残しました。ほかの欄で「わからない」にしていた値（${where}）は推定にしました。代わりに使っていた額のまま推定の印を付けたので、結果は変わりません（統計の目安を代わりにしていた所は、今の統計の目安で計算します）`,
     };
   }
   if (n.kind === "unresolvedDiffs") return { target: "plans", title: "読み替えられなかったプランの変更があります", text: `古い形式のプランの変更のうち ${n.count ?? 0}件を読み替えられませんでした。プランの一覧の「要確認」で確かめてください` };
