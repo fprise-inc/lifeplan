@@ -95,6 +95,7 @@ html.big .rk-key { font-size: 1.45rem; }
 .fork-choices { display: grid; gap: 8px; margin: 10px 0; }
 .fork-choices .btn { display: grid; justify-items: start; gap: 2px; text-align: left; padding: 10px 14px; }
 .fork-choices .btn span { font-size: 0.82rem; color: var(--ink-2); font-weight: 400; }
+.fork-choices .btn.primary span { color: inherit; opacity: 0.9; }
 .fork-panel .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* メモの書いた人 */
