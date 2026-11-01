@@ -111,6 +111,12 @@ describe.skipIf(bin === null)("車を2台持つ世帯の PDF", () => {
   });
 });
 
+/** 行（物の ID）の、その年のキャッシュフロー表の額（提案の計算のマス）を万円の文字にする（帳票と同じ0.1万円の丸め） */
+function cfMan(bundle: ProposalBundle, id: string, year: number, months = 1): string {
+  const sum = bundle.proposal.result.table.filter((c) => c.object === id && c.year === year).reduce((s, c) => s + c.amount, 0);
+  return `${(Math.round(Math.round(sum / months) / 1000) / 10).toLocaleString("ja-JP")}万円`;
+}
+
 describe("ライフイベント表に、ライフイベントの入力項目の行を出す（0068 の追記 2026-10-31）", () => {
   it("出るお金の行（1回は額、くり返しは最初の年に「毎年」「3年ごとに」）・入るお金の行・子への援助（結婚資金）", () => {
     const req = structuredClone(modelHousehold("salariedCoupleTwoKids"));
@@ -118,7 +124,7 @@ describe("ライフイベント表に、ライフイベントの入力項目の�
       members: { id: string; kind: string }[];
       periodicExpenses?: unknown[];
       incomeFlows?: unknown[];
-      goals?: { kind: string; owner?: string; education?: { gifts?: unknown[] } }[];
+      goals?: { id?: string; kind: string; owner?: string; education?: { gifts?: unknown[] } }[];
     };
     const box = (value: number) => ({ value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "よくある額の目安" } });
     h.periodicExpenses = [
@@ -127,16 +133,26 @@ describe("ライフイベント表に、ライフイベントの入力項目の�
       { id: "00000000-0000-4000-8000-0000000000c2", label: "予備費", kind: "general", row: "cf.expense.lumpSum.other", from: { at: "2027-10" }, to: null, everyYears: 1, amount: box(300000) },
       // ほかの入力項目の行（車の修理）は出さない
       { id: "00000000-0000-4000-8000-0000000000c3", label: "車の修理", kind: "car", row: "cf.expense.living.car", from: { at: "2028-01" }, to: { at: "2028-01" }, everyYears: 1, amount: box(100000) },
+      { id: "00000000-0000-4000-8000-0000000000c6", label: "習い事", kind: "general", row: "cf.expense.lumpSum.other", from: { at: "2028-04" }, to: { at: "2030-03" }, everyYears: 1, monthly: true, amount: box(100000) },
     ];
     h.incomeFlows = [{ id: "00000000-0000-4000-8000-0000000000c4", label: "結婚のお祝い", kind: "celebration", from: { at: "2030-06" }, to: { at: "2030-06" }, everyYears: 1, amount: box(300000) }];
     const child = h.members.find((m) => m.kind === "child")!;
     const goal = h.goals!.find((g) => g.kind === "education" && g.owner === child.id)!;
     goal.education!.gifts = [{ id: "00000000-0000-4000-8000-0000000000c5", at: { memberAge: { member: child.id, years: 30 } }, amount: 1000000, purpose: "wedding" }];
-    const input = buildProposalInput(bundleOf(req));
+    const bundle = bundleOf(req);
+    const input = buildProposalInput(bundle);
     const items = input.events.flatMap((e) => e.items.map((t) => `${e.year}:${t}`));
-    expect(items).toContain("2029:特別な旅行（80万円）");
-    expect(items).toContain("2027:予備費（毎年30万円）");
-    expect(items).toContain("2030:結婚のお祝い（受け取り 30万円）");
+    // 額はキャッシュフロー表と同じその年の額（物価の上昇などで伸ばした額。今の値段ではない。0068 の追記 2026-11-01）
+    expect(items).toContain(`2029:特別な旅行（${cfMan(bundle, "00000000-0000-4000-8000-0000000000c1", 2029)}）`);
+    expect(items).not.toContain("2029:特別な旅行（80万円）");
+    expect(items).toContain(`2027:予備費（毎年${cfMan(bundle, "00000000-0000-4000-8000-0000000000c2", 2027)}）`);
+    expect(items).toContain(`2030:結婚のお祝い（受け取り ${cfMan(bundle, "00000000-0000-4000-8000-0000000000c4", 2030)}）`);
+    expect(items).not.toContain("2030:結婚のお祝い（受け取り 30万円）");
+    // 毎月の行は、その年に払う月の数（2028年4月〜12月の9か月）で割った1か月の額
+    expect(items).toContain(`2028:習い事（毎月${cfMan(bundle, "00000000-0000-4000-8000-0000000000c6", 2028, 9)}）`);
+    expect(items).not.toContain("2028:習い事（毎月10万円）");
+    // 子への援助は入れた額のまま（計算も伸ばさない）
+    expect(cfMan(bundle, goal.id as string, 2042)).toBe("100万円");
     expect(items).toContain("2042:第1子の結婚の援助（100万円）");
     // もとからある種類の無い3年ごとの行（名前なし）
     expect(items.some((t) => /^2027:くり返しの支出（3年ごとに/u.test(t))).toBe(true);
@@ -167,8 +183,8 @@ describe("ライフイベント表に、ライフイベントの入力項目の�
     expect(paid("00000000-0000-4000-8000-0000000000d1")).toEqual([2028]);
     expect(paid("00000000-0000-4000-8000-0000000000d2")).toEqual([2032]);
     const items = buildProposalInput(bundle).events.flatMap((e) => e.items.map((t) => `${e.year}:${t}`));
-    expect(items).toContain("2028:引っ越しの費用（30万円）");
-    expect(items).toContain("2032:入学の記念の旅行（40万円）");
+    expect(items).toContain(`2028:引っ越しの費用（${cfMan(bundle, "00000000-0000-4000-8000-0000000000d1", 2028)}）`);
+    expect(items).toContain(`2032:入学の記念の旅行（${cfMan(bundle, "00000000-0000-4000-8000-0000000000d2", 2032)}）`);
     expect(items.some((t) => t.includes("入学の記念の旅行") && !t.startsWith("2032:"))).toBe(false);
   });
 });

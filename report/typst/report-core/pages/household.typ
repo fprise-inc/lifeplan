@@ -107,8 +107,8 @@
     align: (x, y) => left + horizon,
     data.events.map(e => (str(e.year), text(fill: muted, e.ages), e.items.join("\n"))).flatten(),
   )
-  // 夢プランの夢は★（0103）
-  if data.events.any(e => e.items.any(i => i.starts-with("★"))) { note("★はご家族の夢（夢プラン）です。") }
+  // 額はキャッシュフロー表と同じその年の額（物価の上昇などを見込んだ額。0068 の追記 2026-11-01）。夢プランの夢は★（0103）
+  note("金額は、キャッシュフロー表と同じく、その年の見込みの額（物価の上昇などを見込んだ額）です。" + if data.events.any(e => e.items.any(i => i.starts-with("★"))) { "★はご家族の夢（夢プラン）です。" } else { "" })
 }
 
 /// ご家族の夢（夢プラン。0103）: 順位・夢・時期・金額・計算に入れているかと、夢を入れた・入れない計算の要約の1文

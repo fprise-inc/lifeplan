@@ -471,12 +471,33 @@ type RowLike = { from: Timepoint; to?: Timepoint | null; monthly?: boolean; ever
 /** 1回の行か（何年ごとが1で、終わりが始まりと同じ月） */
 const onceRow = (h: Household, r: RowLike): boolean => r.monthly !== true && r.everyYears === 1 && r.to != null && monthOfTimepoint(h, r.to) !== null && monthOfTimepoint(h, r.to) === monthOfTimepoint(h, r.from);
 
-/** お金の行の額と時期の言い方（1回は額だけ、くり返しは「毎年30万円」「3年ごとに40万円」「毎月3万円」）。0円は null */
-function rowAmountText(h: Household, r: RowLike): string | null {
-  const v = manText(r.amount.value ?? 0);
+/**
+ * お金の行の額と時期の言い方（1回は額だけ、くり返しは「毎年30万円」「3年ごとに40万円」「毎月3万円」）。額 v は、キャッシュフロー表と同じ
+ * エンジンの額（その年の額。物価の上昇などで伸ばした額。毎月の行は1か月の額）。0円は null
+ */
+function rowAmountText(h: Household, r: RowLike, v0: number): string | null {
+  const v = manText(v0);
   if (v === null) return null;
   if (r.monthly === true) return `毎月${v}`;
   return onceRow(h, r) ? v : r.everyYears === 1 ? `毎年${v}` : `${r.everyYears}年ごとに${v}`;
+}
+
+/**
+ * 行（出るお金・入るお金の行の ID）の、年 year のキャッシュフロー表の額（提案の計算のマス。物価の上昇などで伸ばした額）。毎月の行は
+ * その年に払う月の数で割った1か月の額。計算に出ない行（世帯の外の家族が払うなど）は0
+ */
+function cfRowAmount(ctx: Ctx, r: RowLike & { id: string }, year: number, prefix: "cf.expense" | "cf.income"): number {
+  const h = ctx.bundle.proposal.request.input.household;
+  let sum = 0;
+  for (const c of ctx.bundle.proposal.result.table) if (c.object === r.id && c.year === year && under(c.row, prefix)) sum += c.amount;
+  if (r.monthly !== true || sum <= 0) return sum;
+  const base = ctx.bundle.proposal.request.input.baseMonth;
+  const from = monthOfTimepoint(h, r.from);
+  const to = r.to == null ? null : monthOfTimepoint(h, r.to);
+  const start = [from ?? base, base, `${year}-01`].sort().at(-1) as string;
+  const end = [to ?? `${year}-12`, `${year}-12`].sort()[0] as string;
+  const months = (parseYm(end).y - parseYm(start).y) * 12 + parseYm(end).m - parseYm(start).m + 1;
+  return months > 0 ? Math.round(sum / months) : sum;
 }
 
 /** ライフイベントの入力項目の出るお金の種類（種類の無い古い行も。子の年齢で始まる種類の無い行は子ども・教育の物）と入るお金の種類 */
@@ -485,7 +506,9 @@ const EVENT_IN_KINDS: ReadonlySet<string> = new Set(["celebration", "saleGoods",
 
 /**
  * 提案書の「ライフイベント」の表に載せる、ライフイベントの入力項目の行（0068 の追記 2026-10-31）: 出るお金・入るお金の行（くり返す行は最初の年。
- * アプリの「この世帯の予定」と同じ）と、子への援助（結婚資金）。名前と額（額が0円の行は名前だけ）
+ * アプリの「この世帯の予定」と同じ）と、子への援助（結婚資金）。名前と額（額が0円の行は名前だけ）。
+ * 額はキャッシュフロー表と同じその年の額（物価の上昇などで伸ばした額。今の値段ではない。0068 の追記 2026-11-01）。子への援助は入れた額のまま
+ * （エンジンも伸ばさない）
  */
 function lifeEventItems(ctx: Ctx): { year: number; text: string }[] {
   const req = ctx.bundle.proposal.request;
@@ -510,7 +533,7 @@ function lifeEventItems(ctx: Ctx): { year: number; text: string }[] {
     if (p.kind === "dream" && !dreamIncluded(p)) continue;
     const y = firstYear(p);
     if (y === null) continue;
-    const amt = rowAmountText(h, p);
+    const amt = rowAmountText(h, p, cfRowAmount(ctx, p, y, "cf.expense"));
     const named = p.label !== undefined && p.label !== "" ? p.label : p.kind === "dream" ? "夢" : onceRow(h, p) ? "一時的な支出" : "くり返しの支出";
     const name = p.kind === "dream" ? `★${named}` : named;
     out.push({ year: y, text: amt === null ? name : `${name}（${amt}）` });
@@ -520,7 +543,7 @@ function lifeEventItems(ctx: Ctx): { year: number; text: string }[] {
     const y = firstYear(f);
     if (y === null) continue;
     const name = f.label !== undefined && f.label !== "" ? f.label : "一時的な入金";
-    const amt = rowAmountText(h, f);
+    const amt = rowAmountText(h, f, cfRowAmount(ctx, f, y, "cf.income"));
     out.push({ year: y, text: `${name}（受け取り${amt === null ? "" : ` ${amt}`}）` });
   }
   for (const g of h.goals ?? []) {
