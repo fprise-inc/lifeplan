@@ -197,7 +197,7 @@ entries:
     path: [enabled]
   - id: advisoryFee.menu
     status: active
-    label: "事務所の標準の料金表から写したときのメニュー"
+    label: "事務所の既定の料金表から写したときのメニュー"
     since: draft
     aliases: []
     replacedBy: null

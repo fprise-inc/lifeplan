@@ -91,7 +91,7 @@ describe("住宅購入の予定は「住宅の購入」の1件", () => {
     // 購入の欄は頭に（購入の時期・物件の価格・頭金・諸費用）。諸費用は標準
     expect(head.fields.slice(0, 4).map((f) => f.key.slice(k.length + 1))).toEqual(["purchase/at", "purchase/price", "purchase/down", "purchase/costs"]);
     expect(head.fields.find((f) => f.key.endsWith("/purchase/costs"))?.level).toBe("simple");
-    // 標準でも「▸ 詳しく」を開かずに諸費用が見える
+    // 標準でも「▸ 続きを見る」を開かずに諸費用が見える
     const html = panel(wh, "simple");
     expect(html).toContain("諸費用");
     // 援助は同じ物の枠の中
@@ -204,7 +204,7 @@ describe("住宅ローンの1件の中枠（大枠 → 中枠）", () => {
   const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"), {});
   const d = loan(wh);
   const k = `housing/debt/${d.id}`;
-  it("1件の枠の中を、借入の内容・金利・返済・繰上返済・団体信用生命保険・住宅ローン控除の中枠に分ける（中枠は物の「▸ 詳しく」の単位にしない）", () => {
+  it("1件の枠の中を、借入の内容・金利・返済・繰上返済・団体信用生命保険・住宅ローン控除の中枠に分ける（中枠は物の「▸ 続きを見る」の単位にしない）", () => {
     const sec = stage(wh).sections.find((s) => s.key === "housing/loans")!;
     const bands = sec.groups.filter((g) => g.band === true);
     expect(bands.map((g) => g.title)).toEqual(["借入の内容", "金利", "返済", "繰上返済", "団体信用生命保険", "住宅ローン控除"]);
@@ -219,7 +219,7 @@ describe("住宅ローンの1件の中枠（大枠 → 中枠）", () => {
     // 欄のキーは今のまま
     expect(bands.find((g) => g.title === "金利")?.fields.map((f) => f.key.slice(k.length + 1))).toEqual(expect.arrayContaining(["rateType", "rate"]));
   });
-  it("描くと、中枠は1件の枠の中に左の線と見出しで並び、「▸ 詳しく」は枠の最後。詳細の中枠は開いたときだけ", () => {
+  it("描くと、中枠は1件の枠の中に左の線と見出しで並び、「▸ 続きを見る」は枠の最後。詳細の中枠は開いたときだけ", () => {
     const html = panel(wh, "simple");
     const box = html.indexOf(`data-group="${k}"`);
     const band = html.indexOf(`class="in-group in-sub in-band" data-group="${k}/band/loan"`);

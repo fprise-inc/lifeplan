@@ -29,8 +29,8 @@ const PRICE_PRESET = 40000000;
 /** 頭金・諸費用の標準の割合（物件の価格に対する） */
 const DOWN_RATE = 0.1;
 const COSTS_RATE = 0.05;
-const downBasis = (v: number) => `標準の値（物件の価格の1割。${formatYen(v, "man")}万円）`;
-const costsBasis = (v: number) => `標準の値（物件の価格の5%。${formatYen(v, "man")}万円。目安は新築で3〜7%、中古で6〜10%）`;
+const downBasis = (v: number) => `既定の値（物件の価格の1割。${formatYen(v, "man")}万円）`;
+const costsBasis = (v: number) => `既定の値（物件の価格の5%。${formatYen(v, "man")}万円。目安は新築で3〜7%、中古で6〜10%）`;
 const UNENTERED_GIFT = "未入力（援助の額を入れてください。0円で計算中）";
 
 /** 物の値の状態の欄の行（物を直接書き換える） */
@@ -269,7 +269,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
         basis: "monthly",
         find,
         path: ["maintenance", "monthly"],
-        help: r.style === "condo" ? "管理組合に払う管理費と修繕積立金の合計です" : r.style === "house" ? "将来の修繕のために毎月積み立てておく額です" : "マンションなら管理費と修繕積立金の合計、戸建てなら将来の修繕のための毎月の積み立てです（建て方は詳細で選べます）",
+        help: r.style === "condo" ? "管理組合に払う管理費と修繕積立金の合計です" : r.style === "house" ? "将来の修繕のために毎月積み立てておく額です" : "マンションなら管理費と修繕積立金の合計、戸建てなら将来の修繕のための毎月の積み立てです（建て方は「詳細」で選べます）",
       }),
       plain({ key: `${k}/maintGrowth`, item: "residence.maintenance", label: ml.growth, level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["maintenance", "growth"], optional: true, help: "空欄なら変えません。外壁・屋根などの大きな修繕は、下の「出るお金」の修繕・リフォームの行で入れます" }),
       ...ownershipFields(wh, r, k),
@@ -308,7 +308,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
     {
       key: k,
       title: buying ? "住宅の購入" : `住まい ${i + 1}（${free ? "家賃なし" : r.kind === "rent" ? "賃貸" : "持ち家"}）`,
-      ...(badges.length > 0 ? { note: `${badges.join("、")}（詳細で直せます）` } : free ? { note: "家賃はかかりません。住んでいる家を相続するなら、詳細の「この家を相続する」で持ち家に切り替えます（貯蓄・運用の不動産には入れません）" } : {}),
+      ...(badges.length > 0 ? { note: `${badges.join("、")}（「詳細」で直せます）` } : free ? { note: "家賃はかかりません。住んでいる家を相続するなら、「詳細」の「この家を相続する」で持ち家に切り替えます（貯蓄・運用の不動産には入れません）" } : {}),
       level: "simple",
       fields,
       actions,
@@ -836,7 +836,7 @@ export function housingStage(wh: WorkingHousehold): StageDef {
             setState(o, "residence.purchase/price", estRow("standard", presetBasis("物件の価格 4,000万円")));
             setState(o, "residence.purchase/downPayment", estRow("derived", downBasis(down)));
             setState(o, "residence.purchase/costs", estRow("standard", costsBasis(costs)));
-            setState(o, "residence.purchase/at", estRow("standard", "標準の値（2年後。直してください）"));
+            setState(o, "residence.purchase/at", estRow("standard", "既定の値（2年後。直してください）"));
             (hh.residences ??= []).push(res);
           }),
       },

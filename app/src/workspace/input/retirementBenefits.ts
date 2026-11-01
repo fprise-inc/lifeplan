@@ -63,9 +63,9 @@ export const CIVIL_PENSION_FIXED = "年金払い退職給付（有期の半分�
 export const UNENTERED_AMOUNT = "未入力（0円で計算）";
 
 /** 推定の根拠（値の箱を持たない値の行） */
-export const DB_YEARS_BASIS = "確定給付企業年金の年金の年数の標準の値（10年）";
-export const LUMP_SHARE_BASIS = "一時金と年金の併用の割合の標準の値（半分ずつ）";
-export const MULTIPLIER_BASIS = "功績倍率の標準の値（1.0。役員の地位でおよそ1.0〜3.0）";
+export const DB_YEARS_BASIS = "確定給付企業年金の年金の年数の既定の値（10年）";
+export const LUMP_SHARE_BASIS = "一時金と年金の併用の割合の既定の値（半分ずつ）";
+export const MULTIPLIER_BASIS = "功績倍率の既定の値（1.0。役員の地位でおよそ1.0〜3.0）";
 export const CIVIL_REASON_BASIS = "働き方の期間の辞め方から";
 
 // ---- 当て先と行 ----

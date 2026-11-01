@@ -189,7 +189,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
       <div ref={panel} class="rk-panel os-panel" role="dialog" aria-modal="true" aria-labelledby="os-title" tabIndex={-1} data-office-settings>
         <h2 id="os-title">事務所の既定値</h2>
         <p class="pl-sub">
-          新しく作る世帯に写す値と、入力のホームの並びです。写した値は「推定」の印（根拠「事務所の標準」）で入り、後で変えても作った世帯は黙って変わりません（違うときは確かめの一覧に「事務所の新しい値があります」と出ます）。
+          新しく作る世帯に写す値と、入力のホームの並びです。写した値は「推定」の印（根拠「事務所の既定値」）で入り、後で変えても作った世帯は黙って変わりません（違うときは確かめの一覧に「事務所の新しい値があります」と出ます）。
           {shared ? "事務所で共有していても、今はこの PC の設定です。" : "この PC の設定です。"}
         </p>
         <section class="os-sec" aria-labelledby="os-cards">
@@ -209,7 +209,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
           </ol>
           <p class="pl-sub">
             <button type="button" class="link-btn" onClick={() => setS({ ...s, layout: null })} data-office-layout-reset>
-              標準の並びに戻す
+              既定の並びに戻す
             </button>
           </p>
         </section>
@@ -240,7 +240,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
           </ol>
           <p class="pl-sub">
             <button type="button" class="link-btn" onClick={() => setS({ ...s, items: {} })} data-office-items-reset>
-              標準に戻す（全部出す・全部標準で開く）
+              既定に戻す（全部出す・全部「標準」で開く）
             </button>
           </p>
         </section>
@@ -268,7 +268,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
           ))}
           <p class="pl-sub">
             <button type="button" class="link-btn" onClick={() => setS({ ...s, levers: {} })} data-office-levers-reset>
-              標準に戻す
+              既定に戻す
             </button>
           </p>
         </section>
@@ -325,7 +325,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
           </div>
           <p class="pl-sub">
             <button type="button" class="link-btn" onClick={() => setS({ ...s, premises: {}, scenes: {} })} data-office-contingency-reset>
-              場面と項目を標準に戻す
+              場面と項目を既定に戻す
             </button>
           </p>
           <div class="os-lever-group" data-office-protection>
@@ -349,7 +349,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
                     </option>
                   ))}
                 </select>
-                <small>標準は配偶者の平均余命まで（配偶者がいなければ末子の独立まで）</small>
+                <small>既定は配偶者の平均余命まで（配偶者がいなければ末子の独立まで）</small>
               </label>
               {prot.horizon?.kind === "age" ? (
                 <label class="os-pct">
@@ -397,7 +397,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
           <h3 id="os-care">ご本人・配偶者の介護の費用</h3>
           <label class="os-radio">
             <input type="radio" name="os-care" checked={s.care.selfAndSpouse === "warn"} onChange={() => setS({ ...s, care: { selfAndSpouse: "warn" } })} data-office-care="warn" />
-            自動では入れない（「未入力」にして「推定で入れる」の1押しを出す。標準）
+            自動では入れない（「未入力」にして「推定で入れる」の1押しを出す。既定）
           </label>
           <label class="os-radio">
             <input type="radio" name="os-care" checked={s.care.selfAndSpouse === "fill"} onChange={() => setS({ ...s, care: { selfAndSpouse: "fill" } })} data-office-care="fill" />
@@ -408,7 +408,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
           <h3 id="os-inherit">受け取る予定の相続・贈与の見込み</h3>
           <label class="os-radio">
             <input type="radio" name="os-inherit" checked={s.inheritLikelihood === "likely"} onChange={() => setS({ ...s, inheritLikelihood: "likely" })} data-office-inherit="likely" />
-            確実（基本の計算に入れる。標準）
+            確実（基本の計算に入れる。既定）
           </label>
           <label class="os-radio">
             <input type="radio" name="os-inherit" checked={s.inheritLikelihood === "uncertain"} onChange={() => setS({ ...s, inheritLikelihood: "uncertain" })} data-office-inherit="uncertain" />
@@ -416,9 +416,9 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
           </label>
         </section>
         <section class="os-sec" aria-labelledby="os-assume">
-          <h3 id="os-assume">前提条件の標準値</h3>
+          <h3 id="os-assume">前提条件の既定値</h3>
           <div class="os-grid">
-            {OFFICE_ASSUMPTIONS.map((k) => pct(k, ASSUMPTION_LABELS[k], STANDARD_PCT[k], `空欄は FPライズの標準（${STANDARD_PCT[k]}%。仮の値）。${rangeText(ASSUMPTION_RANGES[k])}`, ASSUMPTION_RANGES[k]))}
+            {OFFICE_ASSUMPTIONS.map((k) => pct(k, ASSUMPTION_LABELS[k], STANDARD_PCT[k], `空欄は既定の値（${STANDARD_PCT[k]}%。仮の値）。${rangeText(ASSUMPTION_RANGES[k])}`, ASSUMPTION_RANGES[k]))}
             {pct("realEstateRatio", "相続税の目安: 不動産の評価の割合（時価に掛ける）", "80", "空欄は時価の80%")}
           </div>
           <p class="pl-sub">長い期間の平均の目安です。根拠（出典・期間）は事務所で確かめてください。商品のおすすめではありません。</p>
@@ -444,7 +444,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
           </div>
           <label class="os-radio">
             <input type="radio" name="os-fee-per" checked={s.fee.per === "month"} onChange={() => setS({ ...s, fee: { ...s.fee, per: "month" } })} data-office-fee-per="month" />
-            月額（毎月払う。標準）
+            月額（毎月払う。既定）
           </label>
           <label class="os-radio">
             <input type="radio" name="os-fee-per" checked={s.fee.per === "year"} onChange={() => setS({ ...s, fee: { ...s.fee, per: "year" } })} data-office-fee-per="year" />
@@ -479,7 +479,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
           </p>
           <label class="os-radio">
             <input type="radio" name="os-fee-on" checked={s.fee.onContingency === "stop"} onChange={() => setS({ ...s, fee: { ...s.fee, onContingency: "stop" } })} data-office-fee-on="stop" />
-            払う人などに万一があったら、継続の顧問料を止める（標準）
+            払う人などに万一があったら、継続の顧問料を止める（既定）
           </label>
           <label class="os-radio">
             <input type="radio" name="os-fee-on" checked={s.fee.onContingency === "continue"} onChange={() => setS({ ...s, fee: { ...s.fee, onContingency: "continue" } })} data-office-fee-on="continue" />
@@ -502,7 +502,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
               setTexts({ ...Object.fromEntries(OFFICE_ASSUMPTIONS.map((k) => [k, ""])), realEstateRatio: "", horizonAge: "90", reverseAge: "" });
             }}
           >
-            全部を標準に戻す
+            全部を既定に戻す
           </button>
           <button type="button" class="btn primary" disabled={busy || bad.length > 0} onClick={() => void save()} data-office-settings-save>
             保存

@@ -508,7 +508,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   if (p.rental !== undefined && lodging !== undefined) rentFields.push(...lodgingSalesFields(wh, a));
   else if (p.rental !== undefined)
     rentFields.push(
-      yenBox({ key: `${kp}/rent`, item: "account.property", label: "満室時の家賃（合計）", level: "simple", basis: "monthly", help: "すべての部屋（区画）が埋まっているときの、物件全体の家賃の合計です。共益費・駐車場の収入などは、詳細で別の欄に入れます", find: findP, path: ["rental", "monthly"] }),
+      yenBox({ key: `${kp}/rent`, item: "account.property", label: "満室時の家賃（合計）", level: "simple", basis: "monthly", help: "すべての部屋（区画）が埋まっているときの、物件全体の家賃の合計です。共益費・駐車場の収入などは、「詳細」で別の欄に入れます", find: findP, path: ["rental", "monthly"] }),
       plain({ key: `${kp}/vacancy`, item: "account.property", label: "空室率", level: "simple", kind: "pct", find: findP, path: ["rental", "vacancyRate"], optional: true, fallback: "0", help: "1年を通して、部屋が空いている割合の見込みです。満室時の家賃からこの割合を引いて計算します（例: 1年のうち平均して半月空くなら 4%）。共益費・駐車場などの収入からも同じ割合を引きます" }),
       rentYen("commonFee", ["rental", "commonFee"], "共益費（月額）", "monthly", "家賃とは別に受け取る共益費・管理費です。空室率と変化率は家賃と同じに掛けます"),
       rentYen("parking", ["rental", "parking"], "駐車場の収入（月額）", "monthly", "物件の駐車場の収入です。空室率と変化率は家賃と同じに掛けます"),
@@ -545,7 +545,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   if (p.rental !== undefined) groups.push(...staged("rental", lodging !== undefined ? "売上" : "家賃", "monthly", (x) => (x.property === undefined ? null : (lodgingMonthlySales(x.property) ?? x.property.rental?.monthly.value ?? null))));
   // 経費（費目を1つでも入れたら、年額はその合計。0080）
   const itemsTotal = expenseItemsTotal(p);
-  const annualBase = yenBox({ key: `${kp}/expAnnual`, item: "account.property", label: "年額（持っている間）", level: "simple", basis: "annual", find: findP, path: ["expenses", "annual"], optional: true, help: "管理費・修繕積立金・固定資産税・保険料など、毎年かかる額の合計です。詳細で費目ごとに入れると、その合計になります" });
+  const annualBase = yenBox({ key: `${kp}/expAnnual`, item: "account.property", label: "年額（持っている間）", level: "simple", basis: "annual", find: findP, path: ["expenses", "annual"], optional: true, help: "管理費・修繕積立金・固定資産税・保険料など、毎年かかる額の合計です。「詳細」で費目ごとに入れると、その合計になります" });
   const annualField: FieldDef =
     itemsTotal === null
       ? annualBase

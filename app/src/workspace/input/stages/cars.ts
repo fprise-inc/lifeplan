@@ -39,7 +39,7 @@ const LOAN_RATE = carLoanRateEstimate().rate;
 const LOAN_TERM = 60;
 const LOAN_BASIS = { share: presetBasis("借入 下取りを引いた額の8割"), rate: presetBasis(`金利 ${carLoanRateEstimate().basis}`), term: presetBasis("5年で返す") };
 /** 次の買い替え・購入の時期の標準の値（3年後） */
-const FIRST_BASIS = "標準の値（3年後。この世帯に合わせて直してください）";
+const FIRST_BASIS = "既定の値（3年後。この世帯に合わせて直してください）";
 
 /**
  * 下取り・売却の残価の目安（ひな形。車両の価格に対する割合。3年50%・5年35%・8年15%・10年以上5%、その間はならす）。
@@ -369,7 +369,7 @@ export function withOneTimeUntil(wh: WorkingHousehold, carId: string): WorkingHo
 
 /** 「○歳まで買い替える」を選んだときの標準（70歳まで。その年齢になる前の月まで買い替える） */
 const REPLACE_UNTIL_AGE = 70;
-const REPLACE_UNTIL_BASIS = `標準の値（${REPLACE_UNTIL_AGE}歳まで買い替え、その後は手放すまで乗る。この世帯に合わせて直してください）`;
+const REPLACE_UNTIL_BASIS = `既定の値（${REPLACE_UNTIL_AGE}歳まで買い替え、その後は手放すまで乗る。この世帯に合わせて直してください）`;
 
 /**
  * 買い替えを変える（0101）。買い替え続けるは省略（replace を消す）。この1台だけは、手放す時期が空なら目安を推定で入れる。
@@ -601,7 +601,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
         level: "simple",
         kind: "yen",
         basis: "annual",
-        readOnly: `内訳で入れています（詳細で直せます）。車検は1回の額を周期でならしています${lease ? "。リース・長期レンタルの月額に含む分は数えません" : ""}`,
+        readOnly: `内訳で入れています（「詳細」で直せます）。車検は1回の額を周期でならしています${lease ? "。リース・長期レンタルの月額に含む分は数えません" : ""}`,
         get: (w) => {
           const x = car(w.request.input.household, w);
           return { value: x === undefined ? null : breakdownAnnual(x) };
@@ -687,7 +687,7 @@ function replaceFields(c: Car, i: number, k: string): FieldDef[] {
   };
   const help = [
     owned ? "今の車に乗り続けるときは、手放す時期まで買い替えずに乗ります" : "この1台だけのときは、買った後は手放す時期まで乗ります",
-    "「○歳まで買い替える」は詳細で選べます（最後の買い替えの後は、手放す時期まで乗ります）",
+    "「○歳まで買い替える」は「詳細」で選べます（最後の買い替えの後は、手放す時期まで乗ります）",
     ...(i > 0 ? ["2台目は、買い替えずにこの1台だけのことも多いです"] : []),
   ].join("。");
   const def = (key: string, level: Level, options: { value: string; label: string }[], simpleOnly: boolean): FieldDef =>
@@ -933,7 +933,7 @@ function leaseFields(c: Car, k: string, find: Finder, refreshUpkeep: (w: Working
           { value: "carLease", label: "カーリース" },
           { value: "longRental", label: "長期レンタル" },
         ],
-        help: "月額に含む物の既定が変わります（カーリース: 自動車税・自賠責と車検・メンテ、長期レンタル: それに保険も）。詳細で直せます",
+        help: "月額に含む物の既定が変わります（カーリース: 自動車税・自賠責と車検・メンテ、長期レンタル: それに保険も）。「詳細」で直せます",
         get: (w) => ({ value: leaseOf(w)?.type ?? null }),
         set: (w, v) =>
           refreshUpkeep(

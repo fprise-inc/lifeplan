@@ -322,7 +322,7 @@ export const standardLeaves = (child: Member): string => ageReachedMonth(child, 
 export const standardLeavesPoint = (childId: string): Timepoint => ({ memberAge: { member: childId, years: CHILD_LEAVES_AGE, ageSwitch: "schoolYear" } });
 
 /** 子の独立の標準の根拠の文（仮の印） */
-export const LEAVES_BASIS = "標準（最後の学校を出た翌月の4月。大学なら22歳の後の最初の4月）";
+export const LEAVES_BASIS = "既定（最後の学校を出た翌月の4月。大学なら22歳の後の最初の4月）";
 
 /**
  * 子の独立が、最後の学校の終わりに合わせて決める形（その子の年齢・学年の区切りの時点。standardLeavesPoint の形）か。

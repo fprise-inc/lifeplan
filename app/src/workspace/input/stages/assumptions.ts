@@ -1,7 +1,7 @@
 // 10. 前提条件（0070）: 物価上昇率・賃金上昇率・運用利回り・教育費の上昇率・年金のマクロ経済スライド（基礎・厚生）の年ごとの列の既定の値と
 // 例外の年（0008 の8・0040）、資産の種類ごとの利回り（と例外の年）、持ち家の評価の前提（土地の上昇率の例外の年を含む）、表の最後の年
 // （年か人の年齢で）・計算の基準の月と計算の決まり（読むだけ）、FP顧問料（単発・継続・料金の段階。stages/fees.ts）。
-// - 経済の前提の値は「FPライズの標準（仮の値）」の推定として見せる（標準と同じ値で、値の状態の行が無いとき。古い世帯も書き換えずに読む）。
+// - 経済の前提の値は「既定の値（仮の値）」の推定として見せる（標準と同じ値で、値の状態の行が無いとき。古い世帯も書き換えずに読む）。
 //   空欄にすると標準（教育費・厚生年金の調整率は、物価・基礎年金の調整率と同じ）に戻る。確定は「この値にする」だけ（0041）
 // - 高すぎる値の注意の線（運用利回りが年5%を超える・物価が0%未満か4%を超える・賃金が物価を2ポイント超えて上回る・資産の種類ごとの
 //   利回りが年8%を超える）は、欄の知らせと確かめの一覧の注意に出す（値は変えない）
@@ -22,8 +22,8 @@ import { GROWTH_RANGE, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../rateR
 type Obj = Record<string, unknown>;
 type Assumptions = NonNullable<WorkingHousehold["request"]["input"]["assumptions"]>;
 
-/** FPライズの標準（仮の値）の根拠の文（事務所の標準値ができるまで。0070） */
-export const STANDARD_BASIS = "FPライズの標準（仮の値。事務所で根拠を確かめて直す前提）";
+/** 既定の値（仮の値）の根拠の文（事務所の標準値ができるまで。0070） */
+export const STANDARD_BASIS = "既定の値（仮の値。事務所で根拠を確かめて直してください）";
 
 /** 経済の前提の標準の値（新しい世帯に入れる値と同じ。household.ts の DEFAULT_ASSUMPTIONS） */
 const STANDARD: Readonly<Record<string, string>> = {
@@ -125,7 +125,7 @@ function seriesField(name: string, label: string, help: string, level: "simple" 
       const s = seriesAt(wh, sp);
       const a = assumptionsOf(wh);
       const ex = s?.byYear !== undefined ? Object.keys(s.byYear).length : 0;
-      const derived = ex > 0 ? `例外の年 ${ex}年（詳細の「例外の年」で直します）` : null;
+      const derived = ex > 0 ? `例外の年 ${ex}年（「詳細」の「例外の年」で直します）` : null;
       const warn = rateWarning(name, a);
       if (follows !== undefined && s === undefined) {
         const v = (getPath(a, [follows.name, "default"]) as string | undefined) ?? null;
@@ -494,7 +494,7 @@ export function endYearNotice(wh: WorkingHousehold): string | null {
   const young = ad.reduce((a, b) => (a.birth.birthYearMonth > b.birth.birthYearMonth ? a : b));
   const age = ageInYear(young, end);
   if (age <= 105 && age >= 85) return null;
-  return `表の最後の年が${end}年（${memberLabel(wh, young.id)}${age}歳）です。標準（${std}年）にしますか`;
+  return `表の最後の年が${end}年（${memberLabel(wh, young.id)}${age}歳）です。既定（${std}年）にしますか`;
 }
 
 function endYearFields(wh: WorkingHousehold): FieldDef[] {
@@ -523,7 +523,7 @@ function endYearFields(wh: WorkingHousehold): FieldDef[] {
     optional: true,
     blankIsEstimate: true,
     address,
-    help: "標準は、ご本人・配偶者のうち若い方が100歳になる年（推定のままなら、家族の生年月を直すと合わせて変わります。確定にすると変わりません）。空にすると標準に戻します",
+    help: "既定は、ご本人・配偶者のうち若い方が100歳になる年（推定のままなら、家族の生年月を直すと合わせて変わります。確定にすると変わりません）。空にすると既定に戻します",
     get: (w) => {
       const h = w.request.input.household;
       const std = standardEndYear(h);
@@ -534,12 +534,12 @@ function endYearFields(wh: WorkingHousehold): FieldDef[] {
       const notice = endYearNotice(w);
       return {
         value: v,
-        hint: Number.isFinite(std) ? `${v === std ? "標準の年" : `標準は ${std}年`}${ages !== "" ? `（${ages}の年）` : ""}` : ages !== "" ? `${ages}の年` : null,
-        ...(Number.isFinite(std) && v === std ? { estimated: "標準の値（ご本人・配偶者のうち若い方が100歳になる年）" } : {}),
+        hint: Number.isFinite(std) ? `${v === std ? "既定の年" : `既定は ${std}年`}${ages !== "" ? `（${ages}の年）` : ""}` : ages !== "" ? `${ages}の年` : null,
+        ...(Number.isFinite(std) && v === std ? { estimated: "既定の値（ご本人・配偶者のうち若い方が100歳になる年）" } : {}),
         ...(notice !== null
           ? {
               warn: notice,
-              warnFix: { label: `標準（${std}年）にする`, run: toStandard },
+              warnFix: { label: `既定（${std}年）にする`, run: toStandard },
             }
           : {}),
       };
@@ -660,7 +660,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
     {
       key: "assume/main",
       title: "経済の前提",
-      note: `${std > 0 ? `前提は FPライズの標準（仮の値）で計算中です（${std}つ）。` : ""}事務所の標準値（設定）はまだありません。入れる額は計算の基準の年の値段で、物価で伸びます`,
+      note: `${std > 0 ? `前提は既定の値（仮の値）で計算中です（${std}つ）。` : ""}事務所の既定値（設定）はまだありません。入れる額は計算の基準の年の値段で、物価で伸びます`,
       level: "simple",
       groups: [
         {
@@ -688,7 +688,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
     {
       key: "assume/exceptions",
       title: "例外の年（経済の前提）",
-      note: "決まった年だけ違う率にします（例: 2026〜2028年は物価3%）。続いた年で同じ率は1つの範囲にまとめて見せます。標準の入れ方の率を直しても、例外の年はそのままです",
+      note: "決まった年だけ違う率にします（例: 2026〜2028年は物価3%）。続いた年で同じ率は1つの範囲にまとめて見せます。ふだんの年の率を直しても、例外の年はそのままです",
       level: "detail",
       groups: exGroups,
       actions: exAdds,

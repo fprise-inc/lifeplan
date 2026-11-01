@@ -2191,7 +2191,7 @@
         "payer": { "title": "払う構成員（個人が払う分は所得から差し引かない）", "x-item": "advisoryFee.payer", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "enabled": { "title": "この案で計算に入れるか（省略は入れる。案ごとに ON/OFF）", "x-item": "advisoryFee.enabled", "type": "boolean" },
         "menu": {
-          "title": "事務所の標準の料金表から写したときのメニュー",
+          "title": "事務所の既定の料金表から写したときのメニュー",
           "x-item": "advisoryFee.menu",
           "type": "object",
           "additionalProperties": false,

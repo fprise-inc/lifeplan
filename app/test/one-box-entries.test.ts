@@ -38,7 +38,7 @@ function boxes(html: string): Box[] {
     const attrs = m[3] ?? "";
     const cls = /class="([^"]*)"/.exec(attrs)?.[1] ?? "";
     const box = m[2] === "div" && /(^| )in-group( |$)/.test(cls);
-    // 口座の行の「▸ 詳しく」で開く行（sv-more-row）は、その口座の枠
+    // 口座の行の「▸ 続きを見る」で開く行（sv-more-row）は、その口座の枠
     const frame = box || (m[2] === "tr" && /(^| )sv-more-row( |$)/.test(cls));
     if (box) out.push({ key: /data-group="([^"]*)"/.exec(attrs)?.[1] ?? "", sub: /(^| )in-sub( |$)/.test(cls), inside: depth > 0 });
     if (frame) depth++;

@@ -165,7 +165,7 @@ describe("事務所の既定値（新しい世帯で出す入力項目と、開�
     expect(html).toMatch(/class="on" aria-pressed="true" data-office-level="insurance:detail"/);
     expect(html).not.toContain("最初の5");
     expect(html).not.toContain("data-office-first");
-    expect(html).toContain("標準の並びに戻す");
+    expect(html).toContain("既定の並びに戻す");
     expect(html).toContain("data-office-up=");
   });
 });

@@ -398,7 +398,7 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
             const ym = tp === null ? null : resolveTimepoint(w.request.input.household, tp);
             if (tp === null) return "空にはできません。年齢を入れてください";
             if (ym === null) return null;
-            if (ageBefore(m, ym) === null) return `定年は「○歳になる前の月まで」で決めます（${formatYearMonth(ym)}は${ageAt(m, ym)}歳の途中です）。月まで決めるときは、詳細の「働き方 1・2…」の終わりで入れてください`;
+            if (ageBefore(m, ym) === null) return `定年は「○歳になる前の月まで」で決めます（${formatYearMonth(ym)}は${ageAt(m, ym)}歳の途中です）。月まで決めるときは、「詳細」の「働き方 1・2…」の終わりで入れてください`;
             const age = ageBefore(m, ym) as number;
             return age < 40 || age > 80 ? "定年は40歳〜80歳の範囲で入れてください" : null;
           },
@@ -476,7 +476,7 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
         nullText: "終わりを決めていない（最後まで）",
         read: (w) => lastEnd(w),
         check: (w, tp) => {
-          if (tp === null) return "空にはできません（終わりを外すときは、詳細の「働き方 1・2…」の終わりで）";
+          if (tp === null) return "空にはできません（終わりを外すときは、「詳細」の「働き方 1・2…」の終わりで）";
           const ym = resolveTimepoint(w.request.input.household, tp);
           if (ym === null) return null;
           const age = ageAt(m, addMonths(ym, 1));
@@ -886,7 +886,7 @@ function salaryTotalField(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, 
       basis: "annual",
       optional: true,
       blankIsEstimate: true,
-      help: "源泉徴収票の支払金額（給与と賞与の合計）。賞与の内訳は詳細の「働き方 1・2…」で直せます（入れていなければ統計の割合で分けます）。空欄なら統計の平均で計算します",
+      help: "源泉徴収票の支払金額（給与と賞与の合計）。賞与の内訳は「詳細」の「働き方 1・2…」で直せます（入れていなければ統計の割合で分けます）。空欄なら統計の平均で計算します",
       get: (w) => {
         const { a, b } = boxes(w);
         const bv = boxValue(b);
@@ -999,7 +999,7 @@ function leaveEndField(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, fin
     monthOnly: PERIOD_MONTH_ONLY,
     optional: true,
     nullText: "戻る時期を決めていない",
-    help: "入れると、翌月から休業の前と同じ働き方に戻ります（戻った後の働き方は、詳細の「働き方 1・2…」で直せます）",
+    help: "入れると、翌月から休業の前と同じ働き方に戻ります（戻った後の働き方は、「詳細」の「働き方 1・2…」で直せます）",
     after: (h, t) => {
       const x = t as unknown as EmploymentPeriod;
       const end = x.to?.at;

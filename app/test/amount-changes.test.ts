@@ -142,7 +142,7 @@ describe("足した変化の並びと置き場所", () => {
     expect(likely).toBeLessThan(cost);
   });
 
-  it("標準: 閉じている間は出さず、「▸ 詳しく」を開くと行のまとまりの中に出る（開いた物の印 data-more-of つき）", () => {
+  it("標準: 閉じている間は出さず、「▸ 続きを見る」を開くと行のまとまりの中に出る（開いた物の印 data-more-of つき）", () => {
     const { wh, id } = sideJob();
     const w = act(wh, "work", `in/${id}/addException`);
     expect(panel(w, "work", "simple")).not.toContain("年額の変化（");
@@ -167,7 +167,7 @@ describe("足した変化の並びと置き場所", () => {
     expect(growth).toBeGreaterThan(0);
     expect(growth).toBeLessThan(change);
     expect(groupsOf(buildStage("housing", w)).find((g) => g.key === k)?.note).toContain(`${what}の変化 1件`);
-    // 標準で「▸ 詳しく」を開いたとき: 変動率の欄は開いた中身の中にあるので、変化もその中（変動率の欄の後）に描く
+    // 標準で「▸ 続きを見る」を開いたとき: 変動率の欄は開いた中身の中にあるので、変化もその中（変動率の欄の後）に描く
     const opened = panel(w, "housing", "simple", [k]);
     const body = opened.indexOf(`<div class="grp-more-body" data-more-of="${k}">`);
     const g2 = opened.indexOf(`id="${fieldDomId(`${k}/maintGrowth`)}"`);

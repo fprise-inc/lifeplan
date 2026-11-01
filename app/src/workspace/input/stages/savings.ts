@@ -128,7 +128,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
         kind: "pct",
         ...RETURN_RANGE,
         optional: true,
-        help: "1年あたりの見込みの利回りを、信託報酬などの費用を引いた後で入れます。空欄なら、資産の配分や前提条件の目安の利回りで計算します（費用を別に入れる形は詳細で）",
+        help: "1年あたりの見込みの利回りを、信託報酬などの費用を引いた後で入れます。空欄なら、資産の配分や前提条件の目安の利回りで計算します（費用を別に入れる形は「詳細」で）",
         get: (w) => {
           const x = find(w.request.input.household, w) as Account | undefined;
           return { value: x?.expectedReturn ?? null, ...(x !== undefined && x.expectedReturn === undefined ? { hint: `空欄: 年${(Number(rateOf(w.request, x)) * 100).toFixed(1)}%` } : {}) };

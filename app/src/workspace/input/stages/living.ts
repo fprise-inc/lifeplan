@@ -553,7 +553,7 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
   );
   const stages = l.stages ?? [];
   const autoCount = stages.filter((s) => s.id !== undefined && isAutoStage(l, s.id)).length;
-  const badge = stages.length === 0 ? null : `この後 ${stages.length}段${autoCount > 0 ? `（推定 ${autoCount}段）` : ""}。詳細で直せます`;
+  const badge = stages.length === 0 ? null : `この後 ${stages.length}段${autoCount > 0 ? `（推定 ${autoCount}段）` : ""}。「詳細」で直せます`;
   const groups: GroupDef[] = [
     {
       key,
