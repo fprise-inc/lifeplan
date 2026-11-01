@@ -1,5 +1,5 @@
 // 提案書の帳票の入力（0009 の9）を組み立てる部品の入口
-export { buildProposalInput, displayYears, percent, roles } from "./build.ts";
+export { buildProposalInput, displayYears, E_REPORT_NO_YEARS, percent, roles } from "./build.ts";
 export type { EngineOutput, InvestmentMaterial, ProposalBundle, RealEstateAnalysis, RealEstateAnalysisProperty, RealEstateAnalysisTotal, RealEstateAnalysisYear, Run, TableCell } from "./bundle.ts";
 export { pctText, timesText } from "./rentalText.ts";
 export { saleCompareOf, saleVariantRequest, saleVariants, type SaleCompare, type SaleCompareRow, type SaleResult, type SaleVariant, type SaleVariantKey } from "./rentalSale.ts";
