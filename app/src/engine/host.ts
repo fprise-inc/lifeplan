@@ -263,6 +263,37 @@ export interface OfficeStatus {
  * kind: needsRecovery・recoveryNotKept・unavailable（code に理由）・closed・removed・pending・recoveryJoin（name・at）・
  * joinRequest（count）・localHouseholds（count）・syncCopies（count）
  */
+/** 機能を有効にするコード（0110）の1つ。本体が署名を確かめた中身（この版のアプリが知っている機能だけ）。コードの文字列は返さない */
+export interface FeatureCodeView {
+  /** 外すときに指す短い印 */
+  ref: string;
+  /** コードの番号 */
+  id: string;
+  /** FP の表示名（「○○さん向けに有効」） */
+  name: string;
+  /** 有効にする機能の名前（例: combinedBs） */
+  features: string[];
+  issued: string;
+  /** 期限（YYYY-MM-DD。この日の終わりまで。日本の日付） */
+  expires: string;
+  /** 期限内・期限まで30日以内（更新の知らせ）・切れた */
+  state: "active" | "expiring" | "expired";
+  /** 期限までの日数（期限の日は 0。切れたら負） */
+  daysLeft: number;
+}
+
+/** 機能を有効にするコードの状態（0110。本体が確かめる。画面は出すだけ） */
+export interface FeatureStatus {
+  /** 判定に使った今日（日本の日付） */
+  today: string;
+  /** 今使える機能（期限内のコードのどれかに入っている機能） */
+  active: string[];
+  /** 入れたコード（期限の遅い順） */
+  codes: FeatureCodeView[];
+  /** 確かめられなかったコード（鍵を差し替えた後の古いコードなど。外せる） */
+  invalid: { ref: string; error: string }[];
+}
+
 export interface StorageNotice {
   kind: string;
   level: "info" | "warn" | "alert";
@@ -299,6 +330,12 @@ export interface OfficeHost {
   defaults(): Promise<unknown>;
   /** 事務所の既定値を置き換える */
   putDefaults(value: Record<string, unknown>): Promise<void>;
+  /** 機能を有効にするコード（0110）の状態。本物か・期限内かは本体が確かめる */
+  featureStatus(): Promise<FeatureStatus>;
+  /** コードを入れる（本物で期限内のものだけ。断るときは E_FEATURE_CODE_… の符号） */
+  addFeatureCode(code: string): Promise<FeatureStatus>;
+  /** コードを外す（ref は状態の印） */
+  removeFeatureCode(ref: string): Promise<FeatureStatus>;
   /** 保存先を同期フォルダにする（1人で複数の PC。0024）。本体がフォルダのダイアログを出す（選ばなかったら null）。name はこの PC の呼び名 */
   syncStart(name: string): Promise<OfficeStatus | null>;
   /** 2台目の PC: すでに使っている同期フォルダを、本体のダイアログで選び、復元キーで開く（選ばなかったら null） */
@@ -598,6 +635,9 @@ export function tauriHost(): HostApi {
       dismissNotices: () => invoke<OfficeStatus>("office_dismiss_notices"),
       defaults: () => invoke<unknown>("office_defaults_get"),
       putDefaults: (value) => invoke<void>("office_defaults_put", { value }),
+      featureStatus: () => invoke<FeatureStatus>("feature_codes_status"),
+      addFeatureCode: (code) => invoke<FeatureStatus>("feature_code_add", { code }),
+      removeFeatureCode: (ref) => invoke<FeatureStatus>("feature_code_remove", { codeRef: ref }),
       syncStart: (name) => invoke<OfficeStatus | null>("storage_sync_start", { name }),
       syncOpen: (name, key) => invoke<OfficeStatus | null>("storage_sync_open", { name, key }),
       syncEnd: (confirm) => invoke<OfficeStatus>("storage_sync_end", { confirm }),
@@ -790,6 +830,9 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       dismissNotices: async () => devJson<OfficeStatus>(await devOffice("dismissNotices")),
       defaults: async () => devJson<unknown>(await devOffice("defaultsGet")),
       putDefaults: async (value) => void (await devJson<unknown>(await devOffice("defaultsPut", { value }))),
+      featureStatus: async () => devJson<FeatureStatus>(await devOffice("featureStatus")),
+      addFeatureCode: async (code) => devJson<FeatureStatus>(await devOffice("featureAdd", { code })),
+      removeFeatureCode: async (ref) => devJson<FeatureStatus>(await devOffice("featureRemove", { ref })),
       syncStart: async (name) => devJson<OfficeStatus | null>(await devOffice("syncStart", { name })),
       syncOpen: async (name, key) => devJson<OfficeStatus | null>(await devOffice("syncOpen", { name, key })),
       syncEnd: async (confirm) => devJson<OfficeStatus>(await devOffice("syncEnd", { confirm })),

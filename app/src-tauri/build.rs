@@ -69,6 +69,10 @@ const COMMANDS: &[&str] = &[
     // 0073: 事務所の既定値（事務所データに暗号化して持つ。JSON のオブジェクトだけ）
     "office_defaults_get",
     "office_defaults_put",
+    // 0110: 機能を有効にするコード（入れる・外す・今の状態。確かめるのは本体。コードの文字列は画面に返さない）
+    "feature_codes_status",
+    "feature_code_add",
+    "feature_code_remove",
     "store_fork_info",
     "store_fork_resolve",
     "store_sync_copies_resolve",
@@ -140,6 +144,67 @@ fn feedback_form(toml: &str) -> String {
     panic!("config/distribution.toml に [feedback] の form がありません");
 }
 
+/// 配布元の設定の `[keys]` の `feature_code`（機能を有効にするコードの公開鍵。0110）。1行の配列（`feature_code = ["鍵の名前:公開鍵", …]`）だけを読む。
+/// 形（鍵の名前は英小文字・数字・「-」、公開鍵は 32バイトの base64url の43文字）を確かめる。中身の鍵としての確かめは本体の起動のとき
+fn feature_code_keys(toml: &str) -> Vec<String> {
+    let mut in_section = false;
+    for line in toml.lines() {
+        let t = line.trim();
+        if t.starts_with('[') {
+            in_section = t == "[keys]";
+            continue;
+        }
+        if !in_section {
+            continue;
+        }
+        let Some(rest) = t.strip_prefix("feature_code") else {
+            continue;
+        };
+        let v = rest
+            .trim_start()
+            .strip_prefix('=')
+            .map(str::trim)
+            .unwrap_or("");
+        let inner = v
+            .strip_prefix('[')
+            .and_then(|x| x.strip_suffix(']'))
+            .unwrap_or_else(|| {
+                panic!("config/distribution.toml: [keys] の feature_code は1行の [\"…\"] で書く")
+            });
+        let keys: Vec<String> = inner
+            .split(',')
+            .map(str::trim)
+            .filter(|x| !x.is_empty())
+            .map(|x| {
+                x.strip_prefix('"')
+                    .and_then(|y| y.strip_suffix('"'))
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "config/distribution.toml: [keys] の feature_code の値は \"…\" で書く"
+                        )
+                    })
+                    .to_owned()
+            })
+            .collect();
+        for k in &keys {
+            let ok = k.split_once(':').is_some_and(|(kid, b)| {
+                (1..=16).contains(&kid.len())
+                    && kid
+                        .bytes()
+                        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
+                    && b.len() == 43
+                    && b.bytes()
+                        .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+            });
+            if !ok {
+                panic!("config/distribution.toml: [keys] の feature_code の {k:?} は「鍵の名前:公開鍵（base64url の43文字）」の形にする");
+            }
+        }
+        return keys;
+    }
+    vec![]
+}
+
 fn main() {
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     let repo = manifest_dir.join("../..").canonicalize().unwrap();
@@ -190,6 +255,17 @@ fn main() {
     std::fs::write(
         out_dir.join("distribution.rs"),
         format!("/// 要望・不具合のフォームの URL のひな形（config/distribution.toml の [feedback] の form）\npub const FEEDBACK_FORM: &str = {form:?};\n"),
+    )
+    .unwrap();
+
+    // 0110: 機能を有効にするコードの公開鍵（config/distribution.toml の [keys] の feature_code から写す）
+    let toml = std::fs::read_to_string(&dist).unwrap();
+    std::fs::write(
+        out_dir.join("feature_keys.rs"),
+        format!(
+            "/// 機能を有効にするコードの公開鍵（config/distribution.toml の [keys] の feature_code。「鍵の名前:公開鍵」）\npub const FEATURE_CODE_KEYS: &[&str] = &{:?};\n",
+            feature_code_keys(&toml)
+        ),
     )
     .unwrap();
 

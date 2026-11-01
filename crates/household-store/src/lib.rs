@@ -158,6 +158,8 @@ impl StoreError {
     pub const STATEMENT_DICT: StoreError = StoreError("E_STORE_STATEMENT_DICT");
     /// 事務所の既定値の形が合わない（JSON のオブジェクトでない・大きすぎる。0073）
     pub const OFFICE_DEFAULTS: StoreError = StoreError("E_STORE_OFFICE_DEFAULTS");
+    /// 機能を有効にするコードの数・長さ・形が合わない（0110）
+    pub const FEATURE_CODES: StoreError = StoreError("E_STORE_FEATURE_CODES");
     // ---- 1人の FP が複数の PC で使う同期フォルダ（0024） ----
     /// 保存先を同期フォルダにする前に、復元キーを保管する（2台目の PC で開くときに要る。0013 の3）
     pub const SYNC_RECOVERY_REQUIRED: StoreError = StoreError("E_SYNC_RECOVERY_REQUIRED");
