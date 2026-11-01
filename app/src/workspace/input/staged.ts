@@ -218,7 +218,7 @@ export function stagedGroups(wh: WorkingHousehold, spec: StagedSpec): GroupDef[]
       },
       byRatio
         ? { ...plain({ key: `${k}/ratio`, item: spec.stages.item, label: `${spec.what}（今の額に対する割合）`, level: LEVEL, kind: "pct", find, path: ["ratio"] }), address: () => ad(["ratio"]) }
-        : { ...yenBox({ key: `${k}/amount`, item: spec.stages.item, label: `${spec.what}（この段から）`, level: LEVEL, basis: spec.basis, find, path: ["amount"], help: "今の価格で入れます（変動率はこの額にもそのまま当てます）" }), address: () => ad(["amount"]) },
+        : { ...yenBox({ key: `${k}/amount`, item: spec.stages.item, label: `${spec.what}（この段から）`, level: LEVEL, basis: spec.basis, find, path: ["amount"], help: "今の価格で入れます（変動率はこの額にもそのまま掛けます）" }), address: () => ad(["amount"]) },
     ];
     if (n < stages.length - 1) fields.push(rampField(`${k}/ramp`, spec.stages.item, find, ad(["rampYears"])));
     return {
@@ -500,7 +500,7 @@ export function allocationStageGroups(wh: WorkingHousehold, o: { ageOf?: (h: Hou
   groups.push({
     key: "sav/alloc/staged",
     level: LEVEL,
-    note: stages.length === 0 ? "年齢・時期で資産の割合を変えるとき（「55歳から株を減らす」など）は、資産配分の段階を足します。段の時点の属する年から、運用する口座すべてに当てます" : `資産配分の段階 ${stages.length}段`,
+    note: stages.length === 0 ? "年齢・時期で資産の割合を変えるとき（「55歳から株を減らす」など）は、資産配分の段階を足します。段の時点の年から、運用する口座すべてで使います" : `資産配分の段階 ${stages.length}段`,
     fields: [],
     actions: [
       {

@@ -654,12 +654,12 @@
         },
         "student": { "title": "学生か（短時間労働者の適用拡大・雇用保険の対象から外れる）", "x-item": "employment.student", "type": "boolean" },
         "employeeInsurance": {
-          "title": "上書き: 被用者保険（健康保険・厚生年金）に入るか（省略はエンジンが働き方から導く）",
+          "title": "被用者保険（健康保険・厚生年金）に入るか（省略は働き方から決める）",
           "x-item": "employment.employeeInsurance",
           "$ref": "urn:financia:schema:common#/$defs/boxBoolean"
         },
         "employmentInsuranceCovered": {
-          "title": "上書き: 雇用保険の被保険者か（省略はエンジンが週の所定労働時間などから導く）",
+          "title": "雇用保険の被保険者か（省略は週の所定労働時間などから決める）",
           "x-item": "employment.employmentInsuranceCovered",
           "type": "boolean"
         },
@@ -1846,11 +1846,11 @@
         "growth": { "title": "伸び方（省略は前提の物価上昇率）", "x-item": "periodicExpense.growth", "$ref": "#/$defs/growth" },
         "stages": { "title": "1回の額の段階（0040。その時点から額を変える。段の数に上限なし）", "x-item": "periodicExpense.stages", "type": "array", "items": { "$ref": "#/$defs/amountStage" } },
         "exceptions": { "title": "例外の年（0040。その年の支払いだけ別の額・0円）", "x-item": "periodicExpense.exceptions", "type": "array", "items": { "$ref": "#/$defs/amountException" } },
-        "onContingency": { "title": "万一のときの扱い（払う人を入れたときは、その人の万一だけに当てる）", "x-item": "periodicExpense.onContingency", "$ref": "#/$defs/onContingency" },
+        "onContingency": { "title": "万一のときの扱い（払う人を入れたときは、その人の万一だけが該当）", "x-item": "periodicExpense.onContingency", "$ref": "#/$defs/onContingency" },
         "monthly": { "title": "額は月額（最初の月から終わりの月まで毎月。何年ごとは1だけ。0044）", "x-item": "periodicExpense.monthly", "type": "boolean" },
         "kind": { "title": "出るお金の種類（表示と表の行の既定。計算はあげる贈与 gift と、世帯の外の子への養育費・仕送りの行がある間の扶養の判定が変える。0044）", "x-item": "periodicExpense.kind", "$ref": "#/$defs/moneyOutKind" },
         "counterparty": { "title": "相手（誰へ。構成員。多くは世帯の外の家族。0044）", "x-item": "periodicExpense.counterparty", "$ref": "urn:financia:schema:common#/$defs/uuid" },
-        "payer": { "title": "払う人（世帯の中の構成員。万一のときの扱いは、この人の万一だけに当てる。省略は世帯。0044）", "x-item": "periodicExpense.payer", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "payer": { "title": "払う人（世帯の中の人。万一のときの扱いは、この人の万一だけが該当。省略は世帯）", "x-item": "periodicExpense.payer", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "priority": { "title": "優先度（必要・希望・夢。計算には使わない。0044）", "x-item": "periodicExpense.priority", "$ref": "#/$defs/priority" },
         "dream": {
           "title": "夢プラン（種類 dream の行だけ。順位・計算に入れるか〔省略は入れる〕・ひとことメモ。計算には使わない。画面が計算に入れない夢を要求から外す。0103）",
@@ -1953,7 +1953,7 @@
         "growth": { "title": "伸び方（省略は前提の物価上昇率）", "x-item": "incomeFlow.growth", "$ref": "#/$defs/growth" },
         "stages": { "title": "1回の額の段階（0040 と同じ形）", "x-item": "incomeFlow.stages", "type": "array", "items": { "$ref": "#/$defs/amountStage" } },
         "exceptions": { "title": "例外の年（0040 と同じ形。その年の受け取りだけ別の額・0円）", "x-item": "incomeFlow.exceptions", "type": "array", "items": { "$ref": "#/$defs/amountException" } },
-        "onContingency": { "title": "万一のときの扱い（受け取る人を入れたときは、その人の万一だけに当てる）", "x-item": "incomeFlow.onContingency", "$ref": "#/$defs/onContingency" },
+        "onContingency": { "title": "万一のときの扱い（受け取る人を入れたときは、その人の万一だけが該当）", "x-item": "incomeFlow.onContingency", "$ref": "#/$defs/onContingency" },
         "recipient": { "title": "受け取る人（世帯の中の構成員。省略は世帯。課税の扱いのある行の税は、省略なら本人）", "x-item": "incomeFlow.recipient", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "counterparty": { "title": "相手（誰から。構成員。多くは世帯の外の家族）", "x-item": "incomeFlow.counterparty", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "likelihood": { "title": "見込み（計算には使わない。不確かな受け取る相続・贈与は、アプリが要求から外す。0035 の7・0036 の6）", "x-item": "incomeFlow.likelihood", "$ref": "#/$defs/likelihood" },
@@ -2125,7 +2125,7 @@
           "enum": ["total", "detail"]
         },
         "growth": { "title": "価格・維持費の伸び方（省略は前提の物価上昇率）", "x-item": "car.growth", "$ref": "#/$defs/growth" },
-        "onContingency": { "title": "万一のときの扱い（万一の月の翌月からの買い替え・維持費に当てる。組んだローンの返済は続く）", "x-item": "car.onContingency", "$ref": "#/$defs/onContingency" }
+        "onContingency": { "title": "万一のときの扱い（万一の月の翌月からの買い替え・維持費が対象。組んだローンの返済は続く）", "x-item": "car.onContingency", "$ref": "#/$defs/onContingency" }
       }
     },
     "advisoryFeeTerms": {

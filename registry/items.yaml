@@ -403,7 +403,7 @@ entries:
     path: [loan]
   - id: car.onContingency
     status: active
-    label: "万一のときの扱い（万一の月の翌月からの買い替え・維持費に当てる。組んだローンの返済は続く）"
+    label: "万一のときの扱い（万一の月の翌月からの買い替え・維持費が対象。組んだローンの返済は続く）"
     since: draft
     aliases: []
     replacedBy: null
@@ -955,7 +955,7 @@ entries:
     path: [elderlyContinuationClaim]
   - id: employment.employeeInsurance
     status: active
-    label: "上書き: 被用者保険（健康保険・厚生年金）に入るか（省略はエンジンが働き方から導く）"
+    label: "被用者保険（健康保険・厚生年金）に入るか（省略は働き方から決める）"
     since: draft
     aliases: []
     replacedBy: null
@@ -995,7 +995,7 @@ entries:
     path: [employer, weeklyHours]
   - id: employment.employmentInsuranceCovered
     status: active
-    label: "上書き: 雇用保険の被保険者か（省略はエンジンが週の所定労働時間などから導く）"
+    label: "雇用保険の被保険者か（省略は週の所定労働時間などから決める）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1347,7 +1347,7 @@ entries:
     path: [monthly]
   - id: incomeFlow.onContingency
     status: active
-    label: "万一のときの扱い（受け取る人を入れたときは、その人の万一だけに当てる）"
+    label: "万一のときの扱い（受け取る人を入れたときは、その人の万一だけが該当）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1843,7 +1843,7 @@ entries:
     path: [monthly]
   - id: periodicExpense.onContingency
     status: active
-    label: "万一のときの扱い（払う人を入れたときは、その人の万一だけに当てる）"
+    label: "万一のときの扱い（払う人を入れたときは、その人の万一だけが該当）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1851,7 +1851,7 @@ entries:
     path: [onContingency]
   - id: periodicExpense.payer
     status: active
-    label: "払う人（世帯の中の構成員。万一のときの扱いは、この人の万一だけに当てる。省略は世帯。0044）"
+    label: "払う人（世帯の中の人。万一のときの扱いは、この人の万一だけが該当。省略は世帯）"
     since: draft
     aliases: []
     replacedBy: null

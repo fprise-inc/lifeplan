@@ -149,7 +149,7 @@ export function DiffList({ rows, wh, planId, cat, onEdit, onOpen }: { rows: read
   }
   const line = (r: DiffRow) => (
     <li key={r.key} class={`dl-row${r.enabled ? "" : " off"}${r.cause !== null ? " follower" : ""}${REVIEW_FIRST(r) ? " review" : ""}`} data-diff-row={r.key} data-diff-kind={r.kind}>
-      <label class="dl-on" title={r.inherited ? "土台のプランの差分は、土台のプランでオン・オフします" : "オフにすると、この差分を当てずに計算します（差分は残ります）"}>
+      <label class="dl-on" title={r.inherited ? "土台のプランの差分は、土台のプランでオン・オフします" : "オフにすると、この差分を入れずに計算します（差分は残ります）"}>
         <input type="checkbox" checked={r.enabled} disabled={r.inherited} onChange={(e) => onEdit(toggleRow(wh, planId, r, (e.currentTarget as HTMLInputElement).checked))} data-diff-toggle />
         <span class="sr">{r.enabled ? "オン" : "オフ"}</span>
       </label>

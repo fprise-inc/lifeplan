@@ -281,7 +281,7 @@ export function bonusShareEstimate(type: string, sex: string, total: number, opt
   if (e === null) return null;
   const sum = e.annual.value + e.bonus.value;
   const value = sum === 0 ? 0 : Math.round((total * e.bonus.value) / sum / 1000) * 1000;
-  return { value, basis: `年収に、給与と賞与の目安の賞与の割合を当てた目安（${e.bonus.basis}）` };
+  return { value, basis: `年収に、給与と賞与の目安の賞与の割合を掛けた目安（${e.bonus.basis}）` };
 }
 
 // ---- 事業所得 ----
@@ -297,7 +297,7 @@ export function businessEstimate(): Estimate {
 
 // ---- 標準報酬月額 ----
 
-const SMR_BASIS = "年収（賞与を除く）÷12 を標準報酬月額の等級表に当てた目安";
+const SMR_BASIS = "年収（賞与を除く）÷12 から標準報酬月額の等級表で決めた目安";
 
 /**
  * 標準報酬月額の目安（健康保険・厚生年金）: 年収（賞与を除く）÷12 を、その月（YYYY-MM）の等級表（制度データ）に当てた額。
