@@ -110,13 +110,13 @@ describe("夢プランの区画（ライフイベントの入力項目のいち�
     // ひとことメモと計算に入れる
     const note = g.fields.find((f) => f.key.endsWith("/dreamNote"))!;
     const inc = g.fields.find((f) => f.key.endsWith("/dreamInclude"))!;
-    // 選び方は「最初から計算に入れる」「計算に入れない」の2つ（世帯ファイルは今までどおり真偽）
-    expect(inc.kind === "select" ? inc.options.map((o) => o.label) : []).toEqual(["最初から計算に入れる", "計算に入れない"]);
+    // 選び方は「最初から計算に入れる」「最初から計算に入れない」の2つ（世帯ファイルは今までどおり真偽）
+    expect(inc.kind === "select" ? inc.options.map((o) => o.label) : []).toEqual(["最初から計算に入れる", "最初から計算に入れない"]);
     expect(inc.get(wh).value).toBe("include");
     const w2 = inc.set(note.set(wh, "子どものころからの夢"), "exclude");
     expect(inc.get(w2).value).toBe("exclude");
     expect(dreamsOf(w2)[1]!.dream).toEqual({ rank: 2, note: "子どものころからの夢", include: false });
-    expect(groupOf(w2, ids[1]).title).toMatch(/（計算に入れない）$/u);
+    expect(groupOf(w2, ids[1]).title).toMatch(/（最初から計算に入れない）$/u);
     // 入れるに戻すと、省略（入れる）に戻る
     expect(dreamsOf(inc.set(w2, "include"))[1]!.dream).toEqual({ rank: 2, note: "子どものころからの夢" });
   });

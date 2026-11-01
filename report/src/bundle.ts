@@ -187,7 +187,7 @@ export interface ProposalBundle {
    */
   balancePoints?: { year: number; name: string | null }[];
   /**
-   * 会社と合わせたバランスシート（法人の顧問向けの機能。0107）: 世帯ファイルの会社の入力と、現状の今の年の家計のバランスシート
+   * 会社と合わせたバランスシート（法人経営者向けの機能。0107）: 世帯ファイルの会社の入力と、現状の今の年の家計のバランスシート
    * （資産と負債のタブと同じ値）・毎月の固定の支出（生活費＋ローン返済の月額）・連帯保証の額。FP が使うと決め、章を選んだときだけ
    */
   combinedBs?: { input: CombinedBsInput; household: CombinedHousehold };

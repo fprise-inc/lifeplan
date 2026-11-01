@@ -1,4 +1,4 @@
-// 会社と合わせたバランスシート（合算BS。法人の顧問向けの機能。0107）の部品と、提案書の章
+// 会社と合わせたバランスシート（合算BS。法人経営者向けの機能。0107）の部品と、提案書の章
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";

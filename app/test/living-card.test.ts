@@ -298,14 +298,14 @@ describe("総額と内訳（0048 の2・0100）", () => {
     for (const c of ["food", "communication", "transit", "furniture", "clothing", "health", "recreation", "pocketAndSocial", "other"]) expect(help(c), c).not.toContain("重なる");
   });
 
-  it("医療費の内訳の説明: 70歳・80歳からは推定の段階で生活費の全体が下がる（窓口負担・行の足し方は書かない。0106）", () => {
+  it("医療費の内訳の説明: 例だけ（窓口負担・行の足し方・推定の段階のことは書かない。0106）", () => {
     let wh = family();
     const id = living(wh).id;
     wh = fieldOf(wh, `living/${id}/mode`).set(wh, "byCategory");
     const i = living(wh).categories!.findIndex((c) => c.category === "health");
     const f = fieldOf(wh, `living/${id}/cat/${i}`);
     expect(f.level).toBe("simple");
-    expect(f.help).toBe("通院・薬・サプリ・メガネ・コンタクトなど。70歳・80歳からは、推定の段階で生活費の全体が下がります");
+    expect(f.help).toBe("通院・薬・サプリ・メガネ・コンタクトなど");
   });
 });
 
