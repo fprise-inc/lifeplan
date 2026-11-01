@@ -93,6 +93,30 @@ describe("分岐の「両方を残す」", () => {
     expect((JSON.parse(m.body) as { snapshots?: unknown }).snapshots).toBeUndefined();
   });
 
+  it("足したプランの土台が写しにしたプランなら、土台も写しに向け直す（こちらで作ったときの土台の中身のまま）", () => {
+    const theirs = JSON.stringify({ household: {}, proposals: [{ id: "p1", title: "プランB", base: null, n: 1 }, { id: "p2", title: "プランC", base: "p1", n: 2 }, { id: "p4", title: "プランE", base: "p1", n: 4 }] });
+    const ours = JSON.stringify({
+      household: {},
+      proposals: [
+        { id: "p1", title: "プランB", base: null, n: 9 },
+        { id: "p2", title: "プランC", base: "p1", n: 2 },
+        { id: "p3", title: "プランD", base: "p1", n: 3 },
+        { id: "p4", title: "プランE", base: "p1", n: 8 },
+      ],
+    });
+    let i = 0;
+    const b = JSON.parse(mergeForkBodies(theirs, ours, () => `new${++i}`).body) as { proposals: { id: string; title: string; base: string | null }[] };
+    const of = (id: string) => b.proposals.find((p) => p.id === id)!;
+    expect(b.proposals.map((p) => p.id)).toEqual(["p1", "p2", "p4", "new1", "p3", "new2"]);
+    // こちらにだけあるプランD・写しのプランE（こちらの分岐）は、プランB（こちらの分岐）を土台にする
+    expect(of("p3").base).toBe("new1");
+    expect(of("new2")).toMatchObject({ title: "プランE（こちらの分岐）", base: "new1" });
+    expect(of("new1")).toMatchObject({ title: "プランB（こちらの分岐）", base: null });
+    // 相手のプランは相手の土台のまま
+    expect(of("p2").base).toBe("p1");
+    expect(of("p4").base).toBe("p1");
+  });
+
   it("控えは両方の分岐のものを残す（作った後は変えないので、同じ ID は1つ）", () => {
     const theirs = JSON.stringify({ household: {}, proposals: [], snapshots: [{ id: "s1", memo: "相手" }, { id: "s2", memo: "共通" }] });
     const ours = JSON.stringify({ household: {}, proposals: [], snapshots: [{ id: "s2", memo: "共通" }, { id: "s3", memo: "こちら" }] });

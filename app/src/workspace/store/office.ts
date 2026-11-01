@@ -80,13 +80,16 @@ interface PlanLike {
   id: string;
   title?: string;
   name?: string;
+  /** 土台のプラン（null は現状） */
+  base?: string | null;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
 /**
  * 分岐の「両方を残す」（0023 の7）: 相手の内容を土台に、こちらにだけあるプランを足す。同じ ID で中身が違うプランは、
- * 別の ID の写しにして「（こちらの分岐）」を付けて足す。現状（入力）は相手のまま（混ぜない）。足したプランの数も返す
+ * 別の ID の写しにして「（こちらの分岐）」を付けて足す。足したプランの土台が写しにしたプランなら、土台も写しに向け直す
+ * （こちらで作ったときの土台の中身のまま。相手の同じ ID のプランを土台にしない）。現状（入力）は相手のまま（混ぜない）。足したプランの数も返す
  */
 export function mergeForkBodies(theirsJson: string, oursJson: string, newId: () => string): { body: string; added: number } {
   const theirs = JSON.parse(theirsJson) as Record<string, unknown>;
@@ -94,16 +97,26 @@ export function mergeForkBodies(theirsJson: string, oursJson: string, newId: () 
   const tp = (Array.isArray(theirs.proposals) ? theirs.proposals : []) as PlanLike[];
   const op = (Array.isArray(ours.proposals) ? ours.proposals : []) as PlanLike[];
   const byId = new Map(tp.map((p) => [p.id, p]));
+  // 写しにするプラン（同じ ID で中身が違う）の、元の ID → 写しの ID
+  const copied = new Map<string, string>();
+  for (const p of op) {
+    const same = byId.get(p.id);
+    if (same !== undefined && JSON.stringify(same) !== JSON.stringify(p)) copied.set(p.id, newId());
+  }
+  const rebased = (p: PlanLike): PlanLike => {
+    const to = typeof p.base === "string" ? copied.get(p.base) : undefined;
+    return to === undefined ? p : { ...p, base: to };
+  };
   const out = [...tp];
   let added = 0;
   for (const p of op) {
-    const same = byId.get(p.id);
-    if (same === undefined) {
-      out.push(p);
+    const copy = copied.get(p.id);
+    if (!byId.has(p.id)) {
+      out.push(rebased(p));
       added++;
-    } else if (JSON.stringify(same) !== JSON.stringify(p)) {
+    } else if (copy !== undefined) {
       const label = `${p.title ?? p.name ?? "プラン"}（こちらの分岐）`;
-      out.push({ ...p, id: newId(), ...(p.title !== undefined ? { title: label } : { name: label }) });
+      out.push({ ...rebased(p), id: copy, ...(p.title !== undefined ? { title: label } : { name: label }) });
       added++;
     }
   }
