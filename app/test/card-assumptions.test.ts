@@ -1,6 +1,6 @@
 // 前提条件のカードの中身（0070）: FPライズの標準（仮の値）の推定・空欄で標準に戻す・確定、ほかの前提と同じ値になる前提（教育費・厚生年金の
 // 調整率）、高すぎる値の注意の線、例外の年（範囲で入れる）、表の最後の年（推定・人の年齢で入れる・確定したら追いかけない・古い世帯の注意）、
-// 利回りの選び方、計算の基準の月と計算の決まり（読むだけ）、FP顧問料の料金の段階、前提と推定の一覧と確かめた記録
+// 運用利回りは率をそのまま入れる（選び方のボタンを置かない）、計算の基準の月と計算の決まり（読むだけ）、FP顧問料の料金の段階、前提と推定の一覧と確かめた記録
 import { describe, expect, it } from "vitest";
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { rejectReason } from "../src/workspace/input/FieldViews.tsx";
@@ -79,11 +79,15 @@ describe("経済の前提: FPライズの標準（仮の値）の推定", () => 
     expect(checkList(wh).find((r) => r.fieldKey === "assume/investmentReturn")).toMatchObject({ kind: "notice" });
   });
 
-  it("利回りの選び方（控えめ・ふつう・積極的）は運用利回りに入る。選んでいるボタンに印", () => {
-    const wh = action(open(), "assume/investmentReturn/preset/mid").run(open());
-    expect(wh.request.input.assumptions?.investmentReturn?.default).toBe("0.02");
-    expect(action(wh, "assume/investmentReturn/preset/mid").pressed).toBe(true);
-    expect(action(wh, "assume/investmentReturn/preset/low").pressed).toBe(false);
+  it("運用利回りは率をそのまま入れる。名前の付いた選び方のボタンは置かない（0070 の 2026-10-31 の追記）", () => {
+    const wh = open();
+    const keys = stage(wh).sections.flatMap((s) => [...s.actions, ...s.groups.flatMap((g) => g.actions)]).map((a) => `${a.key} ${a.label}`);
+    expect(keys.filter((k) => k.includes("investmentReturn/preset") || /控えめ|ふつう|積極的/.test(k))).toEqual([]);
+    const f = fieldOf(wh, "assume/investmentReturn");
+    expect(f.kind === "pct" ? [f.min, f.max] : null).toEqual([-10, 15]);
+    const w = f.set(wh, "0.025");
+    expect(w.request.input.assumptions?.investmentReturn?.default).toBe("0.025");
+    expect(rejectReason(f, "16")).toBe("15%より大きい値は設定できません。");
   });
 });
 
