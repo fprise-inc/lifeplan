@@ -29,3 +29,7 @@ app_update    = []
 data          = []
 auto_delivery = []
 revocation    = []
+# 機能を有効にするコードの公開鍵（0110。「鍵の名前:公開鍵（base64url）」。現用＋次期を並べられる）。
+# 今は開発用の鍵（dev-1）。公開の前に、提供元が作った本番の鍵に差し替える（開発用の鍵で発行したコードはそこで使えなくなる）。
+# 本体は build.rs が、開発用のサーバーの代わりは vite.config.ts が、ここから読む
+feature_code  = ["dev-1:ZBASfURNQY54lJZUQjeJy59Ed87C11WGMxJHsLB1znk"]

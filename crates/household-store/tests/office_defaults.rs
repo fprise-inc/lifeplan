@@ -68,3 +68,38 @@ fn defaults_are_kept_encrypted_and_reopen() {
     s2.set_office_defaults(serde_json::json!({})).unwrap();
     assert_eq!(s2.office_defaults().unwrap(), serde_json::json!({}));
 }
+
+#[test]
+fn feature_codes_are_kept_encrypted_and_reopen() {
+    // 機能を有効にするコード（0110）: 事務所データに暗号化して持つ。確かめるのはアプリ本体（ここは文字列の数と形だけ）
+    let dir = Dir(std::env::temp_dir().join(format!("hs-feature-codes-{}", crypto::new_uuid())));
+    let root = dir.0.join("data");
+    let secrets = Arc::new(MemorySecretStore::default());
+    let clock = TestClock(Arc::new(AtomicI64::new(1_792_368_000)));
+    let s = Store::new(root.clone(), secrets.clone(), clock.clone(), "0.1.0-test");
+    s.status().unwrap();
+    assert!(s.feature_codes().unwrap().is_empty());
+    let codes = vec!["LPFC1-eyJzYW1wbGUiOjF9.c2lnbmF0dXJl".to_owned()];
+    s.set_feature_codes(codes.clone()).unwrap();
+    s.set_office_defaults(serde_json::json!({"version": 1})).unwrap();
+    for e in std::fs::read_dir(&root).unwrap() {
+        let p = e.unwrap().path();
+        if p.is_file() {
+            assert!(!String::from_utf8_lossy(&std::fs::read(&p).unwrap()).contains("LPFC1-"), "{}", p.display());
+        }
+    }
+    drop(s);
+    let s2 = Store::new(root.clone(), secrets.clone(), clock.clone(), "0.1.0-test");
+    s2.status().unwrap();
+    assert_eq!(s2.feature_codes().unwrap(), codes);
+    // 事務所の既定値を置き換えても消えない
+    s2.set_office_defaults(serde_json::json!({})).unwrap();
+    assert_eq!(s2.feature_codes().unwrap(), codes);
+    // 空白・改行を含む・多すぎる・長すぎるものは受けない
+    for bad in [vec!["a b".to_owned()], vec![String::new()], vec!["x".repeat(3000)], vec!["c".to_owned(); 17]] {
+        assert_eq!(s2.set_feature_codes(bad).unwrap_err(), StoreError::FEATURE_CODES);
+    }
+    assert_eq!(s2.feature_codes().unwrap(), codes);
+    s2.set_feature_codes(vec![]).unwrap();
+    assert!(s2.feature_codes().unwrap().is_empty());
+}

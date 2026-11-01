@@ -6,7 +6,9 @@ import { copyFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, statS
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defineConfig, type Plugin } from "vite";
+import { parse as parseToml } from "smol-toml";
 import { APP_DIR, ENGINE_DIST, REPO_DIR } from "./scripts/lib.ts";
+import { addCode, featureStatus, publicKeys, reference, todayJst } from "./scripts/devFeatureCode.ts";
 
 /**
  * 開発用のサーバーだけの入口（本番のビルドには入らない）: Tauri の外（ふつうのブラウザ・ヘッドレスの Chrome）で画面を確かめるために、
@@ -257,6 +259,12 @@ const devOffice = {
 /** 事務所の既定値（開発用のサーバーのメモリの中だけ。0073） */
 const devOfficeDefaults: { value: Record<string, unknown> } = { value: {} };
 
+/** 機能を有効にするコード（本体の feature_code_* の代わり。0110）: メモリの中だけ。公開鍵は本体と同じ配布元の設定から読む。
+ * 今日は FINANCIA_DEV_TODAY（YYYY-MM-DD）か、開発用の op「featureToday」で変えられる（期限が近い・切れたの見え方を確かめるため） */
+const devFeatureKeys = publicKeys(((parseToml(readFileSync(join(REPO_DIR, "config", "distribution.toml"), "utf8")) as { keys?: { feature_code?: string[] } }).keys?.feature_code ?? []) as string[]);
+const devFeatures: { codes: string[]; today: string | null } = { codes: [], today: /^\d{4}-\d{2}-\d{2}$/.test(process.env.FINANCIA_DEV_TODAY ?? "") ? (process.env.FINANCIA_DEV_TODAY as string) : null };
+const devFeatureToday = () => devFeatures.today ?? todayJst();
+
 function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?: unknown } | { ok: false; code: string } {
   const o = devOffice;
   const now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
@@ -415,6 +423,24 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
       devOfficeDefaults.value = v as Record<string, unknown>;
       return { ok: true, value: null };
     }
+    case "featureStatus":
+      return { ok: true, value: featureStatus(devFeatures.codes, devFeatureKeys, devFeatureToday()) };
+    case "featureAdd": {
+      const r = addCode(devFeatures.codes, String(a.code ?? ""), devFeatureKeys, devFeatureToday());
+      if (!r.ok) return { ok: false, code: r.error };
+      devFeatures.codes = r.codes;
+      return { ok: true, value: featureStatus(devFeatures.codes, devFeatureKeys, devFeatureToday()) };
+    }
+    case "featureRemove": {
+      const next = devFeatures.codes.filter((c) => reference(c) !== String(a.ref ?? ""));
+      if (next.length === devFeatures.codes.length) return { ok: false, code: "E_FEATURE_CODE_NOT_FOUND" };
+      devFeatures.codes = next;
+      return { ok: true, value: featureStatus(devFeatures.codes, devFeatureKeys, devFeatureToday()) };
+    }
+    case "featureToday":
+      // 開発用のサーバーだけ: 期限の判定に使う今日を変える（空なら PC の今日）
+      devFeatures.today = typeof a.today === "string" && /^\d{4}-\d{2}-\d{2}$/.test(a.today) ? a.today : null;
+      return { ok: true, value: featureStatus(devFeatures.codes, devFeatureKeys, devFeatureToday()) };
     case "moveLocal":
       return { ok: true, value: o.state === "member" ? devStore.households.size : 0 };
     case "reset":

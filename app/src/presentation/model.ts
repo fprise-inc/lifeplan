@@ -709,6 +709,8 @@ export interface BalanceTabModel {
   prev: { status: "idle" | "loading" | "ready"; model: BsPrevModel | null };
   /** カスタマイズで足した見るもの（今は空。空なら「見るもの」の切り替えを出さない） */
   customViews: BsCustomViewModel[];
+  /** 見られなくなった見るものの知らせ（任意。例: 機能を有効にするコードの期限が切れた。0110）。落ち着いた1文で、図の上に出す */
+  hiddenNote?: string;
   provisional: boolean;
 }
 

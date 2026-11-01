@@ -26,6 +26,7 @@ mod ai;
 mod dev_keystore;
 mod engine;
 mod export;
+mod features;
 mod menu;
 mod notices;
 mod office;
@@ -371,6 +372,9 @@ pub fn run() {
             office::office_dismiss_notices,
             office::office_defaults_get,
             office::office_defaults_put,
+            features::feature_codes_status,
+            features::feature_code_add,
+            features::feature_code_remove,
             office::store_fork_info,
             office::store_fork_resolve,
             office::store_sync_copies_resolve,

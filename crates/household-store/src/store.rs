@@ -162,10 +162,17 @@ struct OfficeData {
     /// この欄の無い古い事務所データは無しとして読む。事務所で共有しているときも、この PC の設定（共有フォルダには置かない）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     defaults: Option<serde_json::Map<String, serde_json::Value>>,
+    /// 機能を有効にするコード（0110。提供元が署名したコードの文字列そのもの。確かめるのはアプリ本体）。
+    /// この欄の無い古い事務所データは無しとして読む。この PC の設定（共有フォルダには置かない）
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    feature_codes: Vec<String>,
 }
 
 /// 事務所の既定値の JSON の大きさの上限（バイト。0073）
 pub const OFFICE_DEFAULTS_MAX_BYTES: usize = 32 * 1024;
+/// 機能を有効にするコードの数と、1つの長さ（バイト）の上限（0110）
+pub const FEATURE_CODES_MAX: usize = 16;
+pub const FEATURE_CODE_MAX_BYTES: usize = 2048;
 
 /// 事務所での共有の設定（このPCの事務所データに暗号化して持つ。共有フォルダの場所は画面に渡さない。0023 の8）
 #[derive(Clone, Serialize, Deserialize)]
@@ -246,6 +253,7 @@ impl OfficeData {
             sharing: None,
             statement: Default::default(),
             defaults: None,
+            feature_codes: vec![],
         }
     }
 }
@@ -2170,6 +2178,31 @@ impl Store {
         let mut g = self.lock();
         let s = Self::session(&mut g)?;
         s.data.defaults = if map.is_empty() { None } else { Some(map) };
+        self.write_office(s)
+    }
+
+    /// 機能を有効にするコード（0110。入れた順の文字列。確かめるのは呼ぶ側）
+    pub fn feature_codes(&self) -> Result<Vec<String>, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        Ok(s.data.feature_codes.clone())
+    }
+
+    /// 機能を有効にするコードを置き換える（0110。呼ぶ側が確かめたものだけを渡す。数と長さの上限まで、空白・改行は入れない）
+    pub fn set_feature_codes(&self, codes: Vec<String>) -> Result<(), StoreError> {
+        if codes.len() > FEATURE_CODES_MAX
+            || codes.iter().any(|c| {
+                c.is_empty() || c.len() > FEATURE_CODE_MAX_BYTES || c.chars().any(|x| x.is_whitespace() || x.is_control())
+            })
+        {
+            return Err(StoreError::FEATURE_CODES);
+        }
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        if s.data.feature_codes == codes {
+            return Ok(());
+        }
+        s.data.feature_codes = codes;
         self.write_office(s)
     }
 

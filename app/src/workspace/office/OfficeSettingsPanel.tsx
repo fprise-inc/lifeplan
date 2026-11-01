@@ -18,6 +18,7 @@ import { ASSUMPTION_LABELS, ASSUMPTION_RANGES, DEFAULT_OFFICE_SETTINGS, FEE_MAX,
 import { revealAdded } from "../../presentation/revealAdded.ts";
 import { LivingLayoutEditor } from "./LivingLayoutEditor.tsx";
 import { withLivingDraft } from "./settings.ts";
+import { codeFor, enabledLine, expiredText, FEATURE_LABELS, featureErrorText, featureOn, NO_FEATURES, renewText, type FeatureId, type FeatureStatus } from "./featureCodes.ts";
 
 export interface OfficeSettingsPanelProps {
   value: OfficeSettings;
@@ -26,6 +27,12 @@ export interface OfficeSettingsPanelProps {
   /** 事務所で共有しているか（今は PC ごとの設定であることを知らせる） */
   shared: boolean;
   onClose: () => void;
+  /** 機能を有効にするコードの状態（0110。本体が確かめる）。コードの入っていない機能の区画は出さない */
+  features?: FeatureStatus;
+  /** コードを入れる（本体が確かめる。断るときは E_FEATURE_CODE_… の符号）。入れるとすぐ効く（保存を押さなくてよい） */
+  onAddCode?: (code: string) => Promise<FeatureStatus>;
+  /** コードを外す（ref は状態の印） */
+  onRemoveCode?: (ref: string) => Promise<FeatureStatus>;
 }
 
 /** 「1.5」（%）→ "0.015"。空は null。読めない・範囲の外は undefined（整数の部分は3桁まで読む。評価の割合の 100% を入れられるように） */
@@ -76,8 +83,48 @@ export function feeFromTexts(base: FeeTable, t: FeeTexts): FeeTable | null {
 
 const STANDARD_PCT: Readonly<Record<OfficeAssumption, string>> = { inflation: "1", wageGrowth: "1", investmentReturn: "1", pensionMacroSlide: "0.4" };
 
-export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSettingsPanelProps) {
+export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode }: OfficeSettingsPanelProps) {
   const [s, setS] = useState<OfficeSettings>(value);
+  // 機能を有効にするコード（0110）: いちばん下の小さなリンクから開く欄
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [codeText, setCodeText] = useState("");
+  const [codeBusy, setCodeBusy] = useState(false);
+  const [codeMsg, setCodeMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const combinedCode = codeFor(features, "combinedBs");
+  const addCode = async () => {
+    setCodeBusy(true);
+    setCodeMsg(null);
+    try {
+      if (onAddCode === undefined) return;
+      const st = await onAddCode(codeText);
+      const added = (Object.keys(FEATURE_LABELS) as FeatureId[]).filter((f) => featureOn(st, f) && !featureOn(features, f));
+      // 新しく使えるようになった機能は、印も付けた状態で区画を出す（印は区画の中で外せる。App が事務所データにも書く）
+      if (added.includes("combinedBs")) setS((x) => ({ ...x, features: { ...x.features, combinedBs: true } }));
+      const c = codeFor(st, "combinedBs");
+      setCodeText("");
+      setCodeOpen(false);
+      setCodeMsg({ ok: true, text: c !== null ? `コードを入れました。${FEATURE_LABELS.combinedBs}を使えます（${enabledLine(c)}）。上の区画に出ています（保存は要りません）。` : "コードを入れました。" });
+    } catch (e) {
+      setCodeMsg({ ok: false, text: featureErrorText(e) });
+    } finally {
+      setCodeBusy(false);
+    }
+  };
+  const removeCode = async (ref: string) => {
+    setCodeBusy(true);
+    setCodeMsg(null);
+    try {
+      if (onRemoveCode === undefined) return;
+      await onRemoveCode(ref);
+      setRemoving(null);
+      setCodeMsg({ ok: true, text: "コードを外しました。世帯に入れたデータは消していません。" });
+    } catch (e) {
+      setCodeMsg({ ok: false, text: featureErrorText(e) });
+    } finally {
+      setCodeBusy(false);
+    }
+  };
   const [texts, setTexts] = useState<Record<string, string>>(() => ({
     ...Object.fromEntries(OFFICE_ASSUMPTIONS.map((k) => [k, rateToPct(value.assumptions[k])])),
     realEstateRatio: rateToPct(value.realEstateRatio),
@@ -490,6 +537,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
             万一のあとも続ける
           </label>
         </section>
+        {featureOn(features, "combinedBs") ? (
         <section class="os-sec" aria-labelledby="os-corp" data-office-features>
           <h3 id="os-corp">法人の顧問向けの機能</h3>
           <p class="pl-sub">会社を顧問先に持つ FP 向けの機能です。既定では使いません。使うと決めたときだけ、役員として働く人のいる世帯に出ます（ほかの世帯の画面は変わりません）。どれも見せ方だけで、計算の結果は変わりません。</p>
@@ -497,8 +545,35 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
             <input type="checkbox" checked={s.features.combinedBs} onChange={(e) => setS({ ...s, features: { ...s.features, combinedBs: (e.currentTarget as HTMLInputElement).checked } })} data-office-feature="combinedBs" />
             合算BS（経営者個人と会社のバランスシート）を使う
           </label>
+          {combinedCode !== null ? (
+            <p class="os-feat-on" data-feature-enabled="combinedBs">
+              {enabledLine(combinedCode)}
+              {removing === combinedCode.ref ? null : (
+                <button type="button" class="link-btn" onClick={() => setRemoving(combinedCode.ref)} data-feature-remove-ask>
+                  コードを外す
+                </button>
+              )}
+            </p>
+          ) : null}
+          {combinedCode !== null && removing === combinedCode.ref ? (
+            <p class="rp-note" data-feature-remove-confirm>
+              外すと、この区画と合算BS の画面・提案書の章は出なくなります（世帯に入れた会社の数字は消しません。コードを入れ直すと戻ります）。
+              <button type="button" class="link-btn" disabled={codeBusy} onClick={() => void removeCode(combinedCode.ref)}>
+                外す
+              </button>
+              <button type="button" class="link-btn" onClick={() => setRemoving(null)}>
+                やめる
+              </button>
+            </p>
+          ) : null}
+          {combinedCode !== null && renewText(combinedCode) !== null ? (
+            <p class="rp-note os-feat-renew" role="status" data-feature-renew="combinedBs">
+              {renewText(combinedCode)}
+            </p>
+          ) : null}
           <p class="pl-sub">資産と負債のタブの「見るもの」に「合算BS」が加わり、会社の試算表の数字を入れて、経営者個人（家計）と会社のバランスシートを並べ・相殺し・合算できます。提案書にも章を選んで載せられます。試しの機能です。</p>
         </section>
+        ) : null}
         {bad.length > 0 ? <p class="fatal">数で入れてください（前提は欄の下の範囲〔物価・賃金は -10〜10%、運用利回りは -10〜15%、年金の調整率は 0〜5%〕、評価の割合は 0〜100%、料金表の額は円、段階は2〜{FEE_STEP_YEAR_MAX}年目で重ならないように、必要保障額の年齢は 50〜110歳）。</p> : null}
         {msg !== null ? (
           <p class={msg.ok ? "rp-note" : "fatal"} role="status" data-office-settings-msg>
@@ -524,6 +599,69 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
             閉じる
           </button>
         </div>
+        {onAddCode !== undefined ? (
+        <div class="os-code" data-feature-code-area>
+          {features.codes
+            .filter((c) => c.state === "expired" && !c.features.some((f) => featureOn(features, f as FeatureId)))
+            .map((c) => (
+              <p class="pl-sub os-code-expired" key={c.ref} data-feature-expired={c.ref}>
+                {expiredText(c)}
+                <button type="button" class="link-btn" disabled={codeBusy} onClick={() => void removeCode(c.ref)}>
+                  このコードを外す
+                </button>
+              </p>
+            ))}
+          {features.invalid.map((c) => (
+            <p class="pl-sub os-code-expired" key={c.ref} data-feature-invalid={c.ref}>
+              このアプリでは確かめられないコードが入っています（{c.error}）。新しいコードを受け取って入れ直してください。
+              <button type="button" class="link-btn" disabled={codeBusy} onClick={() => void removeCode(c.ref)}>
+                このコードを外す
+              </button>
+            </p>
+          ))}
+          {codeMsg !== null ? (
+            <p class={codeMsg.ok ? "rp-note" : "fatal"} role="status" data-feature-code-msg>
+              {codeMsg.text}
+            </p>
+          ) : null}
+          {codeOpen ? (
+            <div class="os-code-form">
+              <label class="os-code-label">
+                <span>機能を有効にするコード</span>
+                <textarea rows={3} value={codeText} spellcheck={false} autoComplete="off" onInput={(e) => setCodeText((e.currentTarget as HTMLTextAreaElement).value)} data-feature-code-input />
+              </label>
+              <p class="pl-sub">受け取ったコードを、そのまま貼り付けてください（途中に改行が入っていてもかまいません）。本物か・期限内かを、この PC の中で確かめます（ネットにはつなぎません）。入れるとすぐ効きます（保存のボタンは押さなくてかまいません）。</p>
+              <div class="rp-actions">
+                <button type="button" class="btn primary" disabled={codeBusy || codeText.trim() === ""} onClick={() => void addCode()} data-feature-code-add>
+                  確かめて入れる
+                </button>
+                <button
+                  type="button"
+                  class="btn"
+                  onClick={() => {
+                    setCodeOpen(false);
+                    setCodeText("");
+                  }}
+                >
+                  やめる
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              class="link-btn os-code-link"
+              onClick={() => {
+                setCodeOpen(true);
+                setCodeMsg(null);
+              }}
+              data-feature-code-open
+            >
+              機能を有効にするコードを入れる
+            </button>
+          )}
+        </div>
+        ) : null}
       </div>
     </>
   );

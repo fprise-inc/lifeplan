@@ -1,0 +1,23 @@
+[package]
+name = "feature-code"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "機能を有効にするコード（提供元が Ed25519 で署名した、機能・表示名・期限の札）の形・確かめ方・発行の道具（0110）"
+
+[[bin]]
+# 提供元が使う発行の道具（秘密鍵を作る・コードを発行する・発行の記録の CSV に足す・一覧からまとめて発行する）。
+# アプリと一緒には配らない（アプリ本体はこの crate の確かめる部品だけを使う）
+name = "feature-code"
+path = "src/bin/feature-code.rs"
+
+[dependencies]
+# 0110: 署名は Ed25519（BSD-3-Clause。curve25519-dalek は世帯の鍵の組〔x25519-dalek〕と同じ版）。乱数の部品は入れず、鍵の種は getrandom から作る
+ed25519-dalek = { version = "2", default-features = false, features = ["std", "zeroize", "fast"] }
+base64 = "0.22"
+getrandom = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+zeroize = "1"

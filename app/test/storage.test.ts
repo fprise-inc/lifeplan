@@ -13,7 +13,7 @@ import { StoragePanel } from "../src/workspace/store/StoragePanel.tsx";
 import { storageNoticeText, SYNC_MESSAGES, syncMessage } from "../src/workspace/store/storage.ts";
 
 const no = async () => Promise.reject("E");
-const office: OfficeHost = { status: no, start: no, join: no, cancel: no, approve: no, reject: no, remove: no, moveLocal: no, recover: no, end: no, dismissNotices: no, defaults: async () => ({}), putDefaults: no, syncStart: no, syncOpen: no, syncEnd: no, notices: async () => [] };
+const office: OfficeHost = { status: no, start: no, join: no, cancel: no, approve: no, reject: no, remove: no, moveLocal: no, recover: no, end: no, dismissNotices: no, defaults: async () => ({}), putDefaults: no, featureStatus: async () => ({ today: "2026-11-01", active: [], codes: [], invalid: [] }), addFeatureCode: no, removeFeatureCode: no, syncStart: no, syncOpen: no, syncEnd: no, notices: async () => [] };
 const store: StoreHost = { status: no, list: no, create: no, open: no, save: no, rename: no, remove: no, recoveryKey: no, acknowledgeRecovery: no, testRecoveryKey: no, restoreWithRecoveryKey: no, closeReady: async () => undefined, closeCancel: async () => undefined, forkInfo: no, resolveFork: no, resolveSyncCopies: no, leave: async () => undefined, devFileKeys: async () => false, listSamples: no, setCategory: no, assignSerial: no, makeSample: no, updateSample: no, categories: no, setCategories: no };
 
 const ready = (over: Partial<StoreStatus> = {}): StoreStatus => ({ state: "ready", firstRun: false, recoveryAcknowledged: true, recoveryVerifiedAt: null, lastOpened: null, deletionsPending: 0, deletionsCompleted: 0, ...over });

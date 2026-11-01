@@ -50,7 +50,8 @@ import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, publishOfficeSe
 import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
 import { combinedBsView, withCombinedField } from "./combined/combinedView.ts";
 import { hasExecutive } from "./input/officer.ts";
-import type { CombinedBsInput } from "../../../report/src/index.ts";
+import { isEmptyCombinedInput, type CombinedBsInput } from "../../../report/src/index.ts";
+import { combinedHiddenText, expiredFor, featureOn, NO_FEATURES, type FeatureStatus } from "./office/featureCodes.ts";
 import { FpTools } from "./tools/FpTools.tsx";
 import { Insights, useInheritanceFor } from "./tools/Insights.tsx";
 import { pensionNotices } from "./input/stages/pension.ts";
@@ -475,6 +476,13 @@ export function App() {
   const [officeSettings, setOfficeSettings] = useState<OfficeSettings>(DEFAULT_OFFICE_SETTINGS);
   const officeSettingsRef = useRef<OfficeSettings>(DEFAULT_OFFICE_SETTINGS);
   const [officeSettingsOpen, setOfficeSettingsOpen] = useState(initial.officeDefaults === true);
+  /** 機能を有効にするコード（0110。本体が確かめた状態）。コードの入っていない機能は、設定の区画も画面も出さない */
+  const [featureStatus, setFeatureStatus] = useState<FeatureStatus>(NO_FEATURES);
+  const featureStatusRef = useRef<FeatureStatus>(NO_FEATURES);
+  const putFeatureStatus = (st: FeatureStatus) => {
+    featureStatusRef.current = st;
+    setFeatureStatus(st);
+  };
   // お知らせの一覧（0087）: 配信元のお知らせ（本体が確かめた一覧）と、手元の既読の印・受付番号（この PC のアプリのデータ。何も送り返さない）
   const [feedText, setFeedText] = useState<string | null>(null);
   const [noticeLocal, setNoticeLocal] = useState<LocalState>(EMPTY_LOCAL);
@@ -494,6 +502,7 @@ export function App() {
       (v) => putOfficeSettings(readOfficeSettings(v)),
       () => undefined,
     );
+    void host.office.featureStatus().then(putFeatureStatus, () => undefined);
   }, [host]);
   /** 明細のパネル（0034）を最初に開く手順（URL の #statement=review など。最初の1回だけ使う） */
   const statementStep = useRef(initial.statement);
@@ -1140,6 +1149,7 @@ export function App() {
       setStoredList(st.state === "ready" ? await host.store.list() : []);
       if (st.state === "ready") {
         void host.office.defaults().then((v) => putOfficeSettings(readOfficeSettings(v)), () => undefined);
+        void host.office.featureStatus().then(putFeatureStatus, () => undefined);
         setStoredSamples(await host.store.listSamples());
         applyCategories(await host.store.categories());
       }
@@ -1843,7 +1853,11 @@ export function App() {
   }, [bsPrevRun, opened, bsPlans, bsSnaps, letters]);
   // 会社と合わせたバランスシート（法人の顧問向けの機能。0107）: 事務所の設定で使うと決め、役員として働く人のいる世帯のときだけ。
   // 家計の側は現状のプランの今の年（入力した値から出した事実）
-  const combinedOn = officeSettings.features.combinedBs && opened !== null && hasExecutive(opened.wh.request.input.household);
+  // コード（0110）で有効にしたときだけ。印（事務所の設定）は、コードが無い・切れたときも残すが、出さない
+  const combinedOn = featureOn(featureStatus, "combinedBs") && officeSettings.features.combinedBs && opened !== null && hasExecutive(opened.wh.request.input.household);
+  // コードの期限が切れた: 会社の数字の入っている世帯では、見られなくなった旨と入れ直せば戻ることを知らせる（データは消さない）
+  const combinedExpired = expiredFor(featureStatus, "combinedBs");
+  const combinedHidden = combinedExpired !== null && officeSettings.features.combinedBs && opened !== null && hasExecutive(opened.wh.request.input.household) && opened.wh.companyBs !== undefined && !isEmptyCombinedInput(opened.wh.companyBs) ? combinedHiddenText(combinedExpired) : null;
   const combinedViews = useMemo(() => {
     if (!combinedOn || opened === null || bsPlans === null) return [];
     const home = bsPlans.find((p) => p.key === (letters.get(CURRENT)?.letter ?? "A"))?.years[0];
@@ -2583,6 +2597,7 @@ export function App() {
                   provisional: model.provisional,
                   who: model.who,
                   customViews: combinedViews,
+                  ...(combinedHidden !== null ? { hiddenNote: combinedHidden } : {}),
                 })}
                 onCustomField={onCustomField}
                 band={<PlanBand model={band} onSelect={select} onBase={setBase} onAdd={duplicate} onRemove={removePlan} />}
@@ -2907,6 +2922,25 @@ export function App() {
             putOfficeSettings(v);
           }}
           onClose={() => setOfficeSettingsOpen(false)}
+          features={featureStatus}
+          onAddCode={async (code) => {
+            const before = featureStatusRef.current;
+            const st = await host.office.addFeatureCode(code);
+            putFeatureStatus(st);
+            // 新しく使えるようになった機能は、事務所の設定の印も付ける（コードを入れたら区画と画面が出る。印は区画の中で外せる）
+            const cur = officeSettingsRef.current;
+            if (featureOn(st, "combinedBs") && !featureOn(before, "combinedBs") && !cur.features.combinedBs) {
+              const next: OfficeSettings = { ...cur, features: { ...cur.features, combinedBs: true } };
+              await host.office.putDefaults(next as unknown as Record<string, unknown>);
+              putOfficeSettings(next);
+            }
+            return st;
+          }}
+          onRemoveCode={async (ref) => {
+            const st = await host.office.removeFeatureCode(ref);
+            putFeatureStatus(st);
+            return st;
+          }}
         />
       ) : null}
       {officeOpen && host !== null ? (

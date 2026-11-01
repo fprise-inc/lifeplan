@@ -47,7 +47,9 @@ const allowed = new Set(["config/distribution.toml", "app/src-tauri/tauri.conf.j
 const files = execFileSync("git", ["ls-files", "-co", "--exclude-standard"], { cwd: REPO_DIR, encoding: "utf8" })
   .split("\n")
   .filter((f) => f !== "" && !allowed.has(f) && !f.startsWith("docs/") && !/\.(png|ico|icns|woff2?|ttf)$/.test(f) && !f.includes("node_modules/"));
-for (const needle of [dist.identifier, dist.endpoints.host, dist.feedback.form]) {
+// 機能を有効にするコードの公開鍵（0110）も、このファイルの外に直接書かない（差し替えるときに1か所で済むように）
+const featureKeys = (dist.keys.feature_code ?? []).map((k) => k.slice(k.indexOf(":") + 1)).filter((k) => k.length >= 40);
+for (const needle of [dist.identifier, dist.endpoints.host, dist.feedback.form, ...featureKeys]) {
   for (const f of files) {
     let text: string;
     try {

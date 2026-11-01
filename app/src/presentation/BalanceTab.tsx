@@ -169,6 +169,11 @@ export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDef
 
   return (
     <div class="bs-tab" data-balance-tab>
+      {model.hiddenNote !== undefined ? (
+        <p class="rp-note bs-hidden-note" role="note" data-bs-hidden-note>
+          {model.hiddenNote}
+        </p>
+      ) : null}
       {model.customViews.length > 0 ? (
         <div class="bs-views" role="group" aria-label="見るもの">
           <span class="k">見るもの</span>
