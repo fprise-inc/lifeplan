@@ -1,5 +1,5 @@
 // 世帯ファイルの本文（0011 の2）を、画面の側の状態から組み立てる・読み取る。暗号化とファイルの読み書きは本体（0013・0016 の1）。
-// 本文の区画（形式の版 0.48。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
+// 本文の区画（形式の版 0.50。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
 // 0.17 から（0035・0036）: 差分は当て先で、仮の印は物の値の状態の欄で、贈与者は世帯の外の家族の構成員で書き、並びの要素は ID を持つ。
 // 0.18 から（0040）: 段階と例外の年（周期的な支出・家賃・修繕費・固定資産税・不動産の家賃と経費・器の利回り・資産配分）と、働き方の期間ごとの
 // 伸び（給与・事業所得の年率）。足すだけの形（本体の変換の段は版だけを書き換える）
@@ -63,6 +63,8 @@
 //   0.48 から: 役員として働く人の家計の側の欄（その他の資産の細目 accounts[].subtype の自社株〔出資額〕・会社への貸付金、ローンの細目
 //   debts[].subtype の会社からの借入金 companyLoan、構成員の会社の借入の連帯保証の額 members[].companyGuarantee）と、家計の体力の目安の分母
 //   display.balance.guide.basis（生活費・生活費＋ローン返済。省略は世帯から決める）を持つ（0105。足すだけ。本体の変換の段は版だけを書き換える）
+//   0.50 から: 会社と合わせたバランスシート（法人の顧問向けの機能）の入力 household.companyBs（会社の今のバランスシートの科目・基準日・毎月の
+//   固定の支出・会社の段階・実力に直した額。計算の要求の外。入れていなければ欄を持たない。0108。足すだけ。本体の変換の段は版だけを書き換える）
 //   （0.46 のまま。0041 の追記 2026-11-01）: 「書類で確かめる」は今の自動車ローン（kind car の負債）の欄に出し、これから買う車のローン
 //   （cars[].valueStates の car.loan/…）には出さない。前に付けた所は読むときに推定にし、開いたときの知らせ carLoanEstimated を足す（形は変えない）
 // - proposals: 案（数に上限なし。0008 の5）。案の名前は `title` に入れる（0012 の禁止語の検査に当たらない名前）
@@ -98,12 +100,13 @@ import { readNoticeAcks } from "../input/noticeAck.ts";
 import { isEmptyChoice, readItemChoice } from "../input/itemChoice.ts";
 import { readBsColumns, readBsGuide, readBsPoints } from "../balanceTab.ts";
 import { readMoneyThree } from "../moneyThree.ts";
+import { readCombinedInput } from "../../../../report/src/index.ts";
 import { readLog, type StatementLog } from "../../../../statement/src/index.ts";
 import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.48";
+export const BODY_FORMAT_VERSION = "0.50";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
@@ -213,6 +216,10 @@ export function fromBody(json: string): BodyState {
   if (acks.length > 0) wh.noticeAcks = acks;
   else delete wh.noticeAcks;
   // 入力項目の選び方（0.34 から）: 形の合わない所は捨て、何も決めていなければ欄を持たない
+  // 会社と合わせたバランスシートの入力（0.50 から。0108）: 形の合わない所は捨て、何も無ければ欄を持たない
+  const company = readCombinedInput(wh.companyBs);
+  if (company !== null) wh.companyBs = company;
+  else delete wh.companyBs;
   const choice = readItemChoice(wh.itemChoice);
   if (!isEmptyChoice(choice)) wh.itemChoice = choice;
   else delete wh.itemChoice;

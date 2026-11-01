@@ -355,7 +355,8 @@
 #let bs-short = (liquid: "すぐ使える", market: "値動きあり", locked: "引き出せない", illiquid: "換金しにくい", land: "土地", building: "建物", illiquidOther: "車・その他", mortgage: "住宅ローン", debt: "その他の負債", netWorth: "純資産")
 
 /// 1本の柱（箱を上から積む）。total はこの柱の額、h は縮尺の高さ（scale の額に当たる）
-#let bs-column(boxes, total, scale, h, w, fact, neg: 0) = {
+/// labels: true なら箱の中に入力の label をそのまま書く（会社と合わせたバランスシートの「会社の財産」「個人の財産」など。0108）
+#let bs-column(boxes, total, scale, h, w, fact, neg: 0, labels: false) = {
   let colh = h * (total + neg) / scale
   // 箱はどれも枠線なしのベタ塗り（純資産も同じ）。箱の間に細い余白、角は少し丸める。柱を囲む枠は描かない（見込みかどうかは時点の札で示す）
   // 外の箱は金額に比例した高さ（余白を含む）、中の箱はその高さから余白を引いた形。ごく薄い箱は余白で消えないよう余白なし
@@ -370,7 +371,7 @@
     tile(bh, fill, {
       if bh >= 15pt {
         set text(size: min-size, fill: if b.key in bs-colors { white } else { ink }, weight: "bold")
-        align(horizon, stack(dir: ttb, spacing: 1pt, bs-short.at(b.key, default: b.label), man(b.amount)))
+        align(horizon, stack(dir: ttb, spacing: 1pt, if labels { b.label } else { bs-short.at(b.key, default: b.label) }, man(b.amount)))
       }
     })
   })

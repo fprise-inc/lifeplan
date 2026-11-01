@@ -16,7 +16,7 @@ export interface FigBox {
 }
 
 /** 図に描く箱（左: 資産の4つ＋純資産のマイナス、右: 住宅ローン・その他の負債・純資産） */
-export function figureBoxes(y: Pick<BsYearModel, "lines" | "netWorth">): { left: FigBox[]; right: FigBox[] } {
+export function figureBoxes(y: Pick<BsYearModel, "lines" | "netWorth" | "netParts">): { left: FigBox[]; right: FigBox[] } {
   const mk = (side: "L" | "R", g: BsGroupKey): FigBox => {
     const parts = y.lines.filter((l: BsLineModel) => l.group === g).map((l) => ({ key: l.key, label: l.label, value: Math.max(0, l.amount) }));
     return { side, key: g, value: parts.reduce((s, p) => s + p.value, 0), parts };
@@ -24,7 +24,10 @@ export function figureBoxes(y: Pick<BsYearModel, "lines" | "netWorth">): { left:
   const left = LEFT_GROUPS.map((g) => mk("L", g));
   if (y.netWorth < 0) left.push({ side: "L", key: "neg", value: -y.netWorth, parts: [{ key: "neg", label: "純資産のマイナス", value: -y.netWorth }] });
   const right = RIGHT_GROUPS.map((g) => mk("R", g));
-  right.push({ side: "R", key: "netWorth", value: Math.max(0, y.netWorth), parts: [{ key: "netWorth", label: "純資産", value: Math.max(0, y.netWorth) }] });
+  // 純資産の内訳（会社と合わせたバランスシートの「会社の財産」「個人の財産」など。0108）があれば、純資産の箱の中に分けて積む
+  const np = (y.netParts ?? []).filter((p) => p.amount > 0);
+  const nwParts = y.netWorth > 0 && np.length > 0 ? np.map((p) => ({ key: p.key, label: p.label, value: p.amount })) : [{ key: "netWorth", label: "純資産", value: Math.max(0, y.netWorth) }];
+  right.push({ side: "R", key: "netWorth", value: Math.max(0, y.netWorth), parts: nwParts });
   return { left, right };
 }
 

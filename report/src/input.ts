@@ -240,6 +240,8 @@ export interface ProposalInput {
     currentNetWorth: Yen[];
     /** 純資産の推移（basis.years と同じ並び） */
     netWorth: { current: Yen[]; proposal: Yen[] };
+    /** 会社の借入の連帯保証（今の額。負債には入れない。図の下の1行の注。保証の無い世帯は省く。0105・0108） */
+    guarantee?: { amount: Yen; netWorthWith: Yen };
   } | null;
   education: { years: number[]; rows: { label: string; amounts: Yen[]; total: Yen }[]; total: Yen[]; grandTotal: Yen } | null;
   housingLoan: {
@@ -293,6 +295,8 @@ export interface ProposalInput {
   marketDrop?: MarketDropView | null;
   /** お金の3つの分け方（説明用の図。提案のプランの今の時点。アプリの区画と同じ値・同じ言葉。0032。省略・null は載せない） */
   moneyThree?: MoneyThreeModel | null;
+  /** 会社と合わせたバランスシート（法人の顧問向けの機能。FP が使うと決め、章を選んだときだけ。0108。省略・null は載せない） */
+  combinedBs?: CombinedBsView | null;
   /**
    * 住まい以外の不動産の物件ごとの数字（0009 の追記）。公式の帳票は使わない。FP の独自帳票（収益不動産のまとめなど）の材料。
    * 案ごと（現状・提案・案の比較の各案）。持っていない案は空の配列（ページを出さない判断に使う）。省略は、この欄の前の版の入力
@@ -509,4 +513,41 @@ export interface DreamsView {
   }[];
   /** 「夢をすべて入れても100歳まで足ります」など（材料の計算が無ければ null） */
   summary: string | null;
+}
+
+/** 会社と合わせたバランスシートの図の1枚（箱は分け方のまとまり。label はそのまま箱に書く短い名前。資産の合計＝負債の合計＋純資産） */
+export interface CombinedFigureColumn {
+  name: string;
+  /** 例: 「2026年末（今の年）」「試算表（2026年9月末）」 */
+  sub: string;
+  assets: BalanceFigureBox[];
+  /** 負債と純資産（合算の1枚は純資産を「会社の財産」「個人の財産」に分ける） */
+  liabilities: BalanceFigureBox[];
+  /** 純資産のマイナス（0以上） */
+  negative: Yen;
+  totalAssets: Yen;
+  totalLiabilities: Yen;
+  netWorth: Yen;
+}
+
+/** 会社と合わせたバランスシート（合算BS。0108）。値は report/src/combinedBs.ts の部品（アプリの見るものと同じ） */
+export interface CombinedBsView {
+  /** 会社の試算表の基準日の文（無ければ null） */
+  asOf: string | null;
+  /** 家計のバランスシートの年（今の年の年末） */
+  householdYear: number;
+  /** 経営者個人（家計）・会社・合算の3枚（共通の縮尺） */
+  figure: { scale: Yen; columns: CombinedFigureColumn[] };
+  /** 相殺した4つの組 */
+  pairs: { label: string; ownerLabel: string; companyLabel: string; owner: Yen; company: Yen }[];
+  /** 合算の純資産の内訳 */
+  netWorth: { company: Yen; others: Yen; owner: Yen; total: Yen };
+  /** 現預金 ÷ 毎月の固定の支出（総合・個人・会社）。months は小数第1位まで */
+  indicators: { label: string; cash: Yen; monthly: Yen | null; months: number | null; text: string }[];
+  /** 会社の段階の目安の1文（選んでいなければ null） */
+  stage: { label: string; text: string } | null;
+  /** 実力に直した額（FP が入れた項目だけ。used はその額で並べたか） */
+  restated: { rows: { label: string; book: Yen | null; adjusted: Yen }[]; used: boolean };
+  /** お知らせ（組の額が合わない・連帯保証の扱いなど） */
+  notices: string[];
 }

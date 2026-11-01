@@ -1,4 +1,5 @@
 // 世帯の保存（0011・0012・0013・0016）: 本文の往復・持たない情報・過去の形式の見本・画面にパスを渡さないこと・自動保存
+import type { CombinedBsInput } from "../../report/src/index.ts";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -724,6 +725,22 @@ function sample048(): BodyState {
   return { ...s, wh: { ...s.wh, request: req }, display: { ...s.display, balance: { ...s.display.balance, guide: { ...s.display.balance.guide, basis: "livingLoan" } } } };
 }
 
+/** 0.50 の形（0108）: 会社と合わせたバランスシートの入力（計算の要求の外。架空の会社の数字） */
+function sample050(): BodyState {
+  const s = sample048();
+  const M = 10000;
+  const companyBs: CombinedBsInput = {
+    version: 1,
+    asOf: "2026-09",
+    amounts: { cash: 2000 * M, receivables: 1500 * M, inventory: 800 * M, otherCurrent: 200 * M, land: 1500 * M, buildings: 1200 * M, investments: 500 * M, otherFixed: 300 * M, shortDebt: 1000 * M, longDebt: 4000 * M, loanFromOwner: 500 * M, otherLiabilities: 1000 * M, capital: 300 * M, retained: 1200 * M, monthlyFixed: 420 * M, monthlyLoanPay: 80 * M },
+    stage: "stable",
+    ownerMonthly: null,
+    restated: { receivables: 1200 * M },
+    useRestated: false,
+  };
+  return { ...s, wh: { ...s.wh, companyBs } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -847,7 +864,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.48");
+    expect(BODY_FORMAT_VERSION).toBe("0.50");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1001,7 +1018,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample048())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample050())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1322,6 +1339,21 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     for (const m of plain.input.household.members) delete m.companyGuarantee;
     for (const a of plain.input.household.accounts ?? []) delete a.subtype;
     expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(plain)).table);
+  });
+
+  it("0.50 の形（0108）: 会社と合わせたバランスシートの入力を household.companyBs に保存して読み戻し、計算の要求には入れない（計算の結果は変わらない）", () => {
+    const s = sample050();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request; companyBs?: CombinedBsInput } };
+    expect(stored.household.companyBs?.amounts.cash).toBe(20000000);
+    expect(JSON.stringify(stored.household.request)).not.toContain("companyBs");
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(back.wh.companyBs).toEqual(s.wh.companyBs);
+    expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(sample048().wh.request)).table);
+    // 形の合わない値は捨て、何も残らなければ欄を持たない
+    const bad = fromBody(JSON.stringify({ ...stored, household: { ...stored.household, companyBs: { amounts: { cash: "x" } } } }));
+    expect(bad.wh.companyBs).toBeUndefined();
+    expect("companyBs" in bodyObject(bad).household).toBe(false);
   });
 
   it("0.42 の形（0090）: 高専と専門職大学院（法科大学院）の段を保存して読み戻し、計算に使う", () => {

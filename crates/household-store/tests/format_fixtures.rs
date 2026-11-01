@@ -147,6 +147,24 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(d.get("dock").is_none(), "{v}: display.dock は持たない");
             assert!(d.get("metrics").is_none(), "{v}: 結果のタブの値は区画の中");
         }
+        if *v == "0.50" {
+            // 0.50 から: 会社と合わせたバランスシートの入力（計算の要求の外。0108）
+            let c = &now["household"]["companyBs"];
+            assert_eq!(c["version"], 1, "{v}: 会社の入力の形の版");
+            assert!(c["amounts"]["cash"].is_u64(), "{v}: 会社の現預金");
+            assert_eq!(c["asOf"], "2026-09", "{v}: 会社の基準日");
+            assert!(
+                now["household"]["request"]["input"]
+                    .get("companyBs")
+                    .is_none(),
+                "{v}: 計算の要求には入れない"
+            );
+        } else {
+            assert!(
+                now["household"].get("companyBs").is_none(),
+                "{v}: 前の版の世帯は会社の入力なし"
+            );
+        }
         if *v == "0.48" {
             // 0.48 から: 役員として働く人の家計の側（自社株〔出資額〕・会社への貸付金・会社からの借入金・会社の借入の連帯保証の額）と、
             // 家計の体力の目安の分母（0105）

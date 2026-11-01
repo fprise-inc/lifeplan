@@ -130,6 +130,11 @@
   let points = bs.figure.columns.map(c => bs-point-short(c.point.label, if who == none { none } else { who.label }))
   section("バランスシートの図（提案。" + points.join("・") + "）")
   bs-figure(bs.figure, height: if land { 130pt } else { 165pt })
+  // 会社の借入の連帯保証（0105）: 負債には入れず、図の下に1行で（今の額。0108）
+  let gu = bs.at("guarantee", default: none)
+  if gu != none {
+    note("会社の借入の連帯保証（" + man-unit(gu.amount) + "）は負債に入れていません（会社が返している間は、家計から返済は出ないため）。保証を含めると、今の純資産は" + man-unit(gu.netWorthWith) + "です。")
+  }
   note("箱の高さは金額に比例します（" + str(bs.figure.columns.len()) + "つの時点で共通の縮尺）。資産は上から、すぐ使えるお金（預金など）・値動きのある運用（NISA・課税口座など）・引き出せないお金（iDeCo・企業型DCなど）・換金しにくい資産（土地・建物・車・保険の解約返戻金など）。建物は年数とともに価値が減りますが、土地は残ります。今の年は入力した値から出した事実、先の年は見込みです。金融資産が尽きた後の足りない分は「その他の負債」に含めています。")
   section("年の抜粋のバランスシート（提案）")
   sheet-table(bs.proposal, extra: (("純資産（現状）", bs.currentNetWorth),))

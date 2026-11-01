@@ -2,7 +2,7 @@
 // 表紙と「前提条件と注意書き」は外せない（宛名欄の宣言と、必須の記載の決まった欄があるため。0009 の3・6）
 import type { ProposalInput } from "./input.ts";
 
-export type ChapterId = "cover" | "assumptions" | "summary" | "basics" | "dreams" | "events" | "cashflow" | "moneyThree" | "education" | "housing" | "rental" | "retirement" | "investment" | "marketDrop" | "contingency" | "insurance" | "changes" | "comparison";
+export type ChapterId = "cover" | "assumptions" | "summary" | "basics" | "dreams" | "events" | "cashflow" | "moneyThree" | "education" | "housing" | "rental" | "retirement" | "investment" | "marketDrop" | "contingency" | "insurance" | "changes" | "comparison" | "combinedBs";
 
 export interface ChapterDef {
   id: ChapterId;
@@ -31,6 +31,8 @@ export const CHAPTERS: readonly ChapterDef[] = [
   { id: "insurance", label: "保障内容と払込保険料", fixed: false },
   { id: "changes", label: "提案での変更点", fixed: false },
   { id: "comparison", label: "プランの比較", fixed: false },
+  // 法人の顧問向けの機能（事務所の設定で使うと決めたときだけ選べる。材料が無ければ載せない。0108）
+  { id: "combinedBs", label: "会社と合わせたバランスシート（合算BS）", fixed: false },
 ];
 
 export const CHAPTER_IDS: readonly ChapterId[] = CHAPTERS.map((c) => c.id);
@@ -62,6 +64,8 @@ export function hasMaterial(input: ProposalInput, id: ChapterId): boolean {
       return input.marketDrop != null;
     case "moneyThree":
       return input.moneyThree != null;
+    case "combinedBs":
+      return input.combinedBs != null;
     default:
       return true;
   }
@@ -87,5 +91,6 @@ export function selectChapters(input: ProposalInput, chosen: readonly ChapterId[
   if (!on.has("investment")) out.investment = null;
   if (!on.has("marketDrop")) out.marketDrop = null;
   if (!on.has("moneyThree")) out.moneyThree = null;
+  if (!on.has("combinedBs")) out.combinedBs = null;
   return out;
 }

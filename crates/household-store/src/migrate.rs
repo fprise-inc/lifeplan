@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.48";
+pub const CURRENT: &str = "0.50";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -160,11 +160,15 @@ pub const CURRENT: &str = "0.48";
 ///   `companyGuarantee`（会社の借入の連帯保証の額。負債には入れない）、資産と負債のタブの家計の体力の目安の分母 `display.balance.guide.basis`
 ///   （生活費 `living`・生活費＋ローン返済 `livingLoan`。省略は世帯から決める）。前の版のアプリは細目と保証の額を読み落として書き戻すので、
 ///   版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える
+/// - 0.50: 会社と合わせたバランスシート（法人の顧問向けの機能。事務所の設定で使うと決めたときだけ画面に出す）の入力 `household.companyBs` を
+///   足した（0108。足すだけの MINOR。計算の要求の外）: 会社の今のバランスシートの科目・基準日・毎月の固定の支出・会社の段階・実力に直した額。
+///   前の版のアプリは会社の数字を扱えないので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える。
+///   0.49 は別の変更が使う予定の版で、この段はその前後どちらに積んでも同じ（版を書き換えるだけ）。0.49 が先に入ったら、この段の from を "0.49" にする
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
-    "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48",
+    "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.50",
 ];
 
 /// 1段分の変換
@@ -410,6 +414,11 @@ pub const STEPS: &[Step] = &[
         from: "0.47",
         to: "0.48",
         apply: v0_47_to_0_48,
+    },
+    Step {
+        from: "0.48",
+        to: "0.50",
+        apply: to_0_50,
     },
 ];
 
@@ -1786,6 +1795,16 @@ fn v0_47_to_0_48(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.48（か 0.49）→ 0.50: 足した欄（会社と合わせたバランスシートの入力 `household.companyBs`。0108）は任意なので足さない。形式の版だけを
+/// 書き換える（前の版の世帯は会社の入力なし）。ほかの欄に触れないので、0.49 の段の後に積んでも同じ
+fn to_0_50(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.50".into());
+    }
+    Ok(body)
+}
+
 /// 0.17 で ID を振る並び（物の集まり → その物から並びまでの欄の名前。0035 の5）
 const ELEMENT_LISTS: &[(&str, &[&[&str]])] = &[
     ("livingExpenses", &[&["stages"], &["categories"]]),
@@ -2329,7 +2348,8 @@ mod tests {
         assert_eq!(access("0.46").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.47").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.48").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.49").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.50").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.51").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -2342,7 +2362,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.49", b.clone()).unwrap(),
+            upgrade("0.51", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -2678,9 +2698,31 @@ mod tests {
             "display": {"balance": {"guide": {"months": [6, 12], "risk": [10, 40], "debt": 50}}}
         });
         let u = upgrade("0.47", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.48");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
         assert_eq!(u["display"], b["display"]);
+    }
+
+    #[test]
+    fn to_0_50_only_bumps_version() {
+        // 足した欄（会社と合わせたバランスシートの入力。0108）は任意なので、前の版の世帯・表示の設定はそのまま
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.48"},
+            "household": {"request": {"input": {"baseMonth": "2026-10", "household": {
+                "accounts": [{"id": "a1", "kind": "otherAsset", "subtype": "ownCompanyShares", "owner": "m1", "marketValue": {"value": 10000000, "state": "confirmed", "origin": {"kind": "manual"}}, "asOf": "2026-09", "contributions": []}]
+            }}}},
+            "display": {"balance": {"guide": {"months": [6, 12], "risk": [10, 40], "debt": 50, "basis": "livingLoan"}}}
+        });
+        let u = upgrade("0.48", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.50");
+        assert_eq!(u["household"], b["household"]);
+        assert_eq!(u["display"], b["display"]);
+        // 0.49 の段の後に積んでも同じ（この段は版だけを書き換える）
+        let mut b49 = b.clone();
+        b49["meta"]["formatVersion"] = "0.49".into();
+        let u49 = to_0_50(b49).unwrap();
+        assert_eq!(u49["meta"]["formatVersion"], "0.50");
+        assert_eq!(u49["household"], b["household"]);
     }
 
     #[test]

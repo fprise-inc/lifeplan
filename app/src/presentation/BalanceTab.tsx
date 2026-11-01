@@ -12,7 +12,7 @@ import { healthOf, monthsValue, scaleFor, type HealthItem } from "./bsLayout.ts"
 import { FALLBACK, colsOf, resolveColumns, nextColumns, type ResolvedColumn } from "./bsColumns.ts";
 import { group, man, manDiff } from "./format.ts";
 import { PopIcon } from "./icons.tsx";
-import type { BalanceTabModel, BsColumn, BsCustomViewModel, BsGroupKey, BsGuide, BsGuideBasis, BsPlanModel, BsPointKey, BsYearModel, MoneyThreeModel, MoneyThreeWording, MoneyThreeSettings, VerdictPart, Yen } from "./model.ts";
+import type { BalanceTabModel, BsColumn, BsCustomField, BsCustomViewModel, BsGroupKey, BsGuide, BsGuideBasis, BsPlanModel, BsPointKey, BsYearModel, MoneyThreeModel, MoneyThreeWording, MoneyThreeSettings, VerdictPart, Yen } from "./model.ts";
 import { MoneyThreeSection } from "./MoneyThree.tsx";
 import { revealAdded } from "./revealAdded.ts";
 
@@ -39,6 +39,8 @@ export interface BalanceTabProps {
   onPointDefaults: (k: BsPointKey[]) => void;
   /** お金の3つの分け方（図の下の区画。0032）。flash が変わると区画へ移って光らせる（#bsm3 で開いたとき） */
   moneyThree?: { model: MoneyThreeModel | null; onSettings: (s: Partial<MoneyThreeSettings>) => void; flash: number; nameChoices: readonly MoneyThreeNameChoice[] };
+  /** カスタマイズで足した見るものの欄を変えた（view は見るものの鍵、id は欄の ID、value は欄の文字。読めない値なら false を返す。0108） */
+  onCustomField?: (view: string, id: string, value: string) => boolean;
   /** 画面の確かめ用の最初の状態（open: "combined" はカスタマイズで足した最初の見るものを開く。足したものが無ければ家計のバランスシート） */
   initial?: { view?: BsView; year?: number; open?: "combined"; table?: boolean; settings?: boolean };
 }
@@ -87,7 +89,7 @@ function useFitHeight(head: { current: HTMLElement | null }, bar: { current: HTM
   return h;
 }
 
-export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDefaults, moneyThree, initial }: BalanceTabProps) {
+export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDefaults, moneyThree, onCustomField, initial }: BalanceTabProps) {
   // 見るもの: 家計のバランスシート（"home"）か、カスタマイズで足した見るもの（その key）
   const [subKey, setSub] = useState<string>(initial?.open === "combined" ? (model.customViews[0]?.key ?? "home") : "home");
   const custom = model.customViews.find((c) => c.key === subKey) ?? null;
@@ -181,7 +183,7 @@ export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDef
         </div>
       ) : null}
       {custom !== null ? (
-        <CustomView model={model} view={custom} />
+        <CustomView model={model} view={custom} onField={(id, v) => onCustomField?.(custom.key, id, v) ?? false} />
       ) : (
         <>
           {band}
@@ -321,11 +323,12 @@ function OneYear({ model, plan, year, yi, onPick, onAdjusted, height }: { model:
 }
 
 /**
- * 会社の借入の連帯保証（0105）: 負債の合計には入れず、図の外に点線の箱で見せる。今の年だけ（保証の額は今の額で、先の年は見込まない）
+ * 会社の借入の連帯保証（0105）: 負債の合計には入れず、図の外に点線の箱で見せる。今の年だけ（保証の額は今の額で、先の年は見込まない）。
+ * 時点を並べる・プランを比較するときも、今の年の図の下にだけ出す（compact。0108）
  */
-function GuaranteeNote({ year }: { year: BsYearModel }) {
+function GuaranteeNote({ year, compact = false }: { year: BsYearModel; compact?: boolean }) {
   return (
-    <div class="bs-guarantee" data-bs-guarantee>
+    <div class={`bs-guarantee${compact ? " compact" : ""}`} data-bs-guarantee>
       <span class="k">会社の借入の連帯保証</span>
       <span class="v num">{mn(year.guarantee)}</span>
       <span class="t">
@@ -716,6 +719,7 @@ function ThreeView({ model, plan, cols, onGo, onColumns, onEditDefaults, height 
                 />
                 {p.note !== null ? <p class="bs-colnote">{p.note}</p> : null}
                 <BsFigure year={y} groups={model.groups} scale={sc} compact height={cols.length >= 4 ? Math.round(height * 0.9) : height} label={`${p.label}（${y.year}年）のバランスシート`} />
+                {y.guarantee > 0 ? <GuaranteeNote year={y} compact /> : null}
                 <div class="tn">
                   純資産 <span class={`num${y.netWorth < 0 ? " neg" : ""}`}>{mn(y.netWorth)}</span>
                 </div>
@@ -1000,6 +1004,7 @@ function PlansView({ model, lr, onLr, yi, height, part }: { model: BalanceTabMod
               <KindTag fact={y.fact} />
             </div>
             <BsFigure year={y} groups={model.groups} scale={sc} compact height={height} label={`${p.name}の${y.year}年のバランスシート`} />
+            {y.guarantee > 0 ? <GuaranteeNote year={y} compact /> : null}
             <div class="pn">
               純資産 <span class={`num${y.netWorth < 0 ? " neg" : ""}`}>{mn(y.netWorth)}</span>
               <small>
@@ -1161,26 +1166,157 @@ function SheetTable({ plan, yi, groups }: { plan: BsPlanModel; yi: number; group
   );
 }
 
-// ---- カスタマイズで足した見るもの（例: 合算BS） ----
+// ---- カスタマイズで足した見るもの（例: 合算BS。0027 の8・0108） ----
+// 受け取った値を出すだけ: 段の切り替え（あれば）・同じ図の部品で共通の縮尺の図・お知らせ・表と文・宣言型の入力欄
 
-function CustomView({ model, view: cv }: { model: BalanceTabModel; view: BsCustomViewModel }) {
-  const sc = scaleFor(cv.columns.map((c) => c.at));
+function CustomView({ model, view: cv, onField }: { model: BalanceTabModel; view: BsCustomViewModel; onField: (id: string, value: string) => boolean }) {
+  const steps = cv.steps ?? [];
+  const [stepKey, setStep] = useState<string | null>(null);
+  const step = steps.find((x) => x.key === stepKey) ?? steps.at(-1) ?? null;
+  const columns = step?.columns ?? cv.columns;
+  const sc = cv.scale ?? scaleFor(columns.map((c) => c.at));
+  const groups = { ...model.groups, ...cv.groups };
+  const notices = cv.notices ?? [];
   return (
-    <section class="card bs-card" data-bs-custom={cv.key}>
+    <section class="card bs-card bs-custom" data-bs-custom={cv.key}>
       <div class="bs-head">
         <h2>{cv.label}</h2>
+        {steps.length > 0 && cv.empty === undefined ? (
+          <span class="seg-g" role="group" aria-label="段">
+            {steps.map((x) => (
+              <button type="button" key={x.key} aria-pressed={step?.key === x.key} onClick={() => setStep(x.key)} data-bs-custom-step={x.key}>
+                {x.label}
+              </button>
+            ))}
+          </span>
+        ) : null}
       </div>
-      <div class="bs-pair many">
-        {cv.columns.map((c) => (
-          <div class="bs-pane" key={c.name}>
-            <div class="ph">
-              <b>{c.name}</b>
-            </div>
-            <BsFigure year={c.at} groups={model.groups} scale={sc} compact height={FIG_H.compact} label={`${c.name}のバランスシート`} />
+      {cv.lead !== undefined ? <p class="bs-subline">{cv.lead}</p> : null}
+      {notices.length > 0 ? (
+        <div class="bs-cnotice" role="status" data-bs-custom-notices>
+          <b>お知らせ</b>
+          <ul>
+            {notices.map((n, i) => (
+              <li key={i}>{n}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {cv.empty !== undefined ? (
+        <p class="bs-cempty" data-bs-custom-empty>
+          {cv.empty}
+        </p>
+      ) : (
+        <>
+          <div class={`bs-pair${columns.length > 2 ? " many" : ""}`}>
+            {columns.map((c) => (
+              <div class="bs-pane" key={c.name} data-bs-custom-col={c.name}>
+                <div class="ph">
+                  <b>{c.name}</b>
+                  {c.sub !== undefined ? <small>{c.sub}</small> : null}
+                </div>
+                <BsFigure year={c.at} groups={groups} scale={sc} compact noTag height={FIG_H.compact} label={`${c.name}のバランスシート`} />
+                <div class="pn">
+                  純資産 <span class={`num${c.at.netWorth < 0 ? " neg" : ""}`}>{mn(c.at.netWorth)}</span>
+                  <small>
+                    資産 {mn(c.at.totalAssets)}・負債 {mn(c.at.totalLiabilities)}
+                  </small>
+                </div>
+                {(c.at.netParts ?? []).length > 0 ? <p class="bs-cparts">{(c.at.netParts ?? []).map((p) => `${p.label} ${mn(p.amount)}`).join("・")}</p> : null}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      <p class="bs-subline">{cv.note}</p>
+          {step !== null ? <p class="bs-subline">{step.note}</p> : null}
+          {(cv.sections ?? []).map((x) => (
+            <div class="bs-csec" key={x.key} data-bs-custom-sec={x.key}>
+              <h3>{x.title}</h3>
+              {x.field !== undefined ? <CustomFieldInput f={x.field} onField={onField} /> : null}
+              {x.table !== undefined ? (
+                <div class="bs-ctable-wrap">
+                  <table class="bs-ctable">
+                    <thead>
+                      <tr>
+                        {x.table.head.map((h, i) => (
+                          <th key={i}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {x.table.rows.map((r, i) => (
+                        <tr key={i} class={r.tone ?? ""}>
+                          {r.cells.map((c, j) => (
+                            <td key={j}>{c}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+              {(x.lines ?? []).map((l, i) => (
+                <p class="bs-cline" key={i}>
+                  {l}
+                </p>
+              ))}
+              {x.note !== undefined ? <p class="bs-subline">{x.note}</p> : null}
+            </div>
+          ))}
+          <p class="bs-subline">{cv.note}</p>
+        </>
+      )}
+      {cv.form !== undefined ? (
+        <details class="bs-cform" open={cv.form.open} data-bs-custom-form>
+          <summary>{cv.form.title}</summary>
+          <p class="bs-subline">{cv.form.note}</p>
+          {cv.form.groups.map((gr) => (
+            <fieldset key={gr.title} class="bs-cgroup">
+              <legend>{gr.title}</legend>
+              {gr.note !== undefined ? <p class="bs-subline">{gr.note}</p> : null}
+              <div class="bs-cfields">
+                {gr.fields.map((f) => (
+                  <CustomFieldInput key={f.id} f={f} onField={onField} />
+                ))}
+              </div>
+            </fieldset>
+          ))}
+        </details>
+      ) : null}
     </section>
+  );
+}
+
+/** 宣言型の欄1つ（文字は確定したとき〔欄を離れた・Enter〕に作業の層へ渡す。読めなければ欄の下に知らせ） */
+function CustomFieldInput({ f, onField }: { f: BsCustomField; onField: (id: string, value: string) => boolean }) {
+  const [bad, setBad] = useState(false);
+  const put = (v: string) => setBad(!onField(f.id, v));
+  if (f.kind === "choice")
+    return (
+      <label class="bs-cfield">
+        <span>{f.label}</span>
+        <select value={f.value} onChange={(e) => put((e.currentTarget as HTMLSelectElement).value)} data-bs-custom-field={f.id}>
+          {(f.options ?? []).map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  if (f.kind === "check")
+    return (
+      <label class="bs-cfield check">
+        <input type="checkbox" checked={f.value === "1"} onChange={(e) => put((e.currentTarget as HTMLInputElement).checked ? "1" : "")} data-bs-custom-field={f.id} />
+        <span>{f.label}</span>
+      </label>
+    );
+  return (
+    <label class="bs-cfield">
+      <span>{f.label}</span>
+      <span class="in">
+        <input key={f.value} inputMode={f.kind === "yen" ? "decimal" : "numeric"} defaultValue={f.value} placeholder={f.placeholder ?? ""} aria-invalid={bad} onChange={(e) => put((e.currentTarget as HTMLInputElement).value)} data-bs-custom-field={f.id} />
+        {f.unit !== undefined ? <span class="u">{f.unit}</span> : null}
+      </span>
+      {bad ? <small class="bad">{f.kind === "month" ? "年月（例: 2026-09）で入れてください" : `数（${f.unit ?? ""}）で入れてください`}</small> : f.help !== undefined ? <small>{f.help}</small> : null}
+    </label>
   );
 }

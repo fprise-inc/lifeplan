@@ -5,7 +5,7 @@
 // - ひと言の解説・箱の説明・この年の出来事もここで作る（提示層は受け取った文を出すだけ）。物の ID・FP のメモは渡さない
 import type { EngineRequest, TableCell } from "../engine/types.ts";
 import { bsHouseholdOf, bsSeries, BS_GROUP_LABEL, BS_GROUP_SHORT, groupTotal, type BsAt, type BsGroup } from "../../../report/src/index.ts";
-import type { BalanceTabModel, BsColumn, BsGroupKey, BsGuide, BsGuideBasis, BsMarkKind, BsPlanModel, BsPointKey, BsPointModel, BsPrevModel, BsYearModel, VerdictPart } from "../presentation/model.ts";
+import type { BalanceTabModel, BsColumn, BsCustomViewModel, BsGroupKey, BsGuide, BsGuideBasis, BsMarkKind, BsPlanModel, BsPointKey, BsPointModel, BsPrevModel, BsYearModel, VerdictPart } from "../presentation/model.ts";
 import { man } from "../presentation/format.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
 import { ageAxis, depletionYear, eventsOf, SURPLUS_ROW } from "./present.ts";
@@ -317,7 +317,12 @@ export function bsPrev(o: { key: string; label: string; createdAt: string; baseM
   return { key: o.key, label: o.label, ago, expected, reason: null, actual, summary, items: prevItems(expected, actual) };
 }
 
-export function balanceTabModel(o: { plans: BsPlanModel[]; selected: string; base: string; guide: BsGuide; guideBasis?: BsGuideBasis; pointDefaults: BsPointKey[]; columns: BsColumn[] | null; prevChoices: { key: string; label: string }[]; prev: BalanceTabModel["prev"]; provisional: boolean; who: string }): BalanceTabModel {
+/**
+ * customViews: カスタマイズで足す見るもの（0027 の8）。公式の画面が足すのは、事務所の設定で使うと決めた法人の顧問向けの機能
+ * （会社と合わせたバランスシート。役員として働く人のいる世帯だけ。0108）だけ。ほかは空
+ */
+export function balanceTabModel(o: { plans: BsPlanModel[]; selected: string; base: string; guide: BsGuide; guideBasis?: BsGuideBasis; pointDefaults: BsPointKey[]; columns: BsColumn[] | null; prevChoices: { key: string; label: string }[]; prev: BalanceTabModel["prev"]; provisional: boolean; who: string; customViews?: BsCustomViewModel[] }): BalanceTabModel {
   const groups = Object.fromEntries((Object.keys(BS_GROUP_LABEL) as BsGroup[]).map((k) => [k, { name: BS_GROUP_LABEL[k], short: BS_GROUP_SHORT[k] }])) as BalanceTabModel["groups"];
-  return { ...o, guideBasis: o.guideBasis ?? "living", groups, pointChoices: BS_POINT_CHOICES, customViews: [] };
+  const { customViews, ...rest } = o;
+  return { ...rest, guideBasis: o.guideBasis ?? "living", groups, pointChoices: BS_POINT_CHOICES, customViews: customViews ?? [] };
 }
