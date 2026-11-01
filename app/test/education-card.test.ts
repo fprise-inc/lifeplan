@@ -288,6 +288,39 @@ describe("奨学金・教育ローン", () => {
     expect((preview(hh.request).summary as { childScholarships?: unknown }).childScholarships).toBeUndefined();
   });
 
+  it("種類（0104 の追記）: 第一種（無利子）・第二種（有利子。既定）。利率が推定のままなら種類の目安（0%・第二種の目安）に入れ直し、入れた利率は変えない", () => {
+    const wh = fresh();
+    const g = goalOf(wh);
+    const w = addScholarship(wh, g.id, "00000000-0000-4000-8000-0000000000c1");
+    const k = `edu/${g.id}/scholar/00000000-0000-4000-8000-0000000000c1`;
+    const f = fieldOf(w, `${k}/type`);
+    expect(f.label).toBe("種類");
+    expect(f.kind === "select" ? f.options.map((o) => o.label) : []).toEqual(["第一種（無利子）", "第二種（有利子）"]);
+    // 省略は第二種（足したばかりの奨学金・前の世帯の奨学金）
+    expect(f.get(w).value).toBe("second");
+    expect(goalOf(w).education!.scholarships![0]!.type).toBeUndefined();
+    const sum = (wx: WorkingHousehold) => (preview(wx.request).summary as { childScholarships?: { total: number }[] }).childScholarships?.[0]?.total ?? 0;
+    // 第一種にすると利率0%（推定のまま）。返済の合計は借りた額と同じ
+    const first = f.set(w, "first");
+    const s1 = goalOf(first).education!.scholarships![0]!;
+    expect(s1).toMatchObject({ type: "first", rate: "0" });
+    expect(fieldStatus(fieldOf(first, `${k}/rate`), first).status).toBe("estimated");
+    const rateAt = { target: { object: g.id }, item: "goal.education", at: ["scholarships", "00000000-0000-4000-8000-0000000000c1", "rate"] };
+    expect(rowAt(first.request.input as unknown as Record<string, unknown>, rateAt)?.estimate?.basis).toContain("第一種奨学金（無利子）は利率0%");
+    expect(sum(first)).toBeLessThan(sum(w));
+    // 第二種に戻すと第二種の目安（年3%）
+    const second = fieldOf(first, `${k}/type`).set(first, "second");
+    expect(goalOf(second).education!.scholarships![0]!).toMatchObject({ rate: "0.03" });
+    expect(goalOf(second).education!.scholarships![0]!.type).toBeUndefined();
+    // FP が入れた利率は、種類を変えても変えない
+    const typed = fieldOf(w, `${k}/rate`).set(w, "0.012");
+    const kept = fieldOf(typed, `${k}/type`).set(typed, "first");
+    expect(goalOf(kept).education!.scholarships![0]!).toMatchObject({ type: "first", rate: "0.012" });
+    // 見出しに種類
+    expect(groups(first).find((x) => x.key === k)!.title).toBe("貸与の奨学金（第一種） 月50,000円");
+    expect(groups(w).find((x) => x.key === k)!.title).toBe("貸与の奨学金（第二種） 月50,000円");
+  });
+
   it("教育ローンを足すと入学の前の1月に本人が借り、借りた額が入金になる", () => {
     const wh = fresh();
     const g = goalOf(wh);

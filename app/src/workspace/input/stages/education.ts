@@ -880,6 +880,30 @@ const estimatedRowAt = (input: Obj, goalId: string, list: string, id: string, ke
   for (const f of keys) putRow(input, { target: { object: goalId }, item: "goal.education", at: [list, id, f] }, { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis } });
 };
 
+/**
+ * 貸与の奨学金の種類（0104 の追記 2026-11-01）: 第一種（無利子）・第二種（有利子）。省略は第二種（前の世帯の奨学金は、入っている利率のまま第二種として読む）。
+ * 種類で利率の目安が決まる: 第一種は0%、第二種はこれから借りる第二種の目安（マスタデータ master.loanRates）。種類は表示と目安の元だけで、計算は利率
+ */
+export const SCHOLARSHIP_TYPES = [
+  { value: "first", label: "第一種（無利子）" },
+  { value: "second", label: "第二種（有利子）" },
+];
+
+/** 種類ごとの利率の目安（率と根拠の文） */
+export function scholarshipTypeRate(type: string | undefined): { rate: string; basis: string } {
+  return type === "first" ? { rate: "0", basis: presetBasis("第一種奨学金（無利子）は利率0%") } : { rate: scholarshipRateEstimate().rate, basis: SCHOLARSHIP_BASIS };
+}
+
+/** 種類を変えたとき、利率が推定のまま（目安のボタンの値）なら、新しい種類の目安に入れ直す。FP が入れた利率は変えない */
+function reestimateScholarshipRate(input: Obj, goalId: string, s: EducationScholarship): void {
+  if (s.id === undefined) return;
+  const addr: Address = { target: { object: goalId }, item: "goal.education", at: ["scholarships", s.id, "rate"] };
+  if (rowAt(input, addr)?.state !== "estimated") return;
+  const est = scholarshipTypeRate(s.type);
+  s.rate = est.rate;
+  putRow(input, addr, { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: est.basis } });
+}
+
 /** 奨学金を返す人（0104）。省略は子が返す */
 const REPAID_BY = [
   { value: "child", label: "子が返す" },
@@ -897,12 +921,38 @@ function scholarshipGroups(goal: Goal, child: Member): GroupDef[] {
       const a = addr(f);
       return a !== undefined ? { address: a } : {};
     };
+    const typeField = plain({
+      key: `${k}/type`,
+      item: "goal.education",
+      label: "種類",
+      level: "detail",
+      kind: "select",
+      options: SCHOLARSHIP_TYPES,
+      find,
+      path: ["type"],
+      optional: true,
+      fallback: "second",
+      help: `種類で利率の目安が決まります（第一種は無利子で0%、第二種は${scholarshipRateEstimate().basis}）。利率を入れていれば、種類を変えても利率は変えません`,
+    });
+    const typeLabel = s.type === "first" ? "第一種" : "第二種";
     return {
       key: k,
-      title: `貸与の奨学金 月${formatYen(s.monthly, "yen")}円`,
+      title: `貸与の奨学金（${typeLabel}） 月${formatYen(s.monthly, "yen")}円`,
       note: (s.repaidBy ?? "child") === "child" ? "在学中に受け取り（入るお金）、卒業の後に子が返します。子の返済は世帯の支出に入れません（結果の画面と提案書に返済の額を書き添えます）" : "在学中に受け取り（入るお金）、卒業の後に世帯で返します（返済は世帯の支出に入ります）",
       level: "detail",
       fields: [
+        {
+          ...typeField,
+          ...at("type"),
+          set: (w, v) => {
+            const next = typeField.set(w, v);
+            if (next === w) return w;
+            return mutate(next, (h, req) => {
+              const x = (h.goals ?? []).find((g) => g.id === goal.id)?.education?.scholarships?.[i];
+              if (x !== undefined) reestimateScholarshipRate(req.input as unknown as Obj, goal.id, x);
+            });
+          },
+        },
         { ...plain({ key: `${k}/monthly`, item: "goal.education", label: "月額", level: "detail", kind: "yen", basis: "monthly", find, path: ["monthly"] }), ...at("monthly") },
         timepointField({ key: `${k}/from`, item: "goal.education", label: "受け取る期間の始まり", level: "detail", find, path: ["from"], ageOf }),
         timepointField({ key: `${k}/to`, item: "goal.education", label: "受け取る期間の終わり", level: "detail", find, path: ["to"], startPath: ["from"], ageOf }),

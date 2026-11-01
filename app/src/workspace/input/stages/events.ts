@@ -7,7 +7,7 @@ import { lifeExpectancy } from "../../../../../hearing/src/estimates.ts";
 import { addMonths, ageAt } from "../../levers.ts";
 import { ageSwitchMonth, resolveTimepoint } from "../../timepoint.ts";
 import { livingEstimate } from "../estimates.ts";
-import { byId, field, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { byId, field, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type GroupDef, type SectionDef, type StageDef, type Val } from "../form.ts";
 import { mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
 import { CARE_PLACE, memberLabel, memberOptions } from "../labels.ts";
 import { addExpense, addIncome, cadenceOf, expenseCard, growthFields, incomeCard, moneySections, OUT_ROWS, OUT_ROWS_BY_KIND, periodicGroup, periodicGroups } from "../moneyRows.ts";
@@ -628,16 +628,22 @@ export function addOtherExpense(wh: WorkingHousehold, id: string = newId()): Wor
 /** 夢プランの区画の説明（車・住まいそのものを夢にするときも、ここで額と時期で入れる） */
 export const DREAM_NOTE = "車・住まいそのものを夢にするときも、ここでは額と時期で入れます";
 
-/** 夢の「最初から計算に入れる」を外した夢の印（見出し・この世帯の予定。0103 の追記 2026-11-01 の3） */
-export const DREAM_CANDIDATE = "（候補として置く）";
+/** 夢の「計算に入れるか」の選び方（0103 の追記 2026-11-01 の4。前はチェックの「最初から計算に入れる」） */
+export const DREAM_INCLUDE_OPTIONS = [
+  { value: "include", label: "最初から計算に入れる" },
+  { value: "exclude", label: "計算に入れない" },
+] as const;
 
-/** 夢の「最初から計算に入れる」の説明（入れる・入れないで計算と結果がどう変わるか、入れない夢の使い方） */
+/** 夢を「計算に入れない」にした夢の印（見出し・この世帯の予定。0103 の追記 2026-11-01 の4） */
+export const DREAM_EXCLUDED = "（計算に入れない）";
+
+/** 夢の「計算に入れるか」の説明（選ぶと計算と結果がどう変わるか、計算に入れない夢の使い方） */
 export const DREAM_INCLUDE_HELP = [
-  "入れると、この夢の額をキャッシュフロー表の一時的支出に入れて、ふだんの結果（お金の推移・足りなくなる時期）を計算します。",
-  "外すと、この夢は候補として夢プランに置いておき、ふだんの計算には入れません。結果の画面の夢のカードには「候補として置く」と出ます。",
-  "候補の夢は、結果の画面の「外している物」で1件ずつ入れて、かなえた場合と比べられます（見方の切り替えで、保存はしません）。",
-  "たとえば、まず必ずかなえたい夢だけを入れて結果を見ていただき、ほかの夢は候補として置いて、その夢にかかるお金と、かなえたときの違いを別に示しながら、お客さまとあとで決められます。",
-  "順位とひとことメモは、入れても外しても残ります。あとからいつでも、ここで切り替えられます。",
+  "「最初から計算に入れる」にすると、この夢の額をキャッシュフロー表の一時的支出に入れて、ふだんの結果（お金の推移・足りなくなる時期）を計算します。",
+  "「計算に入れない」にすると、この夢は夢プランに残したまま、ふだんの計算には入れません。結果の画面の夢のカードには「計算に入れない」と出ます。",
+  "計算に入れない夢は、結果の画面の「外している物」で1件ずつ入れて、かなえた場合と比べられます（見方の切り替えで、保存はしません）。",
+  "たとえば、まず必ずかなえたい夢だけを「最初から計算に入れる」にして結果を見ていただき、ほかの夢は「計算に入れない」にしておいて、その夢にかかるお金と、かなえたときの違いを別に示しながら、お客さまとあとで決められます。",
+  "順位とひとことメモは、どちらを選んでも残ります。あとからいつでも、ここで選び直せます。",
 ].join("");
 
 /** 夢の見出しの額と時期（「額は未入力」「300万円・1回」「年50万円・毎年」） */
@@ -649,7 +655,27 @@ function dreamAmountText(h: Household, p: PeriodicExpense): string {
 }
 
 /**
- * 夢の1件のまとまり（1件を1つの枠に。0077 の追記）: 名前・時期（1回／年ごと）・額・始まり・何年ごと・終わり・ひとことメモ・最初から計算に入れる。
+ * 夢の「計算に入れるか」の欄: 世帯ファイルの形は今までどおり真偽（`dream.include`。省略は入れる）のまま、画面は2つから選ぶ
+ * （「最初から計算に入れる」「計算に入れない」。0103 の追記 2026-11-01 の4）
+ */
+function dreamIncludeField(b: FieldDef): FieldDef {
+  const toBool = (v: Val): Val => (v === null ? null : v === "exclude" || v === false ? false : true);
+  const write = b.write;
+  return {
+    ...b,
+    kind: "select",
+    options: DREAM_INCLUDE_OPTIONS.map((o) => ({ ...o })),
+    get: (wh) => {
+      const st = b.get(wh);
+      return { ...st, value: st.value === false ? "exclude" : "include" };
+    },
+    set: (wh, v) => b.set(wh, toBool(v)),
+    ...(write !== undefined ? { write: (wh: WorkingHousehold, v: Val) => write(wh, toBool(v)) } : {}),
+  } as FieldDef;
+}
+
+/**
+ * 夢の1件のまとまり（1件を1つの枠に。0077 の追記）: 名前・時期（1回／年ごと）・額・始まり・何年ごと・終わり・ひとことメモ・計算に入れるか（最初から計算に入れる／計算に入れない）。
  * 優先度の欄は無い（夢はふつうの行の「必ず」「できれば」と別の物）。順位は「↑ 上へ」「↓ 下へ」で動かす
  */
 function dreamGroup(wh: WorkingHousehold, p: PeriodicExpense, rank: number, count: number): GroupDef {
@@ -667,7 +693,7 @@ function dreamGroup(wh: WorkingHousehold, p: PeriodicExpense, rank: number, coun
   const address = (item: string, at: string[] = []) => () => ({ target: { object: p.id }, item, at });
   fields.push(
     { ...plain({ key: `${k}/dreamNote`, item: "periodicExpense.dreamNote", label: "ひとことメモ（なぜかなえたいか）", level: "simple", kind: "text", find, path: ["dream", "note"], optional: true }), address: address("periodicExpense.dreamNote") },
-    { ...plain({ key: `${k}/dreamInclude`, item: "periodicExpense.dream", label: "最初から計算に入れる", level: "simple", kind: "bool", find, path: ["dream", "include"], optional: true, fallback: true, help: DREAM_INCLUDE_HELP }), address: address("periodicExpense.dream", ["include"]) },
+    { ...dreamIncludeField(plain({ key: `${k}/dreamInclude`, item: "periodicExpense.dream", label: "計算に入れるか", level: "simple", kind: "bool", find, path: ["dream", "include"], optional: true, fallback: true, help: DREAM_INCLUDE_HELP })), address: address("periodicExpense.dream", ["include"]) },
   );
   const off = p.dream?.include === false;
   const name = p.label !== undefined && p.label !== "" ? p.label : "夢";
@@ -678,7 +704,7 @@ function dreamGroup(wh: WorkingHousehold, p: PeriodicExpense, rank: number, coun
   ];
   return {
     key: k,
-    title: `夢${String(rank)}｜${name} ${dreamAmountText(h, p)} ${rowWhen(h, p)}${off ? DREAM_CANDIDATE : ""}`,
+    title: `夢${String(rank)}｜${name} ${dreamAmountText(h, p)} ${rowWhen(h, p)}${off ? DREAM_EXCLUDED : ""}`,
     ...(p.monthly === true ? { note: MONTHLY_NOTE } : {}),
     level: "simple",
     fields,
