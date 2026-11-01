@@ -1,7 +1,7 @@
 // 事務所の既定値の画面（0073。世帯の一覧の「事務所の既定値」から開く中央のパネル）:
 // 入力項目の並び・新しい世帯で出す入力項目と開いたときの入れ方・対策に最初から出す項目（0084）・万一のときのタブの既定（0085。場面の帯・
 // 開いたときの場面・想定の前提に最初から出す項目・必要保障額の数え方）・ご本人と配偶者の介護を最初から入れるか・受け取る予定の相続・贈与の見込みの既定・前提条件の標準値・
-// 相続税の目安の不動産の評価の割合・FP顧問料の料金表・法人の顧問向けの機能（合算BS。0107）。新しく作る世帯（料金表は新しく足す契約）に写す（作った世帯は変わらない。違うときは確かめの一覧に知らせが出る）
+// 相続税の目安の不動産の評価の割合・FP顧問料の料金表・法人経営者向けの機能（合算BS。0107）。新しく作る世帯（料金表は新しく足す契約）に写す（作った世帯は変わらない。違うときは確かめの一覧に知らせが出る）
 import { useEffect, useRef, useState } from "preact/hooks";
 import { STAGE_ORDER } from "../input/stages/index.ts";
 import { DEFAULT_LAYOUT } from "../input/items.ts";
@@ -491,7 +491,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
           </label>
         </section>
         <section class="os-sec" aria-labelledby="os-corp" data-office-features>
-          <h3 id="os-corp">法人の顧問向けの機能</h3>
+          <h3 id="os-corp">法人経営者向けの機能</h3>
           <p class="pl-sub">会社を顧問先に持つ FP 向けの機能です。既定では使いません。使うと決めたときだけ、役員として働く人のいる世帯に出ます（ほかの世帯の画面は変わりません）。どれも見せ方だけで、計算の結果は変わりません。</p>
           <label class="os-radio">
             <input type="checkbox" checked={s.features.combinedBs} onChange={(e) => setS({ ...s, features: { ...s.features, combinedBs: (e.currentTarget as HTMLInputElement).checked } })} data-office-feature="combinedBs" />

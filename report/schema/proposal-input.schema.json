@@ -570,7 +570,7 @@
       }
     },
     "combinedBs": {
-      "description": "会社と合わせたバランスシート（合算BS。法人の顧問向けの機能。FP が使うと決め、章を選んだときだけ。0107）: 経営者個人（家計）と会社のバランスシートを並べ、間の貸し借り（4つの組）を相殺して1枚にする。値は report/src/combinedBs.ts（アプリの見るものと同じ）。会社の先の年の見込みは作らない。省略・null は載せない",
+      "description": "会社と合わせたバランスシート（合算BS。法人経営者向けの機能。FP が使うと決め、章を選んだときだけ。0107）: 経営者個人（家計）と会社のバランスシートを並べ、間の貸し借り（4つの組）を相殺して1枚にする。値は report/src/combinedBs.ts（アプリの見るものと同じ）。会社の先の年の見込みは作らない。省略・null は載せない",
       "type": ["object", "null"],
       "additionalProperties": false,
       "required": ["asOf", "householdYear", "figure", "pairs", "netWorth", "indicators", "stage", "restated", "notices"],

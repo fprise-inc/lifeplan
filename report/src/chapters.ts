@@ -31,7 +31,7 @@ export const CHAPTERS: readonly ChapterDef[] = [
   { id: "insurance", label: "保障内容と払込保険料", fixed: false },
   { id: "changes", label: "提案での変更点", fixed: false },
   { id: "comparison", label: "プランの比較", fixed: false },
-  // 法人の顧問向けの機能（事務所の設定で使うと決めたときだけ選べる。材料が無ければ載せない。0107）
+  // 法人経営者向けの機能（事務所の設定で使うと決めたときだけ選べる。材料が無ければ載せない。0107）
   { id: "combinedBs", label: "会社と合わせたバランスシート（合算BS）", fixed: false },
 ];
 

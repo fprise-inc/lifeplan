@@ -295,7 +295,7 @@ export interface ProposalInput {
   marketDrop?: MarketDropView | null;
   /** お金の3つの分け方（説明用の図。提案のプランの今の時点。アプリの区画と同じ値・同じ言葉。0032。省略・null は載せない） */
   moneyThree?: MoneyThreeModel | null;
-  /** 会社と合わせたバランスシート（法人の顧問向けの機能。FP が使うと決め、章を選んだときだけ。0107。省略・null は載せない） */
+  /** 会社と合わせたバランスシート（法人経営者向けの機能。FP が使うと決め、章を選んだときだけ。0107。省略・null は載せない） */
   combinedBs?: CombinedBsView | null;
   /**
    * 住まい以外の不動産の物件ごとの数字（0009 の追記）。公式の帳票は使わない。FP の独自帳票（収益不動産のまとめなど）の材料。
