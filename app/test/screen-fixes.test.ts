@@ -12,7 +12,7 @@ import { addMember, removeMember } from "../src/workspace/input/stages/family.ts
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { pensionNotices } from "../src/workspace/input/stages/pension.ts";
 import { readLevers } from "../src/workspace/levers.ts";
-import { buildCatalog } from "../src/workspace/plans/items.ts";
+import { ageSliderBounds, buildCatalog } from "../src/workspace/plans/items.ts";
 import { applyValues } from "../src/workspace/plans/plans.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
@@ -291,6 +291,19 @@ describe("結果のタブ: 働く最後の年齢", () => {
     expect(c.max).toBeGreaterThanOrEqual(75);
     const req = applyValues(wh, { "lever:retireAge": 55 }, cat);
     expect(readLevers(req, self.id).retireAge).toBe(55);
+  });
+  it("もう過ぎた年齢は選べない: 66歳で70歳まで働く世帯のつまみは67歳から（見本の段の60・62・65歳は出さない）", () => {
+    const wh = fromRequest(modelHousehold("sampleSeniorCouple"));
+    const self = member(wh, "self")[0]!;
+    const cat = buildCatalog(wh, self.id, null);
+    const c = cat.byKey.get("lever:retireAge")!.control;
+    expect(c.kind).toBe("age");
+    if (c.kind !== "age") return;
+    expect(c.min).toBe(67);
+    expect(c.ticks.every((t) => t >= 67)).toBe(true);
+    expect(c.ticks).toContain(70);
+    // 画面・持ち帰りのレポートのつまみの幅: 今の値・基準の値が過ぎた年齢でも、下の端は広げない（上の端は広げる）
+    expect(ageSliderBounds(c, 60, 80)).toEqual({ min: 67, max: 80 });
   });
 });
 

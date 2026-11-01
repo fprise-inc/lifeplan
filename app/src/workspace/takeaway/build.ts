@@ -12,7 +12,7 @@ import { applyTry, type LeverConfig, type TryValues } from "../../takeaway/lever
 import type { WorkingHousehold } from "../input/household.ts";
 import { feeSummary, hasAdvisoryFee, readLevers } from "../levers.ts";
 import { CURRENT } from "../plans/band.ts";
-import { amountRange, reemploymentFor, type Catalog } from "../plans/items.ts";
+import { ageSliderBounds, amountRange, reemploymentFor, type Catalog } from "../plans/items.ts";
 import { applyValues, type Values } from "../plans/plans.ts";
 import { IdMap, sanitizeRequest } from "./sanitize.ts";
 
@@ -82,7 +82,9 @@ export function leverItems(ctx: TakeawayContext, requests: readonly EngineReques
     const now = it.read(ctx.wh);
     const note = k === "pensionAge" ? null : (it.note?.(now) ?? null);
     if (c.kind === "age") {
-      out.push({ key: k, label: it.label, kind: "age", min: Math.min(c.min, ...vals), max: Math.max(c.max, ...vals), step: 1, ticks: [...c.ticks], per: "", note });
+      // 上の端は載せるプランの値が外にあれば広げ、下の端は広げない（過ぎた年齢を選べないように）
+      const { min, max } = ageSliderBounds(c, ...vals);
+      out.push({ key: k, label: it.label, kind: "age", min, max, step: 1, ticks: [...c.ticks], per: "", note });
     } else {
       const r = amountRange(c.min, c.max, ...vals);
       out.push({ key: k, label: it.label, kind: "amount", min: r.min, max: r.max, step: c.step, ticks: [...c.ticks], per: c.per ?? "", note });
