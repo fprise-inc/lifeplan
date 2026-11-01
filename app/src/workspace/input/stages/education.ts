@@ -19,7 +19,7 @@ import { formatYearMonth, formatYen } from "../units.ts";
 import { EDUCATION_BASIS, educationStagesAddress, fillEducation, leavesToSchool, stageEnded } from "../fill.ts";
 import { putRow, rowAt, type StateRow } from "../rows.ts";
 import { addIncome, expenseCard, incomeCard, incomeGroups, moneySections, periodicGroups } from "../moneyRows.ts";
-import { boardingStatistic, INTERNATIONAL_MISSING, isGraduate, isHigher, isK12, isTertiary, manText, stagePeriod, stageStatistic, stageYears } from "../educationCost.ts";
+import { boardingStatistic, INTERNATIONAL_MISSING, KOSEN_MISSING, isGraduate, isHigher, isK12, isTertiary, manText, stagePeriod, stageStatistic, stageYears } from "../educationCost.ts";
 import { masterAmount, regulationValue } from "../../../../../hearing/src/statistics.ts";
 import { childOfPeriodic } from "./events.ts";
 import { donorOptions, FIELDS, GIFT_PURPOSES, HOUSING_EXEMPTION, LIVING_PLACE, memberLabel, memberOptions, NURSERY_HOURS, SCHOOL_STAGES, SECTORS, TAX_METHODS } from "../labels.ts";
@@ -28,7 +28,7 @@ import type { Address } from "../../store/readings.ts";
 type Obj = Record<string, unknown>;
 const goals = (h: Household) => h.goals;
 /** 段の並び（保育園から） */
-export const STAGE_ORDER = ["nursery", "kindergarten", "elementary", "juniorHigh", "highSchool", "university", "juniorCollege", "vocational", "graduateMaster", "graduateDoctor"];
+export const STAGE_ORDER = ["nursery", "kindergarten", "elementary", "juniorHigh", "highSchool", "kosen", "university", "juniorCollege", "vocational", "graduateMaster", "graduateDoctor", "graduateProfessional"];
 const STAGE_AGE: Record<string, number> = { kindergarten: 3, elementary: 6, juniorHigh: 12, highSchool: 15, university: 18, juniorCollege: 18, vocational: 18 };
 const stageLabel = (stage: string) => SCHOOL_STAGES.find((o) => o.value === stage)?.label ?? stage;
 
@@ -313,7 +313,7 @@ function stageNote(s: EducationStage, lunch: LunchChoice): string | undefined {
   const est = annualEstimate(s, lunch);
   if (s.annualOverride !== undefined) parts.push(`${school} 年${manText(s.annualOverride)}（入れた額）`);
   else if (est !== null) parts.push(`${school} 年約${manText(est.value)}（統計の平均・今の値段）`);
-  else if (s.stage === "vocational" || s.sector === "international") parts.push("⚠ 学費が未入力です（0円で計算中）。年額を入れてください");
+  else if (s.stage === "vocational" || s.stage === "kosen" || s.sector === "international") parts.push("⚠ 学費が未入力です（0円で計算中）。年額を入れてください");
   if (isK12(s.stage) && stat?.outOfSchool != null && s.outOfSchool !== "none") parts.push(`学校外 年約${manText(stat.outOfSchool)}（入れ方は「学校外の費用」で）`);
   if (isTertiary(s.stage) && s.stage !== "vocational") {
     const entrance = s.entranceOverride ?? stat?.entrance ?? null;
@@ -404,7 +404,7 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
   const sectorOptions =
     s.stage === "nursery"
       ? []
-      : s.stage === "university" || isGraduate(s.stage)
+      : s.stage === "university" || isGraduate(s.stage) || s.stage === "kosen"
         ? SECTORS
         : isK12(s.stage)
           ? [...SECTORS.filter((o) => o.value !== "national" || s.stage !== "kindergarten"), { value: "international", label: "インターナショナルスクール" }]
@@ -463,10 +463,48 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
     if (prev !== undefined) dropStaleEstimates(prev, target as unknown as EducationStage, lunchNow(wh));
   };
   fields.push(plain({ key: `${key}/sector`, item: "goal.education", label: "公立・私立", level: "simple", kind: "select", options: sectorOptions, find, path: ["sector"], optional: true, fallback: "public", help: sectorHelp(s.stage), after: reestimate }));
+  // 高校・高専（高校の段と高専の段で入れ替える。段の ID は今のまま。0090）
+  if (s.stage === "highSchool" || s.stage === "kosen")
+    fields.push(
+      field({
+        key: `${key}/highKind`,
+        item: "goal.education",
+        label: "高校・高専",
+        level: "detail",
+        kind: "select",
+        options: [
+          { value: "highSchool", label: "高校（3年）" },
+          { value: "kosen", label: "高専（5年）" },
+        ],
+        structural: true,
+        help: "高専は15歳の学年から5年です。高専の後に大学に編入するときは、大学の段の在学年数を2年（3年次に編入）にします。大学は高専を出た翌月の4月からです",
+        get: (wh) => ({ value: stageNow(wh)?.stage ?? s.stage }),
+        set: (wh, v) =>
+          v === s.stage || (v !== "highSchool" && v !== "kosen")
+            ? wh
+            : mutate(wh, (h, req) => {
+                const st = find(h, { ...wh, request: req }) as EducationStage | undefined;
+                if (st === undefined) return;
+                st.stage = v;
+                st.sector = v === "kosen" ? "national" : "public";
+                delete st.years;
+                delete st.annualOverride;
+                delete st.entranceOverride;
+                delete st.clubAnnual;
+                delete st.outOfSchool;
+                delete st.schoolLunch;
+              }),
+      }),
+    );
+  if (s.stage === "graduateProfessional")
+    fields.push({
+      ...plain({ key: `${key}/field`, item: "goal.education", label: "種類", level: "simple", kind: "select", options: [{ value: "other", label: "専門職大学院（教職・経営など）" }, { value: "law", label: "法科大学院" }], find, path: ["field"], optional: true, fallback: "other", help: "法科大学院は3年（法学既修者は2年。在学年数で直します）、ほかの専門職大学院は2年で計算します", after: reestimate }),
+      ...stageAddress(goalId, sid, "field"),
+    });
   if (s.stage === "university") fields.push(plain({ key: `${key}/field`, item: "goal.education", label: "系統", level: "detail", kind: "select", options: FIELDS, find, path: ["field"], optional: true, fallback: "humanities", help: fieldHelp(), after: reestimate }));
   if (higher) fields.push(plain({ key: `${key}/living`, item: "goal.education", label: "通い方", level: "simple", kind: "select", options: LIVING_PLACE, find, path: ["living"], optional: true, fallback: "home" }));
   // 学費の年額。空欄は統計の平均の推定（専門学校は統計の目安が無いので簡易で未入力の警告、公立の短大も簡易。私立の短大の平均で仮に計算）
-  const simpleAnnual = s.stage === "vocational" || s.sector === "international" || (s.stage === "juniorCollege" && (s.sector ?? "public") !== "private");
+  const simpleAnnual = s.stage === "vocational" || s.sector === "international" || (s.stage === "kosen" && s.sector !== "national") || (s.stage === "juniorCollege" && (s.sector ?? "public") !== "private");
   const annual = withEstimate(
     plain({
       key: `${key}/annual`,
@@ -490,17 +528,17 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
   fields.push({
     ...annual,
     ...stageAddress(goalId, sid, "annualOverride"),
-    ...(s.stage === "vocational" || s.sector === "international"
+    ...(s.stage === "vocational" || s.sector === "international" || (s.stage === "kosen" && s.sector !== "national")
       ? {
           get: (wh: WorkingHousehold) => {
             const st = annual.get(wh);
-            return st.value === null ? { ...st, estimated: s.stage === "vocational" ? VOCATIONAL_MISSING : INTERNATIONAL_MISSING } : st;
+            return st.value === null ? { ...st, estimated: s.stage === "vocational" ? VOCATIONAL_MISSING : s.stage === "kosen" ? KOSEN_MISSING : INTERNATIONAL_MISSING } : st;
           },
         }
       : {}),
   });
   // 入学金（大学・短大は統計の平均の推定。幼稚園〜高校は学校の費用に含めて数えているので、入れたときだけ別に足す）
-  if (higher)
+  if (higher || s.stage === "kosen")
     fields.push({
       ...withEstimate(
         plain({ key: `${key}/entrance`, item: "goal.education", label: "入学金", level: "detail", kind: "yen", basis: "once", find, path: ["entranceOverride"], optional: true, help: "入学の前の2月（国公立は3月）に払います" }),
@@ -744,6 +782,8 @@ function annualHelp(s: EducationStage): string {
 }
 
 function yearsHelp(stage: string): string {
+  if (stage === "kosen") return "高専の本科は5年です（専攻科の2年は、大学などの段で近づけます）";
+  if (stage === "graduateProfessional") return "法科大学院は3年（法学既修者は2年）、ほかの専門職大学院は2年が標準です";
   if (stage === "university") return "標準は4年（系統が医歯系なら6年）。薬学部（6年）・獣医学部（6年）などは直してください";
   if (stage === "vocational") return "専門学校は1〜4年の課程があり、推定は2年制です。志望校の修業年限を入れてください";
   return "学校の種類の標準の年数です。留年などで変わるときだけ直してください";
@@ -1324,7 +1364,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
       }),
   });
   const row = rowAt(wh.request.input as unknown as Record<string, unknown>, educationStagesAddress(goal.id));
-  const hasHigh = stages.some((s) => s.stage === "highSchool");
+  const hasHigh = stages.some((s) => s.stage === "highSchool" || s.stage === "kosen");
   const groups: GroupDef[] = [
     {
       key: `edu/${goal.id}`,
@@ -1396,7 +1436,9 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
   const tertiary = stages.find((s) => isHigher(s.stage));
   // 足すボタンは、この子の年齢でこれからの段だけ（終わった段・3歳の4月を過ぎた保育園は出さない。0062 の追記 2026-10-30）
   const upcoming = SCHOOL_STAGES.filter((o) => !stageEnded(child, { stage: o.value }, base));
-  const addActions: ActionDef[] = upcoming.filter((o) => !have.has(o.value) && !(isHigher(o.value) && stages.some((s) => isHigher(s.stage))) && !(isGraduate(o.value) && tertiary === undefined)).map((o) => ({
+  // 高校と高専はどちらか1つ（高校の段の「高校・高専」で入れ替える。0090）
+  const highOrKosen = have.has("highSchool") || have.has("kosen");
+  const addActions: ActionDef[] = upcoming.filter((o) => !have.has(o.value) && !(isHigher(o.value) && stages.some((s) => isHigher(s.stage))) && !(isGraduate(o.value) && tertiary === undefined) && !((o.value === "highSchool" || o.value === "kosen") && highOrKosen)).map((o) => ({
     key: `edu/${goal.id}/addStage/${o.value}`,
     label: `＋ ${o.label}`,
     level: o.value === "university" || o.value === "highSchool" ? "simple" : "detail",
@@ -1412,6 +1454,8 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
               ? { stage: o.value }
               : isGraduate(o.value)
                 ? { stage: o.value, sector: prev?.sector === "national" || prev?.sector === "public" ? prev.sector : "private", living: prev?.living ?? "home" }
+                : o.value === "kosen"
+                  ? { stage: o.value, sector: "national" }
                 : { stage: o.value, sector: o.value === "juniorCollege" || o.value === "vocational" ? "private" : "public" };
         g.education.stages = [...g.education.stages, { id: newId(), ...st }].sort((a, b) => STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage));
       }),

@@ -171,11 +171,13 @@ export const SCHOOL_STAGES: Option[] = [
   { value: "elementary", label: "小学校" },
   { value: "juniorHigh", label: "中学校" },
   { value: "highSchool", label: "高校" },
+  { value: "kosen", label: "高専" },
   { value: "university", label: "大学" },
   { value: "juniorCollege", label: "短大" },
   { value: "vocational", label: "専門学校" },
   { value: "graduateMaster", label: "大学院（修士）" },
   { value: "graduateDoctor", label: "大学院（博士）" },
+  { value: "graduateProfessional", label: "専門職大学院" },
 ];
 
 export const NURSERY_HOURS: Option[] = [

@@ -138,7 +138,7 @@ export function alignEducationToAge(h: Household, childId: string, baseMonth: st
   const standard = defaultStages(child, baseMonth);
   const added: EducationStage[] = [];
   for (const stage of LADDER) {
-    if (stages.some((s) => s.stage === stage) || (stage === "university" && hasHigher)) continue;
+    if (stages.some((s) => s.stage === stage) || (stage === "university" && hasHigher) || (stage === "highSchool" && stages.some((s) => s.stage === "kosen"))) continue;
     // 前の年齢でこの段が終わっていた（終わっていたので入っていなかった）段だけを足す
     const now = standard.find((s) => s.stage === stage);
     if (!stageEnded(before, { stage }, baseMonth) || now === undefined) continue;
@@ -162,14 +162,18 @@ export function schoolEndAge(h: Household, childId: string): number | null {
   // 休学して1年の留学（0088）は、その段と後の段の終わりを1年ずつうしろにする
   const leaves = (g?.education?.abroad ?? []).filter((a) => a.kind === "leave");
   let end: number | null = null;
+  let kosenEnd: number | null = null;
   for (const s of [...stages].sort((a, b) => (STAGE_START_AGE[a.stage] ?? 0) - (STAGE_START_AGE[b.stage] ?? 0))) {
     const nominal = STAGE_START_AGE[s.stage];
     if (nominal === undefined) continue;
     const shift = leaves.filter((a) => (STAGE_START_AGE[a.stage] ?? 99) <= nominal && stages.some((x) => x.stage === a.stage)).length;
     // 大学院は前の学校を出た後から（0089）
-    const graduate = s.stage === "graduateMaster" || s.stage === "graduateDoctor";
-    const start: number = graduate && end !== null ? end - shift : nominal;
+    const graduate = s.stage === "graduateMaster" || s.stage === "graduateDoctor" || s.stage === "graduateProfessional";
+    // 高専の後の大学などは、高専を出た後から（0090）
+    const afterKosen = isHigher(s.stage) && kosenEnd !== null;
+    const start: number = afterKosen ? (kosenEnd as number) - shift : graduate && end !== null ? end - shift : nominal;
     const age = start + (s.delayYears ?? 0) + stageYears(s) + shift;
+    if (s.stage === "kosen") kosenEnd = age;
     if (end === null || age > end) end = age;
   }
   return end;

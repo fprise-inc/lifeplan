@@ -351,3 +351,40 @@ describe("大学院・インターナショナルスクール（education.cost �
     expect(o.enrollments.find((x) => x.stage === "highSchool")!.fees[1]?.tuition).toBe(2500000);
   });
 });
+
+describe("高専・専門職大学院（education.cost 改訂8・education.support。0090）", () => {
+  const H = { name: "h", birth: "2010-06" };
+  const run = (stages: Obj[]) => runEngine(mk([{ ...H, stages }], { baseMonth: "2026-04", endYear: 2040 }), fictionalPacks(), { checkInternal: true, entry: { component: "education.cost", input: { member: uid("h") } } });
+  const out = (stages: Obj[]) => run(stages).entryOutput as EducationCostOutput;
+
+  it("高専は15歳の学年から5年。国立は機構の授業料・入学料。後の大学（編入）は高専を出た翌月の4月から", () => {
+    const o = out([{ stage: "kosen", sector: "national" }, { stage: "university", sector: "national", years: 2 }]);
+    const k = o.enrollments.find((x) => x.stage === "kosen")!;
+    expect(k).toMatchObject({ from: "2026-04", years: 5 });
+    expect(k.fees[0]).toMatchObject({ fiscalYear: 2026, tuition: 234600, admission: 84600 });
+    expect(o.enrollments.find((x) => x.stage === "university")).toMatchObject({ from: "2031-04", years: 2 });
+  });
+
+  it("専門職大学院: 法科大学院（国立）は3年・省令の法科大学院の額。法科大学院以外は2年", () => {
+    const o = out([{ stage: "university", sector: "national" }, { stage: "graduateProfessional", sector: "national", field: "law" }]);
+    expect(o.enrollments.find((x) => x.stage === "graduateProfessional")).toMatchObject({ from: "2033-04", years: 3, fees: [{ fiscalYear: 2033, tuition: 804000, admission: 282000 }, { fiscalYear: 2034 }, { fiscalYear: 2035 }] });
+    const p = out([{ stage: "university", sector: "national" }, { stage: "graduateProfessional", sector: "national" }]);
+    expect(p.enrollments.find((x) => x.stage === "graduateProfessional")).toMatchObject({ years: 2, fees: [{ tuition: 535800, admission: 282000 }, { tuition: 535800 }] });
+  });
+
+  it("公立・私立の高専は学校の年額を入れるまで0円（入力が要ると知らせる）", () => {
+    const r = run([{ stage: "kosen", sector: "private" }]);
+    expect((r.entryOutput as EducationCostOutput).enrollments[0]!.fees.every((f) => f.tuition === 0)).toBe(true);
+    expect(notices(r).some((n) => n.code === "N_INPUT_REQUIRED")).toBe(true);
+  });
+
+  it("国立の高専の1〜3年に就学支援金（国公立の高専の額）。4・5年は計算しない（知らせる）", () => {
+    const req = mk([{ ...H, stages: [{ stage: "kosen", sector: "national" }] }], { baseMonth: "2026-04", endYear: 2040 });
+    const r = runEngine(req, fictionalPacks(), { checkInternal: true, entry: { component: "education.support", input: { member: uid("h") } } });
+    const f = (r.entryOutput as { flows: Flow[] }).flows.filter((x) => x.formula === "education.support.highSchool");
+    const years = [...new Set(f.map((x) => x.ym.slice(0, 4)))];
+    expect(f.reduce((a, x) => a + x.amount, 0)).toBe(234600 * 3);
+    expect(years).toEqual(["2026", "2027", "2028", "2029"]);
+    expect(notices(r).some((n) => n.code === "N_NOT_SUPPORTED" && n.ids.includes("educationSupport.higher.kosenUpper"))).toBe(true);
+  });
+});

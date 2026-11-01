@@ -1,0 +1,19 @@
+id: education.statistics.graduate.private.law.facility
+title: 私立大学の大学院の施設設備費の平均（法科大学院。令和7年度入学者）
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: "2025-12-26"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 134172
+    sources:
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20251226-mxt_sigakujo-000046463_2.pdf", "retrievedAt": "2026-10-30", "sha256": "b3b0179f00e7c6f080d4df65fa4077824dfff8f862d6c861fc3b87a9567ba70d", "locator": "令和7年度 私立大学大学院入学者に係る初年度学生納付金等平均額（定員1人当たり）の調査結果について p.1 ○専門職学位課程", "quote": "法科大学院 1,194,241 203,311 134,172 1,531,724"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-31", "tools": ["PDF の本文（公表資料）", "授業料・入学料・施設設備費の和と合計の列の突き合わせ", "原本の指紋（sha256）"], "note": "私立大学の大学院（昼間部）の専門職学位課程の「法科大学院」の行の施設設備費。授業料＋入学料＋施設設備費が合計の列と一致。施行日の欄は資料の URL の日付"}

@@ -1,0 +1,19 @@
+id: education.statistics.kosen.national.admission
+title: 国立高等専門学校の入学料
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: "2026-07-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 84600
+    sources:
+      - {"type": "web", "url": "https://www.kosen-k.go.jp/wp/wp-content/uploads/2026/07/2027KOSEN_yoko.pdf", "retrievedAt": "2026-10-30", "sha256": "16807f2f81964973eb1e8b94a47e0594db8689d0bb0c2cba6a040a71c485bfdc", "locator": "国立高等専門学校 第3学年編入学試験学生募集要項［外国人対象］（2027年度）p.21〔8〕入学に必要な費用", "quote": "①入学料：84,600 円"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-31", "tools": ["PDF の本文（公表資料）", "国立高等専門学校機構「国立高等専門学校 入学案内 2025」p.5 の本文（「入学料は、84,600円、授業料は、年間234,600 円です。」）", "原本の指紋（sha256）"], "note": "国立高等専門学校の入学料。施行日の欄は資料の掲載の月"}

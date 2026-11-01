@@ -936,7 +936,7 @@ export interface RetirementBenefitInput {
   readonly disability?: boolean;
 }
 
-export type SchoolStage = "nursery" | "kindergarten" | "elementary" | "juniorHigh" | "highSchool" | "university" | "juniorCollege" | "vocational" | "graduateMaster" | "graduateDoctor";
+export type SchoolStage = "nursery" | "kindergarten" | "elementary" | "juniorHigh" | "highSchool" | "university" | "juniorCollege" | "vocational" | "graduateMaster" | "graduateDoctor" | "graduateProfessional" | "kosen";
 
 export interface TuitionRow {
   readonly entryYear: number;
@@ -950,7 +950,7 @@ export interface EducationStageInput {
   readonly stage: SchoolStage;
   /** 公立・国立・私立・インターナショナルスクール（幼〜高。0089） */
   readonly sector?: "public" | "national" | "private" | "international";
-  readonly field?: "humanities" | "science" | "medical" | "other";
+  readonly field?: "humanities" | "science" | "medical" | "other" | "law";
   readonly living?: "home" | "away";
   readonly years?: number;
   readonly delayYears?: number;

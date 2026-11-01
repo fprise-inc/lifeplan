@@ -1,0 +1,21 @@
+id: educationSupport.highSchool.kosenPublicAnnual
+title: 高等学校等就学支援金の年額（国公立の高等専門学校の1〜3年。所得の制限なし）
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: "2026-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 234600
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/422CO0000000112_20260401_508CO0000000088?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "234262fe093c48f859477f6659dec268bf3b8b5722bc25ab316017d6243a58e8", "locator": "高等学校等就学支援金の支給に関する法律施行令 第2条第1項第1号ハ・第2号ホ（令和8年4月1日の版）", "quote": "高等専門学校（第一学年から第三学年までに限る。）一万九千五百五十円"}
+      - {"type": "web", "url": "https://www.mext.go.jp/a_menu/shotou/mushouka/202604013-mxt_shuukyo03-1345899_1.pdf", "retrievedAt": "2026-10-31", "sha256": "499c48c46043b1f16c946da278106f8b44bf4b512da3410643626c14baa096d6", "locator": "高等学校等就学支援金・新制度 事務処理要領（第1版。令和8年4月）p.7 支給額の表 高等専門学校", "quote": "高等専門学校 19,550 円 19,550 円"}
+      - {"type": "law", "lawNumber": "平成二十二年政令第百十二号", "egovRevisionId": "422CO0000000112_20260401_508CO0000000088"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-31", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "原本の指紋（sha256）"], "note": "国立・公立の高等専門学校（1〜3年）の就学支援金は月額19,550円（年234,600円）。施行令2条1項1号ハ（国立）・2号ホ（公立）と文部科学省の新制度の事務処理要領の表で一致。私立の高専は私立の高等学校等の額（privateAnnual）。4・5年と専攻科は対象外"}
