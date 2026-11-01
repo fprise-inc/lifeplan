@@ -8,7 +8,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { ChartTopRow } from "./ChartPip.tsx";
 import { areaAbove, areaBelow, linePath, scale, type Frame, type Scale } from "./chart.ts";
 import { group, man, manDiff } from "./format.ts";
-import { chartHeight, TOUCH_HINT } from "./MainChart.tsx";
+import { chartHeight } from "./MainChart.tsx";
 import type { ChartModel, ContingencyModel, ProtectionChartModel, ScenarioModel, VerdictPart, YearStripModel } from "./model.ts";
 import { AgeAxisSvg, ageExtra, yearHead } from "./AgeAxis.tsx";
 import { useEventFocus } from "./EventDot.tsx";
@@ -659,10 +659,6 @@ export function ScenarioLegend() {
       <span class="lg short">
         <i />
         不足（▲）
-      </span>
-      <span class="hint">
-        <span class="hint-long">グラフに合わせるとその年の数字。クリックで固定（もう一度クリックか Esc で外す）</span>
-        <span class="hint-short">{TOUCH_HINT}</span>
       </span>
     </div>
   );

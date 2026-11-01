@@ -436,12 +436,12 @@ describe("グラフを小窓で表示", () => {
     expect(tools).toContain("data-settings-open");
     expect(tools).not.toContain("data-pip-toggle");
     expect(card.match(/data-pip-toggle=/g)?.length).toBe(1);
-    // 凡例の行の中で、凡例（使い方の文を含む）の後ろ＝右端。グラフ（svg）より前
+    // 凡例の行の中で、凡例の後ろ＝右端。グラフ（svg）より前
     const top = card.indexOf("data-chart-top");
     expect(top).toBeGreaterThan(card.indexOf('class="cc-tools"'));
     expect(card.indexOf("main-legend", top)).toBeGreaterThan(top);
-    expect(card.indexOf('data-pip-toggle="open"')).toBeGreaterThan(card.indexOf("hint-long", top));
-    expect(card.indexOf('data-pip-toggle="open"')).toBeLessThan(card.indexOf("<svg", card.indexOf("hint-long", top)));
+    expect(card.indexOf('data-pip-toggle="open"')).toBeGreaterThan(card.indexOf("main-legend", top));
+    expect(card.indexOf('data-pip-toggle="open"')).toBeLessThan(card.indexOf("<svg", card.indexOf("main-legend", top)));
     // 収支の推移でも同じ位置
     const flows = renderToString(h(ResultCard, { model: pm, verdict: pm.result, provisional: false, mode: "flows", onMode: noop, explain: null, onExplain: noop, ageMark: null, pinnedYear: null, onSelectYear: noop }));
     expect(flows.match(/data-pip-toggle=/g)?.length).toBe(1);
