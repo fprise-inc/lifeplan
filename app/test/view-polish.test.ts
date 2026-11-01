@@ -370,7 +370,7 @@ describe("グラフを小窓で表示", () => {
     expect(keyPipRect(r, "Enter", false, 1280, 800)).toBeNull();
   });
 
-  it("見出しのボタンはアイコンだけ（文字は出さない）。説明の札と読み上げは「グラフを小窓で表示」。出している間は「小窓を閉じる」", () => {
+  it("グラフの右上のボタンはアイコンだけ（文字は出さない）。説明の札と読み上げは「グラフを浮かせて表示」。出している間は「浮かせたグラフを閉じる」", () => {
     closePip();
     const off = renderToString(h(PipButton, {}));
     expect(off).toContain(`aria-label="${PIP_LABEL.open}"`);
@@ -429,20 +429,37 @@ describe("グラフを小窓で表示", () => {
     expect(clampShift({ left: -20, top: 0, width: 300, height: 200 }, 15, 0, 1280, 800)).toEqual([15, 0]);
   });
 
-  it("結果のグラフと万一のときのグラフの見出しの右上に、いつでも押せる小窓のボタン", () => {
+  it("小窓のボタンはグラフの右上（凡例の行の右端）に1つだけ。見出しの段（切り替え・説明モード・表示の設定）には置かない", () => {
     closePip();
     const card = renderToString(h(ResultCard, { model: pm, verdict: pm.result, provisional: false, mode: "assets", onMode: noop, explain: null, onExplain: noop, ageMark: null, pinnedYear: null, onSelectYear: noop, tools: h("button", { "data-settings-open": "" }, "表示の設定") }));
     const tools = card.slice(card.indexOf('class="cc-tools"'), card.indexOf("</div>", card.indexOf('class="cc-tools"')));
-    expect(tools).toContain('data-pip-toggle="open"');
-    // 右端（表示の設定のボタンの後ろ）
-    expect(tools.indexOf("data-pip-toggle")).toBeGreaterThan(tools.indexOf("data-settings-open"));
+    expect(tools).toContain("data-settings-open");
+    expect(tools).not.toContain("data-pip-toggle");
+    expect(card.match(/data-pip-toggle=/g)?.length).toBe(1);
+    // 凡例の行の中で、凡例（使い方の文を含む）の後ろ＝右端。グラフ（svg）より前
+    const top = card.indexOf("data-chart-top");
+    expect(top).toBeGreaterThan(card.indexOf('class="cc-tools"'));
+    expect(card.indexOf("main-legend", top)).toBeGreaterThan(top);
+    expect(card.indexOf('data-pip-toggle="open"')).toBeGreaterThan(card.indexOf("hint-long", top));
+    expect(card.indexOf('data-pip-toggle="open"')).toBeLessThan(card.indexOf("<svg", card.indexOf("hint-long", top)));
+    // 収支の推移でも同じ位置
+    const flows = renderToString(h(ResultCard, { model: pm, verdict: pm.result, provisional: false, mode: "flows", onMode: noop, explain: null, onExplain: noop, ageMark: null, pinnedYear: null, onSelectYear: noop }));
+    expect(flows.match(/data-pip-toggle=/g)?.length).toBe(1);
+    expect(flows.indexOf('data-pip-toggle="open"')).toBeGreaterThan(flows.indexOf("data-chart-top"));
+    // 万一のときの枠も、見出しの段には置かない（グラフが出たら凡例の行の右端。contingency.test.ts で確かめる）
     const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"));
     const protection: ContingencyModel["protection"] = { status: "loading", charts: [], error: null, ms: 0 };
     const strip: YearStripModel = yearStripModel({ options: [{ value: 2030, age: 40 }], results: [{ state: "ready", depletion: null, source: "canonical" }], who: "ご本人", noneDepletion: null, stale: false });
     const sc = scenarios(wh).find((x) => x.key === "death:self")!;
     const model: ContingencyModel = { protection, scenarios: scenarioCards({ req: wh.request, scenarios: scenarios(wh), selected: sc.key, protection, grade: undefined }), selected: sc.key, year: 2030, strip, scenario: { status: "loading", model: null, error: null, stale: false } };
     const cg = renderToString(h(ContingencyChartCard, { model, mode: "assets", onMode: noop, pinnedYear: null, onPinYear: noop, onPick: noop }));
-    expect(cg).toContain('data-pip-toggle="open"');
+    expect(cg.slice(cg.indexOf('class="cc-tools"'), cg.indexOf("</div>", cg.indexOf('class="cc-tools"')))).not.toContain("data-pip-toggle");
+  });
+
+  it("小窓の中のグラフには小窓のボタンを出さない（帯の「×」で閉じる）", () => {
+    const html = renderToString(h(PipResult, { model: pm, provisional: false, mode: "assets", explain: null, ageMark: null, pinnedYear: null, onSelectYear: noop, height: 240 }));
+    expect(html).not.toContain("data-pip-toggle");
+    expect(html).not.toContain("data-chart-top");
   });
 
   it("小窓は出していないときは何も描かない（元のグラフの場所を覆わない）", () => {

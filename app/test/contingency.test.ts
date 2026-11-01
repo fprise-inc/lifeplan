@@ -224,6 +224,14 @@ describe("提示用の値がエンジンの結果と一致する", () => {
     expect(html).toContain("見直し前の制度");
     expect(html).not.toContain("MEMO-MARK");
     for (const m of req.input.household.members) expect(html).not.toContain(m.id);
+    // 小窓のボタン: どちらのグラフでも凡例の行の右端に1つだけ（見出しの段には置かない）
+    for (const mode of ["assets", "protection"] as const) {
+      const c = card(mode);
+      expect(c.match(/data-pip-toggle=/g)?.length).toBe(1);
+      const top = c.indexOf("data-chart-top");
+      expect(top).toBeGreaterThan(c.indexOf('class="cc-tools"'));
+      expect(c.indexOf("data-pip-toggle")).toBeGreaterThan(c.indexOf("main-legend", top));
+    }
   });
 
   it("計算中: 短い計算（300ミリ秒未満）では「計算しています」を出さず、同じ高さの空きを置く。長くかかるときだけ出す", () => {

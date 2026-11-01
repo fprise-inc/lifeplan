@@ -3,7 +3,7 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { AgeMark, CashflowTableModel, EventChip, ExplainModel, FeeLine, GoalsModel, Headline as HeadlineModel, ResultVerdict, Verdict as VerdictModel, VerdictPart } from "./model.ts";
-import { PipButton } from "./ChartPip.tsx";
+import { ChartTopRow } from "./ChartPip.tsx";
 import { EventDotHtml, EventTip, eventLabel, placeFixedAbove, useEventFocus } from "./EventDot.tsx";
 import { man, manDiff } from "./format.ts";
 import { CHART_MODES, ExplainBar, MainChart, MainLegend, multiOn, type ChartLayout, type ChartMode, type MainChartModel } from "./MainChart.tsx";
@@ -197,7 +197,7 @@ export interface MultiHidden {
 }
 
 /** 凡例とグラフ（重ねる・左右に並べる・全部の案を重ねる）。全部の案を重ねる表示では、凡例で合わせた案をグラフで強調する */
-function LegendAndChart(p: Omit<ResultCardProps, "verdict" | "onMode" | "onExplain" | "tools" | "below" | "bar" | "after"> & { height?: number }) {
+function LegendAndChart(p: Omit<ResultCardProps, "verdict" | "onMode" | "onExplain" | "tools" | "below" | "bar" | "after"> & { height?: number; pipButton?: boolean }) {
   const [focus, setFocus] = useState<string | null>(null);
   const ex = p.explain;
   const layout = p.layout ?? "overlay";
@@ -205,13 +205,15 @@ function LegendAndChart(p: Omit<ResultCardProps, "verdict" | "onMode" | "onExpla
   const side = layout === "side" && ex === null && !p.model.names.same;
   const all = multiOn(layout, ex, p.model);
   const hidden = p.multi?.hidden ?? [];
+  const legend = all ? (
+    <MultiLegend plans={p.model.plans ?? []} mode={p.mode} focus={focus} onFocus={setFocus} hidden={hidden} onToggle={p.multi?.onToggle ?? (() => undefined)} />
+  ) : (
+    <MainLegend model={p.model} mode={p.mode} explain={ex} side={side} />
+  );
   return (
     <>
-      {all ? (
-        <MultiLegend plans={p.model.plans ?? []} mode={p.mode} focus={focus} onFocus={setFocus} hidden={hidden} onToggle={p.multi?.onToggle ?? (() => undefined)} />
-      ) : (
-        <MainLegend model={p.model} mode={p.mode} explain={ex} side={side} />
-      )}
+      {/* 小窓のボタンはグラフの右上（凡例の行の右端）。小窓の中のグラフには出さない */}
+      {p.pipButton === true ? <ChartTopRow>{legend}</ChartTopRow> : legend}
       <MainChart
         model={p.model}
         mode={p.mode}
@@ -272,12 +274,11 @@ export function ResultCard(p: ResultCardProps) {
             説明モード
           </button>
           {p.tools ?? null}
-          <PipButton />
         </div>
       </div>
       {p.below ?? null}
       {ex === null ? (p.bar ?? null) : null}
-      <LegendAndChart {...p} />
+      <LegendAndChart {...p} pipButton />
       {ex === null ? (p.after ?? null) : null}
       {ex !== null ? <ExplainBar model={ex.model} step={step} onStep={(i) => p.onExplain(i)} onClose={() => p.onExplain(null)} /> : null}
     </section>

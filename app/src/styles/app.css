@@ -1195,13 +1195,17 @@ html.big .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 /* 対策に足した欄の中でも、点線の枠は使わない（推定の欄は灰の背景と「推定」の札で示す） */
 .lever.added .fld.is-est .fld-c input[type="text"] { border-style: solid; }
 
-/* ---- グラフを小窓で表示（ChartPip.tsx）: グラフの見出しの右上の「小窓」ボタンと、アプリの窓の中に固定した小窓（別の窓にはしない） ---- */
+/* ---- グラフを小窓で表示（ChartPip.tsx）: グラフの右上（凡例の行の右端）の小窓のボタンと、アプリの窓の中に固定した小窓（別の窓にはしない） ---- */
 .pip-btn { flex: none; box-sizing: border-box; width: 1.9rem; height: 1.9rem; padding: 0; border: 2px solid var(--ink-2); color: var(--ink); background: #fff; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .pip-btn:hover { border-color: var(--ink); }
 .pip-btn:focus-visible { outline: 3px solid var(--prop); outline-offset: 1px; }
 .pip-btn[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
 .pip-i, .pip-btn .pop-i { flex: none; display: block; width: 1.25rem; height: 1.25rem; margin: 0; }
 .pip .pip-btn { width: 1.75rem; height: 1.75rem; border-width: 1.5px; }
+/* グラフの右上: 凡例の行（凡例・使い方の文）の右端に小窓のボタン。凡例は折り返して残りの幅に収め、ボタンが入らない幅ではボタンだけ凡例の下の右端に回る（重ならない） */
+.chart-top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 12px; margin: 6px 0 0; }
+.chart-top > .main-legend { flex: 1 1 18rem; min-width: 0; margin: 0; padding-top: 0.2rem; }
+.chart-top > .pip-btn { margin-left: auto; }
 /* 小窓の帯の閉じるボタン: ほかの閉じると同じ「×」の字（太字・補助の文字の色） */
 .pip-x { font-size: 1.1rem; font-weight: 700; line-height: 1; color: var(--ink-2); }
 .pip-x:hover { color: var(--ink); }

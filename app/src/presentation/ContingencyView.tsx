@@ -5,7 +5,7 @@
 // 金融資産が足りなくなる所は主画面と同じ「!」の段と赤い点線（ShortMark.tsx）
 import { Fragment } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
-import { PipButton } from "./ChartPip.tsx";
+import { ChartTopRow } from "./ChartPip.tsx";
 import { areaAbove, areaBelow, linePath, scale, type Frame, type Scale } from "./chart.ts";
 import { group, man, manDiff } from "./format.ts";
 import { chartHeight, TOUCH_HINT } from "./MainChart.tsx";
@@ -886,7 +886,6 @@ export function ContingencyChartCard({ model, mode, onMode, pinnedYear, onPinYea
               </button>
             ))}
           </span>
-          <PipButton />
         </div>
       </div>
       {m === "assets" ? (
@@ -906,7 +905,9 @@ export function ContingencyChartCard({ model, mode, onMode, pinnedYear, onPinYea
                 {sm.choice}
               </p>
             ) : null}
-            <ScenarioLegend />
+            <ChartTopRow>
+              <ScenarioLegend />
+            </ChartTopRow>
             <ContingencyChart spec={{ kind: "assets", model: sm.chart, who: sm.who, eventYear: model.year, pinnedYear, onSelectYear: onPinYear }} />
             <Breakdown model={sm.breakdown} />
           </div>
@@ -919,7 +920,9 @@ export function ContingencyChartCard({ model, mode, onMode, pinnedYear, onPinYea
         <p class="in-note">遺族（配偶者・子）がいないので、必要保障額は出しません。</p>
       ) : (
         <div data-protection={prot.key}>
-          <ProtectionLegend />
+          <ChartTopRow>
+            <ProtectionLegend />
+          </ChartTopRow>
           <ContingencyChart spec={{ kind: "protection", model: prot, eventYear: protEvent, onPick: (y) => onPick(prot.key, y) }} />
           {protEvent !== null ? <ProtectionLine model={prot} year={protEvent} /> : null}
           <ProtectionInsights model={prot} onYear={(y) => onPick(prot.key, y)} />
