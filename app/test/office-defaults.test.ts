@@ -111,6 +111,17 @@ describe("％の入力", () => {
     expect(rateToPct("0.015")).toBe("1.5");
     expect(rateToPct(null)).toBe("");
   });
+
+  it("評価の割合は 100%（時価のまま）まで入れられ、事務所の既定値に保存して読み戻せる。前提の率の範囲の外（3桁）は読まない", () => {
+    expect(pctToRate("100", 0, 100)).toBe("1");
+    expect(pctToRate("100%", 0, 100)).toBe("1");
+    expect(pctToRate("100.5", 0, 100)).toBeUndefined();
+    expect(pctToRate("100")).toBeUndefined();
+    expect(pctToRate("-100")).toBeUndefined();
+    const back = readOfficeSettings(JSON.parse(JSON.stringify({ ...DEFAULT_OFFICE_SETTINGS, realEstateRatio: pctToRate("100", 0, 100) })));
+    expect(back.realEstateRatio).toBe("1");
+    expect(rateToPct(back.realEstateRatio)).toBe("100");
+  });
 });
 
 describe("FP顧問料の料金表", () => {
