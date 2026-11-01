@@ -1,6 +1,7 @@
 // 0017 の2: 配布元の設定（config/distribution.toml）から Tauri の設定を作り、ほかの場所に識別子・配信先が書かれていないことを確かめる
 //   npm run gen:distribution    … app/src-tauri/tauri.conf.json の identifier・productName・publisher・ウィンドウの題名を書き換える
-//   npm run check:distribution  … 書き換えが要らないこと（CI）と、識別子・配信先のホスト名がこのファイルと tauri.conf.json の外に無いこと
+//   npm run check:distribution  … 書き換えが要らないこと（CI）と、識別子・配信先のホスト名がこのファイルと tauri.conf.json の外に無いこと、
+//                                  配信先の欄が外部送信の一覧（docs/decisions/0012 の5）に載っていること
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -11,7 +12,7 @@ interface Distribution {
   identifier: string;
   product_name: { ja: string; en: string };
   publisher: string;
-  endpoints: { host: string; feature_code_revocations?: string };
+  endpoints: { host: string; feature_code_revocations?: string } & Record<string, string>;
   feedback: { form: string };
   keys: Record<string, string[]>;
 }
@@ -64,6 +65,31 @@ for (const needle of [dist.identifier, dist.endpoints.host, dist.feedback.form, 
       continue;
     }
     if (text.includes(needle)) problems.push(`${f} に ${needle} が直接書かれています（config/distribution.toml だけに書く。0017 の2）`);
+  }
+}
+
+// 外部送信の一覧（0012 の5）と実装を突き合わせる: [endpoints] の欄（host のほか）は、どれも一覧の表のどこかの行の「相手」に `欄の名前` で載っていること。
+// 本体（build.rs）が読む欄は、状態が「入れた」の行に載っていること（アプリが自動で通信するのは「入れた」の行だけ）
+const sendList = (() => {
+  const doc = readFileSync(join(REPO_DIR, "docs", "decisions", "0012-identifiers-and-data-not-held.md"), "utf8");
+  const start = doc.indexOf("### 5. 外部送信の一覧");
+  if (start < 0) return null;
+  const end = doc.indexOf("\n## ", start);
+  const rows = doc
+    .slice(start, end < 0 ? undefined : end)
+    .split("\n")
+    .filter((l) => l.startsWith("| ") && !l.startsWith("| 送るもの") && !l.startsWith("|---"))
+    .map((l) => l.split("|").map((c) => c.trim()))
+    .map((c) => ({ keys: [...(c[2] ?? "").matchAll(/`([a-z_]+)`/g)].map((m) => m[1] as string), done: c[c.length - 2] === "入れた" }));
+  return rows;
+})();
+if (sendList === null) problems.push("docs/decisions/0012-identifiers-and-data-not-held.md に「### 5. 外部送信の一覧」がありません");
+else {
+  const buildRs = readFileSync(join(APP_DIR, "src-tauri", "build.rs"), "utf8");
+  for (const key of Object.keys(dist.endpoints).filter((k) => k !== "host")) {
+    const rows = sendList.filter((r) => r.keys.includes(key));
+    if (rows.length === 0) problems.push(`config/distribution.toml の [endpoints] の ${key} が、外部送信の一覧（docs/decisions/0012 の5）に載っていません（相手の欄に \`${key}\` で書く）`);
+    else if (buildRs.includes(`"${key}"`) && !rows.some((r) => r.done)) problems.push(`本体（app/src-tauri/build.rs）が [endpoints] の ${key} を読んでいますが、外部送信の一覧（docs/decisions/0012 の5）の行の状態が「入れた」ではありません`);
   }
 }
 

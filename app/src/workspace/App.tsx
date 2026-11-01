@@ -47,7 +47,7 @@ import { blankHousehold, fromRequest, sampleRequest, withElementIds, type Workin
 import { InputView } from "./input/InputView.tsx";
 import { addItem, saveItem } from "./input/items.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
-import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, publishOfficeSettings, readOfficeSettings, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
+import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart, publishOfficeSettings, readOfficeSettings, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
 import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
 import { combinedBsView, withCombinedField } from "./combined/combinedView.ts";
 import { hasExecutive } from "./input/officer.ts";
@@ -480,6 +480,8 @@ export function App() {
   const [officeSettings, setOfficeSettings] = useState<OfficeSettings>(DEFAULT_OFFICE_SETTINGS);
   const officeSettingsRef = useRef<OfficeSettings>(DEFAULT_OFFICE_SETTINGS);
   const [officeSettingsOpen, setOfficeSettingsOpen] = useState(initial.officeDefaults === true);
+  /** 起動したときの事務所の既定値と機能のコードの状態を読み終わった（読めなかったときも。読み終わるまで既定値のパネルを出さない） */
+  const [officeLoaded, setOfficeLoaded] = useState(false);
   /** 機能を有効にするコード（0110。本体が確かめた状態）。コードの入っていない機能は、設定の区画も画面も出さない */
   const [featureStatus, setFeatureStatus] = useState<FeatureStatus>(NO_FEATURES);
   const featureStatusRef = useRef<FeatureStatus>(NO_FEATURES);
@@ -500,13 +502,20 @@ export function App() {
   };
   // 事務所の既定値は起動したときにも読む（見せ方だけの既定〔基本生活費の内訳の並べ方。0109〕を、世帯の一覧を開く前に開いた世帯にも当てる）。
   // 読めない（保存先がまだ無いなど）ときは何もしない（世帯の一覧を開いたときに読み直す）。起動したときに1回だけ
+  // 事務所の既定値のパネルは、この2つを読み終わってから出す（officeLoaded。読み終わる前に出すと、パネルが既定の値で欄と印を作り、
+  // 保存してある印〔合算BS を使う など〕が外れて見える）
   useEffect(() => {
     if (host === null) return;
-    void host.office.defaults().then(
-      (v) => putOfficeSettings(readOfficeSettings(v)),
-      () => undefined,
-    );
-    void host.office.featureStatus().then(putFeatureStatus, () => undefined);
+    let live = true;
+    void loadOfficeStart(host.office).then(({ settings, features }) => {
+      if (!live) return;
+      if (settings !== null) putOfficeSettings(settings);
+      if (features !== null) putFeatureStatus(features);
+      setOfficeLoaded(true);
+    });
+    return () => {
+      live = false;
+    };
   }, [host]);
   /** 明細のパネル（0034）を最初に開く手順（URL の #statement=review など。最初の1回だけ使う） */
   const statementStep = useRef(initial.statement);
@@ -2927,7 +2936,7 @@ export function App() {
           onClose={() => setFeedbackOpen(false)}
         />
       ) : null}
-      {officeSettingsOpen && host !== null ? (
+      {officeSettingsOpen && officeLoaded && host !== null ? (
         <OfficeSettingsPanel
           value={officeSettings}
           shared={officeStatus?.state === "member"}
