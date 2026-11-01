@@ -16,6 +16,8 @@ import { outOfRangeText, rangeText, type PctRange } from "../input/rateRanges.ts
 import { rateFromPct } from "../input/units.ts";
 import { ASSUMPTION_LABELS, ASSUMPTION_RANGES, DEFAULT_OFFICE_SETTINGS, FEE_MAX, FEE_STEP_YEAR_MAX, layoutOf, OFFICE_ASSUMPTIONS, type FeeTable, type OfficeAssumption, type OfficeSettings } from "./settings.ts";
 import { revealAdded } from "../../presentation/revealAdded.ts";
+import { LivingLayoutEditor } from "./LivingLayoutEditor.tsx";
+import { withLivingDraft } from "./settings.ts";
 
 export interface OfficeSettingsPanelProps {
   value: OfficeSettings;
@@ -157,7 +159,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
     try {
       await onSave(next);
       setS(next);
-      setMsg({ ok: true, text: "保存しました。これから作る世帯に写します（作った世帯は変わりません。対策に最初から出す項目と、万一のときのタブの場面・想定の前提に最初から出す項目は、どの世帯にもすぐ効きます）" });
+      setMsg({ ok: true, text: "保存しました。これから作る世帯に写します（作った世帯は変わりません。対策に最初から出す項目、万一のときのタブの場面・想定の前提に最初から出す項目と、基本生活費の内訳の並べ方は、どの世帯にもすぐ効きます）" });
     } catch (e) {
       setMsg({ ok: false, text: `保存できませんでした（${typeof e === "string" ? e : e instanceof Error ? e.message : "E_OFFICE_SETTINGS"}）` });
     } finally {
@@ -244,6 +246,8 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
             </button>
           </p>
         </section>
+        {/* 基本生活費の内訳の並べ方（0109。LivingLayoutEditor.tsx） */}
+        <LivingLayoutEditor value={s.living} onChange={(l) => setS((x) => withLivingDraft(x, l))} />
         <section class="os-sec" aria-labelledby="os-levers" data-office-levers>
           <h3 id="os-levers">対策に最初から出す項目</h3>
           <p class="pl-sub">

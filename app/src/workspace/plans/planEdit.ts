@@ -19,6 +19,7 @@ import { fieldAddress, fieldStatus } from "../input/valueState.ts";
 import { formatYearMonth } from "../input/units.ts";
 import { memberLabel } from "../input/labels.ts";
 import { premiseDiffText } from "../contingency/planPremise.ts";
+import { setPartsScope } from "../input/livingParts.ts";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -75,6 +76,13 @@ export function planView(wh: WorkingHousehold, cat: Catalog, id: string): Workin
     if (p !== null) post[m.id] = { ...p, ...(p.type === wh.postRetirement[m.id]?.type && p.annualSalary === null ? { annualSalary: wh.postRetirement[m.id]?.annualSalary ?? null } : {}) };
   }
   const view: WorkingHousehold = { ...wh, request, assumed, postRetirement: post };
+  // 内訳を分けた行の額（0109）は、このプランと土台のプランの物を先に読み、書くときはこのプランの所に書く
+  setPartsScope(
+    view,
+    chainOf(wh.proposals, id)
+      .map((p) => p.id)
+      .reverse(),
+  );
   const m = viewCache.get(wh) ?? new Map<string, { cat: Catalog; view: WorkingHousehold }>();
   m.set(id, { cat, view });
   viewCache.set(wh, m);
@@ -547,6 +555,12 @@ export function recordPlanEdit(wh: WorkingHousehold, cat: Catalog, pid: string, 
   if (labels.length > 0) w = { ...w, labelsByMember: { ...w.labelsByMember, ...Object.fromEntries(labels) } };
   const items = after.addedItems.filter((a) => !w.addedItems.some((x) => x.id === a.id));
   if (items.length > 0) w = { ...w, addedItems: [...w.addedItems, ...items] };
+  // 内訳を分けた行の額（0109）: プランで直した物は「プランの ID:要素の ID」に書いてある（livingParts.ts の withParts）ので、そのまま世帯に持つ
+  if (after.livingParts !== before.livingParts) {
+    const { livingParts: _p, ...rest } = w;
+    void _p;
+    w = after.livingParts === undefined ? rest : { ...rest, livingParts: after.livingParts };
+  }
   // ローンの入れ方の区分（見せ方。0052）は世帯に1つ: プランで直しても世帯の側に書く
   if (JSON.stringify(after.loanEntry ?? {}) !== JSON.stringify(before.loanEntry ?? {})) {
     const next = { ...(w.loanEntry ?? {}) };

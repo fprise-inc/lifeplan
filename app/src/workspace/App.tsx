@@ -486,6 +486,15 @@ export function App() {
     setOfficeSettings(v);
     publishOfficeSettings(v);
   };
+  // 事務所の既定値は起動したときにも読む（見せ方だけの既定〔基本生活費の内訳の並べ方。0109〕を、世帯の一覧を開く前に開いた世帯にも当てる）。
+  // 読めない（保存先がまだ無いなど）ときは何もしない（世帯の一覧を開いたときに読み直す）。起動したときに1回だけ
+  useEffect(() => {
+    if (host === null) return;
+    void host.office.defaults().then(
+      (v) => putOfficeSettings(readOfficeSettings(v)),
+      () => undefined,
+    );
+  }, [host]);
   /** 明細のパネル（0034）を最初に開く手順（URL の #statement=review など。最初の1回だけ使う） */
   const statementStep = useRef(initial.statement);
   // 保存先（1人で2台の PC の同期フォルダ。0024）: パネル（"open" は2台目の PC として開く節を先に出す）と、保存先と同期の知らせ
@@ -585,8 +594,6 @@ export function App() {
             setStoredList(await h.store.list());
             void h.store.listSamples().then(setStoredSamples, () => undefined);
             void h.store.categories().then(applyCategories, () => undefined);
-            // 事務所の既定値も起動のときに読む（世帯の一覧を開き直さなくても、法人の顧問向けの機能・対策に最初から出す項目などが効く。0107）
-            void h.office.defaults().then((v) => putOfficeSettings(readOfficeSettings(v)), () => undefined);
           }
           if (st.state === "needsRecovery") setRecovery("restore");
           else if (st.firstRun && !st.recoveryAcknowledged) setRecovery("first");
