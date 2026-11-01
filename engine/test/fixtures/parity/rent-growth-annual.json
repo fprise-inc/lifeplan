@@ -387,7 +387,9 @@
           "from": {
             "at": "2021-04"
           },
-          "to": null,
+          "to": {
+            "at": "2029-03"
+          },
           "rent": {
             "monthly": {
               "value": 140000,
@@ -399,6 +401,54 @@
             "growth": "0.015",
             "renewalFee": "1",
             "renewalEveryMonths": 18
+          }
+        },
+        {
+          "id": "5c2f8e61-3b7d-4a9e-8f10-6d4b2a7c9e35",
+          "kind": "rent",
+          "from": {
+            "at": "2029-04"
+          },
+          "to": null,
+          "rent": {
+            "monthly": {
+              "value": 165000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "growth": "0.015",
+            "renewalFee": "1",
+            "renewalEveryMonths": 30,
+            "stages": [
+              {
+                "id": "8a41d6f2-0e93-4c57-b2a8-3f6e1d9c4b70",
+                "at": {
+                  "at": "2036-07"
+                },
+                "amount": {
+                  "value": 150000,
+                  "state": "confirmed",
+                  "origin": {
+                    "kind": "manual"
+                  }
+                }
+              }
+            ],
+            "exceptions": [
+              {
+                "id": "e3b9c7a1-5d24-4f86-9a0e-7c1b8d2f6a43",
+                "year": 2041,
+                "amount": {
+                  "value": 0,
+                  "state": "confirmed",
+                  "origin": {
+                    "kind": "manual"
+                  }
+                }
+              }
+            ]
           }
         }
       ],

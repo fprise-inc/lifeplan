@@ -137,6 +137,76 @@ describe("住まい（housing.residence）の段階と例外の年", () => {
     expect(f("2029-10")).toBe(146410);
   });
 
+  describe("家賃: 計算基準月より前に住み始めた賃貸は、入れた家賃を今の家賃とし、計算基準月より後の更新からだけ上げる（改訂4）", () => {
+    const rentOf = (fs: readonly Flow[], ym: string, row = "cf.expense.housing.rent") => sum(fs, (x) => x.ym === ym && x.row === row);
+    const rows = (fs: readonly Flow[], row: string) => fs.filter((x) => x.row === row).map((x) => x.ym);
+
+    it("住み始めが何年も前: 計算基準月までの更新（3回）は重ねず、次の更新でその間の2年分を上げる", () => {
+      // 2019-04 から2年ごと。2021-04・2023-04・2025-04 の更新は計算基準月（2026-01）より前
+      const fs = flowsOf(mk([{ id: uid("r"), kind: "rent", from: at("2019-04"), to: null, rent: { monthly: box(100000), growth: "0.1", renewalFee: "1" } }]));
+      expect(rentOf(fs, "2026-01")).toBe(100000);
+      expect(rentOf(fs, "2027-03")).toBe(100000);
+      expect(rows(fs, "cf.expense.housing.rent.renewal")).toEqual(["2027-04", "2029-04", "2031-04"]);
+      // 計算基準月の後の最初の更新: 今の家賃は 2025-04 の更新で決まった額なので、その更新の間の2年分
+      expect(rentOf(fs, "2027-04", "cf.expense.housing.rent.renewal")).toBe(100000);
+      expect(rentOf(fs, "2027-04")).toBe(121000);
+      expect(rentOf(fs, "2029-04", "cf.expense.housing.rent.renewal")).toBe(121000);
+      expect(rentOf(fs, "2029-04")).toBe(146410);
+    });
+
+    it("計算基準月ちょうどの更新は済んだものとし、入れた家賃×月数の更新料だけを払う", () => {
+      const fs = flowsOf(mk([{ id: uid("r"), kind: "rent", from: at("2024-01"), to: null, rent: { monthly: box(100000), growth: "0.1", renewalFee: "1" } }]));
+      expect(rentOf(fs, "2026-01", "cf.expense.housing.rent.renewal")).toBe(100000);
+      expect(rentOf(fs, "2026-01")).toBe(100000);
+      expect(rentOf(fs, "2027-12")).toBe(100000);
+      expect(rentOf(fs, "2028-01")).toBe(121000);
+    });
+
+    it("計算基準月の後に住み始める賃貸は前と同じ（住み始めの家賃から、更新のたびに上げる）", () => {
+      const fs = flowsOf(mk([{ id: uid("r"), kind: "rent", from: at("2027-04"), to: null, rent: { monthly: box(100000), growth: "0.1", renewalFee: "1" } }]));
+      expect(rentOf(fs, "2027-04")).toBe(100000);
+      expect(rentOf(fs, "2029-03")).toBe(100000);
+      expect(rentOf(fs, "2029-04", "cf.expense.housing.rent.renewal")).toBe(100000);
+      expect(rentOf(fs, "2029-04")).toBe(121000);
+      expect(rentOf(fs, "2031-04")).toBe(146410);
+    });
+
+    it("更新の間隔が12の倍数でない: 年数は住み始めから数えたまま、計算基準月の後の更新の分だけ当てる", () => {
+      // 2023-04 から18か月ごと。2024-10 の更新（1年分）は計算基準月より前で重ねない
+      const fs = flowsOf(mk([{ id: uid("r"), kind: "rent", from: at("2023-04"), to: null, rent: { monthly: box(100000), growth: "0.1", renewalEveryMonths: 18 } }]));
+      expect(rentOf(fs, "2026-01")).toBe(100000);
+      expect(rentOf(fs, "2026-03")).toBe(100000);
+      // 36か月目（3年）: 前の更新（1年6か月）から増えた2年分
+      expect(rentOf(fs, "2026-04")).toBe(121000);
+      // 54か月目（4年6か月）: 1年分
+      expect(rentOf(fs, "2027-10")).toBe(133100);
+      // 72か月目（6年）: 2年分
+      expect(rentOf(fs, "2029-04")).toBe(161051);
+    });
+
+    it("段階と例外の年も、計算基準月までの最後の更新から数えた年数だけ重ねる（段の無い月は段階の無い計算と同じ）", () => {
+      const base = { id: uid("r"), kind: "rent", from: at("2019-04"), to: null };
+      const plain = flowsOf(mk([{ ...base, rent: { monthly: box(100000), growth: "0.1", renewalFee: "1" } }]));
+      const fs = flowsOf(mk([{ ...base, rent: { monthly: box(100000), growth: "0.1", renewalFee: "1", stages: [stage("r1", { at: at("2028-01"), amount: box(80000) })], exceptions: [exception("r2", 2030, 0)] } }]));
+      for (const ym of ["2026-01", "2027-03", "2027-04", "2027-12"]) expect(rentOf(fs, ym)).toBe(rentOf(plain, ym));
+      expect(rentOf(fs, "2027-04", "cf.expense.housing.rent.renewal")).toBe(100000);
+      // 段の月から: 段の額に、計算基準月の後の更新（2027-04）の2年分
+      expect(rentOf(fs, "2028-01")).toBe(96800);
+      expect(rentOf(fs, "2029-04", "cf.expense.housing.rent.renewal")).toBe(96800);
+      expect(rentOf(fs, "2029-04")).toBe(117128);
+      expect(fs.some((x) => x.ym.startsWith("2030-"))).toBe(false);
+      // 計算基準月より前の月は出さない
+      expect(fs.some((x) => x.ym < "2026-01")).toBe(false);
+    });
+
+    it("計算基準月ちょうどの更新（段階あり）も、更新料は前の月の段の額×月数で、上げない", () => {
+      const fs = flowsOf(mk([{ id: uid("r"), kind: "rent", from: at("2024-01"), to: null, rent: { monthly: box(100000), growth: "0.1", renewalFee: "1", exceptions: [exception("r2", 2031, 0)] } }]));
+      expect(rentOf(fs, "2026-01", "cf.expense.housing.rent.renewal")).toBe(100000);
+      expect(rentOf(fs, "2026-01")).toBe(100000);
+      expect(rentOf(fs, "2028-01")).toBe(121000);
+    });
+  });
+
   it("修繕費: 段（年齢の時点）の月から段の額に、計算基準年からの年数だけ上昇率を当てる。例外の年はその年だけ", () => {
     const fs = flowsOf(
       mk([

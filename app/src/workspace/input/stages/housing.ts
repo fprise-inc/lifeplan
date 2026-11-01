@@ -223,7 +223,17 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
   ];
   if (r.kind === "rent" && !free) {
     fields.push(
-      yenBox({ key: `${k}/rent`, item: "residence.rent", label: "家賃（管理費込み）", level: "simple", basis: "monthly", find, path: ["rent", "monthly"] }),
+      yenBox({
+        key: `${k}/rent`,
+        item: "residence.rent",
+        label: "家賃（管理費込み）",
+        level: "simple",
+        basis: "monthly",
+        // 住み始めが計算の基準の月より前なら、今の家賃（計算エンジンは基準の月より後の更新から変動率を当てる。housing.residence の改訂4）
+        help: "今払っている家賃です。前から住んでいる家は、住み始めたときの額ではなく今の額を入れます（変動率は、これから来る更新の月から当てます）",
+        find,
+        path: ["rent", "monthly"],
+      }),
       plain({
         key: `${k}/rentGrowth`,
         item: "residence.rent",
