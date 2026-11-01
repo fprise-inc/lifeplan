@@ -595,7 +595,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
               </table>
             </div>
           ) : p.list.length > 0 ? (
-            <p class="in-note">当てはまる世帯がありません。</p>
+            <p class="in-note">該当する世帯がありません。</p>
           ) : null}
           {p.status !== null && p.status.deletionsPending > 0 ? (
             <p class="in-note">完全削除した世帯が {p.status.deletionsPending}件 あります。アプリのバックアップからも読めなくなるまで、削除の日から30日かかります。</p>
@@ -742,7 +742,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
         </label>
         <TraitPicker value={shelfTraits} onChange={setShelfTraits} label="項目で絞り込む" />
       </div>
-      {shelf.length === 0 ? <p class="in-note">当てはまる見本がありません。</p> : null}
+      {shelf.length === 0 ? <p class="in-note">該当する見本がありません。</p> : null}
       {shelf.length > 0 ? (
         <div class="plan-list-wrap">
           <table class="plan-list hh-list hh-shelf">

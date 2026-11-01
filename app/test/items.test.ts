@@ -443,7 +443,7 @@ describe("カードの1行の案内・1押し（どの項目も同じ決まり�
     expect(html).toContain('data-progress-missing="0"');
     expect(html).not.toContain("ih-prog-miss on");
     // 状態ごとの数は押すとそのカードだけに絞るボタン（0072）
-    expect(html.replace(/<button[^>]*>|<\/button>/g, "")).toContain('15項目中 入力済み <span class="n">1</span>・推定で計算中 <span class="n">3</span>・当てはまらない <span class="n">1</span>・まだ入れていない <span class="n">10</span>');
+    expect(html.replace(/<button[^>]*>|<\/button>/g, "")).toContain('15項目中 入力済み <span class="n">1</span>・推定で計算中 <span class="n">3</span>・該当なし <span class="n">1</span>・まだ入れていない <span class="n">10</span>');
     expect(html).toContain('data-progress-filter="est"');
     expect(html.indexOf("data-progress-missing")).toBeLessThan(html.indexOf("15項目中"));
     expect(html).not.toContain("data-first-guide");
@@ -453,7 +453,7 @@ describe("カードの1行の案内・1押し（どの項目も同じ決まり�
     expect(html).toContain('data-card-na="insurance"');
     expect(html).toContain("入れなくても計算できます（保障は無しで計算中）");
     // 状態は色だけでなく文字でも
-    for (const t of ["入力済み", "推定で計算中（1項目）", "当てはまらない", "まだ入っていません"]) expect(html).toContain(t);
+    for (const t of ["入力済み", "推定で計算中（1項目）", "該当なし", "まだ入っていません"]) expect(html).toContain(t);
     // まだ入れていない項目のカードには赤い札を出さない（点線の枠は灰色。s-empty）
     expect(html).not.toContain("ih-st missing mini\">未入力（0円の所あり）</span></span></button>");
     expect((html.match(/ih-card s-empty/g) ?? []).length).toBe(10);

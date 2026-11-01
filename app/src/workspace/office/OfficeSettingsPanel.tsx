@@ -248,7 +248,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
           <h3 id="os-levers">対策に最初から出す項目</h3>
           <p class="pl-sub">
             結果の画面の対策に、どの世帯でも最初から出す項目です。ほかの項目は、対策の「＋ 動かす項目を追加」でその場で足せます。外した項目も、プランで値を変えていれば出ます。
-            ローン・口座ごとの項目は、その世帯のローン・口座すべてに出ます（当てはまる物が無い世帯には出ません）。FP顧問料を外しても、計算は変わりません。
+            ローン・口座ごとの項目は、その世帯のローン・口座すべてに出ます（該当する物が無い世帯には出ません）。FP顧問料を外しても、計算は変わりません。
           </p>
           {leverGroups.map((g) => (
             <div class="os-lever-group" key={g}>
