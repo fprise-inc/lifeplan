@@ -17,7 +17,7 @@ import type { WorkingHousehold } from "../input/household.ts";
 import { depletionYear, displayYears } from "../present.ts";
 import { roles } from "../roles.ts";
 import { CURRENT } from "../plans/band.ts";
-import { YearSweep, type ContingencyEngine } from "./engine.ts";
+import { sceneView, YearSweep, type ContingencyEngine } from "./engine.ts";
 import { premiseItems, SCENE_NOTES } from "./inputs.ts";
 import { pickScene, premiseStartKinds, protectionOf, protectionText, sameProtection, withProtection, type PremiseChoice, type ProtectionSetting, type SceneChoice } from "./premiseChoice.ts";
 import { overrideCount, premiseFor, writePremise } from "./planPremise.ts";
@@ -140,6 +140,8 @@ export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui
 
   // ---- グラフの枠（万一なし・必要保障額の推移・選んだ想定。枠の名前はプランごと）----
   const requests = useMemo(() => chartRequests(wh, planId, protMembers, sc, year), [wh, protMembers, sc, year, planId]);
+  // 選んだ想定の枠には場面の札を付ける（場面を切り替えた直後に、前の場面の結果を新しい見出しの下に出さないため）
+  const tags = useMemo<Record<string, string>>(() => (sc !== undefined ? { [planSlot(planId, "sc")]: sc.key } : {}), [planId, sc]);
   const dragging = draft !== null;
   useEffect(() => {
     if (engine === null) return;
@@ -148,9 +150,9 @@ export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui
     recentPlans.current = [planId, ...recentPlans.current.filter((p) => p !== planId)].slice(0, KEEP_PLANS);
     c.retain(keptSlots(c.ids(), requests, recentPlans.current));
     // 前提を動かしている間は選んだ想定の枠だけ先に出す（ほかの枠と正の計算は、操作が止まってから）
-    if (dragging) c.slide(slot("sc"), requests);
-    else void c.set(requests);
-  }, [engine, requests, dragging]);
+    if (dragging) c.slide(slot("sc"), requests, tags);
+    else void c.set(requests, tags);
+  }, [engine, requests, tags, dragging]);
 
   // ---- 年ごとの結果の帯（世帯に書いた前提で。動かしている途中は計算し直さない）----
   const options = useMemo(() => (sc !== undefined ? yearOptions(planSaved.request, sc.member) : []), [planSaved.request, sc]);
@@ -197,7 +199,8 @@ export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui
       }
     });
     const none = view(slot("none"));
-    const sr = view(slot("sc"));
+    // 前の場面の結果は使わない（計算が終わるまで「計算しています」）
+    const sr = sceneView(view(slot("sc")), sc?.key);
     let scenario: ContingencyModel["scenario"] = { status: "loading", model: null, error: null, stale: false };
     if (sr?.error != null || none?.error != null) scenario = { status: "error", model: null, error: sr?.error ?? none?.error ?? null, stale: false };
     else if (sc !== undefined && sr?.result != null && none?.result != null)
