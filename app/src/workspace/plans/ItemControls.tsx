@@ -355,6 +355,8 @@ function AgeRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" }:
         max={max}
         step={1}
         value={v}
+        // 動かせる幅が無い（もう年金を受け取り始めている人の受け取り開始）ときは押せない形にする
+        disabled={min >= max}
         data-item={item.key}
         aria-label={item.label}
         aria-valuetext={item.text(v)}
