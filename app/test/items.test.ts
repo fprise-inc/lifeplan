@@ -8,7 +8,8 @@ import { describe, expect, it } from "vitest";
 import { REPO_DIR } from "../scripts/lib.ts";
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { allFields, type FieldDef, type StageDef, type StageId } from "../src/workspace/input/form.ts";
-import { blankHousehold, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { blankHousehold, fromRequest, mutate, standardBox, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { addMonths } from "../src/workspace/levers.ts";
 import { InputView } from "../src/workspace/input/InputView.tsx";
 import {
   ADD_OPTIONS,
@@ -61,6 +62,18 @@ const groupKeys = (wh: WorkingHousehold, card: string) => (itemStage(wh, card) a
 const editableKeys = (wh: WorkingHousehold, card: string) => allFields(itemStage(wh, card) as StageDef).filter((f) => f.readOnly === undefined).map((f) => f.key);
 const LABELS = ["家族", "働き方と収入", "退職金・企業年金", "年金", "基本生活費", "子ども・教育", "住まい・ローン", "保険", "貯蓄・運用", "収益不動産", "ライフイベント", "車", "介護・親", "相続・贈与", "前提条件"];
 
+/**
+ * 前の版の「＋ 項目を追加」のペット（えさ・医療・保険の年18万円。今はひな形に無い）で足した行と、そのピン。
+ * 前の版の addItem と同じ形（ライフイベントの行 cf.expense.other・1年後から14年・推定の年18万円・ピンの絵 pet）
+ */
+function legacyPet(wh: WorkingHousehold, id: () => string): { wh: WorkingHousehold; itemId: string } {
+  const ref = id();
+  const at = addMonths(wh.request.input.baseMonth, 12);
+  const next = mutate(wh, (hh) => void (hh.periodicExpenses ??= []).push({ id: ref, label: "ペット", row: "cf.expense.other", from: { at }, to: { at: addMonths(at, 14 * 12) }, everyYears: 1, amount: standardBox(180000, "ひな形の仮の値（この世帯の額に直すか、このままなら「この値にする」）") }));
+  const itemId = `added:${id()}`;
+  return { wh: { ...next, addedItems: [...next.addedItems, { id: itemId, kind: "periodic", ref, art: "pet" }] }, itemId };
+}
+
 /** 足した項目をまとめて足す（保存まで） */
 function withAdded(wh: WorkingHousehold, keys: string[], id = seq()): WorkingHousehold {
   let w = wh;
@@ -96,7 +109,7 @@ describe("15枚のカードと並び", () => {
   });
 
   it("15枚のときは見出しを出さない。ピンは何枚足してもカードの数に入れない", () => {
-    const wh = withAdded(open("salariedCoupleTwoKids"), ["pet", "abroad", "periodic", "care", "pet"]);
+    const wh = withAdded(open("salariedCoupleTwoKids"), ["periodic", "abroad", "periodic", "care", "periodic"]);
     const items = inputItems(wh);
     expect(items).toHaveLength(15);
     expect(items.length).toBeLessThan(GROUP_HEADINGS_FROM);
@@ -482,9 +495,9 @@ describe("カードの1行の案内・1押し（どの項目も同じ決まり�
 });
 
 describe("ピン", () => {
-  it("＋ 項目を追加: 物は種類が属するカードに作り、ホームにはピンとして出す（カードは増えない）。保存するまでは下書き", () => {
+  it("ピンの物（前の版の「＋ 項目を追加」のペット）: 物は種類が属するカードにあり、ホームにはピンとして出す（カードは増えない）。保存するまでは下書き", () => {
     const wh = open("salariedCoupleTwoKids");
-    const r = addItem(wh, "pet", seq())!;
+    const r = legacyPet(wh, seq());
     expect(wh.addedItems).toEqual([]);
     expect(inputItems(r.wh)).toHaveLength(15);
     const pet = r.wh.request.input.household.periodicExpenses!.at(-1)!;
@@ -528,7 +541,7 @@ describe("ピン", () => {
     const plain = addItem(wh, "abroad", seq())!;
     expect(pinItems(plain.wh)[0]!.owner).toBe("events");
     // 子を選べるのは留学だけ
-    expect(addItem(wh, `pet:${child.id}`, seq())).toBeNull();
+    expect(addItem(wh, `periodic:${child.id}`, seq())).toBeNull();
   });
 
   it("どのカードの物も「📌 ホームに出す」でピンにできる（ライフイベント・介護・車・FP顧問料の物）。外しても物は残る", () => {
@@ -572,7 +585,7 @@ describe("ピン", () => {
     const wh = { ...fromRequest(req, {}), proposals: [plan] };
     const cat = buildCatalog(wh, self.id, null);
     const view = planView(wh, cat, "B");
-    const r = addItem(view, "pet", seq())!;
+    const r = addItem(view, "periodic", seq())!;
     const w = recordPlanEdit(wh, cat, "B", view, r.wh);
     // 現状には物が無い
     expect(w.request.input.household.periodicExpenses).toHaveLength(wh.request.input.household.periodicExpenses!.length);
@@ -589,7 +602,7 @@ describe("ピン", () => {
   });
 
   it("描画: ピンの列（押すとその物だけ開く・外す）", () => {
-    const wh = withAdded(open("salariedCoupleTwoKids"), ["pet"]);
+    const wh = withAdded(open("salariedCoupleTwoKids"), ["periodic"]);
     const pin = pinItems(wh)[0]!;
     const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple" }));
     expect(html).toContain("data-pins");

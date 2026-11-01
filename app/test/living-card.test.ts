@@ -5,13 +5,16 @@ import { describe, expect, it } from "vitest";
 import type { Household, LivingExpense, Member } from "../src/engine/types.ts";
 import { householdSize, isPureSplit, withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
 import { allFields, type FieldDef, type StageDef } from "../src/workspace/input/form.ts";
-import { blankHousehold, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { blankHousehold, fromRequest, mutate, standardBox, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { autoActive, autoStages, countAt, isAutoStage } from "../src/workspace/input/livingStages.ts";
 import { rowAt } from "../src/workspace/input/rows.ts";
 import { addMember } from "../src/workspace/input/stages/family.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { addAnnual, ANNUAL_TEMPLATES, CATEGORY_GROUP_HELP, CHECK_ACTUAL_HELP, CHECK_NEW_HELP, CHECK_TREATMENT_HELP } from "../src/workspace/input/stages/living.ts";
 import { legacyAllowances, withLegacyAllowanceNotice } from "../src/workspace/input/livingAllowance.ts";
+import { legacyPetRows, withLegacyPetNotice } from "../src/workspace/input/petTemplate.ts";
+import { checkFreeRequest, comparedYear, computedNet, savingsCheckLine } from "../src/workspace/input/savingsCheckLine.ts";
+import { ADD_OPTIONS, addItem } from "../src/workspace/input/items.ts";
 import { householdNoticeText } from "../src/workspace/header/status.ts";
 import { helpBlocks } from "../src/workspace/input/FieldViews.tsx";
 import { applyStateOp, availableOps, fieldStatus } from "../src/workspace/input/valueState.ts";
@@ -125,7 +128,7 @@ describe("推定の段階（0049 の2・3）", () => {
     ]);
     expect(householdSize(wh.request.input.household, BASE)).toBe(3);
     // 欄に入れる総額の推定は千円単位
-    expect(living(wh).monthly!.value).toBe(233000);
+    expect(living(wh).monthly!.value).toBe(231000);
   });
 
   it("推定のままの段は入れ直し、FP が直した段は確定のまま残る。外した段は足し直さない", () => {
@@ -217,12 +220,12 @@ describe("総額と内訳（0048 の2・0100）", () => {
     const w1 = mode.set(wh, "byCategory");
     const l1 = living(w1);
     expect(l1.mode).toBe("byCategory");
-    expect(l1.monthly!.value).toBe(233000);
+    expect(l1.monthly!.value).toBe(231000);
     expect(l1.categories!.map((c) => c.category)).toEqual(["food", "utilities", "communication", "transit", "furniture", "clothing", "health", "recreation", "pocketAndSocial", "other"]);
-    expect(l1.categories!.reduce((s, c) => s + c.monthly.value!, 0)).toBe(233000);
+    expect(l1.categories!.reduce((s, c) => s + c.monthly.value!, 0)).toBe(231000);
     expect(l1.categories!.some((c) => c.category === "allowance")).toBe(false);
     // 3人の世帯の食料（学校給食を除く）91,878 ÷ 233,016（10費目の合計）× 233,000 を千円単位に丸めた額（欄は万円の小数1桁で見える）
-    expect(l1.categories!.find((c) => c.category === "food")!.monthly.value).toBe(Math.round((233000 * 91878) / 233016 / 1000) * 1000);
+    expect(l1.categories!.find((c) => c.category === "food")!.monthly.value).toBe(Math.round((231000 * 91878) / 231260 / 1000) * 1000);
     // 総額が千円単位なので、端を置く「その他」も含めて千円単位
     for (const c of l1.categories!) expect(c.monthly.value! % 1000, c.category).toBe(0);
     expect(isPureSplit(l1)).toBe(true);
@@ -845,5 +848,83 @@ describe("内訳の合計の行・迷いやすい物の入れ先・前の内訳�
     const treatment = sec1.groups[0]!.fields.find((f) => f.item === "savingsCheck.treatment")!;
     expect(treatment.help).toBe(CHECK_TREATMENT_HELP);
     expect(sec.note).toBe(sec1.note);
+  });
+});
+
+describe("目安の共益費・ペットのひな形・答え合わせの差（0106 の追記）", () => {
+  it("こづかい・交際費の説明と入れ先の一覧: 共益費・管理費は住まい・ローン（平均からも除いた）", () => {
+    const wh = fieldOf(family(), `living/${living(family()).id}/mode`).set(family(), "byCategory");
+    const g = stage(wh)
+      .sections.flatMap((s) => s.groups)
+      .find((x) => x.key === `living/${living(wh).id}/categories`)!;
+    const pocket = g.fields.find((f) => f.label === "こづかい・交際費")!;
+    expect(pocket.help).toContain("共益費・管理費は住まい・ローンの入力項目");
+    expect(pocket.help).toContain("平均からも除いています");
+    expect(CATEGORY_GROUP_HELP).toContain("・家賃・住宅ローン・管理費・共益費・修繕積立金・固定資産税 → 住まい・ローン");
+  });
+
+  it("「＋ 項目を追加」にペットは無い（病気・けがは年1回・数年に1回の支出の「ペットの病気・けが」）", () => {
+    expect(ADD_OPTIONS.map((o) => o.key)).not.toContain("pet");
+    expect(addItem(family(), "pet")).toBeNull();
+    expect(annualBtn(family(), "pet").label).toBe("＋ ペットの病気・けが");
+  });
+
+  it("前のひな形のペットの行は、書き換えずに読んで計算し、開いたときに入れ先を知らせる（同じ数なら2度は足さない）", () => {
+    const wh = family();
+    const ref = "00000000-0000-4000-8000-0000000e0101";
+    const old = mutate(wh, (h) => void (h.periodicExpenses ??= []).push({ id: ref, label: "ペット", row: "cf.expense.other", from: { at: "2027-10" }, to: { at: "2041-10" }, everyYears: 1, amount: standardBox(180000, "ひな形の仮の値（この世帯の額に直すか、このままなら「この値にする」）") }));
+    const prev: WorkingHousehold = { ...old, addedItems: [{ id: "added:00000000-0000-4000-8000-0000000e0102", kind: "periodic", ref, art: "pet" }] };
+    expect(legacyPetRows(prev)).toEqual([ref]);
+    expect(legacyPetRows(old)).toEqual([]);
+    const w1 = withLegacyPetNotice(prev);
+    expect(withLegacyPetNotice(w1)).toBe(w1);
+    expect(w1.request).toBe(prev.request);
+    const n = w1.notices!.find((x) => x.kind === "petTemplate")!;
+    expect(n.count).toBe(1);
+    const text = householdNoticeText(n)!;
+    expect(text.target).toBe("living");
+    for (const s of ["趣味・娯楽", "ペットの病気・けが", "結果は変わりません", "重ねて数えていないか"]) expect(text.text).toContain(s);
+    // 保存した世帯を開いても、行はそのまま（額も期間も変えない）・ピンも残る・知らせが付く
+    const body: BodyState = { wh: prev, workspace: { template: null, band: [], base: CURRENT, selected: CURRENT, shownItems: [] }, display: { result: DEFAULT_DISPLAY_SETTINGS, balance: DEFAULT_BALANCE_SETTINGS }, carry: EMPTY_CARRY };
+    const back = fromBody(bodyOf(body)).wh;
+    const row = back.request.input.household.periodicExpenses!.find((p) => p.id === ref)!;
+    expect(row).toMatchObject({ label: "ペット", row: "cf.expense.other", amount: { value: 180000 }, from: { at: "2027-10" }, to: { at: "2041-10" } });
+    expect(back.addedItems.map((a) => a.art)).toEqual(["pet"]);
+    expect(back.notices!.some((x) => x.kind === "petTemplate")).toBe(true);
+    // 確かめの一覧は前のペットの行を「ペットの病気・けが」を入れたと読む（ボタンは出さない）。計算にも入る
+    expect(annualCheck(back).actions.some((a) => a.key === "living/annual/add/pet")).toBe(false);
+    const other = (w: WorkingHousehold) => preview(w.request).table.filter((c) => c.row === "cf.expense.other" && c.year === 2028).reduce((s, c) => s + Number(c.amount ?? 0), 0);
+    expect(other(back) - other(wh)).toBeGreaterThanOrEqual(180000);
+  });
+
+  it("答え合わせ: 実際の年間の貯蓄額の欄の下に、計算の年間収支・実際の額・差を1行で（差は実際−計算。足りない分はエンジンの使途不明金と同じ額）", () => {
+    const wh = fromRequest(modelHousehold("unexplainedSpending"), {});
+    const c = (wh.request.input.household as { savingsChecks?: { id: string; year: number; actualSavings: { value: number } }[] }).savingsChecks![0]!;
+    const free = checkFreeRequest(wh.request);
+    expect((free.input.household as { savingsChecks?: unknown }).savingsChecks).toBeUndefined();
+    expect((wh.request.input.household as { savingsChecks?: unknown }).savingsChecks).toBeDefined();
+    const table = preview(free).table;
+    const line = savingsCheckLine(wh, table)!;
+    const year = comparedYear(wh.request, c.year)!;
+    const computed = computedNet(table, year);
+    const man = (v: number) => `${(Math.round(v / 1000) / 10).toLocaleString("ja-JP")}万円`;
+    const gap = computed - c.actualSavings.value;
+    expect(gap).toBeGreaterThan(0);
+    expect(line.text).toBe(`計算では年 ${man(computed)}、実際は年 ${man(c.actualSavings.value)}、差 ▲${man(gap)}`);
+    expect(line.value).toBeNull();
+    expect(line.detail.join("\n")).toContain("使途不明金");
+    // エンジンが毎年の支出に入れる使途不明金（比べた年）と同じ額
+    const unexplained = preview(wh.request).table.filter((x) => x.row === "cf.expense.other.unexplained" && x.year === year).reduce((s, x) => s + Number(x.amount ?? 0), 0);
+    expect(unexplained).toBe(gap);
+    // 実際のほうが多いときは「+」で、差は入れていない
+    const more = mutate(wh, (h) => void ((h as { savingsChecks?: { actualSavings: { value: number } }[] }).savingsChecks![0]!.actualSavings.value = computed + 300000));
+    const up = savingsCheckLine(more, table)!;
+    expect(up.text).toMatch(/、差 \+30万円$/);
+    expect(up.detail.join("\n")).toContain("差は支出に入れていません");
+    // 比べる年: 計算基準月が1月でなければ翌年
+    expect(comparedYear({ ...wh.request, input: { ...wh.request.input, baseMonth: "2026-10" } }, 2026)).toBe(2027);
+    expect(comparedYear({ ...wh.request, input: { ...wh.request.input, baseMonth: "2026-01" } }, 2026)).toBe(2026);
+    // 答え合わせの無い世帯は出さない
+    expect(savingsCheckLine(family(), table)).toBeNull();
   });
 });

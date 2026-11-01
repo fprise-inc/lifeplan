@@ -200,7 +200,7 @@ function AddCard({ open, onOpen, onPick, options }: { open: boolean; onOpen: (v:
           </span>
           <span>
             項目を追加
-            <small>ペット・留学・名前を付けた支出・介護など</small>
+            <small>留学・名前を付けた支出・介護の費用</small>
           </span>
         </button>
       </div>

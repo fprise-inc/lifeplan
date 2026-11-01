@@ -48,14 +48,14 @@ describe("推定の目安", () => {
 
   it("基本生活費は家計調査（二人以上の世帯の世帯人員別）から住居・教育・自動車等関係費・家庭用耐久財・仕送り金と、ほかの入力項目で入れる物を除いた額。1人は仮の値", () => {
     // 表の額のまま（人数ごとの比に使う）
-    expect([1, 2, 3, 4, 5, 6, 8].map((n) => livingStatistic(n).value)).toEqual([140000, 210603, 233017, 247110, 252393, 274335, 274335]);
+    expect([1, 2, 3, 4, 5, 6, 8].map((n) => livingStatistic(n).value)).toEqual([140000, 208847, 231261, 245354, 250637, 272579, 272579]);
     // 欄に入れる推定は千円単位
-    expect([1, 2, 3, 4, 5, 6, 8].map((n) => livingEstimate(n).value)).toEqual([140000, 211000, 233000, 247000, 252000, 274000, 274000]);
+    expect([1, 2, 3, 4, 5, 6, 8].map((n) => livingEstimate(n).value)).toEqual([140000, 209000, 231000, 245000, 251000, 273000, 273000]);
     expect(livingEstimate(3).basis).toBe(livingStatistic(3).basis);
     // 前の版の推定（丸める前の額）を見分ける（人数が同じときだけ。千円ちょうどの額は見分けなくてよい）
-    expect(isLegacyLivingEstimate(233017, 3)).toBe(true);
-    expect(isLegacyLivingEstimate(233000, 3)).toBe(false);
-    expect(isLegacyLivingEstimate(233017, 2)).toBe(false);
+    expect(isLegacyLivingEstimate(231261, 3)).toBe(true);
+    expect(isLegacyLivingEstimate(231000, 3)).toBe(false);
+    expect(isLegacyLivingEstimate(231261, 2)).toBe(false);
     expect(isLegacyLivingEstimate(140000, 1)).toBe(false);
     expect(livingEstimate(1).basis).toContain("仮の値");
     expect(livingEstimate(3).basis).toContain("家計調査（総務省）2025年");
@@ -122,13 +122,13 @@ describe("総額を費目に分ける（千円単位）", () => {
 
 describe("基本生活費の10費目（0100）", () => {
   it("基本生活費の目安は消費支出から住居・教育・自動車等関係費・家庭用耐久財・仕送り金と、ほかの入力項目で入れる物を除いた額で、10費目の合計と一致する（表の丸めの1円の差を除く）", () => {
-    expect([2, 3, 4, 5, 6].map((n) => livingStatistic(n).value)).toEqual([210603, 233017, 247110, 252393, 274335]);
+    expect([2, 3, 4, 5, 6].map((n) => livingStatistic(n).value)).toEqual([208847, 231261, 245354, 250637, 272579]);
     for (const n of [2, 3, 4, 5, 6]) {
       const avg = livingCategoryAverages(n)!;
       const sum = LIVING_SPLIT_CATEGORIES.reduce((s, c) => s + avg.amounts[c], 0);
       expect(Math.abs(sum - livingStatistic(n).value), `${n}人`).toBeLessThanOrEqual(1);
     }
-    expect(livingCategoryAverages(2)!.amounts).toMatchObject({ food: 79331, utilities: 22691, communication: 12311, transit: 4049, furniture: 7503, clothing: 15125, health: 16280, recreation: 21688, pocketAndSocial: 26059, other: 5565 });
+    expect(livingCategoryAverages(2)!.amounts).toMatchObject({ food: 79331, utilities: 22691, communication: 12311, transit: 4049, furniture: 7503, clothing: 15125, health: 16280, recreation: 21688, pocketAndSocial: 24303, other: 5565 });
     // インターネット接続料（品目分類の全国の月平均 2,954円）を、どの世帯人員も教養娯楽から通信へ移した（合計は同じ）。
     // ほかの入力項目で入れる物を除いた（0106）: 食料−学校給食、通信−携帯電話機 744円、交通−有料道路料 732円、
     // 教養娯楽−月謝類−テレビ・レコーダー・パソコン 1,792円−動物病院代 837円、その他−保険料・保育・介護サービス・婚礼・葬儀・祭具と墓石 11,223円
@@ -137,6 +137,8 @@ describe("基本生活費の10費目（0100）", () => {
     expect([2, 3, 4, 5, 6].map((n) => livingCategoryAverages(n)!.amounts.transit)).toEqual([4781, 6239, 7099, 4927, 4007].map((x) => x - 732));
     expect([2, 3, 4, 5, 6].map((n) => livingCategoryAverages(n)!.amounts.recreation)).toEqual([25457 - 1140, 26479 - 2104, 33756 - 5877, 32905 - 6028, 33436 - 5849].map((x) => x - 1792 - 837));
     expect([2, 3, 4, 5, 6].map((n) => livingCategoryAverages(n)!.amounts.other)).toEqual([16788, 19157, 18167, 16492, 17230].map((x) => x - 11223));
+    // こづかい・交際費から住宅関係負担費（品目 973。共益費・住宅組合費など。品目分類の全国の月平均 1,756円）を除いた（住まい・ローンで入れる）
+    expect([2, 3, 4, 5, 6].map((n) => livingCategoryAverages(n)!.amounts.pocketAndSocial)).toEqual([26059, 21337, 17597, 15110, 18288].map((x) => x - 1756));
   });
   it("前の分け方の交通・通信とその他の消費支出の平均も添える（前の世帯の内訳の目安）", () => {
     expect(livingCategoryAverages(2)!.amounts).toMatchObject({ transport: 14883 });
