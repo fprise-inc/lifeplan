@@ -14,9 +14,25 @@ export interface AiState {
   setView: (v: AiHouseholdView) => void;
 }
 
+/**
+ * 前と同じ中身なら置き直さない状態（3秒ごとの読み直しで、何も変わっていないのに画面全体を描き直さない。
+ * 共有中は残り時間が変わるので、そのたびに置き直す）
+ */
+function useSameSkippingState<T>(): [T | null, (v: T | null) => void] {
+  const [value, setValue] = useState<T | null>(null);
+  const last = useRef("null");
+  const set = useCallback((v: T | null) => {
+    const text = JSON.stringify(v);
+    if (text === last.current) return;
+    last.current = text;
+    setValue(v);
+  }, []);
+  return [value, set];
+}
+
 export function useAi(ai: AiHost | null, storeReady: boolean, householdId: string | null): AiState {
-  const [status, setStatus] = useState<AiStatus | null>(null);
-  const [view, setView] = useState<AiHouseholdView | null>(null);
+  const [status, setStatus] = useSameSkippingState<AiStatus>();
+  const [view, setView] = useSameSkippingState<AiHouseholdView>();
   const idRef = useRef(householdId);
   idRef.current = householdId;
 
@@ -38,12 +54,12 @@ export function useAi(ai: AiHost | null, storeReady: boolean, householdId: strin
     } catch {
       if (idRef.current === id) setView(null);
     }
-  }, [ai, storeReady]);
+  }, [ai, storeReady, setStatus, setView]);
 
   useEffect(() => {
     setView(null);
     void refresh();
-  }, [refresh, householdId]);
+  }, [refresh, householdId, setView]);
 
   useEffect(() => {
     if (ai === null || !storeReady) return;
