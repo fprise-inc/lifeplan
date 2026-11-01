@@ -8,7 +8,7 @@ import full1 from "../sheets/full/1.json" with { type: "json" };
 import { answerKey, type Answer, type FilledSheet } from "./answers.ts";
 import { axisOf, itemByKey, type SheetDefinition, type SheetItem } from "./definition.ts";
 import { bonusShareEstimate, businessEstimate, careerStartMonth, HEARING_UNKNOWN_BASIS, healthRateEstimate, livingEstimate, residentTaxEstimate, residentTaxYear, retirementLumpSumEstimate, salaryEstimate, type Estimate } from "./estimates.ts";
-import { mortgageRateEstimate, pctText } from "./housingEstimates.ts";
+import { currentMortgageRateEstimate, pctText } from "./housingEstimates.ts";
 import { issue, type Issue } from "./issues.ts";
 import { monthsFromPayment, principalFromPayment, standardTermMonths } from "./loan.ts";
 import { addMonths, ageAt, reachedMonth, ymIndex } from "./months.ts";
@@ -1165,15 +1165,15 @@ function importHousing(c: Ctx, h: Household, adults: Adults, asOf: string, baseM
   importSimpleLoan(c, h, adults, asOf);
 }
 
-/** 簡易版の住宅ローンに仮に置く金利（変動金利の目安。入力の画面の新しい住宅ローンの標準の値と同じ。housingEstimates.ts） */
-const SIMPLE_LOAN_RATE = mortgageRateEstimate("variable").rate;
+/** 簡易版の住宅ローンに仮に置く金利（今返している住宅ローンの目安。入力の画面の今の残高から入れる住宅ローンの標準の値と同じ。housingEstimates.ts） */
+const SIMPLE_LOAN_RATE = currentMortgageRateEstimate().rate;
 const SIMPLE_LOAN_PCT = pctText(SIMPLE_LOAN_RATE);
 const SIMPLE_LOAN_NOTE =
   "通常版のシートの残高と毎月の返済額から置いた住宅ローンです（入れ方は「今の残高から」）。借りた年月・借入額・金利・返済期間は仮の値なので、面談で返済予定表を見て直してください。住宅ローン控除の条件はお聞きしていないため、控除は計算しません";
 
 /**
  * 簡易版の住宅ローン（残高と毎月の返済額の合計）: 入力の画面の住まい・ローンのカードの「今の残高から」の形で1本にまとめて置く。
- * - 借りたのは記入の年月・借入額は残高（仮）、金利は変動金利の目安（仮）、借りている方はご本人（仮）
+ * - 借りたのは記入の年月・借入額は残高（仮）、金利は今返している住宅ローンの目安（仮。種類は変動金利）、借りている方はご本人（仮）
  * - 残高と返済額があれば、仮の金利で返済期間を逆算する。返済額だけなら、標準の返済期間（35年・80歳まで）と仮の金利で残高を逆算する（推定）
  * - 残高だけなら、返済期間は標準の値（仮）
  */
@@ -1222,7 +1222,7 @@ function importSimpleLoan(c: Ctx, h: Household, adults: Adults, asOf: string): v
   }
   c.assume(`housing/debt/${id}/fromBalance`, "仮の値（残高の時点〔記入の年月〕から借りたとみなす。借りた年月・借入額は面談で確かめてください）", at(key, "debt.principal", "/principal"));
   c.field(id, key, undefined, "debt.start", "/start/at", "assumed");
-  c.assume(`housing/debt/${id}/rate`, `仮の値（${mortgageRateEstimate("variable").basis}として計算）`, at(key, "debt.rateSchedule", "/rateSchedule/0/rate"));
+  c.assume(`housing/debt/${id}/rate`, `仮の値（${currentMortgageRateEstimate().basis}として計算）`, at(key, "debt.rateSchedule", "/rateSchedule/0/rate"));
   c.assume(`housing/debt/${id}/debtor`, "仮の値（ご本人が借りているとして計算）", at(key, "debt.debtors", "/debtors/0/member"));
   const d: Debt = {
     id,

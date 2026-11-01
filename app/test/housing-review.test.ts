@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import type { Debt, Residence } from "../src/engine/types.ts";
-import { mortgageRateEstimate } from "../../hearing/src/housingEstimates.ts";
+import { currentMortgageRateEstimate, mortgageRateEstimate } from "../../hearing/src/housingEstimates.ts";
 import { masterValue } from "../../hearing/src/statistics.ts";
 import { entryParts, groupUnits, headsWithMore } from "../src/workspace/input/FieldViews.tsx";
 import { allFields, type FieldDef, type GroupDef, type Level } from "../src/workspace/input/form.ts";
@@ -165,6 +165,41 @@ describe("住宅ローンの金利: 種類を金利の前に、種類ごとの�
   });
 });
 
+describe("今返している住宅ローンの金利の目安（住宅ローン利用者の借入金利の中央値）", () => {
+  it("今住んでいる家の住宅ローン（今の残高から）は、新しく借りるときの金利でなく利用者の中央値（約0.85%）。根拠の文に何の値かを書く", () => {
+    const wh = action(action(salaried(), "housing/addOwn"), "housing/addMortgage");
+    const d = loan(wh);
+    const c = currentMortgageRateEstimate();
+    expect(masterValue("housing.statistics.mortgageRate.current")?.reviewed).toBe(true);
+    expect(c.rate).toBe("0.0085");
+    expect(d.rateSchedule[0]).toMatchObject({ type: "variable", rate: c.rate });
+    expect(Number(c.rate)).toBeLessThan(Number(mortgageRateEstimate("variable").rate));
+    const basis = rateRow(wh, d)?.estimate?.basis ?? "";
+    expect(basis).toContain("今返している住宅ローン 年0.85%");
+    expect(basis).toContain("住宅ローン利用者の借入金利の中央値");
+    expect(basis).toContain("住宅金融支援機構「住宅ローン利用者の実態調査」");
+    expect(() => preview(wh.request)).not.toThrow();
+  });
+  it("今返している住宅ローンの金利の種類を変えても、目安のままなら同じ中央値（種類を問わない値）。入れた金利は変えない", () => {
+    let wh = action(action(salaried(), "housing/addOwn"), "housing/addMortgage");
+    const d = loan(wh);
+    expect(fieldOf(wh, `${d.id}/rateType`).sideEffects).toContain("目安の金利に入れ直します");
+    wh = set(wh, `${d.id}/rateType`, "fixed");
+    expect(loan(wh).rateSchedule[0]).toMatchObject({ type: "fixed", rate: currentMortgageRateEstimate().rate });
+    expect(rateRow(wh, loan(wh))?.estimate?.basis).toContain("今返している住宅ローン");
+    wh = set(wh, `${d.id}/rate`, "0.013");
+    wh = set(wh, `${d.id}/rateType`, "variable");
+    expect(loan(wh).rateSchedule[0]).toMatchObject({ type: "variable", rate: "0.013" });
+  });
+  it("これから家を買うときの住宅ローンは、今までどおり金利の種類ごとの目安（新しく借りるときの金利）", () => {
+    const wh = action(action(salaried(), "housing/addPurchase"), "housing/addMortgage");
+    const d = loan(wh);
+    expect(d.rateSchedule[0]?.rate).toBe(mortgageRateEstimate("variable").rate);
+    expect(rateRow(wh, d)?.estimate?.basis).toContain(mortgageRateEstimate("variable").basis);
+    expect(rateRow(wh, d)?.estimate?.basis).not.toContain("今返している");
+  });
+});
+
 describe("住宅ローンの1件の中枠（大枠 → 中枠）", () => {
   const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"), {});
   const d = loan(wh);
@@ -226,17 +261,26 @@ describe("修繕・リフォームの時期に「毎月」を出さない", () =
   });
 });
 
-describe("奨学金・自動車ローンの金利の目安は1つの定義（マスタデータ master.loanRates）", () => {
-  it("子ども・教育の貸与の奨学金とほかのローンの「奨学金の返済」、車の入力項目の自動車ローンと今返している自動車ローンが同じ目安", async () => {
-    const { scholarshipRateEstimate, carLoanRateEstimate } = await import("../../hearing/src/loanRates.ts");
+describe("奨学金・自動車ローンの金利の目安（マスタデータ master.loanRates）", () => {
+  it("車の入力項目の自動車ローンと今返している自動車ローンは同じ目安。貸与の奨学金は、これから借りる分（子ども・教育）は今の利率、今返している分（ほかのローン）は過去の利率の平均", async () => {
+    const { scholarshipRateEstimate, repayingScholarshipRateEstimate, carLoanRateEstimate } = await import("../../hearing/src/loanRates.ts");
     const { LOAN_SUBTYPES } = await import("../src/workspace/input/stages/housingLoans.ts");
     const { SCHOLARSHIP_BASIS } = await import("../src/workspace/input/stages/education.ts");
     expect(masterValue("loanRates.scholarship")?.reviewed).toBe(true);
+    expect(masterValue("loanRates.scholarship.repaying")?.reviewed).toBe(true);
     expect(masterValue("loanRates.carLoan")?.reviewed).toBe(true);
-    expect(LOAN_SUBTYPES.find((s) => s.value === "scholarship")?.rate).toBe(scholarshipRateEstimate().rate);
     expect(SCHOLARSHIP_BASIS).toContain(scholarshipRateEstimate().basis);
+    const r = repayingScholarshipRateEstimate();
+    expect(r.rate).toBe("0.0075");
+    expect(Number(r.rate)).toBeLessThan(Number(scholarshipRateEstimate().rate));
+    expect(LOAN_SUBTYPES.find((s) => s.value === "scholarship")?.rate).toBe(r.rate);
     const wh = action(salaried(), "housing/add/scholarship");
-    expect(wh.request.input.household.debts?.[0]?.rateSchedule[0]?.rate).toBe(scholarshipRateEstimate().rate);
+    const d = wh.request.input.household.debts?.[0];
+    expect(d?.rateSchedule[0]?.rate).toBe(r.rate);
+    const basis = d === undefined ? "" : (rateRow(wh, d)?.estimate?.basis ?? "");
+    expect(basis).toContain("今返している奨学金の利率の目安 年0.75%");
+    expect(basis).toContain("日本学生支援機構");
+    expect(basis).toContain("第一種なら0%");
     expect(carLoanRateEstimate().basis).toMatch(/（主要な銀行が公表する[^（]*の平均）$/);
   });
 });

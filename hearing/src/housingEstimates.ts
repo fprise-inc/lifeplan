@@ -16,10 +16,14 @@ export interface RateEstimate {
 const FIXED_ID = "housing.statistics.mortgageRate.fixed";
 const VARIABLE_ID = "housing.statistics.mortgageRate.variable";
 const FIXED_PERIOD_ID = "housing.statistics.mortgageRate.fixedPeriod10";
+const CURRENT_ID = "housing.statistics.mortgageRate.current";
 const RENT_GROWTH_ID = "housing.statistics.rentGrowth";
 
 /** 写しに値が無いとき（正本の YAML を読めないとき）の予備の値。仮の値で、根拠の文にそう書く */
 const FALLBACK: Readonly<Record<MortgageRateType, string>> = { variable: "0.008", fixedPeriod: "0.02", fixed: "0.02" };
+const CURRENT_FALLBACK = "0.008";
+/** 今返している住宅ローンの目安の根拠の文の頭 */
+const CURRENT_LABEL = "今返している住宅ローン";
 const LABEL: Readonly<Record<MortgageRateType, string>> = { variable: "変動金利", fixedPeriod: "固定期間選択型（当初10年）", fixed: "全期間固定" };
 
 /** 年率の文字を「0.85%」の形に（小数点以下3桁まで。末尾の0は付けない） */
@@ -45,8 +49,18 @@ export function mortgageRateEstimate(type: MortgageRateType): RateEstimate {
   return { rate: m.rate, basis: `${LABEL[type]} 年${p}（${m.source}）${pending}` };
 }
 
+/**
+ * 今返している住宅ローン（借りたのが計算の基準の月まで）の金利の目安。上の種類ごとの目安は新しく借りるときの金利で、今返している人には高すぎるので、
+ * 住宅ローン利用者の借入金利の中央値（住宅金融支援機構「住宅ローン利用者の実態調査」。金利の種類を問わない1つの値）を使う
+ */
+export function currentMortgageRateEstimate(): RateEstimate {
+  const m = masterRate(CURRENT_ID);
+  if (m === null) return { rate: CURRENT_FALLBACK, basis: `${CURRENT_LABEL} 年${pctText(CURRENT_FALLBACK)}（仮の値。統計の写しが読めません）` };
+  return { rate: m.rate, basis: `${CURRENT_LABEL} 年${pctText(m.rate)}（${m.source}）${m.pending ? "（原本での確かめ前）" : ""}` };
+}
+
 /** 推定の根拠の文から、目安の金利の文か（金利の種類を変えたときに入れ直してよい値か）を見分ける頭の言葉 */
-export const RATE_ESTIMATE_HEADS: readonly string[] = ["変動金利 年", "全期間固定 年", "固定期間選択型 年", "固定期間選択型（当初10年） 年"];
+export const RATE_ESTIMATE_HEADS: readonly string[] = ["変動金利 年", "全期間固定 年", "固定期間選択型 年", "固定期間選択型（当初10年） 年", `${CURRENT_LABEL} 年`];
 
 /** 家賃の変動率の統計（消費者物価指数の民営家賃の、長い期間の年平均の変化）。写しに値が無ければ null */
 export function rentGrowthStatistic(): { rate: string; text: string } | null {

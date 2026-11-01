@@ -15,8 +15,8 @@ import { putRow, rowAt, type StateRow } from "../rows.ts";
 import { formatYearMonth, formatYen } from "../units.ts";
 import { readYearMonth } from "../when.ts";
 import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
-import { mortgageRateEstimate, RATE_ESTIMATE_HEADS, type MortgageRateType } from "../../../../../hearing/src/housingEstimates.ts";
-import { scholarshipRateEstimate } from "../../../../../hearing/src/loanRates.ts";
+import { currentMortgageRateEstimate, mortgageRateEstimate, RATE_ESTIMATE_HEADS, type MortgageRateType } from "../../../../../hearing/src/housingEstimates.ts";
+import { repayingScholarshipRateEstimate } from "../../../../../hearing/src/loanRates.ts";
 
 type Obj = Record<string, unknown>;
 const debts = (h: Household) => h.debts;
@@ -781,10 +781,13 @@ function rateField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | "
   return field({ ...inner, ...followNote(wh, d), set: (w, v) => followLoan(w, inner.write?.(w, v) ?? inner.set(w, v), d.id, "rate") });
 }
 
-/** 金利の種類ごとの当初の金利の目安（住宅ローン。マスタデータ master.housing.statistics の写しから。hearing/src/housingEstimates.ts） */
-export function rateEstimateOf(type: string | undefined): { rate: string; basis: string } {
+/**
+ * 住宅ローンの当初の金利の目安（マスタデータ master.housing.statistics の写しから。hearing/src/housingEstimates.ts）。
+ * これから借りるローンは金利の種類ごとの目安（新しく借りるときの金利）、今返しているローン（current）は住宅ローン利用者の借入金利の中央値（種類を問わない）
+ */
+export function rateEstimateOf(type: string | undefined, current = false): { rate: string; basis: string } {
   const t: MortgageRateType = type === "fixed" || type === "fixedPeriod" ? type : "variable";
-  const e = mortgageRateEstimate(t);
+  const e = current ? currentMortgageRateEstimate() : mortgageRateEstimate(t);
   return { rate: e.rate, basis: presetBasis(e.basis) };
 }
 
@@ -826,7 +829,7 @@ function rateTypeField(wh: WorkingHousehold, d: Debt, k: string, level: "simple"
       // 見込みの段（変動金利の5年後・10年後）は全期間固定・固定期間選択型に残さない（見込みの欄は隠れるのに、隠れた段で金利が変わってしまう）
       const next = dropOutlook ? editDebt(typed, d.id, (x) => void (x.rateSchedule = x.rateSchedule.slice(0, 1))) : typed;
       if (!isRateEstimate(rowOf(w, addrRate(d)))) return next;
-      const e = rateEstimateOf(typeof v === "string" ? v : undefined);
+      const e = rateEstimateOf(typeof v === "string" ? v : undefined, d0 !== undefined && currentHomeLoan(w, d0));
       const w2 = editDebt(next, d.id, (x, req) => {
         const step = x.rateSchedule[0];
         if (step === undefined) return;
@@ -1092,8 +1095,8 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
 
 export const LOAN_SUBTYPES = [
   { value: "cardLoan", label: "カードローン・リボ", kind: "other", rate: "0.15", rateBasis: "カードローン・リボの金利の目安 年15%" },
-  // 奨学金は子ども・教育の入力項目の貸与の奨学金と同じ目安（マスタデータ master.loanRates）
-  { value: "scholarship", label: "奨学金の返済", kind: "scholarship", rate: scholarshipRateEstimate().rate, rateBasis: `貸与の奨学金の利率の目安 ${scholarshipRateEstimate().basis}` },
+  // 奨学金は今返している分の目安（マスタデータ master.loanRates。過去に貸与を終えた人の利率。これから借りる子ども・教育の入力項目の貸与の奨学金とは別）
+  { value: "scholarship", label: "奨学金の返済", kind: "scholarship", rate: repayingScholarshipRateEstimate().rate, rateBasis: `今返している奨学金の利率の目安 ${repayingScholarshipRateEstimate().basis}。無利子の第一種なら0%` },
   { value: "renovation", label: "リフォームローン", kind: "other", rate: "0.025", rateBasis: "リフォームローンの金利の目安 年2.5%" },
   { value: "policyLoan", label: "契約者貸付（保険）", kind: "other", rate: "0.03", rateBasis: "契約者貸付の金利の目安 年3%" },
   { value: "personal", label: "親・知人からの借入", kind: "other", rate: "0", rateBasis: "親・知人からの借入は利息なし" },
@@ -1190,7 +1193,8 @@ export function standardTermMonths(h: Household, memberId: string, start: string
 
 /**
  * 新しい住宅ローン（目安のボタンの値は推定。0041）: 購入の予定とつながるなら「借入額から」（借入額は物件の価格−頭金の推定）、
- * 今住んでいる家のローンは「今の残高から」（今の残高 3,000万円の目安。借りた年と借入額は仮）。金利は変動金利の目安（マスタデータ）、期間は35年（80歳まで）の標準の値
+ * 今住んでいる家のローンは「今の残高から」（今の残高 3,000万円の目安。借りた年と借入額は仮）。金利は変動金利の目安（マスタデータ。借りるのが計算の基準の月までなら、
+ * 今返している住宅ローンの目安）、期間は35年（80歳まで）の標準の値
  */
 export function newMortgage(wh: WorkingHousehold, pairOf?: string): WorkingHousehold {
   const id = newId();
@@ -1210,13 +1214,15 @@ export function newMortgage(wh: WorkingHousehold, pairOf?: string): WorkingHouse
     const start = partnerStart ?? (bought !== undefined ? purchaseMonth(hh, bought) : null) ?? (own?.purchase !== undefined ? resolveTimepoint(hh, own.purchase.at) : null) ?? base;
     linked = partner !== undefined ? wh.loanEntry?.[partner.id] !== "balance" : bought !== undefined;
     const term = standardTermMonths(hh, debtor, start);
+    // 借りたのが計算の基準の月まで（今返している住宅ローン）なら、新しく借りるときの金利でなく、利用者の借入金利の中央値（currentHomeLoan と同じ見分け方）
+    const rateEstimate = rateEstimateOf("variable", start <= base);
     const d: Debt = {
       id,
       kind: "mortgage",
       debtors: [{ member: debtor, role: "primary" }],
       principal: 30000000,
       start: { at: start },
-      rateSchedule: [{ id: rid, from: { at: start }, type: partner?.rateSchedule[0]?.type ?? "variable", rate: partner?.rateSchedule[0]?.rate ?? rateEstimateOf("variable").rate }],
+      rateSchedule: [{ id: rid, from: { at: start }, type: partner?.rateSchedule[0]?.type ?? "variable", rate: partner?.rateSchedule[0]?.rate ?? rateEstimate.rate }],
       repayment: { method: "equalPayment", termMonths: partner?.repayment.termMonths ?? term, variableRules: { fiveYear: true, cap125: true } },
       creditLife: { covered: [debtor], events: ["death", "highDisability"] },
       ...(partner !== undefined ? { pairWith: partner.id } : {}),
@@ -1246,7 +1252,7 @@ export function newMortgage(wh: WorkingHousehold, pairOf?: string): WorkingHouse
       putRow(input, addrPrincipal(id), tentativePrincipal(d.principal));
       putRow(input, addrStart(id), estRow("standard", TENTATIVE));
     }
-    if (partner === undefined) putRow(input, at(id, "debt.rateSchedule", [rid, "rate"]), estRow("standard", rateEstimateOf("variable").basis));
+    if (partner === undefined) putRow(input, at(id, "debt.rateSchedule", [rid, "rate"]), estRow("standard", rateEstimate.basis));
     putRow(input, addrTerm(id), estRow("standard", `標準の値（返済期間${Math.round(d.repayment.termMonths / 12)}年。完済が80歳を超えないように）`));
     // 購入の予定とつながるなら、借入額は物件の価格−頭金（推定）
     const e = linked && partner === undefined ? estimatedPrincipal(hh, d) : null;
