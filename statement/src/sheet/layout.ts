@@ -63,7 +63,7 @@ export const SHEET_BUCKET_LABELS: Readonly<Record<Bucket, string>> = {
   reimbursable: "立替（会社に請求する）",
   business: "事業の経費",
   company: "会社の経費",
-  oneOff: "一時的な支出（旅行・冠婚葬祭など）",
+  oneOff: "一時的支出（旅行・冠婚葬祭など）",
   excluded: "除外（家計に数えない）",
 };
 
@@ -89,7 +89,10 @@ const CATEGORY_WORDS: ReadonlyMap<string, StatementCategory> = new Map(
 );
 
 const BUCKET_WORDS: ReadonlyMap<string, Bucket> = new Map(
-  (Object.keys(SHEET_BUCKET_LABELS) as Bucket[]).flatMap((b) => [[norm(SHEET_BUCKET_LABELS[b]), b] as const, [norm(BUCKET_LABELS[b]), b] as const, [norm(SHEET_BUCKET_LABELS[b].replace(/（.*）$/u, "")), b] as const, [norm(b), b] as const]),
+  (Object.keys(SHEET_BUCKET_LABELS) as Bucket[]).flatMap((b) => [[norm(SHEET_BUCKET_LABELS[b]), b] as const, [norm(BUCKET_LABELS[b]), b] as const, [norm(SHEET_BUCKET_LABELS[b].replace(/（.*）$/u, "")), b] as const, [norm(b), b] as const]).concat(
+    // 前の言葉（言葉を変える前に書き出したシートの選択肢）
+    [[norm("一時的な支出（旅行・冠婚葬祭など）"), "oneOff"] as const, [norm("一時的な支出"), "oneOff"] as const],
+  ),
 );
 
 /** 書かれた言葉を項目にする（選択肢の言葉・短い言葉。読めなければ null） */

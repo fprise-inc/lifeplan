@@ -24,7 +24,7 @@ import {
 
 export default defineComponent<Record<string, never>, FlowsResult>({
   id: "expense.periodic",
-  title: "周期的な支出（出るお金の行）",
+  title: "何年かごとの支出（出るお金の行）",
   contract: "1.0",
   revision: 5,
   requires: { "contingency.event": ">=1 <2" },

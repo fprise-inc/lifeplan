@@ -168,7 +168,7 @@ export interface PastItem {
   card: string | null;
 }
 
-/** 計算の基準の月より前に過ぎた、1回きりの予定（受け取る予定の相続・贈与・一時的な支出と収入）。済んだか・まだか・やめたかを確かめる */
+/** 計算の基準の月より前に過ぎた、1回きりの予定（受け取る予定の相続・贈与・一時的支出と収入）。済んだか・まだか・やめたかを確かめる */
 export function pastPlans(wh: WorkingHousehold): PastItem[] {
   const h = wh.request.input.household;
   const base = wh.request.input.baseMonth;

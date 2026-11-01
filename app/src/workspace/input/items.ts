@@ -860,7 +860,7 @@ export interface AddOption {
 export const ADD_OPTIONS: readonly AddOption[] = [
   { key: "pet", label: "ペット", note: "毎年の費用（えさ・医療・保険）", art: "pet" },
   { key: "abroad", label: "留学", note: "1回の費用", art: "abroad" },
-  { key: "periodic", label: "名前を付けた支出", note: "1回の支出・何年かごとの支出", art: "events" },
+  { key: "periodic", label: "名前を付けた支出", note: "一時的支出・何年かごとの支出", art: "events" },
   { key: "care", label: "介護の費用", note: "介護を受ける人・期間", art: "events" },
 ];
 

@@ -86,7 +86,7 @@ export const CATEGORIES: readonly CategoryInfo[] = [
   { id: "insurance", label: "保険", group: "insurance" },
   { id: "car", label: "車（ガソリン・駐車場・車検・自動車税）", group: "car" },
   { id: "tax", label: "税・社会保険料", group: "tax" },
-  { id: "lumpSum", label: "一時的な支出（旅行・冠婚葬祭・大きな買い物）", group: "oneOff" },
+  { id: "lumpSum", label: "一時的支出（旅行・冠婚葬祭・大きな買い物）", aliases: ["一時的な支出（旅行・冠婚葬祭・大きな買い物）", "一時的な支出"], group: "oneOff" },
   { id: "cardFee", label: "カードの年会費", group: "oneOff" },
   { id: "transfer", label: "振替・カードの引き落とし", group: "transfer" },
   { id: "income", label: "収入・入金", group: "income" },

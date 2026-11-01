@@ -228,7 +228,7 @@ function rowDefs(req: EngineRequest): RowDef[] {
     { key: "housing", label: "住居費（ローン・税・修繕）", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.housing") },
     { key: "education", label: "教育費", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.education") },
     { key: "insurance", label: "保険料", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.insurance")) },
-    { key: "lumpSum", label: "一時的な支出（旅行など）", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.lumpSum")) },
+    { key: "lumpSum", label: "一時的支出（旅行など）", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.lumpSum")) },
     ...(hasCar ? [{ key: "car", label: "車の費用", group: "expense" as const, kind: "value" as const, match: car }] : []),
     ...(hasReExp ? [{ key: "realEstateExpense", label: "不動産の経費", group: "expense" as const, kind: "value" as const, match: isReExp }] : []),
     { key: "advisoryFee", label: "FP顧問料", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.advisoryFee") },
@@ -534,7 +534,7 @@ function lifeEventItems(ctx: Ctx): { year: number; text: string }[] {
     const y = firstYear(p);
     if (y === null) continue;
     const amt = rowAmountText(h, p, cfRowAmount(ctx, p, y, "cf.expense"));
-    const named = p.label !== undefined && p.label !== "" ? p.label : p.kind === "dream" ? "夢" : onceRow(h, p) ? "一時的な支出" : "くり返しの支出";
+    const named = p.label !== undefined && p.label !== "" ? p.label : p.kind === "dream" ? "夢" : onceRow(h, p) ? "一時的支出" : p.monthly === true ? "毎月の支出" : "何年かごとの支出";
     const name = p.kind === "dream" ? `★${named}` : named;
     out.push({ year: y, text: amt === null ? name : `${name}（${amt}）` });
   }

@@ -155,7 +155,7 @@ describe("ライフイベント表に、ライフイベントの入力項目の�
     expect(cfMan(bundle, goal.id as string, 2042)).toBe("100万円");
     expect(items).toContain("2042:第1子の結婚の援助（100万円）");
     // もとからある種類の無い3年ごとの行（名前なし）
-    expect(items.some((t) => /^2027:くり返しの支出（3年ごとに/u.test(t))).toBe(true);
+    expect(items.some((t) => /^2027:何年かごとの支出（3年ごとに/u.test(t))).toBe(true);
     expect(items.some((t) => t.includes("車の修理"))).toBe(false);
   });
 

@@ -622,7 +622,7 @@ function CategoryButtons({ current, onPick, compact = false }: { current: Statem
       ))}
       {compact ? (
         <button type="button" class="st-more" onClick={() => setMore(!more)} aria-expanded={more}>
-          {more ? "▲ 基本生活費だけにする" : "▼ ほかの項目（住居・車・一時的な支出など）"}
+          {more ? "▲ 基本生活費だけにする" : "▼ ほかの項目（住居・車・一時的支出など）"}
         </button>
       ) : null}
     </div>
@@ -1214,7 +1214,7 @@ function ResultStep({ wh, log, an, onApprove }: { wh: WorkingHousehold; log: Sta
           </dl>
           {s.oneOffs.length > 0 ? (
             <>
-              <h3 class="st-h3">一時的な支出</h3>
+              <h3 class="st-h3">一時的支出</h3>
               <ul class="st-oneoffs" data-statement-oneoffs>
                 {s.oneOffs.slice(0, 12).map((o) => (
                   <li key={o.durable === true ? `durable/${o.key}` : o.key}>

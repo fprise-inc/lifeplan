@@ -78,7 +78,7 @@ describe("提示用の値を作る", () => {
     expect(texts).toContain("2031 学 第1子 大学入学（私立文系・自宅外）（第1子19歳）");
     expect(texts.some((t) => t.startsWith("2046 退 ご本人 退職（ご本人65歳）"))).toBe(true);
     expect(texts.some((t) => t.startsWith("2046 年 ご本人 年金の受け取り開始（65歳）"))).toBe(true);
-    expect(model.goals.cards.map((c) => c.title)).toEqual(["第1子の大学", "第2子の大学", "住宅ローンの完済", "老後の生活資金", "定期的な支出（旅行など）", "まだ入れていません"]);
+    expect(model.goals.cards.map((c) => c.title)).toEqual(["第1子の大学", "第2子の大学", "住宅ローンの完済", "老後の生活資金", "何年かごとの支出", "まだ入れていません"]);
     expect(model.goals.needReady).toBe(model.goals.needTotal);
   });
 

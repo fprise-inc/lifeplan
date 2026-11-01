@@ -51,7 +51,7 @@ export const FREE_TEXT: Readonly<Record<string, "drop" | "generic" | "keep">> = 
 /** 学校コード（13桁）は計算に使わない（学費の行は自己完結）ので、決まった値に置き換える */
 export const SCHOOL_PLACEHOLDER = "0000000000000";
 /** 決まった言葉 */
-export const GENERIC_TEXT = { periodicExpense: "周期的な支出", incomeFlow: "入るお金", estimateBasis: "統計などで補った値" } as const;
+export const GENERIC_TEXT = { periodicExpense: "何年かごとの支出", incomeFlow: "入るお金", estimateBasis: "統計などで補った値" } as const;
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 

@@ -133,8 +133,8 @@ describe("書き出し", () => {
       const col = m[1] as string;
       return [...lists.matchAll(new RegExp(`<c r="${col}\\d+" s="0" t="inlineStr"><is><t xml:space="preserve">([^<]+)</t>`, "g"))].map((x) => x[1]);
     };
-    expect(listOf(selfRow)).toEqual(["家計（ふだんの暮らし）", "立替（会社に請求する）", "一時的な支出（旅行・冠婚葬祭など）", "除外（家計に数えない）"]);
-    expect(listOf(spRow)).toEqual(["家計（ふだんの暮らし）", "事業の経費", "一時的な支出（旅行・冠婚葬祭など）", "除外（家計に数えない）"]);
+    expect(listOf(selfRow)).toEqual(["家計（ふだんの暮らし）", "立替（会社に請求する）", "一時的支出（旅行・冠婚葬祭など）", "除外（家計に数えない）"]);
+    expect(listOf(spRow)).toEqual(["家計（ふだんの暮らし）", "事業の経費", "一時的支出（旅行・冠婚葬祭など）", "除外（家計に数えない）"]);
     // 事業の割合の欄は、事業の経費を選べる行だけ記入できる
     expect(ws).toContain(`sqref="J${spRow}"`);
     expect(ws).not.toContain(`sqref="J${selfRow}"`);

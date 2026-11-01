@@ -687,7 +687,7 @@ function lodgingSalesFields(wh: WorkingHousehold, a: Account): FieldDef[] {
   return fields;
 }
 
-/** 大きな修繕の予定（年月・金額・中身。詳細。一時の支出で、貸している間なら全額をその年の経費。0080） */
+/** 大きな修繕の予定（年月・金額・中身。詳細。一時的支出で、貸している間なら全額をその年の経費。0080） */
 function repairGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   const find = byId(accounts, a.id);
   const kp = `sav/${a.id}/property`;
@@ -704,7 +704,7 @@ function repairGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       level: "detail",
       fields: [
         withAddress(timepointField({ key: `${kr}/at`, item: "account.property", label: "年月", level: "detail", find: findR, path: ["at"], mode: "ym", ...ageOf }), addr("at")),
-        withAddress(plain({ key: `${kr}/amount`, item: "account.property", label: "金額", level: "detail", kind: "yen", basis: "once", find: findR, path: ["amount"], help: "その月の一時の支出にします。貸している間なら、全額をその年の経費として不動産所得を計算します（資本的支出として減価償却する扱いはしていません）" }), addr("amount")),
+        withAddress(plain({ key: `${kr}/amount`, item: "account.property", label: "金額", level: "detail", kind: "yen", basis: "once", find: findR, path: ["amount"], help: "その月の一時的支出にします。貸している間なら、全額をその年の経費として不動産所得を計算します（資本的支出として減価償却する扱いはしていません）" }), addr("amount")),
         withAddress(
           plain({ key: `${kr}/label`, item: "account.property", label: "中身", level: "detail", kind: "text", find: findR, path: ["label"], optional: true, help: "外壁・屋上防水・給湯器の交換など（40字まで。計算には使いません）", after: (_h, t, v) => void (typeof v === "string" && v.length > 40 ? (t.label = v.slice(0, 40)) : undefined) }),
           addr("label"),
@@ -729,7 +729,7 @@ function repairGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
         key: `${kp}/addRepair`,
         label: "＋ 大きな修繕",
         level: "detail",
-        help: "外壁・屋根・設備の更新など、何年かに一度の大きな修繕の予定です。その月の一時の支出にし、全額をその年の経費として計算します",
+        help: "外壁・屋根・設備の更新など、何年かに一度の大きな修繕の予定です。その月の一時的支出にし、全額をその年の経費として計算します",
         run: (w) =>
           mutate(w, (h) => {
             const p = (h.accounts ?? []).find((y) => y.id === a.id)?.property;
