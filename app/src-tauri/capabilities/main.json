@@ -76,6 +76,7 @@
     "allow-notice-local-put",
     "allow-feedback-form-open",
     "allow-feedback-copy",
-    "allow-app-close-ready"
+    "allow-app-close-ready",
+    "allow-app-close-cancel"
   ]
 }

@@ -74,7 +74,8 @@ import { withoutRemovedAssumptions } from "./surplus.ts";
 import { roles } from "./roles.ts";
 import { runContingencyCheck, runInputCheck, runPlansCheck, runSelfCheck } from "./selfcheck.ts";
 import { ageMarkOf, DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS, METRIC_CHOICES, shows, verdictMetrics, type BalanceSettings, type DisplaySettings, type MetricKey } from "./settings.ts";
-import { Autosaver, type SaveState } from "./store/autosave.ts";
+import { Autosaver, saveBeforeLeave, type SaveState } from "./store/autosave.ts";
+import { LeaveDialog, type LeaveDialogChoice } from "./store/LeaveDialog.tsx";
 import { bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "./store/body.ts";
 import { ForkPanel, type ForkChoiceUi } from "./store/ForkPanel.tsx";
 import { HouseholdPanel, storeMessage, copyRequest, defaultCategory } from "./store/HouseholdPanel.tsx";
@@ -608,23 +609,67 @@ export function App() {
     })();
   }, []);
 
-  // アプリを閉じる前に、自動保存の残りを書く（本体が閉じるときに呼ぶ。済んだら本体に知らせる）
+  /** 世帯を離れる前の確かめ（自動保存に失敗したまま、切り替える・閉じるとき。LeaveDialog）と、その答えを受け取る口 */
+  const [leave, setLeave] = useState<{ code: string; action: "switch" | "close"; busy: boolean; error: string | null } | null>(null);
+  const leaveAnswer = useRef<((c: LeaveDialogChoice) => void) | null>(null);
+  /** 分岐を選ぶ画面を開く（下で定める openFork。離れる前の確かめから呼ぶ） */
+  const openForkRef = useRef<(id: string) => void>(() => undefined);
+  /**
+   * 世帯を離れる前（切り替える・アプリを閉じる）: 自動保存の残りを待たずに書く。保存できなかったら黙って捨てずに、
+   * 保存し直す・変更を捨てて離れる・やめるを選ばせる。離れてよければ true。onAsk は初めて聞く前に呼ぶ（閉じるときは本体に待ってもらう）
+   */
+  const leaveCurrent = useCallback(async (action: "switch" | "close", onAsk?: () => Promise<void>): Promise<boolean> => {
+    let asked = 0;
+    const current = () => {
+      const o = openedRef.current;
+      const sr = storedRef.current;
+      return o !== null && sr !== null ? bodyFor(o, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, sr.carry) : null;
+    };
+    try {
+      return await saveBeforeLeave(
+        autosaver.current,
+        async (code) => {
+          if (asked === 0) await onAsk?.();
+          asked += 1;
+          const c = await new Promise<LeaveDialogChoice>((resolve) => {
+            leaveAnswer.current = resolve;
+            setLeave({ code, action, busy: false, error: asked > 1 ? "もう一度保存しましたが、保存できませんでした。" : null });
+          });
+          leaveAnswer.current = null;
+          if (c === "fork") {
+            const sr = storedRef.current;
+            if (sr !== null) openForkRef.current(sr.id);
+            return "cancel";
+          }
+          if (c === "retry") setLeave((l) => (l === null ? l : { ...l, busy: true }));
+          return c;
+        },
+        current,
+      );
+    } finally {
+      setLeave(null);
+    }
+  }, []);
+
+  // アプリを閉じる前に、自動保存の残りを書く（本体が閉じるときに呼ぶ。済んだら本体に知らせる）。
+  // 保存できなかったら、本体に待ってもらって FP に聞く（「やめる」なら閉じない）
   useEffect(() => {
     if (host === null || host.kind !== "tauri") return;
     const w = window as unknown as { __financiaBeforeClose?: () => void };
     w.__financiaBeforeClose = () => {
       void (async () => {
+        let ok = true;
         try {
-          await autosaver.current?.flush();
+          ok = await leaveCurrent("close", () => host.store.closeCancel());
         } finally {
-          await host.store.closeReady();
+          if (ok) await host.store.closeReady();
         }
       })();
     };
     const hide = () => void autosaver.current?.flush();
     window.addEventListener("pagehide", hide);
     return () => window.removeEventListener("pagehide", hide);
-  }, [host]);
+  }, [host, leaveCurrent]);
 
   // ---- 計算の要求（枠: 現状・帯の案。表示の設定で FP顧問料の一文を出すときは、選んだ案の顧問料を入れ替えた枠 alt も）----
   const reqCache = useRef(new Map<string, EngineRequest>());
@@ -741,11 +786,11 @@ export function App() {
     [host, requestsFor, history],
   );
 
-  /** 見本・空の世帯を開く（保存しない。保存するときは persistCurrent） */
+  /** 見本・空の世帯を開く（保存しない。保存するときは persistCurrent）。開いたら true（離れるのをやめた・開けなかったら false） */
   const open = useCallback(
-    async (id: string, hashLevers?: number[]) => {
-      if (host === null) return;
-      await autosaver.current?.flush();
+    async (id: string, hashLevers?: number[]): Promise<boolean> => {
+      if (host === null) return false;
+      if (!(await leaveCurrent("switch"))) return false;
       setInputPlanOn(false);
       // 保存した世帯から離れる: 事務所で共有しているときの、自分の開いている印を消す（0023 の7）
       if (storedRef.current !== null) void host.store.leave().catch(() => undefined);
@@ -759,16 +804,16 @@ export function App() {
       if (id === BLANK) o = openedFrom(null, applyOfficeDefaults(withRefreshedEstimates(blankHousehold(thisMonth())), officeSettingsRef.current));
       else {
         const demo = demoHousehold(id);
-        if (demo === undefined) return;
+        if (demo === undefined) return false;
         // 表の最後の年は標準（本人・配偶者のうち若い方が100歳になる年）にそろえて開く
         const base = sampleRequest(await host.openHousehold(id));
         const self = roles(base).find((r) => r.key === "self");
-        if (self === undefined) return;
+        if (self === undefined) return false;
         const re = demo.reemployment;
         const wh = fromRequest(base, { memo: demo.memo, ...(re !== undefined ? { postRetirement: { [self.member.id]: { ...re, type: re.type as "contract" } } } : {}) });
         o = openedFrom(demo, wh);
       }
-      if (o === null) return;
+      if (o === null) return false;
       reqCache.current.clear();
       rawCache.current.clear();
       // 別の世帯を開いたら、結果の見方はすべて入れるに戻す
@@ -820,8 +865,9 @@ export function App() {
       const pickBase = initial.base !== undefined ? slotOfLetter(letters, slots, initial.base) : undefined;
       const w: Work = { band, base: pickBase ?? CURRENT, sel: pickSel ?? band[0] ?? CURRENT, drafts: {} };
       await install(o, w, shownKeys, id, false);
+      return true;
     },
-    [host, install, initial],
+    [host, install, initial, leaveCurrent],
   );
 
   /**
@@ -871,14 +917,15 @@ export function App() {
     [host, install],
   );
 
-  /** 保存した世帯を開く（本体が復号して本文を返す） */
+  /** 保存した世帯を開く（本体が復号して本文を返す）。開いたら true（離れるのをやめたら false） */
   const openStored = useCallback(
-    async (id: string) => {
-      if (host === null) return;
-      await autosaver.current?.flush();
+    async (id: string): Promise<boolean> => {
+      if (host === null) return false;
+      if (!(await leaveCurrent("switch"))) return false;
       await loadStored(await host.store.open(id));
+      return true;
     },
-    [host, loadStored],
+    [host, loadStored, leaveCurrent],
   );
 
   /** 見本を開く（アプリの見本は保存しない世帯として、自分で作った見本は保存しないで開く。動かしても見本は変わらない。0033） */
@@ -911,6 +958,7 @@ export function App() {
     },
     [host],
   );
+  openForkRef.current = (id) => void openFork(id);
   const chooseFork = useCallback(
     async (c: ForkChoiceUi) => {
       if (host === null || fork === null) return;
@@ -1033,10 +1081,11 @@ export function App() {
     if (host !== null && !panelsOpen) void host.office.notices().then(setStorageNotices, () => undefined);
   }, [host, panelsOpen]);
   const guard = useCallback(
-    async (fn: () => Promise<void>) => {
+    async (fn: () => Promise<boolean | void>) => {
       setHhError(null);
       try {
-        await fn();
+        // 世帯を離れるのをやめたときは、世帯の一覧を開いたままにする
+        if ((await fn()) === false) return;
         setHhOpen(false);
       } catch (e) {
         setHhError(storeMessage(codeOf(e)));
@@ -2108,7 +2157,7 @@ export function App() {
               onOpen={(id) => void guard(() => openStored(id))}
               onCreate={(category) =>
                 void guard(async () => {
-                  await open(BLANK);
+                  if (!(await open(BLANK))) return false;
                   await persistCurrent(category);
                 })
               }
@@ -2144,7 +2193,7 @@ export function App() {
               onOpenSample={(item) => void guard(() => openSample(item))}
               onCustomerFromSample={(item, category) =>
                 void guard(async () => {
-                  await openSample(item);
+                  if (!(await openSample(item))) return false;
                   await persistCurrent(category);
                 })
               }
@@ -2152,7 +2201,7 @@ export function App() {
                 void guard(async () => {
                   const req = copyRequest(item);
                   if (req === null) return;
-                  await openSample(item);
+                  if (!(await openSample(item))) return false;
                   await persistCurrent(undefined, req);
                 })
               }
@@ -2769,6 +2818,17 @@ export function App() {
             }
           }}
           onClose={() => setRecovery(null)}
+        />
+      ) : null}
+      {leave !== null ? (
+        <LeaveDialog
+          customerNo={storedInfo?.customerNo ?? ""}
+          code={leave.code}
+          action={leave.action}
+          busy={leave.busy}
+          error={leave.error}
+          message={storeMessage}
+          onChoose={(c) => leaveAnswer.current?.(c)}
         />
       ) : null}
       {devKeys ? (

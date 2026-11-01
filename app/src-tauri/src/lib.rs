@@ -5,6 +5,7 @@
 //! - 正の計算は quickjs-ng（engine-host）で、計算ごとに新しい実行環境を作る（0005 の2・3）。画面側のエンジンは表示の先出しだけ（0005 の5）。
 //! - 世帯は、保存した世帯（store.rs。暗号化した世帯ファイル。0011・0013）と、埋め込んだ架空のモデル世帯（見本）。
 //! - アプリを閉じるときは、画面に自動保存の残りを書かせてから閉じる（`__financiaBeforeClose` → `app_close_ready`。待つのは最長4秒）。
+//!   保存できなかったときは、画面が `app_close_cancel` で待つのをやめてもらい、保存し直す・捨てて閉じる・やめるを FP に聞く。
 //! - 提案書の PDF（report.rs）・ヒアリングシートの保存・取り込み・持ち帰り用のレポート（takeaway.rs。0030）は、
 //!   平文の書き出しの出口（export.rs）を通す（0020 の5）。
 //!   画面にはファイル・ダイアログの権限を与えず、パスも受け取らない。
@@ -33,7 +34,7 @@ mod statement;
 mod store;
 mod takeaway;
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use tauri::ipc::{InvokeBody, Request, Response};
 use tauri::webview::NewWindowResponse;
@@ -255,6 +256,8 @@ static CLOSE_READY: AtomicBool = AtomicBool::new(false);
 static CLOSE_ASKED: AtomicBool = AtomicBool::new(false);
 /// 画面の保存を待つ時間の上限
 const CLOSE_WAIT: std::time::Duration = std::time::Duration::from_secs(4);
+/// 閉じる前の保存を頼んだ回（画面が待つのをやめてもらったら進める。前の回の時間切れで閉じない）
+static CLOSE_ROUND: AtomicU64 = AtomicU64::new(0);
 
 /// アプリを閉じる前に、画面に自動保存の残りを書かせる（画面は済んだら app_close_ready を呼ぶ）。
 /// 画面のスクリプトは本体から呼ぶだけで、画面に新しい権限は与えない
@@ -262,15 +265,32 @@ fn ask_flush_before_close<R: tauri::Runtime>(app: &AppHandle<R>) {
     if CLOSE_ASKED.swap(true, Ordering::SeqCst) {
         return;
     }
+    let round = CLOSE_ROUND.load(Ordering::SeqCst);
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.eval("window.__financiaBeforeClose ? window.__financiaBeforeClose() : 0");
     }
     let a = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(CLOSE_WAIT);
+        if !close_wait_over(round) {
+            return;
+        }
         CLOSE_READY.store(true, Ordering::SeqCst);
         a.exit(0);
     });
+}
+
+/// 時間切れで閉じてよいか（その回のあいだに、画面が待つのをやめてもらっていない）
+fn close_wait_over(round: u64) -> bool {
+    CLOSE_ROUND.load(Ordering::SeqCst) == round
+}
+
+/// 画面が、閉じるのを待ってもらう（保存できていない変更をどうするか FP に聞く）。FP が「やめる」を選べば閉じない。
+/// 次に閉じようとしたときは、また初めから頼む
+#[tauri::command]
+fn app_close_cancel() {
+    CLOSE_ROUND.fetch_add(1, Ordering::SeqCst);
+    CLOSE_ASKED.store(false, Ordering::SeqCst);
 }
 
 /// 画面が閉じる前の保存を済ませた
@@ -364,7 +384,8 @@ pub fn run() {
             notices::notice_local_put,
             notices::feedback_form_open,
             notices::feedback_copy,
-            app_close_ready
+            app_close_ready,
+            app_close_cancel
         ])
         .setup(|app| {
             // エンジンのバイトコードを裏で用意する（最初の計算を待たせない）
@@ -441,5 +462,17 @@ mod tests {
         assert!(!allowed_navigation(
             &Url::parse("http://localhost:8080/").unwrap()
         ));
+    }
+
+    #[test]
+    fn close_waits_after_the_screen_asks_the_fp() {
+        // 閉じる前の保存を頼んだ回のあいだに、画面が待つのをやめてもらったら、時間切れでも閉じない
+        CLOSE_ASKED.store(true, Ordering::SeqCst);
+        let round = CLOSE_ROUND.load(Ordering::SeqCst);
+        assert!(close_wait_over(round));
+        app_close_cancel();
+        assert!(!close_wait_over(round));
+        // 次に閉じようとしたときは、また初めから頼む
+        assert!(!CLOSE_ASKED.load(Ordering::SeqCst));
     }
 }
