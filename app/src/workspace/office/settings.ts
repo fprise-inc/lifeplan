@@ -7,7 +7,7 @@
 //   対策に最初から出す項目（plans/leverChoice.ts。0084）と万一のタブの見せ方（contingency/premiseChoice.ts。0085）は見せ方だけなので世帯に写さず、
 //   変えるとどの世帯にもすぐ効く
 // - 新しい世帯に写す、必要保障額の数え方（いつまでの資金を数えるか・出し方。0085。世帯の万一の前提に写す。作った世帯は世帯の値のまま）
-// - 読むときは形を確かめ、読めない値は既定（FPライズの標準）にする
+// - 読むときは形を確かめ、読めない値は既定（既定の値）にする
 import type { StageId } from "../input/form.ts";
 import { DEFAULT_LAYOUT, type CardLayout } from "../input/items.ts";
 import { applyCareDefaults, DEFAULT_CARE_DEFAULTS, type CareDefaults } from "../input/fill.ts";
@@ -62,7 +62,7 @@ export interface OfficeSettings {
   care: CareDefaults;
   /** 受け取る予定の相続・贈与の見込みの既定（「当てにしない」〔値は uncertain〕なら、受け取る予定を基本の計算に入れないのが事務所の決まりになる） */
   inheritLikelihood: InheritLikelihood;
-  /** 前提条件の標準値（無い系列は FPライズの標準） */
+  /** 前提条件の標準値（無い系列は 既定の値） */
   assumptions: Partial<Record<OfficeAssumption, string>>;
   /** 相続税の目安の不動産の評価の割合（時価に掛ける。null は標準の80%） */
   realEstateRatio: string | null;
@@ -133,10 +133,10 @@ export const layoutOf = (s: OfficeSettings): CardLayout => s.layout ?? DEFAULT_L
 
 /** 推定の根拠の文（例: 「事務所の標準（2026-10）」） */
 export function officeBasis(s: OfficeSettings): string {
-  return `事務所の標準（${(s.changedOn ?? "").slice(0, 7) || "設定"}）`;
+  return `事務所の既定値（${(s.changedOn ?? "").slice(0, 7) || "設定"}）`;
 }
 
-/** 標準（FPライズの標準）と同じか（設定を保存するときに、標準と同じ値は持たない） */
+/** 標準（既定の値）と同じか（設定を保存するときに、標準と同じ値は持たない） */
 export function isDefaultSettings(s: OfficeSettings): boolean {
   return s.layout === null && isEmptyChoice(s.items) && isEmptyLeverChoice(s.levers) && isEmptyPremiseChoice(s.premises) && isEmptySceneChoice(s.scenes) && Object.keys(normalProtection(s.protection)).length === 0 && s.care.selfAndSpouse === "warn" && s.inheritLikelihood === "likely" && Object.keys(s.assumptions).length === 0 && s.realEstateRatio === null && sameFee(s.fee, STANDARD_FEE_TABLE);
 }

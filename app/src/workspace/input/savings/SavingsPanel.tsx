@@ -383,7 +383,7 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
           <h3>
             口座ごとの残高・積立額{method === "accounts" ? "・利回り" : ""}
             <Help label="口座ごとの残高・積立額">
-              残高は今の時価。{method === "accounts" ? "利回りは1年あたりの見込みを、信託報酬などの費用を引いた後で入れます。空欄なら、前提条件の目安の利回りで計算します（費用を別に入れる形は詳細で）。" : "運用する口座の利回りは、下の資産の割合から計算します。"}年齢で積立額を変えるときは「＋期間を追加」。
+              残高は今の時価。{method === "accounts" ? "利回りは1年あたりの見込みを、信託報酬などの費用を引いた後で入れます。空欄なら、前提条件の目安の利回りで計算します（費用を別に入れる形は「詳細」で）。" : "運用する口座の利回りは、下の資産の割合から計算します。"}年齢で積立額を変えるときは「＋期間を追加」。
             </Help>
           </h3>
           <AccountsTable wh={wh} level={level} method={method} stopAge={stopAge} editAcc={editAcc} editField={editField} find={find} fields={fields} onEdit={onEdit} {...(moreOf !== undefined ? { moreOf } : {})} />
@@ -503,12 +503,12 @@ function FlowSection({ wh, level, flow, onEdit }: { wh: WorkingHousehold; level:
           ))}
         </ol>
         <p class="help">
-          {v.standard ? "標準の順番（預金→外貨預金→財形→課税口座→持株会→旧NISA→NISA）です。" : v.byAccount ? "口座ごとの順番です。後から足した口座は最後に取り崩します。" : "口座の種類の順番です。口座を動かすと、口座ごとの順番になります。"}
+          {v.standard ? "既定の順番（預金→外貨預金→財形→課税口座→持株会→旧NISA→NISA）です。" : v.byAccount ? "口座ごとの順番です。後から足した口座は最後に取り崩します。" : "口座の種類の順番です。口座を動かすと、口座ごとの順番になります。"}
           「取り崩さない」にした口座は、残高が残っていても取り崩しに使いません（使う年が決まっている取り置きなど）。こどもNISA・ジュニアNISA は標準では取り崩しません。
         </p>
         {!v.standard ? (
           <button type="button" class="link-btn" onClick={() => onEdit(mutate(wh, (_h, r) => resetWithdrawOrder(r)))} data-order-reset>
-            標準の順番に戻す
+            既定の順番に戻す
           </button>
         ) : null}
       </div>
@@ -1123,7 +1123,7 @@ function PayoutSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; le
       <h3>
         {aids.length > 0 ? "iDeCo・企業型DC・小規模企業共済の受け取り方" : "iDeCo・企業型DC の受け取り方"}
         <Help label="受け取り方">
-          {dcs.length > 0 ? <p>空欄は「退職の年（60〜65歳）に一時金」で計算します（推定）。受け取ったお金は、預金に入れるか、運用を続けるかを選べます。年金で受け取る年数（空欄は10年）・併用の一時金の割合（空欄は半分）は詳細で。</p> : null}
+          {dcs.length > 0 ? <p>空欄は「退職の年（60〜65歳）に一時金」で計算します（推定）。受け取ったお金は、預金に入れるか、運用を続けるかを選べます。年金で受け取る年数（空欄は10年）・併用の一時金の割合（空欄は半分）は「詳細」で。</p> : null}
           {aids.length > 0 ? <p>小規模企業共済は、受け取りを始める時期（廃業・退職など）を入れると、その月に受け取ります。空欄なら受け取らずに残高のまま持ちます。一括は退職所得、分割は公的年金等の雑所得として税を計算します。</p> : null}
         </Help>
       </h3>
@@ -1284,7 +1284,7 @@ function PeriodSection(p: { wh: WorkingHousehold; level: Level; onEdit: (w: Work
             </button>
           </span>
         </div>
-        <p class="help">予定なしは、収支が足りない年だけ取り崩します（順番は「お金の行き先」。標準は預金→課税口座→NISA）。定額・定率は、その額を金融資産から使います（収支の不足のほうが大きい年は不足の分）。</p>
+        <p class="help">予定なしは、収支が足りない年だけ取り崩します（順番は「お金の行き先」。既定は預金→課税口座→NISA）。定額・定率は、その額を金融資産から使います（収支の不足のほうが大きい年は不足の分）。</p>
       </div>
       {dd.method === "fixed" ? (
         <div class="sv-fld">

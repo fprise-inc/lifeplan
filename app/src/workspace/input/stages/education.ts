@@ -1299,7 +1299,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
     return {
       key: `edu/${child.id}`,
       title: who,
-      note: has ? `未入力（教育費0円で計算中）。進路が入っていません。「推定の進路で埋める」で標準の型「${course}」を推定で入れます` : "これからの学校の段が無い年齢です（教育費は計算していません）",
+      note: has ? `未入力（教育費0円で計算中）。進路が入っていません。「推定の進路で埋める」で既定の型「${course}」を推定で入れます` : "これからの学校の段が無い年齢です（教育費は計算していません）",
       level: "simple",
       groups: [...leaves, ...money.groups],
       actions: [
@@ -1382,7 +1382,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
       ...(row?.state === "notApplicable"
         ? { note: "教育費は「該当なし」にしています（段を足すと計算します）" }
         : row?.state === "estimated"
-          ? { note: `進路は、ふつうの進み方${row.estimate?.basis === EDUCATION_BASIS ? `（「${defaultCourseLabel(child, base)}」）` : ""}の目安で計算しています。実際の予定に合わせて直せます` }
+          ? { note: `進路は、ふつうの進み方${(row.estimate?.basis === EDUCATION_BASIS || row.estimate?.basis === EDUCATION_BASIS.replace("既定", "標準")) ? `（「${defaultCourseLabel(child, base)}」）` : ""}の目安で計算しています。実際の予定に合わせて直せます` }
           : {}),
       level: "simple",
       fields: [

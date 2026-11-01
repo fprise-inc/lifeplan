@@ -425,7 +425,7 @@ export function MoreToggle({ groupKey, open, toggle, label, swapNotes = [] }: { 
         type="button"
         class="link-btn grp-more-btn"
         aria-expanded={open}
-        {...(label !== undefined ? { "aria-label": `${label}を${open ? "閉じる" : "詳しく"}` } : {})}
+        {...(label !== undefined ? { "aria-label": `${label}を${open ? "閉じる" : "続きを見る"}` } : {})}
         onMouseDown={(e) => e.preventDefault()}
         onClick={(e) => {
           if (!open) revealOpened(e.currentTarget, groupKey);
@@ -433,7 +433,7 @@ export function MoreToggle({ groupKey, open, toggle, label, swapNotes = [] }: { 
         }}
         data-group-more={groupKey}
       >
-        {open ? "▾ 詳しく（閉じる）" : "▸ 詳しく"}
+        {open ? "▾ 閉じる" : "▸ 続きを見る"}
       </button>
       {/* 欄を入れ替えた所は、何が変わったかを短い1行で（閉じると元に戻ることも） */}
       {open && swapNotes.length > 0 ? (

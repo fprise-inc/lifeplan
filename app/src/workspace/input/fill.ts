@@ -57,7 +57,7 @@ const notApplicableRow: StateRow = { state: "notApplicable", origin: { kind: "ma
 // ---- 教育 ----
 
 /** 教育の進路を推定で入れたときの根拠（標準の進路の型。0010 の追記 2026-10-25） */
-export const EDUCATION_BASIS = "標準の進路の型（幼稚園〜高校は公立、大学は私立・文系・自宅）";
+export const EDUCATION_BASIS = "既定の進路の型（幼稚園〜高校は公立、大学は私立・文系・自宅）";
 
 /** 子の進路の値の状態の行の当て先（進路の段の並び全体） */
 export const educationStagesAddress = (goalId: string) => ({ target: { object: goalId }, item: "goal.education", at: ["stages"] });

@@ -151,7 +151,7 @@ describe("人ごとに何件でも・種類ごとに要る欄", () => {
     const ann = fieldOf(amt, "retirement", `retirement/${db.id}/method`).set(amt, "annuity");
     const x = benefitsOf(ann).find((b) => b.id === db.id)!;
     expect(x.receipt).toMatchObject({ method: "annuity", years: 10 });
-    expect(rowAt(input(ann), { target: { object: db.id }, item: "retirementBenefit.receipt", at: ["years"] })).toMatchObject({ state: "estimated", estimate: { basis: "確定給付企業年金の年金の年数の標準の値（10年）" } });
+    expect(rowAt(input(ann), { target: { object: db.id }, item: "retirementBenefit.receipt", at: ["years"] })).toMatchObject({ state: "estimated", estimate: { basis: "確定給付企業年金の年金の年数の既定の値（10年）" } });
     const annual = fieldOf(ann, "retirement", `retirement/${db.id}/annual`);
     expect(annual.get(ann).hint).toMatch(/年100万円（10年/);
     expect(rowTotal(ann.request, "cf.income.corporatePension.db", db.id)).toBe(10000000);

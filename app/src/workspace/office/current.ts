@@ -25,7 +25,7 @@ export const STANDARD_FEE_TABLE: FeeTable = { oneTime: 300000, per: "month", amo
 export interface OfficeNow {
   /** 受け取る予定の相続・贈与と、相続で受け継ぐ借金の見込みの既定 */
   inheritLikelihood: "likely" | "uncertain";
-  /** 前提条件の標準値（系列の名前 → 小数の文字）。無い系列は FPライズの標準 */
+  /** 前提条件の標準値（系列の名前 → 小数の文字）。無い系列は 既定の値 */
   assumptions: Readonly<Record<string, string>>;
   /** 推定の根拠の文（例: 「事務所の標準（2026-10）」） */
   basis: string;
@@ -33,7 +33,7 @@ export interface OfficeNow {
   fee: FeeTable;
 }
 
-export const STANDARD_OFFICE_NOW: OfficeNow = { inheritLikelihood: "likely", assumptions: {}, basis: "事務所の標準", fee: STANDARD_FEE_TABLE };
+export const STANDARD_OFFICE_NOW: OfficeNow = { inheritLikelihood: "likely", assumptions: {}, basis: "事務所の既定値", fee: STANDARD_FEE_TABLE };
 
 let now: OfficeNow = STANDARD_OFFICE_NOW;
 

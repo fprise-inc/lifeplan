@@ -525,7 +525,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
                         {inheritanceView(shown, inheritance).notIncluded.length > 0 ? (
                           <p class="ip-inherit-note">
                             含めていないもの: {inheritanceView(shown, inheritance).notIncluded.join("・")}
-                            <Help label="含めていないもの">額が分かれば、詳細の「相続税の目安の設定」の「税理士などの出した額」で直せます。</Help>
+                            <Help label="含めていないもの">額が分かれば、「詳細」の「相続税の目安の設定」の「税理士などの出した額」で直せます。</Help>
                           </p>
                         ) : null}
                       </>

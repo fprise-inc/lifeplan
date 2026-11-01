@@ -47,14 +47,14 @@ const self = (wh: WorkingHousehold) => wh.request.input.household.members.find((
 const spouse = (wh: WorkingHousehold) => wh.request.input.household.members.find((m) => m.kind === "spouse")!;
 
 describe("新しい契約（簡易の5欄）", () => {
-  it("保険料と保障の額は目安を作らず未入力の警告。終わり・払込の終わり・控除の区分・契約年月は推定（ひな形の標準の値）", () => {
+  it("保険料と保障の額は目安を作らず未入力の警告。終わり・払込の終わり・控除の区分・契約年月は推定（ひな形の既定の値）", () => {
     const wh = action(family(), "ins/add");
     const c = contract(wh);
     expect(c).toMatchObject({ template: "insurance.term", subtype: "term", premium: { amount: 0, frequency: "monthly" }, deductionCategory: { type: "general", regime: "new" } });
     expect(c.coverages?.map((x) => `${x.role}:${x.benefit}:${x.amount}`)).toEqual(["main:death:0"]);
     expect(status(wh, "/premium").status).toBe("missing");
     expect(status(wh, "/main").status).toBe("missing");
-    expect(status(wh, "/end")).toMatchObject({ status: "estimated", basis: "ひな形の標準の値（定期保険: 65歳）" });
+    expect(status(wh, "/end")).toMatchObject({ status: "estimated", basis: "ひな形の既定の値（定期保険: 65歳）" });
     expect(status(wh, "/payUntil", 0).status).toBe("estimated");
     expect(status(wh, "/date").status).toBe("estimated");
     expect(status(wh, "/deduction").status).toBe("estimated");

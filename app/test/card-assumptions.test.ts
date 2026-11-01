@@ -1,4 +1,4 @@
-// 前提条件のカードの中身（0070）: FPライズの標準（仮の値）の推定・空欄で標準に戻す・確定、ほかの前提と同じ値になる前提（教育費・厚生年金の
+// 前提条件のカードの中身（0070）: 既定の値（仮の値）の推定・空欄で標準に戻す・確定、ほかの前提と同じ値になる前提（教育費・厚生年金の
 // 調整率）、高すぎる値の注意の線、例外の年（範囲で入れる）、表の最後の年（推定・人の年齢で入れる・確定したら追いかけない・古い世帯の注意）、
 // 運用利回りは率をそのまま入れる（選び方のボタンを置かない）、計算の基準の月と計算の決まり（読むだけ）、FP顧問料の料金の段階、前提と推定の一覧と確かめた記録
 import { describe, expect, it } from "vitest";
@@ -34,7 +34,7 @@ const action = (wh: WorkingHousehold, key: string) => {
 };
 const total = (req: WorkingHousehold["request"], row: string) => preview(req).table.filter((c) => c.row === row).reduce((s, c) => s + c.amount, 0);
 
-describe("経済の前提: FPライズの標準（仮の値）の推定", () => {
+describe("経済の前提: 既定の値（仮の値）の推定", () => {
   it("標準と同じ値で行が無ければ推定。確定は「この値にする」だけで、値は変えない", () => {
     const wh = open();
     const f = fieldOf(wh, "assume/inflation");
@@ -182,7 +182,7 @@ describe("表の最後の年", () => {
 
   it("古い世帯の表の最後の年が若い方の105歳を超えるときは、確かめの注意に「標準にする」（押したときだけ直す）", () => {
     const wh = mutate(open(), (_h, req) => void (req.input.endYear = 2106));
-    expect(endYearNotice(wh)).toContain("標準");
+    expect(endYearNotice(wh)).toContain("既定");
     const row = checkList(wh).find((r) => r.fieldKey === "assume/endYear");
     expect(row?.kind).toBe("notice");
     const fixed = row!.actions.find((a) => a.key === "fix")!.run(wh);

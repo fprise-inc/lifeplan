@@ -66,7 +66,7 @@ describe("詳細の並び: 働き方 1・2… → ＋ 働き方を足す → 定
     expect(html.split(growth).length - 1).toBe(1);
   });
 
-  it("住民税は詳細では今の働き方の期間のまとまり、標準では今の働き方の「▸ 詳しく」（欄の一覧には1回）", () => {
+  it("住民税は詳細では今の働き方の期間のまとまり、標準では今の働き方の「▸ 続きを見る」（欄の一覧には1回）", () => {
     const g = stage(wh).sections.flatMap((s) => s.groups).find((x) => x.key === `work/period/${main.id}`)!;
     expect(g.fields.some((f) => f.key === `work/${self.id}/residentTax`)).toBe(true);
     const now = stage(wh).sections.flatMap((s) => s.groups).find((x) => x.key === `work/${self.id}/now`)!;

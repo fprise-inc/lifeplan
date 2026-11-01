@@ -34,7 +34,7 @@ describe("読むときの形の確かめ", () => {
     expect(readOfficeSettings(JSON.parse(JSON.stringify(SETTINGS)))).toEqual(SETTINGS);
     expect(isDefaultSettings(DEFAULT_OFFICE_SETTINGS)).toBe(true);
     expect(isDefaultSettings(SETTINGS)).toBe(false);
-    expect(officeBasis(SETTINGS)).toBe("事務所の標準（2026-10）");
+    expect(officeBasis(SETTINGS)).toBe("事務所の既定値（2026-10）");
   });
 
   it("並び: 設定の順に、設定に無いカードを標準の順で後ろに足す", () => {
@@ -55,12 +55,12 @@ describe("新しい世帯に写す", () => {
     expect(wh.request.input.assumptions?.wageGrowth?.default).toBe("0.01");
     expect(wh.request.input.inheritanceTax?.realEstateRatio).toBe("0.7");
     const f = allFields(buildStage("assumptions", wh)).find((x) => x.key === "assume/inflation")!;
-    expect(fieldStatus(f, wh)).toMatchObject({ status: "estimated", basis: "事務所の標準（2026-10）" });
+    expect(fieldStatus(f, wh)).toMatchObject({ status: "estimated", basis: "事務所の既定値（2026-10）" });
     expect((wh.request.input.household.careExpenses ?? []).length).toBe(1);
     expect(() => preview(wh.request)).not.toThrow();
     // 保存して読み直しても推定の印が残る
     const back = fromBody(JSON.stringify(bodyObject(state(wh)))).wh;
-    expect(fieldStatus(f, back)).toMatchObject({ status: "estimated", basis: "事務所の標準（2026-10）" });
+    expect(fieldStatus(f, back)).toMatchObject({ status: "estimated", basis: "事務所の既定値（2026-10）" });
     // 既定のままなら何も変えない
     expect(applyOfficeDefaults(wh0, DEFAULT_OFFICE_SETTINGS)).toBe(wh0);
   });
@@ -75,7 +75,7 @@ describe("新しい世帯に写す", () => {
     const next = row.actions.find((a) => a.key === "office")!.run(wh);
     expect(next.request.input.assumptions?.inflation?.default).toBe("0.02");
     const f = allFields(buildStage("assumptions", next)).find((x) => x.key === "assume/inflation")!;
-    expect(fieldStatus(f, next)).toMatchObject({ status: "estimated", basis: "事務所の標準（2026-11）" });
+    expect(fieldStatus(f, next)).toMatchObject({ status: "estimated", basis: "事務所の既定値（2026-11）" });
     expect(checkList(next).some((r) => r.fieldKey === "assume/inflation" && r.kind === "notice")).toBe(false);
     // 確定にした値には知らせを出さない
     const conf = checkList(wh).find((r) => r.fieldKey === "assume/wageGrowth");

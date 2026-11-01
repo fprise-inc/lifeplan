@@ -86,7 +86,7 @@
       ("表の期間", str(data.basis.years.first()) + "年〜" + str(data.basis.years.last()) + "年（各年12月末時点の年齢）"),
       ..a.rates.map(r => (r.label, r.value)),
       ..if a.survivor != none {
-        (("遺族の生活費の割合", "末子の独立前 " + a.survivor.beforeIndependence + "、独立後 " + a.survivor.afterIndependence + "、子がいない場合 " + a.survivor.noChildren + if a.survivor.source == "default" { "（標準の割合）" } else { "" }),)
+        (("遺族の生活費の割合", "末子の独立前 " + a.survivor.beforeIndependence + "、独立後 " + a.survivor.afterIndependence + "、子がいない場合 " + a.survivor.noChildren + if a.survivor.source == "default" { "（既定の割合）" } else { "" }),)
       } else { () },
     ).flatten(),
   )

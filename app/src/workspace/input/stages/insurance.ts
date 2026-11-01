@@ -19,6 +19,7 @@ import {
   defaultPayUntil,
   estRow,
   isAuto,
+  isAutoStandard,
   KIND_OPTIONS,
   kindDef,
   kindOf,
@@ -426,7 +427,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
               // 医療保険: 推定のままの手術の額を入れ直す
               const o = x as unknown as Obj;
               for (const s of x.coverages ?? []) {
-                if (s.benefit !== "surgery" || !isAuto(rowIn(o, "insurance.coverages", [s.id, "amount"]), STANDARD) || s.amount !== before * SURGERY_RATIO) continue;
+                if (s.benefit !== "surgery" || !isAutoStandard(rowIn(o, "insurance.coverages", [s.id, "amount"])) || s.amount !== before * SURGERY_RATIO) continue;
                 s.amount = m.amount * SURGERY_RATIO;
                 putRowIn(o, "insurance.coverages", [s.id, "amount"], estRow("standard", surgeryBasis(m.amount)));
               }

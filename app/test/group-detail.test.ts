@@ -1,4 +1,4 @@
-// まとまりごとの「▸ 詳しく」（0078 の追記）: 標準のまま、物1件・1組の欄の詳細だけを開く。開け閉めは見せ方だけで、値は消さない
+// まとまりごとの「▸ 続きを見る」（0078 の追記）: 標準のまま、物1件・1組の欄の詳細だけを開く。開け閉めは見せ方だけで、値は消さない
 import { describe, expect, it } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
@@ -37,17 +37,17 @@ describe("物1件ごとの単位", () => {
   });
 });
 
-describe("標準のときだけ「▸ 詳しく」", () => {
-  it("標準: ローン1件の下に「▸ 詳しく」。閉じている間は詳細の欄と金利の段階を出さない", () => {
+describe("標準のときだけ「▸ 続きを見る」", () => {
+  it("標準: ローン1件の下に「▸ 続きを見る」。閉じている間は詳細の欄と金利の段階を出さない", () => {
     const html = panel(wh, "housing", "simple");
     expect(html).toContain(`data-group-more="${loanKey}"`);
-    expect(html).toContain("▸ 詳しく");
+    expect(html).toContain("▸ 続きを見る");
     for (const f of detailOfLoan) expect(html).not.toContain(idOf(f.key));
     expect(html).not.toContain("金利の段階 2");
   });
   it("開くと、そのローンの詳細の欄・金利の段階・ボタンだけが出る（ほかのまとまりは標準のまま）", () => {
     const html = panel(wh, "housing", "simple", [loanKey]);
-    expect(html).toContain("▾ 詳しく（閉じる）");
+    expect(html).toContain("▾ 閉じる");
     expect(html).toContain('aria-expanded="true"');
     for (const f of detailOfLoan) expect(html).toContain(idOf(f.key));
     expect(html).toContain("金利の段階 2");
@@ -55,7 +55,7 @@ describe("標準のときだけ「▸ 詳しく」", () => {
     // 住まいの詳細（持ち家の評価）は開いていない（標準／詳細の「?」の中の「詳細で増える主な欄」の名前は除いて見る）
     expect(html.replace(/<span class="help" data-help="level">[\s\S]*?<\/span><\/span>/, "")).not.toContain("持ち家の評価");
   });
-  it("詳細: 「▸ 詳しく」は出さず、今のまま全部出す", () => {
+  it("詳細: 「▸ 続きを見る」は出さず、今のまま全部出す", () => {
     const html = panel(wh, "housing", "detail");
     expect(html).not.toContain("data-group-more");
     for (const f of detailOfLoan) expect(html).toContain(idOf(f.key));
@@ -72,7 +72,7 @@ describe("標準のときだけ「▸ 詳しく」", () => {
 describe("口座1つ（貯蓄・運用）", () => {
   const acc = wh.request.input.household.accounts?.find((a) => a.kind === "nisa");
   const key = `sav/${acc?.id ?? ""}`;
-  it("標準: 口座の行に「▸ 詳しく」。開くと表の下の行にその口座の詳細と資産の配分", () => {
+  it("標準: 口座の行に「▸ 続きを見る」。開くと表の下の行にその口座の詳細と資産の配分", () => {
     const closed = panel(wh, "savings", "simple");
     expect(closed).toContain(`data-group-more="${key}"`);
     expect(closed).not.toContain("sv-more-row");
@@ -82,7 +82,7 @@ describe("口座1つ（貯蓄・運用）", () => {
     // 口座ごとの詳細の区画（全部の口座）は出さない
     expect(html).not.toContain('aria-label="口座ごとの詳細"');
   });
-  it("詳細: 口座の「▸ 詳しく」は出さない", () => {
+  it("詳細: 口座の「▸ 続きを見る」は出さない", () => {
     expect(panel(wh, "savings", "detail", [key])).not.toContain("data-group-more");
   });
 });
@@ -91,7 +91,7 @@ describe("働き方の期間（今の働き方）", () => {
   const self = wh.request.input.household.members.find((m) => m.kind === "self");
   const now = buildStage("work", wh).sections.flatMap((s) => s.groups).find((g) => g.key === `work/${self?.id ?? ""}/now`);
   const extra = now?.openFields ?? [];
-  it("今の働き方の「▸ 詳しく」は、その期間の詳しい欄（期間の形・年収の分け方は出さない）", () => {
+  it("今の働き方の「▸ 続きを見る」は、その期間の詳しい欄（期間の形・年収の分け方は出さない）", () => {
     expect(extra.length).toBeGreaterThan(3);
     const items = extra.map((f) => f.item);
     for (const x of ["employment.type", "employment.salary.annual", "employment.salary.bonus", "employment.from", "employment.to"]) expect(items).not.toContain(x);

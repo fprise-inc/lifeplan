@@ -1,4 +1,4 @@
-// 「▸ 詳しく」を押したときに何が変わったか分かるように（0078 の 2026-10-29 の追記）: 開いて新しく出た欄を少しの間だけ光らせ（動きを減らす設定では光らせない）、
+// 「▸ 続きを見る」を押したときに何が変わったか分かるように（0078 の 2026-10-29 の追記）: 開いて新しく出た欄を少しの間だけ光らせ（動きを減らす設定では光らせない）、
 // 欄が入れ替わる所（年金の受け取り開始）は短い1行で知らせる（閉じると元に戻ることも）
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -27,14 +27,14 @@ const pensionHead = buildStage("pension", wh)
   .find((g) => g.fields.some((f) => f.simpleOnly === true && f.key.endsWith("/claim")));
 
 describe("開いた中身を光らせる", () => {
-  it("どの「▸ 詳しく」も同じ部品（MoreToggle）で、開くときに revealOpened を呼ぶ（入力の区画のまとまり・貯蓄・運用の口座）", () => {
+  it("どの「▸ 続きを見る」も同じ部品（MoreToggle）で、開くときに revealOpened を呼ぶ（入力の区画のまとまり・貯蓄・運用の口座）", () => {
     const fv = src("workspace/input/FieldViews.tsx");
     expect(fv).toContain("if (!open) revealOpened(e.currentTarget, groupKey);");
     expect(fv.match(/<MoreToggle /g)?.length).toBe(1);
     expect(src("workspace/input/savings/SavingsPanel.tsx").match(/<MoreToggle /g)?.length).toBe(1);
-    // 「▸ 詳しく」の文字を書いているのは MoreToggle だけ
-    expect(fv.match(/"▸ 詳しく"/g)?.length).toBe(1);
-    expect(src("workspace/input/savings/SavingsPanel.tsx")).not.toContain('"▸ 詳しく"');
+    // 「▸ 続きを見る」の文字を書いているのは MoreToggle だけ
+    expect(fv.match(/"▸ 続きを見る"/g)?.length).toBe(1);
+    expect(src("workspace/input/savings/SavingsPanel.tsx")).not.toContain('"▸ 続きを見る"');
   });
 
   it("光らせるのは開いた中身（data-more-of）で、動きを減らす設定では光らせない", () => {
@@ -75,7 +75,7 @@ describe("欄が入れ替わる所は1行で知らせる", () => {
     expect(panel(wh, "pension", "detail")).not.toContain("data-more-swap");
   });
 
-  it("入れ替えの無い「▸ 詳しく」（住宅ローンなど）は知らせを出さない", () => {
+  it("入れ替えの無い「▸ 続きを見る」（住宅ローンなど）は知らせを出さない", () => {
     const loan = wh.request.input.household.debts?.find((d) => d.kind === "mortgage");
     expect(panel(wh, "housing", "simple", [`housing/debt/${loan?.id ?? ""}`])).not.toContain("data-more-swap");
   });

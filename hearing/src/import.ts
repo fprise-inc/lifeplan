@@ -1207,8 +1207,8 @@ function importSimpleLoan(c: Ctx, h: Household, adults: Adults, asOf: string): v
       termMonths = m;
       c.assume(`housing/debt/${id}/term`, `逆算（残高 ${balV.toLocaleString("ja-JP")}円・毎月の返済額 ${payV.toLocaleString("ja-JP")}円・仮の金利 年${SIMPLE_LOAN_PCT}から ${m}か月）`, at(PAY, "debt.repayment", "/repayment/termMonths"));
     } else {
-      if (payV !== null) c.contradiction(PAY, undefined, "毎月の返済額では、残高を返しきれない計算になります（返済期間は標準の値で計算しました。面談で確かめてください）");
-      else c.check(PAY, undefined, pay.status === "unknown" ? "unknown" : "missing", "毎月の返済額が無いため、返済期間を標準の値で計算します");
+      if (payV !== null) c.contradiction(PAY, undefined, "毎月の返済額では、残高を返しきれない計算になります（返済期間は既定の値で計算しました。面談で確かめてください）");
+      else c.check(PAY, undefined, pay.status === "unknown" ? "unknown" : "missing", "毎月の返済額が無いため、返済期間を既定の値で計算します");
       c.assume(`housing/debt/${id}/term`, `仮の値（返済期間${String(std / 12)}年。完済が80歳を超えないように）`, at(BAL, "debt.repayment", "/repayment/termMonths"));
     }
   } else {

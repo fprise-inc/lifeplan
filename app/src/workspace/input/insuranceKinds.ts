@@ -74,8 +74,8 @@ export const KINDS: readonly KindDef[] = [
   { kind: "cancer", label: "がん保険", template: "insurance.cancer", main: { benefit: "cancerLump", label: "がん一時金（診断給付金）", basis: "once" }, end: "lifetime", payUntil: "lifetime", deduction: "careMedical" },
   { kind: "incapacity", label: "就業不能保険", template: "insurance.term", main: { benefit: "incapacity", label: "就業不能の月額", basis: "monthly", help: "働けない想定の月から、免責の月数の後に毎月受け取ります" }, end: { age: 65 }, payUntil: "end", deduction: "general" },
   { kind: "education", label: "学資保険", template: "insurance.education", main: { benefit: "maturity", label: "満期金", basis: "once" }, end: { childAge: 18 }, payUntil: "end", deduction: "general", savings: true, child: true },
-  { kind: "privateAnnuity", label: "個人年金保険", template: "insurance.privateAnnuity", main: { benefit: "annuity", label: "年金の年額", basis: "annual", help: "受け取りの始まりから10年間（年数は詳細で）" }, end: { age: 65 }, payUntil: 60, deduction: "pension", savings: true },
-  { kind: "mutualAid", label: "共済（総合・医療）", template: "insurance.term", main: { benefit: "death", label: "死亡保険金（共済金）", basis: "once", help: "年齢で保障が段階的に変わる型は、詳細で保障の行を期間で分けて入れます" }, end: { age: 65 }, payUntil: "end", deduction: "general" },
+  { kind: "privateAnnuity", label: "個人年金保険", template: "insurance.privateAnnuity", main: { benefit: "annuity", label: "年金の年額", basis: "annual", help: "受け取りの始まりから10年間（年数は「詳細」で）" }, end: { age: 65 }, payUntil: 60, deduction: "pension", savings: true },
+  { kind: "mutualAid", label: "共済（総合・医療）", template: "insurance.term", main: { benefit: "death", label: "死亡保険金（共済金）", basis: "once", help: "年齢で保障が段階的に変わる型は、「詳細」で保障の行を期間で分けて入れます" }, end: { age: 65 }, payUntil: "end", deduction: "general" },
   { kind: "groupTerm", label: "団体保険（勤務先）", template: "insurance.term", main: { benefit: "death", label: "死亡保険金", basis: "once" }, end: "retirement", payUntil: "end", deduction: "general" },
   {
     kind: "care",
@@ -148,7 +148,9 @@ export const isAuto = (r: StateRow | undefined, head?: string): boolean => r?.st
 
 export const UNENTERED_PREMIUM = "未入力（保険料を入れてください。0円で計算中）";
 export const UNENTERED_MAIN = "未入力（保障の額を入れてください。保障は0円で計算中）";
-export const STANDARD = "ひな形の標準の値";
+export const STANDARD = "ひな形の既定の値";
+/** ひな形の既定の値の推定のままか（前の言い方「ひな形の標準の値」で保存した世帯も同じに見る） */
+export const isAutoStandard = (r: StateRow | undefined): boolean => isAuto(r, STANDARD) || isAuto(r, "ひな形の標準の値");
 
 // ---- 既定の値 ----
 

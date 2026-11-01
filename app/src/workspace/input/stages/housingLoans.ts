@@ -965,7 +965,7 @@ const RATE_OUTLOOKS: readonly { value: string; label: string; adds: readonly num
   { value: "up1", label: "10年で1%上がる（5年後に＋0.5%・10年後に＋1%）", adds: [0.005, 0.01] },
   { value: "up2", label: "10年で2%上がる（5年後に＋1%・10年後に＋2%）", adds: [0.01, 0.02] },
 ];
-const OUTLOOK_CUSTOM = { value: "custom", label: "金利の段階で入れている（詳細で直す）" };
+const OUTLOOK_CUSTOM = { value: "custom", label: "金利の段階で入れている（「詳細」で直す）" };
 /** 見込みの段の間隔（月） */
 const OUTLOOK_STEP_MONTHS = 60;
 
@@ -1011,7 +1011,7 @@ function rateOutlookField(d: Debt, k: string): FieldDef {
       kind: "select",
       structural: true,
       options: [...RATE_OUTLOOKS.map((o) => ({ value: o.value, label: o.label })), OUTLOOK_CUSTOM],
-      help: "変動金利は、今の金利のままだと楽観の見込みになります。上がる見込みを選ぶと、今（これから借りるなら借入の月）から5年ごとに金利の段を置きます。細かい段は詳細の「金利の段階」で直せます",
+      help: "変動金利は、今の金利のままだと楽観の見込みになります。上がる見込みを選ぶと、今（これから借りるなら借入の月）から5年ごとに金利の段を置きます。細かい段は「詳細」の「金利の段階」で直せます",
       get: (w) => {
         const x = (w.request.input.household.debts ?? []).find((y) => y.id === d.id);
         return { value: x === undefined ? null : rateOutlookOf(w.request.input.household, x, w.request.input.baseMonth) };
@@ -1138,9 +1138,9 @@ export function otherLoanHeadFields(wh: WorkingHousehold, d: Debt, k: string): F
             // 金利が種類の目安のまま（推定）なら、新しい種類の目安に入れ直す
             const a = addrRate(x);
             const step = x.rateSchedule[0];
-            if (a !== null && step !== undefined && isEstimate(rowAt(inputOf(req), a), "標準の値")) {
+            if (a !== null && step !== undefined && (isEstimate(rowAt(inputOf(req), a), "既定の値") || isEstimate(rowAt(inputOf(req), a), "標準の値"))) {
               step.rate = sub.rate;
-              putRow(inputOf(req), a, estRow("standard", `標準の値（${sub.rateBasis}。わかれば直してください）`));
+              putRow(inputOf(req), a, estRow("standard", `既定の値（${sub.rateBasis}。わかれば直してください）`));
             }
           }),
       }),
@@ -1175,7 +1175,7 @@ export function newOtherLoan(wh: WorkingHousehold, subtype: SubtypeDef["value"])
     const input = inputOf(req);
     putRow(input, addrPrincipal(id), tentativePrincipal(0));
     putRow(input, addrStart(id), estRow("standard", TENTATIVE));
-    putRow(input, at(id, "debt.rateSchedule", [rid, "rate"]), estRow("standard", `標準の値（${sub.rateBasis}。わかれば直してください）`));
+    putRow(input, at(id, "debt.rateSchedule", [rid, "rate"]), estRow("standard", `既定の値（${sub.rateBasis}。わかれば直してください）`));
     putRow(input, addrTerm(id), estRow("standard", UNENTERED_PAYMENT));
   });
   return withEntry(next, id, "balance");
@@ -1253,7 +1253,7 @@ export function newMortgage(wh: WorkingHousehold, pairOf?: string): WorkingHouse
       putRow(input, addrStart(id), estRow("standard", TENTATIVE));
     }
     if (partner === undefined) putRow(input, at(id, "debt.rateSchedule", [rid, "rate"]), estRow("standard", rateEstimate.basis));
-    putRow(input, addrTerm(id), estRow("standard", `標準の値（返済期間${Math.round(d.repayment.termMonths / 12)}年。完済が80歳を超えないように）`));
+    putRow(input, addrTerm(id), estRow("standard", `既定の値（返済期間${Math.round(d.repayment.termMonths / 12)}年。完済が80歳を超えないように）`));
     // 購入の予定とつながるなら、借入額は物件の価格−頭金（推定）
     const e = linked && partner === undefined ? estimatedPrincipal(hh, d) : null;
     if (e !== null) {

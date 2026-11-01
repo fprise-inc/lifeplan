@@ -182,7 +182,7 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
           kind: "ym",
           find,
           path: ["birth", "birthYearMonth"],
-          help: "生まれた日は入れません（1日生まれのときだけ、詳細で選びます）",
+          help: "生まれた日は入れません（1日生まれのときだけ、「詳細」で選びます）",
           hint: (v) => (typeof v === "string" ? ageNow(v) : null),
           // 子の生年月を直したら、進路の段を新しい年齢に合わせる（終わった段を外し、前の年齢で終わっていた段を足す）
           ...(m.kind === "child" ? { after: (h: Household, _t: unknown, _v: Val, wh: WorkingHousehold) => alignChild(h, m.id, wh) } : {}),
@@ -344,7 +344,7 @@ function relationLine(wh: WorkingHousehold, m: Member): FieldDef | null {
   const rs = spouseRelations(h, m.id);
   if (rs.length === 0) return null;
   const many = rs.length > 1 || rs.some((r) => r.from !== null || r.to !== null);
-  return field({ key: `family/${m.id}/relation`, item: null, label: "関係", level: "simple", kind: "text", readOnly: many ? "詳細あり（詳しく入れるの「夫婦の関係」で直せます）" : "詳しく入れるの「夫婦の関係」で直せます", get: (w) => ({ value: relationSummary(w.request.input.household, spouseRelations(w.request.input.household, m.id)) }), set: (w) => w });
+  return field({ key: `family/${m.id}/relation`, item: null, label: "関係", level: "simple", kind: "text", readOnly: many ? "詳細あり（「詳細」の「夫婦の関係」で直せます）" : "詳しく入れるの「夫婦の関係」で直せます", get: (w) => ({ value: relationSummary(w.request.input.household, spouseRelations(w.request.input.household, m.id)) }), set: (w) => w });
 }
 
 /**

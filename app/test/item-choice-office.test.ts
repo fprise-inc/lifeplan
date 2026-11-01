@@ -73,6 +73,6 @@ describe("入力項目を選ぶの下の、事務所の既定の操作", () => {
   it("事務所の既定値の区画に「標準に戻す」（全部出す・全部標準で開く）", () => {
     const html = renderToString(h(OfficeSettingsPanel, { value: { ...DEFAULT_OFFICE_SETTINGS, items: { hidden: ["car"] } }, onSave: save, shared: false, onClose: noop }));
     expect(html).toContain("data-office-items-reset");
-    expect(html).toContain("標準に戻す（全部出す・全部標準で開く）");
+    expect(html).toContain("既定に戻す（全部出す・全部「標準」で開く）");
   });
 });
