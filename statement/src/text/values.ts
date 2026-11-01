@@ -13,6 +13,8 @@ export function parseAmount(raw: string): number | null {
     neg = true;
     s = s.slice(1, -1);
   }
+  // 円記号の後ろの符号（「¥-1,234」。表計算ソフトの通貨の書式の負の数）も読むため、先に頭の円記号を外す
+  s = s.replace(/^[¥￥\\]/u, "");
   if (/^(?:-|−|△|▲|マイナス)/u.test(s)) {
     neg = !neg;
     s = s.replace(/^(?:-|−|△|▲|マイナス)/u, "");
