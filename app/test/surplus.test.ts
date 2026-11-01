@@ -16,7 +16,7 @@ import { investVerdict, lastsAge } from "../src/workspace/invest/present.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { applyValues, effectiveValues } from "../src/workspace/plans/plans.ts";
 import { cashflowTable, displayYears } from "../src/workspace/present.ts";
-import { actualSavingRatio, applyPreset, financialInputs, presetOf, presetPoints, surplusBreakdown, withoutRemovedAssumptions } from "../src/workspace/surplus.ts";
+import { actualSavingRatio, applyPreset, financialInputs, presetOf, presetPoints, surplusBreakdown, surplusEvidenceNote, withoutRemovedAssumptions, yearOfTimepoint } from "../src/workspace/surplus.ts";
 import { full, modelHousehold, preview } from "./helpers.ts";
 
 const ID = "dualAssetsTwoKids";
@@ -226,6 +226,30 @@ describe("見本の世帯のプランE（黒字の6割）", () => {
     const ex = explainModel(er, f, 95);
     const exp = ex.steps.find((s) => s.key === "expense")!;
     expect(exp.sentence.map((p) => p.text).join("")).toContain("ゆとりの支出");
+  });
+});
+
+describe("割合を変える時点の年（根拠・説明の文）", () => {
+  it("年齢の時点は 1日生まれまでエンジンと同じ年に解き、できごとの時点も解く。その年の根拠の文は、計算に使った割合を出す", () => {
+    const r = structuredClone(modelHousehold("surplusSaving"));
+    const h = r.input.household;
+    const self = h.members.find((m) => m.kind === "self")!;
+    // 1月1日生まれ: 50歳に達するのは前の年の12月（エンジンの年齢の切り替えの規則）
+    self.birth = { birthYearMonth: "1981-01", bornOnFirst: true };
+    const ev = h.events![0]!;
+    const byAge = { memberAge: { member: self.id, years: 50 } };
+    const byEvent = { event: ev.id, offset: { years: 22 } };
+    expect(yearOfTimepoint(r, byAge)).toBe(2030);
+    expect(yearOfTimepoint(r, byEvent)).toBe(2038);
+    r.input.assumptions!.surplusSaving = { ratio: "0.6", changes: [{ from: byAge, ratio: "0.9" }, { from: byEvent, ratio: "0.7" }] };
+    const t = preview(r).table;
+    for (const [year, pct, ratio] of [[2030, "90%", 0.9], [2038, "70%", 0.7]] as const) {
+      const b = surplusBreakdown(t, year);
+      expect(b.surplus).toBeGreaterThan(0);
+      // エンジンもその年にその割合を使っている（ゆとりの支出＝黒字×（1−割合）。円の丸めの差だけ）
+      expect(Math.abs(b.spend - b.surplus * (1 - ratio))).toBeLessThan(2);
+      expect(surplusEvidenceNote(r, t, year)).toContain(`貯まる割合（${pct}）`);
+    }
   });
 });
 

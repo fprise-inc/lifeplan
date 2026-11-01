@@ -153,17 +153,13 @@ export function surplusEvidenceNote(req: EngineRequest, table: readonly TableCel
   return `${year}年の黒字 ${man(b.surplus)}${lump}のうち、貯まる割合（${ruleText(rule)}）で貯まるのは ${man(b.saved)}。残りの ${man(b.spend)} を、実際には使ってしまう「ゆとりの支出」として支出に入れています（赤字の年は入れません）。`;
 }
 
-/** 年月・年齢・できごとの時点の年（年月と年齢だけ。できごとは null） */
+/**
+ * 年月・年齢・できごとの時点の年。エンジンと同じ決まりで年月に解いた年（年齢は1日生まれと年齢の切り替えの規則まで、できごとは名前つきイベントの年月＋ずらし）。
+ * 解けなければ null
+ */
 export function yearOfTimepoint(req: EngineRequest, t: Timepoint): number | null {
-  if (t.at !== undefined) return Number(t.at.slice(0, 4));
-  const ma = t.memberAge;
-  if (ma !== undefined) {
-    const m = req.input.household.members.find((x) => x.id === ma.member);
-    if (m === undefined) return null;
-    const { y, m: mo } = parseYm(m.birth.birthYearMonth);
-    return y + ma.years + Math.floor((mo - 1 + (ma.months ?? 0)) / 12);
-  }
-  return null;
+  const ym = resolveTimepoint(req.input.household, t);
+  return ym === null ? null : parseYm(ym).y;
 }
 
 // ---- 控えから実際の貯まり方を出す ----
