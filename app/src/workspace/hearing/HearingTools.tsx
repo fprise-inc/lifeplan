@@ -128,7 +128,7 @@ function ExportPanel({ wh, sheets, onSave, onClose }: Props & { onClose: () => v
           </p>
         ) : null}
       </div>
-      {!okNo ? <p class="fatal">顧客番号は英数字（16文字まで）で入れてください。氏名は入れません。</p> : null}
+      {!okNo ? <p class="fatal">顧客番号は英数字・ハイフン・下線（16字まで）で入れてください。氏名は入れません。</p> : null}
       {err !== null ? <p class="fatal">書き出せませんでした（{err}）</p> : null}
       {done !== null ? (
         <p class={`rp-note${done.syncFolder ? " warn" : ""}`} role="status" data-hearing-saved={done.saved ? "1" : "0"}>

@@ -56,7 +56,7 @@ export interface MarkSheetOptions {
   readonly owners: ReadonlyMap<string, string>;
   /** 依頼番号（sheetRequestId にアプリ本体の乱数を渡して作る） */
   readonly requestId: string;
-  /** 表示用の顧客番号（英数字。氏名は入れない。無くてよい） */
+  /** 表示用の顧客番号（英数字・ハイフン・下線。氏名は入れない。無くてよい） */
   readonly customerNo?: string;
   /** 書き出した日時（ISO 8601。日付の部分を書き出した日にする） */
   readonly exportedAt: string;
@@ -75,7 +75,8 @@ export interface MarkSheetResult {
   readonly issues: readonly Issue[];
 }
 
-const CUSTOMER_NO = /^[A-Za-z0-9-]{1,16}$/u;
+/** 顧客番号の決まり（世帯の保存と同じ: 英数字・ハイフン・下線の16字まで。氏名は入れない） */
+const CUSTOMER_NO = /^[A-Za-z0-9_-]{1,16}$/u;
 
 /** 番号らしき数字を消した文字（消すものが無ければ元のまま。全角の括弧などをそろえ直さない） */
 function masked(t: string): string {
