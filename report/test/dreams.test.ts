@@ -71,7 +71,10 @@ describe("ご家族の夢の章", () => {
 
   it("ライフイベント表: 計算に入れる夢に★。計算に入れない夢は載せない", () => {
     const items = input.events.flatMap((e) => e.items);
-    expect(items).toContain("★憧れの車（600万円）");
+    // 額はキャッシュフロー表と同じ2030年の額（物価の上昇などで伸ばした額。ご家族の夢の章は今の値段のまま）
+    const cf = bundleOf(req).proposal.result.table.filter((c) => c.object === id(1) && c.year === 2030).reduce((s, c) => s + c.amount, 0);
+    expect(cf).toBeGreaterThan(6000000);
+    expect(items).toContain(`★憧れの車（${(Math.round(cf / 1000) / 10).toLocaleString("ja-JP")}万円）`);
     expect(items.some((t) => t.startsWith("★夫婦で海外旅行"))).toBe(true);
     expect(items.some((t) => t.includes("二拠点や別荘"))).toBe(false);
   });
@@ -88,5 +91,8 @@ describe.skipIf(bin === null)("ご家族の夢の PDF", () => {
     expect(all).toContain("夫婦で海外旅行");
     expect(all).toContain("入れない");
     expect(all).toContain("★はご家族の夢（夢プラン）です。");
+    // ライフイベント表の額はキャッシュフロー表と同じその年の額（0068 の追記 2026-11-01）
+    expect(all).toContain(normalize("金額は、キャッシュフロー表と同じく、その年の見込みの額（物価の上昇などを見込んだ額）です。"));
+    expect(all).toContain(normalize(input.events.flatMap((e) => e.items).find((t) => t.startsWith("★憧れの車")) as string));
   });
 });
