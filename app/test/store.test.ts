@@ -724,6 +724,16 @@ function sample048(): BodyState {
   return { ...s, wh: { ...s.wh, request: req }, display: { ...s.display, balance: { ...s.display.balance, guide: { ...s.display.balance.guide, basis: "livingLoan" } } } };
 }
 
+function sample049(): BodyState {
+  const s = sample048();
+  const req = structuredClone(s.wh.request);
+  // 子の貸与の奨学金の種類（0104 の追記）: 1件を第一種（無利子・0%）にする。ほかは種類なし（第二種）のまま
+  const sch = (req.input.household.goals ?? []).flatMap((g) => g.education?.scholarships ?? []);
+  sch[0]!.type = "first";
+  sch[0]!.rate = "0";
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -847,7 +857,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.48");
+    expect(BODY_FORMAT_VERSION).toBe("0.49");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1001,7 +1011,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample048())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample049())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1321,6 +1331,18 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const plain = structuredClone(back.wh.request);
     for (const m of plain.input.household.members) delete m.companyGuarantee;
     for (const a of plain.input.household.accounts ?? []) delete a.subtype;
+    expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(plain)).table);
+  });
+
+  it("0.49 の形（0104 の追記）: 子の貸与の奨学金の種類（第一種）を保存して読み戻す。種類は計算に使わず、利率で計算する", () => {
+    const s = sample049();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const sch = (stored.household.request.input.household.goals ?? []).flatMap((g) => g.education?.scholarships ?? []);
+    expect(sch.map((x) => x.type ?? null)).toEqual(["first", ...sch.slice(1).map(() => null)]);
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    const plain = structuredClone(back.wh.request);
+    for (const g of plain.input.household.goals ?? []) for (const x of g.education?.scholarships ?? []) delete x.type;
     expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(plain)).table);
   });
 

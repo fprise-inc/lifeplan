@@ -99,21 +99,26 @@ describe("夢プランの区画（ライフイベントの入力項目のいち�
     const wh = threeDreams();
     const g = groupOf(wh, ids[1]);
     expect(dreamSec(wh).groups.filter((x) => x.key.startsWith(`ev/${ids[1]}`))).toHaveLength(1);
-    expect(g.fields.map((f) => f.label)).toEqual(["名前", "時期", "額", "時期", "ひとことメモ（なぜかなえたいか）", "最初から計算に入れる"]);
+    expect(g.fields.map((f) => f.label)).toEqual(["名前", "時期", "額", "時期", "ひとことメモ（なぜかなえたいか）", "計算に入れるか"]);
     const cadence = g.fields.find((f) => f.key.endsWith("/cadence"))!;
     expect(cadence.kind === "select" ? cadence.options.map((o) => o.value) : []).toEqual(["once", "repeat"]);
     expect(g.fields.some((f) => f.key.endsWith("/priority") || f.key.endsWith("/row") || f.key.endsWith("/kind"))).toBe(false);
     expect(g.title).toMatch(/^夢2｜憧れの車 600万円・1回 \d{4}年\d+月$/u);
     // 年ごとにすると、何年ごと・終わりの欄が出る
     const repeat = cadence.set(wh, "repeat");
-    expect(groupOf(repeat, ids[1]).fields.map((f) => f.label)).toEqual(["名前", "時期", "年額", "初め", "何年ごと", "終わり", "ひとことメモ（なぜかなえたいか）", "最初から計算に入れる"]);
+    expect(groupOf(repeat, ids[1]).fields.map((f) => f.label)).toEqual(["名前", "時期", "年額", "初め", "何年ごと", "終わり", "ひとことメモ（なぜかなえたいか）", "計算に入れるか"]);
     // ひとことメモと計算に入れる
     const note = g.fields.find((f) => f.key.endsWith("/dreamNote"))!;
     const inc = g.fields.find((f) => f.key.endsWith("/dreamInclude"))!;
-    expect(inc.get(wh).value).toBe(true);
-    const w2 = inc.set(note.set(wh, "子どものころからの夢"), false);
+    // 選び方は「最初から計算に入れる」「計算に入れない」の2つ（世帯ファイルは今までどおり真偽）
+    expect(inc.kind === "select" ? inc.options.map((o) => o.label) : []).toEqual(["最初から計算に入れる", "計算に入れない"]);
+    expect(inc.get(wh).value).toBe("include");
+    const w2 = inc.set(note.set(wh, "子どものころからの夢"), "exclude");
+    expect(inc.get(w2).value).toBe("exclude");
     expect(dreamsOf(w2)[1]!.dream).toEqual({ rank: 2, note: "子どものころからの夢", include: false });
-    expect(groupOf(w2, ids[1]).title).toMatch(/（候補として置く）$/u);
+    expect(groupOf(w2, ids[1]).title).toMatch(/（計算に入れない）$/u);
+    // 入れるに戻すと、省略（入れる）に戻る
+    expect(dreamsOf(inc.set(w2, "include"))[1]!.dream).toEqual({ rank: 2, note: "子どものころからの夢" });
   });
 
   it("順位は「↑ 上へ」「↓ 下へ」で動かす（いちばん上に上へ・いちばん下に下へは出さない）。順位は1から振り直す", () => {
