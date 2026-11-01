@@ -25,8 +25,13 @@ export function decodeEntities(s: string): string {
   });
 }
 
+/** XML 1.0 で使えない文字（タブ・改行・復帰のほかの制御文字と U+FFFE・U+FFFF）。1つでも入ると表計算のソフトが開けないファイルになる */
+// eslint-disable-next-line no-control-regex
+const XML_INVALID = /[\u0000-\u0008\u000b\u000c\u000e-\u001f￾￿]/gu;
+
+/** 書き出す文字を XML の中に入れられる形にする（使えない文字は除き、& < > " を実体にする） */
 export function escapeXml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return s.replace(XML_INVALID, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 const localName = (n: string) => {
