@@ -401,19 +401,31 @@ entries:
     replacedBy: null
   - id: cf.expense.living.furniture
     status: active
-    label: "家具・家事用品"
+    label: "日用品（家具・家事用品。家庭用耐久財を除く）"
     since: draft
     aliases: []
     replacedBy: null
   - id: cf.expense.living.clothing
     status: active
-    label: "被服及び履物"
+    label: "被服・美容"
     since: draft
     aliases: []
     replacedBy: null
   - id: cf.expense.living.health
     status: active
     label: "保健医療"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.living.communication
+    status: active
+    label: "通信"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.living.transit
+    status: active
+    label: "交通（車を除く）"
     since: draft
     aliases: []
     replacedBy: null
@@ -426,6 +438,18 @@ entries:
   - id: cf.expense.living.recreation
     status: active
     label: "教養娯楽"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.living.pocketAndSocial
+    status: active
+    label: "こづかい・交際費"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.living.other
+    status: active
+    label: "その他（理美容・こづかい・交際費・仕送り金を除く）"
     since: draft
     aliases: []
     replacedBy: null

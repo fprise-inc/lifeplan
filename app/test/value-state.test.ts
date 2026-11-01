@@ -13,6 +13,7 @@ import { carryRows, dropStaleRows, rowAt } from "../src/workspace/input/rows.ts"
 import { addCar } from "../src/workspace/input/stages/cars.ts";
 import { addChildWithEducation } from "../src/workspace/input/stages/family.ts";
 import { buildStage, buildStages, STAGE_ORDER } from "../src/workspace/input/stages/index.ts";
+import { addAnnual, ANNUAL_TEMPLATES } from "../src/workspace/input/stages/living.ts";
 import { applyStateOp, availableOps, confirmAll, fieldAddress, fieldStatus, planStateOp } from "../src/workspace/input/valueState.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { applyPlan, type Proposal } from "../src/workspace/plans/plans.ts";
@@ -100,10 +101,10 @@ describe("確定は明示の操作だけ（欄に入って離れる・同じ文�
 });
 
 describe("4つの操作（どの欄も同じ部品）", () => {
-  it("値の箱の欄: 確定・推定に戻す・わからない（基本生活費に該当なしは無い）。どの状態でも計算できる", () => {
+  it("値の箱の欄: 確定・推定に戻す・わからない（年収に該当なしは無い）。どの状態でも計算できる", () => {
     const wh = open("salariedCoupleTwoKids");
-    const f = fieldOf(wh, "living", "/monthly");
-    const typed = f.set(wh, 270000);
+    const f = allFields(buildStage("work", wh)).find((x) => x.item === "employment.salary.annual")!;
+    const typed = f.set(wh, 5000000);
     expect(fieldStatus(f, typed).status).toBe("confirmed");
     // 推定に戻す
     const back = applyStateOp(typed, f, "revert");
@@ -111,16 +112,36 @@ describe("4つの操作（どの欄も同じ部品）", () => {
     // わからない（今の値を代わりの値に）
     const unk = applyStateOp(typed, f, "unknown");
     expect(fieldStatus(f, unk).status).toBe("unknown");
-    expect(f.get(unk).value).toBe(270000);
-    expect(unk.request.input.household.livingExpenses![0]!.monthly).toMatchObject({ state: "unknown", substitute: { value: 270000, state: "estimated" } });
+    expect(f.get(unk).value).toBe(5000000);
     computes(unk);
     // わからない → 確定（代わりの値で）
     const conf = applyStateOp(unk, f, "confirm");
     expect(fieldStatus(f, conf).status).toBe("confirmed");
-    expect(f.get(conf).value).toBe(270000);
-    // 基本生活費は、世帯があれば必ずある額なので「該当なし」を出さない（0041 の 2026-10-29 の追記）。使えない操作は世帯を変えない
+    expect(f.get(conf).value).toBe(5000000);
+    // 年収は、働き方の期間があれば必ずある額なので「該当なし」を出さない（0041 の 2026-10-29 の追記）。使えない操作は世帯を変えない
     expect(availableOps(f, typed)).not.toContain("notApplicable");
     expect(applyStateOp(typed, f, "notApplicable")).toBe(typed);
+  });
+
+  it("基本生活費の欄には「わからない」も「該当なし」も出さない（0100）。押しても世帯は変わらず、確定・推定に戻すは今までどおり", () => {
+    const wh = open("salariedCoupleTwoKids");
+    const f = fieldOf(wh, "living", "/monthly");
+    const typed = f.set(wh, 270000);
+    expect(availableOps(f, typed)).toEqual(["revert"]);
+    expect(applyStateOp(typed, f, "unknown")).toBe(typed);
+    expect(applyStateOp(typed, f, "notApplicable")).toBe(typed);
+    const back = applyStateOp(typed, f, "revert");
+    expect(fieldStatus(f, back).status).toBe("estimated");
+    expect(availableOps(f, back)).toEqual(["confirm"]);
+    // 年払い・数年おきの暮らしの支出（お金の行の種類 livingAnnual）の額にも出さない（入力項目でなく行の種類で見る）
+    // （見本の世帯には年払いの行が無いので、ひな形の行を足して確かめる）
+    const withRow = addAnnual(wh, ANNUAL_TEMPLATES.find((t) => t.key === "appliances")!);
+    const annual = allFields(buildStage("living", withRow)).filter((x) => x.item === "periodicExpense.amount");
+    expect(annual.length).toBeGreaterThan(0);
+    for (const a of annual) {
+      expect(fieldStatus(a, withRow).status, a.key).toBe("estimated");
+      expect(availableOps(a, withRow), a.key).not.toContain("unknown");
+    }
   });
 
   it("値の箱の欄の該当なし（住民税）: 推定の額を使わず無いものとして計算し、推定に戻す・わからないで戻せる", () => {
@@ -160,19 +181,16 @@ describe("4つの操作（どの欄も同じ部品）", () => {
     expect(r.request).toEqual(wh.request);
   });
 
-  it("推定の入れ直しは、推定のままの値と、わからないの統計の代わりの値だけ（わからないの印は残す。FP の前の値の代わりは変えない）", () => {
+  it("推定の入れ直しは、推定のままの値だけ（FP が入れた値は変えない）", () => {
     const wh = blankHousehold(BASE, ids());
     const f = fieldOf(wh, "living", "/monthly");
-    const unk = applyStateOp(wh, f, "unknown");
-    const sub0 = (unk.request.input.household.livingExpenses![0]!.monthly as unknown as { substitute: { value: number } }).substitute.value;
-    const two = withRefreshedEstimates(addChildWithEducation(unk, ids()));
-    const m = two.request.input.household.livingExpenses![0]!.monthly as unknown as { state: string; substitute: { value: number } };
-    expect(m.state).toBe("unknown");
-    expect(m.substitute.value).not.toBe(sub0);
-    // FP が入れた値をわからないにしたもの（前の値を代わりに使う）は入れ直さない
-    const typed = applyStateOp(f.set(wh, 123000), f, "unknown");
+    const v0 = f.get(wh).value;
+    const two = withRefreshedEstimates(addChildWithEducation(wh, ids()));
+    expect(fieldStatus(f, two).status).toBe("estimated");
+    expect(f.get(two).value).not.toBe(v0);
+    const typed = f.set(wh, 123000);
     const kept = withRefreshedEstimates(addChildWithEducation(typed, ids()));
-    expect((kept.request.input.household.livingExpenses![0]!.monthly as unknown as { substitute: { value: number } }).substitute.value).toBe(123000);
+    expect(f.get(kept).value).toBe(123000);
   });
 
   it("推定の値をまとめて使う（カード・全部）は、推定の欄だけを確定にする", () => {
@@ -263,13 +281,13 @@ describe("プランを選んでいるときの操作（状態の変更もその�
     const self = roles(wh.request).find((r) => r.key === "self")!;
     const cat = buildCatalog(wh, self.member.id, null);
     const f = fieldOf(wh, "living", "/monthly");
-    const p = planStateOp(wh, cat, "P", f, "unknown");
+    const p = planStateOp(wh, cat, "P", f, "confirm");
     expect(p.request).toBe(wh.request);
     const d = p.proposals[0]!.diffs;
     expect(d).toHaveLength(1);
-    expect(d[0]).toMatchObject({ op: "set", item: "livingExpense.monthly", value: { state: "unknown" }, before: { state: "estimated" } });
+    expect(d[0]).toMatchObject({ op: "set", item: "livingExpense.monthly", value: { state: "confirmed" }, before: { state: "estimated" } });
     const applied = applyPlan(p, "P", buildCatalog(p, self.member.id, null)).request;
-    expect(applied.input.household.livingExpenses![0]!.monthly).toMatchObject({ state: "unknown" });
+    expect(applied.input.household.livingExpenses![0]!.monthly).toMatchObject({ state: "confirmed" });
     // プランの中で推定に戻すと、現状と同じになるので差分が消える
     const back = planStateOp(p, cat, "P", f, "revert");
     expect(back.proposals[0]!.diffs).toEqual([]);

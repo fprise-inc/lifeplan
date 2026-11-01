@@ -1,6 +1,6 @@
 // 推定の目安（src/estimates.ts）: 数は正本の YAML（data/master・data/regulation）の写しから読む。入力の画面とヒアリングが同じ関数を使う
 import { describe, expect, it } from "vitest";
-import { businessEstimate, healthRateEstimate, isLegacyLivingEstimate, LIVING_SPLIT_CATEGORIES, livingEstimate, livingStatistic, splitLiving, SPLIT_STEP, residentTaxEstimate, retirementLumpSumEstimate, retirementPrevalence, salaryEstimate, smrEstimate, wageCurve, wageSizeClass } from "../src/estimates.ts";
+import { businessEstimate, healthRateEstimate, isLegacyLivingEstimate, LIVING_SPLIT_CATEGORIES, livingCategoryAverages, livingEstimate, livingStatistic, splitLiving, splitTransport, SPLIT_STEP, residentTaxEstimate, retirementLumpSumEstimate, retirementPrevalence, salaryEstimate, smrEstimate, wageCurve, wageSizeClass } from "../src/estimates.ts";
 import { masterValue } from "../src/statistics.ts";
 
 describe("推定の目安", () => {
@@ -46,16 +46,16 @@ describe("推定の目安", () => {
     expect([undefined, 5, 99, 100, 999, 1000].map(wageSizeClass)).toEqual(["all", "small", "small", "medium", "medium", "large"]);
   });
 
-  it("基本生活費は家計調査（二人以上の世帯の世帯人員別）から住居・教育・自動車等関係費を除いた額。1人は仮の値", () => {
+  it("基本生活費は家計調査（二人以上の世帯の世帯人員別）から住居・教育・自動車等関係費・家庭用耐久財・仕送り金を除いた額。1人は仮の値", () => {
     // 表の額のまま（人数ごとの比に使う）
-    expect([1, 2, 3, 4, 5, 6, 8].map((n) => livingStatistic(n).value)).toEqual([140000, 235225, 264456, 279695, 285353, 303204, 303204]);
+    expect([1, 2, 3, 4, 5, 6, 8].map((n) => livingStatistic(n).value)).toEqual([140000, 227080, 250811, 269970, 276287, 298235, 298235]);
     // 欄に入れる推定は千円単位
-    expect([1, 2, 3, 4, 5, 6, 8].map((n) => livingEstimate(n).value)).toEqual([140000, 235000, 264000, 280000, 285000, 303000, 303000]);
+    expect([1, 2, 3, 4, 5, 6, 8].map((n) => livingEstimate(n).value)).toEqual([140000, 227000, 251000, 270000, 276000, 298000, 298000]);
     expect(livingEstimate(3).basis).toBe(livingStatistic(3).basis);
     // 前の版の推定（丸める前の額）を見分ける（人数が同じときだけ。千円ちょうどの額は見分けなくてよい）
-    expect(isLegacyLivingEstimate(264456, 3)).toBe(true);
-    expect(isLegacyLivingEstimate(264000, 3)).toBe(false);
-    expect(isLegacyLivingEstimate(264456, 2)).toBe(false);
+    expect(isLegacyLivingEstimate(250811, 3)).toBe(true);
+    expect(isLegacyLivingEstimate(251000, 3)).toBe(false);
+    expect(isLegacyLivingEstimate(250811, 2)).toBe(false);
     expect(isLegacyLivingEstimate(140000, 1)).toBe(false);
     expect(livingEstimate(1).basis).toContain("仮の値");
     expect(livingEstimate(3).basis).toContain("家計調査（総務省）2025年");
@@ -101,7 +101,7 @@ describe("推定の目安", () => {
 });
 
 describe("総額を費目に分ける（千円単位）", () => {
-  it.each([140000, 264456, 300000, 12345])("総額 %i 円: 端を置く「その他の消費」のほかは千円単位で、合計は総額のまま", (total) => {
+  it.each([140000, 264456, 300000, 12345])("総額 %i 円: 端を置く「その他」のほかは千円単位で、合計は総額のまま", (total) => {
     for (const size of [1, 2, 3, 4]) {
       const sp = splitLiving(total, size);
       expect(sp).not.toBeNull();
@@ -109,7 +109,7 @@ describe("総額を費目に分ける（千円単位）", () => {
       expect(LIVING_SPLIT_CATEGORIES.reduce((s, c) => s + parts[c], 0)).toBe(total);
       for (const c of LIVING_SPLIT_CATEGORIES) {
         expect(parts[c]).toBeGreaterThanOrEqual(0);
-        if (c !== "otherConsumption") expect(parts[c] % SPLIT_STEP, c).toBe(0);
+        if (c !== "other") expect(parts[c] % SPLIT_STEP, c).toBe(0);
       }
     }
   });
@@ -117,5 +117,33 @@ describe("総額を費目に分ける（千円単位）", () => {
     const sp = splitLiving(3000, 3)!;
     expect(LIVING_SPLIT_CATEGORIES.reduce((s, c) => s + sp.parts[c], 0)).toBe(3000);
     for (const c of LIVING_SPLIT_CATEGORIES) expect(sp.parts[c]).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("基本生活費の10費目（0100）", () => {
+  it("基本生活費の目安は消費支出から住居・教育・自動車等関係費・家庭用耐久財・仕送り金を除いた額で、10費目の合計と一致する（表の丸めの1円の差を除く）", () => {
+    expect([2, 3, 4, 5, 6].map((n) => livingStatistic(n).value)).toEqual([227080, 250811, 269970, 276287, 298235]);
+    for (const n of [2, 3, 4, 5, 6]) {
+      const avg = livingCategoryAverages(n)!;
+      const sum = LIVING_SPLIT_CATEGORIES.reduce((s, c) => s + avg.amounts[c], 0);
+      expect(Math.abs(sum - livingStatistic(n).value), `${n}人`).toBeLessThanOrEqual(1);
+    }
+    expect(livingCategoryAverages(2)!.amounts).toMatchObject({ food: 79340, utilities: 22691, communication: 13055, transit: 4781, furniture: 7503, clothing: 15125, health: 16280, recreation: 25457, pocketAndSocial: 26059, other: 16788 });
+    // インターネット接続料（品目分類の全国の月平均 2,954円）を、どの世帯人員も教養娯楽から通信へ移した（合計は同じ）
+    expect([2, 3, 4, 5, 6].map((n) => livingCategoryAverages(n)!.amounts.communication)).toEqual([13055, 15392, 16282, 17276, 20017]);
+    expect([2, 3, 4, 5, 6].map((n) => livingCategoryAverages(n)!.amounts.recreation)).toEqual([25457, 26479, 33756, 32905, 33436]);
+  });
+  it("前の分け方の交通・通信とその他の消費支出の平均も添える（前の世帯の内訳の目安）", () => {
+    expect(livingCategoryAverages(2)!.amounts).toMatchObject({ transport: 14883 });
+    expect(livingCategoryAverages(2)!.amounts.otherConsumption).toBeGreaterThan(0);
+  });
+  it("交通・通信を交通と通信に分ける: 交通は千円単位、合計は元の額のまま", () => {
+    const sp = splitTransport(30000, 2)!;
+    expect(sp.transit + sp.communication).toBe(30000);
+    expect(sp.transit % SPLIT_STEP).toBe(0);
+    expect(sp.transit).toBe(Math.round((30000 * 4781) / (4781 + 13055) / 1000) * 1000);
+    const tiny = splitTransport(400, 2)!;
+    expect(tiny.transit + tiny.communication).toBe(400);
+    expect(tiny.transit).toBeGreaterThanOrEqual(0);
   });
 });

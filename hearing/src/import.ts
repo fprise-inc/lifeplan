@@ -7,7 +7,7 @@
 import full1 from "../sheets/full/1.json" with { type: "json" };
 import { answerKey, type Answer, type FilledSheet } from "./answers.ts";
 import { axisOf, itemByKey, type SheetDefinition, type SheetItem } from "./definition.ts";
-import { bonusShareEstimate, businessEstimate, careerStartMonth, healthRateEstimate, livingEstimate, residentTaxEstimate, residentTaxYear, salaryEstimate, type Estimate } from "./estimates.ts";
+import { bonusShareEstimate, businessEstimate, careerStartMonth, HEARING_UNKNOWN_BASIS, healthRateEstimate, livingEstimate, residentTaxEstimate, residentTaxYear, salaryEstimate, type Estimate } from "./estimates.ts";
 import { issue, type Issue } from "./issues.ts";
 import { monthsFromPayment, principalFromPayment, standardTermMonths } from "./loan.ts";
 import { addMonths, ageAt, reachedMonth, ymIndex } from "./months.ts";
@@ -1456,10 +1456,20 @@ function importInsurance(c: Ctx, h: Household, adults: Adults, baseMonth: string
 
 // ---- 生活費と貯蓄 ----
 
+function livingUnknownBox(c: Ctx, id: string, size: number): ValueBox<number> {
+  const e = livingEstimate(size);
+  c.field(id, "hs.expense.living", undefined, "livingExpense.monthly", "/monthly", "estimated");
+  c.issues.push(issue("info", "H_ESTIMATED", `${c.label("hs.expense.living")}: 「わからない」のため目安（${e.value.toLocaleString("ja-JP")}円）の推定にしました（${e.basis}）`, c.src("hs.expense.living")));
+  return c.estimated({ value: e.value, basis: `${HEARING_UNKNOWN_BASIS}。${e.basis}` }, "statistic");
+}
+
 function importLiving(c: Ctx, h: Household, asOf: string, baseMonth: string): void {
   const size = h.members.filter((m) => !m.expected && m.outside === undefined).length;
   const id = c.newId();
-  const box = c.moneyBox(id, "hs.expense.living", undefined, "livingExpense.monthly", "/monthly", () => livingEstimate(size));
+  // 基本生活費は「わからない」を持たない（0100）: シートの「わからない」は、統計の目安の推定（根拠に「ヒアリングで『わからない』」）にする。
+  // 面談のチェックリストには今までどおり載る
+  const unknown = c.get<number>("hs.expense.living").status === "unknown";
+  const box = unknown ? livingUnknownBox(c, id, size) : c.moneyBox(id, "hs.expense.living", undefined, "livingExpense.monthly", "/monthly", () => livingEstimate(size));
   const l: LivingExpense = { id, mode: "total", monthly: box as ValueBox<number> };
   h.livingExpenses = [l];
   c.candidate("livingExpenses", "livingExpense.monthly", l);

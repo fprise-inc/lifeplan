@@ -131,6 +131,18 @@ const PREMISE_ITEM = /^(assumptions|plan)\./;
  */
 const MAY_BE_NONE = new Set(["employment.salary.bonus", "residentTaxAssessment.amount", "retirementBenefit.amount"]);
 
+/**
+ * 「わからない」を出さない物（0100）: 基本生活費（総額・内訳・段階など。入力項目 livingExpense.*）と、年払い・数年おきの暮らしの支出
+ * （お金の行の種類 livingAnnual。入力項目でなく行の種類で見る）。分からなければ統計やよくある額の目安の推定のままにする（推定がそのまま代わりの値なので、
+ * 「わからない」の印を別に持つ意味が無い）
+ */
+function livingCost(f: FieldDef, wh: WorkingHousehold, a: Address | null): boolean {
+  if (f.item !== null && f.item.startsWith("livingExpense.")) return true;
+  const t = a?.target;
+  if (t === undefined || !("object" in t)) return false;
+  return (wh.request.input.household.periodicExpenses ?? []).some((p) => p.id === t.object && p.kind === "livingAnnual");
+}
+
 /** 欄が推定の値を持つか（空欄にすると推定で計算する・今の値が推定）。「わからない」の代わりの値になる */
 const hasEstimate = (f: FieldDef, s: FieldStatus): boolean => f.blankIsEstimate === true || f.blankEstimate !== undefined || s.status === "estimated";
 
@@ -138,7 +150,7 @@ const hasEstimate = (f: FieldDef, s: FieldStatus): boolean => f.blankIsEstimate 
  * 欄で使える操作（その欄・その状態で意味のあるものだけ。0041 の 2026-10-29 の追記）
  * - この値にする: 推定（わからないなら代わりの値）を、その値のまま確定にできる
  * - 推定に戻す: 空欄にすると推定で計算する欄で、今は推定でない
- * - わからない: 世帯に聞く数の値で、代わりに使う推定がある欄（推定の無い欄は、わからないにしても代わりの値が無いので出さない）
+ * - わからない: 世帯に聞く数の値で、代わりに使う推定がある欄（推定の無い欄は、わからないにしても代わりの値が無いので出さない）。基本生活費の入力項目には出さない（0100）
  * - 該当なし: 推定の額のある欄のうち、物そのものが無いことがある額（MAY_BE_NONE）
  * 前に入れた「わからない」「該当なし」が今は出さない欄にあっても、戻す操作（この値にする・推定に戻す・打ち直す）は今までどおり
  */
@@ -151,7 +163,7 @@ export function availableOps(f: FieldDef, wh: WorkingHousehold, s: FieldStatus =
   if ((s.status === "estimated" && confirmable(f, wh, a)) || (s.status === "unknown" && value !== null)) out.push("confirm");
   if (f.blankIsEstimate === true && s.status !== "estimated") out.push("revert");
   const asked = stateful && (f.item === null || !PREMISE_ITEM.test(f.item));
-  if (asked && NUMERIC.has(f.kind) && s.status !== "unknown" && hasEstimate(f, s) && (value !== null || f.blankIsEstimate === true) && s.status !== "missing") out.push("unknown");
+  if (asked && NUMERIC.has(f.kind) && s.status !== "unknown" && hasEstimate(f, s) && (value !== null || f.blankIsEstimate === true) && s.status !== "missing" && !livingCost(f, wh, a)) out.push("unknown");
   if (asked && f.kind === "yen" && f.optional === true && s.status !== "notApplicable" && f.blankIsEstimate === true && f.item !== null && MAY_BE_NONE.has(f.item)) out.push("notApplicable");
   return out;
 }

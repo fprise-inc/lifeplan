@@ -216,6 +216,24 @@ describe("候補", () => {
     expect(c2).toMatchObject({ op: "set", item: "livingExpense.monthly", value: { value: 30021 + 8806 }, before: { value: 250000 } });
   });
 
+  it("今の分け方の内訳（0100）の世帯: 明細の交通・通信が含む交通費・通信費は残さない（二重に数えない）。残す内訳の名前は入力の画面と同じ", () => {
+    const s = summaryOf(yearLog());
+    const box = (v: number) => ({ value: v, state: "estimated" as const, origin: { kind: "auto" } });
+    const cats = [
+      { category: "food", monthly: box(79000) },
+      { category: "communication", monthly: box(13000) },
+      { category: "transit", monthly: box(5000) },
+      { category: "furniture", monthly: box(8000) },
+      { category: "pocketAndSocial", monthly: box(26000) },
+      { category: "other", monthly: box(17000) },
+    ] as const;
+    const byCat: CandidateHousehold = { livingExpenses: [{ id: "le1", mode: "byCategory", categories: cats }] };
+    const c = buildCandidates(s, byCat, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids() })[0];
+    // 明細の区分は食費・交通・通信だけ。交通費・通信費は交通・通信に含まれるので外し、日用品・こづかいと交際費・その他は残す
+    expect((c?.value as { category: string }[]).map((x) => x.category)).toEqual(["food", "transport", "furniture", "pocketAndSocial", "other"]);
+    expect(c?.note).toContain("明細に出てこない内訳（日用品・こづかい・交際費・その他）は今の値を残します");
+  });
+
   it("期間が短い・迷う行が残るときは要確認", () => {
     const short = synth([{ id: "a", kind: "card", label: "A", owner: SELF, period: { from: "2026-08-01", to: "2026-09-29" }, rows: [{ date: "2026-08-12", merchant: "イオン", amount: 12000 }] }]);
     expect(buildCandidates(summaryOf(short), {}, { ref: "r", baseMonth: BASE_MONTH, newId: ids() })[0]?.status).toBe("needsReview");

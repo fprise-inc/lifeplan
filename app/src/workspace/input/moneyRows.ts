@@ -559,6 +559,86 @@ export function supportDependentYears(h: Household, kid: Member, p: PeriodicExpe
   return `効く年の目安: ${startText}${end === null ? "行の終わりまで" : `${String(end)}年（${String(end - birth)}歳）まで`}`;
 }
 
+// ---- 時期・何年ごとを変えたときの額の直し方（0100 の追記） ----
+
+/** 1年に何回か（毎月は12回、n年ごとは 1/n 回）。1回は年あたりが無いので null */
+const timesPerYear = (c: Cadence, every: number): number | null => (c === "monthly" ? 12 : c === "repeat" ? 1 / Math.max(1, every) : null);
+/** 直した額の根拠・知らせの文の頭（入れ直すたびに前の文を外して付け直す） */
+const REEXPRESSED = "時期に合わせて直した額";
+const perText = (c: Cadence, every: number) => (c === "monthly" ? "月額" : every === 1 ? "年額" : `${every}年ごとの額`);
+const manYen = (v: number) => `${(Math.round(v / 1000) / 10).toLocaleString("ja-JP")}万円`;
+
+/**
+ * 時期（毎月／年ごと）・何年ごとを変えたときに、行の額（元の額・段階の額・例外の年の額）を、年あたりが同じになるように言い直す。
+ * - 推定（と「わからない」の代わりの値）: 言い直して推定の印のまま、根拠に「時期に合わせて直した額」を足す（毎月は100円、年ごとは千円の単位に丸める）
+ * - FP が入れた値: 時期（毎月 ↔ 年ごと）を変えたときだけ言い直し（額の単位が変わるため。1円の単位）、欄の下に1行の知らせを出す（確定のまま。根拠に前の額を書く）。
+ *   何年ごとだけを変えたときは変えない（1回あたりの額は FP が知っている額のため）
+ * - 1回の行との間は年あたりが無いので変えない
+ */
+export function reexpressAmounts(r: Obj, from: { c: Cadence; every: number }, to: { c: Cadence; every: number }): void {
+  const a = timesPerYear(from.c, from.every);
+  const b = timesPerYear(to.c, to.every);
+  if (a === null || b === null || a === b) return;
+  const factor = a / b;
+  const unitChanged = (from.c === "monthly") !== (to.c === "monthly");
+  const step = to.c === "monthly" ? 100 : 1000;
+  const toText = perText(to.c, to.every);
+  const fromText = perText(from.c, from.every);
+  // 推定の根拠には、元の時期の言い方を残す（元の時期に戻したら根拠も元に戻る）
+  const SUFFIX = new RegExp(`（${REEXPRESSED}。元は([^）]*)）$`, "u");
+  const rebasis = (s: string): string => {
+    const m = SUFFIX.exec(s);
+    const head = m === null ? s : s.slice(0, m.index);
+    const original = m?.[1] ?? fromText;
+    return original === toText ? head : `${head}（${REEXPRESSED}。元は${original}）`;
+  };
+  const redo = (box: unknown): void => {
+    if (typeof box !== "object" || box === null) return;
+    const x = box as Obj & { value?: number; state?: string; estimate?: { method: string; basis: string }; substitute?: Obj & { value?: number; estimate?: { method: string; basis: string } } };
+    // 0円（未入力の0円の推定など）は直すものが無い
+    if (typeof x.value === "number" && x.value === 0) return;
+    if (x.state === "estimated" && typeof x.value === "number") {
+      x.value = Math.round((x.value * factor) / step) * step;
+      x.estimate = { method: x.estimate?.method ?? "derived", basis: rebasis(x.estimate?.basis ?? "推定") };
+    } else if (x.state === "unknown" && x.substitute !== undefined && typeof x.substitute.value === "number") {
+      x.substitute.value = Math.round((x.substitute.value * factor) / step) * step;
+      x.substitute.estimate = { method: x.substitute.estimate?.method ?? "derived", basis: rebasis(x.substitute.estimate?.basis ?? "推定") };
+    } else if (x.state === "confirmed" && typeof x.value === "number" && unitChanged) {
+      const before = `${fromText} ${manYen(x.value)}`;
+      x.value = Math.round(x.value * factor);
+      x.estimate = { method: "derived", basis: `${REEXPRESSED}。年あたりが同じになるよう、${before}を${toText}に直しました` };
+    }
+  };
+  redo(r.amount);
+  for (const s of (r.stages as Obj[] | undefined) ?? []) redo(s.amount);
+  for (const e of (r.exceptions as Obj[] | undefined) ?? []) redo(e.amount);
+}
+
+/** 額の欄の下の1行の知らせ（FP が入れた値を時期に合わせて直したとき。打ち直すと消える） */
+export function reexpressedNote(box: unknown): string | null {
+  if (typeof box !== "object" || box === null) return null;
+  const x = box as { state?: string; estimate?: { basis?: string } };
+  const b = x.estimate?.basis;
+  return x.state === "confirmed" && b !== undefined && b.startsWith(REEXPRESSED) ? b.slice(REEXPRESSED.length + 1) : null;
+}
+
+/** 何年ごとの欄（直すと、推定の額は年あたりが同じになるよう言い直す。FP が入れた額は変えない） */
+export function everyField(key: string, item: string, find: Finder, help: string): FieldDef {
+  const f = plain({ key, item, label: "何年ごと", level: "simple", kind: "int", suffix: "年ごと", min: 1, max: 50, find, path: ["everyYears"], help });
+  return {
+    ...f,
+    set: (wh, v) => {
+      const before = Number(f.get(wh).value ?? 1);
+      const next = f.set(wh, v);
+      if (v === null || next === wh || Number(v) === before) return next;
+      return mutate(next, (h) => {
+        const r = find(h, next) as unknown as Obj | undefined;
+        if (r !== undefined) reexpressAmounts(r, { c: "repeat", every: before }, { c: "repeat", every: Number(v) });
+      });
+    },
+  };
+}
+
 /**
  * 時期の入れ方の欄（1回／毎月／年ごと）。1回は終わりを始まりと同じ月に、毎月は monthly を立てる（何年ごとは1）。年ごとに変えると、何年ごとは
  * 1（毎年）から始まる。1回・毎月に変えると何年ごとの欄は消えるので、何年ごとの仮の印（ひな形の推定）も外す
@@ -582,6 +662,7 @@ export function cadenceField(key: string, item: string, find: Finder, id: string
           const r = find(h, wh) as unknown as (PeriodicExpense & Obj) | undefined;
           if (r === undefined) return;
           const was = cadenceOf(h, r);
+          const wasEvery = r.everyYears;
           if (v === "once") {
             delete r.monthly;
             r.everyYears = 1;
@@ -593,6 +674,8 @@ export function cadenceField(key: string, item: string, find: Finder, id: string
               r.everyYears = 1;
             } else delete r.monthly;
           }
+          // 毎月 ↔ 年ごとは、年あたりが同じになるよう額を言い直す（0100 の追記）
+          if (v === "monthly" || v === "repeat") reexpressAmounts(r, { c: was, every: wasEvery }, { c: v, every: r.everyYears });
         });
         return v === "repeat" ? next : withoutAssumedKey(next, key.replace(/\/cadence$/, "/every"));
       },
@@ -714,9 +797,9 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   if (kinds.length > 1 || !kinds.some((x) => x.kind === f.kind))
     fields.push(withAddress(plain({ key: `${k}/kind`, item: "incomeFlow.kind", label: "種類", level: "simple", kind: "select", options: (kinds.some((x) => x.kind === f.kind) ? kinds : [...kinds, def]).map((x) => ({ value: x.kind, label: x.label })), find, path: ["kind"], structural: true, after: (_h, t) => fixIncomeRow(t), help: `${def.help !== undefined ? `${def.label}: ${def.help}。` : ""}種類で課税の扱いと表の行の既定が決まります（詳細で変えられます）` }), address(f.id, "incomeFlow.kind")));
   fields.push(cadenceField(`${k}/cadence`, "incomeFlow.monthly", find, f.id));
-  fields.push(withAddress(yenBox({ key: `${k}/amount`, item: "incomeFlow.amount", label: amountName(c, f.everyYears), level: "simple", basis: c === "monthly" ? "monthly" : "once", find, path: ["amount"], help: c === "repeat" ? `${everyAmountHelp(f.everyYears)}。今の値段で入れます（これからの値上がりは、詳細の「伸び方」に合わせて計算します）` : "今の値段で入れます（これからの値上がりは、詳細の「伸び方」に合わせて計算します）" }), address(f.id, "incomeFlow.amount")));
+  fields.push(withAddress(yenBox({ key: `${k}/amount`, item: "incomeFlow.amount", label: amountName(c, f.everyYears), level: "simple", basis: c === "monthly" ? "monthly" : "once", find, path: ["amount"], hint: (w) => reexpressedNote(getPath(find(w.request.input.household, w), ["amount"])), help: c === "repeat" ? `${everyAmountHelp(f.everyYears)}。今の値段で入れます（これからの値上がりは、詳細の「伸び方」に合わせて計算します）` : "今の値段で入れます（これからの値上がりは、詳細の「伸び方」に合わせて計算します）" }), address(f.id, "incomeFlow.amount")));
   fields.push(withAddress(timepointField({ key: `${k}/from`, item: "incomeFlow.from", label: c === "once" ? "受け取る時期" : "始まり", level: "simple", find, path: ["from"], ...selfAge(wh), ...(c === "once" ? { after: (_h: Household, t: Obj) => void (t.to = structuredClone(t.from)) } : {}) }), address(f.id, "incomeFlow.from")));
-  if (c === "repeat") fields.push(withAddress(plain({ key: `${k}/every`, item: "incomeFlow.everyYears", label: "何年ごと", level: "simple", kind: "int", suffix: "年ごと", min: 1, max: 50, find, path: ["everyYears"], help: EVERY_HELP }), address(f.id, "incomeFlow.everyYears")));
+  if (c === "repeat") fields.push(withAddress(everyField(`${k}/every`, "incomeFlow.everyYears", find, EVERY_HELP), address(f.id, "incomeFlow.everyYears")));
   // 養育費の行は、相手（養育を受ける子）の年齢で終わりを見せ、終わりの既定はその子の20歳（0044 の追記）
   const support = f.kind === "childSupport" && card === "family";
   if (c !== "once")
@@ -962,10 +1045,10 @@ export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense, card: Mo
     plain({ key: `${k}/label`, item: "periodicExpense.label", label: "名前", level: nameLevel(card), kind: "text", find, path: ["label"], optional: true }),
     ...expenseHeadFields(wh, p, card),
     cadenceField(`${k}/cadence`, "periodicExpense.monthly", find, p.id),
-    yenBox({ key: `${k}/amount`, item: "periodicExpense.amount", label: amountName(c, p.everyYears), level: "simple", basis: c === "monthly" ? "monthly" : "once", find, path: ["amount"], ...(c === "repeat" ? { help: everyAmountHelp(p.everyYears) } : {}) }),
+    yenBox({ key: `${k}/amount`, item: "periodicExpense.amount", label: amountName(c, p.everyYears), level: "simple", basis: c === "monthly" ? "monthly" : "once", find, path: ["amount"], hint: (w) => reexpressedNote(getPath(find(w.request.input.household, w), ["amount"])), ...(c === "repeat" ? { help: everyAmountHelp(p.everyYears) } : {}) }),
     timepointField({ key: `${k}/from`, item: "periodicExpense.from", label: once ? "時期" : "初め", level: "simple", find, path: ["from"], ...ageOf, ...(once ? { after: (_h: Household, t: Record<string, unknown>) => void (t.to = structuredClone(t.from)) } : {}) }),
   ];
-  if (c === "repeat") fields.push(plain({ key: `${k}/every`, item: "periodicExpense.everyYears", label: "何年ごと", level: "simple", kind: "int", suffix: "年ごと", min: 1, max: 50, find, path: ["everyYears"], help: EVERY_HELP }));
+  if (c === "repeat") fields.push(everyField(`${k}/every`, "periodicExpense.everyYears", find, EVERY_HELP));
   const support = card === "family" && p.kind === "childSupport";
   if (!once) fields.push(timepointField({ key: `${k}/to`, item: "periodicExpense.to", label: "終わり", level: "simple", find, path: ["to"], startPath: ["from"], optional: true, nullText: "最後まで", ...(support ? { ...supportAge(wh, p), help: SUPPORT_END_HELP, warn: supportEndWarn(find) } : ageOf) }));
   fields.push(expensePriorityField(p, card));

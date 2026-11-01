@@ -27,8 +27,24 @@ export type StatementCategory =
   | "transfer"
   | "income";
 
-/** 計算エンジンの基本生活費の内訳（engine の LivingCategory と同じ値） */
-export type LivingCategory = "food" | "utilities" | "furniture" | "clothing" | "health" | "transport" | "recreation" | "otherConsumption" | "allowance";
+/**
+ * 計算エンジンの基本生活費の内訳（engine の LivingCategory と同じ値）。明細の区分は前の分け方（交通・通信 transport、その他の消費 otherConsumption）に
+ * 入れる（LIVING_ORDER）。通信費・交通費・こづかいと交際費・その他は世帯の側にある内訳（0100）
+ */
+export type LivingCategory =
+  | "food"
+  | "utilities"
+  | "communication"
+  | "transit"
+  | "furniture"
+  | "clothing"
+  | "health"
+  | "recreation"
+  | "pocketAndSocial"
+  | "other"
+  | "allowance"
+  | "transport"
+  | "otherConsumption";
 
 export interface CategoryInfo {
   readonly id: StatementCategory;
@@ -80,13 +96,26 @@ export function isCategory(v: unknown): v is StatementCategory {
 export const LIVING_LABELS: Record<LivingCategory, string> = {
   food: "食費",
   utilities: "水道・光熱費",
-  furniture: "家具・家事用品",
-  clothing: "被服費",
-  health: "保健医療費",
-  transport: "交通・通信費",
-  recreation: "教養娯楽費",
-  otherConsumption: "その他の消費（こづかい・交際費など）",
+  communication: "通信費",
+  transit: "交通費",
+  furniture: "日用品",
+  clothing: "被服・美容",
+  health: "医療費",
+  recreation: "趣味・娯楽",
+  pocketAndSocial: "こづかい・交際費",
+  other: "その他",
   allowance: "仕送り",
+  transport: "交通・通信費",
+  otherConsumption: "その他の消費（こづかい・交際費など）",
+};
+
+/**
+ * 明細の前の分け方の内訳が含む、世帯の側の今の分け方の内訳（0100）。明細から交通・通信を入れるときは、世帯の交通費・通信費を残さない
+ * （残すと二重に数える）。その他の消費も同じ
+ */
+export const LIVING_COVERS: Readonly<Partial<Record<LivingCategory, readonly LivingCategory[]>>> = {
+  transport: ["communication", "transit"],
+  otherConsumption: ["pocketAndSocial", "other"],
 };
 
 export const LIVING_ORDER: readonly LivingCategory[] = ["food", "utilities", "furniture", "clothing", "health", "transport", "recreation", "otherConsumption", "allowance"];

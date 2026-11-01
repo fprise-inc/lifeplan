@@ -2506,61 +2506,92 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "retrievedAt": "2026-10-26"
  },
  "living.statistics.basicMonthly": {
-  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の消費支出から、住居・教育・自動車等関係費を除いた額（upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の消費支出から、住居・教育・自動車等関係費・家庭用耐久財・仕送り金を除いた額（upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
   "value": [
    {
     "upTo": 1
    },
    {
     "upTo": 2,
-    "amount": 235225
+    "amount": 227080
    },
    {
     "upTo": 3,
-    "amount": 264456
+    "amount": 250811
    },
    {
     "upTo": 4,
-    "amount": 279695
+    "amount": 269970
    },
    {
     "upTo": 5,
-    "amount": 285353
+    "amount": 276287
    },
    {
     "upTo": null,
-    "amount": 303204
+    "amount": 298235
    }
   ],
-  "rev": 1,
+  "rev": 2,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
  "living.statistics.categoryMonthly.clothing": {
-  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の被服及び履物（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の被服及び履物と理美容サービス・理美容用品の合計（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
   "value": [
    {
     "upTo": 1
    },
    {
     "upTo": 2,
-    "amount": 7257
+    "amount": 15125
    },
    {
     "upTo": 3,
-    "amount": 10034
+    "amount": 19004
    },
    {
     "upTo": 4,
-    "amount": 13523
+    "amount": 23591
    },
    {
     "upTo": 5,
-    "amount": 14629
+    "amount": 24639
    },
    {
     "upTo": null,
-    "amount": 15115
+    "amount": 24955
+   }
+  ],
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "living.statistics.categoryMonthly.communication": {
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の通信と、インターネット接続料（品目分類の全国の月平均）の合計（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+  "value": [
+   {
+    "upTo": 1
+   },
+   {
+    "upTo": 2,
+    "amount": 13055
+   },
+   {
+    "upTo": 3,
+    "amount": 15392
+   },
+   {
+    "upTo": 4,
+    "amount": 16282
+   },
+   {
+    "upTo": 5,
+    "amount": 17276
+   },
+   {
+    "upTo": null,
+    "amount": 20017
    }
   ],
   "rev": 1,
@@ -2599,33 +2630,33 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "retrievedAt": "2026-10-26"
  },
  "living.statistics.categoryMonthly.furniture": {
-  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の家具・家事用品（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の家具・家事用品から家庭用耐久財を除いた額（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
   "value": [
    {
     "upTo": 1
    },
    {
     "upTo": 2,
-    "amount": 11564
+    "amount": 7503
    },
    {
     "upTo": 3,
-    "amount": 13475
+    "amount": 8891
    },
    {
     "upTo": 4,
-    "amount": 14292
+    "amount": 9760
    },
    {
     "upTo": 5,
-    "amount": 16021
+    "amount": 10641
    },
    {
     "upTo": null,
-    "amount": 14003
+    "amount": 10652
    }
   ],
-  "rev": 1,
+  "rev": 2,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
@@ -2654,6 +2685,37 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
    {
     "upTo": null,
     "amount": 12876
+   }
+  ],
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "living.statistics.categoryMonthly.other": {
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月のその他の消費支出から、理美容サービス・理美容用品・こづかい（使途不明）・交際費・仕送り金を除いた額（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+  "value": [
+   {
+    "upTo": 1
+   },
+   {
+    "upTo": 2,
+    "amount": 16788
+   },
+   {
+    "upTo": 3,
+    "amount": 19157
+   },
+   {
+    "upTo": 4,
+    "amount": 18167
+   },
+   {
+    "upTo": 5,
+    "amount": 16492
+   },
+   {
+    "upTo": null,
+    "amount": 17230
    }
   ],
   "rev": 1,
@@ -2691,31 +2753,93 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "living.statistics.categoryMonthly.recreation": {
-  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の教養娯楽（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+ "living.statistics.categoryMonthly.pocketAndSocial": {
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月のこづかい（使途不明）と交際費の合計（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
   "value": [
    {
     "upTo": 1
    },
    {
     "upTo": 2,
-    "amount": 28411
+    "amount": 26059
    },
    {
     "upTo": 3,
-    "amount": 29433
+    "amount": 21337
    },
    {
     "upTo": 4,
-    "amount": 36710
+    "amount": 17597
    },
    {
     "upTo": 5,
-    "amount": 35859
+    "amount": 15110
    },
    {
     "upTo": null,
-    "amount": 36390
+    "amount": 18288
+   }
+  ],
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "living.statistics.categoryMonthly.recreation": {
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の教養娯楽から、インターネット接続料（品目分類の全国の月平均）を除いた額（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+  "value": [
+   {
+    "upTo": 1
+   },
+   {
+    "upTo": 2,
+    "amount": 25457
+   },
+   {
+    "upTo": 3,
+    "amount": 26479
+   },
+   {
+    "upTo": 4,
+    "amount": 33756
+   },
+   {
+    "upTo": 5,
+    "amount": 32905
+   },
+   {
+    "upTo": null,
+    "amount": 33436
+   }
+  ],
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "living.statistics.categoryMonthly.transit": {
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の交通（自動車等関係費・通信を除く）（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+  "value": [
+   {
+    "upTo": 1
+   },
+   {
+    "upTo": 2,
+    "amount": 4781
+   },
+   {
+    "upTo": 3,
+    "amount": 6239
+   },
+   {
+    "upTo": 4,
+    "amount": 7099
+   },
+   {
+    "upTo": 5,
+    "amount": 4927
+   },
+   {
+    "upTo": null,
+    "amount": 4007
    }
   ],
   "rev": 1,

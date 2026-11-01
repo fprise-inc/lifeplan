@@ -554,6 +554,31 @@ function sample042(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/** 0.43 の見本の世帯（0100）: sample042() の基本生活費を内訳で入れ、10費目と仕送り（通信費・交通費・こづかいと交際費・その他を含む）と、前の分け方の交通・通信を持たせる */
+function sample043(): BodyState {
+  const s = sample042();
+  const req = structuredClone(s.wh.request);
+  const l = req.input.household.livingExpenses![0]!;
+  const conf = (value: number) => ({ value, state: "confirmed" as const, origin: { kind: "manual" as const } });
+  l.mode = "byCategory";
+  const cats: [string, number][] = [
+    ["food", 120000],
+    ["utilities", 30000],
+    ["communication", 15000],
+    ["transit", 8000],
+    ["furniture", 12000],
+    ["clothing", 25000],
+    ["health", 20000],
+    ["recreation", 40000],
+    ["pocketAndSocial", 30000],
+    ["other", 20000],
+    ["allowance", 0],
+    ["transport", 10000],
+  ];
+  l.categories = cats.map(([category, v], i) => ({ id: `00000000-0000-4000-8000-0000000043${String(i).padStart(2, "0")}`, category, monthly: conf(v) })) as typeof l.categories;
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -677,7 +702,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.42");
+    expect(BODY_FORMAT_VERSION).toBe("0.43");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -831,7 +856,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample042())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample043())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1031,6 +1056,24 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(premiseFor(back.wh, planId).partnerWork?.income?.[spouse.id]).toEqual({ type: "partTime", annualSalary: 1500000 });
     // 0.35 の見本には欄が無い
     expect("partnerWork" in (bodyObject(sample035()).household as unknown as { contingency: Record<string, unknown> }).contingency).toBe(false);
+  });
+
+  it("0.43 の形（0100）: 基本生活費の新しい内訳と前の分け方の内訳を保存して読み戻し、計算に使う（内訳の合計が基本生活費）", () => {
+    const s = sample043();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const cats = stored.household.request.input.household.livingExpenses![0]!.categories!.map((c) => c.category);
+    for (const c of ["communication", "transit", "pocketAndSocial", "other", "transport"]) expect(cats).toContain(c);
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(() => preview(back.wh.request)).not.toThrow();
+  });
+
+  it("0.42 → 0.43 の変換の段が基本生活費の「わからない」を推定にした世帯には、開いたときの知らせを見せる（押すと基本生活費を開く）", () => {
+    const i: BarInputs = { opened: true, stored: true, save: { kind: "idle" } as never, paused: false, aiSharing: false, storage: [], showing: { recovery: false, office: false, storage: false }, presence: null, message: (c) => c, household: [{ id: "n1", kind: "livingUnknown", count: 2, plans: 1 }] };
+    const [n] = barNotices(i);
+    expect(n).toMatchObject({ id: "household:n1", target: "living", action: "基本生活費" });
+    expect(n?.text).toContain("2か所とプランの変更 1件");
+    expect(n?.text).toContain("結果は変わりません");
   });
 
   it("0.42 の形（0090）: 高専と専門職大学院（法科大学院）の段を保存して読み戻し、計算に使う", () => {

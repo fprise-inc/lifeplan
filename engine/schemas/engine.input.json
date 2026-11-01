@@ -1767,8 +1767,8 @@
       }
     },
     "livingCategory": {
-      "enum": ["food", "utilities", "furniture", "clothing", "health", "transport", "recreation", "otherConsumption", "allowance"],
-      "description": "家計調査の消費支出の区分（住居・教育は別の行）: 食料・光熱水道・家具家事用品・被服履物・保健医療・交通通信・教養娯楽・その他の消費支出、仕送り"
+      "enum": ["food", "utilities", "communication", "transit", "furniture", "clothing", "health", "recreation", "pocketAndSocial", "other", "allowance", "transport", "otherConsumption"],
+      "description": "基本生活費の内訳（住居・教育・車は別の行。0100）: food 食費・utilities 水道・光熱費・communication 通信費・transit 交通費（車を除く）・furniture 日用品（家庭用耐久財を除く）・clothing 被服・美容・health 医療費・recreation 趣味・娯楽・pocketAndSocial こづかい・交際費・other その他・allowance 仕送り。transport（交通・通信）と otherConsumption（その他の消費支出）は前の分け方（0.42 までの世帯。読むだけで、新しくは作らない）"
     },
     "livingExpense": {
       "description": "0008 の追記: 生活費（総額または費目別。段階と物価上昇率）",

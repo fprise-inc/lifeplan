@@ -729,7 +729,24 @@ export interface OnContingencyInput {
   readonly kinds?: readonly ("death" | "disability" | "incapacity")[];
 }
 
-export type LivingCategory = "food" | "utilities" | "furniture" | "clothing" | "health" | "transport" | "recreation" | "otherConsumption" | "allowance";
+/**
+ * 基本生活費の内訳（0100）: 食費・水道光熱費・通信費・交通費（車を除く）・日用品・被服と美容・医療費・趣味と娯楽・こづかいと交際費・その他・仕送り。
+ * transport（交通・通信）と otherConsumption（その他の消費支出）は前の分け方（0.42 までの世帯の内訳。計算はほかの内訳と同じ）
+ */
+export type LivingCategory =
+  | "food"
+  | "utilities"
+  | "communication"
+  | "transit"
+  | "furniture"
+  | "clothing"
+  | "health"
+  | "recreation"
+  | "pocketAndSocial"
+  | "other"
+  | "allowance"
+  | "transport"
+  | "otherConsumption";
 
 export interface LivingExpenseInput {
   readonly id: string;
