@@ -337,12 +337,13 @@ describe("貯蓄・運用", () => {
 });
 
 describe("ライフイベント・車・相続・前提条件", () => {
-  it("ライフイベントの行の優先度・見込みは詳細（ほかのカードの行は標準のまま）。相続・贈与の行の名前は詳細", () => {
+  it("ライフイベントの出るお金の行の優先度は標準（行の右で必ず・できれば）、入るお金の行の見込みは詳細。相続・贈与の行の名前は詳細", () => {
     const wh = open("salariedCoupleTwoKids");
     const ev = fieldsOf(wh, "events");
-    const pri = ev.filter((f) => f.key.endsWith("/priority") || f.key.endsWith("/likelihood"));
+    const pri = ev.filter((f) => f.key.endsWith("/priority"));
     expect(pri.length).toBeGreaterThan(0);
-    expect(pri.every((f) => f.level === "detail")).toBe(true);
+    expect(pri.every((f) => f.level === "simple")).toBe(true);
+    expect(ev.filter((f) => f.key.endsWith("/likelihood")).every((f) => f.level === "detail")).toBe(true);
     const inh = open("parentMoney");
     const names = fieldsOf(inh, "inheritance").filter((f) => f.label === "名前");
     expect(names.every((f) => f.level === "detail")).toBe(true);

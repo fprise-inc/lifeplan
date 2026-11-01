@@ -71,8 +71,8 @@ export const LEVEL_HELP: Readonly<Record<StageId, LevelHelpDef>> = {
     fallback: "default",
   },
   events: {
-    simple: [["支出や収入の名前", "名前"], ["時期"], ["額"], ["何年ごとか", "何年ごと"]],
-    detail: [["優先度"], ["キャッシュフロー表の行"], ["伸び方"]],
+    simple: [["支出や収入の名前", "名前"], ["時期"], ["額"], ["何年ごとか", "何年ごと"], ["優先度"]],
+    detail: [["払う人"], ["伸び方"], ["この世帯の予定"]],
     fallback: "default",
   },
   car: {

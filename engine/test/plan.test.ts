@@ -77,7 +77,7 @@ describe("生活費（expense.living）", () => {
 });
 
 describe("周期的な支出・車（expense.periodic・expense.car）", () => {
-  it("n年ごとの支出は最初の月から同じ月に、固定の率で伸ばす", () => {
+  it("何年かごとの支出は最初の月から同じ月に、固定の率で伸ばす", () => {
     const req = edit(quiet(), (h) => (h.periodicExpenses = [{ id: uid("pe"), row: "cf.expense.lumpSum.other", from: at("2027-08"), to: at("2033-12"), everyYears: 3, amount: box(500000), growth: { kind: "rate", rate: "0.1" } }]));
     const fs = call<{ flows: Flow[] }>(req, "expense.periodic", {}).flows;
     expect(fs.map((f) => [f.ym, f.amount])).toEqual([

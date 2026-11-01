@@ -594,7 +594,7 @@ describe("区画（0048 の3〜5）", () => {
     expect(() => preview(wh.request)).not.toThrow();
   });
 
-  it("明細の年1回の支払いは、年払いの暮らしの支出の行の候補（車・住まいの修繕は今までどおり）", () => {
+  it("明細の年1回の支払いは、年払いの暮らしの支出の行の候補（車は車の入力項目、住まいの修繕は住まいの入力項目の行）", () => {
     const summary = {
       days: 400,
       from: "2025-09",
@@ -613,8 +613,10 @@ describe("区画（0048 の3〜5）", () => {
     const fee = out.find((c) => c.title.includes("年会費"))!;
     expect(fee.title).toBe("年払いの暮らしの支出: 年会費 架空カード");
     expect(fee.value).toMatchObject({ kind: "livingAnnual", row: "cf.expense.living" });
+    // 車の候補は車の入力項目の「車の修理・用品など」の行（種類 car。ライフイベントには出さない）
     const car = out.find((c) => c.title.includes("車検"))!;
-    expect((car.value as { kind?: string }).kind).toBeUndefined();
+    expect(car.value).toMatchObject({ kind: "car", row: "cf.expense.lumpSum.car" });
+    expect(car.title).toBe("車の修理・用品など: 架空車検センター");
   });
 
   it("答え合わせ: 実際の年間の貯蓄額を入れると現状の検算の物ができ、空にすると外れる", () => {

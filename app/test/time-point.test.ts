@@ -1,4 +1,4 @@
-// 時点の部品（0038）: 打った文字の読み取り（年月・和暦・人の年齢・出来事から・今から・n年間）、見せ方と読み直し、
+// 時点の部品（0038）: 打った文字の読み取り（年月・和暦・人の年齢・出来事から・今から・「10年間」のような期間）、見せ方と読み直し、
 // 年齢の切り替えの規則がエンジンと同じこと、欄の読み書き（出来事が正本・まだ出来事でない物を出来事にする・人を外したとき）、
 // 時点の形を年齢・出来事に直しても計算の結果が変わらないこと
 import { readdirSync } from "node:fs";
@@ -160,7 +160,7 @@ describe("人の年齢の読み取り", () => {
   });
 });
 
-describe("今から・出来事から・n年間", () => {
+describe("今から・出来事から・「10年間」のような期間", () => {
   it("今から（計算の基準の月から）", () => {
     expect(tp("5年後")).toEqual({ at: "2031-10" });
     expect(tp("今から3か月後")).toEqual({ at: "2027-01" });
@@ -172,7 +172,7 @@ describe("今から・出来事から・n年間", () => {
     // 今からの形を見せているときの数だけは年数
     expect(tp("5", { mode: "now" })).toEqual({ at: "2031-10" });
   });
-  it("出来事から（名前・翌月・n年後・n年前）", () => {
+  it("出来事から（名前・翌月・何年後・何年前）", () => {
     expect(tp("入居")).toEqual({ event: MOVE_IN });
     expect(tp("入居の翌月")).toEqual({ event: MOVE_IN, offset: { months: 1 } });
     expect(tp("入居から10年後")).toEqual({ event: MOVE_IN, offset: { years: 10 } });
@@ -186,7 +186,7 @@ describe("今から・出来事から・n年間", () => {
     expect(tp("翌月", { mode: "event", current: { event: MOVE_IN } })).toEqual({ event: MOVE_IN, offset: { months: 1 } });
     expect(tp("今から10年後", { mode: "event", current: { event: MOVE_IN } })).toEqual({ at: "2036-10" });
   });
-  it("終わりの欄の「n年間」は、始まりと同じ形で最後の月を持つ", () => {
+  it("終わりの欄の「10年間」のような入れ方は、始まりと同じ形で最後の月を持つ", () => {
     expect(tp("10年間", { start: { at: "2030-04" } })).toEqual({ at: "2040-03" });
     expect(tp("5年間", { start: { memberAge: { member: SELF, years: 60 } } })).toEqual({ memberAge: { member: SELF, years: 64, months: 11 } });
     expect(tp("3年間", { start: { event: MOVE_IN } })).toEqual({ event: MOVE_IN, offset: { years: 2, months: 11 } });

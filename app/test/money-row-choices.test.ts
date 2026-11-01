@@ -67,7 +67,10 @@ describe("表の行の選択肢は種類ごと", () => {
     for (const k of OUT_KINDS) {
       const w = addExpense(wh0(), k.kind);
       const p = lastExpense(w);
-      const row = fieldOf(w, expenseCard(w.request.input.household, p), `ev/${p.id}/row`);
+      const card = expenseCard(w.request.input.household, p);
+      // ライフイベントの行は表の行を一時的支出に決めて選ばない（0068 の追記 2026-10-31）
+      if (card === "events") continue;
+      const row = fieldOf(w, card, `ev/${p.id}/row`);
       expect(optionsOf(row), k.kind).toEqual(expenseRowChoices({ kind: k.kind }).map((o) => o.value));
     }
   });

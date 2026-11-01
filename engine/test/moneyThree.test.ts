@@ -6,7 +6,7 @@ import { moneyThree, type MoneyThreeCell, type MoneyThreeRequest } from "../src/
 import { modelHousehold, realPacks } from "./helpers.ts";
 
 const MAN = 10_000;
-const req = (baseMonth = "2026-01", endYear = 2060, periodicExpenses: { id: string; everyYears: number }[] = []): MoneyThreeRequest => ({ input: { baseMonth, endYear, household: { periodicExpenses } } });
+const req = (baseMonth = "2026-01", endYear = 2060, periodicExpenses: { id: string; everyYears: number; monthly?: boolean; to?: unknown }[] = []): MoneyThreeRequest => ({ input: { baseMonth, endYear, household: { periodicExpenses } } });
 
 /** 毎年: 給与 600万円・税社保 100万円・基本生活費 300万円・住居費 60万円・保険料 24万円（収入の残り 116万円） */
 function yearly(from: number, to: number): MoneyThreeCell[] {
@@ -133,6 +133,31 @@ describe("お金の3つの分け方（0032）", () => {
     expect(r.spend.parts.find((p) => p.kind === "other")?.monthly).toBe(2 * MAN);
     expect(r.save.rows).toHaveLength(1);
     expect(r.save.rows[0]?.parts[0]).toMatchObject({ kind: "periodic", object: "every10", row: "cf.expense.housing.maintenance" });
+  });
+
+  it("周期的な支出の1回の行（何年ごとが1で、払う年が1つだけ）はできごと。終わりの無い毎年の行・毎月の行はふだんの支出（0068 の追記 2026-10-31）", () => {
+    const t: MoneyThreeCell[] = [
+      ...yearly(2026, 2040),
+      // 1回の行（結婚の費用 2028年 200万円）
+      { row: "cf.expense.lumpSum.other", year: 2028, amount: 200 * MAN, object: "once" },
+      // 毎年の行（予備費 年24万円。終わり無し）
+      ...[2026, 2027, 2028, 2029, 2030].map((year): MoneyThreeCell => ({ row: "cf.expense.lumpSum.other", year, amount: 24 * MAN, object: "reserve" })),
+      // 毎月の行（月1万円。2026年だけで終わる）
+      { row: "cf.expense.other", year: 2026, amount: 12 * MAN, object: "monthly" },
+    ];
+    const rows = [
+      { id: "once", everyYears: 1, to: { at: "2028-04" } },
+      { id: "reserve", everyYears: 1, to: null },
+      { id: "monthly", everyYears: 1, monthly: true, to: { at: "2026-12" } },
+    ];
+    const r = moneyThree(req("2026-01", 2040, rows), t, { liquid: 0, financial: 0 }, { months: 12, years: 10 });
+    expect(r.spend.annual).toBe((384 + 24 + 12) * MAN);
+    const y2028 = r.save.rows.find((x) => x.year === 2028)!;
+    expect(y2028.parts).toEqual([expect.objectContaining({ kind: "periodic", object: "once", amount: 200 * MAN })]);
+    // 収入の残り（116万円 − 予備費 24万円）を超えた分
+    expect(y2028.uncovered).toBe((200 - 92) * MAN);
+    // 前の分け方（1回の行もふだんの支出）だと、2028年のできごとは無かった
+    expect(r.save.rows.map((x) => x.year)).toEqual([2028]);
   });
 
   it("何か月・何年の範囲の外は受け付けない", () => {
