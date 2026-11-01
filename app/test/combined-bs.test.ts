@@ -1,4 +1,4 @@
-// 会社と合わせたバランスシート（合算BS。法人の顧問向けの機能。0107）: 事務所の設定で使うと決めたときだけ、役員として働く人のいる世帯に出す。
+// 会社と合わせたバランスシート（合算BS。法人経営者向けの機能。0107）: 事務所の設定で使うと決めたときだけ、役員として働く人のいる世帯に出す。
 // 見せ方だけで計算の結果は変えない。時点を並べる・プランを比較でも、連帯保証の点線の箱は今の年の図の下にだけ出す
 import { describe, expect, it } from "vitest";
 import { h } from "preact";
@@ -40,7 +40,7 @@ const company: CombinedBsInput = {
   useRestated: false,
 };
 
-describe("事務所の設定: 法人の顧問向けの機能（0107）", () => {
+describe("事務所の設定: 法人経営者向けの機能（0107）", () => {
   it("既定は使わない。欄の無い古い事務所データも使わない。使うと決めたら既定と違う設定として保存する", () => {
     expect(DEFAULT_OFFICE_SETTINGS.features.combinedBs).toBe(false);
     expect(readOfficeSettings({}).features.combinedBs).toBe(false);

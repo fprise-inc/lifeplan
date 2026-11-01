@@ -65,7 +65,7 @@
   if on("contingency") and data.contingency != none { contingency(data) }
   if on("insurance") and data.insurance != none { insurance(data) }
   if on("changes") { changes(data) }
-  // 会社と合わせたバランスシート（法人の顧問向けの機能。0107）: 材料があるときだけ
+  // 会社と合わせたバランスシート（法人経営者向けの機能。0107）: 材料があるときだけ
   if on("combinedBs") and data.at("combinedBs", default: none) != none { combined-bs(data) }
   // 案の比較: 以前の形（mixed）では列が多い（4案より多い）ときだけ A4 横にする。縦にそろえるときは、列が多ければ行と列を入れ替える
   if on("comparison") and compared != none {

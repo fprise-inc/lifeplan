@@ -129,7 +129,7 @@ function ProposalPdf(p: Props) {
   const [proposal, setProposal] = useState(firstProposal);
   const [compare, setCompare] = useState<string[]>(slots);
   const [chapters, setChapters] = useState<Set<ChapterId>>(new Set(DEFAULT_CHAPTERS));
-  // 法人の顧問向けの章（会社と合わせたバランスシート。0107）は、事務所の設定で使うと決めた世帯だけに出す
+  // 法人経営者向けの章（会社と合わせたバランスシート。0107）は、事務所の設定で使うと決めた世帯だけに出す
   const shownChapters = CHAPTERS.filter((c) => c.id !== "combinedBs" || p.combinedBs === true);
   const [addressee, setAddressee] = useState("");
   const [preparedBy, setPreparedBy] = useState("");
