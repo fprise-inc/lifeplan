@@ -94,7 +94,7 @@ export function GoalCards({ model }: { model: GoalsModel }) {
             <div class={`goal dream${g.dream.included ? "" : " off"}`} key={i} data-dream-card={g.dream.rank}>
               <div class="goal-top">
                 <span class="goal-cat">{g.category}</span>
-                <span class="prio p2">{g.dream.included ? "計算に入れる" : "計算に入れない"}</span>
+                <span class="prio p2">{g.dream.included ? "計算に入れる" : "候補として置く"}</span>
               </div>
               <h3>{g.title}</h3>
               <div class="when">{g.when}</div>
