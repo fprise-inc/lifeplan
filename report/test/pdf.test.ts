@@ -149,9 +149,9 @@ describe.skipIf(bin === null)("見本の PDF", () => {
         if (text.includes(normalize("積み立てる額"))) for (const st of periods.steps) expect(text).toContain(normalize(`${st.year}年〜`));
       });
 
-      it("資産の推移の図（世帯サマリー・資産残高の推移・万一のとき）: 足りなくなる年に「!」が出て、図の下に年の説明が出る。足りなくならなければ出ない。「不足」の札は出さない", () => {
+      it("資産の推移の図（ご家族のまとめ・資産残高の推移・万一のとき）: 足りなくなる年に「!」が出て、図の下に年の説明が出る。足りなくならなければ出ない。「不足」の札は出さない", () => {
         const plan = shortsOf(input);
-        // 世帯サマリーのページ（表の期間の合計の表といっしょ）と、資産残高の推移のページ（5年ごとの表といっしょ）。目次のページは除く
+        // ご家族のまとめのページ（表の期間の合計の表といっしょ）と、資産残高の推移のページ（5年ごとの表といっしょ）。目次のページは除く
         for (const head of ["表の期間の合計", "5年ごとの金融資産残高"]) {
           const page = r.pages.find((p) => normalize(p).includes(normalize(head)));
           expect(page, head).toBeDefined();
@@ -191,7 +191,7 @@ describe.skipIf(bin === null)("章を選んだ PDF とプランの比較のペ�
     const r = renderAndExtract(bin as string, chosen, sampleFrame(bundle, chosen));
     const all = normalize(r.pages.join("\n"));
     expect(all).toContain(normalize("前提条件と注意書き"));
-    expect(all).toContain(normalize("世帯サマリー"));
+    expect(all).toContain(normalize("ご家族のまとめ"));
     expect(all).toContain(normalize("提案での変更点"));
     for (const t of ["キャッシュフロー表（現状）", "教育費の推移", "住宅ローン", "万一のとき", "プランの比較"]) expect(all, t).not.toContain(normalize(t));
     for (const n of frame.notices) expect(all).toContain(normalize(n));
