@@ -41,13 +41,14 @@ describe("標準のときだけ「▸ 続きを見る」", () => {
   it("標準: ローン1件の下に「▸ 続きを見る」。閉じている間は詳細の欄と金利の段階を出さない", () => {
     const html = panel(wh, "housing", "simple");
     expect(html).toContain(`data-group-more="${loanKey}"`);
-    expect(html).toContain("▸ 続きを見る");
+    // 文は場所ごと（住宅ローンは団信・住宅ローン控除の中枠まで開く。0078 の 2026-11-01 の追記）
+    expect(html.replace(/<wbr\/?>/g, "")).toContain('<span class="grp-more-mark" aria-hidden="true">▸</span><span class="grp-more-text">団信・住宅ローン控除などを入れる</span>');
     for (const f of detailOfLoan) expect(html).not.toContain(idOf(f.key));
     expect(html).not.toContain("金利の段階 2");
   });
   it("開くと、そのローンの詳細の欄・金利の段階・ボタンだけが出る（ほかのまとまりは標準のまま）", () => {
     const html = panel(wh, "housing", "simple", [loanKey]);
-    expect(html).toContain("▾ 閉じる");
+    expect(html).toContain('<span class="grp-more-mark" aria-hidden="true">▾</span><span class="grp-more-text">閉じる</span>');
     expect(html).toContain('aria-expanded="true"');
     for (const f of detailOfLoan) expect(html).toContain(idOf(f.key));
     expect(html).toContain("金利の段階 2");

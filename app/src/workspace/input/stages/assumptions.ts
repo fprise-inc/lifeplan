@@ -666,6 +666,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
         {
           key: "assume/main/fields",
           level: "simple",
+          moreLabel: "調整率・表の最後の年を決める",
           // 運用利回りは率をそのまま入れる（名前の付いた選び方のボタンは置かない。0070 の 2026-10-31 の追記）
           fields: [...series.map(([n, l, h, lv]) => seriesField(n, l, h, lv)), ...endYearFields(wh), baseMonth, ...conventionFields()],
           actions: [],

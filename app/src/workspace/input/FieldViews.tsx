@@ -438,18 +438,37 @@ export function swapNotesOf(group: GroupDef, open: boolean): string[] {
   return [...new Set(group.fields.filter((f) => f.simpleOnly === true && f.swapNote !== undefined).map((f) => f.swapNote as string))];
 }
 
+/** 文を「・」の後ろで折り返せるようにする（言葉の途中で折り返さない。CSS の word-break: keep-all と組み合わせる） */
+function withBreaks(text: string): ComponentChildren {
+  const parts = text.split("・");
+  return parts.flatMap((p, i) => (i < parts.length - 1 ? [`${p}・`, <wbr key={i} />] : [p]));
+}
+
+/** 「▸ 続きを見る」の文が無い所（まとまりの moreLabel・口座の種類の文が無い所。新しく足す物の受け皿）の文 */
+export const MORE_DEFAULT = "続きを見る";
+
+/**
+ * 「▸ 続きを見る」の読み上げ用の名前（0078 の追記 2026-11-01）: 見えている文そのものに、物の名前を括弧で添える
+ * （「呼び名・性別などを入れる（配偶者）」「閉じる（配偶者）」）。開け閉めの状態は aria-expanded で伝える
+ */
+export function moreAriaLabel(text: string | undefined, label: string, open: boolean): string {
+  return `${open ? "閉じる" : (text ?? MORE_DEFAULT)}（${label}）`;
+}
+
 /**
  * 「▸ 詳しく」の小さな文字のリンク。押した所は動かさず、開いた中身はこの下に出す（見えなければ見える所までスクロール）。
- * 押したときに欄からフォーカスを外さない（外すと、欄の値が入れ直されて「保存していない変更」になるため）
+ * 押したときに欄からフォーカスを外さない（外すと、欄の値が入れ直されて「保存していない変更」になるため）。
+ * text は閉じているときの文（「呼び名・性別などを入れる」。頭の「▸」は付けない。無ければ「続きを見る」）。
+ * 文が長くて折り返すときも、2行目は「▸」の後ろにそろえる（表の行の中など幅が狭い所で崩れないように）
  */
-export function MoreToggle({ groupKey, open, toggle, label, swapNotes = [] }: { groupKey: string; open: boolean; toggle: () => void; label?: string; swapNotes?: readonly string[] }) {
+export function MoreToggle({ groupKey, open, toggle, label, text, swapNotes = [] }: { groupKey: string; open: boolean; toggle: () => void; label?: string; text?: string | undefined; swapNotes?: readonly string[] }) {
   return (
     <div class="grp-more">
       <button
         type="button"
         class="link-btn grp-more-btn"
         aria-expanded={open}
-        {...(label !== undefined ? { "aria-label": `${label}を${open ? "閉じる" : "続きを見る"}` } : {})}
+        {...(label !== undefined ? { "aria-label": moreAriaLabel(text, label, open) } : {})}
         onMouseDown={(e) => e.preventDefault()}
         onClick={(e) => {
           if (!open) revealOpened(e.currentTarget, groupKey);
@@ -457,7 +476,10 @@ export function MoreToggle({ groupKey, open, toggle, label, swapNotes = [] }: { 
         }}
         data-group-more={groupKey}
       >
-        {open ? "▾ 閉じる" : "▸ 続きを見る"}
+        <span class="grp-more-mark" aria-hidden="true">
+          {open ? "▾" : "▸"}
+        </span>
+        <span class="grp-more-text">{open ? "閉じる" : withBreaks(text ?? MORE_DEFAULT)}</span>
       </button>
       {/* 欄を入れ替えた所は、何が変わったかを短い1行で（閉じると元に戻ることも） */}
       {open && swapNotes.length > 0 ? (
@@ -529,7 +551,7 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
       {group.band === true ? sub : null}
       {actions.some((a) => a.danger !== true) ? <Actions actions={actions.filter((a) => a.danger !== true)} wh={wh} onEdit={onEdit} /> : null}
       {moreLast && group.band !== true ? sub : null}
-      {more !== undefined ? <MoreToggle groupKey={group.key} open={more.open} toggle={more.toggle} label={group.title ?? "この欄"} swapNotes={swapNotesOf(group, more.open)} /> : null}
+      {more !== undefined ? <MoreToggle groupKey={group.key} open={more.open} toggle={more.toggle} label={group.title ?? "この欄"} text={group.moreLabel} swapNotes={swapNotesOf(group, more.open)} /> : null}
       {more?.open === true && (extraFields.length > 0 || extraActions.length > 0) ? (
         <div class="grp-more-body" data-more-of={group.key}>
           {extraFields.length > 0 ? (

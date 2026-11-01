@@ -659,7 +659,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
       return { ...next, assumed: Object.fromEntries(Object.entries(next.assumed).filter(([key]) => !key.startsWith(`${k}/`))) };
     },
   });
-  const head: GroupDef = { key: k, title: `車 ${i + 1}（${memberLabel(wh, c.owner)}${lease ? `・${c.lease?.type === "longRental" ? "長期レンタル" : "カーリース"}` : ""}）`, ...(lifeNote !== null ? { note: lifeNote } : {}), level: "simple", fields, actions };
+  const head: GroupDef = { key: k, title: `車 ${i + 1}（${memberLabel(wh, c.owner)}${lease ? `・${c.lease?.type === "longRental" ? "長期レンタル" : "カーリース"}` : ""}）`, ...(lifeNote !== null ? { note: lifeNote } : {}), level: "simple", moreLabel: lease ? "契約の年数・月額の中身を入れる" : "維持費の内訳・ローンを入れる", fields, actions };
   // 世帯が最後に手放す車にだけ、手放した後の移動の費用（0101。各名義の最後の車ではない）
   const after: GroupDef[] =
     lastCarOfHousehold(h0, c.id) && !afterCarAdded(h0, c.id)

@@ -37,9 +37,9 @@ describe("開いた中身を光らせる", () => {
     expect(fv).toContain("if (!open) revealOpened(e.currentTarget, groupKey);");
     expect(fv.match(/<MoreToggle /g)?.length).toBe(1);
     expect(src("workspace/input/savings/SavingsPanel.tsx").match(/<MoreToggle /g)?.length).toBe(1);
-    // 「▸ 続きを見る」の文字を書いているのは MoreToggle だけ
-    expect(fv.match(/"▸ 続きを見る"/g)?.length).toBe(1);
-    expect(src("workspace/input/savings/SavingsPanel.tsx")).not.toContain('"▸ 続きを見る"');
+    // 文の無い所の「続きを見る」を書いているのは MoreToggle の所だけ（場所ごとの文はまとまりの moreLabel・口座の種類の文。0078 の 2026-11-01 の追記）
+    expect(fv.match(/"続きを見る"/g)?.length).toBe(1);
+    expect(src("workspace/input/savings/SavingsPanel.tsx")).not.toContain("続きを見る\"");
   });
 
   it("光らせるのは開いた中身（data-more-of）で、動きを減らす設定では光らせない", () => {

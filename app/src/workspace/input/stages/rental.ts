@@ -318,6 +318,7 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
     key: k,
     title: `${rentalName(h, a)}（${[kl, `評価額 ${man(a.marketValue?.value ?? 0)}万円`].filter((x) => x !== null).join("・")}）`,
     level: "simple",
+    moreLabel: "所在地・売却の予定などを入れる",
     fields,
     actions: [
       removeAction(`${k}/remove`, "外す", "simple", (hh) => {
@@ -409,6 +410,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       key: `${kp}/building`,
       title: "土地と建物",
       level: "simple",
+      moreLabel: "取得価額の内訳を入れる",
       fields: [
         // 持ち始める時点（0039。相続・贈与で受け取る家。その月から評価額・家賃収入・経費に入れ、受け取るときの支払いは無い）
         withAddress(
@@ -521,7 +523,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       timepointField({ key: `${kp}/rentFrom`, item: "account.property", label: "貸し始め", level: "detail", find: findP, path: ["rental", "from"], mode: "ym", optional: true, absentWhenEmpty: true, nullText: p.acquisition !== undefined ? "取得の月から" : "前から貸している", ...ageOf }),
       timepointField({ key: `${kp}/rentTo`, item: "account.property", label: "貸し終わり", level: "detail", find: findP, path: ["rental", "to"], startPath: ["rental", "from"], optional: true, absentWhenEmpty: true, nullText: p.sale !== undefined ? "売るまで" : "最後まで", ...ageOf }),
     );
-  groups.push({ key: `${kp}/rental`, title: lodging !== undefined ? "宿泊の売上" : "家賃収入", level: "simple", ...(p.rental !== undefined && p.acquisition === undefined ? { note: "取得価額と取得の年月を入れると、減価償却費を引いた不動産所得で税を計算します" } : {}), fields: rentFields, actions: [] });
+  groups.push({ key: `${kp}/rental`, title: lodging !== undefined ? "宿泊の売上" : "家賃収入", level: "simple", moreLabel: lodging !== undefined ? "売上の変化率・貸す期間を入れる" : "共益費・礼金などを入れる", ...(p.rental !== undefined && p.acquisition === undefined ? { note: "取得価額と取得の年月を入れると、減価償却費を引いた不動産所得で税を計算します" } : {}), fields: rentFields, actions: [] });
   // 家賃と経費の年額の段階・例外の年（0040。詳細）
   const staged = (part: "rental" | "expenses", what: string, basis: "monthly" | "annual", value: (x: Account) => number | null, yearly = false): GroupDef[] =>
     stagedGroups(wh, {
@@ -575,7 +577,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   if (lodging !== undefined)
     expFields.push(withAddress(plain({ key: `${kp}/platformRate`, item: "account.property", label: "仲介サイトの手数料（売上に対する割合）", level: "simple", kind: "pct", find: findP, path: ["lodging", "platformRate"], optional: true, help: "宿泊の予約サイトに払う手数料です（例: 15%）" }), onAccount(a.id, "account.property", ["lodging", "platformRate"])));
   expFields.push(plain({ key: `${kp}/expGrowth`, item: "account.property", label: "年額の変化率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find: findP, path: ["expenses", "growth"], optional: true, fallback: "0", help: "修繕積立金の値上がりなど" }), ...itemFields);
-  groups.push({ key: `${kp}/expenses`, title: "経費", level: "simple", fields: expFields, actions: [] });
+  groups.push({ key: `${kp}/expenses`, title: "経費", level: "simple", moreLabel: "経費の内訳を入れる", fields: expFields, actions: [] });
   if (p.expenses !== undefined) groups.push(...staged("expenses", "経費の年額", "annual", (x) => expenseItemsTotal(x.property) ?? x.property?.expenses?.annual?.value ?? null, true));
   groups.push(...repairGroups(wh, a));
   // 売却の予定
@@ -756,6 +758,7 @@ function propertyLoanGroups(wh: WorkingHousehold, d: Debt): GroupDef[] {
       key: k,
       title,
       level: "simple",
+      moreLabel: "金利の段階・借り換えを入れる",
       fields: [label, ...loanFields(wh, d, k), ...creditLifeFields(wh, d, "detail")],
       actions: [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.debts = (h.debts ?? []).filter((x) => x.id !== d.id)))],
     },
