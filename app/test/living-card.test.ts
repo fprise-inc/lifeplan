@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import type { Household, LivingExpense, Member } from "../src/engine/types.ts";
 import { householdSize, isPureSplit, withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
 import { allFields, type FieldDef, type StageDef } from "../src/workspace/input/form.ts";
-import { blankHousehold, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { blankHousehold, fromRequest, mutate, standardBox, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { autoActive, autoStages, countAt, isAutoStage } from "../src/workspace/input/livingStages.ts";
 import { rowAt } from "../src/workspace/input/rows.ts";
 import { addMember } from "../src/workspace/input/stages/family.ts";
@@ -872,7 +872,7 @@ describe("目安の共益費・ペットのひな形・答え合わせの差（0
   it("前のひな形のペットの行は、書き換えずに読んで計算し、開いたときに入れ先を知らせる（同じ数なら2度は足さない）", () => {
     const wh = family();
     const ref = "00000000-0000-4000-8000-0000000e0101";
-    const old = mutate(wh, (h) => void (h.periodicExpenses ??= []).push({ id: ref, label: "ペット", row: "cf.expense.other", from: { at: "2027-10" }, to: { at: "2041-10" }, everyYears: 1, amount: { value: 180000, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "ひな形の仮の値（この世帯の額に直すか、このままなら「この値にする」）" } } }));
+    const old = mutate(wh, (h) => void (h.periodicExpenses ??= []).push({ id: ref, label: "ペット", row: "cf.expense.other", from: { at: "2027-10" }, to: { at: "2041-10" }, everyYears: 1, amount: standardBox(180000, "ひな形の仮の値（この世帯の額に直すか、このままなら「この値にする」）") }));
     const prev: WorkingHousehold = { ...old, addedItems: [{ id: "added:00000000-0000-4000-8000-0000000e0102", kind: "periodic", ref, art: "pet" }] };
     expect(legacyPetRows(prev)).toEqual([ref]);
     expect(legacyPetRows(old)).toEqual([]);
