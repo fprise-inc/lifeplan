@@ -54,7 +54,7 @@ export const LAYOUT_CHOICES: readonly { key: ChartLayout; label: string; note: s
 ];
 
 export const METRIC_CHOICES: readonly { key: MetricKey; label: string; note: string }[] = [
-  { key: "assetsAtAge", label: "○歳時点の金融資産", note: "年齢を選べます。カード・結論の2行目・グラフの印に出します" },
+  { key: "assetsAtAge", label: "○歳時点の金融資産", note: "年齢を選べます。プランの帯・結論の2行目・グラフの印に出します" },
   { key: "takeHome", label: "生涯の手取りの合計", note: "収入から税・社会保険料を引いた額の、表の期間の合計" },
   { key: "minAssets", label: "金融資産がいちばん少ない年", note: "その年と額" },
   { key: "feeLine", label: "FP顧問料の一文", note: "顧問料を払っても基準より多いか（顧問料の契約がある世帯だけ）" },

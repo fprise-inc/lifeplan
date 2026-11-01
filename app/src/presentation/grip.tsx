@@ -10,7 +10,7 @@ export const GRIP_KEY_STEP = 16;
 
 /** 帯の読み上げの名前（resize: Shift＋矢印キーで大きさも変えられる小窓） */
 export function gripLabel(resize = false): string {
-  return `小窓を動かす帯（ドラッグで移動。矢印キーで移動${resize ? "、Shift＋矢印キーで大きさを変える" : ""}）`;
+  return `浮かせた表示を動かす帯（ドラッグで移動。矢印キーで移動${resize ? "、Shift＋矢印キーで大きさを変える" : ""}）`;
 }
 
 /** 矢印キーの向き（扱わないキーは null） */

@@ -397,7 +397,7 @@ describe("グラフを小窓で表示", () => {
     expect(x).toContain(`data-tip="${PIP_LABEL.close}"`);
     expect(x).toContain("data-pip-close");
     expect(x).not.toContain("data-pip-icon");
-    expect(PIP_LABEL.close).toBe("小窓を閉じる");
+    expect(PIP_LABEL.close).toBe("浮かせたグラフを閉じる");
   });
 
   it("つかんで動かす帯（グラフの小窓と内訳の小窓で共通）: 矢印キーの向き・取っ手の印・読み上げの名前", () => {
@@ -411,8 +411,8 @@ describe("グラフを小窓で表示", () => {
     expect(mark).toContain("⠿");
     expect(mark).toContain("移動");
     // 大きさを変えられる小窓（グラフ）は Shift＋矢印キーの説明つき。内訳の小窓は移動だけ
-    expect(gripLabel(true)).toBe("小窓を動かす帯（ドラッグで移動。矢印キーで移動、Shift＋矢印キーで大きさを変える）");
-    expect(gripLabel()).toBe("小窓を動かす帯（ドラッグで移動。矢印キーで移動）");
+    expect(gripLabel(true)).toBe("浮かせた表示を動かす帯（ドラッグで移動。矢印キーで移動、Shift＋矢印キーで大きさを変える）");
+    expect(gripLabel()).toBe("浮かせた表示を動かす帯（ドラッグで移動。矢印キーで移動）");
   });
 
   it("つかんで動かす帯: 窓の外に出ないよう端で止める（はみ出している向きへはそれ以上動かさない・戻す向きへは動かせる）", () => {

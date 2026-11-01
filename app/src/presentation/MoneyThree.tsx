@@ -43,7 +43,7 @@ function Amount({ x, y, v, fs, anchor = "start", fill = "var(--ink)" }: { x: num
 function tipBody(b: MoneyThreeBox): Pick<FigTipData, "note" | "rows" | "hint"> {
   if (b.key !== "save") return { note: b.formula };
   const rows = [...b.items.map((it) => ({ label: `${it.lead} ${it.label}`.trim(), amount: it.amount })), ...(b.rest !== null ? [{ label: `ほか${b.rest.count}件`, amount: b.rest.amount }] : [])];
-  return { rows, note: b.note ?? b.formula, hint: "内訳はカードの「内訳を見る」から" };
+  return { rows, note: b.note ?? b.formula, hint: "内訳は「内訳を見る」から" };
 }
 
 /** 置き場所の分け方の名前（札の補足。資産と負債のタブの分け方と同じ言葉） */
