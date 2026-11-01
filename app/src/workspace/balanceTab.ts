@@ -9,7 +9,7 @@ import type { BalanceTabModel, BsColumn, BsGroupKey, BsGuide, BsMarkKind, BsPlan
 import { man } from "../presentation/format.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
 import { ageAxis, depletionYear, eventsOf, SURPLUS_ROW } from "./present.ts";
-import { ageInYear, leaveYear, roles, type Role } from "./roles.ts";
+import { ageInYear, leaveYear, presentInYear, roles, type Role } from "./roles.ts";
 
 /** 家計の体力の目安の幅の最初の値（事務所の設定で FP が変えられる） */
 export const DEFAULT_BS_GUIDE: BsGuide = { months: [6, 12], risk: [10, 40], debt: 50 };
@@ -110,10 +110,10 @@ export interface BsPlanInput {
   table: readonly TableCell[];
 }
 
-/** その年の世帯の年齢の文（ご本人・配偶者だけ。例: 「ご本人45歳・配偶者43歳」） */
+/** その年の世帯の年齢の文（ご本人・配偶者だけ。例: 「ご本人45歳・配偶者43歳」。結婚の予定の配偶者は加わる年から） */
 function membersText(rs: readonly Role[], year: number): string {
   return rs
-    .filter((r) => r.key === "self" || r.key === "spouse")
+    .filter((r) => (r.key === "self" || r.key === "spouse") && presentInYear(r, year))
     .map((r) => `${r.label}${ageInYear(r.member, year)}歳`)
     .join("・");
 }
