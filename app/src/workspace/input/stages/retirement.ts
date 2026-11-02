@@ -23,7 +23,7 @@ import {
   CIVIL_PENSION_FIXED,
   COMPUTED,
   convertBenefit,
-  DB_YEARS_BASIS,
+  dbYearsBasis,
   EDUCATION_OPTIONS,
   estRow,
   finalMonthlyAt,
@@ -33,7 +33,7 @@ import {
   isUnenteredBox,
   KIND_SHORT,
   LUMP_ONLY,
-  LUMP_SHARE_BASIS,
+  lumpShareBasis,
   lumpEstimate,
   lumpShareAt,
   multiplierAt,
@@ -47,6 +47,7 @@ import { formatYearMonth } from "../units.ts";
 import { defaultPayoutAge, payoutAgeOf } from "../savings/model.ts";
 import { currentPeriod } from "./work.ts";
 import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
+import { presetNum, presetRate } from "../../../../../hearing/src/presets.ts";
 
 type Obj = Record<string, unknown>;
 
@@ -281,12 +282,12 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
             const x = target as RetirementBenefit;
             if (v !== "annuity" && v !== "mixed") return;
             if (x.receipt?.years === undefined) {
-              x.receipt = { ...(x.receipt ?? {}), years: 10 };
-              putOwnRow(target, yearsAt(x.id), DB_YEARS_BASIS);
+              x.receipt = { ...(x.receipt ?? {}), years: presetNum("preset.retirement.dbYears") };
+              putOwnRow(target, yearsAt(x.id), dbYearsBasis());
             }
             if (v === "mixed" && x.receipt.lumpShare === undefined) {
-              x.receipt = { ...x.receipt, lumpShare: "0.5" };
-              putOwnRow(target, lumpShareAt(x.id), LUMP_SHARE_BASIS);
+              x.receipt = { ...x.receipt, lumpShare: presetRate("preset.retirement.dbLumpShare") };
+              putOwnRow(target, lumpShareAt(x.id), lumpShareBasis());
             }
           },
         }),

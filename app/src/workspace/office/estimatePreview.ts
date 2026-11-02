@@ -9,7 +9,7 @@ import { forEngine } from "../../engine/moneyRows.ts";
 import { householdSize, salaryAge, withRefreshedEstimates } from "../input/estimates.ts";
 import { sampleRequest } from "../input/household.ts";
 import { metricsOf, type PlanMetrics } from "../plans/compare.ts";
-import { engineValuesOf, overridesOf, type OfficeEstimates } from "./estimates.ts";
+import { engineNoFillOf, engineValuesOf, overridesOf, type OfficeEstimates } from "./estimates.ts";
 
 /** 代表の世帯（アプリの見本。data/modelHouseholds の架空の世帯） */
 export const PREVIEW_HOUSEHOLDS: readonly { id: string; title: string }[] = [
@@ -67,10 +67,13 @@ export function asEstimated(req: EngineRequest): EngineRequest {
   return withRefreshedEstimates({ request: r }).request;
 }
 
-/** 事務所の値の組で、代表の世帯の要求を作る（推定の目安は重ねた値で入れ直し、計算のときに引く値は estimateValues で渡す） */
+/**
+ * 事務所の値の組で、代表の世帯の要求を作る（推定の目安は重ねた値で入れ直し、計算のときに引く値は estimateValues で渡す。
+ * 推定で埋めない、エンジンが引く統計の目安〔0111 の2回目〕も、その組の物を estimateNoFill で渡す）
+ */
 export function previewRequest(req: EngineRequest, e: OfficeEstimates): EngineRequest {
   const r = withOfficeEstimates(overridesOf(e), [], () => asEstimated(req));
-  return forEngine({ ...r, input: { ...r.input, estimateValues: engineValuesOf(e) } });
+  return forEngine({ ...r, input: { ...r.input, estimateValues: engineValuesOf(e), estimateNoFill: engineNoFillOf(e) } });
 }
 
 const sameMetrics = (a: PlanMetrics, b: PlanMetrics) => a.target === b.target && a.depletion === b.depletion && a.expense === b.expense;

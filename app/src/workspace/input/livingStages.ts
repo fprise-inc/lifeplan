@@ -11,6 +11,8 @@ import { schoolEntryYear } from "../present.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import { livingEstimate as livingBySize, livingStatistic } from "../../../../hearing/src/estimates.ts";
 import { putRow, rowAt, type StateRow } from "./rows.ts";
+import { pctText } from "../../../../hearing/src/housingEstimates.ts";
+import { presetNum, presetText } from "../../../../hearing/src/presets.ts";
 
 type Obj = Record<string, unknown>;
 type Stage = NonNullable<LivingExpense["stages"]>[number] & { id?: string };
@@ -20,8 +22,25 @@ export const AUTO_STAGE_BASIS = "推定の段階";
 const AUTO_METHOD = "derived";
 
 /** 退職・年齢の目安の水準（今の額を1とする。家計調査の世帯主の年齢階級別の比で確かめる前の目安） */
-const AGE_LEVELS = { retired: 0.8, age70: 0.75, age80: 0.7 } as const;
-export const AGE_LEVEL_BASIS = "退職後80%・70歳から75%・80歳から70%の目安（年齢階級別の統計で確かめる前）";
+/** 年齢の段階の割合（presets.ts の目安。生活費の節目のボタンの退職・70歳・80歳と同じ値） */
+const AGE_LEVELS = {
+  get retired(): number {
+    return presetNum("preset.living.stage.retirement");
+  },
+  get age70(): number {
+    return presetNum("preset.living.stage.age70");
+  },
+  get age80(): number {
+    return presetNum("preset.living.stage.age80");
+  },
+};
+/** 年齢の段階の根拠の文（値から作る。事務所の推定の値なら、その根拠の文も付ける） */
+export const ageLevelBasis = (): string => {
+  const t = `退職後${pctText(AGE_LEVELS.retired)}・70歳から${pctText(AGE_LEVELS.age70)}・80歳から${pctText(AGE_LEVELS.age80)}の目安`;
+  const ids = ["preset.living.stage.retirement", "preset.living.stage.age70", "preset.living.stage.age80"];
+  const office = ids.map((id) => presetText(id, () => "")).find((x) => x !== "");
+  return office === undefined ? `${t}（年齢階級別の統計で確かめる前）` : `${t}${office}`;
+};
 
 // ---- 人数の数え方 ----
 
@@ -189,7 +208,7 @@ export function autoStages(h: Household, baseMonth: string, endYear: number, liv
     const label = (["retirement", "age70", "age80", "childIndependence"] as const).find((l) => ps.some((p) => p.label === l)) ?? "other";
     const head = ps.find((p) => p.label === label) ?? (ps[0] as (typeof ps)[number]);
     const peopleText = n === n0 ? `${n}人のまま` : `${n0}人→${n}人`;
-    const ageText = lvl !== lvl0 ? `・${AGE_LEVEL_BASIS}` : "";
+    const ageText = lvl !== lvl0 ? `・${ageLevelBasis()}` : "";
     out.push({
       id: derivedId(livingId, `auto/${head.reason}`),
       reasons: ps.map((p) => p.reason),

@@ -6,12 +6,13 @@ import { ITEMS } from "./items.ts";
 import type { Ctx } from "./ctx.ts";
 
 /**
- * 部品の書き方の約束（ctx の API とマニフェスト）の版。1.1 → 1.2（0006 の追記（2026-10-09））: 年ごとの列でない前提を読む ctx.setting と、
+ * 部品の書き方の約束（ctx の API とマニフェスト）の版。1.2 → 1.3（0111 の2回目）: エンジンが引く目安を値ID で読む ctx.estimate と、
+ * 統計の目安で空欄を埋めるかを見る ctx.fillsByEstimate を足した。1.1 → 1.2（0006 の追記（2026-10-09））: 年ごとの列でない前提を読む ctx.setting と、
  * キーごとの年ごとの列（資産クラスごとの利回り）を読む ctx.assumptionIn を足した。0006 の追記（2回目の見直し）で 1.0 → 1.1:
  * ctx.segments・ctx.callMonths・ParamOptions.birth・マニフェストの memberScope を足し、依存の記録の決まり（部品は ctx を通して読んだものだけで
  * 結果を決める・同じ依存なら同じ順に同じものを読む）を明文にした。今の部品の書き方はそのまま使える
  */
-export const COMPONENT_API_VERSION = "1.2";
+export const COMPONENT_API_VERSION = "1.3";
 
 export interface ComponentDefinition<I = unknown, O = unknown> {
   /** 計算部品ID（0004） */

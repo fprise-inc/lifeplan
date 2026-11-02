@@ -11,7 +11,7 @@
 //   要求から外す。結果の見方では、夢は理由「夢」で1件ずつ入れ外しでき、「確実な分だけ」では外す。子への援助（教育の目標の gifts）の
 //   優先度が「できれば」の物も、確実な分だけで外す
 import type { Debt, EngineRequest, Household, IncomeFlow, IncomeFlowKind, PeriodicExpense } from "./types.ts";
-import { officeEstimateValues } from "./officeValues.ts";
+import { officeEstimateNoFill, officeEstimateValues } from "./officeValues.ts";
 
 /** 見込みが「当てにしない」なら基本の計算に入れない入るお金の種類（受け取る相続・遺贈・贈与） */
 export const BASE_EXCLUDED_KINDS: ReadonlySet<IncomeFlowKind> = new Set(["inheritance", "giftReceived"]);
@@ -62,13 +62,17 @@ export function forEngine(req0: EngineRequest): EngineRequest {
 }
 
 /**
- * 事務所の推定の値（0111。事務所の既定値の画面で変えたマスタデータの値）を計算の要求に足す。要求がもう estimateValues を持っていれば
- * そのまま（事務所の既定値の画面の「代表の世帯で差を見る」は、比べる値を自分で入れる）。事務所の値が無ければ同じ物を返す
+ * 事務所の推定の値（0111。事務所の既定値の画面で変えたマスタデータの値とエンジンが引く目安）と、推定で埋めない目安（0111 の2回目）を
+ * 計算の要求に足す。要求がもう estimateValues・estimateNoFill を持っていればそのまま（事務所の既定値の画面の「代表の世帯で差を見る」は、
+ * 比べる値を自分で入れる）。事務所の値が無ければ同じ物を返す
  */
 export function withOfficeEstimateValues(req: EngineRequest): EngineRequest {
   const v = officeEstimateValues();
-  if (v === null || req.input.estimateValues !== undefined) return req;
-  return { ...req, input: { ...req.input, estimateValues: { ...v } } };
+  const n = officeEstimateNoFill();
+  const addV = v !== null && req.input.estimateValues === undefined;
+  const addN = n !== null && req.input.estimateNoFill === undefined;
+  if (!addV && !addN) return req;
+  return { ...req, input: { ...req.input, ...(addV ? { estimateValues: { ...v } } : {}), ...(addN ? { estimateNoFill: [...n] } : {}) } };
 }
 
 /**

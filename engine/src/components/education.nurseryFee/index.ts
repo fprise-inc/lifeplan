@@ -54,7 +54,7 @@ const LEVY_ROUNDING = "residentTax.incomeLevy.rounding";
 /** 保育料とは別にかかるお金の年額の統計の目安（0029 の追記 2026-10-30） */
 const EXTRA = "education.statistics.nursery.extra";
 /** 自治体の保育料の水準（国の基準に対する割合）の目安。根拠と限界は 0029 */
-export const NURSERY_FEE_RATIO_DEFAULT = "0.8";
+export const NURSERY_FEE_RATIO_DEFAULT = "preset.education.nurseryFeeRatio";
 
 type EmploymentLeave = Pick<EmploymentPeriodInput, "member" | "type" | "leaveKind" | "leaveChild" | "from" | "to">;
 type Stage = NonNullable<GoalInput["education"]>["stages"][number];
@@ -197,7 +197,10 @@ export default defineComponent<{ member: string }, FlowsResult>({
         };
         // 保育料とは別にかかるお金（計算基準年の価格の年額を12で割り、教育費の上昇率で伸ばす。改訂4）
         const at0 = ctx.at(base);
-        const extra = st.extraAnnual ?? (at0.has(EXTRA) ? at0.paramYen(EXTRA) : null);
+        // 事務所の既定値で「推定で埋めない」（学校の費用の目安。0111 の2回目）にしたときは、統計の目安を引かない
+        const fills = ctx.fillsByEstimate("education");
+        const extra = st.extraAnnual ?? (fills && at0.has(EXTRA) ? at0.paramYen(EXTRA) : null);
+        if (st.extraAnnual === undefined && !fills && at0.has(EXTRA)) ctx.notice("N_INPUT_REQUIRED", [child, "goal.education.noFill"]);
         if (extra !== null && extra > 0) {
           const s = grownByYear(ctx, yen(extra), { kind: "inflation" }, baseYear, Math.max(endYear, baseYear), "educationInflation");
           for (let m = from < base ? base : from; m < free && m <= end; m = addMonths(m, 1)) {
@@ -214,7 +217,7 @@ export default defineComponent<{ member: string }, FlowsResult>({
           continue;
         }
         // 自動の計算（目安）
-        const ratio = ctx.rate.of(st.feeRatio ?? NURSERY_FEE_RATIO_DEFAULT);
+        const ratio = ctx.rate.of(st.feeRatio ?? String(ctx.estimate(NURSERY_FEE_RATIO_DEFAULT)));
         const tableId = st.hours === "short" ? P.short : P.standard;
         for (let m = from < base ? base : from; m < free && m <= end; m = addMonths(m, 1)) {
           const at = ctx.at(m);

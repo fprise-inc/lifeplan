@@ -85,7 +85,7 @@ export default defineComponent<Record<string, never>, HousingValuationOutput>({
       const y0 = yearOf(asOf);
       const share = v?.landShare ?? setting?.landShare;
       if (share === undefined) ctx.notice("N_DEFAULT_USED", [h.id, "residence.valuation.landShare"]);
-      const valuer = landBuildingValuer(ctx, { basis, y0, share: share ?? LAND_SHARE, structure: v?.structure ?? "wood", builtYear: v?.builtYear ?? y0, setting, growthOf });
+      const valuer = landBuildingValuer(ctx, { basis, y0, share: share ?? String(ctx.estimate(LAND_SHARE)), structure: v?.structure ?? "wood", builtYear: v?.builtYear ?? y0, setting, growthOf });
       // 評価する年: 持ち始めの年（計算基準年より前なら計算基準年）から、住み終わりの年（売るならその前の年）か表の最後の年まで
       const sold = h.sale !== undefined && to !== null && to <= end;
       const lastHeld = to === null || to > end ? endYear : yearOf(to);
@@ -102,7 +102,7 @@ export default defineComponent<Record<string, never>, HousingValuationOutput>({
         const lb = valuer.at(y);
         const value = addYen(lb.land, lb.building);
         const price = h.sale?.price ?? value;
-        const costs = ctx.money.mulRate(price, ctx.rate.of(h.sale?.costRate ?? setting?.saleCostRate ?? SALE_COST_RATE), R);
+        const costs = ctx.money.mulRate(price, ctx.rate.of(h.sale?.costRate ?? setting?.saleCostRate ?? String(ctx.estimate(SALE_COST_RATE))), R);
         const proceeds = yen(Math.max(0, price - costs));
         const taxBox = h.sale?.tax;
         const tax = taxBox === undefined ? yen(0) : (boxValue(taxBox) ?? yen(0));

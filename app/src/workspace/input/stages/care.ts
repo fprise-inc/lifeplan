@@ -9,6 +9,7 @@
 // 欄のキーは今のまま（family/<人>/…・ev/care/<物>/…）。仮の印・保存した差分の読み替えをそのまま使うため
 import type { CareExpense, Household, Member, Timepoint } from "../../../engine/types.ts";
 import { careEstimate, dependentLimits } from "../../../../../hearing/src/estimates.ts";
+import { masterAmount } from "../../../../../hearing/src/statistics.ts";
 import { adultsWithoutCare, careTemplate, deathEstimate, fillAdultsCare, fillCareFor, hasBirth } from "../fill.ts";
 import { addMonths, ageAt } from "../../levers.ts";
 import { byId, field, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type Option, type SectionDef, type StageDef } from "../form.ts";
@@ -366,7 +367,7 @@ export function addNextCareStage(wh: WorkingHousehold, id: string, newStage: str
   return mutate(wh, (h, req) => {
     const cur = (h.careExpenses ?? []).find((x) => x.id === id);
     if (cur === undefined) return;
-    const months = cur.months ?? careEstimate(placeOf(cur))?.months ?? 55;
+    const months = cur.months ?? careEstimate(placeOf(cur))?.months ?? masterAmount("care.statistics.months") ?? 0;
     const from: Timepoint =
       cur.from.memberAge !== undefined ? shiftAge(cur.from, months) : cur.from.event !== undefined ? { event: cur.from.event, offset: addOffset(cur.from.offset, months) } : { at: addMonths(resolveTimepoint(h, cur.from) ?? req.input.baseMonth, months) };
     (h.careExpenses ??= []).push({ id: newStage, member: cur.member, from, place: "facility" });

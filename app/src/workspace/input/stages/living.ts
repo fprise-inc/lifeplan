@@ -9,6 +9,7 @@ import type { Box, Household, LivingExpense, PeriodicExpense, Timepoint } from "
 import { addMonths, ageAt, ageReachedMonth, readLevers } from "../../levers.ts";
 import { resolveTimepoint } from "../../timepoint.ts";
 import { livingCategoryAverages, splitTransport } from "../../../../../hearing/src/estimates.ts";
+import { presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
 import { householdSize, isPureSplit, LIVING_CATEGORY_ORDER, livingEstimate, splitCategories } from "../estimates.ts";
 import { byId, field, getPath, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { confirmedBox, mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
@@ -70,7 +71,14 @@ export function fixGrowth(t: Record<string, unknown>, v: unknown): void {
 }
 
 /** 節目のボタンの割合（目安のボタンの値。最初の額に対して） */
-const DEFAULT_RATIO: Record<string, string> = { childIndependence: "0.85", retirement: "0.8", age70: "0.75", age80: "0.7", other: "0.9" };
+/** 節目のボタンの割合（presets.ts の目安。退職・70歳・80歳は年齢の段階〔livingStages.ts〕と同じ値） */
+const DEFAULT_RATIO_IDS: Readonly<Record<string, string>> = {
+  childIndependence: "preset.living.stage.childIndependence",
+  retirement: "preset.living.stage.retirement",
+  age70: "preset.living.stage.age70",
+  age80: "preset.living.stage.age80",
+  other: "preset.living.stage.other",
+};
 
 // ---- 内訳（10費目。0100・0106） ----
 
@@ -701,12 +709,13 @@ function stageActions(l: LivingExpense, find: Finder): { simple: ActionDef[]; de
         const t = find(h, { ...w, request: req }) as unknown as LivingExpense | undefined;
         if (t === undefined) return;
         const id = newId();
-        const ratio = DEFAULT_RATIO[label] ?? "0.9";
+        const rid = DEFAULT_RATIO_IDS[label] ?? "preset.living.stage.other";
+        const ratio = presetRate(rid);
         (t.stages ??= []).push({ id, at: stageDefaultAt({ ...w, request: req }, label), label, ratio });
         putRow(
           req.input as unknown as Obj,
           { target: { object: t.id }, item: "livingExpense.stages", at: [id, "ratio"] },
-          { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: presetBasis(`${text} ${Math.round(Number(ratio) * 100)}%`) } },
+          { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: presetBasis(presetText(rid, () => `${text} ${Math.round(Number(ratio) * 100)}%`)) } },
         );
       }),
   });
@@ -744,7 +753,7 @@ function survivorText(wh: WorkingHousehold): string {
   const r = wh.contingency.survivor.livingRatio ?? {};
   const pct = (x: string | undefined, d: string) => `${Math.round(Number(x ?? d) * 100)}%`;
   const hasChild = wh.request.input.household.members.some((m) => m.kind === "child" && m.outside === undefined);
-  return hasChild ? `末子の独立まで ${pct(r.beforeIndependence, "0.7")}・独立の後 ${pct(r.afterIndependence, "0.5")}` : pct(r.noChildren, "0.7");
+  return hasChild ? `末子の独立まで ${pct(r.beforeIndependence, presetRate("preset.survivor.livingRatio.beforeIndependence"))}・独立の後 ${pct(r.afterIndependence, presetRate("preset.survivor.livingRatio.afterIndependence"))}` : pct(r.noChildren, presetRate("preset.survivor.livingRatio.noChildren"));
 }
 
 function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): GroupDef[] {
@@ -893,14 +902,24 @@ export interface AnnualTemplate {
  * 冠婚葬祭のつきあい・お年玉と贈り物は、毎月の生活費の「こづかい・交際費」と重なりやすいので一覧に置かない。ふだんの旅行は毎月の生活費の「趣味・娯楽」、特別な旅行はライフイベントの入力項目の夢プランの「特別な旅行」で入れるので置かない
  * （前に入れた行はふつうの行のまま）
  */
+/** ひな形の額と間隔（presets.ts の目安 preset.living.annual.<key>・<key>.everyYears。間隔の目安の無いひな形は毎年。読むたびに引く） */
+const annualPreset = (key: string, every: boolean) => ({
+  get amount(): number {
+    return presetNum(`preset.living.annual.${key}`);
+  },
+  get everyYears(): number {
+    return every ? presetNum(`preset.living.annual.${key}.everyYears`) : 1;
+  },
+});
+
 export const ANNUAL_TEMPLATES: readonly AnnualTemplate[] = [
-  { key: "medical", label: "通院・歯の治療", amount: 50000, everyYears: 1, row: "cf.expense.care.medical", match: /通院|歯|治療|医療|病院/u, unless: /ペット|動物/u },
-  { key: "pet", label: "ペットの病気・けが", amount: 50000, everyYears: 1, help: "動物病院の費用です。ペット保険に入っているなら、保険料は毎月の生活費の「趣味・娯楽」に入れます", match: /ペット|動物病院/u },
-  { key: "homecoming", label: "帰省", amount: 100000, everyYears: 1, match: /帰省/u },
-  { key: "appliances", label: "家電・家具の買い替え", amount: 400000, everyYears: 8, match: /家電|家具/u },
-  { key: "fees", label: "年会費・サブスクの年払い", amount: 30000, everyYears: 1, match: /年会費|サブスク|会費/u },
-  { key: "smartphone", label: "スマホの買い替え", amount: 120000, everyYears: 4, per: "1台", help: "1台分の額です。家族の分も入れるときは、1人1行ずつ足してください（2行目からは「＋ その他の年1回・数年に1回の支出」で足せます）", match: /スマホ|スマートフォン|携帯電話/u },
-  { key: "pc", label: "パソコンの買い替え", amount: 150000, everyYears: 5, match: /パソコン/u },
+  { key: "medical", label: "通院・歯の治療", ...annualPreset("medical", false), row: "cf.expense.care.medical", match: /通院|歯|治療|医療|病院/u, unless: /ペット|動物/u },
+  { key: "pet", label: "ペットの病気・けが", ...annualPreset("pet", false), help: "動物病院の費用です。ペット保険に入っているなら、保険料は毎月の生活費の「趣味・娯楽」に入れます", match: /ペット|動物病院/u },
+  { key: "homecoming", label: "帰省", ...annualPreset("homecoming", false), match: /帰省/u },
+  { key: "appliances", label: "家電・家具の買い替え", ...annualPreset("appliances", true), match: /家電|家具/u },
+  { key: "fees", label: "年会費・サブスクの年払い", ...annualPreset("fees", false), match: /年会費|サブスク|会費/u },
+  { key: "smartphone", label: "スマホの買い替え", ...annualPreset("smartphone", true), per: "1台", help: "1台分の額です。家族の分も入れるときは、1人1行ずつ足してください（2行目からは「＋ その他の年1回・数年に1回の支出」で足せます）", match: /スマホ|スマートフォン|携帯電話/u },
+  { key: "pc", label: "パソコンの買い替え", ...annualPreset("pc", true), match: /パソコン/u },
 ];
 
 /** ひな形の額と間隔の文字（「年10万円」「8年ごとに40万円」）。ボタンには出さず、推定の根拠の文に使う */
@@ -911,7 +930,7 @@ const templateAmountText = (t: AnnualTemplate) => `${t.everyYears === 1 ? "年" 
  * 原本で確かめた統計ではないので「よくある額の目安」「よくある間隔の目安」と書く
  */
 export const annualBasis = (t: AnnualTemplate) => ({
-  amount: `よくある額の目安（${t.label} ${t.per !== undefined ? `${t.per} ` : ""}${templateAmountText(t)}。この世帯に合わせて直してください）`,
+  amount: presetText(`preset.living.annual.${t.key}`, () => `よくある額の目安（${t.label} ${t.per !== undefined ? `${t.per} ` : ""}${templateAmountText(t)}。この世帯に合わせて直してください）`),
   everyYears: `よくある間隔の目安（${t.label} ${t.everyYears === 1 ? "毎年" : `${t.everyYears}年ごと`}。この世帯に合わせて直してください）`,
 });
 

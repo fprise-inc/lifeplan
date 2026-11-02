@@ -28,6 +28,7 @@ import { totalViewOf } from "./savings/model.ts";
 import { currentPeriod } from "./stages/work.ts";
 import { fieldAddress, fieldStatus } from "./valueState.ts";
 import { ALWAYS_SHOWN, isHiddenIn } from "./itemChoice.ts";
+import { presetNum } from "../../../../hearing/src/presets.ts";
 
 /** カードの状態: 入力済み・推定で計算中・未入力（0円の所あり）・当てはまらない・まだ入れていない（入れ始める前。赤い知らせを出さない） */
 export type ItemStatus = "done" | "est" | "missing" | "na" | "empty";
@@ -905,8 +906,8 @@ export function addItem(wh: WorkingHousehold, key: string, id: () => string = ne
     const p: PeriodicExpense =
       head === "abroad"
         ? // 子を選んだ留学は子ども・教育の出るお金の行（種類 教育費。0062）
-          { id: ref, label: "留学", ...(childAt !== null ? { kind: "education" as const, row: "cf.expense.education" } : { row: "cf.expense.lumpSum.other" }), from: childAt ?? { at }, to: childAt ?? { at }, everyYears: 1, amount: standardBox(3500000, PRESET_BASIS) }
-        : { id: ref, label: "新しい支出", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, amount: standardBox(300000, PRESET_BASIS) };
+          { id: ref, label: "留学", ...(childAt !== null ? { kind: "education" as const, row: "cf.expense.education" } : { row: "cf.expense.lumpSum.other" }), from: childAt ?? { at }, to: childAt ?? { at }, everyYears: 1, amount: standardBox(presetNum("preset.education.abroad"), PRESET_BASIS) }
+        : { id: ref, label: "新しい支出", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, amount: standardBox(presetNum("preset.events.newItem"), PRESET_BASIS) };
     next = mutate(wh, (hh) => void (hh.periodicExpenses ??= []).push(p));
   } else {
     kind = "care";

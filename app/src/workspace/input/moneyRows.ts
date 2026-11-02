@@ -22,6 +22,7 @@ import { wareki } from "./units.ts";
 import { readYearMonth } from "./when.ts";
 import { GROWTH_RANGE } from "./rateRanges.ts";
 import { toDream } from "./dreams.ts";
+import { presetNum, presetRate, presetText } from "../../../../hearing/src/presets.ts";
 
 type Obj = Record<string, unknown>;
 
@@ -56,17 +57,40 @@ export const INCOME_KINDS: readonly { kind: IncomeFlowKind; label: string; help?
 ];
 
 /** 出るお金の種類: 名前・表の行の既定・置くカード・足すときのひな形（額・時期。推定） */
+/** 万円の文字（「50万円」） */
+const manText = (v: number | string) => `${(Number(v) / 10000).toLocaleString("ja-JP", { maximumFractionDigits: 4 })}万円`;
+/** 種類のひな形の額と根拠の文（presets.ts の目安。事務所の推定の値があればその値。読むたびに引く） */
+const presetAmount = (id: string, text: (v: number | string) => string) => ({
+  get amount(): number {
+    return presetNum(id);
+  },
+  get preset(): string {
+    return presetText(id, text);
+  },
+});
+
 export const OUT_KINDS: readonly { kind: MoneyOutKind; label: string; help?: string; row: string; card: MoneyCard; cadence: Cadence; amount: number; everyYears?: number; preset: string }[] = [
-  { kind: "general", label: "ライフイベントの支出", row: "cf.expense.lumpSum.other", card: "events", cadence: "once", amount: 500000, preset: "一時的支出 50万円" },
-  { kind: "childSupport", label: "養育費を払う", row: "cf.expense.other", card: "family", cadence: "monthly", amount: 40000, preset: "養育費 月4万円" },
-  { kind: "allowance", label: "仕送り", row: "cf.expense.other", card: "care", cadence: "monthly", amount: 30000, preset: "仕送り 月3万円" },
+  { kind: "general", label: "ライフイベントの支出", row: "cf.expense.lumpSum.other", card: "events", cadence: "once", ...presetAmount("preset.events.general", (v) => `一時的支出 ${manText(v)}`) },
+  { kind: "childSupport", label: "養育費を払う", row: "cf.expense.other", card: "family", cadence: "monthly", ...presetAmount("preset.events.childSupport", (v) => `養育費 月${manText(v)}`) },
+  { kind: "allowance", label: "仕送り", row: "cf.expense.other", card: "care", cadence: "monthly", ...presetAmount("preset.care.allowance", (v) => `仕送り 月${manText(v)}`) },
+  // 贈与の110万円は贈与税の基礎控除（法令の値）なので目安の一覧に入れない
   { kind: "gift", label: "あげる贈与", help: "孫などへの贈与です", row: "cf.expense.lumpSum.gift", card: "inherit", cadence: "once", amount: 1100000, preset: "贈与 110万円" },
-  { kind: "education", label: "留学・寮費・部活などの教育費", row: "cf.expense.education", card: "education", cadence: "repeat", amount: 100000, everyYears: 1, preset: "その他の教育費 年10万円" },
-  { kind: "repair", label: "修繕・リフォーム", row: "cf.expense.housing.maintenance", card: "housing", cadence: "repeat", amount: 1000000, everyYears: 10, preset: "修繕 10年ごとに100万円" },
-  { kind: "realEstateCost", label: "不動産の一時の経費", help: "大規模修繕・原状回復などの一時の経費です", row: "cf.expense.other", card: "rental", cadence: "once", amount: 1000000, preset: "不動産の一時の経費 100万円" },
-  { kind: "livingAnnual", label: "年1回・数年に1回の支出", row: "cf.expense.living", card: "living", cadence: "repeat", amount: 100000, everyYears: 1, preset: "年払いの支出 年10万円" },
-  { kind: "car", label: "車の修理・用品など", row: "cf.expense.living.car", card: "car", cadence: "repeat", amount: 50000, everyYears: 1, preset: "車の用品など 年5万円" },
-  { kind: "other", label: "その他の支出", row: "cf.expense.other", card: "events", cadence: "once", amount: 100000, preset: "その他の支出 10万円" },
+  { kind: "education", label: "留学・寮費・部活などの教育費", row: "cf.expense.education", card: "education", cadence: "repeat", everyYears: 1, ...presetAmount("preset.education.otherRow", (v) => `その他の教育費 年${manText(v)}`) },
+  {
+    kind: "repair",
+    label: "修繕・リフォーム",
+    row: "cf.expense.housing.maintenance",
+    card: "housing",
+    cadence: "repeat",
+    get everyYears(): number {
+      return presetNum("preset.housing.repair.everyYears");
+    },
+    ...presetAmount("preset.housing.repair.amount", (v) => `修繕 ${String(presetNum("preset.housing.repair.everyYears"))}年ごとに${manText(v)}`),
+  },
+  { kind: "realEstateCost", label: "不動産の一時の経費", help: "大規模修繕・原状回復などの一時の経費です", row: "cf.expense.other", card: "rental", cadence: "once", ...presetAmount("preset.events.realEstateCost", (v) => `不動産の一時の経費 ${manText(v)}`) },
+  { kind: "livingAnnual", label: "年1回・数年に1回の支出", row: "cf.expense.living", card: "living", cadence: "repeat", everyYears: 1, ...presetAmount("preset.living.annualRow", (v) => `年払いの支出 年${manText(v)}`) },
+  { kind: "car", label: "車の修理・用品など", row: "cf.expense.living.car", card: "car", cadence: "repeat", everyYears: 1, ...presetAmount("preset.car.supplies", (v) => `車の用品など 年${manText(v)}`) },
+  { kind: "other", label: "その他の支出", row: "cf.expense.other", card: "events", cadence: "once", ...presetAmount("preset.events.other", (v) => `その他の支出 ${manText(v)}`) },
   // 夢プラン（0103）: ライフイベントの入力項目の「夢プラン」の区画だけで足す（種類の選択には出さない）。額は未入力から
   { kind: "dream", label: "夢", row: "cf.expense.lumpSum.other", card: "events", cadence: "once", amount: 0, preset: "夢 額は未入力" },
 ];
@@ -1206,10 +1230,10 @@ export function addInheritedDebt(wh: WorkingHousehold, id: string = newId()): Wo
       id,
       kind: "other",
       debtors: [{ member: self.id, role: "primary" }],
-      principal: 1000000,
+      principal: presetNum("preset.loan.inherited.principal"),
       start: { at },
-      rateSchedule: [{ from: { at }, type: "fixed", rate: "0.02" }],
-      repayment: { method: "equalPayment", termMonths: 60 },
+      rateSchedule: [{ from: { at }, type: "fixed", rate: presetRate("preset.loan.inherited.rate") }],
+      repayment: { method: "equalPayment", termMonths: presetNum("preset.loan.inherited.termYears") * 12 },
       inheritedFrom: from,
       ...(officeNow().inheritLikelihood === "uncertain" ? { likelihood: "uncertain" as const } : {}),
     };

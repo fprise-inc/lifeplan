@@ -25,6 +25,8 @@ import { childOfPeriodic } from "./events.ts";
 import { donorOptions, FIELDS, GIFT_PURPOSES, HOUSING_EXEMPTION, LIVING_PLACE, memberLabel, memberOptions, NURSERY_HOURS, SCHOOL_STAGES, SECTORS, TAX_METHODS } from "../labels.ts";
 import type { Address } from "../../store/readings.ts";
 import { scholarshipRateEstimate } from "../../../../../hearing/src/loanRates.ts";
+import { presetIsOffice, presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
+import { pctText } from "../../../../../hearing/src/housingEstimates.ts";
 
 type Obj = Record<string, unknown>;
 const goals = (h: Household) => h.goals;
@@ -291,7 +293,7 @@ function outOfSchoolGroups(wh: WorkingHousehold, goal: Goal, child: Member): Gro
         (g.education.lessons ??= []).push(lesson);
       }),
   });
-  out.push({ key: `edu/${goal.id}/addLessons`, level: "detail", fields: [], actions: [addLesson("cram", "塾", 20000), addLesson("lesson", "習い事", 8000), addLesson("other", "その他（学校外）", 5000)] });
+  out.push({ key: `edu/${goal.id}/addLessons`, level: "detail", fields: [], actions: [addLesson("cram", "塾", presetNum("preset.education.outside.cram")), addLesson("lesson", "習い事", presetNum("preset.education.outside.lessons")), addLesson("other", "その他（学校外）", presetNum("preset.education.outside.other"))] });
   return out;
 }
 
@@ -859,8 +861,16 @@ const yearsField = (key: string, label: string, find: Finder, max: number, addre
  * - 教育ローン: 日本政策金融公庫「国の教育ローン」。額は入学の年にかかる学費（入学金と1年目の学費。統計の平均）で、融資の上限（子1人350万円。
  *   自宅外通学・大学院・海外留学などは450万円）まで。金利は固定の年4.05%（令和8年7月1日現在。保証料は別）、返す年数は上限の20年
  */
-export const SCHOLARSHIP_BASIS = presetBasis(`貸与の奨学金（日本学生支援機構の第二種）月5万円・在学中。利率は${scholarshipRateEstimate().basis}・利率固定方式（上限も年3%）。返す年数は貸与総額から返還年数算出表で`);
-export const LOAN_BASIS = presetBasis("国の教育ローン（日本政策金融公庫）: 入学の年の学費（入学金と1年目の学費の統計の平均。上限350万円）・固定金利 年4.05%（令和8年7月1日現在）・返済期間は上限の20年");
+/** 貸与の奨学金のひな形の根拠の文（月額は presets.ts の目安、利率はマスタデータ。事務所の推定の値があればその値。読むたびに作る） */
+export const scholarshipBasis = (): string =>
+  presetBasis(
+    `貸与の奨学金（日本学生支援機構の第二種）${presetText("preset.education.scholarship.monthly", (v) => `月${String(Number(v) / 10000)}万円`)}・在学中。利率は${scholarshipRateEstimate().basis}・利率固定方式（上限も年3%）。返す年数は貸与総額から返還年数算出表で`,
+  );
+/** 教育ローンのひな形の根拠の文（金利は presets.ts の目安） */
+export const loanBasis = (): string =>
+  presetBasis(
+    `国の教育ローン（日本政策金融公庫）: 入学の年の学費（入学金と1年目の学費の統計の平均。上限350万円）・${presetText("preset.education.loan.rate", (v) => (presetIsOffice("preset.education.loan.rate") ? `固定金利 年${pctText(v)}` : `固定金利 年${pctText(v)}（令和8年7月1日現在）`))}・返済期間は上限の20年`,
+  );
 
 /** 日本学生支援機構「奨学金返還年数算出表」: 貸与総額（以下）→ 割賦金の基礎額。340万円を超えると総額の20分の1 */
 const JASSO_BASE: readonly [number, number][] = [
@@ -901,7 +911,7 @@ export const SCHOLARSHIP_TYPES = [
 
 /** 種類ごとの利率の目安（率と根拠の文） */
 export function scholarshipTypeRate(type: string | undefined): { rate: string; basis: string } {
-  return type === "first" ? { rate: "0", basis: presetBasis("第一種奨学金（無利子）は利率0%") } : { rate: scholarshipRateEstimate().rate, basis: SCHOLARSHIP_BASIS };
+  return type === "first" ? { rate: "0", basis: presetBasis("第一種奨学金（無利子）は利率0%") } : { rate: scholarshipRateEstimate().rate, basis: scholarshipBasis() };
 }
 
 /** 種類を変えたとき、利率が推定のまま（目安のボタンの値）なら、新しい種類の目安に入れ直す。FP が入れた利率は変えない */
@@ -1049,9 +1059,10 @@ export function addScholarship(wh: WorkingHousehold, goalId: string, id: string 
     if (g?.education === undefined || child === undefined) return;
     const p = higherPeriod(g, child);
     const months = (Number(p.to.slice(0, 4)) - Number(p.from.slice(0, 4))) * 12 + Number(p.to.slice(5, 7)) - Number(p.from.slice(5, 7)) + 1;
-    const s: EducationScholarship = { id, monthly: 50000, from: { at: p.from }, to: { at: p.to }, rate: scholarshipRateEstimate().rate, termMonths: jassoRepayYears(50000 * months) * 12, repaidBy: "child" };
+    const monthly = presetNum("preset.education.scholarship.monthly");
+    const s: EducationScholarship = { id, monthly, from: { at: p.from }, to: { at: p.to }, rate: scholarshipRateEstimate().rate, termMonths: jassoRepayYears(monthly * months) * 12, repaidBy: "child" };
     (g.education.scholarships ??= []).push(s);
-    estimatedRowAt(req.input as unknown as Obj, g.id, "scholarships", id, ["monthly", "rate", "termMonths"], SCHOLARSHIP_BASIS);
+    estimatedRowAt(req.input as unknown as Obj, g.id, "scholarships", id, ["monthly", "rate", "termMonths"], scholarshipBasis());
   });
 }
 
@@ -1064,9 +1075,9 @@ export function addEducationLoan(wh: WorkingHousehold, goalId: string, id: strin
     if (g?.education === undefined || child === undefined || self === undefined) return;
     const p = higherPeriod(g, child);
     const st = (g.education.stages ?? []).find((x) => isHigher(x.stage));
-    const l: EducationLoan = { id, at: { at: addMonths(p.from, -3) }, amount: Math.min(firstYearCost(st), loanCap(st)), rate: "0.0405", termMonths: 240, borrower: self.id };
+    const l: EducationLoan = { id, at: { at: addMonths(p.from, -3) }, amount: Math.min(firstYearCost(st), loanCap(st)), rate: presetRate("preset.education.loan.rate"), termMonths: 240, borrower: self.id };
     (g.education.loans ??= []).push(l);
-    estimatedRowAt(req.input as unknown as Obj, g.id, "loans", id, ["amount", "rate", "termMonths"], LOAN_BASIS);
+    estimatedRowAt(req.input as unknown as Obj, g.id, "loans", id, ["amount", "rate", "termMonths"], loanBasis());
   });
 }
 
@@ -1256,7 +1267,7 @@ export function addChildExpense(wh: WorkingHousehold, childId: string, what: "ab
     const at20 = { memberAge: { member: childId, years: Math.max(20, ageNow + 1) } };
     const p: PeriodicExpense =
       what === "abroad"
-        ? { id, label: "留学", kind: "education", row: "cf.expense.education", from: at20, to: structuredClone(at20), everyYears: 1, amount: standardBox(3500000, presetBasis("留学 350万円")) }
+        ? { id, label: "留学", kind: "education", row: "cf.expense.education", from: at20, to: structuredClone(at20), everyYears: 1, amount: standardBox(presetNum("preset.education.abroad"), presetBasis(presetText("preset.education.abroad", (v) => `留学 ${(Number(v) / 10000).toLocaleString("ja-JP")}万円`))) }
         : {
             id,
             label: "その他の教育費",
@@ -1265,7 +1276,7 @@ export function addChildExpense(wh: WorkingHousehold, childId: string, what: "ab
             from: { memberAge: { member: childId, years: Math.max(12, ageNow + 1) } },
             to: { memberAge: { member: childId, years: Math.max(18, ageNow + 2) } },
             everyYears: 1,
-            amount: standardBox(100000, presetBasis("その他の教育費 年10万円")),
+            amount: standardBox(presetNum("preset.education.otherRow"), presetBasis(presetText("preset.education.otherRow", (v) => `その他の教育費 年${(Number(v) / 10000).toLocaleString("ja-JP")}万円`))),
           };
     (h.periodicExpenses ??= []).push(p);
   });

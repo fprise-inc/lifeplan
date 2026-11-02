@@ -79,3 +79,34 @@ describe("推定で埋めない入力欄（ヒアリングシートの取り込�
     expect(r2.request.input.household.livingExpenses?.[0]?.monthly).toMatchObject({ value: 250000, state: "confirmed" });
   });
 });
+
+// 0111 の2回目: コードの中の目安（presets.ts）にも同じ重ね方が効く
+describe("事務所の推定の値（コードの中の目安）", () => {
+  it("目安の値と根拠の文が事務所の値になる。一覧に無い値ID は使わない", async () => {
+    const { CAR_ESTIMATE, PART_TIME_HOURS, healthRateEstimate } = await import("../src/estimates.ts");
+    const { presetValue, officialPreset } = await import("../src/presets.ts");
+    expect(CAR_ESTIMATE.price.value).toBe(2500000);
+    expect(PART_TIME_HOURS.weekly).toBe(15);
+    expect(healthRateEstimate("mutualAid").value).toBe("0.0490");
+    setOfficeEstimates({
+      "preset.car.price": { value: 3200000, basis: BASIS },
+      "preset.wage.partTime.weeklyHours": { value: 20, basis: BASIS },
+      "preset.health.mutualAidRate": { value: "0.05", basis: BASIS },
+      "preset.nothing": { value: 1, basis: BASIS },
+    });
+    expect(CAR_ESTIMATE.price).toEqual({ value: 3200000, basis: `自動車の保有・維持費の目安・新車の価格・${BASIS}` });
+    expect(PART_TIME_HOURS.weekly).toBe(20);
+    expect(healthRateEstimate("mutualAid")).toEqual({ value: "0.05", basis: `共済組合の保険料率の目安・${BASIS}。給与明細の短期掛金で確かめてください` });
+    expect(isOfficeBasisText(CAR_ESTIMATE.price.basis)).toBe(true);
+    expect(presetValue("preset.car.price")).toBe(3200000);
+    expect(officialPreset("preset.car.price")).toBe(2500000);
+    expect(() => presetValue("preset.nothing")).toThrow();
+  });
+
+  it("給与の仮の値（統計の無い働き方）も事務所の値になる", () => {
+    expect(salaryEstimate("executive", "male")?.annual.value).toBe(6000000);
+    setOfficeEstimates({ "preset.wage.provisional.executive.male.salary": { value: 9000000, basis: BASIS } });
+    expect(salaryEstimate("executive", "male")?.annual).toEqual({ value: 9000000, basis: `男性の給与の目安・${BASIS}` });
+    expect(salaryEstimate("executive", "male")?.bonus.value).toBe(0);
+  });
+});
