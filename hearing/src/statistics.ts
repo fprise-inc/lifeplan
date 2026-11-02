@@ -53,9 +53,12 @@ export interface OfficeOverride {
 let office: Readonly<Record<string, OfficeOverride>> = {};
 let noFill: ReadonlySet<string> = new Set();
 
-/** 事務所の推定の値と、推定で埋めない入力欄（入力項目ID。fillsByEstimate）を入れる。知らない値ID は捨てる */
+/**
+ * 事務所の推定の値と、推定で埋めない入力欄（入力項目ID。fillsByEstimate）を入れる。知らない値ID は捨てる
+ * （マスタデータの値と、コードの中の目安〔presets.ts。値ID は「preset.」で始まる。一覧に無い値ID は presets.ts が読まない〕）
+ */
 export function setOfficeEstimates(values: Readonly<Record<string, OfficeOverride>>, skip: Iterable<string> = []): void {
-  office = Object.fromEntries(Object.entries(values).filter(([k]) => MASTER_VALUES[k] !== undefined));
+  office = Object.fromEntries(Object.entries(values).filter(([k]) => MASTER_VALUES[k] !== undefined || k.startsWith("preset.")));
   noFill = new Set(skip);
 }
 
@@ -80,9 +83,35 @@ export function withOfficeEstimates<T>(values: Readonly<Record<string, OfficeOve
 /** その入力欄を推定で埋めるか（事務所の既定値で「推定で埋めない」にした欄は false。空欄のまま「入力が足りない」の扱い） */
 export const fillsByEstimate = (target: string): boolean => !noFill.has(target);
 
-/** 根拠の文が事務所の推定の値の根拠の文を含むか（カスタム層の推定の根拠の書き換えより、事務所の値の根拠の文を優先する。0111） */
-export const isOfficeBasisText = (text: string | null | undefined): boolean =>
-  typeof text === "string" && text !== "" && Object.values(office).some((o) => text.includes(o.basis));
+/** ヒアリングシートの「わからない」を推定にした根拠の頭（estimates.ts の HEARING_UNKNOWN_BASIS。根拠の文は「<頭>。<推定の根拠>」） */
+export const HEARING_UNKNOWN_HEAD = "ヒアリングで「わからない」";
+
+/**
+ * 事務所の推定の値の根拠の文（ids のうち最初の、事務所の値がある値の文。無ければ null）。事務所の値から作った推定は、この文だけを根拠にする
+ * （ほかの文を足さない。isOfficeBasisText が完全に同じ文で見分けるため。0111 の 2026-11-02 の追記）
+ */
+export function officeBasisOf(...ids: readonly string[]): string | null {
+  for (const id of ids) {
+    const o = office[id];
+    if (o !== undefined) return o.basis;
+  }
+  return null;
+}
+
+/**
+ * 根拠の文が、事務所の推定の値の根拠の文とまったく同じか（前後の空白はそろえる。ヒアリングシートの「わからない」の頭を付けた文も同じ扱い）。
+ * カスタム層の推定の根拠の書き換えより、事務所の値の根拠の文を優先する（0111）。文の一部で見分けないので、FP が短い文（「平均」など）を書いても、
+ * 出典の長い文の公式の根拠と取り違えない
+ */
+export const isOfficeBasisText = (text: string | null | undefined): boolean => {
+  if (typeof text !== "string") return false;
+  const t = text.trim();
+  if (t === "") return false;
+  return Object.values(office).some((o) => {
+    const b = o.basis.trim();
+    return t === b || t === `${HEARING_UNKNOWN_HEAD}。${b}`;
+  });
+};
 
 /** 公式の値（事務所の推定の値を当てない、写しのままの値） */
 export function officialMasterValue(id: string): MasterValue | null {

@@ -7,7 +7,7 @@ import type { Debt, DebtHousing, EngineRequest, Household } from "../../../engin
 import { addMonths } from "../../levers.ts";
 import type { Address } from "../../store/readings.ts";
 import { byId, field, getPath, plain, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef } from "../form.ts";
-import { mutate, newId, presetBasis, standardBox, type LoanEntry, type WorkingHousehold } from "../household.ts";
+import { mutate, newId, presetBasis, standardBox, wrapBasis, type LoanEntry, type WorkingHousehold } from "../household.ts";
 import { CREDIT_DATA_FROM_YEAR, creditKey, estimatedPrincipal, fromBalance, isHomeLoan, PRINCIPAL_ESTIMATE, principalKey, principalMismatch, purchaseMonth, withoutCreditMark } from "../housingCredit.ts";
 import { DEBT_KINDS, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS } from "../labels.ts";
 import { fittedRateText, monthlyPayment, monthsBetween, monthsFromPayment, principalFromPayment, rateText } from "../loanMath.ts";
@@ -15,9 +15,12 @@ import { putRow, rowAt, type StateRow } from "../rows.ts";
 import { formatYearMonth, formatYen } from "../units.ts";
 import { readYearMonth } from "../when.ts";
 import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
-import { currentMortgageRateEstimate, mortgageRateEstimate, RATE_ESTIMATE_HEADS, type MortgageRateType } from "../../../../../hearing/src/housingEstimates.ts";
+import { currentMortgageRateEstimate, mortgageRateEstimate, pctText, RATE_ESTIMATE_HEADS, type MortgageRateType } from "../../../../../hearing/src/housingEstimates.ts";
+import { standardTermMonths as termOfMember } from "../../../../../hearing/src/loan.ts";
+import { presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
 import { repayingScholarshipRateEstimate } from "../../../../../hearing/src/loanRates.ts";
 import { executiveMembers, hasExecutive } from "../officer.ts";
+import { isOfficeBasisText } from "../../../../../hearing/src/statistics.ts";
 
 type Obj = Record<string, unknown>;
 const debts = (h: Household) => h.debts;
@@ -794,7 +797,8 @@ export function rateEstimateOf(type: string | undefined, current = false): { rat
 }
 
 /** 金利の値の状態の行が、種類ごとの目安の金利（推定）のままか（種類を変えたら目安を入れ直してよい値か） */
-const isRateEstimate = (r: StateRow | undefined): boolean => r?.state === "estimated" && r.origin.kind === "auto" && RATE_ESTIMATE_HEADS.some((head) => (r.estimate?.basis ?? "").includes(`（${head}`));
+const isRateEstimate = (r: StateRow | undefined): boolean =>
+  r?.state === "estimated" && r.origin.kind === "auto" && (RATE_ESTIMATE_HEADS.some((head) => (r.estimate?.basis ?? "").includes(`（${head}`)) || isOfficeBasisText(r.estimate?.basis));
 
 /**
  * 変動金利の見込みの欄（rateOutlookField）で置いた段（5年後・10年後）を持つか。見込みの欄は、今の金利の段が最初の段で変動金利のときだけ出るので、
@@ -803,7 +807,7 @@ const isRateEstimate = (r: StateRow | undefined): boolean => r?.state === "estim
 function hasOutlookSteps(h: Household, d: Debt, baseMonth: string): boolean {
   if (outlookBase(h, d, baseMonth).index !== 0 || !isVariableNow(h, d, baseMonth)) return false;
   const o = rateOutlookOf(h, d, baseMonth);
-  return RATE_OUTLOOKS.some((x) => x.adds.length > 0 && x.value === o);
+  return rateOutlooks().some((x) => x.adds.length > 0 && x.value === o);
 }
 
 /**
@@ -961,12 +965,15 @@ export function switchEntry(wh: WorkingHousehold, id: string, e: LoanEntry): Wor
 
 // ---- 変動金利の見込み（標準の1欄。0078） ----
 
-/** 金利の見込みの型: 今の金利からの上乗せ（5年後・10年後）。「今の金利のまま」は今より後の段を持たない */
-const RATE_OUTLOOKS: readonly { value: string; label: string; adds: readonly number[] }[] = [
-  { value: "flat", label: "今の金利のまま", adds: [] },
-  { value: "up1", label: "10年で1%上がる（5年後に＋0.5%・10年後に＋1%）", adds: [0.005, 0.01] },
-  { value: "up2", label: "10年で2%上がる（5年後に＋1%・10年後に＋2%）", adds: [0.01, 0.02] },
-];
+/** 金利の見込みの型: 今の金利からの上乗せ（5年後・10年後。presets.ts の目安）。「今の金利のまま」は今より後の段を持たない */
+function rateOutlooks(): readonly { value: string; label: string; adds: readonly number[] }[] {
+  const up = (key: "up1" | "up2") => {
+    const a5 = presetRate(`preset.loan.outlook.${key}.after5`);
+    const a10 = presetRate(`preset.loan.outlook.${key}.after10`);
+    return { value: key, label: `10年で${pctText(a10)}上がる（5年後に＋${pctText(a5)}・10年後に＋${pctText(a10)}）`, adds: [Number(a5), Number(a10)] };
+  };
+  return [{ value: "flat", label: "今の金利のまま", adds: [] }, up("up1"), up("up2")];
+}
 const OUTLOOK_CUSTOM = { value: "custom", label: "金利の段階で入れている（「詳細」で直す）" };
 /** 見込みの段の間隔（月） */
 const OUTLOOK_STEP_MONTHS = 60;
@@ -994,7 +1001,7 @@ export function rateOutlookOf(h: Household, d: Debt, baseMonth: string): string 
   const cur = Number(d.rateSchedule[index]?.rate ?? "0");
   const later = d.rateSchedule.slice(index + 1).map((s) => ({ ym: resolveTimepoint(h, s.from), rate: Number(s.rate), type: s.type }));
   if (later.length === 0) return "flat";
-  const hit = RATE_OUTLOOKS.find(
+  const hit = rateOutlooks().find(
     (o) =>
       o.adds.length === later.length &&
       later.every((x, j) => x.ym !== null && x.ym > ref && x.type === "variable" && Math.abs(x.rate - (cur + (o.adds[j] as number))) < 1e-9 && (j === 0 || monthsBetween(later[j - 1]?.ym as string, x.ym) === OUTLOOK_STEP_MONTHS)),
@@ -1012,14 +1019,14 @@ function rateOutlookField(d: Debt, k: string): FieldDef {
       level: "simple",
       kind: "select",
       structural: true,
-      options: [...RATE_OUTLOOKS.map((o) => ({ value: o.value, label: o.label })), OUTLOOK_CUSTOM],
+      options: [...rateOutlooks().map((o) => ({ value: o.value, label: o.label })), OUTLOOK_CUSTOM],
       help: "変動金利は、今の金利のままだと楽観の見込みになります。上がる見込みを選ぶと、今（これから借りるなら借入の月）から5年ごとに金利の段を置きます。細かい段は「詳細」の「金利の段階」で直せます",
       get: (w) => {
         const x = (w.request.input.household.debts ?? []).find((y) => y.id === d.id);
         return { value: x === undefined ? null : rateOutlookOf(w.request.input.household, x, w.request.input.baseMonth) };
       },
       set: (w, v) => {
-        const o = RATE_OUTLOOKS.find((x) => x.value === v);
+        const o = rateOutlooks().find((x) => x.value === v);
         if (o === undefined) return w;
         return mutate(w, (h, req) => {
           const x = (h.debts ?? []).find((y) => y.id === d.id);
@@ -1095,16 +1102,36 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
 
 // ---- ほかのローンの種類 ----
 
+/** ほかのローンの金利の目安（presets.ts。事務所の推定の値があればその値。読むたびに引く） */
+const subtypeRate = (id: string, what: string) => ({
+  get rate(): string {
+    return presetRate(id);
+  },
+  get rateBasis(): string {
+    return presetText(id, (v) => `${what}の金利の目安 年${pctText(v)}`);
+  },
+});
+
 export const LOAN_SUBTYPES = [
-  { value: "cardLoan", label: "カードローン・リボ", kind: "other", rate: "0.15", rateBasis: "カードローン・リボの金利の目安 年15%" },
+  { value: "cardLoan", label: "カードローン・リボ", kind: "other", ...subtypeRate("preset.loan.rate.cardLoan", "カードローン・リボ") },
   // 奨学金は今返している分の目安（マスタデータ master.loanRates。過去に貸与を終えた人の利率。これから借りる子ども・教育の入力項目の貸与の奨学金とは別）
-  // 第一種（無利子）は利率0%（0104）。第二種（有利子）は今返している分の目安
-  { value: "scholarship", label: "奨学金の返済（第二種・有利子）", kind: "scholarship", rate: repayingScholarshipRateEstimate().rate, rateBasis: `今返している奨学金の利率の目安 ${repayingScholarshipRateEstimate().basis}。無利子の第一種なら種類で選んでください` },
+  // 第一種（無利子）は利率0%（0104）。第二種（有利子）は今返している分の目安（読むたびに引く。事務所の推定の値を当てるため）
+  {
+    value: "scholarship",
+    label: "奨学金の返済（第二種・有利子）",
+    kind: "scholarship",
+    get rate(): string {
+      return repayingScholarshipRateEstimate().rate;
+    },
+    get rateBasis(): string {
+      return wrapBasis(repayingScholarshipRateEstimate().basis, (b) => `今返している奨学金の利率の目安 ${b}。無利子の第一種なら種類で選んでください`);
+    },
+  },
   { value: "scholarshipFree", label: "奨学金の返済（第一種・無利子）", kind: "scholarship", rate: "0", rateBasis: "第一種奨学金（無利子）は利率0%" },
-  { value: "renovation", label: "リフォームローン", kind: "other", rate: "0.025", rateBasis: "リフォームローンの金利の目安 年2.5%" },
-  { value: "policyLoan", label: "契約者貸付（保険）", kind: "other", rate: "0.03", rateBasis: "契約者貸付の金利の目安 年3%" },
+  { value: "renovation", label: "リフォームローン", kind: "other", ...subtypeRate("preset.loan.rate.renovation", "リフォームローン") },
+  { value: "policyLoan", label: "契約者貸付（保険）", kind: "other", ...subtypeRate("preset.loan.rate.policyLoan", "契約者貸付") },
   { value: "personal", label: "親・知人からの借入", kind: "other", rate: "0", rateBasis: "親・知人からの借入は利息なし" },
-  { value: "other", label: "その他のローン", kind: "other", rate: "0.03", rateBasis: "その他のローンの金利の目安 年3%" },
+  { value: "other", label: "その他のローン", kind: "other", ...subtypeRate("preset.loan.rate.other", "その他のローン") },
   // 役員を務める会社からの借入金（0105。役員として働く人がいる世帯だけ選べる。返済はほかのローンと同じくキャッシュフローに入る）
   { value: "companyLoan", label: "会社からの借入金", kind: "other", rate: "0", rateBasis: "会社からの借入の利率は契約で決めた率を入れてください（入れなければ利息なしで計算します）" },
 ] as const;
@@ -1146,7 +1173,7 @@ export function otherLoanHeadFields(wh: WorkingHousehold, d: Debt, k: string): F
             const step = x.rateSchedule[0];
             if (a !== null && step !== undefined && (isEstimate(rowAt(inputOf(req), a), "既定の値") || isEstimate(rowAt(inputOf(req), a), "標準の値"))) {
               step.rate = sub.rate;
-              putRow(inputOf(req), a, estRow("standard", `既定の値（${sub.rateBasis}。わかれば直してください）`));
+              putRow(inputOf(req), a, estRow("standard", wrapBasis(sub.rateBasis, (b) => `既定の値（${b}。わかれば直してください）`)));
             }
           }),
       }),
@@ -1182,20 +1209,17 @@ export function newOtherLoan(wh: WorkingHousehold, subtype: SubtypeDef["value"])
     const input = inputOf(req);
     putRow(input, addrPrincipal(id), tentativePrincipal(0));
     putRow(input, addrStart(id), estRow("standard", TENTATIVE));
-    putRow(input, at(id, "debt.rateSchedule", [rid, "rate"]), estRow("standard", `既定の値（${sub.rateBasis}。わかれば直してください）`));
+    putRow(input, at(id, "debt.rateSchedule", [rid, "rate"]), estRow("standard", wrapBasis(sub.rateBasis, (b) => `既定の値（${b}。わかれば直してください）`)));
     putRow(input, addrTerm(id), estRow("standard", UNENTERED_PAYMENT));
   });
   return withEntry(next, id, "balance");
 }
 
-/** 返済期間の標準の値: 35年。完済が80歳を超えるなら80歳まで（借りる人の生年月から） */
+/** 返済期間の標準の値: 35年。完済が80歳を超えるなら80歳まで（借りる人の生年月から。ヒアリングシートと同じ hearing/src/loan.ts。年数と年齢は presets.ts の目安） */
 export function standardTermMonths(h: Household, memberId: string, start: string): number {
   const m = h.members.find((x) => x.id === memberId);
-  if (m === undefined) return 420;
-  const [by, bm] = m.birth.birthYearMonth.split("-").map(Number) as [number, number];
-  const at80 = `${by + 80}-${String(bm).padStart(2, "0")}`;
-  const limit = monthsBetween(start, at80);
-  return Math.max(12, Math.min(420, Math.floor(limit / 12) * 12));
+  if (m === undefined) return presetNum("preset.loan.mortgage.termYears") * 12;
+  return termOfMember(m, start);
 }
 
 /**
@@ -1227,7 +1251,7 @@ export function newMortgage(wh: WorkingHousehold, pairOf?: string): WorkingHouse
       id,
       kind: "mortgage",
       debtors: [{ member: debtor, role: "primary" }],
-      principal: 30000000,
+      principal: presetNum("preset.loan.mortgage.balance"),
       start: { at: start },
       rateSchedule: [{ id: rid, from: { at: start }, type: partner?.rateSchedule[0]?.type ?? "variable", rate: partner?.rateSchedule[0]?.rate ?? rateEstimate.rate }],
       repayment: { method: "equalPayment", termMonths: partner?.repayment.termMonths ?? term, variableRules: { fiveYear: true, cap125: true } },
@@ -1254,13 +1278,13 @@ export function newMortgage(wh: WorkingHousehold, pairOf?: string): WorkingHouse
         putRow(input, addrStart(id), estRow("standard", TENTATIVE));
       }
     } else if (!linked) {
-      d.balance = standardBox(30000000, presetBasis("今の残高 3,000万円")) as never;
+      d.balance = standardBox(presetNum("preset.loan.mortgage.balance"), presetBasis(presetText("preset.loan.mortgage.balance", (v) => `今の残高 ${man(Number(v))}`))) as never;
       d.balanceAsOf = base;
       putRow(input, addrPrincipal(id), tentativePrincipal(d.principal));
       putRow(input, addrStart(id), estRow("standard", TENTATIVE));
     }
     if (partner === undefined) putRow(input, at(id, "debt.rateSchedule", [rid, "rate"]), estRow("standard", rateEstimate.basis));
-    putRow(input, addrTerm(id), estRow("standard", `既定の値（返済期間${Math.round(d.repayment.termMonths / 12)}年。完済が80歳を超えないように）`));
+    putRow(input, addrTerm(id), estRow("standard", `既定の値（返済期間${Math.round(d.repayment.termMonths / 12)}年。完済が${presetNum("preset.loan.mortgage.payoffAge")}歳を超えないように）`));
     // 購入の予定とつながるなら、借入額は物件の価格−頭金（推定）
     const e = linked && partner === undefined ? estimatedPrincipal(hh, d) : null;
     if (e !== null) {
@@ -1287,14 +1311,15 @@ export function loanMoreActions(wh: WorkingHousehold, d: Debt, k: string): Actio
           const x = (hh.debts ?? []).find((y) => y.id === d.id) as Debt;
           const last = x.rateSchedule.at(-1);
           const from = addMonths(w.request.input.baseMonth, 60);
-          x.rateSchedule.push({ id: newId(), from: { at: from }, type: last?.type ?? "variable", rate: last?.rate ?? "0.01" });
+          x.rateSchedule.push({ id: newId(), from: { at: from }, type: last?.type ?? "variable", rate: last?.rate ?? presetRate("preset.loan.addRate.fallback") });
         }),
     },
     {
       key: `${k}/addPrepay`,
       label: "＋ 繰上返済",
       level: "detail",
-      run: (w) => mutate(w, (hh) => void (((hh.debts ?? []).find((y) => y.id === d.id) as Debt).prepayments ??= []).push({ id: newId(), at: { at: addMonths(w.request.input.baseMonth, 60) }, amount: 1000000, mode: "shortenTerm" } as never)),
+      run: (w) =>
+        mutate(w, (hh) => void (((hh.debts ?? []).find((y) => y.id === d.id) as Debt).prepayments ??= []).push({ id: newId(), at: { at: addMonths(w.request.input.baseMonth, presetNum("preset.loan.prepay.afterMonths")) }, amount: presetNum("preset.loan.prepay.amount"), mode: "shortenTerm" } as never)),
     },
   ];
   if (d.kind === "mortgage" && d.property === undefined && d.pairWith === undefined && spouse !== undefined && d.debtors.length === 1)

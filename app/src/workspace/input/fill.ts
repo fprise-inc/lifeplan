@@ -5,6 +5,8 @@
 // - 推定の目安は今ある関数（hearing/src/estimates.ts・教育の標準の進路の型）で作れる範囲だけ。作れない物は「推定で埋める」を出さない
 import type { Box, CareExpense, EducationStage, EmploymentPeriod, Household, Member, RetirementBenefit, Timepoint } from "../../engine/types.ts";
 import { careEstimate, fillsByEstimate, lifeExpectancy } from "../../../../hearing/src/estimates.ts";
+import { masterAmount } from "../../../../hearing/src/statistics.ts";
+import { presetNum, presetText } from "../../../../hearing/src/presets.ts";
 import { addMonths, ageAt } from "../levers.ts";
 import { resolveTimepoint, type StageId } from "./form.ts";
 import { CHILD_LEAVES_AGE, isSchoolLinkedLeaves, LEAVES_BASIS, mutate, newId, type WorkingHousehold } from "./household.ts";
@@ -355,14 +357,15 @@ const basisOfBox = (x: Box<number>): string => (x as { estimate?: { basis?: stri
 
 // ---- 住まい ----
 
-/** 賃貸の家賃を推定で入れたときの根拠（統計の家賃の目安はまだ無い。目安のボタンと同じ値） */
-export const RENT_BASIS = "よくある額（家賃 月8万円。地域・人数の統計はまだありません）";
-export const RENT_STANDARD = 80000;
+/** 賃貸の家賃を推定で入れたときの根拠（統計の家賃の目安はまだ無い。目安のボタンと同じ値。値は presets.ts の preset.housing.rent） */
+export const rentBasis = (): string =>
+  presetText("preset.housing.rent", (v) => `よくある額（家賃 月${(Number(v) / 10000).toLocaleString("ja-JP", { maximumFractionDigits: 4 })}万円。地域・人数の統計はまだありません）`);
+export const rentStandard = (): number => presetNum("preset.housing.rent");
 
 function fillHousing(wh: WorkingHousehold): WorkingHousehold {
   const h = wh.request.input.household;
   if ((h.residences ?? []).length > 0) return wh;
-  return mutate(wh, (hh, req) => void (hh.residences ??= []).push({ id: newId(), kind: "rent", from: { at: req.input.baseMonth }, to: null, rent: { monthly: { value: RENT_STANDARD, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: RENT_BASIS } } } } as never));
+  return mutate(wh, (hh, req) => void (hh.residences ??= []).push({ id: newId(), kind: "rent", from: { at: req.input.baseMonth }, to: null, rent: { monthly: { value: rentStandard(), state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: rentBasis() } } } } as never));
 }
 
 // ---- 介護（本人・配偶者は自動で入れない。未入力の警告と「目安で入れる」。介護・親の項目） ----
@@ -395,7 +398,8 @@ function monthsInto(m: Member, ym: string): number {
 
 /** 介護の目安の物（統計の期間で、亡くなる見込みの前に置く。今より前なら今の翌月から。額は空欄＝統計の目安で計算） */
 export function careTemplate(h: Household, m: Member, baseMonth: string, id: string = newId()): CareExpense {
-  const months = careEstimate("home")?.months ?? 55;
+  // 統計の期間（事務所の推定の値があればその値）。統計の写しが読めないとき（無い想定）の予備も同じ値から（直書きしない）
+  const months = careEstimate("home")?.months ?? masterAmount("care.statistics.months") ?? 0;
   const death = deathMonth(h, m, baseMonth);
   const start = death === null ? addMonths(baseMonth, 12) : addMonths(death, -months);
   const from: Timepoint = start <= baseMonth ? { at: addMonths(baseMonth, 1) } : hasBirth(m) ? { memberAge: { member: m.id, years: Math.max(0, ageAt(m, start)), months: monthsInto(m, start) } } : { at: start };
@@ -525,7 +529,7 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
     });
   }
   if ((h.residences ?? []).length === 0 && !(h.debts ?? []).some((d) => d.kind === "mortgage") && !confirmed.has("housing"))
-    out.push({ id: "housing", card: "housing", label: "住居費", note: "住まいが入っていないので、住居費を0円で計算しています", fill: fillHousing, basis: RENT_BASIS, none: (w) => markCard(w, "housing"), noneLabel: "住居費なし" });
+    out.push({ id: "housing", card: "housing", label: "住居費", note: "住まいが入っていないので、住居費を0円で計算しています", fill: fillHousing, basis: rentBasis(), none: (w) => markCard(w, "housing"), noneLabel: "住居費なし" });
   // 本人・配偶者の介護の費用（自動で入れない。外れると大きく誤るので、未入力の警告と「目安で入れる」。入れないと決めたらカードを保存）
   if (!confirmed.has("care")) {
     const est = careEstimate("home");

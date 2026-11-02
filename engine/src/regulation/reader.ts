@@ -12,6 +12,7 @@ import { parseYm, type MonthIndex } from "../time/month.ts";
 import { deepFreeze } from "../engine/freeze.ts";
 import { isReadableFormat } from "./format.ts";
 import { comparePackVersion } from "./versions.ts";
+import { ENGINE_NO_FILL, enginePreset, type EngineNoFill } from "../sdk/estimates.ts";
 
 /** このエンジンが理解する「無視できない」形式の機能（0007 の3）。まだ無い */
 export const KNOWN_FEATURES: readonly string[] = [];
@@ -156,8 +157,12 @@ export class RegulationStore {
 
   /** 0111: 事務所の推定の値（値ID → 条件の値〔条件の無い値は ""〕→ 値）。マスタデータ（master.*）の値だけ */
   private readonly overrides = new Map<string, Map<string, Json>>();
+  /** 0111 の2回目: エンジンが引く目安（sdk/estimates.ts の一覧）の事務所の値（値ID → 値） */
+  private readonly presets = new Map<string, number | string>();
+  /** 0111 の2回目: 推定で埋めない、エンジンが引く統計の目安 */
+  private readonly noFill: ReadonlySet<EngineNoFill>;
 
-  constructor(packs: readonly PackJson[], dataSet: Readonly<Record<string, string>> = {}, estimateValues: Readonly<Record<string, Json>> = {}) {
+  constructor(packs: readonly PackJson[], dataSet: Readonly<Record<string, string>> = {}, estimateValues: Readonly<Record<string, Json>> = {}, estimateNoFill: readonly string[] = []) {
     for (const p of packs) {
       const h = p.pack;
       if (!isReadableFormat(h.formatVersion)) throw new EngineError("E_PACK_FORMAT_VERSION", [h.packId]);
@@ -186,6 +191,22 @@ export class RegulationStore {
       if (!this.infos.some((i) => i.packId === id)) throw new EngineError("E_PACK_UNKNOWN", [id]);
     }
     for (const [key, value] of Object.entries(estimateValues)) this.addOverride(key, value);
+    for (const k of estimateNoFill) if (!(ENGINE_NO_FILL as readonly string[]).includes(k)) throw new EngineError("E_ARGUMENT", ["estimateNoFill", k]);
+    this.noFill = new Set(estimateNoFill as readonly EngineNoFill[]);
+  }
+
+  /** 0111 の2回目: エンジンが引く目安の値（事務所の推定の値があればその値。知らない値ID は E_PARAM_UNKNOWN） */
+  estimate(id: string): number | string {
+    const o = this.presets.get(id);
+    if (o !== undefined) return o;
+    const d = enginePreset(id);
+    if (d === undefined) throw new EngineError("E_PARAM_UNKNOWN", [id]);
+    return d.value;
+  }
+
+  /** 0111 の2回目: エンジンが引く統計の目安で、世帯の空欄を埋めるか（事務所の既定値で「推定で埋めない」にした物は false） */
+  fillsByEstimate(kind: EngineNoFill): boolean {
+    return !this.noFill.has(kind);
   }
 
   /**
@@ -194,6 +215,13 @@ export class RegulationStore {
    */
   private addOverride(key: string, value: Json): void {
     const bad = () => new EngineError("E_ARGUMENT", ["estimateValues", key]);
+    // エンジンが引く目安（マスタデータでない値ID のうち、置き換えてよい物の一覧。sdk/estimates.ts）
+    const preset = enginePreset(key);
+    if (preset !== undefined) {
+      if (!sameShape(preset.value as Json, value)) throw bad();
+      this.presets.set(key, value as number | string);
+      return;
+    }
     let id = key;
     let equals = "";
     if (!this.defs.has(id)) {

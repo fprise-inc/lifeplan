@@ -3,7 +3,7 @@
 // （子ども・教育の入力項目）と今返している分（ほかのローンの「奨学金の返済」）で目安を分ける（利率は貸与を終えた月で決まるため。2026-11-01）。数は正本の YAML（data/master の master.loanRates。0007）の写し statistics.generated.ts から読む。
 // 金利は市場で変わるので、リリースのたびに見直す（docs/estimates-review.md）
 import { pctText } from "./housingEstimates.ts";
-import { masterValue } from "./statistics.ts";
+import { masterValue, officeBasisOf } from "./statistics.ts";
 
 export interface LoanRateEstimate {
   /** 年率の文字（例 "0.03"） */
@@ -17,7 +17,8 @@ function estimateOf(id: string, fallback: string): LoanRateEstimate {
   if (v === null || typeof v.value !== "string") return { rate: fallback, basis: `年${pctText(fallback)}（仮の値。統計の写しが読めません）` };
   // 値の題名の最初の「（」の前が、出典の短い名前
   const source = v.title.split("（")[0] ?? v.title;
-  return { rate: v.value, basis: `年${pctText(v.value)}（${source}）${v.reviewed ? "" : "（原本での確かめ前）"}` };
+  // 事務所の推定の値なら、事務所の根拠の文そのもの（0111。完全に同じ文で見分ける）
+  return { rate: v.value, basis: officeBasisOf(id) ?? `年${pctText(v.value)}（${source}）${v.reviewed ? "" : "（原本での確かめ前）"}` };
 }
 
 /** 貸与の奨学金の利率の目安（日本学生支援機構 第二種奨学金の貸与利率。基本月額・利率固定方式）。これから借りる奨学金（子ども・教育の入力項目）に使う */

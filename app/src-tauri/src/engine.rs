@@ -241,6 +241,54 @@ mod tests {
         assert_eq!(v["slots"]["s"]["result"]["error"]["code"], "E_ARGUMENT");
     }
 
+    /// 0111 の2回目: 推定で埋めない目安（estimateNoFill）と、エンジンが引く目安の値ID（preset.*）は本体の正の計算にも効く。
+    /// 一覧に無い preset の値ID は置き換えられない
+    #[test]
+    fn office_presets_and_no_fill_reach_the_canonical_calc() {
+        let base: serde_json::Value = serde_json::from_str(&request("parentCare")).unwrap();
+        let with = |key: &str, value: serde_json::Value| {
+            let mut r = base.clone();
+            r["input"][key] = value;
+            SlotRequest {
+                id: "s".into(),
+                rev: 1,
+                request: r.to_string(),
+            }
+        };
+        let care = |out: &str| -> i64 {
+            let v: serde_json::Value = serde_json::from_str(out).unwrap();
+            v["slots"]["s"]["result"]["table"]
+                .as_array()
+                .expect("表")
+                .iter()
+                .filter(|c| {
+                    c["row"]
+                        .as_str()
+                        .is_some_and(|r| r.starts_with("cf.expense.care"))
+                })
+                .map(|c| c["amount"].as_i64().unwrap_or(0))
+                .sum()
+        };
+        let plain = compute(&[with("estimateNoFill", serde_json::json!([]))]).expect("計算");
+        let unfilled =
+            compute(&[with("estimateNoFill", serde_json::json!(["care"]))]).expect("計算");
+        assert!(care(&unfilled) < care(&plain));
+        let known = compute(&[with(
+            "estimateValues",
+            serde_json::json!({ "preset.realEstate.landShare": "0.5" }),
+        )])
+        .expect("計算");
+        let v: serde_json::Value = serde_json::from_str(&known).unwrap();
+        assert!(v["slots"]["s"]["result"]["error"].is_null());
+        let unknown = compute(&[with(
+            "estimateValues",
+            serde_json::json!({ "preset.housing.rent": 90000 }),
+        )])
+        .expect("計算");
+        let v: serde_json::Value = serde_json::from_str(&unknown).unwrap();
+        assert_eq!(v["slots"]["s"]["result"]["error"]["code"], "E_ARGUMENT");
+    }
+
     #[test]
     fn engine_errors_come_back_as_ids_only() {
         let slots = vec![SlotRequest {

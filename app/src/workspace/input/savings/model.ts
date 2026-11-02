@@ -8,6 +8,7 @@ import { expectedReturn } from "../../plans/allocation.ts";
 import { cmpRate, pctText } from "../../plans/decimal.ts";
 import { resolveTimepoint } from "../form.ts";
 import { confirmedBox, mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
+import { presetNum, presetRate } from "../../../../../hearing/src/presets.ts";
 
 export type Method = "total" | "accounts" | "allocation";
 export const METHODS: readonly { id: Method; label: string; lead: string }[] = [
@@ -416,12 +417,21 @@ export function editTotal(wh: WorkingHousehold, patch: { value?: number; rate?: 
 // ---- 資産配分 ----
 
 /** 資産配分の資産の種類（画面の5つ）と、事務所の標準値（仮の値。根拠を確かめて事務所で直す前提） */
+/** 期待リターン（mu）と値動きの大きさ（sd）は presets.ts の目安 preset.invest.<種類>.return・volatility（事務所の推定の値があればその値。読むたびに引く） */
+const classPreset = (key: string) => ({
+  get mu(): string {
+    return presetRate(`preset.invest.${key}.return`);
+  },
+  get sd(): string {
+    return presetRate(`preset.invest.${key}.volatility`);
+  },
+});
 export const CLASSES: readonly { key: string; name: string; color: string; risky: boolean; mu: string; sd: string }[] = [
-  { key: "equity.domestic", name: "国内株", color: "#2b4c8c", risky: true, mu: "0.05", sd: "0.18" },
-  { key: "equity.global", name: "外国株", color: "#5a7fc0", risky: true, mu: "0.06", sd: "0.2" },
-  { key: "bond.global", name: "債券", color: "#9db3d9", risky: false, mu: "0.01", sd: "0.05" },
-  { key: "reit.global", name: "REIT", color: "#c8a35a", risky: true, mu: "0.04", sd: "0.18" },
-  { key: "cash.deposit", name: "現金", color: "#cfd5dd", risky: false, mu: "0.001", sd: "0.005" },
+  { key: "equity.domestic", name: "国内株", color: "#2b4c8c", risky: true, ...classPreset("equity.domestic") },
+  { key: "equity.global", name: "外国株", color: "#5a7fc0", risky: true, ...classPreset("equity.global") },
+  { key: "bond.global", name: "債券", color: "#9db3d9", risky: false, ...classPreset("bond.global") },
+  { key: "reit.global", name: "REIT", color: "#c8a35a", risky: true, ...classPreset("reit.global") },
+  { key: "cash.deposit", name: "現金", color: "#cfd5dd", risky: false, ...classPreset("cash.deposit") },
 ];
 /** 相場が下がる場合に下げる資産クラス（株・REIT） */
 export const RISKY_CLASSES: readonly string[] = ["equity.domestic", "equity.global", "reit.domestic", "reit.global"];
@@ -440,7 +450,8 @@ export const DEFAULT_MIX: readonly { assetClass: string; share: string }[] = [
   { assetClass: "reit.global", share: "0.05" },
   { assetClass: "cash.deposit", share: "0.1" },
 ];
-export const DEFAULT_FEE = "0.0025";
+/** 運用の費用の既定（presets.ts の目安） */
+export const defaultFee = (): string => presetRate("preset.invest.fee");
 
 export interface ClassRow {
   key: string;
@@ -485,7 +496,7 @@ export function portfolioOf(req: EngineRequest): Portfolio {
   const expected = rows.reduce((s, r, i) => s + (w[i] ?? 0) * Number(r.mu), 0);
   let v = 0;
   for (let i = 0; i < rows.length; i++) for (let j = 0; j < rows.length; j++) v += (w[i] ?? 0) * (w[j] ?? 0) * Number(rows[i]?.sd) * Number(rows[j]?.sd) * (CORR[i]?.[j] ?? 0);
-  const fee = Number(investmentOf(req).allocation?.fee ?? DEFAULT_FEE);
+  const fee = Number(investmentOf(req).allocation?.fee ?? defaultFee());
   const risky = rows.reduce((s, r, i) => s + (CLASSES[i]?.risky === true ? (w[i] ?? 0) : 0), 0);
   return { expected, fee, net: expected - fee, sd: Math.sqrt(v), risky };
 }
@@ -506,7 +517,7 @@ function rateTextFine(r: number): string {
 /** 資産配分を書き換える（まだ無ければ既定から始める） */
 export function editAllocation(req: EngineRequest, patch: { mix?: { assetClass: string; share: string }[]; fee?: string; rebalance?: boolean }): void {
   const inv = investmentOf(req);
-  const cur = inv.allocation ?? { mix: [...DEFAULT_MIX], fee: DEFAULT_FEE };
+  const cur = inv.allocation ?? { mix: [...DEFAULT_MIX], fee: defaultFee() };
   const next = { ...cur, ...patch };
   if (next.rebalance === true) delete next.rebalance;
   setInvestment(req, { allocation: next });
@@ -771,9 +782,9 @@ export function drawdownOf(req: EngineRequest): DrawdownView {
   const h = req.input.household;
   const self = selfOf(h);
   const dd = investmentOf(req).drawdown;
-  if (dd === undefined || self === undefined) return { method: "none", startAge: 65, monthly: 15 * MAN, rate: "0.04" };
+  if (dd === undefined || self === undefined) return { method: "none", startAge: presetNum("preset.withdrawal.startAge"), monthly: presetNum("preset.withdrawal.monthly"), rate: presetRate("preset.withdrawal.rate") };
   const at = resolveTimepoint(h, dd.start) ?? req.input.baseMonth;
-  return { method: dd.method, startAge: ageAt(self, at), monthly: dd.monthly ?? 15 * MAN, rate: dd.rate ?? "0.04" };
+  return { method: dd.method, startAge: ageAt(self, at), monthly: dd.monthly ?? presetNum("preset.withdrawal.monthly"), rate: dd.rate ?? presetRate("preset.withdrawal.rate") };
 }
 
 /** 本人が次に迎える年齢（その年齢に達する月が計算の基準の月より前なら、次の年齢）。取り崩しを始める年齢の下限 */

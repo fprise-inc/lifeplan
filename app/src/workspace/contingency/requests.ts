@@ -7,16 +7,40 @@ import { convertPeriod } from "../input/stages/work.ts";
 import { addMonths, ageReachedMonth, derivedId, parseYm } from "../levers.ts";
 import { roles } from "../roles.ts";
 import type { ContingencyPlan, PartnerScene, SurvivorWork } from "./planData.ts";
+import { presetNum, presetRate } from "../../../../hearing/src/presets.ts";
 
 export type ScenarioKind = "death" | "disability" | "illness" | "income" | "market";
 
 /** 大きな病気のときの目安（仮の値。事務所で根拠を確かめて直す前提）。医療費は保険診療の10割で、自己負担は高額療養費で計算する */
-export const ILLNESS_DEFAULT = { months: 12, medicalMonthly: 600_000, medicalMonths: 6, disease: "cancer", surgeries: 1 } as const;
+export const ILLNESS_DEFAULT = {
+  // 期間・医療費は presets.ts の目安（事務所の推定の値があればその値）
+  get months(): number {
+    return presetNum("preset.contingency.illness.months");
+  },
+  get medicalMonthly(): number {
+    return presetNum("preset.contingency.illness.medicalMonthly");
+  },
+  get medicalMonths(): number {
+    return presetNum("preset.contingency.illness.medicalMonths");
+  },
+  disease: "cancer",
+  surgeries: 1,
+} as const;
 /**
  * 病気の種類ごとの入院の日数の目安（0055。患者調査〔厚生労働省〕の退院患者の平均在院日数の水準を丸めた仮の値。出典の版と値を確かめて直す前提）。
  * 保険の医療・がんの給付（入院日額×日数）の見込みに使う
  */
-export const HOSPITAL_DAYS_DEFAULT: Readonly<Record<"cancer" | "heartStroke" | "other", number>> = { cancer: 20, heartStroke: 30, other: 10 };
+export const HOSPITAL_DAYS_DEFAULT: Readonly<Record<"cancer" | "heartStroke" | "other", number>> = {
+  get cancer(): number {
+    return presetNum("preset.contingency.hospitalDays.cancer");
+  },
+  get heartStroke(): number {
+    return presetNum("preset.contingency.hospitalDays.heartStroke");
+  },
+  get other(): number {
+    return presetNum("preset.contingency.hospitalDays.other");
+  },
+};
 
 /** 大きな病気のときの病気の想定（病気の種類・入院の日数・手術の回数。省略は目安） */
 export function illnessOf(plan: ContingencyPlanIllness | undefined): Illness {
@@ -25,7 +49,7 @@ export function illnessOf(plan: ContingencyPlanIllness | undefined): Illness {
 }
 type ContingencyPlanIllness = NonNullable<import("./planData.ts").ContingencyPlan["illness"]>;
 /** 相場が下がったときの下がる幅の既定（3割）と、下げる資産の種類（株・REIT） */
-export const MARKET_DROP_DEFAULT = "0.3";
+export const marketDropDefault = (): string => presetRate("preset.stress.marketDrop");
 const RISKY = ["equity.domestic", "equity.global", "reit.domestic", "reit.global"];
 /** 下げる資産の印: 資産の種類（器の配分のうちその割合を下げる）と、器の種類（kind:<種類>。器の全体を下げる） */
 export const ESOP = "kind:esop";
@@ -33,7 +57,16 @@ export const FX_DEPOSIT = "kind:fxDeposit";
 /** 下げる資産の既定（株・REIT と、配分を入れていない持株会。今までと同じ下げ方） */
 export const MARKET_CLASSES_DEFAULT: readonly string[] = [...RISKY, ESOP];
 /** 収入が減る場面の既定（本人・2割・3年。ストレステストの型 incomeDrop の既定と同じ） */
-export const INCOME_DROP_DEFAULT = { member: "self", ratio: "0.2", years: 3 } as const;
+export const INCOME_DROP_DEFAULT = {
+  member: "self",
+  // 割合・年数はストレステストの「収入が一定期間減る」と同じ目安（engine/src/sdk/estimates.ts）
+  get ratio(): string {
+    return presetRate("preset.stress.incomeDrop.ratio");
+  },
+  get years(): number {
+    return presetNum("preset.stress.incomeDrop.years");
+  },
+} as const;
 /** 運用する器（持株会を除く。持株会は下げる資産で選ぶ） */
 const INVEST_BUT_ESOP = ["taxable", "nisa", "childNisa", "juniorNisa", "legacyNisa", "ideco", "corporateDc", "pooled"];
 /** 運用する器（相場が下がったときの場面を出すか） */
@@ -240,7 +273,7 @@ export function keptSlots(existing: readonly string[], requests: Readonly<Record
 export function addMarketDrop(req: EngineRequest, plan: ContingencyPlan, year: number): void {
   const a = (req.input.assumptions ??= { investmentReturn: { default: "0.01" } });
   const m = plan.market ?? {};
-  const drop = m.drop ?? MARKET_DROP_DEFAULT;
+  const drop = m.drop ?? marketDropDefault();
   const picked = m.classes ?? MARKET_CLASSES_DEFAULT;
   const classes = picked.filter((c) => !c.startsWith("kind:"));
   const shocks: NonNullable<typeof a.marketShocks> = [];

@@ -582,12 +582,10 @@ export function exemptionMonths(ctx: Ctx, c: ExemptionCounts): { num: bigint; de
 
 /** 構造ごとの耐用年数の目安（年。住宅用の建物の法定耐用年数） */
 export const USEFUL_LIFE: Readonly<Record<BuildingStructure, number>> = { wood: 22, lightSteel: 19, steel: 34, rc: 47 };
-/** 土地の割合の目安 */
-export const LAND_SHARE = "0.3";
-/** 建物の残りの価値の下限の目安 */
-export const RESIDUAL_FLOOR = "0.2";
-/** 売却の費用の割合の目安 */
-export const SALE_COST_RATE = "0.04";
+/** 土地の割合・建物の残りの価値の下限・売却の費用の割合の目安の値ID（sdk/estimates.ts。ctx.estimate で引く。0111 の2回目） */
+export const LAND_SHARE = "preset.realEstate.landShare";
+export const RESIDUAL_FLOOR = "preset.realEstate.residualFloor";
+export const SALE_COST_RATE = "preset.realEstate.saleCostRate";
 
 const VALUATION_RULE = "conv.asset.valuation";
 
@@ -610,7 +608,7 @@ export function landBuildingValuer(
   const land0 = ctx.money.mulRate(o.basis, ctx.rate.of(o.share), VALUATION_RULE);
   const building0 = yen(o.basis - land0);
   const life = o.setting?.usefulLife?.[o.structure] ?? USEFUL_LIFE[o.structure];
-  const floor = ctx.rate.of(o.setting?.residualFloor ?? RESIDUAL_FLOOR);
+  const floor = ctx.rate.of(o.setting?.residualFloor ?? String(ctx.estimate(RESIDUAL_FLOOR)));
   const f0 = remainingShare(ctx, o.y0 - o.builtYear, life, floor);
   let land = land0;
   let landYear = o.y0;

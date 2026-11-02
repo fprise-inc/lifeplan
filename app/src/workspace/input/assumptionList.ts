@@ -2,13 +2,14 @@
 // 同じ行を前提の側から見る）、万一の前提を、区分・値・状態・値段の基準・出典・確かめた記録で並べる。行から欄へ移れる（前提条件の欄だけ）。
 // 「お客さまと確かめた」はプランごと（現状は "current"）に、確かめた日とメモを画面の側の値 agreed に持つ（計算には使わない）。
 // 一覧は世帯の欄の定義から毎回作る（保存しない）
-import { ILLNESS_DEFAULT, MARKET_DROP_DEFAULT } from "../contingency/requests.ts";
+import { ILLNESS_DEFAULT, marketDropDefault } from "../contingency/requests.ts";
 import { checkList } from "./checkRows.ts";
 import { allFields, type FieldDef, type Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { assumptionsStage } from "./stages/assumptions.ts";
 import { fieldStatus, STATUS_LABELS } from "./valueState.ts";
 import { pctText } from "../plans/decimal.ts";
+import { presetValue } from "../../../../hearing/src/presets.ts";
 
 export type ListGroup = "economy" | "range" | "realEstate" | "estimate" | "contingency";
 
@@ -87,11 +88,11 @@ export function assumptionRows(wh: WorkingHousehold): AssumptionRow[] {
   const lr = c.survivor.livingRatio ?? {};
   const cg = (id: string, label: string, v: string, given: boolean, source: string) =>
     rows.push({ id: `cg:${id}`, group: "contingency", label, value: v, state: given ? "確定" : "推定", source: given ? "入れた値（万一のタブ）" : source, fieldKey: null, level: "simple", card: "万一のタブ", warn: null });
-  cg("living/before", "遺族の生活費（子がいる間）", pctText(lr.beforeIndependence ?? "0.7"), lr.beforeIndependence !== undefined, "既定の値（出典は確かめ前）");
-  cg("living/after", "遺族の生活費（末子の独立の後）", pctText(lr.afterIndependence ?? "0.5"), lr.afterIndependence !== undefined, "既定の値（出典は確かめ前）");
-  cg("living/noKids", "遺族の生活費（子がいない世帯）", pctText(lr.noChildren ?? "0.7"), lr.noChildren !== undefined, "既定の値（出典は確かめ前）");
+  cg("living/before", "遺族の生活費（子がいる間）", pctText(lr.beforeIndependence ?? String(presetValue("preset.survivor.livingRatio.beforeIndependence"))), lr.beforeIndependence !== undefined, "既定の値（出典は確かめ前）");
+  cg("living/after", "遺族の生活費（末子の独立の後）", pctText(lr.afterIndependence ?? String(presetValue("preset.survivor.livingRatio.afterIndependence"))), lr.afterIndependence !== undefined, "既定の値（出典は確かめ前）");
+  cg("living/noKids", "遺族の生活費（子がいない世帯）", pctText(lr.noChildren ?? String(presetValue("preset.survivor.livingRatio.noChildren"))), lr.noChildren !== undefined, "既定の値（出典は確かめ前）");
   cg("illness/months", "大きな病気の働けない期間", `${c.illness?.months ?? ILLNESS_DEFAULT.months}か月`, c.illness?.months !== undefined, "仮の値（事務所で根拠を確かめる）");
-  cg("market/drop", "相場の下がる幅", `${Math.round(Number(c.market?.drop ?? MARKET_DROP_DEFAULT) * 10)}割`, c.market?.drop !== undefined, "仮の値");
+  cg("market/drop", "相場の下がる幅", `${Math.round(Number(c.market?.drop ?? marketDropDefault()) * 10)}割`, c.market?.drop !== undefined, "仮の値");
   return rows;
 }
 

@@ -10,6 +10,7 @@ import { axisOf, itemByKey, type SheetDefinition, type SheetItem } from "./defin
 import { bonusShareEstimate, businessEstimate, careerStartMonth, fillsByEstimate, HEARING_UNKNOWN_BASIS, NOT_FILLED_BASIS, healthRateEstimate, livingEstimate, residentTaxEstimate, residentTaxYear, retirementLumpSumEstimate, salaryEstimate, type Estimate } from "./estimates.ts";
 import { currentMortgageRateEstimate, pctText } from "./housingEstimates.ts";
 import { issue, type Issue } from "./issues.ts";
+import { presetNum } from "./presets.ts";
 import { monthsFromPayment, principalFromPayment, standardTermMonths } from "./loan.ts";
 import { addMonths, ageAt, reachedMonth, ymIndex } from "./months.ts";
 import type {
@@ -829,14 +830,14 @@ function importWork(c: Ctx, h: Household, adults: Adults, baseMonth: string): Ma
           sz = size.value;
           c.field(id, "hs.work.employerSize", n, "employment.employer.size", "/employer/size", "confirmed");
         } else {
-          sz = type === "partTime" ? 30 : 300;
+          sz = presetNum(type === "partTime" ? "preset.work.employerSize.partTime" : "preset.work.employerSize");
           c.assume(`work/period/${id}/size`, `仮の値（${sz}人として計算）`, at("hs.work.employerSize", "employment.employer.size", "/employer/size"));
         }
         if (hours.status === "value") {
           hr = hours.value;
           c.field(id, "hs.work.weeklyHours", n, "employment.employer.weeklyHours", "/employer/weeklyHours", "confirmed");
         } else {
-          hr = type === "partTime" ? "20" : "40";
+          hr = String(presetNum(type === "partTime" ? "preset.work.weeklyHours.partTime" : "preset.work.weeklyHours"));
           if (type === "partTime") c.missing("hs.work.weeklyHours", n, "パート・アルバイトの方の勤務時間がありません（社会保険の加入の判定に使います）");
           c.assume(`work/period/${id}/hours`, `仮の値（週${hr}時間として計算）`, at("hs.work.weeklyHours", "employment.employer.weeklyHours", "/employer/weeklyHours"));
         }

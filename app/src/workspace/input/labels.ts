@@ -3,6 +3,7 @@ import type { Household, Member } from "../../engine/types.ts";
 import { roles } from "../roles.ts";
 import type { Option } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
+import { presetRate } from "../../../../hearing/src/presets.ts";
 
 const KIND_LABEL: Record<string, string> = { parent: "親", grandparent: "祖父母", sibling: "兄弟姉妹", grandchild: "孫", other: "ご家族" };
 
@@ -233,8 +234,18 @@ export const BUILDING_STRUCTURES: Option[] = [
 
 /** 構造ごとの耐用年数の目安（計算エンジンの housing.valuation と同じ） */
 export const USEFUL_LIFE: Readonly<Record<string, number>> = { wood: 22, lightSteel: 19, steel: 34, rc: 47 };
-/** 持ち家の評価の目安（計算エンジンの housing.valuation と同じ） */
-export const VALUATION_DEFAULTS = { landShare: "0.3", residualFloor: "0.2", saleCostRate: "0.04" } as const;
+/** 持ち家の評価の目安（計算エンジンの housing.valuation と同じ目安。engine/src/sdk/estimates.ts。事務所の推定の値があればその値） */
+export const VALUATION_DEFAULTS = {
+  get landShare(): string {
+    return presetRate("preset.realEstate.landShare");
+  },
+  get residualFloor(): string {
+    return presetRate("preset.realEstate.residualFloor");
+  },
+  get saleCostRate(): string {
+    return presetRate("preset.realEstate.saleCostRate");
+  },
+};
 
 export const RATE_TYPES: Option[] = [
   { value: "variable", label: "変動金利" },

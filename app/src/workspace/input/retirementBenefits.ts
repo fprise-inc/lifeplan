@@ -11,6 +11,7 @@ import type { Address } from "../store/readings.ts";
 import { estimatedBox } from "./household.ts";
 import { putRow, rowAt, type StateRow } from "./rows.ts";
 import { defaultEndsWith } from "./claims.ts";
+import { presetRate, presetText } from "../../../../hearing/src/presets.ts";
 
 type Obj = Record<string, unknown>;
 
@@ -63,9 +64,10 @@ export const CIVIL_PENSION_FIXED = "年金払い退職給付（有期の半分�
 export const UNENTERED_AMOUNT = "未入力（0円で計算）";
 
 /** 推定の根拠（値の箱を持たない値の行） */
-export const DB_YEARS_BASIS = "確定給付企業年金の年金の年数の既定の値（10年）";
-export const LUMP_SHARE_BASIS = "一時金と年金の併用の割合の既定の値（半分ずつ）";
-export const MULTIPLIER_BASIS = "功績倍率の既定の値（1.0。役員の地位でおよそ1.0〜3.0）";
+// 値は presets.ts の目安（事務所の推定の値があればその値と根拠の文。読むたびに作る）
+export const dbYearsBasis = (): string => presetText("preset.retirement.dbYears", (v) => `確定給付企業年金の年金の年数の既定の値（${String(v)}年）`);
+export const lumpShareBasis = (): string => presetText("preset.retirement.dbLumpShare", (v) => `一時金と年金の併用の割合の既定の値（${Number(v) === 0.5 ? "半分ずつ" : `一時金${String(Math.round(Number(v) * 1000) / 10)}%`}）`);
+export const multiplierBasis = (): string => presetText("preset.retirement.executiveMultiplier", (v) => `功績倍率の既定の値（${Number(v).toFixed(1)}。役員の地位でおよそ1.0〜3.0）`);
 export const CIVIL_REASON_BASIS = "働き方の期間の辞め方から";
 
 // ---- 当て先と行 ----
@@ -220,8 +222,8 @@ export function initialBenefit(h: Household, m: Member, kind: BenefitKind, base:
     }
     case "officerAllowance": {
       const e = officerEstimate(h, b);
-      b.estimate = { multiplier: "1" };
-      putBenefitRow(b, multiplierAt(b.id), estRow("standard", MULTIPLIER_BASIS));
+      b.estimate = { multiplier: presetRate("preset.retirement.executiveMultiplier") };
+      putBenefitRow(b, multiplierAt(b.id), estRow("standard", multiplierBasis()));
       if (e !== null) {
         b.estimate.finalMonthly = e.finalMonthly;
         putBenefitRow(b, finalMonthlyAt(b.id), estRow("derived", e.basis));

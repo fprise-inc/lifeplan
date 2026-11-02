@@ -13,7 +13,7 @@ import { wareki } from "../units.ts";
 import type { Address } from "../../store/readings.ts";
 import { CAR_ESTIMATE, type Estimate } from "../estimates.ts";
 import { byId, field, getPath, plain, resolveTimepoint, setPath, timepointField, timeView, type ActionDef, type FieldDef, type Finder, type GroupDef, type Level, type SectionDef, type StageDef } from "../form.ts";
-import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
+import { mutate, newId, presetBasis, standardBox, wrapBasis, type WorkingHousehold } from "../household.ts";
 import { GROWTH_KINDS, memberLabel, memberOptions } from "../labels.ts";
 import { addExpense, moneySections } from "../moneyRows.ts";
 import { materializeEvent } from "../namedEvents.ts";
@@ -25,6 +25,7 @@ import { fixGrowth } from "./living.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./onContingency.ts";
 import { GROWTH_RANGE } from "../rateRanges.ts";
 import { carLoanRateEstimate } from "../../../../../hearing/src/loanRates.ts";
+import { presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
 
 type Obj = Record<string, unknown>;
 const cars = (h: Household) => h.cars;
@@ -34,10 +35,14 @@ const estRow = (basis: string): StateRow => ({ state: "estimated", origin: { kin
 const withAddress = (f: FieldDef, a: Address): FieldDef => ({ ...f, address: () => a });
 
 /** ローンの目安（借入8割・5年。金利は今返している自動車ローンと同じ目安〔マスタデータ master.loanRates〕。目安のボタンの値＝推定） */
-const LOAN_SHARE = "0.8";
-const LOAN_RATE = carLoanRateEstimate().rate;
-const LOAN_TERM = 60;
-const LOAN_BASIS = { share: presetBasis("借入 下取りを引いた額の8割"), rate: presetBasis(`金利 ${carLoanRateEstimate().basis}`), term: presetBasis("5年で返す") };
+// 自動車ローンの目安（presets.ts の借入の割合・返済期間と、マスタデータの自動車ローンの金利。事務所の推定の値があればその値。読むたびに引く）
+const loanShare = () => presetRate("preset.car.loan.share");
+const loanTerm = () => presetNum("preset.car.loan.termMonths");
+const loanBasis = () => ({
+  share: presetBasis(presetText("preset.car.loan.share", (v) => `借入 下取りを引いた額の${Math.abs(Number(v) * 10 - Math.round(Number(v) * 10)) < 1e-9 ? `${String(Math.round(Number(v) * 10))}割` : `${String(Math.round(Number(v) * 1000) / 10)}%`}`)),
+  rate: presetBasis(wrapBasis(carLoanRateEstimate().basis, (b) => `金利 ${b}`)),
+  term: presetBasis(presetText("preset.car.loan.termMonths", (v) => (Number(v) % 12 === 0 ? `${String(Number(v) / 12)}年で返す` : `${String(v)}か月で返す`))),
+});
 /** 次の買い替え・購入の時期の標準の値（3年後） */
 const FIRST_BASIS = "既定の値（3年後。この世帯に合わせて直してください）";
 
@@ -46,19 +51,20 @@ const FIRST_BASIS = "既定の値（3年後。この世帯に合わせて直し�
  * 原本で確かめた市場の統計ではないので、根拠は「ひな形の目安」と書く
  */
 export function residualRate(years: number): number {
+  // 割合は presets.ts の目安（事務所の推定の値があればその値）
   const pts: readonly [number, number][] = [
-    [3, 0.5],
-    [5, 0.35],
-    [8, 0.15],
-    [10, 0.05],
+    [3, presetNum("preset.car.residual.year3")],
+    [5, presetNum("preset.car.residual.year5")],
+    [8, presetNum("preset.car.residual.year8")],
+    [10, presetNum("preset.car.residual.year10")],
   ];
-  if (years <= 3) return 0.5;
+  if (years <= 3) return pts[0]?.[1] as number;
   for (let i = 1; i < pts.length; i++) {
     const [y1, r1] = pts[i] as [number, number];
     const [y0, r0] = pts[i - 1] as [number, number];
     if (years <= y1) return r0 + ((r1 - r0) * (years - y0)) / (y1 - y0);
   }
-  return 0.05;
+  return pts[3]?.[1] as number;
 }
 
 /** 下取りの目安の額と根拠（価格×周期の残価の目安。1万円単位） */
@@ -229,12 +235,23 @@ function carEventAt(h: Household, c: Car, kind: "carPurchase" | "carRelease", of
 
 // 次の3つのひな形のボタンは名前だけ（額を出さない）。足した行の額は推定で、根拠はよくある目安（原本で確かめた統計ではない。0044 の追記 2026-10-29）
 /** 手放した後の移動の費用（タクシー・バスなど。よくある額の目安 月1万円。始まりは出来事「車を手放す」の翌月） */
-export const AFTER_CAR_PRESET = { monthly: 10000, basis: "よくある額の目安（手放した後の移動の費用 月1万円。この世帯に合わせて直してください）" };
+export const AFTER_CAR_PRESET = {
+  get monthly(): number {
+    return presetNum("preset.car.afterMonthly");
+  },
+  get basis(): string {
+    return presetText("preset.car.afterMonthly", (v) => `よくある額の目安（手放した後の移動の費用 月${String(Number(v) / 10000)}万円。この世帯に合わせて直してください）`);
+  },
+};
 /** 古くなってからの修理費（よくある額の目安 年10万円・毎年。始まりは出来事「車の購入」から10年後） */
 export const REPAIR_PRESET = {
-  annual: 100000,
+  get annual(): number {
+    return presetNum("preset.car.oldRepair");
+  },
   afterYears: 10,
-  basis: "よくある額の目安（古くなってからの修理費 年10万円。この世帯に合わせて直してください）",
+  get basis(): string {
+    return presetText("preset.car.oldRepair", (v) => `よくある額の目安（古くなってからの修理費 年${String(Number(v) / 10000)}万円。この世帯に合わせて直してください）`);
+  },
   everyYears: "よくある間隔の目安（古くなってからの修理費 毎年。この世帯に合わせて直してください）",
 };
 
@@ -810,10 +827,11 @@ function payFields(c: Car, k: string, car: (h: Household, w: WorkingHousehold) =
           const x = car(h, { ...w, request: req });
           if (x === undefined) return;
           if (!loan) delete x.loan;
-          else x.loan ??= { share: LOAN_SHARE, rate: LOAN_RATE, termMonths: LOAN_TERM };
+          else x.loan ??= { share: loanShare(), rate: carLoanRateEstimate().rate, termMonths: loanTerm() };
         });
         // ローンの目安（借入8割・5年・金利は自動車ローンの目安）は推定の印。現金に戻したら印も外す
-        const keys = { [`${k}/down`]: LOAN_BASIS.share, [`${k}/term`]: LOAN_BASIS.term, [`${k}/rate`]: LOAN_BASIS.rate };
+        const lb = loanBasis();
+        const keys = { [`${k}/down`]: lb.share, [`${k}/term`]: lb.term, [`${k}/rate`]: lb.rate };
         const assumed = Object.fromEntries(Object.entries(next.assumed).filter(([key]) => !(key in keys)));
         return { ...next, assumed: loan && c.loan === undefined ? { ...assumed, ...keys } : loan ? next.assumed : assumed };
       },

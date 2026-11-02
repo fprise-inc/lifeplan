@@ -17,9 +17,10 @@ import { readGroup, readLine } from "../readLines.ts";
 import { GROWTH_RANGE } from "../rateRanges.ts";
 import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 import { executiveMembers } from "../officer.ts";
+import { presetNum, presetText } from "../../../../../hearing/src/presets.ts";
 
 /** 働き方の期間の時点は年月で持つ（定年・再雇用の見つけ方などが年月で読むため。0038） */
-const PERIOD_MONTH_ONLY = "働き方の期間は年月で持ちます（年齢・今からで入れても、その年月にします）";
+const PERIOD_MONTH_ONLY = "働き方の期間は年月で持ちます（年齢・「5年後」のように入れても、その年月にします）";
 
 /** 「○歳になる前の月まで」と言える月なら、その年齢（働く最後・定年の欄）。言えなければ null */
 function ageBefore(m: Member, lastMonth: string): number | null {
@@ -195,7 +196,13 @@ export function civilRetirementAge(m: Member): number {
 }
 
 /** 定年の推定（正社員は60歳、公務員は生まれた年度の定年） */
-export const retirementAgeEstimate = (type: string, m: Member): { age: number; basis: string } => (type === "civilServant" ? { age: civilRetirementAge(m), basis: CIVIL_END_BASIS } : { age: 60, basis: MAIN_END_BASIS });
+/** 会社員の定年の目安（presets.ts。事務所の推定の値があればその値と根拠の文） */
+const mainEnd = (): { age: number; basis: string } => {
+  const id = "preset.work.retirementAge";
+  const age = presetNum(id);
+  return { age, basis: presetText(id, (v) => (Number(v) === 60 ? MAIN_END_BASIS : `定年${String(v)}歳`)) };
+};
+export const retirementAgeEstimate = (type: string, m: Member): { age: number; basis: string } => (type === "civilServant" ? { age: civilRetirementAge(m), basis: CIVIL_END_BASIS } : mainEnd());
 
 /**
  * 定年後の再雇用の年収の推定: 定年前の年収 ×（60〜64歳の平均÷55〜59歳の平均）。平均は同じ働き方・性別の年齢階級の表（hearing/src/estimates.ts）。
@@ -468,11 +475,11 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
         return { value: v, hint: v === null ? "終わりを決めていない（最後まで）" : null, assumed: w.assumed[`work/${m.id}/retireAge`] ?? null };
       },
       set: (w, v) => (v === null ? w : setRetireAge(w, m, Number(v))),
-      // 時点の部品（0038）: 「65歳」＝65歳になる前の月まで働く。年月（60歳の年度末など）・今からでも入れられる
+      // 時点の部品（0038）: 「65歳」＝65歳になる前の月まで働く。年月（60歳の年度末など）でも入れられる。「5年後」と打っても年月に読む
       time: timeView({
         ageOf: (hh) => hh.members.find((x) => x.id === m.id),
         mode: "age",
-        modes: ["age", "ym", "now"],
+        modes: ["age", "ym"],
         ageMeans: "before",
         nullText: "終わりを決めていない（最後まで）",
         read: (w) => lastEnd(w),
@@ -613,7 +620,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
   const d = "detail" as const;
   if (level === "detail") {
     fields.push(
-      timepointField({ key: `${prefix}/from`, item: "employment.from", label: "始まり", level: "detail", find, path: ["from"], ageOf: (h) => h.members.find((x) => x.id === m.id), modes: ["age", "ym", "now"], monthOnly: PERIOD_MONTH_ONLY }),
+      timepointField({ key: `${prefix}/from`, item: "employment.from", label: "始まり", level: "detail", find, path: ["from"], ageOf: (h) => h.members.find((x) => x.id === m.id), modes: ["age", "ym"], monthOnly: PERIOD_MONTH_ONLY }),
       timepointField({
         key: `${prefix}/to`,
         item: "employment.to",
@@ -622,7 +629,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
         find,
         path: ["to"],
         ageOf: (h) => h.members.find((x) => x.id === m.id),
-        modes: ["age", "ym", "now"],
+        modes: ["age", "ym"],
         ageMeans: "before",
         startPath: ["from"],
         monthOnly: PERIOD_MONTH_ONLY,
@@ -995,7 +1002,7 @@ function leaveEndField(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, fin
     find,
     path: ["to"],
     ageOf: (h) => h.members.find((x) => x.id === m.id),
-    modes: ["ym", "now", "age"],
+    modes: ["ym", "age"],
     mode: "ym",
     monthOnly: PERIOD_MONTH_ONLY,
     optional: true,
