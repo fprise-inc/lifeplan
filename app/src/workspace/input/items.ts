@@ -905,8 +905,10 @@ export function addItem(wh: WorkingHousehold, key: string, id: () => string = ne
     const p: PeriodicExpense =
       head === "abroad"
         ? // 子を選んだ留学は子ども・教育の出るお金の行（種類 教育費。0062）
-          { id: ref, label: "留学", ...(childAt !== null ? { kind: "education" as const, row: "cf.expense.education" } : { row: "cf.expense.lumpSum.other" }), from: childAt ?? { at }, to: childAt ?? { at }, everyYears: 1, amount: standardBox(3500000, PRESET_BASIS) }
-        : { id: ref, label: "新しい支出", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, amount: standardBox(300000, PRESET_BASIS) };
+          // 子を選ばない留学はライフイベントの1回の行なので、入れた額のまま（0008 の追記 2026-11-02。子ども・教育の行は今のまま物価）
+          { id: ref, label: "留学", ...(childAt !== null ? { kind: "education" as const, row: "cf.expense.education" } : { row: "cf.expense.lumpSum.other", growth: { kind: "none" } }), from: childAt ?? { at }, to: childAt ?? { at }, everyYears: 1, amount: standardBox(3500000, PRESET_BASIS) }
+        : // ライフイベントの1回の行は、入れた額のまま（0008 の追記 2026-11-02）
+          { id: ref, label: "新しい支出", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, growth: { kind: "none" }, amount: standardBox(300000, PRESET_BASIS) };
     next = mutate(wh, (hh) => void (hh.periodicExpenses ??= []).push(p));
   } else {
     kind = "care";

@@ -92,7 +92,7 @@ export function dreamTiming(wh: WorkingHousehold, t: Pick<DreamTemplate, "age" |
 }
 
 /**
- * 夢を足す（いちばん下の順位・1回・計算に入れる。額は未入力の警告）。ひな形なら名前と時期（仮の印つき）を入れる。
+ * 夢を足す（いちばん下の順位・1回・計算に入れる・額の入れ方は「その時の額」。額は未入力の警告）。ひな形なら名前と時期（仮の印つき）を入れる。
  * ひな形が無ければ名前は空で、時期は1年後
  */
 export function addDream(wh: WorkingHousehold, t: DreamTemplate | null = null, id: string = newId()): WorkingHousehold {
@@ -108,6 +108,8 @@ export function addDream(wh: WorkingHousehold, t: DreamTemplate | null = null, i
       to: structuredClone(from),
       everyYears: 1,
       amount: standardBox(0, DREAM_UNENTERED) as PeriodicExpense["amount"],
+      // 1回の夢は入れた額のまま（物価で増やさない。0008 の追記 2026-11-02。moneyRows.ts の applyOnceGrowth と同じ）
+      growth: { kind: "none" },
       dream: { rank: nextDreamRank(h) },
     };
     (h.periodicExpenses ??= []).push(p);
