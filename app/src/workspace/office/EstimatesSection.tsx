@@ -2,7 +2,7 @@
 // コードの中の目安（ボタンで足すときの初めの値・計算のときにエンジンが引く目安。hearing/src/presets.ts。0111 の2回目）を、事務所の値に変える。
 // - 値の名前・値ID で探す、事務所で変えた値だけを見る、まとまりで絞る
 // - 定数は1つの欄、表（世帯人員別・年齢別など）は段ごとの欄（空欄の段は公式の値。表の一部だけ変えられる）
-// - 根拠の文（書かなければ自動の文「事務所の目安」。変えた年月はいつも後ろに付く。空にはならない）
+// - 根拠の文（書いた文はそのまま出す。書かなければ自動の文「事務所の目安（変えた年月）」。空にはならない）
 // - 変える前に、代表の世帯（見本の世帯）で主な結果の差を見る
 // - 公式の値が新しくなった値の知らせ（このまま／公式に戻す）
 // - 推定で埋めない入力欄
@@ -280,7 +280,7 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
                     </p>
                   ) : null}
                   <label class="os-pct">
-                    <span>根拠の文（書かなければ「{AUTO_BASIS}」。変えた年月は後ろに付きます）</span>
+                    <span>根拠の文（書いた文をそのまま出します。年月を入れたいときは文に書いてください。書かなければ「{AUTO_BASIS}（変えた年月）」）</span>
                     <input type="text" value={text} maxLength={BASIS_TEXT_MAX} placeholder="例: 当事務所のお客さまの平均（2026年調べ）" onInput={(x) => setText((x.currentTarget as HTMLInputElement).value)} data-office-estimate-basis />
                     <small data-office-estimate-basis-preview>
                       推定の根拠に出る文: {basisOf({ ...(cleanBasisText(text) !== null ? { text } : {}), changedOn: today() })}
