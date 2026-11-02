@@ -89,10 +89,11 @@ describe("一覧と値の読み方", () => {
 });
 
 describe("根拠の文", () => {
-  it("事務所の文の後ろに、変えた年月がいつも付く", () => {
-    expect(basisOf({ text: "当事務所のお客さまの平均（2026年調べ）", changedOn: ON })).toBe("当事務所のお客さまの平均（2026年調べ）（2026年11月）");
+  it("FP が書いた文はそのまま出す（年月を自動で付けない）", () => {
+    expect(basisOf({ text: "当事務所のお客さまの平均（2026年調べ）", changedOn: ON })).toBe("当事務所のお客さまの平均（2026年調べ）");
+    expect(basisOf({ text: "当事務所のお客さまの平均", changedOn: ON })).toBe("当事務所のお客さまの平均");
   });
-  it("書かなかったときは自動の文", () => {
+  it("書かなかったときは自動の文（変えた年月を付ける）", () => {
     expect(basisOf({ changedOn: ON })).toBe("事務所の目安（2026年11月）");
   });
   it("空にはできない（空白・改行だけの文は自動の文になり、保存しても文を持たない）", () => {
@@ -139,7 +140,7 @@ describe("事務所の値が推定に効く（画面の推定・計算の要求�
     const table = living().map((s) => (s.upTo === 1 ? { upTo: 1, amount: 150000 } : s));
     publishOfficeEstimates(withOfficeValue(EMPTY_ESTIMATES, LIVING, table, "当事務所の単身のお客さまの平均", ON));
     const e = livingEstimate(blank.request.input.household, "2026-10");
-    expect(e).toEqual({ value: 150000, basis: "当事務所の単身のお客さまの平均（2026年11月）・1人の世帯" });
+    expect(e).toEqual({ value: 150000, basis: "当事務所の単身のお客さまの平均・1人の世帯" });
     const refreshed = withRefreshedEstimates(blank);
     expect(before).not.toBe(150000);
     expect(refreshed.request.input.household.livingExpenses?.[0]?.monthly).toMatchObject({ value: 150000, state: "estimated", estimate: { basis: e.basis } });

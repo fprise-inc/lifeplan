@@ -11,7 +11,7 @@ afterEach(() => setOfficeEstimates({}));
 
 const LIVING = "living.statistics.basicMonthly";
 const officeLiving = (): BracketStep[] => (officialMasterValue(LIVING)?.value as BracketStep[]).map((s) => (s.upTo === 2 ? { upTo: 2, amount: 250000 } : s));
-const BASIS = "当事務所のお客さまの平均（2026年調べ）（2026年11月）";
+const BASIS = "当事務所のお客さまの平均（2026年調べ）";
 
 describe("事務所の推定の値", () => {
   it("推定の目安は事務所の値を使い、根拠の文は事務所の文（原本での確かめ前の印は付けない）", () => {

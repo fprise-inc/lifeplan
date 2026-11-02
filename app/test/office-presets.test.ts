@@ -90,12 +90,13 @@ describe("コードの中の目安の一覧", () => {
 });
 
 describe("事務所の値が画面の目安に効く", () => {
-  it("家賃の目安が事務所の値と根拠の文になる（自分の文・自動の文に年月が付く）", () => {
+  it("家賃の目安が事務所の値と根拠の文になる（書いた文はそのまま、自動の文には年月が付く）", () => {
     publishOfficeEstimates(withOfficeValue(EMPTY_ESTIMATES, RENT, 95000, "当事務所の地域の相場", ON));
     const w = blankHousehold("2026-10");
     const gap = gapsOf(w).find((g) => g.id === "housing");
     expect(gap?.basis).toContain("家賃 月9.5万円");
-    expect(gap?.basis).toContain("当事務所の地域の相場（2026年11月）");
+    expect(gap?.basis).toContain("当事務所の地域の相場");
+    expect(gap?.basis).not.toContain("2026年11月");
     const fill = gap?.fill;
     if (fill === undefined) throw new Error("住居費の「目安で入れる」が無い");
     const filled = fill(w);

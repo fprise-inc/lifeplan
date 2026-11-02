@@ -209,7 +209,7 @@ export const presetRate = (id: string): string => String(presetValue(id));
 export const presetIsOffice = (id: string): boolean => officeOf(id) !== null;
 
 /**
- * 目安の根拠の文: describe（値から作る文。例 v → 「家賃 月8万円」）。事務所の推定の値なら、その後ろに事務所の根拠の文（事務所の文か自動の文と、変えた年月）を付ける。
+ * 目安の根拠の文: describe（値から作る文。例 v → 「家賃 月8万円」）。事務所の推定の値なら、その後ろに事務所の根拠の文（FP が書いた文か、自動の文「事務所の目安（変えた年月）」）を付ける。
  * 文は値から作るので、一覧の値を変えれば文も変わる（見直しのときに文を直さなくてよい）
  */
 export function presetText(id: string, describe: (v: number | string) => string): string {

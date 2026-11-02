@@ -18,9 +18,9 @@ export type OfficeValue = MasterValue["value"];
 export interface OfficeEstimateValue {
   /** 事務所の値（公式の値と同じ形。表は段の数と upTo が同じ。変えていない段は公式の値のまま） */
   value: OfficeValue;
-  /** 事務所の根拠の文（変えた年月を除く。書かなければ自動の文「事務所の目安」） */
+  /** 事務所の根拠の文（FP が書いた文。そのまま出す。書かなければ自動の文「事務所の目安（変えた年月）」） */
   text?: string;
-  /** 変えた日（YYYY-MM-DD）。根拠の文の後ろの年月 */
+  /** 変えた日（YYYY-MM-DD）。自動の文の後ろの年月 */
   changedOn: string;
   /** 変えたとき（か、公式の値が新しくなって「このまま」を選んだとき）の公式の値の版（写しの rev）と値（知らせの「前の値」） */
   officialRev: number;
@@ -54,8 +54,11 @@ export function cleanBasisText(t: string | null | undefined): string | null {
 /** 変えた年月の文（「2026年11月」） */
 export const monthText = (on: string): string => `${on.slice(0, 4)}年${String(Number(on.slice(5, 7)))}月`;
 
-/** 推定の根拠の文: 事務所の文（無ければ自動の文）の後ろに、変えた年月をいつも付ける。空にはならない */
-export const basisOf = (v: Pick<OfficeEstimateValue, "text" | "changedOn">): string => `${cleanBasisText(v.text) ?? AUTO_BASIS}（${monthText(v.changedOn)}）`;
+/**
+ * 推定の根拠の文: FP が書いた文はそのまま（年月を自動で付けない。年月を入れたいときは文に書く）。書かなかったときは自動の文
+ * 「事務所の目安」の後ろに変えた年月を付ける。空にはならない
+ */
+export const basisOf = (v: Pick<OfficeEstimateValue, "text" | "changedOn">): string => cleanBasisText(v.text) ?? `${AUTO_BASIS}（${monthText(v.changedOn)}）`;
 
 /**
  * 値が公式の値と同じ形か（計算エンジンの決まりと同じ。regulation/reader.ts の sameShape）: 定数は同じ種類（額・月数は0以上の数〔公式が整数なら整数〕、
