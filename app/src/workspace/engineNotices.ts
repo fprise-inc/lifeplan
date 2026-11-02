@@ -75,6 +75,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_INPUT_REQUIRED|retirementBenefit.receipt.annualAmount": { kind: "input", text: "企業年金の年金の額（か受け取る年数）が入っていないので、年金を0円で計算しています", card: "retirement" },
   "N_INPUT_REQUIRED|goal.education.stages.annualOverride": { kind: "input", text: "専門学校・公立の短大の学費は統計の値が無いので、年額を入れてください（入れるまで0円で計算しています）", card: "education" },
   "N_INPUT_REQUIRED|insurance.simple.returnRate": { kind: "input", text: "貯蓄型の保険の解約返戻金の目安（返戻率）が入っていないので、解約返戻金を0円で数えています（資産と負債）", card: "insurance" },
+  "N_INPUT_REQUIRED|insurance.simple.account": { kind: "input", text: "アカウント型の保険の払込の終わりが入っていないので、積立金を0円で数えています（払込の終わりを入れてください）", card: "insurance" },
   "N_INPUT_REQUIRED|socialInsurance.continuation.rates": { kind: "input", text: "任意継続の健康保険の保険料率が無いので、任意継続の保険料を0円で計算しています", card: "work" },
   "N_INPUT_REQUIRED|socialInsurance.nationalHealth.rates": { kind: "input", text: "国民健康保険の料率が無いので、国民健康保険料を0円で計算しています" },
   "N_INPUT_REQUIRED|pension.survivor.middleAgeSpecial": { kind: "input", text: "40歳以後の厚生年金の加入月数が入っていないので、遺族厚生年金の中高齢の特例を見ずに計算しています", card: "pension" },

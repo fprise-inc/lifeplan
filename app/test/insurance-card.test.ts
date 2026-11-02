@@ -1,7 +1,7 @@
 // 保険のカード（0055）: 簡易の5欄とひな形の推定・保険料と保障の額の未入力・種類を変えたときの入れ直し・学資保険・医療保険の手術・
 // 逓減定期・家族特約・円の目安の形・解約返戻金・受取人・保険料と解約返戻金の行・病気の想定・古い世帯・
 // 区画から移したもの（万一のタブの大きな病気の内訳・保険が切れる年の気づき・確かめの一覧の医療保険・がん保険の重なり）
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { InsuranceContract } from "../src/engine/types.ts";
 import { contractLabels, illnessBenefitNote, illnessBenefits, lapseInsights } from "../src/workspace/contingency/insuranceLines.ts";
 import { protectionChart, scenarioModel } from "../src/workspace/contingency/present.ts";
@@ -22,6 +22,7 @@ import { KINDS } from "../src/workspace/input/insuranceKinds.ts";
 import { ADD_CHOICE, addKey } from "../src/workspace/input/stages/insurance.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { modelHousehold, preview } from "./helpers.ts";
+import { EMPTY_ESTIMATES, publishOfficeEstimates, withOfficeValue } from "../src/workspace/office/estimates.ts";
 
 const stage = (wh: WorkingHousehold) => buildStage("insurance", wh);
 function action(wh: WorkingHousehold, key: string): WorkingHousehold {
@@ -467,7 +468,7 @@ describe("追加のボタンは「＋ 保険契約を足す」の1つ（0055 の
     expect(secs.map((x) => x.heading)).toEqual([FREQUENT_HEADING, "死亡の保障", "病気・けが", "貯める・受け取る", "そのほか"]);
     const labels = (heading: string) => secs.find((x) => x.heading === heading)!.list.map((a) => a.label);
     expect(labels(FREQUENT_HEADING)).toEqual(["定期保険", "医療保険", "学資保険"]);
-    expect(labels("死亡の保障")).toEqual(["定期保険", "逓減定期保険", "収入保障保険", "終身保険", "養老保険", "団体保険（勤務先）"]);
+    expect(labels("死亡の保障")).toEqual(["定期保険", "逓減定期保険", "収入保障保険", "終身保険", "低解約返戻金型終身保険", "アカウント型保険（利率変動型積立終身保険）", "養老保険", "団体保険（勤務先）"]);
     expect(labels("病気・けが")).toEqual(["医療保険", "がん保険", "三大疾病保険", "就業不能保険", "民間の介護保険"]);
     expect(labels("貯める・受け取る")).toEqual(["学資保険", "個人年金保険", "外貨建て保険（目安）", "変額保険（目安）"]);
     expect(labels("そのほか")).toEqual(["共済（総合・医療）", "損害保険"]);
@@ -527,5 +528,138 @@ describe("追加のボタンは「＋ 保険契約を足す」の1つ（0055 の
     const death = scenarios(wh).find((x) => x.kind === "death" && x.member === self(wh).id)!;
     const r = preview(scenarioRequest(wh, death, wh.contingency.year ?? defaultYear(wh.request)));
     expect(r.table.filter((t) => t.object === contract(wh).id && t.amount > 0 && t.row.startsWith("cf.income.")).reduce((n, t) => n + t.amount, 0)).toBe(2000000);
+  });
+});
+
+describe("低解約返戻金型終身保険・アカウント型（0055 の追記 2026-11-03）", () => {
+  afterEach(() => publishOfficeEstimates(undefined));
+  const simpleKeys = (wh: WorkingHousehold) => fields(wh).filter((f) => f.level === "simple" && f.key.startsWith(`ins/${contract(wh).id}/`)).map((f) => f.key.split("/").at(-1));
+  const lumpIn = (wh: WorkingHousehold, row: string, year: number) => preview(wh.request).table.filter((t) => t.row === row && t.year === year && t.object === contract(wh).id).reduce((n, t) => n + t.amount, 0);
+
+  it("低解約返戻金型: 払込中の率（70%）と払込が終わった時の率（105%）を目安の値の推定で入れ、標準に出す", () => {
+    const wh = action(family(), "ins/add:lowSurrender");
+    const c = contract(wh);
+    expect(c).toMatchObject({ template: "insurance.wholeLife", subtype: "lowSurrender", simple: { returnRateDuring: "0.7", returnRate: "1.05" } });
+    expect(simpleKeys(wh)).toEqual(["template", "insured", "premium", "freq", "main", "payUntil", "during", "rate"]);
+    expect(fieldOf(wh, "/sv/rate").label).toBe("払込が終わった時の解約返戻率");
+    expect(status(wh, "/sv/during")).toMatchObject({ status: "estimated", basis: "ひな形の既定の値（低解約返戻金型終身保険: 払込中の解約返戻率 70%。設計書の率に直してください）" });
+    expect(status(wh, "/sv/rate").status).toBe("estimated");
+    // 率を打つと確定になる
+    const w2 = set(wh, "/sv/during", "0.65");
+    expect(contract(w2).simple?.returnRateDuring).toBe("0.65");
+    expect(status(w2, "/sv/during").status).toBe("confirmed");
+  });
+
+  it("低解約返戻金型: 払込中に解約すると、払った保険料の累計×払込中の率を受け取る", () => {
+    let wh = action(family(), "ins/add:lowSurrender");
+    wh = set(wh, "/premium", 10000);
+    wh = set(wh, "/main", 5000000);
+    // 契約は2025年10月（1年前の推定）。2030年10月の解約は5年（60か月）分
+    wh = set(wh, "/surrender", { at: "2030-10" });
+    expect(lumpIn(wh, "cf.income.lumpSum.surrender", 2030)).toBe(420000);
+  });
+
+  it("低解約返戻金型の詳細: 「＋ 年齢ごとの返戻率」で点を足し（払込が終わった10年後・払込が終わった時の率）、直す・外す", () => {
+    let wh = action(family(), "ins/add:lowSurrender");
+    wh = action(wh, "/addRatePoint");
+    const pt = contract(wh).simple!.returnRatePoints![0]!;
+    expect(pt).toMatchObject({ age: 75, rate: "1.05" });
+    expect(typeof pt.id).toBe("string");
+    wh = set(wh, `/sv/pt/${pt.id}/rate`, "1.2");
+    wh = set(wh, `/sv/pt/${pt.id}/age`, 80);
+    expect(contract(wh).simple!.returnRatePoints).toEqual([{ id: pt.id, age: 80, rate: "1.2" }]);
+    // 2つ目は前の点の10年後
+    wh = action(wh, "/addRatePoint");
+    expect(contract(wh).simple!.returnRatePoints![1]).toMatchObject({ age: 90, rate: "1.2" });
+    expect(stage(wh).sections[0]!.groups[0]!.note).toContain("年齢ごとの返戻率 2点");
+    expect(() => preview(wh.request)).not.toThrow();
+    wh = action(wh, `/sv/pt/${pt.id}/remove`);
+    expect(contract(wh).simple!.returnRatePoints!.map((x) => x.age)).toEqual([90]);
+  });
+
+  it("種類を変えると、低解約返戻金型だけの値（払込中の率・年齢ごとの率）と推定のままの率を外し、入れた率は残す", () => {
+    let wh = action(family(), "ins/add:lowSurrender");
+    wh = action(wh, "/addRatePoint");
+    wh = set(wh, "/template", "wholeLife");
+    expect(contract(wh).simple).toBeUndefined();
+    expect(status(wh, "/sv/rate").status).toBe("missing");
+    expect(fields(wh).some((f) => f.key.endsWith("/sv/during"))).toBe(false);
+    // 終身保険で入れた率は、低解約返戻金型に変えても払込が終わった時の率として残す
+    wh = set(wh, "/sv/rate", "0.95");
+    wh = set(wh, "/template", "lowSurrender");
+    expect(contract(wh).simple).toMatchObject({ returnRate: "0.95", returnRateDuring: "0.7" });
+    expect(status(wh, "/sv/rate").status).toBe("confirmed");
+  });
+
+  it("目安の値を事務所で変えると、新しく足す低解約返戻金型の率がその値と事務所の根拠になる", () => {
+    publishOfficeEstimates(withOfficeValue(withOfficeValue(EMPTY_ESTIMATES, "preset.insurance.lowSurrender.duringRate", "0.6", "当事務所でよく扱う設計", "2026-11-03"), "preset.insurance.lowSurrender.endRate", "1.1", null, "2026-11-03"));
+    const wh = action(family(), "ins/add:lowSurrender");
+    expect(contract(wh).simple).toMatchObject({ returnRateDuring: "0.6", returnRate: "1.1" });
+    expect(status(wh, "/sv/during")).toMatchObject({ status: "estimated", basis: "当事務所でよく扱う設計" });
+    expect(status(wh, "/sv/rate")).toMatchObject({ status: "estimated", basis: "事務所の目安（2026年11月）" });
+  });
+
+  it("アカウント型: 保険料（合計）・保障の部分の死亡保険金と終わり・払込が終わった時の積立金・払込の後（終身保険に移す）を標準に出す", () => {
+    const wh = action(family(), "ins/add:account");
+    const c = contract(wh);
+    expect(c).toMatchObject({ template: "insurance.wholeLife", subtype: "account", simple: { account: { value: 0, after: "wholeLife", deathBenefit: 0 } } });
+    expect(c.coverages?.map((x) => `${x.role}:${x.benefit}`)).toEqual(["main:death"]);
+    expect(simpleKeys(wh)).toEqual(["template", "insured", "premium", "freq", "main", "end", "payUntil", "value", "after", "deathBenefit"]);
+    expect(fieldOf(wh, "/premium").help).toBe("保障の部分と積立の部分を合わせた保険料です");
+    expect(fieldOf(wh, "/main").label).toBe("死亡保険金（保障の部分）");
+    expect(status(wh, "/acct/value").status).toBe("missing");
+    expect(status(wh, "/acct/deathBenefit").status).toBe("missing");
+    expect(status(wh, "/end")).toMatchObject({ status: "estimated", basis: "ひな形の既定の値（アカウント型保険（利率変動型積立終身保険）: 65歳）" });
+    // 払込の終わりは保障の終わりと同じ（推定）
+    expect(status(wh, "/payUntil").basis).toBe("保障の終わりと同じ（アカウント型保険（利率変動型積立終身保険））");
+    expect(fieldOf(wh, "/acct/value").help).toContain("新しい設計書の数字に入れ直してください");
+    // 返戻率の欄は出さない
+    expect(fields(wh).some((f) => f.key.endsWith("/sv/rate"))).toBe(false);
+  });
+
+  it("アカウント型: 払込の後を年金にすると年額と年数の欄（年額は未入力・年数は省略で10年）、解約にすると払込が終わった月に積立金を受け取る", () => {
+    let wh = action(family(), "ins/add:account");
+    wh = set(wh, "/premium", 20000);
+    wh = set(wh, "/main", 30000000);
+    wh = set(wh, "/acct/value", 3000000);
+    expect(status(wh, "/acct/value").status).toBe("confirmed");
+    wh = set(wh, "/acct/after", "annuity");
+    expect(simpleKeys(wh).slice(-3)).toEqual(["after", "annual", "years"]);
+    expect(status(wh, "/acct/annual").status).toBe("missing");
+    expect(fieldOf(wh, "/acct/years").get(wh)).toMatchObject({ value: 10, implicit: true });
+    wh = set(wh, "/acct/annual", 330000);
+    // 払込の終わりは65歳（ご本人の生まれた月から）。その月から毎年
+    const payEnd = Number(String((fieldOf(wh, "/payUntil").get(wh).when?.read ?? "").match(/(\d{4})年/)?.[1] ?? "0"));
+    const r = preview(wh.request);
+    const ann = r.table.filter((t) => t.row === "cf.income.corporatePension.privateAnnuity" && t.object === contract(wh).id && t.amount > 0);
+    expect(ann.length).toBeGreaterThan(0);
+    expect(ann.every((t) => t.amount === 330000)).toBe(true);
+    if (payEnd > 0) expect(Math.min(...ann.map((t) => t.year))).toBe(payEnd);
+    wh = set(wh, "/acct/after", "surrender");
+    expect(simpleKeys(wh).at(-1)).toBe("after");
+    const r2 = preview(wh.request);
+    expect(r2.table.filter((t) => t.row === "cf.income.lumpSum.surrender" && t.object === contract(wh).id).reduce((n, t) => n + t.amount, 0)).toBe(3000000);
+    // 前の扱いの値（年金の年額）は残す（戻したときに消えない）
+    expect(contract(wh).simple?.account).toMatchObject({ after: "surrender", annual: 330000, deathBenefit: 0 });
+  });
+
+  it("アカウント型: 万一のとき（払込中に亡くなる）は、保障の部分の死亡保険金とその時の積立金を受け取る", () => {
+    let wh = action(family(), "ins/add:account");
+    wh = set(wh, "/premium", 20000);
+    wh = set(wh, "/main", 30000000);
+    wh = set(wh, "/acct/value", 3000000);
+    const death = scenarios(wh).find((x) => x.kind === "death" && x.member === self(wh).id)!;
+    const r = preview(scenarioRequest(wh, death, wh.contingency.year ?? defaultYear(wh.request)));
+    const got = r.table.filter((t) => t.object === contract(wh).id && t.row === "cf.income.lumpSum.insurance").reduce((n, t) => n + t.amount, 0);
+    expect(got).toBeGreaterThanOrEqual(30000000);
+    expect(got).toBeLessThan(30000000 + 3000000);
+  });
+
+  it("アカウント型からほかの種類に変えると、積立の部分を外す", () => {
+    let wh = action(family(), "ins/add:account");
+    wh = set(wh, "/acct/value", 3000000);
+    wh = set(wh, "/template", "term");
+    expect(contract(wh).simple).toBeUndefined();
+    expect(Object.keys((contract(wh) as unknown as { valueStates?: Record<string, unknown> }).valueStates ?? {}).some((x) => x.includes("account"))).toBe(false);
   });
 });
