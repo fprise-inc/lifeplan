@@ -100,6 +100,19 @@ describe("住宅購入の予定は「住宅の購入」の1件", () => {
     expect(entryParts(shown).get(`${k}/purchase/gift/0`)).toBe(k);
     expect(() => preview(w2.request)).not.toThrow();
   });
+  it("住宅の購入の1件には住まいの種類の欄（住まい）を出さない（標準・詳細とも）。ふつうの住まいの1件には出す。購入をやめるときは「外す」", () => {
+    const wh = action(action(salaried(), "housing/addRent"), "housing/addPurchase");
+    const r = owned(wh);
+    const k = `housing/res/${r.id}`;
+    const gs = groups(wh);
+    const head = gs.find((g) => g.key === k)!;
+    expect(head.fields.some((f) => f.key === `${k}/kind`)).toBe(false);
+    expect(head.actions.some((a) => a.key === `${k}/remove`)).toBe(true);
+    const rent = (wh.request.input.household.residences ?? []).find((x) => x.purchase === undefined)!;
+    expect(gs.find((g) => g.key === `housing/res/${rent.id}`)!.fields.some((f) => f.key === `housing/res/${rent.id}/kind`)).toBe(true);
+    // 標準・詳細のどちらでも（欄そのものが無い）
+    expect(allFields(stage(wh)).some((f) => f.key === `${k}/kind`)).toBe(false);
+  });
   it("持ち家の評価: 購入の予定は「建物が完成する年」、今住んでいる家は「建物が建った年」。評価の基にする額の空欄は土地と建物に分けて減らすことを書く", () => {
     const wh = action(action(salaried(), "housing/addPurchase"), "housing/addOwn");
     const [now, buy] = [(wh.request.input.household.residences ?? []).find((r) => r.purchase === undefined)!, owned(wh)];
