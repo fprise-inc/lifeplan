@@ -18,6 +18,7 @@ import { sameRate } from "../units.ts";
 import { cmpRate, pctText } from "../../plans/decimal.ts";
 import { feeSections } from "./fees.ts";
 import { GROWTH_RANGE, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../rateRanges.ts";
+import { presetNum } from "../../../../../hearing/src/presets.ts";
 
 type Obj = Record<string, unknown>;
 type Assumptions = NonNullable<WorkingHousehold["request"]["input"]["assumptions"]>;
@@ -58,8 +59,12 @@ const num = (v: string | undefined | null) => (v === undefined || v === null ? n
 export function rateWarning(name: string, a: Assumptions | undefined): string | null {
   const v = num((getPath(a, [name, "default"]) as string | undefined) ?? null);
   if (v === null) return null;
-  if (name === "investmentReturn" && v > 0.05) return "運用利回りが年5%を超えています（事務所の注意の線）。長い期間の平均として高すぎないか確かめてください";
-  if (name === "inflation" && (v < 0 || v > 0.04)) return "物価上昇率が0%未満か4%を超えています（事務所の注意の線）";
+  // 線は presets.ts の目安（事務所の推定の値があればその値）
+  const ret = presetNum("preset.assumptions.warn.investmentReturn");
+  const inf = presetNum("preset.assumptions.warn.inflationHigh");
+  const pct = (x: number) => `${String(Math.round(x * 100000) / 1000)}%`;
+  if (name === "investmentReturn" && v > ret) return `運用利回りが年${pct(ret)}を超えています（事務所の注意の線）。長い期間の平均として高すぎないか確かめてください`;
+  if (name === "inflation" && (v < 0 || v > inf)) return `物価上昇率が0%未満か${pct(inf)}を超えています（事務所の注意の線）`;
   if (name === "wageGrowth") {
     const inf = num(a?.inflation?.default ?? null) ?? 0;
     if (v - inf > 0.02) return "賃金上昇率が物価上昇率を2ポイント超えて上回っています（事務所の注意の線）";

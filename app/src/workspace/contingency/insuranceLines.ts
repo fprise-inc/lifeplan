@@ -4,7 +4,7 @@
 import type { EngineRequest, Illness, InsuranceContract, PreviewResult, ProtectionOutput, TableCell } from "../../engine/types.ts";
 import type { BenefitDetailModel, ProtectionInsightModel } from "../../presentation/model.ts";
 import type { WorkingHousehold } from "../input/household.ts";
-import { DEFAULT_MAX_DAYS } from "../input/insuranceKinds.ts";
+import { defaultMaxDays } from "../input/insuranceKinds.ts";
 import { contractLabel } from "../input/insuranceView.ts";
 import { displayYears } from "../present.ts";
 import { manText } from "./present.ts";
@@ -33,7 +33,7 @@ export function medicalParts(c: InsuranceContract, member: string, ill: Illness)
     let amount: number;
     let label: string;
     if (x.benefit === "hospitalDaily") {
-      const days = Math.min(ill.hospitalDays ?? 0, x.maxDays ?? DEFAULT_MAX_DAYS);
+      const days = Math.min(ill.hospitalDays ?? 0, x.maxDays ?? defaultMaxDays());
       amount = x.amount * days;
       label = `入院 ${days}日`;
     } else if (x.benefit === "surgery") {

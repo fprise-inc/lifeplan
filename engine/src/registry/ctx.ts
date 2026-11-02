@@ -1,6 +1,7 @@
 // 0006 の1: 部品が外の世界に触れる手段は ctx だけ。制度の値・丸め・呼び出しはここで根拠の記録に残る。
 // 0005・0006 の追記（2回目の見直し）: 部品の呼び出しごとに「何を読み、どの部品をどの入力で呼んだか（依存）」を記録し、
 // 案×想定・スライダーの1刻みのあいだで、依存が同じ呼び出しの結果を使い回す（依存の記録と使い回し。下の invoke）
+import type { EngineNoFill } from "../sdk/estimates.ts";
 import { EngineError } from "../errors.ts";
 import { deepFreeze } from "../engine/freeze.ts";
 import type { AnnualRow, CalcConventions, EngineInput, Flow, FlowsOutput } from "../engine/types.ts";
@@ -131,6 +132,13 @@ export interface Ctx {
   setting<T>(name: string): T | undefined;
   /** 計算に反映していないこと（未対応の制度など）の知らせ。見出しの notices に ID だけで残す */
   notice(code: string, ids: readonly string[]): void;
+  /**
+   * 0111 の2回目: エンジンが引く目安（sdk/estimates.ts の一覧の値ID）の値。計算の要求の estimateValues に事務所の推定の値があればその値。
+   * 値は要求の組（使い回しの範囲）の中で変わらないので、依存は記録しない
+   */
+  estimate(id: string): number | string;
+  /** 0111 の2回目: エンジンが引く統計の目安（介護・学校の段の費用・平均余命）で、世帯の空欄を埋めるか（事務所の既定値で「推定で埋めない」にした物は false） */
+  fillsByEstimate(kind: EngineNoFill): boolean;
   at(month: MonthIndex): MonthCtx;
   /**
    * 区間ごとの計算（0006 の追記）: from〜to を、指定した制度の値（params）が同じ行で、breaks・every の変わり目をまたがない区間に分ける。
@@ -1475,6 +1483,14 @@ class CtxImpl implements Ctx {
     }
     const key = `${code}|${ids.join(",")}`;
     this.#addNotice(key, { code, ids: [this.#impl.def.id, ...ids] }, true);
+  }
+
+  estimate(id: string): number | string {
+    return this.#state.store.estimate(id);
+  }
+
+  fillsByEstimate(kind: EngineNoFill): boolean {
+    return this.#state.store.fillsByEstimate(kind);
   }
 
   at(month: MonthIndex): MonthCtx {

@@ -5,13 +5,15 @@ import type { Debt, Household, Residence, YearSeries } from "../../../engine/typ
 import { addMonths } from "../../levers.ts";
 import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
-import { RENT_BASIS, RENT_STANDARD } from "../fill.ts";
+import { rentBasis, rentStandard } from "../fill.ts";
 import { dropProvisionalEvent, withProvisionalHousing } from "../housingCredit.ts";
 import { BUILDING_STRUCTURES, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS, TAX_METHODS, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
 import type { StateRow } from "../rows.ts";
 import { formatYen } from "../units.ts";
 import { rentGrowthStatistic } from "../../../../../hearing/src/housingEstimates.ts";
 import { carLoanRateEstimate } from "../../../../../hearing/src/loanRates.ts";
+import { pctText } from "../../../../../hearing/src/housingEstimates.ts";
+import { presetNum, presetText } from "../../../../../hearing/src/presets.ts";
 import { readGroup, readLine } from "../readLines.ts";
 import { stagedBadge, stagedGroups, type StagedSpec } from "../staged.ts";
 import { at, creditLifeFields, creditLifeGroups, estRow, loanFields, loanMoreActions, loanTitle, LOAN_SUBTYPES, newMortgage, newOtherLoan, otherLoanHeadFields, withEntry } from "./housingLoans.ts";
@@ -23,15 +25,19 @@ export { creditLifeFields, creditLifeGroups, loanFields };
 type Obj = Record<string, unknown>;
 const residences = (h: Household) => h.residences;
 
-/** 目安のボタンの値（0041。推定の標準の値で入れる） */
-const TAX_PRESET = () => standardBox(120000, presetBasis("固定資産税・都市計画税 年12万円"));
-const MAINT_PRESET = () => standardBox(15000, presetBasis("修繕費・管理費 月1.5万円"));
-const PRICE_PRESET = 40000000;
+/** 万円の文字（「12万円」「1.5万円」） */
+const manOf = (v: number | string) => `${formatYen(Number(v), "man")}万円`;
+/** 目安のボタンの値（0041。推定の標準の値で入れる。値は presets.ts の目安） */
+const TAX_PRESET = () => standardBox(presetNum("preset.housing.propertyTax"), presetBasis(presetText("preset.housing.propertyTax", (v) => `固定資産税・都市計画税 年${manOf(v)}`)));
+const MAINT_PRESET = () => standardBox(presetNum("preset.housing.maintenance"), presetBasis(presetText("preset.housing.maintenance", (v) => `修繕費・管理費 月${manOf(v)}`)));
+const PRICE_PRESET = () => presetNum("preset.housing.purchase.price");
 /** 頭金・諸費用の標準の割合（物件の価格に対する） */
-const DOWN_RATE = 0.1;
-const COSTS_RATE = 0.05;
-const downBasis = (v: number) => `既定の値（物件の価格の1割。${formatYen(v, "man")}万円）`;
-const costsBasis = (v: number) => `既定の値（物件の価格の5%。${formatYen(v, "man")}万円。目安は新築で3〜7%、中古で6〜10%）`;
+const DOWN_RATE = () => presetNum("preset.housing.purchase.downRate");
+const COSTS_RATE = () => presetNum("preset.housing.purchase.costsRate");
+/** 割合の文字（1割・2割…は「割」、ほかは％） */
+const shareText = (r: number) => (Math.abs(r * 10 - Math.round(r * 10)) < 1e-9 ? `${String(Math.round(r * 10))}割` : pctText(r));
+const downBasis = (v: number) => presetText("preset.housing.purchase.downRate", (r) => `既定の値（物件の価格の${shareText(Number(r))}。${formatYen(v, "man")}万円）`);
+const costsBasis = (v: number) => presetText("preset.housing.purchase.costsRate", (r) => `既定の値（物件の価格の${pctText(r)}。${formatYen(v, "man")}万円。目安は新築で3〜7%、中古で6〜10%）`);
 const UNENTERED_GIFT = "未入力（援助の額を入れてください。0円で計算中）";
 
 /** 物の値の状態の欄の行（物を直接書き換える） */
@@ -68,7 +74,7 @@ function setKind(h: Household, res: Residence, v: string): void {
   }
   if (v === "rent") {
     res.kind = "rent";
-    if (res.rent === undefined || res.rent.monthly.state === "notApplicable") res.rent = { ...(res.rent ?? {}), monthly: standardBox(RENT_STANDARD, RENT_BASIS) };
+    if (res.rent === undefined || res.rent.monthly.state === "notApplicable") res.rent = { ...(res.rent ?? {}), monthly: standardBox(rentStandard(), rentBasis()) };
     return;
   }
   res.kind = "own";
@@ -371,11 +377,11 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
       const res = target as unknown as Residence & Obj;
       if (res.purchase === undefined || typeof v !== "number") return;
       if (isAutoEstimate(stateOf(res, "residence.purchase/downPayment"))) {
-        res.purchase.downPayment = Math.round((v * DOWN_RATE) / 10000) * 10000;
+        res.purchase.downPayment = Math.round((v * DOWN_RATE()) / 10000) * 10000;
         setState(res, "residence.purchase/downPayment", estRow("derived", downBasis(res.purchase.downPayment)));
       }
       if (isAutoEstimate(stateOf(res, "residence.purchase/costs"))) {
-        res.purchase.costs = Math.round((v * COSTS_RATE) / 10000) * 10000;
+        res.purchase.costs = Math.round((v * COSTS_RATE()) / 10000) * 10000;
         setState(res, "residence.purchase/costs", estRow("standard", costsBasis(res.purchase.costs)));
       }
     },
@@ -767,12 +773,13 @@ export function newCarLoan(wh: WorkingHousehold): WorkingHousehold {
     if (self === undefined) return;
     const id = newId();
     const rid = newId();
-    const d: Debt = { id, kind: "car", debtors: [{ member: self.id, role: "primary" }], principal: 2000000, start: { at: base }, rateSchedule: [{ id: rid, from: { at: base }, type: "fixed", rate: carLoanRateEstimate().rate }], repayment: { method: "equalPayment", termMonths: 60 } };
+    const term = presetNum("preset.car.loan.termMonths");
+    const d: Debt = { id, kind: "car", debtors: [{ member: self.id, role: "primary" }], principal: presetNum("preset.car.loan.principal"), start: { at: base }, rateSchedule: [{ id: rid, from: { at: base }, type: "fixed", rate: carLoanRateEstimate().rate }], repayment: { method: "equalPayment", termMonths: term } };
     const o = d as unknown as Obj;
-    setState(o, "debt.principal", estRow("standard", presetBasis("借入額 200万円")));
+    setState(o, "debt.principal", estRow("standard", presetBasis(presetText("preset.car.loan.principal", (v) => `借入額 ${manOf(v)}`))));
     // 金利は車の入力項目の自動車ローンと同じ目安（マスタデータ master.loanRates）
     setState(o, `debt.rateSchedule/${rid}/rate`, estRow("standard", presetBasis(`固定金利 ${carLoanRateEstimate().basis}`)));
-    setState(o, "debt.repayment/termMonths", estRow("standard", presetBasis("返済期間5年")));
+    setState(o, "debt.repayment/termMonths", estRow("standard", presetBasis(presetText("preset.car.loan.termMonths", (v) => (Number(v) % 12 === 0 ? `返済期間${String(Number(v) / 12)}年` : `返済期間${String(v)}か月`)))));
     (hh.debts ??= []).push(d);
   });
 }
@@ -807,7 +814,7 @@ export function housingStage(wh: WorkingHousehold): StageDef {
     level: "simple",
     groups: (h.residences ?? []).flatMap((r, i) => residenceGroups(wh, r, i)),
     actions: [
-      { key: "housing/addRent", label: "＋ 賃貸", level: "simple", run: (w) => mutate(w, (hh) => void (hh.residences ??= []).push({ id: newId(), kind: "rent", from: { at: base }, to: null, rent: { monthly: standardBox(RENT_STANDARD, RENT_BASIS) } })) },
+      { key: "housing/addRent", label: "＋ 賃貸", level: "simple", run: (w) => mutate(w, (hh) => void (hh.residences ??= []).push({ id: newId(), kind: "rent", from: { at: base }, to: null, rent: { monthly: standardBox(rentStandard(), rentBasis()) } })) },
       {
         key: "housing/addOwn",
         label: "＋ 持ち家（今住んでいる）",
@@ -826,26 +833,27 @@ export function housingStage(wh: WorkingHousehold): StageDef {
         level: "simple",
         run: (w) =>
           mutate(w, (hh) => {
-            const at24 = addMonths(base, 24);
+            const at24 = addMonths(base, presetNum("preset.housing.purchase.afterMonths"));
             // 今の住まい（賃貸・家賃なし）は購入の前の月で終える
             for (const r of hh.residences ?? []) if (r.kind === "rent" && r.to === null) r.to = { at: addMonths(at24, -1) };
-            const down = Math.round((PRICE_PRESET * DOWN_RATE) / 10000) * 10000;
-            const costs = Math.round((PRICE_PRESET * COSTS_RATE) / 10000) * 10000;
+            const price = PRICE_PRESET();
+            const down = Math.round((price * DOWN_RATE()) / 10000) * 10000;
+            const costs = Math.round((price * COSTS_RATE()) / 10000) * 10000;
             const res: Residence = {
               id: newId(),
               kind: "own",
               from: { at: at24 },
               to: null,
-              purchase: { at: { at: at24 }, price: PRICE_PRESET, downPayment: down, costs },
+              purchase: { at: { at: at24 }, price, downPayment: down, costs },
               propertyTax: { annual: TAX_PRESET() },
               maintenance: { monthly: MAINT_PRESET() },
               ...(selfId !== undefined ? { ownership: [{ member: selfId, share: "1" }] } : {}),
             };
             const o = res as unknown as Obj;
-            setState(o, "residence.purchase/price", estRow("standard", presetBasis("物件の価格 4,000万円")));
+            setState(o, "residence.purchase/price", estRow("standard", presetBasis(presetText("preset.housing.purchase.price", (v) => `物件の価格 ${manOf(v)}`))));
             setState(o, "residence.purchase/downPayment", estRow("derived", downBasis(down)));
             setState(o, "residence.purchase/costs", estRow("standard", costsBasis(costs)));
-            setState(o, "residence.purchase/at", estRow("standard", "既定の値（2年後。直してください）"));
+            setState(o, "residence.purchase/at", estRow("standard", presetText("preset.housing.purchase.afterMonths", (v) => `既定の値（${Number(v) % 12 === 0 ? `${String(Number(v) / 12)}年後` : `${String(v)}か月後`}。直してください）`)));
             (hh.residences ??= []).push(res);
           }),
       },

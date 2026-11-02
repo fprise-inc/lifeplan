@@ -236,7 +236,10 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
     const assetsAt = (y: number): number => (y > baseYear ? (financial.get(y - 1) ?? 0) : initial);
 
     // 平均余命（簡易生命表の主な年齢の値を補間。性別ごと）
+    // 事務所の既定値で「推定で埋めない」にしたとき（0111 の2回目）は、平均余命の目安を引かない（期間は90歳まで。知らせ N_INPUT_REQUIRED）
+    const lifeFills = ctx.fillsByEstimate("lifeExpectancy");
     const lifeMonths = (z: string, at: MonthIndex): number | null => {
+      if (!lifeFills) return null;
       const m = ctx.at(at < base ? base : at);
       if (!m.has(LIFE, { member: z })) return null;
       const table = m.paramBrackets(LIFE, { member: z });
@@ -303,7 +306,7 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
         } else {
           const lm = lifeMonths(Z, D);
           if (lm === null) {
-            ctx.notice("N_INPUT_REQUIRED", ["lifeTable.lifeExpectancy", "protection.horizon"]);
+            ctx.notice("N_INPUT_REQUIRED", [lifeFills ? "lifeTable.lifeExpectancy" : "lifeTable.noFill", "protection.horizon"]);
             H = ageMonthOf(Z, 90);
           } else H = addMonths(D, lm);
         }
@@ -319,9 +322,10 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
           if (own > indep) indep = own;
         }
         // 子のいない世帯は、全期間を noChildren（省略は0.7）にする
-        const noChildren = kids.length === 0 ? ctx.rate.of(req.survivor?.livingRatio?.noChildren ?? "0.7") : null;
-        const before = noChildren ?? ctx.rate.of(req.survivor?.livingRatio?.beforeIndependence ?? "0.7");
-        const after = noChildren ?? ctx.rate.of(req.survivor?.livingRatio?.afterIndependence ?? "0.5");
+        // 空欄は目安（sdk/estimates.ts。事務所の推定の値があればその値）
+        const noChildren = kids.length === 0 ? ctx.rate.of(req.survivor?.livingRatio?.noChildren ?? String(ctx.estimate("preset.survivor.livingRatio.noChildren"))) : null;
+        const before = noChildren ?? ctx.rate.of(req.survivor?.livingRatio?.beforeIndependence ?? String(ctx.estimate("preset.survivor.livingRatio.beforeIndependence")));
+        const after = noChildren ?? ctx.rate.of(req.survivor?.livingRatio?.afterIndependence ?? String(ctx.estimate("preset.survivor.livingRatio.afterIndependence")));
         const scaled = (p: readonly number[], factor: string | null, a: MonthIndex, b: MonthIndex): number => {
           const s = sum(p, a, b);
           return factor === null || s === 0 ? s : ctx.money.mulRate(yen(s), ctx.rate.of(factor), "conv.expense.share");

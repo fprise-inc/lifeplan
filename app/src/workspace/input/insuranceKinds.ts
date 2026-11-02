@@ -8,6 +8,7 @@ import type { Address } from "../store/readings.ts";
 import type { YenBasis } from "./units.ts";
 import { formatYen } from "./units.ts";
 import type { StateRow } from "./rows.ts";
+import { presetNum, presetText } from "../../../../hearing/src/presets.ts";
 
 type Obj = Record<string, unknown>;
 
@@ -210,12 +211,12 @@ export function defaultPayUntil(h: Household, k: KindDef, insured: string): { tp
 /** 保険料控除の新旧の制度（2012年1月以後の契約は新制度） */
 export const regimeOf = (contractDate: string): "new" | "old" => (contractDate >= "2012-01" ? "new" : "old");
 
-/** 手術の額の既定（入院日額の10倍） */
-export const SURGERY_RATIO = 10;
-export const surgeryBasis = (daily: number) => `${STANDARD}（入院日額 ${formatYen(daily, "yen")}円の${SURGERY_RATIO}倍）`;
+/** 手術の額の既定（入院日額の10倍。presets.ts の目安） */
+export const surgeryRatio = (): number => presetNum("preset.insurance.surgeryRatio");
+export const surgeryBasis = (daily: number) => presetText("preset.insurance.surgeryRatio", (v) => `${STANDARD}（入院日額 ${formatYen(daily, "yen")}円の${String(v)}倍）`);
 
-/** 入院の1回の限度日数の既定 */
-export const DEFAULT_MAX_DAYS = 60;
+/** 入院の1回の限度日数の既定（計算エンジンの insurance.policy と同じ目安。engine/src/sdk/estimates.ts） */
+export const defaultMaxDays = (): number => presetNum("preset.insurance.hospitalMaxDays");
 
 // ---- 受け取るお金の税（読むだけ） ----
 

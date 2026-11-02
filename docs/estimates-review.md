@@ -4,9 +4,11 @@
 
 - **リリースの前に**: 下の「見直し」が「毎リリース」の行は必ず、それ以外は「次の見直し」の時期を過ぎた行を確かめる。値を変えたら、この一覧の「値」「出典・時点」も直す。
 - **統計の値の正本は `data/master/` の YAML**（0007）。変えるときは新しい行（`rev`）を足し、古い行に `supersededIn` を書く。出典（`url`・`retrievedAt`・`sha256`・`locator`）と照らし合わせの記録（`approval`）を必ず書く。画面とヒアリングシートの写しは `hearing/` で `npm run statistics` で作り直す（`npm run statistics:check` が CI で確かめる）。
-- **コードの中の目安**（出典の無いひな形）は、置き場所のファイルの定数を直す。同じ値が2か所以上にある物は、下の「まとめて直す値」を見る。
-- **事務所の推定の値（0111）**: 1章のマスタデータの値は、事務所の既定値の画面の「推定の値（統計）」で事務所ごとに上書きできる（種類「法令」の国立大学・大学院の標準額を除く）。見直しで値を変えて `rev` が進むと、その値を上書きしている事務所には「公式の値が新しくなりました（前 ○ → 新 ○）」と出て、FP が「このまま」か「公式に戻す」を選ぶ。表の段の分け方（段の数・`upTo`）を変えると事務所の値を使えなくなるので、段の分け方を変えるときは更新の知らせに書く。2〜9章のコードの中の目安は、2回目で同じ仕組みに載せる。
+- **コードの中の目安**（出典の無いひな形。2〜11章）は、**1か所の一覧**で直す: 画面とヒアリングシートの目安は `hearing/src/presets.ts`、計算エンジンが引く目安（値ID の後ろに「エンジン」）は `engine/src/sdk/estimates.ts`（画面も同じ値を読む）。値を変えたら、その行の版（`rev`）を1つ上げ、この一覧の「値」「版」も直す。値の文（根拠の文の「家賃 月8万円」など）は値から作るので、文は直さなくてよい。一覧に入れていない値は下の「一覧に入れていない値」を見る。
+- **事務所の推定の値（0111）**: 1章のマスタデータの値と2〜11章のコードの中の目安は、事務所の既定値の画面の「推定の値（統計・目安）」で事務所ごとに上書きできる（種類「法令」の国立大学・大学院の標準額と、下の「一覧に入れていない値」を除く）。見直しで値を変えて `rev` が進む（目安は値そのものが変わっても）と、その値を上書きしている事務所には「公式の値が新しくなりました（前 ○ → 新 ○）」と出て、FP が「このまま」か「公式に戻す」を選ぶ。表の段の分け方（段の数・`upTo`）を変えると事務所の値を使えなくなるので、段の分け方を変えるときは更新の知らせに書く。目安の値の形（数か率の文字か）を変えても同じく使えなくなる。
 - 制度の値（税・社会保険・年金などの法令で決まる値。`data/regulation/`）はこの一覧の外（制度データの見直しで扱う）。ただし、全国健康保険協会の都道府県支部の料率・国民健康保険の全国の標準・後期高齢者医療の全国平均・介護保険の第1号の基準額のように毎年変わる値は、年1回の制度データの見直しで確かめる。
+
+効く所（2〜11章）: **推定**＝空欄・「わからない」を補う推定（推定のままの値は入れ直しで新しい値になる）、**ひな形**＝ボタンで足すときの初めの値（新しく足す行だけ）、**エンジン**＝計算のときにエンジンが引く目安（世帯に値が無いとき。どの世帯の計算にもすぐ効く）。
 
 種類: **統計**＝出典のある公的な統計（マスタデータ）、**相場**＝市場で動く値（公的機関・民間〔主要な銀行など〕の公表の値と、出典の無い目安の物がある。民間の値は画面に会社の名前を出さず「主要な銀行が公表する金利の平均」のように呼び、出典の URL はマスタデータに書く）、**目安**＝出典の無いよくある額・割合のひな形、**法令**＝法令の値をコードに直書きしている物。
 
@@ -38,113 +40,244 @@
 | 退職給付制度がある企業の割合・退職給付額 | `retirementBenefit.prevalence`・`prevalence.bySize`・`{mandatory,company,voluntary,earlyIncentive}.*`（12値と3表） | 74.9%・定年・大卒 1,896万円など | 厚生労働省「就労条件総合調査」令和5年 | 統計 | 5年ごと（次は令和10年調査） |
 | 中小企業のモデル退職金 | `retirementBenefit.smallFirm.*`（6表） | 勤続年数ごとの額 | 東京都産業労働局「中小企業の賃金・退職金事情」令和6年版 | 統計 | 2年ごと（退職金は隔年の項目） |
 
-## 2. 住まい・ローン（コードの中の目安）
+## 2. 住まい・ローン（35値）
 
-| 推定 | 置き場所 | 値 | 出典・時点 | 種類 | 見直し |
-|---|---|---|---|---|---|
-| 金利の目安の予備の値（写しが読めないとき） | `hearing/src/housingEstimates.ts` の `FALLBACK`・`CURRENT_FALLBACK`・`hearing/src/loanRates.ts` の `estimateOf` の予備 | 住宅ローン 変動0.8%・ほか2%・今返している分0.8%、奨学金1%・今返している分0.75%、自動車ローン2.5% | 仮の値 | 相場（目安） | 毎リリース（マスタデータと大きくずれていないか） |
-| 変動金利の見込みの型 | `app/src/workspace/input/stages/housingLoans.ts` の `RATE_OUTLOOKS` | 今のまま／10年で+1%／10年で+2%（5年ごと） | 出典なし | 目安 | 年1回 |
-| 金利の段階を足すときの初めの値 | 同 `loanMoreActions`（`＋ 金利の段階`） | 前の段の金利（無ければ1%） | 出典なし | 相場（目安） | 毎リリース |
-| ほかのローンの金利 | 同 `LOAN_SUBTYPES` | カードローン15%・リフォーム2.5%・契約者貸付3%・親・知人0%・その他3%（期間60か月）。奨学金の返済は、第二種がマスタデータ `loanRates.scholarship.repaying`（今返している分）、第一種（無利子）は0%（制度の利率。見直し不要） | 出典なし（奨学金を除く） | 相場（目安） | 毎リリース |
-| 新しい住宅ローンの借入額・今の残高 | 同 `newMortgage` | 3,000万円 | 出典なし | 目安 | 年1回 |
-| 返済期間の標準 | 同 `standardTermMonths`・`hearing/src/loan.ts` | 35年（完済が80歳を超えないように） | 出典なし | 目安 | 年1回 |
-| 物件の価格 | `app/src/workspace/input/stages/housing.ts` の `PRICE_PRESET` | 4,000万円 | 出典なし | 相場（目安） | 年1回 |
-| 頭金・諸費用の割合 | 同 `DOWN_RATE`・`COSTS_RATE` | 価格の10%・5%（諸費用の目安は新築3〜7%・中古6〜10%） | 出典なし | 目安 | 年1回 |
-| 購入の時期 | 同 `housing/addPurchase` | 2年後 | — | 目安 | 年1回 |
-| 固定資産税・都市計画税 | 同 `TAX_PRESET` | 年12万円 | 出典なし | 目安 | 年1回 |
-| 修繕・管理の費用（毎月） | 同 `MAINT_PRESET` | 月1.5万円 | 出典なし | 目安 | 年1回 |
-| 家賃 | `app/src/workspace/input/fill.ts` の `RENT_STANDARD` | 月8万円 | 出典なし（地域・人数の統計はまだ無い） | 相場（目安） | 年1回 |
-| 修繕・リフォームの行 | `app/src/workspace/input/moneyRows.ts` の `OUT_KINDS`（repair） | 10年ごとに100万円 | 出典なし | 目安 | 年1回 |
-| 繰上返済の行を足すとき | `housingLoans.ts` の `loanMoreActions`（`＋ 繰上返済`） | 5年後に100万円 | — | 目安 | 年1回 |
-| 持ち家の評価: 土地の割合・建物の下限・売却の費用 | `app/src/workspace/input/labels.ts` の `VALUATION_DEFAULTS`・`engine/src/sdk/helpers.ts` の `LAND_SHARE`・`RESIDUAL_FLOOR`・`SALE_COST_RATE` | 0.3・0.2・0.04 | 0025（土地付き注文住宅の土地の割合・固定資産評価の下限・仲介手数料など） | 目安 | 年1回 |
-| 構造ごとの耐用年数 | `labels.ts` の `USEFUL_LIFE`・`helpers.ts`・`engine/src/components/asset.realEstate/index.ts` の `TAX_USEFUL_LIFE` | 木造22・軽量鉄骨19・重量鉄骨34・RC47年 | 減価償却資産の耐用年数等に関する省令 | 法令 | 法改正のとき |
-| 収益不動産のローン・修繕・借り換え | `app/src/workspace/input/stages/rental.ts` | 2,000万円・固定2%・25年、5年後に100万円、前の金利（無ければ2%）・240か月 | 出典なし | 相場（目安） | 年1回 |
-| ヒアリングの住宅ローン控除の仮の条件 | `hearing/src/import.ts` | 新築は省エネ基準適合住宅・中古は一般の住宅・持分100% | — | 法令（仮定） | 法改正のとき |
+| 推定 | 値ID | 値 | 出典・時点 | 種類 | 効く所 | 版 | 見直し |
+|---|---|---|---|---|---|---|---|
+| 家賃（月額。住まいが入っていないとき） | `preset.housing.rent` | 80,000円 | 出典なし（地域・人数の統計はまだ無い） | 相場（目安） | 推定 | 1 | 年1回 |
+| 住宅購入の予定: 物件の価格 | `preset.housing.purchase.price` | 40,000,000円 | 出典なし | 相場（目安） | ひな形 | 1 | 年1回 |
+| 住宅購入の予定: 頭金の割合（物件の価格に対する） | `preset.housing.purchase.downRate` | 10% | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 住宅購入の予定: 諸費用の割合（物件の価格に対する） | `preset.housing.purchase.costsRate` | 5% | 出典なし（諸費用の目安は新築3〜7%・中古6〜10%） | 目安 | ひな形 | 1 | 年1回 |
+| 住宅購入の予定: 購入の時期（今から） | `preset.housing.purchase.afterMonths` | 24か月 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 固定資産税・都市計画税（年額） | `preset.housing.propertyTax` | 120,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 修繕費・管理費（月額） | `preset.housing.maintenance` | 15,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 修繕・リフォームの行: 1回の額 | `preset.housing.repair.amount` | 1,000,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 修繕・リフォームの行: 間隔 | `preset.housing.repair.everyYears` | 10年 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 今の残高から入れる住宅ローン: 今の残高 | `preset.loan.mortgage.balance` | 30,000,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 住宅ローンの返済期間の標準 | `preset.loan.mortgage.termYears` | 35年 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 住宅ローンの完済の年齢の上限（返済期間の標準を縮める） | `preset.loan.mortgage.payoffAge` | 80歳 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 金利の段階を足すときの金利（前の段が無いとき） | `preset.loan.addRate.fallback` | 1% | 出典なし | 相場（目安） | ひな形 | 1 | **毎リリース** |
+| 変動金利の見込み「少し上がる」: 5年後の上乗せ | `preset.loan.outlook.up1.after5` | 0.5% | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 変動金利の見込み「少し上がる」: 10年後の上乗せ | `preset.loan.outlook.up1.after10` | 1% | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 変動金利の見込み「大きく上がる」: 5年後の上乗せ | `preset.loan.outlook.up2.after5` | 1% | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 変動金利の見込み「大きく上がる」: 10年後の上乗せ | `preset.loan.outlook.up2.after10` | 2% | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 繰上返済の行: 時期（今から） | `preset.loan.prepay.afterMonths` | 60か月 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 繰上返済の行: 額 | `preset.loan.prepay.amount` | 1,000,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| ほかのローンの金利: カードローン・リボ | `preset.loan.rate.cardLoan` | 15% | 出典なし | 相場（目安） | ひな形 | 1 | **毎リリース** |
+| ほかのローンの金利: リフォームローン | `preset.loan.rate.renovation` | 2.5% | 出典なし | 相場（目安） | ひな形 | 1 | **毎リリース** |
+| ほかのローンの金利: 契約者貸付（保険） | `preset.loan.rate.policyLoan` | 3% | 出典なし | 相場（目安） | ひな形 | 1 | **毎リリース** |
+| ほかのローンの金利: その他のローン | `preset.loan.rate.other` | 3% | 出典なし | 相場（目安） | ひな形 | 1 | **毎リリース** |
+| 収益不動産のローン: 借入額 | `preset.rental.loan.principal` | 20,000,000円 | 出典なし | 相場（目安） | ひな形 | 1 | 年1回 |
+| 収益不動産のローン: 金利（固定。借り換えで前の金利が無いときも） | `preset.rental.loan.rate` | 2% | 出典なし | 相場（目安） | ひな形 | 1 | **毎リリース** |
+| 収益不動産のローン: 返済期間 | `preset.rental.loan.termYears` | 25年 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 収益不動産の大きな修繕: 時期（今から） | `preset.rental.repair.afterMonths` | 60か月 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 収益不動産の大きな修繕: 額 | `preset.rental.repair.amount` | 1,000,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 収益不動産のローンの借り換え: 返済期間 | `preset.rental.refinance.termMonths` | 240か月 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 相続で受け継ぐ借金: 額 | `preset.loan.inherited.principal` | 1,000,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 相続で受け継ぐ借金: 金利 | `preset.loan.inherited.rate` | 2% | 出典なし | 相場（目安） | ひな形 | 1 | **毎リリース** |
+| 相続で受け継ぐ借金: 返す年数 | `preset.loan.inherited.termYears` | 5年 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 持ち家・不動産の評価: 土地の割合 | `preset.realEstate.landShare`（エンジン） | 30% | よくある目安（土地付き注文住宅の土地の割合） | 目安 | エンジン | 1 | 年1回 |
+| 持ち家・不動産の評価: 建物の残りの価値の下限 | `preset.realEstate.residualFloor`（エンジン） | 20% | よくある目安（固定資産評価の下限） | 目安 | エンジン | 1 | 年1回 |
+| 持ち家・不動産を売るときの費用の割合 | `preset.realEstate.saleCostRate`（エンジン） | 4% | よくある目安（仲介手数料・印紙税など） | 目安 | エンジン | 1 | 年1回 |
 
-## 3. 生活費
+## 3. 生活費（22値）
 
-| 推定 | 置き場所 | 値 | 出典・時点 | 種類 | 見直し |
-|---|---|---|---|---|---|
-| 1人の世帯の基本生活費 | `hearing/src/estimates.ts` の `LIVING_SINGLE` | 月14万円 | 仮の値（統計の表に単身世帯が無い） | 目安 | 年1回 |
-| 生活費の段階（退職後など） | `app/src/workspace/input/livingStages.ts` の `AGE_LEVELS` | 退職後80%・70歳から75%・80歳から70% | 出典なし | 目安 | 年1回 |
-| 節目のボタンの割合 | `app/src/workspace/input/stages/living.ts` の `DEFAULT_RATIO` | 子の独立0.85・退職0.8・70歳0.75・80歳0.7・その他0.9 | 出典なし | 目安 | 年1回 |
-| 年払い・数年おきの支出のひな形 | 同 `ANNUAL_TEMPLATES` | 帰省 年10万・家電と家具 8年ごと40万・年会費 年3万・スマホ 4年ごと12万・PC 5年ごと15万・通院 年5万・ペットの病気・けが 年5万 | よくある額の目安 | 目安 | 年1回 |
-| 年払いの支出の行 | `moneyRows.ts` の `OUT_KINDS`（livingAnnual） | 年10万円 | 出典なし | 目安 | 年1回 |
-| 黒字のうち貯金に回る割合 | `app/src/workspace/surplus.ts` の `PRESET_RATIOS` | 0.6／子育て中0.5→独立後0.8／退職前0.6→退職後0.8 | 出典なし | 目安 | 年1回 |
-| 遺族の生活費の割合 | `engine/src/components/expense.living`・`protection.need`・`app/src/workspace/contingency/inputs.ts`・`assumptionList.ts` | 子がいる間0.7・末子の独立後0.5・子がいない世帯0.7 | 出典の確かめ前 | 目安 | 年1回 |
+| 推定 | 値ID | 値 | 出典・時点 | 種類 | 効く所 | 版 | 見直し |
+|---|---|---|---|---|---|---|---|
+| 1人の世帯の基本生活費（月額） | `preset.living.single` | 140,000円 | 仮の値（統計の表に単身世帯が無い） | 目安 | 推定 | 1 | 年1回 |
+| 生活費の段階: 子の独立の後（今の生活費に対する割合） | `preset.living.stage.childIndependence` | 85% | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 生活費の段階: 退職の後 | `preset.living.stage.retirement` | 80% | 出典なし | 目安 | 推定 | 1 | 年1回 |
+| 生活費の段階: 70歳から | `preset.living.stage.age70` | 75% | 出典なし | 目安 | 推定 | 1 | 年1回 |
+| 生活費の段階: 80歳から | `preset.living.stage.age80` | 70% | 出典なし | 目安 | 推定 | 1 | 年1回 |
+| 生活費の段階: その他の節目 | `preset.living.stage.other` | 90% | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 年払いの支出のひな形: 通院・歯の治療（年額） | `preset.living.annual.medical` | 50,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 年払いの支出のひな形: ペットの病気・けが（年額） | `preset.living.annual.pet` | 50,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 年払いの支出のひな形: 帰省（年額） | `preset.living.annual.homecoming` | 100,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 年払いの支出のひな形: 家電・家具の買い替え（1回） | `preset.living.annual.appliances` | 400,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 年払いの支出のひな形: 家電・家具の買い替えの間隔 | `preset.living.annual.appliances.everyYears` | 8年 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 年払いの支出のひな形: 年会費・サブスクの年払い（年額） | `preset.living.annual.fees` | 30,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 年払いの支出のひな形: スマホの買い替え（1台・1回） | `preset.living.annual.smartphone` | 120,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 年払いの支出のひな形: スマホの買い替えの間隔 | `preset.living.annual.smartphone.everyYears` | 4年 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 年払いの支出のひな形: パソコンの買い替え（1回） | `preset.living.annual.pc` | 150,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 年払いの支出のひな形: パソコンの買い替えの間隔 | `preset.living.annual.pc.everyYears` | 5年 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 年1回・数年に1回の支出の行（年額） | `preset.living.annualRow` | 100,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 黒字のうち貯金に回る割合（ずっと同じ） | `preset.surplus.same` | 60% | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 黒字のうち貯金に回る割合（子育て中） | `preset.surplus.children.before` | 50% | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 黒字のうち貯金に回る割合（末子の独立の後） | `preset.surplus.children.after` | 80% | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 黒字のうち貯金に回る割合（退職の前） | `preset.surplus.retirement.before` | 60% | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 黒字のうち貯金に回る割合（退職の後） | `preset.surplus.retirement.after` | 80% | 出典なし | 目安 | ひな形 | 1 | 年1回 |
 
-## 4. 教育
+## 4. 教育（9値）
 
-| 推定 | 置き場所 | 値 | 出典・時点 | 種類 | 見直し |
-|---|---|---|---|---|---|
-| 標準の進路・進路の型 | `app/src/workspace/input/stages/education.ts` の `defaultStages`・`COURSE_PRESETS` | 幼稚園〜高校は公立・大学は私立文系の自宅 | 出典なし | 目安 | 年1回 |
-| 塾・習い事などの行 | 同（学校外の行を足すとき） | 塾 月2万・習い事 月8千・その他 月5千 | 出典なし | 目安 | 年1回 |
-| 貸与の奨学金 | 同 `addScholarship`・`SCHOLARSHIP_BASIS` | 月5万・20年（利率はマスタデータ `loanRates.scholarship`） | 額と期間は仮の値 | 目安 | 年1回（利率は1章） |
-| 教育ローン | 同 | 200万・2.5%・15年 | 出典なし | 相場（目安） | 毎リリース |
-| 留学・その他の教育費・子への援助 | 同・`app/src/workspace/input/items.ts`・`moneyRows.ts` | 350万・年10万・30歳で100万 | 出典なし | 目安 | 年1回 |
-| 保育料の自治体の水準 | `engine/src/components/education.nurseryFee` の `NURSERY_FEE_RATIO_DEFAULT` | 国の基準の0.8 | 0029 | 目安 | 年1回 |
+| 推定 | 値ID | 値 | 出典・時点 | 種類 | 効く所 | 版 | 見直し |
+|---|---|---|---|---|---|---|---|
+| 学校外の行: 塾（月額） | `preset.education.outside.cram` | 20,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 学校外の行: 習い事（月額） | `preset.education.outside.lessons` | 8,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 学校外の行: その他（月額） | `preset.education.outside.other` | 5,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 貸与の奨学金: 月額 | `preset.education.scholarship.monthly` | 50,000円 | 仮の値（返す年数は日本学生支援機構の返還年数算出表で決まる） | 目安 | ひな形 | 1 | 年1回 |
+| 教育ローンの金利（国の教育ローン。固定） | `preset.education.loan.rate` | 4.05% | 日本政策金融公庫「国の教育ローン」の固定金利（令和8年7月1日現在。保証料は別） | 相場（目安） | ひな形 | 1 | **毎リリース** |
+| 留学の費用 | `preset.education.abroad` | 3,500,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| その他の教育費の行（年額） | `preset.education.otherRow` | 100,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 子の結婚の援助（1人） | `preset.education.childGift.amount` | 1,000,000円 | よくある額 | 目安 | ひな形 | 1 | 年1回 |
+| 保育料の自治体の水準（国の基準に対する割合） | `preset.education.nurseryFeeRatio`（エンジン） | 80% | よくある目安（自治体の独自の軽減） | 目安 | エンジン | 1 | 年1回 |
 
-## 5. 介護
+## 5. 介護（1値）
 
-| 推定 | 置き場所 | 値 | 出典・時点 | 種類 | 見直し |
-|---|---|---|---|---|---|
-| 統計が無いときの介護の期間 | `app/src/workspace/input/fill.ts` の `careTemplate`・`stages/care.ts` | 55か月 | 統計の値と同じ数の直書き | 目安 | 統計の更新のとき |
-| 仕送りの行 | `moneyRows.ts` の `OUT_KINDS`（allowance） | 月3万円 | 出典なし | 目安 | 年1回 |
+| 推定 | 値ID | 値 | 出典・時点 | 種類 | 効く所 | 版 | 見直し |
+|---|---|---|---|---|---|---|---|
+| 仕送りの行（月額） | `preset.care.allowance` | 30,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
 
-## 6. 働き方・収入・退職金
+## 6. 給与・収入（24値）
 
-| 推定 | 置き場所 | 値 | 出典・時点 | 種類 | 見直し |
-|---|---|---|---|---|---|
-| 公務員の賞与・役員の報酬 | `hearing/src/estimates.ts` の `PROVISIONAL` | 公務員の賞与 男160万・女140万、役員 男600万・女480万 | 仮の値 | 目安 | 年1回 |
-| 統計が無いときの給与の予備の値 | 同 | 正社員 男430万+100万・女330万+70万 など | 仮の値 | 目安 | 年1回 |
-| パートの年収の時間 | 同 `PART_TIME_HOURS` | 週15時間×52週 | — | 目安 | 年1回 |
-| 健康保険組合・共済組合の料率 | 同 `healthRateEstimate` | 全国健康保険協会（東京支部）の料率の半分／共済は0.0490 | 制度データ＋仮の値 | 目安 | 年1回（毎年3月の料率の改定のあと） |
-| 住民税の概算の仮定 | 同 `residentTaxEstimate` | 所得割10%・社会保険料は収入の15% | 仮定 | 目安 | 年1回 |
-| 定年 | `app/src/workspace/input/stages/work.ts` の `retirementAgeEstimate` | 60歳 | 出典なし | 目安 | 年1回 |
-| ヒアリングの勤め先の規模・勤務時間 | `hearing/src/import.ts` | 300人（パートは30人）・週40時間（パートは20時間） | 仮の値 | 目安 | 年1回 |
-| 役員の功績倍率・確定給付企業年金の受け取り方 | `app/src/workspace/input/retirementBenefits.ts` | 1.0・年金10年・一時金と年金の半分ずつ | 出典なし | 目安 | 年1回 |
+| 推定 | 値ID | 値 | 出典・時点 | 種類 | 効く所 | 版 | 見直し |
+|---|---|---|---|---|---|---|---|
+| 統計が無いときの給与（正社員・男性。賞与を除く年額） | `preset.wage.provisional.regular.male.salary` | 4,300,000円 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| 統計が無いときの賞与（正社員・男性） | `preset.wage.provisional.regular.male.bonus` | 1,000,000円 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| 統計が無いときの給与（正社員・女性。賞与を除く年額） | `preset.wage.provisional.regular.female.salary` | 3,300,000円 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| 統計が無いときの賞与（正社員・女性） | `preset.wage.provisional.regular.female.bonus` | 700,000円 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| 統計が無いときの給与（公務員・男性） | `preset.wage.provisional.civilServant.male.salary` | 4,500,000円 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| 公務員の賞与（男性） | `preset.wage.provisional.civilServant.male.bonus` | 1,600,000円 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| 統計が無いときの給与（公務員・女性） | `preset.wage.provisional.civilServant.female.salary` | 4,000,000円 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| 公務員の賞与（女性） | `preset.wage.provisional.civilServant.female.bonus` | 1,400,000円 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| 統計が無いときの給与（契約社員など・男性） | `preset.wage.provisional.contract.male.salary` | 3,200,000円 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| 統計が無いときの賞与（契約社員など・男性） | `preset.wage.provisional.contract.male.bonus` | 300,000円 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| 統計が無いときの給与（契約社員など・女性） | `preset.wage.provisional.contract.female.salary` | 2,600,000円 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| 統計が無いときの賞与（契約社員など・女性） | `preset.wage.provisional.contract.female.bonus` | 200,000円 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| 統計が無いときのパートの年収（男性） | `preset.wage.provisional.partTime.male.salary` | 1,500,000円 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| 統計が無いときのパートの年収（女性） | `preset.wage.provisional.partTime.female.salary` | 1,000,000円 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| 役員の報酬（男性。年額） | `preset.wage.provisional.executive.male.salary` | 6,000,000円 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| 役員の報酬（女性。年額） | `preset.wage.provisional.executive.female.salary` | 4,800,000円 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| パートの年収の推定の働く時間（週） | `preset.wage.partTime.weeklyHours` | 15時間 | 出典なし | 目安 | 推定 | 1 | 年1回 |
+| 共済組合・健康保険組合の保険料率の目安（本人の負担分。協会けんぽの料率が読めないとき） | `preset.health.mutualAidRate` | 4.9% | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| 住民税の概算で収入から引く社会保険料の割合 | `preset.residentTax.socialInsuranceRatio` | 15% | 仮定 | 目安 | 推定 | 1 | 年1回 |
+| 定年（会社員） | `preset.work.retirementAge` | 60歳 | 出典なし | 目安 | 推定 | 1 | 年1回 |
+| ヒアリングシートの勤め先の規模（空欄のとき。人） | `preset.work.employerSize` | 300 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| ヒアリングシートの勤め先の規模（パート。空欄のとき。人） | `preset.work.employerSize.partTime` | 30 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| ヒアリングシートの勤務時間（空欄のとき。週） | `preset.work.weeklyHours` | 40時間 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| ヒアリングシートの勤務時間（パート。空欄のとき。週） | `preset.work.weeklyHours.partTime` | 20時間 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
 
-## 7. 保険・車
+## 7. 退職金（3値）
 
-| 推定 | 置き場所 | 値 | 出典・時点 | 種類 | 見直し |
-|---|---|---|---|---|---|
-| 保険の種類ごとの保障の終わり・手術・入院の限度日数 | `app/src/workspace/input/insuranceKinds.ts` の `KINDS`・`SURGERY_RATIO`・`engine/src/components/insurance.policy` の `DEFAULT_MAX_DAYS` | 65歳まで・入院日額の10倍・60日 など | ひな形 | 目安 | 年1回 |
-| 車の目安 | `hearing/src/estimates.ts` の `CAR_ESTIMATE` | 乗り換え8年・新車250万・維持費 年36万・任意保険 年7万・車検10万 など | 仮の値 | 相場（目安） | 年1回 |
-| 下取り・売却の残価 | `app/src/workspace/input/stages/cars.ts` の `residualRate` | 3年50%・5年35%・8年15%・10年以上5% | ひな形 | 目安 | 年1回 |
-| 自動車ローン（借入の割合・期間） | `cars.ts` の `LOAN_SHARE`・`LOAN_TERM`・`housing.ts` の `newCarLoan` | 下取りを引いた額の8割・60か月／今返している分 200万・5年（金利はマスタデータ `loanRates.carLoan`） | 出典なし | 目安 | 年1回（金利は1章） |
-| 手放した後の移動・古くなってからの修理・用品 | `cars.ts`・`moneyRows.ts` | 月1万・年10万（10年後から）・年5万 | よくある額 | 目安 | 年1回 |
+| 推定 | 値ID | 値 | 出典・時点 | 種類 | 効く所 | 版 | 見直し |
+|---|---|---|---|---|---|---|---|
+| 役員の退職金の功績倍率 | `preset.retirement.executiveMultiplier` | 1 | 出典なし（役員の地位でおよそ1.0〜3.0） | 目安 | 推定 | 1 | 年1回 |
+| 確定給付企業年金の年金で受け取る年数 | `preset.retirement.dbYears` | 10年 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 確定給付企業年金の一時金と年金の併用: 一時金の割合 | `preset.retirement.dbLumpShare` | 50% | 出典なし | 目安 | ひな形 | 1 | 年1回 |
 
-## 8. 前提条件・資産運用
+## 8. 車（19値）
 
-| 推定 | 置き場所 | 値 | 出典・時点 | 種類 | 見直し |
-|---|---|---|---|---|---|
-| 物価・賃金・運用利回り・マクロ経済スライド（標準の前提） | `app/src/workspace/input/household.ts` の `DEFAULT_ASSUMPTIONS`・`hearing/src/import.ts`・`stages/assumptions.ts` の `STANDARD_BASIS` | 1%・1%・1%・0.4% | 仮の値（事務所の値ができるまで） | 目安 | 年1回 |
-| 注意の線 | `stages/assumptions.ts` | 運用5%超・物価0%未満か4%超 など | 初めの線の仮の値 | 目安 | 年1回 |
-| 資産の種類ごとの期待リターンとばらつき・配分の既定・費用 | `app/src/workspace/input/savings/model.ts` の `CLASSES`・`DEFAULT_MIX`・`DEFAULT_FEE` | 国内株5%/18%・外国株6%/20%・債券1%/5% など、費用0.25% | 仮の値 | 相場（目安） | 年1回 |
-| 運用利回りのボタン・まとめた口座の利回り | 同 `RATE_PRESETS` など | 1%・2%・3%、2% | 仮の値 | 目安 | 年1回 |
-| 取り崩しの計画・確定拠出年金の受け取りの概算 | 同 | 65歳から月15万・定率4%、年金10年・税5% | 仮の値 | 目安 | 年1回 |
-| ストレステストの既定 | `engine/src/engine/overlay.ts`・`app/src/workspace/invest/present.ts` | 低い利回り0.5%×10年・物価4%×5年・金利+1% など | 出典なし | 目安 | 年1回 |
+| 推定 | 値ID | 値 | 出典・時点 | 種類 | 効く所 | 版 | 見直し |
+|---|---|---|---|---|---|---|---|
+| 車の乗り換えの間隔 | `preset.car.everyYears` | 8年 | 仮の値 | 目安 | 推定 | 1 | 年1回 |
+| 車の新車の価格 | `preset.car.price` | 2,500,000円 | 仮の値 | 相場（目安） | 推定 | 1 | 年1回 |
+| 車の下取り | `preset.car.tradeIn` | 500,000円 | 仮の値 | 相場（目安） | 推定 | 1 | 年1回 |
+| 車の維持費の合計（年額。自動車税・保険・車検・駐車場・燃料） | `preset.car.upkeep` | 360,000円 | 仮の値 | 相場（目安） | 推定 | 1 | 年1回 |
+| 車の任意保険（年額） | `preset.car.insurance` | 70,000円 | 仮の値 | 相場（目安） | 推定 | 1 | 年1回 |
+| 車検1回の費用（法定費用と整備） | `preset.car.inspection` | 100,000円 | 仮の値 | 相場（目安） | 推定 | 1 | 年1回 |
+| 車の燃料（年額） | `preset.car.fuel` | 100,000円 | 仮の値 | 相場（目安） | 推定 | 1 | 年1回 |
+| 買い替えない車を手放すまでの年数（買ってから） | `preset.car.keepYears` | 13年 | 自動車検査登録情報協会「平均使用年数」令和7年3月末の乗用車（軽自動車を除く）13.35年を丸めた値 | 統計（未確認） | 推定 | 1 | 元の統計の更新のとき |
+| 今の車に乗り続けるときの手放すまでの年数（今から） | `preset.car.keepYearsOwned` | 5年 | 出典なし | 目安 | 推定 | 1 | 年1回 |
+| 下取り・売却の残価（3年乗ったとき。車両の価格に対する割合） | `preset.car.residual.year3` | 50% | ひな形 | 目安 | 推定 | 1 | 年1回 |
+| 下取り・売却の残価（5年） | `preset.car.residual.year5` | 35% | ひな形 | 目安 | 推定 | 1 | 年1回 |
+| 下取り・売却の残価（8年） | `preset.car.residual.year8` | 15% | ひな形 | 目安 | 推定 | 1 | 年1回 |
+| 下取り・売却の残価（10年以上） | `preset.car.residual.year10` | 5% | ひな形 | 目安 | 推定 | 1 | 年1回 |
+| 自動車ローンの借入の割合（下取りを引いた額に対する） | `preset.car.loan.share` | 80% | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 自動車ローンの返済期間 | `preset.car.loan.termMonths` | 60か月 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 今返している自動車ローン: 借入額 | `preset.car.loan.principal` | 2,000,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 車を手放した後の移動の費用（月額） | `preset.car.afterMonthly` | 10,000円 | よくある額 | 目安 | ひな形 | 1 | 年1回 |
+| 古くなってからの車の修理費（年額。買ってから10年後から） | `preset.car.oldRepair` | 100,000円 | よくある額 | 目安 | ひな形 | 1 | 年1回 |
+| 車の修理・用品などの行（年額） | `preset.car.supplies` | 50,000円 | よくある額 | 目安 | ひな形 | 1 | 年1回 |
 
-## 9. その他（万一・相続・ライフイベント・料金）
+## 9. 万一・保険（12値）
 
-| 推定 | 置き場所 | 値 | 出典・時点 | 種類 | 見直し |
-|---|---|---|---|---|---|
-| 一時的支出・養育費・不動産の一時の経費・その他の支出の行 | `moneyRows.ts` の `OUT_KINDS` | 50万・月4万・100万・10万 | 出典なし | 目安 | 年1回 |
-| ライフイベントのひな形・予備費 | `app/src/workspace/input/stages/events.ts`・`items.ts` | 家族旅行 年30万・大きな買い物50万・予備費 毎年生活費の1か月分（「＋ 項目を追加」のペット 年18万を14年はやめた。0106 の追記） | よくある額 | 目安 | 年1回 |
-| 相続で受け継ぐ借金 | `moneyRows.ts` | 100万・2%・5年 | 仮の値 | 目安 | 年1回 |
-| 相続税の目安の不動産の割合 | `engine/src/components/inheritance.estimate` の `REAL_ESTATE_RATIO`・`stages/inheritance.ts` | 時価の0.8 | 路線価は公示価格の8割程度（国税庁） | 目安 | 年1回 |
-| 大きな病気・入院の日数の想定 | `app/src/workspace/contingency/requests.ts` の `ILLNESS_DEFAULT`・`HOSPITAL_DAYS_DEFAULT` | 働けない12か月・医療費 月60万を6か月、がん20日・心疾患と脳卒中30日・その他10日 | 患者調査の平均在院日数を丸めた仮の値（版は未確認） | 統計（未確認） | 3年ごと（患者調査の公表のあと） |
-| 相場が下がる・収入が減る場面 | `contingency/requests.ts`・`engine/src/engine/overlay.ts` | 3割・本人2割を3年 | 仮の値 | 目安 | 年1回 |
-| FP顧問料の標準の料金表 | `app/src/workspace/office/current.ts` の `STANDARD_FEE_TABLE` | 単発30万・継続 月1万 | 事務所の値 | 目安 | 料金の改定のとき |
+| 推定 | 値ID | 値 | 出典・時点 | 種類 | 効く所 | 版 | 見直し |
+|---|---|---|---|---|---|---|---|
+| 手術の給付（入院日額の何倍か） | `preset.insurance.surgeryRatio` | 10 | ひな形 | 目安 | ひな形 | 1 | 年1回 |
+| 大きな病気: 働けない期間 | `preset.contingency.illness.months` | 12か月 | 仮の値 | 目安 | ひな形 | 1 | 年1回 |
+| 大きな病気: 医療費（月額） | `preset.contingency.illness.medicalMonthly` | 600,000円 | 仮の値 | 目安 | ひな形 | 1 | 年1回 |
+| 大きな病気: 医療費のかかる期間 | `preset.contingency.illness.medicalMonths` | 6か月 | 仮の値 | 目安 | ひな形 | 1 | 年1回 |
+| 大きな病気: 働けない期間の後の収入（元の収入に対する割合） | `preset.contingency.illness.afterRatio` | 70% | 仮の値 | 目安 | ひな形 | 1 | 年1回 |
+| 入院の日数の想定（がん） | `preset.contingency.hospitalDays.cancer` | 20日 | 患者調査の平均在院日数を丸めた仮の値（版は未確認） | 統計（未確認） | ひな形 | 1 | 元の統計の更新のとき |
+| 入院の日数の想定（心疾患・脳卒中） | `preset.contingency.hospitalDays.heartStroke` | 30日 | 患者調査の平均在院日数を丸めた仮の値（版は未確認） | 統計（未確認） | ひな形 | 1 | 元の統計の更新のとき |
+| 入院の日数の想定（その他） | `preset.contingency.hospitalDays.other` | 10日 | 患者調査の平均在院日数を丸めた仮の値（版は未確認） | 統計（未確認） | ひな形 | 1 | 元の統計の更新のとき |
+| 遺族の生活費の割合（末子の独立まで） | `preset.survivor.livingRatio.beforeIndependence`（エンジン） | 70% | 出典なし（よく使われる目安。出典の確かめ前） | 目安 | エンジン | 1 | 年1回 |
+| 遺族の生活費の割合（末子の独立の後） | `preset.survivor.livingRatio.afterIndependence`（エンジン） | 50% | 出典なし（よく使われる目安。出典の確かめ前） | 目安 | エンジン | 1 | 年1回 |
+| 遺族の生活費の割合（子のいない世帯） | `preset.survivor.livingRatio.noChildren`（エンジン） | 70% | 出典なし（よく使われる目安。出典の確かめ前） | 目安 | エンジン | 1 | 年1回 |
+| 医療保険の入院の1回の限度日数 | `preset.insurance.hospitalMaxDays`（エンジン） | 60日 | ひな形（よくある医療保険の型） | 目安 | エンジン | 1 | 年1回 |
 
-## まとめて直す値（2か所以上にある同じ値）
+## 10. 前提条件・資産運用（25値）
 
-| 値 | 場所 |
-|---|---|
-| 住宅ローンの目安の金利 | マスタデータ `housing.statistics.*` だけ（画面の新しい住宅ローンとヒアリングの簡易版の住宅ローンは、どちらも `hearing/src/housingEstimates.ts` から読む） |
-| 奨学金・自動車ローンの目安の金利 | マスタデータ `loanRates.*` だけ（2026-10-31 にそろえた。前は奨学金が1%と0.5%、自動車ローンが2.5%と2%で2か所に違う値があった。どちらも `hearing/src/loanRates.ts` から読む） |
-| 標準の前提（物価・賃金・運用） | `app/src/workspace/input/household.ts` の `DEFAULT_ASSUMPTIONS` と `hearing/src/import.ts`、ほかに直書きの `"0.01"` |
-| 持ち家の評価の目安 | `app/src/workspace/input/labels.ts` と `engine/src/sdk/helpers.ts`（と `asset.realEstate`） |
-| 遺族の生活費の割合 | `engine` の2つの部品・`app/src/workspace/contingency/inputs.ts`・`assumptionList.ts` |
-| 介護の期間 55か月 | マスタデータと `fill.ts`・`stages/care.ts` の予備の値 |
-| 入院の限度日数 60日 | `insuranceKinds.ts` と `engine/src/components/insurance.policy` |
+| 推定 | 値ID | 値 | 出典・時点 | 種類 | 効く所 | 版 | 見直し |
+|---|---|---|---|---|---|---|---|
+| 資産の種類の期待リターン: 国内株 | `preset.invest.equity.domestic.return` | 5% | 仮の値 | 相場（目安） | 推定 | 1 | **毎リリース** |
+| 資産の種類の値動きの大きさ: 国内株 | `preset.invest.equity.domestic.volatility` | 18% | 仮の値 | 相場（目安） | 推定 | 1 | **毎リリース** |
+| 資産の種類の期待リターン: 外国株 | `preset.invest.equity.global.return` | 6% | 仮の値 | 相場（目安） | 推定 | 1 | **毎リリース** |
+| 資産の種類の値動きの大きさ: 外国株 | `preset.invest.equity.global.volatility` | 20% | 仮の値 | 相場（目安） | 推定 | 1 | **毎リリース** |
+| 資産の種類の期待リターン: 債券 | `preset.invest.bond.global.return` | 1% | 仮の値 | 相場（目安） | 推定 | 1 | **毎リリース** |
+| 資産の種類の値動きの大きさ: 債券 | `preset.invest.bond.global.volatility` | 5% | 仮の値 | 相場（目安） | 推定 | 1 | **毎リリース** |
+| 資産の種類の期待リターン: REIT | `preset.invest.reit.global.return` | 4% | 仮の値 | 相場（目安） | 推定 | 1 | **毎リリース** |
+| 資産の種類の値動きの大きさ: REIT | `preset.invest.reit.global.volatility` | 18% | 仮の値 | 相場（目安） | 推定 | 1 | **毎リリース** |
+| 資産の種類の期待リターン: 現金 | `preset.invest.cash.deposit.return` | 0.1% | 仮の値 | 相場（目安） | 推定 | 1 | **毎リリース** |
+| 資産の種類の値動きの大きさ: 現金 | `preset.invest.cash.deposit.volatility` | 0.5% | 仮の値 | 相場（目安） | 推定 | 1 | **毎リリース** |
+| 運用の費用（信託報酬など。年） | `preset.invest.fee` | 0.25% | 仮の値 | 相場（目安） | ひな形 | 1 | **毎リリース** |
+| 取り崩しの計画: 始める年齢 | `preset.withdrawal.startAge` | 65歳 | 仮の値 | 目安 | ひな形 | 1 | 年1回 |
+| 取り崩しの計画: 定額の月額 | `preset.withdrawal.monthly` | 150,000円 | 仮の値 | 目安 | ひな形 | 1 | 年1回 |
+| 取り崩しの計画: 定率の割合（年） | `preset.withdrawal.rate` | 4% | 仮の値 | 目安 | ひな形 | 1 | 年1回 |
+| 注意の線: 運用利回りの上限 | `preset.assumptions.warn.investmentReturn` | 5% | 初めの線の仮の値 | 目安 | ひな形 | 1 | 年1回 |
+| 注意の線: 物価上昇率の上限 | `preset.assumptions.warn.inflationHigh` | 4% | 初めの線の仮の値 | 目安 | ひな形 | 1 | 年1回 |
+| ストレステスト: 退職した年の資産の時価の下がり幅 | `preset.stress.marketDrop`（エンジン） | 30% | 出典なし | 目安 | エンジン | 1 | 年1回 |
+| ストレステスト: 退職から利回りが低いままの年数 | `preset.stress.lowReturn.years`（エンジン） | 10年 | 出典なし | 目安 | エンジン | 1 | 年1回 |
+| ストレステスト: 低いままの利回り | `preset.stress.lowReturn.cap`（エンジン） | 0.5% | 出典なし | 目安 | エンジン | 1 | 年1回 |
+| ストレステスト: 想定より低い利回りの差 | `preset.stress.returnShortfall.add`（エンジン） | -1% | 出典なし | 目安 | エンジン | 1 | 年1回 |
+| ストレステスト: インフレの上振れの物価上昇率 | `preset.stress.inflationSpike.rate`（エンジン） | 4% | 出典なし | 目安 | エンジン | 1 | 年1回 |
+| ストレステスト: インフレの上振れの年数 | `preset.stress.inflationSpike.years`（エンジン） | 5年 | 出典なし | 目安 | エンジン | 1 | 年1回 |
+| ストレステスト: 変動金利の上がり幅 | `preset.stress.rateRise.add`（エンジン） | 1% | 出典なし | 目安 | エンジン | 1 | 年1回 |
+| 収入が減る場面: 収入の減る割合 | `preset.stress.incomeDrop.ratio`（エンジン） | 20% | 出典なし | 目安 | エンジン | 1 | 年1回 |
+| 収入が減る場面: 減る年数 | `preset.stress.incomeDrop.years`（エンジン） | 3年 | 出典なし | 目安 | エンジン | 1 | 年1回 |
+
+## 11. ライフイベント（8値）
+
+| 推定 | 値ID | 値 | 出典・時点 | 種類 | 効く所 | 版 | 見直し |
+|---|---|---|---|---|---|---|---|
+| ライフイベントの支出の行（1回） | `preset.events.general` | 500,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 養育費を払う行（月額） | `preset.events.childSupport` | 40,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 不動産の一時の経費の行（1回） | `preset.events.realEstateCost` | 1,000,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| その他の支出の行（1回） | `preset.events.other` | 100,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 「＋ 項目を追加」の新しい支出（1回） | `preset.events.newItem` | 300,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 子の成人式（1人） | `preset.events.comingOfAge` | 150,000円 | よくある額 | 目安 | ひな形 | 1 | 年1回 |
+| 親の葬儀（世帯が払う分。1回） | `preset.events.funeral` | 1,200,000円 | よくある額 | 目安 | ひな形 | 1 | 年1回 |
+| 法事（1回） | `preset.events.memorial` | 200,000円 | よくある額 | 目安 | ひな形 | 1 | 年1回 |
+
+## 一覧に入れていない値（事務所で変えられない物・この回で集め直していない物）
+
+| 値 | 置き場所 | 理由・扱い |
+|---|---|---|
+| 構造ごとの耐用年数（木造22・軽量鉄骨19・重量鉄骨34・RC47年） | `app/src/workspace/input/labels.ts` の `USEFUL_LIFE`・`engine/src/sdk/helpers.ts`・`engine/src/components/asset.realEstate/index.ts` の `TAX_USEFUL_LIFE` | 法令（減価償却資産の耐用年数等に関する省令）。法改正のとき |
+| ヒアリングの住宅ローン控除の仮の条件（新築は省エネ基準適合住宅・中古は一般の住宅・持分100%） | `hearing/src/import.ts` | 法令（仮定）。法改正のとき |
+| 自動車税（種別割）の標準税率 年3.6万円・あげる贈与の行の110万円・所得割10%・第一種奨学金の0% | `hearing/src/estimates.ts`・`app/src/workspace/input/moneyRows.ts`・`stages/housingLoans.ts` | 法令・制度の値 |
+| 国の教育ローンの融資の上限（350万円・450万円）・返済期間の上限（20年）・奨学金の返還年数算出表・留学の支援制度の支給の上限 | `app/src/workspace/input/stages/education.ts` | 制度の値（公表の改定のとき） |
+| 金利の目安の予備の値（住宅ローン 変動0.8%・ほか2%・今返している分0.8%、奨学金1%・今返している分0.75%、自動車ローン2.5%） | `hearing/src/housingEstimates.ts` の `FALLBACK`・`CURRENT_FALLBACK`・`hearing/src/loanRates.ts` の `estimateOf` | マスタデータの写しが読めないときだけの予備（ふだんは1章の値。事務所の値は1章の値で変える）。毎リリース、マスタデータと大きくずれていないか |
+| 物価・賃金・運用利回り・マクロ経済スライド（標準の前提）・相続税の目安の不動産の評価の割合（時価の0.8）・FP顧問料の標準の料金表 | `app/src/workspace/input/household.ts` の `DEFAULT_ASSUMPTIONS`・`hearing/src/import.ts`・`stages/assumptions.ts` の `STANDARD_BASIS`・`engine/src/components/inheritance.estimate` の `REAL_ESTATE_RATIO`・`app/src/workspace/office/current.ts` の `STANDARD_FEE_TABLE` | 新しい世帯に写す事務所の既定値（0073。事務所の既定値の画面の別の区画）。年1回 |
+| 保険の種類ごとの保障の終わり・払い込みの終わり（65歳まで など） | `app/src/workspace/input/insuranceKinds.ts` の `KINDS` | まだ集め直していない（種類ごとの組の値。次の回）。年1回 |
+| 標準の進路・進路の型（幼稚園〜高校は公立・大学は私立文系の自宅） | `app/src/workspace/input/stages/education.ts` の `defaultStages`・`COURSE_PRESETS` | 数でない選び方（事務所の既定の進路は次の回）。年1回 |
+| 資産の配分の既定・運用利回りのボタン（1%・2%・3%）・まとめた口座の利回り（2%）・確定拠出年金の受け取りの概算（年金10年・税5%） | `app/src/workspace/input/savings/model.ts` など | まだ集め直していない（配分は合計が100%になる組の値。次の回）。年1回 |
+| 予備費（毎年、生活費の1か月分）・次の買い替えの時期（3年後）・古くなってからの修理の始まり（買ってから10年後）・子の独立の年齢（22歳） | `stages/events.ts`・`stages/cars.ts`・`engine/src/components/protection.need` など | まだ集め直していない（時期の決まり。次の回）。年1回 |
+
+## まとめて直す値（前は2か所以上にあった同じ値）
+
+この回（0111 の2回目）で、どれも1か所にまとめた。値を直すのは右の1か所だけ。
+
+| 値 | 直す所（1か所） | 読む所 |
+|---|---|---|
+| 住宅ローン・奨学金・自動車ローンの目安の金利 | マスタデータ `housing.statistics.*`・`loanRates.*`（1章） | `hearing/src/housingEstimates.ts`・`hearing/src/loanRates.ts`（画面とヒアリングシート） |
+| 持ち家・不動産の評価の目安（土地の割合・建物の下限・売却の費用） | `engine/src/sdk/estimates.ts` の `preset.realEstate.*` | 計算エンジン（housing.valuation・asset.realEstate・sdk の landBuildingValuer）と画面の欄の既定（`labels.ts` の `VALUATION_DEFAULTS`） |
+| 遺族の生活費の割合 | `engine/src/sdk/estimates.ts` の `preset.survivor.livingRatio.*` | 計算エンジン（expense.living・protection.need）と画面（`contingency/inputs.ts`・`assumptionList.ts`・`stages/living.ts`） |
+| 入院の限度日数 60日 | `engine/src/sdk/estimates.ts` の `preset.insurance.hospitalMaxDays` | 計算エンジン（insurance.policy）と画面（`insuranceKinds.ts` の `defaultMaxDays`） |
+| ストレステスト・万一の場面の既定（相場が下がる3割・収入が減る2割を3年・低い利回り0.5%×10年 など） | `engine/src/sdk/estimates.ts` の `preset.stress.*` | 計算エンジン（overlay.ts）と画面（`invest/present.ts`・`contingency/requests.ts`） |
+| 介護の期間 55か月 | マスタデータ `care.statistics.months`（1章） | 画面の予備の値（`fill.ts`・`stages/care.ts`）も同じ値を読む（直書きを外した） |
+| 生活費の段階（退職後80%・70歳から75%・80歳から70%） | `hearing/src/presets.ts` の `preset.living.stage.*` | 年齢の段階（`livingStages.ts`）と節目のボタン（`stages/living.ts`） |
+| 住宅ローンの返済期間の標準（35年・80歳まで） | `hearing/src/presets.ts` の `preset.loan.mortgage.termYears`・`payoffAge` | ヒアリングシート（`hearing/src/loan.ts`）と画面（`stages/housingLoans.ts` はヒアリングシートの関数を使う） |
+| 自動車ローンの返済期間（5年） | `hearing/src/presets.ts` の `preset.car.loan.termMonths` | 車の入力項目の自動車ローンと、今返している自動車ローン |
+| 留学の費用 350万円 | `hearing/src/presets.ts` の `preset.education.abroad` | 子ども・教育の入力項目と「＋ 項目を追加」 |
+| 子の結婚の援助 100万円 | `hearing/src/presets.ts` の `preset.education.childGift.amount` | ライフイベントのひな形 |
+| 標準の前提（物価・賃金・運用） | `app/src/workspace/input/household.ts` の `DEFAULT_ASSUMPTIONS`（0073 の事務所の既定値。この一覧の外） | `hearing/src/import.ts`、ほかに直書きの `"0.01"` |

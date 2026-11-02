@@ -19,6 +19,7 @@ import { overlapYears, scheduleItems, yearLabel } from "../schedule.ts";
 import { clearsAssumed } from "./care.ts";
 import { defaultStages } from "./education.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./onContingency.ts";
+import { presetNum } from "../../../../../hearing/src/presets.ts";
 
 // 出るお金の行のまとまり（周期的な支出）は、どのカードでも同じ形（moneyRows.ts。0044）
 export { periodicGroup, periodicGroups, periodicStageGroups } from "../moneyRows.ts";
@@ -109,12 +110,19 @@ export interface EventTemplate {
  * 前のひな形「家族旅行（毎年30万円）」は外した（ふだんの旅行は基本生活費の趣味・娯楽。前に入れた行はふつうの行のまま）。
  * 「楽しみ・学び」（特別な旅行・大きな買い物・資格・学び直し）は夢プランのひな形へまとめた（dreams.ts。前に入れた行はふつうの行のまま）
  */
+/** ひな形の額（presets.ts の目安。事務所の推定の値があればその値。読むたびに引く） */
+const amountOf = (id: string) => ({
+  get amount(): number {
+    return presetNum(id);
+  },
+});
+
 export const OUT_TEMPLATES: readonly EventTemplate[] = [
   { key: "wedding", label: "結婚の費用", name: "結婚の費用", group: "family", amount: null, everyYears: null, priority: "need", help: "時期は、配偶者が家族に加わる時期（入っていなければ1年後）です。額は入れてください", match: /結婚の費用|挙式|結婚式/u },
-  { key: "comingOfAge", label: "子の成人式（振袖・スーツ・写真）", name: "成人式", group: "family", amount: 150000, everyYears: null, priority: "need", help: "これから成人式を迎える子ごとに、その子が20歳になる年度（4月〜翌年3月）の1月で1行ずつ足します（1人15万円の目安）。時期はその子の年齢で持つので、子の生年月を直すと一緒に動きます", match: /成人式/u },
-  { key: "childWedding", label: "子の結婚の援助", name: "結婚の援助", group: "family", amount: 1000000, everyYears: null, priority: "want", help: "子ども・教育の入力項目の「子への援助（結婚資金）」として、30歳前の子ごとに、その子が30歳になる時期で足します（1人100万円の目安）。直すときは子ども・教育の入力項目で直します。援助の優先度は「できれば」にします（結果の「確実な分だけ」で外して見られます。子ども・教育の入力項目で直せます）", match: /結婚の援助/u },
-  { key: "funeral", label: "親の葬儀（世帯が払う分）", name: "葬儀", group: "parents", amount: 1200000, everyYears: null, priority: "need", help: "親ごとに1行ずつ、世帯が払う分を足します（1回120万円の目安）。時期は、親の年齢と性別から平均余命で見た推定です（亡くなる見込みが入っていればその時期）。香典は入るお金で入れられます。葬儀の費用を相続税から引く扱いは、相続・贈与の入力項目で見ます", match: /葬儀|葬式/u },
-  { key: "memorial", label: "法事", name: "法事", group: "parents", amount: 200000, everyYears: null, priority: "need", help: "時期は、葬儀の行があればその1年後（一周忌）、無ければ1年後です", match: /法事|法要|一周忌|回忌/u },
+  { key: "comingOfAge", label: "子の成人式（振袖・スーツ・写真）", name: "成人式", group: "family", ...amountOf("preset.events.comingOfAge"), everyYears: null, priority: "need", help: "これから成人式を迎える子ごとに、その子が20歳になる年度（4月〜翌年3月）の1月で1行ずつ足します（1人15万円の目安）。時期はその子の年齢で持つので、子の生年月を直すと一緒に動きます", match: /成人式/u },
+  { key: "childWedding", label: "子の結婚の援助", name: "結婚の援助", group: "family", ...amountOf("preset.education.childGift.amount"), everyYears: null, priority: "want", help: "子ども・教育の入力項目の「子への援助（結婚資金）」として、30歳前の子ごとに、その子が30歳になる時期で足します（1人100万円の目安）。直すときは子ども・教育の入力項目で直します。援助の優先度は「できれば」にします（結果の「確実な分だけ」で外して見られます。子ども・教育の入力項目で直せます）", match: /結婚の援助/u },
+  { key: "funeral", label: "親の葬儀（世帯が払う分）", name: "葬儀", group: "parents", ...amountOf("preset.events.funeral"), everyYears: null, priority: "need", help: "親ごとに1行ずつ、世帯が払う分を足します（1回120万円の目安）。時期は、親の年齢と性別から平均余命で見た推定です（亡くなる見込みが入っていればその時期）。香典は入るお金で入れられます。葬儀の費用を相続税から引く扱いは、相続・贈与の入力項目で見ます", match: /葬儀|葬式/u },
+  { key: "memorial", label: "法事", name: "法事", group: "parents", ...amountOf("preset.events.memorial"), everyYears: null, priority: "need", help: "時期は、葬儀の行があればその1年後（一周忌）、無ければ1年後です", match: /法事|法要|一周忌|回忌/u },
   { key: "grave", label: "お墓・仏壇", name: "お墓・仏壇", group: "parents", amount: null, everyYears: null, priority: "need", help: "お墓や仏壇の費用は、墓じまい・永代供養・新しく建てるなどで0〜300万円ほどと幅があります。額を入れてください", match: /墓|仏壇/u },
   { key: "reserve", label: "予備費", name: "予備費", group: "reserve", amount: null, everyYears: 1, priority: "need", help: "毎年、今の生活費の1か月分を入れます（足した後に直せます）", match: /予備費/u },
 ];

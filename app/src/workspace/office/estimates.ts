@@ -7,9 +7,10 @@
 // - 公式の値が新しくなったとき（写しの rev が進んだとき）は、事務所の値を使い続け、知らせを出す（このまま／公式に戻す）
 import { officialMasterValue, setOfficeEstimates, type BracketStep, type MasterValue, type OfficeOverride } from "../../../../hearing/src/statistics.ts";
 import { FILL_TARGETS } from "../../../../hearing/src/estimates.ts";
+import { enginePreset, ENGINE_NO_FILL } from "../../../../engine/src/sdk/estimates.ts";
 import { setOfficeEstimateValues } from "../../engine/officeValues.ts";
-import type { EstimateValue } from "../../engine/types.ts";
-import { changeText, estimateEntry, isLegalValue } from "./estimateCatalog.ts";
+import type { EngineNoFill, EstimateValue } from "../../engine/types.ts";
+import { changeText, estimateEntry, isLegalValue, officialEstimate } from "./estimateCatalog.ts";
 
 export type OfficeValue = MasterValue["value"];
 
@@ -88,7 +89,7 @@ export function readOfficeEstimates(v: unknown): OfficeEstimates {
   if (isObj(v.values))
     for (const [id, x] of Object.entries(v.values)) {
       if (!isObj(x) || isLegalValue(id)) continue;
-      const official = officialMasterValue(id);
+      const official = officialEstimate(id);
       if (official === null || typeof x.changedOn !== "string" || !DATE.test(x.changedOn) || !Number.isInteger(x.officialRev)) continue;
       const kindOk = (y: unknown) => (Array.isArray(official.value) ? Array.isArray(y) : typeof y === typeof official.value);
       if (!kindOk(x.value) || !kindOk(x.officialValue)) continue;
@@ -104,13 +105,21 @@ export const isEmptyEstimates = (e: OfficeEstimates | undefined): boolean => e =
 
 /** 使える事務所の値か（公式の値と同じ形。公式の表の段の分け方が変わると使えない） */
 export const usable = (id: string, v: OfficeEstimateValue): boolean => {
-  const o = officialMasterValue(id);
+  const o = officialEstimate(id);
   return o !== null && sameShape(o.value, v.value);
 };
 
+/** エンジンが置き換えられる値か（マスタデータの値と、エンジンが引く目安。画面・ヒアリングシートだけの目安は渡さない） */
+const forEngineValue = (id: string): boolean => officialMasterValue(id) !== null || enginePreset(id) !== undefined;
+
 /** 計算の要求の estimateValues（使える値だけ） */
 export function engineValuesOf(e: OfficeEstimates): Record<string, EstimateValue> {
-  return Object.fromEntries(Object.entries(e.values).filter(([id, v]) => usable(id, v)).map(([id, v]) => [id, v.value as EstimateValue]));
+  return Object.fromEntries(Object.entries(e.values).filter(([id, v]) => forEngineValue(id) && usable(id, v)).map(([id, v]) => [id, v.value as EstimateValue]));
+}
+
+/** 計算の要求の estimateNoFill（推定で埋めない欄のうち、エンジンが引く統計の目安。入力項目ID の「engine.」の後ろ） */
+export function engineNoFillOf(e: OfficeEstimates): EngineNoFill[] {
+  return e.noFill.filter((t) => t.startsWith("engine.")).map((t) => t.slice("engine.".length)).filter((k): k is EngineNoFill => (ENGINE_NO_FILL as readonly string[]).includes(k));
 }
 
 /** 推定の目安の写しに重ねる値（使える値だけ） */
@@ -122,14 +131,14 @@ export function overridesOf(e: OfficeEstimates): Record<string, OfficeOverride> 
 export function publishOfficeEstimates(e: OfficeEstimates | undefined): void {
   const x = e ?? EMPTY_ESTIMATES;
   setOfficeEstimates(overridesOf(x), x.noFill);
-  setOfficeEstimateValues(engineValuesOf(x));
+  setOfficeEstimateValues(engineValuesOf(x), engineNoFillOf(x));
 }
 
 // ---- 変える・戻す ----
 
 /** 値を事務所の値にする（今の公式の版と値を覚える。公式と同じ値なら事務所の値を外す） */
 export function withOfficeValue(e: OfficeEstimates, id: string, value: OfficeValue, text: string | null, on: string): OfficeEstimates {
-  const official = officialMasterValue(id);
+  const official = officialEstimate(id);
   if (official === null || isLegalValue(id) || !sameShape(official.value, value)) return e;
   const { [id]: _old, ...rest } = e.values;
   void _old;
@@ -150,7 +159,7 @@ export function withoutOfficeValue(e: OfficeEstimates, id: string): OfficeEstima
 /** 公式の値が新しくなった値を「このまま」使う（今の公式の版と値を覚え直す。事務所の値・根拠の文・変えた年月は変えない） */
 export function keepOfficeValue(e: OfficeEstimates, id: string): OfficeEstimates {
   const v = e.values[id];
-  const official = officialMasterValue(id);
+  const official = officialEstimate(id);
   if (v === undefined || official === null) return e;
   return { ...e, values: { ...e.values, [id]: { ...v, officialRev: official.rev, officialValue: official.value } } };
 }
@@ -177,15 +186,18 @@ export interface OfficialUpdate {
   rev: number;
 }
 
-/** 公式の値が新しくなった（写しの rev が、変えたとき・「このまま」を選んだときと違う）事務所の値 */
+/**
+ * 公式の値が新しくなった（写しの rev か、コードの中の目安の版〔rev〕が、変えたとき・「このまま」を選んだときと違う。版を上げ忘れても、
+ * 公式の値そのものが変わっていれば知らせる）事務所の値
+ */
 export function officialUpdates(e: OfficeEstimates | undefined): OfficialUpdate[] {
   const out: OfficialUpdate[] = [];
   for (const [id, v] of Object.entries(e?.values ?? {})) {
-    const official = officialMasterValue(id);
+    const official = officialEstimate(id);
     const entry = estimateEntry(id);
     if (official === null || entry === undefined) continue;
     const broken = !usable(id, v);
-    if (official.rev === v.officialRev && !broken) continue;
+    if (official.rev === v.officialRev && JSON.stringify(official.value) === JSON.stringify(v.officialValue) && !broken) continue;
     const change = changeText(entry, v.officialValue, official.value) ?? "値は同じです（出典か、確かめの記録が新しくなりました）";
     out.push({ id, name: entry.name, change, broken, rev: official.rev });
   }

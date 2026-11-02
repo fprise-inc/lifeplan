@@ -66,8 +66,8 @@ const KNOWN: ReadonlySet<string> = new Set([
   "insurance.nonLife",
 ]);
 const MEDICAL: ReadonlySet<string> = new Set(["hospitalDaily", "surgery", "cancerLump", "threeMajorLump"]);
-/** 入院の1回の限度日数の既定（0054） */
-const DEFAULT_MAX_DAYS = 60;
+/** 入院の1回の限度日数の既定の値ID（0054。sdk/estimates.ts の目安。ctx.estimate で引く） */
+const DEFAULT_MAX_DAYS = "preset.insurance.hospitalMaxDays";
 const ROW: Readonly<Record<InsuranceReceipt["kind"], string>> = {
   death: "cf.income.lumpSum.insurance",
   highDisability: "cf.income.lumpSum.insurance",
@@ -347,7 +347,7 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
         // 医療・がんの給付（0054）: 起きる月に保障があれば、その翌月に1回だけ（非課税）
         if (!active(D) || !covActive(x, D)) continue;
         let amount: Yen = yen(0);
-        if (x.benefit === "hospitalDaily") amount = ctx.money.mulRatio(x.amount, Math.min(illness.hospitalDays ?? 0, x.maxDays ?? DEFAULT_MAX_DAYS), 1, "conv.exact");
+        if (x.benefit === "hospitalDaily") amount = ctx.money.mulRatio(x.amount, Math.min(illness.hospitalDays ?? 0, x.maxDays ?? Number(ctx.estimate(DEFAULT_MAX_DAYS))), 1, "conv.exact");
         else if (x.benefit === "surgery") amount = ctx.money.mulRatio(x.amount, illness.surgeries ?? 0, 1, "conv.exact");
         else if (x.benefit === "cancerLump") amount = illness.disease === "cancer" ? x.amount : yen(0);
         else if (x.benefit === "threeMajorLump") amount = illness.disease === "cancer" || illness.disease === "heartStroke" ? x.amount : yen(0);

@@ -53,9 +53,12 @@ export interface OfficeOverride {
 let office: Readonly<Record<string, OfficeOverride>> = {};
 let noFill: ReadonlySet<string> = new Set();
 
-/** 事務所の推定の値と、推定で埋めない入力欄（入力項目ID。fillsByEstimate）を入れる。知らない値ID は捨てる */
+/**
+ * 事務所の推定の値と、推定で埋めない入力欄（入力項目ID。fillsByEstimate）を入れる。知らない値ID は捨てる
+ * （マスタデータの値と、コードの中の目安〔presets.ts。値ID は「preset.」で始まる。一覧に無い値ID は presets.ts が読まない〕）
+ */
 export function setOfficeEstimates(values: Readonly<Record<string, OfficeOverride>>, skip: Iterable<string> = []): void {
-  office = Object.fromEntries(Object.entries(values).filter(([k]) => MASTER_VALUES[k] !== undefined));
+  office = Object.fromEntries(Object.entries(values).filter(([k]) => MASTER_VALUES[k] !== undefined || k.startsWith("preset.")));
   noFill = new Set(skip);
 }
 

@@ -19,6 +19,7 @@ import { stagedGroups } from "../staged.ts";
 import { creditLifeFields, loanFields, loanStepGroups } from "./housing.ts";
 import { loanMoreActions } from "./housingLoans.ts";
 import { GROWTH_RANGE } from "../rateRanges.ts";
+import { presetNum, presetRate } from "../../../../../hearing/src/presets.ts";
 
 const accounts = (h: Household) => h.accounts;
 /** 欄の当て先（器の中の入力項目） */
@@ -635,10 +636,10 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
               kind: "other",
               property: a.id,
               debtors: [{ member: a.owner, role: "primary" }],
-              principal: 20000000,
+              principal: presetNum("preset.rental.loan.principal"),
               start: { at: start },
-              rateSchedule: [{ from: { at: start }, type: "fixed", rate: "0.02" }],
-              repayment: { method: "equalPayment", termMonths: 300 },
+              rateSchedule: [{ from: { at: start }, type: "fixed", rate: presetRate("preset.rental.loan.rate") }],
+              repayment: { method: "equalPayment", termMonths: presetNum("preset.rental.loan.termYears") * 12 },
             });
           }),
       },
@@ -736,7 +737,7 @@ function repairGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
           mutate(w, (h) => {
             const p = (h.accounts ?? []).find((y) => y.id === a.id)?.property;
             if (p === undefined) return;
-            (p.repairs ??= []).push({ id: newId(), at: { at: addMonths(w.request.input.baseMonth, 60) }, amount: 1000000 });
+            (p.repairs ??= []).push({ id: newId(), at: { at: addMonths(w.request.input.baseMonth, presetNum("preset.rental.repair.afterMonths")) }, amount: presetNum("preset.rental.repair.amount") });
           }),
       },
     ],
@@ -779,7 +780,7 @@ function propertyLoanGroups(wh: WorkingHousehold, d: Debt): GroupDef[] {
               const x = (h.debts ?? []).find((y) => y.id === d.id);
               if (x === undefined) return;
               const when = addMonths(w.request.input.baseMonth, 60);
-              (x.refinance ??= []).push({ at: { at: when }, rateSchedule: [{ id: newId(), from: { at: when }, type: "fixed", rate: x.rateSchedule.at(-1)?.rate ?? "0.02" }], termMonths: 240 });
+              (x.refinance ??= []).push({ at: { at: when }, rateSchedule: [{ id: newId(), from: { at: when }, type: "fixed", rate: x.rateSchedule.at(-1)?.rate ?? presetRate("preset.rental.loan.rate") }], termMonths: presetNum("preset.rental.refinance.termMonths") });
             }),
         },
       ],

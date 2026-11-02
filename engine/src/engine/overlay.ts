@@ -14,6 +14,7 @@
 import { EngineError } from "../errors.ts";
 import { addMonths, formatYm, monthIndex, parseYm, yearOf, type MonthIndex } from "../time/month.ts";
 import type { Timepoint, TimeResolver } from "../time/timepoint.ts";
+import { enginePresetValue } from "../sdk/estimates.ts";
 import type { ContingencyInput, EmploymentPeriodInput, EngineInput, StressTemplate } from "./types.ts";
 
 /** 勤め先の健康保険（休業の期間を置く） */
@@ -33,18 +34,22 @@ export interface ContingencyHeader {
   readonly recovery?: string;
 }
 
-/** ストレステストの型の一覧と既定の値（画面が並べて、FP が値を変えられる） */
+/** 目安の値（sdk/estimates.ts の公式の値。事務所の推定の値は計算のときに applyStress の est で引く） */
+const pv = (id: string): string => String(enginePresetValue(id));
+const pn = (id: string): number => Number(enginePresetValue(id));
+
+/** ストレステストの型の一覧と既定の値（画面が並べて、FP が値を変えられる。値は sdk/estimates.ts の目安） */
 export const STRESS_TEMPLATES: readonly {
   readonly template: StressTemplate;
   readonly title: string;
   readonly params: Readonly<Record<string, string | number | boolean | null>>;
 }[] = [
-  { template: "marketDropAtRetirement", title: "退職した年に資産の時価が下がる", params: { member: null, year: null, drop: "0.3" } },
-  { template: "inflationSpike", title: "インフレが一定期間だけ上振れする", params: { year: null, years: 5, rate: "0.04", alsoWages: false } },
-  { template: "rateRise", title: "変動金利が上がる", params: { from: null, add: "0.01" } },
-  { template: "incomeDrop", title: "収入が一定期間減る", params: { member: null, from: null, years: 3, ratio: "0.2" } },
-  { template: "lowReturnPeriod", title: "退職から一定期間、運用の利回りが低いまま", params: { member: null, year: null, years: 10, cap: "0.005" } },
-  { template: "returnShortfall", title: "運用の利回りが想定よりずっと低い", params: { year: null, add: "-0.01" } },
+  { template: "marketDropAtRetirement", title: "退職した年に資産の時価が下がる", params: { member: null, year: null, drop: pv("preset.stress.marketDrop") } },
+  { template: "inflationSpike", title: "インフレが一定期間だけ上振れする", params: { year: null, years: pn("preset.stress.inflationSpike.years"), rate: pv("preset.stress.inflationSpike.rate"), alsoWages: false } },
+  { template: "rateRise", title: "変動金利が上がる", params: { from: null, add: pv("preset.stress.rateRise.add") } },
+  { template: "incomeDrop", title: "収入が一定期間減る", params: { member: null, from: null, years: pn("preset.stress.incomeDrop.years"), ratio: pv("preset.stress.incomeDrop.ratio") } },
+  { template: "lowReturnPeriod", title: "退職から一定期間、運用の利回りが低いまま", params: { member: null, year: null, years: pn("preset.stress.lowReturn.years"), cap: pv("preset.stress.lowReturn.cap") } },
+  { template: "returnShortfall", title: "運用の利回りが想定よりずっと低い", params: { year: null, add: pv("preset.stress.returnShortfall.add") } },
 ];
 
 const at = (m: MonthIndex): Timepoint => ({ at: formatYm(m) });
@@ -228,8 +233,8 @@ function retirementOf(input: EngineInput, member: string, time: TimeResolver): M
   return last;
 }
 
-/** ストレステストを前提に書き換えた入力と見出し（指定が無ければそのまま） */
-export function applyStress(input: EngineInput, time: TimeResolver): { input: EngineInput; header: StressHeader | null } {
+/** ストレステストを前提に書き換えた入力と見出し（指定が無ければそのまま）。空欄の値は目安（est。事務所の推定の値があればその値） */
+export function applyStress(input: EngineInput, time: TimeResolver, est: (id: string) => number | string = enginePresetValue): { input: EngineInput; header: StressHeader | null } {
   const st = input.stressTest;
   if (st === undefined) return { input, header: null };
   const p = st.params ?? {};
@@ -242,7 +247,7 @@ export function applyStress(input: EngineInput, time: TimeResolver): { input: En
       const member = p.member ?? selfOf(input);
       const ret = retirementOf(input, member, time);
       const year = p.year ?? (ret === null ? baseYear + 1 : yearOf(ret));
-      const drop = p.drop ?? "0.3";
+      const drop = p.drop ?? String(est("preset.stress.marketDrop"));
       const extra = { ...(p.kinds !== undefined ? { kinds: p.kinds } : {}), ...(p.assetClasses !== undefined ? { assetClasses: p.assetClasses } : {}) };
       a.marketShocks = [...(a.marketShocks ?? []), { year, drop, ...extra }];
       params = { member, year, drop, ...extra };
@@ -253,15 +258,15 @@ export function applyStress(input: EngineInput, time: TimeResolver): { input: En
       const member = p.member ?? selfOf(input);
       const ret = retirementOf(input, member, time);
       const year = p.year ?? (ret === null ? baseYear + 1 : yearOf(ret));
-      const years = p.years ?? 10;
-      const cap = p.cap ?? "0.005";
+      const years = p.years ?? Number(est("preset.stress.lowReturn.years"));
+      const cap = p.cap ?? String(est("preset.stress.lowReturn.cap"));
       a.returnShifts = [...(a.returnShifts ?? []), { from: year, to: year + years - 1, cap }];
       params = { member, year, years, cap };
       break;
     }
     case "returnShortfall": {
       // 0026: 運用の利回りがずっと想定より低い（add は負の率。省略は -0.01）
-      const add = p.add ?? "-0.01";
+      const add = p.add ?? String(est("preset.stress.returnShortfall.add"));
       const from = p.year ?? baseYear;
       a.returnShifts = [...(a.returnShifts ?? []), { from, add }];
       params = { year: from, add };
@@ -269,8 +274,8 @@ export function applyStress(input: EngineInput, time: TimeResolver): { input: En
     }
     case "inflationSpike": {
       const from = p.year ?? baseYear + 1;
-      const years = p.years ?? 5;
-      const rate = p.rate ?? "0.04";
+      const years = p.years ?? Number(est("preset.stress.inflationSpike.years"));
+      const rate = p.rate ?? String(est("preset.stress.inflationSpike.rate"));
       const over = (s: { default: string; byYear?: Readonly<Record<string, string>> } | undefined) => {
         const byYear: Record<string, string> = { ...(s?.byYear ?? {}) };
         for (let y = from; y < from + years; y++) byYear[String(y)] = rate;
@@ -283,7 +288,7 @@ export function applyStress(input: EngineInput, time: TimeResolver): { input: En
     }
     case "rateRise": {
       const from = p.from ?? formatYm(monthIndex(baseYear + 1, 1));
-      const add = p.add ?? "0.01";
+      const add = p.add ?? String(est("preset.stress.rateRise.add"));
       a.loanRateShifts = [...(a.loanRateShifts ?? []), { from, add }];
       params = { from, add };
       break;
@@ -291,8 +296,8 @@ export function applyStress(input: EngineInput, time: TimeResolver): { input: En
     case "incomeDrop": {
       const member = p.member ?? selfOf(input);
       const from = p.from ?? formatYm(monthIndex(baseYear + 1, 1));
-      const years = p.years ?? 3;
-      const ratio = p.ratio ?? "0.2";
+      const years = p.years ?? Number(est("preset.stress.incomeDrop.years"));
+      const ratio = p.ratio ?? String(est("preset.stress.incomeDrop.ratio"));
       const to = formatYm(addMonths(parseYm(from), years * 12 - 1));
       a.incomeShocks = [...(a.incomeShocks ?? []), { member, from, to, ratio }];
       params = { member, from, to, ratio };
