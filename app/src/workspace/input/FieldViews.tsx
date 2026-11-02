@@ -13,13 +13,13 @@ import type { Timepoint } from "../../engine/types.ts";
 import { groupShown, type ActionDef, type FieldDef, type GroupDef, type Level, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { availableOps, fieldStatus, hasFieldValue, FILL_LABEL, fillTitle, OP_LABELS, opTitle, STATUS_LABELS, substituteText, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
-import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
+import { formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
 import { outOfRangeText, rateInRange } from "./rateRanges.ts";
 import { revealAdded, revealOpened } from "../../presentation/revealAdded.ts";
 import { applyOfficeName, applyOfficeText, arrangeFields, officeLabel, OfficeFieldsContext, OfficeNamesContext, OfficeTextsContext, type OfficeTextEntry } from "../office/customTexts.ts";
 import { estimateTextId, estimateValueText, ESTIMATE_OFFICIAL, fieldTextId } from "./textIds.ts";
 import { fillName } from "../../../../report/src/rowNames.ts";
-import { convertWhen, modeOf, parseWhen, readWhen, readYearMonth, showWhen, strictShown, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
+import { convertWhen, eventOptionText, modeOf, parseWhen, readWhen, readYearMonth, showWhen, strictShown, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 import { isOfficeBasisText } from "../../../../hearing/src/statistics.ts";
 
 export const visible = (level: Level, l: Level) => level === "detail" || l === "simple";
@@ -1172,6 +1172,8 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
 /** 入れ方の選び方の並び（欄で使える入れ方だけ） */
 const MODE_ORDER: readonly WhenMode[] = ["age", "ym", "event", "now"];
 const PLACEHOLDER: Record<WhenMode, string> = { age: "例: 60歳", ym: "例: 2041-06", event: "例: 10年後・翌月", now: "例: 5年後" };
+/** 空の欄で入れ方を選んだときに、欄の下に出す打ち方（出来事からは横の選択肢で選ぶ） */
+const PICK_HINT: Record<Exclude<WhenMode, "event">, string> = { age: "年齢を打ってください（例: 60 と打つと60歳）", ym: "年月を打ってください（例: 2041-06・令和23年6月）", now: "何年後かを打ってください（例: 5 と打つと今から5年後）" };
 
 /** 時点の欄の読み取り（欄の決まりの範囲の確かめを含む） */
 function readText(time: TimeView, wh: WorkingHousehold, ctx: WhenCtx, text: string): { tp: Timepoint | null } | { reason: string } {
@@ -1182,7 +1184,7 @@ function readText(time: TimeView, wh: WorkingHousehold, ctx: WhenCtx, text: stri
 }
 
 /**
- * 時点の部品（0038）: 1つの文字の欄に、年月・人の年齢・出来事から・今から のどれで打ってもよい。
+ * 時点の部品（0038）: 1つの文字の欄に、年月・人の年齢・出来事から・○年後 のどれで打ってもよい（○年後を入れ方に出すのは、それが既定の欄だけ）。
  * 横の「入れ方」で見せ方を選び直せる（同じ月のまま形を変える）。読み替えた形と、読めない理由を欄の下に1行で出す。
  * 打っている間は世帯を変えず、欄を離れたとき（Enter）に入れる
  */
@@ -1190,6 +1192,7 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
   const [draft, setDraft] = useState<string | null>(null);
   const [rejected, setRejected] = useState<string | null>(null);
   const [picked, setPicked] = useState<WhenMode | null>(null);
+  const input = useRef<HTMLInputElement>(null);
   // 出来事が正本の欄は、出来事の時点を見せて直す（出来事を指していることは下の行で知らせる）
   const actualRaw = state.linked?.at ?? state.raw;
   // 使える入れ方だけで見せる欄は、ほかの形の前の値を同じ月の既定の入れ方で見せる（直すとその形で書く。0101）
@@ -1206,7 +1209,12 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
   const pickMode = (m: WhenMode) => {
     setRejected(null);
     setPicked(m);
-    if (m === "event" || shownRaw === null) return;
+    if (m === "event") return;
+    // 空の欄は、選んだ入れ方で打てるように欄へ移る（打ち方は欄の中と下に出す）
+    if (shownRaw === null) {
+      input.current?.focus();
+      return;
+    }
     const next = convertWhen(shownRaw, m, state.ctx);
     if (next === null) {
       setRejected(m === "age" ? "この時点は年齢に直せません（生まれる前の月・家族の生年月が無いなど）" : "この入れ方には直せません");
@@ -1238,11 +1246,12 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
       </div>
       <div class="fld-c">
         <input
+          ref={input}
           id={id}
           type="text"
           class={`when-in${problem !== null && live !== null ? " bad" : ""}`}
           value={draft ?? shown}
-          placeholder={fittingPlaceholder("when-in", state.raw === null && time.when.nullText !== undefined ? `空欄＝${time.when.nullText}` : null, PLACEHOLDER[mode])}
+          placeholder={fittingPlaceholder("when-in", picked === null && state.raw === null && time.when.nullText !== undefined ? `空欄＝${time.when.nullText}` : null, PLACEHOLDER[mode])}
           aria-invalid={live !== null && "reason" in live ? true : undefined}
           aria-describedby={`${id}-read`}
           onFocus={() => setDraft(shown)}
@@ -1284,8 +1293,7 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
             {evId === undefined || !state.ctx.events.some((x) => x.id === evId) ? <option value="">（出来事を選ぶ）</option> : null}
             {state.ctx.events.map((x) => (
               <option value={x.id} key={x.id}>
-                {x.label}
-                {x.ym !== null ? `（${formatYearMonth(x.ym)}${x.candidate === true ? "・選ぶと出来事にします" : ""}）` : ""}
+                {eventOptionText(x)}
               </option>
             ))}
           </select>
@@ -1296,6 +1304,11 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
         {reading}
       </div>
       {mode === "event" && state.ctx.events.length === 0 ? <div class="fld-help">選べる出来事がまだありません</div> : null}
+      {picked !== null && picked !== "event" && shownRaw === null && (draft ?? "") === "" ? (
+        <div class="fld-help" data-when-pick-hint>
+          {PICK_HINT[picked]}
+        </div>
+      ) : null}
       {strict !== null ? (
         <div class="fld-help" data-when-strict>
           {strict.note}

@@ -858,6 +858,8 @@ export interface EngineRequest {
     legacy?: { amount?: Box<number> };
     /** 事務所の推定の値（0111。エンジンへ渡すときに forEngine が足す。世帯ファイルには持たない） */
     estimateValues?: Record<string, EstimateValue>;
+    /** 推定で埋めない、エンジンが引く統計の目安（0111 の2回目。forEngine が足す。世帯ファイルには持たない） */
+    estimateNoFill?: EngineNoFill[];
     [key: string]: unknown;
   };
   [key: string]: unknown;
@@ -865,6 +867,9 @@ export interface EngineRequest {
 
 /** 事務所の推定の値の1つ（マスタデータの値と同じ形。定数は数か10進の文字、段階表は段の並び。0111） */
 export type EstimateValue = number | string | readonly { upTo: number | null; amount?: number; rate?: string }[];
+
+/** 推定で埋めない、エンジンが引く統計の目安（0111 の2回目。engine/src/sdk/estimates.ts の ENGINE_NO_FILL と同じ） */
+export type EngineNoFill = "care" | "education" | "lifeExpectancy";
 
 /** 表の1マス（行×年。0004・0006 の追記） */
 export interface TableCell {

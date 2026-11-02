@@ -8,6 +8,7 @@ import { CLASSES, drawdownOf, INVEST_KINDS, investmentOf, KIND_INFO, methodOf, r
 import { ageReachedMonth, parseYm } from "../levers.ts";
 import { depletionYear } from "../present.ts";
 import { ageInYear } from "../roles.ts";
+import { presetNum, presetRate } from "../../../../hearing/src/presets.ts";
 
 /** 口座の内訳のまとまり（下から積む順） */
 export const GROUPS: readonly { key: string; label: string; kinds: readonly string[] }[] = [
@@ -121,15 +122,18 @@ export function stressRequests(req: EngineRequest): Record<StressKey, EngineRequ
   const y = refYears(req);
   const withTest = (stressTest: Record<string, unknown>): EngineRequest => ({ ...req, input: { ...req.input, stressTest } });
   return {
-    drop: withTest({ template: "marketDropAtRetirement", params: { year: y.retire, drop: "0.3", assetClasses: [...RISKY_CLASSES] } }),
-    low: withTest({ template: "lowReturnPeriod", params: { year: y.wd, years: 10, cap: "0.005" } }),
+    drop: withTest({ template: "marketDropAtRetirement", params: { year: y.retire, drop: presetRate("preset.stress.marketDrop"), assetClasses: [...RISKY_CLASSES] } }),
+    low: withTest({ template: "lowReturnPeriod", params: { year: y.wd, years: presetNum("preset.stress.lowReturn.years"), cap: presetRate("preset.stress.lowReturn.cap") } }),
     minus1: withTest({ template: "returnShortfall", params: { add: "-0.01" } }),
   };
 }
 
 export function stressLabel(req: EngineRequest, key: StressKey): string {
-  if (key === "drop") return "退職の直後に株などが3割下がる";
-  if (key === "low") return `${drawdownOf(req).method === "none" ? "退職" : "取り崩しを始めて"}から10年間、利回りが低いまま（年0.5%）`;
+  if (key === "drop") {
+    const d = Number(presetRate("preset.stress.marketDrop"));
+    return `退職の直後に株などが${Math.abs(d * 10 - Math.round(d * 10)) < 1e-9 ? `${String(Math.round(d * 10))}割` : `${String(Math.round(d * 1000) / 10)}%`}下がる`;
+  }
+  if (key === "low") return `${drawdownOf(req).method === "none" ? "退職" : "取り崩しを始めて"}から${String(presetNum("preset.stress.lowReturn.years"))}年間、利回りが低いまま（年${String(Math.round(Number(presetRate("preset.stress.lowReturn.cap")) * 100000) / 1000)}%）`;
   return "利回りがずっと想定より1%低い";
 }
 

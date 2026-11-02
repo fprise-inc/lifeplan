@@ -288,11 +288,11 @@ describe("奨学金・自動車ローンの金利の目安（マスタデータ 
   it("車の入力項目の自動車ローンと今返している自動車ローンは同じ目安。貸与の奨学金は、これから借りる分（子ども・教育）は今の利率、今返している分（ほかのローン）は過去の利率の平均", async () => {
     const { scholarshipRateEstimate, repayingScholarshipRateEstimate, carLoanRateEstimate } = await import("../../hearing/src/loanRates.ts");
     const { LOAN_SUBTYPES } = await import("../src/workspace/input/stages/housingLoans.ts");
-    const { SCHOLARSHIP_BASIS } = await import("../src/workspace/input/stages/education.ts");
+    const { scholarshipBasis } = await import("../src/workspace/input/stages/education.ts");
     expect(masterValue("loanRates.scholarship")?.reviewed).toBe(true);
     expect(masterValue("loanRates.scholarship.repaying")?.reviewed).toBe(true);
     expect(masterValue("loanRates.carLoan")?.reviewed).toBe(true);
-    expect(SCHOLARSHIP_BASIS).toContain(scholarshipRateEstimate().basis);
+    expect(scholarshipBasis()).toContain(scholarshipRateEstimate().basis);
     const r = repayingScholarshipRateEstimate();
     expect(r.rate).toBe("0.0075");
     expect(Number(r.rate)).toBeLessThan(Number(scholarshipRateEstimate().rate));

@@ -5,9 +5,12 @@
 //   PDF のときは、提案にしたプラン・帳票の組み方・主な結果（帳票の入力の要約）・制度データの版も写す
 // - 作った後は変えない（消すことはできる）。指紋（digest。中身の SHA-256）を持ち、一覧を開くたびに確かめる
 // - 世帯ファイルの本文の区画 snapshots（0011 の2。形式の版 0.3 から。store/body.ts）に置く。宛名・担当の名前は入れない（0009 の3・0012）
+// - 計算に使った事務所の推定の値（0111 の2回目）: その時点の計算の要求の estimateValues・estimateNoFill を、写しの要求に入れる
+//   （顧客に見せた結果を、後で事務所の値を変えても同じに計算し直せるように。世帯の要求そのものには入れない）
 // - まだ無いもの（次の回）: 実際に読んだ制度の値の写し（usedValues）・計算部品の版（components）・根拠の記録・宛名なしの PDF の暗号化した別ファイル
 import type { CashflowLayout, Orientation, ProposalInput } from "../../../../report/src/index.ts";
 import type { EngineRequest } from "../../engine/types.ts";
+import { withOfficeEstimateValues } from "../../engine/moneyRows.ts";
 import type { ContingencyPlan } from "../contingency/planData.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import type { Proposal, Values } from "../plans/plans.ts";
@@ -95,7 +98,7 @@ export async function makeSnapshot(o: { wh: WorkingHousehold; drafts: Record<str
     ...o.draft,
     memo: o.draft.memo.trim().slice(0, SNAPSHOT_MEMO_MAX),
     baseMonth: o.wh.request.input.baseMonth,
-    inputs: { request: o.wh.request, proposals: o.wh.proposals, contingency: o.wh.contingency, unsavedPlanValues: o.drafts },
+    inputs: { request: withOfficeEstimateValues(o.wh.request), proposals: o.wh.proposals, contingency: o.wh.contingency, unsavedPlanValues: o.drafts },
     appVersion: o.appVersion,
   });
   return { ...body, digest: await snapshotDigest(body) };

@@ -13,7 +13,7 @@ import { byId, field, plain, removeAction, resolveTimepoint, timepointField, typ
 import { mutate, newId, type WorkingHousehold } from "../household.ts";
 import {
   at,
-  DEFAULT_MAX_DAYS,
+  defaultMaxDays,
   deathTaxText,
   defaultEnd,
   defaultPayUntil,
@@ -30,7 +30,7 @@ import {
   regimeOf,
   rowIn,
   STANDARD,
-  SURGERY_RATIO,
+  surgeryRatio,
   surgeryBasis,
   UNENTERED_MAIN,
   UNENTERED_PREMIUM,
@@ -148,7 +148,7 @@ export function applyKind(h: Household, c: InsuranceContract, next: KindDef, fre
   if (next.kind === "endowment" && main !== undefined) syncMaturity(c, main);
   // 医療保険: 手術の特約（入院日額の10倍の推定）
   if (next.kind === "medical" && !covs.some((x) => x.benefit === "surgery") && main !== undefined) {
-    const s: Coverage = { id: newId(), role: "rider", benefit: "surgery", amount: main.amount * SURGERY_RATIO, from: { at: c.contractDate }, to: null };
+    const s: Coverage = { id: newId(), role: "rider", benefit: "surgery", amount: main.amount * surgeryRatio(), from: { at: c.contractDate }, to: null };
     covs.push(s);
     putRowIn(o, "insurance.coverages", [s.id, "amount"], estRow("standard", surgeryBasis(main.amount)));
   }
@@ -429,8 +429,8 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
               // 医療保険: 推定のままの手術の額を入れ直す
               const o = x as unknown as Obj;
               for (const s of x.coverages ?? []) {
-                if (s.benefit !== "surgery" || !isAutoStandard(rowIn(o, "insurance.coverages", [s.id, "amount"])) || s.amount !== before * SURGERY_RATIO) continue;
-                s.amount = m.amount * SURGERY_RATIO;
+                if (s.benefit !== "surgery" || !isAutoStandard(rowIn(o, "insurance.coverages", [s.id, "amount"])) || s.amount !== before * surgeryRatio()) continue;
+                s.amount = m.amount * surgeryRatio();
                 putRowIn(o, "insurance.coverages", [s.id, "amount"], estRow("standard", surgeryBasis(m.amount)));
               }
             }),
@@ -871,7 +871,7 @@ function coverageGroup(wh: WorkingHousehold, c: InsuranceContract, cov: Coverage
   if (cov.benefit === "incapacity") fields.push(intField("waitingMonths", "免責の月数", "か月", 120, 0, "働けなくなった月の翌月から、この月数の後に給付が始まります"));
   if (cov.benefit === "annuity") fields.push(intField("years", "年金の年数", "年", 100, undefined, "入れなければ保障の終わりまで"));
   if (cov.benefit === "survival") fields.push(intField("everyYears", "祝金の間隔", "年", 50, undefined, "保障の始まりから、この年ごとに受け取ります"));
-  if (cov.benefit === "hospitalDaily") fields.push(intField("maxDays", "入院の1回の限度日数", "日", 1095, DEFAULT_MAX_DAYS, "病気の想定の入院の日数がこれを超えた分は受け取りません"));
+  if (cov.benefit === "hospitalDaily") fields.push(intField("maxDays", "入院の1回の限度日数", "日", 1095, defaultMaxDays(), "病気の想定の入院の日数がこれを超えた分は受け取りません"));
   const who = cov.insured !== undefined && cov.insured !== c.insured ? `・被保険者: ${memberLabel(wh, cov.insured)}` : "";
   return {
     key: kc,

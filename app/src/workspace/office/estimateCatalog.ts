@@ -2,10 +2,14 @@
 // 画面の名前・まとまり・数の単位・段階表の段の読み方。値の中身と出典は写し（officialMasterValue）から読む。
 // 法令で決まる値（国立大学・大学院の授業料の標準額。docs/estimates-review.md の種類「法令」）は一覧に入れない（事務所で変えられない）
 import { masterIds, officialMasterValue, type BracketStep, type MasterValue } from "../../../../hearing/src/statistics.ts";
+import { PRESETS, presetDef, type PresetUse } from "../../../../hearing/src/presets.ts";
 import { LIVING_CATEGORIES } from "../input/labels.ts";
 
-/** 数の単位: 円・月数・率（％で見せる）・年数（平均余命）・係数（昇給カーブ） */
-export type EstimateUnit = "yen" | "months" | "pct" | "years" | "coef";
+/**
+ * 数の単位: 円・月数・率（％で見せる）・年数（平均余命。小数）・係数（昇給カーブ・功績倍率）・年数（整数）・歳・日数・時間・数（人数・倍）
+ * （コードの中の目安〔hearing/src/presets.ts〕の単位は engine/src/sdk/estimates.ts の PresetUnit）
+ */
+export type EstimateUnit = "yen" | "months" | "pct" | "years" | "coef" | "yearCount" | "age" | "days" | "hours" | "count";
 
 export interface EstimateEntry {
   /** 値ID（条件ごとの行のある値は「<値ID>.<条件の値>」） */
@@ -17,9 +21,22 @@ export interface EstimateEntry {
   unit: EstimateUnit;
   /** 段階表の段の読み方（例「世帯人員」）。定数は null */
   axis: string | null;
-  /** 公式の値（写しのいちばん新しい行） */
+  /** 公式の値（写しのいちばん新しい行。コードの中の目安は一覧の値と版） */
   official: MasterValue;
+  /** 統計（マスタデータ）か、コードの中の目安（presets.ts。0111 の2回目） */
+  source: "statistic" | "preset";
+  /** コードの中の目安の効く所（空欄を補う推定・ボタンで足すときの初めの値・計算のときにエンジンが引く目安） */
+  use?: PresetUse;
 }
+
+/** コードの中の目安の公式の値（マスタデータの値と同じ形。題名は出典・時点、版は一覧の rev） */
+function presetOfficial(id: string): MasterValue | null {
+  const d = presetDef(id);
+  return d === undefined ? null : { title: d.source, value: d.value, rev: d.rev, reviewed: true, retrievedAt: null };
+}
+
+/** 公式の値（事務所の推定の値を当てない値）: マスタデータの値か、コードの中の目安の一覧の値。無ければ null */
+export const officialEstimate = (id: string): MasterValue | null => officialMasterValue(id) ?? presetOfficial(id);
 
 /** 法令で決まる値（統計の形でマスタデータに置いているが、事務所では変えない）。国立大学・大学院の授業料・入学料の標準額（省令） */
 export const isLegalValue = (id: string): boolean => /^education\.statistics\.(university|graduate)\.national\./.test(id);
@@ -67,7 +84,7 @@ const RETIRE_REASON: Record<string, string> = { mandatory: "定年", company: "�
 const LIVING = new Map(LIVING_CATEGORIES.map((c) => [c.value, c.label]));
 
 /** 値ID から画面の名前・まとまり・単位・段の読み方（知らない形の値ID は題名をそのまま名前にする） */
-function describe(id: string, title: string): Omit<EstimateEntry, "id" | "official"> {
+function describe(id: string, title: string): Omit<EstimateEntry, "id" | "official" | "source"> {
   const p = id.split(".");
   const axisOf = (fallback: string | null) => /upTo は([^、。）]+)/.exec(title)?.[1] ?? fallback;
   if (p[0] === "living") {
@@ -122,7 +139,7 @@ function describe(id: string, title: string): Omit<EstimateEntry, "id" | "offici
 }
 
 /** まとまりの並び */
-export const ESTIMATE_GROUPS = ["生活費", "給与・収入", "退職金", "教育", "介護", "住まい・ローン", "平均余命", "そのほか"] as const;
+export const ESTIMATE_GROUPS = ["生活費", "給与・収入", "退職金", "教育", "介護", "住まい・ローン", "車", "万一・保険", "前提条件・資産運用", "ライフイベント", "平均余命", "そのほか"] as const;
 
 let cache: readonly EstimateEntry[] | null = null;
 
@@ -134,7 +151,13 @@ export function estimateEntries(): readonly EstimateEntry[] {
     if (isLegalValue(id)) continue;
     const official = officialMasterValue(id);
     if (official === null) continue;
-    out.push({ id, official, ...describe(id, official.title) });
+    out.push({ id, official, source: "statistic", ...describe(id, official.title) });
+  }
+  // コードの中の目安（0111 の2回目。名前・まとまり・単位は一覧に書いてある）
+  for (const d of PRESETS) {
+    const official = presetOfficial(d.id);
+    if (official === null) continue;
+    out.push({ id: d.id, official, source: "preset", use: d.use, group: d.group, name: d.name, unit: d.unit, axis: null });
   }
   const g = (e: EstimateEntry) => (ESTIMATE_GROUPS as readonly string[]).indexOf(e.group);
   cache = out.sort((a, b) => g(a) - g(b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
@@ -167,7 +190,11 @@ export function formatNumber(unit: EstimateUnit, v: number | string | undefined)
   if (unit === "yen") return `${group3(Number(v))}円`;
   if (unit === "months") return `${group3(Number(v))}か月`;
   if (unit === "pct") return `${String(Number((Number(v) * 100).toFixed(4)))}%`;
-  if (unit === "years") return `${String(v)}年`;
+  if (unit === "years" || unit === "yearCount") return `${String(v)}年`;
+  if (unit === "age") return `${String(v)}歳`;
+  if (unit === "days") return `${group3(Number(v))}日`;
+  if (unit === "hours") return `${String(v)}時間`;
+  if (unit === "count") return group3(Number(v));
   return String(v);
 }
 
@@ -183,9 +210,9 @@ export function editText(unit: EstimateUnit, v: number | string | undefined): st
  * 年数・係数は0以上の小数（小数4桁まで）
  */
 export function parseNumber(unit: EstimateUnit, text: string): number | string | null | undefined {
-  const t = text.trim().replace(/[０-９．－]/g, (c) => (c === "．" ? "." : c === "－" ? "-" : String.fromCharCode(c.charCodeAt(0) - 0xfee0))).replace(/[,，、円%％]|か月|年$/g, "");
+  const t = text.trim().replace(/[０-９．－]/g, (c) => (c === "．" ? "." : c === "－" ? "-" : String.fromCharCode(c.charCodeAt(0) - 0xfee0))).replace(/[,，、円%％]|か月|年$|歳$|日$|時間$|人$|倍$/g, "");
   if (t === "") return null;
-  if (unit === "yen" || unit === "months") {
+  if (unit === "yen" || unit === "months" || unit === "yearCount" || unit === "age" || unit === "days" || unit === "hours" || unit === "count") {
     if (!/^\d{1,10}$/.test(t)) return undefined;
     return Number(t);
   }

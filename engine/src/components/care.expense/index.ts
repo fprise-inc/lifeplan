@@ -14,7 +14,8 @@
 //   課税所得で44,400円・93,000円・140,100円
 // - 保険の対象外の費用（otherMonthly。居住費・食費など）と一時費用（initial）はそのまま
 // - 何も入れないときは、統計の既定（master.care.statistics: 月額・期間・一時費用。在宅・施設の別）を保険の対象外の費用として使う（知らせ N_DEFAULT_USED。
-//   統計の月額は自己負担の総額なので、自己負担割合・上限は掛けない）
+//   統計の月額は自己負担の総額なので、自己負担割合・上限は掛けない）。事務所の既定値で「推定で埋めない」にしたとき（0111 の2回目）は、統計を引かず
+//   入っていない所を0円（期間は0か月）にして、知らせ N_INPUT_REQUIRED（care.noFill）を出す
 // - 額は計算基準年の価格で、伸び方（省略は物価上昇率）で伸ばす。払う人（payer。省略は介護を受ける人）の行に載せる。
 //   払う人の万一のときの扱い（onContingency）を当てる。介護休業給付は、働き方の期間の休業（leaveKind: care）で benefit.employment が出す
 // 改訂4: 世帯の外の家族（0035 の4）も、同居していなければ別の世帯で判定する
@@ -199,23 +200,29 @@ export default defineComponent<Record<string, never>, FlowsResult>({
       cache.set(key, out);
       return out;
     };
+    const fills = ctx.fillsByEstimate("care");
     for (const c of list) {
       const from = ctx.time.resolve(c.from);
       const at0 = ctx.at(from < base ? base : from);
-      const months = c.months ?? at0.paramCount(S.months) ?? 0;
+      const months = c.months ?? (fills ? (at0.paramCount(S.months) ?? 0) : 0);
       const last = addMonths(from, months - 1);
       const service = c.serviceMonthly === undefined ? null : (boxValue(c.serviceMonthly) ?? null);
       let other = c.otherMonthly === undefined ? null : (boxValue(c.otherMonthly) ?? null);
       let initial = c.initial === undefined ? null : (boxValue(c.initial) ?? null);
-      if (service === null && other === null) {
-        other = at0.paramYen(c.place === "home" ? S.home : c.place === "facility" ? S.facility : S.monthly);
-        ctx.notice("N_DEFAULT_USED", [c.id, "care.otherMonthly"]);
+      if (!fills) {
+        // 推定で埋めない（0111 の2回目）: 入っていない所は0円・0か月
+        if ((service === null && other === null) || initial === null || c.months === undefined) ctx.notice("N_INPUT_REQUIRED", [c.id, "care.noFill"]);
+      } else {
+        if (service === null && other === null) {
+          other = at0.paramYen(c.place === "home" ? S.home : c.place === "facility" ? S.facility : S.monthly);
+          ctx.notice("N_DEFAULT_USED", [c.id, "care.otherMonthly"]);
+        }
+        if (initial === null) {
+          initial = at0.paramYen(S.initial);
+          ctx.notice("N_DEFAULT_USED", [c.id, "care.initial"]);
+        }
+        if (c.months === undefined) ctx.notice("N_DEFAULT_USED", [c.id, "care.months"]);
       }
-      if (initial === null) {
-        initial = at0.paramYen(S.initial);
-        ctx.notice("N_DEFAULT_USED", [c.id, "care.initial"]);
-      }
-      if (c.months === undefined) ctx.notice("N_DEFAULT_USED", [c.id, "care.months"]);
       const payer = c.payer ?? c.member;
       const ev = c.onContingency === undefined ? null : ctx.call<ContingencyEventOutput>("contingency.event", { member: payer }).event;
       const row = c.place === "facility" ? "cf.expense.care.facility" : "cf.expense.care.nursing";

@@ -79,6 +79,10 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_INPUT_REQUIRED|socialInsurance.nationalHealth.rates": { kind: "input", text: "国民健康保険の料率が無いので、国民健康保険料を0円で計算しています" },
   "N_INPUT_REQUIRED|pension.survivor.middleAgeSpecial": { kind: "input", text: "40歳以後の厚生年金の加入月数が入っていないので、遺族厚生年金の中高齢の特例を見ずに計算しています", card: "pension" },
   "N_INPUT_REQUIRED|lifeTable.lifeExpectancy": { kind: "outside", text: "平均余命の表に無い年齢なので、必要保障額の期間（平均余命まで）を出せませんでした" },
+  // 事務所の既定値で「推定で埋めない」にした、計算のときの統計の目安（0111 の2回目）
+  "N_INPUT_REQUIRED|care.noFill": { kind: "input", text: "介護の費用・期間が空欄の所は、目安を使わない設定（事務所の既定値）なので0円で計算しています。額と期間を入れてください", card: "care" },
+  "N_INPUT_REQUIRED|goal.education.noFill": { kind: "input", text: "学校の費用が空欄の段は、目安を使わない設定（事務所の既定値）なので0円で計算しています。学費を入れてください", card: "education" },
+  "N_INPUT_REQUIRED|lifeTable.noFill": { kind: "input", text: "平均余命の目安を使わない設定（事務所の既定値）なので、必要保障額の期間は遺族が90歳になるまでで計算しています。期間を年齢で入れてください" },
   // ---- 前提の外・制度の決まりで変えた所 ----
   "N_NOT_DEDUCTIBLE|advisoryFee": { kind: "outside", text: "FP顧問料は、所得税・住民税の控除にしていません（家計の支出として数えています）" },
   "N_LIMIT_APPLIED|ideco.contributionLimit": { kind: "outside", text: "iDeCo の掛金は、上限を超えた分を除いて計算しています", card: "savings" },

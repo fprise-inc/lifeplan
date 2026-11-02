@@ -1,7 +1,8 @@
-// 事務所の既定値の画面の区画「推定の値（統計）」（0111）: 空欄・「わからない」を補う推定の元になるマスタデータの値を、事務所の値に変える。
+// 事務所の既定値の画面の区画「推定の値（統計・目安）」（0111）: 空欄・「わからない」を補う推定の元になるマスタデータの値と、
+// コードの中の目安（ボタンで足すときの初めの値・計算のときにエンジンが引く目安。hearing/src/presets.ts。0111 の2回目）を、事務所の値に変える。
 // - 値の名前・値ID で探す、事務所で変えた値だけを見る、まとまりで絞る
 // - 定数は1つの欄、表（世帯人員別・年齢別など）は段ごとの欄（空欄の段は公式の値。表の一部だけ変えられる）
-// - 根拠の文（書かなければ自動の文「事務所の目安」。変えた年月はいつも後ろに付く。空にはならない）
+// - 根拠の文（書いた文はそのまま出す。書かなければ自動の文「事務所の目安（変えた年月）」。空にはならない）
 // - 変える前に、代表の世帯（見本の世帯）で主な結果の差を見る
 // - 公式の値が新しくなった値の知らせ（このまま／公式に戻す）
 // - 推定で埋めない入力欄
@@ -23,6 +24,16 @@ export interface EstimatesSectionProps {
   /** 今日（YYYY-MM-DD） */
   today: () => string;
 }
+
+/** コードの中の目安の効く所の文 */
+const USE_TEXT: Readonly<Record<string, string>> = {
+  fill: "空欄・「わからない」を補う推定",
+  template: "ボタンで足すときの初めの値（新しく足す行だけ。足してある行は変わりません）",
+  engine: "計算のときの目安（世帯に値が無いとき。どの世帯の計算にもすぐ効きます）",
+};
+
+/** 欄の後ろの単位 */
+const UNIT_SUFFIX: Readonly<Record<string, string>> = { yen: "円", months: "か月", pct: "%", years: "年", yearCount: "年", age: "歳", days: "日", hours: "時間", count: "", coef: "" };
 
 /** 一覧に一度に出す数（探す語を入れると全部） */
 const LIST_MAX = 30;
@@ -147,9 +158,9 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
 
   return (
     <section class="os-sec" aria-labelledby="os-estimates" data-office-estimates>
-      <h3 id="os-estimates">推定の値（統計）</h3>
+      <h3 id="os-estimates">推定の値（統計・目安）</h3>
       <p class="pl-sub">
-        空欄・「わからない」を補う推定の元になる統計の値（基本生活費・給与・退職金・学校の費用・介護の費用と期間・ローンの金利・平均余命など）を、事務所の値に変えられます。
+        空欄・「わからない」を補う推定の元になる統計の値（基本生活費・給与・退職金・学校の費用・介護の費用と期間・ローンの金利・平均余命など）と、出典の無いよくある額・割合の目安（家賃・物件の価格・車の費用・遺族の生活費の割合・ボタンで足すときの初めの値など）を、事務所の値に変えられます。
         変えた値は、これから入れる推定と、計算のときに使う目安に、どの世帯にもすぐ効きます。世帯に入れてある推定のままの値は、その世帯の入力を直したときに新しい値で入れ直します（FP が入れた値・確定にした値は変わりません。世帯ごとに直せます）。
         税・社会保険・年金など法令で決まる値は変えられません。押した結果はすぐ保存します。
       </p>
@@ -180,7 +191,7 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
         </div>
       ) : null}
       <div class="os-est-find">
-        <input type="search" value={query} placeholder="値の名前・値ID で探す（例: 基本生活費、介護、care.statistics）" aria-label="推定の値を探す" onInput={(e) => setQuery((e.currentTarget as HTMLInputElement).value)} data-office-estimate-search />
+        <input type="search" value={query} placeholder="値の名前・値ID で探す（例: 基本生活費、家賃、介護、care.statistics）" aria-label="推定の値を探す" onInput={(e) => setQuery((e.currentTarget as HTMLInputElement).value)} data-office-estimate-search />
         <select value={group} aria-label="まとまりで絞る" onChange={(e) => setGroup((e.currentTarget as HTMLSelectElement).value)} data-office-estimate-group>
           <option value="">すべてのまとまり</option>
           {ESTIMATE_GROUPS.filter((g) => estimateEntries().some((e) => e.group === g)).map((g) => (
@@ -226,13 +237,16 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
               </div>
               {isOpen ? (
                 <div class="os-est-editor" data-office-estimate-editor={e.id}>
-                  <p class="pl-sub">出典: {sourceText(e.official.title)}</p>
+                  <p class="pl-sub">
+                    出典: {sourceText(e.official.title)}
+                    {e.use !== undefined ? <span data-office-estimate-use={e.use}>（効く所: {USE_TEXT[e.use]}）</span> : null}
+                  </p>
                   {!Array.isArray(e.official.value) ? (
                     <label class="os-pct">
                       <span>事務所の値（空欄は公式の値 {formatNumber(e.unit, e.official.value as number | string)}）</span>
                       <span class="os-in">
                         <input inputMode="decimal" value={draft.c ?? ""} placeholder={editText(e.unit, e.official.value as number | string)} aria-invalid={draftValue === null} onInput={(x) => setDraft({ ...draft, c: (x.currentTarget as HTMLInputElement).value })} data-office-estimate-input="c" />
-                        {e.unit === "yen" ? "円" : e.unit === "months" ? "か月" : e.unit === "pct" ? "%" : e.unit === "years" ? "年" : ""}
+                        {UNIT_SUFFIX[e.unit] ?? ""}
                       </span>
                     </label>
                   ) : (
@@ -266,7 +280,7 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
                     </p>
                   ) : null}
                   <label class="os-pct">
-                    <span>根拠の文（書かなければ「{AUTO_BASIS}」。変えた年月は後ろに付きます）</span>
+                    <span>根拠の文（書いた文をそのまま出します。年月を入れたいときは文に書いてください。書かなければ「{AUTO_BASIS}（変えた年月）」）</span>
                     <input type="text" value={text} maxLength={BASIS_TEXT_MAX} placeholder="例: 当事務所のお客さまの平均（2026年調べ）" onInput={(x) => setText((x.currentTarget as HTMLInputElement).value)} data-office-estimate-basis />
                     <small data-office-estimate-basis-preview>
                       推定の根拠に出る文: {basisOf({ ...(cleanBasisText(text) !== null ? { text } : {}), changedOn: today() })}
@@ -285,7 +299,8 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
                           <ul class="os-est-preview-rows">
                             {rows.map((r) => (
                               <li key={r.id} data-office-estimate-preview-row={r.id}>
-                                <strong>{r.title}</strong>（見本の世帯。推定で埋まる欄が空欄だったとき）: {r.changed ? metricLine(r) : "主な結果は変わりません（この世帯ではこの値を使っていません）"}
+                                <strong>{r.title}</strong>（見本の世帯。推定で埋まる欄が空欄だったとき）:{" "}
+                                {r.changed ? metricLine(r) : e.use === "template" ? "主な結果は変わりません（ボタンで足すときの初めの値なので、足してある行は変わりません）" : "主な結果は変わりません（この世帯ではこの値を使っていません）"}
                               </li>
                             ))}
                           </ul>
@@ -325,7 +340,10 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
       {shown.length === 0 ? <p class="pl-sub">当てはまる値がありません。</p> : null}
       <div class="os-lever-group" data-office-nofill>
         <h4>推定で埋めない入力欄</h4>
-        <p class="pl-sub">選んだ欄は、新しく入れるとき（新しい世帯・家族や働き方を足したとき・ヒアリングシートの空欄と「わからない」）に推定で埋めず、空欄のまま「未入力（0円で計算中）」にします（確かめの一覧に出ます。そこから「推定で埋める」もできます）。入れてある値は変えません。</p>
+        <p class="pl-sub">
+          選んだ欄は、新しく入れるとき（新しい世帯・家族や働き方を足したとき・ヒアリングシートの空欄と「わからない」）に推定で埋めず、空欄のまま「未入力（0円で計算中）」にします（確かめの一覧に出ます。そこから「推定で埋める」もできます）。入れてある値は変えません。
+          「計算のときの統計の目安」の欄は、空欄のときに計算で目安を引かず、0円で計算して「入力が足りない」に出します（どの世帯の計算にもすぐ効きます）。
+        </p>
         <ul class="os-est-nofill">
           {FILL_TARGETS.map((t) => (
             <li key={t.id} data-office-nofill-item={t.id}>

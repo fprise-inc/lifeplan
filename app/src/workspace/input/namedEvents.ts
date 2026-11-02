@@ -242,34 +242,77 @@ function aliases(e: Pick<HouseholdEvent, "kind" | "member">, people: readonly Wh
   return out;
 }
 
+/** 元の入力項目の呼び方（同じ名前の出来事を見分ける。入居は「住宅の購入」「住まい 2」、車は「車 1」）。分からなければ undefined */
+function sourceOf(h: Household, kind: string, points: (t: Timepoint | null | undefined) => boolean): string | undefined {
+  if (kind === "moveIn") {
+    const list = h.residences ?? [];
+    const i = list.findIndex((r) => points(r.from));
+    if (i < 0) return undefined;
+    return list[i]?.purchase !== undefined ? "住宅の購入" : `住まい ${i + 1}`;
+  }
+  if (kind === "carPurchase" || kind === "carRelease") {
+    const list = h.cars ?? [];
+    const i = list.findIndex((c) => points(kind === "carPurchase" ? c.purchase?.first : c.until));
+    return i < 0 ? undefined : `車 ${i + 1}`;
+  }
+  return undefined;
+}
+
+const ymWords = (ym: string) => `${Number(ym.slice(0, 4))}年${Number(ym.slice(5))}月`;
+
+/** 「出来事から」の一覧の絞り方（欄ごと） */
+export interface EventChoiceOptions {
+  /** 出さない出来事（出来事そのものの時点の欄で、自分を選ばせない） */
+  exclude?: string;
+  withCandidates?: boolean;
+  /** この月より前の出来事は出さない（終わりの欄で、始まりより前を選ばせない） */
+  notBefore?: string | null;
+  /** 欄そのもの・始まりの欄の時点（この時点を元にする物は出さない。住み終わりの欄に、その住まいの入居を出さない） */
+  own?: readonly (Timepoint | null | undefined)[];
+  /** 今指している出来事（絞っても必ず残す） */
+  keep?: string;
+}
+
 /**
  * 「出来事から」選べる一覧: 世帯の出来事と、まだ出来事でない物（子の独立・持ち家の住み始め・年金の受け取り開始・介護の始まり）。
- * 名前が同じ物は年月を添えて分ける。`exclude` の出来事は出さない（出来事そのものの時点の欄で、自分を選ばせない）
+ * 年月の順に並べる（年月の分からない物は最後）。名前が同じ物は元の入力項目の呼び方（「入居（住宅の購入）」）で、それでも同じなら年月で分ける。
+ * `exclude` の出来事、`own` を元にする物、`notBefore` より前の物は出さない（今指している `keep` は残す）
  */
-export function eventChoices(wh: WorkingHousehold, opts: { exclude?: string; withCandidates?: boolean } = {}): WhenEvent[] {
+export function eventChoices(wh: WorkingHousehold, opts: EventChoiceOptions = {}): WhenEvent[] {
   const h = wh.request.input.household;
   const people = whenPeople(wh);
-  const out: WhenEvent[] = [];
+  const own = (opts.own ?? []).filter((t): t is Timepoint => t != null);
+  const out: (WhenEvent & { source?: string })[] = [];
+  /** 欄そのもの・始まりの時点を元にする、まだ出来事でない物 */
+  const ownAnchors = new Set<string>();
   for (const e of h.events ?? []) {
     if (e.id === opts.exclude) continue;
-    out.push({ id: e.id, label: eventName(wh, e, people), names: aliases(e, people), ym: resolveTimepoint(h, e.at) });
+    const source = sourceOf(h, e.kind, (t) => t?.event === e.id && (t.offset?.years ?? 0) === 0 && (t.offset?.months ?? 0) === 0);
+    out.push({ id: e.id, label: eventName(wh, e, people), names: aliases(e, people), ym: resolveTimepoint(h, e.at), ...(source !== undefined ? { source } : {}) });
   }
   if (opts.withCandidates !== false)
     for (const a of anchors(h)) {
+      const at = a.read(h);
+      if (at !== null && own.includes(at)) ownAnchors.add(a.id);
       const ev = { kind: a.kind, ...(a.member !== undefined ? { member: a.member } : {}) };
-      out.push({ id: a.id, label: eventName(wh, ev, people), names: aliases(ev, people), ym: resolveTimepoint(h, a.read(h)), candidate: true });
+      const source = sourceOf(h, a.kind, (t) => t === at);
+      out.push({ id: a.id, label: eventName(wh, ev, people), names: aliases(ev, people), ym: resolveTimepoint(h, at), candidate: true, ...(source !== undefined ? { source } : {}) });
     }
-  // 同じ名前は年月で分ける（打った名前は、分けた名前でも元の名前でも読む。元の名前は最初の1つだけ）
-  const count = new Map<string, number>();
-  for (const e of out) count.set(e.label, (count.get(e.label) ?? 0) + 1);
-  for (const e of out)
-    if ((count.get(e.label) ?? 0) > 1 && e.ym !== null) {
-      const plain = e.label;
-      e.label = `${plain}（${Number(e.ym.slice(0, 4))}年${Number(e.ym.slice(5))}月）`;
-      e.names = [e.label, ...e.names];
-    }
-  for (const e of out) e.names = [...new Set([e.label, ...e.names])];
-  return out;
+  // 同じ名前は元の入力項目の呼び方で、それでも同じなら年月で分ける（絞る前の一覧で分け、どの欄でも同じ名前にする。打った名前は、分けた名前でも元の名前でも読む）
+  const dup = (list: readonly WhenEvent[], e: WhenEvent) => list.filter((x) => x.label === e.label).length > 1;
+  const plain = new Map(out.map((e) => [e.id, e.label]));
+  const bySource = out.map((e) => (dup(out, e) && e.source !== undefined ? { ...e, label: `${e.label}（${e.source}）`, tag: e.source } : e));
+  const named: WhenEvent[] = bySource.map(({ source, ...e }) => {
+    if (!dup(bySource, e) || e.ym === null) return e;
+    const tag = source !== undefined ? `${source}・${ymWords(e.ym)}` : ymWords(e.ym);
+    return { ...e, label: `${plain.get(e.id) as string}（${tag}）`, tag, dated: true };
+  });
+  // 欄の決まりで絞る（始まりそのものの出来事・始まりより前の出来事。今指している物は残す）
+  const ownEvents = new Set(own.filter((t) => t.event !== undefined && (t.offset?.years ?? 0) === 0 && (t.offset?.months ?? 0) === 0).map((t) => t.event as string));
+  const shown = named.filter((e) => e.id === opts.keep || (!ownEvents.has(e.id) && !ownAnchors.has(e.id) && (opts.notBefore == null || e.ym === null || e.ym >= opts.notBefore)));
+  // 年月の順（年月の分からない物は最後。同じ月は元の順）
+  shown.sort((a, b) => (a.ym === b.ym ? 0 : a.ym === null ? 1 : b.ym === null ? -1 : a.ym < b.ym ? -1 : 1));
+  return shown.map((e) => ({ ...e, names: [...new Set([e.label, ...e.names])] }));
 }
 
 /** 時点が、まだ出来事でない物を指しているか（選んだばかりで、書くときに出来事にする） */

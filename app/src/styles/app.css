@@ -269,7 +269,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .in-group { border: 1px solid var(--card-line); border-radius: 9px; padding: 10px 12px 12px; margin: 8px 0; background: #fcfcfb; }
 .in-group-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; }
 .in-group-h h4 { margin: 0; font-size: 0.98rem; }
-.fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 18px; }
+.fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px 18px; }
 .fld { min-width: 0; }
 .fld-l { display: flex; align-items: center; flex-wrap: nowrap; gap: 4px 6px; font-size: 0.86rem; font-weight: 700; color: var(--ink-2); margin-bottom: 3px; }
 .fld-l > label { min-width: 0; }
@@ -318,9 +318,10 @@ html.big .lever input[type="range"] { height: 36px; }
  * 物1件の中のまとまり（in-sub。お金の行の課税の扱い・受け取る人、ローンの金利の段階、保険の保障、行の額の近くに並べる額の変化〔placeIn〕など）:
  * 1件 = 1つの枠。中のまとまりは枠も地の色も付けず、上の薄い区切りの線と小さな見出しだけ（別の物を足したように見せない）
  */
-.in-group .in-group, .in-group.in-sub { border: 0; border-top: 1px dashed var(--card-line); border-radius: 0; background: transparent; margin: 10px 0 0; padding: 8px 0 0; }
+.in-group .in-group, .in-group.in-sub { border: 0; border-top: 1px dashed var(--card-line); border-radius: 0; background: transparent; margin: 16px 0 0; padding: 12px 0 4px; }
+.in-group .in-group > .in-group-h, .in-group.in-sub > .in-group-h { margin-bottom: 8px; }
 .in-group .in-group .in-group-h h4, .in-group.in-sub .in-group-h h4 { font-size: 0.9rem; color: var(--ink-2); }
-.in-group.in-sub.compact { padding: 8px 0 0; }
+.in-group.in-sub.compact { padding: 12px 0 4px; }
 .sv-more-row .in-group.in-sub:first-child { border-top: 0; margin-top: 4px; padding-top: 0; }
 /*
  * 物1件の中の中枠（band。欄の多い物を、題名のある区切りに分ける。例: 住宅ローンの借入の内容・金利・返済…。0077 の追記）:
@@ -329,7 +330,16 @@ html.big .lever input[type="range"] { height: 36px; }
 .in-group.in-sub.in-band { border-top: 0; border-left: 3px solid var(--card-line); margin: 14px 0 0; padding: 2px 0 4px 12px; }
 .in-group.in-sub.in-band > .in-group-h h4 { font-size: 0.95rem; font-weight: 700; color: var(--ink); }
 .in-group.in-sub.in-band .in-group.in-sub:not(.in-band) { margin-top: 8px; }
+/*
+ * 「＋ 〜」のボタンの並びは、直前の欄・段（それを足すまとまり）に近く、次の欄とははっきり離す（どこまでが1つのまとまりか分かるように）。
+ * 上は 10px、下は次に欄・段が続くとき 20px（次が「▸ 詳しく」などのときは近いまま）。欄の並びの上下の間（説明の文の下と次の欄の名前）は 16px
+ */
+.in-group > .in-actions { margin-top: 10px; }
 .in-group .in-group + .in-actions, .in-group > .in-actions:not(:last-child) { margin-bottom: 6px; }
+.in-group > .in-actions:has(+ .fields, + .in-group, + .in-note) { margin-bottom: 20px; }
+/* 物の枠の外の「＋ 〜」（「＋ 配偶者の働き方 2」など）も同じ: 上の枠には近く、次の枠とは離す */
+.in-section > .in-actions:has(+ .in-group) { margin-bottom: 20px; }
+.in-group > .fields + .fields { margin-top: 16px; }
 /* 選択肢をまとめた「＋」のボタン（「＋ 月額の変化」→「この年だけ」「この月から先」） */
 .add-choice { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .add-choice-opts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding-left: 8px; border-left: 2px solid var(--prop-bg); }

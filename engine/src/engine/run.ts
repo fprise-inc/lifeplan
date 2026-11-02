@@ -378,10 +378,12 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   if (batch === undefined) checkPackSchemas(packs, options.packsChecked);
 
   // パックの版の組と事務所の推定の値（0111）が同じ要求どうしで、同じ値の読み取りを使い回す
-  const dataSetKey = given.estimateValues === undefined ? JSON.stringify(given.dataSet ?? {}) : JSON.stringify([given.dataSet ?? {}, given.estimateValues]);
+  // （推定で埋めない目安〔0111 の2回目〕も同じ）
+  const dataSetKey =
+    given.estimateValues === undefined && given.estimateNoFill === undefined ? JSON.stringify(given.dataSet ?? {}) : JSON.stringify([given.dataSet ?? {}, given.estimateValues ?? {}, [...(given.estimateNoFill ?? [])].sort()]);
   let store = batch?.stores.get(dataSetKey);
   if (store === undefined) {
-    store = new RegulationStore(packs as readonly PackJson[], given.dataSet ?? {}, (given.estimateValues ?? {}) as Readonly<Record<string, Json>>);
+    store = new RegulationStore(packs as readonly PackJson[], given.dataSet ?? {}, (given.estimateValues ?? {}) as Readonly<Record<string, Json>>, given.estimateNoFill ?? []);
     batch?.stores.set(dataSetKey, store);
   }
   const assembled = batch?.assembly ?? assemble(OFFICIAL_COMPONENTS, options);
@@ -404,7 +406,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   const time = new TimeResolver(given.household.members, given.household.events);
   // 0026: 資産運用の入れ方と既定の値（積立の終わり・iDeCo の受け取りの始まり）を、ストレス・万一より先に重ねる
   const invested = applyInvestment(given, time, parseYm(given.baseMonth), decemberOf(given.endYear));
-  const stressed = applyStress(invested.input, time);
+  const stressed = applyStress(invested.input, time, (id) => (store as RegulationStore).estimate(id));
   const overlaid = applyContingency(stressed.input, time);
   // 0085: 働き方の置き換え（万一の重ねの後。就業不能・収入が減るの場面の配偶者の働き方）
   const input = applyWorkChanges(overlaid.input, time);

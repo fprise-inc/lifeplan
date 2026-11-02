@@ -1118,6 +1118,8 @@ export interface EngineInput {
   readonly dataSet?: Readonly<Record<string, string>>;
   /** 0111: 事務所の推定の値（マスタデータの値ID〔条件ごとの行は「<値ID>.<条件の値>」〕→ 公式の値と同じ形の値）。制度データの値は置き換えない */
   readonly estimateValues?: Readonly<Record<string, EstimateValue>>;
+  /** 0111 の2回目: 推定で埋めない、エンジンが引く統計の目安（介護・学校の段の費用・平均余命） */
+  readonly estimateNoFill?: readonly ("care" | "education" | "lifeExpectancy")[];
   readonly household: HouseholdInput;
   readonly assumptions: {
     readonly investmentReturn: YearSeries;

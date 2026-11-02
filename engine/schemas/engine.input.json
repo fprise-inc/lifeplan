@@ -28,7 +28,7 @@
       "additionalProperties": { "$ref": "urn:financia:schema:regulation.value#/$defs/packVersion" }
     },
     "estimateValues": {
-      "description": "0111: 事務所の推定の値。空欄・「わからない」を補う推定の元のマスタデータ（master.* のパック）の値を、事務所の値に置き換える。鍵は値ID（条件ごとの行がある値は「<値ID>.<条件の値>」。例 lifeTable.lifeExpectancy.male）、値は公式の値と同じ形（定数は数か10進の文字、段階表は段の並び。段の数と upTo は公式の値と同じ）。制度データ（regulation.*）の値は置き換えられない（E_ARGUMENT）。世帯ファイルには持たない（画面が計算の要求に足す）",
+      "description": "0111: 事務所の推定の値。空欄・「わからない」を補う推定の元のマスタデータ（master.* のパック）の値と、エンジンが引く目安（sdk/estimates.ts の一覧。値ID は preset. で始まる）を、事務所の値に置き換える。鍵は値ID（条件ごとの行がある値は「<値ID>.<条件の値>」。例 lifeTable.lifeExpectancy.male）、値は公式の値と同じ形（定数は数か10進の文字、段階表は段の並び。段の数と upTo は公式の値と同じ）。制度データ（regulation.*）の値・どちらの一覧にも無い値ID は置き換えられない（E_ARGUMENT）。世帯ファイルには持たない（画面が計算の要求に足す）",
       "type": "object",
       "propertyNames": { "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-zA-Z0-9]+)+$" },
       "maxProperties": 400,
@@ -52,6 +52,11 @@
           }
         ]
       }
+    },
+    "estimateNoFill": {
+      "description": "0111 の2回目: 推定で埋めない、エンジンが引く統計の目安（care＝介護の費用と期間、education＝学校の段の費用、lifeExpectancy＝平均余命）。世帯に値が無くても目安を引かず、0円（平均余命は使わない期間）で計算して「入力が足りない」の知らせを出す。世帯ファイルには持たない（画面が計算の要求に足す）",
+      "type": "array",
+      "items": { "enum": ["care", "education", "lifeExpectancy"] }
     },
     "household": { "$ref": "#/$defs/household" },
     "assumptions": {

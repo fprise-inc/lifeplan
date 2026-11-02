@@ -24,6 +24,7 @@ import { buildPayload } from "../src/workspace/takeaway/build.ts";
 import { fillName, ROW_NAMES, rowName } from "../../report/src/rowNames.ts";
 import { buildFieldsCatalog, buildTermsCatalog, buildTextsCatalog, FIELDS_CATALOG_PATH, FIELDS_CATALOG_SCHEMA, TERMS_CATALOG_PATH, TERMS_CATALOG_SCHEMA } from "../scripts/textsCatalog.ts";
 import { modelHousehold, preview } from "./helpers.ts";
+import { setOfficeEstimates } from "../../hearing/src/statistics.ts";
 import { choiceFor, openHousehold } from "./takeawayFixture.ts";
 
 const sha = (s: string) => `sha256:${createHash("sha256").update(s, "utf8").digest("hex")}`;
@@ -239,6 +240,22 @@ describe("推定の根拠の文（estimate:…）", () => {
     expect(html).toContain(`推定: 事務所の見方です。${est.basis}（`);
     expect(html).not.toContain("{value}");
     expect(html).toContain(`data-help-office="${est.id}"`);
+  });
+
+  it("事務所の推定の値（0111）の根拠の文とまったく同じ根拠には書き換えを当てず、公式の根拠にはこれまでどおり当てる（短い文で取り違えない）", () => {
+    const rule = [entry(est.id, "事務所の見方です。{basis}", "{basis}")];
+    try {
+      // 公式の根拠の一部（短い語）を事務所の文にしても、公式の根拠には書き換えが当たる
+      setOfficeEstimates({ "care.statistics.months": { value: 55, basis: est.basis.slice(0, 2) } });
+      expect(render(rule)).toContain(`推定: 事務所の見方です。${est.basis}`);
+      // 根拠の文が事務所の文とまったく同じ（事務所の値から作った推定）なら、書き換えを当てずにそのまま出す
+      setOfficeEstimates({ "care.statistics.months": { value: 55, basis: est.basis } });
+      const html = render(rule);
+      expect(html).toContain(`推定: ${est.basis}`);
+      expect(html).not.toContain("事務所の見方です。");
+    } finally {
+      setOfficeEstimates({});
+    }
   });
 
   it("消す行は効かない（本体も承認しない）。足すは公式の文の後ろ", () => {

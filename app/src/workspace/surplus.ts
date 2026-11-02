@@ -7,6 +7,7 @@ import type { EngineRequest, SurplusSavingRule, SurplusSavingSetting, TableCell,
 import { addMonths, ageReachedMonth, parseYm } from "./levers.ts";
 import { resolveTimepoint } from "./timepoint.ts";
 import { SURPLUS_ROW } from "./present.ts";
+import { presetRate } from "../../../hearing/src/presets.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
 
@@ -58,9 +59,29 @@ export type SurplusPreset = "same" | "children" | "retirement";
  * （家計の調査の黒字率・貯蓄率は可処分所得に対する割合で、ここで使う「見込みの黒字に対する割合」とは別のもの）
  */
 export const PRESET_RATIOS: Readonly<Record<SurplusPreset, { before: string; after: string | null }>> = {
-  same: { before: "0.6", after: null },
-  children: { before: "0.5", after: "0.8" },
-  retirement: { before: "0.6", after: "0.8" },
+  // 値は presets.ts の目安（事務所の推定の値があればその値。読むたびに引く）
+  same: {
+    get before(): string {
+      return presetRate("preset.surplus.same");
+    },
+    after: null,
+  },
+  children: {
+    get before(): string {
+      return presetRate("preset.surplus.children.before");
+    },
+    get after(): string {
+      return presetRate("preset.surplus.children.after");
+    },
+  },
+  retirement: {
+    get before(): string {
+      return presetRate("preset.surplus.retirement.before");
+    },
+    get after(): string {
+      return presetRate("preset.surplus.retirement.after");
+    },
+  },
 };
 
 /** 目安の期間の区切り: 末子の独立（子の独立の月の最も遅いもの。独立が空なら22歳）と、本人の退職（働く最後の月の翌月）。今より前・無いときは null */

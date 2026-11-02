@@ -176,7 +176,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       const partsShare = parts !== undefined && partsTotal > 0 ? ctx.rate.toString(ctx.rate.div(ctx.rate.of(String(partLand)), ctx.rate.of(String(partsTotal)))) : undefined;
       const shareText = p.landShare ?? partsShare ?? setting?.landShare;
       if (shareText === undefined) ctx.notice("N_DEFAULT_USED", [a.id, "account.property.landShare"]);
-      const share = shareText ?? LAND_SHARE;
+      const share = shareText ?? String(ctx.estimate(LAND_SHARE));
       const structure = p.structure ?? "wood";
       const built = p.builtYear ?? (acqAt === null ? y0 : yearOf(acqAt));
       const growthOf = (y: number): Rate => (a.valueGrowth !== undefined ? ctx.rate.of(a.valueGrowth) : (ctx.assumptionIn("realEstateValuation", "landGrowth", y) ?? ctx.assumption("inflation", y, RATE_ZERO)));
@@ -202,7 +202,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         const lb = valuer.at(y);
         const value = addYen(lb.land, lb.building);
         const price = p.sale?.price ?? value;
-        const costs = ctx.money.mulRate(price, ctx.rate.of(p.sale?.costRate ?? setting?.saleCostRate ?? SALE_COST_RATE), VAL);
+        const costs = ctx.money.mulRate(price, ctx.rate.of(p.sale?.costRate ?? setting?.saleCostRate ?? String(ctx.estimate(SALE_COST_RATE))), VAL);
         const proceeds = yen(Math.max(0, price - costs));
         sale = { ym: formatYm(saleAt), value, price, costs, proceeds };
         if (proceeds > 0) flows.push({ row: "cf.income.lumpSum.realEstateSale", ym: formatYm(saleAt), amount: proceeds, accrualYear: y, member: owner, object: a.id, formula: "asset.realEstate.sale" });

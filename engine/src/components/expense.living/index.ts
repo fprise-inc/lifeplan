@@ -88,9 +88,10 @@ export default defineComponent<Record<string, never>, FlowsResult>({
     let survivorRatio: ((m: MonthIndex) => Rate) | null = null;
     if (ev !== null && ev.kind === "death") {
       const D = parseYm(ev.month);
-      const before = ctx.rate.of(ev.survivor?.livingRatio?.beforeIndependence ?? "0.7");
-      const after = ctx.rate.of(ev.survivor?.livingRatio?.afterIndependence ?? "0.5");
-      const noChildren = ctx.rate.of(ev.survivor?.livingRatio?.noChildren ?? "0.7");
+      // 空欄は目安（sdk/estimates.ts。事務所の推定の値があればその値）
+      const before = ctx.rate.of(ev.survivor?.livingRatio?.beforeIndependence ?? String(ctx.estimate("preset.survivor.livingRatio.beforeIndependence")));
+      const after = ctx.rate.of(ev.survivor?.livingRatio?.afterIndependence ?? String(ctx.estimate("preset.survivor.livingRatio.afterIndependence")));
+      const noChildren = ctx.rate.of(ev.survivor?.livingRatio?.noChildren ?? String(ctx.estimate("preset.survivor.livingRatio.noChildren")));
       const age = ev.survivor?.independenceAge ?? 22;
       let independence: MonthIndex = D;
       let hasChild = false;

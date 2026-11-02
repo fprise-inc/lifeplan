@@ -9,8 +9,9 @@ import { creditLifeGroups } from "../input/stages/housing.ts";
 import type { ContingencyPlan, PartnerScene, SurvivorWork } from "./planData.ts";
 import { PREMISE_KINDS, SCENE_KINDS, type PremiseKind } from "./premiseChoice.ts";
 import { PREMISE_ITEMS } from "./premiseItems.ts";
-import { adults, ESOP, HOSPITAL_DAYS_DEFAULT, FX_DEPOSIT, hasInvested, INCOME_DROP_DEFAULT, ILLNESS_DEFAULT, MARKET_CLASSES_DEFAULT, MARKET_DROP_DEFAULT, partnerOf, scenarios, type Scenario, type ScenarioKind } from "./requests.ts";
+import { adults, ESOP, HOSPITAL_DAYS_DEFAULT, FX_DEPOSIT, hasInvested, INCOME_DROP_DEFAULT, ILLNESS_DEFAULT, MARKET_CLASSES_DEFAULT, marketDropDefault, partnerOf, scenarios, type Scenario, type ScenarioKind } from "./requests.ts";
 import { RETURN_RANGE } from "../input/rateRanges.ts";
+import { presetRate } from "../../../../hearing/src/presets.ts";
 
 /** 病気の種類（0055） */
 const DISEASES: Option[] = [
@@ -336,8 +337,8 @@ export function premiseItems(wh: WorkingHousehold, sc: Scenario | undefined): Pr
   if (sc.kind === "death") {
     // 並びは最後に一覧の並びにそろえる
     const living = kids
-      ? planField({ key: "cg/living/before", label: "遺族の生活費の割合（子がいる間）", kind: "pct", path: ["survivor", "livingRatio", "beforeIndependence"], fallback: "0.7" })
-      : planField({ key: "cg/living/noKids", label: "遺族の生活費の割合（子がいない世帯）", kind: "pct", path: ["survivor", "livingRatio", "noChildren"], fallback: "0.7" });
+      ? planField({ key: "cg/living/before", label: "遺族の生活費の割合（子がいる間）", kind: "pct", path: ["survivor", "livingRatio", "beforeIndependence"], fallback: presetRate("preset.survivor.livingRatio.beforeIndependence") })
+      : planField({ key: "cg/living/noKids", label: "遺族の生活費の割合（子がいない世帯）", kind: "pct", path: ["survivor", "livingRatio", "noChildren"], fallback: presetRate("preset.survivor.livingRatio.noChildren") });
     out.push(one("death:living", living));
     if (partner !== undefined) {
       const pl = memberLabel(wh, partner.id);
@@ -352,7 +353,7 @@ export function premiseItems(wh: WorkingHousehold, sc: Scenario | undefined): Pr
       );
     }
     out.push(one("death:funeral", planField({ key: "cg/lump/funeral", label: "整理資金（葬儀・お墓など）", kind: "yen", path: ["survivor", "funeral"], help: "亡くなった月の翌月の支出にします", maxYen: 1000 * MAN })));
-    if (kids) out.push(one("death:livingAfter", planField({ key: "cg/living/after", label: "遺族の生活費の割合（末子の独立の後）", kind: "pct", path: ["survivor", "livingRatio", "afterIndependence"], fallback: "0.5" })));
+    if (kids) out.push(one("death:livingAfter", planField({ key: "cg/living/after", label: "遺族の生活費の割合（末子の独立の後）", kind: "pct", path: ["survivor", "livingRatio", "afterIndependence"], fallback: presetRate("preset.survivor.livingRatio.afterIndependence") })));
     pushDeathRest(out, kids, one);
     out.push(creditLife("death:creditLife"));
   } else if (sc.kind === "disability") {
@@ -387,7 +388,7 @@ export function premiseItems(wh: WorkingHousehold, sc: Scenario | undefined): Pr
       one("illness:medicalMonths", planField({ key: "cg/illness/medicalMonths", label: "医療費の月数", kind: "int", suffix: "か月", min: 1, max: 60, path: ["illness", "medicalMonths"], fallback: ILLNESS_DEFAULT.medicalMonths })),
       many("illness:after", "復帰の後の収入", [
         planField({ key: "cg/illness/afterMonths", label: "復帰の後に収入が減る期間", kind: "int", suffix: "か月", min: 0, max: 120, path: ["illness", "afterMonths"], help: "働きながら治療を続ける・時短で戻るときに選びます。選ばなければ元の働き方に戻ります" }),
-        ...(plan.illness?.afterMonths !== undefined && plan.illness.afterMonths > 0 ? [planField({ key: "cg/illness/afterRatio", label: "その間の収入（元の収入に対する割合）", kind: "pct", path: ["illness", "afterRatio"], fallback: "0.7" })] : []),
+        ...(plan.illness?.afterMonths !== undefined && plan.illness.afterMonths > 0 ? [planField({ key: "cg/illness/afterRatio", label: "その間の収入（元の収入に対する割合）", kind: "pct", path: ["illness", "afterRatio"], fallback: presetRate("preset.contingency.illness.afterRatio") })] : []),
       ]),
     );
   } else if (sc.kind === "income") {
@@ -400,7 +401,7 @@ export function premiseItems(wh: WorkingHousehold, sc: Scenario | undefined): Pr
     out.push(work, when);
   } else if (sc.kind === "market") {
     out.push(
-      one("market:drop", planField({ key: "cg/market/drop", label: "下がる幅", kind: "select", options: DROPS, path: ["market", "drop"], fallback: MARKET_DROP_DEFAULT })),
+      one("market:drop", planField({ key: "cg/market/drop", label: "下がる幅", kind: "select", options: DROPS, path: ["market", "drop"], fallback: marketDropDefault() })),
       { kind: "market:classes", label: "下げる資産", parts: [{ fields: MARKET_CLASS_OPTIONS.map(marketClassField) }], shape: "checks", note: "既定は株・REIT と、配分を入れていない持株会です" },
       one("market:recoveryYears", planField({ key: "cg/market/recoveryYears", label: "下がった後に利回りを抑える年数", kind: "int", suffix: "年", min: 0, max: 20, path: ["market", "recoveryYears"], help: "入れなければ、翌年からふだんの利回りに戻ります" })),
       one(

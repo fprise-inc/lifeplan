@@ -117,11 +117,19 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
     const rel = ctx.list<{ type: string; parent?: string; child?: string }>("relation").find((r) => r.type === "parentOf" && r.child === child);
     const parent: string = rel?.parent ?? ctx.list<{ id: string; kind: string }>("member").find((m) => m.kind === "self")?.id ?? child;
     const at0 = ctx.at(base);
-    const stat = (id: string): Yen | null => (at0.has(id) ? at0.paramYen(id) : null);
+    // 事務所の既定値で「推定で埋めない」にしたとき（0111 の2回目）は、統計の目安を引かない（入れていない段は0円。知らせ N_INPUT_REQUIRED）
+    const fills = ctx.fillsByEstimate("education");
+    let unfilled = false;
+    const stat = (id: string): Yen | null => {
+      if (!at0.has(id)) return null;
+      if (fills) return at0.paramYen(id);
+      unfilled = true;
+      return null;
+    };
     const missing = new Set<string>();
     const statOr0 = (id: string): Yen => {
       const v = stat(id);
-      if (v === null) missing.add(id);
+      if (v === null && fills) missing.add(id);
       return v ?? yen(0);
     };
     const series = new Map<number, Map<number, Yen>>();
@@ -436,6 +444,7 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
       if ((e.gifts ?? []).length > 0) ctx.notice("N_NOT_SUPPORTED", ["giftTax"]);
     }
     if (missing.size > 0) ctx.notice("N_PARAM_MISSING", [...missing].sort());
+    if (unfilled) ctx.notice("N_INPUT_REQUIRED", [child, "goal.education.noFill"]);
     return { flows, loans, enrollments, ...(childRepaid.length > 0 ? { childRepaid } : {}) };
   },
 });
