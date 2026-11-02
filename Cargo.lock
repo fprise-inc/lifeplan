@@ -692,6 +692,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "custom-layer"
+version = "0.1.0"
+dependencies = [
+ "hmac",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "darling"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

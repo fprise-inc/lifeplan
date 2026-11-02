@@ -2181,6 +2181,14 @@ impl Store {
         self.write_office(s)
     }
 
+    /// カスタム層の承認の台帳（0016 の3・6）の改ざん検出に使う鍵（事務所の親鍵から用途ごとに導いた鍵。台帳はデータフォルダの中に
+    /// 呼ぶ側が置く）。事務所の鍵を入れ替えると変わるので、台帳は確かめられなくなる（承認し直す）
+    pub fn custom_ledger_key(&self) -> Result<Key, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        Ok(crypto::derive(&s.master, purpose::CUSTOM_LEDGER))
+    }
+
     /// 機能を有効にするコード（0110。入れた順の文字列。確かめるのは呼ぶ側）
     pub fn feature_codes(&self) -> Result<Vec<String>, StoreError> {
         let mut g = self.lock();
