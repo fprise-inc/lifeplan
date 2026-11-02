@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import { parse as parseToml } from "smol-toml";
 import { APP_DIR, ENGINE_DIST, REPO_DIR } from "./scripts/lib.ts";
+import { devCustom } from "./scripts/devCustom.ts";
 import { addCode, applyFetch, applyNotices, dismissNotice, featureStatus, publicKeys, reference, revokedIds, todayJst, verifyCode, verifyRevocations, type NoticeRecord } from "./scripts/devFeatureCode.ts";
 
 /**
@@ -734,6 +735,22 @@ function devHost(): Plugin {
       if (process.env.FINANCIA_DEVLOG === "1") server.middlewares.use((req, _res, next) => (console.log(`[dev] ${req.method} ${req.url}`), next()));
       server.middlewares.use("/__dev/", (req, res, next) => {
         const path = (req.url ?? "").replace(/^\/+/, "");
+        // カスタム層の説明の文（本体の custom_texts_*・custom_dir_* の代わり。0016 の追記 2026-11-02）
+        const cu = /^custom\/([A-Za-z]+)$/.exec(path);
+        if (cu !== null && req.method === "POST") {
+          void (async () => {
+            const raw = (await readBody(req)).toString("utf8");
+            try {
+              const out = devCustom(cu[1] as string, raw === "" ? {} : (JSON.parse(raw) as Record<string, unknown>));
+              res.setHeader("content-type", "application/json; charset=utf-8");
+              res.end(JSON.stringify(out));
+            } catch (e) {
+              res.statusCode = 400;
+              res.end(String(e));
+            }
+          })();
+          return;
+        }
         // 提案書の PDF（本体の proposal_render・proposal_page・proposal_save の代わり。report-pdf のコマンドを呼ぶ）
         if (path === "report/render" && req.method === "POST") {
           void (async () => {

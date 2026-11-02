@@ -16,6 +16,8 @@ import { availableOps, fieldStatus, FILL_LABEL, fillTitle, OP_LABELS, opTitle, S
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
 import { outOfRangeText, rateInRange } from "./rateRanges.ts";
 import { revealAdded, revealOpened } from "../../presentation/revealAdded.ts";
+import { applyOfficeText, officeLabel, OfficeTextsContext, type OfficeTextEntry } from "../office/customTexts.ts";
+import { fieldTextId } from "./textIds.ts";
 import { convertWhen, modeOf, parseWhen, readWhen, readYearMonth, showWhen, strictShown, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 
 export const visible = (level: Level, l: Level) => level === "detail" || l === "simple";
@@ -175,11 +177,32 @@ export function helpBlocks(text: string, key = "h"): ComponentChildren[] {
   return out;
 }
 
-/** 欄の説明（「?」の中に入れる文）。無ければ null */
-function fieldHelp(f: FieldDef, extra: readonly (string | null | undefined)[] = []): ComponentChildren | null {
-  const lines = [f.readOnly ?? f.help, f.sideEffects, ...extra].filter((x): x is string => x !== undefined && x !== null && x !== "");
+/**
+ * 事務所の文の札と、公式の文を開く所（カスタム層の説明の文の差し替え。0016 の追記）。FP 向けの「?」の箱の中だけに出す
+ * （提示層・持ち帰り用のレポートには出さない）
+ */
+export function OfficeTextMark({ entry, official }: { entry: OfficeTextEntry; official: string }) {
+  return (
+    <details class="help-office" data-help-office={entry.id}>
+      <summary>{officeLabel(entry)}・公式の文を見る</summary>
+      {helpBlocks(official, "official")}
+    </details>
+  );
+}
+
+/** 欄の説明（「?」の中に入れる文）。承認した事務所の文があれば当てる（読むだけの理由には当てない）。無ければ null */
+function FieldHelp({ f, wh, extra = [] }: { f: FieldDef; wh: WorkingHousehold; extra?: readonly (string | null | undefined)[] }) {
+  const texts = useContext(OfficeTextsContext);
+  const help = f.readOnly === undefined && f.help !== undefined && f.help !== "" ? f.help : null;
+  const ap = help !== null && texts.size > 0 ? applyOfficeText(texts, fieldTextId(f, wh), help) : { text: f.readOnly ?? f.help ?? null, office: null };
+  const lines = [ap.text, f.sideEffects, ...extra].filter((x): x is string => x !== undefined && x !== null && x !== "");
   if (lines.length === 0) return null;
-  return <Help label={f.label}>{lines.flatMap((l, i) => helpBlocks(l, String(i)))}</Help>;
+  return (
+    <Help label={f.label}>
+      {lines.flatMap((l, i) => helpBlocks(l, String(i)))}
+      {ap.office !== null && help !== null ? <OfficeTextMark entry={ap.office} official={help} /> : null}
+    </Help>
+  );
 }
 
 /** 区画の見出しの横に出す小さな文字のリンク。別のパネルを開く（例: 基本生活費の「明細から出す」。0034） */
@@ -1026,7 +1049,7 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
           {f.label}
         </label>
         {/* 欄の説明の「?」は欄の名前のすぐ右（状態の印はその後ろ。0077 の 2026-10-29 の追記） */}
-        {fieldHelp(f)}
+        <FieldHelp f={f} wh={wh} />
         {badge}
       </div>
       <div class="fld-c">
@@ -1140,7 +1163,7 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
     <div class={`fld when${status === "estimated" ? " is-est" : status !== null && status !== "confirmed" ? ` is-${STATUS_CLASS[status]}` : ""}`} data-when={f.key} data-field={f.key}>
       <div class="fld-l">
         <label for={id}>{label}</label>
-        {fieldHelp(f, [state.raw !== null ? time.when.monthOnly : undefined, mode === "event" && state.ctx.events.length === 0 ? "出来事は、子の独立・持ち家の入居・年金の受け取り開始・介護の始まりや、家族の項目の「出来事」から選べます" : undefined])}
+        <FieldHelp f={f} wh={wh} extra={[state.raw !== null ? time.when.monthOnly : undefined, mode === "event" && state.ctx.events.length === 0 ? "出来事は、子の独立・持ち家の入居・年金の受け取り開始・介護の始まりや、家族の項目の「出来事」から選べます" : undefined]} />
         {badge}
       </div>
       <div class="fld-c">

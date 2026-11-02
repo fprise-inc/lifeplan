@@ -1108,6 +1108,11 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .cn-data li { border-left: 4px dashed var(--base); }
 .cn-text { flex: 1 1 24em; }
 .cn-meta { flex-basis: 100%; color: var(--ink-2); font-size: 0.8rem; }
+.cn-office { flex-basis: 100%; color: var(--ink-2); font-size: 0.8rem; }
+.cn-office summary, .cn-hidden summary { cursor: pointer; }
+.cn-office span { display: block; margin-top: 2px; }
+.cn-hidden { margin-top: 8px; color: var(--ink-2); }
+.cn-hidden summary { font-size: 0.86rem; }
 
 /* ③ 対策 */
 .levers { padding: 12px 18px 14px; }
@@ -1470,6 +1475,14 @@ p.os-code-expired .link-btn { margin-left: 6px; }
 .os-code-diff th, .os-code-diff td { padding: 3px 12px 3px 0; text-align: left; border-bottom: 1px solid var(--line-2); }
 .os-code-diff thead th { font-weight: 400; color: var(--ink-2); }
 .os-code-diff-new { font-weight: 700; }
+/* カスタム層の説明の文（事務所の既定値の画面。0016 の追記）: 承認待ち・更新の確かめの表。文は折り返して読めるように */
+.os-custom-diff { width: 100%; table-layout: fixed; }
+.os-custom-diff td, .os-custom-diff th { vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; }
+.os-custom-box { margin: 8px 0; padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 6px; }
+.os-custom-box.pending { border-color: var(--est-band); background: var(--est-bg); }
+.os-custom-issues { margin: 4px 0; padding-left: 1.2em; }
+.os-custom-stop { display: block; font-weight: 400; }
+.os-custom-box .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 /* AIからのコードの候補が届いている帯（画面の上） */
 .ai-code-band { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding: 6px 16px; border-bottom: 1px solid var(--line); background: var(--card); font-size: 0.86rem; }
 /* 資産と負債のタブ: コードの期限が切れて見られなくなった見るものの知らせ（0110） */
@@ -1537,6 +1550,10 @@ html.big .help-pop { font-size: 0.92rem; }
 .fld-l:has(> .help > .help-btn:not(.help-mark)[aria-expanded="true"]) > label { background: var(--prop-bg); box-shadow: 0 0 0 2px var(--prop-bg); border-radius: 3px; }
 /* 説明の1行目の、何の説明か（ボタンの名前など） */
 .help-pop .help-for { display: block; margin-bottom: 4px; font-weight: 700; color: var(--ink-2); font-size: 0.92em; }
+/* 事務所の文の札（カスタム層の説明の文の差し替え。0016 の追記）: 「?」の箱の下に小さく。開くと公式の文 */
+.help-office { margin-top: 6px; padding-top: 4px; border-top: 1px dashed var(--line-2); color: var(--ink-2); font-size: 0.86em; }
+.help-office summary { cursor: pointer; }
+.help-office p { margin: 4px 0 0; }
 
 /* 事務所の既定値: 基本生活費の内訳の並べ方（0109。office/LivingLayoutEditor.tsx） */
 .os-lv { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 12px 18px; align-items: start; }

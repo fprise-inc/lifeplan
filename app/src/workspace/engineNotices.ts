@@ -8,6 +8,7 @@ import { PARAM_LABELS } from "../generated/labels.ts";
 import type { StageId } from "./input/form.ts";
 import type { WorkingHousehold } from "./input/household.ts";
 import { memberLabels } from "./input/labels.ts";
+import { applyOfficeText, NO_OFFICE_TEXTS, noticeTextId, type OfficeTextEntry, type OfficeTexts } from "./office/customTexts.ts";
 
 export type NoticeKind = "input" | "missing" | "outside" | "assumed" | "data";
 
@@ -185,24 +186,50 @@ export function paramName(ref: string): string {
   return l === undefined ? "制度の値" : l.replace(/（[^（）]*）$/, "");
 }
 
-/** 知らせ1件の文の定義と、まとめる鍵・内訳 */
-function messageOf(code: string, component: string | null, topics: readonly string[]): { msg: Msg; key: string; part: string | null } {
+/** 種類の決まりの文も無い知らせの文 */
+const UNKNOWN: Msg = { kind: "data", text: "計算の前提についてのお知らせがあります" };
+
+/**
+ * 知らせ1件の文の定義と、まとめる鍵・内訳・文の鍵（説明の一覧の `notice:<文の鍵>`。0016 の 2026-11-01 の追記の2）。
+ * 文の鍵は文の表の鍵（「コード|部品|話題」など）、種類の決まりの文はコード、制度の値の知らせはそのコード（先の年の値は N_PARAM_EXTENDED）
+ */
+function messageOf(code: string, component: string | null, topics: readonly string[]): { msg: Msg; key: string; part: string | null; textKey: string } {
   const topic = topics[0] ?? "";
-  if (code === "N_PARAM_EXTENDED" || code === "N_PARAM_PROJECTED") return { msg: FUTURE, key: "future", part: paramName(topic) };
-  if (code === "N_PARAM_RECORDED_LATER") return { msg: RECORDED_LATER, key: "recordedLater", part: paramName(topic) };
-  if (code === "N_PARAM_BACKFILLED") return { msg: BACKFILLED, key: "backfilled", part: paramName(topic) };
-  const hit = MESSAGES[`${code}|${component ?? ""}|${topic}`] ?? MESSAGES[`${code}|${topic}`] ?? MESSAGES[`${code}|${component ?? ""}`] ?? MESSAGES[code];
-  if (hit !== undefined) return { msg: hit, key: hit.group ?? `${code}|${component ?? ""}|${topic}`, part: hit.part ?? null };
-  if (code === "N_PARAM_MISSING") return { msg: MISSING_PARAM, key: "paramMissing", part: [...new Set(topics.map(paramName))].join("・") };
-  const fb = FALLBACK[code] ?? { kind: "data" as const, text: "計算の前提についてのお知らせがあります" };
-  return { msg: fb, key: fb.group ?? code, part: null };
+  if (code === "N_PARAM_EXTENDED" || code === "N_PARAM_PROJECTED") return { msg: FUTURE, key: "future", part: paramName(topic), textKey: "N_PARAM_EXTENDED" };
+  if (code === "N_PARAM_RECORDED_LATER") return { msg: RECORDED_LATER, key: "recordedLater", part: paramName(topic), textKey: code };
+  if (code === "N_PARAM_BACKFILLED") return { msg: BACKFILLED, key: "backfilled", part: paramName(topic), textKey: code };
+  const hitKey = [`${code}|${component ?? ""}|${topic}`, `${code}|${topic}`, `${code}|${component ?? ""}`, code].find((k) => MESSAGES[k] !== undefined);
+  const hit = hitKey === undefined ? undefined : MESSAGES[hitKey];
+  if (hit !== undefined && hitKey !== undefined) return { msg: hit, key: hit.group ?? `${code}|${component ?? ""}|${topic}`, part: hit.part ?? null, textKey: hitKey };
+  if (code === "N_PARAM_MISSING") return { msg: MISSING_PARAM, key: "paramMissing", part: [...new Set(topics.map(paramName))].join("・"), textKey: code };
+  const fb = FALLBACK[code];
+  if (fb === undefined) return { msg: UNKNOWN, key: code, part: null, textKey: "unknown" };
+  return { msg: fb, key: fb.group ?? code, part: null, textKey: code };
+}
+
+/**
+ * 知らせの文の一覧（説明の一覧を作るビルドの段が読む）。文の鍵・種類・文。文の表・種類の決まりの文・制度の値の知らせの文・決まりの文も無いときの文
+ */
+export function noticeTextTable(): { key: string; kind: NoticeKind; text: string }[] {
+  const out = new Map<string, { key: string; kind: NoticeKind; text: string }>();
+  const put = (key: string, m: Msg) => {
+    if (!out.has(key)) out.set(key, { key, kind: m.kind, text: m.text });
+  };
+  for (const [k, m] of Object.entries(MESSAGES)) put(k, m);
+  for (const [k, m] of Object.entries(FALLBACK)) put(k, m);
+  put("N_PARAM_EXTENDED", FUTURE);
+  put("N_PARAM_RECORDED_LATER", RECORDED_LATER);
+  put("N_PARAM_BACKFILLED", BACKFILLED);
+  put("N_PARAM_MISSING", MISSING_PARAM);
+  put("unknown", UNKNOWN);
+  return [...out.values()];
 }
 
 /** 文の表（か、制度の値の知らせの決まりの文）で文を持つ知らせか（持たない知らせは種類の決まりの文で出る。テストで見本の世帯の知らせを確かめる） */
 export function knownNotice(n: { code: string; ids: readonly string[] }): boolean {
   const p = parseNotice(n);
   const m = messageOf(n.code, p.component, p.topics).msg;
-  return !Object.values(FALLBACK).includes(m) && !(m.text === "計算の前提についてのお知らせがあります");
+  return !Object.values(FALLBACK).includes(m) && m !== UNKNOWN;
 }
 
 /** 知らせの1行（同じ知らせをまとめた後） */
@@ -220,6 +247,12 @@ export interface NoticeRow {
   plans: string[] | null;
   /** 入力で直せるカード（無ければ null） */
   card: StageId | null;
+  /** 事務所の文を当てた（カスタム層の説明の文の差し替え。当てていなければ無し） */
+  office?: OfficeTextEntry;
+  /** 公式の文（事務所の文を当てたときだけ） */
+  official?: string;
+  /** 事務所の設定で隠している（「前提の外」「仮の値・推定」「制度データの確認待ち」の知らせだけ。結果のタブの最後から開ける） */
+  hidden?: boolean;
 }
 
 /** 知らせを集める元（帯のプランごとの結果） */
@@ -277,10 +310,10 @@ function dropSubject(code: string, topic: string, subject: string, req: EngineRe
  * 帯のプランの結果の知らせを、FP 向けの行にする。同じ知らせ（同じ文の行）は1行にまとめ、対象・年・内訳・出たプランを足す。
  * 並びは種類の順（NOTICE_KINDS）、同じ種類の中は最初に出た順
  */
-export function noticeRows(wh: WorkingHousehold, sources: readonly NoticeSource[]): NoticeRow[] {
+export function noticeRows(wh: WorkingHousehold, sources: readonly NoticeSource[], texts: OfficeTexts = NO_OFFICE_TEXTS): NoticeRow[] {
   const nameOf = nameResolver(wh, sources.flatMap((s) => (s.request !== undefined ? [s.request] : [])));
   const rank = subjectOrder(wh);
-  const acc = new Map<string, { msg: Msg; subjects: Set<string>; lo: number | null; hi: number | null; parts: Map<string, { lo: number | null; hi: number | null }>; plans: Set<string> }>();
+  const acc = new Map<string, { msg: Msg; textKey: string; subjects: Set<string>; lo: number | null; hi: number | null; parts: Map<string, { lo: number | null; hi: number | null }>; plans: Set<string> }>();
   const counted = sources.filter((s) => s.result !== null);
   for (const s of counted) {
     for (const n of s.result?.header.notices ?? []) {
@@ -291,7 +324,7 @@ export function noticeRows(wh: WorkingHousehold, sources: readonly NoticeSource[
       const m = messageOf(n.code, p.component, p.topics);
       let a = acc.get(m.key);
       if (a === undefined) {
-        a = { msg: m.msg, subjects: new Set(), lo: null, hi: null, parts: new Map(), plans: new Set() };
+        a = { msg: m.msg, textKey: m.textKey, subjects: new Set(), lo: null, hi: null, parts: new Map(), plans: new Set() };
         acc.set(m.key, a);
       }
       a.plans.add(s.label);
@@ -312,16 +345,24 @@ export function noticeRows(wh: WorkingHousehold, sources: readonly NoticeSource[
     }
   }
   const order = new Map(NOTICE_KINDS.map((k, i) => [k.id, i]));
-  const rows = [...acc.entries()].map(([key, a]): NoticeRow => ({
+  const rows = [...acc.entries()].map(([key, a]): NoticeRow => {
+    // 事務所の文（承認した中身だけ）。「入力が足りない」「計算に入れていない」は消せない（本体も承認しないが、画面でも隠さない）
+    const ap = applyOfficeText(texts, noticeTextId(a.textKey), a.msg.text);
+    const hideable = a.msg.kind !== "input" && a.msg.kind !== "missing";
+    const hidden = ap.text === null && hideable;
+    return {
     key,
     kind: a.msg.kind,
-    text: a.msg.text,
+    text: ap.text ?? a.msg.text,
+    ...(ap.office !== null && (ap.text !== null || hidden) ? { office: ap.office, official: a.msg.text } : {}),
+    ...(hidden ? { hidden: true } : {}),
     subjects: [...a.subjects].sort((x, y) => rank(x) - rank(y)),
     years: a.lo !== null && a.hi !== null ? range(a.lo, a.hi) : null,
     parts: [...a.parts.entries()].map(([name, y]) => (y.lo !== null && y.hi !== null ? `${name}（${range(y.lo, y.hi)}）` : name)),
     plans: counted.length > 1 && a.plans.size < counted.length ? counted.filter((s) => a.plans.has(s.label)).map((s) => s.label) : null,
     card: a.msg.card ?? null,
-  }));
+    };
+  });
   return rows.map((r, i) => ({ r, i })).sort((x, y) => (order.get(x.r.kind) ?? 9) - (order.get(y.r.kind) ?? 9) || x.i - y.i).map((x) => x.r);
 }
 
