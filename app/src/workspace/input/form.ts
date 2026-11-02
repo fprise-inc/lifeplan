@@ -94,6 +94,8 @@ interface FieldBase {
   /** 入力項目ID（0004）。画面の側だけの値（呼び名など）は null */
   item: string | null;
   label: string;
+  /** 公式の名前（事務所の名前を当てた欄だけ。「?」で公式の名前を見せる。カスタム層の名前の差し替え。0016 の 2026-11-02 の追記） */
+  officialLabel?: string;
   /** 名前の左の小さなアイコン（fieldIcons.tsx の名前。飾りなので読み上げない） */
   icon?: string;
   level: Level;

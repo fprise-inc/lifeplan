@@ -19,7 +19,7 @@ use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 
-use crate::{fingerprint, hex};
+use crate::{fingerprint, hex, Kind};
 
 pub const LEDGER_FILE: &str = "ledger.json";
 pub const APPROVED_DIR: &str = "approved";
@@ -56,6 +56,52 @@ pub struct LedgerBody {
     /// 承認しないと決めた説明の文の設定の指紋（同じ中身のあいだは承認待ちに出さない）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub texts_declined: Option<String>,
+    /// 名前の差し替えの設定（`settings/terms.json`）の承認
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terms: Option<Approval>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terms_declined: Option<String>,
+    /// 欄の隠す・並べ替えの設定（`settings/fields.json`）の承認
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fields: Option<Approval>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fields_declined: Option<String>,
+}
+
+impl LedgerBody {
+    /// その種類の承認
+    pub fn approval(&self, k: Kind) -> Option<&Approval> {
+        match k {
+            Kind::Texts => self.texts.as_ref(),
+            Kind::Terms => self.terms.as_ref(),
+            Kind::Fields => self.fields.as_ref(),
+        }
+    }
+
+    pub fn approval_mut(&mut self, k: Kind) -> &mut Option<Approval> {
+        match k {
+            Kind::Texts => &mut self.texts,
+            Kind::Terms => &mut self.terms,
+            Kind::Fields => &mut self.fields,
+        }
+    }
+
+    /// その種類の、承認しないと決めた中身の指紋
+    pub fn declined(&self, k: Kind) -> Option<&str> {
+        match k {
+            Kind::Texts => self.texts_declined.as_deref(),
+            Kind::Terms => self.terms_declined.as_deref(),
+            Kind::Fields => self.fields_declined.as_deref(),
+        }
+    }
+
+    pub fn declined_mut(&mut self, k: Kind) -> &mut Option<String> {
+        match k {
+            Kind::Texts => &mut self.texts_declined,
+            Kind::Terms => &mut self.terms_declined,
+            Kind::Fields => &mut self.fields_declined,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]

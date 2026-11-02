@@ -78,7 +78,11 @@ impl Env {
         }
     }
     fn ctx<'a>(&'a self, c: &'a Catalog) -> Context<'a> {
+        self.ctx_of(Kind::Texts, c)
+    }
+    fn ctx_of<'a>(&'a self, kind: Kind, c: &'a Catalog) -> Context<'a> {
         Context {
+            kind,
             store: ledger::Store::new(self.data.join("custom")),
             key: &self.key,
             catalog: c,
@@ -715,4 +719,285 @@ fn schema_file_matches_the_rules() {
         pat.contains("\\u202A-\\u202E") && pat.contains("\\u2066-\\u2069"),
         "{pat}"
     );
+}
+
+// ---- 名前の差し替え（settings/terms.json）と、欄の隠す・並べ替え（settings/fields.json）。2026-11-02 の追記 ----
+
+fn name_entry(id: &str, name: &str, vars: &[&str]) -> serde_json::Value {
+    json!({ "id": id, "kind": catalog::kind_of(id), "where": format!("{id} の名前"), "audience": if id.starts_with("row:") { "customer" } else { "fp" }, "text": name, "vars": vars, "hash": fingerprint(name.as_bytes()), "ops": ["replace"] })
+}
+
+fn terms_catalog() -> Catalog {
+    Catalog::parse(
+        &json!({ "schema": catalog::TERMS_CATALOG_SCHEMA, "entries": [
+            name_entry("field:livingExpense.monthly", "基本生活費（月額）", &[]),
+            name_entry("row:living", "基本生活費", &[]),
+            name_entry("row:salary", "{person}の給与", &["person"]),
+        ] })
+        .to_string(),
+    )
+    .unwrap()
+}
+
+fn field_entry(id: &str, label: &str) -> serde_json::Value {
+    json!({ "id": id, "kind": "field", "where": format!("{label} の欄"), "audience": "fp", "text": label, "vars": [], "hash": fingerprint(label.as_bytes()), "ops": ["hide", "order"] })
+}
+
+fn fields_catalog() -> Catalog {
+    Catalog::parse(
+        &json!({ "schema": catalog::FIELDS_CATALOG_SCHEMA, "entries": [
+            field_entry("field:livingExpense.monthly", "基本生活費（月額）"),
+            field_entry("field:livingExpense.growth", "伸び方"),
+        ] })
+        .to_string(),
+    )
+    .unwrap()
+}
+
+impl Env {
+    fn write_kind(&self, kind: Kind, v: &serde_json::Value) {
+        let p = self.custom.join(kind.path());
+        fs::create_dir_all(p.parent().unwrap()).unwrap();
+        fs::write(p, serde_json::to_vec_pretty(v).unwrap()).unwrap();
+    }
+}
+
+#[test]
+fn names_need_approval_and_keep_their_own_ledger_slot() {
+    let tc = terms_catalog();
+    let xc = base_catalog();
+    let env = Env::new("terms");
+    let terms = env.ctx_of(Kind::Terms, &tc);
+    env.write_kind(
+        Kind::Terms,
+        &json!({ "schema": "terms@1.0", "entries": [
+            { "id": "row:living", "name": "毎月の暮らしの費用", "basedOn": hash(&tc, "row:living") },
+            { "id": "row:salary", "name": "{person}のお給料", "basedOn": hash(&tc, "row:salary") },
+            { "id": "row:gone", "name": "無い行", "basedOn": hash(&tc, "row:living") },
+        ] }),
+    );
+    let st = terms.status();
+    assert_eq!(st.kind, Kind::Terms);
+    assert_eq!(st.state, State::Pending);
+    assert!(st.errors.is_empty(), "{:?}", st.errors);
+    assert_eq!(st.unused, vec!["row:gone".to_owned()]);
+    assert!(st.effective.is_empty(), "承認するまで効かない");
+    // お客さまに見える名前（表の行）は承認の画面で先に並ぶ
+    assert_eq!(st.rows[0].audience.as_deref(), Some("customer"));
+    let st = terms.approve(&st.fingerprint, 1).unwrap();
+    assert_eq!(st.state, State::Approved);
+    let eff: Vec<_> = st
+        .effective
+        .iter()
+        .map(|e| (e.id.as_str(), e.text.as_deref(), e.official.as_str()))
+        .collect();
+    assert_eq!(
+        eff,
+        vec![
+            ("row:living", Some("毎月の暮らしの費用"), "基本生活費"),
+            ("row:salary", Some("{person}のお給料"), "{person}の給与")
+        ]
+    );
+    // 保存庫のファイル名の頭は種類ごと
+    let fp = st.approved.unwrap().fingerprint;
+    assert!(env
+        .data
+        .join("custom")
+        .join("approved")
+        .join(format!("terms-{}.json", &fp["sha256:".len()..]))
+        .is_file());
+    // 説明の文の承認とは別（名前を承認しても、説明の文は公式のまま）
+    let texts = env.ctx_of(Kind::Texts, &xc);
+    assert_eq!(texts.status().state, State::None);
+    assert!(texts.effective().is_empty());
+    // 公式の名前が変わったら、更新の確かめに出る（名前はそのまま使い続ける）
+    let tc2 = Catalog::parse(
+        &json!({ "schema": catalog::TERMS_CATALOG_SCHEMA, "entries": [name_entry("row:living", "基本的な生活費", &[]), name_entry("row:salary", "{person}の給与", &["person"])] })
+            .to_string(),
+    )
+    .unwrap();
+    let st = env.ctx_of(Kind::Terms, &tc2).status();
+    assert_eq!(st.updates.len(), 1);
+    assert_eq!(st.updates[0].id, "row:living");
+    assert!(!st.updates[0].stopped);
+    let st = env
+        .ctx_of(Kind::Terms, &tc2)
+        .keep_rows(&["row:living".to_owned()], 2)
+        .unwrap();
+    assert!(st.updates.is_empty());
+    // 書き直したファイルも名前の形のまま（name・basedOn）
+    let saved: serde_json::Value =
+        serde_json::from_slice(&fs::read(env.custom.join(terms::TERMS_PATH)).unwrap()).unwrap();
+    assert_eq!(saved["entries"][0]["name"], json!("毎月の暮らしの費用"));
+    assert_eq!(
+        saved["entries"][0]["basedOn"],
+        json!(hash(&tc2, "row:living"))
+    );
+    assert!(saved["entries"][0].get("do").is_none());
+}
+
+#[test]
+fn name_rules() {
+    let tc = terms_catalog();
+    let env = Env::new("terms-rules");
+    let ctx = env.ctx_of(Kind::Terms, &tc);
+    let h = hash(&tc, "row:living");
+    env.write_kind(
+        Kind::Terms,
+        &json!({ "schema": "terms@1.0", "entries": [
+            { "id": "row:living", "name": "二行の\n名前", "basedOn": h },
+            { "id": "field:livingExpense.monthly", "name": "あ".repeat(41), "basedOn": hash(&tc, "field:livingExpense.monthly") },
+            { "id": "row:salary", "name": "{who}の給与", "basedOn": hash(&tc, "row:salary") },
+        ] }),
+    );
+    let st = ctx.status();
+    assert_eq!(
+        codes(&st),
+        vec!["E_TERMS_CHAR", "E_TERMS_LENGTH", "E_TERMS_PLACEHOLDER"]
+    );
+    assert_eq!(ctx.approve(&st.fingerprint, 1).unwrap_err(), code::INVALID);
+    // 名前は消せない（do・text は書けない）。空の名前も受け付けない
+    env.write_kind(
+        Kind::Terms,
+        &json!({ "schema": "terms@1.0", "entries": [
+            { "id": "row:living", "do": "hide", "basedOn": h },
+            { "id": "row:salary", "name": " ", "basedOn": hash(&tc, "row:salary") },
+        ] }),
+    );
+    let st = ctx.status();
+    assert_eq!(
+        codes(&st),
+        vec!["E_TERMS_FIELD", "E_TERMS_NAME", "E_TERMS_NAME"]
+    );
+    // 差し込みの印を使わない名前は、承認はできる（注意を出す）
+    env.write_kind(Kind::Terms, &json!({ "schema": "terms@1.0", "entries": [{ "id": "row:salary", "name": "給与", "basedOn": hash(&tc, "row:salary") }] }));
+    let st = ctx.status();
+    assert!(st.errors.is_empty());
+    assert_eq!(
+        st.warnings.iter().map(|w| w.code).collect::<Vec<_>>(),
+        vec!["W_TERMS_VARS"]
+    );
+    // 版
+    env.write_kind(
+        Kind::Terms,
+        &json!({ "schema": "texts@1.0", "entries": [] }),
+    );
+    assert_eq!(codes(&ctx.status()), vec!["E_TERMS_SCHEMA"]);
+}
+
+#[test]
+fn field_layout_hide_and_order() {
+    let fc = fields_catalog();
+    let env = Env::new("fields");
+    let ctx = env.ctx_of(Kind::Fields, &fc);
+    env.write_kind(
+        Kind::Fields,
+        &json!({ "schema": "fields@1.0", "entries": [
+            { "id": "field:livingExpense.growth", "hide": true },
+            { "id": "field:livingExpense.monthly", "order": 2 },
+        ] }),
+    );
+    let st = ctx.status();
+    assert!(st.errors.is_empty(), "{:?}", st.errors);
+    assert!(st.effective.is_empty(), "承認するまで効かない");
+    let st = ctx.approve(&st.fingerprint, 1).unwrap();
+    let eff: Vec<_> = st
+        .effective
+        .iter()
+        .map(|e| (e.id.as_str(), e.op, e.order))
+        .collect();
+    assert_eq!(
+        eff,
+        vec![
+            ("field:livingExpense.growth", Op::Hide, None),
+            ("field:livingExpense.monthly", Op::Order, Some(2))
+        ]
+    );
+    assert!(
+        st.updates.is_empty(),
+        "公式の文に拠らないので、更新の確かめは出ない"
+    );
+}
+
+#[test]
+fn field_layout_does_not_take_default_values() {
+    let fc = fields_catalog();
+    let env = Env::new("fields-default");
+    let ctx = env.ctx_of(Kind::Fields, &fc);
+    // 既定の値は事務所の既定値の画面で変える。カスタム層のファイルに書いても承認できない（効かない）
+    env.write_kind(
+        Kind::Fields,
+        &json!({ "schema": "fields@1.0", "entries": [
+            { "id": "field:livingExpense.monthly", "hide": true, "default": 250000 },
+            { "id": "field:livingExpense.growth", "value": "1%" },
+        ] }),
+    );
+    let st = ctx.status();
+    assert_eq!(
+        codes(&st),
+        vec!["E_FIELDS_DEFAULT", "E_FIELDS_DEFAULT", "E_FIELDS_EMPTY"]
+    );
+    assert_eq!(ctx.approve(&st.fingerprint, 1).unwrap_err(), code::INVALID);
+    assert!(ctx.effective().is_empty());
+    env.write_kind(Kind::Fields, &json!({ "schema": "fields@1.0", "defaults": { "livingExpense.monthly": 1 }, "entries": [] }));
+    assert_eq!(codes(&ctx.status()), vec!["E_FIELDS_DEFAULT"]);
+    // ほかの誤り: hide は true だけ・order は 1〜99 の整数・欄（field:）だけ
+    env.write_kind(
+        Kind::Fields,
+        &json!({ "schema": "fields@1.0", "entries": [
+            { "id": "field:livingExpense.monthly", "hide": false },
+            { "id": "field:livingExpense.growth", "order": 0 },
+            { "id": "notice:N_X", "hide": true },
+        ] }),
+    );
+    assert_eq!(
+        codes(&ctx.status()),
+        vec!["E_FIELDS_HIDE", "E_FIELDS_ORDER", "E_FIELDS_ID"]
+    );
+}
+
+/// 名前・欄の見せ方の JSON Schema（正本）と、本体の決まりがそろっている
+#[test]
+fn terms_and_fields_schema_files_match_the_rules() {
+    let read = |n: &str| -> serde_json::Value {
+        let p = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("../../app/schemas/{n}"));
+        serde_json::from_str(&fs::read_to_string(p).unwrap()).unwrap()
+    };
+    let t = read("settings.terms.json");
+    assert_eq!(t["properties"]["schema"]["pattern"], json!("^terms@1\\.0$"));
+    assert_eq!(t["additionalProperties"], json!(false));
+    let row = &t["$defs"]["row"];
+    assert_eq!(row["additionalProperties"], json!(false));
+    assert_eq!(row["required"], json!(["id", "name", "basedOn"]));
+    assert_eq!(
+        row["properties"]["name"]["maxLength"],
+        json!(terms::NAME_MAX_CHARS)
+    );
+    assert!(
+        row["properties"]["name"]["pattern"]
+            .as_str()
+            .unwrap()
+            .contains("\\u000A"),
+        "名前は改行を受け付けない"
+    );
+    let f = read("settings.fields.json");
+    assert_eq!(
+        f["properties"]["schema"]["pattern"],
+        json!("^fields@1\\.0$")
+    );
+    assert_eq!(f["additionalProperties"], json!(false));
+    let row = &f["$defs"]["row"];
+    assert_eq!(
+        row["additionalProperties"],
+        json!(false),
+        "既定の値（default など）は Schema でも受け付けない"
+    );
+    let mut props: Vec<&String> = row["properties"].as_object().unwrap().keys().collect();
+    props.sort();
+    assert_eq!(props, vec!["hide", "id", "order"]);
+    assert_eq!(
+        row["properties"]["order"]["maximum"],
+        json!(fields::ORDER_MAX)
+    );
+    assert_eq!(row["properties"]["hide"]["const"], json!(true));
 }

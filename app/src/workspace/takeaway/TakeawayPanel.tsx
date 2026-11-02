@@ -3,7 +3,8 @@
 //   載せる画面（グラフはいつも。資産と負債の図・キャッシュフロー表の要約）・宛名と事務所名（任意。保存しない）・開くときのパスワード（任意。保存しない）
 // - 右: 顧客が開いたときと同じ画面の見本（同じ部品 TakeawayView。計算は画面側のエンジン）
 // - 保存は本体の平文の書き出しの出口（0020 の5）。パスワードなしのときは毎回、平文の注意を出す。保存したら控え（きっかけ「持ち帰り用のレポート」）を残す
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useContext, useEffect, useMemo, useState } from "preact/hooks";
+import { OfficeNamesContext, rowNamesOf } from "../office/customTexts.ts";
 import { webEngine, type HostApi, type SaveOutcome } from "../../engine/host.ts";
 import type { MoneyThreeSettings } from "../../presentation/model.ts";
 import type { TakeawayData, TakeawayLeverKey } from "../../takeaway/model.ts";
@@ -96,9 +97,11 @@ export function TakeawayPanel(p: Props) {
   }, [office]);
 
   const knobs: TakeawayKnob[] = [...(["retireAge", "pensionAge", "nisaMonthly", "livingMonthly"] as TakeawayLeverKey[]).filter((k) => p.catalog.byKey.has(`lever:${k}`)), ...(hasAdvisoryFee(p.wh.request) && p.catalog.byKey.has("lever:fee") ? (["fee"] as const) : [])];
-  const choice: TakeawayChoice = { proposal, compare, base: p.base, band: p.band, excluded, views, moneyThree: m3, addressee, office, targetAge: p.targetAge, createdOn: today(), dataSet: dataSet ?? "" };
+  // 表の行の事務所の名前（カスタム層。承認した物だけ）。持ち帰り用のレポートでも画面と同じ名前にする
+  const rowNames = rowNamesOf(useContext(OfficeNamesContext));
+  const choice: TakeawayChoice = { proposal, compare, base: p.base, band: p.band, excluded, views, moneyThree: m3, addressee, office, targetAge: p.targetAge, createdOn: today(), dataSet: dataSet ?? "", ...(rowNames !== undefined ? { names: rowNames } : {}) };
   const ctx = { wh: p.wh, catalog: p.catalog, valuesOf: p.valuesOf, letterOf: p.letterOf };
-  const payload = useMemo(() => (proposal === CURRENT ? null : buildPayload(ctx, choice)), [p.wh, p.catalog, proposal, compare.join(","), p.base, p.band.join(","), [...excluded].join(","), views.balance, views.table, views.moneyThree, m3.months, m3.years, m3.wording, addressee, office, p.targetAge, dataSet, ...slots.map((id) => JSON.stringify(p.valuesOf(id)))]);
+  const payload = useMemo(() => (proposal === CURRENT ? null : buildPayload(ctx, choice)), [p.wh, p.catalog, proposal, compare.join(","), p.base, p.band.join(","), [...excluded].join(","), views.balance, views.table, views.moneyThree, m3.months, m3.years, m3.wording, addressee, office, p.targetAge, dataSet, JSON.stringify(rowNames ?? null), ...slots.map((id) => JSON.stringify(p.valuesOf(id)))]);
   const preview: TakeawayData | null = useMemo(() => (payload === null || packsJson === null ? null : { payload, packs: JSON.parse(packsJson) as unknown[] }), [payload, packsJson]);
   const pwOk = !usePw || password.length >= PASSWORD_MIN;
   const busy = status.kind === "busy";

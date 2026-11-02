@@ -5,7 +5,7 @@
 // - 保存したら、その時点の控え（0009 の2。きっかけ「PDF書き出し」）を残す（宛名・担当は控えに入れない）
 // - タブの上の切り替えで「持ち帰り用のレポート」（顧客に渡す HTML ファイル1つ。0030。workspace/takeaway/TakeawayPanel.tsx）も作る。
 //   どちらも「顧客に渡すもの」で、載せるプランの選び方・宛名・平文の書き出しの出口が同じなので、上のタブを増やさずに同じタブの中に置く
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useContext, useEffect, useMemo, useState } from "preact/hooks";
 import { CHAPTERS, E_REPORT_NO_YEARS, hasMaterial, type CashflowLayout, type ChapterId, type Orientation, type ProposalInput } from "../../../../report/src/index.ts";
 import type { HostApi, RenderInfo, SaveOutcome } from "../../engine/host.ts";
 import { forEngine } from "../../engine/moneyRows.ts";
@@ -20,6 +20,7 @@ import { BS_POINT_CHOICES, DEFAULT_BS_POINTS } from "../balanceTab.ts";
 import { DEFAULT_CHAPTERS, DEFAULT_LAYOUT, estimatedCards, planReport, reportInput, today, type ReportChoice } from "./assemble.ts";
 import { ReportViewer } from "./ReportViewer.tsx";
 import { TakeawayPanel } from "../takeaway/TakeawayPanel.tsx";
+import { OfficeNamesContext, rowNamesOf } from "../office/customTexts.ts";
 
 interface Props {
   host: HostApi;
@@ -124,6 +125,8 @@ export function bsPointsText(columns: readonly BsColumn[] | null, defaults: read
 }
 
 function ProposalPdf(p: Props) {
+  // 表の行の事務所の名前（カスタム層の名前の差し替え。承認した物だけ）。提案書でも画面と同じ名前にする
+  const rowNames = rowNamesOf(useContext(OfficeNamesContext));
   const slots = [CURRENT, ...p.band];
   const firstProposal = p.selected !== CURRENT ? p.selected : (p.band[0] ?? CURRENT);
   const [proposal, setProposal] = useState(firstProposal);
@@ -156,7 +159,7 @@ function ProposalPdf(p: Props) {
     [proposal, compare.join(","), p.base, [...chapters].join(","), p.combinedBs, p.targetAge, preparedBy, slots.join(","), orientation, cashflow, JSON.stringify(p.bsPoints ?? null), JSON.stringify(p.bsColumns ?? null), JSON.stringify(p.moneyThree ?? null)],
   );
   // 何を変えたら作り直しが要るか（宛名も PDF に入るので含める。帳票の入力そのものは保存しない）
-  const key = JSON.stringify({ choice, addressee: addressee.trim(), wh: p.wh.request, company: p.wh.companyBs ?? null, values: slots.map((id) => p.valuesOf(id)) });
+  const key = JSON.stringify({ choice, addressee: addressee.trim(), names: rowNames ?? null, wh: p.wh.request, company: p.wh.companyBs ?? null, values: slots.map((id) => p.valuesOf(id)) });
   const stale = built !== null && built.key !== key;
   const busy = status.kind === "busy";
 
@@ -178,7 +181,7 @@ function ProposalPdf(p: Props) {
       }
       const t1 = performance.now();
       setStatus({ kind: "busy", step: "作成しています…" });
-      const input = reportInput(plan.bundle(results));
+      const input = reportInput({ ...plan.bundle(results), ...(rowNames !== undefined ? { names: rowNames } : {}) });
       const t2 = performance.now();
       const ri = await p.host.report.render(JSON.stringify(input), addressee.trim() === "" ? null : addressee.trim());
       const t3 = performance.now();

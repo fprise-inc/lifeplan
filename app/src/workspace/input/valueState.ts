@@ -83,6 +83,19 @@ export function fieldAddress(f: FieldDef, wh: WorkingHousehold): Address | null 
   return r !== null && r.kind === "address" ? r.address : null;
 }
 
+/**
+ * 欄に値が入っているか（事務所の見せ方で隠す欄でも、値があれば出す。0016 の 2026-11-02 の追記）。
+ * 世帯に値の箱・値・仮の印があれば入っている。当て先が分からない欄は、画面に出している値があれば入っているとみなす（迷えば出す）
+ */
+export function hasFieldValue(f: FieldDef, wh: WorkingHousehold): boolean {
+  if (wh.assumed[f.key] !== undefined) return true;
+  if (f.boxed !== undefined) return f.boxed.read(wh) !== undefined;
+  const a = fieldAddress(f, wh);
+  if (a !== null) return readAt(input(wh), a) !== undefined;
+  const v = f.get(wh).value;
+  return v !== null && v !== undefined && v !== "";
+}
+
 /** 仮の印の推定の出し方（読み替え表の assumed: の行の method。無ければ標準の値） */
 const assumedMethod = (f: FieldDef, wh: WorkingHousehold): string => {
   const r = resolveAssumedKey(f.key, input(wh));

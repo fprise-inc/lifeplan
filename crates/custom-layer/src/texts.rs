@@ -36,7 +36,12 @@ pub struct Row {
     pub op: Op,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
+    /// 書いたときの公式の文の指紋（欄の見せ方の設定には無い。空）
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub based_on: String,
+    /// まとまりの中で何番目に出すか（欄の見せ方の設定だけ。1 から）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub order: Option<u32>,
 }
 
 /// 設定ファイルの中身
@@ -86,7 +91,7 @@ impl Checked {
     }
 }
 
-fn issue(
+pub(crate) fn issue(
     row: Option<usize>,
     id: Option<&str>,
     code: &'static str,
@@ -144,7 +149,7 @@ pub fn placeholders(text: &str) -> Result<Vec<String>, BadBraces> {
     Ok(out)
 }
 
-fn is_fingerprint(s: &str) -> bool {
+pub(crate) fn is_fingerprint(s: &str) -> bool {
     s.strip_prefix("sha256:").is_some_and(|h| {
         h.len() == 64
             && h.bytes()
@@ -153,7 +158,7 @@ fn is_fingerprint(s: &str) -> bool {
 }
 
 /// `id` の形（頭の英小文字＋「:」＋空白・制御文字を含まない字）
-fn id_shape_ok(id: &str) -> bool {
+pub(crate) fn id_shape_ok(id: &str) -> bool {
     match id.split_once(':') {
         Some((k, rest)) => {
             !k.is_empty()
@@ -172,8 +177,8 @@ fn minor_too_new(minor: u32) -> bool {
 }
 
 /// 版の文字（`texts@1.0`）を読む
-fn schema_version(s: &str) -> Option<(u32, u32)> {
-    let v = s.strip_prefix(SCHEMA_PREFIX)?;
+pub(crate) fn schema_version(s: &str, prefix: &str) -> Option<(u32, u32)> {
+    let v = s.strip_prefix(prefix)?;
     let (ma, mi) = v.split_once('.')?;
     let num = |x: &str| {
         (!x.is_empty()
@@ -292,98 +297,139 @@ fn read_row(i: usize, v: &Value, errors: &mut Vec<Issue>) -> Option<Row> {
         op,
         text,
         based_on: based_on.to_owned(),
+        order: None,
     })
 }
 
-/// 設定ファイルのバイト列を読んで、形と説明の一覧に照らして確かめる
-pub fn check(bytes: &[u8], catalog: &Catalog) -> Checked {
-    let mut out = Checked::default();
+/// ファイル全体の形の誤りの符号（種類ごと）
+pub(crate) struct Codes {
+    pub size: &'static str,
+    pub json: &'static str,
+    pub field: &'static str,
+    pub schema: &'static str,
+    pub entries: &'static str,
+}
+
+pub(crate) const CODES: Codes = Codes {
+    size: "E_TEXTS_SIZE",
+    json: "E_TEXTS_JSON",
+    field: "E_TEXTS_FIELD",
+    schema: "E_TEXTS_SCHEMA",
+    entries: "E_TEXTS_ENTRIES",
+};
+
+/// ファイル全体の形（大きさ・UTF-8・JSON・`schema`・`entries`）を読む。行の並びと `schema` の字を返す（読めなければ None）。
+/// schema・entries のほかの項目は誤り（`top_message` が符号と文を返せばそれを使う。既定の値の項目を断る文など）
+pub(crate) fn read_top(
+    bytes: &[u8],
+    prefix: &str,
+    codes: &Codes,
+    max_entries: usize,
+    top_message: &dyn Fn(&str) -> Option<(&'static str, String)>,
+    out_errors: &mut Vec<Issue>,
+) -> Option<(String, Vec<Value>)> {
     if bytes.len() > MAX_BYTES {
-        out.errors.push(issue(
+        out_errors.push(issue(
             None,
             None,
-            "E_TEXTS_SIZE",
+            codes.size,
             format!("ファイルが大きすぎます（{}KB まで）", MAX_BYTES / 1024),
         ));
-        return out;
+        return None;
     }
     let Ok(s) = std::str::from_utf8(bytes) else {
-        out.errors.push(issue(
+        out_errors.push(issue(
             None,
             None,
-            "E_TEXTS_JSON",
+            codes.json,
             "文字コードが UTF-8 ではありません",
         ));
-        return out;
+        return None;
     };
     let v: Value = match serde_json::from_str(s.strip_prefix('\u{FEFF}').unwrap_or(s)) {
         Ok(v) => v,
         Err(e) => {
-            out.errors.push(issue(
+            out_errors.push(issue(
                 None,
                 None,
-                "E_TEXTS_JSON",
+                codes.json,
                 format!(
                     "JSON として読めません（{} 行目 {} 字目）",
                     e.line(),
                     e.column()
                 ),
             ));
-            return out;
+            return None;
         }
     };
     let Some(top) = v.as_object() else {
-        out.errors.push(issue(
+        out_errors.push(issue(
             None,
             None,
-            "E_TEXTS_JSON",
+            codes.json,
             "全体が { … } の形になっていません",
         ));
-        return out;
+        return None;
     };
     for k in top.keys() {
         if k != "schema" && k != "entries" {
-            out.errors.push(issue(
-                None,
-                None,
-                "E_TEXTS_FIELD",
+            let (code, msg) = top_message(k).unwrap_or((
+                codes.field,
                 format!("知らない項目「{k}」があります（書けるのは schema・entries）"),
             ));
+            out_errors.push(issue(None, None, code, msg));
         }
     }
     let schema = top.get("schema").and_then(Value::as_str).unwrap_or("");
-    match schema_version(schema) {
+    let current = format!("{prefix}{SCHEMA_MAJOR}.{SCHEMA_MINOR_MAX}");
+    match schema_version(schema, prefix) {
         Some((SCHEMA_MAJOR, mi)) if !minor_too_new(mi) => {}
         Some((SCHEMA_MAJOR, _)) => {
-            out.errors.push(issue(None, None, "E_TEXTS_SCHEMA", format!("このアプリより新しい書き方（{schema}）です。アプリを更新するか、texts@1.0 で書いてください")));
+            out_errors.push(issue(None, None, codes.schema, format!("このアプリより新しい書き方（{schema}）です。アプリを更新するか、{current} で書いてください")));
         }
         _ => {
-            out.errors.push(issue(
+            out_errors.push(issue(
                 None,
                 None,
-                "E_TEXTS_SCHEMA",
-                "schema は \"texts@1.0\" にしてください",
+                codes.schema,
+                format!("schema は \"{current}\" にしてください"),
             ));
         }
     }
     let Some(list) = top.get("entries").and_then(Value::as_array) else {
-        out.errors.push(issue(
+        out_errors.push(issue(
             None,
             None,
-            "E_TEXTS_ENTRIES",
+            codes.entries,
             "entries（行の並び）がありません",
         ));
+        return None;
+    };
+    if list.len() > max_entries {
+        out_errors.push(issue(
+            None,
+            None,
+            codes.entries,
+            format!("行が多すぎます（{max_entries}行まで）"),
+        ));
+        return None;
+    }
+    Some((schema.to_owned(), list.clone()))
+}
+
+/// 設定ファイルのバイト列を読んで、形と説明の一覧に照らして確かめる
+pub fn check(bytes: &[u8], catalog: &Catalog) -> Checked {
+    let mut out = Checked::default();
+    let Some((schema, list)) = read_top(
+        bytes,
+        SCHEMA_PREFIX,
+        &CODES,
+        MAX_ENTRIES,
+        &|_| None,
+        &mut out.errors,
+    ) else {
         return out;
     };
-    if list.len() > MAX_ENTRIES {
-        out.errors.push(issue(
-            None,
-            None,
-            "E_TEXTS_ENTRIES",
-            format!("行が多すぎます（{MAX_ENTRIES}行まで）"),
-        ));
-        return out;
-    }
     let mut rows = Vec::new();
     let mut seen = BTreeSet::new();
     let mut shape_ok = out.errors.is_empty();
@@ -409,7 +455,7 @@ pub fn check(bytes: &[u8], catalog: &Catalog) -> Checked {
     }
     if shape_ok {
         out.file = Some(TextsFile {
-            schema: schema.to_owned(),
+            schema,
             entries: rows,
         });
     }

@@ -49,7 +49,7 @@ import { addItem, saveItem } from "./input/items.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
 import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart, publishOfficeSettings, readOfficeSettings, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
 import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
-import { NO_OFFICE_TEXTS, OfficeTextsContext, officeTextsFrom } from "./office/customTexts.ts";
+import { NO_OFFICE_FIELDS, NO_OFFICE_NAMES, NO_OFFICE_TEXTS, OfficeFieldsContext, officeFieldsFrom, OfficeNamesContext, OfficeTextsContext, officeTextsFrom, rowNamesOf } from "./office/customTexts.ts";
 import { customCenterNotice } from "./office/customNotice.ts";
 import type { CustomTextsStatus } from "../engine/host.ts";
 import { combinedBsView, withCombinedField } from "./combined/combinedView.ts";
@@ -499,6 +499,18 @@ export function App() {
   const [customTexts, setCustomTexts] = useState<CustomTextsStatus | null>(null);
   const effectiveKey = JSON.stringify(customTexts?.effective ?? []);
   const officeTexts = useMemo(() => (customTexts === null || customTexts.effective.length === 0 ? NO_OFFICE_TEXTS : officeTextsFrom(customTexts.effective)), [effectiveKey]);
+  /**
+   * カスタム層の名前（settings/terms.json）と入力の欄の見せ方（settings/fields.json）。どちらも FP が承認した中身から本体が作った物だけ。
+   * 表の行の名前（rowNames）は、結果の表・お客さまに見せる画面・提案書・持ち帰り用のレポートに同じ名前で当てる
+   */
+  const [customTerms, setCustomTerms] = useState<CustomTextsStatus | null>(null);
+  const [customFields, setCustomFields] = useState<CustomTextsStatus | null>(null);
+  const termsKey = JSON.stringify(customTerms?.effective ?? []);
+  const fieldsKey = JSON.stringify(customFields?.effective ?? []);
+  const officeNames = useMemo(() => (customTerms === null || customTerms.effective.length === 0 ? NO_OFFICE_NAMES : officeTextsFrom(customTerms.effective)), [termsKey]);
+  const officeFields = useMemo(() => (customFields === null || customFields.effective.length === 0 ? NO_OFFICE_FIELDS : officeFieldsFrom(customFields.effective)), [fieldsKey]);
+  const rowNames = useMemo(() => rowNamesOf(officeNames), [officeNames]);
+  const putCustomStatus = (st: CustomTextsStatus) => (st.kind === "terms" ? setCustomTerms(st) : st.kind === "fields" ? setCustomFields(st) : setCustomTexts(st));
   // お知らせの一覧（0087）: 配信元のお知らせ（本体が確かめた一覧）と、手元の既読の印・受付番号（この PC のアプリのデータ。何も送り返さない）
   const [feedText, setFeedText] = useState<string | null>(null);
   const [noticeLocal, setNoticeLocal] = useState<LocalState>(EMPTY_LOCAL);
@@ -1557,7 +1569,11 @@ export function App() {
   useEffect(() => {
     const custom = host?.custom;
     if (custom === undefined || storeStatus?.state !== "ready") return;
-    const load = () => void custom.status().then(setCustomTexts, () => undefined);
+    const load = () => {
+      void custom.status().then(setCustomTexts, () => undefined);
+      void custom.status("terms").then(setCustomTerms, () => undefined);
+      void custom.status("fields").then(setCustomFields, () => undefined);
+    };
     load();
     const t = setInterval(load, FEATURE_POLL_MS);
     return () => clearInterval(t);
@@ -1821,10 +1837,10 @@ export function App() {
     if (opened === null || selReq === null || selRes === null || baseRes === null) return null;
     const fee = feeShown ? { on: feeOn, alt: altRes } : undefined;
     const dreams = { raw: rawReqOf(opened, valuesOf(opened.wh, work, work.sel)), withoutDreams: noDreamRes };
-    const m = toPresentation({ base: opened.wh.request, proposal: selReq, current: baseRes, proposed: selRes, targetAge: settings.atAge, selectedYear, provisional, names, dreams, ...(baseReq !== null ? { baseProposal: baseReq } : {}), ...(fee !== undefined ? { fee } : {}) });
+    const m = toPresentation({ base: opened.wh.request, proposal: selReq, current: baseRes, proposed: selRes, targetAge: settings.atAge, selectedYear, provisional, names, dreams, ...(baseReq !== null ? { baseProposal: baseReq } : {}), ...(fee !== undefined ? { fee } : {}), ...(rowNames !== undefined ? { rowNames } : {}) });
     const extra = verdictMetrics(settings, { name: names.selected, m: metricsOf(opened.wh.request, selRes.table, settings.atAge) }, names.same ? null : { name: names.base, m: metricsOf(opened.wh.request, baseRes.table, settings.atAge) });
     return extra.length > 0 ? { ...m, result: { ...m.result, sub: [...m.result.sub, ...extra] } } : m;
-  }, [opened, work, rawReqOf, selReq, baseReq, selRes, baseRes, altRes, noDreamRes, feeOn, feeShown, selectedYear, provisional, settings, names.selected, names.base, names.same]);
+  }, [opened, work, rawReqOf, selReq, baseReq, selRes, baseRes, altRes, noDreamRes, feeOn, feeShown, selectedYear, provisional, settings, names.selected, names.base, names.same, rowNames]);
   const explain = useMemo(
     () => (explainStep === null || opened === null || selReq === null || selRes === null ? null : explainModel(selReq, selRes, settings.atAge)),
     [explainStep !== null, opened, selReq, selRes, settings.atAge],
@@ -1989,11 +2005,11 @@ export function App() {
   const table = useMemo(() => {
     if (opened === null || model === null || tRes === null || tReq === null) return null;
     const years = displayYears(opened.wh.request);
-    let t = tKey === work.sel ? model.table : cashflowTable(tReq, tRes.table, years, "生涯キャッシュフロー表", eventsOf(tReq, tRes.table, years, tRes.summary));
+    let t = tKey === work.sel ? model.table : cashflowTable(tReq, tRes.table, years, "生涯キャッシュフロー表", eventsOf(tReq, tRes.table, years, tRes.summary), rowNames);
     if (showDiff && tKey !== work.base && baseRes !== null) t = withDiff(tReq, t, tRes.table, baseRes.table, `差（${letterOf(tKey)}−${letterOf(work.base)}）`);
     if (depReq !== null && depRes !== null) t = { ...t, rows: [...t.rows, ...dependentRefRows(tReq, depRes.table, t.years)] };
     return t;
-  }, [opened, model, tRes, tReq, tKey, work.sel, work.base, showDiff, baseRes, letters, depReq, depRes]);
+  }, [opened, model, tRes, tReq, tKey, work.sel, work.base, showDiff, baseRes, letters, depReq, depRes, rowNames]);
 
   const showEvidence = useCallback(
     async (rowKey: string, year: number) => {
@@ -2004,13 +2020,13 @@ export function App() {
       try {
         const full = await host.evidence(JSON.stringify(forEngine(req)));
         if (isEngineError(full)) return setEvidence({ status: "error", title: `${year}年`, code: full.error.code });
-        const view = buildEvidence(full, req, rowKey, year);
+        const view = buildEvidence(full, req, rowKey, year, rowNames);
         setEvidence(view === null ? { status: "error", title: `${year}年`, code: "E_NO_EVIDENCE" } : { status: "ready", view });
       } catch (e) {
         setEvidence({ status: "error", title: `${year}年`, code: typeof e === "string" ? e : "E_HOST" });
       }
     },
-    [host, tReq],
+    [host, tReq, rowNames],
   );
 
   // 画面の確かめ用（URL の #evidence=…・#selfcheck・#scroll=table）。開発用のサーバーのときだけ
@@ -2223,7 +2239,7 @@ export function App() {
         read: noticeLocal.read[key] !== undefined,
       };
     }),
-    ...customCenterNotice(customTexts).map((n): CenterItem => ({
+    ...[customTexts, customTerms, customFields].flatMap(customCenterNotice).map((n): CenterItem => ({
       ...n,
       action: { label: "事務所の既定値", run: () => setOfficeSettingsOpen(true) },
       read: noticeLocal.read[n.key] !== undefined,
@@ -2268,6 +2284,8 @@ export function App() {
   const basis = model === null ? null : { members: model.members.map((m) => `${m.label} ${m.age}歳`).join("・"), asOf: model.asOf };
   return (
     <OfficeTextsContext.Provider value={officeTexts}>
+    <OfficeNamesContext.Provider value={officeNames}>
+    <OfficeFieldsContext.Provider value={officeFields}>
     <div class={`app${drawer ? " has-drawer" : ""}`}>
       <TopBar
         tabs={shownTabs}
@@ -2970,7 +2988,7 @@ export function App() {
             putOfficeSettings(v);
           }}
           onClose={() => setOfficeSettingsOpen(false)}
-          {...(host.custom !== undefined ? { custom: { host: host.custom, status: customTexts, onStatus: setCustomTexts } } : {})}
+          {...(host.custom !== undefined ? { custom: { host: host.custom, status: customTexts, onStatus: setCustomTexts, terms: customTerms, fields: customFields, onKindStatus: putCustomStatus } } : {})}
           features={featureStatus}
           onAddCode={async (code) => {
             const before = featureStatusRef.current;
@@ -3122,6 +3140,8 @@ export function App() {
         </span>
       ) : null}
     </div>
+    </OfficeFieldsContext.Provider>
+    </OfficeNamesContext.Provider>
     </OfficeTextsContext.Provider>
   );
 }

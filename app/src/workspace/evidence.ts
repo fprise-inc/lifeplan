@@ -7,6 +7,7 @@ import type { EvidenceView } from "../presentation/model.ts";
 import { group } from "../presentation/format.ts";
 import { FORMULA_LABELS } from "./formulas.ts";
 import { rowDefs } from "./present.ts";
+import type { OfficeRowNames } from "../../../report/src/rowNames.ts";
 import { surplusEvidenceNote } from "./surplus.ts";
 import { ageInYear, presentInYear, roles } from "./roles.ts";
 
@@ -58,8 +59,9 @@ export function collectParams(nodes: readonly TraceNode[], start: number, depth 
   return [...out.values()];
 }
 
-export function buildEvidence(full: FullResult, req: EngineRequest, rowKey: string, year: number): EvidenceView | null {
-  const def = rowDefs(req).find((d) => d.key === rowKey);
+/** names は表の行の事務所の名前（根拠の見出しの行の名前。表と同じ名前にする） */
+export function buildEvidence(full: FullResult, req: EngineRequest, rowKey: string, year: number, names?: OfficeRowNames): EvidenceView | null {
+  const def = rowDefs(req, names).find((d) => d.key === rowKey);
   if (def === undefined) return null;
   const byAccrual = full.header.calcConventions?.aggregation === "accrual";
   const breakdown = new Map<string, number>();

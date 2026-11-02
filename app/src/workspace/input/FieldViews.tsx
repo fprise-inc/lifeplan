@@ -12,12 +12,13 @@ import { fittingPlaceholder, textEm } from "./placeholder.ts";
 import type { Timepoint } from "../../engine/types.ts";
 import { groupShown, type ActionDef, type FieldDef, type GroupDef, type Level, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
-import { availableOps, fieldStatus, FILL_LABEL, fillTitle, OP_LABELS, opTitle, STATUS_LABELS, substituteText, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
+import { availableOps, fieldStatus, hasFieldValue, FILL_LABEL, fillTitle, OP_LABELS, opTitle, STATUS_LABELS, substituteText, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
 import { outOfRangeText, rateInRange } from "./rateRanges.ts";
 import { revealAdded, revealOpened } from "../../presentation/revealAdded.ts";
-import { applyOfficeText, officeLabel, OfficeTextsContext, type OfficeTextEntry } from "../office/customTexts.ts";
-import { fieldTextId } from "./textIds.ts";
+import { applyOfficeName, applyOfficeText, arrangeFields, officeLabel, OfficeFieldsContext, OfficeNamesContext, OfficeTextsContext, type OfficeTextEntry } from "../office/customTexts.ts";
+import { estimateTextId, estimateValueText, ESTIMATE_OFFICIAL, fieldTextId } from "./textIds.ts";
+import { fillName } from "../../../../report/src/rowNames.ts";
 import { convertWhen, modeOf, parseWhen, readWhen, readYearMonth, showWhen, strictShown, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 
 export const visible = (level: Level, l: Level) => level === "detail" || l === "simple";
@@ -104,12 +105,15 @@ const STATUS_CLASS: Record<ValueStatus, string> = { estimated: "est", unknown: "
  * 状態の印（推定・仮・書類待ち・該当なし・未入力）。根拠（推定の出どころ・代わりの値・0円の理由）があれば、印を押すと根拠が開く（0077）。
  * 書類待ちは、確かめる書類（欄の定義の docCheck）を添える。確定の欄には何も出さない
  */
-export function StateMark({ status, basis, text, label, fieldKey, doc }: { status: ValueStatus; basis: string | null; text: string; label: string; fieldKey?: string; doc?: string | undefined }) {
+export function StateMark({ status, basis, text, label, fieldKey, doc, estimate }: { status: ValueStatus; basis: string | null; text: string; label: string; fieldKey?: string; doc?: string | undefined; estimate?: { id: string | null; value: string } }) {
+  const texts = useContext(OfficeTextsContext);
   const cls = `badge ${STATUS_CLASS[status]}`;
   const data: Record<string, string> = { "data-state": status, ...(fieldKey !== undefined ? { "data-state-of": fieldKey } : {}) };
+  // 推定の根拠の文の事務所の文（説明の一覧の estimate:…。消せない。公式の文は {basis} に入る。0016 の 2026-11-02 の追記）
+  const est = status === "estimated" && basis !== null && estimate !== undefined && texts.size > 0 ? officeEstimate(texts.get(estimate.id ?? ""), basis, estimate.value) : null;
   const body =
     status === "estimated" && basis !== null
-      ? `推定: ${basis}`
+      ? `推定: ${est?.text ?? basis}`
       : status === "unknown"
         ? `書類待ち（${doc !== undefined ? `${doc}で確かめるまで、` : ""}${substituteText(basis ?? "推定")}）`
         : status === "missing"
@@ -126,8 +130,16 @@ export function StateMark({ status, basis, text, label, fieldKey, doc }: { statu
       <p class="est-basis" data-basis>
         {body}
       </p>
+      {est !== null && basis !== null ? <OfficeTextMark entry={est.office} official={`推定: ${basis}`} /> : null}
     </Help>
   );
+}
+
+/** 推定の根拠の文に事務所の文を当てる（書き換え・足すだけ。消す行は本体が承認しない。差し込みの印は {basis} と {value}） */
+export function officeEstimate(e: OfficeTextEntry | undefined, basis: string, value: string): { text: string; office: OfficeTextEntry } | null {
+  if (e === undefined || e.text === null || e.official !== ESTIMATE_OFFICIAL || (e.do !== "replace" && e.do !== "append")) return null;
+  const mine = fillName(e.text, { basis, value });
+  return { text: e.do === "append" ? `${basis}\n${mine}` : mine, office: e };
 }
 
 /**
@@ -196,11 +208,17 @@ function FieldHelp({ f, wh, extra = [] }: { f: FieldDef; wh: WorkingHousehold; e
   const help = f.readOnly === undefined && f.help !== undefined && f.help !== "" ? f.help : null;
   const ap = help !== null && texts.size > 0 ? applyOfficeText(texts, fieldTextId(f, wh), help) : { text: f.readOnly ?? f.help ?? null, office: null };
   const lines = [ap.text, f.sideEffects, ...extra].filter((x): x is string => x !== undefined && x !== null && x !== "");
-  if (lines.length === 0) return null;
+  // 事務所の名前を当てた欄は、「?」でいつでも公式の名前を見られる（説明が無い欄でも「?」を出す）
+  if (lines.length === 0 && f.officialLabel === undefined) return null;
   return (
     <Help label={f.label}>
       {lines.flatMap((l, i) => helpBlocks(l, String(i)))}
       {ap.office !== null && help !== null ? <OfficeTextMark entry={ap.office} official={help} /> : null}
+      {f.officialLabel !== undefined ? (
+        <p class="help-official-name" data-official-name={f.officialLabel}>
+          公式の名前: {f.officialLabel}（事務所の名前で出しています）
+        </p>
+      ) : null}
     </Help>
   );
 }
@@ -519,14 +537,17 @@ export function MoreToggle({ groupKey, open, toggle, label, text, swapNotes = []
  * nested は、ほかのまとまりの枠の中に描くまとまり（枠と地の色を付けず、見出しと薄い区切りの線だけ。1件 = 1つの枠）
  */
 export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub = [], nested = false, moreLast = false }: { group: GroupDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void; more?: GroupMore; moreOf?: string; inner?: readonly InnerGroup[]; sub?: readonly ComponentChildren[]; nested?: boolean; moreLast?: boolean }) {
+  // 事務所の欄の見せ方（カスタム層の隠す・並べ替え。見せ方だけで、世帯の値と計算は変えない。値の入った欄は隠さない）
+  const layout = useContext(OfficeFieldsContext);
+  const arrange = (fs: readonly FieldDef[]) => arrangeFields(fs, (f) => fieldTextId(f, wh), (f) => hasFieldValue(f, wh), layout);
   // 説明の欄（値ではなく説明の文）は、幅いっぱいの説明として描く（readLines.ts の infoNote）
   if (group.info !== undefined) return <InfoNote title={group.info.title} text={group.info.text} fold={group.info.fold} groupKey={group.key} />;
   // 詳細の欄が見えているとき（詳細、または標準で「▸ 詳しく」を開いたとき）は、標準だけの欄（simpleOnly）を出さない（代わりに詳細の欄を出す）
   const detailShown = level === "detail" || more?.open === true;
-  const fields = group.fields.filter((f) => visible(level, f.level) && !(detailShown && f.simpleOnly === true));
+  const fields = arrange(group.fields.filter((f) => visible(level, f.level) && !(detailShown && f.simpleOnly === true)));
   const actions = group.actions.filter((a) => visible(level, a.level));
   // 標準で「▸ 詳しく」を開いたときだけ出す欄・ボタン（詳細の欄と、詳細では別の所に出す欄 openFields）
-  const extraFields = more?.open === true ? [...group.fields.filter((f) => !visible(level, f.level)), ...(group.openFields ?? [])] : [];
+  const extraFields = more?.open === true ? arrange([...group.fields.filter((f) => !visible(level, f.level)), ...(group.openFields ?? [])]) : [];
   const extraActions = more?.open === true ? group.actions.filter((a) => !visible(level, a.level)) : [];
   if (fields.length === 0 && actions.length === 0 && group.note === undefined && more === undefined && inner.length === 0 && sub.length === 0) return null;
   if (group.chips === true) return <Chips group={group} actions={actions} wh={wh} onEdit={onEdit} />;
@@ -865,7 +886,11 @@ export function StateOpLinks({ f, ops, run, lead }: { f: FieldDef; ops: readonly
 export const shouldCommitOnBlur = (startText: string | null, text: string): boolean => startText === null || text !== startText;
 
 /** 欄1つ。打っている間は下書きの文字を持ち、読める値になったらすぐ世帯に入れる（計算は親が間引く） */
-export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
+export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
+  // 事務所の名前（カスタム層の名前の差し替え。承認した物だけ）: 欄の名前・読み上げの名前・「?」の見出しのどこでも同じ名前にする
+  const names = useContext(OfficeNamesContext);
+  const named = names.size > 0 ? applyOfficeName(names, fieldTextId(given, wh), given.label) : null;
+  const f: FieldDef = named !== null && named.office !== null ? { ...given, label: named.name, officialLabel: given.label } : given;
   const state = f.get(wh);
   const sug = useContext(FieldSuggestions)[f.key];
   const inSection = useContext(InSection);
@@ -892,7 +917,7 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
   // 状態の印（根拠は印を押すと開く。0077）
   const badge =
     shownStatus !== null && shownStatus !== "confirmed" ? (
-      <StateMark status={shownStatus} basis={shownStatus === "notApplicable" ? null : basisText} text={shownStatus === "estimated" && status === null && state.estimated == null ? "仮" : shownStatus === "missing" ? "未入力" : STATUS_LABELS[shownStatus]} label={f.label} doc={f.docCheck} />
+      <StateMark status={shownStatus} basis={shownStatus === "notApplicable" ? null : basisText} text={shownStatus === "estimated" && status === null && state.estimated == null ? "仮" : shownStatus === "missing" ? "未入力" : STATUS_LABELS[shownStatus]} label={f.label} doc={f.docCheck} estimate={{ id: estimateTextId(f, wh), value: estimateValueText(f, wh) }} />
     ) : state.partEstimated != null ? (
       // 欄の値は確定でも、内訳の一部が推定（年収〔賞与込み〕の賞与など）なら「推定」の印（押すと根拠。0077 の追記）
       <StateMark status="estimated" basis={state.partEstimated} text="推定" label={f.label} />

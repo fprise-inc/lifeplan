@@ -4,6 +4,7 @@
 // - 世帯の内部 ID（構成員・物の ID）、氏名・宛名、FP のメモ、カスタム計算の印は写さない（0009 の9・0016 の2）。
 // - 構成員の呼び方と表の行の決め方は、アプリの提示の値（app/src/workspace/roles.ts・present.ts）と同じにしている。
 import { childScholarshipNotes } from "./childScholarships.ts";
+import { rowName, sameRowName, type OfficeRowNames } from "./rowNames.ts";
 import type { EngineOutput, EngineRequest, ProposalBundle, RealEstateAnalysisAmounts, RealEstateAnalysisYear, RealEstateDetail, Run, TableCell } from "./bundle.ts";
 import { saleCompareOf, type SaleResult } from "./rentalSale.ts";
 import { pctText, timesText } from "./rentalText.ts";
@@ -195,7 +196,7 @@ export function carExpense(req: EngineRequest): (c: TableCell) => boolean {
   return (c) => ids.size > 0 && c.object !== undefined && ids.has(c.object) && under(c.row, "cf.expense");
 }
 
-function rowDefs(req: EngineRequest): RowDef[] {
+function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
   const rs = roles(req).filter((r) => r.key === "self" || r.key === "spouse");
   const defs: RowDef[] = [];
   const byMember = (prefix: string, role: Role) => (c: TableCell) => under(c.row, prefix) && c.member === role.member.id;
@@ -209,8 +210,8 @@ function rowDefs(req: EngineRequest): RowDef[] {
   const hasReExp = props.some((a) => a.property?.rental !== undefined || a.property?.expenses !== undefined || (a.property?.repairs ?? []).length > 0);
   const isRent = (c: TableCell) => hasRent && c.row === "cf.income.other.rental";
   const isReExp = (c: TableCell) => hasReExp && c.row === "cf.expense.other.realEstate";
-  for (const r of rs) defs.push({ key: `salary:${r.key}`, label: `${r.label}の給与`, group: "income", kind: "value", match: byMember("cf.income.salary", r) });
-  for (const r of rs) defs.push({ key: `pension:${r.key}`, label: `${r.label}の年金`, group: "income", kind: "value", match: byMember("cf.income.pension", r) });
+  for (const r of rs) defs.push({ key: `salary:${r.key}`, label: rowName(names, "salary", { person: r.label }), group: "income", kind: "value", match: byMember("cf.income.salary", r) });
+  for (const r of rs) defs.push({ key: `pension:${r.key}`, label: rowName(names, "pension", { person: r.label }), group: "income", kind: "value", match: byMember("cf.income.pension", r) });
   const ids = new Set(rs.map((r) => r.member.id));
   const known = (c: TableCell, p: string) => under(c.row, p) && c.member !== undefined && ids.has(c.member);
   const known5 = ["cf.expense.living", "cf.expense.housing", "cf.expense.education", "cf.expense.insurance", "cf.expense.lumpSum", "cf.expense.advisoryFee"];
@@ -244,15 +245,16 @@ function rowDefs(req: EngineRequest): RowDef[] {
     { key: "financial", label: "金融資産残高", group: "assets", kind: "total", match: (c) => c.row === "cf.balance.financial" },
     { key: "debt", label: "住宅ローン残高", group: "assets", kind: "value", match: (c) => under(c.row, "cf.balance.debt") },
   );
-  return defs;
+  // 事務所の名前（カスタム層の名前の差し替え。人ごとの行は上で当てた）
+  return defs.map((d) => (d.key.includes(":") ? d : { ...d, label: rowName(names, d.key) }));
 }
 
 const GROUP_LABEL: Record<RowDef["group"], string> = { income: "収入", expense: "支出", net: "", assets: "貯蓄・資産" };
 
-function cashflowTable(run: Run, years: readonly number[], title: string): CfTable {
+function cashflowTable(run: Run, years: readonly number[], title: string, names?: OfficeRowNames): CfTable {
   const rows: CfRow[] = [];
   let lastGroup: RowDef["group"] | null = null;
-  for (const d of rowDefs(run.request)) {
+  for (const d of rowDefs(run.request, names)) {
     const sums = sumByYear(run.result.table, d.match);
     const cells = years.map((y) => sums.get(y) ?? null);
     if (d.kind === "value" && cells.every((c) => (c ?? 0) === 0)) continue;
@@ -664,7 +666,8 @@ function basics(ctx: Ctx): ProposalInput["basics"] {
   const year = ctx.years[0] ?? ctx.baseYear;
   const t = run.result.table;
   const sum = (pred: (c: TableCell) => boolean, y = year) => t.reduce((s, c) => (c.year === y && pred(c) ? s + c.amount : s), 0);
-  const nonZero = (xs: NamedAmount[]) => xs.filter((x) => x.amount !== 0);
+  // 表の行と同じ名前の内訳は、表の行の事務所の名前にする（カスタム層の名前の差し替え）
+  const nonZero = (xs: NamedAmount[]) => xs.filter((x) => x.amount !== 0).map((x) => ({ ...x, label: sameRowName(ctx.bundle.names, x.label) }));
   const isWork = (c: TableCell) => under(c.row, "cf.income.salary") || under(c.row, "cf.income.business");
   const known = ["cf.expense.living", "cf.expense.housing", "cf.expense.education", "cf.expense.insurance"];
   const income = nonZero([
@@ -1019,7 +1022,7 @@ function contingency(ctx: Ctx): ProposalInput["contingency"] {
     const dep = depletionYear(r, ctx.years);
     const surv = sumByYear(r.table, (c) => under(c.row, "cf.income.pension.survivor"));
     const breakdown = groups
-      .map((g) => ({ label: g.label, amount: total(sumByYear(r.table, g.match), ctx.years) - total(sumByYear(base.table, g.match), ctx.years) }))
+      .map((g) => ({ label: sameRowName(ctx.bundle.names, g.label), amount: total(sumByYear(r.table, g.match), ctx.years) - total(sumByYear(base.table, g.match), ctx.years) }))
       .filter((b) => b.amount !== 0);
     scenarios.push({
       title: s.title,
@@ -1642,7 +1645,7 @@ export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
     basics: basics(ctx),
     events: events(ctx),
     dreams: dreams(ctx),
-    cashflow: { current: cashflowTable(bundle.current, years, "キャッシュフロー表（現状）"), proposal: cashflowTable(bundle.proposal, years, "キャッシュフロー表（提案）") },
+    cashflow: { current: cashflowTable(bundle.current, years, "キャッシュフロー表（現状）", bundle.names), proposal: cashflowTable(bundle.proposal, years, "キャッシュフロー表（提案）", bundle.names) },
     assets: { current: seriesOf(financialOf(bundle.current.result), years), proposal: seriesOf(financialOf(bundle.proposal.result), years) },
     balanceSheet: balanceSheet(ctx),
     education: education(ctx),
