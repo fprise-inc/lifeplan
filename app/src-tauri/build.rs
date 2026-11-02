@@ -78,6 +78,17 @@ const COMMANDS: &[&str] = &[
     "feature_code_candidate_decide",
     // 0110 の追記（2026-11-02）: 期限の切れた・止めたコードの知らせを閉じる（コードは外さない）
     "feature_code_notice_dismiss",
+    // 0016 の追記（2026-11-02）: カスタム層の説明の文の差し替え（状態・当てる文・承認する・しない・公式の文に戻す・更新で変わった行の確かめ・
+    // 台帳の作り直し）と、カスタム層の場所（本体のダイアログで選ぶ・既定に戻す・フォルダを作る）。パスは受け取らない
+    "custom_texts_status",
+    "custom_texts_approve",
+    "custom_texts_decline",
+    "custom_texts_revert",
+    "custom_texts_rows",
+    "custom_ledger_reset",
+    "custom_dir_choose",
+    "custom_dir_reset",
+    "custom_dir_create",
     "store_fork_info",
     "store_fork_resolve",
     "store_sync_copies_resolve",
@@ -309,6 +320,14 @@ fn main() {
         ),
     )
     .unwrap();
+
+    // 0016 の追記（2026-11-02）: 説明の一覧（画面のビルドの段 npm run prepare-assets が画面の定義から作る）
+    let catalog = manifest_dir.join("../src/generated/texts-catalog.json");
+    if !catalog.exists() {
+        panic!("説明の一覧（app/src/generated/texts-catalog.json）がありません。先に app/ で `npm run prepare-assets` を流してください");
+    }
+    println!("cargo:rerun-if-changed={}", catalog.display());
+    std::fs::copy(&catalog, out_dir.join("texts-catalog.json")).unwrap();
 
     tauri_build::try_build(
         tauri_build::Attributes::new()
