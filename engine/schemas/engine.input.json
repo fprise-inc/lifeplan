@@ -1335,7 +1335,7 @@
         "subtype": {
           "title": "保険の種類の細目（画面のひな形。表示と推定の元だけ。計算には使わない。計算の型は template。0054）",
           "x-item": "insurance.subtype",
-          "enum": ["term", "decreasingTerm", "incomeProtection", "wholeLife", "endowment", "medical", "cancer", "threeMajor", "incapacity", "education", "privateAnnuity", "mutualAid", "groupTerm", "care", "foreignCurrency", "variable", "nonLife"]
+          "enum": ["term", "decreasingTerm", "incomeProtection", "wholeLife", "lowSurrender", "account", "endowment", "medical", "cancer", "threeMajor", "incapacity", "education", "privateAnnuity", "mutualAid", "groupTerm", "care", "foreignCurrency", "variable", "nonLife"]
         },
         "label": { "title": "名前（表示用。計算には使わない。0054）", "x-item": "insurance.label", "type": "string", "maxLength": 100 },
         "policyholder": { "title": "契約者", "x-item": "insurance.policyholder", "$ref": "urn:financia:schema:common#/$defs/uuid" },
@@ -1451,7 +1451,36 @@
             "returnRate": { "description": "払込の終わりの解約返戻率（払込保険料の累計に対する割合。終身・学資・個人年金）", "$ref": "urn:financia:schema:common#/$defs/rate" },
             "assetClass": { "description": "変額・外貨建: 積立の部分を伸ばす資産クラス（前提の利回り）", "$ref": "#/$defs/assetClass" },
             "loadRate": { "description": "変額・外貨建: 保険料のうち積立に回らない割合", "$ref": "urn:financia:schema:common#/$defs/rate" },
-            "estimate": { "description": "変額・外貨建: 円の目安の形（true なら積立金を前提の利回りで伸ばさず、死亡保険金は保障の明細の額、解約返戻金は数表の行の額だけで計算する。0054）", "type": "boolean" }
+            "estimate": { "description": "変額・外貨建: 円の目安の形（true なら積立金を前提の利回りで伸ばさず、死亡保険金は保障の明細の額、解約返戻金は数表の行の額だけで計算する。0054）", "type": "boolean" },
+            "returnRateDuring": { "description": "払込中の解約返戻率（低解約返戻金型。払込の終わりの前は、払込保険料の累計×この率。省略は払込の終わりの率に向かってまっすぐ伸ばす前のまま。0055 の追記 2026-11-03）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "returnRatePoints": {
+              "description": "払込が終わった後の年齢ごとの解約返戻率（設計書の解約返戻金の推移の表から写す点。被保険者のその年齢になる月の率で、点の間はまっすぐつなぐ。最後の点の後はその率のまま。払込の終わりより前の年齢の点は使わない。0055 の追記 2026-11-03）",
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["age", "rate"],
+                "properties": {
+                  "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+                  "age": { "description": "被保険者の年齢（満）", "type": "integer", "minimum": 0, "maximum": 120 },
+                  "rate": { "$ref": "urn:financia:schema:common#/$defs/rate" }
+                }
+              }
+            },
+            "account": {
+              "description": "アカウント型（利率変動型積立終身保険）の積立の部分（0055 の追記 2026-11-03）。積立金は契約の月の0円から、払込が終わった時の額（value）まで保険年度ごとにまっすぐ増えるものとして計算し（途中で解約したときの解約返戻金も、亡くなったときに死亡保険金に足す積立金もこの線から）、払込の後は after で扱う: wholeLife 終身保険に移す（死亡保険金 deathBenefit。解約返戻金は value のまま）・annuity 年金で受け取る（払込の終わりの月から毎年 annual を years 年。積立金は受け取った回数の分だけ減る）・surrender 払込の終わりの月に解約して value を受け取る。利率の変動は計算しない（設計書の数字を入れ直す）",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["value", "after"],
+              "properties": {
+                "value": { "description": "払込が終わった時の積立金の目安（設計書の額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "after": { "enum": ["wholeLife", "annuity", "surrender"] },
+                "deathBenefit": { "description": "終身保険に移した後の死亡保険金（after が wholeLife のとき）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "annual": { "description": "年金の年額（after が annuity のとき）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "years": { "description": "年金の年数（after が annuity のとき。省略は10年）", "type": "integer", "minimum": 1, "maximum": 50 }
+              }
+            }
           }
         },
         "surrender": { "title": "解約する月（解約返戻金を受け取り、保障と払込が終わる）", "x-item": "insurance.surrender", "$ref": "urn:financia:schema:common#/$defs/timepoint" },

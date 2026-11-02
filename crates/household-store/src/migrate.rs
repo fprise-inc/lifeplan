@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.52";
+pub const CURRENT: &str = "0.53";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -170,15 +170,19 @@ pub const CURRENT: &str = "0.52";
 /// - 0.51: 保険の種類の細目 `insuranceContracts[].subtype` に三大疾病保険 `threeMajor`（医療保険の型 `insurance.medical` で計算し、主な保障は
 ///   三大疾病一時金 `threeMajorLump`）を足した（0055 の追記 2026-11-02。足すだけの MINOR）。前の版のアプリは細目を読めないので、版を上げて
 ///   閲覧だけにする。変換の段は形式の版だけを書き換える
-/// - 0.52: 住宅の購入の新築か中古か `residences[].purchase.newBuild`（住宅の購入の種類。0052 の追記 2026-11-03）と、認定長期優良住宅か
+/// - 0.52: 保険の種類の細目に低解約返戻金型終身保険 `lowSurrender`・アカウント型 `account`（どちらも終身保険の型 `insurance.wholeLife`）と、
+///   簡易の入力 `insuranceContracts[].simple` の払込中の解約返戻率 `returnRateDuring`・年齢ごとの解約返戻率の点 `returnRatePoints`
+///   （要素は ID を持つ）・アカウント型の積立の部分 `account`（払込が終わった時の積立金・払込の後の扱い）を足した（0055 の追記 2026-11-03。
+///   足すだけの MINOR）。前の版のアプリは細目と欄を読めないので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える
+/// - 0.53: 住宅の購入の新築か中古か `residences[].purchase.newBuild`（住宅の購入の種類。0052 の追記 2026-11-03）と、認定長期優良住宅か
 ///   `residences[].purchase.longLife`（固定資産税の推定。0112）を足した（どちらも表示と推定の元だけで計算に使わない。足すだけの MINOR）。
-///   前の版のアプリは種類を読めないので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える
+///   前の版のアプリは種類を読めないので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える。0.52 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
-    "0.50", "0.51", "0.52",
+    "0.50", "0.51", "0.52", "0.53",
 ];
 
 /// 1段分の変換
@@ -444,6 +448,11 @@ pub const STEPS: &[Step] = &[
         from: "0.51",
         to: "0.52",
         apply: v0_51_to_0_52,
+    },
+    Step {
+        from: "0.52",
+        to: "0.53",
+        apply: v0_52_to_0_53,
     },
 ];
 
@@ -1850,12 +1859,22 @@ fn v0_50_to_0_51(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
-/// 0.51 → 0.52: 足した値（住宅の購入の新築か中古か `purchase.newBuild`・認定長期優良住宅か `purchase.longLife`。0052 の追記 2026-11-03・0112）は
-/// 前の版の世帯に無いので、形式の版だけを書き換える。ほかの欄に触れない（前の購入の予定の種類は、画面が読める範囲で見せるだけ）
+/// 0.51 → 0.52: 足した値（保険の種類の細目の低解約返戻金型・アカウント型と、簡易の入力の払込中の解約返戻率・年齢ごとの率の点・積立の部分。
+/// 0055 の追記 2026-11-03）は前の版の世帯に無いので、形式の版だけを書き換える。ほかの欄に触れない
 fn v0_51_to_0_52(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
         meta.insert("formatVersion".into(), "0.52".into());
+    }
+    Ok(body)
+}
+
+/// 0.52 → 0.53: 足した値（住宅の購入の新築か中古か `purchase.newBuild`・認定長期優良住宅か `purchase.longLife`。0052 の追記 2026-11-03・0112）は
+/// 前の版の世帯に無いので、形式の版だけを書き換える。ほかの欄に触れない（前の購入の予定の種類は、画面が読める範囲で見せるだけ）
+fn v0_52_to_0_53(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.53".into());
     }
     Ok(body)
 }
@@ -2407,7 +2426,8 @@ mod tests {
         assert_eq!(access("0.50").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.51").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.52").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.53").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.53").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.54").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -2420,7 +2440,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.53", b.clone()).unwrap(),
+            upgrade("0.54", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -2816,15 +2836,29 @@ mod tests {
 
     #[test]
     fn v0_51_to_0_52_only_bumps_version() {
-        // 足した値（住宅の購入の新築か中古か・長期優良住宅か。0052 の追記 2026-11-03・0112）は前の版の世帯に無いので、世帯はそのまま
+        // 足した値（低解約返戻金型・アカウント型と簡易の入力の欄。0055 の追記 2026-11-03）は前の版の世帯に無いので、世帯はそのまま
         let b = serde_json::json!({
             "meta": {"formatVersion": "0.51"},
+            "household": {"request": {"input": {"baseMonth": "2026-10", "household": {
+                "insuranceContracts": [{"id": "c1", "template": "insurance.wholeLife", "subtype": "wholeLife", "insured": "m1", "simple": {"returnRate": "1.05"}}]
+            }}}}
+        });
+        let u = upgrade("0.51", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+    }
+
+    #[test]
+    fn v0_52_to_0_53_only_bumps_version() {
+        // 足した値（住宅の購入の新築か中古か・長期優良住宅か。0052 の追記 2026-11-03・0112）は前の版の世帯に無いので、世帯はそのまま
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.52"},
             "household": {"request": {"input": {"baseMonth": "2026-10", "household": {
                 "residences": [{"id": "r1", "kind": "own", "from": {"at": "2028-10"}, "to": null, "purchase": {"at": {"at": "2028-10"}, "price": 40000000, "downPayment": 4000000, "costs": 2000000}}]
             }}}}
         });
-        let u = upgrade("0.51", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.52");
+        let u = upgrade("0.52", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.53");
         assert_eq!(u["household"], b["household"]);
     }
 

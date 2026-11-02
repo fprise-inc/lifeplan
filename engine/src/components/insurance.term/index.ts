@@ -1,6 +1,8 @@
 // 保険契約1件の、保障と払込が終わる月と払込免除の月（判定だけを返す小さな部品。insurance.premiumPayment と insurance.policy が読む）。
 // - 終わる月（endsAt。その月から保障も払込も無い）: 解約の月（surrender）、被保険者の死亡の月の翌月（万一の想定）、満期（主契約・満期金の
 //   保障の終わりの翌月。終身は無い）の早い方
+// - アカウント型（simple.account。改訂2。0055 の追記 2026-11-03）: 積立の部分は保障の部分（定期の死亡保障）の終わりの後も続くので、満期では
+//   終わらない。払込の後の扱いが「解約して受け取る」なら、払込の終わりの月に解約で終わる
 // - 払込免除（waiver が真の契約）: 被保険者の障害・就業不能の想定の月の翌月から払込が止まる（保障は続く）
 import { addMonths, defineComponent, formatYm, parseYm, type ContingencyEventOutput, type InsuranceContractInput, type MonthIndex } from "../../sdk/index.ts";
 
@@ -10,14 +12,15 @@ export default defineComponent<{ object: string }, Out>({
   id: "insurance.term",
   title: "保険契約の終わりと払込免除（判定）",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "contingency.event": ">=1 <2" },
   params: [],
-  reads: ["insurance.insured", "insurance.surrender", "insurance.coverages", "insurance.waiver"],
+  reads: ["insurance.insured", "insurance.surrender", "insurance.coverages", "insurance.waiver", "insurance.simple", "insurance.premium"],
   input: "object.input",
   output: "insurance.term.output",
   compute(input, ctx) {
-    const c = ctx.get<Pick<InsuranceContractInput, "id" | "insured" | "surrender" | "coverages" | "waiver">>("insurance", input.object);
+    const c = ctx.get<Pick<InsuranceContractInput, "id" | "insured" | "surrender" | "coverages" | "waiver" | "simple" | "premium">>("insurance", input.object);
+    const account = c.simple?.account;
     let endsAt: MonthIndex | null = null;
     let cause: Out["cause"] = null;
     const take = (m: MonthIndex, why: NonNullable<Out["cause"]>) => {
@@ -27,9 +30,10 @@ export default defineComponent<{ object: string }, Out>({
       }
     };
     if (c.surrender !== undefined) take(ctx.time.resolve(c.surrender), "surrender");
+    if (account?.after === "surrender" && c.premium.payUntil !== null) take(ctx.time.resolve(c.premium.payUntil), "surrender");
     // 満期: 主契約の保障の終わり（すべての主契約に終わりがあり、満期金・年金の保障が無ければ、その後は払込も保障も無い）
     const mains = (c.coverages ?? []).filter((x) => x.role === "main");
-    if (mains.length > 0 && mains.every((x) => x.to !== undefined && x.to !== null) && !mains.some((x) => x.benefit === "annuity")) {
+    if (account === undefined && mains.length > 0 && mains.every((x) => x.to !== undefined && x.to !== null) && !mains.some((x) => x.benefit === "annuity")) {
       let last: MonthIndex | null = null;
       for (const x of mains) {
         const t = ctx.time.resolve(x.to as never);

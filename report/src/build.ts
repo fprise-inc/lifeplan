@@ -318,8 +318,8 @@ const INSURANCE_LABEL: Record<string, string> = {
   "insurance.nonLife": "損害保険（火災・地震など）",
 };
 
-/** 計算の型と名前が違う種類の細目（三大疾病保険は医療保険の型で計算する。0055 の追記 2026-11-02） */
-const SUBTYPE_LABEL: Record<string, string> = { threeMajor: "三大疾病保険" };
+/** 計算の型と名前が違う種類の細目（三大疾病保険は医療保険の型、低解約返戻金型・アカウント型は終身保険の型で計算する。0055 の追記 2026-11-02・11-03） */
+const SUBTYPE_LABEL: Record<string, string> = { threeMajor: "三大疾病保険", lowSurrender: "低解約返戻金型終身保険", account: "アカウント型保険" };
 
 const BENEFIT_LABEL: Record<string, string> = {
   death: "死亡保険金",

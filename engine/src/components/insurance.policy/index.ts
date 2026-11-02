@@ -25,6 +25,17 @@
 // - 変額・外貨建の円の目安の形（改訂2。simple.estimate。0054）: 積立金を前提の利回りで伸ばさず、死亡保険金は保障の明細の額、
 //   解約返戻金は数表の行の額だけ（行が無ければ0）
 // - 年ごとの値に、年末までの払込保険料の累計（paid。契約の月から）を添える（約束の版 1.1。0054）
+// - 低解約返戻金型（改訂3。simple.returnRateDuring・returnRatePoints。0055 の追記 2026-11-03）: 払込中の率があれば、払込の終わりの前は
+//   払込保険料の累計×払込中の率（まっすぐ伸ばさない）。払込の後は払込の終わりの率（returnRate）のまま。年齢ごとの率の点があれば、
+//   払込の終わりの月（払込の終わりの率）と各点（被保険者がその年齢になる月）の間をまっすぐつなぎ、最後の点の後はその率のまま。
+//   払込の終わりより前の年齢の点は使わない。運用の計算はしない（設計書の数字を写す）
+// - アカウント型（改訂3。simple.account。0055 の追記 2026-11-03）: 積立金は契約の月の0円から払込の終わりの額（value）まで保険年度ごとに
+//   まっすぐ増える（保険年度 n の終わりで value×12n÷払込の月数）。解約返戻金と、亡くなったときに死亡保険金に足す額はこの線から。
+//   払込の後: 終身保険に移す（wholeLife）なら死亡保険金は deathBenefit（積立金は足さない）・解約返戻金は value のまま。年金で受け取る
+//   （annuity）なら払込の終わりの月から毎年 annual を years 年（省略は10年。個人年金と同じ税: 受取人＝契約者 なら雑所得で、必要経費は
+//   払込保険料×年金額÷年金の総額）、積立金は受け取った回数の分だけ value から減る（解約返戻金・亡くなったときの額）。解約して受け取る
+//   （surrender）なら払込の終わりの月に value を解約で受け取る（insurance.term がその月で終わりにする。一時所得）。保障の部分の死亡保険金は
+//   保障の明細のとおり（定期保険と同じ）。利率の変動は計算しない（設計書の数字を入れ直す）。払込の終わりが無ければ積立金は0とし、入力を求める
 import {
   addMonths,
   addYen,
@@ -84,7 +95,7 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
   id: "insurance.policy",
   title: "保険契約（保険年度ごとの値と受け取り）",
   contract: "1.1",
-  revision: 2,
+  revision: 3,
   requires: { "insurance.term": ">=1 <2", "insurance.premiumPayment": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [],
   reads: [
@@ -202,12 +213,35 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
       }
     }
     // 払込の月数（貯蓄型の解約返戻金の伸び）
-    const payMonths = c.premium.payUntil === null ? null : ctx.time.resolve(c.premium.payUntil) - start;
+    const payEndM = c.premium.payUntil === null ? null : ctx.time.resolve(c.premium.payUntil);
+    const payMonths = payEndM === null ? null : payEndM - start;
+    // アカウント型の積立金（m の月の終わりの時点。0055 の追記 2026-11-03）
+    const account = c.simple?.account;
+    const annuityYears = account?.years ?? 10;
+    if (account !== undefined && (payMonths === null || payMonths <= 0)) ctx.notice("N_INPUT_REQUIRED", [c.id, "insurance.simple.account"]);
+    const accountAt = (m: MonthIndex): Yen => {
+      if (account === undefined || payEndM === null || payMonths === null || payMonths <= 0) return yen(0);
+      const value = yen(account.value);
+      if (m < payEndM) {
+        const n = Math.max(0, Math.floor((m - start + 1) / 12));
+        return ctx.money.mulRatio(value, Math.min(12 * n, payMonths), payMonths, "conv.investment.return");
+      }
+      if (account.after !== "annuity") return value;
+      let made = 0;
+      for (let k = 0; k < annuityYears; k++) if (addMonths(payEndM, 12 * k) <= m) made++;
+      return ctx.money.mulRatio(value, annuityYears - made, annuityYears, "conv.investment.return");
+    };
+    // 低解約返戻金型の払込の後の年齢ごとの率の点（被保険者がその年齢になる月。払込の終わりの後の点だけ。月の順）
+    const ratePoints = (c.simple?.returnRatePoints ?? [])
+      .map((p) => ({ m: ctx.time.resolve({ memberAge: { member: c.insured, years: p.age, months: 0 } }), rate: p.rate }))
+      .filter((p) => payEndM !== null && p.m > payEndM)
+      .sort((a, b) => a.m - b.m);
     let noticedRate = false;
     const surrenderAt = (py: number): Yen => {
       if (py <= 0) return yen(0);
       const s = sched(py, "surrenderValue");
       if (s !== null) return s;
+      if (account !== undefined) return accountAt(addMonths(start, 12 * py - 1));
       if (FUND.has(c.template)) return grows ? (fund.get(py) ?? yen(0)) : yen(0);
       if (!SAVINGS.has(c.template)) return yen(0);
       if (c.simple?.returnRate === undefined) {
@@ -216,10 +250,26 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
         noticedRate = true;
         return yen(0);
       }
-      const paid = paidUpTo(addMonths(start, 12 * py - 1));
-      const v = ctx.money.mulRate(paid, ctx.rate.of(c.simple.returnRate), "conv.investment.return");
-      if (payMonths === null || payMonths <= 0 || 12 * py >= payMonths) return v;
-      return ctx.money.mulRatio(v, 12 * py, payMonths, "conv.investment.return");
+      const yearEnd = addMonths(start, 12 * py - 1);
+      const paid = paidUpTo(yearEnd);
+      const times = (r: string): Yen => ctx.money.mulRate(paid, ctx.rate.of(r), "conv.investment.return");
+      const during = c.simple.returnRateDuring;
+      // 払込中: 払込中の率があればその率（低解約返戻金型）、無ければ払込の終わりの率に向かってまっすぐ伸ばす（終身払いは払込中の率のまま）
+      if (payMonths === null || payMonths <= 0) return times(during ?? c.simple.returnRate);
+      if (12 * py < payMonths) return during !== undefined ? times(during) : ctx.money.mulRatio(times(c.simple.returnRate), 12 * py, payMonths, "conv.investment.return");
+      // 払込の後: 払込の終わりの率のまま。年齢ごとの率の点があれば、点の間をまっすぐつなぐ
+      let m0 = payEndM as MonthIndex;
+      let r0 = c.simple.returnRate;
+      if (yearEnd <= m0) return times(r0);
+      for (const p of ratePoints) {
+        if (yearEnd < p.m) {
+          const a = times(r0);
+          return addYen(a, ctx.money.mulRatio(yen(times(p.rate) - a), yearEnd - m0, p.m - m0, "conv.investment.return"));
+        }
+        m0 = p.m;
+        r0 = p.rate;
+      }
+      return times(r0);
     };
     const policyYear = (m: MonthIndex) => Math.floor((m - start) / 12) + 1;
     // 死亡保険金の一時金（who が被保険者の保障。契約の被保険者の分は、ID の無い数表の行があればそれ、変額は積立金と多い方）
@@ -231,6 +281,8 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
       if (s !== null) total = s;
       else for (const x of coverages) if (x.benefit === "death" && covInsured(x) === who && covActive(x, m)) total += schedCov(py, x.id) ?? x.amount;
       if (own && grows) total = Math.max(total, fund.get(py) ?? 0);
+      // アカウント型: 払込の後に終身保険に移したなら終身保険の死亡保険金、ほかはその時の積立金を足す
+      if (own && account !== undefined) total += payEndM !== null && m >= payEndM && account.after === "wholeLife" ? (account.deathBenefit ?? 0) : accountAt(m);
       return total;
     };
     const deathAt = (m: MonthIndex, who: string = c.insured): Yen => {
@@ -387,8 +439,24 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
         }
       }
     }
-    // 解約
-    if (term.cause === "surrender" && endsAt !== null && endsAt >= start) add(endsAt, "surrender", surrenderAt(Math.floor((endsAt - start) / 12)), c.policyholder, "temporary", null);
+    // アカウント型の年金（払込の終わりの月から毎年。個人年金と同じ税）
+    if (account?.after === "annuity" && payEndM !== null && payMonths !== null && payMonths > 0) {
+      const annual = yen(account.annual ?? 0);
+      const expected = ctx.money.mulRatio(annual, annuityYears, 1, "conv.exact");
+      const totalPaid = paidUpTo(payEndM);
+      const cls = annuitant === c.policyholder ? "miscellaneous" : "gift";
+      for (let k = 0; k < annuityYears; k++) {
+        const m = addMonths(payEndM, 12 * k);
+        if (m > end || (endsAt !== null && m >= endsAt)) break;
+        add(m, "annuity", annual, annuitant, cls, null, cls === "miscellaneous" && expected > 0 ? ctx.money.mulRatio(totalPaid, annual, expected, "conv.exact") : yen(0));
+      }
+    }
+    // 解約（アカウント型の払込の後は、その時の積立金。払込の終わりの月は value）
+    const surrenderValueAt = (m: MonthIndex): Yen => {
+      if (account !== undefined && payEndM !== null && m >= payEndM) return m === payEndM ? yen(account.value) : accountAt(addMonths(m, -1));
+      return surrenderAt(Math.floor((m - start) / 12));
+    };
+    if (term.cause === "surrender" && endsAt !== null && endsAt >= start) add(endsAt, "surrender", surrenderValueAt(endsAt), c.policyholder, "temporary", null);
     receipts.sort((a, b) => (a.ym < b.ym ? -1 : a.ym > b.ym ? 1 : 0));
 
     const flows: Flow[] = [];

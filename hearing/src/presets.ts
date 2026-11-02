@@ -144,6 +144,8 @@ const APP_PRESETS: readonly PresetDef[] = [
   p("preset.car.supplies", 50000, "yen", "車", "車の修理・用品などの行（年額）", "template", "よくある額"),
   // ---- 万一・保険 ----
   p("preset.insurance.surgeryRatio", 10, "count", "万一・保険", "手術の給付（入院日額の何倍か）", "template", "ひな形"),
+  p("preset.insurance.lowSurrender.duringRate", "0.7", "pct", "万一・保険", "低解約返戻金型終身保険: 払込中の解約返戻率（払った保険料の累計に対する）", "template", "目安（払込中の返戻金を抑える型は、払込中に払った保険料の累計の7割ほどの設計が多い。商品で違うので設計書の率に直す）"),
+  p("preset.insurance.lowSurrender.endRate", "1.05", "pct", "万一・保険", "低解約返戻金型終身保険: 払込が終わった時の解約返戻率（払った保険料の累計に対する）", "template", "目安（払込が終わると、払った保険料の累計を少し上回る設計が多い。商品で違うので設計書の率に直す）"),
   p("preset.contingency.illness.months", 12, "months", "万一・保険", "大きな病気: 働けない期間", "template", "仮の値"),
   p("preset.contingency.illness.medicalMonthly", 600000, "yen", "万一・保険", "大きな病気: 医療費（月額）", "template", "仮の値"),
   p("preset.contingency.illness.medicalMonths", 6, "months", "万一・保険", "大きな病気: 医療費のかかる期間", "template", "仮の値"),
