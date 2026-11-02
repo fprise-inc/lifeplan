@@ -476,7 +476,7 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
       return { ok: true, value: devOfficeDefaults.value };
     case "defaultsPut": {
       const v = a.value;
-      if (typeof v !== "object" || v === null || Array.isArray(v) || JSON.stringify(v).length > 32 * 1024) return { ok: false, code: "E_STORE_OFFICE_DEFAULTS" };
+      if (typeof v !== "object" || v === null || Array.isArray(v) || JSON.stringify(v).length > 256 * 1024) return { ok: false, code: "E_STORE_OFFICE_DEFAULTS" };
       devOfficeDefaults.value = v as Record<string, unknown>;
       return { ok: true, value: null };
     }

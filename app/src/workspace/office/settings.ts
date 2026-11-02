@@ -9,6 +9,8 @@
 // - 新しい世帯に写す、必要保障額の数え方（いつまでの資金を数えるか・出し方。0085。世帯の万一の前提に写す。作った世帯は世帯の値のまま）
 // - 法人経営者向けの機能（features。0107）: 会社と合わせたバランスシート（合算BS）を使うか。既定は使わない（ふつうの FP・世帯には出さない）。
 //   見せ方だけで計算の結果は変えないので世帯には写さず、変えるとどの世帯にもすぐ効く
+// - 事務所の推定の値（estimates。0111）: 空欄・「わからない」を補う推定の元のマスタデータの値と、推定で埋めない入力欄。推定の元なので世帯には写さず、
+//   推定の目安と計算の要求にその場で入れる（office/estimates.ts）
 // - 読むときは形を確かめ、読めない値は既定（既定の値）にする
 import type { StageId } from "../input/form.ts";
 import { DEFAULT_LAYOUT, type CardLayout } from "../input/items.ts";
@@ -23,6 +25,7 @@ import { GROWTH_RANGE, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../input
 import { readLivingLayout, setLivingLayoutNow, type LivingLayout } from "./livingLayout.ts";
 import type { OfficeHost } from "../../engine/host.ts";
 import type { FeatureStatus } from "./featureCodes.ts";
+import { isEmptyEstimates, publishOfficeEstimates, readOfficeEstimates, type OfficeEstimates } from "./estimates.ts";
 
 export { STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
 
@@ -87,6 +90,8 @@ export interface OfficeSettings {
   changedOn: string | null;
   /** 基本生活費の内訳の並べ方（0109。無ければ標準。世帯には写さない。下の「基本生活費の内訳の並べ方」の区切り） */
   living?: LivingLayout;
+  /** 事務所の推定の値と推定で埋めない入力欄（0111。無ければ公式の統計の値・全部推定で埋める。世帯には写さない。office/estimates.ts） */
+  estimates?: OfficeEstimates;
 }
 
 export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { version: 1, layout: null, items: {}, levers: {}, premises: {}, scenes: {}, protection: {}, care: DEFAULT_CARE_DEFAULTS, inheritLikelihood: "likely", assumptions: {}, realEstateRatio: null, fee: STANDARD_FEE_TABLE, features: DEFAULT_FEATURES, changedOn: null };
@@ -197,6 +202,8 @@ function publishCore(s: OfficeSettings): void {
  */
 export function applyOfficeDefaults(wh: WorkingHousehold, s: OfficeSettings): WorkingHousehold {
   let w = applyCareDefaults(wh, s.care);
+  // 基本生活費を推定で埋めない欄にした事務所（0111）: 空の世帯の推定の基本生活費を入れない（確かめの一覧の未入力に出る。「推定で埋める」で入れられる）
+  if ((s.estimates?.noFill ?? []).includes("livingExpense.monthly")) w = withoutAutoLiving(w);
   // 出す入力項目と開いたときの入れ方（写した後は世帯ごとに直す。事務所の値を変えても作った世帯は変わらない）
   if (!isEmptyChoice(s.items)) w = { ...w, itemChoice: readItemChoice(s.items) };
   // 必要保障額の数え方（標準と違うときだけ。写した後は世帯の値のまま。万一のタブに事務所の値と違うと出る）
@@ -219,6 +226,16 @@ export function applyOfficeDefaults(wh: WorkingHousehold, s: OfficeSettings): Wo
   return w;
 }
 
+/** 推定のまま（出どころ auto）の基本生活費を外した世帯（空の世帯の推定の基本生活費。FP が入れた基本生活費は残す） */
+function withoutAutoLiving(wh: WorkingHousehold): WorkingHousehold {
+  const ls = wh.request.input.household.livingExpenses ?? [];
+  const keep = ls.filter((l) => !(l.monthly?.state === "estimated" && l.monthly.origin.kind === "auto"));
+  if (keep.length === ls.length) return wh;
+  const request = structuredClone(wh.request);
+  request.input.household.livingExpenses = keep;
+  return { ...wh, request };
+}
+
 // ---- 基本生活費の内訳の並べ方（0109。office/livingLayout.ts）----
 // 事務所データの defaults.living（足すだけの欄）。見せ方だけなので世帯には写さず、変えるとどの世帯の内訳の行にもすぐ効く。
 // 欄の無い古い事務所データ・読めない値・標準と同じ並べ方は「標準」（欄を持たない）
@@ -227,16 +244,26 @@ export function applyOfficeDefaults(wh: WorkingHousehold, s: OfficeSettings): Wo
 export function readOfficeSettings(v: unknown): OfficeSettings {
   const s = readCoreSettings(v);
   const living = readLivingLayout(isObj(v) ? v.living : undefined);
-  return living === null ? s : { ...s, living };
+  // 事務所の推定の値（0111。欄の無い古い事務所データ・空なら持たない）
+  const estimates = readOfficeEstimates(isObj(v) ? v.estimates : undefined);
+  return { ...s, ...(living !== null ? { living } : {}), ...(!isEmptyEstimates(estimates) ? { estimates } : {}) };
 }
 
 /** 標準（既定の値）と同じか（設定を保存するときに、標準と同じ値は持たない） */
-export const isDefaultSettings = (s: OfficeSettings): boolean => isDefaultCore(s) && readLivingLayout(s.living) === null;
+export const isDefaultSettings = (s: OfficeSettings): boolean => isDefaultCore(s) && readLivingLayout(s.living) === null && isEmptyEstimates(s.estimates);
 
-/** 今の事務所の既定値を、操作のときに読む所へ入れる（内訳の並べ方は office/livingLayout.ts へ） */
+/** 今の事務所の既定値を、操作のときに読む所へ入れる（内訳の並べ方は office/livingLayout.ts へ、推定の値は推定の目安と計算の要求へ） */
 export function publishOfficeSettings(s: OfficeSettings): void {
   publishCore(s);
   setLivingLayoutNow(readLivingLayout(s.living));
+  publishOfficeEstimates(s.estimates);
+}
+
+/** 事務所の推定の値を置き換えた設定（空なら欄を外す。0111） */
+export function withEstimates(s: OfficeSettings, e: OfficeEstimates): OfficeSettings {
+  const { estimates: _old, ...rest } = s;
+  void _old;
+  return isEmptyEstimates(e) ? rest : { ...rest, estimates: e };
 }
 
 /** 内訳の並べ方を置き換えた設定（標準なら欄を外す） */

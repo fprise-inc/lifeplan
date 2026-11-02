@@ -377,10 +377,11 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   const batch = options.batch;
   if (batch === undefined) checkPackSchemas(packs, options.packsChecked);
 
-  const dataSetKey = JSON.stringify(given.dataSet ?? {});
+  // パックの版の組と事務所の推定の値（0111）が同じ要求どうしで、同じ値の読み取りを使い回す
+  const dataSetKey = given.estimateValues === undefined ? JSON.stringify(given.dataSet ?? {}) : JSON.stringify([given.dataSet ?? {}, given.estimateValues]);
   let store = batch?.stores.get(dataSetKey);
   if (store === undefined) {
-    store = new RegulationStore(packs as readonly PackJson[], given.dataSet ?? {});
+    store = new RegulationStore(packs as readonly PackJson[], given.dataSet ?? {}, (given.estimateValues ?? {}) as Readonly<Record<string, Json>>);
     batch?.stores.set(dataSetKey, store);
   }
   const assembled = batch?.assembly ?? assemble(OFFICIAL_COMPONENTS, options);

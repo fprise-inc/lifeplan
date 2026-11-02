@@ -11,6 +11,7 @@
 //   要求から外す。結果の見方では、夢は理由「夢」で1件ずつ入れ外しでき、「確実な分だけ」では外す。子への援助（教育の目標の gifts）の
 //   優先度が「できれば」の物も、確実な分だけで外す
 import type { Debt, EngineRequest, Household, IncomeFlow, IncomeFlowKind, PeriodicExpense } from "./types.ts";
+import { officeEstimateValues } from "./officeValues.ts";
 
 /** 見込みが「当てにしない」なら基本の計算に入れない入るお金の種類（受け取る相続・遺贈・贈与） */
 export const BASE_EXCLUDED_KINDS: ReadonlySet<IncomeFlowKind> = new Set(["inheritance", "giftReceived"]);
@@ -43,7 +44,7 @@ const withHousehold = (req: EngineRequest, h: Household): EngineRequest => ({ ..
  * 外した入るお金の行・負債を指す物は無い（贈与・移し替えの結び付けは外した行を指しても計算に使わない）
  */
 export function forEngine(req0: EngineRequest): EngineRequest {
-  const req = withoutStoredSettings(req0);
+  const req = withOfficeEstimateValues(withoutStoredSettings(req0));
   const h = req.input.household;
   const incomes = h.incomeFlows ?? [];
   const debts = h.debts ?? [];
@@ -58,6 +59,16 @@ export function forEngine(req0: EngineRequest): EngineRequest {
     ...(dropDebt ? { debts: debts.filter((d) => !excludedDebt(d)) } : {}),
     ...(dropDream ? { periodicExpenses: expenses.filter((p) => !dreamOff(p)) } : {}),
   });
+}
+
+/**
+ * 事務所の推定の値（0111。事務所の既定値の画面で変えたマスタデータの値）を計算の要求に足す。要求がもう estimateValues を持っていれば
+ * そのまま（事務所の既定値の画面の「代表の世帯で差を見る」は、比べる値を自分で入れる）。事務所の値が無ければ同じ物を返す
+ */
+export function withOfficeEstimateValues(req: EngineRequest): EngineRequest {
+  const v = officeEstimateValues();
+  if (v === null || req.input.estimateValues !== undefined) return req;
+  return { ...req, input: { ...req.input, estimateValues: { ...v } } };
 }
 
 /**

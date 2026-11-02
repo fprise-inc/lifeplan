@@ -58,7 +58,8 @@ fn defaults_are_kept_encrypted_and_reopen() {
             .unwrap_err(),
         StoreError::OFFICE_DEFAULTS
     );
-    let big = serde_json::json!({"memo": "x".repeat(40 * 1024)});
+    // 上限は 256KB（0073・0111）
+    let big = serde_json::json!({"memo": "x".repeat(300 * 1024)});
     assert_eq!(
         s2.set_office_defaults(big).unwrap_err(),
         StoreError::OFFICE_DEFAULTS

@@ -154,7 +154,10 @@ export class RegulationStore {
   /** 引いた結果の、行が変わりうる日（boundaryHints の keys）で区切った区間ごとの使い回し（memo → 区間の番号。0005 の追記（2026-10-10）） */
   private readonly regions = new Map<string, NumTable<RegionHit>>();
 
-  constructor(packs: readonly PackJson[], dataSet: Readonly<Record<string, string>> = {}) {
+  /** 0111: 事務所の推定の値（値ID → 条件の値〔条件の無い値は ""〕→ 値）。マスタデータ（master.*）の値だけ */
+  private readonly overrides = new Map<string, Map<string, Json>>();
+
+  constructor(packs: readonly PackJson[], dataSet: Readonly<Record<string, string>> = {}, estimateValues: Readonly<Record<string, Json>> = {}) {
     for (const p of packs) {
       const h = p.pack;
       if (!isReadableFormat(h.formatVersion)) throw new EngineError("E_PACK_FORMAT_VERSION", [h.packId]);
@@ -182,6 +185,35 @@ export class RegulationStore {
     for (const id of Object.keys(dataSet)) {
       if (!this.infos.some((i) => i.packId === id)) throw new EngineError("E_PACK_UNKNOWN", [id]);
     }
+    for (const [key, value] of Object.entries(estimateValues)) this.addOverride(key, value);
+  }
+
+  /**
+   * 0111: 事務所の推定の値を1つ足す。鍵は値ID か「<値ID>.<条件の値>」（条件ごとの行がある値。例 lifeTable.lifeExpectancy.male）。
+   * マスタデータ（master.* のパック）の値だけ（制度データの値・知らない値ID・公式の値と形の違う値は E_ARGUMENT）
+   */
+  private addOverride(key: string, value: Json): void {
+    const bad = () => new EngineError("E_ARGUMENT", ["estimateValues", key]);
+    let id = key;
+    let equals = "";
+    if (!this.defs.has(id)) {
+      const dot = key.lastIndexOf(".");
+      if (dot <= 0) throw bad();
+      id = key.slice(0, dot);
+      equals = key.slice(dot + 1);
+    }
+    const d = this.defs.get(id);
+    if (d === undefined || notMaster(d.pack)) throw bad();
+    const latest = visibleEntries(d.def, d.pack.version)
+      .filter((v) => (equals === "" ? v.entry.conditions.length === 0 : v.entry.conditions.some((c) => c.equals === equals)))
+      .at(-1);
+    if (latest === undefined || !sameShape(latest.entry.value, value)) throw bad();
+    let m = this.overrides.get(id);
+    if (m === undefined) {
+      m = new Map();
+      this.overrides.set(id, m);
+    }
+    m.set(equals, value);
   }
 
   /**
@@ -200,6 +232,9 @@ export class RegulationStore {
       vis = visibleEntries(d.def, d.pack.version);
       if (vis.length > 0) this.later.add(id);
     }
+    // 0111: 事務所の推定の値は、その値（条件ごとの行なら同じ条件の行）のどの時期の行の値も置き換える（出どころは事務所）
+    const o = this.overrides.get(id);
+    if (o !== undefined) vis = vis.map((v) => overridden(v, o));
     this.visible.set(id, vis);
     return vis;
   }
@@ -375,6 +410,44 @@ export class RegulationStore {
     if (groups.size > 1) throw new EngineError("E_PARAM_AMBIGUOUS", [id]);
     return [...groups.values()][0] ?? null;
   }
+}
+
+/** 事務所の推定の値を置けないパック（マスタデータでない。架空のパックは代わりをする製品のパックで見る） */
+const notMaster = (h: PackHeader): boolean => !(h.fictional === true && h.fictionalOf !== undefined ? h.fictionalOf : h.packId).startsWith("master.");
+
+const DECIMAL = /^-?\d+(\.\d+)?$/;
+const isRecord = (v: Json): v is { readonly [k: string]: Json } => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/**
+ * 0111: 事務所の値が公式の値と同じ形か。定数は同じ種類（額・月数は0以上の数〔公式が整数なら整数〕、率は10進の文字）。
+ * 段階表は段の数と upTo が同じで、額の表は額（0以上の整数）、率の表は率（10進の文字）。公式に値の無い段は、事務所の値を入れても入れなくてもよい
+ */
+function sameShape(official: Json, v: Json): boolean {
+  if (typeof official === "number") return typeof v === "number" && Number.isFinite(v) && v >= 0 && (!Number.isInteger(official) || Number.isInteger(v));
+  if (typeof official === "string") return typeof v === "string" && DECIMAL.test(official) && DECIMAL.test(v);
+  if (!Array.isArray(official) || !Array.isArray(v) || official.length !== v.length) return false;
+  const rows = official as readonly Json[];
+  const kind = rows.some((r) => isRecord(r) && r.amount !== undefined) ? "amount" : rows.some((r) => isRecord(r) && r.rate !== undefined) ? "rate" : null;
+  if (kind === null) return false;
+  return rows.every((r, i) => {
+    const x = (v as readonly Json[])[i] as Json;
+    if (!isRecord(r) || !isRecord(x) || r.upTo !== x.upTo) return false;
+    if (Object.keys(x).some((k) => k !== "upTo" && k !== kind)) return false;
+    const val = x[kind];
+    if (val === undefined) return true;
+    return kind === "amount" ? typeof val === "number" && Number.isInteger(val) && val >= 0 : typeof val === "string" && DECIMAL.test(val);
+  });
+}
+
+/** 事務所の推定の値の出どころ（根拠の記録の出典に出る） */
+export const OFFICE_SOURCE = Object.freeze({ type: "office", locator: "事務所の推定の値（事務所の既定値）" });
+
+/** 事務所の推定の値に置き換えた行（その行の条件の値の事務所の値が無ければ、そのまま） */
+function overridden(v: Visible, o: ReadonlyMap<string, Json>): Visible {
+  const c = v.entry.conditions;
+  const value = c.length === 0 ? o.get("") : c.map((x) => (x.equals === undefined ? undefined : o.get(x.equals))).find((x) => x !== undefined);
+  if (value === undefined) return v;
+  return { ...v, entry: deepFreeze({ ...v.entry, value, sources: [OFFICE_SOURCE] }) };
 }
 
 /**

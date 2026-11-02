@@ -4,7 +4,7 @@
 // - 新しく入れるとき（子を足す・会社員として入れる・働き方を正社員や公務員にする）は、最初から推定で入れる（ensure*）
 // - 推定の目安は今ある関数（hearing/src/estimates.ts・教育の標準の進路の型）で作れる範囲だけ。作れない物は「推定で埋める」を出さない
 import type { Box, CareExpense, EducationStage, EmploymentPeriod, Household, Member, RetirementBenefit, Timepoint } from "../../engine/types.ts";
-import { careEstimate, lifeExpectancy } from "../../../../hearing/src/estimates.ts";
+import { careEstimate, fillsByEstimate, lifeExpectancy } from "../../../../hearing/src/estimates.ts";
 import { addMonths, ageAt } from "../levers.ts";
 import { resolveTimepoint, type StageId } from "./form.ts";
 import { CHILD_LEAVES_AGE, isSchoolLinkedLeaves, LEAVES_BASIS, mutate, newId, type WorkingHousehold } from "./household.ts";
@@ -275,7 +275,8 @@ export function ensureRetirement(wh: WorkingHousehold, memberId: string): Workin
     return p === undefined || autoKindOf(p.type) !== b.kind;
   });
   const w = stale.length === 0 ? wh : mutate(wh, (hh) => void (hh.retirementBenefits = (hh.retirementBenefits ?? []).filter((b) => !stale.some((x) => x.id === b.id))));
-  return retirementNotApplicable(w, memberId) ? w : fillRetirement(w, memberId);
+  // 事務所の既定値で退職金を「推定で埋めない」欄にしたときは、目安を自動で入れない（確かめの一覧の「推定で埋める」で入れられる。0111）
+  return retirementNotApplicable(w, memberId) || !fillsByEstimate("retirementBenefit.amount") ? w : fillRetirement(w, memberId);
 }
 
 /** 確かめの一覧の「確かめの注意」（0057）: 目安で自動で足した退職金（制度の無い勤め先もある）と、公務員・役員の0円の額 */

@@ -9,19 +9,35 @@ import { refreshEducation, refreshLeaves } from "./fill.ts";
 import { refreshRetirement } from "./retirementBenefits.ts";
 import { applyAutoStages, countAt } from "./livingStages.ts";
 import {
+  businessEstimate as businessStatistic,
+  fillsByEstimate,
   HEARING_UNKNOWN_BASIS,
   livingEstimate as livingBySize,
   isLegacyLivingEstimate,
+  NOT_FILLED_BASIS,
   residentTaxEstimate,
   splitLiving,
   residentTaxYear,
-  salaryEstimate,
+  salaryEstimate as salaryStatistic,
   smrEstimate as smrBoxes,
   type Estimate,
 } from "../../../../hearing/src/estimates.ts";
 
 export type { Estimate };
-export { businessEstimate, careerStartMonth, CAR_ESTIMATE, residentTaxEstimate, residentTaxYear, salaryEstimate } from "../../../../hearing/src/estimates.ts";
+export { careerStartMonth, CAR_ESTIMATE, residentTaxEstimate, residentTaxYear } from "../../../../hearing/src/estimates.ts";
+
+/**
+ * 給与・賞与の目安（hearing/src/estimates.ts の salaryEstimate）。事務所の既定値で給与を「推定で埋めない」欄にしたときは null
+ * （働き方を足すと未入力の0円。欄の「推定に戻す」も出さない。0111）
+ */
+export function salaryEstimate(...args: Parameters<typeof salaryStatistic>): ReturnType<typeof salaryStatistic> {
+  return fillsByEstimate("employment.salary.annual") ? salaryStatistic(...args) : null;
+}
+
+/** 事業所得の目安。事務所の既定値で「推定で埋めない」欄にしたときは、未入力の印の0円（0111） */
+export function businessEstimate(): Estimate {
+  return fillsByEstimate("employment.business.income") ? businessStatistic() : { value: 0, basis: NOT_FILLED_BASIS };
+}
 
 /**
  * 今（計算基準月）世帯で暮らしている人の数（生活費の人数）。予定の子・生年月が計算基準月より後の子・離れた人・自宅外の在学中の子・施設の介護の人は数えない。

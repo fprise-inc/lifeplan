@@ -7,6 +7,7 @@
 import { carryRows } from "../input/rows.ts";
 import { approveAll, createHearingSheet, exportableSheets, importHearingSheet, keyLabel, latestSheet, requestIdFrom, type Answer, type Candidate, type ChecklistItem, type ConsentDraft, type FieldRecord, type HearingRequest, type ImportRecord, type Issue, type OfficeInfo, type SheetDefinition } from "../../../../hearing/src/index.ts";
 import type { EngineRequest as HearingEngineRequest } from "../../../../hearing/src/types.ts";
+import { fillsByEstimate } from "../../../../hearing/src/estimates.ts";
 import type { EngineRequest, Household, Member } from "../../engine/types.ts";
 import { standardEndYear, type WorkingHousehold } from "../input/household.ts";
 import { fillEducation } from "../input/fill.ts";
@@ -499,7 +500,7 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
   let filled = next;
   for (const m of h.members) {
     if (before.has(m.id)) continue;
-    if (m.kind === "child") filled = fillEducation(filled, m.id);
+    if (m.kind === "child" && fillsByEstimate("goal.education")) filled = fillEducation(filled, m.id);
     if (m.kind === "parent" && (m.leaves === null || m.leaves === undefined)) filled = withDeathEstimate(filled, m.id);
   }
   // 簡易のシートの残高と返済額から置いた住宅ローンは、ローンの入れ方を「今の残高から」にする（0052）

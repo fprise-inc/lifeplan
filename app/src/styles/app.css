@@ -1480,6 +1480,30 @@ p.os-code-expired .link-btn { margin-left: 6px; }
 .os-custom-diff td, .os-custom-diff th { vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; }
 .os-custom-box { margin: 8px 0; padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 6px; }
 .os-custom-box.pending { border-color: var(--est-band); background: var(--est-bg); }
+/* 事務所の推定の値（0111。office/EstimatesSection.tsx） */
+.os-est-find { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 6px 0; }
+.os-est-find input[type="search"] { flex: 1 1 260px; min-width: 0; }
+.os-est-find select { max-width: 100%; }
+.os-est-find .os-show { flex: 0 1 auto; white-space: nowrap; }
+.os-est-list { list-style: none; margin: 4px 0 0; padding: 0; }
+.os-est-list > li { padding: 5px 0; border-bottom: 1px solid var(--line-2); font-size: 0.86rem; }
+.os-est-list > li.office { border-left: 3px solid var(--est-band); padding-left: 8px; }
+.os-est-row { display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: baseline; }
+.os-est-name { flex: 1 1 260px; min-width: 0; display: grid; }
+.os-est-id { color: var(--ink-2); font-size: 0.72rem; overflow-wrap: anywhere; }
+.os-est-vals { flex: 1 1 220px; min-width: 0; display: grid; color: var(--ink-2); font-size: 0.8rem; }
+.os-est-office { color: var(--ink); font-weight: 700; }
+.os-est-editor { margin: 6px 0 4px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); display: grid; gap: 6px; }
+.os-est-editor .os-pct input[type="text"] { width: 100%; }
+.os-est-table input { width: 9em; }
+.os-est-actions { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 2px 0 0; }
+.os-est-update p { margin: 0 0 2px; font-size: 0.84rem; }
+.os-est-update + .os-est-update { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line-2); }
+.os-est-preview-rows { margin: 4px 0 0; padding-left: 1.2em; font-size: 0.82rem; }
+.os-est-nofill { list-style: none; margin: 0; padding: 0; }
+.os-est-nofill li { padding: 4px 0; border-bottom: 1px solid var(--line-2); font-size: 0.86rem; }
+.os-est-nofill label { display: flex; gap: 6px; align-items: baseline; }
+.os-est-nofill small { display: block; margin-left: 1.7em; color: var(--ink-2); font-size: 0.76rem; }
 .os-custom-issues { margin: 4px 0; padding-left: 1.2em; }
 .os-custom-stop { display: block; font-weight: 400; }
 .os-custom-box .btn:disabled { opacity: 0.45; cursor: not-allowed; }

@@ -47,10 +47,11 @@ import { blankHousehold, fromRequest, sampleRequest, withElementIds, type Workin
 import { InputView } from "./input/InputView.tsx";
 import { addItem, saveItem } from "./input/items.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
-import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart, publishOfficeSettings, readOfficeSettings, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
+import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart, publishOfficeSettings, readOfficeSettings, withEstimates, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
 import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
 import { NO_OFFICE_FIELDS, NO_OFFICE_NAMES, NO_OFFICE_TEXTS, OfficeFieldsContext, officeFieldsFrom, OfficeNamesContext, OfficeTextsContext, officeTextsFrom, rowNamesOf } from "./office/customTexts.ts";
-import { customCenterNotice } from "./office/customNotice.ts";
+import { customCenterNotice, estimateCenterNotice } from "./office/customNotice.ts";
+import { previewOfficeChange } from "./office/estimatePreview.ts";
 import type { CustomTextsStatus } from "../engine/host.ts";
 import { combinedBsView, withCombinedField } from "./combined/combinedView.ts";
 import { hasExecutive } from "./input/officer.ts";
@@ -2239,7 +2240,7 @@ export function App() {
         read: noticeLocal.read[key] !== undefined,
       };
     }),
-    ...[customTexts, customTerms, customFields].flatMap(customCenterNotice).map((n): CenterItem => ({
+    ...[...[customTexts, customTerms, customFields].flatMap(customCenterNotice), ...estimateCenterNotice(officeSettings.estimates)].map((n): CenterItem => ({
       ...n,
       action: { label: "事務所の既定値", run: () => setOfficeSettingsOpen(true) },
       read: noticeLocal.read[n.key] !== undefined,
@@ -2988,6 +2989,30 @@ export function App() {
             putOfficeSettings(v);
           }}
           onClose={() => setOfficeSettingsOpen(false)}
+          onEstimates={async (n) => {
+            // 事務所の推定の値（0111）: すぐ事務所データに保存し、推定の目安と計算の要求に入れて、開いている世帯を計算し直す
+            const next = withEstimates(officeSettingsRef.current, n);
+            await host.office.putDefaults(next as unknown as Record<string, unknown>);
+            putOfficeSettings(next);
+            reqCache.current.clear();
+            putWorkRaw(workRef.current, openedRef.current, "set");
+          }}
+          previewEstimates={(before, after) =>
+            previewOfficeChange(
+              {
+                open: (id) => host.openHousehold(id),
+                compute: async (reqs) => {
+                  const res = await host.compute(reqs.map((r, i) => ({ id: `preview${i}`, rev: 1, request: JSON.stringify(r) })));
+                  return reqs.map((_, i) => {
+                    const r = res.slots[`preview${i}`]?.result;
+                    return r === undefined || isEngineError(r) ? null : r;
+                  });
+                },
+              },
+              before,
+              after,
+            )
+          }
           {...(host.custom !== undefined ? { custom: { host: host.custom, status: customTexts, onStatus: setCustomTexts, terms: customTerms, fields: customFields, onKindStatus: putCustomStatus } } : {})}
           features={featureStatus}
           onAddCode={async (code) => {
