@@ -334,6 +334,18 @@ html.big .lever input[type="range"] { height: 36px; }
 .add-choice { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .add-choice-opts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding-left: 8px; border-left: 2px solid var(--prop-bg); }
 .add-btn.add-choice-opt { font-weight: 600; }
+/*
+ * 見出しのある選択肢の一覧（「＋ 保険契約を足す」→ よく使う・死亡の保障・病気・けが…。0055 の追記 2026-11-02）: ボタンの下に開き、
+ * 見出しの列と選択肢の並びの2列。狭い幅では見出しを選択肢の上に置く
+ */
+.add-choice.add-choice-listed { display: flex; flex-direction: column; align-items: flex-start; }
+.add-choice-list { display: grid; gap: 8px; width: 100%; max-width: 46rem; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-left: 3px solid var(--prop-bg); border-radius: 8px; background: #fff; }
+.add-choice-sec { display: grid; grid-template-columns: 8.5em minmax(0, 1fr); gap: 4px 10px; align-items: baseline; }
+.add-choice-head { font-size: 0.8rem; font-weight: 700; color: var(--base-ink); }
+.add-choice-items { display: flex; flex-wrap: wrap; gap: 6px 8px; }
+.add-choice-sec[data-choice-heading="よく使う"] { padding-bottom: 8px; border-bottom: 1px dashed var(--line); }
+.add-choice-foot { display: flex; justify-content: flex-end; }
+@media (max-width: 640px) { .add-choice-sec { grid-template-columns: minmax(0, 1fr); } }
 .fld-c select { max-width: 100%; }
 .fld-c input.bad { border-color: var(--short); background: var(--short-bg); }
 .fld-c input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--prop); }

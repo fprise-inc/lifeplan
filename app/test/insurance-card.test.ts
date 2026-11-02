@@ -16,6 +16,10 @@ import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { insuranceRequest, insuranceView } from "../src/workspace/input/insuranceView.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
+import { actionUnits, choiceSections, FREQUENT_HEADING, type GroupOpenState } from "../src/workspace/input/FieldViews.tsx";
+import { InputPanel } from "../src/workspace/input/InputPanel.tsx";
+import { KINDS } from "../src/workspace/input/insuranceKinds.ts";
+import { ADD_CHOICE, addKey } from "../src/workspace/input/stages/insurance.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
@@ -428,5 +432,100 @@ describe("保険の入力項目の区画から移したもの（0055 の追記�
       // 絞り込み「確認した注意」ではいつもの行を出さない
       expect(checkList(acked).every((r) => !passesFilter(r, { card: "", kind: "acked", origin: "", certainty: "" }, () => false))).toBe(true);
     });
+  });
+});
+
+describe("追加のボタンは「＋ 保険契約を足す」の1つ（0055 の追記 2026-11-02）", () => {
+  const addActions = (wh: WorkingHousehold) => stage(wh).sections.flatMap((x) => x.actions).filter((a) => a.choice?.key === ADD_CHOICE.key);
+  const panel = (wh: WorkingHousehold, level: "simple" | "detail") => {
+    const groupOpen: GroupOpenState = { isOpen: () => false, toggle: () => undefined };
+    return renderToString(h(InputPanel, { wh, itemId: "insurance", level, onLevel: () => undefined, onSave: () => undefined, onClose: () => undefined, groupOpen }));
+  };
+
+  it("区画のボタンは1つにまとまり、前の4つのボタン（定期保険・医療保険・学資保険・損害保険）の名前は無い", () => {
+    const wh = family();
+    const units = actionUnits(stage(wh).sections[0]!.actions);
+    expect(units).toHaveLength(1);
+    const u = units[0]!;
+    expect(u.kind).toBe("choice");
+    if (u.kind !== "choice") return;
+    expect(u.head.label).toBe("＋ 保険契約を足す");
+    expect(u.list.map((a) => a.label)).not.toContain("＋ 保険契約（定期保険）");
+    for (const level of ["simple", "detail"] as const) {
+      const html = panel(wh, level);
+      expect(html).toContain(`data-choice="${ADD_CHOICE.key}"`);
+      expect(html).toContain("＋ 保険契約を足す");
+      expect(html).not.toContain("＋ 保険契約（定期保険）");
+      expect(html).not.toContain("＋ 医療保険");
+      // 押す前は種類の一覧を出さない
+      expect(html).not.toContain('data-action="ins/addMedical"');
+    }
+  });
+
+  it("一覧は「よく使う」（定期保険・医療保険・学資保険）の後に、死亡の保障・病気・けが・貯める・受け取る・そのほかの見出しで並ぶ", () => {
+    const secs = choiceSections(addActions(family()))!;
+    expect(secs.map((x) => x.heading)).toEqual([FREQUENT_HEADING, "死亡の保障", "病気・けが", "貯める・受け取る", "そのほか"]);
+    const labels = (heading: string) => secs.find((x) => x.heading === heading)!.list.map((a) => a.label);
+    expect(labels(FREQUENT_HEADING)).toEqual(["定期保険", "医療保険", "学資保険"]);
+    expect(labels("死亡の保障")).toEqual(["定期保険", "逓減定期保険", "収入保障保険", "終身保険", "養老保険", "団体保険（勤務先）"]);
+    expect(labels("病気・けが")).toEqual(["医療保険", "がん保険", "三大疾病保険", "就業不能保険", "民間の介護保険"]);
+    expect(labels("貯める・受け取る")).toEqual(["学資保険", "個人年金保険", "外貨建て保険（目安）", "変額保険（目安）"]);
+    expect(labels("そのほか")).toEqual(["共済（総合・医療）", "損害保険"]);
+    // 損害保険は「詳細」のときだけ
+    expect(addActions(family()).find((a) => a.label === "損害保険")?.level).toBe("detail");
+    expect(addActions(family()).filter((a) => a.label !== "損害保険").every((a) => a.level === "simple")).toBe(true);
+    // 子がいなければ学資保険は出さない
+    const single = fromRequest(modelHousehold("single25"));
+    expect(addActions(single).some((a) => a.label === "学資保険")).toBe(false);
+    expect(choiceSections(addActions(single))!.find((x) => x.heading === FREQUENT_HEADING)!.list.map((a) => a.label)).toEqual(["定期保険", "医療保険"]);
+    // ほかの「＋」の選択肢（見出しなし）は今までどおりの横の並び
+    expect(choiceSections([{ key: "a", label: "この年だけ", level: "simple", run: (w) => w, choice: { key: "x", label: "＋ 月額の変化" } }])).toBeNull();
+  });
+
+  it("一覧から選ぶと、その種類の既定で契約を1件足す（全部の種類）", () => {
+    const base = family();
+    const acts = addActions(base);
+    for (const k of KINDS) {
+      const a = acts.find((x) => x.key === addKey(k.kind))!;
+      expect(a, k.kind).toBeDefined();
+      const wh = a.run(base);
+      const list = wh.request.input.household.insuranceContracts!;
+      expect(list, k.kind).toHaveLength(1);
+      expect(list[0], k.kind).toMatchObject({ subtype: k.kind, template: k.template });
+      if (k.main !== null) expect(list[0]!.coverages?.find((x) => x.role === "main")?.benefit, k.kind).toBe(k.main.benefit);
+    }
+    // 前のボタンのキーはそのまま
+    expect(["ins/add", "ins/addMedical", "ins/addEducation", "ins/addNonLife"].map((key) => acts.find((a) => a.key === key)?.label)).toEqual(["定期保険", "医療保険", "学資保険", "損害保険"]);
+  });
+
+  it("三大疾病保険: 主な保障は三大疾病一時金。保障も払込も終身・介護医療の控除。死亡も出る型は「＋ 保障」で死亡保険金を足す案内", () => {
+    let wh = action(family(), "ins/add:threeMajor");
+    const c = contract(wh);
+    expect(c).toMatchObject({ template: "insurance.medical", subtype: "threeMajor", deductionCategory: { type: "careMedical" } });
+    expect(c.coverages?.map((x) => `${x.role}:${x.benefit}:${x.amount}`)).toEqual(["main:threeMajorLump:0"]);
+    expect(c.coverages?.[0]?.to).toBeNull();
+    expect(c.premium.payUntil).toBeNull();
+    expect(status(wh, "/main").status).toBe("missing");
+    expect(status(wh, "/end")).toMatchObject({ status: "estimated", basis: "ひな形の既定の値（三大疾病保険: 終身）" });
+    expect(fieldOf(wh, "/main").label).toBe("三大疾病一時金");
+    expect(fieldOf(wh, "/main").help).toContain("「＋ 保障」で死亡保険金");
+    // 計算: がん・心疾患・脳卒中で一時金、そのほかの病気では出ない
+    wh = set(wh, "/main", 2000000);
+    const received = (w: WorkingHousehold) => {
+      const sc = scenarios(w).find((x) => x.kind === "illness" && x.member === self(w).id)!;
+      const r = preview(scenarioRequest(w, sc, w.contingency.year ?? defaultYear(w.request)));
+      return r.table.filter((t) => t.row === "cf.income.lumpSum.insurance" && t.object === contract(w).id).reduce((n, t) => n + t.amount, 0);
+    };
+    expect(received(wh)).toBe(2000000);
+    expect(received({ ...wh, contingency: { ...wh.contingency, illness: { disease: "heartStroke" } } })).toBe(2000000);
+    expect(received({ ...wh, contingency: { ...wh.contingency, illness: { disease: "other", hospitalDays: 10, surgeries: 0 } } })).toBe(0);
+    // 死亡も出る型: 「＋ 保障」で死亡保険金を足すと、死亡の場面で受け取る
+    wh = action(wh, "/addCoverage");
+    const cid = contract(wh).coverages!.at(-1)!.id;
+    wh = set(wh, `/cov/${cid}/benefit`, "death");
+    wh = set(wh, `/cov/${cid}/amount`, 2000000);
+    const death = scenarios(wh).find((x) => x.kind === "death" && x.member === self(wh).id)!;
+    const r = preview(scenarioRequest(wh, death, wh.contingency.year ?? defaultYear(wh.request)));
+    expect(r.table.filter((t) => t.object === contract(wh).id && t.amount > 0 && t.row.startsWith("cf.income.")).reduce((n, t) => n + t.amount, 0)).toBe(2000000);
   });
 });

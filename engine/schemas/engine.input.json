@@ -1328,7 +1328,7 @@
         "subtype": {
           "title": "保険の種類の細目（画面のひな形。表示と推定の元だけ。計算には使わない。計算の型は template。0054）",
           "x-item": "insurance.subtype",
-          "enum": ["term", "decreasingTerm", "incomeProtection", "wholeLife", "endowment", "medical", "cancer", "incapacity", "education", "privateAnnuity", "mutualAid", "groupTerm", "care", "foreignCurrency", "variable", "nonLife"]
+          "enum": ["term", "decreasingTerm", "incomeProtection", "wholeLife", "endowment", "medical", "cancer", "threeMajor", "incapacity", "education", "privateAnnuity", "mutualAid", "groupTerm", "care", "foreignCurrency", "variable", "nonLife"]
         },
         "label": { "title": "名前（表示用。計算には使わない。0054）", "x-item": "insurance.label", "type": "string", "maxLength": 100 },
         "policyholder": { "title": "契約者", "x-item": "insurance.policyholder", "$ref": "urn:financia:schema:common#/$defs/uuid" },

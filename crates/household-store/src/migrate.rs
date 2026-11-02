@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.50";
+pub const CURRENT: &str = "0.51";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -167,12 +167,15 @@ pub const CURRENT: &str = "0.50";
 ///   足した（0107。足すだけの MINOR。計算の要求の外）: 会社の今のバランスシートの科目・基準日・毎月の固定の支出・会社の段階・実力に直した額。
 ///   前の版のアプリは会社の数字を扱えないので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える。
 ///   変換の段は 0.49 の段の後に積む（0.48 → 0.49 → 0.50）
+/// - 0.51: 保険の種類の細目 `insuranceContracts[].subtype` に三大疾病保険 `threeMajor`（医療保険の型 `insurance.medical` で計算し、主な保障は
+///   三大疾病一時金 `threeMajorLump`）を足した（0055 の追記 2026-11-02。足すだけの MINOR）。前の版のアプリは細目を読めないので、版を上げて
+///   閲覧だけにする。変換の段は形式の版だけを書き換える
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
-    "0.50",
+    "0.50", "0.51",
 ];
 
 /// 1段分の変換
@@ -428,6 +431,11 @@ pub const STEPS: &[Step] = &[
         from: "0.49",
         to: "0.50",
         apply: v0_49_to_0_50,
+    },
+    Step {
+        from: "0.50",
+        to: "0.51",
+        apply: v0_50_to_0_51,
     },
 ];
 
@@ -1824,6 +1832,16 @@ fn v0_49_to_0_50(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.50 → 0.51: 足した値（保険の種類の細目の三大疾病保険 `threeMajor`。0055 の追記 2026-11-02）は前の版の世帯に無いので、形式の版だけを
+/// 書き換える。ほかの欄に触れない
+fn v0_50_to_0_51(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.51".into());
+    }
+    Ok(body)
+}
+
 /// 0.17 で ID を振る並び（物の集まり → その物から並びまでの欄の名前。0035 の5）
 const ELEMENT_LISTS: &[(&str, &[&[&str]])] = &[
     ("livingExpenses", &[&["stages"], &["categories"]]),
@@ -2369,7 +2387,8 @@ mod tests {
         assert_eq!(access("0.48").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.49").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.50").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.51").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.51").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.52").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -2382,7 +2401,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.51", b.clone()).unwrap(),
+            upgrade("0.52", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -2750,16 +2769,30 @@ mod tests {
             "display": {"balance": {"guide": {"months": [6, 12], "risk": [10, 40], "debt": 50, "basis": "livingLoan"}}}
         });
         let u = upgrade("0.49", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.50");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
         assert_eq!(u["display"], b["display"]);
-        // 0.48 からも 0.49 の段を通って 0.50 になる
+        // 0.48 からも 0.49 の段を通って今の版になる
         let mut b48 = b.clone();
         b48["meta"]["formatVersion"] = "0.48".into();
         assert_eq!(
             upgrade("0.48", b48).unwrap()["meta"]["formatVersion"],
-            "0.50"
+            CURRENT
         );
+    }
+
+    #[test]
+    fn v0_50_to_0_51_only_bumps_version() {
+        // 足した値（保険の種類の細目の三大疾病保険。0055 の追記 2026-11-02）は前の版の世帯に無いので、世帯はそのまま
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.50"},
+            "household": {"request": {"input": {"baseMonth": "2026-10", "household": {
+                "insuranceContracts": [{"id": "c1", "template": "insurance.medical", "subtype": "medical", "insured": "m1"}]
+            }}}}
+        });
+        let u = upgrade("0.50", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.51");
+        assert_eq!(u["household"], b["household"]);
     }
 
     #[test]

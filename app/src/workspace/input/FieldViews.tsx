@@ -3,7 +3,7 @@
 // 0077: 欄の説明（help・読むだけの理由・ほかへの影響）と区画・まとまりの説明は、名前の横の「?」の中へ。推定の根拠は状態の印を押したときに開く。
 // 灰色の入力例は欄の幅に収まる物だけ（placeholder.ts）
 import { createContext, type ComponentChildren } from "preact";
-import { useContext, useState } from "preact/hooks";
+import { useContext, useEffect, useRef, useState } from "preact/hooks";
 import { Help, HelpOf } from "../../presentation/Help.tsx";
 import { PopIcon } from "../../presentation/icons.tsx";
 import { FieldIcon } from "./fieldIcons.tsx";
@@ -738,47 +738,90 @@ export function actionUnits(actions: readonly ActionDef[]): ActionUnit[] {
   return out;
 }
 
+/** 見出しのある選択肢の一覧の組（「よく使う」を先頭に、続いた同じ見出しの物を1組。0055 の追記 2026-11-02）。見出しが無ければ null */
+export const FREQUENT_HEADING = "よく使う";
+export function choiceSections(items: readonly ActionDef[]): { heading: string; list: ActionDef[] }[] | null {
+  if (!items.some((a) => a.choice?.group !== undefined)) return null;
+  const frequent = items.filter((a) => a.choice?.frequent === true);
+  const out: { heading: string; list: ActionDef[] }[] = [];
+  for (const a of items) {
+    const heading = a.choice?.group ?? "そのほか";
+    const last = out.at(-1);
+    if (last?.heading === heading) last.list.push(a);
+    else out.push({ heading, list: [a] });
+  }
+  return frequent.length > 0 ? [{ heading: FREQUENT_HEADING, list: frequent }, ...out] : out;
+}
+
 /**
  * 選択肢をまとめた「＋」のボタン（0040 の 2026-10-29 の追記。例: 「＋ 月額の変化」）。押すとすぐ右に選択肢（「この年だけ」「この月から先」）と「やめる」を並べ、
- * 選ぶとその物を足して（足した物は見える所へ動かして光らせ、最初の欄に移る）選択肢を閉じる。「?」は1つ（選択肢の違いを書く）
+ * 選ぶとその物を足して（足した物は見える所へ動かして光らせ、最初の欄に移る）選択肢を閉じる。「?」は1つ（選択肢の違いを書く）。
+ * 選択肢が見出しを持つとき（「＋ 保険契約を足す」。0055 の追記 2026-11-02）は、ボタンの下に見出しごとの一覧を開いて最初の選択肢に移る。
+ * Esc か「やめる」で閉じて、元のボタンに戻る
  */
 function ChoiceAction({ head, items, wh, onEdit }: { head: NonNullable<ActionDef["choice"]>; items: readonly ActionDef[]; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
   const [open, setOpen] = useState(false);
+  const headRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const sections = choiceSections(items);
+  const listed = sections !== null;
+  useEffect(() => {
+    if (open && listed) listRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+  }, [open, listed]);
+  const close = () => {
+    setOpen(false);
+    headRef.current?.focus();
+  };
   const help = head.help !== undefined && head.help !== "" ? <Help label={actionName(head.label)} target={head.label}>{head.help}</Help> : null;
+  const option = (a: ActionDef, key: string) => (
+    <button
+      type="button"
+      key={key}
+      class="add-btn add-choice-opt"
+      onClick={(e) => {
+        revealAdded(e.currentTarget);
+        setOpen(false);
+        onEdit(a.run(wh));
+      }}
+      data-action={a.key}
+    >
+      {a.label}
+    </button>
+  );
+  const cancel = (
+    <button type="button" class="link-btn" onClick={close} data-choice-cancel>
+      やめる
+    </button>
+  );
+  // Esc は選択肢だけを閉じる（入力項目の画面まで閉じない）
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key !== "Escape") return;
+    e.stopPropagation();
+    close();
+  };
   return (
-    <span class="add-choice" data-choice={head.key}>
+    <span class={listed ? "add-choice add-choice-listed" : "add-choice"} data-choice={head.key}>
       <HelpOf help={help}>
-        <button type="button" class="add-btn" aria-expanded={open} onClick={() => setOpen(!open)} data-action={head.key}>
+        <button type="button" class="add-btn" ref={headRef} aria-expanded={open} onClick={() => setOpen(!open)} data-action={head.key}>
           {head.label}
         </button>
       </HelpOf>
-      {open ? (
-        <span
-          class="add-choice-opts"
-          role="group"
-          aria-label={`${actionName(head.label)}: どちらを足すか`}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setOpen(false);
-          }}
-        >
-          {items.map((a) => (
-            <button
-              type="button"
-              key={a.key}
-              class="add-btn add-choice-opt"
-              onClick={(e) => {
-                revealAdded(e.currentTarget);
-                setOpen(false);
-                onEdit(a.run(wh));
-              }}
-              data-action={a.key}
-            >
-              {a.label}
-            </button>
+      {open && sections !== null ? (
+        <div class="add-choice-list" role="group" ref={listRef} aria-label={`${actionName(head.label)}: どれを足すか`} onKeyDown={onKeyDown}>
+          {sections.map((sec) => (
+            <div class="add-choice-sec" key={sec.heading} role="group" aria-label={sec.heading} data-choice-heading={sec.heading}>
+              <div class="add-choice-head" aria-hidden="true">
+                {sec.heading}
+              </div>
+              <div class="add-choice-items">{sec.list.map((a) => option(a, `${sec.heading}/${a.key}`))}</div>
+            </div>
           ))}
-          <button type="button" class="link-btn" onClick={() => setOpen(false)} data-choice-cancel>
-            やめる
-          </button>
+          <div class="add-choice-foot">{cancel}</div>
+        </div>
+      ) : open ? (
+        <span class="add-choice-opts" role="group" aria-label={`${actionName(head.label)}: どちらを足すか`} onKeyDown={onKeyDown}>
+          {items.map((a) => option(a, a.key))}
+          {cancel}
         </span>
       ) : null}
     </span>

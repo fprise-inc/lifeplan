@@ -161,7 +161,17 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 第一種の奨学金"
             );
         }
-        if *v == "0.50" {
+        // 0.51 から: 保険の種類の細目の三大疾病保険（0055 の追記 2026-11-02）
+        let three_major = now["household"]["request"]["input"]["household"]["insuranceContracts"]
+            .as_array()
+            .map(|l| l.iter().any(|c| c["subtype"] == "threeMajor"))
+            .unwrap_or(false);
+        assert_eq!(
+            three_major,
+            migrate::parse(v).unwrap() >= (0, 51),
+            "{v}: 三大疾病保険の契約は 0.51 からの見本"
+        );
+        if migrate::parse(v).unwrap() >= (0, 50) {
             // 0.50 から: 会社と合わせたバランスシートの入力（計算の要求の外。0107）
             let c = &now["household"]["companyBs"];
             assert_eq!(c["version"], 1, "{v}: 会社の入力の形の版");
