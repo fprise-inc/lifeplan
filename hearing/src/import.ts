@@ -1185,7 +1185,7 @@ const SIMPLE_LOAN_NOTE =
 
 /**
  * 簡易版の住宅ローン（残高と毎月の返済額の合計）: 入力の画面の住まい・ローンのカードの「今の残高から」の形で1本にまとめて置く。
- * - 借りたのは記入の年月・借入額は残高（仮）、金利は今返している住宅ローンの目安（仮。種類は変動金利）、借りている方はご本人（仮）
+ * - 借りたのは記入の年月・借入額は残高（仮）、金利は今返している住宅ローンの目安（仮。種類は変動金利）、ローンの名義はご本人（仮）
  * - 残高と返済額があれば、仮の金利で返済期間を逆算する。返済額だけなら、標準の返済期間（35年・80歳まで）と仮の金利で残高を逆算する（推定）
  * - 残高だけなら、返済期間は標準の値（仮）
  */
@@ -1263,12 +1263,12 @@ function importLoan(c: Ctx, h: Household, adults: Adults, n: number, asOf: strin
   const debtor = c.get<string>("hs.loan.debtor", n);
   const others = ["hs.loan.principal", "hs.loan.start", "hs.loan.termYears", "hs.loan.rate"];
   if (debtor.status !== "value") {
-    if (others.some((k) => c.get(k, n).status === "value")) c.missing("hs.loan.debtor", n, "住宅ローンの記入がありますが、借りている方がありません（取り込みませんでした）");
+    if (others.some((k) => c.get(k, n).status === "value")) c.missing("hs.loan.debtor", n, "住宅ローンの記入がありますが、ローンの名義がありません（取り込みませんでした）");
     return;
   }
   const member = debtor.value === "adult.2" ? adults[1] : adults[0];
   if (member === undefined) {
-    c.contradiction("hs.loan.debtor", n, "借りている方が配偶者の方ですが、配偶者の方の記入がありません（取り込みませんでした）", "error");
+    c.contradiction("hs.loan.debtor", n, "ローンの名義が配偶者の方ですが、配偶者の方の記入がありません（取り込みませんでした）", "error");
     return;
   }
   const principal = c.value<number>("hs.loan.principal", n);

@@ -539,7 +539,7 @@
     },
     {
       "key": "hs.loan.debtor",
-      "label": "借りている方",
+      "label": "ローンの名義",
       "type": "choice",
       "choices": [{"value":"adult.1","label":"ご本人"},{"value":"adult.2","label":"配偶者の方"}],
       "states": ["notApplicable"],
