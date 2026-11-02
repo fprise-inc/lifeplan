@@ -7,7 +7,7 @@
 // - 法令で決まる値（税率・耐用年数・制度の利率など）はここに置かない（事務所で変えられない）。前提条件の標準値・相続税の目安の不動産の評価の割合・
 //   FP顧問料の料金表は、新しい世帯に写す事務所の既定値（0073）で別に扱う
 import { ENGINE_PRESETS, type PresetDef, type PresetKind, type PresetUnit, type PresetUse } from "../../engine/src/sdk/estimates.ts";
-import { officeEstimates } from "./statistics.ts";
+import { officeBasisOf, officeEstimates } from "./statistics.ts";
 
 export type { PresetDef, PresetKind, PresetUnit, PresetUse };
 
@@ -209,11 +209,13 @@ export const presetRate = (id: string): string => String(presetValue(id));
 export const presetIsOffice = (id: string): boolean => officeOf(id) !== null;
 
 /**
- * 目安の根拠の文: describe（値から作る文。例 v → 「家賃 月8万円」）。事務所の推定の値なら、その後ろに事務所の根拠の文（FP が書いた文か、自動の文「事務所の目安（変えた年月）」）を付ける。
+ * 目安の根拠の文: describe（値から作る文。例 v → 「家賃 月8万円」）。事務所の推定の値なら、事務所の根拠の文そのもの（FP が書いた文か、
+ * 自動の文「事務所の目安（変えた年月）」。ほかの文を足さない。事務所の値から作った推定を、根拠の文が完全に同じかで見分けるため）。
  * 文は値から作るので、一覧の値を変えれば文も変わる（見直しのときに文を直さなくてよい）
  */
 export function presetText(id: string, describe: (v: number | string) => string): string {
-  const o = officeOf(id);
-  const v = o?.value ?? officialPreset(id);
-  return o === null ? describe(v) : `${describe(v)}・${o.basis}`;
+  return officeBasisOf(id) ?? describe(officialPreset(id));
 }
+
+/** 事務所の推定の値の根拠の文（ids のうち最初の、事務所の値がある値。無ければ null。statistics.ts の officeBasisOf） */
+export { officeBasisOf };

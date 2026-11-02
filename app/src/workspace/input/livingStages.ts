@@ -12,7 +12,7 @@ import { resolveTimepoint } from "../timepoint.ts";
 import { livingEstimate as livingBySize, livingStatistic } from "../../../../hearing/src/estimates.ts";
 import { putRow, rowAt, type StateRow } from "./rows.ts";
 import { pctText } from "../../../../hearing/src/housingEstimates.ts";
-import { presetNum, presetText } from "../../../../hearing/src/presets.ts";
+import { officeBasisOf, presetNum } from "../../../../hearing/src/presets.ts";
 
 type Obj = Record<string, unknown>;
 type Stage = NonNullable<LivingExpense["stages"]>[number] & { id?: string };
@@ -37,9 +37,8 @@ const AGE_LEVELS = {
 /** 年齢の段階の根拠の文（値から作る。事務所の推定の値なら、その根拠の文も付ける） */
 export const ageLevelBasis = (): string => {
   const t = `退職後${pctText(AGE_LEVELS.retired)}・70歳から${pctText(AGE_LEVELS.age70)}・80歳から${pctText(AGE_LEVELS.age80)}の目安`;
-  const ids = ["preset.living.stage.retirement", "preset.living.stage.age70", "preset.living.stage.age80"];
-  const office = ids.map((id) => presetText(id, () => "")).find((x) => x !== "");
-  return office === undefined ? `${t}（年齢階級別の統計で確かめる前）` : `${t}${office}`;
+  // 事務所の推定の値なら、事務所の根拠の文そのもの（0111。完全に同じ文で見分ける）
+  return officeBasisOf("preset.living.stage.retirement", "preset.living.stage.age70", "preset.living.stage.age80") ?? `${t}（年齢階級別の統計で確かめる前）`;
 };
 
 // ---- 人数の数え方 ----

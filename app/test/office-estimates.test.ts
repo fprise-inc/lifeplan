@@ -140,7 +140,7 @@ describe("事務所の値が推定に効く（画面の推定・計算の要求�
     const table = living().map((s) => (s.upTo === 1 ? { upTo: 1, amount: 150000 } : s));
     publishOfficeEstimates(withOfficeValue(EMPTY_ESTIMATES, LIVING, table, "当事務所の単身のお客さまの平均", ON));
     const e = livingEstimate(blank.request.input.household, "2026-10");
-    expect(e).toEqual({ value: 150000, basis: "当事務所の単身のお客さまの平均・1人の世帯" });
+    expect(e).toEqual({ value: 150000, basis: "当事務所の単身のお客さまの平均" });
     const refreshed = withRefreshedEstimates(blank);
     expect(before).not.toBe(150000);
     expect(refreshed.request.input.household.livingExpenses?.[0]?.monthly).toMatchObject({ value: 150000, state: "estimated", estimate: { basis: e.basis } });

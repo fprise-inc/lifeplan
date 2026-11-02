@@ -13,7 +13,7 @@ import { wareki } from "../units.ts";
 import type { Address } from "../../store/readings.ts";
 import { CAR_ESTIMATE, type Estimate } from "../estimates.ts";
 import { byId, field, getPath, plain, resolveTimepoint, setPath, timepointField, timeView, type ActionDef, type FieldDef, type Finder, type GroupDef, type Level, type SectionDef, type StageDef } from "../form.ts";
-import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
+import { mutate, newId, presetBasis, standardBox, wrapBasis, type WorkingHousehold } from "../household.ts";
 import { GROWTH_KINDS, memberLabel, memberOptions } from "../labels.ts";
 import { addExpense, moneySections } from "../moneyRows.ts";
 import { materializeEvent } from "../namedEvents.ts";
@@ -40,7 +40,7 @@ const loanShare = () => presetRate("preset.car.loan.share");
 const loanTerm = () => presetNum("preset.car.loan.termMonths");
 const loanBasis = () => ({
   share: presetBasis(presetText("preset.car.loan.share", (v) => `借入 下取りを引いた額の${Math.abs(Number(v) * 10 - Math.round(Number(v) * 10)) < 1e-9 ? `${String(Math.round(Number(v) * 10))}割` : `${String(Math.round(Number(v) * 1000) / 10)}%`}`)),
-  rate: presetBasis(`金利 ${carLoanRateEstimate().basis}`),
+  rate: presetBasis(wrapBasis(carLoanRateEstimate().basis, (b) => `金利 ${b}`)),
   term: presetBasis(presetText("preset.car.loan.termMonths", (v) => (Number(v) % 12 === 0 ? `${String(Number(v) / 12)}年で返す` : `${String(v)}か月で返す`))),
 });
 /** 次の買い替え・購入の時期の標準の値（3年後） */

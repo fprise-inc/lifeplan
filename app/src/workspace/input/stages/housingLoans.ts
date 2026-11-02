@@ -7,7 +7,7 @@ import type { Debt, DebtHousing, EngineRequest, Household } from "../../../engin
 import { addMonths } from "../../levers.ts";
 import type { Address } from "../../store/readings.ts";
 import { byId, field, getPath, plain, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef } from "../form.ts";
-import { mutate, newId, presetBasis, standardBox, type LoanEntry, type WorkingHousehold } from "../household.ts";
+import { mutate, newId, presetBasis, standardBox, wrapBasis, type LoanEntry, type WorkingHousehold } from "../household.ts";
 import { CREDIT_DATA_FROM_YEAR, creditKey, estimatedPrincipal, fromBalance, isHomeLoan, PRINCIPAL_ESTIMATE, principalKey, principalMismatch, purchaseMonth, withoutCreditMark } from "../housingCredit.ts";
 import { DEBT_KINDS, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS } from "../labels.ts";
 import { fittedRateText, monthlyPayment, monthsBetween, monthsFromPayment, principalFromPayment, rateText } from "../loanMath.ts";
@@ -20,6 +20,7 @@ import { standardTermMonths as termOfMember } from "../../../../../hearing/src/l
 import { presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
 import { repayingScholarshipRateEstimate } from "../../../../../hearing/src/loanRates.ts";
 import { executiveMembers, hasExecutive } from "../officer.ts";
+import { isOfficeBasisText } from "../../../../../hearing/src/statistics.ts";
 
 type Obj = Record<string, unknown>;
 const debts = (h: Household) => h.debts;
@@ -796,7 +797,8 @@ export function rateEstimateOf(type: string | undefined, current = false): { rat
 }
 
 /** 金利の値の状態の行が、種類ごとの目安の金利（推定）のままか（種類を変えたら目安を入れ直してよい値か） */
-const isRateEstimate = (r: StateRow | undefined): boolean => r?.state === "estimated" && r.origin.kind === "auto" && RATE_ESTIMATE_HEADS.some((head) => (r.estimate?.basis ?? "").includes(`（${head}`));
+const isRateEstimate = (r: StateRow | undefined): boolean =>
+  r?.state === "estimated" && r.origin.kind === "auto" && (RATE_ESTIMATE_HEADS.some((head) => (r.estimate?.basis ?? "").includes(`（${head}`)) || isOfficeBasisText(r.estimate?.basis));
 
 /**
  * 変動金利の見込みの欄（rateOutlookField）で置いた段（5年後・10年後）を持つか。見込みの欄は、今の金利の段が最初の段で変動金利のときだけ出るので、
@@ -1122,7 +1124,7 @@ export const LOAN_SUBTYPES = [
       return repayingScholarshipRateEstimate().rate;
     },
     get rateBasis(): string {
-      return `今返している奨学金の利率の目安 ${repayingScholarshipRateEstimate().basis}。無利子の第一種なら種類で選んでください`;
+      return wrapBasis(repayingScholarshipRateEstimate().basis, (b) => `今返している奨学金の利率の目安 ${b}。無利子の第一種なら種類で選んでください`);
     },
   },
   { value: "scholarshipFree", label: "奨学金の返済（第一種・無利子）", kind: "scholarship", rate: "0", rateBasis: "第一種奨学金（無利子）は利率0%" },
@@ -1171,7 +1173,7 @@ export function otherLoanHeadFields(wh: WorkingHousehold, d: Debt, k: string): F
             const step = x.rateSchedule[0];
             if (a !== null && step !== undefined && (isEstimate(rowAt(inputOf(req), a), "既定の値") || isEstimate(rowAt(inputOf(req), a), "標準の値"))) {
               step.rate = sub.rate;
-              putRow(inputOf(req), a, estRow("standard", `既定の値（${sub.rateBasis}。わかれば直してください）`));
+              putRow(inputOf(req), a, estRow("standard", wrapBasis(sub.rateBasis, (b) => `既定の値（${b}。わかれば直してください）`)));
             }
           }),
       }),
@@ -1207,7 +1209,7 @@ export function newOtherLoan(wh: WorkingHousehold, subtype: SubtypeDef["value"])
     const input = inputOf(req);
     putRow(input, addrPrincipal(id), tentativePrincipal(0));
     putRow(input, addrStart(id), estRow("standard", TENTATIVE));
-    putRow(input, at(id, "debt.rateSchedule", [rid, "rate"]), estRow("standard", `既定の値（${sub.rateBasis}。わかれば直してください）`));
+    putRow(input, at(id, "debt.rateSchedule", [rid, "rate"]), estRow("standard", wrapBasis(sub.rateBasis, (b) => `既定の値（${b}。わかれば直してください）`)));
     putRow(input, addrTerm(id), estRow("standard", UNENTERED_PAYMENT));
   });
   return withEntry(next, id, "balance");

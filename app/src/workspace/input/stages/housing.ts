@@ -4,7 +4,7 @@
 import type { Debt, Household, Residence, YearSeries } from "../../../engine/types.ts";
 import { addMonths } from "../../levers.ts";
 import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
-import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
+import { mutate, newId, presetBasis, standardBox, wrapBasis, type WorkingHousehold } from "../household.ts";
 import { rentBasis, rentStandard } from "../fill.ts";
 import { dropProvisionalEvent, withProvisionalHousing } from "../housingCredit.ts";
 import { BUILDING_STRUCTURES, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS, TAX_METHODS, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
@@ -775,7 +775,7 @@ export function newCarLoan(wh: WorkingHousehold): WorkingHousehold {
     const o = d as unknown as Obj;
     setState(o, "debt.principal", estRow("standard", presetBasis(presetText("preset.car.loan.principal", (v) => `借入額 ${manOf(v)}`))));
     // 金利は車の入力項目の自動車ローンと同じ目安（マスタデータ master.loanRates）
-    setState(o, `debt.rateSchedule/${rid}/rate`, estRow("standard", presetBasis(`固定金利 ${carLoanRateEstimate().basis}`)));
+    setState(o, `debt.rateSchedule/${rid}/rate`, estRow("standard", presetBasis(wrapBasis(carLoanRateEstimate().basis, (b) => `固定金利 ${b}`))));
     setState(o, "debt.repayment/termMonths", estRow("standard", presetBasis(presetText("preset.car.loan.termMonths", (v) => (Number(v) % 12 === 0 ? `返済期間${String(Number(v) / 12)}年` : `返済期間${String(v)}か月`)))));
     (hh.debts ??= []).push(d);
   });
