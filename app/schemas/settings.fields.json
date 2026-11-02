@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "settings.fields.json",
+  "title": "入力の欄の隠す・並べ替え（カスタム層の settings/fields.json。0016 の 2026-11-02 の追記）",
+  "description": "入力の欄（field:…）ごとに、隠す（hide）・まとまりの中で何番目に出すか（order）を書く。見せ方だけで、世帯の値と計算は変わらない。値の入った欄は、隠す設定でも出す。既定の値はここには書けない（アプリの「事務所の既定値」の画面で変える）。書ける id は欄の一覧（fields-reference）に載っている。アプリの外で変わったファイルは承認待ちになり、FP がアプリで承認するまで効かない。書き方は試験版（fields@MAJOR.MINOR）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "entries"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "pattern": "^fields@1\\.0$",
+      "description": "書き方の版"
+    },
+    "entries": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": { "$ref": "#/$defs/row" },
+      "description": "行の並び。同じ id の行は1つだけ（2つあれば承認できない）。欄の一覧に無い id の行は、使われていない行として読み飛ばす"
+    }
+  },
+  "$defs": {
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "anyOf": [{ "required": ["hide"] }, { "required": ["order"] }],
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 200,
+          "pattern": "^field:\\S+$",
+          "description": "欄の一覧の id（field:<入力項目ID>[/<道>]）"
+        },
+        "hide": {
+          "const": true,
+          "description": "値の無いときは欄を出さない（値が入っていれば出す。計算は変わらない）"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 99,
+          "description": "まとまりの中で何番目に出すか（1 から）。書いていない欄は今の並びのまま、同じ番号なら書いた欄が先"
+        }
+      }
+    }
+  }
+}

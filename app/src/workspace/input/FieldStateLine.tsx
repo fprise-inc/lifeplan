@@ -5,6 +5,7 @@ import { useContext } from "preact/hooks";
 import type { FieldDef } from "./form.ts";
 import { FieldStateOps, FillButton, PlanMarksContext, StateMark, StateOpLinks } from "./FieldViews.tsx";
 import type { WorkingHousehold } from "./household.ts";
+import { estimateTextId, estimateValueText } from "./textIds.ts";
 import { availableOps, fieldStatus, STATUS_LABELS, type StateOp, type ValueStatus } from "./valueState.ts";
 
 /** 欄の状態（印を出す状態か）。操作が渡されていない画面では null */
@@ -19,7 +20,7 @@ export function FieldStateBadge({ f, wh }: { f: FieldDef | undefined; wh: Workin
   if (ops === null || f === undefined) return null;
   const s = fieldStatus(f, wh);
   if (s.status === "confirmed") return null;
-  return <StateMark status={s.status} basis={s.status === "notApplicable" ? null : s.basis} text={s.status === "missing" ? "未入力" : STATUS_LABELS[s.status]} label={f.label} fieldKey={f.key} doc={f.docCheck} />;
+  return <StateMark status={s.status} basis={s.status === "notApplicable" ? null : s.basis} text={s.status === "missing" ? "未入力" : STATUS_LABELS[s.status]} label={f.label} fieldKey={f.key} doc={f.docCheck} estimate={{ id: estimateTextId(f, wh), value: estimateValueText(f, wh) }} />;
 }
 
 /**

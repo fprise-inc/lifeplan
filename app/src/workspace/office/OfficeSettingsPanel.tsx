@@ -41,8 +41,11 @@ export interface OfficeSettingsPanelProps {
   onCheckCodes?: () => Promise<FeatureStatus>;
   /** AIから届いたコードの候補を入れる（accept）か捨てる（0015 の追記の2段目） */
   onDecideCandidate?: (id: string, accept: boolean) => Promise<FeatureStatus>;
-  /** カスタム層の説明の文（0016 の追記 2026-11-02）。本体が確かめた状態と命令。押した結果はすぐ効く（保存は要らない） */
-  custom?: { host: CustomHost; status: CustomTextsStatus | null; onStatus: (st: CustomTextsStatus) => void };
+  /**
+   * カスタム層の説明の文・名前・入力の欄の見せ方（0016 の追記 2026-11-02）。本体が確かめた状態と命令。押した結果はすぐ効く（保存は要らない）。
+   * terms・fields は無ければ区画を出さない
+   */
+  custom?: { host: CustomHost; status: CustomTextsStatus | null; onStatus: (st: CustomTextsStatus) => void; terms?: CustomTextsStatus | null; fields?: CustomTextsStatus | null; onKindStatus?: (st: CustomTextsStatus) => void };
 }
 
 /** 「1.5」（%）→ "0.015"。空は null。読めない・範囲の外は undefined（整数の部分は3桁まで読む。評価の割合の 100% を入れられるように） */
@@ -666,6 +669,8 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
           </button>
         </div>
         {custom !== undefined ? <CustomTextsSection host={custom.host} status={custom.status} onStatus={custom.onStatus} /> : null}
+        {custom !== undefined && custom.terms !== undefined ? <CustomTextsSection kind="terms" host={custom.host} status={custom.terms} onStatus={custom.onKindStatus ?? custom.onStatus} /> : null}
+        {custom !== undefined && custom.fields !== undefined ? <CustomTextsSection kind="fields" host={custom.host} status={custom.fields} onStatus={custom.onKindStatus ?? custom.onStatus} /> : null}
         {onAddCode !== undefined ? (
         <div class="os-code" data-feature-code-area>
           {(features.candidates ?? []).map((c) => (

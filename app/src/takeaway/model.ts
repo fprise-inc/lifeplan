@@ -5,6 +5,7 @@
 // 宛名と事務所名は、書き出すときに FP が入れたものだけ（保存しない）。
 import type { EngineRequest } from "../engine/types.ts";
 import type { MoneyThreeSettings } from "../presentation/model.ts";
+import type { OfficeRowNames } from "../../../report/src/rowNames.ts";
 
 /** ファイルの形式の名前と版（中身の形を変えたら版を上げる） */
 export const TAKEAWAY_FORMAT = "financia.takeaway";
@@ -84,6 +85,11 @@ export interface TakeawayPayload {
    * 後から足した任意の欄（画面の部品は同じファイルに入るので、版は 1 のまま）
    */
   moneyThree?: MoneyThreeSettings;
+  /**
+   * 表の行の事務所の名前（カスタム層の名前の差し替えで FP が承認した名前。画面・提案書と同じ名前にする。0016 の 2026-11-02 の追記）。
+   * 後から足した任意の欄（無ければ公式の名前。版は 1 のまま）。名前の文字だけで、事務所の名前である印は持たない
+   */
+  names?: OfficeRowNames;
 }
 
 /** ファイルの中のデータ（パスワードを付けたときは、これを丸ごと暗号化する） */

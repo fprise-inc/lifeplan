@@ -1,5 +1,7 @@
 //! 説明の一覧（0016 の 2026-11-01 の追記の2）: 書き換えられる公式の文を、`id` ごとに1件ずつ載せた一覧。
 //! アプリのビルドが画面の定義から作り（`app/scripts/textsCatalog.ts`）、本体に埋め込む。
+//! 名前の一覧（`terms-reference`。公式の名前）と、欄の一覧（`fields-reference`。隠す・並べ替えができる欄）も同じ形で読む
+//! （0016 の 2026-11-02 の追記「名前の差し替え・隠す・並べ替え・推定の根拠の文」）。
 //!
 //! 1件の中身: `id`・`kind`・`where`（画面のどこの文か）・`audience`（`fp`／`customer`）・`text`（公式の文）・`vars`（差し込みの印）・
 //! `hash`（`text` の SHA-256）・`ops`（できる操作）・任意の `formerIds`・`meaningChanged`・`noticeKind`（計算の知らせの種類）。
@@ -10,8 +12,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::fingerprint;
 
-/// 一覧の書き方の版
+/// 一覧の書き方の版（説明の文）
 pub const CATALOG_SCHEMA: &str = "texts-reference@1.0";
+/// 名前の一覧の書き方の版
+pub const TERMS_CATALOG_SCHEMA: &str = "terms-reference@1.0";
+/// 欄の一覧（隠す・並べ替え）の書き方の版
+pub const FIELDS_CATALOG_SCHEMA: &str = "fields-reference@1.0";
 
 /// 文にできる操作（設定の行の `do`）
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -21,11 +27,14 @@ pub enum Op {
     Replace,
     /// 公式の文の後ろに段落を足す
     Append,
-    /// 消す（説明なら「?」ごと出さない）
+    /// 消す（説明なら「?」ごと出さない。欄の見せ方の設定では、値の無い欄を隠す）
     Hide,
+    /// 並べ替える（欄の見せ方の設定だけ）
+    Order,
 }
 
 impl Op {
+    /// 説明の文の設定の `do` を読む（並べ替えは説明の文には無い）
     pub fn parse(s: &str) -> Option<Op> {
         match s {
             "replace" => Some(Op::Replace),
@@ -40,6 +49,7 @@ impl Op {
             Op::Replace => "replace",
             Op::Append => "append",
             Op::Hide => "hide",
+            Op::Order => "order",
         }
     }
 }
@@ -75,6 +85,8 @@ struct CatalogFile {
 /// 説明の一覧
 #[derive(Debug, Clone, Default)]
 pub struct Catalog {
+    /// 一覧の書き方の版（どの種類の一覧か）
+    pub schema: String,
     by_id: BTreeMap<String, CatalogEntry>,
     /// 前の `id` → 今の `id`（`formerIds`）
     former: BTreeMap<String, String>,
@@ -114,10 +126,15 @@ impl Catalog {
     pub fn parse(json: &str) -> Result<Catalog, String> {
         let f: CatalogFile =
             serde_json::from_str(json).map_err(|e| format!("説明の一覧を読めません: {e}"))?;
-        if f.schema != CATALOG_SCHEMA {
+        if ![CATALOG_SCHEMA, TERMS_CATALOG_SCHEMA, FIELDS_CATALOG_SCHEMA]
+            .contains(&f.schema.as_str())
+        {
             return Err(format!("説明の一覧の版が違います: {}", f.schema));
         }
-        let mut c = Catalog::default();
+        let mut c = Catalog {
+            schema: f.schema.clone(),
+            ..Catalog::default()
+        };
         for e in f.entries {
             if kind_of(&e.id) != e.kind || e.kind.is_empty() {
                 return Err(format!("id と kind が合いません: {}", e.id));

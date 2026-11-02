@@ -615,6 +615,8 @@ export interface CustomIssue {
 export interface CustomRowText {
   do: TextOp;
   text: string | null;
+  /** 何番目に出すか（欄の見せ方の設定だけ） */
+  order?: number;
 }
 /** 承認の画面の1行（公式の文／今の事務所の文／新しい文） */
 export interface CustomRowDiff {
@@ -641,7 +643,11 @@ export interface CustomUpdateRow {
   stopped: boolean;
   reason: "meaning" | "vars" | "op" | null;
 }
+/** カスタム層の設定の種類（説明の文・名前・欄の見せ方。0016 の 2026-11-02 の追記） */
+export type CustomKind = "texts" | "terms" | "fields";
 export interface CustomTextsStatus {
+  /** どの設定か（古い本体では無い。無ければ説明の文） */
+  kind?: CustomKind;
   /** カスタム層の場所の表示（ホームは ~） */
   dir: string;
   isDefaultDir: boolean;
@@ -665,17 +671,17 @@ export interface CustomTextsStatus {
   /** 書き換えられる文の数 */
   catalogSize: number;
 }
-/** カスタム層の命令（読み書き・検査・指紋・承認は本体。画面からパスは渡さない） */
+/** カスタム層の命令（読み書き・検査・指紋・承認は本体。画面からパスは渡さない）。kind の省略は説明の文 */
 export interface CustomHost {
-  status(): Promise<CustomTextsStatus>;
+  status(kind?: CustomKind): Promise<CustomTextsStatus>;
   /** 承認待ちの中身を承認する（fingerprint は見せた状態の指紋。その後に変わっていたら E_CUSTOM_CHANGED） */
-  approve(fingerprint: string): Promise<CustomTextsStatus>;
+  approve(fingerprint: string, kind?: CustomKind): Promise<CustomTextsStatus>;
   /** 承認しない（前に承認した文のまま） */
-  decline(fingerprint: string): Promise<CustomTextsStatus>;
+  decline(fingerprint: string, kind?: CustomKind): Promise<CustomTextsStatus>;
   /** 事務所の文を全部やめて公式の文に戻す（ファイルは消さない） */
-  revert(): Promise<CustomTextsStatus>;
+  revert(kind?: CustomKind): Promise<CustomTextsStatus>;
   /** 更新で公式の文が変わった行: keep なら「このまま使う」、false なら行を外して公式の文に戻す（どちらもその場で承認） */
-  rows(ids: string[], keep: boolean): Promise<CustomTextsStatus>;
+  rows(ids: string[], keep: boolean, kind?: CustomKind): Promise<CustomTextsStatus>;
   /** 確かめられなかった台帳を作り直す */
   resetLedger(): Promise<CustomTextsStatus>;
   /** カスタム層の場所を本体のダイアログで選ぶ（選ばなかったら null） */
@@ -714,11 +720,11 @@ export function tauriHost(): HostApi {
   return {
     kind: "tauri",
     custom: {
-      status: () => invoke<CustomTextsStatus>("custom_texts_status"),
-      approve: (fingerprint) => invoke<CustomTextsStatus>("custom_texts_approve", { fingerprint }),
-      decline: (fingerprint) => invoke<CustomTextsStatus>("custom_texts_decline", { fingerprint }),
-      revert: () => invoke<CustomTextsStatus>("custom_texts_revert"),
-      rows: (ids, keep) => invoke<CustomTextsStatus>("custom_texts_rows", { ids, keep }),
+      status: (kind = "texts") => invoke<CustomTextsStatus>("custom_texts_status", { kind }),
+      approve: (fingerprint, kind = "texts") => invoke<CustomTextsStatus>("custom_texts_approve", { fingerprint, kind }),
+      decline: (fingerprint, kind = "texts") => invoke<CustomTextsStatus>("custom_texts_decline", { fingerprint, kind }),
+      revert: (kind = "texts") => invoke<CustomTextsStatus>("custom_texts_revert", { kind }),
+      rows: (ids, keep, kind = "texts") => invoke<CustomTextsStatus>("custom_texts_rows", { ids, keep, kind }),
       resetLedger: () => invoke<CustomTextsStatus>("custom_ledger_reset"),
       chooseDir: () => invoke<CustomTextsStatus | null>("custom_dir_choose"),
       resetDir: () => invoke<CustomTextsStatus>("custom_dir_reset"),
@@ -899,11 +905,11 @@ export function devBrowserHost(engine: WebEngine): HostApi {
     kind: "browser-dev",
     // カスタム層: 開発用のサーバーが FINANCIA_DEV_CUSTOM_DIR のフォルダを読む（承認はメモリの中だけ。検査は形と一覧の id だけの簡単な物）
     custom: {
-      status: async () => devJson<CustomTextsStatus>(await devCustom("status")),
-      approve: async (fingerprint) => devJson<CustomTextsStatus>(await devCustom("approve", { fingerprint })),
-      decline: async (fingerprint) => devJson<CustomTextsStatus>(await devCustom("decline", { fingerprint })),
-      revert: async () => devJson<CustomTextsStatus>(await devCustom("revert")),
-      rows: async (ids, keep) => devJson<CustomTextsStatus>(await devCustom("rows", { ids, keep })),
+      status: async (kind = "texts") => devJson<CustomTextsStatus>(await devCustom("status", { kind })),
+      approve: async (fingerprint, kind = "texts") => devJson<CustomTextsStatus>(await devCustom("approve", { fingerprint, kind })),
+      decline: async (fingerprint, kind = "texts") => devJson<CustomTextsStatus>(await devCustom("decline", { fingerprint, kind })),
+      revert: async (kind = "texts") => devJson<CustomTextsStatus>(await devCustom("revert", { kind })),
+      rows: async (ids, keep, kind = "texts") => devJson<CustomTextsStatus>(await devCustom("rows", { ids, keep, kind })),
       resetLedger: async () => devJson<CustomTextsStatus>(await devCustom("resetLedger")),
       chooseDir: async () => devJson<CustomTextsStatus | null>(await devCustom("chooseDir")),
       resetDir: async () => devJson<CustomTextsStatus>(await devCustom("resetDir")),

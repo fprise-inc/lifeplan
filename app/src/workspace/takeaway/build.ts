@@ -15,6 +15,7 @@ import { CURRENT } from "../plans/band.ts";
 import { ageSliderBounds, amountRange, reemploymentFor, type Catalog } from "../plans/items.ts";
 import { applyValues, type Values } from "../plans/plans.ts";
 import { IdMap, sanitizeRequest } from "./sanitize.ts";
+import type { OfficeRowNames } from "../../../../report/src/rowNames.ts";
 
 /** 必須の記載（提案書の PDF と同じ文。本体の app/src-tauri/src/report.rs の STANDARD_NOTICES と同じことを cargo test で確かめる） */
 export const STANDARD_NOTICES: readonly string[] = [
@@ -47,6 +48,8 @@ export interface TakeawayChoice {
   createdOn: string;
   /** 制度データの版（提案書の刻印と同じ書式） */
   dataSet: string;
+  /** 表の行の事務所の名前（カスタム層。承認した物だけ。省略は公式の名前） */
+  names?: OfficeRowNames;
 }
 
 export interface TakeawayContext {
@@ -156,7 +159,18 @@ export function buildPayload(ctx: TakeawayContext, choice: TakeawayChoice, notic
     levers,
     views: { balance: choice.views.balance, table: choice.views.table, moneyThree: choice.views.moneyThree },
     ...(choice.views.moneyThree ? { moneyThree: { months: choice.moneyThree.months, years: choice.moneyThree.years, wording: choice.moneyThree.wording } } : {}),
+    ...(choice.names !== undefined ? { names: takeawayNames(choice.names) } : {}),
   };
+}
+
+/** 持ち帰り用のレポートに入れる表の行の名前（row:… の id と、名前・公式の名前の文字だけ。長さを抑える） */
+export function takeawayNames(names: OfficeRowNames): OfficeRowNames {
+  const out: Record<string, { name: string; official: string }> = {};
+  for (const [id, e] of Object.entries(names)) {
+    const name = cleanText(e.name, 40);
+    if (/^row:[A-Za-z]+$/.test(id) && name !== null) out[id] = { name, official: e.official.slice(0, 40) };
+  }
+  return out;
 }
 
 /** 制度データの版（提案書の刻印と同じ: 計算基準月と、パックと版の組の指紋の先頭8桁。本体の report.rs の data_set_label と同じ作り方） */

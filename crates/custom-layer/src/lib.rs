@@ -1,7 +1,9 @@
 //! カスタム層の最小の仕組み（0016 の3・4・6、2026-11-01 の追記・2026-11-02 の追記）。
 //!
-//! 今動く種類は、設定のうち説明の文の差し替え（`settings/texts.json`）だけ。計算部品（`modules/`）・帳票（`reports/`）・
-//! 入力欄（`fields/`）は、同じ台帳と保存庫に種類を足して載せる（台帳の欄と保存庫のファイル名の頭が種類ごとに分かれている）。
+//! 今動く種類は、設定のうち説明の文の差し替え（`settings/texts.json`）・名前の差し替え（`settings/terms.json`）・
+//! 入力欄ごとの隠す・並べ替え（`settings/fields.json`）の3つ（[`Kind`]）。どれも同じ検査の流れ・指紋・承認の台帳・保存庫を使い、
+//! 台帳の欄と保存庫のファイル名の頭が種類ごとに分かれている。計算部品（`modules/`）・帳票（`reports/`）・独自の入力欄（`fields/`）も、
+//! 同じ台帳と保存庫に種類を足して載せる。
 //!
 //! 流れ:
 //! 1. カスタム層のファイルを読み、形と説明の一覧に照らして確かめ（[`texts::check`]）、中身の指紋（SHA-256）を取る。
@@ -12,8 +14,10 @@
 //! 5. アプリの更新で公式の文が変わったときは、行ごとに `basedOn` と一覧の `hash` を比べる（0016 の追記の7）。
 
 pub mod catalog;
+pub mod fields;
 pub mod ledger;
 pub mod location;
+pub mod terms;
 pub mod texts;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -26,8 +30,69 @@ use sha2::{Digest, Sha256};
 pub use catalog::{Catalog, CatalogEntry, Op};
 pub use texts::{Issue, Row, TextsFile};
 
-/// 保存庫のファイル名の頭（種類）
-const KIND_TEXTS: &str = "texts";
+/// カスタム層の設定の種類（同じ台帳と保存庫に種類を足す。2026-11-02 の追記）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Kind {
+    /// 説明の文の差し替え（`settings/texts.json`）
+    Texts,
+    /// 名前の差し替え（`settings/terms.json`）
+    Terms,
+    /// 入力欄ごとの隠す・並べ替え（`settings/fields.json`）
+    Fields,
+}
+
+impl Kind {
+    pub const ALL: [Kind; 3] = [Kind::Texts, Kind::Terms, Kind::Fields];
+
+    /// 保存庫のファイル名の頭・命令の引数の名前
+    pub fn name(self) -> &'static str {
+        match self {
+            Kind::Texts => "texts",
+            Kind::Terms => "terms",
+            Kind::Fields => "fields",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Kind> {
+        Kind::ALL.into_iter().find(|k| k.name() == s)
+    }
+
+    /// カスタム層の中のファイルの場所
+    pub fn path(self) -> &'static str {
+        match self {
+            Kind::Texts => texts::TEXTS_PATH,
+            Kind::Terms => terms::TERMS_PATH,
+            Kind::Fields => fields::FIELDS_PATH,
+        }
+    }
+
+    fn check(self, bytes: &[u8], catalog: &Catalog) -> texts::Checked {
+        match self {
+            Kind::Texts => texts::check(bytes, catalog),
+            Kind::Terms => terms::check(bytes, catalog),
+            Kind::Fields => fields::check(bytes, catalog),
+        }
+    }
+
+    /// 保存庫の中身を中の形にする
+    fn parse_stored(self, bytes: &[u8]) -> Option<TextsFile> {
+        match self {
+            Kind::Texts => serde_json::from_slice(bytes).ok(),
+            Kind::Terms => terms::parse_stored(bytes),
+            Kind::Fields => fields::parse_stored(bytes),
+        }
+    }
+
+    /// 中の形をファイルの形にする（更新の確かめの「このまま使う」「公式の文に戻す」で書き直すとき）
+    fn to_bytes(self, f: &TextsFile) -> Vec<u8> {
+        match self {
+            Kind::Texts => f.to_bytes(),
+            Kind::Terms => terms::to_bytes(f),
+            Kind::Fields => fields::to_bytes(f),
+        }
+    }
+}
 
 /// 中身の指紋（`sha256:<16進>`）
 pub fn fingerprint(bytes: &[u8]) -> String {
@@ -67,11 +132,13 @@ pub mod code {
 
 /// カスタム層の操作に要るもの
 pub struct Context<'a> {
+    /// どの設定か
+    pub kind: Kind,
     /// 台帳と保存庫（データフォルダの中の `custom/`）
     pub store: ledger::Store,
     /// 台帳の改ざん検出の鍵（事務所の親鍵から導いた鍵）
     pub key: &'a [u8; 32],
-    /// 説明の一覧（本体に埋め込んだ物）
+    /// その種類の一覧（説明の一覧・名前の一覧・欄の一覧。本体に埋め込んだ物）
     pub catalog: &'a Catalog,
     /// カスタム層の既定の場所
     pub default_dir: PathBuf,
@@ -105,6 +172,9 @@ pub struct RowText {
     #[serde(rename = "do")]
     pub op: Op,
     pub text: Option<String>,
+    /// 何番目に出すか（欄の見せ方の設定だけ）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order: Option<u32>,
 }
 
 /// 承認の画面の1行（公式の文／今の事務所の文／新しい文）
@@ -155,6 +225,9 @@ pub struct Effective {
     #[serde(rename = "do")]
     pub op: Op,
     pub text: Option<String>,
+    /// 何番目に出すか（欄の見せ方の設定だけ）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order: Option<u32>,
     /// 当てる先の公式の文（画面は、今の公式の文がこれと同じときだけ当てる）
     pub official: String,
     /// 公式の説明が変わった（確かめるまで「事務所の文（公式の説明が変わりました）」の札）
@@ -172,6 +245,7 @@ pub struct ApprovedView {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TextsStatus {
+    pub kind: Kind,
     pub is_default_dir: bool,
     pub folder_exists: bool,
     pub file: FileState,
@@ -215,15 +289,11 @@ pub fn custom_dir(body: &ledger::LedgerBody, default: &Path) -> PathBuf {
         .unwrap_or_else(|| default.to_path_buf())
 }
 
-fn parse_file(bytes: &[u8]) -> Option<TextsFile> {
-    serde_json::from_slice(bytes).ok()
-}
-
 impl Context<'_> {
     fn snapshot(&self) -> Snapshot {
         let loaded = self.store.load(self.key);
         let dir = custom_dir(&loaded.body, &self.default_dir);
-        let path = dir.join(texts::TEXTS_PATH);
+        let path = dir.join(self.kind.path());
         let (file, bytes) = match fs::read(&path) {
             Ok(b) => (FileState::Present, Some(b)),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => (FileState::None, None),
@@ -235,14 +305,14 @@ impl Context<'_> {
             .unwrap_or_else(|| NO_FILE.to_owned());
         let checked = bytes
             .as_deref()
-            .map(|b| texts::check(b, self.catalog))
+            .map(|b| self.kind.check(b, self.catalog))
             .unwrap_or_default();
         let mut approved_missing = false;
-        let approved = loaded.body.texts.as_ref().and_then(|a| {
+        let approved = loaded.body.approval(self.kind).and_then(|a| {
             let got = self
                 .store
-                .get_approved(KIND_TEXTS, &a.fingerprint)
-                .and_then(|b| parse_file(&b));
+                .get_approved(self.kind.name(), &a.fingerprint)
+                .and_then(|b| self.kind.parse_stored(&b));
             if got.is_none() {
                 approved_missing = true;
             }
@@ -250,19 +320,18 @@ impl Context<'_> {
         });
         let approved_fp = loaded
             .body
-            .texts
-            .as_ref()
+            .approval(self.kind)
             .map(|a| a.fingerprint.as_str())
             .unwrap_or(NO_FILE);
         // 読めないファイルは変更と見なさない（前に承認した中身のまま）
         let unchanged = file == FileState::Unreadable || fp == approved_fp;
         let state = if unchanged {
-            if loaded.body.texts.is_some() {
+            if loaded.body.approval(self.kind).is_some() {
                 State::Approved
             } else {
                 State::None
             }
-        } else if loaded.body.texts_declined.as_deref() == Some(fp.as_str()) {
+        } else if loaded.body.declined(self.kind) == Some(fp.as_str()) {
             State::Declined
         } else {
             State::Pending
@@ -296,6 +365,7 @@ impl Context<'_> {
         let next_rows = s.checked.file.as_ref().map(|f| f.entries.clone());
         let (updates, effective) = self.resolve(s.approved.as_ref());
         TextsStatus {
+            kind: self.kind,
             is_default_dir: s.loaded.body.custom_dir.is_none(),
             folder_exists: s.dir.is_dir(),
             file: s.file,
@@ -304,7 +374,7 @@ impl Context<'_> {
             errors: s.checked.errors.clone(),
             warnings: s.checked.warnings.clone(),
             unused: s.checked.unused.clone(),
-            approved: s.loaded.body.texts.as_ref().map(|a| ApprovedView {
+            approved: s.loaded.body.approval(self.kind).map(|a| ApprovedView {
                 fingerprint: a.fingerprint.clone(),
                 approved_at: a.approved_at,
             }),
@@ -338,6 +408,7 @@ impl Context<'_> {
         let text = |r: &Row| RowText {
             op: r.op,
             text: r.text.clone(),
+            order: r.order,
         };
         let mut out = Vec::new();
         for id in next
@@ -381,7 +452,8 @@ impl Context<'_> {
             let Some((e, moved)) = self.catalog.resolve(&r.id) else {
                 continue;
             };
-            let changed = r.based_on != e.hash;
+            // 欄の見せ方の設定は公式の文に拠らない（basedOn が無い）
+            let changed = !r.based_on.is_empty() && r.based_on != e.hash;
             let vars_ok = r
                 .text
                 .as_deref()
@@ -408,6 +480,7 @@ impl Context<'_> {
                     office: RowText {
                         op: r.op,
                         text: r.text.clone(),
+                        order: r.order,
                     },
                     stopped: reason.is_some(),
                     reason,
@@ -418,6 +491,7 @@ impl Context<'_> {
                     id: e.id.clone(),
                     op: r.op,
                     text: r.text.clone(),
+                    order: r.order,
                     official: e.text.clone(),
                     official_changed: changed || moved,
                 });
@@ -463,14 +537,15 @@ impl Context<'_> {
                     return Err(code::INVALID);
                 }
                 self.store
-                    .put_approved(KIND_TEXTS, b)
+                    .put_approved(self.kind.name(), b)
                     .map_err(|_| code::IO)?;
-                body.texts = Some(self.approval_for(fp, s.checked.file.as_ref(), now));
+                *body.approval_mut(self.kind) =
+                    Some(self.approval_for(fp, s.checked.file.as_ref(), now));
             }
             // ファイルを消した変更の承認: 事務所の文をやめて公式の文に戻す
-            None => body.texts = None,
+            None => *body.approval_mut(self.kind) = None,
         }
-        body.texts_declined = None;
+        *body.declined_mut(self.kind) = None;
         self.store.save(self.key, &body).map_err(|_| code::IO)?;
         Ok(self.status())
     }
@@ -485,7 +560,7 @@ impl Context<'_> {
             return Err(code::NOTHING);
         }
         let mut body = s.loaded.body.clone();
-        body.texts_declined = Some(fp.to_owned());
+        *body.declined_mut(self.kind) = Some(fp.to_owned());
         self.store.save(self.key, &body).map_err(|_| code::IO)?;
         Ok(self.status())
     }
@@ -494,8 +569,8 @@ impl Context<'_> {
     pub fn revert(&self) -> Result<TextsStatus, &'static str> {
         let s = self.snapshot();
         let mut body = s.loaded.body.clone();
-        body.texts = None;
-        body.texts_declined = (s.fp != NO_FILE).then(|| s.fp.clone());
+        *body.approval_mut(self.kind) = None;
+        *body.declined_mut(self.kind) = (s.fp != NO_FILE).then(|| s.fp.clone());
         self.store.save(self.key, &body).map_err(|_| code::IO)?;
         Ok(self.status())
     }
@@ -524,21 +599,21 @@ impl Context<'_> {
         };
         let mut next = file.clone();
         f(self.catalog, &mut next.entries);
-        let bytes = next.to_bytes();
-        let checked = texts::check(&bytes, self.catalog);
+        let bytes = self.kind.to_bytes(&next);
+        let checked = self.kind.check(&bytes, self.catalog);
         if !checked.ok() {
             return Err(code::INVALID);
         }
-        let path = s.dir.join(texts::TEXTS_PATH);
+        let path = s.dir.join(self.kind.path());
         fs::create_dir_all(path.parent().expect("settings のフォルダ")).map_err(|_| code::IO)?;
         ledger::write_atomically(&path, &bytes).map_err(|_| code::IO)?;
         let fp = self
             .store
-            .put_approved(KIND_TEXTS, &bytes)
+            .put_approved(self.kind.name(), &bytes)
             .map_err(|_| code::IO)?;
         let mut body = s.loaded.body.clone();
-        body.texts = Some(self.approval_for(&fp, checked.file.as_ref(), now));
-        body.texts_declined = None;
+        *body.approval_mut(self.kind) = Some(self.approval_for(&fp, checked.file.as_ref(), now));
+        *body.declined_mut(self.kind) = None;
         self.store.save(self.key, &body).map_err(|_| code::IO)?;
         Ok(self.status())
     }

@@ -321,13 +321,19 @@ fn main() {
     )
     .unwrap();
 
-    // 0016 の追記（2026-11-02）: 説明の一覧（画面のビルドの段 npm run prepare-assets が画面の定義から作る）
-    let catalog = manifest_dir.join("../src/generated/texts-catalog.json");
-    if !catalog.exists() {
-        panic!("説明の一覧（app/src/generated/texts-catalog.json）がありません。先に app/ で `npm run prepare-assets` を流してください");
+    // 0016 の追記（2026-11-02）: 説明の一覧・名前の一覧・欄の一覧（画面のビルドの段 npm run prepare-assets が画面の定義から作る）
+    for name in [
+        "texts-catalog.json",
+        "terms-catalog.json",
+        "fields-catalog.json",
+    ] {
+        let catalog = manifest_dir.join("../src/generated").join(name);
+        if !catalog.exists() {
+            panic!("一覧（app/src/generated/{name}）がありません。先に app/ で `npm run prepare-assets` を流してください");
+        }
+        println!("cargo:rerun-if-changed={}", catalog.display());
+        std::fs::copy(&catalog, out_dir.join(name)).unwrap();
     }
-    println!("cargo:rerun-if-changed={}", catalog.display());
-    std::fs::copy(&catalog, out_dir.join("texts-catalog.json")).unwrap();
 
     tauri_build::try_build(
         tauri_build::Attributes::new()

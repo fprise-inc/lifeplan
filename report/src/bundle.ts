@@ -1,5 +1,6 @@
 // 帳票の入力を組み立てる材料（ProposalBundle）: 計算の要求と、その正の計算の結果の組。
 // 結果は本体の quickjs-ng で計算したもの（0005 の2。画面側の先出しの結果は渡さない）。形は表示の形（preview: 見出し・表・要約）でよい。
+import type { OfficeRowNames } from "./rowNames.ts";
 import type { ChildScholarship } from "./childScholarships.ts";
 import type { EngineRequest } from "../../engine/src/engine/types.ts";
 import type { ChapterId } from "./chapters.ts";
@@ -173,6 +174,11 @@ export interface ProposalBundle {
   chapters?: ChapterId[];
   /** お金の3つの分け方の何か月分・何年先まで・呼び方（資産と負債のタブの表示の設定。省略は既定。0032） */
   moneyThree?: MoneyThreeSettings;
+  /**
+   * 事務所の名前（カスタム層の名前の差し替えで FP が承認した、表の行の名前。0016 の 2026-11-02 の追記）。表の行と、同じ名前の内訳に当てる。
+   * 省略は公式の名前。事務所の名前である印は帳票に出さない
+   */
+  names?: OfficeRowNames;
   /** 帳票の組み方（紙の向き・キャッシュフロー表の載せ方。省略は標準） */
   layout?: ReportLayout;
   /**

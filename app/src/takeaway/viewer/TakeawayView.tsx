@@ -85,7 +85,7 @@ export function TakeawayView({ data, engine, preview = false }: TakeawayViewProp
   const names = { selected: planLabel(sel), base: planLabel(p.base), same: sel === p.base };
   const model = useMemo(() => {
     if (selRes === undefined || baseRes === undefined || !selRes.ok || !baseRes.ok) return null;
-    return toPresentation({ base: current, proposal: requests[sel] as EngineRequest, current: baseRes.result, proposed: selRes.result, targetAge: p.targetAge, selectedYear: pinned, provisional: false, names, baseProposal: requests[p.base] as EngineRequest });
+    return toPresentation({ base: current, proposal: requests[sel] as EngineRequest, current: baseRes.result, proposed: selRes.result, targetAge: p.targetAge, selectedYear: pinned, provisional: false, names, baseProposal: requests[p.base] as EngineRequest, ...(p.names !== undefined ? { rowNames: p.names } : {}) });
   }, [selRes, baseRes, pinned, sel, p.base]);
   const pinnedYear = pinned !== null && model?.selectedYear === pinned ? pinned : null;
   const error = selRes !== undefined && !selRes.ok ? selRes.code : baseRes !== undefined && !baseRes.ok ? baseRes.code : null;
