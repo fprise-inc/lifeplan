@@ -9,7 +9,7 @@ import { boxBasis, confirmedBox, estimatedBox, mutate, newId, type WorkingHouseh
 import { eventChoices, eventName, materializeEvent, pointsToCandidate, refsTo, whenPeople } from "./namedEvents.ts";
 import { clampRate, rangeText, rateInRange } from "./rateRanges.ts";
 import { pctFromRate, sameRate, type YenBasis, type YenUnit } from "./units.ts";
-import { readWhen, sameWhen, WHEN_MODES, type AgeMeans, type WhenCtx, type WhenMode } from "./when.ts";
+import { DEFAULT_WHEN_MODES, readWhen, sameWhen, type AgeMeans, type WhenCtx, type WhenMode } from "./when.ts";
 
 export { resolveTimepoint };
 import type { Address } from "../store/readings.ts";
@@ -528,12 +528,19 @@ export function toTimepoint(v: Val): Timepoint | null | undefined {
 /** 時点の欄の読み取りの文脈（人・出来事の一覧・既定の入れ方） */
 export function whenContext(wh: WorkingHousehold, spec: WhenSpec, o: { person?: string | null; optional?: boolean; start?: Timepoint | null; current?: Timepoint | null; excludeEvent?: string }): WhenCtx {
   const h = wh.request.input.household;
+  // 出来事の一覧は欄に合わせて絞る: 欄そのものと始まりの時点を元にする物（住み終わりの欄の、その住まいの入居）と、始まりより前の物は出さない
+  const choice = {
+    ...(o.excludeEvent !== undefined ? { exclude: o.excludeEvent } : {}),
+    own: [o.current, o.start],
+    ...(o.start != null ? { notBefore: resolveTimepoint(h, o.start) } : {}),
+    ...(o.current?.event !== undefined ? { keep: o.current.event } : {}),
+  };
   return {
     h,
     baseMonth: wh.request.input.baseMonth,
     people: whenPeople(wh),
     person: o.person ?? null,
-    events: spec.modes.includes("event") ? eventChoices(wh, o.excludeEvent !== undefined ? { exclude: o.excludeEvent } : {}) : [],
+    events: spec.modes.includes("event") ? eventChoices(wh, choice) : [],
     modes: spec.modes,
     defaultMode: spec.defaultMode,
     ageMeans: spec.ageMeans,
@@ -577,7 +584,7 @@ export interface WhenOptions {
 
 const specOf = (o: WhenOptions): WhenSpec => ({
   defaultMode: o.mode ?? (o.ageOf !== undefined ? "age" : "ym"),
-  modes: o.modes ?? WHEN_MODES,
+  modes: o.modes ?? DEFAULT_WHEN_MODES,
   ageMeans: o.ageMeans ?? "reach",
   ...(o.nullText !== undefined ? { nullText: o.nullText } : {}),
   ...(o.anchor !== undefined ? { anchor: o.anchor } : {}),
