@@ -176,7 +176,7 @@ describe("次の買い替えの時期・購入の時期は「今から○年後�
     const shown = strictShown(st.raw, st.ctx as WhenCtx)!;
     expect(shown.tp.at).toBe(resolveTimepoint(wh.request.input.household, st.raw));
     expect(shown.note).toContain("年齢（50歳）で入っています");
-    expect(shown.note).toContain("「今から」");
+    expect(shown.note).toContain("「○年後」");
     // 直すと今からの形（年月）で書く
     const w2 = fieldOf(wh, `${c.id}/first`).set(wh, { at: yearPlus(wh.request.input.baseMonth, 4) });
     expect(carOf(w2, c.id).purchase!.first).toEqual({ at: yearPlus(wh.request.input.baseMonth, 4) });

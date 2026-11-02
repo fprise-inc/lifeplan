@@ -606,7 +606,7 @@ function eventGroups(wh: WorkingHousehold): GroupDef[] {
       path: ["at"],
       ageOf: (hh) => hh.members.find((x) => x.id === (hh.events ?? []).find((y) => y.id === e.id)?.member) ?? hh.members.find((x) => x.kind === "self"),
       mode: e.member !== undefined ? "age" : "ym",
-      modes: ["age", "ym", "now"],
+      modes: ["age", "ym"],
       help: "出来事の時点は、年月か人の年齢で入れます",
     });
     fields.push(provisional(wh, e.id) ? { ...atField, time: undefined, readOnly: "住宅ローン控除の仮の条件の入居です。借入の年月に合わせます" } : atField);

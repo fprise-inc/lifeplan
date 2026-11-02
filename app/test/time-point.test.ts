@@ -15,7 +15,7 @@ import { eventChoices } from "../src/workspace/input/namedEvents.ts";
 import { removeMember } from "../src/workspace/input/stages/family.ts";
 import { buildStage, buildStages } from "../src/workspace/input/stages/index.ts";
 import { parseWareki, parseYearMonth } from "../src/workspace/input/units.ts";
-import { convertWhen, durationEnd, modeOf, parseWhen, readWhen, readYearMonth, sameWhen, showWhen, WHEN_MODES, type AgeMeans, type WhenCtx, type WhenMode } from "../src/workspace/input/when.ts";
+import { convertWhen, DEFAULT_WHEN_MODES, durationEnd, modeOf, parseWhen, readWhen, readYearMonth, sameWhen, showWhen, WHEN_MODES, type AgeMeans, type WhenCtx, type WhenMode } from "../src/workspace/input/when.ts";
 import { ageSwitchMonth, resolveTimepoint } from "../src/workspace/timepoint.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
@@ -296,7 +296,7 @@ describe("時点の欄の読み書き", () => {
     expect(byKey(wh, `family/${son.id}/leaves`)).toBeUndefined();
     // 加わる時期（詳細）: 年月で入れると「○歳（和暦）」。年齢の形で持つ世帯は開いても変えない
     const j = byKey(wh, `family/${sp.id}/joins`);
-    expect(j.time!.when.modes).toEqual(WHEN_MODES);
+    expect(j.time!.when.modes).toEqual(DEFAULT_WHEN_MODES);
     const w2 = j.set(wh, "2027-04");
     const age = Math.floor((2027 * 12 + 3 - (Number(sp.birth.birthYearMonth.slice(0, 4)) * 12 + Number(sp.birth.birthYearMonth.slice(5, 7)) - 1)) / 12);
     expect(j.get(w2).when!.read).toBe(`${age}歳（令和9年4月）`);

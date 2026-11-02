@@ -1,6 +1,7 @@
 // 時点の部品（0038）の読み取りと見せ方。どの「いつ」の欄も、この1つの決まりで読む・書く・見せる。
-// 入れ方は4つ: 年月（2041年6月）・人の年齢（本人が60歳になる月）・出来事から（入居から10年後）・今から（5年後）。
-// 書く値はエンジンの時点の型（0003 の6）そのもの: 年月と「今から」は {at}、年齢は {memberAge}、出来事からは {event, offset}。
+// 入れ方は4つ: 年月（2041年6月）・人の年齢（本人が60歳になる月）・出来事から（入居から10年後）・○年後（今から5年後）。
+// ○年後は、それを既定にする欄（車の買い替えの時期など）だけが入れ方に持つ。ほかの欄でも「5年後」と打てば年月に読む（0038 の追記 2026-11-02）。
+// 書く値はエンジンの時点の型（0003 の6）そのもの: 年月と○年後は {at}、年齢は {memberAge}、出来事からは {event, offset}。
 // ここは世帯を変えない純粋な関数だけを持つ（欄の読み書きは form.ts の timepointField、出来事の一覧と作り方は namedEvents.ts）
 import type { Household, Timepoint } from "../../engine/types.ts";
 import { ageSwitchMonth, monthIndex, monthText, resolveTimepoint, type AgeSwitch } from "../timepoint.ts";
@@ -9,7 +10,9 @@ import { parseWareki, wareki } from "./units.ts";
 /** 入れ方 */
 export type WhenMode = "ym" | "age" | "event" | "now";
 export const WHEN_MODES: readonly WhenMode[] = ["age", "ym", "event", "now"];
-export const WHEN_MODE_LABEL: Record<WhenMode, string> = { ym: "年月", age: "年齢", event: "出来事から", now: "今から" };
+/** 欄が入れ方を決めないときの入れ方（○年後は入れ方に出さない。「5年後」と打てば年月に読む） */
+export const DEFAULT_WHEN_MODES: readonly WhenMode[] = ["age", "ym", "event"];
+export const WHEN_MODE_LABEL: Record<WhenMode, string> = { ym: "年月", age: "年齢", event: "出来事から", now: "○年後" };
 
 /**
  * 「60歳」と打ったときに、その欄でどの月を指すか（欄ごとに決める）:
@@ -33,8 +36,22 @@ export interface WhenEvent {
   label: string;
   names: string[];
   ym: string | null;
-  /** まだ出来事になっていない（選ぶと画面が出来事を作り、元の物の時点をその出来事に向ける） */
+  /** まだ出来事になっていない（選ぶと画面が出来事を作り、元の物の時点をその出来事に向ける。画面には出さない） */
   candidate?: boolean;
+  /** 同じ名前の出来事を分けるために名前の後ろのかっこに足した言葉（「住宅の購入」「住まい 3」、それでも同じなら年月も） */
+  tag?: string;
+  /** tag に年月が入っている（選択肢に年月を重ねて付けない） */
+  dated?: boolean;
+}
+
+/**
+ * 「出来事から」の選択肢の文字: 「第2子の独立（2036年4月）」。分けるための言葉があれば同じかっこにまとめる（「入居（住宅の購入・2028年10月）」）。
+ * 年月は1つだけ（名前に年月が入っていれば足さない）
+ */
+export function eventOptionText(e: Pick<WhenEvent, "label" | "ym" | "tag" | "dated">): string {
+  const ym = e.ym === null || e.dated === true ? null : `${Number(e.ym.slice(0, 4))}年${Number(e.ym.slice(5))}月`;
+  if (e.tag === undefined || !e.label.endsWith(`（${e.tag}）`)) return ym === null ? e.label : `${e.label}（${ym}）`;
+  return ym === null ? e.label : `${e.label.slice(0, -(e.tag.length + 2))}（${e.tag}・${ym}）`;
 }
 
 export interface WhenCtx {
@@ -170,7 +187,7 @@ const examples = (ctx: WhenCtx): string => {
     ex.push(young ? "22歳" : "60歳", other !== undefined ? `${other.names[0] ?? other.label}65歳` : "60歳3か月");
   }
   if (allowed(ctx, "event") && ctx.events.length > 0) ex.push(`${ctx.events[0]?.label}の翌月`);
-  if (allowed(ctx, "now")) ex.push("5年後");
+  if (allowed(ctx, "now") || allowed(ctx, "ym")) ex.push("5年後");
   if (ctx.start !== undefined) ex.push("10年間");
   return ex.join("・");
 };
@@ -332,7 +349,8 @@ export function parseWhen(text: string, ctx: WhenCtx): WhenParse {
   if (month !== null) return month.ok && !allowed(ctx, "ym") && !allowed(ctx, "now") ? notAllowed(ctx, "ym") : month;
 
   // 出来事から（名前の長い順に照らす）
-  const evNames = ctx.events.flatMap((e) => e.names.map((n) => ({ e, n }))).sort((a, b) => b.n.length - a.n.length);
+  // 名前も打った文字と同じくそろえる（「入居（住宅の購入）」の全角のかっこ）
+  const evNames = ctx.events.flatMap((e) => e.names.map((n) => ({ e, n: normalizeWhenText(n) }))).sort((a, b) => b.n.length - a.n.length);
   for (const { e, n } of evNames) {
     if (n === "" || !s.startsWith(n)) continue;
     const off = offsetText(s.slice(n.length));
@@ -367,7 +385,7 @@ const span = (total: number): string => {
 };
 const ageText = (total: number): string => (total % 12 === 0 ? `${total / 12}歳` : `${Math.floor(total / 12)}歳${total % 12}か月`);
 
-/** 時点の今の入れ方（年月は欄の既定の入れ方に合わせて年齢・今からでも見せる） */
+/** 時点の今の入れ方（年月は欄の既定の入れ方に合わせて年齢・○年後でも見せる） */
 export function modeOf(tp: Timepoint | null | undefined, ctx: WhenCtx): WhenMode {
   if (tp == null) return ctx.mode ?? ctx.defaultMode;
   if (tp.event !== undefined) return "event";
@@ -549,7 +567,7 @@ export function withPerson(tp: Timepoint | null | undefined, person: string, ctx
 
 /**
  * 使える入れ方だけで見せる欄（WhenSpec.strictModes。0101）で、入っている時点がほかの形（年齢・出来事から）のとき、同じ月の既定の入れ方の形と、
- * 欄に添える1行。使える入れ方の形なら null。過ぎた年月（「今から」で言えない月）は年月のまま見せる（欄の知らせで直してもらう）
+ * 欄に添える1行。使える入れ方の形なら null。過ぎた年月（「○年後」で言えない月）は年月のまま見せる（欄の知らせで直してもらう）
  */
 export function strictShown(tp: Timepoint | null | undefined, ctx: WhenCtx): { tp: Timepoint; note: string } | null {
   if (tp == null) return null;
