@@ -318,6 +318,9 @@ const INSURANCE_LABEL: Record<string, string> = {
   "insurance.nonLife": "損害保険（火災・地震など）",
 };
 
+/** 計算の型と名前が違う種類の細目（三大疾病保険は医療保険の型で計算する。0055 の追記 2026-11-02） */
+const SUBTYPE_LABEL: Record<string, string> = { threeMajor: "三大疾病保険" };
+
 const BENEFIT_LABEL: Record<string, string> = {
   death: "死亡保険金",
   incomeProtection: "収入保障（月額）",
@@ -1079,7 +1082,7 @@ function insurance(ctx: Ctx): ProposalInput["insurance"] {
   const curIds = new Set(cur.map((c) => c.id));
   const proIds = new Set(pro.map((c) => c.id));
   const all = [...pro, ...cur.filter((c) => !proIds.has(c.id))];
-  const names = all.map((c) => INSURANCE_LABEL[c.template] ?? "保険");
+  const names = all.map((c) => (c.subtype !== undefined ? SUBTYPE_LABEL[c.subtype] : undefined) ?? INSURANCE_LABEL[c.template] ?? "保険");
   const display = all.map((c, i) => {
     const n = names[i] as string;
     return names.filter((x) => x === n).length > 1 ? `${n}（${label.get(c.insured) ?? "ご家族"}）` : n;

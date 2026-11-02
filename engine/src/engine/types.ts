@@ -543,6 +543,7 @@ export type InsuranceSubtype =
   | "endowment"
   | "medical"
   | "cancer"
+  | "threeMajor"
   | "incapacity"
   | "education"
   | "privateAnnuity"

@@ -20,7 +20,9 @@ import {
   estRow,
   isAuto,
   isAutoStandard,
+  KIND_GROUPS,
   KIND_OPTIONS,
+  KINDS,
   kindDef,
   kindOf,
   mainCoverage,
@@ -934,27 +936,28 @@ function amountLabel(benefit: string): string {
   }
 }
 
-/** 新しい契約のボタン */
-const ADD_BUTTONS: readonly { key: string; label: string; help?: string; kind: string; level: "simple" | "detail" }[] = [
-  { key: "ins/add", label: "＋ 保険契約（定期保険）", kind: "term", level: "simple" },
-  { key: "ins/addMedical", label: "＋ 医療保険", kind: "medical", level: "simple" },
-  { key: "ins/addEducation", label: "＋ 学資保険", kind: "education", level: "simple" },
-  { key: "ins/addNonLife", label: "＋ 損害保険", help: "火災・地震・自動車などの保険です", kind: "nonLife", level: "detail" },
-];
+/**
+ * 新しい契約のボタン（0055 の追記 2026-11-02）: 「＋ 保険契約を足す」の1つにまとめ、押すと種類を分類の見出しごとに並べた一覧を開く
+ * （よく使う物は一覧の上にも出す）。選ぶとその種類の既定で契約を足す。学資保険は子がいるときだけ、損害保険は「詳細」のときだけ出す。
+ * キーは前のボタンのまま（定期保険 ins/add・医療保険 ins/addMedical・学資保険 ins/addEducation・損害保険 ins/addNonLife）、ほかは ins/add:種類
+ */
+export const ADD_CHOICE = { key: "ins/new", label: "＋ 保険契約を足す", help: "種類を選ぶと、その種類の既定の値で契約を1件足します（保険料と保障の額は入れてください）。法人の契約の保険は入れません" } as const;
+const OLD_KEYS: Readonly<Record<string, string>> = { term: "ins/add", medical: "ins/addMedical", education: "ins/addEducation", nonLife: "ins/addNonLife" };
+export const addKey = (kind: string): string => OLD_KEYS[kind] ?? `ins/add:${kind}`;
+const groupLabel = new Map(KIND_GROUPS.map((g) => [g.group, g.label]));
 
 export function insuranceStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;
   const list = h.insuranceContracts ?? [];
-  const actions: ActionDef[] = ADD_BUTTONS.filter((b) => b.kind !== "education" || h.members.some((m) => m.kind === "child")).map((b) => ({
-    key: b.key,
-    label: b.label,
-    ...(b.help !== undefined ? { help: b.help } : {}),
-    level: b.level,
+  const hasChild = h.members.some((m) => m.kind === "child");
+  const actions: ActionDef[] = KINDS.filter((k) => !k.child || hasChild).map((k) => ({
+    key: addKey(k.kind),
+    label: k.label,
+    level: k.kind === "nonLife" ? "detail" : "simple",
+    choice: { ...ADD_CHOICE, group: groupLabel.get(k.group) ?? "そのほか", ...(k.frequent === true ? { frequent: true } : {}) },
     run: (w: WorkingHousehold) =>
       mutate(w, (hh, req) => {
-        const kind = kindDef(b.kind);
-        if (kind === undefined) return;
-        const c = newContract(hh, req.input.baseMonth, kind);
+        const c = newContract(hh, req.input.baseMonth, k);
         if (c !== null) (hh.insuranceContracts ??= []).push(c);
       }),
   }));

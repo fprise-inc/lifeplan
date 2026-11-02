@@ -751,6 +751,31 @@ function sample050(): BodyState {
   return { ...s, wh: { ...s.wh, companyBs } };
 }
 
+/** 0.51 の形（0055 の追記 2026-11-02）: 保険の種類の細目に三大疾病保険（医療保険の型。主な保障は三大疾病一時金）を足す */
+function sample051(): BodyState {
+  const s = sample050();
+  const req = structuredClone(s.wh.request);
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const id = (n: number) => `00000000-0000-4000-8000-0000000005${String(n).padStart(2, "0")}`;
+  req.input.household.insuranceContracts = [
+    ...(req.input.household.insuranceContracts ?? []),
+    {
+      id: id(1),
+      policyholder: self.id,
+      insured: self.id,
+      currency: "JPY",
+      template: "insurance.medical",
+      subtype: "threeMajor",
+      label: "架空の三大疾病保険",
+      contractDate: "2023-04",
+      premium: { amount: 5000, frequency: "monthly", payUntil: null },
+      deductionCategory: { type: "careMedical", regime: "new" },
+      coverages: [{ id: id(2), role: "main", benefit: "threeMajorLump", amount: 3000000, from: { at: "2023-04" }, to: null }],
+    },
+  ] as typeof req.input.household.insuranceContracts;
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -874,7 +899,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.50");
+    expect(BODY_FORMAT_VERSION).toBe("0.51");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1028,7 +1053,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample050())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample051())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1376,6 +1401,16 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const bad = fromBody(JSON.stringify({ ...stored, household: { ...stored.household, companyBs: { amounts: { cash: "x" } } } }));
     expect(bad.wh.companyBs).toBeUndefined();
     expect("companyBs" in bodyObject(bad).household).toBe(false);
+  });
+
+  it("0.51 の形（0055 の追記 2026-11-02）: 三大疾病保険の契約（種類の細目 threeMajor）を保存して読み戻し、三大疾病一時金を計算に使う", () => {
+    const s = sample051();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const c = (stored.household.request.input.household.insuranceContracts ?? []).find((x) => x.subtype === "threeMajor");
+    expect(c).toMatchObject({ template: "insurance.medical", coverages: [{ benefit: "threeMajorLump", amount: 3000000 }] });
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(s.wh.request)).table);
   });
 
   it("0.42 の形（0090）: 高専と専門職大学院（法科大学院）の段を保存して読み戻し、計算に使う", () => {

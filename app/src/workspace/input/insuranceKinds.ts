@@ -20,6 +20,7 @@ export type InsuranceKind =
   | "endowment"
   | "medical"
   | "cancer"
+  | "threeMajor"
   | "incapacity"
   | "education"
   | "privateAnnuity"
@@ -33,9 +34,23 @@ export type InsuranceKind =
 /** 終わりの既定（被保険者の年齢・終身・出来事から） */
 type EndRule = { age: number } | "lifetime" | "mortgagePayoff" | "retirement" | { childAge: number };
 
+/** 種類を選ぶ一覧の分類（「＋ 保険契約を足す」の見出し。2026-11-02） */
+export type KindGroup = "death" | "illness" | "savings" | "other";
+
+export const KIND_GROUPS: readonly { group: KindGroup; label: string }[] = [
+  { group: "death", label: "死亡の保障" },
+  { group: "illness", label: "病気・けが" },
+  { group: "savings", label: "貯める・受け取る" },
+  { group: "other", label: "そのほか" },
+];
+
 export interface KindDef {
   kind: InsuranceKind;
   label: string;
+  /** 種類を選ぶ一覧の分類 */
+  group: KindGroup;
+  /** 一覧の上の「よく使う」にも出す */
+  frequent?: boolean;
   template: string;
   /** 簡易の「主な保障の額」（null は保険料だけの契約） */
   main: { benefit: string; label: string; basis: YenBasis; help?: string } | null;
@@ -57,10 +72,11 @@ export interface KindDef {
 }
 
 export const KINDS: readonly KindDef[] = [
-  { kind: "term", label: "定期保険", template: "insurance.term", main: { benefit: "death", label: "死亡保険金", basis: "once" }, end: { age: 65 }, payUntil: "end", deduction: "general" },
+  { kind: "term", label: "定期保険", group: "death", frequent: true, template: "insurance.term", main: { benefit: "death", label: "死亡保険金", basis: "once" }, end: { age: 65 }, payUntil: "end", deduction: "general" },
   {
     kind: "decreasingTerm",
     label: "逓減定期保険",
+    group: "death",
     template: "insurance.term",
     main: { benefit: "death", label: "死亡保険金（はじめの額）", basis: "once", help: "保障の終わりまで毎年同じ額ずつ減り、終わりに0円になる形で計算します" },
     end: "mortgagePayoff",
@@ -68,28 +84,44 @@ export const KINDS: readonly KindDef[] = [
     deduction: "general",
     decreasing: true,
   },
-  { kind: "incomeProtection", label: "収入保障保険", template: "insurance.incomeProtection", main: { benefit: "incomeProtection", label: "年金月額", basis: "monthly", help: "亡くなった月の翌月から、保障の終わりまで毎月受け取ります" }, end: { age: 65 }, payUntil: "end", deduction: "general" },
-  { kind: "wholeLife", label: "終身保険", template: "insurance.wholeLife", main: { benefit: "death", label: "死亡保険金", basis: "once" }, end: "lifetime", payUntil: 65, deduction: "general", savings: true },
-  { kind: "endowment", label: "養老保険", template: "insurance.wholeLife", main: { benefit: "death", label: "死亡保険金（＝満期金）", basis: "once" }, end: { age: 60 }, payUntil: "end", deduction: "general", savings: true },
-  { kind: "medical", label: "医療保険", template: "insurance.medical", main: { benefit: "hospitalDaily", label: "入院日額（1日）", basis: "once" }, end: "lifetime", payUntil: "lifetime", deduction: "careMedical" },
-  { kind: "cancer", label: "がん保険", template: "insurance.cancer", main: { benefit: "cancerLump", label: "がん一時金（診断給付金）", basis: "once" }, end: "lifetime", payUntil: "lifetime", deduction: "careMedical" },
-  { kind: "incapacity", label: "就業不能保険", template: "insurance.term", main: { benefit: "incapacity", label: "就業不能の月額", basis: "monthly", help: "働けない想定の月から、免責の月数の後に毎月受け取ります" }, end: { age: 65 }, payUntil: "end", deduction: "general" },
-  { kind: "education", label: "学資保険", template: "insurance.education", main: { benefit: "maturity", label: "満期金", basis: "once" }, end: { childAge: 18 }, payUntil: "end", deduction: "general", savings: true, child: true },
-  { kind: "privateAnnuity", label: "個人年金保険", template: "insurance.privateAnnuity", main: { benefit: "annuity", label: "年金の年額", basis: "annual", help: "受け取りの始まりから10年間（年数は「詳細」で）" }, end: { age: 65 }, payUntil: 60, deduction: "pension", savings: true },
-  { kind: "mutualAid", label: "共済（総合・医療）", template: "insurance.term", main: { benefit: "death", label: "死亡保険金（共済金）", basis: "once", help: "年齢で保障が段階的に変わる型は、「詳細」で保障の行を期間で分けて入れます" }, end: { age: 65 }, payUntil: "end", deduction: "general" },
-  { kind: "groupTerm", label: "団体保険（勤務先）", template: "insurance.term", main: { benefit: "death", label: "死亡保険金", basis: "once" }, end: "retirement", payUntil: "end", deduction: "general" },
+  { kind: "incomeProtection", label: "収入保障保険", group: "death", template: "insurance.incomeProtection", main: { benefit: "incomeProtection", label: "年金月額", basis: "monthly", help: "亡くなった月の翌月から、保障の終わりまで毎月受け取ります" }, end: { age: 65 }, payUntil: "end", deduction: "general" },
+  { kind: "wholeLife", label: "終身保険", group: "death", template: "insurance.wholeLife", main: { benefit: "death", label: "死亡保険金", basis: "once" }, end: "lifetime", payUntil: 65, deduction: "general", savings: true },
+  { kind: "endowment", label: "養老保険", group: "death", template: "insurance.wholeLife", main: { benefit: "death", label: "死亡保険金（＝満期金）", basis: "once" }, end: { age: 60 }, payUntil: "end", deduction: "general", savings: true },
+  { kind: "groupTerm", label: "団体保険（勤務先）", group: "death", template: "insurance.term", main: { benefit: "death", label: "死亡保険金", basis: "once" }, end: "retirement", payUntil: "end", deduction: "general" },
+  { kind: "medical", label: "医療保険", group: "illness", frequent: true, template: "insurance.medical", main: { benefit: "hospitalDaily", label: "入院日額（1日）", basis: "once" }, end: "lifetime", payUntil: "lifetime", deduction: "careMedical" },
+  { kind: "cancer", label: "がん保険", group: "illness", template: "insurance.cancer", main: { benefit: "cancerLump", label: "がん一時金（診断給付金）", basis: "once" }, end: "lifetime", payUntil: "lifetime", deduction: "careMedical" },
+  {
+    kind: "threeMajor",
+    label: "三大疾病保険",
+    group: "illness",
+    template: "insurance.medical",
+    main: {
+      benefit: "threeMajorLump",
+      label: "三大疾病一時金",
+      basis: "once",
+      help: "がん・心疾患・脳卒中になったときに1回受け取る一時金です（特定疾病保障保険も、この種類で入れます）。死亡・高度障害でも保険金が出る型（特定疾病保障定期保険など）は、「詳細」の「＋ 保障」で死亡保険金を足してください",
+    },
+    end: "lifetime",
+    payUntil: "lifetime",
+    deduction: "careMedical",
+  },
+  { kind: "incapacity", label: "就業不能保険", group: "illness", template: "insurance.term", main: { benefit: "incapacity", label: "就業不能の月額", basis: "monthly", help: "働けない想定の月から、免責の月数の後に毎月受け取ります" }, end: { age: 65 }, payUntil: "end", deduction: "general" },
   {
     kind: "care",
     label: "民間の介護保険",
+    group: "illness",
     template: "insurance.medical",
     main: { benefit: "other", label: "介護の一時金", basis: "once", help: "この給付はソフトでは計算しないので、この額は計算に入りません。受け取る見込みは下の「入るお金」の行で入れてください" },
     end: "lifetime",
     payUntil: 65,
     deduction: "careMedical",
   },
-  { kind: "foreignCurrency", label: "外貨建て保険（目安）", template: "insurance.foreignCurrency", main: { benefit: "death", label: "死亡保険金（円の目安）", basis: "once" }, end: "lifetime", payUntil: 65, deduction: "general", estimate: true, note: "目安（為替で変わります）。円の目安の額だけで計算し、積立金を前提の利回りで伸ばしません" },
-  { kind: "variable", label: "変額保険（目安）", template: "insurance.variable", main: { benefit: "death", label: "死亡保険金（円の目安）", basis: "once" }, end: "lifetime", payUntil: 65, deduction: "general", estimate: true, note: "目安（運用で変わります）。円の目安の額だけで計算し、積立金を前提の利回りで伸ばしません" },
-  { kind: "nonLife", label: "損害保険", template: "insurance.nonLife", main: null, end: "lifetime", payUntil: "lifetime", deduction: "none", note: "保険料だけを計算します。保険金は計算しません（受け取る見込みは入るお金の行で）" },
+  { kind: "education", label: "学資保険", group: "savings", frequent: true, template: "insurance.education", main: { benefit: "maturity", label: "満期金", basis: "once" }, end: { childAge: 18 }, payUntil: "end", deduction: "general", savings: true, child: true },
+  { kind: "privateAnnuity", label: "個人年金保険", group: "savings", template: "insurance.privateAnnuity", main: { benefit: "annuity", label: "年金の年額", basis: "annual", help: "受け取りの始まりから10年間（年数は「詳細」で）" }, end: { age: 65 }, payUntil: 60, deduction: "pension", savings: true },
+  { kind: "foreignCurrency", label: "外貨建て保険（目安）", group: "savings", template: "insurance.foreignCurrency", main: { benefit: "death", label: "死亡保険金（円の目安）", basis: "once" }, end: "lifetime", payUntil: 65, deduction: "general", estimate: true, note: "目安（為替で変わります）。円の目安の額だけで計算し、積立金を前提の利回りで伸ばしません" },
+  { kind: "variable", label: "変額保険（目安）", group: "savings", template: "insurance.variable", main: { benefit: "death", label: "死亡保険金（円の目安）", basis: "once" }, end: "lifetime", payUntil: 65, deduction: "general", estimate: true, note: "目安（運用で変わります）。円の目安の額だけで計算し、積立金を前提の利回りで伸ばしません" },
+  { kind: "mutualAid", label: "共済（総合・医療）", group: "other", template: "insurance.term", main: { benefit: "death", label: "死亡保険金（共済金）", basis: "once", help: "年齢で保障が段階的に変わる型は、「詳細」で保障の行を期間で分けて入れます" }, end: { age: 65 }, payUntil: "end", deduction: "general" },
+  { kind: "nonLife", label: "損害保険", group: "other", template: "insurance.nonLife", main: null, end: "lifetime", payUntil: "lifetime", deduction: "none", note: "保険料だけを計算します。保険金は計算しません（受け取る見込みは入るお金の行で）" },
 ];
 
 export const KIND_OPTIONS = KINDS.map((k) => ({ value: k.kind, label: k.label }));

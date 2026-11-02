@@ -258,7 +258,7 @@
 | 国の教育ローンの融資の上限（350万円・450万円）・返済期間の上限（20年）・奨学金の返還年数算出表・留学の支援制度の支給の上限 | `app/src/workspace/input/stages/education.ts` | 制度の値（公表の改定のとき） |
 | 金利の目安の予備の値（住宅ローン 変動0.8%・ほか2%・今返している分0.8%、奨学金1%・今返している分0.75%、自動車ローン2.5%） | `hearing/src/housingEstimates.ts` の `FALLBACK`・`CURRENT_FALLBACK`・`hearing/src/loanRates.ts` の `estimateOf` | マスタデータの写しが読めないときだけの予備（ふだんは1章の値。事務所の値は1章の値で変える）。毎リリース、マスタデータと大きくずれていないか |
 | 物価・賃金・運用利回り・マクロ経済スライド（標準の前提）・相続税の目安の不動産の評価の割合（時価の0.8）・FP顧問料の標準の料金表 | `app/src/workspace/input/household.ts` の `DEFAULT_ASSUMPTIONS`・`hearing/src/import.ts`・`stages/assumptions.ts` の `STANDARD_BASIS`・`engine/src/components/inheritance.estimate` の `REAL_ESTATE_RATIO`・`app/src/workspace/office/current.ts` の `STANDARD_FEE_TABLE` | 新しい世帯に写す事務所の既定値（0073。事務所の既定値の画面の別の区画）。年1回 |
-| 保険の種類ごとの保障の終わり・払い込みの終わり（65歳まで など） | `app/src/workspace/input/insuranceKinds.ts` の `KINDS` | まだ集め直していない（種類ごとの組の値。次の回）。年1回 |
+| 保険の種類ごとの保障の終わり・払い込みの終わり（65歳まで など） | `app/src/workspace/input/insuranceKinds.ts` の `KINDS` | まだ集め直していない（種類ごとの組の値。次の回）。2026-11-02 に足した三大疾病保険（保障・払込とも終身、控除は介護医療。一時金の額は目安を作らない）も同じ所。年1回 |
 | 標準の進路・進路の型（幼稚園〜高校は公立・大学は私立文系の自宅） | `app/src/workspace/input/stages/education.ts` の `defaultStages`・`COURSE_PRESETS` | 数でない選び方（事務所の既定の進路は次の回）。年1回 |
 | 資産の配分の既定・運用利回りのボタン（1%・2%・3%）・まとめた口座の利回り（2%）・確定拠出年金の受け取りの概算（年金10年・税5%） | `app/src/workspace/input/savings/model.ts` など | まだ集め直していない（配分は合計が100%になる組の値。次の回）。年1回 |
 | 予備費（毎年、生活費の1か月分）・次の買い替えの時期（3年後）・古くなってからの修理の始まり（買ってから10年後）・子の独立の年齢（22歳） | `stages/events.ts`・`stages/cars.ts`・`engine/src/components/protection.need` など | まだ集め直していない（時期の決まり。次の回）。年1回 |
