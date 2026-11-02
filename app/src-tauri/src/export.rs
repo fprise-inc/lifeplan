@@ -161,6 +161,10 @@ pub fn forbidden_of<R: Runtime>(app: &AppHandle<R>) -> Forbidden {
     if let Ok(docs) = p.document_dir() {
         roots.push(docs.join(CUSTOM_DIR_NAME));
     }
+    // FP が選んだカスタム層の場所（0016 の追記 2026-11-02。既定の場所でなくても避ける）
+    if let Some(c) = app.try_state::<crate::custom::CustomState>() {
+        roots.push(c.current_dir());
+    }
     Forbidden { roots }
 }
 

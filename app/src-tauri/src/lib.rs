@@ -17,10 +17,13 @@
 //!   開いている印は裏で定期的に新しくし、閉じるときに消す。
 //! - お知らせの一覧（notices.rs。0087）: 配信元のお知らせを読む口は1か所（署名を確かめた中身だけを渡す。今は通信しない）。
 //!   既読の印と受付番号はこの PC のアプリのデータにだけ置き、何も送り返さない。要望・不具合のフォームは受付番号だけを受け取って本体が開く。
+//! - カスタム層（custom.rs。0016 の3・4・6）: 今は説明の文の差し替えだけ。読み書き・検査・指紋・承認は本体で行い、
+//!   承認の台帳はデータフォルダの中（カスタム層の外）。画面は承認した文を文字として当てるだけ。
 //! - macOS のメニュー（menu.rs）: 標準の編集メニューを付け、元に戻す・やり直すは画面のアプリ全体の履歴へ渡す。
 //!   Windows・Linux はメニューバーを出さない（キー操作は画面が受ける）。
 
 mod ai;
+mod custom;
 /// 開発用のビルドだけの鍵の保管庫（ファイル。製品のビルドには入らない）
 #[cfg(debug_assertions)]
 mod dev_keystore;
@@ -379,6 +382,15 @@ pub fn run() {
             features::feature_code_notice_dismiss,
             features::feature_codes_check,
             features::feature_code_candidate_decide,
+            custom::custom_texts_status,
+            custom::custom_texts_approve,
+            custom::custom_texts_decline,
+            custom::custom_texts_revert,
+            custom::custom_texts_rows,
+            custom::custom_ledger_reset,
+            custom::custom_dir_choose,
+            custom::custom_dir_reset,
+            custom::custom_dir_create,
             office::store_fork_info,
             office::store_fork_resolve,
             office::store_sync_copies_resolve,
@@ -399,6 +411,8 @@ pub fn run() {
             // エンジンのバイトコードを裏で用意する（最初の計算を待たせない）
             std::thread::spawn(engine::warm_up);
             app.manage(store::init(app.handle())?);
+            // 0016 の追記（2026-11-02）: カスタム層（承認の台帳はデータフォルダの中。ファイルは命令が呼ばれたときに読む）
+            app.manage(custom::init(app.handle()));
             app.manage(ai::init(app.handle())?);
             ai::start_watch(app.handle());
             // 0110 の追記: 機能を有効にするコードの止めた一覧（コードが入っているときだけ、起動したときと1日1回、配信元から取る）

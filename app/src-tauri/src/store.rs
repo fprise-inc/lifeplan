@@ -63,6 +63,8 @@ pub struct StoreState {
     pub store: Store,
     /// 開発用: 鍵をファイルに置いている（画面に小さな札を出す）
     pub dev_file_keys: bool,
+    /// データフォルダの場所（カスタム層の承認の台帳を置く・カスタム層と重ならないかを確かめるため。画面には渡さない）
+    pub root: std::path::PathBuf,
 }
 
 /// アプリの起動時に作る（まだファイルは読まない。最初の store_status で準備する）
@@ -96,8 +98,10 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<StoreState, Box<dyn std::e
     };
     let version = app.package_info().version.to_string();
     Ok(StoreState {
-        store: Store::new(root, secrets, SystemClock, &version).exclude_keys_from_os_backup(),
+        store: Store::new(root.clone(), secrets, SystemClock, &version)
+            .exclude_keys_from_os_backup(),
         dev_file_keys: keystore == Keystore::DevFile,
+        root,
     })
 }
 
