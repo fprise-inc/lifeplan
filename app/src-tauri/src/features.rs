@@ -4,6 +4,8 @@
 //!   feature_code_revocation を build.rs が埋め込む）。画面は返した状態（使える機能・名前・期限・止めたか）を出すだけで、自分では確かめない。
 //! - 提供元が止めたかは、配信元の「止めた一覧」の最後に取れたもので判断する（取りに行くのは revocations.rs。つながらなければ今の状態のまま）。
 //! - 画面にはコードの文字列を返さない（外すときは短い印 `ref`、AIからの候補は候補の ID で指す）。
+//! - 期限の切れた・止めたコードの知らせは、分かった日から7日だけ出す（FP が閉じたらその前でも出さない）。記録はこの PC のアプリのデータ
+//!   （revocations.rs と同じファイル）に置く。知らせを出さなくなってもコードは外さない（止めるのをやめたら次の確かめで戻る）。
 //! - 期限は日本の日付で、PC の時計で判定する。開発用のビルド（debug）だけ、環境変数 `FINANCIA_DEV_TODAY`（YYYY-MM-DD）で今日を変えられる
 //!   （期限が近い・切れたの見え方を確かめるため）。
 //! - AIからは、コードを入れる「候補」を出せるだけ（0015 の追記の2段目: 接続口の propose_feature_code）。候補は画面に承認待ちで出て、
@@ -119,7 +121,8 @@ fn status_of(s: &Store, rs: &RevocationState, ai: &AiState) -> Result<FeatureSta
     let keys = keys();
     let today = today();
     let revoked = rs.revoked();
-    let status = feature_code::status(&codes, &keys, &today, &revoked);
+    let mut status = feature_code::status(&codes, &keys, &today, &revoked);
+    rs.apply_notices(&mut status);
     let candidates = ai
         .registry()
         .feature_code_candidates()
@@ -183,6 +186,22 @@ pub async fn feature_code_remove(
         let codes = s.feature_codes().map_err(store_code)?;
         let next = feature_code::remove(&codes, &code_ref).map_err(|e| e.code().to_owned())?;
         s.set_feature_codes(next).map_err(store_code)?;
+        status_of(s, rs, ai)
+    })
+    .await
+}
+
+/// 期限の切れた・止めたコードの知らせを閉じる（code_ref は状態の `ref`）。コードは外さない（止めるのをやめたら、次の確かめで戻る）
+#[tauri::command]
+pub async fn feature_code_notice_dismiss(
+    app: AppHandle,
+    code_ref: String,
+) -> Result<FeatureStatusView, String> {
+    blocking(app, move |s, rs, ai| {
+        // 記録を今の状態に合わせてから閉じる（その日に初めて見た知らせも閉じられる）
+        status_of(s, rs, ai)?;
+        rs.dismiss_notice(&code_ref)
+            .map_err(|e| e.code().to_owned())?;
         status_of(s, rs, ai)
     })
     .await

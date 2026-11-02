@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import { parse as parseToml } from "smol-toml";
 import { APP_DIR, ENGINE_DIST, REPO_DIR } from "./scripts/lib.ts";
-import { addCode, applyFetch, featureStatus, publicKeys, reference, revokedIds, todayJst, verifyCode, verifyRevocations } from "./scripts/devFeatureCode.ts";
+import { addCode, applyFetch, applyNotices, dismissNotice, featureStatus, publicKeys, reference, revokedIds, todayJst, verifyCode, verifyRevocations, type NoticeRecord } from "./scripts/devFeatureCode.ts";
 
 /**
  * 開発用のサーバーだけの入口（本番のビルドには入らない）: Tauri の外（ふつうのブラウザ・ヘッドレスの Chrome）で画面を確かめるために、
@@ -267,8 +267,9 @@ const devDist = parseToml(readFileSync(join(REPO_DIR, "config", "distribution.to
 const devFeatureKeys = publicKeys((devDist.keys?.feature_code ?? []) as string[]);
 const devRevocationKeys = publicKeys((devDist.keys?.feature_code_revocation ?? []) as string[]);
 type DevCandidate = { id: string; receivedAt: string; code: string; connector: string | null };
-const devFeatures: { codes: string[]; today: string | null; saved: string | null; checkedAt: string | null; okAt: string | null; result: "ok" | "offline" | "rejected" | null; lastCheckMs: number | null; candidates: DevCandidate[] } = {
+const devFeatures: { codes: string[]; today: string | null; saved: string | null; checkedAt: string | null; okAt: string | null; result: "ok" | "offline" | "rejected" | null; lastCheckMs: number | null; candidates: DevCandidate[]; notices: NoticeRecord[] } = {
   codes: [],
+  notices: [],
   today: /^\d{4}-\d{2}-\d{2}$/.test(process.env.FINANCIA_DEV_TODAY ?? "") ? (process.env.FINANCIA_DEV_TODAY as string) : null,
   saved: null,
   checkedAt: null,
@@ -297,6 +298,7 @@ function devFeatureView() {
   const today = devFeatureToday();
   const revoked = devRevoked();
   const st = featureStatus(devFeatures.codes, devFeatureKeys, today, revoked);
+  devFeatures.notices = applyNotices(st, devFeatures.notices);
   const saved = devFeatures.saved === null ? null : verifyRevocations(devFeatures.saved, devRevocationKeys);
   const candidates = devFeatures.candidates.map((c) => {
     const v = verifyCode(c.code, devFeatureKeys);
@@ -490,6 +492,14 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
       const next = devFeatures.codes.filter((c) => reference(c) !== String(a.ref ?? ""));
       if (next.length === devFeatures.codes.length) return { ok: false, code: "E_FEATURE_CODE_NOT_FOUND" };
       devFeatures.codes = next;
+      return { ok: true, value: devFeatureView() };
+    }
+    case "featureNoticeDismiss": {
+      // 本体の feature_code_notice_dismiss の代わり（記録を今の状態に合わせてから閉じる。コードは外さない）
+      devFeatureView();
+      const next = dismissNotice(devFeatures.notices, String(a.ref ?? ""));
+      if (next === null) return { ok: false, code: "E_FEATURE_CODE_NOT_FOUND" };
+      devFeatures.notices = next;
       return { ok: true, value: devFeatureView() };
     }
     case "featureCheck":

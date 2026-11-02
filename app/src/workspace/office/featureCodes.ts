@@ -5,6 +5,8 @@
 // - 期限の30日前から、区画に更新の知らせを出す（期限なしのコードは出さない）
 // - 提供元が止めたコード（配信元の止めた一覧に載っている）は、期限切れと同じ扱い（区画と画面は出さない・データは消さない）。
 //   一覧から外れたら、次に確かめたときに自動で戻る（入れ直しは要らない）
+// - 切れた・止めたの知らせ（事務所の既定値の画面と資産と負債のタブの一文）は、分かった日から7日だけ出す。FP が閉じたら、その前でも出さない。
+//   出すかは本体が決め（FeatureCodeView.notice）、画面はそれに従うだけ。知らせが消えてもコードは残り、データも消さない
 import type { FeatureCandidateView, FeatureCheckView, FeatureCodeView, FeatureStatus } from "../../engine/host.ts";
 
 export type { FeatureCandidateView, FeatureCheckView, FeatureCodeView, FeatureStatus } from "../../engine/host.ts";
@@ -32,10 +34,13 @@ export function codeFor(st: FeatureStatus, f: FeatureId): FeatureCodeView | null
   return st.codes.filter((c) => usable(c) && c.features.includes(f)).sort(laterFirst)[0] ?? null;
 }
 
-/** その機能が使えなくなった（期限の切れた・止めたコードだけがある）ときの、いちばん新しいコード（止めたものを先に） */
+/**
+ * その機能が使えなくなった（期限の切れた・止めたコードだけがある）ときの、知らせを出すいちばん新しいコード（止めたものを先に）。
+ * 知らせを出さなくなったコード（分かった日から7日たった・閉じた）は除く（資産と負債のタブの一文も、事務所の既定値の知らせと一緒に消える）
+ */
 export function expiredFor(st: FeatureStatus, f: FeatureId): FeatureCodeView | null {
   if (featureOn(st, f)) return null;
-  const gone = st.codes.filter((c) => !usable(c) && c.features.includes(f));
+  const gone = st.codes.filter((c) => !usable(c) && c.notice && c.features.includes(f));
   return gone.filter((c) => c.state === "revoked").sort(laterFirst)[0] ?? gone.sort(laterFirst)[0] ?? null;
 }
 
@@ -59,6 +64,12 @@ export const expiredText = (c: FeatureCodeView): string =>
   c.state === "revoked"
     ? `${featureNames(c)}のコード（${c.name}さん向け）は、提供元が止めました。設定の区画と画面には出なくなりましたが、世帯に入れた会社の数字などのデータは消していません。提供元が止めるのをやめると、次に確かめたときに自動で戻ります（コードを入れ直す必要はありません）。分からないときは、コードを受け取った所に問い合わせてください。`
     : `${featureNames(c)}のコード（${c.name}さん向け）は ${c.expires} で期限が切れました。設定の区画と画面には出なくなりましたが、世帯に入れた会社の数字などのデータは消していません。新しいコードを入れると、また見られます。`;
+
+/** 事務所の既定値の画面で、切れた・止めたの知らせに添える一言 */
+export const NOTICE_FADE_TEXT = "この知らせは7日たつと消えます。";
+
+/** 事務所の既定値の画面に知らせを出すコード（切れた・止めたもので、同じ機能を使えるほかのコードが無く、本体が出すとしたもの） */
+export const noticeCodes = (st: FeatureStatus): FeatureCodeView[] => st.codes.filter((c) => !usable(c) && c.notice && !c.features.some((f) => featureOn(st, f as FeatureId)));
 
 /** 資産と負債のタブ: 合算BS の会社の数字が入っている世帯で、コードの期限が切れた・提供元が止めたとき */
 export const combinedHiddenText = (c: FeatureCodeView): string =>

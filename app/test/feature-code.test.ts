@@ -6,14 +6,15 @@ import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { OfficeSettingsPanel } from "../src/workspace/office/OfficeSettingsPanel.tsx";
 import { DEFAULT_OFFICE_SETTINGS, loadOfficeStart } from "../src/workspace/office/settings.ts";
-import { candidateChange, checkText, codeFor, combinedHiddenText, enabledLine, expiredFor, expiredText, featureErrorText, featureOn, NO_FEATURES, renewText, type FeatureCandidateView, type FeatureCodeView, type FeatureStatus } from "../src/workspace/office/featureCodes.ts";
+import { candidateChange, checkText, codeFor, combinedHiddenText, enabledLine, expiredFor, expiredText, featureErrorText, featureOn, NO_FEATURES, noticeCodes, renewText, type FeatureCandidateView, type FeatureCodeView, type FeatureStatus } from "../src/workspace/office/featureCodes.ts";
 import { balanceTabModel } from "../src/workspace/balanceTab.ts";
-import { addCode, applyFetch, featureStatus, publicKeys, reference, revokedIds, todayJst } from "../scripts/devFeatureCode.ts";
+import { addCode, applyFetch, applyNotices, dismissNotice, featureStatus, publicKeys, reference, revokedIds, todayJst, type NoticeRecord } from "../scripts/devFeatureCode.ts";
 
-const code = (over: Partial<FeatureCodeView> = {}): FeatureCodeView => ({ ref: "r1", id: "0001", name: "見本 花子", features: ["combinedBs"], issued: "2026-11-01", expires: "2027-05-31", state: "active", daysLeft: 211, ...over });
+// 切れた・止めたコードは、本体が記録を当てる前と同じく知らせを出す（notice）。消えたときは notice: false を渡す
+const code = (over: Partial<FeatureCodeView> = {}): FeatureCodeView => ({ ref: "r1", id: "0001", name: "見本 花子", features: ["combinedBs"], issued: "2026-11-01", expires: "2027-05-31", state: "active", daysLeft: 211, notice: over.state === "expired" || over.state === "revoked", noticeSince: null, ...over });
 const st = (codes: FeatureCodeView[], more: Partial<FeatureStatus> = {}): FeatureStatus => ({ today: "2026-11-01", active: codes.some((c) => c.state === "active" || c.state === "expiring") ? ["combinedBs"] : [], codes, invalid: [], ...more });
 const panel = (features: FeatureStatus, combinedBs = true) =>
-  renderToString(h(OfficeSettingsPanel, { value: { ...DEFAULT_OFFICE_SETTINGS, features: { combinedBs } }, onSave: async () => undefined, shared: false, onClose: () => undefined, features, onAddCode: async () => features, onRemoveCode: async () => features, onCheckCodes: async () => features, onDecideCandidate: async () => features }));
+  renderToString(h(OfficeSettingsPanel, { value: { ...DEFAULT_OFFICE_SETTINGS, features: { combinedBs } }, onSave: async () => undefined, shared: false, onClose: () => undefined, features, onAddCode: async () => features, onRemoveCode: async () => features, onDismissNotice: async () => features, onCheckCodes: async () => features, onDecideCandidate: async () => features }));
 
 describe("区画の出し方", () => {
   it("コードを入れていないと、法人経営者向けの区画を出さない（印が付いたままの古い設定でも）。いちばん下に小さな入れ口だけ", () => {
@@ -271,5 +272,107 @@ describe("起動直後に事務所の既定値のパネルを開いたとき（#
     const r2 = await loadOfficeStart({ defaults: async () => ({ features: { combinedBs: true } }), featureStatus: () => Promise.reject(new Error("E")) });
     expect(r2.settings?.features.combinedBs).toBe(true);
     expect(r2.features).toBeNull();
+  });
+});
+
+describe("切れた・止めたの知らせは7日で消える（0110 の追記 2026-11-02）", () => {
+  const ck = generateKeyPairSync("ed25519");
+  const raw = (ck.publicKey.export({ format: "der", type: "spki" }) as Buffer).subarray(12).toString("base64url");
+  const keys = publicKeys([`test-1:${raw}`]);
+  const issue = (claims: Record<string, unknown>) => {
+    const payload = Buffer.from(JSON.stringify({ v: 2, kid: "test-1", id: "0001", name: "見本 花子", features: ["combinedBs"], issued: "2026-11-01", ...claims }), "utf8");
+    const sig = sign(null, Buffer.concat([Buffer.from("lifeplan-feature-code/1\0", "utf8"), payload]), ck.privateKey);
+    return `LPFC1-${payload.toString("base64url")}.${sig.toString("base64url")}`;
+  };
+  const plus = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+  /** 開発用のサーバーの代わりで、その日の状態を読む（本体と同じく、読むたびに記録を当てる） */
+  const reader = (codes: string[]) => {
+    let records: NoticeRecord[] = [];
+    return {
+      read: (today: string, revoked: string[] = []): FeatureStatus => {
+        const s = featureStatus(codes, keys, today, revoked);
+        records = applyNotices(s, records);
+        return s;
+      },
+      dismiss: (ref: string) => {
+        const next = dismissNotice(records, ref);
+        if (next === null) throw new Error("E_FEATURE_CODE_NOT_FOUND");
+        records = next;
+      },
+      records: () => records,
+    };
+  };
+  /** 事務所の既定値の知らせと、資産と負債のタブの一文が出ているか */
+  const shown = (s: FeatureStatus) => {
+    const html = panel(s);
+    const tab = expiredFor(s, "combinedBs");
+    expect(html.includes("data-feature-expired")).toBe(tab !== null);
+    return tab !== null;
+  };
+
+  it("止めたと分かった日から7日の内は出る。8日目は出さない。コードは残り、止めたまま", () => {
+    const c = issue({});
+    const r = reader([c]);
+    expect(shown(r.read("2026-11-01"))).toBe(false);
+    const day1 = "2026-11-02";
+    for (let n = 0; n < 7; n++) {
+      const s = r.read(plus(day1, n), ["0001"]);
+      expect(shown(s)).toBe(true);
+      expect(combinedHiddenText(expiredFor(s, "combinedBs") as FeatureCodeView)).toContain("提供元が止めた");
+    }
+    expect(r.records()).toEqual([{ ref: reference(c), state: "revoked", since: day1, dismissed: false }]);
+    const day8 = r.read(plus(day1, 7), ["0001"]);
+    expect(shown(day8)).toBe(false);
+    expect(day8.codes[0]?.state).toBe("revoked");
+    expect(day8.codes[0]?.noticeSince).toBe(day1);
+    expect(day8.active).toEqual([]);
+    expect(panel(day8)).not.toContain("data-office-features");
+  });
+
+  it("閉じたら7日の内でも出さない。戻って再び止められたら、閉じた印も消えて再び出る", () => {
+    const c = issue({});
+    const r = reader([c]);
+    const s1 = r.read("2026-11-02", ["0001"]);
+    const html = panel(s1);
+    expect(html).toContain(`data-feature-notice-dismiss="${reference(c)}"`);
+    expect(html).toContain("閉じる");
+    expect(html).toContain("このコードを外す");
+    expect(html).toContain("この知らせは7日たつと消えます。");
+    expect(html).toContain("次に確かめたときに自動で戻ります");
+    r.dismiss(reference(c));
+    expect(shown(r.read("2026-11-03", ["0001"]))).toBe(false);
+    // 戻る（止めるのをやめた）: 使えて、記録は消える
+    const back = r.read("2026-11-04");
+    expect(back.active).toEqual(["combinedBs"]);
+    expect(shown(back)).toBe(false);
+    expect(r.records()).toEqual([]);
+    // 再び止められた: 新しい日付で再び出る
+    const again = r.read("2026-11-20", ["0001"]);
+    expect(shown(again)).toBe(true);
+    expect(again.codes[0]?.noticeSince).toBe("2026-11-20");
+    expect(() => r.dismiss("0000000000000000")).toThrow("E_FEATURE_CODE_NOT_FOUND");
+  });
+
+  it("期限切れも同じ（分かった日から7日・閉じたら消える）", () => {
+    const c = issue({ v: 1, expires: "2027-05-31" });
+    const r = reader([c]);
+    expect(shown(r.read("2027-06-01"))).toBe(true);
+    expect(shown(r.read("2027-06-07"))).toBe(true);
+    expect(shown(r.read("2027-06-08"))).toBe(false);
+    const r2 = reader([c]);
+    expect(shown(r2.read("2027-06-10"))).toBe(true);
+    r2.dismiss(reference(c));
+    expect(shown(r2.read("2027-06-10"))).toBe(false);
+  });
+
+  it("画面は本体の notice に従う（消えたコードの知らせ・タブの一文は出さない）", () => {
+    const gone = code({ state: "revoked", expires: null, daysLeft: null, notice: false, noticeSince: "2026-11-02" });
+    const s = st([gone]);
+    expect(noticeCodes(s)).toEqual([]);
+    expect(expiredFor(s, "combinedBs")).toBeNull();
+    expect(panel(s)).not.toContain("data-feature-expired");
+    // 消えた方と出す方があれば、出す方を知らせる
+    const live = code({ ref: "r2", state: "expired", daysLeft: -2, notice: true });
+    expect(expiredFor(st([gone, live]), "combinedBs")?.ref).toBe("r2");
   });
 });

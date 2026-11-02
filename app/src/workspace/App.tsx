@@ -2964,6 +2964,11 @@ export function App() {
             putFeatureStatus(st);
             return st;
           }}
+          onDismissNotice={async (ref) => {
+            const st = await host.office.dismissFeatureNotice(ref);
+            putFeatureStatus(st);
+            return st;
+          }}
           onCheckCodes={async () => {
             const st = await host.office.checkFeatureCodes();
             putFeatureStatus(st);

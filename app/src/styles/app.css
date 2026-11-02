@@ -1461,8 +1461,11 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 .os-feat-on .link-btn { font-weight: 400; font-size: 0.8rem; }
 .os-code { margin: 18px 0 0; padding-top: 8px; border-top: 1px solid var(--line-2); }
 .os-code-link { font-size: 0.78rem; color: var(--ink-2); }
-.os-code-expired { display: block; }
-.os-code-expired .link-btn { margin-left: 6px; }
+.os-code-expired { display: block; margin: 6px 0; }
+.os-code-expired > p { margin: 0; }
+p.os-code-expired .link-btn { margin-left: 6px; }
+/* 切れた・止めたの知らせの「閉じる」「このコードを外す」は、文の下に並べる（0110 の追記 2026-11-02） */
+.os-code-expired-actions { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 2px; }
 .os-code-label { display: grid; gap: 4px; font-size: 0.86rem; }
 /* 止めた一覧の確かめの様子と、AIからのコードの候補（0110 の追記・0015 の追記の2段目）: 入れる前と後を並べる */
 .os-code-check { display: block; }

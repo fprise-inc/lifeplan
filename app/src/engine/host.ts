@@ -280,6 +280,10 @@ export interface FeatureCodeView {
   state: "active" | "expiring" | "expired" | "revoked";
   /** 期限までの日数（期限の日は 0。切れたら負。期限なしのコードは null） */
   daysLeft: number | null;
+  /** 切れた・止めたの知らせを出すか（本体が決める。分かった日から7日の内で、閉じていないとき。使えるコードは false） */
+  notice: boolean;
+  /** 切れた・止めたと分かった日（日本の日付。使えるコードは null） */
+  noticeSince: string | null;
 }
 
 /** 止めた一覧（0110 の追記）の確かめの様子。中身の一覧は返さない */
@@ -372,6 +376,8 @@ export interface OfficeHost {
   addFeatureCode(code: string): Promise<FeatureStatus>;
   /** コードを外す（ref は状態の印） */
   removeFeatureCode(ref: string): Promise<FeatureStatus>;
+  /** 期限の切れた・止めたコードの知らせを閉じる（ref は状態の印。コードは外さない） */
+  dismissFeatureNotice(ref: string): Promise<FeatureStatus>;
   /** 止めた一覧を今すぐ確かめる（結果は少し後の状態に出る） */
   checkFeatureCodes(): Promise<FeatureStatus>;
   /** AIから届いたコードの候補を入れる（accept）か捨てる */
@@ -680,6 +686,7 @@ export function tauriHost(): HostApi {
       featureStatus: () => invoke<FeatureStatus>("feature_codes_status"),
       addFeatureCode: (code) => invoke<FeatureStatus>("feature_code_add", { code }),
       removeFeatureCode: (ref) => invoke<FeatureStatus>("feature_code_remove", { codeRef: ref }),
+      dismissFeatureNotice: (ref) => invoke<FeatureStatus>("feature_code_notice_dismiss", { codeRef: ref }),
       checkFeatureCodes: () => invoke<FeatureStatus>("feature_codes_check"),
       decideFeatureCandidate: (id, accept) => invoke<FeatureStatus>("feature_code_candidate_decide", { candidate: id, accept }),
       syncStart: (name) => invoke<OfficeStatus | null>("storage_sync_start", { name }),
@@ -877,6 +884,7 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       featureStatus: async () => devJson<FeatureStatus>(await devOffice("featureStatus")),
       addFeatureCode: async (code) => devJson<FeatureStatus>(await devOffice("featureAdd", { code })),
       removeFeatureCode: async (ref) => devJson<FeatureStatus>(await devOffice("featureRemove", { ref })),
+      dismissFeatureNotice: async (ref) => devJson<FeatureStatus>(await devOffice("featureNoticeDismiss", { ref })),
       checkFeatureCodes: async () => devJson<FeatureStatus>(await devOffice("featureCheck")),
       decideFeatureCandidate: async (id, accept) => devJson<FeatureStatus>(await devOffice("featureCandidateDecide", { id, accept })),
       syncStart: async (name) => devJson<OfficeStatus | null>(await devOffice("syncStart", { name })),

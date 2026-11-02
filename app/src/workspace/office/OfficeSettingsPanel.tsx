@@ -18,7 +18,7 @@ import { ASSUMPTION_LABELS, ASSUMPTION_RANGES, DEFAULT_OFFICE_SETTINGS, FEE_MAX,
 import { revealAdded } from "../../presentation/revealAdded.ts";
 import { LivingLayoutEditor } from "./LivingLayoutEditor.tsx";
 import { withLivingDraft } from "./settings.ts";
-import { candidateChange, checkText, codeFor, enabledLine, expiredText, expiresLabel, FEATURE_LABELS, featureErrorText, featureOn, NO_FEATURES, renewText, type FeatureId, type FeatureStatus } from "./featureCodes.ts";
+import { candidateChange, checkText, codeFor, enabledLine, expiredText, expiresLabel, FEATURE_LABELS, featureErrorText, featureOn, NO_FEATURES, NOTICE_FADE_TEXT, noticeCodes, renewText, type FeatureId, type FeatureStatus } from "./featureCodes.ts";
 
 export interface OfficeSettingsPanelProps {
   value: OfficeSettings;
@@ -33,6 +33,8 @@ export interface OfficeSettingsPanelProps {
   onAddCode?: (code: string) => Promise<FeatureStatus>;
   /** コードを外す（ref は状態の印） */
   onRemoveCode?: (ref: string) => Promise<FeatureStatus>;
+  /** 期限の切れた・止めたコードの知らせを閉じる（ref は状態の印。コードは外さない） */
+  onDismissNotice?: (ref: string) => Promise<FeatureStatus>;
   /** 提供元が止めたコードの一覧を今すぐ確かめる（0110 の追記） */
   onCheckCodes?: () => Promise<FeatureStatus>;
   /** AIから届いたコードの候補を入れる（accept）か捨てる（0015 の追記の2段目） */
@@ -95,7 +97,7 @@ const settingTexts = (v: OfficeSettings): Record<string, string> => ({
 
 const STANDARD_PCT: Readonly<Record<OfficeAssumption, string>> = { inflation: "1", wageGrowth: "1", investmentReturn: "1", pensionMacroSlide: "0.4" };
 
-export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onCheckCodes, onDecideCandidate }: OfficeSettingsPanelProps) {
+export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onDismissNotice, onCheckCodes, onDecideCandidate }: OfficeSettingsPanelProps) {
   const [s, setS] = useState<OfficeSettings>(value);
   // 機能を有効にするコード（0110）: いちばん下の小さなリンクから開く欄
   const [codeOpen, setCodeOpen] = useState(false);
@@ -157,6 +159,17 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
       await onRemoveCode(ref);
       setRemoving(null);
       setCodeMsg({ ok: true, text: "コードを外しました。世帯に入れたデータは消していません。" });
+    } catch (e) {
+      setCodeMsg({ ok: false, text: featureErrorText(e) });
+    } finally {
+      setCodeBusy(false);
+    }
+  };
+  const dismissNotice = async (ref: string) => {
+    setCodeBusy(true);
+    setCodeMsg(null);
+    try {
+      if (onDismissNotice !== undefined) await onDismissNotice(ref);
     } catch (e) {
       setCodeMsg({ ok: false, text: featureErrorText(e) });
     } finally {
@@ -701,16 +714,24 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
               </div>
             </div>
           ))}
-          {features.codes
-            .filter((c) => (c.state === "expired" || c.state === "revoked") && !c.features.some((f) => featureOn(features, f as FeatureId)))
-            .map((c) => (
-              <p class="pl-sub os-code-expired" key={c.ref} data-feature-expired={c.ref} {...(c.state === "revoked" ? { "data-feature-revoked": c.ref } : {})}>
+          {noticeCodes(features).map((c) => (
+            <div class="pl-sub os-code-expired" key={c.ref} data-feature-expired={c.ref} {...(c.state === "revoked" ? { "data-feature-revoked": c.ref } : {})}>
+              <p>
                 {expiredText(c)}
+                {NOTICE_FADE_TEXT}
+              </p>
+              <span class="os-code-expired-actions">
+                {onDismissNotice !== undefined ? (
+                  <button type="button" class="link-btn" disabled={codeBusy} onClick={() => void dismissNotice(c.ref)} data-feature-notice-dismiss={c.ref}>
+                    閉じる
+                  </button>
+                ) : null}
                 <button type="button" class="link-btn" disabled={codeBusy} onClick={() => void removeCode(c.ref)}>
                   このコードを外す
                 </button>
-              </p>
-            ))}
+              </span>
+            </div>
+          ))}
           {features.invalid.map((c) => (
             <p class="pl-sub os-code-expired" key={c.ref} data-feature-invalid={c.ref}>
               このアプリでは確かめられないコードが入っています（{c.error}）。新しいコードを受け取って入れ直してください。

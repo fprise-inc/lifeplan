@@ -376,6 +376,7 @@ pub fn run() {
             features::feature_codes_status,
             features::feature_code_add,
             features::feature_code_remove,
+            features::feature_code_notice_dismiss,
             features::feature_codes_check,
             features::feature_code_candidate_decide,
             office::store_fork_info,
