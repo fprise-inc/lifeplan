@@ -118,10 +118,7 @@ export function MultiLegend({ plans, mode, focus, onFocus, hidden, onToggle }: M
           );
         })}
       </span>
-      <span class="hint">
-        <span class="hint-long">名前に合わせるとその線を強調、クリックで一時的に隠す・戻す。グラフに合わせるとその年の全部のプランの数字（クリックで固定）。{what.zone}</span>
-        <span class="hint-short">名前を押すとその線を隠す・戻す。グラフを押すとその年の数字が出ます</span>
-      </span>
+      <span class="hint">{what.zone}</span>
     </div>
   );
 }

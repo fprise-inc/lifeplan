@@ -439,6 +439,14 @@ describe("凡例と帯のカード", () => {
     expect(html).toContain('<span class="ml-tag">基準</span>');
   });
 
+  it("凡例の右端の文は0未満の読み方だけ（操作の説明は出さない。広い画面・狭い画面で同じ文）", () => {
+    for (const [mode, zone] of [["assets", "0未満は不足"], ["flows", "0未満は赤字"]] as const) {
+      const html = renderToString(h(MultiLegend, { plans: lines([]), mode, focus: null, onFocus: noop, hidden: [], onToggle: noop }));
+      expect(html).toContain(`<span class="hint">${zone}</span>`);
+      expect(html).not.toMatch(/hint-long|hint-short|名前に合わせる|名前を押す|グラフに合わせる|グラフを押す/);
+    }
+  });
+
   it("グラフの枠: 全部のプランを重ねるときは全部のプランの凡例（重ねる表示の凡例は出さない）", () => {
     const m = model();
     const card = renderToString(h(ResultCard, { model: m, verdict: m.result, provisional: false, mode: "assets", onMode: noop, layout: "all", explain: null, onExplain: noop, ageMark: null, pinnedYear: null, onSelectYear: noop, multi: { hidden: [], onToggle: noop } }));
