@@ -5,12 +5,16 @@
 // - 期限は日本の日付で、期限の日の終わりまで。30日前から更新の知らせ。同じ機能を同じか遅い期限まで含む古いコードは、新しいコードを入れると外す
 // - 期限は省ける（中身の形の版 2。期限のあるコードは版 1）
 // - 提供元が止めた一覧（0110 の追記）: 別の鍵で署名した JSON。載っているコードは「止めた」。最後に確かめられた一覧で判断し、取れない・署名が合わない・古い一覧は無視する
+// - 切れた・止めたの知らせ（0110 の追記 2026-11-02。本体の crates/feature-code の notice と同じ）: 分かった日から7日だけ出す。閉じたら出さない。
+//   使える状態に戻ったら記録を消す（再び止められたら出直す）。切れた ↔ 止めた が入れ替わったときも出直す
 import { createHash, createPublicKey, verify, type KeyObject } from "node:crypto";
 
 export const FEATURES = ["combinedBs"] as const;
 const PREFIX = "LPFC1-";
 const CONTEXT = Buffer.from("lifeplan-feature-code/1\0", "utf8");
 const RENEW_NOTICE_DAYS = 30;
+/** 切れた・止めたと分かった日から、知らせを出す日数 */
+export const NOTICE_DAYS = 7;
 const MAX_CODES = 16;
 
 interface Claims {
@@ -32,6 +36,8 @@ export interface DevCodeView {
   expires: string | null;
   state: "active" | "expiring" | "expired" | "revoked";
   daysLeft: number | null;
+  notice: boolean;
+  noticeSince: string | null;
 }
 
 export interface DevFeatureStatus {
@@ -105,7 +111,8 @@ function viewOf(code: string, keys: Map<string, KeyObject>, today: number, revok
   const expires = r.claims.expires ?? null;
   const daysLeft = expires === null ? null : (dayOf(expires) as number) - today;
   const state = revoked.includes(r.claims.id) ? "revoked" : daysLeft === null ? "active" : daysLeft < 0 ? "expired" : daysLeft <= RENEW_NOTICE_DAYS ? "expiring" : "active";
-  return { ok: true, view: { ref: reference(code), id: r.claims.id, name: r.claims.name, features, issued: r.claims.issued, expires, state, daysLeft } };
+  const notice = state === "expired" || state === "revoked";
+  return { ok: true, view: { ref: reference(code), id: r.claims.id, name: r.claims.name, features, issued: r.claims.issued, expires, state, daysLeft, notice, noticeSince: null } };
 }
 
 export function featureStatus(codes: readonly string[], keys: Map<string, KeyObject>, today: string, revoked: readonly string[] = []): DevFeatureStatus {
@@ -137,6 +144,39 @@ export function addCode(codes: readonly string[], code: string, keys: Map<string
   next.push(n);
   return next.length > MAX_CODES ? { ok: false, error: "E_FEATURE_CODE_LIMIT" } : { ok: true, codes: next };
 }
+
+/** 切れた・止めたの知らせの記録（コードの印と状態ごと。分かった日と閉じた印） */
+export interface NoticeRecord {
+  ref: string;
+  state: "expired" | "revoked";
+  since: string;
+  dismissed: boolean;
+}
+
+/** 状態に知らせの記録を当てる（本体の notice::apply と同じ）。新しい記録を返し、st のコードの notice・noticeSince を入れ直す */
+export function applyNotices(st: DevFeatureStatus, records: readonly NoticeRecord[]): NoticeRecord[] {
+  const t = dayOf(st.today);
+  const next: NoticeRecord[] = [];
+  for (const c of st.codes) {
+    if (c.state !== "expired" && c.state !== "revoked") {
+      c.notice = false;
+      c.noticeSince = null;
+      continue;
+    }
+    const prev = records.find((r) => r.ref === c.ref && r.state === c.state);
+    const r: NoticeRecord = prev !== undefined ? { ...prev } : { ref: c.ref, state: c.state, since: st.today, dismissed: false };
+    const s = dayOf(r.since);
+    if (s === null || (t !== null && s > t)) r.since = st.today;
+    const since = dayOf(r.since);
+    c.notice = !r.dismissed && (since === null || t === null || t - since < NOTICE_DAYS);
+    c.noticeSince = r.since;
+    next.push(r);
+  }
+  return next;
+}
+
+/** 印で指したコードの知らせを閉じる（記録が無ければ null） */
+export const dismissNotice = (records: readonly NoticeRecord[], ref: string): NoticeRecord[] | null => (records.some((r) => r.ref === ref) ? records.map((r) => (r.ref === ref ? { ...r, dismissed: true } : r)) : null);
 
 /** 日本の今日（UTC+9） */
 export const todayJst = (now = Date.now()): string => new Date(now + 9 * 3600_000).toISOString().slice(0, 10);

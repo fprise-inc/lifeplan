@@ -8,6 +8,7 @@
 //! - 提供元は、途中でやめた人のコードを「止めた一覧」（[`revocation`]。別の鍵で署名した小さな JSON）に載せて止める。
 //!   アプリは配信元から一覧を取りに行き、載っているコードの機能を止める（データは消さない）。一覧から外れたら、次に確かめたときに戻る。
 //!   つながらない・一覧を取れないときは、最後に取れた一覧で判断する（今の状態のまま使える）。
+//! - 期限の切れた・止めたコードの知らせは、分かった日から7日だけ出す（[`notice`]。閉じたらその前でも出さない。コードは外さない）。
 //! - 形: `LPFC1-` ＋ 中身の JSON（base64url）＋ `.` ＋ 署名（base64url）。署名するのは「決まった前置き＋中身の JSON のバイト列」。
 //!   写すときに入った空白・改行は無視する（[`normalize`]）。
 //!
@@ -22,6 +23,7 @@ use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
 pub mod issuer;
+pub mod notice;
 pub mod revocation;
 
 /// コードの最初の印（形の版 1）
@@ -507,7 +509,7 @@ pub fn reference(code: &str) -> String {
 
 // ---- アプリに入れたコードの状態 ----
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CodeState {
     /// 期限内
@@ -542,6 +544,11 @@ pub struct CodeView {
     pub state: CodeState,
     /// 期限までの日数（期限の日は 0。切れたら負。期限なしのコードは null）
     pub days_left: Option<i64>,
+    /// 切れた・止めたの知らせを出すか（使えるコードは false。[`notice::apply`] が、知らせの記録〔分かった日から7日・閉じた〕で決める。
+    /// 記録を当てていない状態では、切れた・止めたコードは true）
+    pub notice: bool,
+    /// 切れた・止めたと分かった日（日本の日付。[`notice::apply`] が入れる。使えるコード・記録を当てていない状態では null）
+    pub notice_since: Option<String>,
 }
 
 /// 確かめられなかったコード（鍵を差し替えた後の古いコードなど。外せるように印と符号だけ）
@@ -603,6 +610,8 @@ fn view_of(
         expires: c.expires,
         state,
         days_left,
+        notice: !state.usable(),
+        notice_since: None,
     })
 }
 

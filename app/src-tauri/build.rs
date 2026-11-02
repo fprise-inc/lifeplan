@@ -76,6 +76,8 @@ const COMMANDS: &[&str] = &[
     // 0110 の追記: 止めた一覧を今すぐ確かめる・AIからのコードの候補を入れるか捨てる（0015 の追記の2段目）
     "feature_codes_check",
     "feature_code_candidate_decide",
+    // 0110 の追記（2026-11-02）: 期限の切れた・止めたコードの知らせを閉じる（コードは外さない）
+    "feature_code_notice_dismiss",
     "store_fork_info",
     "store_fork_resolve",
     "store_sync_copies_resolve",

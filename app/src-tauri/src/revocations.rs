@@ -8,6 +8,8 @@
 //! - 取れた一覧は止めた一覧の鍵（コードの鍵とは別。配布元の設定の `[keys]` の `feature_code_revocation`）で確かめ、
 //!   この PC のアプリのデータ（`feature-codes/revocations.json`）に保存する。つながらない・署名が合わない・古いときは、最後に取れた一覧のまま
 //!   （止めた一覧が一度も取れていなければ、何も止めない）。確かめは feature-code の部品（`revocation::apply_fetch`）。
+//! - 同じファイルに、期限の切れた・止めたコードの知らせの記録（分かった日・閉じた。feature-code の `notice`）も置く
+//!   （この PC だけの記録。同期しない。知らせは分かった日から7日で出さなくなる。0110 の追記 2026-11-02）。
 //! - 開発用のビルド（debug）だけ、環境変数 `FINANCIA_DEV_FEATURE_REVOCATIONS_URL` で、この PC の中（127.0.0.1・localhost）の一覧を読める
 //!   （止めた・外したの見え方を確かめるため。http も可）。製品のビルドは配布元の設定の URL だけ。
 
@@ -15,8 +17,9 @@ use std::path::PathBuf;
 use std::sync::{Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
+use feature_code::notice;
 use feature_code::revocation::{self, Outcome};
-use feature_code::PublicKey;
+use feature_code::{PublicKey, Status};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, Runtime};
 
@@ -61,6 +64,9 @@ struct Saved {
     /// 最後に取りに行った結果（"ok"・"offline"・受け付けなかった符号）
     #[serde(default)]
     last: Option<String>,
+    /// 期限の切れた・止めたコードの知らせの記録（コードの印ごとの、分かった日と閉じた印）
+    #[serde(default)]
+    notices: Vec<notice::Record>,
 }
 
 /// 画面に返す、確かめの様子（中身の一覧は返さない）
@@ -145,6 +151,32 @@ impl RevocationState {
             serial: g.serial,
             listed: g.revoked.len(),
         }
+    }
+
+    /// 状態に知らせの記録を当てる（切れた・止めたと初めて見たコードは今日を分かった日にする。使える・外したコードの記録は消す）。
+    /// 記録が変わったときだけ保存する（画面は1分ごとに状態を読むので、毎回は書かない）
+    pub fn apply_notices(&self, status: &mut Status) {
+        let mut g = lock(&self.inner);
+        let next = notice::apply(status, &g.saved.notices);
+        if next != g.saved.notices {
+            g.saved.notices = next;
+            if let Some(p) = &self.path {
+                write_saved(p, &g.saved);
+            }
+        }
+    }
+
+    /// 印で指したコードの知らせを閉じる（先に [`Self::apply_notices`] で記録を当てておく）
+    pub fn dismiss_notice(&self, reference: &str) -> Result<(), feature_code::Error> {
+        let mut g = lock(&self.inner);
+        let next = notice::dismiss(&g.saved.notices, reference)?;
+        if next != g.saved.notices {
+            g.saved.notices = next;
+            if let Some(p) = &self.path {
+                write_saved(p, &g.saved);
+            }
+        }
+        Ok(())
     }
 
     /// 画面から「今すぐ確かめる」（裏の見回りを起こす）
@@ -484,6 +516,51 @@ mod tests {
         assert!(st.revoked().is_empty());
         assert_eq!(st.view().serial, None);
         assert!(st.due());
+    }
+
+    #[test]
+    fn notice_records_are_kept_on_this_pc() {
+        // 期限の切れたコードの知らせの記録（分かった日・閉じた）を、止めた一覧と同じファイルに置き、取りに行った後も残す
+        let k = feature_code::SecretKey::generate("test-1").unwrap();
+        let keys = [k.public()];
+        let code = feature_code::issue(
+            &k,
+            &feature_code::Request {
+                id: "0001".into(),
+                name: "見本 花子".into(),
+                features: vec!["combinedBs".into()],
+                issued: "2026-11-01".into(),
+                expires: Some("2026-11-30".into()),
+            },
+        )
+        .unwrap();
+        let codes = [code.clone()];
+        let dir = std::env::temp_dir().join(format!("financia-notice-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("revocations.json");
+        let st = RevocationState::from_saved(Saved::default(), Some(path.clone()));
+        let status_on = |st: &RevocationState, today: &str| {
+            let mut s = feature_code::status(&codes, &keys, today, &st.revoked());
+            st.apply_notices(&mut s);
+            s
+        };
+        let s = status_on(&st, "2026-12-01");
+        assert!(s.codes[0].notice);
+        assert_eq!(s.codes[0].notice_since.as_deref(), Some("2026-12-01"));
+        // 知らせの無いコードは閉じられない
+        assert_eq!(
+            st.dismiss_notice("0000000000000000"),
+            Err(feature_code::Error::NOT_FOUND)
+        );
+        st.dismiss_notice(&feature_code::reference(&code)).unwrap();
+        assert_eq!(st.apply(None), Outcome::Offline);
+        // 読み直しても、分かった日と閉じた印が残る（取りに行った後も消えない）
+        let again = RevocationState::from_saved(read_saved(&path), Some(path.clone()));
+        let s = status_on(&again, "2026-12-02");
+        assert!(!s.codes[0].notice);
+        assert_eq!(s.codes[0].notice_since.as_deref(), Some("2026-12-01"));
+        assert_eq!(again.view().result, Some("offline"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
