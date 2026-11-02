@@ -1,0 +1,15 @@
+[package]
+name = "custom-layer"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "カスタム層の最小の仕組み（場所の決まり・設定ファイルの検査・指紋・承認の台帳と保存庫・承認した中身の当て方。0016 の3・4・6）"
+
+[dependencies]
+# 承認の台帳の改ざん検出は HMAC-SHA256（鍵は事務所の親鍵から用途ごとに導いた鍵。導くのは household-store）。
+# hmac・sha2 は household-store が HKDF で既に使っている版（新しい部品は増えない）
+hmac = "0.12"
+sha2 = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

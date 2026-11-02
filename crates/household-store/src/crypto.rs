@@ -119,6 +119,8 @@ pub mod purpose {
     pub const MEMBER_WRAP: &str = "lifeplan/member-wrap/v1";
     // 明細の取り込みで覚えた辞書と形（0034）
     pub const STATEMENT_DICT: &str = "lifeplan/statement-dictionary/v1";
+    // カスタム層の承認の台帳の改ざん検出（0016 の3・6）
+    pub const CUSTOM_LEDGER: &str = "lifeplan/custom-ledger/v1";
 }
 
 /// ファイル全体の指紋（0011 の1 の改訂のID）。`sha256:<16進>`

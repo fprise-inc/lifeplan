@@ -116,3 +116,36 @@ fn feature_codes_are_kept_encrypted_and_reopen() {
     s2.set_feature_codes(vec![]).unwrap();
     assert!(s2.feature_codes().unwrap().is_empty());
 }
+
+#[test]
+fn custom_ledger_key_is_stable_and_per_office() {
+    // カスタム層の承認の台帳の鍵（0016 の3・6）: 同じ事務所なら開き直しても同じ。別の事務所・ほかの用途の鍵とは違う
+    let dir = Dir(std::env::temp_dir().join(format!("hs-custom-key-{}", crypto::new_uuid())));
+    let clock = TestClock(Arc::new(AtomicI64::new(1_792_368_000)));
+    let secrets = Arc::new(MemorySecretStore::default());
+    let s = Store::new(
+        dir.0.join("a"),
+        secrets.clone(),
+        clock.clone(),
+        "0.1.0-test",
+    );
+    s.status().unwrap();
+    let k1 = s.custom_ledger_key().unwrap();
+    drop(s);
+    let s = Store::new(
+        dir.0.join("a"),
+        secrets.clone(),
+        clock.clone(),
+        "0.1.0-test",
+    );
+    s.status().unwrap();
+    assert_eq!(*s.custom_ledger_key().unwrap(), *k1);
+    let other = Store::new(
+        dir.0.join("b"),
+        Arc::new(MemorySecretStore::default()),
+        clock,
+        "0.1.0-test",
+    );
+    other.status().unwrap();
+    assert_ne!(*other.custom_ledger_key().unwrap(), *k1);
+}

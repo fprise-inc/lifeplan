@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "settings.texts.json",
+  "title": "説明の文の差し替え（カスタム層の settings/texts.json。0016 の 2026-11-01 の追記）",
+  "description": "画面の「?」の説明・計算の知らせなどの公式の文を、事務所の言い方に書き換える・足す・消す。書ける id と文の指紋（hash）は説明の一覧（texts-reference）に載っている。文はただの文字で、HTML・Markdown として読まない。改行（\\n）は段落の区切り。アプリの外で変わったファイルは承認待ちになり、FP がアプリで承認するまで効かない。書き方は試験版（texts@MAJOR.MINOR）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "entries"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "pattern": "^texts@1\\.0$",
+      "description": "書き方の版"
+    },
+    "entries": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": { "$ref": "#/$defs/row" },
+      "description": "行の並び。同じ id の行は1つだけ（2つあれば承認できない）。説明の一覧に無い id の行は、使われていない行として読み飛ばす"
+    }
+  },
+  "$defs": {
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "do", "basedOn"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 200,
+          "pattern": "^[a-z]+:\\S+$",
+          "description": "説明の一覧の id（field:…・notice:… など）"
+        },
+        "do": {
+          "enum": ["replace", "append", "hide"],
+          "description": "replace は書き換える、append は公式の文の後ろに段落を足す、hide は消す。できる操作は説明の一覧の ops に従う（推定の根拠・確かめの注意と、「入力が足りない」「計算に入れていない」の知らせは消せない）"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F\\u202A-\\u202E\\u2066-\\u2069]*$",
+          "description": "replace・append の文（hide には書かない）。上限は説明が1,000字、知らせ・確かめの注意・推定の根拠・提示層の文は300字。差し込みの印 {name} は説明の一覧の vars に載った物だけ。{ } の字そのものは {{ }}"
+        },
+        "basedOn": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "書いたときの公式の文の指紋（説明の一覧の hash を写す）。アプリの更新で公式の文が変わったことを見つけるのに使う"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "do": { "const": "hide" } } },
+          "then": { "not": { "required": ["text"] } },
+          "else": { "required": ["text"] }
+        }
+      ]
+    }
+  }
+}
