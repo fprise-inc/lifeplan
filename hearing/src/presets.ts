@@ -20,10 +20,21 @@ const APP_PRESETS: readonly PresetDef[] = [
   p("preset.housing.rent", 80000, "yen", "住まい・ローン", "家賃（月額。住まいが入っていないとき）", "fill", "出典なし（地域・人数の統計はまだ無い）", "market"),
   p("preset.housing.purchase.price", 40000000, "yen", "住まい・ローン", "住宅購入の予定: 物件の価格", "template", NONE, "market"),
   p("preset.housing.purchase.downRate", "0.1", "pct", "住まい・ローン", "住宅購入の予定: 頭金の割合（物件の価格に対する）", "template"),
-  p("preset.housing.purchase.costsRate", "0.05", "pct", "住まい・ローン", "住宅購入の予定: 諸費用の割合（物件の価格に対する）", "template", "出典なし（諸費用の目安は新築3〜7%・中古6〜10%）"),
+  // 諸費用の割合は購入の種類の新築・中古で分ける（0052 の追記 2026-11-03）。種類を選ぶ前は新築の割合（前からの値のまま）
+  p("preset.housing.purchase.costsRate", "0.05", "pct", "住まい・ローン", "住宅購入の予定: 諸費用の割合（新築・種類を選ぶ前。物件の価格に対する）", "template", "出典なし（諸費用の目安は新築3〜7%）"),
+  p("preset.housing.purchase.costsRate.used", "0.08", "pct", "住まい・ローン", "住宅購入の予定: 諸費用の割合（中古。物件の価格に対する）", "template", "出典なし（諸費用の目安は中古6〜10%。仲介手数料が入る）"),
   p("preset.housing.purchase.afterMonths", 24, "months", "住まい・ローン", "住宅購入の予定: 購入の時期（今から）", "template"),
   p("preset.housing.propertyTax", 120000, "yen", "住まい・ローン", "固定資産税・都市計画税（年額）", "template"),
-  p("preset.housing.maintenance", 15000, "yen", "住まい・ローン", "修繕費・管理費（月額）", "template"),
+  p("preset.housing.maintenance", 15000, "yen", "住まい・ローン", "修繕費・管理費（月額。戸建て・建て方が分からないとき）", "template"),
+  p("preset.housing.maintenance.condo", 25000, "yen", "住まい・ローン", "管理費・修繕積立金（月額。マンションの購入）", "template", "出典なし（管理費と修繕積立金の合計のよくある額）"),
+  // 固定資産税・都市計画税の推定（購入の予定の持ち家。0112）。税率の標準・都市計画税の上限・住宅用地の特例・新築の軽減の年数と割合は法令の値で、
+  // ここに置かない（app/src/workspace/input/propertyTax.ts。事務所で変えられない）
+  p("preset.housing.propertyTax.landRatio", "0.7", "pct", "住まい・ローン", "固定資産税の推定: 土地の評価額の割合（土地の価格に対する）", "fill", "出典なし（土地の評価額は公示価格の7割程度が目安）"),
+  p("preset.housing.propertyTax.buildingRatio", "0.6", "pct", "住まい・ローン", "固定資産税の推定: 建物の評価額の割合（建物の価格に対する）", "fill", "出典なし（建物の評価額は建築の価格の5〜7割が目安）"),
+  p("preset.housing.propertyTax.cityPlanningRate", "0.003", "pct", "住まい・ローン", "固定資産税の推定: 都市計画税の税率（上限0.3%。かからない所は0）", "fill", "出典なし（多くの市区町村が上限の0.3%）"),
+  p("preset.housing.propertyTax.buildingFloor", "0.2", "pct", "住まい・ローン", "固定資産税の推定: 建物の評価額の下限（最初の評価額に対する割合）", "fill", "出典なし（古い建物の評価額の下がり方の目安）"),
+  p("preset.housing.propertyTax.buildingYears.wood", 30, "yearCount", "住まい・ローン", "固定資産税の推定: 建物の評価額が下限まで下がる年数（木造・軽量鉄骨造）", "fill", "出典なし（3年ごとの評価替えで古くなった分を下げる目安）"),
+  p("preset.housing.propertyTax.buildingYears.nonWood", 60, "yearCount", "住まい・ローン", "固定資産税の推定: 建物の評価額が下限まで下がる年数（重量鉄骨造・鉄筋コンクリート造）", "fill", "出典なし（3年ごとの評価替えで古くなった分を下げる目安）"),
   p("preset.housing.repair.amount", 1000000, "yen", "住まい・ローン", "修繕・リフォームの行: 1回の額", "template"),
   p("preset.housing.repair.everyYears", 10, "yearCount", "住まい・ローン", "修繕・リフォームの行: 間隔", "template"),
   p("preset.loan.mortgage.balance", 30000000, "yen", "住まい・ローン", "今の残高から入れる住宅ローン: 今の残高", "template"),

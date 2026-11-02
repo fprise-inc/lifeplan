@@ -468,6 +468,10 @@ export interface ResidenceInput {
     readonly price: Yen;
     readonly downPayment: Yen;
     readonly costs: Yen;
+    /** 0052 の追記（2026-11-03）: 新築か中古か（住宅の購入の種類。表示と推定の元だけ。計算には使わない。省略は選んでいない） */
+    readonly newBuild?: boolean;
+    /** 0112: 認定長期優良住宅か（固定資産税の推定の元だけ。計算には使わない） */
+    readonly longLife?: boolean;
     readonly gifts?: readonly {
       readonly recipient: string;
       readonly giver?: "parent" | "grandparent" | "other";

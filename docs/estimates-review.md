@@ -40,17 +40,25 @@
 | 退職給付制度がある企業の割合・退職給付額 | `retirementBenefit.prevalence`・`prevalence.bySize`・`{mandatory,company,voluntary,earlyIncentive}.*`（12値と3表） | 74.9%・定年・大卒 1,896万円など | 厚生労働省「就労条件総合調査」令和5年 | 統計 | 5年ごと（次は令和10年調査） |
 | 中小企業のモデル退職金 | `retirementBenefit.smallFirm.*`（6表） | 勤続年数ごとの額 | 東京都産業労働局「中小企業の賃金・退職金事情」令和6年版 | 統計 | 2年ごと（退職金は隔年の項目） |
 
-## 2. 住まい・ローン（35値）
+## 2. 住まい・ローン（43値）
 
 | 推定 | 値ID | 値 | 出典・時点 | 種類 | 効く所 | 版 | 見直し |
 |---|---|---|---|---|---|---|---|
 | 家賃（月額。住まいが入っていないとき） | `preset.housing.rent` | 80,000円 | 出典なし（地域・人数の統計はまだ無い） | 相場（目安） | 推定 | 1 | 年1回 |
 | 住宅購入の予定: 物件の価格 | `preset.housing.purchase.price` | 40,000,000円 | 出典なし | 相場（目安） | ひな形 | 1 | 年1回 |
 | 住宅購入の予定: 頭金の割合（物件の価格に対する） | `preset.housing.purchase.downRate` | 10% | 出典なし | 目安 | ひな形 | 1 | 年1回 |
-| 住宅購入の予定: 諸費用の割合（物件の価格に対する） | `preset.housing.purchase.costsRate` | 5% | 出典なし（諸費用の目安は新築3〜7%・中古6〜10%） | 目安 | ひな形 | 1 | 年1回 |
+| 住宅購入の予定: 諸費用の割合（新築・種類を選ぶ前。物件の価格に対する） | `preset.housing.purchase.costsRate` | 5% | 出典なし（諸費用の目安は新築3〜7%） | 目安 | ひな形 | 1 | 年1回 |
+| 住宅購入の予定: 諸費用の割合（中古。物件の価格に対する。2026-11-03） | `preset.housing.purchase.costsRate.used` | 8% | 出典なし（諸費用の目安は中古6〜10%。仲介手数料が入る） | 目安 | ひな形 | 1 | 年1回 |
 | 住宅購入の予定: 購入の時期（今から） | `preset.housing.purchase.afterMonths` | 24か月 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
 | 固定資産税・都市計画税（年額） | `preset.housing.propertyTax` | 120,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
-| 修繕費・管理費（月額） | `preset.housing.maintenance` | 15,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 修繕費・管理費（月額。戸建て・建て方が分からないとき） | `preset.housing.maintenance` | 15,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
+| 管理費・修繕積立金（月額。マンションの購入。2026-11-03） | `preset.housing.maintenance.condo` | 25,000円 | 出典なし（管理費と修繕積立金の合計のよくある額） | 目安 | ひな形 | 1 | 年1回 |
+| 固定資産税の推定: 土地の評価額の割合（土地の価格に対する。0112） | `preset.housing.propertyTax.landRatio` | 70% | 出典なし（土地の評価額は公示価格の7割程度が目安） | 目安 | 推定 | 1 | 年1回 |
+| 固定資産税の推定: 建物の評価額の割合（建物の価格に対する。0112） | `preset.housing.propertyTax.buildingRatio` | 60% | 出典なし（建物の評価額は建築の価格の5〜7割が目安） | 目安 | 推定 | 1 | 年1回 |
+| 固定資産税の推定: 都市計画税の税率（上限0.3%。0112） | `preset.housing.propertyTax.cityPlanningRate` | 0.3% | 出典なし（多くの市区町村が上限の0.3%。上限を超える値は上限で止める） | 目安 | 推定 | 1 | 年1回 |
+| 固定資産税の推定: 建物の評価額の下限（最初の評価額に対する割合。0112） | `preset.housing.propertyTax.buildingFloor` | 20% | 出典なし（古い建物の評価額の下がり方の目安） | 目安 | 推定 | 1 | 年1回 |
+| 固定資産税の推定: 建物の評価額が下限まで下がる年数（木造・軽量鉄骨造。0112） | `preset.housing.propertyTax.buildingYears.wood` | 30年 | 出典なし（3年ごとの評価替えで古くなった分を下げる目安。固定資産評価基準の経年減点補正率の表と照らす前） | 目安 | 推定 | 1 | 年1回 |
+| 固定資産税の推定: 建物の評価額が下限まで下がる年数（重量鉄骨造・鉄筋コンクリート造。0112） | `preset.housing.propertyTax.buildingYears.nonWood` | 60年 | 出典なし（同上） | 目安 | 推定 | 1 | 年1回 |
 | 修繕・リフォームの行: 1回の額 | `preset.housing.repair.amount` | 1,000,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
 | 修繕・リフォームの行: 間隔 | `preset.housing.repair.everyYears` | 10年 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
 | 今の残高から入れる住宅ローン: 今の残高 | `preset.loan.mortgage.balance` | 30,000,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
@@ -256,6 +264,7 @@
 |---|---|---|
 | 構造ごとの耐用年数（木造22・軽量鉄骨19・重量鉄骨34・RC47年） | `app/src/workspace/input/labels.ts` の `USEFUL_LIFE`・`engine/src/sdk/helpers.ts`・`engine/src/components/asset.realEstate/index.ts` の `TAX_USEFUL_LIFE` | 法令（減価償却資産の耐用年数等に関する省令）。法改正のとき |
 | ヒアリングの住宅ローン控除の仮の条件（新築は省エネ基準適合住宅・中古は一般の住宅・持分100%） | `hearing/src/import.ts` | 法令（仮定）。法改正のとき |
+| 固定資産税の標準税率1.4%・都市計画税の上限0.3%・小規模住宅用地の特例（1/6・1/3）・新築住宅の減額（建物の1/2、戸建て3年・マンション5年、認定長期優良住宅は5年・7年）・評価替えの3年ごと（0112） | `app/src/workspace/input/propertyTax.ts` の `PROPERTY_TAX_LAW` | 法令（地方税法 第350条・第702条の4・第349条の3の2・第702条の3・附則第15条の6・第15条の7・第341条）。法改正のとき（**新築の軽減の期限の延長は見直しのたびに確かめる**） |
 | 自動車税（種別割）の標準税率 年3.6万円・あげる贈与の行の110万円・所得割10%・第一種奨学金の0% | `hearing/src/estimates.ts`・`app/src/workspace/input/moneyRows.ts`・`stages/housingLoans.ts` | 法令・制度の値 |
 | 国の教育ローンの融資の上限（350万円・450万円）・返済期間の上限（20年）・奨学金の返還年数算出表・留学の支援制度の支給の上限 | `app/src/workspace/input/stages/education.ts` | 制度の値（公表の改定のとき） |
 | 金利の目安の予備の値（住宅ローン 変動0.8%・ほか2%・今返している分0.8%、奨学金1%・今返している分0.75%、自動車ローン2.5%） | `hearing/src/housingEstimates.ts` の `FALLBACK`・`CURRENT_FALLBACK`・`hearing/src/loanRates.ts` の `estimateOf` | マスタデータの写しが読めないときだけの予備（ふだんは1章の値。事務所の値は1章の値で変える）。毎リリース、マスタデータと大きくずれていないか |

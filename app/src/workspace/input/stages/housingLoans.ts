@@ -8,7 +8,7 @@ import { addMonths } from "../../levers.ts";
 import type { Address } from "../../store/readings.ts";
 import { byId, field, getPath, plain, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef } from "../form.ts";
 import { mutate, newId, presetBasis, standardBox, wrapBasis, type LoanEntry, type WorkingHousehold } from "../household.ts";
-import { CREDIT_DATA_FROM_YEAR, creditKey, estimatedPrincipal, fromBalance, isHomeLoan, PRINCIPAL_ESTIMATE, principalKey, principalMismatch, purchaseMonth, startsLater, withoutCreditMark } from "../housingCredit.ts";
+import { CREDIT_DATA_FROM_YEAR, creditKey, estimatedPrincipal, fromBalance, isHomeLoan, newBuildFromPurchase, PRINCIPAL_ESTIMATE, principalKey, principalMismatch, purchaseMonth, startsLater, withoutCreditMark } from "../housingCredit.ts";
 import { DEBT_KINDS, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS } from "../labels.ts";
 import { fittedRateText, monthlyPayment, monthsBetween, monthsFromPayment, principalFromPayment, rateText } from "../loanMath.ts";
 import { putRow, rowAt, type StateRow } from "../rows.ts";
@@ -735,7 +735,8 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
       }),
       addr(["propertyType"]),
     ),
-    withAddress(
+    // 購入の種類で新築か中古かを選んだ購入とつながるローンは、ここで聞き直さない（購入の種類から読む。0052 の追記 2026-11-03）
+    ...(newBuildFromPurchase(wh.request.input.household, d) ? [] : [withAddress(
       field({
         key: `${k}/credit/newBuild`,
         item: "debt.housing",
@@ -750,7 +751,7 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         set: (w, v) => edit(w, (x) => void (x.newBuild = v === "new")),
       }),
       addr(["newBuild"]),
-    ),
+    )]),
     withAddress(
       field({
         key: `${k}/credit/cost`,

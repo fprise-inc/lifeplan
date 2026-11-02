@@ -8,6 +8,7 @@ import { refreshClaims } from "./claims.ts";
 import { refreshEducation, refreshLeaves } from "./fill.ts";
 import { refreshRetirement } from "./retirementBenefits.ts";
 import { applyAutoStages, countAt } from "./livingStages.ts";
+import { refreshPropertyTax } from "./propertyTax.ts";
 import {
   businessEstimate as businessStatistic,
   fillsByEstimate,
@@ -82,7 +83,7 @@ const keepHearingHead = (was: string | undefined, basis: string): string => ((wa
  * 自動で入れた推定の値を、ほかの入力に合わせて入れ直す（FP が入れた値・確定の値は変えない）。
  * 「推定は入力の時点で世帯に入れ、元の入力が変わったら入れ直す」（0008 の未確定の決定）
  */
-export function refreshEstimates(h: Household, baseMonth: string, endYear?: number): void {
+export function refreshEstimates(h: Household, baseMonth: string, endYear?: number, landShare?: string): void {
   for (const l of h.livingExpenses ?? []) {
     refreshSplit(h, baseMonth, l);
     // 前の版の推定（千円単位に丸める前の額）で人数も同じなら書き換えない（丸めただけで、保存した世帯の結果を変えない）
@@ -124,6 +125,8 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
   // 生活費の推定の段階（人数の変化と年齢から。推定のままの段だけ。livingStages.ts）。進路の後に（自宅外の在学を読むため）
   const last = endYear ?? Number(baseMonth.slice(0, 4)) + 80;
   for (const l of h.livingExpenses ?? []) applyAutoStages(h, baseMonth, last, l);
+  // 購入の予定の持ち家の固定資産税の推定（推定のままの欄と推定の段だけ。propertyTax.ts。0112）
+  refreshPropertyTax(h, last, landShare);
   // 推定（おまかせ）のままの失業給付・高年齢雇用継続給付を受け取るかは、期間の終わり・次の期間・年齢に合わせて入れ直す（claims.ts）
   refreshClaims(h);
   // 推定のままの標準報酬月額の置き換え口は外す（空欄にして給与から計算する。前の画面が書いた推定が残っていたとき。0047 の追記 2026-10-29 の2）
@@ -193,7 +196,8 @@ function refreshSplit(h: Household, baseMonth: string, l: LivingExpense): void {
 /** 推定を入れ直した世帯（変わらなければ同じものを返す） */
 export function withRefreshedEstimates<T extends { request: { input: { household: Household; baseMonth: string } } }>(wh: T): T {
   const h = structuredClone(wh.request.input.household);
-  refreshEstimates(h, wh.request.input.baseMonth, (wh.request.input as { endYear?: number }).endYear);
+  const input = wh.request.input as { endYear?: number; assumptions?: { realEstateValuation?: { landShare?: string } } };
+  refreshEstimates(h, wh.request.input.baseMonth, input.endYear, input.assumptions?.realEstateValuation?.landShare);
   if (JSON.stringify(h) === JSON.stringify(wh.request.input.household)) return wh;
   return { ...wh, request: { ...wh.request, input: { ...wh.request.input, household: h } } };
 }

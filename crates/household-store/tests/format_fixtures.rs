@@ -171,6 +171,16 @@ fn every_format_version_has_a_fixture_and_opens() {
             migrate::parse(v).unwrap() >= (0, 51),
             "{v}: 三大疾病保険の契約は 0.51 からの見本"
         );
+        // 0.53 から: 住宅の購入の種類（新築か中古か）と長期優良住宅か（0052 の追記 2026-11-03・0112）
+        let typed = now["household"]["request"]["input"]["household"]["residences"]
+            .as_array()
+            .map(|l| l.iter().any(|r| r["purchase"]["newBuild"].is_boolean()))
+            .unwrap_or(false);
+        assert_eq!(
+            typed,
+            migrate::parse(v).unwrap() >= (0, 53),
+            "{v}: 住宅の購入の種類は 0.53 からの見本"
+        );
         // 0.52 から: 低解約返戻金型（払込中の率・年齢ごとの率の点）とアカウント型（積立の部分）。0055 の追記 2026-11-03
         let contracts = now["household"]["request"]["input"]["household"]["insuranceContracts"]
             .as_array()
