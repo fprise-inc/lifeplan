@@ -394,7 +394,7 @@ entries:
     replacedBy: null
   - id: hs.loan.debtor
     status: active
-    label: "借りている方"
+    label: "ローンの名義"
     since: draft
     aliases: []
     replacedBy: null

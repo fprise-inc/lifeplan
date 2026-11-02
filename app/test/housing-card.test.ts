@@ -280,7 +280,7 @@ describe("住宅ローンの入れ方の区分", () => {
   });
 });
 
-describe("借りる人とペアローン", () => {
+describe("ローンの名義とペアローン", () => {
   it("ペアローン: 配偶者の2本目を足し、借入額を2本に分ける（合計は物件の価格−頭金のまま）。団信は1本ずつ", () => {
     let wh = action(action(couple(), "housing/addPurchase"), "housing/addMortgage");
     const first = debtsOf(wh)[0]!;

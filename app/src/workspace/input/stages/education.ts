@@ -1030,7 +1030,7 @@ function loanGroups(wh: WorkingHousehold, goal: Goal): GroupDef[] {
         { ...plain({ key: `${k}/amount`, item: "goal.education", label: "借りる額", level: "detail", kind: "yen", basis: "once", find, path: ["amount"] }), ...at("amount") },
         { ...plain({ key: `${k}/rate`, item: "goal.education", label: "金利（年）", level: "detail", kind: "pct", find, path: ["rate"] }), ...at("rate") },
         yearsField(`${k}/term`, "返す年数", find, 25, addr("termMonths")),
-        plain({ key: `${k}/borrower`, item: "goal.education", label: "借りる人", level: "detail", kind: "select", options: memberOptions(wh, (m) => m.kind === "self" || m.kind === "spouse"), find, path: ["borrower"] }),
+        plain({ key: `${k}/borrower`, item: "goal.education", label: "ローンの名義", level: "detail", kind: "select", options: memberOptions(wh, (m) => m.kind === "self" || m.kind === "spouse"), find, path: ["borrower"] }),
       ],
       actions: [
         removeAction(`${k}/remove`, "外す", "detail", (hh) => {

@@ -16,7 +16,7 @@ import { pctText } from "../../../../../hearing/src/housingEstimates.ts";
 import { presetNum, presetText } from "../../../../../hearing/src/presets.ts";
 import { readGroup, readLine } from "../readLines.ts";
 import { stagedBadge, stagedGroups, type StagedSpec } from "../staged.ts";
-import { at, creditLifeFields, creditLifeGroups, estRow, loanFields, loanMoreActions, loanTitle, LOAN_SUBTYPES, newMortgage, newOtherLoan, otherLoanHeadFields, withEntry } from "./housingLoans.ts";
+import { at, creditLifeFields, creditLifeGroups, estRow, loanFields, loanMoreActions, loanTitle, LOAN_SUBTYPES, newMortgage, newOtherLoan, rateStepsView, otherLoanHeadFields, withEntry } from "./housingLoans.ts";
 import { GROWTH_RANGE } from "../rateRanges.ts";
 import { hasExecutive } from "../officer.ts";
 
@@ -606,24 +606,29 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
 
 // ---- ローン ----
 
-/** ローンの金利の段階・繰上返済（・借り換え）のまとまり（詳細）。住まい・ローンのカードと、収益不動産の物件のローンで同じ欄 */
-export function loanStepGroups(d: Debt, k: string, o: { refinance?: boolean } = {}): GroupDef[] {
+/**
+ * ローンの金利の段階・繰上返済（・借り換え）のまとまり（詳細）。住まい・ローンのカードと、収益不動産の物件のローンで同じ欄。
+ * rates は金利の段階の出し方（hide: 全期間固定の当初の引き下げで入れるので出さない、simple: 「金利の段階で入れる」を選んだので標準でも出す。0052 の追記 2026-11-02）
+ */
+export function loanStepGroups(d: Debt, k: string, o: { refinance?: boolean; rates?: "hide" | "simple" | "detail" } = {}): GroupDef[] {
   const groups: GroupDef[] = [];
-  d.rateSchedule.slice(1).forEach((_, j) => {
-    const idx = j + 1;
-    const findR: Finder = (h) => (getPath((h.debts ?? []).find((x) => x.id === d.id), ["rateSchedule", String(idx)]) as Record<string, unknown> | undefined) ?? undefined;
-    groups.push({
-      key: `${k}/rate/${idx}`,
-      title: `金利の段階 ${idx + 1}`,
-      level: "detail",
-      fields: [
-        timepointField({ key: `${k}/rate/${idx}/from`, item: "debt.rateSchedule", label: "この金利になる年月", level: "detail", find: findR, path: ["from"] }),
-        plain({ key: `${k}/rate/${idx}/rate`, item: "debt.rateSchedule", label: "金利（年）", level: "detail", kind: "pct", find: findR, path: ["rate"] }),
-        plain({ key: `${k}/rate/${idx}/type`, item: "debt.rateSchedule", label: "金利の種類", level: "detail", kind: "select", options: [{ value: "variable", label: "変動金利" }, { value: "fixedPeriod", label: "固定期間選択型" }, { value: "fixed", label: "全期間固定" }], find: findR, path: ["type"] }),
-      ],
-      actions: [removeAction(`${k}/rate/${idx}/remove`, "外す", "detail", (h) => void ((h.debts ?? []).find((x) => x.id === d.id) as Debt).rateSchedule.splice(idx, 1))],
+  const lv = o.rates === "simple" ? "simple" : "detail";
+  if (o.rates !== "hide")
+    d.rateSchedule.slice(1).forEach((_, j) => {
+      const idx = j + 1;
+      const findR: Finder = (h) => (getPath((h.debts ?? []).find((x) => x.id === d.id), ["rateSchedule", String(idx)]) as Record<string, unknown> | undefined) ?? undefined;
+      groups.push({
+        key: `${k}/rate/${idx}`,
+        title: `金利の段階 ${idx + 1}`,
+        level: lv,
+        fields: [
+          timepointField({ key: `${k}/rate/${idx}/from`, item: "debt.rateSchedule", label: "この金利になる年月", level: lv, find: findR, path: ["from"] }),
+          plain({ key: `${k}/rate/${idx}/rate`, item: "debt.rateSchedule", label: "金利（年）", level: lv, kind: "pct", find: findR, path: ["rate"] }),
+          plain({ key: `${k}/rate/${idx}/type`, item: "debt.rateSchedule", label: "金利の種類", level: lv, kind: "select", options: [{ value: "variable", label: "変動金利" }, { value: "fixedPeriod", label: "固定期間選択型" }, { value: "fixed", label: "全期間固定" }], find: findR, path: ["type"] }),
+        ],
+        actions: [removeAction(`${k}/rate/${idx}/remove`, "外す", lv, (h) => void ((h.debts ?? []).find((x) => x.id === d.id) as Debt).rateSchedule.splice(idx, 1))],
+      });
     });
-  });
   (d.prepayments ?? []).forEach((_, j) => {
     const findP: Finder = (h) => (getPath((h.debts ?? []).find((x) => x.id === d.id), ["prepayments", String(j)]) as Record<string, unknown> | undefined) ?? undefined;
     groups.push({
@@ -694,7 +699,7 @@ function refinanceGroups(d: Debt, k: string): GroupDef[] {
 /** 住宅ローンの1件の中枠（band。0077 の追記）: 欄のキーの末尾（物のキーの後）→ 中枠。どれにも当たらない欄は「借入の内容」 */
 const LOAN_BANDS: readonly { id: string; title: string; keys: readonly string[] }[] = [
   { id: "loan", title: "借入の内容", keys: ["entry", "principal", "start", "balance", "balanceAsOf", "product", "debtors", "share", "pair"] },
-  { id: "rate", title: "金利", keys: ["rateType", "rate", "rateOutlook"] },
+  { id: "rate", title: "金利", keys: ["rateType", "rate", "rateOutlook", "rateCutPeriod", "rateCut", "rateSteps"] },
   { id: "repay", title: "返済", keys: ["payment", "term", "payoff", "method", "bonus", "fiveYear", "cap125"] },
   { id: "prepay", title: "繰上返済", keys: [] },
   { id: "creditLife", title: "団体信用生命保険", keys: ["creditLife", "clHigh", "clIncapacity", "clDisease", "clMonths", "clRatio", "clJoint"] },
@@ -715,7 +720,7 @@ function mortgageBands(wh: WorkingHousehold, d: Debt, k: string): GroupDef[] {
   };
   const fields = loanFields(wh, d, k);
   const actions = loanMoreActions(wh, d, k);
-  const steps = loanStepGroups(d, k);
+  const steps = loanStepGroups(d, k, { rates: rateStepsView(wh, d) });
   const out: GroupDef[] = [];
   for (const b of LOAN_BANDS) {
     const bk = `${k}/band/${b.id}`;

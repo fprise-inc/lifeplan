@@ -107,8 +107,19 @@ function needsCredit(h: Household, d: Debt): boolean {
   return ym !== null && Number(ym.slice(0, 4)) >= CREDIT_DATA_FROM_YEAR;
 }
 
-/** 「今の残高から」入れたローン（借りた年が仮なので、控除の仮の条件を置かない。0052） */
-export const fromBalance = (wh: WorkingHousehold, id: string): boolean => wh.loanEntry?.[id] === "balance";
+/** これから借りるローン（借入の年月が計算の基準の月より後。今の残高は無いので、入れ方の「今の残高から」と残高の欄を出さない。0052 の追記 2026-11-02） */
+export function startsLater(wh: WorkingHousehold, id: string): boolean {
+  const h = wh.request.input.household;
+  const d = (h.debts ?? []).find((x) => x.id === id);
+  const start = d === undefined ? null : resolveTimepoint(h, d.start);
+  return start !== null && start > wh.request.input.baseMonth;
+}
+
+/**
+ * 「今の残高から」入れたローン（借りた年が仮なので、控除の仮の条件を置かない。0052）。これから借りるローンは、入れ方が「今の残高から」の
+ * ままでも「借入額から」として読む（借入の年月を今より前に直すと、また「今の残高から」になる。0052 の追記 2026-11-02）
+ */
+export const fromBalance = (wh: WorkingHousehold, id: string): boolean => wh.loanEntry?.[id] === "balance" && !startsLater(wh, id);
 
 /**
  * 仮の値を入れ直した世帯（変わらなければ同じものを返す）:

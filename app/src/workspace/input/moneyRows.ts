@@ -228,10 +228,12 @@ function costLabel(tax: IncomeTaxTreatment, c: Cadence, everyYears: number): str
   return c === "once" ? what : `${what}（${amountName(c, everyYears)}）`;
 }
 
-/** 必要経費・取得費の欄の説明 */
-function costHelp(tax: IncomeTaxTreatment, c: Cadence, everyYears: number): string {
+/** 必要経費・取得費の欄の説明（onceAmount: ライフイベントの1回の行。受け取る額と同じ入れ方で入れる） */
+function costHelp(tax: IncomeTaxTreatment, c: Cadence, everyYears: number, onceAmount = false): string {
   const unit = c === "once" ? "受け取る額と同じく、その1回の分" : `受け取る額と同じく${amountName(c, everyYears)}`;
-  return `${tax === "capitalGains" ? "受け取る額から引く取得費と譲渡の費用" : "受け取る額から引く経費"}です。${unit}で、今の値段で入れます（受け取る額が伸びると、同じ割合で伸ばします）`;
+  const what = tax === "capitalGains" ? "受け取る額から引く取得費と譲渡の費用" : "受け取る額から引く経費";
+  if (onceAmount) return `${what}です。${unit}で、受け取る額と同じ入れ方（「額の入れ方」）で入れます（受け取る額を増やすときは、同じ割合で増やします）`;
+  return `${what}です。${unit}で、今の値段で入れます（受け取る額が伸びると、同じ割合で伸ばします）`;
 }
 
 /** 前に選んだ行が今の種類で選べないときの説明 */
@@ -667,9 +669,10 @@ export function everyField(key: string, item: string, find: Finder, help: string
 
 /**
  * 時期の入れ方の欄（1回／毎月／年ごと）。1回は終わりを始まりと同じ月に、毎月は monthly を立てる（何年ごとは1）。年ごとに変えると、何年ごとは
- * 1（毎年）から始まる。1回・毎月に変えると何年ごとの欄は消えるので、何年ごとの仮の印（ひな形の推定）も外す
+ * 1（毎年）から始まる。1回・毎月に変えると何年ごとの欄は消えるので、何年ごとの仮の印（ひな形の推定）も外す。
+ * onceAsEntered（ライフイベントの行）: 1回にすると額の入れ方の既定「その時の額」を書き、1回から変えるとその既定を外す（applyOnceGrowth）
  */
-export function cadenceField(key: string, item: string, find: Finder, id: string, o: { noMonthly?: { help: string; legacy: string; monthlyNow: boolean } } = {}): FieldDef {
+export function cadenceField(key: string, item: string, find: Finder, id: string, o: { noMonthly?: { help: string; legacy: string; monthlyNow: boolean }; onceAsEntered?: boolean } = {}): FieldDef {
   // 毎月を選べない行（修繕・リフォーム）: 前の版で毎月にした行だけ、読めるように「毎月」を残して知らせる
   const nm = o.noMonthly;
   const options = nm === undefined ? CADENCES : nm.monthlyNow ? CADENCES.map((c) => (c.value === "monthly" ? { ...c, label: "毎月（前の版の入れ方）" } : c)) : CADENCES.filter((c) => c.value !== "monthly");
@@ -707,6 +710,8 @@ export function cadenceField(key: string, item: string, find: Finder, id: string
           }
           // 毎月 ↔ 年ごとは、年あたりが同じになるよう額を言い直す（0100 の追記）
           if (v === "monthly" || v === "repeat") reexpressAmounts(r, { c: was, every: wasEvery }, { c: v, every: r.everyYears });
+          // ライフイベントの行: 1回にすると額の入れ方は「その時の額」、1回から変えると伸び方は物価に戻す（0008 の追記 2026-11-02）
+          if (o.onceAsEntered === true && (v === "once") !== (was === "once")) applyOnceGrowth(h, r);
         });
         return v === "repeat" ? next : withoutAssumedKey(next, key.replace(/\/cadence$/, "/every"));
       },
@@ -756,12 +761,71 @@ function aliasBadge(f: FieldDef): FieldDef {
   };
 }
 
-/** 伸び方の欄（物価に合わせる＝既定／決まった率〔マイナスも〕／変えない） */
-export function growthFields(key: string, item: string, find: Finder, id: string, cur: { kind: string; rate?: string } | undefined): FieldDef[] {
-  const out = [withAddress(plain({ key: `${key}/growth`, item, label: "伸び方", level: "detail", kind: "select", options: GROWTH_KINDS, find, path: ["growth", "kind"], fallback: "inflation", optional: true, structural: true, after: (_h, t, v) => fixGrowth(t, v), help: "額は今の値段で入れます。選ばないときは、毎年、物価の上がり方に合わせて伸ばします" }), address(id, item, ["kind"]))];
+// ---- 1回のお金の行の額の入れ方（0008 の追記 2026-11-02） ----
+
+/**
+ * 1回の行を「入れた額のまま」（伸び方 none）を既定にするカード: ライフイベントの入力項目（夢プランの夢・家族の出来事のひな形・ほかの支出・
+ * 祝い金などの入金）。相談の場では、将来の1回の額を「5年後に200万円」のようにその時の金額で考えるため。ほかの入力項目のお金の行は今のまま
+ */
+export const ONCE_AS_ENTERED_CARDS: ReadonlySet<MoneyCard> = new Set(["events"]);
+export const onceAsEntered = (card: MoneyCard): boolean => ONCE_AS_ENTERED_CARDS.has(card);
+
+/**
+ * 新しく足した行・時期を1回に変えた行の伸び方の既定を書く（エンジンの既定〔省略は物価〕は変えず、画面の側で明示して書く）:
+ * 1回の行は伸び方が無ければ「変えない」（入れた額のまま）を書く。1回でない行は、1回の既定の「変えない」を外して物価に戻す
+ * （伸び方を持たない前の行は、ここを通らないので今の読み方〔物価〕のまま）
+ */
+export function applyOnceGrowth(h: Household, r: Pick<PeriodicExpense, "from" | "to" | "monthly" | "everyYears" | "growth">): void {
+  if (cadenceOf(h, r) === "once") {
+    if (r.growth === undefined) r.growth = { kind: "none" };
+  } else if (r.growth?.kind === "none") delete r.growth;
+}
+
+/** 1回の行の「額の入れ方」の選択肢（中身は伸び方の「変えない」「物価に合わせる」「決まった率」。既定の「その時の額」を先頭に） */
+export const ONCE_AMOUNT_KINDS: Option[] = [
+  { value: "none", label: "その時の額のまま" },
+  { value: "inflation", label: "今の値段（物価で増やす）" },
+  { value: "rate", label: "決まった率で増やす" },
+];
+
+/** 1回の行の「額の入れ方」の説明 */
+export const ONCE_AMOUNT_HELP =
+  "「その時の額のまま」は、その時に払う（受け取る）額をそのまま入れたときです。物価では増やしません（新しく足した1回の行はこれです）。「今の値段（物価で増やす）」は、今の値段で入れたときで、その時までの物価の上がり方で増やします。「決まった率で増やす」は、入れた額を決まった率で毎年増やします。選んでいない前の行は、今の値段として物価で増やしています";
+
+/** 伸び方の欄の名前（1回の行の額の入れ方の欄は「額の入れ方」） */
+export const growthLabel = (onceAmount: boolean): string => (onceAmount ? "額の入れ方" : "伸び方");
+
+/**
+ * 伸び方の欄（物価に合わせる＝既定／決まった率〔マイナスも〕／変えない）。onceAmount は、ライフイベントの1回の行の「額の入れ方」
+ * （その時の額のまま／今の値段（物価で増やす）／決まった率で増やす）。どちらも伸び方を持たない行は物価として見せる（エンジンの既定どおり）。
+ * 額の入れ方は選んだ値をそのまま書く（「今の値段（物価で増やす）」も書く。時期を変えても選んだ入れ方が残るように）
+ */
+export function growthFields(key: string, item: string, find: Finder, id: string, cur: { kind: string; rate?: string } | undefined, o: { onceAmount?: boolean } = {}): FieldDef[] {
+  const once = o.onceAmount === true;
+  const base = plain({ key: `${key}/growth`, item, label: growthLabel(once), level: "detail", kind: "select", options: once ? ONCE_AMOUNT_KINDS : GROWTH_KINDS, find, path: ["growth", "kind"], ...(once ? {} : { fallback: "inflation" }), optional: true, structural: true, after: (_h, t, v) => fixGrowth(t, v), help: once ? ONCE_AMOUNT_HELP : "額は今の値段で入れます。選ばないときは、毎年、物価の上がり方に合わせて伸ばします" });
+  const kindField: FieldDef = once
+    ? {
+        ...base,
+        get: (wh) => {
+          const s = base.get(wh);
+          return s.value === null ? { ...s, value: "inflation", implicit: true } : s;
+        },
+      }
+    : base;
+  const out = [withAddress(kindField, address(id, item, ["kind"]))];
   if (cur?.kind === "rate") out.push(withAddress(plain({ key: `${key}/growthRate`, item, label: "決まった変動率（年）", help: "マイナスも入れられます", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["growth", "rate"] }), address(id, item, ["rate"])));
   return out;
 }
+
+/** 額の欄の説明（ライフイベントの1回の行: 額の入れ方に合わせる） */
+function onceAmountHelp(g: { kind: string } | undefined): string {
+  if (g?.kind === "none") return "その時の額をそのまま入れます（物価では増やしません。今の値段で入れたときは、「詳細」の「額の入れ方」で「今の値段（物価で増やす）」を選びます）";
+  if (g?.kind === "rate") return "入れた額を、「詳細」の「額の入れ方」の決まった率で、その時まで増やします";
+  return "今の値段として、その時までの物価で増やして計算しています（その時の額で入れたときは、「詳細」の「額の入れ方」で「その時の額のまま」を選びます）";
+}
+
+/** 伸び方を「詳細あり」に数えるか（ライフイベントの1回の行は、既定の「その時の額」のときは数えない） */
+const growthNoted = (g: { kind: string } | undefined, onceAmount: boolean): boolean => (onceAmount ? g !== undefined && g.kind !== "none" : g !== undefined);
 
 /** 伸び方を選び直したときの始末（決まった率なら率を置き、ほかは率を消す。stages/living.ts の fixGrowth と同じ） */
 function fixGrowth(t: Obj, v: unknown): void {
@@ -826,8 +890,8 @@ export function debtParts(h: Household, d: Debt): { amount: string; when: string
 
 /** 入るお金の行のまとまり（簡易の1行・詳細の3まとまり） */
 /** 入るお金の行の「▸ 続きを見る」の文（開くと出る詳細のまとまり: 課税の扱いか必要経費〔無いこともある〕と、受け取る人・伸び方など） */
-export function incomeMoreLabel(tax: "tax" | "cost" | null): string {
-  return tax === "tax" ? "課税の扱い・受け取る人を入れる" : tax === "cost" ? "必要経費・受け取る人を入れる" : "受け取る人・伸び方を入れる";
+export function incomeMoreLabel(tax: "tax" | "cost" | null, onceAmount = false): string {
+  return tax === "tax" ? "課税の扱い・受け取る人を入れる" : tax === "cost" ? "必要経費・受け取る人を入れる" : `受け取る人・${growthLabel(onceAmount)}を入れる`;
 }
 
 export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCard): GroupDef[] {
@@ -840,13 +904,16 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   const tax = incomeTreatment(f);
   const inherit = card === "inherit";
   const excluded = excludedIncome(f);
+  // ライフイベントの1回の行は「額の入れ方」（0008 の追記 2026-11-02）
+  const asEntered = onceAsEntered(card);
+  const onceAmount = asEntered && c === "once";
   const fields: FieldDef[] = [
     withAddress(plain({ key: `${k}/label`, item: "incomeFlow.label", label: "名前", level: nameLevel(card), kind: "text", find, path: ["label"], optional: true }), address(f.id, "incomeFlow.label")),
   ];
   if (kinds.length > 1 || !kinds.some((x) => x.kind === f.kind))
     fields.push(withAddress(plain({ key: `${k}/kind`, item: "incomeFlow.kind", label: "種類", level: "simple", kind: "select", options: (kinds.some((x) => x.kind === f.kind) ? kinds : [...kinds, def]).map((x) => ({ value: x.kind, label: x.label })), find, path: ["kind"], structural: true, after: (_h, t) => fixIncomeRow(t), help: `${def.help !== undefined ? `${def.label}: ${def.help}。` : ""}種類で課税の扱いと表の行の既定が決まります（「詳細」で変えられます）` }), address(f.id, "incomeFlow.kind")));
-  fields.push(cadenceField(`${k}/cadence`, "incomeFlow.monthly", find, f.id));
-  fields.push(withAddress(yenBox({ key: `${k}/amount`, item: "incomeFlow.amount", label: amountName(c, f.everyYears), level: "simple", basis: c === "monthly" ? "monthly" : "once", find, path: ["amount"], hint: (w) => reexpressedNote(getPath(find(w.request.input.household, w), ["amount"])), help: c === "repeat" ? `${everyAmountHelp(f.everyYears)}。今の値段で入れます（これからの値上がりは、「詳細」の「伸び方」に合わせて計算します）` : "今の値段で入れます（これからの値上がりは、「詳細」の「伸び方」に合わせて計算します）" }), address(f.id, "incomeFlow.amount")));
+  fields.push(cadenceField(`${k}/cadence`, "incomeFlow.monthly", find, f.id, asEntered ? { onceAsEntered: true } : {}));
+  fields.push(withAddress(yenBox({ key: `${k}/amount`, item: "incomeFlow.amount", label: amountName(c, f.everyYears), level: "simple", basis: c === "monthly" ? "monthly" : "once", find, path: ["amount"], hint: (w) => reexpressedNote(getPath(find(w.request.input.household, w), ["amount"])), help: onceAmount ? onceAmountHelp(f.growth) : c === "repeat" ? `${everyAmountHelp(f.everyYears)}。今の値段で入れます（これからの値上がりは、「詳細」の「伸び方」に合わせて計算します）` : "今の値段で入れます（これからの値上がりは、「詳細」の「伸び方」に合わせて計算します）" }), address(f.id, "incomeFlow.amount")));
   fields.push(withAddress(timepointField({ key: `${k}/from`, item: "incomeFlow.from", label: c === "once" ? "受け取る時期" : "始まり", level: "simple", find, path: ["from"], ...selfAge(wh), ...(c === "once" ? { after: (_h: Household, t: Obj) => void (t.to = structuredClone(t.from)) } : {}) }), address(f.id, "incomeFlow.from")));
   if (c === "repeat") fields.push(withAddress(everyField(`${k}/every`, "incomeFlow.everyYears", find, EVERY_HELP), address(f.id, "incomeFlow.everyYears")));
   // 養育費の行は、相手（養育を受ける子）の年齢で終わりを見せ、終わりの既定はその子の20歳（0044 の追記）
@@ -866,7 +933,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   const badge = stagedBadge(f as unknown as Record<string, unknown>, ["stages"], ["exceptions"], amountName(c, f.everyYears));
   const detailNotes = [
     ...(f.taxTreatment !== undefined && f.kind !== "sideJob" ? [`課税: ${TAX_TREATMENTS.find((t) => t.value === f.taxTreatment)?.label ?? ""}`] : []),
-    ...(f.growth !== undefined ? ["伸び方"] : []),
+    ...(growthNoted(f.growth, onceAmount) ? [growthLabel(onceAmount)] : []),
     ...(badge !== null ? [badge] : []),
   ];
   const main: GroupDef = {
@@ -930,7 +997,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
         ),
       ];
   if (tax === "temporary" || tax === "miscBusiness" || tax === "miscOther" || tax === "business" || tax === "capitalGains")
-    taxFields.push(withAddress(yenBox({ key: `${k}/cost`, item: "incomeFlow.cost", label: costLabel(tax, c, f.everyYears), level: "detail", basis: c === "monthly" ? "monthly" : "once", find, path: ["cost"], optional: true, help: costHelp(tax, c, f.everyYears) }), address(f.id, "incomeFlow.cost")));
+    taxFields.push(withAddress(yenBox({ key: `${k}/cost`, item: "incomeFlow.cost", label: costLabel(tax, c, f.everyYears), level: "detail", basis: c === "monthly" ? "monthly" : "once", find, path: ["cost"], optional: true, help: costHelp(tax, c, f.everyYears, onceAmount) }), address(f.id, "incomeFlow.cost")));
   if (tax === "gift")
     taxFields.push(withAddress(plain({ key: `${k}/giftMethod`, item: "incomeFlow.giftMethod", label: "贈与税の課税の方法", level: "detail", kind: "select", options: [{ value: "calendar", label: "暦年課税" }, { value: "settlement", label: "相続時精算課税" }], find, path: ["giftMethod"], optional: true, fallback: "calendar" }), address(f.id, "incomeFlow.giftMethod")));
   // 詳細2: 受け取る人・相手・伸び方・万一のときの扱い・表の行（受け取る相続・贈与は「基本の計算に入れる」も）
@@ -939,18 +1006,18 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   ];
   const party = !headParty && incomeHasParty(f);
   if (party) whoFields.push(withAddress(plain({ key: `${k}/counterparty`, item: "incomeFlow.counterparty", label: "相手（誰から）", level: "detail", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "", help: "世帯の外の家族から選びます（介護・親の項目で足します）" }), address(f.id, "incomeFlow.counterparty")));
-  whoFields.push(...growthFields(k, "incomeFlow.growth", find, f.id, f.growth));
+  whoFields.push(...growthFields(k, "incomeFlow.growth", find, f.id, f.growth, { onceAmount }));
   whoFields.push(...onContingencyFields({ key: `${k}/on`, item: "incomeFlow.onContingency", find, path: ["onContingency"], level: "detail", help: "万一（死亡など）が起きた月の翌月から、この扱いにします。受け取る人を選んだ行は、その人に起きたときだけです" }).map((x) => withAddress(x, address(f.id, "incomeFlow.onContingency"))));
   whoFields.push(...onContingencyDetailFields({ key: `${k}/on`, item: "incomeFlow.onContingency", find, path: ["onContingency"], on: f.onContingency, level: "detail" }).map((x) => withAddress(x, address(f.id, "incomeFlow.onContingency"))));
   whoFields.push(withAddress(plain({ key: `${k}/row`, item: "incomeFlow.row", label: "キャッシュフロー表の行", level: "detail", kind: "select", options: incomeRowChoices(f), find, path: ["row"], optional: true, fallback: incomeRowOf(h, { ...f, row: undefined } as IncomeFlow), ...rowHelp(f.row !== undefined && !incomeRowChoices({ kind: f.kind }).some((o) => o.value === f.row)) }), address(f.id, "incomeFlow.row")));
   if (f.kind === "inheritance" || f.kind === "giftReceived")
     whoFields.push(withAddress(plain({ key: `${k}/includeInBase`, item: "incomeFlow.includeInBase", label: "基本の計算に入れる", level: "detail", kind: "bool", find, path: ["includeInBase"], optional: true, fallback: false, help: "見込みが「当てにしない」でも、見込みはそのままで、この行を計算に入れます。プランを直しているときは、このプランでだけ入れます" }), address(f.id, "incomeFlow.includeInBase")));
   // 「▸ 続きを見る」の文（0078 の追記 2026-11-01）: 開くと出るまとまりの代表（副業は課税の扱いを標準で選ぶので必要経費）
-  main.moreLabel = incomeMoreLabel(taxFields.length > 0 ? (sideJob ? "cost" : "tax") : null);
+  main.moreLabel = incomeMoreLabel(taxFields.length > 0 ? (sideJob ? "cost" : "tax") : null, onceAmount);
   return [
     main,
     ...(taxFields.length > 0 ? [{ key: `${k}/tax`, title: sideJob ? "必要経費" : "課税の扱い", level: "detail" as const, fields: taxFields, actions: [] }] : []),
-    { key: `${k}/who`, title: party ? "受け取る人・相手・伸び方・万一のときの扱い・表の行" : "受け取る人・伸び方・万一のときの扱い・表の行", level: "detail", fields: whoFields, actions: [] },
+    { key: `${k}/who`, title: party ? `受け取る人・相手・${growthLabel(onceAmount)}・万一のときの扱い・表の行` : `受け取る人・${growthLabel(onceAmount)}・万一のときの扱い・表の行`, level: "detail", fields: whoFields, actions: [] },
     // 額の変化（0040。1回だけの行には出さない。前に入れた変化があれば出す）。行の額の近く（見込みの欄の前）に並べる
     ...(c === "once" && (f.stages ?? []).length + (f.exceptions ?? []).length === 0
       ? []
@@ -990,6 +1057,8 @@ export function addIncome(wh: WorkingHousehold, kind: IncomeFlowKind, id: string
       // 受け取る予定の相続・贈与の見込みは、事務所の既定値（「当てにしない」なら基本の計算に入れない。0073）
       ...(def.card === "inherit" && officeNow().inheritLikelihood === "uncertain" ? { likelihood: "uncertain" as const } : {}),
     };
+    // ライフイベントの1回の行は、入れた額のまま（0008 の追記 2026-11-02）
+    if (onceAsEntered(def.card)) applyOnceGrowth(h, f);
     (h.incomeFlows ??= []).push(f);
   });
 }
@@ -1046,10 +1115,11 @@ export function expenseDetailGroups(wh: WorkingHousehold, p: PeriodicExpense, ca
   ];
   const party = card !== "inherit" && card !== "family" && expenseHasParty(p);
   if (party) fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "periodicExpense.counterparty", label: "相手（誰へ）", level: "detail", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "" }), address(p.id, "periodicExpense.counterparty")));
-  fields.push(...growthFields(k, "periodicExpense.growth", find, p.id, p.growth));
+  const onceAmount = onceAsEntered(card) && cadenceOf(wh.request.input.household, p) === "once";
+  fields.push(...growthFields(k, "periodicExpense.growth", find, p.id, p.growth, { onceAmount }));
   fields.push(...onContingencyFields({ key: `${k}/on`, item: "periodicExpense.onContingency", find, path: ["onContingency"], level: "detail" }).map((x) => withAddress(x, address(p.id, "periodicExpense.onContingency"))));
   fields.push(...onContingencyDetailFields({ key: `${k}/on`, item: "periodicExpense.onContingency", find, path: ["onContingency"], on: p.onContingency, level: "detail" }).map((x) => withAddress(x, address(p.id, "periodicExpense.onContingency"))));
-  groups.push({ key: `${k}/who`, title: party ? "払う人・相手・伸び方・万一のときの扱い" : "払う人・伸び方・万一のときの扱い", level: "detail", fields, actions: [] });
+  groups.push({ key: `${k}/who`, title: party ? `払う人・相手・${growthLabel(onceAmount)}・万一のときの扱い` : `払う人・${growthLabel(onceAmount)}・万一のときの扱い`, level: "detail", fields, actions: [] });
   return groups;
 }
 
@@ -1077,6 +1147,8 @@ export function addExpense(wh: WorkingHousehold, kind: MoneyOutKind, id: string 
       ...(counterparty !== undefined ? { counterparty } : {}),
       ...(kind === "gift" ? { gift: { method: "calendar", purpose: "general" } } : {}),
     };
+    // ライフイベントの1回の行は、入れた額のまま（0008 の追記 2026-11-02）
+    if (onceAsEntered(def.card)) applyOnceGrowth(h, p);
     (h.periodicExpenses ??= []).push(p);
   });
 }
@@ -1092,11 +1164,14 @@ export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense, card: Mo
   // 時期の入れ方（1回・毎月・年ごと。0044）。1回は終わり＝初め・何年ごと1、毎月は monthly
   const c = cadenceOf(h0, p);
   const once = c === "once";
+  // ライフイベントの1回の行は「額の入れ方」（0008 の追記 2026-11-02）
+  const asEntered = onceAsEntered(card);
+  const onceAmount = asEntered && once;
   const fields: FieldDef[] = [
     plain({ key: `${k}/label`, item: "periodicExpense.label", label: "名前", level: nameLevel(card), kind: "text", find, path: ["label"], optional: true }),
     ...expenseHeadFields(wh, p, card),
-    cadenceField(`${k}/cadence`, "periodicExpense.monthly", find, p.id, p.kind === "repair" ? { noMonthly: { help: REPAIR_CADENCE_HELP, legacy: REPAIR_MONTHLY_LEGACY, monthlyNow: c === "monthly" } } : {}),
-    yenBox({ key: `${k}/amount`, item: "periodicExpense.amount", label: amountName(c, p.everyYears), level: "simple", basis: c === "monthly" ? "monthly" : "once", find, path: ["amount"], hint: (w) => reexpressedNote(getPath(find(w.request.input.household, w), ["amount"])), ...(c === "repeat" ? { help: everyAmountHelp(p.everyYears) } : {}) }),
+    cadenceField(`${k}/cadence`, "periodicExpense.monthly", find, p.id, { ...(p.kind === "repair" ? { noMonthly: { help: REPAIR_CADENCE_HELP, legacy: REPAIR_MONTHLY_LEGACY, monthlyNow: c === "monthly" } } : {}), ...(asEntered ? { onceAsEntered: true } : {}) }),
+    yenBox({ key: `${k}/amount`, item: "periodicExpense.amount", label: amountName(c, p.everyYears), level: "simple", basis: c === "monthly" ? "monthly" : "once", find, path: ["amount"], hint: (w) => reexpressedNote(getPath(find(w.request.input.household, w), ["amount"])), ...(c === "repeat" ? { help: everyAmountHelp(p.everyYears) } : onceAmount ? { help: onceAmountHelp(p.growth) } : {}) }),
     timepointField({ key: `${k}/from`, item: "periodicExpense.from", label: once ? "時期" : "初め", level: "simple", find, path: ["from"], ...ageOf, ...(once ? { after: (_h: Household, t: Record<string, unknown>) => void (t.to = structuredClone(t.from)) } : {}) }),
   ];
   if (c === "repeat") fields.push(everyField(`${k}/every`, "periodicExpense.everyYears", find, EVERY_HELP));
@@ -1107,14 +1182,14 @@ export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense, card: Mo
   fields.push(plain({ key: `${k}/row`, item: "periodicExpense.row", label: "キャッシュフロー表の行", level: "detail", kind: "select", options: expenseRowChoices(p), find, path: ["row"], ...(card === "living" ? { help: `「医療・介護」の行にすると、結果の表で医療費として分けて見られます${legacy ? `。${LEGACY_ROW_HELP}` : ""}` } : rowHelp(legacy)) }));
   const badge = stagedBadge(p as unknown as Record<string, unknown>, ["stages"], ["exceptions"], amountName(c, p.everyYears));
   const name = p.label !== undefined && p.label !== "" ? p.label : unnamedExpense(h0, p);
-  const details = [...(p.payer !== undefined ? ["払う人"] : []), ...(p.growth !== undefined ? ["伸び方"] : []), ...(badge !== null ? [badge] : [])];
+  const details = [...(p.payer !== undefined ? ["払う人"] : []), ...(growthNoted(p.growth, onceAmount) ? [growthLabel(onceAmount)] : []), ...(badge !== null ? [badge] : [])];
   return {
     key: k,
     title: rowTitle(h0, name, p),
     ...(details.length > 0 ? { note: `詳細あり: ${details.join("・")}（「詳細」で直せます）` } : {}),
     level: "simple",
     // 「▸ 続きを見る」の文（0078 の追記 2026-11-01）: あげる贈与は使い道と課税の方法、ほかは払う人と伸び方（expenseDetailGroups）
-    moreLabel: p.kind === "gift" || p.gift !== undefined ? "使い道・課税の方法を入れる" : "払う人・伸び方を入れる",
+    moreLabel: p.kind === "gift" || p.gift !== undefined ? "使い道・課税の方法を入れる" : `払う人・${growthLabel(onceAmount)}を入れる`,
     fields,
     actions: [
       ...(support ? supportActions(wh, "out", k, p, (h) => h.periodicExpenses) : []),

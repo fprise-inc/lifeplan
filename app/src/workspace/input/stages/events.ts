@@ -10,7 +10,7 @@ import { livingEstimate } from "../estimates.ts";
 import { byId, field, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type GroupDef, type SectionDef, type StageDef, type Val } from "../form.ts";
 import { mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
 import { CARE_PLACE, memberLabel, memberOptions } from "../labels.ts";
-import { addExpense, addIncome, cadenceOf, expenseCard, growthFields, incomeCard, moneySections, OUT_ROWS, OUT_ROWS_BY_KIND, periodicGroup, periodicGroups } from "../moneyRows.ts";
+import { addExpense, addIncome, applyOnceGrowth, cadenceOf, expenseCard, growthFields, growthLabel, incomeCard, moneySections, OUT_ROWS, OUT_ROWS_BY_KIND, periodicGroup, periodicGroups } from "../moneyRows.ts";
 import { isDream } from "../../../engine/moneyRows.ts";
 import { addDream, DREAM_TEMPLATES, dreamOfTemplate, dreamRows, moveDream, toDream, type DreamTemplate } from "../dreams.ts";
 import { deathEstimate, hasBirth } from "../fill.ts";
@@ -166,6 +166,8 @@ export function addEventTemplate(wh: WorkingHousehold, t: EventTemplate, id: str
     p.everyYears = t.everyYears ?? 1;
     if (o.from !== undefined) p.from = structuredClone(o.from);
     p.to = t.everyYears !== null ? null : structuredClone(p.from);
+    // 1回のひな形は入れた額のまま、くり返すひな形（予備費）は物価（0008 の追記 2026-11-02）
+    applyOnceGrowth(h, p);
     if (t.priority === "want") p.priority = "want";
     p.amount = (t.amount === null || basis === null ? standardBox(0, UNENTERED) : standardBox(t.amount, basis.amount)) as PeriodicExpense["amount"];
   });
@@ -201,6 +203,8 @@ export function addReserve(wh: WorkingHousehold, id: string = newId()): WorkingH
     p.row = EVENT_ROW;
     p.everyYears = 1;
     p.to = null;
+    // 毎年の行なので伸び方は物価（1回の既定の「その時の額」を外す）
+    applyOnceGrowth(h, p);
     p.amount = standardBox(monthly, RESERVE_BASIS.amount(monthly)) as PeriodicExpense["amount"];
   });
   return { ...next, assumed: { ...next.assumed, [`ev/${id}/every`]: RESERVE_BASIS.everyYears } };
@@ -612,7 +616,7 @@ function scheduleSection(wh: WorkingHousehold): SectionDef {
   const lines = items.map((x, i) => readLine(`events/schedule/${i}`, yearLabel(wh, x.year), `${x.dir === "—" ? "" : `${x.dir}るお金：`}${x.name}${x.amount !== "" ? `（${x.amount}）` : ""}`, x.card));
   const overlap = overlapYears(items);
   const note = [
-    "ほかの項目に入れた予定も含めて、年の順に並べます（額は今の値段。くり返しは最初の年）。直すときは、それぞれの項目で",
+    "ほかの項目に入れた予定も含めて、年の順に並べます（額は入れた額のまま。くり返しは最初の年）。直すときは、それぞれの項目で",
     ...(overlap.length > 0 ? [`1回の出るお金が重なる年: ${overlap.map((o) => `${o.year}年（${o.names.join("・")}）`).join("、")}`] : []),
   ].join("。");
   const g = readGroup("events/schedule", undefined, lines, note);
@@ -702,6 +706,8 @@ function dreamGroup(wh: WorkingHousehold, p: PeriodicExpense, rank: number, coun
   fields.push(
     { ...plain({ key: `${k}/dreamNote`, item: "periodicExpense.dreamNote", label: "ひとことメモ（なぜかなえたいか）", level: "simple", kind: "text", find, path: ["dream", "note"], optional: true }), address: address("periodicExpense.dreamNote") },
     { ...dreamIncludeField(plain({ key: `${k}/dreamInclude`, item: "periodicExpense.dream", label: "計算に入れるか", level: "simple", kind: "bool", find, path: ["dream", "include"], optional: true, fallback: true, help: DREAM_INCLUDE_HELP })), address: address("periodicExpense.dream", ["include"]) },
+    // 額の入れ方（1回の夢。既定は「その時の額」）・伸び方（年ごとの夢。既定は物価）。0008 の追記 2026-11-02
+    ...growthFields(k, "periodicExpense.growth", find, p.id, p.growth, { onceAmount: cadenceOf(h, p) === "once" }),
   );
   const off = p.dream?.include === false;
   const name = p.label !== undefined && p.label !== "" ? p.label : "夢";
@@ -715,6 +721,8 @@ function dreamGroup(wh: WorkingHousehold, p: PeriodicExpense, rank: number, coun
     title: `夢${String(rank)}｜${name} ${dreamAmountText(h, p)} ${rowWhen(h, p)}${off ? DREAM_EXCLUDED : ""}`,
     ...(p.monthly === true ? { note: MONTHLY_NOTE } : {}),
     level: "simple",
+    // 「▸ …」で開く欄は額の入れ方（年ごとの夢は伸び方）だけ
+    moreLabel: `${growthLabel(cadenceOf(h, p) === "once")}を選ぶ`,
     fields,
     actions,
   };

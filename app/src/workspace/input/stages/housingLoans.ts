@@ -1,5 +1,5 @@
-// 住まい・ローンのカードのローンの欄（0052）: 住宅ローン（入れ方の区分「借入額から・毎月の返済額から・今の残高から」と逆算、借りる人、
-// 金利・返済・団信、住宅ローン控除の条件）と、ほかのローン（カードローン・リボ・奨学金・リフォームローンなど。簡易は今の残高と毎月の返済額）。
+// 住まい・ローンのカードのローンの欄（0052）: 住宅ローン（入れ方の区分「借入額から・毎月の返済額から・今の残高から」と逆算、ローンの名義、
+// 金利・返済・団信、住宅ローン控除の条件・全期間固定の当初の金利の引き下げ）と、ほかのローン（カードローン・リボ・奨学金・リフォームローンなど。簡易は今の残高と毎月の返済額）。
 // - 入れ方の区分は画面の側（WorkingHousehold.loanEntry）。データは同じ物で、区分を変えても値は消えない
 // - 逆算した値・目安のボタンの値は推定（値の状態の行。根拠の文に値を入れて、値を変えて書き直した行が古い行として外れないようにする）
 // - 逆算は最初の金利の段だけで解く（loanMath.ts）。金利の段階・繰上返済・借り換えは計算エンジンが返済の計算で見る
@@ -8,7 +8,7 @@ import { addMonths } from "../../levers.ts";
 import type { Address } from "../../store/readings.ts";
 import { byId, field, getPath, plain, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef } from "../form.ts";
 import { mutate, newId, presetBasis, standardBox, wrapBasis, type LoanEntry, type WorkingHousehold } from "../household.ts";
-import { CREDIT_DATA_FROM_YEAR, creditKey, estimatedPrincipal, fromBalance, isHomeLoan, PRINCIPAL_ESTIMATE, principalKey, principalMismatch, purchaseMonth, withoutCreditMark } from "../housingCredit.ts";
+import { CREDIT_DATA_FROM_YEAR, creditKey, estimatedPrincipal, fromBalance, isHomeLoan, PRINCIPAL_ESTIMATE, principalKey, principalMismatch, purchaseMonth, startsLater, withoutCreditMark } from "../housingCredit.ts";
 import { DEBT_KINDS, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS } from "../labels.ts";
 import { fittedRateText, monthlyPayment, monthsBetween, monthsFromPayment, principalFromPayment, rateText } from "../loanMath.ts";
 import { putRow, rowAt, type StateRow } from "../rows.ts";
@@ -59,13 +59,23 @@ const tentativePrincipal = (v: number): StateRow => estRow("standard", `仮（�
 
 // ---- 入れ方の区分 ----
 
+// 毎月の返済額からは、通帳の引き落とし額しか分からない人と、返済額の予算から借りられる額を逆算する人のために残す（0052 の追記 2026-11-02）
 export const ENTRY_OPTIONS = [
-  { value: "principal", label: "借入額から" },
-  { value: "payment", label: "毎月の返済額から" },
-  { value: "balance", label: "今の残高から" },
+  { value: "principal", label: "借入額から（契約書・購入の予定）" },
+  { value: "payment", label: "毎月の返済額から（借入額を逆算）" },
+  { value: "balance", label: "今の残高から（返済中のローン）" },
 ] as const;
 
-export const entryOf = (wh: WorkingHousehold, id: string): LoanEntry => wh.loanEntry?.[id] ?? "principal";
+/**
+ * 入れ方の区分（見せ方と逆算の決まり）。これから借りるローン（借入の年月が計算の基準の月より後）は今の残高が無いので、「今の残高から」の
+ * ままでも「借入額から」として読む（入っている区分と値は消さない。借入の年月を今より前に直すと、また「今の残高から」になる。0052 の追記 2026-11-02）
+ */
+export const entryOf = (wh: WorkingHousehold, id: string): LoanEntry => {
+  const e = wh.loanEntry?.[id] ?? "principal";
+  return e === "balance" && startsLater(wh, id) ? "principal" : e;
+};
+/** 入っている入れ方の区分（これから借りるローンの読み替えの前） */
+const storedEntryOf = (wh: WorkingHousehold, id: string): LoanEntry => wh.loanEntry?.[id] ?? "principal";
 export const withEntry = (wh: WorkingHousehold, id: string, e: LoanEntry | undefined): WorkingHousehold => {
   const next = { ...(wh.loanEntry ?? {}) };
   if (e === undefined || e === "principal") delete next[id];
@@ -89,10 +99,32 @@ interface LoanNow {
 
 export function loanNow(h: Household, d: Debt): LoanNow {
   const start = resolveTimepoint(h, d.start);
-  const rate = Number(d.rateSchedule[0]?.rate ?? "0");
   const given = d.balance?.value ?? (d.balance?.state === "unknown" ? ((d.balance as { substitute?: { value?: number } }).substitute?.value ?? null) : null);
-  if (given != null && d.balanceAsOf !== undefined && start !== null) return { balance: given, months: d.repayment.termMonths - monthsBetween(start, d.balanceAsOf), rate, from: d.balanceAsOf };
-  return { balance: d.principal, months: d.repayment.termMonths, rate, from: start };
+  if (given != null && d.balanceAsOf !== undefined && start !== null) return { balance: given, months: d.repayment.termMonths - monthsBetween(start, d.balanceAsOf), rate: Number(nowRate(h, d, d.balanceAsOf)), from: d.balanceAsOf };
+  return { balance: d.principal, months: d.repayment.termMonths, rate: Number(d.rateSchedule[0]?.rate ?? "0"), from: start };
+}
+
+/** 全期間固定の当初の引き下げの期間を、その月までに過ぎているか（過ぎていれば今の金利は元の金利の段） */
+function cutEnded(h: Household, d: Debt, ym: string | null): boolean {
+  const c = rateCutOf(h, d);
+  const start = resolveTimepoint(h, d.start);
+  return c != null && c.months > 0 && start !== null && ym !== null && ym >= addMonths(start, c.months);
+}
+/** その月の金利（最初の段。全期間固定の当初の引き下げの期間を過ぎていれば元の金利） */
+const nowRate = (h: Household, d: Debt, ym: string | null): string => (cutEnded(h, d, ym) ? (d.rateSchedule[1]?.rate ?? "0") : (d.rateSchedule[0]?.rate ?? "0"));
+/**
+ * 逆算した今の金利を書く（最初の段。全期間固定の当初の引き下げの期間を過ぎていれば元の金利の段に書き、最初の段は引き下げ幅の分だけ下げてそろえる）。
+ * 値の状態の行は今までどおり最初の段に置く
+ */
+function putNowRate(h: Household, d: Debt, ym: string | null, r: string): void {
+  const [s0, s1] = d.rateSchedule;
+  if (s0 === undefined) return;
+  const c = rateCutOf(h, d);
+  if (s1 !== undefined && c != null && cutEnded(h, d, ym)) {
+    s1.rate = r;
+    // 逆算した金利は小数7桁（loanMath.ts の fittedRateText と同じ桁）
+    s0.rate = rateText(Math.max(0, Number(r) - Number(c.cut)), 7);
+  } else s0.rate = r;
 }
 
 const bonusOf = (d: Debt): number => Number(d.repayment.bonusShare ?? "0");
@@ -169,10 +201,9 @@ export function followLoan(before: WorkingHousehold, after: WorkingHousehold, id
     return editDebt(w, id, (d, req) => {
       const n = loanNow(req.input.household, d);
       const r = fittedRateText(n.balance, pay0, n.months, d.repayment.method, bonusOf(d));
-      const step = d.rateSchedule[0];
-      if (r === null || step === undefined) return;
-      step.rate = r;
-      putRow(inputOf(req), at(id, "debt.rateSchedule", [rateId(d), "rate"]), estRow("derived", `${SOLVED}（残高・毎月の返済額 ${formatYen(pay0, "yen")}円・完済の年から。年${pct(step.rate)}）`));
+      if (r === null || d.rateSchedule[0] === undefined) return;
+      putNowRate(req.input.household, d, n.from, r);
+      putRow(inputOf(req), at(id, "debt.rateSchedule", [rateId(d), "rate"]), estRow("derived", `${SOLVED}（残高・毎月の返済額 ${formatYen(pay0, "yen")}円・完済の年から。年${pct(r)}）`));
     });
   }
   if (!mortgage && (changed === "balance" || changed === "rate" || changed === "method") && isEstimate(rowOf(w, addrTerm(id)), SOLVED)) {
@@ -264,10 +295,9 @@ function paymentField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" 
         if (mortgage) {
           const n = loanNow(req.input.household, x);
           const r = fittedRateText(n.balance, pay, n.months, x.repayment.method, bonus);
-          const step = x.rateSchedule[0];
-          if (r === null || step === undefined) return;
-          step.rate = r;
-          putRow(inputOf(req), at(x.id, "debt.rateSchedule", [rateId(x), "rate"]), estRow("derived", `${SOLVED}（残高・毎月の返済額 ${formatYen(pay, "yen")}円・完済の年から。年${pct(step.rate)}）`));
+          if (r === null || x.rateSchedule[0] === undefined) return;
+          putNowRate(req.input.household, x, n.from, r);
+          putRow(inputOf(req), at(x.id, "debt.rateSchedule", [rateId(x), "rate"]), estRow("derived", `${SOLVED}（残高・毎月の返済額 ${formatYen(pay, "yen")}円・完済の年から。年${pct(r)}）`));
         } else solveMonths(x, req, pay);
       });
     },
@@ -308,7 +338,7 @@ function payoffField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" |
   );
 }
 
-// ---- 借りる人 ----
+// ---- ローンの名義（debt.debtors。住まいの「名義と持分」〔家の名義〕とは別） ----
 
 type DebtorPick = "self" | "spouse" | "joint" | "guarantor";
 const debtorPick = (wh: WorkingHousehold, d: Debt): string => {
@@ -341,13 +371,16 @@ function debtorFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
       field({
         key: `${k}/debtors`,
         item: "debt.debtors",
-        label: "借りる人",
-        // 既定は本人。ペアローンは「＋ ペアローン」のボタンで足すので、借りる人は詳細（0078）
+        label: "ローンの名義",
+        // 既定は本人。ペアローンは「＋ ペアローン」のボタンで足すので、ローンの名義は詳細（0078）
         level: "detail",
         kind: "select",
         structural: true,
         options,
-        help: d.kind === "mortgage" ? "夫婦それぞれが1本ずつ借りるペアローンは「＋ ペアローン」で2本目を足します" : undefined,
+        help:
+          d.kind === "mortgage"
+            ? "ローンを契約している人です（家の名義〔名義と持分〕とは別です）。夫婦で連帯債務は1本のローンを2人で返し、収入合算は配偶者が連帯保証人になります。夫婦それぞれが1本ずつ借りるペアローンは「＋ ペアローン」で2本目を足します"
+            : "ローンを契約している人です",
         get: (w) => ({ value: debtorPick(w, (w.request.input.household.debts ?? []).find((x) => x.id === d.id) ?? d) }),
         set: (w, v) =>
           editDebt(w, d.id, (x) => {
@@ -778,11 +811,162 @@ export function setCreditNotApplicable(wh: WorkingHousehold, id: string, on: boo
 
 // ---- ローンの欄 ----
 
-/** 金利の欄（最初の段） */
+/**
+ * 金利の欄（最初の段）。全期間固定で当初の金利の引き下げがあるときは、引き下げ前の金利（2つ目の段）を見せて直し、最初の段は
+ * 「金利−引き下げ幅」に合わせる（0052 の追記 2026-11-02）
+ */
 function rateField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | "detail"): FieldDef {
   const firstRate: Finder = (h, w) => (getPath(byId(debts, d.id)(h, w), ["rateSchedule", "0"]) as Record<string, unknown> | undefined) ?? undefined;
-  const inner = plain({ key: `${k}/rate`, item: "debt.rateSchedule", label: "金利（当初・年）", level, kind: "pct", find: firstRate, path: ["rate"] });
-  return field({ ...inner, ...followNote(wh, d), set: (w, v) => followLoan(w, inner.write?.(w, v) ?? inner.set(w, v), d.id, "rate") });
+  const cut = rateCutOf(wh.request.input.household, d);
+  const withCut = cut != null && cut.months > 0;
+  const inner = plain({ key: `${k}/rate`, item: "debt.rateSchedule", label: withCut ? "金利（引き下げ前・年）" : "金利（当初・年）", level, kind: "pct", find: firstRate, path: ["rate"] });
+  if (!withCut) return field({ ...inner, ...followNote(wh, d), set: (w, v) => followLoan(w, inner.write?.(w, v) ?? inner.set(w, v), d.id, "rate") });
+  const cutOf = (w: WorkingHousehold) => {
+    const x = (w.request.input.household.debts ?? []).find((y) => y.id === d.id);
+    return x === undefined ? null : rateCutOf(w.request.input.household, x);
+  };
+  return field({
+    ...inner,
+    ...followNote(wh, d),
+    help: "当初の金利の引き下げの前の金利です。引き下げの期間の間は、この金利から引き下げ幅を引いて計算します",
+    get: (w) => {
+      const st = inner.get(w);
+      const c = cutOf(w);
+      return c != null && c.months > 0 ? { ...st, value: c.base } : st;
+    },
+    set: (w, v) => {
+      const c = cutOf(w);
+      if (c == null || c.months === 0 || typeof v !== "string") return followLoan(w, inner.write?.(w, v) ?? inner.set(w, v), d.id, "rate");
+      const next = editDebt(w, d.id, (x) => {
+        const [s0, s1] = x.rateSchedule;
+        if (s0 === undefined || s1 === undefined) return;
+        s1.rate = v;
+        s0.rate = rateText(Math.max(0, Number(v) - Number(c.cut)));
+      });
+      return followLoan(w, next, d.id, "rate");
+    },
+  });
+}
+
+// ---- 全期間固定の当初の金利の引き下げ（0052 の追記 2026-11-02） ----
+
+/** 当初の金利の引き下げの期間（月。なし・5年・10年） */
+const CUT_MONTHS = [0, 60, 120] as const;
+const CUT_PERIODS = [
+  { value: "0", label: "なし" },
+  { value: "60", label: "5年" },
+  { value: "120", label: "10年" },
+];
+
+/**
+ * 全期間固定の住まいの住宅ローンの、当初の金利の引き下げ（金利の段から読む）。段は、借入の月から期間の間は「金利−引き下げ幅」、
+ * その後は元の金利（base）の2つ。全期間固定でない・住まいの住宅ローンでないなら undefined、この形に読めない段があれば null
+ * （段は消さずに残し、「金利の段階で入れている」として詳細の段で直す）
+ */
+export function rateCutOf(h: Household, d: Debt): { months: number; cut: string; base: string } | null | undefined {
+  const [s0, s1, ...rest] = d.rateSchedule;
+  if (!isHomeLoan(d) || s0 === undefined || s0.type !== "fixed") return undefined;
+  if (s1 === undefined) return { months: 0, cut: "0", base: s0.rate };
+  const start = resolveTimepoint(h, d.start);
+  const from = resolveTimepoint(h, s1.from);
+  if (rest.length > 0 || s1.type !== "fixed" || start === null || from === null) return null;
+  const months = monthsBetween(start, from);
+  const cut = Number(s1.rate) - Number(s0.rate);
+  if (months === 0 || !(CUT_MONTHS as readonly number[]).includes(months) || cut < -1e-12) return null;
+  return { months, cut: rateText(Math.max(0, cut)), base: s1.rate };
+}
+
+/**
+ * 金利の段階の欄の出し方: hide は出さない（全期間固定で、当初の引き下げの形に読める）、simple は標準でも出す（変動金利で「金利の段階で入れる」）、
+ * detail は詳細だけ（今まで）
+ */
+export function rateStepsView(wh: WorkingHousehold, d: Debt): "hide" | "simple" | "detail" {
+  const h = wh.request.input.household;
+  if (rateCutOf(h, d) != null) return "hide";
+  if (isHomeLoan(d) && isVariableNow(h, d, wh.request.input.baseMonth) && rateOutlookOf(h, d, wh.request.input.baseMonth) === OUTLOOK_CUSTOM.value) return "simple";
+  return "detail";
+}
+
+/** 当初の金利の引き下げを置き直す（期間か幅。省いた方は今のまま）。中では2つの段に直す */
+function setRateCut(w: WorkingHousehold, id: string, months: number | undefined, cut: string | undefined): WorkingHousehold {
+  const h0 = w.request.input.household;
+  const x0 = (h0.debts ?? []).find((y) => y.id === id);
+  const c0 = x0 === undefined ? null : rateCutOf(h0, x0);
+  if (c0 == null) return w;
+  const m = months ?? c0.months;
+  const c = cut ?? c0.cut;
+  if (!(CUT_MONTHS as readonly number[]).includes(m) || (m === c0.months && Math.abs(Number(c) - Number(c0.cut)) < 1e-12)) return w;
+  return editDebt(w, id, (x, req) => {
+    const s0 = x.rateSchedule[0];
+    const start = resolveTimepoint(req.input.household, x.start);
+    if (s0 === undefined || start === null) return;
+    if (m === 0) {
+      s0.rate = c0.base;
+      x.rateSchedule = [s0];
+      return;
+    }
+    s0.rate = rateText(Math.max(0, Number(c0.base) - Number(c)));
+    x.rateSchedule = [s0, { id: x.rateSchedule[1]?.id ?? newId(), from: { at: addMonths(start, m) }, type: "fixed", rate: c0.base }];
+  });
+}
+
+/**
+ * 全期間固定の住宅ローンの、当初の金利の引き下げの欄（詳細。期間と幅）。段の形に読めないときは、「金利の段階で入れている」と見せるだけの1行
+ * （段は詳細の「金利の段階」で直す）。値の状態の行を消さないように、欄は field() で包まない（引き下げで最初の段の金利が変わっても、
+ * 金利の推定の行は残す。金利の欄には引き下げ前の金利を見せる）
+ */
+function rateCutFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
+  const c = rateCutOf(wh.request.input.household, d);
+  if (c === undefined) return [];
+  const addr = () => at(d.id, "debt.rateSchedule");
+  if (c === null)
+    return [
+      withAddress(
+        field({ key: `${k}/rateSteps`, item: "debt.rateSchedule", label: "金利の段階", level: "simple", kind: "text", readOnly: "金利の段階で入れています。「詳細」の「金利の段階」で直せます", get: () => ({ value: "金利の段階で入れている（「詳細」で直す）" }), set: (w) => w }),
+        addr,
+      ),
+    ];
+  const cutOf = (w: WorkingHousehold) => {
+    const x = (w.request.input.household.debts ?? []).find((y) => y.id === d.id);
+    return x === undefined ? null : rateCutOf(w.request.input.household, x);
+  };
+  const note = "金利の段に直して計算します（借入の月から期間の間は「金利−引き下げ幅」、その後は入れた金利）";
+  const fields: FieldDef[] = [
+    {
+      key: `${k}/rateCutPeriod`,
+      item: "debt.rateSchedule",
+      label: "当初の金利の引き下げ（期間）",
+      level: "detail",
+      kind: "select",
+      options: CUT_PERIODS,
+      structural: true,
+      sideEffects: note,
+      help: "フラット35S などで、借りてから決まった期間だけ金利が下がるときに選びます",
+      address: addr,
+      get: (w) => {
+        const x = cutOf(w);
+        return { value: x == null ? null : String(x.months) };
+      },
+      set: (w, v) => setRateCut(w, d.id, Number(v), undefined),
+    },
+  ];
+  if (c.months > 0)
+    fields.push({
+      key: `${k}/rateCut`,
+      item: "debt.rateSchedule",
+      label: "当初の金利の引き下げ（幅）",
+      level: "detail",
+      kind: "pct",
+      sideEffects: note,
+      help: "例: 0.5%。引き下げの期間の間は、金利からこの幅を引いて計算します",
+      address: addr,
+      get: (w) => {
+        const x = cutOf(w);
+        return { value: x == null ? null : x.cut };
+      },
+      set: (w, v) => (typeof v === "string" ? setRateCut(w, d.id, undefined, v) : w),
+    });
+  return fields;
 }
 
 /**
@@ -818,9 +1002,11 @@ function rateTypeField(wh: WorkingHousehold, d: Debt, k: string, level: "simple"
   const firstRate: Finder = (h, w) => (getPath(byId(debts, d.id)(h, w), ["rateSchedule", "0"]) as Record<string, unknown> | undefined) ?? undefined;
   const inner = plain({ key: `${k}/rateType`, item: "debt.rateSchedule", label: "金利の種類", level, kind: "select", options: RATE_TYPES, find: firstRate, path: ["type"] });
   if (d.kind !== "mortgage") return inner;
+  const cut = rateCutOf(wh.request.input.household, d);
   const notes = [
     ...(isRateEstimate(rowOf(wh, addrRate(d))) ? [currentHomeLoan(wh, d) ? "金利が推定のままなら、今返している住宅ローンの推定の金利（選んだ種類の分）に入れ直します" : "金利が推定のままなら、選んだ種類の推定の金利に入れ直します"] : []),
     ...(hasOutlookSteps(wh.request.input.household, d, wh.request.input.baseMonth) ? ["変動金利以外にすると、変動金利の見込みの段（5年後・10年後）を外します"] : []),
+    ...(cut != null && cut.months > 0 ? ["全期間固定以外にすると、当初の金利の引き下げを外します（金利は引き下げ前の金利にします）"] : []),
   ];
   return field({
     ...inner,
@@ -830,10 +1016,20 @@ function rateTypeField(wh: WorkingHousehold, d: Debt, k: string, level: "simple"
       const h0 = w.request.input.household;
       const d0 = (h0.debts ?? []).find((x) => x.id === d.id);
       const dropOutlook = v !== "variable" && d0 !== undefined && hasOutlookSteps(h0, d0, w.request.input.baseMonth);
+      // 全期間固定の当初の引き下げ（隠れる段）は、ほかの種類に残さない。金利は引き下げ前の金利にする
+      const cut0 = d0 === undefined ? null : rateCutOf(h0, d0);
+      const dropCut = v !== "fixed" && cut0 != null && cut0.months > 0;
       const typed = inner.write?.(w, v) ?? inner.set(w, v);
       if (typed === w) return typed;
       // 見込みの段（変動金利の5年後・10年後）は全期間固定・固定期間選択型に残さない（見込みの欄は隠れるのに、隠れた段で金利が変わってしまう）
-      const next = dropOutlook ? editDebt(typed, d.id, (x) => void (x.rateSchedule = x.rateSchedule.slice(0, 1))) : typed;
+      const next =
+        dropOutlook || dropCut
+          ? editDebt(typed, d.id, (x) => {
+              x.rateSchedule = x.rateSchedule.slice(0, 1);
+              const s0 = x.rateSchedule[0];
+              if (dropCut && s0 !== undefined && cut0 != null) s0.rate = cut0.base;
+            })
+          : typed;
       if (!isRateEstimate(rowOf(w, addrRate(d)))) return next;
       const e = rateEstimateOf(typeof v === "string" ? v : undefined, d0 !== undefined && currentHomeLoan(w, d0));
       const w2 = editDebt(next, d.id, (x, req) => {
@@ -887,7 +1083,18 @@ function startField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | 
   const self = wh.request.input.household.members.find((m) => m.kind === "self");
   const ageOf = self !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === self.id) } : {};
   const inner = timepointField({ key: `${k}/start`, item: "debt.start", label: "借入の年月", level, find, path: ["start"], mode: "ym", ...ageOf });
-  return withAddress(field({ ...inner, ...followNote(wh, d), set: (w, v) => followLoan(w, inner.set(w, v), d.id, "start") }), () => addrStart(d.id));
+  // 全期間固定の当初の引き下げは借入の月から数えるので、借入の年月を直したら、引き下げの終わり（2つ目の段）も同じだけ動かす
+  const keepCut = (w0: WorkingHousehold, w1: WorkingHousehold): WorkingHousehold => {
+    const x0 = (w0.request.input.household.debts ?? []).find((y) => y.id === d.id);
+    const c0 = x0 === undefined ? null : rateCutOf(w0.request.input.household, x0);
+    if (w1 === w0 || c0 == null || c0.months === 0) return w1;
+    return editDebt(w1, d.id, (x, req) => {
+      const s = resolveTimepoint(req.input.household, x.start);
+      const s1 = x.rateSchedule[1];
+      if (s !== null && s1 !== undefined) s1.from = { at: addMonths(s, c0.months) };
+    });
+  };
+  return withAddress(field({ ...inner, ...followNote(wh, d), set: (w, v) => followLoan(w, keepCut(w, inner.set(w, v)), d.id, "start") }), () => addrStart(d.id));
 }
 
 function balanceField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | "detail"): FieldDef {
@@ -923,18 +1130,53 @@ const methodField = (wh: WorkingHousehold, d: Debt, k: string): FieldDef => {
   return field({ ...inner, ...followNote(wh, d), set: (w, v) => followLoan(w, inner.write?.(w, v) ?? inner.set(w, v), d.id, "method") });
 };
 
-function entryField(d: Debt, k: string, level: "simple" | "detail"): FieldDef {
+function entryField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | "detail"): FieldDef {
+  // これから借りるローンには「今の残高から」を出さない（今の残高が無い。0052 の追記 2026-11-02）
+  const later = startsLater(wh, d.id);
   return field({
     key: `${k}/entry`,
     item: null,
     label: "入れ方",
     level,
     kind: "select",
-    options: d.kind === "mortgage" ? [...ENTRY_OPTIONS] : ENTRY_OPTIONS.filter((o) => o.value !== "payment"),
-    help: "手元の書類に合わせて選びます。入れ方を変えても、入っている値は消えません",
-    get: (w) => ({ value: entryOf(w, d.id) }),
+    options: ENTRY_OPTIONS.filter((o) => (d.kind === "mortgage" || o.value !== "payment") && !(later && o.value === "balance")),
+    help: later ? "手元の書類に合わせて選びます。入れ方を変えても、入っている値は消えません。借入の年月が今より後のローンは、借入額か毎月の返済額から入れます" : "手元の書類に合わせて選びます。入れ方を変えても、入っている値は消えません",
+    get: (w) => {
+      const lw = laterLoanWarn(w, d.id);
+      return { value: entryOf(w, d.id), warn: lw?.text ?? null, warnFix: lw?.fix ?? null };
+    },
     set: (w, v) => switchEntry(w, d.id, v as LoanEntry),
   });
+}
+
+/**
+ * これから借りるローンの知らせ（前に「今の残高から」で入れていた・今の残高が残っている世帯）。値は消さない。
+ * 今の残高が入っていると、計算は残高の時点から返済を始めるので、外すボタンを添える（押したときだけ外す）
+ */
+function laterLoanWarn(wh: WorkingHousehold, id: string): { text: string; fix: { label: string; run: (w: WorkingHousehold) => WorkingHousehold } | null } | null {
+  if (!startsLater(wh, id)) return null;
+  const d = (wh.request.input.household.debts ?? []).find((x) => x.id === id);
+  if (d === undefined) return null;
+  const hasBalance = d.balance !== undefined;
+  const wasBalance = storedEntryOf(wh, id) === "balance";
+  if (!hasBalance && !wasBalance) return null;
+  const parts = [
+    ...(wasBalance ? ["借入の年月が今より後なので、「今の残高から」で入れていたローンを「借入額から」として読んでいます（借入の年月を今より前に直すと戻ります）"] : []),
+    ...(hasBalance ? [`今の残高（${d.balance?.value == null ? "値なし" : `${formatYen(d.balance.value, "yen")}円`}${d.balanceAsOf !== undefined ? `・${formatYearMonth(d.balanceAsOf)}の時点` : ""}）が残っていて、計算は残高の時点から返済を始めます。これから借りるローンなら外してください`] : []),
+  ];
+  return {
+    text: parts.join("。"),
+    fix: hasBalance
+      ? {
+          label: "今の残高を外す",
+          run: (w) =>
+            editDebt(w, id, (x) => {
+              delete x.balance;
+              delete x.balanceAsOf;
+            }),
+        }
+      : null,
+  };
 }
 
 /**
@@ -974,7 +1216,8 @@ function rateOutlooks(): readonly { value: string; label: string; adds: readonly
   };
   return [{ value: "flat", label: "今の金利のまま", adds: [] }, up("up1"), up("up2")];
 }
-const OUTLOOK_CUSTOM = { value: "custom", label: "金利の段階で入れている（「詳細」で直す）" };
+/** 金利の段階で入れる（選ぶと、標準のままでも金利の段階の欄と「＋ 金利の段階」を出す。型どおりでない段がすでにあれば、この選択になる） */
+const OUTLOOK_CUSTOM = { value: "custom", label: "金利の段階で入れる" };
 /** 見込みの段の間隔（月） */
 const OUTLOOK_STEP_MONTHS = 60;
 
@@ -1009,7 +1252,10 @@ export function rateOutlookOf(h: Household, d: Debt, baseMonth: string): string 
   return hit?.value ?? OUTLOOK_CUSTOM.value;
 }
 
-/** 変動金利の見込みの欄: 今の金利の段より後の段を、選んだ型の段（今から5年ごと）に置き換える。「金利の段階で入れている」は詳細の段のまま */
+/**
+ * 変動金利の見込みの欄: 今の金利の段より後の段を、選んだ型の段（今から5年ごと）に置き換える。「金利の段階で入れる」は、今の段を残したまま、
+ * 最後の段の5年後に同じ金利の段を1つ足す（計算は変わらない。型どおりの段と見分けられ、その場で段の欄が開く）
+ */
 function rateOutlookField(d: Debt, k: string): FieldDef {
   return withAddress(
     field({
@@ -1020,12 +1266,22 @@ function rateOutlookField(d: Debt, k: string): FieldDef {
       kind: "select",
       structural: true,
       options: [...rateOutlooks().map((o) => ({ value: o.value, label: o.label })), OUTLOOK_CUSTOM],
-      help: "変動金利は、今の金利のままだと楽観の見込みになります。上がる見込みを選ぶと、今（これから借りるなら借入の月）から5年ごとに金利の段を置きます。細かい段は「詳細」の「金利の段階」で直せます",
+      help: "変動金利は、今の金利のままだと楽観の見込みになります。上がる見込みを選ぶと、今（これから借りるなら借入の月）から5年ごとに金利の段を置きます。「金利の段階で入れる」を選ぶと、金利が変わる年月と金利を段ごとに入れられます",
       get: (w) => {
         const x = (w.request.input.household.debts ?? []).find((y) => y.id === d.id);
         return { value: x === undefined ? null : rateOutlookOf(w.request.input.household, x, w.request.input.baseMonth) };
       },
       set: (w, v) => {
+        if (v === OUTLOOK_CUSTOM.value)
+          return mutate(w, (h, req) => {
+            const x = (h.debts ?? []).find((y) => y.id === d.id);
+            if (x === undefined) return;
+            const { ref, index } = outlookBase(h, x, req.input.baseMonth);
+            const last = x.rateSchedule.at(-1);
+            if (last === undefined) return;
+            const lastAt = x.rateSchedule.length - 1 > index ? resolveTimepoint(h, last.from) : null;
+            x.rateSchedule.push({ id: newId(), from: { at: addMonths(lastAt ?? ref, OUTLOOK_STEP_MONTHS) }, type: "variable", rate: last.rate });
+          });
         const o = rateOutlooks().find((x) => x.value === v);
         if (o === undefined) return w;
         return mutate(w, (h, req) => {
@@ -1074,14 +1330,19 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
   const rate = (level: "simple" | "detail"): FieldDef[] => [rateTypeField(wh, d, k, mortgage ? level : D), { ...rateField(wh, d, k, level), ...doc }];
   const term = (level: "simple" | "detail"): FieldDef => ({ ...termField(wh, d, k, level), ...doc });
   const balance = (level: "simple" | "detail"): FieldDef => ({ ...balanceField(wh, d, k, level), ...doc });
-  if (d.property === undefined) fields.push(entryField(d, k, mortgage ? S : D));
-  if (mode === "principal") fields.push(principal(S), startField(wh, d, k, S), ...rate(S), term(S), paymentField(wh, d, k, S), balance(D));
-  else if (mode === "payment") fields.push(paymentField(wh, d, k, S), ...rate(S), startField(wh, d, k, S), term(S), principal(D), balance(D));
+  // これから借りるローン（借入の年月が今より後）には、今の残高・残高の時点の欄を出さない（0052 の追記 2026-11-02）
+  const later = startsLater(wh, d.id);
+  const balanceD = later ? [] : [balance(D)];
+  if (d.property === undefined) fields.push(entryField(wh, d, k, mortgage ? S : D));
+  if (mode === "principal") fields.push(principal(S), startField(wh, d, k, S), ...rate(S), term(S), paymentField(wh, d, k, S), ...balanceD);
+  else if (mode === "payment") fields.push(paymentField(wh, d, k, S), ...rate(S), startField(wh, d, k, S), term(S), principal(D), ...balanceD);
   else fields.push(balance(S), paymentField(wh, d, k, S), payoffField(wh, d, k, mortgage ? S : D), ...rate(D), startField(wh, d, k, D), principal(D));
   // 変動金利の住宅ローンは、金利の見込みを標準に1欄（今の金利のままは楽観。0078）
   if (mortgage && isVariableNow(wh.request.input.household, d, wh.request.input.baseMonth)) fields.push(rateOutlookField(d, k));
+  // 全期間固定の住宅ローンは、金利の段階の代わりに当初の金利の引き下げ（詳細。0052 の追記 2026-11-02）
+  fields.push(...rateCutFields(wh, d, k));
+  if (!later) fields.push(plain({ key: `${k}/balanceAsOf`, item: "debt.balanceAsOf", label: "残高の時点", level: D, kind: "ym", find, path: ["balanceAsOf"], optional: true, help: "年末残高証明書なら前の年の12月" }));
   fields.push(
-    plain({ key: `${k}/balanceAsOf`, item: "debt.balanceAsOf", label: "残高の時点", level: D, kind: "ym", find, path: ["balanceAsOf"], optional: true, help: "年末残高証明書なら前の年の12月" }),
     methodField(wh, d, k),
     plain({ key: `${k}/bonus`, item: "debt.repayment", label: "ボーナス返済の割合", level: D, kind: "pct", min: 0, max: 100, find, path: ["repayment", "bonusShare"], optional: true, fallback: "0" }),
   );
@@ -1215,7 +1476,7 @@ export function newOtherLoan(wh: WorkingHousehold, subtype: SubtypeDef["value"])
   return withEntry(next, id, "balance");
 }
 
-/** 返済期間の標準の値: 35年。完済が80歳を超えるなら80歳まで（借りる人の生年月から。ヒアリングシートと同じ hearing/src/loan.ts。年数と年齢は presets.ts の目安） */
+/** 返済期間の標準の値: 35年。完済が80歳を超えるなら80歳まで（ローンの名義の人の生年月から。ヒアリングシートと同じ hearing/src/loan.ts。年数と年齢は presets.ts の目安） */
 export function standardTermMonths(h: Household, memberId: string, start: string): number {
   const m = h.members.find((x) => x.id === memberId);
   if (m === undefined) return presetNum("preset.loan.mortgage.termYears") * 12;
@@ -1243,7 +1504,7 @@ export function newMortgage(wh: WorkingHousehold, pairOf?: string): WorkingHouse
     const bought = (hh.residences ?? []).filter((r) => r.kind === "own" && r.purchase !== undefined).at(-1);
     const partnerStart = partner === undefined ? null : resolveTimepoint(hh, partner.start);
     const start = partnerStart ?? (bought !== undefined ? purchaseMonth(hh, bought) : null) ?? (own?.purchase !== undefined ? resolveTimepoint(hh, own.purchase.at) : null) ?? base;
-    linked = partner !== undefined ? wh.loanEntry?.[partner.id] !== "balance" : bought !== undefined;
+    linked = partner !== undefined ? entryOf(wh, partner.id) !== "balance" : bought !== undefined;
     const term = standardTermMonths(hh, debtor, start);
     // 借りたのが計算の基準の月まで（今返している住宅ローン）なら、新しく借りるときの金利でなく、利用者の借入金利の中央値（currentHomeLoan と同じ見分け方）
     const rateEstimate = rateEstimateOf("variable", start <= base);
@@ -1301,19 +1562,25 @@ export function newMortgage(wh: WorkingHousehold, pairOf?: string): WorkingHouse
 export function loanMoreActions(wh: WorkingHousehold, d: Debt, k: string): ActionDef[] {
   const h = wh.request.input.household;
   const spouse = h.members.find((m) => m.kind === "spouse" && m.outside === undefined);
+  // 全期間固定（当初の引き下げの形）には段を足すボタンを出さない。変動金利で「金利の段階で入れる」なら標準でも出す（0052 の追記 2026-11-02）
+  const steps = rateStepsView(wh, d);
   const out: ActionDef[] = [
-    {
-      key: `${k}/addRate`,
-      label: "＋ 金利の段階",
-      level: "detail",
-      run: (w) =>
-        mutate(w, (hh) => {
-          const x = (hh.debts ?? []).find((y) => y.id === d.id) as Debt;
-          const last = x.rateSchedule.at(-1);
-          const from = addMonths(w.request.input.baseMonth, 60);
-          x.rateSchedule.push({ id: newId(), from: { at: from }, type: last?.type ?? "variable", rate: last?.rate ?? presetRate("preset.loan.addRate.fallback") });
-        }),
-    },
+    ...(steps === "hide"
+      ? []
+      : [
+          {
+            key: `${k}/addRate`,
+            label: "＋ 金利の段階",
+            level: steps === "simple" ? ("simple" as const) : ("detail" as const),
+            run: (w: WorkingHousehold) =>
+              mutate(w, (hh) => {
+                const x = (hh.debts ?? []).find((y) => y.id === d.id) as Debt;
+                const last = x.rateSchedule.at(-1);
+                const from = addMonths(w.request.input.baseMonth, 60);
+                x.rateSchedule.push({ id: newId(), from: { at: from }, type: last?.type ?? "variable", rate: last?.rate ?? presetRate("preset.loan.addRate.fallback") });
+              }),
+          },
+        ]),
     {
       key: `${k}/addPrepay`,
       label: "＋ 繰上返済",
