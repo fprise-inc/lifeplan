@@ -66,13 +66,14 @@ describe("狭い画面: 資産の推移のグラフ", () => {
     expect(small).toContain("data-short=");
   });
 
-  it("結果のグラフの凡例には使い方の文を出さない。プランを並べるグラフの使い方の文は、狭い画面・タッチの端末では短い文だけを見せる（CSS）", () => {
+  it("結果のグラフの凡例には使い方の文を出さない（広い画面・狭い画面で分けた文も無い）", () => {
     const html = renderToString(h(MainLegend, { model: m, mode: "assets", explain: null }));
     expect(html).not.toContain("hint-long");
+    expect(html).not.toContain("hint-short");
     expect(html).not.toContain("グラフに合わせると");
     const css = readFileSync(join(APP_DIR, "src", "styles", "app.css"), "utf8");
-    expect(css).toMatch(/\.hint-short \{ display: none; \}/);
-    expect(css).toContain("@media (max-width: 639.98px), (hover: none)");
+    expect(css).not.toContain(".hint-short");
+    expect(css).not.toContain(".hint-long");
     expect(NARROW_QUERY).toBe("(max-width: 639.98px)");
   });
 });

@@ -969,12 +969,6 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .set-btn[aria-expanded="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
 .main-legend { gap: 4px 18px; font-size: 0.88rem; margin: 6px 0 0; }
 .main-legend .hint { margin-left: auto; font-weight: 400; color: var(--ink-2); font-size: 0.82rem; }
-/* グラフの使い方の文: 狭い画面（640px 未満）・タッチの端末（ホバーできない）では短い文（「クリック」「Esc」を言わない）。presentation/narrow.ts と同じ幅 */
-.hint-short { display: none; }
-@media (max-width: 639.98px), (hover: none) {
-  .hint .hint-long { display: none; }
-  .hint .hint-short { display: inline; }
-}
 .main-legend .lg.net i { border-top-color: var(--prop-ink); }
 .main-chart { position: relative; margin-top: 2px; }
 .main-chart svg { display: block; width: 100%; height: auto; }
