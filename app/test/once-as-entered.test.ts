@@ -1,6 +1,6 @@
 // ライフイベントの1回のお金の行は、入れた額のまま（物価で増やさない）を既定にする（0008 の追記 2026-11-02）:
 // 新しく足す1回の行・毎年から1回に変えた行に伸び方「変えない」を明示して書く（エンジンの既定〔省略は物価〕は変えない）。伸び方を持たない前の行は
-// 今の読み方（物価）のまま。1回の行の欄は「額の入れ方」（その時の額で入れた／今の値段で入れた／決まった率で増やす）、くり返す行は「伸び方」のまま
+// 今の読み方（物価）のまま。1回の行の欄は「額の入れ方」（その時の額のまま／今の値段（物価で増やす）／決まった率で増やす）、くり返す行は「伸び方」のまま
 import { describe, expect, it } from "vitest";
 import type { EngineRequest, IncomeFlow, PeriodicExpense } from "../src/engine/types.ts";
 import { forEngine } from "../src/engine/moneyRows.ts";
@@ -90,7 +90,7 @@ describe("新しく足す1回の行は、入れた額のまま（伸び方「変
     expect(cellDiff(other.request, wh.request, "cf.expense.lumpSum.other", y)).toBe(2_000_000);
     const gift = place(addIncomeTemplate(wh, "結婚のお祝い", ID), ID, 2_000_000, "incomeFlows");
     expect(cellDiff(gift.request, wh.request, "cf.income.lumpSum.other", y)).toBe(2_000_000);
-    // 「今の値段で入れた」を選ぶと、その時までの物価で増やす
+    // 「今の値段（物価で増やす）」を選ぶと、その時までの物価で増やす
     const f = fieldOf(dream, `ev/${ID}/growth`);
     const nominal = f.set(dream, "inflation");
     expect(expenseOf(nominal).growth).toEqual({ kind: "inflation" });
@@ -163,7 +163,7 @@ describe("伸び方を持たない前の1回の行は、今の読み方（物価
       (h.periodicExpenses ??= []).push({ id: ID, label: "前の一時的支出", kind: "general", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, amount: standardBox(2_000_000, "テストの額") as PeriodicExpense["amount"] });
     });
 
-  it("画面は「今の値段で入れた」（選んでいない）と見せ、額・時期を直しても伸び方を書かない。計算は物価で伸びる", () => {
+  it("画面は「今の値段（物価で増やす）」（選んでいない）と見せ、額・時期を直しても伸び方を書かない。計算は物価で伸びる", () => {
     const wh = legacy();
     const g = fieldOf(wh, `ev/${ID}/growth`);
     expect(g.label).toBe("額の入れ方");
@@ -189,15 +189,16 @@ describe("伸び方を持たない前の1回の行は、今の読み方（物価
 });
 
 describe("欄の名前と選択肢", () => {
-  it("ライフイベントの1回の行は「額の入れ方」（その時の額で入れた＝既定／今の値段で入れた／決まった率で増やす）。くり返す行は「伸び方」", () => {
+  it("ライフイベントの1回の行は「額の入れ方」（その時の額のまま＝既定／今の値段（物価で増やす）／決まった率で増やす）。くり返す行は「伸び方」", () => {
     const wh = addOtherExpense(bare(), ID);
     const g = fieldOf(wh, `ev/${ID}/growth`);
     expect(g.label).toBe("額の入れ方");
-    expect(labels(g)).toEqual(["その時の額で入れた（そのまま使う）", "今の値段で入れた（その時までの物価で増やす）", "決まった率で増やす"]);
+    expect(labels(g)).toEqual(["その時の額のまま", "今の値段（物価で増やす）", "決まった率で増やす"]);
     expect(values(g)).toEqual(["none", "inflation", "rate"]);
     expect(ONCE_AMOUNT_KINDS.map((o) => o.value).sort()).toEqual(GROWTH_KINDS.map((o) => o.value).sort());
     expect(g.get(wh).value).toBe("none");
-    expect(g.help).toContain("その時の額で入れた");
+    expect(g.help).toContain("その時に払う（受け取る）額をそのまま入れたとき");
+    expect(g.help).toContain("今の値段で入れたときで、その時までの物価の上がり方で増やします");
     expect(g.help).not.toContain("額は今の値段で入れます");
     // 額の欄の「?」も額の入れ方に合わせる
     expect(fieldOf(wh, `ev/${ID}/amount`).help).toContain("その時の額をそのまま入れます");
@@ -205,7 +206,7 @@ describe("欄の名前と選択肢", () => {
     // 詳細のまとまりの名前・「▸ …」の文
     expect(groupOf(wh, `ev/${ID}/who`).title).toBe("払う人・額の入れ方・万一のときの扱い");
     expect(groupOf(wh, `ev/${ID}`).moreLabel).toBe("払う人・額の入れ方を入れる");
-    // 既定の「その時の額」は「詳細あり」に数えない。今の値段で入れたを選ぶと数える
+    // 既定の「その時の額」は「詳細あり」に数えない。「今の値段（物価で増やす）」を選ぶと数える
     expect(groupOf(wh, `ev/${ID}`).note ?? "").not.toContain("額の入れ方");
     expect(groupOf(g.set(wh, "inflation"), `ev/${ID}`).note).toContain("額の入れ方");
     // 決まった率を選ぶと率の欄が出る
