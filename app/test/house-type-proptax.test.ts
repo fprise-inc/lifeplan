@@ -179,20 +179,25 @@ describe("固定資産税の推定（0112）", () => {
     expect(r.propertyTax?.annual).toMatchObject({ value: 196000, state: "estimated", estimate: { method: "derived" } });
     expect((r.propertyTax?.annual as { estimate?: { basis?: string } }).estimate?.basis).toContain(PROPERTY_TAX_BASIS);
     const st = stagesOf(r);
-    // 2030年度の評価替え（築2年）で下がる → 187,000
-    expect(Math.round(196000 * (st.get(2030) ?? 0))).toBe(187000);
-    // 軽減は 2029〜2031 年。2032 年に建物の分が元に戻る → 298,400
-    expect(Math.round(196000 * (st.get(2032) ?? 0))).toBe(298400);
+    // 割合は小数1桁の％（0.001 刻み）にそろえる
+    for (const s of r.propertyTax?.stages ?? []) expect(s.ratio).toMatch(/^\d+(\.\d{1,3})?$/u);
+    // 2030年度の評価替え（築2年）で下がる → 187,000（95.4%）
+    expect(st.get(2030)).toBe(0.954);
+    // 軽減は 2029〜2031 年。2032 年に建物の分が元に戻る → 298,400（152.2%）
+    expect(st.get(2032)).toBe(1.522);
     expect(st.has(2031)).toBe(false);
-    // 2033年度の評価替え（築5年）
-    expect(Math.round(196000 * (st.get(2033) ?? 0))).toBe(275500);
+    // 2033年度の評価替え（築5年）→ 275,500（140.6%）
+    expect(st.get(2033)).toBe(1.406);
+    // 根拠の文の割合も同じ値
+    const row = (wh.request.input.household.residences ?? []).find((x) => x.id === r.id) as { valueStates?: Record<string, { estimate?: { basis?: string } }> };
+    expect(row.valueStates?.[`residence.propertyTax/stages/${taxStageId(r.id, 2032)}/ratio`]?.estimate?.basis).toContain("152.2%");
     // 段は推定（値の状態の行）
     expect(isAutoTaxStage(wh.request.input.household, r.id, taxStageId(r.id, 2032))).toBe(true);
     // 計算エンジンの固定資産税の行に入る
     const p = preview(wh.request);
     expect(sum(p, "cf.expense.housing.propertyTax", 2029)).toBe(196000);
     // 年額を4月・7月・12月・翌年2月に分けて払うので、2032年の支出は2032年分の3回と2031年分の1回
-    expect(sum(p, "cf.expense.housing.propertyTax", 2032)).toBe(298400 * 0.75 + 187000 * 0.25);
+    expect(Math.abs(sum(p, "cf.expense.housing.propertyTax", 2032) - (196000 * 1.522 * 0.75 + 196000 * 0.954 * 0.25))).toBeLessThanOrEqual(4);
   });
 
   it("新築のマンションは軽減が5年、長期優良住宅は戸建て5年・マンション7年（ローンを組まないときは住宅の購入の詳細で選ぶ）", () => {
@@ -243,10 +248,29 @@ describe("固定資産税の推定（0112）", () => {
     // 価格を直しても FP の額は変わらず、段は入れ直す（割合は同じ形）
     wh = set(wh, "/purchase/price", 50000000);
     expect(bought(wh).propertyTax?.annual.value).toBe(150000);
-    expect(stagesOf(bought(wh)).get(2032)).toBeCloseTo(ratio, 3);
+    expect(stagesOf(bought(wh)).get(2032)).toBe(ratio);
     const p = preview(wh.request);
     const r31 = stagesOf(bought(wh)).get(2030)!;
     expect(Math.abs(sum(p, "cf.expense.housing.propertyTax", 2032) - (150000 * ratio * 0.75 + 150000 * r31 * 0.25))).toBeLessThanOrEqual(4);
+  });
+
+  it("推定の段があるときは、変動率の欄に段との関係を書く（変動率は空のまま。入れると段の額にさらに毎年掛かる）", () => {
+    let wh = action(salaried(), "housing/addPurchase");
+    const k = `housing/res/${bought(wh).id}/taxGrowth`;
+    expect(bought(wh).propertyTax?.growth).toBeUndefined();
+    const f = fieldOf(wh, k);
+    expect(f.help).toContain("段の額にさらに毎年この率を掛けます");
+    expect(f.get(wh).hint).toContain("推定の段で動かしています");
+    // 変動率を入れると、段の額に計算の基準の年からの年数分を掛ける（今の計算の決まり）
+    const before = preview(wh.request);
+    wh = set(wh, k, "0.01");
+    expect(fieldOf(wh, k).get(wh).hint ?? null).toBeNull();
+    const after = preview(wh.request);
+    const y = 2033;
+    expect(sum(after, "cf.expense.housing.propertyTax", y) / sum(before, "cf.expense.housing.propertyTax", y)).toBeGreaterThan(1.05);
+    // 今住んでいる持ち家（推定の段なし）は前の説明のまま
+    const own = action(salaried(), "housing/addOwn");
+    expect(fieldOf(own, "/taxGrowth").help).toContain("入れなければ変えません");
   });
 
   it("推定の段を外すと、入れ直しで足し直さない", () => {

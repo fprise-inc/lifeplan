@@ -97,10 +97,13 @@ const pctOf = (r: number): string => `${String(Math.round(r * 100000) / 1000)}%`
 const manOf = (v: number): string => `${formatYen(Math.round(v / 10000) * 10000, "man")}万円`;
 /** その年に効いている評価替えの年（基準年度） */
 const reassessYear = (y: number): number => PROPERTY_TAX_LAW.reassessFrom + Math.floor((y - PROPERTY_TAX_LAW.reassessFrom) / PROPERTY_TAX_LAW.reassessEvery) * PROPERTY_TAX_LAW.reassessEvery;
+/** 推定で入れる段の割合（今の額に対する割合を小数1桁の％にそろえる。例 0.977＝97.7%。計算もこの値で） */
 const ratioText = (r: number): string => {
-  const t = r.toFixed(6).replace(/0+$/u, "").replace(/\.$/u, "");
+  const t = (Math.round(r * 1000) / 1000).toFixed(3).replace(/0+$/u, "").replace(/\.$/u, "");
   return t === "" ? "0" : t;
 };
+/** 割合の文字を％の文字に（0.977 → 97.7%） */
+const ratioPct = (ratio: string): string => `${String(Math.round(Number(ratio) * 1000) / 10)}%`;
 
 /** 新築の軽減の年数（購入の種類と長期優良住宅かから） */
 export function reliefYears(condo: boolean, longLife: boolean): number {
@@ -146,10 +149,11 @@ export function propertyTaxPlan(o: PropertyTaxInputs): PropertyTaxPlan {
   ];
   const basis = `${PROPERTY_TAX_BASIS}（${parts.join("。")}）`;
   const stages: PropertyTaxStage[] = [];
-  let prev = first;
+  let prev = "1";
   for (let y = firstYear + 1; y <= o.lastYear; y++) {
-    const v = taxIn(y);
-    if (v === prev) continue;
+    // 割合は小数1桁の％にそろえ、そろえた割合が前の段と同じ年は段にしない
+    const ratio = first > 0 ? ratioText(taxIn(y) / first) : "1";
+    if (ratio === prev) continue;
     const why: string[] = [];
     if (inRelief(y - 1) && !inRelief(y)) why.push("新築の軽減が終わり、建物の分が元に戻る");
     if (reassessYear(y) === y && buildingIn(y) !== buildingIn(y - 1)) {
@@ -157,9 +161,8 @@ export function propertyTaxPlan(o: PropertyTaxInputs): PropertyTaxPlan {
       why.push(`${String(y)}年度の評価替えで、建物の評価額が築${String(y - built)}年の分だけ下がる${atFloor ? `（下限の${pctOf(floor)}で止まる）` : ""}`);
     }
     // 根拠の文に割合を入れる（割合が変わったら文も変わる。値だけ変わって文が同じ行は、編集のときに「FP が直した」とみなして外されるため。rows.ts の dropStaleRows）
-    const ratio = first > 0 ? ratioText(v / first) : "1";
-    stages.push({ year: y, amount: v, ratio, basis: `${PROPERTY_TAX_BASIS}（${why.join("。") || "評価額の見直し"}。固定資産税の欄の額の${ratio}倍）` });
-    prev = v;
+    stages.push({ year: y, amount: round100(first * Number(ratio)), ratio, basis: `${PROPERTY_TAX_BASIS}（${why.join("。") || "評価額の見直し"}。固定資産税の欄の額の${ratioPct(ratio)}）` });
+    prev = ratio;
   }
   return { first, firstYear, basis, stages };
 }
@@ -221,6 +224,11 @@ export const isEstimatedTax = (b: Box<number> | undefined): boolean => isAutoTax
 /** 推定の段か（FP が直していない） */
 export function isAutoTaxStage(h: Household, rid: string, sid: string): boolean {
   return isAutoRowOurs(rowAt(wrap(h), ratioAddress(rid, sid)));
+}
+
+/** 固定資産税の推定の段があるか（変動率の欄の知らせに使う） */
+export function hasAutoTaxStages(h: Household, r: Residence): boolean {
+  return (r.propertyTax?.stages ?? []).some((s) => isAutoTaxStage(h, r.id, s.id));
 }
 
 /** FP が外した推定の段を覚える（段はもう外した後でよい。推定の段でなければ何もしない） */

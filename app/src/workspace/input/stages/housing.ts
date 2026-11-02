@@ -7,7 +7,7 @@ import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointF
 import { mutate, newId, presetBasis, standardBox, wrapBasis, type WorkingHousehold } from "../household.ts";
 import { rentBasis, rentStandard } from "../fill.ts";
 import { dropProvisionalEvent, purchaseMonth, withProvisionalHousing } from "../housingCredit.ts";
-import { applyPropertyTaxEstimate, isAutoTax as isAutoBox, purchaseLoans, rememberDroppedTaxStage } from "../propertyTax.ts";
+import { applyPropertyTaxEstimate, hasAutoTaxStages, isAutoTax as isAutoBox, purchaseLoans, rememberDroppedTaxStage } from "../propertyTax.ts";
 import { BUILDING_STRUCTURES, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS, TAX_METHODS, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
 import type { StateRow } from "../rows.ts";
 import { formatYen } from "../units.ts";
@@ -368,7 +368,29 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
       // 購入の予定の持ち家は、建て方を購入の種類で決める（欄を重ねない。0052 の追記 2026-11-03）
       ...(buying ? [] : [styleField(r, k)]),
       yenBox({ key: `${k}/tax`, item: "residence.propertyTax", label: "固定資産税・都市計画税", level: "detail", basis: "annual", find, path: ["propertyTax", "annual"] }),
-      { ...plain({ key: `${k}/taxGrowth`, item: "residence.propertyTax", label: "固定資産税の変動率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["propertyTax", "growth"], optional: true, fallback: "0", help: "入れなければ変えません。建物の評価が下がる分は、「＋ 固定資産税の変化」で入れられます" }), address: () => at(r.id, "residence.propertyTax", ["growth"]) },
+      {
+        ...plain({
+          key: `${k}/taxGrowth`,
+          item: "residence.propertyTax",
+          label: "固定資産税の変動率（年）",
+          level: "detail",
+          kind: "pct",
+          ...GROWTH_RANGE,
+          find,
+          path: ["propertyTax", "growth"],
+          optional: true,
+          fallback: "0",
+          // 推定の段（新築の軽減の終わり・評価替え）があるときは、段と率の関係を書く。計算は段の額に、計算の基準の年からの年数分この率を掛ける（housing.residence）
+          help: hasAutoTaxStages(h0, r)
+            ? "固定資産税の推定の段（新築の軽減の終わり・評価替え）で額を動かしています。変動率を入れると、段の額にさらに毎年この率を掛けます（評価替えの下がり方は段に入っているので、ふつうは入れません）"
+            : "入れなければ変えません。建物の評価が下がる分は、「＋ 固定資産税の変化」で入れられます",
+          hint: (_v, w) => {
+            const x = find(w.request.input.household, w) as Residence | undefined;
+            return x !== undefined && x.propertyTax?.growth === undefined && hasAutoTaxStages(w.request.input.household, x) ? "下の推定の段で動かしています（変動率は入れなくて構いません）" : null;
+          },
+        }),
+        address: () => at(r.id, "residence.propertyTax", ["growth"]),
+      },
       yenBox({
         key: `${k}/maint`,
         item: "residence.maintenance",
