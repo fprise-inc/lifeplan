@@ -197,6 +197,8 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
   const free = isFree(r);
   const showPeriod = (h0.residences ?? []).length > 1 || free;
   const ml = maintenanceLabels(r);
+  // 購入の予定の持ち家（「住宅の購入」の1件）は、住まいの種類の欄を出さない（購入するなら持ち家。購入をやめるときは「外す」で1件を消す。0052 の追記（2026-11-02））
+  const buying = r.kind === "own" && r.purchase !== undefined;
   const fields: FieldDef[] = [
     {
       ...field({
@@ -219,9 +221,11 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
       }),
       address: () => at(r.id, "residence.kind"),
     },
+  ].filter(() => !buying);
+  fields.push(
     timepointField({ key: `${k}/from`, item: "residence.from", label: "住み始め", level: showPeriod ? "simple" : "detail", find, path: ["from"], mode: "ym", anchor: "moveIn", ...ageOf }),
     timepointField({ key: `${k}/to`, item: "residence.to", label: "住み終わり", level: showPeriod ? "simple" : "detail", find, path: ["to"], startPath: ["from"], optional: true, nullText: "最後まで住む", ...ageOf }),
-  ];
+  );
   if (r.kind === "rent" && !free) {
     fields.push(
       yenBox({
@@ -303,7 +307,6 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
   const actions: ActionDef[] = [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.residences = (h.residences ?? []).filter((x) => x.id !== r.id)))];
   if (free && r.to === null) actions.unshift({ key: `${k}/inherit`, label: "この家を相続する", help: "住まいを持ち家に切り替えます", level: "simple", run: (w) => inheritHome(w, r.id) });
   // 購入の予定の持ち家は「住宅の購入」の1件（購入の欄を頭に、住まいの欄をその後に。別の住まいを足したように見せない）
-  const buying = r.kind === "own" && r.purchase !== undefined;
   if (buying) fields.unshift(...purchaseFields(wh, r, k));
   const groups: GroupDef[] = [
     {
