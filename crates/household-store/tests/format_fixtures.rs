@@ -171,6 +171,24 @@ fn every_format_version_has_a_fixture_and_opens() {
             migrate::parse(v).unwrap() >= (0, 51),
             "{v}: 三大疾病保険の契約は 0.51 からの見本"
         );
+        // 0.52 から: 低解約返戻金型（払込中の率・年齢ごとの率の点）とアカウント型（積立の部分）。0055 の追記 2026-11-03
+        let contracts = now["household"]["request"]["input"]["household"]["insuranceContracts"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        let low = contracts.iter().any(|c| {
+            c["subtype"] == "lowSurrender"
+                && c["simple"]["returnRateDuring"].is_string()
+                && c["simple"]["returnRatePoints"]
+                    .as_array()
+                    .is_some_and(|p| !p.is_empty() && p.iter().all(|x| x["id"].is_string()))
+        });
+        let account = contracts
+            .iter()
+            .any(|c| c["subtype"] == "account" && c["simple"]["account"]["after"].is_string());
+        let since_052 = migrate::parse(v).unwrap() >= (0, 52);
+        assert_eq!(low, since_052, "{v}: 低解約返戻金型の契約は 0.52 からの見本");
+        assert_eq!(account, since_052, "{v}: アカウント型の契約は 0.52 からの見本");
         if migrate::parse(v).unwrap() >= (0, 50) {
             // 0.50 から: 会社と合わせたバランスシートの入力（計算の要求の外。0107）
             let c = &now["household"]["companyBs"];

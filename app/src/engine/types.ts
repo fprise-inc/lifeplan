@@ -567,6 +567,20 @@ export interface ScheduleRow {
   survivalBenefit?: number;
 }
 
+/** アカウント型（利率変動型積立終身保険）の積立の部分（0055 の追記 2026-11-03） */
+export interface InsuranceAccountInput {
+  /** 払込が終わった時の積立金の目安（設計書の額） */
+  value: number;
+  /** 払込が終わった後の扱い: 終身保険に移す・年金で受け取る・解約して受け取る */
+  after: "wholeLife" | "annuity" | "surrender";
+  /** 終身保険に移した後の死亡保険金 */
+  deathBenefit?: number;
+  /** 年金の年額 */
+  annual?: number;
+  /** 年金の年数（省略は10年） */
+  years?: number;
+}
+
 export interface InsuranceContract {
   id: string;
   template: string;
@@ -587,7 +601,18 @@ export interface InsuranceContract {
   renewals?: { id?: string; at: Timepoint; premium: number }[];
   schedule?: { rows: ScheduleRow[]; source?: { productRef: string; digest: string } };
   /** estimate（0054）: 変額・外貨建の円の目安の形 */
-  simple?: { returnRate?: string; assetClass?: string; loadRate?: string; estimate?: boolean };
+  simple?: {
+    returnRate?: string;
+    assetClass?: string;
+    loadRate?: string;
+    estimate?: boolean;
+    /** 0055 の追記 2026-11-03: 払込中の解約返戻率（低解約返戻金型） */
+    returnRateDuring?: string;
+    /** 0055 の追記 2026-11-03: 払込が終わった後の年齢ごとの解約返戻率（点の間はまっすぐ） */
+    returnRatePoints?: { id?: string; age: number; rate: string }[];
+    /** 0055 の追記 2026-11-03: アカウント型の積立の部分 */
+    account?: InsuranceAccountInput;
+  };
   surrender?: Timepoint;
   [key: string]: unknown;
 }

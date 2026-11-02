@@ -540,6 +540,8 @@ export type InsuranceSubtype =
   | "decreasingTerm"
   | "incomeProtection"
   | "wholeLife"
+  | "lowSurrender"
+  | "account"
   | "endowment"
   | "medical"
   | "cancer"
@@ -562,6 +564,20 @@ export interface ScheduleRowInput {
   readonly surrenderValue?: Yen;
   readonly annuity?: Yen;
   readonly survivalBenefit?: Yen;
+}
+
+/** アカウント型（利率変動型積立終身保険）の積立の部分（0055 の追記 2026-11-03） */
+export interface InsuranceAccountInput {
+  /** 払込が終わった時の積立金の目安（設計書の額） */
+  readonly value: number;
+  /** 払込が終わった後の扱い: 終身保険に移す・年金で受け取る・解約して受け取る */
+  readonly after: "wholeLife" | "annuity" | "surrender";
+  /** 終身保険に移した後の死亡保険金 */
+  readonly deathBenefit?: number;
+  /** 年金の年額 */
+  readonly annual?: number;
+  /** 年金の年数（省略は10年） */
+  readonly years?: number;
 }
 
 export interface InsuranceContractInput {
@@ -587,7 +603,18 @@ export interface InsuranceContractInput {
   readonly coverages?: readonly CoverageInput[];
   readonly schedule?: { readonly source?: { readonly productRef: string; readonly digest: string }; readonly rows: readonly ScheduleRowInput[] };
   /** estimate（0054）: 変額・外貨建の円の目安の形（積立金を伸ばさず、入れた円の目安の額だけで計算する） */
-  readonly simple?: { readonly returnRate?: string; readonly assetClass?: string; readonly loadRate?: string; readonly estimate?: boolean };
+  readonly simple?: {
+    readonly returnRate?: string;
+    readonly assetClass?: string;
+    readonly loadRate?: string;
+    readonly estimate?: boolean;
+    /** 0055 の追記 2026-11-03: 払込中の解約返戻率（低解約返戻金型） */
+    readonly returnRateDuring?: string;
+    /** 0055 の追記 2026-11-03: 払込が終わった後の年齢ごとの解約返戻率（点の間はまっすぐ） */
+    readonly returnRatePoints?: readonly { readonly id?: string; readonly age: number; readonly rate: string }[];
+    /** 0055 の追記 2026-11-03: アカウント型の積立の部分 */
+    readonly account?: InsuranceAccountInput;
+  };
   readonly surrender?: Timepoint;
 }
 

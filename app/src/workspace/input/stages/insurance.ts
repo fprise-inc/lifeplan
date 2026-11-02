@@ -6,6 +6,8 @@
 // - 保険料と保障の額は目安を作らない（新しい契約でも未入力の警告。必要保障額との過不足は万一のタブで見る）
 // - 推定の値は物の値の状態の欄に行で持つ。推定のまま（出どころ auto）の値だけ、種類・被保険者・契約年月を直したときに入れ直す
 // - 外貨建て・変額は円の目安の形だけ（計算エンジンの insurance.simple.estimate）
+// - 低解約返戻金型終身保険・アカウント型（0055 の追記 2026-11-03）: 運用の計算は入れず、設計書の数字を写す。低解約返戻金型は払込中の率と
+//   払込が終わった時の率（目安の値の推定）と、詳細の年齢ごとの率の点。アカウント型は払込が終わった時の積立金と払込の後の扱い
 import type { Coverage, Household, InsuranceContract, Member } from "../../../engine/types.ts";
 import { addMonths } from "../../levers.ts";
 import type { Address } from "../../store/readings.ts";
@@ -24,6 +26,8 @@ import {
   KIND_OPTIONS,
   KINDS,
   kindDef,
+  lowCvBasis,
+  lowCvRate,
   kindOf,
   mainCoverage,
   putRowIn,
@@ -40,6 +44,7 @@ import {
 import { BENEFITS, DEDUCTION_TYPES, memberLabel, memberOptions, PREMIUM_FREQUENCY } from "../labels.ts";
 import { monthsBetween } from "../loanMath.ts";
 import { formatYearMonth } from "../units.ts";
+import type { InsuranceAccountInput } from "../../../engine/types.ts";
 import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 
 type Obj = Record<string, unknown>;
@@ -168,6 +173,82 @@ export function applyKind(h: Household, c: InsuranceContract, next: KindDef, fre
     fitRegime(c, next.deduction);
     putRowIn(o, "insurance.deductionCategory", ["type"], estRow("standard", `${STANDARD}（${next.label}）`));
   }
+  fitLowCv(c, next);
+  fitAccount(c, next);
+}
+
+// ---- 低解約返戻金型・アカウント型（0055 の追記 2026-11-03） ----
+
+/** 簡易の入力の欄を書く（undefined は外す。空になれば simple ごと外す） */
+function setSimple<K extends keyof NonNullable<InsuranceContract["simple"]>>(c: InsuranceContract, key: K, v: NonNullable<InsuranceContract["simple"]>[K] | undefined): void {
+  const next = { ...(c.simple ?? {}) };
+  if (v === undefined) delete next[key];
+  else next[key] = v;
+  if (Object.keys(next).length > 0) c.simple = next;
+  else delete c.simple;
+}
+
+export const UNENTERED_ACCOUNT = "未入力（払込が終わった時の積立金を入れてください。0円で計算中）";
+export const UNENTERED_DESIGN = "未入力（設計書の額を入れてください。0円で計算中）";
+const ACCOUNT_KEYS = ["value", "after", "deathBenefit", "annual", "years"] as const;
+const lowCvHead = `${STANDARD}（低解約返戻金型終身保険`;
+
+/**
+ * 低解約返戻金型: 払込中の率・払込が終わった時の率を目安の値の推定で入れる（入っている率は変えない）。ほかの種類に変えたら、この型だけの値
+ * （払込中の率・年齢ごとの率の点）を外し、推定のままの払込が終わった時の率も外す（終身保険などは返戻率の目安を作らない）
+ */
+function fitLowCv(c: InsuranceContract, next: KindDef): void {
+  const o = c as unknown as Obj;
+  if (next.kind === "lowSurrender") {
+    if (c.simple?.returnRateDuring === undefined) {
+      setSimple(c, "returnRateDuring", lowCvRate("during"));
+      putRowIn(o, "insurance.simple", ["returnRateDuring"], estRow("standard", lowCvBasis("during")));
+    }
+    if (c.simple?.returnRate === undefined) {
+      setSimple(c, "returnRate", lowCvRate("end"));
+      putRowIn(o, "insurance.simple", ["returnRate"], estRow("standard", lowCvBasis("end")));
+    }
+    return;
+  }
+  if (c.simple?.returnRateDuring !== undefined) {
+    setSimple(c, "returnRateDuring", undefined);
+    putRowIn(o, "insurance.simple", ["returnRateDuring"], undefined);
+  }
+  for (const p of c.simple?.returnRatePoints ?? []) if (p.id !== undefined) for (const f of ["age", "rate"]) putRowIn(o, "insurance.simple", ["returnRatePoints", p.id, f], undefined);
+  if (c.simple?.returnRatePoints !== undefined) setSimple(c, "returnRatePoints", undefined);
+  // 推定のままの低解約返戻金型の率（払込が終わった時）は外す（終身保険・学資保険などは返戻率の目安を作らない。未入力の警告に戻る）
+  if (c.simple?.returnRate !== undefined && isAuto(rowIn(o, "insurance.simple", ["returnRate"]), lowCvHead)) {
+    setSimple(c, "returnRate", undefined);
+    putRowIn(o, "insurance.simple", ["returnRate"], undefined);
+  }
+}
+
+/** アカウント型: 積立の部分（払込が終わった時の積立金は未入力・払込の後は終身保険に移す）を置く。ほかの種類に変えたら外す */
+function fitAccount(c: InsuranceContract, next: KindDef): void {
+  const o = c as unknown as Obj;
+  if (next.kind === "account") {
+    if (c.simple?.account !== undefined) return;
+    setSimple(c, "account", { value: 0, after: "wholeLife", deathBenefit: 0 });
+    putRowIn(o, "insurance.simple", ["account", "value"], estRow("standard", UNENTERED_ACCOUNT));
+    putRowIn(o, "insurance.simple", ["account", "after"], estRow("standard", `${STANDARD}（アカウント型: 払込の後は終身保険に移す。設計書のとおりに直してください）`));
+    putRowIn(o, "insurance.simple", ["account", "deathBenefit"], estRow("standard", UNENTERED_DESIGN));
+    return;
+  }
+  if (c.simple?.account === undefined) return;
+  setSimple(c, "account", undefined);
+  for (const f of ACCOUNT_KEYS) putRowIn(o, "insurance.simple", ["account", f], undefined);
+}
+
+/** 払込の後の扱いを選び直したときに、その扱いで使う欄を置く（入っている値は変えない。前の扱いの値も残す。年金の年数は省略で10年） */
+function fitAccountAfter(o: Obj, a: InsuranceAccountInput): void {
+  if (a.after === "wholeLife" && a.deathBenefit === undefined) {
+    a.deathBenefit = 0;
+    putRowIn(o, "insurance.simple", ["account", "deathBenefit"], estRow("standard", UNENTERED_DESIGN));
+  }
+  if (a.after === "annuity" && a.annual === undefined) {
+    a.annual = 0;
+    putRowIn(o, "insurance.simple", ["account", "annual"], estRow("standard", UNENTERED_DESIGN));
+  }
 }
 
 /** 契約者の推定（被保険者。被保険者が子なら本人） */
@@ -242,8 +323,8 @@ function fitRegime(c: InsuranceContract, type: string): void {
 
 /** 定期の保険（保障の終わりまで払う形）: 標準の「終わり」は保障の終わり */
 const TERM_KINDS: ReadonlySet<string> = new Set(["term", "decreasingTerm", "incomeProtection", "incapacity", "mutualAid", "groupTerm"]);
-/** 満期金・年金を受け取る保険: 受け取りの時期と払込の終わりの両方が結果に効く */
-const MATURITY_KINDS: ReadonlySet<string> = new Set(["endowment", "education", "privateAnnuity"]);
+/** 満期金・年金を受け取る保険と、アカウント型（保障の部分の終わりと、積立金が貯まり終わる払込の終わり）: 受け取りの時期と払込の終わりの両方が結果に効く */
+const MATURITY_KINDS: ReadonlySet<string> = new Set(["endowment", "education", "privateAnnuity", "account"]);
 
 /**
  * 保障の終わりと払込の終わりの欄の、標準・詳細（0078）。定期の保険は保障の終わり（払込は同じ月までが多い）、終身の保険（終身・医療・がん・
@@ -362,6 +443,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
         find,
         path: ["premium", "amount"],
         unit: "yen",
+        ...(kind.kind === "account" ? { help: "保障の部分と積立の部分を合わせた保険料です" } : {}),
         // 空にしたら0円の未入力に戻す（保険料の額は省けない）
         after: (_h, target, v) => {
           if (v !== null) return;
@@ -536,8 +618,14 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
     plain({ key: `${k}/waiver`, item: "insurance.waiver", label: "払込免除", help: "被保険者の障害・就業不能で払込が止まる契約に入れます", level: "detail", kind: "bool", find, path: ["waiver"], optional: true, fallback: false }),
     timepointField({ key: `${k}/surrender`, item: "insurance.surrender", label: "解約の月", level: "detail", find, path: ["surrender"], optional: true, absentWhenEmpty: true, nullText: "解約しない", ageOf: insuredOf, help: "その月に解約返戻金を受け取り、保障と払込が終わります" }),
   );
-  // 解約返戻金（貯蓄型は返戻率、解約の月がある契約・円の目安の形は解約の月の額）
-  if (SAVINGS_TEMPLATES.has(c.template)) fields.push(returnRateField(c, find, k));
+  // 解約返戻金（貯蓄型は返戻率、解約の月がある契約・円の目安の形は解約の月の額）。低解約返戻金型は払込中の率と払込が終わった時の率を標準に、
+  // アカウント型は返戻率の代わりに積立の部分（払込が終わった時の積立金・払込の後の扱い）を標準に出す（0055 の追記 2026-11-03）
+  if (c.simple?.account !== undefined) fields.push(...accountFields(c, k, contractIn));
+  else if (SAVINGS_TEMPLATES.has(c.template)) {
+    const low = kind.kind === "lowSurrender" || c.simple?.returnRateDuring !== undefined;
+    if (low) fields.push(duringRateField(c, find, k));
+    fields.push(returnRateField(c, find, k, low));
+  }
   if (c.surrender !== undefined || (FUND_TEMPLATES.has(c.template) && c.simple?.estimate === true)) fields.push(surrenderAmountField(c, find, k));
 
   const tags = detailTags(wh, c);
@@ -590,6 +678,9 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
     });
   });
 
+  // 年齢ごとの解約返戻率の点（低解約返戻金型の詳細）
+  const lowCv = kind.kind === "lowSurrender" || (c.simple?.returnRatePoints ?? []).length > 0;
+  if (lowCv) groups.push(...ratePointGroups(wh, c));
   // 保障の明細（詳細）
   (c.coverages ?? []).forEach((cov, j) => groups.push(coverageGroup(wh, c, cov, j, find)));
   groups.push({
@@ -620,6 +711,17 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
             (x.renewals ??= []).push({ id: newId(), at: { at: addMonths(from ?? x.contractDate, 120) }, premium: last?.premium ?? x.premium.amount });
           }),
       },
+      ...(lowCv
+        ? [
+            {
+              key: `${k}/addRatePoint`,
+              label: "＋ 年齢ごとの返戻率",
+              help: "設計書の解約返戻金の推移の表から、払込が終わった後の年齢の率を2〜3点写します（点の間はまっすぐつなぎます）",
+              level: "detail" as const,
+              run: (w: WorkingHousehold) => mutateC(w, (h, x) => addRatePoint(h, x)),
+            },
+          ]
+        : []),
     ],
   });
   return groups;
@@ -669,17 +771,19 @@ function taxField(c: InsuranceContract, k: string): FieldDef {
   return field({ key: `${k}/tax`, item: null, label: "死亡保険金にかかる税", level: "detail", kind: "text", readOnly: "契約者・被保険者・受取人の組から決まります", get: () => ({ value: text }), set: (w) => w });
 }
 
-/** 返戻率（貯蓄型。空は未入力の警告: 解約返戻金を0円で数えている） */
-function returnRateField(c: InsuranceContract, find: Finder, k: string): FieldDef {
+/** 返戻率（貯蓄型。空は未入力の警告: 解約返戻金を0円で数えている）。低解約返戻金型は「払込が終わった時の解約返戻率」として標準に出す */
+function returnRateField(c: InsuranceContract, find: Finder, k: string, low = false): FieldDef {
   return withAddress(
     field({
       key: `${k}/sv/rate`,
       item: "insurance.simple",
-      label: "解約返戻率（払込の終わりの時点）",
-      level: "detail",
+      label: low ? "払込が終わった時の解約返戻率" : "解約返戻率（払込の終わりの時点）",
+      level: low ? "simple" : "detail",
       kind: "pct",
       optional: true,
-      help: "払った保険料の累計に対する割合（設計書・お知らせの値）。資産と負債の推移の「保険の解約返戻金」と元本割れの表示に使います",
+      help: low
+        ? "払込が終わった時の解約返戻金÷払った保険料の累計（設計書の値）。払込が終わった後は、この率のまま計算します（「詳細」で年齢ごとの率を足せます）"
+        : "払った保険料の累計に対する割合（設計書・お知らせの値）。資産と負債の推移の「保険の解約返戻金」と元本割れの表示に使います",
       get: (w) => {
         const x = find(w.request.input.household, w) as InsuranceContract | undefined;
         const v = x?.simple?.returnRate ?? null;
@@ -703,6 +807,149 @@ function returnRateField(c: InsuranceContract, find: Finder, k: string): FieldDe
     }),
     () => at(c.id, "insurance.simple", ["returnRate"]),
   );
+}
+
+/** 払込中の解約返戻率（低解約返戻金型。0055 の追記 2026-11-03） */
+function duringRateField(c: InsuranceContract, find: Finder, k: string): FieldDef {
+  return withAddress(
+    field({
+      key: `${k}/sv/during`,
+      item: "insurance.simple",
+      label: "払込中の解約返戻率",
+      level: "simple",
+      kind: "pct",
+      optional: true,
+      help: "払込中に解約したときの解約返戻金÷払った保険料の累計（設計書の値）。払込中は、この率で計算します",
+      get: (w) => ({ value: (find(w.request.input.household, w) as InsuranceContract | undefined)?.simple?.returnRateDuring ?? null }),
+      set: (w, v) =>
+        mutate(w, (h) => {
+          const x = find(h, w) as InsuranceContract | undefined;
+          if (x !== undefined) setSimple(x, "returnRateDuring", v === null ? undefined : String(v));
+        }),
+    }),
+    () => at(c.id, "insurance.simple", ["returnRateDuring"]),
+  );
+}
+
+/** 年齢ごとの解約返戻率の点（低解約返戻金型の詳細。設計書の解約返戻金の推移の表から写す） */
+function ratePointGroups(wh: WorkingHousehold, c: InsuranceContract): GroupDef[] {
+  const contractIn = (h: Household) => (h.insuranceContracts ?? []).find((x) => x.id === c.id);
+  return (c.simple?.returnRatePoints ?? []).flatMap((pt, j) => {
+    const pid = pt.id;
+    if (pid === undefined) return [];
+    const findP: Finder = (h) => (contractIn(h)?.simple?.returnRatePoints ?? []).find((y) => y.id === pid) as unknown as Obj | undefined;
+    const kp = `ins/${c.id}/sv/pt/${pid}`;
+    const ageOf = memberLabel(wh, c.insured);
+    return [
+      {
+        key: kp,
+        title: `年齢ごとの解約返戻率 ${j + 1}`,
+        level: "detail",
+        fields: [
+          withAddress(
+            plain({ key: `${kp}/age`, item: "insurance.simple", label: `年齢（${ageOf}）`, level: "detail", kind: "int", suffix: "歳", min: 0, max: 120, find: findP, path: ["age"], help: "払込が終わった後の年齢を入れます（払込中の年齢の点は計算に使いません）" }),
+            () => at(c.id, "insurance.simple", ["returnRatePoints", pid, "age"]),
+          ),
+          withAddress(
+            plain({ key: `${kp}/rate`, item: "insurance.simple", label: "その年齢の時の解約返戻率", level: "detail", kind: "pct", find: findP, path: ["rate"], help: "その年齢の解約返戻金÷払った保険料の累計（設計書の解約返戻金の推移の表の値）。点の間は、まっすぐつないで計算します" }),
+            () => at(c.id, "insurance.simple", ["returnRatePoints", pid, "rate"]),
+          ),
+        ],
+        actions: [
+          removeAction(`${kp}/remove`, "外す", "detail", (h) => {
+            const x = contractIn(h);
+            if (x?.simple?.returnRatePoints === undefined) return;
+            const rest = x.simple.returnRatePoints.filter((y) => y.id !== pid);
+            setSimple(x, "returnRatePoints", rest.length > 0 ? rest : undefined);
+            for (const f of ["age", "rate"]) putRowIn(x as unknown as Obj, "insurance.simple", ["returnRatePoints", pid, f], undefined);
+          }),
+        ],
+      },
+    ];
+  });
+}
+
+/** 年齢ごとの率の点を1つ足す（年齢は前の点か払込の終わりの10年後、率は前の点か払込が終わった時の率） */
+function addRatePoint(h: Household, x: InsuranceContract): void {
+  const pts = x.simple?.returnRatePoints ?? [];
+  const last = pts.at(-1);
+  const insured = h.members.find((m) => m.id === x.insured);
+  const payEnd = resolveTimepoint(h, x.premium.payUntil);
+  const endAge = insured === undefined || payEnd === null ? 65 : Math.floor(monthsBetween(insured.birth.birthYearMonth, payEnd) / 12);
+  const age = Math.min(120, (last?.age ?? endAge) + 10);
+  setSimple(x, "returnRatePoints", [...pts, { id: newId(), age, rate: last?.rate ?? x.simple?.returnRate ?? lowCvRate("end") }]);
+}
+
+/** アカウント型の積立の部分の欄（標準。0055 の追記 2026-11-03） */
+function accountFields(c: InsuranceContract, k: string, contractIn: (h: Household) => InsuranceContract | undefined): FieldDef[] {
+  const findA: Finder = (h) => contractIn(h)?.simple?.account as unknown as Obj | undefined;
+  const a = c.simple?.account;
+  const addr = (f: string) => () => at(c.id, "insurance.simple", ["account", f]);
+  // 額は空にしたら0円の未入力に戻す（設計書の額は省けない）
+  const yenField = (f: "value" | "deathBenefit" | "annual", label: string, help: string, basis: "once" | "annual", unentered: string): FieldDef =>
+    withAddress(
+      plain({
+        key: `${k}/acct/${f}`,
+        item: "insurance.simple",
+        label,
+        level: "simple",
+        kind: "yen",
+        basis,
+        help,
+        find: findA,
+        path: [f],
+        after: (h, target, v) => {
+          if (v !== null) return;
+          (target as unknown as Record<string, number>)[f] = 0;
+          const x = contractIn(h);
+          if (x !== undefined) putRowIn(x as unknown as Obj, "insurance.simple", ["account", f], estRow("standard", unentered));
+        },
+      }),
+      addr(f),
+    );
+  const out: FieldDef[] = [
+    yenField(
+      "value",
+      "払込が終わった時の積立金の目安",
+      "設計書の「払込が終わった時の積立金」の額。積立金は契約の月からこの額まで毎年まっすぐ増えるものとして計算します（途中で解約したときの返戻金も、亡くなったときに受け取る積立金もこの線から）。利率が変わったときは、新しい設計書の数字に入れ直してください",
+      "once",
+      UNENTERED_ACCOUNT,
+    ),
+    withAddress(
+      plain({
+        key: `${k}/acct/after`,
+        item: "insurance.simple",
+        label: "払込が終わった後",
+        level: "simple",
+        kind: "select",
+        structural: true,
+        options: [
+          { value: "wholeLife", label: "終身保険に移す" },
+          { value: "annuity", label: "年金で受け取る" },
+          { value: "surrender", label: "解約して受け取る" },
+        ],
+        help: "積立金をどうするか（設計書・お客さまの予定のとおり）。解約して受け取るなら、払込が終わった月に積立金を受け取り、契約は終わります",
+        find: findA,
+        path: ["after"],
+        after: (h, target) => {
+          const x = contractIn(h);
+          if (x !== undefined) fitAccountAfter(x as unknown as Obj, target as unknown as InsuranceAccountInput);
+        },
+      }),
+      addr("after"),
+    ),
+  ];
+  if (a?.after === "wholeLife") out.push(yenField("deathBenefit", "終身保険の死亡保険金", "払込が終わった時に、積立金で終身保険に移した後の死亡保険金（設計書の額）", "once", UNENTERED_DESIGN));
+  if (a?.after === "annuity") {
+    out.push(yenField("annual", "年金の年額", "払込が終わった月から毎年受け取る年金の額（設計書の額）", "annual", UNENTERED_DESIGN));
+    out.push(
+      withAddress(
+        plain({ key: `${k}/acct/years`, item: "insurance.simple", label: "年金の年数", level: "simple", kind: "int", suffix: "年", min: 1, max: 50, find: findA, path: ["years"], optional: true, fallback: 10, help: "年金を受け取る年数（入れなければ10年）" }),
+        addr("years"),
+      ),
+    );
+  }
+  return out;
 }
 
 /** 解約の月の保険年度（計算エンジンと同じ数え方: 契約の月から満の年数） */
@@ -755,6 +1002,8 @@ function detailTags(wh: WorkingHousehold, c: InsuranceContract): string[] {
   const b = c.beneficiaries?.[0];
   if (b !== undefined) out.push(`受取人: ${b.member !== undefined ? memberLabel(wh, b.member) : "世帯の外"}`);
   if ((c.coverages ?? []).some((x) => x.insured !== undefined && x.insured !== c.insured)) out.push("家族の保障あり");
+  const pts = (c.simple?.returnRatePoints ?? []).length;
+  if (pts > 0) out.push(`年齢ごとの返戻率 ${pts}点`);
   return out;
 }
 
@@ -914,6 +1163,10 @@ export function insuranceMoreLabel(kind: string): string {
       return "年金の年数・受取人などを入れる";
     case "wholeLife":
       return "解約返戻率・保障の明細などを入れる";
+    case "lowSurrender":
+      return "年齢ごとの返戻率・受取人などを入れる";
+    case "account":
+      return "更新・特約・受取人などを入れる";
     default:
       return "契約者・保障の明細などを入れる";
   }

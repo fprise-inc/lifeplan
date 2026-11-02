@@ -8,7 +8,8 @@ import type { Address } from "../store/readings.ts";
 import type { YenBasis } from "./units.ts";
 import { formatYen } from "./units.ts";
 import type { StateRow } from "./rows.ts";
-import { presetNum, presetText } from "../../../../hearing/src/presets.ts";
+import { presetNum, presetRate, presetText } from "../../../../hearing/src/presets.ts";
+import { pctText } from "../../../../hearing/src/housingEstimates.ts";
 
 type Obj = Record<string, unknown>;
 
@@ -17,6 +18,8 @@ export type InsuranceKind =
   | "decreasingTerm"
   | "incomeProtection"
   | "wholeLife"
+  | "lowSurrender"
+  | "account"
   | "endowment"
   | "medical"
   | "cancer"
@@ -86,6 +89,34 @@ export const KINDS: readonly KindDef[] = [
   },
   { kind: "incomeProtection", label: "収入保障保険", group: "death", template: "insurance.incomeProtection", main: { benefit: "incomeProtection", label: "年金月額", basis: "monthly", help: "亡くなった月の翌月から、保障の終わりまで毎月受け取ります" }, end: { age: 65 }, payUntil: "end", deduction: "general" },
   { kind: "wholeLife", label: "終身保険", group: "death", template: "insurance.wholeLife", main: { benefit: "death", label: "死亡保険金", basis: "once" }, end: "lifetime", payUntil: 65, deduction: "general", savings: true },
+  {
+    kind: "lowSurrender",
+    label: "低解約返戻金型終身保険",
+    group: "death",
+    template: "insurance.wholeLife",
+    main: { benefit: "death", label: "死亡保険金", basis: "once" },
+    end: "lifetime",
+    payUntil: 65,
+    deduction: "general",
+    savings: true,
+    note: "解約返戻金は、払った保険料の累計に、払込中は払込中の率、払込が終わってからは払込が終わった時の率を掛けて計算します（設計書の率に直してください）",
+  },
+  {
+    kind: "account",
+    label: "アカウント型保険（利率変動型積立終身保険）",
+    group: "death",
+    template: "insurance.wholeLife",
+    main: {
+      benefit: "death",
+      label: "死亡保険金（保障の部分）",
+      basis: "once",
+      help: "定期保険と同じく、保障の終わりまで出ます（亡くなったときは、その時の積立金も受け取ります）。更新で保険料が上がる分は「詳細」の「＋ 更新」、医療などの特約は「＋ 保障」で入れてください",
+    },
+    end: { age: 65 },
+    payUntil: "end",
+    deduction: "general",
+    note: "積立金は、払込が終わった時の額（設計書の額）まで毎年まっすぐ増えるものとして計算します。利率が変わったときは、新しい設計書の数字に入れ直してください",
+  },
   { kind: "endowment", label: "養老保険", group: "death", template: "insurance.wholeLife", main: { benefit: "death", label: "死亡保険金（＝満期金）", basis: "once" }, end: { age: 60 }, payUntil: "end", deduction: "general", savings: true },
   { kind: "groupTerm", label: "団体保険（勤務先）", group: "death", template: "insurance.term", main: { benefit: "death", label: "死亡保険金", basis: "once" }, end: "retirement", payUntil: "end", deduction: "general" },
   { kind: "medical", label: "医療保険", group: "illness", frequent: true, template: "insurance.medical", main: { benefit: "hospitalDaily", label: "入院日額（1日）", basis: "once" }, end: "lifetime", payUntil: "lifetime", deduction: "careMedical" },
@@ -246,6 +277,12 @@ export const regimeOf = (contractDate: string): "new" | "old" => (contractDate >
 /** 手術の額の既定（入院日額の10倍。presets.ts の目安） */
 export const surgeryRatio = (): number => presetNum("preset.insurance.surgeryRatio");
 export const surgeryBasis = (daily: number) => presetText("preset.insurance.surgeryRatio", (v) => `${STANDARD}（入院日額 ${formatYen(daily, "yen")}円の${String(v)}倍）`);
+
+/** 低解約返戻金型終身保険の解約返戻率の既定（presets.ts の目安。払込中の率と払込が終わった時の率。0055 の追記 2026-11-03） */
+export const LOW_CV_PRESET = { during: "preset.insurance.lowSurrender.duringRate", end: "preset.insurance.lowSurrender.endRate" } as const;
+export const lowCvRate = (which: keyof typeof LOW_CV_PRESET): string => presetRate(LOW_CV_PRESET[which]);
+export const lowCvBasis = (which: keyof typeof LOW_CV_PRESET): string =>
+  presetText(LOW_CV_PRESET[which], (v) => `${STANDARD}（低解約返戻金型終身保険: ${which === "during" ? "払込中" : "払込が終わった時"}の解約返戻率 ${pctText(v)}。設計書の率に直してください）`);
 
 /** 入院の1回の限度日数の既定（計算エンジンの insurance.policy と同じ目安。engine/src/sdk/estimates.ts） */
 export const defaultMaxDays = (): number => presetNum("preset.insurance.hospitalMaxDays");
