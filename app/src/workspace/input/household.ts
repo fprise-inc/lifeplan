@@ -16,6 +16,7 @@ import type { ItemChoice } from "./itemChoice.ts";
 import { giveElementIds, lacksElementIds, randomId } from "../store/elementIds.ts";
 import { isAutoSmr } from "./smr.ts";
 import type { LivingPart } from "./livingParts.ts";
+import { isOfficeBasisText } from "../../../../hearing/src/statistics.ts";
 
 /** 定年の後に働くときの条件（D: 入力画面の「定年後の予定」。主画面の「働く最後の年齢」を延ばすときにも使う） */
 export interface PostRetirement {
@@ -157,8 +158,14 @@ export function standardBox(value: number, basis: string): Box<number> & { estim
   return { value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis } };
 }
 
-/** 目安のボタンの値の根拠の文 */
-export const presetBasis = (what: string): string => `目安のボタンの値（${what}。この世帯に合わせて直してください）`;
+/**
+ * 目安のボタンの値の根拠の文。what が事務所の推定の値の根拠の文そのもの（0111）なら、包まずにそのまま（事務所の値から作った推定を、
+ * 根拠の文が完全に同じかで見分けるため）
+ */
+export const presetBasis = (what: string): string => (isOfficeBasisText(what) ? what : `目安のボタンの値（${what}。この世帯に合わせて直してください）`);
+
+/** 根拠の文を包む（事務所の推定の値の根拠の文そのものなら包まない。presetBasis と同じ決まり） */
+export const wrapBasis = (basis: string, wrap: (b: string) => string): string => (isOfficeBasisText(basis) ? basis : wrap(basis));
 
 export function boxBasis(b: Box<number> | undefined | null): string | null {
   if (b == null || b.state !== "estimated") return null;

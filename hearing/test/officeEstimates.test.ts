@@ -19,7 +19,8 @@ describe("事務所の推定の値", () => {
     setOfficeEstimates({ [LIVING]: { value: officeLiving(), basis: BASIS } });
     const e = livingEstimate(2);
     expect(e.value).toBe(250000);
-    expect(e.basis).toBe(`${BASIS}・2人の世帯`);
+    // 事務所の値から作った推定の根拠は、事務所の根拠の文そのもの（完全に同じ文で見分けるため、ほかの文を足さない）
+    expect(e.basis).toBe(BASIS);
     // 変えていない段（3人）は公式の値のまま
     expect(livingEstimate(3).value).toBe(Math.round(((officialMasterValue(LIVING)?.value as BracketStep[])[2]?.amount as number) / 1000) * 1000);
     expect(masterValue(LIVING)?.office).toBe(true);
@@ -31,7 +32,7 @@ describe("事務所の推定の値", () => {
   it("給与の推定も事務所の値（年齢計）を使う", () => {
     const id = "wageStats.contractualMonthly.regular.male";
     setOfficeEstimates({ [id]: { value: 500000, basis: "事務所の目安（2026年11月）" } });
-    expect(salaryEstimate("regular", "male")?.annual).toEqual({ value: 6000000, basis: "事務所の目安（2026年11月）×12（残業代などの所定外の給与・通勤手当などを含む）" });
+    expect(salaryEstimate("regular", "male")?.annual).toEqual({ value: 6000000, basis: "事務所の目安（2026年11月）" });
   });
 
   it("一時的に置き換えた値は、終わると元に戻る（代表の世帯で差を見るとき）", () => {
@@ -94,9 +95,9 @@ describe("事務所の推定の値（コードの中の目安）", () => {
       "preset.health.mutualAidRate": { value: "0.05", basis: BASIS },
       "preset.nothing": { value: 1, basis: BASIS },
     });
-    expect(CAR_ESTIMATE.price).toEqual({ value: 3200000, basis: `自動車の保有・維持費の目安・新車の価格・${BASIS}` });
+    expect(CAR_ESTIMATE.price).toEqual({ value: 3200000, basis: BASIS });
     expect(PART_TIME_HOURS.weekly).toBe(20);
-    expect(healthRateEstimate("mutualAid")).toEqual({ value: "0.05", basis: `共済組合の保険料率の目安・${BASIS}。給与明細の短期掛金で確かめてください` });
+    expect(healthRateEstimate("mutualAid")).toEqual({ value: "0.05", basis: BASIS });
     expect(isOfficeBasisText(CAR_ESTIMATE.price.basis)).toBe(true);
     expect(presetValue("preset.car.price")).toBe(3200000);
     expect(officialPreset("preset.car.price")).toBe(2500000);
@@ -106,7 +107,28 @@ describe("事務所の推定の値（コードの中の目安）", () => {
   it("給与の仮の値（統計の無い働き方）も事務所の値になる", () => {
     expect(salaryEstimate("executive", "male")?.annual.value).toBe(6000000);
     setOfficeEstimates({ "preset.wage.provisional.executive.male.salary": { value: 9000000, basis: BASIS } });
-    expect(salaryEstimate("executive", "male")?.annual).toEqual({ value: 9000000, basis: `男性の給与の目安・${BASIS}` });
+    expect(salaryEstimate("executive", "male")?.annual).toEqual({ value: 9000000, basis: BASIS });
     expect(salaryEstimate("executive", "male")?.bonus.value).toBe(0);
+  });
+});
+
+// 0111 の 2026-11-02 の追記: 事務所の値から作った推定かは、根拠の文がまったく同じかで見分ける（文の一部では見分けない）
+describe("事務所の値から作った推定の見分け方（完全に同じ文）", () => {
+  it("「平均」「統計」のような短い文を書いても、出典の長い公式の根拠と取り違えない", () => {
+    setOfficeEstimates({ [LIVING]: { value: officeLiving(), basis: "平均" }, "care.statistics.months": { value: 60, basis: "統計" } });
+    const official = salaryEstimate("regular", "female")?.annual.basis ?? "";
+    expect(official).toContain("統計");
+    expect(isOfficeBasisText(official)).toBe(false);
+    expect(isOfficeBasisText("家計調査（総務省）の統計の平均")).toBe(false);
+    // 事務所の文とまったく同じなら事務所の値（前後の空白はそろえる。ヒアリングシートの「わからない」の頭を付けた文も）
+    expect(isOfficeBasisText("平均")).toBe(true);
+    expect(isOfficeBasisText(" 統計 ")).toBe(true);
+    expect(isOfficeBasisText("ヒアリングで「わからない」。平均")).toBe(true);
+    expect(livingEstimate(2).basis).toBe("平均");
+  });
+
+  it("事務所の値が無ければ、どの文も事務所の値ではない", () => {
+    expect(isOfficeBasisText("事務所の目安（2026年11月）")).toBe(false);
+    expect(isOfficeBasisText("")).toBe(false);
   });
 });

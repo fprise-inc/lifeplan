@@ -2,7 +2,7 @@
 // （import.ts の簡易版の住宅ローン）は、どちらもこのファイルの値と根拠の文を使う（目安の数を1か所に置く）。
 // 数は正本の YAML（data/master の master.housing.statistics。0007）の写し statistics.generated.ts から読む。
 // 金利・家賃の統計は時とともに変わるので、リリースのたびに見直す（docs/estimates-review.md）
-import { masterValue } from "./statistics.ts";
+import { masterValue, officeBasisOf } from "./statistics.ts";
 
 /** 住宅ローンの金利の種類（計算エンジンの rateSchedule の type） */
 export type MortgageRateType = "variable" | "fixedPeriod" | "fixed";
@@ -48,7 +48,8 @@ export function mortgageRateEstimate(type: MortgageRateType): RateEstimate {
   if (m === null) return { rate: FALLBACK[type], basis: `${LABEL[type]} 年${pctText(FALLBACK[type])}（仮の値。統計の写しが読めません）` };
   const pending = m.pending ? "（原本での確かめ前）" : "";
   const p = pctText(m.rate);
-  return { rate: m.rate, basis: `${LABEL[type]} 年${p}（${m.source}）${pending}` };
+  // 事務所の推定の値なら、事務所の根拠の文そのもの（0111。完全に同じ文で見分ける）
+  return { rate: m.rate, basis: officeBasisOf(type === "variable" ? VARIABLE_ID : type === "fixedPeriod" ? FIXED_PERIOD_ID : FIXED_ID) ?? `${LABEL[type]} 年${p}（${m.source}）${pending}` };
 }
 
 /**
@@ -63,11 +64,11 @@ export function currentMortgageRateEstimate(type: MortgageRateType = "variable")
     const head = `${CURRENT_LABEL}（${CURRENT_TYPE_LABEL[type]}）`;
     const f = masterRate(type === "fixedPeriod" ? FIXED_PERIOD_ID : FIXED_ID);
     if (f === null) return { rate: FALLBACK[type], basis: `${head} 年${pctText(FALLBACK[type])}（仮の値。統計の写しが読めません）` };
-    return { rate: f.rate, basis: `${head} 年${pctText(f.rate)}（${f.source}。借りた年ごとの金利の公表の数が無いので、新しく借りるときの目安で代えています）${f.pending ? "（原本での確かめ前）" : ""}` };
+    return { rate: f.rate, basis: officeBasisOf(type === "fixedPeriod" ? FIXED_PERIOD_ID : FIXED_ID) ?? `${head} 年${pctText(f.rate)}（${f.source}。借りた年ごとの金利の公表の数が無いので、新しく借りるときの目安で代えています）${f.pending ? "（原本での確かめ前）" : ""}` };
   }
   const m = masterRate(CURRENT_ID);
   if (m === null) return { rate: CURRENT_FALLBACK, basis: `${CURRENT_LABEL} 年${pctText(CURRENT_FALLBACK)}（仮の値。統計の写しが読めません）` };
-  return { rate: m.rate, basis: `${CURRENT_LABEL} 年${pctText(m.rate)}（${m.source}）${m.pending ? "（原本での確かめ前）" : ""}` };
+  return { rate: m.rate, basis: officeBasisOf(CURRENT_ID) ?? `${CURRENT_LABEL} 年${pctText(m.rate)}（${m.source}）${m.pending ? "（原本での確かめ前）" : ""}` };
 }
 
 /** 推定の根拠の文から、目安の金利の文か（金利の種類を変えたときに入れ直してよい値か）を見分ける頭の言葉 */

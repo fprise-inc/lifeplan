@@ -25,7 +25,7 @@ import { childOfPeriodic } from "./events.ts";
 import { donorOptions, FIELDS, GIFT_PURPOSES, HOUSING_EXEMPTION, LIVING_PLACE, memberLabel, memberOptions, NURSERY_HOURS, SCHOOL_STAGES, SECTORS, TAX_METHODS } from "../labels.ts";
 import type { Address } from "../../store/readings.ts";
 import { scholarshipRateEstimate } from "../../../../../hearing/src/loanRates.ts";
-import { presetIsOffice, presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
+import { officeBasisOf, presetIsOffice, presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
 import { pctText } from "../../../../../hearing/src/housingEstimates.ts";
 
 type Obj = Record<string, unknown>;
@@ -863,11 +863,13 @@ const yearsField = (key: string, label: string, find: Finder, max: number, addre
  */
 /** 貸与の奨学金のひな形の根拠の文（月額は presets.ts の目安、利率はマスタデータ。事務所の推定の値があればその値。読むたびに作る） */
 export const scholarshipBasis = (): string =>
+  officeBasisOf("preset.education.scholarship.monthly", "loanRates.scholarship") ??
   presetBasis(
     `貸与の奨学金（日本学生支援機構の第二種）${presetText("preset.education.scholarship.monthly", (v) => `月${String(Number(v) / 10000)}万円`)}・在学中。利率は${scholarshipRateEstimate().basis}・利率固定方式（上限も年3%）。返す年数は貸与総額から返還年数算出表で`,
   );
 /** 教育ローンのひな形の根拠の文（金利は presets.ts の目安） */
 export const loanBasis = (): string =>
+  officeBasisOf("preset.education.loan.rate") ??
   presetBasis(
     `国の教育ローン（日本政策金融公庫）: 入学の年の学費（入学金と1年目の学費の統計の平均。上限350万円）・${presetText("preset.education.loan.rate", (v) => (presetIsOffice("preset.education.loan.rate") ? `固定金利 年${pctText(v)}` : `固定金利 年${pctText(v)}（令和8年7月1日現在）`))}・返済期間は上限の20年`,
   );

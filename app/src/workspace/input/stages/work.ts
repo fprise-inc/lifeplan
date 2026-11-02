@@ -17,7 +17,7 @@ import { readGroup, readLine } from "../readLines.ts";
 import { GROWTH_RANGE } from "../rateRanges.ts";
 import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 import { executiveMembers } from "../officer.ts";
-import { presetIsOffice, presetNum, presetText } from "../../../../../hearing/src/presets.ts";
+import { presetNum, presetText } from "../../../../../hearing/src/presets.ts";
 
 /** 働き方の期間の時点は年月で持つ（定年・再雇用の見つけ方などが年月で読むため。0038） */
 const PERIOD_MONTH_ONLY = "働き方の期間は年月で持ちます（年齢・「5年後」のように入れても、その年月にします）";
@@ -200,7 +200,7 @@ export function civilRetirementAge(m: Member): number {
 const mainEnd = (): { age: number; basis: string } => {
   const id = "preset.work.retirementAge";
   const age = presetNum(id);
-  return { age, basis: presetIsOffice(id) ? presetText(id, (v) => `定年${String(v)}歳`) : age === 60 ? MAIN_END_BASIS : `定年${String(age)}歳` };
+  return { age, basis: presetText(id, (v) => (Number(v) === 60 ? MAIN_END_BASIS : `定年${String(v)}歳`)) };
 };
 export const retirementAgeEstimate = (type: string, m: Member): { age: number; basis: string } => (type === "civilServant" ? { age: civilRetirementAge(m), basis: CIVIL_END_BASIS } : mainEnd());
 

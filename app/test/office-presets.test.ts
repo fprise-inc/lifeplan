@@ -94,20 +94,19 @@ describe("事務所の値が画面の目安に効く", () => {
     publishOfficeEstimates(withOfficeValue(EMPTY_ESTIMATES, RENT, 95000, "当事務所の地域の相場", ON));
     const w = blankHousehold("2026-10");
     const gap = gapsOf(w).find((g) => g.id === "housing");
-    expect(gap?.basis).toContain("家賃 月9.5万円");
-    expect(gap?.basis).toContain("当事務所の地域の相場");
-    expect(gap?.basis).not.toContain("2026年11月");
+    // 事務所の値から作った推定の根拠は、書いた文そのもの（年月を付けない・ほかの文を足さない）
+    expect(gap?.basis).toBe("当事務所の地域の相場");
     const fill = gap?.fill;
     if (fill === undefined) throw new Error("住居費の「目安で入れる」が無い");
     const filled = fill(w);
     expect(filled.request.input.household.residences?.[0]?.rent?.monthly).toMatchObject({ value: 95000, state: "estimated" });
     publishOfficeEstimates(withOfficeValue(EMPTY_ESTIMATES, RENT, 95000, "  ", ON));
-    expect(gapsOf(blankHousehold("2026-10")).find((g) => g.id === "housing")?.basis).toContain("事務所の目安（2026年11月）");
+    expect(gapsOf(blankHousehold("2026-10")).find((g) => g.id === "housing")?.basis).toBe("事務所の目安（2026年11月）");
   });
 
   it("推定のままの値（車の目安）は入れ直しで新しい値になり、世帯で入れた値は変わらない（世帯ごとの上書きが優先）", () => {
     publishOfficeEstimates(withOfficeValue(EMPTY_ESTIMATES, "preset.car.price", 3000000, null, ON));
-    expect(CAR_ESTIMATE.price).toEqual({ value: 3000000, basis: "自動車の保有・維持費の目安・新車の価格・事務所の目安（2026年11月）" });
+    expect(CAR_ESTIMATE.price).toEqual({ value: 3000000, basis: "事務所の目安（2026年11月）" });
     const req = modelHousehold("salariedCoupleTwoKids");
     const confirmed = structuredClone(req);
     const l = confirmed.input.household.livingExpenses?.[0];

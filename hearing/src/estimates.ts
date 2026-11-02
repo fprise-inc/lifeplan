@@ -3,9 +3,9 @@
 // - 統計の数は正本の YAML（data/master の master.wageStats・master.retirementBenefit。0007）の写し statistics.generated.ts から読む
 // - 式に使う制度の値（給与所得控除・住民税の基礎控除と均等割・標準報酬月額の等級表）も正本の制度データ（data/regulation）の写しから読む
 // - 出典の統計表をまだ原本で確かめていない値は、根拠の文に「原本での確かめ前」と書く。出典の無い仮の値は、このファイルの中に「仮の値」と書いて置く
-import { bracketStep, gradeAmount, masterAmount, masterValue, regulationValue, type BracketStep, type GradeRow } from "./statistics.ts";
+import { bracketStep, gradeAmount, HEARING_UNKNOWN_HEAD, masterAmount, masterValue, officeBasisOf, regulationValue, type BracketStep, type GradeRow } from "./statistics.ts";
 import type { ValueBox } from "./types.ts";
-import { presetIsOffice, presetNum, presetRate, presetText } from "./presets.ts";
+import { presetNum, presetRate, presetText } from "./presets.ts";
 
 export { fillsByEstimate } from "./statistics.ts";
 
@@ -55,12 +55,12 @@ export function livingStatistic(size: number): Estimate {
   const table = masterValue(LIVING_ID)?.value;
   const amount = Array.isArray(table) ? bracketStep(table as readonly BracketStep[], n)?.amount : undefined;
   if (amount === undefined)
-    return { value: presetNum(LIVING_SINGLE), basis: presetIsOffice(LIVING_SINGLE) ? presetText(LIVING_SINGLE, () => `${n}人の世帯の基本生活費の目安`) : `${n}人の世帯の基本生活費の目安（仮の値。家計調査の単身世帯の表で確かめる前）` };
-  return { value: amount, basis: `${titleOf(LIVING_ID)}・${n >= 6 ? "6人以上" : `${n}人`}の世帯${pendingOf(LIVING_ID)}` };
+    return { value: presetNum(LIVING_SINGLE), basis: presetText(LIVING_SINGLE, () => `${n}人の世帯の基本生活費の目安（仮の値。家計調査の単身世帯の表で確かめる前）`) };
+  return { value: amount, basis: officeBasisOf(LIVING_ID) ?? `${titleOf(LIVING_ID)}・${n >= 6 ? "6人以上" : `${n}人`}の世帯${pendingOf(LIVING_ID)}` };
 }
 
 /** 基本生活費のシートの「わからない」を推定にした根拠の頭（入力の画面の推定の入れ直しでも残す。0100） */
-export const HEARING_UNKNOWN_BASIS = "ヒアリングで「わからない」";
+export const HEARING_UNKNOWN_BASIS = HEARING_UNKNOWN_HEAD;
 
 /** 基本生活費の推定の額の単位（円。千円単位。万円の欄で小数1桁に見える） */
 export const LIVING_STEP = 1000;
@@ -252,15 +252,15 @@ export function salaryEstimate(type: string, sex: string, options: SalaryOptions
   const provBonus = NO_BONUS.has(type) ? 0 : presetNum(bonusId);
   const label = SEX_LABEL[s];
   const age = options.age === undefined ? "" : `の${String(options.age)}歳の階級`;
-  const prov = (id: string, what: string) => (presetIsOffice(id) ? presetText(id, () => `${label}の${what}の目安`) : `${label}の${what}${PROVISIONAL_BASIS}`);
+  const prov = (id: string, what: string) => presetText(id, () => `${label}の${what}${PROVISIONAL_BASIS}`);
   let annual: Estimate = { value: provAnnual, basis: prov(salaryId, "給与") };
   let bonus: Estimate = { value: provBonus, basis: NO_BONUS.has(type) ? `${label}・賞与なしとみなした目安（仮の値）` : prov(bonusId, "賞与") };
   const emp = WAGE_EMPLOYMENT[type];
   if (emp !== undefined) {
     const m = wageAmount("contractualMonthly", emp, s, options);
-    if (m !== null) annual = { value: m.amount * 12, basis: `${titleOf(m.id)}${m.byAge ? age : ""}×12（残業代などの所定外の給与・通勤手当などを含む）${pendingOf(m.id)}` };
+    if (m !== null) annual = { value: m.amount * 12, basis: officeBasisOf(m.id) ?? `${titleOf(m.id)}${m.byAge ? age : ""}×12（残業代などの所定外の給与・通勤手当などを含む）${pendingOf(m.id)}` };
     const b = wageAmount("annualBonus", emp, s, options);
-    if (b !== null) bonus = { value: b.amount, basis: `${titleOf(b.id)}${b.byAge ? age : ""}${pendingOf(b.id)}` };
+    if (b !== null) bonus = { value: b.amount, basis: officeBasisOf(b.id) ?? `${titleOf(b.id)}${b.byAge ? age : ""}${pendingOf(b.id)}` };
   } else if (type === "civilServant") {
     const tableId = "wageStats.civilServant.monthlyByAge";
     const table = masterValue(tableId)?.value;
@@ -268,11 +268,11 @@ export function salaryEstimate(type: string, sex: string, options: SalaryOptions
     const totalId = "wageStats.civilServant.monthly";
     const id = byAge !== undefined ? tableId : totalId;
     const monthly = byAge ?? masterAmount(totalId);
-    if (monthly !== null) annual = { value: monthly * 12, basis: `${titleOf(id)}${byAge !== undefined ? age : ""}×12（俸給と諸手当。超過勤務手当・通勤手当は含まない。男女の区別なし）${pendingOf(id)}` };
+    if (monthly !== null) annual = { value: monthly * 12, basis: officeBasisOf(id) ?? `${titleOf(id)}${byAge !== undefined ? age : ""}×12（俸給と諸手当。超過勤務手当・通勤手当は含まない。男女の区別なし）${pendingOf(id)}` };
   } else if (type === "partTime") {
     const id = `wageStats.partTimeHourly.${s}`;
     const hourly = masterAmount(id);
-    if (hourly !== null) annual = { value: hourly * PART_TIME_HOURS.weekly * PART_TIME_HOURS.weeks, basis: `${titleOf(id)}×週${PART_TIME_HOURS.weekly}時間×${PART_TIME_HOURS.weeks}週${pendingOf(id)}` };
+    if (hourly !== null) annual = { value: hourly * PART_TIME_HOURS.weekly * PART_TIME_HOURS.weeks, basis: officeBasisOf(id, "preset.wage.partTime.weeklyHours") ?? `${titleOf(id)}×週${PART_TIME_HOURS.weekly}時間×${PART_TIME_HOURS.weeks}週${pendingOf(id)}` };
   }
   return { annual, bonus };
 }
@@ -322,7 +322,7 @@ const BUSINESS_ID = "wageStats.business.operatingProfit";
 export function businessEstimate(): Estimate {
   const v = masterAmount(BUSINESS_ID);
   if (v === null) return { value: 3000000, basis: "個人企業の営業利益の目安（仮の値）" };
-  return { value: v, basis: `${titleOf(BUSINESS_ID)}${pendingOf(BUSINESS_ID)}` };
+  return { value: v, basis: officeBasisOf(BUSINESS_ID) ?? `${titleOf(BUSINESS_ID)}${pendingOf(BUSINESS_ID)}` };
 }
 
 // ---- 標準報酬月額 ----
@@ -406,14 +406,13 @@ function halfRate(rate: string): string {
 export function healthRateEstimate(kind: "union" | "mutualAid", options: { month?: string; branch?: string } = {}): { value: string; basis: string } {
   const RATE_ID = "preset.health.mutualAidRate";
   const fallback = presetRate(RATE_ID);
-  // 事務所の推定の値なら「…の目安・事務所の目安（年月）」、そうでなければ今までの文（仮の値）
-  const office = presetIsOffice(RATE_ID);
-  const head = (what: string) => presetText(RATE_ID, () => `${what}の保険料率の目安`);
-  if (kind === "mutualAid") return { value: fallback, basis: office ? `${head("共済組合")}。給与明細の短期掛金で確かめてください` : "共済組合の保険料率の目安（仮の値。給与明細の短期掛金で確かめてください）" };
+  // 事務所の推定の値なら事務所の根拠の文そのもの、そうでなければ今までの文（仮の値）
+  const office = officeBasisOf(RATE_ID);
+  if (kind === "mutualAid") return { value: fallback, basis: office ?? "共済組合の保険料率の目安（仮の値。給与明細の短期掛金で確かめてください）" };
   const branch = options.branch ?? "kyokaikenpo.13";
   const rate = regulationValue("socialInsurance.health.kyokaikenpo.rate", options.month === undefined ? null : `${options.month}-01`, branch);
   const note = "健康保険組合の料率を入れてください（給与明細の健康保険料÷標準報酬月額で逆算できます）";
-  if (typeof rate !== "string") return { value: fallback, basis: office ? `${head("健康保険組合")}。${note}` : `健康保険組合の保険料率の目安（仮の値）。${note}` };
+  if (typeof rate !== "string") return { value: fallback, basis: office ?? `健康保険組合の保険料率の目安（仮の値）。${note}` };
   return { value: halfRate(rate), basis: `協会けんぽ（${branch === "kyokaikenpo.13" ? "東京支部" : "勤め先の都道府県の支部"}）の健康保険料率 ${rate} の半分を仮に入れています。${note}` };
 }
 
@@ -424,7 +423,7 @@ export function healthRateEstimate(kind: "union" | "mutualAid", options: { month
  * 値は presets.ts の preset.car.*（自動車税は法令の値なのでここに置く。駐車場は「自宅に置く」の0円）。事務所の推定の値なら、根拠は事務所の根拠の文
  */
 const CAR_BASIS = "自動車の保有・維持費の目安（仮の値。原本での確かめ前）";
-const car = (id: string, what: string): Estimate => ({ value: presetNum(id), basis: presetIsOffice(id) ? presetText(id, () => `自動車の保有・維持費の目安・${what}`) : `${CAR_BASIS}・${what}` });
+const car = (id: string, what: string): Estimate => ({ value: presetNum(id), basis: presetText(id, () => `${CAR_BASIS}・${what}`) });
 export const CAR_ESTIMATE = {
   get everyYears(): Estimate {
     return car("preset.car.everyYears", "乗り換えの間隔");
@@ -459,16 +458,16 @@ export const CAR_ESTIMATE = {
     const v = presetNum(id);
     return {
       value: v,
-      basis: presetIsOffice(id)
-        ? `${presetText(id, () => `手放すまでの年数の目安（買ってから${String(v)}年`)}。この世帯に合わせて直してください）`
-        : `平均使用年数の目安（買ってから${String(v)}年。一般財団法人 自動車検査登録情報協会「平均使用年数」令和7年3月末の乗用車〔軽自動車を除く〕13.35年。この世帯に合わせて直してください）`,
+      basis:
+        officeBasisOf(id) ??
+        `平均使用年数の目安（買ってから${String(v)}年。一般財団法人 自動車検査登録情報協会「平均使用年数」令和7年3月末の乗用車〔軽自動車を除く〕13.35年。この世帯に合わせて直してください）`,
     };
   },
   /** 今の車に乗り続ける（買い替えない）ときの、手放すまでの年数の標準（今から5年。0101） */
   get keepYearsOwned(): Estimate {
     const id = "preset.car.keepYearsOwned";
     const v = presetNum(id);
-    return { value: v, basis: presetIsOffice(id) ? `${presetText(id, () => `既定の値（今から${String(v)}年`)}。今の車を手放す時期に合わせて直してください）` : `既定の値（今から${String(v)}年。今の車を手放す時期に合わせて直してください）` };
+    return { value: v, basis: presetText(id, () => `既定の値（今から${String(v)}年。今の車を手放す時期に合わせて直してください）`) };
   },
 } as const satisfies Record<string, Estimate>;
 
@@ -484,7 +483,7 @@ export function retirementPrevalence(size?: number): Estimate | null {
   const id = step?.rate !== undefined ? `${PREVALENCE_ID}.bySize` : PREVALENCE_ID;
   const rate = step?.rate ?? (typeof all === "string" ? all : null);
   if (rate === null) return null;
-  return { value: Math.round(Number(rate) * 1000), basis: `${titleOf(id)}${pendingOf(id)}` };
+  return { value: Math.round(Number(rate) * 1000), basis: officeBasisOf(id) ?? `${titleOf(id)}${pendingOf(id)}` };
 }
 
 export type RetirementEducation = "university" | "highSchoolOffice" | "highSchoolManual";
@@ -502,16 +501,16 @@ export function retirementLumpSumEstimate(o: { reason: RetirementReason; yearsOf
     const tableId = `retirementBenefit.mandatory.${edu}.byService`;
     const table = masterValue(tableId)?.value;
     const byService = o.reason === "mandatory" && Array.isArray(table) ? bracketStep(table as readonly BracketStep[], o.yearsOfService)?.amount : undefined;
-    if (byService !== undefined) return { value: byService, basis: `${titleOf(tableId)}・勤続${String(o.yearsOfService)}年の階級${pendingOf(tableId)}` };
+    if (byService !== undefined) return { value: byService, basis: officeBasisOf(tableId) ?? `${titleOf(tableId)}・勤続${String(o.yearsOfService)}年の階級${pendingOf(tableId)}` };
     const id = `retirementBenefit.${o.reason}.${edu}`;
     const v = masterAmount(id);
-    if (v !== null) return { value: v, basis: `${titleOf(id)}${pendingOf(id)}` };
+    if (v !== null) return { value: v, basis: officeBasisOf(id) ?? `${titleOf(id)}${pendingOf(id)}` };
   }
   const tokyoEdu = edu === "university" ? "university" : "highSchool";
   const id = `retirementBenefit.smallFirm.${o.reason === "voluntary" ? "voluntary" : "company"}.${tokyoEdu}`;
   const table = masterValue(id)?.value;
   const v = Array.isArray(table) ? bracketStep(table as readonly BracketStep[], o.yearsOfService)?.amount : undefined;
-  return v === undefined ? null : { value: v, basis: `${titleOf(id)}・勤続${String(o.yearsOfService)}年${pendingOf(id)}` };
+  return v === undefined ? null : { value: v, basis: officeBasisOf(id) ?? `${titleOf(id)}・勤続${String(o.yearsOfService)}年${pendingOf(id)}` };
 }
 
 // ---- 介護・親 ----
@@ -544,7 +543,7 @@ export function lifeExpectancy(age: number, sex: string | undefined): Estimate |
   if (vals.some((v) => v === null)) return null;
   const value = (vals as number[]).reduce((s, v) => s + v, 0) / vals.length;
   const id = LIFE_ID(sexes[0] as "male" | "female");
-  return { value, basis: `厚生労働省「簡易生命表」の${String(age)}歳の平均余命${sexes.length === 2 ? "（男女の平均）" : sex === "female" ? "（女）" : "（男）"}${pendingOf(id)}` };
+  return { value, basis: officeBasisOf(...sexes.map(LIFE_ID)) ?? `厚生労働省「簡易生命表」の${String(age)}歳の平均余命${sexes.length === 2 ? "（男女の平均）" : sex === "female" ? "（女）" : "（男）"}${pendingOf(id)}` };
 }
 
 /** 介護の費用の統計の目安（期間・月額・一時費用）。生命保険文化センター「生命保険に関する全国実態調査」 */
@@ -555,7 +554,7 @@ export function careEstimate(place: "home" | "facility"): { months: number; mont
   if (months === null || monthly === null || initial === null) return null;
   const ids = ["care.statistics.months", place === "facility" ? "care.statistics.monthlyFacility" : "care.statistics.monthlyHome", "care.statistics.initial"];
   const pending = ids.some((id) => pendingOf(id) !== "") ? PENDING : "";
-  return { months, monthly, initial, basis: `生命保険文化センター「生命保険に関する全国実態調査」2024年度の平均（${place === "facility" ? "施設" : "在宅"}）${pending}` };
+  return { months, monthly, initial, basis: officeBasisOf(...ids) ?? `生命保険文化センター「生命保険に関する全国実態調査」2024年度の平均（${place === "facility" ? "施設" : "在宅"}）${pending}` };
 }
 
 /** 親の扶養の境目（目安）。age はその年の年齢、date はその日（制度の値を選ぶ） */
