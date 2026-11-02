@@ -71,7 +71,7 @@ describe("ご家族の夢の章", () => {
 
   it("ライフイベント表: 計算に入れる夢に★。計算に入れない夢は載せない", () => {
     const items = input.events.flatMap((e) => e.items);
-    // 額はキャッシュフロー表と同じ2030年の額（物価の上昇などで伸ばした額。ご家族の夢の章は今の値段のまま）
+    // 額はキャッシュフロー表と同じ2030年の額（物価の上昇などで伸ばした額。ご家族の夢の章は入れた額のまま）
     const cf = bundleOf(req).proposal.result.table.filter((c) => c.object === id(1) && c.year === 2030).reduce((s, c) => s + c.amount, 0);
     expect(cf).toBeGreaterThan(6000000);
     expect(items).toContain(`★憧れの車（${(Math.round(cf / 1000) / 10).toLocaleString("ja-JP")}万円）`);

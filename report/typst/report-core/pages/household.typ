@@ -123,5 +123,5 @@
     align: (x, y) => if x == 0 or x == 4 { center + horizon } else if x == 3 { right + horizon } else { left + horizon },
     d.rows.map(r => (str(r.rank), r.name, r.when, if r.amount == none { text(fill: muted, "未定") } else { man-unit(r.amount) }, if r.included { "入れる" } else { text(fill: muted, "入れない") })).flatten(),
   )
-  note("金額は今の値段です。「計算」が「入れない」の夢は、キャッシュフロー表に入れていません。")
+  note("金額は入れた額のままです。「計算」が「入れない」の夢は、キャッシュフロー表に入れていません。")
 }
