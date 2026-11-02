@@ -49,6 +49,8 @@ export interface StagedSpec {
   flow: "in" | "out";
   /** 変化のまとまりを描く所（行の額の近く。GroupDef の placeIn） */
   place?: GroupDef["placeIn"];
+  /** 段を外した後に呼ぶ（推定の段を外したことを覚えるなど。0112） */
+  onRemoveStage?: (h: Household, id: string) => void;
 }
 
 const listAt = (o: Obj | undefined, path: readonly string[]): Obj[] => (getPath(o, path) as Obj[] | undefined) ?? [];
@@ -227,7 +229,12 @@ export function stagedGroups(wh: WorkingHousehold, spec: StagedSpec): GroupDef[]
       level: LEVEL,
       ...placeIn,
       fields,
-      actions: [removeAction(`${k}/remove`, "この変化を外す", LEVEL, (hh, w) => dropFrom(spec.find(hh, w), spec.stages.path, id))],
+      actions: [
+        removeAction(`${k}/remove`, "この変化を外す", LEVEL, (hh, w) => {
+          dropFrom(spec.find(hh, w), spec.stages.path, id);
+          spec.onRemoveStage?.(hh, id);
+        }),
+      ],
     };
   };
   const exceptGroup = (e: Obj): GroupDef => {

@@ -43,6 +43,7 @@ export const LATER_FIELD_ENTRIES: readonly ReadingEntry[] = [
   {"from":"field:housing/res/{object}/propertyTax/except/{id}/amount","until":"0.35","to":{"target":"object","item":"residence.propertyTax","at":["exceptions",{"id":1},"amount"]}},
   {"from":"field:housing/res/{object}/propertyTax/except/{id}/year","until":"0.35","to":{"target":"object","item":"residence.propertyTax","at":["exceptions",{"id":1},"year"]}},
   {"from":"field:housing/res/{object}/propertyTax/stage/{id}/amount","until":"0.35","to":{"target":"object","item":"residence.propertyTax","at":["stages",{"id":1},"amount"]}},
+  {"from":"field:housing/res/{object}/propertyTax/stage/{id}/ramp","until":"0.52","to":{"target":"object","item":"residence.propertyTax","at":["stages",{"id":1},"rampYears"]}},
   {"from":"field:housing/res/{object}/propertyTax/stage/{id}/ratio","until":"0.35","to":{"target":"object","item":"residence.propertyTax","at":["stages",{"id":1},"ratio"]}},
   {"from":"field:housing/res/{object}/renewalEvery","until":"0.35","to":{"target":"object","item":"residence.rent","at":["renewalEveryMonths"]}},
   {"from":"field:housing/res/{object}/rent/except/{id}/amount","until":"0.35","to":{"target":"object","item":"residence.rent","at":["exceptions",{"id":1},"amount"]}},

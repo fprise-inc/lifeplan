@@ -1256,6 +1256,8 @@
             "price": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
             "downPayment": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
             "costs": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "newBuild": { "description": "0052 の追記（2026-11-03）: 新築か中古か（住宅の購入の種類。表示と推定の元〔諸費用・住宅ローン控除の新築か中古か・固定資産税の目安〕だけ。計算には使わない。省略は選んでいない）", "type": "boolean" },
+            "longLife": { "description": "0112: 認定長期優良住宅か（固定資産税の新築の軽減の年数の推定の元だけ。住宅ローン控除の住宅の種類が認定住宅ならそちらを使う。計算には使わない。省略は違う）", "type": "boolean" },
             "gifts": {
               "description": "親・祖父母からの資金援助（受け取る構成員と額。贈与税は贈与の作業で扱う）",
               "type": "array",

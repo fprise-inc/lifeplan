@@ -58,8 +58,9 @@ export function ownAt(h: Household, ym: string): Residence | undefined {
 export function provisionalHousing(h: Household, moveIn: string, ym: string): DebtHousing {
   const r = ownAt(h, ym);
   const built = r?.valuation?.builtYear;
-  // 建った年が入居の前の年より前なら中古（既存住宅）。わからなければ新築とみなす
-  const newBuild = built === undefined || built >= Number(ym.slice(0, 4)) - 1;
+  // 住宅の購入の種類（新築か中古か）があればそれ（0052 の追記 2026-11-03）。無ければ、建った年が入居の前の年より前なら中古（既存住宅）。
+  // わからなければ新築とみなす
+  const newBuild = r?.purchase?.newBuild ?? (built === undefined || built >= Number(ym.slice(0, 4)) - 1);
   return {
     ...(r !== undefined ? { residence: r.id } : {}),
     moveIn,
@@ -80,6 +81,26 @@ export function purchaseLink(h: Household, d: Debt): { residence: Residence; exp
   const loans = (h.debts ?? []).filter((x) => isHomeLoan(x) && resolveTimepoint(h, x.start) === ym);
   return { residence: r, expected: r.purchase.price - (r.purchase.downPayment ?? 0), loans };
 }
+
+/**
+ * そのローンでつながる住宅の購入（控除の条件の住まいが購入の予定の家か、借入の年月が購入の月）。つながらなければ undefined。
+ * 購入の種類で新築か中古かを選んだ購入とつながるローンは、控除の「新築か中古か」を購入の種類から読む（0052 の追記 2026-11-03）
+ */
+export function purchaseOfLoan(h: Household, d: Debt): Residence | undefined {
+  if (!isHomeLoan(d)) return undefined;
+  const byId = (h.residences ?? []).find((r) => r.id === d.housing?.residence && r.kind === "own" && r.purchase !== undefined);
+  return byId ?? purchaseLink(h, d)?.residence;
+}
+
+/** 購入の種類から控除の新築か中古かを読むローンか（つながる購入で新築か中古かを選んである） */
+export const newBuildFromPurchase = (h: Household, d: Debt): boolean => purchaseOfLoan(h, d)?.purchase?.newBuild !== undefined;
+
+/** 購入の種類の新築か中古かと、控除の条件の新築か中古かが食い違うローンがあるか */
+const newBuildOff = (h: Household): boolean =>
+  (h.debts ?? []).some((d) => {
+    const nb = purchaseOfLoan(h, d)?.purchase?.newBuild;
+    return d.housing !== undefined && nb !== undefined && d.housing.newBuild !== nb;
+  });
 
 /** 推定の借入額（購入の予定の価格−頭金から、同じ購入のほかのローンの借入額を引いた額）。0円以下・つながらなければ null */
 export function estimatedPrincipal(h: Household, d: Debt): number | null {
@@ -132,7 +153,7 @@ export const fromBalance = (wh: WorkingHousehold, id: string): boolean => wh.loa
 export function withProvisionalHousing(wh: WorkingHousehold, id: () => string = newId): WorkingHousehold {
   const h0 = wh.request.input.household;
   const marked = Object.keys(wh.assumed).some((k) => /^housing\/debt\/[^/]+\/(credit|principal)$/.test(k));
-  if (!marked && !(h0.debts ?? []).some((d) => isHomeLoan(d) && d.housing === undefined && needsCredit(h0, d) && !fromBalance(wh, d.id))) return wh;
+  if (!marked && !newBuildOff(h0) && !(h0.debts ?? []).some((d) => isHomeLoan(d) && d.housing === undefined && needsCredit(h0, d) && !fromBalance(wh, d.id))) return wh;
   const request = structuredClone(wh.request);
   const h = request.input.household;
   const assumed = { ...wh.assumed };
@@ -158,6 +179,9 @@ export function withProvisionalHousing(wh: WorkingHousehold, id: () => string = 
       else ev.at = { at: ym };
       d.housing = provisionalHousing(h, d.housing.moveIn, ym);
     }
+    // 購入の種類で新築か中古かを選んだ購入とつながるローンは、控除の条件の新築か中古かを種類に合わせる（FP が確定にした条件でも。欄は出さない）
+    const nb = purchaseOfLoan(h, d)?.purchase?.newBuild;
+    if (d.housing !== undefined && nb !== undefined && d.housing.newBuild !== nb) d.housing = { ...d.housing, newBuild: nb };
     if (assumed[principalKey(d.id)] === PRINCIPAL_ESTIMATE) {
       const p = estimatedPrincipal(h, d);
       if (p !== null) d.principal = p;

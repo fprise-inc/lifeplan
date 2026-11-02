@@ -88,8 +88,8 @@ describe("住宅購入の予定は「住宅の購入」の1件", () => {
     expect(gs.filter((g) => g.title === "住宅の購入")).toHaveLength(1);
     expect(gs.some((g) => g.key === `${k}/purchase`)).toBe(false);
     expect(gs.some((g) => (g.title ?? "").startsWith("住まい 2"))).toBe(false);
-    // 購入の欄は頭に（購入の時期・物件の価格・頭金・諸費用）。諸費用は標準
-    expect(head.fields.slice(0, 4).map((f) => f.key.slice(k.length + 1))).toEqual(["purchase/at", "purchase/price", "purchase/down", "purchase/costs"]);
+    // 購入の欄は頭に（購入の種類・購入の時期・物件の価格・頭金・諸費用。0052 の追記 2026-11-03）。諸費用は標準
+    expect(head.fields.slice(0, 5).map((f) => f.key.slice(k.length + 1))).toEqual(["purchase/type", "purchase/at", "purchase/price", "purchase/down", "purchase/costs"]);
     expect(head.fields.find((f) => f.key.endsWith("/purchase/costs"))?.level).toBe("simple");
     // 標準でも「▸ 続きを見る」を開かずに諸費用が見える
     const html = panel(wh, "simple");

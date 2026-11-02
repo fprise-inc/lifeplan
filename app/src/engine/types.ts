@@ -518,7 +518,8 @@ export interface Residence {
   /** 0052: 建て方（持ち家。表示と推定の元だけ） */
   style?: "house" | "condo";
   rent?: { monthly: Box<number>; stages?: AmountStage[]; exceptions?: AmountException[]; [key: string]: unknown };
-  purchase?: { at: Timepoint; price: number; downPayment?: number; costs?: number; gifts?: Gift[] };
+  /** newBuild: 新築か中古か（住宅の購入の種類。0052 の追記 2026-11-03）、longLife: 認定長期優良住宅か（固定資産税の推定。0112）。どちらも表示と推定の元だけ */
+  purchase?: { at: Timepoint; price: number; downPayment?: number; costs?: number; gifts?: Gift[]; newBuild?: boolean; longLife?: boolean };
   propertyTax?: { annual: Box<number>; growth?: string } & Staged;
   maintenance?: { monthly: Box<number>; growth?: string } & Staged;
   ownership?: { member: string; share: string }[];
