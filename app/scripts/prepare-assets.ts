@@ -4,6 +4,7 @@
 //    入力項目の場所と読み替え表（registry/items.yaml・readings.yaml）から src/generated/readings.ts を作る（0035 の9）
 // 3. 持ち帰り用のレポートの画面の部品を1つの JS・CSS にまとめる（scripts/build-takeaway.ts）
 // 4. 配布元の設定（config/distribution.toml）から、画面が使う値（要望・不具合のフォームの URL のひな形。0087）を src/generated/distribution.ts に写す
+// 5. 画面の定義から、説明の一覧（書き換えられる公式の文。0016 の 2026-11-01・2026-11-02 の追記）を src/generated/texts-catalog.json に作る（本体が埋め込む）
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse as parseToml } from "smol-toml";
@@ -120,3 +121,6 @@ if (!existsSync(distTarget) || readFileSync(distTarget, "utf8") !== distText) wr
 
 // 3. 持ち帰り用のレポート（0030）の画面の部品（public/takeaway/viewer.js・viewer.css）。中身が変わっていなければ作り直さない
 await (await import("./build-takeaway.ts")).buildTakeaway();
+
+// 5. 説明の一覧（画面の定義を読むので、生成した名前の表を書いた後に読み込む）
+(await import("./textsCatalog.ts")).writeTextsCatalog();

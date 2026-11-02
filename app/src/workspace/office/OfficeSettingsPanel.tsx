@@ -18,6 +18,8 @@ import { ASSUMPTION_LABELS, ASSUMPTION_RANGES, DEFAULT_OFFICE_SETTINGS, FEE_MAX,
 import { revealAdded } from "../../presentation/revealAdded.ts";
 import { LivingLayoutEditor } from "./LivingLayoutEditor.tsx";
 import { withLivingDraft } from "./settings.ts";
+import { CustomTextsSection } from "./CustomTextsSection.tsx";
+import type { CustomHost, CustomTextsStatus } from "../../engine/host.ts";
 import { candidateChange, checkText, codeFor, enabledLine, expiredText, expiresLabel, FEATURE_LABELS, featureErrorText, featureOn, NO_FEATURES, NOTICE_FADE_TEXT, noticeCodes, renewText, type FeatureId, type FeatureStatus } from "./featureCodes.ts";
 
 export interface OfficeSettingsPanelProps {
@@ -39,6 +41,8 @@ export interface OfficeSettingsPanelProps {
   onCheckCodes?: () => Promise<FeatureStatus>;
   /** AIから届いたコードの候補を入れる（accept）か捨てる（0015 の追記の2段目） */
   onDecideCandidate?: (id: string, accept: boolean) => Promise<FeatureStatus>;
+  /** カスタム層の説明の文（0016 の追記 2026-11-02）。本体が確かめた状態と命令。押した結果はすぐ効く（保存は要らない） */
+  custom?: { host: CustomHost; status: CustomTextsStatus | null; onStatus: (st: CustomTextsStatus) => void };
 }
 
 /** 「1.5」（%）→ "0.015"。空は null。読めない・範囲の外は undefined（整数の部分は3桁まで読む。評価の割合の 100% を入れられるように） */
@@ -97,7 +101,7 @@ const settingTexts = (v: OfficeSettings): Record<string, string> => ({
 
 const STANDARD_PCT: Readonly<Record<OfficeAssumption, string>> = { inflation: "1", wageGrowth: "1", investmentReturn: "1", pensionMacroSlide: "0.4" };
 
-export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onDismissNotice, onCheckCodes, onDecideCandidate }: OfficeSettingsPanelProps) {
+export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onDismissNotice, onCheckCodes, onDecideCandidate, custom }: OfficeSettingsPanelProps) {
   const [s, setS] = useState<OfficeSettings>(value);
   // 機能を有効にするコード（0110）: いちばん下の小さなリンクから開く欄
   const [codeOpen, setCodeOpen] = useState(false);
@@ -661,6 +665,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
             閉じる
           </button>
         </div>
+        {custom !== undefined ? <CustomTextsSection host={custom.host} status={custom.status} onStatus={custom.onStatus} /> : null}
         {onAddCode !== undefined ? (
         <div class="os-code" data-feature-code-area>
           {(features.candidates ?? []).map((c) => (

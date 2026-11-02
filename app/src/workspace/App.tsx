@@ -49,6 +49,9 @@ import { addItem, saveItem } from "./input/items.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
 import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart, publishOfficeSettings, readOfficeSettings, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
 import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
+import { NO_OFFICE_TEXTS, OfficeTextsContext, officeTextsFrom } from "./office/customTexts.ts";
+import { customCenterNotice } from "./office/customNotice.ts";
+import type { CustomTextsStatus } from "../engine/host.ts";
 import { combinedBsView, withCombinedField } from "./combined/combinedView.ts";
 import { hasExecutive } from "./input/officer.ts";
 import { isEmptyCombinedInput, type CombinedBsInput } from "../../../report/src/index.ts";
@@ -489,6 +492,13 @@ export function App() {
     featureStatusRef.current = st;
     setFeatureStatus(st);
   };
+  /**
+   * カスタム層の説明の文（0016 の追記 2026-11-02）: 本体が確かめた状態。画面に当てるのは、FP が承認した中身から本体が作った文だけ
+   * （AI がカスタム層のファイルを書いても、承認するまでここには入らない）
+   */
+  const [customTexts, setCustomTexts] = useState<CustomTextsStatus | null>(null);
+  const effectiveKey = JSON.stringify(customTexts?.effective ?? []);
+  const officeTexts = useMemo(() => (customTexts === null || customTexts.effective.length === 0 ? NO_OFFICE_TEXTS : officeTextsFrom(customTexts.effective)), [effectiveKey]);
   // お知らせの一覧（0087）: 配信元のお知らせ（本体が確かめた一覧）と、手元の既読の印・受付番号（この PC のアプリのデータ。何も送り返さない）
   const [feedText, setFeedText] = useState<string | null>(null);
   const [noticeLocal, setNoticeLocal] = useState<LocalState>(EMPTY_LOCAL);
@@ -1543,6 +1553,15 @@ export function App() {
     const t = setInterval(() => void host.office.featureStatus().then(putFeatureStatus, () => undefined), FEATURE_POLL_MS);
     return () => clearInterval(t);
   }, [host, storeStatus?.state, codeCandidates]);
+  // カスタム層の説明の文: 起動したとき・事務所の既定値の画面を開いたときと、1分ごとに読み直す（アプリの外でファイルが変わったら承認待ちを知らせる）
+  useEffect(() => {
+    const custom = host?.custom;
+    if (custom === undefined || storeStatus?.state !== "ready") return;
+    const load = () => void custom.status().then(setCustomTexts, () => undefined);
+    load();
+    const t = setInterval(load, FEATURE_POLL_MS);
+    return () => clearInterval(t);
+  }, [host, storeStatus?.state, officeSettingsOpen]);
   // 「○分前から」（開いている人の表示）は描くときの時刻で書くので、出している間は AI の読み直しと同じ間隔で描き直す
   // （AI の状態は中身が変わらなければ置き直さず、画面全体を描き直さないので、それに頼らない）
   const [, setSinceClock] = useState(0);
@@ -1822,12 +1841,12 @@ export function App() {
   const slotResults = slots.map((id) => resultOf(id));
   // 計算の知らせ（0064）: 帯の全部のプランの結果の知らせを、FP 向けの行にまとめる（結果のタブ）。現状の分は確かめの一覧にも出す
   const calcNotices = useMemo(
-    () => (opened === null ? [] : noticeRows(opened.wh, slots.map((id, i) => ({ label: planLabel(letterOf(id)), result: slotResults[i] ?? null, ...(id === work.sel && selReq !== null ? { request: selReq } : {}) })))),
-    [opened, selReq, work.sel, ...slots, ...slotResults],
+    () => (opened === null ? [] : noticeRows(opened.wh, slots.map((id, i) => ({ label: planLabel(letterOf(id)), result: slotResults[i] ?? null, ...(id === work.sel && selReq !== null ? { request: selReq } : {}) })), officeTexts)),
+    [opened, selReq, work.sel, officeTexts, ...slots, ...slotResults],
   );
   // 気づき（0074）の相続税の目安: 結果のタブを見ている間だけ、選んでいるプランの要求で計算する
   const insightInheritance = useInheritanceFor(selReq, tab === "main", computeOne);
-  const currentNotices = useMemo(() => (opened === null ? [] : noticeRows(opened.wh, [{ label: planLabel(letterOf(CURRENT)), result: resultOf(CURRENT) }])), [opened, resultOf(CURRENT)]);
+  const currentNotices = useMemo(() => (opened === null ? [] : noticeRows(opened.wh, [{ label: planLabel(letterOf(CURRENT)), result: resultOf(CURRENT) }], officeTexts)), [opened, officeTexts, resultOf(CURRENT)]);
   const openCard = (card: string) => {
     setTab("input");
     setCardOpen((c) => ({ id: card, n: (c?.n ?? 0) + 1 }));
@@ -2204,6 +2223,11 @@ export function App() {
         read: noticeLocal.read[key] !== undefined,
       };
     }),
+    ...customCenterNotice(customTexts).map((n): CenterItem => ({
+      ...n,
+      action: { label: "事務所の既定値", run: () => setOfficeSettingsOpen(true) },
+      read: noticeLocal.read[n.key] !== undefined,
+    })),
     ...visibleFeed(parseFeed(feedText), { appVersion: APP_VERSION, receipts: noticeLocal.receipts }).map((n): CenterItem => {
       const target = n.screen;
       return {
@@ -2243,6 +2267,7 @@ export function App() {
   const save = saveText(savingStored, saveState, storeMessage, presence !== null);
   const basis = model === null ? null : { members: model.members.map((m) => `${m.label} ${m.age}歳`).join("・"), asOf: model.asOf };
   return (
+    <OfficeTextsContext.Provider value={officeTexts}>
     <div class={`app${drawer ? " has-drawer" : ""}`}>
       <TopBar
         tabs={shownTabs}
@@ -2945,6 +2970,7 @@ export function App() {
             putOfficeSettings(v);
           }}
           onClose={() => setOfficeSettingsOpen(false)}
+          {...(host.custom !== undefined ? { custom: { host: host.custom, status: customTexts, onStatus: setCustomTexts } } : {})}
           features={featureStatus}
           onAddCode={async (code) => {
             const before = featureStatusRef.current;
@@ -3096,6 +3122,7 @@ export function App() {
         </span>
       ) : null}
     </div>
+    </OfficeTextsContext.Provider>
   );
 }
 

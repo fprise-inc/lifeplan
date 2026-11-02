@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { DictionaryEntry, LearnedFormat } from "../../../statement/src/index.ts";
 import { forEngine } from "./moneyRows.ts";
 import { isEngineError, type EngineError, type EngineRequest, type FullResult, type PreviewResult } from "./types.ts";
+import type { OfficeTextEntry, TextOp } from "../workspace/office/customTexts.ts";
 
 /** 画面側のエンジンのセッション（engine/src/engine/run.ts の Session。JSON の文字列で受け渡す） */
 export interface WebSession {
@@ -602,6 +603,89 @@ export interface NoticesHost {
   copy(code: string): Promise<boolean>;
 }
 
+/** カスタム層（0016 の3・4・6。2026-11-02 の追記）の説明の文の差し替え: 本体が確かめた状態。パスはホームを ~ にした表示だけ */
+export interface CustomIssue {
+  /** 何行目か（0 から。ファイル全体のときは null） */
+  row: number | null;
+  id: string | null;
+  code: string;
+  /** FP 向けの文 */
+  message: string;
+}
+export interface CustomRowText {
+  do: TextOp;
+  text: string | null;
+}
+/** 承認の画面の1行（公式の文／今の事務所の文／新しい文） */
+export interface CustomRowDiff {
+  id: string;
+  where: string;
+  audience: string | null;
+  official: string | null;
+  current: CustomRowText | null;
+  next: CustomRowText | null;
+  changed: boolean;
+  /** 説明の一覧に無い（使われていない行） */
+  unused: boolean;
+}
+/** アプリの更新で公式の文が変わった行 */
+export interface CustomUpdateRow {
+  id: string;
+  nowId: string;
+  where: string;
+  /** 承認したときの公式の文（分かるときだけ） */
+  before: string | null;
+  official: string;
+  office: CustomRowText;
+  /** 確かめるまで事務所の文を止めている */
+  stopped: boolean;
+  reason: "meaning" | "vars" | "op" | null;
+}
+export interface CustomTextsStatus {
+  /** カスタム層の場所の表示（ホームは ~） */
+  dir: string;
+  isDefaultDir: boolean;
+  folderExists: boolean;
+  file: "none" | "present" | "unreadable";
+  /** 今のファイルの指紋（無ければ "none"）。承認・承認しないときに渡す */
+  fingerprint: string;
+  state: "none" | "approved" | "pending" | "declined";
+  errors: CustomIssue[];
+  warnings: CustomIssue[];
+  unused: string[];
+  approved: { fingerprint: string; approvedAt: number } | null;
+  /** 承認の台帳を確かめられなかった（承認を無効にした） */
+  ledgerReset: boolean;
+  /** 承認した中身が保存庫に無い・指紋が合わない */
+  approvedMissing: boolean;
+  rows: CustomRowDiff[];
+  updates: CustomUpdateRow[];
+  /** 画面に当てる事務所の文（承認した中身から作った物だけ） */
+  effective: OfficeTextEntry[];
+  /** 書き換えられる文の数 */
+  catalogSize: number;
+}
+/** カスタム層の命令（読み書き・検査・指紋・承認は本体。画面からパスは渡さない） */
+export interface CustomHost {
+  status(): Promise<CustomTextsStatus>;
+  /** 承認待ちの中身を承認する（fingerprint は見せた状態の指紋。その後に変わっていたら E_CUSTOM_CHANGED） */
+  approve(fingerprint: string): Promise<CustomTextsStatus>;
+  /** 承認しない（前に承認した文のまま） */
+  decline(fingerprint: string): Promise<CustomTextsStatus>;
+  /** 事務所の文を全部やめて公式の文に戻す（ファイルは消さない） */
+  revert(): Promise<CustomTextsStatus>;
+  /** 更新で公式の文が変わった行: keep なら「このまま使う」、false なら行を外して公式の文に戻す（どちらもその場で承認） */
+  rows(ids: string[], keep: boolean): Promise<CustomTextsStatus>;
+  /** 確かめられなかった台帳を作り直す */
+  resetLedger(): Promise<CustomTextsStatus>;
+  /** カスタム層の場所を本体のダイアログで選ぶ（選ばなかったら null） */
+  chooseDir(): Promise<CustomTextsStatus | null>;
+  /** 場所を既定に戻す */
+  resetDir(): Promise<CustomTextsStatus>;
+  /** フォルダと settings/ を作る */
+  createDir(): Promise<CustomTextsStatus>;
+}
+
 export interface HostApi {
   readonly kind: "tauri" | "browser-dev";
   /** 制度データ・マスタのパック（JSON の配列の文字列） */
@@ -620,6 +704,8 @@ export interface HostApi {
   office: OfficeHost;
   statements: StatementHost;
   notices: NoticesHost;
+  /** カスタム層（無い画面〔テストの代わりの本体など〕では、事務所の文を当てない） */
+  custom?: CustomHost;
 }
 
 const bytesOf = (b: ArrayBuffer | Uint8Array | number[]): Uint8Array => (b instanceof Uint8Array ? b : b instanceof ArrayBuffer ? new Uint8Array(b) : Uint8Array.from(b));
@@ -627,6 +713,17 @@ const bytesOf = (b: ArrayBuffer | Uint8Array | number[]): Uint8Array => (b insta
 export function tauriHost(): HostApi {
   return {
     kind: "tauri",
+    custom: {
+      status: () => invoke<CustomTextsStatus>("custom_texts_status"),
+      approve: (fingerprint) => invoke<CustomTextsStatus>("custom_texts_approve", { fingerprint }),
+      decline: (fingerprint) => invoke<CustomTextsStatus>("custom_texts_decline", { fingerprint }),
+      revert: () => invoke<CustomTextsStatus>("custom_texts_revert"),
+      rows: (ids, keep) => invoke<CustomTextsStatus>("custom_texts_rows", { ids, keep }),
+      resetLedger: () => invoke<CustomTextsStatus>("custom_ledger_reset"),
+      chooseDir: () => invoke<CustomTextsStatus | null>("custom_dir_choose"),
+      resetDir: () => invoke<CustomTextsStatus>("custom_dir_reset"),
+      createDir: () => invoke<CustomTextsStatus>("custom_dir_create"),
+    },
     packs: async () => JSON.stringify(await invoke<unknown[]>("engine_packs")),
     listHouseholds: () => invoke<string[]>("list_households"),
     openHousehold: (id) => invoke<EngineRequest>("open_household", { id }),
@@ -775,6 +872,7 @@ async function devJson<T>(res: Response): Promise<T> {
 
 const devAi = (op: string, args: Record<string, unknown> = {}) => fetch(`/__dev/ai/${op}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(args) });
 const devOffice = (op: string, args: Record<string, unknown> = {}) => fetch(`/__dev/office/${op}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(args) });
+const devCustom = (op: string, args: Record<string, unknown> = {}) => fetch(`/__dev/custom/${op}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(args) });
 const devNotices = (op: string, args: Record<string, unknown> = {}) => fetch(`/__dev/notices/${op}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(args) });
 const devStore = (op: string, args: Record<string, string> = {}) => fetch(`/__dev/store/${op}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(args) });
 
@@ -799,6 +897,18 @@ export function devBrowserHost(engine: WebEngine): HostApi {
   let queue: Promise<unknown> = Promise.resolve();
   return {
     kind: "browser-dev",
+    // カスタム層: 開発用のサーバーが FINANCIA_DEV_CUSTOM_DIR のフォルダを読む（承認はメモリの中だけ。検査は形と一覧の id だけの簡単な物）
+    custom: {
+      status: async () => devJson<CustomTextsStatus>(await devCustom("status")),
+      approve: async (fingerprint) => devJson<CustomTextsStatus>(await devCustom("approve", { fingerprint })),
+      decline: async (fingerprint) => devJson<CustomTextsStatus>(await devCustom("decline", { fingerprint })),
+      revert: async () => devJson<CustomTextsStatus>(await devCustom("revert")),
+      rows: async (ids, keep) => devJson<CustomTextsStatus>(await devCustom("rows", { ids, keep })),
+      resetLedger: async () => devJson<CustomTextsStatus>(await devCustom("resetLedger")),
+      chooseDir: async () => devJson<CustomTextsStatus | null>(await devCustom("chooseDir")),
+      resetDir: async () => devJson<CustomTextsStatus>(await devCustom("resetDir")),
+      createDir: async () => devJson<CustomTextsStatus>(await devCustom("createDir")),
+    },
     packs,
     listHouseholds: async () => (await fetch("/__dev/households")).json() as Promise<string[]>,
     openHousehold: async (id) => (await fetch(`/__dev/households/${encodeURIComponent(id)}`)).json() as Promise<EngineRequest>,
