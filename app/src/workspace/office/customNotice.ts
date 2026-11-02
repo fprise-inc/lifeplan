@@ -1,6 +1,7 @@
 // カスタム層の説明の文（0016 の追記 2026-11-02）の、お知らせの一覧（0087）の事務所の知らせ。今の状態の知らせなので、決めると一覧から消える
 import type { CustomTextsStatus } from "../../engine/host.ts";
 import type { CenterItem } from "../notices/center.ts";
+import { officialUpdates, type OfficeEstimates } from "./estimates.ts";
 
 export type CustomCenterNotice = Omit<CenterItem, "action" | "read">;
 
@@ -33,4 +34,17 @@ function otherKindNotice(st: CustomTextsStatus): CustomCenterNotice[] {
     out.push({ ...base, key: `office:${k.key}:updates:${st.approved?.fingerprint ?? ""}:${st.updates.length}`, title: `アプリの更新で、事務所の${k.what}を使っている公式の名前が${st.updates.length}か所変わりました`, body: "事務所の既定値の画面で、前の公式の名前・新しい公式の名前・事務所の名前を並べて確かめられます。ふつうは事務所の名前をそのまま使い続けます。" });
   }
   return out;
+}
+
+/**
+ * 事務所の推定の値（0111）のうち、公式の値が新しくなった物の知らせ（今の状態の知らせ。「このまま」か「公式に戻す」を選ぶと一覧から消える）。
+ * 鍵に今の公式の値の版を入れる（もう一度新しくなったら、また未読で出る）
+ */
+export function estimateCenterNotice(e: OfficeEstimates | undefined): CustomCenterNotice[] {
+  return officialUpdates(e).map((u) => ({
+    ...base,
+    key: `office:estimates:update:${u.id}:${String(u.rev)}`,
+    title: u.broken ? `公式の統計の表が変わり、事務所の値を使えなくなりました（${u.name}）` : `公式の統計の値が新しくなりました（${u.name}）`,
+    body: `前 ${u.change}。${u.broken ? "今は公式の値で計算しています。" : "今は事務所の値を使い続けています。"}事務所の既定値の画面の「推定の値（統計）」で、${u.broken ? "公式に戻すか値を入れ直してください" : "「このまま」か「公式に戻す」を選んでください"}。`,
+  }));
 }

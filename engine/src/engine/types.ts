@@ -1107,11 +1107,16 @@ export interface GoalInput {
   readonly education?: EducationGoalInput;
 }
 
+/** 0111: 事務所の推定の値の1つ（定数は数か10進の文字、段階表は段の並び） */
+export type EstimateValue = number | string | readonly { readonly upTo: number | null; readonly amount?: number; readonly rate?: string }[];
+
 export interface EngineInput {
   readonly baseMonth: string;
   readonly endYear: number;
   readonly calcConventions: CalcConventions;
   readonly dataSet?: Readonly<Record<string, string>>;
+  /** 0111: 事務所の推定の値（マスタデータの値ID〔条件ごとの行は「<値ID>.<条件の値>」〕→ 公式の値と同じ形の値）。制度データの値は置き換えない */
+  readonly estimateValues?: Readonly<Record<string, EstimateValue>>;
   readonly household: HouseholdInput;
   readonly assumptions: {
     readonly investmentReturn: YearSeries;

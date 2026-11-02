@@ -20,6 +20,7 @@ import { applyOfficeName, applyOfficeText, arrangeFields, officeLabel, OfficeFie
 import { estimateTextId, estimateValueText, ESTIMATE_OFFICIAL, fieldTextId } from "./textIds.ts";
 import { fillName } from "../../../../report/src/rowNames.ts";
 import { convertWhen, modeOf, parseWhen, readWhen, readYearMonth, showWhen, strictShown, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
+import { isOfficeBasisText } from "../../../../hearing/src/statistics.ts";
 
 export const visible = (level: Level, l: Level) => level === "detail" || l === "simple";
 
@@ -109,8 +110,9 @@ export function StateMark({ status, basis, text, label, fieldKey, doc, estimate 
   const texts = useContext(OfficeTextsContext);
   const cls = `badge ${STATUS_CLASS[status]}`;
   const data: Record<string, string> = { "data-state": status, ...(fieldKey !== undefined ? { "data-state-of": fieldKey } : {}) };
-  // 推定の根拠の文の事務所の文（説明の一覧の estimate:…。消せない。公式の文は {basis} に入る。0016 の 2026-11-02 の追記）
-  const est = status === "estimated" && basis !== null && estimate !== undefined && texts.size > 0 ? officeEstimate(texts.get(estimate.id ?? ""), basis, estimate.value) : null;
+  // 推定の根拠の文の事務所の文（説明の一覧の estimate:…。消せない。公式の文は {basis} に入る。0016 の 2026-11-02 の追記）。
+  // 事務所の推定の値（事務所の既定値の画面で変えた値。0111）から作った推定は、その根拠の文（事務所の文と変えた年月）をそのまま出し、カスタム層の文を当てない
+  const est = status === "estimated" && basis !== null && estimate !== undefined && texts.size > 0 && !isOfficeBasisText(basis) ? officeEstimate(texts.get(estimate.id ?? ""), basis, estimate.value) : null;
   const body =
     status === "estimated" && basis !== null
       ? `推定: ${est?.text ?? basis}`

@@ -25,6 +25,8 @@ export interface MasterValue {
   /** 原本と照らし合わせた行か（reviewed）。false は原本での確認待ち */
   readonly reviewed: boolean;
   readonly retrievedAt: string | null;
+  /** 事務所の推定の値（0111）に置き換えた値か（題名は事務所の根拠の文） */
+  readonly office?: true;
 }
 
 /** 制度データの適用期間ごとの行（to が null は次の行の前日まで） */
@@ -37,8 +39,65 @@ export interface DatedValue {
   readonly value: number | string | readonly BracketStep[] | readonly GradeRow[];
 }
 
-export function masterValue(id: string): MasterValue | null {
+// ---- 事務所の推定の値（0111）----
+// 事務所の既定値の画面で変えたマスタデータの値。画面（app）が事務所の既定値を読み込んだとき・保存したときに入れる。
+// 推定の目安（estimates.ts など）はここを通して読むので、入力の画面とヒアリングシートの取り込みの両方に効く。
+// 計算エンジンが計算のときに引く値（介護の目安・学校の費用の目安など）には、画面が計算の要求の estimateValues で同じ値を渡す
+
+/** 事務所の値（公式の値と同じ形）と、推定の根拠の文（事務所の文か自動の文に、変えた年月を付けた文） */
+export interface OfficeOverride {
+  readonly value: MasterValue["value"];
+  readonly basis: string;
+}
+
+let office: Readonly<Record<string, OfficeOverride>> = {};
+let noFill: ReadonlySet<string> = new Set();
+
+/** 事務所の推定の値と、推定で埋めない入力欄（入力項目ID。fillsByEstimate）を入れる。知らない値ID は捨てる */
+export function setOfficeEstimates(values: Readonly<Record<string, OfficeOverride>>, skip: Iterable<string> = []): void {
+  office = Object.fromEntries(Object.entries(values).filter(([k]) => MASTER_VALUES[k] !== undefined));
+  noFill = new Set(skip);
+}
+
+/** 今の事務所の推定の値（値ID → 事務所の値と根拠の文） */
+export const officeEstimates = (): Readonly<Record<string, OfficeOverride>> => office;
+
+/** 今の推定で埋めない入力欄 */
+export const noFillTargets = (): ReadonlySet<string> => noFill;
+
+/** 事務所の推定の値を一時的に置き換えて run を呼ぶ（事務所の既定値の画面の「代表の世帯で差を見る」。終わると元に戻す） */
+export function withOfficeEstimates<T>(values: Readonly<Record<string, OfficeOverride>>, skip: Iterable<string>, run: () => T): T {
+  const was = { office, noFill };
+  setOfficeEstimates(values, skip);
+  try {
+    return run();
+  } finally {
+    office = was.office;
+    noFill = was.noFill;
+  }
+}
+
+/** その入力欄を推定で埋めるか（事務所の既定値で「推定で埋めない」にした欄は false。空欄のまま「入力が足りない」の扱い） */
+export const fillsByEstimate = (target: string): boolean => !noFill.has(target);
+
+/** 根拠の文が事務所の推定の値の根拠の文を含むか（カスタム層の推定の根拠の書き換えより、事務所の値の根拠の文を優先する。0111） */
+export const isOfficeBasisText = (text: string | null | undefined): boolean =>
+  typeof text === "string" && text !== "" && Object.values(office).some((o) => text.includes(o.basis));
+
+/** 公式の値（事務所の推定の値を当てない、写しのままの値） */
+export function officialMasterValue(id: string): MasterValue | null {
   return MASTER_VALUES[id] ?? null;
+}
+
+/** 写しにあるマスタデータの値ID（事務所の既定値の画面の一覧） */
+export const masterIds = (): readonly string[] => Object.keys(MASTER_VALUES);
+
+/** マスタデータの値（事務所の推定の値があれば、その値。題名は事務所の根拠の文） */
+export function masterValue(id: string): MasterValue | null {
+  const m = MASTER_VALUES[id];
+  if (m === undefined) return null;
+  const o = office[id];
+  return o === undefined ? m : { ...m, value: o.value, title: o.basis, reviewed: true, office: true };
 }
 
 /** マスタデータの額（定数）。無い・額でないときは null */

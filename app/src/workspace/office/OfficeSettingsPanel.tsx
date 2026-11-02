@@ -19,6 +19,10 @@ import { revealAdded } from "../../presentation/revealAdded.ts";
 import { LivingLayoutEditor } from "./LivingLayoutEditor.tsx";
 import { withLivingDraft } from "./settings.ts";
 import { CustomTextsSection } from "./CustomTextsSection.tsx";
+import { EstimatesSection } from "./EstimatesSection.tsx";
+import { EMPTY_ESTIMATES, type OfficeEstimates } from "./estimates.ts";
+import type { PreviewRow } from "./estimatePreview.ts";
+import { withEstimates } from "./settings.ts";
 import type { CustomHost, CustomTextsStatus } from "../../engine/host.ts";
 import { candidateChange, checkText, codeFor, enabledLine, expiredText, expiresLabel, FEATURE_LABELS, featureErrorText, featureOn, NO_FEATURES, NOTICE_FADE_TEXT, noticeCodes, renewText, type FeatureId, type FeatureStatus } from "./featureCodes.ts";
 
@@ -46,6 +50,10 @@ export interface OfficeSettingsPanelProps {
    * terms・fields は無ければ区画を出さない
    */
   custom?: { host: CustomHost; status: CustomTextsStatus | null; onStatus: (st: CustomTextsStatus) => void; terms?: CustomTextsStatus | null; fields?: CustomTextsStatus | null; onKindStatus?: (st: CustomTextsStatus) => void };
+  /** 事務所の推定の値（0111）を保存する（すぐ事務所データへ。パネルの「保存」は要らない）。無ければ区画を出さない */
+  onEstimates?: (next: OfficeEstimates) => Promise<void>;
+  /** 代表の世帯で、事務所の推定の値を変えたときの主な結果の差を見る */
+  previewEstimates?: (before: OfficeEstimates, after: OfficeEstimates) => Promise<PreviewRow[]>;
 }
 
 /** 「1.5」（%）→ "0.015"。空は null。読めない・範囲の外は undefined（整数の部分は3桁まで読む。評価の割合の 100% を入れられるように） */
@@ -104,8 +112,11 @@ const settingTexts = (v: OfficeSettings): Record<string, string> => ({
 
 const STANDARD_PCT: Readonly<Record<OfficeAssumption, string>> = { inflation: "1", wageGrowth: "1", investmentReturn: "1", pensionMacroSlide: "0.4" };
 
-export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onDismissNotice, onCheckCodes, onDecideCandidate, custom }: OfficeSettingsPanelProps) {
+export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onDismissNotice, onCheckCodes, onDecideCandidate, custom, onEstimates, previewEstimates }: OfficeSettingsPanelProps) {
   const [s, setS] = useState<OfficeSettings>(value);
+  // 事務所の推定の値（0111）: 区画の中で押すとすぐ保存する。パネルの「保存」・「全部を既定に戻す」では変えない（保存のときは今の値を持ち越す）
+  const [est, setEst] = useState<OfficeEstimates>(value.estimates ?? EMPTY_ESTIMATES);
+  useEffect(() => setEst(value.estimates ?? EMPTY_ESTIMATES), [value.estimates]);
   // 機能を有効にするコード（0110）: いちばん下の小さなリンクから開く欄
   const [codeOpen, setCodeOpen] = useState(false);
   const [codeText, setCodeText] = useState("");
@@ -269,7 +280,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
     }
     const ratio = pctToRate(texts.realEstateRatio ?? "", 0, 100);
     const sameLayout = JSON.stringify(layout) === JSON.stringify(DEFAULT_LAYOUT);
-    const next: OfficeSettings = { ...s, layout: sameLayout ? null : layout, assumptions, realEstateRatio: typeof ratio === "string" ? ratio : null, fee: feeTable ?? s.fee, protection: protNext ?? {}, changedOn: today() };
+    const next: OfficeSettings = withEstimates({ ...s, layout: sameLayout ? null : layout, assumptions, realEstateRatio: typeof ratio === "string" ? ratio : null, fee: feeTable ?? s.fee, protection: protNext ?? {}, changedOn: today() }, est);
     setBusy(true);
     setMsg(null);
     try {
@@ -668,6 +679,17 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
             閉じる
           </button>
         </div>
+        {onEstimates !== undefined ? (
+          <EstimatesSection
+            value={est}
+            onChange={async (n) => {
+              await onEstimates(n);
+              setEst(n);
+            }}
+            {...(previewEstimates !== undefined ? { preview: previewEstimates } : {})}
+            today={today}
+          />
+        ) : null}
         {custom !== undefined ? <CustomTextsSection host={custom.host} status={custom.status} onStatus={custom.onStatus} /> : null}
         {custom !== undefined && custom.terms !== undefined ? <CustomTextsSection kind="terms" host={custom.host} status={custom.terms} onStatus={custom.onKindStatus ?? custom.onStatus} /> : null}
         {custom !== undefined && custom.fields !== undefined ? <CustomTextsSection kind="fields" host={custom.host} status={custom.fields} onStatus={custom.onKindStatus ?? custom.onStatus} /> : null}

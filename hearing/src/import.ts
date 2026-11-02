@@ -7,7 +7,7 @@
 import full2 from "../sheets/full/2.json" with { type: "json" };
 import { answerKey, type Answer, type FilledSheet } from "./answers.ts";
 import { axisOf, itemByKey, type SheetDefinition, type SheetItem } from "./definition.ts";
-import { bonusShareEstimate, businessEstimate, careerStartMonth, HEARING_UNKNOWN_BASIS, healthRateEstimate, livingEstimate, residentTaxEstimate, residentTaxYear, retirementLumpSumEstimate, salaryEstimate, type Estimate } from "./estimates.ts";
+import { bonusShareEstimate, businessEstimate, careerStartMonth, fillsByEstimate, HEARING_UNKNOWN_BASIS, NOT_FILLED_BASIS, healthRateEstimate, livingEstimate, residentTaxEstimate, residentTaxYear, retirementLumpSumEstimate, salaryEstimate, type Estimate } from "./estimates.ts";
 import { currentMortgageRateEstimate, pctText } from "./housingEstimates.ts";
 import { issue, type Issue } from "./issues.ts";
 import { monthsFromPayment, principalFromPayment, standardTermMonths } from "./loan.ts";
@@ -848,7 +848,7 @@ function importWork(c: Ctx, h: Household, adults: Adults, baseMonth: string): Ma
     if (SALARIED.has(type)) importSalary(c, p, m, n, baseMonth);
     else if (c.get("hs.income.salary", n).status === "value") c.contradiction("hs.income.salary", n, "給与の記入がありますが、働き方が給与の働き方ではありません（取り込みませんでした）");
     if (type === "selfEmployed") {
-      const b = c.moneyBox(id, "hs.income.business", n, "employment.business.income", "/business/income", () => businessEstimate());
+      const b = c.moneyBox(id, "hs.income.business", n, "employment.business.income", "/business/income", () => (fillsByEstimate("employment.business.income") ? businessEstimate() : null));
       if (b !== null) p.business = { income: b };
       if (c.get("hs.income.business", n).status === "blank") c.missing("hs.income.business", n, "事業の所得がありません");
     } else if (c.get("hs.income.business", n).status === "value") {
@@ -914,7 +914,8 @@ function importSalary(c: Ctx, p: EmploymentPeriod, m: Member, n: number, baseMon
   // 推定の年齢: 期間の始まりと計算基準月の遅いほう（勤め先の規模は推定に使わない。規模は詳細の入力で入れたときだけ使う決まり）
   const from = "at" in p.from && ymIndex(p.from.at) > ymIndex(baseMonth) ? p.from.at : baseMonth;
   const opts = { age: ageAt(m, from) };
-  const est = salaryEstimate(p.type, m.sex, opts);
+  // 事務所の既定値で給与を推定で埋めない欄にしたときは、目安を使わない（空欄・「わからない」は未入力の0円。0111）
+  const est = fillsByEstimate("employment.salary.annual") ? salaryEstimate(p.type, m.sex, opts) : null;
   let annual: ValueBox<number>;
   let bonusBox: ValueBox<number>;
   if (total.status === "value") {
@@ -953,9 +954,11 @@ function importSalary(c: Ctx, p: EmploymentPeriod, m: Member, n: number, baseMon
     }
   } else {
     if (total.status === "notApplicable") c.contradiction("hs.income.salary", n, "給与の働き方ですが、給与の年収が「該当なし」です（目安で補いました）");
-    const annualEst = est?.annual ?? { value: 0, basis: "目安なし" };
-    const bonusEst = est?.bonus ?? { value: 0, basis: "目安なし" };
-    if (total.status === "unknown") {
+    // 推定で埋めない欄（0111）は「未入力」の印の0円（入力の画面の確かめの一覧で未入力に出る）
+    const none = fillsByEstimate("employment.salary.annual") ? "目安なし" : NOT_FILLED_BASIS;
+    const annualEst = est?.annual ?? { value: 0, basis: none };
+    const bonusEst = est?.bonus ?? { value: 0, basis: none };
+    if (total.status === "unknown" && est !== null) {
       annual = c.unknownAsEstimate("hs.income.salary", n, annualEst, "statistic");
       c.field(id, "hs.income.salary", n, "employment.salary.annual", "/salary/annual", "estimated");
     } else {
@@ -970,7 +973,7 @@ function importSalary(c: Ctx, p: EmploymentPeriod, m: Member, n: number, baseMon
       bonusBox = c.confirmed(0);
       c.field(id, "hs.income.bonus", n, "employment.salary.bonus", "/salary/bonus", "confirmed");
     } else {
-      bonusBox = bonus.status === "unknown" ? c.unknownAsEstimate("hs.income.bonus", n, bonusEst, "statistic") : c.estimated(bonusEst, "statistic");
+      bonusBox = bonus.status === "unknown" && est !== null ? c.unknownAsEstimate("hs.income.bonus", n, bonusEst, "statistic") : c.estimated(bonusEst, "statistic");
       c.field(id, "hs.income.bonus", n, "employment.salary.bonus", "/salary/bonus", "estimated");
     }
   }
@@ -1687,11 +1690,17 @@ function importLiving(c: Ctx, h: Household, asOf: string, baseMonth: string): vo
   const id = c.newId();
   // 基本生活費は「わからない」を持たない（0100）: シートの「わからない」は、統計の目安の推定（根拠に「ヒアリングで『わからない』」）にする。
   // 面談のチェックリストには今までどおり載る
-  const unknown = c.get<number>("hs.expense.living").status === "unknown";
-  const box = unknown ? livingUnknownBox(c, id, size) : c.moneyBox(id, "hs.expense.living", undefined, "livingExpense.monthly", "/monthly", () => livingEstimate(size));
-  const l: LivingExpense = { id, mode: "total", monthly: box as ValueBox<number> };
-  h.livingExpenses = [l];
-  c.candidate("livingExpenses", "livingExpense.monthly", l);
+  const g = c.get<number>("hs.expense.living");
+  const unknown = g.status === "unknown";
+  // 事務所の既定値で基本生活費を推定で埋めない欄にしたときは、空欄・「わからない」の基本生活費を入れない（確かめの一覧の未入力に出る。0111）
+  if (g.status === "value" || g.status === "notApplicable" || fillsByEstimate("livingExpense.monthly")) {
+    const box = unknown ? livingUnknownBox(c, id, size) : c.moneyBox(id, "hs.expense.living", undefined, "livingExpense.monthly", "/monthly", () => livingEstimate(size));
+    const l: LivingExpense = { id, mode: "total", monthly: box as ValueBox<number> };
+    h.livingExpenses = [l];
+    c.candidate("livingExpenses", "livingExpense.monthly", l);
+  } else {
+    c.issues.push(issue("info", "H_ESTIMATED", `${c.label("hs.expense.living")}: 事務所の既定値で推定で埋めない欄なので、空欄のままにしました（入力の画面で入れてください）`, c.src("hs.expense.living")));
+  }
   const sv = c.get<number>("hs.expense.savings");
   if (sv.status === "value") {
     const sid = c.newId();

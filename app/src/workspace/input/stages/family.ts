@@ -14,6 +14,7 @@ import { DONOR_KINDS, KIND_OPTIONS, memberLabel, memberOptions, SEX_OPTIONS } fr
 import { EVENT_KIND_LABEL, eventName, FP_EVENT_KINDS, freezeTimepoints, refsTo, whenPeople } from "../namedEvents.ts";
 import { wareki } from "../units.ts";
 import { readGroup, readLine } from "../readLines.ts";
+import { fillsByEstimate } from "../../../../../hearing/src/estimates.ts";
 
 const members = (h: Household) => h.members;
 
@@ -116,7 +117,8 @@ export function addChildWithEducation(wh: WorkingHousehold, id: () => string = n
   const before = new Set(wh.request.input.household.members.map((m) => m.id));
   const next = addMember(wh, "child", id, { expected });
   const child = next.request.input.household.members.find((m) => !before.has(m.id));
-  return child === undefined ? next : fillEducation(next, child.id);
+  // 事務所の既定値で子の進路を「推定で埋めない」欄にしたときは、進路を入れない（確かめの一覧の未入力に出る。0111）
+  return child === undefined || !fillsByEstimate("goal.education") ? next : fillEducation(next, child.id);
 }
 
 /** 子の生年月を直したときの進路の段の合わせ（前の生年月は書く前の世帯から読む） */

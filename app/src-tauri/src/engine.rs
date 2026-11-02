@@ -204,6 +204,43 @@ mod tests {
         assert!(a["result"].get("flows").is_none());
     }
 
+    /// 0111: 事務所の推定の値（計算の要求の estimateValues）は本体の正の計算にも効き、制度データの値は置き換えられない
+    #[test]
+    fn office_estimate_values_reach_the_canonical_calc() {
+        let base: serde_json::Value = serde_json::from_str(&request("parentCare")).unwrap();
+        let with = |values: serde_json::Value| {
+            let mut r = base.clone();
+            r["input"]["estimateValues"] = values;
+            SlotRequest {
+                id: "s".into(),
+                rev: 1,
+                request: r.to_string(),
+            }
+        };
+        let care = |out: &str| -> i64 {
+            let v: serde_json::Value = serde_json::from_str(out).unwrap();
+            v["slots"]["s"]["result"]["table"]
+                .as_array()
+                .expect("表")
+                .iter()
+                .filter(|c| {
+                    c["row"]
+                        .as_str()
+                        .is_some_and(|r| r.starts_with("cf.expense.care"))
+                })
+                .map(|c| c["amount"].as_i64().unwrap_or(0))
+                .sum()
+        };
+        let plain = compute(&[with(serde_json::json!({}))]).expect("計算");
+        let office =
+            compute(&[with(serde_json::json!({ "care.statistics.months": 120 }))]).expect("計算");
+        assert!(care(&office) > care(&plain));
+        let legal =
+            compute(&[with(serde_json::json!({ "incomeTax.basicDeduction": 0 }))]).expect("計算");
+        let v: serde_json::Value = serde_json::from_str(&legal).unwrap();
+        assert_eq!(v["slots"]["s"]["result"]["error"]["code"], "E_ARGUMENT");
+    }
+
     #[test]
     fn engine_errors_come_back_as_ids_only() {
         let slots = vec![SlotRequest {

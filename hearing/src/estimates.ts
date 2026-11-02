@@ -6,6 +6,24 @@
 import { bracketStep, gradeAmount, masterAmount, masterValue, regulationValue, type BracketStep, type GradeRow } from "./statistics.ts";
 import type { ValueBox } from "./types.ts";
 
+export { fillsByEstimate } from "./statistics.ts";
+
+/**
+ * 事務所の既定値で「推定で埋めない」を選べる入力欄（0111。値は入力項目ID）。選んだ欄は、新しく入れるとき（新しい世帯・家族や働き方を足したとき・
+ * ヒアリングシートの空欄と「わからない」）に推定で埋めず、空欄のまま（0円で計算する「入力が足りない」の扱い。確かめの一覧の未入力）にする。
+ * FP が確かめの一覧・欄の「推定で埋める」を押したときは埋める（明示の操作）。入れてある推定の値は変えない
+ */
+/** 推定で埋めない欄（0111）に入れる0円の印の根拠の文（「未入力」で始まる。入力の画面は未入力〔0円で計算中〕と読む） */
+export const NOT_FILLED_BASIS = "未入力（0円で計算。事務所の既定値で推定で埋めない欄）";
+
+export const FILL_TARGETS: readonly { readonly id: string; readonly label: string; readonly note: string }[] = [
+  { id: "livingExpense.monthly", label: "基本生活費", note: "新しい世帯を作るときと、ヒアリングシートの空欄・「わからない」" },
+  { id: "employment.salary.annual", label: "給与・賞与（会社員・公務員・パートなど）", note: "働き方を足す・種類を変えるときと、ヒアリングシートの空欄・「わからない」" },
+  { id: "employment.business.income", label: "事業所得（自営業）", note: "働き方を自営業にするときと、ヒアリングシートの空欄・「わからない」" },
+  { id: "retirementBenefit.amount", label: "退職金（正社員・公務員）", note: "今の働き方を正社員・公務員にするとき" },
+  { id: "goal.education", label: "子の進路（教育費）", note: "子を足すときと、ヒアリングシートで子が増えたとき" },
+];
+
 export interface Estimate {
   readonly value: number;
   readonly basis: string;

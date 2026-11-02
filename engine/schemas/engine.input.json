@@ -27,6 +27,32 @@
       "propertyNames": { "pattern": "^(regulation|master)(\\.[a-z][a-zA-Z0-9]*)+$" },
       "additionalProperties": { "$ref": "urn:financia:schema:regulation.value#/$defs/packVersion" }
     },
+    "estimateValues": {
+      "description": "0111: 事務所の推定の値。空欄・「わからない」を補う推定の元のマスタデータ（master.* のパック）の値を、事務所の値に置き換える。鍵は値ID（条件ごとの行がある値は「<値ID>.<条件の値>」。例 lifeTable.lifeExpectancy.male）、値は公式の値と同じ形（定数は数か10進の文字、段階表は段の並び。段の数と upTo は公式の値と同じ）。制度データ（regulation.*）の値は置き換えられない（E_ARGUMENT）。世帯ファイルには持たない（画面が計算の要求に足す）",
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-zA-Z0-9]+)+$" },
+      "maxProperties": 400,
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "number" },
+          { "type": "string", "pattern": "^-?\\d+(\\.\\d+)?$" },
+          {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["upTo"],
+              "properties": {
+                "upTo": { "type": ["number", "null"] },
+                "amount": { "type": "number" },
+                "rate": { "type": "string", "pattern": "^-?\\d+(\\.\\d+)?$" }
+              }
+            }
+          }
+        ]
+      }
+    },
     "household": { "$ref": "#/$defs/household" },
     "assumptions": {
       "description": "0006 の6・0008 の8: 前提条件は年ごとの列",

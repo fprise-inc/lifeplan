@@ -856,10 +856,15 @@ export interface EngineRequest {
     inheritanceTax?: InheritanceTaxRequest;
     /** 遺したい額（0060。表示だけ。計算には使わない） */
     legacy?: { amount?: Box<number> };
+    /** 事務所の推定の値（0111。エンジンへ渡すときに forEngine が足す。世帯ファイルには持たない） */
+    estimateValues?: Record<string, EstimateValue>;
     [key: string]: unknown;
   };
   [key: string]: unknown;
 }
+
+/** 事務所の推定の値の1つ（マスタデータの値と同じ形。定数は数か10進の文字、段階表は段の並び。0111） */
+export type EstimateValue = number | string | readonly { upTo: number | null; amount?: number; rate?: string }[];
 
 /** 表の1マス（行×年。0004・0006 の追記） */
 export interface TableCell {

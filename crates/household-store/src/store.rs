@@ -168,8 +168,8 @@ struct OfficeData {
     feature_codes: Vec<String>,
 }
 
-/// 事務所の既定値の JSON の大きさの上限（バイト。0073）
-pub const OFFICE_DEFAULTS_MAX_BYTES: usize = 32 * 1024;
+/// 事務所の既定値の JSON の大きさの上限（バイト。0073。事務所の推定の値〔統計の表を含む。0111〕を入れるので 256KB）
+pub const OFFICE_DEFAULTS_MAX_BYTES: usize = 256 * 1024;
 /// 機能を有効にするコードの数と、1つの長さ（バイト）の上限（0110）
 pub const FEATURE_CODES_MAX: usize = 16;
 pub const FEATURE_CODE_MAX_BYTES: usize = 2048;
