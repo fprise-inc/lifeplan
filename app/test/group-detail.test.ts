@@ -4,7 +4,7 @@ import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { fieldDomId, groupUnits, headsWithMore, type GroupOpenState } from "../src/workspace/input/FieldViews.tsx";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
-import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { InputPanel } from "../src/workspace/input/InputPanel.tsx";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { modelHousehold } from "./helpers.ts";
@@ -16,7 +16,13 @@ const panel = (wh: WorkingHousehold, card: string, level: "simple" | "detail", k
   renderToString(h(InputPanel, { wh, itemId: card, level, onLevel: noop, onSave: noop, onClose: noop, groupOpen: opened(keys) }));
 const idOf = (key: string) => `id="${fieldDomId(key)}"`;
 
-const wh = open("salariedCoupleTwoKids");
+// 見本の住宅ローンは変動金利で型どおりでない段を持ち、「金利の段階で入れる」として段が標準で開く（0052 の追記 2026-11-02）。
+// 詳細だけの段（金利の段階）がローンに属することを見るので、最初の段を固定期間選択型にした形で見る（固定期間の後に変動金利の段）
+const variableWh = open("salariedCoupleTwoKids");
+const wh = mutate(variableWh, (h) => {
+  const d = h.debts?.find((x) => x.kind === "mortgage");
+  if (d?.rateSchedule[0] !== undefined) d.rateSchedule[0].type = "fixedPeriod";
+});
 const debt = wh.request.input.household.debts?.find((d) => d.kind === "mortgage");
 const loanKey = `housing/debt/${debt?.id ?? ""}`;
 const housing = buildStage("housing", wh);
@@ -45,6 +51,10 @@ describe("標準のときだけ「▸ 続きを見る」", () => {
     expect(html.replace(/<wbr\/?>/g, "")).toContain('<span class="grp-more-mark" aria-hidden="true">▸</span><span class="grp-more-text">団信・住宅ローン控除などを入れる</span>');
     for (const f of detailOfLoan) expect(html).not.toContain(idOf(f.key));
     expect(html).not.toContain("金利の段階 2");
+    // 変動金利で「金利の段階で入れる」なら、閉じていても段の欄と「＋ 金利の段階」を出す
+    const variable = panel(variableWh, "housing", "simple");
+    expect(variable).toContain("金利の段階 2");
+    expect(variable).toContain('data-action="' + `${loanKey}/addRate` + '"');
   });
   it("開くと、そのローンの詳細の欄・金利の段階・ボタンだけが出る（ほかのまとまりは標準のまま）", () => {
     const html = panel(wh, "housing", "simple", [loanKey]);
