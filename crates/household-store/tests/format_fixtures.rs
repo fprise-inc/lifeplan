@@ -187,8 +187,14 @@ fn every_format_version_has_a_fixture_and_opens() {
             .iter()
             .any(|c| c["subtype"] == "account" && c["simple"]["account"]["after"].is_string());
         let since_052 = migrate::parse(v).unwrap() >= (0, 52);
-        assert_eq!(low, since_052, "{v}: 低解約返戻金型の契約は 0.52 からの見本");
-        assert_eq!(account, since_052, "{v}: アカウント型の契約は 0.52 からの見本");
+        assert_eq!(
+            low, since_052,
+            "{v}: 低解約返戻金型の契約は 0.52 からの見本"
+        );
+        assert_eq!(
+            account, since_052,
+            "{v}: アカウント型の契約は 0.52 からの見本"
+        );
         if migrate::parse(v).unwrap() >= (0, 50) {
             // 0.50 から: 会社と合わせたバランスシートの入力（計算の要求の外。0107）
             let c = &now["household"]["companyBs"];
