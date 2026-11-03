@@ -74,6 +74,8 @@
 //   アカウント型の積立の部分 account を持つ（0055 の追記 2026-11-03。足すだけ。本体の変換の段は版だけを書き換える）
 //   0.53 から: 住宅の購入の新築か中古か residences[].purchase.newBuild（住宅の購入の種類。0052 の追記 2026-11-03）と認定長期優良住宅か
 //   residences[].purchase.longLife（固定資産税の推定。0112）を持つ（どちらも表示と推定の元だけで計算に使わない。足すだけ。本体の変換の段は版だけを書き換える）
+//   0.54 から: 合算BS の会社の入力を household.companyBs から拡張領域 ext["ext.official.combinedBs"]（同梱の公式の拡張の入力欄。定義は
+//   extDefinitions）へ移した（0114 の9。本体の変換の段が移し、meta.extTransfers に記録する）。household の区画には companyBs を書かない
 //   （0.46 のまま。0041 の追記 2026-11-01）: 「書類で確かめる」は今の自動車ローン（kind car の負債）の欄に出し、これから買う車のローン
 //   （cars[].valueStates の car.loan/…）には出さない。前に付けた所は読むときに推定にし、開いたときの知らせ carLoanEstimated を足す（形は変えない）
 // - proposals: 案（数に上限なし。0008 の5）。案の名前は `title` に入れる（0012 の禁止語の検査に当たらない名前）
@@ -95,6 +97,8 @@
 // - extDefinitions / ext: 拡張領域（0011 の4。読んだものをそのまま書き戻し、失わない）
 //   公式の項目 ext.official.livingParts: 基本生活費の内訳を分けた行の額（0109。input/livingParts.ts。作業中の世帯の livingParts と行き来する。
 //   形式の版は上げない。知らないアプリも拡張領域のまま書き戻す）
+//   拡張の束の入力欄の値（0114 の4。同梱の公式の拡張の宣言にあるキーだけ。作業中の世帯の extValues と行き来する。読むときに宣言で確かめ、
+//   書くときに定義を extDefinitions に写す）。宣言の無いキーは今までどおりそのまま書き戻す
 // 保存しないもの: 提案書の宛名（0012 の2。出力のときだけ）、保存していない案の変更（「案として保存」「上書き」で保存する）、
 // 画面の一時的な状態（開いているタブ・パネル・文字の大きさなど）
 import type { EngineRequest } from "../../engine/types.ts";
@@ -113,13 +117,15 @@ import { readNoticeAcks } from "../input/noticeAck.ts";
 import { isEmptyChoice, readItemChoice } from "../input/itemChoice.ts";
 import { readBsColumns, readBsGuide, readBsPoints } from "../balanceTab.ts";
 import { readMoneyThree } from "../moneyThree.ts";
-import { readCombinedInput } from "../../../../report/src/index.ts";
+import { OFFICIAL_EXTENSIONS } from "../extensions/official.ts";
+import { definitionOf, readExtValue } from "../extensions/fields.ts";
+import type { ExtValue } from "../../../../report/src/index.ts";
 import { readLog, type StatementLog } from "../../../../statement/src/index.ts";
 import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.53";
+export const BODY_FORMAT_VERSION = "0.54";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
@@ -165,10 +171,10 @@ export interface BodyState {
 export const EMPTY_CARRY: BodyState["carry"] = { extDefinitions: {}, ext: {} };
 
 export function bodyObject(s: BodyState): HouseholdBody {
-  const { proposals, hearing, snapshots, statements, livingParts: _parts, ...household } = s.wh;
+  const { proposals, hearing, snapshots, statements, livingParts: _parts, extValues, ...household } = s.wh;
   void _parts;
   // 内訳を分けた行の額は拡張領域に（0109。合計が今の額と同じ物だけ）
-  const extra = extWithParts(s.carry, partsToSave(s.wh));
+  const extra = extWithExtensions(extWithParts(s.carry, partsToSave(s.wh)), extValues);
   return toStoredBody({
     household,
     proposals: proposals.map(({ name, ...p }) => ({ ...p, title: name })),
@@ -181,6 +187,27 @@ export function bodyObject(s: BodyState): HouseholdBody {
     ext: extra.ext,
     ...(s.carry.outside !== undefined && Object.keys(s.carry.outside).length > 0 ? { [OUTSIDE_KEPT]: s.carry.outside } : {}),
   } as unknown as Record<string, unknown>) as unknown as HouseholdBody;
+}
+
+/** 同梱の束の入力欄の宣言（key → 宣言と束の id） */
+const EXT_DECLS = new Map(OFFICIAL_EXTENSIONS.flatMap((x) => x.fields.map((d) => [d.key, { decl: d, by: x.manifest.id }] as const)));
+/** 0.53 までの household の区画の欄 → 移した先の入力欄の key（変換の段を通らない本文のため。本体の変換の段と同じ。0114 の9） */
+const LEGACY_HOUSEHOLD_EXT: Record<string, string> = { companyBs: "ext.official.combinedBs" };
+
+/** 拡張の束の入力欄の値を拡張領域に書く（値のある key だけ。定義も写す） */
+function extWithExtensions(carry: { extDefinitions: Record<string, unknown>; ext: Record<string, unknown> }, values: Record<string, ExtValue> | undefined): { extDefinitions: Record<string, unknown>; ext: Record<string, unknown> } {
+  const ext = { ...carry.ext };
+  const defs = { ...carry.extDefinitions };
+  for (const [key, { decl, by }] of EXT_DECLS) {
+    delete ext[key];
+    delete defs[key];
+    const v = values?.[key];
+    if (v !== undefined && Object.keys(v).length > 0) {
+      ext[key] = v;
+      defs[key] = definitionOf(decl, by);
+    }
+  }
+  return { extDefinitions: defs, ext };
 }
 
 /** 明細の取り込みの記録に、残す中身があるか（空の記録は区画を作らない） */
@@ -233,10 +260,6 @@ export function fromBody(json: string): BodyState {
   if (acks.length > 0) wh.noticeAcks = acks;
   else delete wh.noticeAcks;
   // 入力項目の選び方（0.34 から）: 形の合わない所は捨て、何も決めていなければ欄を持たない
-  // 会社と合わせたバランスシートの入力（0.50 から。0107）: 形の合わない所は捨て、何も無ければ欄を持たない
-  const company = readCombinedInput(wh.companyBs);
-  if (company !== null) wh.companyBs = company;
-  else delete wh.companyBs;
   const choice = readItemChoice(wh.itemChoice);
   if (!isEmptyChoice(choice)) wh.itemChoice = choice;
   else delete wh.itemChoice;
@@ -265,6 +288,20 @@ export function fromBody(json: string): BodyState {
   const defs = isObj(b.extDefinitions) ? b.extDefinitions : {};
   const { [LIVING_PARTS_EXT]: _def, ...restDefs } = defs;
   void _def;
+  // 拡張の束の入力欄の値（0114 の4）: 宣言のあるキーだけを作業中の世帯へ（宣言で確かめ、形の合わない所は捨てる。何も無ければ欄を持たない）。
+  // 0.53 までの household の区画の欄（変換の段を通らない本文）は、移した先に値が無いときだけ読む。どちらも household の区画には残さない
+  const legacy = wh as unknown as Record<string, unknown>;
+  const values: Record<string, ExtValue> = {};
+  for (const [key, { decl }] of EXT_DECLS) {
+    const old = Object.entries(LEGACY_HOUSEHOLD_EXT).find(([, k]) => k === key)?.[0];
+    const v = readExtValue(decl, restExt[key]) ?? (old !== undefined ? readExtValue(decl, legacy[old]) : null);
+    if (v !== null) values[key] = v;
+    delete restExt[key];
+    delete restDefs[key];
+  }
+  for (const old of Object.keys(LEGACY_HOUSEHOLD_EXT)) delete legacy[old];
+  if (Object.keys(values).length > 0) wh.extValues = values;
+  else delete wh.extValues;
   return {
     wh,
     workspace,

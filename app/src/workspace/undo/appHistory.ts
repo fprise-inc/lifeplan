@@ -7,6 +7,7 @@ import type { WorkingHousehold } from "../input/household.ts";
 import type { BalanceSettings, DisplaySettings } from "../settings.ts";
 import { historyScope, undoController, useUndoScope, type Hint, type UndoController } from "./controller.ts";
 import { deepEqual, HistoryBook, UndoHistory } from "./history.ts";
+import { OFFICIAL_EXTENSIONS } from "../extensions/official.ts";
 
 /** 主画面の作業の状態のうち、履歴で見るところ */
 export interface WorkLike {
@@ -40,8 +41,8 @@ export function describeSnap(a: AppSnap, b: AppSnap, hint: Hint): string {
         ? "メモ"
         : !deepEqual(a.wh.contingency, b.wh.contingency)
           ? "万一のときの前提"
-          : !deepEqual(a.wh.companyBs, b.wh.companyBs)
-            ? "会社の数字（合算BS）"
+          : !deepEqual(a.wh.extValues, b.wh.extValues)
+            ? extValuesLabel(a.wh.extValues, b.wh.extValues)
           : !deepEqual(a.wh.proposals, b.wh.proposals)
             ? "プラン"
             : !deepEqual(a.work.drafts, b.work.drafts)
@@ -130,4 +131,10 @@ export function useHistoryBook<S>(opts: HistoryBookOptions<S>, c: UndoController
   );
 
   return useMemo(() => ({ track, reset, select, rename, drop }), [track, reset, select, rename, drop]);
+}
+
+/** 拡張の束の入力欄の値が変わったときの名前（宣言の label。例: 会社の数字（合算BS）。0114 の4） */
+function extValuesLabel(a: Record<string, unknown> | undefined, b: Record<string, unknown> | undefined): string {
+  for (const x of OFFICIAL_EXTENSIONS) for (const d of x.fields) if (!deepEqual(a?.[d.key], b?.[d.key])) return d.label;
+  return "入力";
 }

@@ -1,0 +1,70 @@
+{
+  "schema": "extFields@1.0",
+  "key": "ext.official.combinedBs",
+  "version": 1,
+  "attachTo": "household",
+  "label": "会社の数字（合算BS）",
+  "description": "会社の今のバランスシート（試算表の主な科目）と毎月の固定の支出・会社の段階・実力に直した額。家計の計算には使わない",
+  "form": {
+    "title": "会社の数字を入れる",
+    "note": "会社の最新の試算表の主な科目を万円で入れます（空欄は0）。入れた数字は、この世帯のファイルの中の会社の区画に入り、家計の計算には使いません。",
+    "groups": [
+      { "title": "基準日と毎月の固定の支出", "fields": ["asOf", "amount:monthlyFixed", "amount:monthlyLoanPay", "ownerMonthly"] },
+      {
+        "title": "会社の資産",
+        "fields": ["amount:cash", "amount:receivables", "amount:inventory", "amount:otherCurrent", "amount:land", "amount:buildings", "amount:investments", "amount:otherFixed", "amount:loanToOwner", "amount:advanceToOwner"]
+      },
+      { "title": "会社の負債", "fields": ["amount:shortDebt", "amount:longDebt", "amount:loanFromOwner", "amount:otherLiabilities"] },
+      { "title": "会社の純資産", "fields": ["amount:capital", "amount:otherCapital", "amount:retained"] },
+      {
+        "title": "実力に直す点検（任意）",
+        "note": "帳簿の数字はそのままで、実際に近い額を FP が入れます（入れた科目だけ）。経営者への貸付金は、合算では経営者の会社からの借入金と相殺するので、額は入れません。",
+        "fields": ["restated:receivables", "restated:inventory", "restated:buildings", "restated:land", "restated:investments", "restated:guaranteed", "useRestated"]
+      }
+    ]
+  },
+  "fields": [
+    { "id": "asOf", "path": ["asOf"], "type": "month", "label": "基準日（試算表の月末）", "placeholder": "2026-09" },
+    { "id": "amount:monthlyFixed", "path": ["amounts", "monthlyFixed"], "type": "yen", "label": "毎月の固定費（経費。仕入は含めない）" },
+    { "id": "amount:monthlyLoanPay", "path": ["amounts", "monthlyLoanPay"], "type": "yen", "label": "毎月の借入の返済", "help": "金融機関への元金と利息の返済" },
+    { "id": "ownerMonthly", "path": ["ownerMonthly"], "type": "yen", "label": "経営者（家計）の毎月の固定の支出" },
+    { "id": "amount:cash", "path": ["amounts", "cash"], "type": "yen", "label": "現預金" },
+    { "id": "amount:receivables", "path": ["amounts", "receivables"], "type": "yen", "label": "売上債権" },
+    { "id": "amount:inventory", "path": ["amounts", "inventory"], "type": "yen", "label": "在庫" },
+    { "id": "amount:otherCurrent", "path": ["amounts", "otherCurrent"], "type": "yen", "label": "その他の流動資産" },
+    { "id": "amount:land", "path": ["amounts", "land"], "type": "yen", "label": "土地" },
+    { "id": "amount:buildings", "path": ["amounts", "buildings"], "type": "yen", "label": "建物など" },
+    { "id": "amount:investments", "path": ["amounts", "investments"], "type": "yen", "label": "投資など" },
+    { "id": "amount:otherFixed", "path": ["amounts", "otherFixed"], "type": "yen", "label": "その他の固定資産" },
+    { "id": "amount:loanToOwner", "path": ["amounts", "loanToOwner"], "type": "yen", "label": "経営者への貸付金", "help": "試算表の役員貸付金など" },
+    { "id": "amount:advanceToOwner", "path": ["amounts", "advanceToOwner"], "type": "yen", "label": "経営者への立替金", "help": "会社が経営者のために立て替えた額" },
+    { "id": "amount:shortDebt", "path": ["amounts", "shortDebt"], "type": "yen", "label": "短期借入金" },
+    { "id": "amount:longDebt", "path": ["amounts", "longDebt"], "type": "yen", "label": "長期借入金" },
+    { "id": "amount:loanFromOwner", "path": ["amounts", "loanFromOwner"], "type": "yen", "label": "経営者からの借入金", "help": "試算表の役員借入金など（経営者から会社が借りているお金）" },
+    { "id": "amount:otherLiabilities", "path": ["amounts", "otherLiabilities"], "type": "yen", "label": "その他の負債" },
+    { "id": "amount:capital", "path": ["amounts", "capital"], "type": "yen", "label": "資本金" },
+    { "id": "amount:otherCapital", "path": ["amounts", "otherCapital"], "type": "yen", "label": "資本金のうち、ほかの株主の分", "help": "経営者のほかに出資している人がいるときだけ" },
+    { "id": "amount:retained", "path": ["amounts", "retained"], "type": "yen", "negative": true, "label": "剰余金（利益の積み上げ）", "help": "マイナス（▲）も入ります" },
+    { "id": "restated:receivables", "path": ["restated", "receivables"], "type": "yen", "label": "売上債権（直した額）", "help": "回収できない売掛金・受取手形を除いた額" },
+    { "id": "restated:inventory", "path": ["restated", "inventory"], "type": "yen", "label": "在庫（直した額）", "help": "長く動いていない在庫を除いた額" },
+    { "id": "restated:buildings", "path": ["restated", "buildings"], "type": "yen", "label": "建物など（直した額）", "help": "建物・車・備品は、売れる額に近い額（ゼロに近く見ることもあります）" },
+    { "id": "restated:land", "path": ["restated", "land"], "type": "yen", "label": "土地（直した額）", "help": "時価（路線価から見るときは、市場の値より低めに出ることを踏まえて）" },
+    { "id": "restated:investments", "path": ["restated", "investments"], "type": "yen", "label": "投資など（直した額）", "help": "上場していない株や、返ってくる見込みの低い貸付金などを除いた額" },
+    { "id": "restated:guaranteed", "path": ["restated", "guaranteed"], "type": "yen", "label": "会社が保証している債務（直した額）", "help": "ほかの会社などのために会社が保証している額（入れると負債に足します）" },
+    { "id": "useRestated", "path": ["useRestated"], "type": "check", "label": "直した額で並べる" },
+    {
+      "id": "stage",
+      "path": ["stage"],
+      "type": "choice",
+      "label": "会社の段階",
+      "options": [
+        { "value": "founding", "label": "創業期" },
+        { "value": "rapid", "label": "急成長期" },
+        { "value": "unstable", "label": "不安定成長期" },
+        { "value": "stable", "label": "安定成長期" },
+        { "value": "mature", "label": "成熟期" },
+        { "value": "crisis", "label": "異常時" }
+      ]
+    }
+  ]
+}

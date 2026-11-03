@@ -22,7 +22,12 @@
     "jsxImportSource": "preact",
     "types": [
       "vite/client"
-    ]
+    ],
+    "paths": {
+      "@lifeplan/sdk": [
+        "../report/src/sdk.ts"
+      ]
+    }
   },
   "include": [
     "src"

@@ -31,6 +31,7 @@
 | `comparison` | 案の比較（列は現状と各案） |
 | `realEstate` | 住まい以外の不動産の物件ごとの数字（下） |
 | `rental` | 収益不動産のまとめ（公式の帳票の章の材料。下。物件が無い・章を外したときは null） |
+| `extensions` | 提案書の拡張の章の材料（章の id `ext.<作成者>.<名前>` → 束の関数が返した対。`extensions.md`。合算BS は `ext.official.combinedBs`。章を選んでいないときは null） |
 
 欄を足すときは、同じ版の中で任意の欄として足します。古い入力では無いことがあるので、`data.at("realEstate", default: …)` のように読みます。
 

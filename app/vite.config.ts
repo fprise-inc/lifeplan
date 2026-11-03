@@ -1009,8 +1009,10 @@ function devHost(): Plugin {
 export default defineConfig({
   clearScreen: false,
   plugins: [devHost()],
-  // hearing/・report/・statement/・xlsx/ の部品（npm の依存なしの TypeScript）を画面から読む
-  server: { port: 1420, strictPort: true, fs: { allow: [APP_DIR, join(REPO_DIR, "hearing"), join(REPO_DIR, "report"), join(REPO_DIR, "statement"), join(REPO_DIR, "xlsx", "src"), join(REPO_DIR, "engine", "src")] } },
+  // hearing/・report/・statement/・xlsx/ の部品と同梱の拡張の束（npm の依存なしの TypeScript）を画面から読む
+  // 拡張の束（sdk/examples/extensions/。同梱の公式の拡張の正本）が読む @lifeplan/sdk を、正本の report/src/sdk.ts につなぐ（0114 の9）
+  resolve: { alias: { "@lifeplan/sdk": join(REPO_DIR, "report", "src", "sdk.ts") } },
+  server: { port: 1420, strictPort: true, fs: { allow: [APP_DIR, join(REPO_DIR, "hearing"), join(REPO_DIR, "report"), join(REPO_DIR, "sdk", "examples", "extensions"), join(REPO_DIR, "statement"), join(REPO_DIR, "xlsx", "src"), join(REPO_DIR, "engine", "src")] } },
   oxc: { jsx: { runtime: "automatic", importSource: "preact" } },
   build: {
     target: "es2022",

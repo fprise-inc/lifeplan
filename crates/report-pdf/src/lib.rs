@@ -118,10 +118,6 @@ const PACKAGE_FILES: &[(&str, &str)] = &[
         "pages/rental.typ",
         include_str!("../../../report/typst/report-core/pages/rental.typ"),
     ),
-    (
-        "pages/combined.typ",
-        include_str!("../../../report/typst/report-core/pages/combined.typ"),
-    ),
 ];
 
 /// 同梱フォント（BIZ UDゴシック。SIL OFL 1.1。ライセンス文は report/fonts/OFL.txt）
@@ -138,8 +134,33 @@ const FONTS: &[(&str, &[u8])] = &[
 /// 同梱フォントのライセンス文（配布物に同梱する）
 pub const FONT_LICENSE: &str = include_str!("../../../report/fonts/OFL.txt");
 
-/// アプリの外枠の文書（帳票を読み込んで呼ぶだけ）
-const MAIN_TYP: &str = "#import \"@lifeplan/report-core:0.1.0\": proposal\n#proposal(json(\"/input.json\"), json(\"/frame.json\"))\n";
+/// 同梱の公式の拡張の、提案書の拡張の章（0114 の6）: 章の id・プロジェクトの中のパス・中身。
+/// 束の reports/ の Typst は、関数 `ext-chapter(ext-data, data)` を出す。外枠の文書が読み込んで、公式の帳票の `proposal` に `ext` で渡す
+/// （公式の帳票は、選ばれて材料〔帳票の入力の `extensions`〕のある章だけを呼ぶ）
+pub const EXTENSION_CHAPTERS: &[(&str, &str, &str)] = &[(
+    "ext.official.combinedBs",
+    "/ext/official.combinedBs/reports/chapter.typ",
+    include_str!("../../../sdk/examples/extensions/combined-bs/reports/chapter.typ"),
+)];
+
+/// アプリの外枠の文書（帳票と、同梱の拡張の章を読み込んで呼ぶだけ）
+fn main_typ() -> &'static str {
+    static MAIN: OnceLock<String> = OnceLock::new();
+    MAIN.get_or_init(|| {
+        let mut s = String::from("#import \"@lifeplan/report-core:0.1.0\": proposal\n");
+        let mut ext = Vec::new();
+        for (i, (id, path, _)) in EXTENSION_CHAPTERS.iter().enumerate() {
+            s.push_str(&format!("#import \"{path}\": ext-chapter as ext-chapter-{i}\n"));
+            ext.push(format!("\"{id}\": ext-chapter-{i}"));
+        }
+        s.push_str(&format!(
+            "#proposal(json(\"/input.json\"), json(\"/frame.json\"), ext: ({}{}))\n",
+            ext.join(", "),
+            if ext.is_empty() { ":" } else { "," }
+        ));
+        s
+    })
+}
 
 /// 刻印の帯と透かし（アプリが組む。ページごとの大きさと文字は /stamp.json から読む）
 const STAMP_TYP: &str = r##"#let s = json("/stamp.json")
@@ -379,6 +400,13 @@ impl ReportWorld {
                 } else {
                     files.insert(id, Bytes::from_string(*text));
                 }
+            }
+        }
+        if with_package {
+            // 同梱の拡張の章（プロジェクトの直下の /ext/<束の id>/reports/。外枠の文書だけが読み込む）
+            for (_, path, text) in EXTENSION_CHAPTERS {
+                let id = file_id(VirtualRoot::Project, path);
+                sources.insert(id, Source::new(id, (*text).to_owned()));
             }
         }
         for (name, json) in data {
@@ -730,7 +758,7 @@ fn render_inner(
 /// 帳票の入力（JSON の文字列）から、公式の帳票で提案書の PDF を作る（アプリの本体から呼ぶ呼び出し口）。
 /// できた PDF は平文なので、ファイルに書くのは平文の書き出しの出口（0020 の5）を通す
 pub fn render_proposal(input_json: &str, frame: &ReportFrame) -> Result<Rendered, ReportError> {
-    render_with_main(MAIN_TYP, input_json, frame)
+    render_with_main(main_typ(), input_json, frame)
 }
 
 /// 出力用: 公式の帳票で PDF を作り、宛名（あれば）を宛名欄に重ねる。宛名は保存しない（呼ぶ側も残さない。0009 の3・0012）。
@@ -740,7 +768,7 @@ pub fn render_proposal_output(
     frame: &ReportFrame,
     addressee: Option<&str>,
 ) -> Result<Rendered, ReportError> {
-    render_inner(MAIN_TYP, input_json, frame, addressee)
+    render_inner(main_typ(), input_json, frame, addressee)
 }
 
 /// 画面の中の見本: 組版の結果の1ページ（0 から）を PNG にする。pixel_per_pt は 1pt あたりの画素（0.5〜4）

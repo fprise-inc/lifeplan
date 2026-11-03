@@ -1,0 +1,24 @@
+{
+  "manifestVersion": "1.0",
+  "id": "ext.official.combinedBs",
+  "name": "合算BS（経営者個人と会社のバランスシート）",
+  "version": "1.0.0",
+  "author": "提供元",
+  "license": "MIT",
+  "kind": "component",
+  "entry": "index.ts",
+  "provides": [
+    { "type": "extend", "extensionPoint": "view.balance", "contract": "1", "export": "balanceView", "label": "合算BS（会社と合わせる）" },
+    {
+      "type": "extend",
+      "extensionPoint": "report.chapter",
+      "contract": "1",
+      "export": "chapter",
+      "chapter": { "id": "ext.official.combinedBs", "label": "会社と合わせたバランスシート（合算BS）", "typst": "reports/chapter.typ" }
+    }
+  ],
+  "reads": ["balance.now"],
+  "fields": ["fields/company.json"],
+  "activation": { "feature": "combinedBs", "households": "executive" },
+  "description": "経営者個人（家計）と会社のバランスシートを並べ、間の貸し借りを相殺して1枚にする。会社の数字は試算表から入れ、先の年の見込みは作らない。家計の計算の結果は変えない"
+}

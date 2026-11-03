@@ -9,7 +9,7 @@
 // - 推定の値: 提案書には「一部は統計の平均で補っています」とだけ書く。どの欄が推定かは FP 向けの画面（提案書のタブ・入力のカード）だけで示す
 // - 収益不動産のまとめ（0082）: 章を載せるときだけ、提案の世帯の物件ごとに、売る年だけを変えた写しの要求（report/src/rentalSale.ts の
 //   saleVariants のうち今の予定でないもの。鍵は rentalSale:<物の ID>:<売り方の鍵>）を足す。今の予定の売り方は提案の計算を使う
-import { buildProposalInput, CHAPTERS, hasCompanyAmounts, DEFAULT_LAYOUT, saleVariantRequest, saleVariants, type ChapterId, type ProposalBundle, type ProposalInput, type ReportLayout, type Run, type SaleVariant } from "../../../../report/src/index.ts";
+import { buildProposalInput, CHAPTERS, DEFAULT_LAYOUT, isExtChapterId, saleVariantRequest, saleVariants, type ChapterId, type ProposalBundle, type ProposalInput, type ReportLayout, type Run, type SaleVariant } from "../../../../report/src/index.ts";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import { withoutDreams } from "../../engine/moneyRows.ts";
 import { adults, baseRequest, defaultYear, occursMonth, scenarioRequest, scenarios, survivorOf } from "../contingency/requests.ts";
@@ -27,10 +27,12 @@ import { BS_POINT_CHOICES, bsPlan, DEFAULT_BS_POINTS } from "../balanceTab.ts";
 import { bandOf, donutYear, drawdownText, stressLabel, stressRequests, STRESS_KEYS } from "../invest/present.ts";
 import { displayYears } from "../present.ts";
 import { ageInYear, roles } from "../roles.ts";
-import { homeOf } from "../combined/combinedView.ts";
-import { hasExecutive } from "../input/officer.ts";
+import { chapterMaterials, extensionChapters } from "../extensions/run.ts";
+import { OFFICIAL_EXTENSIONS } from "../extensions/official.ts";
+import type { LoadedExtension } from "../extensions/manifest.ts";
 
-export const DEFAULT_CHAPTERS: readonly ChapterId[] = CHAPTERS.map((c) => c.id);
+/** 最初に選んでおく章（公式の章のすべてと、同梱の束の章。束の章は今使えるときだけ一覧に出る。0114 の6） */
+export const DEFAULT_CHAPTERS: readonly ChapterId[] = [...CHAPTERS.map((c) => c.id), ...extensionChapters(OFFICIAL_EXTENSIONS).map((c) => c.id)];
 
 export interface ReportChoice {
   /** 提案にする案（帯の案の ID。現状は選べない） */
@@ -80,6 +82,8 @@ export interface ReportContext {
   valuesOf: (id: string) => Values;
   /** 帯の文字と名前 */
   letterOf: (id: string) => { letter: string; name: string };
+  /** 今使える拡張の束（提案書の拡張の章の材料を作る。0114 の6。省略は無し） */
+  extensions?: readonly LoadedExtension[];
 }
 
 /** 運用の前提の変更（打ち手ごとの効果で最後にまとめ、「運用の前提の変更を除いた効果」を出す） */
@@ -207,11 +211,12 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
       estimated: estimatedCards(wh).length > 0,
     };
     if (choice.moneyThree !== undefined) b.moneyThree = { ...choice.moneyThree };
-    // 会社と合わせたバランスシート（0107）: 章を選び（事務所の設定で使うと決めたときだけ選べる）、役員として働く人がいて、会社の数字を入れたときだけ。
+    // 提案書の拡張の章（0114 の6。合算BS など）: 今使える束の章を選んだときだけ、束の関数（report.chapter）で材料を作る。材料の無い章は持たない。
     // 家計の側は資産と負債のタブと同じ（現状の今の年）
-    if (on.has("combinedBs") && hasExecutive(current.input.household) && wh.companyBs !== undefined && hasCompanyAmounts(wh.companyBs)) {
+    if ((ctx.extensions ?? []).length > 0 && [...on].some(isExtChapterId)) {
       const home = bsPlan({ key: "current", letter: "", name: "", title: "", base: true, req: current, table: (results.current as PreviewResult).table }).years[0];
-      if (home !== undefined) b.combinedBs = { input: wh.companyBs, household: homeOf(home) };
+      const ext = chapterMaterials(ctx.extensions ?? [], wh.extValues, home, on);
+      if (Object.keys(ext).length > 0) b.extensions = ext;
     }
     if (on.has("cashflow")) b.balancePoints = balancePointsOf(proposal, results.proposal as PreviewResult, choice.bsColumns ?? null, choice.bsPoints ?? DEFAULT_BS_POINTS);
     if (steps.length > 0) b.steps = steps.map((s, i) => ({ label: s.label, investment: s.investment, run: i === steps.length - 1 ? proposalRun : run(s.key) }));

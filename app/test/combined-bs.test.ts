@@ -1,18 +1,31 @@
-// 会社と合わせたバランスシート（合算BS。法人経営者向けの機能。0107）: 事務所の設定で使うと決めたときだけ、役員として働く人のいる世帯に出す。
-// 見せ方だけで計算の結果は変えない。時点を並べる・プランを比較でも、連帯保証の点線の箱は今の年の図の下にだけ出す
+// 会社と合わせたバランスシート（合算BS。同梱の公式の拡張 ext.official.combinedBs。0107・0114）: 事務所の設定で使うと決めたときだけ、
+// 役員として働く人のいる世帯に出す。見せ方だけで計算の結果は変えない。時点を並べる・プランを比較でも、連帯保証の点線の箱は今の年の図の下にだけ出す。
+// 見るものは差し込み口 view.balance の束の関数が作り、入力欄は宣言（fields/company.json）から画面が作る（前の combinedView.ts と同じ見え方）
 import { describe, expect, it } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { BalanceTab } from "../src/presentation/BalanceTab.tsx";
 import { balanceTabModel, bsPlan, defaultGuideBasis, DEFAULT_BS_GUIDE, DEFAULT_BS_POINTS } from "../src/workspace/balanceTab.ts";
-import { combinedBsView, manTextToYen, withCombinedField, yenToManText } from "../src/workspace/combined/combinedView.ts";
+import { manTextToYen, yenToManText } from "../src/workspace/extensions/fields.ts";
+import { OFFICIAL_EXTENSIONS } from "../src/workspace/extensions/official.ts";
+import { extensionFieldEdit, extensionViews } from "../src/workspace/extensions/run.ts";
+import { readCombinedInput, type CombinedBsInput } from "../../sdk/examples/extensions/combined-bs/parts/combinedBs.ts";
+import type { BsYearModel } from "../src/presentation/model.ts";
 import { DEFAULT_OFFICE_SETTINGS, isDefaultSettings, readOfficeSettings } from "../src/workspace/office/settings.ts";
 import { executiveMembers } from "../src/workspace/input/officer.ts";
-import type { CombinedBsInput } from "../../report/src/index.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const noop = () => undefined;
+const KEY = "ext.official.combinedBs";
+const asExt = (c: CombinedBsInput | null) => (c === null ? undefined : { [KEY]: c as unknown as Record<string, unknown> });
+/** 合算BS の見るもの（束の関数と画面の入力欄。前の combinedBsView と同じ入出力で呼ぶ） */
+const combinedBsView = (c: CombinedBsInput | null, home: BsYearModel) => extensionViews(OFFICIAL_EXTENSIONS, asExt(c), home)[0]!;
+/** 欄を1つ変えた入力（前の withCombinedField と同じ入出力で呼ぶ） */
+function withCombinedField(c: CombinedBsInput | null, id: string, text: string): CombinedBsInput | null | undefined {
+  const r = extensionFieldEdit(OFFICIAL_EXTENSIONS, asExt(c), KEY, id, text);
+  return r === undefined ? undefined : readCombinedInput(r.value);
+}
 const M = 10000;
 const box = (v: number) => ({ value: v, state: "confirmed", origin: { kind: "manual" } }) as never;
 

@@ -205,21 +205,39 @@ fn every_format_version_has_a_fixture_and_opens() {
             account, since_052,
             "{v}: アカウント型の契約は 0.52 からの見本"
         );
+        // 0.54 から: 世帯の区画には会社の入力を持たない（拡張領域へ移した。0114 の9）
+        assert!(
+            now["household"].get("companyBs").is_none(),
+            "{v}: 世帯の区画には会社の入力を持たない"
+        );
         if migrate::parse(v).unwrap() >= (0, 50) {
-            // 0.50 から: 会社と合わせたバランスシートの入力（計算の要求の外。0107）
-            let c = &now["household"]["companyBs"];
-            assert_eq!(c["version"], 1, "{v}: 会社の入力の形の版");
+            // 0.50 から: 会社と合わせたバランスシートの入力（計算の要求の外。0107）。0.54 から拡張領域 ext.official.combinedBs（0114）
+            let c = &now["ext"]["ext.official.combinedBs"];
             assert!(c["amounts"]["cash"].is_u64(), "{v}: 会社の現預金");
             assert_eq!(c["asOf"], "2026-09", "{v}: 会社の基準日");
+            assert_eq!(
+                now["extDefinitions"]["ext.official.combinedBs"]["by"],
+                "ext.official.combinedBs",
+                "{v}: 拡張項目の定義"
+            );
             assert!(
                 now["household"]["request"]["input"]
                     .get("companyBs")
                     .is_none(),
                 "{v}: 計算の要求には入れない"
             );
+            // 0.53 までの見本は変換の段が移し、引き継いだことを meta に記録する
+            let moved = now["meta"]["extTransfers"]
+                .as_array()
+                .is_some_and(|l| l.iter().any(|r| r["to"] == "ext.official.combinedBs"));
+            assert_eq!(
+                moved,
+                migrate::parse(v).unwrap() < (0, 54),
+                "{v}: 引き継ぎの記録"
+            );
         } else {
             assert!(
-                now["household"].get("companyBs").is_none(),
+                now["ext"].get("ext.official.combinedBs").is_none(),
                 "{v}: 前の版の世帯は会社の入力なし"
             );
         }

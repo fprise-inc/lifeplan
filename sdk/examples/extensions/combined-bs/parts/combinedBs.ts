@@ -1,14 +1,17 @@
-// 会社と合わせたバランスシート（合算BS）の部品（法人経営者向けの機能。事務所の設定で FP が使うと決めたときだけ使う。0107）。
-// アプリの「資産と負債」のタブ（見るものの差し込み口 customViews。0027 の8）と、提案書の任意の章で同じ部品を使う。
-// - 入力は、会社の今のバランスシート（試算表の主な科目）と毎月の固定の支出・返済。家計の側は、今の年の家計のバランスシート（bsGroups.ts の BsAt）
+// 会社と合わせたバランスシート（合算BS）の計算（同梱の公式の拡張 ext.official.combinedBs の部品。0107・0114）。
+// 資産と負債のタブの見るもの（view.ts。差し込み口 view.balance）と、提案書の拡張の章（chapter.ts。差し込み口 report.chapter）で同じ部品を使う。
+// - 入力は、会社の今のバランスシート（試算表の主な科目）と毎月の固定の支出・返済。家計の側は、今の年の家計のバランスシート（@lifeplan/sdk の HouseholdNow）
 // - 3つの段: ①2枚を並べる ②経営者と会社の間の4つの組を相殺する ③科目ごとに足して1枚にする（純資産は「会社の財産（剰余金）」と「個人の財産」）
 // - 組の両側の額が合わないときは、会社の側の額に合わせて見る（経営者の側の書き漏れとして直す考え方）。お知らせの文を作る
 // - 指標: 総合（合算）・個人・会社のそれぞれで、現預金 ÷ 毎月の固定の支出（何か月分）。目安は6か月分（できれば12か月分）
 // - 会社の段階を選ぶと、どちらの口座にお金を厚くするかの目安の1文
 // - 実力に直す点検の一覧: FP が直した額を入れる。計算では直さない（直した額を使うかは FP が選ぶ）
 // - 会社の先の年の見込みは作らない。計算エンジンは使わない（足し算と引き算だけ。円の整数のまま）
-// 後でカスタム層（0016）の計算部品に移せるよう、入力（世帯ファイルの companyBs）と家計の BS だけから値を作る、副作用のない関数にしている
-import type { BsAt, BsGroup, BsLine, Yen } from "./bsGroups.ts";
+// 束の決まり（0114 の1）: 読み込むのは相対パスと @lifeplan/sdk だけ。時計・乱数・端末の言語設定に依る関数を使わない。副作用を持たない
+import { GROUP_ORDER, man, type BsAt, type BsGroup, type BsLine, type HouseholdNow, type Yen } from "@lifeplan/sdk";
+
+/** 入力欄の値の置き場所（世帯ファイルの拡張領域のキー。fields/company.json の key と同じ。0114 の3） */
+export const COMBINED_KEY = "ext.official.combinedBs";
 
 /** 会社の資産の科目（上から。現預金だけが「すぐ使えるお金」、ほかは「換金しにくい資産」の箱） */
 export const COMPANY_ASSETS = [
@@ -79,7 +82,7 @@ export const RESTATE_ITEMS = [
 export type RestateKey = Exclude<(typeof RESTATE_ITEMS)[number]["key"], "loanToOwner">;
 const RESTATE_KEYS: readonly RestateKey[] = ["receivables", "inventory", "buildings", "land", "investments", "guaranteed"];
 
-/** 世帯ファイルに持つ入力（household.companyBs。計算の要求には入れない。0107） */
+/** 会社の入力（世帯ファイルの拡張領域 ext["ext.official.combinedBs"]。宣言は fields/company.json。計算の要求には入れない。0107・0114） */
 export interface CombinedBsInput {
   version: 1;
   /** 会社のバランスシートの基準日（会社の最新の試算表の月末。YYYY-MM）。空は null */
@@ -104,7 +107,7 @@ export const COMBINED_YEN_MAX = 1_000_000_000_000;
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const yenOk = (v: unknown, neg = false): v is number => typeof v === "number" && Number.isInteger(v) && v <= COMBINED_YEN_MAX && v >= (neg ? -COMBINED_YEN_MAX : 0);
 
-/** 世帯ファイルの値を読む（形の合わない所は捨てる。何も無ければ null） */
+/** 入力欄の値を読む（アプリが宣言で確かめた値を、計算の入力の形にする。形の合わない所は捨てる。何も無ければ null） */
 export function readCombinedInput(v: unknown): CombinedBsInput | null {
   if (!isObj(v)) return null;
   const amounts: CombinedBsInput["amounts"] = {};
@@ -186,16 +189,9 @@ export interface CombinedBs {
   notices: string[];
 }
 
-/** 合算に使う家計の側（今の年の家計のバランスシートと、毎月の固定の支出〔生活費＋ローン返済の月額〕・連帯保証の額） */
-export interface CombinedHousehold {
-  at: BsAt;
-  /** 生活費＋ローン返済の月額（家賃収入で返す不動産のローンは除く。0105 の3） */
-  monthly: Yen;
-  /** 会社の借入の連帯保証の額（今の額） */
-  guarantee: Yen;
-}
+/** 合算に使う家計の側（今の年の家計のバランスシートと、毎月の固定の支出〔生活費＋ローン返済の月額〕・連帯保証の額。@lifeplan/sdk の HouseholdNow） */
+export type CombinedHousehold = HouseholdNow;
 
-const man = (yen: number) => Math.round(yen / 10000).toLocaleString("ja-JP");
 const mn = (yen: number) => `${man(yen)}万円`;
 
 /** 何か月分の目安の文（目安は6か月分、できれば12か月分。届かないときは段で目指す） */
@@ -327,5 +323,3 @@ export function combinedBs(input: CombinedBsInput, household: CombinedHousehold)
     notices,
   };
 }
-
-const GROUP_ORDER: readonly BsGroup[] = ["liquid", "market", "locked", "illiquid", "mortgage", "debt"];
