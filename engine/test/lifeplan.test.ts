@@ -603,6 +603,43 @@ describe("昇給カーブ（決定7）", () => {
     // 29歳（2030年）→30歳（2031年）は階級が変わる
     expect((y(a, 2031) / y(a, 2030)) / (y(b, 2031) / y(b, 2030))).toBeCloseTo(18261 / 15989, 3);
   });
+
+  it("統計の年齢カーブ（wageStats.curve.*。0116）: 性別・学歴・企業規模の表の係数の比で伸ばし、60歳以後は伸ばさない（賃金上昇率の分だけ）", () => {
+    // 1997年6月生まれ: 2026年に29歳→2027年に30歳。1967年6月生まれ: 2026年に59歳→2027年に60歳
+    const mk = (birth: string, curve: string | null) => {
+      const req = household({ baseMonth: "2026-01", endYear: 2027, members: [member("h", "self", birth)], periods: [period("p", { member: "h", from: "2020-04", annual: 6000000, std: [300000, 300000], extra: {} })] });
+      if (curve !== null) (req.input.household.employmentPeriods[0] as unknown as { salary: Record<string, unknown> }).salary.growth = { curve };
+      return req;
+    };
+    const y = (r: ReturnType<typeof run>, yy: number) => flowsOf(r, (f) => f.row === "cf.income.salary" && f.ym.startsWith(`${yy}`)).reduce((s, f) => s + f.amount, 0);
+    const id = "wageStats.curve.regular.male.university.large";
+    const young = run(mk("1997-06", id), realPacks());
+    const youngBase = run(mk("1997-06", null), realPacks());
+    expect(y(young, 2026)).toBe(6000000);
+    // 29歳（25〜29歳 1.3676）→30歳（30〜34歳 1.6699）
+    expect((y(young, 2027) / y(young, 2026)) / (y(youngBase, 2027) / y(youngBase, 2026))).toBeCloseTo(16699 / 13676, 3);
+    const old = run(mk("1967-06", id), realPacks());
+    const oldBase = run(mk("1967-06", null), realPacks());
+    // 59歳→60歳は係数が同じ（55〜59歳のまま）なので、賃金上昇率だけの伸びと同じ
+    expect(y(old, 2027)).toBe(y(oldBase, 2027));
+  });
+
+  it("統計の年齢カーブはどれも部品が読める（params に並べた値ID と、マスタデータの値がそろう）", () => {
+    const sexes = ["all", "male", "female"];
+    const edus = ["all", "juniorHigh", "highSchool", "vocational", "juniorCollege", "university", "graduate"];
+    const sizes = ["all", "large", "medium", "small"];
+    const ids = [...sexes.flatMap((s) => edus.flatMap((e) => sizes.map((z) => `wageStats.curve.regular.${s}.${e}.${z}`))), ...sexes.flatMap((s) => sizes.map((z) => `wageStats.curve.nonRegular.${s}.all.${z}`))];
+    expect(ids).toHaveLength(96);
+    const packs = realPacks();
+    for (const curve of ids) {
+      const req = household({ baseMonth: "2026-01", endYear: 2027, members: [member("h", "self", "1990-06")], periods: [period("p", { member: "h", from: "2020-04", annual: 4000000, std: [300000, 300000], extra: {} })] });
+      (req.input.household.employmentPeriods[0] as unknown as { salary: Record<string, unknown> }).salary.growth = { curve };
+      const r = run(req, packs);
+      const ns = (r.header as unknown as { notices: { code: string; ids: string[] }[] }).notices;
+      expect(ns.some((n) => n.code === "N_PARAM_MISSING" && n.ids.includes(curve))).toBe(false);
+      expect(flowsOf(r, (f) => f.row === "cf.income.salary" && f.ym.startsWith("2027")).length).toBe(12);
+    }
+  });
 });
 
 describe("根拠の記録の大きさ（決定9）", () => {

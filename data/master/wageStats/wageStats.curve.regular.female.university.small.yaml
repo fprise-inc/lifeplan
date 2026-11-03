@@ -1,0 +1,31 @@
+id: wageStats.curve.regular.female.university.small
+title: 昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）
+unit: rate
+kind: bracketTable
+basis: {"type": "incomeYear"}
+entries:
+  - rev: 1
+    appliesFrom: "2026-01-01"
+    appliesTo: null
+    enforcedOn: "2026-03-24"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 19, "rate": "1.0000"}
+      - {"upTo": 24, "rate": "1.0000"}
+      - {"upTo": 29, "rate": "1.2090"}
+      - {"upTo": 34, "rate": "1.3130"}
+      - {"upTo": 39, "rate": "1.4010"}
+      - {"upTo": 44, "rate": "1.4872"}
+      - {"upTo": 49, "rate": "1.4878"}
+      - {"upTo": 54, "rate": "1.5582"}
+      - {"upTo": 59, "rate": "1.6926"}
+      - {"upTo": 64, "rate": "1.6926"}
+      - {"upTo": 69, "rate": "1.6926"}
+      - {"upTo": null, "rate": "1.6926"}
+    sources:
+      - {"type": "web", "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040421141&fileKind=4", "retrievedAt": "2026-10-26", "sha256": "bd045c814ce42aba2e22e81591d3c1747adf08a87c9f17c40d26304e08a776ac", "locator": "令和7年賃金構造基本統計調査 一般労働者 雇用形態別 第1表（民営事業所・正社員・正職員計・産業計）10～99人・女 大学・きまって支給する現金給与額・年間賞与その他特別給与額・労働者数・年齢階級（～19歳〜55～59歳。シート「産業計」の287〜296行）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-11-03", "tools": ["Excel（公表の統計表）", "表の内訳から計算し直した結果", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "年齢階級ごとの年収（きまって支給する現金給与額×12＋年間賞与その他特別給与額。千円）を20～24歳の年収 3382.7千円で割り、小数4桁に四捨五入した係数。～19歳は労働者数が1,000人（表の100十人）に満たないか値が無いので使わず、最初に使える階級と同じ1。60歳以後の3つの階級は55～59歳の係数のまま（60歳以後の下がり方は定年後の予定で入れるので二重に下げない）。2つ目の読み方: 年齢階級の値を労働者数で重み付けした平均が年齢計と表示の桁の丸めの範囲で一致（表の内訳の計算し直し）。既定では使わない（働き方の期間で統計の年齢カーブを選んだときだけ）"}

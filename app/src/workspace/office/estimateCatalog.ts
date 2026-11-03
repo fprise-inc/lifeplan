@@ -51,6 +51,8 @@ const EDU: Record<string, string> = {
   highSchool: "高校卒",
   juniorCollege: "高専・短大卒",
 };
+/** 統計の年齢カーブの学歴（賃金構造基本統計調査の区分。0116） */
+const CURVE_EDU: Record<string, string> = { juniorHigh: "中学", highSchool: "高校", vocational: "専門学校", juniorCollege: "高専・短大", university: "大学", graduate: "大学院" };
 const STAGE: Record<string, string> = {
   kindergarten: "幼稚園",
   elementary: "小学校",
@@ -119,7 +121,12 @@ function describe(id: string, title: string): Omit<EstimateEntry, "id" | "offici
   }
   if (p[0] === "wageStats") {
     if (p[1] === "business") return { group: "給与・収入", name: "自営業の事業所得（年額）", unit: "yen", axis: null };
-    if (p[1] === "default") return { group: "給与・収入", name: "昇給カーブの係数（年齢別。詳細で選んだときだけ使う）", unit: "coef", axis: "年齢" };
+    if (p[1] === "default") return { group: "昇給カーブ", name: "昇給カーブの係数（前の版の表: 正社員・男女計。60歳以後も下がる。画面からは選ばない）", unit: "coef", axis: "年齢" };
+    if (p[1] === "curve") {
+      const sex = p[3] === "all" ? "男女計" : (SEX[p[3] ?? ""] ?? "");
+      const edu = p[4] === "all" ? "学歴計" : (CURVE_EDU[p[4] ?? ""] ?? "");
+      return { group: "昇給カーブ", name: `統計の年齢カーブの係数（${EMP[p[2] ?? ""] ?? ""}・${sex}・${edu}・${SIZE[p[5] ?? ""] ?? ""}。詳細で選んだときだけ使う）`, unit: "coef", axis: axisOf("年齢") };
+    }
     if (p[1] === "partTimeHourly") return { group: "給与・収入", name: `パートの時給（${SEX[p[2] ?? ""] ?? ""}）`, unit: "yen", axis: null };
     if (p[1] === "civilServant") return p[2] === "monthlyByAge" ? { group: "給与・収入", name: "公務員の毎月の給与（年齢別）", unit: "yen", axis: axisOf("年齢") } : { group: "給与・収入", name: "公務員の毎月の給与", unit: "yen", axis: null };
     if (p[1] === "byAge") {
@@ -139,7 +146,7 @@ function describe(id: string, title: string): Omit<EstimateEntry, "id" | "offici
 }
 
 /** まとまりの並び */
-export const ESTIMATE_GROUPS = ["生活費", "給与・収入", "退職金", "教育", "介護", "住まい・ローン", "車", "万一・保険", "前提条件・資産運用", "ライフイベント", "平均余命", "そのほか"] as const;
+export const ESTIMATE_GROUPS = ["生活費", "給与・収入", "昇給カーブ", "退職金", "教育", "介護", "住まい・ローン", "車", "万一・保険", "前提条件・資産運用", "ライフイベント", "平均余命", "そのほか"] as const;
 
 let cache: readonly EstimateEntry[] | null = null;
 

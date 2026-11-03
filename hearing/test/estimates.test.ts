@@ -1,7 +1,8 @@
 // 推定の目安（src/estimates.ts）: 数は正本の YAML（data/master・data/regulation）の写しから読む。入力の画面とヒアリングが同じ関数を使う
 import { describe, expect, it } from "vitest";
-import { businessEstimate, healthRateEstimate, isLegacyLivingEstimate, LIVING_SPLIT_CATEGORIES, livingCategoryAverages, livingEstimate, livingStatistic, splitLiving, splitTransport, SPLIT_STEP, residentTaxEstimate, retirementLumpSumEstimate, retirementPrevalence, salaryEstimate, smrEstimate, wageCurve, wageSizeClass } from "../src/estimates.ts";
+import { businessEstimate, healthRateEstimate, isLegacyLivingEstimate, LIVING_SPLIT_CATEGORIES, livingCategoryAverages, livingEstimate, livingStatistic, splitLiving, splitTransport, SPLIT_STEP, residentTaxEstimate, retirementLumpSumEstimate, retirementPrevalence, salaryEstimate, smrEstimate, parseWageCurveId, wageCurve, wageCurveId, wageCurveRate, wageCurveTable, wageSizeClass } from "../src/estimates.ts";
 import { masterValue } from "../src/statistics.ts";
+import { MASTER_VALUES } from "../src/statistics.generated.ts";
 
 describe("推定の目安", () => {
   it("正社員・契約社員は賃金構造基本統計調査の年齢階級別の「きまって支給する現金給与額」×12 と年間賞与", () => {
@@ -32,14 +33,35 @@ describe("推定の目安", () => {
     expect(salaryEstimate("partTime", "female")?.bonus.value).toBe(0);
   });
 
-  it("昇給カーブ: エンジンの既定のカーブ（wageStats.default）があり、雇用形態・性別ごとの係数も作れる。どちらも既定では使わない", () => {
+  it("昇給カーブ: エンジンの既定のカーブ（wageStats.default）と、統計の年齢カーブ（性別・学歴・企業規模。0116）の表がある。どちらも既定では使わない", () => {
     const def = masterValue("wageStats.default")?.value as { upTo: number | null; rate: string }[];
     expect(def[0]).toEqual({ upTo: 19, rate: "1.0000" });
     expect(def).toHaveLength(12);
-    const c = wageCurve("regular", "male");
+    // 男女計・学歴計・企業規模計の統計の年齢カーブは、59歳までは wageStats.default と同じで、60歳以後は55〜59歳の係数のまま
+    const all = wageCurve("regular", "all");
+    expect(all?.slice(0, 9)).toEqual(def.slice(0, 9));
+    expect(all?.slice(9).map((b) => b.rate)).toEqual(["2.4116", "2.4116", "2.4116"]);
+    const c = wageCurve("regular", "male", 2000, "university");
     expect(c?.[0]).toEqual({ upTo: 19, rate: "1.0000" });
-    expect(Number(c?.[8]?.rate)).toBeGreaterThan(2);
+    // 大学は〜24歳を1（〜19歳は表に値が無い）
+    expect(c?.[1]).toEqual({ upTo: 24, rate: "1.0000" });
+    expect(c?.[3]).toEqual({ upTo: 34, rate: "1.6699" });
+    expect(wageCurveRate(c ?? [], 30)).toBe(1.6699);
+    // 契約・嘱託は正社員・正職員以外の表（学歴計だけ）
+    expect(wageCurveId({ employment: "nonRegular", sex: "female", education: "university", size: "small" })).toBe("wageStats.curve.nonRegular.female.all.small");
+    expect(wageCurve("contract", "female", 50)).not.toBeNull();
     expect(wageCurve("partTime", "male")).toBeNull();
+    expect(parseWageCurveId("wageStats.curve.regular.female.graduate.medium")).toEqual({ employment: "regular", sex: "female", education: "graduate", size: "medium" });
+    expect(parseWageCurveId("wageStats.default")).toBeNull();
+    expect(parseWageCurveId("wageStats.curve.nonRegular.male.university.all")).toBeNull();
+    // 統計の年齢カーブの値は 96（正社員・正職員 3×7×4、正社員・正職員以外 3×4）。どの値ID も表がある
+    const ids = Object.keys(MASTER_VALUES).filter((id) => id.startsWith("wageStats.curve."));
+    expect(ids).toHaveLength(96);
+    for (const id of ids) {
+      expect(parseWageCurveId(id)).not.toBeNull();
+      expect(wageCurveId(parseWageCurveId(id)!)).toBe(id);
+      expect(wageCurveTable(id)).toHaveLength(12);
+    }
   });
 
   it("勤め先の規模の区分", () => {
