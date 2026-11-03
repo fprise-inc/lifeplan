@@ -47,6 +47,7 @@ import { blankHousehold, fromRequest, sampleRequest, withElementIds, type Workin
 import { InputView } from "./input/InputView.tsx";
 import { addItem, saveItem } from "./input/items.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
+import { withOfficeSources } from "./input/officeSource.ts";
 import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart, publishOfficeSettings, readOfficeSettings, withEstimates, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
 import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
 import { NO_OFFICE_FIELDS, NO_OFFICE_NAMES, NO_OFFICE_TEXTS, OfficeFieldsContext, officeFieldsFrom, OfficeNamesContext, OfficeTextsContext, officeTextsFrom, rowNamesOf } from "./office/customTexts.ts";
@@ -914,7 +915,7 @@ export function App() {
       autosaver.current?.reset(null);
       let o: Opened | null;
       // 新しい世帯には事務所の既定値を写す（本人・配偶者の介護・前提条件の標準値・不動産の評価の割合。0073）
-      if (id === BLANK) o = openedFrom(null, applyOfficeDefaults(withRefreshedEstimates(blankHousehold(thisMonth())), officeSettingsRef.current));
+      if (id === BLANK) o = openedFrom(null, withOfficeSources(applyOfficeDefaults(withRefreshedEstimates(blankHousehold(thisMonth())), officeSettingsRef.current), null));
       else {
         const demo = demoHousehold(id);
         if (demo === undefined) return false;
@@ -1296,7 +1297,8 @@ export function App() {
       history.track(() => {
         const o = openedRef.current;
         if (o === null || dual.current === null) return;
-        const n = openedFrom(o.demo, withRefreshedEstimates(keepStatements(keepSnapshots(next, o.wh), o.wh)));
+        // 推定を入れ直してから、推定の元の印を付ける（事務所の推定の値から作った推定か。0111 の追記 2026-11-03）
+        const n = openedFrom(o.demo, withOfficeSources(withRefreshedEstimates(keepStatements(keepSnapshots(next, o.wh), o.wh)), o.wh));
         if (n === null) return;
         reqCache.current.clear();
         rawCache.current.clear();
@@ -1389,7 +1391,7 @@ export function App() {
       history.track(() => {
         const o = openedRef.current;
         if (o === null) return;
-        const n = { ...o, wh: keepStatements(keepSnapshots(next, o.wh), o.wh) };
+        const n = { ...o, wh: withOfficeSources(keepStatements(keepSnapshots(next, o.wh), o.wh), o.wh) };
         reqCache.current.clear();
         rawCache.current.clear();
         openedRef.current = n;

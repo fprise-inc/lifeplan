@@ -6,6 +6,8 @@
 // - 同じ値を2つの欄が見せる（今の働き方の欄と、働き方の期間の欄など）ときは、当て先で1行にまとめる
 // - 一覧は世帯の物と欄の定義から毎回作る（保存しない）
 import { officeNow } from "../office/current.ts";
+import { estimateEntry } from "../office/estimateCatalog.ts";
+import { withRefreshedEstimates } from "./estimates.ts";
 import { pctText } from "../plans/decimal.ts";
 import { sameRate } from "./units.ts";
 import { allFields, type FieldDef, type Level } from "./form.ts";
@@ -232,6 +234,14 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
     rows.push({ id: `calc:${n.key}`, kind: "calc", card: n.card, cardLabel: labels.get(n.card) ?? n.card, label: n.text, detail: meta.length > 0 ? meta.join("／") : null, fieldKey: null, level: "simple", impact: 0, actions: [] });
   }
   const seen = new Set<string>();
+  // 推定を入れ直した世帯（事務所の値を変えた後の推定の行の「入れ直す」。要るときに1回だけ作る）
+  let refreshed: WorkingHousehold | null = null;
+  const refreshedFor = (f: FieldDef): ((w: WorkingHousehold) => WorkingHousehold) | null => {
+    refreshed ??= withRefreshedEstimates(wh);
+    const after = fieldStatus(f, refreshed);
+    const changed = after.basis !== fieldStatus(f, wh).basis || JSON.stringify(f.get(refreshed).value) !== JSON.stringify(f.get(wh).value);
+    return changed ? (w) => withRefreshedEstimates(w) : null;
+  };
   items.forEach((item) => {
     const stage = itemStage(wh, item.id);
     if (stage === null) return;
@@ -265,6 +275,21 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
           detail: `事務所の新しい値があります（${pctText(v)}）。この世帯は今の推定の値（${s.basis ?? "推定"}）で計算しています`,
           impact: 0,
           actions: [{ key: "office", label: "事務所の値にする", title: "推定の印のまま、事務所の今の値にします", run: (w) => withOfficeValue(w, f, v) }],
+        });
+      } else if (s.status === "estimated" && s.office !== undefined && s.office.changed.length > 0) {
+        // 事務所の推定の値から作った推定で、作った後にその値を変えた・公式に戻した（値の箱の印。0111 の追記 2026-11-03）。値は変えない
+        const names = s.office.changed.map((id) => estimateEntry(id)?.name ?? id);
+        const redo = refreshedFor(f);
+        rows.push({
+          ...base,
+          id: `field:${f.key}`,
+          kind: "notice",
+          detail: `事務所の推定の値（${names.join("・")}）を、この推定を作った後に変えています。この世帯は前の値から作った推定（${s.basis ?? "推定"}）で計算しています`,
+          impact: 0,
+          actions: [
+            ...(redo !== null ? [{ key: "office-redo", label: "今の事務所の値で入れ直す", title: "推定のままの値を、今の事務所の推定の値で入れ直します（ほかの推定のままの値も入れ直します）", run: redo }] : []),
+            ...(availableOps(f, wh, s).includes("confirm") ? [{ key: "confirm", label: "この値にする", title: "前の値から作った推定の値のまま確定にします", run: (w: WorkingHousehold) => applyStateOp(w, f, "confirm") }] : []),
+          ],
         });
       } else if (s.status === "estimated" && f.quietEstimate === undefined)
         rows.push({ ...base, id: `field:${f.key}`, kind: "estimated", detail: s.basis, impact: impactOf(f, wh), actions: availableOps(f, wh, s).includes("confirm") ? [{ key: "confirm", label: "この値にする", title: "この値のまま確定にします", run: (w) => applyStateOp(w, f, "confirm") }] : [] });
