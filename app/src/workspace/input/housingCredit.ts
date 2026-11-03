@@ -149,7 +149,8 @@ export function principalMismatch(h: Household, d: Debt): string | null {
   if (total === link.expected) return null;
   const man = (v: number) => `${(v / 10000).toLocaleString("ja-JP", { maximumFractionDigits: 4 })}万円`;
   const diff = Math.abs(link.expected - total);
-  return `購入の予定の物件の価格−頭金（${man(link.expected)}）と、借入額${link.loans.length > 1 ? "の合計" : ""}（${man(total)}）が${man(diff)}ずれています。${total < link.expected ? "足りない分は預金からも払わず、計算に入りません" : "多い分は購入に使わず、返済だけが計算に入ります"}`;
+  const what = isCustomBuild(link.residence) ? "注文住宅の土地と建物の合計−頭金" : "購入の予定の物件の価格−頭金";
+  return `${what}（${man(link.expected)}）と、借入額${link.loans.length > 1 ? "の合計" : ""}（${man(total)}）が${man(diff)}ずれています。${link.land && link.loans.length === 1 ? "引き渡しの月に借りる住宅ローン（建物の分）も足してください。" : ""}${total < link.expected ? "足りない分は預金からも払わず、計算に入りません" : "多い分は購入に使わず、返済だけが計算に入ります"}`;
 }
 
 /** 仮の条件を置くローン（平成26年以後に借りたもの） */
