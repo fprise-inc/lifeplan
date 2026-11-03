@@ -1037,7 +1037,7 @@ export interface RetirementBenefitInput {
   readonly kind: RetirementBenefitKind;
   /** 0057: 名前（表示だけ。計算には使わない） */
   readonly label?: string;
-  /** 使わない（前の版の退職一時金の目安の元の学歴。人の属性で推定の数字を分けない。0117。スキーマには残し、計算には使わない） */
+  /** 使わない（前の版の退職一時金の目安の元の学歴。人の属性で推定の数字を分けない。0118。スキーマには残し、計算には使わない） */
   readonly education?: "university" | "highSchoolOffice" | "highSchoolManual";
   readonly employment?: string;
   readonly service?: { readonly from: Timepoint; readonly to: Timepoint };

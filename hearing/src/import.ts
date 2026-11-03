@@ -1003,7 +1003,7 @@ const LUMP_SUM_TYPES = new Set(["regular", "contract"]);
 
 /**
  * 退職一時金の代わりの値（入力の画面の retirementBenefits.ts の lumpEstimate と同じ考え方: 勤続は勤め先の働き方の期間〔終わりの無い期間は
- * 60歳になる前の月まで〕、辞め方は終わりが無いか60歳に達した月以後なら定年、ほかは自己都合。学歴では分けない。0117）
+ * 60歳になる前の月まで〕、辞め方は終わりが無いか60歳に達した月以後なら定年、ほかは自己都合。学歴では分けない。0118）
  */
 function lumpSumSubstitute(m: Member, p: EmploymentPeriod): Estimate | null {
   const from = "at" in p.from ? p.from.at : null;

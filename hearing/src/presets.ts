@@ -102,15 +102,15 @@ const APP_PRESETS: readonly PresetDef[] = [
   // ---- 介護 ----
   p("preset.care.allowance", 30000, "yen", "介護", "仕送りの行（月額）", "template"),
   // ---- 給与・収入 ----
-  // 統計の値が無いときの給与・賞与の仮の値。性別で分けない（0117。前の男女別の値の平均）
-  p("preset.wage.provisional.regular.salary", 3800000, "yen", "給与・収入", "統計が無いときの給与（正社員。賞与を除く年額）", "fill", "仮の値（性別で分けない。前の男女別の仮の値の平均。0117）"),
-  p("preset.wage.provisional.regular.bonus", 850000, "yen", "給与・収入", "統計が無いときの賞与（正社員）", "fill", "仮の値（性別で分けない。前の男女別の仮の値の平均。0117）"),
-  p("preset.wage.provisional.civilServant.salary", 4250000, "yen", "給与・収入", "統計が無いときの給与（公務員）", "fill", "仮の値（性別で分けない。前の男女別の仮の値の平均。0117）"),
-  p("preset.wage.provisional.civilServant.bonus", 1500000, "yen", "給与・収入", "公務員の賞与", "fill", "仮の値（性別で分けない。前の男女別の仮の値の平均。0117）"),
-  p("preset.wage.provisional.contract.salary", 2900000, "yen", "給与・収入", "統計が無いときの給与（契約社員など）", "fill", "仮の値（性別で分けない。前の男女別の仮の値の平均。0117）"),
-  p("preset.wage.provisional.contract.bonus", 250000, "yen", "給与・収入", "統計が無いときの賞与（契約社員など）", "fill", "仮の値（性別で分けない。前の男女別の仮の値の平均。0117）"),
-  p("preset.wage.provisional.partTime.salary", 1250000, "yen", "給与・収入", "統計が無いときのパートの年収", "fill", "仮の値（性別で分けない。前の男女別の仮の値の平均。0117）"),
-  p("preset.wage.provisional.executive.salary", 5400000, "yen", "給与・収入", "役員の報酬（年額）", "fill", "仮の値（性別で分けない。前の男女別の仮の値の平均。0117）"),
+  // 統計の値が無いときの給与・賞与の仮の値。性別で分けない（0118。前の男女別の値の平均）
+  p("preset.wage.provisional.regular.salary", 3800000, "yen", "給与・収入", "統計が無いときの給与（正社員。賞与を除く年額）", "fill", "仮の値（性別で分けない。前の男女別の仮の値の平均。0118）"),
+  p("preset.wage.provisional.regular.bonus", 850000, "yen", "給与・収入", "統計が無いときの賞与（正社員）", "fill", "仮の値（性別で分けない。前の男女別の仮の値の平均。0118）"),
+  p("preset.wage.provisional.civilServant.salary", 4250000, "yen", "給与・収入", "統計が無いときの給与（公務員）", "fill", "仮の値（性別で分けない。前の男女別の仮の値の平均。0118）"),
+  p("preset.wage.provisional.civilServant.bonus", 1500000, "yen", "給与・収入", "公務員の賞与", "fill", "仮の値（性別で分けない。前の男女別の仮の値の平均。0118）"),
+  p("preset.wage.provisional.contract.salary", 2900000, "yen", "給与・収入", "統計が無いときの給与（契約社員など）", "fill", "仮の値（性別で分けない。前の男女別の仮の値の平均。0118）"),
+  p("preset.wage.provisional.contract.bonus", 250000, "yen", "給与・収入", "統計が無いときの賞与（契約社員など）", "fill", "仮の値（性別で分けない。前の男女別の仮の値の平均。0118）"),
+  p("preset.wage.provisional.partTime.salary", 1250000, "yen", "給与・収入", "統計が無いときのパートの年収", "fill", "仮の値（性別で分けない。前の男女別の仮の値の平均。0118）"),
+  p("preset.wage.provisional.executive.salary", 5400000, "yen", "給与・収入", "役員の報酬（年額）", "fill", "仮の値（性別で分けない。前の男女別の仮の値の平均。0118）"),
   p("preset.wage.partTime.weeklyHours", 15, "hours", "給与・収入", "パートの年収の推定の働く時間（週）", "fill"),
   p("preset.health.mutualAidRate", "0.0490", "pct", "給与・収入", "共済組合・健康保険組合の保険料率の目安（本人の負担分。協会けんぽの料率が読めないとき）", "fill", "仮の値"),
   p("preset.residentTax.socialInsuranceRatio", "0.15", "pct", "給与・収入", "住民税の概算で収入から引く社会保険料の割合", "fill", "仮定"),

@@ -143,7 +143,7 @@ export function lumpReason(ending: string): RetirementReason {
 
 const memberOf = (h: Household, id: string) => h.members.find((x) => x.id === id);
 
-/** 会社員の退職一時金の目安（勤続年数・辞め方。統計の写しの学歴を分けない値。人の属性で分けない。0117）。作れなければ null */
+/** 会社員の退職一時金の目安（勤続年数・辞め方。統計の写しの学歴を分けない値。人の属性で分けない。0118）。作れなければ null */
 export function lumpEstimate(h: Household, b: Pick<RetirementBenefit, "member" | "employment" | "service">): Estimate | null {
   const m = memberOf(h, b.member);
   if (m === undefined) return null;

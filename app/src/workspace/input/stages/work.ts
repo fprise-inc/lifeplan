@@ -206,7 +206,7 @@ export const retirementAgeEstimate = (type: string, m: Member): { age: number; b
 
 /**
  * 定年後の再雇用の年収の推定: 定年前の年収 ×（60〜64歳の平均÷55〜59歳の平均）。平均は同じ働き方の男女計の年齢階級の表（hearing/src/estimates.ts。
- * 人の属性で分けない。0117）。表が無い働き方は null
+ * 人の属性で分けない。0118）。表が無い働き方は null
  */
 export function reemploymentSalary(type: string, mainAnnual: number): { value: number; basis: string } | null {
   const ratio = salaryEstimate(type, { age: 62 }) === null ? null : reemploymentRatio(type);
@@ -1184,7 +1184,7 @@ function growthField(wh: WorkingHousehold, p: EmploymentPeriod, find: Finder, pr
   };
 }
 
-// ---- 統計の年齢カーブ（昇給カーブ。0116。0117 で男女計・学歴計だけにした）----
+// ---- 統計の年齢カーブ（昇給カーブ。0116。0118 で男女計・学歴計だけにした）----
 
 const CURVE_ITEM = "employment.salary.growth";
 const CURVE_SIZE_LABEL: Readonly<Record<WageSize, string>> = { all: "企業規模計（分けない）", large: "1,000人以上", medium: "100〜999人", small: "10〜99人" };
@@ -1228,7 +1228,7 @@ function curveEffect(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, id: s
 /**
  * 統計の年齢カーブで増やす（詳細の働き方の期間。給与の期間の正社員・契約・嘱託だけ。0116）: 賃金構造基本統計調査の年齢階級ごとの年収の比で、
  * 今の年収から将来の年収を出す（係数の比を毎年掛ける。エンジンの昇給カーブ salary.growth.curve）。既定は使わない（前提条件の賃金上昇率だけ）。
- * 表は男女計・学歴計（人の属性で推定の数字を分けない。0117）。企業規模は勤め先の属性なので、使うと選べる
+ * 表は男女計・学歴計（人の属性で推定の数字を分けない。0118）。企業規模は勤め先の属性なので、使うと選べる
  */
 function curveFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find: Finder, prefix: string): FieldDef[] {
   const employment = wageCurveEmployment(p.type);

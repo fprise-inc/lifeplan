@@ -604,7 +604,7 @@ describe("昇給カーブ（決定7）", () => {
     expect((y(a, 2031) / y(a, 2030)) / (y(b, 2031) / y(b, 2030))).toBeCloseTo(18261 / 15989, 3);
   });
 
-  it("統計の年齢カーブ（wageStats.curve.*。0116・0117）: 男女計・学歴計の企業規模の表の係数の比で伸ばし、60歳以後は伸ばさない（賃金上昇率の分だけ）", () => {
+  it("統計の年齢カーブ（wageStats.curve.*。0116・0118）: 男女計・学歴計の企業規模の表の係数の比で伸ばし、60歳以後は伸ばさない（賃金上昇率の分だけ）", () => {
     // 1997年6月生まれ: 2026年に29歳→2027年に30歳。1967年6月生まれ: 2026年に59歳→2027年に60歳
     const mk = (birth: string, curve: string | null) => {
       const req = household({ baseMonth: "2026-01", endYear: 2027, members: [member("h", "self", birth)], periods: [period("p", { member: "h", from: "2020-04", annual: 6000000, std: [300000, 300000], extra: {} })] });
@@ -624,7 +624,7 @@ describe("昇給カーブ（決定7）", () => {
     expect(y(old, 2027)).toBe(y(oldBase, 2027));
   });
 
-  it("統計の年齢カーブはどれも部品が読める（params に並べた値ID と、マスタデータの値がそろう）。性別・学歴で分けた前の値ID は読めない（0117）", () => {
+  it("統計の年齢カーブはどれも部品が読める（params に並べた値ID と、マスタデータの値がそろう）。性別・学歴で分けた前の値ID は読めない（0118）", () => {
     const sizes = ["all", "large", "medium", "small"];
     const ids = ["regular", "nonRegular"].flatMap((e) => sizes.map((z) => `wageStats.curve.${e}.all.all.${z}`));
     expect(ids).toHaveLength(8);

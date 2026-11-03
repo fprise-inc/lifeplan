@@ -80,7 +80,7 @@ export function householdNoticeText(n: { kind: string; count?: number; plans?: n
     const where = [(n.count ?? 0) > 0 ? `働き方の期間 ${n.count}件` : "", (n.plans ?? 0) > 0 ? `プランの変更 ${n.plans}件` : ""].filter((x) => x !== "").join("と");
     return { target: "work", title: "推定の標準報酬月額を空欄にしました", text: `給与から推定して書いていた標準報酬月額（${where}）を空欄にしました。空欄のときは、給与から毎年9月に決め直して計算するので、昇給が保険料と厚生年金の額に入ります（結果が前と変わることがあります）。入れた額はそのままです` };
   }
-  // 人の属性（性別・学歴）で推定の数字を分けない（0.58 の変換の段。0117）
+  // 人の属性（性別・学歴）で推定の数字を分けない（0.58 の変換の段。0118）
   if (n.kind === "neutralEstimates") {
     const fixed = [(n.count ?? 0) > 0 ? `${n.count}か所` : "", (n.plans ?? 0) > 0 ? `プランの変更 ${n.plans}件` : ""].filter((x) => x !== "").join("と");
     const parts = [

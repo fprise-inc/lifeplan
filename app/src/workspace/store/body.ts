@@ -85,7 +85,7 @@
 //   区画 migrations に無ければ読むときに null に直し、開いたときの知らせ compatibilityDropped を足す）。足すだけ。本体の変換の段は版だけを書き換える
 //   0.57 から: 合算BS の会社の入力を household.companyBs から拡張領域 ext["ext.official.combinedBs"]（同梱の公式の拡張の入力欄。定義は
 //   extDefinitions）へ移した（0114 の9。本体の変換の段が移し、meta.extTransfers に記録する）。household の区画には companyBs を書かない
-//   0.58 から: 人の属性（性別・学歴）で推定の数字を分けない（0117）。統計の年齢カーブの値ID は男女計・学歴計（wageStats.curve.<雇用形態>.all.all.<企業規模>）だけ、
+//   0.58 から: 人の属性（性別・学歴）で推定の数字を分けない（0118）。統計の年齢カーブの値ID は男女計・学歴計（wageStats.curve.<雇用形態>.all.all.<企業規模>）だけ、
 //   退職給付の学歴 retirementBenefits[].education は書かない（本体の変換の段が前の値ID を直し、学歴を外し、開いたときの知らせ neutralEstimates を足す）
 //   （0.46 のまま。0041 の追記 2026-11-01）: 「書類で確かめる」は今の自動車ローン（kind car の負債）の欄に出し、これから買う車のローン
 //   （cars[].valueStates の car.loan/…）には出さない。前に付けた所は読むときに推定にし、開いたときの知らせ carLoanEstimated を足す（形は変えない）

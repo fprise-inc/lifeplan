@@ -1,4 +1,4 @@
-// 統計の年齢カーブで増やす（0116）: 詳細の働き方の期間で、賃金構造基本統計調査の年齢カーブ（男女計・学歴計。企業規模は選べる。0117）を使う欄。
+// 統計の年齢カーブで増やす（0116）: 詳細の働き方の期間で、賃金構造基本統計調査の年齢カーブ（男女計・学歴計。企業規模は選べる。0118）を使う欄。
 // 既定は使わない（前提条件の賃金上昇率だけ。今の世帯の計算の結果を変えない）。選ぶとエンジンの昇給カーブ（salary.growth.curve）に値ID を書く
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -49,7 +49,7 @@ describe("統計の年齢カーブ（既定は使わない）", () => {
     expect(f.level).toBe("detail");
     expect(f.get(wh0).value).toBe("none");
     expect(fields(wh0).some((x) => x.key === key(part, "salaryCurve"))).toBe(false);
-    // 企業規模は使うと選んだ後だけ。性別・学歴を選ぶ欄は無い（人の属性で推定の数字を分けない。0117）
+    // 企業規模は使うと選んだ後だけ。性別・学歴を選ぶ欄は無い（人の属性で推定の数字を分けない。0118）
     expect(fields(wh0).some((x) => x.key === key(main, "salaryCurveSize"))).toBe(false);
     const opts = (f as FieldDef & { options: { value: string; label: string }[] }).options;
     expect(opts.map((o) => o.value)).toEqual(["none", "use"]);
@@ -78,7 +78,7 @@ describe("統計の年齢カーブを選ぶ", () => {
     expect(hint).not.toMatch(/性別|男性|女性|学歴/);
   });
 
-  it("構成員の性別を変えても、年齢カーブの値ID と計算の結果は変わらない（0117）", () => {
+  it("構成員の性別を変えても、年齢カーブの値ID と計算の結果は変わらない（0118）", () => {
     const wh = fieldOf(wh0, key(main, "salaryCurve")).set(wh0, "use");
     const flipped = structuredClone(wh);
     const m = flipped.request.input.household.members.find((x) => x.id === self.id)!;
@@ -143,7 +143,7 @@ describe("働き方の種類を変えたとき", () => {
   });
 });
 
-describe("控えの計算の直し（0117）", () => {
+describe("控えの計算の直し（0118）", () => {
   it("性別・学歴で分けた前の値ID の控えは、男女計・学歴計の同じ企業規模に直して計算する", () => {
     const req = structuredClone(wh0.request);
     req.input.household.employmentPeriods!.find((p) => p.id === main.id)!.salary!.growth = { curve: "wageStats.curve.regular.female.university.large" };

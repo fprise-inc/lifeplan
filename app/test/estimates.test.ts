@@ -54,7 +54,7 @@ describe("推定の目安（入力の画面）", () => {
     expect(p1?.salary?.annual.value).toBe(414900 * 12);
     expect((p1?.salary?.annual as { estimate?: { basis: string } }).estimate?.basis).toContain("賃金構造基本統計調査");
     expect(p1?.salary?.bonus?.value).toBe(1278700);
-    // 性別を変えても推定は同じ（人の属性で推定の数字を分けない。0117）
+    // 性別を変えても推定は同じ（人の属性で推定の数字を分けない。0118）
     const flipped = structuredClone(h);
     flipped.members[0]!.sex = self.sex === "male" ? "female" : "male";
     refreshEstimates(flipped, BASE);

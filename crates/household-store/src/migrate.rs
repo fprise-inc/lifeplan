@@ -192,7 +192,7 @@ pub const CURRENT: &str = "0.58";
 /// - 0.57: 合算BS の会社の入力を、世帯の区画 `household.companyBs` から拡張領域 `ext["ext.official.combinedBs"]`（同梱の公式の拡張の入力欄。
 ///   定義は `extDefinitions`）へ移した（0114 の9。MINOR）。変換の段が中身をそのまま移し、`meta.extTransfers` に記録する。前の版のアプリは
 ///   会社の数字を画面に出せないので、版を上げて閲覧だけにする。0.56 の段の後に積む
-/// - 0.58: 人の属性（性別・学歴）で推定の数字を分けない（0117。MINOR）。性別・学歴で分けた統計の年齢カーブの値ID
+/// - 0.58: 人の属性（性別・学歴）で推定の数字を分けない（0118。MINOR）。性別・学歴で分けた統計の年齢カーブの値ID
 ///   （`wageStats.curve.<雇用形態>.<性別>.<学歴>.<企業規模>`）を同じ雇用形態・企業規模の男女計・学歴計（`…all.all…`）に直し、
 ///   退職給付の学歴 `retirementBenefits[].education`（退職一時金の目安の元だけ。計算には使わない）を外す。今のエンジンは前の値ID を
 ///   読めず、前の版のアプリは学歴の欄を書き戻すので、版を上げて閲覧だけにする。開いたときの知らせ `neutralEstimates` を足す。0.57 の段の後に積む
@@ -2027,7 +2027,7 @@ fn v0_56_to_0_57(mut body: Value) -> Result<Value, StoreError> {
 /// 退職給付の学歴の入力項目ID（0057。0.58 で廃止）
 const RETIREMENT_EDUCATION_ITEM: &str = "retirementBenefit.education";
 
-/// 性別・学歴で分けた統計の年齢カーブの値ID（0116）なら、同じ雇用形態・企業規模の男女計・学歴計の値ID（0117）。ほかは None
+/// 性別・学歴で分けた統計の年齢カーブの値ID（0116）なら、同じ雇用形態・企業規模の男女計・学歴計の値ID（0118）。ほかは None
 fn neutral_curve_id(id: &str) -> Option<String> {
     let parts: Vec<&str> = id.strip_prefix("wageStats.curve.")?.split('.').collect();
     let [employment, sex, education, size] = parts.as_slice() else {
@@ -2101,7 +2101,7 @@ fn auto_statistic(b: Option<&Value>) -> bool {
     })
 }
 
-/// 0.57 → 0.58: 人の属性（性別・学歴）で推定の数字を分けない（0117）。
+/// 0.57 → 0.58: 人の属性（性別・学歴）で推定の数字を分けない（0118）。
 /// - 現状（`household`。画面の側の区画を含む）とプランの差分（`proposals`）の中の、性別・学歴で分けた統計の年齢カーブの値ID を、
 ///   同じ雇用形態・企業規模の男女計・学歴計の値ID に直す（今のエンジンは前の値ID を読めない）
 /// - 現状の退職給付の学歴 `education` と、その値の状態の行を外す。プランの差分の、足す退職給付の中の学歴も外し、学歴を書く差分は捨てる

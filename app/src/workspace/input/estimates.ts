@@ -96,7 +96,7 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
       l.monthly = { ...(l.monthly as Box<number>), value: e.value, estimate: { method: "statistic", basis } } as Box<number>;
     }
   }
-  // 給与・賞与の統計の推定（年齢・働き方の種類で決まる。性別では分けない。0117。統計の目安が新しくなったときも入れ直す）
+  // 給与・賞与の統計の推定（年齢・働き方の種類で決まる。性別では分けない。0118。統計の目安が新しくなったときも入れ直す）
   for (const p of h.employmentPeriods ?? []) {
     const m = h.members.find((x) => x.id === p.member);
     if (m === undefined || p.salary === undefined) continue;
@@ -122,7 +122,7 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
   refreshEducation(h, baseMonth);
   // 子の独立は、最後の学校の終わりに合わせる（年月などで入れた独立は変えない。0062 の追記 2026-10-30）。進路の入れ直しの後に
   refreshLeaves(h);
-  // 推定のままの退職給付（退職一時金の目安・見込みの計算の最終の月給と理由）は、勤続・辞め方・年収に合わせて入れ直す（0057。学歴では分けない。0117）
+  // 推定のままの退職給付（退職一時金の目安・見込みの計算の最終の月給と理由）は、勤続・辞め方・年収に合わせて入れ直す（0057。学歴では分けない。0118）
   refreshRetirement(h);
   // 生活費の推定の段階（人数の変化と年齢から。推定のままの段だけ。livingStages.ts）。進路の後に（自宅外の在学を読むため）
   const last = endYear ?? Number(baseMonth.slice(0, 4)) + 80;

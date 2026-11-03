@@ -169,7 +169,7 @@ export function splitTransport(total: number, size: number): { transit: number; 
 
 // ---- 給与・賞与 ----
 //
-// 人の属性（性別・学歴）で推定の数字を分けない（0117）。給与・賞与・パートの時給・昇給カーブ・定年後の再雇用の比は、統計の男女計・学歴計の表だけを使う。
+// 人の属性（性別・学歴）で推定の数字を分けない（0118）。給与・賞与・パートの時給・昇給カーブ・定年後の再雇用の比は、統計の男女計・学歴計の表だけを使う。
 // 働き方の種類（正社員・契約など）・年齢・勤め先の規模は人の属性でなく働き方・勤め先の属性なので分ける
 
 /** 賃金構造基本統計調査の雇用形態（正社員・正職員／正社員・正職員以外）。働き方の種類から */
@@ -177,7 +177,7 @@ const WAGE_EMPLOYMENT: Readonly<Record<string, "regular" | "nonRegular">> = { re
 
 /**
  * 統計の表が無い働き方・賞与の目安（年額。給与は賞与を除く）。仮の値（統計の値が無いときの代わりも兼ねる）。値は presets.ts の
- * preset.wage.provisional.<働き方>.salary・bonus（賞与の無い働き方は bonus を持たない＝賞与なし。性別で分けない。0117）
+ * preset.wage.provisional.<働き方>.salary・bonus（賞与の無い働き方は bonus を持たない＝賞与なし。性別で分けない。0118）
  */
 const PROVISIONAL_TYPES: ReadonlySet<string> = new Set(["regular", "civilServant", "contract", "partTime", "executive"]);
 const NO_BONUS: ReadonlySet<string> = new Set(["partTime", "executive"]);
@@ -238,7 +238,7 @@ function wageAmount(measure: WageMeasure, employment: "regular" | "nonRegular", 
 }
 
 /**
- * 給与（賞与を除く年額）と賞与の目安。働き方の種類・年齢（・勤め先の規模）ごと。性別・学歴では分けない（どれも男女計・学歴計。0117）。
+ * 給与（賞与を除く年額）と賞与の目安。働き方の種類・年齢（・勤め先の規模）ごと。性別・学歴では分けない（どれも男女計・学歴計。0118）。
  * - 正社員・契約社員など: 賃金構造基本統計調査の年齢階級別の「きまって支給する現金給与額」×12（残業代などの所定外の給与・通勤手当を含む）と年間賞与その他特別給与額
  * - 公務員: 国家公務員給与等実態調査の行政職俸給表（一）の年齢階層別の平均給与月額×12（賞与は仮の値）
  * - パート: 短時間労働者の1時間当たり所定内給与額×週15時間×52週（賞与なし）
@@ -278,7 +278,7 @@ export function salaryEstimate(type: string, options: SalaryOptions = {}): { ann
 
 /**
  * 定年後の再雇用の年収の比（60〜64歳の平均÷55〜59歳の平均。同じ働き方の男女計の年齢階級の表）。表の無い働き方は null。
- * 人の属性で分けない（0117）
+ * 人の属性で分けない（0118）
  */
 export function reemploymentRatio(type: string): number | null {
   const after = salaryEstimate(type, { age: 62 });
@@ -287,11 +287,11 @@ export function reemploymentRatio(type: string): number | null {
   return after.annual.value / before.annual.value;
 }
 
-// ---- 統計の年齢カーブ（昇給カーブ。0116。0117 で男女計・学歴計だけにした）----
+// ---- 統計の年齢カーブ（昇給カーブ。0116。0118 で男女計・学歴計だけにした）----
 
 export const WAGE_CURVE_SIZES: readonly WageSize[] = ["all", "large", "medium", "small"];
 
-/** 統計の年齢カーブの選び方（値ID の中身）。雇用形態は働き方の種類から決まる。性別・学歴は選ばない（男女計・学歴計。0117） */
+/** 統計の年齢カーブの選び方（値ID の中身）。雇用形態は働き方の種類から決まる。性別・学歴は選ばない（男女計・学歴計。0118） */
 export interface WageCurveChoice {
   readonly employment: "regular" | "nonRegular";
   readonly size: WageSize;
@@ -312,7 +312,7 @@ export function wageCurveId(c: WageCurveChoice): string {
 const LEGACY_CURVE_ID = /^wageStats\.curve\.(regular|nonRegular)\.(all|male|female)\.(all|juniorHigh|highSchool|vocational|juniorCollege|university|graduate)\.(all|large|medium|small)$/;
 
 /**
- * 値ID を男女計・学歴計の値ID に直す（性別・学歴で分けた前の値ID → 同じ雇用形態・企業規模の男女計・学歴計。0117）。統計の年齢カーブの値ID でなければそのまま。
+ * 値ID を男女計・学歴計の値ID に直す（性別・学歴で分けた前の値ID → 同じ雇用形態・企業規模の男女計・学歴計。0118）。統計の年齢カーブの値ID でなければそのまま。
  * 世帯ファイルの変換の段（形式 0.58）と同じ決まり。変換の段を通らない控えの要求を今のエンジンで計算するときに使う
  */
 export function neutralWageCurveId(id: string): string {
@@ -537,7 +537,7 @@ export function retirementPrevalence(size?: number): Estimate | null {
 export type RetirementReason = "mandatory" | "company" | "voluntary" | "earlyIncentive";
 
 /**
- * 会社員の退職一時金（退職給付）の目安。学歴で分けない値（0117。学歴を分けない値の作り方は各値の approval.note）。
+ * 会社員の退職一時金（退職給付）の目安。学歴で分けない値（0118。学歴を分けない値の作り方は各値の approval.note）。
  * - 勤続20年以上かつ45歳以上: 就労条件総合調査（定年は勤続年数階級別、会社都合・自己都合・早期優遇は退職事由別の平均。常用労働者30人以上の企業。
  *   公表の3つの区分〔学歴・職種〕の単純な平均）
  * - それより短い・若い: 東京都の中小企業（10〜299人）のモデル退職金の勤続年数別の額（自己都合はその表、ほかは会社都合の表。公表の3つの区分を記入企業数で重み付けした平均）

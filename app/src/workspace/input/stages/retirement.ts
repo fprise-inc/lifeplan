@@ -404,7 +404,7 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
       fields.push(withAddress(timepointField({ key: `${prefix}/contribTo`, item: "retirementBenefit.contributions", label: "掛金の終わり", level: "detail", find, path: ["contributions", "to"], ageOf, mode: "ym", optional: true, nullText: "最後まで" }), benefitAt(b.id, "retirementBenefit.contributions", ["to"])));
     }
   }
-  // 詳細: 名前・勤め先・勤続期間・役員の在任期間・障害による退職（学歴の欄は置かない。目安は学歴を分けない値。人の属性で推定の数字を分けない。0117）
+  // 詳細: 名前・勤め先・勤続期間・役員の在任期間・障害による退職（学歴の欄は置かない。目安は学歴を分けない値。人の属性で推定の数字を分けない。0118）
   fields.push(withAddress(plain({ key: `${prefix}/label`, item: "retirementBenefit.label", label: "名前", level: "detail", kind: "text", find, path: ["label"], optional: true, help: "例: 企業年金連合会の通算企業年金" }), benefitAt(b.id, "retirementBenefit.label")));
   const ps = periodsOf(h, m.id);
   if (ps.length > 0)

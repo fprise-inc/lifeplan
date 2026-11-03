@@ -22,7 +22,7 @@ describe("推定の目安", () => {
     expect(salaryEstimate("selfEmployed")).toBeNull();
   });
 
-  it("推定の数字を人の属性（性別・学歴）で分けない（0117）: 給与・賞与・パートの時給の目安の根拠の文に男性・女性・学歴の表の名前が出ない", () => {
+  it("推定の数字を人の属性（性別・学歴）で分けない（0118）: 給与・賞与・パートの時給の目安の根拠の文に男性・女性・学歴の表の名前が出ない", () => {
     for (const type of ["regular", "contract", "civilServant", "partTime", "executive"])
       for (const age of [undefined, 25, 45, 62]) {
         const e = salaryEstimate(type, age === undefined ? {} : { age });
@@ -58,7 +58,7 @@ describe("推定の目安", () => {
     expect(reemploymentRatio("selfEmployed")).toBeNull();
   });
 
-  it("昇給カーブ: エンジンの既定のカーブ（wageStats.default）と、統計の年齢カーブ（男女計・学歴計・企業規模。0116・0117）の表がある。どちらも既定では使わない", () => {
+  it("昇給カーブ: エンジンの既定のカーブ（wageStats.default）と、統計の年齢カーブ（男女計・学歴計・企業規模。0116・0118）の表がある。どちらも既定では使わない", () => {
     const def = masterValue("wageStats.default")?.value as { upTo: number | null; rate: string }[];
     expect(def[0]).toEqual({ upTo: 19, rate: "1.0000" });
     expect(def).toHaveLength(12);
@@ -136,7 +136,7 @@ describe("推定の目安", () => {
     expect(residentTaxEstimate(1800000, 0, 2026).value).toBe(41000);
   });
 
-  it("退職一時金の目安: 勤続20年以上かつ45歳以上は就労条件総合調査、それより短いと東京都の中小企業のモデル退職金（どちらも学歴を分けない値。0117）", () => {
+  it("退職一時金の目安: 勤続20年以上かつ45歳以上は就労条件総合調査、それより短いと東京都の中小企業のモデル退職金（どちらも学歴を分けない値。0118）", () => {
     expect(retirementLumpSumEstimate({ reason: "mandatory", yearsOfService: 38, ageAtRetirement: 60 })?.value).toBe(18060000);
     expect(retirementLumpSumEstimate({ reason: "mandatory", yearsOfService: 22, ageAtRetirement: 60 })?.value).toBe(6610000);
     expect(retirementLumpSumEstimate({ reason: "company", yearsOfService: 25, ageAtRetirement: 50 })?.value).toBe(12870000);

@@ -40,7 +40,7 @@ export interface HouseholdNotice {
   plans?: number;
   /** livingAllowance: 前の内訳の仕送りの月額の合計 */
   amount?: number;
-  /** neutralEstimates: 推定のままの給与・賞与・退職一時金の数（新しい目安で入れ直す物。0117） */
+  /** neutralEstimates: 推定のままの給与・賞与・退職一時金の数（新しい目安で入れ直す物。0118） */
   estimates?: number;
 }
 

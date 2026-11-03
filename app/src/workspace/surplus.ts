@@ -43,7 +43,7 @@ export function setSurplusRatio(req: EngineRequest, ratio: string | null): Engin
 
 /**
  * 控え（変換で中身を変えない）を今のエンジンで計算するときの直し: なくした前提（生活防衛資金 emergencyReserve。0031 の追記）を外し、
- * 性別・学歴で分けた前の統計の年齢カーブの値ID を男女計・学歴計の値ID に直す（今のエンジンは読めない。形式 0.58 の変換の段と同じ決まり。0117）
+ * 性別・学歴で分けた前の統計の年齢カーブの値ID を男女計・学歴計の値ID に直す（今のエンジンは読めない。形式 0.58 の変換の段と同じ決まり。0118）
  */
 export function withoutRemovedAssumptions(req: EngineRequest): EngineRequest {
   const a = req.input.assumptions as Record<string, unknown> | undefined;

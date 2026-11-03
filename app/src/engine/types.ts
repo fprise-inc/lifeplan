@@ -662,7 +662,7 @@ export interface RetirementBenefit {
   id: string;
   member: string;
   kind: string;
-  /** 0057: 名前（表示だけ。計算には使わない）。前の版の学歴 education は使わない（人の属性で推定の数字を分けない。0117。形式 0.58 の変換の段が外す） */
+  /** 0057: 名前（表示だけ。計算には使わない）。前の版の学歴 education は使わない（人の属性で推定の数字を分けない。0118。形式 0.58 の変換の段が外す） */
   label?: string;
   employment?: string;
   service?: { from: Timepoint; to: Timepoint };

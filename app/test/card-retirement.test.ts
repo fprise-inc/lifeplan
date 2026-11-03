@@ -44,7 +44,7 @@ function salaried(): { wh: WorkingHousehold; self: string } {
 }
 
 describe("新しい世帯: 会社員・公務員の退職金を目安で自動で足す", () => {
-  it("会社員として入れると、勤続・辞め方から退職一時金の目安（学歴を分けない値。0117）が入り、確かめの注意（推定より上）に出る", () => {
+  it("会社員として入れると、勤続・辞め方から退職一時金の目安（学歴を分けない値。0118）が入り、確かめの注意（推定より上）に出る", () => {
     const { wh, self } = salaried();
     const b = benefitsOf(wh);
     expect(b).toHaveLength(1);
@@ -89,7 +89,7 @@ describe("新しい世帯: 会社員・公務員の退職金を目安で自動�
     expect(benefitsOf(kept)[0]!.amount).toMatchObject({ state: "confirmed", estimate: { method: "statistic" } });
   });
 
-  it("推定の連鎖: 辞める時期・辞め方を変えると、目安のままの額だけ入れ直す。性別を変えても目安は変わらない（0117）", () => {
+  it("推定の連鎖: 辞める時期・辞め方を変えると、目安のままの額だけ入れ直す。性別を変えても目安は変わらない（0118）", () => {
     const { wh, self } = salaried();
     const b = benefitsOf(wh)[0]!;
     const v0 = b.amount!.value!;

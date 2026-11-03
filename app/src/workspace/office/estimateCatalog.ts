@@ -113,7 +113,7 @@ function describe(id: string, title: string): Omit<EstimateEntry, "id" | "offici
   if (p[0] === "wageStats") {
     if (p[1] === "business") return { group: "給与・収入", name: "自営業の事業所得（年額）", unit: "yen", axis: null };
     if (p[1] === "default") return { group: "昇給カーブ", name: "昇給カーブの係数（前の版の表: 正社員。60歳以後も下がる。画面からは選ばない）", unit: "coef", axis: "年齢" };
-    // 統計の年齢カーブ・給与・賞与・パートの時給は男女計・学歴計の表だけ（人の属性で推定の数字を分けない。0117）。名前に性別・学歴を書かない
+    // 統計の年齢カーブ・給与・賞与・パートの時給は男女計・学歴計の表だけ（人の属性で推定の数字を分けない。0118）。名前に性別・学歴を書かない
     if (p[1] === "curve") return { group: "昇給カーブ", name: `統計の年齢カーブの係数（${EMP[p[2] ?? ""] ?? ""}・${SIZE[p[5] ?? ""] ?? ""}。詳細で選んだときだけ使う）`, unit: "coef", axis: axisOf("年齢") };
     if (p[1] === "partTimeHourly") return { group: "給与・収入", name: "パートの時給", unit: "yen", axis: null };
     if (p[1] === "civilServant") return p[2] === "monthlyByAge" ? { group: "給与・収入", name: "公務員の毎月の給与（年齢別）", unit: "yen", axis: axisOf("年齢") } : { group: "給与・収入", name: "公務員の毎月の給与", unit: "yen", axis: null };
@@ -126,7 +126,7 @@ function describe(id: string, title: string): Omit<EstimateEntry, "id" | "offici
   }
   if (p[0] === "retirementBenefit") {
     if (p[1] === "prevalence") return p[2] === "bySize" ? { group: "退職金", name: "退職給付制度がある企業の割合（企業規模別）", unit: "pct", axis: axisOf("常用労働者数") } : { group: "退職金", name: "退職給付制度がある企業の割合", unit: "pct", axis: null };
-    // 退職金は学歴を分けない値だけ（0117）
+    // 退職金は学歴を分けない値だけ（0118）
     if (p[1] === "smallFirm") return { group: "退職金", name: `中小企業のモデル退職金（${RETIRE_REASON[p[2] ?? ""] ?? ""}・勤続年数別）`, unit: "yen", axis: axisOf("勤続年数") };
     const byService = p[3] === "byService";
     return { group: "退職金", name: `退職金（${RETIRE_REASON[p[1] ?? ""] ?? ""}${byService ? "・勤続年数別" : ""}）`, unit: "yen", axis: byService ? axisOf("勤続年数") : null };

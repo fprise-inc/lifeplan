@@ -2220,7 +2220,7 @@ entries:
     path: [disability]
   - id: retirementBenefit.education
     status: deprecated
-    label: "使わない（前の版の退職一時金の目安の元。人の属性で推定の数字を分けない決まりで廃止。画面は書かず、世帯ファイルの変換の段が外す。計算には使わない。0057・0117）"
+    label: "使わない（前の版の退職一時金の目安の元。人の属性で推定の数字を分けない決まりで廃止。画面は書かず、世帯ファイルの変換の段が外す。計算には使わない。0057・0118）"
     since: draft
     aliases: []
     replacedBy: null

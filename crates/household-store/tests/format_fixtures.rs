@@ -892,7 +892,7 @@ fn every_format_version_has_a_fixture_and_opens() {
                     .any(|b| b["kind"] == "db" && b["label"].is_string()),
                 "{v}: 退職給付の名前"
             );
-            // 0.58 から（0117）: 学歴は持たない。0.22〜0.57 の見本の学歴は、変換の段が外す
+            // 0.58 から（0118）: 学歴は持たない。0.22〜0.57 の見本の学歴は、変換の段が外す
             let raw = expected["household"]["request"]["input"]["household"]["retirementBenefits"]
                 .as_array()
                 .cloned()

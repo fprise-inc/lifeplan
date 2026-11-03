@@ -976,7 +976,7 @@ function sample057(): BodyState {
 }
 
 /**
- * 0.58 の見本の世帯（0117）: sample057() から退職給付の学歴を外し（人の属性で推定の数字を分けない。画面は書かない）、正社員の期間の1つに
+ * 0.58 の見本の世帯（0118）: sample057() から退職給付の学歴を外し（人の属性で推定の数字を分けない。画面は書かない）、正社員の期間の1つに
  * 男女計・学歴計の統計の年齢カーブ（1,000人以上）を書く
  */
 function sample058(): BodyState {
@@ -1853,7 +1853,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(n).toMatchObject({ id: "household:n1", target: "work", action: "働き方と収入" });
     expect(n?.text).toContain("働き方の期間 2件とプランの変更 1件");
     expect(barNotices({ ...i, household: [{ id: "n2", kind: "smrBlank", count: 1, plans: 0 }] })[0]?.text).toContain("（働き方の期間 1件）");
-    // 人の属性で推定の数字を分けない（0.58 の変換の段。0117）
+    // 人の属性で推定の数字を分けない（0.58 の変換の段。0118）
     const neutral = barNotices({ ...i, household: [{ id: "n3", kind: "neutralEstimates", count: 2, plans: 1, estimates: 3 }] })[0];
     expect(neutral?.title).toBe("推定を性別・学歴で分けないようにしました");
     expect(neutral?.text).toContain("（2か所とプランの変更 1件）");
