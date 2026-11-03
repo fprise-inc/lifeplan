@@ -1463,34 +1463,6 @@
                 "at": "2026-10"
               },
               "subtype": "companyLoan"
-            },
-            {
-              "debtors": [
-                {
-                  "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
-                  "role": "primary"
-                }
-              ],
-              "id": "00000000-0000-4000-8000-000000000803",
-              "kind": "mortgage",
-              "principal": 14000000,
-              "rateSchedule": [
-                {
-                  "from": {
-                    "at": "2059-07"
-                  },
-                  "id": "00000000-0000-4000-8000-000000000804",
-                  "rate": "0.018",
-                  "type": "fixed"
-                }
-              ],
-              "repayment": {
-                "method": "equalPayment",
-                "termMonths": 240
-              },
-              "start": {
-                "at": "2059-07"
-              }
             }
           ],
           "employmentPeriods": [
@@ -1579,11 +1551,21 @@
                   "value": 5200000
                 },
                 "bonus": {
-                  "origin": {
-                    "kind": "manual"
+                  "estimate": {
+                    "basis": "当事務所のお客さまの平均（架空）",
+                    "method": "statistic",
+                    "source": {
+                      "kind": "office",
+                      "values": {
+                        "wageStats.annualBonus.regular.female": "1a2b3c4d"
+                      }
+                    }
                   },
-                  "state": "confirmed",
-                  "value": 1200000
+                  "origin": {
+                    "kind": "auto"
+                  },
+                  "state": "estimated",
+                  "value": 1100000
                 }
               },
               "to": {
@@ -3206,69 +3188,6 @@
               "to": null,
               "valuation": {
                 "builtYear": 2040,
-                "structure": "wood"
-              }
-            },
-            {
-              "from": {
-                "at": "2060-04"
-              },
-              "id": "00000000-0000-4000-8000-000000000801",
-              "kind": "own",
-              "maintenance": {
-                "monthly": {
-                  "origin": {
-                    "kind": "manual"
-                  },
-                  "state": "confirmed",
-                  "value": 15000
-                }
-              },
-              "ownership": [
-                {
-                  "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
-                  "share": "1"
-                }
-              ],
-              "propertyTax": {
-                "annual": {
-                  "origin": {
-                    "kind": "manual"
-                  },
-                  "state": "confirmed",
-                  "value": 150000
-                }
-              },
-              "purchase": {
-                "at": {
-                  "at": "2060-04"
-                },
-                "costs": 3000000,
-                "downPayment": 6000000,
-                "land": {
-                  "at": {
-                    "at": "2059-07"
-                  },
-                  "costs": 1100000,
-                  "downPayment": 4000000,
-                  "price": 18000000
-                },
-                "newBuild": true,
-                "payments": [
-                  {
-                    "amount": 1000000,
-                    "at": {
-                      "at": "2059-11"
-                    },
-                    "id": "00000000-0000-4000-8000-000000000802",
-                    "kind": "start"
-                  }
-                ],
-                "price": 50000000
-              },
-              "style": "house",
-              "to": null,
-              "valuation": {
                 "structure": "wood"
               }
             }

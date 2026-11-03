@@ -181,15 +181,32 @@ fn every_format_version_has_a_fixture_and_opens() {
             migrate::parse(v).unwrap() >= (0, 53),
             "{v}: 住宅の購入の種類は 0.53 からの見本"
         );
-        // 0.54 から: 注文住宅の土地と引き渡しの前の支払い（0115）
+        // 0.54 から: 推定の元の印（事務所の推定の値から作った推定。0111 の追記 2026-11-03）。前の版の推定は印を持たない（公式の目安から作った推定）
+        let marked = now["household"]["request"]["input"]["household"]["employmentPeriods"]
+            .as_array()
+            .map(|l| {
+                l.iter().any(|p| {
+                    p["salary"]["bonus"]["estimate"]["source"]["kind"] == "office"
+                        && p["salary"]["bonus"]["estimate"]["source"]["values"]
+                            .as_object()
+                            .is_some_and(|m| !m.is_empty())
+                })
+            })
+            .unwrap_or(false);
+        assert_eq!(
+            marked,
+            migrate::parse(v).unwrap() >= (0, 54),
+            "{v}: 推定の元の印は 0.54 からの見本"
+        );
+        // 0.55 から: 注文住宅の土地と引き渡しの前の支払い（0115）
         let custom = now["household"]["request"]["input"]["household"]["residences"]
             .as_array()
             .map(|l| l.iter().any(|r| r["purchase"]["land"].is_object()))
             .unwrap_or(false);
         assert_eq!(
             custom,
-            migrate::parse(v).unwrap() >= (0, 54),
-            "{v}: 注文住宅の土地は 0.54 からの見本"
+            migrate::parse(v).unwrap() >= (0, 55),
+            "{v}: 注文住宅の土地は 0.55 からの見本"
         );
         // 0.52 から: 低解約返戻金型（払込中の率・年齢ごとの率の点）とアカウント型（積立の部分）。0055 の追記 2026-11-03
         let contracts = now["household"]["request"]["input"]["household"]["insuranceContracts"]

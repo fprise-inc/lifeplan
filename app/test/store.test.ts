@@ -851,11 +851,27 @@ function sample053(): BodyState {
 }
 
 /**
- * 0.54 の形（0115）: 注文住宅（土地を買って建てる）を1件足す。土地の決済の月・土地の代金と、その月に払う頭金と諸費用（合計の内数）、
- * 引き渡しの前に頭金から払う着工金。土地の分のローン（土地先行融資）は土地の決済の月に借りる
+ * 0.54 の形（0111 の追記 2026-11-03）: 配偶者の賞与を、事務所の推定の値から作った推定にする（推定の元の印 estimate.source。値ID → 事務所の値の指紋）。
+ * 印は表示と知らせだけで計算に使わない
  */
 function sample054(): BodyState {
   const s = sample053();
+  const req = structuredClone(s.wh.request);
+  const p = (req.input.household.employmentPeriods ?? []).find((x) => x.type === "regular");
+  if (p?.salary !== undefined)
+    p.salary = {
+      ...p.salary,
+      bonus: { value: 1100000, state: "estimated", origin: { kind: "auto" }, estimate: { method: "statistic", basis: "当事務所のお客さまの平均（架空）", source: { kind: "office", values: { "wageStats.annualBonus.regular.female": "1a2b3c4d" } } } } as never,
+    };
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
+/**
+ * 0.55 の形（0115）: 注文住宅（土地を買って建てる）を1件足す。土地の決済の月・土地の代金と、その月に払う頭金と諸費用（合計の内数）、
+ * 引き渡しの前に頭金から払う着工金。土地の分のローン（土地先行融資）は土地の決済の月に借りる
+ */
+function sample055(): BodyState {
+  const s = sample054();
   const req = structuredClone(s.wh.request);
   const hh = req.input.household;
   const self = roles(req).find((r) => r.key === "self")!.member;
@@ -1016,7 +1032,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.54");
+    expect(BODY_FORMAT_VERSION).toBe("0.55");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1170,7 +1186,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample054())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample055())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1544,6 +1560,19 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(r.table.some((t) => t.row === "cf.income.corporatePension.privateAnnuity" && t.object === list.find((x) => x.subtype === "account")?.id && t.amount > 0)).toBe(true);
   });
 
+  it("0.54 の形（0111 の追記 2026-11-03）: 推定の元の印（事務所の推定の値から作った推定）を保存して読み戻し、計算には使わない", () => {
+    const s = sample054();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const bonus = (stored.household.request.input.household.employmentPeriods ?? []).find((x) => x.type === "regular")?.salary?.bonus as unknown as { estimate?: { source?: unknown } };
+    expect(bonus.estimate?.source).toEqual({ kind: "office", values: { "wageStats.annualBonus.regular.female": "1a2b3c4d" } });
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    // 計算の要求のスキーマが印を受け、計算には使わない（外しても結果は同じ）
+    const strip = JSON.parse(JSON.stringify(back.wh.request).replace(/,"source":\{"kind":"office","values":\{[^}]*\}\}/g, "")) as typeof back.wh.request;
+    expect(JSON.stringify(strip)).not.toContain('"source":{"kind"');
+    expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(strip)).table);
+  });
+
   it("0.53 の形（0052 の追記 2026-11-03・0112）: 住宅の購入の新築か中古か・長期優良住宅かを保存して読み戻し、計算には使わない", () => {
     const s = sample053();
     const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
@@ -1558,8 +1587,8 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(strip)).table);
   });
 
-  it("0.54 の形（0115）: 注文住宅の土地と引き渡しの前の支払いを保存して読み戻し、計算に使う（土地の決済の月に払い、土地を持つ）", () => {
-    const s = sample054();
+  it("0.55 の形（0115）: 注文住宅の土地と引き渡しの前の支払いを保存して読み戻し、計算に使う（土地の決済の月に払い、土地を持つ）", () => {
+    const s = sample055();
     const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
     const r = (stored.household.request.input.household.residences ?? []).find((x) => x.purchase?.land !== undefined);
     expect(r?.purchase?.land).toMatchObject({ at: { at: "2059-07" }, price: 18000000, downPayment: 4000000, costs: 1100000 });

@@ -23,7 +23,8 @@ export interface ValueBox<T> {
   readonly state: "confirmed" | "unknown" | "notApplicable" | "estimated";
   readonly origin: { readonly kind: string; readonly ref?: string; readonly connector?: string };
   readonly approval?: { readonly by: "fp"; readonly at: string; readonly candidate?: string };
-  readonly estimate?: { readonly method: string; readonly basis: string };
+  /** source: 事務所の推定の値から作った推定の印（0111 の追記 2026-11-03。計算には使わない） */
+  readonly estimate?: { readonly method: string; readonly basis: string; readonly source?: { readonly kind: "office"; readonly values: Readonly<Record<string, string>> } };
   readonly substitute?: ValueBox<T>;
 }
 

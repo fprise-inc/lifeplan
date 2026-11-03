@@ -12,6 +12,7 @@ import { readAt, resolveAssumedKey, resolveKey, type Address } from "../store/re
 import type { FieldDef, Val } from "./form.ts";
 import { mutate, type WorkingHousehold } from "./household.ts";
 import { putRow, rowAt, type StateRow } from "./rows.ts";
+import { officeSourceView, type OfficeSourceView } from "./officeSource.ts";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -27,6 +28,8 @@ export interface FieldStatus {
   explicit: boolean;
   /** 外から来た値を承認した記録がある（ヒアリング・取り込み・AI） */
   approved: boolean;
+  /** 推定（書類待ちは代わりの値）を事務所の推定の値から作った印（0111 の追記 2026-11-03。印が無ければ持たない＝公式の目安から） */
+  office?: OfficeSourceView;
 }
 
 /** 値の状態の操作。unknown は「書類で確かめる」（書類を見るまで今の値か推定を代わりに使う。前の「わからない」。0041 の追記 2026-10-31） */
@@ -108,12 +111,17 @@ const basisOf = (b: Obj | undefined): string | null => (isObj(b?.estimate) && ty
 export function fieldStatus(f: FieldDef, wh: WorkingHousehold): FieldStatus {
   const st = f.get(wh);
   const plainStatus = (s: ValueStatus, basis: string | null = null, explicit = false, approved = false): FieldStatus => ({ status: s, basis, explicit, approved });
+  // 事務所の推定の値から作った推定の印（推定・書類待ちの代わりの値だけ）
+  const marked = (st: FieldStatus, estimate: unknown): FieldStatus => {
+    const o = officeSourceView(estimate);
+    return o === null ? st : { ...st, office: o };
+  };
   if (f.boxed !== undefined) {
     const b = f.boxed.read(wh);
     if (isBox(b)) {
       const basis = basisOf(b);
-      if (b.state === "estimated") return isUnenteredBasis(basis) ? plainStatus("missing", basis) : plainStatus("estimated", basis ?? "推定");
-      if (b.state === "unknown") return plainStatus("unknown", basisOf(isObj(b.substitute) ? b.substitute : undefined));
+      if (b.state === "estimated") return isUnenteredBasis(basis) ? plainStatus("missing", basis) : marked(plainStatus("estimated", basis ?? "推定"), b.estimate);
+      if (b.state === "unknown") return marked(plainStatus("unknown", basisOf(isObj(b.substitute) ? b.substitute : undefined)), isObj(b.substitute) ? b.substitute.estimate : undefined);
       if (b.state === "notApplicable") return plainStatus("notApplicable");
       return plainStatus("confirmed", basis, basis !== null, b.approval !== undefined);
     }
@@ -124,8 +132,8 @@ export function fieldStatus(f: FieldDef, wh: WorkingHousehold): FieldStatus {
     const row = a === null ? undefined : rowAt(input(wh), a);
     if (row !== undefined) {
       const basis = row.estimate?.basis ?? null;
-      if (row.state === "estimated") return isUnenteredBasis(basis) ? plainStatus("missing", basis) : plainStatus("estimated", basis ?? "推定");
-      if (row.state === "unknown") return plainStatus("unknown", basis);
+      if (row.state === "estimated") return isUnenteredBasis(basis) ? plainStatus("missing", basis) : marked(plainStatus("estimated", basis ?? "推定"), row.estimate);
+      if (row.state === "unknown") return marked(plainStatus("unknown", basis), row.estimate);
       if (row.state === "notApplicable") return plainStatus("notApplicable");
       return plainStatus("confirmed", basis, basis !== null, row.approval !== undefined);
     }

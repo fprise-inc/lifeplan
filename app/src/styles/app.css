@@ -378,6 +378,9 @@ html.big .lever input[type="range"] { height: 36px; }
 /* 値の状態の印（0041）: 推定・仮・書類待ち・該当なし・未入力。枠も地の色も付けず、色の付いた文字だけで見せる（色だけに頼らず文字で見せる。0077 の追記） */
 .badge { font-size: 0.7rem; font-weight: 700; border: 0; border-radius: 3px; padding: 0 2px; background: none; }
 .badge.est { color: var(--base-ink); }
+/* 事務所の推定の値から作った推定（0111 の追記 2026-11-03）: 文字は変えず、点線の下線だけ（根拠の「?」の中に1行） */
+.badge.office { text-decoration: underline dotted; text-underline-offset: 2px; }
+.est-office { font-size: 0.78rem; color: var(--ink-2); margin-top: 4px; }
 .badge.unk { color: var(--est-ink); }
 .badge.na { color: var(--ink-2); }
 .badge.missing { color: var(--short-ink); }
