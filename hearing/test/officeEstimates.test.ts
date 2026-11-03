@@ -30,9 +30,9 @@ describe("事務所の推定の値", () => {
   });
 
   it("給与の推定も事務所の値（年齢計）を使う", () => {
-    const id = "wageStats.contractualMonthly.regular.male";
+    const id = "wageStats.contractualMonthly.regular.all";
     setOfficeEstimates({ [id]: { value: 500000, basis: "事務所の目安（2026年11月）" } });
-    expect(salaryEstimate("regular", "male")?.annual).toEqual({ value: 6000000, basis: "事務所の目安（2026年11月）" });
+    expect(salaryEstimate("regular")?.annual).toEqual({ value: 6000000, basis: "事務所の目安（2026年11月）" });
   });
 
   it("一時的に置き換えた値は、終わると元に戻る（代表の世帯で差を見るとき）", () => {
@@ -105,10 +105,10 @@ describe("事務所の推定の値（コードの中の目安）", () => {
   });
 
   it("給与の仮の値（統計の無い働き方）も事務所の値になる", () => {
-    expect(salaryEstimate("executive", "male")?.annual.value).toBe(6000000);
-    setOfficeEstimates({ "preset.wage.provisional.executive.male.salary": { value: 9000000, basis: BASIS } });
-    expect(salaryEstimate("executive", "male")?.annual).toEqual({ value: 9000000, basis: BASIS });
-    expect(salaryEstimate("executive", "male")?.bonus.value).toBe(0);
+    expect(salaryEstimate("executive")?.annual.value).toBe(5400000);
+    setOfficeEstimates({ "preset.wage.provisional.executive.salary": { value: 9000000, basis: BASIS } });
+    expect(salaryEstimate("executive")?.annual).toEqual({ value: 9000000, basis: BASIS });
+    expect(salaryEstimate("executive")?.bonus.value).toBe(0);
   });
 });
 
@@ -116,7 +116,7 @@ describe("事務所の推定の値（コードの中の目安）", () => {
 describe("事務所の値から作った推定の見分け方（完全に同じ文）", () => {
   it("「平均」「統計」のような短い文を書いても、出典の長い公式の根拠と取り違えない", () => {
     setOfficeEstimates({ [LIVING]: { value: officeLiving(), basis: "平均" }, "care.statistics.months": { value: 60, basis: "統計" } });
-    const official = salaryEstimate("regular", "female")?.annual.basis ?? "";
+    const official = salaryEstimate("regular")?.annual.basis ?? "";
     expect(official).toContain("統計");
     expect(isOfficeBasisText(official)).toBe(false);
     expect(isOfficeBasisText("家計調査（総務省）の統計の平均")).toBe(false);

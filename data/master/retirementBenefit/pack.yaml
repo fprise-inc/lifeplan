@@ -5,9 +5,12 @@
 # 2026.2.0: 原本（就労条件総合調査の概況の PDF と表章データの Excel）を取得して照らし合わせ、2026.1.0 の値に reviewed の行を足した（値は変わらない。30〜99人の段 70.1% を足した）。
 #   会社都合・自己都合・早期優遇の退職給付額（第22表）、定年退職の勤続年数階級別の額（第23表）、東京都産業労働局「中小企業の賃金・退職金事情」令和6年版 第8表のモデル退職金
 #   （自己都合・会社都合 × 学歴。勤続20年未満の目安）を足した（照合: claude、2026-10-26）
+# 2026.3.0: 人の属性（学歴）で推定の数字を分けない決まり（0118）。学歴・職種で分けた退職給付額とモデル退職金を外し、同じ原本から作った学歴を分けない値
+#   （retirementBenefit.<定年|会社都合|自己都合|早期優遇>.all・retirementBenefit.mandatory.all.byService・retirementBenefit.smallFirm.<company|voluntary>.all）にした。
+#   就労条件総合調査は学歴計も区分ごとの人数も公表していないので3つの区分の単純な平均、東京都の表は3つの区分を記入企業数で重み付けした平均（作り方は各値の approval.note）
 packId: master.retirementBenefit
 formatVersion: "0.1"
-version: "2026.2.0"
+version: "2026.3.0"
 features: []
 title: 退職給付の公的統計の目安
 requires: {}

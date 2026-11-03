@@ -44,12 +44,16 @@ function salaried(): { wh: WorkingHousehold; self: string } {
 }
 
 describe("新しい世帯: 会社員・公務員の退職金を目安で自動で足す", () => {
-  it("会社員として入れると、勤続・辞め方・学歴から退職一時金の目安が入り、確かめの注意（推定より上）に出る", () => {
+  it("会社員として入れると、勤続・辞め方から退職一時金の目安（学歴を分けない値。0118）が入り、確かめの注意（推定より上）に出る", () => {
     const { wh, self } = salaried();
     const b = benefitsOf(wh);
     expect(b).toHaveLength(1);
     expect(b[0]).toMatchObject({ kind: "lumpSum", member: self, amount: { state: "estimated", origin: { kind: "auto" }, estimate: { method: "statistic" } } });
-    expect((b[0]!.amount as unknown as { estimate: { basis: string } }).estimate.basis).toMatch(/定年・大学・大学院卒とみなす/);
+    const basis = (b[0]!.amount as unknown as { estimate: { basis: string } }).estimate.basis;
+    expect(basis).toMatch(/学歴を分けない値.*（定年）$/);
+    expect(basis).not.toMatch(/大学|高校|とみなす/);
+    // 学歴の欄は無い
+    expect(fields(wh, "retirement").some((f) => f.key.endsWith("/education") || f.item === "retirementBenefit.education")).toBe(false);
     expect(b[0]!.amount!.value).toBeGreaterThan(10000000);
     const rows = checkList(wh);
     const notice = rows.findIndex((r) => r.id.startsWith("notice:retirement/auto/"));
@@ -85,15 +89,14 @@ describe("新しい世帯: 会社員・公務員の退職金を目安で自動�
     expect(benefitsOf(kept)[0]!.amount).toMatchObject({ state: "confirmed", estimate: { method: "statistic" } });
   });
 
-  it("推定の連鎖: 辞める時期・辞め方・学歴を変えると、目安のままの額だけ入れ直す", () => {
-    const { wh } = salaried();
+  it("推定の連鎖: 辞める時期・辞め方を変えると、目安のままの額だけ入れ直す。性別を変えても目安は変わらない（0118）", () => {
+    const { wh, self } = salaried();
     const b = benefitsOf(wh)[0]!;
     const v0 = b.amount!.value!;
-    // 学歴（詳細）
-    const edu = fieldOf(wh, "retirement", `retirement/${b.id}/education`);
-    const w1 = withRefreshedEstimates(edu.set(wh, "highSchoolManual"));
-    expect(benefitsOf(w1)[0]!.amount!.value).toBeLessThan(v0);
-    expect((benefitsOf(w1)[0]!.amount as unknown as { estimate: { basis: string } }).estimate.basis).toMatch(/高校卒（現業職）/);
+    // 性別（人の属性）を変えても、退職一時金の目安・給与の推定は変わらない
+    const w1 = withRefreshedEstimates(mutate(wh, (h) => void Object.assign(h.members.find((m) => m.id === self)!, { sex: h.members.find((m) => m.id === self)!.sex === "male" ? "female" : "male" })));
+    expect(benefitsOf(w1)[0]!.amount).toEqual(b.amount);
+    expect(w1.request.input.household.employmentPeriods![0]!.salary).toEqual(wh.request.input.household.employmentPeriods![0]!.salary);
     // 辞め方（働き方の期間の終わり方。働き方と収入のカードの物を読むだけ）
     const w2 = withRefreshedEstimates(mutate(wh, (h) => void Object.assign(h.employmentPeriods![0]!, { endsWith: "voluntary" })));
     expect(benefitsOf(w2)[0]!.amount!.value).toBeLessThan(v0);
@@ -101,7 +104,7 @@ describe("新しい世帯: 会社員・公務員の退職金を目安で自動�
     // FP が入れた額は入れ直さない
     const amount = fieldOf(wh, "retirement", `retirement/${b.id}/amount`);
     const typed = amount.set(wh, 15000000);
-    const w3 = withRefreshedEstimates(edu.set(typed, "highSchoolManual"));
+    const w3 = withRefreshedEstimates(mutate(typed, (h) => void Object.assign(h.employmentPeriods![0]!, { endsWith: "voluntary" })));
     expect(benefitsOf(w3)[0]!.amount).toMatchObject({ value: 15000000, state: "confirmed" });
   });
 
@@ -240,7 +243,7 @@ describe("入れ方の選択の欄は置かない（見込み額の欄だけで�
     const b = benefitsOf(wh)[0]!;
     expect(fields(wh, "retirement").some((f) => f.key.endsWith("/mode"))).toBe(false);
     const amount = fieldOf(wh, "retirement", `retirement/${b.id}/amount`);
-    expect(amount.help).toMatch(/推定は勤続年数・辞め方・学歴からの平均/);
+    expect(amount.help).toMatch(/推定は勤続年数・辞め方からの平均/);
     const typed = amount.set(wh, 15000000);
     expect(benefitsOf(typed)[0]!.amount).toMatchObject({ value: 15000000, state: "confirmed" });
     const back = fieldOf(typed, "retirement", `retirement/${b.id}/amount`).set(typed, null);

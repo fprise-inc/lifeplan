@@ -916,7 +916,7 @@ function importSalary(c: Ctx, p: EmploymentPeriod, m: Member, n: number, baseMon
   const from = "at" in p.from && ymIndex(p.from.at) > ymIndex(baseMonth) ? p.from.at : baseMonth;
   const opts = { age: ageAt(m, from) };
   // 事務所の既定値で給与を推定で埋めない欄にしたときは、目安を使わない（空欄・「わからない」は未入力の0円。0111）
-  const est = fillsByEstimate("employment.salary.annual") ? salaryEstimate(p.type, m.sex, opts) : null;
+  const est = fillsByEstimate("employment.salary.annual") ? salaryEstimate(p.type, opts) : null;
   let annual: ValueBox<number>;
   let bonusBox: ValueBox<number>;
   if (total.status === "value") {
@@ -937,7 +937,7 @@ function importSalary(c: Ctx, p: EmploymentPeriod, m: Member, n: number, baseMon
       annual = c.box("hs.income.salary", n, total.value);
     } else {
       // 賞与が分からない: 年収に統計の賞与の割合を当てて分ける（年収の側も、その分だけ推定になる）
-      const share = bonusShareEstimate(p.type, m.sex, total.value, opts) ?? { value: 0, basis: "賞与なしとみなした" };
+      const share = bonusShareEstimate(p.type, total.value, opts) ?? { value: 0, basis: "賞与なしとみなした" };
       const tr = c.rangeOf("hs.income.salary", n);
       const rest: Estimate = { value: total.value - share.value, basis: tr !== null ? `${rangeBasis(tr)}（${total.value.toLocaleString("ja-JP")}円）から賞与の目安を引いた額` : `年収（記入）${total.value.toLocaleString("ja-JP")}円から賞与の目安を引いた額` };
       if (bonus.status === "unknown") {
@@ -1003,7 +1003,7 @@ const LUMP_SUM_TYPES = new Set(["regular", "contract"]);
 
 /**
  * 退職一時金の代わりの値（入力の画面の retirementBenefits.ts の lumpEstimate と同じ考え方: 勤続は勤め先の働き方の期間〔終わりの無い期間は
- * 60歳になる前の月まで〕、辞め方は終わりが無いか60歳に達した月以後なら定年、ほかは自己都合、学歴は大学・大学院卒とみなす）
+ * 60歳になる前の月まで〕、辞め方は終わりが無いか60歳に達した月以後なら定年、ほかは自己都合。学歴では分けない。0118）
  */
 function lumpSumSubstitute(m: Member, p: EmploymentPeriod): Estimate | null {
   const from = "at" in p.from ? p.from.at : null;
@@ -1013,7 +1013,7 @@ function lumpSumSubstitute(m: Member, p: EmploymentPeriod): Estimate | null {
   if (years <= 0) return null;
   const reason = p.to === null || ymIndex(to) >= ymIndex(reachedMonth(m, 60)) ? "mandatory" : "voluntary";
   const est = retirementLumpSumEstimate({ reason, yearsOfService: years, ageAtRetirement: ageAt(m, addMonths(to, 1)) });
-  return est === null ? null : { value: est.value, basis: `${est.basis}（${reason === "mandatory" ? "定年" : "自己都合"}・大学・大学院卒とみなす）` };
+  return est === null ? null : { value: est.value, basis: `${est.basis}（${reason === "mandatory" ? "定年" : "自己都合"}）` };
 }
 
 /**

@@ -3140,78 +3140,102 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
-  - id: retirementBenefit.company.highSchoolManual
+  - id: retirementBenefit.company.all
     status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 会社都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・学歴を分けない値〔公表の3つの区分の単純な平均〕。一時金と年金の現価の計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.company.highSchoolManual
+    status: removed
     label: "就労条件総合調査（厚生労働省）令和5年 会社都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（現業職）。一時金と年金の現価の計）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: retirementBenefit.company.all
   - id: retirementBenefit.company.highSchoolOffice
-    status: active
+    status: removed
     label: "就労条件総合調査（厚生労働省）令和5年 会社都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（管理・事務・技術職）。一時金と年金の現価の計）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: retirementBenefit.company.all
   - id: retirementBenefit.company.university
-    status: active
+    status: removed
     label: "就労条件総合調査（厚生労働省）令和5年 会社都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・大学・大学院卒（管理・事務・技術職）。一時金と年金の現価の計）"
+    since: draft
+    aliases: []
+    replacedBy: retirementBenefit.company.all
+  - id: retirementBenefit.earlyIncentive.all
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 早期優遇退職者1人平均退職給付額（勤続20年以上かつ45歳以上・学歴を分けない値〔公表の3つの区分の単純な平均〕。一時金と年金の現価の計）"
     since: draft
     aliases: []
     replacedBy: null
   - id: retirementBenefit.earlyIncentive.highSchoolManual
-    status: active
+    status: removed
     label: "就労条件総合調査（厚生労働省）令和5年 早期優遇退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（現業職）。一時金と年金の現価の計）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: retirementBenefit.earlyIncentive.all
   - id: retirementBenefit.earlyIncentive.highSchoolOffice
-    status: active
+    status: removed
     label: "就労条件総合調査（厚生労働省）令和5年 早期優遇退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（管理・事務・技術職）。一時金と年金の現価の計）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: retirementBenefit.earlyIncentive.all
   - id: retirementBenefit.earlyIncentive.university
-    status: active
+    status: removed
     label: "就労条件総合調査（厚生労働省）令和5年 早期優遇退職者1人平均退職給付額（勤続20年以上かつ45歳以上・大学・大学院卒（管理・事務・技術職）。一時金と年金の現価の計）"
+    since: draft
+    aliases: []
+    replacedBy: retirementBenefit.earlyIncentive.all
+  - id: retirementBenefit.mandatory.all
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額（勤続20年以上かつ45歳以上・学歴を分けない値〔公表の3つの区分の単純な平均〕。一時金と年金の現価の計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.mandatory.all.byService
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額の勤続年数階級別（勤続20年以上かつ45歳以上・学歴を分けない値〔公表の3つの区分の単純な平均〕・退職給付制度計。upTo は勤続年数の上限。20年未満の段は値なし）"
     since: draft
     aliases: []
     replacedBy: null
   - id: retirementBenefit.mandatory.highSchoolManual
-    status: active
+    status: removed
     label: "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（現業職）。一時金と年金の現価の計）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: retirementBenefit.mandatory.all
   - id: retirementBenefit.mandatory.highSchoolManual.byService
-    status: active
+    status: removed
     label: "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額の勤続年数階級別（勤続20年以上かつ45歳以上・高校卒（現業職）・退職給付制度計。upTo は勤続年数の上限。20年未満の段は値なし）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: retirementBenefit.mandatory.all.byService
   - id: retirementBenefit.mandatory.highSchoolOffice
-    status: active
+    status: removed
     label: "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（管理・事務・技術職）。一時金と年金の現価の計）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: retirementBenefit.mandatory.all
   - id: retirementBenefit.mandatory.highSchoolOffice.byService
-    status: active
+    status: removed
     label: "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額の勤続年数階級別（勤続20年以上かつ45歳以上・高校卒（管理・事務・技術職）・退職給付制度計。upTo は勤続年数の上限。20年未満の段は値なし）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: retirementBenefit.mandatory.all.byService
   - id: retirementBenefit.mandatory.university
-    status: active
+    status: removed
     label: "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額（勤続20年以上かつ45歳以上・大学・大学院卒（管理・事務・技術職）。一時金と年金の現価の計）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: retirementBenefit.mandatory.all
   - id: retirementBenefit.mandatory.university.byService
-    status: active
+    status: removed
     label: "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額の勤続年数階級別（勤続20年以上かつ45歳以上・大学・大学院卒（管理・事務・技術職）・退職給付制度計。upTo は勤続年数の上限。20年未満の段は値なし）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: retirementBenefit.mandatory.all.byService
   - id: retirementBenefit.prevalence
     status: active
     label: "就労条件総合調査（厚生労働省）令和5年 退職給付（一時金・年金）制度がある企業の割合（企業規模計。常用労働者30人以上の民営企業）"
@@ -3224,60 +3248,78 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
-  - id: retirementBenefit.smallFirm.company.highSchool
+  - id: retirementBenefit.smallFirm.company.all
     status: active
+    label: "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の会社都合退職の退職金支給額（学歴を分けない値〔公表の3つの区分を記入企業数で重み付けした平均〕・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20・25・30年と55歳の時点〕の額を次の勤続年数の前の年まで当てる）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.smallFirm.company.highSchool
+    status: removed
     label: "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の会社都合退職の退職金支給額（高校卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: retirementBenefit.smallFirm.company.all
   - id: retirementBenefit.smallFirm.company.juniorCollege
-    status: active
+    status: removed
     label: "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の会社都合退職の退職金支給額（高専・短大卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: retirementBenefit.smallFirm.company.all
   - id: retirementBenefit.smallFirm.company.university
-    status: active
+    status: removed
     label: "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の会社都合退職の退職金支給額（大学卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）"
+    since: draft
+    aliases: []
+    replacedBy: retirementBenefit.smallFirm.company.all
+  - id: retirementBenefit.smallFirm.voluntary.all
+    status: active
+    label: "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の自己都合退職の退職金支給額（学歴を分けない値〔公表の3つの区分を記入企業数で重み付けした平均〕・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20・25・30年と55歳の時点〕の額を次の勤続年数の前の年まで当てる）"
     since: draft
     aliases: []
     replacedBy: null
   - id: retirementBenefit.smallFirm.voluntary.highSchool
-    status: active
+    status: removed
     label: "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の自己都合退職の退職金支給額（高校卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: retirementBenefit.smallFirm.voluntary.all
   - id: retirementBenefit.smallFirm.voluntary.juniorCollege
-    status: active
+    status: removed
     label: "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の自己都合退職の退職金支給額（高専・短大卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: retirementBenefit.smallFirm.voluntary.all
   - id: retirementBenefit.smallFirm.voluntary.university
-    status: active
+    status: removed
     label: "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の自己都合退職の退職金支給額（大学卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）"
+    since: draft
+    aliases: []
+    replacedBy: retirementBenefit.smallFirm.voluntary.all
+  - id: retirementBenefit.voluntary.all
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 自己都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・学歴を分けない値〔公表の3つの区分の単純な平均〕。一時金と年金の現価の計）"
     since: draft
     aliases: []
     replacedBy: null
   - id: retirementBenefit.voluntary.highSchoolManual
-    status: active
+    status: removed
     label: "就労条件総合調査（厚生労働省）令和5年 自己都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（現業職）。一時金と年金の現価の計）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: retirementBenefit.voluntary.all
   - id: retirementBenefit.voluntary.highSchoolOffice
-    status: active
+    status: removed
     label: "就労条件総合調査（厚生労働省）令和5年 自己都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（管理・事務・技術職）。一時金と年金の現価の計）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: retirementBenefit.voluntary.all
   - id: retirementBenefit.voluntary.university
-    status: active
+    status: removed
     label: "就労条件総合調査（厚生労働省）令和5年 自己都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・大学・大学院卒（管理・事務・技術職）。一時金と年金の現価の計）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: retirementBenefit.voluntary.all
   - id: smallBusinessMutualAid.contribution.monthlyMax
     status: active
     label: "小規模企業共済の掛金月額の上限"
@@ -3956,228 +3998,336 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
-  - id: wageStats.annualBonus.nonRegular.female
+  - id: wageStats.annualBonus.nonRegular.all
     status: active
-    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年間賞与その他特別給与額（正社員・正職員以外・女・年齢計・企業規模計。民営事業所）"
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年間賞与その他特別給与額（正社員・正職員以外・男女計・年齢計・企業規模計。民営事業所）"
     since: draft
     aliases: []
     replacedBy: null
+  - id: wageStats.annualBonus.nonRegular.female
+    status: removed
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年間賞与その他特別給与額（正社員・正職員以外・女・年齢計・企業規模計。民営事業所）"
+    since: draft
+    aliases: []
+    replacedBy: wageStats.annualBonus.nonRegular.all
   - id: wageStats.annualBonus.nonRegular.male
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年間賞与その他特別給与額（正社員・正職員以外・男・年齢計・企業規模計。民営事業所）"
+    since: draft
+    aliases: []
+    replacedBy: wageStats.annualBonus.nonRegular.all
+  - id: wageStats.annualBonus.regular.all
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年間賞与その他特別給与額（正社員・正職員・男女計・年齢計・企業規模計。民営事業所）"
     since: draft
     aliases: []
     replacedBy: null
   - id: wageStats.annualBonus.regular.female
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年間賞与その他特別給与額（正社員・正職員・女・年齢計・企業規模計。民営事業所）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.annualBonus.regular.all
   - id: wageStats.annualBonus.regular.male
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年間賞与その他特別給与額（正社員・正職員・男・年齢計・企業規模計。民営事業所）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.annualBonus.regular.all
   - id: wageStats.business.operatingProfit
     status: active
     label: "個人企業経済調査（総務省）2025年調査 1企業当たりの年間営業利益（2024年の実績・産業計）"
     since: draft
     aliases: []
     replacedBy: null
-  - id: wageStats.byAge.annualBonus.nonRegular.female.all
+  - id: wageStats.byAge.annualBonus.nonRegular.all.all
     status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男女計・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.nonRegular.all.large
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男女計・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.nonRegular.all.medium
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男女計・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.nonRegular.all.small
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男女計・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.nonRegular.female.all
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・女・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.annualBonus.nonRegular.all.all
   - id: wageStats.byAge.annualBonus.nonRegular.female.large
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・女・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.annualBonus.nonRegular.all.large
   - id: wageStats.byAge.annualBonus.nonRegular.female.medium
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・女・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.annualBonus.nonRegular.all.medium
   - id: wageStats.byAge.annualBonus.nonRegular.female.small
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・女・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.annualBonus.nonRegular.all.small
   - id: wageStats.byAge.annualBonus.nonRegular.male.all
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.annualBonus.nonRegular.all.all
   - id: wageStats.byAge.annualBonus.nonRegular.male.large
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.annualBonus.nonRegular.all.large
   - id: wageStats.byAge.annualBonus.nonRegular.male.medium
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.annualBonus.nonRegular.all.medium
   - id: wageStats.byAge.annualBonus.nonRegular.male.small
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: wageStats.byAge.annualBonus.nonRegular.all.small
+  - id: wageStats.byAge.annualBonus.regular.all.all
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男女計・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.regular.all.large
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男女計・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.regular.all.medium
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男女計・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.regular.all.small
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男女計・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
     replacedBy: null
   - id: wageStats.byAge.annualBonus.regular.female.all
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・女・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.annualBonus.regular.all.all
   - id: wageStats.byAge.annualBonus.regular.female.large
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・女・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.annualBonus.regular.all.large
   - id: wageStats.byAge.annualBonus.regular.female.medium
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・女・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.annualBonus.regular.all.medium
   - id: wageStats.byAge.annualBonus.regular.female.small
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・女・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.annualBonus.regular.all.small
   - id: wageStats.byAge.annualBonus.regular.male.all
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.annualBonus.regular.all.all
   - id: wageStats.byAge.annualBonus.regular.male.large
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.annualBonus.regular.all.large
   - id: wageStats.byAge.annualBonus.regular.male.medium
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.annualBonus.regular.all.medium
   - id: wageStats.byAge.annualBonus.regular.male.small
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: wageStats.byAge.annualBonus.regular.all.small
+  - id: wageStats.byAge.contractualMonthly.nonRegular.all.all
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男女計・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.nonRegular.all.large
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男女計・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.nonRegular.all.medium
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男女計・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.nonRegular.all.small
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男女計・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
     replacedBy: null
   - id: wageStats.byAge.contractualMonthly.nonRegular.female.all
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・女・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.contractualMonthly.nonRegular.all.all
   - id: wageStats.byAge.contractualMonthly.nonRegular.female.large
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・女・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.contractualMonthly.nonRegular.all.large
   - id: wageStats.byAge.contractualMonthly.nonRegular.female.medium
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・女・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.contractualMonthly.nonRegular.all.medium
   - id: wageStats.byAge.contractualMonthly.nonRegular.female.small
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・女・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.contractualMonthly.nonRegular.all.small
   - id: wageStats.byAge.contractualMonthly.nonRegular.male.all
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.contractualMonthly.nonRegular.all.all
   - id: wageStats.byAge.contractualMonthly.nonRegular.male.large
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.contractualMonthly.nonRegular.all.large
   - id: wageStats.byAge.contractualMonthly.nonRegular.male.medium
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.contractualMonthly.nonRegular.all.medium
   - id: wageStats.byAge.contractualMonthly.nonRegular.male.small
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: wageStats.byAge.contractualMonthly.nonRegular.all.small
+  - id: wageStats.byAge.contractualMonthly.regular.all.all
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男女計・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.regular.all.large
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男女計・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.regular.all.medium
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男女計・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.regular.all.small
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男女計・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
     replacedBy: null
   - id: wageStats.byAge.contractualMonthly.regular.female.all
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・女・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.contractualMonthly.regular.all.all
   - id: wageStats.byAge.contractualMonthly.regular.female.large
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・女・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.contractualMonthly.regular.all.large
   - id: wageStats.byAge.contractualMonthly.regular.female.medium
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・女・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.contractualMonthly.regular.all.medium
   - id: wageStats.byAge.contractualMonthly.regular.female.small
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・女・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.contractualMonthly.regular.all.small
   - id: wageStats.byAge.contractualMonthly.regular.male.all
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.contractualMonthly.regular.all.all
   - id: wageStats.byAge.contractualMonthly.regular.male.large
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.contractualMonthly.regular.all.large
   - id: wageStats.byAge.contractualMonthly.regular.male.medium
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.contractualMonthly.regular.all.medium
   - id: wageStats.byAge.contractualMonthly.regular.male.small
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.byAge.contractualMonthly.regular.all.small
   - id: wageStats.civilServant.monthly
     status: active
     label: "国家公務員給与等実態調査（人事院）令和7年 行政職俸給表（一）の平均給与月額（年齢計・学歴計）"
@@ -4190,30 +4340,42 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
-  - id: wageStats.contractualMonthly.nonRegular.female
+  - id: wageStats.contractualMonthly.nonRegular.all
     status: active
-    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者のきまって支給する現金給与額（月額）（正社員・正職員以外・女・年齢計・企業規模計。民営事業所）"
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者のきまって支給する現金給与額（月額）（正社員・正職員以外・男女計・年齢計・企業規模計。民営事業所）"
     since: draft
     aliases: []
     replacedBy: null
+  - id: wageStats.contractualMonthly.nonRegular.female
+    status: removed
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者のきまって支給する現金給与額（月額）（正社員・正職員以外・女・年齢計・企業規模計。民営事業所）"
+    since: draft
+    aliases: []
+    replacedBy: wageStats.contractualMonthly.nonRegular.all
   - id: wageStats.contractualMonthly.nonRegular.male
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者のきまって支給する現金給与額（月額）（正社員・正職員以外・男・年齢計・企業規模計。民営事業所）"
+    since: draft
+    aliases: []
+    replacedBy: wageStats.contractualMonthly.nonRegular.all
+  - id: wageStats.contractualMonthly.regular.all
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者のきまって支給する現金給与額（月額）（正社員・正職員・男女計・年齢計・企業規模計。民営事業所）"
     since: draft
     aliases: []
     replacedBy: null
   - id: wageStats.contractualMonthly.regular.female
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者のきまって支給する現金給与額（月額）（正社員・正職員・女・年齢計・企業規模計。民営事業所）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.contractualMonthly.regular.all
   - id: wageStats.contractualMonthly.regular.male
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者のきまって支給する現金給与額（月額）（正社員・正職員・男・年齢計・企業規模計。民営事業所）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.contractualMonthly.regular.all
   - id: wageStats.curve.nonRegular.all.all.all
     status: active
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・男女計・学歴計・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
@@ -4239,53 +4401,53 @@ entries:
     aliases: []
     replacedBy: null
   - id: wageStats.curve.nonRegular.female.all.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・女・学歴計・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.nonRegular.all.all.all
   - id: wageStats.curve.nonRegular.female.all.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・女・学歴計・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.nonRegular.all.all.large
   - id: wageStats.curve.nonRegular.female.all.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・女・学歴計・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.nonRegular.all.all.medium
   - id: wageStats.curve.nonRegular.female.all.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・女・学歴計・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.nonRegular.all.all.small
   - id: wageStats.curve.nonRegular.male.all.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・男・学歴計・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.nonRegular.all.all.all
   - id: wageStats.curve.nonRegular.male.all.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・男・学歴計・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.nonRegular.all.all.large
   - id: wageStats.curve.nonRegular.male.all.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・男・学歴計・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.nonRegular.all.all.medium
   - id: wageStats.curve.nonRegular.male.all.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・男・学歴計・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.nonRegular.all.all.small
   - id: wageStats.curve.regular.all.all.all
     status: active
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・学歴計・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
@@ -4311,524 +4473,542 @@ entries:
     aliases: []
     replacedBy: null
   - id: wageStats.curve.regular.all.graduate.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学院・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.all.graduate.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学院・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.all.graduate.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学院・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.all.graduate.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学院・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.all.highSchool.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.all.highSchool.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.all.highSchool.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.all.highSchool.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.all.juniorCollege.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高専・短大・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.all.juniorCollege.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高専・短大・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.all.juniorCollege.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高専・短大・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.all.juniorCollege.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高専・短大・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.all.juniorHigh.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・中学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.all.juniorHigh.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・中学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.all.juniorHigh.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・中学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.all.juniorHigh.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・中学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.all.university.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.all.university.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.all.university.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.all.university.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.all.vocational.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・専門学校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.all.vocational.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・専門学校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.all.vocational.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・専門学校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.all.vocational.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・専門学校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.female.all.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・学歴計・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.female.all.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・学歴計・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.female.all.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・学歴計・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.female.all.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・学歴計・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.female.graduate.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学院・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.female.graduate.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学院・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.female.graduate.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学院・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.female.graduate.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学院・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、25～29歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.female.highSchool.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.female.highSchool.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.female.highSchool.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.female.highSchool.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.female.juniorCollege.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高専・短大・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.female.juniorCollege.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高専・短大・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.female.juniorCollege.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高専・短大・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.female.juniorCollege.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高専・短大・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.female.juniorHigh.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・中学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.female.juniorHigh.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・中学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、30～34歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.female.juniorHigh.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・中学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、25～29歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.female.juniorHigh.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・中学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.female.university.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.female.university.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.female.university.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.female.university.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.female.vocational.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・専門学校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.female.vocational.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・専門学校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.female.vocational.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・専門学校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.female.vocational.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・専門学校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.male.all.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・学歴計・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.male.all.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・学歴計・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.male.all.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・学歴計・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.male.all.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・学歴計・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.male.graduate.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学院・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.male.graduate.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学院・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.male.graduate.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学院・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.male.graduate.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学院・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、25～29歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.male.highSchool.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.male.highSchool.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.male.highSchool.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.male.highSchool.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.male.juniorCollege.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高専・短大・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.male.juniorCollege.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高専・短大・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.male.juniorCollege.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高専・短大・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.male.juniorCollege.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高専・短大・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.male.juniorHigh.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・中学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.male.juniorHigh.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・中学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.male.juniorHigh.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・中学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.male.juniorHigh.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・中学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.male.university.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.male.university.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.male.university.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.male.university.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.curve.regular.male.vocational.all
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・専門学校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.all
   - id: wageStats.curve.regular.male.vocational.large
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・専門学校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.large
   - id: wageStats.curve.regular.male.vocational.medium
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・専門学校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.medium
   - id: wageStats.curve.regular.male.vocational.small
-    status: active
+    status: removed
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・専門学校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.curve.regular.all.all.small
   - id: wageStats.default
     status: active
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・企業規模計の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。upTo が年齢、rate が係数）"
     since: draft
     aliases: []
     replacedBy: null
-  - id: wageStats.partTimeHourly.female
+  - id: wageStats.partTimeHourly.all
     status: active
-    label: "賃金構造基本統計調査（厚生労働省）令和7年 短時間労働者の1時間当たり所定内給与額（女・年齢計・企業規模計。常用労働者計）"
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 短時間労働者の1時間当たり所定内給与額（男女計・年齢計・企業規模計。常用労働者計）"
     since: draft
     aliases: []
     replacedBy: null
+  - id: wageStats.partTimeHourly.female
+    status: removed
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 短時間労働者の1時間当たり所定内給与額（女・年齢計・企業規模計。常用労働者計）"
+    since: draft
+    aliases: []
+    replacedBy: wageStats.partTimeHourly.all
   - id: wageStats.partTimeHourly.male
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 短時間労働者の1時間当たり所定内給与額（男・年齢計・企業規模計。常用労働者計）"
+    since: draft
+    aliases: []
+    replacedBy: wageStats.partTimeHourly.all
+  - id: wageStats.scheduledMonthly.nonRegular.all
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額（月額）（正社員・正職員以外・男女計・年齢計・企業規模計。民営事業所）"
     since: draft
     aliases: []
     replacedBy: null
   - id: wageStats.scheduledMonthly.nonRegular.female
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額（月額）（正社員・正職員以外・女・年齢計・企業規模計。民営事業所）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.scheduledMonthly.nonRegular.all
   - id: wageStats.scheduledMonthly.nonRegular.male
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額（月額）（正社員・正職員以外・男・年齢計・企業規模計。民営事業所）"
+    since: draft
+    aliases: []
+    replacedBy: wageStats.scheduledMonthly.nonRegular.all
+  - id: wageStats.scheduledMonthly.regular.all
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額（月額）（正社員・正職員・男女計・年齢計・企業規模計。民営事業所）"
     since: draft
     aliases: []
     replacedBy: null
   - id: wageStats.scheduledMonthly.regular.female
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額（月額）（正社員・正職員・女・年齢計・企業規模計。民営事業所）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.scheduledMonthly.regular.all
   - id: wageStats.scheduledMonthly.regular.male
-    status: active
+    status: removed
     label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額（月額）（正社員・正職員・男・年齢計・企業規模計。民営事業所）"
     since: draft
     aliases: []
-    replacedBy: null
+    replacedBy: wageStats.scheduledMonthly.regular.all

@@ -124,7 +124,7 @@ describe("働き方と収入: 年収（賞与込み）の1欄", () => {
     });
     const w = total.set(wh, 8000000);
     const s = periodOf(w, self.id).salary!;
-    const est = salaryEstimate(periodOf(wh, self.id).type, self.sex, { age: salaryAge(self, periodOf(wh, self.id), wh.request.input.baseMonth) })!;
+    const est = salaryEstimate(periodOf(wh, self.id).type, { age: salaryAge(self, periodOf(wh, self.id), wh.request.input.baseMonth) })!;
     const want = Math.round((8000000 * est.bonus.value) / (est.annual.value + est.bonus.value) / 1000) * 1000;
     expect(s.bonus).toMatchObject({ value: want, state: "estimated", origin: { kind: "auto" }, estimate: { method: BONUS_SPLIT_METHOD } });
     expect(s.annual).toMatchObject({ value: 8000000 - want, state: "confirmed", origin: { kind: "manual" } });

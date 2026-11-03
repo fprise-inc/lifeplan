@@ -892,9 +892,25 @@ fn every_format_version_has_a_fixture_and_opens() {
                     .any(|b| b["kind"] == "db" && b["label"].is_string()),
                 "{v}: 退職給付の名前"
             );
+            // 0.58 から（0118）: 学歴は持たない。0.22〜0.57 の見本の学歴は、変換の段が外す
+            let raw = expected["household"]["request"]["input"]["household"]["retirementBenefits"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+            if migrate::parse(v).unwrap() >= (0, 58) {
+                assert!(
+                    raw.iter().all(|b| b.get("education").is_none()),
+                    "{v}: 0.58 からの見本に学歴は無い"
+                );
+            } else {
+                assert!(
+                    raw.iter().any(|b| b["education"] == "highSchoolOffice"),
+                    "{v}: 退職給付の学歴（見本）"
+                );
+            }
             assert!(
-                list.iter().any(|b| b["education"] == "highSchoolOffice"),
-                "{v}: 退職給付の学歴"
+                list.iter().all(|b| b.get("education").is_none()),
+                "{v}: 変換した退職給付に学歴は無い"
             );
         } else {
             assert!(

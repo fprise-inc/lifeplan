@@ -1,0 +1,31 @@
+id: wageStats.byAge.annualBonus.nonRegular.all.small
+title: 賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男女計・10～99人。民営事業所。upTo は年齢階級の上限の年齢）
+unit: JPY
+kind: bracketTable
+basis: {"type": "month"}
+entries:
+  - rev: 1
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: "2026-03-24"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 19, "amount": 13200}
+      - {"upTo": 24, "amount": 67400}
+      - {"upTo": 29, "amount": 86900}
+      - {"upTo": 34, "amount": 138700}
+      - {"upTo": 39, "amount": 146100}
+      - {"upTo": 44, "amount": 166100}
+      - {"upTo": 49, "amount": 189700}
+      - {"upTo": 54, "amount": 162500}
+      - {"upTo": 59, "amount": 151000}
+      - {"upTo": 64, "amount": 402300}
+      - {"upTo": 69, "amount": 280900}
+      - {"upTo": null, "amount": 153700}
+    sources:
+      - {"type": "web", "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040421142&fileKind=4", "retrievedAt": "2026-10-26", "sha256": "3b636219e8dceca8a209a914d02dd2636cc77de715bcda1d577adac00cb382ee", "locator": "令和7年賃金構造基本統計調査 一般労働者 雇用形態別 第1表（民営事業所・正社員・正職員以外計・産業計）10～99人・男女計 学歴計・年間賞与その他特別給与額・年齢階級（～19歳〜70歳～。シート「産業計」の14〜26行）"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-11-03", "tools": ["Excel（公表の統計表）", "表の内訳から計算し直した結果", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "年間賞与その他特別給与額の年齢階級別（千円を円に。男女計 学歴計の行）。2つ目の読み方: 年齢階級の値を労働者数で重み付けした平均 210.9千円が年齢計 210.9千円と表示の桁の丸めの範囲で一致。男女別の表（前の版の wageStats.byAge.*.male・female）と同じ読み方で、その表が同じ値で読めることも確かめた"}

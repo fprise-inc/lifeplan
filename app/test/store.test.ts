@@ -975,6 +975,20 @@ function sample057(): BodyState {
   return sample056();
 }
 
+/**
+ * 0.58 の見本の世帯（0118）: sample057() から退職給付の学歴を外し（人の属性で推定の数字を分けない。画面は書かない）、正社員の期間の1つに
+ * 男女計・学歴計の統計の年齢カーブ（1,000人以上）を書く
+ */
+function sample058(): BodyState {
+  const s = sample057();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  for (const b of hh.retirementBenefits ?? []) delete (b as Record<string, unknown>).education;
+  const p = (hh.employmentPeriods ?? []).find((x) => x.type === "regular" && x.salary !== undefined);
+  if (p?.salary !== undefined) p.salary.growth = { curve: "wageStats.curve.regular.all.all.large" };
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -1098,7 +1112,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.57");
+    expect(BODY_FORMAT_VERSION).toBe("0.58");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1265,7 +1279,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample057())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample058())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1273,13 +1287,13 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
     const list = stored.household.request.input.household.retirementBenefits ?? [];
     expect(list.find((b) => b.label === "架空の企業年金基金")).toMatchObject({ kind: "db", receipt: { method: "annuity", years: 10 } });
-    expect(list.some((b) => b.education === "highSchoolOffice")).toBe(true);
+    expect(list.some((b) => (b as Record<string, unknown>).education === "highSchoolOffice")).toBe(true);
     const back = fromBody(JSON.stringify(stored));
     expect(bodyObject(back)).toEqual(bodyObject(s));
     const plain = structuredClone(back.wh.request);
     for (const b of plain.input.household.retirementBenefits ?? []) {
       delete b.label;
-      delete b.education;
+      delete (b as Record<string, unknown>).education;
     }
     expect(preview(back.wh.request).table).toEqual(preview(plain).table);
   });
@@ -1839,6 +1853,12 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(n).toMatchObject({ id: "household:n1", target: "work", action: "働き方と収入" });
     expect(n?.text).toContain("働き方の期間 2件とプランの変更 1件");
     expect(barNotices({ ...i, household: [{ id: "n2", kind: "smrBlank", count: 1, plans: 0 }] })[0]?.text).toContain("（働き方の期間 1件）");
+    // 人の属性で推定の数字を分けない（0.58 の変換の段。0118）
+    const neutral = barNotices({ ...i, household: [{ id: "n3", kind: "neutralEstimates", count: 2, plans: 1, estimates: 3 }] })[0];
+    expect(neutral?.title).toBe("推定を性別・学歴で分けないようにしました");
+    expect(neutral?.text).toContain("（2か所とプランの変更 1件）");
+    expect(neutral?.text).toContain("推定のままの年収・賞与・退職一時金（3件）は、次に入力を直したときに新しい目安で入れ直します");
+    expect(barNotices({ ...i, household: [{ id: "n4", kind: "neutralEstimates", count: 0, plans: 0, estimates: 1 }] })[0]?.text).not.toContain("全体の表に直しました");
   });
 
   it("0.37 の形（0086）: 入るお金の行の表の行「雑所得」と、事業所得として扱う副業の行を保存して読み戻す。表の行は見せ方だけで、税・社会保険料は表の行に依らない", () => {

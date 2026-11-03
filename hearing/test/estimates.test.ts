@@ -1,65 +1,92 @@
 // 推定の目安（src/estimates.ts）: 数は正本の YAML（data/master・data/regulation）の写しから読む。入力の画面とヒアリングが同じ関数を使う
 import { describe, expect, it } from "vitest";
-import { businessEstimate, healthRateEstimate, isLegacyLivingEstimate, LIVING_SPLIT_CATEGORIES, livingCategoryAverages, livingEstimate, livingStatistic, splitLiving, splitTransport, SPLIT_STEP, residentTaxEstimate, retirementLumpSumEstimate, retirementPrevalence, salaryEstimate, smrEstimate, parseWageCurveId, wageCurve, wageCurveId, wageCurveRate, wageCurveTable, wageSizeClass } from "../src/estimates.ts";
+import { businessEstimate, healthRateEstimate, isLegacyLivingEstimate, LIVING_SPLIT_CATEGORIES, livingCategoryAverages, livingEstimate, livingStatistic, splitLiving, splitTransport, SPLIT_STEP, residentTaxEstimate, retirementLumpSumEstimate, retirementPrevalence, salaryEstimate, smrEstimate, neutralWageCurveId, parseWageCurveId, reemploymentRatio, wageCurve, wageCurveId, wageCurveRate, wageCurveTable, wageSizeClass } from "../src/estimates.ts";
 import { masterValue } from "../src/statistics.ts";
 import { MASTER_VALUES } from "../src/statistics.generated.ts";
 
 describe("推定の目安", () => {
-  it("正社員・契約社員は賃金構造基本統計調査の年齢階級別の「きまって支給する現金給与額」×12 と年間賞与", () => {
-    const m = salaryEstimate("regular", "male", { age: 45 });
-    expect(m?.annual.value).toBe(469000 * 12);
-    expect(m?.bonus.value).toBe(1531000);
+  it("正社員・契約社員は賃金構造基本統計調査の年齢階級別の「きまって支給する現金給与額」×12 と年間賞与（男女計）", () => {
+    const m = salaryEstimate("regular", { age: 45 });
+    expect(m?.annual.value).toBe(428900 * 12);
+    expect(m?.bonus.value).toBe(1352900);
     expect(m?.annual.basis).toContain("賃金構造基本統計調査（厚生労働省）令和7年");
+    expect(m?.annual.basis).toContain("男女計");
     expect(m?.annual.basis).toContain("45歳の階級×12");
     expect(m?.annual.basis).not.toContain("upTo");
     expect(m?.annual.basis).not.toContain("原本での確かめ前");
     // 年齢を渡さなければ年齢計
-    expect(salaryEstimate("regular", "male")?.annual.value).toBe(425600 * 12);
+    expect(salaryEstimate("regular")?.annual.value).toBe(390900 * 12);
     // 規模を渡せば規模別の表（1,000人以上）
-    expect(salaryEstimate("regular", "male", { age: 27, size: 2000 })?.annual.value).toBe(371700 * 12);
-    expect(salaryEstimate("contract", "female", { age: 40 })?.annual.value).toBe(230600 * 12);
-    expect(salaryEstimate("selfEmployed", "male")).toBeNull();
+    expect(salaryEstimate("regular", { age: 27, size: 2000 })?.annual.value).toBe(355700 * 12);
+    expect(salaryEstimate("contract", { age: 40 })?.annual.value).toBe(247100 * 12);
+    expect(salaryEstimate("selfEmployed")).toBeNull();
+  });
+
+  it("推定の数字を人の属性（性別・学歴）で分けない（0118）: 給与・賞与・パートの時給の目安の根拠の文に男性・女性・学歴の表の名前が出ない", () => {
+    for (const type of ["regular", "contract", "civilServant", "partTime", "executive"])
+      for (const age of [undefined, 25, 45, 62]) {
+        const e = salaryEstimate(type, age === undefined ? {} : { age });
+        expect(e).not.toBeNull();
+        for (const basis of [e?.annual.basis ?? "", e?.bonus.basis ?? ""]) expect(basis).not.toMatch(/男性|女性|・男・|・女・|大学|高校|中学|専門学校|高専|短大/);
+      }
+    // 男女別の表・性別と学歴で分けた昇給カーブ・学歴で分けた退職給付は、マスタデータに無い
+    const ids = Object.keys(MASTER_VALUES);
+    expect(ids.filter((id) => /^wageStats\.(?!civilServant).*\.(male|female)(\.|$)/.test(id))).toEqual([]);
+    expect(ids.filter((id) => /^retirementBenefit\..*(university|highSchool|juniorCollege)/.test(id))).toEqual([]);
   });
 
   it("公務員は行政職俸給表（一）の年齢階層別の平均給与月額×12（賞与は仮の値）", () => {
-    expect(salaryEstimate("civilServant", "female", { age: 45 })?.annual.value).toBe(467753 * 12);
-    expect(salaryEstimate("civilServant", "male")?.annual.value).toBe(414480 * 12);
-    expect(salaryEstimate("civilServant", "male")?.bonus.basis).toContain("仮の値");
+    expect(salaryEstimate("civilServant", { age: 45 })?.annual.value).toBe(467753 * 12);
+    expect(salaryEstimate("civilServant")?.annual.value).toBe(414480 * 12);
+    expect(salaryEstimate("civilServant")?.bonus).toEqual({ value: 1500000, basis: "賞与の目安（仮の値。出典の統計の値が無い）" });
   });
 
-  it("パートは短時間労働者の時給×週15時間×52週", () => {
-    expect(salaryEstimate("partTime", "female")?.annual.value).toBe(1418 * 15 * 52);
-    expect(salaryEstimate("partTime", "male")?.annual.value).toBe(1769 * 15 * 52);
-    expect(salaryEstimate("partTime", "female")?.bonus.value).toBe(0);
+  it("パートは短時間労働者の時給（男女計）×週15時間×52週", () => {
+    expect(salaryEstimate("partTime")?.annual.value).toBe(1518 * 15 * 52);
+    expect(salaryEstimate("partTime")?.annual.basis).toContain("男女計");
+    expect(salaryEstimate("partTime")?.bonus.value).toBe(0);
   });
 
-  it("昇給カーブ: エンジンの既定のカーブ（wageStats.default）と、統計の年齢カーブ（性別・学歴・企業規模。0116）の表がある。どちらも既定では使わない", () => {
+  it("役員は仮の値（性別で分けない）", () => {
+    expect(salaryEstimate("executive")?.annual.value).toBe(5400000);
+    expect(salaryEstimate("executive")?.bonus.value).toBe(0);
+  });
+
+  it("定年後の再雇用の比は、同じ働き方の男女計の60〜64歳÷55〜59歳", () => {
+    expect(reemploymentRatio("regular")).toBeCloseTo(388500 / 453700, 10);
+    expect(reemploymentRatio("contract")).toBeCloseTo(298600 / 248000, 10);
+    expect(reemploymentRatio("selfEmployed")).toBeNull();
+  });
+
+  it("昇給カーブ: エンジンの既定のカーブ（wageStats.default）と、統計の年齢カーブ（男女計・学歴計・企業規模。0116・0118）の表がある。どちらも既定では使わない", () => {
     const def = masterValue("wageStats.default")?.value as { upTo: number | null; rate: string }[];
     expect(def[0]).toEqual({ upTo: 19, rate: "1.0000" });
     expect(def).toHaveLength(12);
-    // 男女計・学歴計・企業規模計の統計の年齢カーブは、59歳までは wageStats.default と同じで、60歳以後は55〜59歳の係数のまま
-    const all = wageCurve("regular", "all");
+    // 企業規模計の統計の年齢カーブは、59歳までは wageStats.default と同じで、60歳以後は55〜59歳の係数のまま
+    const all = wageCurve("regular");
     expect(all?.slice(0, 9)).toEqual(def.slice(0, 9));
     expect(all?.slice(9).map((b) => b.rate)).toEqual(["2.4116", "2.4116", "2.4116"]);
-    const c = wageCurve("regular", "male", 2000, "university");
-    expect(c?.[0]).toEqual({ upTo: 19, rate: "1.0000" });
-    // 大学は〜24歳を1（〜19歳は表に値が無い）
-    expect(c?.[1]).toEqual({ upTo: 24, rate: "1.0000" });
-    expect(c?.[3]).toEqual({ upTo: 34, rate: "1.6699" });
-    expect(wageCurveRate(c ?? [], 30)).toBe(1.6699);
-    // 契約・嘱託は正社員・正職員以外の表（学歴計だけ）
-    expect(wageCurveId({ employment: "nonRegular", sex: "female", education: "university", size: "small" })).toBe("wageStats.curve.nonRegular.female.all.small");
-    expect(wageCurve("contract", "female", 50)).not.toBeNull();
-    expect(wageCurve("partTime", "male")).toBeNull();
-    expect(parseWageCurveId("wageStats.curve.regular.female.graduate.medium")).toEqual({ employment: "regular", sex: "female", education: "graduate", size: "medium" });
+    const large = wageCurve("regular", 2000);
+    expect(large).toEqual(wageCurveTable("wageStats.curve.regular.all.all.large"));
+    expect(wageCurveRate(large ?? [], 30)).toBe(Number(large?.[3]?.rate));
+    // 契約・嘱託は正社員・正職員以外の表
+    expect(wageCurveId({ employment: "nonRegular", size: "small" })).toBe("wageStats.curve.nonRegular.all.all.small");
+    expect(wageCurve("contract", 50)).not.toBeNull();
+    expect(wageCurve("partTime")).toBeNull();
+    expect(parseWageCurveId("wageStats.curve.regular.all.all.medium")).toEqual({ employment: "regular", size: "medium" });
     expect(parseWageCurveId("wageStats.default")).toBeNull();
-    expect(parseWageCurveId("wageStats.curve.nonRegular.male.university.all")).toBeNull();
-    // 統計の年齢カーブの値は 96（正社員・正職員 3×7×4、正社員・正職員以外 3×4）。どの値ID も表がある
+    expect(parseWageCurveId("wageStats.curve.regular.female.graduate.medium")).toBeNull();
+    // 前の版の性別・学歴で分けた値ID は、同じ雇用形態・企業規模の男女計・学歴計に直す
+    expect(neutralWageCurveId("wageStats.curve.regular.female.graduate.medium")).toBe("wageStats.curve.regular.all.all.medium");
+    expect(neutralWageCurveId("wageStats.curve.nonRegular.male.all.small")).toBe("wageStats.curve.nonRegular.all.all.small");
+    expect(neutralWageCurveId("wageStats.default")).toBe("wageStats.default");
+    // 統計の年齢カーブの値は8（雇用形態2×企業規模4）。どの値ID も表がある
     const ids = Object.keys(MASTER_VALUES).filter((id) => id.startsWith("wageStats.curve."));
-    expect(ids).toHaveLength(96);
+    expect(ids).toHaveLength(8);
     for (const id of ids) {
       expect(parseWageCurveId(id)).not.toBeNull();
       expect(wageCurveId(parseWageCurveId(id)!)).toBe(id);
+      expect(neutralWageCurveId(id)).toBe(id);
       expect(wageCurveTable(id)).toHaveLength(12);
     }
   });
@@ -109,13 +136,19 @@ describe("推定の目安", () => {
     expect(residentTaxEstimate(1800000, 0, 2026).value).toBe(41000);
   });
 
-  it("退職一時金の目安: 勤続20年以上かつ45歳以上は就労条件総合調査、それより短いと東京都の中小企業のモデル退職金", () => {
-    expect(retirementLumpSumEstimate({ reason: "mandatory", yearsOfService: 38, ageAtRetirement: 60 })?.value).toBe(20370000);
-    expect(retirementLumpSumEstimate({ reason: "mandatory", yearsOfService: 22, ageAtRetirement: 60, education: "highSchoolManual" })?.value).toBe(4060000);
-    expect(retirementLumpSumEstimate({ reason: "company", yearsOfService: 25, ageAtRetirement: 50, education: "highSchoolOffice" })?.value).toBe(13850000);
-    expect(retirementLumpSumEstimate({ reason: "voluntary", yearsOfService: 10, ageAtRetirement: 35 })?.value).toBe(1125000);
-    expect(retirementLumpSumEstimate({ reason: "company", yearsOfService: 4, ageAtRetirement: 27, education: "highSchoolOffice" })?.value).toBe(266000);
+  it("退職一時金の目安: 勤続20年以上かつ45歳以上は就労条件総合調査、それより短いと東京都の中小企業のモデル退職金（どちらも学歴を分けない値。0118）", () => {
+    expect(retirementLumpSumEstimate({ reason: "mandatory", yearsOfService: 38, ageAtRetirement: 60 })?.value).toBe(18060000);
+    expect(retirementLumpSumEstimate({ reason: "mandatory", yearsOfService: 22, ageAtRetirement: 60 })?.value).toBe(6610000);
+    expect(retirementLumpSumEstimate({ reason: "company", yearsOfService: 25, ageAtRetirement: 50 })?.value).toBe(12870000);
+    expect(retirementLumpSumEstimate({ reason: "earlyIncentive", yearsOfService: 25, ageAtRetirement: 50 })?.value).toBe(22810000);
+    expect(retirementLumpSumEstimate({ reason: "voluntary", yearsOfService: 10, ageAtRetirement: 35 })?.value).toBe(1048000);
+    expect(retirementLumpSumEstimate({ reason: "company", yearsOfService: 4, ageAtRetirement: 27 })?.value).toBe(285000);
     expect(retirementLumpSumEstimate({ reason: "mandatory", yearsOfService: 0, ageAtRetirement: 23 })).toBeNull();
+    for (const [reason, years, age] of [["mandatory", 38, 60], ["company", 25, 50], ["voluntary", 10, 35], ["company", 4, 27]] as const) {
+      const basis = retirementLumpSumEstimate({ reason, yearsOfService: years, ageAtRetirement: age })?.basis ?? "";
+      expect(basis).toContain("学歴を分けない値");
+      expect(basis).not.toMatch(/大学|高校|高専|短大|現業/);
+    }
     expect(retirementPrevalence()?.value).toBe(749);
     expect(retirementPrevalence(50)?.value).toBe(701);
     expect(retirementPrevalence(5000)?.value).toBe(901);

@@ -394,7 +394,7 @@ function spouseWorkItem(wh: WorkingHousehold): MovableItem[] {
   const estimate = (type: string): number => {
     if (type === "selfEmployed") return businessEstimate().value;
     if (!WORKING_TYPES.has(type)) return 0;
-    const e = salaryEstimate(type, m.sex, { age: salaryAge(m, { from: { at: base } }, base) });
+    const e = salaryEstimate(type, { age: salaryAge(m, { from: { at: base } }, base) });
     return e === null ? 0 : Math.round((e.annual.value + e.bonus.value) / AMOUNT_STEP) * AMOUNT_STEP;
   };
   return [

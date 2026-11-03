@@ -56,7 +56,7 @@ export function asEstimated(req: EngineRequest): EngineRequest {
     const m = h.members.find((x) => x.id === p.member);
     if (m === undefined) continue;
     if (p.salary !== undefined) {
-      const e = salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, base) });
+      const e = salaryEstimate(p.type, { age: salaryAge(m, p, base) });
       if (e !== null) p.salary = { ...p.salary, annual: auto(e.annual.value, e.annual.basis), bonus: auto(e.bonus.value, e.bonus.basis) };
     }
     if (p.business !== undefined) {

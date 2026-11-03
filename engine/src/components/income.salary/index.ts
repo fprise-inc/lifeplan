@@ -1,7 +1,8 @@
 // 給与・賞与の支払い（0008 の4 の働き方の期間から）。お金の動きは支払月（0003 の2）
 // 昇給は賃金上昇率（前提）で暦年ごとに伸ばす。期間に昇給カーブ（salary.growth.curve。マスタデータの年齢ごとの係数）を書いたときは、
 // その年の12月31日の年齢の係数と前の年の係数の比も掛ける（0008 の追記。標準報酬の定時決定は9月から等級を変える近似）。
-// 読める昇給カーブは wageStats.default と、統計の年齢カーブ wageStats.curve.<雇用形態>.<性別>.<学歴>.<企業規模>（改訂7。0116）
+// 読める昇給カーブは wageStats.default と、統計の年齢カーブ wageStats.curve.<雇用形態>.all.all.<企業規模>（改訂7。0116）。
+// 改訂8: 統計の年齢カーブは男女計・学歴計だけにした（人の属性で推定の数字を分けない。0118）。性別・学歴で分けた値ID は読めない（世帯ファイルの変換の段が男女計・学歴計に直す）
 // 期間に伸びの率（salary.growth.rate。改訂6。0040）を書いたときは、賃金上昇率の代わりにその率で暦年ごとに伸ばす（マイナスも書ける）
 // 役員（executive）: 役員報酬は定期同額（年額を12か月に等分）、賞与は事前確定届出給与（届け出た支給月と額）として同じ形で入れ、
 // 行は cf.income.salary.executive。会社の側の計算（役員報酬をいくらにするか・法人税・会社負担の社会保険料・退職金の財源）は入れない
@@ -31,16 +32,11 @@ const DEFAULT_BONUS_MONTHS = [6, 12];
 /** 昇給カーブの値ID（マスタデータ master.wageStats。段階表の upTo が年齢、rate が係数） */
 const CURVE = "wageStats.default";
 /**
- * 統計の年齢カーブ（賃金構造基本統計調査の性別・学歴・企業規模ごと。0116）の値ID。正社員・正職員以外は学歴計だけ。
+ * 統計の年齢カーブ（賃金構造基本統計調査の男女計・学歴計の企業規模ごと。0116・0118）の値ID。
  * 部品が読める値IDは params に書いた物だけ（0006）なので、ここで並べる
  */
-const CURVE_SEXES = ["all", "male", "female"] as const;
-const CURVE_EDUCATIONS = ["all", "juniorHigh", "highSchool", "vocational", "juniorCollege", "university", "graduate"] as const;
 const CURVE_SIZES = ["all", "large", "medium", "small"] as const;
-const STAT_CURVES: readonly string[] = [
-  ...CURVE_SEXES.flatMap((s) => CURVE_EDUCATIONS.flatMap((e) => CURVE_SIZES.map((z) => `wageStats.curve.regular.${s}.${e}.${z}`))),
-  ...CURVE_SEXES.flatMap((s) => CURVE_SIZES.map((z) => `wageStats.curve.nonRegular.${s}.all.${z}`)),
-];
+const STAT_CURVES: readonly string[] = (["regular", "nonRegular"] as const).flatMap((e) => CURVE_SIZES.map((z) => `wageStats.curve.${e}.all.all.${z}`));
 
 function coefficient(table: readonly Bracket[], age: number): Rate {
   for (const b of table) if (b.upTo === null || age <= b.upTo) return b.rate ?? RATE_ONE;
@@ -51,7 +47,7 @@ export default defineComponent<{ member: string }, { flows: Flow[]; payments: Sa
   id: "income.salary",
   title: "給与・賞与",
   contract: "1.0",
-  revision: 7,
+  revision: 8,
   requires: {},
   params: [CURVE, ...STAT_CURVES],
   reads: [

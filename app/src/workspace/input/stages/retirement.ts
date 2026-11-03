@@ -24,7 +24,6 @@ import {
   COMPUTED,
   convertBenefit,
   dbYearsBasis,
-  EDUCATION_OPTIONS,
   estRow,
   finalMonthlyAt,
   HAS_AMOUNT,
@@ -107,7 +106,7 @@ function amountField(wh: WorkingHousehold, b: RetirementBenefit, prefix: string,
         : b.kind === "officerAllowance"
           ? "推定は見込みの計算（最終報酬月額×役員の在任年数×功績倍率）です"
           : lumpEst
-            ? "会社の見込み額の通知・退職金の規程の早見表の額を写します（定年の時点の額か、今辞めた場合の額かを確かめて）。推定は勤続年数・辞め方・学歴からの平均で、勤続や学歴を直すと推定も直ります"
+            ? "会社の見込み額の通知・退職金の規程の早見表の額を写します（定年の時点の額か、今辞めた場合の額かを確かめて）。推定は勤続年数・辞め方からの平均で、勤続や辞め方を直すと推定も直ります"
             : "定年の時点の額か、今辞めた場合の額かを確かめて写してください。0円は「該当なし」か0円と入れたときだけです",
     hint: (w) => {
       const x = (w.request.input.household.retirementBenefits ?? []).find((y) => y.id === b.id);
@@ -405,16 +404,8 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
       fields.push(withAddress(timepointField({ key: `${prefix}/contribTo`, item: "retirementBenefit.contributions", label: "掛金の終わり", level: "detail", find, path: ["contributions", "to"], ageOf, mode: "ym", optional: true, nullText: "最後まで" }), benefitAt(b.id, "retirementBenefit.contributions", ["to"])));
     }
   }
-  // 詳細: 名前・学歴・勤め先・勤続期間・役員の在任期間・障害による退職
-  // 学歴に「わからない」は置かない（学歴がわからないことはほぼ無い。0041 の 2026-10-29 の追記）。選んでいなければ今までどおり大学・大学院卒の値で目安を出す
+  // 詳細: 名前・勤め先・勤続期間・役員の在任期間・障害による退職（学歴の欄は置かない。目安は学歴を分けない値。人の属性で推定の数字を分けない。0118）
   fields.push(withAddress(plain({ key: `${prefix}/label`, item: "retirementBenefit.label", label: "名前", level: "detail", kind: "text", find, path: ["label"], optional: true, help: "例: 企業年金連合会の通算企業年金" }), benefitAt(b.id, "retirementBenefit.label")));
-  if (kind === "lumpSum")
-    fields.push(
-      withAddress(
-        plain({ key: `${prefix}/education`, item: "retirementBenefit.education", label: "学歴", level: "detail", kind: "select", options: [{ value: "", label: "選んでいない（大学・大学院卒の値で計算）" }, ...EDUCATION_OPTIONS.map((o) => ({ value: o.value, label: o.label }))], find, path: ["education"], optional: true, help: "目安の退職一時金は、学歴・職種で平均が違います" }),
-        benefitAt(b.id, "retirementBenefit.education"),
-      ),
-    );
   const ps = periodsOf(h, m.id);
   if (ps.length > 0)
     fields.push(

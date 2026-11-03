@@ -662,9 +662,8 @@ export interface RetirementBenefit {
   id: string;
   member: string;
   kind: string;
-  /** 0057: 名前と学歴（表示と退職一時金の目安の元だけ。計算には使わない） */
+  /** 0057: 名前（表示だけ。計算には使わない）。前の版の学歴 education は使わない（人の属性で推定の数字を分けない。0118。形式 0.58 の変換の段が外す） */
   label?: string;
-  education?: "university" | "highSchoolOffice" | "highSchoolManual";
   employment?: string;
   service?: { from: Timepoint; to: Timepoint };
   officerService?: { from: Timepoint; to: Timepoint };
