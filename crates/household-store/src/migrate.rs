@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.54";
+pub const CURRENT: &str = "0.55";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -181,12 +181,16 @@ pub const CURRENT: &str = "0.54";
 ///   事務所の推定の値から作った推定。0111 の追記 2026-11-03）を足した（表示と知らせだけで計算に使わない。足すだけの MINOR）。印の無い推定は
 ///   公式の目安（統計・コードの中の目安）から作った推定と読む。前の版のアプリは印を読めないので、版を上げて閲覧だけにする。
 ///   変換の段は形式の版だけを書き換える（前の版の推定は印を持たず、公式の目安から作ったと読む）。0.53 の段の後に積む
+/// - 0.55: 注文住宅（土地を買って建てる。0115）の土地 `residences[].purchase.land`（土地の決済の月・土地の代金・その月に払う頭金と諸費用。
+///   どれも購入の合計の内数）と、引き渡しの前に頭金から払う建物の代金 `residences[].purchase.payments`（要素は ID を持つ）を足した
+///   （計算に使う。足すだけの MINOR）。前の版のアプリは土地を読めない（土地の決済の支払いと土地の評価が落ちる）ので、版を上げて閲覧だけにする。
+///   変換の段は形式の版だけを書き換える。0.54 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
-    "0.50", "0.51", "0.52", "0.53", "0.54",
+    "0.50", "0.51", "0.52", "0.53", "0.54", "0.55",
 ];
 
 /// 1段分の変換
@@ -462,6 +466,11 @@ pub const STEPS: &[Step] = &[
         from: "0.53",
         to: "0.54",
         apply: v0_53_to_0_54,
+    },
+    Step {
+        from: "0.54",
+        to: "0.55",
+        apply: v0_54_to_0_55,
     },
 ];
 
@@ -1898,6 +1907,16 @@ fn v0_53_to_0_54(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.54 → 0.55: 足した値（注文住宅の土地 `purchase.land`・引き渡しの前の支払い `purchase.payments`。0115）は前の版の世帯に無いので、
+/// 形式の版だけを書き換える。ほかの欄に触れない
+fn v0_54_to_0_55(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.55".into());
+    }
+    Ok(body)
+}
+
 /// 0.17 で ID を振る並び（物の集まり → その物から並びまでの欄の名前。0035 の5）
 const ELEMENT_LISTS: &[(&str, &[&[&str]])] = &[
     ("livingExpenses", &[&["stages"], &["categories"]]),
@@ -2447,7 +2466,8 @@ mod tests {
         assert_eq!(access("0.52").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.53").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.54").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.55").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.55").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.56").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -2460,7 +2480,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.55", b.clone()).unwrap(),
+            upgrade("0.56", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -2894,7 +2914,7 @@ mod tests {
             }}}}
         });
         let u = upgrade("0.53", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.54");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
         assert!(
             u["household"]["request"]["input"]["household"]["livingExpenses"][0]["monthly"]
@@ -2902,6 +2922,20 @@ mod tests {
                 .get("source")
                 .is_none()
         );
+    }
+
+    #[test]
+    fn v0_54_to_0_55_only_bumps_version() {
+        // 足した値（注文住宅の土地・引き渡しの前の支払い。0115）は前の版の世帯に無いので、世帯はそのまま
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.54"},
+            "household": {"request": {"input": {"baseMonth": "2026-10", "household": {
+                "residences": [{"id": "r1", "kind": "own", "style": "house", "from": {"at": "2028-10"}, "to": null, "purchase": {"at": {"at": "2028-10"}, "price": 40000000, "downPayment": 4000000, "costs": 2000000, "newBuild": true}}]
+            }}}}
+        });
+        let u = upgrade("0.54", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.55");
+        assert_eq!(u["household"], b["household"]);
     }
 
     #[test]

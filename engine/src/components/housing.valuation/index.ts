@@ -16,6 +16,8 @@
 //   長期譲渡の税率の比（15.315対5）で分ける（合計は入れた額のまま）。額の無い売却は税0円のまま知らせ N_NOT_SUPPORTED residence.saleTax を出す
 //   （「わからない」の代わりの値も額として使い、該当なしは0円で知らせを出さない）
 // - 売却の無い住み終わりは、住み終わりの年まで評価に載せ、その後は消える（知らせ N_NOT_SUPPORTED residence.sale。前からの扱い）
+// - 注文住宅（改訂3。0115）: 購入に土地（purchase.land）があれば、土地の決済の月から持ち、引き渡し（購入の月）の年より前の年末は土地だけを出す。
+//   評価の基にする額が購入の価格なら、土地は土地の代金（割合で分けない。土地の割合の知らせも出さない）、建物は残り
 // 目安の根拠は設計記録 0025 に書く。土地と建物に分ける計算は、住まい以外の不動産（asset.realEstate）と共通の sdk の landBuildingValuer
 import {
   addYen,
@@ -43,7 +45,7 @@ export default defineComponent<Record<string, never>, HousingValuationOutput>({
   id: "housing.valuation",
   title: "持ち家の評価額と売却",
   contract: "1.1",
-  revision: 2,
+  revision: 3,
   requires: {},
   params: [],
   reads: [
@@ -79,13 +81,29 @@ export default defineComponent<Record<string, never>, HousingValuationOutput>({
         continue;
       }
       const asOf: MonthIndex = v?.asOf !== undefined ? ctx.time.resolve({ at: v.asOf }) : (purchaseAt ?? base);
-      // 持っている期間: 購入の月（購入が無ければ住み始め）から住み終わりの月まで
-      const from: MonthIndex = purchaseAt ?? ctx.time.resolve(h.from);
+      // 注文住宅の土地（改訂3。0115）: 評価の基にする額が購入の価格なら、土地は土地の代金のまま（割合で分けない）。土地の決済の月から持つ
+      const land = h.purchase?.land;
+      const landAt: MonthIndex | null = land === undefined ? null : ctx.time.resolve(land.at);
+      const byLand = land !== undefined && given === null;
+      // 持っている期間: 購入の月（購入が無ければ住み始め。注文住宅は土地の決済の月が早ければその月）から住み終わりの月まで
+      const bought: MonthIndex = purchaseAt ?? ctx.time.resolve(h.from);
+      const from: MonthIndex = landAt !== null && landAt < bought ? landAt : bought;
       const to: MonthIndex | null = h.to === null ? null : ctx.time.resolve(h.to);
       const y0 = yearOf(asOf);
       const share = v?.landShare ?? setting?.landShare;
-      if (share === undefined) ctx.notice("N_DEFAULT_USED", [h.id, "residence.valuation.landShare"]);
-      const valuer = landBuildingValuer(ctx, { basis, y0, share: share ?? String(ctx.estimate(LAND_SHARE)), structure: v?.structure ?? "wood", builtYear: v?.builtYear ?? y0, setting, growthOf });
+      if (share === undefined && !byLand) ctx.notice("N_DEFAULT_USED", [h.id, "residence.valuation.landShare"]);
+      const valuer = landBuildingValuer(ctx, {
+        basis,
+        y0,
+        share: share ?? String(ctx.estimate(LAND_SHARE)),
+        structure: v?.structure ?? "wood",
+        builtYear: v?.builtYear ?? y0,
+        setting,
+        growthOf,
+        ...(byLand && land !== undefined ? { landAmount: land.price } : {}),
+      });
+      // 建物が建つ（引き渡しの）年より前の年末は、土地だけ持つ（注文住宅の土地の決済から引き渡しまで）
+      const builtFrom = yearOf(bought);
       // 評価する年: 持ち始めの年（計算基準年より前なら計算基準年）から、住み終わりの年（売るならその前の年）か表の最後の年まで
       const sold = h.sale !== undefined && to !== null && to <= end;
       const lastHeld = to === null || to > end ? endYear : yearOf(to);
@@ -93,8 +111,9 @@ export default defineComponent<Record<string, never>, HousingValuationOutput>({
       const years: { year: number; land: Yen; building: Yen; value: Yen }[] = [];
       for (let y = firstYear; y <= lastHeld; y++) {
         if (sold && y === lastHeld) break;
-        const { land, building } = valuer.at(y);
-        years.push({ year: y, land, building, value: addYen(land, building) });
+        const lb = valuer.at(y);
+        const building = y < builtFrom ? yen(0) : lb.building;
+        years.push({ year: y, land: lb.land, building, value: addYen(lb.land, building) });
       }
       let sale: HousingValuationOutput["properties"][number]["sale"] = null;
       if (sold && to !== null && to >= base && yearOf(to) >= yearOf(from)) {

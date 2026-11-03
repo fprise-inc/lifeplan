@@ -1,7 +1,7 @@
 // 0005 の6: 一致テスト。同じ入力を Node（V8）・Rust 組込みの quickjs-ng・JavaScriptCore（Bun）で計算し、出力の SHA-256 を比べる。
 // quickjs-ng は製品と同じ形（まとめた JS を engine-host --compile でバイトコードにして読み込み、パックの形は先に1回だけ確かめる）で動かす
 // 使い方: node scripts/parity.ts [engine-host のパス] [--jsc]（--jsc は Bun が無ければ失敗にする。無指定なら Bun があるときだけ比べる）
-// 入力は、モデル世帯（data/modelHouseholds）すべてと test/fixtures/parity（エラーになる入力 error-*・相続税の目安の要求を足したモデル世帯 inheritance-*。0039・お金の行を持つ世帯 money-rows。0044・譲渡所得の税の額のある売却とほかのローンの種類の細目 housing-sale-tax。0053・医療・がんの給付と家族特約と円の目安の形と逓減定期の病気の想定 insurance-illness・必要保障額の内訳 insurance-protection。0054・家賃の年率の上昇率と12の倍数でない更新の間隔、計算基準月より前に住み始めた賃貸と後に住み始める賃貸（段階・例外の年つき） rent-growth-annual。0052・事務所の推定の値〔estimateValues〕で介護と学校の費用の目安を置き換えたモデル世帯 office-estimates。0111）× 根拠の記録3種。
+// 入力は、モデル世帯（data/modelHouseholds）すべてと test/fixtures/parity（エラーになる入力 error-*・相続税の目安の要求を足したモデル世帯 inheritance-*。0039・お金の行を持つ世帯 money-rows。0044・譲渡所得の税の額のある売却とほかのローンの種類の細目 housing-sale-tax。0053・医療・がんの給付と家族特約と円の目安の形と逓減定期の病気の想定 insurance-illness・必要保障額の内訳 insurance-protection。0054・家賃の年率の上昇率と12の倍数でない更新の間隔、計算基準月より前に住み始めた賃貸と後に住み始める賃貸（段階・例外の年つき） rent-growth-annual。0052・注文住宅の土地の決済と引き渡しの前の支払い・土地の分のローン housing-custom-build。0115・事務所の推定の値〔estimateValues〕で介護と学校の費用の目安を置き換えたモデル世帯 office-estimates。0111）× 根拠の記録3種。
 // まとめて計算（runBatch。0005 の7・追記）も、モデル世帯すべての1回と、100年分の1案×4想定の先出し（preview）の1回を比べる
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
