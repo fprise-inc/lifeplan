@@ -156,8 +156,23 @@
           "additionalProperties": false,
           "required": ["method", "basis"],
           "properties": {
-            "method": { "description": "推定の出し方: statistic（統計の値）・derived（他の値からの逆算）・officeDefault（事務所のひな形）・statementAverage（明細の月平均）・statementAnnual（明細の年1回の支払い。0034）・standard（標準の値・目安のボタン・仮の値。0035 の3）", "enum": ["statistic", "derived", "officeDefault", "statementAverage", "statementAnnual", "standard"] },
-            "basis": { "type": "string", "minLength": 1 }
+            "method": { "description": "推定の出し方: statistic（統計の値）・derived（他の値からの逆算）・officeDefault（事務所のひな形）・statementAverage（明細の月平均）・statementAnnual（明細の年1回の支払い。0034）・standard（標準の値・目安のボタン・仮の値。0035 の3）・migrated（他のソフトから移したプランの値で、移行元のプランの時点と今の計算基準月が違う時点のある値や、帳票の年齢から決めた生年月。出どころは import。0113 の7）", "enum": ["statistic", "derived", "officeDefault", "statementAverage", "statementAnnual", "standard", "migrated"] },
+            "basis": { "type": "string", "minLength": 1 },
+            "source": {
+              "description": "0111 の追記 2026-11-03（世帯ファイルの形式 0.54 から）: 推定の元。office は事務所の推定の値から作った推定で、values は使った値ID → そのときの事務所の値の指紋（値の JSON の FNV-1a 32ビットの16進8文字）。無ければ公式の目安（統計・コードの中の目安）から作った推定（前の版の世帯の推定も同じ）。表示と知らせだけで計算には使わない",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "values"],
+              "properties": {
+                "kind": { "const": "office" },
+                "values": {
+                  "type": "object",
+                  "minProperties": 1,
+                  "propertyNames": { "pattern": "^[A-Za-z0-9_.-]{1,200}$" },
+                  "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{8}$" }
+                }
+              }
+            }
           }
         },
         "certainty": { "description": "0035 の3: 値の確かさ（document 書類で確認・declared 本人の申告・rough 概算）。計算には使わない", "enum": ["document", "declared", "rough"] }

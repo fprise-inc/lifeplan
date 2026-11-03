@@ -4,7 +4,8 @@
 //   計算基準月より前に住み始めた賃貸は、入れた家賃を計算基準月の今の家賃とみなし、計算基準月より後の更新からだけ上げ下げする
 //   （改訂4。住み始めから計算基準月までの更新〔計算基準月ちょうどの更新を含む〕は入れた額に織り込み済みで重ねない。計算基準月の後の最初の更新は、
 //   今の家賃が前の更新〔計算基準月より前のこともある〕で決まった額なので、その更新の間の年数分をそのまま当てる。前は住み始めの家賃とみなして過去の更新の分も重ねていた）
-// - 購入: 購入の月（省略は住み始め）に頭金と諸費用を払う。親・祖父母からの資金援助は受け取る構成員の一時金の収入にする
+// - 購入: 購入の月（省略は住み始め）に頭金と諸費用を払う。注文住宅（改訂5。0115）は、頭金・諸費用の内数の土地の決済の分（purchase.land）と
+//   引き渡しの前の建物の代金の支払い（purchase.payments。頭金の内数）をそれぞれの月に払い、残りを購入の月（引き渡し）に払う。親・祖父母からの資金援助は受け取る構成員の一時金の収入にする
 //   （贈与税・住宅取得等資金の非課税は贈与の作業で扱う。ここは額の入力まで）
 // - 固定資産税・都市計画税: 年額（上昇率は計算基準年からの年ごと）を、その年の4月・7月・12月と翌年2月の4回に分ける（端数は最初の回）。
 //   持ち家の期間の年だけ。地域ごとの値は持たない（入力の額）
@@ -57,7 +58,7 @@ export default defineComponent<Record<string, never>, ResidenceOutput>({
   id: "housing.residence",
   title: "住まい（家賃・購入・固定資産税・修繕費）",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: {},
   params: [],
   reads: [
@@ -123,8 +124,35 @@ export default defineComponent<Record<string, never>, ResidenceOutput>({
       if (h.kind !== "own") continue;
       if (h.purchase !== undefined) {
         const at = h.purchase.at === undefined ? from : ctx.time.resolve(h.purchase.at);
-        push(at, "cf.expense.housing.purchase.downPayment", h.purchase.downPayment, "housing.residence.downPayment");
-        push(at, "cf.expense.housing.purchase.costs", h.purchase.costs, "housing.residence.purchaseCosts");
+        // 注文住宅（改訂5。0115）: 頭金と諸費用の内数を、土地の決済の月と、引き渡しの前の建物の代金の支払いの月に払い、残りを購入の月（引き渡し）に払う。
+        // 内数の合計が頭金・諸費用を超える分は、早い支払いから順に合計で止める（知らせ N_LIMIT_APPLIED residence.purchase.split）
+        let down = h.purchase.downPayment;
+        let costs = h.purchase.costs;
+        let limited = false;
+        const take = (want: Yen | undefined, left: Yen): Yen => {
+          const w = want ?? yen(0);
+          if (w > left) limited = true;
+          return w > left ? left : w;
+        };
+        const land = h.purchase.land;
+        if (land !== undefined) {
+          const landAt = ctx.time.resolve(land.at);
+          const d = take(land.downPayment, down);
+          down = yen(down - d);
+          push(landAt, "cf.expense.housing.purchase.downPayment", d, "housing.residence.landDownPayment");
+          const c = take(land.costs, costs);
+          costs = yen(costs - c);
+          push(landAt, "cf.expense.housing.purchase.costs", c, "housing.residence.landCosts");
+        }
+        const pays = (h.purchase.payments ?? []).map((p, i) => ({ m: ctx.time.resolve(p.at), amount: p.amount, i })).sort((a, b) => a.m - b.m || a.i - b.i);
+        for (const p of pays) {
+          const d = take(p.amount, down);
+          down = yen(down - d);
+          push(p.m, "cf.expense.housing.purchase.downPayment", d, "housing.residence.buildingPayment");
+        }
+        if (limited) ctx.notice("N_LIMIT_APPLIED", ["residence.purchase.split"]);
+        push(at, "cf.expense.housing.purchase.downPayment", down, "housing.residence.downPayment");
+        push(at, "cf.expense.housing.purchase.costs", costs, "housing.residence.purchaseCosts");
         const gifts = h.purchase.gifts ?? [];
         for (const gf of gifts) push(at, "cf.income.lumpSum.gift", gf.amount, "housing.residence.gift", gf.recipient);
         if (gifts.some((gf) => gf.amount > 0)) ctx.notice("N_NOT_SUPPORTED", ["giftTax"]);

@@ -22,10 +22,12 @@ interface Entry {
   /** 入力項目ID だけ: 物の集まり（x-collection。null は要求の入力の直下・前提）と、その物の中の欄の道（0035 の6・9: 当て先から値を引く） */
   collection?: string | null;
   path?: string[];
+  /** 入力項目ID だけ: 時点のある値（x-pointInTime。0113 の7）。印の無い項目は欄を書かない */
+  pointInTime?: true;
 }
 
-/** 入力項目ID の場所（items.json の collection・path） */
-type Place = { collection: string | null; path: string[] };
+/** 入力項目ID の場所（items.json の collection・path）と時点のある値の印 */
+type Place = { collection: string | null; path: string[]; pointInTime?: true };
 
 const check = process.argv.includes("--check");
 const problems: string[] = [];
@@ -44,6 +46,7 @@ function render(kind: string, header: string, entries: Entry[]): string {
   for (const e of entries) {
     lines.push(`  - id: ${e.id}`, `    status: ${e.status}`, `    label: ${q(e.label)}`, `    since: ${e.since}`, `    aliases: [${e.aliases.join(", ")}]`, `    replacedBy: ${e.replacedBy ?? "null"}`);
     if (e.path !== undefined) lines.push(`    collection: ${e.collection ?? "null"}`, `    path: [${e.path.join(", ")}]`);
+    if (e.pointInTime === true) lines.push("    pointInTime: true");
   }
   return `${lines.join("\n")}\n`;
 }
@@ -56,7 +59,12 @@ function sync(file: string, kind: string, header: string, source: ReadonlyMap<st
     const prev = byId.get(id);
     const place = places?.get(id);
     const base = prev === undefined ? { id, status: "active", label, since: "draft", aliases: [], replacedBy: null } : { ...prev, label };
-    out.push(place === undefined ? base : { ...base, collection: place.collection, path: place.path });
+    if (place === undefined) out.push(base);
+    else {
+      const { pointInTime: _was, ...rest } = base as Entry;
+      void _was;
+      out.push({ ...rest, collection: place.collection, path: place.path, ...(place.pointInTime === true ? { pointInTime: true as const } : {}) });
+    }
   }
   for (const e of old) {
     if (source.has(e.id)) continue;
@@ -91,9 +99,9 @@ for (const [file, section] of [["household.contingency.json", "contingencyPremis
 const itemIds = sync(
   "items.yaml",
   "item",
-  `# 0004 の5: 入力項目IDの登録簿。正本は engine/schemas/engine.input.json の x-item と、画面の側の区画のスキーマ app/schemas/*.json の x-item（scripts/registry.ts が作る。手で書き換えない）\n# collection・path は値の場所（物の集まりと、物の中の欄の道。collection が null なら要求の入力から）。当て先から値を引くのに使う（0035 の6・9）\n${SINCE}`,
+  `# 0004 の5: 入力項目IDの登録簿。正本は engine/schemas/engine.input.json の x-item と、画面の側の区画のスキーマ app/schemas/*.json の x-item（scripts/registry.ts が作る。手で書き換えない）\n# collection・path は値の場所（物の集まりと、物の中の欄の道。collection が null なら要求の入力から）。当て先から値を引くのに使う（0035 の6・9）\n# pointInTime は時点のある値（ある時点の値として持ち、時間が経つと違う値になる入力項目。正本は x-pointInTime。0113 の7）\n${SINCE}`,
   new Map(Object.entries(items.items).map(([id, v]) => [id, v.title])),
-  new Map(Object.entries(items.items).map(([id, v]) => [id, { collection: v.collection, path: v.path }])),
+  new Map(Object.entries(items.items).map(([id, v]) => [id, { collection: v.collection, path: v.path, ...(v.pointInTime === true ? { pointInTime: true as const } : {}) }])),
 );
 const componentIds = sync(
   "components.yaml",

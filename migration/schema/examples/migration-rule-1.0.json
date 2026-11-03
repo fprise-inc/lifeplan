@@ -1,0 +1,19 @@
+{
+  "format": "lifeplan.migrationRule",
+  "contract": "migration-rule@1.0",
+  "id": "example.genericReport",
+  "revision": 1,
+  "label": "書き方の見本（よくある見出しから）",
+  "reads": { "product": null, "document": "ライフプランの帳票", "editions": [], "readers": ["pdfText", "xlsx", "csv"] },
+  "detect": { "allWords": [], "anyWords": ["キャッシュフロー表", "年間収支", "貯蓄残高"], "minHits": 2 },
+  "units": { "money": "万円" },
+  "conventions": { "tableAge": "yearEnd", "tableBalance": "yearEnd", "valueBasis": "nominal" },
+  "dictionaries": ["example.fpTerms"],
+  "blocks": [
+    { "id": "family", "kind": "pairs", "anchor": { "words": ["家族構成", "家族"] }, "repeat": "member" },
+    { "id": "assumptions", "kind": "pairs", "anchor": { "words": ["前提条件"] } },
+    { "id": "loans", "kind": "table", "anchor": { "words": ["ローン"] }, "object": "debt" },
+    { "id": "cf", "kind": "yearTable", "anchor": { "words": ["キャッシュフロー表"], "page": 2 }, "yearHeader": { "words": ["西暦", "年"] } },
+    { "id": "owner", "kind": "drop", "anchor": { "words": ["お客様名", "ご住所"] } }
+  ]
+}

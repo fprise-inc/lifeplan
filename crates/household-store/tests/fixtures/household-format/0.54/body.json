@@ -47,8 +47,26 @@
     }
   },
   "ext": {
-    "ext.exampleOffice.carCount": 2,
-    "ext.official.combinedBs": {
+    "ext.exampleOffice.carCount": 2
+  },
+  "extDefinitions": {
+    "ext.exampleOffice.carCount": {
+      "label": "車の台数",
+      "type": "integer"
+    }
+  },
+  "hearing": null,
+  "household": {
+    "addedItems": [],
+    "agreed": {
+      "current": {
+        "field:assume/inflation": {
+          "note": "面談で確かめた",
+          "on": "2026-10-20"
+        }
+      }
+    },
+    "companyBs": {
       "amounts": {
         "buildings": 12000000,
         "capital": 3000000,
@@ -68,295 +86,13 @@
         "shortDebt": 10000000
       },
       "asOf": "2026-09",
+      "ownerMonthly": null,
       "restated": {
         "receivables": 12000000
       },
-      "stage": "stable"
-    }
-  },
-  "extDefinitions": {
-    "ext.exampleOffice.carCount": {
-      "label": "車の台数",
-      "type": "integer"
-    },
-    "ext.official.combinedBs": {
-      "attachTo": "household",
-      "by": "ext.official.combinedBs",
-      "description": "会社の今のバランスシート（試算表の主な科目）と毎月の固定の支出・会社の段階・実力に直した額。家計の計算には使わない",
-      "fields": [
-        {
-          "id": "asOf",
-          "label": "基準日（試算表の月末）",
-          "path": [
-            "asOf"
-          ],
-          "type": "month"
-        },
-        {
-          "id": "amount:monthlyFixed",
-          "label": "毎月の固定費（経費。仕入は含めない）",
-          "path": [
-            "amounts",
-            "monthlyFixed"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:monthlyLoanPay",
-          "label": "毎月の借入の返済",
-          "path": [
-            "amounts",
-            "monthlyLoanPay"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "ownerMonthly",
-          "label": "経営者（家計）の毎月の固定の支出",
-          "path": [
-            "ownerMonthly"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:cash",
-          "label": "現預金",
-          "path": [
-            "amounts",
-            "cash"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:receivables",
-          "label": "売上債権",
-          "path": [
-            "amounts",
-            "receivables"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:inventory",
-          "label": "在庫",
-          "path": [
-            "amounts",
-            "inventory"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:otherCurrent",
-          "label": "その他の流動資産",
-          "path": [
-            "amounts",
-            "otherCurrent"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:land",
-          "label": "土地",
-          "path": [
-            "amounts",
-            "land"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:buildings",
-          "label": "建物など",
-          "path": [
-            "amounts",
-            "buildings"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:investments",
-          "label": "投資など",
-          "path": [
-            "amounts",
-            "investments"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:otherFixed",
-          "label": "その他の固定資産",
-          "path": [
-            "amounts",
-            "otherFixed"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:loanToOwner",
-          "label": "経営者への貸付金",
-          "path": [
-            "amounts",
-            "loanToOwner"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:advanceToOwner",
-          "label": "経営者への立替金",
-          "path": [
-            "amounts",
-            "advanceToOwner"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:shortDebt",
-          "label": "短期借入金",
-          "path": [
-            "amounts",
-            "shortDebt"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:longDebt",
-          "label": "長期借入金",
-          "path": [
-            "amounts",
-            "longDebt"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:loanFromOwner",
-          "label": "経営者からの借入金",
-          "path": [
-            "amounts",
-            "loanFromOwner"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:otherLiabilities",
-          "label": "その他の負債",
-          "path": [
-            "amounts",
-            "otherLiabilities"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:capital",
-          "label": "資本金",
-          "path": [
-            "amounts",
-            "capital"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:otherCapital",
-          "label": "資本金のうち、ほかの株主の分",
-          "path": [
-            "amounts",
-            "otherCapital"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "amount:retained",
-          "label": "剰余金（利益の積み上げ）",
-          "path": [
-            "amounts",
-            "retained"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "restated:receivables",
-          "label": "売上債権（直した額）",
-          "path": [
-            "restated",
-            "receivables"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "restated:inventory",
-          "label": "在庫（直した額）",
-          "path": [
-            "restated",
-            "inventory"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "restated:buildings",
-          "label": "建物など（直した額）",
-          "path": [
-            "restated",
-            "buildings"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "restated:land",
-          "label": "土地（直した額）",
-          "path": [
-            "restated",
-            "land"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "restated:investments",
-          "label": "投資など（直した額）",
-          "path": [
-            "restated",
-            "investments"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "restated:guaranteed",
-          "label": "会社が保証している債務（直した額）",
-          "path": [
-            "restated",
-            "guaranteed"
-          ],
-          "type": "yen"
-        },
-        {
-          "id": "useRestated",
-          "label": "直した額で並べる",
-          "path": [
-            "useRestated"
-          ],
-          "type": "check"
-        },
-        {
-          "id": "stage",
-          "label": "会社の段階",
-          "path": [
-            "stage"
-          ],
-          "type": "choice"
-        }
-      ],
-      "label": "会社の数字（合算BS）",
-      "type": "object",
+      "stage": "stable",
+      "useRestated": false,
       "version": 1
-    }
-  },
-  "hearing": null,
-  "household": {
-    "addedItems": [],
-    "agreed": {
-      "current": {
-        "field:assume/inflation": {
-          "note": "面談で確かめた",
-          "on": "2026-10-20"
-        }
-      }
     },
     "confirmed": [],
     "contingency": {
@@ -1815,11 +1551,21 @@
                   "value": 5200000
                 },
                 "bonus": {
-                  "origin": {
-                    "kind": "manual"
+                  "estimate": {
+                    "basis": "当事務所のお客さまの平均（架空）",
+                    "method": "statistic",
+                    "source": {
+                      "kind": "office",
+                      "values": {
+                        "wageStats.annualBonus.regular.female": "1a2b3c4d"
+                      }
+                    }
                   },
-                  "state": "confirmed",
-                  "value": 1200000
+                  "origin": {
+                    "kind": "auto"
+                  },
+                  "state": "estimated",
+                  "value": 1100000
                 }
               },
               "to": {

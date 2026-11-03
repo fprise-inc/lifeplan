@@ -1,6 +1,7 @@
-// ファイナンシアの計算エンジン・計算部品のための lint の規則（0002・0005・0006）
+// ファイナンシアの計算エンジン・計算部品のための lint の規則（0002・0005・0006・0113 の8）
 // 公式もカスタム部品も同じ設定を使う（SDK に同梱する。0019）
 import componentBoundaries from "./rules/component-boundaries.js";
+import noCompatibility from "./rules/no-compatibility.js";
 import noModuleState from "./rules/no-module-state.js";
 import noMoneyArithmetic from "./rules/no-money-arithmetic.js";
 
@@ -10,6 +11,7 @@ const plugin = {
     "no-money-arithmetic": noMoneyArithmetic,
     "component-boundaries": componentBoundaries,
     "no-module-state": noModuleState,
+    "no-compatibility": noCompatibility,
   },
 };
 export default plugin;
@@ -59,5 +61,6 @@ export function componentRules(componentsDir, sdkDir) {
   return {
     "financia/component-boundaries": ["error", { componentsDir, sdkDir }],
     "financia/no-module-state": "error",
+    "financia/no-compatibility": "error",
   };
 }

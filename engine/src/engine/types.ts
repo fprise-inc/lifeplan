@@ -6,11 +6,35 @@ import type { Timepoint } from "../time/timepoint.ts";
 export type Aggregation = "cash" | "accrual";
 export type InvestmentTiming = "midYear" | "beginning" | "end";
 
+/** 0003 の7・0113 の8: 互換モードの項目（閉じた一覧。足すだけ）。値は既定と違うものだけを書く */
+export interface CompatibilityItems {
+  /** 表の年齢（表示だけ。既定 yearEnd） */
+  readonly tableAge?: "yearStart";
+  /** 表の残高の時点（表示だけ。既定 yearEnd） */
+  readonly tableBalance?: "yearStart";
+  /** FP が年齢で入れた時点の解き方（計算。既定 month） */
+  readonly ageTiming?: "yearOfReach" | "yearAfterReach";
+  /** 最初の年（計算。既定 fromBaseMonth） */
+  readonly firstYear?: "wholeYear";
+  /** 上昇率を掛け始める年（計算。既定 nextYear） */
+  readonly growthStart?: "baseYear";
+}
+
+/** 0003 の7・0113 の8: 互換モード（移行元の数え方に寄せた照合用の計算） */
+export interface Compatibility {
+  /** 取り込みの記録の ID と、読み取り規則の <ID>@<改訂>（計算に使わず、根拠の記録に写す） */
+  readonly source: { readonly import: string; readonly rule: string };
+  readonly items: CompatibilityItems;
+}
+
 export interface CalcConventions {
   readonly aggregation: Aggregation;
   readonly investmentTiming: InvestmentTiming;
-  readonly compatibility: null;
+  readonly compatibility: Compatibility | null;
 }
+
+/** 計算部品が見る計算方式の設定（互換モードは見せない。0113 の8: 互換モードの項目はエンジンの決まった1か所でだけ読む） */
+export type ComponentConventions = Omit<CalcConventions, "compatibility">;
 
 export interface YearSeries {
   readonly default: string;
@@ -23,7 +47,8 @@ export interface ValueBox<T> {
   readonly state: "confirmed" | "unknown" | "notApplicable" | "estimated";
   readonly origin: { readonly kind: string; readonly ref?: string; readonly connector?: string };
   readonly approval?: { readonly by: "fp"; readonly at: string; readonly candidate?: string };
-  readonly estimate?: { readonly method: string; readonly basis: string };
+  /** source: 事務所の推定の値から作った推定の印（0111 の追記 2026-11-03。計算には使わない） */
+  readonly estimate?: { readonly method: string; readonly basis: string; readonly source?: { readonly kind: "office"; readonly values: Readonly<Record<string, string>> } };
   readonly substitute?: ValueBox<T>;
 }
 
@@ -472,6 +497,13 @@ export interface ResidenceInput {
     readonly newBuild?: boolean;
     /** 0112: 認定長期優良住宅か（固定資産税の推定の元だけ。計算には使わない） */
     readonly longLife?: boolean;
+    /**
+     * 0115: 注文住宅（土地を買って建てる）の土地。price・downPayment・costs は土地と建物の合計のままで、ここはその内数。
+     * 土地の決済の月（at）に頭金の内の downPayment と諸費用の内の costs を払い、持ち家の評価は土地をその月から持つ（建物は引き渡しの年から）
+     */
+    readonly land?: { readonly at: Timepoint; readonly price: Yen; readonly downPayment?: Yen; readonly costs?: Yen };
+    /** 0115: 引き渡しの前に頭金から払う建物の代金（契約金・着工金・中間金。頭金の内数）。残りの頭金は引き渡しの月（at）に払う */
+    readonly payments?: readonly { readonly id?: string; readonly at: Timepoint; readonly amount: Yen; readonly kind?: "contract" | "start" | "interim" | "other" }[];
     readonly gifts?: readonly {
       readonly recipient: string;
       readonly giver?: "parent" | "grandparent" | "other";

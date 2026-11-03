@@ -110,7 +110,7 @@
 - 利用者の判断で、合算BS は β公開の時点からカスタム層の上で動く形にした。カスタム層の最小の仕組みと合算BS の移し替えは **0114** に決めた。この記録の決定のうち、次は 0114 に置き換わる。
   - 1 の「公式の画面の中の、既定では使わない機能」: 合算BS は同梱の公式の拡張 `ext.official.combinedBs`（束の正本は `sdk/examples/extensions/combined-bs/`）になり、見るものは見せ方の差し込み口 `view.balance`、提案書の章は拡張の章 `report.chapter` に載る。出す条件（コードで有効・事務所の設定の印・役員のいる世帯）は変えない（束のマニフェストの `activation`）。事務所の既定値の区画「法人経営者向けの機能」と印は、公式の拡張を使う印として公式の画面に残す。
   - 3 の部品の形: `report/src/combinedBs.ts`・`app/src/workspace/combined/combinedView.ts` は束の `parts/` に移した（入出力はそのまま）。会社の入力の欄は宣言型の入力欄（束の `fields/company.json`）になり、万円の文字の読み方は画面が宣言から行う。
-  - 4 の世帯ファイル: 会社の入力の置き場所は、形式 0.54 で `household.companyBs` から拡張領域 `ext["ext.official.combinedBs"]`（定義は `extDefinitions`）へ移した（変換の段が移し、`meta.extTransfers` に記録する）。形式 0.50 の変換の段と見本はそのまま残す。
+  - 4 の世帯ファイル: 会社の入力の置き場所は、形式 0.57 で `household.companyBs` から拡張領域 `ext["ext.official.combinedBs"]`（定義は `extDefinitions`）へ移した（変換の段が移し、`meta.extTransfers` に記録する）。形式 0.50 の変換の段と見本はそのまま残す。
   - 影響の帳票: 帳票の入力の `combinedBs` と章の `id` `combinedBs` は外し、拡張の章の材料 `extensions["ext.official.combinedBs"]` と章の `id` `ext.official.combinedBs` にした。Typst の `pages/combined.typ` は束の `reports/chapter.typ` へ移した。
 - 「後でカスタム層へ移す道筋」の 1〜4 は、0114 で次のように決めた。
   1. カスタム層の最小の仕組みは2段に分け、β公開までは同梱の公式の拡張だけを動かす（FP の束の読み込み・承認・隔離実行は β公開の後）。差し込み口は 0006 の8つとは別の見せ方の差し込み口（`view.balance`・`report.chapter`）。

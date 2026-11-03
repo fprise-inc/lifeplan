@@ -43,7 +43,7 @@ export const ENGINE_PRESETS: readonly PresetDef[] = [
   // 医療保険の入院の1回の限度日数（insurance.policy。保険の限度日数が空欄のとき。画面の保険の種類のひな形も同じ値）
   { id: "preset.insurance.hospitalMaxDays", value: 60, unit: "days", group: "万一・保険", name: "医療保険の入院の1回の限度日数", source: "ひな形（よくある医療保険の型）", kind: "guide", use: "engine", rev: 1 },
   // 持ち家・不動産の評価（housing.valuation・asset.realEstate。0025 の2。土地と建物の割合などが空欄のとき。画面の欄の既定も同じ値）
-  { id: "preset.realEstate.landShare", value: "0.3", unit: "pct", group: "住まい・ローン", name: "持ち家・不動産の評価: 土地の割合", source: "よくある目安（土地付き注文住宅の土地の割合）", kind: "guide", use: "engine", rev: 1 },
+  { id: "preset.realEstate.landShare", value: "0.3", unit: "pct", group: "住まい・ローン", name: "持ち家・不動産の評価: 土地の割合", source: "住宅金融支援機構「フラット35利用者調査」2025年度の土地付注文住宅（全国）の、建設費と土地取得費の合計に占める土地取得費の割合（29.7%。首都圏は40.4%）", kind: "guide", use: "engine", rev: 1 },
   { id: "preset.realEstate.residualFloor", value: "0.2", unit: "pct", group: "住まい・ローン", name: "持ち家・不動産の評価: 建物の残りの価値の下限", source: "よくある目安（固定資産評価の下限）", kind: "guide", use: "engine", rev: 1 },
   { id: "preset.realEstate.saleCostRate", value: "0.04", unit: "pct", group: "住まい・ローン", name: "持ち家・不動産を売るときの費用の割合", source: "よくある目安（仲介手数料・印紙税など）", kind: "guide", use: "engine", rev: 1 },
   // 保育料の自治体の水準（education.nurseryFee。0029。国の基準に対する割合。進路の保育園の段の割合が空欄のとき）

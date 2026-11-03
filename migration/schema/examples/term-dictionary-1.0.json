@@ -1,0 +1,23 @@
+{
+  "format": "lifeplan.termDictionary",
+  "contract": "term-dictionary@1.0",
+  "id": "example.fpTerms",
+  "revision": 1,
+  "label": "書き方の見本（よく使われる見出しの言葉）",
+  "roles": [
+    { "words": ["本人", "ご本人", "世帯主"], "role": "self" },
+    { "words": ["配偶者"], "role": "spouse" },
+    { "words": ["第1子", "長男", "長女"], "role": "child", "order": 1 }
+  ],
+  "entries": [
+    { "words": ["給与（賞与を除く）"], "match": "prefix", "to": { "item": "employment.salary.annual", "member": "self" }, "value": { "unit": "money", "period": "annual" } },
+    { "words": ["基本生活費"], "to": { "item": "livingExpense.monthly" }, "value": { "unit": "money", "period": "annual" } },
+    { "words": ["物価上昇率"], "to": { "item": "assumptions.inflation" }, "value": { "unit": "percent" } },
+    { "words": ["残高"], "match": "contains", "to": { "item": "debt.balance", "object": "debt" }, "value": { "unit": "money" } },
+    { "words": ["性別"], "to": { "item": "member.sex" }, "value": { "unit": "choice", "choices": { "男性": "male", "女性": "female", "男": "male", "女": "female" } } },
+    { "words": ["年間収支"], "to": { "row": "cf.net" } },
+    { "words": ["貯蓄残高", "金融資産残高"], "to": { "row": "cf.balance.financial" }, "value": { "unit": "money" } },
+    { "words": ["備考", "メモ"], "to": { "memo": true }, "value": { "unit": "text" } },
+    { "words": ["勤務先"], "to": { "drop": true } }
+  ]
+}

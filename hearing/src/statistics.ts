@@ -113,6 +113,68 @@ export const isOfficeBasisText = (text: string | null | undefined): boolean => {
   });
 };
 
+// ---- 推定の元の印（0111 の追記 2026-11-03。世帯ファイルの形式 0.54 から）----
+// 推定の値の箱の estimate.source に、事務所の推定の値から作った推定かを持つ。無ければ公式の目安（統計・コードの中の目安）から作った推定
+// （前の版の世帯の推定も公式の目安から作ったと読む）。印は画面が世帯を直したときに付ける（app/src/workspace/input/officeSource.ts）
+
+/** 推定の元の印: 事務所の推定の値から作った推定（values は使った値ID → そのときの事務所の値の指紋） */
+export interface EstimateSource {
+  readonly kind: "office";
+  readonly values: Readonly<Record<string, string>>;
+}
+
+/**
+ * 事務所の値の指紋（値の JSON の FNV-1a 32ビットの16進8文字）。値が同じなら同じ。根拠の文・変えた日は入れない
+ * （文だけを書き直しても、前に作った推定を「前の値から作った」としない）。暗号の指紋ではなく、同じ値かを見分けるだけ
+ */
+export function officeFingerprint(v: MasterValue["value"]): string {
+  const s = JSON.stringify(v);
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0");
+}
+
+const sameBasis = (text: string, basis: string): boolean => {
+  const t = text.trim();
+  const b = basis.trim();
+  return t !== "" && (t === b || t === `${HEARING_UNKNOWN_HEAD}。${b}`);
+};
+
+/**
+ * 根拠の文から、今の事務所の推定の値の印を作る（根拠の文が事務所の値の根拠の文とまったく同じ値すべて。無ければ null）。
+ * 事務所の値から作った推定の根拠は事務所の根拠の文そのものなので（officeBasisOf）、作った直後の推定はこれで見分けられる。
+ * 同じ文の値が2つ以上あるとき（根拠の文を書かずに同じ月に変えた値など）は、その全部を印に入れる
+ */
+export function officeSourceOf(basis: string | null | undefined): EstimateSource | null {
+  if (typeof basis !== "string") return null;
+  const values: Record<string, string> = {};
+  for (const [id, o] of Object.entries(office)) if (sameBasis(basis, o.basis)) values[id] = officeFingerprint(o.value);
+  return Object.keys(values).length === 0 ? null : { kind: "office", values };
+}
+
+/** 推定の元の印の形か（世帯から読んだ値を確かめる） */
+export const isEstimateSource = (v: unknown): v is EstimateSource => {
+  if (typeof v !== "object" || v === null) return false;
+  const s = v as { kind?: unknown; values?: unknown };
+  return s.kind === "office" && typeof s.values === "object" && s.values !== null && !Array.isArray(s.values) && Object.keys(s.values).length > 0 && Object.values(s.values).every((x) => typeof x === "string");
+};
+
+/**
+ * 印の値のうち、作った後に事務所の値が変わった・外された（公式に戻した）値ID。空なら今の事務所の値から作った推定。
+ * 同じ文の値が2つ以上入った印は、どれか1つでも変わっていれば入る
+ */
+export function changedOfficeValues(s: EstimateSource): string[] {
+  return Object.entries(s.values)
+    .filter(([id, fp]) => {
+      const o = office[id];
+      return o === undefined || officeFingerprint(o.value) !== fp;
+    })
+    .map(([id]) => id);
+}
+
 /** 公式の値（事務所の推定の値を当てない、写しのままの値） */
 export function officialMasterValue(id: string): MasterValue | null {
   return MASTER_VALUES[id] ?? null;

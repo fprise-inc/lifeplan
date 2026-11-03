@@ -20,6 +20,7 @@ export type {
   VariableRules,
   AnnualRow,
   CalcConventions,
+  ComponentConventions,
   EmploymentPeriodInput,
   HealthKind,
   PensionRecordInput,

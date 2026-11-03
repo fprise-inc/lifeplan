@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:financia:schema:engine.input",
   "title": "エンジン全体の入力（世帯のデータモデル 0008 のうち、税・社会保険料の部品が使う最小の部分）",
-  "description": "0004 の7・0006 の5: 知らない欄（参照値を含む）は拒む。x-item は入力項目ID（0004）、x-collection は物の集まりの名前、x-owner はその物がどの構成員の物かを表す欄（0006 の追記: 構成員ごとの依存）。登録簿 registry/items.yaml はここから作る",
+  "description": "0004 の7・0006 の5: 知らない欄（参照値を含む）は拒む。x-item は入力項目ID（0004）、x-collection は物の集まりの名前、x-owner はその物がどの構成員の物かを表す欄（0006 の追記: 構成員ごとの依存）、x-pointInTime は時点のある値（ある時点の値として持ち、時間が経つと違う値になる入力項目。残高・加入月数・年税額など。0113 の7）の印。登録簿 registry/items.yaml はここから作る",
   "type": "object",
   "additionalProperties": false,
   "required": ["baseMonth", "endYear", "calcConventions", "household", "assumptions"],
@@ -18,7 +18,40 @@
       "properties": {
         "aggregation": { "enum": ["cash", "accrual"] },
         "investmentTiming": { "enum": ["midYear", "beginning", "end"] },
-        "compatibility": { "type": "null" }
+        "compatibility": {
+          "description": "0003 の7・0113 の8: 互換モード（移行元の数え方に寄せた照合用の計算）。null か、取り込みの記録と規則（source）と、ファイナンシアの既定と違う数え方の項目（items）。項目と値は閉じた一覧で、足すだけ（MINOR）。既定の値（tableAge・tableBalance は yearEnd、ageTiming は month、firstYear は fromBaseMonth、growthStart は nextYear）は書かない。source は計算に使わず根拠の記録に写す。計算の項目（ageTiming・firstYear・growthStart）は計算の中身を作るまで E_ARGUMENT で断る。表示の項目（tableAge・tableBalance）は計算を変えない",
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["source", "items"],
+              "properties": {
+                "source": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["import", "rule"],
+                  "properties": {
+                    "import": { "description": "世帯の移行の取り込みの記録の ID（本文の区画 migrations の imports[].id。英数字で始まる英数字・点・下線・ハイフン）", "type": "string", "maxLength": 64, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+                    "rule": { "description": "読み取り規則の <ID>@<改訂>（0113 の4）", "type": "string", "maxLength": 128, "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)+@[1-9][0-9]*$" }
+                  }
+                },
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "minProperties": 1,
+                  "properties": {
+                    "tableAge": { "description": "表の年齢（表示だけ）: yearStart はその年の1月1日の満年齢（既定 yearEnd は12月31日）", "enum": ["yearStart"] },
+                    "tableBalance": { "description": "表の残高の時点（表示だけ）: yearStart は年の初めの残高（既定 yearEnd は年末）", "enum": ["yearStart"] },
+                    "ageTiming": { "description": "FP が年齢で入れた時点の解き方（計算）: yearOfReach はその年齢に達する年の1月、yearAfterReach は翌年の1月（既定 month は達する月）。制度の年齢の切り替え ageSwitch は変えない", "enum": ["yearOfReach", "yearAfterReach"] },
+                    "firstYear": { "description": "最初の年（計算）: wholeYear は計算基準年の1月から1年分（既定 fromBaseMonth は計算基準月から）", "enum": ["wholeYear"] },
+                    "growthStart": { "description": "上昇率を掛け始める年（計算）: baseYear は計算基準年から（既定 nextYear は翌年から）", "enum": ["baseYear"] }
+                  }
+                }
+              }
+            }
+          ]
+        }
       }
     },
     "dataSet": {
@@ -831,8 +864,8 @@
         "kind": { "title": "器の種類", "x-item": "account.kind", "$ref": "#/$defs/accountKind" },
         "subtype": { "title": "その他の資産の細目（ownCompanyShares 自社株〔出資額〕・loanToCompany 会社への貸付金。種類 otherAsset だけ。表示だけで、計算には使わない。0105）", "x-item": "account.subtype", "enum": ["ownCompanyShares", "loanToCompany"] },
         "owner": { "title": "名義の構成員", "x-item": "account.owner", "$ref": "urn:financia:schema:common#/$defs/uuid" },
-        "marketValue": { "title": "時価", "x-item": "account.marketValue", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
-        "costBasis": { "title": "取得価額（省略は時価と同じ）", "x-item": "account.costBasis", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "marketValue": { "title": "時価", "x-item": "account.marketValue", "x-pointInTime": true, "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "costBasis": { "title": "取得価額（省略は時価と同じ）", "x-item": "account.costBasis", "x-pointInTime": true, "$ref": "urn:financia:schema:common#/$defs/boxYen" },
         "asOf": { "title": "時価の時点", "x-item": "account.asOf", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
         "assetMix": {
           "title": "資産クラスの配分（率の合計は1。省略は預金・外貨預金なら cash、ほかは運用利回り）",
@@ -868,7 +901,7 @@
         },
         "frame": {
           "title": "NISA の非課税保有限度額の消化（簿価。asOfYear の年末の値）",
-          "x-item": "account.frame",
+          "x-item": "account.frame", "x-pointInTime": true,
           "type": "object",
           "additionalProperties": false,
           "required": ["lifetimeUsedCost", "asOfYear"],
@@ -1111,7 +1144,7 @@
         "includeInBase": { "title": "基本の計算に入れる（相続で受け継ぐ借金だけ。true で、見込みが不確かでも入れる。計算には使わない）", "x-item": "debt.includeInBase", "type": "boolean" },
         "principal": { "title": "借入額（実行の時）", "x-item": "debt.principal", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
         "start": { "title": "借入の月（最初の返済はその翌月）", "x-item": "debt.start", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
-        "balance": { "title": "残高（balanceAsOf の月の返済の後。既に借りているローン）", "x-item": "debt.balance", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "balance": { "title": "残高（balanceAsOf の月の返済の後。既に借りているローン）", "x-item": "debt.balance", "x-pointInTime": true, "$ref": "urn:financia:schema:common#/$defs/boxYen" },
         "balanceAsOf": { "title": "残高の時点", "x-item": "debt.balanceAsOf", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
         "rateSchedule": {
           "title": "金利の段階（固定・変動・期間選択）",
@@ -1258,6 +1291,33 @@
             "costs": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
             "newBuild": { "description": "0052 の追記（2026-11-03）: 新築か中古か（住宅の購入の種類。表示と推定の元〔諸費用・住宅ローン控除の新築か中古か・固定資産税の目安〕だけ。計算には使わない。省略は選んでいない）", "type": "boolean" },
             "longLife": { "description": "0112: 認定長期優良住宅か（固定資産税の新築の軽減の年数の推定の元だけ。住宅ローン控除の住宅の種類が認定住宅ならそちらを使う。計算には使わない。省略は違う）", "type": "boolean" },
+            "land": {
+              "description": "0115: 注文住宅（土地を買って建てる）の土地。price・downPayment・costs は土地と建物の合計のままで、ここはその内数。土地の決済の月に、頭金のうち downPayment と諸費用のうち costs を払う（合計を超える分は合計で止める）。持ち家の評価は土地をその月から持ち（建物は引き渡しの年から）、土地の割合は土地の代金から決める（valuation.value を入れたときを除く）",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["at", "price"],
+              "properties": {
+                "at": { "description": "土地の決済（引き渡し）の月", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                "price": { "description": "土地の代金（物件の価格の内数）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "downPayment": { "description": "土地の決済で払う頭金（頭金の内数。省略は0）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "costs": { "description": "土地の諸費用（仲介手数料・登記・印紙・固定資産税の精算など。諸費用の内数。省略は0）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+              }
+            },
+            "payments": {
+              "description": "0115: 引き渡しの前に頭金から払う建物の代金（契約金・着工金・中間金。頭金の内数。土地の決済の頭金と合わせて頭金を超える分は頭金で止める）。残りの頭金は購入の月（引き渡し）に払う",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["at", "amount"],
+                "properties": {
+                  "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+                  "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                  "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "kind": { "description": "支払いの名前（契約金・着工金・中間金・その他。表示だけ）", "enum": ["contract", "start", "interim", "other"] }
+                }
+              }
+            },
             "gifts": {
               "description": "親・祖父母からの資金援助（受け取る構成員と額。贈与税は贈与の作業で扱う）",
               "type": "array",
@@ -1626,7 +1686,7 @@
         "asOf": { "title": "記録の時点（定期便の作成の月・通知の年月・加入歴の終わりの月）。この月より後はエンジンが働き方の期間から足す", "x-item": "pensionRecord.asOf", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
         "months": {
           "title": "加入期間の月数（定期便の加入期間の欄）",
-          "x-item": "pensionRecord.months",
+          "x-item": "pensionRecord.months", "x-pointInTime": true,
           "type": "object",
           "additionalProperties": false,
           "required": ["basic", "employee"],
@@ -1653,7 +1713,7 @@
         },
         "amounts": {
           "title": "置き換え口: 記録の年金額（年額）",
-          "x-item": "pensionRecord.amounts",
+          "x-item": "pensionRecord.amounts", "x-pointInTime": true,
           "type": "object",
           "additionalProperties": false,
           "properties": {
@@ -1714,7 +1774,7 @@
         "member": { "title": "納める構成員（国民健康保険は世帯主）", "x-item": "premiumAssessment.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "kind": { "title": "保険料の種類", "x-item": "premiumAssessment.kind", "enum": ["nationalHealth", "lateElderly", "careFirst"] },
         "fiscalYear": { "title": "年度", "x-item": "premiumAssessment.fiscalYear", "$ref": "urn:financia:schema:common#/$defs/year" },
-        "amount": { "title": "年額", "x-item": "premiumAssessment.amount", "$ref": "urn:financia:schema:common#/$defs/boxYen" }
+        "amount": { "title": "年額", "x-item": "premiumAssessment.amount", "x-pointInTime": true, "$ref": "urn:financia:schema:common#/$defs/boxYen" }
       }
     },
     "premiumRate": {
@@ -1753,7 +1813,7 @@
         "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "member": { "title": "納税する構成員", "x-item": "residentTaxAssessment.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "fiscalYear": { "title": "年度", "x-item": "residentTaxAssessment.fiscalYear", "$ref": "urn:financia:schema:common#/$defs/year" },
-        "amount": { "title": "住民税の年税額（森林環境税を含む）", "x-item": "residentTaxAssessment.amount", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "amount": { "title": "住民税の年税額（森林環境税を含む）", "x-item": "residentTaxAssessment.amount", "x-pointInTime": true, "$ref": "urn:financia:schema:common#/$defs/boxYen" },
         "collection": { "title": "徴収の方法（省略は働き方から決める）", "x-item": "residentTaxAssessment.collection", "enum": ["special", "ordinary"] }
       }
     },

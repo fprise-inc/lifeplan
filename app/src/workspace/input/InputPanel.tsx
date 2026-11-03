@@ -13,6 +13,7 @@ import { useSurplusSuggestion } from "./surplusSuggest.ts";
 import { useSavingsCheckLine } from "./savingsCheckLine.ts";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import { withRefreshedEstimates } from "./estimates.ts";
+import { withOfficeSources } from "./officeSource.ts";
 import { withProvisionalHousing } from "./housingCredit.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { Help, HelpOf } from "../../presentation/Help.tsx";
@@ -111,9 +112,11 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   if (history.current === null) history.current = new UndoHistory<WorkingHousehold>({ same: deepEqual });
   const latest = useRef(draft);
   latest.current = draft;
-  const commit = (n: WorkingHousehold) => {
+  const commit = (n0: WorkingHousehold) => {
     const cur = latest.current;
-    if (n === cur) return;
+    if (n0 === cur) return;
+    // 新しく作った・変わった推定に、推定の元の印を付ける（事務所の推定の値から作った推定か。0111 の追記 2026-11-03）
+    const n = withOfficeSources(n0, cur);
     if (history.current !== null) undoController.record(history.current, cur, n, (h) => h.control ?? item?.label ?? "入力");
     latest.current = n;
     setDraft(n);

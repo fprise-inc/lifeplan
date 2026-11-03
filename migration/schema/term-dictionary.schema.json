@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://financia.fprise.com/schemas/migration/term-dictionary.schema.json",
+  "title": "他のソフトの帳票の用語辞書（term-dictionary@1.0。試験版。0113 の5）",
+  "description": "「その見出しが何か」（対応先と単位）だけを書く宣言型の JSON。プログラム・正規表現・式は持たない。知らない欄は断る。対応先は5種類（入力項目・表の行＝参照値・前提条件〔入力項目 assumptions.*〕・移行メモ・読まない）のどれか1つ。対応先の ID は登録簿（registry/items.yaml・rows.yaml）の ID だけで、登録簿に無い ID・deprecated の ID は engine/scripts/migrationRules.ts が断る",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "contract", "id", "revision", "label", "entries"],
+  "properties": {
+    "format": { "const": "lifeplan.termDictionary" },
+    "contract": { "description": "書き方の版（読める版の一覧。足すだけ）", "enum": ["term-dictionary@1.0"] },
+    "id": { "$ref": "migration-rule.schema.json#/$defs/ruleId" },
+    "revision": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+    "label": { "$ref": "migration-rule.schema.json#/$defs/text" },
+    "roles": {
+      "description": "続柄の見出しの言葉 → 続柄（order は同じ続柄の何人目か。第1子なら 1）",
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["words", "role"],
+        "properties": {
+          "words": { "$ref": "#/$defs/words" },
+          "role": { "$ref": "#/$defs/role" },
+          "order": { "type": "integer", "minimum": 1, "maximum": 20 }
+        }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "words": { "type": "array", "minItems": 1, "maxItems": 50, "uniqueItems": true, "items": { "$ref": "migration-rule.schema.json#/$defs/word" } },
+    "role": { "description": "続柄（エンジンの入力の家族の種類と同じ言葉）", "enum": ["self", "spouse", "child", "parent", "grandparent", "sibling", "grandchild", "other"] },
+    "itemId": { "type": "string", "maxLength": 128, "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)+$" },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["words", "to"],
+      "properties": {
+        "words": { "$ref": "#/$defs/words" },
+        "match": { "description": "言葉の一致（省略は exact。強さは exact＞prefix＞contains）", "enum": ["exact", "prefix", "contains"] },
+        "to": { "$ref": "#/$defs/to" },
+        "value": { "$ref": "#/$defs/value" }
+      },
+      "allOf": [
+        {
+          "description": "文字のまま（text）は移行メモにだけ使える",
+          "if": { "required": ["value"], "properties": { "value": { "required": ["unit"], "properties": { "unit": { "const": "text" } } } } },
+          "then": { "properties": { "to": { "required": ["memo"] } } }
+        },
+        {
+          "description": "読まない・移行メモは値の読み方を持たない（移行メモは text だけ）",
+          "if": { "properties": { "to": { "required": ["drop"] } } },
+          "then": { "not": { "required": ["value"] } }
+        }
+      ]
+    },
+    "to": {
+      "description": "対応先（5種類のどれか1つ。0113 の5）",
+      "oneOf": [
+        {
+          "description": "入力項目（前提条件 assumptions.* を含む）。member は続柄（roles の role）、object は table の区画の物（物の集まりの名前。item はその集まりの入力項目）",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["item"],
+          "properties": {
+            "item": { "$ref": "#/$defs/itemId" },
+            "member": { "$ref": "#/$defs/role" },
+            "object": { "type": "string", "maxLength": 64, "pattern": "^[a-z][a-zA-Z0-9]*$" }
+          }
+        },
+        {
+          "description": "キャッシュフロー表の行（参照値。計算に入らない。0004 の7）",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["row"],
+          "properties": {
+            "row": { "type": "string", "maxLength": 128, "pattern": "^cf(\\.[a-z][a-zA-Z0-9]*)+$" }
+          }
+        },
+        {
+          "description": "移行メモ（対応先の無い項目として、伏せ字の後の見出しと値の文字を残す）",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["memo"],
+          "properties": { "memo": { "const": true } }
+        },
+        {
+          "description": "読まない（何も残さない）",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["drop"],
+          "properties": { "drop": { "const": true } }
+        }
+      ]
+    },
+    "value": {
+      "description": "値の読み方。period は年額か月額か（入力項目の持ち方と違えば決まった1つの関数で直す）。choice は choices で選択肢に写す",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit"],
+      "properties": {
+        "unit": { "enum": ["money", "yen", "percent", "years", "months", "age", "yearMonth", "count", "choice", "text"] },
+        "period": { "enum": ["annual", "monthly"] },
+        "choices": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 100,
+          "propertyNames": { "minLength": 1, "maxLength": 64, "pattern": "^[^<>{}`$\\\\\\u0000-\\u001f\\u007f]+$" },
+          "additionalProperties": { "type": "string", "maxLength": 64, "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]*$" }
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "unit": { "const": "choice" } } }, "then": { "required": ["choices"] }, "else": { "not": { "required": ["choices"] } } },
+        { "if": { "properties": { "unit": { "enum": ["money", "yen"] } } }, "else": { "not": { "required": ["period"] } } }
+      ]
+    }
+  }
+}

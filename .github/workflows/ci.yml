@@ -1,4 +1,4 @@
-# 計算エンジンとアプリの画面・ヒアリングシート・明細の取り込み・表計算のファイルの土台・持ち帰り用のレポートの自動テスト（0002・0004・0005・0006・0007・0016・0017・0018・0021・0030・0034）
+# 計算エンジンとアプリの画面・ヒアリングシート・明細の取り込み・表計算のファイルの土台・持ち帰り用のレポートの自動テスト（0002・0004・0005・0006・0007・0016・0017・0018・0021・0030・0034・0113）
 # アプリの3つの OS でのビルド（バンドル）は、手で起動するかリリースのときだけ（app-bundle.yml。実行の分数に限りがあるため）
 name: ci
 on:
@@ -73,6 +73,9 @@ jobs:
       - name: 登録簿が正本（スキーマ・部品・制度データ）と食い違っていないこと（0004 の5）
         if: needs.changes.outputs.engine == 'true'
         run: npm run registry:check
+      - name: 公開側の読み取り規則・用語辞書（migration/）の形と、規則の reads.product が null であること（0113 の7・11）
+        if: needs.changes.outputs.engine == 'true'
+        run: npm run migration:check
       - name: 型の検査
         if: needs.changes.outputs.engine == 'true'
         run: npm run typecheck

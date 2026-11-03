@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.54";
+pub const CURRENT: &str = "0.57";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -177,15 +177,27 @@ pub const CURRENT: &str = "0.54";
 /// - 0.53: 住宅の購入の新築か中古か `residences[].purchase.newBuild`（住宅の購入の種類。0052 の追記 2026-11-03）と、認定長期優良住宅か
 ///   `residences[].purchase.longLife`（固定資産税の推定。0112）を足した（どちらも表示と推定の元だけで計算に使わない。足すだけの MINOR）。
 ///   前の版のアプリは種類を読めないので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える。0.52 の段の後に積む
-/// - 0.54: 合算BS の会社の入力を、世帯の区画 `household.companyBs` から拡張領域 `ext["ext.official.combinedBs"]`（同梱の公式の拡張の入力欄。
+/// - 0.54: 推定の値の箱・値の状態の行の推定 `estimate` に、推定の元の印 `source`（`{kind: "office", values: {値ID: 事務所の値の指紋}}`。
+///   事務所の推定の値から作った推定。0111 の追記 2026-11-03）を足した（表示と知らせだけで計算に使わない。足すだけの MINOR）。印の無い推定は
+///   公式の目安（統計・コードの中の目安）から作った推定と読む。前の版のアプリは印を読めないので、版を上げて閲覧だけにする。
+///   変換の段は形式の版だけを書き換える（前の版の推定は印を持たず、公式の目安から作ったと読む）。0.53 の段の後に積む
+/// - 0.55: 注文住宅（土地を買って建てる。0115）の土地 `residences[].purchase.land`（土地の決済の月・土地の代金・その月に払う頭金と諸費用。
+///   どれも購入の合計の内数）と、引き渡しの前に頭金から払う建物の代金 `residences[].purchase.payments`（要素は ID を持つ）を足した
+///   （計算に使う。足すだけの MINOR）。前の版のアプリは土地を読めない（土地の決済の支払いと土地の評価が落ちる）ので、版を上げて閲覧だけにする。
+///   変換の段は形式の版だけを書き換える。0.54 の段の後に積む
+/// - 0.56: 他のソフトからの移行（0113）。本文の区画 `migrations`（取り込みの記録。任意で、移していない世帯には無い）、推定の出し方
+///   `migrated`（値の箱の `estimate.method`）、計算の要求の互換モード `calcConventions.compatibility` の形 `{source: {import, rule}, items}`
+///   （それまでは `null` だけ）を足した（どれも足すだけの MINOR）。前の版のアプリは区画と形を読めないので、版を上げて閲覧だけにする。
+///   変換の段は形式の版だけを書き換える。0.55 の段の後に積む
+/// - 0.57: 合算BS の会社の入力を、世帯の区画 `household.companyBs` から拡張領域 `ext["ext.official.combinedBs"]`（同梱の公式の拡張の入力欄。
 ///   定義は `extDefinitions`）へ移した（0114 の9。MINOR）。変換の段が中身をそのまま移し、`meta.extTransfers` に記録する。前の版のアプリは
-///   会社の数字を画面に出せないので、版を上げて閲覧だけにする。0.53 の段の後に積む
+///   会社の数字を画面に出せないので、版を上げて閲覧だけにする。0.56 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
-    "0.50", "0.51", "0.52", "0.53", "0.54",
+    "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57",
 ];
 
 /// 1段分の変換
@@ -461,6 +473,21 @@ pub const STEPS: &[Step] = &[
         from: "0.53",
         to: "0.54",
         apply: v0_53_to_0_54,
+    },
+    Step {
+        from: "0.54",
+        to: "0.55",
+        apply: v0_54_to_0_55,
+    },
+    Step {
+        from: "0.55",
+        to: "0.56",
+        apply: v0_55_to_0_56,
+    },
+    Step {
+        from: "0.56",
+        to: "0.57",
+        apply: v0_56_to_0_57,
     },
 ];
 
@@ -1887,6 +1914,36 @@ fn v0_52_to_0_53(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.53 → 0.54: 足した値（推定の元の印 `estimate.source`。0111 の追記 2026-11-03）は前の版の世帯に無いので、形式の版だけを書き換える。
+/// 前の版の推定は印を持たないまま、公式の目安（統計・コードの中の目安）から作った推定と読む（根拠の文から事務所の値かを推し量って印を付けない）
+fn v0_53_to_0_54(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.54".into());
+    }
+    Ok(body)
+}
+
+/// 0.54 → 0.55: 足した値（注文住宅の土地 `purchase.land`・引き渡しの前の支払い `purchase.payments`。0115）は前の版の世帯に無いので、
+/// 形式の版だけを書き換える。ほかの欄に触れない
+fn v0_54_to_0_55(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.55".into());
+    }
+    Ok(body)
+}
+
+/// 0.55 → 0.56: 足した区画と形（移行の取り込みの記録 `migrations`・推定の出し方 `migrated`・互換モードの形。0113）は前の版の世帯に無い
+/// （前の版の互換モードはいつも `null`）ので、形式の版だけを書き換える。ほかの欄に触れない
+fn v0_55_to_0_56(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.56".into());
+    }
+    Ok(body)
+}
+
 /// 合算BS の会社の入力の移す先（同梱の公式の拡張の入力欄の値の置き場所。0114 の9）
 const COMBINED_BS_EXT: &str = "ext.official.combinedBs";
 
@@ -1902,10 +1959,10 @@ fn combined_bs_definition() -> Value {
     })
 }
 
-/// 0.53 → 0.54: 合算BS の会社の入力 `household.companyBs` を、拡張領域 `ext["ext.official.combinedBs"]` へ中身のまま移す（0114 の9）。
+/// 0.56 → 0.57: 合算BS の会社の入力 `household.companyBs` を、拡張領域 `ext["ext.official.combinedBs"]` へ中身のまま移す（0114 の9）。
 /// 定義を `extDefinitions` に写し、`meta.extTransfers` に1行を足す（0011 の4 の「引き継いだことを meta に記録」）。移す先にすでに値が
 /// あれば移す先を残し、元の値は記録の行の `value` に写して残す（捨てない）。会社の入力の無い世帯は版だけを書き換える
-fn v0_53_to_0_54(mut body: Value) -> Result<Value, StoreError> {
+fn v0_56_to_0_57(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     let moved = obj
         .get_mut("household")
@@ -1945,7 +2002,7 @@ fn v0_53_to_0_54(mut body: Value) -> Result<Value, StoreError> {
         let mut row = serde_json::json!({
             "from": "household.companyBs",
             "to": COMBINED_BS_EXT,
-            "formatVersion": "0.54",
+            "formatVersion": "0.57",
         });
         if kept {
             row["value"] = value;
@@ -1953,7 +2010,7 @@ fn v0_53_to_0_54(mut body: Value) -> Result<Value, StoreError> {
         list.as_array_mut().ok_or(StoreError::BODY)?.push(row);
     }
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
-        meta.insert("formatVersion".into(), "0.54".into());
+        meta.insert("formatVersion".into(), "0.57".into());
     }
     Ok(body)
 }
@@ -2507,7 +2564,10 @@ mod tests {
         assert_eq!(access("0.52").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.53").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.54").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.55").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.55").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.56").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.57").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.58").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -2520,7 +2580,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.54", b.clone()).unwrap(),
+            upgrade("0.57", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -2943,16 +3003,70 @@ mod tests {
     }
 
     #[test]
-    fn v0_53_to_0_54_moves_company_bs_into_ext() {
+    fn v0_53_to_0_54_only_bumps_version() {
+        // 推定の元の印（0111 の追記 2026-11-03）は前の版の世帯に無い。前の版の推定は、根拠の文が事務所の文のようでも印を付けず
+        // （公式の目安から作ったと読む）、世帯はそのまま
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.53"},
+            "household": {"request": {"input": {"baseMonth": "2026-10", "household": {
+                "livingExpenses": [{"id": "l1", "mode": "total", "monthly": {"value": 300000, "state": "estimated", "origin": {"kind": "auto"},
+                    "estimate": {"method": "statistic", "basis": "事務所の目安（2026年11月）"}}}]
+            }}}}
+        });
+        let u = upgrade("0.53", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+        assert!(
+            u["household"]["request"]["input"]["household"]["livingExpenses"][0]["monthly"]
+                ["estimate"]
+                .get("source")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn v0_54_to_0_55_only_bumps_version() {
+        // 足した値（注文住宅の土地・引き渡しの前の支払い。0115）は前の版の世帯に無いので、世帯はそのまま
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.54"},
+            "household": {"request": {"input": {"baseMonth": "2026-10", "household": {
+                "residences": [{"id": "r1", "kind": "own", "style": "house", "from": {"at": "2028-10"}, "to": null, "purchase": {"at": {"at": "2028-10"}, "price": 40000000, "downPayment": 4000000, "costs": 2000000, "newBuild": true}}]
+            }}}}
+        });
+        let u = upgrade("0.54", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+    }
+
+    #[test]
+    fn v0_55_to_0_56_only_bumps_version() {
+        // 足した区画と形（移行の取り込みの記録・推定の出し方 migrated・互換モードの形。0113）は前の版の世帯に無いので、世帯はそのまま
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.55"},
+            "household": {"request": {"input": {"baseMonth": "2026-10", "calcConventions": {"aggregation": "cash", "investmentTiming": "midYear", "compatibility": null}, "household": {
+                "accounts": [{"id": "a1", "kind": "deposit", "owner": "m1", "marketValue": {"value": 1000000, "state": "confirmed", "origin": {"kind": "manual"}}, "asOf": "2026-10"}]
+            }}}}
+        });
+        let u = upgrade("0.55", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+        assert!(
+            u.get("migrations").is_none(),
+            "区画 migrations は足さない（移していない世帯には無い）"
+        );
+    }
+
+    #[test]
+    fn v0_56_to_0_57_moves_company_bs_into_ext() {
         // 合算BS の会社の入力を拡張領域へ中身のまま移し、定義と引き継ぎの記録を足す（0114 の9）
         let company = serde_json::json!({"version": 1, "asOf": "2026-09", "amounts": {"cash": 20000000, "retained": -500000}, "stage": "stable", "ownerMonthly": null, "restated": {}, "useRestated": false});
         let b = serde_json::json!({
-            "meta": {"formatVersion": "0.53"},
+            "meta": {"formatVersion": "0.56"},
             "household": {"request": {"input": {"baseMonth": "2026-10", "household": {}}}, "companyBs": company.clone()},
             "extDefinitions": {"ext.official.livingParts": {"type": "object"}},
             "ext": {"ext.official.livingParts": {"x": 1}}
         });
-        let u = upgrade("0.53", b).unwrap();
+        let u = upgrade("0.56", b).unwrap();
         assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert!(u["household"].get("companyBs").is_none());
         assert_eq!(u["ext"]["ext.official.combinedBs"], company);
@@ -2968,27 +3082,27 @@ mod tests {
         assert!(u["extDefinitions"]["ext.official.livingParts"].is_object());
         assert_eq!(
             u["meta"]["extTransfers"],
-            serde_json::json!([{"from": "household.companyBs", "to": "ext.official.combinedBs", "formatVersion": "0.54"}])
+            serde_json::json!([{"from": "household.companyBs", "to": "ext.official.combinedBs", "formatVersion": "0.57"}])
         );
         // 会社の入力の無い世帯は版だけ（拡張領域・記録を作らない）
-        let none = serde_json::json!({"meta": {"formatVersion": "0.53"}, "household": {"request": {"input": {"baseMonth": "2026-10", "household": {}}}}});
-        let u2 = upgrade("0.53", none.clone()).unwrap();
+        let none = serde_json::json!({"meta": {"formatVersion": "0.56"}, "household": {"request": {"input": {"baseMonth": "2026-10", "household": {}}}}});
+        let u2 = upgrade("0.56", none.clone()).unwrap();
         assert_eq!(u2["household"], none["household"]);
         assert!(u2.get("ext").is_none());
         assert!(u2["meta"].get("extTransfers").is_none());
         // 移す先にすでに値があれば移す先を残し、元の値は記録の行に残す
         let both = serde_json::json!({
-            "meta": {"formatVersion": "0.53"},
+            "meta": {"formatVersion": "0.56"},
             "household": {"request": {"input": {"baseMonth": "2026-10", "household": {}}}, "companyBs": company.clone()},
             "ext": {"ext.official.combinedBs": {"amounts": {"cash": 1}}}
         });
-        let u3 = upgrade("0.53", both).unwrap();
+        let u3 = upgrade("0.56", both).unwrap();
         assert_eq!(
             u3["ext"]["ext.official.combinedBs"],
             serde_json::json!({"amounts": {"cash": 1}})
         );
         assert_eq!(u3["meta"]["extTransfers"][0]["value"], company);
-        // 0.50 の世帯も、0.53 の段の後にこの段を通って移る
+        // 0.50 の世帯も、0.56 までの段の後にこの段を通って移る
         let old = serde_json::json!({"meta": {"formatVersion": "0.50"}, "household": {"request": {"input": {"baseMonth": "2026-10", "household": {}}}, "companyBs": company.clone()}});
         assert_eq!(
             upgrade("0.50", old).unwrap()["ext"]["ext.official.combinedBs"],
