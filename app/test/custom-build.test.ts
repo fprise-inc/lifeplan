@@ -102,7 +102,8 @@ describe("注文住宅の種類と推定（0115）", () => {
     expect(main?.principal).toBe(36000000);
     // つなぎ融資: 土地の借りる分 800万円×3%×9か月 ＝ 18万円、着工金・中間金 1,680万円（2,800万円の6割）×3%×3か月 ＝ 12.6万円、手数料 10万円 → 41万円
     expect(bought(wh).purchase?.costs).toBe(720000 + 1400000 + 410000);
-    expect(String(bought(wh).valueStates?.["residence.purchase/costs"] && JSON.stringify(bought(wh).valueStates?.["residence.purchase/costs"]))).toContain("つなぎ融資");
+    const states = (bought(wh).valueStates ?? {}) as Record<string, { estimate?: { basis?: string } }>;
+    expect(states["residence.purchase/costs"]?.estimate?.basis).toContain("つなぎ融資");
     // 控除の仮の条件: 入居は引き渡し、取得対価は合計
     expect(main?.housing).toMatchObject({ residence: bought(wh).id, newBuild: true, acquisitionCost: 40000000 });
   });
