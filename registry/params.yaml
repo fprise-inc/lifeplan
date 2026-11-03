@@ -4214,6 +4214,582 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: wageStats.curve.nonRegular.all.all.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・男女計・学歴計・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.nonRegular.all.all.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・男女計・学歴計・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.nonRegular.all.all.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・男女計・学歴計・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.nonRegular.all.all.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・男女計・学歴計・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.nonRegular.female.all.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・女・学歴計・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.nonRegular.female.all.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・女・学歴計・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.nonRegular.female.all.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・女・学歴計・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.nonRegular.female.all.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・女・学歴計・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.nonRegular.male.all.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・男・学歴計・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.nonRegular.male.all.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・男・学歴計・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.nonRegular.male.all.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・男・学歴計・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.nonRegular.male.all.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・男・学歴計・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.all.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・学歴計・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.all.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・学歴計・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.all.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・学歴計・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.all.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・学歴計・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.graduate.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学院・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.graduate.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学院・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.graduate.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学院・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.graduate.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学院・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.highSchool.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.highSchool.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.highSchool.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.highSchool.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.juniorCollege.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高専・短大・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.juniorCollege.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高専・短大・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.juniorCollege.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高専・短大・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.juniorCollege.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高専・短大・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.juniorHigh.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・中学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.juniorHigh.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・中学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.juniorHigh.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・中学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.juniorHigh.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・中学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.university.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.university.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.university.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.university.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.vocational.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・専門学校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.vocational.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・専門学校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.vocational.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・専門学校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.all.vocational.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・専門学校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.all.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・学歴計・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.all.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・学歴計・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.all.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・学歴計・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.all.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・学歴計・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.graduate.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学院・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.graduate.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学院・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.graduate.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学院・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.graduate.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学院・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、25～29歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.highSchool.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.highSchool.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.highSchool.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.highSchool.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.juniorCollege.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高専・短大・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.juniorCollege.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高専・短大・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.juniorCollege.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高専・短大・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.juniorCollege.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高専・短大・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.juniorHigh.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・中学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.juniorHigh.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・中学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、30～34歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.juniorHigh.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・中学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、25～29歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.juniorHigh.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・中学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.university.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.university.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.university.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.university.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.vocational.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・専門学校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.vocational.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・専門学校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.vocational.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・専門学校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.female.vocational.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・専門学校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.all.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・学歴計・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.all.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・学歴計・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.all.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・学歴計・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.all.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・学歴計・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.graduate.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学院・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.graduate.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学院・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.graduate.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学院・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.graduate.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学院・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、25～29歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.highSchool.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.highSchool.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.highSchool.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.highSchool.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.juniorCollege.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高専・短大・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.juniorCollege.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高専・短大・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.juniorCollege.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高専・短大・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.juniorCollege.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高専・短大・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.juniorHigh.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・中学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.juniorHigh.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・中学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.juniorHigh.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・中学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.juniorHigh.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・中学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.university.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.university.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.university.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.university.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.vocational.all
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・専門学校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.vocational.large
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・専門学校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.vocational.medium
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・専門学校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.curve.regular.male.vocational.small
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・専門学校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: wageStats.default
     status: active
     label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・企業規模計の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。upTo が年齢、rate が係数）"
