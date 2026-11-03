@@ -850,6 +850,49 @@ function sample053(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/**
+ * 0.54 の形（0115）: 注文住宅（土地を買って建てる）を1件足す。土地の決済の月・土地の代金と、その月に払う頭金と諸費用（合計の内数）、
+ * 引き渡しの前に頭金から払う着工金。土地の分のローン（土地先行融資）は土地の決済の月に借りる
+ */
+function sample054(): BodyState {
+  const s = sample053();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const id = (n: number) => `00000000-0000-4000-8000-0000000008${String(n).padStart(2, "0")}`;
+  const est = (value: number) => ({ value, state: "confirmed" as const, origin: { kind: "manual" as const } });
+  (hh.residences ??= []).push({
+    id: id(1),
+    kind: "own",
+    style: "house",
+    from: { at: "2060-04" },
+    to: null,
+    purchase: {
+      at: { at: "2060-04" },
+      price: 50000000,
+      downPayment: 6000000,
+      costs: 3000000,
+      newBuild: true,
+      land: { at: { at: "2059-07" }, price: 18000000, downPayment: 4000000, costs: 1100000 },
+      payments: [{ id: id(2), at: { at: "2059-11" }, amount: 1000000, kind: "start" }],
+    },
+    propertyTax: { annual: est(150000) },
+    maintenance: { monthly: est(15000) },
+    ownership: [{ member: self.id, share: "1" }],
+    valuation: { structure: "wood" },
+  });
+  (hh.debts ??= []).push({
+    id: id(3),
+    kind: "mortgage",
+    debtors: [{ member: self.id, role: "primary" }],
+    principal: 14000000,
+    start: { at: "2059-07" },
+    rateSchedule: [{ id: id(4), from: { at: "2059-07" }, type: "fixed", rate: "0.018" }],
+    repayment: { method: "equalPayment", termMonths: 240 },
+  } as never);
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -973,7 +1016,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.53");
+    expect(BODY_FORMAT_VERSION).toBe("0.54");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1127,7 +1170,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample053())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample054())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1513,6 +1556,21 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     for (const x of plain.input.household.residences ?? []) if (x.purchase !== undefined) x.purchase = { ...x.purchase, newBuild: undefined, longLife: undefined } as never;
     const strip = JSON.parse(JSON.stringify(plain)) as typeof plain;
     expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(strip)).table);
+  });
+
+  it("0.54 の形（0115）: 注文住宅の土地と引き渡しの前の支払いを保存して読み戻し、計算に使う（土地の決済の月に払い、土地を持つ）", () => {
+    const s = sample054();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const r = (stored.household.request.input.household.residences ?? []).find((x) => x.purchase?.land !== undefined);
+    expect(r?.purchase?.land).toMatchObject({ at: { at: "2059-07" }, price: 18000000, downPayment: 4000000, costs: 1100000 });
+    expect(r?.purchase?.payments?.[0]).toMatchObject({ amount: 1000000, kind: "start" });
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    const p = preview(forEngine(back.wh.request));
+    const at = (row: string, year: number) => p.table.filter((c) => c.row === row && c.year === year && c.object === r?.id).reduce((x, c) => x + c.amount, 0);
+    expect(at("cf.expense.housing.purchase.downPayment", 2059)).toBe(5000000);
+    expect(at("cf.expense.housing.purchase.downPayment", 2060)).toBe(1000000);
+    expect(at("cf.expense.housing.purchase.costs", 2059)).toBe(1100000);
   });
 
   it("0.42 の形（0090）: 高専と専門職大学院（法科大学院）の段を保存して読み戻し、計算に使う", () => {

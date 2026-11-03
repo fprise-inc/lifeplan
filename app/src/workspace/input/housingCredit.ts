@@ -7,6 +7,7 @@ import type { Debt, DebtHousing, Household, Residence } from "../../engine/types
 import { addMonths } from "../levers.ts";
 import { resolveTimepoint } from "./form.ts";
 import { newId, type WorkingHousehold } from "./household.ts";
+import { buildingPriceOf, customOfLandLoan, isCustomBuild, landLoanCreditable, landLoansOf, landMonthOf } from "./customBuild.ts";
 
 /** 住宅ローン控除の条件の欄のキー（見せるだけの欄。印の置き場） */
 export const creditKey = (debtId: string): string => `housing/debt/${debtId}/credit`;
@@ -41,6 +42,9 @@ export function ownAt(h: Household, ym: string): Residence | undefined {
   const own = (h.residences ?? []).filter((r) => r.kind === "own");
   const bought = own.find((r) => purchaseMonth(h, r) === ym);
   if (bought !== undefined) return bought;
+  // 注文住宅の土地の決済の月に借りるローン（土地先行融資。0115）は、その注文住宅の住まい
+  const landed = own.find((r) => isCustomBuild(r) && landMonthOf(h, r) === ym);
+  if (landed !== undefined) return landed;
   const span = (r: Residence) => ({ from: resolveTimepoint(h, r.from), to: r.to === null ? null : resolveTimepoint(h, r.to) });
   const living = own.find((r) => {
     const { from, to } = span(r);
@@ -54,7 +58,11 @@ export function ownAt(h: Household, ym: string): Residence | undefined {
   });
 }
 
-/** 仮の条件（入居のイベントの ID と入居の年月から） */
+/**
+ * 仮の条件（入居のイベントの ID と借入の年月から）。注文住宅（0115）の取得対価は、土地の分のローン（土地先行融資）があれば
+ * 土地の分のローンは土地の代金、引き渡しのローンは建物の代金（ローンごとに止めるため）、無ければ合計。土地の分のローンは、土地の決済から
+ * 引き渡しまで2年を超えると控除の対象にしない（家屋の新築の日前2年以内に取得した敷地の借入金。国税庁 タックスアンサー No.1211-1）
+ */
 export function provisionalHousing(h: Household, moveIn: string, ym: string): DebtHousing {
   const r = ownAt(h, ym);
   const built = r?.valuation?.builtYear;
@@ -67,19 +75,35 @@ export function provisionalHousing(h: Household, moveIn: string, ym: string): De
     // 新築は省エネ基準適合住宅（2025年4月からの新築は省エネ基準に適合が要る。それより下の区分は控除が無い）、中古は一般の住宅
     propertyType: newBuild ? "energySaving" : "other",
     newBuild,
-    ...(r?.purchase !== undefined ? { acquisitionCost: r.purchase.price } : {}),
+    ...(r?.purchase !== undefined ? { acquisitionCost: acquisitionOf(h, r, ym) } : {}),
+    ...(r !== undefined && isCustomBuild(r) && landMonthOf(h, r) === ym && purchaseMonth(h, r) !== ym && !landLoanCreditable(h, r) ? { creditDisabled: true } : {}),
   };
 }
 
+/** 取得対価（購入の価格。注文住宅を土地と建物で分けて借りるなら、そのローンの分の代金） */
+function acquisitionOf(h: Household, r: Residence, ym: string): number {
+  const p = r.purchase as NonNullable<Residence["purchase"]>;
+  if (!isCustomBuild(r) || landLoansOf(h, r).length === 0) return p.price;
+  return landMonthOf(h, r) === ym ? (p.land?.price ?? 0) : buildingPriceOf(r);
+}
+
+/** 仮の条件の入居の年月: 土地の分のローン（土地先行融資）は注文住宅の住み始め、ほかは借入の年月 */
+function moveInMonth(h: Household, d: Debt, ym: string): string {
+  const r = customOfLandLoan(h, d);
+  return (r === undefined ? null : resolveTimepoint(h, r.from)) ?? ym;
+}
+
 /** 購入の予定とつながる住宅ローン（借入の年月が購入の月）の、購入の予定と見合う借入額の合計。つながらなければ null */
-export function purchaseLink(h: Household, d: Debt): { residence: Residence; expected: number; loans: Debt[] } | null {
+export function purchaseLink(h: Household, d: Debt): { residence: Residence; expected: number; loans: Debt[]; land: boolean } | null {
   if (!isHomeLoan(d)) return null;
   const ym = resolveTimepoint(h, d.start);
   if (ym === null) return null;
-  const r = (h.residences ?? []).find((x) => x.kind === "own" && purchaseMonth(h, x) === ym);
+  // 注文住宅（0115）は、土地の決済の月に借りるローン（土地先行融資）もつながる
+  const r = (h.residences ?? []).find((x) => x.kind === "own" && purchaseMonth(h, x) === ym) ?? customOfLandLoan(h, d);
   if (r?.purchase === undefined) return null;
-  const loans = (h.debts ?? []).filter((x) => isHomeLoan(x) && resolveTimepoint(h, x.start) === ym);
-  return { residence: r, expected: r.purchase.price - (r.purchase.downPayment ?? 0), loans };
+  const months = [purchaseMonth(h, r), ...(isCustomBuild(r) ? [landMonthOf(h, r)] : [])];
+  const loans = (h.debts ?? []).filter((x) => isHomeLoan(x) && months.includes(resolveTimepoint(h, x.start)));
+  return { residence: r, expected: r.purchase.price - (r.purchase.downPayment ?? 0), loans, land: purchaseMonth(h, r) !== ym };
 }
 
 /**
@@ -106,6 +130,12 @@ const newBuildOff = (h: Household): boolean =>
 export function estimatedPrincipal(h: Household, d: Debt): number | null {
   const link = purchaseLink(h, d);
   if (link === null) return null;
+  // 土地の分のローン（土地先行融資。0115）は、土地の代金−土地の決済で払う頭金
+  const land = link.residence.purchase?.land;
+  if (link.land && land !== undefined) {
+    const v = land.price - (land.downPayment ?? 0);
+    return v > 0 ? v : null;
+  }
   const others = link.loans.filter((x) => x.id !== d.id).reduce((s, x) => s + x.principal, 0);
   const v = link.expected - others;
   return v > 0 ? v : null;
@@ -169,14 +199,15 @@ export function withProvisionalHousing(wh: WorkingHousehold, id: () => string = 
         if (!JSON.stringify({ ...h, events: [] }).includes(ev)) h.events = (h.events ?? []).filter((e) => e.id !== ev);
       }
     } else if (ym !== null && d.housing === undefined && needsCredit(h, d)) {
-      const ev = { id: id(), kind: "moveIn", at: { at: ym } };
+      const ev = { id: id(), kind: "moveIn", at: { at: moveInMonth(h, d, ym) } };
       (h.events ??= []).push(ev);
       d.housing = provisionalHousing(h, ev.id, ym);
       assumed[key] = CREDIT_ASSUMED;
     } else if (ym !== null && d.housing !== undefined && assumed[key] !== undefined) {
       const ev = (h.events ?? []).find((e) => e.id === d.housing?.moveIn);
-      if (ev === undefined) (h.events ??= []).push({ id: d.housing.moveIn, kind: "moveIn", at: { at: ym } });
-      else ev.at = { at: ym };
+      const mv = moveInMonth(h, d, ym);
+      if (ev === undefined) (h.events ??= []).push({ id: d.housing.moveIn, kind: "moveIn", at: { at: mv } });
+      else ev.at = { at: mv };
       d.housing = provisionalHousing(h, d.housing.moveIn, ym);
     }
     // 購入の種類で新築か中古かを選んだ購入とつながるローンは、控除の条件の新築か中古かを種類に合わせる（FP が確定にした条件でも。欄は出さない）

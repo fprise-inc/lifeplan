@@ -1258,6 +1258,33 @@
             "costs": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
             "newBuild": { "description": "0052 の追記（2026-11-03）: 新築か中古か（住宅の購入の種類。表示と推定の元〔諸費用・住宅ローン控除の新築か中古か・固定資産税の目安〕だけ。計算には使わない。省略は選んでいない）", "type": "boolean" },
             "longLife": { "description": "0112: 認定長期優良住宅か（固定資産税の新築の軽減の年数の推定の元だけ。住宅ローン控除の住宅の種類が認定住宅ならそちらを使う。計算には使わない。省略は違う）", "type": "boolean" },
+            "land": {
+              "description": "0115: 注文住宅（土地を買って建てる）の土地。price・downPayment・costs は土地と建物の合計のままで、ここはその内数。土地の決済の月に、頭金のうち downPayment と諸費用のうち costs を払う（合計を超える分は合計で止める）。持ち家の評価は土地をその月から持ち（建物は引き渡しの年から）、土地の割合は土地の代金から決める（valuation.value を入れたときを除く）",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["at", "price"],
+              "properties": {
+                "at": { "description": "土地の決済（引き渡し）の月", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                "price": { "description": "土地の代金（物件の価格の内数）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "downPayment": { "description": "土地の決済で払う頭金（頭金の内数。省略は0）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "costs": { "description": "土地の諸費用（仲介手数料・登記・印紙・固定資産税の精算など。諸費用の内数。省略は0）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+              }
+            },
+            "payments": {
+              "description": "0115: 引き渡しの前に頭金から払う建物の代金（契約金・着工金・中間金。頭金の内数。土地の決済の頭金と合わせて頭金を超える分は頭金で止める）。残りの頭金は購入の月（引き渡し）に払う",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["at", "amount"],
+                "properties": {
+                  "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+                  "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                  "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "kind": { "description": "支払いの名前（契約金・着工金・中間金・その他。表示だけ）", "enum": ["contract", "start", "interim", "other"] }
+                }
+              }
+            },
             "gifts": {
               "description": "親・祖父母からの資金援助（受け取る構成員と額。贈与税は贈与の作業で扱う）",
               "type": "array",

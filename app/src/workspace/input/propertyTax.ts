@@ -72,6 +72,8 @@ export interface PropertyTaxInputs {
   builtYear?: number;
   purchaseYear: number;
   longLife: boolean;
+  /** 注文住宅（土地を買って建てる。0115）。土地の割合は土地の代金から */
+  custom?: boolean;
   /** 段を作る最後の年（住み終わりの年と計算の最後の年の早いほう） */
   lastYear: number;
 }
@@ -139,10 +141,10 @@ export function propertyTaxPlan(o: PropertyTaxInputs): PropertyTaxPlan {
     return round100(landTax + b * law.standardRate * (inRelief(y) ? law.newRelief : 1) + b * cp);
   };
   const first = taxIn(firstYear);
-  const kind = `${o.newBuild ? "新築" : "中古"}の${o.condo ? "マンション" : "戸建て"}${o.longLife ? "（長期優良住宅）" : ""}`;
+  const kind = `${o.custom === true ? "注文住宅（新築の戸建て）" : `${o.newBuild ? "新築" : "中古"}の${o.condo ? "マンション" : "戸建て"}`}${o.longLife ? "（長期優良住宅）" : ""}`;
   const parts = [
     `${String(firstYear)}年の額`,
-    `物件の価格${manOf(o.price)}・土地の割合${pctOf(o.landShare)}・${kind}`,
+    o.custom === true ? `土地の代金${manOf(o.price * o.landShare)}・建物の代金${manOf(o.price * (1 - o.landShare))}・${kind}` : `物件の価格${manOf(o.price)}・土地の割合${pctOf(o.landShare)}・${kind}`,
     `評価額は土地が価格の${pctOf(guide.landRatio)}・建物が価格の${pctOf(guide.buildingRatio)}の目安`,
     `住宅用地の特例${inRelief(firstYear) ? `・新築の軽減（建物の分が半分。${String(years)}年）` : ""}を当て、都市計画税${pctOf(cp)}を含む`,
     ...(!o.newBuild && !known ? ["建った年が分からないので、建物は購入の年に建ったとみなした"] : []),
@@ -174,8 +176,9 @@ const purchaseMonthOf = (h: Household, r: Residence): string | null => (r.purcha
 
 /** その購入の予定とつながる住まいの住宅ローン（控除の条件の住まいがその家か、借入の年月が購入の月） */
 export function purchaseLoans(h: Household, r: Residence): Debt[] {
-  const ym = purchaseMonthOf(h, r);
-  return (h.debts ?? []).filter((d) => d.kind === "mortgage" && d.property === undefined && (d.housing?.residence === r.id || (ym !== null && resolveTimepoint(h, d.start) === ym)));
+  // 注文住宅（0115）は土地の決済の月に借りるローン（土地先行融資）もつながる
+  const months = [purchaseMonthOf(h, r), r.purchase?.land === undefined ? null : resolveTimepoint(h, r.purchase.land.at)].filter((x): x is string => x !== null);
+  return (h.debts ?? []).filter((d) => d.kind === "mortgage" && d.property === undefined && (d.housing?.residence === r.id || months.includes(resolveTimepoint(h, d.start) ?? "")));
 }
 
 /** 長期優良住宅か: つながる住宅ローンに控除の条件があれば、住宅の種類が認定住宅か。無ければ住宅の購入の欄 */
@@ -194,12 +197,16 @@ export function propertyTaxInputs(h: Household, r: Residence, endYear: number, l
   const style = r.style;
   const structure = r.valuation?.structure ?? (style === "condo" ? "rc" : "wood");
   const built = r.valuation?.builtYear;
+  // 注文住宅（0115）は土地の代金から土地の割合を決める（計算エンジンの評価と同じ。土地と建物の評価額の目安をそれぞれの代金から）
+  const land = r.purchase.land;
+  const custom = land !== undefined && r.purchase.price > 0;
   return {
     price: r.purchase.price,
-    landShare: Number(r.valuation?.landShare ?? landShareSetting ?? VALUATION_DEFAULTS.landShare),
+    landShare: custom ? Math.min(1, land.price / r.purchase.price) : Number(r.valuation?.landShare ?? landShareSetting ?? VALUATION_DEFAULTS.landShare),
+    ...(custom ? { custom: true } : {}),
     structure,
     condo: style === "condo",
-    newBuild: r.purchase.newBuild ?? true,
+    newBuild: custom ? true : (r.purchase.newBuild ?? true),
     ...(built !== undefined ? { builtYear: built } : {}),
     purchaseYear: Number(ym.slice(0, 4)),
     longLife: longLifeOf(h, r),

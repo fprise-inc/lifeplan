@@ -6,8 +6,9 @@ import { addMonths } from "../../levers.ts";
 import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, presetBasis, standardBox, wrapBasis, type WorkingHousehold } from "../household.ts";
 import { rentBasis, rentStandard } from "../fill.ts";
-import { dropProvisionalEvent, purchaseMonth, withProvisionalHousing } from "../housingCredit.ts";
+import { dropProvisionalEvent, PRINCIPAL_ESTIMATE, principalKey, purchaseMonth, withProvisionalHousing } from "../housingCredit.ts";
 import { applyPropertyTaxEstimate, hasAutoTaxStages, isAutoTax as isAutoBox, purchaseLoans, rememberDroppedTaxStage } from "../propertyTax.ts";
+import { buildingPriceOf, CUSTOM_KEYS, customBuildNotes, isCustomBuild, landLoansOf, landMonthOf, startCustomBuild, stopCustomBuild } from "../customBuild.ts";
 import { BUILDING_STRUCTURES, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS, TAX_METHODS, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
 import type { StateRow } from "../rows.ts";
 import { formatYen } from "../units.ts";
@@ -153,8 +154,10 @@ export const PURCHASE_TYPES = [
   { value: "usedCondo", label: "中古マンション" },
   { value: "newHouse", label: "新築戸建て" },
   { value: "usedHouse", label: "中古戸建て" },
+  // 注文住宅（土地を買って建てる。0115）: 土地の決済・建物の引き渡しに分けて払う。世帯には購入の土地 purchase.land を持つ（土地があれば注文住宅）
+  { value: "custom", label: "注文住宅（土地を買って建てる）" },
 ];
-type PurchaseType = "newCondo" | "usedCondo" | "newHouse" | "usedHouse";
+type PurchaseType = "newCondo" | "usedCondo" | "newHouse" | "usedHouse" | "custom";
 const typeOf = (condo: boolean, newBuild: boolean): PurchaseType => (condo ? (newBuild ? "newCondo" : "usedCondo") : newBuild ? "newHouse" : "usedHouse");
 
 /**
@@ -164,6 +167,7 @@ const typeOf = (condo: boolean, newBuild: boolean): PurchaseType => (condo ? (ne
  */
 export function purchaseTypeOf(wh: WorkingHousehold, r: Residence): { type: PurchaseType; stored: boolean } | null {
   if (r.purchase === undefined) return null;
+  if (isCustomBuild(r)) return { type: "custom", stored: true };
   const h = wh.request.input.household;
   const o = r as unknown as Obj;
   const structure = r.valuation?.structure;
@@ -183,18 +187,21 @@ export function purchaseTypeOf(wh: WorkingHousehold, r: Residence): { type: Purc
 function applyPurchaseType(h: Household, req: WorkingHousehold["request"], r: Residence, t: PurchaseType): void {
   if (r.purchase === undefined) return;
   const condo = t === "newCondo" || t === "usedCondo";
-  const newBuild = t === "newCondo" || t === "newHouse";
+  const newBuild = t === "newCondo" || t === "newHouse" || t === "custom";
   const o = r as unknown as Obj;
   r.style = condo ? "condo" : "house";
   r.purchase.newBuild = newBuild;
+  // 注文住宅は土地を推定で足す（土地の代金・土地の決済の時期・頭金と諸費用の内訳）。ほかの種類にしたら土地と引き渡しの前の支払いを外す（0115）
+  if (t === "custom") startCustomBuild(h, r, req.input.assumptions?.realEstateValuation?.landShare);
+  else if (isCustomBuild(r)) stopCustomBuild(r);
   // 建物の構造（空か推定なら建て方から）
   const skey = "residence.valuation/structure";
   if (r.valuation?.structure === undefined || isAutoEstimate(stateOf(o, skey))) {
     r.valuation = { ...(r.valuation ?? {}), structure: condo ? "rc" : "wood" };
     setState(o, skey, estRow("derived", STRUCTURE_FROM_STYLE));
   }
-  // 諸費用（推定のままなら新築・中古の割合で）
-  if (isAutoEstimate(stateOf(o, "residence.purchase/costs"))) {
+  // 諸費用（推定のままなら新築・中古の割合で。注文住宅は土地と建物とつなぎ融資から。customBuild.ts）
+  if (t !== "custom" && isAutoEstimate(stateOf(o, "residence.purchase/costs"))) {
     r.purchase.costs = Math.round((r.purchase.price * COSTS_RATE(newBuild)) / 10000) * 10000;
     setState(o, "residence.purchase/costs", estRow("standard", costsBasis(r.purchase.costs, newBuild)));
   }
@@ -215,8 +222,8 @@ function purchaseTypeField(r: Residence, k: string): FieldDef {
       kind: "select",
       options: PURCHASE_TYPES,
       structural: true,
-      sideEffects: "推定のままの諸費用・修繕費・固定資産税・建物の構造を、種類に合わせます",
-      help: "諸費用・修繕費・固定資産税の目安と、住宅ローン控除の新築か中古かに使います。中古は建物が建った年も入れます",
+      sideEffects: "推定のままの諸費用・修繕費・固定資産税・建物の構造を、種類に合わせます。注文住宅は土地の代金と土地の決済の時期を推定で足し、ほかの種類にすると外します",
+      help: "諸費用・修繕費・固定資産税の目安と、住宅ローン控除の新築か中古かに使います。中古は建物が建った年も入れます。注文住宅は、土地の決済と建物の引き渡しに分けて払う形になります",
       get: (w) => {
         const x = find(w.request.input.household, w) as Residence | undefined;
         const t = x === undefined ? null : purchaseTypeOf(w, x);
@@ -452,7 +459,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
     if (r.maintenance !== undefined) groups.push(...staged("maintenance", ml.what, "monthly", (x) => x.maintenance?.monthly.value ?? null));
     if (r.propertyTax !== undefined) groups.push(...staged("propertyTax", "固定資産税", "annual", (x) => x.propertyTax?.annual.value ?? null, true));
   }
-  if (buying) groups.push(...giftGroups(wh, r, k));
+  if (buying) groups.push(...customPaymentGroups(wh, r, k), ...giftGroups(wh, r, k));
   if (r.kind === "own") groups.push(...valuationGroups(wh, r, k));
   return groups;
 }
@@ -483,17 +490,21 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
   const self = wh.request.input.household.members.find((m) => m.kind === "self");
   const ageOf = self !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === self.id) } : {};
   const kp = `${k}/purchase`;
+  // 注文住宅（土地を買って建てる。0115）: 合計の額と引き渡しの時期だけでも動く（土地の代金・土地の決済の時期・内訳は推定）
+  const custom = isCustomBuild(r);
   const price = plain({
     key: `${kp}/price`,
     item: "residence.purchase",
-    label: "物件の価格",
+    label: custom ? "土地と建物の合計" : "物件の価格",
     level: "simple",
     kind: "yen",
     basis: "once",
     find,
     path: ["purchase", "price"],
-    help: "頭金・諸費用を入れていなければ、価格に合わせて目安を出し直します",
-    // 頭金・諸費用が推定（出どころ auto）なら、価格に合わせて入れ直す
+    help: custom
+      ? "土地の代金と建物の代金（請負の工事の代金）の合計です。土地の代金を入れていなければ、合計に合わせて目安を出し直します"
+      : "頭金・諸費用を入れていなければ、価格に合わせて目安を出し直します",
+    // 頭金・諸費用が推定（出どころ auto）なら、価格に合わせて入れ直す（注文住宅の諸費用は土地と建物とつなぎ融資から入れ直す。customBuild.ts）
     after: (_h, target, v) => {
       const res = target as unknown as Residence & Obj;
       if (res.purchase === undefined || typeof v !== "number") return;
@@ -501,7 +512,7 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
         res.purchase.downPayment = Math.round((v * DOWN_RATE()) / 10000) * 10000;
         setState(res, "residence.purchase/downPayment", estRow("derived", downBasis(res.purchase.downPayment)));
       }
-      if (isAutoEstimate(stateOf(res, "residence.purchase/costs"))) {
+      if (!isCustomBuild(res) && isAutoEstimate(stateOf(res, "residence.purchase/costs"))) {
         const nb = res.purchase.newBuild;
         res.purchase.costs = Math.round((v * COSTS_RATE(nb)) / 10000) * 10000;
         setState(res, "residence.purchase/costs", estRow("standard", costsBasis(res.purchase.costs, nb)));
@@ -512,16 +523,70 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
   // 長期優良住宅か（固定資産税の新築の軽減の年数。0112）: つながる住宅ローンに控除の条件があれば、控除の住宅の種類で選ぶので出さない
   const h0 = wh.request.input.household;
   const viaCredit = purchaseLoans(h0, r).some((d) => d.housing !== undefined);
+  const notes = custom ? customBuildNotes(h0, r) : [];
   return [
     purchaseTypeField(r, k),
-    { ...timepointField({ key: `${kp}/at`, item: "residence.purchase", label: "購入の時期", level: "simple", find, path: ["purchase", "at"], mode: "ym", ...ageOf }), address: () => at(r.id, "residence.purchase", ["at"]) },
+    {
+      ...timepointField({
+        key: `${kp}/at`,
+        item: "residence.purchase",
+        label: custom ? "建物の引き渡しの時期" : "購入の時期",
+        level: "simple",
+        find,
+        path: ["purchase", "at"],
+        mode: "ym",
+        ...ageOf,
+        ...(custom ? { help: "建物が完成して引き渡しを受け、住宅ローン（本融資）を借りる月です。残りの頭金と諸費用をこの月に払います" } : {}),
+      }),
+      address: () => at(r.id, "residence.purchase", ["at"]),
+    },
     price,
+    ...(custom ? customLandFields(wh, r, k, ageOf) : []),
     // 中古は建物が建った年を標準に出す（評価の建物の目減りと固定資産税の目安に使う。新築は購入の年に完成とみなすので「持ち家の評価」の詳細の欄）
     ...(used ? [builtYearField(wh, r, k)] : []),
     // 頭金・諸費用は空にできない（計算エンジンの入力で必須。空にすると欄を消して、計算が止まっていた）。無いときは 0 を入れる
-    plain({ key: `${kp}/down`, item: "residence.purchase", label: "頭金", level: "simple", kind: "yen", basis: "once", find, path: ["purchase", "downPayment"], help: "頭金が無ければ 0 を入れます" }),
+    plain({
+      key: `${kp}/down`,
+      item: "residence.purchase",
+      label: custom ? "頭金（合計）" : "頭金",
+      level: "simple",
+      kind: "yen",
+      basis: "once",
+      find,
+      path: ["purchase", "downPayment"],
+      help: custom ? "自己資金で払う額の合計です。土地の決済・建物の代金の支払い（「詳細」）で払う分の残りを、引き渡しの月に払います。無ければ 0 を入れます" : "頭金が無ければ 0 を入れます",
+    }),
+    ...(custom
+      ? [
+          {
+            ...plain({ key: `${kp}/land/down`, item: "residence.purchase", label: "頭金のうち土地の決済で払う額", level: "detail", kind: "yen", basis: "once", find, path: ["purchase", "land", "downPayment"], optional: true, fallback: 0, help: "入れなければ、頭金のうち土地の代金までを土地の決済で払うとみなします" }),
+            address: () => at(r.id, "residence.purchase", ["land", "downPayment"]),
+          },
+        ]
+      : []),
     // 諸費用は購入の月の出費として大きいので標準に出す（物件の価格の数%。「▸ 詳しく」に隠さない）
-    plain({ key: `${kp}/costs`, item: "residence.purchase", label: "諸費用", level: "simple", kind: "yen", basis: "once", find, path: ["purchase", "costs"], help: "登記・ローンの手数料・保険料・税など。目安は新築で価格の3〜7%、中古で6〜10%。無ければ 0 を入れます" }),
+    plain({
+      key: `${kp}/costs`,
+      item: "residence.purchase",
+      label: custom ? "諸費用（合計）" : "諸費用",
+      level: "simple",
+      kind: "yen",
+      basis: "once",
+      find,
+      path: ["purchase", "costs"],
+      help: custom
+        ? "土地の諸費用（仲介手数料・登記など）と建物の諸費用（登記・ローンの手数料・火災保険など）、つなぎ融資の利息と手数料の合計です。土地の諸費用は土地の決済の月、残りは引き渡しの月に払います。無ければ 0 を入れます"
+        : "登記・ローンの手数料・保険料・税など。目安は新築で価格の3〜7%、中古で6〜10%。無ければ 0 を入れます",
+      ...(notes.length > 0 ? { hint: () => notes.join("。") } : {}),
+    }),
+    ...(custom
+      ? [
+          {
+            ...plain({ key: `${kp}/land/costs`, item: "residence.purchase", label: "諸費用のうち土地の決済で払う額", level: "detail", kind: "yen", basis: "once", find, path: ["purchase", "land", "costs"], optional: true, fallback: 0, help: "仲介手数料・所有権の移転の登記・印紙・固定資産税の精算など。目安は土地の代金の5〜8%" }),
+            address: () => at(r.id, "residence.purchase", ["land", "costs"]),
+          },
+        ]
+      : []),
     ...(viaCredit
       ? []
       : [
@@ -539,6 +604,147 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
           }),
         ]),
   ];
+}
+
+/** 注文住宅の土地の欄（土地の決済の時期・土地の代金〔標準〕、建物の代金〔詳細。合計−土地の代金を直す〕。0115） */
+function customLandFields(wh: WorkingHousehold, r: Residence, k: string, ageOf: { ageOf?: (h: Household) => Household["members"][number] | undefined }): FieldDef[] {
+  const find = byId(residences, r.id);
+  const kp = `${k}/purchase`;
+  return [
+    {
+      ...timepointField({
+        key: `${kp}/land/at`,
+        item: "residence.purchase",
+        label: "土地の決済の時期",
+        level: "simple",
+        find,
+        path: ["purchase", "land", "at"],
+        mode: "ym",
+        ...ageOf,
+        help: "土地の代金を払って引き渡しを受ける月です。土地の頭金・諸費用をこの月に払い、土地をこの月から資産に数えます",
+      }),
+      address: () => at(r.id, "residence.purchase", ["land", "at"]),
+    },
+    {
+      ...plain({ key: `${kp}/land/price`, item: "residence.purchase", label: "土地の代金", level: "simple", kind: "yen", basis: "once", find, path: ["purchase", "land", "price"], help: "土地と建物の合計のうちの土地の分です。入れなければ、合計に土地の割合の目安（全国の土地付注文住宅で約3割）を掛けます" }),
+      address: () => at(r.id, "residence.purchase", ["land", "price"]),
+    },
+    {
+      ...field({
+        key: `${kp}/building`,
+        item: "residence.purchase",
+        label: "建物の代金",
+        level: "detail",
+        kind: "yen",
+        basis: "once",
+        help: "請負の工事の代金（本体・付帯工事）です。直すと、土地と建物の合計を土地の代金＋建物の代金にします",
+        get: (w) => {
+          const x = find(w.request.input.household, w) as Residence | undefined;
+          return { value: x === undefined ? null : buildingPriceOf(x) };
+        },
+        set: (w, v) =>
+          mutate(w, (h) => {
+            const x = find(h, w) as Residence | undefined;
+            if (x?.purchase?.land === undefined || typeof v !== "number") return;
+            // 土地と建物を分けて入れたので、土地の代金は推定のまま合計についていかないようにする（今の額のまま FP の値にする）
+            setState(x as unknown as Obj, CUSTOM_KEYS.price, undefined);
+            x.purchase.price = x.purchase.land.price + Math.max(0, v);
+          }),
+      }),
+      address: () => at(r.id, "residence.purchase", ["price"]),
+    },
+  ];
+}
+
+/** 引き渡しの前に頭金から払う建物の代金（契約金・着工金・中間金。注文住宅の詳細。0115）と、土地の分のローンのボタン */
+const PAYMENT_KINDS = [
+  { value: "contract", label: "契約金" },
+  { value: "start", label: "着工金" },
+  { value: "interim", label: "中間金" },
+  { value: "other", label: "その他" },
+];
+function customPaymentGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDef[] {
+  if (!isCustomBuild(r)) return [];
+  const find = byId(residences, r.id);
+  const kp = `${k}/purchase`;
+  const h0 = wh.request.input.household;
+  const groups: GroupDef[] = (r.purchase?.payments ?? []).map((pmt, j) => {
+    const findP: Finder = (h, w) => ((find(h, w) as Residence | undefined)?.purchase?.payments ?? []).find((x) => x.id === pmt.id) as unknown as Record<string, unknown> | undefined;
+    const kg = `${kp}/payment/${pmt.id}`;
+    return {
+      key: kg,
+      title: `建物の代金の支払い ${j + 1}（頭金から）`,
+      level: "detail",
+      fields: [
+        { ...plain({ key: `${kg}/kind`, item: "residence.purchase", label: "支払い", level: "detail", kind: "select", options: PAYMENT_KINDS, find: findP, path: ["kind"], optional: true, fallback: "other" }), address: () => at(r.id, "residence.purchase", ["payments", pmt.id, "kind"]) },
+        { ...timepointField({ key: `${kg}/at`, item: "residence.purchase", label: "払う時期", level: "detail", find: findP, path: ["at"], mode: "ym" }), address: () => at(r.id, "residence.purchase", ["payments", pmt.id, "at"]) },
+        { ...plain({ key: `${kg}/amount`, item: "residence.purchase", label: "頭金から払う額", level: "detail", kind: "yen", basis: "once", find: findP, path: ["amount"], help: "頭金（合計）のうち、この月に払う額です。つなぎ融資・分割の融資で払う分は入れません" }), address: () => at(r.id, "residence.purchase", ["payments", pmt.id, "amount"]) },
+      ],
+      actions: [
+        removeAction(`${kg}/remove`, "外す", "detail", (h, w) => {
+          const res = find(h, w) as Residence | undefined;
+          if (res?.purchase?.payments === undefined) return;
+          res.purchase.payments = res.purchase.payments.filter((x) => x.id !== pmt.id);
+          if (res.purchase.payments.length === 0) delete res.purchase.payments;
+        }),
+      ],
+    };
+  });
+  const hasLandLoan = landLoansOf(h0, r).length > 0;
+  groups.push({
+    key: `${kp}/customActions`,
+    level: "detail",
+    fields: [],
+    actions: [
+      {
+        key: `${kp}/addPayment`,
+        label: "＋ 建物の代金の支払い（契約金・着工金・中間金）",
+        level: "detail",
+        help: "引き渡しの前に頭金から払う分です。頭金の合計は変えず、払う時期を分けます",
+        run: (w) =>
+          mutate(w, (h) => {
+            const res = find(h, w) as Residence | undefined;
+            const landAt = res === undefined ? null : landMonthOf(h, res);
+            if (res?.purchase === undefined || landAt === null) return;
+            (res.purchase.payments ??= []).push({ id: newId(), at: { at: addMonths(landAt, 3) }, amount: 0, kind: "start" });
+          }),
+      },
+      ...(hasLandLoan
+        ? []
+        : [
+            {
+              key: `${kp}/addLandLoan`,
+              label: "＋ 土地の分のローン（土地先行融資）",
+              level: "detail" as const,
+              help: "土地と建物で住宅ローンを分けて借りるときに足します（土地の決済の月に借りる）。足さなければ、引き渡しまでの支払いはつなぎ融資で払い、引き渡しの月に住宅ローンを1本借りるとみなします",
+              run: (w: WorkingHousehold) => newLandLoan(w, r.id),
+            },
+          ]),
+    ],
+  });
+  return groups;
+}
+
+/**
+ * 土地の分のローン（土地先行融資。0115）を足す: 住宅ローンを1本足し、借入の年月を土地の決済の月に、借入額を土地の代金−土地の決済で払う頭金の推定にする。
+ * 引き渡しのローンの推定の借入額は、合計−頭金からこのローンの分を引いた額に入れ直る（housingCredit.ts の estimatedPrincipal）
+ */
+export function newLandLoan(wh: WorkingHousehold, rid: string): WorkingHousehold {
+  const before = new Set((wh.request.input.household.debts ?? []).map((d) => d.id));
+  let w = newMortgage(wh);
+  const added = (w.request.input.household.debts ?? []).find((d) => !before.has(d.id));
+  if (added === undefined) return wh;
+  w = mutate(w, (h) => {
+    const res = (h.residences ?? []).find((x) => x.id === rid);
+    const d = (h.debts ?? []).find((x) => x.id === added.id);
+    const landAt = res === undefined ? null : landMonthOf(h, res);
+    if (res?.purchase?.land === undefined || d === undefined || landAt === null) return;
+    d.start = { at: landAt };
+    const first = d.rateSchedule[0];
+    if (first !== undefined) first.from = { at: landAt };
+    d.principal = Math.max(0, res.purchase.land.price - (res.purchase.land.downPayment ?? 0));
+  });
+  return withProvisionalHousing({ ...w, assumed: { ...w.assumed, [principalKey(added.id)]: PRINCIPAL_ESTIMATE } });
 }
 
 /** 建物が建った年の欄（持ち家の評価の欄と同じ値。中古の購入の予定は住宅の購入の頭に、ほかは持ち家の評価に出す） */
@@ -713,7 +919,10 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
         },
         // 建物が建った年（中古の購入の予定は住宅の購入の頭に出すので、ここには出さない）
         ...(bought && purchaseTypeOf(wh, r)?.type.startsWith("used") === true ? [] : [builtYearField(wh, r, k)]),
-        plain({ key: `${kv}/landShare`, item: "residence.valuation", label: "土地の割合", level: "detail", kind: "pct", min: 0, max: 100, find, path: ["valuation", "landShare"], optional: true, fallback: setting?.landShare ?? VALUATION_DEFAULTS.landShare, help: "入れなければ前提条件の値。土地は前提条件の上昇率（入れていなければ物価上昇率）で動きます" }),
+        // 注文住宅は土地の代金で土地と建物を分ける（土地の割合の欄は出さない。0115。評価の基にする額を入れたときは割合で分けるので出す）
+        ...(isCustomBuild(r) && r.valuation?.value === undefined
+          ? []
+          : [plain({ key: `${kv}/landShare`, item: "residence.valuation", label: "土地の割合", level: "detail", kind: "pct", min: 0, max: 100, find, path: ["valuation", "landShare"], optional: true, fallback: setting?.landShare ?? VALUATION_DEFAULTS.landShare, help: "入れなければ前提条件の値。土地は前提条件の上昇率（入れていなければ物価上昇率）で動きます" })]),
       ],
       actions: [],
     },

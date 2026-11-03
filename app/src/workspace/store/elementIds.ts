@@ -13,7 +13,7 @@ const ELEMENT_LISTS: readonly [string, readonly (readonly string[])[]][] = [
   ["livingExpenses", [["stages"], ["categories"]]],
   ["accounts", [["contributions"], ["returnStages"], ["returnExceptions"], ["property", "rental", "stages"], ["property", "rental", "exceptions"], ["property", "expenses", "stages"], ["property", "expenses", "exceptions"]]],
   ["debts", [["rateSchedule"], ["prepayments"]]],
-  ["residences", [["purchase", "gifts"], ["rent", "stages"], ["rent", "exceptions"], ["maintenance", "stages"], ["maintenance", "exceptions"], ["propertyTax", "stages"], ["propertyTax", "exceptions"]]],
+  ["residences", [["purchase", "gifts"], ["purchase", "payments"], ["rent", "stages"], ["rent", "exceptions"], ["maintenance", "stages"], ["maintenance", "exceptions"], ["propertyTax", "stages"], ["propertyTax", "exceptions"]]],
   ["periodicExpenses", [["stages"], ["exceptions"]]],
   // 0.20 から（0044）: 入るお金の行の段階と例外の年（新しい並び。変換の段で振る古い要素は無い）
   ["incomeFlows", [["stages"], ["exceptions"]]],
