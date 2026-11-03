@@ -28,7 +28,7 @@ export interface BarInputs {
   /** 保存の失敗の文（失敗の符号 → 文） */
   message: (code: string) => string;
   /** 開いている世帯の開いたときの知らせ（0035 の8） */
-  household?: readonly { id: string; kind: string; count?: number; plans?: number }[];
+  household?: readonly { id: string; kind: string; count?: number; plans?: number; estimates?: number }[];
 }
 
 export type AlertKind = "saveError" | "readOnly" | "paused" | "aiSharing";
