@@ -216,8 +216,7 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(c["amounts"]["cash"].is_u64(), "{v}: 会社の現預金");
             assert_eq!(c["asOf"], "2026-09", "{v}: 会社の基準日");
             assert_eq!(
-                now["extDefinitions"]["ext.official.combinedBs"]["by"],
-                "ext.official.combinedBs",
+                now["extDefinitions"]["ext.official.combinedBs"]["by"], "ext.official.combinedBs",
                 "{v}: 拡張項目の定義"
             );
             assert!(

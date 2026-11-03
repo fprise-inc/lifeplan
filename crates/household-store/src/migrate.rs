@@ -2956,8 +2956,15 @@ mod tests {
         assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert!(u["household"].get("companyBs").is_none());
         assert_eq!(u["ext"]["ext.official.combinedBs"], company);
-        assert_eq!(u["ext"]["ext.official.livingParts"], serde_json::json!({"x": 1}), "ほかの拡張項目はそのまま");
-        assert_eq!(u["extDefinitions"]["ext.official.combinedBs"]["by"], "ext.official.combinedBs");
+        assert_eq!(
+            u["ext"]["ext.official.livingParts"],
+            serde_json::json!({"x": 1}),
+            "ほかの拡張項目はそのまま"
+        );
+        assert_eq!(
+            u["extDefinitions"]["ext.official.combinedBs"]["by"],
+            "ext.official.combinedBs"
+        );
         assert!(u["extDefinitions"]["ext.official.livingParts"].is_object());
         assert_eq!(
             u["meta"]["extTransfers"],
@@ -2976,11 +2983,17 @@ mod tests {
             "ext": {"ext.official.combinedBs": {"amounts": {"cash": 1}}}
         });
         let u3 = upgrade("0.53", both).unwrap();
-        assert_eq!(u3["ext"]["ext.official.combinedBs"], serde_json::json!({"amounts": {"cash": 1}}));
+        assert_eq!(
+            u3["ext"]["ext.official.combinedBs"],
+            serde_json::json!({"amounts": {"cash": 1}})
+        );
         assert_eq!(u3["meta"]["extTransfers"][0]["value"], company);
         // 0.50 の世帯も、0.53 の段の後にこの段を通って移る
         let old = serde_json::json!({"meta": {"formatVersion": "0.50"}, "household": {"request": {"input": {"baseMonth": "2026-10", "household": {}}}, "companyBs": company.clone()}});
-        assert_eq!(upgrade("0.50", old).unwrap()["ext"]["ext.official.combinedBs"], company);
+        assert_eq!(
+            upgrade("0.50", old).unwrap()["ext"]["ext.official.combinedBs"],
+            company
+        );
     }
 
     #[test]

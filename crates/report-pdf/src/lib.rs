@@ -150,7 +150,9 @@ fn main_typ() -> &'static str {
         let mut s = String::from("#import \"@lifeplan/report-core:0.1.0\": proposal\n");
         let mut ext = Vec::new();
         for (i, (id, path, _)) in EXTENSION_CHAPTERS.iter().enumerate() {
-            s.push_str(&format!("#import \"{path}\": ext-chapter as ext-chapter-{i}\n"));
+            s.push_str(&format!(
+                "#import \"{path}\": ext-chapter as ext-chapter-{i}\n"
+            ));
             ext.push(format!("\"{id}\": ext-chapter-{i}"));
         }
         s.push_str(&format!(
