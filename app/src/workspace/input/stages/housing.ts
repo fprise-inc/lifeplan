@@ -8,6 +8,7 @@ import { mutate, newId, presetBasis, standardBox, wrapBasis, type WorkingHouseho
 import { rentBasis, rentStandard } from "../fill.ts";
 import { dropProvisionalEvent, purchaseMonth, withProvisionalHousing } from "../housingCredit.ts";
 import { applyPropertyTaxEstimate, hasAutoTaxStages, isAutoTax as isAutoBox, purchaseLoans, rememberDroppedTaxStage } from "../propertyTax.ts";
+import { ownedHomeTaxEstimate, startsOwnedHomeTax } from "../ownedHomeTax.ts";
 import { BUILDING_STRUCTURES, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS, TAX_METHODS, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
 import type { StateRow } from "../rows.ts";
 import { formatYen } from "../units.ts";
@@ -366,8 +367,23 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
   } else if (r.kind === "own") {
     fields.push(
       // 購入の予定の持ち家は、建て方を購入の種類で決める（欄を重ねない。0052 の追記 2026-11-03）
-      ...(buying ? [] : [styleField(r, k)]),
-      yenBox({ key: `${k}/tax`, item: "residence.propertyTax", label: "固定資産税・都市計画税", level: "detail", basis: "annual", find, path: ["propertyTax", "annual"] }),
+      ...(buying ? [] : [startsOwnedHomeTax(styleField(r, k), r.id)]),
+      yenBox({
+        key: `${k}/tax`,
+        item: "residence.propertyTax",
+        label: "固定資産税・都市計画税",
+        level: "detail",
+        basis: "annual",
+        find,
+        path: ["propertyTax", "annual"],
+        // 今住んでいる持ち家は、空にしたら持ち家の評価の欄からの推定（評価額が無ければ目安のボタンの値。0112 の追記 2026-11-03）
+        ...(buying
+          ? {}
+          : {
+              estimate: (_h: Household, w: WorkingHousehold) => ownedHomeTaxEstimate(w, r.id) ?? { value: presetNum("preset.housing.propertyTax"), basis: TAX_PRESET().estimate.basis },
+              help: "納税通知書の額（固定資産税と都市計画税の合計）を入れます。空にすると、持ち家の評価の欄（評価額・時点・構造・建った年・土地の割合）から目安を出します",
+            }),
+      }),
       {
         ...plain({
           key: `${k}/taxGrowth`,
@@ -714,7 +730,8 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
         // 建物が建った年（中古の購入の予定は住宅の購入の頭に出すので、ここには出さない）
         ...(bought && purchaseTypeOf(wh, r)?.type.startsWith("used") === true ? [] : [builtYearField(wh, r, k)]),
         plain({ key: `${kv}/landShare`, item: "residence.valuation", label: "土地の割合", level: "detail", kind: "pct", min: 0, max: 100, find, path: ["valuation", "landShare"], optional: true, fallback: setting?.landShare ?? VALUATION_DEFAULTS.landShare, help: "入れなければ前提条件の値。土地は前提条件の上昇率（入れていなければ物価上昇率）で動きます" }),
-      ],
+        // 今住んでいる持ち家は、評価の欄を直したら、未入力か推定のままの固定資産税に推定を入れる（0112 の追記 2026-11-03）
+      ].map((f) => (bought ? f : startsOwnedHomeTax(f, r.id))),
       actions: [],
     },
   ];
