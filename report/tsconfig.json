@@ -14,7 +14,8 @@
     "erasableSyntaxOnly": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "types": []
+    "types": [],
+    "paths": { "@lifeplan/sdk": ["./src/sdk.ts"] }
   },
   "include": ["src"]
 }

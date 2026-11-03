@@ -1,8 +1,8 @@
-// 会社と合わせたバランスシート（合算BS。法人経営者向けの機能。0107）: 経営者個人（家計）と会社のバランスシートを並べ、間の貸し借り（4つの組）を
-// 相殺して1枚にする。値は帳票の入力の combinedBs（report/src/combinedBs.ts が作る。アプリの見るものと同じ）。会社の先の年の見込みは作らない。
-// 計算し直さず、書式だけを当てる
-#import "../parts/format.typ": *
-#import "../parts/layout.typ": *
+// 会社と合わせたバランスシート（合算BS。同梱の公式の拡張 ext.official.combinedBs の提案書の章。0107・0114 の6）: 経営者個人（家計）と
+// 会社のバランスシートを並べ、間の貸し借り（4つの組）を相殺して1枚にする。値は帳票の入力の extensions["ext.official.combinedBs"]
+// （parts/chapter.ts が作る。アプリの見るものと同じ部品）。会社の先の年の見込みは作らない。計算し直さず、書式だけを当てる
+// 読めるのは公式の帳票の部品 @lifeplan/report-core と、この束の reports/ の中のファイルだけ。出す関数は ext-chapter(ext-data, data)
+#import "@lifeplan/report-core:0.1.0": *
 
 /// 3枚の図（共通の縮尺）
 #let combined-figure(fig, height: 150pt) = {
@@ -39,8 +39,8 @@
   (if r == calc.floor(r) { str(int(r)) + ".0" } else { str(r) }) + "か月分"
 }
 
-#let combined-bs(data) = {
-  let cb = data.combinedBs
+/// 章（cb は帳票の入力の extensions["ext.official.combinedBs"]、data は帳票の入力の全体）
+#let ext-chapter(cb, data) = {
   chapter("会社と合わせたバランスシート", sub: "経営者個人（家計）と会社のバランスシートを並べ、間の貸し借りを相殺して1枚にしたものです。")
   let land = is-land(data)
   section("2枚を並べて、合算する")

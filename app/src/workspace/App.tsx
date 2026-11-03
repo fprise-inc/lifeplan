@@ -54,9 +54,9 @@ import { NO_OFFICE_FIELDS, NO_OFFICE_NAMES, NO_OFFICE_TEXTS, OfficeFieldsContext
 import { customCenterNotice, estimateCenterNotice } from "./office/customNotice.ts";
 import { previewOfficeChange } from "./office/estimatePreview.ts";
 import type { CustomTextsStatus } from "../engine/host.ts";
-import { combinedBsView, withCombinedField } from "./combined/combinedView.ts";
-import { hasExecutive } from "./input/officer.ts";
-import { isEmptyCombinedInput, type CombinedBsInput } from "../../../report/src/index.ts";
+import { OFFICIAL_EXTENSIONS } from "./extensions/official.ts";
+import { activeExtensions, extensionChapters, extensionFieldEdit, extensionViews, featureOf, fitsHousehold, hasValues } from "./extensions/run.ts";
+import type { ExtValue } from "../../../report/src/index.ts";
 import { combinedHiddenText, expiredFor, featureOn, NO_FEATURES, type FeatureStatus } from "./office/featureCodes.ts";
 import { FpTools } from "./tools/FpTools.tsx";
 import { Insights, useInheritanceFor } from "./tools/Insights.tsx";
@@ -1356,17 +1356,19 @@ export function App() {
     setOpened(n);
   }, []);
   /**
-   * 会社と合わせたバランスシートの入力を変える（0107。世帯ファイルの household.companyBs。計算の要求の外なので計算し直さない。
+   * 拡張の束の入力欄の値を変える（0114 の4。世帯ファイルの拡張領域 ext["<key>"]。合算BS の会社の入力など。計算の要求の外なので計算し直さない。
    * 元に戻す・やり直すの履歴には積む。保存した世帯なら自動保存で世帯ファイルに書く）
    */
-  const putCompanyBs = useCallback(
-    (next: CombinedBsInput | null) =>
+  const putExtValue = useCallback(
+    (key: string, next: ExtValue | null) =>
       history.track(() => {
         const o = openedRef.current;
         if (o === null) return;
-        const { companyBs: _old, ...rest } = o.wh;
-        void _old;
-        const n: Opened = { ...o, wh: next !== null ? { ...rest, companyBs: next } : rest };
+        const { extValues: old, ...rest } = o.wh;
+        const { [key]: _prev, ...others } = old ?? {};
+        void _prev;
+        const values = next !== null ? { ...others, [key]: next } : others;
+        const n: Opened = { ...o, wh: Object.keys(values).length > 0 ? { ...rest, extValues: values } : rest };
         openedRef.current = n;
         setOpened(n);
       }),
@@ -1911,28 +1913,36 @@ export function App() {
     const snapshot = r === null ? { error: "この控えの内容は、今の計算エンジン・制度データでは計算できませんでした（控えの時点が古いなど）。" } : { req: withoutRemovedAssumptions(s.inputs.request), table: r.table };
     return { status: "ready", model: bsPrev({ key: bsPrevRun.key, label: bsPrevChoices[i]?.label ?? "控え", createdAt: s.createdAt, baseMonth: opened.wh.request.input.baseMonth, actual, snapshot }) };
   }, [bsPrevRun, opened, bsPlans, bsSnaps, letters]);
-  // 会社と合わせたバランスシート（法人経営者向けの機能。0107）: 事務所の設定で使うと決め、役員として働く人のいる世帯のときだけ。
-  // 家計の側は現状のプランの今の年（入力した値から出した事実）
-  // コード（0110）で有効にしたときだけ。印（事務所の設定）は、コードが無い・切れたときも残すが、出さない
-  const combinedOn = featureOn(featureStatus, "combinedBs") && officeSettings.features.combinedBs && opened !== null && hasExecutive(opened.wh.request.input.household);
-  // コードの期限が切れた: 会社の数字の入っている世帯では、見られなくなった旨と入れ直せば戻ることを知らせる（データは消さない）
-  const combinedExpired = expiredFor(featureStatus, "combinedBs");
-  const combinedHidden = combinedExpired !== null && officeSettings.features.combinedBs && opened !== null && hasExecutive(opened.wh.request.input.household) && opened.wh.companyBs !== undefined && !isEmptyCombinedInput(opened.wh.companyBs) ? combinedHiddenText(combinedExpired) : null;
-  const combinedViews = useMemo(() => {
-    if (!combinedOn || opened === null || bsPlans === null) return [];
+  // 拡張の束（0114）: 同梱の公式の拡張のうち、今使えるもの（合算BS は、コードで有効〔0110〕かつ事務所の設定の印かつ役員として働く人のいる世帯のときだけ。
+  // 印は、コードが無い・切れたときも残すが、出さない）。家計の側は現状のプランの今の年（入力した値から出した事実）
+  const household = opened?.wh.request.input.household ?? null;
+  const activeExts = useMemo(() => activeExtensions(OFFICIAL_EXTENSIONS, { features: featureStatus, office: officeSettings.features, household }), [featureStatus, officeSettings.features, household]);
+  // コードの期限が切れた・止めた: 束の値の入っている世帯では、見られなくなった旨と入れ直せば戻ることを知らせる（データは消さない。0110 の3）
+  const extHidden = (() => {
+    if (household === null || opened === null) return null;
+    for (const x of OFFICIAL_EXTENSIONS) {
+      const f = featureOf(x);
+      const expired = f === null ? null : expiredFor(featureStatus, f);
+      if (f !== null && expired !== null && officeSettings.features[f] && fitsHousehold(x, household) && hasValues(x, opened.wh.extValues)) return combinedHiddenText(expired);
+    }
+    return null;
+  })();
+  const extViews = useMemo(() => {
+    if (activeExts.length === 0 || opened === null || bsPlans === null) return [];
     const home = bsPlans.find((p) => p.key === (letters.get(CURRENT)?.letter ?? "A"))?.years[0];
-    return home === undefined ? [] : [combinedBsView(opened.wh.companyBs ?? null, home)];
-  }, [combinedOn, opened?.wh.companyBs, bsPlans, letters]);
+    return extensionViews(activeExts, opened.wh.extValues, home);
+  }, [activeExts, opened?.wh.extValues, bsPlans, letters]);
+  const extChapters = useMemo(() => extensionChapters(activeExts), [activeExts]);
   const onCustomField = useCallback(
-    (_view: string, id: string, value: string): boolean => {
+    (view: string, id: string, value: string): boolean => {
       const o = openedRef.current;
       if (o === null) return false;
-      const next = withCombinedField(o.wh.companyBs ?? null, id, value);
+      const next = extensionFieldEdit(activeExts, o.wh.extValues, view, id, value);
       if (next === undefined) return false;
-      putCompanyBs(next);
+      putExtValue(next.key, next.value);
       return true;
     },
-    [putCompanyBs],
+    [activeExts, putExtValue],
   );
   // 資産運用（資産の推移のとき。0026）: 口座の内訳・運用の期間の帯・相場が下がった場合の線
   const stressRes = STRESS_KEYS.map((k) => (stressOn ? resultOf(`stress:${k}`) : null));
@@ -2642,7 +2652,8 @@ export function App() {
             bsPoints={bsSettings.points}
             bsColumns={bsSettings.columns}
             moneyThree={bsSettings.moneyThree}
-            combinedBs={combinedOn}
+            extChapters={extChapters}
+            extensions={activeExts}
             onSnapshot={takeSnapshot}
             {...(initial.reportMode !== undefined ? { initialMode: initial.reportMode } : {})}
           />
@@ -2665,8 +2676,8 @@ export function App() {
                   prev: bsPrevModel,
                   provisional: model.provisional,
                   who: model.who,
-                  customViews: combinedViews,
-                  ...(combinedHidden !== null ? { hiddenNote: combinedHidden } : {}),
+                  customViews: extViews,
+                  ...(extHidden !== null ? { hiddenNote: extHidden } : {}),
                 })}
                 onCustomField={onCustomField}
                 band={<PlanBand model={band} onSelect={select} onBase={setBase} onAdd={duplicate} onRemove={removePlan} />}

@@ -6,7 +6,7 @@
 // - タブの上の切り替えで「持ち帰り用のレポート」（顧客に渡す HTML ファイル1つ。0030。workspace/takeaway/TakeawayPanel.tsx）も作る。
 //   どちらも「顧客に渡すもの」で、載せるプランの選び方・宛名・平文の書き出しの出口が同じなので、上のタブを増やさずに同じタブの中に置く
 import { useContext, useEffect, useMemo, useState } from "preact/hooks";
-import { CHAPTERS, E_REPORT_NO_YEARS, hasMaterial, type CashflowLayout, type ChapterId, type Orientation, type ProposalInput } from "../../../../report/src/index.ts";
+import { chapterList, E_REPORT_NO_YEARS, hasMaterial, type CashflowLayout, type ChapterId, type Orientation, type ProposalInput } from "../../../../report/src/index.ts";
 import type { HostApi, RenderInfo, SaveOutcome } from "../../engine/host.ts";
 import { forEngine } from "../../engine/moneyRows.ts";
 import { isEngineError, type PreviewResult } from "../../engine/types.ts";
@@ -21,6 +21,7 @@ import { DEFAULT_CHAPTERS, DEFAULT_LAYOUT, estimatedCards, planReport, reportInp
 import { ReportViewer } from "./ReportViewer.tsx";
 import { TakeawayPanel } from "../takeaway/TakeawayPanel.tsx";
 import { OfficeNamesContext, rowNamesOf } from "../office/customTexts.ts";
+import type { LoadedExtension } from "../extensions/manifest.ts";
 
 interface Props {
   host: HostApi;
@@ -41,8 +42,10 @@ interface Props {
   bsColumns?: readonly BsColumn[] | null;
   /** お金の3つの分け方（資産と負債のタブの表示の設定。0032） */
   moneyThree?: MoneyThreeSettings;
-  /** 会社と合わせたバランスシートの章を選べるか（事務所の設定で使うと決め、役員として働く人のいる世帯のときだけ。0107） */
-  combinedBs?: boolean;
+  /** 提案書の拡張の章（今使える束の章。合算BS は、コードで有効・事務所の設定の印・役員として働く人のいる世帯のときだけ。0107・0114 の6） */
+  extChapters?: readonly { id: `ext.${string}`; label: string }[];
+  /** 今使える拡張の束（拡張の章の材料を作る） */
+  extensions?: readonly LoadedExtension[];
   /** PDF を保存したときに控えを残す（App が現状とプランの写しを足して世帯に入れる） */
   onSnapshot?: (d: SnapshotDraft) => Promise<void>;
   /** 最初に開く形（提案書の PDF・持ち帰り用のレポート） */
@@ -132,8 +135,9 @@ function ProposalPdf(p: Props) {
   const [proposal, setProposal] = useState(firstProposal);
   const [compare, setCompare] = useState<string[]>(slots);
   const [chapters, setChapters] = useState<Set<ChapterId>>(new Set(DEFAULT_CHAPTERS));
-  // 法人経営者向けの章（会社と合わせたバランスシート。0107）は、事務所の設定で使うと決めた世帯だけに出す
-  const shownChapters = CHAPTERS.filter((c) => c.id !== "combinedBs" || p.combinedBs === true);
+  // 提案書の拡張の章（合算BS など。0114 の6）は、今使える束の章だけを「提案での変更点」の後に出す
+  const extKey = (p.extChapters ?? []).map((c) => c.id).join(",");
+  const shownChapters = useMemo(() => chapterList(p.extChapters ?? []), [extKey]);
   const [addressee, setAddressee] = useState("");
   const [preparedBy, setPreparedBy] = useState("");
   const [orientation, setOrientation] = useState<Orientation>(DEFAULT_LAYOUT.orientation);
@@ -156,10 +160,10 @@ function ProposalPdf(p: Props) {
 
   const choice: ReportChoice = useMemo(
     () => ({ proposal, compare: slots.filter((id) => compare.includes(id) || id === proposal), base: p.base, chapters: shownChapters.filter((c) => c.fixed || chapters.has(c.id)).map((c) => c.id), targetAge: p.targetAge, issuedOn: today(), preparedBy, layout: { orientation, cashflow }, bsPoints: p.bsPoints ?? DEFAULT_BS_POINTS, bsColumns: p.bsColumns ?? null, ...(p.moneyThree !== undefined ? { moneyThree: p.moneyThree } : {}) }),
-    [proposal, compare.join(","), p.base, [...chapters].join(","), p.combinedBs, p.targetAge, preparedBy, slots.join(","), orientation, cashflow, JSON.stringify(p.bsPoints ?? null), JSON.stringify(p.bsColumns ?? null), JSON.stringify(p.moneyThree ?? null)],
+    [proposal, compare.join(","), p.base, [...chapters].join(","), extKey, p.targetAge, preparedBy, slots.join(","), orientation, cashflow, JSON.stringify(p.bsPoints ?? null), JSON.stringify(p.bsColumns ?? null), JSON.stringify(p.moneyThree ?? null)],
   );
   // 何を変えたら作り直しが要るか（宛名も PDF に入るので含める。帳票の入力そのものは保存しない）
-  const key = JSON.stringify({ choice, addressee: addressee.trim(), names: rowNames ?? null, wh: p.wh.request, company: p.wh.companyBs ?? null, values: slots.map((id) => p.valuesOf(id)) });
+  const key = JSON.stringify({ choice, addressee: addressee.trim(), names: rowNames ?? null, wh: p.wh.request, ext: p.wh.extValues ?? null, values: slots.map((id) => p.valuesOf(id)) });
   const stale = built !== null && built.key !== key;
   const busy = status.kind === "busy";
 
@@ -170,7 +174,7 @@ function ProposalPdf(p: Props) {
     const t0 = performance.now();
     try {
       setStatus({ kind: "busy", step: "計算しています…" });
-      const plan = planReport({ wh: p.wh, catalog: p.catalog, valuesOf: p.valuesOf, letterOf: p.letterOf }, choice);
+      const plan = planReport({ wh: p.wh, catalog: p.catalog, valuesOf: p.valuesOf, letterOf: p.letterOf, ...(p.extensions !== undefined ? { extensions: p.extensions } : {}) }, choice);
       const names = Object.keys(plan.requests);
       const res = await p.host.compute(names.map((id) => ({ id, rev: 1, request: JSON.stringify(forEngine(plan.requests[id] as NonNullable<(typeof plan.requests)[string]>)) })));
       const results: Record<string, PreviewResult> = {};

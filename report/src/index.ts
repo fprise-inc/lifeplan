@@ -4,10 +4,10 @@ export type { EngineOutput, InvestmentMaterial, ProposalBundle, RealEstateAnalys
 export { pctText, timesText } from "./rentalText.ts";
 export { saleCompareOf, saleVariantRequest, saleVariants, type SaleCompare, type SaleCompareRow, type SaleResult, type SaleVariant, type SaleVariantKey } from "./rentalSale.ts";
 export { DEFAULT_LAYOUT, PROPOSAL_INPUT_FORMAT, PROPOSAL_INPUT_VERSION, type CashflowLayout, type Comparison, type InvestmentView, type MarketDropView, type Orientation, type ProposalInput, type ReportLayout } from "./input.ts";
-export { CHAPTER_IDS, CHAPTERS, hasMaterial, selectChapters, type ChapterDef, type ChapterId } from "./chapters.ts";
+export { CHAPTER_IDS, CHAPTERS, chapterList, EXT_CHAPTER_ID, hasMaterial, isExtChapterId, selectChapters, type ChapterDef, type ChapterId, type ExtChapterId, type OfficialChapterId } from "./chapters.ts";
 export { comparisonMetrics, ESTIMATED_NOTE, hasEstimatedBox, type ComparisonMetrics } from "./build.ts";
 export { bsHouseholdOf, bsSeries, groupTotal, BS_REAL_ESTATE_KEYS, BS_ASSET_GROUPS, BS_DEBT_GROUPS, BS_FINANCIAL_GROUPS, BS_GROUP_LABEL, BS_GROUP_SHORT, type BsAt, type BsGroup, type BsHousehold, type BsLine } from "./bsGroups.ts";
 export { DEFAULT_MONEY_THREE, MONEY_THREE_LIST_MAX, MONEY_THREE_NAME_CHOICES, moneyThreeModel, moneyThreeResult, placementOf, readMoneyThree, type MoneyThreeModel, type MoneyThreeSettings } from "./moneyThree.ts";
 export { childScholarshipNotes, childScholarshipsOf, type ChildScholarship } from "./childScholarships.ts";
-export { COMBINED_YEN_MAX, combinedBs, COMPANY_ASSETS, COMPANY_EQUITY, COMPANY_KEYS, COMPANY_LIABILITIES, COMPANY_MONTHLY, COMPANY_STAGES, EMPTY_COMBINED_INPUT, hasCompanyAmounts, isEmptyCombinedInput, monthsGuideText, readCombinedInput, RESTATE_ITEMS, type CombinedBs, type CombinedBsInput, type CombinedColumn, type CombinedHousehold, type CombinedIndicator, type CombinedPair, type CompanyKey, type CompanyStage, type NetPart, type RestateKey } from "./combinedBs.ts";
 export { fillName, ROW_NAME_VARS, ROW_NAMES, rowName, rowNameId, sameRowName, type OfficeRowNames } from "./rowNames.ts";
+export { EXTENSION_CONTRACT, GROUP_ORDER, man, type BalanceView, type ChapterData, type ExtColumn, type ExtFieldDecl, type ExtFieldsDecl, type ExtFieldType, type ExtInput, type ExtManifest, type ExtProvide, type ExtSection, type ExtValue, type ExtensionPoint, type HouseholdNow } from "./sdk.ts";

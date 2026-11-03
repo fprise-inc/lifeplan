@@ -164,3 +164,4 @@ sdk/
 ## 追記
 
 - 2026-10-27（SDK フォルダの手書きの正本の置き場所。決定は変えない）: 説明書（`docs/`）と見本（`examples/`）のうち手で書くものの正本を、リポジトリの直下の `sdk/` に置き始めた（型・JSON Schema・公式部品は今までどおりリリースのビルドが作る。`sdk/README.md`）。最初は帳票の説明 `sdk/docs/reports.md`（独自帳票が読めるもの、帳票の入力の主な欄、住まい以外の不動産の物件ごとの数字 `realEstate` の場所）と、独自帳票の見本 `sdk/examples/reports/rental-property-summary/main.typ`（収益不動産のまとめ。0009 の追記）。見本は開発用の `report-pdf render --main` で見本の世帯の PDF を作るテストで確かめる。
+- 2026-11-03（拡張の束の説明書と見本。0114）: `docs/` に `extensions.md`（拡張の束の形・宣言型の入力欄・見せ方の差し込み口・提案書の拡張の章・作る決まり）を、`examples/` に `extensions/combined-bs/`（合算BS。同梱の公式の拡張の正本で、アプリはこの見本と同じファイルを読み込む）を足した。`@lifeplan/sdk` の拡張の型の正本は `report/src/sdk.ts`（リリースのビルドが `types/` に写す）。

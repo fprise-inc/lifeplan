@@ -469,10 +469,10 @@
       }
     },
     "chapters": {
-      "description": "載せる章（帳票の並び）。省略はすべての章。cover・assumptions は必ず入れる（宛名欄と必須の記載の欄。0009 の3・6）",
+      "description": "載せる章（帳票の並び）。省略はすべての章。cover・assumptions は必ず入れる（宛名欄と必須の記載の欄。0009 の3・6）。拡張の章は ext.<作成者>.<名前>（0114 の6）",
       "type": "array",
       "uniqueItems": true,
-      "items": { "enum": ["cover", "assumptions", "summary", "basics", "dreams", "events", "cashflow", "moneyThree", "education", "housing", "retirement", "investment", "marketDrop", "contingency", "insurance", "changes", "comparison", "combinedBs"] },
+      "items": { "anyOf": [{ "enum": ["cover", "assumptions", "summary", "basics", "dreams", "events", "cashflow", "moneyThree", "education", "housing", "rental", "retirement", "investment", "marketDrop", "contingency", "insurance", "changes", "comparison"] }, { "type": "string", "pattern": "^ext\\.[a-z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$" }] },
       "allOf": [{ "contains": { "const": "cover" } }, { "contains": { "const": "assumptions" } }]
     },
     "investment": {
@@ -569,22 +569,11 @@
         "say": {"type": "object", "additionalProperties": false, "required": ["head", "sub", "eq"], "properties": {"head": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["text"], "properties": {"text": {"type": "string"}, "strong": {"type": "boolean"}}}}, "sub": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["text"], "properties": {"text": {"type": "string"}, "strong": {"type": "boolean"}}}}, "eq": {"type": ["string", "null"]}}}
       }
     },
-    "combinedBs": {
-      "description": "会社と合わせたバランスシート（合算BS。法人経営者向けの機能。FP が使うと決め、章を選んだときだけ。0107）: 経営者個人（家計）と会社のバランスシートを並べ、間の貸し借り（4つの組）を相殺して1枚にする。値は report/src/combinedBs.ts（アプリの見るものと同じ）。会社の先の年の見込みは作らない。省略・null は載せない",
+    "extensions": {
+      "description": "提案書の拡張の章の材料（0114 の6）: 章の id（ext.<作成者>.<名前>）→ 束の関数（差し込み口 report.chapter）が返した対。束の Typst（reports/）が読む。合算BS は ext.official.combinedBs（0107）。有効な束の章を FP が選んだときだけ。省略・null は載せない",
       "type": ["object", "null"],
-      "additionalProperties": false,
-      "required": ["asOf", "householdYear", "figure", "pairs", "netWorth", "indicators", "stage", "restated", "notices"],
-      "properties": {
-        "asOf": {"type": ["string", "null"]},
-        "householdYear": {"$ref": "#/$defs/year"},
-        "figure": {"type": "object", "additionalProperties": false, "required": ["scale", "columns"], "properties": {"scale": {"$ref": "#/$defs/yen"}, "columns": {"type": "array", "minItems": 1, "maxItems": 4, "items": {"type": "object", "additionalProperties": false, "required": ["name", "sub", "assets", "liabilities", "negative", "totalAssets", "totalLiabilities", "netWorth"], "properties": {"name": {"type": "string"}, "sub": {"type": "string"}, "assets": {"type": "array", "items": {"$ref": "#/$defs/balanceFigureBox"}}, "liabilities": {"type": "array", "items": {"$ref": "#/$defs/balanceFigureBox"}}, "negative": {"$ref": "#/$defs/yen"}, "totalAssets": {"$ref": "#/$defs/yen"}, "totalLiabilities": {"$ref": "#/$defs/yen"}, "netWorth": {"$ref": "#/$defs/yen"}}}}}},
-        "pairs": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["label", "ownerLabel", "companyLabel", "owner", "company"], "properties": {"label": {"type": "string"}, "ownerLabel": {"type": "string"}, "companyLabel": {"type": "string"}, "owner": {"$ref": "#/$defs/yen"}, "company": {"$ref": "#/$defs/yen"}}}},
-        "netWorth": {"type": "object", "additionalProperties": false, "required": ["company", "others", "owner", "total"], "properties": {"company": {"$ref": "#/$defs/yen"}, "others": {"$ref": "#/$defs/yen"}, "owner": {"$ref": "#/$defs/yen"}, "total": {"$ref": "#/$defs/yen"}}},
-        "indicators": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["label", "cash", "monthly", "months", "text"], "properties": {"label": {"type": "string"}, "cash": {"$ref": "#/$defs/yen"}, "monthly": {"$ref": "#/$defs/yenOrNull"}, "months": {"type": ["number", "null"]}, "text": {"type": "string"}}}},
-        "stage": {"type": ["object", "null"], "additionalProperties": false, "required": ["label", "text"], "properties": {"label": {"type": "string"}, "text": {"type": "string"}}},
-        "restated": {"type": "object", "additionalProperties": false, "required": ["rows", "used"], "properties": {"rows": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["label", "book", "adjusted"], "properties": {"label": {"type": "string"}, "book": {"$ref": "#/$defs/yenOrNull"}, "adjusted": {"$ref": "#/$defs/yen"}}}}, "used": {"type": "boolean"}}},
-        "notices": {"type": "array", "items": {"type": "string"}}
-      }
+      "propertyNames": { "pattern": "^ext\\.[a-z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$" },
+      "additionalProperties": { "type": "object" }
     },
     "comparison": {
       "description": "案の比較のページ（主画面の比較の表と同じ数字）。差はいつも「その案−基準」。省略・null は載せない",

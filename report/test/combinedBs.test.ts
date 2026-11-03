@@ -1,12 +1,13 @@
-// 会社と合わせたバランスシート（合算BS。法人経営者向けの機能。0107）の部品と、提案書の章
+// 会社と合わせたバランスシート（合算BS。同梱の公式の拡張 ext.official.combinedBs。0107・0114）の部品と、提案書の拡張の章
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import { buildProposalInput } from "../src/build.ts";
-import { selectChapters } from "../src/chapters.ts";
+import { CHAPTER_IDS, selectChapters, type ChapterId } from "../src/chapters.ts";
 import type { BsAt } from "../src/bsGroups.ts";
-import { combinedBs, monthsGuideText, readCombinedInput, type CombinedBsInput, type CombinedHousehold } from "../src/combinedBs.ts";
+import { combinedBs, monthsGuideText, readCombinedInput, type CombinedBsInput, type CombinedHousehold } from "../../sdk/examples/extensions/combined-bs/parts/combinedBs.ts";
+import { chapter, type CombinedBsChapter } from "../../sdk/examples/extensions/combined-bs/parts/chapter.ts";
 import { renderAndExtract, reportPdfBin, sampleFrame } from "../scripts/reportPdf.ts";
 import { salariedCoupleBundle } from "../scripts/sampleBundles.ts";
 import { REPORT_DIR } from "../scripts/engine.ts";
@@ -132,14 +133,24 @@ describe("合算BS の部品", () => {
 });
 
 describe("提案書の章（会社と合わせたバランスシート）", () => {
-  const bundle = { ...salariedCoupleBundle(), combinedBs: { input: company, household } };
+  const ID = "ext.official.combinedBs";
+  const material = chapter({ values: { [ID]: company as unknown as Record<string, unknown> }, balance: { now: household } }) as CombinedBsChapter;
+  const bundle = { ...salariedCoupleBundle(), chapters: [...CHAPTER_IDS, ID] as ChapterId[], extensions: { [ID]: material as unknown as Record<string, unknown> } };
   const input = buildProposalInput(bundle);
+  const cb = () => input.extensions?.[ID] as CombinedBsChapter | undefined;
   it("材料があれば載り、JSON Schema に合う。章を外すと材料を渡さない", () => {
-    expect(input.combinedBs?.figure.columns.map((c) => c.name)).toEqual(["経営者個人（家計）", "会社", "合算（経営者個人＋会社）"]);
-    expect(input.combinedBs?.figure.columns[2]?.liabilities.map((b) => b.label)).toEqual(["住宅ローン", "借入金など", "会社の財産", "個人の財産"]);
+    expect(cb()?.figure.columns.map((c) => c.name)).toEqual(["経営者個人（家計）", "会社", "合算（経営者個人＋会社）"]);
+    expect(cb()?.figure.columns[2]?.liabilities.map((b) => b.label)).toEqual(["住宅ローン", "借入金など", "会社の財産", "個人の財産"]);
     expect(validate(input), JSON.stringify(validate.errors)).toBe(true);
-    expect(selectChapters(input, ["summary"]).combinedBs).toBeNull();
-    expect(buildProposalInput(salariedCoupleBundle()).combinedBs).toBeNull();
+    expect(selectChapters(input, ["summary"]).extensions).toBeNull();
+    expect(buildProposalInput(salariedCoupleBundle()).extensions).toBeNull();
+  });
+  it("拡張の章は「提案での変更点」の後・「プランの比較」の前に並ぶ。会社の数字が無ければ材料を作らない", () => {
+    const ids = input.chapters ?? [];
+    expect(ids.indexOf(ID)).toBe(ids.indexOf("changes") + 1);
+    expect(ids.indexOf("comparison")).toBe(ids.indexOf(ID) + 1);
+    expect(chapter({ values: { [ID]: null }, balance: { now: household } })).toBeNull();
+    expect(chapter({ values: { [ID]: company as unknown as Record<string, unknown> } })).toBeNull();
   });
   const bin = reportPdfBin();
   it.skipIf(bin === null)("PDF に章の見出し・3枚の図・相殺の組・何か月分・段階の1文が載る", () => {

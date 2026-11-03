@@ -1,5 +1,7 @@
 // 世帯の保存（0011・0012・0013・0016）: 本文の往復・持たない情報・過去の形式の見本・画面にパスを渡さないこと・自動保存
-import type { CombinedBsInput } from "../../report/src/index.ts";
+import type { CombinedBsInput } from "../../sdk/examples/extensions/combined-bs/parts/combinedBs.ts";
+import { definitionOf, readExtValue } from "../src/workspace/extensions/fields.ts";
+import { OFFICIAL_EXTENSIONS } from "../src/workspace/extensions/official.ts";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -736,7 +738,11 @@ function sample049(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
-/** 0.50 の形（0107）: 会社と合わせたバランスシートの入力（計算の要求の外。架空の会社の数字） */
+/** 合算BS の入力欄の値の置き場所と宣言（0114 の9） */
+const CO_KEY = "ext.official.combinedBs";
+const CO_DECL = OFFICIAL_EXTENSIONS.find((x) => x.manifest.id === CO_KEY)!.fields[0]!;
+
+/** 0.50 の形（0107）: 会社と合わせたバランスシートの入力（計算の要求の外。架空の会社の数字）。0.57 から拡張領域の値（0114） */
 function sample050(): BodyState {
   const s = sample049();
   const M = 10000;
@@ -749,7 +755,7 @@ function sample050(): BodyState {
     restated: { receivables: 1200 * M },
     useRestated: false,
   };
-  return { ...s, wh: { ...s.wh, companyBs } };
+  return { ...s, wh: { ...s.wh, extValues: { [CO_KEY]: readExtValue(CO_DECL, companyBs)! } } };
 }
 
 /** 0.51 の形（0055 の追記 2026-11-02）: 保険の種類の細目に三大疾病保険（医療保険の型。主な保障は三大疾病一時金）を足す */
@@ -964,6 +970,11 @@ function sample056(): BodyState {
   return { ...s, wh: { ...s.wh, request: req, migrations: sampleMigrations() } };
 }
 
+/** 0.57 の形（0114 の9）: 0.56 と同じ中身。会社の入力の置き場所が拡張領域になった（sample050 から extValues で持つ） */
+function sample057(): BodyState {
+  return sample056();
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -1087,7 +1098,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.56");
+    expect(BODY_FORMAT_VERSION).toBe("0.57");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1174,13 +1185,16 @@ describe("世帯ファイルの本文（0011 の2）", () => {
       const memoBy = (JSON.parse(body) as { household: { memoBy?: unknown } }).household.memoBy;
       if (memoBy !== undefined) expect((again.household as { memoBy?: unknown }).memoBy).toEqual(memoBy);
       const orig = JSON.parse(body) as Record<string, unknown>;
-      expect(again.ext).toEqual(orig.ext);
+      // 0.56 までの見本の会社の入力（household.companyBs）は、拡張領域の同梱の束の値として書き戻す（0114 の9）。ほかの拡張項目はそのまま
+      const oldCompany = (orig.household as { companyBs?: unknown }).companyBs;
+      const moved = oldCompany === undefined ? null : readExtValue(CO_DECL, oldCompany);
+      expect(again.ext).toEqual(moved === null ? orig.ext : { ...(orig.ext as object), [CO_KEY]: moved });
       // 0.3 から: 控えも、読んで書き戻して失わない（中身は変えない。指紋が合う）
       if (orig.snapshots !== undefined) {
         expect(again.snapshots).toEqual(orig.snapshots);
         for (const x of s.wh.snapshots ?? []) expect(await verifySnapshot(x), `${v} の控えの指紋`).toBe(true);
       }
-      expect(again.extDefinitions).toEqual(orig.extDefinitions);
+      expect(again.extDefinitions).toEqual(moved === null ? orig.extDefinitions : { ...(orig.extDefinitions as object), [CO_KEY]: definitionOf(CO_DECL, CO_KEY) });
       // 0.56 から: 移行の取り込みの記録も、読んで書き戻して失わない（0113 の10）
       if (orig.migrations !== undefined) expect(again.migrations).toEqual(orig.migrations);
     }
@@ -1251,7 +1265,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample056())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample057())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1586,19 +1600,37 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(plain)).table);
   });
 
-  it("0.50 の形（0107）: 会社と合わせたバランスシートの入力を household.companyBs に保存して読み戻し、計算の要求には入れない（計算の結果は変わらない）", () => {
+  it("0.50 の形（0107）・0.57 から拡張領域（0114）: 会社と合わせたバランスシートの入力を ext.official.combinedBs に保存して読み戻し、計算の要求には入れない（計算の結果は変わらない）", () => {
     const s = sample050();
-    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request; companyBs?: CombinedBsInput } };
-    expect(stored.household.companyBs?.amounts.cash).toBe(20000000);
+    const stored = bodyObject(s) as unknown as { household: Record<string, unknown> & { request: typeof s.wh.request }; ext: Record<string, { amounts?: { cash?: number } } | undefined>; extDefinitions: Record<string, unknown> };
+    expect(stored.ext[CO_KEY]?.amounts?.cash).toBe(20000000);
+    expect(stored.extDefinitions[CO_KEY]).toEqual(definitionOf(CO_DECL, CO_KEY));
+    expect("companyBs" in stored.household).toBe(false);
+    expect("extValues" in stored.household).toBe(false);
     expect(JSON.stringify(stored.household.request)).not.toContain("companyBs");
+    expect(JSON.stringify(stored.household.request)).not.toContain(CO_KEY);
     const back = fromBody(JSON.stringify(stored));
     expect(bodyObject(back)).toEqual(bodyObject(s));
-    expect(back.wh.companyBs).toEqual(s.wh.companyBs);
+    expect(back.wh.extValues).toEqual(s.wh.extValues);
+    expect(back.carry.ext[CO_KEY]).toBeUndefined();
     expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(sample049().wh.request)).table);
     // 形の合わない値は捨て、何も残らなければ欄を持たない
-    const bad = fromBody(JSON.stringify({ ...stored, household: { ...stored.household, companyBs: { amounts: { cash: "x" } } } }));
-    expect(bad.wh.companyBs).toBeUndefined();
-    expect("companyBs" in bodyObject(bad).household).toBe(false);
+    const bad = fromBody(JSON.stringify({ ...stored, ext: { ...stored.ext, [CO_KEY]: { amounts: { cash: "x" } } } }));
+    expect(bad.wh.extValues).toBeUndefined();
+    expect(CO_KEY in (bodyObject(bad).ext as Record<string, unknown>)).toBe(false);
+    expect(CO_KEY in (bodyObject(bad).extDefinitions as Record<string, unknown>)).toBe(false);
+    // 変換の段を通らない 0.56 までの形（household.companyBs）も同じ値として読み、書くときは拡張領域だけ
+    const { [CO_KEY]: _v, ...restExt } = stored.ext;
+    void _v;
+    const legacy: CombinedBsInput = { version: 1, asOf: "2026-09", amounts: { cash: 20000000 }, stage: null, ownerMonthly: null, restated: {}, useRestated: false };
+    const old = fromBody(JSON.stringify({ ...stored, ext: restExt, household: { ...stored.household, companyBs: legacy } }));
+    expect(old.wh.extValues).toEqual({ [CO_KEY]: { asOf: "2026-09", amounts: { cash: 20000000 } } });
+    const again = bodyObject(old) as unknown as typeof stored;
+    expect("companyBs" in again.household).toBe(false);
+    expect(again.ext[CO_KEY]).toEqual({ asOf: "2026-09", amounts: { cash: 20000000 } });
+    // 宣言の無い拡張項目は今までどおりそのまま書き戻す
+    const unknownExt = fromBody(JSON.stringify({ ...stored, ext: { ...stored.ext, "ext.someOffice.memo": { a: 1 } }, extDefinitions: { ...stored.extDefinitions, "ext.someOffice.memo": { type: "object" } } }));
+    expect((bodyObject(unknownExt).ext as Record<string, unknown>)["ext.someOffice.memo"]).toEqual({ a: 1 });
   });
 
   it("0.51 の形（0055 の追記 2026-11-02）: 三大疾病保険の契約（種類の細目 threeMajor）を保存して読み戻し、三大疾病一時金を計算に使う", () => {

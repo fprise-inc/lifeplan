@@ -1,7 +1,7 @@
 // 公式の帳票（提案書の標準構成。0009 の9）の入口。
 //   #import "@lifeplan/report-core:0.1.0": proposal
 //   #proposal(json("/input.json"), json("/frame.json"))
-// data: 帳票の入力（lifeplan.proposalInput 0.1.0。提示に必要な値だけ。任意の chapters で載せる章を、comparison で案の比較を、
+// data: 帳票の入力（lifeplan.proposalInput 0.1.0。提示に必要な値だけ。拡張の章の材料は extensions。任意の chapters で載せる章を、comparison で案の比較を、
 //       layout で紙の向きとキャッシュフロー表の載せ方を渡す。layout の省略は、縦にそろえる・キャッシュフロー表は要約）
 // frame: アプリが帳票の外側で決める値（刻印の帯の高さ band（pt）、必須の記載 notices）。刻印そのものはアプリが組んだ後に重ねる
 // 帳票は刻印の帯（下端の band の高さ）の内側に描かない。金額は計算し直さず、書式だけを当てる
@@ -17,11 +17,12 @@
 #import "pages/compare.typ": comparison
 #import "pages/money3.typ": money-three
 #import "pages/rental.typ": rental
-#import "pages/combined.typ": combined-bs
 
 #let supported = "0.1.0"
 
-#let proposal(data, frame) = {
+// ext: 提案書の拡張の章（0114 の6。章の id → 関数 (ext-data, data)）。アプリの外枠の文書が、有効な束の reports/ から読み込んで渡す。
+//      渡さなければ拡張の章は載らない（独自帳票から proposal を呼ぶときなど）
+#let proposal(data, frame, ext: (:)) = {
   assert(data.format == "lifeplan.proposalInput", message: "帳票の入力の形式が違います")
   assert(data.version == supported, message: "帳票の入力の版が対応していません: " + data.version)
   let band-height = frame.band * 1pt
@@ -65,8 +66,13 @@
   if on("contingency") and data.contingency != none { contingency(data) }
   if on("insurance") and data.insurance != none { insurance(data) }
   if on("changes") { changes(data) }
-  // 会社と合わせたバランスシート（法人経営者向けの機能。0107）: 材料があるときだけ
-  if on("combinedBs") and data.at("combinedBs", default: none) != none { combined-bs(data) }
+  // 提案書の拡張の章（0114 の6。「提案での変更点」の後・「プランの比較」の前）: 選ばれて、材料（帳票の入力の extensions）があるときだけ
+  let ext-data = data.at("extensions", default: none)
+  if ext-data != none {
+    for (id, ext-page) in ext {
+      if on(id) and ext-data.at(id, default: none) != none { ext-page(ext-data.at(id), data) }
+    }
+  }
   // 案の比較: 以前の形（mixed）では列が多い（4案より多い）ときだけ A4 横にする。縦にそろえるときは、列が多ければ行と列を入れ替える
   if on("comparison") and compared != none {
     if lay.orientation == "mixed" and compared.columns.len() > 4 {

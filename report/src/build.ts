@@ -11,7 +11,6 @@ import { pctText, timesText } from "./rentalText.ts";
 import { selectChapters } from "./chapters.ts";
 import { bsHouseholdOf, bsSeries, BS_GROUP_LABEL, groupTotal, type BsGroup } from "./bsGroups.ts";
 import { DEFAULT_MONEY_THREE, moneyThreeModel, type MoneyThreeModel } from "./moneyThree.ts";
-import { combinedBs, hasCompanyAmounts, type CombinedColumn } from "./combinedBs.ts";
 import { carPurchaseMonths } from "../../engine/src/sdk/cars.ts";
 import { dreamIncluded, dreamList, dreamSummary } from "./dreams.ts";
 import {
@@ -21,8 +20,6 @@ import {
   PROPOSAL_INPUT_VERSION,
   type CfRow,
   type BalanceFigure,
-  type CombinedBsView,
-  type CombinedFigureColumn,
   type BalanceSheetView,
   type ColoredAmount,
   type InvestmentView,
@@ -859,38 +856,12 @@ function balanceSheet(ctx: Ctx): NonNullable<ProposalInput["balanceSheet"]> {
   };
 }
 
-/** 会社と合わせたバランスシート（0107）: アプリの見るものと同じ部品で作り、帳票の形（分け方のまとまりの箱）にする */
-function combinedBsOf(ctx: Ctx): CombinedBsView | null {
-  const m = ctx.bundle.combinedBs;
-  if (m === undefined || !hasCompanyAmounts(m.input)) return null;
-  const r = combinedBs(m.input, m.household);
-  const short: Record<BsGroup, string> = { liquid: "現預金", market: "値動きあり", locked: "引き出せない", illiquid: "そのほかの資産", mortgage: "住宅ローン", debt: "借入金など" };
-  const fig = (c: CombinedColumn, sub: string): CombinedFigureColumn => {
-    const box = (g: BsGroup) => ({ key: g, label: short[g], amount: groupTotal(c, g) });
-    const net = c.netParts !== undefined && c.netParts.length > 0 ? c.netParts.map((p) => ({ key: "netWorth", label: p.key === "netCompany" ? "会社の財産" : p.key === "netOwner" ? "個人の財産" : "ほかの株主", amount: p.amount })) : [{ key: "netWorth", label: "純資産", amount: Math.max(0, c.netWorth) }];
-    return {
-      name: c.name,
-      sub,
-      assets: (["liquid", "market", "locked", "illiquid"] as const).map(box).filter((b) => b.amount > 0),
-      liabilities: [box("mortgage"), box("debt"), ...net].filter((b) => b.amount > 0),
-      negative: Math.max(0, -c.netWorth),
-      totalAssets: c.totalAssets,
-      totalLiabilities: c.totalLiabilities,
-      netWorth: c.netWorth,
-    };
-  };
-  const columns = [fig(r.side[0], `${r.side[0].year}年末（今の年）`), fig(r.side[1], r.asOfLabel === null ? "試算表" : `試算表（${r.asOfLabel}）`), fig(r.combined, "相殺してから足した1枚")];
-  return {
-    asOf: r.asOfLabel,
-    householdYear: r.side[0].year,
-    figure: { scale: Math.max(1, ...columns.map((c) => Math.max(c.totalAssets, c.totalLiabilities + Math.max(0, c.netWorth)))), columns },
-    pairs: r.pairs.map((p) => ({ label: p.label, ownerLabel: p.ownerLabel, companyLabel: p.companyLabel, owner: p.owner, company: p.company })),
-    netWorth: r.netWorth,
-    indicators: r.indicators.map((x) => ({ label: x.label, cash: x.cash, monthly: x.monthly, months: x.months, text: x.text })),
-    stage: r.stage,
-    restated: { rows: r.restated.rows.map((x) => ({ label: x.label, book: x.book, adjusted: x.adjusted })), used: r.restated.used },
-    notices: r.notices,
-  };
+/** 提案書の拡張の章の材料（0114 の6）: 作業の層が束の関数で作った対を、そのまま渡す（材料の無い章は持たない） */
+function extensionsOf(ctx: Ctx): Record<string, Record<string, unknown>> | null {
+  const e = ctx.bundle.extensions;
+  if (e === undefined) return null;
+  const out = Object.fromEntries(Object.entries(e).filter(([id, v]) => /^ext\.[a-z][A-Za-z0-9]*\.[a-z][A-Za-z0-9]*$/.test(id) && typeof v === "object" && v !== null && !Array.isArray(v)));
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 function trimYears(maps: Map<number, number>[], years: readonly number[]): number[] {
@@ -1661,7 +1632,7 @@ export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
     investment: investment(ctx),
     marketDrop: marketDrop(ctx),
     moneyThree: moneyThreeOf(ctx),
-    combinedBs: combinedBsOf(ctx),
+    extensions: extensionsOf(ctx),
     realEstate: realEstate(ctx),
     rental: rental(ctx),
     layout: { ...DEFAULT_LAYOUT, ...bundle.layout },
