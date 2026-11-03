@@ -277,29 +277,65 @@ export function salaryEstimate(type: string, sex: string, options: SalaryOptions
   return { annual, bonus };
 }
 
+// ---- 統計の年齢カーブ（昇給カーブ。0116）----
+
+/** 統計の年齢カーブの学歴（賃金構造基本統計調査の学歴の区分。all は学歴計） */
+export const WAGE_CURVE_EDUCATIONS = ["all", "juniorHigh", "highSchool", "vocational", "juniorCollege", "university", "graduate"] as const;
+export type WageCurveEducation = (typeof WAGE_CURVE_EDUCATIONS)[number];
+/** 統計の年齢カーブの性別の表（all は男女計。性別を使わない選び方） */
+export type WageCurveSex = "all" | "male" | "female";
+export const WAGE_CURVE_SIZES: readonly WageSize[] = ["all", "large", "medium", "small"];
+
+/** 統計の年齢カーブの選び方（値ID の中身）。雇用形態は働き方の種類から決まる */
+export interface WageCurveChoice {
+  readonly employment: "regular" | "nonRegular";
+  readonly sex: WageCurveSex;
+  readonly education: WageCurveEducation;
+  readonly size: WageSize;
+}
+
+/** 統計の年齢カーブを選べる働き方（正社員→正社員・正職員の表、契約・嘱託→正社員・正職員以外の表） */
+export const wageCurveEmployment = (type: string): "regular" | "nonRegular" | null => WAGE_EMPLOYMENT[type] ?? null;
+
 /**
- * 年齢の賃金カーブ（昇給カーブ）の係数の表: 年齢階級の表の年収（きまって支給する現金給与額×12＋年間賞与）の各段を、最初の段（〜19歳）を1とした比にしたもの。
- * 計算エンジンの既定のカーブ wageStats.default（正社員・正職員 男女計）と同じ作り方で、雇用形態・性別・規模ごと。
- * 計算エンジンの昇給カーブ（salary.growth.curve の段階表。upTo が年齢、rate が係数）と同じ形。表が無い・値の無い段があれば null。
- * 既定では使わない（将来の昇給の既定は前提の賃金上昇率だけ）。詳細で選んだときだけ使う
+ * 統計の年齢カーブの値ID（マスタデータ wageStats.curve.<雇用形態>.<性別>.<学歴>.<企業規模>）。正社員・正職員以外の表は学歴計だけなので、
+ * 学歴は学歴計にする。計算エンジンの income.salary が読める値ID と同じ並び
  */
-export function wageCurve(type: string, sex: string, size?: number): readonly { upTo: number | null; rate: string }[] | null {
-  const emp = WAGE_EMPLOYMENT[type];
-  if (emp === undefined) return null;
-  const s = sex === "female" ? "female" : "male";
-  const want = wageSizeClass(size);
-  const pick = (m: WageMeasure) => wageAgeTable(m, emp, s, want) ?? (want === "all" ? null : wageAgeTable(m, emp, s, "all"));
-  const monthly = pick("contractualMonthly");
-  const bonus = pick("annualBonus");
-  if (monthly === null || bonus === null || monthly.table.length !== bonus.table.length) return null;
-  const annual = monthly.table.map((x, i) => (x.amount === undefined || bonus.table[i]?.amount === undefined ? null : x.amount * 12 + (bonus.table[i]?.amount as number)));
-  const base = annual[0];
-  if (annual.some((x) => x === null) || base === null || base === undefined || base <= 0) return null;
-  // 係数は小数4桁の10進の文字列（0007 の2: 率は文字列）。整数で割って四捨五入する
-  return monthly.table.map((x, i) => {
-    const r = Math.round(((annual[i] as number) * 10000) / base);
-    return { upTo: x.upTo, rate: `${Math.floor(r / 10000)}.${String(r % 10000).padStart(4, "0")}` };
-  });
+export function wageCurveId(c: WageCurveChoice): string {
+  const education = c.employment === "nonRegular" ? "all" : c.education;
+  return `wageStats.curve.${c.employment}.${c.sex}.${education}.${c.size}`;
+}
+
+/** 値ID から選び方を読む（統計の年齢カーブの値ID でなければ null。前からある wageStats.default も null） */
+export function parseWageCurveId(id: string): WageCurveChoice | null {
+  const m = /^wageStats\.curve\.(regular|nonRegular)\.(all|male|female)\.([a-zA-Z]+)\.(all|large|medium|small)$/.exec(id);
+  if (m === null) return null;
+  const education = m[3] as WageCurveEducation;
+  if (!WAGE_CURVE_EDUCATIONS.includes(education) || (m[1] === "nonRegular" && education !== "all")) return null;
+  return { employment: m[1] as "regular" | "nonRegular", sex: m[2] as WageCurveSex, education, size: m[4] as WageSize };
+}
+
+/**
+ * 年齢の賃金カーブ（昇給カーブ）の係数の表（マスタデータ wageStats.curve.* の段階表。upTo が年齢、rate が係数）。
+ * 計算エンジンの昇給カーブ（salary.growth.curve）と同じ表。既定では使わない（将来の昇給の既定は前提の賃金上昇率だけ）。詳細で選んだときだけ使う。
+ * 表の無い値ID は null
+ */
+export function wageCurveTable(id: string): readonly { upTo: number | null; rate: string }[] | null {
+  const v = masterValue(id)?.value;
+  return Array.isArray(v) ? (v as readonly { upTo: number | null; rate: string }[]) : null;
+}
+
+/** 働き方の種類・性別・企業規模（常用労働者数）・学歴から、統計の年齢カーブの表（選べない働き方は null） */
+export function wageCurve(type: string, sex: WageCurveSex, size?: number, education: WageCurveEducation = "all"): readonly { upTo: number | null; rate: string }[] | null {
+  const employment = wageCurveEmployment(type);
+  if (employment === null) return null;
+  return wageCurveTable(wageCurveId({ employment, sex, education, size: wageSizeClass(size) }));
+}
+
+/** 係数の表のその年齢の係数（段階表の upTo 以下の最初の段。数にして返す） */
+export function wageCurveRate(table: readonly { upTo: number | null; rate: string }[], age: number): number {
+  for (const b of table) if (b.upTo === null || age <= b.upTo) return Number(b.rate);
+  return 1;
 }
 
 /**
