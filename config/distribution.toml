@@ -13,6 +13,9 @@ publisher    = "FPRISE, INC."
 # 自動通信の相手はこのホストだけ（0017 の4）。更新の仕組みはまだ入れていない
 # 欄を足すときは、外部送信の一覧（docs/decisions/0012 の5）にも載せる（載っていないと npm run check:distribution が止める）
 host        = "updates.fprise.com"
+# アプリ本体の更新: 先に目録（app_catalog。段階・一時停止・通し番号・有効期限・どの鍵で確かめるか）を読み、当てるときだけ
+# Tauri の updater が app（latest.json。各 OS の URL と署名）を読む（0117 の3）
+app_catalog = "https://updates.fprise.com/v1/app/catalog.json"
 app         = "https://updates.fprise.com/v1/app/latest.json"
 packs       = "https://updates.fprise.com/v1/packs/index.json"
 notices     = "https://updates.fprise.com/v1/notices/notices.json"
@@ -29,7 +32,12 @@ feature_code_revocations = "https://updates.fprise.com/dev/v1/feature-codes/revo
 form = "https://financia.jp/feedback/?no={受付番号}&ver={版}&os={OS}"
 
 [keys]
-# 公開鍵（それぞれ現用＋次期）。署名を入れる回で足す。秘密鍵はどのリポジトリにも置かない（0017 の5・0021）
+# 公開鍵（それぞれ現用＋次期の2本まで。0017 の5・0117 の2）。秘密鍵はどのリポジトリにも置かない（0017 の5・0021）。
+# 本番の鍵は公開の前に提供元が作って足す（作り方・保管・入れ替え・失くしたときの手順は docs/decisions/0117）。
+# 確かめる部品は crates/distribution（形は npm run check:distribution も確かめる）。
+# - app_update: アプリ本体の更新の鍵。`tauri signer generate` が出す公開鍵の文字列のまま（鍵の名前は中の鍵の番号から決まる）
+# - data・auto_delivery・revocation: 「鍵の名前:公開鍵（32バイトの base64url）」。鍵の名前は英小文字・数字・「-」
+# 同じ公開鍵を2つの欄に書かない（役割を分ける意味が無くなる）
 app_update    = []
 data          = []
 auto_delivery = []
@@ -41,3 +49,14 @@ feature_code  = ["dev-1:ZBASfURNQY54lJZUQjeJy59Ed87C11WGMxJHsLB1znk"]
 # 機能を有効にするコードの「止めた一覧」の公開鍵（0110 の追記。コードの鍵とは別の鍵。「鍵の名前:公開鍵（base64url）」。現用＋次期を並べられる）。
 # 今は開発用の鍵（dev-rv1）。公開の前に、提供元が作った本番の鍵に差し替える。本体は build.rs が、開発用のサーバーの代わりは vite.config.ts が、ここから読む
 feature_code_revocation = ["dev-rv1:z-4RhY4SiORx3E3t3KnpcP3X1bs3WqOO8Y_VTwBKkKI"]
+
+[signing]
+# OS のコード署名（0117 の4・5）。ここに書くのは秘密でない名前だけ。証明書・パスワード・鍵は CI の秘密の値に置く
+# （名前の一覧は .github/workflows/app-bundle.yml）。空のまま・秘密の値が無いときは、その OS は署名せずにビルドする（フォークの既定）。
+# Mac: 署名の名前（「Developer ID Application: <発行元の名前> (<チームID>)」。キーチェーンに入れた証明書の名前と同じ）
+mac_signing_identity = ""
+# Windows: 方式（"artifact-signing" か "none"）と、Azure Artifact Signing の場所・アカウント・証明書のプロファイルの名前
+windows_method   = "artifact-signing"
+windows_endpoint = ""
+windows_account  = ""
+windows_profile  = ""

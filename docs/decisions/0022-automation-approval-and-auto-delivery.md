@@ -139,3 +139,5 @@
 - 2026-10-08（全体の整合）: `signer` の種類の名前を 0017 の鍵の名前（`data`・`auto_delivery`）にそろえた（取り下げ用の鍵はパックの目録に署名しないので外した）。足す行の状態を 0007 の書き方（`enacted`）で書いた。各パックの配信の目録は、0017 の `index.json` に並べて配る。
 
 - 2026-10-08（目録の欄名）: 4 の配信の目録の欄名 `manifestVersion` を `catalogVersion` に改めた（0016 の拡張モジュールのマニフェストの `manifestVersion` と名前がぶつかるため）。意味（目録の形式の版、`MAJOR.MINOR`）と、知らない版の目録を適用しない決まりは変えない。
+
+- 2026-11-03（配布の仕組み。0117）: 4 の配信の目録の欄に、パックのファイルの指し方 `file`（`path`・`sha256`・`size`）を足し、`changes` の各行を `valueId`・`kind`（`addPeriod`・`removePeriod`・`addValue`・`modifyPeriod`・`changeStatus`）・`from` の形にした。自動配信用の鍵では `addPeriod`（巻き戻しの目録では `removePeriod` も）だけを受け付け、`reviewWindowEndsAt` が無い目録は受け付けず、その時刻まで当てない。巻き戻しは新しい版で配り、`rollbackOf` に外す元の版を書く。目録に書いた `signer` と実際に確かめられた鍵が違えば受け付けない。確かめる部品は `crates/distribution`（`pack_catalog`）。未確定の「自動配信用の鍵の保管」は、CI の秘密の値（既定のブランチだけが使える、アプリ更新用とは別の環境）に置くと決めた（0117 の2）。パックの中身の差を手元のパックと比べる部品は、まだ作っていない。

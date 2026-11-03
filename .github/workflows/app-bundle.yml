@@ -1,5 +1,11 @@
 # アプリの3つの OS でのビルド（バンドル）。手で起動する（workflow_dispatch）か、リリースのときだけ（実行の分数に限りがあるため）。
-# 署名はまだ入れていない（署名の鍵・証明書は後の回。0017）。できたものは成果物として7日だけ残す
+# 署名の段取りは 0117 の5: 下の秘密の値（secrets）があれば署名・公証・更新のファイルの署名をし、無ければ署名せずに普通にビルドする
+# （判断は app/scripts/bundle.ts。秘密でない署名の名前は config/distribution.toml の [signing]）。できたものは成果物として7日だけ残す。
+# 秘密の値の名前（値はリポジトリに書かない。設定するのは提供元だけ）:
+#   Mac の署名      APPLE_CERTIFICATE（Developer ID Application の .p12 を base64 にしたもの）・APPLE_CERTIFICATE_PASSWORD
+#   Mac の公証      APPLE_API_ISSUER・APPLE_API_KEY（キーの ID）・APPLE_API_KEY_P8（.p8 の中身）
+#   Windows の署名  AZURE_CLIENT_ID・AZURE_CLIENT_SECRET・AZURE_TENANT_ID（Azure Artifact Signing の署名の役割だけを持つアプリの登録）
+#   更新のファイル  TAURI_SIGNING_PRIVATE_KEY・TAURI_SIGNING_PRIVATE_KEY_PASSWORD（アプリ更新用の鍵の現用。0117 の2）
 name: app-bundle
 on:
   workflow_dispatch:
@@ -20,7 +26,7 @@ jobs:
           - os: macos-latest
             args: --target universal-apple-darwin --bundles app,dmg
           - os: windows-latest
-            args: --bundles nsis
+            args: --bundles nsis,msi
           - os: ubuntu-latest
             args: --bundles deb
     runs-on: ${{ matrix.os }}
@@ -48,15 +54,28 @@ jobs:
       - name: アプリの画面の依存
         working-directory: app
         run: npm ci
-      - name: ビルド（署名なし）
+      - name: ビルド（秘密の値があれば署名する）
         working-directory: app
-        run: npx tauri build ${{ matrix.args }}
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: node --disable-warning=ExperimentalWarning scripts/bundle.ts -- ${{ matrix.args }}
       - uses: actions/upload-artifact@v4
         with:
           name: financia-${{ matrix.os }}
           retention-days: 7
           path: |
             app/src-tauri/target/**/release/bundle/dmg/*.dmg
-            app/src-tauri/target/**/release/bundle/nsis/*.exe
+            app/src-tauri/target/**/release/bundle/macos/*.app.tar.gz*
+            app/src-tauri/target/**/release/bundle/nsis/*.exe*
+            app/src-tauri/target/**/release/bundle/msi/*.msi*
             app/src-tauri/target/**/release/bundle/deb/*.deb
           if-no-files-found: error
