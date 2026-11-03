@@ -20,6 +20,11 @@ export default tseslint.config(
     files: ["src/components/**/*.ts"],
     rules: componentRules(join(root, "src", "components"), join(root, "src", "sdk")),
   },
+  // 0113 の8: 部品が使う SDK も互換モードを読まない（互換モードは src/engine/compatibility.ts の1か所でだけ読む）
+  {
+    files: ["src/sdk/**/*.ts"],
+    rules: { "financia/no-compatibility": "error" },
+  },
   {
     files: ["scripts/**/*.ts", "scripts/**/*.js", "test/**/*.ts", "eslint-plugin/**/*.js", "*.js", "*.ts"],
     languageOptions: { globals: { process: "readonly", console: "readonly", URL: "readonly" } },

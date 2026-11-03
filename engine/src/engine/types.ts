@@ -6,11 +6,35 @@ import type { Timepoint } from "../time/timepoint.ts";
 export type Aggregation = "cash" | "accrual";
 export type InvestmentTiming = "midYear" | "beginning" | "end";
 
+/** 0003 の7・0113 の8: 互換モードの項目（閉じた一覧。足すだけ）。値は既定と違うものだけを書く */
+export interface CompatibilityItems {
+  /** 表の年齢（表示だけ。既定 yearEnd） */
+  readonly tableAge?: "yearStart";
+  /** 表の残高の時点（表示だけ。既定 yearEnd） */
+  readonly tableBalance?: "yearStart";
+  /** FP が年齢で入れた時点の解き方（計算。既定 month） */
+  readonly ageTiming?: "yearOfReach" | "yearAfterReach";
+  /** 最初の年（計算。既定 fromBaseMonth） */
+  readonly firstYear?: "wholeYear";
+  /** 上昇率を掛け始める年（計算。既定 nextYear） */
+  readonly growthStart?: "baseYear";
+}
+
+/** 0003 の7・0113 の8: 互換モード（移行元の数え方に寄せた照合用の計算） */
+export interface Compatibility {
+  /** 取り込みの記録の ID と、読み取り規則の <ID>@<改訂>（計算に使わず、根拠の記録に写す） */
+  readonly source: { readonly import: string; readonly rule: string };
+  readonly items: CompatibilityItems;
+}
+
 export interface CalcConventions {
   readonly aggregation: Aggregation;
   readonly investmentTiming: InvestmentTiming;
-  readonly compatibility: null;
+  readonly compatibility: Compatibility | null;
 }
+
+/** 計算部品が見る計算方式の設定（互換モードは見せない。0113 の8: 互換モードの項目はエンジンの決まった1か所でだけ読む） */
+export type ComponentConventions = Omit<CalcConventions, "compatibility">;
 
 export interface YearSeries {
   readonly default: string;

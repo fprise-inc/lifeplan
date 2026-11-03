@@ -50,6 +50,11 @@ fn body(id: &str) -> String {
             "rules": [],
             "applied": []
         },
+        // 移行の取り込みの記録（0113 の10）も、どの版でも AI に渡さない（縮約版は計算の要求からだけ作る）
+        "migrations": {
+            "version": 1,
+            "imports": [{ "id": "mig-1", "kind": "migration", "memo": [{ "label": "備考", "text": "目印の移行メモ" }], "referenceValues": [{ "row": "cf.net", "year": 2030, "amount": 1830000 }] }]
+        },
     })
     .to_string()
 }
@@ -195,6 +200,9 @@ fn the_reduced_view_has_no_identifiers_or_memos() {
         "memo",
         "statements",
         "目印の店",
+        "migrations",
+        "目印の移行メモ",
+        "1830000",
     ] {
         assert!(!out.contains(needle), "縮約版に {needle} が入っている");
     }

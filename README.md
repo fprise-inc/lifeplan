@@ -23,6 +23,7 @@ FP（ファイナンシャルプランナー）向けの無料ライフプラン
 - `hearing/` … ヒアリングシート（0018）。シート定義（`hearing/sheets/<シートID>/<版>.json`。形式は `hearing/schema/`）、.xlsx の書き出しと取り込み、世帯データとの変換（不足・矛盾・推定の印）。npm の依存なしの TypeScript で、画面からも読める。`engine/` で `npm run build` の後、`hearing/` で `npm ci`・`npm run typecheck`・`npm run lint`・`npm test`。見本のシート（架空の記入例）は `hearing/samples/`（`npm run sample` で作り直す）
 - `statement/` … 明細の取り込みと仕分け（0034）。クレジットカード・銀行・家計簿アプリの明細の CSV と文字の入った PDF を PC の中だけで読み（カード番号・口座番号らしき数字は読んだ時点で消す。元のファイルは持たない）、列の対応付け・店の名前の辞書（同梱＋事務所で覚える）・働き方ごとの区分で仕分け、基本生活費の内訳の月平均と年1回の支払いを候補にする。迷う行を前もってお客さまに印を付けてもらう確認シート（.xlsx）の書き出しと読み込みもここ。npm の依存なしの TypeScript で、画面からも読む。`statement/` で `npm ci`・`npm run typecheck`・`npm run lint`・`npm test`。テストの明細はすべて架空（`npm run fixtures` で `test/fixtures/` を作り直す）
 - `xlsx/` … 表計算のファイル（.xlsx）の書き出しと読み込みの土台（zip・XML・書式・入力規則・管理の値を3か所に書く・返ってきたファイルを信用しない読み込み）。`hearing/`・`statement/` が使う。npm の依存なしの TypeScript で、画面からも読む。`xlsx/` で `npm ci`・`npm run typecheck`・`npm run lint`・`npm test`
+- `migration/` … 他のソフトからの移行（0113）。いまは読み取り規則・用語辞書の書き方（`migration-rule@1.0`・`term-dictionary@1.0`。試験版）の JSON Schema と見本だけ（`migration/schema/`）。検査は `engine/` で `npm run migration:check`（公開側の規則 `migration/rules/` の `reads.product` が `null` であることも確かめる）
 - `config/distribution.toml` … 配布元の設定（識別子・名前・配信先・公開鍵。0017 の2）。`app/` で `npm run gen:distribution` が Tauri の設定を作る
 - `registry/` … ID の登録簿（科目の木・入力項目・計算部品・制度の値）。入力項目・計算部品・制度の値は `npm run gen` が正本から作る
 - 答え合わせ（検証 L2）: `engine/` で `npm run l2`（公式の計算例との一致の合格率）

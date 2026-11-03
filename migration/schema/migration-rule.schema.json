@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://financia.fprise.com/schemas/migration/migration-rule.schema.json",
+  "title": "他のソフトの帳票の読み取り規則（migration-rule@1.0。試験版。0113 の4）",
+  "description": "「どこに何があるか」（区画の見つけ方と区画の形）だけを書く宣言型の JSON。プログラム・正規表現・式は持たない（言葉は文字のまま比べる）。知らない欄は断る。区画の種類・欄・値を足すのは MINOR（contract の版を上げ、過去の版の書き方も読み続ける）。JSON Schema で書けない決まり（区画の ID の重なり・辞書の ID・公開側の規則の reads.product が null であること）は engine/scripts/migrationRules.ts で確かめる",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "contract", "id", "revision", "label", "reads", "detect", "blocks"],
+  "properties": {
+    "format": { "const": "lifeplan.migrationRule" },
+    "contract": { "description": "書き方の版（読める版の一覧。足すだけ）", "enum": ["migration-rule@1.0"] },
+    "id": { "$ref": "#/$defs/ruleId" },
+    "revision": { "description": "規則の改訂（中身を変えたら上げる。取り込みの記録に <id>@<revision> で残す）", "type": "integer", "minimum": 1, "maximum": 1000000 },
+    "label": { "$ref": "#/$defs/text" },
+    "reads": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product", "document", "editions", "readers"],
+      "properties": {
+        "product": { "description": "移行元の製品名（画面の「読み取り対応」の表記と商標の注記にだけ使う。0113 の11）。汎用の規則は null。公開側の規則はいつも null（CI で確かめる）", "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/text" }] },
+        "document": { "description": "帳票の種類の言葉", "$ref": "#/$defs/text" },
+        "editions": { "description": "確かめた版の言葉", "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/text" } },
+        "readers": { "description": "使える読み手（0113 の3）", "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["pdfText", "xlsx", "csv"] } }
+      }
+    },
+    "detect": {
+      "description": "その規則で読めるかの判定。allWords はすべて、anyWords は minHits 個以上が、見出しの言葉として表のどこかにあれば当てはまる",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allWords", "anyWords", "minHits"],
+      "properties": {
+        "allWords": { "$ref": "#/$defs/wordList" },
+        "anyWords": { "$ref": "#/$defs/wordList" },
+        "minHits": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "units": {
+      "description": "区画で単位が書いていないときの単位（欄の中に単位があればそちらが先）",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "money": { "enum": ["円", "千円", "万円"] }
+      }
+    },
+    "conventions": {
+      "description": "移行元の数え方（照合の見せ方と、照合用のプランの互換モードの初めの値にだけ使う）。書いていない項目は「分からない」。値はファイナンシアの既定を含む（0113 の8・0003 の7）",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tableAge": { "enum": ["yearEnd", "yearStart"] },
+        "tableBalance": { "enum": ["yearEnd", "yearStart"] },
+        "ageTiming": { "enum": ["month", "yearOfReach", "yearAfterReach"] },
+        "firstYear": { "enum": ["fromBaseMonth", "wholeYear"] },
+        "growthStart": { "enum": ["nextYear", "baseYear"] },
+        "aggregation": { "enum": ["cash", "accrual"] },
+        "investmentTiming": { "enum": ["midYear", "beginning", "end"] },
+        "valueBasis": { "description": "表が名目か現在価値か（0003 の8）", "enum": ["nominal", "presentValue"] }
+      }
+    },
+    "dictionaries": {
+      "description": "引く用語辞書の ID（挙げた順に引く。最後に official.fpTerms を引く。0113 の6）",
+      "type": "array",
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/ruleId" }
+    },
+    "blocks": {
+      "description": "区画の一覧（種類は閉じた一覧で、足すだけ）",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/block" }
+    }
+  },
+  "$defs": {
+    "ruleId": {
+      "description": "<作成者>.<名前>（0004 の命名の決まり。作成者 official は公式だけ。他社の名前・製品名・商標を入れない）",
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)+$"
+    },
+    "text": {
+      "description": "表示の言葉（プログラムらしき文字 < > { } ` $ \\ と制御文字は書けない）",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[^<>{}`$\\\\\\u0000-\\u001f\\u007f]+$"
+    },
+    "word": {
+      "description": "見出しの言葉（そろえてから文字のまま比べる。正規表現・式ではない）",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[^<>{}`$\\\\\\u0000-\\u001f\\u007f]+$"
+    },
+    "wordList": { "type": "array", "maxItems": 100, "uniqueItems": true, "items": { "$ref": "#/$defs/word" } },
+    "anchor": {
+      "description": "区画の見つけ方（見出しの言葉だけ。page でページを絞れる。位置の座標では書かない）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["words"],
+      "properties": {
+        "words": { "type": "array", "minItems": 1, "maxItems": 20, "uniqueItems": true, "items": { "$ref": "#/$defs/word" } },
+        "page": { "type": "integer", "minimum": 1, "maximum": 200 }
+      }
+    },
+    "blockId": { "type": "string", "maxLength": 64, "pattern": "^[a-z][a-zA-Z0-9]*$" },
+    "block": {
+      "type": "object",
+      "required": ["id", "kind", "anchor"],
+      "properties": { "kind": { "enum": ["pairs", "table", "yearTable", "drop"] } },
+      "oneOf": [
+        {
+          "description": "pairs: 「見出し：値」の組が並ぶ所。repeat: member は人ごとに繰り返す（続柄の見出しで人を分ける）",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": { "$ref": "#/$defs/blockId" },
+            "kind": { "const": "pairs" },
+            "anchor": { "$ref": "#/$defs/anchor" },
+            "repeat": { "const": "member" }
+          }
+        },
+        {
+          "description": "table: 1行が1つの物で、列に見出しがある表。object は物の種類（エンジンの入力の物の集まりの名前。debt・insurance・account など）",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["object"],
+          "properties": {
+            "id": { "$ref": "#/$defs/blockId" },
+            "kind": { "const": "table" },
+            "anchor": { "$ref": "#/$defs/anchor" },
+            "object": { "type": "string", "maxLength": 64, "pattern": "^[a-z][a-zA-Z0-9]*$" }
+          }
+        },
+        {
+          "description": "yearTable: 年が列（または行）に並ぶ表。値は参照値にだけなる（0004 の7）。yearHeader は年の並ぶ見出しの言葉",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["yearHeader"],
+          "properties": {
+            "id": { "$ref": "#/$defs/blockId" },
+            "kind": { "const": "yearTable" },
+            "anchor": { "$ref": "#/$defs/anchor" },
+            "yearHeader": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["words"],
+              "properties": { "words": { "type": "array", "minItems": 1, "maxItems": 20, "uniqueItems": true, "items": { "$ref": "#/$defs/word" } } }
+            }
+          }
+        },
+        {
+          "description": "drop: 読まない所（氏名・住所・担当者の欄）。伏せ字をかけた上で欄ごと捨てる",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": { "$ref": "#/$defs/blockId" },
+            "kind": { "const": "drop" },
+            "anchor": { "$ref": "#/$defs/anchor" }
+          }
+        }
+      ]
+    }
+  }
+}

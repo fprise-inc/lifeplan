@@ -4,7 +4,7 @@
 import type { EngineNoFill } from "../sdk/estimates.ts";
 import { EngineError } from "../errors.ts";
 import { deepFreeze } from "../engine/freeze.ts";
-import type { AnnualRow, CalcConventions, EngineInput, Flow, FlowsOutput } from "../engine/types.ts";
+import type { AnnualRow, ComponentConventions, EngineInput, Flow, FlowsOutput } from "../engine/types.ts";
 import { check, hasSchema } from "../io/validate.ts";
 import { CONVENTIONS } from "../money/conventions.ts";
 import { intToString, type Int } from "../money/integer.ts";
@@ -145,7 +145,8 @@ export interface Ctx {
    * 区間の at は区間のどの月でも同じ値を返す（params に書いた値だけを読める）。月ごとの計算を区間ごとに1回にする
    */
   segments(from: MonthIndex, to: MonthIndex, opts: SegmentOptions): readonly Segment[];
-  readonly conventions: CalcConventions;
+  /** 計算方式の設定（互換モード compatibility は部品に見せない。0113 の8） */
+  readonly conventions: ComponentConventions;
   readonly money: MoneyApi;
   readonly rate: RateApi;
   readonly time: TimeApi;
@@ -402,6 +403,8 @@ export interface RunState {
   readonly traceOn: boolean;
   readonly time: TimeResolver;
   readonly input: EngineInput;
+  /** 部品に見せる計算方式の設定（入力の calcConventions から互換モードを除いた写し。0113 の8） */
+  readonly conventions: ComponentConventions;
   readonly items: ItemTable;
   /** 部品ごと・集まりごと（・構成員ごと）の絞った写し（1回の計算の中で使い回す） */
   readonly projections: Map<string, readonly Record<string, unknown>[]>;
@@ -1325,8 +1328,8 @@ class CtxImpl implements Ctx {
   get frame(): Frame {
     return this.#frame;
   }
-  get conventions(): CalcConventions {
-    return this.#state.input.calcConventions;
+  get conventions(): ComponentConventions {
+    return this.#state.conventions;
   }
   get money(): MoneyApi {
     this.#money ??= new MoneyImpl(this, null);
