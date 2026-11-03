@@ -106,6 +106,8 @@ const ratioText = (r: number): string => {
 };
 /** 割合の文字を％の文字に（0.977 → 97.7%） */
 const ratioPct = (ratio: string): string => `${String(Math.round(Number(ratio) * 1000) / 10)}%`;
+/** 今住んでいる持ち家の推定（ownedHomeTax.ts）が同じ目安・丸め・文の作りを使う */
+export { guide as taxGuide, round100, pctOf, manOf, reassessYear, ratioText, ratioPct };
 
 /** 新築の軽減の年数（購入の種類と長期優良住宅かから） */
 export function reliefYears(condo: boolean, longLife: boolean): number {
