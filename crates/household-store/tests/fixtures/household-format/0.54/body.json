@@ -364,20 +364,10 @@
               "id": "b6088c23-3c27-45c8-99a5-ce3b42939948",
               "kind": "deposit",
               "marketValue": {
-                "approval": {
-                  "at": "2026-11-03T10:20:00+09:00",
-                  "by": "fp",
-                  "candidate": "00000000-0000-4000-8000-000000000802"
-                },
-                "estimate": {
-                  "basis": "移行元のプラン（2024年4月時点）の値",
-                  "method": "migrated"
-                },
                 "origin": {
-                  "kind": "import",
-                  "ref": "00000000-0000-4000-8000-000000000801"
+                  "kind": "manual"
                 },
-                "state": "estimated",
+                "state": "confirmed",
                 "value": 7200000
               },
               "owner": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
@@ -1561,11 +1551,21 @@
                   "value": 5200000
                 },
                 "bonus": {
-                  "origin": {
-                    "kind": "manual"
+                  "estimate": {
+                    "basis": "当事務所のお客さまの平均（架空）",
+                    "method": "statistic",
+                    "source": {
+                      "kind": "office",
+                      "values": {
+                        "wageStats.annualBonus.regular.female": "1a2b3c4d"
+                      }
+                    }
                   },
-                  "state": "confirmed",
-                  "value": 1200000
+                  "origin": {
+                    "kind": "auto"
+                  },
+                  "state": "estimated",
+                  "value": 1100000
                 }
               },
               "to": {
@@ -3374,116 +3374,6 @@
       "memberId": "00000000-0000-4000-8000-0000000000b2",
       "name": "見本の担当B"
     }
-  },
-  "migrations": {
-    "imports": [
-      {
-        "ai": {
-          "headings": false
-        },
-        "approvedBy": "fp",
-        "at": "2026-11-03T10:15:00+09:00",
-        "candidates": [
-          "00000000-0000-4000-8000-000000000802"
-        ],
-        "conventions": {
-          "firstYear": "wholeYear",
-          "tableAge": "yearStart",
-          "valueBasis": "nominal"
-        },
-        "dictionaries": [
-          {
-            "id": "official.fpTerms",
-            "revision": 1
-          }
-        ],
-        "extracted": [
-          {
-            "block": "family",
-            "decidedBy": "rule",
-            "label": "本人の生年月",
-            "text": "1990年5月",
-            "to": {
-              "item": "member.birth",
-              "member": "self"
-            }
-          },
-          {
-            "block": "assets",
-            "decidedBy": "fp",
-            "label": "預貯金",
-            "text": "350万円",
-            "to": {
-              "item": "account.marketValue",
-              "object": "account"
-            }
-          },
-          {
-            "block": "cf",
-            "decidedBy": "rule",
-            "label": "年間収支",
-            "text": "（表の行）",
-            "to": {
-              "row": "cf.net"
-            }
-          },
-          {
-            "block": "notes",
-            "decidedBy": "rule",
-            "label": "備考",
-            "text": "（氏名）様の希望: 早めに繰上げ返済",
-            "to": {
-              "memo": true
-            }
-          }
-        ],
-        "file": {
-          "bytes": 123456,
-          "sha256": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
-        },
-        "id": "00000000-0000-4000-8000-000000000801",
-        "kind": "migration",
-        "memo": [
-          {
-            "label": "備考",
-            "text": "（氏名）様の希望: 早めに繰上げ返済"
-          }
-        ],
-        "reader": {
-          "id": "pdfText",
-          "version": 1
-        },
-        "referenceValues": [
-          {
-            "amount": 1830000,
-            "basisMonth": "2024-04",
-            "label": "年間収支",
-            "precision": 10000,
-            "row": "cf.net",
-            "year": 2027
-          },
-          {
-            "amount": 4120000,
-            "basisMonth": "2024-04",
-            "label": "貯蓄残高",
-            "precision": 10000,
-            "row": "cf.balance.financial",
-            "year": 2027
-          }
-        ],
-        "rule": {
-          "contract": "migration-rule@1.0",
-          "id": "official.genericReport",
-          "revision": 1
-        },
-        "source": {
-          "document": "ライフプランの帳票",
-          "planBaseMonth": "2024-04",
-          "product": null
-        }
-      }
-    ],
-    "version": 1
   },
   "proposals": [
     {

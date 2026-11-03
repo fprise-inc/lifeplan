@@ -171,15 +171,15 @@ fn every_format_version_has_a_fixture_and_opens() {
             migrate::parse(v).unwrap() >= (0, 51),
             "{v}: 三大疾病保険の契約は 0.51 からの見本"
         );
-        // 0.54 から: 他のソフトからの移行の取り込みの記録（区画 migrations）と推定の出し方 migrated（0113 の7・10）
+        // 0.55 から: 他のソフトからの移行の取り込みの記録（区画 migrations）と推定の出し方 migrated（0113 の7・10）
         let migrated = now
             .get("migrations")
             .and_then(|m| m["imports"].as_array())
             .is_some_and(|l| l.iter().any(|i| i["kind"] == "migration"));
         assert_eq!(
             migrated,
-            migrate::parse(v).unwrap() >= (0, 54),
-            "{v}: 移行の取り込みの記録は 0.54 からの見本"
+            migrate::parse(v).unwrap() >= (0, 55),
+            "{v}: 移行の取り込みの記録は 0.55 からの見本"
         );
         if migrated {
             assert_eq!(
@@ -193,7 +193,7 @@ fn every_format_version_has_a_fixture_and_opens() {
                 accounts
                     .iter()
                     .any(|a| a["marketValue"]["estimate"]["method"] == "migrated"),
-                "{v}: 0.54 の見本には推定の出し方 migrated の値がある"
+                "{v}: 0.55 の見本には推定の出し方 migrated の値がある"
             );
         }
         // 0.53 から: 住宅の購入の種類（新築か中古か）と長期優良住宅か（0052 の追記 2026-11-03・0112）
@@ -205,6 +205,23 @@ fn every_format_version_has_a_fixture_and_opens() {
             typed,
             migrate::parse(v).unwrap() >= (0, 53),
             "{v}: 住宅の購入の種類は 0.53 からの見本"
+        );
+        // 0.54 から: 推定の元の印（事務所の推定の値から作った推定。0111 の追記 2026-11-03）。前の版の推定は印を持たない（公式の目安から作った推定）
+        let marked = now["household"]["request"]["input"]["household"]["employmentPeriods"]
+            .as_array()
+            .map(|l| {
+                l.iter().any(|p| {
+                    p["salary"]["bonus"]["estimate"]["source"]["kind"] == "office"
+                        && p["salary"]["bonus"]["estimate"]["source"]["values"]
+                            .as_object()
+                            .is_some_and(|m| !m.is_empty())
+                })
+            })
+            .unwrap_or(false);
+        assert_eq!(
+            marked,
+            migrate::parse(v).unwrap() >= (0, 54),
+            "{v}: 推定の元の印は 0.54 からの見本"
         );
         // 0.52 から: 低解約返戻金型（払込中の率・年齢ごとの率の点）とアカウント型（積立の部分）。0055 の追記 2026-11-03
         let contracts = now["household"]["request"]["input"]["household"]["insuranceContracts"]

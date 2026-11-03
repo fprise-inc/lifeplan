@@ -20,7 +20,7 @@ export function FieldStateBadge({ f, wh }: { f: FieldDef | undefined; wh: Workin
   if (ops === null || f === undefined) return null;
   const s = fieldStatus(f, wh);
   if (s.status === "confirmed") return null;
-  return <StateMark status={s.status} basis={s.status === "notApplicable" ? null : s.basis} text={s.status === "missing" ? "未入力" : STATUS_LABELS[s.status]} label={f.label} fieldKey={f.key} doc={f.docCheck} estimate={{ id: estimateTextId(f, wh), value: estimateValueText(f, wh) }} />;
+  return <StateMark status={s.status} basis={s.status === "notApplicable" ? null : s.basis} text={s.status === "missing" ? "未入力" : STATUS_LABELS[s.status]} label={f.label} fieldKey={f.key} doc={f.docCheck} estimate={{ id: estimateTextId(f, wh), value: estimateValueText(f, wh) }} office={s.office} />;
 }
 
 /**

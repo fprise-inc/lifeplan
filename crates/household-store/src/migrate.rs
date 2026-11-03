@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.54";
+pub const CURRENT: &str = "0.55";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -177,16 +177,20 @@ pub const CURRENT: &str = "0.54";
 /// - 0.53: 住宅の購入の新築か中古か `residences[].purchase.newBuild`（住宅の購入の種類。0052 の追記 2026-11-03）と、認定長期優良住宅か
 ///   `residences[].purchase.longLife`（固定資産税の推定。0112）を足した（どちらも表示と推定の元だけで計算に使わない。足すだけの MINOR）。
 ///   前の版のアプリは種類を読めないので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える。0.52 の段の後に積む
-/// - 0.54: 他のソフトからの移行（0113）。本文の区画 `migrations`（取り込みの記録。任意で、移していない世帯には無い）、推定の出し方
+/// - 0.54: 推定の値の箱・値の状態の行の推定 `estimate` に、推定の元の印 `source`（`{kind: "office", values: {値ID: 事務所の値の指紋}}`。
+///   事務所の推定の値から作った推定。0111 の追記 2026-11-03）を足した（表示と知らせだけで計算に使わない。足すだけの MINOR）。印の無い推定は
+///   公式の目安（統計・コードの中の目安）から作った推定と読む。前の版のアプリは印を読めないので、版を上げて閲覧だけにする。
+///   変換の段は形式の版だけを書き換える（前の版の推定は印を持たず、公式の目安から作ったと読む）。0.53 の段の後に積む
+/// - 0.55: 他のソフトからの移行（0113）。本文の区画 `migrations`（取り込みの記録。任意で、移していない世帯には無い）、推定の出し方
 ///   `migrated`（値の箱の `estimate.method`）、計算の要求の互換モード `calcConventions.compatibility` の形 `{source: {import, rule}, items}`
 ///   （それまでは `null` だけ）を足した（どれも足すだけの MINOR）。前の版のアプリは区画と形を読めないので、版を上げて閲覧だけにする。
-///   変換の段は形式の版だけを書き換える。0.53 の段の後に積む
+///   変換の段は形式の版だけを書き換える。0.54 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
-    "0.50", "0.51", "0.52", "0.53", "0.54",
+    "0.50", "0.51", "0.52", "0.53", "0.54", "0.55",
 ];
 
 /// 1段分の変換
@@ -462,6 +466,11 @@ pub const STEPS: &[Step] = &[
         from: "0.53",
         to: "0.54",
         apply: v0_53_to_0_54,
+    },
+    Step {
+        from: "0.54",
+        to: "0.55",
+        apply: v0_54_to_0_55,
     },
 ];
 
@@ -1888,12 +1897,22 @@ fn v0_52_to_0_53(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
-/// 0.53 → 0.54: 足した区画と形（移行の取り込みの記録 `migrations`・推定の出し方 `migrated`・互換モードの形。0113）は前の版の世帯に無い
-/// （前の版の互換モードはいつも `null`）ので、形式の版だけを書き換える。ほかの欄に触れない
+/// 0.53 → 0.54: 足した値（推定の元の印 `estimate.source`。0111 の追記 2026-11-03）は前の版の世帯に無いので、形式の版だけを書き換える。
+/// 前の版の推定は印を持たないまま、公式の目安（統計・コードの中の目安）から作った推定と読む（根拠の文から事務所の値かを推し量って印を付けない）
 fn v0_53_to_0_54(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
         meta.insert("formatVersion".into(), "0.54".into());
+    }
+    Ok(body)
+}
+
+/// 0.54 → 0.55: 足した区画と形（移行の取り込みの記録 `migrations`・推定の出し方 `migrated`・互換モードの形。0113）は前の版の世帯に無い
+/// （前の版の互換モードはいつも `null`）ので、形式の版だけを書き換える。ほかの欄に触れない
+fn v0_54_to_0_55(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.55".into());
     }
     Ok(body)
 }
@@ -2447,7 +2466,8 @@ mod tests {
         assert_eq!(access("0.52").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.53").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.54").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.55").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.55").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.56").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -2460,7 +2480,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.55", b.clone()).unwrap(),
+            upgrade("0.56", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -2884,15 +2904,37 @@ mod tests {
 
     #[test]
     fn v0_53_to_0_54_only_bumps_version() {
-        // 足した区画と形（移行の取り込みの記録・推定の出し方 migrated・互換モードの形。0113）は前の版の世帯に無いので、世帯はそのまま
+        // 推定の元の印（0111 の追記 2026-11-03）は前の版の世帯に無い。前の版の推定は、根拠の文が事務所の文のようでも印を付けず
+        // （公式の目安から作ったと読む）、世帯はそのまま
         let b = serde_json::json!({
             "meta": {"formatVersion": "0.53"},
+            "household": {"request": {"input": {"baseMonth": "2026-10", "household": {
+                "livingExpenses": [{"id": "l1", "mode": "total", "monthly": {"value": 300000, "state": "estimated", "origin": {"kind": "auto"},
+                    "estimate": {"method": "statistic", "basis": "事務所の目安（2026年11月）"}}}]
+            }}}}
+        });
+        let u = upgrade("0.53", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+        assert!(
+            u["household"]["request"]["input"]["household"]["livingExpenses"][0]["monthly"]
+                ["estimate"]
+                .get("source")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn v0_54_to_0_55_only_bumps_version() {
+        // 足した区画と形（移行の取り込みの記録・推定の出し方 migrated・互換モードの形。0113）は前の版の世帯に無いので、世帯はそのまま
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.54"},
             "household": {"request": {"input": {"baseMonth": "2026-10", "calcConventions": {"aggregation": "cash", "investmentTiming": "midYear", "compatibility": null}, "household": {
                 "accounts": [{"id": "a1", "kind": "deposit", "owner": "m1", "marketValue": {"value": 1000000, "state": "confirmed", "origin": {"kind": "manual"}}, "asOf": "2026-10"}]
             }}}}
         });
-        let u = upgrade("0.53", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.54");
+        let u = upgrade("0.54", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.55");
         assert_eq!(u["household"], b["household"]);
         assert!(
             u.get("migrations").is_none(),

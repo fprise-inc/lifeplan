@@ -1,5 +1,5 @@
 // 世帯ファイルの本文（0011 の2）を、画面の側の状態から組み立てる・読み取る。暗号化とファイルの読み書きは本体（0013・0016 の1）。
-// 本文の区画（形式の版 0.54。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
+// 本文の区画（形式の版 0.55。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
 // 0.17 から（0035・0036）: 差分は当て先で、仮の印は物の値の状態の欄で、贈与者は世帯の外の家族の構成員で書き、並びの要素は ID を持つ。
 // 0.18 から（0040）: 段階と例外の年（周期的な支出・家賃・修繕費・固定資産税・不動産の家賃と経費・器の利回り・資産配分）と、働き方の期間ごとの
 // 伸び（給与・事業所得の年率）。足すだけの形（本体の変換の段は版だけを書き換える）
@@ -74,7 +74,10 @@
 //   アカウント型の積立の部分 account を持つ（0055 の追記 2026-11-03。足すだけ。本体の変換の段は版だけを書き換える）
 //   0.53 から: 住宅の購入の新築か中古か residences[].purchase.newBuild（住宅の購入の種類。0052 の追記 2026-11-03）と認定長期優良住宅か
 //   residences[].purchase.longLife（固定資産税の推定。0112）を持つ（どちらも表示と推定の元だけで計算に使わない。足すだけ。本体の変換の段は版だけを書き換える）
-//   0.54 から: 推定の出し方 migrated（他のソフトから移した時点のある値・帳票の年齢から決めた生年月。0113 の7）と、計算の要求の
+//   0.54 から: 推定の値の箱・値の状態の行の推定 estimate に、推定の元の印 source（事務所の推定の値から作った推定。使った値ID → そのときの
+//   事務所の値の指紋。0111 の追記 2026-11-03）を持つ（表示と知らせだけで計算に使わない。印の無い推定は公式の目安から作った推定と読む。
+//   印は画面が世帯を直したときに付ける〔input/officeSource.ts〕。足すだけ。本体の変換の段は版だけを書き換える）
+//   0.55 から: 推定の出し方 migrated（他のソフトから移した時点のある値・帳票の年齢から決めた生年月。0113 の7）と、計算の要求の
 //   互換モード calcConventions.compatibility の形 {source: {import, rule}, items}（0113 の8。照合用のプランだけ。source.import が
 //   区画 migrations に無ければ読むときに null に直し、開いたときの知らせ compatibilityDropped を足す）。足すだけ。本体の変換の段は版だけを書き換える
 //   （0.46 のまま。0041 の追記 2026-11-01）: 「書類で確かめる」は今の自動車ローン（kind car の負債）の欄に出し、これから買う車のローン
@@ -95,7 +98,7 @@
 //   readLog で形を確かめる（形の合わないものは捨てる）。0.15 から: 前もってお客さまに印を付けてもらう確認シートの依頼の記録 requests
 //   （依頼番号・書き出した日時・書き出したファイルの指紋・シートの番号 → 行の対応・取り込んだ記録）。0.16 から: 店ごとにまとめた
 //   シートの1行は、同じ番号に複数の行を対応させる
-// - migrations: 他のソフトからの移行の取り込みの記録（0113 の10。0.54 から。移行したことの無い世帯は区画を作らない）。元のファイル・ファイル名・
+// - migrations: 他のソフトからの移行の取り込みの記録（0113 の10。0.55 から。移行したことの無い世帯は区画を作らない）。元のファイル・ファイル名・
 //   伏せ字の前の文字・家族の名前は持たず、指紋と大きさ・読み手・規則と辞書の版・伏せ字の後の抽出結果・参照値（計算に入らない）・移行メモ・
 //   移行元の数え方・候補・AI に見出しを渡したかだけ。読むときは store/migrations.ts の readMigrationLog で形を確かめる（形の合わないものは捨てる）
 // - extDefinitions / ext: 拡張領域（0011 の4。読んだものをそのまま書き戻し、失わない）
@@ -126,7 +129,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.54";
+export const BODY_FORMAT_VERSION = "0.55";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
@@ -154,7 +157,7 @@ export interface HouseholdBody {
   snapshots?: Snapshot[];
   /** 明細の取り込みの記録（0.14 から。取り込んでいなければ区画ごと省く。0034） */
   statements?: StatementLog;
-  /** 他のソフトからの移行の取り込みの記録（0.54 から。移していなければ区画ごと省く。0113 の10） */
+  /** 他のソフトからの移行の取り込みの記録（0.55 から。移していなければ区画ごと省く。0113 の10） */
   migrations?: MigrationLog;
   workspace: SavedWorkspace;
   display: StoredDisplay;
@@ -257,7 +260,7 @@ export function fromBody(json: string): BodyState {
     const statements = readLog(b.statements);
     if (hasStatements(statements)) wh.statements = statements;
   }
-  // 移行の取り込みの記録（0.54 から。0113 の10）と、元の記録の無い互換モードの直し（0113 の8）
+  // 移行の取り込みの記録（0.55 から。0113 の10）と、元の記録の無い互換モードの直し（0113 の8）
   if (isObj(b.migrations)) {
     const migrations = readMigrationLog(b.migrations);
     if (hasMigrations(migrations)) wh.migrations = migrations;

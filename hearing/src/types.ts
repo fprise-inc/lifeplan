@@ -7,7 +7,8 @@ export interface ValueBox<T> {
   state: "confirmed" | "unknown" | "notApplicable" | "estimated";
   origin: { kind: string; ref?: string; connector?: string };
   approval?: { by: "fp"; at: string; candidate?: string };
-  estimate?: { method: string; basis: string };
+  /** 推定の出し方と根拠。source は事務所の推定の値から作った推定の印（0111 の追記 2026-11-03。無ければ公式の目安から作った推定） */
+  estimate?: { method: string; basis: string; source?: { kind: "office"; values: Record<string, string> } };
   /** 値の確かさ（document 書類で確認・declared 本人の申告・rough 概算）。計算には使わない */
   certainty?: "document" | "declared" | "rough";
   substitute?: ValueBox<T>;
