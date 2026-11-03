@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["crates/engine-host", "crates/ai-ipc", "crates/ai-share", "crates/lifeplan", "crates/report-pdf", "crates/household-store", "crates/feature-code", "crates/custom-layer"]
+members = ["crates/engine-host", "crates/ai-ipc", "crates/ai-share", "crates/lifeplan", "crates/report-pdf", "crates/household-store", "crates/feature-code", "crates/custom-layer", "crates/distribution"]
 # 提案書の PDF（report-pdf。Typst を組み込むので大きい）は既定のビルドに入れない。CI の report で `-p report-pdf` を流す
 # （ホストの CI（3つの OS）・一致テスト・速さの計測は report-pdf 以外をビルドする）
-default-members = ["crates/engine-host", "crates/ai-ipc", "crates/ai-share", "crates/lifeplan", "crates/household-store", "crates/feature-code", "crates/custom-layer"]
+default-members = ["crates/engine-host", "crates/ai-ipc", "crates/ai-share", "crates/lifeplan", "crates/household-store", "crates/feature-code", "crates/custom-layer", "crates/distribution"]
 
 [workspace.package]
 edition = "2021"

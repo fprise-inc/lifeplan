@@ -1,0 +1,180 @@
+//! 提供元が使う道具: データ用・自動配信用・取り下げ用の鍵を作り、封筒に署名する（0117 の2）。
+//!
+//! ```text
+//! dist-keys keygen <data|auto_delivery|revocation> <鍵の名前> <秘密鍵のファイル>
+//!     秘密鍵を作ってファイルに書き（既にあれば止める・リポジトリの中には書かない・0600）、
+//!     配布元の設定の [keys] に足す1行（「鍵の名前:公開鍵」）を出す
+//! dist-keys public <秘密鍵のファイル>
+//!     その秘密鍵の [keys] の1行を出し直す
+//! dist-keys seal <pack-catalog|revocations|notices> <秘密鍵のファイル> <中身の JSON のファイル>
+//!     中身の JSON（そのままのバイト列）に署名した封筒を出す。鍵の役割が中身の種類に合わなければ止める
+//! ```
+//!
+//! アプリ更新用の鍵は、この道具ではなく `tauri signer generate`・`tauri signer sign` を使う。
+//! 秘密鍵のファイルは、オフラインの2か所に控える（0117 の2）。この道具は秘密鍵を画面にもログにも出さない。
+
+use std::fs::{self, OpenOptions};
+use std::io::Write as _;
+use std::path::{Path, PathBuf};
+use std::process::ExitCode;
+
+use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64URL;
+use base64::Engine as _;
+use distribution::keys::{valid_kid, Role};
+use distribution::{envelope, pack_catalog, revocations};
+use ed25519_dalek::SigningKey;
+use zeroize::Zeroizing;
+
+const HEADER: &str = "financia-distribution-secret-key/1";
+
+struct Secret {
+    role: Role,
+    kid: String,
+    key: SigningKey,
+}
+
+fn public_line(s: &Secret) -> String {
+    format!(
+        "{}:{}",
+        s.kid,
+        B64URL.encode(s.key.verifying_key().to_bytes())
+    )
+}
+
+fn outside_repository(path: &Path) -> Result<(), String> {
+    let abs = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map_err(|e| format!("今のフォルダが分かりません: {e}"))?
+            .join(path)
+    };
+    let mut cur = abs.parent();
+    while let Some(d) = cur {
+        if d.join(".git").exists() {
+            return Err(format!(
+                "{} は git の作業フォルダの中です。秘密鍵はリポジトリの外（オフラインの置き場）に書いてください",
+                abs.display()
+            ));
+        }
+        cur = d.parent();
+    }
+    Ok(())
+}
+
+fn keygen(role: &str, kid: &str, path: &Path) -> Result<String, String> {
+    let role = Role::from_name(role)
+        .filter(|r| *r != Role::AppUpdate)
+        .ok_or("役割は data・auto_delivery・revocation のどれか（アプリ更新用の鍵は tauri signer generate で作る）")?;
+    if !valid_kid(kid) {
+        return Err("鍵の名前は英小文字・数字・「-」の32文字まで（例: data-2026a）".into());
+    }
+    outside_repository(path)?;
+    let mut seed = Zeroizing::new([0u8; 32]);
+    getrandom::getrandom(seed.as_mut()).map_err(|_| "乱数を作れませんでした")?;
+    let s = Secret {
+        role,
+        kid: kid.to_owned(),
+        key: SigningKey::from_bytes(&seed),
+    };
+    let text = Zeroizing::new(format!(
+        "{HEADER}\n{}\n{}\n{}\n",
+        role.name(),
+        kid,
+        B64URL.encode(seed.as_ref())
+    ));
+    if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
+        fs::create_dir_all(dir).map_err(|e| format!("フォルダを作れません: {e}"))?;
+    }
+    let mut o = OpenOptions::new();
+    o.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        o.mode(0o600);
+    }
+    let mut f = o.open(path).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::AlreadyExists {
+            format!("{} は既にあります（上書きしません）", path.display())
+        } else {
+            format!("{} に書けません: {e}", path.display())
+        }
+    })?;
+    f.write_all(text.as_bytes())
+        .and_then(|_| f.sync_all())
+        .map_err(|e| format!("{} に書けません: {e}", path.display()))?;
+    Ok(public_line(&s))
+}
+
+fn read_secret(path: &Path) -> Result<Secret, String> {
+    let text = Zeroizing::new(
+        fs::read_to_string(path)
+            .map_err(|e| format!("秘密鍵 {} を読めません: {e}", path.display()))?,
+    );
+    let lines: Vec<&str> = text.lines().collect();
+    let bad = || format!("{} は dist-keys の秘密鍵の形ではありません", path.display());
+    if lines.len() != 4 || lines[0] != HEADER {
+        return Err(bad());
+    }
+    let role = Role::from_name(lines[1]).ok_or_else(bad)?;
+    if !valid_kid(lines[2]) {
+        return Err(bad());
+    }
+    let seed: Zeroizing<Vec<u8>> = Zeroizing::new(B64URL.decode(lines[3]).map_err(|_| bad())?);
+    let seed: &[u8; 32] = seed.as_slice().try_into().map_err(|_| bad())?;
+    Ok(Secret {
+        role,
+        kid: lines[2].to_owned(),
+        key: SigningKey::from_bytes(seed),
+    })
+}
+
+fn seal(kind: &str, key_path: &Path, payload_path: &Path) -> Result<String, String> {
+    let (format, roles): (&str, &[Role]) = match kind {
+        "pack-catalog" => (
+            pack_catalog::ENVELOPE_FORMAT,
+            &[Role::Data, Role::AutoDelivery],
+        ),
+        "revocations" => (revocations::ENVELOPE_FORMAT, &[Role::Revocation]),
+        "notices" => ("financia-notices-envelope", &[Role::Data]),
+        _ => return Err("種類は pack-catalog・revocations・notices のどれか".into()),
+    };
+    let s = read_secret(key_path)?;
+    if !roles.contains(&s.role) {
+        return Err(format!(
+            "{} の鍵では {kind} に署名できません（0017 の5 の役割）",
+            s.role.name()
+        ));
+    }
+    let payload = fs::read_to_string(payload_path)
+        .map_err(|e| format!("{} を読めません: {e}", payload_path.display()))?;
+    serde_json::from_str::<serde_json::Value>(&payload)
+        .map_err(|_| format!("{} は JSON ではありません", payload_path.display()))?;
+    Ok(envelope::seal(&payload, format, &[(&s.kid, &s.key)]))
+}
+
+fn run(args: &[String]) -> Result<String, String> {
+    let usage = "使い方: dist-keys keygen <役割> <鍵の名前> <秘密鍵のファイル> | public <秘密鍵のファイル> | seal <種類> <秘密鍵のファイル> <中身のファイル>";
+    match args {
+        [c, role, kid, path] if c == "keygen" => keygen(role, kid, &PathBuf::from(path)),
+        [c, path] if c == "public" => read_secret(&PathBuf::from(path)).map(|s| public_line(&s)),
+        [c, kind, key, payload] if c == "seal" => {
+            seal(kind, &PathBuf::from(key), &PathBuf::from(payload))
+        }
+        _ => Err(usage.into()),
+    }
+}
+
+fn main() -> ExitCode {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    match run(&args) {
+        Ok(out) => {
+            println!("{}", out.trim_end());
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("{e}");
+            ExitCode::FAILURE
+        }
+    }
+}
