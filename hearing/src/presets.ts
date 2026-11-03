@@ -24,6 +24,13 @@ const APP_PRESETS: readonly PresetDef[] = [
   p("preset.housing.purchase.costsRate", "0.05", "pct", "住まい・ローン", "住宅購入の予定: 諸費用の割合（新築・種類を選ぶ前。物件の価格に対する）", "template", "出典なし（諸費用の目安は新築3〜7%）"),
   p("preset.housing.purchase.costsRate.used", "0.08", "pct", "住まい・ローン", "住宅購入の予定: 諸費用の割合（中古。物件の価格に対する）", "template", "出典なし（諸費用の目安は中古6〜10%。仲介手数料が入る）"),
   p("preset.housing.purchase.afterMonths", 24, "months", "住まい・ローン", "住宅購入の予定: 購入の時期（今から）", "template"),
+  // 注文住宅（土地を買って建てる。0115）: 土地の代金は持ち家の評価の土地の割合（preset.realEstate.landShare）で、物件の価格から分ける
+  p("preset.housing.purchase.custom.landLeadMonths", 9, "months", "住まい・ローン", "注文住宅: 土地の決済から建物の引き渡しまで", "fill", "出典なし（設計・建築確認の2〜4か月と工事の4〜6か月の目安）"),
+  p("preset.housing.purchase.costsRate.land", "0.06", "pct", "住まい・ローン", "注文住宅: 土地の諸費用の割合（土地の代金に対する）", "fill", "出典なし（仲介手数料〔上限は売買価格の3%＋6万円と消費税〕・登記・印紙・固定資産税の精算。目安は土地の代金の5〜8%）"),
+  p("preset.housing.purchase.custom.bridgeRate", "0.03", "pct", "住まい・ローン", "注文住宅: つなぎ融資の金利（年）", "fill", "出典なし（金融機関が公表するつなぎ融資の金利は年2〜4%程度）", "market"),
+  p("preset.housing.purchase.custom.bridgeFee", 100000, "yen", "住まい・ローン", "注文住宅: つなぎ融資の事務手数料・印紙代", "fill", "出典なし（金融機関で0〜10万円程度）", "market"),
+  p("preset.housing.purchase.custom.interimShare", "0.6", "pct", "住まい・ローン", "注文住宅: 引き渡しの前に払う着工金・中間金の割合（建物の代金に対する）", "fill", "出典なし（建物の代金の支払いの目安: 契約金1割・着工金3割・中間金3割・引き渡しの残金3割）"),
+  p("preset.housing.purchase.custom.interimMonths", 3, "months", "住まい・ローン", "注文住宅: 着工金・中間金を払ってから引き渡しまでの平均の月数", "fill", "出典なし（着工金は引き渡しの4〜5か月前、中間金は1〜2か月前ほど）"),
   p("preset.housing.propertyTax", 120000, "yen", "住まい・ローン", "固定資産税・都市計画税（年額）", "template"),
   p("preset.housing.maintenance", 15000, "yen", "住まい・ローン", "修繕費・管理費（月額。戸建て・建て方が分からないとき）", "template"),
   p("preset.housing.maintenance.condo", 25000, "yen", "住まい・ローン", "管理費・修繕積立金（月額。マンションの購入）", "template", "出典なし（管理費と修繕積立金の合計のよくある額）"),

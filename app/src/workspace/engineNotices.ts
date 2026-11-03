@@ -86,6 +86,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_INPUT_REQUIRED|lifeTable.noFill": { kind: "input", text: "平均余命の目安を使わない設定（事務所の既定値）なので、必要保障額の期間は遺族が90歳になるまでで計算しています。期間を年齢で入れてください" },
   // ---- 前提の外・制度の決まりで変えた所 ----
   "N_NOT_DEDUCTIBLE|advisoryFee": { kind: "outside", text: "FP顧問料は、所得税・住民税の控除にしていません（家計の支出として数えています）" },
+  "N_LIMIT_APPLIED|residence.purchase.split": { kind: "input", text: "注文住宅の土地の決済・建物の代金の支払いで払う頭金（または土地の諸費用）が合計を超えているので、超えた分を除いて計算しています（住まいの項目で合計か内訳を直してください）", card: "housing" },
   "N_LIMIT_APPLIED|ideco.contributionLimit": { kind: "outside", text: "iDeCo の掛金は、上限を超えた分を除いて計算しています", card: "savings" },
   "N_LIMIT_APPLIED|realEstate.lodging.days": { kind: "outside", text: "住宅宿泊事業（民泊）の営業日数は年180日までなので、180日で計算しています", card: "rental" },
   "N_LIMIT_APPLIED|income.miscellaneousLoss": { kind: "outside", text: "雑所得（副業・売電・個人年金など。公的年金を除く）の赤字は、ほかの雑所得と公的年金からだけ引き、給与などほかの所得からは引けないので、引ききれない分は0円として計算しています（副業を事業として営んでいるなら、所得の区分を事業所得にすると赤字を引けます）", card: "work" },

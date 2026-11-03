@@ -603,9 +603,19 @@ function remainingShare(ctx: Ctx, age: number, life: number, floor: Rate): Rate 
  */
 export function landBuildingValuer(
   ctx: Ctx,
-  o: { readonly basis: Yen; readonly y0: number; readonly share: string; readonly structure: BuildingStructure; readonly builtYear: number; readonly setting: RealEstateValuationSetting | undefined; readonly growthOf: (year: number) => Rate },
+  o: {
+    readonly basis: Yen;
+    readonly y0: number;
+    readonly share: string;
+    readonly structure: BuildingStructure;
+    readonly builtYear: number;
+    readonly setting: RealEstateValuationSetting | undefined;
+    readonly growthOf: (year: number) => Rate;
+    /** 土地の額（入れたら割合で分けずにこの額。基にする額で止める。注文住宅の土地の代金。0115） */
+    readonly landAmount?: Yen;
+  },
 ): { readonly land0: Yen; readonly building0: Yen; readonly at: (year: number) => { readonly land: Yen; readonly building: Yen } } {
-  const land0 = ctx.money.mulRate(o.basis, ctx.rate.of(o.share), VALUATION_RULE);
+  const land0 = o.landAmount !== undefined ? (o.landAmount > o.basis ? o.basis : o.landAmount) : ctx.money.mulRate(o.basis, ctx.rate.of(o.share), VALUATION_RULE);
   const building0 = yen(o.basis - land0);
   const life = o.setting?.usefulLife?.[o.structure] ?? USEFUL_LIFE[o.structure];
   const floor = ctx.rate.of(o.setting?.residualFloor ?? String(ctx.estimate(RESIDUAL_FLOOR)));

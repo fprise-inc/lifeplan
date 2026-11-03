@@ -126,7 +126,7 @@ export interface WorkingHousehold {
   statements?: StatementLog;
   /**
    * 他のソフトからの移行の取り込みの記録（0113 の10。読み手・規則・辞書の版、伏せ字の後の抽出結果、参照値、移行メモ、移行元の数え方）。
-   * 世帯ファイルでは本文の区画 migrations に置く（形式の版 0.55 から）。元のファイルは持たない。元に戻す・やり直すの対象にしない
+   * 世帯ファイルでは本文の区画 migrations に置く（形式の版 0.56 から）。元のファイルは持たない。元に戻す・やり直すの対象にしない
    */
   migrations?: MigrationLog;
 }

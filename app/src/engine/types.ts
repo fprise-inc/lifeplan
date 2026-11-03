@@ -510,6 +510,22 @@ export interface Gift {
   [key: string]: unknown;
 }
 
+/** 注文住宅の土地（0115。土地の代金・頭金・諸費用は購入の合計の内数） */
+export interface PurchaseLand {
+  at: Timepoint;
+  price: number;
+  downPayment?: number;
+  costs?: number;
+}
+
+/** 引き渡しの前に頭金から払う建物の代金（0115。頭金の内数） */
+export interface PurchasePayment {
+  id: string;
+  at: Timepoint;
+  amount: number;
+  kind?: "contract" | "start" | "interim" | "other";
+}
+
 export interface Residence {
   id: string;
   kind: "rent" | "own" | string;
@@ -519,7 +535,8 @@ export interface Residence {
   style?: "house" | "condo";
   rent?: { monthly: Box<number>; stages?: AmountStage[]; exceptions?: AmountException[]; [key: string]: unknown };
   /** newBuild: 新築か中古か（住宅の購入の種類。0052 の追記 2026-11-03）、longLife: 認定長期優良住宅か（固定資産税の推定。0112）。どちらも表示と推定の元だけ */
-  purchase?: { at: Timepoint; price: number; downPayment?: number; costs?: number; gifts?: Gift[]; newBuild?: boolean; longLife?: boolean };
+  /** land・payments: 注文住宅の土地（土地の決済の月・土地の代金・その月に払う頭金と諸費用。どれも合計の内数）と、引き渡しの前に頭金から払う建物の代金（0115） */
+  purchase?: { at: Timepoint; price: number; downPayment?: number; costs?: number; gifts?: Gift[]; newBuild?: boolean; longLife?: boolean; land?: PurchaseLand; payments?: PurchasePayment[] };
   propertyTax?: { annual: Box<number>; growth?: string } & Staged;
   maintenance?: { monthly: Box<number>; growth?: string } & Staged;
   ownership?: { member: string; share: string }[];

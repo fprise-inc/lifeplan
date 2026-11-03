@@ -9,6 +9,7 @@ import { refreshEducation, refreshLeaves } from "./fill.ts";
 import { refreshRetirement } from "./retirementBenefits.ts";
 import { applyAutoStages, countAt } from "./livingStages.ts";
 import { refreshPropertyTax } from "./propertyTax.ts";
+import { refreshCustomBuild } from "./customBuild.ts";
 import { refreshOwnedHomeTax } from "./ownedHomeTax.ts";
 import {
   businessEstimate as businessStatistic,
@@ -126,6 +127,8 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
   // 生活費の推定の段階（人数の変化と年齢から。推定のままの段だけ。livingStages.ts）。進路の後に（自宅外の在学を読むため）
   const last = endYear ?? Number(baseMonth.slice(0, 4)) + 80;
   for (const l of h.livingExpenses ?? []) applyAutoStages(h, baseMonth, last, l);
+  // 注文住宅の土地の代金・土地の決済の時期・頭金と諸費用の内訳の推定（推定のままの値だけ。customBuild.ts。0115）。固定資産税の推定の元になるので先に
+  refreshCustomBuild(h, landShare);
   // 購入の予定の持ち家の固定資産税の推定（推定のままの欄と推定の段だけ。propertyTax.ts。0112）
   refreshPropertyTax(h, last, landShare);
   // 今住んでいる持ち家の固定資産税の推定（推定のままの欄と推定の段だけ。ownedHomeTax.ts。0112 の追記 2026-11-03）

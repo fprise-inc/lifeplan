@@ -497,6 +497,13 @@ export interface ResidenceInput {
     readonly newBuild?: boolean;
     /** 0112: 認定長期優良住宅か（固定資産税の推定の元だけ。計算には使わない） */
     readonly longLife?: boolean;
+    /**
+     * 0115: 注文住宅（土地を買って建てる）の土地。price・downPayment・costs は土地と建物の合計のままで、ここはその内数。
+     * 土地の決済の月（at）に頭金の内の downPayment と諸費用の内の costs を払い、持ち家の評価は土地をその月から持つ（建物は引き渡しの年から）
+     */
+    readonly land?: { readonly at: Timepoint; readonly price: Yen; readonly downPayment?: Yen; readonly costs?: Yen };
+    /** 0115: 引き渡しの前に頭金から払う建物の代金（契約金・着工金・中間金。頭金の内数）。残りの頭金は引き渡しの月（at）に払う */
+    readonly payments?: readonly { readonly id?: string; readonly at: Timepoint; readonly amount: Yen; readonly kind?: "contract" | "start" | "interim" | "other" }[];
     readonly gifts?: readonly {
       readonly recipient: string;
       readonly giver?: "parent" | "grandparent" | "other";

@@ -867,7 +867,50 @@ function sample054(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
-/** 0.55 の見本の移行の取り込みの記録（架空。汎用の言葉の見出し・伏せ字の後の文字・参照値・移行メモ。0113 の10） */
+/**
+ * 0.55 の形（0115）: 注文住宅（土地を買って建てる）を1件足す。土地の決済の月・土地の代金と、その月に払う頭金と諸費用（合計の内数）、
+ * 引き渡しの前に頭金から払う着工金。土地の分のローン（土地先行融資）は土地の決済の月に借りる
+ */
+function sample055(): BodyState {
+  const s = sample054();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const id = (n: number) => `00000000-0000-4000-8000-0000000008${String(n).padStart(2, "0")}`;
+  const est = (value: number) => ({ value, state: "confirmed" as const, origin: { kind: "manual" as const } });
+  (hh.residences ??= []).push({
+    id: id(1),
+    kind: "own",
+    style: "house",
+    from: { at: "2060-04" },
+    to: null,
+    purchase: {
+      at: { at: "2060-04" },
+      price: 50000000,
+      downPayment: 6000000,
+      costs: 3000000,
+      newBuild: true,
+      land: { at: { at: "2059-07" }, price: 18000000, downPayment: 4000000, costs: 1100000 },
+      payments: [{ id: id(2), at: { at: "2059-11" }, amount: 1000000, kind: "start" }],
+    },
+    propertyTax: { annual: est(150000) },
+    maintenance: { monthly: est(15000) },
+    ownership: [{ member: self.id, share: "1" }],
+    valuation: { structure: "wood" },
+  });
+  (hh.debts ??= []).push({
+    id: id(3),
+    kind: "mortgage",
+    debtors: [{ member: self.id, role: "primary" }],
+    principal: 14000000,
+    start: { at: "2059-07" },
+    rateSchedule: [{ id: id(4), from: { at: "2059-07" }, type: "fixed", rate: "0.018" }],
+    repayment: { method: "equalPayment", termMonths: 240 },
+  } as never);
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
+/** 0.56 の見本の移行の取り込みの記録（架空。汎用の言葉の見出し・伏せ字の後の文字・参照値・移行メモ。0113 の10） */
 const MIGRATION_IMPORT = "00000000-0000-4000-8000-000000000801";
 function sampleMigrations(): MigrationLog {
   return {
@@ -903,12 +946,12 @@ function sampleMigrations(): MigrationLog {
 }
 
 /**
- * 0.55 の形（0113 の7・8・10）: 他のソフトから移した世帯。区画 migrations に取り込みの記録を1件置き、最初の口座の時価を、移行元のプランの時点
+ * 0.56 の形（0113 の7・8・10）: 他のソフトから移した世帯。区画 migrations に取り込みの記録を1件置き、最初の口座の時価を、移行元のプランの時点
  * （2024年4月）と今の計算基準月が違う時点のある値として、推定の出し方 migrated の推定にする（値は前と同じ。承認の記録つき）。互換モードは null のまま
  * （互換モードは照合用のプランだけ）
  */
-function sample055(): BodyState {
-  const s = sample054();
+function sample056(): BodyState {
+  const s = sample055();
   const req = structuredClone(s.wh.request);
   const acc = req.input.household.accounts![0] as unknown as { marketValue: { value: number } & Record<string, unknown> };
   acc.marketValue = {
@@ -1044,7 +1087,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.55");
+    expect(BODY_FORMAT_VERSION).toBe("0.56");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1138,17 +1181,17 @@ describe("世帯ファイルの本文（0011 の2）", () => {
         for (const x of s.wh.snapshots ?? []) expect(await verifySnapshot(x), `${v} の控えの指紋`).toBe(true);
       }
       expect(again.extDefinitions).toEqual(orig.extDefinitions);
-      // 0.55 から: 移行の取り込みの記録も、読んで書き戻して失わない（0113 の10）
+      // 0.56 から: 移行の取り込みの記録も、読んで書き戻して失わない（0113 の10）
       if (orig.migrations !== undefined) expect(again.migrations).toEqual(orig.migrations);
     }
-    // 0.55 の見本: 推定の出し方 migrated の値を持つ世帯を本物のエンジンが受け付け、確定の値にしたときと結果が同じ（0113 の7）
-    const b055 = fromBody(readFileSync(join(base, "0.55", "body.json"), "utf8"));
-    expect(b055.wh.migrations?.imports).toHaveLength(1);
-    const confirmed = structuredClone(b055.wh.request);
+    // 0.56 の見本: 推定の出し方 migrated の値を持つ世帯を本物のエンジンが受け付け、確定の値にしたときと結果が同じ（0113 の7）
+    const b056 = fromBody(readFileSync(join(base, "0.56", "body.json"), "utf8"));
+    expect(b056.wh.migrations?.imports).toHaveLength(1);
+    const confirmed = structuredClone(b056.wh.request);
     const acc = confirmed.input.household.accounts![0] as unknown as { marketValue: Record<string, unknown> & { value: number } };
     expect((acc.marketValue.estimate as { method: string }).method).toBe("migrated");
     acc.marketValue = { value: acc.marketValue.value, state: "confirmed", origin: { kind: "manual" } };
-    expect(preview(forEngine(b055.wh.request)).table).toEqual(preview(forEngine(confirmed)).table);
+    expect(preview(forEngine(b056.wh.request)).table).toEqual(preview(forEngine(confirmed)).table);
   });
 
   it("0.17 の見本を読んで書き戻しても、差分（足す・外す・置き換えの組・読み替えられなかった差分を含む）・値の状態の欄・世帯の外の家族・知らせを失わない", () => {
@@ -1208,7 +1251,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample055())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample056())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1609,8 +1652,8 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(strip)).table);
   });
 
-  it("0.55 の形（0113 の7・10）: 移行の取り込みの記録を区画 migrations に保存して読み戻し、推定の出し方 migrated の値は計算の結果を変えない", () => {
-    const s = sample055();
+  it("0.56 の形（0113 の7・10）: 移行の取り込みの記録を区画 migrations に保存して読み戻し、推定の出し方 migrated の値は計算の結果を変えない", () => {
+    const s = sample056();
     const stored = bodyObject(s) as unknown as { migrations?: MigrationLog; household: Record<string, unknown> & { request: typeof s.wh.request } };
     expect(stored.migrations).toEqual(sampleMigrations());
     expect(stored.household.migrations).toBeUndefined();
@@ -1620,9 +1663,9 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const box = (back.wh.request.input.household.accounts![0] as unknown as { marketValue: { estimate?: { method: string } } }).marketValue;
     expect(box.estimate?.method).toBe("migrated");
     // 計算は前の版の見本（確定の値）と同じ（推定の印と出どころは計算に使わない。参照値は計算に入らない）
-    expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(sample054().wh.request)).table);
+    expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(sample055().wh.request)).table);
     // 移したことの無い世帯は区画を作らない
-    expect((bodyObject(sample054()) as unknown as Record<string, unknown>).migrations).toBeUndefined();
+    expect((bodyObject(sample055()) as unknown as Record<string, unknown>).migrations).toBeUndefined();
     const empty = { ...s, wh: { ...s.wh, migrations: { version: 1, imports: [] } } };
     expect((bodyObject(empty) as unknown as Record<string, unknown>).migrations).toBeUndefined();
   });
@@ -1646,7 +1689,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("互換モード（0113 の8）: 元の取り込みの記録がある世帯では残り、表示の項目だけなら計算の結果は null と同じ。記録が無ければ読むときに null に直して知らせる", () => {
-    const s = sample055();
+    const s = sample056();
     const compat = { source: { import: MIGRATION_IMPORT, rule: "official.genericReport@1" }, items: { tableAge: "yearStart" as const } };
     const withCompat = (wh: WorkingHousehold): WorkingHousehold => {
       const request = structuredClone(wh.request);
@@ -1671,6 +1714,21 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(conv(other)).toBeNull();
     // 互換モードの無い世帯はそのまま（同じ物を返す）
     expect(withoutOrphanCompatibility(s.wh)).toBe(s.wh);
+  });
+
+  it("0.55 の形（0115）: 注文住宅の土地と引き渡しの前の支払いを保存して読み戻し、計算に使う（土地の決済の月に払い、土地を持つ）", () => {
+    const s = sample055();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const r = (stored.household.request.input.household.residences ?? []).find((x) => x.purchase?.land !== undefined);
+    expect(r?.purchase?.land).toMatchObject({ at: { at: "2059-07" }, price: 18000000, downPayment: 4000000, costs: 1100000 });
+    expect(r?.purchase?.payments?.[0]).toMatchObject({ amount: 1000000, kind: "start" });
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    const p = preview(forEngine(back.wh.request));
+    const at = (row: string, year: number) => p.table.filter((c) => c.row === row && c.year === year && c.object === r?.id).reduce((x, c) => x + c.amount, 0);
+    expect(at("cf.expense.housing.purchase.downPayment", 2059)).toBe(5000000);
+    expect(at("cf.expense.housing.purchase.downPayment", 2060)).toBe(1000000);
+    expect(at("cf.expense.housing.purchase.costs", 2059)).toBe(1100000);
   });
 
   it("0.42 の形（0090）: 高専と専門職大学院（法科大学院）の段を保存して読み戻し、計算に使う", () => {
