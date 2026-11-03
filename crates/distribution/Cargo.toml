@@ -1,0 +1,26 @@
+[package]
+name = "distribution"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "配布と更新の目録の形と確かめ方（4種類の鍵・現用と次期・段階配信・一時停止・巻き戻し・最低版・取り下げの一覧。0017・0022・0117）"
+
+[[bin]]
+# 提供元が使う道具（データ用・自動配信用・取り下げ用の鍵を作る・封筒に署名する）。アプリと一緒には配らない。
+# アプリ更新用の鍵は `tauri signer generate`・`tauri signer sign` で作る・署名する（0117 の2）
+name = "dist-keys"
+path = "src/bin/dist-keys.rs"
+
+[dependencies]
+# 署名は Ed25519（0017 の5。feature-code と同じ版）。アプリ本体の更新の鍵は Tauri の updater の minisign の形で、
+# minisign の「先に BLAKE2b-512 で要約してから署名する形」（ED）を確かめるために blake2 を使う（MIT または Apache-2.0）
+ed25519-dalek = { version = "2", default-features = false, features = ["std", "fast"] }
+blake2 = "0.10"
+base64 = "0.22"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+# 道具（dist-keys）が秘密鍵の種を作る・読み終えたら消すため（feature-code と同じ版）
+getrandom = "0.2"
+zeroize = "1"
