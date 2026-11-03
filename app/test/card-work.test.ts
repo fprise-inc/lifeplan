@@ -87,7 +87,7 @@ describe("新しい世帯: 定年と定年後の再雇用の推定", () => {
     expect(wh.postRetirement[self]).toMatchObject({ fromAge: 60, type: "contract" });
     const main = ps[0]!;
     const post = ps[1]!;
-    const want = reemploymentSalary("regular", wh.request.input.household.members[0]!, main.salary!.annual.value!)!;
+    const want = reemploymentSalary("regular", main.salary!.annual.value!)!;
     expect(want.value).toBeLessThan(main.salary!.annual.value!);
     expect(post.salary!.annual).toMatchObject({ value: want.value, state: "estimated", origin: { kind: "auto" } });
     // 欄は推定の印
@@ -102,7 +102,7 @@ describe("新しい世帯: 定年と定年後の再雇用の推定", () => {
     const mainKey = `work/period/${periods(wh, self)[0]!.id}/annual`;
     const w1 = edit(wh, mainKey, 6000000);
     const post = () => periods(w1, self)[1]!;
-    const want = reemploymentSalary("regular", w1.request.input.household.members[0]!, 6000000)!;
+    const want = reemploymentSalary("regular", 6000000)!;
     expect(post().salary!.annual.value).toBe(want.value);
     const w2 = edit(w1, `work/${self}/postSalary`, 3000000);
     const w3 = edit(w2, mainKey, 7000000);

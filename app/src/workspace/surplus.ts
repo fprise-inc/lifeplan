@@ -8,6 +8,7 @@ import { addMonths, ageReachedMonth, parseYm } from "./levers.ts";
 import { resolveTimepoint } from "./timepoint.ts";
 import { SURPLUS_ROW } from "./present.ts";
 import { presetRate } from "../../../hearing/src/presets.ts";
+import { neutralWageCurveId } from "../../../hearing/src/estimates.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
 
@@ -40,12 +41,24 @@ export function setSurplusRatio(req: EngineRequest, ratio: string | null): Engin
   return setSurplus(req, ratio === null ? rest : { ...rest, ratio });
 }
 
-/** なくした前提（生活防衛資金 emergencyReserve。0031 の追記）を外した要求。控え（変換で中身を変えない）を今のエンジンで計算するときに使う */
+/**
+ * 控え（変換で中身を変えない）を今のエンジンで計算するときの直し: なくした前提（生活防衛資金 emergencyReserve。0031 の追記）を外し、
+ * 性別・学歴で分けた前の統計の年齢カーブの値ID を男女計・学歴計の値ID に直す（今のエンジンは読めない。形式 0.58 の変換の段と同じ決まり。0117）
+ */
 export function withoutRemovedAssumptions(req: EngineRequest): EngineRequest {
   const a = req.input.assumptions as Record<string, unknown> | undefined;
-  if (a === undefined || !("emergencyReserve" in a)) return req;
+  const reserve = a !== undefined && "emergencyReserve" in a;
+  const curves = (req.input.household.employmentPeriods ?? []).some((p) => {
+    const c = (p.salary?.growth as { curve?: string } | undefined)?.curve;
+    return c !== undefined && neutralWageCurveId(c) !== c;
+  });
+  if (!reserve && !curves) return req;
   const request = structuredClone(req);
-  delete (request.input.assumptions as Record<string, unknown>).emergencyReserve;
+  if (reserve) delete (request.input.assumptions as Record<string, unknown>).emergencyReserve;
+  for (const p of request.input.household.employmentPeriods ?? []) {
+    const g = p.salary?.growth as { curve?: string } | undefined;
+    if (g?.curve !== undefined) g.curve = neutralWageCurveId(g.curve);
+  }
   return request;
 }
 

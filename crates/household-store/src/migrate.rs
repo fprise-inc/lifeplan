@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.57";
+pub const CURRENT: &str = "0.58";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -192,12 +192,16 @@ pub const CURRENT: &str = "0.57";
 /// - 0.57: 合算BS の会社の入力を、世帯の区画 `household.companyBs` から拡張領域 `ext["ext.official.combinedBs"]`（同梱の公式の拡張の入力欄。
 ///   定義は `extDefinitions`）へ移した（0114 の9。MINOR）。変換の段が中身をそのまま移し、`meta.extTransfers` に記録する。前の版のアプリは
 ///   会社の数字を画面に出せないので、版を上げて閲覧だけにする。0.56 の段の後に積む
+/// - 0.58: 人の属性（性別・学歴）で推定の数字を分けない（0117。MINOR）。性別・学歴で分けた統計の年齢カーブの値ID
+///   （`wageStats.curve.<雇用形態>.<性別>.<学歴>.<企業規模>`）を同じ雇用形態・企業規模の男女計・学歴計（`…all.all…`）に直し、
+///   退職給付の学歴 `retirementBenefits[].education`（退職一時金の目安の元だけ。計算には使わない）を外す。今のエンジンは前の値ID を
+///   読めず、前の版のアプリは学歴の欄を書き戻すので、版を上げて閲覧だけにする。開いたときの知らせ `neutralEstimates` を足す。0.57 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
-    "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57",
+    "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58",
 ];
 
 /// 1段分の変換
@@ -488,6 +492,11 @@ pub const STEPS: &[Step] = &[
         from: "0.56",
         to: "0.57",
         apply: v0_56_to_0_57,
+    },
+    Step {
+        from: "0.57",
+        to: "0.58",
+        apply: v0_57_to_0_58,
     },
 ];
 
@@ -2015,6 +2024,166 @@ fn v0_56_to_0_57(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 退職給付の学歴の入力項目ID（0057。0.58 で廃止）
+const RETIREMENT_EDUCATION_ITEM: &str = "retirementBenefit.education";
+
+/// 性別・学歴で分けた統計の年齢カーブの値ID（0116）なら、同じ雇用形態・企業規模の男女計・学歴計の値ID（0117）。ほかは None
+fn neutral_curve_id(id: &str) -> Option<String> {
+    let parts: Vec<&str> = id.strip_prefix("wageStats.curve.")?.split('.').collect();
+    let [employment, sex, education, size] = parts.as_slice() else {
+        return None;
+    };
+    let ok = matches!(*employment, "regular" | "nonRegular")
+        && matches!(*sex, "all" | "male" | "female")
+        && matches!(
+            *education,
+            "all"
+                | "juniorHigh"
+                | "highSchool"
+                | "vocational"
+                | "juniorCollege"
+                | "university"
+                | "graduate"
+        )
+        && matches!(*size, "all" | "large" | "medium" | "small");
+    if !ok || (*sex == "all" && *education == "all") {
+        return None;
+    }
+    Some(format!("wageStats.curve.{employment}.all.all.{size}"))
+}
+
+/// 値の中の、性別・学歴で分けた統計の年齢カーブの値ID（文字列の値）を男女計・学歴計に直す。直した数を返す
+fn neutral_curves_in(v: &mut Value) -> usize {
+    match v {
+        Value::String(s) => match neutral_curve_id(s) {
+            Some(n) => {
+                *s = n;
+                1
+            }
+            None => 0,
+        },
+        Value::Array(a) => a.iter_mut().map(neutral_curves_in).sum(),
+        Value::Object(o) => o.values_mut().map(neutral_curves_in).sum(),
+        _ => 0,
+    }
+}
+
+/// 退職給付（またはその並び）から学歴の欄と、学歴の値の状態の行を外す。外した数を返す
+fn drop_retirement_education(v: &mut Value) -> usize {
+    match v {
+        Value::Array(a) => a.iter_mut().map(drop_retirement_education).sum(),
+        Value::Object(o) => {
+            let mut n = usize::from(o.remove("education").is_some());
+            // 値の状態の行の鍵は「入力項目ID/場所」（0035 の3）
+            if let Some(rows) = o.get_mut("valueStates").and_then(Value::as_object_mut) {
+                let before = rows.len();
+                rows.retain(|k, _| {
+                    k != RETIREMENT_EDUCATION_ITEM
+                        && !k.starts_with(&format!("{RETIREMENT_EDUCATION_ITEM}/"))
+                });
+                n += before - rows.len();
+                if rows.is_empty() {
+                    o.remove("valueStates");
+                }
+            }
+            n
+        }
+        _ => 0,
+    }
+}
+
+/// 推定のままの統計の推定の箱（出どころ auto・出し方 statistic）か
+fn auto_statistic(b: Option<&Value>) -> bool {
+    b.is_some_and(|b| {
+        b["state"] == "estimated"
+            && b["origin"]["kind"] == "auto"
+            && b["estimate"]["method"] == "statistic"
+    })
+}
+
+/// 0.57 → 0.58: 人の属性（性別・学歴）で推定の数字を分けない（0117）。
+/// - 現状（`household`。画面の側の区画を含む）とプランの差分（`proposals`）の中の、性別・学歴で分けた統計の年齢カーブの値ID を、
+///   同じ雇用形態・企業規模の男女計・学歴計の値ID に直す（今のエンジンは前の値ID を読めない）
+/// - 現状の退職給付の学歴 `education` と、その値の状態の行を外す。プランの差分の、足す退職給付の中の学歴も外し、学歴を書く差分は捨てる
+/// - 控え（`snapshots`）・ヒアリングの記録の中身は変えない（画面が控えを計算するときに同じ決まりで値ID を直す）
+/// - 推定のままの給与・賞与・退職一時金の目安の値は変えない（男女計・学歴を分けない新しい目安は、画面が推定を入れ直すときに入る）
+/// - 直した物・推定のままの物があれば、開いたときの知らせ
+///   `{"kind": "neutralEstimates", "count": 現状で直した数, "plans": プランの差分を変えた数, "estimates": 推定のままの給与・賞与・退職一時金の数}` を足す
+fn v0_57_to_0_58(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    let mut count = 0usize;
+    let mut estimates = 0usize;
+    if let Some(h) = obj.get_mut("household") {
+        count += neutral_curves_in(h);
+        if let Some(hh) = h
+            .get_mut("request")
+            .and_then(|r| r.get_mut("input"))
+            .and_then(|i| i.get_mut("household"))
+        {
+            if let Some(list) = hh.get_mut("retirementBenefits") {
+                count += drop_retirement_education(list);
+            }
+            for p in hh["employmentPeriods"].as_array().into_iter().flatten() {
+                let s = &p["salary"];
+                if auto_statistic(s.get("annual")) || auto_statistic(s.get("bonus")) {
+                    estimates += 1;
+                }
+            }
+            for b in hh["retirementBenefits"].as_array().into_iter().flatten() {
+                if b["kind"] == "lumpSum" && auto_statistic(b.get("amount")) {
+                    estimates += 1;
+                }
+            }
+        }
+    }
+    let mut plans = 0usize;
+    if let Some(list) = obj.get_mut("proposals").and_then(Value::as_array_mut) {
+        for plan in list {
+            let Some(diffs) = plan.get_mut("diffs").and_then(Value::as_array_mut) else {
+                continue;
+            };
+            let before = diffs.len();
+            diffs.retain(|d| {
+                d.get("item").and_then(Value::as_str) != Some(RETIREMENT_EDUCATION_ITEM)
+            });
+            plans += before - diffs.len();
+            for d in diffs.iter_mut() {
+                let mut changed = neutral_curves_in(d) > 0;
+                if d.get("op").and_then(Value::as_str) == Some("add")
+                    && d["target"]["collection"] == "retirementBenefit"
+                {
+                    if let Some(v) = d.get_mut("value") {
+                        changed |= drop_retirement_education(v) > 0;
+                    }
+                }
+                if changed {
+                    plans += 1;
+                }
+            }
+        }
+    }
+    if count > 0 || plans > 0 || estimates > 0 {
+        if let Some(screen) = obj.get_mut("household").and_then(Value::as_object_mut) {
+            let list = screen
+                .entry("notices")
+                .or_insert_with(|| Value::Array(Vec::new()));
+            if let Some(list) = list.as_array_mut() {
+                list.push(serde_json::json!({
+                    "id": readings::migration_id(&format!("notices/neutralEstimates/{count}/{plans}/{estimates}")),
+                    "kind": "neutralEstimates",
+                    "count": count,
+                    "plans": plans,
+                    "estimates": estimates,
+                }));
+            }
+        }
+    }
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.58".into());
+    }
+    Ok(body)
+}
+
 /// 0.17 で ID を振る並び（物の集まり → その物から並びまでの欄の名前。0035 の5）
 const ELEMENT_LISTS: &[(&str, &[&[&str]])] = &[
     ("livingExpenses", &[&["stages"], &["categories"]]),
@@ -2567,7 +2736,8 @@ mod tests {
         assert_eq!(access("0.55").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.56").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.57").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.58").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.58").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.59").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -2580,7 +2750,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.57", b.clone()).unwrap(),
+            upgrade("0.59", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -3609,6 +3779,102 @@ mod tests {
         assert!(u["household"].get("assumed").is_none());
         assert!(
             crate::readings::value_state_problems(&u["household"]["request"]["input"]).is_empty()
+        );
+    }
+
+    #[test]
+    fn v0_57_to_0_58_makes_curves_and_retirement_estimates_neutral() {
+        let stat = |v: i64| serde_json::json!({"value": v, "state": "estimated", "origin": {"kind": "auto"}, "estimate": {"method": "statistic", "basis": "統計"}});
+        let manual = |v: i64| serde_json::json!({"value": v, "state": "confirmed", "origin": {"kind": "manual"}});
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.57"},
+            "household": {"request": {"input": {"household": {
+                "employmentPeriods": [
+                    {"id": "p1", "type": "regular", "salary": {"annual": stat(5000000), "bonus": stat(1000000), "growth": {"curve": "wageStats.curve.regular.female.university.large"}}},
+                    {"id": "p2", "type": "contract", "salary": {"annual": manual(3000000), "growth": {"curve": "wageStats.curve.nonRegular.all.all.small"}}},
+                    {"id": "p3", "type": "regular", "salary": {"annual": manual(6000000), "growth": {"curve": "wageStats.default"}}}
+                ],
+                "retirementBenefits": [
+                    {"id": "r1", "kind": "lumpSum", "member": "m1", "education": "highSchoolManual", "amount": stat(4060000),
+                     "valueStates": {"retirementBenefit.education": {"state": "confirmed", "origin": {"kind": "manual"}}}},
+                    {"id": "r2", "kind": "lumpSum", "member": "m2", "amount": manual(9000000)}
+                ]
+            }}}},
+            "proposals": [{"id": "A", "diffs": [
+                {"id": "d1", "op": "set", "item": "employment.salary.growth", "target": {"object": "p2"}, "at": ["curve"], "value": "wageStats.curve.nonRegular.male.all.medium"},
+                {"id": "d2", "op": "set", "item": "retirementBenefit.education", "target": {"object": "r1"}, "at": [], "value": "university"},
+                {"id": "d3", "op": "add", "target": {"collection": "retirementBenefit"}, "value": {"id": "r3", "kind": "lumpSum", "member": "m1", "education": "university"}},
+                {"id": "d4", "op": "set", "item": "livingExpense.monthly", "target": {"lever": "livingMonthly"}, "at": [], "value": manual(280000)}
+            ]}],
+            "snapshots": [{"inputs": {"request": {"input": {"household": {"employmentPeriods": [{"id": "p1", "salary": {"growth": {"curve": "wageStats.curve.regular.male.all.all"}}}], "retirementBenefits": [{"id": "r1", "education": "university"}]}}}}}]
+        });
+        let u = upgrade("0.57", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        let hh = &u["household"]["request"]["input"]["household"];
+        assert_eq!(
+            hh["employmentPeriods"][0]["salary"]["growth"]["curve"],
+            "wageStats.curve.regular.all.all.large",
+            "性別・学歴の表は男女計・学歴計の同じ企業規模へ"
+        );
+        assert_eq!(
+            hh["employmentPeriods"][1]["salary"]["growth"]["curve"],
+            "wageStats.curve.nonRegular.all.all.small",
+            "男女計・学歴計はそのまま"
+        );
+        assert_eq!(
+            hh["employmentPeriods"][2]["salary"]["growth"]["curve"], "wageStats.default",
+            "前からある既定のカーブはそのまま"
+        );
+        assert_eq!(
+            hh["employmentPeriods"][0]["salary"]["annual"],
+            b["household"]["request"]["input"]["household"]["employmentPeriods"][0]["salary"]
+                ["annual"],
+            "推定の値は変換の段では変えない"
+        );
+        assert!(hh["retirementBenefits"][0].get("education").is_none());
+        assert!(
+            hh["retirementBenefits"][0].get("valueStates").is_none(),
+            "学歴の値の状態の行も外す"
+        );
+        assert_eq!(
+            hh["retirementBenefits"][0]["amount"],
+            b["household"]["request"]["input"]["household"]["retirementBenefits"][0]["amount"]
+        );
+        let diffs = u["proposals"][0]["diffs"].as_array().unwrap();
+        assert_eq!(diffs.len(), 3, "学歴を書く差分は捨てる");
+        assert_eq!(
+            diffs[0]["value"],
+            "wageStats.curve.nonRegular.all.all.medium"
+        );
+        assert!(
+            diffs[1]["value"].get("education").is_none(),
+            "足す退職給付の学歴も外す"
+        );
+        assert_eq!(diffs[2], b["proposals"][0]["diffs"][3]);
+        assert_eq!(u["snapshots"], b["snapshots"], "控えの中身は変えない");
+        let n = &u["household"]["notices"][0];
+        assert_eq!(n["kind"], "neutralEstimates");
+        assert_eq!(n["count"], 3, "カーブ1・学歴の欄1・学歴の行1");
+        assert_eq!(
+            n["plans"], 3,
+            "カーブの差分・捨てた学歴の差分・足す退職給付"
+        );
+        assert_eq!(n["estimates"], 2, "推定のままの給与の期間1・退職一時金1");
+        // 直す物も推定も無い世帯は版だけ
+        let plain = serde_json::json!({"meta": {"formatVersion": "0.57"}, "household": {"request": {"input": {"household": {"employmentPeriods": [{"id": "p1", "salary": {"annual": manual(1)}}]}}}}});
+        let u = upgrade("0.57", plain.clone()).unwrap();
+        assert_eq!(u["household"], plain["household"]);
+        assert_eq!(
+            neutral_curve_id("wageStats.curve.regular.all.all.all"),
+            None
+        );
+        assert_eq!(
+            neutral_curve_id("wageStats.curve.regular.all.graduate.small").as_deref(),
+            Some("wageStats.curve.regular.all.all.small")
+        );
+        assert_eq!(
+            neutral_curve_id("wageStats.curve.regular.other.all.all"),
+            None
         );
     }
 }

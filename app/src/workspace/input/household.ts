@@ -33,13 +33,15 @@ export interface PostRetirement {
 /** 開いたときの知らせ（0035 の8） */
 export interface HouseholdNotice {
   id: string;
-  kind: "outsideFamily" | "unresolvedDiffs" | "smrBlank" | "livingUnknown" | "unknownEstimated" | "carLoanEstimated" | "livingAllowance" | "petTemplate" | "compatibilityDropped" | string;
+  kind: "outsideFamily" | "unresolvedDiffs" | "smrBlank" | "livingUnknown" | "unknownEstimated" | "carLoanEstimated" | "livingAllowance" | "petTemplate" | "compatibilityDropped" | "neutralEstimates" | string;
   members?: string[];
   count?: number;
   /** smrBlank・livingUnknown・unknownEstimated・carLoanEstimated: プランの差分を変えた数 */
   plans?: number;
   /** livingAllowance: 前の内訳の仕送りの月額の合計 */
   amount?: number;
+  /** neutralEstimates: 推定のままの給与・賞与・退職一時金の数（新しい目安で入れ直す物。0117） */
+  estimates?: number;
 }
 
 export interface WorkingHousehold {

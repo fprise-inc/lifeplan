@@ -10,16 +10,16 @@ const BASE = "2026-10";
 
 describe("推定の目安（入力の画面）", () => {
   it("入力の画面とヒアリングシートは同じ目安を使う", () => {
-    expect(salaryEstimate("regular", "female", { age: 40 })).toEqual(hearingSalary("regular", "female", { age: 40 }));
+    expect(salaryEstimate("regular", { age: 40 })).toEqual(hearingSalary("regular", { age: 40 }));
   });
 
   it("給与の種類の推定は年齢を渡す。標準報酬月額は書かない（空欄なら給与から毎年決め直す。目安は等級表に当てる。厚生年金の下限 88,000円）", () => {
     const wh = blankHousehold(BASE, () => "self-1");
     const self = wh.request.input.household.members[0]!;
     const p = convertPeriod({ id: "p1", member: self.id, from: { at: "2008-04" }, to: null, type: "regular" } as EmploymentPeriod, "partTime", self, BASE);
-    expect(p.salary?.annual).toMatchObject({ value: 1769 * 15 * 52, state: "estimated", origin: { kind: "auto" } });
+    expect(p.salary?.annual).toMatchObject({ value: 1518 * 15 * 52, state: "estimated", origin: { kind: "auto" } });
     expect(p.standardMonthlyRemuneration).toBeUndefined();
-    expect(smrEstimate(1769 * 15 * 52, BASE).health.value).toBe(118000);
+    expect(smrEstimate(1518 * 15 * 52, BASE).health.value).toBe(98000);
     expect(smrEstimate(600000, BASE).pension.value).toBe(88000);
   });
 
@@ -51,9 +51,14 @@ describe("推定の目安（入力の画面）", () => {
     ];
     refreshEstimates(h, BASE);
     const [p1, p2] = h.employmentPeriods;
-    expect(p1?.salary?.annual.value).toBe(449200 * 12);
+    expect(p1?.salary?.annual.value).toBe(414900 * 12);
     expect((p1?.salary?.annual as { estimate?: { basis: string } }).estimate?.basis).toContain("賃金構造基本統計調査");
-    expect(p1?.salary?.bonus?.value).toBe(1427600);
+    expect(p1?.salary?.bonus?.value).toBe(1278700);
+    // 性別を変えても推定は同じ（人の属性で推定の数字を分けない。0117）
+    const flipped = structuredClone(h);
+    flipped.members[0]!.sex = self.sex === "male" ? "female" : "male";
+    refreshEstimates(flipped, BASE);
+    expect(flipped.employmentPeriods).toEqual(h.employmentPeriods);
     expect(p2?.salary?.annual.value).toBe(2000000);
   });
 });

@@ -49,7 +49,7 @@ describe("印を付ける", () => {
   });
 
   it("同じ根拠の文の事務所の値が2つあれば、両方を印に入れる（どちらかが変われば、前の値から作ったと見る）", () => {
-    const BONUS = "wageStats.annualBonus.regular.female";
+    const BONUS = "wageStats.annualBonus.regular.all";
     const both = withOfficeValue(office(150000, null), BONUS, 500000, null, ON);
     publishOfficeEstimates(both);
     const wh = newHousehold();

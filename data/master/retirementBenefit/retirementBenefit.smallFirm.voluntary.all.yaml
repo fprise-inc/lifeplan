@@ -1,0 +1,30 @@
+id: retirementBenefit.smallFirm.voluntary.all
+title: 中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の自己都合退職の退職金支給額（学歴を分けない値〔公表の3つの区分を記入企業数で重み付けした平均〕・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20・25・30年と55歳の時点〕の額を次の勤続年数の前の年まで当てる）
+unit: JPY
+kind: bracketTable
+basis: {"type": "month"}
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2026-10-26"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 0}
+      - {"upTo": 2, "amount": 59000}
+      - {"upTo": 4, "amount": 207000}
+      - {"upTo": 9, "amount": 413000}
+      - {"upTo": 14, "amount": 1048000}
+      - {"upTo": 19, "amount": 1961000}
+      - {"upTo": 24, "amount": 3146000}
+      - {"upTo": 29, "amount": 4624000}
+      - {"upTo": 32, "amount": 6433000}
+      - {"upTo": null, "amount": 7558000}
+    sources:
+      - {"type": "web", "url": "https://www.hataraku.metro.tokyo.lg.jp/sodan/chousa/r6chincho_3-8.xlsx", "retrievedAt": "2026-10-26", "sha256": "63d548479d253eec5ac8ea9a0ea9399a3449cc52028479055564f6c72563c9cb", "locator": "中小企業の賃金・退職金事情（令和6年版）第8表－① モデル退職金（調査産業計）高校卒・高専・短大卒・大学卒の自己都合退職・記入企業数と退職金支給額（千円。6〜35行）"}
+      - {"type": "web", "url": "https://www.hataraku.metro.tokyo.lg.jp/sodan/chousa/r6chincho_3-8.pdf", "retrievedAt": "2026-10-26", "sha256": "bdd4c53d60071184585f3b7879b7d1843dfb7e3066c3e56714dbf35ff7d3c494", "locator": "同 第8表－① モデル退職金（調査産業計）PDF"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-11-03", "tools": ["Excel（公表の統計表）", "PDF の表（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "学歴を分けない値: 表の3つの区分（高校卒・高専・短大卒・大学卒）の退職金支給額（千円）を、それぞれの記入企業数で重み付けした平均を千円に四捨五入した（学歴計の行は無い）。勤続1・3・5・10・15・20・25・30年は3つの区分の同じ勤続の行、最後の段は55歳の時点の行（高校卒は勤続37年・高専・短大卒は35年・大学卒は33年）を重ねて勤続33年からに当てる（区分ごとに55歳までの勤続が違うため）。1年 59千円（128社）、3年 207千円（334社）、5年 413千円（380社）、10年 1,048千円（386社）、15年 1,961千円（369社）、20年 3,146千円（389社）、25年 4,624千円（369社）、30年 6,433千円（373社）、55歳 7,558千円（362社）。モデル退職金は学校を卒業してすぐ入社し、普通の能力と成績で勤務した場合の、退職金規定による額。Excel と PDF の表が一致（PDF は独自の字形の数字を読み替えて照合）。訂正表（令和7年1月17日）は第8表を含まない。公表日は手元の原本に無いので、施行日の欄は取得日（遅くともこの日には公表済み）"}

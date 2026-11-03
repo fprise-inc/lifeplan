@@ -13,9 +13,13 @@
 #   同じ原本（雇用形態別 第1表。2026-11-03 に取得し直して指紋が同じことを確かめた）の性別・学歴・企業規模・年齢階級の年収（きまって支給する現金給与額×12＋年間賞与）の比。
 #   学歴は 学歴計・中学・高校・専門学校・高専・短大・大学・大学院（正社員・正職員以外は学歴計だけ。学歴と企業規模を重ねると労働者数の少ない階級が多いため）。
 #   労働者数が1,000人に満たない階級は使わない、60歳以後は55〜59歳の係数のまま。既定では使わない（働き方の期間の詳細で選んだときだけ）。wageStats.default は変えない
+# 2026.4.0: 人の属性（性別・学歴）で推定の数字を分けない決まり（0117）。同じ原本（雇用形態別 第1表・短時間労働者の第1表。指紋は同じ）の男女計の表
+#   （wageStats.byAge.<measure>.<雇用形態>.all.<企業規模>・wageStats.contractualMonthly|annualBonus|scheduledMonthly.<雇用形態>.all・wageStats.partTimeHourly.all）を足し、
+#   男女別の表（.male・.female）と、統計の年齢カーブのうち性別・学歴で分けた係数（男女計・学歴計の wageStats.curve.<雇用形態>.all.all.<企業規模> の8値のほか）を外した
+#   （登録簿では removed にして、男女計・学歴計の値ID を replacedBy に書いた）
 packId: master.wageStats
 formatVersion: "0.1"
-version: "2026.3.0"
+version: "2026.4.0"
 features: []
 title: 賃金と事業所得の公的統計の目安
 requires: {}

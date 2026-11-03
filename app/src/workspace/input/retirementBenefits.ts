@@ -48,12 +48,6 @@ export const COMPUTED: ReadonlySet<string> = new Set(["civilServantAllowance", "
 /** 新しく入れたとき（働き方を正社員・公務員にした・会社員として入れた）に、目安の退職給付を自動で足す働き方 */
 export const AUTO_TYPES: ReadonlySet<string> = new Set(["regular", "civilServant"]);
 
-export const EDUCATION_OPTIONS = [
-  { value: "university", label: "大学・大学院卒" },
-  { value: "highSchoolOffice", label: "高校卒（管理・事務・技術職）" },
-  { value: "highSchoolManual", label: "高校卒（現業職）" },
-] as const;
-
 const REASON_LABEL: Readonly<Record<RetirementReason, string>> = { mandatory: "定年", company: "会社都合", voluntary: "自己都合", earlyIncentive: "早期退職の優遇" };
 
 /** 年金払い退職給付を2件に分けて持つときの名前（終身の半分・有期の半分。名前で組にする） */
@@ -149,18 +143,17 @@ export function lumpReason(ending: string): RetirementReason {
 
 const memberOf = (h: Household, id: string) => h.members.find((x) => x.id === id);
 
-/** 会社員の退職一時金の目安（勤続年数・辞め方・学歴。統計の写し）。作れなければ null */
-export function lumpEstimate(h: Household, b: Pick<RetirementBenefit, "member" | "employment" | "service" | "education">): Estimate | null {
+/** 会社員の退職一時金の目安（勤続年数・辞め方。統計の写しの学歴を分けない値。人の属性で分けない。0117）。作れなければ null */
+export function lumpEstimate(h: Household, b: Pick<RetirementBenefit, "member" | "employment" | "service">): Estimate | null {
   const m = memberOf(h, b.member);
   if (m === undefined) return null;
   const p = periodOf(h, b);
   const s = spanOf(h, m, b, p);
   if (s === null || s.years <= 0) return null;
   const reason = lumpReason(endingOf(h, m, p));
-  const est = retirementLumpSumEstimate({ reason, yearsOfService: s.years, ageAtRetirement: s.age, ...(b.education !== undefined ? { education: b.education } : {}) });
+  const est = retirementLumpSumEstimate({ reason, yearsOfService: s.years, ageAtRetirement: s.age });
   if (est === null) return null;
-  const edu = EDUCATION_OPTIONS.find((o) => o.value === (b.education ?? "university"))?.label ?? "";
-  return { value: est.value, basis: `${est.basis}（${REASON_LABEL[reason]}・${edu}${b.education === undefined ? "とみなす" : ""}）` };
+  return { value: est.value, basis: `${est.basis}（${REASON_LABEL[reason]}）` };
 }
 
 /** 公務員の退職手当の見込みの計算に使う最終の月給の目安と理由。作れなければ null */
@@ -170,7 +163,7 @@ export function civilEstimate(h: Household, b: Pick<RetirementBenefit, "member" 
   const p = periodOf(h, b);
   const s = spanOf(h, m, b, p);
   if (s === null) return null;
-  const sal = salaryEstimate("civilServant", m.sex, { age: Math.max(18, s.age - 1) });
+  const sal = salaryEstimate("civilServant", { age: Math.max(18, s.age - 1) });
   if (sal === null) return null;
   const ending = endingOf(h, m, p);
   return {
@@ -247,14 +240,14 @@ export function civilPensionFixedHalf(m: Member, id: string, employment?: string
 }
 
 /**
- * 種類を変える（0057。文書の3-5）: 同じ意味の欄（勤め先・勤続・受け取る時期・名前・学歴・障害による退職）は引き継ぎ、FP が入れた見込み額は
+ * 種類を変える（0057。文書の3-5）: 同じ意味の欄（勤め先・勤続・受け取る時期・名前・障害による退職）は引き継ぎ、FP が入れた見込み額は
  * 一時金の額を持つ種類どうしなら残す。年金の欄・見込みの計算の欄は新しい種類の初めの値にする。目安のままの値は新しい種類の目安に入れ替える
  */
 export function convertBenefit(h: Household, b: RetirementBenefit, kind: BenefitKind): RetirementBenefit {
   const m = memberOf(h, b.member);
   if (m === undefined || b.kind === kind) return b;
   const next = initialBenefit(h, m, kind, { id: b.id, ...(b.employment !== undefined ? { employment: b.employment } : {}) });
-  for (const k of ["service", "officerService", "paidAt", "education", "disability"] as const) if (b[k] !== undefined) (next as Obj)[k] = structuredClone(b[k]);
+  for (const k of ["service", "officerService", "paidAt", "disability"] as const) if (b[k] !== undefined) (next as Obj)[k] = structuredClone(b[k]);
   // 名前は FP が付けたものだけ引き継ぐ（種類から付けた名前は付け直す）
   if (b.label !== undefined && b.label !== CIVIL_PENSION_LIFE && b.label !== CIVIL_PENSION_FIXED) next.label = b.label;
   // FP が入れた額（確定・わからない・該当なし）は残す。見込みの計算の種類でも、額があれば額を使う
@@ -282,7 +275,7 @@ function dropModeTraces(h: Household): void {
 /** 前の版の「額で」の跡の根拠の文の頭（目安の額を初めの値にした推定） */
 const LEGACY_AMOUNT_MODE = "目安の額を初めの値にした";
 
-/** 推定のままの退職給付の値を、勤続・辞め方・学歴・年収に合わせて入れ直す。h をそのまま書き換える */
+/** 推定のままの退職給付の値を、勤続・辞め方・年収に合わせて入れ直す。h をそのまま書き換える */
 export function refreshRetirement(h: Household): void {
   dropModeTraces(h);
   for (const b of h.retirementBenefits ?? []) {

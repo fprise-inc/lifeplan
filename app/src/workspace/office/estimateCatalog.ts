@@ -44,15 +44,6 @@ export const isLegalValue = (id: string): boolean => /^education\.statistics\.(u
 const EMP: Record<string, string> = { regular: "正社員", nonRegular: "正社員以外" };
 const SEX: Record<string, string> = { male: "男性", female: "女性" };
 const SIZE: Record<string, string> = { all: "企業規模計", large: "1,000人以上", medium: "100〜999人", small: "10〜99人" };
-const EDU: Record<string, string> = {
-  university: "大学卒",
-  highSchoolOffice: "高校卒（管理・事務・技術）",
-  highSchoolManual: "高校卒（現業）",
-  highSchool: "高校卒",
-  juniorCollege: "高専・短大卒",
-};
-/** 統計の年齢カーブの学歴（賃金構造基本統計調査の区分。0116） */
-const CURVE_EDU: Record<string, string> = { juniorHigh: "中学", highSchool: "高校", vocational: "専門学校", juniorCollege: "高専・短大", university: "大学", graduate: "大学院" };
 const STAGE: Record<string, string> = {
   kindergarten: "幼稚園",
   elementary: "小学校",
@@ -121,26 +112,24 @@ function describe(id: string, title: string): Omit<EstimateEntry, "id" | "offici
   }
   if (p[0] === "wageStats") {
     if (p[1] === "business") return { group: "給与・収入", name: "自営業の事業所得（年額）", unit: "yen", axis: null };
-    if (p[1] === "default") return { group: "昇給カーブ", name: "昇給カーブの係数（前の版の表: 正社員・男女計。60歳以後も下がる。画面からは選ばない）", unit: "coef", axis: "年齢" };
-    if (p[1] === "curve") {
-      const sex = p[3] === "all" ? "男女計" : (SEX[p[3] ?? ""] ?? "");
-      const edu = p[4] === "all" ? "学歴計" : (CURVE_EDU[p[4] ?? ""] ?? "");
-      return { group: "昇給カーブ", name: `統計の年齢カーブの係数（${EMP[p[2] ?? ""] ?? ""}・${sex}・${edu}・${SIZE[p[5] ?? ""] ?? ""}。詳細で選んだときだけ使う）`, unit: "coef", axis: axisOf("年齢") };
-    }
-    if (p[1] === "partTimeHourly") return { group: "給与・収入", name: `パートの時給（${SEX[p[2] ?? ""] ?? ""}）`, unit: "yen", axis: null };
+    if (p[1] === "default") return { group: "昇給カーブ", name: "昇給カーブの係数（前の版の表: 正社員。60歳以後も下がる。画面からは選ばない）", unit: "coef", axis: "年齢" };
+    // 統計の年齢カーブ・給与・賞与・パートの時給は男女計・学歴計の表だけ（人の属性で推定の数字を分けない。0117）。名前に性別・学歴を書かない
+    if (p[1] === "curve") return { group: "昇給カーブ", name: `統計の年齢カーブの係数（${EMP[p[2] ?? ""] ?? ""}・${SIZE[p[5] ?? ""] ?? ""}。詳細で選んだときだけ使う）`, unit: "coef", axis: axisOf("年齢") };
+    if (p[1] === "partTimeHourly") return { group: "給与・収入", name: "パートの時給", unit: "yen", axis: null };
     if (p[1] === "civilServant") return p[2] === "monthlyByAge" ? { group: "給与・収入", name: "公務員の毎月の給与（年齢別）", unit: "yen", axis: axisOf("年齢") } : { group: "給与・収入", name: "公務員の毎月の給与", unit: "yen", axis: null };
     if (p[1] === "byAge") {
       const what = p[2] === "annualBonus" ? "年間の賞与" : "毎月の給与（残業代などを含む）";
-      return { group: "給与・収入", name: `${what}（年齢別・${EMP[p[3] ?? ""] ?? ""}・${SEX[p[4] ?? ""] ?? ""}・${SIZE[p[5] ?? ""] ?? ""}）`, unit: "yen", axis: axisOf("年齢") };
+      return { group: "給与・収入", name: `${what}（年齢別・${EMP[p[3] ?? ""] ?? ""}・${SIZE[p[5] ?? ""] ?? ""}）`, unit: "yen", axis: axisOf("年齢") };
     }
     const what = p[1] === "annualBonus" ? "年間の賞与" : p[1] === "scheduledMonthly" ? "毎月の所定内給与（残業代などを含まない）" : "毎月の給与（残業代などを含む）";
-    return { group: "給与・収入", name: `${what}（${EMP[p[2] ?? ""] ?? ""}・${SEX[p[3] ?? ""] ?? ""}）`, unit: "yen", axis: null };
+    return { group: "給与・収入", name: `${what}（${EMP[p[2] ?? ""] ?? ""}）`, unit: "yen", axis: null };
   }
   if (p[0] === "retirementBenefit") {
     if (p[1] === "prevalence") return p[2] === "bySize" ? { group: "退職金", name: "退職給付制度がある企業の割合（企業規模別）", unit: "pct", axis: axisOf("常用労働者数") } : { group: "退職金", name: "退職給付制度がある企業の割合", unit: "pct", axis: null };
-    if (p[1] === "smallFirm") return { group: "退職金", name: `中小企業のモデル退職金（${RETIRE_REASON[p[2] ?? ""] ?? ""}・${EDU[p[3] ?? ""] ?? ""}・勤続年数別）`, unit: "yen", axis: axisOf("勤続年数") };
+    // 退職金は学歴を分けない値だけ（0117）
+    if (p[1] === "smallFirm") return { group: "退職金", name: `中小企業のモデル退職金（${RETIRE_REASON[p[2] ?? ""] ?? ""}・勤続年数別）`, unit: "yen", axis: axisOf("勤続年数") };
     const byService = p[3] === "byService";
-    return { group: "退職金", name: `退職金（${RETIRE_REASON[p[1] ?? ""] ?? ""}・${EDU[p[2] ?? ""] ?? ""}${byService ? "・勤続年数別" : ""}）`, unit: "yen", axis: byService ? axisOf("勤続年数") : null };
+    return { group: "退職金", name: `退職金（${RETIRE_REASON[p[1] ?? ""] ?? ""}${byService ? "・勤続年数別" : ""}）`, unit: "yen", axis: byService ? axisOf("勤続年数") : null };
   }
   return { group: "そのほか", name: title, unit: "yen", axis: null };
 }

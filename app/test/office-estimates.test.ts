@@ -285,7 +285,7 @@ describe("推定で埋めない入力欄", () => {
     const p = { id: "p1", member: m.id, from: { at: "2026-10" }, to: null, type: "unemployed" } as unknown as Parameters<typeof convertPeriod>[0];
     expect(convertPeriod(p, "regular", m, "2026-10").salary?.annual).toMatchObject({ state: "estimated", estimate: { method: "statistic" } });
     publishOfficeEstimates(withNoFill(EMPTY_ESTIMATES, "employment.salary.annual", true));
-    expect(salaryEstimate("regular", "male", { age: 40 })).toBeNull();
+    expect(salaryEstimate("regular", { age: 40 })).toBeNull();
     const out = convertPeriod(p, "regular", m, "2026-10");
     expect(out.salary?.annual).toMatchObject({ value: 0, state: "estimated" });
     expect((out.salary?.annual as { estimate?: { basis?: string } }).estimate?.basis).toMatch(/^未入力/);

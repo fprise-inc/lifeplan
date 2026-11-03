@@ -6,7 +6,7 @@ import { addMonths, ageAt, ageReachedMonth, applyLevers, applyRetireMonth, readL
 import { resolveTimepoint } from "../../timepoint.ts";
 import { businessEstimate, careerStartMonth, ensureResidentTax, residentTaxEstimate, residentTaxYear, salaryAge, salaryEstimate, smrEstimate, smrMonth } from "../estimates.ts";
 import { isAutoSmr } from "../smr.ts";
-import { healthRateEstimate, parseWageCurveId, WAGE_CURVE_EDUCATIONS, WAGE_CURVE_SIZES, wageCurveEmployment, wageCurveId, wageCurveRate, wageCurveTable, wageSizeClass, type WageCurveChoice, type WageCurveEducation, type WageCurveSex, type WageSize } from "../../../../../hearing/src/estimates.ts";
+import { healthRateEstimate, parseWageCurveId, reemploymentRatio, WAGE_CURVE_SIZES, wageCurveEmployment, wageCurveId, wageCurveRate, wageCurveTable, wageSizeClass, type WageCurveChoice, type WageSize } from "../../../../../hearing/src/estimates.ts";
 import { byId, field, plain, rateBox, removeAction, timepointField, timeView, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef, type Val } from "../form.ts";
 import { boxBasis, estimatedBox, mutate, newId, periodsOf, reemploymentOf, type PostRetirement, type WorkingHousehold } from "../household.ts";
 import { continuationApplies, CONTINUATION_BASIS, CONTINUATION_ITEM, defaultEndsWith, dropClaim, isEstimated, markNewPeriods, putEstimate, unemploymentApplies, unemploymentEstimate, UNEMPLOYMENT_BASIS, UNEMPLOYMENT_ITEM } from "../claims.ts";
@@ -62,10 +62,9 @@ const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringif
 export function convertPeriod(p: EmploymentPeriod, type: string, member: Member | undefined, baseMonth: string): EmploymentPeriod {
   const { salary, business, healthInsurance, pensionCategory, employer, standardMonthlyRemuneration, leaveKind, leaveChild, childcareShortHours, corporatePension, employmentInsuranceCovered, employeeInsurance, ...rest } = p;
   const out: EmploymentPeriod = { ...rest, type };
-  const sex = member?.sex ?? "male";
   if (SALARIED.has(type)) {
     // 推定の年齢は、その期間の始まりと計算基準月の遅いほう（勤め先の規模は推定に使わない。規模は詳細で入れたときだけの決まり）
-    const est = salaryEstimate(type, sex, member === undefined ? {} : { age: salaryAge(member, p, baseMonth) });
+    const est = salaryEstimate(type, member === undefined ? {} : { age: salaryAge(member, p, baseMonth) });
     const was = SALARIED.has(p.type) && p.type !== type ? salariedDefaults(p.type) : null;
     const now = salariedDefaults(type);
     const keep = <T,>(cur: T | undefined, before: T | undefined, next: T): T => (cur === undefined || (was !== null && sameJson(cur, before)) ? next : cur);
@@ -206,16 +205,14 @@ const mainEnd = (): { age: number; basis: string } => {
 export const retirementAgeEstimate = (type: string, m: Member): { age: number; basis: string } => (type === "civilServant" ? { age: civilRetirementAge(m), basis: CIVIL_END_BASIS } : mainEnd());
 
 /**
- * 定年後の再雇用の年収の推定: 定年前の年収 ×（60〜64歳の平均÷55〜59歳の平均）。平均は同じ働き方・性別の年齢階級の表（hearing/src/estimates.ts）。
- * 表が無い働き方は null
+ * 定年後の再雇用の年収の推定: 定年前の年収 ×（60〜64歳の平均÷55〜59歳の平均）。平均は同じ働き方の男女計の年齢階級の表（hearing/src/estimates.ts。
+ * 人の属性で分けない。0117）。表が無い働き方は null
  */
-export function reemploymentSalary(type: string, m: Member, mainAnnual: number): { value: number; basis: string } | null {
-  const after = salaryEstimate(type, m.sex, { age: 62 });
-  const before = salaryEstimate(type, m.sex, { age: 57 });
-  if (after === null || before === null || before.annual.value <= 0 || mainAnnual <= 0) return null;
-  const ratio = after.annual.value / before.annual.value;
+export function reemploymentSalary(type: string, mainAnnual: number): { value: number; basis: string } | null {
+  const ratio = salaryEstimate(type, { age: 62 }) === null ? null : reemploymentRatio(type);
+  if (ratio === null || mainAnnual <= 0) return null;
   const value = Math.round((mainAnnual * ratio) / 1000) * 1000;
-  return { value, basis: `定年前の年収×${(ratio * 100).toFixed(0)}%（同じ働き方・性別の60〜64歳の平均÷55〜59歳の平均。賃金の統計の年齢階級の表）` };
+  return { value, basis: `定年前の年収×${(ratio * 100).toFixed(0)}%（同じ働き方の60〜64歳の平均÷55〜59歳の平均。賃金の統計の年齢階級の表〔男女計〕）` };
 }
 
 const estKeys = (m: Member) => ({ mainEnd: `work/${m.id}/mainEnd`, postType: `work/${m.id}/postType`, retireAge: `work/${m.id}/retireAge` });
@@ -256,7 +253,7 @@ export function estimatePost(wh: WorkingHousehold, m: Member): WorkingHousehold 
   });
   if (end.age < 65) {
     const cur = currentPeriod(w.request.input.household, m.id, w.request.input.baseMonth);
-    const sal = reemploymentSalary(main.type, m, cur?.salary?.annual.value ?? 0);
+    const sal = reemploymentSalary(main.type, cur?.salary?.annual.value ?? 0);
     if (sal !== null) {
       w = { ...w, postRetirement: { ...w.postRetirement, [m.id]: { fromAge: end.age, type: "contract", annualSalary: sal.value } } };
       w = setRetireAge(w, m, 65);
@@ -299,7 +296,7 @@ function followPost(before: WorkingHousehold, after: WorkingHousehold): WorkingH
     // 定年後の年収: 定年前の年収が変わったら
     const pb = postBox(w.request.input.household, m, post);
     if (pb !== undefined && isAutoBox(pb.box) && post.type === "contract") {
-      const sal = reemploymentSalary(main.type, m, main.salary?.annual.value ?? 0);
+      const sal = reemploymentSalary(main.type, main.salary?.annual.value ?? 0);
       if (sal !== null && (sal.value !== pb.box.value || boxBasis(pb.box) !== sal.basis)) {
         w = { ...w, postRetirement: { ...w.postRetirement, [m.id]: { ...post, annualSalary: sal.value } } };
         w = markPostSalary(w, m, sal.value, sal.basis);
@@ -430,7 +427,7 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
           const cur = w.postRetirement[m.id];
           if (cur === undefined) return w;
           const type = (v === "" || v === null ? null : v) as PostRetirement["type"];
-          const est = type === null ? null : type === "selfEmployed" ? businessEstimate().value : (salaryEstimate(type, m.sex, { age: cur.fromAge })?.annual.value ?? null);
+          const est = type === null ? null : type === "selfEmployed" ? businessEstimate().value : (salaryEstimate(type, { age: cur.fromAge })?.annual.value ?? null);
           const nextPost: PostRetirement = { ...cur, type, annualSalary: type === null ? null : (cur.annualSalary ?? est) };
           let next: WorkingHousehold = { ...w, postRetirement: { ...w.postRetirement, [m.id]: nextPost } };
           const pp = postPeriod(next.request.input.household, m, nextPost);
@@ -672,16 +669,16 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
       // 役員だけは標準でも月の報酬（年額）と賞与を分けて聞く（社会保険料の上限が月の報酬と賞与で違い、まとめて統計の割合で分けると結果が大きくずれる）
       ...(level === "simple" && p.type === "executive"
         ? [
-            yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "月の報酬（年額・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "毎月の役員報酬の12か月分（定期同額給与）" }),
-            yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null, help: "役員の賞与（事前確定届出給与など）の年間の合計。無ければ0" }),
+            yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "月の報酬（年額・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "毎月の役員報酬の12か月分（定期同額給与）" }),
+            yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null, help: "役員の賞与（事前確定届出給与など）の年間の合計。無ければ0" }),
           ]
         : level === "simple"
         ? [salaryTotalField(wh, m, p, find, prefix)]
         : [
-            yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "年収（税込み・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "源泉徴収票の支払金額から賞与を除いた額" }),
+            yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "年収（税込み・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "源泉徴収票の支払金額から賞与を除いた額" }),
             growthField(wh, p, find, prefix, "salary", d),
             ...curveFields(wh, m, p, find, prefix),
-            yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null }),
+            yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null }),
           ]),
       plain({
         key: `${prefix}/hi`,
@@ -848,7 +845,7 @@ export const BONUS_SPLIT_METHOD = "derived";
  */
 function salaryTotalField(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find: Finder, prefix: string): FieldDef {
   const item = "employment.salary.annual";
-  const stat = () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) });
+  const stat = () => salaryEstimate(p.type, { age: salaryAge(m, p, wh.request.input.baseMonth) });
   const boxes = (w: WorkingHousehold) => {
     const x = find(w.request.input.household, w) as EmploymentPeriod | undefined;
     return { a: x?.salary?.annual as SalaryBox | undefined, b: x?.salary?.bonus as SalaryBox | undefined };
@@ -1187,21 +1184,19 @@ function growthField(wh: WorkingHousehold, p: EmploymentPeriod, find: Finder, pr
   };
 }
 
-// ---- 統計の年齢カーブ（昇給カーブ。0116）----
+// ---- 統計の年齢カーブ（昇給カーブ。0116。0117 で男女計・学歴計だけにした）----
 
 const CURVE_ITEM = "employment.salary.growth";
-const CURVE_SEX_LABEL: Readonly<Record<WageCurveSex, string>> = { all: "男女計", male: "男性", female: "女性" };
-const CURVE_EDUCATION_LABEL: Readonly<Record<WageCurveEducation, string>> = { all: "学歴計（分けない）", juniorHigh: "中学", highSchool: "高校", vocational: "専門学校", juniorCollege: "高専・短大", university: "大学", graduate: "大学院" };
 const CURVE_SIZE_LABEL: Readonly<Record<WageSize, string>> = { all: "企業規模計（分けない）", large: "1,000人以上", medium: "100〜999人", small: "10〜99人" };
 /** 前からある既定の昇給カーブ（正社員・正職員 男女計 学歴計 企業規模計。60歳以後も下がる）。画面からは選ばないが、入っていれば見せる */
 const LEGACY_CURVE = "wageStats.default";
-const LEGACY_CHOICE: WageCurveChoice = { employment: "regular", sex: "all", education: "all", size: "all" };
+const LEGACY_CHOICE: WageCurveChoice = { employment: "regular", size: "all" };
 
 const curveOf = (p: EmploymentPeriod | undefined): string | undefined => (p?.salary?.growth as { curve?: string } | undefined)?.curve;
 const choiceOf = (id: string | undefined): WageCurveChoice | null => (id === undefined ? null : id === LEGACY_CURVE ? null : parseWageCurveId(id));
 
 /**
- * 働き方の種類を変えたときの統計の年齢カーブ: 正社員⇄契約・嘱託は、同じ性別・企業規模の表に移す（正社員・正職員以外の表は学歴計だけ）。
+ * 働き方の種類を変えたときの統計の年齢カーブ: 正社員⇄契約・嘱託は、同じ企業規模の表に移す。
  * 選べない種類（パート・公務員・役員）にしたら外す（前提条件の賃金上昇率に戻る）
  */
 function convertCurve(salary: NonNullable<EmploymentPeriod["salary"]>, type: string): void {
@@ -1233,7 +1228,7 @@ function curveEffect(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, id: s
 /**
  * 統計の年齢カーブで増やす（詳細の働き方の期間。給与の期間の正社員・契約・嘱託だけ。0116）: 賃金構造基本統計調査の年齢階級ごとの年収の比で、
  * 今の年収から将来の年収を出す（係数の比を毎年掛ける。エンジンの昇給カーブ salary.growth.curve）。既定は使わない（前提条件の賃金上昇率だけ）。
- * 性別の表は男女計（性別を使わない）・男性・女性から選ぶ。学歴（正社員だけ）と企業規模は選んだ後に出す
+ * 表は男女計・学歴計（人の属性で推定の数字を分けない。0117）。企業規模は勤め先の属性なので、使うと選べる
  */
 function curveFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find: Finder, prefix: string): FieldDef[] {
   const employment = wageCurveEmployment(p.type);
@@ -1248,11 +1243,9 @@ function curveFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
       if (x?.salary === undefined || e === null) return;
       const id = curveOf(x);
       const c = id === LEGACY_CURVE ? LEGACY_CHOICE : choiceOf(id);
-      x.salary.growth = { curve: wageCurveId(next({ ...(c ?? { sex: "all", education: "all", size: "all" }), employment: e })) };
+      x.salary.growth = { curve: wageCurveId(next({ ...(c ?? { size: "all" }), employment: e })) };
     });
-  const own = m.sex === "male" || m.sex === "female" ? m.sex : null;
-  const sexOptions = (["all", "male", "female"] as const).map((s) => ({ value: s, label: `${CURVE_SEX_LABEL[s]}の表で増やす${s === "all" ? "（性別を使わない）" : s === own ? "（この人の性別）" : ""}` }));
-  const other = cur !== undefined && choice === null ? [{ value: "other", label: cur === LEGACY_CURVE ? "前の版の表で増やす（正社員・男女計・60歳以後も下がる）" : `ほかの表で増やす（${cur}）` }] : [];
+  const other = cur !== undefined && choice === null ? [{ value: "other", label: cur === LEGACY_CURVE ? "前の版の表で増やす（正社員・60歳以後も下がる）" : `ほかの表で増やす（${cur}）` }] : [];
   const out: FieldDef[] = [
     {
       ...field({
@@ -1261,9 +1254,9 @@ function curveFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
         label: "統計の年齢カーブで増やす",
         level: "detail",
         kind: "select",
-        options: [{ value: "none", label: "使わない" }, ...(employment !== null ? sexOptions : []), ...other],
+        options: [{ value: "none", label: "使わない" }, ...(employment !== null ? [{ value: "use", label: "統計の年齢カーブで増やす" }] : []), ...other],
         structural: true,
-        help: "使わないときは、前提条件の賃金上昇率（か「この期間の伸び（年率）」）で伸ばします。使うと、賃金構造基本統計調査（厚生労働省 令和7年）の年齢ごとの年収の比で、今の年収から毎年の年収を伸ばします（30〜34歳から40〜44歳へ、のように年齢の係数の比を掛けます）。前提条件の賃金上昇率の分も別に伸ばします。「この期間の伸び（年率）」を入れていれば、その代わりに使います。男女計の表は性別を使いません。60歳以後は伸ばしません（定年後の下がり方は定年後の予定で入れます）",
+        help: "使わないときは、前提条件の賃金上昇率（か「この期間の伸び（年率）」）で伸ばします。使うと、賃金構造基本統計調査（厚生労働省 令和7年）の年齢ごとの年収の比で、今の年収から毎年の年収を伸ばします（30〜34歳から40〜44歳へ、のように年齢の係数の比を掛けます）。前提条件の賃金上昇率の分も別に伸ばします。「この期間の伸び（年率）」を入れていれば、その代わりに使います。表は性別・学歴で分けない全体の表です。60歳以後は伸ばしません（定年後の下がり方は定年後の予定で入れます）",
         get: (w) => {
           const x = find(w.request.input.household, w) as EmploymentPeriod | undefined;
           const id = curveOf(x);
@@ -1271,8 +1264,7 @@ function curveFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
           const c = choiceOf(id);
           const xm = w.request.input.household.members.find((y) => y.id === m.id) ?? m;
           const hint = x === undefined ? null : curveEffect(w, xm, x, id);
-          const differs = c !== null && c.sex !== "all" && (xm.sex === "male" || xm.sex === "female") && c.sex !== xm.sex ? `この人の性別（${CURVE_SEX_LABEL[xm.sex]}）と違う表です。` : "";
-          return { value: c === null ? "other" : c.sex, hint: `${differs}${hint ?? ""}` || null };
+          return { value: c === null ? "other" : "use", hint };
         },
         set: (w, v) => {
           if (v === "other" || v === null) return w;
@@ -1281,28 +1273,13 @@ function curveFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
               const x = find(h, { ...w, request: req }) as EmploymentPeriod | undefined;
               if (curveOf(x) !== undefined && x?.salary !== undefined) delete x.salary.growth;
             });
-          return write(w, (c) => ({ ...c, sex: v as WageCurveSex }));
+          return write(w, (c) => c);
         },
       }),
       address,
     },
   ];
   if (choice === null || employment === null) return out;
-  if (employment === "regular")
-    out.push({
-      ...field({
-        key: `${prefix}/salaryCurveEducation`,
-        item: CURVE_ITEM,
-        label: "年齢カーブの学歴",
-        level: "detail",
-        kind: "select",
-        options: WAGE_CURVE_EDUCATIONS.map((e) => ({ value: e, label: CURVE_EDUCATION_LABEL[e] })),
-        help: "最後に出た学校（統計の学歴の区分）。学歴で年齢ごとの伸び方が違います",
-        get: (w) => ({ value: choiceOf(curveOf(find(w.request.input.household, w) as EmploymentPeriod | undefined))?.education ?? "all" }),
-        set: (w, v) => (v === null ? w : write(w, (c) => ({ ...c, education: v as WageCurveEducation }))),
-      }),
-      address,
-    });
   out.push({
     ...field({
       key: `${prefix}/salaryCurveSize`,

@@ -3,30 +3,16 @@
 import type { DatedValue, MasterValue } from "./statistics.ts";
 
 export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
- "wageStats.annualBonus.nonRegular.female": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年間賞与その他特別給与額（正社員・正職員以外・女・年齢計・企業規模計。民営事業所）",
-  "value": 170400,
+ "wageStats.annualBonus.nonRegular.all": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年間賞与その他特別給与額（正社員・正職員以外・男女計・年齢計・企業規模計。民営事業所）",
+  "value": 254800,
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "wageStats.annualBonus.nonRegular.male": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年間賞与その他特別給与額（正社員・正職員以外・男・年齢計・企業規模計。民営事業所）",
-  "value": 350100,
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.annualBonus.regular.female": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年間賞与その他特別給与額（正社員・正職員・女・年齢計・企業規模計。民営事業所）",
-  "value": 867900,
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.annualBonus.regular.male": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年間賞与その他特別給与額（正社員・正職員・男・年齢計・企業規模計。民営事業所）",
-  "value": 1297900,
+ "wageStats.annualBonus.regular.all": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年間賞与その他特別給与額（正社員・正職員・男女計・年齢計・企業規模計。民営事業所）",
+  "value": 1148800,
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
@@ -38,660 +24,44 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "wageStats.byAge.annualBonus.nonRegular.female.all": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・女・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）",
+ "wageStats.byAge.annualBonus.nonRegular.all.all": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男女計・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）",
   "value": [
    {
     "upTo": 19,
-    "amount": 10400
+    "amount": 16300
    },
    {
     "upTo": 24,
-    "amount": 60900
+    "amount": 57400
    },
    {
     "upTo": 29,
-    "amount": 90000
+    "amount": 92000
    },
    {
     "upTo": 34,
-    "amount": 121700
+    "amount": 122300
    },
    {
     "upTo": 39,
-    "amount": 133500
+    "amount": 128500
    },
    {
     "upTo": 44,
-    "amount": 165800
+    "amount": 151700
    },
    {
     "upTo": 49,
-    "amount": 173400
+    "amount": 170000
    },
    {
     "upTo": 54,
-    "amount": 163800
+    "amount": 156900
    },
    {
     "upTo": 59,
-    "amount": 156700
-   },
-   {
-    "upTo": 64,
-    "amount": 315200
-   },
-   {
-    "upTo": 69,
-    "amount": 181800
-   },
-   {
-    "upTo": null,
-    "amount": 100400
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.annualBonus.nonRegular.female.large": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・女・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 8100
-   },
-   {
-    "upTo": 24,
-    "amount": 51000
-   },
-   {
-    "upTo": 29,
-    "amount": 78300
-   },
-   {
-    "upTo": 34,
-    "amount": 110200
-   },
-   {
-    "upTo": 39,
-    "amount": 114900
-   },
-   {
-    "upTo": 44,
-    "amount": 158500
-   },
-   {
-    "upTo": 49,
-    "amount": 155400
-   },
-   {
-    "upTo": 54,
-    "amount": 165000
-   },
-   {
-    "upTo": 59,
-    "amount": 137600
-   },
-   {
-    "upTo": 64,
-    "amount": 294700
-   },
-   {
-    "upTo": 69,
-    "amount": 127300
-   },
-   {
-    "upTo": null,
-    "amount": 61600
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.annualBonus.nonRegular.female.medium": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・女・100～999人。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 14100
-   },
-   {
-    "upTo": 24,
-    "amount": 55200
-   },
-   {
-    "upTo": 29,
-    "amount": 94400
-   },
-   {
-    "upTo": 34,
-    "amount": 116700
-   },
-   {
-    "upTo": 39,
-    "amount": 138300
-   },
-   {
-    "upTo": 44,
-    "amount": 161300
-   },
-   {
-    "upTo": 49,
-    "amount": 172000
-   },
-   {
-    "upTo": 54,
-    "amount": 149300
-   },
-   {
-    "upTo": 59,
-    "amount": 175300
-   },
-   {
-    "upTo": 64,
-    "amount": 338400
-   },
-   {
-    "upTo": 69,
-    "amount": 190500
-   },
-   {
-    "upTo": null,
-    "amount": 121200
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.annualBonus.nonRegular.female.small": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・女・10～99人。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 7500
-   },
-   {
-    "upTo": 24,
-    "amount": 85200
-   },
-   {
-    "upTo": 29,
-    "amount": 109600
-   },
-   {
-    "upTo": 34,
-    "amount": 157100
-   },
-   {
-    "upTo": 39,
-    "amount": 163000
-   },
-   {
-    "upTo": 44,
-    "amount": 188900
-   },
-   {
-    "upTo": 49,
-    "amount": 214600
-   },
-   {
-    "upTo": 54,
-    "amount": 186900
-   },
-   {
-    "upTo": 59,
-    "amount": 169700
-   },
-   {
-    "upTo": 64,
-    "amount": 305900
-   },
-   {
-    "upTo": 69,
-    "amount": 232600
-   },
-   {
-    "upTo": null,
-    "amount": 101200
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.annualBonus.nonRegular.male.all": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 21900
-   },
-   {
-    "upTo": 24,
-    "amount": 53400
-   },
-   {
-    "upTo": 29,
-    "amount": 94500
-   },
-   {
-    "upTo": 34,
-    "amount": 123000
-   },
-   {
-    "upTo": 39,
-    "amount": 121600
-   },
-   {
-    "upTo": 44,
-    "amount": 124500
-   },
-   {
-    "upTo": 49,
-    "amount": 162300
-   },
-   {
-    "upTo": 54,
-    "amount": 140200
-   },
-   {
-    "upTo": 59,
-    "amount": 167500
-   },
-   {
-    "upTo": 64,
-    "amount": 792900
-   },
-   {
-    "upTo": 69,
-    "amount": 344400
-   },
-   {
-    "upTo": null,
-    "amount": 161600
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.annualBonus.nonRegular.male.large": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 14500
-   },
-   {
-    "upTo": 24,
-    "amount": 66800
-   },
-   {
-    "upTo": 29,
-    "amount": 112500
-   },
-   {
-    "upTo": 34,
-    "amount": 126400
-   },
-   {
-    "upTo": 39,
-    "amount": 140800
-   },
-   {
-    "upTo": 44,
-    "amount": 132300
-   },
-   {
-    "upTo": 49,
-    "amount": 211500
-   },
-   {
-    "upTo": 54,
-    "amount": 156100
-   },
-   {
-    "upTo": 59,
-    "amount": 231700
-   },
-   {
-    "upTo": 64,
-    "amount": 1005500
-   },
-   {
-    "upTo": 69,
-    "amount": 404000
-   },
-   {
-    "upTo": null,
-    "amount": 178400
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.annualBonus.nonRegular.male.medium": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男・100～999人。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 27900
-   },
-   {
-    "upTo": 24,
-    "amount": 47200
-   },
-   {
-    "upTo": 29,
-    "amount": 92500
-   },
-   {
-    "upTo": 34,
-    "amount": 123700
-   },
-   {
-    "upTo": 39,
-    "amount": 106400
-   },
-   {
-    "upTo": 44,
-    "amount": 121600
-   },
-   {
-    "upTo": 49,
-    "amount": 131100
-   },
-   {
-    "upTo": 54,
-    "amount": 140500
-   },
-   {
-    "upTo": 59,
-    "amount": 136300
-   },
-   {
-    "upTo": 64,
-    "amount": 717700
-   },
-   {
-    "upTo": 69,
-    "amount": 324800
-   },
-   {
-    "upTo": null,
-    "amount": 140400
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.annualBonus.nonRegular.male.small": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男・10～99人。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 19300
-   },
-   {
-    "upTo": 24,
-    "amount": 43600
-   },
-   {
-    "upTo": 29,
-    "amount": 62200
-   },
-   {
-    "upTo": 34,
-    "amount": 111500
-   },
-   {
-    "upTo": 39,
-    "amount": 113900
-   },
-   {
-    "upTo": 44,
-    "amount": 110900
-   },
-   {
-    "upTo": 49,
-    "amount": 115800
-   },
-   {
-    "upTo": 54,
-    "amount": 107000
-   },
-   {
-    "upTo": 59,
-    "amount": 114800
-   },
-   {
-    "upTo": 64,
-    "amount": 475000
-   },
-   {
-    "upTo": 69,
-    "amount": 307400
-   },
-   {
-    "upTo": null,
-    "amount": 181600
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.annualBonus.regular.female.all": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・女・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 137800
-   },
-   {
-    "upTo": 24,
-    "amount": 413000
-   },
-   {
-    "upTo": 29,
-    "amount": 722800
-   },
-   {
-    "upTo": 34,
-    "amount": 800400
-   },
-   {
-    "upTo": 39,
-    "amount": 879800
-   },
-   {
-    "upTo": 44,
-    "amount": 968800
-   },
-   {
-    "upTo": 49,
-    "amount": 996400
-   },
-   {
-    "upTo": 54,
-    "amount": 1098300
-   },
-   {
-    "upTo": 59,
-    "amount": 1120300
-   },
-   {
-    "upTo": 64,
-    "amount": 857900
-   },
-   {
-    "upTo": 69,
-    "amount": 559700
-   },
-   {
-    "upTo": null,
-    "amount": 520300
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.annualBonus.regular.female.large": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・女・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 167500
-   },
-   {
-    "upTo": 24,
-    "amount": 465300
-   },
-   {
-    "upTo": 29,
-    "amount": 913800
-   },
-   {
-    "upTo": 34,
-    "amount": 1042400
-   },
-   {
-    "upTo": 39,
-    "amount": 1190900
-   },
-   {
-    "upTo": 44,
-    "amount": 1332300
-   },
-   {
-    "upTo": 49,
-    "amount": 1383700
-   },
-   {
-    "upTo": 54,
-    "amount": 1573300
-   },
-   {
-    "upTo": 59,
-    "amount": 1680900
-   },
-   {
-    "upTo": 64,
-    "amount": 1271400
-   },
-   {
-    "upTo": 69,
-    "amount": 835300
-   },
-   {
-    "upTo": null,
-    "amount": 790600
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.annualBonus.regular.female.medium": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・女・100～999人。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 126500
-   },
-   {
-    "upTo": 24,
-    "amount": 401000
-   },
-   {
-    "upTo": 29,
-    "amount": 673900
-   },
-   {
-    "upTo": 34,
-    "amount": 738500
-   },
-   {
-    "upTo": 39,
-    "amount": 819300
-   },
-   {
-    "upTo": 44,
-    "amount": 915100
-   },
-   {
-    "upTo": 49,
-    "amount": 965700
-   },
-   {
-    "upTo": 54,
-    "amount": 1059000
-   },
-   {
-    "upTo": 59,
-    "amount": 1014900
-   },
-   {
-    "upTo": 64,
-    "amount": 829700
-   },
-   {
-    "upTo": 69,
-    "amount": 529800
-   },
-   {
-    "upTo": null,
-    "amount": 438100
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.annualBonus.regular.female.small": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・女・10～99人。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 118100
-   },
-   {
-    "upTo": 24,
-    "amount": 349900
-   },
-   {
-    "upTo": 29,
-    "amount": 531300
-   },
-   {
-    "upTo": 34,
-    "amount": 598600
-   },
-   {
-    "upTo": 39,
-    "amount": 614100
-   },
-   {
-    "upTo": 44,
-    "amount": 673400
-   },
-   {
-    "upTo": 49,
-    "amount": 686000
-   },
-   {
-    "upTo": 54,
-    "amount": 732700
-   },
-   {
-    "upTo": 59,
-    "amount": 731200
+    "amount": 160300
    },
    {
     "upTo": 64,
@@ -699,59 +69,227 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
    },
    {
     "upTo": 69,
-    "amount": 483200
+    "amount": 290300
    },
    {
     "upTo": null,
-    "amount": 469300
+    "amount": 141800
    }
   ],
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "wageStats.byAge.annualBonus.regular.male.all": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）",
+ "wageStats.byAge.annualBonus.nonRegular.all.large": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男女計・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）",
   "value": [
    {
     "upTo": 19,
-    "amount": 180000
+    "amount": 11200
    },
    {
     "upTo": 24,
-    "amount": 491300
+    "amount": 58300
    },
    {
     "upTo": 29,
-    "amount": 851300
+    "amount": 92700
    },
    {
     "upTo": 34,
-    "amount": 1084400
+    "amount": 117600
    },
    {
     "upTo": 39,
-    "amount": 1273000
+    "amount": 125500
    },
    {
     "upTo": 44,
-    "amount": 1427600
+    "amount": 149400
    },
    {
     "upTo": 49,
-    "amount": 1531000
+    "amount": 172100
    },
    {
     "upTo": 54,
-    "amount": 1672800
+    "amount": 162600
    },
    {
     "upTo": 59,
-    "amount": 1706700
+    "amount": 164700
    },
    {
     "upTo": 64,
-    "amount": 1127000
+    "amount": 750600
+   },
+   {
+    "upTo": 69,
+    "amount": 308400
+   },
+   {
+    "upTo": null,
+    "amount": 139400
+   }
+  ],
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "wageStats.byAge.annualBonus.nonRegular.all.medium": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男女計・100～999人。民営事業所。upTo は年齢階級の上限の年齢）",
+  "value": [
+   {
+    "upTo": 19,
+    "amount": 21600
+   },
+   {
+    "upTo": 24,
+    "amount": 51300
+   },
+   {
+    "upTo": 29,
+    "amount": 93600
+   },
+   {
+    "upTo": 34,
+    "amount": 120000
+   },
+   {
+    "upTo": 39,
+    "amount": 123600
+   },
+   {
+    "upTo": 44,
+    "amount": 147200
+   },
+   {
+    "upTo": 49,
+    "amount": 157400
+   },
+   {
+    "upTo": 54,
+    "amount": 146600
+   },
+   {
+    "upTo": 59,
+    "amount": 160100
+   },
+   {
+    "upTo": 64,
+    "amount": 581300
+   },
+   {
+    "upTo": 69,
+    "amount": 282900
+   },
+   {
+    "upTo": null,
+    "amount": 134600
+   }
+  ],
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "wageStats.byAge.annualBonus.nonRegular.all.small": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男女計・10～99人。民営事業所。upTo は年齢階級の上限の年齢）",
+  "value": [
+   {
+    "upTo": 19,
+    "amount": 13200
+   },
+   {
+    "upTo": 24,
+    "amount": 67400
+   },
+   {
+    "upTo": 29,
+    "amount": 86900
+   },
+   {
+    "upTo": 34,
+    "amount": 138700
+   },
+   {
+    "upTo": 39,
+    "amount": 146100
+   },
+   {
+    "upTo": 44,
+    "amount": 166100
+   },
+   {
+    "upTo": 49,
+    "amount": 189700
+   },
+   {
+    "upTo": 54,
+    "amount": 162500
+   },
+   {
+    "upTo": 59,
+    "amount": 151000
+   },
+   {
+    "upTo": 64,
+    "amount": 402300
+   },
+   {
+    "upTo": 69,
+    "amount": 280900
+   },
+   {
+    "upTo": null,
+    "amount": 153700
+   }
+  ],
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "wageStats.byAge.annualBonus.regular.all.all": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男女計・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）",
+  "value": [
+   {
+    "upTo": 19,
+    "amount": 164700
+   },
+   {
+    "upTo": 24,
+    "amount": 454500
+   },
+   {
+    "upTo": 29,
+    "amount": 795400
+   },
+   {
+    "upTo": 34,
+    "amount": 980700
+   },
+   {
+    "upTo": 39,
+    "amount": 1146600
+   },
+   {
+    "upTo": 44,
+    "amount": 1278700
+   },
+   {
+    "upTo": 49,
+    "amount": 1352900
+   },
+   {
+    "upTo": 54,
+    "amount": 1490600
+   },
+   {
+    "upTo": 59,
+    "amount": 1530700
+   },
+   {
+    "upTo": 64,
+    "amount": 1045400
    },
    {
     "upTo": 69,
@@ -759,519 +297,239 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
    },
    {
     "upTo": null,
-    "amount": 360900
+    "amount": 399700
    }
   ],
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "wageStats.byAge.annualBonus.regular.male.large": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）",
+ "wageStats.byAge.annualBonus.regular.all.large": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男女計・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）",
   "value": [
    {
     "upTo": 19,
-    "amount": 237600
+    "amount": 215800
    },
    {
     "upTo": 24,
-    "amount": 592600
+    "amount": 534100
    },
    {
     "upTo": 29,
-    "amount": 1083400
+    "amount": 1014200
    },
    {
     "upTo": 34,
-    "amount": 1427700
+    "amount": 1296200
    },
    {
     "upTo": 39,
-    "amount": 1724400
+    "amount": 1568100
    },
    {
     "upTo": 44,
-    "amount": 2076900
+    "amount": 1854700
    },
    {
     "upTo": 49,
-    "amount": 2249600
+    "amount": 1988300
    },
    {
     "upTo": 54,
-    "amount": 2505100
+    "amount": 2245900
    },
    {
     "upTo": 59,
-    "amount": 2607600
+    "amount": 2366200
    },
    {
     "upTo": 64,
-    "amount": 1900200
+    "amount": 1712900
    },
    {
     "upTo": 69,
-    "amount": 1197600
+    "amount": 1053500
    },
    {
     "upTo": null,
-    "amount": 736800
+    "amount": 769700
    }
   ],
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "wageStats.byAge.annualBonus.regular.male.medium": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男・100～999人。民営事業所。upTo は年齢階級の上限の年齢）",
+ "wageStats.byAge.annualBonus.regular.all.medium": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男女計・100～999人。民営事業所。upTo は年齢階級の上限の年齢）",
   "value": [
    {
     "upTo": 19,
-    "amount": 158000
+    "amount": 145000
    },
    {
     "upTo": 24,
-    "amount": 492500
+    "amount": 447900
    },
    {
     "upTo": 29,
-    "amount": 811200
+    "amount": 747700
    },
    {
     "upTo": 34,
-    "amount": 1045300
+    "amount": 926800
    },
    {
     "upTo": 39,
-    "amount": 1172500
+    "amount": 1050500
    },
    {
     "upTo": 44,
-    "amount": 1268500
+    "amount": 1148100
    },
    {
     "upTo": 49,
-    "amount": 1400600
+    "amount": 1246500
    },
    {
     "upTo": 54,
-    "amount": 1519500
+    "amount": 1364300
    },
    {
     "upTo": 59,
-    "amount": 1523100
+    "amount": 1357600
    },
    {
     "upTo": 64,
-    "amount": 1081100
+    "amount": 994900
    },
    {
     "upTo": 69,
-    "amount": 636100
+    "amount": 606700
    },
    {
     "upTo": null,
-    "amount": 339600
+    "amount": 363400
    }
   ],
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "wageStats.byAge.annualBonus.regular.male.small": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男・10～99人。民営事業所。upTo は年齢階級の上限の年齢）",
+ "wageStats.byAge.annualBonus.regular.all.small": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男女計・10～99人。民営事業所。upTo は年齢階級の上限の年齢）",
   "value": [
    {
     "upTo": 19,
-    "amount": 112100
+    "amount": 114300
    },
    {
     "upTo": 24,
-    "amount": 327700
+    "amount": 338000
    },
    {
     "upTo": 29,
-    "amount": 542400
+    "amount": 537600
    },
    {
     "upTo": 34,
-    "amount": 677900
+    "amount": 648800
    },
    {
     "upTo": 39,
-    "amount": 808900
+    "amount": 745400
    },
    {
     "upTo": 44,
-    "amount": 855400
+    "amount": 794600
    },
    {
     "upTo": 49,
-    "amount": 914600
+    "amount": 837000
    },
    {
     "upTo": 54,
-    "amount": 904300
+    "amount": 846700
    },
    {
     "upTo": 59,
-    "amount": 836000
+    "amount": 802900
    },
    {
     "upTo": 64,
-    "amount": 697500
+    "amount": 674400
    },
    {
     "upTo": 69,
-    "amount": 437400
+    "amount": 447700
    },
    {
     "upTo": null,
-    "amount": 348500
+    "amount": 373800
    }
   ],
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "wageStats.byAge.contractualMonthly.nonRegular.female.all": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・女・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）",
+ "wageStats.byAge.contractualMonthly.nonRegular.all.all": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男女計・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）",
   "value": [
    {
     "upTo": 19,
-    "amount": 201200
+    "amount": 206900
    },
    {
     "upTo": 24,
-    "amount": 220500
+    "amount": 225500
    },
    {
     "upTo": 29,
-    "amount": 240700
+    "amount": 254700
    },
    {
     "upTo": 34,
-    "amount": 237300
+    "amount": 256900
    },
    {
     "upTo": 39,
-    "amount": 228800
+    "amount": 248500
    },
    {
     "upTo": 44,
-    "amount": 230600
+    "amount": 247100
    },
    {
     "upTo": 49,
-    "amount": 231400
+    "amount": 250000
    },
    {
     "upTo": 54,
-    "amount": 230400
+    "amount": 245500
    },
    {
     "upTo": 59,
-    "amount": 228000
+    "amount": 248000
    },
    {
     "upTo": 64,
-    "amount": 239600
+    "amount": 298600
    },
    {
     "upTo": 69,
-    "amount": 220000
+    "amount": 263900
    },
    {
     "upTo": null,
-    "amount": 204800
+    "amount": 239200
    }
   ],
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "wageStats.byAge.contractualMonthly.nonRegular.female.large": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・女・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 209500
-   },
-   {
-    "upTo": 24,
-    "amount": 229600
-   },
-   {
-    "upTo": 29,
-    "amount": 255700
-   },
-   {
-    "upTo": 34,
-    "amount": 247500
-   },
-   {
-    "upTo": 39,
-    "amount": 240300
-   },
-   {
-    "upTo": 44,
-    "amount": 244100
-   },
-   {
-    "upTo": 49,
-    "amount": 239400
-   },
-   {
-    "upTo": 54,
-    "amount": 239900
-   },
-   {
-    "upTo": 59,
-    "amount": 235400
-   },
-   {
-    "upTo": 64,
-    "amount": 244900
-   },
-   {
-    "upTo": 69,
-    "amount": 227300
-   },
-   {
-    "upTo": null,
-    "amount": 215200
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.contractualMonthly.nonRegular.female.medium": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・女・100～999人。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 202800
-   },
-   {
-    "upTo": 24,
-    "amount": 222800
-   },
-   {
-    "upTo": 29,
-    "amount": 233800
-   },
-   {
-    "upTo": 34,
-    "amount": 234900
-   },
-   {
-    "upTo": 39,
-    "amount": 226000
-   },
-   {
-    "upTo": 44,
-    "amount": 223900
-   },
-   {
-    "upTo": 49,
-    "amount": 227500
-   },
-   {
-    "upTo": 54,
-    "amount": 226400
-   },
-   {
-    "upTo": 59,
-    "amount": 224200
-   },
-   {
-    "upTo": 64,
-    "amount": 242100
-   },
-   {
-    "upTo": 69,
-    "amount": 220500
-   },
-   {
-    "upTo": null,
-    "amount": 208300
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.contractualMonthly.nonRegular.female.small": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・女・10～99人。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 188200
-   },
-   {
-    "upTo": 24,
-    "amount": 203100
-   },
-   {
-    "upTo": 29,
-    "amount": 218100
-   },
-   {
-    "upTo": 34,
-    "amount": 219700
-   },
-   {
-    "upTo": 39,
-    "amount": 210100
-   },
-   {
-    "upTo": 44,
-    "amount": 214700
-   },
-   {
-    "upTo": 49,
-    "amount": 221000
-   },
-   {
-    "upTo": 54,
-    "amount": 214700
-   },
-   {
-    "upTo": 59,
-    "amount": 217200
-   },
-   {
-    "upTo": 64,
-    "amount": 225100
-   },
-   {
-    "upTo": 69,
-    "amount": 210800
-   },
-   {
-    "upTo": null,
-    "amount": 193300
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.contractualMonthly.nonRegular.male.all": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 212400
-   },
-   {
-    "upTo": 24,
-    "amount": 231300
-   },
-   {
-    "upTo": 29,
-    "amount": 271700
-   },
-   {
-    "upTo": 34,
-    "amount": 280200
-   },
-   {
-    "upTo": 39,
-    "amount": 276100
-   },
-   {
-    "upTo": 44,
-    "amount": 279200
-   },
-   {
-    "upTo": 49,
-    "amount": 291000
-   },
-   {
-    "upTo": 54,
-    "amount": 282200
-   },
-   {
-    "upTo": 59,
-    "amount": 287500
-   },
-   {
-    "upTo": 64,
-    "amount": 333600
-   },
-   {
-    "upTo": 69,
-    "amount": 285800
-   },
-   {
-    "upTo": null,
-    "amount": 255700
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.contractualMonthly.nonRegular.male.large": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 220400
-   },
-   {
-    "upTo": 24,
-    "amount": 244700
-   },
-   {
-    "upTo": 29,
-    "amount": 304900
-   },
-   {
-    "upTo": 34,
-    "amount": 300900
-   },
-   {
-    "upTo": 39,
-    "amount": 294800
-   },
-   {
-    "upTo": 44,
-    "amount": 292300
-   },
-   {
-    "upTo": 49,
-    "amount": 308800
-   },
-   {
-    "upTo": 54,
-    "amount": 287900
-   },
-   {
-    "upTo": 59,
-    "amount": 316100
-   },
-   {
-    "upTo": 64,
-    "amount": 355200
-   },
-   {
-    "upTo": 69,
-    "amount": 297300
-   },
-   {
-    "upTo": null,
-    "amount": 292000
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.contractualMonthly.nonRegular.male.medium": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男・100～999人。民営事業所。upTo は年齢階級の上限の年齢）",
+ "wageStats.byAge.contractualMonthly.nonRegular.all.large": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男女計・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）",
   "value": [
    {
     "upTo": 19,
@@ -1279,551 +537,383 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
    },
    {
     "upTo": 24,
-    "amount": 229200
+    "amount": 236500
    },
    {
     "upTo": 29,
-    "amount": 258900
+    "amount": 276400
    },
    {
     "upTo": 34,
-    "amount": 264600
+    "amount": 272000
    },
    {
     "upTo": 39,
-    "amount": 262900
+    "amount": 262600
    },
    {
     "upTo": 44,
-    "amount": 268300
+    "amount": 260900
    },
    {
     "upTo": 49,
-    "amount": 279200
+    "amount": 260100
    },
    {
     "upTo": 54,
-    "amount": 272900
+    "amount": 252900
    },
    {
     "upTo": 59,
-    "amount": 268200
+    "amount": 258700
    },
    {
     "upTo": 64,
-    "amount": 324200
+    "amount": 315600
    },
    {
     "upTo": 69,
-    "amount": 285900
+    "amount": 273100
    },
    {
     "upTo": null,
-    "amount": 252500
+    "amount": 266300
    }
   ],
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "wageStats.byAge.contractualMonthly.nonRegular.male.small": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男・10～99人。民営事業所。upTo は年齢階級の上限の年齢）",
+ "wageStats.byAge.contractualMonthly.nonRegular.all.medium": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男女計・100～999人。民営事業所。upTo は年齢階級の上限の年齢）",
   "value": [
    {
     "upTo": 19,
-    "amount": 197500
+    "amount": 209400
    },
    {
     "upTo": 24,
-    "amount": 213000
-   },
-   {
-    "upTo": 29,
-    "amount": 232100
-   },
-   {
-    "upTo": 34,
-    "amount": 265300
-   },
-   {
-    "upTo": 39,
-    "amount": 264000
-   },
-   {
-    "upTo": 44,
-    "amount": 271100
-   },
-   {
-    "upTo": 49,
-    "amount": 275300
-   },
-   {
-    "upTo": 54,
-    "amount": 287700
-   },
-   {
-    "upTo": 59,
-    "amount": 275500
-   },
-   {
-    "upTo": 64,
-    "amount": 305700
-   },
-   {
-    "upTo": 69,
-    "amount": 271600
-   },
-   {
-    "upTo": null,
-    "amount": 234200
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.contractualMonthly.regular.female.all": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・女・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 215200
-   },
-   {
-    "upTo": 24,
-    "amount": 263400
-   },
-   {
-    "upTo": 29,
-    "amount": 300000
-   },
-   {
-    "upTo": 34,
-    "amount": 316100
-   },
-   {
-    "upTo": 39,
-    "amount": 326800
-   },
-   {
-    "upTo": 44,
-    "amount": 343400
-   },
-   {
-    "upTo": 49,
-    "amount": 348700
-   },
-   {
-    "upTo": 54,
-    "amount": 355500
-   },
-   {
-    "upTo": 59,
-    "amount": 359000
-   },
-   {
-    "upTo": 64,
-    "amount": 323700
-   },
-   {
-    "upTo": 69,
-    "amount": 296200
-   },
-   {
-    "upTo": null,
-    "amount": 275700
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.contractualMonthly.regular.female.large": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・女・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 230400
-   },
-   {
-    "upTo": 24,
-    "amount": 287400
-   },
-   {
-    "upTo": 29,
-    "amount": 332500
-   },
-   {
-    "upTo": 34,
-    "amount": 356200
-   },
-   {
-    "upTo": 39,
-    "amount": 366000
-   },
-   {
-    "upTo": 44,
-    "amount": 402900
-   },
-   {
-    "upTo": 49,
-    "amount": 414800
-   },
-   {
-    "upTo": 54,
-    "amount": 419300
-   },
-   {
-    "upTo": 59,
-    "amount": 427900
-   },
-   {
-    "upTo": 64,
-    "amount": 384800
-   },
-   {
-    "upTo": 69,
-    "amount": 368200
-   },
-   {
-    "upTo": null,
-    "amount": 327700
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.contractualMonthly.regular.female.medium": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・女・100～999人。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 210800
-   },
-   {
-    "upTo": 24,
-    "amount": 255900
-   },
-   {
-    "upTo": 29,
-    "amount": 291000
-   },
-   {
-    "upTo": 34,
-    "amount": 305900
-   },
-   {
-    "upTo": 39,
-    "amount": 321200
-   },
-   {
-    "upTo": 44,
-    "amount": 332600
-   },
-   {
-    "upTo": 49,
-    "amount": 341400
-   },
-   {
-    "upTo": 54,
-    "amount": 351500
-   },
-   {
-    "upTo": 59,
-    "amount": 350000
-   },
-   {
-    "upTo": 64,
-    "amount": 319500
-   },
-   {
-    "upTo": 69,
-    "amount": 291300
-   },
-   {
-    "upTo": null,
-    "amount": 261200
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.contractualMonthly.regular.female.small": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・女・10～99人。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 202500
-   },
-   {
-    "upTo": 24,
-    "amount": 237900
-   },
-   {
-    "upTo": 29,
-    "amount": 268600
-   },
-   {
-    "upTo": 34,
-    "amount": 282700
-   },
-   {
-    "upTo": 39,
-    "amount": 290500
-   },
-   {
-    "upTo": 44,
-    "amount": 297500
-   },
-   {
-    "upTo": 49,
-    "amount": 298300
-   },
-   {
-    "upTo": 54,
-    "amount": 304800
-   },
-   {
-    "upTo": 59,
-    "amount": 306600
-   },
-   {
-    "upTo": 64,
-    "amount": 287800
-   },
-   {
-    "upTo": 69,
-    "amount": 274700
-   },
-   {
-    "upTo": null,
-    "amount": 265500
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.contractualMonthly.regular.male.all": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 234300
-   },
-   {
-    "upTo": 24,
-    "amount": 279200
-   },
-   {
-    "upTo": 29,
-    "amount": 333900
-   },
-   {
-    "upTo": 34,
-    "amount": 382700
-   },
-   {
-    "upTo": 39,
-    "amount": 420900
-   },
-   {
-    "upTo": 44,
-    "amount": 449200
-   },
-   {
-    "upTo": 49,
-    "amount": 469000
-   },
-   {
-    "upTo": 54,
-    "amount": 485800
-   },
-   {
-    "upTo": 59,
-    "amount": 494300
-   },
-   {
-    "upTo": 64,
-    "amount": 416800
-   },
-   {
-    "upTo": 69,
-    "amount": 359700
-   },
-   {
-    "upTo": null,
-    "amount": 322300
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.contractualMonthly.regular.male.large": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
-    "amount": 248400
-   },
-   {
-    "upTo": 24,
-    "amount": 302800
-   },
-   {
-    "upTo": 29,
-    "amount": 371700
-   },
-   {
-    "upTo": 34,
-    "amount": 437600
-   },
-   {
-    "upTo": 39,
-    "amount": 494800
-   },
-   {
-    "upTo": 44,
-    "amount": 533200
-   },
-   {
-    "upTo": 49,
-    "amount": 560800
-   },
-   {
-    "upTo": 54,
-    "amount": 575800
-   },
-   {
-    "upTo": 59,
-    "amount": 592300
-   },
-   {
-    "upTo": 64,
-    "amount": 485700
-   },
-   {
-    "upTo": 69,
-    "amount": 474600
-   },
-   {
-    "upTo": null,
-    "amount": 683500
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.byAge.contractualMonthly.regular.male.medium": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男・100～999人。民営事業所。upTo は年齢階級の上限の年齢）",
-  "value": [
-   {
-    "upTo": 19,
     "amount": 225900
    },
    {
-    "upTo": 24,
-    "amount": 272700
-   },
-   {
     "upTo": 29,
-    "amount": 320400
+    "amount": 245500
    },
    {
     "upTo": 34,
-    "amount": 367700
+    "amount": 249100
    },
    {
     "upTo": 39,
-    "amount": 395600
+    "amount": 243000
    },
    {
     "upTo": 44,
-    "amount": 428000
+    "amount": 239700
    },
    {
     "upTo": 49,
-    "amount": 449900
+    "amount": 245900
    },
    {
     "upTo": 54,
-    "amount": 469500
+    "amount": 240800
    },
    {
     "upTo": 59,
-    "amount": 475900
+    "amount": 241400
    },
    {
     "upTo": 64,
-    "amount": 417000
+    "amount": 294700
    },
    {
     "upTo": 69,
-    "amount": 401900
+    "amount": 265500
    },
    {
     "upTo": null,
-    "amount": 352300
+    "amount": 239200
    }
   ],
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "wageStats.byAge.contractualMonthly.regular.male.small": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男・10～99人。民営事業所。upTo は年齢階級の上限の年齢）",
+ "wageStats.byAge.contractualMonthly.nonRegular.all.small": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男女計・10～99人。民営事業所。upTo は年齢階級の上限の年齢）",
   "value": [
    {
     "upTo": 19,
-    "amount": 222400
+    "amount": 192700
    },
    {
     "upTo": 24,
-    "amount": 251000
+    "amount": 207300
    },
    {
     "upTo": 29,
-    "amount": 292900
+    "amount": 224800
    },
    {
     "upTo": 34,
-    "amount": 329100
+    "amount": 238100
    },
    {
     "upTo": 39,
-    "amount": 356100
+    "amount": 228700
    },
    {
     "upTo": 44,
-    "amount": 376100
+    "amount": 231200
    },
    {
     "upTo": 49,
-    "amount": 393300
+    "amount": 234700
    },
    {
     "upTo": 54,
-    "amount": 402400
+    "amount": 237000
    },
    {
     "upTo": 59,
-    "amount": 397900
+    "amount": 237000
    },
    {
     "upTo": 64,
-    "amount": 375900
+    "amount": 271000
    },
    {
     "upTo": 69,
-    "amount": 326700
+    "amount": 250100
    },
    {
     "upTo": null,
-    "amount": 298300
+    "amount": 220000
+   }
+  ],
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "wageStats.byAge.contractualMonthly.regular.all.all": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男女計・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）",
+  "value": [
+   {
+    "upTo": 19,
+    "amount": 227300
+   },
+   {
+    "upTo": 24,
+    "amount": 271800
+   },
+   {
+    "upTo": 29,
+    "amount": 319100
+   },
+   {
+    "upTo": 34,
+    "amount": 358400
+   },
+   {
+    "upTo": 39,
+    "amount": 390700
+   },
+   {
+    "upTo": 44,
+    "amount": 414900
+   },
+   {
+    "upTo": 49,
+    "amount": 428900
+   },
+   {
+    "upTo": 54,
+    "amount": 444500
+   },
+   {
+    "upTo": 59,
+    "amount": 453700
+   },
+   {
+    "upTo": 64,
+    "amount": 388500
+   },
+   {
+    "upTo": 69,
+    "amount": 343300
+   },
+   {
+    "upTo": null,
+    "amount": 310900
+   }
+  ],
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "wageStats.byAge.contractualMonthly.regular.all.large": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男女計・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）",
+  "value": [
+   {
+    "upTo": 19,
+    "amount": 242800
+   },
+   {
+    "upTo": 24,
+    "amount": 295700
+   },
+   {
+    "upTo": 29,
+    "amount": 355700
+   },
+   {
+    "upTo": 34,
+    "amount": 409800
+   },
+   {
+    "upTo": 39,
+    "amount": 457100
+   },
+   {
+    "upTo": 44,
+    "amount": 494300
+   },
+   {
+    "upTo": 49,
+    "amount": 516700
+   },
+   {
+    "upTo": 54,
+    "amount": 532300
+   },
+   {
+    "upTo": 59,
+    "amount": 549500
+   },
+   {
+    "upTo": 64,
+    "amount": 455700
+   },
+   {
+    "upTo": 69,
+    "amount": 432300
+   },
+   {
+    "upTo": null,
+    "amount": 465900
+   }
+  ],
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "wageStats.byAge.contractualMonthly.regular.all.medium": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男女計・100～999人。民営事業所。upTo は年齢階級の上限の年齢）",
+  "value": [
+   {
+    "upTo": 19,
+    "amount": 219700
+   },
+   {
+    "upTo": 24,
+    "amount": 264500
+   },
+   {
+    "upTo": 29,
+    "amount": 306800
+   },
+   {
+    "upTo": 34,
+    "amount": 343800
+   },
+   {
+    "upTo": 39,
+    "amount": 369900
+   },
+   {
+    "upTo": 44,
+    "amount": 395500
+   },
+   {
+    "upTo": 49,
+    "amount": 411500
+   },
+   {
+    "upTo": 54,
+    "amount": 429800
+   },
+   {
+    "upTo": 59,
+    "amount": 434900
+   },
+   {
+    "upTo": 64,
+    "amount": 383600
+   },
+   {
+    "upTo": 69,
+    "amount": 371300
+   },
+   {
+    "upTo": null,
+    "amount": 330300
+   }
+  ],
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "wageStats.byAge.contractualMonthly.regular.all.small": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男女計・10～99人。民営事業所。upTo は年齢階級の上限の年齢）",
+  "value": [
+   {
+    "upTo": 19,
+    "amount": 215100
+   },
+   {
+    "upTo": 24,
+    "amount": 245000
+   },
+   {
+    "upTo": 29,
+    "amount": 282300
+   },
+   {
+    "upTo": 34,
+    "amount": 312100
+   },
+   {
+    "upTo": 39,
+    "amount": 334700
+   },
+   {
+    "upTo": 44,
+    "amount": 349800
+   },
+   {
+    "upTo": 49,
+    "amount": 361000
+   },
+   {
+    "upTo": 54,
+    "amount": 369700
+   },
+   {
+    "upTo": 59,
+    "amount": 369100
+   },
+   {
+    "upTo": 64,
+    "amount": 351200
+   },
+   {
+    "upTo": 69,
+    "amount": 315100
+   },
+   {
+    "upTo": null,
+    "amount": 291400
    }
   ],
   "rev": 1,
@@ -1893,30 +983,16 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "wageStats.contractualMonthly.nonRegular.female": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者のきまって支給する現金給与額（月額）（正社員・正職員以外・女・年齢計・企業規模計。民営事業所）",
-  "value": 230600,
+ "wageStats.contractualMonthly.nonRegular.all": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者のきまって支給する現金給与額（月額）（正社員・正職員以外・男女計・年齢計・企業規模計。民営事業所）",
+  "value": 259500,
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "wageStats.contractualMonthly.nonRegular.male": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者のきまって支給する現金給与額（月額）（正社員・正職員以外・男・年齢計・企業規模計。民営事業所）",
-  "value": 292300,
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.contractualMonthly.regular.female": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者のきまって支給する現金給与額（月額）（正社員・正職員・女・年齢計・企業規模計。民営事業所）",
-  "value": 325600,
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.contractualMonthly.regular.male": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者のきまって支給する現金給与額（月額）（正社員・正職員・男・年齢計・企業規模計。民営事業所）",
-  "value": 425600,
+ "wageStats.contractualMonthly.regular.all": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者のきまって支給する現金給与額（月額）（正社員・正職員・男女計・年齢計・企業規模計。民営事業所）",
+  "value": 390900,
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
@@ -2139,454 +1215,6 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
    {
     "upTo": null,
     "rate": "1.2878"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.nonRegular.female.all.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・女・学歴計・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.1163"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2283"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2246"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.1874"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.2096"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.2167"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.2078"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.1930"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.1930"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.1930"
-   },
-   {
-    "upTo": null,
-    "rate": "1.1930"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.nonRegular.female.all.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・女・学歴計・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.1126"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2477"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2213"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.1889"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.2243"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.2007"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.2069"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.1746"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.1746"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.1746"
-   },
-   {
-    "upTo": null,
-    "rate": "1.1746"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.nonRegular.female.all.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・女・学歴計・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.1148"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1848"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.1993"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.1645"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.1636"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.1856"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.1709"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.1708"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.1708"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.1708"
-   },
-   {
-    "upTo": null,
-    "rate": "1.1708"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.nonRegular.female.all.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・女・学歴計・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.1132"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2034"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2328"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.1846"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.2204"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.2651"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.2195"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.2252"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.2252"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.2252"
-   },
-   {
-    "upTo": null,
-    "rate": "1.2252"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.nonRegular.male.all.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・男・学歴計・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.1005"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.3051"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.3558"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.3361"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.3517"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.4215"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.3718"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.4072"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.4072"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.4072"
-   },
-   {
-    "upTo": null,
-    "rate": "1.4072"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.nonRegular.male.all.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・男・学歴計・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.1293"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.4182"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.4053"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.3832"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.3687"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.4730"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.3578"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.5135"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.5135"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.5135"
-   },
-   {
-    "upTo": null,
-    "rate": "1.5135"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.nonRegular.male.all.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・男・学歴計・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0737"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2279"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2661"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.2517"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.2824"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.3362"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.3108"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.2875"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.2875"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.2875"
-   },
-   {
-    "upTo": null,
-    "rate": "1.2875"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.nonRegular.male.all.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員以外・男・学歴計・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0880"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1917"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.3791"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.3736"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.4080"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.4311"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.4897"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.4317"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.4317"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.4317"
-   },
-   {
-    "upTo": null,
-    "rate": "1.4317"
    }
   ],
   "rev": 1,
@@ -2817,4486 +1445,6 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "wageStats.curve.regular.all.graduate.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学院・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.5110"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.9060"
-   },
-   {
-    "upTo": 39,
-    "rate": "2.1623"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.5756"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.8041"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.9020"
-   },
-   {
-    "upTo": 59,
-    "rate": "3.0049"
-   },
-   {
-    "upTo": 64,
-    "rate": "3.0049"
-   },
-   {
-    "upTo": 69,
-    "rate": "3.0049"
-   },
-   {
-    "upTo": null,
-    "rate": "3.0049"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.graduate.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学院・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.5262"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.9623"
-   },
-   {
-    "upTo": 39,
-    "rate": "2.2530"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.6681"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.9621"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.9577"
-   },
-   {
-    "upTo": 59,
-    "rate": "3.0798"
-   },
-   {
-    "upTo": 64,
-    "rate": "3.0798"
-   },
-   {
-    "upTo": 69,
-    "rate": "3.0798"
-   },
-   {
-    "upTo": null,
-    "rate": "3.0798"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.graduate.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学院・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.5090"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.8353"
-   },
-   {
-    "upTo": 39,
-    "rate": "2.0538"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.3564"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.6383"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.8192"
-   },
-   {
-    "upTo": 59,
-    "rate": "3.0289"
-   },
-   {
-    "upTo": 64,
-    "rate": "3.0289"
-   },
-   {
-    "upTo": 69,
-    "rate": "3.0289"
-   },
-   {
-    "upTo": null,
-    "rate": "3.0289"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.graduate.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学院・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2583"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.6324"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.8159"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.2620"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.1328"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.6897"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.2815"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.2815"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.2815"
-   },
-   {
-    "upTo": null,
-    "rate": "2.2815"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.highSchool.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.2891"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.4525"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.6163"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.7644"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.8265"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.9240"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.0206"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.9869"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.9869"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.9869"
-   },
-   {
-    "upTo": null,
-    "rate": "1.9869"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.highSchool.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.3839"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.5928"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.8101"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.9873"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.0510"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.1956"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.3378"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.3237"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.3237"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.3237"
-   },
-   {
-    "upTo": null,
-    "rate": "2.3237"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.highSchool.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.3209"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.4815"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.6492"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.7998"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.9087"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.0014"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.1087"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.0540"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.0540"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.0540"
-   },
-   {
-    "upTo": null,
-    "rate": "2.0540"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.highSchool.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.1935"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.3814"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.5244"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.6251"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.7100"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.7774"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.7804"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.7816"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.7816"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.7816"
-   },
-   {
-    "upTo": null,
-    "rate": "1.7816"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.juniorCollege.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高専・短大・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2410"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.3690"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.4429"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.5440"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.5827"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.6642"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.7545"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.7545"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.7545"
-   },
-   {
-    "upTo": null,
-    "rate": "1.7545"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.juniorCollege.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高専・短大・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.3266"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.5241"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.6395"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.7085"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.8028"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.8658"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.9991"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.9991"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.9991"
-   },
-   {
-    "upTo": null,
-    "rate": "1.9991"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.juniorCollege.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高専・短大・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2194"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.3333"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.3974"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.5908"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.5708"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.6755"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.6892"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.6892"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.6892"
-   },
-   {
-    "upTo": null,
-    "rate": "1.6892"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.juniorCollege.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・高専・短大・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1380"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2087"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.2700"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.3509"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.3787"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.4593"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.4699"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.4699"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.4699"
-   },
-   {
-    "upTo": null,
-    "rate": "1.4699"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.juniorHigh.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・中学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.2654"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.4165"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.5625"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.6678"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.7746"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.8033"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.8077"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.8603"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.8603"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.8603"
-   },
-   {
-    "upTo": null,
-    "rate": "1.8603"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.juniorHigh.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・中学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1077"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2479"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.3591"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.5671"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.5346"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.6153"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.5900"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.5900"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.5900"
-   },
-   {
-    "upTo": null,
-    "rate": "1.5900"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.juniorHigh.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・中学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1685"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.1913"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.4069"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.3967"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.4441"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.4969"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.5675"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.5675"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.5675"
-   },
-   {
-    "upTo": null,
-    "rate": "1.5675"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.juniorHigh.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・中学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.2360"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.3647"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.5423"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.5365"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.6677"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.7151"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.6599"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.6986"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.6986"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.6986"
-   },
-   {
-    "upTo": null,
-    "rate": "1.6986"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.university.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2681"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.4829"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.6801"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.8756"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.0111"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.2292"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.3629"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.3629"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.3629"
-   },
-   {
-    "upTo": null,
-    "rate": "2.3629"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.university.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.3293"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.5843"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.8440"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.0967"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.2716"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.5830"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.6213"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.6213"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.6213"
-   },
-   {
-    "upTo": null,
-    "rate": "2.6213"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.university.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2518"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.4756"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.6286"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.7876"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.9442"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.0983"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.2065"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.2065"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.2065"
-   },
-   {
-    "upTo": null,
-    "rate": "2.2065"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.university.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・大学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2168"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.3882"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.5396"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.6596"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.7755"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.8417"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.9171"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.9171"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.9171"
-   },
-   {
-    "upTo": null,
-    "rate": "1.9171"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.vocational.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・専門学校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2020"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2922"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.4207"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.5129"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.5762"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.7065"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.7380"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.7380"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.7380"
-   },
-   {
-    "upTo": null,
-    "rate": "1.7380"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.vocational.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・専門学校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2399"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.3212"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.4758"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.6005"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.6847"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.7601"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.8839"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.8839"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.8839"
-   },
-   {
-    "upTo": null,
-    "rate": "1.8839"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.vocational.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・専門学校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1929"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2934"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.4017"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.5111"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.5600"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.7141"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.7364"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.7364"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.7364"
-   },
-   {
-    "upTo": null,
-    "rate": "1.7364"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.all.vocational.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・専門学校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1920"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2974"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.4221"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.4954"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.5646"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.6986"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.6662"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.6662"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.6662"
-   },
-   {
-    "upTo": null,
-    "rate": "1.6662"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.all.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・学歴計・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.3138"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.5891"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.6887"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.7651"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.8710"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.9046"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.9720"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.9956"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.9956"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.9956"
-   },
-   {
-    "upTo": null,
-    "rate": "1.9956"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.all.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・学歴計・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.3348"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.6723"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.8132"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.9039"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.1032"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.1694"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.2525"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.3244"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.3244"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.3244"
-   },
-   {
-    "upTo": null,
-    "rate": "2.3244"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.all.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・学歴計・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.3071"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.5684"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.6601"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.7596"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.8472"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.9060"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.9867"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.9634"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.9634"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.9634"
-   },
-   {
-    "upTo": null,
-    "rate": "1.9634"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.all.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・学歴計・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.2577"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.4735"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.5663"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.6091"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.6653"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.6740"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.7230"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.7309"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.7309"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.7309"
-   },
-   {
-    "upTo": null,
-    "rate": "1.7309"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.graduate.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学院・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.3925"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.6121"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.8259"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.1171"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.2074"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.4853"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.4460"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.4460"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.4460"
-   },
-   {
-    "upTo": null,
-    "rate": "2.4460"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.graduate.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学院・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.4108"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.6924"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.9437"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.2005"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.3379"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.5577"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.5328"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.5328"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.5328"
-   },
-   {
-    "upTo": null,
-    "rate": "2.5328"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.graduate.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学院・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.4078"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.5755"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.7355"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.0114"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.1104"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.4103"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.6460"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.6460"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.6460"
-   },
-   {
-    "upTo": null,
-    "rate": "2.6460"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.graduate.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学院・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、25～29歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.1569"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.1869"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.3981"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.6686"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.0458"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.6885"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.6885"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.6885"
-   },
-   {
-    "upTo": null,
-    "rate": "1.6885"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.highSchool.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.2379"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.3233"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.3606"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.4545"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.4872"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.5472"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.6552"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.6379"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.6379"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.6379"
-   },
-   {
-    "upTo": null,
-    "rate": "1.6379"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.highSchool.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.2986"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.4081"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.4159"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.5245"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.5843"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.7105"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.8882"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.8369"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.8369"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.8369"
-   },
-   {
-    "upTo": null,
-    "rate": "1.8369"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.highSchool.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.2661"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.3605"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.4295"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.5457"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.5762"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.6166"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.7212"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.6821"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.6821"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.6821"
-   },
-   {
-    "upTo": null,
-    "rate": "1.6821"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.highSchool.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.1813"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2728"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.3273"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.3741"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.4206"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.4540"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.5102"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.5348"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.5348"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.5348"
-   },
-   {
-    "upTo": null,
-    "rate": "1.5348"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.juniorCollege.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高専・短大・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1692"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2509"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.2641"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.3598"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.4468"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.5484"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.6422"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.6422"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.6422"
-   },
-   {
-    "upTo": null,
-    "rate": "1.6422"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.juniorCollege.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高専・短大・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2636"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.3902"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.2723"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.3971"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.5866"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.6931"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.8982"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.8982"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.8982"
-   },
-   {
-    "upTo": null,
-    "rate": "1.8982"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.juniorCollege.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高専・短大・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1519"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2118"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.2841"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.4141"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.4444"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.5505"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.5273"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.5273"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.5273"
-   },
-   {
-    "upTo": null,
-    "rate": "1.5273"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.juniorCollege.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・高専・短大・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1223"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.1971"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.2250"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.2855"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.3190"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.3962"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.3996"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.3996"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.3996"
-   },
-   {
-    "upTo": null,
-    "rate": "1.3996"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.juniorHigh.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・中学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.2506"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1062"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2035"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.2133"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.2571"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.3488"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.3121"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.3865"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.3865"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.3865"
-   },
-   {
-    "upTo": null,
-    "rate": "1.3865"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.juniorHigh.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・中学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、30～34歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.1407"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.1228"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.2103"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.1890"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.3768"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.3768"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.3768"
-   },
-   {
-    "upTo": null,
-    "rate": "1.3768"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.juniorHigh.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・中学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、25～29歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.0107"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.0704"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.1333"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.1743"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.0852"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.1050"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.1050"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.1050"
-   },
-   {
-    "upTo": null,
-    "rate": "1.1050"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.juniorHigh.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・中学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "0.7623"
-   },
-   {
-    "upTo": 34,
-    "rate": "0.8545"
-   },
-   {
-    "upTo": 39,
-    "rate": "0.8219"
-   },
-   {
-    "upTo": 44,
-    "rate": "0.8217"
-   },
-   {
-    "upTo": 49,
-    "rate": "0.9291"
-   },
-   {
-    "upTo": 54,
-    "rate": "0.9397"
-   },
-   {
-    "upTo": 59,
-    "rate": "0.9277"
-   },
-   {
-    "upTo": 64,
-    "rate": "0.9277"
-   },
-   {
-    "upTo": 69,
-    "rate": "0.9277"
-   },
-   {
-    "upTo": null,
-    "rate": "0.9277"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.university.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2313"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.3390"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.4439"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.6005"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.6737"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.8358"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.9894"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.9894"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.9894"
-   },
-   {
-    "upTo": null,
-    "rate": "1.9894"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.university.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2791"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.4219"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.5220"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.7444"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.8858"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.1587"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.2453"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.2453"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.2453"
-   },
-   {
-    "upTo": null,
-    "rate": "2.2453"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.university.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2277"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.3232"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.4450"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.5394"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.6380"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.7718"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.8901"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.8901"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.8901"
-   },
-   {
-    "upTo": null,
-    "rate": "1.8901"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.university.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・大学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2090"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.3130"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.4010"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.4872"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.4878"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.5582"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.6926"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.6926"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.6926"
-   },
-   {
-    "upTo": null,
-    "rate": "1.6926"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.vocational.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・専門学校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1740"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2063"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.2703"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.3719"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.4018"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.5011"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.5132"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.5132"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.5132"
-   },
-   {
-    "upTo": null,
-    "rate": "1.5132"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.vocational.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・専門学校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2220"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2203"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.3191"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.4778"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.4828"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.5679"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.5901"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.5901"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.5901"
-   },
-   {
-    "upTo": null,
-    "rate": "1.5901"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.vocational.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・専門学校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1838"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2218"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.2766"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.3899"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.4302"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.5283"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.5540"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.5540"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.5540"
-   },
-   {
-    "upTo": null,
-    "rate": "1.5540"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.female.vocational.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・女・専門学校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1539"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2240"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.2750"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.3521"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.3577"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.4617"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.4544"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.4544"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.4544"
-   },
-   {
-    "upTo": null,
-    "rate": "1.4544"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.all.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・学歴計・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.2842"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.6239"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.8976"
-   },
-   {
-    "upTo": 39,
-    "rate": "2.1139"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.2790"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.3930"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.5078"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.5532"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.5532"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.5532"
-   },
-   {
-    "upTo": null,
-    "rate": "2.5532"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.all.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・学歴計・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.3131"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.7225"
-   },
-   {
-    "upTo": 34,
-    "rate": "2.0752"
-   },
-   {
-    "upTo": 39,
-    "rate": "2.3807"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.6334"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.7900"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.9253"
-   },
-   {
-    "upTo": 59,
-    "rate": "3.0186"
-   },
-   {
-    "upTo": 64,
-    "rate": "3.0186"
-   },
-   {
-    "upTo": 69,
-    "rate": "3.0186"
-   },
-   {
-    "upTo": null,
-    "rate": "3.0186"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.all.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・学歴計・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.3124"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.6230"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.9024"
-   },
-   {
-    "upTo": 39,
-    "rate": "2.0635"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.2325"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.3701"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.4936"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.5216"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.5216"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.5216"
-   },
-   {
-    "upTo": null,
-    "rate": "2.5216"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.all.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・学歴計・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.2009"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.4590"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.6639"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.8275"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.9305"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.0260"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.0616"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.0176"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.0176"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.0176"
-   },
-   {
-    "upTo": null,
-    "rate": "2.0176"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.graduate.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学院・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.5491"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.9682"
-   },
-   {
-    "upTo": 39,
-    "rate": "2.2301"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.6517"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.9316"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.9649"
-   },
-   {
-    "upTo": 59,
-    "rate": "3.0889"
-   },
-   {
-    "upTo": 64,
-    "rate": "3.0889"
-   },
-   {
-    "upTo": 69,
-    "rate": "3.0889"
-   },
-   {
-    "upTo": null,
-    "rate": "3.0889"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.graduate.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学院・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.5570"
-   },
-   {
-    "upTo": 34,
-    "rate": "2.0103"
-   },
-   {
-    "upTo": 39,
-    "rate": "2.3082"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.7427"
-   },
-   {
-    "upTo": 49,
-    "rate": "3.0720"
-   },
-   {
-    "upTo": 54,
-    "rate": "3.0099"
-   },
-   {
-    "upTo": 59,
-    "rate": "3.1372"
-   },
-   {
-    "upTo": 64,
-    "rate": "3.1372"
-   },
-   {
-    "upTo": 69,
-    "rate": "3.1372"
-   },
-   {
-    "upTo": null,
-    "rate": "3.1372"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.graduate.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学院・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.5549"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.9146"
-   },
-   {
-    "upTo": 39,
-    "rate": "2.1529"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.4417"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.7956"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.9344"
-   },
-   {
-    "upTo": 59,
-    "rate": "3.1319"
-   },
-   {
-    "upTo": 64,
-    "rate": "3.1319"
-   },
-   {
-    "upTo": 69,
-    "rate": "3.1319"
-   },
-   {
-    "upTo": null,
-    "rate": "3.1319"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.graduate.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学院・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、25～29歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.3293"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.4455"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.8099"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.6733"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.0681"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.8305"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.8305"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.8305"
-   },
-   {
-    "upTo": null,
-    "rate": "1.8305"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.highSchool.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.3070"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.4917"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.6762"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.8351"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.9084"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.0253"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.1286"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.0825"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.0825"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.0825"
-   },
-   {
-    "upTo": null,
-    "rate": "2.0825"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.highSchool.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.4119"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.6435"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.8891"
-   },
-   {
-    "upTo": 39,
-    "rate": "2.0773"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.1545"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.3193"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.4512"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.4490"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.4490"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.4490"
-   },
-   {
-    "upTo": null,
-    "rate": "2.4490"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.highSchool.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.3440"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.5287"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.7073"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.8732"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.0015"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.1186"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.2366"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.1786"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.1786"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.1786"
-   },
-   {
-    "upTo": null,
-    "rate": "2.1786"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.highSchool.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.1933"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.4075"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.5698"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.6777"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.7772"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.8609"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.8642"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.8404"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.8404"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.8404"
-   },
-   {
-    "upTo": null,
-    "rate": "1.8404"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.juniorCollege.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高専・短大・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.3349"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.4987"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.6778"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.7896"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.8714"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.9445"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.0390"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.0390"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.0390"
-   },
-   {
-    "upTo": null,
-    "rate": "2.0390"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.juniorCollege.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高専・短大・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.3598"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.5956"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.9485"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.9694"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.0839"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.1630"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.2224"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.2224"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.2224"
-   },
-   {
-    "upTo": null,
-    "rate": "2.2224"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.juniorCollege.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高専・短大・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.3663"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.5088"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.5672"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.8102"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.8689"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.9563"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.0526"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.0526"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.0526"
-   },
-   {
-    "upTo": null,
-    "rate": "2.0526"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.juniorCollege.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・高専・短大・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1890"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2306"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.3560"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.5191"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.5580"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.6640"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.7153"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.7153"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.7153"
-   },
-   {
-    "upTo": null,
-    "rate": "1.7153"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.juniorHigh.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・中学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.2841"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.5184"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.6794"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.8527"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.9105"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.9096"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.9312"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.9714"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.9714"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.9714"
-   },
-   {
-    "upTo": null,
-    "rate": "1.9714"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.juniorHigh.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・中学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1721"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2700"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.4043"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.5745"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.5026"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.6235"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.5633"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.5633"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.5633"
-   },
-   {
-    "upTo": null,
-    "rate": "1.5633"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.juniorHigh.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・中学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1893"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.2482"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.4677"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.4392"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.4642"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.5509"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.6334"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.6334"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.6334"
-   },
-   {
-    "upTo": null,
-    "rate": "1.6334"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.juniorHigh.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・中学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.2213"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.4440"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.6184"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.7081"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.7738"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.7982"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.7408"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.7666"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.7666"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.7666"
-   },
-   {
-    "upTo": null,
-    "rate": "1.7666"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.university.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2964"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.5582"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.7625"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.9633"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.0985"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.2948"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.3984"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.3984"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.3984"
-   },
-   {
-    "upTo": null,
-    "rate": "2.3984"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.university.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.3676"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.6699"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.9637"
-   },
-   {
-    "upTo": 44,
-    "rate": "2.2232"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.3767"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.6476"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.6536"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.6536"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.6536"
-   },
-   {
-    "upTo": null,
-    "rate": "2.6536"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.university.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2691"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.5517"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.6800"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.8498"
-   },
-   {
-    "upTo": 49,
-    "rate": "2.0074"
-   },
-   {
-    "upTo": 54,
-    "rate": "2.1308"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.2141"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.2141"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.2141"
-   },
-   {
-    "upTo": null,
-    "rate": "2.2141"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.university.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・大学・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2243"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.4256"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.5849"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.7101"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.8542"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.9051"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.9477"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.9477"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.9477"
-   },
-   {
-    "upTo": null,
-    "rate": "1.9477"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.vocational.all": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・専門学校・企業規模計（10人以上）の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2304"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.3586"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.5211"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.6172"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.7084"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.8484"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.9185"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.9185"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.9185"
-   },
-   {
-    "upTo": null,
-    "rate": "1.9185"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.vocational.large": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・専門学校・1,000人以上の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2571"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.3987"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.5685"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.6777"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.8443"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.8914"
-   },
-   {
-    "upTo": 59,
-    "rate": "2.1045"
-   },
-   {
-    "upTo": 64,
-    "rate": "2.1045"
-   },
-   {
-    "upTo": 69,
-    "rate": "2.1045"
-   },
-   {
-    "upTo": null,
-    "rate": "2.1045"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.vocational.medium": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・専門学校・100～999人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.1997"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.3468"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.4852"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.6010"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.6526"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.8541"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.8952"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.8952"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.8952"
-   },
-   {
-    "upTo": null,
-    "rate": "1.8952"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.curve.regular.male.vocational.small": {
-  "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男・専門学校・10～99人の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、20～24歳を1とした比。60歳以後は55～59歳の係数のまま。upTo が年齢、rate が係数）",
-  "value": [
-   {
-    "upTo": 19,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 24,
-    "rate": "1.0000"
-   },
-   {
-    "upTo": 29,
-    "rate": "1.2311"
-   },
-   {
-    "upTo": 34,
-    "rate": "1.3429"
-   },
-   {
-    "upTo": 39,
-    "rate": "1.5106"
-   },
-   {
-    "upTo": 44,
-    "rate": "1.5942"
-   },
-   {
-    "upTo": 49,
-    "rate": "1.7027"
-   },
-   {
-    "upTo": 54,
-    "rate": "1.8237"
-   },
-   {
-    "upTo": 59,
-    "rate": "1.8073"
-   },
-   {
-    "upTo": 64,
-    "rate": "1.8073"
-   },
-   {
-    "upTo": 69,
-    "rate": "1.8073"
-   },
-   {
-    "upTo": null,
-    "rate": "1.8073"
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
  "wageStats.default": {
   "title": "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・企業規模計の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。upTo が年齢、rate が係数）",
   "value": [
@@ -7353,189 +1501,72 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "wageStats.partTimeHourly.female": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 短時間労働者の1時間当たり所定内給与額（女・年齢計・企業規模計。常用労働者計）",
-  "value": 1418,
-  "rev": 2,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.partTimeHourly.male": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 短時間労働者の1時間当たり所定内給与額（男・年齢計・企業規模計。常用労働者計）",
-  "value": 1769,
-  "rev": 2,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.scheduledMonthly.nonRegular.female": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額（月額）（正社員・正職員以外・女・年齢計・企業規模計。民営事業所）",
-  "value": 218400,
-  "rev": 2,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.scheduledMonthly.nonRegular.male": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額（月額）（正社員・正職員以外・男・年齢計・企業規模計。民営事業所）",
-  "value": 268100,
-  "rev": 2,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.scheduledMonthly.regular.female": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額（月額）（正社員・正職員・女・年齢計・企業規模計。民営事業所）",
-  "value": 304900,
-  "rev": 2,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "wageStats.scheduledMonthly.regular.male": {
-  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額（月額）（正社員・正職員・男・年齢計・企業規模計。民営事業所）",
-  "value": 387400,
-  "rev": 2,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "retirementBenefit.company.highSchoolManual": {
-  "title": "就労条件総合調査（厚生労働省）令和5年 会社都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（現業職）。一時金と年金の現価の計）",
-  "value": 7370000,
+ "wageStats.partTimeHourly.all": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 短時間労働者の1時間当たり所定内給与額（男女計・年齢計・企業規模計。常用労働者計）",
+  "value": 1518,
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "retirementBenefit.company.highSchoolOffice": {
-  "title": "就労条件総合調査（厚生労働省）令和5年 会社都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（管理・事務・技術職）。一時金と年金の現価の計）",
-  "value": 13850000,
+ "wageStats.scheduledMonthly.nonRegular.all": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額（月額）（正社員・正職員以外・男女計・年齢計・企業規模計。民営事業所）",
+  "value": 241700,
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "retirementBenefit.company.university": {
-  "title": "就労条件総合調査（厚生労働省）令和5年 会社都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・大学・大学院卒（管理・事務・技術職）。一時金と年金の現価の計）",
-  "value": 17380000,
+ "wageStats.scheduledMonthly.regular.all": {
+  "title": "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額（月額）（正社員・正職員・男女計・年齢計・企業規模計。民営事業所）",
+  "value": 358800,
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "retirementBenefit.earlyIncentive.highSchoolManual": {
-  "title": "就労条件総合調査（厚生労働省）令和5年 早期優遇退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（現業職）。一時金と年金の現価の計）",
-  "value": 21460000,
+ "retirementBenefit.company.all": {
+  "title": "就労条件総合調査（厚生労働省）令和5年 会社都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・学歴を分けない値〔公表の3つの区分の単純な平均〕。一時金と年金の現価の計）",
+  "value": 12870000,
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "retirementBenefit.earlyIncentive.highSchoolOffice": {
-  "title": "就労条件総合調査（厚生労働省）令和5年 早期優遇退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（管理・事務・技術職）。一時金と年金の現価の計）",
-  "value": 24320000,
+ "retirementBenefit.earlyIncentive.all": {
+  "title": "就労条件総合調査（厚生労働省）令和5年 早期優遇退職者1人平均退職給付額（勤続20年以上かつ45歳以上・学歴を分けない値〔公表の3つの区分の単純な平均〕。一時金と年金の現価の計）",
+  "value": 22810000,
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "retirementBenefit.earlyIncentive.university": {
-  "title": "就労条件総合調査（厚生労働省）令和5年 早期優遇退職者1人平均退職給付額（勤続20年以上かつ45歳以上・大学・大学院卒（管理・事務・技術職）。一時金と年金の現価の計）",
-  "value": 22660000,
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "retirementBenefit.mandatory.highSchoolManual.byService": {
-  "title": "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額の勤続年数階級別（勤続20年以上かつ45歳以上・高校卒（現業職）・退職給付制度計。upTo は勤続年数の上限。20年未満の段は値なし）",
+ "retirementBenefit.mandatory.all.byService": {
+  "title": "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額の勤続年数階級別（勤続20年以上かつ45歳以上・学歴を分けない値〔公表の3つの区分の単純な平均〕・退職給付制度計。upTo は勤続年数の上限。20年未満の段は値なし）",
   "value": [
    {
     "upTo": 19
    },
    {
     "upTo": 24,
-    "amount": 4060000
+    "amount": 6610000
    },
    {
     "upTo": 29,
-    "amount": 5550000
+    "amount": 9110000
    },
    {
     "upTo": 34,
-    "amount": 8000000
+    "amount": 12620000
    },
    {
     "upTo": null,
-    "amount": 14710000
+    "amount": 18060000
    }
   ],
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "retirementBenefit.mandatory.highSchoolManual": {
-  "title": "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（現業職）。一時金と年金の現価の計）",
-  "value": 11830000,
-  "rev": 2,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "retirementBenefit.mandatory.highSchoolOffice.byService": {
-  "title": "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額の勤続年数階級別（勤続20年以上かつ45歳以上・高校卒（管理・事務・技術職）・退職給付制度計。upTo は勤続年数の上限。20年未満の段は値なし）",
-  "value": [
-   {
-    "upTo": 19
-   },
-   {
-    "upTo": 24,
-    "amount": 5570000
-   },
-   {
-    "upTo": 29,
-    "amount": 6180000
-   },
-   {
-    "upTo": 34,
-    "amount": 10940000
-   },
-   {
-    "upTo": null,
-    "amount": 19090000
-   }
-  ],
+ "retirementBenefit.mandatory.all": {
+  "title": "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額（勤続20年以上かつ45歳以上・学歴を分けない値〔公表の3つの区分の単純な平均〕。一時金と年金の現価の計）",
+  "value": 15870000,
   "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "retirementBenefit.mandatory.highSchoolOffice": {
-  "title": "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（管理・事務・技術職）。一時金と年金の現価の計）",
-  "value": 16820000,
-  "rev": 2,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "retirementBenefit.mandatory.university.byService": {
-  "title": "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額の勤続年数階級別（勤続20年以上かつ45歳以上・大学・大学院卒（管理・事務・技術職）・退職給付制度計。upTo は勤続年数の上限。20年未満の段は値なし）",
-  "value": [
-   {
-    "upTo": 19
-   },
-   {
-    "upTo": 24,
-    "amount": 10210000
-   },
-   {
-    "upTo": 29,
-    "amount": 15590000
-   },
-   {
-    "upTo": 34,
-    "amount": 18910000
-   },
-   {
-    "upTo": null,
-    "amount": 20370000
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "retirementBenefit.mandatory.university": {
-  "title": "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額（勤続20年以上かつ45歳以上・大学・大学院卒（管理・事務・技術職）。一時金と年金の現価の計）",
-  "value": 18960000,
-  "rev": 2,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
@@ -7570,8 +1601,8 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "retirementBenefit.smallFirm.company.highSchool": {
-  "title": "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の会社都合退職の退職金支給額（高校卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）",
+ "retirementBenefit.smallFirm.company.all": {
+  "title": "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の会社都合退職の退職金支給額（学歴を分けない値〔公表の3つの区分を記入企業数で重み付けした平均〕・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20・25・30年と55歳の時点〕の額を次の勤続年数の前の年まで当てる）",
   "value": [
    {
     "upTo": 0
@@ -7582,192 +1613,43 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
    },
    {
     "upTo": 4,
-    "amount": 266000
+    "amount": 285000
    },
    {
     "upTo": 9,
-    "amount": 513000
+    "amount": 537000
    },
    {
     "upTo": 14,
-    "amount": 1264000
+    "amount": 1410000
    },
    {
     "upTo": 19,
-    "amount": 2373000
+    "amount": 2412000
    },
    {
     "upTo": 24,
-    "amount": 3428000
+    "amount": 3718000
    },
    {
     "upTo": 29,
-    "amount": 5100000
-   },
-   {
-    "upTo": 34,
-    "amount": 6570000
-   },
-   {
-    "upTo": 36,
-    "amount": 7905000
-   },
-   {
-    "upTo": null,
-    "amount": 8419000
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "retirementBenefit.smallFirm.company.juniorCollege": {
-  "title": "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の会社都合退職の退職金支給額（高専・短大卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）",
-  "value": [
-   {
-    "upTo": 0
-   },
-   {
-    "upTo": 2,
-    "amount": 97000
-   },
-   {
-    "upTo": 4,
-    "amount": 282000
-   },
-   {
-    "upTo": 9,
-    "amount": 516000
-   },
-   {
-    "upTo": 14,
-    "amount": 1528000
-   },
-   {
-    "upTo": 19,
-    "amount": 2270000
-   },
-   {
-    "upTo": 24,
-    "amount": 3578000
-   },
-   {
-    "upTo": 29,
-    "amount": 5099000
-   },
-   {
-    "upTo": 34,
-    "amount": 6635000
-   },
-   {
-    "upTo": null,
-    "amount": 8153000
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "retirementBenefit.smallFirm.company.university": {
-  "title": "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の会社都合退職の退職金支給額（大学卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）",
-  "value": [
-   {
-    "upTo": 0
-   },
-   {
-    "upTo": 2,
-    "amount": 96000
-   },
-   {
-    "upTo": 4,
-    "amount": 304000
-   },
-   {
-    "upTo": 9,
-    "amount": 574000
-   },
-   {
-    "upTo": 14,
-    "amount": 1448000
-   },
-   {
-    "upTo": 19,
-    "amount": 2559000
-   },
-   {
-    "upTo": 24,
-    "amount": 4081000
-   },
-   {
-    "upTo": 29,
-    "amount": 6156000
+    "amount": 5495000
    },
    {
     "upTo": 32,
-    "amount": 7762000
+    "amount": 7035000
    },
    {
     "upTo": null,
-    "amount": 8897000
+    "amount": 8519000
    }
   ],
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "retirementBenefit.smallFirm.voluntary.highSchool": {
-  "title": "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の自己都合退職の退職金支給額（高校卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）",
-  "value": [
-   {
-    "upTo": 0
-   },
-   {
-    "upTo": 2,
-    "amount": 63000
-   },
-   {
-    "upTo": 4,
-    "amount": 196000
-   },
-   {
-    "upTo": 9,
-    "amount": 397000
-   },
-   {
-    "upTo": 14,
-    "amount": 985000
-   },
-   {
-    "upTo": 19,
-    "amount": 1903000
-   },
-   {
-    "upTo": 24,
-    "amount": 2881000
-   },
-   {
-    "upTo": 29,
-    "amount": 4342000
-   },
-   {
-    "upTo": 34,
-    "amount": 5757000
-   },
-   {
-    "upTo": 36,
-    "amount": 7008000
-   },
-   {
-    "upTo": null,
-    "amount": 7398000
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "retirementBenefit.smallFirm.voluntary.juniorCollege": {
-  "title": "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の自己都合退職の退職金支給額（高専・短大卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）",
+ "retirementBenefit.smallFirm.voluntary.all": {
+  "title": "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の自己都合退職の退職金支給額（学歴を分けない値〔公表の3つの区分を記入企業数で重み付けした平均〕・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20・25・30年と55歳の時点〕の額を次の勤続年数の前の年まで当てる）",
   "value": [
    {
     "upTo": 0
@@ -7778,105 +1660,44 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
    },
    {
     "upTo": 4,
-    "amount": 209000
+    "amount": 207000
    },
    {
     "upTo": 9,
-    "amount": 406000
+    "amount": 413000
    },
    {
     "upTo": 14,
-    "amount": 1021000
+    "amount": 1048000
    },
    {
     "upTo": 19,
-    "amount": 1856000
+    "amount": 1961000
    },
    {
     "upTo": 24,
-    "amount": 3035000
+    "amount": 3146000
    },
    {
     "upTo": 29,
-    "amount": 4373000
-   },
-   {
-    "upTo": 34,
-    "amount": 5822000
-   },
-   {
-    "upTo": null,
-    "amount": 7217000
-   }
-  ],
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "retirementBenefit.smallFirm.voluntary.university": {
-  "title": "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の自己都合退職の退職金支給額（大学卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）",
-  "value": [
-   {
-    "upTo": 0
-   },
-   {
-    "upTo": 2,
-    "amount": 55000
-   },
-   {
-    "upTo": 4,
-    "amount": 215000
-   },
-   {
-    "upTo": 9,
-    "amount": 432000
-   },
-   {
-    "upTo": 14,
-    "amount": 1125000
-   },
-   {
-    "upTo": 19,
-    "amount": 2093000
-   },
-   {
-    "upTo": 24,
-    "amount": 3468000
-   },
-   {
-    "upTo": 29,
-    "amount": 5073000
+    "amount": 4624000
    },
    {
     "upTo": 32,
-    "amount": 7507000
+    "amount": 6433000
    },
    {
     "upTo": null,
-    "amount": 7968000
+    "amount": 7558000
    }
   ],
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
  },
- "retirementBenefit.voluntary.highSchoolManual": {
-  "title": "就労条件総合調査（厚生労働省）令和5年 自己都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（現業職）。一時金と年金の現価の計）",
-  "value": 9210000,
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "retirementBenefit.voluntary.highSchoolOffice": {
-  "title": "就労条件総合調査（厚生労働省）令和5年 自己都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（管理・事務・技術職）。一時金と年金の現価の計）",
-  "value": 12800000,
-  "rev": 1,
-  "reviewed": true,
-  "retrievedAt": "2026-10-26"
- },
- "retirementBenefit.voluntary.university": {
-  "title": "就労条件総合調査（厚生労働省）令和5年 自己都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・大学・大学院卒（管理・事務・技術職）。一時金と年金の現価の計）",
-  "value": 14410000,
+ "retirementBenefit.voluntary.all": {
+  "title": "就労条件総合調査（厚生労働省）令和5年 自己都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・学歴を分けない値〔公表の3つの区分の単純な平均〕。一時金と年金の現価の計）",
+  "value": 12140000,
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
