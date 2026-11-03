@@ -10,6 +10,7 @@ import type { Proposal } from "../plans/plans.ts";
 import type { HearingLog } from "../hearing/sheet.ts";
 import type { StatementLog } from "../../../../statement/src/index.ts";
 import type { Snapshot } from "../snapshots/snapshots.ts";
+import type { MigrationLog } from "../store/migrations.ts";
 import type { RecheckMark } from "./recheck.ts";
 import type { NoticeAck } from "./noticeAck.ts";
 import type { ItemChoice } from "./itemChoice.ts";
@@ -32,7 +33,7 @@ export interface PostRetirement {
 /** 開いたときの知らせ（0035 の8） */
 export interface HouseholdNotice {
   id: string;
-  kind: "outsideFamily" | "unresolvedDiffs" | "smrBlank" | "livingUnknown" | "unknownEstimated" | "carLoanEstimated" | "livingAllowance" | "petTemplate" | string;
+  kind: "outsideFamily" | "unresolvedDiffs" | "smrBlank" | "livingUnknown" | "unknownEstimated" | "carLoanEstimated" | "livingAllowance" | "petTemplate" | "compatibilityDropped" | string;
   members?: string[];
   count?: number;
   /** smrBlank・livingUnknown・unknownEstimated・carLoanEstimated: プランの差分を変えた数 */
@@ -123,6 +124,11 @@ export interface WorkingHousehold {
    * 世帯ファイルでは本文の区画 statements に置く（形式の版 0.14 から。確認シートの依頼の記録は 0.15 から、店ごとにまとめた行は 0.16 から）。元のファイルは持たない。元に戻す・やり直すの対象にしない
    */
   statements?: StatementLog;
+  /**
+   * 他のソフトからの移行の取り込みの記録（0113 の10。読み手・規則・辞書の版、伏せ字の後の抽出結果、参照値、移行メモ、移行元の数え方）。
+   * 世帯ファイルでは本文の区画 migrations に置く（形式の版 0.56 から）。元のファイルは持たない。元に戻す・やり直すの対象にしない
+   */
+  migrations?: MigrationLog;
 }
 
 /** ローンの入れ方の区分（0052） */

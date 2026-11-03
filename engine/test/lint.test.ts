@@ -34,6 +34,8 @@ describe("lint の禁止", () => {
     // 部品のフォルダの外の import（他の部品・SDK 以外のエンジンの中身）
     expect(at("financia/component-boundaries")).toEqual([3, 4]);
     expect(at("financia/no-module-state")).toEqual([6]);
+    // 0113 の8: 互換モードを読む書き方（分割代入・点・角括弧・in）
+    expect(at("financia/no-compatibility")).toEqual([23, 24, 24, 24]);
     // Yen への * と /
     expect(at("financia/no-money-arithmetic")).toEqual([13, 14]);
     const props = messages.filter((m) => m.ruleId === "no-restricted-properties").map((m) => m.message);

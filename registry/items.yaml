@@ -1,5 +1,6 @@
 # 0004 の5: 入力項目IDの登録簿。正本は engine/schemas/engine.input.json の x-item と、画面の側の区画のスキーマ app/schemas/*.json の x-item（scripts/registry.ts が作る。手で書き換えない）
 # collection・path は値の場所（物の集まりと、物の中の欄の道。collection が null なら要求の入力から）。当て先から値を引くのに使う（0035 の6・9）
+# pointInTime は時点のある値（ある時点の値として持ち、時間が経つと違う値になる入力項目。正本は x-pointInTime。0113 の7）
 # since は公開の約束の版の初期値（0.x。0001 の追記）を β公開で 1.0 にするまで draft とする
 kind: item
 entries:
@@ -35,6 +36,7 @@ entries:
     replacedBy: null
     collection: account
     path: [costBasis]
+    pointInTime: true
   - id: account.enrolledSince
     status: active
     label: "iDeCo・企業型DC の加入者等期間の始まり（受給開始の年齢を判定する）"
@@ -67,6 +69,7 @@ entries:
     replacedBy: null
     collection: account
     path: [frame]
+    pointInTime: true
   - id: account.kind
     status: active
     label: "器の種類"
@@ -91,6 +94,7 @@ entries:
     replacedBy: null
     collection: account
     path: [marketValue]
+    pointInTime: true
   - id: account.owner
     status: active
     label: "名義の構成員"
@@ -737,6 +741,7 @@ entries:
     replacedBy: null
     collection: debt
     path: [balance]
+    pointInTime: true
   - id: debt.balanceAsOf
     status: active
     label: "残高の時点"
@@ -1713,6 +1718,7 @@ entries:
     replacedBy: null
     collection: pensionRecord
     path: [amounts]
+    pointInTime: true
   - id: pensionRecord.asOf
     status: active
     label: "記録の時点（定期便の作成の月・通知の年月・加入歴の終わりの月）。この月より後はエンジンが働き方の期間から足す"
@@ -1761,6 +1767,7 @@ entries:
     replacedBy: null
     collection: pensionRecord
     path: [months]
+    pointInTime: true
   - id: periodicExpense.amount
     status: active
     label: "1回の額（計算基準年の価格）"
@@ -1945,6 +1952,7 @@ entries:
     replacedBy: null
     collection: premiumAssessment
     path: [amount]
+    pointInTime: true
   - id: premiumAssessment.fiscalYear
     status: active
     label: "年度"
@@ -2161,6 +2169,7 @@ entries:
     replacedBy: null
     collection: residentTaxAssessment
     path: [amount]
+    pointInTime: true
   - id: residentTaxAssessment.collection
     status: active
     label: "徴収の方法（省略は働き方から決める）"

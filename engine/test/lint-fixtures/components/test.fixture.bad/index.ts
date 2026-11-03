@@ -17,3 +17,9 @@ export function bad(a: Yen): number {
   const w = parseFloat("1");
   return p + q + r + s + t + u + v + w + other + counter + Number(mulRate);
 }
+
+// 0113 の8: 計算部品は互換モードを読まない
+export function compat(ctx: { conventions: Record<string, unknown> }): unknown {
+  const { compatibility } = ctx.conventions;
+  return [compatibility, ctx.conventions.compatibility, ctx.conventions["compatibility"], "compatibility" in ctx.conventions];
+}

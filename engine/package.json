@@ -19,7 +19,8 @@
     "l2": "node --disable-warning=ExperimentalWarning scripts/l2-report.ts",
     "models": "node --disable-warning=ExperimentalWarning scripts/model-households.ts",
     "bench": "node --disable-warning=ExperimentalWarning scripts/bench.ts",
-    "registry:check": "node --disable-warning=ExperimentalWarning scripts/gen.ts && node --disable-warning=ExperimentalWarning scripts/registry.ts --check"
+    "registry:check": "node --disable-warning=ExperimentalWarning scripts/gen.ts && node --disable-warning=ExperimentalWarning scripts/registry.ts --check",
+    "migration:check": "node --disable-warning=ExperimentalWarning scripts/migration-check.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

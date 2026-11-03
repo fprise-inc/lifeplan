@@ -293,16 +293,39 @@
 - **AI 接続口の移行の見出しの道具の入出力**（`get_import_headings`・`propose_term_dictionary`）: 0015 の道具の最終の一覧と一緒に、正式公開までに決める（それまでは「AI に資料を渡す」を使う）。
 - **文字の無い PDF・写真の読み取り**: 明細の段階3（0034 の1）の文字認識を作る回に、同じ部品を使うかを決める。
 - **上限の値**（ファイルの大きさ・ページ・抽出の行数・覚えた対応の行数）: 明細と同じ値から始め、非公開のサンプルの大きさを見て見直す。
+- **互換モードをプランにどう持たせるか**（2026-11-03 に足した）: 今は計算の要求の `calcConventions.compatibility` の形だけを決め、画面はいつも `null` を書く。照合用のプランの複製に互換モードを持たせる書き方（プランの差分にするか・その入力項目ID）は、照合の画面を作る回（段取りの4）に決める。
 
 ## 実装の段取り
 
 **β公開の前に作るもの**（骨格と形を先に固め、中身は照合を見て足す）:
 
-1. **形を固める**（11月）: `migration/schema/` に `migration-rule@1.0`・`term-dictionary@1.0` の JSON Schema、エンジンの入力の `compatibility` を 8 の形に広げる（項目の名前と値の検査だけ。作っていない項目の値は `E_ARGUMENT`）、世帯ファイルの形式を MINOR で上げて本文の区画 `migrations`・推定の出し方 `migrated` を足す（変換の段は版だけを書き換える。見本を `crates/household-store/tests/fixtures/household-format/<版>/` に足す）、登録簿に「時点のある値」の印を足す。
+1. **形を固める**（11月。2026-11-03 に作った。追記を見る）: `migration/schema/` に `migration-rule@1.0`・`term-dictionary@1.0` の JSON Schema、エンジンの入力の `compatibility` を 8 の形に広げる（項目の名前と値の検査だけ。作っていない項目の値は `E_ARGUMENT`）、世帯ファイルの形式を MINOR で上げて本文の区画 `migrations`・推定の出し方 `migrated` を足す（変換の段は版だけを書き換える。見本を `crates/household-store/tests/fixtures/household-format/<版>/` に足す）、登録簿に「時点のある値」の印を足す。
 2. **部品 `migration/`**（11〜12月）: 読み手（明細の `pdfText`・`csv` と `xlsx/` の土台を使い回す）、伏せ字の1か所の関数、4種類の区画を読む規則の当て方、辞書の引き方と単位の直し、候補・参照値・移行メモ・取り込みの記録を作る所、架空の帳票の見本を作る道具とテスト。通信と Node の組み込みを lint で止める。
-3. **汎用の公式の規則と辞書**（12月）: `official.genericReport`・`official.fpTerms`（CC0。製品によらない見出しの言葉だけ）。公開側の規則の `reads.product` が `null` であることを CI で確かめる。
+3. **汎用の公式の規則と辞書**（12月）: `official.genericReport`・`official.fpTerms`（CC0。製品によらない見出しの言葉だけ）。公開側の規則の `reads.product` が `null` であることを CI で確かめる（CI の検査は 2026-11-03 に段取りの1と一緒に作った。追記を見る）。
 4. **画面**（12月）: 「取り込む」の「他のソフトから移す」と世帯の一覧の入口、確かめの画面（9 の1〜7）、覚えた対応の保存（事務所データの欄 `migration`。本体の呼び口）、照合の画面（9 の8）、互換モードのプランの印と PDF の刻印。
 5. **製品ごとの公式の規則と照合**（12月〜1月。非公開のリポジトリ）: 非公開のサンプルで規則を作り、照合の差を見て、互換モードの計算の項目を差の大きいものから作る（エンジンの1か所。`cargo test` と一致テストを含む）。公式版のビルドで (b) を同梱する段を足す。
 6. **カスタム層の種類**（1月）: `migrationRule`・`termDictionary` をカスタム層の検査・承認の台帳に足す（0016 の追記の `Kind`）。SDK フォルダの説明書 `term-dictionary.md` とスキル `build-term-dictionary`（0019）は、SDK フォルダを置く回に一緒に作る。
 
 **β公開の後に回すもの**: AI 接続口の移行の見出しの道具（`get_import_headings`・`propose_term_dictionary`）、覚えた対応の事務所での共有、規則だけの配信、文字の無い PDF の読み取り、1つのファイルの複数のプランの移行。
+
+## 追記
+
+- 2026-11-03（実装の段取りの1「形を固める」を作った）: 作ったものと、作るときに決めた細部。計算の結果は変わらない（互換モードは表示の項目だけを受け付け、推定の出し方 `migrated` は値の印だけ。テストで確かめる）。
+  1. **規則と辞書の書き方の JSON Schema**: `migration/schema/migration-rule.schema.json`・`migration/schema/term-dictionary.schema.json`（JSON Schema 2020-12。知らない欄はどの段でも断る）と、書き方の版ごとの見本 `migration/schema/examples/`（`migration-rule-1.0.json`・`term-dictionary-1.0.json`。汎用の言葉だけ。消さない）。決めた細部:
+     - `contract` は読める書き方の版の列挙（今は `migration-rule@1.0`・`term-dictionary@1.0` だけ。MINOR で足す）。
+     - **プログラムらしき値を断る**: 見出しの言葉（64文字まで）と表示の言葉（200文字まで）に `<` `>` `{` `}` `` ` `` `$` `\` と制御文字を書けない。言葉は文字のまま比べるので、正規表現・式・タグ・テンプレートを書いても効かないが、書いたこと自体を断って、規則と辞書が宣言型であることを形で示す（見出しに使う括弧・％・スラッシュ・中黒などは書ける）。
+     - 規則: `anchor.page` は1〜200。`detect.minHits` は `anyWords` の数まで、`allWords` が空で `minHits` が0の規則（何にでも当たる規則）は断る。`conventions` の値は既定を含む全体（互換モードの5項目と `aggregation`・`investmentTiming`）と、表が名目か現在価値かの `valueBasis`（`nominal`・`presentValue`）。`table` の区画の `object` はエンジンの入力の物の集まりの名前（スキーマの `x-collection`。`debt`・`insurance`・`account` など）。
+     - 辞書: 5の5種類の対応先は、形としては4つ（入力項目 `{item, member?, object?}`・表の行 `{row}`・移行メモ `{memo: true}`・読まない `{drop: true}`）で、前提条件は入力項目の形で `assumptions.*` の ID を書く（前提条件には `member`・`object` を付けない）。`to.object` は `table` の区画の物の種類で、`item` はその集まりの入力項目に限る。続柄（`roles[].role`・`to.member`）はエンジンの入力の家族の種類と同じ言葉。`match` の省略は `exact`。値の読み方は、`period` を `money`・`yen` だけ、`choices` を `choice` だけ（写す先の値は英数字）に付けられ、`text` は移行メモだけ、読まない行は値の読み方を持たず、表の行の値は `money`・`yen`、移行メモの値は `text` だけ。
+     - **検査の置き場所**: JSON Schema で書けない決まり（区画の ID の重なり・物の種類・辞書の対応先の ID が登録簿にあって `deprecated`・`removed` でないこと・上の値の読み方の組み合わせ）は `engine/scripts/migrationRules.ts`（`npm run migration:check`。テストは `engine/test/migration-schema.test.ts`）。部品 `migration/` の package を作るまでは、ajv と登録簿を読む道具がある engine の道具に置く。部品を作る回（段取りの2）に部品の側へ移してよい。
+  2. **公開側の規則と辞書の CI**（7・11）: `npm run migration:check` を CI の engine のジョブで流す（`migration/` の変更でも流す。`.github/scripts/ci-changes.sh`）。`migration/rules/*.json` は検査に通り、`reads.product` が `null`、作成者が `official`、ファイル名が `<id>.json`、規則が挙げた辞書が公開側（`migration/dictionaries/`）にあること。`migration/dictionaries/*.json` も同じ（作成者・ファイル名）。書き方の見本も同じ検査に通す。公式の汎用の規則と辞書はまだ無い（段取りの3）。
+  3. **互換モードの形**（8・0003 の追記）: `engine/schemas/engine.input.json` の `calcConventions.compatibility` を `null` か `{source: {import, rule}, items}` にした。`items` に書けるのは既定と違う値だけ（スキーマの列挙に既定の値を入れない。既定を書いた互換モードは `E_INPUT_SCHEMA`）。`source.import` は取り込みの記録の ID（64文字まで。英数字で始まる英数字・点・下線・ハイフンだけにし、自由な文字を書けないようにした。持ち帰り用のレポートの自由記述の欄の一覧にも入らない。区画 `migrations` の記録の ID も同じ形）、`source.rule` は `<ID>@<改訂>`。互換モードを読むのはエンジンの `src/engine/compatibility.ts` の1か所で、計算部品の `ctx.conventions` からは外した（型 `ComponentConventions`）。部品と SDK のフォルダでは lint の `financia/no-compatibility` が `compatibility` を名前で読む書き方（点・角括弧・分割代入・`in`）を止める。
+     - **決めたこと: 表示の項目は受け付ける**。8 の「作っていない項目の値はエンジンは断る」のうち、計算の項目（`ageTiming`・`firstYear`・`growthStart`）は `E_ARGUMENT`（`calcConventions.compatibility.items` と項目の名前）で断り、表示の項目（`tableAge`・`tableBalance`）は受け付ける。表示の項目はエンジンの計算を変えず（結果は `null` と同じ）、表とグラフの見せ方は画面の受け持ちなので、エンジンが断る理由が無いため。画面はまだ表示の項目を読まず、いつも `null` を書く（照合の画面を作る回に表示を作る）。
+     - `source` は見出しの `calcConventions` のまま根拠の記録に写る（計算には使わない）。
+  4. **世帯ファイルの形式 `0.56`**（7・10・0011 の追記）: 本文の区画 `migrations`、推定の出し方 `migrated`（`common.json` の列挙）、互換モードの形を足した MINOR。変換の段は版だけを書き換える。見本 `crates/household-store/tests/fixtures/household-format/0.56/`。画面の読み取りの細部（`app/src/workspace/store/migrations.ts` の `readMigrationLog`）:
+     - 1件の欄は 10 の形のとおり。`extracted` の対応先は入力項目・表の行・移行メモの3つ（読まない `drop` は記録に残さない）、`decidedBy` は `rule`・`learned`・`ai`・`fp`。参照値は年 1900〜2200・額は整数・`precision` は 1・1000・10000。`conventions` は規則の `conventions` と同じ列挙。`rule.contract` は `migration-rule@1.x`。ファイルの指紋は `sha256:` と64桁。
+     - 形の合わない記録・行と、知らない欄（ファイル名・伏せ字の前の文字など）は捨てる。同じ ID の記録は先の1件だけ。上限は記録200件・1件の行5000・参照値5万・文字1000（内部）。
+     - **決めたこと: 元の記録の無い互換モードを直す所**。8 の「本体が読むときに `null` に直し、知らせを出す」は、ほかの読むときの直し（車のローンの書類待ちなど）と同じく、画面の側の本文の読み取り（`fromBody`）で行う（直す決まりが区画 `migrations` の中身に依るため）。今は現状の計算の要求だけを見て、控えは変えない。開いたときの知らせは `compatibilityDropped`（1回だけ）。
+     - 型と読み取りは、部品 `migration/` を作る回に部品の側へ移してよい（明細の `readLog` と同じ置き方）。
+     - AI接続口の縮約版に区画が入らないことをテストに足した（`crates/ai-share/tests/book.rs`）。
+  5. **登録簿の「時点のある値」の印**（7・0004 の追記）: `registry/items.yaml` の `pointInTime: true`（正本はエンジンの入力のスキーマの `x-pointInTime`）。**決めたこと: 印を付ける基準**は「時点の欄（`asOf`・`balanceAsOf`・`fiscalYear`）と組で持ち、その時点の値として入れる値」で、口座の時価・取得価額・NISA の非課税保有限度額の消化、ローンの残高、年金の加入月数・見込み額、保険料の決定額、住民税の年税額の8つ。7 の例（預金・ローンの残高、年金の加入月数、住民税の年税額）を含む。給与・標準報酬月額は時点の欄を持たないので付けない（付けるなら、移行の照合で要ると分かったときに足す）。
+

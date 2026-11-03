@@ -51,6 +51,8 @@ classify() {
     # 速さの前の値（速さの計測は手で起動したときと毎晩だけ）
     engine/bench/*) ;;
     engine/*|sdk/*|registry/*|data/*) on[engine]=1; on[app]=1; on[report]=1; on[hearing]=1; on[host]=1 ;;
+    # 読み取り規則・用語辞書の形と公開側の規則（0113。engine の migration:check と単体テストが確かめる）
+    migration/*) on[engine]=1 ;;
     app/src-tauri/Cargo.*|app/src-tauri/deny.toml) on[app]=1; on[licenses_rust]=1 ;;
     app/*) on[app]=1 ;;
     report/*) on[report]=1; on[app]=1 ;;

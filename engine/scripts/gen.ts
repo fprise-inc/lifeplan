@@ -1,7 +1,7 @@
 // ビルドの前に作るもの（src/generated/。コミットしない）
 // 1. 科目の木の登録簿（YAML）→ JSON
 // 2. JSON Schema → 検査器のコード（Ajv の standalone。実行環境ではコードを作らない。0006 の5）
-// 2b. 入力項目ID（engine.input.json の x-item・x-collection・x-owner）→ items.json
+// 2b. 入力項目ID（engine.input.json の x-item・x-collection・x-owner・x-pointInTime）→ items.json
 // 3. 版と、ソース・部品の指紋
 import { mkdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
@@ -38,6 +38,7 @@ ajv.addKeyword({ keyword: "x-unit", schemaType: "string" });
 ajv.addKeyword({ keyword: "x-item", schemaType: "string" });
 ajv.addKeyword({ keyword: "x-collection", schemaType: "string" });
 ajv.addKeyword({ keyword: "x-owner", schemaType: "array" });
+ajv.addKeyword({ keyword: "x-pointInTime", schemaType: "boolean" });
 const mapping: Record<string, string> = {};
 const keys: Record<string, string> = {};
 for (const f of schemaFiles) {
@@ -85,7 +86,7 @@ writeGenerated(
 // 2b. 入力項目ID（0004 の5: 正本はデータモデルの JSON Schema。x-item と x-collection から作る）
 type SchemaNode = Record<string, unknown>;
 const inputSchema = readJson(join(ENGINE_DIR, "schemas", "engine.input.json")) as SchemaNode;
-const items: Record<string, { collection: string | null; path: string[]; title: string }> = {};
+const items: Record<string, { collection: string | null; path: string[]; title: string; pointInTime?: true }> = {};
 const collections: Record<string, string[]> = {};
 // 集まりの物がどの構成員の物か（x-owner。0006 の追記: 構成員ごとの依存）
 const owners: Record<string, string[]> = {};
@@ -107,8 +108,11 @@ const walkSchema = (node: SchemaNode, collection: string | null, path: string[],
     }
     if (collection !== null && !item.startsWith(`${collection}.`)) throw new Error(`engine.input.json: ${item} は ${collection}. で始めます`);
     if (prev === undefined || (prev.title === "" && typeof node.title === "string")) {
-      items[item] = { collection, path, title: typeof node.title === "string" ? node.title : "" };
+      items[item] = { collection, path, title: typeof node.title === "string" ? node.title : "", ...(prev?.pointInTime === true ? { pointInTime: true as const } : {}) };
     }
+    // 時点のある値の印（x-pointInTime。0113 の7: 移行元のプランの時点と今の計算基準月が違えば、書類待ちか推定 migrated にする）
+    if (node["x-pointInTime"] === true) (items[item] as { pointInTime?: true }).pointInTime = true;
+    else if (node["x-pointInTime"] !== undefined) throw new Error(`engine.input.json: ${item} の x-pointInTime は true だけ`);
   }
   const props = node.properties as Record<string, SchemaNode> | undefined;
   for (const [k, child] of Object.entries(props ?? {})) {

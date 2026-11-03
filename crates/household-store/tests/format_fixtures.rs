@@ -171,6 +171,31 @@ fn every_format_version_has_a_fixture_and_opens() {
             migrate::parse(v).unwrap() >= (0, 51),
             "{v}: 三大疾病保険の契約は 0.51 からの見本"
         );
+        // 0.56 から: 他のソフトからの移行の取り込みの記録（区画 migrations）と推定の出し方 migrated（0113 の7・10）
+        let migrated = now
+            .get("migrations")
+            .and_then(|m| m["imports"].as_array())
+            .is_some_and(|l| l.iter().any(|i| i["kind"] == "migration"));
+        assert_eq!(
+            migrated,
+            migrate::parse(v).unwrap() >= (0, 56),
+            "{v}: 移行の取り込みの記録は 0.56 からの見本"
+        );
+        if migrated {
+            assert_eq!(
+                now["migrations"], expected["migrations"],
+                "{v}: 取り込みの記録の中身は変換で変えない"
+            );
+            let accounts = now["household"]["request"]["input"]["household"]["accounts"]
+                .as_array()
+                .unwrap();
+            assert!(
+                accounts
+                    .iter()
+                    .any(|a| a["marketValue"]["estimate"]["method"] == "migrated"),
+                "{v}: 0.56 の見本には推定の出し方 migrated の値がある"
+            );
+        }
         // 0.53 から: 住宅の購入の種類（新築か中古か）と長期優良住宅か（0052 の追記 2026-11-03・0112）
         let typed = now["household"]["request"]["input"]["household"]["residences"]
             .as_array()

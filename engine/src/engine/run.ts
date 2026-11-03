@@ -14,6 +14,7 @@ import { Tracer } from "../registry/trace.ts";
 import { decemberOf, formatYm, parseYm, yearOf } from "../time/month.ts";
 import { TimeResolver } from "../time/timepoint.ts";
 import { tableYear } from "./aggregate.ts";
+import { componentConventions } from "./compatibility.ts";
 import { deepFreeze } from "./freeze.ts";
 import { numTable, type NumTable } from "./numTable.ts";
 import { applyInvestment } from "./investment.ts";
@@ -486,6 +487,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     traceOn: tracer.on,
     time,
     input,
+    conventions: componentConventions(input.calcConventions),
     items: ITEMS,
     projections: new Map(),
     notices: new Map(),
