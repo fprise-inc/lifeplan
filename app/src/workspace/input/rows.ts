@@ -15,7 +15,7 @@ const same = (a: unknown, b: unknown): boolean => JSON.stringify(sortKeys(a)) ==
 export interface StateRow {
   state: "estimated" | "unknown" | "notApplicable" | "confirmed";
   origin: { kind: string; [k: string]: unknown };
-  estimate?: { method: string; basis: string };
+  estimate?: { method: string; basis: string; source?: { kind: "office"; values: Record<string, string> } };
   approval?: unknown;
   certainty?: string;
 }

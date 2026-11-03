@@ -21,6 +21,7 @@ import { estimateTextId, estimateValueText, ESTIMATE_OFFICIAL, fieldTextId } fro
 import { fillName } from "../../../../report/src/rowNames.ts";
 import { convertWhen, eventOptionText, modeOf, parseWhen, readWhen, readYearMonth, showWhen, strictShown, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 import { isOfficeBasisText } from "../../../../hearing/src/statistics.ts";
+import type { OfficeSourceView } from "./officeSource.ts";
 
 export const visible = (level: Level, l: Level) => level === "detail" || l === "simple";
 
@@ -106,13 +107,16 @@ const STATUS_CLASS: Record<ValueStatus, string> = { estimated: "est", unknown: "
  * 状態の印（推定・仮・書類待ち・該当なし・未入力）。根拠（推定の出どころ・代わりの値・0円の理由）があれば、印を押すと根拠が開く（0077）。
  * 書類待ちは、確かめる書類（欄の定義の docCheck）を添える。確定の欄には何も出さない
  */
-export function StateMark({ status, basis, text, label, fieldKey, doc, estimate }: { status: ValueStatus; basis: string | null; text: string; label: string; fieldKey?: string; doc?: string | undefined; estimate?: { id: string | null; value: string } }) {
+export function StateMark({ status, basis, text, label, fieldKey, doc, estimate, office }: { status: ValueStatus; basis: string | null; text: string; label: string; fieldKey?: string; doc?: string | undefined; estimate?: { id: string | null; value: string }; office?: OfficeSourceView | undefined }) {
   const texts = useContext(OfficeTextsContext);
-  const cls = `badge ${STATUS_CLASS[status]}`;
-  const data: Record<string, string> = { "data-state": status, ...(fieldKey !== undefined ? { "data-state-of": fieldKey } : {}) };
+  // 事務所の推定の値から作った推定（値の箱の印。0111 の追記 2026-11-03）は、印の文字を変えずに点線の下線だけ足す（顧客と見る画面を重くしない）
+  const fromOffice = office !== undefined && (status === "estimated" || status === "unknown");
+  const cls = `badge ${STATUS_CLASS[status]}${fromOffice ? " office" : ""}`;
+  const data: Record<string, string> = { "data-state": status, ...(fieldKey !== undefined ? { "data-state-of": fieldKey } : {}), ...(fromOffice ? { "data-est-source": office.changed.length > 0 ? "office-changed" : "office" } : {}) };
   // 推定の根拠の文の事務所の文（説明の一覧の estimate:…。消せない。公式の文は {basis} に入る。0016 の 2026-11-02 の追記）。
-  // 事務所の推定の値（事務所の既定値の画面で変えた値。0111）から作った推定は、その根拠の文（事務所の文と変えた年月）をそのまま出し、カスタム層の文を当てない
-  const est = status === "estimated" && basis !== null && estimate !== undefined && texts.size > 0 && !isOfficeBasisText(basis) ? officeEstimate(texts.get(estimate.id ?? ""), basis, estimate.value) : null;
+  // 事務所の推定の値（事務所の既定値の画面で変えた値。0111）から作った推定は、その根拠の文（事務所の文と変えた年月）をそのまま出し、カスタム層の文を当てない。
+  // 見分けは値の箱の印（形式 0.54 から。根拠の文を後で書き換えても見分けられる）と、印の無い推定の根拠の文が今の事務所の文とまったく同じか
+  const est = status === "estimated" && basis !== null && estimate !== undefined && texts.size > 0 && office === undefined && !isOfficeBasisText(basis) ? officeEstimate(texts.get(estimate.id ?? ""), basis, estimate.value) : null;
   const body =
     status === "estimated" && basis !== null
       ? `推定: ${est?.text ?? basis}`
@@ -132,10 +136,20 @@ export function StateMark({ status, basis, text, label, fieldKey, doc, estimate 
       <p class="est-basis" data-basis>
         {body}
       </p>
+      {fromOffice ? (
+        <p class="est-office" data-est-office={office.changed.length > 0 ? "changed" : "current"}>
+          {office.changed.length > 0 ? OFFICE_SOURCE_CHANGED : OFFICE_SOURCE_NOTE}
+        </p>
+      ) : null}
       {est !== null && basis !== null ? <OfficeTextMark entry={est.office} official={`推定: ${basis}`} /> : null}
     </Help>
   );
 }
+
+/** 事務所の推定の値から作った推定の、根拠の下の1行（FP 向けの「?」の中だけ） */
+export const OFFICE_SOURCE_NOTE = "事務所の推定の値（事務所の既定値）から作った推定です。";
+/** 作った後に事務所の推定の値を変えた・公式に戻したときの1行 */
+export const OFFICE_SOURCE_CHANGED = "事務所の推定の値から作った推定です。作った後に事務所の値を変えたので、この欄は前の値のままです（確かめの一覧に出ます）。";
 
 /** 推定の根拠の文に事務所の文を当てる（書き換え・足すだけ。消す行は本体が承認しない。差し込みの印は {basis} と {value}） */
 export function officeEstimate(e: OfficeTextEntry | undefined, basis: string, value: string): { text: string; office: OfficeTextEntry } | null {
@@ -962,7 +976,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   // 状態の印（根拠は印を押すと開く。0077）
   const badge =
     shownStatus !== null && shownStatus !== "confirmed" ? (
-      <StateMark status={shownStatus} basis={shownStatus === "notApplicable" ? null : basisText} text={shownStatus === "estimated" && status === null && state.estimated == null ? "仮" : shownStatus === "missing" ? "未入力" : STATUS_LABELS[shownStatus]} label={f.label} doc={f.docCheck} estimate={{ id: estimateTextId(f, wh), value: estimateValueText(f, wh) }} />
+      <StateMark status={shownStatus} basis={shownStatus === "notApplicable" ? null : basisText} text={shownStatus === "estimated" && status === null && state.estimated == null ? "仮" : shownStatus === "missing" ? "未入力" : STATUS_LABELS[shownStatus]} label={f.label} doc={f.docCheck} estimate={{ id: estimateTextId(f, wh), value: estimateValueText(f, wh) }} office={status?.office} />
     ) : state.partEstimated != null ? (
       // 欄の値は確定でも、内訳の一部が推定（年収〔賞与込み〕の賞与など）なら「推定」の印（押すと根拠。0077 の追記）
       <StateMark status="estimated" basis={state.partEstimated} text="推定" label={f.label} />
