@@ -228,7 +228,7 @@ function costLabel(tax: IncomeTaxTreatment, c: Cadence, everyYears: number): str
   return c === "once" ? what : `${what}（${amountName(c, everyYears)}）`;
 }
 
-/** 必要経費・取得費の欄の説明（onceAmount: ライフイベントの1回の行。受け取る額と同じ入れ方で入れる） */
+/** 必要経費・取得費の欄の説明（onceAmount: ライフイベント・相続・贈与の1回の行。受け取る額と同じ入れ方で入れる） */
 function costHelp(tax: IncomeTaxTreatment, c: Cadence, everyYears: number, onceAmount = false): string {
   const unit = c === "once" ? "受け取る額と同じく、その1回の分" : `受け取る額と同じく${amountName(c, everyYears)}`;
   const what = tax === "capitalGains" ? "受け取る額から引く取得費と譲渡の費用" : "受け取る額から引く経費";
@@ -670,7 +670,7 @@ export function everyField(key: string, item: string, find: Finder, help: string
 /**
  * 時期の入れ方の欄（1回／毎月／年ごと）。1回は終わりを始まりと同じ月に、毎月は monthly を立てる（何年ごとは1）。年ごとに変えると、何年ごとは
  * 1（毎年）から始まる。1回・毎月に変えると何年ごとの欄は消えるので、何年ごとの仮の印（ひな形の推定）も外す。
- * onceAsEntered（ライフイベントの行）: 1回にすると額の入れ方の既定「その時の額」を書き、1回から変えるとその既定を外す（applyOnceGrowth）
+ * onceAsEntered（ライフイベント・相続・贈与の行）: 1回にすると額の入れ方の既定「その時の額」を書き、1回から変えるとその既定を外す（applyOnceGrowth）
  */
 export function cadenceField(key: string, item: string, find: Finder, id: string, o: { noMonthly?: { help: string; legacy: string; monthlyNow: boolean }; onceAsEntered?: boolean } = {}): FieldDef {
   // 毎月を選べない行（修繕・リフォーム）: 前の版で毎月にした行だけ、読めるように「毎月」を残して知らせる
@@ -710,7 +710,7 @@ export function cadenceField(key: string, item: string, find: Finder, id: string
           }
           // 毎月 ↔ 年ごとは、年あたりが同じになるよう額を言い直す（0100 の追記）
           if (v === "monthly" || v === "repeat") reexpressAmounts(r, { c: was, every: wasEvery }, { c: v, every: r.everyYears });
-          // ライフイベントの行: 1回にすると額の入れ方は「その時の額」、1回から変えると伸び方は物価に戻す（0008 の追記 2026-11-02）
+          // ライフイベント・相続・贈与の行: 1回にすると額の入れ方は「その時の額」、1回から変えると伸び方は物価に戻す（0008 の追記 2026-11-02・2026-11-03）
           if (o.onceAsEntered === true && (v === "once") !== (was === "once")) applyOnceGrowth(h, r);
         });
         return v === "repeat" ? next : withoutAssumedKey(next, key.replace(/\/cadence$/, "/every"));
@@ -765,9 +765,10 @@ function aliasBadge(f: FieldDef): FieldDef {
 
 /**
  * 1回の行を「入れた額のまま」（伸び方 none）を既定にするカード: ライフイベントの入力項目（夢プランの夢・家族の出来事のひな形・ほかの支出・
- * 祝い金などの入金）。相談の場では、将来の1回の額を「5年後に200万円」のようにその時の金額で考えるため。ほかの入力項目のお金の行は今のまま
+ * 祝い金などの入金）と、相続・贈与の入力項目（受け取る相続・受け取る贈与・あげる贈与。0008 の追記 2026-11-03）。相談の場では、将来の1回の額を
+ * 「5年後に200万円」のようにその時の金額で考えるため。ほかの入力項目のお金の行は今のまま
  */
-export const ONCE_AS_ENTERED_CARDS: ReadonlySet<MoneyCard> = new Set(["events"]);
+export const ONCE_AS_ENTERED_CARDS: ReadonlySet<MoneyCard> = new Set(["events", "inherit"]);
 export const onceAsEntered = (card: MoneyCard): boolean => ONCE_AS_ENTERED_CARDS.has(card);
 
 /**
@@ -784,21 +785,21 @@ export function applyOnceGrowth(h: Household, r: Pick<PeriodicExpense, "from" | 
 /** 1回の行の「額の入れ方」の選択肢（中身は伸び方の「変えない」「物価に合わせる」「決まった率」。既定の「その時の額」を先頭に） */
 export const ONCE_AMOUNT_KINDS: Option[] = [
   { value: "none", label: "その時の額のまま" },
-  { value: "inflation", label: "今の値段（物価で増やす）" },
+  { value: "inflation", label: "今の値段で入れた（物価上昇率で増やす）" },
   { value: "rate", label: "決まった率で増やす" },
 ];
 
 /** 1回の行の「額の入れ方」の説明 */
 export const ONCE_AMOUNT_HELP =
-  "「その時の額のまま」は、その時に払う（受け取る）額をそのまま入れたときです。物価では増やしません（新しく足した1回の行はこれです）。「今の値段（物価で増やす）」は、今の値段で入れたときで、その時までの物価の上がり方で増やします。「決まった率で増やす」は、入れた額を決まった率で毎年増やします。選んでいない前の行は、今の値段として物価で増やしています";
+  "「その時の額のまま」は、その時に払う（受け取る）額をそのまま入れたときです。物価上昇率では増やしません（新しく足した1回の行はこれです）。「今の値段で入れた（物価上昇率で増やす）」は、今の値段で入れた額を、その時までの物価上昇率で増やします。「決まった率で増やす」は、入れた額を決まった率で毎年増やします。選んでいない前の行は、今の値段として物価上昇率で増やしています";
 
 /** 伸び方の欄の名前（1回の行の額の入れ方の欄は「額の入れ方」） */
 export const growthLabel = (onceAmount: boolean): string => (onceAmount ? "額の入れ方" : "伸び方");
 
 /**
- * 伸び方の欄（物価に合わせる＝既定／決まった率〔マイナスも〕／変えない）。onceAmount は、ライフイベントの1回の行の「額の入れ方」
- * （その時の額のまま／今の値段（物価で増やす）／決まった率で増やす）。どちらも伸び方を持たない行は物価として見せる（エンジンの既定どおり）。
- * 額の入れ方は選んだ値をそのまま書く（「今の値段（物価で増やす）」も書く。時期を変えても選んだ入れ方が残るように）
+ * 伸び方の欄（物価に合わせる＝既定／決まった率〔マイナスも〕／変えない）。onceAmount は、ライフイベント・相続・贈与の1回の行の「額の入れ方」
+ * （その時の額のまま／今の値段で入れた（物価上昇率で増やす）／決まった率で増やす）。どちらも伸び方を持たない行は物価として見せる（エンジンの既定どおり）。
+ * 額の入れ方は選んだ値をそのまま書く（「今の値段で入れた（物価上昇率で増やす）」も書く。時期を変えても選んだ入れ方が残るように）
  */
 export function growthFields(key: string, item: string, find: Finder, id: string, cur: { kind: string; rate?: string } | undefined, o: { onceAmount?: boolean } = {}): FieldDef[] {
   const once = o.onceAmount === true;
@@ -817,14 +818,14 @@ export function growthFields(key: string, item: string, find: Finder, id: string
   return out;
 }
 
-/** 額の欄の説明（ライフイベントの1回の行: 額の入れ方に合わせる） */
+/** 額の欄の説明（ライフイベント・相続・贈与の1回の行: 額の入れ方に合わせる） */
 function onceAmountHelp(g: { kind: string } | undefined): string {
-  if (g?.kind === "none") return "その時の額をそのまま入れます（物価では増やしません。今の値段で入れたときは、「詳細」の「額の入れ方」で「今の値段（物価で増やす）」を選びます）";
+  if (g?.kind === "none") return "その時の額をそのまま入れます（物価上昇率では増やしません。今の値段で入れたときは、「詳細」の「額の入れ方」で「今の値段で入れた（物価上昇率で増やす）」を選びます）";
   if (g?.kind === "rate") return "入れた額を、「詳細」の「額の入れ方」の決まった率で、その時まで増やします";
-  return "今の値段として、その時までの物価で増やして計算しています（その時の額で入れたときは、「詳細」の「額の入れ方」で「その時の額のまま」を選びます）";
+  return "今の値段として、その時までの物価上昇率で増やして計算しています（その時の額で入れたときは、「詳細」の「額の入れ方」で「その時の額のまま」を選びます）";
 }
 
-/** 伸び方を「詳細あり」に数えるか（ライフイベントの1回の行は、既定の「その時の額」のときは数えない） */
+/** 伸び方を「詳細あり」に数えるか（ライフイベント・相続・贈与の1回の行は、既定の「その時の額」のときは数えない） */
 const growthNoted = (g: { kind: string } | undefined, onceAmount: boolean): boolean => (onceAmount ? g !== undefined && g.kind !== "none" : g !== undefined);
 
 /** 伸び方を選び直したときの始末（決まった率なら率を置き、ほかは率を消す。stages/living.ts の fixGrowth と同じ） */
@@ -904,7 +905,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   const tax = incomeTreatment(f);
   const inherit = card === "inherit";
   const excluded = excludedIncome(f);
-  // ライフイベントの1回の行は「額の入れ方」（0008 の追記 2026-11-02）
+  // ライフイベント・相続・贈与の1回の行は「額の入れ方」（0008 の追記 2026-11-02・2026-11-03）
   const asEntered = onceAsEntered(card);
   const onceAmount = asEntered && c === "once";
   const fields: FieldDef[] = [
@@ -1057,7 +1058,7 @@ export function addIncome(wh: WorkingHousehold, kind: IncomeFlowKind, id: string
       // 受け取る予定の相続・贈与の見込みは、事務所の既定値（「当てにしない」なら基本の計算に入れない。0073）
       ...(def.card === "inherit" && officeNow().inheritLikelihood === "uncertain" ? { likelihood: "uncertain" as const } : {}),
     };
-    // ライフイベントの1回の行は、入れた額のまま（0008 の追記 2026-11-02）
+    // ライフイベント・相続・贈与の1回の行は、入れた額のまま（0008 の追記 2026-11-02・2026-11-03）
     if (onceAsEntered(def.card)) applyOnceGrowth(h, f);
     (h.incomeFlows ??= []).push(f);
   });
@@ -1147,7 +1148,7 @@ export function addExpense(wh: WorkingHousehold, kind: MoneyOutKind, id: string 
       ...(counterparty !== undefined ? { counterparty } : {}),
       ...(kind === "gift" ? { gift: { method: "calendar", purpose: "general" } } : {}),
     };
-    // ライフイベントの1回の行は、入れた額のまま（0008 の追記 2026-11-02）
+    // ライフイベント・相続・贈与の1回の行は、入れた額のまま（0008 の追記 2026-11-02・2026-11-03）
     if (onceAsEntered(def.card)) applyOnceGrowth(h, p);
     (h.periodicExpenses ??= []).push(p);
   });
@@ -1164,7 +1165,7 @@ export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense, card: Mo
   // 時期の入れ方（1回・毎月・年ごと。0044）。1回は終わり＝初め・何年ごと1、毎月は monthly
   const c = cadenceOf(h0, p);
   const once = c === "once";
-  // ライフイベントの1回の行は「額の入れ方」（0008 の追記 2026-11-02）
+  // ライフイベント・相続・贈与の1回の行は「額の入れ方」（0008 の追記 2026-11-02・2026-11-03）
   const asEntered = onceAsEntered(card);
   const onceAmount = asEntered && once;
   const fields: FieldDef[] = [

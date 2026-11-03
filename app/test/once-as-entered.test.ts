@@ -1,6 +1,7 @@
 // ライフイベントの1回のお金の行は、入れた額のまま（物価で増やさない）を既定にする（0008 の追記 2026-11-02）:
 // 新しく足す1回の行・毎年から1回に変えた行に伸び方「変えない」を明示して書く（エンジンの既定〔省略は物価〕は変えない）。伸び方を持たない前の行は
-// 今の読み方（物価）のまま。1回の行の欄は「額の入れ方」（その時の額のまま／今の値段（物価で増やす）／決まった率で増やす）、くり返す行は「伸び方」のまま
+// 今の読み方（物価）のまま。1回の行の欄は「額の入れ方」（その時の額のまま／今の値段で入れた（物価上昇率で増やす）／決まった率で増やす）、くり返す行は「伸び方」のまま。
+// 相続・贈与の入力項目の1回の行（受け取る相続・受け取る贈与・あげる贈与）も同じ（0008 の追記 2026-11-03）
 import { describe, expect, it } from "vitest";
 import type { EngineRequest, IncomeFlow, PeriodicExpense } from "../src/engine/types.ts";
 import { forEngine } from "../src/engine/moneyRows.ts";
@@ -90,7 +91,7 @@ describe("新しく足す1回の行は、入れた額のまま（伸び方「変
     expect(cellDiff(other.request, wh.request, "cf.expense.lumpSum.other", y)).toBe(2_000_000);
     const gift = place(addIncomeTemplate(wh, "結婚のお祝い", ID), ID, 2_000_000, "incomeFlows");
     expect(cellDiff(gift.request, wh.request, "cf.income.lumpSum.other", y)).toBe(2_000_000);
-    // 「今の値段（物価で増やす）」を選ぶと、その時までの物価で増やす
+    // 「今の値段で入れた（物価上昇率で増やす）」を選ぶと、その時までの物価上昇率で増やす
     const f = fieldOf(dream, `ev/${ID}/growth`);
     const nominal = f.set(dream, "inflation");
     expect(expenseOf(nominal).growth).toEqual({ kind: "inflation" });
@@ -112,19 +113,12 @@ describe("くり返す行は今のまま（伸び方の既定は物価）", () =
     expect(cellDiff(reserve.request, wh.request, "cf.expense.lumpSum.other", year5(wh))).toBeGreaterThan(1_000_000);
   });
 
-  it("ライフイベント以外の入力項目の1回の行（あげる贈与・受け取る相続・子ども・教育の留学）は今のまま", () => {
+  it("ライフイベント・相続・贈与以外の入力項目の1回の行（不動産の一時の経費・事業の売却代金・子ども・教育の留学）は今のまま", () => {
     const wh = bare();
-    expect(expenseOf(addExpense(wh, "gift", ID)).growth).toBeUndefined();
     expect(expenseOf(addExpense(wh, "realEstateCost", ID)).growth).toBeUndefined();
-    expect(incomeOf(addIncome(wh, "inheritance", ID)).growth).toBeUndefined();
     expect(incomeOf(addIncome(wh, "saleBusiness", ID)).growth).toBeUndefined();
     const child = wh.request.input.household.members.find((m) => m.kind === "child")!;
     expect(expenseOf(addChildExpense(wh, child.id, "abroad", ID)).growth).toBeUndefined();
-    // 相続・贈与の入力項目の欄は「伸び方」のまま
-    const gift = addExpense(wh, "gift", ID);
-    const g = allFields(buildStage("inheritance", gift)).find((f) => f.key === `ev/${ID}/growth`)!;
-    expect(g.label).toBe("伸び方");
-    expect(values(g)).toEqual(GROWTH_KINDS.map((o) => o.value));
   });
 });
 
@@ -163,7 +157,7 @@ describe("伸び方を持たない前の1回の行は、今の読み方（物価
       (h.periodicExpenses ??= []).push({ id: ID, label: "前の一時的支出", kind: "general", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, amount: standardBox(2_000_000, "テストの額") as PeriodicExpense["amount"] });
     });
 
-  it("画面は「今の値段（物価で増やす）」（選んでいない）と見せ、額・時期を直しても伸び方を書かない。計算は物価で伸びる", () => {
+  it("画面は「今の値段で入れた（物価上昇率で増やす）」（選んでいない）と見せ、額・時期を直しても伸び方を書かない。計算は物価で伸びる", () => {
     const wh = legacy();
     const g = fieldOf(wh, `ev/${ID}/growth`);
     expect(g.label).toBe("額の入れ方");
@@ -189,24 +183,24 @@ describe("伸び方を持たない前の1回の行は、今の読み方（物価
 });
 
 describe("欄の名前と選択肢", () => {
-  it("ライフイベントの1回の行は「額の入れ方」（その時の額のまま＝既定／今の値段（物価で増やす）／決まった率で増やす）。くり返す行は「伸び方」", () => {
+  it("ライフイベントの1回の行は「額の入れ方」（その時の額のまま＝既定／今の値段で入れた（物価上昇率で増やす）／決まった率で増やす）。くり返す行は「伸び方」", () => {
     const wh = addOtherExpense(bare(), ID);
     const g = fieldOf(wh, `ev/${ID}/growth`);
     expect(g.label).toBe("額の入れ方");
-    expect(labels(g)).toEqual(["その時の額のまま", "今の値段（物価で増やす）", "決まった率で増やす"]);
+    expect(labels(g)).toEqual(["その時の額のまま", "今の値段で入れた（物価上昇率で増やす）", "決まった率で増やす"]);
     expect(values(g)).toEqual(["none", "inflation", "rate"]);
     expect(ONCE_AMOUNT_KINDS.map((o) => o.value).sort()).toEqual(GROWTH_KINDS.map((o) => o.value).sort());
     expect(g.get(wh).value).toBe("none");
     expect(g.help).toContain("その時に払う（受け取る）額をそのまま入れたとき");
-    expect(g.help).toContain("今の値段で入れたときで、その時までの物価の上がり方で増やします");
+    expect(g.help).toContain("今の値段で入れた額を、その時までの物価上昇率で増やします");
     expect(g.help).not.toContain("額は今の値段で入れます");
     // 額の欄の「?」も額の入れ方に合わせる
     expect(fieldOf(wh, `ev/${ID}/amount`).help).toContain("その時の額をそのまま入れます");
-    expect(fieldOf(g.set(wh, "inflation"), `ev/${ID}/amount`).help).toContain("その時までの物価で増やして");
+    expect(fieldOf(g.set(wh, "inflation"), `ev/${ID}/amount`).help).toContain("その時までの物価上昇率で増やして");
     // 詳細のまとまりの名前・「▸ …」の文
     expect(groupOf(wh, `ev/${ID}/who`).title).toBe("払う人・額の入れ方・万一のときの扱い");
     expect(groupOf(wh, `ev/${ID}`).moreLabel).toBe("払う人・額の入れ方を入れる");
-    // 既定の「その時の額」は「詳細あり」に数えない。「今の値段（物価で増やす）」を選ぶと数える
+    // 既定の「その時の額」は「詳細あり」に数えない。「今の値段で入れた（物価上昇率で増やす）」を選ぶと数える
     expect(groupOf(wh, `ev/${ID}`).note ?? "").not.toContain("額の入れ方");
     expect(groupOf(g.set(wh, "inflation"), `ev/${ID}`).note).toContain("額の入れ方");
     // 決まった率を選ぶと率の欄が出る
@@ -235,5 +229,102 @@ describe("欄の名前と選択肢", () => {
     expect(d.level).toBe("detail");
     expect(d.get(dream).value).toBe("none");
     expect(groupOf(dream, `ev/${ID}`).moreLabel).toBe("額の入れ方を選ぶ");
+  });
+});
+
+// ---- 相続・贈与の入力項目の1回の行（0008 の追記 2026-11-03） ----
+
+describe("相続・贈与の入力項目の1回の行も、入れた額のまま", () => {
+  /** 相続・贈与の行も無い世帯 */
+  const bareInherit = (): WorkingHousehold => {
+    const wh = bare();
+    const h = wh.request.input.household;
+    return { ...wh, request: { ...wh.request, input: { ...wh.request.input, household: { ...h, periodicExpenses: (h.periodicExpenses ?? []).filter((p) => expenseCard(h, p) !== "inherit") } } } };
+  };
+  const inherit = (wh: WorkingHousehold) => buildStage("inheritance", wh);
+  const inField = (wh: WorkingHousehold, key: string): FieldDef => allFields(inherit(wh)).find((f) => f.key === key)!;
+  const inGroup = (wh: WorkingHousehold, key: string): GroupDef => inherit(wh).sections.flatMap((s) => s.groups).find((g) => g.key === key)!;
+  /** 入力項目の「＋ …」で足して、足した行を返す */
+  const addBy = (wh: WorkingHousehold, key: string): { wh: WorkingHousehold; row: IncomeFlow | PeriodicExpense } => {
+    const h0 = wh.request.input.household;
+    const ids = new Set([...(h0.incomeFlows ?? []), ...(h0.periodicExpenses ?? [])].map((x) => x.id));
+    const next = inherit(wh).sections.flatMap((s) => s.actions).find((a) => a.key === key)!.run(wh);
+    const h = next.request.input.household;
+    return { wh: next, row: [...(h.incomeFlows ?? []), ...(h.periodicExpenses ?? [])].find((x) => !ids.has(x.id))! };
+  };
+  /** 前の版で足した1回の行（伸び方を持たない） */
+  const legacyOf = (wh: WorkingHousehold, list: "periodicExpenses" | "incomeFlows"): WorkingHousehold => mutate(wh, (h) => void delete (h[list] ?? []).find((x) => x.id === ID)!.growth);
+
+  it("受け取る相続・受け取る贈与・あげる贈与を足すと、伸び方「変えない」を書く（入力項目の「＋ …」で足しても同じ）", () => {
+    const wh = bareInherit();
+    expect(incomeOf(addIncome(wh, "inheritance", ID)).growth).toEqual({ kind: "none" });
+    expect(incomeOf(addIncome(wh, "giftReceived", ID)).growth).toEqual({ kind: "none" });
+    expect(expenseOf(addExpense(wh, "gift", ID)).growth).toEqual({ kind: "none" });
+    for (const key of ["money/inherit/in/add/inheritance", "money/inherit/in/add/giftReceived", "money/inherit/out/add/gift"]) expect(addBy(wh, key).row.growth, key).toEqual({ kind: "none" });
+  });
+
+  it("計算でも伸ばさない: 5年後に受け取る相続2,000万円・あげる贈与110万円は、その年にその額のまま。前の行は物価で伸びる", () => {
+    const wh = bareInherit();
+    const y = year5(wh);
+    const inh = place(addIncome(wh, "inheritance", ID), ID, 20_000_000, "incomeFlows");
+    expect(cellDiff(inh.request, wh.request, "cf.income.lumpSum.inheritance", y)).toBe(20_000_000);
+    expect(cellDiff(legacyOf(inh, "incomeFlows").request, wh.request, "cf.income.lumpSum.inheritance", y)).toBeGreaterThan(20_000_000);
+    const gift = place(addExpense(wh, "gift", ID), ID, 1_100_000);
+    expect(cellDiff(gift.request, wh.request, "cf.expense.lumpSum.gift", y)).toBe(1_100_000);
+    expect(cellDiff(legacyOf(gift, "periodicExpenses").request, wh.request, "cf.expense.lumpSum.gift", y)).toBeGreaterThan(1_100_000);
+    // 「今の値段で入れた（物価上昇率で増やす）」を選ぶと、その時までの物価上昇率で増やす
+    const nominal = inField(gift, `ev/${ID}/growth`).set(gift, "inflation");
+    expect(expenseOf(nominal).growth).toEqual({ kind: "inflation" });
+    expect(cellDiff(nominal.request, wh.request, "cf.expense.lumpSum.gift", y)).toBeGreaterThan(1_100_000);
+  });
+
+  it("1回の行の欄は「額の入れ方」（その時の額のまま＝既定／今の値段で入れた（物価上昇率で増やす）／決まった率で増やす）", () => {
+    const gift = addExpense(bareInherit(), "gift", ID);
+    const g = inField(gift, `ev/${ID}/growth`);
+    expect(g.label).toBe("額の入れ方");
+    expect(labels(g)).toEqual(["その時の額のまま", "今の値段で入れた（物価上昇率で増やす）", "決まった率で増やす"]);
+    expect(values(g)).toEqual(["none", "inflation", "rate"]);
+    expect(g.get(gift).value).toBe("none");
+    expect(inField(gift, `ev/${ID}/amount`).help).toContain("その時の額をそのまま入れます");
+    expect(inGroup(gift, `ev/${ID}/who`).title).toBe("払う人・額の入れ方・万一のときの扱い");
+    expect(inGroup(gift, `ev/${ID}`).note ?? "").not.toContain("額の入れ方");
+    expect(inGroup(g.set(gift, "inflation"), `ev/${ID}`).note).toContain("額の入れ方");
+    for (const kind of ["inheritance", "giftReceived"] as const) {
+      const inc = addIncome(bareInherit(), kind, ID);
+      const f = inField(inc, `in/${ID}/growth`);
+      expect(f.label, kind).toBe("額の入れ方");
+      expect(values(f), kind).toEqual(["none", "inflation", "rate"]);
+      expect(f.get(inc).value, kind).toBe("none");
+      expect(inField(inc, `in/${ID}/amount`).help, kind).toContain("その時の額をそのまま入れます");
+      expect(inGroup(inc, `in/${ID}/who`).title, kind).toBe("受け取る人・額の入れ方・万一のときの扱い・表の行");
+    }
+  });
+
+  it("時期を年ごとにすると物価に戻し（欄は「伸び方」）、1回に戻すと「その時の額」を書く", () => {
+    const inc = addIncome(bareInherit(), "giftReceived", ID);
+    const rep = inField(inc, `in/${ID}/cadence`).set(inc, "repeat");
+    expect(incomeOf(rep).growth).toBeUndefined();
+    expect(inField(rep, `in/${ID}/growth`).label).toBe("伸び方");
+    expect(incomeOf(inField(rep, `in/${ID}/cadence`).set(rep, "once")).growth).toEqual({ kind: "none" });
+    const gift = addExpense(bareInherit(), "gift", ID);
+    const grep = inField(gift, `ev/${ID}/cadence`).set(gift, "repeat");
+    expect(expenseOf(grep).growth).toBeUndefined();
+    expect(expenseOf(inField(grep, `ev/${ID}/cadence`).set(grep, "once")).growth).toEqual({ kind: "none" });
+  });
+
+  it("伸び方を持たない前の行は「今の値段で入れた（物価上昇率で増やす）」（選んでいない）と見せ、額・時期を直しても伸び方を書かない", () => {
+    const inc = legacyOf(place(addIncome(bareInherit(), "inheritance", ID), ID, 20_000_000, "incomeFlows"), "incomeFlows");
+    const f = inField(inc, `in/${ID}/growth`);
+    expect(f.label).toBe("額の入れ方");
+    expect(f.get(inc)).toMatchObject({ value: "inflation", implicit: true });
+    expect(inField(inc, `in/${ID}/amount`).help).toContain("その時までの物価上昇率で増やして");
+    const edited = inField(inc, `in/${ID}/amount`).set(inc, 25_000_000);
+    expect(incomeOf(edited).growth).toBeUndefined();
+    const moved = inField(edited, `in/${ID}/from`).set(edited, addMonths(inc.request.input.baseMonth, 72));
+    expect(incomeOf(moved).growth).toBeUndefined();
+    expect(inGroup(inc, `in/${ID}`).note ?? "").not.toContain("額の入れ方");
+    const gift = legacyOf(addExpense(bareInherit(), "gift", ID), "periodicExpenses");
+    expect(inField(gift, `ev/${ID}/growth`).get(gift)).toMatchObject({ value: "inflation", implicit: true });
+    expect(expenseOf(inField(gift, `ev/${ID}/amount`).set(gift, 1_200_000)).growth).toBeUndefined();
   });
 });
