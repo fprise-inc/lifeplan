@@ -54,7 +54,17 @@ describe("通知の印にまとめる通知", () => {
     const html = renderToString(h(TopBar, { tabs: [{ id: "a", label: "入力" }], tab: "a", onTab: noop, household: null, alerts: [], notices: NO_NOTICES, tools: null, big: false, onBig: noop }));
     expect(html).toContain('data-notice-bell="0"');
     expect(html).toContain('aria-label="お知らせ"');
+    expect(html).toContain('title="お知らせ"');
     expect(html).not.toContain("bell-n");
+  });
+  it("ベルのボタンは印だけ（「お知らせ」の文字を出さない）。名前は aria-label と title に残し、押せる大きさは 34×32（0087 の追記）", () => {
+    const html = renderToString(h(NoticeCenter, { items: [], onRead: noop }));
+    const btn = /<button[^>]*data-notice-bell[^>]*>([\s\S]*?)<\/button>/.exec(html)?.[1] ?? "";
+    expect(btn).toContain("bell-ico");
+    expect(btn).not.toContain("お知らせ");
+    expect(btn).not.toContain('class="lbl"');
+    const css = readFileSync(join(APP_DIR, "src/styles/header.css"), "utf-8");
+    expect(css).toMatch(/\.bell-btn \{ min-width: 34px; height: 32px;/);
   });
 
   const sn = (kind: string, scope: StorageNotice["scope"], extra: Partial<StorageNotice> = {}): StorageNotice => ({ kind, level: "warn", scope, count: null, name: null, at: null, code: null, ...extra });
