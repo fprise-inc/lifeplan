@@ -375,6 +375,7 @@ pub fn run() {
             office::office_recover,
             office::office_end,
             office::office_dismiss_notices,
+            office::office_accept_roster,
             office::office_defaults_get,
             office::office_defaults_put,
             features::feature_codes_status,

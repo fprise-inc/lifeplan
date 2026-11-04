@@ -248,6 +248,7 @@ export interface OfficeStatus {
   members: OfficeMember[];
   removed: { name: string; removedAt: string; removedBy: string | null }[];
   requests: OfficeRequest[];
+  /** 事務所の確かめ用の番号（16文字を4文字ずつ区切る。全員の画面で同じ。名簿を受け入れていないときは null） */
   officeCode: string | null;
   syncFolder: boolean;
   localHouseholds: number;
@@ -372,6 +373,11 @@ export interface OfficeHost {
   end(confirm: string): Promise<OfficeStatus>;
   /** 知らせを見た（この PC では次から出さない） */
   dismissNotices(): Promise<OfficeStatus>;
+  /**
+   * 手元の鍵からたどれない名簿（problem が E_OFFICE_ROSTER_UNVERIFIED。30日より長く開かなかった間に、ほかのメンバーが外す操作をした）を、
+   * ほかのメンバーから聞いた事務所の確かめ用の番号（16文字）か、事務所の復元キーで受け入れる。合わなければ E_OFFICE_CODE_MISMATCH で、受け入れない
+   */
+  acceptRoster(key: string): Promise<OfficeStatus>;
   /** 事務所の既定値（0073。事務所データの JSON のオブジェクト。形は office/settings.ts の readOfficeSettings で確かめる） */
   defaults(): Promise<unknown>;
   /** 事務所の既定値を置き換える */
@@ -789,6 +795,7 @@ export function tauriHost(): HostApi {
       recover: (name, key) => invoke<OfficeStatus | null>("office_recover", { name, key }),
       end: (confirm) => invoke<OfficeStatus>("office_end", { confirm }),
       dismissNotices: () => invoke<OfficeStatus>("office_dismiss_notices"),
+      acceptRoster: (key) => invoke<OfficeStatus>("office_accept_roster", { key }),
       defaults: () => invoke<unknown>("office_defaults_get"),
       putDefaults: (value) => invoke<void>("office_defaults_put", { value }),
       featureStatus: () => invoke<FeatureStatus>("feature_codes_status"),
@@ -1000,6 +1007,7 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       recover: async (name, key) => devJson<OfficeStatus | null>(await devOffice("recover", { name, key })),
       end: async (confirm) => devJson<OfficeStatus>(await devOffice("end", { confirm })),
       dismissNotices: async () => devJson<OfficeStatus>(await devOffice("dismissNotices")),
+      acceptRoster: async (code) => devJson<OfficeStatus>(await devOffice("acceptRoster", { code })),
       defaults: async () => devJson<unknown>(await devOffice("defaultsGet")),
       putDefaults: async (value) => void (await devJson<unknown>(await devOffice("defaultsPut", { value }))),
       featureStatus: async () => devJson<FeatureStatus>(await devOffice("featureStatus")),

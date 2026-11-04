@@ -229,7 +229,8 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
 /**
  * 開発用のサーバーの事務所での共有（本体の office_* の代わり。メモリの中だけ）。フォルダのダイアログは出さず、架空の共有フォルダを選んだことにする。
  * 決まり（承認は指紋の入力が必須・申請の指紋は承認する人に返さない・外すときは表示名の確認）は本体（household-store）と同じにしてある。
- * `/__dev/office/simulate?kind=request|approved|presence|conflict|editor|fork|recoveryJoin|others|personalOthers|pcJoin|otherPcOpen` で、他の PC の操作が届いたことにする
+ * `/__dev/office/simulate?kind=request|approved|presence|conflict|editor|fork|recoveryJoin|others|personalOthers|pcJoin|otherPcOpen|longAbsence` で、他の PC の操作が届いたことにする
+ * （longAbsence は、30日より長く開かなかった間に鍵が入れ替わり、名簿をたどれなくなったことにする。番号は 7K2M-QX9P-4HDN-R8VT、復元キーは今の架空の復元キーを返す）
  * （others は架空の事務所の復元キー、personalOthers は1台目の PC が同期フォルダを始めたことにして、その架空の復元キーを返す。0024）
  */
 type DevMember = { memberId: string; name: string; fingerprint: string; joinedAt: string; approvedBy: string | null; role: string; isMe: boolean; viaRecovery?: boolean };
@@ -255,7 +256,11 @@ const devOffice = {
   othersUsage: "office" as "personal" | "office",
   /** もう1台の PC が世帯を開いている（この PC の中へ戻すのを止める確かめ用） */
   otherPcOpen: false,
+  /** 30日より長く開かなかった間に鍵の入れ替えがあり、名簿をたどれない（番号・復元キーを入れる画面の確かめ用。0023 の追記 2026-11-04） */
+  unverified: false,
 };
+/** 開発用のサーバーの事務所の確かめ用の番号（画面の確かめ用の架空の値） */
+const DEV_OFFICE_CODE = "7K2M-QX9P-4HDN-R8VT";
 
 /** 事務所の既定値（開発用のサーバーのメモリの中だけ。0073） */
 const devOfficeDefaults: { value: Record<string, unknown> } = { value: {} };
@@ -331,15 +336,15 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
   const norm = (f: string) => f.toUpperCase().replace(/[^0-9A-Z]/g, "").replace(/O/g, "0").replace(/[IL]/g, "1");
   const name = typeof a.name === "string" ? a.name.trim() : "";
   const status = () => ({
-    state: o.state,
+    state: o.state === "member" && o.unverified ? "unavailable" : o.state,
     usage: o.state === "off" ? null : (o.usage ?? "office"),
-    problem: null,
+    problem: o.state === "member" && o.unverified ? "E_OFFICE_ROSTER_UNVERIFIED" : null,
     myName: o.myName,
     myFingerprint: o.state === "off" ? null : o.myFingerprint,
     members: o.state === "member" ? o.members.map((m) => ({ ...m, viaRecovery: m.viaRecovery === true })) : [],
     removed: o.state === "member" ? o.removed : [],
     requests: o.state === "member" ? o.requests.map(({ requestId, name: n, requestedAt }) => ({ requestId, name: n, requestedAt })) : [],
-    officeCode: o.state === "member" ? "7K2M-QX9P" : null,
+    officeCode: o.state === "member" && !o.unverified ? DEV_OFFICE_CODE : null,
     syncFolder: o.state !== "off",
     localHouseholds: o.state === "member" ? 0 : devStore.households.size,
     recoveryAcknowledged: o.ack !== null,
@@ -444,6 +449,19 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
     case "dismissNotices":
       o.notices = [];
       return { ok: true, value: status() };
+    case "acceptRoster": {
+      // 本体の office_accept_roster の代わり: 番号（16文字）か今の復元キー（58文字）が合ったときだけ受け入れる
+      if (o.state !== "member" || !o.unverified) return { ok: false, code: "E_OFFICE_STATE" };
+      const c = norm(String(a.code ?? ""));
+      if (c.length === 16) {
+        if (c !== norm(DEV_OFFICE_CODE)) return { ok: false, code: "E_OFFICE_CODE_MISMATCH" };
+      } else if (c.length > 16) {
+        if (c.length !== 58) return { ok: false, code: "E_RECOVERY_TYPO" };
+        if (c !== norm(o.key)) return { ok: false, code: "E_OFFICE_CODE_MISMATCH" };
+      } else return { ok: false, code: "E_OFFICE_CODE_SHAPE" };
+      o.unverified = false;
+      return { ok: true, value: status() };
+    }
     case "cancel":
       if (o.state === "member") return { ok: false, code: "E_OFFICE_STATE" };
       o.state = "off";
@@ -532,7 +550,7 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
       return { ok: true, value: o.state === "member" ? devStore.households.size : 0 };
     case "reset":
       // 画面の確かめを最初からやり直す（開発用のサーバーのメモリを空にする）
-      Object.assign(o, { state: "off", myName: null, members: [], removed: [], requests: [], ack: null, notices: [], key: devOfficeKey(), usage: null, othersUsage: "office", otherPcOpen: false });
+      Object.assign(o, { state: "off", myName: null, members: [], removed: [], requests: [], ack: null, notices: [], key: devOfficeKey(), usage: null, othersUsage: "office", otherPcOpen: false, unverified: false });
       devStore.households.clear();
       devStore.lastOpened = null;
       devStore.acknowledgedAt = null;
@@ -553,6 +571,10 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
         // 1人で2台の PC: もう1台の PC が復元キーで同期フォルダを開いた
         o.members.push({ memberId: crypto.randomUUID(), name: "自宅のノート", fingerprint: "N4KD-7QXA-2MVT-H9RP", joinedAt: ago(5), approvedBy: null, role: "member", isMe: false, viaRecovery: true });
         o.notices.push({ kind: "recoveryJoin", name: "自宅のノート", at: ago(5) });
+      } else if (kind === "longAbsence" && o.state === "member") {
+        o.unverified = true;
+        o.key = devOfficeKey();
+        return { ok: true, value: o.key };
       } else if (kind === "otherPcOpen") {
         o.otherPcOpen = !o.otherPcOpen;
         for (const h of devStore.households.values()) if (h === target || devStore.households.size === 1) h.openBy = o.otherPcOpen ? [{ name: "自宅のノート", since: ago(3) }] : [];

@@ -13,7 +13,7 @@ import { StoragePanel } from "../src/workspace/store/StoragePanel.tsx";
 import { storageNoticeText, SYNC_MESSAGES, syncMessage } from "../src/workspace/store/storage.ts";
 
 const no = async () => Promise.reject("E");
-const office: OfficeHost = { status: no, start: no, join: no, cancel: no, approve: no, reject: no, remove: no, moveLocal: no, recover: no, end: no, dismissNotices: no, defaults: async () => ({}), putDefaults: no, featureStatus: async () => ({ today: "2026-11-01", active: [], codes: [], invalid: [] }), addFeatureCode: no, removeFeatureCode: no, dismissFeatureNotice: no, checkFeatureCodes: no, decideFeatureCandidate: no, syncStart: no, syncOpen: no, syncEnd: no, notices: async () => [] };
+const office: OfficeHost = { status: no, start: no, join: no, cancel: no, approve: no, reject: no, remove: no, moveLocal: no, recover: no, end: no, dismissNotices: no, acceptRoster: no, defaults: async () => ({}), putDefaults: no, featureStatus: async () => ({ today: "2026-11-01", active: [], codes: [], invalid: [] }), addFeatureCode: no, removeFeatureCode: no, dismissFeatureNotice: no, checkFeatureCodes: no, decideFeatureCandidate: no, syncStart: no, syncOpen: no, syncEnd: no, notices: async () => [] };
 const store: StoreHost = { status: no, list: no, create: no, open: no, save: no, rename: no, remove: no, recoveryKey: no, acknowledgeRecovery: no, testRecoveryKey: no, restoreWithRecoveryKey: no, closeReady: async () => undefined, closeCancel: async () => undefined, forkInfo: no, resolveFork: no, resolveSyncCopies: no, leave: async () => undefined, devFileKeys: async () => false, listSamples: no, setCategory: no, assignSerial: no, makeSample: no, updateSample: no, categories: no, setCategories: no };
 
 const ready = (over: Partial<StoreStatus> = {}): StoreStatus => ({ state: "ready", firstRun: false, recoveryAcknowledged: true, recoveryVerifiedAt: null, lastOpened: null, deletionsPending: 0, deletionsCompleted: 0, ...over });
@@ -31,7 +31,7 @@ function personal(over: Partial<OfficeStatus> = {}): OfficeStatus {
     ],
     removed: [],
     requests: [],
-    officeCode: "7K2M-QX9P",
+    officeCode: "7K2M-QX9P-4HDN-R8VT",
     syncFolder: true,
     localHouseholds: 0,
     recoveryAcknowledged: true,
@@ -126,6 +126,13 @@ describe("保存先のパネル: 同期フォルダ（1人で2台の PC）", () 
     const missing = storage(personal({ state: "unavailable", problem: "E_OFFICE_UNAVAILABLE" }));
     expect(missing).toContain("同期フォルダが見つかりません");
     expect(missing).not.toContain("data-sync-back-local");
+    // 30日より長く使わなかった PC: 今の復元キーを入れて戻る（事務所の確かめ用の番号は出さない）
+    const unverified = storage(personal({ state: "unavailable", problem: "E_OFFICE_ROSTER_UNVERIFIED", officeCode: null }));
+    expect(unverified).toContain("30日より長くこのPCを使わなかった間に");
+    expect(unverified).toContain("data-sync-accept-key");
+    expect(unverified).toMatch(/data-sync-accept(?!-)[^>]*disabled|disabled[^>]*data-sync-accept(?!-)/);
+    expect(unverified).not.toContain("確かめ用の番号");
+    expect(missing).not.toContain("data-sync-accept-section");
     const removed = storage(personal({ state: "removed" }));
     expect(removed).toContain("同期フォルダから外されました");
     expect(removed).toContain("data-sync-back-local");

@@ -21,6 +21,9 @@ export const SYNC_MESSAGES: Record<string, string> = {
   E_OFFICE_SELF: "このPC自身は外せません",
   E_OFFICE_RECOVERY_REQUIRED: "新しい復元キーがまだ保管されていません。保管するまで、PCを外す操作は止めています",
   E_RECOVERY_MISMATCH: "この同期フォルダの今の復元キーではありません（PCを外すと復元キーは新しくなり、古い控えでは開けません）",
+  E_OFFICE_ROSTER_UNVERIFIED: "同期フォルダの鍵を、このPCの鍵で確かめられません。30日より長くこのPCを使わなかった間に、もう1台のPCでPCを外したときに出ます（同期フォルダが書き換えられたときも同じに見えます）",
+  E_OFFICE_CODE_MISMATCH: "この同期フォルダの今の復元キーではありません。同期フォルダは受け入れていません（PCを外すと復元キーは新しくなり、古い控えでは戻れません）",
+  E_OFFICE_CODE_SHAPE: "復元キー（72文字）を入れてください",
 };
 
 /** 1人で複数の PC の同期フォルダの操作の失敗の文（同期フォルダ向けの文が無ければ、事務所の共有の文） */

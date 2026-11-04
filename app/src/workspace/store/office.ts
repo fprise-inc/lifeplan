@@ -14,6 +14,9 @@ export const OFFICE_MESSAGES: Record<string, string> = {
   E_OFFICE_CONFIRM: "確認の表示名が違います",
   E_OFFICE_REMOVED: "この事務所の共有から外されました",
   E_OFFICE_FORGED: "共有フォルダの名簿が、この事務所のものとして確かめられません（書き換えられた疑いがあります）。ほかのメンバーに確かめてください",
+  E_OFFICE_ROSTER_UNVERIFIED: "共有フォルダの名簿を、このPCの鍵で確かめられません。30日より長くアプリを開かなかった間に、ほかのメンバーが誰かを外したときに出ます（名簿が書き換えられたときも同じに見えます）",
+  E_OFFICE_CODE_MISMATCH: "番号が合いません。名簿は受け入れていません。ほかのメンバーの「事務所の共有」に出ている番号を、もう一度読み上げてもらってください（何度聞いても合わないときは、名簿が書き換えられた疑いがあります。受け入れないでください）",
+  E_OFFICE_CODE_SHAPE: "番号は16文字です（4文字ずつ区切って出ています）。8文字しか出ていないときは、そのPCのアプリを更新してもらってください",
   E_OFFICE_UNAVAILABLE: "共有フォルダが見つかりません（外付けのドライブ・同期の停止・フォルダの移動を確かめてください）",
   E_OFFICE_KEY_MISSING: "このPCのメンバーの鍵が見つかりません。もう一度「参加する」から申請してください",
   E_OFFICE_WAITING_SYNC: "この世帯の鍵の同期を待っています。少し待ってから開き直してください",
@@ -27,6 +30,9 @@ export const OFFICE_MESSAGES: Record<string, string> = {
   E_RECOVERY_MISMATCH: "この事務所の今の復元キーではありません（メンバーを外すと復元キーは新しくなり、古い控えでは加われません）",
   E_STORE_NO_FORK: "選ぶ分岐がありません",
 };
+
+/** 事務所の確かめ用の番号の入力を比べられる形にする（指紋と同じく区切り・空白・小文字・全角を吸収。O→0、I・L→1）。16文字でなければ null */
+export const normalizeOfficeCode = normalizeFingerprint;
 
 /** 外す画面と外した後に、目立つ形で出す案内（0023 の4・残る危険） */
 export const syncShareNotice = (name: string) => `共有フォルダの共有の設定（同期サービス側）からも、${name}さんを外してください`;
