@@ -181,6 +181,10 @@ describe("キーボードと描画", () => {
     expect(findKey("ArrowDown", false, 0, 0, "")).toBeNull();
     expect(findKey("Enter", true, 1, 3, "留学")).toEqual({ kind: "pick", index: 1 });
     expect(findKey("Enter", true, 0, 0, "zzzz")).toBeNull();
+    // 言葉を入れただけ（何も選んでいない）で Enter を押しても、最初の候補を開かない
+    expect(findKey("Enter", true, -1, 3, "留学")).toBeNull();
+    expect(findKey("ArrowDown", true, -1, 3, "留学")).toEqual({ kind: "move", act: 0 });
+    expect(findKey("ArrowUp", true, -1, 3, "留学")).toEqual({ kind: "move", act: 2 });
     expect(findKey("Enter", false, 0, 3, "留学")).toBeNull();
     expect(findKey("Escape", true, 0, 3, "留学")).toEqual({ kind: "close" });
     expect(findKey("Escape", false, 0, 3, "留学")).toEqual({ kind: "clear" });
@@ -200,7 +204,9 @@ describe("キーボードと描画", () => {
     expect(html).toContain('data-find-card="education"');
     expect(html).toMatch(/<span class="c">子ども・教育<\/span><span class="sep" aria-hidden="true">›<\/span><span class="l">留学<\/span><small class="tag">足す<\/small>/);
     expect(html).toContain("<small>第1子</small>");
-    expect(html).toContain('aria-selected="true"');
+    // 言葉を入れただけでは、どの候補も選んでいない（Enter で最初の候補を開かない）
+    expect(html).not.toContain('aria-selected="true"');
+    expect(html).not.toContain("aria-activedescendant");
     const none = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", findQuery: "zzzz" }));
     expect(none).toContain("見つかりません");
   });
