@@ -65,9 +65,10 @@
 
 /* 通知の印（件数つき）と一覧。行動を求める通知（復元キーの保管など）をここにまとめる */
 .bell { position: relative; flex: none; }
-.bell-btn { display: inline-flex; align-items: center; gap: 6px; border: 2px solid var(--est); background: var(--est-bg); color: var(--est-ink); border-radius: 8px; padding: 4px 10px 4px 8px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+/* ボタンはベルの印だけ（文字は出さない。0087）。FP のメニュー・↶↷ と同じ 34×32。未読の数の丸がつくと横に伸びる */
+.bell-btn { min-width: 34px; height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 2px solid var(--est); background: var(--est-bg); color: var(--est-ink); border-radius: 8px; padding: 0 6px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .bell-btn[aria-expanded="true"] { background: var(--est-ink); border-color: var(--est-ink); color: #fff; }
-.bell-ico { width: 1.15em; height: 1.15em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; flex: none; }
+.bell-ico { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; flex: none; }
 .bell-n { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; border-radius: 99px; background: var(--est); color: #fff; font-size: 0.78em; padding: 0 0.3em; }
 /* お知らせの一覧（workspace/notices/NoticeCenter.tsx。0087）。未読が0件のときのベルは落ち着いた色（数字なし） */
 .bell-btn.quiet { border-color: var(--line); background: #fff; color: var(--ink-2); }

@@ -1,4 +1,4 @@
-// お知らせの一覧（上の帯のベル。0087）。ベルは常に出し、未読の件数（参考を除く）だけを数字で出す（0件なら数字なし）。
+// お知らせの一覧（上の帯のベル。0087）。ボタンはベルの印だけ（名前は aria-label と title）。ベルは常に出し、未読の件数（参考を除く）だけを数字で出す（0件なら数字なし）。
 // 押すと帯の下に一覧を重ねて出す: 「未読」「すべて」の切り替えと種類の絞り込み・「すべて既読にする」。
 // 1件を押すと詳しい中身（何があったか → 何が変わったか → 関係する世帯 → その画面を開くボタン）。開いたものは既読にして一覧に残す
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -91,9 +91,6 @@ export function NoticeCenter({ items, onRead, onFeedback, focus }: NoticeCenterP
           <path d="M10 2.5a5 5 0 0 0-5 5v3.2L3.5 13.5h13L15 10.7V7.5a5 5 0 0 0-5-5Z" />
           <path d="M8 15.5a2 2 0 0 0 4 0" />
         </svg>
-        <span class="lbl" aria-hidden="true">
-          お知らせ
-        </span>
         {count > 0 ? (
           <span class="bell-n" aria-hidden="true">
             {count}
