@@ -582,7 +582,8 @@ button:hover > .ih-st, button:focus-visible > .ih-st { text-decoration: underlin
 h2 .ih-st { font-size: 0.8rem; }
 
 /* 探して開く（前の「＋ 項目を追加」の所）: 控えめな破線の枠に、見出しと探す欄だけ。候補は欄の下に重ねて出す（カードの高さを変えない） */
-.ih-card.ih-find { border: 2px dashed var(--field); background: #fff; box-shadow: none; cursor: default; overflow: visible; justify-content: center; gap: 10px; padding: 18px 16px; min-height: 160px; }
+/* 大きさはいつも同じ（並びの中に入ってもカードの高さまで伸ばさず、段の上にそろえる。0045 の 2026-11-04 の追記） */
+.ih-card.ih-find { border: 2px dashed var(--field); background: #fff; box-shadow: none; cursor: default; overflow: visible; justify-content: center; gap: 10px; padding: 18px 16px; min-height: 160px; align-self: start; }
 .ih-card.ih-find:hover { transform: none; box-shadow: none; border-color: var(--field); }
 .ih-card.ih-find.on { border-style: solid; border-color: var(--prop); }
 .ih-find-h { display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--ink-2); font-size: 0.98rem; }
