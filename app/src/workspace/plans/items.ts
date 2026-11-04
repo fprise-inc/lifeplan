@@ -75,6 +75,8 @@ export interface MovableItem {
   label: string;
   /** 案の名前の例に使う短い名前（例: 借入） */
   short: string;
+  /** 入力の欄から足した項目の物の名前（例: ご本人の働き方 1（今の働き方））。label は「物の名前: 欄の名前」。画面ではこれを上の段に小さく出し、欄の名前を下の段に出す */
+  where?: string;
   /** 追加のメニューの見出し */
   group: string;
   /** 対策の固定の項目（働く最後の年齢・年金の受け取り開始・NISA・生活費・FP顧問料。対策の上に専用の形で出す）。
@@ -926,6 +928,7 @@ function fieldItems(wh: WorkingHousehold, stages: StageDef[], skip: Set<string>)
             target,
             label: where !== undefined && where !== f.label ? `${where}: ${f.label}` : f.label,
             short: f.label,
+            ...(where !== undefined && where !== f.label ? { where } : {}),
             group: stageLabel,
             builtin: false,
             phase: "field",
