@@ -387,6 +387,8 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld.is-missing .fld-c input[type="text"] { border-color: var(--short); }
 .fld.is-na .fld-c input[type="text"] { background: var(--base-bg); }
 .fld.jumped { outline: 2px solid var(--prop); outline-offset: 4px; border-radius: 6px; }
+/* 「探して開く」で移ったボタン・まとまり・区画（欄は .fld.jumped） */
+.ipanel .jumped:not(.fld) { outline: 2px solid var(--prop); outline-offset: 3px; border-radius: 6px; }
 .fld-ops { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; }
 .fld-ops .link-btn { font-size: 0.78rem; }
 /* 推定の値をそのまま欄に入れるボタン（値の状態の操作の確定と同じ。0041 の追記）。推定の欄にだけ出す小さなボタン。
@@ -489,7 +491,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .ih-group + .ih-group { margin-top: 22px; }
 .ih-gh { font-size: 1.02rem; margin: 0 0 10px; display: flex; align-items: center; gap: 10px; color: var(--ink-2); }
 .ih-gh::after { content: ""; flex: 1; border-top: 1px solid var(--card-line); }
-/* 15項目と「＋ 項目を追加」の16個は 5列で4段目に1個（狭い画面は 3列×6段。項目を足しても次の段に続く。収益不動産を足して16個。0079） */
+/* 15項目と「探して開く」の16個は 5列で4段目に1個（狭い画面は 3列×6段。項目を足しても次の段に続く。収益不動産を足して16個。0079。「探して開く」は前の「＋ 項目を追加」の所。0045 の 2026-11-04 の追記） */
 .ih-cards { display: grid; gap: 18px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
 /* 5列のときは絵を少し縦長にし、4列のときと同じくらいの高さを保つ（文字の大きさは変えない）。幅の広い3列でも絵の高さは 200px まで */
 html:not(.big) .ih-ill { max-height: 200px; }
@@ -579,20 +581,28 @@ tr.just-added.still > td, tr.just-added.still > th { background-color: rgba(255,
 button:hover > .ih-st, button:focus-visible > .ih-st { text-decoration: underline; }
 h2 .ih-st { font-size: 0.8rem; }
 
-/* ＋ 項目を追加 */
-.ih-card.ih-add { border: 2px dashed var(--field); background: #fff; box-shadow: none; cursor: default; min-height: 240px; }
-.ih-card.ih-add:hover { transform: none; box-shadow: none; }
-.ih-add-main { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; flex: 1; padding: 18px; text-align: center; font-weight: 700; font-size: 1.02rem; color: var(--prop); }
-.ih-add-main:focus-visible { outline: 3px solid #f0b400; outline-offset: -4px; }
-.ih-add-main small { display: block; font-weight: 400; color: var(--ink-2); font-size: 0.85rem; margin-top: 4px; }
-.ih-plus { width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--prop); display: grid; place-items: center; font-size: 30px; line-height: 1; }
-.ih-add-menu { padding: 12px 14px; display: grid; gap: 6px; align-content: start; flex: 1; }
-.ih-add-menu p { margin: 0 0 2px; font-weight: 700; }
-.ih-add-menu button { border: 2px solid var(--prop); background: #fff; color: var(--prop); border-radius: 8px; padding: 4px 10px; font-weight: 700; cursor: pointer; text-align: left; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
-.ih-add-menu button small { font-weight: 400; color: var(--ink-2); font-size: 0.8rem; }
-.ih-add-menu button:hover { background: var(--prop-bg); }
-.ih-add-menu button:disabled { border-style: dashed; border-color: var(--field); color: var(--ink-2); cursor: not-allowed; background: #fff; }
-.ih-add-menu .cancel { border-color: var(--ink-2); color: var(--ink); }
+/* 探して開く（前の「＋ 項目を追加」の所）: 控えめな破線の枠に、見出しと探す欄だけ。候補は欄の下に重ねて出す（カードの高さを変えない） */
+.ih-card.ih-find { border: 2px dashed var(--field); background: #fff; box-shadow: none; cursor: default; overflow: visible; justify-content: center; gap: 10px; padding: 18px 16px; min-height: 160px; }
+.ih-card.ih-find:hover { transform: none; box-shadow: none; border-color: var(--field); }
+.ih-card.ih-find.on { z-index: 5; }
+.ih-find-h { display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--ink-2); font-size: 0.98rem; }
+.ih-find-ic { width: 18px; height: 18px; flex: none; }
+.ih-find-q { width: 100%; box-sizing: border-box; border: 1.5px solid var(--field); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 0.95rem; background: #fff; color: var(--ink); }
+.ih-find-q:focus { outline: 3px solid #f0b400; outline-offset: 1px; border-color: var(--prop); }
+.ih-find-box { position: relative; }
+.ih-find-list { position: absolute; top: calc(100% + 4px); left: 0; width: min(380px, calc(100vw - 48px)); margin: 0; padding: 4px; list-style: none; background: #fff; border: 1px solid #c4cad2; border-radius: 10px; box-shadow: 0 8px 24px rgba(20, 30, 50, 0.16); z-index: 6; max-height: min(420px, 60vh); overflow-y: auto; }
+.ih-find-list.flip { left: auto; right: 0; }
+.ih-find-list.up { top: auto; bottom: calc(100% + 4px); }
+.ih-find-list li { padding: 6px 10px; border-radius: 7px; cursor: pointer; display: grid; gap: 1px; line-height: 1.4; }
+.ih-find-list li.act { background: var(--prop-bg); outline: 1.5px solid var(--prop); outline-offset: -1.5px; }
+.ih-find-list li.none { cursor: default; color: var(--ink-2); font-size: 0.9rem; }
+.ih-find-path { font-size: 0.95rem; }
+.ih-find-path .c { color: var(--ink-2); }
+.ih-find-path .sep { margin: 0 5px; color: var(--ink-2); }
+.ih-find-path .l { font-weight: 700; }
+.ih-find-where { display: flex; flex-wrap: wrap; gap: 2px 8px; font-size: 0.8rem; color: var(--ink-2); }
+.ih-find-list small.tag { font-size: 0.75rem; color: var(--ink-2); border: 1px solid var(--card-line); border-radius: 4px; padding: 0 4px; margin-left: 6px; font-weight: 400; }
+.ih-find-where small.tag { margin-left: 0; }
 
 /* ピン（ホームに出した物）: カードの下に小さく並べる。押すとその物だけを開く */
 .ih-pins { margin-top: 18px; }

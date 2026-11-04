@@ -1,4 +1,4 @@
-// 高専・専門職大学院・「＋ 項目を追加」の留学（0090）
+// 高専・専門職大学院（0090）・留学は「探して開く」で子ども・教育のその子の留学へ（前の「＋ 項目を追加」の留学。0045 の 2026-11-04 の追記）
 import { describe, expect, it } from "vitest";
 import type { Goal } from "../src/engine/types.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
@@ -6,7 +6,8 @@ import { KOSEN_MISSING, stageStatistic } from "../src/workspace/input/educationC
 import { schoolEndAge } from "../src/workspace/input/fill.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
-import { addItem, addOptions } from "../src/workspace/input/items.ts";
+import { findEntries, findInInput } from "../src/workspace/input/inputSearch.ts";
+import { inputItems } from "../src/workspace/input/items.ts";
 import { addChildWithEducation, addMember } from "../src/workspace/input/stages/family.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { preview } from "./helpers.ts";
@@ -73,16 +74,15 @@ describe("専門職大学院", () => {
   });
 });
 
-describe("「＋ 項目を追加」の留学", () => {
-  it("子を選んだ留学は、その子の進路に大学などがあれば、子ども・教育のカードの留学（1回ずつ）を足してカードを開く。子を選ばない留学は前のまま", () => {
+describe("留学は「探して開く」で子ども・教育へ", () => {
+  it("「留学」で探すと、子ども・教育のその子の「＋ 留学」へ案内する（足すのはそのボタン。1回ずつの留学を足し、ほかの行は変えない）", () => {
     const wh = fresh();
     const child = wh.request.input.household.members.find((m) => m.kind === "child")!;
-    const opt = addOptions(wh).find((o) => o.key === `abroad:${child.id}`)!;
-    const r = addItem(wh, opt.key)!;
-    expect(r.itemId).toBe("education");
-    expect(goalOf(r.wh).education!.abroad?.length).toBe(1);
-    expect(r.wh.request.input.household.periodicExpenses ?? []).toEqual(wh.request.input.household.periodicExpenses ?? []);
-    const plain = addItem(wh, "abroad")!;
-    expect(plain.itemId.startsWith("added:")).toBe(true);
+    const hit = findInInput(findEntries(wh, inputItems(wh)), "留学")[0]!;
+    expect(hit).toMatchObject({ card: "education", label: "＋ 留学", target: { kind: "action", key: `edu/${child.id}/money/out/abroad` } });
+    const add = actions(wh).find((a) => a.key === hit.target.key)!;
+    const w = add.run(wh);
+    expect(goalOf(w).education!.abroad?.length).toBe(1);
+    expect(w.request.input.household.periodicExpenses ?? []).toEqual(wh.request.input.household.periodicExpenses ?? []);
   });
 });

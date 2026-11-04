@@ -175,7 +175,6 @@ const APP_PRESETS: readonly PresetDef[] = [
   p("preset.events.childSupport", 40000, "yen", "ライフイベント", "養育費を払う行（月額）", "template"),
   p("preset.events.realEstateCost", 1000000, "yen", "ライフイベント", "不動産の一時の経費の行（1回）", "template"),
   p("preset.events.other", 100000, "yen", "ライフイベント", "その他の支出の行（1回）", "template"),
-  p("preset.events.newItem", 300000, "yen", "ライフイベント", "「＋ 項目を追加」の新しい支出（1回）", "template"),
   p("preset.events.comingOfAge", 150000, "yen", "ライフイベント", "子の成人式（1人）", "template", "よくある額"),
   p("preset.events.funeral", 1200000, "yen", "ライフイベント", "親の葬儀（世帯が払う分。1回）", "template", "よくある額"),
   p("preset.events.memorial", 200000, "yen", "ライフイベント", "法事（1回）", "template", "よくある額"),

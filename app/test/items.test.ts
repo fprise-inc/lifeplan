@@ -1,5 +1,5 @@
 // 入力のホーム（0045）: 15枚のカードの並び（収益不動産を足した。0079）・物の置き場所（1つの物は1つのカードに）・カードの状態4つ・進み具合・最初の5枚と1押し・
-// ピン（＋ 項目を追加・📌 ホームに出す・プランの編集中だけのピン）・古い世帯を開いても書き換えない
+// ピン（前の版の「＋ 項目を追加」で足した物・📌 ホームに出す・プランの編集中だけのピン）・古い世帯を開いても書き換えない
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { h } from "preact";
@@ -12,9 +12,6 @@ import { blankHousehold, fromRequest, mutate, standardBox, type WorkingHousehold
 import { addMonths } from "../src/workspace/levers.ts";
 import { InputView } from "../src/workspace/input/InputView.tsx";
 import {
-  ADD_OPTIONS,
-  addItem,
-  addOptions,
   cardOrder,
   DEFAULT_LAYOUT,
   fillCard,
@@ -44,6 +41,7 @@ import { countsByCard, diffRows, planIndex, planView, recordPlanEdit } from "../
 import type { Proposal } from "../src/workspace/plans/plans.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { modelHousehold, preview } from "./helpers.ts";
+import { legacyAdded, withLegacyAdded } from "./legacyAdded.ts";
 
 const MODELS = readdirSync(join(REPO_DIR, "data", "modelHouseholds"))
   .filter((f) => f.endsWith(".json"))
@@ -74,16 +72,8 @@ function legacyPet(wh: WorkingHousehold, id: () => string): { wh: WorkingHouseho
   return { wh: { ...next, addedItems: [...next.addedItems, { id: itemId, kind: "periodic", ref, art: "pet" }] }, itemId };
 }
 
-/** 足した項目をまとめて足す（保存まで） */
-function withAdded(wh: WorkingHousehold, keys: string[], id = seq()): WorkingHousehold {
-  let w = wh;
-  for (const k of keys) {
-    const r = addItem(w, k, id);
-    if (r === null) throw new Error(k);
-    w = saveItem(r.wh, r.itemId);
-  }
-  return w;
-}
+/** 前の版の「＋ 項目を追加」で足した物をまとめて足す（保存まで。legacyAdded.ts） */
+const withAdded = (wh: WorkingHousehold, keys: string[], id = seq()): WorkingHousehold => withLegacyAdded(wh, keys, id);
 
 describe("15枚のカードと並び", () => {
   it("入力のホームの順に15枚（もとの10項目の相対の順番は変えず、車と新しい3枚・収益不動産を間に入れた）。FP顧問料はカードにしない", () => {
@@ -479,7 +469,11 @@ describe("カードの1行の案内・1押し（どの項目も同じ決まり�
     const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple" }));
     expect(html).toContain('data-progress-missing="1"');
     expect(html).not.toContain("MEMO-MARK-home");
-    expect(html).toContain("項目を追加");
+    // 並びの最後は「探して開く」（前の「＋ 項目を追加」の所。足す入口は無い。0045 の 2026-11-04 の追記）
+    expect(html).toContain("探して開く");
+    expect(html).toContain("data-find-input");
+    expect(html).not.toContain("項目を追加");
+    expect(html).not.toContain("data-add-open");
   });
 
   it("パネルを開いた状態（中央のパネル・背景を暗くする・保存のボタン）", () => {
@@ -522,26 +516,30 @@ describe("ピン", () => {
     expect(pinItems(w)[0]).toMatchObject({ status: "done", estimated: 0 });
   });
 
-  it("介護の費用は介護・親、留学で子を選べば子ども・教育のその子の所に入る", () => {
+  it("前の版で足した物: 介護の費用は介護・親、子を選んだ留学（子の年齢の行）は子ども・教育のその子の所、子を選ばない留学はライフイベントに出る。読んで計算し、ピンも出す", () => {
     const wh = open("salariedCoupleTwoKids");
-    const care = addItem(wh, "care", seq())!;
-    expect(pinItems(care.wh)[0]!.owner).toBe("care");
-    const opts = addOptions(wh);
     const child = wh.request.input.household.members.find((m) => m.kind === "child")!;
-    expect(opts.map((o) => o.key)).toContain(`abroad:${child.id}`);
-    expect(opts.find((o) => o.key === "abroad")!.label).toBe("留学（子を選ばない）");
-    // 子を選んだ留学は、子ども・教育のカードのその子の留学（1回ずつ）を足してカードを開く（ピンにしない。0090）
-    const ab = addItem(wh, `abroad:${child.id}`, seq())!;
-    expect(ab.itemId).toBe("education");
-    expect(pinItems(ab.wh)).toEqual([]);
-    const goal = (ab.wh.request.input.household.goals ?? []).find((g) => g.kind === "education" && g.owner === child.id)!;
-    expect(goal.education!.abroad!.length).toBe(1);
-    expect(() => preview(ab.wh.request)).not.toThrow();
-    // 子を選ばない留学はライフイベント
-    const plain = addItem(wh, "abroad", seq())!;
-    expect(pinItems(plain.wh)[0]!.owner).toBe("events");
-    // 子を選べるのは留学だけ
-    expect(addItem(wh, `periodic:${child.id}`, seq())).toBeNull();
+    const w = withAdded(wh, ["care", `abroad:${child.id}`, "abroad", "periodic"]);
+    expect(pinItems(w).map((p) => [p.owner, p.label, p.art])).toEqual([
+      ["care", expect.stringMatching(/^介護（/), "events"],
+      ["education", "留学", "abroad"],
+      ["events", "留学", "abroad"],
+      ["events", "新しい支出", "events"],
+    ]);
+    const [childAbroad, plain] = w.request.input.household.periodicExpenses!.slice(-3);
+    expect(groupKeys(w, "education")).toContain(`ev/${childAbroad!.id}`);
+    expect(groupKeys(w, "events")).toContain(`ev/${plain!.id}`);
+    expect((w.request.input.household.careExpenses ?? []).length).toBe((wh.request.input.household.careExpenses ?? []).length + 1);
+    // 計算に入る（子を選んだ留学は教育費の行、子を選ばない留学と名前を付けた支出は一時的支出の行）
+    const p = preview(w.request);
+    expect(p.table.some((x) => x.object === childAbroad!.id && x.row === "cf.expense.education")).toBe(true);
+    expect(p.table.some((x) => x.object === plain!.id && x.row === "cf.expense.lumpSum.other")).toBe(true);
+    // ホームのピンの列に出て、押すとその物だけ開く・外せる
+    const html = renderToString(h(InputView, { wh: w, onSave: () => undefined, level: "simple" }));
+    for (const pin of pinItems(w)) {
+      expect(html).toContain(`data-pin="${pin.id}"`);
+      expect(html).toContain(`data-unpin="${pin.id}"`);
+    }
   });
 
   it("どのカードの物も「📌 ホームに出す」でピンにできる（ライフイベント・介護・車・FP顧問料の物）。外しても物は残る", () => {
@@ -570,7 +568,7 @@ describe("ピン", () => {
   });
 
   it("足した物の欄も、世帯データ → 入力の表示 → 世帯データ の往復で変わらない", () => {
-    const wh = withAdded(open("salariedCoupleTwoKids"), ADD_OPTIONS.map((o) => o.key));
+    const wh = withAdded(open("salariedCoupleTwoKids"), ["abroad", "periodic", "care"]);
     for (const pin of pinItems(wh)) {
       const fields = allFields(itemStage(wh, pin.id) as StageDef);
       expect(fields.length, pin.label).toBeGreaterThan(2);
@@ -585,7 +583,8 @@ describe("ピン", () => {
     const wh = { ...fromRequest(req, {}), proposals: [plan] };
     const cat = buildCatalog(wh, self.id, null);
     const view = planView(wh, cat, "B");
-    const r = addItem(view, "periodic", seq())!;
+    // 前の版で、プランの編集中に「＋ 項目を追加」で足した物（プランの足す差分と、ピン）
+    const r = legacyAdded(view, "periodic", seq());
     const w = recordPlanEdit(wh, cat, "B", view, r.wh);
     // 現状には物が無い
     expect(w.request.input.household.periodicExpenses).toHaveLength(wh.request.input.household.periodicExpenses!.length);
@@ -693,8 +692,6 @@ describe("車を複数台・FP顧問料は前提条件の中", () => {
     const fee = open("lifetime100Plan");
     expect(sumText(byId(inputItems(fee), "assumptions"))).toMatch(/^物価 /);
     expect((itemStage(fee, "assumptions") as StageDef).sections.map((x) => x.title)).toContain("FP顧問料");
-    expect(ADD_OPTIONS.map((o) => o.key)).not.toContain("car");
-    expect(ADD_OPTIONS.map((o) => o.key)).not.toContain("fee");
   });
 });
 

@@ -9,7 +9,6 @@ import { boardingStatistic, stagePeriod, stageStatistic } from "../src/workspace
 import { EDUCATION_BASIS, educationStagesAddress, gapsOf } from "../src/workspace/input/fill.ts";
 import { allFields, type FieldDef, type StageDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
-import { addItem } from "../src/workspace/input/items.ts";
 import { addIncome } from "../src/workspace/input/moneyRows.ts";
 import { rowAt } from "../src/workspace/input/rows.ts";
 import { addChildWithEducation, addMember } from "../src/workspace/input/stages/family.ts";
@@ -362,7 +361,7 @@ describe("この子の入るお金・出るお金", () => {
     expect(g.id).toBeTruthy();
   });
 
-  it("前の形の留学（その子の年齢の出るお金の行。種類は教育費）は子の区画に出る。＋ 項目を追加の留学で子を選ぶと、教育の目標の留学になる（0090）", () => {
+  it("前の形の留学（その子の年齢の出るお金の行。種類は教育費）は子の区画に出る。子の区画の「＋ 留学」は、教育の目標の留学（1回ずつ。0090）", () => {
     const wh = fresh();
     const c = child(wh);
     const w = addChildExpense(wh, c.id, "abroad", "00000000-0000-4000-8000-0000000000e1");
@@ -373,10 +372,11 @@ describe("この子の入るお金・出るお金", () => {
     const abroad = eduSum(w.request, "cf.expense.education");
     expect(abroad).toBeGreaterThanOrEqual(3500000);
     expect(abroad).toBeLessThan(4500000);
-    const pin = addItem(wh, `abroad:${c.id}`, () => "00000000-0000-4000-8000-0000000000f1")!;
-    expect(pin.itemId).toBe("education");
-    expect(goalOf(pin.wh).education!.abroad).toMatchObject([{ id: "00000000-0000-4000-8000-0000000000f1", stage: "university", kind: "credit" }]);
-    expect(stage(pin.wh).sections.find((s) => s.key === `edu/${c.id}`)!.groups.some((x) => x.key.endsWith("/abroad/00000000-0000-4000-8000-0000000000f1"))).toBe(true);
+    const add = stage(wh).sections.find((s) => s.key === `edu/${c.id}`)!.groups.flatMap((g) => g.actions).find((a) => a.key === `edu/${c.id}/money/out/abroad`)!;
+    const added = add.run(wh);
+    const ab = goalOf(added).education!.abroad!;
+    expect(ab).toMatchObject([{ stage: "university", kind: "credit" }]);
+    expect(stage(added).sections.find((s) => s.key === `edu/${c.id}`)!.groups.some((x) => x.key.endsWith(`/abroad/${ab[0]!.id}`))).toBe(true);
   });
 });
 

@@ -3,15 +3,17 @@
 //   まだ何も入れていない項目の「まだ入れていない」で、欄の値の状態（valueState.ts。0041）と入っていない物（fill.ts の gapsOf。確かめの一覧のいちばん上と同じ）から決め、
 //   色だけに頼らずに見せる（InputView.tsx）。抜けの赤い知らせは、入れ始めた項目にだけ出す（0045 の追記）
 // - 1つの物は1つのカードにだけ出す（ほかのカードは読むだけの1行。readLines.ts）。どのカードに出すかは段階の定義（stages/）が決める
-// - ピン: 「＋ 項目を追加」で足した物と、まとまりの「📌 ホームに出す」で出した物（addedItems。世帯ファイルの形は今のまま、意味だけを変えた。0045）。
-//   物は種類が属するカードにも出る。ピンを押すと、その物のまとまりだけを開く。進み具合には数えない。プランで足した物のピンは、そのプランの編集中だけ出る
+// - ピン: まとまりの「📌 ホームに出す」で出した物と、前の版の「＋ 項目を追加」で足した物（addedItems。世帯ファイルの形は今のまま、意味だけを変えた。0045）。
+//   物は種類が属するカードにも出る。ピンを押すと、その物のまとまりだけを開く。進み具合には数えない。プランで足した物のピンは、そのプランの編集中だけ出る。
+//   「＋ 項目を追加」はやめた（足せた留学・名前を付けた支出・介護の費用は、どれも元からある入力項目の中で入れられる）。代わりに入力のホームの
+//   「探して開く」（inputSearch.ts）で、入れる入力項目の欄へ案内する。前に足した物とピンは今までどおり読み、計算し、ホームに出す（直す・外すはできる。0045 の 2026-11-04 の追記）
 // FP顧問料は「前提条件」のカードの中の欄のまとまり（stages/assumptions.ts）。車は「車」のカードの中で1台ずつ足す（stages/cars.ts）
-import type { AdvisoryFee, Car, CareExpense, Household, Member, PeriodicExpense } from "../../engine/types.ts";
-import { addMonths, ageAt, ageReachedMonth } from "../levers.ts";
+import type { AdvisoryFee, Car, CareExpense, Household, PeriodicExpense } from "../../engine/types.ts";
+import { addMonths, ageAt } from "../levers.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import { allFields, type FieldDef, type SectionDef, type StageDef, type StageId } from "./form.ts";
 import { educationStagesAddress, fillAll, gapsOf, retirementNotApplicable, type Gap } from "./fill.ts";
-import { mutate, newId, standardBox, type AddedItem, type WorkingHousehold } from "./household.ts";
+import { newId, type AddedItem, type WorkingHousehold } from "./household.ts";
 import { earners, memberLabel } from "./labels.ts";
 import { isRow, rowAt } from "./rows.ts";
 import { carDebts, leaseAnnual, upkeepAnnual } from "./stages/cars.ts";
@@ -20,7 +22,6 @@ import { isRentalProperty, rentalProperties } from "./stages/rental.ts";
 import { expenseCard, incomeCard, type MoneyCard } from "./moneyRows.ts";
 import { childOfPeriodic, eventExpenses } from "./stages/events.ts";
 import { dreamRows } from "./dreams.ts";
-import { addAbroad } from "./stages/education.ts";
 import { buildStage, STAGE_ORDER } from "./stages/index.ts";
 import { giftLines } from "./stages/inheritance.ts";
 import { statementMonthsMissing } from "./stages/pension.ts";
@@ -28,7 +29,6 @@ import { totalViewOf } from "./savings/model.ts";
 import { currentPeriod } from "./stages/work.ts";
 import { fieldAddress, fieldStatus } from "./valueState.ts";
 import { ALWAYS_SHOWN, isHiddenIn } from "./itemChoice.ts";
-import { presetNum } from "../../../../hearing/src/presets.ts";
 
 /** カードの状態: 入力済み・推定で計算中・未入力（0円の所あり）・当てはまらない・まだ入れていない（入れ始める前。赤い知らせを出さない） */
 export type ItemStatus = "done" | "est" | "missing" | "na" | "empty";
@@ -843,80 +843,4 @@ export function saveItem(wh: WorkingHousehold, id: string): WorkingHousehold {
   const mark = id.startsWith("added:") ? [] : [id];
   const confirmed = [...new Set([...wh.confirmed, ...mark])].filter((x) => alive.has(x));
   return { ...wh, addedItems, confirmed };
-}
-
-// ---- ＋ 項目を追加 ----
-
-const PRESET_BASIS = "ひな形の仮の値（この世帯の額に直すか、このままなら「この値にする」）";
-
-export interface AddOption {
-  key: string;
-  label: string;
-  note: string;
-  art: AddedItem["art"];
-}
-
-/** 足せる項目（今ある任意の項目の型。FP が自由な項目を作る仕組みは、拡張領域の約束（0011 の4・0016 の3）に沿って次の回）。
- * 車は「車」のカードの中の「＋ もう1台」、FP顧問料は「前提条件」のカードの中の「＋ FP顧問料の契約」で足す。
- * ペット（えさ・医療・保険の年18万円）はやめた: えさ・用品・ペット保険は基本生活費の「趣味・娯楽」、動物病院の費用は「年1回・数年に1回の支出」の
- * 「ペットの病気・けが」で入れる（0106 の追記）。前に足したペットの行（ピンの絵 pet）は、そのまま読んで計算する（petTemplate.ts の知らせ） */
-export const ADD_OPTIONS: readonly AddOption[] = [
-  { key: "abroad", label: "留学", note: "1回の費用", art: "abroad" },
-  { key: "periodic", label: "名前を付けた支出", note: "一時的支出・何年かごとの支出", art: "events" },
-  { key: "care", label: "介護の費用", note: "介護を受ける人・期間", art: "events" },
-];
-
-/** 留学を足せる段（高校・大学・短大・専門学校。0088） */
-const ABROAD_STAGE_KINDS = new Set(["highSchool", "university", "juniorCollege", "vocational"]);
-
-/** 足すときの選択肢（留学は、子がいれば子ごとにも選べる。子を選ぶと、物は子ども・教育のカードのその子の所に入る） */
-export function addOptions(wh: WorkingHousehold): AddOption[] {
-  const kids = wh.request.input.household.members.filter((m) => m.kind === "child" && m.expected !== true);
-  return ADD_OPTIONS.flatMap((o) =>
-    o.key === "abroad" && kids.length > 0
-      ? [...kids.map((c) => ({ ...o, key: `abroad:${c.id}`, label: `留学（${memberLabel(wh, c.id)}）`, note: "1回の費用。子ども・教育の項目に入ります" })), { ...o, label: "留学（子を選ばない）" }]
-      : [o],
-  );
-}
-
-/** 項目を足す: 物を1件、属するカードに作り、その物のピンを足す（保存するまでは下書き） */
-export function addItem(wh: WorkingHousehold, key: string, id: () => string = newId): { wh: WorkingHousehold; itemId: string } | null {
-  const [head, childId] = key.split(":") as [string, string | undefined];
-  const opt = ADD_OPTIONS.find((o) => o.key === head);
-  if (opt === undefined) return null;
-  const base = wh.request.input.baseMonth;
-  const h = wh.request.input.household;
-  const self = h.members.find((m) => m.kind === "self") ?? h.members[0];
-  if (self === undefined) return null;
-  const child: Member | undefined = childId === undefined ? undefined : h.members.find((m) => m.id === childId && m.kind === "child");
-  if (childId !== undefined && (child === undefined || head !== "abroad")) return null;
-  // 子を選んだ留学で、その子の進路に高校・大学などがあれば、子ども・教育のカードの留学（1回ずつ。0088）を足してそのカードを開く（0090）
-  if (child !== undefined) {
-    const goal = (h.goals ?? []).find((g) => g.kind === "education" && g.owner === child.id);
-    if (goal !== undefined && (goal.education?.stages ?? []).some((s) => ABROAD_STAGE_KINDS.has(s.stage))) return { wh: addAbroad(wh, goal.id, id()), itemId: "education" };
-  }
-  const ref = id();
-  let next: WorkingHousehold;
-  let kind: "periodic" | "care";
-  if (head === "abroad" || head === "periodic") {
-    kind = "periodic";
-    const at = addMonths(base, head === "abroad" ? 60 : 12);
-    // 子を選んだ留学は、その子の年齢で時期を持つ（20歳か、もう過ぎていれば来年の年齢）。子の年齢で始まる支出は子ども・教育のカードに出る
-    const childAt = child === undefined ? null : { memberAge: { member: child.id, years: Math.max(20, ageAt(child, base) + 1) } };
-    const p: PeriodicExpense =
-      head === "abroad"
-        ? // 子を選んだ留学は子ども・教育の出るお金の行（種類 教育費。0062）
-          // 子を選ばない留学はライフイベントの1回の行なので、入れた額のまま（0008 の追記 2026-11-02。子ども・教育の行は今のまま物価）
-          { id: ref, label: "留学", ...(childAt !== null ? { kind: "education" as const, row: "cf.expense.education" } : { row: "cf.expense.lumpSum.other", growth: { kind: "none" } }), from: childAt ?? { at }, to: childAt ?? { at }, everyYears: 1, amount: standardBox(presetNum("preset.education.abroad"), PRESET_BASIS) }
-        : // ライフイベントの1回の行は、入れた額のまま（0008 の追記 2026-11-02）
-          { id: ref, label: "新しい支出", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, growth: { kind: "none" }, amount: standardBox(presetNum("preset.events.newItem"), PRESET_BASIS) };
-    next = mutate(wh, (hh) => void (hh.periodicExpenses ??= []).push(p));
-  } else {
-    kind = "care";
-    const who: Member = h.members.find((m) => m.kind === "parent") ?? self;
-    const at = who.kind === "self" ? ageReachedMonth(who, 80) : addMonths(base, 60);
-    next = mutate(wh, (hh) => void (hh.careExpenses ??= []).push({ id: ref, member: who.id, from: { at }, months: 61, place: "home" }));
-  }
-  const itemId = `added:${id()}`;
-  return { wh: { ...next, addedItems: [...next.addedItems, { id: itemId, kind, ref, art: opt.art }] }, itemId };
 }

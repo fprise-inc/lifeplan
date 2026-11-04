@@ -45,7 +45,6 @@ import { explainModel } from "./explain.ts";
 import type { Level } from "./input/form.ts";
 import { blankHousehold, fromRequest, sampleRequest, withElementIds, type WorkingHousehold } from "./input/household.ts";
 import { InputView } from "./input/InputView.tsx";
-import { addItem, saveItem } from "./input/items.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
 import { withOfficeSources } from "./input/officeSource.ts";
 import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart, publishOfficeSettings, readOfficeSettings, withEstimates, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
@@ -141,7 +140,16 @@ export function tabsFor(req: EngineRequest | null): { id: Tab; label: string }[]
   return TABS.filter((t) => t.id !== "rental" || rental);
 }
 
-/** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#snapshots（入力のホームで控えの一覧を開く）・#fpmenu（上の帯の FP のメニューを開く）・#choose（入力のホームの「入力項目を選ぶ」を開く）・#officedefaults（事務所の既定値のパネルを開く）・#premisemenu（万一のときの画面の想定の前提で「＋ 動かす項目を追加」の一覧を開く）・#notices（結果のタブの計算の知らせを開く）・#report=takeaway（提案書のタブを持ち帰り用のレポートで開く）・#cgplan=B（万一のときの画面で見るプランの帯の文字）・#add=abroad,periodic（開発用のサーバーだけ: 項目を足して保存した状態で開く）・#chart=flows・#explain=2・
+/** URL の # の値を読む（壊れた % の並びは、そのまま使う） */
+function safeDecode(v: string): string {
+  try {
+    return decodeURIComponent(v);
+  } catch {
+    return v;
+  }
+}
+
+/** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#snapshots（入力のホームで控えの一覧を開く）・#fpmenu（上の帯の FP のメニューを開く）・#choose（入力のホームの「入力項目を選ぶ」を開く）・#officedefaults（事務所の既定値のパネルを開く）・#premisemenu（万一のときの画面の想定の前提で「＋ 動かす項目を追加」の一覧を開く）・#notices（結果のタブの計算の知らせを開く）・#report=takeaway（提案書のタブを持ち帰り用のレポートで開く）・#cgplan=B（万一のときの画面で見るプランの帯の文字）・#find=留学（入力のホームの「探して開く」にこの言葉を入れて開く）・#chart=flows・#explain=2・
  * #items=loan,rate,shift,mix,surplus（開発用のサーバーだけ: 動かす項目を足す）・#seed=plans（開発用のサーバーだけ: 見本の案を5つ）・#seedopen・#addmenu・#save・#selfcheck=plans・
  * #sel=C・#base=B（帯の案の文字）・#diff（表に差を表示）・#settings（表示の設定を開く）・#metrics=assetsAtAge,takeHome・#age=90・#compare（比較の表を開く）・#list（案の一覧を開く）・#scroll=table・#layout=side（グラフを左右に並べる）・
  * #tab=rental（収益不動産のタブ。物件の無い世帯では結果のタブ）・#rental=total|2（見るもの: 全体か物件の番号）・#rentalyear=2034（指標の年）） */
@@ -183,8 +191,8 @@ export function parseHash(hash: string): {
   reportMode?: "pdf" | "takeaway";
   /** #cgplan=B: 万一のときの画面で見るプラン（帯の文字） */
   cgPlan?: string;
-  /** 入力のホームで足して保存した状態にする項目（開発用のサーバーだけ） */
-  add?: string[];
+  /** #find=留学: 入力のホームの「探して開く」に入れておく言葉 */
+  find?: string;
   /** #fee=off: FP顧問料を入れない提案で開く */
   feeOff?: boolean;
   /** #scenario=death:self: 万一の画面で開く想定 */
@@ -278,7 +286,7 @@ export function parseHash(hash: string): {
     else if (k === "addmenu") out.addMenu = true;
     else if (k === "save") out.save = true;
     else if (k === "fee" && v === "off") out.feeOff = true;
-    else if (k === "add" && v !== undefined) out.add = v.split(",").filter((x) => /^[a-z]+$/.test(x));
+    else if (k === "find" && v !== undefined) out.find = safeDecode(v).slice(0, 40);
     else if (k === "scenario" && v !== undefined) out.scenario = v;
     else if (k === "household" && v !== undefined) out.household = v;
     else if (k === "tab" && TABS.some((t) => t.id === v)) out.tab = v as Tab;
@@ -854,7 +862,6 @@ export function App() {
     [putWorkRaw, history],
   );
 
-  const addOnce = useRef(false);
   const seedOnce = useRef(false);
   /**
    * 開いた世帯を画面に置き、計算する（見本・空・保存した世帯で共通）。履歴を続けないときに、前に開いていたときの履歴を捨てたら
@@ -933,16 +940,6 @@ export function App() {
       // 別の世帯を開いたら、結果の見方はすべて入れるに戻す
       viewRef.current = ALL_ROWS;
       setRowsView(ALL_ROWS);
-      // 画面の確かめ用（#add=…）: 項目を足して保存した状態にする。開発用のサーバーのときだけ
-      if (import.meta.env.DEV && initial.add !== undefined && !addOnce.current) {
-        addOnce.current = true;
-        let w = o.wh;
-        for (const k of initial.add) {
-          const r = addItem(w, k);
-          if (r !== null) w = saveItem(r.wh, r.itemId);
-        }
-        o = openedFrom(o.demo, w) ?? o;
-      }
       // 最初の案（見本の世帯の既定・URL の #levers）を「B案」として帯に置く。FP顧問料は既定で入れる（#fee=off で入れない）
       const first: Values = {};
       const fp = o.demo?.firstProposal ?? {};
@@ -1158,7 +1155,7 @@ export function App() {
     if (host === null || households.length === 0 || !storeChecked || initialOnce.current) return;
     initialOnce.current = true;
     const id = initial.household === "blank" ? BLANK : initial.household !== undefined && households.some((h) => h.id === initial.household) ? initial.household : (households[0] as DemoHousehold).id;
-    const dev = initial.household !== undefined || initial.selfcheck || initial.seed === true || initial.add !== undefined;
+    const dev = initial.household !== undefined || initial.selfcheck || initial.seed === true;
     const last = !dev && storeStatus?.state === "ready" ? storeStatus.lastOpened : null;
     if (last !== null)
       void openStored(last).catch((e: unknown) => {
@@ -2528,6 +2525,7 @@ export function App() {
               computeOne={computeOne}
               level={level}
               chooseOpen={initial.choose === true}
+              {...(initial.find !== undefined ? { findQuery: initial.find } : {})}
               {...(host !== null
                 ? {
                     // 入力項目を選ぶの「この選び方を事務所の既定にする」（0091）: 事務所データの新しい世帯で出す入力項目と開いたときの入れ方だけを置き換える

@@ -14,7 +14,8 @@ import { addAnnual, ANNUAL_TEMPLATES, CATEGORY_GROUP_HELP, CHECK_ACTUAL_HELP, CH
 import { legacyAllowances, withLegacyAllowanceNotice } from "../src/workspace/input/livingAllowance.ts";
 import { legacyPetRows, withLegacyPetNotice } from "../src/workspace/input/petTemplate.ts";
 import { checkFreeRequest, comparedYear, computedNet, savingsCheckLine } from "../src/workspace/input/savingsCheckLine.ts";
-import { ADD_OPTIONS, addItem } from "../src/workspace/input/items.ts";
+import { inputItems } from "../src/workspace/input/items.ts";
+import { findEntries, findInInput } from "../src/workspace/input/inputSearch.ts";
 import { householdNoticeText } from "../src/workspace/header/status.ts";
 import { helpBlocks } from "../src/workspace/input/FieldViews.tsx";
 import { applyStateOp, availableOps, fieldStatus } from "../src/workspace/input/valueState.ts";
@@ -863,10 +864,10 @@ describe("目安の共益費・ペットのひな形・答え合わせの差（0
     expect(CATEGORY_GROUP_HELP).toContain("・家賃・住宅ローン・管理費・共益費・修繕積立金・固定資産税 → 住まい・ローン");
   });
 
-  it("「＋ 項目を追加」にペットは無い（病気・けがは年1回・数年に1回の支出の「ペットの病気・けが」）", () => {
-    expect(ADD_OPTIONS.map((o) => o.key)).not.toContain("pet");
-    expect(addItem(family(), "pet")).toBeNull();
+  it("ペットは「探して開く」で年1回・数年に1回の支出の「ペットの病気・けが」へ案内する（「＋ 項目を追加」はやめた。0045 の 2026-11-04 の追記）", () => {
     expect(annualBtn(family(), "pet").label).toBe("＋ ペットの病気・けが");
+    const hit = findInInput(findEntries(family(), inputItems(family())), "ペット")[0]!;
+    expect(hit).toMatchObject({ card: "living", label: "＋ ペットの病気・けが", target: { kind: "action", key: "living/annual/add/pet" } });
   });
 
   it("前のひな形のペットの行は、書き換えずに読んで計算し、開いたときに入れ先を知らせる（同じ数なら2度は足さない）", () => {
