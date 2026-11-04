@@ -6,14 +6,14 @@ import { describe, expect, it } from "vitest";
 import type { ForkInfo, OfficeHost, OfficeStatus, StoredHousehold } from "../src/engine/host.ts";
 import { ForkPanel } from "../src/workspace/store/ForkPanel.tsx";
 import { HouseholdPanel } from "../src/workspace/store/HouseholdPanel.tsx";
-import { memoAuthors, mergeForkBodies, normalizeFingerprint, OFFICE_MESSAGES, presenceText, sinceText, editorsOf, syncShareNotice } from "../src/workspace/store/office.ts";
+import { memoAuthors, mergeForkBodies, normalizeFingerprint, normalizeOfficeCode, OFFICE_MESSAGES, presenceText, sinceText, editorsOf, syncShareNotice } from "../src/workspace/store/office.ts";
 import { OfficePanel } from "../src/workspace/store/OfficePanel.tsx";
 import { MemoDrawer } from "../src/workspace/MemoDrawer.tsx";
 import { fromRequest } from "../src/workspace/input/household.ts";
 import { modelHousehold } from "./helpers.ts";
 
 const no = async () => Promise.reject("E");
-const office: OfficeHost = { status: no, start: no, join: no, cancel: no, approve: no, reject: no, remove: no, moveLocal: no, recover: no, end: no, dismissNotices: no, defaults: async () => ({}), putDefaults: no, featureStatus: async () => ({ today: "2026-11-01", active: [], codes: [], invalid: [] }), addFeatureCode: no, removeFeatureCode: no, dismissFeatureNotice: no, checkFeatureCodes: no, decideFeatureCandidate: no, syncStart: no, syncOpen: no, syncEnd: no, notices: async () => [] };
+const office: OfficeHost = { status: no, start: no, join: no, cancel: no, approve: no, reject: no, remove: no, moveLocal: no, recover: no, end: no, dismissNotices: no, acceptRoster: no, defaults: async () => ({}), putDefaults: no, featureStatus: async () => ({ today: "2026-11-01", active: [], codes: [], invalid: [] }), addFeatureCode: no, removeFeatureCode: no, dismissFeatureNotice: no, checkFeatureCodes: no, decideFeatureCandidate: no, syncStart: no, syncOpen: no, syncEnd: no, notices: async () => [] };
 
 function status(over: Partial<OfficeStatus> = {}): OfficeStatus {
   return {
@@ -28,7 +28,7 @@ function status(over: Partial<OfficeStatus> = {}): OfficeStatus {
     ],
     removed: [],
     requests: [{ requestId: "r1", name: "担当B", requestedAt: "2026-10-19T00:00:00Z" }],
-    officeCode: "7K2M-QX9P",
+    officeCode: "7K2M-QX9P-4HDN-R8VT",
     syncFolder: true,
     localHouseholds: 0,
     recoveryAcknowledged: false,
@@ -162,7 +162,7 @@ describe("事務所の共有の設定", () => {
     expect(html).toContain("Z9KQ-1MNA-7TXD-V4RP");
     expect(html).toContain("2026/10/15");
     expect(html).toContain("（始めた人）");
-    expect(html).toContain("7K2M-QX9P");
+    expect(html).toContain("7K2M-QX9P-4HDN-R8VT");
     // 自分は外せない
     expect(html).toContain('data-office-remove="担当C"');
     expect(html).not.toContain('data-office-remove="担当A"');
@@ -228,6 +228,26 @@ describe("事務所の共有の設定", () => {
     expect(other).not.toContain("data-office-view-only");
     expect(other).toContain("data-office-role-view-only");
     expect(other).toContain("data-office-remove=");
+  });
+  it("名簿を確かめられない（30日より長く開かなかった）ときは、理由と、ほかのメンバーに番号を聞いて入れる欄を出す", () => {
+    const html = panel(status({ state: "unavailable", problem: "E_OFFICE_ROSTER_UNVERIFIED", members: [], requests: [], officeCode: null }));
+    expect(html).toContain("30日より長くアプリを開かなかった間に");
+    expect(html).toContain("data-office-accept-section");
+    expect(html).toContain("ほかのメンバーに、番号を聞いてください");
+    expect(html).toContain("data-office-accept-code");
+    // 入れるまで押せない
+    expect(html).toMatch(/data-office-accept(?!-)[^>]*disabled|disabled[^>]*data-office-accept(?!-)/);
+    // ほかの理由では出さない
+    expect(panel(status({ state: "unavailable", problem: "E_OFFICE_UNAVAILABLE", members: [], requests: [] }))).not.toContain("data-office-accept-section");
+    expect(OFFICE_MESSAGES.E_OFFICE_CODE_MISMATCH).toContain("受け入れていません");
+    expect(OFFICE_MESSAGES.E_OFFICE_CODE_SHAPE).toContain("16文字");
+  });
+  it("番号を出す側: メンバーの画面に16文字の番号と、聞かれたら読み上げる案内を出す", () => {
+    const html = panel(status());
+    expect(html).toContain("data-office-code-section");
+    expect(html).toContain("しばらくアプリを開かなかったメンバーに聞かれたら");
+    expect(normalizeOfficeCode("7k2m qx9p 4hdn r8vt")).toBe("7K2MQX9P4HDNR8VT");
+    expect(normalizeOfficeCode("7K2M-QX9P")).toBeNull();
   });
   it("共有フォルダのファイルが新しい版のアプリで書かれていたら、アプリの更新を案内する", () => {
     const html = panel(status({ state: "unavailable", problem: "E_OFFICE_FORMAT_TOO_NEW", members: [], requests: [] }));

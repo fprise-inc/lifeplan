@@ -4,6 +4,7 @@
 // - 2台目の PC: 「すでに使っている同期フォルダを開く」で、同じフォルダを選んで復元キーを入れる。開いた後は復元キーなしで使える
 // - PC の一覧（このPC・復元キーで開いた PC）と、なくした PC を外す（同期フォルダの鍵の入れ替え。復元キーも新しくなる）
 // - この PC の中へ戻す（もう1台の PC で開いている間はしない）
+// - 30日より長くこの PC を使わなかった間に PC を外していて、同期フォルダの鍵をたどれないとき: 今の復元キーを入れると、合ったときだけ戻る
 // 複数の FP の事務所での共有は「事務所の共有」のパネル（OfficePanel）。こちらは PC の言葉（呼び名）だけを使い、人の名前・指紋・承認は出さない
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OfficeHost, OfficeStatus, StorageNotice, StoreStatus } from "../../engine/host.ts";
@@ -38,6 +39,8 @@ export function StoragePanel(p: StoragePanelProps) {
   const [removing, setRemoving] = useState<{ id: string; name: string; value: string } | null>(null);
   const [removedDone, setRemovedDone] = useState<string | null>(null);
   const [ending, setEnding] = useState<string | null>(null);
+  /** 同期フォルダの鍵をたどれないときに入れる、今の復元キー */
+  const [backKey, setBackKey] = useState("");
   const panel = useRef<HTMLDivElement>(null);
   const st = p.status;
 
@@ -214,6 +217,34 @@ export function StoragePanel(p: StoragePanelProps) {
           <>
             <p class="hh-warn">{syncMessage(st.problem ?? "E_OFFICE_UNAVAILABLE")}</p>
             {st.problem === "E_OFFICE_CLOSED" ? <p class="pl-sub">世帯は、もう1台のPCの中にあります。このPCの中に戻ると、このPCの中の世帯だけになります。</p> : null}
+            {st.problem === "E_OFFICE_ROSTER_UNVERIFIED" ? (
+              <div class="of-lock" data-sync-accept-section>
+                <p>
+                  <b>今の復元キーを入れてください。</b>PCを外すと復元キーは新しくなります。もう1台のPCで外したときに保管した<b>新しい復元キー</b>が合ったときだけ、同期フォルダに戻ります（合わなければ戻りません）。
+                </p>
+                <label class="of-name">
+                  今の復元キー
+                  <input value={backKey} onInput={(e) => setBackKey((e.currentTarget as HTMLInputElement).value)} placeholder="XXXX-XXXX-…（72文字）" autoComplete="off" spellcheck={false} class="of-key-input" data-sync-accept-key />
+                </label>
+                <button
+                  type="button"
+                  class="btn primary"
+                  disabled={busy || backKey.trim() === ""}
+                  onClick={() =>
+                    void run(async () => {
+                      const r = await p.office.acceptRoster(backKey);
+                      setBackKey("");
+                      p.onStatus(r);
+                      p.onHouseholdsChanged();
+                      setMsg({ ok: true, text: "復元キーが合いました。同期フォルダに戻りました" });
+                    })
+                  }
+                  data-sync-accept
+                >
+                  復元キーを確かめて戻る
+                </button>
+              </div>
+            ) : null}
             <div class="rk-row">
               <button type="button" class="btn" disabled={busy} onClick={() => void run(async () => p.onStatus(await p.office.status()))}>
                 確かめ直す

@@ -66,6 +66,7 @@ const COMMANDS: &[&str] = &[
     "office_recover",
     "office_end",
     "office_dismiss_notices",
+    "office_accept_roster",
     // 0073: 事務所の既定値（事務所データに暗号化して持つ。JSON のオブジェクトだけ）
     "office_defaults_get",
     "office_defaults_put",

@@ -180,9 +180,21 @@ fn every_shared_format_version_has_a_fixture_and_opens() {
     );
     for v in &found {
         let dir = base().join(v);
-        let got = open_all(&dir);
-        let expected: Value =
+        let mut got = open_all(&dir);
+        let mut expected: Value =
             serde_json::from_slice(&std::fs::read(dir.join("expected.json")).unwrap()).unwrap();
+        // 事務所の確かめ用の番号はファイルの中身ではなく、親鍵から導いて画面に出す値。0.1 の見本は前の版の8文字で、
+        // 今の16文字（0023 の追記 2026-11-04）は前の8文字から続く（同じ親鍵なら、前の版の画面と前半が同じ）
+        let shown = expected
+            .as_object_mut()
+            .unwrap()
+            .remove("officeCode")
+            .unwrap();
+        let now = got.as_object_mut().unwrap().remove("officeCode").unwrap();
+        assert!(
+            now.as_str().unwrap().starts_with(shown.as_str().unwrap()),
+            "{v}: 事務所の確かめ用の番号 {now} が {shown} から続く"
+        );
         assert_eq!(got, expected, "{v}: 開いた中身が expected.json と同じ");
         assert_eq!(got["officeFile"]["formatVersion"], json!(v));
         // 今のアプリで書き直しても、同じ中身で開ける（知らない欄を落とさない）

@@ -6,12 +6,14 @@
 // - 事務所の復元キーを保管するまで、承認・外すは止める（理由と「保管する」への導線を出す。世帯の閲覧・編集は止めない）
 // - 全員の PC が使えなくなったとき: 事務所の復元キーで名簿に自分を足す（ほかのメンバーの画面に通知が出る）
 // - 共有をやめる（最後の1人だけ。世帯をこの PC の中へ移す）
+// - 30日より長くアプリを開かなかった間に鍵の入れ替えがあり、名簿を確かめられないとき: 理由を短く出し、ほかのメンバーから
+//   事務所の確かめ用の番号（16文字）を聞いて入れる欄を出す。合ったときだけ名簿を受け入れる（番号を出す側は、メンバーの画面の番号）
 // - 名簿の自分の役割が、この版の知らない役割（新しい版のアプリが決めた閲覧だけなど）のときは閲覧だけ。理由を出し、承認・外す・やめるを止める
 // - 1人で2台の PC で使う同期フォルダ（0024）は「保存先」のパネル（StoragePanel）。同期フォルダで使っている間は、ここではその案内だけを出す
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OfficeHost, OfficeStatus } from "../../engine/host.ts";
 import { shortDate } from "./HouseholdPanel.tsx";
-import { normalizeFingerprint, officeMessage, syncShareNotice } from "./office.ts";
+import { normalizeFingerprint, normalizeOfficeCode, officeMessage, syncShareNotice } from "./office.ts";
 
 export interface OfficePanelProps {
   office: OfficeHost;
@@ -38,6 +40,8 @@ export function OfficePanel(p: OfficePanelProps) {
   const [removedDone, setRemovedDone] = useState<string | null>(null);
   const [recoverKey, setRecoverKey] = useState("");
   const [ending, setEnding] = useState<string | null>(null);
+  /** 名簿を確かめられないときに入れる、事務所の確かめ用の番号（または事務所の復元キー） */
+  const [acceptCode, setAcceptCode] = useState("");
   const panel = useRef<HTMLDivElement>(null);
   const st = p.status;
   /** 1人で2台の PC の同期フォルダで使っている（事務所の共有の画面は出さない。0024） */
@@ -211,6 +215,44 @@ export function OfficePanel(p: OfficePanelProps) {
         {!personal && st?.state === "unavailable" ? (
           <>
             <p class="hh-warn">{officeMessage(st.problem ?? "E_OFFICE_UNAVAILABLE")}</p>
+            {st.problem === "E_OFFICE_ROSTER_UNVERIFIED" ? (
+              <div class="of-lock" data-office-accept-section>
+                <p>
+                  <b>ほかのメンバーに、番号を聞いてください。</b>ほかのメンバーの「事務所の共有」に出ている<b>事務所の確かめ用の番号（16文字）</b>を、電話や対面で読み上げてもらって入れてください。
+                  番号が合ったときだけ、今の名簿を受け入れます（合わなければ受け入れません）。
+                </p>
+                <label class="of-name">
+                  事務所の確かめ用の番号
+                  <input
+                    class="of-fp-input"
+                    value={acceptCode}
+                    placeholder="例: 7K2M-QX9P-4HDN-R8VT"
+                    autoComplete="off"
+                    spellcheck={false}
+                    onInput={(e) => setAcceptCode((e.currentTarget as HTMLInputElement).value)}
+                    data-office-accept-code
+                  />
+                </label>
+                <p class="pl-sub">ファイルやメールで送られてきた番号ではなく、本人から聞いた番号を入れてください（共有フォルダに書ける人は、偽の名簿を置けるため）。事務所の復元キーを持っているときは、番号の代わりに復元キーを入れても受け入れられます。</p>
+                <button
+                  type="button"
+                  class="btn primary"
+                  disabled={busy || (normalizeOfficeCode(acceptCode) === null && acceptCode.replace(/[\s-]/g, "").length <= 16)}
+                  onClick={() =>
+                    void run(async () => {
+                      const r = await p.office.acceptRoster(acceptCode);
+                      setAcceptCode("");
+                      p.onStatus(r);
+                      p.onHouseholdsChanged();
+                      setMsg({ ok: true, text: "番号が合いました。今の名簿を受け入れ、事務所の共有に戻りました" });
+                    })
+                  }
+                  data-office-accept
+                >
+                  番号を確かめて受け入れる
+                </button>
+              </div>
+            ) : null}
             <div class="rk-row">
               <button type="button" class="btn" disabled={busy} onClick={() => void run(async () => p.onStatus(await p.office.status()))}>
                 確かめ直す
@@ -239,8 +281,9 @@ export function OfficePanel(p: OfficePanelProps) {
               事務所の共有: <b>オン</b>
               {st.syncFolder ? "（共有フォルダは同期フォルダの中）" : ""}。あなたの表示名は <b>{st.myName}</b>、指紋は <code class="of-code">{st.myFingerprint}</code>
             </p>
-            <p class="pl-sub">
-              事務所の確かめ用の番号 <code class="of-code" data-office-code>{st.officeCode}</code>（全員の画面で同じになります。参加した人は、承認した人の画面と同じかを確かめてください）
+            <p class="pl-sub" data-office-code-section>
+              事務所の確かめ用の番号 <code class="of-code" data-office-code>{st.officeCode}</code>
+              （全員の画面で同じになります。参加した人は、承認した人の画面と同じかを確かめてください。しばらくアプリを開かなかったメンバーに聞かれたら、この番号を電話や対面で読み上げてください。メールやチャットに貼らないでください）
             </p>
             {st.viewOnly ? (
               <p class="hh-warn" role="status" data-office-view-only>

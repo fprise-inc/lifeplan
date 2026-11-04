@@ -59,13 +59,18 @@ impl MemberKeys {
 pub fn fingerprint(public: &[u8; 32]) -> String {
     let mut data = b"lifeplan.memberKey\0".to_vec();
     data.extend_from_slice(public);
-    let h = crypto::sha256(&data);
     // 10バイト＝80ビット → 5ビットずつで16文字
-    let mut chars = String::with_capacity(FINGERPRINT_CHARS + 3);
+    grouped_base32(&crypto::sha256(&data)[..10])
+}
+
+/// バイト列を、復元キーと同じ文字の並び（5ビットずつ）で4文字ずつ「-」で区切った形にする（長さは5バイトの倍数）
+fn grouped_base32(bytes: &[u8]) -> String {
+    debug_assert!(bytes.len().is_multiple_of(5));
+    let mut chars = String::with_capacity(bytes.len() * 8 / 5 + bytes.len() / 2);
     let mut acc: u32 = 0;
     let mut bits = 0;
     let mut n = 0;
-    for b in &h[..10] {
+    for b in bytes {
         acc = (acc << 8) | u32::from(*b);
         bits += 8;
         while bits >= 5 {
@@ -84,7 +89,12 @@ pub fn fingerprint(public: &[u8; 32]) -> String {
 /// 入力された指紋を、比べられる形（区切りを除いた16文字の英大文字・数字）にする。形が違えば None。
 /// 大文字・小文字、空白・区切り、全角の英数字、紛らわしい文字（O→0、I・L→1）を吸収する
 pub fn normalize_fingerprint(input: &str) -> Option<String> {
-    let mut out = String::with_capacity(FINGERPRINT_CHARS);
+    normalize_chars(input, FINGERPRINT_CHARS)
+}
+
+/// 入力を、区切りを除いた `len` 文字の英大文字・数字にする（形が違えば None）
+fn normalize_chars(input: &str, len: usize) -> Option<String> {
+    let mut out = String::with_capacity(len);
     for c in input.chars() {
         if is_separator(c) {
             continue;
@@ -92,7 +102,7 @@ pub fn normalize_fingerprint(input: &str) -> Option<String> {
         let v = value_of(c)?;
         out.push(ALPHABET[v as usize] as char);
     }
-    (out.chars().count() == FINGERPRINT_CHARS).then_some(out)
+    (out.chars().count() == len).then_some(out)
 }
 
 /// 入力された指紋が、公開鍵の指紋と同じか
@@ -190,27 +200,31 @@ pub fn unwrap_master(
     Ok(m)
 }
 
-/// 事務所の確かめ用の番号（親鍵から導いた8文字。全員の画面で同じになる。0023 の2）
+/// 事務所の確かめ用の番号（親鍵から導いた16文字。全員の画面で同じになる。0023 の2・追記 2026-11-04）。
+///
+/// 用途 `lifeplan/office-code/v1` で親鍵から導いた値の先頭10バイト（80ビット）を、指紋と同じ文字の並びで4文字ずつ区切る。
+/// 前の版の8文字（先頭5バイト）は、この番号の前半の8文字と同じ。
+/// 30日より長くアプリを開かなかったメンバーが、ほかのメンバーから聞いたこの番号で入れ替えの後の名簿を受け入れる
+/// （[`office_code_matches`]）ので、番号の一致する偽の親鍵を作るのに 2^80 回ほどの計算が要る長さにした（見積もりは 0023 の追記）
 pub fn office_code(master: &[u8; KEY_LEN]) -> String {
     let d = crypto::derive(master, purpose::OFFICE_CODE);
-    let mut s = String::with_capacity(9);
-    let mut acc: u32 = 0;
-    let mut bits = 0;
-    let mut n = 0;
-    for b in &d[..5] {
-        acc = (acc << 8) | u32::from(*b);
-        bits += 8;
-        while bits >= 5 {
-            bits -= 5;
-            if n == 4 {
-                s.push('-');
-            }
-            s.push(ALPHABET[((acc >> bits) & 31) as usize] as char);
-            n += 1;
-        }
-        acc &= (1 << bits) - 1;
+    grouped_base32(&d[..10])
+}
+
+/// 事務所の確かめ用の番号の文字数（区切りを除く）
+pub const OFFICE_CODE_CHARS: usize = 16;
+
+/// 入力された事務所の確かめ用の番号を、比べられる形（区切りを除いた16文字）にする。形が違えば None（指紋と同じく紛らわしい文字を吸収する）
+pub fn normalize_office_code(input: &str) -> Option<String> {
+    normalize_chars(input, OFFICE_CODE_CHARS)
+}
+
+/// 入力された事務所の確かめ用の番号が、この親鍵の番号と同じか（16文字の形でなければ false。前の版の8文字では合わない）
+pub fn office_code_matches(input: &str, master: &[u8; KEY_LEN]) -> bool {
+    match normalize_office_code(input) {
+        Some(n) => n == office_code(master).replace('-', ""),
+        None => false,
     }
-    s
 }
 
 #[cfg(test)]
@@ -276,8 +290,31 @@ mod tests {
     fn office_code_shape() {
         let m = crypto::random_key();
         let c = office_code(&m);
-        assert_eq!(c.len(), 9, "{c}");
+        assert_eq!(c.len(), 19, "{c}");
+        assert_eq!(c.split('-').count(), 4);
         assert_eq!(c, office_code(&m));
         assert_ne!(c, office_code(&crypto::random_key()));
+        // 前の版の8文字（先頭5バイト）は、前半の8文字と同じ
+        let d = crypto::derive(&m, purpose::OFFICE_CODE);
+        assert_eq!(&c[..9], grouped_base32(&d[..5]));
+        assert!(office_code_matches(&c, &m));
+        assert!(office_code_matches(&c.to_lowercase().replace('-', " "), &m));
+        assert!(office_code_matches(
+            &c.replace('0', "O").replace('1', "l"),
+            &m
+        ));
+        assert!(
+            !office_code_matches(&c[..9], &m),
+            "前の版の8文字では合わない"
+        );
+        assert!(!office_code_matches("", &m));
+        assert!(!office_code_matches(&c, &crypto::random_key()));
+        let chars: Vec<char> = c.chars().collect();
+        for i in (0..chars.len()).filter(|i| chars[*i] != '-') {
+            let mut x = chars.clone();
+            x[i] = if x[i] == 'A' { 'B' } else { 'A' };
+            let s: String = x.into_iter().collect();
+            assert!(!office_code_matches(&s, &m), "{i}");
+        }
     }
 }

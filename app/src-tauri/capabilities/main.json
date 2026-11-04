@@ -61,6 +61,7 @@
     "allow-office-recover",
     "allow-office-end",
     "allow-office-dismiss-notices",
+    "allow-office-accept-roster",
     "allow-office-defaults-get",
     "allow-office-defaults-put",
     "allow-feature-codes-status",

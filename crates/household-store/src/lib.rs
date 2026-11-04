@@ -124,6 +124,14 @@ impl StoreError {
     pub const OFFICE_REMOVED: StoreError = StoreError("E_OFFICE_REMOVED");
     /// 名簿が、手元の親鍵から続くものでない（偽物の疑い）
     pub const OFFICE_FORGED: StoreError = StoreError("E_OFFICE_FORGED");
+    /// 名簿の親鍵が、手元の親鍵からたどれない（手元の親鍵が前の親鍵の一覧に無い）。30日より長くアプリを開かなかった間に
+    /// ほかのメンバーが外す操作をしたときと、偽の名簿とは見分けられない。ほかのメンバーから聞いた事務所の確かめ用の番号
+    /// （または事務所の復元キー）が合えば受け入れる（[`Store::office_accept_roster`]。0023 の追記 2026-11-04）
+    pub const OFFICE_ROSTER_UNVERIFIED: StoreError = StoreError("E_OFFICE_ROSTER_UNVERIFIED");
+    /// 入力した事務所の確かめ用の番号（または復元キー）が、共有フォルダの名簿の親鍵と合わない（名簿は受け入れない）
+    pub const OFFICE_CODE_MISMATCH: StoreError = StoreError("E_OFFICE_CODE_MISMATCH");
+    /// 事務所の確かめ用の番号の形が違う（16文字でない。前の版のアプリの8文字も含む）
+    pub const OFFICE_CODE_SHAPE: StoreError = StoreError("E_OFFICE_CODE_SHAPE");
     /// 選んだフォルダに既に事務所がある（始めるのではなく参加する）
     pub const OFFICE_EXISTS: StoreError = StoreError("E_OFFICE_EXISTS");
     /// 選んだフォルダに事務所が無い（参加できない）

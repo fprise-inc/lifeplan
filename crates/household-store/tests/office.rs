@@ -408,12 +408,47 @@ fn forged_roster_is_rejected() {
         updated_by: None,
         extra: Default::default(),
     };
-    let bytes = office::encode_roster(&fake, &crypto::random_key()).unwrap();
+    let real_code = a.office_status().unwrap().office_code.unwrap();
+    let fake_master = crypto::random_key();
+    let bytes = office::encode_roster(&fake, &fake_master).unwrap();
     std::fs::write(o.office_root().join("members.lpmb"), bytes).unwrap();
     let st = b.office_status().unwrap();
     assert_eq!(st.state, "unavailable");
-    assert_eq!(st.problem.as_deref(), Some("E_OFFICE_FORGED"));
-    assert_eq!(b.list().unwrap_err(), StoreError::OFFICE_FORGED);
+    // 30日より長く開かなかった間の入れ替えと見分けられないので「たどれない」と出し、番号を聞いて入れる道を出す
+    assert_eq!(st.problem.as_deref(), Some("E_OFFICE_ROSTER_UNVERIFIED"));
+    assert_eq!(b.list().unwrap_err(), StoreError::OFFICE_ROSTER_UNVERIFIED);
+    // ほかのメンバー（A）から聞いた本当の番号は、偽の名簿の親鍵と合わないので受け入れない
+    let before = master_of(&pb, office_id["officeId"].as_str().unwrap());
+    assert_eq!(
+        b.office_accept_roster(&real_code).unwrap_err(),
+        StoreError::OFFICE_CODE_MISMATCH
+    );
+    assert_eq!(
+        *master_of(&pb, office_id["officeId"].as_str().unwrap()),
+        *before,
+        "手元の親鍵は変えない"
+    );
+    let st = b.office_status().unwrap();
+    assert_eq!(st.problem.as_deref(), Some("E_OFFICE_ROSTER_UNVERIFIED"));
+    assert!(
+        st.office_code.is_none(),
+        "受け入れていない名簿の番号は出さない"
+    );
+    // 番号の形が違う・前の版の8文字・ほかの事務所の復元キーも受け入れない
+    assert_eq!(
+        b.office_accept_roster("K9ER-W99J").unwrap_err(),
+        StoreError::OFFICE_CODE_SHAPE
+    );
+    assert_eq!(
+        b.office_accept_roster(&real_code[..9]).unwrap_err(),
+        StoreError::OFFICE_CODE_SHAPE
+    );
+    assert_eq!(
+        b.office_accept_roster(&household_store::recovery::encode(&crypto::random_key()))
+            .unwrap_err(),
+        StoreError::OFFICE_CODE_MISMATCH
+    );
+    assert_eq!(b.list().unwrap_err(), StoreError::OFFICE_ROSTER_UNVERIFIED);
 }
 
 #[test]
@@ -1401,8 +1436,256 @@ fn ending_sharing_keeps_what_every_pc_learned_from_statements() {
     a.office_remove(&b_id, "担当B").unwrap();
     a.acknowledge_recovery().unwrap();
     a.office_end("担当A").unwrap();
-    // 共有フォルダの辞書のファイルは消え、A が覚えていた分だけがこの PC に残る（外した B の分は、外した時点で読まなくなる）
+    // 共有フォルダの辞書のファイルは消え、外した B が覚えた分も事務所の辞書としてこの PC に残る（0023 の追記 2026-11-04）
     let p = office::Paths::new(o.office_root());
     assert!(files_under(&p.statement_dict_dir()).is_empty());
-    assert!(a.statement_office().unwrap().dictionary.is_empty());
+    assert!(a
+        .statement_office()
+        .unwrap()
+        .dictionary
+        .iter()
+        .any(|e| e.key == "架空ノ店"));
+}
+
+/// A・B・C の事務所。C は30日より長くアプリを開かず、その間に A が B を外し、前の親鍵が名簿から消える
+fn long_absence(o: &Office) -> (Pc, Pc, Store) {
+    let (pa, pb, pc) = (o.pc("a"), o.pc("b"), o.pc("c"));
+    let (a, b, c) = (pa.store(), pb.store(), pc.store());
+    start_and_join(o, &a, &b);
+    c.status().unwrap();
+    c.office_join(&o.shared, "担当C", true, &[]).unwrap();
+    let rid = a.office_status().unwrap().requests[0].request_id.clone();
+    a.office_approve(&rid, &fingerprint_of(&c)).unwrap();
+    assert_eq!(c.office_status().unwrap().state, "member");
+    create(&a, 1);
+    drop(c);
+    let b_id = b.current_author().unwrap().member_id;
+    a.office_remove(&b_id, "担当B").unwrap();
+    a.acknowledge_recovery().unwrap();
+    create(&a, 2);
+    o.clock.advance(31 * 86_400);
+    // A が次に起動すると、退いてから30日たった前の親鍵を名簿から消す
+    let a2 = pa.store();
+    a2.status().unwrap();
+    assert_eq!(a2.office_status().unwrap().state, "member");
+    let master = master_of(&pa, &office_id_of(o));
+    assert!(read_roster(o, &master).previous.is_empty());
+    (pa, pc, a2)
+}
+
+#[test]
+fn a_member_away_for_more_than_30_days_comes_back_with_the_office_code() {
+    let o = Office::new();
+    let (pa, pc, a) = long_absence(&o);
+    // C（の PC）が戻ってくる: 手元の親鍵が名簿の前の親鍵の一覧に無いので、名簿を受け入れられない
+    let c = pc.store();
+    c.status().unwrap();
+    let st = c.office_status().unwrap();
+    assert_eq!(st.state, "unavailable");
+    assert_eq!(st.problem.as_deref(), Some("E_OFFICE_ROSTER_UNVERIFIED"));
+    assert_eq!(c.list().unwrap_err(), StoreError::OFFICE_ROSTER_UNVERIFIED);
+    let oid = office_id_of(&o);
+    let stale = master_of(&pc, &oid);
+    // 違う番号は受け入れない（何も変えない）
+    let code = a.office_status().unwrap().office_code.unwrap();
+    assert_eq!(code.len(), 19, "16文字を4文字ずつ区切る");
+    let mut wrong: Vec<char> = code.chars().collect();
+    wrong[0] = if wrong[0] == 'A' { 'B' } else { 'A' };
+    let wrong: String = wrong.into_iter().collect();
+    assert_eq!(
+        c.office_accept_roster(&wrong).unwrap_err(),
+        StoreError::OFFICE_CODE_MISMATCH
+    );
+    assert_eq!(*master_of(&pc, &oid), *stale);
+    assert_eq!(
+        c.office_status().unwrap().problem.as_deref(),
+        Some("E_OFFICE_ROSTER_UNVERIFIED")
+    );
+    // ほかのメンバー（A）の画面の番号を聞いて入れると受け入れる（小文字・区切りなしでもよい）
+    let st = c
+        .office_accept_roster(&code.to_lowercase().replace('-', " "))
+        .unwrap();
+    assert_eq!(st.state, "member");
+    assert!(st.problem.is_none());
+    assert_eq!(st.office_code.as_deref(), Some(code.as_str()));
+    assert_eq!(*master_of(&pc, &oid), *master_of(&pa, &oid));
+    // 入れ替えの前に作った世帯も、後に作った世帯も開ける。直して保存できる
+    let list = c.list().unwrap();
+    assert_eq!(list.len(), 2);
+    for e in &list {
+        let h = c.open(&e.id).unwrap();
+        assert!(n_of(&h.body) >= 1);
+    }
+    // 受け入れた後は、もう一度入れる必要はない（入れようとしても今の状態ではできない）
+    assert_eq!(
+        c.office_accept_roster(&code).unwrap_err(),
+        StoreError::OFFICE_STATE
+    );
+    let c2 = pc.store();
+    c2.status().unwrap();
+    assert_eq!(c2.office_status().unwrap().state, "member");
+}
+
+#[test]
+fn a_member_away_for_more_than_30_days_can_also_use_the_office_recovery_key() {
+    let o = Office::new();
+    let (_, pc, a) = long_absence(&o);
+    let key = a.recovery_key().unwrap();
+    let c = pc.store();
+    c.status().unwrap();
+    assert_eq!(
+        c.office_status().unwrap().problem.as_deref(),
+        Some("E_OFFICE_ROSTER_UNVERIFIED")
+    );
+    // 打ち間違い・ほかのキー（古い控えなど）では受け入れない
+    let mut typo = key.to_string();
+    typo.replace_range(0..1, if typo.starts_with('A') { "B" } else { "A" });
+    assert_eq!(
+        c.office_accept_roster(&typo).unwrap_err(),
+        StoreError::RECOVERY_TYPO
+    );
+    assert_eq!(
+        c.office_accept_roster(&household_store::recovery::encode(&crypto::random_key()))
+            .unwrap_err(),
+        StoreError::OFFICE_CODE_MISMATCH
+    );
+    assert_eq!(c.office_accept_roster(&key).unwrap().state, "member");
+    assert_eq!(c.list().unwrap().len(), 2);
+}
+
+#[test]
+fn a_forged_roster_with_a_different_office_code_is_refused_after_a_long_absence() {
+    let o = Office::new();
+    let (pa, pc, a) = long_absence(&o);
+    let code = a.office_status().unwrap().office_code.unwrap();
+    // 共有フォルダに書ける者（外した B など）が、C の公開鍵に向けて自分の親鍵を包んだ偽の名簿に差し替える。
+    // 名簿の外の値（事務所ID・メンバーの一覧・表示名）は本物と同じにする
+    let oid = office_id_of(&o);
+    let real = read_roster(&o, &master_of(&pa, &oid));
+    let mut fake = real.clone();
+    fake.master_key_id = crypto::new_uuid();
+    fake.previous = vec![];
+    fake.recovery = None;
+    let fake_master = crypto::random_key();
+    let p = office::Paths::new(o.office_root());
+    std::fs::write(
+        p.members(),
+        office::encode_roster(&fake, &fake_master).unwrap(),
+    )
+    .unwrap();
+    let c = pc.store();
+    c.status().unwrap();
+    assert_eq!(
+        c.office_status().unwrap().problem.as_deref(),
+        Some("E_OFFICE_ROSTER_UNVERIFIED")
+    );
+    let stale = master_of(&pc, &oid);
+    // 本物の番号（A から聞いた）は、偽の名簿の親鍵の番号と合わない
+    assert_ne!(member::office_code(&fake_master), code);
+    assert_eq!(
+        c.office_accept_roster(&code).unwrap_err(),
+        StoreError::OFFICE_CODE_MISMATCH
+    );
+    assert_eq!(*master_of(&pc, &oid), *stale, "手元の親鍵は変えない");
+    assert_eq!(c.list().unwrap_err(), StoreError::OFFICE_ROSTER_UNVERIFIED);
+    assert_eq!(
+        c.storage_notices()
+            .unwrap()
+            .iter()
+            .filter(|n| n.kind == "unavailable")
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn what_a_removed_member_learned_from_statements_stays_in_the_office() {
+    let o = Office::new();
+    let (pa, pb) = (o.pc("a"), o.pc("b"));
+    let (a, b) = (pa.store(), pb.store());
+    start_and_join(&o, &a, &b);
+    let learn = |s: &Store, key: &str| {
+        s.statement_learn(
+            &[household_store::statement_dict::DictionaryEntry {
+                key: key.into(),
+                category: "food".into(),
+                annual: false,
+                at: "2026-10-19T09:00:00Z".into(),
+                by: None,
+                removed: false,
+            }],
+            &[],
+        )
+        .unwrap();
+    };
+    learn(&b, "架空ノ店");
+    let p = office::Paths::new(o.office_root());
+    let b_id = b.current_author().unwrap().member_id;
+    // B が知っている親鍵（外す前の親鍵）
+    let oid = office_id_of(&o);
+    let b_master = master_of(&pb, &oid);
+    let b_mk = office::peek_roster(&std::fs::read(p.members()).unwrap())
+        .unwrap()
+        .1;
+    a.office_remove(&b_id, "担当B").unwrap();
+    a.acknowledge_recovery().unwrap();
+    let has = |s: &Store, key: &str| {
+        s.statement_office()
+            .unwrap()
+            .dictionary
+            .iter()
+            .any(|e| e.key == key)
+    };
+    // 外した後も事務所の辞書に残り、B のファイルは今の親鍵で書き直してある
+    assert!(has(&a, "架空ノ店"));
+    let (_, mk) = office::peek_roster(&std::fs::read(p.members()).unwrap()).unwrap();
+    assert_eq!(
+        office::peek_statement_dict_master(&std::fs::read(p.statement_dict(&b_id)).unwrap())
+            .unwrap(),
+        mk
+    );
+    // 外した B が、B の知っている古い親鍵で自分のファイルを置き直しても、事務所の辞書には混ざらない
+    let kept = std::fs::read(p.statement_dict(&b_id)).unwrap();
+    let mut forged = household_store::statement_dict::StatementOffice::default();
+    forged
+        .dictionary
+        .push(household_store::statement_dict::DictionaryEntry {
+            key: "混ぜたい店".into(),
+            category: "hobby".into(),
+            annual: false,
+            at: "2026-10-20T09:00:00Z".into(),
+            by: Some(b_id.clone()),
+            removed: false,
+        });
+    std::fs::write(
+        p.statement_dict(&b_id),
+        office::encode_statement_dict(&oid, &b_mk, &b_id, &forged, &b_master),
+    )
+    .unwrap();
+    let c = pa.store();
+    c.status().unwrap();
+    assert!(!has(&c, "混ぜたい店"));
+    std::fs::write(p.statement_dict(&b_id), &kept).unwrap();
+    // 30日たって前の親鍵が名簿から消えても残る
+    o.clock.advance(31 * 86_400);
+    let a2 = pa.store();
+    a2.status().unwrap();
+    assert!(read_roster(&o, &master_of(&pa, &oid)).previous.is_empty());
+    assert!(has(&a2, "架空ノ店"));
+    // もう1人外して鍵がまた入れ替わっても残る（前の時代のまま残ったファイルも、前の親鍵を消す前に書き直す）
+    let c = o.pc("c").store();
+    c.status().unwrap();
+    c.office_join(&o.shared, "担当C", true, &[]).unwrap();
+    let rid = a2.office_status().unwrap().requests[0].request_id.clone();
+    a2.office_approve(&rid, &fingerprint_of(&c)).unwrap();
+    assert_eq!(c.office_status().unwrap().state, "member");
+    assert!(has(&c, "架空ノ店"), "後から参加した人にも出る");
+    let c_id = c.current_author().unwrap().member_id;
+    a2.office_remove(&c_id, "担当C").unwrap();
+    a2.acknowledge_recovery().unwrap();
+    o.clock.advance(31 * 86_400);
+    let a3 = pa.store();
+    a3.status().unwrap();
+    assert!(read_roster(&o, &master_of(&pa, &oid)).previous.is_empty());
+    assert!(has(&a3, "架空ノ店"));
 }

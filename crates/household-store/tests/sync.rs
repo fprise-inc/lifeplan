@@ -716,3 +716,43 @@ fn screen_values_have_no_paths_or_keys() {
         }
     }
 }
+
+#[test]
+fn a_pc_unused_for_more_than_30_days_comes_back_with_the_recovery_key() {
+    let w = World::new();
+    let (pa, pb, pl) = (w.pc("a"), w.pc("b"), w.pc("lost"));
+    let (a, b, lost) = (pa.store(), pb.store(), pl.store());
+    a.status().unwrap();
+    let h = create(&a, 1);
+    let key = first_pc(&w, &a);
+    second_pc(&w, &b, &key);
+    lost.status().unwrap();
+    lost.sync_open(&w.sync, "古いノート", &key, true, &[])
+        .unwrap();
+    let lost_id = lost.current_author().unwrap().member_id;
+    // 自宅のノート（b）は30日より長く使わない。その間に、なくした PC を外す
+    drop(b);
+    a.office_remove(&lost_id, "古いノート").unwrap();
+    a.acknowledge_recovery().unwrap();
+    let new_key = a.recovery_key().unwrap().to_string();
+    w.clock.advance(31 * 86_400);
+    let a2 = pa.store();
+    a2.status().unwrap();
+    // 戻ってきた b は、同期フォルダの鍵をたどれない（偽の同期フォルダと見分けられない）
+    let b = pb.store();
+    b.status().unwrap();
+    let st = b.office_status().unwrap();
+    assert_eq!(st.state, "unavailable");
+    assert_eq!(st.problem.as_deref(), Some("E_OFFICE_ROSTER_UNVERIFIED"));
+    assert!(kinds(&b).contains(&"unavailable".to_owned()));
+    // 古い復元キー（b が知っていた鍵）では戻れない。今の復元キーなら戻れる
+    assert_eq!(
+        b.office_accept_roster(&key).unwrap_err(),
+        StoreError::OFFICE_CODE_MISMATCH
+    );
+    let st = b.office_accept_roster(&new_key).unwrap();
+    assert_eq!(st.state, "member");
+    assert_eq!(n_of(&b.open(&h.id).unwrap().body), 1);
+    // この PC の中の事務所の鍵も、今の同期フォルダの鍵にそろう（0024）
+    assert_eq!(b.recovery_key().unwrap().to_string(), new_key);
+}

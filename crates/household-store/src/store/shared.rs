@@ -324,15 +324,79 @@ impl Shared {
         Err(StoreError::NO_KEY)
     }
 
-    /// 明細の取り込みで覚えた辞書と形: 名簿にいるメンバー全員のファイル（読めないファイルは飛ばす。0034）
-    pub(super) fn read_statement_dicts(&self) -> Vec<crate::statement_dict::StatementOffice> {
+    /// 明細の取り込みの辞書のファイルを開く親鍵（`owner` はファイルのメンバー）。
+    /// 名簿にいるメンバーのファイルは、今の親鍵か前の親鍵のどれでも開く。外したメンバーのファイルは、事務所の辞書として残す
+    /// （利用者の判断。0023 の追記 2026-11-04）が、外した人が知らない親鍵（今の親鍵と、外した後に退いた前の親鍵）で
+    /// 書かれたものだけを開く。外した人は外した時点までの親鍵を知っているので、それで書いたファイルは外した人が置き直せる
+    /// （外した人が共有フォルダに書けるままのとき、事務所の辞書に行を混ぜられる）。外すときに外した人のファイルを今の親鍵で書き直すので、
+    /// ふだんはそれが読まれる
+    fn dict_master_for(&self, owner: &str, master_key_id: &str) -> Option<Key> {
+        if self.roster.member(owner).is_some() {
+            return self.master_for(master_key_id);
+        }
+        let removed = self.roster.removed.iter().find(|r| r.member_id == owner)?;
+        if master_key_id == self.roster.master_key_id {
+            return Some(self.master.clone());
+        }
         self.roster
+            .previous
+            .iter()
+            .find(|p| {
+                p.master_key_id == master_key_id
+                    && p.retired_at.as_str() > removed.removed_at.as_str()
+            })
+            .map(|p| p.key.clone())
+    }
+
+    /// 明細の辞書のファイルを持ちうるメンバー: 名簿にいるメンバーと、外したメンバー（重ねない）
+    fn dict_owners(&self) -> Vec<String> {
+        let mut out: Vec<String> = self
+            .roster
             .members
             .iter()
-            .filter_map(|m| {
-                let b = fs::read(self.paths.statement_dict(&m.member_id)).ok()?;
-                office::open_statement_dict(&b, &m.member_id, |mk| self.master_for(mk)).ok()
-            })
+            .map(|m| m.member_id.clone())
+            .collect();
+        for r in &self.roster.removed {
+            if !out.contains(&r.member_id) {
+                out.push(r.member_id.clone());
+            }
+        }
+        out
+    }
+
+    /// そのメンバーの明細の辞書のファイルを開く（無い・開けないときは None）
+    fn read_statement_dict_of(
+        &self,
+        owner: &str,
+    ) -> Option<crate::statement_dict::StatementOffice> {
+        let b = fs::read(self.paths.statement_dict(owner)).ok()?;
+        office::open_statement_dict(&b, owner, |mk| self.dict_master_for(owner, mk)).ok()
+    }
+
+    /// そのメンバーの明細の辞書のファイルを、今の親鍵で書く
+    fn write_statement_dict_of(
+        &self,
+        owner: &str,
+        v: &crate::statement_dict::StatementOffice,
+    ) -> Result<(), StoreError> {
+        let bytes = office::encode_statement_dict(
+            &self.office_id,
+            &self.roster.master_key_id,
+            owner,
+            v,
+            &self.master,
+        );
+        fs::create_dir_all(self.paths.statement_dict_dir()).map_err(|_| StoreError::IO)?;
+        atomic::replace_no_prev(&self.paths.statement_dict(owner), &bytes)?;
+        Ok(())
+    }
+
+    /// 明細の取り込みで覚えた辞書と形: 名簿にいるメンバー全員と、外したメンバーのファイル（事務所の辞書として残す。
+    /// 読めないファイルは飛ばす。0034・0023 の追記 2026-11-04）
+    pub(super) fn read_statement_dicts(&self) -> Vec<crate::statement_dict::StatementOffice> {
+        self.dict_owners()
+            .iter()
+            .filter_map(|m| self.read_statement_dict_of(m))
             .collect()
     }
 
@@ -342,26 +406,15 @@ impl Shared {
         add: &crate::statement_dict::StatementOffice,
     ) -> Result<(), StoreError> {
         let me = &self.me.member_id;
-        let current = fs::read(self.paths.statement_dict(me))
-            .ok()
-            .and_then(|b| office::open_statement_dict(&b, me, |mk| self.master_for(mk)).ok())
-            .unwrap_or_default();
+        let current = self.read_statement_dict_of(me).unwrap_or_default();
         let next = crate::statement_dict::merge(&[&current, add]);
-        let bytes = office::encode_statement_dict(
-            &self.office_id,
-            &self.roster.master_key_id,
-            me,
-            &next,
-            &self.master,
-        );
-        fs::create_dir_all(self.paths.statement_dict_dir()).map_err(|_| StoreError::IO)?;
-        atomic::replace_no_prev(&self.paths.statement_dict(me), &bytes)?;
-        Ok(())
+        self.write_statement_dict_of(me, &next)
     }
 
     /// 入れ替えの後も前の時代の親鍵のまま残った世帯の札・明細の辞書を、今の親鍵で書き直す。
     /// 前の親鍵は30日で名簿から消すので、その前に今の時代へ移さないと、札（一覧に出ない）・辞書（覚えた行）が開けなくなる。
-    /// `only_dict_of` を渡すと、そのメンバーの明細の辞書だけ（自分のファイルを自分で書き直す。ふだんはこちら）
+    /// `only_dict_of` を渡すと、そのメンバーの明細の辞書だけ（自分のファイルを自分で書き直す。ふだんはこちら）。
+    /// 渡さないときは、名簿のメンバー全員と外したメンバーの辞書（外したメンバーの辞書は事務所に残す。0023 の追記 2026-11-04）
     pub(super) fn reseal_stale(&self, only_dict_of: Option<&str>) {
         let cur = self.roster.master_key_id.as_str();
         if only_dict_of.is_none() {
@@ -383,27 +436,19 @@ impl Shared {
                 }
             }
         }
-        let members: Vec<String> = match only_dict_of {
+        let owners: Vec<String> = match only_dict_of {
             Some(m) => vec![m.to_owned()],
-            None => self
-                .roster
-                .members
-                .iter()
-                .map(|m| m.member_id.clone())
-                .collect(),
+            None => self.dict_owners(),
         };
-        for mid in members {
-            let p = self.paths.statement_dict(&mid);
-            let Ok(b) = fs::read(&p) else {
+        for mid in owners {
+            let Ok(b) = fs::read(self.paths.statement_dict(&mid)) else {
                 continue;
             };
             if office::peek_statement_dict_master(&b).ok().as_deref() == Some(cur) {
                 continue;
             }
-            if let Ok(v) = office::open_statement_dict(&b, &mid, |mk| self.master_for(mk)) {
-                let bytes =
-                    office::encode_statement_dict(&self.office_id, cur, &mid, &v, &self.master);
-                let _ = atomic::replace_no_prev(&p, &bytes);
+            if let Some(v) = self.read_statement_dict_of(&mid) {
+                let _ = self.write_statement_dict_of(&mid, &v);
             }
         }
     }
@@ -612,6 +657,38 @@ impl Shared {
 }
 
 /// 選んだフォルダが使えるか（データフォルダ・カスタム層・SDK・AIの作業フォルダの中、またはそれらを含む場所は選べない。0023 の8）
+/// 手元の親鍵からたどれない名簿を受け入れるための、ほかのメンバーから聞いた値（[`Store::office_accept_roster`]）
+enum RosterProof {
+    /// 事務所の確かめ用の番号（区切りを除いた16文字）
+    Code(String),
+    /// 事務所の復元キー（＝今の親鍵）
+    Master(Key),
+}
+
+impl RosterProof {
+    fn parse(input: &str) -> Result<RosterProof, StoreError> {
+        if let Some(n) = member::normalize_office_code(input) {
+            return Ok(RosterProof::Code(n));
+        }
+        let chars = input
+            .chars()
+            .filter(|c| !crate::recovery::is_separator(*c))
+            .count();
+        if chars > member::OFFICE_CODE_CHARS {
+            return recovery::decode(input).map(RosterProof::Master);
+        }
+        Err(StoreError::OFFICE_CODE_SHAPE)
+    }
+
+    /// 名簿から取り出した親鍵と合うか
+    fn matches(&self, master: &Key) -> bool {
+        match self {
+            RosterProof::Code(n) => member::office_code(master).replace('-', "") == *n,
+            RosterProof::Master(k) => **k == **master,
+        }
+    }
+}
+
 fn check_folder(folder: &Path, forbidden: &[PathBuf]) -> Result<PathBuf, StoreError> {
     let f = fs::canonicalize(folder).map_err(|_| StoreError::OFFICE_FOLDER)?;
     if !f.is_dir() {
@@ -642,15 +719,26 @@ fn usage_of(r: &Roster) -> &'static str {
 impl Store {
     /// 事務所データの共有の設定から、共有の事務所を開く（起動時・承認待ちの確かめ）
     pub(super) fn activate_shared(&self, s: &mut Session) {
+        let _ = self.activate_shared_with(s, None);
+    }
+
+    /// 共有の事務所を開く。`proof` は、手元の親鍵からたどれない名簿を受け入れるための、ほかのメンバーから聞いた
+    /// 事務所の確かめ用の番号か事務所の復元キー（[`Store::office_accept_roster`]）。合わなければ
+    /// [`StoreError::OFFICE_CODE_MISMATCH`] を返し、名簿は受け入れない（使えない理由は「たどれない」のまま）
+    fn activate_shared_with(
+        &self,
+        s: &mut Session,
+        proof: Option<&RosterProof>,
+    ) -> Result<(), StoreError> {
         let present = s.shared.take().map(|sh| sh.present).unwrap_or_default();
         s.share_problem = None;
         let Some(mut set) = s.data.sharing.clone() else {
-            return;
+            return Ok(());
         };
         if set.state != "member" && set.state != "pending" {
-            return;
+            return Ok(());
         }
-        match self.connect(&set, &s.device_id) {
+        match self.connect(&set, &s.device_id, proof) {
             Ok(Some(mut sh)) => {
                 sh.present = present;
                 let usage = Some(usage_of(&sh.roster).to_owned());
@@ -680,12 +768,22 @@ impl Store {
                 s.data.sharing = Some(set);
                 let _ = self.write_office(s);
             }
+            Err(StoreError::OFFICE_CODE_MISMATCH) => {
+                s.share_problem = Some(StoreError::OFFICE_ROSTER_UNVERIFIED);
+                return Err(StoreError::OFFICE_CODE_MISMATCH);
+            }
             Err(e) => s.share_problem = Some(e),
         }
+        Ok(())
     }
 
     /// 名簿を開く。承認待ちでまだ包みが無ければ None。外されていれば [`StoreError::OFFICE_REMOVED`]
-    fn connect(&self, set: &SharingSetting, device_id: &str) -> Result<Option<Shared>, StoreError> {
+    fn connect(
+        &self,
+        set: &SharingSetting,
+        device_id: &str,
+        proof: Option<&RosterProof>,
+    ) -> Result<Option<Shared>, StoreError> {
         let paths = Paths::new(PathBuf::from(&set.folder));
         if !paths.office_file().is_file() {
             return Err(StoreError::OFFICE_UNAVAILABLE);
@@ -713,12 +811,20 @@ impl Store {
             // 共有をやめた事務所（やめる途中で止まった場合を含む）。世帯は先にこの PC の中へ写してある（0023 の10）
             return Err(StoreError::OFFICE_CLOSED);
         }
-        // 手元の親鍵と違う名簿は、手元の親鍵を前の親鍵の一覧に含むときだけ受け入れる（入れ替え）
+        // 手元の親鍵と違う名簿は、手元の親鍵を前の親鍵の一覧に含むときだけ受け入れる（入れ替え）。
+        // 含まない（30日より長く開かなかった間に外す操作があった・偽の名簿）ときは、ほかのメンバーから聞いた
+        // 事務所の確かめ用の番号（または事務所の復元キー）が、この名簿の親鍵と合ったときだけ受け入れる（0023 の追記 2026-11-04）
         match self.master_of(&set.office_id)? {
             Some(cached) if *cached == *master => {}
             Some(cached) => {
                 if !roster.previous.iter().any(|p| *p.key == *cached) {
-                    return Err(StoreError::OFFICE_FORGED);
+                    match proof {
+                        None => return Err(StoreError::OFFICE_ROSTER_UNVERIFIED),
+                        Some(p) if !p.matches(&master) => {
+                            return Err(StoreError::OFFICE_CODE_MISMATCH)
+                        }
+                        Some(_) => {}
+                    }
                 }
                 self.secrets.set(
                     &set.office_id,
@@ -1407,6 +1513,28 @@ impl Store {
         Ok(self.office_status_of(s))
     }
 
+    /// 手元の親鍵からたどれない名簿（[`StoreError::OFFICE_ROSTER_UNVERIFIED`]。30日より長くアプリを開かなかった間に、
+    /// ほかのメンバーが外す操作をした）を、ほかのメンバーから電話や対面で聞いた**事務所の確かめ用の番号**（16文字）で受け入れる
+    /// （利用者の判断。0023 の追記 2026-11-04）。事務所の復元キー（72文字）を入れてもよい（1人で複数の PC の同期フォルダでは、こちらを使う）。
+    ///
+    /// 番号は名簿の今の親鍵から導くので、合えば、自分の包みから取り出した親鍵が事務所の今の親鍵だと分かる。合わなければ
+    /// [`StoreError::OFFICE_CODE_MISMATCH`] を返し、名簿は受け入れない（手元の親鍵も変えない）。16文字でなければ
+    /// [`StoreError::OFFICE_CODE_SHAPE`]、復元キーの打ち間違いは [`StoreError::RECOVERY_TYPO`]
+    pub fn office_accept_roster(&self, input: &str) -> Result<OfficeStatus, StoreError> {
+        let proof = RosterProof::parse(input)?;
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        if !s.data.sharing.as_ref().is_some_and(|x| x.state == "member") {
+            return Err(StoreError::OFFICE_STATE);
+        }
+        if s.shared.is_some() && s.share_problem.is_none() {
+            // 名簿は受け入れてある（ほかの PC で、または確かめ直したら戻っていた）
+            return Err(StoreError::OFFICE_STATE);
+        }
+        self.activate_shared_with(s, Some(&proof))?;
+        Ok(self.office_status_of(s))
+    }
+
     /// 事務所の共有をやめる（最後の1人だけ。0023 の10）: 共有フォルダの世帯をこの PC の中へ移し（PC の鍵置き場の新しい世帯の鍵で
     /// 暗号化し直し、開けることを確かめる）、名簿に「終えた」印を書いてから、共有フォルダの世帯ファイル・鍵の札・世帯の札を消す。
     /// `confirm` は自分の表示名（取り違えて押さないため）。ほかのメンバーがいる間はできない（先に外す）
@@ -1467,7 +1595,8 @@ impl Store {
         for id in &ids {
             self.copy_to_local(s, id)?;
         }
-        // 明細の取り込みで覚えた辞書と形も、名簿のメンバー全員の分をこの PC の中へまとめる（1人で複数の PC なら、もう1台の PC が覚えた分も）
+        // 明細の取り込みで覚えた辞書と形も、名簿のメンバー全員と外したメンバーの分をこの PC の中へまとめる
+        // （1人で複数の PC なら、もう1台の PC が覚えた分も。外したメンバーの分は事務所の辞書として残したもの）
         s.data.statement = Self::statement_merged(s);
         // 2. 名簿に「終えた」印（ここで共有の事務所は使えなくなる。復元キーで加わることもできない）
         let at = iso_of(now);
@@ -1739,6 +1868,9 @@ impl Store {
                 return Err(e);
             }
         }
+        // 外す人が明細の取り込みで覚えた行は、事務所の辞書として残す（利用者の判断。0023 の追記 2026-11-04）。
+        // 名簿を書き直すと、外す人が知っている親鍵で書かれたファイルは開かなくなるので、先に読んでおき、後で新しい親鍵で書き直す
+        let target_dict = sh.read_statement_dict_of(member_id);
         // 2. 名簿を書き直す（ここで入れ替えが成り立つ）
         let mut r = sh.roster.clone();
         r.members.retain(|m| m.member_id != member_id);
@@ -1774,6 +1906,9 @@ impl Store {
         sh.master = new_master;
         for (id, c) in cards {
             sh.write_card(&id, &c)?;
+        }
+        if let Some(v) = target_dict {
+            let _ = sh.write_statement_dict_of(member_id, &v);
         }
         for p in fs::read_dir(sh.paths.presence_dir())
             .map(|rd| {

@@ -261,6 +261,13 @@ pub async fn storage_notices(app: AppHandle) -> Result<Vec<StorageNotice>, Strin
     blocking(app, |s, _| s.storage_notices().map_err(code)).await
 }
 
+/// 手元の鍵からたどれない名簿（30日より長く開かなかった間に、ほかのメンバーが外す操作をした）を、ほかのメンバーから
+/// 聞いた事務所の確かめ用の番号（または事務所の復元キー）で受け入れる。合わなければ受け入れない（0023 の追記 2026-11-04）
+#[tauri::command]
+pub async fn office_accept_roster(app: AppHandle, key: String) -> Result<OfficeStatus, String> {
+    blocking(app, move |s, _| s.office_accept_roster(&key).map_err(code)).await
+}
+
 /// 知らせ（復元キーで加わった人など）を見た
 #[tauri::command]
 pub async fn office_dismiss_notices(app: AppHandle) -> Result<OfficeStatus, String> {
