@@ -181,6 +181,10 @@ describe("キーボードと描画", () => {
     expect(findKey("ArrowDown", false, 0, 0, "")).toBeNull();
     expect(findKey("Enter", true, 1, 3, "留学")).toEqual({ kind: "pick", index: 1 });
     expect(findKey("Enter", true, 0, 0, "zzzz")).toBeNull();
+    // 言葉を入れただけ（何も選んでいない）で Enter を押しても、最初の候補を開かない
+    expect(findKey("Enter", true, -1, 3, "留学")).toBeNull();
+    expect(findKey("ArrowDown", true, -1, 3, "留学")).toEqual({ kind: "move", act: 0 });
+    expect(findKey("ArrowUp", true, -1, 3, "留学")).toEqual({ kind: "move", act: 2 });
     expect(findKey("Enter", false, 0, 3, "留学")).toBeNull();
     expect(findKey("Escape", true, 0, 3, "留学")).toEqual({ kind: "close" });
     expect(findKey("Escape", false, 0, 3, "留学")).toEqual({ kind: "clear" });

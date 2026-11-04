@@ -1,6 +1,6 @@
 // 入力のホームの「探して開く」（inputSearch.ts）: 言葉を入れると、それを入れる入力項目の欄を数件出し、選ぶとその入力項目を開いてその欄へ移る。
 // 新しい物は作らない（入れる場所へ案内するだけ）。置き場所は入力項目の並びの最後（前の「＋ 項目を追加」の所）。顧客と並んで見る画面なので控えめに。
-// キーボード: 上下で選ぶ・Enter で開く・Esc で候補を閉じる（もう一度で言葉を消す）。候補は入れる欄にフォーカスがあるときだけ出す
+// キーボード: 上下で選ぶ・Enter で選んだ候補を開く（言葉を入れただけでは何も選んでいないので、Enter で最初の候補を開かない）・Esc で候補を閉じる（もう一度で言葉を消す）。候補は入れる欄にフォーカスがあるときだけ出す
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { Help } from "../../presentation/Help.tsx";
 import type { WorkingHousehold } from "./household.ts";
@@ -17,15 +17,16 @@ interface Props {
   initialQuery?: string;
 }
 
-/** キーを押したときの動き（上下: 候補を選ぶ〔閉じていれば開く〕・Enter: 選んだ候補を開く・Esc: 候補を閉じる、閉じていれば言葉を消す）。何もしないなら null */
+/** キーを押したときの動き（上下: 候補を選ぶ〔閉じていれば開く。初めは何も選んでいない〕・Enter: 上下・指で選んだ候補だけを開く〔選んでいなければ何もしない〕・Esc: 候補を閉じる、閉じていれば言葉を消す）。何もしないなら null */
 export type FindKey = { kind: "move"; act: number } | { kind: "reopen" } | { kind: "pick"; index: number } | { kind: "close" } | { kind: "clear" };
 export function findKey(key: string, open: boolean, act: number, count: number, query: string): FindKey | null {
   if (key === "ArrowDown" || key === "ArrowUp") {
     if (!open) return query.trim() !== "" ? { kind: "reopen" } : null;
     if (count === 0) return null;
+    if (act < 0) return { kind: "move", act: key === "ArrowDown" ? 0 : count - 1 };
     return { kind: "move", act: key === "ArrowDown" ? (act + 1) % count : (act - 1 + count) % count };
   }
-  if (key === "Enter") return open && count > 0 ? { kind: "pick", index: Math.min(act, count - 1) } : null;
+  if (key === "Enter") return open && act >= 0 && act < count ? { kind: "pick", index: act } : null;
   if (key === "Escape") return open ? { kind: "close" } : query !== "" ? { kind: "clear" } : null;
   return null;
 }
@@ -38,7 +39,7 @@ export function InputFind({ wh, items, onPick, initialQuery = "" }: Props) {
   const [focused, setFocused] = useState(initialQuery !== "");
   /** 選んだ・Esc で閉じた後は、打ち直すか下を押すまで候補を出さない */
   const [closed, setClosed] = useState(false);
-  const [act, setAct] = useState(0);
+  const [act, setAct] = useState(-1);
   /** 候補の箱の置き方: 右からはみ出すなら右にそろえる（flip）、下に入りきらず上のほうが広ければ欄の上に出す（up） */
   const [place, setPlace] = useState({ flip: false, up: false });
   const input = useRef<HTMLInputElement>(null);
@@ -50,7 +51,7 @@ export function InputFind({ wh, items, onPick, initialQuery = "" }: Props) {
   const entries = useMemo(() => (searching ? findEntries(wh, items) : []), [wh, items, searching]);
   const hits = useMemo(() => findInInput(entries, query), [entries, query]);
   const open = focused && searching && !closed;
-  useEffect(() => setAct(0), [query]);
+  useEffect(() => setAct(-1), [query]);
   // 上下で選んだ候補が見えるように（候補の箱の中だけを動かす）
   useEffect(() => {
     if (open) list.current?.querySelector<HTMLElement>("li.act")?.scrollIntoView({ block: "nearest" });
