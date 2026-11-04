@@ -21,6 +21,8 @@ path = "src/lib.rs"
 
 [build-dependencies]
 tauri-build = { version = "2.7", features = [] }
+# 0117・0110 の追記: 配布元の設定の鍵の束の形を、本体と同じ部品で確かめる（誤りはビルドで止める）
+distribution = { path = "../../crates/distribution" }
 
 [dependencies]
 # 0016: プラグインは入れない（ファイル・シェル・ブラウザを開く・HTTP などの権限を画面に与えない）
@@ -42,6 +44,8 @@ ai-share = { path = "../../crates/ai-share" }
 ai-ipc = { path = "../../crates/ai-ipc" }
 # 0110: 機能を有効にするコード（提供元の署名を、埋め込んだ公開鍵で確かめる。ネットにはつながない）
 feature-code = { path = "../../crates/feature-code" }
+# 0117・0110 の追記（2026-11-04）: 鍵の束（本番の鍵と開発用の鍵・現用と次期・取り下げた鍵を外す）と取り下げの一覧の確かめ。ネットにはつながない
+distribution = { path = "../../crates/distribution" }
 # 0016 の3・4・6: カスタム層（設定ファイルの検査・指紋・承認の台帳と保存庫・承認した文の当て方）。今は説明の文の差し替えだけ
 custom-layer = { path = "../../crates/custom-layer" }
 # 0110 の追記・0017 の4: 配信元の「止めた一覧」を取りに行く HTTP の部品（本体だけが通信する。画面には HTTP の権限を与えない）。
@@ -49,6 +53,11 @@ custom-layer = { path = "../../crates/custom-layer" }
 # クッキー・プロキシ・圧縮・HTTP/2 は入れない（既定の機能を外す）
 reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+
+[dev-dependencies]
+# テストで、使い捨ての取り下げ用の鍵（決まった種から作る）で取り下げの一覧に署名するため（配布の部品と同じ版）
+ed25519-dalek = { version = "2", default-features = false, features = ["std", "fast"] }
+base64 = "0.22"
 
 [profile.dev.package."*"]
 # 開発用の起動（npx tauri dev）でも、依存の crate（Typst の組版・PDF・画像など）は最適化する。

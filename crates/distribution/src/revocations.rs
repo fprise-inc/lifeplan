@@ -7,6 +7,9 @@
 //!   （取り下げは安全な側に倒すものなので、期限切れでも外さない）。
 //! - `minAppVersion` より古いアプリは、閲覧はできるが、計算と PDF の出力は更新してから（[`AppGate`]）。
 //! - `revoked.keys` に載った鍵は、鍵の束から外す（[`crate::keys::KeyRing::without`]。取り下げ用の鍵は外せない）。
+//! - `revoked.featureCodes` に載った番号の、機能を有効にするコード（0110）は止める（漏れたコード・返金した人のコード。0110 の追記 2026-11-04）。
+//!   番号はコードの `id`（英数字で始め、英数字と「-」「_」「.」の32文字まで。`feature_code::valid_id` と同じ決まり）。
+//! - 取りに行った結果は [`apply_fetch`] で当てる（つながらない・受け付けない一覧は無視して、最後に受け付けた一覧のまま）。
 
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +23,8 @@ pub const ENVELOPE_FORMAT: &str = "fprise-lifeplan-revocations-envelope";
 pub const FORMAT: &str = "fprise-lifeplan-revocations";
 /// 有効な一覧を取れていない日数が、これを超えたら黄色い帯（0017 の7。初期値。0117 の未確定）
 pub const STALE_AFTER_DAYS: i64 = 30;
+/// 発行の道具が付ける有効期限の日数の初期値（0117 の影響「取り下げの一覧は、期限〔初期値90日〕の前に出し直す」）
+pub const DEFAULT_VALID_DAYS: i64 = 90;
 /// 一覧の項目の数の上限
 const MAX_ITEMS: usize = 10_000;
 
@@ -57,6 +62,18 @@ pub struct Revoked {
     pub app_versions: Vec<String>,
     #[serde(default)]
     pub keys: Vec<String>,
+    /// 止める、機能を有効にするコードの番号（コードの `id`。0110）
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub feature_codes: Vec<String>,
+}
+
+/// 機能を有効にするコードの番号の形（`feature_code::valid_id` と同じ決まり。部品どうしの依存を作らないため、ここにも書く）
+pub fn valid_feature_code_id(s: &str) -> bool {
+    let b = s.as_bytes();
+    (1..=32).contains(&b.len())
+        && b[0].is_ascii_alphanumeric()
+        && b.iter()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'-' | b'_' | b'.'))
 }
 
 /// 取り下げの一覧（0017 の7 の形）
@@ -93,8 +110,16 @@ impl Verified {
 /// 一覧を確かめる。期限切れの一覧も受け付ける（取り下げは当て続ける。新しさは [`freshness`] で見る）
 pub fn verify(bytes: &[u8], ring: &KeyRing, last_serial: Option<u64>) -> Result<Verified, Reject> {
     let opened = envelope::open(bytes, ENVELOPE_FORMAT, &[Role::Revocation], ring)?;
-    let raw: serde_json::Value =
-        serde_json::from_str(&opened.payload).map_err(|_| Reject::FORMAT)?;
+    let v = parse_payload(&opened.payload)?;
+    if last_serial.is_some_and(|s| v.list.serial < s) {
+        return Err(Reject::OLDER);
+    }
+    Ok(v)
+}
+
+/// 中身（署名の前の JSON）の形を確かめる（発行の道具が、署名する前の下書きを確かめるのにも使う）
+pub fn parse_payload(payload: &str) -> Result<Verified, Reject> {
+    let raw: serde_json::Value = serde_json::from_str(payload).map_err(|_| Reject::FORMAT)?;
     if raw.get("format").and_then(|v| v.as_str()) != Some(FORMAT) {
         return Err(Reject::FORMAT);
     }
@@ -111,8 +136,17 @@ pub fn verify(bytes: &[u8], ring: &KeyRing, last_serial: Option<u64>) -> Result<
         + r.component_revisions.len()
         + r.packs.len()
         + r.app_versions.len()
-        + r.keys.len();
+        + r.keys.len()
+        + r.feature_codes.len();
     if count > MAX_ITEMS {
+        return Err(Reject::FORMAT);
+    }
+    if r.feature_codes.iter().any(|id| !valid_feature_code_id(id))
+        || r.feature_codes
+            .iter()
+            .enumerate()
+            .any(|(i, id)| r.feature_codes[..i].contains(id))
+    {
         return Err(Reject::FORMAT);
     }
     if r.app_versions.iter().any(|v| Version::app(v).is_none())
@@ -133,9 +167,6 @@ pub fn verify(bytes: &[u8], ring: &KeyRing, last_serial: Option<u64>) -> Result<
     let expires = parse_utc(&list.expires_at).ok_or(Reject::FORMAT)?;
     if expires <= issued {
         return Err(Reject::FORMAT);
-    }
-    if last_serial.is_some_and(|s| list.serial < s) {
-        return Err(Reject::OLDER);
     }
     Ok(Verified {
         list,
@@ -197,4 +228,70 @@ pub fn freshness(
 /// 鍵の束から、一覧で取り下げた鍵を外す
 pub fn apply_to_ring(ring: &KeyRing, v: &Verified) -> KeyRing {
     ring.without(&v.list.revoked.keys)
+}
+
+/// 取りに行った結果
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fetch {
+    /// 取れて、受け付けた（新しい一覧を使う）
+    Ok,
+    /// つながらない・取れない（最後に受け付けた一覧のまま）
+    Offline,
+    /// 取れたが、受け付けなかった（署名が合わない・形が違う・通し番号が古い。最後に受け付けた一覧のまま）
+    Rejected(Reject),
+}
+
+/// 取りに行った結果を当てる。`saved` は最後に受け付けた一覧（配信元のファイルのまま保存しておいたもの）、`fetched` は今回取れた中身
+/// （取れなければ None）。返すのは、これから使う一覧のファイル（保存し直す）と結果。
+/// 保存しておいた一覧も確かめ直し（鍵を差し替えた後などで確かめられなければ使わない）、受け付けないときは、それをそのまま返す
+pub fn apply_fetch(
+    saved: Option<&[u8]>,
+    fetched: Option<&[u8]>,
+    ring: &KeyRing,
+) -> (Option<Vec<u8>>, Fetch) {
+    let current = saved.and_then(|s| verify(s, ring, None).ok().map(|v| (s.to_vec(), v)));
+    let last_serial = current.as_ref().map(|(_, v)| v.list.serial);
+    let keep = |f: Fetch| (current.as_ref().map(|(s, _)| s.clone()), f);
+    let Some(bytes) = fetched else {
+        return keep(Fetch::Offline);
+    };
+    match verify(bytes, ring, last_serial) {
+        Ok(_) => (Some(bytes.to_vec()), Fetch::Ok),
+        Err(e) => keep(Fetch::Rejected(e)),
+    }
+}
+
+/// 保存しておいた一覧を確かめ直して返す（確かめられなければ None。何も取り下げない）
+pub fn saved_list(saved: Option<&[u8]>, ring: &KeyRing) -> Option<Verified> {
+    saved.and_then(|s| verify(s, ring, None).ok())
+}
+
+/// 空の下書き（発行の道具の `revocations new`。通し番号 0。署名するときに 1 になる）
+pub fn empty_draft(now: i64) -> RevocationList {
+    RevocationList {
+        format: FORMAT.to_owned(),
+        format_version: "1.0".to_owned(),
+        serial: 0,
+        issued_at: crate::format_utc(now),
+        expires_at: crate::format_utc(now + DEFAULT_VALID_DAYS * 86_400),
+        min_app_version: None,
+        revoked: Revoked::default(),
+        notice: None,
+    }
+}
+
+/// 署名する一覧（発行の道具だけが使う）: 下書きの通し番号を1つ上げ、作った時刻を今、有効期限を `days` 日後にして、形を確かめる。
+/// 機能を有効にするコードの番号は名前の順に並べ直す
+pub fn next_issue(draft: &RevocationList, now: i64, days: i64) -> Result<RevocationList, Reject> {
+    if !(1..=366).contains(&days) {
+        return Err(Reject::FORMAT);
+    }
+    let mut list = draft.clone();
+    list.serial = draft.serial.checked_add(1).ok_or(Reject::FORMAT)?;
+    list.issued_at = crate::format_utc(now);
+    list.expires_at = crate::format_utc(now + days * 86_400);
+    list.revoked.feature_codes.sort();
+    let payload = serde_json::to_string(&list).map_err(|_| Reject::FORMAT)?;
+    parse_payload(&payload)?;
+    Ok(list)
 }

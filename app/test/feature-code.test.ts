@@ -8,7 +8,7 @@ import { OfficeSettingsPanel } from "../src/workspace/office/OfficeSettingsPanel
 import { DEFAULT_OFFICE_SETTINGS, loadOfficeStart } from "../src/workspace/office/settings.ts";
 import { candidateChange, checkText, codeFor, combinedHiddenText, enabledLine, expiredFor, expiredText, featureErrorText, featureOn, NO_FEATURES, noticeCodes, renewText, type FeatureCandidateView, type FeatureCodeView, type FeatureStatus } from "../src/workspace/office/featureCodes.ts";
 import { balanceTabModel } from "../src/workspace/balanceTab.ts";
-import { addCode, applyFetch, applyNotices, dismissNotice, featureStatus, publicKeys, reference, revokedIds, todayJst, type NoticeRecord } from "../scripts/devFeatureCode.ts";
+import { addCode, applyFetch, applyNotices, dismissNotice, featureStatus, publicKeys, reference, revokedIds, todayJst, withoutRevokedKeys, type NoticeRecord } from "../scripts/devFeatureCode.ts";
 
 // 切れた・止めたコードは、本体が記録を当てる前と同じく知らせを出す（notice）。消えたときは notice: false を渡す
 const code = (over: Partial<FeatureCodeView> = {}): FeatureCodeView => ({ ref: "r1", id: "0001", name: "見本 花子", features: ["combinedBs"], issued: "2026-11-01", expires: "2027-05-31", state: "active", daysLeft: 211, notice: over.state === "expired" || over.state === "revoked", noticeSince: null, ...over });
@@ -186,21 +186,22 @@ describe("期限なしのコードと、提供元が止めたコード（0110 �
   });
 });
 
-describe("開発用のサーバーの代わりの止めた一覧（本体と同じ形）", () => {
+describe("開発用のサーバーの代わりの取り下げの一覧（本体の crates/distribution と同じ形）", () => {
   const ck = generateKeyPairSync("ed25519");
   const rk = generateKeyPairSync("ed25519");
   const rawOf = (k: typeof ck) => (k.publicKey.export({ format: "der", type: "spki" }) as Buffer).subarray(12).toString("base64url");
   const keys = publicKeys([`test-1:${rawOf(ck)}`]);
-  const rkeys = publicKeys([`rv-1:${rawOf(rk)}`]);
+  const rkeys = publicKeys([`rv-2026a:${rawOf(rk)}`]);
   const issue = (claims: Record<string, unknown>) => {
     const payload = Buffer.from(JSON.stringify({ v: 2, kid: "test-1", id: "0001", name: "見本 花子", features: ["combinedBs"], issued: "2026-11-01", ...claims }), "utf8");
     const sig = sign(null, Buffer.concat([Buffer.from("lifeplan-feature-code/1\0", "utf8"), payload]), ck.privateKey);
     return `LPFC1-${payload.toString("base64url")}.${sig.toString("base64url")}`;
   };
-  const list = (serial: number, revoked: string[], key = rk.privateKey, kid = "rv-1") => {
-    const payload = JSON.stringify({ v: 1, serial, issued: "2026-11-01", revoked });
-    const sig = sign(null, Buffer.concat([Buffer.from("lifeplan-feature-code-revocations/1\0", "utf8"), Buffer.from(payload, "utf8")]), key);
-    return JSON.stringify({ format: "lifeplan-feature-code-revocations", kid, payload, sig: sig.toString("base64url") });
+  // 配布の取り下げの一覧（封筒に取り下げ用の鍵で署名。中身は revoked.featureCodes と revoked.keys）
+  const list = (serial: number, featureCodes: string[], key = rk.privateKey, kid = "rv-2026a", keys: string[] = []) => {
+    const payload = JSON.stringify({ format: "fprise-lifeplan-revocations", formatVersion: "1.0", serial, issuedAt: "2026-11-01T00:00:00Z", expiresAt: "2027-01-30T00:00:00Z", revoked: { keys, featureCodes } });
+    const sig = sign(null, Buffer.from(payload, "utf8"), key);
+    return JSON.stringify({ format: "fprise-lifeplan-revocations-envelope", formatVersion: "1.0", payload, signatures: [{ keyId: kid, alg: "ed25519", sig: sig.toString("base64") }] });
   };
 
   it("期限なしのコードは切れない。版 1 で期限の無いものは形が違う", () => {
@@ -234,6 +235,17 @@ describe("開発用のサーバーの代わりの止めた一覧（本体と同�
     r = applyFetch(saved, list(2, []), rkeys);
     expect(r.result).toBe("ok");
     expect(featureStatus([c], keys, "2026-11-01", revokedIds(r.saved, rkeys)).active).toEqual(["combinedBs"]);
+    // 形の違う番号の一覧は受け付けない
+    expect(applyFetch(r.saved, list(3, ["番号"]), rkeys).result).toBe("rejected");
+  });
+
+  it("コードの鍵を取り下げると、その鍵のコードは確かめられなくなる", () => {
+    const c = issue({});
+    const saved = list(1, [], rk.privateKey, "rv-2026a", ["test-1"]);
+    const k2 = withoutRevokedKeys(keys, saved, rkeys);
+    expect(featureStatus([c], k2, "2026-11-01").invalid[0]?.error).toBe("E_FEATURE_CODE_KEY");
+    // 確かめられない一覧では外さない
+    expect(withoutRevokedKeys(keys, list(1, [], ck.privateKey, "rv-2026a", ["test-1"]), rkeys).size).toBe(1);
   });
 });
 

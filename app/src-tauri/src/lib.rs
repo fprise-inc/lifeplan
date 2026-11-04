@@ -30,6 +30,7 @@ mod dev_keystore;
 mod engine;
 mod export;
 mod features;
+mod keyring;
 mod menu;
 mod notices;
 mod office;

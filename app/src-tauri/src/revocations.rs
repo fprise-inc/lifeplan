@@ -1,29 +1,35 @@
-//! 機能を有効にするコードの「止めた一覧」を配信元から取りに行く（0110 の追記・0017 の4）。
+//! 配信元の取り下げの一覧（0117 の3 (3)）を取りに行き、機能を有効にするコードの取り下げ（`revoked.featureCodes`）と、
+//! 取り下げた鍵（`revoked.keys`）を当てる（0110 の追記 2026-11-04・0017 の4）。
 //!
 //! - 取りに行くのは、この PC に機能を有効にするコードが入っているときだけ。起動したときと、動いている間は1日1回
 //!   （取れなかったときは1時間後にもう一度）と、FP が画面の「今すぐ確かめる」を押したとき・コードを入れたとき。
 //! - 送るのは一覧の取得の依頼（`GET`）だけ。コード・名前・世帯の情報・PC を見分ける値は送らず、クエリも付けない。
 //!   クッキーは持たず、ほかのホストへの転送には従わない。相手は配布元の設定の `host`（配信元）だけで、https だけ。
 //!   アプリの版・OS も送らない（User-Agent は決まった文字だけ）。
-//! - 取れた一覧は止めた一覧の鍵（コードの鍵とは別。配布元の設定の `[keys]` の `feature_code_revocation`）で確かめ、
+//! - 取れた一覧は取り下げ用の鍵（配布元の設定の `[keys]` の `revocation`。コードの鍵とは別）で確かめ、
 //!   この PC のアプリのデータ（`feature-codes/revocations.json`）に保存する。つながらない・署名が合わない・古いときは、最後に取れた一覧のまま
-//!   （止めた一覧が一度も取れていなければ、何も止めない）。確かめは feature-code の部品（`revocation::apply_fetch`）。
+//!   （一覧が一度も取れていなければ、何も止めない）。確かめは配布の部品（`distribution::revocations::apply_fetch`）。
+//!   期限（`expiresAt`）の切れた一覧も、載っている取り下げは当て続ける（0117 の3 (3)）。
+//! - 一覧のほかの欄（最低版・取り下げた版・制度の値など）は、まだ当てない（アプリ本体の更新のつなぎの回。0117 の未確定）。
 //! - 同じファイルに、期限の切れた・止めたコードの知らせの記録（分かった日・閉じた。feature-code の `notice`）も置く
 //!   （この PC だけの記録。同期しない。知らせは分かった日から7日で出さなくなる。0110 の追記 2026-11-02）。
 //! - 開発用のビルド（debug）だけ、環境変数 `FINANCIA_DEV_FEATURE_REVOCATIONS_URL` で、この PC の中（127.0.0.1・localhost）の一覧を読める
-//!   （止めた・外したの見え方を確かめるため。http も可）。製品のビルドは配布元の設定の URL だけ。
+//!   （止めた・外したの見え方を確かめるため。http も可。署名は開発用の取り下げ用の鍵〔`[dev_keys]` の `revocation`〕でもよい）。
+//!   製品のビルドは配布元の設定の URL と本番の鍵だけ。
 
 use std::path::PathBuf;
 use std::sync::{Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
+use distribution::keys::KeyRing;
+use distribution::revocations::{self, Fetch};
+use distribution::MAX_DOCUMENT_BYTES;
 use feature_code::notice;
-use feature_code::revocation::{self, Outcome};
 use feature_code::{PublicKey, Status};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, Runtime};
 
-use crate::features::{DISTRIBUTION_HOST, FEATURE_REVOCATIONS_URL, FEATURE_REVOCATION_KEYS};
+use crate::keyring::{ring, DISTRIBUTION_HOST, REVOCATIONS_URL};
 use crate::store::StoreState;
 
 /// 取れたときの次の確かめまで
@@ -39,14 +45,6 @@ const TIMEOUT: Duration = Duration::from_secs(20);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 /// 送る User-Agent（版・OS は入れない）
 const USER_AGENT: &str = "financia";
-
-/// 止めた一覧の鍵
-pub fn keys() -> Vec<PublicKey> {
-    FEATURE_REVOCATION_KEYS
-        .iter()
-        .filter_map(|l| PublicKey::parse(l).ok())
-        .collect()
-}
 
 /// 保存する中身（この PC のアプリのデータ）
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -85,8 +83,10 @@ pub struct CheckView {
 
 struct Inner {
     saved: Saved,
-    /// 保存した一覧の止めた番号（確かめ直したもの）
+    /// 保存した一覧の止めるコードの番号（確かめ直したもの）
     revoked: Vec<String>,
+    /// 保存した一覧で取り下げた鍵の名前（コードの鍵が漏れたとき。束から外す）
+    revoked_keys: Vec<String>,
     serial: Option<u64>,
     /// この起動で最後に取りに行った時（次の確かめの判定に使う）
     last_attempt: Option<Instant>,
@@ -99,6 +99,8 @@ pub struct RevocationState {
     inner: Mutex<Inner>,
     wake: Condvar,
     path: Option<PathBuf>,
+    /// 一覧を確かめる鍵の束（取り下げた鍵を外す前。アプリでは [`ring`]、テストでは使い捨ての鍵）
+    ring: KeyRing,
 }
 
 fn lock(m: &Mutex<Inner>) -> MutexGuard<'_, Inner> {
@@ -114,15 +116,26 @@ fn now_iso() -> String {
     )
 }
 
+/// 保存した一覧から、止めるコードの番号・取り下げた鍵・通し番号を読み直す（確かめられなければ、どれも無し＝何も止めない）
+fn read_list(list: Option<&str>, ring: &KeyRing) -> (Vec<String>, Vec<String>, Option<u64>) {
+    match revocations::saved_list(list.map(str::as_bytes), ring) {
+        Some(v) => (
+            feature_code::revoked_ids(&v),
+            v.list.revoked.keys.clone(),
+            Some(v.list.serial),
+        ),
+        None => (vec![], vec![], None),
+    }
+}
+
 impl RevocationState {
-    fn from_saved(saved: Saved, path: Option<PathBuf>) -> RevocationState {
-        let keys = keys();
-        let bytes = saved.list.as_deref().map(str::as_bytes);
-        let list = revocation::saved_list(bytes, &keys);
+    fn from_saved(saved: Saved, path: Option<PathBuf>, ring: KeyRing) -> RevocationState {
+        let (revoked, revoked_keys, serial) = read_list(saved.list.as_deref(), &ring);
         RevocationState {
             inner: Mutex::new(Inner {
-                revoked: list.as_ref().map(|l| l.revoked.clone()).unwrap_or_default(),
-                serial: list.map(|l| l.serial),
+                revoked,
+                revoked_keys,
+                serial,
                 saved,
                 last_attempt: None,
                 last_ok: false,
@@ -130,12 +143,19 @@ impl RevocationState {
             }),
             wake: Condvar::new(),
             path,
+            ring,
         }
     }
 
     /// 今止めているコードの番号（最後に取れた一覧。一度も取れていなければ空）
     pub fn revoked(&self) -> Vec<String> {
         lock(&self.inner).revoked.clone()
+    }
+
+    /// 機能を有効にするコードを確かめる鍵（このビルドの束から、最後に取れた一覧で取り下げた鍵を外したもの）
+    pub fn code_keys(&self) -> Vec<PublicKey> {
+        let g = lock(&self.inner);
+        feature_code::keys_from_ring(&self.ring.without(&g.revoked_keys))
     }
 
     pub fn view(&self) -> CheckView {
@@ -186,31 +206,31 @@ impl RevocationState {
     }
 
     /// 取りに行った結果を当てて保存する
-    fn apply(&self, fetched: Option<Vec<u8>>) -> Outcome {
-        let keys = keys();
+    fn apply(&self, fetched: Option<Vec<u8>>) -> Fetch {
         let mut g = lock(&self.inner);
         let saved = g.saved.list.clone();
-        let (next, outcome) = revocation::apply_fetch(
+        let (next, outcome) = revocations::apply_fetch(
             saved.as_deref().map(str::as_bytes),
             fetched.as_deref(),
-            &keys,
+            &self.ring,
         );
         let now = now_iso();
         g.saved.checked_at = Some(now.clone());
         g.saved.last = Some(match outcome {
-            Outcome::Ok => "ok".to_owned(),
-            Outcome::Offline => "offline".to_owned(),
-            Outcome::Rejected(e) => e.code().to_owned(),
+            Fetch::Ok => "ok".to_owned(),
+            Fetch::Offline => "offline".to_owned(),
+            Fetch::Rejected(e) => e.code().to_owned(),
         });
-        if outcome == Outcome::Ok {
+        if outcome == Fetch::Ok {
             g.saved.ok_at = Some(now);
         }
         g.saved.list = next.and_then(|b| String::from_utf8(b).ok());
-        let list = revocation::saved_list(g.saved.list.as_deref().map(str::as_bytes), &keys);
-        g.revoked = list.as_ref().map(|l| l.revoked.clone()).unwrap_or_default();
-        g.serial = list.map(|l| l.serial);
+        let (revoked, revoked_keys, serial) = read_list(g.saved.list.as_deref(), &self.ring);
+        g.revoked = revoked;
+        g.revoked_keys = revoked_keys;
+        g.serial = serial;
         g.last_attempt = Some(Instant::now());
-        g.last_ok = outcome == Outcome::Ok;
+        g.last_ok = outcome == Fetch::Ok;
         if let Some(p) = &self.path {
             write_saved(p, &g.saved);
         }
@@ -237,7 +257,7 @@ fn saved_path<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
 fn read_saved(p: &PathBuf) -> Saved {
     std::fs::read(p)
         .ok()
-        .filter(|b| b.len() <= revocation::MAX_LIST_BYTES * 2)
+        .filter(|b| b.len() <= MAX_DOCUMENT_BYTES * 2)
         .and_then(|b| serde_json::from_slice(&b).ok())
         .unwrap_or_default()
 }
@@ -256,7 +276,7 @@ fn write_saved(p: &PathBuf, s: &Saved) {
 pub fn init<R: Runtime>(app: &AppHandle<R>) -> RevocationState {
     let path = saved_path(app);
     let saved = path.as_ref().map(read_saved).unwrap_or_default();
-    RevocationState::from_saved(saved, path)
+    RevocationState::from_saved(saved, path, ring().clone())
 }
 
 /// 取りに行く場所（製品は配布元の設定の URL だけ。開発用のビルドだけ、この PC の中の一覧に差し替えられる）
@@ -269,7 +289,7 @@ fn target_url() -> (String, bool) {
             return (u, true);
         }
     }
-    (FEATURE_REVOCATIONS_URL.to_owned(), false)
+    (REVOCATIONS_URL.to_owned(), false)
 }
 
 /// 取りに行ってよい URL か: 配信元のホストの https で、クエリ・名前とパスワード・転送の印が無いもの。
@@ -318,14 +338,14 @@ pub async fn fetch(url: &str, host: &str, dev_loopback: bool) -> Option<Vec<u8>>
     }
     if resp
         .content_length()
-        .is_some_and(|n| n > revocation::MAX_LIST_BYTES as u64)
+        .is_some_and(|n| n > MAX_DOCUMENT_BYTES as u64)
     {
         return None;
     }
     let mut body = Vec::new();
     while let Some(chunk) = resp.chunk().await.ok()? {
         body.extend_from_slice(&chunk);
-        if body.len() > revocation::MAX_LIST_BYTES {
+        if body.len() > MAX_DOCUMENT_BYTES {
             return None;
         }
     }
@@ -427,7 +447,7 @@ mod tests {
         assert!(allowed_url("http://192.168.0.2/a.json", h, true).is_none());
         assert!(allowed_url("https://updates.example.test/a.json", h, true).is_none());
         // 配布元の設定の URL そのものは通る
-        assert!(allowed_url(FEATURE_REVOCATIONS_URL, DISTRIBUTION_HOST, false).is_some());
+        assert!(allowed_url(REVOCATIONS_URL, DISTRIBUTION_HOST, false).is_some());
     }
 
     #[test]
@@ -461,7 +481,7 @@ mod tests {
         );
         assert_eq!(run(fetch(&url, "unused", true)), None);
         // 大きすぎる
-        let big = vec![b'a'; revocation::MAX_LIST_BYTES + 10];
+        let big = vec![b'a'; MAX_DOCUMENT_BYTES + 10];
         let (url, _rx) = serve_once(ok_response(&big));
         assert_eq!(run(fetch(&url, "unused", true)), None);
         // つながらない（誰も待っていない口）
@@ -489,17 +509,73 @@ mod tests {
         );
     }
 
+    /// 使い捨ての鍵の束（コードの鍵と取り下げ用の鍵。決まった種から作る）と、その鍵で署名した取り下げの一覧
+    fn test_ring(code_key: &feature_code::SecretKey) -> KeyRing {
+        use base64::Engine as _;
+        let rv = format!(
+            "rv-test:{}",
+            base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .encode(rv_key().verifying_key().to_bytes())
+        );
+        let fc = code_key.public().line();
+        KeyRing::from_config(&distribution::keys::KeyConfig {
+            feature_code: &[fc.as_str()],
+            revocation: &[rv.as_str()],
+            ..Default::default()
+        })
+        .unwrap()
+    }
+
+    fn rv_key() -> ed25519_dalek::SigningKey {
+        ed25519_dalek::SigningKey::from_bytes(&[41; 32])
+    }
+
+    fn signed_list(serial: u64, codes: &[&str], keys: &[&str]) -> Vec<u8> {
+        let mut d = revocations::empty_draft(1_800_000_000);
+        d.serial = serial;
+        d.revoked.feature_codes = codes.iter().map(|s| (*s).to_owned()).collect();
+        d.revoked.keys = keys.iter().map(|s| (*s).to_owned()).collect();
+        distribution::envelope::seal(
+            &serde_json::to_string(&d).unwrap(),
+            revocations::ENVELOPE_FORMAT,
+            &[("rv-test", &rv_key())],
+        )
+        .into_bytes()
+    }
+
+    #[test]
+    fn distribution_list_stops_codes_and_keys() {
+        let k = feature_code::SecretKey::generate("fc-test").unwrap();
+        let st = RevocationState::from_saved(Saved::default(), None, test_ring(&k));
+        assert_eq!(st.code_keys().len(), 1);
+        assert_eq!(st.apply(Some(signed_list(1, &["0007"], &[]))), Fetch::Ok);
+        assert_eq!(st.revoked(), vec!["0007"]);
+        assert_eq!((st.view().serial, st.view().listed), (Some(1), 1));
+        // 古い一覧は受け付けない（止めたままにする）
+        assert_eq!(
+            st.apply(Some(signed_list(0, &[], &[]))),
+            Fetch::Rejected(distribution::Reject::OLDER)
+        );
+        assert_eq!(st.revoked(), vec!["0007"]);
+        // コードの鍵を取り下げると、その鍵のコードは確かめられなくなる（外せば戻る）
+        assert_eq!(st.apply(Some(signed_list(2, &[], &["fc-test"]))), Fetch::Ok);
+        assert!(st.code_keys().is_empty());
+        assert!(st.revoked().is_empty());
+        assert_eq!(st.apply(Some(signed_list(3, &[], &[]))), Fetch::Ok);
+        assert_eq!(st.code_keys().len(), 1);
+    }
+
     #[test]
     fn offline_keeps_the_last_list_and_bad_lists_are_ignored() {
-        // 鍵は配布元の設定の開発用の鍵（秘密鍵はリポジトリに無い）なので、ここでは「取れない・形が違う」で前の状態が残ることを見る
-        let st = RevocationState::from_saved(Saved::default(), None);
-        assert_eq!(st.apply(None), Outcome::Offline);
+        // 取れない・形が違う一覧では、前の状態が残る
+        let st = RevocationState::from_saved(Saved::default(), None, ring().clone());
+        assert_eq!(st.apply(None), Fetch::Offline);
         assert!(st.revoked().is_empty());
         assert_eq!(st.view().result, Some("offline"));
         assert_eq!(st.view().ok_at, None);
         assert_eq!(
             st.apply(Some(b"<html>maintenance</html>".to_vec())),
-            Outcome::Rejected(revocation::RevError::FORMAT)
+            Fetch::Rejected(distribution::Reject::FORMAT)
         );
         assert_eq!(st.view().result, Some("rejected"));
         assert!(st.revoked().is_empty());
@@ -509,10 +585,10 @@ mod tests {
         assert!(st.due());
         // 保存しておいた一覧が確かめられない（鍵を差し替えた後など）ときは、何も止めない
         let broken = Saved {
-            list: Some("{\"format\":\"lifeplan-feature-code-revocations\",\"kid\":\"dev-rv1\",\"payload\":\"{}\",\"sig\":\"AA\"}".into()),
+            list: Some("{\"format\":\"fprise-lifeplan-revocations-envelope\",\"formatVersion\":\"1.0\",\"payload\":\"{}\",\"signatures\":[{\"keyId\":\"dev-rv2\",\"alg\":\"ed25519\",\"sig\":\"AA\"}]}".into()),
             ..Saved::default()
         };
-        let st = RevocationState::from_saved(broken, None);
+        let st = RevocationState::from_saved(broken, None, ring().clone());
         assert!(st.revoked().is_empty());
         assert_eq!(st.view().serial, None);
         assert!(st.due());
@@ -538,7 +614,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("financia-notice-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("revocations.json");
-        let st = RevocationState::from_saved(Saved::default(), Some(path.clone()));
+        let st = RevocationState::from_saved(Saved::default(), Some(path.clone()), ring().clone());
         let status_on = |st: &RevocationState, today: &str| {
             let mut s = feature_code::status(&codes, &keys, today, &st.revoked());
             st.apply_notices(&mut s);
@@ -553,23 +629,14 @@ mod tests {
             Err(feature_code::Error::NOT_FOUND)
         );
         st.dismiss_notice(&feature_code::reference(&code)).unwrap();
-        assert_eq!(st.apply(None), Outcome::Offline);
+        assert_eq!(st.apply(None), Fetch::Offline);
         // 読み直しても、分かった日と閉じた印が残る（取りに行った後も消えない）
-        let again = RevocationState::from_saved(read_saved(&path), Some(path.clone()));
+        let again =
+            RevocationState::from_saved(read_saved(&path), Some(path.clone()), ring().clone());
         let s = status_on(&again, "2026-12-02");
         assert!(!s.codes[0].notice);
         assert_eq!(s.codes[0].notice_since.as_deref(), Some("2026-12-01"));
         assert_eq!(again.view().result, Some("offline"));
         let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn embedded_revocation_keys_are_readable() {
-        assert_eq!(keys().len(), FEATURE_REVOCATION_KEYS.len());
-        assert!(!FEATURE_REVOCATION_KEYS.is_empty());
-        // コードの鍵と止めた一覧の鍵は別
-        for k in FEATURE_REVOCATION_KEYS {
-            assert!(!crate::features::FEATURE_CODE_KEYS.contains(k));
-        }
     }
 }

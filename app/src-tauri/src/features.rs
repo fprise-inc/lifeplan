@@ -1,8 +1,10 @@
 //! 機能を有効にするコードの命令（0110）。中身は feature-code（確かめる部品）と household-store（事務所データに暗号化して持つ）。
 //!
-//! - 本物か・期限内か・提供元が止めたかは本体だけが確かめる（公開鍵は config/distribution.toml の [keys] の feature_code・
-//!   feature_code_revocation を build.rs が埋め込む）。画面は返した状態（使える機能・名前・期限・止めたか）を出すだけで、自分では確かめない。
-//! - 提供元が止めたかは、配信元の「止めた一覧」の最後に取れたもので判断する（取りに行くのは revocations.rs。つながらなければ今の状態のまま）。
+//! - 本物か・期限内か・提供元が止めたかは本体だけが確かめる（公開鍵は config/distribution.toml の [keys] の feature_code と、
+//!   開発用のビルドだけ [dev_keys] の feature_code を、build.rs が埋め込む。keyring.rs）。画面は返した状態（使える機能・名前・期限・止めたか）を
+//!   出すだけで、自分では確かめない。
+//! - 提供元が止めたかは、配信元の取り下げの一覧（featureCodes・取り下げた鍵）の最後に取れたもので判断する（取りに行くのは revocations.rs。
+//!   つながらなければ今の状態のまま）。
 //! - 画面にはコードの文字列を返さない（外すときは短い印 `ref`、AIからの候補は候補の ID で指す）。
 //! - 期限の切れた・止めたコードの知らせは、分かった日から7日だけ出す（FP が閉じたらその前でも出さない）。記録はこの PC のアプリのデータ
 //!   （revocations.rs と同じファイル）に置く。知らせを出さなくなってもコードは外さない（止めるのをやめたら次の確かめで戻る）。
@@ -19,16 +21,6 @@ use tauri::{AppHandle, Manager};
 use crate::ai::AiState;
 use crate::revocations::{CheckView, RevocationState};
 use crate::store::StoreState;
-
-include!(concat!(env!("OUT_DIR"), "/feature_keys.rs"));
-
-fn keys() -> Vec<PublicKey> {
-    // build.rs が形を確かめているので、読めない鍵は無い（あれば捨てる＝その鍵のコードは使えない）
-    FEATURE_CODE_KEYS
-        .iter()
-        .filter_map(|l| PublicKey::parse(l).ok())
-        .collect()
-}
 
 fn today() -> String {
     if cfg!(debug_assertions) {
@@ -118,7 +110,7 @@ fn candidate_view(
 
 fn status_of(s: &Store, rs: &RevocationState, ai: &AiState) -> Result<FeatureStatusView, String> {
     let codes = s.feature_codes().map_err(store_code)?;
-    let keys = keys();
+    let keys = rs.code_keys();
     let today = today();
     let revoked = rs.revoked();
     let mut status = feature_code::status(&codes, &keys, &today, &revoked);
@@ -152,7 +144,7 @@ async fn blocking<T: Send + 'static>(
 
 fn add_code(s: &Store, rs: &RevocationState, code: &str) -> Result<(), String> {
     let codes = s.feature_codes().map_err(store_code)?;
-    let next = feature_code::add(&codes, code, &keys(), &today(), &rs.revoked())
+    let next = feature_code::add(&codes, code, &rs.code_keys(), &today(), &rs.revoked())
         .map_err(|e| e.code().to_owned())?;
     s.set_feature_codes(next).map_err(store_code)?;
     // 入れたコードが止められていないかを、配信元の一覧でも確かめ直す（裏で。つながらなければ今の状態のまま）
@@ -246,13 +238,6 @@ pub async fn feature_code_candidate_decide(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn embedded_keys_are_readable() {
-        // 配布元の設定の公開鍵が、すべて鍵として読める（読めない鍵があると、その鍵のコードが黙って使えなくなる）
-        assert_eq!(keys().len(), FEATURE_CODE_KEYS.len());
-        assert!(!FEATURE_CODE_KEYS.is_empty());
-    }
 
     #[test]
     fn candidate_shows_before_and_after() {

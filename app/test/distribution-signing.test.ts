@@ -11,7 +11,7 @@ import { keyProblems, signingPlan, signingProblems, type Signing } from "../scri
 const tauriPub = readFileSync(join(REPO_DIR, "crates", "distribution", "tests", "data", "tauri-throwaway.pub"), "utf8").trim();
 const ed = (kid: string, fill: number) => `${kid}:${Buffer.alloc(32, fill).toString("base64url")}`;
 
-const dist = parse(readFileSync(join(REPO_DIR, "config", "distribution.toml"), "utf8")) as unknown as { keys: Record<string, unknown>; signing: Signing };
+const dist = parse(readFileSync(join(REPO_DIR, "config", "distribution.toml"), "utf8")) as unknown as { keys: Record<string, unknown>; dev_keys: Record<string, unknown>; signing: Signing };
 
 const named: Signing = {
   mac_signing_identity: "Developer ID Application: Example Co. (ABCDE12345)",
@@ -35,18 +35,30 @@ const allSecrets = {
 
 describe("配布元の設定の [keys]（0017 の5・0117 の2）", () => {
   it("今の設定は形が正しい", () => {
-    expect(keyProblems(dist.keys)).toEqual([]);
+    expect(keyProblems(dist.keys, dist.dev_keys)).toEqual([]);
     expect(signingProblems(dist.signing)).toEqual([]);
   });
 
   it("現用と次期の2本まで・書き方・役割をまたいだ同じ鍵を止める", () => {
-    const ok = { app_update: [tauriPub], data: [ed("data-a", 1), ed("data-b", 2)], auto_delivery: [ed("auto-a", 3)], revocation: [ed("rev-a", 4)] };
+    const ok = { app_update: [tauriPub], data: [ed("data-a", 1), ed("data-b", 2)], auto_delivery: [ed("auto-a", 3)], revocation: [ed("rev-a", 4)], feature_code: [ed("fc-a", 6)] };
     expect(keyProblems(ok)).toEqual([]);
     expect(keyProblems({ ...ok, data: [ed("data-a", 1), ed("data-b", 2), ed("data-c", 5)] }).join()).toContain("2 本まで");
     expect(keyProblems({ ...ok, app_update: ["data-a:xxx"] }).join()).toContain("tauri signer generate");
     expect(keyProblems({ ...ok, revocation: ["Rev:abc"] }).join()).toContain("鍵の名前:公開鍵");
     expect(keyProblems({ ...ok, auto_delivery: [ed("auto-a", 1)] }).join()).toContain("同じ公開鍵");
     expect(keyProblems({ ...ok, revocation: [ed("data-a", 9)] }).join()).toContain("重なっている");
+    expect(keyProblems({ ...ok, feature_code: [ed("fc-a", 6), ed("fc-b", 7), ed("fc-c", 8)] }).join()).toContain("2 本まで");
+    expect(keyProblems({ ...ok, feature_code: [ed("fc-a", 1)] }).join()).toContain("同じ公開鍵");
+  });
+
+  it("開発用の鍵（[dev_keys]）は dev- で始め、本番の鍵は dev- で始めない。本番と同じ鍵は使えない（0110 の追記 2026-11-04）", () => {
+    const ok = { app_update: [], data: [], auto_delivery: [], revocation: [ed("rev-a", 4)], feature_code: [ed("fc-a", 6)] };
+    expect(keyProblems(ok, { feature_code: [ed("dev-1", 11)], revocation: [ed("dev-rv2", 12)] })).toEqual([]);
+    expect(keyProblems({ ...ok, feature_code: [ed("dev-1", 6)] }).join()).toContain("dev- で始めない");
+    expect(keyProblems(ok, { feature_code: [ed("fc-x", 11)] }).join()).toContain("dev- で始める");
+    expect(keyProblems(ok, { feature_code: [ed("dev-1", 6)] }).join()).toContain("同じ公開鍵");
+    expect(keyProblems(ok, { app_update: [tauriPub] }).join()).toContain("app_update を書けない");
+    expect(keyProblems(ok, { feature_codes: [] }).join()).toContain("知らない欄");
   });
 });
 

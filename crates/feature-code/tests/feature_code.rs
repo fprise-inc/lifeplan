@@ -323,3 +323,42 @@ fn csv_parsing() {
     );
     assert_eq!(issuer::next_id(&[]), "0001");
 }
+
+/// 決まった種から作る使い捨てのコードの鍵（テストの中だけ。本物の鍵ではない）
+fn fixed_key() -> feature_code::SecretKey {
+    use base64::Engine as _;
+    let seed = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode([9u8; 32]);
+    feature_code::SecretKey::from_text(&format!(
+        "# lifeplan feature-code secret key（テストの使い捨て）\nkid = fc-test\nsecret = {seed}\n"
+    ))
+    .unwrap()
+}
+
+/// コードの形の見本（0110 の追記 2026-11-04 で固めた形。β で配ったコードを正式版でも使えるよう、この文字列は変えない）。
+/// 形・前置き・中身の欄の名前と並び・署名の方式のどれかが変わると、このテストが落ちる
+#[test]
+fn code_format_is_fixed() {
+    let k = fixed_key();
+    let req = |expires: Option<&str>| feature_code::Request {
+        id: "0001".into(),
+        name: "見本 花子".into(),
+        features: vec!["combinedBs".into()],
+        issued: "2026-11-04".into(),
+        expires: expires.map(str::to_owned),
+    };
+    let dated = feature_code::issue(&k, &req(Some("2027-05-31"))).unwrap();
+    let open = feature_code::issue(&k, &req(None)).unwrap();
+    assert_eq!(dated, GOLDEN_DATED);
+    assert_eq!(open, GOLDEN_NO_EXPIRY);
+    // 見本の文字列は、公開鍵だけで確かめられる（今の版でも、これからの版でも）
+    assert_eq!(k.public().line(), GOLDEN_PUBLIC);
+    let keys = [feature_code::PublicKey::parse(GOLDEN_PUBLIC).unwrap()];
+    let c = feature_code::verify(GOLDEN_DATED, &keys).unwrap();
+    assert_eq!((c.v, c.expires.as_deref()), (1, Some("2027-05-31")));
+    let c = feature_code::verify(GOLDEN_NO_EXPIRY, &keys).unwrap();
+    assert_eq!((c.v, c.expires), (2, None));
+}
+
+const GOLDEN_PUBLIC: &str = "fc-test:_RckOFqgx1tk-3jNYC-h2ZH96_drE8WO1wLqyDXp9hg";
+const GOLDEN_DATED: &str = "LPFC1-eyJ2IjoxLCJraWQiOiJmYy10ZXN0IiwiaWQiOiIwMDAxIiwibmFtZSI6Iuimi-acrCDoirHlrZAiLCJmZWF0dXJlcyI6WyJjb21iaW5lZEJzIl0sImlzc3VlZCI6IjIwMjYtMTEtMDQiLCJleHBpcmVzIjoiMjAyNy0wNS0zMSJ9.jMV3yH0hywzGck92pKMPGkNlAXB4K4pf7v3gCcZPFXWAWaL_CU8Jg4WmcVpXFd4DBEu88tsW_JCpWt3HJj2ODA";
+const GOLDEN_NO_EXPIRY: &str = "LPFC1-eyJ2IjoyLCJraWQiOiJmYy10ZXN0IiwiaWQiOiIwMDAxIiwibmFtZSI6Iuimi-acrCDoirHlrZAiLCJmZWF0dXJlcyI6WyJjb21iaW5lZEJzIl0sImlzc3VlZCI6IjIwMjYtMTEtMDQifQ.JKhKdUrx-TdPrtmuNevAiTEZaASYzPLtGNDIvMMv0V3XTzGM8KlNUX5Ua6w_CXHllr2kO42CTQgzUwFhZY3RBg";

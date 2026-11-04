@@ -1,33 +1,34 @@
 //! 機能を有効にするコードの発行の道具（提供元だけが使う。0110）。
 //!
 //! ```text
-//! feature-code keygen   [--key <秘密鍵>] [--kid <鍵の名前>]
+//! feature-code keygen   [--key <秘密鍵>] --kid <鍵の名前>
 //! feature-code public   [--key <秘密鍵>]
 //! feature-code issue    [--key <秘密鍵>] [--log <記録.csv> | --no-log] [--id <番号>] --name <名前> --features <機能;…> (--expires <YYYY-MM-DD> | --no-expires) [--issued <YYYY-MM-DD>]
 //! feature-code batch    [--key <秘密鍵>] [--log <記録.csv> | --no-log] --input <一覧.csv> [--out <結果.csv>]
 //! feature-code record   [--log <記録.csv>] [--key <秘密鍵>] <コード>
 //! feature-code show     [--key <秘密鍵>] <コード>
 //! feature-code features
-//! feature-code revocations keygen [--revocation-key <秘密鍵>] [--kid <鍵の名前>]
 //! feature-code revocations new    [--draft <下書き>]
 //! feature-code revocations add    [--draft <下書き>] [--log <記録.csv> | --no-log] <番号>…
 //! feature-code revocations remove [--draft <下書き>] <番号>…
-//! feature-code revocations show   [--draft <下書き>] [--signed <配信する一覧> [--revocation-key <秘密鍵>]]
-//! feature-code revocations sign   [--draft <下書き>] [--revocation-key <秘密鍵>] [--out <配信する一覧>]
+//! feature-code revocations show   [--draft <下書き>]
 //! ```
 //!
-//! 既定の置き場所はリポジトリの外（`~/.lifeplan-issuer/signing.key`・`~/.lifeplan-issuer/issued.csv`・`~/.lifeplan-issuer/revocation.key`・
-//! `~/.lifeplan-issuer/revocations-draft.json`・`~/.lifeplan-issuer/revocations.json`。`LIFEPLAN_ISSUER_DIR` で変えられる）。
+//! 止めるコードは、配布の取り下げの一覧（0117 の3 (3)）の `revoked.featureCodes` に載せる。この道具は下書きに番号を足す・外すだけで、
+//! 署名は配布の道具 `dist-keys revocations sign <取り下げ用の秘密鍵> <下書き> <一覧>`（0110 の追記 2026-11-04）。
+//!
+//! 既定の置き場所はリポジトリの外（`~/.lifeplan-issuer/signing.key`・`~/.lifeplan-issuer/issued.csv`・
+//! `~/.lifeplan-issuer/revocations-draft.json`。`LIFEPLAN_ISSUER_DIR` で変えられる）。
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use feature_code::issuer::{self, BatchRow, Draft};
-use feature_code::revocation;
+use distribution::revocations::RevocationList;
+use feature_code::issuer::{self, BatchRow};
 use feature_code::{decode_unverified, issue, verify, Claims, Request, FEATURES};
 
 const USAGE: &str = "使い方:
-  feature-code keygen   [--key <秘密鍵>] [--kid <鍵の名前>]       秘密鍵を作る（既にあれば止める）。配布元の設定に書く公開鍵の行を出す
+  feature-code keygen   [--key <秘密鍵>] --kid <鍵の名前>         秘密鍵を作る（既にあれば止める）。配布元の設定に書く公開鍵の行を出す
   feature-code public   [--key <秘密鍵>]                          公開鍵の行を出す
   feature-code issue    [--key <秘密鍵>] [--log <記録.csv> | --no-log] [--id <番号>]
                         --name <名前> --features <機能;…> (--expires <YYYY-MM-DD> | --no-expires) [--issued <YYYY-MM-DD>]
@@ -39,21 +40,16 @@ const USAGE: &str = "使い方:
   feature-code show     [--key <秘密鍵>] <コード>                  コードの中身を見る（秘密鍵があれば署名も確かめる）
   feature-code features                                           機能の名前の一覧
 
-止めた一覧（提供元が止めたコードの番号。アプリは配信元から取りに行き、載っているコードの機能を止める）:
-  feature-code revocations keygen [--revocation-key <秘密鍵>] [--kid <鍵の名前>]
-                                                                  止めた一覧の秘密鍵を作る（コードの鍵とは別の鍵）。配布元の設定に書く公開鍵の行を出す
-  feature-code revocations new    [--draft <下書き>]                手元の下書きを作る（既にあれば止める）
+止めるコード（配布の取り下げの一覧の featureCodes。アプリは配信元から一覧を取りに行き、載っているコードの機能を止める）:
+  feature-code revocations new    [--draft <下書き>]                取り下げの一覧の下書きを作る（既にあれば止める）
   feature-code revocations add    [--draft <下書き>] [--log <記録.csv> | --no-log] <番号>…
                                                                   止める番号を下書きに足す（記録に無い番号は知らせる）
   feature-code revocations remove [--draft <下書き>] <番号>…        下書きから外す（署名して置き直すと、次に確かめたときにアプリで戻る）
-  feature-code revocations show   [--draft <下書き>] [--signed <配信する一覧> [--revocation-key <秘密鍵>]]
-                                                                  下書き（または署名した一覧）の中身を見る
-  feature-code revocations sign   [--draft <下書き>] [--revocation-key <秘密鍵>] [--out <配信する一覧>]
-                                                                  下書きに署名して、配信元に置く一覧を作る（通し番号を1つ上げる）
+  feature-code revocations show   [--draft <下書き>]                下書きの止める番号を見る
+  署名は配布の道具: dist-keys revocations sign <取り下げ用の秘密鍵> <下書き> <一覧>（通し番号を1つ上げ、有効期限を入れる）
 
 既定の置き場所: ~/.lifeplan-issuer/signing.key（秘密鍵）・~/.lifeplan-issuer/issued.csv（記録）・
-~/.lifeplan-issuer/revocation.key（止めた一覧の秘密鍵）・~/.lifeplan-issuer/revocations-draft.json（下書き）・
-~/.lifeplan-issuer/revocations.json（配信元に置く一覧）。LIFEPLAN_ISSUER_DIR で変えられる。
+~/.lifeplan-issuer/revocations-draft.json（取り下げの一覧の下書き）。LIFEPLAN_ISSUER_DIR で変えられる。
 秘密鍵・記録・下書きは、リポジトリの外に置く（git の作業フォルダの中は断る）。";
 
 struct Args {
@@ -155,52 +151,38 @@ fn expires_label(c: &Claims) -> String {
         .map_or_else(|| "期限なし".to_owned(), |e| format!("期限 {e}"))
 }
 
-fn revocation_key_path(a: &Args) -> Result<PathBuf, String> {
-    a.get("revocation-key")
-        .map(PathBuf::from)
-        .map_or_else(|| default_path("revocation.key"), Ok)
-}
-
 fn draft_path(a: &Args) -> Result<PathBuf, String> {
     a.get("draft")
         .map(PathBuf::from)
         .map_or_else(|| default_path("revocations-draft.json"), Ok)
 }
 
-fn need_draft(path: &std::path::Path) -> Result<Draft, String> {
+fn need_draft(path: &std::path::Path) -> Result<RevocationList, String> {
     issuer::read_draft(path)?.ok_or_else(|| {
         format!(
-            "止めた一覧の下書き {} がありません（feature-code revocations new で作る）",
+            "取り下げの一覧の下書き {} がありません（feature-code revocations new で作る。配信元に一覧を置いたことがあれば、その下書きを使う）",
             path.display()
         )
     })
 }
 
-fn print_draft(d: &Draft) {
-    println!("最後に署名した通し番号: {}", d.serial);
-    if d.revoked.is_empty() {
-        println!("止めた番号: なし");
+fn print_draft(d: &RevocationList) {
+    println!(
+        "最後に署名した通し番号: {}（有効期限 {}）",
+        d.serial, d.expires_at
+    );
+    let ids = &d.revoked.feature_codes;
+    if ids.is_empty() {
+        println!("止めるコードの番号: なし");
     } else {
-        println!(
-            "止めた番号（{}件）: {}",
-            d.revoked.len(),
-            d.revoked.join("・")
-        );
+        println!("止めるコードの番号（{}件）: {}", ids.len(), ids.join("・"));
     }
 }
 
-fn revocations(sub: &str, a: &Args, today: &str) -> Result<(), String> {
+const SIGN_HINT: &str = "dist-keys revocations sign <取り下げ用の秘密鍵> <下書き> <一覧> で署名し、配信元の /v1/revocations/revocations.json に置く";
+
+fn revocations(sub: &str, a: &Args) -> Result<(), String> {
     match sub {
-        "keygen" => {
-            a.only(&["revocation-key", "kid"])?;
-            let path = revocation_key_path(a)?;
-            let key = feature_code::SecretKey::generate(a.get("kid").unwrap_or("rv-1"))?;
-            issuer::write_new_key(&path, &key)?;
-            eprintln!("止めた一覧の秘密鍵を作りました: {}（コードの鍵とは別の鍵。人に渡さない・リポジトリに入れない。控えを安全な所に保管する）", path.display());
-            eprintln!("配布元の設定（config/distribution.toml の [keys] の feature_code_revocation）に、次の公開鍵の行を足してください:");
-            println!("{}", key.public().line());
-            Ok(())
-        }
         "new" => {
             a.only(&["draft"])?;
             let path = draft_path(a)?;
@@ -210,8 +192,8 @@ fn revocations(sub: &str, a: &Args, today: &str) -> Result<(), String> {
                     path.display()
                 ));
             }
-            issuer::write_draft(&path, &Draft::default())?;
-            eprintln!("止めた一覧の下書きを作りました: {}", path.display());
+            issuer::write_draft(&path, &issuer::new_draft())?;
+            eprintln!("取り下げの一覧の下書きを作りました: {}", path.display());
             Ok(())
         }
         "add" => {
@@ -230,7 +212,10 @@ fn revocations(sub: &str, a: &Args, today: &str) -> Result<(), String> {
                 }
             }
             issuer::write_draft(&path, &d)?;
-            eprintln!("下書きに {} 件足しました（署名して配信元に置くまで、アプリでは止まりません: feature-code revocations sign）", added.len());
+            eprintln!(
+                "下書きに {} 件足しました（署名して配信元に置くまで、アプリでは止まりません: {SIGN_HINT}）",
+                added.len()
+            );
             print_draft(&d);
             Ok(())
         }
@@ -243,55 +228,21 @@ fn revocations(sub: &str, a: &Args, today: &str) -> Result<(), String> {
             let mut d = need_draft(&path)?;
             let removed = issuer::draft_remove(&mut d, &a.rest[1..])?;
             issuer::write_draft(&path, &d)?;
-            eprintln!("下書きから {} 件外しました（署名して配信元に置くと、次に確かめたときにアプリで戻ります）", removed.len());
+            eprintln!(
+                "下書きから {} 件外しました（署名して配信元に置くと、次に確かめたときにアプリで戻ります: {SIGN_HINT}）",
+                removed.len()
+            );
             print_draft(&d);
             Ok(())
         }
         "show" => {
-            a.only(&["draft", "signed", "revocation-key"])?;
-            if let Some(signed) = a.get("signed") {
-                let bytes = std::fs::read(signed)
-                    .map_err(|e| format!("一覧 {signed} を読めません: {e}"))?;
-                let key = issuer::read_key(&revocation_key_path(a)?)?;
-                let l = revocation::verify(&bytes, &[key.public()])
-                    .map_err(|e| format!("この秘密鍵の署名の一覧ではありません（{e}）"))?;
-                println!("通し番号: {}", l.serial);
-                println!("作った日: {}", l.issued);
-                println!(
-                    "止めた番号（{}件）: {}",
-                    l.revoked.len(),
-                    l.revoked.join("・")
-                );
-                println!("署名: この秘密鍵の署名です");
-                return Ok(());
-            }
+            a.only(&["draft"])?;
             print_draft(&need_draft(&draft_path(a)?)?);
             Ok(())
         }
-        "sign" => {
-            a.only(&["draft", "revocation-key", "out"])?;
-            let path = draft_path(a)?;
-            let d = need_draft(&path)?;
-            let key = issuer::read_key(&revocation_key_path(a)?)?;
-            let (text, next) = issuer::sign_draft(&key, &d, today)?;
-            let out = a
-                .get("out")
-                .map(PathBuf::from)
-                .map_or_else(|| default_path("revocations.json"), Ok)?;
-            // 配信元に置く一覧を先に書き、書けてから下書きの通し番号を上げる
-            std::fs::write(&out, &text)
-                .map_err(|e| format!("{} に書けません: {e}", out.display()))?;
-            issuer::write_draft(&path, &next)?;
-            eprintln!(
-                "配信元に置く一覧を作りました: {}（通し番号 {}・{}件。鍵 {}）",
-                out.display(),
-                next.serial,
-                next.revoked.len(),
-                key.kid
-            );
-            eprintln!("配布元の設定の [endpoints] の feature_code_revocations の場所に置くと、アプリは次に確かめたときに使います");
-            Ok(())
-        }
+        "keygen" | "sign" => Err(format!(
+            "revocations {sub} は無くなりました（止めるコードは配布の取り下げの一覧に載せる。0110 の追記 2026-11-04）。鍵は dist-keys keygen revocation、署名は {SIGN_HINT}"
+        )),
         other => Err(format!("知らない命令です: revocations {other}\n\n{USAGE}")),
     }
 }
@@ -306,10 +257,17 @@ fn run(argv: &[String]) -> Result<(), String> {
         "keygen" => {
             a.only(&["key", "kid"])?;
             let path = key_path(&a)?;
-            let key = feature_code::SecretKey::generate(a.get("kid").unwrap_or("fc-1"))?;
+            let kid = a.required("kid").map_err(|_| {
+                "鍵の名前（--kid）が要ります。本番の鍵は作った年と通し文字で、現用と次期で変える（例: fc-2026a・fc-2026b。0117 の2）。dev- で始まる名前は開発用の鍵".to_owned()
+            })?;
+            let key = feature_code::SecretKey::generate(kid)?;
             issuer::write_new_key(&path, &key)?;
-            eprintln!("秘密鍵を作りました: {}（人に渡さない・リポジトリに入れない。控えを安全な所に保管する）", path.display());
-            eprintln!("配布元の設定（config/distribution.toml の [keys] の feature_code）に、次の公開鍵の行を足してください:");
+            eprintln!("秘密鍵を作りました: {}（人に渡さない・リポジトリに入れない。オフラインの控えを2か所に保管する。0117 の2）", path.display());
+            if kid.starts_with(distribution::keys::DEV_KID_PREFIX) {
+                eprintln!("開発用の鍵です。配布元の設定（config/distribution.toml）の [dev_keys] の feature_code に、次の公開鍵の行を足してください（開発用のビルドだけが受け付けます）:");
+            } else {
+                eprintln!("配布元の設定（config/distribution.toml の [keys] の feature_code。現用＋次期の2本まで）に、次の公開鍵の行を足してください:");
+            }
             println!("{}", key.public().line());
             Ok(())
         }
@@ -464,7 +422,7 @@ fn run(argv: &[String]) -> Result<(), String> {
                 .first()
                 .ok_or_else(|| format!("revocations の後に命令が要ります\n\n{USAGE}"))?
                 .clone();
-            revocations(&sub, &a, &today)
+            revocations(&sub, &a)
         }
         "features" => {
             for f in FEATURES {
