@@ -491,7 +491,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .ih-group + .ih-group { margin-top: 22px; }
 .ih-gh { font-size: 1.02rem; margin: 0 0 10px; display: flex; align-items: center; gap: 10px; color: var(--ink-2); }
 .ih-gh::after { content: ""; flex: 1; border-top: 1px solid var(--card-line); }
-/* 15項目と「探して開く」の16個は 5列で4段目に1個（狭い画面は 3列×6段。項目を足しても次の段に続く。収益不動産を足して16個。0079。「探して開く」は前の「＋ 項目を追加」の所。候補は浮かせず次の段に横いっぱい。0045 の 2026-11-04 の追記） */
+/* 15項目と「探して開く」の16個は 5列で4段目に1個（狭い画面は 3列×6段。項目を足しても次の段に続く。収益不動産を足して16個。0079。「探して開く」は前の「＋ 項目を追加」の所。0045 の 2026-11-04 の追記） */
 .ih-cards { display: grid; gap: 18px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
 /* 5列のときは絵を少し縦長にし、4列のときと同じくらいの高さを保つ（文字の大きさは変えない）。幅の広い3列でも絵の高さは 200px まで */
 html:not(.big) .ih-ill { max-height: 200px; }
@@ -585,13 +585,15 @@ h2 .ih-st { font-size: 0.8rem; }
 /* 大きさはいつも同じ（並びの中に入ってもカードの高さまで伸ばさず、段の上にそろえる。0045 の 2026-11-04 の追記） */
 .ih-card.ih-find { border: 2px dashed var(--field); background: #fff; box-shadow: none; cursor: default; overflow: visible; justify-content: center; gap: 10px; padding: 18px 16px; min-height: 160px; align-self: start; }
 .ih-card.ih-find:hover { transform: none; box-shadow: none; border-color: var(--field); }
-.ih-card.ih-find.on { border-style: solid; border-color: var(--prop); }
+.ih-card.ih-find.on { z-index: 5; }
 .ih-find-h { display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--ink-2); font-size: 0.98rem; }
 .ih-find-ic { width: 18px; height: 18px; flex: none; }
 .ih-find-q { width: 100%; box-sizing: border-box; border: 1.5px solid var(--field); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 0.95rem; background: #fff; color: var(--ink); }
 .ih-find-q:focus { outline: 3px solid #f0b400; outline-offset: 1px; border-color: var(--prop); }
-/* 候補は浮かせず、入力項目の並びの次の段に横いっぱい（グリッドの全列）で出す。カードに重ねない。「探して開く」の枠は大きさも位置も変えない（0045 の 2026-11-04 の2つ目の追記） */
-.ih-find-list { grid-column: 1 / -1; margin: -6px 0 0; padding: 6px; list-style: none; background: #fff; border: 2px solid var(--prop); border-radius: 12px; display: grid; gap: 2px; align-content: start; }
+.ih-find-box { position: relative; }
+.ih-find-list { position: absolute; top: calc(100% + 4px); left: 0; width: min(380px, calc(100vw - 48px)); margin: 0; padding: 4px; list-style: none; background: #fff; border: 1px solid #c4cad2; border-radius: 10px; box-shadow: 0 8px 24px rgba(20, 30, 50, 0.16); z-index: 6; max-height: min(420px, 60vh); overflow-y: auto; }
+.ih-find-list.flip { left: auto; right: 0; }
+.ih-find-list.up { top: auto; bottom: calc(100% + 4px); }
 .ih-find-list li { padding: 6px 10px; border-radius: 7px; cursor: pointer; display: grid; gap: 1px; line-height: 1.4; }
 .ih-find-list li.act { background: var(--prop-bg); outline: 1.5px solid var(--prop); outline-offset: -1.5px; }
 .ih-find-list li.none { cursor: default; color: var(--ink-2); font-size: 0.9rem; }
