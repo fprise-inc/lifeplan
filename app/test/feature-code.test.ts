@@ -8,7 +8,7 @@ import { OfficeSettingsPanel } from "../src/workspace/office/OfficeSettingsPanel
 import { DEFAULT_OFFICE_SETTINGS, loadOfficeStart } from "../src/workspace/office/settings.ts";
 import { candidateChange, checkText, codeFor, combinedHiddenText, enabledLine, expiredFor, expiredText, featureErrorText, featureOn, NO_FEATURES, noticeCodes, renewText, type FeatureCandidateView, type FeatureCodeView, type FeatureStatus } from "../src/workspace/office/featureCodes.ts";
 import { balanceTabModel } from "../src/workspace/balanceTab.ts";
-import { addCode, applyFetch, applyNotices, dismissNotice, featureStatus, publicKeys, reference, revokedIds, todayJst, withoutRevokedKeys, type NoticeRecord } from "../scripts/devFeatureCode.ts";
+import { addCode, applyFetch, applyNotices, dismissNotice, featureStatus, publicKeys, reference, revokedIds, todayJst, verifyCodeRevocations, withoutRevokedKeys, type NoticeRecord } from "../scripts/devFeatureCode.ts";
 
 // 切れた・止めたコードは、本体が記録を当てる前と同じく知らせを出す（notice）。消えたときは notice: false を渡す
 const code = (over: Partial<FeatureCodeView> = {}): FeatureCodeView => ({ ref: "r1", id: "0001", name: "見本 花子", features: ["combinedBs"], issued: "2026-11-01", expires: "2027-05-31", state: "active", daysLeft: 211, notice: over.state === "expired" || over.state === "revoked", noticeSince: null, ...over });
@@ -246,6 +246,40 @@ describe("開発用のサーバーの代わりの取り下げの一覧（本体�
     expect(featureStatus([c], k2, "2026-11-01").invalid[0]?.error).toBe("E_FEATURE_CODE_KEY");
     // 確かめられない一覧では外さない
     expect(withoutRevokedKeys(keys, list(1, [], ck.privateKey, "rv-2026a", ["test-1"]), rkeys).size).toBe(1);
+  });
+
+  // コードを止めるだけの一覧（0117 の追記 2026-11-04 の2。コードを止めるだけの鍵で署名。中身は featureCodes だけ）
+  const fk = generateKeyPairSync("ed25519");
+  const fkeys = publicKeys([`fr-2026a:${rawOf(fk)}`]);
+  const small = (serial: number, featureCodes: string[], key = fk.privateKey, kid = "fr-2026a", extra: Record<string, unknown> = {}) => {
+    const payload = JSON.stringify({ format: "fprise-lifeplan-feature-code-revocations", formatVersion: "1.0", serial, issuedAt: "2026-11-01T00:00:00Z", expiresAt: "2027-01-30T00:00:00Z", featureCodes, ...extra });
+    const sig = sign(null, Buffer.from(payload, "utf8"), key);
+    return JSON.stringify({ format: "fprise-lifeplan-feature-code-revocations-envelope", formatVersion: "1.0", payload, signatures: [{ keyId: kid, alg: "ed25519", sig: sig.toString("base64") }] });
+  };
+
+  it("コードを止めるだけの一覧で止め、外せば戻る。取り下げの一覧に載った番号は戻らない。漏れた鍵は取り下げの一覧で外せる", () => {
+    const c = issue({});
+    const main = list(1, ["0002"]);
+    // 小さな一覧で止まる（和）
+    let r = applyFetch(null, small(1, ["0001"]), fkeys, verifyCodeRevocations);
+    expect(r.result).toBe("ok");
+    expect(revokedIds(main, rkeys, r.saved, fkeys)).toEqual(["0001", "0002"]);
+    expect(featureStatus([c], keys, "2026-11-01", revokedIds(main, rkeys, r.saved, fkeys)).active).toEqual([]);
+    // 外すと戻る。取り下げの一覧に載った 0002 は止まったまま
+    r = applyFetch(r.saved, small(2, ["0002"]), fkeys, verifyCodeRevocations);
+    expect(revokedIds(main, rkeys, r.saved, fkeys)).toEqual(["0002"]);
+    expect(featureStatus([c], keys, "2026-11-01", revokedIds(main, rkeys, r.saved, fkeys)).active).toEqual(["combinedBs"]);
+    // 古い・取り下げ用の鍵で署名した・取り下げの一覧の形のものは受け付けない
+    for (const f of [small(1, []), small(3, [], rk.privateKey, "rv-2026a"), list(3, [])]) expect(applyFetch(r.saved, f, fkeys, verifyCodeRevocations).result).toBe("rejected");
+    // 小さな一覧の鍵で取り下げの一覧に署名しても受け付けない（鍵を外せない）
+    expect(applyFetch(null, list(9, [], fk.privateKey, "fr-2026a", ["test-1"]), rkeys).result).toBe("rejected");
+    // 中身に鍵などを書いても効かない（知らない欄）
+    const extra = verifyCodeRevocations(small(4, ["0003"], fk.privateKey, "fr-2026a", { revoked: { keys: ["test-1"] } }), fkeys);
+    expect(extra.ok && extra.list).toEqual({ serial: 4, revoked: ["0003"], keys: [] });
+    // 取り下げの一覧でコードを止めるだけの鍵を外すと、その鍵の一覧は使わない
+    const s4 = small(4, ["0001"]);
+    expect(revokedIds(list(2, [], rk.privateKey, "rv-2026a", ["fr-2026a"]), rkeys, s4, fkeys)).toEqual([]);
+    expect(revokedIds(null, rkeys, s4, fkeys)).toEqual(["0001"]);
   });
 });
 

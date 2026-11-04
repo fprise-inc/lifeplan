@@ -8,6 +8,7 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64URL;
 use base64::Engine as _;
 use distribution::app_catalog::{self, UpdatePlan};
 use distribution::envelope;
+use distribution::feature_code_revocations as fcr;
 use distribution::keys::{KeyConfig, KeyRing, Role};
 use distribution::minisig::{testing, MinisignPublicKey, MinisignSignature};
 use distribution::pack_catalog::{self, Decision, Installed};
@@ -45,13 +46,22 @@ fn ring() -> KeyRing {
     let auto = [ed_line("auto-a", 31), ed_line("auto-b", 32)];
     let rev = [ed_line("rev-a", 41), ed_line("rev-b", 42)];
     let fc = [ed_line("fc-a", 51), ed_line("fc-b", 52)];
-    let (app, data, auto, rev, fc) = (strs(&app), strs(&data), strs(&auto), strs(&rev), strs(&fc));
+    let fr = [ed_line("fr-a", 71), ed_line("fr-b", 72)];
+    let (app, data, auto, rev, fc, fr) = (
+        strs(&app),
+        strs(&data),
+        strs(&auto),
+        strs(&rev),
+        strs(&fc),
+        strs(&fr),
+    );
     KeyRing::from_config(&KeyConfig {
         app_update: &app,
         data: &data,
         auto_delivery: &auto,
         revocation: &rev,
         feature_code: &fc,
+        feature_code_revocation: &fr,
     })
     .unwrap()
 }
@@ -210,8 +220,16 @@ fn feature_code_role_and_dev_keys() {
 
 #[test]
 fn revoked_keys_leave_the_ring_except_revocation_keys() {
-    let r = ring().without(&["data-a".into(), "rev-a".into(), "auto-b".into()]);
+    let r = ring().without(&[
+        "data-a".into(),
+        "rev-a".into(),
+        "auto-b".into(),
+        "fr-a".into(),
+    ]);
     assert!(r.get(Role::Data, "data-a").is_none());
+    // コードを止めるだけの鍵は、取り下げの一覧で外せる（0117 の追記 2026-11-04 の2）
+    assert!(r.get(Role::FeatureCodeRevocation, "fr-a").is_none());
+    assert!(r.get(Role::FeatureCodeRevocation, "fr-b").is_some());
     assert!(r.get(Role::Data, "data-b").is_some());
     assert!(r.get(Role::AutoDelivery, "auto-b").is_none());
     assert!(
@@ -985,4 +1003,221 @@ fn revocations_freshness() {
         revocations::freshness(None, None, install, t("2027-01-02T00:00:00Z")),
         Freshness::Stale
     );
+}
+
+// ---- 取り下げの一覧の知らない欄（0117 の追記 2026-11-04 の2） ----
+
+#[test]
+fn revocations_ignore_unknown_fields() {
+    // β の後に取り下げの種類を足しても、前の版のアプリは知っている取り下げを当て続ける（一覧ごと受け付けない形をやめた）
+    let r = ring();
+    let e = rev_env(
+        &rev_payload(json!({
+            "futureTop": 1,
+            "revoked": { "featureCodes": ["0003"], "extensionBundles": [{ "id": "ext.x" }], "keys": ["fc-a"] }
+        })),
+        "rev-a",
+        41,
+    );
+    let v = revocations::verify(e.as_bytes(), &r, None).unwrap();
+    assert_eq!(v.list.revoked.feature_codes, vec!["0003"]);
+    assert_eq!(v.list.revoked.keys, vec!["fc-a"]);
+    // 形式の版の MAJOR が違えば受け付けない（読み方を変えるときは /v2/ に分ける）
+    let e = rev_env(&rev_payload(json!({ "formatVersion": "2.0" })), "rev-a", 41);
+    assert_eq!(
+        revocations::verify(e.as_bytes(), &r, None).unwrap_err(),
+        Reject::UNSUPPORTED
+    );
+}
+
+// ---- コードを止めるだけの一覧（0110・0117 の追記 2026-11-04 の2） ----
+
+fn fcr_payload(serial: u64, codes: serde_json::Value, extra: serde_json::Value) -> String {
+    let mut p = json!({
+        "format": "fprise-lifeplan-feature-code-revocations",
+        "formatVersion": "1.0",
+        "serial": serial,
+        "issuedAt": "2027-03-01T00:00:00Z",
+        "expiresAt": "2027-05-30T00:00:00Z",
+        "featureCodes": codes
+    });
+    if let (Some(o), Some(x)) = (p.as_object_mut(), extra.as_object()) {
+        for (k, v) in x {
+            o.insert(k.clone(), v.clone());
+        }
+    }
+    p.to_string()
+}
+
+fn fcr_env(payload: &str, kid: &str, seed: u8) -> String {
+    envelope::seal(payload, fcr::ENVELOPE_FORMAT, &[(kid, &sk(seed))])
+}
+
+#[test]
+fn feature_code_revocations_only_by_their_own_key() {
+    let r = ring();
+    // 現用・次期のどちらでも受け付ける
+    for (kid, seed) in [("fr-a", 71), ("fr-b", 72)] {
+        let e = fcr_env(
+            &fcr_payload(3, json!(["0002", "0007"]), json!({})),
+            kid,
+            seed,
+        );
+        let v = fcr::verify(e.as_bytes(), &r, None).unwrap();
+        assert_eq!(v.list.feature_codes, vec!["0002", "0007"]);
+        assert_eq!(v.kid.as_deref(), Some(kid));
+    }
+    // ほかの役割の鍵（取り下げ用・コードの発行・データ用）で署名したものは受け付けない
+    for (kid, seed) in [("rev-a", 41), ("fc-a", 51), ("data-a", 21)] {
+        let e = fcr_env(&fcr_payload(3, json!([]), json!({})), kid, seed);
+        assert_eq!(
+            fcr::verify(e.as_bytes(), &r, None).unwrap_err(),
+            Reject::KEY,
+            "{kid}"
+        );
+    }
+    // この鍵では、取り下げの一覧・パックの目録・お知らせに署名できない（各部品が役割で断る）
+    let e = rev_env(
+        &rev_payload(
+            json!({ "revoked": { "keys": ["fc-a", "rev-b", "data-a"], "appVersions": ["1.2.0"] } }),
+        ),
+        "fr-a",
+        71,
+    );
+    assert_eq!(
+        revocations::verify(e.as_bytes(), &r, None).unwrap_err(),
+        Reject::KEY
+    );
+    let pe = pack_env(&pack_payload(("fr-a", "data"), json!({})), "fr-a", 71);
+    assert_eq!(
+        pack_catalog::verify(pe.as_bytes(), &r, &none(), t(NOW)).unwrap_err(),
+        Reject::KEY
+    );
+    assert_eq!(
+        envelope::open(
+            fcr_env("{}", "fr-a", 71).as_bytes(),
+            "financia-notices-envelope",
+            &[Role::Data],
+            &r
+        )
+        .unwrap_err(),
+        Reject::FORMAT
+    );
+    let ne = envelope::seal("{}", "financia-notices-envelope", &[("fr-a", &sk(71))]);
+    assert_eq!(
+        envelope::open(
+            ne.as_bytes(),
+            "financia-notices-envelope",
+            &[Role::Data],
+            &r
+        )
+        .unwrap_err(),
+        Reject::KEY
+    );
+    // 取り下げの一覧の形の中身を、この一覧の封筒に入れても受け付けない（中身の format を確かめる）
+    let e = fcr_env(&rev_payload(json!({})), "fr-a", 71);
+    assert_eq!(
+        fcr::verify(e.as_bytes(), &r, None).unwrap_err(),
+        Reject::FORMAT
+    );
+    // 中身に鍵・アプリの版などを書いても効かない（知らない欄として無視する）
+    let e = fcr_env(
+        &fcr_payload(
+            4,
+            json!(["0001"]),
+            json!({ "revoked": { "keys": ["fc-a"] }, "minAppVersion": "9.0.0" }),
+        ),
+        "fr-a",
+        71,
+    );
+    let v = fcr::verify(e.as_bytes(), &r, None).unwrap();
+    assert_eq!(v.list.feature_codes, vec!["0001"]);
+    // 形の違う番号・重なり・古い通し番号・形式の版の MAJOR の違い
+    for bad in [json!(["番号"]), json!(["0001", "0001"]), json!([""])] {
+        let e = fcr_env(&fcr_payload(5, bad.clone(), json!({})), "fr-a", 71);
+        assert_eq!(
+            fcr::verify(e.as_bytes(), &r, None).unwrap_err(),
+            Reject::FORMAT,
+            "{bad}"
+        );
+    }
+    let e = fcr_env(&fcr_payload(5, json!([]), json!({})), "fr-a", 71);
+    assert_eq!(
+        fcr::verify(e.as_bytes(), &r, Some(6)).unwrap_err(),
+        Reject::OLDER
+    );
+    let e = fcr_env(
+        &fcr_payload(5, json!([]), json!({ "formatVersion": "2.0" })),
+        "fr-a",
+        71,
+    );
+    assert_eq!(
+        fcr::verify(e.as_bytes(), &r, None).unwrap_err(),
+        Reject::UNSUPPORTED
+    );
+    // 取り下げの一覧で外した鍵の一覧は受け付けない
+    let removed = r.without(&["fr-a".into()]);
+    let e = fcr_env(&fcr_payload(5, json!([]), json!({})), "fr-a", 71);
+    assert_eq!(
+        fcr::verify(e.as_bytes(), &removed, None).unwrap_err(),
+        Reject::KEY
+    );
+    // 期限切れの一覧も受け付ける（止め続ける）
+    let v = fcr::verify(e.as_bytes(), &r, None).unwrap();
+    assert!(v.expired(t("2027-06-01T00:00:00Z")));
+}
+
+#[test]
+fn feature_code_revocations_fetch_and_union() {
+    use revocations::Fetch;
+    let r = ring();
+    let e = fcr_env(&fcr_payload(2, json!(["0007"]), json!({})), "fr-a", 71);
+    let (saved, f) = fcr::apply_fetch(None, Some(e.as_bytes()), &r);
+    assert_eq!((saved.as_deref(), f), (Some(e.as_bytes()), Fetch::Ok));
+    let (kept, f) = fcr::apply_fetch(saved.as_deref(), None, &r);
+    assert_eq!((kept.as_deref(), f), (Some(e.as_bytes()), Fetch::Offline));
+    let older = fcr_env(&fcr_payload(1, json!([]), json!({})), "fr-b", 72);
+    let (kept, f) = fcr::apply_fetch(saved.as_deref(), Some(older.as_bytes()), &r);
+    assert_eq!(
+        (kept.as_deref(), f),
+        (Some(e.as_bytes()), Fetch::Rejected(Reject::OLDER))
+    );
+    // 外すと戻る（全部の番号の一覧なので、新しい一覧に無ければ止めない）
+    let newer = fcr_env(&fcr_payload(3, json!([]), json!({})), "fr-b", 72);
+    let (next, f) = fcr::apply_fetch(saved.as_deref(), Some(newer.as_bytes()), &r);
+    assert_eq!((next.as_deref(), f), (Some(newer.as_bytes()), Fetch::Ok));
+
+    // 止める番号は、取り下げの一覧との和（取り下げの一覧に載せた番号は、この一覧から外しても止まったまま）
+    let main = rev_env(
+        &rev_payload(json!({ "revoked": { "featureCodes": ["0002", "0007"] } })),
+        "rev-a",
+        41,
+    );
+    let main = revocations::verify(main.as_bytes(), &r, None).unwrap();
+    let small = fcr::saved_list(Some(e.as_bytes()), &r).unwrap();
+    let small_empty = fcr::saved_list(Some(newer.as_bytes()), &r).unwrap();
+    assert_eq!(
+        fcr::stopped_ids(Some(&main), Some(&small)),
+        vec!["0002", "0007"]
+    );
+    assert_eq!(
+        fcr::stopped_ids(Some(&main), Some(&small_empty)),
+        vec!["0002", "0007"]
+    );
+    assert_eq!(fcr::stopped_ids(None, Some(&small)), vec!["0007"]);
+    assert!(fcr::stopped_ids(None, None).is_empty());
+}
+
+#[test]
+fn feature_code_revocations_next_issue_for_the_tool() {
+    let mut d = fcr::empty_draft(t("2027-01-01T00:00:00Z"));
+    assert_eq!((d.serial, d.format.as_str()), (0, fcr::FORMAT));
+    d.feature_codes = vec!["0009".into(), "0002".into()];
+    let n = fcr::next_issue(&d, t(NOW), 90).unwrap();
+    assert_eq!(n.serial, 1);
+    assert_eq!(n.expires_at, "2027-06-08T00:00:00Z");
+    assert_eq!(n.feature_codes, vec!["0002", "0009"]);
+    assert!(fcr::next_issue(&d, t(NOW), 0).is_err());
+    d.feature_codes.push("0002".into());
+    assert!(fcr::next_issue(&d, t(NOW), 90).is_err());
 }

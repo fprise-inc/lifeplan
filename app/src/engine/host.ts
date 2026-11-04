@@ -292,16 +292,19 @@ export interface FeatureCodeView {
   noticeSince: string | null;
 }
 
-/** 止めた一覧（0110 の追記）の確かめの様子。中身の一覧は返さない */
+/** 止めた一覧（0110 の追記。取り下げの一覧と、コードを止めるだけの一覧〔0117 の追記 2026-11-04 の2〕）の確かめの様子。中身の一覧は返さない */
 export interface FeatureCheckView {
   /** 最後に取りに行った日時（UTC） */
   checkedAt: string | null;
-  /** 最後に取れた日時（UTC） */
+  /** 最後に2つとも取れた日時（UTC） */
   okAt: string | null;
-  /** 最後に取りに行った結果（一度も取りに行っていなければ null） */
+  /** 最後に取りに行った結果（2つの一覧をまとめたもの。2つとも取れたときだけ ok。一度も取りに行っていなければ null） */
   result: "ok" | "offline" | "rejected" | null;
-  /** 今使っている一覧の通し番号（一度も取れていなければ null） */
+  /** 今使っている取り下げの一覧の通し番号（一度も取れていなければ null） */
   serial: number | null;
+  /** 今使っているコードを止めるだけの一覧の通し番号（一度も取れていなければ null） */
+  codeListSerial?: number | null;
+  /** 2つの一覧のどちらかに載っている、止めるコードの数 */
   listed: number;
 }
 

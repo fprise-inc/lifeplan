@@ -1,16 +1,19 @@
 //! 鍵の束（0017 の5・0117 の2。機能を有効にするコードの鍵〔0110〕も同じ束に入れる）。
 //!
-//! - 役割は5つ: アプリ更新用（`app_update`）・データ用（`data`）・自動配信用（`auto_delivery`）・取り下げ用（`revocation`）と、
-//!   機能を有効にするコードの鍵（`feature_code`。コードの発行だけに使う。0110 の追記 2026-11-04）。
+//! - 役割は6つ: アプリ更新用（`app_update`）・データ用（`data`）・自動配信用（`auto_delivery`）・取り下げ用（`revocation`）と、
+//!   機能を有効にするコードの鍵（`feature_code`。コードの発行だけに使う。0110 の追記 2026-11-04）・
+//!   機能を有効にするコードを止めるだけの鍵（`feature_code_revocation`。オンラインに置ける手軽な鍵。止めるコードの一覧
+//!   〔[`crate::feature_code_revocations`]〕にだけ署名できる。0110・0117 の追記 2026-11-04 の2）。
 //!   役割ごとに、現用と次期の2本まで持つ（どちらで署名されていても受け付ける）。
 //! - 書き方は配布元の設定（`config/distribution.toml` の `[keys]`）と同じ:
 //!   - `app_update`: Tauri が出す公開鍵の文字列（minisign の形。[`crate::minisig`]）。鍵の名前は中の鍵の番号から決まる
-//!   - ほかの4つ: 「鍵の名前:公開鍵（32バイトの base64url）」
+//!   - ほかの5つ: 「鍵の名前:公開鍵（32バイトの base64url）」
 //! - 開発用の鍵（配布元の設定の `[dev_keys]`）は、開発用のビルドだけが束に足す（[`KeyRing::with_dev`]）。名前は `dev-` で始め、
 //!   本番の鍵（`[keys]`）の名前は `dev-` で始めない。これで、試しの鍵で署名したもの（試しのコードなど）は製品のビルドで受け付けない。
 //! - 鍵の名前は束の中で重ならない。同じ公開鍵を2つの役割で使わない（役割を分ける意味が無くなるため）。
 //! - 取り下げの一覧に載った鍵の名前は [`KeyRing::without`] で外す。取り下げ用の鍵は一覧では外せない
 //!   （漏れた取り下げ用の鍵で、もう1本の取り下げ用の鍵を外して乗っ取るのを防ぐ。取り下げ用の鍵の入れ替えはアプリ本体の更新で行う）。
+//!   コードを止めるだけの鍵（`feature_code_revocation`）は、ほかの鍵と同じく取り下げの一覧で外せる（漏れたときに、オフラインの取り下げ用の鍵で外す）。
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64URL;
 use base64::Engine as _;
@@ -34,15 +37,19 @@ pub enum Role {
     Revocation,
     /// 機能を有効にするコードの発行（0110。コードは封筒に入れず、`LPFC1-` の形で署名する。この鍵はほかの物に署名しない）
     FeatureCode,
+    /// 機能を有効にするコードを止めるだけ（止めるコードの一覧〔[`crate::feature_code_revocations`]〕にだけ署名する。
+    /// CI の秘密の値などオンラインに置ける。漏れてもできるのはコードを止める・止めたのを戻すことだけ）
+    FeatureCodeRevocation,
 }
 
 impl Role {
-    pub const ALL: [Role; 5] = [
+    pub const ALL: [Role; 6] = [
         Role::AppUpdate,
         Role::Data,
         Role::AutoDelivery,
         Role::Revocation,
         Role::FeatureCode,
+        Role::FeatureCodeRevocation,
     ];
 
     /// 配布元の設定・目録での名前
@@ -53,6 +60,7 @@ impl Role {
             Role::AutoDelivery => "auto_delivery",
             Role::Revocation => "revocation",
             Role::FeatureCode => "feature_code",
+            Role::FeatureCodeRevocation => "feature_code_revocation",
         }
     }
 
@@ -64,7 +72,7 @@ impl Role {
 /// 確かめるのに使う公開鍵
 #[derive(Debug, Clone)]
 pub enum KeyMaterial {
-    /// Ed25519 の公開鍵（データ用・自動配信用・取り下げ用）
+    /// Ed25519 の公開鍵（アプリ更新用のほかの役割）
     Ed25519(VerifyingKey),
     /// minisign の公開鍵（アプリ更新用）
     Minisign(MinisignPublicKey),
@@ -87,7 +95,7 @@ impl TrustedKey {
     }
 }
 
-/// 配布元の設定の `[keys]`（または `[dev_keys]`）の5つの並び（書いたままの文字列）
+/// 配布元の設定の `[keys]`（または `[dev_keys]`）の6つの並び（書いたままの文字列）
 #[derive(Debug, Default, Clone, Copy)]
 pub struct KeyConfig<'a> {
     pub app_update: &'a [&'a str],
@@ -95,12 +103,13 @@ pub struct KeyConfig<'a> {
     pub auto_delivery: &'a [&'a str],
     pub revocation: &'a [&'a str],
     pub feature_code: &'a [&'a str],
+    pub feature_code_revocation: &'a [&'a str],
 }
 
 /// 開発用の鍵の名前の前置き（`[dev_keys]` の鍵は必ずこれで始め、`[keys]` の鍵はこれで始めない）
 pub const DEV_KID_PREFIX: &str = "dev-";
 
-/// 4種類の鍵の束
+/// 鍵の束（6つの役割）
 #[derive(Debug, Clone, Default)]
 pub struct KeyRing {
     keys: Vec<TrustedKey>,
@@ -140,6 +149,7 @@ impl KeyRing {
             (Role::AutoDelivery, cfg.auto_delivery),
             (Role::Revocation, cfg.revocation),
             (Role::FeatureCode, cfg.feature_code),
+            (Role::FeatureCodeRevocation, cfg.feature_code_revocation),
         ] {
             if list.len() > MAX_PER_ROLE {
                 return Err(format!(

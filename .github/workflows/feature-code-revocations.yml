@@ -1,0 +1,88 @@
+# 機能を有効にするコードを止める・戻す（コードを止めるだけの一覧に、コードを止めるだけの鍵で署名する。0110・0117 の追記 2026-11-04 の2）。
+# 手で起動する（workflow_dispatch）だけ。手順は docs/feature-codes-operations.md の 3。
+# - 配信元に置いてある今の一覧（config/distribution.toml の [endpoints] の feature_code_revocations）を取り、配布元の設定の鍵で確かめて下書きにし、
+#   番号を足す・外して、通し番号を1つ上げて署名する。最初の1回（配信元にまだ一覧が無い）だけ「first」を選ぶ。
+# - 署名した一覧は成果物として7日だけ残す。配信元へ置く段は、配信元が決まってから足す（0117 の未確定）。それまでは成果物をダウンロードして
+#   配信元の /v1/revocations/feature-codes.json に置く。
+# - 秘密の値は GitHub の環境「feature-code-revocation」（既定のブランチだけが使える）の FEATURE_CODE_REVOCATION_KEY
+#   （`dist-keys keygen feature_code_revocation …` で作った秘密鍵のファイルの中身そのまま）。この鍵で署名できるのは、コードを止めるだけの一覧だけ
+#   （取り下げの一覧・パック・お知らせ・アプリの目録には署名できない。漏れたら、取り下げ用の鍵で署名した取り下げの一覧の revoked.keys で外す）。
+name: feature-code-revocations
+on:
+  workflow_dispatch:
+    inputs:
+      add:
+        description: 止めるコードの番号（空白で区切る。例 0007 0012）
+        required: false
+        default: ""
+      remove:
+        description: 止めるのをやめるコードの番号（空白で区切る）
+        required: false
+        default: ""
+      first:
+        description: 配信元にまだ一覧が無い（最初の1回だけ。空の下書きから作る）
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: feature-code-revocations
+  cancel-in-progress: false
+
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    environment: feature-code-revocation
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: 道具を作る
+        run: cargo build -q -p feature-code --bin feature-code -p distribution --bin dist-keys
+      - name: 今の一覧を下書きにする
+        env:
+          FIRST: ${{ inputs.first }}
+        run: |
+          set -euo pipefail
+          export LIFEPLAN_ISSUER_DIR="$RUNNER_TEMP/issuer"
+          mkdir -p "$LIFEPLAN_ISSUER_DIR"
+          if [ "$FIRST" = "true" ]; then
+            target/debug/feature-code revocations new
+          else
+            url=$(sed -n 's/^feature_code_revocations *= *"\(https:[^"]*\)".*/\1/p' config/distribution.toml)
+            curl -fsS --proto '=https' --max-redirs 0 -o "$RUNNER_TEMP/current.json" "$url"
+            target/debug/feature-code revocations open "$RUNNER_TEMP/current.json"
+          fi
+      - name: 番号を足す・外す
+        env:
+          ADD: ${{ inputs.add }}
+          REMOVE: ${{ inputs.remove }}
+        run: |
+          set -euo pipefail
+          export LIFEPLAN_ISSUER_DIR="$RUNNER_TEMP/issuer"
+          read -ra add <<< "$ADD"
+          read -ra remove <<< "$REMOVE"
+          if [ ${#add[@]} -eq 0 ] && [ ${#remove[@]} -eq 0 ] && [ "${{ inputs.first }}" != "true" ]; then
+            echo "番号がありません（中身を変えずに出し直すだけなら、そのまま署名します）"
+          fi
+          if [ ${#add[@]} -gt 0 ]; then target/debug/feature-code revocations add --no-log "${add[@]}"; fi
+          if [ ${#remove[@]} -gt 0 ]; then target/debug/feature-code revocations remove "${remove[@]}"; fi
+          target/debug/feature-code revocations show
+      - name: 署名する（秘密の値は一時のファイルにだけ書き、終わったら消す）
+        env:
+          FEATURE_CODE_REVOCATION_KEY: ${{ secrets.FEATURE_CODE_REVOCATION_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$FEATURE_CODE_REVOCATION_KEY" ]; then echo "秘密の値 FEATURE_CODE_REVOCATION_KEY がありません（環境 feature-code-revocation に置く）"; exit 1; fi
+          export LIFEPLAN_ISSUER_DIR="$RUNNER_TEMP/issuer"
+          umask 077
+          key="$RUNNER_TEMP/fr.key"
+          printf '%s\n' "$FEATURE_CODE_REVOCATION_KEY" > "$key"
+          mkdir -p "$RUNNER_TEMP/out"
+          trap 'shred -u "$key" 2>/dev/null || true' EXIT
+          target/debug/dist-keys revocations sign "$key" "$LIFEPLAN_ISSUER_DIR/feature-code-revocations-draft.json" "$RUNNER_TEMP/out/feature-codes.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: feature-codes
+          path: ${{ runner.temp }}/out/feature-codes.json
+          retention-days: 7

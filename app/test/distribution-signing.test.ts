@@ -40,7 +40,7 @@ describe("配布元の設定の [keys]（0017 の5・0117 の2）", () => {
   });
 
   it("現用と次期の2本まで・書き方・役割をまたいだ同じ鍵を止める", () => {
-    const ok = { app_update: [tauriPub], data: [ed("data-a", 1), ed("data-b", 2)], auto_delivery: [ed("auto-a", 3)], revocation: [ed("rev-a", 4)], feature_code: [ed("fc-a", 6)] };
+    const ok = { app_update: [tauriPub], data: [ed("data-a", 1), ed("data-b", 2)], auto_delivery: [ed("auto-a", 3)], revocation: [ed("rev-a", 4)], feature_code: [ed("fc-a", 6)], feature_code_revocation: [ed("fr-a", 13)] };
     expect(keyProblems(ok)).toEqual([]);
     expect(keyProblems({ ...ok, data: [ed("data-a", 1), ed("data-b", 2), ed("data-c", 5)] }).join()).toContain("2 本まで");
     expect(keyProblems({ ...ok, app_update: ["data-a:xxx"] }).join()).toContain("tauri signer generate");
@@ -49,11 +49,16 @@ describe("配布元の設定の [keys]（0017 の5・0117 の2）", () => {
     expect(keyProblems({ ...ok, revocation: [ed("data-a", 9)] }).join()).toContain("重なっている");
     expect(keyProblems({ ...ok, feature_code: [ed("fc-a", 6), ed("fc-b", 7), ed("fc-c", 8)] }).join()).toContain("2 本まで");
     expect(keyProblems({ ...ok, feature_code: [ed("fc-a", 1)] }).join()).toContain("同じ公開鍵");
+    // コードを止めるだけの鍵（0117 の追記 2026-11-04 の2）も同じ決まり。取り下げ用・コードの発行の鍵と同じ鍵は使えない
+    expect(keyProblems({ ...ok, feature_code_revocation: [ed("fr-a", 13), ed("fr-b", 14), ed("fr-c", 15)] }).join()).toContain("2 本まで");
+    expect(keyProblems({ ...ok, feature_code_revocation: [ed("fr-a", 4)] }).join()).toContain("同じ公開鍵");
+    expect(keyProblems({ ...ok, feature_code_revocation: [ed("fr-a", 6)] }).join()).toContain("同じ公開鍵");
   });
 
   it("開発用の鍵（[dev_keys]）は dev- で始め、本番の鍵は dev- で始めない。本番と同じ鍵は使えない（0110 の追記 2026-11-04）", () => {
-    const ok = { app_update: [], data: [], auto_delivery: [], revocation: [ed("rev-a", 4)], feature_code: [ed("fc-a", 6)] };
-    expect(keyProblems(ok, { feature_code: [ed("dev-1", 11)], revocation: [ed("dev-rv2", 12)] })).toEqual([]);
+    const ok = { app_update: [], data: [], auto_delivery: [], revocation: [ed("rev-a", 4)], feature_code: [ed("fc-a", 6)], feature_code_revocation: [] };
+    expect(keyProblems(ok, { feature_code: [ed("dev-1", 11)], revocation: [ed("dev-rv2", 12)], feature_code_revocation: [ed("dev-fr1", 16)] })).toEqual([]);
+    expect(keyProblems(ok, { feature_code_revocation: [ed("fr-x", 16)] }).join()).toContain("dev- で始める");
     expect(keyProblems({ ...ok, feature_code: [ed("dev-1", 6)] }).join()).toContain("dev- で始めない");
     expect(keyProblems(ok, { feature_code: [ed("fc-x", 11)] }).join()).toContain("dev- で始める");
     expect(keyProblems(ok, { feature_code: [ed("dev-1", 6)] }).join()).toContain("同じ公開鍵");

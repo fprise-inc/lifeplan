@@ -13,7 +13,7 @@ interface Distribution {
   identifier: string;
   product_name: { ja: string; en: string };
   publisher: string;
-  endpoints: { host: string; revocations?: string } & Record<string, string>;
+  endpoints: { host: string; revocations?: string; feature_code_revocations?: string } & Record<string, string>;
   feedback: { form: string };
   keys: Record<string, string[]>;
   dev_keys?: Record<string, string[]>;
@@ -58,10 +58,13 @@ const files = execFileSync("git", ["ls-files", "-co", "--exclude-standard"], { c
 const roleKeys = KEY_ROLES.flatMap((r) => [...(dist.keys[r] ?? []), ...(dist.dev_keys?.[r] ?? [])])
   .map((k) => (k.includes(":") ? k.slice(k.indexOf(":") + 1) : k))
   .filter((k) => k.length >= 40);
-// 本体が取りに行く取り下げの一覧の場所は、自動通信の相手（host）の https だけ。クエリは付けない（0017 の4・0110 の追記）
-const revUrl = dist.endpoints.revocations;
-if (revUrl === undefined) problems.push("config/distribution.toml に [endpoints] の revocations がありません（0117 の3 (3)）");
-else if (!revUrl.startsWith(`https://${dist.endpoints.host}/`) || /[?#@\\ ]/.test(revUrl)) problems.push(`config/distribution.toml の revocations（${revUrl}）は https://${dist.endpoints.host}/… の形にする`);
+// 本体が取りに行く取り下げの一覧・コードを止めるだけの一覧の場所は、自動通信の相手（host）の https だけ。クエリは付けない
+// （0017 の4・0110 の追記・0117 の追記 2026-11-04 の2）
+for (const name of ["revocations", "feature_code_revocations"] as const) {
+  const url = dist.endpoints[name];
+  if (url === undefined) problems.push(`config/distribution.toml に [endpoints] の ${name} がありません（0117 の3 (3)・追記）`);
+  else if (!url.startsWith(`https://${dist.endpoints.host}/`) || /[?#@\\ ]/.test(url)) problems.push(`config/distribution.toml の ${name}（${url}）は https://${dist.endpoints.host}/… の形にする`);
+}
 for (const needle of [dist.identifier, dist.endpoints.host, dist.feedback.form, ...roleKeys]) {
   for (const f of files) {
     let text: string;

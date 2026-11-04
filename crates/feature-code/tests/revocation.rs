@@ -1,12 +1,14 @@
-//! 期限なしのコードと、提供元が止める（配布の取り下げの一覧の featureCodes。0110 の追記）。本番の鍵と開発用の鍵。鍵はテストの中だけで作る
+//! 期限なしのコードと、提供元が止める（コードを止めるだけの一覧と、配布の取り下げの一覧の featureCodes。0110・0117 の追記）。
+//! 本番の鍵と開発用の鍵。鍵はテストの中だけで作る
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64;
 use base64::Engine as _;
+use distribution::feature_code_revocations as fcr;
 use distribution::keys::{KeyConfig, KeyRing};
 use distribution::revocations::{self, Fetch};
 use distribution::{envelope, parse_utc, Reject};
 use ed25519_dalek::SigningKey;
-use feature_code::issuer;
+use feature_code::issuer::{self, Draft};
 use feature_code::{
     add, decode_unverified, issue, keys_from_ring, revoked_ids, status, verify, CodeState, Error,
     Request, SecretKey,
@@ -149,7 +151,7 @@ fn rev_list(serial: u64, codes: &[&str], keys: &[&str], signer: (&str, u8)) -> S
 
 fn ids_of(saved: Option<&[u8]>, ring: &KeyRing) -> Vec<String> {
     revocations::saved_list(saved, ring)
-        .map(|v| revoked_ids(&v))
+        .map(|v| revoked_ids(Some(&v), None))
         .unwrap_or_default()
 }
 
@@ -242,7 +244,7 @@ fn leaked_code_key_is_dropped_by_the_list() {
         std::slice::from_ref(&code),
         &keys,
         "2026-11-01",
-        &revoked_ids(&v),
+        &revoked_ids(Some(&v), None),
     );
     assert!(s.active.is_empty());
     assert_eq!(s.invalid[0].error, "E_FEATURE_CODE_KEY");
@@ -334,12 +336,40 @@ fn expired_and_revoked_codes_show_revoked() {
     assert!(s.active.is_empty());
 }
 
+fn fr_key(seed: u8) -> SigningKey {
+    SigningKey::from_bytes(&[seed; 32])
+}
+
+/// 鍵の束に、コードを止めるだけの鍵（fr-2026a）を足したもの
+fn ring_with_fr(code_key: &SecretKey) -> (KeyRing, String) {
+    let fc = [code_key.public().line()];
+    let rv = [rv_line("rv-2026a", 41)];
+    let fr = format!(
+        "fr-2026a:{}",
+        B64.encode(fr_key(47).verifying_key().to_bytes())
+    );
+    let (fc, rv): (Vec<&str>, Vec<&str>) = (
+        fc.iter().map(String::as_str).collect(),
+        rv.iter().map(String::as_str).collect(),
+    );
+    let ring = KeyRing::from_config(&KeyConfig {
+        feature_code: &fc,
+        revocation: &rv,
+        feature_code_revocation: &[fr.as_str()],
+        ..Default::default()
+    })
+    .unwrap();
+    (ring, fr)
+}
+
 #[test]
-fn issuer_draft_add_remove_then_sign_with_the_revocation_key() {
+fn issuer_draft_add_remove_then_sign_with_the_code_revocation_key() {
+    // ふだんの下書きは、コードを止めるだけの一覧（0117 の追記 2026-11-04 の2）
     let k = key("fc-2026a");
-    let ring = ring_of(&k);
+    let (ring, fr_line) = ring_with_fr(&k);
     let mut d = issuer::new_draft();
-    assert_eq!(d.serial, 0);
+    assert!(matches!(d, Draft::Codes(_)));
+    assert_eq!(d.serial(), 0);
     assert_eq!(
         issuer::draft_add(&mut d, &["0007".into(), "0002".into()]).unwrap(),
         vec!["0007", "0002"]
@@ -349,24 +379,52 @@ fn issuer_draft_add_remove_then_sign_with_the_revocation_key() {
         .unwrap()
         .is_empty());
     assert!(issuer::draft_add(&mut d, &["番号".into()]).is_err());
-    assert_eq!(d.revoked.feature_codes, vec!["0002", "0007"]);
-    // ほかの欄（取り下げた鍵など）はそのまま残す
-    d.revoked.keys = vec!["data-2026a".into()];
-    // 署名（配布の道具 dist-keys revocations sign と同じ段取り: 通し番号を上げ、有効期限を入れて、取り下げ用の鍵で封筒に入れる）
+    assert_eq!(d.ids(), ["0002", "0007"]);
+    // 署名（配布の道具 dist-keys revocations sign と同じ段取り: 通し番号を上げ、有効期限を入れて、コードを止めるだけの鍵で封筒に入れる）
+    let Draft::Codes(list) = &d else {
+        unreachable!()
+    };
     let now = parse_utc("2026-11-04T00:00:00Z").unwrap();
-    let next = revocations::next_issue(&d, now, revocations::DEFAULT_VALID_DAYS).unwrap();
+    let next = fcr::next_issue(list, now, revocations::DEFAULT_VALID_DAYS).unwrap();
     assert_eq!(next.serial, 1);
-    assert_eq!(next.expires_at, "2027-02-02T00:00:00Z");
     let sealed = envelope::seal(
         &serde_json::to_string(&next).unwrap(),
-        revocations::ENVELOPE_FORMAT,
-        &[("rv-2026a", &rv_key(41))],
+        fcr::ENVELOPE_FORMAT,
+        &[("fr-2026a", &fr_key(47))],
     );
-    let v = revocations::verify(sealed.as_bytes(), &ring, None).unwrap();
-    assert_eq!(revoked_ids(&v), vec!["0002", "0007"]);
-    assert_eq!(v.list.revoked.keys, vec!["data-2026a"]);
+    let v = fcr::verify(sealed.as_bytes(), &ring, None).unwrap();
+    assert_eq!(revoked_ids(None, Some(&v)), vec!["0002", "0007"]);
+    // 配信元の一覧から、配布元の設定の鍵で確かめて下書きを作り直せる（CI・続きから直すとき）
+    let toml = format!("[keys]\nfeature_code_revocation = [\"{fr_line}\"]\n");
+    let opened = issuer::draft_from_published(sealed.as_bytes(), &toml, false).unwrap();
+    assert_eq!(
+        (opened.serial(), opened.ids()),
+        (1, &["0002".to_owned(), "0007".to_owned()][..])
+    );
+    // 鍵が設定に無い・書き換えた一覧・取り下げ用の鍵で封じた取り下げの一覧は断る
+    assert!(issuer::draft_from_published(sealed.as_bytes(), "[keys]\n", false).is_err());
+    let other = format!(
+        "[keys]\nfeature_code_revocation = [\"fr-2026b:{}\"]\n",
+        B64.encode(fr_key(48).verifying_key().to_bytes())
+    );
+    assert!(issuer::draft_from_published(sealed.as_bytes(), &other, false).is_err());
+    let main = rev_list(3, &["0002"], &[], ("rv-2026a", 41));
+    assert!(issuer::draft_from_published(main.as_bytes(), &toml, false).is_err());
+    // 開発用の鍵（[dev_keys]）は --dev のときだけ
+    let dev_line = format!(
+        "dev-fr9:{}",
+        B64.encode(fr_key(49).verifying_key().to_bytes())
+    );
+    let dev_toml = format!("[keys]\nfeature_code_revocation = [\"{fr_line}\"]\n[dev_keys]\nfeature_code_revocation = [\"{dev_line}\"]\n");
+    let dev_sealed = envelope::seal(
+        &serde_json::to_string(&next).unwrap(),
+        fcr::ENVELOPE_FORMAT,
+        &[("dev-fr9", &fr_key(49))],
+    );
+    assert!(issuer::draft_from_published(dev_sealed.as_bytes(), &dev_toml, false).is_err());
+    assert!(issuer::draft_from_published(dev_sealed.as_bytes(), &dev_toml, true).is_ok());
     // 外す
-    let mut d = next;
+    let mut d = opened;
     issuer::draft_remove(&mut d, &["0007".into()]).unwrap();
     assert!(issuer::draft_remove(&mut d, &["0007".into()]).is_err());
     // 下書きのファイル（リポジトリの中は断る。前の形の下書きは読めない）
@@ -374,13 +432,44 @@ fn issuer_draft_add_remove_then_sign_with_the_revocation_key() {
     assert!(issuer::write_draft(&inside, &d).is_err());
     assert!(!inside.exists());
     let dir = std::env::temp_dir().join(format!("feature-code-rv-{}", std::process::id()));
-    let p = dir.join("revocations-draft.json");
+    let p = dir.join("feature-code-revocations-draft.json");
     assert_eq!(issuer::read_draft(&p).unwrap(), None);
     issuer::write_draft(&p, &d).unwrap();
     assert_eq!(issuer::read_draft(&p).unwrap(), Some(d));
     std::fs::write(&p, r#"{"serial":1,"revoked":["0002"]}"#).unwrap();
     assert!(issuer::read_draft(&p).is_err());
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn issuer_can_still_edit_the_distribution_list_draft() {
+    // 取り下げの一覧の下書き（取り下げ用の鍵で署名する）の revoked.featureCodes も直せる。ほかの欄はそのまま残す
+    let k = key("fc-2026a");
+    let ring = ring_of(&k);
+    let mut d = Draft::Main(revocations::empty_draft(
+        parse_utc("2026-11-01T00:00:00Z").unwrap(),
+    ));
+    issuer::draft_add(&mut d, &["0007".into(), "0002".into()]).unwrap();
+    let Draft::Main(mut list) = d else {
+        unreachable!()
+    };
+    list.revoked.keys = vec!["fr-2026a".into()];
+    let now = parse_utc("2026-11-04T00:00:00Z").unwrap();
+    let next = revocations::next_issue(&list, now, revocations::DEFAULT_VALID_DAYS).unwrap();
+    assert_eq!(next.expires_at, "2027-02-02T00:00:00Z");
+    let sealed = envelope::seal(
+        &serde_json::to_string(&next).unwrap(),
+        revocations::ENVELOPE_FORMAT,
+        &[("rv-2026a", &rv_key(41))],
+    );
+    let v = revocations::verify(sealed.as_bytes(), &ring, None).unwrap();
+    assert_eq!(revoked_ids(Some(&v), None), vec!["0002", "0007"]);
+    assert_eq!(v.list.revoked.keys, vec!["fr-2026a"]);
+    // 中身の format で種類を見分けて読む
+    let text = serde_json::to_string(&next).unwrap();
+    assert!(matches!(issuer::parse_draft(&text), Ok(Draft::Main(_))));
+    let small = serde_json::to_string(&fcr::empty_draft(now)).unwrap();
+    assert!(matches!(issuer::parse_draft(&small), Ok(Draft::Codes(_))));
 }
 
 #[test]

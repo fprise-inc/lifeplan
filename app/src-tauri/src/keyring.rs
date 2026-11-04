@@ -20,6 +20,7 @@ fn build() -> KeyRing {
         auto_delivery: KEYS_AUTO_DELIVERY,
         revocation: KEYS_REVOCATION,
         feature_code: KEYS_FEATURE_CODE,
+        feature_code_revocation: KEYS_FEATURE_CODE_REVOCATION,
     })
     .unwrap_or_default();
     if !cfg!(debug_assertions) {
@@ -31,6 +32,7 @@ fn build() -> KeyRing {
         auto_delivery: DEV_KEYS_AUTO_DELIVERY,
         revocation: DEV_KEYS_REVOCATION,
         feature_code: DEV_KEYS_FEATURE_CODE,
+        feature_code_revocation: DEV_KEYS_FEATURE_CODE_REVOCATION,
     };
     match prod.with_dev(&dev) {
         Ok(r) => r,
@@ -61,14 +63,24 @@ mod tests {
             r.for_role(Role::Revocation).count(),
             KEYS_REVOCATION.len() + DEV_KEYS_REVOCATION.len()
         );
+        assert_eq!(
+            r.for_role(Role::FeatureCodeRevocation).count(),
+            KEYS_FEATURE_CODE_REVOCATION.len() + DEV_KEYS_FEATURE_CODE_REVOCATION.len()
+        );
         // 本番の欄に開発用の鍵は無い
-        for l in KEYS_FEATURE_CODE.iter().chain(KEYS_REVOCATION) {
+        for l in KEYS_FEATURE_CODE
+            .iter()
+            .chain(KEYS_REVOCATION)
+            .chain(KEYS_FEATURE_CODE_REVOCATION)
+        {
             assert!(!l.starts_with(distribution::keys::DEV_KID_PREFIX), "{l}");
         }
         // 開発用のビルドでは開発用の鍵が入っている（製品のビルドでは build.rs が空にし、束にも足さない）
         assert_eq!(
             r.has_dev_keys(),
-            !DEV_KEYS_FEATURE_CODE.is_empty() || !DEV_KEYS_REVOCATION.is_empty()
+            !DEV_KEYS_FEATURE_CODE.is_empty()
+                || !DEV_KEYS_REVOCATION.is_empty()
+                || !DEV_KEYS_FEATURE_CODE_REVOCATION.is_empty()
         );
     }
 }

@@ -19,10 +19,12 @@ app_catalog = "https://updates.fprise.com/v1/app/catalog.json"
 app         = "https://updates.fprise.com/v1/app/latest.json"
 packs       = "https://updates.fprise.com/v1/packs/index.json"
 notices     = "https://updates.fprise.com/v1/notices/notices.json"
-# 取り下げの一覧（0117 の3 (3)）。機能を有効にするコードの取り下げ（revoked.featureCodes）もここに載せる（0110 の追記 2026-11-04）。
-# 今アプリが自動で取りに行くのはこれだけ（機能を有効にするコードを入れている PC だけが、起動したときと、動いている間は1日1回取りに行く。
+# 取り下げの一覧（0117 の3 (3)。取り下げ用の鍵〔オフライン〕で署名）と、機能を有効にするコードを止めるだけの一覧
+# （feature_code_revocations。コードを止めるだけの鍵〔オンラインに置ける〕で署名。0117 の追記 2026-11-04 の2）。
+# 今アプリが自動で取りに行くのはこの2つだけ（機能を有効にするコードを入れている PC だけが、起動したときと、動いている間は1日1回、2つ続けて取りに行く。
 # 送るのは取得の依頼だけで、クエリも付けない）。https で、上の host のものだけ（本体は build.rs が、ここから写す）
 revocations = "https://updates.fprise.com/v1/revocations/revocations.json"
+feature_code_revocations = "https://updates.fprise.com/v1/revocations/feature-codes.json"
 
 [feedback]
 # 「要望・不具合を送る」のフォームの URL のひな形（0087 の6）。押すと既定のブラウザでこのフォームを開く（アプリ自身は送らない・通信しない）。
@@ -35,7 +37,7 @@ form = "https://financia.jp/feedback/?no={受付番号}&ver={版}&os={OS}"
 # 本番の鍵は公開の前に提供元が作って足す（作り方・保管・入れ替え・失くしたときの手順は docs/decisions/0117 と 0110 の追記 2026-11-04）。
 # 確かめる部品は crates/distribution（形は npm run check:distribution と、本体の build.rs も確かめる）。
 # - app_update: アプリ本体の更新の鍵。`tauri signer generate` が出す公開鍵の文字列のまま（鍵の名前は中の鍵の番号から決まる）
-# - data・auto_delivery・revocation・feature_code: 「鍵の名前:公開鍵（32バイトの base64url）」。鍵の名前は英小文字・数字・「-」で、dev- で始めない
+# - data・auto_delivery・revocation・feature_code・feature_code_revocation: 「鍵の名前:公開鍵（32バイトの base64url）」。鍵の名前は英小文字・数字・「-」で、dev- で始めない
 # 同じ公開鍵を2つの欄に書かない（役割を分ける意味が無くなる）
 app_update    = []
 data          = []
@@ -44,6 +46,9 @@ auto_delivery = []
 revocation    = []
 # 機能を有効にするコードの発行の鍵（0110。`feature-code keygen --kid fc-2026a` などで作る）。空のあいだ、製品のビルドではどのコードも使えない
 feature_code  = []
+# 機能を有効にするコードを止めるだけの鍵（`dist-keys keygen feature_code_revocation fr-2026a …` などで作る。CI の秘密の値に置ける）。
+# 署名できるのはコードを止めるだけの一覧（feature_code_revocations）だけ。漏れたら取り下げの一覧の revoked.keys で外す（0117 の追記 2026-11-04 の2）
+feature_code_revocation = []
 
 [dev_keys]
 # 開発用の鍵（0110 の追記 2026-11-04）。開発用のビルド（debug・開発用のサーバーの代わり）だけが [keys] に足して受け付け、製品のビルドには入れない。
@@ -53,6 +58,7 @@ data          = []
 auto_delivery = []
 revocation    = ["dev-rv2:yLPRQrwMztHzhcKXSlCKWRKjXPJ7utpWpT7BzZtLhbM"]
 feature_code  = ["dev-1:ZBASfURNQY54lJZUQjeJy59Ed87C11WGMxJHsLB1znk"]
+feature_code_revocation = ["dev-fr1:RNTY3Y5si9xi6GZ8tl1SncKJOHwiDBhoS8kVGadxBP4"]
 
 [signing]
 # OS のコード署名（0117 の4・5）。ここに書くのは秘密でない名前だけ。証明書・パスワード・鍵は CI の秘密の値に置く

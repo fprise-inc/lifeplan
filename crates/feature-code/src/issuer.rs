@@ -5,13 +5,16 @@
 //! - 記録の CSV の列は `id,name,features,expires,issued`（機能は「;」で区切る）。表計算で開けるよう、作るときに UTF-8 の BOM を付ける。
 //! - まとめて発行するときは、全部の行を先に確かめ（番号の重なりを含む）、1つでも誤りがあれば1件も発行しない。
 //! - 期限のないコードは、記録の期限の欄を空にする。一覧の CSV では期限の欄に `none`（または「なし」）と書く（空の欄は誤りにする。書き忘れで期限なしのコードを出さないため）。
-//! - 止めるコード（0110 の追記）: 配布の取り下げの一覧の下書き（[`read_draft`]。署名の前の中身）の `revoked.featureCodes` に足す・外す。
-//!   署名は配布の道具（`dist-keys revocations sign`。取り下げ用の鍵）。下書きもリポジトリの外に置く。
+//! - 止めるコード（0110 の追記・0117 の追記 2026-11-04 の2）: ふだんはコードを止めるだけの一覧の下書き（[`read_draft`]。署名の前の中身）の
+//!   `featureCodes` に足す・外す。取り下げの一覧の下書きを渡せば、その `revoked.featureCodes` を直す（コードを止めるだけの鍵では戻せない止め方）。
+//!   署名は配布の道具（`dist-keys revocations sign`。下書きの種類に合う鍵）。下書きもリポジトリの外に置く。
 
 use std::fs::{self, OpenOptions};
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
+use distribution::feature_code_revocations::{self as fc_revocations, FeatureCodeRevocationList};
+use distribution::keys::{KeyConfig, KeyRing};
 use distribution::revocations::{self, RevocationList};
 
 use crate::{decode_unverified, issue, parse_date, valid_id, Claims, Request, SecretKey};
@@ -336,65 +339,175 @@ pub fn expires_problem(expires: &str, today: &str) -> Option<String> {
     (e < t).then(|| format!("期限 {expires} は今日（{today}）より前です"))
 }
 
-// ---- 取り下げの一覧の下書き（0110 の追記 2026-11-04。配布の取り下げの一覧〔0117 の3 (3)〕の中身）----
+// ---- 止めるコードの下書き（0110 の追記 2026-11-04・0117 の追記 2026-11-04 の2）----
 //
-// 下書きは、配信元に置く取り下げの一覧の中身（`distribution::revocations::RevocationList`。署名の前の JSON）そのもの。
-// この道具は `revoked.featureCodes`（止めるコードの番号）だけを足す・外し、ほかの欄（取り下げた鍵・アプリの版・最低版など）はそのまま残す。
-// 署名は配布の道具（`dist-keys revocations sign <取り下げ用の秘密鍵> <下書き> <一覧>`）。通し番号・有効期限もそこで入れる。
+// 下書きは、配信元に置く一覧の中身（署名の前の JSON）そのもの。2つの種類がある（中身の `format` で見分ける）:
+// - コードを止めるだけの一覧（`distribution::feature_code_revocations`。ふだん使う。コードを止めるだけの鍵で署名。CI でも署名できる）
+// - 取り下げの一覧（`distribution::revocations`。取り下げ用の鍵〔オフライン〕で署名。ここに載せた番号は、コードを止めるだけの鍵では戻せない。
+//   コードを止めるだけの鍵を外すときに、その一覧の番号を写す）。この道具は `revoked.featureCodes` だけを直し、ほかの欄はそのまま残す
+// 署名は配布の道具（`dist-keys revocations sign <秘密鍵> <下書き> <一覧>`）。通し番号・有効期限もそこで入れる。
 
 /// 一覧に載せられる、止めるコードの番号の数の上限
 pub const MAX_REVOKED_CODES: usize = 5000;
 
-/// 空の下書き（通し番号 0）
-pub fn new_draft() -> RevocationList {
-    let now = std::time::SystemTime::now()
+/// 止めるコードの下書き
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Draft {
+    /// コードを止めるだけの一覧（ふだん使う）
+    Codes(FeatureCodeRevocationList),
+    /// 取り下げの一覧（オフラインの取り下げ用の鍵で署名する）
+    Main(RevocationList),
+}
+
+impl Draft {
+    pub fn serial(&self) -> u64 {
+        match self {
+            Draft::Codes(d) => d.serial,
+            Draft::Main(d) => d.serial,
+        }
+    }
+
+    pub fn expires_at(&self) -> &str {
+        match self {
+            Draft::Codes(d) => &d.expires_at,
+            Draft::Main(d) => &d.expires_at,
+        }
+    }
+
+    /// 止めるコードの番号
+    pub fn ids(&self) -> &[String] {
+        match self {
+            Draft::Codes(d) => &d.feature_codes,
+            Draft::Main(d) => &d.revoked.feature_codes,
+        }
+    }
+
+    fn ids_mut(&mut self) -> &mut Vec<String> {
+        match self {
+            Draft::Codes(d) => &mut d.feature_codes,
+            Draft::Main(d) => &mut d.revoked.feature_codes,
+        }
+    }
+
+    /// 種類の名前（知らせの文に使う）
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Draft::Codes(_) => "コードを止めるだけの一覧",
+            Draft::Main(_) => "取り下げの一覧",
+        }
+    }
+
+    /// 署名して置く配信元の場所
+    pub fn published_path(&self) -> &'static str {
+        match self {
+            Draft::Codes(_) => "/v1/revocations/feature-codes.json",
+            Draft::Main(_) => "/v1/revocations/revocations.json",
+        }
+    }
+
+    fn to_text(&self) -> Result<String, String> {
+        let r = match self {
+            Draft::Codes(d) => serde_json::to_string_pretty(d),
+            Draft::Main(d) => serde_json::to_string_pretty(d),
+        };
+        r.map(|mut t| {
+            t.push('\n');
+            t
+        })
+        .map_err(|_| "下書きを作れません".to_owned())
+    }
+}
+
+fn now_secs() -> i64 {
+    std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| i64::try_from(d.as_secs()).unwrap_or(0))
-        .unwrap_or(0);
-    revocations::empty_draft(now)
+        .unwrap_or(0)
+}
+
+/// 空の、コードを止めるだけの一覧の下書き（通し番号 0）
+pub fn new_draft() -> Draft {
+    Draft::Codes(fc_revocations::empty_draft(now_secs()))
+}
+
+/// 下書きの中身を読む（種類は中身の `format` で見分ける）
+pub fn parse_draft(text: &str) -> Result<Draft, distribution::Reject> {
+    let format = serde_json::from_str::<serde_json::Value>(text)
+        .ok()
+        .and_then(|v| v.get("format").and_then(|f| f.as_str()).map(str::to_owned));
+    if format.as_deref() == Some(fc_revocations::FORMAT) {
+        fc_revocations::parse_payload(text).map(|v| Draft::Codes(v.list))
+    } else {
+        revocations::parse_payload(text).map(|v| Draft::Main(v.list))
+    }
 }
 
 /// 下書きを読む（無ければ None。形が違えば誤り）
-pub fn read_draft(path: &Path) -> Result<Option<RevocationList>, String> {
+pub fn read_draft(path: &Path) -> Result<Option<Draft>, String> {
     if !path.exists() {
         return Ok(None);
     }
-    let text = fs::read_to_string(path).map_err(|e| {
+    let text = fs::read_to_string(path)
+        .map_err(|e| format!("止めるコードの下書き {} を読めません: {e}", path.display()))?;
+    parse_draft(&text).map(Some).map_err(|e| {
         format!(
-            "取り下げの一覧の下書き {} を読めません: {e}",
+            "止めるコードの下書き {} の形が違います（{e}。前の形の下書きなら、feature-code revocations new か open で作り直す）",
             path.display()
         )
-    })?;
-    revocations::parse_payload(&text)
-        .map(|v| Some(v.list))
-        .map_err(|e| {
-            format!(
-                "取り下げの一覧の下書き {} の形が違います（{e}。前の形の下書きなら、dist-keys revocations new で作り直す）",
-                path.display()
-            )
-        })
+    })
 }
 
 /// 下書きを書く（リポジトリの中は断る。書きかけで壊さないよう、別の名前に書いてから置き換える）
-pub fn write_draft(path: &Path, d: &RevocationList) -> Result<(), String> {
+pub fn write_draft(path: &Path, d: &Draft) -> Result<(), String> {
     outside_repository(path)?;
     if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
         fs::create_dir_all(dir).map_err(|e| format!("フォルダを作れません: {e}"))?;
     }
-    let mut text = serde_json::to_string_pretty(d).map_err(|_| "下書きを作れません".to_owned())?;
-    text.push('\n');
+    let text = d.to_text()?;
     let tmp = path.with_extension("tmp");
     fs::write(&tmp, text)
         .and_then(|_| fs::rename(&tmp, path))
         .map_err(|e| format!("{} に書けません: {e}", path.display()))
 }
 
+/// 配信元に置いてある、コードを止めるだけの一覧（署名した封筒）を確かめ、その中身を下書きにする（CI と、手元で続きから直すとき）。
+/// 確かめる公開鍵は配布元の設定（`config/distribution.toml`）の `[keys]` の `feature_code_revocation`（`dev` のときは `[dev_keys]` も）
+pub fn draft_from_published(
+    published: &[u8],
+    config_toml: &str,
+    dev: bool,
+) -> Result<Draft, String> {
+    let lines = |section: &str| {
+        distribution::config::key_list(config_toml, section, "feature_code_revocation")
+    };
+    let prod = lines("keys")?;
+    let prod: Vec<&str> = prod.iter().map(String::as_str).collect();
+    let mut ring = KeyRing::from_config(&KeyConfig {
+        feature_code_revocation: &prod,
+        ..Default::default()
+    })?;
+    if dev {
+        let d = lines("dev_keys")?;
+        let d: Vec<&str> = d.iter().map(String::as_str).collect();
+        ring = ring.with_dev(&KeyConfig {
+            feature_code_revocation: &d,
+            ..Default::default()
+        })?;
+    }
+    if ring.is_empty() {
+        return Err("配布元の設定の [keys] の feature_code_revocation が空です（確かめる公開鍵がありません）".into());
+    }
+    fc_revocations::verify(published, &ring, None)
+        .map(|v| Draft::Codes(v.list))
+        .map_err(|e| format!("配信元の一覧を確かめられません（{e}。コードを止めるだけの一覧で、配布元の設定の鍵で署名したものか）"))
+}
+
 /// 下書きに、止めるコードの番号を足す（既にある番号は飛ばす）。足した番号を返す
-pub fn draft_add(d: &mut RevocationList, ids: &[String]) -> Result<Vec<String>, String> {
+pub fn draft_add(d: &mut Draft, ids: &[String]) -> Result<Vec<String>, String> {
     if let Some(bad) = ids.iter().find(|id| !valid_id(id)) {
         return Err(format!("番号「{bad}」の形が違います"));
     }
-    let list = &mut d.revoked.feature_codes;
+    let list = d.ids_mut();
     let mut added = vec![];
     for id in ids {
         if !list.contains(id) {
@@ -412,10 +525,11 @@ pub fn draft_add(d: &mut RevocationList, ids: &[String]) -> Result<Vec<String>, 
 }
 
 /// 下書きから番号を外す。外した番号を返す（無い番号は誤り）
-pub fn draft_remove(d: &mut RevocationList, ids: &[String]) -> Result<Vec<String>, String> {
-    let list = &mut d.revoked.feature_codes;
+pub fn draft_remove(d: &mut Draft, ids: &[String]) -> Result<Vec<String>, String> {
+    let kind = d.kind();
+    let list = d.ids_mut();
     if let Some(missing) = ids.iter().find(|id| !list.contains(id)) {
-        return Err(format!("番号 {missing} は取り下げの一覧にありません"));
+        return Err(format!("番号 {missing} は{kind}の下書きにありません"));
     }
     list.retain(|x| !ids.contains(x));
     Ok(ids.to_vec())

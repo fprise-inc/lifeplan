@@ -4,9 +4,10 @@
 // - 公開鍵は config/distribution.toml の [keys] の feature_code と、開発用の [dev_keys] の feature_code（「鍵の名前:公開鍵」）
 // - 期限は日本の日付で、期限の日の終わりまで。30日前から更新の知らせ。同じ機能を同じか遅い期限まで含む古いコードは、新しいコードを入れると外す
 // - 期限は省ける（中身の形の版 2。期限のあるコードは版 1）
-// - 提供元が止める（0110 の追記 2026-11-04）: 配布の取り下げの一覧（crates/distribution の revocations。取り下げ用の鍵で署名した封筒）の
-//   revoked.featureCodes に載っているコードは「止めた」。revoked.keys に載ったコードの鍵は外す。最後に確かめられた一覧で判断し、
-//   取れない・署名が合わない・古い一覧は無視する
+// - 提供元が止める（0110 の追記 2026-11-04・0117 の追記 2026-11-04 の2）: 配布の取り下げの一覧（crates/distribution の revocations。
+//   取り下げ用の鍵で署名した封筒）の revoked.featureCodes と、コードを止めるだけの一覧（feature_code_revocations。コードを止めるだけの鍵で署名）の
+//   featureCodes のどちらかに載っているコードは「止めた」。取り下げの一覧の revoked.keys に載った鍵（コードの鍵・コードを止めるだけの鍵）は外す。
+//   最後に確かめられた一覧で判断し、取れない・署名が合わない・古い一覧は無視する
 // - 切れた・止めたの知らせ（0110 の追記 2026-11-02。本体の crates/feature-code の notice と同じ）: 分かった日から7日だけ出す。閉じたら出さない。
 //   使える状態に戻ったら記録を消す（再び止められたら出直す）。切れた ↔ 止めた が入れ替わったときも出直す
 import { createHash, createPublicKey, verify, type KeyObject } from "node:crypto";
@@ -183,10 +184,13 @@ export const dismissNotice = (records: readonly NoticeRecord[], ref: string): No
 /** 日本の今日（UTC+9） */
 export const todayJst = (now = Date.now()): string => new Date(now + 9 * 3600_000).toISOString().slice(0, 10);
 
-// ---- 取り下げの一覧（0117 の3 (3)・0110 の追記。本体の crates/distribution の envelope・revocations と同じ形）----
+// ---- 取り下げの一覧（0117 の3 (3)・0110 の追記）と、コードを止めるだけの一覧（0117 の追記 2026-11-04 の2）。
+// 本体の crates/distribution の envelope・revocations・feature_code_revocations と同じ形 ----
 
 const REV_ENVELOPE = "fprise-lifeplan-revocations-envelope";
 const REV_FORMAT = "fprise-lifeplan-revocations";
+const CODE_REV_ENVELOPE = "fprise-lifeplan-feature-code-revocations-envelope";
+const CODE_REV_FORMAT = "fprise-lifeplan-feature-code-revocations";
 const REV_MAX_BYTES = 1024 * 1024;
 const UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const CODE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/;
@@ -194,14 +198,16 @@ const major = (v: unknown): number | null => (typeof v === "string" && /^\d+\.\d
 
 export interface RevocationList {
   serial: number;
-  /** 止めるコードの番号（revoked.featureCodes） */
+  /** 止めるコードの番号（取り下げの一覧は revoked.featureCodes、コードを止めるだけの一覧は featureCodes） */
   revoked: string[];
-  /** 取り下げた鍵の名前（revoked.keys） */
+  /** 取り下げた鍵の名前（取り下げの一覧の revoked.keys。コードを止めるだけの一覧では空） */
   keys: string[];
 }
+type Verified = { ok: true; list: RevocationList } | { ok: false; error: string };
+type Verifier = (text: string, keys: Map<string, KeyObject>) => Verified;
 
-/** 署名と形を確かめた一覧（確かめられなければ符号。符号は本体と同じ E_DIST_*） */
-export function verifyRevocations(text: string, keys: Map<string, KeyObject>): { ok: true; list: RevocationList } | { ok: false; error: string } {
+/** 封筒を開いて中身の JSON を返す（形の名前・形式の版・署名を確かめる。知らない欄は無視する） */
+function openEnvelope(text: string, format: string, keys: Map<string, KeyObject>): { ok: true; payload: Record<string, unknown> } | { ok: false; error: string } {
   const bad = { ok: false as const, error: "E_DIST_FORMAT" };
   if (Buffer.byteLength(text, "utf8") > REV_MAX_BYTES) return bad;
   let env: { format?: unknown; formatVersion?: unknown; payload?: unknown; signatures?: unknown };
@@ -210,7 +216,7 @@ export function verifyRevocations(text: string, keys: Map<string, KeyObject>): {
   } catch {
     return bad;
   }
-  if (env.format !== REV_ENVELOPE || typeof env.payload !== "string" || !Array.isArray(env.signatures)) return bad;
+  if (env.format !== format || typeof env.payload !== "string" || !Array.isArray(env.signatures)) return bad;
   if (major(env.formatVersion) !== 1) return { ok: false, error: "E_DIST_UNSUPPORTED" };
   let known = false;
   let verified = false;
@@ -226,42 +232,71 @@ export function verifyRevocations(text: string, keys: Map<string, KeyObject>): {
     }
   }
   if (!verified) return { ok: false, error: known ? "E_DIST_SIGNATURE" : "E_DIST_KEY" };
-  let p: { format?: unknown; formatVersion?: unknown; serial?: unknown; issuedAt?: unknown; expiresAt?: unknown; revoked?: { featureCodes?: unknown; keys?: unknown } };
   try {
-    p = JSON.parse(env.payload) as typeof p;
+    const p = JSON.parse(env.payload) as unknown;
+    return typeof p === "object" && p !== null ? { ok: true, payload: p as Record<string, unknown> } : bad;
   } catch {
     return bad;
   }
-  if (p.format !== REV_FORMAT) return bad;
-  if (major(p.formatVersion) !== 1) return { ok: false, error: "E_DIST_UNSUPPORTED" };
-  const codes = p.revoked?.featureCodes ?? [];
-  const kids = p.revoked?.keys ?? [];
-  const strings = (x: unknown): x is string[] => Array.isArray(x) && x.every((y) => typeof y === "string");
-  const shapeOk = Number.isInteger(p.serial) && (p.serial as number) >= 0 && typeof p.issuedAt === "string" && UTC.test(p.issuedAt) && typeof p.expiresAt === "string" && UTC.test(p.expiresAt) && p.expiresAt > p.issuedAt && typeof p.revoked === "object" && strings(codes) && codes.every((c) => CODE_ID.test(c)) && new Set(codes).size === codes.length && strings(kids);
-  return shapeOk ? { ok: true, list: { serial: p.serial as number, revoked: codes, keys: kids } } : bad;
 }
 
-/** 取りに行った結果を当てる（本体の apply_fetch と同じ: 取れない・確かめられない・古いときは、最後に取れた一覧のまま） */
-export function applyFetch(saved: string | null, fetched: string | null, keys: Map<string, KeyObject>): { saved: string | null; result: "ok" | "offline" | "rejected" } {
-  const cur = saved === null ? null : verifyRevocations(saved, keys);
+const strings = (x: unknown): x is string[] => Array.isArray(x) && x.every((y) => typeof y === "string");
+const commonShapeOk = (p: Record<string, unknown>, codes: unknown): codes is string[] =>
+  Number.isInteger(p.serial) && (p.serial as number) >= 0 && typeof p.issuedAt === "string" && UTC.test(p.issuedAt) && typeof p.expiresAt === "string" && UTC.test(p.expiresAt) && p.expiresAt > p.issuedAt && strings(codes) && codes.every((c) => CODE_ID.test(c)) && new Set(codes).size === codes.length;
+
+/** 署名と形を確かめた取り下げの一覧（確かめられなければ符号。符号は本体と同じ E_DIST_*） */
+export function verifyRevocations(text: string, keys: Map<string, KeyObject>): Verified {
+  const o = openEnvelope(text, REV_ENVELOPE, keys);
+  if (!o.ok) return o;
+  const p = o.payload;
+  if (p.format !== REV_FORMAT) return { ok: false, error: "E_DIST_FORMAT" };
+  if (major(p.formatVersion) !== 1) return { ok: false, error: "E_DIST_UNSUPPORTED" };
+  const revoked = p.revoked as { featureCodes?: unknown; keys?: unknown } | undefined;
+  const codes = revoked?.featureCodes ?? [];
+  const kids = revoked?.keys ?? [];
+  return typeof revoked === "object" && revoked !== null && commonShapeOk(p, codes) && strings(kids) ? { ok: true, list: { serial: p.serial as number, revoked: codes, keys: kids } } : { ok: false, error: "E_DIST_FORMAT" };
+}
+
+/** 署名と形を確かめた、コードを止めるだけの一覧（`keys` はコードを止めるだけの鍵。取り下げの一覧で外した鍵は除いて渡す） */
+export function verifyCodeRevocations(text: string, keys: Map<string, KeyObject>): Verified {
+  const o = openEnvelope(text, CODE_REV_ENVELOPE, keys);
+  if (!o.ok) return o;
+  const p = o.payload;
+  if (p.format !== CODE_REV_FORMAT) return { ok: false, error: "E_DIST_FORMAT" };
+  if (major(p.formatVersion) !== 1) return { ok: false, error: "E_DIST_UNSUPPORTED" };
+  const codes = p.featureCodes ?? [];
+  return commonShapeOk(p, codes) ? { ok: true, list: { serial: p.serial as number, revoked: codes, keys: [] } } : { ok: false, error: "E_DIST_FORMAT" };
+}
+
+/** 取りに行った結果を当てる（本体の apply_fetch と同じ: 取れない・確かめられない・古いときは、最後に取れた一覧のまま）。
+ * `check` は一覧の確かめ方（既定は取り下げの一覧。コードを止めるだけの一覧は verifyCodeRevocations を渡す） */
+export function applyFetch(saved: string | null, fetched: string | null, keys: Map<string, KeyObject>, check: Verifier = verifyRevocations): { saved: string | null; result: "ok" | "offline" | "rejected" } {
+  const cur = saved === null ? null : check(saved, keys);
   const keep = cur !== null && cur.ok ? saved : null;
   if (fetched === null) return { saved: keep, result: "offline" };
-  const r = verifyRevocations(fetched, keys);
+  const r = check(fetched, keys);
   if (!r.ok) return { saved: keep, result: "rejected" };
   if (cur !== null && cur.ok && r.list.serial < cur.list.serial) return { saved: keep, result: "rejected" };
   return { saved: fetched, result: "ok" };
 }
 
-/** 保存しておいた一覧の止めるコードの番号（確かめられなければ空） */
-export function revokedIds(saved: string | null, keys: Map<string, KeyObject>): string[] {
-  if (saved === null) return [];
-  const r = verifyRevocations(saved, keys);
-  return r.ok ? r.list.revoked : [];
+/** 取り下げの一覧で取り下げた鍵の名前（確かめられなければ空） */
+export function revokedKeyIds(saved: string | null, revocationKeys: Map<string, KeyObject>): string[] {
+  const r = saved === null ? null : verifyRevocations(saved, revocationKeys);
+  return r !== null && r.ok ? r.list.keys : [];
 }
 
-/** コードの鍵から、保存しておいた一覧で取り下げた鍵を外したもの（本体の KeyRing::without と同じ） */
-export function withoutRevokedKeys(codeKeys: Map<string, KeyObject>, saved: string | null, revocationKeys: Map<string, KeyObject>): Map<string, KeyObject> {
-  const r = saved === null ? null : verifyRevocations(saved, revocationKeys);
-  if (r === null || !r.ok) return codeKeys;
-  return new Map([...codeKeys].filter(([kid]) => !r.list.keys.includes(kid)));
+/** 鍵から、取り下げの一覧で取り下げた鍵を外したもの（本体の KeyRing::without と同じ） */
+export function withoutRevokedKeys(keys: Map<string, KeyObject>, saved: string | null, revocationKeys: Map<string, KeyObject>): Map<string, KeyObject> {
+  const gone = revokedKeyIds(saved, revocationKeys);
+  return new Map([...keys].filter(([kid]) => !gone.includes(kid)));
+}
+
+/** 保存しておいた2つの一覧の止めるコードの番号の和（確かめられない一覧は無いものとする）。コードを止めるだけの一覧は、
+ * 取り下げの一覧で外した鍵を除いた鍵で確かめる（本体の feature_code_revocations::stopped_ids と同じ） */
+export function revokedIds(saved: string | null, revocationKeys: Map<string, KeyObject>, savedCodes: string | null = null, codeRevocationKeys: Map<string, KeyObject> = new Map()): string[] {
+  const main = saved === null ? null : verifyRevocations(saved, revocationKeys);
+  const small = savedCodes === null ? null : verifyCodeRevocations(savedCodes, withoutRevokedKeys(codeRevocationKeys, saved, revocationKeys));
+  const ids = [...(main !== null && main.ok ? main.list.revoked : []), ...(small !== null && small.ok ? small.list.revoked : [])];
+  return [...new Set(ids)].sort();
 }

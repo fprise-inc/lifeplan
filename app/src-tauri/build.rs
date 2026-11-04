@@ -160,80 +160,15 @@ fn feedback_form(toml: &str) -> String {
     panic!("config/distribution.toml に [feedback] の form がありません");
 }
 
-/// 配布元の設定の `[section]` の `name = …` の値（右辺の文字列のまま）。TOML の部品は入れず、1行の形だけを読む。
-/// 名前はちょうど同じものだけ（`revocation` と `revocations` のように、前の部分が同じ名前を取り違えない）
-fn toml_value<'a>(toml: &'a str, section: &str, name: &str) -> Option<&'a str> {
-    let mut in_section = false;
-    for line in toml.lines() {
-        let t = line.trim();
-        if t.starts_with('[') {
-            in_section = t == format!("[{section}]");
-            continue;
-        }
-        if !in_section {
-            continue;
-        }
-        let Some((k, v)) = t.split_once('=') else {
-            continue;
-        };
-        if k.trim() == name {
-            return Some(v.trim());
-        }
-    }
-    None
-}
-
-/// 配布元の設定の `[section]` の公開鍵の並び（`name = ["…", …]` の1行の配列。書いたままの文字列）。
+/// 配布元の設定の `[section]` の公開鍵の並び（読み方は配布の部品の `distribution::config`。提供元の道具と同じ）。
 /// 中身の形（鍵の名前・公開鍵・本番と開発用の名前の決まり・役割をまたいだ重なり）は、配布の部品の鍵の束（`distribution::keys`）で確かめる
 fn key_list(toml: &str, section: &str, name: &str) -> Vec<String> {
-    let Some(v) = toml_value(toml, section, name) else {
-        return vec![];
-    };
-    let inner = v
-        .strip_prefix('[')
-        .and_then(|x| x.strip_suffix(']'))
-        .unwrap_or_else(|| {
-            panic!("config/distribution.toml: [{section}] の {name} は1行の [\"…\"] で書く")
-        });
-    inner
-        .split(',')
-        .map(str::trim)
-        .filter(|x| !x.is_empty())
-        .map(|x| {
-            x.strip_prefix('"')
-                .and_then(|y| y.strip_suffix('"'))
-                .unwrap_or_else(|| {
-                    panic!("config/distribution.toml: [{section}] の {name} の値は \"…\" で書く")
-                })
-                .to_owned()
-        })
-        .collect()
+    distribution::config::key_list(toml, section, name).unwrap_or_else(|e| panic!("{e}"))
 }
 
-/// 配布元の設定の `[endpoints]` の `host` と、取り下げの一覧の URL（0117 の3 (3)。機能を有効にするコードの取り下げも載る。0110 の追記）。
-/// URL は https で、host のものだけ。クエリ・転送の印は付けない
-fn revocations_endpoint(toml: &str) -> (String, String) {
-    let unquote = |name: &str| {
-        let v = toml_value(toml, "endpoints", name).unwrap_or_else(|| {
-            panic!("config/distribution.toml に [endpoints] の {name} がありません")
-        });
-        v.strip_prefix('"')
-            .and_then(|x| x.strip_suffix('"'))
-            .unwrap_or_else(|| {
-                panic!("config/distribution.toml: [endpoints] の {name} は \"…\" で書く")
-            })
-            .to_owned()
-    };
-    let host = unquote("host");
-    let url = unquote("revocations");
-    let rest = url.strip_prefix("https://").unwrap_or_else(|| {
-        panic!("config/distribution.toml: [endpoints] の revocations は https:// で始める")
-    });
-    let (h, path) = rest.split_once('/').unwrap_or((rest, ""));
-    if h != host || path.is_empty() || url.contains(['?', '#', '@', '\\', ' ']) {
-        panic!("config/distribution.toml: [endpoints] の revocations は https://{host}/… の形にする（ほかのホスト・クエリは使わない）");
-    }
-    (host, url)
+/// 本体が自動で取りに行く一覧の URL（`[endpoints]` の `name`）と `host`。https で、host のものだけ。クエリ・転送の印は付けない
+fn endpoint(toml: &str, name: &str) -> (String, String) {
+    distribution::config::endpoint_url(toml, name).unwrap_or_else(|e| panic!("{e}"))
 }
 
 fn str_lists(v: &[Vec<String>]) -> Vec<Vec<&str>> {
@@ -242,7 +177,7 @@ fn str_lists(v: &[Vec<String>]) -> Vec<Vec<&str>> {
         .collect()
 }
 
-/// 役割の順（app_update・data・auto_delivery・revocation・feature_code）に並べた鍵の並びを、配布の部品の書き方にする
+/// 役割の順（app_update・data・auto_delivery・revocation・feature_code・feature_code_revocation）に並べた鍵の並びを、配布の部品の書き方にする
 fn key_config<'a>(v: &'a [Vec<&'a str>]) -> distribution::keys::KeyConfig<'a> {
     distribution::keys::KeyConfig {
         app_update: &v[0],
@@ -250,6 +185,7 @@ fn key_config<'a>(v: &'a [Vec<&'a str>]) -> distribution::keys::KeyConfig<'a> {
         auto_delivery: &v[2],
         revocation: &v[3],
         feature_code: &v[4],
+        feature_code_revocation: &v[5],
     }
 }
 
@@ -307,16 +243,19 @@ fn main() {
     .unwrap();
 
     // 0117・0110 の追記（2026-11-04）: 鍵の束（[keys] の本番の鍵と、開発用のビルドだけ [dev_keys] の開発用の鍵）と、
-    // 取り下げの一覧の場所（[endpoints] の revocations）・自動通信の相手のホスト（host）。鍵の形は配布の部品の鍵の束で確かめる（本体の起動のときと同じ決まり）。
+    // 取り下げの一覧の場所（[endpoints] の revocations）・コードを止めるだけの一覧の場所（feature_code_revocations。0117 の追記の2）・
+    // 自動通信の相手のホスト（host）。鍵の形は配布の部品の鍵の束で確かめる（本体の起動のときと同じ決まり）。
     // 製品のビルド（release）には開発用の鍵を入れない（試しの鍵で発行したコードを製品で受け付けない）
     let toml = std::fs::read_to_string(&dist).unwrap();
-    let (host, url) = revocations_endpoint(&toml);
-    const ROLES: [&str; 5] = [
+    let (host, url) = endpoint(&toml, "revocations");
+    let (_, code_url) = endpoint(&toml, "feature_code_revocations");
+    const ROLES: [&str; 6] = [
         "app_update",
         "data",
         "auto_delivery",
         "revocation",
         "feature_code",
+        "feature_code_revocation",
     ];
     let release = std::env::var("PROFILE").is_ok_and(|p| p == "release");
     let prod: Vec<Vec<String>> = ROLES.iter().map(|r| key_list(&toml, "keys", r)).collect();
@@ -357,6 +296,7 @@ fn main() {
     writeln!(
         keys_rs,
         "/// 取り下げの一覧の場所（config/distribution.toml の [endpoints] の revocations）\npub const REVOCATIONS_URL: &str = {url:?};\n\
+         /// 機能を有効にするコードを止めるだけの一覧の場所（[endpoints] の feature_code_revocations）\npub const FEATURE_CODE_REVOCATIONS_URL: &str = {code_url:?};\n\
          /// 自動通信の相手のホスト（config/distribution.toml の [endpoints] の host。0017 の4）\npub const DISTRIBUTION_HOST: &str = {host:?};"
     )
     .unwrap();
