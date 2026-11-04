@@ -152,6 +152,10 @@ impl StoreError {
     pub const OFFICE_OTHERS_REMAIN: StoreError = StoreError("E_OFFICE_OTHERS_REMAIN");
     /// 世帯の鍵の札がまだ同期されていない
     pub const OFFICE_WAITING_SYNC: StoreError = StoreError("E_OFFICE_WAITING_SYNC");
+    /// 共有フォルダのファイルが、MAJOR の新しい形式で書かれている（使わない。アプリの更新を案内する。0023 の追記 2026-11-04）
+    pub const OFFICE_FORMAT_TOO_NEW: StoreError = StoreError("E_OFFICE_FORMAT_TOO_NEW");
+    /// 名簿の自分の役割が、すべての操作ができる役割（`member`）でない（閲覧だけ。0023 の2）
+    pub const OFFICE_VIEW_ONLY: StoreError = StoreError("E_OFFICE_VIEW_ONLY");
     /// 選ぶ分岐が無い
     pub const NO_FORK: StoreError = StoreError("E_STORE_NO_FORK");
     /// 明細の取り込みの辞書・形の行の形が合わない（0034）

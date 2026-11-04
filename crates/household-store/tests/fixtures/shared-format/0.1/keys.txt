@@ -1,0 +1,11 @@
+master: lifeplan shared-format fixture 0.1 master (test key, not a secret)
+previousMaster: lifeplan shared-format fixture 0.1 previousMaster (test key, not a secret)
+memberA: lifeplan shared-format fixture 0.1 memberA (test key, not a secret)
+memberB: lifeplan shared-format fixture 0.1 memberB (test key, not a secret)
+memberC: lifeplan shared-format fixture 0.1 memberC (test key, not a secret)
+memberD: lifeplan shared-format fixture 0.1 memberD (test key, not a secret)
+memberE: lifeplan shared-format fixture 0.1 memberE (test key, not a secret)
+householdKey: lifeplan shared-format fixture 0.1 householdKey (test key, not a secret)
+householdKeyOld: lifeplan shared-format fixture 0.1 householdKeyOld (test key, not a secret)
+
+試験用の鍵は、各行の「: 」の後の文字列（UTF-8）の SHA-256。秘密ではない。中身は架空。

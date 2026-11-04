@@ -98,6 +98,8 @@ pub struct OfficeStatus {
     pub recovery_required: bool,
     /// まだ見ていない知らせ（復元キーで加わった人など）
     pub notices: Vec<NoticeView>,
+    /// 名簿の自分の役割が閲覧だけ（新しい版のアプリが決めた、この版の知らない役割。世帯を開けるが、保存・共有の操作はできない。0023 の2）
+    pub view_only: bool,
 }
 
 /// 分岐を選ぶ画面の材料（0023 の7）
@@ -187,6 +189,13 @@ fn digest_of(p: &Path) -> Option<String> {
 }
 
 impl Shared {
+    /// 自分がすべての操作ができる役割か（名簿の自分の役割が知らないものなら閲覧だけ。0023 の2）
+    pub(super) fn can_edit(&self) -> bool {
+        self.roster
+            .member(&self.me.member_id)
+            .is_some_and(Member::can_edit)
+    }
+
     pub(super) fn household_path(&self, id: &str) -> PathBuf {
         debug_assert!(crypto::is_uuid(id));
         self.paths
@@ -348,6 +357,55 @@ impl Shared {
         fs::create_dir_all(self.paths.statement_dict_dir()).map_err(|_| StoreError::IO)?;
         atomic::replace_no_prev(&self.paths.statement_dict(me), &bytes)?;
         Ok(())
+    }
+
+    /// 入れ替えの後も前の時代の親鍵のまま残った世帯の札・明細の辞書を、今の親鍵で書き直す。
+    /// 前の親鍵は30日で名簿から消すので、その前に今の時代へ移さないと、札（一覧に出ない）・辞書（覚えた行）が開けなくなる。
+    /// `only_dict_of` を渡すと、そのメンバーの明細の辞書だけ（自分のファイルを自分で書き直す。ふだんはこちら）
+    pub(super) fn reseal_stale(&self, only_dict_of: Option<&str>) {
+        let cur = self.roster.master_key_id.as_str();
+        if only_dict_of.is_none() {
+            if let Ok(rd) = fs::read_dir(self.paths.cards_dir()) {
+                for e in rd.filter_map(|e| e.ok()) {
+                    let name = e.file_name().to_string_lossy().into_owned();
+                    let Some(id) = name.strip_suffix(".lpcd").filter(|i| crypto::is_uuid(i)) else {
+                        continue;
+                    };
+                    let Ok(b) = fs::read(e.path()) else {
+                        continue;
+                    };
+                    if office::peek_card_master(&b).ok().as_deref() == Some(cur) {
+                        continue;
+                    }
+                    if let Ok(c) = office::open_card(&b, id, |mk| self.master_for(mk)) {
+                        let _ = self.write_card(id, &c);
+                    }
+                }
+            }
+        }
+        let members: Vec<String> = match only_dict_of {
+            Some(m) => vec![m.to_owned()],
+            None => self
+                .roster
+                .members
+                .iter()
+                .map(|m| m.member_id.clone())
+                .collect(),
+        };
+        for mid in members {
+            let p = self.paths.statement_dict(&mid);
+            let Ok(b) = fs::read(&p) else {
+                continue;
+            };
+            if office::peek_statement_dict_master(&b).ok().as_deref() == Some(cur) {
+                continue;
+            }
+            if let Ok(v) = office::open_statement_dict(&b, &mid, |mk| self.master_for(mk)) {
+                let bytes =
+                    office::encode_statement_dict(&self.office_id, cur, &mid, &v, &self.master);
+                let _ = atomic::replace_no_prev(&p, &bytes);
+            }
+        }
     }
 
     fn read_presence(&self, hid: &str, mid: &str) -> Option<Presence> {
@@ -520,7 +578,8 @@ impl Shared {
             acknowledged_at: now.to_owned(),
             acknowledged_by: self.me.member_id.clone(),
             verified_at: prev.as_ref().and_then(|a| a.verified_at.clone()),
-            verified_by: prev.and_then(|a| a.verified_by),
+            verified_by: prev.as_ref().and_then(|a| a.verified_by.clone()),
+            extra: prev.map(|a| a.extra).unwrap_or_default(),
         });
         r.updated_at = now.to_owned();
         r.updated_by = Some(self.me.member_id.clone());
@@ -543,6 +602,7 @@ impl Shared {
                 .map_or_else(|| me.clone(), |a| a.acknowledged_by.clone()),
             verified_at: Some(now.to_owned()),
             verified_by: Some(me.clone()),
+            extra: prev.map(|a| a.extra).unwrap_or_default(),
         });
         r.updated_at = now.to_owned();
         r.updated_by = Some(me);
@@ -604,6 +664,9 @@ impl Store {
                     let _ = self.write_office(s);
                 }
                 self.prune_previous(&mut sh);
+                // 鍵が入れ替わっていたら、自分の明細の辞書を今の時代へ（0034 の辞書を前の親鍵のまま残さない）
+                let me = sh.me.member_id.clone();
+                sh.reseal_stale(Some(&me));
                 let align = sh.roster.personal().then(|| sh.master.clone());
                 s.shared = Some(sh);
                 // 1人で複数の PC: 同期フォルダの鍵が入れ替わっていたら（PC を外した）、この PC の中の事務所の鍵もそろえる（0024）
@@ -723,6 +786,8 @@ impl Store {
                 }
             }
         }
+        // 前の時代のまま残った世帯の札・明細の辞書も、今の時代へ書き直す（消した後は開けなくなる）
+        sh.reseal_stale(None);
         let mut r = sh.roster.clone();
         r.previous.retain(|p| !expired(p));
         let m = sh.master.clone();
@@ -795,6 +860,7 @@ impl Store {
             recovery_verified_at: None,
             recovery_required: false,
             notices: vec![],
+            view_only: false,
         };
         let Some(set) = set else {
             return st;
@@ -862,6 +928,7 @@ impl Store {
                 st.recovery_verified_at = ack.verified_at.clone();
             }
             st.recovery_required = !st.recovery_acknowledged;
+            st.view_only = !sh.can_edit();
             // 知らせ: 自分が加わった後の、ほかのメンバーの「復元キーで加わった」で、この PC でまだ見ていないもの
             let seen = set.notices_seen_at.as_deref().unwrap_or("");
             let since = set.joined_at.as_deref().unwrap_or("");
@@ -973,6 +1040,7 @@ impl Store {
                     .verified_at
                     .as_ref()
                     .map(|_| member_id.clone()),
+                extra: Default::default(),
             }),
             _ => None,
         };
@@ -991,6 +1059,7 @@ impl Store {
             joined_at: at.clone(),
             approved_by: None,
             role: office::ROLE_MEMBER.into(),
+            extra: Default::default(),
         };
         let roster = Roster {
             office_id: office_id.clone(),
@@ -1017,6 +1086,7 @@ impl Store {
                 .then(|| s.data.numbering.categories.clone()),
             updated_at: at.clone(),
             updated_by: Some(member_id.clone()),
+            extra: Default::default(),
         };
         for d in [
             paths.households_dir(),
@@ -1243,6 +1313,7 @@ impl Store {
             joined_at: at.clone(),
             approved_by: None,
             role: office::ROLE_MEMBER.into(),
+            extra: Default::default(),
         };
         roster.members.push(me.clone());
         roster.push_event(RosterEvent {
@@ -1250,6 +1321,7 @@ impl Store {
             member_id: member_id.clone(),
             display_name: name.clone(),
             at: at.clone(),
+            extra: Default::default(),
         });
         // 復元キーで開けたので、今の親鍵の保管の記録が無ければ「試して確かめた」として書く
         if !roster
@@ -1263,6 +1335,7 @@ impl Store {
                 acknowledged_by: member_id.clone(),
                 verified_at: Some(at.clone()),
                 verified_by: Some(member_id.clone()),
+                extra: Default::default(),
             });
         }
         roster.updated_at = at.clone();
@@ -1355,6 +1428,7 @@ impl Store {
         let now = self.now();
         let s = Self::session(&mut g)?;
         self.refresh_shared(s)?;
+        Self::writable(s)?;
         let sh = Self::shared_mut(s)?;
         if personal && !sh.roster.personal() {
             return Err(StoreError::OFFICE_STATE);
@@ -1393,6 +1467,8 @@ impl Store {
         for id in &ids {
             self.copy_to_local(s, id)?;
         }
+        // 明細の取り込みで覚えた辞書と形も、名簿のメンバー全員の分をこの PC の中へまとめる（1人で複数の PC なら、もう1台の PC が覚えた分も）
+        s.data.statement = Self::statement_merged(s);
         // 2. 名簿に「終えた」印（ここで共有の事務所は使えなくなる。復元キーで加わることもできない）
         let at = iso_of(now);
         let sh = Self::shared_mut(s)?;
@@ -1400,6 +1476,7 @@ impl Store {
         r.closed = Some(ClosedMark {
             closed_at: at.clone(),
             closed_by: sh.me.member_id.clone(),
+            extra: Default::default(),
         });
         r.updated_at = at;
         r.updated_by = Some(sh.me.member_id.clone());
@@ -1410,6 +1487,9 @@ impl Store {
             let _ = sh.delete_household(id);
         }
         for q in files_starting_with(&sh.paths.requests_dir(), "") {
+            let _ = fs::remove_file(q);
+        }
+        for q in files_starting_with(&sh.paths.statement_dict_dir(), "") {
             let _ = fs::remove_file(q);
         }
         // 4. この PC の共有の設定と、保管庫の共有の事務所の鍵を片付ける（PC の中の事務所と、その復元キーに戻る）
@@ -1538,6 +1618,7 @@ impl Store {
         let now = self.now();
         let s = Self::session(&mut g)?;
         self.refresh_shared(s)?;
+        Self::writable(s)?;
         let sh = Self::shared_mut(s)?;
         // 1人で複数の PC の同期フォルダには、ほかの人を加えない（PC は復元キーで加わる。0024）
         if sh.roster.personal() {
@@ -1566,6 +1647,7 @@ impl Store {
                 joined_at: iso_of(now),
                 approved_by: Some(sh.me.member_id.clone()),
                 role: office::ROLE_MEMBER.into(),
+                extra: Default::default(),
             });
             r.updated_at = iso_of(now);
             r.updated_by = Some(sh.me.member_id.clone());
@@ -1584,6 +1666,7 @@ impl Store {
         let mut g = self.lock();
         let s = Self::session(&mut g)?;
         self.refresh_shared(s)?;
+        Self::writable(s)?;
         let sh = Self::shared_mut(s)?;
         remove_if_exists(&sh.paths.request(request_id))?;
         Ok(self.office_status_of(s))
@@ -1600,6 +1683,7 @@ impl Store {
         let now = self.now();
         let s = Self::session(&mut g)?;
         self.refresh_shared(s)?;
+        Self::writable(s)?;
         let sh = Self::shared_mut(s)?;
         if member_id == sh.me.member_id {
             return Err(StoreError::OFFICE_SELF);
@@ -1663,6 +1747,7 @@ impl Store {
             display_name: target.display_name.clone(),
             removed_at: at.clone(),
             removed_by: Some(sh.me.member_id.clone()),
+            extra: Default::default(),
         });
         r.previous.insert(
             0,
@@ -1724,6 +1809,7 @@ impl Store {
         let mut g = self.lock();
         let s = Self::session(&mut g)?;
         self.refresh_shared(s)?;
+        Self::writable(s)?;
         let n = self.move_local(s)?;
         g.opened.clear();
         Ok(n)
@@ -1777,6 +1863,7 @@ impl Store {
                         updated_by: None,
                         generation: header.generation + 1,
                         label: entry.label.clone(),
+                        extra: Default::default(),
                     },
                 )?;
             }
@@ -1986,6 +2073,7 @@ impl Store {
         let mut g = self.lock();
         let s = Self::session(&mut g)?;
         Self::usable(s)?;
+        Self::writable(s)?;
         let copies = sync_copy_names(&self.hh_dir(s))
             .remove(id)
             .unwrap_or_default();

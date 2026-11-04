@@ -307,8 +307,10 @@ pub struct Opened {
     pub id: String,
     pub customer_no: String,
     pub body: String,
-    /// MINOR だけが新しい形式: 閲覧だけ
+    /// 閲覧だけ（MINOR だけが新しい形式か、名簿の自分の役割が閲覧だけ）
     pub read_only: bool,
+    /// 閲覧だけの理由が、名簿の自分の役割（知らない役割は閲覧だけ。0023 の2）
+    pub view_only: bool,
     pub generation: u64,
     /// この改訂を保存した人の表示名（事務所で共有しているとき）
     pub saved_by: Option<String>,
@@ -1089,6 +1091,14 @@ impl Store {
         }
     }
 
+    /// 書く操作の前置き: 事務所で共有していて、名簿の自分の役割が閲覧だけなら止める（0023 の2）
+    fn writable(s: &Session) -> Result<(), StoreError> {
+        match &s.shared {
+            Some(sh) if !sh.can_edit() => Err(StoreError::OFFICE_VIEW_ONLY),
+            _ => Ok(()),
+        }
+    }
+
     /// 顧客の世帯の一覧（新しく保存した順。見本は入れない。0033）
     pub fn list(&self) -> Result<Vec<HouseholdEntry>, StoreError> {
         Ok(self
@@ -1360,6 +1370,7 @@ impl Store {
             let s = Self::session(&mut g)?;
             Self::usable(s)?;
             self.refresh_shared(s)?;
+            Self::writable(s)?;
             let mut data = s.data.clone();
             let labels = Self::all_labels(s);
             let (customer_no, label) = match &opts.sample {
@@ -1429,6 +1440,7 @@ impl Store {
                         updated_by: author.clone(),
                         generation: 1,
                         label: label.clone(),
+                        extra: Default::default(),
                     },
                 )?,
                 None => {
@@ -1469,6 +1481,7 @@ impl Store {
             customer_no,
             body: String::from_utf8_lossy(&plain).into_owned(),
             read_only: false,
+            view_only: false,
             generation: 1,
             saved_by,
             others_open: others,
@@ -1538,6 +1551,7 @@ impl Store {
                 s.data.last_opened = Some(id.to_owned());
                 self.write_office(s)?;
             }
+            let view_only = Self::writable(s).is_err();
             let others = match &mut s.shared {
                 Some(sh) => sh.enter(id, now),
                 None => vec![],
@@ -1547,7 +1561,8 @@ impl Store {
                     id: id.to_owned(),
                     customer_no,
                     body: serde_json::to_string(&value).expect("本文の JSON"),
-                    read_only: access == Access::ReadOnly,
+                    read_only: access == Access::ReadOnly || view_only,
+                    view_only,
                     generation: h.generation,
                     saved_by,
                     others_open: others,
@@ -1589,6 +1604,7 @@ impl Store {
             let s = Self::session(&mut g)?;
             Self::usable(s)?;
             self.refresh_shared(s)?;
+            Self::writable(s)?;
             let author = s.shared.as_ref().map(|sh| sh.me.clone());
             let (customer_no, card) = match &s.shared {
                 Some(sh) => {
@@ -1746,6 +1762,7 @@ impl Store {
         let s = Self::session(g)?;
         Self::usable(s)?;
         self.refresh_shared(s)?;
+        Self::writable(s)?;
         Ok(s)
     }
 
@@ -2015,6 +2032,7 @@ impl Store {
             let s = Self::session(&mut g)?;
             Self::usable(s)?;
             self.refresh_shared(s)?;
+            Self::writable(s)?;
             if let Some(sh) = &s.shared {
                 let card = sh.read_card(id)?;
                 if confirm.trim() != card.customer_no {

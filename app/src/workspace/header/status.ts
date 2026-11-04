@@ -62,7 +62,7 @@ export function barAlerts(i: BarInputs): AlertSpec[] {
   const out: AlertSpec[] = [];
   if (i.opened && i.stored) {
     if (i.paused) out.push({ kind: "paused", text: "自動保存を止めています", short: "保存停止中", title: "ほかの人がこの世帯を開いているため、「編集を始める」を押すまでこの画面の変更は保存しません", tone: "warn" });
-    else if (i.save.kind === "error" && i.save.code === "E_STORE_READ_ONLY") out.push({ kind: "readOnly", text: "閲覧だけ（保存しません）", short: "閲覧だけ", title: i.message(i.save.code), tone: "warn" });
+    else if (i.save.kind === "error" && (i.save.code === "E_STORE_READ_ONLY" || i.save.code === "E_OFFICE_VIEW_ONLY")) out.push({ kind: "readOnly", text: "閲覧だけ（保存しません）", short: "閲覧だけ", title: i.message(i.save.code), tone: "warn" });
     else if (i.save.kind === "error") out.push({ kind: "saveError", text: "保存できませんでした", short: "保存の失敗", title: i.message(i.save.code), tone: "err" });
   }
   if (i.opened && i.aiSharing) out.push({ kind: "aiSharing", text: "AIと共有中", short: "AI共有", title: "この世帯をAIに渡しています（縮約版・期限つき）。押すと、同意と共有の画面を開きます", tone: "ai" });
