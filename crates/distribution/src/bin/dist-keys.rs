@@ -8,9 +8,18 @@
 //!     その秘密鍵の [keys] の1行を出し直す
 //! dist-keys seal <pack-catalog|revocations|notices> <秘密鍵のファイル> <中身の JSON のファイル>
 //!     中身の JSON（そのままのバイト列）に署名した封筒を出す。鍵の役割が中身の種類に合わなければ止める
+//! dist-keys revocations new <下書き>
+//!     取り下げの一覧の下書き（中身の JSON。通し番号 0・何も載っていない）を作る（既にあれば止める）
+//! dist-keys revocations show <下書き>
+//!     下書きの中身（通し番号・期限・載っている数）を出す
+//! dist-keys revocations sign <取り下げ用の秘密鍵> <下書き> <出す一覧のファイル> [--days <日数>]
+//!     下書きの通し番号を1つ上げ、作った時刻を今・有効期限を日数（既定90日）の後にして署名し、配信元に置く一覧
+//!     （`/v1/revocations/revocations.json`）を書く。下書きも上げた通し番号で書き直す
 //! ```
 //!
 //! アプリ更新用の鍵は、この道具ではなく `tauri signer generate`・`tauri signer sign` を使う。
+//! 機能を有効にするコードの鍵（`feature_code`）は、コードの発行の道具（`feature-code keygen`）で作る（0110）。
+//! 取り下げの一覧に、機能を有効にするコードの番号を足す・外すのは `feature-code revocations add|remove`（同じ下書きを直す）。
 //! 秘密鍵のファイルは、オフラインの2か所に控える（0117 の2）。この道具は秘密鍵を画面にもログにも出さない。
 
 use std::fs::{self, OpenOptions};
@@ -21,7 +30,7 @@ use std::process::ExitCode;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64URL;
 use base64::Engine as _;
 use distribution::keys::{valid_kid, Role};
-use distribution::{envelope, pack_catalog, revocations};
+use distribution::{envelope, format_utc, pack_catalog, revocations};
 use ed25519_dalek::SigningKey;
 use zeroize::Zeroizing;
 
@@ -64,8 +73,8 @@ fn outside_repository(path: &Path) -> Result<(), String> {
 
 fn keygen(role: &str, kid: &str, path: &Path) -> Result<String, String> {
     let role = Role::from_name(role)
-        .filter(|r| *r != Role::AppUpdate)
-        .ok_or("役割は data・auto_delivery・revocation のどれか（アプリ更新用の鍵は tauri signer generate で作る）")?;
+        .filter(|r| !matches!(r, Role::AppUpdate | Role::FeatureCode))
+        .ok_or("役割は data・auto_delivery・revocation のどれか（アプリ更新用の鍵は tauri signer generate、機能を有効にするコードの鍵は feature-code keygen で作る）")?;
     if !valid_kid(kid) {
         return Err("鍵の名前は英小文字・数字・「-」の32文字まで（例: data-2026a）".into());
     }
@@ -153,8 +162,112 @@ fn seal(kind: &str, key_path: &Path, payload_path: &Path) -> Result<String, Stri
     Ok(envelope::seal(&payload, format, &[(&s.kid, &s.key)]))
 }
 
+fn now_secs() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| i64::try_from(d.as_secs()).unwrap_or(0))
+        .unwrap_or(0)
+}
+
+fn read_draft(path: &Path) -> Result<revocations::RevocationList, String> {
+    let text = fs::read_to_string(path)
+        .map_err(|e| format!("下書き {} を読めません: {e}", path.display()))?;
+    revocations::parse_payload(&text)
+        .map(|v| v.list)
+        .map_err(|e| format!("下書き {} の形が違います（{e}）", path.display()))
+}
+
+/// 別の名前に書いてから置き換える（書きかけで壊さない）
+fn write_replace(path: &Path, text: &str) -> Result<(), String> {
+    let tmp = path.with_extension("tmp");
+    fs::write(&tmp, text)
+        .and_then(|_| fs::rename(&tmp, path))
+        .map_err(|e| format!("{} に書けません: {e}", path.display()))
+}
+
+fn draft_text(list: &revocations::RevocationList) -> String {
+    let mut s = serde_json::to_string_pretty(list).unwrap_or_default();
+    s.push('\n');
+    s
+}
+
+fn revocations_cmd(args: &[String]) -> Result<String, String> {
+    match args {
+        [c, draft] if c == "new" => {
+            let path = PathBuf::from(draft);
+            if path.exists() {
+                return Err(format!("{} は既にあります（上書きしません）", path.display()));
+            }
+            let list = revocations::empty_draft(now_secs());
+            write_replace(&path, &draft_text(&list))?;
+            Ok(format!("下書きを作りました: {}", path.display()))
+        }
+        [c, draft] if c == "show" => {
+            let l = read_draft(&PathBuf::from(draft))?;
+            let r = &l.revoked;
+            Ok(format!(
+                "通し番号 {}（次に署名すると {}）\n作った時刻 {}・有効期限 {}\n最低版 {}\n載っているもの: 制度の値 {}・計算部品 {}・パック {}・アプリの版 {}・鍵 {}・機能を有効にするコード {}{}",
+                l.serial,
+                l.serial + 1,
+                l.issued_at,
+                l.expires_at,
+                l.min_app_version.as_deref().unwrap_or("なし"),
+                r.regulation_values.len(),
+                r.component_revisions.len(),
+                r.packs.len(),
+                r.app_versions.len(),
+                r.keys.len(),
+                r.feature_codes.len(),
+                if r.keys.is_empty() {
+                    String::new()
+                } else {
+                    format!("\n取り下げた鍵: {}", r.keys.join("・"))
+                }
+            ))
+        }
+        [c, key, draft, out, rest @ ..] if c == "sign" => {
+            let days = match rest {
+                [] => revocations::DEFAULT_VALID_DAYS,
+                [f, n] if f == "--days" => n
+                    .parse()
+                    .map_err(|_| "--days は日数（1〜366）".to_owned())?,
+                _ => return Err("使い方: dist-keys revocations sign <取り下げ用の秘密鍵> <下書き> <出す一覧のファイル> [--days <日数>]".into()),
+            };
+            let s = read_secret(&PathBuf::from(key))?;
+            if s.role != Role::Revocation {
+                return Err(format!(
+                    "{} の鍵では取り下げの一覧に署名できません（取り下げ用の鍵を使う。0017 の5）",
+                    s.role.name()
+                ));
+            }
+            let draft_path = PathBuf::from(draft);
+            let list = read_draft(&draft_path)?;
+            let now = now_secs();
+            let next = revocations::next_issue(&list, now, days)
+                .map_err(|e| format!("下書きの形が違います（{e}。--days は 1〜366）"))?;
+            let payload = serde_json::to_string(&next).map_err(|e| e.to_string())?;
+            let sealed = envelope::seal(&payload, revocations::ENVELOPE_FORMAT, &[(&s.kid, &s.key)]);
+            write_replace(&PathBuf::from(out), &sealed)?;
+            write_replace(&draft_path, &draft_text(&next))?;
+            Ok(format!(
+                "{out} を書きました（通し番号 {}・有効期限 {}・機能を有効にするコード {} 件・鍵 {}）。配信元の /v1/revocations/revocations.json に置くと、アプリが次に確かめたときから効きます。有効期限（{}）の前に出し直してください（今は {}）",
+                next.serial,
+                next.expires_at,
+                next.revoked.feature_codes.len(),
+                s.kid,
+                next.expires_at,
+                format_utc(now)
+            ))
+        }
+        _ => Err("使い方: dist-keys revocations new <下書き> | show <下書き> | sign <取り下げ用の秘密鍵> <下書き> <出す一覧のファイル> [--days <日数>]".into()),
+    }
+}
+
 fn run(args: &[String]) -> Result<String, String> {
-    let usage = "使い方: dist-keys keygen <役割> <鍵の名前> <秘密鍵のファイル> | public <秘密鍵のファイル> | seal <種類> <秘密鍵のファイル> <中身のファイル>";
+    let usage = "使い方: dist-keys keygen <役割> <鍵の名前> <秘密鍵のファイル> | public <秘密鍵のファイル> | seal <種類> <秘密鍵のファイル> <中身のファイル> | revocations new|show|sign …";
+    if args.first().is_some_and(|c| c == "revocations") {
+        return revocations_cmd(&args[1..]);
+    }
     match args {
         [c, role, kid, path] if c == "keygen" => keygen(role, kid, &PathBuf::from(path)),
         [c, path] if c == "public" => read_secret(&PathBuf::from(path)).map(|s| public_line(&s)),

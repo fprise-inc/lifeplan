@@ -2,12 +2,15 @@
 //!
 //! - 提供元がコードを発行する。コードの中身（[`Claims`]）は、機能の名前（複数可）・FP の表示名・発行日・期限・コードの番号と、
 //!   署名した鍵の名前。提供元の秘密鍵で Ed25519 の署名を付ける。
-//! - アプリは公開鍵（配布元の設定 `config/distribution.toml` の `[keys]` の `feature_code`）を埋め込み、ネットにつながずに
+//! - アプリは公開鍵（配布元の設定 `config/distribution.toml` の `[keys]` の `feature_code`。現用＋次期の2本まで）を埋め込み、ネットにつながずに
 //!   本物か（[`verify`]）・期限内か（[`status`]）を確かめる。期限は日本の日付（UTC+9）で、期限の日の終わりまで使える。
+//!   鍵の束は配布の部品（`distribution::keys`）のもので、[`keys_from_ring`] で取り出す。開発用の鍵（`[dev_keys]`。名前は `dev-` で始まる）は
+//!   開発用のビルドだけが束に足すので、試しの鍵で発行したコードは製品のビルドでは「確かめられないコード」になる。
 //! - 期限は省ける（期限なしのコード。中身の形の版 2）。期限のあるコードは今までどおり版 1 で出し、前の版のアプリでも読める。
-//! - 提供元は、途中でやめた人のコードを「止めた一覧」（[`revocation`]。別の鍵で署名した小さな JSON）に載せて止める。
-//!   アプリは配信元から一覧を取りに行き、載っているコードの機能を止める（データは消さない）。一覧から外れたら、次に確かめたときに戻る。
-//!   つながらない・一覧を取れないときは、最後に取れた一覧で判断する（今の状態のまま使える）。
+//! - 提供元は、途中でやめた人・返金した人のコードや漏れたコードを、配布の取り下げの一覧（`distribution::revocations`。取り下げ用の鍵で署名）の
+//!   `revoked.featureCodes` に番号で載せて止める。アプリは配信元から一覧を取りに行き、載っているコードの機能を止める（データは消さない）。
+//!   一覧から外れたら、次に確かめたときに戻る。つながらない・一覧を取れないときは、最後に取れた一覧で判断する（今の状態のまま使える）。
+//!   発行の道具が一覧の下書きに番号を足す・外す（[`issuer`]）。署名は配布の道具（`dist-keys revocations sign`）。
 //! - 期限の切れた・止めたコードの知らせは、分かった日から7日だけ出す（[`notice`]。閉じたらその前でも出さない。コードは外さない）。
 //! - 形: `LPFC1-` ＋ 中身の JSON（base64url）＋ `.` ＋ 署名（base64url）。署名するのは「決まった前置き＋中身の JSON のバイト列」。
 //!   写すときに入った空白・改行は無視する（[`normalize`]）。
@@ -24,7 +27,6 @@ use zeroize::Zeroizing;
 
 pub mod issuer;
 pub mod notice;
-pub mod revocation;
 
 /// コードの最初の印（形の版 1）
 pub const PREFIX: &str = "LPFC1-";
@@ -203,10 +205,9 @@ pub fn today_now() -> String {
 
 // ---- 中身の確かめ（発行と確かめで同じ）----
 
+/// 鍵の名前の形（配布の鍵の束と同じ決まり: 英小文字・数字・「-」の32文字まで、「-」で始めない）
 fn valid_kid(s: &str) -> bool {
-    (1..=16).contains(&s.len())
-        && s.bytes()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
+    distribution::keys::valid_kid(s)
 }
 
 /// コードの番号: 英数字で始まり、英数字と「-」「_」「.」の32文字まで
@@ -249,7 +250,7 @@ fn claims_problem(c: &Claims) -> Option<String> {
         _ => return Some("中身の形の版が違います".into()),
     }
     if !valid_kid(&c.kid) {
-        return Some("鍵の名前は英小文字・数字・「-」の16文字までです".into());
+        return Some("鍵の名前は英小文字・数字・「-」の32文字までです".into());
     }
     if !valid_id(&c.id) {
         return Some(
@@ -316,6 +317,19 @@ pub fn parse_public_keys(lines: &[&str]) -> Result<Vec<PublicKey>, Error> {
     lines.iter().map(|l| PublicKey::parse(l)).collect()
 }
 
+/// 鍵の束（配布の部品。本番の鍵・開発用のビルドでは開発用の鍵も。取り下げた鍵は外したもの）から、コードの鍵（`feature_code`）を取り出す
+pub fn keys_from_ring(ring: &distribution::keys::KeyRing) -> Vec<PublicKey> {
+    ring.ed25519_keys(distribution::keys::Role::FeatureCode)
+        .into_iter()
+        .map(|(kid, key)| PublicKey { kid, key })
+        .collect()
+}
+
+/// 取り下げの一覧（確かめたもの）で止めるコードの番号
+pub fn revoked_ids(list: &distribution::revocations::Verified) -> Vec<String> {
+    list.list.revoked.feature_codes.clone()
+}
+
 /// 提供元の秘密鍵（発行の道具だけが使う。落とすときに消す）
 pub struct SecretKey {
     pub kid: String,
@@ -335,7 +349,9 @@ impl SecretKey {
     /// 新しく作る（種は OS の乱数）
     pub fn generate(kid: &str) -> Result<SecretKey, String> {
         if !valid_kid(kid) {
-            return Err("鍵の名前は英小文字・数字・「-」の16文字までです".into());
+            return Err(
+                "鍵の名前は英小文字・数字・「-」の32文字までです（「-」で始めない）".into(),
+            );
         }
         let mut seed = Zeroizing::new([0u8; 32]);
         getrandom::getrandom(seed.as_mut()).map_err(|_| "乱数を作れませんでした".to_owned())?;

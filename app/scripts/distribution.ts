@@ -13,9 +13,10 @@ interface Distribution {
   identifier: string;
   product_name: { ja: string; en: string };
   publisher: string;
-  endpoints: { host: string; feature_code_revocations?: string } & Record<string, string>;
+  endpoints: { host: string; revocations?: string } & Record<string, string>;
   feedback: { form: string };
   keys: Record<string, string[]>;
+  dev_keys?: Record<string, string[]>;
   signing?: Signing;
 }
 
@@ -41,8 +42,8 @@ for (const w of conf.app.windows) w.title = dist.product_name.ja;
 const after = JSON.stringify(conf, null, 2) + "\n";
 
 const problems: string[] = [];
-// 0117: 4種類の鍵（現用＋次期の2本まで・書き方・役割をまたいだ重なり）と、OS のコード署名の名前（[signing]）の形
-problems.push(...keyProblems(dist.keys), ...signingProblems(dist.signing));
+// 0117: 鍵（現用＋次期の2本まで・書き方・役割をまたいだ重なり・本番と開発用の名前の決まり）と、OS のコード署名の名前（[signing]）の形
+problems.push(...keyProblems(dist.keys, dist.dev_keys ?? {}), ...signingProblems(dist.signing));
 if (before !== after) problems.push("app/src-tauri/tauri.conf.json が config/distribution.toml と食い違っています（npm run gen:distribution）");
 // 更新の公開鍵・配信先は、配布・更新の回で distribution.toml から入れる（いまは Tauri の updater を使っていない）
 if (conf.plugins !== undefined && "updater" in conf.plugins) problems.push("tauri.conf.json に updater の設定が直接書かれています（distribution.toml から作る）");
@@ -52,17 +53,16 @@ const allowed = new Set(["config/distribution.toml", "app/src-tauri/tauri.conf.j
 const files = execFileSync("git", ["ls-files", "-co", "--exclude-standard"], { cwd: REPO_DIR, encoding: "utf8" })
   .split("\n")
   .filter((f) => f !== "" && !allowed.has(f) && !f.startsWith("docs/") && !/\.(png|ico|icns|woff2?|ttf)$/.test(f) && !f.includes("node_modules/"));
-// 機能を有効にするコードの公開鍵（0110）と、その止めた一覧の公開鍵（0110 の追記。コードの鍵とは別）も、このファイルの外に直接書かない（差し替えるときに1か所で済むように）
-const featureKeys = [...(dist.keys.feature_code ?? []), ...(dist.keys.feature_code_revocation ?? [])].map((k) => k.slice(k.indexOf(":") + 1)).filter((k) => k.length >= 40);
-// 4種類の鍵（0017 の5・0117）も同じ（Tauri の公開鍵の文字列はそのまま、ほかは公開鍵の部分）
-const roleKeys = KEY_ROLES.flatMap((r) => dist.keys[r] ?? []).map((k) => (k.includes(":") ? k.slice(k.indexOf(":") + 1) : k)).filter((k) => k.length >= 40);
-// 止めた一覧の場所は、自動通信の相手（host）の https だけ。クエリは付けない（0017 の4・0110 の追記）
-const revUrl = dist.endpoints.feature_code_revocations;
-if (revUrl === undefined) problems.push("config/distribution.toml に [endpoints] の feature_code_revocations がありません（0110 の追記）");
-else if (!revUrl.startsWith(`https://${dist.endpoints.host}/`) || /[?#@\\ ]/.test(revUrl)) problems.push(`config/distribution.toml の feature_code_revocations（${revUrl}）は https://${dist.endpoints.host}/… の形にする`);
-const revKeys = new Set(dist.keys.feature_code_revocation ?? []);
-if ((dist.keys.feature_code ?? []).some((k) => revKeys.has(k))) problems.push("config/distribution.toml: 止めた一覧の鍵（feature_code_revocation）は、コードの鍵（feature_code）と別の鍵にする");
-for (const needle of [dist.identifier, dist.endpoints.host, dist.feedback.form, ...featureKeys, ...roleKeys]) {
+// 鍵（0017 の5・0117。機能を有効にするコードの鍵〔0110〕と、開発用の鍵〔[dev_keys]〕も）は、このファイルの外に直接書かない
+// （差し替えるときに1か所で済むように。Tauri の公開鍵の文字列はそのまま、ほかは公開鍵の部分）
+const roleKeys = KEY_ROLES.flatMap((r) => [...(dist.keys[r] ?? []), ...(dist.dev_keys?.[r] ?? [])])
+  .map((k) => (k.includes(":") ? k.slice(k.indexOf(":") + 1) : k))
+  .filter((k) => k.length >= 40);
+// 本体が取りに行く取り下げの一覧の場所は、自動通信の相手（host）の https だけ。クエリは付けない（0017 の4・0110 の追記）
+const revUrl = dist.endpoints.revocations;
+if (revUrl === undefined) problems.push("config/distribution.toml に [endpoints] の revocations がありません（0117 の3 (3)）");
+else if (!revUrl.startsWith(`https://${dist.endpoints.host}/`) || /[?#@\\ ]/.test(revUrl)) problems.push(`config/distribution.toml の revocations（${revUrl}）は https://${dist.endpoints.host}/… の形にする`);
+for (const needle of [dist.identifier, dist.endpoints.host, dist.feedback.form, ...roleKeys]) {
   for (const f of files) {
     let text: string;
     try {

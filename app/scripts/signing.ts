@@ -2,9 +2,11 @@
 // CI のビルドで「秘密の値があれば署名する・無ければ署名せずにビルドする」ための Tauri の設定の上書きを作る部品。
 // 秘密の値そのものは、ログにも上書きの設定にも書かない（環境変数の名前だけを扱う）。
 
-/** 4種類の鍵（0017 の5）。app_update は Tauri の公開鍵の文字列、ほかは「鍵の名前:公開鍵（base64url の43文字）」 */
-export const KEY_ROLES = ["app_update", "data", "auto_delivery", "revocation"] as const;
+/** 鍵の役割（0017 の5 の4種類と、機能を有効にするコードの鍵〔0110 の追記 2026-11-04〕）。app_update は Tauri の公開鍵の文字列、ほかは「鍵の名前:公開鍵（base64url の43文字）」 */
+export const KEY_ROLES = ["app_update", "data", "auto_delivery", "revocation", "feature_code"] as const;
 export const MAX_KEYS_PER_ROLE = 2;
+/** 開発用の鍵（[dev_keys]）の名前の前置き。[keys]（本番の鍵）の名前はこれで始めない（crates/distribution の DEV_KID_PREFIX と同じ） */
+export const DEV_KID_PREFIX = "dev-";
 
 export interface Signing {
   mac_signing_identity: string;
@@ -48,38 +50,47 @@ function keyBytes(role: string, line: string): string | null {
   return Buffer.from(line.slice(line.indexOf(":") + 1), "base64url").toString("hex");
 }
 
-/** [keys] の4つの並びの形（本数・書き方・名前と公開鍵の重なり）の誤り */
-export function keyProblems(keys: Record<string, unknown>): string[] {
+/** [keys]（本番の鍵）と [dev_keys]（開発用の鍵）の並びの形（本数・書き方・本番と開発用の名前の決まり・名前と公開鍵の重なり）の誤り。
+ * 決まりは crates/distribution の KeyRing::from_config・with_dev と同じ（本体の build.rs もそちらで確かめる） */
+export function keyProblems(keys: Record<string, unknown>, devKeys: Record<string, unknown> = {}): string[] {
   const problems: string[] = [];
   const seenKid = new Set<string>();
   const seenKey = new Map<string, string>();
-  for (const role of KEY_ROLES) {
-    const list = keys[role];
-    if (!Array.isArray(list) || !list.every((x) => typeof x === "string")) {
-      problems.push(`config/distribution.toml: [keys] の ${role} は文字列の配列にする`);
-      continue;
+  for (const [section, table, dev] of [["keys", keys, false], ["dev_keys", devKeys, true]] as const) {
+    for (const role of KEY_ROLES) {
+      const list = table[role] ?? (dev ? [] : undefined);
+      if (!Array.isArray(list) || !list.every((x) => typeof x === "string")) {
+        problems.push(`config/distribution.toml: [${section}] の ${role} は文字列の配列にする`);
+        continue;
+      }
+      if (dev && role === "app_update" && list.length > 0) {
+        problems.push(`config/distribution.toml: [${section}] には app_update を書けない（アプリ更新用の鍵は開発用と見分けられない）`);
+        continue;
+      }
+      if (list.length > MAX_KEYS_PER_ROLE) problems.push(`config/distribution.toml: [${section}] の ${role} は現用と次期の ${MAX_KEYS_PER_ROLE} 本まで`);
+      list.forEach((line: string, i) => {
+        const bytes = keyBytes(role, line);
+        if (bytes === null) {
+          problems.push(
+            role === "app_update"
+              ? `config/distribution.toml: [${section}] の app_update の ${i + 1} 本目は、tauri signer generate が出す公開鍵の文字列のまま書く`
+              : `config/distribution.toml: [${section}] の ${role} の ${i + 1} 本目は「鍵の名前:公開鍵（base64url の43文字）」の形にする`,
+          );
+          return;
+        }
+        if (role !== "app_update") {
+          const kid = line.slice(0, line.indexOf(":"));
+          if (seenKid.has(kid)) problems.push(`config/distribution.toml: [${section}] の鍵の名前「${kid}」が重なっている`);
+          seenKid.add(kid);
+          if (kid.startsWith(DEV_KID_PREFIX) !== dev) problems.push(dev ? `config/distribution.toml: [${section}] の鍵の名前「${kid}」は ${DEV_KID_PREFIX} で始める（開発用の鍵）` : `config/distribution.toml: [${section}] の鍵の名前「${kid}」は ${DEV_KID_PREFIX} で始めない（${DEV_KID_PREFIX} は開発用の鍵の名前）`);
+        }
+        const other = seenKey.get(bytes);
+        if (other !== undefined) problems.push(`config/distribution.toml: [${section}] の ${role} の ${i + 1} 本目と同じ公開鍵が ${other} にもある（役割ごと・本番と開発用で別の鍵にする）`);
+        seenKey.set(bytes, `[${section}] の ${role}`);
+      });
     }
-    if (list.length > MAX_KEYS_PER_ROLE) problems.push(`config/distribution.toml: [keys] の ${role} は現用と次期の ${MAX_KEYS_PER_ROLE} 本まで`);
-    list.forEach((line: string, i) => {
-      const bytes = keyBytes(role, line);
-      if (bytes === null) {
-        problems.push(
-          role === "app_update"
-            ? `config/distribution.toml: [keys] の app_update の ${i + 1} 本目は、tauri signer generate が出す公開鍵の文字列のまま書く`
-            : `config/distribution.toml: [keys] の ${role} の ${i + 1} 本目は「鍵の名前:公開鍵（base64url の43文字）」の形にする`,
-        );
-        return;
-      }
-      if (role !== "app_update") {
-        const kid = line.slice(0, line.indexOf(":"));
-        if (seenKid.has(kid)) problems.push(`config/distribution.toml: [keys] の鍵の名前「${kid}」が重なっている`);
-        seenKid.add(kid);
-      }
-      const other = seenKey.get(bytes);
-      if (other !== undefined) problems.push(`config/distribution.toml: [keys] の ${role} の ${i + 1} 本目と同じ公開鍵が ${other} にもある（役割ごとに別の鍵にする）`);
-      seenKey.set(bytes, role);
-    });
   }
+  for (const k of Object.keys(devKeys)) if (!(KEY_ROLES as readonly string[]).includes(k)) problems.push(`config/distribution.toml: [dev_keys] の ${k} は知らない欄`);
   return problems;
 }
 

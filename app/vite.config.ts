@@ -9,7 +9,7 @@ import { defineConfig, type Plugin } from "vite";
 import { parse as parseToml } from "smol-toml";
 import { APP_DIR, ENGINE_DIST, REPO_DIR } from "./scripts/lib.ts";
 import { devCustom } from "./scripts/devCustom.ts";
-import { addCode, applyFetch, applyNotices, dismissNotice, featureStatus, publicKeys, reference, revokedIds, todayJst, verifyCode, verifyRevocations, type NoticeRecord } from "./scripts/devFeatureCode.ts";
+import { addCode, applyFetch, applyNotices, dismissNotice, featureStatus, publicKeys, reference, revokedIds, todayJst, verifyCode, verifyRevocations, withoutRevokedKeys, type NoticeRecord } from "./scripts/devFeatureCode.ts";
 
 /**
  * 開発用のサーバーだけの入口（本番のビルドには入らない）: Tauri の外（ふつうのブラウザ・ヘッドレスの Chrome）で画面を確かめるために、
@@ -262,11 +262,12 @@ const devOfficeDefaults: { value: Record<string, unknown> } = { value: {} };
 
 /** 機能を有効にするコード（本体の feature_code_* の代わり。0110）: メモリの中だけ。公開鍵は本体と同じ配布元の設定から読む。
  * 今日は FINANCIA_DEV_TODAY（YYYY-MM-DD）か、開発用の op「featureToday」で変えられる（期限が近い・切れたの見え方を確かめるため）。
- * 止めた一覧（0110 の追記）は、FINANCIA_DEV_FEATURE_REVOCATIONS に書いた手元のファイルを「配信元」とみなして読む（無い・読めないときは「つながらない」）。
+ * 公開鍵は開発用のビルドと同じく [keys] と [dev_keys] の両方。
+ * 取り下げの一覧（0117 の3 (3)・0110 の追記）は、FINANCIA_DEV_FEATURE_REVOCATIONS に書いた手元のファイルを「配信元」とみなして読む（無い・読めないときは「つながらない」）。
  * 本体と同じく、コードが入っているときだけ、最初に状態を読んだときと1日1回と「今すぐ確かめる」で読む */
-const devDist = parseToml(readFileSync(join(REPO_DIR, "config", "distribution.toml"), "utf8")) as { keys?: { feature_code?: string[]; feature_code_revocation?: string[] } };
-const devFeatureKeys = publicKeys((devDist.keys?.feature_code ?? []) as string[]);
-const devRevocationKeys = publicKeys((devDist.keys?.feature_code_revocation ?? []) as string[]);
+const devDist = parseToml(readFileSync(join(REPO_DIR, "config", "distribution.toml"), "utf8")) as { keys?: { feature_code?: string[]; revocation?: string[] }; dev_keys?: { feature_code?: string[]; revocation?: string[] } };
+const devAllFeatureKeys = publicKeys([...(devDist.keys?.feature_code ?? []), ...(devDist.dev_keys?.feature_code ?? [])]);
+const devRevocationKeys = publicKeys([...(devDist.keys?.revocation ?? []), ...(devDist.dev_keys?.revocation ?? [])]);
 type DevCandidate = { id: string; receivedAt: string; code: string; connector: string | null };
 const devFeatures: { codes: string[]; today: string | null; saved: string | null; checkedAt: string | null; okAt: string | null; result: "ok" | "offline" | "rejected" | null; lastCheckMs: number | null; candidates: DevCandidate[]; notices: NoticeRecord[] } = {
   codes: [],
@@ -281,6 +282,8 @@ const devFeatures: { codes: string[]; today: string | null; saved: string | null
 };
 const devFeatureToday = () => devFeatures.today ?? todayJst();
 const devRevoked = () => revokedIds(devFeatures.saved, devRevocationKeys);
+/** コードの鍵（取り下げの一覧で取り下げた鍵を外したもの） */
+const devCodeKeys = () => withoutRevokedKeys(devAllFeatureKeys, devFeatures.saved, devRevocationKeys);
 /** 止めた一覧を「配信元」（手元のファイル）から取る */
 function devFeatureCheck() {
   const f = process.env.FINANCIA_DEV_FEATURE_REVOCATIONS ?? "";
@@ -298,13 +301,13 @@ function devFeatureView() {
   if (devFeatures.codes.length > 0 && (devFeatures.lastCheckMs === null || Date.now() - devFeatures.lastCheckMs > (devFeatures.result === "ok" ? 24 : 1) * 3600_000)) devFeatureCheck();
   const today = devFeatureToday();
   const revoked = devRevoked();
-  const st = featureStatus(devFeatures.codes, devFeatureKeys, today, revoked);
+  const st = featureStatus(devFeatures.codes, devCodeKeys(), today, revoked);
   devFeatures.notices = applyNotices(st, devFeatures.notices);
   const saved = devFeatures.saved === null ? null : verifyRevocations(devFeatures.saved, devRevocationKeys);
   const candidates = devFeatures.candidates.map((c) => {
-    const v = verifyCode(c.code, devFeatureKeys);
-    const r = addCode(devFeatures.codes, c.code, devFeatureKeys, today, revoked);
-    const after = r.ok ? featureStatus(r.codes, devFeatureKeys, today, revoked).active : st.active;
+    const v = verifyCode(c.code, devCodeKeys());
+    const r = addCode(devFeatures.codes, c.code, devCodeKeys(), today, revoked);
+    const after = r.ok ? featureStatus(r.codes, devCodeKeys(), today, revoked).active : st.active;
     return {
       id: c.id,
       receivedAt: c.receivedAt,
@@ -483,7 +486,7 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
     case "featureStatus":
       return { ok: true, value: devFeatureView() };
     case "featureAdd": {
-      const r = addCode(devFeatures.codes, String(a.code ?? ""), devFeatureKeys, devFeatureToday(), devRevoked());
+      const r = addCode(devFeatures.codes, String(a.code ?? ""), devCodeKeys(), devFeatureToday(), devRevoked());
       if (!r.ok) return { ok: false, code: r.error };
       devFeatures.codes = r.codes;
       devFeatures.lastCheckMs = null;
@@ -512,7 +515,7 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
       const c = devFeatures.candidates.find((x) => x.id === a.id);
       if (c === undefined) return { ok: false, code: "E_FEATURE_CODE_CANDIDATE_UNKNOWN" };
       if (a.accept === true) {
-        const r = addCode(devFeatures.codes, c.code, devFeatureKeys, devFeatureToday(), devRevoked());
+        const r = addCode(devFeatures.codes, c.code, devCodeKeys(), devFeatureToday(), devRevoked());
         if (!r.ok) return { ok: false, code: r.error };
         devFeatures.codes = r.codes;
         devFeatures.lastCheckMs = null;

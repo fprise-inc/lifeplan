@@ -5,14 +5,15 @@
 //! - 記録の CSV の列は `id,name,features,expires,issued`（機能は「;」で区切る）。表計算で開けるよう、作るときに UTF-8 の BOM を付ける。
 //! - まとめて発行するときは、全部の行を先に確かめ（番号の重なりを含む）、1つでも誤りがあれば1件も発行しない。
 //! - 期限のないコードは、記録の期限の欄を空にする。一覧の CSV では期限の欄に `none`（または「なし」）と書く（空の欄は誤りにする。書き忘れで期限なしのコードを出さないため）。
-//! - 止めた一覧（0110 の追記）: 手元の下書き（[`Draft`]。通し番号と止めた番号だけの JSON）に足す・外すをして、署名して配信元に置く形を作る。
-//!   下書きと止めた一覧の秘密鍵も、リポジトリの外に置く。
+//! - 止めるコード（0110 の追記）: 配布の取り下げの一覧の下書き（[`read_draft`]。署名の前の中身）の `revoked.featureCodes` に足す・外す。
+//!   署名は配布の道具（`dist-keys revocations sign`。取り下げ用の鍵）。下書きもリポジトリの外に置く。
 
 use std::fs::{self, OpenOptions};
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
-use crate::revocation::{self, List};
+use distribution::revocations::{self, RevocationList};
+
 use crate::{decode_unverified, issue, parse_date, valid_id, Claims, Request, SecretKey};
 
 pub const LOG_HEADER: &str = "id,name,features,expires,issued";
@@ -335,86 +336,87 @@ pub fn expires_problem(expires: &str, today: &str) -> Option<String> {
     (e < t).then(|| format!("期限 {expires} は今日（{today}）より前です"))
 }
 
-// ---- 止めた一覧の下書き（0110 の追記）----
+// ---- 取り下げの一覧の下書き（0110 の追記 2026-11-04。配布の取り下げの一覧〔0117 の3 (3)〕の中身）----
+//
+// 下書きは、配信元に置く取り下げの一覧の中身（`distribution::revocations::RevocationList`。署名の前の JSON）そのもの。
+// この道具は `revoked.featureCodes`（止めるコードの番号）だけを足す・外し、ほかの欄（取り下げた鍵・アプリの版・最低版など）はそのまま残す。
+// 署名は配布の道具（`dist-keys revocations sign <取り下げ用の秘密鍵> <下書き> <一覧>`）。通し番号・有効期限もそこで入れる。
 
-/// 止めた一覧の下書き（手元だけに置く。署名した形は [`sign_draft`] で作る）
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Draft {
-    /// 最後に署名した一覧の通し番号（まだ署名していなければ 0）
-    pub serial: u64,
-    /// 止めたコードの番号（名前の順）
-    pub revoked: Vec<String>,
+/// 一覧に載せられる、止めるコードの番号の数の上限
+pub const MAX_REVOKED_CODES: usize = 5000;
+
+/// 空の下書き（通し番号 0）
+pub fn new_draft() -> RevocationList {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| i64::try_from(d.as_secs()).unwrap_or(0))
+        .unwrap_or(0);
+    revocations::empty_draft(now)
 }
 
-/// 下書きを読む（無ければ None）
-pub fn read_draft(path: &Path) -> Result<Option<Draft>, String> {
+/// 下書きを読む（無ければ None。形が違えば誤り）
+pub fn read_draft(path: &Path) -> Result<Option<RevocationList>, String> {
     if !path.exists() {
         return Ok(None);
     }
-    let text = fs::read_to_string(path)
-        .map_err(|e| format!("止めた一覧の下書き {} を読めません: {e}", path.display()))?;
-    serde_json::from_str(&text)
-        .map(Some)
-        .map_err(|_| format!("止めた一覧の下書き {} の形が違います", path.display()))
+    let text = fs::read_to_string(path).map_err(|e| {
+        format!(
+            "取り下げの一覧の下書き {} を読めません: {e}",
+            path.display()
+        )
+    })?;
+    revocations::parse_payload(&text)
+        .map(|v| Some(v.list))
+        .map_err(|e| {
+            format!(
+                "取り下げの一覧の下書き {} の形が違います（{e}。前の形の下書きなら、dist-keys revocations new で作り直す）",
+                path.display()
+            )
+        })
 }
 
-/// 下書きを書く（リポジトリの中は断る）
-pub fn write_draft(path: &Path, d: &Draft) -> Result<(), String> {
+/// 下書きを書く（リポジトリの中は断る。書きかけで壊さないよう、別の名前に書いてから置き換える）
+pub fn write_draft(path: &Path, d: &RevocationList) -> Result<(), String> {
     outside_repository(path)?;
     if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
         fs::create_dir_all(dir).map_err(|e| format!("フォルダを作れません: {e}"))?;
     }
     let mut text = serde_json::to_string_pretty(d).map_err(|_| "下書きを作れません".to_owned())?;
     text.push('\n');
-    fs::write(path, text).map_err(|e| format!("{} に書けません: {e}", path.display()))
+    let tmp = path.with_extension("tmp");
+    fs::write(&tmp, text)
+        .and_then(|_| fs::rename(&tmp, path))
+        .map_err(|e| format!("{} に書けません: {e}", path.display()))
 }
 
-/// 下書きに番号を足す（既にある番号は飛ばす）。足した番号を返す
-pub fn draft_add(d: &mut Draft, ids: &[String]) -> Result<Vec<String>, String> {
+/// 下書きに、止めるコードの番号を足す（既にある番号は飛ばす）。足した番号を返す
+pub fn draft_add(d: &mut RevocationList, ids: &[String]) -> Result<Vec<String>, String> {
     if let Some(bad) = ids.iter().find(|id| !valid_id(id)) {
         return Err(format!("番号「{bad}」の形が違います"));
     }
+    let list = &mut d.revoked.feature_codes;
     let mut added = vec![];
     for id in ids {
-        if !d.revoked.contains(id) {
-            d.revoked.push(id.clone());
+        if !list.contains(id) {
+            list.push(id.clone());
             added.push(id.clone());
         }
     }
-    if d.revoked.len() > revocation::MAX_REVOKED {
+    if list.len() > MAX_REVOKED_CODES {
         return Err(format!(
-            "一覧に載せられるのは {} 件までです",
-            revocation::MAX_REVOKED
+            "一覧に載せられるコードの番号は {MAX_REVOKED_CODES} 件までです"
         ));
     }
-    d.revoked.sort();
+    list.sort();
     Ok(added)
 }
 
 /// 下書きから番号を外す。外した番号を返す（無い番号は誤り）
-pub fn draft_remove(d: &mut Draft, ids: &[String]) -> Result<Vec<String>, String> {
-    if let Some(missing) = ids.iter().find(|id| !d.revoked.contains(id)) {
-        return Err(format!("番号 {missing} は止めた一覧にありません"));
+pub fn draft_remove(d: &mut RevocationList, ids: &[String]) -> Result<Vec<String>, String> {
+    let list = &mut d.revoked.feature_codes;
+    if let Some(missing) = ids.iter().find(|id| !list.contains(id)) {
+        return Err(format!("番号 {missing} は取り下げの一覧にありません"));
     }
-    d.revoked.retain(|x| !ids.contains(x));
+    list.retain(|x| !ids.contains(x));
     Ok(ids.to_vec())
-}
-
-/// 下書きに署名して配信元に置く形を作る（通し番号を1つ上げた下書きも返す。下書きの保存は呼ぶ側）
-pub fn sign_draft(key: &SecretKey, d: &Draft, today: &str) -> Result<(String, Draft), String> {
-    let next = Draft {
-        serial: d.serial + 1,
-        revoked: d.revoked.clone(),
-    };
-    let text = revocation::sign(
-        key,
-        &List {
-            v: revocation::LIST_VERSION,
-            serial: next.serial,
-            issued: today.to_owned(),
-            revoked: next.revoked.clone(),
-        },
-    )?;
-    Ok((text, next))
 }

@@ -19,11 +19,10 @@ app_catalog = "https://updates.fprise.com/v1/app/catalog.json"
 app         = "https://updates.fprise.com/v1/app/latest.json"
 packs       = "https://updates.fprise.com/v1/packs/index.json"
 notices     = "https://updates.fprise.com/v1/notices/notices.json"
+# 取り下げの一覧（0117 の3 (3)）。機能を有効にするコードの取り下げ（revoked.featureCodes）もここに載せる（0110 の追記 2026-11-04）。
+# 今アプリが自動で取りに行くのはこれだけ（機能を有効にするコードを入れている PC だけが、起動したときと、動いている間は1日1回取りに行く。
+# 送るのは取得の依頼だけで、クエリも付けない）。https で、上の host のものだけ（本体は build.rs が、ここから写す）
 revocations = "https://updates.fprise.com/v1/revocations/revocations.json"
-# 機能を有効にするコードの「止めた一覧」（0110 の追記）。今アプリが自動で取りに行くのはこれだけ
-# （機能を有効にするコードを入れている PC だけが、起動したときと、動いている間は1日1回取りに行く。送るのは取得の依頼だけで、クエリも付けない）。
-# 今は開発用の URL（公開の前に本番の URL に差し替える。置き場所は未定）。https で、上の host のものだけ（本体は build.rs が、ここから写す）
-feature_code_revocations = "https://updates.fprise.com/dev/v1/feature-codes/revocations.json"
 
 [feedback]
 # 「要望・不具合を送る」のフォームの URL のひな形（0087 の6）。押すと既定のブラウザでこのフォームを開く（アプリ自身は送らない・通信しない）。
@@ -32,23 +31,28 @@ feature_code_revocations = "https://updates.fprise.com/dev/v1/feature-codes/revo
 form = "https://financia.jp/feedback/?no={受付番号}&ver={版}&os={OS}"
 
 [keys]
-# 公開鍵（それぞれ現用＋次期の2本まで。0017 の5・0117 の2）。秘密鍵はどのリポジトリにも置かない（0017 の5・0021）。
-# 本番の鍵は公開の前に提供元が作って足す（作り方・保管・入れ替え・失くしたときの手順は docs/decisions/0117）。
-# 確かめる部品は crates/distribution（形は npm run check:distribution も確かめる）。
+# 本番の公開鍵（それぞれ現用＋次期の2本まで。0017 の5・0117 の2）。秘密鍵はどのリポジトリにも置かない（0017 の5・0021）。
+# 本番の鍵は公開の前に提供元が作って足す（作り方・保管・入れ替え・失くしたときの手順は docs/decisions/0117 と 0110 の追記 2026-11-04）。
+# 確かめる部品は crates/distribution（形は npm run check:distribution と、本体の build.rs も確かめる）。
 # - app_update: アプリ本体の更新の鍵。`tauri signer generate` が出す公開鍵の文字列のまま（鍵の名前は中の鍵の番号から決まる）
-# - data・auto_delivery・revocation: 「鍵の名前:公開鍵（32バイトの base64url）」。鍵の名前は英小文字・数字・「-」
+# - data・auto_delivery・revocation・feature_code: 「鍵の名前:公開鍵（32バイトの base64url）」。鍵の名前は英小文字・数字・「-」で、dev- で始めない
 # 同じ公開鍵を2つの欄に書かない（役割を分ける意味が無くなる）
 app_update    = []
 data          = []
 auto_delivery = []
+# 取り下げ用の鍵。機能を有効にするコードの取り下げ（漏れたコード・返金した人のコード）も、この鍵で署名した取り下げの一覧で止める
 revocation    = []
-# 機能を有効にするコードの公開鍵（0110。「鍵の名前:公開鍵（base64url）」。現用＋次期を並べられる）。
-# 今は開発用の鍵（dev-1）。公開の前に、提供元が作った本番の鍵に差し替える（開発用の鍵で発行したコードはそこで使えなくなる）。
-# 本体は build.rs が、開発用のサーバーの代わりは vite.config.ts が、ここから読む
+# 機能を有効にするコードの発行の鍵（0110。`feature-code keygen --kid fc-2026a` などで作る）。空のあいだ、製品のビルドではどのコードも使えない
+feature_code  = []
+
+[dev_keys]
+# 開発用の鍵（0110 の追記 2026-11-04）。開発用のビルド（debug・開発用のサーバーの代わり）だけが [keys] に足して受け付け、製品のビルドには入れない。
+# 名前は dev- で始める。試しの鍵で発行したコード・署名した一覧は、製品のビルドでは「確かめられない」ものになる。
+# 秘密鍵はリポジトリに置かない（作った人の手元の ~/.lifeplan-issuer/ だけ）。app_update は書けない
+data          = []
+auto_delivery = []
+revocation    = ["dev-rv2:yLPRQrwMztHzhcKXSlCKWRKjXPJ7utpWpT7BzZtLhbM"]
 feature_code  = ["dev-1:ZBASfURNQY54lJZUQjeJy59Ed87C11WGMxJHsLB1znk"]
-# 機能を有効にするコードの「止めた一覧」の公開鍵（0110 の追記。コードの鍵とは別の鍵。「鍵の名前:公開鍵（base64url）」。現用＋次期を並べられる）。
-# 今は開発用の鍵（dev-rv1）。公開の前に、提供元が作った本番の鍵に差し替える。本体は build.rs が、開発用のサーバーの代わりは vite.config.ts が、ここから読む
-feature_code_revocation = ["dev-rv1:z-4RhY4SiORx3E3t3KnpcP3X1bs3WqOO8Y_VTwBKkKI"]
 
 [signing]
 # OS のコード署名（0117 の4・5）。ここに書くのは秘密でない名前だけ。証明書・パスワード・鍵は CI の秘密の値に置く

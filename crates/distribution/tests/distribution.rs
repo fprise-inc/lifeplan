@@ -44,12 +44,14 @@ fn ring() -> KeyRing {
     let data = [ed_line("data-a", 21), ed_line("data-b", 22)];
     let auto = [ed_line("auto-a", 31), ed_line("auto-b", 32)];
     let rev = [ed_line("rev-a", 41), ed_line("rev-b", 42)];
-    let (app, data, auto, rev) = (strs(&app), strs(&data), strs(&auto), strs(&rev));
+    let fc = [ed_line("fc-a", 51), ed_line("fc-b", 52)];
+    let (app, data, auto, rev, fc) = (strs(&app), strs(&data), strs(&auto), strs(&rev), strs(&fc));
     KeyRing::from_config(&KeyConfig {
         app_update: &app,
         data: &data,
         auto_delivery: &auto,
         revocation: &rev,
+        feature_code: &fc,
     })
     .unwrap()
 }
@@ -125,6 +127,85 @@ fn ring_from_config_rules() {
     assert!(KeyRing::from_config(&KeyConfig::default())
         .unwrap()
         .is_empty());
+}
+
+#[test]
+fn feature_code_role_and_dev_keys() {
+    let r = ring();
+    // 機能を有効にするコードの鍵も、同じ束に現用＋次期の2本まで
+    assert_eq!(r.for_role(Role::FeatureCode).count(), 2);
+    assert_eq!(r.ed25519_keys(Role::FeatureCode).len(), 2);
+    assert!(r.get(Role::Data, "fc-a").is_none());
+    let fc3 = [
+        ed_line("fc-a", 51),
+        ed_line("fc-b", 52),
+        ed_line("fc-c", 53),
+    ];
+    assert!(KeyRing::from_config(&KeyConfig {
+        feature_code: &strs(&fc3),
+        ..Default::default()
+    })
+    .is_err());
+    // コードの鍵と同じ公開鍵を、ほかの役割に使えない
+    let d = [ed_line("data-x", 51)];
+    let f = [ed_line("fc-x", 51)];
+    assert!(KeyRing::from_config(&KeyConfig {
+        data: &strs(&d),
+        feature_code: &strs(&f),
+        ..Default::default()
+    })
+    .is_err());
+    // 漏れたコードの鍵は、取り下げの一覧で外せる
+    assert!(r
+        .without(&["fc-a".into()])
+        .get(Role::FeatureCode, "fc-a")
+        .is_none());
+
+    // 開発用の鍵（[dev_keys]）: 名前は dev- で始め、本番の鍵（[keys]）は dev- で始めない
+    assert!(!r.has_dev_keys());
+    let dev_fc = [ed_line("dev-1", 61)];
+    let dev_rv = [ed_line("dev-rv2", 62)];
+    let dev = r
+        .with_dev(&KeyConfig {
+            feature_code: &strs(&dev_fc),
+            revocation: &strs(&dev_rv),
+            ..Default::default()
+        })
+        .unwrap();
+    assert!(dev.has_dev_keys());
+    assert_eq!(
+        dev.for_role(Role::FeatureCode).count(),
+        3,
+        "本番の2本＋開発用"
+    );
+    assert!(dev.get(Role::Revocation, "dev-rv2").is_some());
+    assert!(KeyRing::from_config(&KeyConfig {
+        feature_code: &strs(&dev_fc),
+        ..Default::default()
+    })
+    .is_err());
+    let not_dev = [ed_line("fc-z", 63)];
+    assert!(r
+        .with_dev(&KeyConfig {
+            feature_code: &strs(&not_dev),
+            ..Default::default()
+        })
+        .is_err());
+    // 本番の鍵と同じ公開鍵・同じ名前を開発用に書けない。アプリ更新用は開発用に書けない
+    let same = [ed_line("dev-9", 51)];
+    assert!(r
+        .with_dev(&KeyConfig {
+            feature_code: &strs(&same),
+            ..Default::default()
+        })
+        .is_err());
+    let app = [testing::tauri_pubkey(&sk(70), [7, 0, 0, 0, 0, 0, 0, 7])];
+    assert!(r
+        .with_dev(&KeyConfig {
+            app_update: &strs(&app),
+            ..Default::default()
+        })
+        .is_err());
 }
 
 #[test]
@@ -782,6 +863,90 @@ fn revocations_list_rules() {
     );
     let pe = pack_env(&pack_payload(("data-b", "data"), json!({})), "data-b", 22);
     assert!(pack_catalog::verify(pe.as_bytes(), &ring2, &none(), t(NOW)).is_ok());
+}
+
+#[test]
+fn revocations_feature_codes_and_keeping_the_last_list() {
+    let r = ring();
+    // 機能を有効にするコードの番号（0110）も載せられる
+    let p = |codes: serde_json::Value, serial: u64| {
+        rev_env(
+            &rev_payload(json!({ "serial": serial, "revoked": { "featureCodes": codes } })),
+            "rev-a",
+            41,
+        )
+    };
+    let e = p(json!(["0002", "0007"]), 5);
+    let v = revocations::verify(e.as_bytes(), &r, None).unwrap();
+    assert_eq!(v.list.revoked.feature_codes, vec!["0002", "0007"]);
+    // 形の違う番号・重なりは受け付けない
+    for bad in [
+        json!(["番号"]),
+        json!(["0001", "0001"]),
+        json!(["-x"]),
+        json!([""]),
+    ] {
+        assert_eq!(
+            revocations::verify(p(bad.clone(), 5).as_bytes(), &r, None).unwrap_err(),
+            Reject::FORMAT,
+            "{bad}"
+        );
+    }
+    // 番号の無い一覧は、欄を書かない形のまま（前の形と同じ）
+    let plain = revocations::empty_draft(t(NOW));
+    assert!(!serde_json::to_string(&plain)
+        .unwrap()
+        .contains("featureCodes"));
+
+    // 取りに行った結果の当て方: 取れない・受け付けない・古いときは、最後に受け付けた一覧のまま
+    use revocations::Fetch;
+    let (saved, f) = revocations::apply_fetch(None, Some(e.as_bytes()), &r);
+    assert_eq!(f, Fetch::Ok);
+    assert_eq!(saved.as_deref(), Some(e.as_bytes()));
+    let (kept, f) = revocations::apply_fetch(saved.as_deref(), None, &r);
+    assert_eq!((kept.as_deref(), f), (Some(e.as_bytes()), Fetch::Offline));
+    let older = p(json!([]), 4);
+    let (kept, f) = revocations::apply_fetch(saved.as_deref(), Some(older.as_bytes()), &r);
+    assert_eq!(
+        (kept.as_deref(), f),
+        (Some(e.as_bytes()), Fetch::Rejected(Reject::OLDER))
+    );
+    let by_data = rev_env(&rev_payload(json!({ "serial": 9 })), "data-a", 21);
+    let (kept, f) = revocations::apply_fetch(saved.as_deref(), Some(by_data.as_bytes()), &r);
+    assert_eq!(
+        (kept.as_deref(), f),
+        (Some(e.as_bytes()), Fetch::Rejected(Reject::KEY))
+    );
+    let newer = p(json!([]), 6);
+    let (next, f) = revocations::apply_fetch(saved.as_deref(), Some(newer.as_bytes()), &r);
+    assert_eq!((next.as_deref(), f), (Some(newer.as_bytes()), Fetch::Ok));
+    // 保存しておいた一覧が確かめられなければ使わない（何も取り下げない）
+    assert!(revocations::saved_list(Some(e.as_bytes()), &KeyRing::default()).is_none());
+    let (none, f) = revocations::apply_fetch(Some(b"broken"), None, &r);
+    assert_eq!((none, f), (None, Fetch::Offline));
+}
+
+#[test]
+fn revocations_next_issue_for_the_tool() {
+    let mut d = revocations::empty_draft(t("2027-01-01T00:00:00Z"));
+    assert_eq!(d.serial, 0);
+    d.revoked.feature_codes = vec!["0009".into(), "0002".into()];
+    let n = revocations::next_issue(&d, t(NOW), 90).unwrap();
+    assert_eq!(n.serial, 1);
+    assert_eq!(n.issued_at, NOW);
+    assert_eq!(n.expires_at, "2027-06-08T00:00:00Z");
+    assert_eq!(
+        n.revoked.feature_codes,
+        vec!["0002", "0009"],
+        "名前の順に並べ直す"
+    );
+    assert!(revocations::next_issue(&d, t(NOW), 0).is_err());
+    assert!(revocations::next_issue(&d, t(NOW), 400).is_err());
+    d.revoked.feature_codes.push("0002".into());
+    assert!(
+        revocations::next_issue(&d, t(NOW), 90).is_err(),
+        "重なりは署名の前に断る"
+    );
 }
 
 #[test]

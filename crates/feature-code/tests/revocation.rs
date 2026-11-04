@@ -1,11 +1,15 @@
-//! 期限なしのコードと、提供元が止めた一覧（0110 の追記）。鍵はテストの中だけで作る
+//! 期限なしのコードと、提供元が止める（配布の取り下げの一覧の featureCodes。0110 の追記）。本番の鍵と開発用の鍵。鍵はテストの中だけで作る
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64;
 use base64::Engine as _;
-use feature_code::issuer::{self, Draft};
-use feature_code::revocation::{self, apply_fetch, revoked_ids, List, Outcome, RevError};
+use distribution::keys::{KeyConfig, KeyRing};
+use distribution::revocations::{self, Fetch};
+use distribution::{envelope, parse_utc, Reject};
+use ed25519_dalek::SigningKey;
+use feature_code::issuer;
 use feature_code::{
-    add, decode_unverified, issue, status, verify, CodeState, Error, Request, SecretKey,
+    add, decode_unverified, issue, keys_from_ring, revoked_ids, status, verify, CodeState, Error,
+    Request, SecretKey,
 };
 
 fn key(kid: &str) -> SecretKey {
@@ -19,15 +23,6 @@ fn req(id: &str, expires: Option<&str>) -> Request {
         features: vec!["combinedBs".into()],
         issued: "2026-11-01".into(),
         expires: expires.map(str::to_owned),
-    }
-}
-
-fn list(serial: u64, revoked: &[&str]) -> List {
-    List {
-        v: 1,
-        serial,
-        issued: "2026-11-01".into(),
-        revoked: revoked.iter().map(|s| (*s).to_owned()).collect(),
     }
 }
 
@@ -110,79 +105,80 @@ fn old_form_codes_still_read() {
     assert!(decode_unverified(&unsigned(&format!("{{\"v\":2,{base}}}"))).is_ok());
 }
 
-#[test]
-fn signed_list_round_trip_and_bad_lists_are_ignored() {
-    let rk = key("rv-1");
-    let rkeys = [rk.public()];
-    let text = revocation::sign(&rk, &list(3, &["0007", "0002"])).unwrap();
-    let l = revocation::verify(text.as_bytes(), &rkeys).unwrap();
-    assert_eq!(l.serial, 3);
-    // 名前の順に並べ直す
-    assert_eq!(l.revoked, vec!["0002", "0007"]);
-    // 中身を書き換えた（署名は元のまま）
-    let v: serde_json::Value = serde_json::from_str(&text).unwrap();
-    let payload = v["payload"].as_str().unwrap();
-    let mut forged = v.clone();
-    forged["payload"] = payload.replace("\"0002\",", "").into();
-    assert_eq!(
-        revocation::verify(forged.to_string().as_bytes(), &rkeys),
-        Err(RevError::SIGNATURE)
+/// 取り下げ用の鍵（決まった種から作る使い捨ての鍵）
+fn rv_key(seed: u8) -> SigningKey {
+    SigningKey::from_bytes(&[seed; 32])
+}
+
+fn rv_line(kid: &str, seed: u8) -> String {
+    format!(
+        "{kid}:{}",
+        B64.encode(rv_key(seed).verifying_key().to_bytes())
+    )
+}
+
+/// 本番の鍵の束（コードの鍵1本と取り下げ用の鍵1本）
+fn ring_of(code_key: &SecretKey) -> KeyRing {
+    let fc = [code_key.public().line()];
+    let rv = [rv_line("rv-2026a", 41)];
+    let (fc, rv): (Vec<&str>, Vec<&str>) = (
+        fc.iter().map(String::as_str).collect(),
+        rv.iter().map(String::as_str).collect(),
     );
-    // 同じ名前の別の鍵・知らない鍵（コードの鍵で署名した一覧も、止めた一覧の鍵の並びに無いので通らない）
-    assert_eq!(
-        revocation::verify(text.as_bytes(), &[key("rv-1").public()]),
-        Err(RevError::SIGNATURE)
-    );
-    let code_key = key("test-1");
-    let by_code_key = revocation::sign(&code_key, &list(4, &[])).unwrap();
-    assert_eq!(
-        revocation::verify(by_code_key.as_bytes(), &rkeys),
-        Err(RevError::KEY)
-    );
-    // 形の違うもの
-    for bad in [
-        "".to_owned(),
-        "{}".to_owned(),
-        "<html>not found</html>".to_owned(),
-        text.replace(revocation::FORMAT, "other-format"),
-        "x".repeat(revocation::MAX_LIST_BYTES + 1),
-    ] {
-        assert!(
-            revocation::verify(bad.as_bytes(), &rkeys).is_err(),
-            "{bad:.40}"
-        );
-    }
-    // 形の違う番号・重なりは署名の前に断る
-    assert!(revocation::sign(&rk, &list(1, &["番号"])).is_err());
-    assert!(revocation::sign(&rk, &list(1, &["0001", "0001"])).is_err());
+    KeyRing::from_config(&KeyConfig {
+        feature_code: &fc,
+        revocation: &rv,
+        ..Default::default()
+    })
+    .unwrap()
+}
+
+/// 配布の取り下げの一覧（止めるコードの番号つき）に、取り下げ用の鍵で署名する
+fn rev_list(serial: u64, codes: &[&str], keys: &[&str], signer: (&str, u8)) -> String {
+    let mut d = revocations::empty_draft(parse_utc("2026-11-01T00:00:00Z").unwrap());
+    d.serial = serial;
+    d.revoked.feature_codes = codes.iter().map(|s| (*s).to_owned()).collect();
+    d.revoked.keys = keys.iter().map(|s| (*s).to_owned()).collect();
+    let payload = serde_json::to_string(&d).unwrap();
+    envelope::seal(
+        &payload,
+        revocations::ENVELOPE_FORMAT,
+        &[(signer.0, &rv_key(signer.1))],
+    )
+}
+
+fn ids_of(saved: Option<&[u8]>, ring: &KeyRing) -> Vec<String> {
+    revocations::saved_list(saved, ring)
+        .map(|v| revoked_ids(&v))
+        .unwrap_or_default()
 }
 
 #[test]
-fn stop_by_list_and_come_back_when_removed() {
-    let k = key("test-1");
-    let keys = [k.public()];
-    let rk = key("rv-1");
-    let rkeys = [rk.public()];
+fn stop_by_distribution_list_and_come_back_when_removed() {
+    let k = key("fc-2026a");
+    let ring = ring_of(&k);
+    let keys = keys_from_ring(&ring);
     let a = issue(&k, &req("0001", None)).unwrap();
     let b = issue(&k, &req("0002", Some("2027-05-31"))).unwrap();
     let codes = vec![a.clone()];
     let today = "2026-11-01";
+    let rv = ("rv-2026a", 41);
 
     // 1回目: 一覧を取れた（0001 は載っていない）
-    let first = revocation::sign(&rk, &list(1, &["0099"])).unwrap();
-    let (saved, o) = apply_fetch(None, Some(first.as_bytes()), &rkeys);
-    assert_eq!(o, Outcome::Ok);
-    let ids = revoked_ids(saved.as_deref(), &rkeys);
+    let first = rev_list(1, &["0099"], &[], rv);
+    let (saved, o) = revocations::apply_fetch(None, Some(first.as_bytes()), &ring);
+    assert_eq!(o, Fetch::Ok);
+    let ids = ids_of(saved.as_deref(), &ring);
     assert_eq!(
         status(&codes, &keys, today, &ids).active,
         vec!["combinedBs"]
     );
 
     // 2回目: 0001 を載せた一覧 → 止まる（中身は見えるまま。機能は出さない）
-    let stopped = revocation::sign(&rk, &list(2, &["0001", "0099"])).unwrap();
-    let (saved, o) = apply_fetch(saved.as_deref(), Some(stopped.as_bytes()), &rkeys);
-    assert_eq!(o, Outcome::Ok);
-    let ids = revoked_ids(saved.as_deref(), &rkeys);
+    let stopped = rev_list(2, &["0001", "0099"], &[], rv);
+    let (saved, o) = revocations::apply_fetch(saved.as_deref(), Some(stopped.as_bytes()), &ring);
+    assert_eq!(o, Fetch::Ok);
+    let ids = ids_of(saved.as_deref(), &ring);
     let s = status(&codes, &keys, today, &ids);
     assert!(s.active.is_empty());
     assert_eq!(s.codes[0].state, CodeState::Revoked);
@@ -192,41 +188,139 @@ fn stop_by_list_and_come_back_when_removed() {
     assert!(add(&codes, &b, &keys, today, &ids).is_ok());
 
     // つながらない: 最後に取れた一覧のまま（止まったまま）
-    let (kept, o) = apply_fetch(saved.as_deref(), None, &rkeys);
-    assert_eq!(o, Outcome::Offline);
+    let (kept, o) = revocations::apply_fetch(saved.as_deref(), None, &ring);
+    assert_eq!(o, Fetch::Offline);
     assert_eq!(kept, saved);
-    // 署名の合わない一覧・壊れた一覧は無視する（止まったまま。外れたことにもしない）
-    let forged = revocation::sign(&key("rv-1"), &list(3, &[])).unwrap();
-    let (kept, o) = apply_fetch(saved.as_deref(), Some(forged.as_bytes()), &rkeys);
-    assert_eq!(o, Outcome::Rejected(RevError::SIGNATURE));
+    // 署名の合わない一覧（知らない取り下げ用の鍵・コードの鍵では署名できない）・壊れた一覧は無視する（止まったまま）
+    let forged = rev_list(3, &[], &[], ("rv-2026a", 99));
+    let (kept, o) = revocations::apply_fetch(saved.as_deref(), Some(forged.as_bytes()), &ring);
+    assert_eq!(o, Fetch::Rejected(Reject::SIGNATURE));
     assert_eq!(kept, saved);
-    let (kept, o) = apply_fetch(saved.as_deref(), Some(b"<html>503</html>"), &rkeys);
-    assert_eq!(o, Outcome::Rejected(RevError::FORMAT));
+    let (kept, o) = revocations::apply_fetch(saved.as_deref(), Some(b"<html>503</html>"), &ring);
+    assert_eq!(o, Fetch::Rejected(Reject::FORMAT));
     assert_eq!(kept, saved);
     // 古い一覧（通し番号が小さい）は受け付けない（外れたことにしない）
-    let (kept, o) = apply_fetch(saved.as_deref(), Some(first.as_bytes()), &rkeys);
-    assert_eq!(o, Outcome::Rejected(RevError::OLDER));
+    let (kept, o) = revocations::apply_fetch(saved.as_deref(), Some(first.as_bytes()), &ring);
+    assert_eq!(o, Fetch::Rejected(Reject::OLDER));
     assert_eq!(kept, saved);
 
     // 3回目: 一覧から外した → 次に確かめたときに戻る（コードの入れ直しは要らない）
-    let back = revocation::sign(&rk, &list(3, &["0099"])).unwrap();
-    let (saved, o) = apply_fetch(saved.as_deref(), Some(back.as_bytes()), &rkeys);
-    assert_eq!(o, Outcome::Ok);
-    let ids = revoked_ids(saved.as_deref(), &rkeys);
+    let back = rev_list(3, &["0099"], &[], rv);
+    let (saved, o) = revocations::apply_fetch(saved.as_deref(), Some(back.as_bytes()), &ring);
+    assert_eq!(o, Fetch::Ok);
+    let ids = ids_of(saved.as_deref(), &ring);
     let s = status(&codes, &keys, today, &ids);
     assert_eq!(s.active, vec!["combinedBs"]);
     assert_eq!(s.codes[0].state, CodeState::Active);
 
     // 保存しておいた一覧が確かめられない（鍵を差し替えた後など）ときは止めない
-    assert!(revoked_ids(Some(stopped.as_bytes()), &[key("rv-2").public()]).is_empty());
-    assert!(revoked_ids(Some(b"broken"), &rkeys).is_empty());
-    // 一度も取れていない・つながらない: 止めない（今の状態のまま使える）
-    let (none, o) = apply_fetch(None, None, &rkeys);
-    assert_eq!((none, o), (None, Outcome::Offline));
+    let other = ring_of(&key("fc-2026b"));
+    assert!(ids_of(Some(stopped.as_bytes()), &KeyRing::default()).is_empty());
     assert_eq!(
-        status(&codes, &keys, today, &revoked_ids(None, &rkeys)).active,
+        ids_of(Some(stopped.as_bytes()), &other).len(),
+        2,
+        "取り下げ用の鍵が同じなら読める"
+    );
+    assert!(ids_of(Some(b"broken"), &ring).is_empty());
+    // 一度も取れていない・つながらない: 止めない（今の状態のまま使える）
+    let (none, o) = revocations::apply_fetch(None, None, &ring);
+    assert_eq!((none, o), (None, Fetch::Offline));
+}
+
+#[test]
+fn leaked_code_key_is_dropped_by_the_list() {
+    // コードの鍵が漏れたとき: 取り下げの一覧の revoked.keys に鍵の名前を載せると、その鍵のコードは確かめられなくなる
+    let k = key("fc-2026a");
+    let ring = ring_of(&k);
+    let code = issue(&k, &req("0001", None)).unwrap();
+    let list = rev_list(5, &[], &["fc-2026a"], ("rv-2026a", 41));
+    let v = revocations::verify(list.as_bytes(), &ring, None).unwrap();
+    let after = revocations::apply_to_ring(&ring, &v);
+    let keys = keys_from_ring(&after);
+    assert!(keys.is_empty());
+    let s = status(
+        std::slice::from_ref(&code),
+        &keys,
+        "2026-11-01",
+        &revoked_ids(&v),
+    );
+    assert!(s.active.is_empty());
+    assert_eq!(s.invalid[0].error, "E_FEATURE_CODE_KEY");
+    // 次期の鍵で出し直したコードは使える
+    let next = key("fc-2026b");
+    let fc = [k.public().line(), next.public().line()];
+    let rv = [rv_line("rv-2026a", 41)];
+    let (fc, rv): (Vec<&str>, Vec<&str>) = (
+        fc.iter().map(String::as_str).collect(),
+        rv.iter().map(String::as_str).collect(),
+    );
+    let both = KeyRing::from_config(&KeyConfig {
+        feature_code: &fc,
+        revocation: &rv,
+        ..Default::default()
+    })
+    .unwrap();
+    let keys = keys_from_ring(&revocations::apply_to_ring(&both, &v));
+    let renewed = issue(&next, &req("0001", None)).unwrap();
+    assert_eq!(
+        status(&[code, renewed], &keys, "2026-11-01", &[]).active,
         vec!["combinedBs"]
     );
+}
+
+#[test]
+fn dev_key_codes_are_not_accepted_by_production_builds() {
+    // 開発用の鍵（[dev_keys]。名前は dev- で始まる）で発行したコードは、開発用のビルド（with_dev）だけが受け付ける
+    let prod_key = key("fc-2026a");
+    let dev_key = key("dev-1");
+    let prod = ring_of(&prod_key);
+    let dev_line = [dev_key.public().line()];
+    let dev_line: Vec<&str> = dev_line.iter().map(String::as_str).collect();
+    let dev = prod
+        .with_dev(&KeyConfig {
+            feature_code: &dev_line,
+            ..Default::default()
+        })
+        .unwrap();
+    let dev_code = issue(&dev_key, &req("t-0001", None)).unwrap();
+    let prod_code = issue(&prod_key, &req("0001", None)).unwrap();
+    assert_eq!(
+        verify(&dev_code, &keys_from_ring(&prod)),
+        Err(Error::KEY),
+        "製品のビルドでは確かめられないコード"
+    );
+    assert!(verify(&dev_code, &keys_from_ring(&dev)).is_ok());
+    assert!(verify(&prod_code, &keys_from_ring(&dev)).is_ok());
+    // 本番の欄に dev- の鍵、開発用の欄に dev- でない鍵は書けない
+    assert!(KeyRing::from_config(&KeyConfig {
+        feature_code: &dev_line,
+        ..Default::default()
+    })
+    .is_err());
+    let prod_line = [prod_key.public().line()];
+    let prod_line: Vec<&str> = prod_line.iter().map(String::as_str).collect();
+    assert!(KeyRing::default()
+        .with_dev(&KeyConfig {
+            feature_code: &prod_line,
+            ..Default::default()
+        })
+        .is_err());
+    // 同じ公開鍵を本番と開発用の両方に書けない
+    let same = SecretKey::from_text(
+        &prod_key
+            .to_text()
+            .replace("kid = fc-2026a", "kid = dev-9")
+            .replace("public = fc-2026a:", "public = dev-9:"),
+    )
+    .unwrap();
+    let same_line = [same.public().line()];
+    let same_line: Vec<&str> = same_line.iter().map(String::as_str).collect();
+    assert!(prod
+        .with_dev(&KeyConfig {
+            feature_code: &same_line,
+            ..Default::default()
+        })
+        .is_err());
 }
 
 #[test]
@@ -241,9 +335,11 @@ fn expired_and_revoked_codes_show_revoked() {
 }
 
 #[test]
-fn issuer_draft_add_remove_sign() {
-    let rk = key("rv-1");
-    let mut d = Draft::default();
+fn issuer_draft_add_remove_then_sign_with_the_revocation_key() {
+    let k = key("fc-2026a");
+    let ring = ring_of(&k);
+    let mut d = issuer::new_draft();
+    assert_eq!(d.serial, 0);
     assert_eq!(
         issuer::draft_add(&mut d, &["0007".into(), "0002".into()]).unwrap(),
         vec!["0007", "0002"]
@@ -253,28 +349,27 @@ fn issuer_draft_add_remove_sign() {
         .unwrap()
         .is_empty());
     assert!(issuer::draft_add(&mut d, &["番号".into()]).is_err());
-    assert_eq!(d.revoked, vec!["0002", "0007"]);
-    let (text, next) = issuer::sign_draft(&rk, &d, "2026-11-01").unwrap();
+    assert_eq!(d.revoked.feature_codes, vec!["0002", "0007"]);
+    // ほかの欄（取り下げた鍵など）はそのまま残す
+    d.revoked.keys = vec!["data-2026a".into()];
+    // 署名（配布の道具 dist-keys revocations sign と同じ段取り: 通し番号を上げ、有効期限を入れて、取り下げ用の鍵で封筒に入れる）
+    let now = parse_utc("2026-11-04T00:00:00Z").unwrap();
+    let next = revocations::next_issue(&d, now, revocations::DEFAULT_VALID_DAYS).unwrap();
     assert_eq!(next.serial, 1);
-    let l = revocation::verify(text.as_bytes(), &[rk.public()]).unwrap();
-    assert_eq!(
-        (l.serial, l.revoked.clone()),
-        (1, vec!["0002".into(), "0007".into()])
+    assert_eq!(next.expires_at, "2027-02-02T00:00:00Z");
+    let sealed = envelope::seal(
+        &serde_json::to_string(&next).unwrap(),
+        revocations::ENVELOPE_FORMAT,
+        &[("rv-2026a", &rv_key(41))],
     );
-    // 外して署名し直すと、通し番号が上がる
+    let v = revocations::verify(sealed.as_bytes(), &ring, None).unwrap();
+    assert_eq!(revoked_ids(&v), vec!["0002", "0007"]);
+    assert_eq!(v.list.revoked.keys, vec!["data-2026a"]);
+    // 外す
     let mut d = next;
     issuer::draft_remove(&mut d, &["0007".into()]).unwrap();
     assert!(issuer::draft_remove(&mut d, &["0007".into()]).is_err());
-    let (text2, next2) = issuer::sign_draft(&rk, &d, "2026-11-02").unwrap();
-    assert_eq!(next2.serial, 2);
-    let (saved, o) = apply_fetch(
-        Some(text.as_bytes()),
-        Some(text2.as_bytes()),
-        &[rk.public()],
-    );
-    assert_eq!(o, Outcome::Ok);
-    assert_eq!(revoked_ids(saved.as_deref(), &[rk.public()]), vec!["0002"]);
-    // 下書きのファイル（リポジトリの中は断る）
+    // 下書きのファイル（リポジトリの中は断る。前の形の下書きは読めない）
     let inside = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("draft.json");
     assert!(issuer::write_draft(&inside, &d).is_err());
     assert!(!inside.exists());
@@ -283,6 +378,8 @@ fn issuer_draft_add_remove_sign() {
     assert_eq!(issuer::read_draft(&p).unwrap(), None);
     issuer::write_draft(&p, &d).unwrap();
     assert_eq!(issuer::read_draft(&p).unwrap(), Some(d));
+    std::fs::write(&p, r#"{"serial":1,"revoked":["0002"]}"#).unwrap();
+    assert!(issuer::read_draft(&p).is_err());
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
