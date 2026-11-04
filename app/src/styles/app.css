@@ -1168,6 +1168,12 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .lv-grid > .lever { padding: 9px 12px 10px; min-width: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
 .lv-grid:disabled .lever { opacity: 0.6; }
 .lv-grid .lever-head label, .lv-grid .lever-label { font-weight: 700; font-size: 0.9rem; }
+/* 名前の右に値が収まらないときは、名前を2行に折らずに値を下の行へ回す（値は右寄せのまま。収まるときは今と同じ1行） */
+.lv-grid .lever-head { flex-wrap: wrap; row-gap: 2px; }
+.lv-grid .lever-head > :last-child:not(:first-child) { margin-left: auto; }
+/* 足した項目の値の文（「契約社員・嘱託（再雇用など）・年収100万円」など）は、カードの幅に収まらなければ折り返す（カードの枠からはみ出さない） */
+.lv-grid .added-val { white-space: normal; overflow-wrap: anywhere; }
+.lv-grid .amt-row > span { min-width: 0; }
 .lv-grid .lever-val { font-size: 1.12rem; }
 .lv-grid .lever input[type="range"] { margin: 6px 0 0; height: 26px; }
 .lv-grid .tick { font-size: 0.8rem; min-width: 26px; padding: 1px 3px; }
