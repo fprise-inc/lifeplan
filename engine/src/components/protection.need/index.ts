@@ -133,6 +133,7 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
     "account.marketValue",
     "assumptions.investmentReturn",
   ],
+  replaceable: true,
   input: "protection.need.input",
   output: "protection.need.output",
   compute(input, ctx) {

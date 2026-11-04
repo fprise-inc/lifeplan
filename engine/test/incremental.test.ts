@@ -4,14 +4,13 @@ import { describe, expect, it } from "vitest";
 import { OFFICIAL_COMPONENTS } from "../src/components/index.ts";
 import { createSession, runBatch, runJson, type EngineResult } from "../src/engine/run.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
-import type { Replacement } from "../src/registry/assemble.ts";
 import { defineComponent, type ComponentDefinition } from "../src/registry/define.ts";
 import { monthIndex, type CoverageOutput, type MonthIndex } from "../src/sdk/index.ts";
 import { clone, modelHousehold, realPacks } from "./helpers.ts";
 
-const HASH = `sha256:${"0".repeat(64)}`;
 const official = (id: string) => OFFICIAL_COMPONENTS.find((o) => o.def.id === id)!.def;
-const replace = (component: ComponentDefinition): Replacement => ({ type: "replace", target: component.id, contract: "1", component, hash: HASH });
+/** 公式部品の計算の関数を、差し替えの決まり（0119）を通さずに置き換える（テスト専用の probes。仕組みを公式部品で確かめる） */
+const probeOf = (component: ComponentDefinition) => ({ [component.id]: component });
 const salaryOf = (r: EngineRequest, i: number, value: number) => {
   const p = r.input.household.employmentPeriods[i] as unknown as { salary: { annual: { value: number } } };
   p.salary.annual.value = value;
@@ -102,7 +101,7 @@ describe("区間ごとの計算（ctx.segments）", () => {
         return def.compute(input as never, ctx);
       },
     }) as ComponentDefinition;
-    runBatch([modelHousehold("lifetime100")], realPacks(), { checkInternal: true, replacements: [replace(probe)] });
+    runBatch([modelHousehold("lifetime100")], realPacks(), { checkInternal: true, probes: probeOf(probe) });
     expect(segments).toBeGreaterThan(0);
     expect(mismatches).toEqual([]);
   });
@@ -117,7 +116,7 @@ describe("区間ごとの計算（ctx.segments）", () => {
         return def.compute(input as never, ctx);
       },
     }) as ComponentDefinition;
-    expect(runBatch([modelHousehold("single25")], realPacks(), { replacements: [replace(bad)] })[0]).toEqual({
+    expect(runBatch([modelHousehold("single25")], realPacks(), { probes: probeOf(bad) })[0]).toEqual({
       error: { code: "E_PARAM_UNDECLARED", ids: ["socialInsurance.pension", def.params[1], "segment"] },
     });
   });
@@ -145,7 +144,7 @@ describe("構成員ごとの依存（memberScope）と、出力の月の一部�
     const base = { ...modelHousehold("dualHighTwoKids"), trace: "none" as const };
     const [self, spouse] = base.input.household.members.map((m) => m.id) as [string, string];
     const reqs = [base, salaryOf(clone(base), 1, 6100000), salaryOf(clone(base), 1, 6200000)];
-    const opts = { checkInternal: true, replacements: [replace(counting)] };
+    const opts = { checkInternal: true, probes: probeOf(counting) };
     const batch = runBatch(reqs, realPacks(), opts);
     expect(calls.get(self)).toBe(1);
     expect(calls.get(spouse)).toBe(3);
@@ -166,7 +165,7 @@ describe("構成員ごとの依存（memberScope）と、出力の月の一部�
         return def.compute(input as never, ctx);
       },
     }) as ComponentDefinition;
-    runBatch([modelHousehold("single25")], realPacks(), { checkInternal: true, replacements: [replace(probe)] });
+    runBatch([modelHousehold("single25")], realPacks(), { checkInternal: true, probes: probeOf(probe) });
     expect(seen.length).toBeGreaterThan(0);
     expect(seen.every((x) => x === "ok")).toBe(true);
   });

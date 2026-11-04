@@ -1,0 +1,9 @@
+{
+  "format": "lifeplan.joinRequest",
+  "formatVersion": "0.1",
+  "officeId": "0f0f0f0f-0000-4000-8000-000000000001",
+  "memberId": "0f0f0f0f-0000-4000-8000-0000000000e1",
+  "displayName": "見本の担当E",
+  "publicKey": "0af028d8d350696a843b74cfd08fca3207249608b4965367626897b5807c270f",
+  "requestedAt": "2026-10-22T09:00:00Z"
+}

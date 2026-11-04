@@ -24,6 +24,8 @@ interface Entry {
   path?: string[];
   /** 入力項目ID だけ: 時点のある値（x-pointInTime。0113 の7）。印の無い項目は欄を書かない */
   pointInTime?: true;
+  /** 計算部品ID だけ: 差し替えを許す公式部品（マニフェストの replaceable。0119）。許さない部品は欄を書かない */
+  replaceable?: true;
 }
 
 /** 入力項目ID の場所（items.json の collection・path）と時点のある値の印 */
@@ -47,18 +49,29 @@ function render(kind: string, header: string, entries: Entry[]): string {
     lines.push(`  - id: ${e.id}`, `    status: ${e.status}`, `    label: ${q(e.label)}`, `    since: ${e.since}`, `    aliases: [${e.aliases.join(", ")}]`, `    replacedBy: ${e.replacedBy ?? "null"}`);
     if (e.path !== undefined) lines.push(`    collection: ${e.collection ?? "null"}`, `    path: [${e.path.join(", ")}]`);
     if (e.pointInTime === true) lines.push("    pointInTime: true");
+    if (e.replaceable === true) lines.push("    replaceable: true");
   }
   return `${lines.join("\n")}\n`;
 }
 
-function sync(file: string, kind: string, header: string, source: ReadonlyMap<string, string>, places?: ReadonlyMap<string, Place>): string[] {
+function sync(
+  file: string,
+  kind: string,
+  header: string,
+  source: ReadonlyMap<string, string>,
+  places?: ReadonlyMap<string, Place>,
+  replaceable?: ReadonlySet<string>,
+): string[] {
   const old = load(file, kind);
   const byId = new Map(old.map((e) => [e.id, e]));
   const out: Entry[] = [];
   for (const [id, label] of [...source].sort(([a], [b]) => (a < b ? -1 : 1))) {
     const prev = byId.get(id);
     const place = places?.get(id);
-    const base = prev === undefined ? { id, status: "active", label, since: "draft", aliases: [], replacedBy: null } : { ...prev, label };
+    const { replaceable: _wasReplaceable, ...kept } = prev ?? ({} as Partial<Entry>);
+    void _wasReplaceable;
+    const flag = replaceable?.has(id) === true ? { replaceable: true as const } : {};
+    const base: Entry = prev === undefined ? { id, status: "active", label, since: "draft", aliases: [], replacedBy: null, ...flag } : { ...(kept as Entry), label, ...flag };
     if (place === undefined) out.push(base);
     else {
       const { pointInTime: _was, ...rest } = base as Entry;
@@ -106,8 +119,10 @@ const itemIds = sync(
 const componentIds = sync(
   "components.yaml",
   "component",
-  `# 0004 の5: 計算部品IDの登録簿。正本は公式部品のマニフェスト（scripts/registry.ts が作る。手で書き換えない）\n${SINCE}`,
+  `# 0004 の5: 計算部品IDの登録簿。正本は公式部品のマニフェスト（scripts/registry.ts が作る。手で書き換えない）\n# replaceable は差し替えを許す公式部品（マニフェストの replaceable。一覧と理由は設計記録 0119・SDK の docs/extension-points.md）\n${SINCE}`,
   new Map(OFFICIAL_DEFINITIONS.map((d) => [d.id, d.title ?? d.id])),
+  undefined,
+  new Set(OFFICIAL_DEFINITIONS.filter((d) => d.replaceable === true).map((d) => d.id)),
 );
 const params = new Map<string, string>();
 for (const dir of packDirs()) for (const v of buildPack(dir).values) params.set(v.id as string, v.title as string);

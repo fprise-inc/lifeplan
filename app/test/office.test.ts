@@ -37,6 +37,7 @@ function status(over: Partial<OfficeStatus> = {}): OfficeStatus {
     recoveryVerifiedAt: null,
     recoveryRequired: false,
     notices: [],
+    viewOnly: false,
     ...over,
   };
 }
@@ -214,6 +215,23 @@ describe("事務所の共有の設定", () => {
     const html = panel(status({ state: "unavailable", problem: "E_OFFICE_CLOSED", members: [], requests: [] }));
     expect(html).toContain("この事務所の共有は終わっています");
     expect(html).toContain("このPCの中の事務所に戻る");
+  });
+  it("自分の役割が閲覧だけ（この版の知らない役割）なら理由を出し、承認・外す・やめるを止める。ほかの人の閲覧だけも名簿に出す", () => {
+    const base = status();
+    const html = panel(status({ viewOnly: true, members: [{ ...base.members[0]!, role: "viewer" }, base.members[1]!], requests: [{ requestId: "r1", name: "担当B", requestedAt: "2026-10-19T00:00:00Z" }] }));
+    expect(html).toContain("data-office-view-only");
+    expect(html).toContain("閲覧だけの役割です");
+    expect(html).toContain("data-office-role-view-only");
+    expect(html).not.toContain("data-office-remove=");
+    expect(html).toMatch(/disabled[^>]*data-office-approve|data-office-approve[^>]*disabled/);
+    const other = panel(status({ members: [base.members[0]!, { ...base.members[1]!, role: "viewer" }] }));
+    expect(other).not.toContain("data-office-view-only");
+    expect(other).toContain("data-office-role-view-only");
+    expect(other).toContain("data-office-remove=");
+  });
+  it("共有フォルダのファイルが新しい版のアプリで書かれていたら、アプリの更新を案内する", () => {
+    const html = panel(status({ state: "unavailable", problem: "E_OFFICE_FORMAT_TOO_NEW", members: [], requests: [] }));
+    expect(html).toContain("アプリを更新してください");
   });
   it("文言に以前の呼び方（案）が無い", () => {
     for (const t of Object.values(OFFICE_MESSAGES)) expect(t.replace(/提案|案内/g, "").includes("案"), t).toBe(false);

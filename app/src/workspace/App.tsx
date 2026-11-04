@@ -1026,7 +1026,7 @@ export function App() {
       setPresence(others && !viewSample ? r.othersOpen : null);
       pausedBody.current = others || viewSample ? (stored ?? loaded) : null;
       autosaver.current?.reset(r.readOnly || others || viewSample ? null : (stored ?? loaded));
-      if (r.readOnly) setSaveState({ kind: "error", code: "E_STORE_READ_ONLY" });
+      if (r.readOnly) setSaveState({ kind: "error", code: r.viewOnly === true ? "E_OFFICE_VIEW_ONLY" : "E_STORE_READ_ONLY" });
       await install(o, w, shownKeys, `stored:${r.id}`, keep, "前にこの世帯を開いていたときと中身が違うため、元に戻す（↶）の履歴はここから始めます");
       if (stored !== undefined && stored !== loaded && !others && !viewSample) autosaver.current?.change(loaded);
     },

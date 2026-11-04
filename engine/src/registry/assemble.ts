@@ -12,6 +12,8 @@ export interface Impl {
   readonly hash: string;
   readonly origin: Origin;
   readonly slot?: string;
+  /** 外から来た部品（replacements・extensions で渡した差し替え・追加）。計算式ID の頭を確かめる（0006 の7・0119） */
+  readonly custom?: true;
 }
 
 export interface OfficialComponent {
@@ -68,14 +70,10 @@ export function assemble(official: readonly OfficialComponent[], options: Assemb
     const target = impls.get(r.target);
     if (target === undefined) throw new EngineError("E_COMPONENT_UNKNOWN", [r.target]);
     if (target.origin !== "official") throw new EngineError("E_COMPONENT_DUPLICATE", [r.target]);
+    // 0119: 差し替えを許すのは、マニフェストに replaceable を付けた公式部品だけ（推定・目安・FP の考え方で変わる部品）
     if (target.def.replaceable !== true) throw new EngineError("E_NOT_REPLACEABLE", [r.target]);
-    if (r.component.id !== r.target) throw new EngineError("E_COMPONENT_DEFINITION", [r.target, "id"]);
-    // 公式の MAJOR が上がったら差し替えは使わない。黙って公式に戻さず、計算を止めて知らせる
-    const officialMajor = contractMajor(target.def.contract);
-    if (Number(r.contract) !== officialMajor || contractMajor(r.component.contract) !== officialMajor) {
-      throw new EngineError("E_CONTRACT_MISMATCH", [r.target]);
-    }
-    impls.set(r.target, { def: r.component, hash: r.hash, origin: "replacement" });
+    checkReplacement(target.def, r);
+    impls.set(r.target, { def: r.component, hash: r.hash, origin: "replacement", custom: true });
   }
 
   const extensions = new Map<string, Impl[]>();
@@ -92,7 +90,7 @@ export function assemble(official: readonly OfficialComponent[], options: Assemb
       throw new EngineError("E_COMPONENT_DUPLICATE", [id]);
     }
     const list = extensions.get(slot.id) ?? [];
-    list.push({ def: x.component, hash: x.hash, origin: "extension", slot: slot.id });
+    list.push({ def: x.component, hash: x.hash, origin: "extension", slot: slot.id, custom: true });
     extensions.set(slot.id, list);
   }
   // 差し込み口の中の順番は部品IDの順（足した順に依らない）
@@ -112,6 +110,29 @@ export function assemble(official: readonly OfficialComponent[], options: Assemb
   }
   refs.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return { impls, extensions, refs };
+}
+
+/**
+ * 差し替えの約束（0119 の2）: 公式の部品と同じ ID・同じ入出力の形（スキーマのキー）・同じ MAJOR で公式以下の MINOR の約束の版、
+ * 呼ぶ差し込み口は公式の部品が呼ぶものの内、replaceable は書かない。公式の MAJOR が上がったら差し替えは使わず、黙って公式に戻さずに計算を止める
+ */
+function checkReplacement(official: ComponentDefinition, r: Replacement): void {
+  const id = official.id;
+  const component = r.component;
+  if (component.id !== id) throw new EngineError("E_COMPONENT_DEFINITION", [id, "id"]);
+  if (!contractFits(official.contract, r.contract, component.contract)) throw new EngineError("E_CONTRACT_MISMATCH", [id]);
+  if (component.replaceable !== undefined) throw new EngineError("E_COMPONENT_DEFINITION", [id, "replaceable"]);
+  if (component.input !== official.input) throw new EngineError("E_COMPONENT_DEFINITION", [id, "input"]);
+  if (component.output !== official.output) throw new EngineError("E_COMPONENT_DEFINITION", [id, "output"]);
+  const allowed = new Set(official.slots ?? []);
+  if ((component.slots ?? []).some((s) => !allowed.has(s))) throw new EngineError("E_COMPONENT_DEFINITION", [id, "slots"]);
+}
+
+/** 差し替えが名乗る約束の版が、公式と同じ MAJOR で、MINOR が公式以下か（公式より新しい約束は名乗れない） */
+function contractFits(official: string, declared: string, component: string): boolean {
+  const [om, on] = official.split(".").map(Number) as [number, number];
+  const [cm, cn] = component.split(".").map(Number) as [number, number];
+  return Number(declared) === om && cm === om && cn <= on;
 }
 
 /** 使う部品があり、約束の MAJOR が合い、依存が循環していないこと */

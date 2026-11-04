@@ -30,6 +30,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   requires: { "contingency.event": ">=1 <2" },
   params: [],
   reads: ["advisoryFee.payer", "advisoryFee.enabled", "advisoryFee.terms", "member.kind"],
+  replaceable: true,
   input: "empty.input",
   output: "flows.output",
   compute(_input, ctx) {

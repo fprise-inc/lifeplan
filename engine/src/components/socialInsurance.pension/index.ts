@@ -26,7 +26,6 @@ export default defineComponent<{ member: string; fromYear: number }, PremiumOutp
   requires: { "socialInsurance.coverage": ">=1 <2" },
   params: [RATE, ROUNDING],
   reads: [],
-  replaceable: true,
   input: "socialInsurance.premium.input",
   output: "socialInsurance.premium.output",
   compute(input, ctx) {

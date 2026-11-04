@@ -1,4 +1,5 @@
 # 0004 の5: 計算部品IDの登録簿。正本は公式部品のマニフェスト（scripts/registry.ts が作る。手で書き換えない）
+# replaceable は差し替えを許す公式部品（マニフェストの replaceable。一覧と理由は設計記録 0119・SDK の docs/extension-points.md）
 # since は公開の約束の版の初期値（0.x。0001 の追記）を β公開で 1.0 にするまで draft とする
 kind: component
 entries:
@@ -38,6 +39,7 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+    replaceable: true
   - id: asset.realEstate
     status: active
     label: "住まい以外の不動産（評価額・家賃収入・経費・不動産所得・売却）"
@@ -92,6 +94,7 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+    replaceable: true
   - id: debt.creditLifeEvents
     status: active
     label: "団体信用生命保険（残高が消える月と割合）"
@@ -110,6 +113,7 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+    replaceable: true
   - id: education.nurseryFee
     status: active
     label: "保育料（0〜2歳。収入から自動で計算）"
@@ -128,6 +132,7 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+    replaceable: true
   - id: expense.car
     status: active
     label: "車（買い替え・ローン・車検・保険・自動車税）"
@@ -140,6 +145,7 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+    replaceable: true
   - id: expense.periodic
     status: active
     label: "何年かごとの支出（出るお金の行）"
@@ -176,6 +182,7 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+    replaceable: true
   - id: ideco.contribution
     status: active
     label: "iDeCo・企業型DCの掛金"
@@ -332,6 +339,7 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+    replaceable: true
   - id: residentTax.annual
     status: active
     label: "住民税・森林環境税"
@@ -350,6 +358,7 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+    replaceable: true
   - id: retirement.receipts
     status: active
     label: "退職所得になる一時金（集める）"

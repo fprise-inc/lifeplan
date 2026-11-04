@@ -1,0 +1,9 @@
+# 秘密の値の検査（gitleaks）の設定。既定の規則に、試験用の見本の除外だけを足す
+[extend]
+useDefault = true
+
+[allowlist]
+description = "試験用の見本（鍵は架空の文字列から作った試験用の値で、秘密ではない。各見本の keys.txt を参照）"
+paths = [
+  '''^crates/household-store/tests/fixtures/shared-format/''',
+]

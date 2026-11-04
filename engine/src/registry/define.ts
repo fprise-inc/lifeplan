@@ -6,13 +6,15 @@ import { ITEMS } from "./items.ts";
 import type { Ctx } from "./ctx.ts";
 
 /**
- * 部品の書き方の約束（ctx の API とマニフェスト）の版。1.2 → 1.3（0111 の2回目）: エンジンが引く目安を値ID で読む ctx.estimate と、
+ * 部品の書き方の約束（ctx の API とマニフェスト）の版。1.3 → 1.4（0119）: 差し替えを許す公式部品を一覧（マニフェストの replaceable）で決め、
+ * 差し替えの約束（入力・出力のスキーマのキーを公式と同じにする・約束の版は公式と同じ MAJOR で MINOR は公式以下・呼ぶ差し込み口は公式の内・
+ * replaceable を書かない・計算式ID は ext. で始める）を組み立て役と部品の呼び出しで確かめるようにした。公式部品の書き方は変わらない。1.2 → 1.3（0111 の2回目）: エンジンが引く目安を値ID で読む ctx.estimate と、
  * 統計の目安で空欄を埋めるかを見る ctx.fillsByEstimate を足した。1.1 → 1.2（0006 の追記（2026-10-09））: 年ごとの列でない前提を読む ctx.setting と、
  * キーごとの年ごとの列（資産クラスごとの利回り）を読む ctx.assumptionIn を足した。0006 の追記（2回目の見直し）で 1.0 → 1.1:
  * ctx.segments・ctx.callMonths・ParamOptions.birth・マニフェストの memberScope を足し、依存の記録の決まり（部品は ctx を通して読んだものだけで
  * 結果を決める・同じ依存なら同じ順に同じものを読む）を明文にした。今の部品の書き方はそのまま使える
  */
-export const COMPONENT_API_VERSION = "1.3";
+export const COMPONENT_API_VERSION = "1.4";
 
 export interface ComponentDefinition<I = unknown, O = unknown> {
   /** 計算部品ID（0004） */
@@ -36,7 +38,11 @@ export interface ComponentDefinition<I = unknown, O = unknown> {
   readonly memberScope?: readonly string[];
   /** 呼ぶ差し込み口 */
   readonly slots?: readonly string[];
-  /** 公式部品だけが持つ。差し替えを許すか */
+  /**
+   * 公式部品だけが持つ。差し替えを許すか（0006 の3・0119）。true は推定・目安・FP の考え方で変わる部品だけで、法律で決まる計算・
+   * 入力を並べる・集める部品・判定の部品には付けない。一覧は 0119 の表と engine/test/replaceable.test.ts で、変えるときは両方を直す。
+   * 差し替えの部品が書くと組み立てで拒む
+   */
   readonly replaceable?: boolean;
   /** 入力・出力の JSON Schema のキー（schemas/ のファイル名） */
   readonly input: string;
