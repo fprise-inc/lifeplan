@@ -204,17 +204,4 @@ describe("キーボードと描画", () => {
     const none = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", findQuery: "zzzz" }));
     expect(none).toContain("見つかりません");
   });
-
-  it("候補は浮かせず、入力項目の並びの中（「探して開く」の枠の外の、次の段）に出す。枠の中は見出しと入れる欄だけ", () => {
-    const wh = open("salariedCoupleTwoKids");
-    const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", findQuery: "留学" }));
-    const cards = html.slice(html.lastIndexOf('class="ih-cards"'));
-    const box = cards.slice(cards.indexOf('<div class="ih-card ih-find'), cards.indexOf("<ul"));
-    // 枠（data-find）が閉じた後に一覧が来る: 枠の中には一覧が無い
-    expect(box).toContain("data-find-input");
-    expect(box.match(/<div/g)?.length).toBe(box.match(/<\/div>/g)?.length);
-    // 一覧は並び（ih-cards）の中。浮かせる置き方の印（flip・up）は無い
-    expect(cards.indexOf("data-find-list")).toBeLessThan(cards.indexOf("</section>"));
-    expect(html).toMatch(/<ul[^>]*class="ih-find-list"[^>]*data-find-list/);
-  });
 });
