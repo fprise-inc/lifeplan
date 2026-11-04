@@ -345,6 +345,7 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
     recoveryVerifiedAt: o.ack?.verifiedAt ?? null,
     recoveryRequired: o.state === "member" && o.ack === null,
     notices: o.state === "member" ? o.notices : [],
+    viewOnly: false,
   });
   const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString().replace(/\.\d+Z$/, "Z");
   switch (op) {

@@ -395,6 +395,7 @@ fn forged_roster_is_rejected() {
             joined_at: "x".into(),
             approved_by: None,
             role: office::ROLE_MEMBER.into(),
+            extra: Default::default(),
         }],
         removed: vec![],
         previous: vec![],
@@ -405,6 +406,7 @@ fn forged_roster_is_rejected() {
         categories: None,
         updated_at: "x".into(),
         updated_by: None,
+        extra: Default::default(),
     };
     let bytes = office::encode_roster(&fake, &crypto::random_key()).unwrap();
     std::fs::write(o.office_root().join("members.lpmb"), bytes).unwrap();
@@ -821,6 +823,7 @@ fn stray_keys_written_by_a_lagging_pc_are_adopted_with_a_new_key() {
         updated_by: None,
         generation: 1,
         label: Default::default(),
+        extra: Default::default(),
     };
     std::fs::write(
         root.card(&id),
@@ -1107,4 +1110,299 @@ fn ending_sharing_brings_households_back_into_the_pc() {
     );
     // 外された B のアプリは外されたことに気づく
     assert_eq!(b.office_status().unwrap().state, "removed");
+}
+
+// ---------------------------------------------------------------- 形式 1.0 の前に決めた読み方（0023 の追記 2026-11-04）
+
+/// 共有の事務所の今の親鍵（PC の保管庫の写しから）
+fn master_of(pc: &Pc, office_id: &str) -> crypto::Key {
+    crypto::key_from_hex(&pc.secrets.get(office_id).unwrap().unwrap()).unwrap()
+}
+
+/// 新しい版のアプリが名簿を書き換えた形にする（試験のため、親鍵で開いて直して書く）
+fn rewrite_roster(o: &Office, master: &crypto::Key, f: impl FnOnce(&mut Roster)) {
+    let p = office::Paths::new(o.office_root());
+    let mut r =
+        office::open_roster_with_master(&std::fs::read(p.members()).unwrap(), master).unwrap();
+    f(&mut r);
+    std::fs::write(p.members(), office::encode_roster(&r, master).unwrap()).unwrap();
+}
+
+fn read_roster(o: &Office, master: &crypto::Key) -> Roster {
+    let p = office::Paths::new(o.office_root());
+    office::open_roster_with_master(&std::fs::read(p.members()).unwrap(), master).unwrap()
+}
+
+fn read_card(o: &Office, master: &crypto::Key, id: &str) -> office::Card {
+    let p = office::Paths::new(o.office_root());
+    office::open_card(&std::fs::read(p.card(id)).unwrap(), id, |_| {
+        Some(master.clone())
+    })
+    .unwrap()
+}
+
+#[test]
+fn fields_added_by_a_newer_app_are_kept_when_rewritten() {
+    let o = Office::new();
+    let (pa, pb) = (o.pc("a"), o.pc("b"));
+    let (a, b) = (pa.store(), pb.store());
+    start_and_join(&o, &a, &b);
+    let h = create(&a, 1);
+    let office_id = office_id_of(&o);
+    let master = master_of(&pa, &office_id);
+    // MINOR の新しいアプリが、名簿の本文・メンバー・履歴と世帯の札に、この版の知らない欄を足した
+    rewrite_roster(&o, &master, |r| {
+        r.extra
+            .insert("futureOffice".into(), serde_json::json!({"x": 1}));
+        r.members[0]
+            .extra
+            .insert("futureMember".into(), serde_json::json!("v"));
+        r.events.push(office::RosterEvent {
+            kind: "futureKind".into(),
+            member_id: r.members[0].member_id.clone(),
+            display_name: "担当A".into(),
+            at: "2026-10-19T09:00:00Z".into(),
+            extra: [("futureDetail".to_owned(), serde_json::json!(3))]
+                .into_iter()
+                .collect(),
+        });
+    });
+    let p = office::Paths::new(o.office_root());
+    let mut card = read_card(&o, &master, &h.id);
+    card.extra
+        .insert("futureCard".into(), serde_json::json!(["x"]));
+    let (_, mk) = office::peek_roster(&std::fs::read(p.members()).unwrap()).unwrap();
+    std::fs::write(
+        p.card(&h.id),
+        office::encode_card(&office_id, &mk, &h.id, &card, &master),
+    )
+    .unwrap();
+    // この版のアプリが、名簿（復元キーを試した記録）と世帯の札（保存・番号の付け替え）を書き直す
+    let key = a.recovery_key().unwrap();
+    b.test_recovery_key(&key).unwrap();
+    b.open(&h.id).unwrap();
+    b.save(&h.id, &body(2), "本人・配偶者").unwrap();
+    b.rename(&h.id, "Q-7").unwrap();
+    // 知らない欄は残り、知っている欄は書き直されている
+    let r = read_roster(&o, &master);
+    assert_eq!(r.extra["futureOffice"], serde_json::json!({"x": 1}));
+    assert_eq!(r.members[0].extra["futureMember"], serde_json::json!("v"));
+    let ev = r.events.iter().find(|e| e.kind == "futureKind").unwrap();
+    assert_eq!(ev.extra["futureDetail"], serde_json::json!(3));
+    assert!(r.recovery.unwrap().verified_at.is_some());
+    let c = read_card(&o, &master, &h.id);
+    assert_eq!(c.extra["futureCard"], serde_json::json!(["x"]));
+    assert_eq!(c.summary, "本人・配偶者");
+    assert_eq!(c.customer_no, "Q-7");
+    // 知らない種類の履歴の行は、知らせに出さない
+    assert!(a.office_status().unwrap().notices.is_empty());
+}
+
+#[test]
+fn a_role_this_version_does_not_know_is_view_only() {
+    let o = Office::new();
+    let (pa, pb, pc) = (o.pc("a"), o.pc("b"), o.pc("c"));
+    let (a, b, c) = (pa.store(), pb.store(), pc.store());
+    start_and_join(&o, &a, &b);
+    let h = create(&a, 1);
+    let b_id = b.current_author().unwrap().member_id;
+    let master = master_of(&pa, &office_id_of(&o));
+    // 新しい版のアプリが、B に「閲覧だけ」の役割（この版の知らない値）を付けた
+    rewrite_roster(&o, &master, |r| {
+        r.members
+            .iter_mut()
+            .find(|m| m.member_id == b_id)
+            .unwrap()
+            .role = "viewer".into();
+    });
+    let st = b.office_status().unwrap();
+    assert_eq!(st.state, "member");
+    assert!(st.view_only);
+    assert!(!a.office_status().unwrap().view_only);
+    assert_eq!(
+        a.office_status()
+            .unwrap()
+            .members
+            .iter()
+            .find(|m| m.member_id == b_id)
+            .unwrap()
+            .role,
+        "viewer"
+    );
+    // 開けるが閲覧だけ。保存・作成・番号の付け替え・削除・共有の操作はできない
+    let op = b.open(&h.id).unwrap();
+    assert!(op.read_only && op.view_only);
+    assert_eq!(n_of(&op.body), 1);
+    assert_eq!(
+        b.save(&h.id, &body(2), "本人").unwrap_err(),
+        StoreError::OFFICE_VIEW_ONLY
+    );
+    assert_eq!(
+        b.create(CreateRequest {
+            body: body(3),
+            summary: "本人".into(),
+        })
+        .unwrap_err(),
+        StoreError::OFFICE_VIEW_ONLY
+    );
+    assert_eq!(
+        b.rename(&h.id, "Z-1").unwrap_err(),
+        StoreError::OFFICE_VIEW_ONLY
+    );
+    let no = a.list().unwrap()[0].customer_no.clone();
+    assert_eq!(
+        b.delete(&h.id, &no).unwrap_err(),
+        StoreError::OFFICE_VIEW_ONLY
+    );
+    c.status().unwrap();
+    c.office_join(&o.shared, "担当C", true, &[]).unwrap();
+    let rid = b.office_status().unwrap().requests[0].request_id.clone();
+    assert_eq!(
+        b.office_approve(&rid, &fingerprint_of(&c)).unwrap_err(),
+        StoreError::OFFICE_VIEW_ONLY
+    );
+    let a_id = a.current_author().unwrap().member_id;
+    assert_eq!(
+        b.office_remove(&a_id, "担当A").unwrap_err(),
+        StoreError::OFFICE_VIEW_ONLY
+    );
+    // A は今までどおり使え、A が名簿を書き直しても B の役割は残る
+    a.office_approve(&rid, &fingerprint_of(&c)).unwrap();
+    a.open(&h.id).unwrap();
+    a.save(&h.id, &body(4), "本人").unwrap();
+    assert!(b.office_status().unwrap().view_only);
+    assert_eq!(n_of(&b.open(&h.id).unwrap().body), 4);
+}
+
+#[test]
+fn files_left_in_an_old_key_epoch_are_moved_before_the_old_key_is_dropped() {
+    let o = Office::new();
+    let (pa, pb, pc) = (o.pc("a"), o.pc("b"), o.pc("c"));
+    let (a, b, c) = (pa.store(), pb.store(), pc.store());
+    start_and_join(&o, &a, &b);
+    c.status().unwrap();
+    c.office_join(&o.shared, "担当C", true, &[]).unwrap();
+    let rid = a.office_status().unwrap().requests[0].request_id.clone();
+    a.office_approve(&rid, &fingerprint_of(&c)).unwrap();
+    assert_eq!(c.office_status().unwrap().state, "member");
+    let h = create(&b, 1);
+    // B が明細の取り込みで覚えた行（B のファイルは今の親鍵で書かれる）
+    b.statement_learn(
+        &[household_store::statement_dict::DictionaryEntry {
+            key: "架空ノ店".into(),
+            category: "food".into(),
+            annual: false,
+            at: "2026-10-19T09:00:00Z".into(),
+            by: None,
+            removed: false,
+        }],
+        &[],
+    )
+    .unwrap();
+    let p = office::Paths::new(o.office_root());
+    let old_card = std::fs::read(p.card(&h.id)).unwrap();
+    let c_id = c.current_author().unwrap().member_id;
+    a.office_remove(&c_id, "担当C").unwrap();
+    a.acknowledge_recovery().unwrap();
+    // 入れ替えを知らない PC が、古い親鍵のまま世帯の札を書いた（同期の遅れ）。B は30日より長く開かない
+    std::fs::write(p.card(&h.id), &old_card).unwrap();
+    o.clock.advance(31 * 86_400);
+    // A が次に起動すると、前の親鍵を名簿から消す前に、古い時代のままの札と辞書を今の親鍵で書き直す
+    let a2 = pa.store();
+    a2.status().unwrap();
+    let st = a2.office_status().unwrap();
+    assert_eq!(st.state, "member");
+    let master = master_of(&pa, &office_id_of(&o));
+    assert!(
+        read_roster(&o, &master).previous.is_empty(),
+        "前の親鍵は消えた"
+    );
+    let list = a2.list().unwrap();
+    assert!(
+        list.iter().any(|e| e.id == h.id),
+        "古い時代の札の世帯も一覧に出る"
+    );
+    assert!(a2
+        .statement_office()
+        .unwrap()
+        .dictionary
+        .iter()
+        .any(|e| e.key == "架空ノ店"));
+    let (_, mk) = office::peek_roster(&std::fs::read(p.members()).unwrap()).unwrap();
+    assert_eq!(
+        office::peek_card_master(&std::fs::read(p.card(&h.id)).unwrap()).unwrap(),
+        mk
+    );
+    let b_id = b.current_author().unwrap().member_id;
+    assert_eq!(
+        office::peek_statement_dict_master(&std::fs::read(p.statement_dict(&b_id)).unwrap())
+            .unwrap(),
+        mk
+    );
+}
+
+#[test]
+fn a_member_reseals_its_own_statement_dictionary_after_a_rotation() {
+    let o = Office::new();
+    let (pa, pb, pc) = (o.pc("a"), o.pc("b"), o.pc("c"));
+    let (a, b, c) = (pa.store(), pb.store(), pc.store());
+    start_and_join(&o, &a, &b);
+    c.status().unwrap();
+    c.office_join(&o.shared, "担当C", true, &[]).unwrap();
+    let rid = a.office_status().unwrap().requests[0].request_id.clone();
+    a.office_approve(&rid, &fingerprint_of(&c)).unwrap();
+    assert_eq!(c.office_status().unwrap().state, "member");
+    b.statement_learn(
+        &[household_store::statement_dict::DictionaryEntry {
+            key: "架空ノ店".into(),
+            category: "food".into(),
+            annual: false,
+            at: "2026-10-19T09:00:00Z".into(),
+            by: None,
+            removed: false,
+        }],
+        &[],
+    )
+    .unwrap();
+    let c_id = c.current_author().unwrap().member_id;
+    a.office_remove(&c_id, "担当C").unwrap();
+    // B が名簿の入れ替えに気づくと、自分の辞書を今の親鍵で書き直す
+    b.office_status().unwrap();
+    b.list().unwrap();
+    let p = office::Paths::new(o.office_root());
+    let (_, mk) = office::peek_roster(&std::fs::read(p.members()).unwrap()).unwrap();
+    let b_id = b.current_author().unwrap().member_id;
+    assert_eq!(
+        office::peek_statement_dict_master(&std::fs::read(p.statement_dict(&b_id)).unwrap())
+            .unwrap(),
+        mk
+    );
+}
+
+#[test]
+fn ending_sharing_keeps_what_every_pc_learned_from_statements() {
+    let o = Office::new();
+    let (pa, pb) = (o.pc("a"), o.pc("b"));
+    let (a, b) = (pa.store(), pb.store());
+    start_and_join(&o, &a, &b);
+    b.statement_learn(
+        &[household_store::statement_dict::DictionaryEntry {
+            key: "架空ノ店".into(),
+            category: "food".into(),
+            annual: false,
+            at: "2026-10-19T09:00:00Z".into(),
+            by: None,
+            removed: false,
+        }],
+        &[],
+    )
+    .unwrap();
+    let b_id = b.current_author().unwrap().member_id;
+    a.office_remove(&b_id, "担当B").unwrap();
+    a.acknowledge_recovery().unwrap();
+    a.office_end("担当A").unwrap();
+    // 共有フォルダの辞書のファイルは消え、A が覚えていた分だけがこの PC に残る（外した B の分は、外した時点で読まなくなる）
+    let p = office::Paths::new(o.office_root());
+    assert!(files_under(&p.statement_dict_dir()).is_empty());
+    assert!(a.statement_office().unwrap().dictionary.is_empty());
 }

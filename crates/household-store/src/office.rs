@@ -18,6 +18,7 @@
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 use zeroize::Zeroizing;
 
 use crate::container;
@@ -35,8 +36,31 @@ pub const CARD_FORMAT: &str = "lifeplan.householdCard";
 pub const PRESENCE_FORMAT: &str = "lifeplan.presence";
 pub const REQUEST_FORMAT: &str = "lifeplan.joinRequest";
 pub const STATEMENT_DICT_FORMAT: &str = "lifeplan.statementDictionary";
-/// 共有フォルダの中のファイルの形式の版（β公開までは 0.x）
+/// 共有フォルダの中のファイルの形式の版（β公開までは 0.x）。
+///
+/// 読む側の決まり（0023 の追記 2026-11-04。1.0 の前に決めた）:
+/// - MAJOR が新しいファイルは使わない（[`StoreError::OFFICE_FORMAT_TOO_NEW`]。アプリの更新を案内する）。書き換えもしない。
+/// - MINOR だけが新しいファイルは読んで使い、名簿・世帯の札を書き直すときは**知らない欄を残す**（`extra`）。
+///   世帯ファイルと違って閲覧だけにしないのは、名簿と札は事務所の全員が書くため（1人が更新しただけで全員の承認・保存が止まらないように）。
+/// - 暗号の見出し（平文）と世帯の鍵の札・開いている印の本文は、書くたびに作り直すので知らない欄を残さない。そこに欄を足すときは MAJOR を上げる。
 pub const SHARED_FORMAT_VERSION: &str = "0.1";
+
+/// これまでの共有フォルダの形式の版（古い順）。消さない。版ごとに `tests/fixtures/shared-format/<版>/` の見本がある
+/// - 0.1: 最初の版（2026-10-19。0023・0024・0033 の番号の中身・0034 の明細の辞書）
+pub const SHARED_KNOWN: &[&str] = &["0.1"];
+
+/// 共有フォルダのファイルの形式の版を確かめる（形が違えば壊れている、MAJOR が新しければ使わない）
+pub fn check_shared_version(v: &str) -> Result<(), StoreError> {
+    let (ma, _) = crate::migrate::parse(v).ok_or(StoreError::CORRUPT)?;
+    let (cur, _) = crate::migrate::parse(SHARED_FORMAT_VERSION).expect("共有フォルダの形式の版");
+    if ma > cur {
+        return Err(StoreError::OFFICE_FORMAT_TOO_NEW);
+    }
+    Ok(())
+}
+
+/// この版が知らない欄（MINOR の新しいアプリが足した欄）。書き直すときに残す
+pub type Extra = Map<String, Value>;
 
 const MEMBERS_MAGIC: &[u8; 4] = b"LPMB";
 const KEYS_MAGIC: &[u8; 4] = b"LPHK";
@@ -165,6 +189,7 @@ impl OfficeFile {
         if f.format != OFFICE_FILE_FORMAT || !crypto::is_uuid(&f.office_id) {
             return Err(StoreError::CORRUPT);
         }
+        check_shared_version(&f.format_version)?;
         Ok(f)
     }
 }
@@ -196,8 +221,11 @@ pub struct Member {
     pub joined_at: String,
     /// 承認したメンバーの ID（事務所を始めた人は null）
     pub approved_by: Option<String>,
-    /// 役割（今は `member` だけ）
+    /// 役割（今は `member` だけ。知らない役割は閲覧だけとして扱う）
     pub role: String,
+    /// この版が知らない欄（書き直すときに残す）
+    #[serde(flatten, default, skip_serializing_if = "Map::is_empty")]
+    pub extra: Extra,
 }
 
 impl Member {
@@ -210,6 +238,10 @@ impl Member {
             name: self.display_name.clone(),
         }
     }
+    /// すべての操作ができる役割か（知らない役割は閲覧だけ。将来の版が役割を足しても、古いアプリが権限を広く取り違えない。0023 の2）
+    pub fn can_edit(&self) -> bool {
+        self.role == ROLE_MEMBER
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -219,6 +251,8 @@ pub struct RemovedMember {
     pub display_name: String,
     pub removed_at: String,
     pub removed_by: Option<String>,
+    #[serde(flatten, default, skip_serializing_if = "Map::is_empty")]
+    pub extra: Extra,
 }
 
 /// 事務所の復元キーを保管した記録（その時代の親鍵についてだけ有効）。
@@ -234,6 +268,8 @@ pub struct RecoveryAck {
     pub verified_at: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verified_by: Option<String>,
+    #[serde(flatten, default, skip_serializing_if = "Map::is_empty")]
+    pub extra: Extra,
 }
 
 /// 名簿の履歴の1行（今は復元キーで加わったことだけを書く。知らない種類の行は読む側が無視する）
@@ -244,6 +280,8 @@ pub struct RosterEvent {
     pub member_id: String,
     pub display_name: String,
     pub at: String,
+    #[serde(flatten, default, skip_serializing_if = "Map::is_empty")]
+    pub extra: Extra,
 }
 
 /// 事務所の共有を終えた印（最後の1人が「共有をやめる」を行った。0023 の10）
@@ -252,6 +290,8 @@ pub struct RosterEvent {
 pub struct ClosedMark {
     pub closed_at: String,
     pub closed_by: String,
+    #[serde(flatten, default, skip_serializing_if = "Map::is_empty")]
+    pub extra: Extra,
 }
 
 /// 前の親鍵（入れ替えの後、30日だけ持つ）
@@ -290,6 +330,8 @@ pub struct Roster {
     pub categories: Option<Vec<Category>>,
     pub updated_at: String,
     pub updated_by: Option<String>,
+    /// この版が知らない本文の欄（MINOR の新しいアプリが足した欄。書き直すときに残す）
+    pub extra: Extra,
 }
 
 impl Roster {
@@ -382,6 +424,8 @@ struct MembersBody {
     categories: Option<Vec<Category>>,
     updated_at: String,
     updated_by: Option<String>,
+    #[serde(flatten, default)]
+    extra: Extra,
 }
 
 /// 確かめ値（0013 の2 と同じ形）
@@ -435,6 +479,7 @@ pub fn encode_roster(r: &Roster, master: &[u8; KEY_LEN]) -> Result<Vec<u8>, Stor
             categories: r.categories.clone(),
             updated_at: r.updated_at.clone(),
             updated_by: r.updated_by.clone(),
+            extra: r.extra.clone(),
         })
         .expect("名簿の JSON"),
     );
@@ -454,6 +499,7 @@ fn members_header(bytes: &[u8]) -> Result<(MembersHeader, container::Parts<'_>),
     if h.format != MEMBERS_FORMAT || h.cipher != crypto::CIPHER {
         return Err(StoreError::CORRUPT);
     }
+    check_shared_version(&h.format_version)?;
     Ok((h, p))
 }
 
@@ -470,6 +516,7 @@ pub fn open_roster_with_master(bytes: &[u8], master: &[u8; KEY_LEN]) -> Result<R
     if b.office_id != h.office_id || b.master_key_id != h.master_key_id {
         return Err(StoreError::CORRUPT);
     }
+    check_shared_version(&b.format_version)?;
     let mut previous = Vec::with_capacity(b.previous_masters.len());
     for pm in b.previous_masters {
         previous.push(PreviousMaster {
@@ -491,6 +538,7 @@ pub fn open_roster_with_master(bytes: &[u8], master: &[u8; KEY_LEN]) -> Result<R
         categories: b.categories,
         updated_at: b.updated_at,
         updated_by: b.updated_by,
+        extra: b.extra,
     })
 }
 
@@ -651,6 +699,7 @@ pub fn open_keys(
     if h.format != KEYS_FORMAT || h.cipher != crypto::CIPHER || h.household_id != household_id {
         return Err(StoreError::CORRUPT);
     }
+    check_shared_version(&h.format_version)?;
     let nonce: [u8; NONCE_LEN] = crypto::hex_array(&h.nonce).ok_or(StoreError::CORRUPT)?;
     let dk = crypto::derive(master, purpose::HOUSEHOLD_KEYS);
     let body = crypto::open(&dk, &nonce, p.aad, p.ciphertext)?;
@@ -732,11 +781,27 @@ fn open_small<T: for<'de> Deserialize<'de>>(
     {
         return Err(StoreError::CORRUPT);
     }
+    check_shared_version(&h.format_version)?;
     let master = master_for(&h.master_key_id).ok_or(StoreError::NO_KEY)?;
     let nonce: [u8; NONCE_LEN] = crypto::hex_array(&h.nonce).ok_or(StoreError::CORRUPT)?;
     let k = crypto::derive(&master, purpose);
     let body = crypto::open(&k, &nonce, p.aad, p.ciphertext)?;
     serde_json::from_slice(&body).map_err(|_| StoreError::CORRUPT)
+}
+
+/// 小さなファイル（世帯の札・明細の辞書）の見出しの親鍵の鍵ID（暗号は外さない。入れ替えの後に古い時代のまま残ったものを探す）
+fn peek_small_master(magic: &[u8; 4], bytes: &[u8]) -> Result<String, StoreError> {
+    let p = container::split(magic, bytes)?;
+    let h: SmallHeader = serde_json::from_slice(p.header).map_err(|_| StoreError::CORRUPT)?;
+    Ok(h.master_key_id)
+}
+
+pub fn peek_card_master(bytes: &[u8]) -> Result<String, StoreError> {
+    peek_small_master(CARD_MAGIC, bytes)
+}
+
+pub fn peek_statement_dict_master(bytes: &[u8]) -> Result<String, StoreError> {
+    peek_small_master(STATEMENT_DICT_MAGIC, bytes)
 }
 
 /// 世帯の札（一覧のための値。0023 の2）
@@ -753,6 +818,9 @@ pub struct Card {
     /// 番号の中身（区分・通し番号・枝番・見本。0033）。欄の無い札は区分なしの自由な番号
     #[serde(flatten)]
     pub label: Label,
+    /// この版が知らない欄（MINOR の新しいアプリが足した欄。保存で札を書き直すときに残す。`label` の後に置く）
+    #[serde(flatten, default)]
+    pub extra: Extra,
 }
 
 pub fn encode_card(
@@ -911,6 +979,7 @@ pub struct JoinRequest {
 impl JoinRequest {
     /// 形を確かめる（壊れた・別の事務所の申請は使わない）
     pub fn checked(self, office_id: &str) -> Result<JoinRequest, StoreError> {
+        check_shared_version(&self.format_version)?;
         let ok = self.format == REQUEST_FORMAT
             && self.office_id == office_id
             && crypto::is_uuid(&self.member_id)
@@ -945,6 +1014,7 @@ mod tests {
             categories: None,
             updated_at: "2026-10-19T00:00:00Z".into(),
             updated_by: None,
+            extra: Default::default(),
         }
     }
 
@@ -957,6 +1027,7 @@ mod tests {
             joined_at: "2026-10-19T00:00:00Z".into(),
             approved_by: None,
             role: ROLE_MEMBER.into(),
+            extra: Default::default(),
         }
     }
 
@@ -1014,6 +1085,7 @@ mod tests {
                 },
                 display_name: "Aさん".into(),
                 at: format!("2026-10-19T00:00:{:02}Z", i % 60),
+                extra: Default::default(),
             });
         }
         assert_eq!(r.events.len(), MAX_ROSTER_EVENTS, "古い行から消す");
@@ -1023,10 +1095,12 @@ mod tests {
             acknowledged_by: ma.member_id.clone(),
             verified_at: Some("y".into()),
             verified_by: Some(ma.member_id.clone()),
+            extra: Default::default(),
         });
         r.closed = Some(ClosedMark {
             closed_at: "z".into(),
             closed_by: ma.member_id.clone(),
+            extra: Default::default(),
         });
         r.usage = Some(USAGE_PERSONAL.into());
         let m = crypto::random_key();
@@ -1091,6 +1165,7 @@ mod tests {
                 branch: None,
                 sample: None,
             },
+            extra: Default::default(),
         };
         let b = encode_card(&office, &mk, &h, &card, &m);
         let mm = m.clone();
@@ -1119,6 +1194,156 @@ mod tests {
         let name = format!("{h}.{mid}.lpop");
         assert_eq!(presence_ids(&name), Some((h.clone(), mid.clone())));
         assert_eq!(presence_ids("x.lpop"), None);
+    }
+
+    /// 名簿・小さなファイルの形式の版を書き換えた写し（試験用。見出しと本文の両方の版を変える）
+    fn with_version(
+        bytes: &[u8],
+        magic: &[u8; 4],
+        purpose: &str,
+        master: &Key,
+        v: &str,
+    ) -> Vec<u8> {
+        let p = container::split(magic, bytes).unwrap();
+        let mut h: Value = serde_json::from_slice(p.header).unwrap();
+        let nonce: [u8; NONCE_LEN] = crypto::hex_array(h["nonce"].as_str().unwrap()).unwrap();
+        let k = crypto::derive(master, purpose);
+        let body = crypto::open(&k, &nonce, p.aad, p.ciphertext).unwrap();
+        let mut b: Value = serde_json::from_slice(&body).unwrap();
+        if b.get("formatVersion").is_some() {
+            b["formatVersion"] = v.into();
+        }
+        h["formatVersion"] = v.into();
+        container::seal(
+            magic,
+            &container::header_json(&h),
+            &k,
+            &nonce,
+            &serde_json::to_vec(&b).unwrap(),
+        )
+    }
+
+    #[test]
+    fn newer_major_files_are_not_used_and_newer_minor_files_are_read() {
+        let a = MemberKeys::generate();
+        let ma = member_of(&a, "Aさん");
+        let r = roster(&crypto::new_uuid(), vec![ma.clone()]);
+        let m = crypto::random_key();
+        let bytes = encode_roster(&r, &m).unwrap();
+        let minor = with_version(&bytes, MEMBERS_MAGIC, purpose::OFFICE_MEMBERS, &m, "0.9");
+        assert!(open_roster(&minor, &a, &ma.member_id).is_ok());
+        let major = with_version(&bytes, MEMBERS_MAGIC, purpose::OFFICE_MEMBERS, &m, "1.0");
+        assert_eq!(
+            open_roster(&major, &a, &ma.member_id).err(),
+            Some(StoreError::OFFICE_FORMAT_TOO_NEW)
+        );
+        let broken = with_version(&bytes, MEMBERS_MAGIC, purpose::OFFICE_MEMBERS, &m, "1");
+        assert_eq!(
+            open_roster(&broken, &a, &ma.member_id).err(),
+            Some(StoreError::CORRUPT)
+        );
+        // 世帯の札・世帯の鍵の札・参加の申請・office.json も同じ
+        let h = crypto::new_uuid();
+        let card = Card {
+            customer_no: "A0001".into(),
+            summary: "本人".into(),
+            created_at: "x".into(),
+            updated_at: "y".into(),
+            updated_by: None,
+            generation: 1,
+            label: Label::default(),
+            extra: Extra::default(),
+        };
+        let cb = encode_card(&r.office_id, &r.master_key_id, &h, &card, &m);
+        let lookup = |_: &str| Some(m.clone());
+        let cb2 = with_version(&cb, CARD_MAGIC, purpose::HOUSEHOLD_CARD, &m, "2.3");
+        assert_eq!(
+            open_card(&cb2, &h, lookup).err(),
+            Some(StoreError::OFFICE_FORMAT_TOO_NEW)
+        );
+        let kb = encode_keys(
+            &r.office_id,
+            &r.master_key_id,
+            &h,
+            &HouseholdKeys::new(),
+            &m,
+        );
+        let kb2 = with_version(&kb, KEYS_MAGIC, purpose::HOUSEHOLD_KEYS, &m, "1.0");
+        assert_eq!(
+            open_keys(&kb2, &h, &m).err(),
+            Some(StoreError::OFFICE_FORMAT_TOO_NEW)
+        );
+        let req = |v: &str| JoinRequest {
+            format: REQUEST_FORMAT.into(),
+            format_version: v.into(),
+            office_id: r.office_id.clone(),
+            member_id: crypto::new_uuid(),
+            display_name: "Bさん".into(),
+            public_key: a.public_hex(),
+            requested_at: "x".into(),
+        };
+        assert!(req("0.7").checked(&r.office_id).is_ok());
+        assert_eq!(
+            req("1.0").checked(&r.office_id).err(),
+            Some(StoreError::OFFICE_FORMAT_TOO_NEW)
+        );
+        assert_eq!(check_shared_version(SHARED_FORMAT_VERSION), Ok(()));
+    }
+
+    #[test]
+    fn unknown_fields_survive_a_round_trip() {
+        // 世帯の札: 番号の中身（label）の欄は label に入り、知らない欄だけが extra に入る（同じキーを2度書かない）
+        let json = serde_json::json!({
+            "customerNo": "A0042", "summary": "本人", "createdAt": "x", "updatedAt": "y",
+            "generation": 2, "category": "A", "serial": 42, "futureTag": ["顧問"], "futureNo": 1
+        });
+        let c: Card = serde_json::from_value(json.clone()).unwrap();
+        assert_eq!(c.label.category.as_deref(), Some("A"));
+        assert_eq!(c.label.serial, Some(42));
+        assert_eq!(c.extra.len(), 2);
+        assert!(c.extra.contains_key("futureTag") && c.extra.contains_key("futureNo"));
+        let text = serde_json::to_string(&c).unwrap();
+        assert_eq!(text.matches("\"category\"").count(), 1);
+        let back: Value = serde_json::from_str(&text).unwrap();
+        let mut expected = json;
+        expected["updatedBy"] = Value::Null;
+        assert_eq!(back, expected);
+        // 名簿: 本文・メンバー・外したメンバー・履歴の知らない欄
+        let a = MemberKeys::generate();
+        let mut ma = member_of(&a, "Aさん");
+        ma.extra.insert("futurePermission".into(), "all".into());
+        let mut r = roster(&crypto::new_uuid(), vec![ma]);
+        r.extra
+            .insert("futureOffice".into(), serde_json::json!({"n": 1}));
+        r.removed.push(RemovedMember {
+            member_id: crypto::new_uuid(),
+            display_name: "Bさん".into(),
+            removed_at: "x".into(),
+            removed_by: None,
+            extra: [("futureReason".to_owned(), Value::from("PCをなくした"))]
+                .into_iter()
+                .collect(),
+        });
+        let m = crypto::random_key();
+        let back = open_roster_with_master(&encode_roster(&r, &m).unwrap(), &m).unwrap();
+        assert_eq!(back.extra, r.extra);
+        assert_eq!(back.members, r.members);
+        assert_eq!(back.removed, r.removed);
+        // 知らない欄が無ければ書かない（今までの形のまま）
+        let plain = roster(&crypto::new_uuid(), vec![member_of(&a, "Aさん")]);
+        let text = serde_json::to_string(&plain.members[0]).unwrap();
+        assert!(!text.contains("extra"));
+    }
+
+    #[test]
+    fn unknown_roles_cannot_edit() {
+        let a = MemberKeys::generate();
+        let mut m = member_of(&a, "Aさん");
+        assert!(m.can_edit());
+        m.role = "viewer".into();
+        assert!(!m.can_edit());
+        m.role = String::new();
+        assert!(!m.can_edit());
     }
 
     #[test]

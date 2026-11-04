@@ -40,6 +40,7 @@ function personal(over: Partial<OfficeStatus> = {}): OfficeStatus {
     recoveryVerifiedAt: null,
     recoveryRequired: false,
     notices: [],
+    viewOnly: false,
     ...over,
   };
 }

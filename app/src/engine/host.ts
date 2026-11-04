@@ -187,7 +187,10 @@ export interface StoredOpened extends NumberLabel {
   id: string;
   customerNo: string;
   body: string;
+  /** 閲覧だけ（新しい版のアプリで保存された世帯か、名簿の自分の役割が閲覧だけ） */
   readOnly: boolean;
+  /** 閲覧だけの理由が、名簿の自分の役割（この版の知らない役割は閲覧だけ。0023 の2）。古い本体は返さない */
+  viewOnly?: boolean;
   generation: number;
   /** この改訂を保存した人（事務所で共有しているとき） */
   savedBy: string | null;
@@ -257,6 +260,8 @@ export interface OfficeStatus {
   recoveryRequired: boolean;
   /** まだ見ていない知らせ */
   notices: OfficeNotice[];
+  /** 名簿の自分の役割が閲覧だけ（新しい版のアプリが決めた、この版の知らない役割。世帯は開けるが、保存・共有の操作はできない。0023 の2） */
+  viewOnly: boolean;
 }
 
 /**

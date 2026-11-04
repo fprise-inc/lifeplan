@@ -6,6 +6,7 @@
 // - 事務所の復元キーを保管するまで、承認・外すは止める（理由と「保管する」への導線を出す。世帯の閲覧・編集は止めない）
 // - 全員の PC が使えなくなったとき: 事務所の復元キーで名簿に自分を足す（ほかのメンバーの画面に通知が出る）
 // - 共有をやめる（最後の1人だけ。世帯をこの PC の中へ移す）
+// - 名簿の自分の役割が、この版の知らない役割（新しい版のアプリが決めた閲覧だけなど）のときは閲覧だけ。理由を出し、承認・外す・やめるを止める
 // - 1人で2台の PC で使う同期フォルダ（0024）は「保存先」のパネル（StoragePanel）。同期フォルダで使っている間は、ここではその案内だけを出す
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OfficeHost, OfficeStatus } from "../../engine/host.ts";
@@ -241,6 +242,11 @@ export function OfficePanel(p: OfficePanelProps) {
             <p class="pl-sub">
               事務所の確かめ用の番号 <code class="of-code" data-office-code>{st.officeCode}</code>（全員の画面で同じになります。参加した人は、承認した人の画面と同じかを確かめてください）
             </p>
+            {st.viewOnly ? (
+              <p class="hh-warn" role="status" data-office-view-only>
+                {officeMessage("E_OFFICE_VIEW_ONLY")}
+              </p>
+            ) : null}
             {st.notices.length > 0 ? (
               <div class="of-alert" role="alert" data-office-notice>
                 {st.notices.map((n) => (
@@ -303,7 +309,7 @@ export function OfficePanel(p: OfficePanelProps) {
                         <button
                           type="button"
                           class="btn primary"
-                          disabled={busy || !ok || st.recoveryRequired}
+                          disabled={busy || !ok || st.recoveryRequired || st.viewOnly}
                           title={st.recoveryRequired ? "事務所の復元キーを保管するまで承認できません" : undefined}
                           onClick={() =>
                             void run(async () => {
@@ -342,6 +348,7 @@ export function OfficePanel(p: OfficePanelProps) {
                       <td>
                         <b>{m.name}</b>
                         {m.isMe ? <span class="pl-tag">あなた</span> : null}
+                        {m.role !== "member" ? <span class="pl-tag" data-office-role-view-only>閲覧だけ</span> : null}
                       </td>
                       <td>
                         <code class="of-code">{m.fingerprint}</code>
@@ -349,7 +356,7 @@ export function OfficePanel(p: OfficePanelProps) {
                       <td class="num">{shortDate(m.joinedAt).slice(0, 10)}</td>
                       <td>{m.viaRecovery ? "（復元キーで参加）" : (m.approvedBy ?? "（始めた人）")}</td>
                       <td>
-                        {!m.isMe && st.members.length > 1 ? (
+                        {!m.isMe && st.members.length > 1 && !st.viewOnly ? (
                           <button
                             type="button"
                             class="link-btn danger"
@@ -419,7 +426,7 @@ export function OfficePanel(p: OfficePanelProps) {
                 <button
                   type="button"
                   class="btn"
-                  disabled={busy}
+                  disabled={busy || st.viewOnly}
                   onClick={() =>
                     void run(async () => {
                       const n = await p.office.moveLocal();
@@ -450,7 +457,7 @@ export function OfficePanel(p: OfficePanelProps) {
             ) : ending === null ? (
               <p>
                 共有フォルダの世帯（暗号化したまま）をこのPCの中へ移し、このPCの中だけで使う形に戻します。{" "}
-                <button type="button" class="btn" disabled={busy} onClick={() => setEnding("")} data-office-end>
+                <button type="button" class="btn" disabled={busy || st.viewOnly} onClick={() => setEnding("")} data-office-end>
                   共有をやめる…
                 </button>
               </p>
