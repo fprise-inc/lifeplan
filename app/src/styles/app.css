@@ -1171,6 +1171,12 @@ html.big .chart .hv-dot { stroke-width: 3; }
 /* 名前の右に値が収まらないときは、名前を2行に折らずに値を下の行へ回す（値は右寄せのまま。収まるときは今と同じ1行） */
 .lv-grid .lever-head { flex-wrap: wrap; row-gap: 2px; }
 .lv-grid .lever-head > :last-child:not(:first-child) { margin-left: auto; }
+/* 入力の欄から足した項目の名前は2段: 上の段に物の名前（小さく薄い字で1行。収まらなければ … で省き、指を置くと全文）と「外す」、下の段に欄の名前（太字。収まらなければ折り返す） */
+.lever-head.two-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 0 8px; }
+.lever-head.two-line > .lever-label { display: contents; }
+.lever-head.two-line .ll-where { position: relative; grid-row: 1; grid-column: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; font-weight: 400; color: var(--ink-2); }
+.lever-head.two-line > .link-btn { grid-row: 1; grid-column: 2; margin-left: 0; }
+.lever-head.two-line .ll-name { grid-row: 2; grid-column: 1 / -1; font-weight: 700; }
 /* 足した項目の値の文（「契約社員・嘱託（再雇用など）・年収100万円」など）は、カードの幅に収まらなければ折り返す（カードの枠からはみ出さない） */
 .lv-grid .added-val { white-space: normal; overflow-wrap: anywhere; }
 .lv-grid .amt-row > span { min-width: 0; }

@@ -362,7 +362,7 @@ export function premiseItems(wh: WorkingHousehold, sc: Scenario | undefined): Pr
     out.push(one("disability:medicalMonths", planField({ key: "cg/disability/months", label: "医療費の月数", kind: "int", suffix: "か月", min: 1, max: 600, path: ["medical", "months"], fallback: 12 })));
     const [work, when] = partnerItems("disability", "働けなくなってから");
     out.push(work);
-    if ((plan.grade ?? 2) !== 0) out.push(one("disability:oldAgeChoice", oldAgeChoiceField(sc.member), { note: "自動で手取りが多い組み合わせを選びます。選び直すとその組み合わせで計算します" }));
+    if ((plan.grade ?? 2) !== 0) out.push(one("disability:oldAgeChoice", oldAgeChoiceField(sc.member), { note: "65歳からの障害年金と老齢年金の受け取り方です。自動で手取りが多い組み合わせを選びます。選び直すとその組み合わせで計算します" }));
     out.push(when, creditLife("disability:creditLife"));
   } else if (sc.kind === "illness") {
     out.push(
@@ -491,5 +491,5 @@ export function contingencyInputSections(wh: WorkingHousehold): SectionDef[] {
 
 /** 障害年金の65歳からの組み合わせを選び直す欄（障害の想定の人ごと） */
 export function oldAgeChoiceField(memberId: string): FieldDef {
-  return planField({ key: `cg/choice/${memberId}`, label: "65歳からの障害年金と老齢年金の組み合わせ", level: "detail", kind: "select", options: OLD_AGE_CHOICES, path: ["oldAgeChoice", memberId], fallback: "" });
+  return planField({ key: `cg/choice/${memberId}`, label: "65歳からの年金の組み合わせ", level: "detail", kind: "select", options: OLD_AGE_CHOICES, path: ["oldAgeChoice", memberId], fallback: "" });
 }

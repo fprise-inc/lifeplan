@@ -272,7 +272,8 @@ describe("提示用の値がエンジンの結果と一致する", () => {
     expect(html).toContain("既定: 70%");
     expect(html).toContain("1万円ずつ");
     expect(html).toContain("＋ 動かす項目を追加");
-    expect(panel("disability:self", ["disability:oldAgeChoice"])).toContain("65歳からの障害年金と老齢年金の組み合わせ");
+    expect(panel("disability:self", ["disability:oldAgeChoice"])).toContain("65歳からの年金の組み合わせ");
+    expect(panel("disability:self", ["disability:oldAgeChoice"])).toContain("65歳からの障害年金と老齢年金の受け取り方です");
     // 前提の欄は作業の層（FP が直す欄）。FP用のメモは出さない
     expect(html).not.toContain("MEMO-MARK");
   });

@@ -459,8 +459,19 @@ export function ItemRow(props: ItemRowProps) {
   const note = item.note?.(value) ?? null;
   return (
     <div class={`lever added${changed ? " changed" : ""}`} data-added={item.key} data-reveal-item>
-      <div class="lever-head">
-        <span class="lever-label">{item.label}</span>
+      <div class={`lever-head${item.where !== undefined ? " two-line" : ""}`}>
+        {item.where !== undefined ? (
+          // 入力の欄から足した項目: 上の段に物の名前（小さく薄く・1行で収まらなければ … と title）、下の段に欄の名前。読み上げは「物の名前: 欄の名前」のつないだ名前のまま
+          <span class="lever-label">
+            <span class="ll-where" title={item.where}>
+              {item.where}
+              <span class="vh">: </span>
+            </span>
+            <span class="ll-name">{item.short}</span>
+          </span>
+        ) : (
+          <span class="lever-label">{item.label}</span>
+        )}
         {onRemove !== null ? (
           <button type="button" class="link-btn" onClick={() => onRemove(item.key)} title="この項目を対策から外す（動かした値は現状に戻す）">
             外す
