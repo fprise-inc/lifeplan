@@ -204,7 +204,9 @@ describe("キーボードと描画", () => {
     expect(html).toContain('data-find-card="education"');
     expect(html).toMatch(/<span class="c">子ども・教育<\/span><span class="sep" aria-hidden="true">›<\/span><span class="l">留学<\/span><small class="tag">足す<\/small>/);
     expect(html).toContain("<small>第1子</small>");
-    expect(html).toContain('aria-selected="true"');
+    // 言葉を入れただけでは、どの候補も選んでいない（Enter で最初の候補を開かない）
+    expect(html).not.toContain('aria-selected="true"');
+    expect(html).not.toContain("aria-activedescendant");
     const none = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", findQuery: "zzzz" }));
     expect(none).toContain("見つかりません");
   });
