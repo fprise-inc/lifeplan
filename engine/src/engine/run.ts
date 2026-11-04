@@ -8,6 +8,7 @@ import type { Json, PackJson } from "../regulation/reader.ts";
 import { RegulationStore } from "../regulation/reader.ts";
 import { contractMajor, satisfiesRange } from "../regulation/versions.ts";
 import { assemble, type Assembly, type Extension, type Replacement } from "../registry/assemble.ts";
+import type { ComponentDefinition } from "../registry/define.ts";
 import { BACKFILLED, collectEffects, invoke, keepLane, newKeyTable, newParamCache, newPartition, nextEpoch, type Partition, type RunState, type Variant } from "../registry/ctx.ts";
 import { ITEMS } from "../registry/items.ts";
 import { Tracer } from "../registry/trace.ts";
@@ -31,6 +32,11 @@ export interface RunOptions {
   readonly entry?: { readonly component: string; readonly input: unknown };
   /** テスト専用: 部品の出力を決まった値にする（答え合わせで公式の計算例の途中の値を入れるため。製品の入口は渡さない） */
   readonly stubs?: Readonly<Record<string, (input: unknown) => unknown>>;
+  /**
+   * テスト専用: 公式部品の定義を、差し替えの決まり（0119）を通さずに置き換える（エンジンの仕組み〔区間・構成員ごとの依存・凍結など〕を、
+   * 差し替えを許さない公式部品で確かめるため）。見出しの起こりは replacement。製品の入口は渡さない
+   */
+  readonly probes?: Readonly<Record<string, ComponentDefinition>>;
   /** runBatch から: 検査済みのパック・組み立て済みの部品表と、要求のあいだで使い回す結果 */
   readonly batch?: BatchContext;
   /** 表示の先出し用（0005 の5）: お金の動き（flows）と根拠の記録を返さず、見出し・年ごとの行・表だけを返す */
@@ -387,7 +393,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     store = new RegulationStore(packs as readonly PackJson[], given.dataSet ?? {}, (given.estimateValues ?? {}) as Readonly<Record<string, Json>>, given.estimateNoFill ?? []);
     batch?.stores.set(dataSetKey, store);
   }
-  const assembled = batch?.assembly ?? assemble(OFFICIAL_COMPONENTS, options);
+  const assembled = batch?.assembly ?? assembleWith(options);
   const assembly =
     options.stubs === undefined
       ? assembled
@@ -677,9 +683,21 @@ export function runBatch(
   });
 }
 
+/** 部品表の組み立て。テスト専用の probes は、組み立てた後に定義を置き換える（まとめて計算するときも1回だけ。使い回しの鍵が変わらないように） */
+function assembleWith(options: RunOptions): Assembly {
+  const assembled = assemble(OFFICIAL_COMPONENTS, options);
+  const probes = options.probes;
+  if (probes === undefined) return assembled;
+  return {
+    ...assembled,
+    impls: new Map([...assembled.impls].map(([id, impl]) => [id, probes[id] === undefined ? impl : { ...impl, origin: "replacement" as const, def: probes[id] }])),
+    refs: assembled.refs.map((r) => (probes[r.id] === undefined ? r : { ...r, origin: "replacement" as const })),
+  };
+}
+
 /** パックの検査と部品表の組み立て（まとめて計算するときと、セッションで1回だけ行う） */
 export function createBatchContext(packs: readonly unknown[], options: RunOptions = {}): BatchContext {
-  const assembly = assemble(OFFICIAL_COMPONENTS, options);
+  const assembly = assembleWith(options);
   checkPacks(packs, assembly, options.packsChecked);
   return { stores: new Map(), assembly, partitions: new Map(), aggregates: new WeakMap(), lastUsed: null, lane: 0 };
 }

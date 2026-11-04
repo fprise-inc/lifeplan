@@ -176,7 +176,7 @@ export default defineComponent({
 
 ## 未確定
 
-- 正式公開の時に差し替えを許す公式部品の一覧（候補: 退職金規程、必要保障額の考え方、生活費の段階）。部品を作りながら12〜1月に決める。
+- ~~正式公開の時に差し替えを許す公式部品の一覧（候補: 退職金規程、必要保障額の考え方、生活費の段階）。部品を作りながら12〜1月に決める。~~（2026-11-04 に 0119 で決めた。下の追記）
 - 開く3つの差し込み口の入出力の約束の中身。12月に原型を作り、βで使われ方を見て直す（試験版）。
 - `full` の記録の詳しい形（有向グラフの書き方、圧縮の方式）と、控えに保存するときの大きさの目安。所得税・社会保険料の部品ができた11月に測って決める。
 - 数字をクリックしたときに `full` で計算し直す範囲を、案×想定より狭く（その年・その行に関わる部品だけ）できるか。速さを見て決める。
@@ -278,3 +278,9 @@ export default defineComponent({
 - 2026-10-28（収益不動産の税と出口。0081）: 新しい公式部品 `tax.realEstateSale`（住まい以外の不動産の譲渡所得の分離課税。名義の人×年。1.0）・`tax.lossCarryforward`（青色申告の純損失の繰越控除。構成員ごと。1.0）。約束の版を上げた部品（任意の欄を足しただけ）: `asset.realEstate` 1.0→**1.1**（改訂5。出力の売却に譲渡所得の内訳 `acquisitionCost`・`estimated`・`gain`・`term`、所得の区分 `incomeKind`、事業的規模の目安の `units`）、`tax.totalIncome` 1.5→**1.6**（改訂7。`landBuilding`・`blueDeduction`・`netLoss`・`lodging`。土地建物等の譲渡所得を `separate` に足す）。使う側は欄が無ければ0・不動産所得として扱う（4 の MINOR の決まり）。改訂を上げた部品（約束の版は同じ）: `debt.schedule`（5。売ったときに返す）、`incomeTax.annual`（5）・`residentTax.annual`（10）・`socialInsurance.nationalHealth`（9）・`socialInsurance.lateElderly`（7）（繰越控除を引く）、`plan.flows`（14。`tax.realEstateSale` を集める）、`plan.cashflow`（17。details の realEstate に任意の欄も写す）。新しい欄を入れていない世帯の結果は変わらない。
 - 2026-10-29（収益不動産の分析の数字。0082）: 新しい公式部品 `asset.realEstateAnalysis`（収益不動産の分析の数字。物件ごと・年ごとと全物件の合計。1.0。表を変えない読むだけの部品）。約束の版を上げた部品（任意の欄を足しただけ）: `asset.realEstate` 1.1→**1.2**（改訂6。出力に分析の材料 `cash`・`facts`。計算は同じ）、`plan.cashflow` 1.6→**1.7**（改訂18。`details.realEstateAnalysis`。エンジンが出力の `summary.realEstateAnalysis` に写す）。エンジンの規約に `conv.realEstate.analysis`（円未満切り捨て）を足した。
 - 2026-10-31（車の買い替えとリース。0101）: 改訂を上げた部品: `expense.car`（4。手放す月には買わない・買い替えの決まり `purchase.replace`・リース・長期レンタルの月額〔式 `expense.car.lease`〕と月額に含む物を内訳から外す）、`asset.car`（3。手放す月には買わない・この1台だけの車は手放す月に0まで下げる・リースの車は評価額を持たない）。購入の月の決まりは SDK の `carPurchaseMonths` 1つ。約束の版は変えていない（入力の欄を足しただけ）。
+- 2026-11-04（差し替えを許す公式部品の一覧と差し替えの約束。0119）: 「未確定」の一覧を β公開の前に決めた（外の FP が作る差し替えが依存する形のため）。
+  - 差し替えを許すのは、推定・目安・FP の考え方・事務所や勤め先の決まりで結果が決まる8つ（`expense.living`・`education.cost`・`housing.valuation`・`asset.car`・`contingency.lumpSum`・`protection.need`・`retirement.benefit`・`expense.advisoryFee`）。法律・制度で決まる計算、入力を並べる部品、集める・組み立てる・判定する部品は許さない。迷ったら許さない（足すのは後からできる）。全部品の分け方と理由は 0119 の1・2。
+  - テストのために付けていた `socialInsurance.employment`・`socialInsurance.health`・`socialInsurance.pension` の `replaceable` を外した。エンジンの仕組みを公式部品で確かめるテストは、テスト専用の `probes`（差し替えの決まりを通さずに定義を置き換える。製品の入口は渡さない）を使う。
+  - 3 の差し替えの決まりに足した（組み立てで確かめる）: 入力・出力のスキーマのキーは公式と同じ、約束の版は公式と同じ MAJOR で MINOR は公式以下、呼べる差し込み口は公式部品が呼ぶものの内、差し替えの部品は `replaceable` を書かない。7 の「カスタム部品の計算式ID は `ext.<作成者>.` で始める」を、差し替え・追加の部品の呼び出しで確かめる（`E_FORMULA_ID`）。
+  - 部品の書き方の約束（`COMPONENT_API_VERSION`）1.3 → 1.4（決まりを足しただけ。公式部品の書き方は変わらない）。登録簿 `registry/components.yaml` に、許した部品だけ `replaceable: true` を書く。
+  - 差し込み口 `slot.protection.method`・`slot.retirement.rules` と、`protection.need`・`retirement.benefit` の差し替えの重なりは、差し込み口の約束を作るとき（12月）に決める（0119 の5）。

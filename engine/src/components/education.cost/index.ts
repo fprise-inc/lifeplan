@@ -102,6 +102,7 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
   params: PARAMS,
   reads: ["goal.kind", "goal.owner", "goal.education", "member.kind", "relation.type", "relation.parent", "relation.child", "assumptions.inflation", "assumptions.educationInflation"],
   memberScope: ["goal"],
+  replaceable: true,
   input: "member.input",
   output: "education.cost.output",
   compute(input, ctx) {
