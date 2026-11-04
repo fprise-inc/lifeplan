@@ -27,6 +27,7 @@ import { PensionEstimate } from "./PensionEstimate.tsx";
 import { pensionEstimateSummary, usePensionEstimate } from "./pensionEstimate.ts";
 import { StatusBadge } from "./StatusBadge.tsx";
 import { SavingsPanel } from "./savings/SavingsPanel.tsx";
+import type { FindTarget } from "./inputSearch.ts";
 import { InsuranceOverview } from "./InsuranceOverview.tsx";
 import { RentalOverview } from "./RentalOverview.tsx";
 import { useRentalFigures } from "../rentalTab.ts";
@@ -40,8 +41,6 @@ export interface InputPanelProps {
   /** 保存されている世帯（下書きの始まり） */
   wh: WorkingHousehold;
   itemId: string;
-  /** 項目を足したとき: 足した物を入れた下書き（保存するまで世帯には入れない） */
-  initialDraft?: WorkingHousehold;
   level: Level;
   onLevel: (l: Level) => void;
   onSave: (next: WorkingHousehold, itemId: string) => void;
@@ -52,6 +51,11 @@ export interface InputPanelProps {
   onStatement?: (saved?: WorkingHousehold) => void;
   /** 開いたときに移る欄のキー（確かめの一覧の「開く」。欄に移るだけで、値も状態も変えない） */
   focusKey?: string;
+  /**
+   * 開いたときに移る所（入力のホームの「探して開く」。欄・ボタン・まとまり・区画）。移って目立たせるだけで、値も状態も変えない。
+   * 見つからなければ（物の中を閉じている画面など）その区画へ、それも無ければ開いた直後のいつもの所へ
+   */
+  focusAt?: FindTarget;
   /**
    * プランを直しているとき（0036 の8）: 欄にはそのプランの中身（作業中の世帯）を見せ、直したことをそのプランの差分にする。
    * 下書きは世帯（現状とプランの一覧）のまま持ち、「保存」で plan.onSave に渡す（現状は変わらない）
@@ -79,9 +83,27 @@ const FOCUSABLE = "button:not([disabled]), input:not([disabled]), select:not([di
  */
 export const PANEL_FIRST_FOCUS: readonly string[] = [".ip-body [data-autofocus]", ".ip-body input, .ip-body select", ".ip-body button:not(.danger):not([data-help-btn])", ".x-btn"];
 
-export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, onClose, computeOne, onStatement, focusKey, plan, groupOpen }: InputPanelProps) {
-  const [draft, setDraft] = useState<WorkingHousehold>(initialDraft ?? wh);
-  const [dirty, setDirty] = useState(initialDraft !== undefined);
+/** 「探して開く」の移る先の要素（欄はその入れる所、ボタン・まとまり・区画はその要素）。見つからなければ区画、それも無ければ null */
+export function findTargetIn(root: ParentNode, t: FindTarget): HTMLElement | null {
+  const q = (sel: string) => root.querySelector<HTMLElement>(sel);
+  const k = CSS.escape(t.key);
+  const el =
+    t.kind === "field" ? q(`#${fieldDomId(t.key)}`) : t.kind === "action" ? q(`[data-action="${k}"]`) : t.kind === "group" ? q(`[data-group="${k}"], [data-chips="${k}"], [data-info-note="${k}"]`) : t.kind === "section" ? q(`[data-section="${k}"]`) : null;
+  return el ?? (t.section !== undefined ? q(`[data-section="${CSS.escape(t.section)}"]`) : null);
+}
+
+/** 移った所を目立たせる（欄は欄の枠、ほかは要素そのもの。確かめの一覧から欄に移ったときと同じ印 jumped）。フォーカスは入れる所かボタンへ */
+function jumpTo(el: HTMLElement): void {
+  const box = el.closest<HTMLElement>(".fld") ?? el;
+  const focusable = el.matches(FOCUSABLE) ? el : el.querySelector<HTMLElement>("input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]):not([data-help-btn])");
+  focusable?.focus({ preventScroll: true });
+  box.scrollIntoView({ block: "center" });
+  box.classList.add("jumped");
+}
+
+export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, computeOne, onStatement, focusKey, focusAt, plan, groupOpen }: InputPanelProps) {
+  const [draft, setDraft] = useState<WorkingHousehold>(wh);
+  const [dirty, setDirty] = useState(false);
   const [leaving, setLeaving] = useState(false);
   /** 知らせが「明細のパネルを開く前に保存する」か（false なら「閉じると変更が消える」） */
   const [toStatement, setToStatement] = useState(false);
@@ -99,7 +121,6 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   const pensionEst = usePensionEstimate(shown, itemId === "pension", computeOne);
   const item = useMemo(() => itemOf(shown, itemId, { inheritanceTax: inheritanceTaxNote(inheritance), pension: pensionEstimateSummary(shown, pensionEst.std) }), [shown, itemId, inheritance, pensionEst]);
   const stage = useMemo(() => itemStage(shown, itemId), [shown, itemId]);
-  const adding = initialDraft !== undefined;
   const surplusSug = useSurplusSuggestion(shown, itemId === "living", computeOne);
   /** 答え合わせの「実際の年間の貯蓄額」の欄の下の1行（計算の年間収支・実際の額・差。計算の結果を読むだけ。0106 の追記） */
   const checkLine = useSavingsCheckLine(shown, itemId === "living", computeOne);
@@ -240,6 +261,12 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   // （欄に移るだけでは値も状態も変えない。0041）
   useEffect(() => {
     const el = panel.current;
+    const found = focusAt !== undefined && focusAt.kind !== "card" && el != null ? findTargetIn(el, focusAt) : null;
+    if (found !== null) {
+      jumpTo(found);
+      document.documentElement.classList.add("panel-open");
+      return () => document.documentElement.classList.remove("panel-open");
+    }
     const target = focusKey !== undefined ? el?.querySelector<HTMLElement>(`#${fieldDomId(focusKey)}`) : null;
     if (target != null) {
       target.focus({ preventScroll: true });
@@ -295,11 +322,9 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
     ? "保存すると、このピンがなくなります。"
     : plan !== undefined
       ? `保存すると、${plan.label}の差分になります（現状は変わりません）。`
-      : adding
-        ? "保存すると、物が足され、ホームにピンが出ます（キャンセルすると足しません）。"
-        : item.added !== null
-          ? "保存すると、この物に入れた値が世帯に入ります。"
-          : "保存すると、この項目は「入力済み」になります（何も入れずに保存すると「該当なし」）。";
+      : item.added !== null
+        ? "保存すると、この物に入れた値が世帯に入ります。"
+        : "保存すると、この項目は「入力済み」になります（何も入れずに保存すると「該当なし」）。";
 
   return (
     <>

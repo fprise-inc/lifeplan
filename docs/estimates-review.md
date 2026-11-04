@@ -254,7 +254,6 @@
 | 養育費を払う行（月額） | `preset.events.childSupport` | 40,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
 | 不動産の一時の経費の行（1回） | `preset.events.realEstateCost` | 1,000,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
 | その他の支出の行（1回） | `preset.events.other` | 100,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
-| 「＋ 項目を追加」の新しい支出（1回） | `preset.events.newItem` | 300,000円 | 出典なし | 目安 | ひな形 | 1 | 年1回 |
 | 子の成人式（1人） | `preset.events.comingOfAge` | 150,000円 | よくある額 | 目安 | ひな形 | 1 | 年1回 |
 | 親の葬儀（世帯が払う分。1回） | `preset.events.funeral` | 1,200,000円 | よくある額 | 目安 | ひな形 | 1 | 年1回 |
 | 法事（1回） | `preset.events.memorial` | 200,000円 | よくある額 | 目安 | ひな形 | 1 | 年1回 |
@@ -290,6 +289,6 @@
 | 生活費の段階（退職後80%・70歳から75%・80歳から70%） | `hearing/src/presets.ts` の `preset.living.stage.*` | 年齢の段階（`livingStages.ts`）と節目のボタン（`stages/living.ts`） |
 | 住宅ローンの返済期間の標準（35年・80歳まで） | `hearing/src/presets.ts` の `preset.loan.mortgage.termYears`・`payoffAge` | ヒアリングシート（`hearing/src/loan.ts`）と画面（`stages/housingLoans.ts` はヒアリングシートの関数を使う） |
 | 自動車ローンの返済期間（5年） | `hearing/src/presets.ts` の `preset.car.loan.termMonths` | 車の入力項目の自動車ローンと、今返している自動車ローン |
-| 留学の費用 350万円 | `hearing/src/presets.ts` の `preset.education.abroad` | 子ども・教育の入力項目と「＋ 項目を追加」 |
+| 留学の費用 350万円 | `hearing/src/presets.ts` の `preset.education.abroad` | 子ども・教育の入力項目（入力のホームの「＋ 項目を追加」はやめた。0045 の 2026-11-04 の追記） |
 | 子の結婚の援助 100万円 | `hearing/src/presets.ts` の `preset.education.childGift.amount` | ライフイベントのひな形 |
 | 標準の前提（物価・賃金・運用） | `app/src/workspace/input/household.ts` の `DEFAULT_ASSUMPTIONS`（0073 の事務所の既定値。この一覧の外） | `hearing/src/import.ts`、ほかに直書きの `"0.01"` |

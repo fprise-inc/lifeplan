@@ -8,7 +8,6 @@ import { forEngine } from "../src/engine/moneyRows.ts";
 import { addDream, DREAM_TEMPLATES } from "../src/workspace/input/dreams.ts";
 import { allFields, type FieldDef, type GroupDef } from "../src/workspace/input/form.ts";
 import { fromRequest, mutate, standardBox, type WorkingHousehold } from "../src/workspace/input/household.ts";
-import { addItem } from "../src/workspace/input/items.ts";
 import { GROWTH_KINDS } from "../src/workspace/input/labels.ts";
 import { addExpense, addIncome, expenseCard, ONCE_AMOUNT_KINDS } from "../src/workspace/input/moneyRows.ts";
 import { addChildExpense } from "../src/workspace/input/stages/education.ts";
@@ -59,7 +58,7 @@ const cellDiff = (after: EngineRequest, before: EngineRequest, row: string, year
 };
 
 describe("新しく足す1回の行は、入れた額のまま（伸び方「変えない」を書く）", () => {
-  it("夢のひな形・夢を足す・家族の出来事のひな形・ほかの支出・入るお金のひな形・＋ 項目を追加の支出は、どれも伸び方「変えない」", () => {
+  it("夢のひな形・夢を足す・家族の出来事のひな形・ほかの支出・入るお金のひな形は、どれも伸び方「変えない」", () => {
     const wh = bare();
     const id = seq();
     const dream = addDream(wh, DREAM_TEMPLATES.find((t) => t.key === "trip")!, ID);
@@ -76,10 +75,6 @@ describe("新しく足す1回の行は、入れた額のまま（伸び方「変
     expect(expenseOf(addExpense(wh, "other", ID)).growth).toEqual({ kind: "none" });
     for (const label of ["結婚のお祝い", "出産のお祝い", "一時の給付金"]) expect(incomeOf(addIncomeTemplate(wh, label, ID)).growth, label).toEqual({ kind: "none" });
     for (const kind of ["celebration", "temporary", "saleGoods", "other"] as const) expect(incomeOf(addIncome(wh, kind, ID)).growth, kind).toEqual({ kind: "none" });
-    const item = addItem(wh, "periodic", () => ID)!;
-    expect(expenseOf(item.wh).growth).toEqual({ kind: "none" });
-    // 子を選ばない留学（ライフイベントの1回の行）も
-    expect(expenseOf(addItem(wh, "abroad", () => ID)!.wh).growth).toEqual({ kind: "none" });
   });
 
   it("計算でも伸ばさない: 5年後に200万円の夢・支出・祝い金は、その年に200万円のまま", () => {

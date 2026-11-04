@@ -412,7 +412,7 @@ export function Section({ section, wh, level, onEdit }: { section: SectionDef; w
   if (section.note === undefined && actions.length === 0 && shownGroups.length === 0) return null;
   return (
     <InSection.Provider value={true}>
-      <section class="in-section" aria-label={section.title}>
+      <section class="in-section" aria-label={section.title} data-section={section.key}>
         {link !== undefined ? (
           <div class="in-section-h">
             <h3>

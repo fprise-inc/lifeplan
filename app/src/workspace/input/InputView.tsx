@@ -1,7 +1,8 @@
 // 入力のホーム（作業の層の部品）: 15枚のカードを同じ大きさのグリッドで並べ、押すと中央に入力のパネルが開く。
 // カードに出すのは「イラスト＋名前＋要約の数字1つ＋状態（4つ）」まで。カードは、未入力・推定のときに何で計算しているかの1行と、
 // 「当てはまらない」「目安で入れる」の1押しを出す。上部に進み具合（未入力〔0円の所あり〕の数を左に強く、続けて入力済み・推定で計算中・当てはまらない・まだ入れていない）。
-// カードの下にピン（ホームに出した物。押すとその物だけを開く。進み具合に数えない）。「＋ 項目を追加」で足した物は属するカードに入り、ピンが出る
+// カードの下にピン（ホームに出した物。押すとその物だけを開く。進み具合に数えない）。ピンは「📌 ホームに出す」で出した物と、前の版の「＋ 項目を追加」で足した物
+// 入力項目の並びの最後は「探して開く」（InputFind.tsx）: 言葉から、それを入れる入力項目の欄を開く（前の「＋ 項目を追加」の所。新しい物は作らない。0045 の 2026-11-04 の追記）
 // 0072: 進み具合の状態を押すとそのカードだけに絞る・小さな結果（金融資産の線と足りなくなる年）・全部のカードの入れ方（簡易／詳細）・
 // カードをまたぐ取り込みの入口（「取り込む」。プランの編集中は押せない）・確かめの一覧にプランで足した物の行
 // 0077: 上部は2行（1行目: 見出しと進み具合、2行目: 編集の対象と道具）。説明の文は「?」の中へ。小さな結果と、全部のカードの入れ方の一括の切り替えは外した
@@ -19,7 +20,9 @@ import { inSimpleOnlyGroup, type Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { InputPanel } from "./InputPanel.tsx";
-import { addItem, addOptions, DEFAULT_LAYOUT, fillCard, nothingEnteredYet, groupedItems, inputItems, itemOf, itemStage, notApplicableCard, pinItems, progressOf, shownItems, summarySegments, togglePin, type AddOption, type CardLayout, type InputItem, type ItemStatus, type PinItem, type Summary } from "./items.ts";
+import { DEFAULT_LAYOUT, fillCard, nothingEnteredYet, groupedItems, inputItems, itemOf, itemStage, notApplicableCard, pinItems, progressOf, shownItems, summarySegments, togglePin, type CardLayout, type InputItem, type ItemStatus, type PinItem, type Summary } from "./items.ts";
+import { InputFind } from "./InputFind.tsx";
+import type { FindHit, FindTarget } from "./inputSearch.ts";
 import { inheritanceTaxNote, useInheritanceEstimate } from "./inheritanceLine.ts";
 import { pensionEstimateSummary, usePensionEstimate } from "./pensionEstimate.ts";
 import { STAGE_ORDER } from "./stages/index.ts";
@@ -69,6 +72,8 @@ interface Props {
   chooseOpen?: boolean;
   /** 事務所の既定の選び方（入力項目を選ぶの「この選び方を事務所の既定にする」。0091） */
   officeItems?: OfficeItems;
+  /** 「探して開く」に初めに入れておく言葉（URL の #find=留学。画面の確かめ用） */
+  findQuery?: string;
   /** 取り込みの中身を開いているか（親が持つ。FP のメニューから開く）。省くとホームの中で持つ */
   importsOpen?: boolean;
   onImportsOpen?: (open: boolean) => void;
@@ -190,43 +195,6 @@ function PinCard({ pin, onOpen, onUnpin, planLabel }: { pin: PinItem; onOpen: (i
   );
 }
 
-function AddCard({ open, onOpen, onPick, options }: { open: boolean; onOpen: (v: boolean) => void; onPick: (key: string) => void; options: readonly AddOption[] }) {
-  if (!open)
-    return (
-      <div class="ih-card ih-add">
-        <button type="button" class="ih-add-main" onClick={() => onOpen(true)} data-add-open>
-          <span class="ih-plus" aria-hidden="true">
-            ＋
-          </span>
-          <span>
-            項目を追加
-            <small>留学・名前を付けた支出・介護の費用</small>
-          </span>
-        </button>
-      </div>
-    );
-  return (
-    <div class="ih-card ih-add">
-      <div class="ih-add-menu" role="group" aria-label="足す項目を選ぶ">
-        <p>どの項目を足しますか</p>
-        {options.map((o) => (
-          <button type="button" key={o.key} onClick={() => onPick(o.key)} data-add={o.key}>
-            <span class="nm">{o.label}</span>
-            <small>{o.note}</small>
-          </button>
-        ))}
-        <button type="button" disabled title="FPが名前・単位・計算への入れ方を決める項目は、拡張領域の仕組みといっしょに作ります">
-          <span class="nm">自由な項目を作る</span>
-          <small>準備中</small>
-        </button>
-        <button type="button" class="cancel" onClick={() => onOpen(false)}>
-          キャンセル
-        </button>
-      </div>
-    </div>
-  );
-}
-
 const NO_NOTICES: readonly NoticeRow[] = [];
 
 /**
@@ -280,7 +248,7 @@ export function ImportMenu({ children, off, initialOpen = false, open: outer, on
   );
 }
 
-export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false, officeItems }: Props) {
+export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false, officeItems, findQuery }: Props) {
   /** 直しているプラン（直せないときは現状） */
   const editing = plans !== undefined && plans.sel !== null && plans.lock === null ? (plans.list.find((x) => x.id === plans.sel) ?? null) : null;
   const pcat = plans?.cat;
@@ -308,14 +276,14 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   const filterBy = (st: ItemStatus) => setStatusFilter(statusFilter === st ? null : st);
   const shownGroups = statusFilter === null ? groups : groups.map((g) => ({ ...g, items: g.items.filter((i) => i.status === statusFilter) })).filter((g) => g.items.length > 0);
   const [openId, setOpenId] = useState<string | null>(initialOpen !== undefined && (allItems.some((i) => i.id === initialOpen) || wh.addedItems.some((a) => a.id === initialOpen)) ? initialOpen : null);
-  const [addDraft, setAddDraft] = useState<WorkingHousehold | null>(null);
-  const [addMenu, setAddMenu] = useState(false);
   const [flashId, setFlashId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [statementOpen, setStatementOpen] = useState(statement?.initialOpen === true);
   const [checkOpen, setCheckOpen] = useState(initialOpen === "check");
   /** 確かめの一覧から開いたときに移る欄 */
   const [focusKey, setFocusKey] = useState<string | null>(null);
+  /** 「探して開く」から開いたときに移る所（欄・ボタン・まとまり・区画） */
+  const [focusAt, setFocusAt] = useState<FindTarget | null>(null);
   const check = useMemo(() => checkSummary(wh, calcNotices), [wh, calcNotices]);
   /** 書類のお願い（書類待ちの欄から作る送ってほしい書類の一覧。0102） */
   const [docsOpen, setDocsOpen] = useState(initialOpen === "docs");
@@ -337,14 +305,18 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(new Set());
   const groupOpen = useMemo<GroupOpenState>(() => ({ isOpen: (k) => openGroups.has(k), toggle: (k) => setOpenGroups((s) => toggledSet(s, k)) }), [openGroups]);
   const backTo = useRef<string | null>(null);
+  /** 「探して開く」から開いたパネルを閉じたら、探す欄に戻る */
+  const backToFind = useRef(false);
 
-  // パネルを閉じたら、押したカードに戻る
+  // パネルを閉じたら、押したカード（「探して開く」から開いたときは探す欄）に戻る。カードが無い（ホームに出していない入力項目）ときも探す欄へ
   useEffect(() => {
     if (openId !== null || backTo.current === null) return;
-    const el = document.querySelector<HTMLElement>(`[data-card="${backTo.current}"]`) ?? document.querySelector<HTMLElement>("[data-add-open]");
+    const find = document.querySelector<HTMLElement>("[data-find-input]");
+    const el = (backToFind.current ? find : null) ?? document.querySelector<HTMLElement>(`[data-card="${backTo.current}"]`) ?? find;
     el?.focus({ preventScroll: true });
     el?.scrollIntoView({ block: "nearest" });
     backTo.current = null;
+    backToFind.current = false;
   }, [openId]);
   useEffect(() => {
     if (flashId === null) return;
@@ -358,8 +330,9 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   }, [toast]);
 
   const open = (id: string) => {
-    setAddDraft(null);
     setFocusKey(null);
+    setFocusAt(null);
+    backToFind.current = false;
     setOpenId(id);
   };
   // 確かめの一覧の「開く」: カードを開いて欄に移る（詳細の欄なら詳細にする）。移るだけで値も状態も変えない
@@ -370,35 +343,36 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
       const st = itemStage(shown, id);
       if (st !== null && inSimpleOnlyGroup(st, key)) setLevelOf(id, "simple");
     }
-    setAddDraft(null);
     setFocusKey(key);
+    setFocusAt(null);
+    backToFind.current = false;
+    setOpenId(id);
+  };
+  // 「探して開く」で選んだ欄: 入力項目を開いてその所へ移る（詳細だけの所なら詳細、標準だけの所なら標準にする）。
+  // ホームに出していない入力項目も、そのまま開く（入力項目の選び方は変えない。値を入れて保存すると、今の決まりどおりホームに出る）
+  const openFound = (h: FindHit) => {
+    const id = h.card;
+    if (h.level !== null && levelOf(id) !== h.level) setLevelOf(id, h.level);
+    setFocusKey(null);
+    setFocusAt(h.target.kind === "card" ? null : h.target);
+    backToFind.current = true;
     setOpenId(id);
   };
   const close = () => {
     backTo.current = openId;
     setOpenId(null);
-    setAddDraft(null);
     setFocusKey(null);
-  };
-  const pick = (key: string) => {
-    const r = addItem(shown, key);
-    if (r === null) return;
-    setAddMenu(false);
-    // プランを直しているときは、足した物をそのプランの足す差分にした世帯を下書きにする
-    setAddDraft(editing !== null && pcat !== undefined ? recordPlanEdit(wh, pcat, editing.id, shown, r.wh) : r.wh);
-    setOpenId(r.itemId);
+    setFocusAt(null);
   };
   // 基本生活費のパネル → 明細のパネル → 基本生活費のパネル（承認した値が見えるように、保存した世帯から開き直す）
   const openStatement = (saved?: WorkingHousehold) => {
     if (saved !== undefined) onSave(saved);
     backTo.current = null;
     setOpenId(null);
-    setAddDraft(null);
     setStatementOpen(true);
   };
   const backFromStatement = (approved?: number) => {
     setStatementOpen(false);
-    setAddDraft(null);
     setOpenId("living");
     if (approved !== undefined) setToast(`明細から${approved}件を入れました`);
   };
@@ -428,7 +402,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
     else onSave(next);
     backTo.current = id;
     setOpenId(null);
-    setAddDraft(null);
+    setFocusAt(null);
     setFlashId(id);
     setToast(editing !== null ? `「${label ?? ""}」を${editing.label}に保存しました` : label !== undefined ? `「${label}」を保存しました` : "保存しました");
   };
@@ -562,7 +536,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
             {g.items.map((i) => (
               <Card key={i.id} item={i} onOpen={open} flash={flashId === i.id} diffs={editing !== null ? { label: editing.label, n: counts.get(i.id) ?? 0 } : undefined} acts={cardActs} />
             ))}
-            {gi === shownGroups.length - 1 && statusFilter === null ? <AddCard open={addMenu} onOpen={setAddMenu} onPick={pick} options={addOptions(shown)} /> : null}
+            {gi === shownGroups.length - 1 && statusFilter === null ? <InputFind wh={shown} items={allItems} onPick={openFound} {...(findQuery !== undefined ? { initialQuery: findQuery } : {})} /> : null}
           </div>
         </section>
       ))}
@@ -572,7 +546,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
             ピン
             <Help label="ピン">
               <p>ホームに出した物です。押すと、その物だけを開きます。進み具合には数えません。</p>
-              <p>「＋ 項目を追加」で足した物は、属する入力項目に入り、ここにピンが出ます。「外す」はピンだけを外します（物は残ります）。</p>
+              <p>入力項目の中の物の見出しの「📌 ホームに出す」で出します（前の版の「＋ 項目を追加」で足した物も、ここに出ます）。「外す」はピンだけを外します（物は残ります）。</p>
             </Help>
           </h2>
           <div class="ih-pin-list">
@@ -587,13 +561,13 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
           key={`${openId}:${editing?.id ?? ""}`}
           wh={wh}
           itemId={openId}
-          {...(addDraft !== null ? { initialDraft: addDraft } : {})}
           level={levelOf(openId)}
           onLevel={(l) => setLevelOf(openId, l)}
           groupOpen={groupOpen}
           onSave={save}
           onClose={close}
           {...(focusKey !== null ? { focusKey } : {})}
+          {...(focusAt !== null ? { focusAt } : {})}
           {...(computeOne !== undefined ? { computeOne } : {})}
           {...(openId === "living" && statement !== undefined && editing === null ? { onStatement: openStatement } : {})}
           {...(editing !== null && pcat !== undefined ? { plan: { id: editing.id, label: editing.label, color: editing.color, cat: pcat } } : {})}
