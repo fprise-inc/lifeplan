@@ -760,7 +760,7 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .ip-assume-list td:nth-child(4), .ip-assume-list th:nth-child(4) { white-space: nowrap; }
 .ip-assume-list .sub.warn { display: block; color: var(--warn, #9a3412); }
 .cg-plan-to { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 4px 0 8px; font-size: 0.9rem; }
-.cg-premises .lever.plan-diff { border-left: 4px solid var(--prop); padding-left: 8px; }
+.cg-premises .lv-grid > .lever.plan-diff { border-left: 4px solid var(--prop); padding-left: 9px; }
 .cg-plan-mark { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; margin-top: 4px; font-size: 0.82rem; color: var(--ink-2); }
 @media (max-width: 1260px) { .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 760px) { .cg-premises .lv-grid { grid-template-columns: minmax(0, 1fr); } }
@@ -1163,8 +1163,9 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .save-form label { font-weight: 700; display: inline-flex; align-items: center; gap: 8px; flex: 1 1 360px; }
 .save-form input { flex: 1; min-width: 0; border: 2px solid var(--field); border-radius: 7px; padding: 4px 8px; background: #fff; }
 .save-form .sf-note { font-size: 0.82rem; color: var(--ink-2); }
-.lv-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 22px; margin: 4px 0 0; padding: 0; border: 0; min-width: 0; }
-.lv-grid > .lever { padding: 10px 0; min-width: 0; }
+/* 項目は細い枠線＋角丸の白いカード（どこからどこまでが1つの項目か分かるように。同じ段の高さはそろう。0084 の追記 2026-11-04）。前の項目の下の線は使わない */
+.lv-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 12px; margin: 8px 0 0; padding: 0; border: 0; min-width: 0; }
+.lv-grid > .lever { padding: 9px 12px 10px; min-width: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
 .lv-grid:disabled .lever { opacity: 0.6; }
 .lv-grid .lever-head label, .lv-grid .lever-label { font-weight: 700; font-size: 0.9rem; }
 .lv-grid .lever-val { font-size: 1.12rem; }
