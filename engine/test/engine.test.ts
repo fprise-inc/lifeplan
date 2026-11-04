@@ -270,8 +270,8 @@ describe("部品は純粋な関数", () => {
         return { flows: [] };
       },
     }) as ComponentDefinition;
-    const replacement = { type: "replace" as const, target: official.id, contract: "1", component: mutating, hash: `sha256:${"0".repeat(64)}` };
-    expect(() => runEngine(modelHousehold("single25"), realPacks(), { replacements: [replacement] })).toThrow(TypeError);
+    // 差し替えを許さない部品なので、テスト専用の probes で置き換える（0119）
+    expect(() => runEngine(modelHousehold("single25"), realPacks(), { probes: { [official.id]: mutating } })).toThrow(TypeError);
   });
 });
 

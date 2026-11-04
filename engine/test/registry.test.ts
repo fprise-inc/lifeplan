@@ -13,21 +13,27 @@ const HASH = `sha256:${"0".repeat(64)}`;
 const official = (id: string) => OFFICIAL_COMPONENTS.find((o) => o.def.id === id)!.def;
 const req = () => modelHousehold("single25");
 const run = (opts: Parameters<typeof runEngine>[2], r = req()) => runEngine(r, realPacks(), { checkInternal: true, ...opts });
-const sum = (r: ReturnType<typeof run>, row: string, year: number) =>
-  (r.table as unknown as { row: string; year: number; amount: number }[]).filter((c) => c.row === row && c.year === year).reduce((s, c) => s + c.amount, 0);
 
-/** 差し替えたことにするテスト用の部品: 雇用保険料を、計算基準月に1円だけにする */
-const fakeEmployment = (contract = "1.0", compute?: ComponentDefinition["compute"]): ComponentDefinition =>
-  defineComponent<{ member: string; fromYear: number }, { flows: Flow[] }>({
-    ...official("socialInsurance.employment"),
+/** 差し替えたことにするテスト用の部品: 生活費（差し替えを許す部品。0119）を、計算基準月に1円だけにする */
+const fakeLiving = (contract = "1.0", compute?: ComponentDefinition["compute"]): ComponentDefinition => {
+  const { replaceable: _official, ...manifest } = official("expense.living");
+  void _official;
+  return defineComponent<Record<string, never>, { flows: Flow[] }>({
+    ...manifest,
     contract,
     revision: 1,
     compute:
       (compute as never) ??
-      ((input, ctx) => ({
-        flows: [{ row: "cf.taxSi.employment", ym: formatYm(ctx.time.base), amount: yen(1), accrualYear: 2026, member: input.member, formula: "test.fake.one" }],
+      ((_input, ctx) => ({
+        flows: [{ row: "cf.expense.living", ym: formatYm(ctx.time.base), amount: yen(1), accrualYear: 2026, formula: "test.fake.one" }],
       })),
   }) as ComponentDefinition;
+};
+
+/** 仕組みを確かめるテスト用（差し替えを許さない雇用保険料を、テスト専用の probes で置き換える） */
+const probeEmployment = (compute: ComponentDefinition["compute"]) => ({
+  "socialInsurance.employment": defineComponent({ ...official("socialInsurance.employment"), compute }) as ComponentDefinition,
+});
 
 const replace = (component: ComponentDefinition, contract = "1"): Replacement => ({ type: "replace", target: component.id, contract, component, hash: HASH });
 
@@ -53,24 +59,37 @@ const petCare = (row = "cf.expense.other.ext.test.petCare", id = "test.ext.petCa
 });
 
 describe("部品表を通した呼び出しと差し替え", () => {
-  it("差し替えは、それを呼ぶ公式部品すべて（表の組み立てと所得控除）に効き、見出しに残る", () => {
-    const base = run({});
-    const r = run({ replacements: [replace(fakeEmployment())] });
-    expect(r.flows.filter((f) => f.row === "cf.taxSi.employment")).toHaveLength(1);
-    const ref = (r.header as { components: { id: string; origin: string; hash: string }[] }).components.find((c) => c.id === "socialInsurance.employment");
+  it("差し替えは、それを呼ぶ公式部品すべて（お金の動きの集計と年間収支）に効き、見出しに残る", () => {
+    const household = () => modelHousehold("dualAssetsTwoKids");
+    const base = run({}, household());
+    const r = run({ replacements: [replace(fakeLiving())] }, household());
+    expect(r.flows.filter((f) => f.row.startsWith("cf.expense.living") && f.formula.startsWith("expense.living."))).toHaveLength(0);
+    expect(r.flows.filter((f) => f.formula === "test.fake.one")).toHaveLength(1);
+    const ref = (r.header as { components: { id: string; origin: string; hash: string }[] }).components.find((c) => c.id === "expense.living");
     expect(ref?.origin).toBe("replacement");
     expect(ref?.hash).toBe(HASH);
-    // 社会保険料控除が減るので、所得税（tax.deductions → socialInsurance.employment）も変わる
-    expect(sum(r, "cf.taxSi.incomeTax", 2027)).toBeGreaterThan(sum(base, "cf.taxSi.incomeTax", 2027));
+    // 生活費が減るので、年間収支（plan.flows → plan.cashflow → expense.living）が増える
+    const living = (x: typeof r) =>
+      (x.table as unknown as { row: string; year: number; amount: number }[])
+        .filter((c) => c.year === 2027 && (c.row === "cf.expense.living" || (c.row.startsWith("cf.expense.living.") && c.row !== "cf.expense.living.car")))
+        .reduce((t, c) => t + c.amount, 0);
+    expect(living(base)).toBeGreaterThan(0);
+    expect(living(r)).toBe(0);
+    const net2027 = (x: typeof r) => x.annual.find((a) => a.row === "cf.net" && a.year === 2027)?.amount as number;
+    expect(net2027(r)).toBeGreaterThan(net2027(base));
   });
 
   it("約束の MAJOR が合わない差し替えは、黙って公式に戻さず計算を止める", () => {
-    expect(() => run({ replacements: [replace(fakeEmployment("2.0"), "2")] })).toThrow("E_CONTRACT_MISMATCH");
-    expect(() => run({ replacements: [replace(fakeEmployment(), "2")] })).toThrow("E_CONTRACT_MISMATCH");
+    expect(() => run({ replacements: [replace(fakeLiving("2.0"), "2")] })).toThrow("E_CONTRACT_MISMATCH");
+    expect(() => run({ replacements: [replace(fakeLiving(), "2")] })).toThrow("E_CONTRACT_MISMATCH");
   });
 
-  it("replaceable でない公式部品は差し替えられない", () => {
-    expect(() => run({ replacements: [replace(defineComponent({ ...official("plan.cashflow") }) as ComponentDefinition)] })).toThrow("E_NOT_REPLACEABLE");
+  it("replaceable でない公式部品（法律で決まる計算・組み立ての部品）は差し替えられない（0119）", () => {
+    for (const id of ["plan.cashflow", "socialInsurance.employment"]) {
+      const { replaceable: _r, ...manifest } = official(id);
+      void _r;
+      expect(() => run({ replacements: [replace(defineComponent({ ...manifest }) as ComponentDefinition)] })).toThrow("E_NOT_REPLACEABLE");
+    }
   });
 
   it("部品の依存の循環は組み立ての時点でエラー", () => {
@@ -80,34 +99,32 @@ describe("部品表を通した呼び出しと差し替え", () => {
   });
 
   it("マニフェストに書いていない呼び出し・制度の値・入力はエラー", () => {
-    const sneaky = (compute: ComponentDefinition["compute"]) => replace(fakeEmployment("1.0", compute));
+    const sneaky = (compute: ComponentDefinition["compute"]) => replace(fakeLiving("1.0", compute));
     expect(() => run({ replacements: [sneaky((_i, ctx) => ctx.call("income.salary", {}))] })).toThrow("E_CALL_UNDECLARED");
     expect(() => run({ replacements: [sneaky((_i, ctx) => ctx.at(ctx.time.base).param("socialInsurance.pension.rate"))] })).toThrow("E_PARAM_UNDECLARED");
-    expect(() => run({ replacements: [sneaky((_i, ctx) => ctx.list("member"))] })).toThrow("E_READ_UNDECLARED");
+    expect(() => run({ replacements: [sneaky((_i, ctx) => ctx.list("employment"))] })).toThrow("E_READ_UNDECLARED");
     expect(() => run({ replacements: [sneaky((_i, ctx) => ctx.assumption("investmentReturn", 2027))] })).toThrow("E_READ_UNDECLARED");
   });
 
   it("部品には reads に書いた入力項目だけが渡る（0016 の5）", () => {
     let seen: unknown;
-    const spy = replace(
-      fakeEmployment("1.0", (_input, ctx) => {
-        seen = ctx.list("employment")[0];
-        return { flows: [] };
-      }),
-    );
-    run({ replacements: [spy] });
+    const spy = probeEmployment((_input, ctx) => {
+      seen = ctx.list("employment")[0];
+      return { flows: [] };
+    });
+    run({ probes: spy });
     // reads は employment.employer.industry だけ。給与・標準報酬月額・構成員などは渡らない（入力に無い industry も写さない）
     expect(Object.keys(seen as object)).toEqual(["id"]);
     expect(seen).not.toHaveProperty("salary");
   });
 
   it("差し替えた部品の出力の形の誤りはエラー（製品でも常に検査する）", () => {
-    const bad = replace(fakeEmployment("1.0", () => ({ flows: [{ row: "cf.taxSi.employment", ym: "2027-04", amount: 1.5 }] })));
+    const bad = replace(fakeLiving("1.0", () => ({ flows: [{ row: "cf.expense.living", ym: "2027-04", amount: 1.5 }] })));
     expect(() => runEngine(req(), realPacks(), { replacements: [bad] })).toThrow("E_COMPONENT_SCHEMA");
   });
 
   it("制度の端数処理の規則は、計算している月が無いと使えない（conv. の規約だけ使える）", () => {
-    const r = replace(fakeEmployment("1.0", (_i, ctx) => ctx.money.round(yen(1), "employmentInsurance.employeeShare.rounding")));
+    const r = replace(fakeLiving("1.0", (_i, ctx) => ctx.money.round(yen(1), "employmentInsurance.employeeShare.rounding")));
     expect(() => run({ replacements: [r] })).toThrow("E_ROUNDING_UNKNOWN");
   });
 });
@@ -141,7 +158,7 @@ describe("差し込み口", () => {
 
 describe("部品の定義と版", () => {
   it("マニフェストの誤りを拒む", () => {
-    const base = fakeEmployment();
+    const base = fakeLiving();
     expect(() => defineComponent({ ...base, contract: "1" })).toThrow("E_COMPONENT_DEFINITION");
     expect(() => defineComponent({ ...base, revision: 0 })).toThrow("E_COMPONENT_DEFINITION");
     expect(() => defineComponent({ ...base, requires: { "test.x.y": "1.0" } })).toThrow("E_COMPONENT_DEFINITION");

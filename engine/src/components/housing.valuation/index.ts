@@ -59,6 +59,7 @@ export default defineComponent<Record<string, never>, HousingValuationOutput>({
     "assumptions.inflation",
     "assumptions.realEstateValuation",
   ],
+  replaceable: true,
   input: "empty.input",
   output: "housing.valuation.output",
   compute(_input, ctx) {

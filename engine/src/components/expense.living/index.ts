@@ -71,6 +71,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
     "livingExpense.stages",
     "assumptions.inflation",
   ],
+  replaceable: true,
   input: "empty.input",
   output: "flows.output",
   compute(_input, ctx) {

@@ -90,6 +90,7 @@ export default defineComponent<{ member: string }, RetirementBenefitOutput>({
     "employment.type",
   ],
   memberScope: ["retirementBenefit", "employment"],
+  replaceable: true,
   input: "member.input",
   output: "retirement.benefit.output",
   compute(input, ctx) {

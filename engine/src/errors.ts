@@ -27,6 +27,7 @@ export type ErrorCode =
   | "E_SLOT_CLOSED"
   | "E_SLOT_ROW"
   | "E_FORMULA_MISSING"
+  | "E_FORMULA_ID"
   | "E_ROW_UNKNOWN"
   | "E_ID_FORMAT"
   | "E_TIMEPOINT_CYCLE"

@@ -18,6 +18,7 @@ export default defineComponent<Record<string, never>, CarValuationOutput>({
   params: [],
   // 買い替え（car.replace）は買い替え（car.purchase）の中の欄なので、car.purchase を読めば入る（物の中の欄の入力項目ID。0101）
   reads: ["car.owner", "car.purchase", "car.until", "car.growth", "assumptions.inflation"],
+  replaceable: true,
   input: "empty.input",
   output: "asset.car.output",
   compute(_input, ctx) {

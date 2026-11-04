@@ -47,8 +47,12 @@ import type { Timepoint, TimeResolver } from "../time/timepoint.ts";
 import type { Assembly, Impl } from "./assemble.ts";
 import { rowAllowedInSlot, SLOTS } from "./slots.ts";
 import { Frame, type Tracer } from "./trace.ts";
+import { isTestId } from "../ids/ids.ts";
 import { autoStarts, segmentKey, segmentsOf, type Segment, type SegmentOptions } from "./segments.ts";
 import { numTable, type NumTable } from "../engine/numTable.ts";
+
+/** 差し替え・追加の部品の計算式ID の形（0006 の7: ext.<作成者>. で始める） */
+const CUSTOM_FORMULA = /^ext\.[a-z][a-zA-Z0-9]*\.[a-z]/;
 
 export interface MoneyApi {
   mulRate(amount: Yen, r: Rate, roundingId: string): Yen;
@@ -779,6 +783,9 @@ function resolve(state: RunState, ck: CallKey, input: unknown): Res {
   const annual = o?.annual ?? [];
   for (let i = 0; i < flows.length; i++) if (typeof (flows[i] as Flow).formula !== "string") throw new EngineError("E_FORMULA_MISSING", [id]);
   for (let i = 0; i < annual.length; i++) if (typeof (annual[i] as AnnualRow).formula !== "string") throw new EngineError("E_FORMULA_MISSING", [id]);
+  // 0006 の7・0119 の2: 差し替え・追加の部品が出すお金の動き・年ごとの行の計算式ID は ext.<作成者>. で始める（根拠の表示で公式の計算式と
+  // 取り違えないため。公式の部品の結果をそのまま返すことはできない）
+  if (impl.custom === true) for (const f of [...flows, ...annual]) if (!CUSTOM_FORMULA.test(f.formula) && !isTestId(f.formula)) throw new EngineError("E_FORMULA_ID", [id, f.formula]);
   if (state.traceOn) state.tracer.formulas(id, [...flows, ...annual].map((f) => f.formula));
   const node = state.tracer.finishCall(frame);
   if (state.tracer.mode === "full") {

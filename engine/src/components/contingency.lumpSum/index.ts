@@ -27,6 +27,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   requires: { "contingency.event": ">=1 <2" },
   params: [],
   reads: ["member.kind", "relation.type", "relation.a", "relation.b", "relation.from", "relation.to", "relation.parent", "relation.child"],
+  replaceable: true,
   input: "empty.input",
   output: "flows.output",
   compute(_input, ctx) {
