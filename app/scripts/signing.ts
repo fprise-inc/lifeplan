@@ -2,8 +2,9 @@
 // CI のビルドで「秘密の値があれば署名する・無ければ署名せずにビルドする」ための Tauri の設定の上書きを作る部品。
 // 秘密の値そのものは、ログにも上書きの設定にも書かない（環境変数の名前だけを扱う）。
 
-/** 鍵の役割（0017 の5 の4種類と、機能を有効にするコードの鍵〔0110 の追記 2026-11-04〕）。app_update は Tauri の公開鍵の文字列、ほかは「鍵の名前:公開鍵（base64url の43文字）」 */
-export const KEY_ROLES = ["app_update", "data", "auto_delivery", "revocation", "feature_code"] as const;
+/** 鍵の役割（0017 の5 の4種類と、機能を有効にするコードの発行の鍵〔0110 の追記 2026-11-04〕・コードを止めるだけの鍵〔0117 の追記 2026-11-04 の2〕）。
+ * app_update は Tauri の公開鍵の文字列、ほかは「鍵の名前:公開鍵（base64url の43文字）」 */
+export const KEY_ROLES = ["app_update", "data", "auto_delivery", "revocation", "feature_code", "feature_code_revocation"] as const;
 export const MAX_KEYS_PER_ROLE = 2;
 /** 開発用の鍵（[dev_keys]）の名前の前置き。[keys]（本番の鍵）の名前はこれで始めない（crates/distribution の DEV_KID_PREFIX と同じ） */
 export const DEV_KID_PREFIX = "dev-";

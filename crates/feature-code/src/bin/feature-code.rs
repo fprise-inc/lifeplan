@@ -9,22 +9,24 @@
 //! feature-code show     [--key <秘密鍵>] <コード>
 //! feature-code features
 //! feature-code revocations new    [--draft <下書き>]
+//! feature-code revocations open   [--draft <下書き>] [--config <配布元の設定>] [--dev] <配信元の一覧>
 //! feature-code revocations add    [--draft <下書き>] [--log <記録.csv> | --no-log] <番号>…
 //! feature-code revocations remove [--draft <下書き>] <番号>…
 //! feature-code revocations show   [--draft <下書き>]
 //! ```
 //!
-//! 止めるコードは、配布の取り下げの一覧（0117 の3 (3)）の `revoked.featureCodes` に載せる。この道具は下書きに番号を足す・外すだけで、
-//! 署名は配布の道具 `dist-keys revocations sign <取り下げ用の秘密鍵> <下書き> <一覧>`（0110 の追記 2026-11-04）。
+//! 止めるコードは、ふだんはコードを止めるだけの一覧（`distribution::feature_code_revocations`。コードを止めるだけの鍵で署名。
+//! CI でも署名できる）に載せる。`--draft` に取り下げの一覧の下書きを渡すと、その `revoked.featureCodes` を直す（取り下げ用の鍵で署名する。
+//! コードを止めるだけの鍵では戻せない）。この道具は下書きに番号を足す・外すだけで、署名は配布の道具
+//! `dist-keys revocations sign <秘密鍵> <下書き> <一覧>`（0110 の追記・0117 の追記 2026-11-04 の2）。
 //!
 //! 既定の置き場所はリポジトリの外（`~/.lifeplan-issuer/signing.key`・`~/.lifeplan-issuer/issued.csv`・
-//! `~/.lifeplan-issuer/revocations-draft.json`。`LIFEPLAN_ISSUER_DIR` で変えられる）。
+//! `~/.lifeplan-issuer/feature-code-revocations-draft.json`。`LIFEPLAN_ISSUER_DIR` で変えられる）。
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use distribution::revocations::RevocationList;
-use feature_code::issuer::{self, BatchRow};
+use feature_code::issuer::{self, BatchRow, Draft};
 use feature_code::{decode_unverified, issue, verify, Claims, Request, FEATURES};
 
 const USAGE: &str = "使い方:
@@ -40,16 +42,19 @@ const USAGE: &str = "使い方:
   feature-code show     [--key <秘密鍵>] <コード>                  コードの中身を見る（秘密鍵があれば署名も確かめる）
   feature-code features                                           機能の名前の一覧
 
-止めるコード（配布の取り下げの一覧の featureCodes。アプリは配信元から一覧を取りに行き、載っているコードの機能を止める）:
-  feature-code revocations new    [--draft <下書き>]                取り下げの一覧の下書きを作る（既にあれば止める）
+止めるコード（ふだんはコードを止めるだけの一覧の featureCodes。アプリは配信元から一覧を取りに行き、載っているコードの機能を止める）:
+  feature-code revocations new    [--draft <下書き>]                コードを止めるだけの一覧の下書きを作る（既にあれば止める）
+  feature-code revocations open   [--draft <下書き>] [--config <配布元の設定>] [--dev] <配信元の一覧>
+                                                                  配信元に置いてある一覧を、配布元の設定の鍵で確かめて下書きにする（CI・続きから直すとき）
   feature-code revocations add    [--draft <下書き>] [--log <記録.csv> | --no-log] <番号>…
                                                                   止める番号を下書きに足す（記録に無い番号は知らせる）
   feature-code revocations remove [--draft <下書き>] <番号>…        下書きから外す（署名して置き直すと、次に確かめたときにアプリで戻る）
   feature-code revocations show   [--draft <下書き>]                下書きの止める番号を見る
-  署名は配布の道具: dist-keys revocations sign <取り下げ用の秘密鍵> <下書き> <一覧>（通し番号を1つ上げ、有効期限を入れる）
+  --draft に取り下げの一覧の下書き（dist-keys revocations new）を渡すと、その revoked.featureCodes を直す（取り下げ用の鍵で署名する止め方）
+  署名は配布の道具: dist-keys revocations sign <秘密鍵> <下書き> <一覧>（下書きの種類に合う鍵で。通し番号を1つ上げ、有効期限を入れる）
 
 既定の置き場所: ~/.lifeplan-issuer/signing.key（秘密鍵）・~/.lifeplan-issuer/issued.csv（記録）・
-~/.lifeplan-issuer/revocations-draft.json（取り下げの一覧の下書き）。LIFEPLAN_ISSUER_DIR で変えられる。
+~/.lifeplan-issuer/feature-code-revocations-draft.json（コードを止めるだけの一覧の下書き）。LIFEPLAN_ISSUER_DIR で変えられる。
 秘密鍵・記録・下書きは、リポジトリの外に置く（git の作業フォルダの中は断る）。";
 
 struct Args {
@@ -65,7 +70,7 @@ impl Args {
         while i < v.len() {
             let a = &v[i];
             if let Some(name) = a.strip_prefix("--") {
-                if name == "no-log" || name == "no-expires" {
+                if name == "no-log" || name == "no-expires" || name == "dev" {
                     flags.push((name.to_owned(), None));
                 } else {
                     let val = v
@@ -154,24 +159,26 @@ fn expires_label(c: &Claims) -> String {
 fn draft_path(a: &Args) -> Result<PathBuf, String> {
     a.get("draft")
         .map(PathBuf::from)
-        .map_or_else(|| default_path("revocations-draft.json"), Ok)
+        .map_or_else(|| default_path("feature-code-revocations-draft.json"), Ok)
 }
 
-fn need_draft(path: &std::path::Path) -> Result<RevocationList, String> {
+fn need_draft(path: &std::path::Path) -> Result<Draft, String> {
     issuer::read_draft(path)?.ok_or_else(|| {
         format!(
-            "取り下げの一覧の下書き {} がありません（feature-code revocations new で作る。配信元に一覧を置いたことがあれば、その下書きを使う）",
+            "止めるコードの下書き {} がありません（feature-code revocations new で作る。配信元に一覧を置いたことがあれば、open でその一覧から作る）",
             path.display()
         )
     })
 }
 
-fn print_draft(d: &RevocationList) {
+fn print_draft(d: &Draft) {
     println!(
-        "最後に署名した通し番号: {}（有効期限 {}）",
-        d.serial, d.expires_at
+        "{}・最後に署名した通し番号: {}（有効期限 {}）",
+        d.kind(),
+        d.serial(),
+        d.expires_at()
     );
-    let ids = &d.revoked.feature_codes;
+    let ids = d.ids();
     if ids.is_empty() {
         println!("止めるコードの番号: なし");
     } else {
@@ -179,7 +186,33 @@ fn print_draft(d: &RevocationList) {
     }
 }
 
-const SIGN_HINT: &str = "dist-keys revocations sign <取り下げ用の秘密鍵> <下書き> <一覧> で署名し、配信元の /v1/revocations/revocations.json に置く";
+fn sign_hint(d: &Draft) -> String {
+    match d {
+        Draft::Codes(_) => format!("dist-keys revocations sign <コードを止めるだけの秘密鍵> <下書き> <一覧> で署名し、配信元の {} に置く", d.published_path()),
+        Draft::Main(_) => format!("dist-keys revocations sign <取り下げ用の秘密鍵> <下書き> <一覧> で署名し、配信元の {} に置く", d.published_path()),
+    }
+}
+
+/// 配布元の設定のファイル（--config。無ければ今のフォルダから上へたどって config/distribution.toml を探す）
+fn config_text(a: &Args) -> Result<String, String> {
+    let path = match a.get("config") {
+        Some(p) => PathBuf::from(p),
+        None => {
+            let mut dir =
+                std::env::current_dir().map_err(|_| "今のフォルダを読めません".to_owned())?;
+            loop {
+                let c = dir.join("config").join("distribution.toml");
+                if c.exists() {
+                    break c;
+                }
+                if !dir.pop() {
+                    return Err("config/distribution.toml が見つかりません（リポジトリの中で動かすか、--config で渡す）".into());
+                }
+            }
+        }
+    };
+    std::fs::read_to_string(&path).map_err(|e| format!("{} を読めません: {e}", path.display()))
+}
 
 fn revocations(sub: &str, a: &Args) -> Result<(), String> {
     match sub {
@@ -193,7 +226,27 @@ fn revocations(sub: &str, a: &Args) -> Result<(), String> {
                 ));
             }
             issuer::write_draft(&path, &issuer::new_draft())?;
-            eprintln!("取り下げの一覧の下書きを作りました: {}", path.display());
+            eprintln!("コードを止めるだけの一覧の下書きを作りました: {}", path.display());
+            Ok(())
+        }
+        "open" => {
+            a.only(&["draft", "config", "dev"])?;
+            let [_, published] = a.rest.as_slice() else {
+                return Err("配信元の一覧のファイルを1つ渡してください".into());
+            };
+            let path = draft_path(a)?;
+            if path.exists() {
+                return Err(format!(
+                    "{} は既にあります（上書きしません。続きから直すなら、その下書きをゴミ箱に移してから）",
+                    path.display()
+                ));
+            }
+            let bytes = std::fs::read(published)
+                .map_err(|e| format!("{published} を読めません: {e}"))?;
+            let d = issuer::draft_from_published(&bytes, &config_text(a)?, a.has("dev"))?;
+            issuer::write_draft(&path, &d)?;
+            eprintln!("配信元の一覧を確かめて、下書きにしました: {}", path.display());
+            print_draft(&d);
             Ok(())
         }
         "add" => {
@@ -213,8 +266,10 @@ fn revocations(sub: &str, a: &Args) -> Result<(), String> {
             }
             issuer::write_draft(&path, &d)?;
             eprintln!(
-                "下書きに {} 件足しました（署名して配信元に置くまで、アプリでは止まりません: {SIGN_HINT}）",
-                added.len()
+                "{}の下書きに {} 件足しました（署名して配信元に置くまで、アプリでは止まりません: {}）",
+                d.kind(),
+                added.len(),
+                sign_hint(&d)
             );
             print_draft(&d);
             Ok(())
@@ -229,8 +284,10 @@ fn revocations(sub: &str, a: &Args) -> Result<(), String> {
             let removed = issuer::draft_remove(&mut d, &a.rest[1..])?;
             issuer::write_draft(&path, &d)?;
             eprintln!(
-                "下書きから {} 件外しました（署名して配信元に置くと、次に確かめたときにアプリで戻ります: {SIGN_HINT}）",
-                removed.len()
+                "{}の下書きから {} 件外しました（署名して配信元に置くと、次に確かめたときにアプリで戻ります。取り下げの一覧にも載っている番号は戻りません: {}）",
+                d.kind(),
+                removed.len(),
+                sign_hint(&d)
             );
             print_draft(&d);
             Ok(())
@@ -241,7 +298,7 @@ fn revocations(sub: &str, a: &Args) -> Result<(), String> {
             Ok(())
         }
         "keygen" | "sign" => Err(format!(
-            "revocations {sub} は無くなりました（止めるコードは配布の取り下げの一覧に載せる。0110 の追記 2026-11-04）。鍵は dist-keys keygen revocation、署名は {SIGN_HINT}"
+            "revocations {sub} はこの道具にはありません（0117 の追記 2026-11-04 の2）。コードを止めるだけの鍵は dist-keys keygen feature_code_revocation <鍵の名前> <秘密鍵のファイル>、署名は dist-keys revocations sign <秘密鍵> <下書き> <一覧>"
         )),
         other => Err(format!("知らない命令です: revocations {other}\n\n{USAGE}")),
     }

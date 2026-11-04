@@ -7,8 +7,9 @@
 //!   鍵の束は配布の部品（`distribution::keys`）のもので、[`keys_from_ring`] で取り出す。開発用の鍵（`[dev_keys]`。名前は `dev-` で始まる）は
 //!   開発用のビルドだけが束に足すので、試しの鍵で発行したコードは製品のビルドでは「確かめられないコード」になる。
 //! - 期限は省ける（期限なしのコード。中身の形の版 2）。期限のあるコードは今までどおり版 1 で出し、前の版のアプリでも読める。
-//! - 提供元は、途中でやめた人・返金した人のコードや漏れたコードを、配布の取り下げの一覧（`distribution::revocations`。取り下げ用の鍵で署名）の
-//!   `revoked.featureCodes` に番号で載せて止める。アプリは配信元から一覧を取りに行き、載っているコードの機能を止める（データは消さない）。
+//! - 提供元は、途中でやめた人・返金した人のコードや漏れたコードを、コードを止めるだけの一覧（`distribution::feature_code_revocations`。
+//!   コードを止めるだけの鍵で署名。CI でも署名できる）か、配布の取り下げの一覧（`distribution::revocations`。取り下げ用の鍵で署名）の
+//!   `revoked.featureCodes` に番号で載せて止める。アプリは配信元から2つの一覧を取りに行き、どちらかに載っているコードの機能を止める（データは消さない）。
 //!   一覧から外れたら、次に確かめたときに戻る。つながらない・一覧を取れないときは、最後に取れた一覧で判断する（今の状態のまま使える）。
 //!   発行の道具が一覧の下書きに番号を足す・外す（[`issuer`]）。署名は配布の道具（`dist-keys revocations sign`）。
 //! - 期限の切れた・止めたコードの知らせは、分かった日から7日だけ出す（[`notice`]。閉じたらその前でも出さない。コードは外さない）。
@@ -325,9 +326,12 @@ pub fn keys_from_ring(ring: &distribution::keys::KeyRing) -> Vec<PublicKey> {
         .collect()
 }
 
-/// 取り下げの一覧（確かめたもの）で止めるコードの番号
-pub fn revoked_ids(list: &distribution::revocations::Verified) -> Vec<String> {
-    list.list.revoked.feature_codes.clone()
+/// 取り下げの一覧と、コードを止めるだけの一覧（どちらも確かめたもの。無ければ None）で止めるコードの番号（和）
+pub fn revoked_ids(
+    main: Option<&distribution::revocations::Verified>,
+    codes: Option<&distribution::feature_code_revocations::Verified>,
+) -> Vec<String> {
+    distribution::feature_code_revocations::stopped_ids(main, codes)
 }
 
 /// 提供元の秘密鍵（発行の道具だけが使う。落とすときに消す）

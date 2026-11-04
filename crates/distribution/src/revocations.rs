@@ -9,7 +9,13 @@
 //! - `revoked.keys` に載った鍵は、鍵の束から外す（[`crate::keys::KeyRing::without`]。取り下げ用の鍵は外せない）。
 //! - `revoked.featureCodes` に載った番号の、機能を有効にするコード（0110）は止める（漏れたコード・返金した人のコード。0110 の追記 2026-11-04）。
 //!   番号はコードの `id`（英数字で始め、英数字と「-」「_」「.」の32文字まで。`feature_code::valid_id` と同じ決まり）。
+//!   機能を有効にするコードは、コードを止めるだけの鍵で署名した別の小さな一覧（[`crate::feature_code_revocations`]）でも止める。
+//!   こちらの一覧（取り下げ用の鍵）に載せた番号は、小さな一覧の鍵では戻せない（0117 の追記 2026-11-04 の2）。
 //! - 取りに行った結果は [`apply_fetch`] で当てる（つながらない・受け付けない一覧は無視して、最後に受け付けた一覧のまま）。
+//! - **知らない欄は無視する**（0117 の追記 2026-11-04 の2）。β の後に取り下げの種類を足しても、前の版のアプリは知っている取り下げを
+//!   当て続ける（一覧ごと受け付けないと、新しい一覧の取り下げが1つも効かなくなる）。前の版のアプリが知らないと危ない取り下げを足すときは、
+//!   同じ一覧の `minAppVersion` で前の版の計算と出力を止める。読み方を変える（前の版が誤って読む）ときは形式の版の MAJOR を上げ、
+//!   置き場所を `/v2/` に分ける（`/v1/` には最後の 1.x の一覧を出し続ける）。
 
 use serde::{Deserialize, Serialize};
 
@@ -29,28 +35,28 @@ pub const DEFAULT_VALID_DAYS: i64 = 90;
 const MAX_ITEMS: usize = 10_000;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub struct RegulationValueRef {
     pub id: String,
     pub pack_version: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub struct ComponentRevisionRef {
     pub id: String,
     pub revision: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub struct PackRef {
     pub id: String,
     pub version: String,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub struct Revoked {
     #[serde(default)]
     pub regulation_values: Vec<RegulationValueRef>,
@@ -78,7 +84,7 @@ pub fn valid_feature_code_id(s: &str) -> bool {
 
 /// 取り下げの一覧（0017 の7 の形）
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub struct RevocationList {
     pub format: String,
     pub format_version: String,
@@ -249,13 +255,25 @@ pub fn apply_fetch(
     fetched: Option<&[u8]>,
     ring: &KeyRing,
 ) -> (Option<Vec<u8>>, Fetch) {
-    let current = saved.and_then(|s| verify(s, ring, None).ok().map(|v| (s.to_vec(), v)));
-    let last_serial = current.as_ref().map(|(_, v)| v.list.serial);
+    apply_fetch_with(saved, fetched, |b, last| {
+        verify(b, ring, last).map(|v| v.list.serial)
+    })
+}
+
+/// [`apply_fetch`] の中身（取り下げの一覧と、コードを止めるだけの一覧で同じ決まりを使う）。
+/// `verify` は（中身・最後に受け付けた通し番号）を受けて、受け付けた一覧の通し番号を返す
+pub(crate) fn apply_fetch_with(
+    saved: Option<&[u8]>,
+    fetched: Option<&[u8]>,
+    verify: impl Fn(&[u8], Option<u64>) -> Result<u64, Reject>,
+) -> (Option<Vec<u8>>, Fetch) {
+    let current = saved.and_then(|s| verify(s, None).ok().map(|serial| (s.to_vec(), serial)));
+    let last_serial = current.as_ref().map(|(_, serial)| *serial);
     let keep = |f: Fetch| (current.as_ref().map(|(s, _)| s.clone()), f);
     let Some(bytes) = fetched else {
         return keep(Fetch::Offline);
     };
-    match verify(bytes, ring, last_serial) {
+    match verify(bytes, last_serial) {
         Ok(_) => (Some(bytes.to_vec()), Fetch::Ok),
         Err(e) => keep(Fetch::Rejected(e)),
     }

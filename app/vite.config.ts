@@ -9,7 +9,7 @@ import { defineConfig, type Plugin } from "vite";
 import { parse as parseToml } from "smol-toml";
 import { APP_DIR, ENGINE_DIST, REPO_DIR } from "./scripts/lib.ts";
 import { devCustom } from "./scripts/devCustom.ts";
-import { addCode, applyFetch, applyNotices, dismissNotice, featureStatus, publicKeys, reference, revokedIds, todayJst, verifyCode, verifyRevocations, withoutRevokedKeys, type NoticeRecord } from "./scripts/devFeatureCode.ts";
+import { addCode, applyFetch, applyNotices, dismissNotice, featureStatus, publicKeys, reference, revokedIds, todayJst, verifyCode, verifyCodeRevocations, verifyRevocations, withoutRevokedKeys, type NoticeRecord } from "./scripts/devFeatureCode.ts";
 
 /**
  * 開発用のサーバーだけの入口（本番のビルドには入らない）: Tauri の外（ふつうのブラウザ・ヘッドレスの Chrome）で画面を確かめるために、
@@ -268,17 +268,21 @@ const devOfficeDefaults: { value: Record<string, unknown> } = { value: {} };
 /** 機能を有効にするコード（本体の feature_code_* の代わり。0110）: メモリの中だけ。公開鍵は本体と同じ配布元の設定から読む。
  * 今日は FINANCIA_DEV_TODAY（YYYY-MM-DD）か、開発用の op「featureToday」で変えられる（期限が近い・切れたの見え方を確かめるため）。
  * 公開鍵は開発用のビルドと同じく [keys] と [dev_keys] の両方。
- * 取り下げの一覧（0117 の3 (3)・0110 の追記）は、FINANCIA_DEV_FEATURE_REVOCATIONS に書いた手元のファイルを「配信元」とみなして読む（無い・読めないときは「つながらない」）。
+ * 取り下げの一覧（0117 の3 (3)・0110 の追記）は FINANCIA_DEV_FEATURE_REVOCATIONS、コードを止めるだけの一覧（0117 の追記 2026-11-04 の2）は
+ * FINANCIA_DEV_FEATURE_CODE_REVOCATIONS に書いた手元のファイルを「配信元」とみなして読む（無い・読めないときは「つながらない」）。
  * 本体と同じく、コードが入っているときだけ、最初に状態を読んだときと1日1回と「今すぐ確かめる」で読む */
-const devDist = parseToml(readFileSync(join(REPO_DIR, "config", "distribution.toml"), "utf8")) as { keys?: { feature_code?: string[]; revocation?: string[] }; dev_keys?: { feature_code?: string[]; revocation?: string[] } };
+type DevKeys = { feature_code?: string[]; revocation?: string[]; feature_code_revocation?: string[] };
+const devDist = parseToml(readFileSync(join(REPO_DIR, "config", "distribution.toml"), "utf8")) as { keys?: DevKeys; dev_keys?: DevKeys };
 const devAllFeatureKeys = publicKeys([...(devDist.keys?.feature_code ?? []), ...(devDist.dev_keys?.feature_code ?? [])]);
 const devRevocationKeys = publicKeys([...(devDist.keys?.revocation ?? []), ...(devDist.dev_keys?.revocation ?? [])]);
+const devCodeRevocationKeys = publicKeys([...(devDist.keys?.feature_code_revocation ?? []), ...(devDist.dev_keys?.feature_code_revocation ?? [])]);
 type DevCandidate = { id: string; receivedAt: string; code: string; connector: string | null };
-const devFeatures: { codes: string[]; today: string | null; saved: string | null; checkedAt: string | null; okAt: string | null; result: "ok" | "offline" | "rejected" | null; lastCheckMs: number | null; candidates: DevCandidate[]; notices: NoticeRecord[] } = {
+const devFeatures: { codes: string[]; today: string | null; saved: string | null; savedCodes: string | null; checkedAt: string | null; okAt: string | null; result: "ok" | "offline" | "rejected" | null; lastCheckMs: number | null; candidates: DevCandidate[]; notices: NoticeRecord[] } = {
   codes: [],
   notices: [],
   today: /^\d{4}-\d{2}-\d{2}$/.test(process.env.FINANCIA_DEV_TODAY ?? "") ? (process.env.FINANCIA_DEV_TODAY as string) : null,
   saved: null,
+  savedCodes: null,
   checkedAt: null,
   okAt: null,
   result: null,
@@ -286,21 +290,25 @@ const devFeatures: { codes: string[]; today: string | null; saved: string | null
   candidates: [],
 };
 const devFeatureToday = () => devFeatures.today ?? todayJst();
-const devRevoked = () => revokedIds(devFeatures.saved, devRevocationKeys);
+const devRevoked = () => revokedIds(devFeatures.saved, devRevocationKeys, devFeatures.savedCodes, devCodeRevocationKeys);
 /** コードの鍵（取り下げの一覧で取り下げた鍵を外したもの） */
 const devCodeKeys = () => withoutRevokedKeys(devAllFeatureKeys, devFeatures.saved, devRevocationKeys);
 /** 止めた一覧を「配信元」（手元のファイル）から取る */
 function devFeatureCheck() {
-  const f = process.env.FINANCIA_DEV_FEATURE_REVOCATIONS ?? "";
-  let fetched: string | null;
-  try {
-    fetched = f === "" ? null : readFileSync(f, "utf8");
-  } catch {
-    fetched = null;
-  }
-  const r = applyFetch(devFeatures.saved, fetched, devRevocationKeys);
+  const read = (name: string): string | null => {
+    const f = process.env[name] ?? "";
+    try {
+      return f === "" ? null : readFileSync(f, "utf8");
+    } catch {
+      return null;
+    }
+  };
+  // 本体と同じく、先に取り下げの一覧を当て、そこで外した鍵を除いた鍵で、コードを止めるだけの一覧を確かめる
+  const r = applyFetch(devFeatures.saved, read("FINANCIA_DEV_FEATURE_REVOCATIONS"), devRevocationKeys);
+  const c = applyFetch(devFeatures.savedCodes, read("FINANCIA_DEV_FEATURE_CODE_REVOCATIONS"), withoutRevokedKeys(devCodeRevocationKeys, r.saved, devRevocationKeys), verifyCodeRevocations);
+  const result = r.result === "rejected" || c.result === "rejected" ? "rejected" : r.result === "ok" && c.result === "ok" ? "ok" : "offline";
   const now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
-  Object.assign(devFeatures, { saved: r.saved, checkedAt: now, result: r.result, lastCheckMs: Date.now(), ...(r.result === "ok" ? { okAt: now } : {}) });
+  Object.assign(devFeatures, { saved: r.saved, savedCodes: c.saved, checkedAt: now, result, lastCheckMs: Date.now(), ...(result === "ok" ? { okAt: now } : {}) });
 }
 function devFeatureView() {
   if (devFeatures.codes.length > 0 && (devFeatures.lastCheckMs === null || Date.now() - devFeatures.lastCheckMs > (devFeatures.result === "ok" ? 24 : 1) * 3600_000)) devFeatureCheck();
@@ -309,6 +317,7 @@ function devFeatureView() {
   const st = featureStatus(devFeatures.codes, devCodeKeys(), today, revoked);
   devFeatures.notices = applyNotices(st, devFeatures.notices);
   const saved = devFeatures.saved === null ? null : verifyRevocations(devFeatures.saved, devRevocationKeys);
+  const savedCodes = devFeatures.savedCodes === null ? null : verifyCodeRevocations(devFeatures.savedCodes, withoutRevokedKeys(devCodeRevocationKeys, devFeatures.saved, devRevocationKeys));
   const candidates = devFeatures.candidates.map((c) => {
     const v = verifyCode(c.code, devCodeKeys());
     const r = addCode(devFeatures.codes, c.code, devCodeKeys(), today, revoked);
@@ -327,7 +336,7 @@ function devFeatureView() {
       replaces: r.ok ? devFeatures.codes.filter((x) => !r.codes.includes(x)).length : 0,
     };
   });
-  return { ...st, check: { checkedAt: devFeatures.checkedAt, okAt: devFeatures.okAt, result: devFeatures.result, serial: saved !== null && saved.ok ? saved.list.serial : null, listed: devRevoked().length }, candidates };
+  return { ...st, check: { checkedAt: devFeatures.checkedAt, okAt: devFeatures.okAt, result: devFeatures.result, serial: saved !== null && saved.ok ? saved.list.serial : null, codeListSerial: savedCodes !== null && savedCodes.ok ? savedCodes.list.serial : null, listed: devRevoked().length }, candidates };
 }
 
 function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?: unknown } | { ok: false; code: string } {
