@@ -1,5 +1,8 @@
 /* ファイナンシア（入力のホーム・主画面・万一の想定）。色は藍（提案）と灰（現状）の2色、不足の赤だけ例外。塗りは単色、不足は斜線。
-   表示は1つ（共有用の切り替えは無い）。右上の文字の大きさ「中・大」の「大」で、文字を約2割大きく・線を太くする */
+   表示は1つ（共有用の切り替えは無い）。右上の文字の大きさ「中・大」の「大」で、文字を約2割大きく・線を太くする。
+   事務所の見た目（0121）: 基調の色（--prop・--prop-ink・--prop-bg）は事務所の設定で変えられる（画面が presentation/theme.ts で導いて html に入れる）。
+   --prop-area・--sel-bg など基調の色の薄い塗りは --prop から color-mix で作る。不足・注意・済み・グラフのプランの色は変えない。
+   暗い画面（html.dark。画面の明るさの設定）は下の「暗い画面」の区切りで色の決め事を入れ替える。提案書・持ち帰り用のレポートは明るいまま */
 :root {
   color-scheme: light;
   --ink: #1a1d21;
@@ -12,7 +15,7 @@
   --prop: #2b4c8c; /* ファイナンシアの藍（選んだ案の線） */
   --prop-ink: #233f75;
   --prop-bg: #e9eef7;
-  --prop-area: rgba(43, 76, 140, 0.12);
+  --prop-area: color-mix(in srgb, var(--prop) 12%, transparent);
   --base: #8c96a3;
   --base-ink: #4a5361;
   --base-bg: #f1f2f4; /* 基準の案の背景（薄い灰） */
@@ -20,7 +23,7 @@
   --short-ink: #a61b1b;
   --short-bg: #fdecea;
   --sel: #1a1d21;
-  --sel-bg: rgba(43, 76, 140, 0.09);
+  --sel-bg: color-mix(in srgb, var(--prop) 9%, transparent);
   --good: #1b6b45;
   --good-bg: #e6f4ec;
   --memo-bg: #fff8d6;
@@ -30,6 +33,7 @@
   --est-bg: #fff4e0;
   --est-band: #f6c27a;
   --field: #7d8794; /* 入力欄・点線の枠（白地で 3:1 以上） */
+  --on-fill: #fff; /* 塗った所（基調の色・墨・不足・注意など）に重ねる文字 */
   --drawer-w: 440px;
   --radius: 10px;
   --fs: 16px;
@@ -37,6 +41,69 @@
   --lw-base: 3px;
   --font: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
 }
+/* 暗い画面（0121）: 地を暗く・文字を明るくし、塗りの強い色（基調の色・墨・不足・注意・済み）は明るくして、その上の文字を暗くする。
+   不足・注意・済みの色は同じ色相のまま明るさだけを変える（意味は変えない）。基調の色は画面が事務所の色から導いて上書きする */
+html.dark {
+  color-scheme: dark;
+  --ink: #e6e8eb;
+  --ink-2: #b9c0c9;
+  --line: #4b535e;
+  --line-2: #363c45;
+  --line-3: #59626e;
+  --bg: #15181c;
+  --card: #1f2329;
+  --card-line: #353b44;
+  --prop: #7399df;
+  --prop-ink: #8bb2fa;
+  --prop-bg: #22304a;
+  --base: #8a94a1;
+  --base-ink: #b4bcc6;
+  --base-bg: #2a2f36;
+  --short: #ef6b66;
+  --short-ink: #ff8f89;
+  --short-bg: #3d2423;
+  --sel: #e6e8eb;
+  --good: #63c493;
+  --good-bg: #1d3328;
+  --memo-bg: #39331d;
+  --memo-line: #b39300;
+  --memo-ink: #e0c060;
+  --est: #e09a3a;
+  --est-ink: #f2bb66;
+  --est-bg: #3a2d18;
+  --est-band: #8a6020;
+  --field: #8a94a1;
+  --on-fill: #14171b;
+  --wash: #262b32;
+  --wash-warm: #2d2a21;
+  --wash-short: #332525;
+  --muted: #a7afb9;
+  --muted-ink: #8d96a1;
+  --warn: #f2a070;
+  --tx-teal: #7cc2b8;
+  --tx-brown: #d6bf92;
+  --tx-red: #f0a39b;
+  --tx-rust: #f0a070;
+}
+/* グラフの複数のプランの色（planLines.tsx。色相は同じまま、暗い地で読める明るさに） */
+html.dark [stroke="#4c5563"]:not(.tk *) { stroke: #a3adbb !important; }
+html.dark [stroke="#0072c6"]:not(.tk *) { stroke: #4aa3ec !important; }
+html.dark [stroke="#d95f02"]:not(.tk *) { stroke: #f08a3e !important; }
+html.dark [stroke="#009a5b"]:not(.tk *) { stroke: #2fc684 !important; }
+html.dark [stroke="#c2309a"]:not(.tk *) { stroke: #e46cc0 !important; }
+html.dark [stroke="#2f2380"]:not(.tk *) { stroke: #9d92e8 !important; }
+html.dark [fill="#4c5563"]:not(.tk *) { fill: #a3adbb !important; }
+html.dark [fill="#0072c6"]:not(.tk *) { fill: #4aa3ec !important; }
+html.dark [fill="#d95f02"]:not(.tk *) { fill: #f08a3e !important; }
+html.dark [fill="#009a5b"]:not(.tk *) { fill: #2fc684 !important; }
+html.dark [fill="#c2309a"]:not(.tk *) { fill: #e46cc0 !important; }
+html.dark [fill="#2f2380"]:not(.tk *) { fill: #9d92e8 !important; }
+html.dark [data-plan-color="#4c5563"]:not(.tk *) { fill: #a3adbb !important; stroke: #a3adbb !important; }
+html.dark [data-plan-color="#0072c6"]:not(.tk *) { fill: #4aa3ec !important; stroke: #4aa3ec !important; }
+html.dark [data-plan-color="#d95f02"]:not(.tk *) { fill: #f08a3e !important; stroke: #f08a3e !important; }
+html.dark [data-plan-color="#009a5b"]:not(.tk *) { fill: #2fc684 !important; stroke: #2fc684 !important; }
+html.dark [data-plan-color="#c2309a"]:not(.tk *) { fill: #e46cc0 !important; stroke: #e46cc0 !important; }
+html.dark [data-plan-color="#2f2380"]:not(.tk *) { fill: #9d92e8 !important; stroke: #9d92e8 !important; }
 html { font-size: var(--fs); -webkit-text-size-adjust: 100%; }
 /* 文字の大きさ「大」: 文字を約2割大きく（16px→19px）、線を太く */
 html.big { --fs: 19px; --lw-prop: 5px; --lw-base: 4.5px; --drawer-w: 500px; }
@@ -83,7 +150,7 @@ b { font-weight: 700; }
 .verdict { border-radius: 10px; padding: 12px 14px; font-size: 1.12rem; line-height: 1.5; border: 2px solid var(--prop); background: var(--prop-bg); }
 .verdict b { font-size: 1.15em; }
 .verdict.down { border-color: var(--short); background: var(--short-bg); }
-.verdict.flat { border-color: var(--line); background: #f6f7f8; }
+.verdict.flat { border-color: var(--line); background: var(--wash, #f6f7f8); }
 
 /* 凡例 */
 .chart-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px 16px; margin: 14px 0 4px; }
@@ -110,30 +177,34 @@ html.big .chart .axis-who { font-size: 12px; }
 .chart .area-short { fill: url(#hatch-short); stroke: var(--short); stroke-width: 1; }
 .chart .hatch-bg { fill: #f5b5b0; }
 .chart .hatch-line { stroke: none; }
+/* 暗い画面（0121）: 不足の塗りは暗い赤の地に赤の斜線（明るい桃色の面は暗い地でまぶしく、線と文字が読みにくい） */
+html.dark .chart .hatch-bg:not(.tk *) { fill: #4a2321; }
+html.dark .chart .hatch-line:not(.tk *) { stroke: #d0675f; stroke-width: 2; }
+html.dark .lg.short i:not(.tk *) { background: repeating-linear-gradient(-45deg, #4a2321 0 3px, #d0675f 3px 4.5px); }
 .chart .line-prop { fill: none; stroke: var(--prop); stroke-width: var(--lw-prop); stroke-linejoin: round; }
 .chart .line-base { fill: none; stroke: var(--base); stroke-width: var(--lw-base); stroke-dasharray: 9 6; stroke-linejoin: round; }
 .chart .hit { fill: transparent; cursor: pointer; }
 .chart .dep-line { fill: none; stroke: var(--short); stroke-width: 2; stroke-dasharray: 4 3; pointer-events: none; }
 .chart .dep-tri { fill: var(--short); }
-.chart .dep-txt { fill: var(--short-ink); font-weight: 700; font-size: 13px; paint-order: stroke; stroke: #fff; stroke-width: 4px; }
+.chart .dep-txt { fill: var(--short-ink); font-weight: 700; font-size: 13px; paint-order: stroke; stroke: var(--card); stroke-width: 4px; }
 html.big .chart .dep-txt { font-size: 15px; }
 
 /* 年の内訳・イベント */
-.yearline { margin-top: 8px; padding: 8px 12px; border-radius: 8px; background: #f6f7f9; border: 2px solid var(--sel); display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: baseline; font-size: 0.95rem; }
+.yearline { margin-top: 8px; padding: 8px 12px; border-radius: 8px; background: var(--wash, #f6f7f9); border: 2px solid var(--sel); display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: baseline; font-size: 0.95rem; }
 .yearline .y { font-weight: 700; font-size: 1.05rem; }
 .yearline .kv { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .yearline .kv b { font-size: 1.08em; }
 .yearline .kv.neg b { color: var(--short-ink); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.chip { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid var(--line); background: #fff; border-radius: 99px; padding: 3px 10px 3px 4px; font-size: 0.85rem; cursor: pointer; }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid var(--line); background: var(--card); border-radius: 99px; padding: 3px 10px 3px 4px; font-size: 0.85rem; cursor: pointer; }
 .chip .ic { display: inline-grid; place-items: center; width: 1.6em; height: 1.6em; border-radius: 50%; border: 2px solid var(--ink); font-weight: 700; font-size: 0.85em; }
-.chip.short .ic { background: var(--short); border-color: var(--short); color: #fff; }
+.chip.short .ic { background: var(--short); border-color: var(--short); color: var(--on-fill); }
 .chip .yr { font-weight: 700; font-variant-numeric: tabular-nums; }
 .chip.on { border-color: var(--sel); border-width: 2.5px; background: var(--sel-bg); }
 
 /* 目標カード */
 .goals { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-.goal { border: 1px solid var(--card-line); border-radius: 9px; padding: 10px 12px; background: #fff; border-bottom: 4px solid var(--prop); }
+.goal { border: 1px solid var(--card-line); border-radius: 9px; padding: 10px 12px; background: var(--card); border-bottom: 4px solid var(--prop); }
 .goal.ng { border-bottom-color: var(--short); }
 .goal-top { display: flex; justify-content: space-between; gap: 6px; align-items: center; font-size: 0.8rem; }
 .goal-cat { font-weight: 700; color: var(--ink-2); }
@@ -147,7 +218,7 @@ html.big .chart .dep-txt { font-size: 15px; }
 .goal-sum { font-weight: 700; font-size: 0.92rem; margin-bottom: 8px; }
 .goal-sum .big { font-size: 1.25rem; }
 .st { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-size: 0.88rem; border-radius: 99px; padding: 1px 10px 1px 4px; white-space: nowrap; }
-.st::before { display: inline-grid; place-items: center; width: 1.25em; height: 1.25em; border-radius: 50%; color: #fff; font-size: 0.85em; }
+.st::before { display: inline-grid; place-items: center; width: 1.25em; height: 1.25em; border-radius: 50%; color: var(--on-fill); font-size: 0.85em; }
 .st.ok { background: var(--prop-bg); color: var(--prop); }
 .st.ok::before { content: "✓"; background: var(--prop); }
 .st.ng { background: var(--short-bg); color: var(--short-ink); }
@@ -158,7 +229,7 @@ html.big .chart .dep-txt { font-size: 15px; }
 
 /* FP用の見出しの印（メモの引き出し・万一の画面の FP の欄。提示層の部品には渡さない） */
 .memo-h { font-weight: 700; display: flex; gap: 6px; align-items: center; margin-bottom: 2px; }
-.memo-h::before { content: "FP用"; background: var(--ink); color: #fff; font-size: 0.75rem; padding: 1px 6px; border-radius: 4px; }
+.memo-h::before { content: "FP用"; background: var(--ink); color: var(--on-fill); font-size: 0.75rem; padding: 1px 6px; border-radius: 4px; }
 
 /* 打ち手 */
 .lever { padding: 10px 0 12px; border-bottom: 1px solid var(--line-2); }
@@ -170,35 +241,35 @@ html.big .chart .dep-txt { font-size: 15px; }
 html.big .lever input[type="range"] { height: 36px; }
 .ticks { display: flex; justify-content: space-between; margin: 0 2px; }
 .tick { background: none; border: 0; padding: 2px 4px; font-size: 0.85rem; color: var(--ink-2); cursor: pointer; border-radius: 4px; min-width: 30px; font-variant-numeric: tabular-nums; }
-.tick.is-on { background: var(--prop); color: #fff; font-weight: 700; }
+.tick.is-on { background: var(--prop); color: var(--on-fill); font-weight: 700; }
 .tick.is-base { text-decoration: underline solid 2px var(--base); text-underline-offset: 3px; }
 .lever-note { font-size: 0.85rem; color: var(--ink-2); margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: space-between; }
 .base-tag { border: 1px solid var(--line); background: var(--base-bg); border-radius: 4px; padding: 0 6px; color: var(--base-ink); font-weight: 700; white-space: nowrap; max-width: 100%; }
 /* 狭い画面: 基準のプランの値の札は折り返す（長いプランの名前でもページが横にはみ出さない） */
 @media (max-width: 639.98px) { .base-tag { white-space: normal; } }
 .levers-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px; }
-.reset-btn { border: 2px solid var(--ink-2); background: #fff; border-radius: 8px; padding: 6px 12px; font-weight: 700; cursor: pointer; }
+.reset-btn { border: 2px solid var(--ink-2); background: var(--card); border-radius: 8px; padding: 6px 12px; font-weight: 700; cursor: pointer; }
 
 /* キャッシュフロー表 */
-.cf-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.cf-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
 .cf { border-collapse: separate; border-spacing: 0; font-size: 0.9rem; white-space: nowrap; }
 .cf th, .cf td { padding: 4px 8px; text-align: right; border-bottom: 1px solid var(--line-2); min-width: 4.4em; }
-.cf .stub { position: sticky; left: 0; z-index: 2; background: #fff; text-align: left; min-width: 13.5em; border-right: 2px solid var(--line); font-weight: 700; }
-.cf thead th { background: #f6f7f9; }
+.cf .stub { position: sticky; left: 0; z-index: 2; background: var(--card); text-align: left; min-width: 13.5em; border-right: 2px solid var(--line); font-weight: 700; }
+.cf thead th { background: var(--wash, #f6f7f9); }
 .cf .r-year th { padding: 0; }
 .cf .r-year th.stub { padding: 6px 8px; }
 .cf .ybtn { all: unset; display: block; padding: 6px 8px; cursor: pointer; font-weight: 700; text-align: right; }
 .cf .r-ev td { text-align: center; }
 /* ライフイベントの丸: グラフの下の丸（.chart .ev）と同じ大きさ（半径 12.5px × 文字の大きさ）・同じ線・漢字は真ん中（EventDot.tsx） */
-.cf .ev-dot { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 1.5625rem; height: 1.5625rem; border-radius: 50%; border: 2px solid var(--ink); background: #fff; margin: 1px; vertical-align: middle; cursor: default; outline: none; }
+.cf .ev-dot { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 1.5625rem; height: 1.5625rem; border-radius: 50%; border: 2px solid var(--ink); background: var(--card); margin: 1px; vertical-align: middle; cursor: default; outline: none; }
 .cf .ev-dot-t { font-size: 0.9rem; font-weight: 700; line-height: 1; color: var(--ink); }
 .cf .ev-dot.short { background: var(--short); border-color: var(--short); }
-.cf .ev-dot.short .ev-dot-t { color: #fff; }
+.cf .ev-dot.short .ev-dot-t { color: var(--on-fill); }
 .cf .ev-dot.on { border-color: var(--prop); box-shadow: 0 0 0 1px var(--prop); }
 .cf .ev-dot.short.on { border-color: var(--short-ink); box-shadow: 0 0 0 1px var(--short-ink); }
 .cf .ev-dot:focus-visible { border-color: var(--prop); box-shadow: 0 0 0 1.5px var(--prop); }
 .cf .r-ev td { white-space: nowrap; }
-.cf .r-group th, .cf .r-group td { background: #eef1f4; font-size: 0.85em; letter-spacing: 0.1em; }
+.cf .r-group th, .cf .r-group td { background: var(--wash, #eef1f4); font-size: 0.85em; letter-spacing: 0.1em; }
 .cf .r-total th, .cf .r-total td { font-weight: 700; border-bottom-color: var(--line); }
 .cf td.neg { color: var(--short-ink); }
 .cf td.short { background: var(--short-bg); }
@@ -209,14 +280,14 @@ html.big .lever input[type="range"] { height: 36px; }
 /* 行を開く「▸」と、開いた行の子の行（0075） */
 .cf .row-open { all: unset; cursor: pointer; display: inline-block; width: 1.1em; margin-left: -0.2em; color: var(--prop-ink); }
 .cf .row-open:hover, .cf .row-open:focus-visible { color: var(--prop); outline: 1px solid var(--prop); border-radius: 3px; }
-.cf .r-child th, .cf .r-child td { font-size: 0.85em; color: var(--ink-2); background: #fafbfc; }
-.cf .r-child th.stub { padding-left: 1.9em; font-weight: 400; background: #fafbfc; }
+.cf .r-child th, .cf .r-child td { font-size: 0.85em; color: var(--ink-2); background: var(--wash, #fafbfc); }
+.cf .r-child th.stub { padding-left: 1.9em; font-weight: 400; background: var(--wash, #fafbfc); }
 .cf .r-child td.neg { color: var(--short-ink); }
 .cf .r-child .sel { background-color: var(--sel-bg); }
 .cf .cellbtn:hover, .cf .cellbtn:focus-visible { color: var(--prop); border-bottom: 2px solid var(--prop); }
 
 /* 画面の端の引き出し（根拠のパネル・メモ）。別の窓にしない。広い画面では本文を左に寄せ、グラフや表を覆わない */
-.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(var(--drawer-w), 100vw); background: #fff; border-left: 1px solid var(--line); box-shadow: -10px 0 30px rgba(20, 30, 50, 0.12); z-index: 30; display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(var(--drawer-w), 100vw); background: var(--card); border-left: 1px solid var(--line); box-shadow: -10px 0 30px rgba(20, 30, 50, 0.12); z-index: 30; display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; }
 @media (min-width: 1100px) {
   .app.has-drawer { display: grid; grid-template-columns: minmax(0, 1fr) var(--drawer-w); align-items: start; }
   .app.has-drawer > .top { grid-column: 1 / -1; }
@@ -228,22 +299,22 @@ html.big .lever input[type="range"] { height: 36px; }
 .drawer.evidence .ev-params tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; border-bottom: 1px solid var(--line-2); padding: 6px 0; }
 .drawer.evidence .ev-params tbody th, .drawer.evidence .ev-params tbody td { border: 0; padding: 1px 6px; }
 .drawer.evidence .ev-params tbody td:nth-of-type(2), .drawer.evidence .ev-params tbody td:nth-of-type(3) { grid-column: 1 / -1; font-size: 0.82rem; color: var(--ink-2); white-space: normal; }
-.drawer-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 16px 10px; border-bottom: 2px solid var(--line); position: sticky; top: 0; background: #fff; }
+.drawer-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 16px 10px; border-bottom: 2px solid var(--line); position: sticky; top: 0; background: var(--card); }
 .drawer-head h2 { margin: 0; font-size: 1.1rem; }
 .drawer-body { padding: 10px 16px 18px; display: grid; gap: 8px; }
 .drawer-note { margin: 0; font-size: 0.85rem; color: var(--ink-2); }
-.memo-drawer { background: #fffdf0; }
+.memo-drawer { background: var(--wash-warm, #fffdf0); }
 .memo-drawer .drawer-head { background: var(--memo-bg); border-bottom-color: var(--memo-line); }
-.memo-drawer textarea { width: 100%; border: 1.5px solid var(--memo-line); border-radius: 6px; padding: 8px; font: inherit; font-size: 0.95rem; background: #fff; resize: vertical; }
-.x-btn { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 2px solid var(--ink); background: #fff; font-size: 1.25rem; line-height: 1; cursor: pointer; display: grid; place-items: center; }
+.memo-drawer textarea { width: 100%; border: 1.5px solid var(--memo-line); border-radius: 6px; padding: 8px; font: inherit; font-size: 0.95rem; background: var(--card); resize: vertical; }
+.x-btn { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 2px solid var(--ink); background: var(--card); font-size: 1.25rem; line-height: 1; cursor: pointer; display: grid; place-items: center; }
 .x-btn:hover { background: #f1f3f5; }
 .ev { font-size: 0.95rem; }
-.ev-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 16px 20px 12px; border-bottom: 2px solid var(--line); position: sticky; top: 0; background: #fff; }
-.ev-kicker { display: inline-block; background: var(--prop); color: #fff; font-weight: 700; border-radius: 4px; padding: 0 8px; font-size: 0.8rem; }
+.ev-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 16px 20px 12px; border-bottom: 2px solid var(--line); position: sticky; top: 0; background: var(--card); }
+.ev-kicker { display: inline-block; background: var(--prop); color: var(--on-fill); font-weight: 700; border-radius: 4px; padding: 0 8px; font-size: 0.8rem; }
 .ev-head h2 { margin: 4px 0 2px; font-size: 1.3rem; }
 .ev-total { color: var(--prop); }
 .ev-sub { color: var(--ink-2); font-size: 0.88rem; }
-.ev-close { border: 2px solid var(--ink); background: #fff; border-radius: 8px; padding: 6px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.ev-close { border: 2px solid var(--ink); background: var(--card); border-radius: 8px; padding: 6px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .ev-wait { padding: 20px; }
 .ev-body { padding: 4px 20px 20px; display: grid; gap: 4px; grid-template-columns: minmax(0, 1fr); }
 .ev-body section { min-width: 0; }
@@ -252,7 +323,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .ev th, .ev td { border-bottom: 1px solid var(--line-2); padding: 5px 6px; text-align: left; vertical-align: top; }
 .ev td.num { text-align: right; white-space: nowrap; }
 .ev .tot th, .ev .tot td { font-weight: 700; border-top: 2px solid var(--ink); }
-.ev-params thead th { background: #f3f5f7; font-size: 0.85rem; }
+.ev-params thead th { background: var(--wash, #f3f5f7); font-size: 0.85rem; }
 .ev-params td:last-child { font-size: 0.82rem; color: var(--ink-2); white-space: nowrap; }
 .ev-formula { margin: 0; padding-left: 1.4em; }
 .ev-formula li { margin: 3px 0; }
@@ -260,13 +331,13 @@ html.big .lever input[type="range"] { height: 36px; }
 
 /* 入力の欄（入力のパネル・万一の画面の前提の欄） */
 .level-switch { display: flex; border: 2px solid var(--ink-2); border-radius: 8px; overflow: hidden; }
-.level-switch button { flex: 1; background: #fff; border: 0; padding: 5px 12px; font-weight: 700; cursor: pointer; color: var(--ink-2); }
-.level-switch button.on { background: var(--ink); color: #fff; }
+.level-switch button { flex: 1; background: var(--card); border: 0; padding: 5px 12px; font-weight: 700; cursor: pointer; color: var(--ink-2); }
+.level-switch button.on { background: var(--ink); color: var(--on-fill); }
 .in-section { margin-top: 14px; }
 .in-section > h3, .in-section-h > h3 { font-size: 1rem; margin: 0 0 4px; border-left: 4px solid var(--prop); padding-left: 8px; }
 .in-section-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .in-note { font-size: 0.85rem; color: var(--ink-2); margin: 2px 0 8px; }
-.in-group { border: 1px solid var(--card-line); border-radius: 9px; padding: 10px 12px 12px; margin: 8px 0; background: #fcfcfb; }
+.in-group { border: 1px solid var(--card-line); border-radius: 9px; padding: 10px 12px 12px; margin: 8px 0; background: var(--wash, #fcfcfb); }
 .in-group-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; }
 .in-group-h h4 { margin: 0; font-size: 0.98rem; }
 .fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px 18px; }
@@ -280,7 +351,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .in-group-help { margin: 0 0 4px; }
 .ip-head h2 .help-btn { font-size: 0.78rem; }
 .fld-c { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.fld-c input[type="text"], .fld-c select { border: 1.5px solid var(--line); border-radius: 6px; padding: 5px 8px; background: #fff; min-width: 0; }
+.fld-c input[type="text"], .fld-c select { border: 1.5px solid var(--line); border-radius: 6px; padding: 5px 8px; background: var(--card); min-width: 0; }
 .fld-c input.num { width: 9.5em; text-align: right; font-variant-numeric: tabular-nums; }
 .fld-c input.txt { width: 100%; max-width: 18em; }
 .fld-c input.ym { width: 8em; font-variant-numeric: tabular-nums; }
@@ -312,8 +383,8 @@ html.big .lever input[type="range"] { height: 36px; }
 .info-note-fold { margin-left: auto; font-size: 0.78rem; font-weight: 400; color: var(--ink-2); }
 .info-note-h:hover .info-note-fold, .info-note-h:focus-visible .info-note-fold { text-decoration: underline; }
 .info-note-body { margin: 6px 0 0; font-size: 0.88rem; line-height: 1.7; color: var(--ink); }
-.sv-more-row > td { background: #fcfcfb; padding: 2px 10px 10px; }
-.sv-more-row .in-group { margin: 4px 0; background: #fff; }
+.sv-more-row > td { background: var(--wash, #fcfcfb); padding: 2px 10px 10px; }
+.sv-more-row .in-group { margin: 4px 0; background: var(--card); }
 /*
  * 物1件の中のまとまり（in-sub。お金の行の課税の扱い・受け取る人、ローンの金利の段階、保険の保障、行の額の近くに並べる額の変化〔placeIn〕など）:
  * 1件 = 1つの枠。中のまとまりは枠も地の色も付けず、上の薄い区切りの線と小さな見出しだけ（別の物を足したように見せない）
@@ -349,7 +420,7 @@ html.big .lever input[type="range"] { height: 36px; }
  * 見出しの列と選択肢の並びの2列。狭い幅では見出しを選択肢の上に置く
  */
 .add-choice.add-choice-listed { display: flex; flex-direction: column; align-items: flex-start; }
-.add-choice-list { display: grid; gap: 8px; width: 100%; max-width: 46rem; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-left: 3px solid var(--prop-bg); border-radius: 8px; background: #fff; }
+.add-choice-list { display: grid; gap: 8px; width: 100%; max-width: 46rem; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-left: 3px solid var(--prop-bg); border-radius: 8px; background: var(--card); }
 .add-choice-sec { display: grid; grid-template-columns: 8.5em minmax(0, 1fr); gap: 4px 10px; align-items: baseline; }
 .add-choice-head { font-size: 0.8rem; font-weight: 700; color: var(--base-ink); }
 .add-choice-items { display: flex; flex-wrap: wrap; gap: 6px 8px; }
@@ -359,19 +430,19 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-c select { max-width: 100%; }
 .fld-c input.bad { border-color: var(--short); background: var(--short-bg); }
 .fld-c input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--prop); }
-.fld.is-est .fld-c input[type="text"] { border-style: dashed; border-color: var(--base); background: #f7f8fa; color: var(--base-ink); }
+.fld.is-est .fld-c input[type="text"] { border-style: dashed; border-color: var(--base); background: var(--wash, #f7f8fa); color: var(--base-ink); }
 .units { display: inline-flex; gap: 4px; }
-.unit-btn { border: 1.5px solid var(--ink-2); background: #fff; border-radius: 5px; padding: 2px 7px; font-size: 0.82rem; font-weight: 700; cursor: pointer; }
+.unit-btn { border: 1.5px solid var(--ink-2); background: var(--card); border-radius: 5px; padding: 2px 7px; font-size: 0.82rem; font-weight: 700; cursor: pointer; }
 .suffix { font-size: 0.88rem; font-weight: 700; }
 .fld-hint { font-size: 0.82rem; color: var(--ink-2); }
 .fld-help { font-size: 0.78rem; color: var(--ink-2); margin-top: 2px; }
 /* 欄の横の提案（控えから見た実際の割合など。0031） */
-.fld-suggest { font-size: 0.82rem; margin-top: 4px; padding: 4px 8px; border-radius: 6px; background: #eef5f3; color: #2f5f59; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; }
+.fld-suggest { font-size: 0.82rem; margin-top: 4px; padding: 4px 8px; border-radius: 6px; background: var(--wash, #eef5f3); color: var(--tx-teal, #2f5f59); display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; }
 .fld-suggest .link-btn { font-weight: 700; }
 .fld-suggest details { flex-basis: 100%; color: var(--ink-2); }
 .fld-suggest summary { cursor: pointer; font-size: 0.78rem; }
 .fld-suggest ul { margin: 4px 0 0; padding-left: 1.2em; }
-.fld-help.warn { color: #7a5800; }
+.fld-help.warn { color: var(--memo-ink, #7a5800); }
 .fld-help.bad { color: var(--short-ink); font-weight: 700; }
 .fld-help.est-basis { color: var(--base-ink); }
 .ro { font-size: 0.92rem; color: var(--ink-2); }
@@ -393,8 +464,8 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-ops .link-btn { font-size: 0.78rem; }
 /* 推定の値をそのまま欄に入れるボタン（値の状態の操作の確定と同じ。0041 の追記）。推定の欄にだけ出す小さなボタン。
    数の欄は欄の中の左（値は右寄せ）に置き、欄に入って打ち始めると隠す（Tab で移れるよう、隠すのは見た目だけ） */
-.fld-fill { border: 1.5px solid var(--prop); background: #fff; color: var(--prop); border-radius: 999px; padding: 0 8px; font-size: 0.74rem; font-weight: 700; line-height: 1.6; white-space: nowrap; cursor: pointer; }
-.fld-fill:hover, .fld-fill:focus-visible { background: var(--prop); color: #fff; }
+.fld-fill { border: 1.5px solid var(--prop); background: var(--card); color: var(--prop); border-radius: 999px; padding: 0 8px; font-size: 0.74rem; font-weight: 700; line-height: 1.6; white-space: nowrap; cursor: pointer; }
+.fld-fill:hover, .fld-fill:focus-visible { background: var(--prop); color: var(--on-fill); }
 .fld-box { position: relative; display: inline-flex; min-width: 0; }
 .fld-box .fld-fill.inside { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); font-size: 0.68rem; padding: 0 5px; }
 .fld-c input.num.has-fill { padding-left: 5.4em; padding-right: 6px; }
@@ -430,10 +501,10 @@ html.big .lever input[type="range"] { height: 36px; }
 @media (max-width: 640px) { .ck-detail { padding-left: 0; } .ck-acts { margin-left: 0; } }
 /* ボタンの間は、ボタンのすぐ右の「?」（.help-of の 4px）より広く空ける（どのボタンの「?」か分かるように。0077 の 2026-10-29 の追記） */
 .in-actions { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; align-items: center; }
-.add-btn { border: 1.5px solid var(--prop); color: var(--prop); background: #fff; border-radius: 7px; padding: 4px 10px; font-weight: 700; font-size: 0.86rem; cursor: pointer; }
+.add-btn { border: 1.5px solid var(--prop); color: var(--prop); background: var(--card); border-radius: 7px; padding: 4px 10px; font-weight: 700; font-size: 0.86rem; cursor: pointer; }
 .add-btn:hover { background: var(--prop-bg); }
 /* 選んでいる状態を見せるボタン（黒字のうち貯金に回る割合の目安など） */
-.add-btn[aria-pressed="true"] { background: var(--prop); color: #fff; }
+.add-btn[aria-pressed="true"] { background: var(--prop); color: var(--on-fill); }
 .add-btn[aria-pressed="true"]::before { content: "● "; font-size: 0.7em; vertical-align: 0.15em; }
 /* ひな形の小さなボタンの並び（ライフイベント。0068 の追記 2026-10-31）: 上に案内の1行、まとまりごとに1行（小さな見出しの後にボタン） */
 .in-chips { display: flex; flex-direction: column; gap: 4px; }
@@ -443,7 +514,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .in-chips-list { display: flex; flex-wrap: wrap; gap: 4px 10px; flex: 1; min-width: 0; }
 .in-chip { display: inline-flex; align-items: baseline; gap: 4px; flex-wrap: wrap; }
 .add-btn.chip-btn { border-radius: 999px; padding: 1px 10px; font-size: 0.8rem; font-weight: 600; }
-.add-btn.chip-btn:disabled { border-color: var(--line); color: var(--ink-2); cursor: default; background: #fff; }
+.add-btn.chip-btn:disabled { border-color: var(--line); color: var(--ink-2); cursor: default; background: var(--card); }
 .in-chip-added { font-size: 0.76rem; color: var(--ink-2); }
 /* ほかの「＋」のボタンと同じ大きさのひな形（夢プラン。0103 の追記）: ボタンの間を少し広く */
 .in-chips.full .in-chips-list { gap: 8px 12px; }
@@ -482,11 +553,11 @@ html.big .lever input[type="range"] { height: 36px; }
 .ih-choose-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .level-switch.mini { border-width: 1.5px; border-radius: 6px; flex: none; }
 .level-switch.mini button { padding: 1px 9px; font-size: 0.78rem; flex: none; }
-.ih-prog-bar i { flex: 1; border-radius: 3px; border: 1.5px solid var(--prop); background: #fff; }
+.ih-prog-bar i { flex: 1; border-radius: 3px; border: 1.5px solid var(--prop); background: var(--card); }
 .ih-prog-bar i.done { background: var(--prop); }
 .ih-prog-bar i.est { background: var(--est-band); border-color: var(--est); }
 .ih-prog-bar i.missing { border: 2px solid var(--short); background: var(--short-bg); }
-.ih-prog-bar i.empty { border: 2px dashed var(--field); background: #fff; }
+.ih-prog-bar i.empty { border: 2px dashed var(--field); background: var(--card); }
 .ih-prog-bar i.na { border-color: var(--base); background: var(--base-bg); }
 .ih-group + .ih-group { margin-top: 22px; }
 .ih-gh { font-size: 1.02rem; margin: 0 0 10px; display: flex; align-items: center; gap: 10px; color: var(--ink-2); }
@@ -504,15 +575,15 @@ html.big .ih-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 680px) { html.big .ih-cards { grid-template-columns: minmax(0, 1fr); } }
 
 /* カード: イラスト＋名前＋要約の数字1つ＋状態（押す所はカードの中のボタン。下に1行の案内と1押し） */
-.ih-card { --c: #888; --tint: color-mix(in srgb, var(--c) 11%, #fff); position: relative; display: flex; flex-direction: column; text-align: left; padding: 0; margin: 0; background: #fff; border: 1px solid var(--card-line); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(20, 30, 50, 0.05); transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s; min-height: 100%; }
+.ih-card { --c: #888; --tint: color-mix(in srgb, var(--c) 11%, var(--card)); position: relative; display: flex; flex-direction: column; text-align: left; padding: 0; margin: 0; background: var(--card); border: 1px solid var(--card-line); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(20, 30, 50, 0.05); transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s; min-height: 100%; }
 .ih-open { all: unset; box-sizing: border-box; position: relative; display: flex; flex-direction: column; flex: 1; cursor: pointer; text-align: left; min-width: 0; }
 .ih-open:focus-visible { outline: 3px solid #f0b400; outline-offset: -3px; border-radius: 12px; }
 .ih-hint { padding: 0 16px 16px; font-size: 0.82rem; color: var(--ink-2); display: grid; gap: 6px; }
 .ih-hint p { margin: 0; }
 .ih-hint-acts { display: flex; flex-wrap: wrap; gap: 6px; }
 .btn.small { padding: 2px 10px; font-size: 0.8rem; border-width: 1.5px; }
-.ih-card:hover { box-shadow: 0 6px 18px rgba(20, 30, 50, 0.1); transform: translateY(-2px); border-color: #c4cad2; }
-.ih-ill { position: relative; display: block; background: #fff; aspect-ratio: 16 / 9; overflow: hidden; flex: none; transition: background 0.3s; }
+.ih-card:hover { box-shadow: 0 6px 18px rgba(20, 30, 50, 0.1); transform: translateY(-2px); border-color: var(--line-3, #c4cad2); }
+.ih-ill { position: relative; display: block; background: var(--card); aspect-ratio: 16 / 9; overflow: hidden; flex: none; transition: background 0.3s; }
 html.big .ih-ill { aspect-ratio: 2 / 1; }
 .ih-ill img { display: block; width: 100%; height: 100%; object-fit: cover; mix-blend-mode: multiply; transition: filter 0.3s, opacity 0.3s; }
 .ih-body { padding: 12px 16px 20px; display: grid; gap: 2px; align-content: start; min-width: 0; flex: 1; }
@@ -533,15 +604,15 @@ html.big .ih-ill { aspect-ratio: 2 / 1; }
 .ih-card.s-done .ih-ill { background: var(--tint); }
 .ih-card.s-done .ih-band { background: var(--c); }
 /* 推定あり: 薄いオレンジの帯（斜線は使わない）＋イラストにごく薄く色 */
-.ih-card.s-est .ih-ill { background: color-mix(in srgb, var(--c) 6%, #fff); }
+.ih-card.s-est .ih-ill { background: color-mix(in srgb, var(--c) 6%, var(--card)); }
 .ih-card.s-est .ih-band { background: var(--est-band); }
 /* 未入力（0円の所あり）: 赤の点線の枠。イラストは色を抜く（名前の文字は濃いまま） */
-.ih-card.s-missing { border: 2px dashed var(--short); box-shadow: none; background: #fcfcfd; }
+.ih-card.s-missing { border: 2px dashed var(--short); box-shadow: none; background: var(--wash, #fcfcfd); }
 .ih-card.s-missing .ih-ill { background: transparent; }
 .ih-card.s-missing .ih-ill img { filter: grayscale(1); opacity: 0.5; }
 .ih-card.s-missing .ih-band { display: none; }
 /* まだ入れていない: 点線の枠と灰色の絵は未入力と同じ、色は赤でなく灰色 */
-.ih-card.s-empty { border: 2px dashed var(--field); box-shadow: none; background: #fcfcfd; }
+.ih-card.s-empty { border: 2px dashed var(--field); box-shadow: none; background: var(--wash, #fcfcfd); }
 .ih-card.s-empty .ih-ill { background: transparent; }
 .ih-card.s-empty .ih-ill img { filter: grayscale(1); opacity: 0.5; }
 .ih-card.s-empty .ih-band { display: none; }
@@ -570,28 +641,28 @@ tr.just-added.still > td, tr.just-added.still > th { background-color: rgba(255,
 .ih-st { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-size: 0.82rem; border: 0; border-radius: 0; background: none; padding: 0; white-space: nowrap; line-height: 1.3; text-underline-offset: 2px; }
 .ih-st::before { display: inline-grid; place-items: center; width: 1.35em; height: 1.35em; border-radius: 50%; font-size: 0.85em; flex: none; box-sizing: border-box; }
 .ih-st.done { color: var(--prop); }
-.ih-st.done::before { content: "✓"; background: var(--prop); color: #fff; }
+.ih-st.done::before { content: "✓"; background: var(--prop); color: var(--on-fill); }
 .ih-st.est { color: var(--est-ink); }
-.ih-st.est::before { content: "!"; background: var(--est); color: #fff; }
+.ih-st.est::before { content: "!"; background: var(--est); color: var(--on-fill); }
 .ih-st.missing { color: var(--short-ink); }
-.ih-st.missing::before { content: "0"; background: var(--short); color: #fff; }
+.ih-st.missing::before { content: "0"; background: var(--short); color: var(--on-fill); }
 .ih-st.na { color: var(--base-ink); }
-.ih-st.na::before { content: "−"; background: var(--base); color: #fff; }
+.ih-st.na::before { content: "−"; background: var(--base); color: var(--on-fill); }
 .ih-st.mini { font-size: 0.8rem; padding: 0; }
 button:hover > .ih-st, button:focus-visible > .ih-st { text-decoration: underline; }
 h2 .ih-st { font-size: 0.8rem; }
 
 /* 探して開く（前の「＋ 項目を追加」の所）: 控えめな破線の枠に、見出しと探す欄だけ。候補は欄の下に重ねて出す（カードの高さを変えない） */
 /* 大きさはいつも同じ（並びの中に入ってもカードの高さまで伸ばさず、段の上にそろえる。0045 の 2026-11-04 の追記） */
-.ih-card.ih-find { border: 2px dashed var(--field); background: #fff; box-shadow: none; cursor: default; overflow: visible; justify-content: center; gap: 10px; padding: 18px 16px; min-height: 160px; align-self: start; }
+.ih-card.ih-find { border: 2px dashed var(--field); background: var(--card); box-shadow: none; cursor: default; overflow: visible; justify-content: center; gap: 10px; padding: 18px 16px; min-height: 160px; align-self: start; }
 .ih-card.ih-find:hover { transform: none; box-shadow: none; border-color: var(--field); }
 .ih-card.ih-find.on { z-index: 5; }
 .ih-find-h { display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--ink-2); font-size: 0.98rem; }
 .ih-find-ic { width: 18px; height: 18px; flex: none; }
-.ih-find-q { width: 100%; box-sizing: border-box; border: 1.5px solid var(--field); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 0.95rem; background: #fff; color: var(--ink); }
+.ih-find-q { width: 100%; box-sizing: border-box; border: 1.5px solid var(--field); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 0.95rem; background: var(--card); color: var(--ink); }
 .ih-find-q:focus { outline: 3px solid #f0b400; outline-offset: 1px; border-color: var(--prop); }
 .ih-find-box { position: relative; }
-.ih-find-list { position: absolute; top: calc(100% + 4px); left: 0; width: min(380px, calc(100vw - 48px)); margin: 0; padding: 4px; list-style: none; background: #fff; border: 1px solid #c4cad2; border-radius: 10px; box-shadow: 0 8px 24px rgba(20, 30, 50, 0.16); z-index: 6; max-height: min(420px, 60vh); overflow-y: auto; }
+.ih-find-list { position: absolute; top: calc(100% + 4px); left: 0; width: min(380px, calc(100vw - 48px)); margin: 0; padding: 4px; list-style: none; background: var(--card); border: 1px solid var(--line-3, #c4cad2); border-radius: 10px; box-shadow: 0 8px 24px rgba(20, 30, 50, 0.16); z-index: 6; max-height: min(420px, 60vh); overflow-y: auto; }
 .ih-find-list.flip { left: auto; right: 0; }
 .ih-find-list.up { top: auto; bottom: calc(100% + 4px); }
 .ih-find-list li { padding: 6px 10px; border-radius: 7px; cursor: pointer; display: grid; gap: 1px; line-height: 1.4; }
@@ -608,7 +679,7 @@ h2 .ih-st { font-size: 0.8rem; }
 /* ピン（ホームに出した物）: カードの下に小さく並べる。押すとその物だけを開く */
 .ih-pins { margin-top: 18px; }
 .ih-pin-list { display: flex; flex-wrap: wrap; gap: 8px 10px; }
-.ih-pin { --c: #888; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--card-line); border-left: 6px solid var(--c); border-radius: 8px; background: #fff; padding: 2px 8px 2px 0; }
+.ih-pin { --c: #888; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--card-line); border-left: 6px solid var(--c); border-radius: 8px; background: var(--card); padding: 2px 8px 2px 0; }
 .ih-pin.s-missing { border-color: var(--short); border-left-color: var(--short); }
 .ih-pin-open { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 4px 8px; }
 .ih-pin-open:focus-visible { outline: 3px solid #f0b400; border-radius: 6px; }
@@ -645,11 +716,11 @@ h2 .ih-st { font-size: 0.8rem; }
 
 /* 入力のパネル: 画面の中央に開き、背景を暗くする（別の窓は出さない）。保存のボタンは下に固定 */
 .scrim { position: fixed; inset: 0; background: rgba(20, 26, 38, 0.48); z-index: 40; }
-.ipanel { --c: var(--prop); position: fixed; z-index: 50; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(880px, calc(100vw - 32px)); max-height: min(90vh, 960px); background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 20px 60px rgba(10, 20, 40, 0.35); display: flex; flex-direction: column; }
+.ipanel { --c: var(--prop); position: fixed; z-index: 50; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(880px, calc(100vw - 32px)); max-height: min(90vh, 960px); background: var(--card); border-radius: 14px; overflow: hidden; box-shadow: 0 20px 60px rgba(10, 20, 40, 0.35); display: flex; flex-direction: column; }
 html.big .ipanel { width: min(1000px, calc(100vw - 32px)); }
 .ip-band { height: 6px; background: var(--c); flex: none; }
 .ip-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; padding: 12px 18px 10px; border-bottom: 1px solid var(--line-2); flex: none; }
-.ip-thumb { width: 84px; height: 56px; border-radius: 8px; overflow: hidden; background: color-mix(in srgb, var(--c) 11%, #fff); grid-row: span 2; }
+.ip-thumb { width: 84px; height: 56px; border-radius: 8px; overflow: hidden; background: color-mix(in srgb, var(--c) 11%, var(--card)); grid-row: span 2; }
 .ip-thumb img { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: multiply; display: block; }
 .ip-head h2 { margin: 0; font-size: 1.25rem; display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
 .ip-tools { display: flex; align-items: center; gap: 10px; align-self: start; }
@@ -658,32 +729,32 @@ html.big .ipanel { width: min(1000px, calc(100vw - 32px)); }
 .ip-tools .help-btn { font-size: 0.78rem; }
 .ip-lead { margin: 0; color: var(--ink-2); font-size: 0.88rem; grid-column: 2 / 4; }
 .ip-body { flex: 1; overflow-y: auto; padding: 4px 18px 20px; overscroll-behavior: contain; }
-.ip-foot { flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 18px; border-top: 1px solid var(--line); background: #fff; box-shadow: 0 -6px 16px rgba(20, 30, 50, 0.06); }
+.ip-foot { flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 18px; border-top: 1px solid var(--line); background: var(--card); box-shadow: 0 -6px 16px rgba(20, 30, 50, 0.06); }
 .ip-note { flex: 1 1 260px; font-size: 0.86rem; color: var(--ink-2); margin: 0; }
 .ip-note.warn { color: var(--short-ink); font-weight: 700; }
-.btn { border-radius: 8px; padding: 8px 18px; font-weight: 700; cursor: pointer; border: 2px solid var(--ink-2); background: #fff; white-space: nowrap; }
-.btn.primary { background: var(--prop); border-color: var(--prop); color: #fff; padding: 8px 28px; }
+.btn { border-radius: 8px; padding: 8px 18px; font-weight: 700; cursor: pointer; border: 2px solid var(--ink-2); background: var(--card); white-space: nowrap; }
+.btn.primary { background: var(--prop); border-color: var(--prop); color: var(--on-fill); padding: 8px 28px; }
 .btn.danger { border-color: var(--short-ink); color: var(--short-ink); }
 @media (max-width: 640px) { .ip-head { grid-template-columns: minmax(0, 1fr) auto; } .ip-thumb { display: none; } .ip-lead { grid-column: 1 / -1; } }
 
 /* お知らせ（保存した直後） */
-.toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 10px; font-weight: 700; z-index: 60; opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; max-width: 92vw; }
+.toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); background: var(--ink); color: var(--on-fill); padding: 10px 18px; border-radius: 10px; font-weight: 700; z-index: 60; opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; max-width: 92vw; }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
 .toast.on::before { content: "✓ "; }
 /* 知らせに添える「元に戻す」（知らせの本体はクリックを通すので、ボタンだけ押せるようにする） */
-.toast .toast-act { all: unset; pointer-events: auto; cursor: pointer; margin-left: 12px; padding: 1px 8px; border-radius: 6px; border: 1.5px solid rgba(255, 255, 255, 0.7); font-weight: 700; white-space: nowrap; }
-.toast .toast-act:hover { background: rgba(255, 255, 255, 0.16); }
+.toast .toast-act { all: unset; pointer-events: auto; cursor: pointer; margin-left: 12px; padding: 1px 8px; border-radius: 6px; border: 1.5px solid color-mix(in srgb, var(--card) 70%, transparent); font-weight: 700; white-space: nowrap; }
+.toast .toast-act:hover { background: color-mix(in srgb, var(--card) 16%, transparent); }
 .toast .toast-act:focus-visible { outline: 3px solid #f0b400; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
 
 /* FP顧問料の ON/OFF（主画面の対策と、結論の下の一文） */
-.fee-note { margin-top: 8px; display: flex; gap: 10px; align-items: baseline; font-size: 0.98rem; line-height: 1.5; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--line); background: #fff; }
-.fee-note.on { border: 1.5px solid var(--prop); background: #fff; }
+.fee-note { margin-top: 8px; display: flex; gap: 10px; align-items: baseline; font-size: 0.98rem; line-height: 1.5; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--card); }
+.fee-note.on { border: 1.5px solid var(--prop); background: var(--card); }
 .fee-note b { color: var(--prop); }
 .fee-tag { flex: none; font-size: 0.78rem; font-weight: 700; border-radius: 4px; padding: 1px 7px; border: 1.5px solid var(--ink-2); color: var(--ink-2); white-space: nowrap; }
-.fee-note.on .fee-tag { border-color: var(--prop); background: var(--prop); color: #fff; }
+.fee-note.on .fee-tag { border-color: var(--prop); background: var(--prop); color: var(--on-fill); }
 .lever.toggle .lever-head { align-items: center; }
-.switch { display: inline-flex; align-items: center; gap: 8px; border: 2px solid var(--ink-2); background: #fff; border-radius: 99px; padding: 3px 12px 3px 4px; cursor: pointer; font-weight: 700; }
+.switch { display: inline-flex; align-items: center; gap: 8px; border: 2px solid var(--ink-2); background: var(--card); border-radius: 99px; padding: 3px 12px 3px 4px; cursor: pointer; font-weight: 700; }
 .switch .knob { width: 22px; height: 22px; border-radius: 50%; background: var(--base); }
 .switch.on { border-color: var(--prop); color: var(--prop); }
 .switch.on .knob { background: var(--prop); }
@@ -708,22 +779,22 @@ html.big .ipanel { width: min(1000px, calc(100vw - 32px)); }
 .chart .line-prop2 { fill: none; stroke: var(--prop); stroke-width: 2.5; stroke-dasharray: 2 4; stroke-linecap: round; }
 html.big .chart .line-prop2 { stroke-width: 3.5; }
 .chart .reform-band { fill: rgba(122, 88, 0, 0.06); pointer-events: none; }
-.chart .hv-dot.sel2 { fill: #fff; stroke: var(--prop); stroke-width: 2.5; }
-.year-tip .yt-dot.sel2 { background: #fff; border: 2px solid var(--prop); }
+.chart .hv-dot.sel2 { fill: var(--card); stroke: var(--prop); stroke-width: 2.5; }
+.year-tip .yt-dot.sel2 { background: var(--card); border: 2px solid var(--prop); }
 .lg.dot i { border-top: 4px dotted var(--prop); }
 .lg.cover i { height: 12px; border: 1.5px dashed var(--base); background: rgba(140, 150, 163, 0.28); }
-.pline { margin-top: 4px; padding: 6px 10px; border-radius: 8px; background: #f6f7f9; border: 1.5px solid var(--base); display: flex; flex-wrap: wrap; gap: 2px 16px; font-size: 0.9rem; align-items: baseline; }
+.pline { margin-top: 4px; padding: 6px 10px; border-radius: 8px; background: var(--wash, #f6f7f9); border: 1.5px solid var(--base); display: flex; flex-wrap: wrap; gap: 2px 16px; font-size: 0.9rem; align-items: baseline; }
 .pline .y { font-weight: 700; }
 .pline .kv { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pline .kv.neg { color: var(--short-ink); font-weight: 700; }
-.cg-notice { margin: 8px 0 0; font-size: 0.86rem; color: #7a5800; border-left: 4px solid #c9a400; padding: 2px 8px; background: #fffbea; }
+.cg-notice { margin: 8px 0 0; font-size: 0.86rem; color: var(--memo-ink, #7a5800); border-left: 4px solid #c9a400; padding: 2px 8px; background: var(--wash-warm, #fffbea); }
 .cg-choice { margin: 8px 0 0; font-weight: 700; font-size: 0.95rem; border: 1.5px solid var(--prop); border-radius: 8px; padding: 6px 10px; background: var(--prop-bg); color: var(--prop); }
 .is-stale { opacity: 0.75; transition: opacity 0.2s; }
 .cg-break { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 0.92rem; }
 .cg-break caption { text-align: left; font-weight: 700; padding: 0 0 4px; }
 .cg-break th, .cg-break td { border-bottom: 1px solid var(--line-2); padding: 5px 8px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cg-break th[scope="row"], .cg-break thead th:first-child { text-align: left; }
-.cg-break thead th { background: #f6f7f9; font-size: 0.85rem; }
+.cg-break thead th { background: var(--wash, #f6f7f9); font-size: 0.85rem; }
 /* 大きな病気の場面の保険金・給付金の契約ごとの内訳（0055・0071 の追記）: 行の下に字下げして小さく。給付ごとの額は折り返す */
 .cg-break tr.g-detail th, .cg-break tr.g-detail td { font-size: 0.84rem; color: var(--ink-2); border-bottom-style: dashed; }
 .cg-break tr.g-detail th { padding-left: 22px; white-space: normal; word-break: keep-all; font-weight: 400; }
@@ -779,7 +850,7 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
   --c-ins: #8e7aa3;
   --c-exp-other: #c2c7ce;
 }
-.pb-changes { border: 1.5px solid var(--line); background: #fff; border-radius: 99px; padding: 3px 12px; cursor: pointer; }
+.pb-changes { border: 1.5px solid var(--line); background: var(--card); border-radius: 99px; padding: 3px 12px; cursor: pointer; }
 .pb-review { border: 2px solid var(--est); background: var(--est-bg); color: var(--est-ink); border-radius: 99px; padding: 2px 10px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .pb-review.sm { font-size: 0.78rem; padding: 0 8px; margin-left: 6px; cursor: default; }
 .pb-gap { flex: 1; }
@@ -830,15 +901,15 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .mix-v { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 .mix-row input[type="range"] { margin: 0 !important; }
 .shift-from { display: flex; gap: 8px; align-items: center; font-size: 0.88rem; margin-top: 4px; }
-.shift-from select { border: 1.5px solid var(--field); border-radius: 6px; padding: 2px 6px; background: #fff; }
-.add-item-btn { width: 100%; margin-top: 10px; border: 1.5px solid var(--line); background: #fff; color: var(--prop); border-radius: 8px; padding: 8px 10px; font-weight: 700; cursor: pointer; }
+.shift-from select { border: 1.5px solid var(--field); border-radius: 6px; padding: 2px 6px; background: var(--card); }
+.add-item-btn { width: 100%; margin-top: 10px; border: 1.5px solid var(--line); background: var(--card); color: var(--prop); border-radius: 8px; padding: 8px 10px; font-weight: 700; cursor: pointer; }
 .add-item-btn:hover { background: var(--prop-bg); }
-.item-menu { margin-top: 10px; border: 2px solid var(--prop); border-radius: 10px; padding: 8px 10px; background: #fff; }
+.item-menu { margin-top: 10px; border: 2px solid var(--prop); border-radius: 10px; padding: 8px 10px; background: var(--card); }
 .item-menu-h { display: flex; justify-content: space-between; align-items: center; }
 .item-q { width: 100%; margin: 6px 0; border: 1.5px solid var(--field); border-radius: 6px; padding: 5px 8px; }
 .item-menu-list { max-height: 360px; overflow-y: auto; display: grid; gap: 6px; overscroll-behavior: contain; }
 .item-menu-list h4 { margin: 6px 0 2px; font-size: 0.82rem; color: var(--ink-2); }
-.item-menu-list button { display: block; width: 100%; text-align: left; border: 1.5px solid var(--line); background: #fff; border-radius: 6px; padding: 4px 8px; margin: 2px 0; cursor: pointer; font-size: 0.88rem; }
+.item-menu-list button { display: block; width: 100%; text-align: left; border: 1.5px solid var(--line); background: var(--card); border-radius: 6px; padding: 4px 8px; margin: 2px 0; cursor: pointer; font-size: 0.88rem; }
 .item-menu-list button:hover { border-color: var(--prop); background: var(--prop-bg); }
 .item-menu-list button:disabled { color: var(--ink-2); border-color: var(--line-2); cursor: default; background: var(--base-bg); }
 
@@ -847,14 +918,14 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .lg-sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 4px; }
 .swatch { width: 20px; height: 14px; flex: none; }
 .swatch-box { stroke: var(--ink-2); stroke-width: 1; }
-.chart .bar { stroke: #fff; stroke-width: 0.6; }
+.chart .bar { stroke: var(--card); stroke-width: 0.6; }
 .chart .line-over { stroke: var(--ink); }
 .lg i.net { border-top-color: var(--ink); }
 .stack-legend .lg:not(.short) > i { border-top: 4px solid var(--ink); }
 .chart .flag-band { fill: url(#hatch-short); stroke: var(--short); stroke-width: 0.8; }
 .chart .flag-txt { fill: var(--short-ink); font-size: 11px; font-weight: 700; }
-.pfg { stroke: rgba(255, 255, 255, 0.85); stroke-width: 1.6; }
-.pfg-dot { fill: rgba(255, 255, 255, 0.9); }
+.pfg { stroke: color-mix(in srgb, var(--card) 85%, transparent); stroke-width: 1.6; }
+.pfg-dot { fill: color-mix(in srgb, var(--card) 90%, transparent); }
 .pbg-salary, .pbg-work, .pbg-deposit { fill: var(--c-salary); }
 .pbg-pension, .pbg-nisa { fill: var(--c-pension); }
 .pbg-incomeOther, .pbg-dc { fill: var(--c-inc-other); }
@@ -870,12 +941,12 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 
 /* 案の一覧・比較の表 */
 .tag-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-.tag-filter button { border: 1.5px solid var(--line); background: #fff; border-radius: 99px; padding: 2px 10px; cursor: pointer; font-size: 0.85rem; }
-.tag-filter button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.tag-filter button { border: 1.5px solid var(--line); background: var(--card); border-radius: 99px; padding: 2px 10px; cursor: pointer; font-size: 0.85rem; }
+.tag-filter button.on { background: var(--ink); color: var(--on-fill); border-color: var(--ink); }
 .plan-list-wrap { overflow-x: auto; }
 .plan-list { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
 .plan-list th, .plan-list td { border-bottom: 1px solid var(--line-2); padding: 6px 8px; text-align: left; vertical-align: top; }
-.plan-list thead th { background: #f6f7f9; white-space: nowrap; }
+.plan-list thead th { background: var(--wash, #f6f7f9); white-space: nowrap; }
 .plan-list td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .plan-list td.neg { color: var(--short-ink); font-weight: 700; }
 .plan-list tr.sel td { background: var(--sel-bg); }
@@ -889,7 +960,7 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .cmp-table-wrap { overflow-x: auto; margin-top: 10px; }
 .cmp-table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
 .cmp-table th, .cmp-table td { border-bottom: 1px solid var(--line-2); padding: 6px 10px; text-align: right; vertical-align: top; }
-.cmp-table thead th { background: #f6f7f9; font-weight: 700; }
+.cmp-table thead th { background: var(--wash, #f6f7f9); font-weight: 700; }
 .cmp-table thead th .cmp-name { display: block; }
 .cmp-table .stub { text-align: left; }
 .cmp-table td .v { display: block; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -913,18 +984,18 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .band-head { flex: none; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding-right: 4px; }
 .band-t { font-weight: 700; font-size: 1.05rem; }
 .band-head label { font-size: 0.82rem; font-weight: 700; display: grid; gap: 2px; color: var(--ink-2); }
-.band-head select { border: 1.5px solid var(--line); border-radius: 7px; padding: 2px 6px; font-weight: 700; color: var(--ink); background: #fff; max-width: 10em; }
+.band-head select { border: 1.5px solid var(--line); border-radius: 7px; padding: 2px 6px; font-weight: 700; color: var(--ink); background: var(--card); max-width: 10em; }
 .band-links { display: grid; gap: 0; justify-items: start; line-height: 1.35; }
 .band-links .link-btn { font-size: 0.8rem; }
 .band-cards { flex: 0 1 auto; min-width: 0; display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: thin; padding: 5px; margin: -5px; }
-.plan { all: unset; box-sizing: border-box; flex: 0 1 var(--plan-w); width: var(--plan-w); min-width: var(--plan-min); cursor: pointer; position: relative; background: #fff; border: 1.5px solid var(--card-line); border-radius: 10px; padding: 8px 12px 10px; display: grid; gap: 3px; align-content: start; box-shadow: 0 1px 2px rgba(20, 30, 50, 0.05); transition: box-shadow 0.15s, border-color 0.15s; overflow: hidden; }
+.plan { all: unset; box-sizing: border-box; flex: 0 1 var(--plan-w); width: var(--plan-w); min-width: var(--plan-min); cursor: pointer; position: relative; background: var(--card); border: 1.5px solid var(--card-line); border-radius: 10px; padding: 8px 12px 10px; display: grid; gap: 3px; align-content: start; box-shadow: 0 1px 2px rgba(20, 30, 50, 0.05); transition: box-shadow 0.15s, border-color 0.15s; overflow: hidden; }
 .plan:hover { border-color: #b9c0c9; box-shadow: 0 4px 12px rgba(20, 30, 50, 0.08); }
 .plan:focus-visible { outline: 3px solid #f0b400; outline-offset: 2px; }
 /* カードの枠: 幅はここで決め、外せるカードは右上に「×」を重ねる（カードはボタンなので、× はカードの外の兄弟にする） */
 .plan-cell { flex: 0 1 var(--plan-w); width: var(--plan-w); min-width: var(--plan-min); position: relative; display: flex; }
 .plan-cell > .plan { flex: 1 1 auto; width: auto; min-width: 0; }
 .plan.has-x .p-top { padding-right: 18px; }
-.plan-x { all: unset; box-sizing: border-box; position: absolute; top: 5px; right: 5px; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; color: #a3abb5; font-size: 15px; line-height: 1; cursor: pointer; transition: color 0.15s, background 0.15s; }
+.plan-x { all: unset; box-sizing: border-box; position: absolute; top: 5px; right: 5px; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; color: var(--muted-ink, #a3abb5); font-size: 15px; line-height: 1; cursor: pointer; transition: color 0.15s, background 0.15s; }
 .plan-x:hover, .plan-x:focus-visible { color: var(--short-ink); background: var(--short-bg); }
 .plan-x:focus-visible { outline: 3px solid #f0b400; outline-offset: 1px; }
 .p-top { display: flex; align-items: flex-start; gap: 7px; min-width: 0; min-height: calc(0.88rem * 1.3 * 2); }
@@ -932,35 +1003,35 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .p-letter.sm { width: 1.5em; height: 1.5em; font-size: 0.8rem; margin-right: 6px; }
 .p-name { font-weight: 700; font-size: 0.88rem; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-width: 0; flex: 1; }
 .p-tag { flex: none; font-size: 0.72rem; font-weight: 700; border-radius: 4px; padding: 0 5px; line-height: 1.5; }
-.p-tag.base { border: 1px solid var(--line); color: var(--base-ink); background: #fff; }
-.p-tag.show { background: var(--prop); color: #fff; border: 1.5px solid var(--prop); }
+.p-tag.base { border: 1px solid var(--line); color: var(--base-ink); background: var(--card); }
+.p-tag.show { background: var(--prop); color: var(--on-fill); border: 1.5px solid var(--prop); }
 .p-nums { display: flex; align-items: center; gap: 4px 8px; flex-wrap: wrap; }
 .p-amt { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 0 6px; min-width: 0; }
 .p-k { font-size: 0.76rem; font-weight: 700; color: var(--ink-2); }
 .p-v { font-weight: 700; font-size: 1.1rem; line-height: 1.25; font-variant-numeric: tabular-nums; }
 .p-v.neg { color: var(--short-ink); }
 .p-st { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 0.82rem; border-radius: 99px; padding: 0 8px 0 3px; white-space: nowrap; line-height: 1.6; }
-.p-st::before { display: inline-grid; place-items: center; width: 1.3em; height: 1.3em; border-radius: 50%; color: #fff; font-size: 0.82em; }
+.p-st::before { display: inline-grid; place-items: center; width: 1.3em; height: 1.3em; border-radius: 50%; color: var(--on-fill); font-size: 0.82em; }
 .p-st.ok { background: var(--good-bg); color: var(--good); }
 .p-st.ok::before { content: "✓"; background: var(--good); box-sizing: border-box; padding-bottom: 0.12em; }
 .p-st.ng { background: var(--short-bg); color: var(--short-ink); }
 .p-st.ng::before { content: "!"; background: var(--short); }
 .p-st.wait { color: var(--ink-2); padding-left: 8px; }
-.p-mod { font-size: 0.72rem; font-weight: 700; color: var(--prop-ink); border: 1.5px solid var(--prop); border-radius: 4px; padding: 0 4px; white-space: nowrap; background: #fff; }
+.p-mod { font-size: 0.72rem; font-weight: 700; color: var(--prop-ink); border: 1.5px solid var(--prop); border-radius: 4px; padding: 0 4px; white-space: nowrap; background: var(--card); }
 .p-line { position: absolute; left: 0; right: 0; bottom: 0; height: 0; }
 /* 選んでいる案: 藍の太い枠＋下の帯（実線の印） */
-.plan.is-sel { border: 2.5px solid var(--prop); background: #f6f8fc; box-shadow: 0 0 0 1px var(--prop); }
-.plan.is-sel .p-letter { background: var(--prop); border-color: var(--prop); color: #fff; }
+.plan.is-sel { border: 2.5px solid var(--prop); background: color-mix(in srgb, var(--prop) 4%, var(--card)); box-shadow: 0 0 0 1px var(--prop); }
+.plan.is-sel .p-letter { background: var(--prop); border-color: var(--prop); color: var(--on-fill); }
 .plan.is-sel .p-line { height: 5px; background: var(--prop); }
 /* 基準の案: 薄いグレーの実線の枠と灰の背景＋「基準」の札（色だけに頼らない。点線の枠は崩れて見えるので使わない） */
 .plan.is-base { border: 1.5px solid var(--line); background: var(--base-bg); }
-.plan.is-base .p-letter { border-color: var(--line); background: #fff; color: var(--base-ink); }
+.plan.is-base .p-letter { border-color: var(--line); background: var(--card); color: var(--base-ink); }
 .plan.is-base .p-line { height: 4px; background: var(--line); }
 /* 基準の案を表示しているとき: 藍の太い枠（表示中）を優先し、背景は灰のまま */
 .plan.is-sel.is-base { border: 2.5px solid var(--prop); }
-.plan.is-sel.is-base .p-letter { background: var(--prop); border-color: var(--prop); color: #fff; }
+.plan.is-sel.is-base .p-letter { background: var(--prop); border-color: var(--prop); color: var(--on-fill); }
 .plan.is-sel.is-base .p-line { height: 5px; background: var(--prop); }
-.plan-add { all: unset; box-sizing: border-box; flex: none; width: 12.5rem; cursor: pointer; border: 1.5px solid var(--line); border-radius: 10px; display: grid; place-content: center; text-align: center; gap: 2px; padding: 6px 10px; color: var(--prop-ink); font-weight: 700; font-size: 0.92rem; background: #fff; }
+.plan-add { all: unset; box-sizing: border-box; flex: none; width: 12.5rem; cursor: pointer; border: 1.5px solid var(--line); border-radius: 10px; display: grid; place-content: center; text-align: center; gap: 2px; padding: 6px 10px; color: var(--prop-ink); font-weight: 700; font-size: 0.92rem; background: var(--card); }
 .plan-add:hover { background: var(--prop-bg); }
 .plan-add:focus-visible { outline: 3px solid #f0b400; outline-offset: 2px; }
 .plan-add > span { white-space: nowrap; }
@@ -987,22 +1058,22 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .verdict-line .ord { font-size: 0.82em; font-weight: 700; color: var(--ink-2); margin-right: 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .verdict-line .v-sub { display: block; font-size: 0.82rem; color: var(--ink-2); margin-top: 1px; font-variant-numeric: tabular-nums; }
 .cc-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.seg-g { display: inline-flex; border: 2px solid var(--ink-2); border-radius: 8px; overflow: hidden; background: #fff; }
-.seg-g button { border: 0; background: #fff; padding: 3px 11px; font-weight: 700; cursor: pointer; font-size: 0.9rem; white-space: nowrap; }
+.seg-g { display: inline-flex; border: 2px solid var(--ink-2); border-radius: 8px; overflow: hidden; background: var(--card); }
+.seg-g button { border: 0; background: var(--card); padding: 3px 11px; font-weight: 700; cursor: pointer; font-size: 0.9rem; white-space: nowrap; }
 .seg-g button + button { border-left: 2px solid var(--ink-2); }
-.seg-g button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+.seg-g button[aria-pressed="true"] { background: var(--ink); color: var(--on-fill); }
 .seg-g button[aria-pressed="true"]::before { content: "● "; font-size: 0.7em; vertical-align: 0.15em; }
-.seg-g button:disabled { color: #8a939d; cursor: not-allowed; }
+.seg-g button:disabled { color: var(--muted-ink, #8a939d); cursor: not-allowed; }
 /* 狭い画面（640px 未満。presentation/narrow.ts と同じ幅）: 切り替えのボタンが1行に入らなければ折り返す（ページが横にはみ出さない・ボタンが切れない）。
    折り返した行どうし・ボタンどうしの境目の線は、各ボタンの左と上の線で描く（外の枠に重なる分は枠の内側で隠れる） */
 @media (max-width: 639.98px) {
   .seg-g { flex-wrap: wrap; max-width: 100%; }
   .seg-g button { flex: 1 1 auto; border-left: 2px solid var(--ink-2); border-top: 2px solid var(--ink-2); margin: -2px 0 0 -2px; }
 }
-.explain-btn, .set-btn { border: 2px solid var(--prop); color: var(--prop-ink); background: #fff; border-radius: 8px; padding: 3px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px; }
-.explain-btn[aria-pressed="true"] { background: var(--prop); color: #fff; }
+.explain-btn, .set-btn { border: 2px solid var(--prop); color: var(--prop-ink); background: var(--card); border-radius: 8px; padding: 3px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px; }
+.explain-btn[aria-pressed="true"] { background: var(--prop); color: var(--on-fill); }
 .set-btn { border-color: var(--ink-2); color: var(--ink); }
-.set-btn[aria-expanded="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+.set-btn[aria-expanded="true"] { background: var(--ink); color: var(--on-fill); border-color: var(--ink); }
 .main-legend { gap: 4px 18px; font-size: 0.88rem; margin: 6px 0 0; }
 .main-legend .hint { margin-left: auto; font-weight: 400; color: var(--ink-2); font-size: 0.82rem; }
 .main-legend .lg.net i { border-top-color: var(--prop-ink); }
@@ -1017,7 +1088,7 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .side-h b { font-size: 1.05rem; }
 .side-tag { font-size: 0.75rem; font-weight: 700; border-radius: 4px; padding: 0 6px; line-height: 1.6; }
 .side-pane.base .side-tag { color: var(--base-ink); background: var(--base-bg); border: 1px solid var(--line); }
-.side-pane.selected .side-tag { color: #fff; background: var(--prop); border: 1px solid var(--prop); }
+.side-pane.selected .side-tag { color: var(--on-fill); background: var(--prop); border: 1px solid var(--prop); }
 .chart .axis-label { font-size: 0.8rem; }
 .chart .axis-label.sub { font-size: 0.74rem; }
 .chart .axis-who { font-size: 0.66rem; }
@@ -1027,16 +1098,16 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .chart .hv-guide { stroke: var(--line); stroke-width: 1.5; pointer-events: none; }
 .chart .hv-guide.pinned { stroke: var(--base); stroke-width: 2; }
 .chart .hv-dots { pointer-events: none; }
-.chart .hv-dot.sel { fill: var(--prop); stroke: #fff; stroke-width: 2.5; }
-.chart .hv-dot.base { fill: #fff; stroke: var(--base-ink); stroke-width: 2.5; }
+.chart .hv-dot.sel { fill: var(--prop); stroke: var(--card); stroke-width: 2.5; }
+.chart .hv-dot.base { fill: var(--card); stroke: var(--base-ink); stroke-width: 2.5; }
 html.big .chart .hv-dot { stroke-width: 3; }
 /* 年の小さな表示（○の近く。グラフの端で見切れないように置く） */
-.year-tip { position: absolute; z-index: 2; pointer-events: none; white-space: nowrap; background: rgba(255, 255, 255, 0.97); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 2px 8px rgba(20, 30, 50, 0.12); padding: 5px 10px 6px; font-size: 0.82rem; line-height: 1.5; color: var(--ink); font-variant-numeric: tabular-nums; }
+.year-tip { position: absolute; z-index: 2; pointer-events: none; white-space: nowrap; background: color-mix(in srgb, var(--card) 97%, transparent); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 2px 8px rgba(20, 30, 50, 0.12); padding: 5px 10px 6px; font-size: 0.82rem; line-height: 1.5; color: var(--ink); font-variant-numeric: tabular-nums; }
 .year-tip.pinned { border-color: var(--base-ink); }
 .year-tip .yt-h { font-weight: 700; display: flex; align-items: center; gap: 8px; }
-.year-tip .yt-pin { font-size: 0.72rem; font-weight: 700; color: #fff; background: var(--base-ink); border-radius: 4px; padding: 0 5px; line-height: 1.5; }
-.year-tip .yt-unpin { pointer-events: auto; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 1.35rem; height: 1.35rem; margin-left: -4px; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: var(--ink-2); font-size: 0.85rem; font-weight: 700; line-height: 1; padding: 0; }
-.year-tip .yt-unpin:hover, .year-tip .yt-unpin:focus-visible { background: var(--base-ink); border-color: var(--base-ink); color: #fff; }
+.year-tip .yt-pin { font-size: 0.72rem; font-weight: 700; color: var(--on-fill); background: var(--base-ink); border-radius: 4px; padding: 0 5px; line-height: 1.5; }
+.year-tip .yt-unpin { pointer-events: auto; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 1.35rem; height: 1.35rem; margin-left: -4px; border: 1px solid var(--line); border-radius: 50%; background: var(--card); color: var(--ink-2); font-size: 0.85rem; font-weight: 700; line-height: 1; padding: 0; }
+.year-tip .yt-unpin:hover, .year-tip .yt-unpin:focus-visible { background: var(--base-ink); border-color: var(--base-ink); color: var(--on-fill); }
 .year-tip .yt-v { display: flex; align-items: center; gap: 0 4px; }
 .year-tip .yt-lead { color: var(--ink-2); font-weight: 700; margin-right: 4px; }
 .year-tip .yt-s, .year-tip .yt-b { display: inline-flex; align-items: center; gap: 4px; }
@@ -1045,7 +1116,7 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .year-tip b.neg { color: var(--short-ink); }
 .year-tip .yt-dot { display: inline-block; width: 0.7em; height: 0.7em; border-radius: 50%; box-sizing: border-box; }
 .year-tip .yt-dot.sel { background: var(--prop); }
-.year-tip .yt-dot.base { background: #fff; border: 2px solid var(--base-ink); }
+.year-tip .yt-dot.base { background: var(--card); border: 2px solid var(--base-ink); }
 .year-tip .yt-x { color: var(--ink-2); font-size: 0.78rem; }
 /* 図の箱の札（FigTip.tsx。バランスシートの図・お金の3つの分け方の図）: 年の札と同じ見た目。名前・金額・一言の補足 */
 .year-tip.fig-tip { z-index: 6; }
@@ -1062,18 +1133,18 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .chart .net-base { fill: none; stroke: var(--base-ink); stroke-width: 2.5; stroke-dasharray: 7 5; stroke-linejoin: round; }
 .chart .m-age { stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 2 3; }
 .chart .m-age-t { fill: var(--ink); font-weight: 700; font-size: 0.78rem; }
-.chart .dot-sel { fill: var(--prop); stroke: #fff; stroke-width: 2; }
-.chart .dot-base { fill: #fff; stroke: var(--base-ink); stroke-width: 2.5; }
-.chart .val { font-weight: 700; font-size: 0.82rem; paint-order: stroke; stroke: #fff; stroke-width: 4px; font-variant-numeric: tabular-nums; }
+.chart .dot-sel { fill: var(--prop); stroke: var(--card); stroke-width: 2; }
+.chart .dot-base { fill: var(--card); stroke: var(--base-ink); stroke-width: 2.5; }
+.chart .val { font-weight: 700; font-size: 0.82rem; paint-order: stroke; stroke: var(--card); stroke-width: 4px; font-variant-numeric: tabular-nums; }
 .chart .val.sel { fill: var(--prop-ink); }
 .chart .val.base { fill: var(--base-ink); }
 .chart .val.neg { fill: var(--short-ink); }
 /* 年のイベントの丸: 漢字は丸の真ん中（dominant-baseline: central で縦をそろえる）。カーソル・フォーカスで年と中身を出す */
 .chart .ev { cursor: default; outline: none; }
-.chart .ev circle { fill: #fff; stroke: var(--ink); stroke-width: 2; }
+.chart .ev circle { fill: var(--card); stroke: var(--ink); stroke-width: 2; }
 .chart .ev text { font-weight: 700; fill: var(--ink); font-size: 0.9rem; dominant-baseline: central; pointer-events: none; }
 .chart .ev.short circle { fill: var(--short); stroke: var(--short); }
-.chart .ev.short text { fill: #fff; }
+.chart .ev.short text { fill: var(--card); }
 .chart .ev.on circle { stroke: var(--prop); stroke-width: 3; }
 .chart .ev.short.on circle { stroke: var(--short-ink); }
 .chart .ev:focus-visible circle { stroke: var(--prop); stroke-width: 3.5; }
@@ -1081,8 +1152,8 @@ html.big .chart .hv-dot { stroke-width: 3; }
 /* 金融資産が足りなくなる所の「!」（できごとの丸の段のすぐ上の段。ShortMark.tsx）: 赤の塗り。基準のプラン・万一なしは白抜き。全部のプランを重ねる表示はプランの色（style で渡す） */
 .chart .sk { cursor: default; outline: none; }
 .chart .sk circle { fill: var(--short); stroke: var(--short); stroke-width: 2; }
-.chart .sk text { font-weight: 700; fill: #fff; font-size: 0.8rem; dominant-baseline: central; pointer-events: none; }
-.chart .sk.base circle { fill: #fff; }
+.chart .sk text { font-weight: 700; fill: var(--card); font-size: 0.8rem; dominant-baseline: central; pointer-events: none; }
+.chart .sk.base circle { fill: var(--card); }
 .chart .sk.base text { fill: var(--short-ink); }
 .chart .sk.on circle { stroke: var(--short-ink); stroke-width: 3; }
 .chart .sk:focus-visible circle { stroke: var(--prop); stroke-width: 3.5; }
@@ -1091,15 +1162,15 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .year-tip.fixed { position: fixed; z-index: 30; }
 .year-tip.ev-tip .ev-t { font-weight: 400; }
 .year-tip.ev-tip .ev-ic { display: inline-flex; align-items: center; justify-content: center; width: 1.5em; height: 1.5em; border-radius: 50%; border: 1.5px solid var(--ink); font-size: 0.78rem; line-height: 1; }
-.year-tip.ev-tip.short .ev-ic { background: var(--short); border-color: var(--short); color: #fff; }
+.year-tip.ev-tip.short .ev-ic { background: var(--short); border-color: var(--short); color: var(--on-fill); }
 .chart .dep-txt { font-size: 0.82rem; }
 .chart .ex-new { animation: exin 0.5s ease-out; }
 @keyframes exin { 0% { opacity: 0; } 100% { opacity: 1; } }
 .explain-bar { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; padding: 8px 0 2px; border-top: 1px solid var(--line-2); margin-top: 6px; }
 .explain-bar .ex-steps { list-style: none; display: flex; gap: 4px; flex-wrap: wrap; margin: 0; padding: 0; }
-.explain-bar .ex-steps button { font-size: 0.82rem; font-weight: 700; border: 1.5px solid var(--field); border-radius: 99px; padding: 1px 10px; color: var(--ink-2); background: #fff; cursor: pointer; }
+.explain-bar .ex-steps button { font-size: 0.82rem; font-weight: 700; border: 1.5px solid var(--field); border-radius: 99px; padding: 1px 10px; color: var(--ink-2); background: var(--card); cursor: pointer; }
 .explain-bar .ex-steps .done button { border-color: var(--prop); color: var(--prop-ink); }
-.explain-bar .ex-steps .now button { background: var(--prop); border-color: var(--prop); color: #fff; }
+.explain-bar .ex-steps .now button { background: var(--prop); border-color: var(--prop); color: var(--on-fill); }
 .explain-bar .ex-gap { flex: 1; }
 .explain-bar .ex-note { font-size: 0.8rem; color: var(--ink-2); }
 .explain-bar .ex-pos { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
@@ -1111,29 +1182,29 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .explain-bar .ex-go > * { grid-area: 1 / 1; justify-self: stretch; text-align: center; }
 .explain-bar .ex-sizer { visibility: hidden; }
 /* 表示の設定（グラフの枠の中に開く） */
-.disp-settings { margin: 8px 0 2px; padding: 10px 14px; border: 2px solid var(--ink-2); border-radius: 10px; background: #fafbfc; }
+.disp-settings { margin: 8px 0 2px; padding: 10px 14px; border: 2px solid var(--ink-2); border-radius: 10px; background: var(--wash, #fafbfc); }
 .ds-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 .ds-note { font-size: 0.8rem; color: var(--ink-2); flex: 1; }
 .ds-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 14px; margin-top: 8px; }
-.ds-item { display: flex; gap: 8px; align-items: flex-start; border: 1.5px solid var(--line); border-radius: 8px; padding: 6px 10px; background: #fff; cursor: pointer; }
+.ds-item { display: flex; gap: 8px; align-items: flex-start; border: 1.5px solid var(--line); border-radius: 8px; padding: 6px 10px; background: var(--card); cursor: pointer; }
 .ds-item.on { border-color: var(--prop); background: var(--prop-bg); }
 .ds-item.off { cursor: not-allowed; color: var(--ink-2); border-color: var(--line-2); background: var(--base-bg); }
 .ds-item input { width: 18px; height: 18px; accent-color: var(--prop); margin: 3px 0 0; flex: none; }
 .ds-l { display: grid; gap: 1px; font-weight: 700; font-size: 0.9rem; }
 .ds-l small { font-weight: 400; color: var(--ink-2); font-size: 0.78rem; }
 .ds-age { display: inline-flex; align-items: center; gap: 2px; }
-.ds-l select { border: 1.5px solid var(--field); border-radius: 6px; padding: 0 4px; margin-right: 2px; background: #fff; font-weight: 700; }
+.ds-l select { border: 1.5px solid var(--field); border-radius: 6px; padding: 0 4px; margin-right: 2px; background: var(--card); font-weight: 700; }
 .ds-layout { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px 14px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line-2); }
 .ds-layout .ds-k { font-weight: 700; font-size: 0.9rem; align-self: center; min-width: 4em; }
 .ds-layout .ds-item { flex: 1 1 260px; }
 .chart-card .fee-note { margin: 6px 0 0; }
 /* 結果のタブの入力の確認（例: 定期便の加入月数が0か月のまま） */
-.fee-note.input-notice { border-color: #c99a30; background: #fffaf0; }
-.fee-note.input-notice .fee-tag { border-color: #7a5800; color: #7a5800; }
+.fee-note.input-notice { border-color: #c99a30; background: var(--wash-warm, #fffaf0); }
+.fee-note.input-notice .fee-tag { border-color: var(--memo-ink, #7a5800); color: var(--memo-ink, #7a5800); }
 /* 計算の知らせ（0064）: 閉じているときは1行。入力が足りない・計算に入れていない知らせがあるときは枠を強く */
-.calc-notices { margin-top: 8px; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--line); background: #fff; font-size: 0.95rem; line-height: 1.5; }
-.calc-notices.urgent { border-color: #c99a30; background: #fffaf0; }
-.calc-notices.urgent .cn-bar .fee-tag { border-color: #7a5800; color: #7a5800; }
+.calc-notices { margin-top: 8px; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--card); font-size: 0.95rem; line-height: 1.5; }
+.calc-notices.urgent { border-color: #c99a30; background: var(--wash-warm, #fffaf0); }
+.calc-notices.urgent .cn-bar .fee-tag { border-color: var(--memo-ink, #7a5800); color: var(--memo-ink, #7a5800); }
 .cn-bar { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
 .cn-counts { color: var(--ink-2); }
 .cn-kind h3 { font-size: 0.9rem; margin: 10px 0 4px; }
@@ -1161,7 +1232,7 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .lv-lock { margin: 10px 0 0; padding: 10px 14px; border: 1.5px solid var(--line); background: var(--base-bg); border-radius: 10px; color: var(--ink-2); font-weight: 700; }
 .save-form { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; margin-top: 10px; padding: 10px 14px; border-radius: 10px; background: var(--prop-bg); }
 .save-form label { font-weight: 700; display: inline-flex; align-items: center; gap: 8px; flex: 1 1 360px; }
-.save-form input { flex: 1; min-width: 0; border: 2px solid var(--field); border-radius: 7px; padding: 4px 8px; background: #fff; }
+.save-form input { flex: 1; min-width: 0; border: 2px solid var(--field); border-radius: 7px; padding: 4px 8px; background: var(--card); }
 .save-form .sf-note { font-size: 0.82rem; color: var(--ink-2); }
 /* 項目は細い枠線＋角丸の白いカード（どこからどこまでが1つの項目か分かるように。同じ段の高さはそろう。0084 の追記 2026-11-04）。前の項目の下の線は使わない */
 .lv-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 12px; margin: 8px 0 0; padding: 0; border: 0; min-width: 0; }
@@ -1191,9 +1262,9 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .age-ticks .age-base { position: absolute; top: -3px; width: 2px; height: 6px; margin-left: -1px; background: var(--base-ink); border-radius: 1px; }
 .lv-grid .lever.added .lever-head { align-items: center; }
 .tg { display: inline-flex; border: 2px solid var(--ink-2); border-radius: 8px; overflow: hidden; margin-top: 8px; }
-.tg button { border: 0; background: #fff; padding: 3px 16px; font-weight: 700; cursor: pointer; }
+.tg button { border: 0; background: var(--card); padding: 3px 16px; font-weight: 700; cursor: pointer; }
 .tg button + button { border-left: 2px solid var(--ink-2); }
-.tg button[aria-pressed="true"] { background: var(--prop); color: #fff; }
+.tg button[aria-pressed="true"] { background: var(--prop); color: var(--on-fill); }
 .add-row { margin-top: 10px; }
 .add-row .add-item-btn { width: auto; margin: 0; padding: 5px 14px; }
 /* 1行の数は 4 → 2 → 1（大きな文字は 2 → 1）。3列の途中を作らない（既定の4項目が2行目に1つだけ残らないように。0084） */
@@ -1207,7 +1278,7 @@ html.big .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .cf-head { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; margin-bottom: 8px; }
 .cf-head h2 { margin: 0; font-size: 1.12rem; border-left: 4px solid var(--prop); padding-left: 8px; }
 .cf-head .k { font-weight: 700; font-size: 0.9rem; }
-.chk { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; border: 2px solid var(--ink-2); border-radius: 8px; padding: 2px 10px; cursor: pointer; background: #fff; }
+.chk { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; border: 2px solid var(--ink-2); border-radius: 8px; padding: 2px 10px; cursor: pointer; background: var(--card); }
 .chk input { width: 18px; height: 18px; accent-color: var(--prop); margin: 0; }
 .chk.on { border-color: var(--prop); background: var(--prop-bg); }
 .cf-note { font-size: 0.8rem; color: var(--ink-2); margin-left: auto; display: inline-flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -1220,28 +1291,28 @@ html.big .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .cf-sticky-in { position: relative; top: 1px; margin: 0 1px; overflow: hidden; border-radius: 7px 7px 0 0; pointer-events: auto; }
 .cf-headcopy { table-layout: fixed; }
 .cf-headcopy th { min-width: 0; box-sizing: border-box; }
-.cf .r-diff th, .cf .r-diff td { background: #f3f6fb; color: var(--prop-ink); font-weight: 700; border-bottom: 1px solid #cfd9ea; }
+.cf .r-diff th, .cf .r-diff td { background: color-mix(in srgb, var(--prop) 5%, var(--card)); color: var(--prop-ink); font-weight: 700; border-bottom: 1px solid color-mix(in srgb, var(--prop) 21%, var(--card)); }
 .cf .r-diff th { padding-left: 1.6em; }
 .cf .r-diff td.minus { color: var(--short-ink); }
 .cf .r-diff td.zero { color: var(--ink-2); font-weight: 400; }
 /* 基準と違うマス（差を表示しているときだけ。薄い印） */
-.cf td.chg { background-image: linear-gradient(135deg, rgba(43, 76, 140, 0.55) 0 5px, transparent 5px); }
+.cf td.chg { background-image: linear-gradient(135deg, color-mix(in srgb, var(--prop) 55%, transparent) 0 5px, transparent 5px); }
 .chg-key { display: inline-flex; align-items: center; gap: 5px; }
-.chg-key i { width: 14px; height: 14px; border: 1px solid var(--line); background-image: linear-gradient(135deg, rgba(43, 76, 140, 0.55) 0 5px, transparent 5px); }
+.chg-key i { width: 14px; height: 14px; border: 1px solid var(--line); background-image: linear-gradient(135deg, color-mix(in srgb, var(--prop) 55%, transparent) 0 5px, transparent 5px); }
 
 /* 案の一覧・比較の表（帯のすぐ下に開く） */
 .plan-list-card .card-h, .compare-card .card-h { align-items: center; }
 .plan-list-card .card-h .aside, .compare-card .card-h .aside { flex: 1; }
-.cmp-table thead th.is-base { background: #f0f1f3; }
+.cmp-table thead th.is-base { background: var(--wash, #f0f1f3); }
 .cmp-table thead th .p-tag { margin-left: 6px; }
 @media (prefers-reduced-motion: reduce) { .chart .ex-new { animation: none; } .plan, .plan-x { transition: none; } }
 /* 金額のスライダーの横の数値の欄（万円で直接入れる。1万円単位） */
 .amt-in { display: inline-flex; align-items: baseline; gap: 3px; font-weight: 700; white-space: nowrap; }
-.amt-in input { width: 4.2em; text-align: right; font: inherit; font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; border: 1.5px solid var(--field); border-radius: 6px; padding: 1px 6px; background: #fff; color: var(--ink); }
+.amt-in input { width: 4.2em; text-align: right; font: inherit; font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; border: 1.5px solid var(--field); border-radius: 6px; padding: 1px 6px; background: var(--card); color: var(--ink); }
 .amt-in input:focus { outline: 2px solid var(--prop); outline-offset: 1px; }
 .amt-in input.bad { border-color: var(--short); background: var(--short-bg); }
 .amt-in { position: relative; }
-.amt-bad { position: absolute; top: calc(100% + 2px); right: 0; z-index: 3; width: max-content; max-width: 16em; white-space: normal; font-size: 0.78rem; font-weight: 700; color: var(--short-ink); background: #fff; border: 1.5px solid var(--short); border-radius: 6px; padding: 2px 6px; }
+.amt-bad { position: absolute; top: calc(100% + 2px); right: 0; z-index: 3; width: max-content; max-width: 16em; white-space: normal; font-size: 0.78rem; font-weight: 700; color: var(--short-ink); background: var(--card); border: 1.5px solid var(--short); border-radius: 6px; padding: 2px 6px; }
 .amt-per, .amt-u { font-size: 0.85rem; color: var(--ink-2); }
 .lever.changed .amt-in input { color: var(--prop); border-color: var(--prop); }
 .amt-row { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; }
@@ -1250,10 +1321,10 @@ html.big .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .lever.added .fld.is-est .fld-c input[type="text"] { border-style: solid; }
 
 /* ---- グラフを小窓で表示（ChartPip.tsx）: グラフの右上（凡例の行の右端）の小窓のボタンと、アプリの窓の中に固定した小窓（別の窓にはしない） ---- */
-.pip-btn { flex: none; box-sizing: border-box; width: 1.9rem; height: 1.9rem; padding: 0; border: 2px solid var(--ink-2); color: var(--ink); background: #fff; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.pip-btn { flex: none; box-sizing: border-box; width: 1.9rem; height: 1.9rem; padding: 0; border: 2px solid var(--ink-2); color: var(--ink); background: var(--card); border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .pip-btn:hover { border-color: var(--ink); }
 .pip-btn:focus-visible { outline: 3px solid var(--prop); outline-offset: 1px; }
-.pip-btn[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+.pip-btn[aria-pressed="true"] { background: var(--ink); color: var(--on-fill); border-color: var(--ink); }
 .pip-i, .pip-btn .pop-i { flex: none; display: block; width: 1.25rem; height: 1.25rem; margin: 0; }
 .pip .pip-btn { width: 1.75rem; height: 1.75rem; border-width: 1.5px; }
 /* グラフの右上: 凡例の行（凡例・使い方の文）の右端に小窓のボタン。凡例は折り返して残りの幅に収め、ボタンが入らない幅ではボタンだけ凡例の下の右端に回る（重ならない） */
@@ -1265,17 +1336,17 @@ html.big .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pip-x:hover { color: var(--ink); }
 /* アイコンだけのボタンの説明の札（年の表示 .year-tip と同じ見た目）。乗せたとき・キーボードでフォーカスしたときに、ボタンの下・右端そろえで出す */
 .tip-btn { position: relative; }
-.tip-btn::after { content: attr(data-tip); position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; pointer-events: none; white-space: nowrap; background: rgba(255, 255, 255, 0.97); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 2px 8px rgba(20, 30, 50, 0.12); padding: 4px 10px 5px; font-size: 0.82rem; font-weight: 700; line-height: 1.5; color: var(--ink); opacity: 0; visibility: hidden; transition: opacity 0.12s 0.25s; }
+.tip-btn::after { content: attr(data-tip); position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; pointer-events: none; white-space: nowrap; background: color-mix(in srgb, var(--card) 97%, transparent); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 2px 8px rgba(20, 30, 50, 0.12); padding: 4px 10px 5px; font-size: 0.82rem; font-weight: 700; line-height: 1.5; color: var(--ink); opacity: 0; visibility: hidden; transition: opacity 0.12s 0.25s; }
 .tip-btn:hover::after, .tip-btn:focus-visible::after { opacity: 1; visibility: visible; }
 /* 小窓: 上の帯（取っ手の印つき・薄い色）をドラッグで移動、左右の端で横・下の端で縦・下の角で縦横に大きさを変える */
-.pip { position: fixed; z-index: 20; display: flex; flex-direction: column; box-sizing: border-box; margin: 0; padding: 4px 12px 6px; border: 1.5px solid var(--ink-2); border-radius: var(--radius); box-shadow: 0 12px 32px rgba(20, 30, 50, 0.28); overflow: hidden; background: #fff; }
+.pip { position: fixed; z-index: 20; display: flex; flex-direction: column; box-sizing: border-box; margin: 0; padding: 4px 12px 6px; border: 1.5px solid var(--ink-2); border-radius: var(--radius); box-shadow: 0 12px 32px rgba(20, 30, 50, 0.28); overflow: hidden; background: var(--card); }
 /* つかんで動かす帯（grip.tsx。グラフの小窓と貯めるお金の内訳の小窓で同じ見た目）: 薄い色の帯・つかめる形のカーソル・左に取っ手の印（⠿ 移動） */
-.grip { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; background: var(--prop-bg); border-bottom: 1px solid #d3dcec; }
-.grip:hover { background: #dde5f3; }
+.grip { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; background: var(--prop-bg); border-bottom: 1px solid color-mix(in srgb, var(--prop) 19%, var(--card)); }
+.grip:hover { background: color-mix(in srgb, var(--prop) 16%, var(--card)); }
 .grip:focus-visible { outline: 3px solid var(--prop); outline-offset: -3px; }
-.is-moving .grip { cursor: grabbing; background: #d3ddf0; }
+.is-moving .grip { cursor: grabbing; background: color-mix(in srgb, var(--prop) 20%, var(--card)); }
 .is-moving, .is-moving * { cursor: grabbing; }
-.grip-mark { flex: none; display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px 2px 4px; border-radius: 6px; border: 1px dashed #9fb0d0; color: var(--prop-ink); line-height: 1; }
+.grip-mark { flex: none; display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px 2px 4px; border-radius: 6px; border: 1px dashed color-mix(in srgb, var(--prop) 45%, var(--card)); color: var(--prop-ink); line-height: 1; }
 .grip-mark-i { font-size: 1.15rem; letter-spacing: -0.1em; }
 .grip-mark-t { font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
 .pip-grip { flex: none; margin: -4px -12px 4px; padding: 5px 12px 5px 12px; }
@@ -1318,8 +1389,8 @@ html.big .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .ys-sum.ok::before { content: "✓ "; }
 .ys-sum.short::before { content: "▲ "; }
 .ys-play { display: inline-flex; gap: 6px; flex: none; }
-.ys-btn { border: 2px solid var(--prop); color: var(--prop-ink); background: #fff; border-radius: 8px; padding: 2px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; font-size: 0.88rem; }
-.ys-btn.on { background: var(--prop); color: #fff; }
+.ys-btn { border: 2px solid var(--prop); color: var(--prop-ink); background: var(--card); border-radius: 8px; padding: 2px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; font-size: 0.88rem; }
+.ys-btn.on { background: var(--prop); color: var(--on-fill); }
 .ys-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .ys-row { display: flex; gap: 4px; overflow-x: auto; padding: 6px 2px 4px; scroll-behavior: auto; scrollbar-width: thin; }
 .yc { all: unset; box-sizing: border-box; flex: 1 0 3.5rem; min-width: 3.5rem; display: grid; justify-items: center; gap: 0; padding: 3px 2px 4px; border-radius: 7px; border: 1.5px solid transparent; cursor: pointer; font-variant-numeric: tabular-nums; line-height: 1.25; text-align: center; }
@@ -1331,8 +1402,8 @@ html.big .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .yc.ok .yc-r { color: var(--good); }
 .yc.short { background: var(--short-bg); }
 .yc.short .yc-r { color: var(--short-ink); font-size: 0.74rem; }
-.yc.pending, .yc.error { background: #f4f5f7; color: #8a939d; }
-.yc.pending .yc-a, .yc.error .yc-a { color: #8a939d; }
+.yc.pending, .yc.error { background: var(--wash, #f4f5f7); color: var(--muted-ink, #8a939d); }
+.yc.pending .yc-a, .yc.error .yc-a { color: var(--muted-ink, #8a939d); }
 .yc:hover { border-color: #b9c0c9; }
 .yc.is-sel { border: 2.5px solid var(--prop); box-shadow: 0 0 0 1px var(--prop); background-clip: padding-box; }
 .yc.is-sel .yc-y { color: var(--prop-ink); }
@@ -1349,7 +1420,7 @@ html.big .yc { min-width: 3.9rem; flex-basis: 3.9rem; }
 .chart .ml.hi .multi-line { stroke-width: calc(var(--lw-prop) + 1px); }
 .chart .ml { transition: opacity 0.15s; }
 .chart .ml.dim { opacity: 0.16; }
-.chart .ml-end { font-weight: 700; font-size: 0.8rem; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.chart .ml-end { font-weight: 700; font-size: 0.8rem; paint-order: stroke; stroke: var(--card); stroke-width: 3px; }
 .chart .ml-end-base { font-size: 0.68rem; fill: var(--base-ink); }
 .chart .fit-t { fill: var(--ink-2); font-size: 0.72rem; }
 .chart .pl-mk { stroke-width: 1.5; }
@@ -1363,11 +1434,11 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .multi-legend { gap: 4px 12px; }
 .multi-legend .ml-cap { flex-basis: 100%; font-size: 0.86rem; }
 .ml-items { display: flex; flex-wrap: wrap; gap: 4px 6px; }
-.ml-item { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid var(--line); border-radius: 7px; background: #fff; padding: 2px 8px 2px 6px; font: inherit; font-weight: 700; color: var(--ink); cursor: pointer; max-width: 22em; }
+.ml-item { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid var(--line); border-radius: 7px; background: var(--card); padding: 2px 8px 2px 6px; font: inherit; font-weight: 700; color: var(--ink); cursor: pointer; max-width: 22em; }
 .ml-item:hover, .ml-item.on { border-color: var(--ink); }
 .ml-item:focus-visible { outline: 3px solid #f0b400; outline-offset: 2px; }
 .ml-item.sel { border-width: 2px; border-color: var(--prop); }
-.ml-item.off { color: var(--ink-2); background: #f3f4f6; border-style: dashed; }
+.ml-item.off { color: var(--ink-2); background: var(--wash, #f3f4f6); border-style: dashed; }
 .ml-item.off .pl-sw { opacity: 0.3; }
 .ml-item.off .ml-n, .ml-item.off .ml-t { text-decoration: line-through; }
 .ml-item:disabled { cursor: default; opacity: 0.7; }
@@ -1404,17 +1475,17 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .ih-target label { display: flex; align-items: center; gap: 8px; font-weight: 700; white-space: nowrap; }
 .ih-target select { font: inherit; padding: 3px 6px; width: 17em; max-width: 40vw; text-overflow: ellipsis; }
 .ih-target.on { border-color: var(--plan-c); }
-.ih-target-dot { width: 0.8em; height: 0.8em; border-radius: 50%; border: 2px solid var(--line); background: #fff; flex: none; box-sizing: border-box; }
+.ih-target-dot { width: 0.8em; height: 0.8em; border-radius: 50%; border: 2px solid var(--line); background: var(--card); flex: none; box-sizing: border-box; }
 .ih-target.on .ih-target-dot { border-color: var(--plan-c); background: var(--plan-c); }
 .ih-target-menu { position: relative; }
 .ih-target-list .add-btn { border: 0; padding: 0; background: none; text-decoration: underline; text-underline-offset: 2px; font-size: 0.82rem; }
-.ih-target-list { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; display: grid; gap: 6px; justify-items: start; min-width: 14em; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; box-shadow: 0 6px 20px rgba(20, 30, 50, 0.16); white-space: nowrap; }
+.ih-target-list { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; display: grid; gap: 6px; justify-items: start; min-width: 14em; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); box-shadow: 0 6px 20px rgba(20, 30, 50, 0.16); white-space: nowrap; }
 .help-btn.ih-target-lock { color: var(--est-ink); font-size: 0.78rem; }
-.plan-count { display: inline-block; margin-left: 6px; font-size: 0.72rem; font-weight: 700; color: #fff; background: var(--plan-c, var(--prop)); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
+.plan-count { display: inline-block; margin-left: 6px; font-size: 0.72rem; font-weight: 700; color: var(--on-fill); background: var(--plan-c, var(--prop)); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
 /* カードの「プランB: 1か所」: 絵の右上に重ねる（カードの高さを変えない）。色はプランの色にせず、白地の札 */
-.plan-count.on-card { position: absolute; top: 8px; right: 8px; z-index: 2; margin: 0; color: var(--ink); background: #fff; border: 1.5px solid var(--ink-2); }
+.plan-count.on-card { position: absolute; top: 8px; right: 8px; z-index: 2; margin: 0; color: var(--ink); background: var(--card); border: 1.5px solid var(--ink-2); }
 .ipanel.plan-mode .ip-band { background: var(--plan-c); height: 8px; }
-.ip-plan { margin: 0; padding: 4px 16px; background: color-mix(in srgb, var(--plan-c) 12%, #fff); font-size: 0.9rem; }
+.ip-plan { margin: 0; padding: 4px 16px; background: color-mix(in srgb, var(--plan-c) 12%, var(--card)); font-size: 0.9rem; }
 /* どのプランにも共通の欄の一言（.shared。表の最後の年。0043 の追記 2026-11-05）は現状と違う印ではないので、枠の色を付けない */
 .fld:has(> .fld-plan:not(.shared)) { border-left: 3px solid var(--plan-c, var(--prop)); padding-left: 8px; }
 .fld-plan { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; font-size: 0.85rem; color: var(--ink-2); }
@@ -1447,9 +1518,9 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .rows-view.on .seg-g { border-color: var(--prop); }
 .rows-view.on .seg-g button[aria-pressed="true"] { background: var(--prop); }
 .rows-view-pop { position: relative; display: inline-block; }
-.rows-view-list { position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; min-width: 420px; max-width: min(640px, 92vw); max-height: 320px; overflow: auto; padding: 6px; border: 1.5px solid var(--line); border-radius: 8px; background: #fff; box-shadow: 0 6px 20px rgb(0 0 0 / 12%); }
+.rows-view-list { position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; min-width: 420px; max-width: min(640px, 92vw); max-height: 320px; overflow: auto; padding: 6px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--card); box-shadow: 0 6px 20px rgb(0 0 0 / 12%); }
 .rows-view-row { display: grid; grid-template-columns: auto auto minmax(8em, 1fr) auto auto auto; align-items: center; gap: 4px 10px; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
-.rows-view-row:hover { background: color-mix(in srgb, var(--prop) 6%, #fff); }
+.rows-view-row:hover { background: color-mix(in srgb, var(--prop) 6%, var(--card)); }
 .rows-view-row.off .rv-name, .rows-view-row.off .rv-amt, .rows-view-row.off .rv-when { color: var(--muted, #666); text-decoration: line-through; }
 .rows-view-row .rv-dir { font-weight: 700; }
 .rows-view-row .rv-amt { text-align: right; white-space: nowrap; }
@@ -1584,7 +1655,7 @@ p.os-code-expired .link-btn { margin-left: 6px; }
 .fp-insights li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-size: 0.88rem; }
 /* 説明の「?」（丸に ?。presentation/Help.tsx。0077）: カーソル・フォーカス・押すで開く。開いた説明は画面に固定して重ねる（周りの配置を動かさない） */
 .help { display: inline-flex; align-items: center; vertical-align: middle; flex: none; }
-.help-btn { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 1.25em; height: 1.25em; padding: 0; border: 1.5px solid var(--field); border-radius: 50%; background: #fff; color: var(--ink-2); font: inherit; font-size: 0.8rem; font-weight: 700; line-height: 1; cursor: help; }
+.help-btn { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 1.25em; height: 1.25em; padding: 0; border: 1.5px solid var(--field); border-radius: 50%; background: var(--card); color: var(--ink-2); font: inherit; font-size: 0.8rem; font-weight: 700; line-height: 1; cursor: help; }
 .help-btn:not(.help-mark):hover, .help-btn:not(.help-mark)[aria-expanded="true"] { border-color: var(--prop); color: var(--prop); background: var(--prop-bg); }
 .help-btn:focus-visible { outline: 2px solid var(--prop); outline-offset: 2px; }
 /* 「?」は SVG の線（字の上下の余白に頼らない）。丸の内側いっぱいに広げ、字は丸の中央に来る（Help.tsx の HELP_GLYPH） */
@@ -1593,7 +1664,7 @@ p.os-code-expired .link-btn { margin-left: 6px; }
 /* 押すと根拠が開く印: 文字だけ（枠・地の色なし）。カーソルを合わせる・開いている間は下線で押せることを見せる */
 .help-btn.help-mark { width: auto; height: auto; border: 0; border-radius: 3px; padding: 0 2px; background: none; font-size: 0.7rem; cursor: pointer; text-decoration: none; text-underline-offset: 2px; }
 .help-btn.help-mark:hover, .help-btn.help-mark[aria-expanded="true"] { text-decoration: underline; }
-.help-pop { position: fixed; z-index: 200; top: 0; left: 0; width: max-content; max-width: min(26em, calc(100vw - 16px)); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); box-shadow: 0 6px 20px rgba(20, 30, 50, 0.18); font-size: 0.84rem; font-weight: 400; line-height: 1.6; text-align: left; letter-spacing: 0; white-space: normal; cursor: auto; user-select: text; -webkit-user-select: text; }
+.help-pop { position: fixed; z-index: 200; top: 0; left: 0; width: max-content; max-width: min(26em, calc(100vw - 16px)); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); box-shadow: 0 6px 20px rgba(20, 30, 50, 0.18); font-size: 0.84rem; font-weight: 400; line-height: 1.6; text-align: left; letter-spacing: 0; white-space: normal; cursor: auto; user-select: text; -webkit-user-select: text; }
 /* 開いた説明の文は選んでコピーできる。押すとフォーカスが箱へ移るが、枠は出さない */
 .help-pop:focus { outline: none; }
 /* 「?」と箱のすき間（6px）を埋める見えない帯。カーソルを箱へ動かす途中で外れたと見なさない */

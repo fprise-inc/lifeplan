@@ -394,7 +394,7 @@ function Spark({ plan, yi, onPick }: { plan: BsPlanModel; yi: number; onPick: (i
           <path d={ys.map((y, i) => `${i === 0 ? "M" : "L"}${X(i).toFixed(1)} ${Y(y.netWorth).toFixed(1)}`).join(" ")} fill="none" stroke="var(--prop-ink)" stroke-width="2" />
           <line x1={m.l} x2={W - m.r} y1={Y(0)} y2={Y(0)} stroke="#9aa3ae" />
           <line x1={X(yi)} x2={X(yi)} y1={m.t - 4} y2={H - m.b} stroke="var(--ink)" stroke-width="1.5" />
-          <circle cx={X(yi)} cy={Y(cur.totalAssets)} r="4.5" fill="#fff" stroke="var(--ink)" stroke-width="2" />
+          <circle cx={X(yi)} cy={Y(cur.totalAssets)} r="4.5" fill="var(--card)" stroke="var(--ink)" stroke-width="2" />
           <text x={anchor === "start" ? m.l : anchor === "end" ? W - m.r : X(yi)} y={m.t - 5} text-anchor={anchor} font-size={fs * 0.68} font-weight="700" fill="var(--ink)">
             {cur.year}年 {group(Math.round(cur.totalAssets / 10000))}万円
           </text>

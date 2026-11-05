@@ -3,6 +3,7 @@
 //   載せる画面（グラフはいつも。資産と負債の図・キャッシュフロー表の要約）・宛名と事務所名（任意。保存しない）・開くときのパスワード（任意。保存しない）
 // - 右: 顧客が開いたときと同じ画面の見本（同じ部品 TakeawayView。計算は画面側のエンジン）
 // - 保存は本体の平文の書き出しの出口（0020 の5）。パスワードなしのときは毎回、平文の注意を出す。保存したら控え（きっかけ「持ち帰り用のレポート」）を残す
+import { brandingNow, reportAccent } from "../office/branding.ts";
 import { useContext, useEffect, useMemo, useState } from "preact/hooks";
 import { OfficeNamesContext, rowNamesOf } from "../office/customTexts.ts";
 import { webEngine, type HostApi, type SaveOutcome } from "../../engine/host.ts";
@@ -35,7 +36,7 @@ interface Props {
   onSnapshot?: (d: SnapshotDraft) => Promise<void>;
 }
 
-/** 事務所名（アプリを開いている間だけ覚える。事務所の設定ができたらそこから読む） */
+/** 事務所名（アプリを開いている間だけ覚える。空なら事務所の見た目の名前〔0121〕を最初に入れる） */
 const remembered = { office: "" };
 
 /** パスワードの最低の長さ */
@@ -66,7 +67,7 @@ export function TakeawayPanel(p: Props) {
   const [views, setViews] = useState({ balance: true, table: true, moneyThree: true });
   const m3 = p.moneyThree ?? DEFAULT_MONEY_THREE;
   const [addressee, setAddressee] = useState("");
-  const [office, setOffice] = useState(remembered.office);
+  const [office, setOffice] = useState(remembered.office !== "" ? remembered.office : (brandingNow().name ?? ""));
   const [usePw, setUsePw] = useState(false);
   const [password, setPassword] = useState("");
   const [dataSet, setDataSet] = useState<string | null>(null);
@@ -99,9 +100,11 @@ export function TakeawayPanel(p: Props) {
   const knobs: TakeawayKnob[] = [...(["retireAge", "pensionAge", "nisaMonthly", "livingMonthly"] as TakeawayLeverKey[]).filter((k) => p.catalog.byKey.has(`lever:${k}`)), ...(hasAdvisoryFee(p.wh.request) && p.catalog.byKey.has("lever:fee") ? (["fee"] as const) : [])];
   // 表の行の事務所の名前（カスタム層。承認した物だけ）。持ち帰り用のレポートでも画面と同じ名前にする
   const rowNames = rowNamesOf(useContext(OfficeNamesContext));
-  const choice: TakeawayChoice = { proposal, compare, base: p.base, band: p.band, excluded, views, moneyThree: m3, addressee, office, targetAge: p.targetAge, createdOn: today(), dataSet: dataSet ?? "", ...(rowNames !== undefined ? { names: rowNames } : {}) };
+  // 事務所の基調の色（0121）: 持ち帰り用のレポートの見出しの線・選んだプランの線などに使う（明るい画面の色）
+  const accent = reportAccent(brandingNow());
+  const choice: TakeawayChoice = { proposal, compare, base: p.base, band: p.band, excluded, views, moneyThree: m3, addressee, office, targetAge: p.targetAge, createdOn: today(), dataSet: dataSet ?? "", ...(rowNames !== undefined ? { names: rowNames } : {}), ...(accent !== null ? { accent } : {}) };
   const ctx = { wh: p.wh, catalog: p.catalog, valuesOf: p.valuesOf, letterOf: p.letterOf };
-  const payload = useMemo(() => (proposal === CURRENT ? null : buildPayload(ctx, choice)), [p.wh, p.catalog, proposal, compare.join(","), p.base, p.band.join(","), [...excluded].join(","), views.balance, views.table, views.moneyThree, m3.months, m3.years, m3.wording, addressee, office, p.targetAge, dataSet, JSON.stringify(rowNames ?? null), ...slots.map((id) => JSON.stringify(p.valuesOf(id)))]);
+  const payload = useMemo(() => (proposal === CURRENT ? null : buildPayload(ctx, choice)), [p.wh, p.catalog, proposal, compare.join(","), p.base, p.band.join(","), [...excluded].join(","), views.balance, views.table, views.moneyThree, m3.months, m3.years, m3.wording, addressee, office, p.targetAge, dataSet, JSON.stringify(rowNames ?? null), accent, ...slots.map((id) => JSON.stringify(p.valuesOf(id)))]);
   const preview: TakeawayData | null = useMemo(() => (payload === null || packsJson === null ? null : { payload, packs: JSON.parse(packsJson) as unknown[] }), [payload, packsJson]);
   const pwOk = !usePw || password.length >= PASSWORD_MIN;
   const busy = status.kind === "busy";

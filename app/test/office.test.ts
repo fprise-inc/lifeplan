@@ -13,7 +13,7 @@ import { fromRequest } from "../src/workspace/input/household.ts";
 import { modelHousehold } from "./helpers.ts";
 
 const no = async () => Promise.reject("E");
-const office: OfficeHost = { status: no, start: no, join: no, cancel: no, approve: no, reject: no, remove: no, moveLocal: no, recover: no, end: no, dismissNotices: no, acceptRoster: no, defaults: async () => ({}), putDefaults: no, featureStatus: async () => ({ today: "2026-11-01", active: [], codes: [], invalid: [] }), addFeatureCode: no, removeFeatureCode: no, dismissFeatureNotice: no, checkFeatureCodes: no, decideFeatureCandidate: no, syncStart: no, syncOpen: no, syncEnd: no, notices: async () => [] };
+const office: OfficeHost = { status: no, start: no, join: no, cancel: no, approve: no, reject: no, remove: no, moveLocal: no, recover: no, end: no, dismissNotices: no, acceptRoster: no, defaults: async () => ({}), putDefaults: no, branding: async () => ({}), putBranding: no, pickLogo: async () => null, featureStatus: async () => ({ today: "2026-11-01", active: [], codes: [], invalid: [] }), addFeatureCode: no, removeFeatureCode: no, dismissFeatureNotice: no, checkFeatureCodes: no, decideFeatureCandidate: no, syncStart: no, syncOpen: no, syncEnd: no, notices: async () => [] };
 
 function status(over: Partial<OfficeStatus> = {}): OfficeStatus {
   return {

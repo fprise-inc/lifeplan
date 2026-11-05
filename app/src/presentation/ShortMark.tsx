@@ -90,7 +90,7 @@ export function ShortDotsSvg({ list, at, rowTop, fs, focus }: { list: readonly S
           data-short-key={m.key}
           {...focus.bind(j)}
         >
-          <circle r={r} style={m.color !== undefined ? { fill: m.color, stroke: m.color } : undefined} />
+          <circle r={r} style={m.color !== undefined ? { fill: m.color, stroke: m.color } : undefined} {...(m.color !== undefined ? { "data-plan-color": m.color } : {})} />
           <text text-anchor="middle" dominant-baseline="central">
             !
           </text>

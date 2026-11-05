@@ -13,8 +13,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use report_pdf::{
-    render_page_png, render_page_svg, render_proposal_output, Internal, Rendered, ReportFrame,
-    Stamp,
+    render_page_png, render_page_svg, render_proposal_output, Internal, Rendered, ReportBrand,
+    ReportFrame, Stamp,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -79,6 +79,30 @@ pub fn data_set_label(base_month: &str, packs_json: &str) -> Result<String, Stri
     Ok(format!("{}-{}", base_month.replace('-', "."), &digest[..8]))
 }
 
+/// 白地とのコントラスト比（WCAG の相対輝度から）
+fn contrast_on_white(hex: &str) -> Option<f64> {
+    let h = hex.strip_prefix('#')?;
+    if h.len() != 6 {
+        return None;
+    }
+    let ch = |i: usize| -> Option<f64> {
+        let v = u8::from_str_radix(&h[i..i + 2], 16).ok()? as f64 / 255.0;
+        Some(if v <= 0.04045 {
+            v / 12.92
+        } else {
+            ((v + 0.055) / 1.055).powf(2.4)
+        })
+    };
+    let l = 0.2126 * ch(0)? + 0.7152 * ch(2)? + 0.0722 * ch(4)?;
+    Some(1.05 / (l + 0.05))
+}
+
+/// 提案書のアクセントの色（0121）: `#rrggbb` で、白地の文字・白抜きの番号が読める濃さ（4.5:1 以上）のときだけ使う
+pub fn report_accent(accent: Option<&str>) -> Option<String> {
+    let a = accent?.trim().to_ascii_lowercase();
+    (contrast_on_white(&a)? >= 4.5).then_some(a)
+}
+
 fn is_base_month(s: &str) -> bool {
     let b = s.as_bytes();
     b.len() == 7
@@ -117,15 +141,21 @@ pub fn frame_for(input: &serde_json::Value, packs_json: &str) -> Result<ReportFr
             data_set_id: Some(label),
             custom_digests: vec![],
         },
+        brand: None,
     })
 }
 
 /// 帳票の入力から PDF を作る（宛名は重ねるだけで残さない）
-pub fn render(input_json: &str, addressee: Option<&str>) -> Result<(Prepared, RenderInfo), String> {
+pub fn render(
+    input_json: &str,
+    addressee: Option<&str>,
+    brand: Option<ReportBrand>,
+) -> Result<(Prepared, RenderInfo), String> {
     let t0 = Instant::now();
     let input: serde_json::Value =
         serde_json::from_str(input_json).map_err(|_| "E_REPORT_INPUT".to_owned())?;
-    let frame = frame_for(&input, engine::packs_json())?;
+    let mut frame = frame_for(&input, engine::packs_json())?;
+    frame.brand = brand;
     let addressee = addressee.map(str::trim).filter(|s| !s.is_empty());
     let rendered =
         render_proposal_output(input_json, &frame, addressee).map_err(|e| e.code().to_owned())?;
@@ -209,6 +239,16 @@ mod tests {
     const INPUT: &str =
         include_str!("../../../crates/report-pdf/tests/fixtures/advisoryFeeProposal.input.json");
 
+    /// 事務所の見た目のアクセントの色（0121）: 白地で 4.5:1 に届かない色・形の合わない色は使わない（標準の色のまま）
+    #[test]
+    fn report_accent_needs_contrast_on_white() {
+        assert_eq!(report_accent(Some("#2B4C8C")).as_deref(), Some("#2b4c8c"));
+        assert_eq!(report_accent(Some("#2f6b4f")).as_deref(), Some("#2f6b4f"));
+        assert_eq!(report_accent(Some("#9fc5e8")), None);
+        assert_eq!(report_accent(Some("navy")), None);
+        assert_eq!(report_accent(None), None);
+    }
+
     #[test]
     fn frame_is_decided_by_the_host() {
         let input: serde_json::Value = serde_json::from_str(INPUT).unwrap();
@@ -258,7 +298,7 @@ mod tests {
 
     #[test]
     fn renders_pdf_and_preview_pages_with_addressee_only_in_output() {
-        let (p, info) = render(INPUT, Some("見本 花子")).unwrap();
+        let (p, info) = render(INPUT, Some("見本 花子"), None).unwrap();
         assert_eq!(info.pages, p.rendered.pages);
         assert_eq!(info.sizes.len(), info.pages);
         assert!(info.bytes > 10_000);
@@ -281,7 +321,7 @@ mod tests {
             "既定のファイル名に宛名を入れない"
         );
         // 空白だけの宛名は宛名なし
-        let (q, _) = render(INPUT, Some("   ")).unwrap();
+        let (q, _) = render(INPUT, Some("   "), None).unwrap();
         assert!(
             !report_pdf::normalize(&report_pdf::extract_text(&q.rendered.pdf).unwrap()[0])
                 .contains("見本花子")

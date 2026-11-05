@@ -37,12 +37,41 @@
   outline(title: none, depth: 1, indent: 0pt)
 })
 
+/// 事務所の見た目（0121）: 表紙の上に出す事務所のロゴと名前。どちらも無ければ none
+#let cover-brand(brand) = {
+  if brand == none { return none }
+  let office = brand.at("office", default: none)
+  let logo = brand.at("logo", default: none)
+  // 画像の種類（png・jpg。アプリが外枠の値で渡す）
+  let fmt = brand.at("format", default: auto)
+  if office == none and logo == none { return none }
+  grid(
+    columns: (auto, auto),
+    column-gutter: 10pt,
+    align: horizon,
+    if logo != none {
+      // 高さ 14mm にそろえ、横に長いロゴは幅 60mm までに収める
+      context {
+        let img = image(logo, format: fmt, height: 14mm)
+        if measure(img).width > 60mm { image(logo, format: fmt, width: 60mm) } else { img }
+      }
+    } else { [] },
+    if office != none { text(size: 12pt, weight: "bold", fill: ink, office) } else { [] },
+  )
+}
+
 /// 横の紙の表紙: 左に題名・宛名・作成日など、右に目次
-#let cover-landscape(data) = grid(
+#let cover-landscape(data, brand: none) = grid(
   columns: (1.15fr, 1fr),
   column-gutter: 14mm,
   {
-    v(24mm)
+    let b = cover-brand(brand)
+    if b != none {
+      b
+      v(12mm)
+    } else {
+      v(24mm)
+    }
     text(size: 11pt, fill: muted, data.basis.baseMonthLabel + "時点の試算")
     v(4pt)
     text(size: 26pt, weight: "bold", fill: ink, data.document.title)
@@ -57,8 +86,14 @@
   },
 )
 
-#let cover-portrait(data) = {
-  v(36mm)
+#let cover-portrait(data, brand: none) = {
+  let b = cover-brand(brand)
+  if b != none {
+    b
+    v(20mm)
+  } else {
+    v(36mm)
+  }
   text(size: 11pt, fill: muted, data.basis.baseMonthLabel + "時点の試算")
   v(4pt)
   text(size: 26pt, weight: "bold", fill: ink, data.document.title)
@@ -71,7 +106,7 @@
   cover-outline()
 }
 
-#let cover(data) = if is-land(data) { cover-landscape(data) } else { cover-portrait(data) }
+#let cover(data, brand: none) = if is-land(data) { cover-landscape(data, brand: brand) } else { cover-portrait(data, brand: brand) }
 
 #let assumptions(data, frame) = {
   chapter("前提条件と注意書き", sub: "この提案書の数字は、次の前提で計算した試算です。")

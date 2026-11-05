@@ -1,11 +1,14 @@
 // 上の帯（画面の上に固定しない。スクロールで流れる）。
 // 並び: 左＝ロゴと世帯の選択（と、急ぎの札）、中＝タブ、右＝↶↷・メモ・FP のメニュー・文字の大きさ（中・大）・お知らせのベル。
+// 左上のロゴ: 事務所の見た目（0121）で事務所の名前・ロゴを決めていれば、「ファイナンシア」とその印の代わりに出す（ロゴが無ければ名前だけ。
+// 両方無ければ今のまま）。ソフトの名前は FP のメニューの「ファイナンシアへ」に残す
 // ふだんは状態の札を出さない。急ぎのもの（保存の失敗・保存を止めている・AIと共有中・重大なお知らせ）だけ札で出し、
 // 利用者に行動を求める通知（復元キーの保管など）と配信元のお知らせは、お知らせの一覧（ベル。常に出す。0087）にまとめる。詳しい状態は世帯の選択のメニューの中で見る
 import type { ComponentChildren } from "preact";
-import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { NoticeCenter, type NoticeCenterProps } from "../notices/NoticeCenter.tsx";
 import { fitBar } from "./fit.ts";
+import { LogoCanvas, type LogoImage } from "../../presentation/LogoCanvas.tsx";
 
 /** 急ぎの札（左側。押すと詳しい場所を開く） */
 export interface BarAlert {
@@ -34,6 +37,8 @@ export interface TopBarProps<T extends string> {
   /** 文字の大きさが「大」 */
   big: boolean;
   onBig: (big: boolean) => void;
+  /** 事務所の名前とロゴ（0121。無ければ null＝「ファイナンシア」） */
+  brand?: { name: string | null; logo: LogoImage | null } | null;
 }
 
 /** 文字の大きさを切り替える・帯の詰め方を決める（文字の大きさを変えた直後・窓の幅や中身が変わったときに測り直す） */
@@ -77,10 +82,7 @@ export function TopBar<T extends string>(p: TopBarProps<T>) {
   return (
     <header class="top" ref={ref}>
       <div class="top-l">
-        <span class="brand" title="ファイナンシア">
-          <span class="brand-mark" aria-hidden="true" />
-          <span class="brand-name">ファイナンシア</span>
-        </span>
+        <Brand brand={p.brand ?? null} />
         {p.household !== null ? (
           <button type="button" class="hh-btn" aria-expanded={p.household.open} aria-haspopup="dialog" aria-label={`世帯の選択（${p.household.no}）`} title={p.household.sub !== "" ? `${p.household.no} ${p.household.sub}` : p.household.no} onClick={p.household.onToggle} data-household-button>
             <span class="hh-no">{p.household.no}</span>
@@ -114,6 +116,28 @@ export function TopBar<T extends string>(p: TopBarProps<T>) {
         <NoticeCenter {...p.notices} />
       </div>
     </header>
+  );
+}
+
+/** 左上のロゴ（事務所の見た目が無ければ「ファイナンシア」とその印。ロゴの画像が読めなければ名前だけ） */
+function Brand({ brand }: { brand: { name: string | null; logo: LogoImage | null } | null }) {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => setBroken(false), [brand?.logo?.data]);
+  if (brand === null)
+    return (
+      <span class="brand" title="ファイナンシア">
+        <span class="brand-mark" aria-hidden="true" />
+        <span class="brand-name">ファイナンシア</span>
+      </span>
+    );
+  const logo = broken ? null : brand.logo;
+  const name = brand.name;
+  const label = name ?? "事務所のロゴ";
+  return (
+    <span class={`brand office${logo !== null ? " has-logo" : ""}`} data-office-brand>
+      {logo !== null ? <LogoCanvas logo={logo} height={24} maxWidth={132} label={label} class="brand-logo" onError={() => setBroken(true)} /> : null}
+      {name !== null ? <span class="brand-name">{name}</span> : logo === null ? <span class="brand-name">ファイナンシア</span> : null}
+    </span>
   );
 }
 

@@ -5,7 +5,11 @@
 #let muted = rgb("#5f6b7a")
 #let rule = rgb("#c9d1db")
 #let band = rgb("#eef2f6")
-#let accent = rgb("#1d5fa8")
+// アクセントの色（見出しの番号の箱・見出しの線・グラフの提案の線など）。事務所の見た目（0121）で事務所の基調の色にできる:
+// アプリは白地で読める濃さに直した色を sys.inputs の lifeplan-accent に入れる。無ければ標準の色
+#let accent = rgb(sys.inputs.at("lifeplan-accent", default: "#1d5fa8"))
+/// 資産と負債の図の純資産の金額の色（標準のアクセントの色のまま。事務所の色で科目の色を変えない。0121）
+#let bs-net-ink = rgb("#1d5fa8")
 #let warn = rgb("#b42318")
 #let good = rgb("#1a7f4b")
 
@@ -420,7 +424,7 @@
         bs-column(c.liabilities, c.totalLiabilities + calc.max(0, c.netWorth), figure.scale, height, 100%, c.fact),
       )
       v(3pt)
-      text(size: 8.5pt, weight: "bold", [純資産 #text(fill: if c.netWorth < 0 { muted } else { accent }, man-unit(c.netWorth))])
+      text(size: 8.5pt, weight: "bold", [純資産 #text(fill: if c.netWorth < 0 { muted } else { bs-net-ink }, man-unit(c.netWorth))])
       linebreak()
       // 4つ並べると幅が狭いので、金融資産と負債を2行に分ける
       text(size: min-size, fill: muted, "金融資産 " + man-unit(c.financial) + if cols.len() >= 4 { "\n" } else { "・" } + "負債 " + man-unit(c.totalLiabilities))
