@@ -1756,6 +1756,12 @@
     "assetMix"
    ]
   },
+  "account.builtYear": {
+   "collection": "account",
+   "path": [
+    "builtYear"
+   ]
+  },
   "account.contributions": {
    "collection": "account",
    "path": [
@@ -1796,6 +1802,12 @@
    "collection": "account",
    "path": [
     "frame"
+   ]
+  },
+  "account.holdFrom": {
+   "collection": "account",
+   "path": [
+    "holdFrom"
    ]
   },
   "account.kind": {
@@ -1877,6 +1889,12 @@
    "collection": "account",
    "path": [
     "settlement"
+   ]
+  },
+  "account.structure": {
+   "collection": "account",
+   "path": [
+    "structure"
    ]
   },
   "account.subtype": {

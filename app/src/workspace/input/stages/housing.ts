@@ -6,7 +6,7 @@ import { addMonths } from "../../levers.ts";
 import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, presetBasis, standardBox, wrapBasis, type WorkingHousehold } from "../household.ts";
 import { rentBasis, rentStandard } from "../fill.ts";
-import { dropProvisionalEvent, PRINCIPAL_ESTIMATE, principalKey, purchaseMonth, withProvisionalHousing } from "../housingCredit.ts";
+import { debtorsWithoutShare, dropProvisionalEvent, PRINCIPAL_ESTIMATE, principalKey, purchaseMonth, sharesByLoans, withProvisionalHousing } from "../housingCredit.ts";
 import { applyPropertyTaxEstimate, hasAutoTaxStages, isAutoTax as isAutoBox, purchaseLoans, rememberDroppedTaxStage } from "../propertyTax.ts";
 import { buildingPriceOf, CUSTOM_KEYS, customBuildNotes, isCustomBuild, landLoansOf, landMonthOf, startCustomBuild, stopCustomBuild } from "../customBuild.ts";
 import { ownedHomeTaxEstimate, startsOwnedHomeTax } from "../ownedHomeTax.ts";
@@ -17,6 +17,7 @@ import { rentGrowthStatistic } from "../../../../../hearing/src/housingEstimates
 import { carLoanRateEstimate } from "../../../../../hearing/src/loanRates.ts";
 import { pctText } from "../../../../../hearing/src/housingEstimates.ts";
 import { presetNum, presetText } from "../../../../../hearing/src/presets.ts";
+import { regulationEntries, regulationValue } from "../../../../../hearing/src/statistics.ts";
 import { readGroup, readLine } from "../readLines.ts";
 import { stagedBadge, stagedGroups, type StagedSpec } from "../staged.ts";
 import { at, creditLifeFields, creditLifeGroups, estRow, loanFields, loanMoreActions, loanTitle, LOAN_SUBTYPES, newMortgage, newOtherLoan, rateStepsView, otherLoanHeadFields, withEntry } from "./housingLoans.ts";
@@ -34,6 +35,9 @@ const manOf = (v: number | string) => `${formatYen(Number(v), "man")}万円`;
 const TAX_PRESET = () => standardBox(presetNum("preset.housing.propertyTax"), presetBasis(presetText("preset.housing.propertyTax", (v) => `固定資産税・都市計画税 年${manOf(v)}`)));
 const MAINT_PRESET = () => standardBox(presetNum("preset.housing.maintenance"), presetBasis(presetText("preset.housing.maintenance", (v) => `修繕費・管理費 月${manOf(v)}`)));
 const PRICE_PRESET = () => presetNum("preset.housing.purchase.price");
+/** 相続する家の築年数の目安（計算の基準の年の。建った年が分からないとき。2026-11-05） */
+const INHERITED_AGE = () => presetNum("preset.housing.inheritedHomeAge");
+const inheritedBuiltBasis = (built: number) => presetText("preset.housing.inheritedHomeAge", (v) => `相続する家の築年数の目安（いま築${String(v)}年とみなして${String(built)}年に建った。分かれば建った年を入れてください）`);
 /** 頭金・諸費用の標準の割合（物件の価格に対する）。諸費用は購入の種類の新築・中古で分ける（選ぶ前は新築の割合。0052 の追記 2026-11-03） */
 const DOWN_RATE = () => presetNum("preset.housing.purchase.downRate");
 const costsRateId = (newBuild: boolean | undefined) => (newBuild === false ? "preset.housing.purchase.costsRate.used" : "preset.housing.purchase.costsRate");
@@ -60,6 +64,19 @@ function setState(obj: Obj, key: string, row: StateRow | undefined): void {
 }
 const stateOf = (obj: Obj | undefined, key: string): StateRow | undefined => ((obj?.valueStates as Record<string, StateRow> | undefined) ?? {})[key];
 const isAutoEstimate = (r: StateRow | undefined): boolean => r?.state === "estimated" && r.origin.kind === "auto";
+
+/**
+ * 頭金の推定（2026-11-05 の追記）: 物件の価格×頭金の割合に、住宅資金の援助の額を足す（援助は購入の月に受け取り、頭金の一部として払う）。
+ * 借入額の推定（物件の価格−頭金）は、援助の分だけ少なくなる。頭金が推定のまま（出どころ auto）のときだけ入れ直す。FP が入れた頭金は変えない
+ */
+function refreshDownEstimate(res: Residence | undefined): void {
+  const p = res?.purchase;
+  if (res === undefined || p === undefined || !isAutoEstimate(stateOf(res as unknown as Obj, "residence.purchase/downPayment"))) return;
+  const own = Math.round((p.price * DOWN_RATE()) / 10000) * 10000;
+  const gift = (p.gifts ?? []).reduce((s, g) => s + (g.amount > 0 ? g.amount : 0), 0);
+  p.downPayment = own + gift;
+  setState(res as unknown as Obj, "residence.purchase/downPayment", estRow("derived", gift > 0 ? `${downBasis(own)}＋住宅資金の援助${formatYen(gift, "man")}万円` : downBasis(own)));
+}
 
 // ---- 住まいの種類（賃貸・持ち家・家賃なし） ----
 
@@ -248,6 +265,20 @@ function ownershipFields(wh: WorkingHousehold, r: Residence, k: string): FieldDe
   const find = byId(residences, r.id);
   const own = (w: WorkingHousehold) => (find(w.request.input.household, w) as Residence | undefined)?.ownership ?? [];
   const pick = (o: { member: string; share: string }[]): string => (o.length > 1 ? "shared" : (o[0]?.member ?? ""));
+  // 住宅ローンを借りる人に家の持分が無い（ペアローン・連帯債務）ときの知らせと、借入の割合で分ける直し方（2026-11-05 の追記）
+  const missing = debtorsWithoutShare(h, r);
+  const ownerWarn = (w: WorkingHousehold): string | null => {
+    const hh = w.request.input.household;
+    const x = find(hh, w) as Residence | undefined;
+    const miss = x === undefined ? [] : debtorsWithoutShare(hh, x);
+    return miss.length === 0 ? null : `住宅ローンを借りる${miss.map((m) => memberLabel(w, m)).join("・")}に、この家の持分がありません。持分の無い人は住宅ローン控除を受けられません（今は控除0円で計算しています）。ペアローン・連帯債務なら、借入と頭金の割合などに合わせて夫婦の共有にします`;
+  };
+  const splitFix = (w: WorkingHousehold) => {
+    const hh = w.request.input.household;
+    const x = find(hh, w) as Residence | undefined;
+    const shares = x === undefined ? null : sharesByLoans(hh, x);
+    return shares === null ? null : { label: "借入の割合で持分を分ける", run: (w2: WorkingHousehold) => setOwnershipByLoans(w2, r.id) };
+  };
   const options = [...memberOptions(wh, (m) => m.kind === "self" || (m.kind === "spouse" && m.outside === undefined)).map((o) => ({ value: o.value, label: `${o.label}が100%` })), ...(spouse !== undefined ? [{ value: "shared", label: "夫婦の共有" }] : [])];
   const fields: FieldDef[] = [
     {
@@ -255,12 +286,12 @@ function ownershipFields(wh: WorkingHousehold, r: Residence, k: string): FieldDe
         key: `${k}/owner`,
         item: "residence.ownership",
         label: "名義と持分",
-        level: "detail",
+        level: missing.length > 0 ? "simple" : "detail",
         kind: "select",
         structural: true,
         options,
-        help: "評価額を名義の人の資産として数えます。住宅ローン控除の持分もここから",
-        get: (w) => ({ value: pick(own(w)) }),
+        help: "評価額を名義の人の資産として数えます。住宅ローン控除の持分もここから（持分の無い人の住宅ローンは控除がありません）",
+        get: (w) => ({ value: pick(own(w)), warn: ownerWarn(w), warnFix: splitFix(w) }),
         set: (w, v) =>
           mutate(w, (hh) => {
             const x = find(hh, w) as Residence | undefined;
@@ -278,7 +309,7 @@ function ownershipFields(wh: WorkingHousehold, r: Residence, k: string): FieldDe
         key: `${k}/ownerShare`,
         item: "residence.ownership",
         label: "本人の持分",
-        level: "detail",
+        level: missing.length > 0 ? "simple" : "detail",
         kind: "pct",
         help: "残りが配偶者の持分",
         get: (w) => ({ value: own(w).find((o) => o.member === self.id)?.share ?? "0.5" }),
@@ -293,6 +324,17 @@ function ownershipFields(wh: WorkingHousehold, r: Residence, k: string): FieldDe
       address: () => at(r.id, "residence.ownership"),
     });
   return fields;
+}
+
+/** 家の名義と持分を、その家の住宅ローンの借入額（×負担の割合）の比で分ける（ペアローン・連帯債務。2026-11-05 の追記） */
+export function setOwnershipByLoans(wh: WorkingHousehold, rid: string): WorkingHousehold {
+  return withProvisionalHousing(
+    mutate(wh, (h) => {
+      const x = (h.residences ?? []).find((y) => y.id === rid);
+      const shares = x === undefined ? null : sharesByLoans(h, x);
+      if (x !== undefined && shares !== null) x.ownership = shares;
+    }),
+  );
 }
 
 // ---- 住まい ----
@@ -456,6 +498,9 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
   }).filter((x) => x !== null);
   const actions: ActionDef[] = [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.residences = (h.residences ?? []).filter((x) => x.id !== r.id)))];
   if (free && r.to === null) actions.unshift({ key: `${k}/inherit`, label: "この家を相続する", help: "住まいを持ち家に切り替えます", level: "simple", run: (w) => inheritHome(w, r.id) });
+  // 住宅ローンを借りる人に家の持分が無い（ペアローンなど）: 借入の割合で持分を分ける（2026-11-05 の追記）
+  if (r.kind === "own" && debtorsWithoutShare(wh.request.input.household, r).length > 0 && sharesByLoans(wh.request.input.household, r) !== null)
+    actions.unshift({ key: `${k}/shareByLoans`, label: "借入の割合で持分を分ける", help: "この家の住宅ローンの借入額（連帯債務は負担の割合）の比で、家の名義と持分を夫婦の共有にします。頭金の割合も入れるなら「名義と持分」の本人の持分を直してください", level: "simple", run: (w) => setOwnershipByLoans(w, r.id) });
   // 購入の予定の持ち家は「住宅の購入」の1件（購入の欄を頭に、住まいの欄をその後に。別の住まいを足したように見せない）
   if (buying) fields.unshift(...purchaseFields(wh, r, k));
   const groups: GroupDef[] = [
@@ -483,7 +528,9 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
 /**
  * この家を相続する（0052。家賃なしの住まいに住んでいて、その家を相続する）: 家賃なしの住まいを相続の時点で終え、同じ家の持ち家を翌月から足す。
  * 時点は、相続・贈与のカードの受け取る相続の行があればその月、無ければ10年後（直してください）。評価額は未入力（相続の見込みの額を入れる）、
- * 税・修繕は目安のボタンの値。貯蓄・運用に別の不動産は作らない（二重にしない）
+ * 税・修繕は目安のボタンの値。貯蓄・運用に別の不動産は作らない（二重にしない）。
+ * 建物が建った年は、相続する家の築年数の目安（計算の基準の年に築30年。事務所の推定の値）で推定に入れる（空欄だと相続の年に新築とみなして、
+ * 建物の評価と固定資産税の目安が新築の家の額になるため。2026-11-05 の追記）
  */
 export function inheritHome(wh: WorkingHousehold, id: string): WorkingHousehold {
   return mutate(wh, (h, req) => {
@@ -493,7 +540,10 @@ export function inheritHome(wh: WorkingHousehold, id: string): WorkingHousehold 
     const flow = (h.incomeFlows ?? []).find((f) => f.kind === "inheritance");
     const when = (flow !== undefined ? resolveTimepoint(h, flow.from) : null) ?? addMonths(req.input.baseMonth, 120);
     r.to = { at: addMonths(when, -1) };
-    const next: Residence = { id: newId(), kind: "own", from: { at: when }, to: null, propertyTax: { annual: TAX_PRESET() }, maintenance: { monthly: MAINT_PRESET() }, ownership: [{ member: self.id, share: "1" }], valuation: { asOf: when } };
+    const baseYear = Number(req.input.baseMonth.slice(0, 4));
+    const built = baseYear - INHERITED_AGE();
+    const next: Residence = { id: newId(), kind: "own", from: { at: when }, to: null, propertyTax: { annual: TAX_PRESET() }, maintenance: { monthly: MAINT_PRESET() }, ownership: [{ member: self.id, share: "1" }], valuation: { asOf: when, builtYear: built } };
+    setState(next as unknown as Obj, "residence.valuation/builtYear", estRow("standard", inheritedBuiltBasis(built)));
     (h.residences ??= []).push(next);
   });
 }
@@ -524,10 +574,7 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
     after: (_h, target, v) => {
       const res = target as unknown as Residence & Obj;
       if (res.purchase === undefined || typeof v !== "number") return;
-      if (isAutoEstimate(stateOf(res, "residence.purchase/downPayment"))) {
-        res.purchase.downPayment = Math.round((v * DOWN_RATE()) / 10000) * 10000;
-        setState(res, "residence.purchase/downPayment", estRow("derived", downBasis(res.purchase.downPayment)));
-      }
+      refreshDownEstimate(res);
       if (!isCustomBuild(res) && isAutoEstimate(stateOf(res, "residence.purchase/costs"))) {
         const nb = res.purchase.newBuild;
         res.purchase.costs = Math.round((v * COSTS_RATE(nb)) / 10000) * 10000;
@@ -764,9 +811,17 @@ export function newLandLoan(wh: WorkingHousehold, rid: string): WorkingHousehold
 }
 
 /** 建物が建った年の欄（持ち家の評価の欄と同じ値。中古の購入の予定は住宅の購入の頭に、ほかは持ち家の評価に出す） */
+/** これから持ち始める持ち家（購入の予定でなく、住み始めが計算の基準の月より後。「この家を相続する」で足した家） */
+export function isInheritedHome(wh: WorkingHousehold, r: Residence): boolean {
+  if (r.kind !== "own" || r.purchase !== undefined) return false;
+  const from = resolveTimepoint(wh.request.input.household, r.from);
+  return from !== null && from > wh.request.input.baseMonth;
+}
+
 function builtYearField(wh: WorkingHousehold, r: Residence, k: string): FieldDef {
   const find = byId(residences, r.id);
   const bought = r.purchase !== undefined;
+  const inherited = isInheritedHome(wh, r);
   const used = bought && purchaseTypeOf(wh, r)?.type.startsWith("used") === true;
   const asOf = r.valuation?.asOf ?? (r.purchase !== undefined ? resolveTimepoint(wh.request.input.household, r.purchase.at) : null) ?? wh.request.input.baseMonth;
   const asOfYear = Number(asOf.slice(0, 4));
@@ -789,24 +844,75 @@ function builtYearField(wh: WorkingHousehold, r: Residence, k: string): FieldDef
       ? "中古の建物が建った年です。持ち家の評価（建物の目減り）と固定資産税の目安に使います。入れるまでは、購入の年に建ったとみなして評価します"
       : bought
         ? "入れなければ、その額の時点の年（購入の年）に完成する新築とみなします"
-        : `入れなければ、その額の時点（${asOfYear}年）に新築とみなします。わかれば建った年を入れてください`,
+        : inherited
+          ? `相続する家が建った年です。建物の評価（古くなった分の目減り）と固定資産税の目安に使います。分からなければ、相続する家の築年数の目安（いま築${String(INHERITED_AGE())}年）の推定のままにします。空欄にすると、その額の時点（${asOfYear}年）に新築とみなします`
+          : `入れなければ、その額の時点（${asOfYear}年）に新築とみなします。わかれば建った年を入れてください`,
   });
 }
+
+// ---- 住宅取得等資金の贈与税の非課税の期限（2026-11-05 の追記） ----
+
+const EXEMPTION_IDS = { energySaving: "giftTax.housingFunds.exemption.energySaving", other: "giftTax.housingFunds.exemption.other" } as const;
+type ExemptionKind = keyof typeof EXEMPTION_IDS;
+const isExemptionKind = (v: unknown): v is ExemptionKind => v === "energySaving" || v === "other";
+
+/** その月の贈与に住宅取得等資金の非課税があるか（制度データの写し。期限の後は「制度なし」。計算エンジンの gift.tax と同じ値） */
+export function exemptionOpen(kind: ExemptionKind, ym: string): boolean {
+  const v = regulationValue(EXEMPTION_IDS[kind], `${ym}-01`);
+  return typeof v === "number" && v > 0;
+}
+
+/** 非課税の期限の文（値のある最後の行の終わりの日。例「2026年12月31日」。期限が無ければ null） */
+export function exemptionDeadline(kind: ExemptionKind): string | null {
+  const to = regulationEntries(EXEMPTION_IDS[kind]).filter((r) => typeof r.value === "number" && r.value > 0).at(-1)?.to ?? null;
+  if (to === null) return null;
+  const [y, m, d] = to.split("-").map(Number) as [number, number, number];
+  return `${String(y)}年${String(m)}月${String(d)}日`;
+}
+
+/** 援助の非課税の選択が、受け取る月（購入の月）に使えないときの知らせ（使えれば null） */
+export function exemptionWarn(kind: unknown, ym: string | null): string | null {
+  if (ym === null || !isExemptionKind(kind) || exemptionOpen(kind, ym)) return null;
+  const dl = exemptionDeadline(kind);
+  return `受け取る月（${ym.slice(0, 4)}年${String(Number(ym.slice(5, 7)))}月）は、住宅取得等資金の非課税の期限${dl === null ? "" : `（${dl}までの贈与）`}の後なので、非課税なしで贈与税を計算しています。延長が決まれば、制度データを新しくしたときに計算に入ります`;
+}
+
+/** 非課税の選択肢（期限を添える） */
+const exemptionOptions = () =>
+  HOUSING_EXEMPTION.map((o) => {
+    const dl = isExemptionKind(o.value) ? exemptionDeadline(o.value) : null;
+    return dl === null ? o : { ...o, label: `${o.label}（${dl}までの贈与）` };
+  });
 
 /** 住宅資金の援助（購入の予定の「住宅の購入」の1件の中に描く。キーが <住まい>/purchase/gift/… なので、その枠の中のまとまりになる） */
 function giftGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDef[] {
   const find = byId(residences, r.id);
   const kp = `${k}/purchase`;
   const groups: GroupDef[] = [];
+  const giftMonth = purchaseMonth(wh.request.input.household, r);
   (r.purchase?.gifts ?? []).forEach((g, j) => {
     const findG: Finder = (h, w) => (getPath(find(h, w), ["purchase", "gifts", String(j)]) as Record<string, unknown> | undefined) ?? undefined;
     const kg = `${kp}/gift/${j}`;
     const gid = g.id as string | undefined;
-    const amount = plain({ key: `${kg}/amount`, item: "residence.purchase", label: "援助の額", level: "simple", kind: "yen", basis: "once", find: findG, path: ["amount"], help: "目安は作りません（外れると結果を大きく誤らせるため）。受け取る予定の額を入れてください" });
+    const amount = plain({
+      key: `${kg}/amount`,
+      item: "residence.purchase",
+      label: "援助の額",
+      level: "simple",
+      kind: "yen",
+      basis: "once",
+      find: findG,
+      path: ["amount"],
+      help: "目安は作りません（外れると結果を大きく誤らせるため）。受け取る予定の額を入れてください。援助は頭金の一部として払います（頭金が推定のままなら、援助の額を頭金に足します）",
+      after: (h, _t, _v, w) => refreshDownEstimate(find(h, w) as Residence | undefined),
+    });
+    // 非課税の期限の後の贈与（2026-11-05 の追記。計算エンジンは期限の後を非課税なしで計算する）
+    const late = exemptionWarn(g.housingExemption ?? "other", giftMonth);
+    const exempt = plain({ key: `${kg}/exempt`, item: "residence.purchase", label: "住宅取得等資金の非課税", level: late !== null ? "simple" : "detail", kind: "select", options: exemptionOptions(), find: findG, path: ["housingExemption"], optional: true, fallback: "other", help: "親・祖父母から住宅の購入の資金をもらうときの贈与税の非課税です。期限の後の贈与は非課税なしで計算します（延長が決まれば、制度データを新しくしたときに計算に入ります）" });
     groups.push({
       key: kg,
       title: `住宅資金の援助 ${j + 1}`,
-      ...(g.donor !== undefined ? { note: "贈与する人から出すので、援助の額は世帯の資産から出しません。受け取るのは購入の月です" } : { note: "受け取るのは購入の月です" }),
+      note: [g.donor !== undefined ? "贈与する人から出すので、援助の額は世帯の資産から出しません。受け取るのは購入の月です" : "受け取るのは購入の月です", ...(late !== null ? [late] : [])].join("。"),
       level: "simple",
       moreLabel: "受け取る人・課税の方法を入れる",
       fields: [
@@ -814,7 +920,7 @@ function giftGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDef[] {
         gid === undefined ? amount : { ...amount, address: () => at(r.id, "residence.purchase", ["gifts", gid, "amount"]) },
         plain({ key: `${kg}/recipient`, item: "residence.purchase", label: "受け取る人", level: "detail", kind: "select", options: memberOptions(wh, (m) => m.kind === "self" || m.kind === "spouse"), find: findG, path: ["recipient"] }),
         plain({ key: `${kg}/tax`, item: "residence.purchase", label: "贈与税の課税方法", level: "detail", kind: "select", options: TAX_METHODS, find: findG, path: ["taxMethod"], optional: true, fallback: "calendar" }),
-        plain({ key: `${kg}/exempt`, item: "residence.purchase", label: "住宅取得等資金の非課税", level: "detail", kind: "select", options: HOUSING_EXEMPTION, find: findG, path: ["housingExemption"], optional: true, fallback: "none" }),
+        { ...exempt, get: (w: WorkingHousehold) => ({ ...exempt.get(w), warn: exemptionWarn((getPath(findG(w.request.input.household, w), ["housingExemption"]) as string | undefined) ?? "other", purchaseMonth(w.request.input.household, find(w.request.input.household, w) as unknown as Residence)) }) },
       ],
       actions: [
         removeAction(`${kg}/remove`, "外す", "simple", (h, w) => {
@@ -823,6 +929,7 @@ function giftGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDef[] {
             if (gid !== undefined) setState(res as unknown as Obj, `residence.purchase/gifts/${gid}/amount`, undefined);
             res.purchase.gifts = res.purchase.gifts.filter((_, x) => x !== j);
             if (res.purchase.gifts.length === 0) delete res.purchase.gifts;
+            refreshDownEstimate(res);
           }
         }),
       ],
@@ -845,7 +952,10 @@ function giftGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDef[] {
             const donor = (h.donors ?? [])[0];
             if (res?.purchase === undefined || self2 === undefined) return;
             const id = newId();
-            (res.purchase.gifts ??= []).push({ id, recipient: self2.id, giver: donor?.kind ?? "parent", ...(donor !== undefined ? { donor: donor.id } : {}), amount: 0, housingExemption: "energySaving" });
+            // 非課税の既定は省エネ等住宅。受け取る月（購入の月）が非課税の期限の後なら「使わない」（期限の後は制度が無い。2026-11-05 の追記）
+            const ym = purchaseMonth(h, res);
+            const exemption = ym === null || exemptionOpen("energySaving", ym) ? "energySaving" : "none";
+            (res.purchase.gifts ??= []).push({ id, recipient: self2.id, giver: donor?.kind ?? "parent", ...(donor !== undefined ? { donor: donor.id } : {}), amount: 0, housingExemption: exemption });
             setState(res as unknown as Obj, `residence.purchase/gifts/${id}/amount`, estRow("standard", UNENTERED_GIFT));
           }),
       },
@@ -905,6 +1015,7 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
   const base = wh.request.input.baseMonth;
   const setting = wh.request.input.assumptions?.realEstateValuation;
   const asOf = r.valuation?.asOf ?? (r.purchase !== undefined ? resolveTimepoint(wh.request.input.household, r.purchase.at) : null) ?? base;
+  const inherited = isInheritedHome(wh, r);
   const groups: GroupDef[] = [
     {
       key: kv,
@@ -925,10 +1036,12 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
           optional: bought,
           help: bought
             ? "入れなければ、物件の価格を購入の月の評価額にし、土地の割合で土地と建物に分けて、建物は構造の耐用年数で毎年減らします（土地は前提条件の上昇率で動きます）。新築の値段の上乗せ分などで買った直後の売値が下がると見込むなら、その額を入れます"
-            : "土地と建物の合計。わからなければ購入の価格を入れます。購入の価格を入れたときは、時点に購入の年月を入れます。相続する家は相続の見込みの額",
+            : inherited
+              ? "相続する家の、相続の時点の見込みの額（土地と建物の合計）です。相続税の目安・資産と負債の推移・固定資産税の目安に使います"
+              : "土地と建物の合計。わからなければ購入の価格を入れます。購入の価格を入れたときは、時点に購入の年月を入れます。相続する家は相続の見込みの額",
           hint: (w) => valuationHint(w, r),
         }),
-        plain({ key: `${kv}/asOf`, item: "residence.valuation", label: bought ? "その額の時点" : "その額の時点（購入の年月）", level: "detail", kind: "ym", find, path: ["valuation", "asOf"], optional: true, fallback: asOf }),
+        plain({ key: `${kv}/asOf`, item: "residence.valuation", label: bought ? "その額の時点" : inherited ? "その額の時点（相続の年月）" : "その額の時点（購入の年月）", level: "detail", kind: "ym", find, path: ["valuation", "asOf"], optional: true, fallback: asOf, ...(inherited ? { help: "相続の見込みの額の時点です。多くは相続の年月（住み始め）のままにします" } : {}) }),
         {
           ...plain({ key: `${kv}/structure`, item: "residence.valuation", label: "建物の構造", level: "detail", kind: "select", options: BUILDING_STRUCTURES, find, path: ["valuation", "structure"], optional: true, fallback: "wood", help: "建物を耐用年数（木造22年・軽量鉄骨19年・重量鉄骨34年・鉄筋コンクリート47年）で減らします。建て方から目安を出します" }),
           address: () => at(r.id, "residence.valuation", ["structure"]),

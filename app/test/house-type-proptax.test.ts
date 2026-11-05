@@ -110,11 +110,12 @@ describe("住宅の購入の種類（0052 の追記 2026-11-03）", () => {
     expect(loanOf(wh).housing).toMatchObject({ newBuild: false, propertyType: "other" });
     expect(fieldMaybe(wh, `${id}/credit/newBuild`)).toBeUndefined();
     wh = set(wh, "/purchase/type", "newCondo");
-    expect(loanOf(wh).housing).toMatchObject({ newBuild: true, propertyType: "energySaving" });
+    // 2028年の入居の新築は、控除のある最も控えめな ZEH水準省エネ住宅（2026-11-05 の追記）
+    expect(loanOf(wh).housing).toMatchObject({ newBuild: true, propertyType: "zeh" });
     // FP が控除の住宅の種類を確定にしても、新築か中古かは種類に合わせる
-    wh = set(wh, `${id}/credit`, "zeh");
+    wh = set(wh, `${id}/credit`, "certified");
     wh = set(wh, "/purchase/type", "usedHouse");
-    expect(loanOf(wh).housing).toMatchObject({ newBuild: false, propertyType: "zeh" });
+    expect(loanOf(wh).housing).toMatchObject({ newBuild: false, propertyType: "certified" });
   });
 
   it("今住んでいる家のローン（購入の予定とつながらない）は、今のまま控除の側で新築か中古かを聞く", () => {

@@ -4835,6 +4835,110 @@ export const REGULATION_VALUES: Readonly<Record<string, readonly DatedValue[]>> 
    ]
   }
  ],
+ "giftTax.housingFunds.exemption.energySaving": [
+  {
+   "from": "2024-01-01",
+   "to": "2026-12-31",
+   "rev": 3,
+   "value": 10000000
+  },
+  {
+   "from": "2027-01-01",
+   "to": null,
+   "rev": 4,
+   "value": "notApplicable"
+  }
+ ],
+ "giftTax.housingFunds.exemption.other": [
+  {
+   "from": "2024-01-01",
+   "to": "2026-12-31",
+   "rev": 3,
+   "value": 5000000
+  },
+  {
+   "from": "2027-01-01",
+   "to": null,
+   "rev": 4,
+   "value": "notApplicable"
+  }
+ ],
+ "incomeTax.housingLoanCredit.limit.new.energySaving": [
+  {
+   "from": "2014-01-01",
+   "to": "2021-12-31",
+   "rev": 11,
+   "value": 40000000
+  },
+  {
+   "from": "2022-01-01",
+   "to": "2023-12-31",
+   "rev": 6,
+   "value": 40000000
+  },
+  {
+   "from": "2024-01-01",
+   "to": "2025-12-31",
+   "rev": 7,
+   "value": 30000000
+  },
+  {
+   "from": "2026-01-01",
+   "to": "2027-12-31",
+   "rev": 8,
+   "value": 20000000
+  },
+  {
+   "from": "2028-01-01",
+   "to": "2030-12-31",
+   "rev": 9,
+   "value": 0
+  },
+  {
+   "from": "2031-01-01",
+   "to": null,
+   "rev": 10,
+   "value": "notApplicable"
+  }
+ ],
+ "incomeTax.housingLoanCredit.limit.new.zeh": [
+  {
+   "from": "2014-01-01",
+   "to": "2021-12-31",
+   "rev": 11,
+   "value": 40000000
+  },
+  {
+   "from": "2022-01-01",
+   "to": "2023-12-31",
+   "rev": 6,
+   "value": 45000000
+  },
+  {
+   "from": "2024-01-01",
+   "to": "2025-12-31",
+   "rev": 7,
+   "value": 35000000
+  },
+  {
+   "from": "2026-01-01",
+   "to": "2027-12-31",
+   "rev": 8,
+   "value": 35000000
+  },
+  {
+   "from": "2028-01-01",
+   "to": "2030-12-31",
+   "rev": 9,
+   "value": 35000000
+  },
+  {
+   "from": "2031-01-01",
+   "to": null,
+   "rev": 10,
+   "value": "notApplicable"
+  }
+ ],
  "socialInsurance.health.kyokaikenpo.rate": [
   {
    "from": "2024-03-01",

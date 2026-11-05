@@ -103,6 +103,8 @@ type PointFull = InheritancePoint & {
 };
 
 const man = (yen: number) => `${manText(yen)}万円`;
+/** 相続税の目安の不動産の評価の割合の既定（計算エンジンの inheritance.estimate の REAL_ESTATE_RATIO と同じ。時価の80%） */
+const REAL_ESTATE_RATIO_DEFAULT = "0.8";
 
 /** 時点ごとの見せ方（相続・贈与のカードの区画「相続税の目安」） */
 export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): { points: InheritancePointView[]; notIncluded: string[] } {
@@ -115,9 +117,12 @@ export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): 
     const details: string[] = [];
     if (p.status === "ok") {
       const a = p.assets;
+      // 不動産の評価の割合（相続税の目安の設定。入れていなければ計算エンジンの既定の80%）
+      const ratio = Number(wh.request.input.inheritanceTax?.realEstateRatio ?? REAL_ESTATE_RATIO_DEFAULT);
+      const ratioText = `${String(Math.round(ratio * 1000) / 10)}%`;
       const parts = [
         `金融資産 ${man(a.financial ?? 0)}`,
-        ...((a.realEstateMarket ?? 0) > 0 ? [`不動産 ${man(a.realEstate ?? 0)}（時価 ${man(a.realEstateMarket ?? 0)} の評価の割合）`] : []),
+        ...((a.realEstateMarket ?? 0) > 0 ? [`不動産 ${man(a.realEstate ?? 0)}（時価 ${man(a.realEstateMarket ?? 0)} の${ratioText}）`] : []),
         ...((a.insurance ?? 0) > 0 ? [`死亡保険金 ${man(a.insurance ?? 0)}（非課税 ${man(a.insuranceExempt ?? 0)}）`] : []),
         ...((a.retirement ?? 0) > 0 ? [`死亡退職金 ${man(a.retirement ?? 0)}（非課税 ${man(a.retirementExempt ?? 0)}）`] : []),
         ...((a.other ?? 0) > 0 ? [`その他 ${man(a.other ?? 0)}`] : []),

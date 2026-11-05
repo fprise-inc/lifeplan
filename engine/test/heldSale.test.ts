@@ -158,3 +158,20 @@ describe("つながる物の毎年の費用（0123）", () => {
     expect(flows(sold).filter((f) => f.object === C).map((f) => f.ym)).toEqual(["2026-10", "2027-10", "2028-10", "2029-10"]);
   });
 });
+
+describe("貸していない不動産の持ち始める時点（0123 の追記 2026-11-05）", () => {
+  it("持ち始める年の年末から評価額の行を出し（額は持ち始めない世帯と同じ）、つながる毎年の費用は持ち始める月から払う。受け取るときの支払いは無い", () => {
+    const cost = { id: C, kind: "assetCost", object: E, row: "cf.expense.other.realEstate", from: at("2026-10"), to: null, everyYears: 1, amount: box(150000), growth: { kind: "none" } };
+    const kept = full(base([estate()], { periodicExpenses: [cost] }));
+    const later = full(base([estate({ holdFrom: at("2031-06") })], { periodicExpenses: [cost] }));
+    for (let y = 2026; y <= 2030; y++) expect(balance(later, E, y)).toBeUndefined();
+    for (let y = 2031; y <= 2036; y++) expect(balance(later, E, y)).toBe(balance(kept, E, y));
+    expect(flows(later).filter((f) => f.object === C).map((f) => f.ym)).toEqual(Array.from({ length: 6 }, (_, i) => `${String(2031 + i)}-10`));
+    // 預金の残高は、毎年の費用を払わない年の分だけ多い（受け取るときの支払いは無い）
+    const dep = (r: ReturnType<typeof full>, y: number) => annual(r).find((x) => x.row === "cf.balance.account.deposit" && x.year === y)?.amount ?? 0;
+    expect(dep(later, 2030)).toBeGreaterThan(dep(kept, 2030));
+    // 持ち始める前に売る予定は売らない
+    expect(sales(base([estate({ holdFrom: at("2031-06"), sale: { at: at("2030-04") } })]))).toEqual([]);
+    expect(sales(base([estate({ holdFrom: at("2031-06"), sale: { at: at("2033-04") } })]))).toHaveLength(1);
+  });
+});

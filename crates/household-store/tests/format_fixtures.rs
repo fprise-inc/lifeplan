@@ -368,6 +368,19 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.63 より前の版に Web の依頼の記録は無い"
             );
         }
+        if migrate::parse(v).unwrap() >= (0, 64) {
+            // 0.64 から（0123 の追記 2026-11-05）: 貸していない不動産の持ち始める時点・建物が建った年と構造
+            let accounts = now["household"]["request"]["input"]["household"]["accounts"]
+                .as_array()
+                .unwrap();
+            assert!(
+                accounts.iter().any(|a| a["subtype"] == "vacantHouse"
+                    && a["holdFrom"]["at"].is_string()
+                    && a["builtYear"].is_number()
+                    && a["structure"] == "wood"),
+                "{v}: 持ち始める時点のある空き家"
+            );
+        }
         if migrate::parse(v).unwrap() >= (0, 61) {
             // 0.61 から（0123）: 売る予定・取得の年月・貸していない不動産の細目・つながる毎年の費用の行
             let h = &now["household"]["request"]["input"]["household"];

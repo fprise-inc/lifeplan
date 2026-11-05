@@ -158,6 +158,11 @@ export interface Account {
   acquiredAt?: string;
   /** 売る予定（貸していない不動産・その他の資産だけ。0123） */
   sale?: HeldSale;
+  /** 持ち始める時点（貸していない不動産だけ。これから相続・購入する土地・別荘など。0123 の追記 2026-11-05） */
+  holdFrom?: Timepoint;
+  /** 建物が建った年・構造（貸していない不動産だけ。画面の固定資産税の目安に使う。計算エンジンは読まない。0123 の追記 2026-11-05） */
+  builtYear?: number;
+  structure?: string;
   [key: string]: unknown;
 }
 

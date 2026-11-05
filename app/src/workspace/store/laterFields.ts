@@ -89,6 +89,7 @@ export const LATER_FIELD_ENTRIES: readonly ReadingEntry[] = [
   {"from":"field:retirement/{object}/multiplier","until":"0.35","to":{"target":"object","item":"retirementBenefit.estimate","at":["multiplier"]}},
   {"from":"field:retirement/{object}/rate","until":"0.35","to":{"target":"object","item":"retirementBenefit.receipt","at":["conversionRate"]}},
   {"from":"field:sav/withdraw/min","until":"0.35","to":{"target":"assumptions","item":"assumptions.withdrawal","at":["minimumDeposit"]}},
+  {"from":"field:sav/{object}/builtYear","until":"0.64","to":{"target":"object","item":"account.builtYear","at":[]}},
   {"from":"field:sav/{object}/fee","until":"0.35","to":{"target":"object","item":"account.fee","at":[]}},
   {"from":"field:sav/{object}/lot/{n}/cost","until":"0.35","to":{"target":"object","item":"account.lots","at":[{"n":1},"costBasis"]}},
   {"from":"field:sav/{object}/lot/{n}/value","until":"0.35","to":{"target":"object","item":"account.lots","at":[{"n":1},"marketValue"]}},

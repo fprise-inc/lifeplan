@@ -310,14 +310,19 @@ describe("ローンの名義とペアローン", () => {
 });
 
 describe("住宅ローン控除の条件の欄", () => {
-  it("住宅の種類を直すと仮の印が外れて確定になり、2028年以後の新築の省エネ基準適合住宅は控除の対象外と知らせる", () => {
+  it("2028年以後に入居する新築の仮の条件は ZEH水準省エネ住宅。住宅の種類を直すと仮の印が外れて確定になり、省エネ基準適合住宅は控除の対象外と知らせる", () => {
     let wh = action(action(salaried(), "housing/addPurchase"), "housing/addMortgage");
     const id = debtsOf(wh)[0]!.id;
+    // 購入の予定は2028年10月（2026-11-05 の追記: 省エネ基準適合住宅だと控除0円なので、仮の条件は控除のある最も控えめな種類）
+    expect(debtsOf(wh)[0]!.housing?.propertyType).toBe("zeh");
     expect(status(wh, `${id}/credit`)).toBe("estimated");
+    expect(fieldOf(wh, `${id}/credit`).get(wh).assumed).toContain("ZEH水準省エネ住宅");
+    expect(fieldOf(wh, `${id}/credit`).get(wh).warn).toBeNull();
+    wh = set(wh, `${id}/credit`, "energySaving");
+    expect(debtsOf(wh)[0]!.housing?.propertyType).toBe("energySaving");
+    expect(status(wh, `${id}/credit`)).toBe("confirmed");
     expect(fieldOf(wh, `${id}/credit`).get(wh).warn).toContain("2028年以後");
     wh = set(wh, `${id}/credit`, "zeh");
-    expect(debtsOf(wh)[0]!.housing?.propertyType).toBe("zeh");
-    expect(status(wh, `${id}/credit`)).toBe("confirmed");
     expect(fieldOf(wh, `${id}/credit`).get(wh).warn).toBeNull();
     wh = set(wh, `${id}/credit/on`, false);
     expect(debtsOf(wh)[0]!.housing?.creditDisabled).toBe(true);

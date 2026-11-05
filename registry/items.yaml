@@ -28,6 +28,14 @@ entries:
     replacedBy: null
     collection: account
     path: [assetMix]
+  - id: account.builtYear
+    status: active
+    label: "建物が建った年（貸していない不動産だけ。画面の固定資産税の目安の建物の古くなった分の下がりに使う。計算エンジンは読まない。0123 の追記 2026-11-05）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: account
+    path: [builtYear]
   - id: account.contributions
     status: active
     label: "積立・掛金"
@@ -86,6 +94,14 @@ entries:
     collection: account
     path: [frame]
     pointInTime: true
+  - id: account.holdFrom
+    status: active
+    label: "持ち始める時点（貸していない不動産だけ。これから相続・購入する土地・別荘など。その月から評価額〔その年の年末から〕とつながる毎年の費用に入れ、受け取るときの支払いは無い。省略は前から持っている。0123 の追記 2026-11-05）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: account
+    path: [holdFrom]
   - id: account.kind
     status: active
     label: "器の種類"
@@ -191,6 +207,14 @@ entries:
     replacedBy: null
     collection: account
     path: [settlement]
+  - id: account.structure
+    status: active
+    label: "建物の構造（貸していない不動産だけ。画面の固定資産税の目安に使う。省略は木造。計算エンジンは読まない。0123 の追記 2026-11-05）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: account
+    path: [structure]
   - id: account.subtype
     status: active
     label: "その他の資産の細目（ownCompanyShares 自社株〔出資額〕・loanToCompany 会社への貸付金〔0105〕、preciousMetal 貴金属・art 美術品や骨董品・membership 会員権・securityDeposit 敷金や保証金・businessAsset 事業用の資産〔0120〕。省略は「その他」。種類 otherAsset だけ。表示と、売る予定の税の扱いの既定〔0123〕だけで使う。暗号資産は器の種類 cryptoAsset〔0122〕）と、貸していない不動産の細目（vacantLand 土地〔更地〕・forestFarm 山林や農地・villa 別荘・vacantHouse 空き家。種類 realEstate で中身 property の無いものだけ。表示と、売ったときの知らせ・画面の固定資産税の目安の元だけ。0123）"

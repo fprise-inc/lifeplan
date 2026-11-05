@@ -63,6 +63,9 @@
 //   （課税口座と同じ。税は売った年に引く近似）。税の行は cf.taxSi.incomeTax.cryptoAsset・cf.taxSi.residentTax.cryptoAsset。譲渡損失は名義人ごとに
 //   incomeTax.cryptoAsset.lossCarryforwardYears 年（3年）繰り越し、同じ年と翌年以後の暗号資産の利益から古い順に引く（ほかの所得・課税口座とは通算しない）。
 //   税率が無い年（2027年まで）と、売ったときの税の扱いが雑所得（cryptoTaxation が miscellaneous）の暗号資産は取り崩さない
+// - 改訂23（0123 の追記 2026-11-05）: 貸していない不動産の持ち始める時点（accounts[].holdFrom。これから相続・購入する土地・別荘など）。その年の年末が
+//   持ち始める月より前の年は、その器の評価額の行を出さない（時価は asOf の時点の額から増減率で動かし続け、持ち始めた年の年末から載せる。受け取るときの
+//   支払いは無い。収益不動産の property.holdFrom と同じ）。持ち始める時点の無い世帯の結果は同じ
 import {
   accountReturnRate,
   accountMixAt,
@@ -194,7 +197,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
   id: "plan.cashflow",
   title: "キャッシュフロー表",
   contract: "1.8",
-  revision: 22,
+  revision: 23,
   requires: {
     "plan.flows": ">=1 <2",
     "outside.wallet": ">=1 <2",
@@ -238,6 +241,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     "account.property",
     "account.uninvested",
     "account.sale",
+    "account.holdFrom",
     "debt.kind",
     "debt.debtors",
     "goal.kind",
@@ -279,6 +283,9 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
       const m = ctx.time.resolve(a.sale.at);
       if (m <= end) soldYear.set(a.id, Math.max(baseYear, yearOf(m)));
     }
+    // 持ち始める時点のある貸していない不動産の、持ち始める月（0123 の追記 2026-11-05。その年の年末が持ち始める月より前の年は評価額の行を出さない）
+    const heldFrom = new Map<string, MonthIndex>();
+    for (const a of inputs) if (a.holdFrom !== undefined && a.kind === "realEstate" && a.property === undefined) heldFrom.set(a.id, ctx.time.resolve(a.holdFrom));
     // 器（iDeCo・企業型DC は account.ideco）
     const accs: Acc[] = [];
     for (const a of inputs) {
@@ -797,6 +804,8 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
           x.value = yen(0);
           continue;
         }
+        const from = x.input === null ? undefined : heldFrom.get(x.input.id);
+        if (from !== undefined && monthIndex(y, 12) < from) continue;
         balanceRow(x.kind, x.value, x.owner, x.id);
         if (NOT_FINANCIAL.has(x.kind)) continue;
         financial = addYen(financial, x.value);

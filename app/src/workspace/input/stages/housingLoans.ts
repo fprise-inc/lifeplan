@@ -599,6 +599,14 @@ function creditWarn(h: Household, hs: DebtHousing | undefined): string | null {
   return "2028年以後に入居する新築は、省エネ基準適合住宅・一般の住宅だと控除の対象になりません。ZEH水準・認定住宅なら住宅の種類を選んでください";
 }
 
+/** このローンを借りる（負担する）人に、控除の持分が無いときの知らせ（ペアローン・連帯債務。2026-11-05 の追記） */
+function shareWarn(h: Household, d: Debt, hs: DebtHousing): string | null {
+  if (hs.creditDisabled === true || hs.ownership === undefined || hs.ownership.length === 0) return null;
+  const owners = new Set(hs.ownership.filter((o) => Number(o.share) > 0).map((o) => o.member));
+  const miss = d.debtors.filter((x) => x.role !== "guarantor" && !owners.has(x.member) && (x.role === "primary" || Number(x.share ?? "0") > 0)).map((x) => memberLabelOf(h, x.member));
+  return miss.length === 0 ? null : `このローンを借りる${miss.join("・")}に家の持分が無いので、${miss.join("・")}の住宅ローン控除は0円です。住まいの「名義と持分」を直すか、「借入の割合で持分を分ける」を押してください`;
+}
+
 /** 住宅ローン控除が効く期間の目安（入居から13年。新築の控除の期間の長い方） */
 const CREDIT_YEARS = 13;
 
@@ -643,10 +651,12 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         }
         if (hs.creditDisabled === true) return { value: "控除を受けない" };
         const moveIn = moveInOf(h, hs);
-        const own = hs.ownership === undefined || hs.ownership.length === 0 ? "持分は債務者が100%" : `持分 ${hs.ownership.map((o) => `${memberLabelOf(h, o.member)} ${Math.round(Number(o.share) * 1000) / 10}%`).join("・")}`;
+        // 持分は控除の条件の持分（家の名義と持分から写す。housingCredit.ts）。無ければ計算エンジンは主債務者を100%とみなす
+        const own = hs.ownership === undefined || hs.ownership.length === 0 ? "持分は主債務者が100%" : `持分 ${hs.ownership.map((o) => `${memberLabelOf(h, o.member)} ${Math.round(Number(o.share) * 1000) / 10}%`).join("・")}`;
         const early = moveIn !== null && Number(moveIn.slice(0, 4)) < CREDIT_DATA_FROM_YEAR ? `（${CREDIT_DATA_FROM_YEAR - 1}年以前の入居の控除は計算しません）` : "";
         const value = ["受ける", moveIn === null ? null : `入居 ${formatYearMonth(moveIn)}`, hs.newBuild ? "新築" : "中古", PROPERTY_SHORT[hs.propertyType] ?? hs.propertyType, own].filter((s) => s !== null).join("・") + early;
-        return { value, assumed: mark(w), warn: creditWarn(h, hs) };
+        const warn = [creditWarn(h, hs), shareWarn(h, x, hs)].filter((s) => s !== null).join("。");
+        return { value, assumed: mark(w), warn: warn === "" ? null : warn };
       },
       set: (w) => w,
     }),
@@ -1044,6 +1054,28 @@ function rateTypeField(wh: WorkingHousehold, d: Debt, k: string, level: "simple"
   });
 }
 
+/**
+ * 商品の欄（住宅ローン）。フラット35（全期間固定）を選んだら、ほかの欄をそろえる（2026-11-05 の追記）: 金利の種類を全期間固定にし（金利が種類の
+ * 目安のままなら全期間固定の目安に入れ直す。FP が入れた金利は変えない。金利の種類の欄と同じ決まり）、5年ルール・125%ルールを外す（変動金利だけの決まり）
+ */
+function productField(wh: WorkingHousehold, d: Debt, k: string): FieldDef {
+  const inner = plain({ key: `${k}/product`, item: "debt.product", label: "商品", level: "detail", kind: "select", options: [{ value: "bank", label: "銀行などの住宅ローン" }, { value: "flat35", label: "フラット35（全期間固定）" }], find: byId(debts, d.id), path: ["product"], optional: true, fallback: "bank" });
+  const typeField = rateTypeField(wh, d, k, "detail");
+  return field({
+    ...inner,
+    sideEffects: "フラット35にすると、金利の種類を全期間固定にし（金利が推定のままなら全期間固定の推定の金利に入れ直します）、5年ルール・125%ルールを外します",
+    set: (w, v) => {
+      const next = inner.set(w, v);
+      if (v !== "flat35" || next === w) return next;
+      const cur = (next.request.input.household.debts ?? []).find((x) => x.id === d.id);
+      const typed = cur?.rateSchedule[0]?.type === "fixed" ? next : typeField.set(next, "fixed");
+      return editDebt(typed, d.id, (x) => {
+        if (x.repayment.variableRules !== undefined) delete x.repayment.variableRules;
+      });
+    },
+  });
+}
+
 /** 逆算し直す欄の説明（逆算の推定があるローンだけ。往復の確かめで別に扱う） */
 function followNote(wh: WorkingHousehold, d: Debt): { sideEffects?: string } {
   const solved = [rowOf(wh, addrPrincipal(d.id)), rowOf(wh, addrRate(d)), rowOf(wh, addrTerm(d.id))].some((r) => isEstimate(r, SOLVED) || isEstimate(r, "仮"));
@@ -1349,7 +1381,7 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
   );
   if (mortgage) {
     fields.push(
-      withAddress(plain({ key: `${k}/product`, item: "debt.product", label: "商品", level: D, kind: "select", options: [{ value: "bank", label: "銀行などの住宅ローン" }, { value: "flat35", label: "フラット35（全期間固定）" }], find, path: ["product"], optional: true, fallback: "bank" }), () => at(d.id, "debt.product")),
+      withAddress(productField(wh, d, k), () => at(d.id, "debt.product")),
       plain({ key: `${k}/fiveYear`, item: "debt.repayment", label: "5年ルール", help: "返済額を5年ごとに見直します（その間に金利が変わっても返済額は同じ）", level: D, kind: "bool", find, path: ["repayment", "variableRules", "fiveYear"], optional: true, fallback: false }),
       plain({ key: `${k}/cap125`, item: "debt.repayment", label: "125%ルール", help: "5年ごとの見直しで、新しい返済額を前の1.25倍までにします", level: D, kind: "bool", find, path: ["repayment", "variableRules", "cap125"], optional: true, fallback: false }),
       // 団信は住まい・ローンのカードでは詳細（既定の「あり」で多くは当たり、今の結果には効かない。万一の画面では標準のまま。0078）

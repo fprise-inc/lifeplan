@@ -202,6 +202,11 @@ export function masterAmount(id: string): number | null {
  * 保険者ごとの値は insurer で選ぶ。
  * 推定の目安なので、行が無い日でも止めずに近い行を使う
  */
+/** 制度データの写しの行（適用の始まり・終わりと値。古い順） */
+export function regulationEntries(id: string): readonly DatedValue[] {
+  return REGULATION_VALUES[id] ?? [];
+}
+
 export function regulationValue(id: string, date: string | null, insurer?: string): DatedValue["value"] | null {
   const rows = (REGULATION_VALUES[id] ?? []).filter((r) => insurer === undefined || r.insurer === insurer);
   if (date === null) return rows.at(-1)?.value ?? null;
