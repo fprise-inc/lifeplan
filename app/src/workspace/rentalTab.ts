@@ -13,7 +13,7 @@ import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import type { RentalMetricModel, RentalPropertyViewModel, RentalSaleModel, RentalTabModel, RentalTableModel, RentalTotalViewModel } from "../presentation/model.ts";
 import { group, man } from "../presentation/format.ts";
 import { BUILDING_STRUCTURES } from "./input/labels.ts";
-import { isLandOnlyKind, RENTAL_KINDS, rentalName, rentalProperties } from "./input/stages/rental.ts";
+import { isLandOnlyKind, RENTAL_KINDS, rentalName, rentalProperties, rentWords } from "./input/stages/rental.ts";
 import { displayYears } from "./present.ts";
 import { roles } from "./roles.ts";
 
@@ -107,15 +107,36 @@ const HELP = {
 const yearsText = (n: number | null) => (n === null ? dash : `${n}年`);
 
 /** 減価償却が終わる年が無いときの、理由の分かる文 */
-function noDepreciationText(p: RealEstateAnalysisProperty, landOnly: boolean): string {
+function noDepreciationText(p: RealEstateAnalysisProperty, landOnly: boolean, kind: string | undefined): string {
   if (p.acquisition === null) return "—（取得価額が未入力）";
-  if (landOnly && p.builtYear === null) return "—（減価償却する建物がありません）";
+  if (landOnly && p.builtYear === null) return kind === "parking" ? "—（設備を入れていないので、減価償却しません）" : "—（建物が無いので、減価償却しません）";
   return dash;
 }
 
-/** 物件のその年の指標。baseYear は計算基準年（計算の最初の年）、landOnly は種類が貸している土地・駐車場 */
-export function propertyMetrics(p: RealEstateAnalysisProperty, y: RealEstateAnalysisYear | undefined, o: { baseYear: number; landOnly?: boolean } = { baseYear: 0 }): RentalMetricModel[] {
+/** 減価償却の無い物件か（建物の無い種類で、表のどの年も減価償却費が 0）。元金の返済が減価償却費を上回る年は意味を持たないので出さない */
+export const noDepreciation = (p: RealEstateAnalysisProperty, landOnly: boolean): boolean => landOnly && p.builtYear === null && p.years.every((r) => (r.depreciation ?? 0) === 0);
+
+/** 建物の無い種類（駐車場・貸している土地）の指標の名前と「?」（0079 の追記 2026-11-06。数字は同じ） */
+function landOnlyHelp(kind: string | undefined) {
+  const parking = kind === "parking";
+  const full = parking ? "満車のとき" : "貸しているとき";
+  return {
+    grossYield: `${full}の収入（${parking ? "駐車料" : "地代"}とその他の月の収入。${parking ? "礼金" : "権利金"}・更新料は入れない）の年額÷取得価額です。`,
+    breakEven: `（経費＋約定の返済）÷${full}の収入です。${parking ? "区画の埋まっている割合" : "貸している割合"}がこれを下回ると、税引前の手残りが赤字になる目安です。`,
+    depreciationEnd: parking
+      ? "設備（舗装・機械式駐車設備など）の減価償却が終わる年です。終わった後は不動産所得が増え、税が増えます。売る・貸し終わるまでに終わらないときは「売るまでには終わりません」と出し、そのまま貸し続けたら終わる年を括弧に書きます。取得価額を入れていないとき、設備を入れていないときは、減価償却をしないので出しません。"
+      : "貸している土地は建物が無いので、減価償却をしません（取得価額と評価額を全部土地として計算します）。",
+    deadCross: parking
+      ? "元金の返済が減価償却費（設備の分）を上回る最初の年です。この年から、帳簿の上の所得より手元に残るお金が少なくなり、税の分だけ手残りが苦しくなりやすくなります。計算の最初の年から上回っていれば「もう上回っています」と出します。ローンの無い物件・設備を入れていない物件・上回る年が表の期間に無い物件は出しません。"
+      : "減価償却の無い物件なので出しません（ローンの元金の返済は、はじめから全部が手残りから出ます）。",
+  };
+}
+
+/** 物件のその年の指標。baseYear は計算基準年（計算の最初の年）、landOnly は種類が貸している土地・駐車場、kind はその種類 */
+export function propertyMetrics(p: RealEstateAnalysisProperty, y: RealEstateAnalysisYear | undefined, o: { baseYear: number; landOnly?: boolean; kind?: string } = { baseYear: 0 }): RentalMetricModel[] {
   const out: RentalMetricModel[] = [];
+  const landOnly = o.landOnly === true;
+  const lh = landOnly ? landOnlyHelp(o.kind) : null;
   const m = (key: string, label: string, value: string, help: string) => out.push({ key, label, value, help });
   if (p.lodging) {
     const l = y?.lodging;
@@ -124,9 +145,9 @@ export function propertyMetrics(p: RealEstateAnalysisProperty, y: RealEstateAnal
     m("nightly", "1泊の単価", l === undefined ? dash : yenText(l.nightly), HELP.nightly);
     m("days", "営業日数", l === undefined ? dash : `${l.days}日`, HELP.days);
     m("sales", "年の売上", sales === null ? dash : manYen(sales), HELP.lodgingSales);
-  } else m("grossYield", "表面利回り", pctText(y?.grossYield), HELP.grossYield);
+  } else m("grossYield", "表面利回り", pctText(y?.grossYield), lh?.grossYield ?? HELP.grossYield);
   m("netYield", "実質利回り", pctText(y?.netYield), HELP.netYield);
-  m("breakEven", p.lodging ? "損益分岐の稼働率" : "損益分岐の入居率", pctText(y?.breakEven), p.lodging ? HELP.breakEvenLodging : HELP.breakEven);
+  m("breakEven", breakEvenLabel(p.lodging, landOnly), pctText(y?.breakEven), p.lodging ? HELP.breakEvenLodging : (lh?.breakEven ?? HELP.breakEven));
   m("repaymentRatio", "返済比率", pctText(y?.repaymentRatio), HELP.repaymentRatio);
   m("dscr", "返済余裕率（DSCR）", timesText(y?.dscr), HELP.dscr);
   m("ltv", "借入の割合（LTV）", pctText(y?.ltv), HELP.ltv);
@@ -137,10 +158,13 @@ export function propertyMetrics(p: RealEstateAnalysisProperty, y: RealEstateAnal
   m("monthlyAfter", "月の手残り（税引後）", after === null ? dash : yenText(after), HELP.monthlyAfter);
   m("unrealizedGain", "含み益", y?.unrealizedGain == null ? (p.acquisition === null ? "—（取得価額が未入力）" : dash) : manYen(y.unrealizedGain), HELP.unrealizedGain);
   m("equity", "売ったときの手残りの目安（ローン返済後）", y?.equity == null ? dash : manYen(y.equity), HELP.equity);
-  if (p.builtYear !== null || o.landOnly !== true) m("age", "築年数／残りの耐用年数", y?.age == null ? dash : `${y.age}年／${yearsText(y.remainingLife)}`, HELP.age);
-  const endText = depreciationEndText({ ...p, sells: p.exit !== null }) ?? noDepreciationText(p, o.landOnly === true);
-  m("depreciationEnd", "減価償却が終わる年", endText, HELP.depreciationEnd);
-  m("deadCross", "元金の返済が減価償却費を上回る年", deadCrossText(p.deadCross, o.baseYear) ?? dash, HELP.deadCross);
+  if (p.builtYear !== null || !landOnly) m("age", "築年数／残りの耐用年数", y?.age == null ? dash : `${y.age}年／${yearsText(y.remainingLife)}`, HELP.age);
+  // 建物の無い物件で建物の分が無ければ、建物を前提にした「?」にしない（前の版の建物の分が残る物件は builtYear があり、今までの「?」）
+  const lhDep = landOnly && p.builtYear === null ? lh : null;
+  const endText = depreciationEndText({ ...p, sells: p.exit !== null }) ?? noDepreciationText(p, landOnly, o.kind);
+  m("depreciationEnd", "減価償却が終わる年", endText, lhDep?.depreciationEnd ?? HELP.depreciationEnd);
+  const deadText = noDepreciation(p, landOnly) ? "—（減価償却がありません）" : (deadCrossText(p.deadCross, o.baseYear) ?? dash);
+  m("deadCross", "元金の返済が減価償却費を上回る年", deadText, lhDep?.deadCross ?? HELP.deadCross);
   return out;
 }
 
@@ -148,11 +172,14 @@ export function propertyMetrics(p: RealEstateAnalysisProperty, y: RealEstateAnal
 
 type Amounts = RealEstateAnalysisYear | RealEstateAnalysisTotal;
 
-/** 年ごとの表（物件と全体で同じ列。大きな修繕は1年でもあれば列を出す） */
-export function yearTable(rows: readonly Amounts[], opt: { lodging: boolean; deadCross: number | null }): RentalTableModel {
+/** 損益分岐の指標の名前（民泊・宿と建物の無い種類は稼働率。数字は同じ） */
+export const breakEvenLabel = (lodging: boolean, landOnly: boolean): string => (lodging || landOnly ? "損益分岐の稼働率" : "損益分岐の入居率");
+
+/** 年ごとの表（物件と全体で同じ列。大きな修繕は1年でもあれば列を出す）。kind はその物件の種類（収入の列の名前。全体は省略で「家賃収入」） */
+export function yearTable(rows: readonly Amounts[], opt: { lodging: boolean; deadCross: number | null; kind?: string }): RentalTableModel {
   const repairs = rows.some((r) => r.repairs > 0);
   const cols: { key: string; label: string; get: (r: Amounts) => number | null }[] = [
-    { key: "rent", label: opt.lodging ? "売上" : "家賃収入", get: (r) => r.rent },
+    { key: "rent", label: opt.lodging ? "売上" : rentWords(opt.kind).income, get: (r) => r.rent },
     { key: "expenses", label: "経費", get: (r) => r.expenses },
     ...(repairs ? [{ key: "repairs", label: "大きな修繕", get: (r: Amounts) => r.repairs }] : []),
     { key: "depreciation", label: "減価償却", get: (r) => r.depreciation },
@@ -259,6 +286,7 @@ const kindOf = (req: EngineRequest, object: string): string | undefined => (req.
 function propertyView(req: EngineRequest, p: RealEstateAnalysisProperty, year: number | null, sale: RentalSaleModel | null): RentalPropertyViewModel {
   const rows = shownYears(req, p.years);
   const baseYear = Number(req.input.baseMonth.slice(0, 4));
+  const kind = kindOf(req, p.object);
   const y = (year === null ? undefined : rows.find((r) => r.year === year)) ?? rows.find((r) => r.months > 0) ?? rows[0];
   return {
     kind: "property",
@@ -266,10 +294,10 @@ function propertyView(req: EngineRequest, p: RealEstateAnalysisProperty, year: n
     title: titleOf(nameOf(req, p.object)),
     facts: factsOf(req, p),
     year: y?.year ?? displayYears(req)[0] ?? 0,
-    metrics: propertyMetrics(p, y, { baseYear, landOnly: isLandOnlyKind(kindOf(req, p.object)) }),
+    metrics: propertyMetrics(p, y, { baseYear, landOnly: isLandOnlyKind(kind), ...(kind !== undefined ? { kind } : {}) }),
     // 計算の最初の年から上回っている（「もう上回っています」）ときは、表の行に印を付けない
-    table: yearTable(rows, { lodging: p.lodging, deadCross: p.deadCross !== null && p.deadCross > baseYear ? p.deadCross : null }),
-    deadCross: p.deadCross,
+    table: yearTable(rows, { lodging: p.lodging, deadCross: p.deadCross !== null && p.deadCross > baseYear && !noDepreciation(p, isLandOnlyKind(kind)) ? p.deadCross : null, ...(kind !== undefined ? { kind } : {}) }),
+    deadCross: noDepreciation(p, isLandOnlyKind(kind)) ? null : p.deadCross,
     sale,
   };
 }

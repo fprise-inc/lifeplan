@@ -190,4 +190,15 @@ describe.skipIf(bin === null)("物件が2件の世帯: 全体の1枚と物件ご
     // 全体の1枚＋物件ごとの1枚
     expect(pages.length).toBe(3);
   });
+  it("駐車場の1枚は建物を前提にした言葉にしない（駐車場の収入・損益分岐の稼働率・減価償却なし）。建物のある物件は今までの言葉", () => {
+    const park = pages.find((t) => normalize(t).includes(normalize("月極駐車場（駐車場）")))!;
+    const t = normalize(park);
+    expect(t).toContain(normalize("駐車場の収入"));
+    expect(t).toContain(normalize("損益分岐の稼働率"));
+    expect(t).toContain(normalize("減価償却 なし（設備を入れていません）"));
+    expect(t).not.toContain(normalize("損益分岐の入居率"));
+    const other = normalize(pages.find((x) => normalize(x).includes(normalize("物件1")) && !normalize(x).includes(normalize("全物件の合計")))!);
+    expect(other).toContain(normalize("損益分岐の入居率"));
+    expect(other).toContain(normalize("家賃収入"));
+  });
 });

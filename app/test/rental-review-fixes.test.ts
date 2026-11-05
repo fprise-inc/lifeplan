@@ -192,7 +192,7 @@ describe("結果の収益不動産のタブの言葉", () => {
     expect(metric(propertyMetrics({ ...p, acquisition: null, depreciationEnd: { building: null, equipment: null } }, y, { baseYear: 2026 }), "depreciationEnd")!.value).toBe("—（取得価額が未入力）");
   });
 
-  it("貸している土地は築年数の指標を出さず、減価償却が終わる年は「減価償却する建物がありません」", () => {
+  it("貸している土地は築年数の指標を出さず、減価償却が終わる年は「建物が無いので、減価償却しません」", () => {
     const land = setProp(open(), (q) => {
       q.kind = "land";
       delete q.landShare;
@@ -201,6 +201,6 @@ describe("結果の収益不動産のタブの言葉", () => {
     expect(lp.builtYear).toBeNull();
     const ms = propertyMetrics(lp, lp.years.find((x) => x.year === 2027), { baseYear: 2026, landOnly: true });
     expect(metric(ms, "age")).toBeUndefined();
-    expect(metric(ms, "depreciationEnd")!.value).toBe("—（減価償却する建物がありません）");
+    expect(metric(ms, "depreciationEnd")!.value).toBe("—（建物が無いので、減価償却しません）");
   });
 });

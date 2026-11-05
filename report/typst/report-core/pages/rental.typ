@@ -12,17 +12,26 @@
   years.enumerate().filter(((i, y)) => i < 10 or calc.rem(y.year, 5) == 0 or y.deadCross or i == years.len() - 1).map(((i, y)) => y)
 }
 
+/// 建物の無い種類（貸している土地・駐車場）か（種類の鍵で見る。画面と同じ）
+#let rental-land-only(p) = p.kind != none and (p.kind.key == "land" or p.kind.key == "parking")
+
+/// 収入の列の名前（貸している土地は地代、駐車場は駐車場の収入。画面と同じ）
+#let rental-income-label(p) = if p.kind != none and p.kind.key == "land" { "地代収入" } else if p.kind != none and p.kind.key == "parking" { "駐車場の収入" } else { "家賃収入" }
+
+/// 減価償却の無い物件（建物の無い種類で、どの年も減価償却費が 0）。元金の返済が減価償却費を上回る年は出さない
+#let rental-no-depreciation(p) = rental-land-only(p) and p.builtYear == none and p.years.all(y => y.depreciation == none or y.depreciation == 0)
+
 /// 年ごとの表（万円）。大きな修繕のある物件だけ、その列を出す
-#let rental-year-table(years, size: 7pt) = {
+#let rental-year-table(years, size: 7pt, income: "家賃収入", dead-mark: true) = {
   let repairs = years.any(y => y.repairs != 0)
   let rows = rental-rows(years)
-  let head = ("年", "家賃収入", "経費") + (if repairs { ("大きな修繕",) } else { () }) + ("減価償却", "利息", "不動産所得", "返済", "手残り（税引前）", "手残り（税引後）", "ローン残高", "評価額")
+  let head = ("年", income, "経費") + (if repairs { ("大きな修繕",) } else { () }) + ("減価償却", "利息", "不動産所得", "返済", "手残り（税引前）", "手残り（税引後）", "ローン残高", "評価額")
   data-table(
     columns: (auto,) + head.slice(1).map(_ => 1fr),
     header: head,
     size: size,
     rows.map(y => {
-      let year = if y.deadCross { text(fill: warn, weight: "bold", str(y.year) + " ◆") } else { str(y.year) }
+      let year = if dead-mark and y.deadCross { text(fill: warn, weight: "bold", str(y.year) + " ◆") } else { str(y.year) }
       (year, man(y.rent), man(y.expenses)) + (if repairs { (man(y.repairs),) } else { () }) + (
         if y.depreciation == none { "—" } else { man(y.depreciation) },
         if y.interest == none { "—" } else { man(y.interest) },
@@ -38,11 +47,11 @@
 }
 
 /// 指標の札（4つずつ2段）
-#let rental-cards(m, lodging) = {
+#let rental-cards(m, lodging, land-only: false) = {
   let cards = (
     if lodging and m.lodging != none { ("稼働率", m.lodging.occupancy) } else { ("表面利回り", m.grossYield) },
     ("実質利回り（NOI）", m.netYield),
-    (if lodging { "損益分岐の稼働率" } else { "損益分岐の入居率" }, m.breakEven),
+    (if lodging or land-only { "損益分岐の稼働率" } else { "損益分岐の入居率" }, m.breakEven),
     ("返済比率", m.repaymentRatio),
     ("返済余裕率（DSCR）", m.dscr),
     ("借入の割合（LTV）", m.ltv),
@@ -74,7 +83,7 @@
   if m != none {
     text(size: 8pt, fill: muted, str(m.year) + "年の指標")
     v(2pt)
-    rental-cards(m, p.lodging)
+    rental-cards(m, p.lodging, land-only: rental-land-only(p))
     let more = ()
     more.push("自己資金に対する手残りの割合（CCR） " + m.ccr)
     if m.at("unrealizedGain", default: none) != none { more.push("含み益 " + man-unit(m.unrealizedGain)) }
@@ -83,10 +92,15 @@
     if p.lodging and m.lodging != none { more.push("1泊の単価 " + yen(m.lodging.nightly) + "・営業日数 " + str(m.lodging.days) + "日・年の売上 " + man-unit(m.lodging.sales)) }
     let dep = p.depreciationEnd.building
     let depText = p.at("depreciationEndText", default: none)
-    more.push("減価償却が終わる年 " + if depText != none { depText } else if dep != none { str(dep) + "年" } else if p.exit != none and p.acquisition != none { "売るまで続く" } else { "—" })
+    // 建物の無い物件で減価償却が無ければ、その理由を書く（「売るまで続く」にしない）
+    if rental-no-depreciation(p) {
+      more.push("減価償却 なし（" + if p.kind.key == "parking" { "設備を入れていません" } else { "建物がありません" } + "）")
+    } else {
+      more.push("減価償却が終わる年 " + if depText != none { depText } else if dep != none { str(dep) + "年" } else if p.exit != none and p.acquisition != none { "売るまで続く" } else { "—" })
+    }
     block(above: 6pt, below: 4pt, text(size: 8pt, more.join("　")))
   }
-  if p.deadCross != none {
+  if p.deadCross != none and not rental-no-depreciation(p) {
     let first = if p.years.len() > 0 { p.years.first().year } else { p.deadCross }
     if p.at("deadCrossNow", default: false) {
       callout(color: warn)[元金の返済が減価償却費を、もう上回っています（手残りがあっても、税の上の所得が増えやすくなります）。]
@@ -97,7 +111,7 @@
     }
   }
   section("年ごとの数字（万円）")
-  rental-year-table(p.years)
+  rental-year-table(p.years, income: if p.lodging { "売上" } else { rental-income-label(p) }, dead-mark: not rental-no-depreciation(p))
   if p.exit != none {
     block(above: 6pt, text(size: 8pt, "売却（" + ym-ja(p.exit.month) + "）: 手取り " + man-unit(p.exit.proceeds) + " − ローンの一括返済 " + man-unit(p.exit.loanPayoff) + " − 譲渡所得の税 " + man-unit(p.exit.tax) + " ＝ 税引後の手取り " + man-unit(p.exit.net)))
   }
