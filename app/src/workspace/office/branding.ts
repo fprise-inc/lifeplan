@@ -1,4 +1,4 @@
-// 事務所の見た目（0121）: 事務所の名前・ロゴの画像・基調の色と、この PC の画面の明るさ（明るい・暗い・OS に合わせる）。
+// 事務所の見た目（0121）: 事務所の名前・ロゴの画像・基調の色と、画面の明るさ（暗い画面は個別のカスタマイズからだけ）。
 // - 事務所データの別の欄（本体の office_branding_get・office_branding_put）に持つ。事務所の既定値（defaults）とは分ける:
 //   画像のバイトを持つので大きく、本体が PNG・JPEG かを確かめるため（0016）。事務所で共有していても、この PC の設定（0073 と同じ）。
 // - 世帯には写さない（見せ方だけ。変えるとどの世帯にもすぐ効く）。
@@ -6,12 +6,11 @@
 // - ロゴの画像は img の URL にしない（CSP の img-src 'self' を変えない。data: の URI も使わない）。バイトからキャンバスに描く（presentation/LogoCanvas.tsx）
 import { checkBase, normalizeHex, STANDARD_BASE, themeVars } from "../../presentation/theme.ts";
 
+/**
+ * 画面の明るさ。利用者の判断（0121 の追記 2026-11-05）で、画面には選ぶ所を出さず、標準は明るい画面だけ（OS の設定でも暗くしない）。
+ * 暗い画面（app.css の html.dark）は、個別のカスタマイズ（カスタム層・AI 経由）で事務所データに `dark` を入れたときだけ使う
+ */
 export type Appearance = "light" | "dark" | "system";
-export const APPEARANCES: readonly { key: Appearance; label: string }[] = [
-  { key: "light", label: "明るい" },
-  { key: "dark", label: "暗い" },
-  { key: "system", label: "OS に合わせる" },
-];
 
 /** ロゴの画像（本体が確かめた種類・縦横の画素と、base64 の文字のバイト） */
 export interface OfficeLogo {
@@ -26,7 +25,7 @@ export interface OfficeBranding {
   name?: string;
   /** 基調の色（選んだ色。#rrggbb） */
   color?: string;
-  /** この PC の画面の明るさ（無ければ OS に合わせる） */
+  /** 画面の明るさ（`dark` のときだけ暗い画面。無い・`light`・`system` は明るい画面。画面からは選べない） */
   appearance?: Appearance;
   logo?: OfficeLogo;
 }
@@ -61,12 +60,12 @@ export function usesStandardColor(b: OfficeBranding): boolean {
   return !checkBase(b.color).ok;
 }
 
-/** 今の明るさ（OS に合わせるときは OS の設定） */
-export const resolveMode = (a: Appearance | undefined, prefersDark: boolean): "light" | "dark" => (a === "dark" ? "dark" : a === "light" ? "light" : prefersDark ? "dark" : "light");
+/** 今の明るさ（`dark` を入れたときだけ暗い画面。OS の設定には合わせない） */
+export const resolveMode = (a: Appearance | undefined): "light" | "dark" => (a === "dark" ? "dark" : "light");
 
 /** 画面の色の決め事のうち、上書きするもの（明るい画面の標準の色なら何も上書きしない＝ app.css のまま） */
 export function lookVars(b: OfficeBranding, mode: "light" | "dark"): Record<string, string> {
-  if (usesStandardColor(b)) return mode === "light" ? {} : {};
+  if (usesStandardColor(b)) return {};
   return themeVars(b.color as string, mode);
 }
 

@@ -188,7 +188,7 @@ export function parseHash(hash: string): {
   feedback?: boolean;
   /** #statement=review: 入力で明細のパネルをその手順で開く（閉じると基本生活費のパネルに戻る。0034。画面の確かめ用） */
   statement?: "accounts" | "import" | "review" | "result";
-  /** #look=dark・#look=light: 画面の明るさをこの値で開く（画面の確かめ用。保存しない。0121） */
+  /** #look=dark: 暗い画面で開く（画面の確かめ用。保存しない。画面には選ぶ所を出さない。0121） */
   look?: Appearance;
   /** #report=takeaway: 提案書のタブを「持ち帰り用のレポート」で開く（0030） */
   reportMode?: "pdf" | "takeaway";
@@ -541,27 +541,12 @@ export function App() {
     setBranding(b);
     setBrandingNow(b);
   };
-  const [prefersDark, setPrefersDark] = useState(() => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const on = () => setPrefersDark(mq.matches);
-    mq.addEventListener?.("change", on);
-    return () => mq.removeEventListener?.("change", on);
-  }, []);
   const look: OfficeBranding = { ...(brandingPreview ?? branding), ...(branding.appearance !== undefined ? { appearance: branding.appearance } : {}) };
-  const lookMode = resolveMode(branding.appearance, prefersDark);
+  // 画面の明るさ: 標準は明るい画面だけ（OS の設定でも暗くしない）。暗い画面は個別のカスタマイズで dark を入れたときだけ（0121 の追記）
+  const lookMode = resolveMode(branding.appearance);
   useLayoutEffect(() => {
     if (typeof document !== "undefined") applyLook(document.documentElement, look, lookMode);
   }, [look.color, lookMode]);
-  /** 画面の明るさを変える（すぐ当てて、事務所データにも書く。書けないときはアプリを開いている間だけ） */
-  const pickAppearance = (a: Appearance) => {
-    const { appearance: _old, ...rest } = brandingRef.current;
-    void _old;
-    const next: OfficeBranding = a === "system" ? rest : { ...rest, appearance: a };
-    putBranding(next);
-    if (host !== null) void host.office.putBranding(next as unknown as Record<string, unknown>).catch(() => undefined);
-  };
   const loadBranding = () => {
     if (host === null) return;
     void host.office.branding().then(
@@ -2393,8 +2378,6 @@ export function App() {
         big={big}
         onBig={setBig}
         brand={brandOf(look)}
-        appearance={branding.appearance ?? "system"}
-        onAppearance={pickAppearance}
       />
       <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
       <AiCodeCandidateBand count={officeSettingsOpen ? 0 : (ai.status?.featureCodeCandidates ?? 0)} onOpen={() => setOfficeSettingsOpen(true)} />
@@ -3059,7 +3042,7 @@ export function App() {
             value: branding,
             onPreview: setBrandingPreview,
             onSave: async (b) => {
-              // 画面の明るさは上の帯の今の値を持ち越す（パネルを開いた後に変えていても戻さない）
+              // 画面の明るさ（個別のカスタマイズで入れた値）は今の値を持ち越す
               const { appearance: _a, ...rest } = b;
               void _a;
               const cur = brandingRef.current.appearance;

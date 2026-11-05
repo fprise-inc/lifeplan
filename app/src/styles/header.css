@@ -16,17 +16,6 @@
 .brand.office .brand-name { max-width: 14em; overflow: hidden; text-overflow: ellipsis; }
 .brand-logo { display: block; flex: none; }
 
-/* 画面の明るさ（0121）: FP のメニューと同じ大きさのアイコン。選び方は帯の下に重ねて出す */
-.look { position: relative; flex: none; }
-.look-btn { width: 34px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; cursor: pointer; padding: 0; }
-.look-btn:hover { border-color: var(--ink); }
-.look-btn[aria-expanded="true"] { background: var(--ink); border-color: var(--ink); color: var(--on-fill); }
-.look-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; display: grid; gap: 2px; padding: 8px; width: max-content; max-width: min(22em, calc(100vw - 32px)); background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(20, 30, 50, 0.16); }
-.look-list .fpm-item { justify-content: flex-start; }
-.look-dot { width: 0.9em; height: 0.9em; border-radius: 50%; border: 2px solid var(--ink-2); display: inline-block; margin-right: 6px; vertical-align: -0.1em; }
-.look-list [aria-checked="true"] .look-dot { border-color: var(--prop); background: radial-gradient(circle, var(--prop) 0 45%, transparent 50%); }
-.look-note { white-space: normal; padding: 6px 10px 0; }
-
 /* 世帯の選択（押すと、開いている世帯の状態と世帯の一覧が開く） */
 .hh-btn { display: inline-flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); background: var(--card); border-radius: 8px; padding: 3px 10px; font-size: 0.88rem; cursor: pointer; max-width: 24em; flex: none; }
 .hh-btn[aria-expanded="true"] { border-color: var(--prop); background: var(--prop-bg); }

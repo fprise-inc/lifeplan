@@ -140,7 +140,7 @@ export function BrandingSection({ value, onPreview, onSave, onPickLogo, shared }
           ))}
         </ul>
       ) : null}
-      <p class="pl-sub">不足の赤・推定の印の橙・済みの緑・グラフのプランごとの色は、基調の色を変えても変わりません。画面の明るさ（明るい・暗い）は、右上の文字の大きさの右のボタンで選べます。</p>
+      <p class="pl-sub">不足の赤・推定の印の橙・済みの緑・グラフのプランごとの色・資産と負債の図の科目の色は、基調の色を変えても変わりません。</p>
       <div class="rp-actions">
         <button type="button" class="btn primary" disabled={busy || !changed || !check.ok} onClick={() => void save()} data-branding-save>
           この見た目にする

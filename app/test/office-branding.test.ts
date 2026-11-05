@@ -88,11 +88,11 @@ describe("事務所の見た目の読み書きと当て方（office/branding.ts�
     expect(lookVars({ color: "#2d5a46" }, "light")["--prop"]).toBe("#2d5a46");
   });
 
-  it("画面の明るさ: OS に合わせるは OS の設定、明るい・暗いはそのまま", () => {
-    expect(resolveMode(undefined, true)).toBe("dark");
-    expect(resolveMode("system", false)).toBe("light");
-    expect(resolveMode("light", true)).toBe("light");
-    expect(resolveMode("dark", false)).toBe("dark");
+  it("画面の明るさ: 標準は明るい画面だけ（OS に合わせない）。dark を入れたとき（個別のカスタマイズ）だけ暗い画面", () => {
+    expect(resolveMode(undefined)).toBe("light");
+    expect(resolveMode("system")).toBe("light");
+    expect(resolveMode("light")).toBe("light");
+    expect(resolveMode("dark")).toBe("dark");
   });
 
   it("html の class と変数に当て、標準に戻すと変数を外す", () => {
@@ -141,11 +141,11 @@ describe("左上のロゴと名前（header/TopBar.tsx）", () => {
     expect(html).toContain("brand-mark");
     expect(html).toContain(">ファイナンシア<");
   });
-  it("名前だけなら名前、ロゴがあればキャンバスに描く（img は使わない）。ソフトの名前はかざしたときの説明に残す", () => {
+  it("名前だけなら名前、ロゴがあればキャンバスに描く（img は使わない）。かざしたときの説明は出さない", () => {
     const named = renderToString(h(TopBar, { ...base, brand: brandOf({ name: "みどりFP事務所" }) }));
     expect(named).toContain(">みどりFP事務所<");
     expect(named).not.toContain("brand-mark");
-    expect(named).toContain('title="みどりFP事務所（ファイナンシア）"');
+    expect(named).not.toContain("（ファイナンシア）");
     const both = renderToString(h(TopBar, { ...base, brand: brandOf({ name: "みどりFP事務所", logo: { ...logo, mime: "image/png" } }) }));
     expect(both).toContain("<canvas");
     expect(both).toContain('aria-label="みどりFP事務所"');
@@ -154,10 +154,16 @@ describe("左上のロゴと名前（header/TopBar.tsx）", () => {
     expect(only).toContain("<canvas");
     expect(only).not.toContain("brand-name");
   });
-  it("画面の明るさのボタン（選ぶ物を渡したときだけ）", () => {
-    expect(renderToString(h(TopBar, base))).not.toContain("data-look-pick");
-    const html = renderToString(h(TopBar, { ...base, appearance: "dark", onAppearance: () => undefined }));
-    expect(html).toContain('aria-label="画面の明るさ（暗い）"');
+  it("画面の明るさを選ぶ所は出さない", () => {
+    expect(renderToString(h(TopBar, base))).not.toContain("画面の明るさ");
+  });
+});
+
+describe("資産と負債の図の科目の色は、事務所の色で変えない", () => {
+  it("図の外の純資産の金額の文字は固定の色（--prop を使わない）", () => {
+    const css = readFileSync(join(__dirname, "../src/styles/balance.css"), "utf8");
+    const root = /:root \{([\s\S]*?)\n\}/.exec(css)![1]!;
+    for (const m of root.matchAll(/--bs-[A-Za-z-]+:\s*([^;]+);/g)) expect(m[1], m[0]).not.toContain("--prop");
   });
 });
 
