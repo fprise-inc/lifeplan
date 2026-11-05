@@ -36,6 +36,8 @@ pub enum ExportKind {
     Takeaway,
     /// 明細の確認シート（0034 の9。迷う行の店の名前・金額が載る。画面で毎回警告してから）
     StatementSheet,
+    /// Web のヒアリングで受け取った書類（0125。写真・PDF。世帯ファイルの外に平文で書く）
+    HearingDocument,
 }
 
 impl ExportKind {
@@ -43,6 +45,7 @@ impl ExportKind {
         match self {
             ExportKind::Proposal => ("PDF", &["pdf"]),
             ExportKind::Takeaway => ("ブラウザで開くファイル（.html）", &["html"]),
+            ExportKind::HearingDocument => ("書類（写真・PDF）", &["jpg", "png", "heic", "pdf"]),
             _ => ("表計算のブック（.xlsx）", &["xlsx"]),
         }
     }

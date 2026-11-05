@@ -70,3 +70,11 @@ windows_method   = "artifact-signing"
 windows_endpoint = ""
 windows_account  = ""
 windows_profile  = ""
+
+[hearing_web]
+# Web のヒアリング（0125）の受け付けのサーバー（暗号文だけを預かる。Cloudflare Workers と R2。設定は hearing/relay/wrangler.toml）。
+# FP が「URL を発行する」「受け取る」を押したときだけ、本体がここと話す（自動の通信ではない。0012 の4・5）。本番に出すまでは置いていない
+# （置くまでは発行・受け取りが「つながりませんでした」で止まる）。https で、クエリ・# を付けない。本体は build.rs が、ここから写す
+relay = "https://financia.jp/api/hearing/v1"
+# お客さまのページ（# の前まで。/ で終える）。URL の # の後ろに、問いを解く鍵と FP の公開鍵が入る（サーバーには送られない）
+page  = "https://financia.jp/h/"
