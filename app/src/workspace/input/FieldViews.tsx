@@ -67,6 +67,13 @@ export const PlanMarksContext = createContext<PlanMarks | null>(null);
 
 function PlanMarkLine({ f, wh }: { f: FieldDef; wh: WorkingHousehold }) {
   const marks = useContext(PlanMarksContext);
+  // どのプランにも共通の欄（表の最後の年など）: プランを直している間は、プランの差分にならないことを一言で出す（0043 の追記 2026-11-05）
+  if (marks !== null && f.planShared !== undefined)
+    return (
+      <div class="fld-plan shared" data-plan-shared>
+        <span>{f.planShared}</span>
+      </div>
+    );
   const m = marks?.field(f, wh) ?? null;
   if (marks === null || m === null) return null;
   return (

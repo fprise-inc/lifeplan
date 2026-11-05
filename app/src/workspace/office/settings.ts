@@ -15,7 +15,7 @@
 import type { StageId } from "../input/form.ts";
 import { DEFAULT_LAYOUT, type CardLayout } from "../input/items.ts";
 import { applyCareDefaults, DEFAULT_CARE_DEFAULTS, type CareDefaults } from "../input/fill.ts";
-import { DEFAULT_ASSUMPTIONS, type WorkingHousehold } from "../input/household.ts";
+import { DEFAULT_ASSUMPTIONS, END_AGES, endYearForAge, STANDARD_END_AGE, type WorkingHousehold } from "../input/household.ts";
 import { STAGE_ORDER } from "../input/stages/index.ts";
 import { isEmptyChoice, readItemChoice, type ItemChoice } from "../input/itemChoice.ts";
 import { isEmptyLeverChoice, readLeverChoice, type LeverChoice } from "../plans/leverChoice.ts";
@@ -82,6 +82,11 @@ export interface OfficeSettings {
   assumptions: Partial<Record<OfficeAssumption, string>>;
   /** 相続税の目安の不動産の評価の割合（時価に掛ける。null は標準の80%） */
   realEstateRatio: string | null;
+  /**
+   * 表の最後の年の既定の年齢（若い方の大人がこの年齢になる年まで。90・95・105。無ければ提供元の既定の100歳）。新しい世帯の表の最後の年に写し、
+   * 前提条件の欄の「既定」もこの年齢にする（作った世帯の表の最後の年は変えない。0073 の追記 2026-11-05）
+   */
+  endAge?: number;
   /** FP顧問料の料金表（契約を足すときに写す。足した契約は後で料金表を変えても変わらない） */
   fee: FeeTable;
   /** 法人経営者向けの機能（既定は使わない。世帯には写さない。0107） */
@@ -145,11 +150,13 @@ function readCoreSettings(v: unknown): OfficeSettings {
   const assumptions: Partial<Record<OfficeAssumption, string>> = {};
   if (isObj(v.assumptions)) for (const k of OFFICE_ASSUMPTIONS) if (rateOk(v.assumptions[k], -0.05, 0.2)) assumptions[k] = v.assumptions[k] as string;
   const realEstateRatio = rateOk(v.realEstateRatio, 0, 1) ? (v.realEstateRatio as string) : null;
+  // 表の最後の年の既定の年齢（選び方の年齢だけ。100歳は既定と同じなので持たない）
+  const endAge = typeof v.endAge === "number" && END_AGES.includes(v.endAge) && v.endAge !== STANDARD_END_AGE ? v.endAge : undefined;
   const changedOn = typeof v.changedOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.changedOn) ? v.changedOn : null;
   const fee = readFeeTable(v.fee);
   // 法人経営者向けの機能（欄の無い古い事務所データ・読めない値は使わない）
   const features: OfficeFeatures = { combinedBs: isObj(v.features) && v.features.combinedBs === true };
-  return { version: 1, layout, items, levers, premises, scenes, protection, care, inheritLikelihood, assumptions, realEstateRatio, fee, features, changedOn };
+  return { version: 1, layout, items, levers, premises, scenes, protection, care, inheritLikelihood, assumptions, realEstateRatio, fee, features, changedOn, ...(endAge !== undefined ? { endAge } : {}) };
 }
 
 /** 並びの設定（無ければ標準） */
@@ -178,7 +185,7 @@ export async function loadOfficeStart(office: Pick<OfficeHost, "defaults" | "fea
 
 /** 標準（既定の値）と同じか（基本生活費の内訳の並べ方の分は下の isDefaultSettings で見る） */
 function isDefaultCore(s: OfficeSettings): boolean {
-  return s.layout === null && isEmptyChoice(s.items) && isEmptyLeverChoice(s.levers) && isEmptyPremiseChoice(s.premises) && isEmptySceneChoice(s.scenes) && Object.keys(normalProtection(s.protection)).length === 0 && s.care.selfAndSpouse === "warn" && s.inheritLikelihood === "likely" && Object.keys(s.assumptions).length === 0 && s.realEstateRatio === null && sameFee(s.fee, STANDARD_FEE_TABLE) && !s.features.combinedBs;
+  return s.layout === null && isEmptyChoice(s.items) && isEmptyLeverChoice(s.levers) && isEmptyPremiseChoice(s.premises) && isEmptySceneChoice(s.scenes) && Object.keys(normalProtection(s.protection)).length === 0 && s.care.selfAndSpouse === "warn" && s.inheritLikelihood === "likely" && Object.keys(s.assumptions).length === 0 && s.realEstateRatio === null && s.endAge === undefined && sameFee(s.fee, STANDARD_FEE_TABLE) && !s.features.combinedBs;
 }
 
 /**
@@ -191,7 +198,7 @@ export const withOfficeItems = (s: OfficeSettings, items: ItemChoice): OfficeSet
 
 /** 今の事務所の既定値を、操作のときに読む所（office/current.ts）へ入れる（基本生活費の内訳の並べ方は下の publishOfficeSettings で入れる） */
 function publishCore(s: OfficeSettings): void {
-  setOfficeNow({ inheritLikelihood: s.inheritLikelihood, assumptions: { ...s.assumptions }, basis: officeBasis(s), fee: s.fee });
+  setOfficeNow({ inheritLikelihood: s.inheritLikelihood, assumptions: { ...s.assumptions }, basis: officeBasis(s), fee: s.fee, endAge: s.endAge ?? null });
 }
 
 // ---- 新しい世帯に写す ----
@@ -208,6 +215,15 @@ export function applyOfficeDefaults(wh: WorkingHousehold, s: OfficeSettings): Wo
   if (!isEmptyChoice(s.items)) w = { ...w, itemChoice: readItemChoice(s.items) };
   // 必要保障額の数え方（標準と違うときだけ。写した後は世帯の値のまま。万一のタブに事務所の値と違うと出る）
   if (Object.keys(normalProtection(s.protection)).length > 0) w = { ...w, contingency: withProtection(w.contingency, s.protection) };
+  // 表の最後の年の既定の年齢（若い方の大人がその年齢になる年。家族を直すと、その年齢のまま付いていく。input/household.ts の followStandards）
+  if (s.endAge !== undefined) {
+    const end = endYearForAge(w.request.input.household, s.endAge);
+    if (Number.isFinite(end) && end !== w.request.input.endYear) {
+      const request = structuredClone(w.request);
+      request.input.endYear = end;
+      w = { ...w, request };
+    }
+  }
   const basis = officeBasis(s);
   const entries = OFFICE_ASSUMPTIONS.filter((k) => s.assumptions[k] !== undefined);
   if (entries.length === 0 && s.realEstateRatio === null) return w;

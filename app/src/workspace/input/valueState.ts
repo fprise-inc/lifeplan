@@ -7,7 +7,7 @@
 // - プランを選んでいるときは、同じ操作をそのプランの差分にする（planStateOp。0036 の8）
 import type { Catalog } from "../plans/items.ts";
 import { applyPlan, setPlanValue } from "../plans/plans.ts";
-import { boxAt, writeAt, type DiffBox } from "../plans/diffs.ts";
+import { boxAt, isSharedDiff, writeAt, type DiffBox } from "../plans/diffs.ts";
 import { readAt, resolveAssumedKey, resolveKey, type Address } from "../store/readings.ts";
 import type { FieldDef, Val } from "./form.ts";
 import { mutate, type WorkingHousehold } from "./household.ts";
@@ -357,6 +357,8 @@ export function planStateOp(wh: WorkingHousehold, cat: Catalog, planId: string, 
   const work: WorkingHousehold = { ...wh, request: applyPlan(wh, planId, cat).request };
   const a = fieldAddress(f, work);
   if (a === null) return wh;
+  // どのプランにも共通の項目（表の最後の年）は、プランの差分にせず現状に当てる（0043 の追記 2026-11-05）
+  if (isSharedDiff({ target: a.target, item: a.item })) return applyStateOp(wh, f, op);
   const after = applyStateOp(work, f, op);
   if (after === work) return wh;
   const box = boxForField(after, f, a);

@@ -18,6 +18,7 @@ import { giveElementIds, lacksElementIds, randomId } from "../store/elementIds.t
 import { isAutoSmr } from "./smr.ts";
 import type { LivingPart } from "./livingParts.ts";
 import { isOfficeBasisText } from "../../../../hearing/src/statistics.ts";
+import { officeNow } from "../office/current.ts";
 
 /** 定年の後に働くときの条件（D: 入力画面の「定年後の予定」。主画面の「働く最後の年齢」を延ばすときにも使う） */
 export interface PostRetirement {
@@ -33,7 +34,7 @@ export interface PostRetirement {
 /** 開いたときの知らせ（0035 の8） */
 export interface HouseholdNotice {
   id: string;
-  kind: "outsideFamily" | "unresolvedDiffs" | "smrBlank" | "livingUnknown" | "unknownEstimated" | "carLoanEstimated" | "livingAllowance" | "petTemplate" | "compatibilityDropped" | "neutralEstimates" | string;
+  kind: "outsideFamily" | "unresolvedDiffs" | "smrBlank" | "livingUnknown" | "unknownEstimated" | "carLoanEstimated" | "livingAllowance" | "petTemplate" | "compatibilityDropped" | "neutralEstimates" | "planEndYearShared" | string;
   members?: string[];
   count?: number;
   /** smrBlank・livingUnknown・unknownEstimated・carLoanEstimated: プランの差分を変えた数 */
@@ -42,6 +43,12 @@ export interface HouseholdNotice {
   amount?: number;
   /** neutralEstimates: 推定のままの給与・賞与・退職一時金の数（新しい目安で入れ直す物。0118） */
   estimates?: number;
+  /** planEndYearShared: 表の最後の年の差分を外したプランの名前（0043 の追記 2026-11-05） */
+  names?: string[];
+  /** planEndYearShared: 外した差分の年（そのプランで入れていた表の最後の年） */
+  years?: number[];
+  /** planEndYearShared: 現状の表の最後の年（どのプランもこの年で終わる） */
+  endYear?: number;
 }
 
 export interface WorkingHousehold {
@@ -300,7 +307,7 @@ export function blankHousehold(baseMonth: string, id: () => string = newId): Wor
     trace: "none",
     input: {
       baseMonth,
-      endYear: parseYm(ageReachedMonth(self, 100)).y,
+      endYear: endYearForAge({ members: [self] } as Household, defaultEndAge()),
       calcConventions: { aggregation: "cash", investmentTiming: "midYear", compatibility: null },
       household: { members: [self], relations: [], events: [], employmentPeriods: [], accounts: [], insuranceContracts: [], livingExpenses: [] },
       assumptions: structuredClone(DEFAULT_ASSUMPTIONS),
@@ -321,20 +328,41 @@ export function blankHousehold(baseMonth: string, id: () => string = newId): Wor
   };
 }
 
-/** 表の最後の年: 一番若い大人（本人・配偶者）が100歳になる年まで（0008 の3 の標準）。子は含めない */
-export function standardEndYear(h: Household): number {
+/** 表を何歳の年まで見るかの選び方（若い方の大人〔本人・配偶者〕がこの年齢になる年まで。0070 の追記 2026-11-05） */
+export const END_AGES: readonly number[] = [90, 95, 100, 105];
+
+/** 提供元の既定の年齢（若い方の大人が100歳になる年まで。0008 の3） */
+export const STANDARD_END_AGE = 100;
+
+/** 表の最後の年の既定の年齢: 事務所の既定値で選んでいればその年齢（0073 の追記 2026-11-05）、無ければ100歳 */
+export const defaultEndAge = (): number => officeNow().endAge ?? STANDARD_END_AGE;
+
+/** 若い方の大人（本人・配偶者）がその年齢になる年（子は含めない。大人がいなければ -Infinity） */
+export function endYearForAge(h: Pick<Household, "members">, age: number): number {
   const adults = h.members.filter((m) => m.kind === "self" || m.kind === "spouse");
-  return Math.max(...adults.map((m) => parseYm(ageReachedMonth(m, 100)).y));
+  return Math.max(...adults.map((m) => parseYm(ageReachedMonth(m, age)).y));
 }
 
+/** 表の最後の年: 一番若い大人（本人・配偶者）が既定の年齢（100歳か事務所の既定値の年齢）になる年まで（0008 の3 の標準）。子は含めない */
+export function standardEndYear(h: Household): number {
+  return endYearForAge(h, defaultEndAge());
+}
+
+/** 表の最後の年が、選び方の年齢（90・95・100・105歳）のどれかになる年なら、その年齢。どれでもなければ null */
+export function endAgeOf(h: Pick<Household, "members">, endYear: number): number | null {
+  return END_AGES.find((a) => endYearForAge(h, a) === endYear) ?? null;
+}
+
+const endYearPinned = (req: EngineRequest): boolean => (req.input as { valueStates?: Record<string, { state?: string }> }).valueStates?.["plan.endYear"]?.state === "confirmed";
+
 /**
- * 表の最後の年が、まだ標準の値のままか（家族を直したときに標準に付いていく値か）: 今の値が標準の年と同じで、FP が確定していない
- * （値の状態の行が確定でない。0070）。人が入れた年・確定した年は false
+ * 家族を直したときに表の最後の年が付いていく年齢（0070 の追記 2026-11-05）: 確定していない表の最後の年が、選び方の年齢（90・95・100・105歳。
+ * 既定の100歳を含む）のどれかになる年なら、その年齢（家族を直した後も、若い方がその年齢になる年にする）。選び方の外の年（人が年で入れた年）・
+ * 確定した年は null（変えない）
  */
-export function endYearIsStandard(req: EngineRequest): boolean {
-  const std = standardEndYear(req.input.household);
-  const pinned = (req.input as { valueStates?: Record<string, { state?: string }> }).valueStates?.["plan.endYear"]?.state === "confirmed";
-  return !pinned && Number.isFinite(std) && req.input.endYear === std;
+export function followedEndAge(req: EngineRequest): number | null {
+  if (endYearPinned(req)) return null;
+  return endAgeOf(req.input.household, req.input.endYear);
 }
 
 /**
@@ -381,14 +409,17 @@ export function isSchoolLinkedLeaves(m: Member): boolean {
  * 標準の値を追いかける（0008 の追記 2026-10-25）: 家族の生年月・続柄を変えた・家族を足した・外した後に、
  * 変える前に標準の値のままだった値（表の最後の年・子の独立の年月）を、変えた後の標準の値に入れ直す。
  * 「人が入れた値か、まだ標準の値か」は世帯データに持たないので、今の値が変える前の標準の値と同じなら標準の値とみなす。
- * 標準と違う値（人が入れた値）と、この変更そのものが書き換えた値は変えない
+ * 標準と違う値（人が入れた値）と、この変更そのものが書き換えた値は変えない。表の最後の年は、選び方の年齢（90・95・100・105歳）の年のままなら
+ * その年齢のまま付いていく（既定の100歳だけでなく、95歳を選んだ世帯も95歳のまま。0070 の追記 2026-11-05）
  */
 export function followStandards(before: WorkingHousehold, after: WorkingHousehold): WorkingHousehold {
   const hb = before.request.input.household;
   const ha = after.request.input.household;
   const endBefore = before.request.input.endYear;
-  const stdAfter = standardEndYear(ha);
-  const fixEnd = endYearIsStandard(before.request) && Number.isFinite(stdAfter) && after.request.input.endYear === endBefore && stdAfter !== endBefore;
+  // 表の最後の年は、選び方の年齢（既定の100歳を含む）の年のままなら、その年齢のまま付いていく（0070 の追記 2026-11-05）
+  const age = followedEndAge(before.request);
+  const stdAfter = age === null ? Number.NaN : endYearForAge(ha, age);
+  const fixEnd = age !== null && Number.isFinite(stdAfter) && after.request.input.endYear === endBefore && stdAfter !== endBefore;
   // 独立の時点が子の独立の出来事を指している（出来事が正本。0038）なら、出来事の年月を見る
   const leavesAt = (h: Household, m: Member): Timepoint | null | undefined => {
     const t = m.leaves;

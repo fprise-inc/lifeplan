@@ -4,6 +4,7 @@
 // 相続税の目安の不動産の評価の割合・FP顧問料の料金表・法人経営者向けの機能（合算BS。0107）。新しく作る世帯（料金表は新しく足す契約）に写す（作った世帯は変わらない。違うときは確かめの一覧に知らせが出る）
 import { useEffect, useRef, useState } from "preact/hooks";
 import { STAGE_ORDER } from "../input/stages/index.ts";
+import { END_AGES, STANDARD_END_AGE } from "../input/household.ts";
 import { DEFAULT_LAYOUT } from "../input/items.ts";
 import type { Level, StageId } from "../input/form.ts";
 import { ALWAYS_SHOWN, isHiddenIn, levelIn, withLevel, withShown } from "../input/itemChoice.ts";
@@ -551,6 +552,28 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
           <div class="os-grid">
             {OFFICE_ASSUMPTIONS.map((k) => pct(k, ASSUMPTION_LABELS[k], STANDARD_PCT[k], `入れなければ既定の値（${STANDARD_PCT[k]}%。仮の値）。${rangeText(ASSUMPTION_RANGES[k])}`, ASSUMPTION_RANGES[k]))}
             {pct("realEstateRatio", "相続税の目安: 不動産の評価の割合（時価に掛ける）", "80", "入れなければ時価の80%")}
+            <label class="os-pct">
+              <span>表の最後の年（何歳まで見るか）</span>
+              <span class="os-in">
+                <select
+                  value={String(s.endAge ?? STANDARD_END_AGE)}
+                  onChange={(e) => {
+                    const v = Number((e.currentTarget as HTMLSelectElement).value);
+                    const { endAge: _old, ...rest } = s;
+                    void _old;
+                    setS(v === STANDARD_END_AGE ? rest : { ...rest, endAge: v });
+                  }}
+                  data-office-end-age
+                >
+                  {END_AGES.map((a) => (
+                    <option key={a} value={String(a)}>
+                      若い方が{a}歳になる年まで{a === STANDARD_END_AGE ? "（既定）" : ""}
+                    </option>
+                  ))}
+                </select>
+              </span>
+              <small>ご本人・配偶者のうち若い方の年齢。これから作る世帯の表の最後の年に写し、前提条件の欄の「既定」もこの年齢にします</small>
+            </label>
           </div>
           <p class="pl-sub">長い期間の平均の目安です。根拠（出典・期間）は事務所で確かめてください。商品のおすすめではありません。</p>
         </section>

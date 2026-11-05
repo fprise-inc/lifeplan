@@ -914,7 +914,8 @@ function fieldItems(wh: WorkingHousehold, stages: StageDef[], skip: Set<string>)
     for (const section of stage.sections)
       for (const g of section.groups)
         for (const f of g.fields) {
-          if (!NUMERIC.has(f.kind) || f.readOnly !== undefined || f.structural === true || skip.has(f.key)) continue;
+          // どのプランにも共通の欄（表の最後の年）は、プランごとに動かす項目にしない（0043 の追記 2026-11-05）
+          if (!NUMERIC.has(f.kind) || f.readOnly !== undefined || f.structural === true || f.planShared !== undefined || skip.has(f.key)) continue;
           // 画面の鍵を当て先・合成の対策に読み替えられない欄は出さない（出すと、プランに保存するとき差分にならずに落ちる。0036 の追記 2026-10-29）
           const reading = resolveKey(`field:${f.key}`, input);
           if (reading === null || reading.kind === "unresolved") continue;

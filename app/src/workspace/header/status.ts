@@ -72,7 +72,7 @@ export function barAlerts(i: BarInputs): AlertSpec[] {
 const ACTION: Record<NoticeTarget, string> = { recovery: "復元キー", restore: "復元キー", storage: "保存先", office: "事務所の共有", households: "世帯の一覧", presence: "編集を始める", family: "介護・親の項目", work: "働き方と収入", living: "基本生活費", input: "入力", plans: "プランの一覧" };
 
 /** 開いたときの知らせの文（0035 の8） */
-export function householdNoticeText(n: { kind: string; count?: number; plans?: number; amount?: number; estimates?: number }): { text: string; target: NoticeTarget; title: string } | null {
+export function householdNoticeText(n: { kind: string; count?: number; plans?: number; amount?: number; estimates?: number; names?: string[]; years?: number[]; endYear?: number }): { text: string; target: NoticeTarget; title: string } | null {
   if (n.kind === "outsideFamily")
     return { target: "family", title: "親・祖父母を世帯の外の家族にしました", text: "親・祖父母を世帯の外の家族（家計が別）にしました。年金などは世帯の収入に入らないので、結果が前と変わります。家計を1つにする期間は介護・親の項目で入れられます" };
   // 給与からの推定のままの標準報酬月額を空欄にした（0.38 の変換の段。0047 の追記 2026-10-29 の2）
@@ -90,6 +90,18 @@ export function householdNoticeText(n: { kind: string; count?: number; plans?: n
       "結果が前と変わることがあります。入れた額はそのままです",
     ];
     return { target: "work", title: "推定を性別・学歴で分けないようにしました", text: parts.join("") };
+  }
+  // プランで変えていた表の最後の年を外した（読むときの直し。表の最後の年はどのプランにも共通。0043 の追記 2026-11-05）
+  if (n.kind === "planEndYearShared") {
+    const names = (n.names ?? []).map((x) => `「${x}」`).join("");
+    const was = [...new Set(n.years ?? [])].map((y) => `${y}年`).join("・");
+    const which = names !== "" ? `プラン${names}` : `プラン ${n.plans ?? 0}件`;
+    const now = n.endYear !== undefined ? `（${n.endYear}年）` : "";
+    return {
+      target: "input",
+      title: "表の最後の年をどのプランにも共通にしました",
+      text: `表の最後の年は、どのプランにも共通の値（前提条件の「表を何歳まで見るか」）にしました。${which}で変えていた表の最後の年${was !== "" ? `（${was}）` : ""}は外し、現状と同じ年${now}で終わるようにしました。そのプランの結果が前と変わることがあります`,
+    };
   }
   // 基本生活費の「わからない」を推定にした（0.43 の変換の段。0100）
   if (n.kind === "livingUnknown") {

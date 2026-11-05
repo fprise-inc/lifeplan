@@ -18,7 +18,7 @@ import { applyAdvisoryFee, applyLevers, LEVER_KEYS, type LeverValues } from "../
 import { keyOf, readAt, resolveKey, unbox, type Address, type Reading } from "../store/readings.ts";
 import type { MixPart } from "./allocation.ts";
 import { pctText } from "./decimal.ts";
-import { addAt, addressOf, boxAt, collectionOf, indexOfObject, isLever, placeExists, removeAt, removedNow, sameJson, writeAt, type DiffBox, type PlanDiff } from "./diffs.ts";
+import { addAt, addressOf, boxAt, collectionOf, indexOfObject, isLever, isSharedDiff, placeExists, removeAt, removedNow, sameJson, writeAt, type DiffBox, type PlanDiff } from "./diffs.ts";
 import { catalogKeysOf, reemploymentFor, type Catalog, type ItemValue, type MovableItem, type RateShift } from "./items.ts";
 
 export type { DiffOrigin, PlanDiff } from "./diffs.ts";
@@ -215,6 +215,8 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
       return void reviews.set(d.id, changed ? review("changed", `共通の前提が ${shortText(was ?? null)}→${shortText(base ?? null)} に変わりました`) : review("ok"));
     }
     if (ITEM_PLACES[a.item]?.status !== "active") return void reviews.set(d.id, review("retired"));
+    // どのプランにも共通の項目（表の最後の年）は当てない（前の版の差分は読むときに外す。ここは残った物の守り。0043 の追記 2026-11-05）
+    if (isSharedDiff(d)) return void reviews.set(d.id, review("retired"));
     if (!writeAt(target, a, d.value as DiffBox)) return void reviews.set(d.id, review("missing"));
     written.push({ address: a, value: d.value as DiffBox });
     const base = readAt(now, a);
@@ -261,7 +263,7 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
     }
     // 動かす項目の一覧に無い欄の値（入力画面で直した欄など）は、当て先へそのまま書く
     const r = k === PLAN_SLOT ? null : resolveKey(k, now);
-    if (r !== null && r.kind === "address" && writeAt(input, r.address, box(v))) written.push({ address: r.address, value: box(v) });
+    if (r !== null && r.kind === "address" && !isSharedDiff({ target: r.address.target, item: r.address.item }) && writeAt(input, r.address, box(v))) written.push({ address: r.address, value: box(v) });
   }
   let w: WorkingHousehold = { ...wh, request: { ...wh.request, input: input as unknown as EngineRequest["input"] } };
   /**
@@ -312,6 +314,8 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
   const fee = keyed.get("lever:fee")?.value;
   if (typeof fee === "boolean") req = applyAdvisoryFee(req, fee);
   for (const [k, e] of keyed) if (e.diff !== null && !reviews.has(e.diff.id) && cat.byKey.get(k)?.phase !== "field") reviews.set(e.diff.id, review("ok"));
+  // プランの表はいつも現状と同じ年で終わる（表の最後の年はどのプランにも共通。0043 の追記 2026-11-05）
+  if (req.input.endYear !== wh.request.input.endYear) req = { ...req, input: { ...req.input, endYear: wh.request.input.endYear } };
   return { request: req, contingency: applyPremiseDiffs(wh.contingency, plans), reviews };
 }
 
@@ -389,7 +393,8 @@ function ownDiffs(values: Values, baseValues: Values, wh: WorkingHousehold, cat:
       if (unlisted(k)) continue;
       // 一覧に無い欄の値（入力画面で直した欄の差分）: 土台・現状と同じなら差分にしない
       const r = resolveKey(k, inputOf(wh));
-      if (r === null || r.kind !== "address") continue;
+      // どのプランにも共通の項目（表の最後の年）は差分にしない（0043 の追記 2026-11-05）
+      if (r === null || r.kind !== "address" || isSharedDiff({ target: r.address.target, item: r.address.item })) continue;
       if (Object.hasOwn(baseValues, k) ? sameJson(v, baseValues[k]) : sameJson(v, unbox(boxAt(inputOf(wh), r.address)))) continue;
     }
     const d = diffFromValue(it, k, v, wh, prevByKey.get(k));
@@ -398,7 +403,7 @@ function ownDiffs(values: Values, baseValues: Values, wh: WorkingHousehold, cat:
   // オフにした差分（Values に出ない）は、同じキーを動かしていなければ残す（0036 の4 の enabled）。今の一覧に無い鍵の差分も残す（上）
   const now = new Set(out.map((d) => diffKey(d, wh)));
   const off = [...prevByKey.entries()].filter(([k, d]) => (!d.enabled || unlisted(k)) && !now.has(k)).map(([, d]) => d);
-  return [...kept, ...off, ...out];
+  return [...kept, ...off, ...out].filter((d) => !isSharedDiff(d));
 }
 
 export interface SaveInput {
