@@ -292,6 +292,26 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 前の版の世帯は会社の入力なし"
             );
         }
+        if migrate::parse(v).unwrap() >= (0, 59) {
+            // 0.59 から（0120）: その他の資産の中身の細目（表示だけ。計算には使わない）
+            let h = &now["household"]["request"]["input"]["household"];
+            let subs: Vec<&str> = h["accounts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(|a| a["subtype"].as_str())
+                .collect();
+            for s in [
+                "preciousMetal",
+                "cryptoAsset",
+                "art",
+                "membership",
+                "securityDeposit",
+                "businessAsset",
+            ] {
+                assert!(subs.contains(&s), "{v}: その他の資産の中身の細目 {s}");
+            }
+        }
         if *v == "0.48" {
             // 0.48 から: 役員として働く人の家計の側（自社株〔出資額〕・会社への貸付金・会社からの借入金・会社の借入の連帯保証の額）と、
             // 家計の体力の目安の分母（0105）

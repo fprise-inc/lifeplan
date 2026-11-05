@@ -990,6 +990,23 @@ function sample058(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/** 0.59 の見本の世帯（0120）: sample058() に、その他の資産の中身の細目6つ（細目ごとに1件）と細目の無いその他の資産を足す */
+function sample059(): BodyState {
+  const s = sample058();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const id = (n: number) => `00000000-0000-4000-8000-0000000059${String(n).padStart(2, "0")}`;
+  const box = (v: number) => ({ value: v, state: "confirmed", origin: { kind: "manual" } }) as never;
+  const subs = ["preciousMetal", "cryptoAsset", "art", "membership", "securityDeposit", "businessAsset"] as const;
+  hh.accounts = [
+    ...(hh.accounts ?? []),
+    ...subs.map((subtype, i) => ({ id: id(i + 1), kind: "otherAsset", subtype, owner: self.id, marketValue: box((i + 1) * 1000000), asOf: req.input.baseMonth, contributions: [] })),
+    { id: id(9), kind: "otherAsset", owner: self.id, marketValue: box(700000), asOf: req.input.baseMonth, contributions: [], valueGrowth: "-0.05" },
+  ];
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -1113,7 +1130,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.58");
+    expect(BODY_FORMAT_VERSION).toBe("0.59");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1286,7 +1303,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample058())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample059())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1606,6 +1623,19 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const plain = structuredClone(back.wh.request);
     for (const m of plain.input.household.members) delete m.companyGuarantee;
     for (const a of plain.input.household.accounts ?? []) delete a.subtype;
+    expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(plain)).table);
+  });
+
+  it("0.59 の形（0120）: その他の資産の中身の細目を保存して読み戻し、細目は計算に使わない", () => {
+    const s = sample059();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const h = stored.household.request.input.household;
+    const others = (h.accounts ?? []).filter((a) => a.kind === "otherAsset" && a.id.startsWith("00000000-0000-4000-8000-0000000059"));
+    expect(others.map((a) => a.subtype ?? "")).toEqual(["preciousMetal", "cryptoAsset", "art", "membership", "securityDeposit", "businessAsset", ""]);
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    const plain = structuredClone(back.wh.request);
+    for (const a of plain.input.household.accounts ?? []) if (a.kind === "otherAsset" && a.subtype !== "ownCompanyShares" && a.subtype !== "loanToCompany") delete a.subtype;
     expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(plain)).table);
   });
 

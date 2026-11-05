@@ -8,6 +8,8 @@
 // - 住まい以外の不動産のローン（負債の property）は「不動産のローン」。
 // - 役員として働く人の家計の側（0105）: その他の資産の細目の自社株（出資額）・会社への貸付金は換金しにくい資産の項目、ローンの細目の
 //   会社からの借入金は「その他の負債」の項目にする（細目は表示だけ。額はエンジンの行のまま）。会社の借入の連帯保証は負債に入れない。
+// - その他の資産の中身（0120）: 細目の貴金属・暗号資産・美術品や骨董品・会員権・敷金や保証金・事業用の資産は、それぞれ換金しにくい資産の項目
+//   （同じ細目は1つの項目にまとめる）。細目の無いもの・知らない細目は「その他の資産」。
 // - 資産の合計＝負債の合計＋純資産（純資産は資産の合計−負債の合計で出すので、どの年も必ず合う）。
 // 計算はしない（エンジンの表のマスを年ごとに分けて足すだけ。円の整数のまま）
 import type { TableCell } from "./bundle.ts";
@@ -100,11 +102,31 @@ const ILLIQUID: readonly { kind: string; key: string; label: string }[] = [
   { kind: "insurance", key: "insurance", label: "保険の解約返戻金" },
   { kind: "otherAsset", key: "otherAsset", label: "その他の資産" },
 ];
-/** その他の資産の細目（0105。項目の鍵と名前） */
-const ASSET_SUBTYPE: Record<string, { key: string; label: string }> = {
+/** その他の資産の中身の細目（0120。項目の鍵と名前。並びは箱の中の上からの順で、細目の無い「その他の資産」の前） */
+const OTHER_ASSET_SUBTYPE: Record<string, { key: string; label: string }> = {
+  preciousMetal: { key: "preciousMetal", label: "貴金属" },
+  cryptoAsset: { key: "cryptoAsset", label: "暗号資産" },
+  art: { key: "art", label: "美術品・骨董品" },
+  membership: { key: "membership", label: "会員権" },
+  securityDeposit: { key: "securityDeposit", label: "敷金・保証金" },
+  businessAsset: { key: "businessAsset", label: "事業用の資産" },
+};
+/** 役員として働く人のその他の資産の細目（0105。項目の鍵と名前） */
+const OFFICER_SUBTYPE: Record<string, { key: string; label: string }> = {
   ownCompanyShares: { key: "ownShares", label: "自社株（出資額）" },
   loanToCompany: { key: "loanToCompany", label: "会社への貸付金" },
 };
+const ASSET_SUBTYPE: Record<string, { key: string; label: string }> = { ...OTHER_ASSET_SUBTYPE, ...OFFICER_SUBTYPE };
+
+/**
+ * その他の資産の器1つの項目の鍵と名前（細目ごと。細目の無いもの・知らない細目は「その他の資産」）。
+ * 提案書の年の抜粋の表（build.ts の sheetOf）も、この名前で行に分ける
+ */
+export function otherAssetLine(subtype: string | undefined): { key: string; label: string } {
+  return (subtype !== undefined && Object.hasOwn(ASSET_SUBTYPE, subtype) ? ASSET_SUBTYPE[subtype] : undefined) ?? { key: "otherAsset", label: "その他の資産" };
+}
+/** その他の資産の項目（鍵と名前）の並び（細目の中身 → その他の資産 → 役員の細目） */
+export const OTHER_ASSET_LINES: readonly { key: string; label: string }[] = [...Object.values(OTHER_ASSET_SUBTYPE), { key: "otherAsset", label: "その他の資産" }, ...Object.values(OFFICER_SUBTYPE)];
 const NON_FINANCIAL = new Set(["realEstate", ...ILLIQUID.map((x) => x.kind)]);
 const DEBT_LABEL: Record<string, { key: string; label: string }> = {
   property: { key: "propertyLoan", label: "不動産のローン" },
@@ -122,8 +144,8 @@ const ORDER: readonly string[] = [
   "land",
   "building",
   "realEstateOther",
-  ...ILLIQUID.map((x) => x.key),
-  ...Object.values(ASSET_SUBTYPE).map((x) => x.key),
+  ...ILLIQUID.filter((x) => x.kind !== "otherAsset").map((x) => x.key),
+  ...OTHER_ASSET_LINES.map((x) => x.key),
   "mortgage",
   "propertyLoan",
   "carLoan",
@@ -136,7 +158,7 @@ const ORDER: readonly string[] = [
 /** 年ごとのバランスシート（years の並び） */
 export function bsSeries(table: readonly TableCell[], years: readonly number[], household: BsHousehold): BsAt[] {
   const debtKind = new Map((household.debts ?? []).map((d) => [d.id, d.property !== undefined ? "property" : d.subtype === "companyLoan" ? "companyLoan" : d.kind]));
-  const assetSub = new Map((household.accounts ?? []).filter((a) => a.kind === "otherAsset" && a.subtype !== undefined && ASSET_SUBTYPE[a.subtype] !== undefined).map((a) => [a.id, (ASSET_SUBTYPE[a.subtype as string] as { key: string }).key]));
+  const assetSub = new Map((household.accounts ?? []).filter((a) => a.kind === "otherAsset").map((a) => [a.id, otherAssetLine(a.subtype).key]));
   const index = new Map(years.map((y, i) => [y, i]));
   // 年ごと: 項目の鍵 → 額（金融資産の器は器の種類ごとに足してから、マイナスを資金の不足へ回す）
   const fin: Map<string, number>[] = years.map(() => new Map());

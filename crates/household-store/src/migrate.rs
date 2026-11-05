@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.58";
+pub const CURRENT: &str = "0.59";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -196,12 +196,16 @@ pub const CURRENT: &str = "0.58";
 ///   （`wageStats.curve.<雇用形態>.<性別>.<学歴>.<企業規模>`）を同じ雇用形態・企業規模の男女計・学歴計（`…all.all…`）に直し、
 ///   退職給付の学歴 `retirementBenefits[].education`（退職一時金の目安の元だけ。計算には使わない）を外す。今のエンジンは前の値ID を
 ///   読めず、前の版のアプリは学歴の欄を書き戻すので、版を上げて閲覧だけにする。開いたときの知らせ `neutralEstimates` を足す。0.57 の段の後に積む
+/// - 0.59: その他の資産の細目 `accounts[].subtype` に中身の6つ（貴金属 `preciousMetal`・暗号資産 `cryptoAsset`・美術品や骨董品 `art`・
+///   会員権 `membership`・敷金や保証金 `securityDeposit`・事業用の資産 `businessAsset`）を足した（0120。表示とバランスシートの行の名前だけで、
+///   計算には使わない。足すだけの MINOR）。前の版のアプリは細目を読めない（入力の検査で止まる）ので、版を上げて閲覧だけにする。
+///   変換の段は形式の版だけを書き換える。0.58 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
-    "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58",
+    "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59",
 ];
 
 /// 1段分の変換
@@ -497,6 +501,11 @@ pub const STEPS: &[Step] = &[
         from: "0.57",
         to: "0.58",
         apply: v0_57_to_0_58,
+    },
+    Step {
+        from: "0.58",
+        to: "0.59",
+        apply: v0_58_to_0_59,
     },
 ];
 
@@ -2184,6 +2193,15 @@ fn v0_57_to_0_58(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.58 → 0.59: 足した値（その他の資産の中身の細目。0120）は前の版の世帯に無いので、形式の版だけを書き換える。ほかの欄に触れない
+fn v0_58_to_0_59(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.59".into());
+    }
+    Ok(body)
+}
+
 /// 0.17 で ID を振る並び（物の集まり → その物から並びまでの欄の名前。0035 の5）
 const ELEMENT_LISTS: &[(&str, &[&[&str]])] = &[
     ("livingExpenses", &[&["stages"], &["categories"]]),
@@ -2737,7 +2755,8 @@ mod tests {
         assert_eq!(access("0.56").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.57").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.58").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.59").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.59").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.60").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -2750,7 +2769,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.59", b.clone()).unwrap(),
+            upgrade("0.60", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -3155,6 +3174,23 @@ mod tests {
         });
         let u = upgrade("0.51", b.clone()).unwrap();
         assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+    }
+
+    #[test]
+    fn v0_58_to_0_59_only_bumps_version() {
+        // 足した値（その他の資産の中身の細目。0120）は前の版の世帯に無いので、世帯はそのまま（細目の無いその他の資産は「その他」のまま）
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.58"},
+            "household": {"request": {"input": {"baseMonth": "2026-10", "household": {
+                "accounts": [
+                    {"id": "a1", "kind": "otherAsset", "owner": "m1", "asOf": "2026-10", "contributions": []},
+                    {"id": "a2", "kind": "otherAsset", "subtype": "ownCompanyShares", "owner": "m1", "asOf": "2026-10", "contributions": []}
+                ]
+            }}}}
+        });
+        let u = upgrade("0.58", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.59");
         assert_eq!(u["household"], b["household"]);
     }
 

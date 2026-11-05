@@ -9,7 +9,7 @@ import type { EngineOutput, EngineRequest, ProposalBundle, RealEstateAnalysisAmo
 import { saleCompareOf, type SaleResult } from "./rentalSale.ts";
 import { pctText, timesText } from "./rentalText.ts";
 import { selectChapters } from "./chapters.ts";
-import { bsHouseholdOf, bsSeries, BS_GROUP_LABEL, groupTotal, type BsGroup } from "./bsGroups.ts";
+import { bsHouseholdOf, bsSeries, BS_GROUP_LABEL, groupTotal, OTHER_ASSET_LINES, otherAssetLine, type BsGroup, type BsHousehold } from "./bsGroups.ts";
 import { DEFAULT_MONEY_THREE, moneyThreeModel, type MoneyThreeModel } from "./moneyThree.ts";
 import { carPurchaseMonths } from "../../engine/src/sdk/cars.ts";
 import { dreamIncluded, dreamList, dreamSummary } from "./dreams.ts";
@@ -690,21 +690,24 @@ function basics(ctx: Ctx): ProposalInput["basics"] {
     expense,
     net: sum((c) => c.row === "cf.net"),
     balanceYear: by,
-    balance: sheetOf(t, [{ year: by, label: `${by}年末` }]),
+    balance: sheetOf(t, [{ year: by, label: `${by}年末` }], run.request.input.household),
   };
 }
 
 // ---- バランスシート（全資産・全負債。アプリの資産と負債の推移と同じ分け方: 不動産・その他の資産は金融資産の合計に入らない）----
 
 const REAL_ESTATE_ROW = "cf.balance.account.realEstate";
-/** その他の資産の行（保険の解約返戻金・車・その他の資産）。並びは帳票の行の順 */
+/** その他の資産の行（保険の解約返戻金・車・その他の資産）。並びは帳票の行の順。器の種類 otherAsset は中身の細目ごとの行（0105・0120。下の sheetOf） */
 const OTHER_ASSET_KINDS = ["car", "insurance", "otherAsset"];
-const OTHER_ASSET_LABEL: Record<string, string> = { car: "車", insurance: "保険の解約返戻金", otherAsset: "その他の資産" };
+const OTHER_ASSET_LABEL: Record<string, string> = { car: "車", insurance: "保険の解約返戻金" };
 /** 金融資産の器の並び（帳票の行の順） */
 const FINANCIAL_KINDS = ["deposit", "fxDeposit", "zaikei", "taxable", "nisa", "childNisa", "juniorNisa", "legacyNisa", "ideco", "corporateDc", "esop", "smallBusinessMutualAid"];
 
-/** 年末の時点ごとのバランスシート。金融資産の器のマイナス（預金の不足）は負債の側に出す。資産の合計＝負債の合計＋純資産 */
-export function sheetOf(table: readonly TableCell[], points: readonly YearPoint[]): BalanceSheetView {
+/**
+ * 年末の時点ごとのバランスシート。金融資産の器のマイナス（預金の不足）は負債の側に出す。資産の合計＝負債の合計＋純資産。
+ * その他の資産（器の種類 otherAsset）は、世帯の細目で行を分ける（同じ細目はまとめる。アプリの資産と負債のタブと同じ名前。0120）
+ */
+export function sheetOf(table: readonly TableCell[], points: readonly YearPoint[], household?: BsHousehold): BalanceSheetView {
   const ys = points.map((p) => p.year);
   const at = (pred: (c: TableCell) => boolean): Yen[] => ys.map((y) => table.reduce((s, c) => (c.year === y && pred(c) ? s + c.amount : s), 0));
   const kindOf = (row: string) => row.slice("cf.balance.account.".length);
@@ -723,7 +726,10 @@ export function sheetOf(table: readonly TableCell[], points: readonly YearPoint[
     { label: "建物", values: at((c) => c.row === `${REAL_ESTATE_ROW}.building`) },
     { label: "土地と建物に分けていない不動産", values: at((c) => c.row === REAL_ESTATE_ROW) },
   ].filter((x) => any(x.values));
-  const others = OTHER_ASSET_KINDS.map((k) => ({ label: OTHER_ASSET_LABEL[k] as string, values: at((c) => c.row === `cf.balance.account.${k}`) })).filter((x) => any(x.values));
+  const subOf = new Map((household?.accounts ?? []).filter((a) => a.kind === "otherAsset").map((a) => [a.id, otherAssetLine(a.subtype).key]));
+  const lineOfCell = (c: TableCell) => (c.object !== undefined ? subOf.get(c.object) : undefined) ?? "otherAsset";
+  const otherAssetLines = OTHER_ASSET_LINES.map((x) => ({ label: x.label, values: at((c) => c.row === "cf.balance.account.otherAsset" && lineOfCell(c) === x.key) }));
+  const others = [...OTHER_ASSET_KINDS.filter((k) => k !== "otherAsset").map((k) => ({ label: OTHER_ASSET_LABEL[k] as string, values: at((c) => c.row === `cf.balance.account.${k}`) })), ...otherAssetLines].filter((x) => any(x.values));
   const totalAssets = ys.map((_, i) => (finPos[i] ?? 0) + (realEstate[i] ?? 0) + others.reduce((s, x) => s + (x.values[i] ?? 0), 0));
   const mortgage = at((c) => c.row === "cf.balance.debt.mortgage" || c.row === "cf.balance.debt.unpaidInterest");
   const otherDebt = at((c) => c.row === "cf.balance.debt.other");
@@ -849,7 +855,7 @@ function balanceSheet(ctx: Ctx): NonNullable<ProposalInput["balanceSheet"]> {
   const nowNetWorth = fig.columns.find((c) => c.fact)?.netWorth ?? netWorthOf(prop, [ctx.baseYear])[0] ?? 0;
   return {
     figure: fig,
-    proposal: sheetOf(prop, points),
+    proposal: sheetOf(prop, points, ctx.bundle.proposal.request.input.household),
     currentNetWorth: sheetOf(cur, points).netWorth,
     netWorth: { current: netWorthOf(cur, ctx.years), proposal: netWorthOf(prop, ctx.years) },
     ...(guarantee > 0 ? { guarantee: { amount: guarantee, netWorthWith: nowNetWorth - guarantee } } : {}),

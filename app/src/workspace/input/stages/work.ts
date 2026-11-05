@@ -1356,7 +1356,7 @@ function officerGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
   if (!executiveMembers(h).some((x) => x.id === m.id)) return null;
   const find = byId((x) => x.members, m.id);
   const k = `work/${m.id}/officer`;
-  const owned = (h.accounts ?? []).filter((a) => a.owner === m.id && a.kind === "otherAsset" && a.subtype !== undefined).length;
+  const owned = (h.accounts ?? []).filter((a) => a.owner === m.id && a.kind === "otherAsset" && (a.subtype === "ownCompanyShares" || a.subtype === "loanToCompany")).length;
   const borrowed = (h.debts ?? []).filter((d) => d.subtype === "companyLoan" && d.debtors.some((x) => x.member === m.id)).length;
   const guarantee = yenBox({ key: `${k}/guarantee`, item: "member.companyGuarantee", label: "会社の借入の連帯保証の額", level: "simple", basis: "once", find, path: ["companyGuarantee"], optional: true, help: "役員を務める会社の借入のうち、連帯保証している額（今の額）。負債の合計には入れず、資産と負債のタブで「保証を含めると純資産は○円」と別に見せます。計算には使いません" });
   return {
