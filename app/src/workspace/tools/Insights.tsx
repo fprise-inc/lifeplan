@@ -2,7 +2,9 @@
 // 使い切る年・相続税がかかる見込み）。入力は増えない。年のある気づきは「その年を見る」、どれも「対策を考える」で対策へ
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
+import type { WorkingHousehold } from "../input/household.ts";
 import { inheritanceRequest } from "../input/inheritanceLine.ts";
+import { endYearOff, endYearToStandard } from "../input/stages/assumptions.ts";
 import { insights } from "./fpTools.ts";
 
 /** 相続税の目安を計算する（active のときだけ。要求が変わったら計算し直す） */
@@ -55,5 +57,26 @@ export function Insights({ req, result, months, inheritance, onYear, onLevers }:
         ))}
       </ul>
     </section>
+  );
+}
+
+/**
+ * 表の最後の年が標準から大きく外れている世帯（若い方の大人が85〜105歳の外。古い世帯・前の版の見本の写しなど）の、結果のタブの入力の確認。
+ * 前提条件の詳細の欄の中だけでは気づかないので、グラフの下（気づきの上）にも出す。押したときだけ既定にする（黙って直さない）。
+ * wh は現状（入力）の世帯
+ */
+export function EndYearNote({ wh, onFix }: { wh: WorkingHousehold; onFix: (next: WorkingHousehold) => void }) {
+  const o = endYearOff(wh);
+  if (o === null) return null;
+  return (
+    <div class="fee-note input-notice" role="note" data-input-notice data-end-year-note>
+      <span class="fee-tag">入力の確認</span>
+      <span>
+        表の最後の年が{o.end}年（{o.ages}）です。既定は、ご本人・配偶者のうち若い方が100歳になる{o.std}年です
+      </span>
+      <button type="button" class="link-btn" onClick={() => onFix(endYearToStandard(wh))} data-end-year-fix>
+        既定（{o.std}年）にする
+      </button>
+    </div>
   );
 }

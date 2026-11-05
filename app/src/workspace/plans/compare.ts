@@ -3,7 +3,7 @@ import type { EngineRequest, TableCell } from "../../engine/types.ts";
 import { group, man, manDiff } from "../../presentation/format.ts";
 import type { CompareCell, CompareTableModel } from "../../presentation/model.ts";
 import type { PlanPension } from "../input/pensionEstimate.ts";
-import { atAgeIn, depletionYear, displayYears, financialOf, targetYearOf } from "../present.ts";
+import { atAgeIn, depletionYear, displayYears, financialOf, targetYearOf, yearsWithin } from "../present.ts";
 import { ageInYear, roles } from "../roles.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
@@ -31,7 +31,8 @@ export interface PlanMetrics {
 export { targetYearOf };
 
 export function metricsOf(req: EngineRequest, table: readonly TableCell[], targetAge: number): PlanMetrics {
-  const years = displayYears(req);
+  // そのプランの表がある年だけ（プランで表の最後の年を短くしたプランの、その後の年を 0 円の年として「最も少ない年」にしない）
+  const years = yearsWithin(table, displayYears(req));
   const ys = new Set(years);
   const fin = financialOf(table);
   let takeHome = 0;

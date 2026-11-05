@@ -328,6 +328,16 @@ export function standardEndYear(h: Household): number {
 }
 
 /**
+ * 表の最後の年が、まだ標準の値のままか（家族を直したときに標準に付いていく値か）: 今の値が標準の年と同じで、FP が確定していない
+ * （値の状態の行が確定でない。0070）。人が入れた年・確定した年は false
+ */
+export function endYearIsStandard(req: EngineRequest): boolean {
+  const std = standardEndYear(req.input.household);
+  const pinned = (req.input as { valueStates?: Record<string, { state?: string }> }).valueStates?.["plan.endYear"]?.state === "confirmed";
+  return !pinned && Number.isFinite(std) && req.input.endYear === std;
+}
+
+/**
  * アプリの見本の世帯を開くときの要求: 表の最後の年を標準（standardEndYear）にそろえる。
  * 見本の元のモデル世帯は、計算の確かめ・速さの計測にも使うので表の長さがまちまち（100年分の表など）で、そのまま開くと
  * 表が本人129歳まで続き、前提条件の標準の年とも食い違っていた。保存した世帯（見本を開いて保存した写しも）はこれを通さない（黙って書き換えない）
@@ -377,11 +387,8 @@ export function followStandards(before: WorkingHousehold, after: WorkingHousehol
   const hb = before.request.input.household;
   const ha = after.request.input.household;
   const endBefore = before.request.input.endYear;
-  const stdBefore = standardEndYear(hb);
   const stdAfter = standardEndYear(ha);
-  // FP が確定した表の最後の年（値の状態の行が確定。0070）は追いかけない
-  const pinned = (before.request.input as { valueStates?: Record<string, { state?: string }> }).valueStates?.["plan.endYear"]?.state === "confirmed";
-  const fixEnd = !pinned && Number.isFinite(stdBefore) && Number.isFinite(stdAfter) && endBefore === stdBefore && after.request.input.endYear === endBefore && stdAfter !== endBefore;
+  const fixEnd = endYearIsStandard(before.request) && Number.isFinite(stdAfter) && after.request.input.endYear === endBefore && stdAfter !== endBefore;
   // 独立の時点が子の独立の出来事を指している（出来事が正本。0038）なら、出来事の年月を見る
   const leavesAt = (h: Household, m: Member): Timepoint | null | undefined => {
     const t = m.leaves;

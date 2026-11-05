@@ -56,6 +56,21 @@ export function sumByYear(table: readonly TableCell[], pred: (c: TableCell) => b
 
 export const financialOf = (t: readonly TableCell[]) => sumByYear(t, (c) => c.row === "cf.balance.financial");
 
+/**
+ * そのプランの表がある年だけに絞った年（帯・重ねるグラフの年は現状の表の年なので、プランで表の最後の年を短くしたときは、
+ * その後の年をそのプランの値の無い年として扱う。0 円の年として描かない・数えない）
+ */
+export function yearsWithin(table: readonly TableCell[], years: readonly number[]): readonly number[] {
+  let last = Number.NEGATIVE_INFINITY;
+  for (const c of table) if (c.year > last) last = c.year;
+  return last === Number.NEGATIVE_INFINITY || last >= (years.at(-1) ?? last) ? years : years.filter((y) => y <= last);
+}
+
+const endsOf = <K extends string>(key: K, table: readonly TableCell[], years: readonly number[]): Partial<Record<K, number>> => {
+  const own = yearsWithin(table, years);
+  return own.length < years.length ? ({ [key]: own.length } as Partial<Record<K, number>>) : {};
+};
+
 /** 資産が尽きる年（金融資産がはじめてマイナスになる年）。尽きなければ null */
 export function depletionYear(table: readonly TableCell[], years: readonly number[]): number | null {
   const fin = financialOf(table);
@@ -479,6 +494,9 @@ export function toPresentation(input: PresentInput): PresentationModel {
     proposal: years.map((y) => finP.get(y) ?? 0),
     current: years.map((y) => finC.get(y) ?? 0),
     depletions,
+    // プランで表の最後の年を短くしたプランは、その後の年を値の無い年にする（線と塗りをそこで終える）
+    ...endsOf("proposalEnds", proposed.table, years),
+    ...endsOf("currentEnds", current.table, years),
   };
 
   const selectedYear = input.selectedYear !== null && years.includes(input.selectedYear) ? input.selectedYear : (years[Math.min(4, years.length - 1)] ?? lastYear);

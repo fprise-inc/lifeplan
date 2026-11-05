@@ -16,7 +16,7 @@ import { parseHash } from "../src/workspace/App.tsx";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { DisplaySettingsPanel } from "../src/workspace/DisplaySettingsPanel.tsx";
 import { fromRequest } from "../src/workspace/input/household.ts";
-import { assignColors, CURRENT, planLinesModel } from "../src/workspace/plans/band.ts";
+import { assignColors, bandModel, CURRENT, planLinesModel } from "../src/workspace/plans/band.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { applyValues, type Values } from "../src/workspace/plans/plans.ts";
 import { investChart } from "../src/workspace/invest/present.ts";
@@ -483,5 +483,64 @@ describe("表示の設定", () => {
     expect(html).toContain("全部のプランを色分けで重ねる");
     expect(html).toMatch(/value="all" checked/);
     expect(parseHash("#layout=all").layout).toBe("all");
+  });
+});
+
+describe("プランで表の最後の年を短くしたプラン（そのプランの表が先に終わる）", () => {
+  const years = displayYears(wh.request);
+  // 現状は77歳で不足するので、その前（本人70歳の年）で終える
+  const endE = Number(selfMember.birth.birthYearMonth.slice(0, 4)) + 70;
+  const reqE = structuredClone(wh.request);
+  reqE.input.endYear = endE;
+  const rE = preview(reqE);
+  const lettersE = new Map([...letters, ["e", { letter: "E", name: "表の最後の年を短く" }]]);
+  const slotsE = [...slots, "e"];
+  const resultsE = new Map([...results, ["e", rE] as const]);
+  const colorsE = assignColors(new Map(), ["b", "c", "d", "e"], (id) => lettersE.get(id)?.letter, PLAN_COLORS);
+  const linesE = planLinesModel({ req: wh.request, slots: slotsE, letters: lettersE, results: resultsE, base: CURRENT, selected: "e", colors: colorsE });
+  const own = years.filter((y) => y <= endE).length;
+  const mE = (): PresentationModel & MainChartModel => ({
+    ...toPresentation({ base: wh.request, proposal: reqE, current: results.get(CURRENT)!, proposed: rE, targetAge: 95, selectedYear: null, provisional: false, names: { selected: "プランE", base: "プランA", same: false } }),
+    plans: linesE,
+  });
+  const pathOf = (html: string, key: string) => html.match(new RegExp(`data-multi-line="${key}">[\\s\\S]*?<path d="([^"]+)" class="multi-line"`))?.[1] ?? "";
+
+  it("重ねるグラフ: そのプランの線は表の最後の年で終える（後の年を 0 円の線にしない）。ほかのプランは最後まで", () => {
+    const e = linesE.find((l) => l.key === "E")!;
+    expect(e.ends).toBe(own);
+    expect(linesE.find((l) => l.key === "A")!.ends).toBeUndefined();
+    const html = renderToString(h(MainChart, { model: mE(), mode: "assets", explain: null, ageMark: null, pinnedYear: null, onSelectYear: noop, layout: "all" }));
+    expect(pathOf(html, "E").split(/[ML]/).filter((x) => x.trim() !== "")).toHaveLength(own);
+    expect(pathOf(html, "A").split(/[ML]/).filter((x) => x.trim() !== "")).toHaveLength(years.length);
+    // 線の端の文字は、その線の終わりの年に置く
+    expect(html).toContain(`data-multi-end="${endE}"`);
+  });
+
+  it("重ねるグラフで表の後の年を固定すると、そのプランは丸を出さず「表は○年まで」", () => {
+    const y = endE + 5;
+    const html = renderToString(h(MainChart, { model: mE(), mode: "assets", explain: null, ageMark: null, pinnedYear: y, onSelectYear: noop, layout: "all" }));
+    expect(html.match(/<circle class="pl-mk hv-mk"/g)).toHaveLength(4);
+    expect(html).toContain(`表は${endE}年まで`);
+  });
+
+  it("基準と選んだプランの2本の表示でも、選んだプランの線と塗りを表の最後の年で終える", () => {
+    const m = mE();
+    expect(m.chart.proposalEnds).toBe(own);
+    expect(m.chart.currentEnds).toBeUndefined();
+    const html = renderToString(h(MainChart, { model: m, mode: "assets", explain: null, ageMark: null, pinnedYear: endE + 5, onSelectYear: noop, layout: "overlay" }));
+    const d = html.match(/<path d="([^"]+)" class="line-prop"/)?.[1] ?? "";
+    expect(d.split(/[ML]/).filter((x) => x.trim() !== "")).toHaveLength(own);
+    expect(html.match(/<path d="([^"]+)" class="line-base"/)?.[1]?.split(/[ML]/).filter((x) => x.trim() !== "")).toHaveLength(years.length);
+    expect(html).toContain(`表は${endE}年まで`);
+    expect(html).not.toContain('class="hv-dot sel"');
+  });
+
+  it("帯のカードの「○歳まで足りる」は、そのプランの表の最後の年の年齢", () => {
+    const band = bandModel({ req: wh.request, slots: slotsE, letters: lettersE, results: resultsE, modified: new Set(), base: CURRENT, selected: "e", settings: DEFAULT_DISPLAY_SETTINGS, colors: colorsE });
+    const ageAt = (y: number) => y - Number(selfMember.birth.birthYearMonth.slice(0, 4));
+    const e = band.cards.find((c) => c.key === "E")!;
+    expect(e.status).toBe(`${ageAt(endE)}歳まで足りる`);
+    // 現状は現状の表の年で数える（77歳で不足）
+    expect(band.cards.find((c) => c.key === "A")!.status).toMatch(/歳で不足$/);
   });
 });
