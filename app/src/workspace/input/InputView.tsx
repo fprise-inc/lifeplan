@@ -489,12 +489,15 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
         {/* 右端: 入力項目を選ぶ（この世帯で出す入力項目と、開いたときの入れ方。選び方は世帯全体の物なので、プランの編集中も現状の世帯に入れる） */}
         <ItemChooser wh={wh} items={allItems} onChange={onSave} onLevel={forgetLevel} initialOpen={chooseOpen} {...(officeItems !== undefined ? { office: officeItems } : {})} />
       </div>
-      {tools}
-      {imports !== undefined && !fresh ? (
-        <ImportMenu button={false} {...importOff} {...importCtl}>
-          {imports}
-        </ImportMenu>
-      ) : null}
+      {/* FP のメニューから開いた中身（控え・面談の準備・取り込む）の置き場。余白はこの箱が持つ（パネルごとに足さない。0077 の追記） */}
+      <div class="ih-opened" data-home-opened>
+        {tools}
+        {imports !== undefined && !fresh ? (
+          <ImportMenu button={false} {...importOff} {...importCtl}>
+            {imports}
+          </ImportMenu>
+        ) : null}
+      </div>
       {editing !== null && pcat !== undefined && diffOpen && plans !== undefined ? <DiffList rows={rows} wh={wh} planId={editing.id} cat={pcat} onEdit={plans.onSavePlan} onOpen={open} /> : null}
       {docsOpen ? <DocRequests wh={wh} onOpen={openField} onClose={() => setDocsOpen(false)} /> : null}
       {checkOpen ? (
