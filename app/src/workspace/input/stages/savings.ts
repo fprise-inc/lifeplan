@@ -6,7 +6,7 @@ import { ageAt, ageReachedMonth } from "../../levers.ts";
 import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { confirmedBox, mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
 import { putRow } from "../rows.ts";
-import { ACCOUNT_KINDS, ASSET_CLASSES, memberLabel, memberOptions } from "../labels.ts";
+import { ACCOUNT_KINDS, ASSET_CLASSES, memberLabel, memberOptions, OTHER_ASSET_OPTIONS, otherAssetSubtypeOf } from "../labels.ts";
 import { isRentalProperty, UNENTERED_RENT } from "./rental.ts";
 import { accountName, UNENTERED_BALANCE, defaultPayoutAge, editPayout, INVEST_KINDS, methodOf, payoutAgeOf, rateOf, reservePreset, setSettlement, settlementOf, setStopAge, stopAgeOf, stopEstimateOf } from "../savings/model.ts";
 import { allocationStageGroups, returnStageGroups } from "../staged.ts";
@@ -23,7 +23,8 @@ const WITH_COST = new Set(["taxable", "nisa", "legacyNisa", "juniorNisa", "child
 const NON_FINANCIAL = new Set(["realEstate", "otherAsset"]);
 
 /**
- * 貸していない不動産（土地・別荘など。評価額だけ）・その他の資産（貴金属・美術品・貸付金など）: 評価額・時点・増減率。
+ * 貸していない不動産（土地・別荘など。評価額だけ）・その他の資産（貴金属・暗号資産・会員権など）: 評価額・時点・増減率。
+ * その他の資産は中身（細目 subtype。0120）を選べる。細目は表示とバランスシートの行の名前だけで、計算には使わない。
  * 貸している不動産（中身 property を持つ不動産の器）は「収益不動産」の項目で入れる（0079。stages/rental.ts）
  */
 function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
@@ -31,9 +32,15 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   const k = `sav/${a.id}`;
   const estate = a.kind === "realEstate";
   // 自社株（出資額）・会社への貸付金（役員として働く人の家計の側。0105）: 種類は「その他の資産」のまま、細目で名前と説明を変える
-  const sub = a.kind === "otherAsset" && a.subtype !== undefined ? ASSET_SUBTYPES[a.subtype] : undefined;
+  const sub = a.kind === "otherAsset" && a.subtype !== undefined && Object.hasOwn(ASSET_SUBTYPES, a.subtype) ? ASSET_SUBTYPES[a.subtype as keyof typeof ASSET_SUBTYPES] : undefined;
+  // 中身（貴金属・暗号資産など。0120）: その他の資産だけ。細目の無いものは「その他」
+  const kindOf = a.kind === "otherAsset" && sub === undefined ? otherAssetSubtypeOf(a.subtype) : null;
   const fields: FieldDef[] = [
-    plain({ key: `${k}/kind`, item: "account.kind", label: "種類", level: "simple", kind: "select", options: ACCOUNT_KINDS, find, path: ["kind"], structural: true }),
+    // 種類をその他の資産から変えたら、中身の細目を外す（細目は種類 otherAsset だけ）
+    plain({ key: `${k}/kind`, item: "account.kind", label: "種類", level: "simple", kind: "select", options: ACCOUNT_KINDS, find, path: ["kind"], structural: true, after: (_h, t, v) => void (v !== "otherAsset" && delete t.subtype) }),
+    ...(a.kind === "otherAsset" && sub === undefined
+      ? [plain({ key: `${k}/subtype`, item: "account.subtype", label: "中身", level: "simple", kind: "select", options: OTHER_ASSET_OPTIONS, find, path: ["subtype"], fallback: "other", structural: true, help: kindOf?.note ?? "資産と負債のタブ・提案書のバランスシートで、中身ごとの行に分けて見せます（同じ中身はまとめます）。計算は中身で変わりません" })]
+      : []),
     plain({ key: `${k}/owner`, item: "account.owner", label: "名義", level: "simple", kind: "select", options: memberOptions(wh), find, path: ["owner"] }),
     yenBox({ key: `${k}/value`, item: "account.marketValue", label: a.subtype === "ownCompanyShares" ? "出資額（払い込んだ額）" : a.subtype === "loanToCompany" ? "今の貸付金の残り" : "今の評価額", level: "simple", basis: "once", find, path: ["marketValue"] }),
     // 開いても欄が1つだけになるので、標準でも出す
@@ -75,7 +82,7 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   return [
     {
       key: k,
-      title: `${estate ? "貸していない不動産" : (sub?.label ?? "その他の資産")}（${memberLabel(wh, a.owner)}）`,
+      title: `${estate ? "貸していない不動産" : (sub?.label ?? kindOf?.short ?? "その他の資産")}（${memberLabel(wh, a.owner)}）`,
       ...(estate ? { note: "評価額だけで持つ不動産（貸していない土地・別荘など）です。人に貸している物件は「収益不動産」で入れます（「収益不動産へ移す」で移せます）" } : sub !== undefined ? { note: sub.note } : {}),
       level: "simple",
       fields,
@@ -678,7 +685,8 @@ export function savingsStage(wh: WorkingHousehold): StageDef {
   const add = (kind: string, label: string) => ({
     key: `sav/add/${kind}`,
     label: `＋ ${label}`,
-    level: (MAIN_ADD_KINDS.has(kind) ? "simple" : "detail") as "simple" | "detail",
+    // 不動産・その他の資産を足すボタンは標準でも出す（0120）
+    level: (MAIN_ADD_KINDS.has(kind) || NON_FINANCIAL.has(kind) ? "simple" : "detail") as "simple" | "detail",
     run: (w: WorkingHousehold) =>
       mutate(w, (hh) => {
         if (self === undefined) return;
@@ -695,7 +703,7 @@ export function savingsStage(wh: WorkingHousehold): StageDef {
   return {
     id: "savings",
     label: "貯蓄・運用",
-    lead: "口座・資産の種類ごとの今の残高と、毎月の積立。",
+    lead: "口座・資産の種類ごとの今の残高と、毎月の積立。貸していない不動産・貴金属などのその他の資産も。",
     sections: [
       {
         key: "sav/accounts",
@@ -724,10 +732,11 @@ export function savingsStage(wh: WorkingHousehold): StageDef {
       {
         key: "sav/others",
         title: "その他の資産",
-        note: `貸していない土地・別荘などの不動産と、貴金属・美術品・貸付金など。資産と負債の推移・提案書のバランスシートに入ります（金融資産には入れず、取り崩しにも使いません）。人に貸している不動産は「収益不動産」、住まいは「住まい・ローン」、車は「車」で入れます${officer !== undefined ? "。役員を務める会社の自社株（出資額）と、会社への貸付金もここで入れます（会社からの借入金は「住まい・ローン」のほかのローン）" : ""}`,
-        level: others.length > 0 || officer !== undefined ? "simple" : "detail",
+        note: `貸していない土地・別荘・空き家などの不動産と、貴金属・暗号資産・美術品や骨董品・会員権・敷金や保証金・事業用の資産など。資産と負債のタブ・提案書のバランスシートに、中身ごとの行で入ります（金融資産には入れず、取り崩しにも使いません。時価の下落にも当てません）。人に貸している不動産は「収益不動産」、住まいは「住まい・ローン」、車は「車」で入れます${officer !== undefined ? "。役員を務める会社の自社株（出資額）と、会社への貸付金もここで入れます（会社からの借入金は「住まい・ローン」のほかのローン）" : ""}`,
+        // 無い世帯でも標準で出す（見出しと足すボタンだけ。0120）。説明は「?」の中
+        level: "simple",
         groups: others.flatMap((a) => otherAssetGroups(wh, a)),
-        actions: [add("realEstate", "貸していない不動産"), add("otherAsset", "その他の資産"), ...(officer !== undefined ? [addOfficer("ownCompanyShares"), addOfficer("loanToCompany")] : [])],
+        actions: [add("realEstate", "貸していない不動産（土地・別荘など）"), add("otherAsset", "その他の資産（貴金属・会員権など）"), ...(officer !== undefined ? [addOfficer("ownCompanyShares"), addOfficer("loanToCompany")] : [])],
       },
       returnStagesSection(wh),
       ...(methodOf(wh.request) === "total" ? [] : [flowSection(wh)]),

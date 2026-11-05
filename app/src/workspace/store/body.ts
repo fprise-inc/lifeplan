@@ -1,5 +1,5 @@
 // 世帯ファイルの本文（0011 の2）を、画面の側の状態から組み立てる・読み取る。暗号化とファイルの読み書きは本体（0013・0016 の1）。
-// 本文の区画（形式の版 0.58。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
+// 本文の区画（形式の版 0.59。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
 // 0.17 から（0035・0036）: 差分は当て先で、仮の印は物の値の状態の欄で、贈与者は世帯の外の家族の構成員で書き、並びの要素は ID を持つ。
 // 0.18 から（0040）: 段階と例外の年（周期的な支出・家賃・修繕費・固定資産税・不動産の家賃と経費・器の利回り・資産配分）と、働き方の期間ごとの
 // 伸び（給与・事業所得の年率）。足すだけの形（本体の変換の段は版だけを書き換える）
@@ -87,6 +87,9 @@
 //   extDefinitions）へ移した（0114 の9。本体の変換の段が移し、meta.extTransfers に記録する）。household の区画には companyBs を書かない
 //   0.58 から: 人の属性（性別・学歴）で推定の数字を分けない（0118）。統計の年齢カーブの値ID は男女計・学歴計（wageStats.curve.<雇用形態>.all.all.<企業規模>）だけ、
 //   退職給付の学歴 retirementBenefits[].education は書かない（本体の変換の段が前の値ID を直し、学歴を外し、開いたときの知らせ neutralEstimates を足す）
+//   0.59 から: その他の資産の細目 accounts[].subtype に中身の6つ（preciousMetal 貴金属・cryptoAsset 暗号資産・art 美術品や骨董品・membership 会員権・
+//   securityDeposit 敷金や保証金・businessAsset 事業用の資産）を持つ（0120。表示とバランスシートの行の名前だけで計算に使わない。細目の無いものは「その他」。
+//   足すだけ。本体の変換の段は版だけを書き換える）
 //   （0.46 のまま。0041 の追記 2026-11-01）: 「書類で確かめる」は今の自動車ローン（kind car の負債）の欄に出し、これから買う車のローン
 //   （cars[].valueStates の car.loan/…）には出さない。前に付けた所は読むときに推定にし、開いたときの知らせ carLoanEstimated を足す（形は変えない）
 //   （0.58 のまま。0043 の追記 2026-11-05）: 表の最後の年（plan.endYear）はどのプランにも共通にした。前の画面で作ったプランの差分の表の最後の年
@@ -143,7 +146,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.58";
+export const BODY_FORMAT_VERSION = "0.59";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 

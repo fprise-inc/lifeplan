@@ -324,6 +324,26 @@ export const ACCOUNT_KINDS: Option[] = [
   { value: "otherAsset", label: "その他の資産" },
 ];
 
+/**
+ * その他の資産（器の種類 otherAsset）の中身の細目（0120）。表示だけで、計算には使わない（評価額・増減率・時価の下落の対象から外す扱いは細目で変えない）。
+ * 細目の無いものは「その他」。自社株（出資額）・会社への貸付金は役員として働く人の細目で、ここには入れない（officer.ts。0105）。
+ * label は欄の選択肢、short はまとまりの見出し（バランスシートの行の名前と同じ）、note は「?」の説明。バランスシートの行の名前は report/src/bsGroups.ts（同じ細目はまとめる）
+ */
+export const OTHER_ASSET_SUBTYPES = {
+  preciousMetal: { label: "貴金属（金・プラチナなど）", short: "貴金属", note: "金・プラチナの地金・コインなど。評価額は今の買取の価格（重さ×1グラムあたりの買取の価格）で入れます。" },
+  cryptoAsset: { label: "暗号資産（ビットコインなど）", short: "暗号資産", note: "取引所・ウォレットにある暗号資産の、今の円の評価額。値動きが大きいので、ふつうは増減率を入れずに今の評価額のまま見ます。" },
+  art: { label: "美術品・骨董品", short: "美術品・骨董品", note: "絵画・骨董品・時計・コレクションなど、売れば値の付くもの。評価額は買取の見込みの額で入れます。" },
+  membership: { label: "会員権（ゴルフ・リゾートなど）", short: "会員権", note: "ゴルフ会員権・リゾート会員権など。評価額は相場の価格（預託金を返してもらうなら、返ってくる見込みの額）で入れます。" },
+  securityDeposit: { label: "敷金・保証金", short: "敷金・保証金", note: "借りている住まい・事務所・駐車場などに預けている敷金・保証金のうち、返ってくる見込みの額。" },
+  businessAsset: { label: "事業用の資産（設備・在庫など）", short: "事業用の資産", note: "個人事業で使っている設備・在庫などの今の価値。会社（法人）の資産は入れません。" },
+} as const;
+export type OtherAssetSubtype = keyof typeof OTHER_ASSET_SUBTYPES;
+/** 中身の選択肢（「その他」は細目を持たない。欄の値 other は書かない） */
+export const OTHER_ASSET_OPTIONS: Option[] = [...Object.entries(OTHER_ASSET_SUBTYPES).map(([value, x]) => ({ value, label: x.label })), { value: "other", label: "その他" }];
+/** 細目の名前と説明（細目が無い・この一覧に無い細目〔役員の細目〕は null） */
+export const otherAssetSubtypeOf = (subtype: string | undefined): (typeof OTHER_ASSET_SUBTYPES)[OtherAssetSubtype] | null =>
+  subtype !== undefined && Object.hasOwn(OTHER_ASSET_SUBTYPES, subtype) ? OTHER_ASSET_SUBTYPES[subtype as OtherAssetSubtype] : null;
+
 export const ASSET_CLASSES: Option[] = [
   { value: "cash.deposit", label: "預金" },
   { value: "cash.foreign", label: "外貨預金" },
