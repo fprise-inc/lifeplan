@@ -20,6 +20,7 @@ import { revealAdded } from "../../presentation/revealAdded.ts";
 import { LivingLayoutEditor } from "./LivingLayoutEditor.tsx";
 import { withLivingDraft } from "./settings.ts";
 import { CustomTextsSection } from "./CustomTextsSection.tsx";
+import { BrandingSection, type BrandingSectionProps } from "./BrandingSection.tsx";
 import { EstimatesSection } from "./EstimatesSection.tsx";
 import { EMPTY_ESTIMATES, type OfficeEstimates } from "./estimates.ts";
 import type { PreviewRow } from "./estimatePreview.ts";
@@ -55,6 +56,8 @@ export interface OfficeSettingsPanelProps {
   onEstimates?: (next: OfficeEstimates) => Promise<void>;
   /** 代表の世帯で、事務所の推定の値を変えたときの主な結果の差を見る */
   previewEstimates?: (before: OfficeEstimates, after: OfficeEstimates) => Promise<PreviewRow[]>;
+  /** 事務所の見た目（0121。名前・ロゴ・基調の色）。区画の中で保存する（パネルの「保存」とは別）。無ければ区画を出さない */
+  branding?: Omit<BrandingSectionProps, "shared">;
 }
 
 /** 「1.5」（%）→ "0.015"。空は null。読めない・範囲の外は undefined（整数の部分は3桁まで読む。評価の割合の 100% を入れられるように） */
@@ -113,7 +116,7 @@ const settingTexts = (v: OfficeSettings): Record<string, string> => ({
 
 const STANDARD_PCT: Readonly<Record<OfficeAssumption, string>> = { inflation: "1", wageGrowth: "1", investmentReturn: "1", pensionMacroSlide: "0.4" };
 
-export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onDismissNotice, onCheckCodes, onDecideCandidate, custom, onEstimates, previewEstimates }: OfficeSettingsPanelProps) {
+export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onDismissNotice, onCheckCodes, onDecideCandidate, custom, onEstimates, previewEstimates, branding }: OfficeSettingsPanelProps) {
   const [s, setS] = useState<OfficeSettings>(value);
   // 事務所の推定の値（0111）: 区画の中で押すとすぐ保存する。パネルの「保存」・「全部を既定に戻す」では変えない（保存のときは今の値を持ち越す）
   const [est, setEst] = useState<OfficeEstimates>(value.estimates ?? EMPTY_ESTIMATES);
@@ -322,6 +325,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
           新しく作る世帯に写す値と、入力のホームの並びです。写した値は「推定」の印（根拠「事務所の既定値」）で入り、後で変えても作った世帯は黙って変わりません（違うときは確かめの一覧に「事務所の新しい値があります」と出ます）。
           {shared ? "事務所で共有していても、今はこの PC の設定です。" : "この PC の設定です。"}
         </p>
+        {branding !== undefined ? <BrandingSection {...branding} shared={shared} /> : null}
         <section class="os-sec" aria-labelledby="os-cards">
           <h3 id="os-cards">入力のホームの入力項目の並び</h3>
           <ol class="os-cards">

@@ -23,11 +23,16 @@ interface Props {
 /** 縮小一覧の PNG の倍率（1pt あたりの画素。本体の下限） */
 const THUMB_SCALE = 0.5;
 
-/** 本体が作った SVG を確かめて、この文書の要素にする（許可した要素と属性だけを残す） */
+/**
+ * 本体が作った SVG を確かめて、この文書の要素にする（許可した要素と属性だけを残す）。
+ * 表紙の事務所のロゴ（0121）: SVG の中の画像（data: の PNG・JPEG）は img にせず（CSP の img-src は 'self' のまま）、
+ * 同じ場所に置いたキャンバスに createImageBitmap で描く（画像は本体が PNG・JPEG と確かめた事務所のロゴだけ）
+ */
 function parseSvg(text: string): SVGSVGElement | null {
   const doc = new DOMParser().parseFromString(text, "image/svg+xml");
   const root = doc.documentElement;
   if (root.localName !== "svg" || doc.getElementsByTagName("parsererror").length > 0) return null;
+  const images = takeImages(root);
   const clean = (el: Element) => {
     for (const a of [...el.attributes]) if (!allowedSvgAttr(a.name, a.value)) el.removeAttribute(a.name);
     for (const c of [...el.children]) {
@@ -38,7 +43,70 @@ function parseSvg(text: string): SVGSVGElement | null {
   clean(root);
   const svg = document.importNode(root, true) as unknown as SVGSVGElement;
   svg.setAttribute("role", "img");
+  for (const im of images) {
+    const slot = svg.querySelector(`[data-image-slot="${im.slot}"]`);
+    if (slot !== null) slot.replaceWith(imageCanvas(im));
+  }
   return svg;
+}
+
+/** SVG の中の画像の場所と中身 */
+interface SvgImage {
+  slot: number;
+  attrs: Record<string, string>;
+  mime: string;
+  data: string;
+}
+
+/** 画像（data: の PNG・JPEG だけ）を取り出し、目印の g に置きかえる（ほかの画像は後の確かめで捨てる） */
+function takeImages(root: Element): SvgImage[] {
+  const out: SvgImage[] = [];
+  for (const el of [...root.getElementsByTagName("image")]) {
+    const href = el.getAttribute("href") ?? el.getAttributeNS("http://www.w3.org/1999/xlink", "href") ?? "";
+    const m = /^data:(image\/(?:png|jpeg));base64,([A-Za-z0-9+/=]+)$/.exec(href);
+    if (m === null) continue;
+    const attrs: Record<string, string> = {};
+    for (const k of ["x", "y", "width", "height", "transform"]) {
+      const v = el.getAttribute(k);
+      if (v !== null && /^[0-9eE+\-. ,()a-z]*$/.test(v)) attrs[k] = v;
+    }
+    const slot = out.length;
+    const g = el.ownerDocument.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.setAttribute("data-image-slot", String(slot));
+    el.replaceWith(g);
+    out.push({ slot, attrs, mime: m[1] as string, data: m[2] as string });
+  }
+  return out;
+}
+
+/** 画像の場所に置くキャンバス（foreignObject の中。画素はページの4倍の細かさで描く） */
+function imageCanvas(im: SvgImage): Element {
+  const NS = "http://www.w3.org/2000/svg";
+  const fo = document.createElementNS(NS, "foreignObject");
+  for (const [k, v] of Object.entries(im.attrs)) fo.setAttribute(k, v);
+  const w = Number(im.attrs.width ?? 0);
+  const h = Number(im.attrs.height ?? 0);
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(w * 4));
+  c.height = Math.max(1, Math.round(h * 4));
+  c.style.width = "100%";
+  c.style.height = "100%";
+  c.style.display = "block";
+  c.setAttribute("aria-hidden", "true");
+  fo.append(c);
+  void (async () => {
+    try {
+      const bin = atob(im.data);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const bmp = await createImageBitmap(new Blob([bytes], { type: im.mime }));
+      c.getContext("2d")?.drawImage(bmp, 0, 0, c.width, c.height);
+      bmp.close();
+    } catch {
+      // 読めない画像は描かない（PDF には入っている）
+    }
+  })();
+  return fo;
 }
 
 const isField = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "SELECT", "TEXTAREA"].includes(t.tagName));

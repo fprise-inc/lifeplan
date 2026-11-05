@@ -28,7 +28,7 @@
         bs-column(c.liabilities, c.totalLiabilities + calc.max(0, c.netWorth), fig.scale, height, 100%, true, labels: true),
       )
       v(3pt)
-      text(size: 8.5pt, weight: "bold", [純資産 #text(fill: if c.netWorth < 0 { muted } else { accent }, man-unit(c.netWorth))])
+      text(size: 8.5pt, weight: "bold", [純資産 #text(fill: if c.netWorth < 0 { muted } else { bs-net-ink }, man-unit(c.netWorth))])
     })),
   )
 }

@@ -45,7 +45,7 @@ export function planStyles(list: readonly { key: string; colorIndex: number }[])
 
 /** 線の端の印（中心 x・y、大きさ r）。どのプランも同じ丸。白い縁取りで、線が重なっても読める */
 export function PlanMarker({ x, y, r, color, cls }: { x: number; y: number; r: number; color: string; cls?: string }) {
-  return <circle class={`pl-mk${cls !== undefined ? ` ${cls}` : ""}`} fill={color} stroke="#fff" cx={x.toFixed(1)} cy={y.toFixed(1)} r={r.toFixed(1)} />;
+  return <circle class={`pl-mk${cls !== undefined ? ` ${cls}` : ""}`} fill={color} stroke="var(--card)" cx={x.toFixed(1)} cy={y.toFixed(1)} r={r.toFixed(1)} />;
 }
 
 /** 小さな見本（実線＋真ん中に丸）。凡例・帯のカード・年の表示で使う */

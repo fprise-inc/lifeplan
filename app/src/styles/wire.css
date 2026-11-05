@@ -7,7 +7,7 @@
 .rp-set legend { font-weight: 700; padding: 0 4px; }
 .rp-row { display: grid; grid-template-columns: 3.2em 1fr auto; align-items: center; gap: 8px; }
 .rp-row > span:first-child { font-weight: 700; color: var(--ink-2); font-size: 0.9rem; }
-.rp-row select, .rp-row input[type="text"] { border: 1.5px solid var(--field); border-radius: 6px; padding: 4px 8px; font: inherit; min-width: 0; background: #fff; }
+.rp-row select, .rp-row input[type="text"] { border: 1.5px solid var(--field); border-radius: 6px; padding: 4px 8px; font: inherit; min-width: 0; background: var(--card); }
 .rp-unit { font-weight: 700; }
 .rp-sub { font-size: 0.85rem; font-weight: 700; color: var(--ink-2); }
 .rp-checks { display: grid; gap: 2px; }
@@ -32,15 +32,15 @@
 .rp-pageno { display: flex; gap: 4px; align-items: center; font-variant-numeric: tabular-nums; }
 .rp-pageno input { width: 3.6em; border: 1.5px solid var(--field); border-radius: 6px; padding: 2px 4px; font: inherit; text-align: right; }
 .rp-body { display: grid; grid-template-columns: 108px 1fr; gap: 8px; flex: 1; min-height: 0; }
-.rp-thumbs { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; padding: 4px; background: #f3f2ee; border-radius: 8px; }
+.rp-thumbs { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; padding: 4px; background: var(--wash, #f3f2ee); border-radius: 8px; }
 .rp-thumbs button { display: grid; justify-items: center; gap: 2px; border: 2px solid transparent; background: none; border-radius: 6px; padding: 3px; cursor: pointer; font-size: 0.78rem; font-variant-numeric: tabular-nums; color: var(--ink-2); }
 .rp-thumbs button.on { border-color: var(--prop); background: var(--prop-bg); font-weight: 700; color: var(--ink); }
-.rp-thumb { display: block; width: 64px; aspect-ratio: 210 / 297; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); }
+.rp-thumb { display: block; width: 64px; aspect-ratio: 210 / 297; background: var(--card); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); }
 .rp-thumb.land { width: 88px; aspect-ratio: 297 / 210; }
-.rp-thumb.wait { background: #e4e2dc; }
-.rp-sheet { position: relative; display: flex; overflow: auto; background: #e9e7e1; border-radius: 8px; padding: 12px; min-height: 0; outline-offset: -2px; }
+.rp-thumb.wait { background: var(--wash, #e4e2dc); }
+.rp-sheet { position: relative; display: flex; overflow: auto; background: var(--wash, #e9e7e1); border-radius: 8px; padding: 12px; min-height: 0; outline-offset: -2px; }
 .rp-sheet.stale { opacity: 0.55; }
-.rp-page { margin: auto; flex: none; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); line-height: 0; }
+.rp-page { margin: auto; flex: none; background: var(--card); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); line-height: 0; }
 .rp-page svg { display: block; }
 .rp-loading { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--ink-2); pointer-events: none; }
 .rp-empty { max-width: 640px; }
@@ -73,11 +73,11 @@
 .hs-cand.attn { border-color: var(--est); }
 .hs-cand-h { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; cursor: pointer; }
 .hs-cand-h small { color: var(--ink-2); }
-.hs-kind { font-size: 0.72rem; font-weight: 700; border-radius: 4px; padding: 0 6px; border: 1.5px solid var(--prop); color: var(--prop-ink); background: #fff; }
-.hs-kind.new { background: var(--prop); color: #fff; }
+.hs-kind { font-size: 0.72rem; font-weight: 700; border-radius: 4px; padding: 0 6px; border: 1.5px solid var(--prop); color: var(--prop-ink); background: var(--card); }
+.hs-kind.new { background: var(--prop); color: var(--on-fill); }
 .hs-kind.same { border-color: var(--line); color: var(--ink-2); }
 .hs-kind.review { border-color: var(--est); color: var(--est-ink); background: var(--est-bg); }
-.hs-kind.bad { border-color: var(--short-ink); color: #fff; background: var(--short-ink); }
+.hs-kind.bad { border-color: var(--short-ink); color: var(--on-fill); background: var(--short-ink); }
 .hs-bad { margin: 2px 0; color: var(--short-ink); font-size: 0.85rem; font-weight: 700; }
 .hs-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0 16px; margin: 4px 0 0; font-size: 0.85rem; }
 .hs-fields div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dotted var(--line-2); padding: 1px 0; }

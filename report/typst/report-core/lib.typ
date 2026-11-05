@@ -20,9 +20,10 @@
 
 #let supported = "0.1.0"
 
+// logo: 表紙に出す事務所のロゴ（0121。画像のバイト。アプリの外枠の文書が渡す。種類は frame.logo の png・jpg）。事務所の名前は frame.office（任意）
 // ext: 提案書の拡張の章（0114 の6。章の id → 関数 (ext-data, data)）。アプリの外枠の文書が、有効な束の reports/ から読み込んで渡す。
 //      渡さなければ拡張の章は載らない（独自帳票から proposal を呼ぶときなど）
-#let proposal(data, frame, ext: (:)) = {
+#let proposal(data, frame, ext: (:), logo: none) = {
   assert(data.format == "lifeplan.proposalInput", message: "帳票の入力の形式が違います")
   assert(data.version == supported, message: "帳票の入力の版が対応していません: " + data.version)
   let band-height = frame.band * 1pt
@@ -45,7 +46,7 @@
   let on(id) = chosen == none or id in chosen
   let compared = data.at("comparison", default: none)
 
-  cover(data)
+  cover(data, brand: (office: frame.at("office", default: none), logo: logo, format: frame.at("logo", default: auto)))
   assumptions(data, frame)
   if on("summary") { summary(data) }
   if on("basics") { basics(data) }

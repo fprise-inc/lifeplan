@@ -60,8 +60,11 @@ export interface SaveOutcome {
 
 /** 提案書の PDF（0009）: 刻印・必須の記載は本体が決める。保存先は本体が OS のダイアログで FP に選ばせる */
 export interface ReportHost {
-  /** 帳票の入力（JSON）から PDF を作る。宛名は出力の PDF に重ねるだけ（保存しない） */
-  render(inputJson: string, addressee: string | null): Promise<RenderInfo>;
+  /**
+   * 帳票の入力（JSON）から PDF を作る。宛名は出力の PDF に重ねるだけ（保存しない）。accent は事務所の基調の色から導いた見出しなどの色
+   * （0121。白地で読める濃さ。null は帳票の標準の色）。事務所の名前とロゴは本体が事務所データから入れる
+   */
+  render(inputJson: string, addressee: string | null, accent?: string | null): Promise<RenderInfo>;
   /** 見本の1ページ（0 から）の PNG（ページの縮小一覧。scale は 1pt あたりの画素） */
   page(index: number, scale: number): Promise<Blob>;
   /** 見本の1ページ（0 から）の SVG の文字列（本体の見本。拡大してもぼやけない） */
@@ -385,6 +388,12 @@ export interface OfficeHost {
   defaults(): Promise<unknown>;
   /** 事務所の既定値を置き換える */
   putDefaults(value: Record<string, unknown>): Promise<void>;
+  /** 事務所の見た目（0121。名前・ロゴの画像・基調の色・この PC の画面の明るさ）。形は office/branding.ts の readBranding で確かめる */
+  branding(): Promise<unknown>;
+  /** 事務所の見た目を置き換える（本体が確かめて整えた値を返す。断るときは E_STORE_BRANDING・E_STORE_LOGO・E_STORE_LOGO_TOO_LARGE） */
+  putBranding(value: Record<string, unknown>): Promise<unknown>;
+  /** ロゴの画像を選ぶ（本体のダイアログ。PNG・JPEG だけ。確かめた画像を返し、保存はしない。選ばなかったら null） */
+  pickLogo(): Promise<unknown>;
   /** 機能を有効にするコード（0110）の状態。本物か・期限内かは本体が確かめる */
   featureStatus(): Promise<FeatureStatus>;
   /** コードを入れる（本物で期限内のものだけ。断るときは E_FEATURE_CODE_… の符号） */
@@ -750,7 +759,7 @@ export function tauriHost(): HostApi {
     compute: (slots) => invoke<ComputeResponse>("compute", { slots }),
     evidence: (request) => invoke<FullResult | EngineError>("evidence", { request }),
     report: {
-      render: (input, addressee) => invoke<RenderInfo>("proposal_render", { input, addressee }),
+      render: (input, addressee, accent) => invoke<RenderInfo>("proposal_render", { input, addressee, accent: accent ?? null }),
       page: async (page, scale) => new Blob([bytesOf(await invoke<ArrayBuffer>("proposal_page", { page, scale })) as Uint8Array<ArrayBuffer>], { type: "image/png" }),
       pageSvg: async (page) => new TextDecoder().decode(bytesOf(await invoke<ArrayBuffer>("proposal_page", { page, scale: 1, format: "svg" }))),
       save: () => invoke<SaveOutcome>("proposal_save"),
@@ -801,6 +810,9 @@ export function tauriHost(): HostApi {
       acceptRoster: (key) => invoke<OfficeStatus>("office_accept_roster", { key }),
       defaults: () => invoke<unknown>("office_defaults_get"),
       putDefaults: (value) => invoke<void>("office_defaults_put", { value }),
+      branding: () => invoke<unknown>("office_branding_get"),
+      putBranding: (value) => invoke<unknown>("office_branding_put", { value }),
+      pickLogo: () => invoke<unknown>("office_logo_pick"),
       featureStatus: () => invoke<FeatureStatus>("feature_codes_status"),
       addFeatureCode: (code) => invoke<FeatureStatus>("feature_code_add", { code }),
       removeFeatureCode: (ref) => invoke<FeatureStatus>("feature_code_remove", { codeRef: ref }),
@@ -955,7 +967,7 @@ export function devBrowserHost(engine: WebEngine): HostApi {
     evidence: async (request) => JSON.parse(engine.run(request, await packs(), "{}")) as FullResult | EngineError,
     // 提案書の PDF とヒアリングシート: 開発用のサーバーが report-pdf のコマンドを呼ぶ・FINANCIA_DEV_SAVE_DIR に書く
     report: {
-      render: async (input, addressee) => devJson<RenderInfo>(await fetch("/__dev/report/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ input, addressee }) })),
+      render: async (input, addressee, accent) => devJson<RenderInfo>(await fetch("/__dev/report/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ input, addressee, accent: accent ?? null }) })),
       page: async (page) => {
         const res = await fetch(`/__dev/report/page/${page + 1}`);
         if (!res.ok) throw `E_DEV_${res.status}`;
@@ -1013,6 +1025,9 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       acceptRoster: async (code) => devJson<OfficeStatus>(await devOffice("acceptRoster", { code })),
       defaults: async () => devJson<unknown>(await devOffice("defaultsGet")),
       putDefaults: async (value) => void (await devJson<unknown>(await devOffice("defaultsPut", { value }))),
+      branding: async () => devJson<unknown>(await devOffice("brandingGet")),
+      putBranding: async (value) => devJson<unknown>(await devOffice("brandingPut", { value })),
+      pickLogo: async () => devJson<unknown>(await devOffice("logoPick")),
       featureStatus: async () => devJson<FeatureStatus>(await devOffice("featureStatus")),
       addFeatureCode: async (code) => devJson<FeatureStatus>(await devOffice("featureAdd", { code })),
       removeFeatureCode: async (ref) => devJson<FeatureStatus>(await devOffice("featureRemove", { ref })),

@@ -43,7 +43,7 @@ function Ring({ items, size }: { items: DonutItem[]; size: number }) {
     const lg = a1 - a0 > Math.PI ? 1 : 0;
     const d = `M${p(a0, r)} A${r},${r} 0 ${lg} 1 ${p(a1, r)} L${p(a1, r0)} A${r0},${r0} 0 ${lg} 0 ${p(a0, r0)} Z`;
     a0 = a1;
-    return <path key={i} d={d} fill={x.color} stroke="#fff" stroke-width="1.5" />;
+    return <path key={i} d={d} fill={x.color} stroke="var(--card)" stroke-width="1.5" />;
   });
   return (
     <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} aria-hidden="true" class="donut-svg">

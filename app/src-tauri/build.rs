@@ -70,6 +70,10 @@ const COMMANDS: &[&str] = &[
     // 0073: 事務所の既定値（事務所データに暗号化して持つ。JSON のオブジェクトだけ）
     "office_defaults_get",
     "office_defaults_put",
+    // 0121: 事務所の見た目（名前・ロゴの画像・基調の色・この PC の画面の明るさ）。ロゴは本体のダイアログで選ばせる（パスは受け取らない・返さない）
+    "office_branding_get",
+    "office_branding_put",
+    "office_logo_pick",
     // 0110: 機能を有効にするコード（入れる・外す・今の状態。確かめるのは本体。コードの文字列は画面に返さない）
     "feature_codes_status",
     "feature_code_add",

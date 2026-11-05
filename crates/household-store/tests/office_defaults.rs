@@ -150,3 +150,69 @@ fn custom_ledger_key_is_stable_and_per_office() {
     other.status().unwrap();
     assert_ne!(*other.custom_ledger_key().unwrap(), *k1);
 }
+
+// 事務所の見た目（0121）: 暗号化して持つ・開き直しても残る・SVG と大きすぎる画像は受けない・全部空で欄を外す
+#[test]
+fn branding_is_kept_encrypted_and_reopens() {
+    use household_store::branding::{Branding, Logo};
+    let dir = Dir(std::env::temp_dir().join(format!("hs-branding-{}", crypto::new_uuid())));
+    let root = dir.0.join("data");
+    let secrets = Arc::new(MemorySecretStore::default());
+    let clock = TestClock(Arc::new(AtomicI64::new(1_792_368_000)));
+    let s = Store::new(root.clone(), secrets.clone(), clock.clone(), "0.1.0-test");
+    s.status().unwrap();
+    assert_eq!(s.office_branding().unwrap(), Branding::default());
+    let mut png = vec![0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13];
+    png.extend_from_slice(b"IHDR");
+    png.extend_from_slice(&120u32.to_be_bytes());
+    png.extend_from_slice(&40u32.to_be_bytes());
+    png.extend_from_slice(&[8, 6, 0, 0, 0, 0, 0, 0, 0]);
+    let b = s
+        .set_office_branding(Branding {
+            name: Some("みどりFP事務所".into()),
+            color: Some("#2F6B4F".into()),
+            appearance: Some("dark".into()),
+            logo: Some(Logo {
+                mime: String::new(),
+                width: 0,
+                height: 0,
+                data: png.clone(),
+            }),
+        })
+        .unwrap();
+    assert_eq!(b.color.as_deref(), Some("#2f6b4f"));
+    assert_eq!(
+        b.logo.as_ref().map(|l| (l.width, l.height)),
+        Some((120, 40))
+    );
+    for e in std::fs::read_dir(&root).unwrap() {
+        let p = e.unwrap().path();
+        if p.is_file() {
+            let bytes = std::fs::read(&p).unwrap();
+            assert!(
+                !String::from_utf8_lossy(&bytes).contains("みどり"),
+                "{}",
+                p.display()
+            );
+        }
+    }
+    drop(s);
+    let s2 = Store::new(root.clone(), secrets.clone(), clock.clone(), "0.1.0-test");
+    s2.status().unwrap();
+    assert_eq!(s2.office_branding().unwrap(), b);
+    // SVG は受けず、前の値のまま
+    let svg = Branding {
+        logo: Some(Logo {
+            mime: "image/svg+xml".into(),
+            width: 10,
+            height: 10,
+            data: b"<svg xmlns='http://www.w3.org/2000/svg'/>".to_vec(),
+        }),
+        ..Default::default()
+    };
+    assert_eq!(s2.set_office_branding(svg).unwrap_err(), StoreError::LOGO);
+    assert_eq!(s2.office_branding().unwrap(), b);
+    // 全部空にすると欄を外す（既定の見た目）
+    s2.set_office_branding(Branding::default()).unwrap();
+    assert_eq!(s2.office_branding().unwrap(), Branding::default());
+}

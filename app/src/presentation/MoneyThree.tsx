@@ -180,7 +180,7 @@ export function MoneyThreeFigure({ model, list = false }: { model: MoneyThreeMod
     els.push(
       box(
         { key: "over", title: "金融資産で足りない分", amount: model.overFinancial, note: `「${model.names[0]}」と「${model.names[1]}」の分に、金融資産の合計でも届かない分`, x: xR - 6, y: yF + h / 2, side: "l" },
-        <rect x={xR + 0.75} y={yF + GAP / 2 + 0.75} width={colW - 1.5} height={Math.max(0, h - GAP - 1.5)} rx="4" fill="#fff" stroke="var(--ink-2)" stroke-width="1.5" stroke-dasharray="5 3" />,
+        <rect x={xR + 0.75} y={yF + GAP / 2 + 0.75} width={colW - 1.5} height={Math.max(0, h - GAP - 1.5)} rx="4" fill="var(--card)" stroke="var(--ink-2)" stroke-width="1.5" stroke-dasharray="5 3" />,
       ),
     );
     if (h > fs * 1.2)

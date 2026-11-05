@@ -15,6 +15,7 @@
 
 use std::path::PathBuf;
 
+use household_store::branding::{self, Branding, Logo, LogoInfo};
 use household_store::{
     ForkChoice, ForkInfo, OfficeStatus, Opened, StorageNotice, Store, StoreError,
 };
@@ -284,6 +285,79 @@ pub async fn office_defaults_get(app: AppHandle) -> Result<serde_json::Value, St
 #[tauri::command]
 pub async fn office_defaults_put(app: AppHandle, value: serde_json::Value) -> Result<(), String> {
     blocking(app, move |s, _| s.set_office_defaults(value).map_err(code)).await
+}
+
+/// 事務所の見た目（0121。事務所の名前・ロゴの画像・基調の色・この PC の画面の明るさ）。まだ決めていなければ空。
+/// ロゴの画像のバイトは base64 の文字で返す（画面は URL にせず、キャンバスに描く。CSP の img-src は変えない）
+#[tauri::command]
+pub async fn office_branding_get(app: AppHandle) -> Result<Branding, String> {
+    blocking(app, |s, _| s.office_branding().map_err(code)).await
+}
+
+/// 事務所の見た目を置き換える（確かめて整えた値を返す）。ロゴは PNG・JPEG の見出しと大きさのほか、帳票の部品で絵にできるかも確かめる
+#[tauri::command]
+pub async fn office_branding_put(app: AppHandle, value: Branding) -> Result<Branding, String> {
+    blocking(app, move |s, _| {
+        if let Some(l) = &value.logo {
+            check_logo_bytes(&l.data)?;
+        }
+        s.set_office_branding(value).map_err(code)
+    })
+    .await
+}
+
+/// ロゴの画像を確かめる（見出し・大きさ・縦横の画素と、帳票の部品で絵にできるか）
+fn check_logo_bytes(bytes: &[u8]) -> Result<LogoInfo, String> {
+    let info = branding::check_logo(bytes).map_err(code)?;
+    report_pdf::check_logo(bytes).map_err(|_| code(StoreError::LOGO))?;
+    Ok(info)
+}
+
+/// ロゴの画像を選ぶ（本体のダイアログ。PNG・JPEG だけ）。確かめた画像を返す（保存はしない。画面が見た目の保存で渡す）。
+/// 選ばなかったときは null。パス・ファイル名は返さない。開発用のビルドだけ、環境変数 `FINANCIA_DEV_OPEN_LOGO` のファイルを読む
+#[tauri::command]
+pub async fn office_logo_pick(window: WebviewWindow) -> Result<Option<Logo>, String> {
+    let Some(bytes) = export::open_logo(&window, branding::LOGO_MAX_BYTES as u64)
+        .await
+        .map_err(|e| {
+            if e == "E_IMPORT_TOO_LARGE" {
+                code(StoreError::LOGO_TOO_LARGE)
+            } else {
+                e
+            }
+        })?
+    else {
+        return Ok(None);
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        let info = check_logo_bytes(&bytes)?;
+        Ok(Some(Logo {
+            mime: info.mime.to_owned(),
+            width: info.width,
+            height: info.height,
+            data: bytes,
+        }))
+    })
+    .await
+    .map_err(|_| "E_HOST_THREAD".to_owned())?
+}
+
+/// 提案書に当てる事務所の見た目（0121）: 事務所の名前とロゴは事務所データから、アクセントの色は画面が渡した色（白地で読める濃さのときだけ）。
+/// 保存先が使えない・何も決めていないときは None
+pub fn report_brand<R: Runtime>(
+    app: &AppHandle<R>,
+    accent: Option<&str>,
+) -> Option<report_pdf::ReportBrand> {
+    let b = app
+        .try_state::<StoreState>()
+        .and_then(|st| st.store.office_branding().ok())
+        .unwrap_or_default();
+    let brand = report_pdf::ReportBrand {
+        accent: crate::report::report_accent(accent),
+        office: b.name,
+        logo: b.logo.map(|l| l.data),
+    };
+    (brand != report_pdf::ReportBrand::default()).then_some(brand)
 }
 
 /// 参加の申請を取り下げる・外された設定を片付ける

@@ -3,10 +3,10 @@
 .st-head { grid-template-columns: auto minmax(0, 1fr) auto; }
 .st-head h2 { font-size: 1.2rem; }
 .st-steps { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
-.st-steps button { display: inline-flex; align-items: center; gap: 6px; border: 2px solid var(--line); background: #fff; border-radius: 999px; padding: 4px 14px 4px 6px; font: inherit; font-weight: 700; color: var(--ink-2); cursor: pointer; }
+.st-steps button { display: inline-flex; align-items: center; gap: 6px; border: 2px solid var(--line); background: var(--card); border-radius: 999px; padding: 4px 14px 4px 6px; font: inherit; font-weight: 700; color: var(--ink-2); cursor: pointer; }
 .st-steps button .no { display: inline-grid; place-items: center; width: 1.5em; height: 1.5em; border-radius: 50%; background: var(--line-2); color: var(--ink-2); font-size: 0.85rem; }
 .st-steps button.on { border-color: var(--prop); color: var(--prop-ink); background: var(--prop-bg); }
-.st-steps button.on .no { background: var(--prop); color: #fff; }
+.st-steps button.on .no { background: var(--prop); color: var(--on-fill); }
 .st-steps .ct { font-size: 0.75rem; border-radius: 999px; padding: 0 7px; background: var(--line-2); color: var(--ink-2); }
 .st-steps .ct.attn { background: var(--est-bg); color: var(--est-ink); border: 1.5px solid var(--est); }
 @media (max-width: 760px) { .st-head { grid-template-columns: minmax(0, 1fr) auto; } .st-steps { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; } }
@@ -24,34 +24,34 @@
 
 /* 1 口座・カード */
 .st-accounts { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.st-acc { display: flex; gap: 6px 12px; align-items: center; flex-wrap: wrap; border: 1px solid var(--card-line); border-radius: 10px; padding: 8px 12px; background: #fff; }
+.st-acc { display: flex; gap: 6px 12px; align-items: center; flex-wrap: wrap; border: 1px solid var(--card-line); border-radius: 10px; padding: 8px 12px; background: var(--card); }
 .st-acc > b { font-size: 1.05rem; }
 .st-acc-meta { color: var(--ink-2); font-size: 0.88rem; }
 .st-acc-act { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .st-acc .st-acc-form { width: 100%; }
-.st-kind { font-size: 0.75rem; font-weight: 700; border-radius: 4px; padding: 1px 7px; color: #fff; background: var(--prop); }
+.st-kind { font-size: 0.75rem; font-weight: 700; border-radius: 4px; padding: 1px 7px; color: var(--on-fill); background: var(--prop); }
 .st-kind.k-bank { background: var(--good); }
 .st-kind.k-app { background: var(--base-ink); }
 .st-acc-form { display: grid; gap: 8px; border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; }
-.st-acc-form select { border: 1.5px solid var(--field); border-radius: 6px; padding: 4px 8px; font: inherit; font-weight: 400; color: var(--ink); background: #fff; }
+.st-acc-form select { border: 1.5px solid var(--field); border-radius: 6px; padding: 4px 8px; font: inherit; font-weight: 400; color: var(--ink); background: var(--card); }
 .st-kinds, .st-pick { display: flex; gap: 8px; flex-wrap: wrap; }
-.st-kinds button, .st-pick button { display: inline-flex; align-items: center; gap: 8px; border: 2px solid var(--line); background: #fff; border-radius: 10px; padding: 8px 16px; font: inherit; font-weight: 700; cursor: pointer; }
+.st-kinds button, .st-pick button { display: inline-flex; align-items: center; gap: 8px; border: 2px solid var(--line); background: var(--card); border-radius: 10px; padding: 8px 16px; font: inherit; font-weight: 700; cursor: pointer; }
 .st-kinds button.on, .st-pick button.on { border-color: var(--prop); background: var(--prop-bg); color: var(--prop-ink); box-shadow: inset 0 0 0 1px var(--prop); }
 
 /* 2 明細の取り込み */
-.st-read { display: grid; gap: 10px; border: 2px solid var(--prop); border-radius: 12px; padding: 10px 14px; background: #fbfcfe; }
+.st-read { display: grid; gap: 10px; border: 2px solid var(--prop); border-radius: 12px; padding: 10px 14px; background: color-mix(in srgb, var(--prop) 1%, var(--card)); }
 .st-read .rp-note.warn { color: var(--est-ink); background: var(--est-bg); border-radius: 6px; padding: 4px 8px; font-weight: 700; }
 .st-map { display: grid; gap: 6px; }
 .st-map-opts { display: flex; gap: 8px 18px; flex-wrap: wrap; font-size: 0.88rem; }
 .st-map-opts label { display: flex; gap: 6px; align-items: center; font-weight: 700; color: var(--ink-2); }
-.st-map select, .st-rule-form select, .st-owner select { border: 1.5px solid var(--field); border-radius: 6px; padding: 2px 6px; font: inherit; font-size: 0.88rem; background: #fff; color: var(--ink); }
+.st-map select, .st-rule-form select, .st-owner select { border: 1.5px solid var(--field); border-radius: 6px; padding: 2px 6px; font: inherit; font-size: 0.88rem; background: var(--card); color: var(--ink); }
 .st-map-scroll { overflow-x: auto; border: 1px solid var(--line-2); border-radius: 8px; }
 .st-map-t { border-collapse: collapse; font-size: 0.82rem; min-width: 100%; }
 .st-map-t th, .st-map-t td { border: 1px solid var(--line-2); padding: 3px 6px; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; text-align: left; }
 .st-map-t th { background: var(--base-bg); }
 .st-map-t th.on { background: var(--prop-bg); }
 .st-map-t th select { max-width: 160px; }
-.st-map-t td.on { background: #f5f8fd; }
+.st-map-t td.on { background: color-mix(in srgb, var(--prop) 3%, var(--card)); }
 .st-map-t tr.hd td { font-weight: 700; color: var(--ink-2); background: var(--base-bg); }
 .st-period { display: flex; gap: 6px 10px; align-items: center; flex-wrap: wrap; }
 .st-period-h { font-weight: 700; }
@@ -74,10 +74,10 @@
 .st-styles li > b { min-width: 6em; }
 .st-styles small { color: var(--ink-2); flex-basis: 100%; padding-left: 0.2em; }
 .st-chips { display: flex; gap: 6px; flex-wrap: wrap; }
-.st-chips button { border: 2px solid var(--line); background: #fff; border-radius: 999px; padding: 3px 14px; font: inherit; font-weight: 700; color: var(--ink-2); cursor: pointer; }
-.st-chips button.on { border-color: var(--prop); background: var(--prop); color: #fff; }
+.st-chips button { border: 2px solid var(--line); background: var(--card); border-radius: 999px; padding: 3px 14px; font: inherit; font-weight: 700; color: var(--ink-2); cursor: pointer; }
+.st-chips button.on { border-color: var(--prop); background: var(--prop); color: var(--on-fill); }
 .st-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.st-item { border: 1px solid var(--card-line); border-left: 6px solid var(--est-band); border-radius: 10px; padding: 10px 14px; background: #fff; display: grid; gap: 8px; }
+.st-item { border: 1px solid var(--card-line); border-left: 6px solid var(--est-band); border-radius: 10px; padding: 10px 14px; background: var(--card); display: grid; gap: 8px; }
 .st-item-h { display: flex; gap: 6px 14px; align-items: baseline; flex-wrap: wrap; }
 .st-date { color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .st-merchant { font-size: 1.2rem; }
@@ -86,16 +86,16 @@
 .st-owner { display: inline-flex; gap: 6px; align-items: center; }
 .st-reason { color: var(--est-ink); font-weight: 700; background: var(--est-bg); border-radius: 4px; padding: 0 6px; }
 .st-item-cat { display: flex; gap: 6px; align-items: center; font-size: 0.92rem; }
-.st-catnow { border: 1.5px solid var(--field); background: #fff; border-radius: 6px; padding: 2px 10px; font: inherit; font-weight: 700; cursor: pointer; }
+.st-catnow { border: 1.5px solid var(--field); background: var(--card); border-radius: 6px; padding: 2px 10px; font: inherit; font-weight: 700; cursor: pointer; }
 .st-cats { display: grid; gap: 6px; }
 .st-cat-g { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .st-cat-g small { flex-basis: 100%; color: var(--ink-2); font-size: 0.78rem; }
-.st-cat-g button { border: 1.5px solid var(--line); background: #fff; border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 0.95rem; cursor: pointer; }
+.st-cat-g button { border: 1.5px solid var(--line); background: var(--card); border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 0.95rem; cursor: pointer; }
 .st-cat-g button:hover { border-color: var(--prop); }
 .st-cat-g button.on { border-color: var(--prop); background: var(--prop-bg); font-weight: 700; }
 .st-more { justify-self: start; border: 0; background: none; color: var(--prop-ink); font: inherit; font-size: 0.88rem; cursor: pointer; padding: 2px 0; font-weight: 700; }
 .st-buckets { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
-.st-buckets button { border: 2px solid var(--ink-2); background: #fff; border-radius: 10px; padding: 12px 10px; font: inherit; font-size: 1.05rem; font-weight: 700; cursor: pointer; }
+.st-buckets button { border: 2px solid var(--ink-2); background: var(--card); border-radius: 10px; padding: 12px 10px; font: inherit; font-size: 1.05rem; font-weight: 700; cursor: pointer; }
 .st-buckets button:hover { background: var(--sel-bg); }
 .st-buckets button.now { border-style: dashed; }
 .st-buckets button.b-household { border-color: var(--prop); color: var(--prop-ink); }
@@ -104,7 +104,7 @@
 .st-buckets button.b-excluded { border-color: var(--base); color: var(--base-ink); }
 .st-share { display: flex; gap: 6px 8px; align-items: center; flex-wrap: wrap; border-top: 1px dashed var(--line); padding-top: 8px; }
 .st-share > span { font-weight: 700; }
-.st-share > button:not(.btn) { border: 2px solid var(--good); color: var(--good); background: #fff; border-radius: 8px; padding: 6px 14px; font: inherit; font-weight: 700; cursor: pointer; }
+.st-share > button:not(.btn) { border: 2px solid var(--good); color: var(--good); background: var(--card); border-radius: 8px; padding: 6px 14px; font: inherit; font-weight: 700; cursor: pointer; }
 .st-share input, .st-rule-form input { width: 4.5em; border: 1.5px solid var(--field); border-radius: 6px; padding: 3px 6px; font: inherit; }
 .st-asrule { display: flex; gap: 6px; align-items: center; font-size: 0.9rem; }
 .st-rules { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; font-size: 0.92rem; }
