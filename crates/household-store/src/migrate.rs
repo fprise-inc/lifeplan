@@ -520,7 +520,8 @@ pub const STEPS: &[Step] = &[
         from: "0.59",
         to: "0.60",
         apply: v0_59_to_0_60,
-    },    Step {
+    },
+    Step {
         from: "0.60",
         to: "0.61",
         apply: v0_60_to_0_61,
