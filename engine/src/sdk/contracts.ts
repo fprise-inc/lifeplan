@@ -474,8 +474,11 @@ export interface RealEstateOutput {
   readonly properties: readonly {
     readonly object: string;
     readonly owner: string;
-    /** 持っている年の年末の評価額（売った年は含めない。年の昇順） */
-    readonly years: readonly { readonly year: number; readonly land: Yen; readonly building: Yen; readonly value: Yen }[];
+    /**
+     * 持っている年の年末の評価額（売った年は含めない。年の昇順）。約束の版 1.3: book は年末の帳簿価額（取得価額＋取得時の諸費用−その年の年末までの
+     * 建物と建物附属設備の減価償却の累計。取得の入力があるときだけ）
+     */
+    readonly years: readonly { readonly year: number; readonly land: Yen; readonly building: Yen; readonly value: Yen; readonly book?: Yen }[];
     /** 貸している年の不動産所得の内訳（計算基準年の2年前から。年の昇順）。income＝rent−expenses−depreciation−interest（マイナスは損失） */
     readonly income: readonly {
       readonly year: number;
@@ -519,13 +522,17 @@ export interface RealEstateOutput {
      * 約束の版 1.2: 物件の事実。acquisition は取得価額の合計（内訳があれば内訳の合計）・取得時の諸費用・自己資金（入れたときだけ）、builtYear は
      * 建った年（省略は取得の年など。0028）、legalLife は建物の構造の法定耐用年数、depreciationEnd は建物・建物附属設備の減価償却が終わる年（帳簿の残りが
      * 1円になる年。表の最後まで貸していれば表の期間の後の年も数える。償却が無い・途中で売る・貸し終わるときは null）、lodging は民泊・宿の
-     * 「1泊の単価×営業日数」の入れ方の値（営業日数は上限を当てた後）
+     * 「1泊の単価×営業日数」の入れ方の値（営業日数は上限を当てた後）。約束の版 1.3: depreciationEndIfContinued は、売る・貸し終わるまでに償却が
+     * 終わらないとき、その後も同じ年額で貸し続けたら終わる年（終わる・償却が無い部分は null。どちらも null なら欄が無い）、noBuilding は建物の分が
+     * 無い物件（貸している土地・駐車場で、土地の割合が 1・取得価額の内訳に建物が無い）のとき true
      */
     readonly facts?: {
       readonly acquisition: { readonly total: Yen; readonly costs: Yen; readonly equity?: Yen } | null;
       readonly builtYear: number;
       readonly legalLife: number;
       readonly depreciationEnd: { readonly building: number | null; readonly equipment: number | null };
+      readonly depreciationEndIfContinued?: { readonly building: number | null; readonly equipment: number | null };
+      readonly noBuilding?: true;
       readonly lodging?: { readonly nightly: Yen; readonly occupancy: string; readonly days: number };
     };
   }[];
@@ -541,11 +548,14 @@ export interface RealEstateAnalysisOutput {
     readonly owner: string;
     /** 取得価額の合計・取得時の諸費用・自己資金（入れたときだけ） */
     readonly acquisition: { readonly total: Yen; readonly costs: Yen; readonly equity?: Yen } | null;
+    /** 建った年（建物の無い物件は null） */
     readonly builtYear: number | null;
-    /** 建物の構造の法定耐用年数 */
+    /** 建物の構造の法定耐用年数（建物の無い物件は null） */
     readonly legalLife: number | null;
     /** 建物・建物附属設備の減価償却が終わる年（無い・途中で売るなら null。表の期間の後の年もある） */
     readonly depreciationEnd: { readonly building: number | null; readonly equipment: number | null };
+    /** 約束の版 1.1: 売る・貸し終わるまでに償却が終わらないとき、貸し続けたら終わる年（どちらも null なら欄が無い） */
+    readonly depreciationEndIfContinued?: { readonly building: number | null; readonly equipment: number | null };
     /** 元金の返済が減価償却費を上回る最初の年（表の期間に無ければ null） */
     readonly deadCross: number | null;
     /** 民泊・宿（表面利回りを出さない） */
@@ -578,7 +588,12 @@ export interface RealEstateAnalysisAmounts {
   readonly cashAfterTax: Yen;
   readonly loanBalance: Yen;
   readonly value: Yen | null;
+  /** 評価額−ローン残高（売ったときの手残りの目安。売却の費用・税は引かない） */
   readonly equity: Yen | null;
+  /** 約束の版 1.1: 年末の帳簿価額（取得価額＋取得時の諸費用−減価償却の累計。取得の入力が無ければ null） */
+  readonly bookValue?: Yen | null;
+  /** 約束の版 1.1: 含み益（評価額−帳簿価額。帳簿価額が無ければ null） */
+  readonly unrealizedGain?: Yen | null;
   readonly grossYield: string | null;
   readonly netYield: string | null;
   readonly breakEven: string | null;

@@ -301,9 +301,18 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
       return rest;
     });
   const setLevelOf = (id: string, l: Level) => setLevels((m) => ({ ...m, [id]: l }));
-  /** まとまりごとの「▸ 詳しく」で開いた物（まとまりのキー）。同じ世帯を開いている間だけ覚え、保存しない（0078 の追記） */
+  /**
+   * まとまりごとの「▸ 詳しく」で開いた物（まとまりのキー）。同じ世帯を開いている間だけ覚え、保存しない（0078 の追記）。
+   * 保存して閉じたときは覚えたまま、キャンセル（保存しないで閉じる）では、そのとき開いていたものを閉じた状態に戻す（0078 の 2026-11-05 の追記）
+   */
   const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(new Set());
   const groupOpen = useMemo<GroupOpenState>(() => ({ isOpen: (k) => openGroups.has(k), toggle: (k) => setOpenGroups((s) => toggledSet(s, k)) }), [openGroups]);
+  /** パネルを開いたときの「▸」の開き閉じ（キャンセルで戻す先） */
+  const openGroupsAtOpen = useRef<ReadonlySet<string>>(openGroups);
+  useEffect(() => {
+    if (openId !== null) openGroupsAtOpen.current = openGroups;
+    // パネルを開いた時点の状態だけを覚える（開いている間の開け閉めでは覚え直さない）
+  }, [openId]);
   const backTo = useRef<string | null>(null);
   /** 「探して開く」から開いたパネルを閉じたら、探す欄に戻る */
   const backToFind = useRef(false);
@@ -358,8 +367,10 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
     backToFind.current = true;
     setOpenId(id);
   };
+  // 保存しないで閉じる（キャンセル・変更を捨てて閉じる・Esc）: 入れた値と同じく、開いた「▸」も開く前に戻す
   const close = () => {
     backTo.current = openId;
+    setOpenGroups(openGroupsAtOpen.current);
     setOpenId(null);
     setFocusKey(null);
     setFocusAt(null);

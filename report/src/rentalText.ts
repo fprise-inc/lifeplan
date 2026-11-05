@@ -42,3 +42,32 @@ export function pctText(rate: string | null | undefined, digits = 1): string {
 export function timesText(rate: string | null | undefined, digits = 2): string {
   return rate === null || rate === undefined ? "—" : `${shiftRound(rate, 0, digits)}倍`;
 }
+
+/** 減価償却が終わる年の書き方の材料（分析の数字の物件の欄） */
+export interface DepreciationEndFacts {
+  depreciationEnd: { building: number | null; equipment: number | null };
+  depreciationEndIfContinued?: { building: number | null; equipment: number | null };
+  /** 今の予定で売る（売らずに貸し終わるなら false） */
+  sells: boolean;
+}
+
+/**
+ * 減価償却が終わる年の文（画面と提案書で同じ）。売る・貸し終わるまでに終わらないときは、理由が分かる文にする
+ * （「売るまでには終わりません（2065年に終わる見込み）」）。償却が無ければ null（呼ぶ側で「—」と、その理由）
+ */
+export function depreciationEndText(p: DepreciationEndFacts): string | null {
+  const until = p.sells ? "売るまで" : "貸し終わるまで";
+  const one = (end: number | null, later: number | null | undefined): string | null => (end !== null ? `${end}年` : later != null ? `${until}には終わりません（${later}年に終わる見込み）` : null);
+  const b = one(p.depreciationEnd.building, p.depreciationEndIfContinued?.building);
+  const e = one(p.depreciationEnd.equipment, p.depreciationEndIfContinued?.equipment);
+  if (b !== null && e !== null) return `建物 ${b}・設備 ${e}`;
+  if (b !== null) return b;
+  if (e !== null) return `設備 ${e}`;
+  return null;
+}
+
+/** 元金の返済が減価償却費を上回る年の文。計算の最初の年（計算基準年）から上回っていれば「もう上回っています」 */
+export function deadCrossText(deadCross: number | null, baseYear: number): string | null {
+  if (deadCross === null) return null;
+  return deadCross <= baseYear ? "もう上回っています" : `${deadCross}年`;
+}

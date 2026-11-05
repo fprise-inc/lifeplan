@@ -67,7 +67,8 @@
               {
                 "$ref": "urn:financia:schema:common#/$defs/year"
               }
-            ]
+            ],
+            "description": "建った年（建物の無い物件は null）"
           },
           "legalLife": {
             "oneOf": [
@@ -81,6 +82,37 @@
             ]
           },
           "depreciationEnd": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "building",
+              "equipment"
+            ],
+            "properties": {
+              "building": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "equipment": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              }
+            }
+          },
+          "depreciationEndIfContinued": {
+            "description": "1.1: 売る・貸し終わるまでに減価償却が終わらないとき、その後も同じ年額で貸し続けたら終わる年（どちらも null なら欄が無い）",
             "type": "object",
             "additionalProperties": false,
             "required": [
@@ -258,7 +290,29 @@
                   ]
                 },
                 "equity": {
-                  "description": "含み益（評価額−ローン残高）",
+                  "description": "売ったときの手残りの目安（評価額−ローン残高。売却の費用・税は引かない）",
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "urn:financia:schema:common#/$defs/yen"
+                    }
+                  ]
+                },
+                "bookValue": {
+                  "description": "1.1: 年末の帳簿価額（取得価額＋取得時の諸費用−減価償却の累計。取得の入力が無い・持っていない年は null）",
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                    }
+                  ]
+                },
+                "unrealizedGain": {
+                  "description": "1.1: 含み益（評価額−帳簿価額。帳簿価額が無ければ null）",
                   "oneOf": [
                     {
                       "type": "null"
@@ -549,8 +603,30 @@
             "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
           },
           "equity": {
-            "description": "含み益（評価額−ローン残高）",
+            "description": "売ったときの手残りの目安（評価額−ローン残高）の合計",
             "$ref": "urn:financia:schema:common#/$defs/yen"
+          },
+          "bookValue": {
+            "description": "1.1: 年末の帳簿価額の合計（数字のある物件の分。どれにも無ければ null）",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+              }
+            ]
+          },
+          "unrealizedGain": {
+            "description": "1.1: 含み益の合計（数字のある物件の分。どれにも無ければ null）",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "urn:financia:schema:common#/$defs/yen"
+              }
+            ]
           },
           "grossYield": {
             "description": "表面利回り（年換算）",
