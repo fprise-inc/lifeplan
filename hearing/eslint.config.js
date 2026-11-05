@@ -5,14 +5,15 @@ import tseslint from "typescript-eslint";
 const root = import.meta.dirname;
 
 export default tseslint.config(
-  { ignores: ["node_modules/**"] },
+  { ignores: ["node_modules/**", "relay/.wrangler/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["src/**/*.ts"],
+    files: ["src/**/*.ts", "relay/**/*.ts"],
     languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: root } },
     rules: {
-      "no-restricted-imports": ["error", { patterns: [{ group: ["node:*", "fs", "path", "crypto", "zlib"], message: "src/ は画面からも読むので Node の組み込みを使わない" }] }],
+      "no-restricted-imports": ["error", { patterns: [{ group: ["node:*", "fs", "path", "crypto", "zlib"], message: "src/ は画面からも読むので Node の組み込みを使わない（relay/ は Cloudflare Workers で動くので同じ）" }] }],
+      "no-console": ["error"],
       "no-restricted-globals": ["error", { name: "eval", message: "取り込んだファイルの中身を実行しない" }],
       "@typescript-eslint/no-floating-promises": "error",
     },

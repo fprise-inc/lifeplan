@@ -350,8 +350,26 @@ fn every_format_version_has_a_fixture_and_opens() {
                 );
             }
         }
+        // 0.63 から（0125）: Web のヒアリングの依頼の記録（取り込みの記録の区画 hearing.web）。変換で中身を変えない
+        let web = now["hearing"]["web"].as_array();
         if migrate::parse(v).unwrap() >= (0, 63) {
-            // 0.63 から（0123 の追記 2026-11-05）: 貸していない不動産の持ち始める時点・建物が建った年と構造
+            let w = web.expect("0.63 の見本に Web のヒアリングの依頼の記録がある");
+            assert_eq!(
+                w[0]["record"]["requestId"], "R-7K3P9Q",
+                "{v}: Web の依頼番号"
+            );
+            assert_eq!(
+                w[0]["files"][0]["mime"], "image/jpeg",
+                "{v}: 受け取った書類"
+            );
+        } else {
+            assert!(
+                web.is_none(),
+                "{v}: 0.63 より前の版に Web の依頼の記録は無い"
+            );
+        }
+        if migrate::parse(v).unwrap() >= (0, 64) {
+            // 0.64 から（0123 の追記 2026-11-05）: 貸していない不動産の持ち始める時点・建物が建った年と構造
             let accounts = now["household"]["request"]["input"]["household"]["accounts"]
                 .as_array()
                 .unwrap();

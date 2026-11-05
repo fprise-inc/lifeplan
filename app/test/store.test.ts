@@ -1145,6 +1145,35 @@ function sample061(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/**
+ * 0.63 の見本の世帯（0125）: sample061() に、Web のヒアリングの依頼の記録（取り込みの記録の区画 hearing.web）を足す。
+ * 鍵・合言葉は形だけの試験の文字（本物の鍵ではない）。受け取った答えと、受け取った書類（架空の JPEG の見出しだけ）を持つ
+ */
+function sample063(): BodyState {
+  const s = sample061();
+  const fake = (c: string, n: number) => c.repeat(n);
+  const web = [
+    {
+      record: {
+        kind: "web",
+        requestId: "R-7K3P9Q",
+        serverId: fake("A", 22),
+        secrets: { secret: fake("B", 43), publicKey: `B${fake("C", 86)}`, privateKey: fake("D", 184), pickupToken: fake("E", 43) },
+        selection: { base: { sheetId: "basic", version: 2 }, sections: [{ id: "family", items: [{ key: "hs.family.adult.birthYearMonth", mode: "ask" }] }, { id: "fp", items: [{ key: "ext.office.qabcd2345", mode: "ask" }] }], custom: [{ key: "ext.office.qabcd2345", label: "ご相談のきっかけ" }], documents: [{ id: "d1", kind: "withholding", title: "源泉徴収票（ご本人）", purpose: "年収の確かめ", where: "支払金額" }] },
+        digest: "0".repeat(64),
+        customerNo: "A0001",
+        issuedAt: "2026-11-05T09:00:00Z",
+        expiresAt: "2026-12-05T09:00:00Z",
+        url: `https://relay.invalid/h/#1.${fake("B", 43)}.B${fake("C", 86)}`,
+      },
+      state: "received",
+      received: { at: "2026-11-06T01:00:00Z", submittedAt: "2026-11-06T00:30:00.000Z", answers: [{ key: "hs.family.adult.birthYearMonth", index: 1, status: "value", raw: { kind: "text", text: "1985" }, raw2: { kind: "number", text: "6" } }], documents: [{ id: "d1", status: "attached", files: [{ fileId: fake("F", 16), mime: "image/jpeg", bytes: 4, sha256: "1".repeat(64) }] }], dropped: 0, missingFiles: 0 },
+      files: [{ docId: "d1", fileId: fake("F", 16), mime: "image/jpeg", data: "_9j_4A", bytes: 4, sha256: "1".repeat(64) }],
+    },
+  ];
+  return { ...s, wh: { ...s.wh, hearing: { requests: [], imports: [], consents: [], web } as never } };
+}
+
 describe("世帯ファイルの本文（0011 の2）", () => {
   it("保存→読み込みで同じ（現状・案・帯の並び・表示の設定・拡張領域）", () => {
     const s = sample();
@@ -1183,7 +1212,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.63");
+    expect(BODY_FORMAT_VERSION).toBe("0.64");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1356,7 +1385,16 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample061())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample063())), null, 2) + "\n");
+  });
+
+  it("0.63 の形（0125）: Web のヒアリングの依頼の記録（鍵・受け取った答えと書類）を取り込みの記録の区画に保存して読み戻す。計算には使わない", () => {
+    const s = sample063();
+    const stored = bodyObject(s) as unknown as { hearing: { web: unknown[] } };
+    expect(stored.hearing.web).toHaveLength(1);
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(preview(back.wh.request).table).toEqual(preview(sample061().wh.request).table);
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {

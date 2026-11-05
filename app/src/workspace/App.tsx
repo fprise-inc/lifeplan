@@ -47,8 +47,10 @@ import { blankHousehold, fromRequest, sampleRequest, withElementIds, type Workin
 import { InputView } from "./input/InputView.tsx";
 import { withRefreshedEstimates } from "./input/estimates.ts";
 import { withOfficeSources } from "./input/officeSource.ts";
-import { applyLook, brandOf, EMPTY_BRANDING, readBranding, resolveMode, setBrandingNow, type Appearance, type OfficeBranding } from "./office/branding.ts";
-import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart, publishOfficeSettings, readOfficeSettings, withEstimates, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
+import { applyLook, brandOf, EMPTY_BRANDING, readBranding, resolveMode, setBrandingNow, usesStandardColor, type Appearance, type OfficeBranding } from "./office/branding.ts";
+import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart, publishOfficeSettings, readOfficeSettings, withEstimates, withHearingTemplates, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
+import { checkBase } from "../presentation/theme.ts";
+import { keepWebLog } from "./hearing/web.ts";
 import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
 import { NO_OFFICE_FIELDS, NO_OFFICE_NAMES, NO_OFFICE_TEXTS, OfficeFieldsContext, officeFieldsFrom, OfficeNamesContext, OfficeTextsContext, officeTextsFrom, rowNamesOf } from "./office/customTexts.ts";
 import { customCenterNotice, estimateCenterNotice } from "./office/customNotice.ts";
@@ -1347,8 +1349,9 @@ export function App() {
   const restore = (s: AppSnap<Work>) => {
     const o = openedRef.current;
     if (o === null) return;
-    // 控えは元に戻す・やり直すの対象にしない（作った後は変えない）。今の控えを持ち越す
-    const sw = keepStatements(keepSnapshots(s.wh, o.wh), o.wh);
+    // 控えは元に戻す・やり直すの対象にしない（作った後は変えない）。今の控えを持ち越す。
+    // Web のヒアリングの依頼の記録（鍵・受け取った答えと書類）も持ち越す（サーバーの状態と食い違わないように。0125）
+    const sw = keepWebLog(keepStatements(keepSnapshots(s.wh, o.wh), o.wh), o.wh);
     const n = sw === o.wh ? o : sw.request === o.wh.request ? { ...o, wh: sw } : openedFrom(o.demo, sw);
     if (n === null) return;
     reqCache.current.clear();
@@ -1363,6 +1366,19 @@ export function App() {
   };
   /** 入力の画面で世帯（現状）を変えた */
   const edit = useCallback((next: WorkingHousehold) => replaceCurrent(next), [replaceCurrent]);
+  /** 今の世帯をすぐ保存する（Web のヒアリングの受け取り・発行の後。保存した世帯でなければ false。0125） */
+  const saveNow = useCallback(async (): Promise<boolean> => {
+    const n = openedRef.current;
+    const sr = storedRef.current;
+    if (n === null || sr === null || sr.readOnly || autosaver.current === null) return false;
+    try {
+      autosaver.current.change(bodyFor(n, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, sr.carry));
+      await autosaver.current.flush();
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
 
   /** 控えを足す・外す（元に戻す・やり直すの履歴には積まない。作った後は変えない。保存した世帯なら自動保存で世帯ファイルに書く） */
   const putSnapshots = useCallback((f: (list: Snapshot[]) => Snapshot[]) => {
@@ -2634,7 +2650,27 @@ export function App() {
                 ? {
                     imports: (
                       <>
-                        <HearingTools wh={opened.wh} sheets={host.sheets} onSave={edit} />
+                        <HearingTools
+                          wh={opened.wh}
+                          sheets={host.sheets}
+                          onSave={edit}
+                          {...(host.hearingWeb !== undefined
+                            ? {
+                                webProps: {
+                                  web: host.hearingWeb,
+                                  office: { name: branding.name ?? "", color: usesStandardColor(branding) || branding.color === undefined ? null : checkBase(branding.color).light },
+                                  templates: officeSettings.hearingTemplates ?? [],
+                                  onTemplates: async (list) => {
+                                    const next = withHearingTemplates(officeSettingsRef.current, list);
+                                    await host.office.putDefaults(next as unknown as Record<string, unknown>);
+                                    putOfficeSettings(next);
+                                  },
+                                  persisted: storedInfo !== null && !storedInfo.readOnly,
+                                  saveNow,
+                                },
+                              }
+                            : {})}
+                        />
                         {storedInfo !== null ? (
                           <div class="hs-tools" role="group" aria-label="AI に資料を渡す" data-imports-ai>
                             <span class="hs-tools-h">AI に資料を渡す</span>

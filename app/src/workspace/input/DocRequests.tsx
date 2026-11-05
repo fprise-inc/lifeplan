@@ -8,6 +8,7 @@ import { Help } from "../../presentation/Help.tsx";
 import type { Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { docRequests, requestMessage, SAFE_SENDING } from "./docRequests.ts";
+import { docRequestStatus } from "../hearing/web.ts";
 
 interface Props {
   wh: WorkingHousehold;
@@ -21,6 +22,8 @@ const remembered = { name: "", office: "" };
 
 export function DocRequests({ wh, onOpen, onClose }: Props) {
   const reqs = useMemo(() => docRequests(wh), [wh]);
+  // Web のヒアリングで頼んだ・届いた書類（0125。書類待ちの1通と結びつけたもの）
+  const web = useMemo(() => docRequestStatus(wh), [wh]);
   const [name, setName] = useState(remembered.name);
   const [office, setOffice] = useState(remembered.office);
   const [note, setNote] = useState<string | null>(null);
@@ -59,6 +62,11 @@ export function DocRequests({ wh, onOpen, onClose }: Props) {
           {reqs.map((r) => (
             <li key={r.id} data-dr-doc={r.id}>
               <span class="dr-title">{r.title}</span>
+              {web.get(r.id) !== undefined ? (
+                <span class={`dr-web${(web.get(r.id)?.files ?? 0) > 0 ? "" : " wait"}`} data-dr-web={r.id}>
+                  {(web.get(r.id)?.files ?? 0) > 0 ? `Web で届いた（${web.get(r.id)?.files ?? 0}）— 取り込みの「Web の依頼」の書類で開けます` : web.get(r.id)?.answer === "notAvailable" ? "Web で頼んだ: 手元にない" : web.get(r.id)?.answer === "later" ? "Web で頼んだ: あとで送る" : "Web で頼んでいます"}
+                </span>
+              ) : null}
               <ul>
                 {r.values.map((v) => (
                   <li key={v.rowId} data-dr-value={v.rowId}>

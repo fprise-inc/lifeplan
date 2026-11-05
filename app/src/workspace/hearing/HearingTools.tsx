@@ -5,16 +5,29 @@
 //   候補（新規・変更・同じ・要確認・矛盾）をこのパネルで確かめ、承認したものだけを現状に入れる（0008 の5）
 import { useMemo, useState } from "preact/hooks";
 import { version as APP_VERSION } from "../../../package.json";
-import type { SaveOutcome, SheetHost } from "../../engine/host.ts";
+import type { HearingWebHost, SaveOutcome, SheetHost } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { today } from "../report/assemble.ts";
 import { docRequests, docRequestTitles } from "../input/docRequests.ts";
+import { WebBuilder, type OfficeLook } from "./WebBuilder.tsx";
+import { WebRequests } from "./WebRequests.tsx";
+import { markImported, type HearingTemplate } from "./web.ts";
 import { applyImport, approvalTime, CUSTOMER_NO_PATTERN, defaultSelection, exportSheet, importSheet, randomBytes, sheetFor, SHEET_KINDS, withRequest, type CandidateView, type FieldView, type ImportView, type Issue, type SheetKind } from "./sheet.ts";
 
 interface Props {
   wh: WorkingHousehold;
   sheets: SheetHost;
   onSave: (next: WorkingHousehold) => void;
+}
+
+/** Web のヒアリング（0125）に要るもの（本体に受け付けの命令が無い画面では渡さない） */
+export interface WebProps {
+  web: HearingWebHost;
+  office: OfficeLook;
+  templates: readonly HearingTemplate[];
+  onTemplates: (list: HearingTemplate[]) => Promise<void>;
+  persisted: boolean;
+  saveNow: () => Promise<boolean>;
 }
 
 const KIND_TEXT: Record<CandidateView["kind"], string> = { new: "新規", changed: "変更", same: "同じ" };
@@ -167,7 +180,7 @@ function ExportPanel({ wh, sheets, onSave, onClose }: Props & { onClose: () => v
   );
 }
 
-function ReviewPanel({ wh, view, onSave, onClose }: { wh: WorkingHousehold; view: ImportView; onSave: (w: WorkingHousehold) => void; onClose: (msg: string | null) => void }) {
+function ReviewPanel({ wh, view, onSave, onClose, heading }: { wh: WorkingHousehold; view: ImportView; onSave: (w: WorkingHousehold) => void; onClose: (msg: string | null) => void; heading?: string }) {
   const [sel, setSel] = useState<Set<string>>(() => defaultSelection(view));
   const count = (k: CandidateView["kind"]) => view.candidates.filter((c) => c.kind === k).length;
   const toggle = (id: string, on: boolean) =>
@@ -186,7 +199,7 @@ function ReviewPanel({ wh, view, onSave, onClose }: { wh: WorkingHousehold; view
   return (
     <section class="card hs-panel hs-review" aria-label="取り込みの確認" data-hearing-review>
       <div class="card-h">
-        <h2>記入済みのシートの取り込み（{view.definition.title} 版{view.definition.version}）</h2>
+        <h2>{heading ?? "記入済みのシートの取り込み"}（{view.definition.title} 版{view.definition.version}）</h2>
         <span class="aside">
           新規 {count("new")}・変更 {count("changed")}・同じ {count("same")}
           {view.candidates.some((c) => c.review) ? `・要確認 ${view.candidates.filter((c) => c.review).length}` : ""}
@@ -268,9 +281,11 @@ function ReviewPanel({ wh, view, onSave, onClose }: { wh: WorkingHousehold; view
 }
 
 /** 入力のホームの上部（進み具合の近く）に置くボタンと、開いたパネル */
-export function HearingTools({ wh, sheets, onSave }: Props) {
-  const [mode, setMode] = useState<null | "export" | "busy">(null);
+export function HearingTools({ wh, sheets, onSave, webProps }: Props & { webProps?: WebProps }) {
+  const [mode, setMode] = useState<null | "export" | "busy" | "web">(null);
   const [view, setView] = useState<ImportView | null>(null);
+  /** Web の依頼から取り込んでいるとき、その依頼番号（承認したら取り込み済みの印を付ける） */
+  const [webImport, setWebImport] = useState<string | null>(null);
   const [issues, setIssues] = useState<readonly Issue[] | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const pick = async () => {
@@ -299,6 +314,11 @@ export function HearingTools({ wh, sheets, onSave }: Props) {
         <button type="button" class="btn" disabled={mode === "busy"} onClick={() => void pick()} data-hearing-import>
           {mode === "busy" ? "読んでいます…" : "記入済みのシートを取り込む"}
         </button>
+        {webProps !== undefined ? (
+          <button type="button" class="btn" onClick={() => setMode(mode === "web" ? null : "web")} aria-expanded={mode === "web"} data-hearing-web>
+            Web で聞く（URL）
+          </button>
+        ) : null}
       </div>
       {msg !== null ? (
         <p class="hs-msg" role="status" data-hearing-msg>
@@ -306,6 +326,22 @@ export function HearingTools({ wh, sheets, onSave }: Props) {
         </p>
       ) : null}
       {mode === "export" ? <ExportPanel wh={wh} sheets={sheets} onSave={onSave} onClose={() => setMode(null)} /> : null}
+      {mode === "web" && webProps !== undefined ? <WebBuilder wh={wh} web={webProps.web} office={webProps.office} templates={webProps.templates} onTemplates={webProps.onTemplates} persisted={webProps.persisted} onSave={onSave} saveNow={webProps.saveNow} onClose={() => setMode(null)} /> : null}
+      {webProps !== undefined && view === null ? (
+        <WebRequests
+          wh={wh}
+          web={webProps.web}
+          officeName={webProps.office.name}
+          appVersion={APP_VERSION}
+          onSave={onSave}
+          saveNow={webProps.saveNow}
+          onImport={(v, id) => {
+            setMsg(null);
+            setWebImport(id);
+            setView(v);
+          }}
+        />
+      ) : null}
       {issues !== null ? (
         <section class="card hs-panel" aria-label="取り込めませんでした" data-hearing-failed>
           <div class="card-h">
@@ -323,9 +359,11 @@ export function HearingTools({ wh, sheets, onSave }: Props) {
         <ReviewPanel
           wh={wh}
           view={view}
-          onSave={onSave}
+          onSave={(w) => onSave(webImport !== null ? markImported(w, webImport, approvalTime()) : w)}
+          {...(webImport !== null ? { heading: `Web のお答えの取り込み（${webImport}）` } : {})}
           onClose={(m) => {
             setView(null);
+            setWebImport(null);
             setMsg(m);
           }}
         />

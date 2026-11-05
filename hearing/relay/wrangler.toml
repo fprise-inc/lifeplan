@@ -1,0 +1,40 @@
+# 受け付けのサーバー（0125）の Cloudflare Workers の設定。値はすべて仮の値（「置き換える」の印の所を、本番の前に利用者が置き換える。
+# wrangler が形を確かめるので、仮の値も形の合う文字にしてある）。
+# 手元で試すとき: hearing/relay/README.md の「手元で動かす」（wrangler dev は miniflare で R2 も手元に作るので、アカウントは要らない）
+# 置き換える: Worker の名前
+name = "replace-me-hearing-relay"
+main = "worker.ts"
+compatibility_date = "2026-10-01"
+# 観測のログ（Workers Logs）を切る: 中身・IP をログに残さない（0125 の決定の3）
+workers_dev = false
+[observability]
+enabled = false
+
+# 本番の置き場所（受け付けのホストの下。例 <RELAY_HOST>/api/hearing/v1 と <RELAY_HOST>/h/）
+# 置き換える: 本番のホストに置くときに、次の行の印を置き換えて先頭の # を外す
+# routes = [{ pattern = "<受け付けのホスト>/api/hearing/*", zone_name = "<ゾーン>" }, { pattern = "<受け付けのホスト>/h/*", zone_name = "<ゾーン>" }]
+
+# お客さまのページ（app/ で npm run build:hearing-form が作る静的なファイル。/h/ の下）
+[assets]
+directory = "../../app/dist-hearing-form"
+binding = "ASSETS"
+run_worker_first = true
+
+# 暗号文の置き場（R2）。期限の決まり（31日で消す）は R2 の設定で足す（README の本番の手順）
+[[r2_buckets]]
+binding = "HEARING"
+# 置き換える: R2 のバケットの名前
+bucket_name = "replace-me-hearing-bucket"
+
+# 回数の制限（Cloudflare の回数の制限の部品。namespace_id は仮の値）
+[[ratelimits]]
+name = "LIMIT_CREATE"
+# 置き換える: 回数の制限の名前空間の番号（アカウントの中で重ならない数）
+namespace_id = "9001"
+simple = { limit = 20, period = 60 }
+
+[[ratelimits]]
+name = "LIMIT_REQUEST"
+# 置き換える
+namespace_id = "9002"
+simple = { limit = 60, period = 60 }

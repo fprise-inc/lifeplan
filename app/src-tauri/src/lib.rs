@@ -30,6 +30,7 @@ mod dev_keystore;
 mod engine;
 mod export;
 mod features;
+mod hearing_web;
 mod keyring;
 mod menu;
 mod notices;
@@ -415,7 +416,10 @@ pub fn run() {
             notices::feedback_form_open,
             notices::feedback_copy,
             app_close_ready,
-            app_close_cancel
+            app_close_cancel,
+            hearing_web::hearing_web_config,
+            hearing_web::hearing_web_call,
+            hearing_web::hearing_document_save
         ])
         .setup(|app| {
             // エンジンのバイトコードを裏で用意する（最初の計算を待たせない）

@@ -34,7 +34,7 @@ const browserGlobals = {
 };
 
 export default tseslint.config(
-  { ignores: ["dist/**", "public/**", "src/generated/**", "src-tauri/**", "node_modules/**"] },
+  { ignores: ["dist/**", "dist-hearing-form/**", "public/**", "src/generated/**", "src-tauri/**", "node_modules/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -95,6 +95,27 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  {
+    // 0125: お客さまの画面（お客さまのブラウザで開く Web のヒアリングのページ）は、作業の層・本体の命令・エンジンを読めない。
+    // FP のアプリの見本からも同じ部品（Form.tsx）を使うので、保存の決まり（0016）はそのまま。下書きを端末に暗号化して置くのは入口（main.tsx）だけ
+    files: ["src/hearingForm/**/*.ts", "src/hearingForm/**/*.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { regex: "(^|/)(workspace|engine|generated|presentation)(/|$)", message: "お客さまの画面は、作業の層・エンジン・提示層を読み込めない（hearing/src/web の部品だけ。0125）" },
+            { regex: "^@tauri-apps/", message: "お客さまの画面は本体の命令を呼べない（0125）" },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // 0125: お客さまのページの入口だけ、下書き（依頼の鍵から導いた鍵で暗号化したもの）をお客さまのブラウザの保存機能に置く（FP のアプリの画面ではない）
+    files: ["src/hearingForm/main.tsx"],
+    rules: { "no-restricted-properties": ["error", { object: "document", property: "cookie", message: "クッキーを使わない" }, { object: "window", property: "open", message: "新しいウィンドウを開かない" }] },
   },
   {
     files: ["scripts/**/*.ts", "test/**/*.ts", "test/**/*.tsx", "*.js", "*.ts"],

@@ -26,6 +26,7 @@ import { readLivingLayout, setLivingLayoutNow, type LivingLayout } from "./livin
 import type { OfficeHost } from "../../engine/host.ts";
 import type { FeatureStatus } from "./featureCodes.ts";
 import { isEmptyEstimates, publishOfficeEstimates, readOfficeEstimates, type OfficeEstimates } from "./estimates.ts";
+import { readHearingTemplates, type HearingTemplate } from "../hearing/web.ts";
 
 export { STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
 
@@ -97,6 +98,8 @@ export interface OfficeSettings {
   living?: LivingLayout;
   /** 事務所の推定の値と推定で埋めない入力欄（0111。無ければ公式の統計の値・全部推定で埋める。世帯には写さない。office/estimates.ts） */
   estimates?: OfficeEstimates;
+  /** Web のヒアリングの事務所のひな形（聞く項目・並び・独自の質問・頼む書類の組み合わせ。0125。世帯には写さない） */
+  hearingTemplates?: HearingTemplate[];
 }
 
 export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { version: 1, layout: null, items: {}, levers: {}, premises: {}, scenes: {}, protection: {}, care: DEFAULT_CARE_DEFAULTS, inheritLikelihood: "likely", assumptions: {}, realEstateRatio: null, fee: STANDARD_FEE_TABLE, features: DEFAULT_FEATURES, changedOn: null };
@@ -262,11 +265,20 @@ export function readOfficeSettings(v: unknown): OfficeSettings {
   const living = readLivingLayout(isObj(v) ? v.living : undefined);
   // 事務所の推定の値（0111。欄の無い古い事務所データ・空なら持たない）
   const estimates = readOfficeEstimates(isObj(v) ? v.estimates : undefined);
-  return { ...s, ...(living !== null ? { living } : {}), ...(!isEmptyEstimates(estimates) ? { estimates } : {}) };
+  // Web のヒアリングの事務所のひな形（0125。欄の無い古い事務所データ・空なら持たない）
+  const hearingTemplates = readHearingTemplates(isObj(v) ? v.hearingTemplates : undefined);
+  return { ...s, ...(living !== null ? { living } : {}), ...(!isEmptyEstimates(estimates) ? { estimates } : {}), ...(hearingTemplates.length > 0 ? { hearingTemplates } : {}) };
+}
+
+/** Web のヒアリングの事務所のひな形を置き換えた設定（空なら欄を外す。0125） */
+export function withHearingTemplates(s: OfficeSettings, list: readonly HearingTemplate[]): OfficeSettings {
+  const { hearingTemplates: _old, ...rest } = s;
+  void _old;
+  return list.length === 0 ? rest : { ...rest, hearingTemplates: [...list] };
 }
 
 /** 標準（既定の値）と同じか（設定を保存するときに、標準と同じ値は持たない） */
-export const isDefaultSettings = (s: OfficeSettings): boolean => isDefaultCore(s) && readLivingLayout(s.living) === null && isEmptyEstimates(s.estimates);
+export const isDefaultSettings = (s: OfficeSettings): boolean => isDefaultCore(s) && readLivingLayout(s.living) === null && isEmptyEstimates(s.estimates) && (s.hearingTemplates ?? []).length === 0;
 
 /** 今の事務所の既定値を、操作のときに読む所へ入れる（内訳の並べ方は office/livingLayout.ts へ、推定の値は推定の目安と計算の要求へ） */
 export function publishOfficeSettings(s: OfficeSettings): void {

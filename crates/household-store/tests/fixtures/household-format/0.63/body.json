@@ -347,7 +347,118 @@
       "version": 1
     }
   },
-  "hearing": null,
+  "hearing": {
+    "consents": [],
+    "imports": [],
+    "requests": [],
+    "web": [
+      {
+        "files": [
+          {
+            "bytes": 4,
+            "data": "_9j_4A",
+            "docId": "d1",
+            "fileId": "FFFFFFFFFFFFFFFF",
+            "mime": "image/jpeg",
+            "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+          }
+        ],
+        "received": {
+          "answers": [
+            {
+              "index": 1,
+              "key": "hs.family.adult.birthYearMonth",
+              "raw": {
+                "kind": "text",
+                "text": "1985"
+              },
+              "raw2": {
+                "kind": "number",
+                "text": "6"
+              },
+              "status": "value"
+            }
+          ],
+          "at": "2026-11-06T01:00:00Z",
+          "documents": [
+            {
+              "files": [
+                {
+                  "bytes": 4,
+                  "fileId": "FFFFFFFFFFFFFFFF",
+                  "mime": "image/jpeg",
+                  "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+                }
+              ],
+              "id": "d1",
+              "status": "attached"
+            }
+          ],
+          "dropped": 0,
+          "missingFiles": 0,
+          "submittedAt": "2026-11-06T00:30:00.000Z"
+        },
+        "record": {
+          "customerNo": "A0001",
+          "digest": "0000000000000000000000000000000000000000000000000000000000000000",
+          "expiresAt": "2026-12-05T09:00:00Z",
+          "issuedAt": "2026-11-05T09:00:00Z",
+          "kind": "web",
+          "requestId": "R-7K3P9Q",
+          "secrets": {
+            "pickupToken": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+            "privateKey": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+            "publicKey": "BCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+            "secret": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+          },
+          "selection": {
+            "base": {
+              "sheetId": "basic",
+              "version": 2
+            },
+            "custom": [
+              {
+                "key": "ext.office.qabcd2345",
+                "label": "ご相談のきっかけ"
+              }
+            ],
+            "documents": [
+              {
+                "id": "d1",
+                "kind": "withholding",
+                "purpose": "年収の確かめ",
+                "title": "源泉徴収票（ご本人）",
+                "where": "支払金額"
+              }
+            ],
+            "sections": [
+              {
+                "id": "family",
+                "items": [
+                  {
+                    "key": "hs.family.adult.birthYearMonth",
+                    "mode": "ask"
+                  }
+                ]
+              },
+              {
+                "id": "fp",
+                "items": [
+                  {
+                    "key": "ext.office.qabcd2345",
+                    "mode": "ask"
+                  }
+                ]
+              }
+            ]
+          },
+          "serverId": "AAAAAAAAAAAAAAAAAAAAAA",
+          "url": "https://relay.invalid/h/#1.BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.BCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+        },
+        "state": "received"
+      }
+    ]
+  },
   "household": {
     "addedItems": [],
     "agreed": {
@@ -1432,26 +1543,6 @@
                 "taxation": "nonTaxable"
               },
               "subtype": "art"
-            },
-            {
-              "asOf": "2026-10",
-              "builtYear": 1990,
-              "contributions": [],
-              "holdFrom": {
-                "at": "2036-04"
-              },
-              "id": "00000000-0000-4000-8000-000000006301",
-              "kind": "realEstate",
-              "marketValue": {
-                "origin": {
-                  "kind": "manual"
-                },
-                "state": "confirmed",
-                "value": 9000000
-              },
-              "owner": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
-              "structure": "wood",
-              "subtype": "vacantHouse"
             }
           ],
           "cars": [
