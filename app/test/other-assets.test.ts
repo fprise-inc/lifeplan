@@ -1,5 +1,5 @@
 // その他の資産の入口と中身（0120）: 貯蓄・運用の「その他の資産」の区画を何も無い世帯でも標準で出す（見出しと足すボタンだけ）、
-// その他の資産の中身の細目（貴金属・暗号資産・美術品や骨董品・会員権・敷金や保証金・事業用の資産・その他）、資産と負債のタブ・提案書の
+// その他の資産の中身の細目（貴金属・美術品や骨董品・会員権・敷金や保証金・事業用の資産・その他。暗号資産は 0122 で金融資産の器の種類にした）、資産と負債のタブ・提案書の
 // バランスシートの行を中身ごとに分ける（同じ中身はまとめる）、細目は計算に使わない
 import { describe, expect, it } from "vitest";
 import { h } from "preact";
@@ -64,7 +64,7 @@ describe("入口: 貯蓄・運用の「その他の資産」の区画（0120）"
 
 describe("その他の資産の中身の細目（0120）", () => {
   it("中身の選択肢は6つと「その他」。空は「その他」（細目を書かない）", () => {
-    expect(OTHER_ASSET_OPTIONS.map((o) => o.label)).toEqual(["貴金属（金・プラチナなど）", "暗号資産（ビットコインなど）", "美術品・骨董品", "会員権（ゴルフ・リゾートなど）", "敷金・保証金", "事業用の資産（設備・在庫など）", "その他"]);
+    expect(OTHER_ASSET_OPTIONS.map((o) => o.label)).toEqual(["貴金属（金・プラチナなど）", "美術品・骨董品", "会員権（ゴルフ・リゾートなど）", "敷金・保証金", "事業用の資産（設備・在庫など）", "その他"]);
     const { wh, a } = addOther(open());
     expect(a.subtype).toBeUndefined();
     expect(fieldOf(wh, `sav/${a.id}/subtype`).get(wh)).toMatchObject({ value: "other", implicit: true });
@@ -87,7 +87,7 @@ describe("その他の資産の中身の細目（0120）", () => {
     wh = fieldOf(wh, `sav/${a.id}/kind`).set(wh, "realEstate");
     expect(accOf(wh, a.id)).toMatchObject({ kind: "realEstate" });
     expect(accOf(wh, a.id).subtype).toBeUndefined();
-    // 貸していない不動産の中身（土地・別荘・空き家など。0122）の欄になる（その他の資産の中身は残さない）
+    // 貸していない不動産の中身（土地・別荘・空き家など。0123）の欄になる（その他の資産の中身は残さない）
     expect(fieldOf(wh, `sav/${a.id}/subtype`).get(wh)).toMatchObject({ value: "other", implicit: true });
   });
 
@@ -106,7 +106,7 @@ describe("その他の資産の中身の細目（0120）", () => {
     wh = fieldOf(wh, `sav/${a.id}/value`).set(wh, 2_000_000);
     wh = fieldOf(wh, `sav/${a.id}/growth`).set(wh, "0.02");
     const before = preview(wh.request).table;
-    for (const s of ["preciousMetal", "cryptoAsset", "art", "membership", "securityDeposit", "businessAsset"]) {
+    for (const s of ["preciousMetal", "art", "membership", "securityDeposit", "businessAsset"]) {
       const w = fieldOf(wh, `sav/${a.id}/subtype`).set(wh, s);
       expect(accOf(w, a.id).subtype).toBe(s);
       expect(preview(w.request).table).toEqual(before);
@@ -130,7 +130,7 @@ describe("バランスシートの行を中身ごとに（0120）", () => {
     accounts: [
       { id: "gold1", kind: "otherAsset", subtype: "preciousMetal" },
       { id: "gold2", kind: "otherAsset", subtype: "preciousMetal" },
-      { id: "btc", kind: "otherAsset", subtype: "cryptoAsset" },
+      { id: "btc", kind: "otherAsset", subtype: "cryptoAsset" }, // なくした細目（0122）。知らない細目は「その他の資産」
       { id: "deposit", kind: "otherAsset", subtype: "securityDeposit" },
       { id: "misc", kind: "otherAsset" },
       { id: "shares", kind: "otherAsset", subtype: "ownCompanyShares" },
@@ -143,9 +143,8 @@ describe("バランスシートの行を中身ごとに（0120）", () => {
     expect(ill).toEqual([
       ["car", "車", 1_500_000],
       ["preciousMetal", "貴金属", 3_000_000],
-      ["cryptoAsset", "暗号資産", 500_000],
       ["securityDeposit", "敷金・保証金", 300_000],
-      ["otherAsset", "その他の資産", 400_000],
+      ["otherAsset", "その他の資産", 900_000],
       ["ownShares", "自社株（出資額）", 3_000_000],
     ]);
     const [plain] = bsSeries(table, [2026], bsHouseholdOf({ accounts: [] }));
@@ -160,9 +159,8 @@ describe("バランスシートの行を中身ごとに（0120）", () => {
       ["不動産", 0],
       ["車", 1_500_000],
       ["貴金属", 3_000_000],
-      ["暗号資産", 500_000],
       ["敷金・保証金", 300_000],
-      ["その他の資産", 400_000],
+      ["その他の資産", 900_000],
       ["自社株（出資額）", 3_000_000],
     ]);
     const old = sheetOf(table, [{ year: 2026, label: "2026年末" }]);

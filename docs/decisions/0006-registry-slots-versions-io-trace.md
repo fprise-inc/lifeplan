@@ -284,3 +284,4 @@ export default defineComponent({
   - 3 の差し替えの決まりに足した（組み立てで確かめる）: 入力・出力のスキーマのキーは公式と同じ、約束の版は公式と同じ MAJOR で MINOR は公式以下、呼べる差し込み口は公式部品が呼ぶものの内、差し替えの部品は `replaceable` を書かない。7 の「カスタム部品の計算式ID は `ext.<作成者>.` で始める」を、差し替え・追加の部品の呼び出しで確かめる（`E_FORMULA_ID`）。
   - 部品の書き方の約束（`COMPONENT_API_VERSION`）1.3 → 1.4（決まりを足しただけ。公式部品の書き方は変わらない）。登録簿 `registry/components.yaml` に、許した部品だけ `replaceable: true` を書く。
   - 差し込み口 `slot.protection.method`・`slot.retirement.rules` と、`protection.need`・`retirement.benefit` の差し替えの重なりは、差し込み口の約束を作るとき（12月）に決める（0119 の5）。
+- 2026-11-05（貸していない不動産・その他の資産の売る予定と毎年の費用。0123）: 新しい公式部品 `asset.heldSale`（売る予定の手取りと、売ったときの税の元。1.0。差し替えを許さない＝法律・制度）。約束の版を上げた部品（任意の欄を足しただけ）: `tax.totalIncome` 1.7→**1.8**（改訂9。総合課税の譲渡所得 `transfer`）。改訂を上げた部品（約束の版は同じ）: `tax.realEstateSale`（2。貸していない不動産の売却を足す）、`plan.flows`（15。`asset.heldSale` を集める）、`plan.cashflow`（21。売った年の年末から評価額の行を出さない）、`expense.periodic`（6。つながる物を売る月から払わない）。新しい欄を入れていない世帯の結果は変わらない。

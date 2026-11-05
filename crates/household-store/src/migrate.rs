@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.60";
+pub const CURRENT: &str = "0.61";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -200,17 +200,21 @@ pub const CURRENT: &str = "0.60";
 ///   会員権 `membership`・敷金や保証金 `securityDeposit`・事業用の資産 `businessAsset`）を足した（0120。表示とバランスシートの行の名前だけで、
 ///   計算には使わない。足すだけの MINOR）。前の版のアプリは細目を読めない（入力の検査で止まる）ので、版を上げて閲覧だけにする。
 ///   変換の段は形式の版だけを書き換える。0.58 の段の後に積む
-/// - 0.60: 貸していない不動産・その他の資産の売る予定 `accounts[].sale`（時期・価格・費用の割合・税の扱い）と取得の年月 `accounts[].acquiredAt`、
+/// - 0.60: 暗号資産を、その他の資産の細目 `cryptoAsset` から金融資産の器の種類 `cryptoAsset` にした（0122。MINOR）。変換の段が、細目
+///   `cryptoAsset` のその他の資産を種類 `cryptoAsset` へ移し（細目を外し、評価額の増減率 `valueGrowth` は器の利回り `expectedReturn` へ）、
+///   プランの差分・表示した項目・画面の側の印を合わせ、開いたときの知らせ `cryptoAccounts` を足す。控えの中身は変えない（画面が控えを計算する
+///   ときに細目を外す）。前の版のアプリは種類 `cryptoAsset` を読めないので、版を上げて閲覧だけにする。0.59 の段の後に積む
+/// - 0.61: 貸していない不動産・その他の資産の売る予定 `accounts[].sale`（時期・価格・費用の割合・税の扱い）と取得の年月 `accounts[].acquiredAt`、
 ///   貸していない不動産の細目 `accounts[].subtype` の4つ（土地 `vacantLand`・山林や農地 `forestFarm`・別荘 `villa`・空き家 `vacantHouse`）、
 ///   出るお金の行のつながる物 `periodicExpenses[].object` と種類 `assetCost`（資産の毎年の費用）・表の行 `cf.expense.other.realEstate` を足した
-///   （0122。どれも足すだけの MINOR）。前の版のアプリは入力の検査で知らない欄を通さないので、版を上げて閲覧だけにする。
-///   変換の段は形式の版だけを書き換える。0.59 の段の後に積む
+///   （0123。どれも足すだけの MINOR）。前の版のアプリは入力の検査で知らない欄を通さないので、版を上げて閲覧だけにする。
+///   変換の段は形式の版だけを書き換える。0.60 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
-    "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60",
+    "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
 ];
 
 /// 1段分の変換
@@ -516,6 +520,10 @@ pub const STEPS: &[Step] = &[
         from: "0.59",
         to: "0.60",
         apply: v0_59_to_0_60,
+    },    Step {
+        from: "0.60",
+        to: "0.61",
+        apply: v0_60_to_0_61,
     },
 ];
 
@@ -2203,12 +2211,12 @@ fn v0_57_to_0_58(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
-/// 0.59 → 0.60: 足した欄（売る予定・取得の年月・貸していない不動産の細目・出るお金の行のつながる物。0122）は前の版の世帯に無いので、
+/// 0.60 → 0.61: 足した欄（売る予定・取得の年月・貸していない不動産の細目・出るお金の行のつながる物。0123）は前の版の世帯に無いので、
 /// 形式の版だけを書き換える。ほかの欄に触れない
-fn v0_59_to_0_60(mut body: Value) -> Result<Value, StoreError> {
+fn v0_60_to_0_61(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
-        meta.insert("formatVersion".into(), "0.60".into());
+        meta.insert("formatVersion".into(), "0.61".into());
     }
     Ok(body)
 }
@@ -2218,6 +2226,211 @@ fn v0_58_to_0_59(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
         meta.insert("formatVersion".into(), "0.59".into());
+    }
+    Ok(body)
+}
+
+/// 暗号資産（0.59 まではその他の資産の細目、0.60 から器の種類。0122）
+const CRYPTO_ASSET: &str = "cryptoAsset";
+const ACCOUNT_SUBTYPE_ITEM: &str = "account.subtype";
+const VALUE_GROWTH_ITEM: &str = "account.valueGrowth";
+const EXPECTED_RETURN_ITEM: &str = "account.expectedReturn";
+
+/// 入力項目ID（と、その後の「/場所」）を付け替えた鍵。外す項目なら `None`、変えない鍵はそのまま
+fn crypto_item_key(k: &str) -> Option<String> {
+    let under = |item: &str| k == item || k.starts_with(&format!("{item}/"));
+    if under(ACCOUNT_SUBTYPE_ITEM) {
+        None
+    } else if under(VALUE_GROWTH_ITEM) {
+        Some(format!(
+            "{EXPECTED_RETURN_ITEM}{}",
+            &k[VALUE_GROWTH_ITEM.len()..]
+        ))
+    } else {
+        Some(k.to_string())
+    }
+}
+
+/// 器1つ（世帯の `accounts[]` の要素か、プランの差分で足す器）が細目 `cryptoAsset` のその他の資産なら、種類 `cryptoAsset` の器に直す。
+/// 細目を外し、評価額の増減率を器の利回りへ移し（器の利回りがあればそちらを残す）、値の状態の行の鍵も合わせる。直したら器の ID を返す
+fn crypto_account(a: &mut Value) -> Option<String> {
+    let o = a.as_object_mut()?;
+    if o.get("kind").and_then(Value::as_str) != Some("otherAsset")
+        || o.get("subtype").and_then(Value::as_str) != Some(CRYPTO_ASSET)
+    {
+        return None;
+    }
+    o.insert("kind".into(), CRYPTO_ASSET.into());
+    o.remove("subtype");
+    if let Some(g) = o.remove("valueGrowth") {
+        o.entry("expectedReturn").or_insert(g);
+    }
+    // 値の状態の行の鍵は「入力項目ID/場所」（0035 の3）
+    if let Some(rows) = o.get_mut("valueStates").and_then(Value::as_object_mut) {
+        let old = std::mem::take(rows);
+        for (k, v) in old {
+            if let Some(nk) = crypto_item_key(&k) {
+                rows.entry(nk).or_insert(v);
+            }
+        }
+        if rows.is_empty() {
+            o.remove("valueStates");
+        }
+    }
+    Some(
+        o.get("id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+    )
+}
+
+/// 画面の側の印の鍵（`field:sav/<器の ID>/<欄>`）を、直した器の欄に合わせる（増減率 growth → 利回り rate、中身 subtype は外す）
+fn crypto_field_key(k: &str, ids: &[String]) -> Option<String> {
+    for id in ids {
+        let head = format!("field:sav/{id}/");
+        if let Some(rest) = k.strip_prefix(&head) {
+            return match rest {
+                "subtype" => None,
+                "growth" => Some(format!("{head}rate")),
+                _ => Some(k.to_string()),
+            };
+        }
+    }
+    Some(k.to_string())
+}
+
+/// 0.59 → 0.60: 暗号資産を金融資産の器の種類にした（0122）。
+/// - 現状の世帯の器のうち、細目 `cryptoAsset` のその他の資産を種類 `cryptoAsset` へ移す（`crypto_account`）
+/// - プランの差分: 足す器は同じに直す。移した器の評価額の増減率の差分は器の利回りの差分にし、細目の差分は捨てる。ほかの器の細目を
+///   `cryptoAsset` にする差分も捨てる（細目は計算に使っていなかったので、そのプランの計算の結果は変わらない）
+/// - 表示した項目（`workspace.shownItems`）と、画面の側の印（確かめた記録 `household.agreed`・次回確かめる `household.recheck`）の鍵を合わせる
+/// - 控え・ヒアリングの記録の中身は変えない
+/// - 移した物があれば、開いたときの知らせ `{"kind": "cryptoAccounts", "count": 現状で移した数, "plans": プランの差分を変えた数}` を足す
+fn v0_59_to_0_60(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    let mut ids: Vec<String> = Vec::new();
+    if let Some(list) = obj
+        .get_mut("household")
+        .and_then(|h| h.get_mut("request"))
+        .and_then(|r| r.get_mut("input"))
+        .and_then(|i| i.get_mut("household"))
+        .and_then(|h| h.get_mut("accounts"))
+        .and_then(Value::as_array_mut)
+    {
+        for a in list.iter_mut() {
+            if let Some(id) = crypto_account(a) {
+                ids.push(id);
+            }
+        }
+    }
+    let count = ids.len();
+    let is_moved = |t: &Value| {
+        t.get("object")
+            .and_then(Value::as_str)
+            .is_some_and(|o| ids.iter().any(|x| x == o))
+    };
+    let mut plans = 0usize;
+    let mut plan_ids: Vec<String> = Vec::new();
+    if let Some(list) = obj.get_mut("proposals").and_then(Value::as_array_mut) {
+        for plan in list {
+            let Some(diffs) = plan.get_mut("diffs").and_then(Value::as_array_mut) else {
+                continue;
+            };
+            let before = diffs.len();
+            diffs.retain(|d| {
+                let item = d.get("item").and_then(Value::as_str);
+                if item != Some(ACCOUNT_SUBTYPE_ITEM)
+                    || d.get("op").and_then(Value::as_str) != Some("set")
+                {
+                    return true;
+                }
+                !(is_moved(&d["target"])
+                    || d.get("value").and_then(Value::as_str) == Some(CRYPTO_ASSET))
+            });
+            plans += before - diffs.len();
+            for d in diffs.iter_mut() {
+                if d.get("op").and_then(Value::as_str) == Some("add")
+                    && d["target"]["collection"] == "account"
+                {
+                    if let Some(id) = d.get_mut("value").and_then(crypto_account) {
+                        plan_ids.push(id);
+                        plans += 1;
+                    }
+                    continue;
+                }
+                if is_moved(&d["target"])
+                    && d.get("item").and_then(Value::as_str) == Some(VALUE_GROWTH_ITEM)
+                {
+                    d["item"] = EXPECTED_RETURN_ITEM.into();
+                    plans += 1;
+                }
+            }
+        }
+    }
+    let all: Vec<String> = ids.iter().chain(plan_ids.iter()).cloned().collect();
+    if let Some(list) = obj
+        .get_mut("workspace")
+        .and_then(|w| w.get_mut("shownItems"))
+        .and_then(Value::as_array_mut)
+    {
+        list.retain(|x| {
+            !(is_moved(&x["target"])
+                && x.get("item").and_then(Value::as_str) == Some(ACCOUNT_SUBTYPE_ITEM))
+        });
+        for x in list.iter_mut() {
+            if is_moved(&x["target"])
+                && x.get("item").and_then(Value::as_str) == Some(VALUE_GROWTH_ITEM)
+            {
+                x["item"] = EXPECTED_RETURN_ITEM.into();
+            }
+        }
+    }
+    if let Some(screen) = obj.get_mut("household").and_then(Value::as_object_mut) {
+        if !all.is_empty() {
+            if let Some(agreed) = screen.get_mut("agreed").and_then(Value::as_object_mut) {
+                for marks in agreed.values_mut() {
+                    if let Some(m) = marks.as_object_mut() {
+                        let old = std::mem::take(m);
+                        for (k, v) in old {
+                            if let Some(nk) = crypto_field_key(&k, &all) {
+                                m.entry(nk).or_insert(v);
+                            }
+                        }
+                    }
+                }
+            }
+            if let Some(list) = screen.get_mut("recheck").and_then(Value::as_array_mut) {
+                list.retain_mut(|r| {
+                    let Some(k) = r.get("id").and_then(Value::as_str) else {
+                        return true;
+                    };
+                    match crypto_field_key(k, &all) {
+                        Some(nk) => {
+                            r["id"] = nk.into();
+                            true
+                        }
+                        None => false,
+                    }
+                });
+            }
+        }
+        if count > 0 || plans > 0 {
+            let list = screen
+                .entry("notices")
+                .or_insert_with(|| Value::Array(Vec::new()));
+            if let Some(list) = list.as_array_mut() {
+                list.push(serde_json::json!({
+                    "id": readings::migration_id(&format!("notices/cryptoAccounts/{count}/{plans}")),
+                    "kind": "cryptoAccounts",
+                    "count": count,
+                    "plans": plans,
+                }));
+            }
+        }
+    }
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.60".into());
     }
     Ok(body)
 }
@@ -2777,7 +2990,8 @@ mod tests {
         assert_eq!(access("0.58").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.59").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.60").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.61").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.61").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.62").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -2790,7 +3004,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.61", b.clone()).unwrap(),
+            upgrade("0.62", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -3199,10 +3413,10 @@ mod tests {
     }
 
     #[test]
-    fn v0_59_to_0_60_only_bumps_version() {
-        // 足した欄（売る予定・取得の年月・貸していない不動産の細目・出るお金の行のつながる物。0122）は前の版の世帯に無いので、世帯はそのまま
+    fn v0_60_to_0_61_only_bumps_version() {
+        // 足した欄（売る予定・取得の年月・貸していない不動産の細目・出るお金の行のつながる物。0123）は前の版の世帯に無いので、世帯はそのまま
         let b = serde_json::json!({
-            "meta": {"formatVersion": "0.59"},
+            "meta": {"formatVersion": "0.60"},
             "household": {"request": {"input": {"baseMonth": "2026-10", "household": {
                 "accounts": [
                     {"id": "a1", "kind": "realEstate", "owner": "m1", "asOf": "2026-10", "contributions": []},
@@ -3210,7 +3424,7 @@ mod tests {
                 ]
             }}}}
         });
-        let u = upgrade("0.59", b.clone()).unwrap();
+        let u = upgrade("0.60", b.clone()).unwrap();
         assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
     }
@@ -3228,6 +3442,109 @@ mod tests {
             }}}}
         });
         let u = upgrade("0.58", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+    }
+
+    #[test]
+    fn v0_59_to_0_60_moves_crypto_other_assets_to_crypto_accounts() {
+        // 細目 cryptoAsset のその他の資産は、種類 cryptoAsset の器へ（増減率は器の利回りへ。0122）。ほかの細目・細目の無い物はそのまま
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.59"},
+            "household": {
+                "agreed": {"current": {"field:sav/c1/growth": {"on": "2026-11-05"}, "field:sav/c1/subtype": {"on": "2026-11-05"}, "field:sav/g1/growth": {"on": "2026-11-05"}}},
+                "recheck": [{"id": "field:sav/c1/subtype", "card": "savings"}, {"id": "field:sav/c1/value", "card": "savings"}],
+                "request": {"input": {"baseMonth": "2026-10", "household": {
+                    "accounts": [
+                        {"id": "c1", "kind": "otherAsset", "subtype": "cryptoAsset", "owner": "m1", "asOf": "2026-10", "contributions": [], "valueGrowth": "0.03",
+                         "valueStates": {"account.valueGrowth": {"state": "confirmed"}, "account.subtype": {"state": "confirmed"}}},
+                        {"id": "c2", "kind": "otherAsset", "subtype": "cryptoAsset", "owner": "m1", "asOf": "2026-10", "contributions": []},
+                        {"id": "g1", "kind": "otherAsset", "subtype": "preciousMetal", "owner": "m1", "asOf": "2026-10", "contributions": [], "valueGrowth": "0.01"},
+                        {"id": "o1", "kind": "otherAsset", "owner": "m1", "asOf": "2026-10", "contributions": []}
+                    ]
+                }}}
+            },
+            "workspace": {"shownItems": [
+                {"target": {"object": "c1"}, "item": "account.valueGrowth", "at": []},
+                {"target": {"object": "c1"}, "item": "account.subtype", "at": []},
+                {"target": {"object": "g1"}, "item": "account.valueGrowth", "at": []}
+            ]},
+            "proposals": [{"id": "p1", "diffs": [
+                {"op": "set", "target": {"object": "c1"}, "item": "account.valueGrowth", "at": [], "value": "0.05"},
+                {"op": "set", "target": {"object": "c1"}, "item": "account.subtype", "at": [], "value": "art"},
+                {"op": "set", "target": {"object": "o1"}, "item": "account.subtype", "at": [], "value": "cryptoAsset"},
+                {"op": "set", "target": {"object": "g1"}, "item": "account.valueGrowth", "at": [], "value": "0.02"},
+                {"op": "add", "target": {"collection": "account"}, "item": null, "at": [], "value": {"id": "c3", "kind": "otherAsset", "subtype": "cryptoAsset", "owner": "m1", "asOf": "2026-10", "contributions": [], "valueGrowth": "-0.1"}}
+            ]}],
+            "snapshots": [{"id": "s1", "request": {"input": {"household": {"accounts": [{"id": "c1", "kind": "otherAsset", "subtype": "cryptoAsset"}]}}}}]
+        });
+        let u = upgrade("0.59", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        let acc = &u["household"]["request"]["input"]["household"]["accounts"];
+        assert_eq!(
+            acc[0],
+            serde_json::json!({"id": "c1", "kind": "cryptoAsset", "owner": "m1", "asOf": "2026-10", "contributions": [], "expectedReturn": "0.03",
+                               "valueStates": {"account.expectedReturn": {"state": "confirmed"}}})
+        );
+        assert_eq!(
+            acc[1],
+            serde_json::json!({"id": "c2", "kind": "cryptoAsset", "owner": "m1", "asOf": "2026-10", "contributions": []})
+        );
+        assert_eq!(
+            acc[2],
+            b["household"]["request"]["input"]["household"]["accounts"][2]
+        );
+        assert_eq!(
+            acc[3],
+            b["household"]["request"]["input"]["household"]["accounts"][3]
+        );
+        // プランの差分
+        let diffs = u["proposals"][0]["diffs"].as_array().unwrap();
+        assert_eq!(diffs.len(), 3);
+        assert_eq!(diffs[0]["item"], "account.expectedReturn");
+        assert_eq!(diffs[0]["value"], "0.05");
+        assert_eq!(diffs[1]["item"], "account.valueGrowth");
+        assert_eq!(diffs[1]["target"]["object"], "g1");
+        assert_eq!(diffs[2]["value"]["kind"], "cryptoAsset");
+        assert_eq!(diffs[2]["value"]["expectedReturn"], "-0.1");
+        assert!(diffs[2]["value"].get("subtype").is_none());
+        assert!(diffs[2]["value"].get("valueGrowth").is_none());
+        // 表示した項目・画面の側の印
+        assert_eq!(
+            u["workspace"]["shownItems"],
+            serde_json::json!([
+                {"target": {"object": "c1"}, "item": "account.expectedReturn", "at": []},
+                {"target": {"object": "g1"}, "item": "account.valueGrowth", "at": []}
+            ])
+        );
+        let agreed = u["household"]["agreed"]["current"].as_object().unwrap();
+        assert!(agreed.contains_key("field:sav/c1/rate"));
+        assert!(!agreed.contains_key("field:sav/c1/growth"));
+        assert!(!agreed.contains_key("field:sav/c1/subtype"));
+        assert!(agreed.contains_key("field:sav/g1/growth"));
+        assert_eq!(
+            u["household"]["recheck"],
+            serde_json::json!([{"id": "field:sav/c1/value", "card": "savings"}])
+        );
+        // 控えは変えない
+        assert_eq!(u["snapshots"], b["snapshots"]);
+        // 開いたときの知らせ（現状で2件・プランの差分 4件〔利回りに直した1・捨てた細目2・足す器1〕）
+        let n = u["household"]["notices"].as_array().unwrap();
+        assert_eq!(n.len(), 1);
+        assert_eq!(n[0]["kind"], "cryptoAccounts");
+        assert_eq!(n[0]["count"], 2);
+        assert_eq!(n[0]["plans"], 4);
+    }
+
+    #[test]
+    fn v0_59_to_0_60_without_crypto_only_bumps_version() {
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.59"},
+            "household": {"request": {"input": {"baseMonth": "2026-10", "household": {
+                "accounts": [{"id": "g1", "kind": "otherAsset", "subtype": "preciousMetal", "owner": "m1", "asOf": "2026-10", "contributions": []}]
+            }}}}
+        });
+        let u = upgrade("0.59", b.clone()).unwrap();
         assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
     }

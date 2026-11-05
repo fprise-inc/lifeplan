@@ -9,7 +9,7 @@ import { creditLifeGroups } from "../input/stages/housing.ts";
 import type { ContingencyPlan, PartnerScene, SurvivorWork } from "./planData.ts";
 import { PREMISE_KINDS, SCENE_KINDS, type PremiseKind } from "./premiseChoice.ts";
 import { PREMISE_ITEMS } from "./premiseItems.ts";
-import { adults, ESOP, HOSPITAL_DAYS_DEFAULT, FX_DEPOSIT, hasInvested, INCOME_DROP_DEFAULT, ILLNESS_DEFAULT, MARKET_CLASSES_DEFAULT, marketDropDefault, partnerOf, scenarios, type Scenario, type ScenarioKind } from "./requests.ts";
+import { adults, CRYPTO_ASSET, ESOP, HOSPITAL_DAYS_DEFAULT, FX_DEPOSIT, hasInvested, INCOME_DROP_DEFAULT, ILLNESS_DEFAULT, MARKET_CLASSES_DEFAULT, marketDropDefault, partnerOf, scenarios, type Scenario, type ScenarioKind } from "./requests.ts";
 import { RETURN_RANGE } from "../input/rateRanges.ts";
 import { presetRate } from "../../../../hearing/src/presets.ts";
 
@@ -134,11 +134,12 @@ function planBool(o: { key: string; label: string; level?: Level; path: readonly
   return def;
 }
 
-/** 下げる資産の選択肢（資産の種類と、器ごと下げる持株会・外貨預金） */
+/** 下げる資産の選択肢（資産の種類と、器ごと下げる持株会・外貨預金・暗号資産〔0122〕） */
 export const MARKET_CLASS_OPTIONS: Option[] = [
   ...["equity.domestic", "equity.global", "reit.domestic", "reit.global", "bond.domestic", "bond.global", "balanced", "commodity"].map((v) => ({ value: v, label: ASSET_CLASSES.find((c) => c.value === v)?.label ?? v })),
   { value: ESOP, label: "持株会（配分を入れていない分）" },
   { value: FX_DEPOSIT, label: "外貨預金" },
+  { value: CRYPTO_ASSET, label: "暗号資産" },
 ];
 
 /** 下げる資産の1つ（入れる・入れない）。書くと下げる資産の並びの全体（market.classes）を書き換える。既定の並びと同じなら省く */

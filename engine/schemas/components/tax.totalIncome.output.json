@@ -77,7 +77,7 @@
       "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
     },
     "transfer": {
-      "description": "その他の資産を売った総合課税の譲渡所得（1.8。0122）。short・long は短期と長期を差し引いた後の譲渡益（特別控除の前）、included は特別控除の後の短期と長期の2分の1の合計（total に入っている）",
+      "description": "その他の資産を売った総合課税の譲渡所得（1.8。0123）。short・long は短期と長期を差し引いた後の譲渡益（特別控除の前）、included は特別控除の後の短期と長期の2分の1の合計（total に入っている）",
       "type": "object",
       "additionalProperties": false,
       "required": ["short", "long", "included"],

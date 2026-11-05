@@ -1,5 +1,5 @@
 // 世帯ファイルの本文（0011 の2）を、画面の側の状態から組み立てる・読み取る。暗号化とファイルの読み書きは本体（0013・0016 の1）。
-// 本文の区画（形式の版 0.60。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
+// 本文の区画（形式の版 0.61。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
 // 0.17 から（0035・0036）: 差分は当て先で、仮の印は物の値の状態の欄で、贈与者は世帯の外の家族の構成員で書き、並びの要素は ID を持つ。
 // 0.18 から（0040）: 段階と例外の年（周期的な支出・家賃・修繕費・固定資産税・不動産の家賃と経費・器の利回り・資産配分）と、働き方の期間ごとの
 // 伸び（給与・事業所得の年率）。足すだけの形（本体の変換の段は版だけを書き換える）
@@ -90,9 +90,12 @@
 //   0.59 から: その他の資産の細目 accounts[].subtype に中身の6つ（preciousMetal 貴金属・cryptoAsset 暗号資産・art 美術品や骨董品・membership 会員権・
 //   securityDeposit 敷金や保証金・businessAsset 事業用の資産）を持つ（0120。表示とバランスシートの行の名前だけで計算に使わない。細目の無いものは「その他」。
 //   足すだけ。本体の変換の段は版だけを書き換える）
-//   0.60 から: 貸していない不動産・その他の資産の売る予定 accounts[].sale（時期・価格・費用の割合・税の扱い）と取得の年月 accounts[].acquiredAt、
+//   0.60 から: 暗号資産は器の種類 cryptoAsset（金融資産の器。取り崩さない。0122）。その他の資産の細目 cryptoAsset は書かない（本体の変換の段が、
+//   細目 cryptoAsset のその他の資産を種類 cryptoAsset へ移し〔評価額の増減率 valueGrowth は器の利回り expectedReturn へ〕、プランの差分・
+//   画面の側の印を合わせ、開いたときの知らせ cryptoAccounts を足す。控えの中身は変えず、計算するときに細目を外す〔surplus.ts〕）
+//   0.61 から: 貸していない不動産・その他の資産の売る予定 accounts[].sale（時期・価格・費用の割合・税の扱い）と取得の年月 accounts[].acquiredAt、
 //   貸していない不動産の細目 accounts[].subtype（vacantLand 土地・forestFarm 山林や農地・villa 別荘・vacantHouse 空き家）、出るお金の行の
-//   つながる物 periodicExpenses[].object・種類 assetCost（資産の毎年の費用）・表の行 cf.expense.other.realEstate を持つ（0122。足すだけ。
+//   つながる物 periodicExpenses[].object・種類 assetCost（資産の毎年の費用）・表の行 cf.expense.other.realEstate を持つ（0123。足すだけ。
 //   本体の変換の段は版だけを書き換える）
 //   （0.46 のまま。0041 の追記 2026-11-01）: 「書類で確かめる」は今の自動車ローン（kind car の負債）の欄に出し、これから買う車のローン
 //   （cars[].valueStates の car.loan/…）には出さない。前に付けた所は読むときに推定にし、開いたときの知らせ carLoanEstimated を足す（形は変えない）
@@ -150,7 +153,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.60";
+export const BODY_FORMAT_VERSION = "0.61";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 

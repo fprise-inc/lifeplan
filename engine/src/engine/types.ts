@@ -248,17 +248,19 @@ export type AccountKind =
   | "realEstate"
   | "smallBusinessMutualAid"
   | "otherAsset"
-  | "pooled";
+  | "pooled"
+  /** 暗号資産（金融資産の器。取り崩さない・資産の配分の無いときの利回りは0・既定の時価の下落の対象。売ったときの雑所得の税は計算しない。0122） */
+  | "cryptoAsset";
 
 export interface AccountInput {
   readonly id: string;
   readonly kind: AccountKind;
   /**
-   * その他の資産の細目（種類 otherAsset だけ。表示だけで、計算には使わない）: 自社株〔出資額〕・会社への貸付金（0105）と、貴金属・暗号資産・
-   * 美術品や骨董品・会員権・敷金や保証金・事業用の資産（0120）。無ければ「その他」。
-   * 貸していない不動産（種類 realEstate で中身 property の無いもの）の細目: 土地（更地）・山林や農地・別荘・空き家（0122。表示と固定資産税の目安の元だけ）
+   * その他の資産の細目（種類 otherAsset だけ。表示だけで、計算には使わない）: 自社株〔出資額〕・会社への貸付金（0105）と、貴金属・
+   * 美術品や骨董品・会員権・敷金や保証金・事業用の資産（0120）。無ければ「その他」。暗号資産は細目でなく器の種類 cryptoAsset（0122）。
+   * 貸していない不動産（種類 realEstate で中身 property の無いもの）の細目: 土地（更地）・山林や農地・別荘・空き家（0123。表示と固定資産税の目安の元だけ）
    */
-  readonly subtype?: "ownCompanyShares" | "loanToCompany" | "preciousMetal" | "cryptoAsset" | "art" | "membership" | "securityDeposit" | "businessAsset" | HeldEstateSubtype;
+  readonly subtype?: "ownCompanyShares" | "loanToCompany" | "preciousMetal" | "art" | "membership" | "securityDeposit" | "businessAsset" | HeldEstateSubtype;
   readonly owner: string;
   readonly marketValue: ValueBox<Yen>;
   readonly costBasis?: ValueBox<Yen>;
@@ -299,19 +301,19 @@ export interface AccountInput {
   readonly uninvested?: Yen;
   /** 不動産の中身（不動産の器だけ。土地と建物に分けて評価し、貸しているなら家賃収入・経費・不動産所得を出す。asset.realEstate。0028） */
   readonly property?: RealEstatePropertyInput;
-  /** 取得の年月（貸していない不動産・その他の資産だけ。売ったときの所有期間に使う。取得価額は costBasis。0122） */
+  /** 取得の年月（貸していない不動産・その他の資産だけ。売ったときの所有期間に使う。取得価額は costBasis。0123） */
   readonly acquiredAt?: string;
-  /** 売る予定（貸していない不動産・その他の資産だけ。その月に売り、手取りを現金にし、その年から評価額を消す。asset.heldSale。0122） */
+  /** 売る予定（貸していない不動産・その他の資産だけ。その月に売り、手取りを現金にし、その年から評価額を消す。asset.heldSale。0123） */
   readonly sale?: HeldSaleInput;
 }
 
-/** 貸していない不動産の細目（0122）: 土地（更地）・山林や農地・別荘・空き家 */
+/** 貸していない不動産の細目（0123）: 土地（更地）・山林や農地・別荘・空き家 */
 export type HeldEstateSubtype = "vacantLand" | "forestFarm" | "villa" | "vacantHouse";
 
-/** 売ったときの税の扱い（その他の資産だけ。0122）: 総合課税の譲渡所得・非課税（生活用動産・敷金の返還など）・雑所得 */
+/** 売ったときの税の扱い（その他の資産だけ。0123）: 総合課税の譲渡所得・非課税（生活用動産・敷金の返還など）・雑所得 */
 export type HeldSaleTaxation = "transfer" | "nonTaxable" | "miscellaneous";
 
-/** 貸していない不動産・その他の資産の売る予定（0122） */
+/** 貸していない不動産・その他の資産の売る予定（0123） */
 export interface HeldSaleInput {
   readonly at: Timepoint;
   /** 売却価格（省略はその年の年末の評価額） */
@@ -881,7 +883,7 @@ export interface PeriodicExpenseInput {
   readonly gift?: OutgoingGiftInput;
   /** 夢プラン（種類 dream の行だけ。順位・計算に入れるか・ひとことメモ。計算には使わない。画面が計算に入れない夢を要求から外す。0103） */
   readonly dream?: DreamInput;
-  /** つながる物（資産の器の ID。0122）: その器に売る予定（accounts[].sale）があれば、売る月から払わない */
+  /** つながる物（資産の器の ID。0123）: その器に売る予定（accounts[].sale）があれば、売る月から払わない */
   readonly object?: string;
 }
 

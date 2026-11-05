@@ -27,7 +27,7 @@
 //   合わせて赤字なら公的年金等の雑所得から引き（同項。雑所得の金額は1号と2号の合計）、引ききれない分はほかの所得と通算しない（69条1項は
 //   不動産・事業・山林・譲渡の損失だけ）。捨てた額を miscellaneousLoss で添え、知らせ N_LIMIT_APPLIED（income.miscellaneousLoss）を出す
 // - 入るお金の行の事業所得は赤字のまま事業所得に足す（income.flows の businessNet）。赤字はほかの所得と通算し、青色なら純損失を繰り越す
-// 約束の版 1.8（改訂9。0122。貸していない不動産・その他の資産の売る予定）: 売る予定の無い人の結果は同じ
+// 約束の版 1.8（改訂9。0123。貸していない不動産・その他の資産の売る予定）: 売る予定の無い人の結果は同じ
 // - その他の資産を売った総合課税の譲渡所得（asset.heldSale の transfer）: 名義の人×年で短期・長期の譲渡益を足し、片方の損失をもう片方から引く。
 //   譲渡所得の特別控除（incomeTax.transferIncome.specialDeduction。50万円まで）を短期から先に引き（所得税法33条4項・5項）、短期は全額、長期は
 //   2分の1（incomeTax.transferIncome.longTerm.taxableRatio。22条2項2号）を総所得金額に入れ、transfer で添える。引ききれない損失はほかの所得と
@@ -109,7 +109,7 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
       const t = yen(gross > special ? gross - special : 0);
       temporary = at.money.mulRate(t, at.paramRate(TEMP.ratio) ?? ctx.rate.of("1"), "conv.tax.exact");
     }
-    // その他の資産の売る予定（0122）: 総合課税の譲渡所得（短期・長期）と雑所得
+    // その他の資産の売る予定（0123）: 総合課税の譲渡所得（短期・長期）と雑所得
     let transferShort = 0;
     let transferLong = 0;
     let heldMisc = 0;

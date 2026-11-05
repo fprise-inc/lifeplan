@@ -104,7 +104,7 @@ export interface TotalIncomeOutput {
    */
   readonly miscellaneousLoss?: Yen;
   /**
-   * その他の資産を売った総合課税の譲渡所得（約束の版 1.8 の任意の欄。0122）。short・long は短期と長期を差し引いた後の譲渡益（0より下げない。
+   * その他の資産を売った総合課税の譲渡所得（約束の版 1.8 の任意の欄。0123）。short・long は短期と長期を差し引いた後の譲渡益（0より下げない。
    * 特別控除の前）、included は特別控除（50万円まで。短期から先）の後の短期と長期の2分の1の合計で、total に入っている
    */
   readonly transfer?: { readonly short: Yen; readonly long: Yen; readonly included: Yen };
@@ -116,7 +116,7 @@ export interface LossCarryforwardOutput {
   readonly byYear: readonly { readonly year: number; readonly netLoss: Yen; readonly deducted: Yen; readonly remaining: Yen }[];
 }
 
-/** asset.heldSale: 貸していない不動産・その他の資産の売る予定（0122） */
+/** asset.heldSale: 貸していない不動産・その他の資産の売る予定（0123） */
 export interface HeldSaleOutput {
   /** 売却の手取り（不動産は cf.income.lumpSum.realEstateSale、その他の資産は cf.income.lumpSum.other） */
   readonly flows: readonly Flow[];

@@ -21,6 +21,9 @@ const UNENTERED_VALUE = "未入力（評価額を入れてください。0円で
 const onAccount = (id: string, item: string, at: string[] = []) => (): Address => ({ target: { object: id }, item, at });
 const withAddress = (f: FieldDef, a: () => Address): FieldDef => ({ ...f, address: a });
 const WITH_COST = new Set(["taxable", "nisa", "legacyNisa", "juniorNisa", "childNisa"]);
+/** 暗号資産のまとまりの説明（0122）。金融資産に入れるが、取り崩さない（売ったときの税を計算しないため） */
+const CRYPTO_NOTE =
+  "取引所・ウォレットにある暗号資産の、今の円の評価額を入れます。金融資産の合計に入りますが、お金が足りなくなっても取り崩しには使いません（売ったときの利益は雑所得としてほかの所得と合わせて税がかかり、この計算ではその税を出せないため）。売る予定があれば、売る額を入るお金の行（課税の扱いは「雑所得（その他）」、取得費に買った額）で入れ、売る分をこの残高から外します（二重に数えないため）";
 /** 金融資産でない器（不動産・その他の資産）。評価額と増減率だけを入れる */
 const NON_FINANCIAL = new Set(["realEstate", "otherAsset"]);
 
@@ -37,9 +40,9 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   const sub = a.kind === "otherAsset" && a.subtype !== undefined && Object.hasOwn(ASSET_SUBTYPES, a.subtype) ? ASSET_SUBTYPES[a.subtype as keyof typeof ASSET_SUBTYPES] : undefined;
   // 中身（貴金属・暗号資産など。0120）: その他の資産だけ。細目の無いものは「その他」
   const kindOf = a.kind === "otherAsset" && sub === undefined ? otherAssetSubtypeOf(a.subtype) : null;
-  // 貸していない不動産の中身（土地・別荘・空き家など。0122）
+  // 貸していない不動産の中身（土地・別荘・空き家など。0123）
   const estateKind = estate ? heldEstateSubtypeOf(a.subtype) : null;
-  // 中身・評価額・時点を直したら、毎年の費用の目安を入れる（行が無いか推定のままのとき。0122）
+  // 中身・評価額・時点を直したら、毎年の費用の目安を入れる（行が無いか推定のままのとき。0123）
   const costs = (f: FieldDef): FieldDef => (estate ? startsHeldEstateCost(f, a.id) : f);
   const fields: FieldDef[] = [
     // 種類を変えたら、中身の細目・毎年の費用の行・税の扱いを外す（細目は種類ごと）
@@ -59,6 +62,15 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
         dropHeldCostRows(h, a.id);
         const sale = t.sale as { taxation?: string } | undefined;
         if (sale !== undefined) delete sale.taxation;
+        // 暗号資産（金融資産の器。0122）へ変えたら、評価額の増減率を器の利回りへ移す（暗号資産は増減率を読まない）。売る予定は持たない
+        if (v === "cryptoAsset") {
+          delete t.sale;
+          delete t.acquiredAt;
+          if (t.valueGrowth !== undefined) {
+            t.expectedReturn ??= t.valueGrowth;
+            delete t.valueGrowth;
+          }
+        }
       },
     }),
     ...(a.kind === "otherAsset" && sub === undefined
@@ -117,12 +129,12 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       actions,
     },
   ];
-  // 売る予定（役員の細目〔出資額・貸付金〕は売らない。0122）
+  // 売る予定（役員の細目〔出資額・貸付金〕は売らない。0123）
   if (sub === undefined) groups.push(saleGroup(wh, a));
   return groups;
 }
 
-/** 貸していない不動産の毎年の費用（固定資産税・管理費など）: 物の ID でつないだ出るお金の行の額（0122。heldEstateTax.ts） */
+/** 貸していない不動産の毎年の費用（固定資産税・管理費など）: 物の ID でつないだ出るお金の行の額（0123。heldEstateTax.ts） */
 function heldCostField(wh: WorkingHousehold, a: Account): FieldDef {
   const k = `sav/${a.id}`;
   const row = heldCostRow(wh.request.input.household, a.id);
@@ -142,7 +154,7 @@ function heldCostField(wh: WorkingHousehold, a: Account): FieldDef {
     path: ["amount"],
     optional: true,
     estimate: (_h, w) => heldEstateCostEstimate(w, a.id),
-    help: `年額です。毎年払い、売る予定を入れたら売る月から払いません（額は伸ばしません）。${canEstimate ? "空にすると固定資産税・都市計画税の目安（0112 の式。管理費などは含みません）に戻ります。管理費・管理委託・草刈りなどがあれば足した額を入れます" : "中身で土地・別荘・空き家を選ぶと、固定資産税・都市計画税の目安が入ります"}`,
+    help: `年額です。毎年払い、売る予定を入れたら売る月から払いません（額は伸ばしません）。${canEstimate ? "空にすると固定資産税・都市計画税の目安（評価額と中身から出した額。管理費などは含みません）に戻ります。管理費・管理委託・草刈りなどがあれば足した額を入れます" : "中身で土地・別荘・空き家を選ぶと、固定資産税・都市計画税の目安が入ります"}`,
   });
   // 空にして目安も出ない行は外す（額の無い行を残さない）
   const tidy = (w: WorkingHousehold): WorkingHousehold =>
@@ -159,7 +171,7 @@ function heldCostField(wh: WorkingHousehold, a: Account): FieldDef {
   };
 }
 
-/** 売る予定（貸していない不動産・その他の資産。0122）: 売る時期・売却価格・費用・税の扱い・取得価額・取得の年月 */
+/** 売る予定（貸していない不動産・その他の資産。0123）: 売る時期・売却価格・費用・税の扱い・取得価額・取得の年月 */
 function saleGroup(wh: WorkingHousehold, a: Account): GroupDef {
   const find = byId(accounts, a.id);
   const k = `sav/${a.id}/sale`;
@@ -232,7 +244,7 @@ function saleGroup(wh: WorkingHousehold, a: Account): GroupDef {
   return { key: k, title: "売る予定", level: "simple", moreLabel: "売却の費用・取得価額を入れる", fields, actions: [] };
 }
 
-/** 貸していない不動産を収益不動産へ移す: 中身を持たせ、売る予定・取得・毎年の費用を中身の欄へ移す（0122） */
+/** 貸していない不動産を収益不動産へ移す: 中身を持たせ、売る予定・取得・毎年の費用を中身の欄へ移す（0123） */
 function moveToRental(h: Household, x: Account): void {
   const cost = heldCostRow(h, x.id);
   const p: NonNullable<Account["property"]> = x.property ?? { rental: { monthly: standardBox(0, UNENTERED_RENT) } };
@@ -300,7 +312,10 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
         kind: "pct",
         ...RETURN_RANGE,
         optional: true,
-        help: "1年あたりの見込みの利回りを、信託報酬などの費用を引いた後で入れます。入れなければ、資産の配分や前提条件の利回りで計算します（費用を別に入れる形は「詳細」で）",
+        help:
+          a.kind === "cryptoAsset"
+            ? "1年あたりの評価額の増え方の見込みです。入れなければ0（今の評価額のまま）で計算します。値動きが大きいので、ふつうは入れずに見ます"
+            : "1年あたりの見込みの利回りを、信託報酬などの費用を引いた後で入れます。入れなければ、資産の配分や前提条件の利回りで計算します（費用を別に入れる形は「詳細」で）",
         get: (w) => {
           const x = find(w.request.input.household, w) as Account | undefined;
           return { value: x?.expectedReturn ?? null, ...(x !== undefined && x.expectedReturn === undefined ? { hint: `空欄: 年${(Number(rateOf(w.request, x)) * 100).toFixed(1)}%` } : {}) };
@@ -334,8 +349,9 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     };
     fields.push(timepointField({ key: `${k}/until`, item: "account.contributions", label: own.length > 1 ? "積立の終わり（最後の月）" : "積立の終わり（最後の月）", level: "detail", find: lastContribution, path: ["to"], startPath: ["from"], ageMeans: "before", optional: true, nullText: "退職の年まで（推定）", ...(owner !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === owner.id) } : {}) }));
   }
-  // 引き出せない期間の終わり（その月まで取り崩さない）。iDeCo・企業型DC・小規模企業共済は受け取りの決まりで預金に入るので出さない
-  if (!DC_KIND.has(a.kind) && a.kind !== "smallBusinessMutualAid")
+  // 引き出せない期間の終わり（その月まで取り崩さない）。iDeCo・企業型DC・小規模企業共済は受け取りの決まりで預金に入るので出さない。
+  // 暗号資産は取り崩さないので出さない（0122）
+  if (!DC_KIND.has(a.kind) && a.kind !== "smallBusinessMutualAid" && a.kind !== "cryptoAsset")
     fields.push(
       withAddress(
         timepointField({
@@ -358,12 +374,15 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     {
       key: k,
       title: `${ACCOUNT_KINDS.find((o) => o.value === a.kind)?.label ?? "口座"}（${memberLabel(wh, a.owner)}）`,
+      ...(a.kind === "cryptoAsset" ? { note: CRYPTO_NOTE } : {}),
       level: "simple",
       fields,
       actions: [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.accounts = (h.accounts ?? []).filter((x) => x.id !== a.id)))],
     },
   ];
   if (a.kind === "legacyNisa" || a.kind === "juniorNisa") groups.push(...lotGroups(a, k));
+  // 暗号資産は資産の配分を足さない（資産の種類の一覧に暗号資産が無い。利回りは上の欄で入れる。0122）。入っていれば今までどおり見せる
+  if (a.kind === "cryptoAsset" && (a.assetMix ?? []).length === 0) return groups;
   (a.assetMix ?? []).forEach((_, j) => {
     const findMix: Finder = (h, w) => (getPath(find(h, w), ["assetMix", String(j)]) as Record<string, unknown> | undefined) ?? undefined;
     groups.push({
@@ -743,6 +762,8 @@ export function accountMoreLabel(a: Pick<Account, "kind" | "contributions">): st
     case "fxDeposit":
     case "smallBusinessMutualAid":
       return "残高の時点・配分などを入れる";
+    case "cryptoAsset":
+      return (a.contributions ?? []).length > 0 ? "残高の時点・積立の終わりを入れる" : "残高の時点を入れる";
     default:
       return undefined;
   }
@@ -882,6 +903,7 @@ export function savingsStage(wh: WorkingHousehold): StageDef {
           add("corporateDc", "企業型DC"),
           add("fxDeposit", "外貨預金"),
           add("esop", "持株会"),
+          add("cryptoAsset", "暗号資産"),
           add("smallBusinessMutualAid", "小規模企業共済"),
           add("legacyNisa", "旧NISA"),
           add("juniorNisa", "ジュニアNISA"),
@@ -891,7 +913,7 @@ export function savingsStage(wh: WorkingHousehold): StageDef {
       {
         key: "sav/others",
         title: "その他の資産",
-        note: `貸していない土地・別荘・空き家などの不動産と、貴金属・暗号資産・美術品や骨董品・会員権・敷金や保証金・事業用の資産など。資産と負債のタブ・提案書のバランスシートに、中身ごとの行で入ります（金融資産には入れず、取り崩しにも使いません。時価の下落にも当てません）。人に貸している不動産は「収益不動産」、住まいは「住まい・ローン」、車は「車」で入れます${officer !== undefined ? "。役員を務める会社の自社株（出資額）と、会社への貸付金もここで入れます（会社からの借入金は「住まい・ローン」のほかのローン）" : ""}`,
+        note: `貸していない土地・別荘・空き家などの不動産と、貴金属・美術品や骨董品・会員権・敷金や保証金・事業用の資産など。資産と負債のタブ・提案書のバランスシートに、中身ごとの行で入ります（金融資産には入れず、取り崩しにも使いません。時価の下落にも当てません）。暗号資産は上の金融資産の「そのほか」の「暗号資産」で入れます。人に貸している不動産は「収益不動産」、住まいは「住まい・ローン」、車は「車」で入れます${officer !== undefined ? "。役員を務める会社の自社株（出資額）と、会社への貸付金もここで入れます（会社からの借入金は「住まい・ローン」のほかのローン）" : ""}`,
         // 無い世帯でも標準で出す（見出しと足すボタンだけ。0120）。説明は「?」の中
         level: "simple",
         groups: others.flatMap((a) => otherAssetGroups(wh, a)),

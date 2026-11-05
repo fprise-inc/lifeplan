@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:financia:schema:component:asset.heldSale.output",
-  "title": "貸していない不動産・その他の資産の売る予定（売却の手取りと、売ったときの税の元。0122）",
+  "title": "貸していない不動産・その他の資産の売る予定（売却の手取りと、売ったときの税の元。0123）",
   "type": "object",
   "additionalProperties": false,
   "required": ["flows", "sales"],

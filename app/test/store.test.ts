@@ -20,6 +20,7 @@ import { forEngine } from "../src/engine/moneyRows.ts";
 import { BODY_FORMAT_VERSION, bodyObject, bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "../src/workspace/store/body.ts";
 import { giveElementIds } from "../src/workspace/store/format017.ts";
 import { migrationId } from "../src/workspace/store/readings.ts";
+import { withoutRemovedAssumptions } from "../src/workspace/surplus.ts";
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { insuranceOverlapNotices } from "../src/workspace/input/insuranceView.ts";
 import { setNoticeAck } from "../src/workspace/input/noticeAck.ts";
@@ -990,19 +991,51 @@ function sample058(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
-/** 0.59 の見本の世帯（0120）: sample058() に、その他の資産の中身の細目6つ（細目ごとに1件）と細目の無いその他の資産を足す */
+const id059 = (n: number) => `00000000-0000-4000-8000-0000000059${String(n).padStart(2, "0")}`;
+
+/**
+ * 0.59 の見本の世帯（0120）: sample058() に、その他の資産の中身の細目（細目ごとに1件）と細目の無いその他の資産を足す。
+ * 0.59 の見本には細目「暗号資産」（ID の 02）もあったが、0.60 で器の種類にしたので、ここでは足さない（sample060 が器として足す。0122）
+ */
 function sample059(): BodyState {
   const s = sample058();
   const req = structuredClone(s.wh.request);
   const hh = req.input.household;
   const self = roles(req).find((r) => r.key === "self")!.member;
-  const id = (n: number) => `00000000-0000-4000-8000-0000000059${String(n).padStart(2, "0")}`;
   const box = (v: number) => ({ value: v, state: "confirmed", origin: { kind: "manual" } }) as never;
-  const subs = ["preciousMetal", "cryptoAsset", "art", "membership", "securityDeposit", "businessAsset"] as const;
+  const subs = [
+    ["preciousMetal", 1],
+    ["art", 3],
+    ["membership", 4],
+    ["securityDeposit", 5],
+    ["businessAsset", 6],
+  ] as const;
   hh.accounts = [
     ...(hh.accounts ?? []),
-    ...subs.map((subtype, i) => ({ id: id(i + 1), kind: "otherAsset", subtype, owner: self.id, marketValue: box((i + 1) * 1000000), asOf: req.input.baseMonth, contributions: [] })),
-    { id: id(9), kind: "otherAsset", owner: self.id, marketValue: box(700000), asOf: req.input.baseMonth, contributions: [], valueGrowth: "-0.05" },
+    ...subs.map(([subtype, n]) => ({ id: id059(n), kind: "otherAsset", subtype, owner: self.id, marketValue: box(n * 1000000), asOf: req.input.baseMonth, contributions: [] })),
+    { id: id059(9), kind: "otherAsset", owner: self.id, marketValue: box(700000), asOf: req.input.baseMonth, contributions: [], valueGrowth: "-0.05" },
+  ];
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
+/** 0.60 の見本の世帯（0122）: sample059() に、暗号資産の器（金融資産。器の利回りと積立あり）を足す（0.59 の見本の細目「暗号資産」と同じ ID） */
+function sample060(): BodyState {
+  const s = sample059();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const box = (v: number) => ({ value: v, state: "confirmed", origin: { kind: "manual" } }) as never;
+  hh.accounts = [
+    ...(hh.accounts ?? []),
+    {
+      id: id059(2),
+      kind: "cryptoAsset",
+      owner: self.id,
+      marketValue: box(2000000),
+      asOf: req.input.baseMonth,
+      contributions: [{ id: "00000000-0000-4000-8000-000000006001", from: { at: req.input.baseMonth }, to: { at: "2030-12" }, monthly: 10000 }],
+      expectedReturn: "0.02",
+    },
   ];
   return { ...s, wh: { ...s.wh, request: req } };
 }
@@ -1092,13 +1125,13 @@ function keysOf(v: unknown, out: string[] = []): string[] {
   return out;
 }
 
-/** 0.60 の見本の世帯（0122）: sample059() に、売る予定と取得の年月のある別荘（細目 villa）とつながる毎年の費用の行、売る予定（税の扱い・費用の割合）のあるその他の資産を足す */
-function sample060(): BodyState {
-  const s = sample059();
+/** 0.61 の見本の世帯（0123）: sample060() に、売る予定と取得の年月のある別荘（細目 villa）とつながる毎年の費用の行、売る予定（税の扱い・費用の割合）のあるその他の資産を足す */
+function sample061(): BodyState {
+  const s = sample060();
   const req = structuredClone(s.wh.request);
   const hh = req.input.household;
   const self = roles(req).find((r) => r.key === "self")!.member;
-  const id = (n: number) => `00000000-0000-4000-8000-0000000060${String(n).padStart(2, "0")}`;
+  const id = (n: number) => `00000000-0000-4000-8000-0000000061${String(n).padStart(2, "0")}`;
   const box = (v: number) => ({ value: v, state: "confirmed", origin: { kind: "manual" } }) as never;
   hh.accounts = [
     ...(hh.accounts ?? []),
@@ -1150,7 +1183,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.60");
+    expect(BODY_FORMAT_VERSION).toBe("0.61");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1323,7 +1356,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample060())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample061())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1646,13 +1679,13 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(plain)).table);
   });
 
-  it("0.60 の形（0122）: 売る予定・取得の年月・貸していない不動産の細目・つながる毎年の費用の行を保存して読み戻す", () => {
-    const s = sample060();
+  it("0.61 の形（0123）: 売る予定・取得の年月・貸していない不動産の細目・つながる毎年の費用の行を保存して読み戻す", () => {
+    const s = sample061();
     const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
     const h = stored.household.request.input.household;
-    const villa = (h.accounts ?? []).find((a) => a.id === "00000000-0000-4000-8000-000000006001");
+    const villa = (h.accounts ?? []).find((a) => a.id === "00000000-0000-4000-8000-000000006101");
     expect(villa).toMatchObject({ subtype: "villa", acquiredAt: "2012-04", sale: { at: { at: "2034-04" }, price: 16000000 } });
-    expect((h.periodicExpenses ?? []).find((p) => p.kind === "assetCost")).toMatchObject({ object: "00000000-0000-4000-8000-000000006001", row: "cf.expense.other.realEstate" });
+    expect((h.periodicExpenses ?? []).find((p) => p.kind === "assetCost")).toMatchObject({ object: "00000000-0000-4000-8000-000000006101", row: "cf.expense.other.realEstate" });
     const back = fromBody(JSON.stringify(stored));
     expect(bodyObject(back)).toEqual(bodyObject(s));
     preview(forEngine(back.wh.request));
@@ -1663,12 +1696,38 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
     const h = stored.household.request.input.household;
     const others = (h.accounts ?? []).filter((a) => a.kind === "otherAsset" && a.id.startsWith("00000000-0000-4000-8000-0000000059"));
-    expect(others.map((a) => a.subtype ?? "")).toEqual(["preciousMetal", "cryptoAsset", "art", "membership", "securityDeposit", "businessAsset", ""]);
+    expect(others.map((a) => a.subtype ?? "")).toEqual(["preciousMetal", "art", "membership", "securityDeposit", "businessAsset", ""]);
     const back = fromBody(JSON.stringify(stored));
     expect(bodyObject(back)).toEqual(bodyObject(s));
     const plain = structuredClone(back.wh.request);
     for (const a of plain.input.household.accounts ?? []) if (a.kind === "otherAsset" && a.subtype !== "ownCompanyShares" && a.subtype !== "loanToCompany") delete a.subtype;
     expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(plain)).table);
+  });
+
+  it("0.60 の形（0122）: 暗号資産の器を保存して読み戻す。金融資産の合計に入り、取り崩さない", () => {
+    const s = sample060();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const crypto = (stored.household.request.input.household.accounts ?? []).filter((a) => a.kind === "cryptoAsset");
+    expect(crypto.map((a) => [a.id, a.subtype, a.expectedReturn])).toEqual([[id059(2), undefined, "0.02"]]);
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    const t = preview(forEngine(back.wh.request)).table;
+    const y = Number(back.wh.request.input.baseMonth.slice(0, 4)) + 1;
+    const cell = (row: string) => t.filter((c) => c.row === row && c.year === y).reduce((x, c) => x + c.amount, 0);
+    expect(cell("cf.balance.account.cryptoAsset")).toBeGreaterThan(2000000);
+    expect(t.some((c) => c.row === "cf.transfer.withdrawal" && c.object === id059(2))).toBe(false);
+  });
+
+  it("控えの計算の直し（0122）: なくしたその他の資産の細目「暗号資産」を外す（種類は控えのまま。結果は細目の無いその他の資産と同じ）", () => {
+    const req = structuredClone(sample059().wh.request);
+    const self = roles(req).find((r) => r.key === "self")!.member;
+    req.input.household.accounts = [...(req.input.household.accounts ?? []), { id: id059(2), kind: "otherAsset", subtype: "cryptoAsset" as never, owner: self.id, marketValue: { value: 2000000, state: "confirmed", origin: { kind: "manual" } } as never, asOf: req.input.baseMonth, contributions: [] }];
+    const fixed = withoutRemovedAssumptions(req);
+    const a = (fixed.input.household.accounts ?? []).find((x) => x.id === id059(2))!;
+    expect(a.kind).toBe("otherAsset");
+    expect(a.subtype).toBeUndefined();
+    expect((req.input.household.accounts ?? []).find((x) => x.id === id059(2))!.subtype).toBe("cryptoAsset");
+    expect(preview(forEngine(fixed)).table.some((c) => c.row === "cf.balance.account.otherAsset" && c.object === id059(2))).toBe(true);
   });
 
   it("0.49 の形（0104 の追記）: 子の貸与の奨学金の種類（第一種）を保存して読み戻す。種類は計算に使わず、利率で計算する", () => {

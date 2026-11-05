@@ -9,7 +9,7 @@
 //   cf.taxSi.residentTax.realEstateSale（売った年の翌年度の住民税。residentTax.annual の年のずれと同じ）
 // - 仮の規約（知らせ N_ASSUMED realEstate.saleTaxSimplified）: 総所得金額から引ききれない所得控除を譲渡所得から引く扱い（措置法31条3項3号）、
 //   特別控除・買換え・取得費加算などの特例、ほかの所得と合わせた申告での端数の処理、給与からの特別徴収は扱わない
-// - 改訂2（0122）: 貸していない不動産の売る予定（asset.heldSale の土地建物等の分離課税の売却）の譲渡所得も、同じ名義の人×年に足す
+// - 改訂2（0123）: 貸していない不動産の売る予定（asset.heldSale の土地建物等の分離課税の売却）の譲渡所得も、同じ名義の人×年に足す
 //   （知らせは N_ASSUMED heldAsset.saleTaxSimplified）。売る予定の無い世帯の結果は同じ
 import {
   defineComponent,
@@ -61,7 +61,7 @@ export default defineComponent<Record<string, never>, RealEstateSaleTaxOutput>({
       sums.set(k, x);
     };
     for (const p of ctx.call<RealEstateOutput>("asset.realEstate", {}).properties) if (p.sale !== null) add(p.owner, p.object, p.sale, false);
-    // 貸していない不動産の売る予定（0122）
+    // 貸していない不動産の売る予定（0123）
     for (const s of ctx.call<HeldSaleOutput>("asset.heldSale", {}).sales) if (s.taxation === "landBuilding") add(s.owner, s.object, s, true);
     const flows: Flow[] = [];
     const byMember: RealEstateSaleTaxOutput["byMember"][number][] = [];

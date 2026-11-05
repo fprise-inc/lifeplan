@@ -393,8 +393,13 @@ describe("入るお金の種類の説明", () => {
   it("動産の売却（車以外）と一時所得の「?」", () => {
     const goods = INCOME_KINDS.find((k) => k.kind === "saleGoods")!;
     expect(goods.label).toBe("動産の売却（車以外）");
-    expect(goods.help).toContain("実家じまい・遺品整理での家財や骨董品");
-    expect(goods.help).toContain("1個30万円を超える貴金属・美術品などは税がかかることがあります（課税の扱いを選び直してください）");
+    expect(goods.help).toContain("実家じまい・遺品整理での家財");
+    // 生活に使う物は非課税、30万円を超える貴金属・書画・骨董などと生活に使うためでない物は譲渡所得（総合課税）で課税（所得税法9条1項9号・施行令25条）
+    expect(goods.help).toContain("家具・衣服など生活に使う物を売ったお金は非課税です");
+    expect(goods.help).toContain("書画・骨董・美術工芸品で1個（1組）30万円を超える物と、金地金など生活に使うためでない物を売った利益は、譲渡所得として所得税・住民税がかかります");
+    expect(goods.help).toContain("課税の扱いを「一時所得」にして取得費");
+    // 貴金属・美術品を非課税の例として並べない
+    expect(goods.help).not.toMatch(/貴金属・時計・ブランド品・美術品/u);
     expect(goods.help).not.toMatch(/フリマ/u);
     expect(INCOME_KINDS.find((k) => k.kind === "temporary")!.help).toBe("懸賞の賞金・競馬の払戻し・法人からもらうお金など。生命保険の満期・解約は保険の項目で計算します");
   });

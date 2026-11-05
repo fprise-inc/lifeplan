@@ -16,7 +16,7 @@ export const GROUPS: readonly { key: string; label: string; kinds: readonly stri
   { key: "un", label: "まだ分けていない", kinds: ["pooled"] },
   { key: "dc", label: "iDeCo・企業型DC", kinds: ["ideco", "corporateDc"] },
   { key: "nisa", label: "NISA", kinds: ["nisa", "childNisa", "juniorNisa", "legacyNisa"] },
-  { key: "tax", label: "課税口座など", kinds: ["taxable", "esop", "smallBusinessMutualAid"] },
+  { key: "tax", label: "課税口座など", kinds: ["taxable", "esop", "smallBusinessMutualAid", "cryptoAsset"] },
 ];
 
 const kindOf = (row: string) => (row.startsWith("cf.balance.account.") ? row.slice("cf.balance.account.".length) : null);
@@ -218,7 +218,7 @@ export function donutItems(req: EngineRequest, table: readonly TableCell[], year
     const acc = c.object !== undefined ? (accounts.get(c.object) as Account | undefined) : undefined;
     const mix = alloc !== undefined && INVEST_KINDS.has(k) ? alloc : acc !== undefined && acc.kind === k ? acc.assetMix : undefined;
     if (mix === undefined || mix.length === 0) {
-      add(k === "deposit" || k === "zaikei" ? "現金" : k === "fxDeposit" ? "外貨預金" : "運用（配分を入れていない）", c.amount);
+      add(k === "deposit" || k === "zaikei" ? "現金" : k === "fxDeposit" ? "外貨預金" : k === "cryptoAsset" ? "暗号資産" : "運用（配分を入れていない）", c.amount);
       continue;
     }
     const total = mix.reduce((s, x) => s + Number(x.share), 0) || 1;

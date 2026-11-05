@@ -1,4 +1,4 @@
-// 貸していない不動産（不動産の器のうち中身 property の無いもの）・その他の資産（otherAsset）の売る予定（accounts[].sale。0122）。
+// 貸していない不動産（不動産の器のうち中身 property の無いもの）・その他の資産（otherAsset）の売る予定（accounts[].sale。0123）。
 // - 売る月に、売却価格（省略はその年の年末の評価額）から売却の費用（割合 sale.costRate。省略は、不動産は前提 realEstateValuation.saleCostRate
 //   か目安 0.04、その他の資産は0）を引いた手取りを、名義の人の一時金の収入にする（不動産は cf.income.lumpSum.realEstateSale、その他の資産は
 //   cf.income.lumpSum.other）。売った年の年末からは持っていない（plan.cashflow が評価額の行を出さない。バランスシートで二重に数えない）

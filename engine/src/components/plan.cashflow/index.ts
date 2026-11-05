@@ -53,7 +53,10 @@
 //   （エンジンが summary の childScholarships に写す。返済は世帯のお金の動き・負債に入れない）
 // - 改訂17（0081）: details の realEstate に、asset.realEstate の約束の版 1.1 の任意の欄（所得の区分 incomeKind・事業的規模の目安の units。
 //   売却の譲渡所得の内訳は sale の中）も写す。計算は変えない
-// - 改訂20（0122）: 貸していない不動産・その他の資産の売る予定（accounts[].sale）。売る年の年末から、その器の評価額の行を出さない
+// - 改訂20（0122）: 器の種類「暗号資産」（cryptoAsset）を足した。金融資産の合計に入れ、残高は cf.balance.account.cryptoAsset。取り崩さない
+//   （売ったときの利益は雑所得〔総合課税〕で、ほかの所得と合わせた税をここでは計算できないため）。器の利回りも資産の配分も無ければ利回りは0。
+//   既定の時価の下落（kinds を書かない下落）の対象にする（資産クラスを書いた下落は、配分を入れた暗号資産だけ）。積立は cf.transfer.savings.cryptoAsset
+// - 改訂21（0123）: 貸していない不動産・その他の資産の売る予定（accounts[].sale）。売る年の年末から、その器の評価額の行を出さない
 //   （手取りは asset.heldSale が一時金の収入にする。売る月が計算基準月より前なら、計算基準年から出さない）。売る予定の無い世帯の結果は同じ
 import {
   accountReturnRate,
@@ -127,14 +130,15 @@ const T = {
 const NOT_FINANCIAL: ReadonlySet<string> = new Set(["realEstate", "insurance", "otherAsset"]);
 /** 既定の取り崩しの順序 */
 const DEFAULT_ORDER: readonly AccountKind[] = ["deposit", "fxDeposit", "zaikei", "taxable", "esop", "legacyNisa", "nisa"];
-/** 取り崩さない器（受け取りの年齢までの iDeCo・企業型DC、不動産・その他の資産） */
-const NEVER_WITHDRAWN: ReadonlySet<string> = new Set(["ideco", "corporateDc", "realEstate", "otherAsset"]);
+/** 取り崩さない器（受け取りの年齢までの iDeCo・企業型DC、不動産・その他の資産、暗号資産〔売ったときの雑所得の税を計算しないため。0122〕） */
+const NEVER_WITHDRAWN: ReadonlySet<string> = new Set(["ideco", "corporateDc", "realEstate", "otherAsset", "cryptoAsset"]);
 const TRANSFER_ROW: Readonly<Record<string, string>> = {
   taxable: "cf.transfer.investment",
   zaikei: "cf.transfer.savings.zaikei",
   esop: "cf.transfer.savings.esop",
   deposit: "cf.transfer.savings.deposit",
   fxDeposit: "cf.transfer.savings.deposit",
+  cryptoAsset: "cf.transfer.savings.cryptoAsset",
 };
 
 interface Lot {
@@ -179,7 +183,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
   id: "plan.cashflow",
   title: "キャッシュフロー表",
   contract: "1.8",
-  revision: 20,
+  revision: 21,
   requires: {
     "plan.flows": ">=1 <2",
     "outside.wallet": ">=1 <2",
@@ -257,7 +261,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
       own.push({ row, ym: formatYm(m), amount, accrualYear: yearOf(m), ...(member === null ? {} : { member }), ...(object === null ? {} : { object }), formula });
     };
 
-    // 売る予定のある貸していない不動産・その他の資産の、評価額を出さなくなる年（0122。売る年。計算基準月より前に売ったものは計算基準年から）
+    // 売る予定のある貸していない不動産・その他の資産の、評価額を出さなくなる年（0123。売る年。計算基準月より前に売ったものは計算基準年から）
     const soldYear = new Map<string, number>();
     for (const a of inputs) if (a.sale !== undefined && ((a.kind === "realEstate" && a.property === undefined) || a.kind === "otherAsset")) {
       const m = ctx.time.resolve(a.sale.at);

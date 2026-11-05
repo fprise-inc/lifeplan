@@ -1,4 +1,4 @@
-// 貸していない不動産・その他の資産の売る予定と毎年の費用（0122）のテスト（L1）: 売る年の年末の評価額（plan.cashflow の残高と同じ）・
+// 貸していない不動産・その他の資産の売る予定と毎年の費用（0123）のテスト（L1）: 売る年の年末の評価額（plan.cashflow の残高と同じ）・
 // 手取りと評価額を消すこと、不動産の分離課税（tax.realEstateSale に足す）、その他の資産の総合課税の譲渡所得（短期・長期・特別控除50万円・
 // 長期の2分の1・損失は通算しない）、非課税と雑所得、つながる物の毎年の費用が売る月から止まること、売る予定の無い世帯の結果が変わらないこと。
 // 手計算は別に書き、エンジンの結果と突き合わせる（製品の制度データ）
@@ -43,7 +43,7 @@ const total = (req: Req, year: number) => call<TotalIncomeOutput>(req, "tax.tota
 const floor = (v: number, unit: number) => Math.floor(v / unit) * unit;
 const balance = (r: ReturnType<typeof full>, object: string, year: number) => annual(r).find((x) => x.object === object && x.year === year && x.row.startsWith("cf.balance.account."))?.amount;
 
-describe("売る年の評価額と手取り（0122）", () => {
+describe("売る年の評価額と手取り（0123）", () => {
   it("売却価格の省略はその年の年末の評価額（売らないときの残高の行と同じ）。手取りを一時金の収入にし、その年の年末から評価額の行を出さない", () => {
     const kept = full(base([estate(), gold()]));
     const req = base([estate({ sale: { at: at("2030-04") } }), gold({ sale: { at: at("2031-07") } })]);
@@ -149,7 +149,7 @@ describe("その他の資産を売ったときの税（総合課税の譲渡所�
   });
 });
 
-describe("つながる物の毎年の費用（0122）", () => {
+describe("つながる物の毎年の費用（0123）", () => {
   it("売る月から払わない。売る予定が無ければ最後まで払う", () => {
     const cost = { id: C, kind: "assetCost", object: E, row: "cf.expense.other.realEstate", from: at("2026-10"), to: null, everyYears: 1, amount: box(150000), growth: { kind: "none" } };
     const kept = full(base([estate()], { periodicExpenses: [cost] }));
