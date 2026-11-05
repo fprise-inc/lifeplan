@@ -10,7 +10,7 @@
 // - 旧NISA・ジュニアNISA: 買付の年ごとの内訳（lots）の非課税期間が終わった年の年末に、時価で課税口座へ移す（取得価額はその時価）。
 //   ジュニアNISA は非課税期間（5年）の終わりと18歳（1月1日）の前の年の終わりの遅い方
 // - 取り崩し: 決済口座の年末の残高が minimumDeposit（省略は0）を下回ったら、取り崩しの順序（assumptions.withdrawal.order。省略は
-//   預金・外貨預金・財形・課税口座・持株会・旧NISA・NISA）の器から年末に売って補う。課税口座は売った額の取得価額（取得価額×売る額÷時価）との差に
+//   預金・外貨預金・財形・課税口座・暗号資産〔0124〕・持株会・旧NISA・NISA）の器から年末に売って補う。課税口座は売った額の取得価額（取得価額×売る額÷時価）との差に
 //   上場株式等の譲渡益の税（所得税・復興特別所得税・防衛特別所得税と住民税。源泉徴収ありの特定口座とみなす）をかけ、手取りで足りるだけ売る。
 //   引き出せない期間（withdrawalLockedUntil）の器・iDeCo・企業型DC・不動産は取り崩さない。補えなかった額は資金不足（cf.balance.shortfall）
 // - 年ごとの行: 年間収支（譲渡益の税を引いた後）・運用益・金融資産の合計・器ごとの残高・負債の残高・NISA の非課税保有限度額の残り・資金不足
@@ -56,6 +56,11 @@
 // - 改訂20（0122）: 器の種類「暗号資産」（cryptoAsset）を足した。金融資産の合計に入れ、残高は cf.balance.account.cryptoAsset。取り崩さない
 //   （売ったときの利益は雑所得〔総合課税〕で、ほかの所得と合わせた税をここでは計算できないため）。器の利回りも資産の配分も無ければ利回りは0。
 //   既定の時価の下落（kinds を書かない下落）の対象にする（資産クラスを書いた下落は、配分を入れた暗号資産だけ）。積立は cf.transfer.savings.cryptoAsset
+// - 改訂21（0124）: 暗号資産を取り崩す（既定の順序では課税口座の次）。令和8年度税制改正の特定暗号資産の申告分離課税（制度データ incomeTax.cryptoAsset.rate・
+//   residentTax.cryptoAsset.rate。2028年から）で、売った額の取得価額との差に所得税・復興特別所得税・防衛特別所得税と住民税をかけ、手取りで足りるだけ売る
+//   （課税口座と同じ。税は売った年に引く近似）。税の行は cf.taxSi.incomeTax.cryptoAsset・cf.taxSi.residentTax.cryptoAsset。譲渡損失は名義人ごとに
+//   incomeTax.cryptoAsset.lossCarryforwardYears 年（3年）繰り越し、同じ年と翌年以後の暗号資産の利益から古い順に引く（ほかの所得・課税口座とは通算しない）。
+//   税率が無い年（2027年まで）と、売ったときの税の扱いが雑所得（cryptoTaxation が miscellaneous）の暗号資産は取り崩さない
 import {
   accountReturnRate,
   accountMixAt,
@@ -123,13 +128,19 @@ const T = {
   recon: "incomeTax.reconstructionSurtax.rate",
   defense: "incomeTax.defenseSurtax.rate",
 };
+/** 特定暗号資産の申告分離課税（0124。2027年までは制度なし＝値が無い） */
+const C = {
+  it: "incomeTax.cryptoAsset.rate",
+  rt: "residentTax.cryptoAsset.rate",
+  carry: "incomeTax.cryptoAsset.lossCarryforwardYears",
+};
 
 /** 残高に入れない器（不動産・保険の解約返戻金・その他の資産） */
 const NOT_FINANCIAL: ReadonlySet<string> = new Set(["realEstate", "insurance", "otherAsset"]);
 /** 既定の取り崩しの順序 */
-const DEFAULT_ORDER: readonly AccountKind[] = ["deposit", "fxDeposit", "zaikei", "taxable", "esop", "legacyNisa", "nisa"];
-/** 取り崩さない器（受け取りの年齢までの iDeCo・企業型DC、不動産・その他の資産、暗号資産〔売ったときの雑所得の税を計算しないため。0122〕） */
-const NEVER_WITHDRAWN: ReadonlySet<string> = new Set(["ideco", "corporateDc", "realEstate", "otherAsset", "cryptoAsset"]);
+const DEFAULT_ORDER: readonly AccountKind[] = ["deposit", "fxDeposit", "zaikei", "taxable", "cryptoAsset", "esop", "legacyNisa", "nisa"];
+/** 取り崩さない器（受け取りの年齢までの iDeCo・企業型DC、不動産・その他の資産）。暗号資産は2028年から取り崩す（0124。雑所得の物は取り崩さない） */
+const NEVER_WITHDRAWN: ReadonlySet<string> = new Set(["ideco", "corporateDc", "realEstate", "otherAsset"]);
 const TRANSFER_ROW: Readonly<Record<string, string>> = {
   taxable: "cf.transfer.investment",
   zaikei: "cf.transfer.savings.zaikei",
@@ -181,7 +192,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
   id: "plan.cashflow",
   title: "キャッシュフロー表",
   contract: "1.8",
-  revision: 20,
+  revision: 21,
   requires: {
     "plan.flows": ">=1 <2",
     "outside.wallet": ">=1 <2",
@@ -200,7 +211,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     "asset.realEstateAnalysis": ">=1 <2",
     "asset.car": ">=1 <2",
   },
-  params: [...Object.values(N), ...Object.values(T)],
+  params: [...Object.values(N), ...Object.values(T), ...Object.values(C)],
   reads: [
     "member.kind",
     "member.outside",
@@ -209,6 +220,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     "account.owner",
     "account.marketValue",
     "account.costBasis",
+    "account.cryptoTaxation",
     "account.assetMix",
     "account.settlement",
     "account.withdrawalLockedUntil",
@@ -445,12 +457,20 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     let cappedNotice = false;
     // 器の年利: 不動産・その他の資産は評価額の増減率（valueGrowth）があればそれ。その他の資産と保険は、資産の配分が無ければ0
     // 譲渡益の税率（所得税・復興特別所得税・防衛特別所得税と住民税。課税口座を売るとき・毎年の運用益にかけるときだけ読む）
-    const taxRatesAt = (at: ReturnType<typeof ctx.at>): [Rate, Rate] => {
+    const surtaxed = (at: ReturnType<typeof ctx.at>, itBase: Rate): Rate => {
       const recon = at.paramRate(T.recon) ?? RATE_ZERO;
       const defense = at.paramRate(T.defense) ?? RATE_ZERO;
-      const itBase = at.paramRate(T.it) ?? RATE_ZERO;
-      return [ctx.rate.add(itBase, ctx.rate.add(ctx.rate.mul(itBase, recon), ctx.rate.mul(itBase, defense))), at.paramRate(T.rt) ?? RATE_ZERO];
+      return ctx.rate.add(itBase, ctx.rate.add(ctx.rate.mul(itBase, recon), ctx.rate.mul(itBase, defense)));
     };
+    const taxRatesAt = (at: ReturnType<typeof ctx.at>): [Rate, Rate] => [surtaxed(at, at.paramRate(T.it) ?? RATE_ZERO), at.paramRate(T.rt) ?? RATE_ZERO];
+    // 特定暗号資産の申告分離課税の税率（0124）。制度の無い年（2027年まで）は null で、その年は暗号資産を取り崩さない
+    const cryptoRatesAt = (at: ReturnType<typeof ctx.at>): [Rate, Rate] | null => {
+      const it = at.paramRate(C.it);
+      const rt = at.paramRate(C.rt);
+      return it === null || rt === null ? null : [surtaxed(at, it), rt];
+    };
+    // 暗号資産の譲渡損失の繰越（名義人ごと。生じた年と額。0124）
+    const cryptoLosses = new Map<string, { year: number; amount: Yen }[]>();
     const rateOf = (a: AccountInput, y: number): Rate => {
       if ((a.kind === "realEstate" || a.kind === "otherAsset") && a.valueGrowth !== undefined) return ctx.rate.of(a.valueGrowth);
       if ((a.kind === "insurance" || a.kind === "otherAsset") && a.assetMix === undefined) return RATE_ZERO;
@@ -668,6 +688,11 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         // 譲渡益の税率（課税口座を売るときだけ読む）
         let rates: [Rate, Rate] | null = null;
         const taxRates = (): [Rate, Rate] => (rates ??= taxRatesAt(at));
+        let cRates: [Rate, Rate] | null | undefined;
+        const cryptoRates = (): [Rate, Rate] | null => (cRates === undefined ? (cRates = cryptoRatesAt(at)) : cRates);
+        // 繰り越せる年を過ぎた暗号資産の譲渡損失を捨てる（繰り越せる年数が無い年は、残りをそのまま持つ）
+        const carryYears = at.paramCount(C.carry);
+        if (carryYears !== null) for (const list of cryptoLosses.values()) for (let i = list.length - 1; i >= 0; i--) if ((list[i] as { year: number }).year < y - carryYears) list.splice(i, 1);
         for (const x of orderOf()) {
           if (need <= 0) break;
           if (x.value <= 0) continue;
@@ -675,13 +700,20 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
           if (lock !== undefined && lock !== null && ctx.time.resolve(lock) >= dec) continue;
           // こどもNISA の払い出しは、その年3月31日に12歳である年（12歳に達する日がその年の3月31日以前）から
           if (x.kind === "childNisa" && (x.owner === null || at.paramCount(N.childWithdrawal) === null || reachOf(x.owner, N.childWithdrawal, jan) > monthIndex(y, 3))) continue;
-          const taxed = x.kind === "taxable";
+          // 暗号資産は申告分離課税の年（2028年から）だけ、雑所得の物は取り崩さない（0124）
+          const crypto = x.kind === "cryptoAsset";
+          if (crypto && (x.input?.cryptoTaxation === "miscellaneous" || cryptoRates() === null)) continue;
+          const taxed = x.kind === "taxable" || crypto;
+          const lossKey = x.owner ?? "";
+          const losses = crypto ? (cryptoLosses.get(lossKey) ?? []) : [];
+          // 同じ名義人の、その年までに生じて繰り越している暗号資産の譲渡損失（その年の利益から引ける額）
+          const carried = losses.reduce((sum, l) => sum + l.amount, 0);
           const costOf = (g: Yen) => (g >= x.value ? x.cost : ctx.money.mulRatio(x.cost, g, x.value, "conv.account.cost"));
           const taxOf = (g: Yen): [Yen, Yen] => {
             if (!taxed) return [yen(0), yen(0)];
-            const gain = yen(g - costOf(g));
+            const gain = yen(g - costOf(g) - (crypto ? Math.min(Math.max(0, g - costOf(g)), carried) : 0));
             if (gain <= 0) return [yen(0), yen(0)];
-            const [itRate, rtRate] = taxRates();
+            const [itRate, rtRate] = crypto ? (cryptoRates() as [Rate, Rate]) : taxRates();
             return [at.money.mulRate(gain, itRate, T.itRound), at.money.mulRate(gain, rtRate, T.rtRound)];
           };
           const netOf = (g: Yen) => {
@@ -704,6 +736,20 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
           }
           const sold = costOf(g);
           const [it, rt] = taxOf(g);
+          // 暗号資産の譲渡損失は繰り越し、利益は繰り越した損失を古い順に使う（0124）
+          if (crypto) {
+            const gain = g - sold;
+            if (gain < 0) cryptoLosses.set(lossKey, [...losses, { year: y, amount: yen(-gain) }]);
+            else {
+              let use = Math.min(gain, carried);
+              for (const l of losses) {
+                const take = Math.min(use, l.amount);
+                l.amount = yen(l.amount - take);
+                use -= take;
+              }
+              cryptoLosses.set(lossKey, losses.filter((l) => l.amount > 0));
+            }
+          }
           if (x.kind === "nisa" && x.owner !== null) {
             const f = frameOf(x.owner);
             const soldGrowth = x.growthCost > 0 ? ctx.money.mulRatio(x.growthCost, sold, x.cost > 0 ? x.cost : 1, "conv.account.cost") : yen(0);
@@ -722,8 +768,8 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
           x.value = yen(x.value - g);
           x.cost = yen(x.cost - sold);
           flow("cf.transfer.withdrawal", dec, g, x.owner, x.id, "plan.cashflow.withdrawal");
-          flow("cf.taxSi.incomeTax.capitalGains", dec, it, x.owner, x.id, "plan.cashflow.capitalGainsTax");
-          flow("cf.taxSi.residentTax.capitalGains", dec, rt, x.owner, x.id, "plan.cashflow.capitalGainsTax");
+          flow(crypto ? "cf.taxSi.incomeTax.cryptoAsset" : "cf.taxSi.incomeTax.capitalGains", dec, it, x.owner, x.id, crypto ? "plan.cashflow.cryptoGainsTax" : "plan.cashflow.capitalGainsTax");
+          flow(crypto ? "cf.taxSi.residentTax.cryptoAsset" : "cf.taxSi.residentTax.capitalGains", dec, rt, x.owner, x.id, crypto ? "plan.cashflow.cryptoGainsTax" : "plan.cashflow.capitalGainsTax");
           gainsTax = yen(gainsTax + it + rt);
           const proceeds = yen(g - it - rt);
           D.value = addYen(D.value, proceeds);

@@ -866,6 +866,7 @@
         "owner": { "title": "名義の構成員", "x-item": "account.owner", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "marketValue": { "title": "時価", "x-item": "account.marketValue", "x-pointInTime": true, "$ref": "urn:financia:schema:common#/$defs/boxYen" },
         "costBasis": { "title": "取得価額（省略は時価と同じ）", "x-item": "account.costBasis", "x-pointInTime": true, "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "cryptoTaxation": { "title": "暗号資産を売ったときの税の扱い（種類 cryptoAsset だけ。separate 特定暗号資産の申告分離課税〔2028年から。取り崩す〕・miscellaneous 雑所得〔取り崩さない〕。省略は separate。0124）", "x-item": "account.cryptoTaxation", "enum": ["separate", "miscellaneous"] },
         "asOf": { "title": "時価の時点", "x-item": "account.asOf", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
         "assetMix": {
           "title": "資産クラスの配分（率の合計は1。省略は預金・外貨預金なら cash、ほかは運用利回り）",

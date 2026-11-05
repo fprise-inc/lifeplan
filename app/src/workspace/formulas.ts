@@ -54,6 +54,7 @@ export const FORMULA_LABELS: Readonly<Record<string, { label: string; text: stri
   "plan.cashflow.debt": { label: "年末の借入の残高", text: "年末の残高 ＝ 返済の予定から計算した残高" },
   "plan.cashflow.contribution": { label: "NISAへの積立", text: "積立 ＝ 毎月の積立額（年の上限まで）" },
   "plan.cashflow.surplus": { label: "ゆとりの支出", text: "ゆとりの支出 ＝ 黒字（年間収支 − 退職金などの一時金の収入）− 貯まる額（黒字 × 黒字のうち貯まる割合。上限を入れたときは上限まで）。黒字の年だけ（取り崩しの計画がある年は差し引かない）" },
+  "plan.cashflow.cryptoGainsTax": { label: "暗号資産の譲渡益の税", text: "税 ＝ （取り崩した額 − 取得価額のうち売った割合の分 − 繰り越した暗号資産の譲渡損失）× 約20.315%（所得税15%・復興特別所得税・住民税5%。2028年からの申告分離課税。売った年に引く）" },
   "plan.cashflow.account": { label: "年末の残高", text: "年末の残高 ＝ 年初の残高 ＋ その年の出入り ＋ 運用益" },
   "incomeTax.annual.withholding": { label: "所得税（源泉徴収）", text: "所得税 ＝（所得 − 所得控除）× 税率 − 税額控除 ＋ 復興特別所得税" },
   "incomeTax.annual.settlement": { label: "所得税（精算）", text: "年末調整・確定申告での精算" },

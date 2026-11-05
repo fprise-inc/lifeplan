@@ -37,6 +37,14 @@ entries:
     collection: account
     path: [costBasis]
     pointInTime: true
+  - id: account.cryptoTaxation
+    status: active
+    label: "暗号資産を売ったときの税の扱い（種類 cryptoAsset だけ。separate 特定暗号資産の申告分離課税〔2028年から。取り崩す〕・miscellaneous 雑所得〔取り崩さない〕。省略は separate。0124）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: account
+    path: [cryptoTaxation]
   - id: account.enrolledSince
     status: active
     label: "iDeCo・企業型DC の加入者等期間の始まり（受給開始の年齢を判定する）"

@@ -1672,7 +1672,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(plain)).table);
   });
 
-  it("0.60 の形（0122）: 暗号資産の器を保存して読み戻す。金融資産の合計に入り、取り崩さない", () => {
+  it("0.60 の形（0122）: 暗号資産の器を保存して読み戻す。金融資産の合計に入り、2027年までは取り崩さない（0124）", () => {
     const s = sample060();
     const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
     const crypto = (stored.household.request.input.household.accounts ?? []).filter((a) => a.kind === "cryptoAsset");
@@ -1683,7 +1683,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const y = Number(back.wh.request.input.baseMonth.slice(0, 4)) + 1;
     const cell = (row: string) => t.filter((c) => c.row === row && c.year === y).reduce((x, c) => x + c.amount, 0);
     expect(cell("cf.balance.account.cryptoAsset")).toBeGreaterThan(2000000);
-    expect(t.some((c) => c.row === "cf.transfer.withdrawal" && c.object === id059(2))).toBe(false);
+    expect(t.some((c) => c.row === "cf.transfer.withdrawal" && c.object === id059(2) && c.year <= 2027)).toBe(false);
   });
 
   it("控えの計算の直し（0122）: なくしたその他の資産の細目「暗号資産」を外す（種類は控えのまま。結果は細目の無いその他の資産と同じ）", () => {

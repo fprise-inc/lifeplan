@@ -133,6 +133,8 @@ export interface Account {
   owner: string;
   marketValue?: Box<number>;
   costBasis?: Box<number>;
+  /** 暗号資産を売ったときの税の扱い（種類 cryptoAsset だけ。separate 申告分離課税〔2028年から取り崩す〕・miscellaneous 雑所得〔取り崩さない〕。省略は separate。0124） */
+  cryptoTaxation?: "separate" | "miscellaneous";
   asOf?: string;
   assetMix?: { assetClass: string; share: string }[];
   contributions?: { from: Timepoint; to: Timepoint | null; monthly: number; tranche?: string; payer?: "self" | "employer"; [key: string]: unknown }[];

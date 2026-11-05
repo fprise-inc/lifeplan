@@ -18,10 +18,19 @@ const UNENTERED_VALUE = "未入力（評価額を入れてください。0円で
 /** 欄の当て先（口座の中の入力項目） */
 const onAccount = (id: string, item: string, at: string[] = []) => (): Address => ({ target: { object: id }, item, at });
 const withAddress = (f: FieldDef, a: () => Address): FieldDef => ({ ...f, address: a });
-const WITH_COST = new Set(["taxable", "nisa", "legacyNisa", "juniorNisa", "childNisa"]);
-/** 暗号資産のまとまりの説明（0122）。金融資産に入れるが、取り崩さない（売ったときの税を計算しないため） */
+const WITH_COST = new Set(["taxable", "nisa", "legacyNisa", "juniorNisa", "childNisa", "cryptoAsset"]);
+/**
+ * 暗号資産のまとまりの説明（0122・0124）。金融資産に入れ、2028年からの申告分離課税で取り崩す（2027年までと雑所得の物は取り崩さない）
+ */
 const CRYPTO_NOTE =
-  "取引所・ウォレットにある暗号資産の、今の円の評価額を入れます。金融資産の合計に入りますが、お金が足りなくなっても取り崩しには使いません（売ったときの利益は雑所得としてほかの所得と合わせて税がかかり、この計算ではその税を出せないため）。売る予定があれば、売る額を入るお金の行（課税の扱いは「雑所得（その他）」、取得費に買った額）で入れ、売る分をこの残高から外します（二重に数えないため）";
+  "取引所・ウォレットにある暗号資産の、今の円の評価額を入れます。金融資産の合計に入り、お金が足りなくなった年は課税口座の次に取り崩します（順番は「お金の行き先」で変えられます）。令和8年度税制改正で、国内の登録業者で売る暗号資産の利益は2028年1月からの取引で申告分離課税（約20%）になる見込みなので、2028年からは取り崩した利益にその税をかけます。2027年までは今の雑所得（ほかの所得と合わせた税）のままで、この計算ではその税を出せないので取り崩しません（足りない分は資金の不足に出ます）。2027年までに売る予定は、売る額を入るお金の行（課税の扱いは「雑所得（その他）」、取得費に買った額）で入れ、売る分をこの残高から外します（二重に数えないため）";
+/** 暗号資産を売ったときの税の扱い（0124） */
+const CRYPTO_TAXATION = [
+  { value: "separate", label: "申告分離課税（2028年から・国内の登録業者で売る物）" },
+  { value: "miscellaneous", label: "雑所得（登録業者を通さずに売る・対象外の暗号資産）" },
+];
+const CRYPTO_TAXATION_HELP =
+  "2028年1月からは、金融商品取引業者の登録簿に載る暗号資産（特定暗号資産）を国内の登録業者で売った利益が申告分離課税（所得税15%・復興特別所得税・住民税5%で約20.315%）になる見込みです（令和8年度税制改正。制度の値は確認待ち）。取り崩した額のうち利益（売った額−取得価額の割合の分）にこの税をかけ、損失は翌年から3年まで繰り越して、同じ人の暗号資産の利益から引きます（ほかの所得・株式などとは通算しません）。税は売った年に引きます（実際は翌年の確定申告）。この利益は国民健康保険料などの所得には入れていません。海外の取引所や個人の間で売る物、登録簿に載らない暗号資産は今までどおり雑所得（総合課税）なので、「雑所得」を選ぶと取り崩しに使いません（売る予定は入るお金の行の「雑所得（その他）」で入れます）";
 /** 金融資産でない器（不動産・その他の資産）。評価額と増減率だけを入れる */
 const NON_FINANCIAL = new Set(["realEstate", "otherAsset"]);
 
@@ -124,7 +133,26 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     yenBox({ key: `${k}/value`, item: "account.marketValue", label: "今の残高（時価）", level: "simple", basis: "once", find, path: ["marketValue"] }),
     plain({ key: `${k}/asOf`, item: "account.asOf", label: "残高の時点", level: "detail", kind: "ym", find, path: ["asOf"] }),
   ];
-  if (WITH_COST.has(a.kind)) fields.push(yenBox({ key: `${k}/cost`, item: "account.costBasis", label: "取得価額（元本）", level: "detail", basis: "once", find, path: ["costBasis"], optional: true, help: "入れなければ時価と同じとします。NISA の枠・課税口座の税の計算に使います" }));
+  if (WITH_COST.has(a.kind))
+    fields.push(
+      yenBox({
+        key: `${k}/cost`,
+        item: "account.costBasis",
+        label: a.kind === "cryptoAsset" ? "取得価額（買った額の合計）" : "取得価額（元本）",
+        level: "detail",
+        basis: "once",
+        find,
+        path: ["costBasis"],
+        optional: true,
+        help:
+          a.kind === "cryptoAsset"
+            ? "今持っている暗号資産を買った額の合計（総平均法などで出した取得価額）です。入れなければ時価と同じ（今までの値上がりの分に税がかからない）とします。2028年からの取り崩しの利益の税の計算に使います"
+            : "入れなければ時価と同じとします。NISA の枠・課税口座の税の計算に使います",
+      }),
+    );
+  // 暗号資産を売ったときの税の扱い（0124）
+  if (a.kind === "cryptoAsset")
+    fields.push(plain({ key: `${k}/cryptoTax`, item: "account.cryptoTaxation", label: "売ったときの税", level: "detail", kind: "select", options: CRYPTO_TAXATION, find, path: ["cryptoTaxation"], optional: true, fallback: "separate", structural: true, help: CRYPTO_TAXATION_HELP }));
   fields.push(
     field({
       key: `${k}/monthly`,
@@ -200,8 +228,8 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     fields.push(timepointField({ key: `${k}/until`, item: "account.contributions", label: own.length > 1 ? "積立の終わり（最後の月）" : "積立の終わり（最後の月）", level: "detail", find: lastContribution, path: ["to"], startPath: ["from"], ageMeans: "before", optional: true, nullText: "退職の年まで（推定）", ...(owner !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === owner.id) } : {}) }));
   }
   // 引き出せない期間の終わり（その月まで取り崩さない）。iDeCo・企業型DC・小規模企業共済は受け取りの決まりで預金に入るので出さない。
-  // 暗号資産は取り崩さないので出さない（0122）
-  if (!DC_KIND.has(a.kind) && a.kind !== "smallBusinessMutualAid" && a.kind !== "cryptoAsset")
+  // 雑所得の暗号資産は取り崩さないので出さない（0124）
+  if (!DC_KIND.has(a.kind) && a.kind !== "smallBusinessMutualAid" && !(a.kind === "cryptoAsset" && a.cryptoTaxation === "miscellaneous"))
     fields.push(
       withAddress(
         timepointField({
@@ -613,7 +641,7 @@ export function accountMoreLabel(a: Pick<Account, "kind" | "contributions">): st
     case "smallBusinessMutualAid":
       return "残高の時点・配分などを入れる";
     case "cryptoAsset":
-      return (a.contributions ?? []).length > 0 ? "残高の時点・積立の終わりを入れる" : "残高の時点を入れる";
+      return (a.contributions ?? []).length > 0 ? "取得価額・売ったときの税・積立の終わりを入れる" : "取得価額・売ったときの税を入れる";
     default:
       return undefined;
   }

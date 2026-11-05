@@ -1,0 +1,34 @@
+id: incomeTax.cryptoAsset.lossCarryforwardYears
+title: 特定暗号資産の譲渡損失を繰り越して、翌年以後の特定暗号資産の譲渡等の所得から控除できる年数（住民税も同じとみなす。2027年までは制度なし）
+unit: years
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2014-01-01"
+    appliesTo: "2027-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", "retrievedAt": "2026-11-05", "retrievedVia": "searchExcerpt", "locator": "令和8年度税制改正の大綱（令和7年12月26日閣議決定）の暗号資産の譲渡等に係る課税", "note": "検索の要約（原本は未取得）"}
+      - {"type": "web", "url": "https://www.yamada-partners.jp/reform/r8/k04-separate-taxation-for-crypto-assets", "retrievedAt": "2026-11-05", "retrievedVia": "searchExcerpt", "locator": "解説: 特定暗号資産の分離課税（大綱の要約）", "note": "解説の要約（原本は未取得）。前提の金融商品取引法の改正法は2026年7月23日に公布という解説がある。国税庁・金融庁の公表は、この環境の検索で原本に届かず未取得"}
+    recordedIn: "2026.16.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "2027年までは申告分離課税と繰越控除が無い。原本での確認待ち"}
+  - rev: 2
+    appliesFrom: "2028-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 3
+    sources:
+      - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", "retrievedAt": "2026-11-05", "retrievedVia": "searchExcerpt", "locator": "令和8年度税制改正の大綱（令和7年12月26日閣議決定）の暗号資産の譲渡等に係る課税", "note": "検索の要約（原本は未取得）"}
+      - {"type": "web", "url": "https://www.yamada-partners.jp/reform/r8/k04-separate-taxation-for-crypto-assets", "retrievedAt": "2026-11-05", "retrievedVia": "searchExcerpt", "locator": "解説: 特定暗号資産の分離課税（大綱の要約）", "note": "解説の要約（原本は未取得）。前提の金融商品取引法の改正法は2026年7月23日に公布という解説がある。国税庁・金融庁の公表は、この環境の検索で原本に届かず未取得"}
+    recordedIn: "2026.16.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "翌年以後3年内の各年分の特定暗号資産の譲渡等の所得からだけ控除できる（確定申告書を続けて出すなどの要件）。ほかの所得・上場株式等との損益通算はしない読み方。原本（改正法の条文）で確かめていない"}

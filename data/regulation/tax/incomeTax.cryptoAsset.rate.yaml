@@ -1,0 +1,34 @@
+id: incomeTax.cryptoAsset.rate
+title: 特定暗号資産の譲渡等の所得の申告分離課税の所得税の税率（復興特別所得税・防衛特別所得税は基準所得税額に掛けて別に足す。2027年までは制度なし）
+unit: rate
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2014-01-01"
+    appliesTo: "2027-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", "retrievedAt": "2026-11-05", "retrievedVia": "searchExcerpt", "locator": "令和8年度税制改正の大綱（令和7年12月26日閣議決定）の暗号資産の譲渡等に係る課税", "note": "検索の要約（原本は未取得）"}
+      - {"type": "web", "url": "https://www.yamada-partners.jp/reform/r8/k04-separate-taxation-for-crypto-assets", "retrievedAt": "2026-11-05", "retrievedVia": "searchExcerpt", "locator": "解説: 特定暗号資産の分離課税（大綱の要約）", "note": "解説の要約（原本は未取得）。前提の金融商品取引法の改正法は2026年7月23日に公布という解説がある。国税庁・金融庁の公表は、この環境の検索で原本に届かず未取得"}
+    recordedIn: "2026.16.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "2027年までの譲渡は申告分離課税が無い（暗号資産の所得は雑所得の総合課税）。原本（大綱・改正法の条文）での確認待ち"}
+  - rev: 2
+    appliesFrom: "2028-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.15"
+    sources:
+      - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", "retrievedAt": "2026-11-05", "retrievedVia": "searchExcerpt", "locator": "令和8年度税制改正の大綱（令和7年12月26日閣議決定）の暗号資産の譲渡等に係る課税", "note": "検索の要約（原本は未取得）"}
+      - {"type": "web", "url": "https://www.yamada-partners.jp/reform/r8/k04-separate-taxation-for-crypto-assets", "retrievedAt": "2026-11-05", "retrievedVia": "searchExcerpt", "locator": "解説: 特定暗号資産の分離課税（大綱の要約）", "note": "解説の要約（原本は未取得）。前提の金融商品取引法の改正法は2026年7月23日に公布という解説がある。国税庁・金融庁の公表は、この環境の検索で原本に届かず未取得"}
+    recordedIn: "2026.16.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "15%（復興特別所得税と合わせて15.315%、住民税5%と合わせて20.315%）。令和8年度税制改正で、金融商品取引業者の登録簿に載る暗号資産（特定暗号資産）を暗号資産取引業を行う者に対して譲渡等した所得を、改正金融商品取引法の施行日の属する年の翌年1月1日（2028年1月1日の見込み）以後の譲渡等から申告分離課税にする。開始の年・税率・status（enacted）は利用者の判断の前提で、改正法の条文・施行日・国税庁と金融庁の公表は原本で確かめていない"}
