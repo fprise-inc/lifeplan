@@ -204,7 +204,7 @@ export function BsTrend({ plan, base, range, marks, onPick, height }: BsTrendPro
           return (
             <g key={`m${si}`} data-bst-mark={y.year}>
               <line x1={X(si)} x2={X(si)} y1={m.t} y2={m.t + ph} stroke="var(--ink)" stroke-width="1.5" />
-              <circle cx={X(si)} cy={Y(y.netWorth)} r="5.5" fill="var(--prop)" stroke="#fff" stroke-width="2" />
+              <circle cx={X(si)} cy={Y(y.netWorth)} r="5.5" fill="var(--prop)" stroke="var(--card)" stroke-width="2" />
               <text x={lx} y={m.t - fs * 0.35} text-anchor="middle" font-size={fs * 0.8} font-weight="700" fill="var(--ink)">
                 {y.year}年
               </text>
@@ -214,8 +214,8 @@ export function BsTrend({ plan, base, range, marks, onPick, height }: BsTrendPro
         {hover !== null && hv !== undefined ? (
           <g pointer-events="none">
             <line x1={X(hover)} x2={X(hover)} y1={m.t} y2={m.t + ph} stroke="var(--ink-2)" stroke-dasharray="3 3" />
-            {hb !== undefined ? <circle cx={X(hover)} cy={Y(hb.netWorth)} r="4.5" fill="#fff" stroke="var(--base-ink)" stroke-width="2" /> : null}
-            <circle cx={X(hover)} cy={Y(hv.netWorth)} r="5.5" fill="var(--prop)" stroke="#fff" stroke-width="2" />
+            {hb !== undefined ? <circle cx={X(hover)} cy={Y(hb.netWorth)} r="4.5" fill="var(--card)" stroke="var(--base-ink)" stroke-width="2" /> : null}
+            <circle cx={X(hover)} cy={Y(hv.netWorth)} r="5.5" fill="var(--prop)" stroke="var(--card)" stroke-width="2" />
           </g>
         ) : null}
         <rect

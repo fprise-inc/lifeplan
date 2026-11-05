@@ -9,6 +9,7 @@ import { defineConfig, type Plugin } from "vite";
 import { parse as parseToml } from "smol-toml";
 import { APP_DIR, ENGINE_DIST, REPO_DIR } from "./scripts/lib.ts";
 import { devCustom } from "./scripts/devCustom.ts";
+import { NAME_MAX_CHARS, readLogoHeader } from "./src/workspace/office/branding.ts";
 import { addCode, applyFetch, applyNotices, dismissNotice, featureStatus, publicKeys, reference, revokedIds, todayJst, verifyCode, verifyCodeRevocations, verifyRevocations, withoutRevokedKeys, type NoticeRecord } from "./scripts/devFeatureCode.ts";
 
 /**
@@ -262,8 +263,50 @@ const devOffice = {
 /** 開発用のサーバーの事務所の確かめ用の番号（画面の確かめ用の架空の値） */
 const DEV_OFFICE_CODE = "7K2M-QX9P-4HDN-R8VT";
 
+/** 提案書に当てる事務所の見た目（本体の office::report_brand の代わり。0121）: 名前とロゴはメモリの見た目から、色は画面が渡した色 */
+function devReportBrand(accent: string | null): { brand?: Record<string, unknown> } {
+  const b = devBranding.value as { name?: string; logo?: { data: string } };
+  const brand: Record<string, unknown> = {};
+  if (accent !== null && /^#[0-9a-f]{6}$/.test(accent)) brand.accent = accent;
+  if (b.name !== undefined) brand.office = b.name;
+  if (b.logo !== undefined) brand.logo = b.logo.data;
+  return Object.keys(brand).length > 0 ? { brand } : {};
+}
+
 /** 事務所の既定値（開発用のサーバーのメモリの中だけ。0073） */
 const devOfficeDefaults: { value: Record<string, unknown> } = { value: {} };
+
+/**
+ * 事務所の見た目（本体の office_branding_get・office_branding_put・office_logo_pick の代わり。0121）: メモリの中だけ。
+ * ロゴを選ぶ代わりに FINANCIA_DEV_OPEN_LOGO の画像（無ければアプリのアイコンの PNG）を読む。見出しの確かめは本体と同じ決まり（office/branding.ts）
+ */
+const devBranding: { value: Record<string, unknown> } = { value: {} };
+const devLogoFile = () => process.env.FINANCIA_DEV_OPEN_LOGO || join(APP_DIR, "src-tauri", "icons", "128x128.png");
+function devCheckBranding(v: unknown): { ok: true; value: Record<string, unknown> } | { ok: false; code: string } {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return { ok: false, code: "E_STORE_BRANDING" };
+  const o = v as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  if (o.name !== undefined && o.name !== null) {
+    if (typeof o.name !== "string" || [...o.name.trim()].length > NAME_MAX_CHARS || [...o.name].some((c) => c.charCodeAt(0) < 0x20)) return { ok: false, code: "E_STORE_BRANDING" };
+    if (o.name.trim() !== "") out.name = o.name.trim();
+  }
+  if (o.color !== undefined && o.color !== null) {
+    if (typeof o.color !== "string" || !/^#[0-9a-fA-F]{6}$/.test(o.color.trim())) return { ok: false, code: "E_STORE_BRANDING" };
+    out.color = o.color.trim().toLowerCase();
+  }
+  if (o.appearance !== undefined && o.appearance !== null) {
+    if (o.appearance !== "light" && o.appearance !== "dark" && o.appearance !== "system") return { ok: false, code: "E_STORE_BRANDING" };
+    out.appearance = o.appearance;
+  }
+  if (o.logo !== undefined && o.logo !== null) {
+    const l = o.logo as Record<string, unknown>;
+    const bytes = new Uint8Array(Buffer.from(String(l.data ?? ""), "base64"));
+    const h = readLogoHeader(bytes);
+    if (typeof h === "string") return { ok: false, code: h };
+    out.logo = { ...h, data: Buffer.from(bytes).toString("base64") };
+  }
+  return { ok: true, value: out };
+}
 
 /** 機能を有効にするコード（本体の feature_code_* の代わり。0110）: メモリの中だけ。公開鍵は本体と同じ配布元の設定から読む。
  * 今日は FINANCIA_DEV_TODAY（YYYY-MM-DD）か、開発用の op「featureToday」で変えられる（期限が近い・切れたの見え方を確かめるため）。
@@ -510,6 +553,22 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
       if (typeof v !== "object" || v === null || Array.isArray(v) || JSON.stringify(v).length > 256 * 1024) return { ok: false, code: "E_STORE_OFFICE_DEFAULTS" };
       devOfficeDefaults.value = v as Record<string, unknown>;
       return { ok: true, value: null };
+    }
+    case "brandingGet":
+      return { ok: true, value: devBranding.value };
+    case "brandingPut": {
+      const r = devCheckBranding(a.value);
+      if (!r.ok) return r;
+      devBranding.value = r.value;
+      return { ok: true, value: r.value };
+    }
+    case "logoPick": {
+      const f = devLogoFile();
+      if (!existsSync(f)) return { ok: true, value: null };
+      const bytes = new Uint8Array(readFileSync(f));
+      const h = readLogoHeader(bytes);
+      if (typeof h === "string") return { ok: false, code: h };
+      return { ok: true, value: { ...h, data: Buffer.from(bytes).toString("base64") } };
     }
     case "featureStatus":
       return { ok: true, value: devFeatureView() };
@@ -790,12 +849,12 @@ function devHost(): Plugin {
         if (path === "report/render" && req.method === "POST") {
           void (async () => {
             const t0 = performance.now();
-            const { input, addressee } = JSON.parse((await readBody(req)).toString("utf8")) as { input: string; addressee: string | null };
+            const { input, addressee, accent } = JSON.parse((await readBody(req)).toString("utf8")) as { input: string; addressee: string | null; accent?: string | null };
             const bin = reportBin();
             if (bin === null) return void ((res.statusCode = 500), res.end("E_DEV_NO_REPORT_PDF"));
             const data = JSON.parse(input) as { basis: { baseMonth: string }; document: { issuedOn: string }; assumptions: { survivorReform: boolean } };
             const label = dataSetLabel(data.basis.baseMonth);
-            const frame = { stamp: { dataSetLabel: label, baseMonth: data.basis.baseMonth }, beta: true, notices: [...DEV_NOTICES, ...(data.assumptions.survivorReform ? [DEV_REFORM] : [])], internal: { snapshotId: null, dataSetId: label, customDigests: [] } };
+            const frame = { stamp: { dataSetLabel: label, baseMonth: data.basis.baseMonth }, beta: true, notices: [...DEV_NOTICES, ...(data.assumptions.survivorReform ? [DEV_REFORM] : [])], internal: { snapshotId: null, dataSetId: label, customDigests: [] }, ...devReportBrand(accent ?? null) };
             const dir = mkdtempSync(join(tmpdir(), "financia-dev-report-"));
             writeFileSync(join(dir, "input.json"), input);
             writeFileSync(join(dir, "frame.json"), JSON.stringify(frame));

@@ -94,6 +94,7 @@ fn boxes_have_gap_and_rounded_corners() {
             data_set_id: None,
             custom_digests: vec![],
         },
+        brand: None,
     };
     let r = render_proposal(INPUT, &frame).expect("PDF ができる");
     assert!(r.pages >= 8);

@@ -7,7 +7,7 @@
 .tk-boot { padding: 32px 20px; text-align: center; color: var(--ink-2); font-weight: 700; }
 .tk-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px 24px; flex-wrap: wrap; border-bottom: 3px solid var(--prop); padding-bottom: 10px; }
 .tk-to { margin: 6px 0 0; font-size: 1.15rem; font-weight: 700; }
-.tk-sample { font-size: 0.72rem; font-weight: 700; color: #fff; background: var(--ink-2); border-radius: 4px; padding: 1px 8px; margin-left: 10px; vertical-align: middle; }
+.tk-sample { font-size: 0.72rem; font-weight: 700; color: var(--on-fill); background: var(--ink-2); border-radius: 4px; padding: 1px 8px; margin-left: 10px; vertical-align: middle; }
 .tk-meta { display: flex; gap: 6px 18px; flex-wrap: wrap; margin: 0; font-size: 0.9rem; }
 .tk-meta div { display: flex; gap: 6px; }
 .tk-meta dt { color: var(--ink-2); }
@@ -28,12 +28,12 @@
 .tk-jumps { display: flex; flex-wrap: wrap; gap: 6px; }
 .tk-bs-sum { margin: 8px 0 0; font-size: 0.95rem; }
 .tk-bs-sum b.neg { color: var(--short-ink); }
-.tk-cf-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.tk-cf-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
 .tk-cf-t { border-collapse: separate; border-spacing: 0; font-size: 0.9rem; white-space: nowrap; width: 100%; }
 .tk-cf-t th, .tk-cf-t td { padding: 5px 9px; text-align: right; border-bottom: 1px solid var(--line-2); }
-.tk-cf-t thead th { background: #f6f7f9; }
-.tk-cf-t tbody th, .tk-cf-t thead th:first-child { position: sticky; left: 0; background: #fff; text-align: left; border-right: 2px solid var(--line); z-index: 1; }
-.tk-cf-t thead th:first-child { background: #f6f7f9; }
+.tk-cf-t thead th { background: var(--wash, #f6f7f9); }
+.tk-cf-t tbody th, .tk-cf-t thead th:first-child { position: sticky; left: 0; background: var(--card); text-align: left; border-right: 2px solid var(--line); z-index: 1; }
+.tk-cf-t thead th:first-child { background: var(--wash, #f6f7f9); }
 .tk-cf-t .tk-age td, .tk-cf-t .tk-age th { color: var(--ink-2); font-size: 0.85em; }
 .tk-cf-t .tk-strong td, .tk-cf-t .tk-strong th { font-weight: 700; }
 .tk-cf-t td.neg { color: var(--short-ink); }
@@ -69,4 +69,56 @@
   .tk-levers .lv-grid { grid-template-columns: minmax(0, 1fr); }
   .tk-levers .lv-head .btn { flex: 1 1 auto; }
   .tk-cf-t { font-size: 0.82rem; }
+}
+
+/* 暗い画面（0121）の中の持ち帰り用のレポートの見本: お客さまが開く画面と同じ明るい色にする（持ち帰り用のレポートは明るいまま）。
+   色の決め事を明るい画面の値に戻し、暗い画面だけで決めた変数（--wash など）は外して、各所の明るい値（var の2つ目）を使わせる。
+   事務所の基調の色は、見本の部品が持ち帰り用のレポートの色（accent）を style で入れる */
+html.dark .tk {
+  --ink: #1a1d21;
+  --ink-2: #3c4450; /* 補助の文字（白地で 9:1 以上） */
+  --line: #cfd4db;
+  --line-2: #e3e6ea;
+  --bg: #f3f1ec;
+  --card: #ffffff;
+  --card-line: #e1ddd4;
+  --prop: #2b4c8c; /* ファイナンシアの藍（選んだ案の線） */
+  --prop-ink: #233f75;
+  --prop-bg: #e9eef7;
+  --prop-area: color-mix(in srgb, var(--prop) 12%, transparent);
+  --base: #8c96a3;
+  --base-ink: #4a5361;
+  --base-bg: #f1f2f4; /* 基準の案の背景（薄い灰） */
+  --short: #c62828;
+  --short-ink: #a61b1b;
+  --short-bg: #fdecea;
+  --sel: #1a1d21;
+  --sel-bg: color-mix(in srgb, var(--prop) 9%, transparent);
+  --good: #1b6b45;
+  --good-bg: #e6f4ec;
+  --memo-bg: #fff8d6;
+  --memo-line: #c9a400;
+  --est: #b36b00; /* 推定あり（注意の印） */
+  --est-ink: #7a4800; /* --est-bg の上で 7:1 以上 */
+  --est-bg: #fff4e0;
+  --est-band: #f6c27a;
+  --field: #7d8794; /* 入力欄・点線の枠（白地で 3:1 以上） */
+  --on-fill: #fff; /* 塗った所（基調の色・墨・不足・注意など）に重ねる文字 */
+  --line-3: initial;
+  --memo-ink: initial;
+  --muted: initial;
+  --muted-ink: initial;
+  --tx-brown: initial;
+  --tx-red: initial;
+  --tx-rust: initial;
+  --tx-teal: initial;
+  --warn: initial;
+  --wash: initial;
+  --wash-short: initial;
+  --wash-warm: initial;
+  --bs-short: #f7dcd8;
+  --bs-short-line: #c2867f;
+  color-scheme: light;
+  color: var(--ink);
+  background: var(--bg);
 }

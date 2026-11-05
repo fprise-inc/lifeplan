@@ -1,8 +1,9 @@
 //! 提案書の PDF の試験（0009 の「テストで確かめること」のうち、帳票の外側で付けるもの）。
 //! 入力は架空のモデル世帯から作った帳票の入力（tests/fixtures。report/ で `npm run samples -- --fixture` が作る）
 use report_pdf::{
-    extract_text, normalize, render_proposal, render_proposal_output, render_with_main, Internal,
-    ReportError, ReportFrame, Stamp, INPUT_VERSION, WATERMARK, XMP_NAMESPACE,
+    check_logo, extract_text, normalize, render_proposal, render_proposal_output, render_with_main,
+    Internal, ReportBrand, ReportError, ReportFrame, Stamp, INPUT_VERSION, WATERMARK,
+    XMP_NAMESPACE,
 };
 
 const INPUT: &str = include_str!("fixtures/advisoryFeeProposal.input.json");
@@ -23,6 +24,7 @@ fn frame() -> ReportFrame {
             data_set_id: Some("ds-test".into()),
             custom_digests: vec![],
         },
+        brand: None,
     }
 }
 
@@ -316,4 +318,87 @@ fn orientation_is_uniform_when_aligned() {
         o.contains('L') && o.contains('P'),
         "以前の形はキャッシュフロー表だけ横: {o}"
     );
+}
+
+const LOGO: &[u8] = include_bytes!("fixtures/logo-test.png");
+
+/// 事務所の見た目（0121）: 表紙に事務所の名前とロゴ、見出しのアクセントの色。無いときは今までと同じ PDF
+#[test]
+fn brand_puts_office_name_and_logo_on_cover() {
+    let plain = render_proposal(INPUT, &frame()).unwrap();
+    let mut f = frame();
+    f.brand = Some(ReportBrand {
+        accent: Some("#2f6b4f".into()),
+        office: Some("みどりFP事務所".into()),
+        logo: Some(LOGO.to_vec()),
+    });
+    let r = render_proposal(INPUT, &f).expect("事務所の見た目を当てても PDF ができる");
+    let pages = extract_text(&r.pdf).unwrap();
+    assert!(
+        normalize(&pages[0]).contains("みどりFP事務所"),
+        "表紙に事務所の名前: {}",
+        pages[0]
+    );
+    assert!(
+        !pages.iter().skip(1).any(|p| p.contains("みどりFP事務所")),
+        "名前は表紙だけ"
+    );
+    assert_eq!(r.pages, plain.pages, "ページ数は変わらない");
+    assert_ne!(r.pdf, plain.pdf);
+    // 空の見た目は標準と同じバイト
+    let mut e = frame();
+    e.brand = Some(ReportBrand::default());
+    assert_eq!(render_proposal(INPUT, &e).unwrap().pdf, plain.pdf);
+    // 形の合わない色は標準の色のまま（組めなくならない）
+    let mut bad = frame();
+    bad.brand = Some(ReportBrand {
+        accent: Some("red; #set".into()),
+        ..Default::default()
+    });
+    assert_eq!(render_proposal(INPUT, &bad).unwrap().pdf, plain.pdf);
+}
+
+#[test]
+fn accent_changes_only_the_accent_color() {
+    let mut f = frame();
+    f.brand = Some(ReportBrand {
+        accent: Some("#7b2d3b".into()),
+        ..Default::default()
+    });
+    let r = render_proposal(INPUT, &f).unwrap();
+    let plain = render_proposal(INPUT, &frame()).unwrap();
+    assert_eq!(
+        extract_text(&r.pdf).unwrap(),
+        extract_text(&plain.pdf).unwrap(),
+        "文字は同じ"
+    );
+    assert_ne!(r.pdf, plain.pdf, "色が変わる");
+}
+
+#[test]
+fn checks_logo_can_be_drawn() {
+    check_logo(LOGO).expect("PNG は描ける");
+    // 見出しだけ PNG で中身が壊れている画像は描けない
+    let mut broken = LOGO[..33].to_vec();
+    broken.extend_from_slice(b"\0\0\0\x10IDATxxxxxxxxxxxxxxxx");
+    assert!(check_logo(&broken).is_err());
+    assert!(check_logo(b"<svg xmlns='http://www.w3.org/2000/svg'/>").is_err());
+}
+
+#[test]
+fn brand_round_trips_in_frame_json() {
+    let mut f = frame();
+    f.brand = Some(ReportBrand {
+        accent: Some("#2f6b4f".into()),
+        office: None,
+        logo: Some(vec![1, 2, 3]),
+    });
+    let j = serde_json::to_value(&f).unwrap();
+    assert_eq!(j["brand"]["logo"], "AQID");
+    let back: ReportFrame = serde_json::from_value(j).unwrap();
+    assert_eq!(back, f);
+    // brand の無い古い外枠の値も読める
+    let mut old = serde_json::to_value(frame()).unwrap();
+    old.as_object_mut().unwrap().remove("brand");
+    assert_eq!(serde_json::from_value::<ReportFrame>(old).unwrap(), frame());
 }

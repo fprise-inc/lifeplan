@@ -1450,6 +1450,7 @@ name = "household-store"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",
+ "base64 0.22.1",
  "getrandom 0.2.17",
  "hkdf",
  "keyring",
@@ -2662,6 +2663,7 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 name = "report-pdf"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "lopdf",
  "serde",
  "serde_json",

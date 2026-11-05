@@ -166,6 +166,10 @@ struct OfficeData {
     /// この欄の無い古い事務所データは無しとして読む。この PC の設定（共有フォルダには置かない）
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     feature_codes: Vec<String>,
+    /// 事務所の見た目（0121。事務所の名前・ロゴの画像・基調の色と、この PC の画面の明るさ）。
+    /// この欄の無い古い事務所データは無しとして読む。この PC の設定（共有フォルダには置かない。0073 と同じ）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    branding: Option<crate::branding::Branding>,
 }
 
 /// 事務所の既定値の JSON の大きさの上限（バイト。0073。事務所の推定の値〔統計の表を含む。0111〕を入れるので 256KB）
@@ -254,6 +258,7 @@ impl OfficeData {
             statement: Default::default(),
             defaults: None,
             feature_codes: vec![],
+            branding: None,
         }
     }
 }
@@ -2232,6 +2237,30 @@ impl Store {
         }
         s.data.feature_codes = codes;
         self.write_office(s)
+    }
+
+    /// 事務所の見た目（0121）。まだ決めていなければ空
+    pub fn office_branding(&self) -> Result<crate::branding::Branding, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        Ok(s.data.branding.clone().unwrap_or_default())
+    }
+
+    /// 事務所の見た目を置き換える（0121。確かめて整えてから。全部空なら欄を外す）。整えた値を返す
+    pub fn set_office_branding(
+        &self,
+        b: crate::branding::Branding,
+    ) -> Result<crate::branding::Branding, StoreError> {
+        let b = crate::branding::normalize(b)?;
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        let next = if b.is_empty() { None } else { Some(b.clone()) };
+        if s.data.branding == next {
+            return Ok(b);
+        }
+        s.data.branding = next;
+        self.write_office(s)?;
+        Ok(b)
     }
 
     /// AI接続口を使うかどうかを変える（FPがアプリの設定の画面で操作したときだけ呼ぶ）

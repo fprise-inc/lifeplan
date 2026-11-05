@@ -2,17 +2,33 @@
    並び: 左＝ロゴと世帯の選択（と急ぎの札）、中＝タブ、右＝↶↷・メモ・FP のメニュー・文字の大きさ（中・大）・お知らせのベル。
    文字を「大」にしたとき・窓が狭いときは、data-fit（header/fit.ts が測って決める）で段階的に詰める。どの段でも見切れさせない:
      0 = すべて文字つき / 1 = 右側をアイコンだけに / 2 = 世帯のボタンを省略して詰める / 3 = タブを2行目に折り返す */
-.top { display: grid; grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr); grid-template-areas: "l t r"; align-items: center; gap: 8px 16px; padding: 9px 20px; background: #fff; border-bottom: 1px solid var(--card-line); }
+.top { display: grid; grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr); grid-template-areas: "l t r"; align-items: center; gap: 8px 16px; padding: 9px 20px; background: var(--card); border-bottom: 1px solid var(--card-line); }
 .top-l { grid-area: l; display: flex; align-items: center; gap: 8px 12px; min-width: 0; }
 .top-r { grid-area: r; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .top > .tabs { grid-area: t; }
 
 .brand { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.04em; white-space: nowrap; flex: none; }
 .brand-mark { width: 18px; height: 18px; border-radius: 5px; background: var(--prop); position: relative; flex: none; }
-.brand-mark::after { content: ""; position: absolute; left: 4px; right: 4px; bottom: 4px; height: 6px; border-left: 3px solid #fff; border-bottom: 3px solid #fff; transform: skewX(-12deg); }
+.brand-mark::after { content: ""; position: absolute; left: 4px; right: 4px; bottom: 4px; height: 6px; border-left: 3px solid var(--card); border-bottom: 3px solid var(--card); transform: skewX(-12deg); }
+
+/* 事務所の名前・ロゴ（0121。事務所の見た目）。ロゴは高さ 24px・幅 132px まで（キャンバスに描く） */
+.brand.office { gap: 8px; letter-spacing: 0.02em; }
+.brand.office .brand-name { max-width: 14em; overflow: hidden; text-overflow: ellipsis; }
+.brand-logo { display: block; flex: none; }
+
+/* 画面の明るさ（0121）: FP のメニューと同じ大きさのアイコン。選び方は帯の下に重ねて出す */
+.look { position: relative; flex: none; }
+.look-btn { width: 34px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; cursor: pointer; padding: 0; }
+.look-btn:hover { border-color: var(--ink); }
+.look-btn[aria-expanded="true"] { background: var(--ink); border-color: var(--ink); color: var(--on-fill); }
+.look-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; display: grid; gap: 2px; padding: 8px; width: max-content; max-width: min(22em, calc(100vw - 32px)); background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(20, 30, 50, 0.16); }
+.look-list .fpm-item { justify-content: flex-start; }
+.look-dot { width: 0.9em; height: 0.9em; border-radius: 50%; border: 2px solid var(--ink-2); display: inline-block; margin-right: 6px; vertical-align: -0.1em; }
+.look-list [aria-checked="true"] .look-dot { border-color: var(--prop); background: radial-gradient(circle, var(--prop) 0 45%, transparent 50%); }
+.look-note { white-space: normal; padding: 6px 10px 0; }
 
 /* 世帯の選択（押すと、開いている世帯の状態と世帯の一覧が開く） */
-.hh-btn { display: inline-flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); background: #fff; border-radius: 8px; padding: 3px 10px; font-size: 0.88rem; cursor: pointer; max-width: 24em; flex: none; }
+.hh-btn { display: inline-flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); background: var(--card); border-radius: 8px; padding: 3px 10px; font-size: 0.88rem; cursor: pointer; max-width: 24em; flex: none; }
 .hh-btn[aria-expanded="true"] { border-color: var(--prop); background: var(--prop-bg); }
 .hh-btn .hh-no { font-weight: 700; white-space: nowrap; }
 .hh-btn .hh-sub { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
@@ -20,7 +36,7 @@
 
 /* 急ぎの札（保存の失敗・保存を止めている・AIと共有中）。ふだんは出ない */
 .bar-alert { border: 1.5px solid; border-radius: 999px; padding: 2px 11px; font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap; flex: none; }
-.bar-alert.t-err { border-color: var(--short-ink); background: var(--short-ink); color: #fff; }
+.bar-alert.t-err { border-color: var(--short-ink); background: var(--short-ink); color: var(--on-fill); }
 .bar-alert.t-warn, .bar-alert.t-ai { border-color: var(--est); background: var(--est-bg); color: var(--est-ink); }
 .bar-alert .short { display: none; }
 .bar-alert.t-ai::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--est); margin-right: 6px; vertical-align: 1px; }
@@ -31,22 +47,22 @@
 
 /* 元に戻す・やり直す（↶ ↷）。控えめに、メモのボタンの左に置く */
 .undo-btns { display: inline-flex; gap: 4px; flex: none; }
-.undo-btn { width: 34px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--line); background: #fff; color: var(--ink); border-radius: 8px; font-size: 1.15rem; font-weight: 700; line-height: 1; cursor: pointer; padding: 0; }
+.undo-btn { width: 34px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; font-size: 1.15rem; font-weight: 700; line-height: 1; cursor: pointer; padding: 0; }
 .undo-btn:hover:not(:disabled) { border-color: var(--ink); }
 .undo-btn:disabled { color: #b4bbc3; cursor: default; }
 
 /* メモの引き出し */
 .memo-btn { display: inline-flex; align-items: center; gap: 6px; border: 2px solid var(--memo-line); background: var(--memo-bg); border-radius: 8px; padding: 5px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; flex: none; }
-.memo-btn[aria-expanded="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
-.memo-n { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; border-radius: 99px; background: #fff; color: var(--ink); border: 1.5px solid currentColor; font-size: 0.78em; padding: 0 0.3em; }
+.memo-btn[aria-expanded="true"] { background: var(--ink); border-color: var(--ink); color: var(--on-fill); }
+.memo-n { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; border-radius: 99px; background: var(--card); color: var(--ink); border: 1.5px solid currentColor; font-size: 0.78em; padding: 0 0.3em; }
 
 /* FP のメニュー（線のアイコン。↶↷ と同じ大きさ・見た目）。一覧は帯の下に重ねて出す（画面は動かさない） */
 .fpm { position: relative; flex: none; }
-.fpm-btn { width: 34px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--line); background: #fff; color: var(--ink); border-radius: 8px; cursor: pointer; padding: 0; }
+.fpm-btn { width: 34px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; cursor: pointer; padding: 0; }
 .fpm-btn:hover { border-color: var(--ink); }
-.fpm-btn[aria-expanded="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.fpm-btn[aria-expanded="true"] { background: var(--ink); border-color: var(--ink); color: var(--on-fill); }
 .fpm-ico { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; }
-.fpm-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; display: grid; gap: 4px; margin: 0; padding: 8px; width: max-content; min-width: 20em; max-width: min(30em, calc(100vw - 32px)); background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(20, 30, 50, 0.16); }
+.fpm-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; display: grid; gap: 4px; margin: 0; padding: 8px; width: max-content; min-width: 20em; max-width: min(30em, calc(100vw - 32px)); background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(20, 30, 50, 0.16); }
 .fpm-group { display: grid; padding: 2px 0 6px; }
 .fpm-group + .fpm-group { border-top: 1px solid var(--card-line); padding-top: 8px; }
 .fpm-h { font-size: 0.78rem; font-weight: 700; color: var(--ink-2); padding: 0 10px 2px; }
@@ -58,30 +74,30 @@
 /* 文字の大きさ「文字 [中] [大]」（どちらかを選ぶ。選んでいる方を塗る） */
 .fs-pick { display: inline-flex; align-items: center; gap: 4px; flex: none; }
 .fs-lbl { font-weight: 700; font-size: 0.86rem; color: var(--ink-2); margin-right: 2px; white-space: nowrap; }
-.fs-opt { min-width: 2.3em; height: 2.1em; padding: 0 0.5em; display: inline-grid; place-items: center; border: 2px solid var(--ink-2); background: #fff; color: var(--ink); border-radius: 8px; font-weight: 700; font-size: 0.9rem; line-height: 1; cursor: pointer; }
+.fs-opt { min-width: 2.3em; height: 2.1em; padding: 0 0.5em; display: inline-grid; place-items: center; border: 2px solid var(--ink-2); background: var(--card); color: var(--ink); border-radius: 8px; font-weight: 700; font-size: 0.9rem; line-height: 1; cursor: pointer; }
 .fs-opt.fs-l { font-size: 1.05rem; }
 .fs-opt:hover:not([aria-checked="true"]) { border-color: var(--ink); background: var(--prop-bg); }
-.fs-opt[aria-checked="true"] { background: var(--prop); border-color: var(--prop); color: #fff; }
+.fs-opt[aria-checked="true"] { background: var(--prop); border-color: var(--prop); color: var(--on-fill); }
 
 /* 通知の印（件数つき）と一覧。行動を求める通知（復元キーの保管など）をここにまとめる */
 .bell { position: relative; flex: none; }
 /* ボタンはベルの印だけ（文字は出さない。0087）。FP のメニュー・↶↷ と同じ 34×32。未読の数の丸がつくと横に伸びる */
 .bell-btn { min-width: 34px; height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 2px solid var(--est); background: var(--est-bg); color: var(--est-ink); border-radius: 8px; padding: 0 6px; font-weight: 700; cursor: pointer; white-space: nowrap; }
-.bell-btn[aria-expanded="true"] { background: var(--est-ink); border-color: var(--est-ink); color: #fff; }
+.bell-btn[aria-expanded="true"] { background: var(--est-ink); border-color: var(--est-ink); color: var(--on-fill); }
 .bell-ico { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; flex: none; }
-.bell-n { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; border-radius: 99px; background: var(--est); color: #fff; font-size: 0.78em; padding: 0 0.3em; }
+.bell-n { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; border-radius: 99px; background: var(--est); color: var(--on-fill); font-size: 0.78em; padding: 0 0.3em; }
 /* お知らせの一覧（workspace/notices/NoticeCenter.tsx。0087）。未読が0件のときのベルは落ち着いた色（数字なし） */
-.bell-btn.quiet { border-color: var(--line); background: #fff; color: var(--ink-2); }
-.bell-btn.quiet[aria-expanded="true"] { background: var(--ink-2); border-color: var(--ink-2); color: #fff; }
-.nc { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; width: min(34em, calc(100vw - 32px)); max-height: min(70vh, 640px); overflow-y: auto; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(20, 30, 50, 0.16); padding: 10px 12px 8px; font-size: 0.9rem; }
+.bell-btn.quiet { border-color: var(--line); background: var(--card); color: var(--ink-2); }
+.bell-btn.quiet[aria-expanded="true"] { background: var(--ink-2); border-color: var(--ink-2); color: var(--on-fill); }
+.nc { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; width: min(34em, calc(100vw - 32px)); max-height: min(70vh, 640px); overflow-y: auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(20, 30, 50, 0.16); padding: 10px 12px 8px; font-size: 0.9rem; }
 .nc .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .nc-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
 .nc-ttl { font-weight: 700; font-size: 1rem; }
 .nc-tabs { display: inline-flex; border: 1.5px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: 6px; }
-.nc-tabs button { border: 0; background: #fff; padding: 3px 12px; font-weight: 700; cursor: pointer; color: var(--ink-2); }
-.nc-tabs button.on { background: var(--prop); color: #fff; }
+.nc-tabs button { border: 0; background: var(--card); padding: 3px 12px; font-weight: 700; cursor: pointer; color: var(--ink-2); }
+.nc-tabs button.on { background: var(--prop); color: var(--on-fill); }
 .nc-cats { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-bottom: 6px; }
-.nc-cat-pick { border: 1.5px solid var(--line); background: #fff; border-radius: 99px; padding: 1px 10px; font-size: 0.8rem; cursor: pointer; color: var(--ink-2); }
+.nc-cat-pick { border: 1.5px solid var(--line); background: var(--card); border-radius: 99px; padding: 1px 10px; font-size: 0.8rem; cursor: pointer; color: var(--ink-2); }
 .nc-cat-pick.on { border-color: var(--ink); color: var(--ink); font-weight: 700; background: var(--base-bg); }
 .nc-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-2); }
 .nc-list li { border-bottom: 1px solid var(--line-2); }
@@ -107,9 +123,9 @@
 .nc-cat-pick.c-data::before { background: var(--good); }
 .nc-cat-pick.c-household::before { background: var(--est); }
 .nc-cat-pick.c-office::before { background: var(--base); }
-.u-critical.nc-urg { background: var(--short); color: #fff; }
-.u-info.nc-urg { background: #fff; color: var(--ink-2); border: 1px solid var(--line); }
-.nc-rcpt { background: var(--good); color: #fff; }
+.u-critical.nc-urg { background: var(--short); color: var(--on-fill); }
+.u-info.nc-urg { background: var(--card); color: var(--ink-2); border: 1px solid var(--line); }
+.nc-rcpt { background: var(--good); color: var(--on-fill); }
 .nc-date { font-size: 0.78rem; color: var(--ink-2); }
 .nc-empty { color: var(--ink-2); margin: 14px 4px; }
 .nc-foot { border-top: 1px solid var(--line-2); margin-top: 6px; padding-top: 6px; text-align: right; }
@@ -148,6 +164,8 @@
 /* 2: 世帯のボタンを省略して詰める・ロゴの文字と「文字」のラベルを隠す（［中］［大］の名前に「文字の大きさ」が入っている）・タブの間を詰める */
 .top:is([data-fit="2"], [data-fit="3"]) { grid-template-columns: minmax(min-content, 1fr) auto max-content; padding-left: 14px; padding-right: 14px; }
 .top:is([data-fit="2"], [data-fit="3"]) .brand-name { display: none; }
+/* 事務所の名前だけ（ロゴが無い）のときは、名前を隠さずに短くする */
+.top:is([data-fit="2"], [data-fit="3"]) .brand.office:not(.has-logo) .brand-name { display: inline; max-width: 7em; }
 .top:is([data-fit="2"], [data-fit="3"]) .fs-lbl { display: none; }
 .top:is([data-fit="2"], [data-fit="3"]) .hh-btn { flex: 0 1 auto; min-width: 6em; overflow: hidden; }
 .top:is([data-fit="2"], [data-fit="3"]) .tabs button { padding: 6px 7px; }
@@ -181,18 +199,18 @@
 /* 世帯の選択の出方（header/HouseholdDrop.tsx）: 箱のすぐ下から一覧が下へ伸びて出る。後ろの画面は薄く暗くして残す（箱だけは暗くしない）。
    上端の小さな三角が箱を指す（--arrow-x）。高さが窓に収まらないときは .hh-drop-in の中だけ縦に送る。位置・幅・高さは部品が箱から測って決める */
 .hh-scrim { position: fixed; inset: 0; z-index: 32; background: rgba(20, 26, 38, 0.34); }
-.hh-btn[aria-expanded="true"] { position: relative; z-index: 36; box-shadow: 0 0 0 3px #fff; }
-.hh-drop { position: fixed; z-index: 34; top: 64px; left: 16px; width: min(1080px, calc(100vw - 32px)); box-sizing: border-box; background: #fff; border: 1.5px solid var(--prop); border-radius: 10px; box-shadow: 0 16px 44px rgba(10, 20, 40, 0.3); transform-origin: var(--arrow-x, 40px) 0; }
+.hh-btn[aria-expanded="true"] { position: relative; z-index: 36; box-shadow: 0 0 0 3px var(--card); }
+.hh-drop { position: fixed; z-index: 34; top: 64px; left: 16px; width: min(1080px, calc(100vw - 32px)); box-sizing: border-box; background: var(--card); border: 1.5px solid var(--prop); border-radius: 10px; box-shadow: 0 16px 44px rgba(10, 20, 40, 0.3); transform-origin: var(--arrow-x, 40px) 0; }
 /* 開いたときに一覧そのものへフォーカスを移す（枠の色で一覧と分かるので、フォーカスの線は重ねない。中の欄・ボタンには線が出る） */
 .hh-drop:focus { outline: none; }
-.hh-drop::before { content: ""; position: absolute; top: -8px; left: calc(var(--arrow-x, 40px) - 7px); width: 14px; height: 14px; box-sizing: border-box; background: #fff; border-left: 1.5px solid var(--prop); border-top: 1.5px solid var(--prop); border-top-left-radius: 2px; transform: rotate(45deg); z-index: 3; }
+.hh-drop::before { content: ""; position: absolute; top: -8px; left: calc(var(--arrow-x, 40px) - 7px); width: 14px; height: 14px; box-sizing: border-box; background: var(--card); border-left: 1.5px solid var(--prop); border-top: 1.5px solid var(--prop); border-top-left-radius: 2px; transform: rotate(45deg); z-index: 3; }
 .hh-drop-in { max-height: calc(100vh - 88px); overflow-y: auto; overscroll-behavior: contain; border-radius: 10px; }
 .hh-drop.is-out, .hh-scrim.is-out { pointer-events: none; }
 /* 一覧（世帯の一覧の部品）は枠を外して中に置く。頭の「世帯を選ぶ」と × は、縦に送っても上に残す */
 .hh-drop .hh-panel { margin: 0; border: none; border-radius: 10px; padding-top: 0; }
-.hh-drop .hh-head { position: sticky; top: 0; z-index: 2; align-items: center; justify-content: flex-start; gap: 4px 14px; margin: 0 -18px 10px; padding: 12px 12px 10px 18px; background: #fff; border-bottom: 1px solid var(--line-2); border-radius: 10px 10px 0 0; }
+.hh-drop .hh-head { position: sticky; top: 0; z-index: 2; align-items: center; justify-content: flex-start; gap: 4px 14px; margin: 0 -18px 10px; padding: 12px 12px 10px 18px; background: var(--card); border-bottom: 1px solid var(--line-2); border-radius: 10px 10px 0 0; }
 .hh-head .aside { flex: 1 1 18em; min-width: 0; }
-.hh-x { flex: none; margin-left: auto; width: 2rem; height: 2rem; display: inline-grid; place-items: center; border: 1.5px solid var(--line); background: #fff; border-radius: 8px; font-size: 1.1rem; font-weight: 700; line-height: 1; cursor: pointer; color: var(--ink-2); padding: 0; }
+.hh-x { flex: none; margin-left: auto; width: 2rem; height: 2rem; display: inline-grid; place-items: center; border: 1.5px solid var(--line); background: var(--card); border-radius: 8px; font-size: 1.1rem; font-weight: 700; line-height: 1; cursor: pointer; color: var(--ink-2); padding: 0; }
 .hh-x:hover { border-color: var(--ink); color: var(--ink); }
 .hh-x:focus-visible { outline: 3px solid var(--prop); outline-offset: 1px; }
 .hh-drop .hh-now { border: none; border-radius: 8px; background: var(--base-bg); padding: 8px 14px; }
@@ -217,5 +235,5 @@
 .main-stack > .basis-line { margin: 0 0 -4px; }
 
 /* 開発用のビルドの印（画面の右下に小さく。押す操作の邪魔をしない） */
-.dev-keys { position: fixed; right: 8px; bottom: 6px; z-index: 5; pointer-events: none; border: 1px dashed var(--short-ink); color: var(--short-ink); background: rgba(255, 255, 255, 0.88); border-radius: 6px; padding: 0 6px; font-size: 0.7rem; font-weight: 700; white-space: nowrap; }
+.dev-keys { position: fixed; right: 8px; bottom: 6px; z-index: 5; pointer-events: none; border: 1px dashed var(--short-ink); color: var(--short-ink); background: color-mix(in srgb, var(--card) 88%, transparent); border-radius: 6px; padding: 0 6px; font-size: 0.7rem; font-weight: 700; white-space: nowrap; }
 @media print { .dev-keys { display: none; } }

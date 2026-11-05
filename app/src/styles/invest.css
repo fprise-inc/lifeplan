@@ -16,7 +16,7 @@
 html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 
 .sv { padding-top: 8px; }
-.sv-howto { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; border: 1px solid var(--line-2); border-radius: 10px; padding: 10px 14px; background: #fafbfc; }
+.sv-howto { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; border: 1px solid var(--line-2); border-radius: 10px; padding: 10px 14px; background: var(--wash, #fafbfc); }
 .sv-howto .k { font-weight: 700; }
 .sv-howto .seg-g button { padding: 5px 18px; font-size: 1rem; }
 .sv-howto .d { color: var(--ink-2); font-size: 0.88rem; flex: 1 1 260px; }
@@ -29,16 +29,16 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .sv-acc th, .sv-acc td, .sv-cls th, .sv-cls td { padding: 8px 8px; border-bottom: 1px solid var(--line-2); text-align: right; vertical-align: top; white-space: nowrap; }
 /* 表の中の利回りの欄の知らせ（範囲の外の率。0098）は折り返して、列を広げない */
 .sv-acc td .sv-rate-msg { white-space: normal; max-width: 13em; margin-left: auto; text-align: left; font-size: 0.78rem; }
-.sv-acc th, .sv-cls th { font-size: 0.82rem; color: var(--ink-2); background: #f6f7f8; }
+.sv-acc th, .sv-cls th { font-size: 0.82rem; color: var(--ink-2); background: var(--wash, #f6f7f8); }
 .sv-acc .l, .sv-cls .l { text-align: left; }
 .sv-acc td.l:first-child { white-space: normal; min-width: 12em; max-width: 17em; }
-.sv-acc tfoot th, .sv-acc tfoot td, .sv-cls tfoot th, .sv-cls tfoot td { font-weight: 700; background: #f6f7f8; color: var(--ink); }
+.sv-acc tfoot th, .sv-acc tfoot td, .sv-cls tfoot th, .sv-cls tfoot td { font-weight: 700; background: var(--wash, #f6f7f8); color: var(--ink); }
 .sv-acc .nm, .sv-cls .nm { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
 .sv-acc .sw, .sv-cls .sw { width: 14px; height: 14px; border-radius: 3px; display: inline-block; flex: none; }
 .sv-acc .memo { display: block; font-size: 0.78rem; color: var(--ink-2); margin-top: 2px; white-space: normal; }
 .sv-acc .own { display: flex; gap: 8px; align-items: center; margin-top: 4px; font-size: 0.8rem; }
 .sv-acc .own select { font-size: 0.8rem; border: 1px solid var(--line); border-radius: 5px; padding: 1px 4px; }
-.sv-acc tr.un td { background: #f6f3fa; }
+.sv-acc tr.un td { background: var(--wash, #f6f3fa); }
 .sv-acc .ro { color: var(--ink-2); }
 .sv-acc .stx { display: block; }
 .sv-acc .calc small { display: block; font-size: 0.75rem; color: var(--ink-2); font-weight: 400; }
@@ -46,7 +46,7 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .sv-acc td.none { color: var(--ink-2); }
 .sv-sub { margin-top: 6px; font-size: 0.8rem; color: var(--ink-2); }
 .sv-tr { font-size: 0.78rem; font-weight: 700; color: var(--ink-2); margin: 2px 0; }
-.sv-n { border: 1.5px solid var(--field); border-radius: 6px; padding: 5px 8px; width: 6.2em; text-align: right; font: inherit; font-variant-numeric: tabular-nums; background: #fff; }
+.sv-n { border: 1.5px solid var(--field); border-radius: 6px; padding: 5px 8px; width: 6.2em; text-align: right; font: inherit; font-variant-numeric: tabular-nums; background: var(--card); }
 .sv-n.s { width: 4.6em; }
 .sv-n.xs { width: 3.2em; }
 .sv-n.est { border-style: dashed; border-color: var(--est); background: var(--est-bg); }
@@ -88,11 +88,11 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .sv-mixh { display: flex; gap: 10px 16px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
 .sv-mixh .sv-note { margin: 0; }
 .sv-order { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 0; }
-.sv-order li { display: inline-flex; align-items: center; gap: 4px; border: 1.5px solid var(--line); border-radius: 8px; padding: 3px 6px; font-weight: 700; background: #fff; }
-.sv-order .k { display: inline-grid; place-items: center; width: 1.4em; height: 1.4em; border-radius: 50%; background: var(--ink); color: #fff; font-size: 0.75rem; }
-.sv-order button { border: 1px solid var(--line); background: #fff; border-radius: 4px; cursor: pointer; font-size: 0.7rem; padding: 1px 4px; }
+.sv-order li { display: inline-flex; align-items: center; gap: 4px; border: 1.5px solid var(--line); border-radius: 8px; padding: 3px 6px; font-weight: 700; background: var(--card); }
+.sv-order .k { display: inline-grid; place-items: center; width: 1.4em; height: 1.4em; border-radius: 50%; background: var(--ink); color: var(--on-fill); font-size: 0.75rem; }
+.sv-order button { border: 1px solid var(--line); background: var(--card); border-radius: 4px; cursor: pointer; font-size: 0.7rem; padding: 1px 4px; }
 .sv-order button:disabled { opacity: 0.35; cursor: default; }
-.sv-dc { border: 1px solid var(--card-line); border-radius: 9px; padding: 6px 12px; margin: 8px 0; background: #fcfcfb; }
+.sv-dc { border: 1px solid var(--card-line); border-radius: 9px; padding: 6px 12px; margin: 8px 0; background: var(--wash, #fcfcfb); }
 .sv-dc h4 { margin: 4px 0; font-size: 0.95rem; }
 .sv-recv { font-weight: 700; }
 .sv-per { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
@@ -100,7 +100,7 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .sv-per .per-c.acc { border-color: var(--p-acc); background: var(--p-acc-bg); }
 .sv-per .per-c.hold { border-color: var(--p-hold); background: var(--p-hold-bg); }
 .sv-per .per-c.wd { border-color: var(--p-wd-line); background: var(--p-wd-bg); }
-.sv-per .per-c.off { border-color: var(--line-2); background: #fafafa; color: var(--ink-2); }
+.sv-per .per-c.off { border-color: var(--line-2); background: var(--wash, #fafafa); color: var(--ink-2); }
 .sv-per .pt { font-weight: 700; margin-bottom: 4px; }
 .sv-per .pv { font-size: 0.9rem; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 @media (max-width: 720px) { .sv-per { grid-template-columns: 1fr; } }
@@ -109,7 +109,7 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .donut-pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .donut-pair.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 760px) { .donut-pair.two { grid-template-columns: minmax(0, 1fr); } }
-.donut { margin: 0; border: 1px solid var(--line-2); border-radius: 10px; padding: 8px 10px; background: #fff; min-width: 0; }
+.donut { margin: 0; border: 1px solid var(--line-2); border-radius: 10px; padding: 8px 10px; background: var(--card); min-width: 0; }
 .donut figcaption { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; margin-bottom: 4px; }
 .donut figcaption span { font-size: 0.8rem; color: var(--ink-2); }
 .donut-body { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
@@ -127,7 +127,7 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .donut-legend .pc { color: var(--ink-2); }
 
 /* 資産の推移: 口座の内訳の面 */
-.chart .inv-area { stroke: #fff; stroke-width: 0.6; }
+.chart .inv-area { stroke: var(--card); stroke-width: 0.6; }
 .inv-dep { fill: #cad2dd; background: #cad2dd; }
 .inv-un { fill: #ddd6e8; background: #ddd6e8; }
 .inv-dc { fill: #a8c59e; background: #a8c59e; }
@@ -139,7 +139,7 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .chart .stress-line.s-drop { stroke: var(--s1); }
 .chart .stress-line.s-low { stroke: var(--s2); stroke-dasharray: 7 3; }
 .chart .stress-line.s-minus1 { stroke: var(--s3); stroke-dasharray: 2 3; }
-.chart .stress-txt { font-size: 12px; font-weight: 700; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.chart .stress-txt { font-size: 12px; font-weight: 700; paint-order: stroke; stroke: var(--card); stroke-width: 3px; }
 .chart .stress-txt.s-drop { fill: var(--s1); }
 .chart .stress-txt.s-low { fill: var(--s2); }
 .chart .stress-txt.s-minus1 { fill: var(--s3); }
@@ -152,10 +152,10 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .inv-tools { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
 .inv-tools .chk { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
 .inv-tools .chk input { width: 18px; height: 18px; accent-color: var(--prop); }
-.stress-btn { border: 2px solid var(--prop); color: var(--prop); background: #fff; border-radius: 8px; padding: 4px 12px; font-weight: 700; cursor: pointer; }
+.stress-btn { border: 2px solid var(--prop); color: var(--prop); background: var(--card); border-radius: 8px; padding: 4px 12px; font-weight: 700; cursor: pointer; }
 .stress-btn.on { background: var(--prop-bg); }
 .stress-list { list-style: none; padding: 0; margin: 2px 0 0; width: 100%; display: flex; flex-wrap: wrap; gap: 4px 8px; }
-.stress-list button { display: inline-flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); background: #fff; border-radius: 8px; padding: 3px 10px; cursor: pointer; font-size: 0.85rem; }
+.stress-list button { display: inline-flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); background: var(--card); border-radius: 8px; padding: 3px 10px; cursor: pointer; font-size: 0.85rem; }
 .stress-list li.off button { opacity: 0.5; text-decoration: line-through; }
 .stress-list .sl { display: inline-block; width: 22px; height: 0; border-top: 3px solid; }
 .stress-list .sl.s-drop { border-color: var(--s1); }
@@ -166,17 +166,17 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 /* 運用の期間の帯（グラフの上。x はグラフの年の位置） */
 .pband { position: relative; height: 3.2rem; margin: 6px 0 2px; }
 .pb-seg { position: absolute; top: 0; height: 100%; box-sizing: border-box; border: 1.5px solid; border-radius: 6px; padding: 2px 8px; overflow: hidden; font-size: 0.82rem; }
-.pb-seg.acc { border-color: var(--p-acc); background: var(--p-acc-bg); color: #233f75; }
+.pb-seg.acc { border-color: var(--p-acc); background: var(--p-acc-bg); color: var(--prop-ink); }
 .pb-seg.hold { border-color: var(--p-hold); background: var(--p-hold-bg); color: var(--ink-2); }
-.pb-seg.wd { border-color: var(--p-wd-line); background: var(--p-wd-bg); color: #7a3410; }
+.pb-seg.wd { border-color: var(--p-wd-line); background: var(--p-wd-bg); color: var(--tx-rust, #7a3410); }
 .pb-t { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pb-seg.tiny .pb-t { visibility: hidden; }
 .pb-est { margin-left: 6px; font-size: 0.72rem; color: var(--est-ink); background: var(--est-bg); border: 1.2px solid var(--est-band); border-radius: 99px; padding: 0 6px; }
 .pb-est::before { content: "! "; }
 .pb-steps { position: relative; height: 1.3em; }
-.pb-step { position: absolute; top: 0; box-sizing: border-box; border-left: 1px solid rgba(43, 76, 140, 0.45); padding-left: 4px; font-size: 0.74rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-align: center; }
+.pb-step { position: absolute; top: 0; box-sizing: border-box; border-left: 1px solid color-mix(in srgb, var(--prop) 45%, transparent); padding-left: 4px; font-size: 0.74rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-align: center; }
 .pb-step:first-child { border-left: 0; }
-.pb-h { position: absolute; top: -3px; height: calc(100% + 6px); width: 14px; margin-left: -7px; border: 2px solid var(--ink); background: #fff; border-radius: 6px; cursor: ew-resize; padding: 0; z-index: 2; touch-action: none; }
+.pb-h { position: absolute; top: -3px; height: calc(100% + 6px); width: 14px; margin-left: -7px; border: 2px solid var(--ink); background: var(--card); border-radius: 6px; cursor: ew-resize; padding: 0; z-index: 2; touch-action: none; }
 .pb-h i { display: block; width: 2px; height: 40%; margin: 0 auto; background: var(--ink-2); }
 /* 動かせないとき（基準のプラン・現状）: つまみは見えるまま薄くし、乗せる・フォーカスする・押すと理由の札（.year-tip と同じ見た目）を出す */
 .pb-h.locked { cursor: not-allowed; border-color: var(--line); }
@@ -192,7 +192,7 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .donut-note { font-size: 0.8rem; color: var(--ink-2); }
 
 /* 取り崩しの計算（対策の欄の中） */
-.dd-calc { margin-top: 12px; border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #fbfbfa; }
+.dd-calc { margin-top: 12px; border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--wash, #fbfbfa); }
 .dd-calc.closed { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-style: dashed; }
 .dd-h { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 6px; }
 .dd-hint { font-size: 0.8rem; color: var(--ink-2); }

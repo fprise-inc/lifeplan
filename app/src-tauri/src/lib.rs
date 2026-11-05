@@ -112,14 +112,19 @@ async fn evidence(request: String) -> Result<Response, String> {
 /// 作った PDF は本体の中に置き、画面には大きさと時間だけを返す
 #[tauri::command]
 async fn proposal_render(
+    app: AppHandle,
     state: State<'_, ReportState>,
     input: String,
     addressee: Option<String>,
+    accent: Option<String>,
 ) -> Result<RenderInfo, String> {
-    let (prepared, info) =
-        tauri::async_runtime::spawn_blocking(move || report::render(&input, addressee.as_deref()))
-            .await
-            .map_err(|_| "E_HOST_THREAD".to_owned())??;
+    // 事務所の見た目（0121）: 事務所の名前とロゴは事務所データから（読めなければ無し）。アクセントの色は画面が見やすさを確かめて導いた色
+    let brand = office::report_brand(&app, accent.as_deref());
+    let (prepared, info) = tauri::async_runtime::spawn_blocking(move || {
+        report::render(&input, addressee.as_deref(), brand)
+    })
+    .await
+    .map_err(|_| "E_HOST_THREAD".to_owned())??;
     *state.0.lock().map_err(|_| "E_HOST_LOCK".to_owned())? = Some(prepared);
     Ok(info)
 }
@@ -378,6 +383,9 @@ pub fn run() {
             office::office_accept_roster,
             office::office_defaults_get,
             office::office_defaults_put,
+            office::office_branding_get,
+            office::office_branding_put,
+            office::office_logo_pick,
             features::feature_codes_status,
             features::feature_code_add,
             features::feature_code_remove,

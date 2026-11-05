@@ -18,9 +18,9 @@
 .hh-tabs { margin: 2px 0 6px; border-bottom: 1px solid var(--line-2); }
 .hh-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin: 4px 0 8px; font-size: 0.88rem; }
 .hh-tools input[type="search"] { border: 1.5px solid var(--field); border-radius: 6px; padding: 3px 8px; width: 11em; }
-.hh-sel { border: 1.5px solid var(--field); border-radius: 6px; padding: 2px 4px; background: #fff; font: inherit; }
+.hh-sel { border: 1.5px solid var(--field); border-radius: 6px; padding: 2px 4px; background: var(--card); font: inherit; }
 .hh-traits { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-.hh-trait { border: 1.5px solid var(--line); background: #fff; border-radius: 99px; padding: 1px 9px; font-size: 0.8rem; cursor: pointer; color: var(--ink-2); }
+.hh-trait { border: 1.5px solid var(--line); background: var(--card); border-radius: 99px; padding: 1px 9px; font-size: 0.8rem; cursor: pointer; color: var(--ink-2); }
 .hh-trait.on { border-color: var(--prop); background: var(--prop-bg); color: var(--ink); font-weight: 700; }
 .hh-tags { display: inline-flex; flex-wrap: wrap; gap: 3px; }
 .hh-tag { font-size: 0.75rem; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; color: var(--ink-2); white-space: nowrap; }
@@ -41,7 +41,7 @@
 .hh-foot { display: flex; gap: 10px; align-items: baseline; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line-2); }
 
 /* 復元キーの中央のパネル */
-.rk-panel { position: fixed; z-index: 50; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow-y: auto; background: #fff; border-radius: 12px; border-top: 6px solid var(--prop); padding: 18px 24px 16px; box-shadow: 0 18px 48px rgba(20, 30, 50, 0.28); }
+.rk-panel { position: fixed; z-index: 50; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow-y: auto; background: var(--card); border-radius: 12px; border-top: 6px solid var(--prop); padding: 18px 24px 16px; box-shadow: 0 18px 48px rgba(20, 30, 50, 0.28); }
 .rk-panel:focus { outline: none; }
 .rk-panel h2 { margin: 0 0 8px; font-size: 1.25rem; }
 .rk-panel h3 { margin: 14px 0 4px; font-size: 0.98rem; }
@@ -72,12 +72,12 @@ html.big .rk-key { font-size: 1.45rem; }
 .of-requests { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 8px; }
 .of-requests li { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; border: 1.5px solid var(--est-band); background: var(--est-bg); border-radius: 8px; padding: 8px 12px; }
 .of-fp-input { flex: 0 1 17em; border: 1.5px solid var(--field); border-radius: 6px; padding: 5px 8px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; text-transform: uppercase; }
-.of-remove { border: 1.5px solid var(--short-ink); border-radius: 8px; padding: 8px 12px; margin: 10px 0; background: #fff7f5; }
+.of-remove { border: 1.5px solid var(--short-ink); border-radius: 8px; padding: 8px 12px; margin: 10px 0; background: var(--wash-short, #fff7f5); }
 .of-remove input { border: 1.5px solid var(--field); border-radius: 6px; padding: 3px 6px; width: 10em; }
 .of-alert { border: 2px solid var(--est); background: var(--est-bg); border-radius: 8px; padding: 8px 12px; margin: 10px 0; }
 .of-alert p { margin: 4px 0; }
-.of-alert-strong { font-weight: 700; color: var(--short-ink); border-left: 4px solid var(--short-ink); padding: 4px 8px; background: #fff7f5; border-radius: 0 6px 6px 0; }
-.of-lock { border: 2px solid var(--short-ink); background: #fff7f5; border-radius: 8px; padding: 8px 12px; margin: 10px 0; }
+.of-alert-strong { font-weight: 700; color: var(--short-ink); border-left: 4px solid var(--short-ink); padding: 4px 8px; background: var(--wash-short, #fff7f5); border-radius: 0 6px 6px 0; }
+.of-lock { border: 2px solid var(--short-ink); background: var(--wash-short, #fff7f5); border-radius: 8px; padding: 8px 12px; margin: 10px 0; }
 .of-lock p { margin: 4px 0; }
 .of-recover { margin: 14px 0 4px; }
 .of-recover summary { cursor: pointer; font-weight: 700; }
@@ -107,12 +107,29 @@ html.big .rk-key { font-size: 1.45rem; }
 /* 保存先（1人で2台の PC の同期フォルダ。0024）: 保存先のパネルの節・保存先と同期の通知・初回の案内の「2台目の PC」 */
 .sp-section { border-top: 1px solid var(--line-2); margin-top: 12px; padding-top: 4px; }
 .sp-notices { list-style: none; padding: 0; margin: 6px 0 10px; display: grid; gap: 6px; }
-.sp-notices li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; border-radius: 8px; padding: 6px 12px; font-size: 0.88rem; border: 1.5px solid var(--line); background: #fff; }
+.sp-notices li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; border-radius: 8px; padding: 6px 12px; font-size: 0.88rem; border: 1.5px solid var(--line); background: var(--card); }
 .sp-notices .sp-n-warn { border-color: var(--est-band); background: var(--est-bg); color: var(--est-ink); font-weight: 700; }
-.sp-notices .sp-n-alert { border-color: var(--short-ink); background: #fff7f5; color: var(--short-ink); font-weight: 700; }
+.sp-notices .sp-n-alert { border-color: var(--short-ink); background: var(--wash-short, #fff7f5); color: var(--short-ink); font-weight: 700; }
 .sp-second { border: 2px solid var(--prop); background: var(--prop-bg); border-radius: 8px; padding: 8px 12px; margin: 6px 0 10px; }
 .sp-second p { margin: 4px 0; }
 
 /* 事務所の既定値の「対策に最初から出す項目」（0084。パネルのほかの区画は app.css の .os-） */
 .os-lever-group h4 { font-size: 0.84rem; font-weight: 700; color: var(--ink-2); margin: 8px 0 2px; }
 .os-lever-group .os-note { color: var(--ink-2); font-size: 0.76rem; }
+
+/* 事務所の見た目（0121。事務所の既定値のパネルの区画） */
+.os-brand-logo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 36px; }
+.os-logo-prev { border: 1px dashed var(--line); border-radius: 4px; }
+.os-logo-none { color: var(--ink-2); font-size: 0.88rem; }
+.os-brand-colors { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin: 10px 0 4px; }
+.os-brand-k { font-weight: 700; font-size: 0.9rem; margin-right: 4px; }
+.os-swatch { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); border-radius: 999px; padding: 3px 10px 3px 4px; font-size: 0.86rem; font-weight: 700; cursor: pointer; }
+.os-swatch[aria-checked="true"] { border-color: var(--ink); box-shadow: 0 0 0 1.5px var(--ink); }
+.os-swatch-c { width: 1.3em; height: 1.3em; border-radius: 50%; display: inline-block; border: 1px solid rgba(0, 0, 0, 0.15); }
+.os-swatch-free { cursor: default; padding: 2px 6px 2px 4px; }
+.os-swatch-free input[type="color"] { width: 1.9em; height: 1.6em; border: 0; padding: 0; background: none; cursor: pointer; }
+.os-hex { width: 6.2em; font-family: ui-monospace, monospace; font-size: 0.85rem; border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; background: var(--card); }
+.os-brand-notes { margin: 6px 0; padding: 6px 10px 6px 26px; border-radius: 8px; background: var(--est-bg); color: var(--est-ink); font-size: 0.86rem; }
+.os-brand-notes.bad { background: var(--short-bg); color: var(--short-ink); font-weight: 700; }
+.os-in .os-brand-name { width: 16em; max-width: 100%; text-align: left; }
+[data-office-branding] .btn:disabled { opacity: 0.45; cursor: not-allowed; }

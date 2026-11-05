@@ -369,6 +369,37 @@ pub async fn open_statement<R: Runtime>(
     read_limited(&path, max_bytes).map(Some)
 }
 
+/// 事務所のロゴの画像（PNG・JPEG。0121）を選んで中身を返す。選ばなかったときは None。パス・ファイル名は返さない。
+/// 開発用のビルドだけ、環境変数 `FINANCIA_DEV_OPEN_LOGO` のファイルをダイアログの代わりに読む
+pub async fn open_logo<R: Runtime>(
+    window: &WebviewWindow<R>,
+    max_bytes: u64,
+) -> Result<Option<Vec<u8>>, String> {
+    let dev = if cfg!(debug_assertions) {
+        std::env::var_os("FINANCIA_DEV_OPEN_LOGO")
+            .filter(|v| !v.is_empty())
+            .map(PathBuf::from)
+    } else {
+        None
+    };
+    let path = match dev {
+        Some(p) => p,
+        None => {
+            let picked = rfd::AsyncFileDialog::new()
+                .set_title("事務所のロゴの画像を選ぶ（PNG・JPEG）")
+                .add_filter("画像（PNG・JPEG）", &["png", "jpg", "jpeg"])
+                .set_parent(window)
+                .pick_file()
+                .await;
+            match picked {
+                Some(h) => h.path().to_path_buf(),
+                None => return Ok(None),
+            }
+        }
+    };
+    read_limited(&path, max_bytes).map(Some)
+}
+
 fn read_limited(path: &Path, max_bytes: u64) -> Result<Vec<u8>, String> {
     let meta = std::fs::metadata(path).map_err(|_| "E_IMPORT_READ".to_owned())?;
     if !meta.is_file() {

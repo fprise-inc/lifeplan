@@ -282,7 +282,7 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
               <line x1="0" y1="0" x2="0" y2="7" stroke="var(--bs-short-line)" stroke-width="2" />
             </pattern>
             <pattern id={`${uid}-ng`} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
-              <rect width="8" height="8" fill="#fff" />
+              <rect width="8" height="8" fill="var(--card)" />
               <line x1="0" y1="0" x2="0" y2="8" stroke="#b5bcc6" stroke-width="2" />
             </pattern>
           </defs>
@@ -397,7 +397,7 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                   </text>
                 ) : null}
                 {d.box.key === "neg" && d.bot - d.top >= fs * 1.6 ? (
-                  <text x={d.x + colW / 2} y={(d.top + d.bot) / 2 + fs * 0.3} text-anchor="middle" font-size={fs * 0.8} fill="var(--ink-2)" font-weight="700" paint-order="stroke" stroke="#fff" stroke-width="4">
+                  <text x={d.x + colW / 2} y={(d.top + d.bot) / 2 + fs * 0.3} text-anchor="middle" font-size={fs * 0.8} fill="var(--ink-2)" font-weight="700" paint-order="stroke" stroke="var(--card)" stroke-width="4">
                     足りない分
                   </text>
                 ) : null}
@@ -434,8 +434,8 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
           <line data-bs-baseline x1={Math.max(0.5, xL - 8)} x2={axL + 5} y1={base + 0.6} y2={base + 0.6} stroke="#9aa3ae" stroke-width="1.2" />
           {!compact && !noTag && !narrow ? (
             <g data-bs-kind={est ? "est" : "fact"}>
-              <rect x="2" y="2" width={tagW} height={fs * 1.55} rx="4" fill={est ? "#fff" : "var(--ink)"} stroke={est ? "var(--ink-2)" : "var(--ink)"} stroke-width="1.5" />
-              <text x="11" y={2 + fs * 1.1} font-size={fs * 0.8} font-weight="700" fill={est ? "var(--ink-2)" : "#fff"}>
+              <rect x="2" y="2" width={tagW} height={fs * 1.55} rx="4" fill={est ? "var(--card)" : "var(--ink)"} stroke={est ? "var(--ink-2)" : "var(--ink)"} stroke-width="1.5" />
+              <text x="11" y={2 + fs * 1.1} font-size={fs * 0.8} font-weight="700" fill={est ? "var(--ink-2)" : "var(--on-fill)"}>
                 {tag}
               </text>
             </g>
@@ -533,7 +533,7 @@ function BoxPop({ d, year, name, colW, xL, xR, W, onClose }: { d: Drawn; year: B
   return (
     <div class={`bsf-pop ${leftSide ? "to-r" : "to-l"}`} ref={el} style={{ left: `${left}px`, top: `${top}px` }} role="dialog" aria-label={`${name}の内訳`} data-bs-pop={k} onClick={(e) => e.stopPropagation()}>
       <div class="pt">
-        <span class="sw" style={{ background: k === "netWorth" ? "var(--bs-netWorth)" : k === "neg" ? "#fff" : lineColor(lines[0]?.key ?? k, k) }} />
+        <span class="sw" style={{ background: k === "netWorth" ? "var(--bs-netWorth)" : k === "neg" ? "var(--card)" : lineColor(lines[0]?.key ?? k, k) }} />
         {name}
         <span class="py num">{year.year}年</span>
         <button type="button" class="x" aria-label="閉じる" onClick={onClose}>

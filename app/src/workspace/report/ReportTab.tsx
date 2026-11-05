@@ -5,6 +5,7 @@
 // - 保存したら、その時点の控え（0009 の2。きっかけ「PDF書き出し」）を残す（宛名・担当は控えに入れない）
 // - タブの上の切り替えで「持ち帰り用のレポート」（顧客に渡す HTML ファイル1つ。0030。workspace/takeaway/TakeawayPanel.tsx）も作る。
 //   どちらも「顧客に渡すもの」で、載せるプランの選び方・宛名・平文の書き出しの出口が同じなので、上のタブを増やさずに同じタブの中に置く
+import { brandingNow, reportAccent } from "../office/branding.ts";
 import { useContext, useEffect, useMemo, useState } from "preact/hooks";
 import { chapterList, E_REPORT_NO_YEARS, hasMaterial, type CashflowLayout, type ChapterId, type Orientation, type ProposalInput } from "../../../../report/src/index.ts";
 import type { HostApi, RenderInfo, SaveOutcome } from "../../engine/host.ts";
@@ -187,7 +188,8 @@ function ProposalPdf(p: Props) {
       setStatus({ kind: "busy", step: "作成しています…" });
       const input = reportInput({ ...plan.bundle(results), ...(rowNames !== undefined ? { names: rowNames } : {}) });
       const t2 = performance.now();
-      const ri = await p.host.report.render(JSON.stringify(input), addressee.trim() === "" ? null : addressee.trim());
+      // 事務所の基調の色（0121）を見出しなどの色に。事務所の名前とロゴは本体が事務所データから入れる
+      const ri = await p.host.report.render(JSON.stringify(input), addressee.trim() === "" ? null : addressee.trim(), reportAccent(brandingNow()));
       const t3 = performance.now();
       // 見本の1ページ目を待つ（ここまでを「できるまでの時間」とする。読んだものは見本の画面がそのまま使う）
       const firstSvg = await p.host.report.pageSvg(0).catch(() => null);

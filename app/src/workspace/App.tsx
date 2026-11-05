@@ -1,7 +1,7 @@
 // 画面の大枠（作業の層）: 世帯を開き、案（現状＋帯に並べた案）を二本立てのエンジンで計算し、提示用の値を作って提示層の部品に渡す。
 // 主画面の配置（2026-10-17 に決定）: 上から ① 案の帯 → ② グラフ（幅いっぱい・上下を大きく） → ③ 対策 → ④ 生涯キャッシュフロー表
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
-import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DualEngine } from "../engine/dual.ts";
 import { devBrowserHost, isTauri, singleCompute, tauriHost, webEngine, type AiCandidate, type ForkInfo, type HostApi, type OfficeStatus, type PresenceView, type StorageNotice, type StoredHousehold, type StoredOpened, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
 import { isEngineError } from "../engine/types.ts";
@@ -47,6 +47,7 @@ import { blankHousehold, fromRequest, sampleRequest, withElementIds, type Workin
 import { InputView } from "./input/InputView.tsx";
 import { withRefreshedEstimates } from "./input/estimates.ts";
 import { withOfficeSources } from "./input/officeSource.ts";
+import { applyLook, brandOf, EMPTY_BRANDING, readBranding, resolveMode, setBrandingNow, type Appearance, type OfficeBranding } from "./office/branding.ts";
 import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart, publishOfficeSettings, readOfficeSettings, withEstimates, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
 import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
 import { NO_OFFICE_FIELDS, NO_OFFICE_NAMES, NO_OFFICE_TEXTS, OfficeFieldsContext, officeFieldsFrom, OfficeNamesContext, OfficeTextsContext, officeTextsFrom, rowNamesOf } from "./office/customTexts.ts";
@@ -187,6 +188,8 @@ export function parseHash(hash: string): {
   feedback?: boolean;
   /** #statement=review: 入力で明細のパネルをその手順で開く（閉じると基本生活費のパネルに戻る。0034。画面の確かめ用） */
   statement?: "accounts" | "import" | "review" | "result";
+  /** #look=dark・#look=light: 画面の明るさをこの値で開く（画面の確かめ用。保存しない。0121） */
+  look?: Appearance;
   /** #report=takeaway: 提案書のタブを「持ち帰り用のレポート」で開く（0030） */
   reportMode?: "pdf" | "takeaway";
   /** #cgplan=B: 万一のときの画面で見るプラン（帯の文字） */
@@ -264,6 +267,7 @@ export function parseHash(hash: string): {
     else if (k === "feedback") out.feedback = true;
     else if (k === "statement" && (v === "accounts" || v === "import" || v === "review" || v === "result")) out.statement = v;
     else if (k === "report" && (v === "takeaway" || v === "pdf")) out.reportMode = v;
+    else if (k === "look" && (v === "dark" || v === "light" || v === "system")) out.look = v;
     else if (k === "selfcheck") {
       out.selfcheck = true;
       if (v === "input") out.selfcheckInput = true;
@@ -527,6 +531,48 @@ export function App() {
   const noticeLocalRef = useRef<LocalState>(EMPTY_LOCAL);
   const [noticeFocus, setNoticeFocus] = useState<{ key: string | null; n: number } | null>(initial.bell !== undefined ? { key: initial.bell, n: 1 } : null);
   const [feedbackOpen, setFeedbackOpen] = useState(initial.feedback === true);
+  // 事務所の見た目（0121）: 事務所の名前・ロゴ・基調の色と、この PC の画面の明るさ。事務所の既定値とは別の欄（本体が画像を確かめる）
+  const [branding, setBranding] = useState<OfficeBranding>(initial.look !== undefined ? { appearance: initial.look } : EMPTY_BRANDING);
+  const brandingRef = useRef<OfficeBranding>(branding);
+  /** 事務所の既定値のパネルで変えている途中の見た目（保存するまでの見本。閉じると消す） */
+  const [brandingPreview, setBrandingPreview] = useState<OfficeBranding | null>(null);
+  const putBranding = (b: OfficeBranding) => {
+    brandingRef.current = b;
+    setBranding(b);
+    setBrandingNow(b);
+  };
+  const [prefersDark, setPrefersDark] = useState(() => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const on = () => setPrefersDark(mq.matches);
+    mq.addEventListener?.("change", on);
+    return () => mq.removeEventListener?.("change", on);
+  }, []);
+  const look: OfficeBranding = { ...(brandingPreview ?? branding), ...(branding.appearance !== undefined ? { appearance: branding.appearance } : {}) };
+  const lookMode = resolveMode(branding.appearance, prefersDark);
+  useLayoutEffect(() => {
+    if (typeof document !== "undefined") applyLook(document.documentElement, look, lookMode);
+  }, [look.color, lookMode]);
+  /** 画面の明るさを変える（すぐ当てて、事務所データにも書く。書けないときはアプリを開いている間だけ） */
+  const pickAppearance = (a: Appearance) => {
+    const { appearance: _old, ...rest } = brandingRef.current;
+    void _old;
+    const next: OfficeBranding = a === "system" ? rest : { ...rest, appearance: a };
+    putBranding(next);
+    if (host !== null) void host.office.putBranding(next as unknown as Record<string, unknown>).catch(() => undefined);
+  };
+  const loadBranding = () => {
+    if (host === null) return;
+    void host.office.branding().then(
+      (v) => {
+        const b = readBranding(v);
+        // 画面の確かめの #look は読み込んだ値より優先する（保存はしない）
+        putBranding(initial.look !== undefined ? { ...b, appearance: initial.look } : b);
+      },
+      () => undefined,
+    );
+  };
   const putOfficeSettings = (v: OfficeSettings) => {
     officeSettingsRef.current = v;
     setOfficeSettings(v);
@@ -539,6 +585,7 @@ export function App() {
   useEffect(() => {
     if (host === null) return;
     let live = true;
+    loadBranding();
     void loadOfficeStart(host.office).then(({ settings, features }) => {
       if (!live) return;
       if (settings !== null) putOfficeSettings(settings);
@@ -1184,6 +1231,7 @@ export function App() {
       if (st.state === "ready") {
         void host.office.defaults().then((v) => putOfficeSettings(readOfficeSettings(v)), () => undefined);
         void host.office.featureStatus().then(putFeatureStatus, () => undefined);
+        loadBranding();
         setStoredSamples(await host.store.listSamples());
         applyCategories(await host.store.categories());
       }
@@ -2344,6 +2392,9 @@ export function App() {
         }
         big={big}
         onBig={setBig}
+        brand={brandOf(look)}
+        appearance={branding.appearance ?? "system"}
+        onAppearance={pickAppearance}
       />
       <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
       <AiCodeCandidateBand count={officeSettingsOpen ? 0 : (ai.status?.featureCodeCandidates ?? 0)} onOpen={() => setOfficeSettingsOpen(true)} />
@@ -3000,7 +3051,28 @@ export function App() {
             await host.office.putDefaults(v as unknown as Record<string, unknown>);
             putOfficeSettings(v);
           }}
-          onClose={() => setOfficeSettingsOpen(false)}
+          onClose={() => {
+            setOfficeSettingsOpen(false);
+            setBrandingPreview(null);
+          }}
+          branding={{
+            value: branding,
+            onPreview: setBrandingPreview,
+            onSave: async (b) => {
+              // 画面の明るさは上の帯の今の値を持ち越す（パネルを開いた後に変えていても戻さない）
+              const { appearance: _a, ...rest } = b;
+              void _a;
+              const cur = brandingRef.current.appearance;
+              const saved = readBranding(await host.office.putBranding({ ...rest, ...(cur !== undefined ? { appearance: cur } : {}) } as unknown as Record<string, unknown>));
+              putBranding(saved);
+              setBrandingPreview(null);
+              return saved;
+            },
+            onPickLogo: async () => {
+              const v = await host.office.pickLogo();
+              return v === null ? null : (readBranding({ logo: v }).logo ?? null);
+            },
+          }}
           onEstimates={async (n) => {
             // 事務所の推定の値（0111）: すぐ事務所データに保存し、推定の目安と計算の要求に入れて、開いている世帯を計算し直す
             const next = withEstimates(officeSettingsRef.current, n);

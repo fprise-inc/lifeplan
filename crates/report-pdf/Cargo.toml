@@ -19,5 +19,7 @@ typst-svg = "=0.15.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
+# 0121: 外枠の値（frame.json）の事務所のロゴを文字で受け渡す（開発用のコマンド）
+base64 = "0.22"
 # 出力した PDF から文字を抜き出して、刻印と必須の記載を確かめる（0009 の6）。内部情報（XMP）の追記にも使う
 lopdf = { version = "0.45", default-features = false }

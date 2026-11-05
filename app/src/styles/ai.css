@@ -37,7 +37,7 @@
 .ai-explain p { margin: 4px 0; }
 .ai-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 14px; }
 .ai-grid label { display: flex; flex-direction: column; gap: 3px; font-size: 0.88rem; font-weight: 700; }
-.ai-grid input, .ai-grid select, .ai-cand-foot input { border: 1.5px solid var(--field); border-radius: 6px; padding: 5px 8px; font: inherit; font-weight: 400; background: #fff; }
+.ai-grid input, .ai-grid select, .ai-cand-foot input { border: 1.5px solid var(--field); border-radius: 6px; padding: 5px 8px; font: inherit; font-weight: 400; background: var(--card); }
 .ai-scope { border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 12px; margin: 0; }
 .ai-scope legend { font-weight: 700; font-size: 0.88rem; padding: 0 4px; }
 .ai-scope label { font-size: 0.92rem; }

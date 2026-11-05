@@ -18,6 +18,7 @@
 //! 世帯の値・鍵をログやエラーの文に入れない（0012 の4）。エラーは符号（`E_STORE_…`）だけ。
 
 pub mod atomic;
+pub mod branding;
 pub mod container;
 pub mod crypto;
 pub mod member;
@@ -172,6 +173,12 @@ impl StoreError {
     pub const OFFICE_DEFAULTS: StoreError = StoreError("E_STORE_OFFICE_DEFAULTS");
     /// 機能を有効にするコードの数・長さ・形が合わない（0110）
     pub const FEATURE_CODES: StoreError = StoreError("E_STORE_FEATURE_CODES");
+    /// 事務所の見た目（名前・色・明るさ）の形が合わない（0121）
+    pub const BRANDING: StoreError = StoreError("E_STORE_BRANDING");
+    /// ロゴの画像が PNG・JPEG でない・縦横が小さすぎる（0121。0016 の「PNG と JPEG だけ」）
+    pub const LOGO: StoreError = StoreError("E_STORE_LOGO");
+    /// ロゴの画像が大きすぎる（バイト・縦横の画素。0121）
+    pub const LOGO_TOO_LARGE: StoreError = StoreError("E_STORE_LOGO_TOO_LARGE");
     // ---- 1人の FP が複数の PC で使う同期フォルダ（0024） ----
     /// 保存先を同期フォルダにする前に、復元キーを保管する（2台目の PC で開くときに要る。0013 の3）
     pub const SYNC_RECOVERY_REQUIRED: StoreError = StoreError("E_SYNC_RECOVERY_REQUIRED");

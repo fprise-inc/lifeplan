@@ -3,6 +3,7 @@
 //   試してみる（FP が許したつまみだけ。1つ前に戻す・最初に戻す＝FP の提案の値）→ 資産と負債の図 → キャッシュフロー表の要約 → 注意書き
 // - グラフ・帯の見た目・資産と負債の図は、アプリの提示層の部品（MainChart・BsFigure）と同じもの。数字はファイルの中の計算エンジンで計算する
 // - 受け取るのは TakeawayData（model.ts の許可した値）と計算エンジンだけ
+import { checkBase, normalizeHex, themeVars } from "../../presentation/theme.ts";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { EngineRequest } from "../../engine/types.ts";
 import { BsFigure } from "../../presentation/BsFigure.tsx";
@@ -56,6 +57,12 @@ export interface TakeawayViewProps {
   engine: EngineLike;
   /** アプリの中の見本のとき（見出しに「見本」を出す） */
   preview?: boolean;
+}
+
+/** 事務所の基調の色（0121）から、明るい画面の色の決め事（形の合わない・使えない色は藍のまま） */
+function accentVars(accent: string | undefined): Record<string, string> | undefined {
+  if (accent === undefined || normalizeHex(accent) === null || !checkBase(accent).ok) return undefined;
+  return themeVars(accent, "light");
 }
 
 export function TakeawayView({ data, engine, preview = false }: TakeawayViewProps) {
@@ -170,7 +177,7 @@ export function TakeawayView({ data, engine, preview = false }: TakeawayViewProp
   const chartH = small ? Math.round(Math.max(300, Math.min(460, vp.h * 0.55))) : undefined;
 
   return (
-    <div class={`tk${preview ? " tk-preview" : ""}`} data-takeaway>
+    <div class={`tk${preview ? " tk-preview" : ""}`} style={accentVars(p.accent)} data-takeaway>
       <header class="tk-head">
         <div>
           <h1>ライフプランの試算{preview ? <span class="tk-sample">見本</span> : null}</h1>

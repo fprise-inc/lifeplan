@@ -20,7 +20,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -155,8 +155,10 @@ fn main_typ() -> &'static str {
             ));
             ext.push(format!("\"{id}\": ext-chapter-{i}"));
         }
+        // 事務所のロゴ（0121）: 外枠の値に印があるときだけ、プロジェクトの直下の /logo.bin を読んで渡す
+        s.push_str("#let frame = json(\"/frame.json\")\n");
         s.push_str(&format!(
-            "#proposal(json(\"/input.json\"), json(\"/frame.json\"), ext: ({}{}))\n",
+            "#proposal(json(\"/input.json\"), frame, ext: ({}{}), logo: if frame.at(\"logo\", default: none) != none {{ read(\"/logo.bin\", encoding: none) }} else {{ none }})\n",
             ext.join(", "),
             if ext.is_empty() { ":" } else { "," }
         ));
@@ -250,6 +252,76 @@ pub struct ReportFrame {
     pub notices: Vec<String>,
     #[serde(default)]
     pub internal: Internal,
+    /// 事務所の見た目（0121。見出しなどのアクセントの色・表紙の事務所の名前とロゴ）。無ければ標準の見た目
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub brand: Option<ReportBrand>,
+}
+
+/// 提案書に当てる事務所の見た目（0121）。どれも任意
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ReportBrand {
+    /// 見出しの番号の箱・見出しの線・グラフの提案の線などの色（`#rrggbb`。白地で読める濃さに直した色を渡す）。形が合わなければ標準の色
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accent: Option<String>,
+    /// 表紙に出す事務所の名前
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub office: Option<String>,
+    /// 表紙に出す事務所のロゴ（PNG か JPEG のバイト。JSON では base64 の文字）
+    #[serde(default, skip_serializing_if = "Option::is_none", with = "b64opt")]
+    pub logo: Option<Vec<u8>>,
+}
+
+mod b64opt {
+    use base64::Engine as _;
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(v: &Option<Vec<u8>>, s: S) -> Result<S::Ok, S::Error> {
+        match v {
+            Some(b) => s.serialize_str(&base64::engine::general_purpose::STANDARD.encode(b)),
+            None => s.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Vec<u8>>, D::Error> {
+        let t: Option<String> = Option::deserialize(d)?;
+        t.map(|t| {
+            base64::engine::general_purpose::STANDARD
+                .decode(t.as_bytes())
+                .map_err(serde::de::Error::custom)
+        })
+        .transpose()
+    }
+}
+
+/// アクセントの色が `#rrggbb` か
+fn accent_ok(s: &str) -> bool {
+    s.len() == 7 && s.starts_with('#') && s[1..].chars().all(|c| c.is_ascii_hexdigit())
+}
+
+/// ロゴの画像の種類（Typst の format の名前）。PNG と JPEG だけ（SVG などは受けない。0016）
+fn logo_format(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.starts_with(&[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a]) {
+        Some("png")
+    } else if bytes.starts_with(&[0xff, 0xd8, 0xff]) {
+        Some("jpg")
+    } else {
+        None
+    }
+}
+
+/// ロゴの画像が帳票の部品で絵にできるか（0121。事務所の見た目を保存する前にアプリが確かめる）。PNG と JPEG だけ
+pub fn check_logo(bytes: &[u8]) -> Result<(), ReportError> {
+    let Some(format) = logo_format(bytes) else {
+        return Err(ReportError::Input("ロゴの画像は PNG か JPEG".into()));
+    };
+    let main = format!("#set page(width: 40pt, height: 40pt, margin: 0pt)\n#image(read(\"/logo.bin\", encoding: none), format: \"{format}\", width: 40pt, height: 40pt, fit: \"contain\")\n");
+    let world = ReportWorld::new(&main, &[], false).with_bytes("logo.bin", bytes.to_vec());
+    let doc = compile(&world)?;
+    // 絵にするところまで確かめる（見出しだけ合っていて中身の読めない画像を、提案書を作るときまで持ち越さない）
+    typst_pdf::pdf(&doc, &PdfOptions::default())
+        .map(|_| ())
+        .map_err(|e| ReportError::Pdf(messages(&e).join("; ")))
 }
 
 /// 宛名欄の位置（ページ番号は1から、座標は左上からの pt）。控えに記録し、再印刷で宛名を重ねるのに使う（0009 の3）
@@ -363,6 +435,30 @@ fn library() -> &'static LazyHash<Library> {
     LIB.get_or_init(|| LazyHash::new(Library::default()))
 }
 
+/// アクセントの色を `sys.inputs` の `lifeplan-accent` に入れた標準の関数の組（0121）。色ごとに作って覚える（覚える数には上限）
+fn library_with_accent(accent: &str) -> Arc<LazyHash<Library>> {
+    const KEEP: usize = 32;
+    static LIBS: OnceLock<Mutex<HashMap<String, Arc<LazyHash<Library>>>>> = OnceLock::new();
+    let build = || {
+        let mut inputs = typst::foundations::Dict::new();
+        inputs.insert("lifeplan-accent".into(), Value::Str(accent.into()));
+        Arc::new(LazyHash::new(
+            Library::builder().with_inputs(inputs).build(),
+        ))
+    };
+    let Ok(mut m) = LIBS.get_or_init(Default::default).lock() else {
+        return build();
+    };
+    if let Some(l) = m.get(accent) {
+        return l.clone();
+    }
+    let l = build();
+    if m.len() < KEEP {
+        m.insert(accent.to_owned(), l.clone());
+    }
+    l
+}
+
 fn package_spec() -> PackageSpec {
     PackageSpec {
         namespace: PACKAGE_NAMESPACE.into(),
@@ -384,6 +480,8 @@ struct ReportWorld {
     main: FileId,
     sources: HashMap<FileId, Source>,
     files: HashMap<FileId, Bytes>,
+    /// アクセントの色を入れた標準の関数の組（無ければ標準）
+    library: Option<Arc<LazyHash<Library>>>,
 }
 
 impl ReportWorld {
@@ -419,7 +517,23 @@ impl ReportWorld {
             main: main_id,
             sources,
             files,
+            library: None,
         }
+    }
+
+    /// プロジェクトの直下にバイトのファイルを置く（事務所のロゴ。0121）
+    fn with_bytes(mut self, name: &str, bytes: Vec<u8>) -> ReportWorld {
+        let id = file_id(VirtualRoot::Project, &format!("/{name}"));
+        self.files.insert(id, Bytes::new(bytes));
+        self
+    }
+
+    /// アクセントの色（`#rrggbb`。形が合わなければ標準のまま）
+    fn with_accent(mut self, accent: Option<&str>) -> ReportWorld {
+        if let Some(a) = accent.filter(|a| accent_ok(a)) {
+            self.library = Some(library_with_accent(&a.to_ascii_lowercase()));
+        }
+        self
     }
 
     fn not_found(id: FileId) -> FileError {
@@ -429,7 +543,10 @@ impl ReportWorld {
 
 impl World for ReportWorld {
     fn library(&self) -> &LazyHash<Library> {
-        library()
+        match &self.library {
+            Some(l) => l,
+            None => library(),
+        }
     }
 
     fn book(&self) -> &LazyHash<FontBook> {
@@ -684,15 +801,33 @@ fn render_inner(
 ) -> Result<Rendered, ReportError> {
     check_input(input_json)?;
     let addressee_name = addressee_name.map(check_addressee).transpose()?;
-    let frame_json = serde_json::json!({ "band": BAND_PT, "notices": frame.notices }).to_string();
-    let world = ReportWorld::new(
+    let brand = frame.brand.clone().unwrap_or_default();
+    let office = brand
+        .office
+        .as_deref()
+        .map(str::trim)
+        .filter(|o| !o.is_empty() && o.chars().count() <= 40);
+    let mut frame_json = serde_json::json!({ "band": BAND_PT, "notices": frame.notices });
+    if let Some(o) = office {
+        frame_json["office"] = serde_json::Value::from(o);
+    }
+    // ロゴは PNG・JPEG のときだけ（種類を外枠の値で渡し、帳票は種類を決めて読む）
+    let logo = brand.logo.and_then(|l| logo_format(&l).map(|f| (f, l)));
+    if let Some((format, _)) = &logo {
+        frame_json["logo"] = serde_json::Value::from(*format);
+    }
+    let mut world = ReportWorld::new(
         main_typ,
         &[
             ("input.json", input_json.to_owned()),
-            ("frame.json", frame_json),
+            ("frame.json", frame_json.to_string()),
         ],
         true,
-    );
+    )
+    .with_accent(brand.accent.as_deref());
+    if let Some((_, logo)) = logo {
+        world = world.with_bytes("logo.bin", logo);
+    }
     let mut doc = compile(&world)?;
     let addressee = addressee(&doc);
 

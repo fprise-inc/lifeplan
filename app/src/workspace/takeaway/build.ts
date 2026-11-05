@@ -50,6 +50,8 @@ export interface TakeawayChoice {
   dataSet: string;
   /** 表の行の事務所の名前（カスタム層。承認した物だけ。省略は公式の名前） */
   names?: OfficeRowNames;
+  /** 事務所の基調の色（0121。明るい画面の色。省略はファイナンシアの藍） */
+  accent?: string;
 }
 
 export interface TakeawayContext {
@@ -160,6 +162,7 @@ export function buildPayload(ctx: TakeawayContext, choice: TakeawayChoice, notic
     views: { balance: choice.views.balance, table: choice.views.table, moneyThree: choice.views.moneyThree },
     ...(choice.views.moneyThree ? { moneyThree: { months: choice.moneyThree.months, years: choice.moneyThree.years, wording: choice.moneyThree.wording } } : {}),
     ...(choice.names !== undefined ? { names: takeawayNames(choice.names) } : {}),
+    ...(choice.accent !== undefined && /^#[0-9a-f]{6}$/.test(choice.accent) ? { accent: choice.accent } : {}),
   };
 }
 
