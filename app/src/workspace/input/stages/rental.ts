@@ -707,7 +707,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       // 額の変化は、その額のまとまり（家賃収入・経費）の変化率の欄のすぐ後に並べる
       place: { group: `${kp}/${part}`, after: `${kp}/${part === "rental" ? "rentGrowth" : "expGrowth"}` },
     });
-  if (p.rental !== undefined) groups.push(...staged("rental", lodging !== undefined ? "売上" : "家賃", "monthly", (x) => (x.property === undefined ? null : (lodgingMonthlySales(x.property) ?? x.property.rental?.monthly.value ?? null))));
+  if (p.rental !== undefined) groups.push(...staged("rental", lodging !== undefined ? "売上" : p.kind === "land" ? "地代" : p.kind === "parking" ? "駐車料" : "家賃", "monthly", (x) => (x.property === undefined ? null : (lodgingMonthlySales(x.property) ?? x.property.rental?.monthly.value ?? null))));
   // 経費（費目を1つでも入れたら、年額はその合計。0080）
   const itemsTotal = expenseItemsTotal(p);
   const annualBase = yenBox({ key: `${kp}/expAnnual`, item: "account.property", label: "年額（持っている間）", level: "simple", basis: "annual", find: findP, path: ["expenses", "annual"], optional: true, help: `${landOnly ? (p.kind === "parking" ? "固定資産税・都市計画税・管理費・設備の保守・保険料" : "固定資産税・都市計画税") : "管理費・修繕積立金・固定資産税・保険料"}など、毎年かかる額の合計です。「詳細」で費目ごとに入れると、その合計になります` });

@@ -2,7 +2,7 @@
 // （import.ts の簡易版の住宅ローン）は、どちらもこのファイルの値と根拠の文を使う（目安の数を1か所に置く）。
 // 数は正本の YAML（data/master の master.housing.statistics。0007）の写し statistics.generated.ts から読む。
 // 金利・家賃の統計は時とともに変わるので、リリースのたびに見直す（docs/estimates-review.md）
-import { masterValue, officeBasisOf } from "./statistics.ts";
+import { masterValue, officeBasisOf, regulationValue } from "./statistics.ts";
 
 /** 住宅ローンの金利の種類（計算エンジンの rateSchedule の type） */
 export type MortgageRateType = "variable" | "fixedPeriod" | "fixed";
@@ -90,4 +90,17 @@ export function rentGrowthStatistic(): { rate: string; text: string } | null {
   const shown = `${r < 0 ? "−" : r > 0 ? "+" : ""}${pctText(Math.abs(r))}`;
   const flat = Math.abs(r) < 0.0005 ? "（ほぼ横ばい）" : "";
   return { rate: m.rate, text: `${m.source}は年${shown}${flat}${m.pending ? "（原本での確かめ前）" : ""}` };
+}
+
+/**
+ * 住宅ローン控除の新築の仮の住宅の種類: 入居の月に借入限度額が0円でない、最も控えめな種類（省エネ基準適合住宅 → ZEH水準省エネ住宅 →
+ * 認定住宅の順。制度データの写し。2027年までの入居は省エネ基準適合住宅、2028年からの入居はZEH水準省エネ住宅）。入力の画面
+ * （app/src/workspace/input/housingCredit.ts）とヒアリングシートの取り込み（import.ts）の両方がこれを使う
+ */
+export function provisionalNewType(moveInYm: string): "energySaving" | "zeh" | "certified" {
+  for (const t of ["energySaving", "zeh"] as const) {
+    const v = regulationValue(`incomeTax.housingLoanCredit.limit.new.${t}`, `${moveInYm}-01`);
+    if (typeof v !== "number" || v > 0) return t;
+  }
+  return "certified";
 }

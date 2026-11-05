@@ -437,6 +437,12 @@ const DISEASE_RIDERS = [
 ];
 
 /**
+ * フラット35 の団信の既定（2026-11-06 の追記）: フラット35 は団信（新機構団信）の加入が任意だが、商品をフラット35にしても団信の対象は変えない。
+ * 全期間固定の金利の目安（フラット35 の最も多い借入金利）は新機構団信付きの金利で、多くの人は加入するため。入らないなら手で「入っていない」にする
+ */
+export const FLAT35_CREDIT_LIFE = "金利の目安（フラット35 の最も多い借入金利）は新機構団信付きの金利なので、加入として計算します。入らないなら「入っていない・未確認」にし、金利を年0.2%下げてください（新機構団信に入らないと借入金利が年0.2%下がります）";
+
+/**
  * 住宅ローンの団信の欄（対象・事由（特約）・保障割合・夫婦連生・就業不能の特約の月数）。住まい・ローンのカードと、万一の画面の「団信」で同じ欄を使う
  * （欄のキーが同じなので、どちらで直しても同じ世帯データが変わる）
  */
@@ -462,7 +468,11 @@ export function creditLifeFields(wh: WorkingHousehold, d: Debt, level: "simple" 
       level,
       kind: "select",
       options: [{ value: "", label: "入っていない・未確認" }, ...memberOptions(wh, (m) => d.debtors.some((x) => x.member === m.id))],
-      help: o.coveredHelp ?? "亡くなったとき・高度障害のとき、この人の負担分の残高が消えます。民間の住宅ローンの多くは加入が条件です（フラット35 は加入が任意です）",
+      help:
+        o.coveredHelp ??
+        (d.product === "flat35"
+          ? `亡くなったとき・高度障害のとき、この人の負担分の残高が消えます。フラット35 は加入が任意ですが、${FLAT35_CREDIT_LIFE}`
+          : "亡くなったとき・高度障害のとき、この人の負担分の残高が消えます。民間の住宅ローンの多くは加入が条件です（フラット35 は加入が任意です）"),
       get: (w) => ({ value: (find(w.request.input.household, w) as Debt | undefined)?.creditLife?.covered[0] ?? "", ...(((find(w.request.input.household, w) as Debt | undefined)?.creditLife?.covered.length ?? 0) > 1 ? { derived: "夫婦連生（2人とも対象）" } : {}) }),
       set: (w, v) =>
         mutate(w, (h) => {
@@ -739,7 +749,7 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         level: creditActive(wh.request.input.household, hs, wh.request.input.baseMonth) ? "simple" : "detail",
         kind: "select",
         options: PROPERTY_TYPES,
-        help: "分からなければ、そのままで構いません（控除が少なめに出る種類〔新築は省エネ基準適合住宅、中古はその他の住宅〕で計算します）",
+        help: "分からなければ、そのままで構いません（控除のある種類のうち、控除が少なめに出る種類で計算します。新築は、入居が2027年までなら省エネ基準適合住宅、2028年からならZEH水準省エネ住宅〔省エネ基準適合住宅だと控除がありません〕。中古はその他の住宅）",
         get: (w) => ({ value: hsOf(w)?.propertyType ?? null, assumed: mark(w), warn: creditWarn(w.request.input.household, hsOf(w)) }),
         set: (w, v) => edit(w, (x) => void (x.propertyType = v as DebtHousing["propertyType"])),
       }),
@@ -1063,7 +1073,7 @@ function productField(wh: WorkingHousehold, d: Debt, k: string): FieldDef {
   const typeField = rateTypeField(wh, d, k, "detail");
   return field({
     ...inner,
-    sideEffects: "フラット35にすると、金利の種類を全期間固定にし（金利が推定のままなら全期間固定の推定の金利に入れ直します）、5年ルール・125%ルールを外します",
+    sideEffects: "フラット35にすると、金利の種類を全期間固定にし（金利が推定のままなら全期間固定の推定の金利に入れ直します）、5年ルール・125%ルールを外します。団信はそのままです（金利の目安は新機構団信付きの金利）",
     set: (w, v) => {
       const next = inner.set(w, v);
       if (v !== "flat35" || next === w) return next;
@@ -1074,6 +1084,44 @@ function productField(wh: WorkingHousehold, d: Debt, k: string): FieldDef {
       });
     },
   });
+}
+
+/** 全期間固定か（金利の段がすべて全期間固定。5年ルール・125%ルールは変動金利の段だけに効くので、全期間固定では計算に使わない） */
+export const isAllFixed = (d: Debt): boolean => d.rateSchedule.length > 0 && d.rateSchedule.every((s) => s.type === "fixed");
+
+/**
+ * 5年ルール・125%ルールの欄（詳細）。全期間固定（フラット35を含む）では出さない。全期間固定なのにどちらかが入っていれば、計算に使っていないことを
+ * 知らせる1行を出し、外すボタンを添える（2026-11-06 の追記）
+ */
+function variableRuleFields(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | "detail"): FieldDef[] {
+  const find = byId(debts, d.id);
+  if (!isAllFixed(d))
+    return [
+      plain({ key: `${k}/fiveYear`, item: "debt.repayment", label: "5年ルール", help: "返済額を5年ごとに見直します（その間に金利が変わっても返済額は同じ）", level, kind: "bool", find, path: ["repayment", "variableRules", "fiveYear"], optional: true, fallback: false }),
+      plain({ key: `${k}/cap125`, item: "debt.repayment", label: "125%ルール", help: "5年ごとの見直しで、新しい返済額を前の1.25倍までにします", level, kind: "bool", find, path: ["repayment", "variableRules", "cap125"], optional: true, fallback: false }),
+    ];
+  const r = d.repayment.variableRules;
+  if (r?.fiveYear !== true && r?.cap125 !== true) return [];
+  const on = [r.fiveYear === true ? "5年ルール" : null, r.cap125 === true ? "125%ルール" : null].filter((x): x is string => x !== null).join("・");
+  return [
+    withAddress(
+      field({
+        key: `${k}/variableRules`,
+        item: "debt.repayment",
+        label: "5年ルール・125%ルール",
+        level,
+        kind: "text",
+        readOnly: "変動金利だけの決まりです。全期間固定では出しません",
+        get: () => ({
+          value: `${on}が入っている（計算には使っていない）`,
+          warn: `全期間固定のローンに${on}が入っています。変動金利だけの決まりなので、計算には使っていません（金利の種類を変動金利・固定期間選択型に戻すと使います）`,
+          warnFix: { label: "外す", run: (w: WorkingHousehold) => editDebt(w, d.id, (x) => void delete x.repayment.variableRules) },
+        }),
+        set: (w) => w,
+      }),
+      () => at(d.id, "debt.repayment"),
+    ),
+  ];
 }
 
 /** 逆算し直す欄の説明（逆算の推定があるローンだけ。往復の確かめで別に扱う） */
@@ -1382,8 +1430,7 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
   if (mortgage) {
     fields.push(
       withAddress(productField(wh, d, k), () => at(d.id, "debt.product")),
-      plain({ key: `${k}/fiveYear`, item: "debt.repayment", label: "5年ルール", help: "返済額を5年ごとに見直します（その間に金利が変わっても返済額は同じ）", level: D, kind: "bool", find, path: ["repayment", "variableRules", "fiveYear"], optional: true, fallback: false }),
-      plain({ key: `${k}/cap125`, item: "debt.repayment", label: "125%ルール", help: "5年ごとの見直しで、新しい返済額を前の1.25倍までにします", level: D, kind: "bool", find, path: ["repayment", "variableRules", "cap125"], optional: true, fallback: false }),
+      ...variableRuleFields(wh, d, k, D),
       // 団信は住まい・ローンのカードでは詳細（既定の「あり」で多くは当たり、今の結果には効かない。万一の画面では標準のまま。0078）
       ...creditLifeFields(wh, d, D),
     );
