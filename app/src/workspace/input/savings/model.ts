@@ -38,7 +38,7 @@ export const KIND_INFO: Record<string, { name: string; memo: string; color: stri
   legacyNisa: { name: "旧NISA", memo: "非課税期間が終わると課税口座へ", color: "#9fb0cf" },
   juniorNisa: { name: "ジュニアNISA", memo: "お子さまの名義", color: "#9fb0cf" },
   smallBusinessMutualAid: { name: "小規模企業共済", memo: "掛金は所得控除", color: "#c2b59b" },
-  cryptoAsset: { name: "暗号資産", memo: "取り崩しには使いません", color: "#a9c8c6" },
+  cryptoAsset: { name: "暗号資産", memo: "2028年から利益に約20%の税（申告分離課税）", color: "#a9c8c6" },
   pooled: { name: "まだ分けていない", memo: "合計の入れ方で入れた値のうち、まだ口座に分けていない分。口座に入れると減り、0になると消えます", color: "#ddd6e8" },
 };
 const KIND_ORDER = ["deposit", "nisa", "childNisa", "legacyNisa", "juniorNisa", "ideco", "corporateDc", "taxable", "zaikei", "esop", "fxDeposit", "cryptoAsset", "smallBusinessMutualAid"];
@@ -527,9 +527,11 @@ export function editAllocation(req: EngineRequest, patch: { mix?: { assetClass: 
 // ---- お金の行き先（取り崩す順番・取り崩さない口座・決済口座・預金に残しておく額。0026 の追記）----
 
 /** エンジンの標準の取り崩しの順番（器の種類） */
-export const STANDARD_ORDER_KINDS: readonly string[] = ["deposit", "fxDeposit", "zaikei", "taxable", "esop", "legacyNisa", "nisa"];
-/** 取り崩す順番に並べない器（受け取りの決まりで預金に入る器・まとめた金融資産の器・暗号資産〔取り崩さない。0122〕。エンジンも順番では取り崩さない） */
-const NOT_ORDERED: ReadonlySet<string> = new Set(["ideco", "corporateDc", "smallBusinessMutualAid", "pooled", "cryptoAsset"]);
+export const STANDARD_ORDER_KINDS: readonly string[] = ["deposit", "fxDeposit", "zaikei", "taxable", "cryptoAsset", "esop", "legacyNisa", "nisa"];
+/** 取り崩す順番に並べない器（受け取りの決まりで預金に入る器・まとめた金融資産の器。エンジンも順番では取り崩さない） */
+const NOT_ORDERED: ReadonlySet<string> = new Set(["ideco", "corporateDc", "smallBusinessMutualAid", "pooled"]);
+/** 取り崩す順番に並べる器（売ったときの税の扱いが雑所得の暗号資産は、エンジンが取り崩さないので並べない。0124） */
+const orderable = (a: Account): boolean => isFinancial(a) && !NOT_ORDERED.has(a.kind) && !(a.kind === "cryptoAsset" && a.cryptoTaxation === "miscellaneous");
 
 /** 決済口座（収支が入る口座。印のある器、無ければ最初の預金。エンジンと同じ読み方） */
 export function settlementOf(h: Household): Account | undefined {
@@ -563,7 +565,7 @@ export interface WithdrawView {
 export function withdrawViewOf(req: EngineRequest): WithdrawView {
   const h = req.input.household;
   const settlement = settlementOf(h);
-  const cands = (h.accounts ?? []).filter((a) => isFinancial(a) && !NOT_ORDERED.has(a.kind) && a !== settlement);
+  const cands = (h.accounts ?? []).filter((a) => orderable(a) && a !== settlement);
   const order = req.input.assumptions?.withdrawal?.order;
   const included: Account[] = [];
   for (const o of order ?? STANDARD_ORDER_KINDS.map((kind) => ({ kind }))) {
@@ -582,7 +584,7 @@ export function setWithdrawOrder(req: EngineRequest, includedIds: readonly strin
   const w = { ...(a.withdrawal ?? {}) };
   const h = req.input.household;
   const settlement = settlementOf(h);
-  const cands = (h.accounts ?? []).filter((x) => isFinancial(x) && !NOT_ORDERED.has(x.kind) && x !== settlement);
+  const cands = (h.accounts ?? []).filter((x) => orderable(x) && x !== settlement);
   const ids = includedIds.filter((id) => cands.some((x) => x.id === id));
   const off = new Set(cands.filter((x) => !ids.includes(x.id)).map((x) => x.kind));
   const order = [...ids.map((object) => ({ object })), ...STANDARD_ORDER_KINDS.filter((k) => !off.has(k)).map((kind) => ({ kind }))];

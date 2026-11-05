@@ -12,6 +12,8 @@ import { ageInYear, roles } from "./roles.ts";
 import { resolveTimepoint } from "./timepoint.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
+/** 取り崩しの譲渡益の税の行（課税口座の上場株式等・暗号資産の申告分離課税。0124） */
+const GAINS_TAX_ROWS: ReadonlySet<string> = new Set(["cf.taxSi.incomeTax.capitalGains", "cf.taxSi.residentTax.capitalGains", "cf.taxSi.incomeTax.cryptoAsset", "cf.taxSi.residentTax.cryptoAsset"]);
 const birthOf = (m: Member): string | undefined => (m.birth as Member["birth"] | undefined)?.birthYearMonth;
 
 // ---- 世帯の外の家族の呼び方 ----
@@ -74,7 +76,7 @@ export function deficitSources(req: EngineRequest, table: readonly TableCell[], 
   }
   // 譲渡益の税（取り崩した口座の分。口座の物の ID を持つのは取り崩しの税だけ）
   for (const c of table) {
-    if (!ys.has(c.year) || c.object === undefined || !(c.row === "cf.taxSi.incomeTax.capitalGains" || c.row === "cf.taxSi.residentTax.capitalGains")) continue;
+    if (!ys.has(c.year) || c.object === undefined || !GAINS_TAX_ROWS.has(c.row)) continue;
     if (proceeds.get(c.year)?.has(c.object) === true) add(c.year, c.object, -c.amount);
   }
   const cover = new Map<string, Map<number, number>>();
