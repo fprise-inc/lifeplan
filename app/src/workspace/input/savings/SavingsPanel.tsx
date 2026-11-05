@@ -69,7 +69,7 @@ import {
   type Tranche,
 } from "./model.ts";
 
-const WITH_COST = new Set(["taxable", "nisa", "legacyNisa", "juniorNisa", "childNisa"]);
+const WITH_COST = new Set(["taxable", "nisa", "legacyNisa", "juniorNisa", "childNisa", "cryptoAsset"]);
 const man1 = (yen: number) => {
   const v = Math.round(yen / 1000) / 10;
   return Number.isInteger(v) ? v.toLocaleString("ja-JP") : v.toFixed(1);
@@ -503,8 +503,8 @@ function FlowSection({ wh, level, flow, onEdit }: { wh: WorkingHousehold; level:
           ))}
         </ol>
         <p class="help">
-          {v.standard ? "既定の順番（預金→外貨預金→財形→課税口座→持株会→旧NISA→NISA）です。" : v.byAccount ? "口座ごとの順番です。後から足した口座は最後に取り崩します。" : "口座の種類の順番です。口座を動かすと、口座ごとの順番になります。"}
-          「取り崩さない」にした口座は、残高が残っていても取り崩しに使いません（使う年が決まっている取り置きなど）。こどもNISA・ジュニアNISA は標準では取り崩しません。
+          {v.standard ? "既定の順番（預金→外貨預金→財形→課税口座→暗号資産→持株会→旧NISA→NISA）です。" : v.byAccount ? "口座ごとの順番です。後から足した口座は最後に取り崩します。" : "口座の種類の順番です。口座を動かすと、口座ごとの順番になります。"}
+          「取り崩さない」にした口座は、残高が残っていても取り崩しに使いません（使う年が決まっている取り置きなど）。こどもNISA・ジュニアNISA は標準では取り崩しません。暗号資産は申告分離課税が始まる2028年から取り崩します（2027年までの年と、売ったときの税の扱いを「雑所得」にした暗号資産は取り崩しません）。
         </p>
         {!v.standard ? (
           <button type="button" class="link-btn" onClick={() => onEdit(mutate(wh, (_h, r) => resetWithdrawOrder(r)))} data-order-reset>
@@ -1284,7 +1284,7 @@ function PeriodSection(p: { wh: WorkingHousehold; level: Level; onEdit: (w: Work
             </button>
           </span>
         </div>
-        <p class="help">予定なしは、収支が足りない年だけ取り崩します（順番は「お金の行き先」。既定は預金→課税口座→NISA）。定額・定率は、その額を金融資産から使います（収支の不足のほうが大きい年は不足の分）。</p>
+        <p class="help">予定なしは、収支が足りない年だけ取り崩します（順番は「お金の行き先」。既定は預金→課税口座→暗号資産→NISA）。定額・定率は、その額を金融資産から使います（収支の不足のほうが大きい年は不足の分）。</p>
       </div>
       {dd.method === "fixed" ? (
         <div class="sv-fld">

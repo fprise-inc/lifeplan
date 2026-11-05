@@ -1,6 +1,6 @@
-// 暗号資産を金融資産の器の種類にする（0122）: 貯蓄・運用の金融資産の「そのほか」から足す、欄（時点・積立・利回り。取得価額・資産の配分・
-// 引き出せない期間は出さない）、取り崩しの順番に並べない、その他の資産から種類を変えたら増減率を利回りへ、資産と負債のタブで値動きのある運用、
-// 相場の下落で選べる、探して開く、開いたときの知らせ
+// 暗号資産を金融資産の器の種類にする（0122）: 貯蓄・運用の金融資産の「そのほか」から足す、欄（時点・積立・利回り・取得価額・売ったときの税・
+// 引き出せない期間。資産の配分は出さない）、取り崩しの順番に課税口座の次で並ぶ（2028年からの申告分離課税。0124）、その他の資産から種類を
+// 変えたら増減率を利回りへ、資産と負債のタブで値動きのある運用、相場の下落で選べる、探して開く、開いたときの知らせ
 import { describe, expect, it } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
@@ -52,17 +52,18 @@ describe("足す・欄（0122）", () => {
     expect(a.costBasis).toBeUndefined();
   });
 
-  it("欄: 種類・名義・残高・時点・積立・利回り。取得価額・資産の配分・引き出せない期間は出さない。利回りの空欄は0", () => {
+  it("欄: 種類・名義・残高・時点・取得価額・売ったときの税・積立・利回り・引き出せない期間（0124）。資産の配分は出さない。利回りの空欄は0", () => {
     const { wh, a } = addCrypto(open());
     const keys = [...fieldsOf(wh).keys()].filter((k) => k.startsWith(`sav/${a.id}/`));
-    expect(keys).toEqual([`sav/${a.id}/kind`, `sav/${a.id}/owner`, `sav/${a.id}/value`, `sav/${a.id}/asOf`, `sav/${a.id}/monthly`, `sav/${a.id}/rate`]);
+    expect(keys).toEqual([`sav/${a.id}/kind`, `sav/${a.id}/owner`, `sav/${a.id}/value`, `sav/${a.id}/asOf`, `sav/${a.id}/cost`, `sav/${a.id}/cryptoTax`, `sav/${a.id}/monthly`, `sav/${a.id}/rate`, `sav/${a.id}/lock`]);
     expect(fieldOf(wh, `sav/${a.id}/rate`).get(wh)).toMatchObject({ value: null, hint: "空欄: 年0.0%" });
     expect(fieldOf(wh, `sav/${a.id}/rate`).help).toContain("入れなければ0");
     const group = buildStage("savings", wh).sections.flatMap((s) => s.groups).find((g) => g.key === `sav/${a.id}`)!;
     expect(group.title).toMatch(/^暗号資産（/);
-    expect(group.note).toContain("取り崩しには使いません");
+    expect(group.note).toContain("課税口座の次に取り崩します");
+    expect(group.note).toContain("2027年までは");
     expect(buildStage("savings", wh).sections.flatMap((s) => s.groups).some((g) => g.key === `sav/${a.id}/addMix`)).toBe(false);
-    expect(accountMoreLabel(a)).toBe("残高の時点を入れる");
+    expect(accountMoreLabel(a)).toBe("取得価額・売ったときの税を入れる");
   });
 
   it("その他の資産から種類を暗号資産に変えると、中身の細目を外し、評価額の増減率を利回りへ移す", () => {
@@ -82,7 +83,7 @@ describe("足す・欄（0122）", () => {
 });
 
 describe("計算（0122）", () => {
-  it("金融資産の合計に入り、積立で増え、取り崩しの順番には並ばない", () => {
+  it("金融資産の合計に入り、積立で増え、取り崩しの順番に並ぶ（0124）", () => {
     const added = addCrypto(open());
     const a = added.a;
     let wh = added.wh;
@@ -94,7 +95,7 @@ describe("計算（0122）", () => {
     wh = fieldOf(wh, `sav/${a.id}/monthly`).set(wh, 10_000);
     expect(cell(wh, "cf.balance.account.cryptoAsset", y)).toBeGreaterThan(1_000_000);
     const v = withdrawViewOf(wh.request);
-    expect([...v.included, ...v.excluded].some((x) => x.id === a.id)).toBe(false);
+    expect(v.included.some((x) => x.id === a.id)).toBe(true);
     // 資産の推移の口座の内訳は「課税口座など」に入る
     const years = [y];
     const tax = breakdownOf(preview(wh.request).table, years).find((s) => s.key === "tax");
@@ -141,6 +142,6 @@ describe("探して開く・知らせ（0122）", () => {
     const t = householdNoticeText({ kind: "cryptoAccounts", count: 1, plans: 2 })!;
     expect(t.title).toBe("暗号資産を金融資産の口座にしました");
     expect(t.text).toContain("（1件とプランの変更 2件）");
-    expect(t.text).toContain("取り崩しには使いません");
+    expect(t.text).not.toContain("取り崩しには使いません");
   });
 });

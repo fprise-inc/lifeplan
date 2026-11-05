@@ -1768,6 +1768,12 @@
     "costBasis"
    ]
   },
+  "account.cryptoTaxation": {
+   "collection": "account",
+   "path": [
+    "cryptoTaxation"
+   ]
+  },
   "account.enrolledSince": {
    "collection": "account",
    "path": [

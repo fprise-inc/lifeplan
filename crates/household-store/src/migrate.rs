@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.61";
+pub const CURRENT: &str = "0.62";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -209,12 +209,17 @@ pub const CURRENT: &str = "0.61";
 ///   出るお金の行のつながる物 `periodicExpenses[].object` と種類 `assetCost`（資産の毎年の費用）・表の行 `cf.expense.other.realEstate` を足した
 ///   （0123。どれも足すだけの MINOR）。前の版のアプリは入力の検査で知らない欄を通さないので、版を上げて閲覧だけにする。
 ///   変換の段は形式の版だけを書き換える。0.60 の段の後に積む
+/// - 0.62: 暗号資産を2028年からの申告分離課税で取り崩す（0124。MINOR）。器の欄 `accounts[].cryptoTaxation`（暗号資産を売ったときの税の扱い。
+///   `separate` 申告分離課税・`miscellaneous` 雑所得。省略は `separate`）を足した。前の版のアプリは知らない欄を通さないので、版を上げて閲覧だけにする。
+///   変換の段は、暗号資産の器があれば、書いた取り崩しの順序（今の世帯とプランの差分）に暗号資産の種類を足し、開いたときの知らせ
+///   `cryptoSeparateTax` を足す（前の版では暗号資産を順序に並べられなかったので、FP が外した物ではない）。器の中身・控えは変えない。0.61 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
+    "0.62",
 ];
 
 /// 1段分の変換
@@ -525,6 +530,11 @@ pub const STEPS: &[Step] = &[
         from: "0.60",
         to: "0.61",
         apply: v0_60_to_0_61,
+    },
+    Step {
+        from: "0.61",
+        to: "0.62",
+        apply: v0_61_to_0_62,
     },
 ];
 
@@ -2222,6 +2232,138 @@ fn v0_60_to_0_61(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 取り崩しの順序を書く前提の項目（0026）
+const WITHDRAWAL_ITEM: &str = "assumptions.withdrawal";
+/// 暗号資産を足す前に置く取り崩しの順序の種類（持株会・旧NISA・NISA。既定の順序で暗号資産より後の器。0124）
+const AFTER_CRYPTO_KINDS: &[&str] = &["esop", "legacyNisa", "nisa"];
+
+/// 取り崩しの順序（`assumptions.withdrawal.order` の並び）に暗号資産の種類を足す（0124）。暗号資産の種類か、
+/// 暗号資産の器の物の ID が既にあれば足さない。足したら true
+fn add_crypto_to_order(order: &mut Value, crypto_ids: &[String]) -> bool {
+    let Some(list) = order.as_array_mut() else {
+        return false;
+    };
+    let has = list.iter().any(|o| {
+        o.get("kind").and_then(Value::as_str) == Some(CRYPTO_ASSET)
+            || o.get("object")
+                .and_then(Value::as_str)
+                .is_some_and(|x| crypto_ids.iter().any(|c| c == x))
+    });
+    if has {
+        return false;
+    }
+    let at = list
+        .iter()
+        .position(|o| {
+            o.get("kind")
+                .and_then(Value::as_str)
+                .is_some_and(|k| AFTER_CRYPTO_KINDS.contains(&k))
+        })
+        .unwrap_or(list.len());
+    list.insert(at, serde_json::json!({ "kind": CRYPTO_ASSET }));
+    true
+}
+
+/// 0.61 → 0.62: 暗号資産を2028年からの申告分離課税で取り崩す（0124）。器の欄 `cryptoTaxation` を足した（前の版の世帯に無い）。
+/// 今の世帯かプランの差分に暗号資産の器があれば、書いた取り崩しの順序（今の世帯の `assumptions.withdrawal.order` と、プランの差分の
+/// 項目 `assumptions.withdrawal` の場所が空〔値の中の `order`〕か `order` のもの）に暗号資産の種類を足し、開いたときの知らせ
+/// `cryptoSeparateTax` を足す。器の中身・控えは変えない
+fn v0_61_to_0_62(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    let is_crypto = |a: &Value| a.get("kind").and_then(Value::as_str) == Some(CRYPTO_ASSET);
+    let id_of = |a: &Value| a.get("id").and_then(Value::as_str).map(str::to_owned);
+    let mut ids: Vec<String> = Vec::new();
+    let input_accounts = obj
+        .get("household")
+        .and_then(|h| h.get("request"))
+        .and_then(|r| r.get("input"))
+        .and_then(|i| i.get("household"))
+        .and_then(|h| h.get("accounts"))
+        .and_then(Value::as_array);
+    if let Some(list) = input_accounts {
+        ids.extend(list.iter().filter(|a| is_crypto(a)).filter_map(id_of));
+    }
+    if let Some(list) = obj.get("proposals").and_then(Value::as_array) {
+        for plan in list {
+            for d in plan
+                .get("diffs")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                if d.get("op").and_then(Value::as_str) == Some("add")
+                    && d["target"]["collection"] == "account"
+                    && is_crypto(&d["value"])
+                {
+                    ids.extend(id_of(&d["value"]));
+                }
+            }
+        }
+    }
+    let count = ids.len();
+    let mut orders = 0usize;
+    if !ids.is_empty() {
+        if let Some(order) = obj
+            .get_mut("household")
+            .and_then(|h| h.get_mut("request"))
+            .and_then(|r| r.get_mut("input"))
+            .and_then(|i| i.get_mut("assumptions"))
+            .and_then(|a| a.get_mut("withdrawal"))
+            .and_then(|w| w.get_mut("order"))
+        {
+            if add_crypto_to_order(order, &ids) {
+                orders += 1;
+            }
+        }
+        if let Some(list) = obj.get_mut("proposals").and_then(Value::as_array_mut) {
+            for plan in list {
+                let Some(diffs) = plan.get_mut("diffs").and_then(Value::as_array_mut) else {
+                    continue;
+                };
+                for d in diffs.iter_mut() {
+                    if d.get("item").and_then(Value::as_str) != Some(WITHDRAWAL_ITEM)
+                        || d.get("op").and_then(Value::as_str) != Some("set")
+                    {
+                        continue;
+                    }
+                    let at: Vec<&str> = d
+                        .get("at")
+                        .and_then(Value::as_array)
+                        .map(|a| a.iter().filter_map(Value::as_str).collect())
+                        .unwrap_or_default();
+                    let target = match at.as_slice() {
+                        [] => d.get_mut("value").and_then(|v| v.get_mut("order")),
+                        ["order"] => d.get_mut("value"),
+                        _ => None,
+                    };
+                    if let Some(order) = target {
+                        if add_crypto_to_order(order, &ids) {
+                            orders += 1;
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(screen) = obj.get_mut("household").and_then(Value::as_object_mut) {
+            let list = screen
+                .entry("notices")
+                .or_insert_with(|| Value::Array(Vec::new()));
+            if let Some(list) = list.as_array_mut() {
+                list.push(serde_json::json!({
+                    "id": readings::migration_id(&format!("notices/cryptoSeparateTax/{count}/{orders}")),
+                    "kind": "cryptoSeparateTax",
+                    "count": count,
+                    "plans": orders,
+                }));
+            }
+        }
+    }
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.62".into());
+    }
+    Ok(body)
+}
+
 /// 0.58 → 0.59: 足した値（その他の資産の中身の細目。0120）は前の版の世帯に無いので、形式の版だけを書き換える。ほかの欄に触れない
 fn v0_58_to_0_59(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
@@ -2992,7 +3134,8 @@ mod tests {
         assert_eq!(access("0.59").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.60").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.61").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.62").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.62").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.63").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3005,7 +3148,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.62", b.clone()).unwrap(),
+            upgrade("0.63", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -3414,6 +3557,78 @@ mod tests {
     }
 
     #[test]
+    fn v0_61_to_0_62_adds_crypto_to_written_withdrawal_orders() {
+        // 暗号資産の器があれば、書いた取り崩しの順序（今の世帯・プランの差分の全体か order）に暗号資産の種類を足す（持株会・旧NISA・NISA の前。0124）
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.61"},
+            "household": {"request": {"input": {"baseMonth": "2026-10",
+                "household": {"accounts": [
+                    {"id": "d1", "kind": "deposit", "owner": "m1", "asOf": "2026-10", "contributions": []},
+                    {"id": "c1", "kind": "cryptoAsset", "owner": "m1", "asOf": "2026-10", "contributions": []}
+                ]},
+                "assumptions": {"withdrawal": {"order": [{"object": "d1"}, {"kind": "taxable"}, {"kind": "esop"}, {"kind": "nisa"}], "minimumDeposit": 0}}
+            }}},
+            "proposals": [{"id": "p1", "diffs": [
+                {"op": "set", "target": {"plan": "assumptions"}, "item": "assumptions.withdrawal", "at": [], "value": {"order": [{"kind": "deposit"}]}},
+                {"op": "set", "target": {"plan": "assumptions"}, "item": "assumptions.withdrawal", "at": ["order"], "value": [{"kind": "nisa"}, {"kind": "taxable"}]},
+                {"op": "set", "target": {"plan": "assumptions"}, "item": "assumptions.withdrawal", "at": ["order"], "value": [{"object": "c1"}]},
+                {"op": "set", "target": {"plan": "assumptions"}, "item": "assumptions.withdrawal", "at": ["minimumDeposit"], "value": 100}
+            ]}],
+            "snapshots": [{"id": "s1", "request": {"input": {"assumptions": {"withdrawal": {"order": [{"kind": "deposit"}]}}}}}]
+        });
+        let u = upgrade("0.61", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(
+            u["household"]["request"]["input"]["assumptions"]["withdrawal"]["order"],
+            serde_json::json!([{"object": "d1"}, {"kind": "taxable"}, {"kind": "cryptoAsset"}, {"kind": "esop"}, {"kind": "nisa"}])
+        );
+        let diffs = &u["proposals"][0]["diffs"];
+        assert_eq!(
+            diffs[0]["value"]["order"],
+            serde_json::json!([{"kind": "deposit"}, {"kind": "cryptoAsset"}])
+        );
+        assert_eq!(
+            diffs[1]["value"],
+            serde_json::json!([{"kind": "cryptoAsset"}, {"kind": "nisa"}, {"kind": "taxable"}])
+        );
+        // 暗号資産の器を物の ID で書いた順序・順序でない差分はそのまま
+        assert_eq!(diffs[2], b["proposals"][0]["diffs"][2]);
+        assert_eq!(diffs[3], b["proposals"][0]["diffs"][3]);
+        // 器の中身・控えは変えない
+        assert_eq!(
+            u["household"]["request"]["input"]["household"],
+            b["household"]["request"]["input"]["household"]
+        );
+        assert_eq!(u["snapshots"], b["snapshots"]);
+        let n: Vec<&Value> = u["household"]["notices"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|n| n["kind"] == "cryptoSeparateTax")
+            .collect();
+        assert_eq!(n.len(), 1);
+        assert_eq!(n[0]["count"], 1);
+        assert_eq!(n[0]["plans"], 3);
+    }
+
+    #[test]
+    fn v0_61_to_0_62_without_crypto_only_bumps_version() {
+        // 暗号資産の器が無ければ、順序を書いていても世帯はそのまま（知らせも足さない）
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.61"},
+            "household": {"request": {"input": {"baseMonth": "2026-10",
+                "household": {"accounts": [{"id": "d1", "kind": "deposit", "owner": "m1", "asOf": "2026-10", "contributions": []}]},
+                "assumptions": {"withdrawal": {"order": [{"kind": "deposit"}]}}
+            }}},
+            "proposals": [{"id": "p1", "diffs": [{"op": "set", "target": {"plan": "assumptions"}, "item": "assumptions.withdrawal", "at": ["order"], "value": [{"kind": "nisa"}]}]}]
+        });
+        let u = upgrade("0.61", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+        assert_eq!(u["proposals"], b["proposals"]);
+    }
+
+    #[test]
     fn v0_60_to_0_61_only_bumps_version() {
         // 足した欄（売る予定・取得の年月・貸していない不動産の細目・出るお金の行のつながる物。0123）は前の版の世帯に無いので、世帯はそのまま
         let b = serde_json::json!({
@@ -3530,11 +3745,15 @@ mod tests {
         // 控えは変えない
         assert_eq!(u["snapshots"], b["snapshots"]);
         // 開いたときの知らせ（現状で2件・プランの差分 4件〔利回りに直した1・捨てた細目2・足す器1〕）
+        // 0.62 の段（0124）が、暗号資産を2028年から取り崩す知らせを足す（器は現状の2件とプランで足す1件。書いた順序は無い）
         let n = u["household"]["notices"].as_array().unwrap();
-        assert_eq!(n.len(), 1);
+        assert_eq!(n.len(), 2);
         assert_eq!(n[0]["kind"], "cryptoAccounts");
         assert_eq!(n[0]["count"], 2);
         assert_eq!(n[0]["plans"], 4);
+        assert_eq!(n[1]["kind"], "cryptoSeparateTax");
+        assert_eq!(n[1]["count"], 3);
+        assert_eq!(n[1]["plans"], 0);
     }
 
     #[test]
