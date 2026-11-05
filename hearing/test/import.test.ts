@@ -207,6 +207,27 @@ describe("取り込み", () => {
     expect(old.candidates.find((c) => c.collection === "debts")?.note).toContain("2013年以前に借りたローンの控除は計算しません");
   });
 
+  it("2028年からの入居の住宅ローンの仮の住宅の種類は、入力の画面と同じく ZEH水準省エネ住宅（省エネ基準適合住宅は控除が無い）", () => {
+    const base = minimal.filter((x) => x.key !== "hs.housing.type" && x.key !== "hs.meta.filledOn");
+    const loan = [
+      a("hs.meta.filledOn", "2028-10"),
+      a("hs.work.type", "regular", 1),
+      a("hs.income.salary", 6000000, 1),
+      a("hs.income.bonus", 0, 1),
+      a("hs.housing.type", "own"),
+      a("hs.loan.debtor", "adult.1", 1),
+      a("hs.loan.principal", 30000000, 1),
+      a("hs.loan.start", "2028-04", 1),
+      a("hs.loan.termYears", 35, 1),
+      a("hs.loan.rate", "0.008", 1),
+    ];
+    const r = importAnswers(def, sheet(...base, ...loan), { baseMonth: "2028-10", newId: idSeq("import") });
+    const d = r.request.input.household.debts?.[0];
+    expect(d?.housing).toMatchObject({ propertyType: "zeh", newBuild: true });
+    expect(r.assumed[`housing/debt/${d?.id}/credit`]).toContain("新築はZEH水準省エネ住宅");
+    expect(r.candidates.find((c) => c.collection === "debts")?.note).toContain("新築のZEH水準省エネ住宅");
+  });
+
   it("住宅ローンの必須の欄が足りなければ、そのローンは取り込まない", () => {
     const r = run(...minimal, a("hs.loan.debtor", "adult.1", 1), a("hs.loan.principal", 30000000, 1));
     expect(r.request.input.household.debts ?? []).toEqual([]);

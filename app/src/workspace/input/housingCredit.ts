@@ -8,7 +8,7 @@ import { addMonths } from "../levers.ts";
 import { resolveTimepoint } from "./form.ts";
 import { newId, type WorkingHousehold } from "./household.ts";
 import { buildingPriceOf, customOfLandLoan, isCustomBuild, landLoanCreditable, landLoansOf, landMonthOf } from "./customBuild.ts";
-import { regulationValue } from "../../../../hearing/src/statistics.ts";
+import { provisionalNewType } from "../../../../hearing/src/housingEstimates.ts";
 
 /** 住宅ローン控除の条件の欄のキー（見せるだけの欄。印の置き場） */
 export const creditKey = (debtId: string): string => `housing/debt/${debtId}/credit`;
@@ -23,17 +23,8 @@ export const CREDIT_ASSUMED_ZEH =
 /** 仮の条件の文（住宅の種類に合わせる） */
 export const creditAssumedText = (hs: DebtHousing): string => (hs.newBuild && hs.propertyType === "zeh" ? CREDIT_ASSUMED_ZEH : CREDIT_ASSUMED);
 
-/**
- * 新築の仮の住宅の種類: 入居の月に借入限度額が0円でない、最も控えめな種類（省エネ基準適合住宅 → ZEH水準省エネ住宅 → 認定住宅の順。
- * 制度データの写し。2027年までの入居は省エネ基準適合住宅、2028年からの入居はZEH水準省エネ住宅。2026-11-05 の追記）
- */
-export function provisionalNewType(moveInYm: string): DebtHousing["propertyType"] {
-  for (const t of ["energySaving", "zeh"] as const) {
-    const v = regulationValue(`incomeTax.housingLoanCredit.limit.new.${t}`, `${moveInYm}-01`);
-    if (typeof v !== "number" || v > 0) return t;
-  }
-  return "certified";
-}
+/** 新築の仮の住宅の種類（入居の月に控除のある最も控えめな種類。ヒアリングシートの取り込みと同じ決まりなので hearing の側に置く） */
+export { provisionalNewType };
 export const PRINCIPAL_ESTIMATE = "購入の予定の物件の価格から頭金を引いた額（価格・頭金を直すと入れ直します）";
 /** 借入額の推定の印か（文はローンごとに実際の計算に合わせる。principalEstimateText） */
 export const isPrincipalEstimate = (t: string | undefined): boolean => t !== undefined && /を引いた額（.*を直すと入れ直します）$/u.test(t);

@@ -8,7 +8,7 @@ import full2 from "../sheets/full/2.json" with { type: "json" };
 import { answerKey, type Answer, type FilledSheet } from "./answers.ts";
 import { axisOf, itemByKey, type SheetDefinition, type SheetItem } from "./definition.ts";
 import { bonusShareEstimate, businessEstimate, careerStartMonth, fillsByEstimate, HEARING_UNKNOWN_BASIS, NOT_FILLED_BASIS, healthRateEstimate, livingEstimate, residentTaxEstimate, residentTaxYear, retirementLumpSumEstimate, salaryEstimate, type Estimate } from "./estimates.ts";
-import { currentMortgageRateEstimate, pctText } from "./housingEstimates.ts";
+import { currentMortgageRateEstimate, pctText, provisionalNewType } from "./housingEstimates.ts";
 import { issue, type Issue } from "./issues.ts";
 import { presetNum } from "./presets.ts";
 import { monthsFromPayment, principalFromPayment, standardTermMonths } from "./loan.ts";
@@ -1258,6 +1258,10 @@ function importSimpleLoan(c: Ctx, h: Household, adults: Adults, asOf: string): v
  */
 const CREDIT_DATA_FROM_YEAR = 2014;
 const CREDIT_ASSUMED = "仮の条件（入居は借入の年月・新築は省エネ基準適合住宅、中古は一般の住宅・持分は債務者が100%）で住宅ローン控除を計算しています";
+/** 2028年からの入居の新築の仮の条件（省エネ基準適合住宅は控除が無いので ZEH水準省エネ住宅。入力の画面の CREDIT_ASSUMED_ZEH と同じ決まり） */
+const CREDIT_ASSUMED_ZEH =
+  "仮の条件（入居は借入の年月・新築はZEH水準省エネ住宅〔2028年からの入居の新築は、省エネ基準適合住宅だと控除がありません〕、中古は一般の住宅・持分は債務者が100%）で住宅ローン控除を計算しています。省エネ基準適合住宅なら、住宅の種類を選び直してください";
+const PROPERTY_TYPE_TEXT: Readonly<Record<"energySaving" | "zeh" | "certified", string>> = { energySaving: "省エネ基準適合住宅", zeh: "ZEH水準省エネ住宅", certified: "認定住宅" };
 
 function importLoan(c: Ctx, h: Household, adults: Adults, n: number, asOf: string, baseMonth: string, ownId: string | null): void {
   const debtor = c.get<string>("hs.loan.debtor", n);
@@ -1332,9 +1336,11 @@ function importLoan(c: Ctx, h: Household, adults: Adults, n: number, asOf: strin
   if (Number(start.slice(0, 4)) >= CREDIT_DATA_FROM_YEAR) {
     const ev = { id: c.newId(), kind: "moveIn", at: { at: start } };
     h.events.push(ev);
-    d.housing = { ...(ownId !== null ? { residence: ownId } : {}), moveIn: ev.id, propertyType: "energySaving", newBuild: true };
-    c.assume(`housing/debt/${id}/credit`, CREDIT_ASSUMED, at("hs.loan.start", "debt.housing", "/housing"));
-    note += "入居は借りた年月・新築の省エネ基準適合住宅・借りている方の持分100%とした仮の条件で控除を計算します（入力の画面では「仮」の印が付きます）。違うときは面談で確かめてください";
+    // 新築は入居の月に控除のある最も控えめな種類（入力の画面の仮の条件と同じ決まり。2028年からの入居は ZEH水準省エネ住宅）
+    const propertyType = provisionalNewType(start);
+    d.housing = { ...(ownId !== null ? { residence: ownId } : {}), moveIn: ev.id, propertyType, newBuild: true };
+    c.assume(`housing/debt/${id}/credit`, propertyType === "zeh" ? CREDIT_ASSUMED_ZEH : CREDIT_ASSUMED, at("hs.loan.start", "debt.housing", "/housing"));
+    note += `入居は借りた年月・新築の${PROPERTY_TYPE_TEXT[propertyType]}・借りている方の持分100%とした仮の条件で控除を計算します（入力の画面では「仮」の印が付きます）。違うときは面談で確かめてください`;
   } else note += `${CREDIT_DATA_FROM_YEAR - 1}年以前に借りたローンの控除は計算しません`;
   (h.debts ??= []).push(d);
   c.candidate("debts", "debt.kind", d, undefined, note);

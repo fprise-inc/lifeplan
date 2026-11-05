@@ -11,11 +11,15 @@
 //     分を新築の評価額とみなし、最初の年（計算の基準の年。持ち始める時点が後ならその年）に効いている評価替えの年の築年数の分だけ下げる
 //     （B×g(評価替えの年−建った年)、g(a)＝max(下限, 1−(1−下限)×a÷下限まで下がる年数)。下限・年数は事務所の推定の値〔構造で木造・非木造〕）。
 //     建った年が空欄なら下げない（今までどおり）。新築の軽減は入れない。毎年の額は伸ばさない（評価替えの段は入れない）
+//   - 最初の年の評価額（2026-11-06 の追記）: 持ち始める時点が計算の基準の年より後なら、評価額をその年の初め（前の年の年末）の見込みにする
+//     （計算エンジンの年末の評価額と同じ決まり: 計算の基準の月から、年ごとに評価額の増減率〔無ければ前提条件の不動産の利回り、無ければ0〕で動かす。
+//     市場の急落の年は入れない）。根拠の文の評価額と年も、その額とその年にする（建物の築年数を数える年と合わせる）。持ち始める時点が無いか
+//     今年までなら、今までどおり入れた評価額のまま
 //   - 山林・農地は評価の仕方が違う（農地としての価格など）ので目安を出さない。中身の無い（その他の）不動産も出さない
 // - いつ入れるか（0112 と同じ考え）: 中身（土地・別荘・空き家）を選んだときと評価額・時点を直したときに、行が無いか推定のままなら入れる。
 //   その後は推定のままの行だけを入力を直すたびに入れ直す（refreshEstimates）。FP が額を入れたら（管理費を足した額など）その額のまま
 //   （値の状態の決まり）。欄を空にしたら目安に戻す（目安が出なければ行を外す）。目安が出なくなった推定のままの行は外す
-import type { Account, Box, Household, PeriodicExpense } from "../../engine/types.ts";
+import type { Account, Box, Household, PeriodicExpense, YearSeries } from "../../engine/types.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import type { FieldDef } from "./form.ts";
 import { mutate, newId, type WorkingHousehold } from "./household.ts";
@@ -37,9 +41,12 @@ type Kind = "vacantLand" | "villa" | "vacantHouse";
 const KIND_NAMES: Record<Kind, string> = { vacantLand: "土地（更地）", villa: "別荘", vacantHouse: "空き家" };
 
 export interface HeldEstateTaxInputs {
+  /** 目安に使う評価額（最初の年が後なら、その年の初めの見込み） */
   value: number;
-  /** その額の時点の年 */
+  /** その額の時点の年（最初の年が後なら、その年） */
   valueYear: number;
+  /** 入れた評価額とその時点の年（評価額を最初の年の見込みに動かしたときだけ。根拠の文に書く） */
+  entered?: { value: number; year: number; growth: string };
   kind: Kind;
   /** 土地の割合（土地〔更地〕は1） */
   landShare: number;
@@ -69,7 +76,7 @@ export function heldEstateTax(o: HeldEstateTaxInputs): { value: number; basis: s
   const landTax = housing ? land * law.landFixedShare * law.standardRate + land * law.landCityShare * cp : land * HELD_ESTATE_LAW.nonResidentialCap * (law.standardRate + cp);
   const value = round100(landTax + building * (law.standardRate + cp));
   const parts = [
-    `評価額${manOf(o.value)}（${String(o.valueYear)}年）・${KIND_NAMES[o.kind]}${o.kind === "vacantLand" ? "" : `・土地の割合${pctOf(o.landShare)}`}`,
+    `評価額${manOf(o.value)}（${String(o.valueYear)}年${o.entered === undefined ? "" : `の初めの見込み。${String(o.entered.year)}年の${manOf(o.entered.value)}から評価額の増減率${pctOf(Number(o.entered.growth))}で動かした`}）・${KIND_NAMES[o.kind]}${o.kind === "vacantLand" ? "" : `・土地の割合${pctOf(o.landShare)}`}`,
     `評価額は土地が価格の${pctOf(guide.landRatio)}${o.kind === "vacantLand" ? "" : `・建物が価格の${pctOf(guide.buildingRatio)}`}の目安`,
     housing ? `住宅用地の特例を当て、都市計画税${pctOf(cp)}を含む` : `${o.kind === "villa" ? "別荘の土地" : "更地"}は住宅用地の特例が当たらないので、課税標準を評価額の${pctOf(HELD_ESTATE_LAW.nonResidentialCap)}とし、都市計画税${pctOf(cp)}を含む`,
     ...(o.kind === "vacantLand"
@@ -85,8 +92,26 @@ export function heldEstateTax(o: HeldEstateTaxInputs): { value: number; basis: s
 /** 貸していない不動産か（中身 property の無い不動産の器） */
 export const isHeldEstate = (a: Pick<Account, "kind" | "property">): boolean => a.kind === "realEstate" && a.property === undefined;
 
-/** 目安の元（目安を出せない器・中身・評価額なら null） */
-export function heldEstateTaxInputs(h: Household, a: Account, baseMonth: string, landShareSetting?: string): HeldEstateTaxInputs | null {
+const seriesAt = (s: YearSeries | undefined, year: number): string | undefined => (s === undefined ? undefined : (s.byYear?.[String(year)] ?? s.default));
+
+/**
+ * 器の評価額の、firstYear の年の初め（前の年の年末）の見込み。計算エンジンの年末の評価額と同じく、計算の基準の月から年ごとに
+ * 評価額の増減率（無ければ前提条件の不動産の利回り realEstateReturn、無ければ0）で動かす（最初の年は基準の月からの月数の分）。
+ * 増減率が年で変わるときの見せ方用に、使った率（最初の年の率）も返す
+ */
+export function heldValueAt(a: Pick<Account, "valueGrowth">, value: number, baseMonth: string, firstYear: number, realEstateReturn?: YearSeries): { value: number; growth: string } {
+  const baseYear = Number(baseMonth.slice(0, 4));
+  const rateOf = (y: number): string => (typeof a.valueGrowth === "string" ? a.valueGrowth : (seriesAt(realEstateReturn, y) ?? "0"));
+  let v = value;
+  for (let y = baseYear; y < firstYear; y++) {
+    const months = y === baseYear ? 13 - Number(baseMonth.slice(5, 7)) : 12;
+    v = Math.round(v + (v * Number(rateOf(y)) * months) / 12);
+  }
+  return { value: v, growth: rateOf(baseYear) };
+}
+
+/** 目安の元（目安を出せない器・中身・評価額なら null）。realEstateReturn は前提条件の不動産の利回り（assumptions.assetReturns.realEstate） */
+export function heldEstateTaxInputs(h: Household, a: Account, baseMonth: string, landShareSetting?: string, realEstateReturn?: YearSeries): HeldEstateTaxInputs | null {
   if (!isHeldEstate(a)) return null;
   const kind = a.subtype;
   if (kind !== "vacantLand" && kind !== "villa" && kind !== "vacantHouse") return null;
@@ -95,9 +120,11 @@ export function heldEstateTaxInputs(h: Household, a: Account, baseMonth: string,
   const baseYear = Number(baseMonth.slice(0, 4));
   const from = a.holdFrom === undefined ? null : resolveTimepoint(h, a.holdFrom);
   const firstYear = from === null ? baseYear : Math.max(baseYear, Number(from.slice(0, 4)));
+  const valueYear = Number((a.asOf ?? baseMonth).slice(0, 4));
+  // 持ち始める年が後なら、評価額をその年の初めの見込みにする（根拠の文の評価額・年もその額・その年。2026-11-06 の追記）
+  const moved = firstYear > baseYear ? heldValueAt(a, value, baseMonth, firstYear, realEstateReturn) : null;
   return {
-    value,
-    valueYear: Number((a.asOf ?? baseMonth).slice(0, 4)),
+    ...(moved !== null ? { value: moved.value, valueYear: firstYear, entered: { value, year: valueYear, growth: moved.growth } } : { value, valueYear }),
     kind,
     landShare: kind === "vacantLand" ? 1 : Number(landShareSetting ?? VALUATION_DEFAULTS.landShare),
     ...(kind !== "vacantLand" && a.builtYear !== undefined ? { builtYear: a.builtYear, firstYear, ...(a.structure !== undefined ? { structure: a.structure } : {}) } : {}),
@@ -124,11 +151,11 @@ export function dropHeldCostRows(h: Household, aid: string): void {
  * 目安を入れる・入れ直す（h をそのまま書き換える）。start なら、行が無いか推定のままのときに入れる（中身・評価額を直したとき）。
  * start でなければ、推定のままの行だけを入れ直す。目安が出なくなった推定のままの行は外す
  */
-export function applyHeldEstateCost(h: Household, a: Account, baseMonth: string, landShareSetting?: string, start = false): void {
+export function applyHeldEstateCost(h: Household, a: Account, baseMonth: string, landShareSetting?: string, start = false, realEstateReturn?: YearSeries): void {
   const row = heldCostRow(h, a.id);
   if (row !== undefined && !isOurs(row.amount)) return;
   if (row === undefined && !start) return;
-  const o = heldEstateTaxInputs(h, a, baseMonth, landShareSetting);
+  const o = heldEstateTaxInputs(h, a, baseMonth, landShareSetting, realEstateReturn);
   if (o === null) {
     if (row !== undefined) dropHeldCostRows(h, a.id);
     return;
@@ -139,8 +166,8 @@ export function applyHeldEstateCost(h: Household, a: Account, baseMonth: string,
 }
 
 /** 世帯の貸していない不動産の毎年の費用の目安を入れ直す（refreshEstimates から） */
-export function refreshHeldEstateCost(h: Household, baseMonth: string, landShareSetting?: string): void {
-  for (const a of h.accounts ?? []) if (isHeldEstate(a) && heldCostRow(h, a.id) !== undefined) applyHeldEstateCost(h, a, baseMonth, landShareSetting);
+export function refreshHeldEstateCost(h: Household, baseMonth: string, landShareSetting?: string, realEstateReturn?: YearSeries): void {
+  for (const a of h.accounts ?? []) if (isHeldEstate(a) && heldCostRow(h, a.id) !== undefined) applyHeldEstateCost(h, a, baseMonth, landShareSetting, false, realEstateReturn);
   // 器が無くなった・収益不動産になった行は外す
   const held = new Set((h.accounts ?? []).filter(isHeldEstate).map((a) => a.id));
   if ((h.periodicExpenses ?? []).some((p) => p.kind === "assetCost" && (p.object === undefined || !held.has(p.object)))) h.periodicExpenses = (h.periodicExpenses ?? []).filter((p) => p.kind !== "assetCost" || (p.object !== undefined && held.has(p.object)));
@@ -153,7 +180,7 @@ export function startsHeldEstateCost(f: FieldDef, aid: string): FieldDef {
       ? next
       : mutate(next, (h, req) => {
           const a = (h.accounts ?? []).find((x) => x.id === aid);
-          if (a !== undefined) applyHeldEstateCost(h, a, req.input.baseMonth, req.input.assumptions?.realEstateValuation?.landShare, true);
+          if (a !== undefined) applyHeldEstateCost(h, a, req.input.baseMonth, req.input.assumptions?.realEstateValuation?.landShare, true, req.input.assumptions?.assetReturns?.realEstate);
         });
   return {
     ...f,
@@ -168,6 +195,6 @@ export function heldEstateCostEstimate(wh: WorkingHousehold, aid: string): { val
   const input = wh.request.input;
   const a = (input.household.accounts ?? []).find((x) => x.id === aid);
   if (a === undefined) return null;
-  const o = heldEstateTaxInputs(input.household, a, input.baseMonth, input.assumptions?.realEstateValuation?.landShare);
+  const o = heldEstateTaxInputs(input.household, a, input.baseMonth, input.assumptions?.realEstateValuation?.landShare, input.assumptions?.assetReturns?.realEstate);
   return o === null ? null : heldEstateTax(o);
 }

@@ -1,7 +1,7 @@
 // 空欄を補う目安の値（0008 の2 の「推定」。出どころは auto、estimate に統計名と年度を書く）。
 // 目安の数と純粋な計算は、ヒアリングシートの取り込みと同じ hearing/src/estimates.ts（正本は data/ の YAML の写し。0008 の追記 2026-10-26）。
 // ここには世帯（Household）を見て当てる部分と、元の入力が変わったときの入れ直しだけを置く
-import type { Box, EmploymentPeriod, Household, LivingExpense, Member } from "../../engine/types.ts";
+import type { Box, EmploymentPeriod, Household, LivingExpense, Member, YearSeries } from "../../engine/types.ts";
 import { ageAt } from "../levers.ts";
 import { isAutoSmr } from "./smr.ts";
 import { refreshClaims } from "./claims.ts";
@@ -86,7 +86,7 @@ const keepHearingHead = (was: string | undefined, basis: string): string => ((wa
  * 自動で入れた推定の値を、ほかの入力に合わせて入れ直す（FP が入れた値・確定の値は変えない）。
  * 「推定は入力の時点で世帯に入れ、元の入力が変わったら入れ直す」（0008 の未確定の決定）
  */
-export function refreshEstimates(h: Household, baseMonth: string, endYear?: number, landShare?: string): void {
+export function refreshEstimates(h: Household, baseMonth: string, endYear?: number, landShare?: string, realEstateReturn?: YearSeries): void {
   for (const l of h.livingExpenses ?? []) {
     refreshSplit(h, baseMonth, l);
     // 前の版の推定（千円単位に丸める前の額）で人数も同じなら書き換えない（丸めただけで、保存した世帯の結果を変えない）
@@ -135,7 +135,7 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
   // 今住んでいる持ち家の固定資産税の推定（推定のままの欄と推定の段だけ。ownedHomeTax.ts。0112 の追記 2026-11-03）
   refreshOwnedHomeTax(h, baseMonth, last, landShare);
   // 貸していない不動産の毎年の費用（固定資産税）の目安（推定のままの行だけ。heldEstateTax.ts。0123）
-  refreshHeldEstateCost(h, baseMonth, landShare);
+  refreshHeldEstateCost(h, baseMonth, landShare, realEstateReturn);
   // 推定（おまかせ）のままの失業給付・高年齢雇用継続給付を受け取るかは、期間の終わり・次の期間・年齢に合わせて入れ直す（claims.ts）
   refreshClaims(h);
   // 推定のままの標準報酬月額の置き換え口は外す（空欄にして給与から計算する。前の画面が書いた推定が残っていたとき。0047 の追記 2026-10-29 の2）
@@ -205,8 +205,8 @@ function refreshSplit(h: Household, baseMonth: string, l: LivingExpense): void {
 /** 推定を入れ直した世帯（変わらなければ同じものを返す） */
 export function withRefreshedEstimates<T extends { request: { input: { household: Household; baseMonth: string } } }>(wh: T): T {
   const h = structuredClone(wh.request.input.household);
-  const input = wh.request.input as { endYear?: number; assumptions?: { realEstateValuation?: { landShare?: string } } };
-  refreshEstimates(h, wh.request.input.baseMonth, input.endYear, input.assumptions?.realEstateValuation?.landShare);
+  const input = wh.request.input as { endYear?: number; assumptions?: { realEstateValuation?: { landShare?: string }; assetReturns?: Record<string, YearSeries> } };
+  refreshEstimates(h, wh.request.input.baseMonth, input.endYear, input.assumptions?.realEstateValuation?.landShare, input.assumptions?.assetReturns?.realEstate);
   if (JSON.stringify(h) === JSON.stringify(wh.request.input.household)) return wh;
   return { ...wh, request: { ...wh.request, input: { ...wh.request.input, household: h } } };
 }

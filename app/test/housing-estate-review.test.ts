@@ -188,8 +188,10 @@ describe("フラット35を選んだとき", () => {
     expect(d.product).toBe("flat35");
     expect(d.rateSchedule[0]).toMatchObject({ type: "fixed", rate: rateEstimateOf("fixed").rate });
     expect(d.repayment.variableRules).toBeUndefined();
-    expect(fieldOf(wh, `${id}/fiveYear`).get(wh).value).toBe(false);
-    expect(fieldOf(wh, `${id}/cap125`).get(wh).value).toBe(false);
+    // 全期間固定では5年ルール・125%ルールの欄を出さない（2026-11-06 の追記）
+    expect(fieldMaybe(wh, `${id}/fiveYear`)).toBeUndefined();
+    expect(fieldMaybe(wh, `${id}/cap125`)).toBeUndefined();
+    expect(fieldMaybe(wh, `${id}/variableRules`)).toBeUndefined();
     expect(() => preview(wh.request)).not.toThrow();
   });
 

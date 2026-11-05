@@ -179,7 +179,7 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
 function heldCostField(wh: WorkingHousehold, a: Account): FieldDef {
   const k = `sav/${a.id}`;
   const row = heldCostRow(wh.request.input.household, a.id);
-  const canEstimate = heldEstateTaxInputs(wh.request.input.household, a, wh.request.input.baseMonth, wh.request.input.assumptions?.realEstateValuation?.landShare) !== null;
+  const canEstimate = heldEstateTaxInputs(wh.request.input.household, a, wh.request.input.baseMonth, wh.request.input.assumptions?.realEstateValuation?.landShare, wh.request.input.assumptions?.assetReturns?.realEstate) !== null;
   const f = yenBox({
     key: `${k}/cost`,
     item: "periodicExpense.amount",
