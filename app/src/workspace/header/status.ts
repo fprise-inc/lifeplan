@@ -91,6 +91,15 @@ export function householdNoticeText(n: { kind: string; count?: number; plans?: n
     ];
     return { target: "work", title: "推定を性別・学歴で分けないようにしました", text: parts.join("") };
   }
+  // 暗号資産をその他の資産から金融資産の器へ移した（0.60 の変換の段。0122）
+  if (n.kind === "cryptoAccounts") {
+    const where = [(n.count ?? 0) > 0 ? `${n.count}件` : "", (n.plans ?? 0) > 0 ? `プランの変更 ${n.plans}件` : ""].filter((x) => x !== "").join("と");
+    return {
+      target: "input",
+      title: "暗号資産を金融資産の口座にしました",
+      text: `その他の資産の中身で「暗号資産」を選んでいた物（${where}）を、貯蓄・運用の金融資産の「暗号資産」にしました。金融資産の合計に入り、相場の下落にも当てられるので、結果が前と変わることがあります（取り崩しには使いません）。評価額の増減率は利回りの欄に移しました`,
+    };
+  }
   // プランで変えていた表の最後の年を外した（読むときの直し。表の最後の年はどのプランにも共通。0043 の追記 2026-11-05）
   if (n.kind === "planEndYearShared") {
     const names = (n.names ?? []).map((x) => `「${x}」`).join("");

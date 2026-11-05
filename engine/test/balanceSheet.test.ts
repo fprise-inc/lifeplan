@@ -214,6 +214,52 @@ describe("その他の資産と合計の一致", () => {
     expect(cells(flat, "cf.balance.account.otherAsset", 2028)).toBe(1000000);
   });
 
+  it("暗号資産（cryptoAsset。0122）: 金融資産の合計に入れ、取り崩さない。利回りは器の利回りか資産の配分、どちらも無ければ0。積立は決済口座から", () => {
+    const btc = uid("btc");
+    const withCrypto = (o: Obj, deposit = 30000000) =>
+      withInput(base({ endYear: 2030 }), (h) => {
+        (h.accounts as Obj[])[0] = { ...((h.accounts as Obj[])[0] as Obj), marketValue: box(deposit) };
+        (h.accounts as Obj[]).push({ id: btc, kind: "cryptoAsset", owner: A, marketValue: box(1000000), asOf: "2025-12", contributions: [], ...o });
+      });
+    const flat = full(withCrypto({}));
+    expect(cells(flat, "cf.balance.account.cryptoAsset", 2028)).toBe(1000000);
+    expect(cells(flat, "cf.balance.financial", 2028)).toBe(cells(flat, "cf.balance.account.deposit", 2028) + 1000000);
+    // 器の利回り（年率）で増える
+    const grown = full(withCrypto({ expectedReturn: "0.1" }));
+    expect(cells(grown, "cf.balance.account.cryptoAsset", 2026)).toBe(1100000);
+    expect(cells(grown, "cf.balance.account.cryptoAsset", 2027)).toBe(1210000);
+    // 積立は決済口座から出て、暗号資産の積立の行に出る
+    const monthly = full(withCrypto({ contributions: [{ from: at("2026-01"), to: at("2026-12"), monthly: 10000 }] }));
+    expect(cells(monthly, "cf.balance.account.cryptoAsset", 2026)).toBe(1120000);
+    expect(((monthly.table as unknown as Cell[]).filter((c) => c.row === "cf.transfer.savings.cryptoAsset" && c.year === 2026).reduce((s, c) => s + c.amount, 0))).toBe(120000);
+    // 預金が尽きても取り崩さない（資金の不足が出る）
+    const poor = full(withCrypto({}, 0));
+    const shortfall = (r: ReturnType<typeof full>) => (r.table as unknown as Cell[]).some((c) => c.row === "cf.balance.shortfall");
+    expect(shortfall(poor)).toBe(true);
+    expect(cells(poor, "cf.balance.account.cryptoAsset", 2030)).toBe(1000000);
+    // 取り崩す順番に書いても取り崩さない
+    const ordered = full(
+      withInput(withCrypto({}, 0), (_h, input) => {
+        (input.assumptions as Obj).withdrawal = { order: [{ kind: "cryptoAsset" }, { kind: "deposit" }] };
+      }),
+    );
+    expect(cells(ordered, "cf.balance.account.cryptoAsset", 2030)).toBe(1000000);
+  });
+
+  it("暗号資産の時価の下落（0122）: 器の種類を書かない下落は下げる。資産クラスを書いた下落は、配分の無い暗号資産を下げない。kinds に書けば下げる", () => {
+    const btc = uid("btc");
+    const req = (shock: Obj) =>
+      withInput(base({ endYear: 2028 }), (h, input) => {
+        (h.accounts as Obj[]).push({ id: btc, kind: "cryptoAsset", owner: A, marketValue: box(1000000), asOf: "2025-12", contributions: [] });
+        (input.assumptions as Obj).marketShocks = [{ year: 2026, drop: "0.5", ...shock }];
+      });
+    expect(cells(full(req({})), "cf.balance.account.cryptoAsset", 2026)).toBe(500000);
+    expect(cells(full(req({ assetClasses: ["equity.global"] })), "cf.balance.account.cryptoAsset", 2026)).toBe(1000000);
+    expect(cells(full(req({ kinds: ["cryptoAsset"] })), "cf.balance.account.cryptoAsset", 2026)).toBe(500000);
+    // 預金は既定の下落でも下げない（今までどおり）
+    expect(cells(full(req({})), "cf.balance.account.deposit", 2026)).toBeGreaterThan(29000000);
+  });
+
   it("金融資産の合計は、金融資産の器の残高の合計（不動産・車・その他の資産・保険は入れない）。純資産＝資産の合計−負債の合計", () => {
     const req = withInput(base({ endYear: 2045, inflation: "0.01" }), (h) => {
       (h.accounts as Obj[]).push(

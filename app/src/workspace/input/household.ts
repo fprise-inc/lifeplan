@@ -34,10 +34,10 @@ export interface PostRetirement {
 /** 開いたときの知らせ（0035 の8） */
 export interface HouseholdNotice {
   id: string;
-  kind: "outsideFamily" | "unresolvedDiffs" | "smrBlank" | "livingUnknown" | "unknownEstimated" | "carLoanEstimated" | "livingAllowance" | "petTemplate" | "compatibilityDropped" | "neutralEstimates" | "planEndYearShared" | string;
+  kind: "outsideFamily" | "unresolvedDiffs" | "smrBlank" | "livingUnknown" | "unknownEstimated" | "carLoanEstimated" | "livingAllowance" | "petTemplate" | "compatibilityDropped" | "neutralEstimates" | "planEndYearShared" | "cryptoAccounts" | string;
   members?: string[];
   count?: number;
-  /** smrBlank・livingUnknown・unknownEstimated・carLoanEstimated: プランの差分を変えた数 */
+  /** smrBlank・livingUnknown・unknownEstimated・carLoanEstimated・cryptoAccounts: プランの差分を変えた数 */
   plans?: number;
   /** livingAllowance: 前の内訳の仕送りの月額の合計 */
   amount?: number;

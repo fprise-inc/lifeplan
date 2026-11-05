@@ -303,7 +303,6 @@ fn every_format_version_has_a_fixture_and_opens() {
                 .collect();
             for s in [
                 "preciousMetal",
-                "cryptoAsset",
                 "art",
                 "membership",
                 "securityDeposit",
@@ -311,6 +310,26 @@ fn every_format_version_has_a_fixture_and_opens() {
             ] {
                 assert!(subs.contains(&s), "{v}: その他の資産の中身の細目 {s}");
             }
+            // 0.60 から（0122）: 暗号資産は器の種類。0.59 の見本の細目「暗号資産」は、変換の段が器の種類へ移す
+            assert!(
+                !subs.contains(&"cryptoAsset"),
+                "{v}: その他の資産の細目に暗号資産は無い"
+            );
+            let crypto: Vec<&serde_json::Value> = h["accounts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|a| a["kind"] == "cryptoAsset")
+                .collect();
+            assert_eq!(crypto.len(), 1, "{v}: 暗号資産の器");
+            assert_eq!(
+                crypto[0]["id"], "00000000-0000-4000-8000-000000005902",
+                "{v}: 暗号資産の器の ID"
+            );
+            let moved = now["household"]["notices"]
+                .as_array()
+                .is_some_and(|l| l.iter().any(|n| n["kind"] == "cryptoAccounts"));
+            assert_eq!(moved, *v == "0.59", "{v}: 暗号資産を移した知らせ");
         }
         if *v == "0.48" {
             // 0.48 から: 役員として働く人の家計の側（自社株〔出資額〕・会社への貸付金・会社からの借入金・会社の借入の連帯保証の額）と、

@@ -276,6 +276,7 @@ const ACCOUNT_LABEL: Record<string, string> = {
   zaikei: "財形貯蓄",
   esop: "持株会",
   fxDeposit: "外貨預金",
+  cryptoAsset: "暗号資産",
   insurance: "保険（積立部分）",
   realEstate: "不動産",
   smallBusinessMutualAid: "小規模企業共済",
@@ -701,7 +702,7 @@ const REAL_ESTATE_ROW = "cf.balance.account.realEstate";
 const OTHER_ASSET_KINDS = ["car", "insurance", "otherAsset"];
 const OTHER_ASSET_LABEL: Record<string, string> = { car: "車", insurance: "保険の解約返戻金" };
 /** 金融資産の器の並び（帳票の行の順） */
-const FINANCIAL_KINDS = ["deposit", "fxDeposit", "zaikei", "taxable", "nisa", "childNisa", "juniorNisa", "legacyNisa", "ideco", "corporateDc", "esop", "smallBusinessMutualAid"];
+const FINANCIAL_KINDS = ["deposit", "fxDeposit", "zaikei", "taxable", "nisa", "childNisa", "juniorNisa", "legacyNisa", "ideco", "corporateDc", "esop", "cryptoAsset", "smallBusinessMutualAid"];
 
 /**
  * 年末の時点ごとのバランスシート。金融資産の器のマイナス（預金の不足）は負債の側に出す。資産の合計＝負債の合計＋純資産。
@@ -1319,7 +1320,7 @@ const INVEST_GROUPS: readonly { label: string; color: string; kinds: readonly st
   { label: "まだ分けていない", color: "#ddd6e8", kinds: ["pooled"] },
   { label: "iDeCo・企業型DC", color: "#a8c59e", kinds: ["ideco", "corporateDc"] },
   { label: "NISA", color: "#8ea7d5", kinds: ["nisa", "childNisa", "juniorNisa", "legacyNisa"] },
-  { label: "課税口座など", color: "#e2cd9b", kinds: ["taxable", "esop", "smallBusinessMutualAid"] },
+  { label: "課税口座など", color: "#e2cd9b", kinds: ["taxable", "esop", "smallBusinessMutualAid", "cryptoAsset"] },
 ];
 const NOT_FINANCIAL_KINDS = new Set(["realEstate", "insurance", "car", "otherAsset"]);
 const kindOfRow = (row: string): string | null => (row.startsWith("cf.balance.account.") ? row.slice("cf.balance.account.".length) : null);

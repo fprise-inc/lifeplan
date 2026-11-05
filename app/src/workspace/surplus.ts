@@ -41,9 +41,14 @@ export function setSurplusRatio(req: EngineRequest, ratio: string | null): Engin
   return setSurplus(req, ratio === null ? rest : { ...rest, ratio });
 }
 
+/** なくしたその他の資産の細目（暗号資産は器の種類 cryptoAsset にした。形式 0.60。0122） */
+const REMOVED_SUBTYPES: ReadonlySet<string> = new Set(["cryptoAsset"]);
+
 /**
  * 控え（変換で中身を変えない）を今のエンジンで計算するときの直し: なくした前提（生活防衛資金 emergencyReserve。0031 の追記）を外し、
- * 性別・学歴で分けた前の統計の年齢カーブの値ID を男女計・学歴計の値ID に直す（今のエンジンは読めない。形式 0.58 の変換の段と同じ決まり。0118）
+ * 性別・学歴で分けた前の統計の年齢カーブの値ID を男女計・学歴計の値ID に直す（今のエンジンは読めない。形式 0.58 の変換の段と同じ決まり。0118）。
+ * なくしたその他の資産の細目（暗号資産 cryptoAsset。形式 0.60。0122）は外す（細目は計算に使っていなかったので、控えの計算の結果は変わらない。
+ * 種類は控えのまま「その他の資産」で計算する）
  */
 export function withoutRemovedAssumptions(req: EngineRequest): EngineRequest {
   const a = req.input.assumptions as Record<string, unknown> | undefined;
@@ -52,8 +57,10 @@ export function withoutRemovedAssumptions(req: EngineRequest): EngineRequest {
     const c = (p.salary?.growth as { curve?: string } | undefined)?.curve;
     return c !== undefined && neutralWageCurveId(c) !== c;
   });
-  if (!reserve && !curves) return req;
+  const subtypes = (req.input.household.accounts ?? []).some((x) => x.subtype !== undefined && REMOVED_SUBTYPES.has(x.subtype));
+  if (!reserve && !curves && !subtypes) return req;
   const request = structuredClone(req);
+  for (const x of request.input.household.accounts ?? []) if (x.subtype !== undefined && REMOVED_SUBTYPES.has(x.subtype)) delete x.subtype;
   if (reserve) delete (request.input.assumptions as Record<string, unknown>).emergencyReserve;
   for (const p of request.input.household.employmentPeriods ?? []) {
     const g = p.salary?.growth as { curve?: string } | undefined;

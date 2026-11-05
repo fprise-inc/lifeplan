@@ -842,7 +842,7 @@
       ]
     },
     "accountKind": {
-      "enum": ["deposit", "taxable", "nisa", "juniorNisa", "childNisa", "legacyNisa", "ideco", "corporateDc", "zaikei", "esop", "fxDeposit", "insurance", "realEstate", "smallBusinessMutualAid", "otherAsset", "pooled"]
+      "enum": ["deposit", "taxable", "nisa", "juniorNisa", "childNisa", "legacyNisa", "ideco", "corporateDc", "zaikei", "esop", "fxDeposit", "insurance", "realEstate", "smallBusinessMutualAid", "otherAsset", "pooled", "cryptoAsset"]
     },
     "unitShare": {
       "description": "0〜1 の割合（10進の文字列。0031）",
@@ -862,7 +862,7 @@
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "kind": { "title": "器の種類", "x-item": "account.kind", "$ref": "#/$defs/accountKind" },
-        "subtype": { "title": "その他の資産の細目（ownCompanyShares 自社株〔出資額〕・loanToCompany 会社への貸付金〔0105〕、preciousMetal 貴金属・cryptoAsset 暗号資産・art 美術品や骨董品・membership 会員権・securityDeposit 敷金や保証金・businessAsset 事業用の資産〔0120〕。省略は「その他」。種類 otherAsset だけ。表示だけで、計算には使わない）", "x-item": "account.subtype", "enum": ["ownCompanyShares", "loanToCompany", "preciousMetal", "cryptoAsset", "art", "membership", "securityDeposit", "businessAsset"] },
+        "subtype": { "title": "その他の資産の細目（ownCompanyShares 自社株〔出資額〕・loanToCompany 会社への貸付金〔0105〕、preciousMetal 貴金属・art 美術品や骨董品・membership 会員権・securityDeposit 敷金や保証金・businessAsset 事業用の資産〔0120〕。省略は「その他」。種類 otherAsset だけ。表示だけで、計算には使わない。暗号資産は器の種類 cryptoAsset〔0122〕）", "x-item": "account.subtype", "enum": ["ownCompanyShares", "loanToCompany", "preciousMetal", "art", "membership", "securityDeposit", "businessAsset"] },
         "owner": { "title": "名義の構成員", "x-item": "account.owner", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "marketValue": { "title": "時価", "x-item": "account.marketValue", "x-pointInTime": true, "$ref": "urn:financia:schema:common#/$defs/boxYen" },
         "costBasis": { "title": "取得価額（省略は時価と同じ）", "x-item": "account.costBasis", "x-pointInTime": true, "$ref": "urn:financia:schema:common#/$defs/boxYen" },

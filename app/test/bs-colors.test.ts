@@ -102,7 +102,7 @@ function hue(hex: string): number {
   return ((Math.atan2(B, A) * 180) / Math.PI + 360) % 360;
 }
 
-const ASSETS = ["deposit", "zaikei", "finOther", "nisa", "childNisa", "taxable", "fxDeposit", "esop", "pooled", "ideco", "corporateDc", "mutualAid", "land", "building", "realEstateOther", "car", "insurance", "otherAsset"];
+const ASSETS = ["deposit", "zaikei", "finOther", "nisa", "childNisa", "taxable", "fxDeposit", "esop", "pooled", "cryptoAsset", "ideco", "corporateDc", "mutualAid", "land", "building", "realEstateOther", "car", "insurance", "otherAsset"];
 const DEBTS = ["mortgage", "propertyLoan", "carLoan", "scholarship", "debtOther"];
 
 describe("バランスシートの図の色", () => {

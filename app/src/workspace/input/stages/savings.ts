@@ -19,6 +19,9 @@ const UNENTERED_VALUE = "未入力（評価額を入れてください。0円で
 const onAccount = (id: string, item: string, at: string[] = []) => (): Address => ({ target: { object: id }, item, at });
 const withAddress = (f: FieldDef, a: () => Address): FieldDef => ({ ...f, address: a });
 const WITH_COST = new Set(["taxable", "nisa", "legacyNisa", "juniorNisa", "childNisa"]);
+/** 暗号資産のまとまりの説明（0122）。金融資産に入れるが、取り崩さない（売ったときの税を計算しないため） */
+const CRYPTO_NOTE =
+  "取引所・ウォレットにある暗号資産の、今の円の評価額を入れます。金融資産の合計に入りますが、お金が足りなくなっても取り崩しには使いません（売ったときの利益は雑所得としてほかの所得と合わせて税がかかり、この計算ではその税を出せないため）。売る予定があれば、売る額を入るお金の行（課税の扱いは「雑所得（その他）」、取得費に買った額）で入れ、売る分をこの残高から外します（二重に数えないため）";
 /** 金融資産でない器（不動産・その他の資産）。評価額と増減率だけを入れる */
 const NON_FINANCIAL = new Set(["realEstate", "otherAsset"]);
 
@@ -37,7 +40,25 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   const kindOf = a.kind === "otherAsset" && sub === undefined ? otherAssetSubtypeOf(a.subtype) : null;
   const fields: FieldDef[] = [
     // 種類をその他の資産から変えたら、中身の細目を外す（細目は種類 otherAsset だけ）
-    plain({ key: `${k}/kind`, item: "account.kind", label: "種類", level: "simple", kind: "select", options: ACCOUNT_KINDS, find, path: ["kind"], structural: true, after: (_h, t, v) => void (v !== "otherAsset" && delete t.subtype) }),
+    plain({
+      key: `${k}/kind`,
+      item: "account.kind",
+      label: "種類",
+      level: "simple",
+      kind: "select",
+      options: ACCOUNT_KINDS,
+      find,
+      path: ["kind"],
+      structural: true,
+      after: (_h, t, v) => {
+        if (v !== "otherAsset") delete t.subtype;
+        // 暗号資産（金融資産の器。0122）へ変えたら、評価額の増減率を器の利回りへ移す（暗号資産は増減率を読まない）
+        if (v === "cryptoAsset" && t.valueGrowth !== undefined) {
+          t.expectedReturn ??= t.valueGrowth;
+          delete t.valueGrowth;
+        }
+      },
+    }),
     ...(a.kind === "otherAsset" && sub === undefined
       ? [plain({ key: `${k}/subtype`, item: "account.subtype", label: "中身", level: "simple", kind: "select", options: OTHER_ASSET_OPTIONS, find, path: ["subtype"], fallback: "other", structural: true, help: kindOf?.note ?? "資産と負債のタブ・提案書のバランスシートで、中身ごとの行に分けて見せます（同じ中身はまとめます）。計算は中身で変わりません" })]
       : []),
@@ -141,7 +162,10 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
         kind: "pct",
         ...RETURN_RANGE,
         optional: true,
-        help: "1年あたりの見込みの利回りを、信託報酬などの費用を引いた後で入れます。入れなければ、資産の配分や前提条件の利回りで計算します（費用を別に入れる形は「詳細」で）",
+        help:
+          a.kind === "cryptoAsset"
+            ? "1年あたりの評価額の増え方の見込みです。入れなければ0（今の評価額のまま）で計算します。値動きが大きいので、ふつうは入れずに見ます"
+            : "1年あたりの見込みの利回りを、信託報酬などの費用を引いた後で入れます。入れなければ、資産の配分や前提条件の利回りで計算します（費用を別に入れる形は「詳細」で）",
         get: (w) => {
           const x = find(w.request.input.household, w) as Account | undefined;
           return { value: x?.expectedReturn ?? null, ...(x !== undefined && x.expectedReturn === undefined ? { hint: `空欄: 年${(Number(rateOf(w.request, x)) * 100).toFixed(1)}%` } : {}) };
@@ -175,8 +199,9 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     };
     fields.push(timepointField({ key: `${k}/until`, item: "account.contributions", label: own.length > 1 ? "積立の終わり（最後の月）" : "積立の終わり（最後の月）", level: "detail", find: lastContribution, path: ["to"], startPath: ["from"], ageMeans: "before", optional: true, nullText: "退職の年まで（推定）", ...(owner !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === owner.id) } : {}) }));
   }
-  // 引き出せない期間の終わり（その月まで取り崩さない）。iDeCo・企業型DC・小規模企業共済は受け取りの決まりで預金に入るので出さない
-  if (!DC_KIND.has(a.kind) && a.kind !== "smallBusinessMutualAid")
+  // 引き出せない期間の終わり（その月まで取り崩さない）。iDeCo・企業型DC・小規模企業共済は受け取りの決まりで預金に入るので出さない。
+  // 暗号資産は取り崩さないので出さない（0122）
+  if (!DC_KIND.has(a.kind) && a.kind !== "smallBusinessMutualAid" && a.kind !== "cryptoAsset")
     fields.push(
       withAddress(
         timepointField({
@@ -199,12 +224,15 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     {
       key: k,
       title: `${ACCOUNT_KINDS.find((o) => o.value === a.kind)?.label ?? "口座"}（${memberLabel(wh, a.owner)}）`,
+      ...(a.kind === "cryptoAsset" ? { note: CRYPTO_NOTE } : {}),
       level: "simple",
       fields,
       actions: [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.accounts = (h.accounts ?? []).filter((x) => x.id !== a.id)))],
     },
   ];
   if (a.kind === "legacyNisa" || a.kind === "juniorNisa") groups.push(...lotGroups(a, k));
+  // 暗号資産は資産の配分を足さない（資産の種類の一覧に暗号資産が無い。利回りは上の欄で入れる。0122）。入っていれば今までどおり見せる
+  if (a.kind === "cryptoAsset" && (a.assetMix ?? []).length === 0) return groups;
   (a.assetMix ?? []).forEach((_, j) => {
     const findMix: Finder = (h, w) => (getPath(find(h, w), ["assetMix", String(j)]) as Record<string, unknown> | undefined) ?? undefined;
     groups.push({
@@ -584,6 +612,8 @@ export function accountMoreLabel(a: Pick<Account, "kind" | "contributions">): st
     case "fxDeposit":
     case "smallBusinessMutualAid":
       return "残高の時点・配分などを入れる";
+    case "cryptoAsset":
+      return (a.contributions ?? []).length > 0 ? "残高の時点・積立の終わりを入れる" : "残高の時点を入れる";
     default:
       return undefined;
   }
@@ -723,6 +753,7 @@ export function savingsStage(wh: WorkingHousehold): StageDef {
           add("corporateDc", "企業型DC"),
           add("fxDeposit", "外貨預金"),
           add("esop", "持株会"),
+          add("cryptoAsset", "暗号資産"),
           add("smallBusinessMutualAid", "小規模企業共済"),
           add("legacyNisa", "旧NISA"),
           add("juniorNisa", "ジュニアNISA"),
@@ -732,7 +763,7 @@ export function savingsStage(wh: WorkingHousehold): StageDef {
       {
         key: "sav/others",
         title: "その他の資産",
-        note: `貸していない土地・別荘・空き家などの不動産と、貴金属・暗号資産・美術品や骨董品・会員権・敷金や保証金・事業用の資産など。資産と負債のタブ・提案書のバランスシートに、中身ごとの行で入ります（金融資産には入れず、取り崩しにも使いません。時価の下落にも当てません）。人に貸している不動産は「収益不動産」、住まいは「住まい・ローン」、車は「車」で入れます${officer !== undefined ? "。役員を務める会社の自社株（出資額）と、会社への貸付金もここで入れます（会社からの借入金は「住まい・ローン」のほかのローン）" : ""}`,
+        note: `貸していない土地・別荘・空き家などの不動産と、貴金属・美術品や骨董品・会員権・敷金や保証金・事業用の資産など。資産と負債のタブ・提案書のバランスシートに、中身ごとの行で入ります（金融資産には入れず、取り崩しにも使いません。時価の下落にも当てません）。暗号資産は上の金融資産の「そのほか」の「暗号資産」で入れます。人に貸している不動産は「収益不動産」、住まいは「住まい・ローン」、車は「車」で入れます${officer !== undefined ? "。役員を務める会社の自社株（出資額）と、会社への貸付金もここで入れます（会社からの借入金は「住まい・ローン」のほかのローン）" : ""}`,
         // 無い世帯でも標準で出す（見出しと足すボタンだけ。0120）。説明は「?」の中
         level: "simple",
         groups: others.flatMap((a) => otherAssetGroups(wh, a)),
