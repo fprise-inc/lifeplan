@@ -408,3 +408,8 @@ Mac（Apple M5、WKWebView、Tauri 2.12.1）で確かめた。
 - 受け付けるのは PNG と JPEG だけ（決定のまま）。本体が見出しから種類と縦横の画素を読み（256KB まで・縦横 2000 画素まで）、帳票の部品で組めるかも確かめる。ファイルは本体のダイアログで選ばせ、画面にパス・ファイル名を返さない。
 - 画面は画像を `img` の URL（`data:`・`blob:` を含む）にしない。本体から受けたバイトを `createImageBitmap` で絵にしてキャンバスに描く。提案書の見本（本体の SVG）の中の画像も、確かめの時に取り出して、同じ場所に置いたキャンバスに描く（ほかの要素の許可の決まりは変えない）。CSP の `img-src 'self'` は変えない。
 - 基調の色は画面が `html` の style に CSSOM で入れる（`style-src` は変えない）。
+
+- 2026-11-05（Web のヒアリング。0125）:
+  - capabilities に命令を3つ足した（`hearing_web_config`・`hearing_web_call`・`hearing_document_save`）。画面の CSP（connect-src）は変えない。受け付けのサーバーとの通信は本体の `hearing_web_call` だけが行い、通す道は FP の動き（作る・状況・答え・書類・消す）だけ、相手は配布元の設定の `[hearing_web]` の `relay` の https のホストだけ（開発用のビルドだけ、この PC の中の受け付けに差し替えられる）。パスは受け取らない・返さない。
+  - 受け取った書類の画像は、今までの決まりどおり `img` の URL にせず、`createImageBitmap` でキャンバスに描く。保存は平文の書き出しの出口（種類 `HearingDocument`）。
+  - **お客さまの画面**（`app/src/hearingForm/`）はお客さまのブラウザで開く別のページ。CSP は `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; …; frame-ancestors 'none'`（`blob:` は選んだ写真の縮小の表示だけ）。外のスクリプト・フォントを読まない。lint で、作業の層・本体の命令・エンジン・提示層を読めなくした。下書きをお客さまのブラウザの保存機能に暗号化して置くのは入口（`main.tsx`）だけ（FP のアプリの画面の保存の決まり〔1〕はそのまま。FP のアプリの見本は同じ部品を通信せず・何も残さずに使う）。

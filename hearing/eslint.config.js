@@ -5,7 +5,7 @@ import tseslint from "typescript-eslint";
 const root = import.meta.dirname;
 
 export default tseslint.config(
-  { ignores: ["node_modules/**"] },
+  { ignores: ["node_modules/**", "relay/.wrangler/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

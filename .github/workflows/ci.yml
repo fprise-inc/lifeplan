@@ -147,6 +147,8 @@ jobs:
           npm run check:takeaway -- "$RUNNER_TEMP/takeaway/見本_パスワードなし.html" "$RUNNER_TEMP/takeaway/見本_パスワードあり.html" mihon-pass-2026 --require
       - name: ビルド（Tauri のクレートが埋め込む画面）
         run: npm run build
+      - name: Web のヒアリングのお客さまのページ（外のファイルを読まない・配るファイルの指紋と完全性の印。0125）
+        run: npm run build:hearing-form
       - name: ライセンスの検査（npm）
         run: npm run check:licenses
       - name: Tauri が Linux で使うライブラリ

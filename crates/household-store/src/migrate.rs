@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.62";
+pub const CURRENT: &str = "0.63";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -213,13 +213,16 @@ pub const CURRENT: &str = "0.62";
 ///   `separate` 申告分離課税・`miscellaneous` 雑所得。省略は `separate`）を足した。前の版のアプリは知らない欄を通さないので、版を上げて閲覧だけにする。
 ///   変換の段は、暗号資産の器があれば、書いた取り崩しの順序（今の世帯とプランの差分）に暗号資産の種類を足し、開いたときの知らせ
 ///   `cryptoSeparateTax` を足す（前の版では暗号資産を順序に並べられなかったので、FP が外した物ではない）。器の中身・控えは変えない。0.61 の段の後に積む
+/// - 0.63: Web のヒアリングの依頼の記録 `hearing.web`（依頼番号・サーバーの上の名前・鍵の組と合言葉・選び方・指紋・期限・URL・状態・受け取った答え・
+///   受け取った書類。0125）を、取り込みの記録の区画に足した（足すだけの MINOR）。前の版のアプリは `hearing` を読んだまま書き戻すが、受け取った書類を
+///   含むので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える。0.62 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
-    "0.62",
+    "0.62", "0.63",
 ];
 
 /// 1段分の変換
@@ -535,6 +538,11 @@ pub const STEPS: &[Step] = &[
         from: "0.61",
         to: "0.62",
         apply: v0_61_to_0_62,
+    },
+    Step {
+        from: "0.62",
+        to: "0.63",
+        apply: v0_62_to_0_63,
     },
 ];
 
@@ -2264,6 +2272,15 @@ fn add_crypto_to_order(order: &mut Value, crypto_ids: &[String]) -> bool {
     true
 }
 
+/// 0.62 → 0.63: 足した区画（Web のヒアリングの依頼の記録 `hearing.web`。0125）は前の版の世帯に無いので、形式の版だけを書き換える。ほかの欄に触れない
+fn v0_62_to_0_63(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.63".into());
+    }
+    Ok(body)
+}
+
 /// 0.61 → 0.62: 暗号資産を2028年からの申告分離課税で取り崩す（0124）。器の欄 `cryptoTaxation` を足した（前の版の世帯に無い）。
 /// 今の世帯かプランの差分に暗号資産の器があれば、書いた取り崩しの順序（今の世帯の `assumptions.withdrawal.order` と、プランの差分の
 /// 項目 `assumptions.withdrawal` の場所が空〔値の中の `order`〕か `order` のもの）に暗号資産の種類を足し、開いたときの知らせ
@@ -3135,7 +3152,8 @@ mod tests {
         assert_eq!(access("0.60").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.61").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.62").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.63").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.63").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.64").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3626,6 +3644,20 @@ mod tests {
         assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
         assert_eq!(u["proposals"], b["proposals"]);
+    }
+
+    #[test]
+    fn v0_62_to_0_63_only_bumps_version() {
+        // 足した区画（Web のヒアリングの依頼の記録。0125）は前の版の世帯に無いので、世帯と取り込みの記録はそのまま
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.62"},
+            "household": {"request": {"input": {"baseMonth": "2026-11", "household": {"accounts": []}}}},
+            "hearing": {"requests": [], "imports": [], "consents": []}
+        });
+        let u = upgrade("0.62", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+        assert_eq!(u["hearing"], b["hearing"]);
     }
 
     #[test]
