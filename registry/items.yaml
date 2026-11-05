@@ -169,7 +169,7 @@ entries:
     path: [settlement]
   - id: account.subtype
     status: active
-    label: "その他の資産の細目（ownCompanyShares 自社株〔出資額〕・loanToCompany 会社への貸付金。種類 otherAsset だけ。表示だけで、計算には使わない。0105）"
+    label: "その他の資産の細目（ownCompanyShares 自社株〔出資額〕・loanToCompany 会社への貸付金〔0105〕、preciousMetal 貴金属・cryptoAsset 暗号資産・art 美術品や骨董品・membership 会員権・securityDeposit 敷金や保証金・businessAsset 事業用の資産〔0120〕。省略は「その他」。種類 otherAsset だけ。表示だけで、計算には使わない）"
     since: draft
     aliases: []
     replacedBy: null

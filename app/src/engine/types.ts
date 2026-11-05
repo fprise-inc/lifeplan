@@ -125,8 +125,11 @@ export interface ReturnStage {
 export interface Account {
   id: string;
   kind: string;
-  /** 0105: その他の資産の細目（自社株〔出資額〕・会社への貸付金。種類 otherAsset だけ。表示だけで、計算には使わない） */
-  subtype?: "ownCompanyShares" | "loanToCompany";
+  /**
+   * その他の資産の細目（種類 otherAsset だけ。表示だけで、計算には使わない）: 自社株〔出資額〕・会社への貸付金（0105）と、貴金属・暗号資産・
+   * 美術品や骨董品・会員権・敷金や保証金・事業用の資産（0120）。無ければ「その他」
+   */
+  subtype?: "ownCompanyShares" | "loanToCompany" | "preciousMetal" | "cryptoAsset" | "art" | "membership" | "securityDeposit" | "businessAsset";
   owner: string;
   marketValue?: Box<number>;
   costBasis?: Box<number>;

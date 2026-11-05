@@ -385,7 +385,8 @@ function baseSummary(id: StageId, wh: WorkingHousehold, inheritanceTax: string |
       // （貸している不動産は収益不動産のカードで数える。0079）
       const own = list.filter((a) => !isRentalProperty(a));
       const others = own.filter((a) => a.kind === "realEstate" || a.kind === "otherAsset").reduce((s, a) => s + (a.marketValue?.value ?? 0), 0);
-      return own.length === 0 ? null : { main: manText(totalViewOf(wh.request).value + others), unit: "万円" };
+      // 不動産・その他の資産を入れていれば、そのうちの額を下の小さな1行に（0120。入れていなければ出さない）
+      return own.length === 0 ? null : { main: manText(totalViewOf(wh.request).value + others), unit: "万円", ...(others > 0 ? { note: `うち不動産・その他の資産 ${manText(others)}万円` } : {}) };
     }
     case "rental": {
       const list = rentalProperties(h);
