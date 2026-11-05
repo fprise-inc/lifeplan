@@ -16,7 +16,10 @@
 //   返済余裕率（DSCR）＝（実際に入る収入−経費）÷約定の返済、借入の割合（LTV）＝年末のローン残高÷年末の評価額（ローンのある物件）、
 //   自己資金に対する手残りの割合（CCR）＝税引前の手残り（年換算）÷自己資金（入れたときだけ）。年換算は×12÷貸している月数（表に載る月の分）。
 //   民泊・宿は表面利回りを出さず（満室の考えが無い）、稼働率と1泊の単価・営業日数・年の売上を並べる（損益分岐は稼働率100%の売上に対する割合）
-// - 築年数＝その年−建った年、残りの耐用年数＝法定耐用年数−築年数（0より下げない）
+// - 築年数＝その年−建った年、残りの耐用年数＝法定耐用年数−築年数（0より下げない）。建物の無い物件（asset.realEstate の facts.noBuilding）は出さない
+// - 売ったときの手残りの目安（equity）＝年末の評価額−年末のローン残高。含み益（unrealizedGain。改訂2）＝年末の評価額−年末の帳簿価額
+//   （bookValue＝取得価額＋取得時の諸費用−減価償却の累計。asset.realEstate の years[].book。取得の入力が無ければ出さない）
+// - 減価償却が終わる年が売る・貸し終わるまでに来ないときは、貸し続けたら終わる年（depreciationEndIfContinued。改訂2）を添える
 // - 元金の返済が減価償却費を上回る年（deadCross）: 貸している年のうち、元金＞減価償却費（建物と建物附属設備）になる最初の年（計算基準年は
 //   減価償却費を表に載る月の分にそろえて比べる。計算基準年で上回っていれば、もう上回っている）
 // - 売却（exit。今の予定の売却）: 手取り（売却価格−費用）・売ったときの一括の返済・譲渡所得の税（tax.realEstateSale の名義の人×年の額。
@@ -71,8 +74,8 @@ const max0 = (v: number): Yen => yen(v > 0 ? v : 0);
 export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>({
   id: "asset.realEstateAnalysis",
   title: "収益不動産の分析の数字（利回り・返済比率・手残りなど）",
-  contract: "1.0",
-  revision: 1,
+  contract: "1.1",
+  revision: 2,
   requires: {
     "asset.realEstate": ">=1 <2",
     "debt.schedule": ">=1 <2",
@@ -231,6 +234,8 @@ export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>(
       const interestOf = (y: number) => loans.reduce((s, out) => s + (out.interest?.find((x) => x.year === y)?.amount ?? 0), 0);
       const balanceOf = (y: number) => loans.reduce((s, out) => s + (out.yearEnd.find((x) => x.year === y)?.balance ?? 0), 0);
       const valueOf = new Map(p.years.map((v) => [v.year, v.value]));
+      const bookOf = new Map(p.years.flatMap((v) => (v.book === undefined ? [] : [[v.year, v.book] as const])));
+      const noBuilding = facts?.noBuilding === true;
       const incomeOf = new Map(p.income.map((v) => [v.year, v]));
       const acq = facts?.acquisition ?? null;
       const equityIn = acq?.equity;
@@ -264,7 +269,8 @@ export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>(
         const depCmp = dep === null ? 0 : y === baseYear && baseMonths < 12 ? ctx.money.mulRatio(dep, baseMonths, 12, CONV) : dep;
         if (deadCross === null && c.months > 0 && hasLoan && principal > 0 && principal > depCmp) deadCross = y;
         const noi = c.rent - c.expenses;
-        const age = facts === undefined ? null : Math.max(0, y - facts.builtYear);
+        const age = facts === undefined || noBuilding ? null : Math.max(0, y - facts.builtYear);
+        const bookValue = value === null ? null : (bookOf.get(y) ?? null);
         const row: Row = {
           year: y,
           held: value !== null,
@@ -285,6 +291,8 @@ export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>(
           loanBalance,
           value,
           equity: value === null ? null : yen(value - loanBalance),
+          bookValue,
+          unrealizedGain: value === null || bookValue === null ? null : yen(value - bookValue),
           age,
           remainingLife: facts === undefined || age === null ? null : Math.max(0, facts.legalLife - age),
           grossYield: isLodging || c.gross === null || acq === null ? null : annualRatio(c.gross, c.months, acq.total),
@@ -316,9 +324,10 @@ export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>(
         object: p.object,
         owner: p.owner,
         acquisition: acq,
-        builtYear: facts?.builtYear ?? null,
-        legalLife: facts?.legalLife ?? null,
+        builtYear: noBuilding ? null : (facts?.builtYear ?? null),
+        legalLife: noBuilding ? null : (facts?.legalLife ?? null),
         depreciationEnd: facts?.depreciationEnd ?? { building: null, equipment: null },
+        ...(facts?.depreciationEndIfContinued !== undefined ? { depreciationEndIfContinued: facts.depreciationEndIfContinued } : {}),
         deadCross,
         lodging: isLodging,
         years,
@@ -334,7 +343,7 @@ export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>(
         let e = byYear.get(r.year);
         if (e === undefined) {
           e = {
-            row: { year: r.year, gross: yen(0), rent: yen(0), expenses: yen(0), repairs: yen(0), depreciation: yen(0), interest: yen(0), income: yen(0), repayment: yen(0), debtService: yen(0), principal: yen(0), cashBeforeTax: yen(0), tax: yen(0), cashAfterTax: yen(0), loanBalance: yen(0), value: yen(0), equity: yen(0), grossYield: null, netYield: null, breakEven: null, repaymentRatio: null, dscr: null, ltv: null, ccr: null },
+            row: { year: r.year, gross: yen(0), rent: yen(0), expenses: yen(0), repairs: yen(0), depreciation: yen(0), interest: yen(0), income: yen(0), repayment: yen(0), debtService: yen(0), principal: yen(0), cashBeforeTax: yen(0), tax: yen(0), cashAfterTax: yen(0), loanBalance: yen(0), value: yen(0), equity: yen(0), bookValue: null, unrealizedGain: null, grossYield: null, netYield: null, breakEven: null, repaymentRatio: null, dscr: null, ltv: null, ccr: null },
             gross: 0, grossDen: 0, noi: 0, noiDen: 0, ccrNum: 0, ccrDen: 0, beNum: 0, beDen: 0, loanProps: false, ltvValue: 0,
           };
           byYear.set(r.year, e);
@@ -356,6 +365,9 @@ export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>(
         t.loanBalance = addYen(t.loanBalance, r.loanBalance);
         t.value = addYen(t.value, r.value ?? yen(0));
         t.equity = addYen(t.equity, r.equity ?? yen(0));
+        // 帳簿価額・含み益は、数字のある物件の分だけ足す（どの物件にも無ければ null）
+        if (r.bookValue != null) t.bookValue = addYen(t.bookValue ?? yen(0), r.bookValue);
+        if (r.unrealizedGain != null) t.unrealizedGain = addYen(t.unrealizedGain ?? yen(0), r.unrealizedGain);
         if (r.months > 0) {
           const noi = annualized(yen(r.rent - r.expenses), r.months);
           if (r.grossYield !== null && r.gross !== null && a.acquisition !== null) {

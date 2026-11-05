@@ -335,8 +335,12 @@ export interface RentalPropertyView {
   legalLife: number | null;
   /** 減価償却が終わる年（建物・建物附属設備。null は償却が無いか、売るまで終わらない） */
   depreciationEnd: { building: number | null; equipment: number | null };
+  /** 減価償却が終わる年の文（画面と同じ。「売るまでには終わりません（2065年に終わる見込み）」。償却が無ければ null。省略は前の版の入力） */
+  depreciationEndText?: string | null;
   /** 元金の返済が減価償却費を上回る最初の年（表の期間に無ければ null） */
   deadCross: number | null;
+  /** 計算の最初の年（計算基準年）から、もう上回っている（省略は前の版の入力） */
+  deadCrossNow?: boolean;
   /** 民泊・宿（表面利回りの代わりに稼働率・1泊の単価・営業日数・年の売上） */
   lodging: boolean;
   /** pointYear（持っていなければ最初に持っている年）の指標 */
@@ -381,8 +385,10 @@ export interface RentalMetrics {
   /** 月の手残り（税引前・税引後。年換算÷12） */
   monthlyBeforeTax: Yen;
   monthlyAfterTax: Yen;
-  /** 含み益（評価額−ローン残高） */
+  /** 売ったときの手残りの目安（評価額−ローン残高。売却の費用・税は引かない） */
   equity: Yen | null;
+  /** 含み益（評価額−帳簿価額〔取得価額＋取得時の諸費用−減価償却の累計〕。取得価額が無ければ null。省略は前の版の入力） */
+  unrealizedGain?: Yen | null;
   age: number | null;
   remainingLife: number | null;
   /** 民泊・宿の稼働率・1泊の単価・営業日数・年の売上 */

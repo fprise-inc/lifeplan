@@ -70,7 +70,12 @@ export interface RealEstateAnalysisAmounts {
   cashAfterTax: number;
   loanBalance: number;
   value: number | null;
+  /** 売ったときの手残りの目安（評価額−ローン残高。売却の費用・税は引かない） */
   equity: number | null;
+  /** 年末の帳簿価額（取得価額＋取得時の諸費用−減価償却の累計。前の版のエンジンの結果には無い） */
+  bookValue?: number | null;
+  /** 含み益（評価額−帳簿価額。前の版のエンジンの結果には無い） */
+  unrealizedGain?: number | null;
   grossYield: string | null;
   netYield: string | null;
   breakEven: string | null;
@@ -104,6 +109,8 @@ export interface RealEstateAnalysisProperty {
   builtYear: number | null;
   legalLife: number | null;
   depreciationEnd: { building: number | null; equipment: number | null };
+  /** 売る・貸し終わるまでに減価償却が終わらないとき、貸し続けたら終わる年 */
+  depreciationEndIfContinued?: { building: number | null; equipment: number | null };
   deadCross: number | null;
   lodging: boolean;
   years: RealEstateAnalysisYear[];
