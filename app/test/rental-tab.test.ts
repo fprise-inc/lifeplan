@@ -77,7 +77,7 @@ describe("収益不動産のタブ: 物件", () => {
     const v = m.view as RentalPropertyViewModel;
     expect(v.kind).toBe("property");
     expect(v.title).toBe("物件1");
-    expect(v.facts).toEqual([`名義 ${roles(req).find((x) => x.member.id === p.owner)!.label}`, "鉄筋コンクリート造", "2008年築", "2016年3月に取得 2,100.0万円"]);
+    expect(v.facts).toEqual([`名義 ${roles(req).find((x) => x.member.id === p.owner)!.label}`, "鉄筋コンクリート造", "2008年築", "2016年3月に取得 2,100万円"]);
   });
 
   it("指標は表の最初の年（計算基準月が1月でなければ翌年）。率は提案書と同じ書き方、月の手残りは年の額÷貸している月数", () => {
@@ -94,7 +94,9 @@ describe("収益不動産のタブ: 物件", () => {
     expect(metric(v, "monthlyBefore")!.value).toBe(`${y.cashBeforeTax < 0 ? "▲" : ""}${Math.abs(Math.trunc(y.cashBeforeTax / 12)).toLocaleString("en-US")}円`);
     expect(metric(v, "age")!.value).toBe(`${y.age}年／${y.remainingLife}年`);
     expect(metric(v, "depreciationEnd")!.value).toBe(`${p.depreciationEnd.building}年`);
-    expect(metric(v, "deadCross")!.value).toBe(`${p.deadCross}年`);
+    // 見本の世帯は計算基準年（計算の最初の年）からもう上回っている（表は翌年から）
+    expect(p.deadCross).toBe(2026);
+    expect(metric(v, "deadCross")!.value).toBe("もう上回っています");
     expect(metric(v, "occupancy")).toBeUndefined();
     // 説明は「?」の中（どの指標にも説明がある）
     expect(v.metrics.every((m) => m.help.length > 0)).toBe(true);

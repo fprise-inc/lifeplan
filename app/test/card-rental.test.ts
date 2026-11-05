@@ -65,7 +65,8 @@ describe("収益不動産の入力項目", () => {
     const a = rentalProperties(wh.request.input.household)[0]!;
     const k = `sav/${a.id}`;
     const titles = stageOf(wh).sections[0]!.groups.map((g) => g.title).filter((t) => t !== undefined);
-    expect(titles).toEqual(["物件1（評価額 0万円）", "土地と建物", "家賃収入", "経費", "売却", "申告（ご本人）: 持ち主ごと・その人の物件をまとめて"]);
+    // 評価額がまだ入っていない物件は、見出しで未入力と分かる。売却・大きな修繕の予定は、標準では別の「▸」の入口（売却・大きな修繕の予定）から開く
+    expect(titles).toEqual(["物件1（評価額は未入力）", "土地と建物", "家賃収入", "経費", "売却・大きな修繕の予定", "売却", "申告（ご本人）: 持ち主ごと・その人の物件をまとめて"]);
     expect(stageOf(wh).sections[0]!.groups.flatMap((g) => g.actions).map((x) => x.key)).toContain(`${k}/property/addLoan`);
     expect(fieldStatus(fieldOf(wh, `${k}/value`), wh).status).toBe("missing");
     expect(fieldStatus(fieldOf(wh, `${k}/property/rent`), wh).status).toBe("missing");
@@ -103,7 +104,7 @@ describe("収益不動産の入力項目", () => {
     expect(groups.find((g) => g.key === `sav/${a.id}`)?.title).toBe("駅前のアパート（一棟アパート・評価額 6,000万円）");
     // 名前の無い2件目は「物件2」
     expect(rentalName(wh.request.input.household, b)).toBe("物件2");
-    expect(groups.find((g) => g.key === `sav/${b.id}`)?.title).toBe("物件2（評価額 0万円）");
+    expect(groups.find((g) => g.key === `sav/${b.id}`)?.title).toBe("物件2（評価額は未入力）");
     // 面積を空にすると、空の入れ物を残さない
     wh = fieldOf(wh, `${k}/landArea`).set(wh, null);
     wh = fieldOf(wh, `${k}/floorArea`).set(wh, null);

@@ -306,7 +306,8 @@ const isHead = (g: GroupDef): boolean => g.band !== true && g.level === "simple"
 
 /**
  * 区画のまとまりを、物1件ごとに分ける（標準のときの「▸ 詳しく」の単位）。まとまりのキー → 属する頭のまとまりのキー。
- * 頭のまとまりは自分のキー。ほかのまとまり（金利の段階・繰上返済・資産の配分・保障の明細など）は、キーが「頭のキー/」で始まるいちばん近い頭に属する。
+ * 頭のまとまりは自分のキー。ほかのまとまり（金利の段階・繰上返済・資産の配分・保障の明細など）は、キーが「頭のキー/」で始まるいちばん近い頭に属する
+ * （unitOf で頭を名指ししたまとまりは、その頭）。
  * どの頭にも属さないまとまりは載せない（今のまま、詳細でだけ出る）
  */
 export function groupUnits(groups: readonly GroupDef[]): Map<string, string> {
@@ -315,6 +316,11 @@ export function groupUnits(groups: readonly GroupDef[]): Map<string, string> {
   for (const g of groups) {
     if (heads.includes(g.key)) {
       out.set(g.key, g.key);
+      continue;
+    }
+    // 属する頭を名指ししたまとまり（unitOf。キーの形は別でも、その頭の「▸」で開く）
+    if (g.unitOf !== undefined && heads.includes(g.unitOf)) {
+      out.set(g.key, g.unitOf);
       continue;
     }
     const h = heads.filter((k) => g.key.startsWith(`${k}/`)).sort((a, b) => b.length - a.length)[0];

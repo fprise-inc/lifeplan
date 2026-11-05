@@ -59,7 +59,8 @@
   section(title)
   let facts = ()
   if p.owner != none { facts.push(p.owner.label + "名義") }
-  facts.push(p.structure.label)
+  // 建物の無い物件（貸している土地・駐車場）は、構造と建った年を載せない
+  if p.builtYear != none { facts.push(p.structure.label) }
   if p.builtYear != none { facts.push(str(p.builtYear) + "年築") }
   if p.acquisition != none {
     let a = "取得 " + ym-ja(p.acquisition.month) + " " + man-unit(p.acquisition.total)
@@ -76,16 +77,20 @@
     rental-cards(m, p.lodging)
     let more = ()
     more.push("自己資金に対する手残りの割合（CCR） " + m.ccr)
-    if m.equity != none { more.push("含み益 " + man-unit(m.equity)) }
+    if m.at("unrealizedGain", default: none) != none { more.push("含み益 " + man-unit(m.unrealizedGain)) }
+    if m.equity != none { more.push("売ったときの手残りの目安（ローン返済後・売却の費用と税の前） " + man-unit(m.equity)) }
     if m.age != none { more.push("築" + str(m.age) + "年・残りの耐用年数 " + str(m.remainingLife) + "年") }
     if p.lodging and m.lodging != none { more.push("1泊の単価 " + yen(m.lodging.nightly) + "・営業日数 " + str(m.lodging.days) + "日・年の売上 " + man-unit(m.lodging.sales)) }
     let dep = p.depreciationEnd.building
-    more.push("減価償却が終わる年 " + if dep != none { str(dep) + "年" } else if p.exit != none and p.acquisition != none { "売るまで続く" } else { "—" })
+    let depText = p.at("depreciationEndText", default: none)
+    more.push("減価償却が終わる年 " + if depText != none { depText } else if dep != none { str(dep) + "年" } else if p.exit != none and p.acquisition != none { "売るまで続く" } else { "—" })
     block(above: 6pt, below: 4pt, text(size: 8pt, more.join("　")))
   }
   if p.deadCross != none {
     let first = if p.years.len() > 0 { p.years.first().year } else { p.deadCross }
-    if p.deadCross < first {
+    if p.at("deadCrossNow", default: false) {
+      callout(color: warn)[元金の返済が減価償却費を、もう上回っています（手残りがあっても、税の上の所得が増えやすくなります）。]
+    } else if p.deadCross < first {
       callout(color: warn)[#str(p.deadCross)年から、元金の返済が減価償却費を上回っています（手残りがあっても、税の上の所得が増えやすくなります）。]
     } else {
       callout(color: warn)[◆ #str(p.deadCross)年から、元金の返済が減価償却費を上回ります（手残りがあっても、税の上の所得が増えやすくなります）。]

@@ -1,7 +1,7 @@
 // 提案書の帳票の入力（0009 の9）を組み立てる部品の入口
 export { buildProposalInput, displayYears, E_REPORT_NO_YEARS, percent, roles } from "./build.ts";
 export type { EngineOutput, InvestmentMaterial, ProposalBundle, RealEstateAnalysis, RealEstateAnalysisProperty, RealEstateAnalysisTotal, RealEstateAnalysisYear, Run, TableCell } from "./bundle.ts";
-export { pctText, timesText } from "./rentalText.ts";
+export { deadCrossText, depreciationEndText, pctText, timesText } from "./rentalText.ts";
 export { saleCompareOf, saleVariantRequest, saleVariants, type SaleCompare, type SaleCompareRow, type SaleResult, type SaleVariant, type SaleVariantKey } from "./rentalSale.ts";
 export { DEFAULT_LAYOUT, PROPOSAL_INPUT_FORMAT, PROPOSAL_INPUT_VERSION, type CashflowLayout, type Comparison, type InvestmentView, type MarketDropView, type Orientation, type ProposalInput, type ReportLayout } from "./input.ts";
 export { CHAPTER_IDS, CHAPTERS, chapterList, EXT_CHAPTER_ID, hasMaterial, isExtChapterId, selectChapters, type ChapterDef, type ChapterId, type ExtChapterId, type OfficialChapterId } from "./chapters.ts";

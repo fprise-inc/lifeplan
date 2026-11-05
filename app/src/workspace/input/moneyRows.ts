@@ -87,7 +87,7 @@ export const OUT_KINDS: readonly { kind: MoneyOutKind; label: string; help?: str
     },
     ...presetAmount("preset.housing.repair.amount", (v) => `修繕 ${String(presetNum("preset.housing.repair.everyYears"))}年ごとに${manText(v)}`),
   },
-  { kind: "realEstateCost", label: "不動産の一時の経費", help: "大規模修繕・原状回復などの一時の経費です", row: "cf.expense.other", card: "rental", cadence: "once", ...presetAmount("preset.events.realEstateCost", (v) => `不動産の一時の経費 ${manText(v)}`) },
+  { kind: "realEstateCost", label: "不動産の一時の経費", help: "物件ごとに分けない、不動産にかかる一時の支出です（家計の支出に入り、不動産所得の経費には入れません。物件の大規模修繕は、物件の「売却・大きな修繕の予定」で入れます）", row: "cf.expense.other", card: "rental", cadence: "once", ...presetAmount("preset.events.realEstateCost", (v) => `不動産の一時の経費 ${manText(v)}`) },
   { kind: "livingAnnual", label: "年1回・数年に1回の支出", row: "cf.expense.living", card: "living", cadence: "repeat", everyYears: 1, ...presetAmount("preset.living.annualRow", (v) => `年払いの支出 年${manText(v)}`) },
   { kind: "car", label: "車の修理・用品など", row: "cf.expense.living.car", card: "car", cadence: "repeat", everyYears: 1, ...presetAmount("preset.car.supplies", (v) => `車の用品など 年${manText(v)}`) },
   { kind: "other", label: "その他の支出", row: "cf.expense.other", card: "events", cadence: "once", ...presetAmount("preset.events.other", (v) => `その他の支出 ${manText(v)}`) },

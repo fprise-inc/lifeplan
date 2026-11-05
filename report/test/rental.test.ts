@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { buildProposalInput, displayYears } from "../src/build.ts";
 import { selectChapters } from "../src/chapters.ts";
 import { saleVariantRequest, saleVariants } from "../src/rentalSale.ts";
-import { pctText, timesText } from "../src/rentalText.ts";
+import { depreciationEndText, pctText, timesText } from "../src/rentalText.ts";
 import { modelHousehold, REPORT_DIR, runAll } from "../scripts/engine.ts";
 import { renderAndExtract, reportPdfBin, sampleFrame } from "../scripts/reportPdf.ts";
 import { rentalPropertyBundle, salariedCoupleBundle } from "../scripts/sampleBundles.ts";
@@ -62,6 +62,15 @@ describe("帳票の入力（rental）", () => {
     expect(p?.point?.monthlyBeforeTax).toBe(Math.trunc((x?.cashBeforeTax ?? 0) / (x?.months ?? 1)));
   });
 
+  it("含み益は評価額−帳簿価額、売ったときの手残りの目安は評価額−ローン残高。減価償却が終わる年の文と、もう上回っているかは画面と同じ", () => {
+    const x = e?.years.find((z) => z.year === r?.pointYear);
+    expect(x?.unrealizedGain).toBe((x?.value ?? 0) - (x?.bookValue ?? 0));
+    expect(p?.point?.unrealizedGain).toBe(x?.unrealizedGain);
+    expect(p?.point?.equity).toBe(x?.equity);
+    expect(p?.depreciationEndText).toBe(depreciationEndText({ ...(e as NonNullable<typeof e>), sells: e?.exit !== null }));
+    expect(p?.deadCrossNow).toBe(e?.deadCross !== null && (e?.deadCross ?? 0) <= Number(bundle.proposal.request.input.baseMonth.slice(0, 4)));
+  });
+
   it("今の予定の売却と、売る年を変えた比べ（今の予定・5年前・5年後・持ち続ける）。差は今の予定との金融資産の差", () => {
     expect(p?.exit?.net).toBe(e?.exit?.net);
     const rows = p?.saleCompare?.rows ?? [];
@@ -111,6 +120,9 @@ describe.skipIf(bin === null)("PDF の収益不動産のまとめのページ", 
     expect(t).toContain(normalize(`表面利回り ${p.point!.grossYield}`));
     expect(t).toContain(normalize(`返済余裕率（DSCR） ${p.point!.dscr}`));
     expect(t).toContain(normalize(`月の手残り（税引前） ${yenText(p.point!.monthlyBeforeTax)}`));
+    // 含み益は評価額−帳簿価額、評価額−ローン残高は売ったときの手残りの目安（画面と同じ言葉）
+    expect(t).toContain(normalize(`含み益 ${man(p.point!.unrealizedGain!)}万円`));
+    expect(t).toContain(normalize(`売ったときの手残りの目安（ローン返済後・売却の費用と税の前） ${man(p.point!.equity!)}万円`));
     const y = p.years.find((x) => !x.deadCross && x.depreciation !== null)!;
     const row = [String(y.year), man(y.rent), man(y.expenses), man(y.depreciation!), man(y.interest!), man(y.income!), man(y.repayment), man(y.cashBeforeTax), man(y.cashAfterTax), man(y.loanBalance), man(y.value!)].join(" ");
     expect((page as string).replace(/\s+/g, " ")).toContain(row);

@@ -7,7 +7,7 @@ import { childScholarshipNotes } from "./childScholarships.ts";
 import { rowName, sameRowName, type OfficeRowNames } from "./rowNames.ts";
 import type { EngineOutput, EngineRequest, ProposalBundle, RealEstateAnalysisAmounts, RealEstateAnalysisYear, RealEstateDetail, Run, TableCell } from "./bundle.ts";
 import { saleCompareOf, type SaleResult } from "./rentalSale.ts";
-import { pctText, timesText } from "./rentalText.ts";
+import { depreciationEndText, pctText, timesText } from "./rentalText.ts";
 import { selectChapters } from "./chapters.ts";
 import { bsHouseholdOf, bsSeries, BS_GROUP_LABEL, groupTotal, OTHER_ASSET_LINES, otherAssetLine, type BsGroup, type BsHousehold } from "./bsGroups.ts";
 import { DEFAULT_MONEY_THREE, moneyThreeModel, type MoneyThreeModel } from "./moneyThree.ts";
@@ -1509,6 +1509,7 @@ function rentalMetrics(y: RealEstateAnalysisYear | undefined, lodging: boolean):
     monthlyBeforeTax: monthlyOf(y.cashBeforeTax, y.months),
     monthlyAfterTax: monthlyOf(y.cashAfterTax, y.months),
     equity: y.equity,
+    unrealizedGain: y.unrealizedGain ?? null,
     age: y.age,
     remainingLife: y.remainingLife,
     lodging: y.lodging === undefined ? null : { occupancy: pctText(y.lodging.occupancy), nightly: y.lodging.nightly, days: y.lodging.days, sales: y.lodging.sales },
@@ -1563,10 +1564,13 @@ function rental(ctx: Ctx): RentalView | null {
       acquisition: p.acquisition === null || prop?.acquisition === undefined ? null : { month: prop.acquisition.at, total: p.acquisition.total, costs: p.acquisition.costs, equity: p.acquisition.equity ?? null },
       legalLife: p.legalLife,
       depreciationEnd: { ...p.depreciationEnd },
+      depreciationEndText: depreciationEndText({ ...p, sells: p.exit !== null }),
       deadCross: p.deadCross !== null && p.deadCross <= endYear ? p.deadCross : null,
+      deadCrossNow: p.deadCross !== null && p.deadCross <= ctx.baseYear,
       lodging: p.lodging,
       point: rentalMetrics(at, p.lodging),
-      years: years.map((y) => rentalRow(y, p.deadCross)),
+      // 計算の最初の年から上回っている（もう上回っている）ときは、表の行に印を付けない（画面と同じ）
+      years: years.map((y) => rentalRow(y, p.deadCross !== null && p.deadCross > ctx.baseYear ? p.deadCross : null)),
       exit: p.exit === null ? null : { month: p.exit.ym, price: p.exit.price, costs: p.exit.costs, proceeds: p.exit.proceeds, loanPayoff: p.exit.loanPayoff, tax: p.exit.tax, net: p.exit.net },
       saleCompare: cmp === null || cmp.rows.length < 2 ? null : { endYear: cmp.endYear, rows: cmp.rows.map((r) => ({ label: r.label, current: r.current, net: r.net, financialEnd: r.financialEnd, diff: r.diff, equityEnd: r.equityEnd })) },
     };
@@ -1586,7 +1590,7 @@ function rental(ctx: Ctx): RentalView | null {
       point:
         t === undefined
           ? null
-          : { year: t.year, grossYield: pctText(t.grossYield), netYield: pctText(t.netYield), breakEven: pctText(t.breakEven), repaymentRatio: pctText(t.repaymentRatio), dscr: timesText(t.dscr), ltv: pctText(t.ltv), ccr: pctText(t.ccr), monthlyBeforeTax: monthly("cashBeforeTax"), monthlyAfterTax: monthly("cashAfterTax"), equity: t.equity, age: null, remainingLife: null, lodging: null },
+          : { year: t.year, grossYield: pctText(t.grossYield), netYield: pctText(t.netYield), breakEven: pctText(t.breakEven), repaymentRatio: pctText(t.repaymentRatio), dscr: timesText(t.dscr), ltv: pctText(t.ltv), ccr: pctText(t.ccr), monthlyBeforeTax: monthly("cashBeforeTax"), monthlyAfterTax: monthly("cashAfterTax"), equity: t.equity, unrealizedGain: t.unrealizedGain ?? null, age: null, remainingLife: null, lodging: null },
       years: ty.map((y) => rentalRow(y, null)),
     };
   }

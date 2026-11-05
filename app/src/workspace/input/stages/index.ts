@@ -63,16 +63,17 @@ const BUILDERS: Record<StageId, (wh: WorkingHousehold) => StageDef> = {
 
 /**
  * お金の行（入るお金・出るお金。0044）の区画を後ろに置くカード（ライフイベント・基本生活費・家族・子ども・教育・車・年金は自分の区画の中に置く。子ども・教育は子ごと）。
- * 収益不動産は不動産の一時の経費（大規模修繕・原状回復など。もとは貯蓄・運用の中。0079）
+ * 収益不動産は不動産の一時の経費（大規模修繕・原状回復など。もとは貯蓄・運用の中。0079）。標準でも出す（行を入れても標準で見えなかった。0079 の 2026-11-05 の追記）
  */
 const MONEY_CARDS: ReadonlySet<StageId> = new Set(["work", "housing", "insurance", "rental"]);
-const RENTAL_MONEY_NOTE = "大規模修繕・原状回復など、物件にかかる一時的支出です。家計の支出として出ます（不動産所得の経費には、まだ入れていません。毎年かかる経費は物件の「経費」の年額で入れます）";
+const RENTAL_MONEY_NOTE =
+  "物件ごとに分けない、不動産にかかる一時的支出です。家計の支出として出ますが、不動産所得の経費には入れません。物件の大規模修繕・原状回復は、物件の「売却・大きな修繕の予定」で入れると、貸している間なら全額をその年の経費にします。毎年かかる経費は物件の「経費」の年額で入れます";
 
 export function buildStage(id: StageId, wh: WorkingHousehold): StageDef {
   const stage = BUILDERS[id](wh);
   if (!MONEY_CARDS.has(id)) return stage;
   // ピンにした物も属するカードに出す（ピンは見せ方だけ。0045）
-  const money = moneySections(wh, id as MoneyCard, { claimed: NONE_CLAIMED, ...(id === "work" ? { level: "simple" as const, inTitle: "入るお金" } : {}), ...(id === "rental" ? { outTitle: "不動産の一時の経費（出るお金）", note: rentalMoneyNote(wh) } : {}) });
+  const money = moneySections(wh, id as MoneyCard, { claimed: NONE_CLAIMED, ...(id === "work" ? { level: "simple" as const, inTitle: "入るお金" } : {}), ...(id === "rental" ? { level: "simple" as const, outTitle: "不動産の一時の経費（出るお金）", note: rentalMoneyNote(wh) } : {}) });
   return money.length === 0 ? stage : { ...stage, sections: [...stage.sections, ...money] };
 }
 
