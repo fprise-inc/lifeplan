@@ -21,6 +21,8 @@
 //     - 非課税（nonTaxable）: 税をかけない（生活に通常必要な動産〔1個・1組30万円以下の貴金属・美術品など。所得税法9条1項9号・施行令25条〕、
 //       敷金・保証金が返ってくる分など）
 // - 売る月が計算基準月より前なら、もう売ったとみなして手取りも税も出さない（評価額は計算基準年から出さない）。表の最後の月より後は売らない
+// - 改訂2（0123 の追記 2026-11-05）: 持ち始める時点（accounts[].holdFrom）より前の月に売る予定は、売らない（まだ持っていない。評価額も plan.cashflow が
+//   持ち始めた年の年末から載せる）。持ち始める時点の無い世帯の結果は同じ
 import {
   accountMixAt,
   accountReturnRate,
@@ -67,7 +69,7 @@ export default defineComponent<Record<string, never>, HeldSaleOutput>({
   id: "asset.heldSale",
   title: "貸していない不動産・その他の資産の売却",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {},
   params: Object.values(P),
   reads: [
@@ -85,6 +87,7 @@ export default defineComponent<Record<string, never>, HeldSaleOutput>({
     "account.property",
     "account.acquiredAt",
     "account.sale",
+    "account.holdFrom",
     "assumptions.investmentReturn",
     "assumptions.assetReturns",
     "assumptions.marketShocks",
@@ -105,6 +108,7 @@ export default defineComponent<Record<string, never>, HeldSaleOutput>({
       if (!isHeldAsset(a) || a.sale === undefined) continue;
       const saleAt = ctx.time.resolve(a.sale.at);
       if (saleAt < base || saleAt > end) continue;
+      if (a.holdFrom !== undefined && saleAt < ctx.time.resolve(a.holdFrom)) continue;
       const y = yearOf(saleAt);
       const estate = a.kind === "realEstate";
       // その年の年末の評価額（plan.cashflow の年末の残高と同じ決まり）

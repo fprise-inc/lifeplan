@@ -42,6 +42,12 @@ const REGULATION_VALUES: readonly [string, string][] = [
   ["educationSupport", "educationSupport.schoolLunch.months"],
   ["educationSupport", "educationSupport.nursery.fee.standard"],
   ["educationSupport", "educationSupport.nursery.fee.short"],
+  // 住宅取得等資金の贈与税の非課税の期限（画面の知らせ。期限の後の贈与は非課税なし。0052 の追記 2026-11-05）
+  ["housing", "giftTax.housingFunds.exemption.energySaving"],
+  ["housing", "giftTax.housingFunds.exemption.other"],
+  // 住宅ローン控除の新築の借入限度額（仮の条件の住宅の種類を、控除のある最も控えめな種類にする。0052 の追記 2026-11-05）
+  ["housing", "incomeTax.housingLoanCredit.limit.new.energySaving"],
+  ["housing", "incomeTax.housingLoanCredit.limit.new.zeh"],
 ];
 /** 保険者（協会けんぽの支部）ごとの行を写す制度データの値（管轄 insurer の行。code を持たせる） */
 const INSURER_VALUES: readonly [string, string][] = [["socialInsurance", "socialInsurance.health.kyokaikenpo.rate"]];

@@ -42,6 +42,7 @@ const APP_PRESETS: readonly PresetDef[] = [
   p("preset.housing.propertyTax.buildingFloor", "0.2", "pct", "住まい・ローン", "固定資産税の推定: 建物の評価額の下限（最初の評価額に対する割合）", "fill", "出典なし（古い建物の評価額の下がり方の目安）"),
   p("preset.housing.propertyTax.buildingYears.wood", 30, "yearCount", "住まい・ローン", "固定資産税の推定: 建物の評価額が下限まで下がる年数（木造・軽量鉄骨造）", "fill", "出典なし（3年ごとの評価替えで古くなった分を下げる目安）"),
   p("preset.housing.propertyTax.buildingYears.nonWood", 60, "yearCount", "住まい・ローン", "固定資産税の推定: 建物の評価額が下限まで下がる年数（重量鉄骨造・鉄筋コンクリート造）", "fill", "出典なし（3年ごとの評価替えで古くなった分を下げる目安）"),
+  p("preset.housing.inheritedHomeAge", 30, "yearCount", "住まい・ローン", "相続する家の築年数の目安（計算の基準の年の。建った年が分からないとき）", "fill", "出典なし（親の世代が30〜40代で建てた家を、いま住んでいる親から相続する目安）"),
   p("preset.housing.repair.amount", 1000000, "yen", "住まい・ローン", "修繕・リフォームの行: 1回の額", "template"),
   p("preset.housing.repair.everyYears", 10, "yearCount", "住まい・ローン", "修繕・リフォームの行: 間隔", "template"),
   p("preset.loan.mortgage.balance", 30000000, "yen", "住まい・ローン", "今の残高から入れる住宅ローン: 今の残高", "template"),

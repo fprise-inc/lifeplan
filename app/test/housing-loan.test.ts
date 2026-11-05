@@ -109,7 +109,8 @@ describe("住宅ローン控除の仮の条件", () => {
     const d = req.input.household.debts![0]!;
     delete d.housing;
     const wh = withProvisionalHousing(fromRequest(req));
-    expect(loans(wh)[0]!.housing).toMatchObject({ propertyType: "energySaving", newBuild: true, acquisitionCost: 45000000 });
+    // 2028年4月の入居の新築: 省エネ基準適合住宅は控除が無いので、仮の条件は控除のある最も控えめな ZEH水準省エネ住宅（2026-11-05 の追記）。持分は家の名義と持分
+    expect(loans(wh)[0]!.housing).toMatchObject({ propertyType: "zeh", newBuild: true, acquisitionCost: 45000000, ownership: req.input.household.residences!.find((r) => r.kind === "own")!.ownership });
     expect(wh.assumed[`housing/debt/${d.id}/credit`]).toContain("仮の条件");
     expect(() => preview(wh.request)).not.toThrow();
     // 条件の入っているローンは変えない

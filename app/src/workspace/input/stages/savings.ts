@@ -6,7 +6,7 @@ import { ageAt, ageReachedMonth } from "../../levers.ts";
 import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { confirmedBox, mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
 import { putRow } from "../rows.ts";
-import { ACCOUNT_KINDS, ASSET_CLASSES, HELD_ESTATE_OPTIONS, HELD_SALE_TAXATION, heldEstateSubtypeOf, memberLabel, memberOptions, OTHER_ASSET_OPTIONS, otherAssetSubtypeOf, VALUATION_DEFAULTS } from "../labels.ts";
+import { ACCOUNT_KINDS, ASSET_CLASSES, BUILDING_STRUCTURES, HELD_ESTATE_OPTIONS, HELD_SALE_TAXATION, heldEstateSubtypeOf, memberLabel, memberOptions, OTHER_ASSET_OPTIONS, otherAssetSubtypeOf, VALUATION_DEFAULTS } from "../labels.ts";
 import { addMonths } from "../../levers.ts";
 import { dropHeldCostRows, heldCostRow, heldEstateCostEstimate, heldEstateTaxInputs, newHeldCostRow, startsHeldEstateCost } from "../heldEstateTax.ts";
 import { isRentalProperty, UNENTERED_RENT } from "./rental.ts";
@@ -68,6 +68,8 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       after: (h, t, v) => {
         if (v === a.kind) return;
         delete t.subtype;
+        // 持ち始める時点・建物の建った年と構造は貸していない不動産だけ（0123 の追記 2026-11-05）
+        if (v !== "realEstate") for (const key of ["holdFrom", "builtYear", "structure"]) delete t[key];
         dropHeldCostRows(h, a.id);
         const sale = t.sale as { taxation?: string } | undefined;
         if (sale !== undefined) delete sale.taxation;
@@ -92,6 +94,34 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     costs(yenBox({ key: `${k}/value`, item: "account.marketValue", label: a.subtype === "ownCompanyShares" ? "出資額（払い込んだ額）" : a.subtype === "loanToCompany" ? "今の貸付金の残り" : "今の評価額", level: "simple", basis: "once", find, path: ["marketValue"] })),
     // 開いても欄が1つだけになるので、標準でも出す
     costs(plain({ key: `${k}/asOf`, item: "account.asOf", label: "評価額の時点", level: "simple", kind: "ym", find, path: ["asOf"] })),
+    // 持ち始める時点（貸していない不動産。これから相続・購入する土地・別荘など。収益不動産・持ち家と同じ。0123 の追記 2026-11-05）
+    ...(estate
+      ? [
+          costs(
+            timepointField({
+              key: `${k}/holdFrom`,
+              item: "account.holdFrom",
+              label: "持ち始める時点",
+              level: "detail",
+              find,
+              path: ["holdFrom"],
+              optional: true,
+              absentWhenEmpty: true,
+              nullText: "今から持っている",
+              help: "これから相続・購入する土地・別荘などの、持ち始める月です。その月から評価額（その年の年末から）・毎年かかる費用に入れます。受け取るときの支払いはありません（買うなら、購入の支払いを出るお金で入れます）。相続税の目安にも、その時点から入ります。評価額は「評価額の時点」の額から増減率で動かします",
+              ...(wh.request.input.household.members.some((m) => m.id === a.owner) ? { ageOf: (h: Household) => h.members.find((m) => m.id === a.owner) } : {}),
+            }),
+          ),
+        ]
+      : []),
+    // 建物の構造と建った年（空き家・別荘。固定資産税の目安で、建物を古くなった分だけ下げる。0123 の追記 2026-11-05）
+    ...(estate && (a.subtype === "villa" || a.subtype === "vacantHouse")
+      ? [
+          // 推定のままの毎年の費用は、入力を直すたびに入れ直す（refreshEstimates）ので、ここでは包まない
+          plain({ key: `${k}/builtYear`, item: "account.builtYear", label: "建物が建った年", level: "simple", kind: "int", suffix: "年", min: 1900, max: 2200, find, path: ["builtYear"], optional: true, help: "固定資産税の目安で、建物を古くなった分だけ下げます（3年ごとの評価替えで、新築の評価額の20%まで）。入れなければ、古くなった分を下げずに目安を出します" }),
+          plain({ key: `${k}/structure`, item: "account.structure", label: "建物の構造", level: "detail", kind: "select", options: BUILDING_STRUCTURES, find, path: ["structure"], optional: true, fallback: "wood", help: "固定資産税の目安で、建物の評価額が下がる年数に使います（木造・軽量鉄骨造は30年、重量鉄骨造・鉄筋コンクリート造は60年で下限まで）" }),
+        ]
+      : []),
     plain({
       key: `${k}/growth`,
       item: "account.valueGrowth",
@@ -134,6 +164,8 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       title: `${estate ? (estateKind?.short ?? "貸していない不動産") : (sub?.label ?? kindOf?.short ?? "その他の資産")}（${memberLabel(wh, a.owner)}）`,
       ...(estate ? { note: "評価額だけで持つ不動産（貸していない土地・別荘など）です。人に貸している物件は「収益不動産」で入れます（「収益不動産へ移す」で移せます）" } : sub !== undefined ? { note: sub.note } : {}),
       level: "simple",
+      // 「▸ 続きを見る」の文（詳細の欄: 持ち始める時点・建物の構造。0078 の追記 2026-11-01）
+      ...(estate ? { moreLabel: a.subtype === "villa" || a.subtype === "vacantHouse" ? "持ち始める時点・建物の構造を入れる" : "持ち始める時点を入れる" } : {}),
       fields,
       actions,
     },
@@ -147,7 +179,7 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
 function heldCostField(wh: WorkingHousehold, a: Account): FieldDef {
   const k = `sav/${a.id}`;
   const row = heldCostRow(wh.request.input.household, a.id);
-  const canEstimate = heldEstateTaxInputs(a, wh.request.input.baseMonth, wh.request.input.assumptions?.realEstateValuation?.landShare) !== null;
+  const canEstimate = heldEstateTaxInputs(wh.request.input.household, a, wh.request.input.baseMonth, wh.request.input.assumptions?.realEstateValuation?.landShare) !== null;
   const f = yenBox({
     key: `${k}/cost`,
     item: "periodicExpense.amount",
@@ -264,10 +296,17 @@ function moveToRental(h: Household, x: Account): void {
     delete x.costBasis;
   }
   if (cost !== undefined && typeof cost.amount.value === "number") p.expenses = { annual: cost.amount };
+  // 持ち始める時点・建物の建った年と構造は、中身の欄へ移す（0123 の追記 2026-11-05）
+  if (x.holdFrom !== undefined) p.holdFrom ??= x.holdFrom;
+  if (x.builtYear !== undefined) p.builtYear ??= x.builtYear;
+  if (x.structure !== undefined) p.structure ??= x.structure;
   x.property = p;
   delete x.sale;
   delete x.acquiredAt;
   delete x.subtype;
+  delete x.holdFrom;
+  delete x.builtYear;
+  delete x.structure;
   dropHeldCostRows(h, x.id);
 }
 

@@ -8,6 +8,8 @@
 //   送らない）。行の終わりがそれより後なら、知らせ N_LIMIT_APPLIED（moneyRow.counterpartyDeath・相手）を出す。行の終わりの値は書き換えない
 // 改訂6（0123）: つながる物（object。資産の器の ID）を書いた行は、その器に売る予定（accounts[].sale）があれば、売る月から払わない
 //   （貸していない不動産の固定資産税・管理費など）。行の終わりの値は書き換えない。つながる物の無い行の結果は同じ
+// 改訂7（0123 の追記 2026-11-05）: つながる器に持ち始める時点（accounts[].holdFrom。これから相続・購入する土地・別荘など）があれば、その月より前は
+//   払わない。行の始まりの値は書き換えない。持ち始める時点の無い世帯の結果は同じ
 import {
   COUNTERPARTY_DEATH_TOPIC,
   counterpartyStop,
@@ -29,7 +31,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   id: "expense.periodic",
   title: "何年かごとの支出（出るお金の行）",
   contract: "1.0",
-  revision: 6,
+  revision: 7,
   requires: { "contingency.event": ">=1 <2" },
   params: [],
   reads: [
@@ -50,6 +52,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
     "periodicExpense.payer",
     "periodicExpense.object",
     "account.sale",
+    "account.holdFrom",
     "assumptions.inflation",
   ],
   input: "empty.input",
@@ -60,7 +63,13 @@ export default defineComponent<Record<string, never>, FlowsResult>({
     const members = ctx.list<MemberInput>("member");
     // つながる物の売る月（0123）
     const soldAt = new Map<string, number>();
-    if (list.some((e) => e.object !== undefined)) for (const a of ctx.list<Pick<AccountInput, "id" | "sale">>("account")) if (a.sale !== undefined) soldAt.set(a.id, ctx.time.resolve(a.sale.at));
+    // つながる物の持ち始める月（0123 の追記 2026-11-05）
+    const heldFrom = new Map<string, number>();
+    if (list.some((e) => e.object !== undefined))
+      for (const a of ctx.list<Pick<AccountInput, "id" | "sale" | "holdFrom">>("account")) {
+        if (a.sale !== undefined) soldAt.set(a.id, ctx.time.resolve(a.sale.at));
+        if (a.holdFrom !== undefined) heldFrom.set(a.id, ctx.time.resolve(a.holdFrom));
+      }
     // 世帯の万一（世帯の行）と、払う人ごとの万一
     const byMember = new Map<string, ContingencyEvent | null>();
     const eventOf = (id: string): ContingencyEvent | null => {
@@ -89,7 +98,8 @@ export default defineComponent<Record<string, never>, FlowsResult>({
       const stop = counterpartyStop(ctx, members, e.counterparty);
       const all = moneyRowPayments(ctx, e, ev, "conv.expense.share");
       const sold = e.object === undefined ? undefined : soldAt.get(e.object);
-      const pays = stop === null && sold === undefined ? all : all.filter((p) => (stop === null || p.month < stop) && (sold === undefined || p.month < sold));
+      const held = e.object === undefined ? undefined : heldFrom.get(e.object);
+      const pays = stop === null && sold === undefined && held === undefined ? all : all.filter((p) => (stop === null || p.month < stop) && (sold === undefined || p.month < sold) && (held === undefined || p.month >= held));
       if (stop !== null && all.some((p) => p.month >= stop) && e.counterparty !== undefined) ctx.notice("N_LIMIT_APPLIED", [COUNTERPARTY_DEATH_TOPIC, e.counterparty]);
       for (const p of pays) {
         flows.push({ row: e.row, ym: formatYm(p.month), amount: p.amount, accrualYear: yearOf(p.month), ...(payer !== undefined ? { member: payer.id } : {}), object: e.id, formula: p.contingency ? "expense.periodic.contingency" : "expense.periodic.payment" });

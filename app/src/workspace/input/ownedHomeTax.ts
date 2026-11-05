@@ -1,9 +1,11 @@
 // 今住んでいる持ち家の固定資産税・都市計画税の推定（0112 の追記 2026-11-03）: 購入の予定でない持ち家で、固定資産税の欄が未入力・目安のボタンの値・
 // この推定のままのとき、持ち家の評価の欄（評価額とその額の時点・土地の割合・建物の構造・建った年・建て方）から、計算の基準の年の額と
 // 「固定資産税の変化」の段を推定で入れる。式・目安の値・法令の値・段の置き方は購入の予定の推定（propertyTax.ts）と同じ。違いは次のとおり
-// - 最初の年は計算の基準の年（欄の額はその年の額。計算エンジンは計算の基準の年から欄の額を払う）
+// - 最初の年は計算の基準の年（欄の額はその年の額。計算エンジンは計算の基準の年から欄の額を払う）。これから持ち始める家（この家を相続する。
+//   住み始めが計算の基準の年より後）は、持ち始めの年（計算エンジンが払い始める年）の額にし、段もその次の年から置く（2026-11-05 の追記）
 // - 評価額は「その額の時点」の値（多くは購入の価格と購入の年月）。建物はその時点の評価額から、評価替えごとに築年数の分だけ下げる。土地はその時点の価格のまま
-// - 建った年が空欄なら、その額の時点の年に建ったとみなす（持ち家の評価と同じ）。そのときは新築の軽減を当てない（分からない軽減で税を少なく見せない）
+// - 建った年が空欄なら、その額の時点の年に建ったとみなす（持ち家の評価と同じ）。そのときは新築の軽減を当てない（分からない軽減で税を少なく見せない）。
+//   相続する家は、建った年の推定（相続する家の築年数の目安。stages/housing.ts の inheritHome）を入れるので、多くは空欄にならない
 // - 入れる時: 持ち家の評価の欄を直したとき（FP が推定の元を入れたとき）と、固定資産税の欄を空にしたとき（「推定に戻す」「わからない」の代わりの値）。
 //   その後は推定のままの欄と推定の段だけを、入力を直すたびに入れ直す（refreshEstimates）。目安のボタンの値は、評価の欄を直すまで変えない（ひな形）
 import type { AmountStage, Box, Household, Residence } from "../../engine/types.ts";
@@ -46,9 +48,13 @@ export interface OwnedHomeTaxInputs {
   condo: boolean;
   /** 建った年（空欄なら undefined） */
   builtYear?: number;
+  /** 建った年が推定（相続する家の築年数の目安）か */
+  builtEstimated?: boolean;
   longLife: boolean;
-  /** 計算の基準の年（最初の年） */
+  /** 計算の基準の年 */
   baseYear: number;
+  /** 持ち始めの年（住み始めの年。計算の基準の年より後なら、その年が最初の年） */
+  fromYear?: number;
   /** 段を作る最後の年（住み終わりの年と計算の最後の年の早いほう） */
   lastYear: number;
 }
@@ -78,13 +84,13 @@ export function ownedHomeTaxPlan(o: OwnedHomeTaxInputs): PropertyTaxPlan {
     const b = buildingIn(y);
     return round100(landTax + b * law.standardRate * (inRelief(y) ? law.newRelief : 1) + b * cp);
   };
-  const firstYear = o.baseYear;
+  const firstYear = Math.max(o.baseYear, o.fromYear ?? o.baseYear);
   const first = taxIn(firstYear);
   const age = firstYear - built;
   const kind = `${o.condo ? "マンション" : "戸建て"}（${STRUCTURE_NAMES[o.structure] ?? "木造"}${o.longLife ? "・長期優良住宅" : ""}）`;
   const parts = [
-    `${String(firstYear)}年の額`,
-    `評価額${manOf(o.value)}（${String(o.valueYear)}年）・土地の割合${pctOf(share)}・${kind}・${known ? `${String(built)}年に建った（築${String(Math.max(0, age))}年）` : "建った年は空欄"}`,
+    `${String(firstYear)}年の額${firstYear > o.baseYear ? `（${String(firstYear)}年から持つ）` : ""}`,
+    `評価額${manOf(o.value)}（${String(o.valueYear)}年）・土地の割合${pctOf(share)}・${kind}・${known ? `${String(built)}年に建った（築${String(Math.max(0, age))}年${o.builtEstimated === true ? "。推定" : ""}）` : "建った年は空欄"}`,
     `評価額は土地が価格の${pctOf(guide.landRatio)}・建物が価格の${pctOf(guide.buildingRatio)}の目安で、建物は評価替えごとに古くなった分だけ下げた（下限は${pctOf(floor)}）。土地は${String(o.valueYear)}年の価格のまま`,
     `住宅用地の特例${inRelief(firstYear) ? `・新築の軽減（建物の分が半分。${String(built + years)}年まで）` : ""}を当て、都市計画税${pctOf(cp)}を含む`,
     ...(!known ? [`建った年が分からないので、${String(built)}年に建ったとみなし、新築の軽減は当てない`] : []),
@@ -110,6 +116,12 @@ export function ownedHomeTaxPlan(o: OwnedHomeTaxInputs): PropertyTaxPlan {
 
 // ---- 世帯から推定の元を読む ----
 
+/** 建った年が推定のままか（相続する家の築年数の目安。値の状態の行 residence.valuation/builtYear） */
+export const isEstimatedBuilt = (r: Residence): boolean => {
+  const row = ((r as unknown as Obj).valueStates as Record<string, StateRow> | undefined)?.["residence.valuation/builtYear"];
+  return row?.state === "estimated";
+};
+
 /** 長期優良住宅か: この家につながる住宅ローンの控除の条件の住宅の種類が認定住宅か */
 function longLifeOf(h: Household, r: Residence): boolean {
   return (h.debts ?? []).some((d) => d.kind === "mortgage" && d.housing?.residence === r.id && d.housing.propertyType === "certified");
@@ -125,7 +137,10 @@ export function ownedHomeTaxInputs(h: Household, r: Residence, baseMonth: string
   const baseYear = Number(baseMonth.slice(0, 4));
   const toYm = r.to === null ? null : resolveTimepoint(h, r.to);
   const lastYear = Math.min(endYear, toYm === null ? endYear : Number(toYm.slice(0, 4)));
-  if (lastYear < baseYear) return null;
+  // 持ち始めの年（この家を相続する。住み始めが計算の基準の年より後なら、その年から払う。計算エンジンの housing.residence と同じ）
+  const fromYm = resolveTimepoint(h, r.from);
+  const fromYear = fromYm === null ? baseYear : Math.max(baseYear, Number(fromYm.slice(0, 4)));
+  if (lastYear < fromYear) return null;
   const structure = v?.structure ?? (r.style === "condo" ? "rc" : "wood");
   const built = v?.builtYear;
   return {
@@ -135,8 +150,10 @@ export function ownedHomeTaxInputs(h: Household, r: Residence, baseMonth: string
     structure,
     condo: r.style !== undefined ? r.style === "condo" : structure === "rc",
     ...(built !== undefined ? { builtYear: built } : {}),
+    ...(built !== undefined && isEstimatedBuilt(r) ? { builtEstimated: true } : {}),
     longLife: longLifeOf(h, r),
     baseYear,
+    ...(fromYear > baseYear ? { fromYear } : {}),
     lastYear,
   };
 }
