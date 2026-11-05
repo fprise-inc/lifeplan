@@ -21,6 +21,8 @@ describe("FP のメニューの中身", () => {
     expect(full.map((g) => g.label)).toEqual(["控え", "面談の準備", "取り込む", "事務所の設定", "ファイナンシアへ"]);
     expect(full[0]!.items.map((i) => i.label)).toEqual(["この時点を残す", "控えの一覧（2件）"]);
     expect(full[1]!.items.map((i) => i.action)).toEqual(["contents", "year", "review"]);
+    // 前の名前は「見直し」（何を見直すのか分からないため改めた。識別子の review はそのまま。0074 の追記）
+    expect(full[1]!.items.map((i) => i.label)).toEqual(["世帯の中身の一覧", "次の1年に起きること", "前回から変わったこと"]);
     expect(full[1]!.items[2]!.note).toContain("2027年10月");
     expect(full[2]!.items.map((i) => i.action)).toEqual(["hearing", "ai"]);
     expect(full[3]!.items.map((i) => [i.action, i.note])).toEqual([
@@ -91,5 +93,18 @@ describe("入力のホームの上部", () => {
     const tools = renderToString(h(FpTools, { wh: sample(), result: null, onOpen: noop, bar: false, tool: "contents", onTool: noop }));
     expect(tools).not.toContain("data-fp-tools");
     expect(tools).toContain("閉じる");
+    const review = renderToString(h(FpTools, { wh: sample(), result: null, onOpen: noop, bar: false, tool: "review", onTool: noop }));
+    expect(review).toContain("<h2>前回から変わったこと</h2>");
+  });
+
+  it("開いた中身の置き場は、どのパネルにも同じ余白を持つ（何も開いていなければ空）", () => {
+    const wh = sample();
+    const base = { wh, onSave: noop, level: "simple" as const, imports: h("p", null, "取り込みの中身") };
+    const closed = renderToString(h(InputView, { ...base, tools: null, importsOpen: false, onImportsOpen: noop }));
+    expect(closed).toContain('<div class="ih-opened" data-home-opened="true"></div>');
+    const opened = renderToString(h(InputView, { ...base, tools: h(FpTools, { wh, result: null, onOpen: noop, bar: false, tool: "year", onTool: noop }), importsOpen: true, onImportsOpen: noop }));
+    const box = opened.slice(opened.indexOf('class="ih-opened"'));
+    expect(box.indexOf("data-fp-year")).toBeGreaterThan(0);
+    expect(box.indexOf("data-imports-list")).toBeGreaterThan(box.indexOf("data-fp-year"));
   });
 });

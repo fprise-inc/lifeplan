@@ -1,5 +1,5 @@
 // 上の帯の FP のメニュー（線のアイコン1つ）。顧客と一緒に見る画面に常に出す必要のない FP の操作を、ここにまとめる（0077 の追記）:
-// 控え（この時点を残す・控えの一覧）／面談の準備（世帯の中身の一覧・次の1年に起きること・見直し）／取り込む（今の選択肢）／事務所の設定（今の保存先と事務所の共有の状態・既定値）／
+// 控え（この時点を残す・控えの一覧）／面談の準備（世帯の中身の一覧・次の1年に起きること・前回から変わったこと）／取り込む（今の選択肢）／事務所の設定（今の保存先と事務所の共有の状態・既定値）／
 // ファイナンシアへ（要望・不具合を送る。0087。お知らせの一覧の下にも同じ入口がある）。
 // 開いた一覧は帯の下に重ねて出す（画面は動かさない）。Esc・外を押すと閉じる。1つを押すと閉じて、その中身を開く
 // （入力のホームの中身なら、親が入力のタブに切り替えて開く。どのタブでも帯は同じ）
@@ -27,7 +27,7 @@ export interface FpMenuGroup {
 export interface FpMenuInput {
   /** 控えの件数 */
   snapshots: number;
-  /** 最後の控えと次の見直しの目安（見直しの横に添える）。控えが無ければ null */
+  /** 最後の控えと次の見直しの目安（前回から変わったことの横に添える）。控えが無ければ null */
   review: { last: string; next: string } | null;
   /** 取り込むの選択肢（ヒアリングシート・AI に資料を渡す）。本体につながっていないときは null（出さない） */
   imports: { ai: boolean } | null;
@@ -52,7 +52,7 @@ export function fpMenuGroups(p: FpMenuInput): FpMenuGroup[] {
       items: [
         { action: "contents", label: "世帯の中身の一覧" },
         { action: "year", label: "次の1年に起きること" },
-        { action: "review", label: "見直し", ...(p.review !== null ? { note: `最後の控え ${p.review.last}・次の目安 ${p.review.next}` } : {}) },
+        { action: "review", label: "前回から変わったこと", ...(p.review !== null ? { note: `最後の控え ${p.review.last}・次の目安 ${p.review.next}` } : {}) },
       ],
     },
   ];

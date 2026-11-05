@@ -1,5 +1,5 @@
-// 入力のホームの 面談の準備（0074）: 世帯の中身の一覧・次の1年に起きること・見直し（控え → 過ぎた予定の確かめ → ヒアリングシートの見直し →
-// 前回との違い）。どれも読むだけで、押すとそのカードを開く。見直しの「控えを取る」だけが控えを作る
+// 入力のホームの 面談の準備（0074）: 世帯の中身の一覧・次の1年に起きること・前回から変わったこと（控え → 過ぎた予定の確かめ → ヒアリングシートの見直し →
+// 前回との違い。前の名前は「見直し」。0074 の追記）。どれも読むだけで、押すとそのカードを開く。前回から変わったことの「控えを取る」だけが控えを作る
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import type { WorkingHousehold } from "../input/household.ts";
@@ -17,7 +17,7 @@ export interface FpToolsProps {
   computeOne?: ((req: EngineRequest) => Promise<PreviewResult | null>) | undefined;
   /** カードを開く */
   onOpen: (card: string) => void;
-  /** 控えを取る（見直しの前） */
+  /** 控えを取る（前回から変わったことの1つ目） */
   onSnapshot?: ((memo: string) => Promise<void>) | undefined;
   /** 資産と負債のタブの「前回と比べる」へ */
   onBalance?: (() => void) | undefined;
@@ -62,11 +62,11 @@ export function FpTools({ wh, result, computeOne, onOpen, onSnapshot, onBalance,
         次の1年に起きること
       </button>
       <button type="button" class="link-btn" aria-expanded={tool === "review"} onClick={() => setTool(tool === "review" ? null : "review")} data-fp-tool="review">
-        見直し
+        前回から変わったこと
       </button>
       {timing !== null ? (
         <span class="pl-sub" data-review-timing>
-          最後の控え {formatYearMonth(timing.last)}・次の見直しの目安 {formatYearMonth(timing.next)}
+          最後の控え {formatYearMonth(timing.last)}・次の面談の目安 {formatYearMonth(timing.next)}
         </span>
       ) : null}
     </div>
@@ -172,18 +172,18 @@ function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, 
   const before = snap !== null && prevRes?.id === snap.id && prevRes.r !== null ? resultFigures(withoutRemovedAssumptions(snap.inputs.request), prevRes.r, atAge) : null;
   const now = result !== null ? resultFigures(wh.request, result, atAge) : null;
   return (
-    <section class="card fp-panel" aria-label="見直し" data-fp-review>
-      <Head title="見直し" note="前回の面談から変わったことを確かめて、面談に進みます" onClose={onClose} />
+    <section class="card fp-panel" aria-label="前回から変わったこと" data-fp-review>
+      <Head title="前回から変わったこと" note="控えを取り、過ぎた予定・ヒアリングシート・前回の控えとの違いを確かめて、見直しの面談に進みます" onClose={onClose} />
       <ol class="fp-steps">
         <li>
-          <b>控えを取る</b>（見直しの前の今の入力と結果を残します）
+          <b>控えを取る</b>（比べる前の今の入力と結果を残します）
           {onSnapshot !== undefined ? (
             <button
               type="button"
               class="link-btn"
               disabled={taken}
               onClick={() =>
-                void onSnapshot("見直しの前").then(() => {
+                void onSnapshot("見直しの面談の前").then(() => {
                   setTaken(true);
                 })
               }
@@ -219,7 +219,7 @@ function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, 
         <li data-fp-review-diff>
           <b>前回との違い</b>
           {snaps.length === 0 ? (
-            <p class="in-note">控えがまだありません。面談の区切りで「この時点を残す」を押すと、次の見直しで比べられます。</p>
+            <p class="in-note">控えがまだありません。面談の区切りで「この時点を残す」を押すと、次の面談で比べられます。</p>
           ) : (
             <>
               <label class="fp-sel">
