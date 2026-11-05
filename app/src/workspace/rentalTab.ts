@@ -8,12 +8,12 @@
 //   今の予定の売り方は計算し直さず、そのプランの結果を使う。タブを開いて物件を見ている間だけ求め、計算し直している間は前の結果を見せる
 // - 入力項目「収益不動産」の物件の一覧表の利回り・月の手残り（rentalFigures）も、同じ数字の表の最初の年から読む
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { pctText, saleCompareOf, saleVariantRequest, saleVariants, timesText, type RealEstateAnalysis, type RealEstateAnalysisProperty, type RealEstateAnalysisTotal, type RealEstateAnalysisYear, type SaleCompare, type SaleResult, type SaleVariant } from "../../../report/src/index.ts";
+import { deadCrossText, depreciationEndText, pctText, saleCompareOf, saleVariantRequest, saleVariants, timesText, type RealEstateAnalysis, type RealEstateAnalysisProperty, type RealEstateAnalysisTotal, type RealEstateAnalysisYear, type SaleCompare, type SaleResult, type SaleVariant } from "../../../report/src/index.ts";
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import type { RentalMetricModel, RentalPropertyViewModel, RentalSaleModel, RentalTabModel, RentalTableModel, RentalTotalViewModel } from "../presentation/model.ts";
-import { group } from "../presentation/format.ts";
+import { group, man } from "../presentation/format.ts";
 import { BUILDING_STRUCTURES } from "./input/labels.ts";
-import { RENTAL_KINDS, rentalName, rentalProperties } from "./input/stages/rental.ts";
+import { isLandOnlyKind, RENTAL_KINDS, rentalName, rentalProperties } from "./input/stages/rental.ts";
 import { displayYears } from "./present.ts";
 import { roles } from "./roles.ts";
 
@@ -38,6 +38,8 @@ export function man1(yen: number): string {
   return (yen < 0 && tenths !== 0 ? "▲" : "") + `${group(Math.floor(tenths / 10))}.${tenths % 10}`;
 }
 const manYen = (yen: number) => `${man1(yen)}万円`;
+/** 見出しの1行の金額（ほかの画面の見出しと同じく、万円の整数） */
+const manWhole = (yen: number) => `${man(yen)}万円`;
 const yenText = (n: number) => `${n < 0 ? "▲" : ""}${group(n)}円`;
 const ymText = (ym: string) => `${Number(ym.slice(0, 4))}年${Number(ym.slice(5, 7))}月`;
 const dash = "—";
@@ -95,16 +97,24 @@ const HELP = {
   ccr: "税引前の手残りの年額÷自己資金です。自己資金（収益不動産の取得の欄）を入れたときだけ出します。",
   monthlyBefore: "その年の税引前の手残り（実際に入る収入−経費−大きな修繕−年の返済）を、貸している月数で割った額です。",
   monthlyAfter: "税引前の手残りから、その物件で増える税と社会保険料（所得税・住民税・国民健康保険などの近似。その物件の所得の分）を引いた額を、貸している月数で割った額です。",
-  equity: "年末の評価額−年末のローン残高です。",
+  equity: "年末の評価額−年末のローン残高です。売ったときにローンを返した後に残る額の目安で、売却の費用（仲介手数料など）と譲渡所得の税は引いていません（実際の手取りはこれより少なくなります）。",
+  unrealizedGain: "年末の評価額−年末の帳簿価額です。帳簿価額は、取得価額＋取得時の諸費用−その年の年末までの減価償却費の累計です。売ったときの譲渡所得の目安で、売却の費用と税は引いていません。取得価額を入れていなければ出しません。",
   age: "築年数はその年−建った年、残りの耐用年数は建物の構造の法定耐用年数−築年数です（0より下げません）。",
-  depreciationEnd: "建物（と建物附属設備）の減価償却が終わる年です。終わった後は不動産所得が増え、税が増えます。",
-  deadCross: "元金の返済が減価償却費（建物と建物附属設備）を上回る最初の年です。この年から、帳簿の上の所得より手元に残るお金が少なくなり、税の分だけ手残りが苦しくなりやすくなります。",
+  depreciationEnd: "建物（と建物附属設備）の減価償却が終わる年です。終わった後は不動産所得が増え、税が増えます。売る・貸し終わるまでに終わらないときは「売るまでには終わりません」と出し、そのまま貸し続けたら終わる年を括弧に書きます。取得価額を入れていないとき、建物の無い物件（貸している土地・駐車場で設備を入れていない）は、減価償却をしないので出しません。",
+  deadCross: "元金の返済が減価償却費（建物と建物附属設備）を上回る最初の年です。この年から、帳簿の上の所得より手元に残るお金が少なくなり、税の分だけ手残りが苦しくなりやすくなります。計算の最初の年から上回っていれば「もう上回っています」と出します。ローンの無い物件・上回る年が表の期間に無い物件は出しません。",
 } as const;
 
 const yearsText = (n: number | null) => (n === null ? dash : `${n}年`);
 
-/** 物件のその年の指標 */
-export function propertyMetrics(p: RealEstateAnalysisProperty, y: RealEstateAnalysisYear | undefined): RentalMetricModel[] {
+/** 減価償却が終わる年が無いときの、理由の分かる文 */
+function noDepreciationText(p: RealEstateAnalysisProperty, landOnly: boolean): string {
+  if (p.acquisition === null) return "—（取得価額が未入力）";
+  if (landOnly && p.builtYear === null) return "—（減価償却する建物がありません）";
+  return dash;
+}
+
+/** 物件のその年の指標。baseYear は計算基準年（計算の最初の年）、landOnly は種類が貸している土地・駐車場 */
+export function propertyMetrics(p: RealEstateAnalysisProperty, y: RealEstateAnalysisYear | undefined, o: { baseYear: number; landOnly?: boolean } = { baseYear: 0 }): RentalMetricModel[] {
   const out: RentalMetricModel[] = [];
   const m = (key: string, label: string, value: string, help: string) => out.push({ key, label, value, help });
   if (p.lodging) {
@@ -125,12 +135,12 @@ export function propertyMetrics(p: RealEstateAnalysisProperty, y: RealEstateAnal
   const after = y === undefined ? null : monthlyOf(y.cashAfterTax, y.months);
   m("monthlyBefore", "月の手残り（税引前）", before === null ? dash : yenText(before), HELP.monthlyBefore);
   m("monthlyAfter", "月の手残り（税引後）", after === null ? dash : yenText(after), HELP.monthlyAfter);
-  m("equity", "含み益", y?.equity == null ? dash : manYen(y.equity), HELP.equity);
-  m("age", "築年数／残りの耐用年数", y?.age == null ? dash : `${y.age}年／${yearsText(y.remainingLife)}`, HELP.age);
-  const end = p.depreciationEnd;
-  const endText = end.equipment !== null && end.building !== null ? `建物 ${end.building}年・設備 ${end.equipment}年` : end.building !== null ? `${end.building}年` : end.equipment !== null ? `設備 ${end.equipment}年` : dash;
+  m("unrealizedGain", "含み益", y?.unrealizedGain == null ? (p.acquisition === null ? "—（取得価額が未入力）" : dash) : manYen(y.unrealizedGain), HELP.unrealizedGain);
+  m("equity", "売ったときの手残りの目安（ローン返済後）", y?.equity == null ? dash : manYen(y.equity), HELP.equity);
+  if (p.builtYear !== null || o.landOnly !== true) m("age", "築年数／残りの耐用年数", y?.age == null ? dash : `${y.age}年／${yearsText(y.remainingLife)}`, HELP.age);
+  const endText = depreciationEndText({ ...p, sells: p.exit !== null }) ?? noDepreciationText(p, o.landOnly === true);
   m("depreciationEnd", "減価償却が終わる年", endText, HELP.depreciationEnd);
-  m("deadCross", "元金の返済が減価償却費を上回る年", p.deadCross === null ? dash : `${p.deadCross}年`, HELP.deadCross);
+  m("deadCross", "元金の返済が減価償却費を上回る年", deadCrossText(p.deadCross, o.baseYear) ?? dash, HELP.deadCross);
   return out;
 }
 
@@ -231,20 +241,24 @@ function factsOf(req: EngineRequest, p: RealEstateAnalysisProperty): string[] {
   const out: string[] = [];
   const owner = roles(req).find((r) => r.member.id === p.owner)?.label;
   if (owner !== undefined) out.push(`名義 ${owner}`);
-  const st = BUILDING_STRUCTURES.find((o) => o.value === prop?.structure)?.label;
+  // 建物の無い物件（貸している土地・駐車場）は構造を出さない（前の版で入れた値が残っていても）
+  const st = p.builtYear === null ? undefined : BUILDING_STRUCTURES.find((o) => o.value === prop?.structure)?.label;
   if (st !== undefined) out.push(st);
   if (p.builtYear !== null) out.push(`${p.builtYear}年築`);
   const acq = prop?.acquisition;
   if (acq !== undefined && p.acquisition !== null) {
-    const extra = [...(p.acquisition.costs > 0 ? [`諸費用 ${manYen(p.acquisition.costs)}`] : []), ...(p.acquisition.equity !== undefined ? [`自己資金 ${manYen(p.acquisition.equity)}`] : [])];
-    out.push(`${ymText(acq.at)}に取得 ${manYen(p.acquisition.total)}${extra.length > 0 ? `（${extra.join("・")}）` : ""}`);
+    const extra = [...(p.acquisition.costs > 0 ? [`諸費用 ${manWhole(p.acquisition.costs)}`] : []), ...(p.acquisition.equity !== undefined ? [`自己資金 ${manWhole(p.acquisition.equity)}`] : [])];
+    out.push(`${ymText(acq.at)}に取得 ${manWhole(p.acquisition.total)}${extra.length > 0 ? `（${extra.join("・")}）` : ""}`);
   }
   if (p.exit !== null) out.push(`${ymText(p.exit.ym)}に売る予定`);
   return out;
 }
 
+const kindOf = (req: EngineRequest, object: string): string | undefined => (req.input.household.accounts ?? []).find((x) => x.id === object)?.property?.kind;
+
 function propertyView(req: EngineRequest, p: RealEstateAnalysisProperty, year: number | null, sale: RentalSaleModel | null): RentalPropertyViewModel {
   const rows = shownYears(req, p.years);
+  const baseYear = Number(req.input.baseMonth.slice(0, 4));
   const y = (year === null ? undefined : rows.find((r) => r.year === year)) ?? rows.find((r) => r.months > 0) ?? rows[0];
   return {
     kind: "property",
@@ -252,8 +266,9 @@ function propertyView(req: EngineRequest, p: RealEstateAnalysisProperty, year: n
     title: titleOf(nameOf(req, p.object)),
     facts: factsOf(req, p),
     year: y?.year ?? displayYears(req)[0] ?? 0,
-    metrics: propertyMetrics(p, y),
-    table: yearTable(rows, { lodging: p.lodging, deadCross: p.deadCross }),
+    metrics: propertyMetrics(p, y, { baseYear, landOnly: isLandOnlyKind(kindOf(req, p.object)) }),
+    // 計算の最初の年から上回っている（「もう上回っています」）ときは、表の行に印を付けない
+    table: yearTable(rows, { lodging: p.lodging, deadCross: p.deadCross !== null && p.deadCross > baseYear ? p.deadCross : null }),
     deadCross: p.deadCross,
     sale,
   };

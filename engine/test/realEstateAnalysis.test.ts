@@ -271,3 +271,46 @@ describe("要約・物件の無い世帯", () => {
     expect((none.summary as Obj).realEstateAnalysis).toBeUndefined();
   });
 });
+
+describe("含み益・帳簿価額・建物の無い物件（約束の版 1.1）", () => {
+  it("含み益＝評価額−帳簿価額（asset.realEstate の帳簿価額）。売ったときの手残りの目安（equity）は評価額−ローン残高のまま", () => {
+    const req = base();
+    const re = call<RealEstateOutput>(req, "asset.realEstate", {}).properties[0];
+    const y = analysis(req).properties[0]?.years.find((x) => x.year === 2027);
+    const book = re?.years.find((x) => x.year === 2027)?.book as number;
+    expect(book).toBeGreaterThan(0);
+    expect(y?.bookValue).toBe(book);
+    expect(y?.unrealizedGain).toBe((y?.value ?? 0) - book);
+    expect(y?.equity).toBe((y?.value ?? 0) - (y?.loanBalance ?? 0));
+    const p0 = property();
+    delete p0.acquisition;
+    const none = analysis(base({ accounts: [account(P, p0)] })).properties[0]?.years.find((x) => x.year === 2027);
+    expect(none?.bookValue).toBeNull();
+    expect(none?.unrealizedGain).toBeNull();
+  });
+
+  it("合計の含み益は、数字のある物件の分の足し算", () => {
+    const p0 = property();
+    delete p0.acquisition;
+    const a = analysis(base({ accounts: [account(P), account(Q, p0)] }));
+    const t = a.total.find((x) => x.year === 2027);
+    expect(t?.unrealizedGain).toBe(a.properties[0]?.years.find((x) => x.year === 2027)?.unrealizedGain);
+  });
+
+  it("売るまでに減価償却が終わらなければ、貸し続けたら終わる年を添える", () => {
+    const sold = analysis(base({ accounts: [account(P, property({ builtYear: 2020, sale: { at: at("2040-06") } }))] })).properties[0];
+    expect(sold?.depreciationEnd.building).toBeNull();
+    expect(sold?.depreciationEndIfContinued?.building).toBeGreaterThan(2040);
+    expect(analysis(base()).properties[0]?.depreciationEndIfContinued).toBeUndefined();
+  });
+
+  it("建物の無い物件（貸している土地・駐車場）は、建った年・法定耐用年数・築年数を出さない", () => {
+    const land = property({ kind: "land", structure: undefined, builtYear: undefined, landShare: undefined });
+    for (const k of Object.keys(land)) if (land[k] === undefined) delete land[k];
+    const p = analysis(base({ accounts: [account(P, land)] })).properties[0];
+    expect(p?.builtYear).toBeNull();
+    expect(p?.legalLife).toBeNull();
+    expect(p?.years.every((x) => x.age === null && x.remainingLife === null)).toBe(true);
+    expect(p?.depreciationEnd).toEqual({ building: null, equipment: null });
+  });
+});

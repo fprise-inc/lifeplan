@@ -440,7 +440,7 @@ const DISEASE_RIDERS = [
  * 住宅ローンの団信の欄（対象・事由（特約）・保障割合・夫婦連生・就業不能の特約の月数）。住まい・ローンのカードと、万一の画面の「団信」で同じ欄を使う
  * （欄のキーが同じなので、どちらで直しても同じ世帯データが変わる）
  */
-export function creditLifeFields(wh: WorkingHousehold, d: Debt, level: "simple" | "detail" = "simple"): FieldDef[] {
+export function creditLifeFields(wh: WorkingHousehold, d: Debt, level: "simple" | "detail" = "simple", o: { coveredHelp?: string } = {}): FieldDef[] {
   const find = byId(debts, d.id);
   const k = `housing/debt/${d.id}`;
   const cl = (h: Household, w: WorkingHousehold) => (find(h, w) as Debt | undefined)?.creditLife;
@@ -462,7 +462,7 @@ export function creditLifeFields(wh: WorkingHousehold, d: Debt, level: "simple" 
       level,
       kind: "select",
       options: [{ value: "", label: "入っていない・未確認" }, ...memberOptions(wh, (m) => d.debtors.some((x) => x.member === m.id))],
-      help: "亡くなったとき・高度障害のとき、この人の負担分の残高が消えます。民間の住宅ローンの多くは加入が条件です（フラット35 は加入が任意です）",
+      help: o.coveredHelp ?? "亡くなったとき・高度障害のとき、この人の負担分の残高が消えます。民間の住宅ローンの多くは加入が条件です（フラット35 は加入が任意です）",
       get: (w) => ({ value: (find(w.request.input.household, w) as Debt | undefined)?.creditLife?.covered[0] ?? "", ...(((find(w.request.input.household, w) as Debt | undefined)?.creditLife?.covered.length ?? 0) > 1 ? { derived: "夫婦連生（2人とも対象）" } : {}) }),
       set: (w, v) =>
         mutate(w, (h) => {

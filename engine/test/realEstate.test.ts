@@ -81,7 +81,7 @@ describe("評価額（土地と建物）", () => {
     const f0 = remain(2025 - 2015, 47, "0.2");
     for (const y of [2026, 2030, 2040, 2052, 2060]) {
       const building = floorYen(new Decimal(18000000).mul(div12(remain(y - 2015, 47, "0.2"), f0)));
-      expect(p?.years.find((x) => x.year === y), String(y)).toEqual({ year: y, land: 12000000, building, value: 12000000 + building });
+      expect(p?.years.find((x) => x.year === y), String(y)).toMatchObject({ year: y, land: 12000000, building, value: 12000000 + building });
     }
     // 2052年に築37年で下限（2割）より上、2060年は下限の比
     expect(p?.years.at(-1)?.year).toBe(2060);
@@ -423,5 +423,61 @@ describe("お金の欄（取得の内訳・諸費用・家賃以外の収入・�
     expect(sched.interest?.find((x) => x.year === 2031)?.amount ?? 0).toBe(0);
     const r = full(req, realPacks());
     expect((r.flows as unknown as { object?: string; ym: string; amount: number }[]).filter((f) => f.object === L && f.ym > "2030-06").reduce((s, f) => s + f.amount, 0)).toBe(0);
+  });
+});
+
+describe("建物の無い種類（貸している土地・駐車場。改訂7）", () => {
+  const land = (o: Obj = {}) => property({ kind: "land", structure: undefined, builtYear: undefined, landShare: undefined, ...o });
+  it("土地の割合の省略は 1: 評価額は全部土地で、建物の減価償却は無い。目安の知らせ（土地の割合）は出さない", () => {
+    for (const kind of ["land", "parking"]) {
+      const req = base({ accounts: [account(land({ kind }))] });
+      const p = out(req).properties[0];
+      expect(p?.years.every((x) => x.building === 0 && x.land === x.value), kind).toBe(true);
+      expect(p?.years.find((x) => x.year === 2026)?.land, kind).toBe(30000000);
+      expect(p?.income.every((x) => x.depreciation === 0), kind).toBe(true);
+      expect(p?.facts?.noBuilding, kind).toBe(true);
+      expect(notices(full(req)).some((n) => n.code === "N_DEFAULT_USED" && n.ids.includes("account.property.landShare")), kind).toBe(false);
+    }
+  });
+
+  it("前提の土地の割合も使わない（建物のある種類は今までどおり前提の割合）", () => {
+    const withSetting = (p: Obj) => edit(base({ accounts: [account(p)] }), (_h, input) => void ((input.assumptions as Obj | undefined) ? ((input.assumptions as Obj).realEstateValuation = { landShare: "0.3" }) : (input.assumptions = { realEstateValuation: { landShare: "0.3" } })));
+    expect(out(withSetting(land())).properties[0]?.income.every((x) => x.depreciation === 0)).toBe(true);
+    expect(out(withSetting(property({ landShare: undefined }))).properties[0]?.income.find((x) => x.year === 2026)?.depreciation).toBeGreaterThan(0);
+  });
+
+  it("土地の割合を入れてあれば、その値のまま分ける（黙って変えない）。noBuilding は付けない", () => {
+    const p = out(base({ accounts: [account(land({ landShare: "0.4", structure: "rc", builtYear: 2015 }))] })).properties[0];
+    expect(p?.income.find((x) => x.year === 2026)?.depreciation).toBe(360000);
+    expect(p?.facts?.noBuilding).toBeUndefined();
+  });
+
+  it("駐車場の舗装などは取得価額の内訳の建物附属設備で、入れた耐用年数で償却する（建物の分は無い）", () => {
+    const p = out(base({ accounts: [account(land({ kind: "parking", acquisition: { price: 0, at: "2020-04", parts: { land: 18000000, equipment: 2000000 }, equipmentLife: 10 } }))] })).properties[0];
+    // 2,000,000×0.100＝200,000円。2020年4月から（9か月）
+    expect(p?.income.find((x) => x.year === 2026)?.depreciation).toBe(200000);
+    expect(p?.facts?.depreciationEnd).toEqual({ building: null, equipment: 2030 });
+    expect(p?.years.every((x) => x.building === 0)).toBe(true);
+    expect(p?.facts?.noBuilding).toBe(true);
+  });
+});
+
+describe("年末の帳簿価額・貸し続けたときの償却の終わり（改訂7）", () => {
+  it("帳簿価額＝取得価額＋取得時の諸費用−その年の年末までの減価償却の累計（計算基準年より前の分も）", () => {
+    const p = out(base({ accounts: [account(property({ acquisition: { price: 25000000, at: "2020-04", costs: 1000000 } }))] })).properties[0];
+    // 建物 1,500万円＋諸費用の建物の分 60万円＝1,560万円。×0.024＝374,400円。2020年は9か月
+    const annual = 374400;
+    const first = floorYen(new Decimal(annual).mul(9).div(12));
+    expect(p?.years.find((x) => x.year === 2026)?.book).toBe(26000000 - first - annual * 6);
+    expect(p?.years.find((x) => x.year === 2030)?.book).toBe(26000000 - first - annual * 10);
+    expect(out(base({ accounts: [account(property({ acquisition: undefined }))] })).properties[0]?.years.every((x) => x.book === undefined)).toBe(true);
+  });
+
+  it("売るまでに終わらないときは、貸し続けたら終わる年を添える（終わる年は null のまま）", () => {
+    const p = out(base({ accounts: [account(property({ builtYear: 2020, acquisition: { price: 25000000, at: "2020-04" }, sale: { at: at("2040-06") } }))] })).properties[0];
+    expect(p?.facts?.depreciationEnd.building).toBeNull();
+    // 新築の鉄筋コンクリート 47年（0.022）: 1,500万円×0.022＝330,000円。2020年4月から 1円まで → 2065年
+    expect(p?.facts?.depreciationEndIfContinued).toEqual({ building: 2065, equipment: null });
+    expect(out(base({ accounts: [account(property({ builtYear: 2020 }))] })).properties[0]?.facts?.depreciationEndIfContinued).toBeUndefined();
   });
 });
