@@ -1284,7 +1284,7 @@ function PeriodSection(p: { wh: WorkingHousehold; level: Level; onEdit: (w: Work
             </button>
           </span>
         </div>
-        <p class="help">予定なしは、収支が足りない年だけ取り崩します（順番は「お金の行き先」。既定は預金→課税口座→NISA）。定額・定率は、その額を金融資産から使います（収支の不足のほうが大きい年は不足の分）。</p>
+        <p class="help">予定なしは、収支が足りない年だけ取り崩します（順番は「お金の行き先」。既定は預金→課税口座→暗号資産→NISA）。定額・定率は、その額を金融資産から使います（収支の不足のほうが大きい年は不足の分）。</p>
       </div>
       {dd.method === "fixed" ? (
         <div class="sv-fld">

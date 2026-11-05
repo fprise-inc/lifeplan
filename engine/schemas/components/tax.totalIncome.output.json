@@ -75,6 +75,17 @@
     "miscellaneousLoss": {
       "description": "公的年金等以外の雑所得の赤字のうち、公的年金等の雑所得からも引ききれず、ほかの所得と通算せずに捨てた額（1.7。0086）",
       "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "transfer": {
+      "description": "その他の資産を売った総合課税の譲渡所得（1.8。0123）。short・long は短期と長期を差し引いた後の譲渡益（特別控除の前）、included は特別控除の後の短期と長期の2分の1の合計（total に入っている）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["short", "long", "included"],
+      "properties": {
+        "short": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+        "long": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+        "included": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+      }
     }
   }
 }

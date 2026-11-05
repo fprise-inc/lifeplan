@@ -1988,6 +1988,30 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: incomeTax.transferIncome.estimatedCostRate
+    status: active
+    label: "土地建物等以外の資産の譲渡所得の概算取得費の割合（売った金額に掛ける。取得費が分からないとき、または実際の取得費がこれを下回るとき）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.transferIncome.longTerm.holdingYears
+    status: active
+    label: "総合課税の長期譲渡所得になる所有期間（取得の日から譲渡の日までがこの年数を超えれば長期、以内は短期）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.transferIncome.longTerm.taxableRatio
+    status: active
+    label: "総所得金額に入れる総合課税の長期譲渡所得の割合（2分の1）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.transferIncome.specialDeduction
+    status: active
+    label: "総合課税の譲渡所得の特別控除額（50万円まで。短期の譲渡益から先に引く）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: incomeTax.widowDeduction
     status: active
     label: "寡婦控除（所得税）"

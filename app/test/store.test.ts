@@ -1125,6 +1125,26 @@ function keysOf(v: unknown, out: string[] = []): string[] {
   return out;
 }
 
+/** 0.61 の見本の世帯（0123）: sample060() に、売る予定と取得の年月のある別荘（細目 villa）とつながる毎年の費用の行、売る予定（税の扱い・費用の割合）のあるその他の資産を足す */
+function sample061(): BodyState {
+  const s = sample060();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const id = (n: number) => `00000000-0000-4000-8000-0000000061${String(n).padStart(2, "0")}`;
+  const box = (v: number) => ({ value: v, state: "confirmed", origin: { kind: "manual" } }) as never;
+  hh.accounts = [
+    ...(hh.accounts ?? []),
+    { id: id(1), kind: "realEstate", subtype: "villa", owner: self.id, marketValue: box(18000000), asOf: req.input.baseMonth, contributions: [], costBasis: box(15000000), acquiredAt: "2012-04", sale: { at: { at: "2034-04" }, price: 16000000 } },
+    { id: id(2), kind: "otherAsset", subtype: "art", owner: self.id, marketValue: box(600000), asOf: req.input.baseMonth, contributions: [], sale: { at: { at: "2030-09" }, costRate: "0.1", taxation: "nonTaxable" } },
+  ];
+  hh.periodicExpenses = [
+    ...(hh.periodicExpenses ?? []),
+    { id: id(3), kind: "assetCost", object: id(1), label: "固定資産税・管理費など", row: "cf.expense.other.realEstate", from: { at: req.input.baseMonth }, to: null, everyYears: 1, amount: box(180000), growth: { kind: "none" } },
+  ];
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 describe("世帯ファイルの本文（0011 の2）", () => {
   it("保存→読み込みで同じ（現状・案・帯の並び・表示の設定・拡張領域）", () => {
     const s = sample();
@@ -1163,7 +1183,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.60");
+    expect(BODY_FORMAT_VERSION).toBe("0.62");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1336,7 +1356,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample060())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample061())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -1657,6 +1677,18 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     for (const m of plain.input.household.members) delete m.companyGuarantee;
     for (const a of plain.input.household.accounts ?? []) delete a.subtype;
     expect(preview(forEngine(back.wh.request)).table).toEqual(preview(forEngine(plain)).table);
+  });
+
+  it("0.61 の形（0123）: 売る予定・取得の年月・貸していない不動産の細目・つながる毎年の費用の行を保存して読み戻す", () => {
+    const s = sample061();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const h = stored.household.request.input.household;
+    const villa = (h.accounts ?? []).find((a) => a.id === "00000000-0000-4000-8000-000000006101");
+    expect(villa).toMatchObject({ subtype: "villa", acquiredAt: "2012-04", sale: { at: { at: "2034-04" }, price: 16000000 } });
+    expect((h.periodicExpenses ?? []).find((p) => p.kind === "assetCost")).toMatchObject({ object: "00000000-0000-4000-8000-000000006101", row: "cf.expense.other.realEstate" });
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    preview(forEngine(back.wh.request));
   });
 
   it("0.59 の形（0120）: その他の資産の中身の細目を保存して読み戻し、細目は計算に使わない", () => {

@@ -32,7 +32,7 @@ const coin = (id: string, value: number, cost: number | null, o: Obj = {}): Obj 
 const IT = 0.153;
 const RT = 0.05;
 
-describe("暗号資産の取り崩しと申告分離課税（plan.cashflow 改訂21。0124）", () => {
+describe("暗号資産の取り崩しと申告分離課税（plan.cashflow 改訂22。0124）", () => {
   it("2027年までは取り崩さず（資金の不足）、2028年から取り崩す。取得価額との差に所得税・住民税をかけ、手取りで足りるだけ売る", () => {
     const r = full(mk([coin(BTC, 10000000, 5000000)]));
     for (const y of [2026, 2027]) {

@@ -1,0 +1,19 @@
+id: incomeTax.transferIncome.estimatedCostRate
+title: 土地建物等以外の資産の譲渡所得の概算取得費の割合（売った金額に掛ける。取得費が分からないとき、または実際の取得費がこれを下回るとき）
+unit: rate
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2020-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.05"
+    sources:
+      - {"type": "law", "lawNumber": "昭和四十年法律第三十三号"}
+    recordedIn: "2026.16.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "所得税基本通達38-16（土地建物等以外の資産も、譲渡の収入金額の5%を取得費としてよい。措置法31条の4の準用）。原本での確認待ち"}

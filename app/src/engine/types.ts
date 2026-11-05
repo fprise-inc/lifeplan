@@ -127,9 +127,10 @@ export interface Account {
   kind: string;
   /**
    * その他の資産の細目（種類 otherAsset だけ。表示だけで、計算には使わない）: 自社株〔出資額〕・会社への貸付金（0105）と、貴金属・
-   * 美術品や骨董品・会員権・敷金や保証金・事業用の資産（0120）。無ければ「その他」。暗号資産は細目でなく器の種類 cryptoAsset（0122）
+   * 美術品や骨董品・会員権・敷金や保証金・事業用の資産（0120）。無ければ「その他」。暗号資産は細目でなく器の種類 cryptoAsset（0122）。
+   * 貸していない不動産（種類 realEstate で中身 property の無いもの）の細目: 土地（更地）・山林や農地・別荘・空き家（0123）
    */
-  subtype?: "ownCompanyShares" | "loanToCompany" | "preciousMetal" | "art" | "membership" | "securityDeposit" | "businessAsset";
+  subtype?: "ownCompanyShares" | "loanToCompany" | "preciousMetal" | "art" | "membership" | "securityDeposit" | "businessAsset" | HeldEstateSubtype;
   owner: string;
   marketValue?: Box<number>;
   costBasis?: Box<number>;
@@ -153,7 +154,22 @@ export interface Account {
   payout?: { start?: Timepoint; method: "lumpSum" | "annuity" | "mixed"; annuityYears?: number; lumpShare?: string; destination?: "deposit" | "invest" };
   /** 住まい以外の不動産の中身（土地と建物・家賃収入・経費・売却。0028） */
   property?: RealEstateProperty;
+  /** 取得の年月（貸していない不動産・その他の資産だけ。売ったときの所有期間。取得価額は costBasis。0123） */
+  acquiredAt?: string;
+  /** 売る予定（貸していない不動産・その他の資産だけ。0123） */
+  sale?: HeldSale;
   [key: string]: unknown;
+}
+
+/** 貸していない不動産の細目（0123）: 土地（更地）・山林や農地・別荘・空き家 */
+export type HeldEstateSubtype = "vacantLand" | "forestFarm" | "villa" | "vacantHouse";
+
+/** 貸していない不動産・その他の資産の売る予定（0123）。taxation はその他の資産だけ（省略は中身から） */
+export interface HeldSale {
+  at: Timepoint;
+  price?: number;
+  costRate?: string;
+  taxation?: "transfer" | "nonTaxable" | "miscellaneous";
 }
 
 /** 収益不動産の物件の種類（区分マンション・一棟アパート・一棟マンション・戸建て・店舗/事務所・駐車場・貸している土地・民泊・宿。0079） */
@@ -375,6 +391,8 @@ export interface PeriodicExpense {
   gift?: { method?: "calendar" | "settlement"; purpose?: "general" | "housing" | "asNeeded" };
   /** 夢プラン（種類 dream の行だけ。0103）: 順位・計算に入れるか（省略は入れる）・ひとことメモ。計算には使わない（入れない夢は要求を作るときに外す） */
   dream?: DreamInfo;
+  /** つながる物（資産の器の ID。0123）。その器を売る月から払わない */
+  object?: string;
   [key: string]: unknown;
 }
 
@@ -393,7 +411,7 @@ export type Likelihood = "certain" | "likely" | "uncertain";
 export type Priority = "need" | "want" | "wish";
 
 /** 出るお金の種類（0044。エンジンの moneyOutKind） */
-export type MoneyOutKind = "general" | "allowance" | "childSupport" | "gift" | "education" | "repair" | "realEstateCost" | "livingAnnual" | "car" | "other" | "dream";
+export type MoneyOutKind = "general" | "allowance" | "childSupport" | "gift" | "education" | "repair" | "realEstateCost" | "livingAnnual" | "car" | "other" | "dream" | "assetCost";
 
 /** 入るお金の種類（0044。エンジンの incomeFlow.kind） */
 export type IncomeFlowKind =

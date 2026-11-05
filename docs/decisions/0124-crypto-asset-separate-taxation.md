@@ -12,7 +12,7 @@
 
 ## 決定
 
-### 1. 取り崩す（計算エンジン `plan.cashflow` 改訂21）
+### 1. 取り崩す（計算エンジン `plan.cashflow` 改訂22）
 
 - 暗号資産を取り崩しの対象にした（`NEVER_WITHDRAWN` から外した）。既定の取り崩しの順序（`assumptions.withdrawal.order` を書かないとき）は、預金・外貨預金・財形・課税口座・**暗号資産**・持株会・旧NISA・NISA。
 - 取り崩しの仕組みは課税口座と同じ: 決済口座の年末の残高が預金に残しておく額を下回ったら、順序の器から年末に売り、売った額の取得価額（取得価額×売る額÷時価）との差の利益に税をかけ、手取りで足りるだけ売る（二分探索）。引き出せない期間（`withdrawalLockedUntil`）も同じに効く。
@@ -93,7 +93,7 @@
 
 ## 影響
 
-- 計算エンジン: `engine/src/components/plan.cashflow/index.ts`（改訂21）、`engine/src/engine/types.ts`・`engine/schemas/engine.input.json`（`cryptoTaxation`）、`registry/rows.yaml`・`registry/items.yaml`・`registry/params.yaml`、制度データ `data/regulation/tax/`（3つ・パックの版）と架空の見本。テスト `engine/test/crypto-tax.test.ts`・`engine/test/balanceSheet.test.ts`。
+- 計算エンジン: `engine/src/components/plan.cashflow/index.ts`（改訂22）、`engine/src/engine/types.ts`・`engine/schemas/engine.input.json`（`cryptoTaxation`）、`registry/rows.yaml`・`registry/items.yaml`・`registry/params.yaml`、制度データ `data/regulation/tax/`（3つ・パックの版）と架空の見本。テスト `engine/test/crypto-tax.test.ts`・`engine/test/balanceSheet.test.ts`。
 - 画面: `app/src/workspace/input/stages/savings.ts`・`savings/model.ts`・`savings/SavingsPanel.tsx`・`household.ts`、`app/src/workspace/header/status.ts`・`resultRows.ts`・`formulas.ts`、`app/src/engine/types.ts`、`app/src/workspace/store/body.ts`（形式の版）。テスト `app/test/crypto-separate-tax.test.ts`・`app/test/crypto-account.test.ts`。
 - 本体: `crates/household-store/src/migrate.rs`（0.62 の段）と見本、`crates/ai-share/data/reduced-allowlist.json`。
 - **計算の結果が変わる所**（暗号資産の器のある世帯だけ。モデル世帯には暗号資産が無いので変わらない）:
