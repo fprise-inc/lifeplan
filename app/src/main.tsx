@@ -10,6 +10,7 @@ import "./styles/invest.css";
 import "./styles/balance.css";
 import "./styles/rental.css";
 import "./styles/statement.css";
+import "./styles/hearingWeb.css";
 import "./takeaway/takeaway.css";
 import { render } from "preact";
 import { App } from "./workspace/App.tsx";

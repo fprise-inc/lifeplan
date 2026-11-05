@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex, nofollow" />
+    <!-- 0125: 外のスクリプト・フォント・枠を読まない（サーバーも同じ見出しを付ける）。開発用のサーバーだけ、vite の差し込みのために緩める -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; base-uri 'none'; form-action 'none'" />
+    <title>事前のご質問</title>
+  </head>
+  <body>
+    <div id="hf"></div>
+    <noscript>このページは JavaScript を使います。ブラウザの設定で JavaScript を有効にしてください。</noscript>
+    <script type="module" src="/src/hearingForm/main.tsx"></script>
+  </body>
+</html>

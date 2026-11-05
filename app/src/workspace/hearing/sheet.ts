@@ -15,6 +15,7 @@ import { memberLabels } from "../input/labels.ts";
 import { withDeathEstimate } from "../input/stages/care.ts";
 import { withEntry } from "../input/stages/housingLoans.ts";
 import { roles } from "../roles.ts";
+import type { WebLogEntry } from "./web.ts";
 
 /** 世帯ごとのヒアリングの記録（世帯ファイル 0011 の取り込みの記録・同意の記録に入れるまでの、画面の中の置き場） */
 export interface HearingLog {
@@ -24,6 +25,8 @@ export interface HearingLog {
   imports: (ImportRecord & { approvedAt: string })[];
   /** 同意の記録の下書き（0014。承認したときの日時つき） */
   consents: (ConsentDraft & { at: string })[];
+  /** Web のヒアリングの依頼（0125。鍵の組・合言葉・受け取った答えと書類。世帯ファイルの中だけ。無い世帯は欄を持たない） */
+  web?: WebLogEntry[];
 }
 
 export const emptyLog = (): HearingLog => ({ requests: [], imports: [], consents: [] });
@@ -327,6 +330,11 @@ function titleOf(c: Candidate, imp: EngineRequest): string {
 export async function importSheet(bytes: Uint8Array, wh: WorkingHousehold, newId?: () => string): Promise<ImportOutcome> {
   const r = await importHearingSheet(bytes, { baseMonth: wh.request.input.baseMonth, requests: logOf(wh).requests, ...(newId !== undefined ? { newId } : {}) });
   if (!r.ok) return { ok: false, issues: r.issues };
+  return { ok: true, view: viewOfResult(r, wh) };
+}
+
+/** 取り込みの結果（Excel・Web のどちらでも同じ受け皿の結果）を、今の世帯と照らした一覧にする（現状は変えない） */
+export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold): ImportView {
   const imp = r.request as unknown as EngineRequest;
   const cur = wh.request.input.household;
   const members = memberMatch(cur, imp.input.household);
@@ -387,7 +395,7 @@ export async function importSheet(bytes: Uint8Array, wh: WorkingHousehold, newId
     const cons = [...new Set(c.fields.flatMap((f) => contradictions.get(f.key) ?? []))];
     return { id: c.id, group: groupOf(c), title: titleOf(c, imp), kind, review: c.status === "needsReview", contradictions: cons, fields, changedFields, note: c.note };
   });
-  return { ok: true, view: { definition: r.definition, candidates, checklist: r.checklist, issues: r.issues, memo: r.memo, consents: r.consents, pending: r.pending, result: r, match } };
+  return { definition: r.definition, candidates, checklist: r.checklist, issues: r.issues, memo: r.memo, consents: r.consents, pending: r.pending, result: r, match };
 }
 
 /** 既定で承認する候補: 新規と変更（同じ中身の候補・要確認・矛盾のある候補は、FP が選んだときだけ） */

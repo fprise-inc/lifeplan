@@ -1,0 +1,50 @@
+/* Web のヒアリング（0125）の FP の画面: 項目選び・書類・発行（左）と、お客さまの画面の見本（右。スマホの幅） */
+.wb-grid { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .wb-grid { grid-template-columns: minmax(0, 1fr); } }
+.wb-left { display: grid; gap: 12px; min-width: 0; }
+.wb-right { position: sticky; top: 8px; display: grid; gap: 6px; justify-items: center; }
+.wb-phone { width: 390px; height: 720px; border: 10px solid #23272e; border-radius: 28px; overflow: hidden; background: #f6f7f9; }
+.wb-phone > .hf { height: 100%; min-height: 0; overflow: auto; border: 0; border-radius: 0; }
+.wb-box { border: 1px solid var(--card-line); border-radius: var(--radius); padding: 10px 12px; background: var(--card); display: grid; gap: 8px; margin: 0; }
+.wb-box h3 { margin: 0; font-size: 1rem; }
+.wb-box h4 { margin: 4px 0 0; font-size: 0.9rem; color: var(--ink-2); }
+.wb-box legend { font-weight: 700; padding: 0 4px; }
+.wb-sec { border-top: 1px solid var(--card-line); padding: 4px 0; }
+.wb-sec > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 0; list-style-position: inside; }
+.wb-sec > summary small { color: var(--ink-2); }
+.wb-sec.off > summary b { color: var(--ink-2); font-weight: 400; }
+.wb-move { margin-left: auto; display: inline-flex; gap: 2px; align-items: center; }
+.wb-move .link-btn:disabled { opacity: 0.3; }
+.wb-items { list-style: none; margin: 4px 0 6px 26px; padding: 0; display: grid; gap: 2px; }
+.wb-items li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 3px 6px; border-radius: 6px; }
+.wb-items li:hover { background: var(--base-bg); }
+.wb-items li.off span { color: var(--ink-2); }
+.wb-items label { display: flex; gap: 6px; align-items: center; }
+.wb-items select { font: inherit; font-size: 0.85rem; border: 1.5px solid var(--field); border-radius: 6px; padding: 1px 4px; }
+.wb-pre { color: var(--est-ink); background: var(--est-bg); border-radius: 4px; padding: 0 6px; }
+.wb-custom { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) auto; gap: 6px; align-items: center; }
+.wb-custom h4 { grid-column: 1 / -1; }
+.wb-custom input, .wb-doc input, .wb-box > .hs-form input[type="text"] { border: 1.5px solid var(--field); border-radius: 6px; padding: 4px 8px; font: inherit; }
+.wb-checks ul { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 4px; }
+.wb-checks li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.wb-checks li small { color: var(--ink-2); }
+.wb-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.wb-doc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 10px; border: 1px solid var(--card-line); border-left: 4px solid var(--prop); border-radius: 8px; padding: 8px 10px; }
+.wb-doc > input { grid-column: 1 / -1; font-weight: 700; }
+.wb-doc label { display: grid; gap: 2px; font-size: 0.85rem; color: var(--ink-2); }
+.wb-doc .wb-move { grid-column: 1 / -1; }
+.wb-issued { display: grid; gap: 6px; background: var(--good-bg); border-radius: 8px; padding: 10px; }
+.wb-issued textarea { font: inherit; font-size: 0.88rem; width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+.wr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.wr-row { border: 1px solid var(--card-line); border-radius: 8px; padding: 8px 10px; display: grid; gap: 6px; }
+.wr-h { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+.wr-h small { color: var(--ink-2); }
+.wr-st.answered, .wr-st.received { border-color: var(--good); color: var(--good); }
+.wr-st.expired, .wr-st.cancelled { border-color: var(--base); color: var(--base-ink); }
+.wr-docs { display: grid; gap: 8px; border-top: 1px dashed var(--card-line); padding-top: 6px; }
+.wr-doc { display: grid; gap: 4px; }
+.wr-file { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.wr-img { display: block; max-width: min(100%, 520px); border: 1px solid var(--line); border-radius: 6px; flex-basis: 100%; }
+.dr-web { font-size: 0.78rem; font-weight: 700; border-radius: 4px; padding: 0 6px; margin-left: 6px; border: 1.5px solid var(--good); color: var(--good); }
+.dr-web.wait { border-color: var(--prop); color: var(--prop-ink); }
+.wb-axis { font-size: 0.75rem; color: var(--ink-2); border: 1px solid var(--card-line); border-radius: 4px; padding: 0 4px; }

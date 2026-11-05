@@ -9,6 +9,9 @@ import { defineConfig, type Plugin } from "vite";
 import { parse as parseToml } from "smol-toml";
 import { APP_DIR, ENGINE_DIST, REPO_DIR } from "./scripts/lib.ts";
 import { devCustom } from "./scripts/devCustom.ts";
+import { handleApi } from "../hearing/relay/handler.ts";
+import { memoryStore } from "../hearing/relay/store.ts";
+import { API_PREFIX as HEARING_API } from "../hearing/src/web/protocol.ts";
 import { NAME_MAX_CHARS, readLogoHeader } from "./src/workspace/office/branding.ts";
 import { addCode, applyFetch, applyNotices, dismissNotice, featureStatus, publicKeys, reference, revokedIds, todayJst, verifyCode, verifyCodeRevocations, verifyRevocations, withoutRevokedKeys, type NoticeRecord } from "./scripts/devFeatureCode.ts";
 
@@ -31,6 +34,24 @@ function readBody(req: import("node:http").IncomingMessage): Promise<Buffer> {
     req.on("end", () => ok(Buffer.concat(chunks)));
     req.on("error", ng);
   });
+}
+
+/** Web のヒアリングの受け付けの置き場（開発用のサーバーのメモリの中だけ。0125） */
+const devRelayStore = memoryStore();
+
+/**
+ * お客さまのページ（h/index.html）の CSP を、開発用のサーバーのときだけ緩める（vite の差し込みの style と、変更を届ける ws のため）。
+ * 本番のビルド（scripts/build-hearing-form.ts）では緩めない
+ */
+function devHearingFormCsp(): Plugin {
+  return {
+    name: "financia-dev-hearing-form-csp",
+    apply: "serve",
+    transformIndexHtml(html, ctx) {
+      if (!ctx.path.startsWith("/h/")) return html;
+      return html.replace("style-src 'self';", "style-src 'self' 'unsafe-inline';").replace("connect-src 'self';", "connect-src 'self' ws:;");
+    },
+  };
 }
 
 /** 開発用のサーバーの世帯の保存（メモリの中だけ。再起動で消える） */
@@ -827,6 +848,33 @@ function devHost(): Plugin {
     configureServer(server) {
       // FINANCIA_DEVLOG=1 のとき、画面からの要求を1行ずつ出す（WebView の中が見えないときの切り分け用）
       if (process.env.FINANCIA_DEVLOG === "1") server.middlewares.use((req, _res, next) => (console.log(`[dev] ${req.method} ${req.url}`), next()));
+      // Web のヒアリングの受け付け（0125）: 開発用のサーバーだけ、同じ所の /api/hearing/v1 で受け付けのサーバーの処理（hearing/relay/handler.ts）を
+      // メモリの置き場で動かす。FINANCIA_DEV_HEARING_RELAY（例 http://127.0.0.1:8787）があれば、手元の wrangler dev に回す。
+      // お客さまのページ（/h/）も同じ所に出るので、発行した URL をそのまま開いて試せる
+      server.middlewares.use(HEARING_API, (req, res) => {
+        void (async () => {
+          const body = req.method === "GET" || req.method === "HEAD" ? undefined : (await readBody(req)).toString("utf8");
+          const headers: Record<string, string> = {};
+          for (const k of ["authorization", "content-type", "origin"]) if (typeof req.headers[k] === "string") headers[k] = req.headers[k] as string;
+          const path = `${HEARING_API}${req.url ?? ""}`;
+          const target = process.env.FINANCIA_DEV_HEARING_RELAY;
+          let out: Response;
+          if (target !== undefined && target !== "") {
+            const { origin: _o, ...rest } = headers;
+            void _o;
+            out = await fetch(`${target.replace(/\/$/, "")}${path}`, { method: req.method ?? "GET", headers: rest, ...(body !== undefined ? { body } : {}) });
+          } else {
+            out = await handleApi(new Request(`http://${req.headers.host ?? "localhost"}${path}`, { method: req.method ?? "GET", headers, ...(body !== undefined ? { body } : {}) }), { store: devRelayStore, now: () => new Date() });
+          }
+          res.statusCode = out.status;
+          res.setHeader("content-type", out.headers.get("content-type") ?? "application/json");
+          res.setHeader("cache-control", "no-store");
+          res.end(await out.text());
+        })().catch(() => {
+          res.statusCode = 502;
+          res.end('{"error":"E_RELAY_UNREACHABLE"}');
+        });
+      });
       server.middlewares.use("/__dev/", (req, res, next) => {
         const path = (req.url ?? "").replace(/^\/+/, "");
         // カスタム層の説明の文（本体の custom_texts_*・custom_dir_* の代わり。0016 の追記 2026-11-02）
@@ -915,6 +963,19 @@ function devHost(): Plugin {
             const no = /^[A-Za-z0-9_-]{1,16}$/.test(q.get("customerNo") ?? "") ? `_${q.get("customerNo")}` : "";
             const on = /^\d{4}-\d{2}-\d{2}$/.test(q.get("exportedOn") ?? "") ? `_${q.get("exportedOn")}` : "";
             const name = `ヒアリングシート${no}${on}.xlsx`;
+            writeFileSync(join(saveDir(), name), body);
+            res.setHeader("content-type", "application/json; charset=utf-8");
+            res.end(JSON.stringify({ saved: true, fileName: name, syncFolder: false, digest: `sha256:${createHash("sha256").update(body).digest("hex")}` }));
+          })();
+          return;
+        }
+        // Web のヒアリングで受け取った書類の保存（本体の hearing_document_save の代わり。0125）: FINANCIA_DEV_SAVE_DIR に書く
+        if (path.startsWith("hearing/docsave") && req.method === "POST") {
+          void (async () => {
+            const body = await readBody(req);
+            if (saveDir() === "") return void ((res.statusCode = 400), res.end("E_DEV_NO_SAVE_DIR"));
+            const q = new URL(req.url ?? "", "http://localhost").searchParams;
+            const name = (q.get("name") ?? "").replace(/[\\/:*?"<>|]/g, "_").slice(0, 80) || "書類.bin";
             writeFileSync(join(saveDir(), name), body);
             res.setHeader("content-type", "application/json; charset=utf-8");
             res.end(JSON.stringify({ saved: true, fileName: name, syncFolder: false, digest: `sha256:${createHash("sha256").update(body).digest("hex")}` }));
@@ -1102,7 +1163,7 @@ function devHost(): Plugin {
 
 export default defineConfig({
   clearScreen: false,
-  plugins: [devHost()],
+  plugins: [devHost(), devHearingFormCsp()],
   // hearing/・report/・statement/・xlsx/ の部品と同梱の拡張の束（npm の依存なしの TypeScript）を画面から読む
   // 拡張の束（sdk/examples/extensions/。同梱の公式の拡張の正本）が読む @lifeplan/sdk を、正本の report/src/sdk.ts につなぐ（0114 の9）
   resolve: { alias: { "@lifeplan/sdk": join(REPO_DIR, "report", "src", "sdk.ts") } },

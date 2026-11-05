@@ -4,6 +4,7 @@ import type { DictionaryEntry, LearnedFormat } from "../../../statement/src/inde
 import { forEngine } from "./moneyRows.ts";
 import { isEngineError, type EngineError, type EngineRequest, type FullResult, type PreviewResult } from "./types.ts";
 import type { OfficeTextEntry, TextOp } from "../workspace/office/customTexts.ts";
+import { API_PREFIX, type RelayRequest, type RelayResponse } from "../../../hearing/src/web/protocol.ts";
 
 /** 画面側のエンジンのセッション（engine/src/engine/run.ts の Session。JSON の文字列で受け渡す） */
 export interface WebSession {
@@ -79,6 +80,17 @@ export interface SheetHost {
   save(bytes: Uint8Array, meta: { customerNo: string; exportedOn: string; prefilled: boolean }): Promise<SaveOutcome>;
   /** 選ばなかったときは null */
   open(): Promise<Uint8Array | null>;
+}
+
+/**
+ * Web のヒアリング（0125）: 受け付けのサーバーとのやりとり（本体の命令だけが通信する。相手は配布元の設定の [hearing_web] の relay だけ）と、
+ * 受け取った書類の保存（本体の平文の書き出しの出口）
+ */
+export interface HearingWebHost {
+  /** お客さまのページの URL（# の前まで）。dev は開発用のビルド・サーバー（手元の受け付けを向いている） */
+  config(): Promise<{ pageUrl: string; dev: boolean }>;
+  call(r: RelayRequest): Promise<RelayResponse>;
+  saveDocument(bytes: Uint8Array, meta: { fileName: string }): Promise<SaveOutcome>;
 }
 
 /** 事務所で覚えた明細の辞書と形（0034。本体の household-store の StatementOffice。店の鍵と項目・列の対応付けだけで、金額・日付は持たない） */
@@ -735,6 +747,8 @@ export interface HostApi {
   notices: NoticesHost;
   /** カスタム層（無い画面〔テストの代わりの本体など〕では、事務所の文を当てない） */
   custom?: CustomHost;
+  /** Web のヒアリング（0125。無い画面では Web で聞く道具を出さない） */
+  hearingWeb?: HearingWebHost;
 }
 
 const bytesOf = (b: ArrayBuffer | Uint8Array | number[]): Uint8Array => (b instanceof Uint8Array ? b : b instanceof ArrayBuffer ? new Uint8Array(b) : Uint8Array.from(b));
@@ -853,6 +867,11 @@ export function tauriHost(): HostApi {
         const b = bytesOf(await invoke<ArrayBuffer>("statement_sheet_open"));
         return b.length === 0 ? null : b;
       },
+    },
+    hearingWeb: {
+      config: () => invoke<{ pageUrl: string; dev: boolean }>("hearing_web_config"),
+      call: (r) => invoke<RelayResponse>("hearing_web_call", { method: r.method, path: r.path, token: r.token ?? null, body: r.body ?? null }),
+      saveDocument: (bytes, m) => invoke<SaveOutcome>("hearing_document_save", bytes, { headers: { "x-file-name": encodeURIComponent(m.fileName) } }),
     },
     sheets: {
       save: (bytes, m) => invoke<SaveOutcome>("hearing_save", bytes, { headers: { "x-customer-no": m.customerNo, "x-exported-on": m.exportedOn, "x-prefilled": m.prefilled ? "1" : "0" } }),
@@ -1080,6 +1099,18 @@ export function devBrowserHost(engine: WebEngine): HostApi {
     },
     takeaway: {
       save: async (bytes, m) => devJson<SaveOutcome>(await fetch(`/__dev/takeaway/save?exportedOn=${encodeURIComponent(m.exportedOn)}&encrypted=${m.encrypted ? 1 : 0}`, { method: "POST", body: bytes as Uint8Array<ArrayBuffer> })),
+    },
+    // Web のヒアリング: 同じ所の受け付け（開発用のサーバーがメモリの置き場か手元の wrangler dev で受ける）。お客さまのページも同じ所の /h/
+    hearingWeb: {
+      config: async () => ({ pageUrl: `${location.origin}/h/`, dev: true }),
+      call: async (r) => {
+        const headers: Record<string, string> = {};
+        if (r.token !== undefined) headers.authorization = `Bearer ${r.token}`;
+        if (r.body !== undefined) headers["content-type"] = "application/json";
+        const res = await fetch(`${API_PREFIX}${r.path}`, { method: r.method, headers, ...(r.body !== undefined ? { body: r.body } : {}), cache: "no-store" });
+        return { status: res.status, body: await res.text() };
+      },
+      saveDocument: async (bytes, m) => devJson<SaveOutcome>(await fetch(`/__dev/hearing/docsave?name=${encodeURIComponent(m.fileName)}`, { method: "POST", body: bytes as Uint8Array<ArrayBuffer> })),
     },
     sheets: {
       save: async (bytes, m) =>

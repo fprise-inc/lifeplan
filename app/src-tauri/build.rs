@@ -111,6 +111,11 @@ const COMMANDS: &[&str] = &[
     "feedback_copy",
     "app_close_ready",
     "app_close_cancel",
+    // 0125: Web のヒアリング（受け付けのサーバーとのやりとり〔決まった道だけ・配布元の設定のホストだけ〕・お客さまのページの URL・
+    // 受け取った書類の保存〔平文の書き出しの出口〕。パスは受け取らない・返さない）
+    "hearing_web_config",
+    "hearing_web_call",
+    "hearing_document_save",
 ];
 
 fn list_json(dir: &Path) -> Vec<PathBuf> {
@@ -163,6 +168,40 @@ fn feedback_form(toml: &str) -> String {
         }
     }
     panic!("config/distribution.toml に [feedback] の form がありません");
+}
+
+/// 配布元の設定（config/distribution.toml）の `[hearing_web]` の1行の値（`name = "https://…"`。0125）。
+/// TOML の部品は入れず、この形だけを読む。https で、クエリ・転送の印は付けない
+fn hearing_web_value(toml: &str, name: &str) -> String {
+    let mut in_section = false;
+    for line in toml.lines() {
+        let t = line.trim();
+        if t.starts_with('[') {
+            in_section = t == "[hearing_web]";
+            continue;
+        }
+        if !in_section {
+            continue;
+        }
+        let Some(rest) = t.strip_prefix(name) else {
+            continue;
+        };
+        let Some(v) = rest.trim_start().strip_prefix('=') else {
+            continue;
+        };
+        let v = v
+            .trim()
+            .strip_prefix('"')
+            .and_then(|x| x.strip_suffix('"'))
+            .unwrap_or_else(|| {
+                panic!("config/distribution.toml: [hearing_web] の {name} は \"…\" で書く")
+            });
+        if !v.starts_with("https://") || v.contains(['?', '#', '@', '\\', ' ']) {
+            panic!("config/distribution.toml: [hearing_web] の {name} は https:// で始め、クエリ・# を付けない");
+        }
+        return v.to_owned();
+    }
+    panic!("config/distribution.toml に [hearing_web] の {name} がありません");
 }
 
 /// 配布元の設定の `[section]` の公開鍵の並び（読み方は配布の部品の `distribution::config`。提供元の道具と同じ）。
@@ -246,6 +285,21 @@ fn main() {
         format!("/// 要望・不具合のフォームの URL のひな形（config/distribution.toml の [feedback] の form）\npub const FEEDBACK_FORM: &str = {form:?};\n"),
     )
     .unwrap();
+
+    // 0125: Web のヒアリングの受け付けの API の頭とお客さまのページ（[hearing_web]）
+    {
+        let toml = std::fs::read_to_string(&dist).unwrap();
+        let relay = hearing_web_value(&toml, "relay");
+        let page = hearing_web_value(&toml, "page");
+        if !page.ends_with('/') {
+            panic!("config/distribution.toml: [hearing_web] の page は / で終える");
+        }
+        std::fs::write(
+            out_dir.join("hearing_web.rs"),
+            format!("/// 受け付けの API の頭（config/distribution.toml の [hearing_web] の relay）\npub const HEARING_RELAY: &str = {relay:?};\n/// お客さまのページ（[hearing_web] の page。# の前まで）\npub const HEARING_PAGE: &str = {page:?};\n"),
+        )
+        .unwrap();
+    }
 
     // 0117・0110 の追記（2026-11-04）: 鍵の束（[keys] の本番の鍵と、開発用のビルドだけ [dev_keys] の開発用の鍵）と、
     // 取り下げの一覧の場所（[endpoints] の revocations）・コードを止めるだけの一覧の場所（feature_code_revocations。0117 の追記の2）・

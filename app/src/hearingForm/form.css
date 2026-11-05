@@ -1,0 +1,478 @@
+/* お客さまの画面（0125）。スマホを先に・文字は大きめ・落ち着いた色。外のフォントを読まない（端末の文字を使う） */
+.hf {
+  --hf-accent: #2b4c8c;
+  --hf-ink: #1d2433;
+  --hf-sub: #5a6375;
+  --hf-line: #d9dee8;
+  --hf-bg: #f6f7f9;
+  --hf-soft: color-mix(in oklab, var(--hf-accent) 9%, white);
+  --hf-bad: #b3261e;
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", "Yu Gothic UI", "Noto Sans JP", "Meiryo", sans-serif;
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--hf-ink);
+  background: var(--hf-bg);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  max-width: 640px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+.hf *,
+.hf *::before,
+.hf *::after {
+  box-sizing: border-box;
+}
+.hf.preview {
+  min-height: 0;
+  height: 100%;
+  border: 1px solid var(--hf-line);
+  border-radius: 12px;
+  overflow: auto;
+}
+.hf-top {
+  padding: 14px 18px 10px;
+  border-top: 5px solid var(--hf-accent);
+  background: #fff;
+}
+.hf-office {
+  font-weight: 700;
+  color: var(--hf-accent);
+  font-size: 16px;
+}
+.hf-progress {
+  position: relative;
+  height: 26px;
+  background: #fff;
+  padding: 0 18px 10px;
+  display: flex;
+  align-items: center;
+}
+.hf-progress::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 80px;
+  top: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--hf-line);
+}
+.hf-bar {
+  position: absolute;
+  left: 18px;
+  top: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--hf-accent);
+  max-width: calc(100% - 98px);
+}
+.hf-progress span {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--hf-sub);
+}
+.hf-banner {
+  margin: 0;
+  padding: 8px 18px;
+  background: #fff6e0;
+  font-size: 14px;
+  color: #6b4c00;
+}
+.hf-main {
+  flex: 1;
+  padding: 20px 18px 24px;
+}
+.hf h1 {
+  font-size: 24px;
+  line-height: 1.45;
+  margin: 4px 0 14px;
+}
+.hf-q {
+  font-size: 22px;
+  line-height: 1.5;
+  margin: 2px 0 12px;
+}
+.hf-sec {
+  margin: 0;
+  font-size: 15px;
+  color: var(--hf-sub);
+}
+.hf-who {
+  margin-left: 8px;
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: var(--hf-soft);
+  color: var(--hf-accent);
+  font-size: 15px;
+}
+.hf-lead,
+.hf-guide {
+  color: var(--hf-sub);
+  margin: 0 0 14px;
+}
+.hf-guide {
+  font-size: 16px;
+}
+.hf-notes {
+  padding-left: 1.2em;
+  margin: 0 0 14px;
+}
+.hf-notes li {
+  margin-bottom: 6px;
+}
+.hf-note,
+.hf-example {
+  font-size: 15px;
+  color: var(--hf-sub);
+  margin: 8px 0;
+}
+.hf-pre {
+  background: var(--hf-soft);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 16px;
+}
+.hf-err {
+  color: var(--hf-bad);
+  font-weight: 700;
+  margin: 10px 0;
+}
+.hf-choices {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0 12px;
+}
+.hf-choice,
+.hf-state,
+.hf-btn,
+.hf-next,
+.hf-back,
+.hf-later {
+  font: inherit;
+  min-height: 52px;
+  border-radius: 12px;
+  border: 2px solid var(--hf-line);
+  background: #fff;
+  color: var(--hf-ink);
+  padding: 10px 16px;
+  text-align: left;
+  cursor: pointer;
+}
+.hf-choice.on,
+.hf-state.on {
+  border-color: var(--hf-accent);
+  background: var(--hf-soft);
+  font-weight: 700;
+}
+.hf-choice.on::before,
+.hf-state.on::before {
+  content: "✓ ";
+  color: var(--hf-accent);
+}
+.hf-states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+.hf-state {
+  min-height: 44px;
+  font-size: 16px;
+  padding: 6px 14px;
+}
+.hf-num {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+.hf-num input {
+  font: inherit;
+  font-size: 24px;
+  width: 9em;
+  max-width: 60vw;
+  padding: 10px 12px;
+  border: 2px solid var(--hf-line);
+  border-radius: 10px;
+  text-align: right;
+}
+.hf-num input:focus,
+.hf-text:focus,
+.hf-ym select:focus {
+  outline: 3px solid color-mix(in oklab, var(--hf-accent) 45%, white);
+  border-color: var(--hf-accent);
+}
+.hf-unit {
+  font-size: 20px;
+  font-weight: 700;
+}
+.hf-basis {
+  width: 100%;
+  font-size: 15px;
+  color: var(--hf-sub);
+}
+.hf-yen {
+  width: 100%;
+  color: var(--hf-sub);
+}
+.hf-ym {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+.hf-ym label {
+  display: grid;
+  gap: 4px;
+  font-size: 15px;
+  color: var(--hf-sub);
+}
+.hf-ym select {
+  font: inherit;
+  font-size: 19px;
+  padding: 10px;
+  border: 2px solid var(--hf-line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--hf-ink);
+}
+.hf-text {
+  font: inherit;
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid var(--hf-line);
+  border-radius: 10px;
+}
+.hf-also {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--hf-line);
+}
+.hf-also-h {
+  margin: 0 0 4px;
+  color: var(--hf-sub);
+  font-size: 16px;
+}
+.hf-consent {
+  margin-bottom: 16px;
+}
+.hf-consent p {
+  margin: 0 0 4px;
+}
+.hf-nav {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 10px;
+  padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
+  background: #fff;
+  border-top: 1px solid var(--hf-line);
+}
+.hf.preview .hf-nav {
+  position: static;
+}
+.hf-next {
+  margin-left: auto;
+  background: var(--hf-accent);
+  border-color: var(--hf-accent);
+  color: #fff;
+  font-weight: 700;
+  text-align: center;
+  min-width: 8em;
+}
+.hf-next:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.hf-back,
+.hf-later {
+  text-align: center;
+}
+.hf-later {
+  border-style: dashed;
+  color: var(--hf-sub);
+}
+.hf-link {
+  font: inherit;
+  font-size: 15px;
+  border: 0;
+  background: none;
+  color: var(--hf-accent);
+  text-decoration: underline;
+  cursor: pointer;
+  margin-left: 10px;
+  padding: 4px;
+}
+.hf-review dl {
+  margin: 0;
+}
+.hf-rv-sec {
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+.hf-rv-sec h3 {
+  font-size: 17px;
+  margin: 2px 0 6px;
+  color: var(--hf-accent);
+}
+.hf-rv {
+  padding: 8px 0;
+  border-top: 1px solid var(--hf-line);
+}
+.hf-rv:first-child {
+  border-top: 0;
+}
+.hf-rv dt {
+  font-size: 15px;
+  color: var(--hf-sub);
+}
+.hf-rv dd {
+  margin: 0;
+  font-weight: 700;
+}
+.hf-rv.todo dd {
+  color: var(--hf-sub);
+  font-weight: 400;
+}
+.hf-tips {
+  background: #fff;
+  border-left: 5px solid #c98a00;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+}
+.hf-tips summary {
+  font-weight: 700;
+  cursor: pointer;
+}
+.hf-tips ul {
+  margin: 8px 0 0;
+  padding-left: 1.2em;
+  font-size: 16px;
+}
+.hf-doc {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border: 2px solid transparent;
+}
+.hf-doc.s-attached {
+  border-color: color-mix(in oklab, var(--hf-accent) 40%, white);
+}
+.hf-doc-h {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  justify-content: space-between;
+}
+.hf-doc-h h3 {
+  font-size: 19px;
+  margin: 0;
+}
+.hf-chip {
+  flex: none;
+  font-size: 14px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--hf-bg);
+  color: var(--hf-sub);
+  border: 1px solid var(--hf-line);
+}
+.hf-chip.c-attached {
+  background: var(--hf-soft);
+  color: var(--hf-accent);
+  border-color: var(--hf-accent);
+  font-weight: 700;
+}
+.hf-why,
+.hf-where {
+  margin: 6px 0;
+  font-size: 16px;
+}
+.hf-where {
+  color: var(--hf-sub);
+}
+.hf-doc-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+.hf-btn {
+  position: relative;
+  text-align: center;
+  font-weight: 700;
+  border-color: var(--hf-accent);
+  color: var(--hf-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hf-btn input {
+  position: absolute;
+  inset: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.hf-btn.busy {
+  opacity: 0.6;
+}
+.hf-doc-actions .hf-state {
+  text-align: center;
+}
+.hf-files {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  display: grid;
+  gap: 6px;
+}
+.hf-files li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+}
+.hf-files img,
+.hf-file-ic {
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--hf-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--hf-accent);
+  font-weight: 700;
+}
+.hf-sent {
+  text-align: center;
+  padding-top: 48px;
+}
+.hf-check {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  background: var(--hf-accent);
+  color: #fff;
+  font-size: 40px;
+  line-height: 72px;
+}
+.hf-consent .hf-choices {
+  grid-template-columns: 1fr 1fr;
+}
+.hf-doc-actions .hf-btn,
+.hf-doc-actions .hf-state {
+  font-size: 16px;
+  padding: 8px 6px;
+}
