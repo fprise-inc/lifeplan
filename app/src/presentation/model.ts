@@ -60,6 +60,12 @@ export interface ChartModel {
   proposal: Yen[];
   current: Yen[];
   depletions: Depletion[];
+  /**
+   * 選んだプラン（proposal）・基準のプラン（current）の表が、この年（現状の表の年）より前に終わるとき、値のある年の数。
+   * その後の年は値の無い年で、線と塗りをそこで終える（0 円として描かない）。省略は最後の年まで値がある
+   */
+  proposalEnds?: number;
+  currentEnds?: number;
 }
 
 export interface YearDetail {
@@ -441,6 +447,11 @@ export interface PlanLineModel {
   financial: Yen[] | null;
   /** 年間収支 */
   net: Yen[] | null;
+  /**
+   * このプランの表が、グラフの年（現状の表の年）より前に終わるとき、値のある年の数（financial・net の先頭からこの数まで）。
+   * その後の年は値の無い年で、線をそこで終える（0 円として描かない）。省略は最後の年まで値がある
+   */
+  ends?: number;
 }
 
 export interface PlanBandModel {

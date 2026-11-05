@@ -4,7 +4,7 @@
 // 画面の呼び方は「プラン」（表記は「プランB」）。コードの中の名前は proposal・plan のまま。以前の名前の頭の「B案」も読む
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import type { PlanBandModel, PlanCardModel, PlanLineModel } from "../../presentation/model.ts";
-import { depletionYear, displayYears, financialOf, sumByYear } from "../present.ts";
+import { depletionYear, displayYears, financialOf, sumByYear, yearsWithin } from "../present.ts";
 import { ageInYear, roles } from "../roles.ts";
 import { cardMetrics, type DisplaySettings } from "../settings.ts";
 import { metricsOf } from "./compare.ts";
@@ -163,7 +163,9 @@ export function planLinesModel(input: Omit<BandInput, "modified" | "settings">):
     if (r === null) return { ...line, financial: null, net: null };
     const fin = financialOf(r.table);
     const net = sumByYear(r.table, (c) => c.row === "cf.net");
-    return { ...line, financial: years.map((y) => fin.get(y) ?? 0), net: years.map((y) => net.get(y) ?? 0) };
+    // プランで表の最後の年を短くしたプランは、その後の年を値の無い年にする（線をそこで終える。0 円の線を描かない）
+    const own = yearsWithin(r.table, years);
+    return { ...line, financial: years.map((y) => fin.get(y) ?? 0), net: years.map((y) => net.get(y) ?? 0), ...(own.length < years.length ? { ends: own.length } : {}) };
   });
 }
 
@@ -171,8 +173,6 @@ export function bandModel(input: BandInput): PlanBandModel {
   const { req, letters, results, settings } = input;
   const years = displayYears(req);
   const self = roles(req).find((r) => r.key === "self");
-  const last = years.at(-1) ?? req.input.endYear;
-  const endAge = self !== undefined ? ageInYear(self.member, last) : null;
   const cards: PlanCardModel[] = input.slots.map((slot) => {
     const l = letters.get(slot) ?? { letter: "?", name: "" };
     const r = results.get(slot) ?? null;
@@ -182,7 +182,11 @@ export function bandModel(input: BandInput): PlanBandModel {
       shortAge = undefined;
       status = "計算しています";
     } else {
-      const dep = depletionYear(r.table, years);
+      // 「○歳まで足りる」はそのプランの表の最後の年まで（プランで表の最後の年を短くしたプランは、その年まで）
+      const own = yearsWithin(r.table, years);
+      const last = own.at(-1) ?? req.input.endYear;
+      const endAge = self !== undefined ? ageInYear(self.member, last) : null;
+      const dep = depletionYear(r.table, own);
       shortAge = dep === null ? null : self !== undefined ? ageInYear(self.member, dep) : dep;
       status = dep === null ? (endAge !== null ? `${endAge}歳まで足りる` : "最後まで足りる") : self !== undefined ? `${shortAge}歳で不足` : `${dep}年に不足`;
     }

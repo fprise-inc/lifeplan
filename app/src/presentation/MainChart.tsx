@@ -96,12 +96,23 @@ const withValues = (list: StackSeries[], t: Series, prefix: string, n: number): 
 
 export type PlanSide = "base" | "selected";
 
+/** 線の終わり（proposalEnds・currentEnds）を入れ替えた ChartModel（省略の値は持たない） */
+function withEnds(c: ChartModel, proposal: number | undefined, current: number | undefined): ChartModel {
+  const { proposalEnds: _p, currentEnds: _c, ...rest } = c;
+  void _p;
+  void _c;
+  return { ...rest, ...(proposal !== undefined ? { proposalEnds: proposal } : {}), ...(current !== undefined ? { currentEnds: current } : {}) };
+}
+
+/** 表が先に終わったプランの線: 値のある年（ends）までに切る */
+const upTo = (v: Yen[], ends: number | undefined): Yen[] => (ends === undefined || ends >= v.length ? v : v.slice(0, Math.max(1, ends)));
+
 /** その案だけを描く値（選んだ案＝基準の案として渡し、線を1本にする） */
 export function planModel(m: MainChartModel, who: PlanSide): MainChartModel {
   if (who === "selected")
     return {
       ...m,
-      chart: { ...m.chart, current: m.chart.proposal, depletions: m.chart.depletions.filter((d) => d.series === "proposal") },
+      chart: { ...withEnds(m.chart, m.chart.proposalEnds, m.chart.proposalEnds), current: m.chart.proposal, depletions: m.chart.depletions.filter((d) => d.series === "proposal") },
       baseLines: { net: m.flows.net },
       names: { ...m.names, base: m.names.selected, same: true },
     };
@@ -109,7 +120,7 @@ export function planModel(m: MainChartModel, who: PlanSide): MainChartModel {
   void _invest;
   return {
     ...rest,
-    chart: { ...m.chart, proposal: m.chart.current, depletions: m.chart.depletions.filter((d) => d.series === "current").map((d) => ({ ...d, series: "proposal" as const })) },
+    chart: { ...withEnds(m.chart, m.chart.currentEnds, m.chart.currentEnds), proposal: m.chart.current, depletions: m.chart.depletions.filter((d) => d.series === "current").map((d) => ({ ...d, series: "proposal" as const })) },
     flows: m.baseCharts.flows,
     events: m.baseCharts.events,
     names: { ...m.names, selected: m.names.base, same: true },
@@ -195,7 +206,7 @@ export function shortSources(model: MainChartModel, opt: { explain: boolean; mul
   if (opt.multi !== null && !opt.explain) {
     const styles = planStyles(model.plans ?? []);
     return (model.plans ?? []).flatMap((p) => {
-      const i = p.financial === null ? -1 : firstShort(p.financial);
+      const i = p.financial === null ? -1 : firstShort(p.financial.slice(0, p.ends ?? p.financial.length));
       const y = years[i];
       if (i < 0 || y === undefined || opt.multi?.hidden.includes(p.key) === true) return [];
       return [{ key: `p-${p.key}`, year: y, cross: crossIndex(p.financial ?? [], i), text: shortText(y, ages[i], p.name), color: (styles.get(p.key) as PlanStyle).color }];
@@ -326,6 +337,9 @@ interface YearMark {
   baseText: string | null;
   /** 3行目（例: 「収入 650万円・支出 770万円（B案）」） */
   extra: string | null;
+  /** 表が先に終わった案の、その後の年（○を描かない） */
+  selGone?: boolean;
+  baseGone?: boolean;
 }
 
 export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectYear, layout = "overlay", height, multi, onBand, bandLock }: MainChartProps) {
@@ -493,8 +507,8 @@ interface MultiRow {
   name: string;
   title: string;
   st: PlanStyle;
-  /** 線の上の印の y */
-  y: number;
+  /** 線の上の印の y（表が先に終わったプランの、その後の年は null で印を出さない） */
+  y: number | null;
   text: string;
   neg: boolean;
   selected: boolean;
@@ -552,7 +566,12 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   let body: preact.JSX.Element[] = [];
   let zeroLabels: [string, string] | null = null;
   let mark: YearMark | null = null;
-  const at = (arr: readonly number[]) => `${man(arr[selIdx] ?? 0)}万円`;
+  const pEnds = model.chart.proposalEnds;
+  const cEnds = model.chart.currentEnds;
+  // 表が先に終わったプランの、その後の年は値が無い（「表は○年まで」）
+  const past = (ends: number | undefined) => ends !== undefined && selIdx >= ends;
+  const endText = (ends: number | undefined) => `表は${years[Math.max(0, (ends ?? 1) - 1)] ?? ""}年まで`;
+  const at = (arr: readonly number[], ends?: number) => (past(ends) ? endText(ends) : `${man(arr[selIdx] ?? 0)}万円`);
   const sumAt = (list: StackSeries[]) => list.reduce((a, x) => a + Math.max(0, x.values[selIdx] ?? 0), 0);
   const keys: string[] = [];
   /** 全部のプランを重ねる表示の、選んだ年の各プランの値（帯の順） */
@@ -616,8 +635,10 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
     const order = [...visible].sort((a, b) => rank(a) - rank(b));
     const lastX = s.x(n - 1);
     // 線の右端のプランの文字（重なるときは縦にずらす）。基準のプランには「基準」の札を添える
+    // 表が先に終わるプランの線は、その年で終える（端の丸と文字もそこに置く。後の年を 0 円として描かない）
+    const lastOf = (l: (typeof lines)[number]) => Math.max(0, Math.min(n, l.p.ends ?? n) - 1);
     const endYs = spreadX(
-      visible.map((l) => s.y(l.v[n - 1] ?? 0)),
+      visible.map((l) => s.y(l.v[lastOf(l)] ?? 0)),
       15 * fs,
       f.top,
       f.height - f.bottom,
@@ -628,10 +649,10 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
       body.push(
         <g key={`ml-${l.p.key}`} class={`ml${dim ? " dim" : ""}${multi.focus === l.p.key ? " hi" : ""}${l.p.selected ? " sel" : ""}${l.p.base ? " base" : ""}`} data-multi-line={l.p.key}>
           <g clip-path={`url(#${clipId})`}>
-            <path d={linePath(l.v, s)} class="multi-line" stroke={l.st.color} />
-            <PlanMarker x={lastX} y={s.y(l.v[n - 1] ?? 0)} r={5.5 * fs} color={l.st.color} />
+            <path d={linePath(l.v.slice(0, lastOf(l) + 1), s)} class="multi-line" stroke={l.st.color} />
+            <PlanMarker x={s.x(lastOf(l))} y={s.y(l.v[lastOf(l)] ?? 0)} r={5.5 * fs} color={l.st.color} />
           </g>
-          <text x={lastX + 10 * fs} y={(endY.get(l.p.key) ?? 0) + 4.5 * fs} class="ml-end" fill={l.st.color}>
+          <text x={(lastOf(l) === n - 1 ? lastX : s.x(lastOf(l))) + 10 * fs} y={(lastOf(l) === n - 1 ? (endY.get(l.p.key) ?? 0) : s.y(l.v[lastOf(l)] ?? 0)) + 4.5 * fs} class="ml-end" fill={l.st.color} data-multi-end={lastOf(l) === n - 1 ? undefined : years[lastOf(l)]}>
             {l.p.key}
             {l.p.base ? (
               <tspan class="ml-end-base" dx={4 * fs}>
@@ -644,10 +665,13 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
     }
     if (selIdx >= 0 && visible.length > 0) {
       multiRows = visible.map((l) => {
+        // 表が先に終わったプランの、その後の年は値が無い（「表は○年まで」。丸は出さない）
+        if (selIdx > lastOf(l)) return { key: l.p.key, name: l.p.name, title: l.p.title, st: l.st, y: null, text: `表は${years[lastOf(l)] ?? ""}年まで`, neg: false, selected: l.p.selected };
         const v = l.raw[selIdx] ?? 0;
         return { key: l.p.key, name: l.p.name, title: l.p.title, st: l.st, y: s.y(l.v[selIdx] ?? 0), text: `${man(v)}万円`, neg: v < 0, selected: l.p.selected };
       });
-      const ys = multiRows.map((r) => r.y);
+      const ys = multiRows.flatMap((r) => (r.y === null ? [] : [r.y]));
+      if (ys.length === 0) ys.push(s.y(0));
       mark = { sel: Math.min(...ys), base: Math.max(...ys), lead: what.lead, selText: "", baseText: null, extra: null };
     }
   } else if (explain !== null && ex !== null) {
@@ -703,28 +727,30 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
           </text>,
         );
     });
-    if (!same) body.push(<path key="bnet" d={linePath(bnet, s)} class="net-base" />);
-    body.push(<path key="net" d={linePath(net, s)} class="net-sel" />);
+    if (!same) body.push(<path key="bnet" d={linePath(upTo(bnet, cEnds), s)} class="net-base" />);
+    body.push(<path key="net" d={linePath(upTo(net, pEnds), s)} class="net-sel" />);
     zeroLabels = ["↑ 収入", "↓ 支出"];
     if (selIdx >= 0)
       mark = {
-        sel: s.y(net[selIdx] ?? 0),
-        base: same ? null : s.y(bnet[selIdx] ?? 0),
+        sel: s.y(past(pEnds) ? 0 : (net[selIdx] ?? 0)),
+        base: same ? null : s.y(past(cEnds) ? 0 : (bnet[selIdx] ?? 0)),
         lead: "年間収支",
-        selText: at(model.flows.net),
-        baseText: same ? null : at(model.baseLines.net),
+        ...(past(pEnds) ? { selGone: true } : {}),
+        ...(past(cEnds) ? { baseGone: true } : {}),
+        selText: at(model.flows.net, pEnds),
+        baseText: same ? null : at(model.baseLines.net, cEnds),
         extra: `収入 ${man(sumAt(model.flows.income))}万円・支出 ${man(sumAt(model.flows.expense))}万円（${model.names.selected}）`,
       };
   } else {
     const aSel = pick(t, "a.sel", n);
     const aBase = pick(t, "a.base", n);
     s = scale([...scaleInputs(model, t, mode, n), ...scaleWith], n, f);
-    if (!same) body.push(<path key="bb" d={areaBelow(aBase, s)} class="area-short" opacity={0.75} />);
-    body.push(<path key="sb" d={areaBelow(aSel, s)} class="area-short" />);
+    if (!same) body.push(<path key="bb" d={areaBelow(upTo(aBase, cEnds), s)} class="area-short" opacity={0.75} />);
+    body.push(<path key="sb" d={areaBelow(upTo(aSel, pEnds), s)} class="area-short" />);
     // 口座の内訳（表示の設定）: 口座ごとのベタ塗りの積み上げ。無ければ合計の1本の塗り（0026）
     const bd = inv !== undefined && inv.view.breakdown && inv.breakdown !== null && inv.breakdown.length > 0 ? inv.breakdown : null;
     if (bd !== null) body.push(...stackAreas(bd, s, n));
-    else body.push(<path key="sa" d={areaAbove(aSel, s)} class="area-prop" />);
+    else body.push(<path key="sa" d={areaAbove(upTo(aSel, pEnds), s)} class="area-prop" />);
     // 運用の期間の帯の切れ目の細い縦の線
     if (bandOn && inv?.band != null) {
       const b = inv.band;
@@ -746,8 +772,8 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
           </g>,
         );
     }
-    if (!same) body.push(<path key="lb" d={linePath(aBase, s)} class="line-base" />);
-    body.push(<path key="ls" d={linePath(aSel, s)} class="line-prop" />);
+    if (!same) body.push(<path key="lb" d={linePath(upTo(aBase, cEnds), s)} class="line-base" />);
+    body.push(<path key="ls" d={linePath(upTo(aSel, pEnds), s)} class="line-prop" />);
     // 相場が下がった場合（重ねたときだけ）
     if (inv?.stress != null) body.push(...stressPaths(inv.stress, inv.view.stressHidden, s, n, fs, f.top));
     if (showMark && ageMark !== null) {
@@ -786,11 +812,13 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
     }
     if (selIdx >= 0)
       mark = {
-        sel: s.y(aSel[selIdx] ?? 0),
-        base: same ? null : s.y(aBase[selIdx] ?? 0),
+        sel: s.y(past(pEnds) ? 0 : (aSel[selIdx] ?? 0)),
+        base: same ? null : s.y(past(cEnds) ? 0 : (aBase[selIdx] ?? 0)),
         lead: "金融資産",
-        selText: at(model.chart.proposal),
-        baseText: same ? null : at(model.chart.current),
+        ...(past(pEnds) ? { selGone: true } : {}),
+        ...(past(cEnds) ? { baseGone: true } : {}),
+        selText: at(model.chart.proposal, pEnds),
+        baseText: same ? null : at(model.chart.current, cEnds),
         extra: null,
       };
   }
@@ -882,14 +910,12 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
         <AgeAxisSvg years={years} axis={axis} x={s.x} show={(y) => y % labelStep === 0} yearY={f.height - (24 + ageExtra(axis.length)) * fs} left={f.left} fs={fs} />
         {mark !== null && multiRows !== null ? (
           <g class="hv-dots" data-year-mark>
-            {multiRows.map((r) => (
-              <PlanMarker key={r.key} x={mx} y={r.y} r={6.5 * fs} color={r.st.color} cls="hv-mk" />
-            ))}
+            {multiRows.map((r) => (r.y === null ? null : <PlanMarker key={r.key} x={mx} y={r.y} r={6.5 * fs} color={r.st.color} cls="hv-mk" />))}
           </g>
         ) : mark !== null ? (
           <g class="hv-dots" data-year-mark>
-            {mark.base !== null ? <circle cx={mx} cy={mark.base} r={6 * fs} class="hv-dot base" /> : null}
-            <circle cx={mx} cy={mark.sel} r={6.5 * fs} class="hv-dot sel" />
+            {mark.base !== null && mark.baseGone !== true ? <circle cx={mx} cy={mark.base} r={6 * fs} class="hv-dot base" /> : null}
+            {mark.selGone !== true ? <circle cx={mx} cy={mark.sel} r={6.5 * fs} class="hv-dot sel" /> : null}
           </g>
         ) : null}
         {explain === null ? (

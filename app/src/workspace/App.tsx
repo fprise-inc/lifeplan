@@ -58,7 +58,7 @@ import { activeExtensions, extensionChapters, extensionFieldEdit, extensionViews
 import type { ExtValue } from "../../../report/src/index.ts";
 import { combinedHiddenText, expiredFor, featureOn, NO_FEATURES, type FeatureStatus } from "./office/featureCodes.ts";
 import { FpTools } from "./tools/FpTools.tsx";
-import { Insights, useInheritanceFor } from "./tools/Insights.tsx";
+import { EndYearNote, Insights, useInheritanceFor } from "./tools/Insights.tsx";
 import { pensionNotices } from "./input/stages/pension.ts";
 import { withProvisionalHousing } from "./input/housingCredit.ts";
 import { LeverCard, type FeeToggle, type LeverRow } from "./LeverPanel.tsx";
@@ -2828,6 +2828,7 @@ export function App() {
                       <span>{t}</span>
                     </div>
                   ))}
+                  <EndYearNote wh={opened.wh} onFix={edit} />
                   <CalcNotices rows={calcNotices} onOpenCard={openCard} {...(initial.notices === true ? { initialOpen: true } : {})} />
                   {selReq !== null ? <Insights req={selReq} result={selRes} months={bsSettings.moneyThree.months} inheritance={insightInheritance} onYear={pinYear} onLevers={() => document.querySelector("[data-levers]")?.scrollIntoView({ block: "start", behavior: "smooth" })} /> : null}
                 </>

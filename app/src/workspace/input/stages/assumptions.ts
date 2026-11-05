@@ -489,8 +489,21 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
 /** 本人・配偶者（表の最後の年を年齢で入れる人） */
 const adultsOf = (h: Household) => h.members.filter((m) => m.kind === "self" || m.kind === "spouse");
 
-/** 表の最後の年が、若い方の年齢で 85〜105歳の外か（古い世帯の確かめの注意。黙って直さない） */
-export function endYearNotice(wh: WorkingHousehold): string | null {
+/** 表の最後の年が標準から大きく外れているときの中身（endYearOff） */
+export interface EndYearOff {
+  /** 今の表の最後の年 */
+  end: number;
+  /** 既定（標準）の年 */
+  std: number;
+  /** 大人（本人・配偶者）のその年の年齢（例: 「ご本人129歳・配偶者128歳」） */
+  ages: string;
+}
+
+/**
+ * 表の最後の年が、若い方の大人の年齢で 85〜105歳の外か（古い世帯・前の版の見本の写しの確かめの注意。黙って直さない）。
+ * 外なら中身、内なら null
+ */
+export function endYearOff(wh: WorkingHousehold): EndYearOff | null {
   const h = wh.request.input.household;
   const end = wh.request.input.endYear;
   const std = standardEndYear(h);
@@ -499,7 +512,21 @@ export function endYearNotice(wh: WorkingHousehold): string | null {
   const young = ad.reduce((a, b) => (a.birth.birthYearMonth > b.birth.birthYearMonth ? a : b));
   const age = ageInYear(young, end);
   if (age <= 105 && age >= 85) return null;
-  return `表の最後の年が${end}年（${memberLabel(wh, young.id)}${age}歳）です。既定（${std}年）にしますか`;
+  return { end, std, ages: ad.map((m) => `${memberLabel(wh, m.id)}${ageInYear(m, end)}歳`).join("・") };
+}
+
+/** 表の最後の年の注意の文（前提条件の欄の注意と確かめの一覧。外れていなければ null） */
+export function endYearNotice(wh: WorkingHousehold): string | null {
+  const o = endYearOff(wh);
+  return o === null ? null : `表の最後の年が${o.end}年（${o.ages}）です。既定（${o.std}年）にしますか`;
+}
+
+/** 表の最後の年を既定（標準）にする（注意の「既定（○年）にする」） */
+export function endYearToStandard(wh: WorkingHousehold): WorkingHousehold {
+  return mutate(wh, (h, req) => {
+    const std = standardEndYear(h);
+    if (Number.isFinite(std)) req.input.endYear = std;
+  });
 }
 
 function endYearFields(wh: WorkingHousehold): FieldDef[] {
@@ -510,11 +537,6 @@ function endYearFields(wh: WorkingHousehold): FieldDef[] {
     item: "plan.endYear",
     at: [],
   });
-  const toStandard = (w: WorkingHousehold) =>
-    mutate(w, (h, req) => {
-      const std = standardEndYear(h);
-      if (Number.isFinite(std)) req.input.endYear = std;
-    });
   const endYear = field({
     key: "assume/endYear",
     item: "plan.endYear",
@@ -544,7 +566,7 @@ function endYearFields(wh: WorkingHousehold): FieldDef[] {
         ...(notice !== null
           ? {
               warn: notice,
-              warnFix: { label: `既定（${std}年）にする`, run: toStandard },
+              warnFix: { label: `既定（${std}年）にする`, run: endYearToStandard },
             }
           : {}),
       };
