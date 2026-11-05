@@ -330,6 +330,25 @@ fn every_format_version_has_a_fixture_and_opens() {
                 .as_array()
                 .is_some_and(|l| l.iter().any(|n| n["kind"] == "cryptoAccounts"));
             assert_eq!(moved, *v == "0.59", "{v}: 暗号資産を移した知らせ");
+            // 0.62 から（0124）: 暗号資産を2028年から取り崩す。前の版の暗号資産のある見本には、変換の段が知らせを足す
+            let separate = now["household"]["notices"]
+                .as_array()
+                .is_some_and(|l| l.iter().any(|n| n["kind"] == "cryptoSeparateTax"));
+            assert_eq!(
+                separate,
+                migrate::parse(v).unwrap() < (0, 62),
+                "{v}: 暗号資産を2028年から取り崩す知らせ"
+            );
+            if migrate::parse(v).unwrap() >= (0, 62) {
+                assert_eq!(
+                    crypto[0]["cryptoTaxation"], "separate",
+                    "{v}: 暗号資産を売ったときの税の扱い"
+                );
+                assert_eq!(
+                    crypto[0]["costBasis"]["value"], 1200000,
+                    "{v}: 暗号資産の取得価額"
+                );
+            }
         }
         if migrate::parse(v).unwrap() >= (0, 61) {
             // 0.61 から（0123）: 売る予定・取得の年月・貸していない不動産の細目・つながる毎年の費用の行

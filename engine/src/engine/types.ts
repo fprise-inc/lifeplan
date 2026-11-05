@@ -249,7 +249,10 @@ export type AccountKind =
   | "smallBusinessMutualAid"
   | "otherAsset"
   | "pooled"
-  /** 暗号資産（金融資産の器。取り崩さない・資産の配分の無いときの利回りは0・既定の時価の下落の対象。売ったときの雑所得の税は計算しない。0122） */
+  /**
+   * 暗号資産（金融資産の器。資産の配分の無いときの利回りは0・既定の時価の下落の対象。0122）。2028年からの申告分離課税（0124）で、
+   * 課税口座の次に取り崩す（2027年までと、売ったときの税の扱いが雑所得〔cryptoTaxation が miscellaneous〕の物は取り崩さない）
+   */
   | "cryptoAsset";
 
 export interface AccountInput {
@@ -264,6 +267,11 @@ export interface AccountInput {
   readonly owner: string;
   readonly marketValue: ValueBox<Yen>;
   readonly costBasis?: ValueBox<Yen>;
+  /**
+   * 暗号資産を売ったときの税の扱い（種類 cryptoAsset だけ。0124）: separate は特定暗号資産の申告分離課税（2028年から。取り崩しの利益に
+   * 所得税・住民税をかける）、miscellaneous は雑所得（総合課税。登録の無い暗号資産・登録業者を通さない売却など。取り崩さない）。省略は separate
+   */
+  readonly cryptoTaxation?: "separate" | "miscellaneous";
   readonly asOf: string;
   readonly assetMix?: readonly { readonly assetClass: string; readonly share: string }[];
   readonly settlement?: boolean;

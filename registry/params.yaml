@@ -1358,6 +1358,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: incomeTax.cryptoAsset.lossCarryforwardYears
+    status: active
+    label: "特定暗号資産の譲渡損失を繰り越して、翌年以後の特定暗号資産の譲渡等の所得から控除できる年数（住民税も同じとみなす。2027年までは制度なし）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.cryptoAsset.rate
+    status: active
+    label: "特定暗号資産の譲渡等の所得の申告分離課税の所得税の税率（復興特別所得税・防衛特別所得税は基準所得税額に掛けて別に足す。2027年までは制度なし）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: incomeTax.defenseSurtax.rate
     status: active
     label: "防衛特別所得税の税率（基準所得税額に掛ける）"
@@ -2873,6 +2885,12 @@ entries:
   - id: residentTax.basicDeduction
     status: active
     label: "住民税の基礎控除（合計所得金額の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.cryptoAsset.rate
+    status: active
+    label: "特定暗号資産の譲渡等の所得の申告分離課税の住民税の税率（2027年までは制度なし）"
     since: draft
     aliases: []
     replacedBy: null

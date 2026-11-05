@@ -214,7 +214,7 @@ describe("その他の資産と合計の一致", () => {
     expect(cells(flat, "cf.balance.account.otherAsset", 2028)).toBe(1000000);
   });
 
-  it("暗号資産（cryptoAsset。0122）: 金融資産の合計に入れ、取り崩さない。利回りは器の利回りか資産の配分、どちらも無ければ0。積立は決済口座から", () => {
+  it("暗号資産（cryptoAsset。0122）: 金融資産の合計に入れ、2028年から取り崩す（0124）。利回りは器の利回りか資産の配分、どちらも無ければ0。積立は決済口座から", () => {
     const btc = uid("btc");
     const withCrypto = (o: Obj, deposit = 30000000) =>
       withInput(base({ endYear: 2030 }), (h) => {
@@ -232,18 +232,11 @@ describe("その他の資産と合計の一致", () => {
     const monthly = full(withCrypto({ contributions: [{ from: at("2026-01"), to: at("2026-12"), monthly: 10000 }] }));
     expect(cells(monthly, "cf.balance.account.cryptoAsset", 2026)).toBe(1120000);
     expect(((monthly.table as unknown as Cell[]).filter((c) => c.row === "cf.transfer.savings.cryptoAsset" && c.year === 2026).reduce((s, c) => s + c.amount, 0))).toBe(120000);
-    // 預金が尽きても取り崩さない（資金の不足が出る）
+    // 2027年までは預金が尽きても取り崩さない（資金の不足が出る）。2028年からは取り崩す（申告分離課税。0124。税は crypto-tax.test.ts）
     const poor = full(withCrypto({}, 0));
-    const shortfall = (r: ReturnType<typeof full>) => (r.table as unknown as Cell[]).some((c) => c.row === "cf.balance.shortfall");
-    expect(shortfall(poor)).toBe(true);
-    expect(cells(poor, "cf.balance.account.cryptoAsset", 2030)).toBe(1000000);
-    // 取り崩す順番に書いても取り崩さない
-    const ordered = full(
-      withInput(withCrypto({}, 0), (_h, input) => {
-        (input.assumptions as Obj).withdrawal = { order: [{ kind: "cryptoAsset" }, { kind: "deposit" }] };
-      }),
-    );
-    expect(cells(ordered, "cf.balance.account.cryptoAsset", 2030)).toBe(1000000);
+    expect(cells(poor, "cf.balance.shortfall", 2027)).toBeGreaterThan(0);
+    expect(cells(poor, "cf.balance.account.cryptoAsset", 2027)).toBe(1000000);
+    expect(cells(poor, "cf.balance.account.cryptoAsset", 2030)).toBeLessThan(1000000);
   });
 
   it("暗号資産の時価の下落（0122）: 器の種類を書かない下落は下げる。資産クラスを書いた下落は、配分の無い暗号資産を下げない。kinds に書けば下げる", () => {
