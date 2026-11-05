@@ -397,7 +397,7 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
             ))}
             {level === "simple" ? (
               <button type="button" class="link-btn" aria-expanded={moreKinds} onClick={() => setMoreKinds(!moreKinds)} data-more-kinds>
-                {moreKinds ? "そのほかを閉じる" : "そのほか ▾（財形・企業型DC・外貨預金・持株会・小規模企業共済・旧NISA など）"}
+                {moreKinds ? "そのほかを閉じる" : "そのほか ▾（財形・企業型DC・外貨預金・持株会・暗号資産・小規模企業共済・旧NISA など）"}
               </button>
             ) : null}
           </div>

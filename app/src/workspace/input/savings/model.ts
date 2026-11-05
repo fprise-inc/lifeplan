@@ -38,9 +38,10 @@ export const KIND_INFO: Record<string, { name: string; memo: string; color: stri
   legacyNisa: { name: "旧NISA", memo: "非課税期間が終わると課税口座へ", color: "#9fb0cf" },
   juniorNisa: { name: "ジュニアNISA", memo: "お子さまの名義", color: "#9fb0cf" },
   smallBusinessMutualAid: { name: "小規模企業共済", memo: "掛金は所得控除", color: "#c2b59b" },
+  cryptoAsset: { name: "暗号資産", memo: "取り崩しには使いません", color: "#a9c8c6" },
   pooled: { name: "まだ分けていない", memo: "合計の入れ方で入れた値のうち、まだ口座に分けていない分。口座に入れると減り、0になると消えます", color: "#ddd6e8" },
 };
-const KIND_ORDER = ["deposit", "nisa", "childNisa", "legacyNisa", "juniorNisa", "ideco", "corporateDc", "taxable", "zaikei", "esop", "fxDeposit", "smallBusinessMutualAid"];
+const KIND_ORDER = ["deposit", "nisa", "childNisa", "legacyNisa", "juniorNisa", "ideco", "corporateDc", "taxable", "zaikei", "esop", "fxDeposit", "cryptoAsset", "smallBusinessMutualAid"];
 
 const MAN = 10000;
 
@@ -527,8 +528,8 @@ export function editAllocation(req: EngineRequest, patch: { mix?: { assetClass: 
 
 /** エンジンの標準の取り崩しの順番（器の種類） */
 export const STANDARD_ORDER_KINDS: readonly string[] = ["deposit", "fxDeposit", "zaikei", "taxable", "esop", "legacyNisa", "nisa"];
-/** 取り崩す順番に並べない器（受け取りの決まりで預金に入る器・まとめた金融資産の器。エンジンも順番では取り崩さない） */
-const NOT_ORDERED: ReadonlySet<string> = new Set(["ideco", "corporateDc", "smallBusinessMutualAid", "pooled"]);
+/** 取り崩す順番に並べない器（受け取りの決まりで預金に入る器・まとめた金融資産の器・暗号資産〔取り崩さない。0122〕。エンジンも順番では取り崩さない） */
+const NOT_ORDERED: ReadonlySet<string> = new Set(["ideco", "corporateDc", "smallBusinessMutualAid", "pooled", "cryptoAsset"]);
 
 /** 決済口座（収支が入る口座。印のある器、無ければ最初の預金。エンジンと同じ読み方） */
 export function settlementOf(h: Household): Account | undefined {

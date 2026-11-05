@@ -319,6 +319,7 @@ export const ACCOUNT_KINDS: Option[] = [
   { value: "zaikei", label: "財形貯蓄" },
   { value: "esop", label: "持株会" },
   { value: "fxDeposit", label: "外貨預金" },
+  { value: "cryptoAsset", label: "暗号資産" },
   { value: "insurance", label: "保険（積立部分）" },
   { value: "realEstate", label: "不動産" },
   { value: "otherAsset", label: "その他の資産" },
@@ -327,11 +328,11 @@ export const ACCOUNT_KINDS: Option[] = [
 /**
  * その他の資産（器の種類 otherAsset）の中身の細目（0120）。表示だけで、計算には使わない（評価額・増減率・時価の下落の対象から外す扱いは細目で変えない）。
  * 細目の無いものは「その他」。自社株（出資額）・会社への貸付金は役員として働く人の細目で、ここには入れない（officer.ts。0105）。
+ * 暗号資産は細目でなく、金融資産の器の種類 cryptoAsset（ACCOUNT_KINDS。0122）。
  * label は欄の選択肢、short はまとまりの見出し（バランスシートの行の名前と同じ）、note は「?」の説明。バランスシートの行の名前は report/src/bsGroups.ts（同じ細目はまとめる）
  */
 export const OTHER_ASSET_SUBTYPES = {
   preciousMetal: { label: "貴金属（金・プラチナなど）", short: "貴金属", note: "金・プラチナの地金・コインなど。評価額は今の買取の価格（重さ×1グラムあたりの買取の価格）で入れます。" },
-  cryptoAsset: { label: "暗号資産（ビットコインなど）", short: "暗号資産", note: "取引所・ウォレットにある暗号資産の、今の円の評価額。値動きが大きいので、ふつうは増減率を入れずに今の評価額のまま見ます。" },
   art: { label: "美術品・骨董品", short: "美術品・骨董品", note: "絵画・骨董品・時計・コレクションなど、売れば値の付くもの。評価額は買取の見込みの額で入れます。" },
   membership: { label: "会員権（ゴルフ・リゾートなど）", short: "会員権", note: "ゴルフ会員権・リゾート会員権など。評価額は相場の価格（預託金を返してもらうなら、返ってくる見込みの額）で入れます。" },
   securityDeposit: { label: "敷金・保証金", short: "敷金・保証金", note: "借りている住まい・事務所・駐車場などに預けている敷金・保証金のうち、返ってくる見込みの額。" },

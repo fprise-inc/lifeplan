@@ -46,6 +46,8 @@ export function classRate(req: EngineRequest, assetClass: string, year: number):
 export function expectedReturn(req: EngineRequest, account: Pick<Account, "kind" | "assetMix">, year: number): string {
   const mix = account.assetMix;
   if (mix === undefined || mix.length === 0) {
+    // 暗号資産は、器の利回りも資産の配分も無ければ0（エンジンと同じ。0122）
+    if (account.kind === "cryptoAsset") return "0";
     const cls = CASH_KINDS[account.kind];
     return cls === undefined ? (seriesAt(req.input.assumptions?.investmentReturn, year) ?? "0") : classRate(req, cls, year).rate;
   }

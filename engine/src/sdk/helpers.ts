@@ -268,6 +268,8 @@ export function annualReturn(ctx: Ctx, opening: Yen, net: Yen, r: Rate, months: 
 
 /** 預金・外貨預金の既定の資産クラス（assetMix を省略したとき） */
 const CASH_KINDS: Readonly<Record<string, string>> = { deposit: "cash.deposit", fxDeposit: "cash.foreign", realEstate: "realEstate" };
+/** 器の利回りも資産の配分も無いときの利回りを0にする器（暗号資産。0122） */
+const ZERO_DEFAULT_KINDS: ReadonlySet<string> = new Set(["cryptoAsset"]);
 /** 運用する器（資産配分・利回りの書き換え（returnShifts）を当てる。まとめた金融資産の器を含む。0026） */
 export const INVEST_KINDS: ReadonlySet<string> = new Set(["taxable", "nisa", "childNisa", "juniorNisa", "legacyNisa", "ideco", "corporateDc", "esop", "pooled"]);
 
@@ -302,6 +304,8 @@ function specRate(ctx: Ctx, kind: string, spec: ReturnSpec, year: number, driftF
   const mix = spec.assetMix;
   if (spec.expectedReturn !== undefined) return ctx.rate.of(spec.expectedReturn);
   if (mix === undefined || mix.length === 0) {
+    // 暗号資産は、器の利回りも資産の配分も無ければ0（根拠を示せる見込みの利回りが無い。0122）
+    if (ZERO_DEFAULT_KINDS.has(kind)) return RATE_ZERO;
     const cls = CASH_KINDS[kind];
     return cls === undefined ? ctx.assumption("investmentReturn", year) : classRate(cls, year);
   }
@@ -328,7 +332,7 @@ function specRate(ctx: Ctx, kind: string, spec: ReturnSpec, year: number, driftF
 /**
  * 器のその年の利回り: 資産クラスの配分（assetMix）×前提の資産クラスごとの利回り（assumptions.assetReturns）。
  * 前提に無い資産クラスは運用利回り（assumptions.investmentReturn）、ただし不動産は0。assetMix を省略した器は、預金・外貨預金・不動産は
- * その資産クラス、ほかは運用利回り。部品の reads に assumptions.investmentReturn と assumptions.assetReturns が要る。
+ * その資産クラス、暗号資産は0（0122）、ほかは運用利回り。部品の reads に assumptions.investmentReturn と assumptions.assetReturns が要る。
  * 0026: FP が入れた器の利回り（expectedReturn）があればそれを使う。運用の費用（fee）を引く。資産配分の入れ方でリバランスしないときは、
  * 資産クラスごとの増え方で割合がずれる（計算基準年からの資産クラスの増え方で重みを付け直す）。運用する器には利回りの書き換え（returnShifts）を当てる。
  * reads に assumptions.investment と assumptions.returnShifts も要る

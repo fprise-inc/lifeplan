@@ -54,6 +54,8 @@ const RISKY = ["equity.domestic", "equity.global", "reit.domestic", "reit.global
 /** 下げる資産の印: 資産の種類（器の配分のうちその割合を下げる）と、器の種類（kind:<種類>。器の全体を下げる） */
 export const ESOP = "kind:esop";
 export const FX_DEPOSIT = "kind:fxDeposit";
+/** 暗号資産（器ごと下げる。既定の並びには入れない。0122） */
+export const CRYPTO_ASSET = "kind:cryptoAsset";
 /** 下げる資産の既定（株・REIT と、配分を入れていない持株会。今までと同じ下げ方） */
 export const MARKET_CLASSES_DEFAULT: readonly string[] = [...RISKY, ESOP];
 /** 収入が減る場面の既定（本人・2割・3年。ストレステストの型 incomeDrop の既定と同じ） */
@@ -142,7 +144,7 @@ export function scenarios(wh: WorkingHousehold): Scenario[] {
 }
 
 /** 運用する器があるか（相場の下落の場面・重ねる印を出すか） */
-export const hasInvested = (h: Household): boolean => (h.accounts ?? []).some((x) => INVESTED.has(x.kind) || x.kind === "fxDeposit");
+export const hasInvested = (h: Household): boolean => (h.accounts ?? []).some((x) => INVESTED.has(x.kind) || x.kind === "fxDeposit" || x.kind === "cryptoAsset");
 
 /** 収入が減る場面の対象になる大人（本人・配偶者） */
 function earnersOf(wh: WorkingHousehold): Member[] {
@@ -268,7 +270,7 @@ export function keptSlots(existing: readonly string[], requests: Readonly<Record
 
 /**
  * 相場の下落を要求に重ねる（0026・0071）: その年の年末に、下げる資産（資産の種類は器の配分のうちその割合、配分を入れていない運用の器は
- * 全体）をその幅だけ下げる。持株会・外貨預金は器ごと下げる。下がった後の戻り方があれば、翌年から○年は運用の利回りを○%までに抑える
+ * 全体）をその幅だけ下げる。持株会・外貨預金・暗号資産は器ごと下げる。下がった後の戻り方があれば、翌年から○年は運用の利回りを○%までに抑える
  */
 export function addMarketDrop(req: EngineRequest, plan: ContingencyPlan, year: number): void {
   const a = (req.input.assumptions ??= { investmentReturn: { default: "0.01" } });
@@ -281,6 +283,7 @@ export function addMarketDrop(req: EngineRequest, plan: ContingencyPlan, year: n
   if (classes.length > 0) shocks.push({ year, drop, assetClasses: classes, ...(picked.includes(ESOP) ? {} : { kinds: INVEST_BUT_ESOP }) });
   else if (picked.includes(ESOP)) shocks.push({ year, drop, kinds: ["esop"] });
   if (picked.includes(FX_DEPOSIT)) shocks.push({ year, drop, kinds: ["fxDeposit"] });
+  if (picked.includes(CRYPTO_ASSET)) shocks.push({ year, drop, kinds: ["cryptoAsset"] });
   if (shocks.length > 0) a.marketShocks = [...(a.marketShocks ?? []), ...shocks];
   if (m.recoveryYears !== undefined && m.recoveryYears > 0 && m.recoveryCap !== undefined) a.returnShifts = [...(a.returnShifts ?? []), { from: year + 1, to: year + m.recoveryYears, cap: m.recoveryCap }];
 }

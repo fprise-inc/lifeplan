@@ -16,6 +16,7 @@
   --bs-fxDeposit: #266b8b;
   --bs-esop: #217f96;
   --bs-pooled: #217da2;
+  --bs-cryptoAsset: #1f6386; /* 暗号資産（金融資産の器。0122） */
   /* 引き出せないお金 */
   --bs-ideco: #00524d;
   --bs-corporateDc: #05575f;
@@ -31,7 +32,6 @@
   --bs-loanToCompany: #52606b; /* 会社への貸付金（0105） */
   /* その他の資産の中身（0120）。同じ灰色がかった青の仲間で、明るさを交互にする */
   --bs-preciousMetal: #5a6470;
-  --bs-cryptoAsset: #3d4d5c;
   --bs-art: #56636e;
   --bs-membership: #44535f;
   --bs-securityDeposit: #5b6670;

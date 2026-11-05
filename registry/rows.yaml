@@ -801,6 +801,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.transfer.savings.cryptoAsset
+    status: active
+    label: "暗号資産の積立（0122）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.transfer.withdrawal
     status: active
     label: 取り崩し
@@ -960,6 +966,12 @@ entries:
   - id: cf.balance.account.otherAsset
     status: active
     label: "その他の資産"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.cryptoAsset
+    status: active
+    label: "暗号資産（金融資産。取り崩さない。0122）"
     since: draft
     aliases: []
     replacedBy: null
