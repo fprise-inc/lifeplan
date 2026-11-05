@@ -4,6 +4,14 @@
 # since は公開の約束の版の初期値（0.x。0001 の追記）を β公開で 1.0 にするまで draft とする
 kind: item
 entries:
+  - id: account.acquiredAt
+    status: active
+    label: "取得の年月（貸していない不動産・その他の資産だけ。売ったときの所有期間に使う。取得価額は costBasis。0123）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: account
+    path: [acquiredAt]
   - id: account.asOf
     status: active
     label: "時価の時点"
@@ -159,6 +167,14 @@ entries:
     replacedBy: null
     collection: account
     path: [returnStages]
+  - id: account.sale
+    status: active
+    label: "売る予定（貸していない不動産〔中身 property の無い不動産の器〕・その他の資産だけ。その月に売り、売却価格から売却の費用を引いた手取りを現金にし、その年の年末から評価額を消す。売ったときの税は asset.heldSale。0123）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: account
+    path: [sale]
   - id: account.settlement
     status: active
     label: "決済口座（年の収支が入り、赤字のとき取り崩しで補う口座。省略は最初の預金）"
@@ -169,7 +185,7 @@ entries:
     path: [settlement]
   - id: account.subtype
     status: active
-    label: "その他の資産の細目（ownCompanyShares 自社株〔出資額〕・loanToCompany 会社への貸付金〔0105〕、preciousMetal 貴金属・art 美術品や骨董品・membership 会員権・securityDeposit 敷金や保証金・businessAsset 事業用の資産〔0120〕。省略は「その他」。種類 otherAsset だけ。表示だけで、計算には使わない。暗号資産は器の種類 cryptoAsset〔0122〕）"
+    label: "その他の資産の細目（ownCompanyShares 自社株〔出資額〕・loanToCompany 会社への貸付金〔0105〕、preciousMetal 貴金属・art 美術品や骨董品・membership 会員権・securityDeposit 敷金や保証金・businessAsset 事業用の資産〔0120〕。省略は「その他」。種類 otherAsset だけ。表示と、売る予定の税の扱いの既定〔0123〕だけで使う。暗号資産は器の種類 cryptoAsset〔0122〕）と、貸していない不動産の細目（vacantLand 土地〔更地〕・forestFarm 山林や農地・villa 別荘・vacantHouse 空き家。種類 realEstate で中身 property の無いものだけ。表示と、売ったときの知らせ・画面の固定資産税の目安の元だけ。0123）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1864,6 +1880,14 @@ entries:
     replacedBy: null
     collection: periodicExpense
     path: [monthly]
+  - id: periodicExpense.object
+    status: active
+    label: "つながる物（資産の器の ID。0123）。その器に売る予定（accounts[].sale）があれば、売る月から払わない"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: periodicExpense
+    path: [object]
   - id: periodicExpense.onContingency
     status: active
     label: "万一のときの扱い（払う人を入れたときは、その人の万一だけが該当）"

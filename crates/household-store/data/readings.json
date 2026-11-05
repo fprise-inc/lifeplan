@@ -1738,6 +1738,12 @@
   }
  ],
  "places": {
+  "account.acquiredAt": {
+   "collection": "account",
+   "path": [
+    "acquiredAt"
+   ]
+  },
   "account.asOf": {
    "collection": "account",
    "path": [
@@ -1853,6 +1859,12 @@
    "collection": "account",
    "path": [
     "returnStages"
+   ]
+  },
+  "account.sale": {
+   "collection": "account",
+   "path": [
+    "sale"
    ]
   },
   "account.settlement": {
@@ -3160,6 +3172,12 @@
    "collection": "periodicExpense",
    "path": [
     "monthly"
+   ]
+  },
+  "periodicExpense.object": {
+   "collection": "periodicExpense",
+   "path": [
+    "object"
    ]
   },
   "periodicExpense.onContingency": {

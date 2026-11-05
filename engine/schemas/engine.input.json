@@ -862,7 +862,7 @@
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "kind": { "title": "器の種類", "x-item": "account.kind", "$ref": "#/$defs/accountKind" },
-        "subtype": { "title": "その他の資産の細目（ownCompanyShares 自社株〔出資額〕・loanToCompany 会社への貸付金〔0105〕、preciousMetal 貴金属・art 美術品や骨董品・membership 会員権・securityDeposit 敷金や保証金・businessAsset 事業用の資産〔0120〕。省略は「その他」。種類 otherAsset だけ。表示だけで、計算には使わない。暗号資産は器の種類 cryptoAsset〔0122〕）", "x-item": "account.subtype", "enum": ["ownCompanyShares", "loanToCompany", "preciousMetal", "art", "membership", "securityDeposit", "businessAsset"] },
+        "subtype": { "title": "その他の資産の細目（ownCompanyShares 自社株〔出資額〕・loanToCompany 会社への貸付金〔0105〕、preciousMetal 貴金属・art 美術品や骨董品・membership 会員権・securityDeposit 敷金や保証金・businessAsset 事業用の資産〔0120〕。省略は「その他」。種類 otherAsset だけ。表示と、売る予定の税の扱いの既定〔0123〕だけで使う。暗号資産は器の種類 cryptoAsset〔0122〕）と、貸していない不動産の細目（vacantLand 土地〔更地〕・forestFarm 山林や農地・villa 別荘・vacantHouse 空き家。種類 realEstate で中身 property の無いものだけ。表示と、売ったときの知らせ・画面の固定資産税の目安の元だけ。0123）", "x-item": "account.subtype", "enum": ["ownCompanyShares", "loanToCompany", "preciousMetal", "art", "membership", "securityDeposit", "businessAsset", "vacantLand", "forestFarm", "villa", "vacantHouse"] },
         "owner": { "title": "名義の構成員", "x-item": "account.owner", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "marketValue": { "title": "時価", "x-item": "account.marketValue", "x-pointInTime": true, "$ref": "urn:financia:schema:common#/$defs/boxYen" },
         "costBasis": { "title": "取得価額（省略は時価と同じ）", "x-item": "account.costBasis", "x-pointInTime": true, "$ref": "urn:financia:schema:common#/$defs/boxYen" },
@@ -946,6 +946,20 @@
           "title": "評価額の増減率（年率。不動産・その他の資産だけで使う。マイナスも書ける。入れたときは資産の配分の利回りの代わり。省略は不動産は資産クラスの利回り、その他の資産は0）",
           "x-item": "account.valueGrowth",
           "$ref": "urn:financia:schema:common#/$defs/rate"
+        },
+        "acquiredAt": { "title": "取得の年月（貸していない不動産・その他の資産だけ。売ったときの所有期間に使う。取得価額は costBasis。0123）", "x-item": "account.acquiredAt", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+        "sale": {
+          "title": "売る予定（貸していない不動産〔中身 property の無い不動産の器〕・その他の資産だけ。その月に売り、売却価格から売却の費用を引いた手取りを現金にし、その年の年末から評価額を消す。売ったときの税は asset.heldSale。0123）",
+          "x-item": "account.sale",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at"],
+          "properties": {
+            "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+            "price": { "description": "売却価格（省略はその年の年末の評価額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "costRate": { "description": "売却の費用の割合（省略は、不動産は前提の realEstateValuation.saleCostRate か目安、その他の資産は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "taxation": { "description": "売ったときの税の扱い（その他の資産だけ。transfer 総合課税の譲渡所得・nonTaxable 非課税・miscellaneous 雑所得。省略は中身から: 敷金・保証金は非課税、ほかは総合課税の譲渡所得。不動産は分離課税で、この欄を読まない）", "enum": ["transfer", "nonTaxable", "miscellaneous"] }
+          }
         },
         "expectedReturn": { "title": "FP が入れた器の利回り（年率。入れたときは資産の配分の利回りの代わり。0026）", "x-item": "account.expectedReturn", "$ref": "urn:financia:schema:common#/$defs/rate" },
         "returnStages": {
@@ -1964,7 +1978,8 @@
             "cf.expense.housing.maintenance",
             "cf.expense.care.medical",
             "cf.expense.education",
-            "cf.expense.living.car"
+            "cf.expense.living.car",
+            "cf.expense.other.realEstate"
           ]
         },
         "from": { "title": "最初の支払いの月", "x-item": "periodicExpense.from", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
@@ -1991,6 +2006,7 @@
             "note": { "title": "夢のひとことメモ（なぜかなえたいか）", "x-item": "periodicExpense.dreamNote", "type": "string", "maxLength": 200 }
           }
         },
+        "object": { "title": "つながる物（資産の器の ID。0123）。その器に売る予定（accounts[].sale）があれば、売る月から払わない", "x-item": "periodicExpense.object", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "gift": {
           "title": "あげる贈与（相手は世帯の外の家族。贈与税は受け取る人が払うので世帯から出さず、要約に出す。0044）",
           "x-item": "periodicExpense.gift",
@@ -2005,8 +2021,8 @@
       "allOf": [{ "if": { "required": ["monthly"], "properties": { "monthly": { "const": true } } }, "then": { "properties": { "everyYears": { "const": 1 } } } }]
     },
     "moneyOutKind": {
-      "description": "0044: 出るお金の種類（general 一時的支出・その他／allowance 仕送り／childSupport 養育費を払う／gift あげる贈与／education 塾・習い事・留学／repair 修繕・リフォーム／realEstateCost 不動産の一時の経費／livingAnnual 年払い・数年おきの暮らしの支出／car 車の修理・用品など／other その他／dream 夢プランの1件。0103）",
-      "enum": ["general", "allowance", "childSupport", "gift", "education", "repair", "realEstateCost", "livingAnnual", "car", "other", "dream"]
+      "description": "0044: 出るお金の種類（general 一時的支出・その他／allowance 仕送り／childSupport 養育費を払う／gift あげる贈与／education 塾・習い事・留学／repair 修繕・リフォーム／realEstateCost 不動産の一時の経費／livingAnnual 年払い・数年おきの暮らしの支出／car 車の修理・用品など／other その他／dream 夢プランの1件。0103／assetCost 持っている資産の毎年の費用〔貸していない不動産の固定資産税・管理費など。つながる物 object を書く。0123〕）",
+      "enum": ["general", "allowance", "childSupport", "gift", "education", "repair", "realEstateCost", "livingAnnual", "car", "other", "dream", "assetCost"]
     },
     "priority": { "description": "0044: 優先度（need 必要・want 希望・wish 夢）", "enum": ["need", "want", "wish"] },
     "likelihood": { "description": "0044: 見込み（certain 確実・likely たぶん・uncertain 不確か。省略は「たぶん」と読む）", "enum": ["certain", "likely", "uncertain"] },

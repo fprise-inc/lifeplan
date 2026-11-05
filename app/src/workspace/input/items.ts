@@ -579,7 +579,7 @@ function addedObject(h: Household, a: Pick<AddedItem, "kind" | "ref">): AddedObj
 }
 
 /** お金の行の区画のカード → 段階の ID */
-const MONEY_STAGE: Readonly<Record<MoneyCard, StageId>> = { family: "family", work: "work", pension: "pension", living: "living", education: "education", housing: "housing", insurance: "insurance", rental: "rental", events: "events", car: "car", care: "care", inherit: "inheritance" };
+const MONEY_STAGE: Readonly<Record<MoneyCard, StageId>> = { family: "family", work: "work", pension: "pension", living: "living", education: "education", housing: "housing", insurance: "insurance", rental: "rental", events: "events", car: "car", care: "care", inherit: "inheritance", savings: "savings" };
 
 /** 物が属するカード（ふつうはライフイベント。種類のあるお金の行はその種類のカード、介護は介護・親、子の年齢で始まる支出は子ども・教育、車は車、FP顧問料は前提条件） */
 function ownerOf(h: Household, a: Pick<AddedItem, "kind" | "ref">): StageId {

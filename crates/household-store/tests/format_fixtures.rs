@@ -331,6 +331,31 @@ fn every_format_version_has_a_fixture_and_opens() {
                 .is_some_and(|l| l.iter().any(|n| n["kind"] == "cryptoAccounts"));
             assert_eq!(moved, *v == "0.59", "{v}: 暗号資産を移した知らせ");
         }
+        if migrate::parse(v).unwrap() >= (0, 61) {
+            // 0.61 から（0123）: 売る予定・取得の年月・貸していない不動産の細目・つながる毎年の費用の行
+            let h = &now["household"]["request"]["input"]["household"];
+            let accounts = h["accounts"].as_array().unwrap();
+            assert!(
+                accounts.iter().any(|a| a["subtype"] == "villa"
+                    && a["sale"]["at"].is_object()
+                    && a["acquiredAt"].is_string()),
+                "{v}: 売る予定のある別荘"
+            );
+            assert!(
+                accounts
+                    .iter()
+                    .any(|a| a["kind"] == "otherAsset" && a["sale"]["taxation"] == "nonTaxable"),
+                "{v}: 税の扱いを選んだその他の資産の売る予定"
+            );
+            assert!(
+                h["periodicExpenses"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|p| p["kind"] == "assetCost" && p["object"].is_string()),
+                "{v}: つながる毎年の費用の行"
+            );
+        }
         if *v == "0.48" {
             // 0.48 から: 役員として働く人の家計の側（自社株〔出資額〕・会社への貸付金・会社からの借入金・会社の借入の連帯保証の額）と、
             // 家計の体力の目安の分母（0105）

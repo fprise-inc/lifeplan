@@ -41,6 +41,7 @@ const CARD_LABEL: Record<MoneyCard, string> = {
   car: "車",
   care: "介護・親",
   inherit: "相続・贈与",
+  savings: "貯蓄・運用",
 };
 
 const yearOf = (ym: string | null): number | null => (ym === null ? null : parseYm(ym).y);
@@ -98,6 +99,11 @@ export function scheduleItems(wh: WorkingHousehold): ScheduleItem[] {
   for (const r of h.residences ?? []) {
     if (r.purchase !== undefined) add(yearOf(resolveTimepoint(h, r.purchase.at)), { dir: "出", name: "住宅の購入", amount: `${manYen(r.purchase.price)}（物件の価格）`, lump: true, card: "住まい・ローン" });
     if (r.sale !== undefined && r.to != null) add(yearOf(resolveTimepoint(h, r.to)), { dir: "入", name: "住まいの売却", amount: r.sale.price !== undefined ? manYen(r.sale.price) : "", lump: false, card: "住まい・ローン" });
+  }
+  // 貸していない不動産・その他の資産の売る予定（0123）
+  for (const a of h.accounts ?? []) {
+    if (a.sale === undefined || !((a.kind === "realEstate" && a.property === undefined) || a.kind === "otherAsset")) continue;
+    add(yearOf(resolveTimepoint(h, a.sale.at)), { dir: "入", name: `${a.kind === "realEstate" ? "不動産" : "その他の資産"}の売却（${memberLabel(wh, a.owner)}）`, amount: a.sale.price !== undefined ? manYen(a.sale.price) : "売る年の評価額", lump: false, card: "貯蓄・運用" });
   }
   // 教育の入学（高校・大学）
   const rs = roles(wh.request);

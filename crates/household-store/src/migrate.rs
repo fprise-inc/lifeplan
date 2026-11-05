@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.60";
+pub const CURRENT: &str = "0.61";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -204,12 +204,17 @@ pub const CURRENT: &str = "0.60";
 ///   `cryptoAsset` のその他の資産を種類 `cryptoAsset` へ移し（細目を外し、評価額の増減率 `valueGrowth` は器の利回り `expectedReturn` へ）、
 ///   プランの差分・表示した項目・画面の側の印を合わせ、開いたときの知らせ `cryptoAccounts` を足す。控えの中身は変えない（画面が控えを計算する
 ///   ときに細目を外す）。前の版のアプリは種類 `cryptoAsset` を読めないので、版を上げて閲覧だけにする。0.59 の段の後に積む
+/// - 0.61: 貸していない不動産・その他の資産の売る予定 `accounts[].sale`（時期・価格・費用の割合・税の扱い）と取得の年月 `accounts[].acquiredAt`、
+///   貸していない不動産の細目 `accounts[].subtype` の4つ（土地 `vacantLand`・山林や農地 `forestFarm`・別荘 `villa`・空き家 `vacantHouse`）、
+///   出るお金の行のつながる物 `periodicExpenses[].object` と種類 `assetCost`（資産の毎年の費用）・表の行 `cf.expense.other.realEstate` を足した
+///   （0123。どれも足すだけの MINOR）。前の版のアプリは入力の検査で知らない欄を通さないので、版を上げて閲覧だけにする。
+///   変換の段は形式の版だけを書き換える。0.60 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
-    "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60",
+    "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
 ];
 
 /// 1段分の変換
@@ -515,6 +520,11 @@ pub const STEPS: &[Step] = &[
         from: "0.59",
         to: "0.60",
         apply: v0_59_to_0_60,
+    },
+    Step {
+        from: "0.60",
+        to: "0.61",
+        apply: v0_60_to_0_61,
     },
 ];
 
@@ -2202,6 +2212,16 @@ fn v0_57_to_0_58(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.60 → 0.61: 足した欄（売る予定・取得の年月・貸していない不動産の細目・出るお金の行のつながる物。0123）は前の版の世帯に無いので、
+/// 形式の版だけを書き換える。ほかの欄に触れない
+fn v0_60_to_0_61(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.61".into());
+    }
+    Ok(body)
+}
+
 /// 0.58 → 0.59: 足した値（その他の資産の中身の細目。0120）は前の版の世帯に無いので、形式の版だけを書き換える。ほかの欄に触れない
 fn v0_58_to_0_59(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
@@ -2971,7 +2991,8 @@ mod tests {
         assert_eq!(access("0.58").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.59").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.60").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.61").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.61").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.62").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -2984,7 +3005,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.60", b.clone()).unwrap(),
+            upgrade("0.62", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -3388,6 +3409,23 @@ mod tests {
             }}}}
         });
         let u = upgrade("0.51", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+    }
+
+    #[test]
+    fn v0_60_to_0_61_only_bumps_version() {
+        // 足した欄（売る予定・取得の年月・貸していない不動産の細目・出るお金の行のつながる物。0123）は前の版の世帯に無いので、世帯はそのまま
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.60"},
+            "household": {"request": {"input": {"baseMonth": "2026-10", "household": {
+                "accounts": [
+                    {"id": "a1", "kind": "realEstate", "owner": "m1", "asOf": "2026-10", "contributions": []},
+                    {"id": "a2", "kind": "otherAsset", "subtype": "preciousMetal", "owner": "m1", "asOf": "2026-10", "contributions": []}
+                ]
+            }}}}
+        });
+        let u = upgrade("0.60", b.clone()).unwrap();
         assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
     }

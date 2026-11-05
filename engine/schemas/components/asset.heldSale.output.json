@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:asset.heldSale.output",
+  "title": "貸していない不動産・その他の資産の売る予定（売却の手取りと、売ったときの税の元。0123）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "sales"],
+  "properties": {
+    "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
+    "sales": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["object", "owner", "kind", "ym", "value", "price", "costs", "proceeds", "taxation"],
+        "properties": {
+          "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "owner": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "kind": { "enum": ["realEstate", "otherAsset"] },
+          "ym": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "value": { "description": "売る年の年末の評価額（売らなければ）", "$ref": "urn:financia:schema:common#/$defs/yen" },
+          "price": { "description": "売却価格", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "costs": { "description": "売却の費用", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "proceeds": { "description": "手取り（売却価格−売却の費用）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "taxation": { "description": "税の扱い（landBuilding 土地建物等の分離課税・transfer 総合課税の譲渡所得・miscellaneous 雑所得・nonTaxable 非課税）", "enum": ["landBuilding", "transfer", "miscellaneous", "nonTaxable"] },
+          "acquisitionCost": { "description": "取得費（概算取得費のほうが大きければそれ。雑所得は取得価額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "estimated": { "description": "概算取得費（売却価格の5%）を使ったか", "type": "boolean" },
+          "gain": { "description": "売却価格−（取得費＋売却の費用）。マイナスは損失", "$ref": "urn:financia:schema:common#/$defs/yen" },
+          "term": { "description": "長期・短期（譲渡所得だけ）", "enum": ["long", "short"] }
+        }
+      }
+    }
+  }
+}

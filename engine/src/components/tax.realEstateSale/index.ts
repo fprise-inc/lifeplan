@@ -9,12 +9,15 @@
 //   cf.taxSi.residentTax.realEstateSale（売った年の翌年度の住民税。residentTax.annual の年のずれと同じ）
 // - 仮の規約（知らせ N_ASSUMED realEstate.saleTaxSimplified）: 総所得金額から引ききれない所得控除を譲渡所得から引く扱い（措置法31条3項3号）、
 //   特別控除・買換え・取得費加算などの特例、ほかの所得と合わせた申告での端数の処理、給与からの特別徴収は扱わない
+// - 改訂2（0123）: 貸していない不動産の売る予定（asset.heldSale の土地建物等の分離課税の売却）の譲渡所得も、同じ名義の人×年に足す
+//   （知らせは N_ASSUMED heldAsset.saleTaxSimplified）。売る予定の無い世帯の結果は同じ
 import {
   defineComponent,
   formatYm,
   monthIndex,
   yen,
   type Flow,
+  type HeldSaleOutput,
   type RealEstateOutput,
   type RealEstateSaleTaxOutput,
   type Yen,
@@ -39,30 +42,33 @@ export default defineComponent<Record<string, never>, RealEstateSaleTaxOutput>({
   id: "tax.realEstateSale",
   title: "住まい以外の不動産の譲渡所得の税（分離課税）",
   contract: "1.0",
-  revision: 1,
-  requires: { "asset.realEstate": ">=1 <2" },
+  revision: 2,
+  requires: { "asset.realEstate": ">=1 <2", "asset.heldSale": ">=1 <2" },
   params: Object.values(P),
   reads: [],
   input: "empty.input",
   output: "tax.realEstateSale.output",
   compute(_input, ctx) {
-    const sums = new Map<string, { member: string; year: number; short: number; long: number; objects: string[] }>();
-    for (const p of ctx.call<RealEstateOutput>("asset.realEstate", {}).properties) {
-      const s = p.sale;
-      if (s === null || s.gain === undefined || s.term === undefined) continue;
+    const sums = new Map<string, { member: string; year: number; short: number; long: number; objects: string[]; held: string[] }>();
+    const add = (owner: string, object: string, s: { ym: string; gain?: Yen; term?: "long" | "short" }, held: boolean) => {
+      if (s.gain === undefined || s.term === undefined) return;
       const year = Number(s.ym.slice(0, 4));
-      const k = `${p.owner}|${year}`;
-      const x = sums.get(k) ?? { member: p.owner, year, short: 0, long: 0, objects: [] };
+      const k = `${owner}|${year}`;
+      const x = sums.get(k) ?? { member: owner, year, short: 0, long: 0, objects: [], held: [] };
       if (s.term === "long") x.long += s.gain;
       else x.short += s.gain;
-      x.objects.push(p.object);
+      (held ? x.held : x.objects).push(object);
       sums.set(k, x);
-    }
+    };
+    for (const p of ctx.call<RealEstateOutput>("asset.realEstate", {}).properties) if (p.sale !== null) add(p.owner, p.object, p.sale, false);
+    // 貸していない不動産の売る予定（0123）
+    for (const s of ctx.call<HeldSaleOutput>("asset.heldSale", {}).sales) if (s.taxation === "landBuilding") add(s.owner, s.object, s, true);
     const flows: Flow[] = [];
     const byMember: RealEstateSaleTaxOutput["byMember"][number][] = [];
     let missing = false;
     for (const x of [...sums.values()].sort((a, b) => (a.member < b.member ? -1 : a.member > b.member ? 1 : a.year - b.year))) {
       for (const o of x.objects) ctx.notice("N_ASSUMED", [o, "realEstate.saleTaxSimplified"]);
+      for (const o of x.held) ctx.notice("N_ASSUMED", [o, "heldAsset.saleTaxSimplified"]);
       // 短期と長期の間で損失を引く（引ききれない損失は無かったものとみなす）
       let short = x.short;
       let long = x.long;

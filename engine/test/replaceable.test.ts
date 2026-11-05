@@ -51,6 +51,7 @@ const POLICY: Readonly<Record<string, Allow | Deny>> = {
   "gift.tax": "law",
   "inheritance.estimate": "law",
   "asset.realEstate": "law",
+  "asset.heldSale": "law",
   // 法律・制度で決まる計算（社会保険）
   "socialInsurance.coverage": "law",
   "socialInsurance.employeeStatus": "law",

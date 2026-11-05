@@ -11,6 +11,7 @@ import { applyAutoStages, countAt } from "./livingStages.ts";
 import { refreshPropertyTax } from "./propertyTax.ts";
 import { refreshCustomBuild } from "./customBuild.ts";
 import { refreshOwnedHomeTax } from "./ownedHomeTax.ts";
+import { refreshHeldEstateCost } from "./heldEstateTax.ts";
 import {
   businessEstimate as businessStatistic,
   fillsByEstimate,
@@ -133,6 +134,8 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
   refreshPropertyTax(h, last, landShare);
   // 今住んでいる持ち家の固定資産税の推定（推定のままの欄と推定の段だけ。ownedHomeTax.ts。0112 の追記 2026-11-03）
   refreshOwnedHomeTax(h, baseMonth, last, landShare);
+  // 貸していない不動産の毎年の費用（固定資産税）の目安（推定のままの行だけ。heldEstateTax.ts。0123）
+  refreshHeldEstateCost(h, baseMonth, landShare);
   // 推定（おまかせ）のままの失業給付・高年齢雇用継続給付を受け取るかは、期間の終わり・次の期間・年齢に合わせて入れ直す（claims.ts）
   refreshClaims(h);
   // 推定のままの標準報酬月額の置き換え口は外す（空欄にして給与から計算する。前の画面が書いた推定が残っていたとき。0047 の追記 2026-10-29 の2）

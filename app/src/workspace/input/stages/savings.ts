@@ -6,7 +6,9 @@ import { ageAt, ageReachedMonth } from "../../levers.ts";
 import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { confirmedBox, mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
 import { putRow } from "../rows.ts";
-import { ACCOUNT_KINDS, ASSET_CLASSES, memberLabel, memberOptions, OTHER_ASSET_OPTIONS, otherAssetSubtypeOf } from "../labels.ts";
+import { ACCOUNT_KINDS, ASSET_CLASSES, HELD_ESTATE_OPTIONS, HELD_SALE_TAXATION, heldEstateSubtypeOf, memberLabel, memberOptions, OTHER_ASSET_OPTIONS, otherAssetSubtypeOf, VALUATION_DEFAULTS } from "../labels.ts";
+import { addMonths } from "../../levers.ts";
+import { dropHeldCostRows, heldCostRow, heldEstateCostEstimate, heldEstateTaxInputs, newHeldCostRow, startsHeldEstateCost } from "../heldEstateTax.ts";
 import { isRentalProperty, UNENTERED_RENT } from "./rental.ts";
 import { accountName, UNENTERED_BALANCE, defaultPayoutAge, editPayout, INVEST_KINDS, methodOf, payoutAgeOf, rateOf, reservePreset, setSettlement, settlementOf, setStopAge, stopAgeOf, stopEstimateOf } from "../savings/model.ts";
 import { allocationStageGroups, returnStageGroups } from "../staged.ts";
@@ -38,8 +40,12 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   const sub = a.kind === "otherAsset" && a.subtype !== undefined && Object.hasOwn(ASSET_SUBTYPES, a.subtype) ? ASSET_SUBTYPES[a.subtype as keyof typeof ASSET_SUBTYPES] : undefined;
   // 中身（貴金属・暗号資産など。0120）: その他の資産だけ。細目の無いものは「その他」
   const kindOf = a.kind === "otherAsset" && sub === undefined ? otherAssetSubtypeOf(a.subtype) : null;
+  // 貸していない不動産の中身（土地・別荘・空き家など。0123）
+  const estateKind = estate ? heldEstateSubtypeOf(a.subtype) : null;
+  // 中身・評価額・時点を直したら、毎年の費用の目安を入れる（行が無いか推定のままのとき。0123）
+  const costs = (f: FieldDef): FieldDef => (estate ? startsHeldEstateCost(f, a.id) : f);
   const fields: FieldDef[] = [
-    // 種類をその他の資産から変えたら、中身の細目を外す（細目は種類 otherAsset だけ）
+    // 種類を変えたら、中身の細目・毎年の費用の行・税の扱いを外す（細目は種類ごと）
     plain({
       key: `${k}/kind`,
       item: "account.kind",
@@ -50,22 +56,33 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       find,
       path: ["kind"],
       structural: true,
-      after: (_h, t, v) => {
-        if (v !== "otherAsset") delete t.subtype;
-        // 暗号資産（金融資産の器。0122）へ変えたら、評価額の増減率を器の利回りへ移す（暗号資産は増減率を読まない）
-        if (v === "cryptoAsset" && t.valueGrowth !== undefined) {
-          t.expectedReturn ??= t.valueGrowth;
-          delete t.valueGrowth;
+      after: (h, t, v) => {
+        if (v === a.kind) return;
+        delete t.subtype;
+        dropHeldCostRows(h, a.id);
+        const sale = t.sale as { taxation?: string } | undefined;
+        if (sale !== undefined) delete sale.taxation;
+        // 暗号資産（金融資産の器。0122）へ変えたら、評価額の増減率を器の利回りへ移す（暗号資産は増減率を読まない）。売る予定は持たない
+        if (v === "cryptoAsset") {
+          delete t.sale;
+          delete t.acquiredAt;
+          if (t.valueGrowth !== undefined) {
+            t.expectedReturn ??= t.valueGrowth;
+            delete t.valueGrowth;
+          }
         }
       },
     }),
     ...(a.kind === "otherAsset" && sub === undefined
-      ? [plain({ key: `${k}/subtype`, item: "account.subtype", label: "中身", level: "simple", kind: "select", options: OTHER_ASSET_OPTIONS, find, path: ["subtype"], fallback: "other", structural: true, help: kindOf?.note ?? "資産と負債のタブ・提案書のバランスシートで、中身ごとの行に分けて見せます（同じ中身はまとめます）。計算は中身で変わりません" })]
+      ? [plain({ key: `${k}/subtype`, item: "account.subtype", label: "中身", level: "simple", kind: "select", options: OTHER_ASSET_OPTIONS, find, path: ["subtype"], fallback: "other", structural: true, help: kindOf?.note ?? "資産と負債のタブ・提案書のバランスシートで、中身ごとの行に分けて見せます（同じ中身はまとめます）。売る予定の税の扱いの既定も中身で決めます" })]
+      : []),
+    ...(estate
+      ? [costs(plain({ key: `${k}/subtype`, item: "account.subtype", label: "中身", level: "simple", kind: "select", options: HELD_ESTATE_OPTIONS, find, path: ["subtype"], fallback: "other", structural: true, help: estateKind?.note ?? "土地・別荘・空き家を選ぶと、毎年かかる費用（固定資産税・都市計画税）の目安を入れます。計算は中身で変わりません" }))]
       : []),
     plain({ key: `${k}/owner`, item: "account.owner", label: "名義", level: "simple", kind: "select", options: memberOptions(wh), find, path: ["owner"] }),
-    yenBox({ key: `${k}/value`, item: "account.marketValue", label: a.subtype === "ownCompanyShares" ? "出資額（払い込んだ額）" : a.subtype === "loanToCompany" ? "今の貸付金の残り" : "今の評価額", level: "simple", basis: "once", find, path: ["marketValue"] }),
+    costs(yenBox({ key: `${k}/value`, item: "account.marketValue", label: a.subtype === "ownCompanyShares" ? "出資額（払い込んだ額）" : a.subtype === "loanToCompany" ? "今の貸付金の残り" : "今の評価額", level: "simple", basis: "once", find, path: ["marketValue"] })),
     // 開いても欄が1つだけになるので、標準でも出す
-    plain({ key: `${k}/asOf`, item: "account.asOf", label: "評価額の時点", level: "simple", kind: "ym", find, path: ["asOf"] }),
+    costs(plain({ key: `${k}/asOf`, item: "account.asOf", label: "評価額の時点", level: "simple", kind: "ym", find, path: ["asOf"] })),
     plain({
       key: `${k}/growth`,
       item: "account.valueGrowth",
@@ -79,12 +96,14 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       help: estate ? "入れなければ前提条件の不動産の利回り（入れていなければ0）。マイナスも入れられます" : "入れなければ0（評価額のまま）。値下がりするものはマイナスで入れます",
     }),
   ];
+  if (estate) fields.push(heldCostField(wh, a));
   // 細目のある資産は種類を変えない（名前が細目で決まるため）・増減させない（出資額・貸付金の残りのまま）
   if (sub !== undefined) for (const key of [`${k}/growth`, `${k}/kind`]) fields.splice(fields.findIndex((f) => f.key === key), 1);
   const actions: ActionDef[] = [
     removeAction(`${k}/remove`, "外す", "simple", (h) => {
       h.accounts = (h.accounts ?? []).filter((x) => x.id !== a.id);
       for (const d of h.debts ?? []) if (d.property === a.id) delete d.property;
+      dropHeldCostRows(h, a.id);
     }),
   ];
   // 貸している不動産なら、収益不動産へ移す（中身を持たせる。家賃は未入力の印で始める）
@@ -97,19 +116,150 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       run: (w) =>
         mutate(w, (h) => {
           const x = (h.accounts ?? []).find((y) => y.id === a.id);
-          if (x !== undefined) x.property ??= { rental: { monthly: standardBox(0, UNENTERED_RENT) } };
+          if (x !== undefined) moveToRental(h, x);
         }),
     });
-  return [
+  const groups: GroupDef[] = [
     {
       key: k,
-      title: `${estate ? "貸していない不動産" : (sub?.label ?? kindOf?.short ?? "その他の資産")}（${memberLabel(wh, a.owner)}）`,
+      title: `${estate ? (estateKind?.short ?? "貸していない不動産") : (sub?.label ?? kindOf?.short ?? "その他の資産")}（${memberLabel(wh, a.owner)}）`,
       ...(estate ? { note: "評価額だけで持つ不動産（貸していない土地・別荘など）です。人に貸している物件は「収益不動産」で入れます（「収益不動産へ移す」で移せます）" } : sub !== undefined ? { note: sub.note } : {}),
       level: "simple",
       fields,
       actions,
     },
   ];
+  // 売る予定（役員の細目〔出資額・貸付金〕は売らない。0123）
+  if (sub === undefined) groups.push(saleGroup(wh, a));
+  return groups;
+}
+
+/** 貸していない不動産の毎年の費用（固定資産税・管理費など）: 物の ID でつないだ出るお金の行の額（0123。heldEstateTax.ts） */
+function heldCostField(wh: WorkingHousehold, a: Account): FieldDef {
+  const k = `sav/${a.id}`;
+  const row = heldCostRow(wh.request.input.household, a.id);
+  const canEstimate = heldEstateTaxInputs(a, wh.request.input.baseMonth, wh.request.input.assumptions?.realEstateValuation?.landShare) !== null;
+  const f = yenBox({
+    key: `${k}/cost`,
+    item: "periodicExpense.amount",
+    label: "毎年かかる費用（固定資産税・管理費など）",
+    level: "simple",
+    basis: "annual",
+    find: (h) => heldCostRow(h, a.id) as unknown as Record<string, unknown> | undefined,
+    ensure: (h, w) => {
+      const p = newHeldCostRow(a.id, w.request.input.baseMonth, { value: 0, state: "confirmed", origin: { kind: "manual" } });
+      (h.periodicExpenses ??= []).push(p);
+      return p as unknown as Record<string, unknown>;
+    },
+    path: ["amount"],
+    optional: true,
+    estimate: (_h, w) => heldEstateCostEstimate(w, a.id),
+    help: `年額です。毎年払い、売る予定を入れたら売る月から払いません（額は伸ばしません）。${canEstimate ? "空にすると固定資産税・都市計画税の目安（評価額と中身から出した額。管理費などは含みません）に戻ります。管理費・管理委託・草刈りなどがあれば足した額を入れます" : "中身で土地・別荘・空き家を選ぶと、固定資産税・都市計画税の目安が入ります"}`,
+  });
+  // 空にして目安も出ない行は外す（額の無い行を残さない）
+  const tidy = (w: WorkingHousehold): WorkingHousehold =>
+    mutate(w, (h) => {
+      const p = heldCostRow(h, a.id);
+      if (p !== undefined && (p.amount === undefined || p.amount.value === null || p.amount.value === undefined)) dropHeldCostRows(h, a.id);
+    });
+  return {
+    ...f,
+    ...(row !== undefined ? { address: () => ({ target: { object: row.id }, item: "periodicExpense.amount", at: [] }) } : {}),
+    set: (w, v) => tidy(f.set(w, v)),
+    ...(f.write !== undefined ? { write: (w: WorkingHousehold, v: Parameters<FieldDef["set"]>[1]) => tidy(f.write!(w, v)) } : {}),
+    ...(f.boxed !== undefined ? { boxed: { ...f.boxed, write: (w: WorkingHousehold, box: Record<string, unknown> | undefined) => tidy(f.boxed!.write(w, box)) } } : {}),
+  };
+}
+
+/** 売る予定（貸していない不動産・その他の資産。0123）: 売る時期・売却価格・費用・税の扱い・取得価額・取得の年月 */
+function saleGroup(wh: WorkingHousehold, a: Account): GroupDef {
+  const find = byId(accounts, a.id);
+  const k = `sav/${a.id}/sale`;
+  const estate = a.kind === "realEstate";
+  const self = wh.request.input.household.members.find((m) => m.kind === "self");
+  const ageOf = self !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === self.id) } : {};
+  const setting = wh.request.input.assumptions?.realEstateValuation;
+  const help = estate
+    ? "売ると、売却価格から売却の費用を引いた手取りが預金に入り、その年の年末から不動産は無くなります（毎年の費用も売る月から払いません）。譲渡所得の税（売った年の1月1日に所有期間が5年を超えれば長期で所得税15%・住民税5%、5年以下は短期で30%・9%。復興特別所得税などを含む）を、翌年3月の所得税と翌年度の住民税として計算します。取得費は取得価額（入っていなければ売却価格の5%）です"
+    : "売ると、売却価格から売却の費用を引いた手取りが預金に入り、その年の年末から資産は無くなります。貴金属・美術品・会員権などは総合課税の譲渡所得（取得から5年を超えれば長期で2分の1、特別控除50万円）として、その年の所得税・翌年度の住民税に入れます。生活に使う家具・衣服や、1個（1組）30万円以下の貴金属・美術品は非課税です";
+  const fields: FieldDef[] = [
+    field({
+      key: `${k}/on`,
+      item: "account.sale",
+      label: "売る予定がある",
+      level: "simple",
+      kind: "bool",
+      structural: true,
+      help,
+      get: (w) => ({ value: (find(w.request.input.household, w) as Account | undefined)?.sale !== undefined }),
+      set: (w, v) =>
+        mutate(w, (h) => {
+          const x = find(h, w) as Account | undefined;
+          if (x === undefined) return;
+          if (v === true) x.sale ??= { at: { at: addMonths(w.request.input.baseMonth, 120) } };
+          else delete x.sale;
+        }),
+    }),
+  ];
+  if (a.sale !== undefined) {
+    fields.push(
+      timepointField({ key: `${k}/at`, item: "account.sale", label: "売る時期", level: "simple", find, path: ["sale", "at"], ...ageOf }),
+      plain({ key: `${k}/price`, item: "account.sale", label: "売却価格", level: "simple", kind: "yen", basis: "once", find, path: ["sale", "price"], optional: true, help: "入れなければ、売る年の年末の評価額（増減率で動かした額）で売るとみなします" }),
+      plain({
+        key: `${k}/costRate`,
+        item: "account.sale",
+        label: "売却の費用（売却価格に対する割合）",
+        level: "detail",
+        kind: "pct",
+        find,
+        path: ["sale", "costRate"],
+        optional: true,
+        fallback: estate ? (setting?.saleCostRate ?? VALUATION_DEFAULTS.saleCostRate) : "0",
+        help: estate ? "仲介手数料・印紙税など。譲渡所得の計算では譲渡費用として引きます" : "買取の手数料など。入れなければ0。譲渡所得の計算では譲渡費用として引きます",
+      }),
+    );
+    if (!estate)
+      fields.push(
+        plain({
+          key: `${k}/taxation`,
+          item: "account.sale",
+          label: "売ったときの税",
+          level: "simple",
+          kind: "select",
+          options: HELD_SALE_TAXATION,
+          find,
+          path: ["sale", "taxation"],
+          optional: true,
+          fallback: a.subtype === "securityDeposit" ? "nonTaxable" : "transfer",
+          help: "入れなければ中身から決めます（敷金・保証金は非課税、ほかは譲渡所得）。家具・衣服など生活に使う物や、1個（1組）30万円以下の貴金属・美術品は非課税を選びます。金地金・会員権は値段によらず譲渡所得です",
+        }),
+      );
+    const taxed = estate || (a.sale.taxation ?? (a.subtype === "securityDeposit" ? "nonTaxable" : "transfer")) !== "nonTaxable";
+    if (taxed)
+      fields.push(
+        yenBox({ key: `${k}/cost`, item: "account.costBasis", label: "取得価額（買ったときの代金と諸費用）", level: "detail", basis: "once", find, path: ["costBasis"], optional: true, help: estate ? "購入の代金と仲介手数料・登記などの諸費用の合計。相続・贈与で受け取った物は、元の持ち主の取得価額です。入れなければ、売却価格の5%（概算取得費）で計算します" : "買ったときの代金と手数料の合計。相続・贈与で受け取った物は、元の持ち主の取得価額です。入れなければ、売却価格の5%（概算取得費）で計算します" }),
+        plain({ key: `${k}/acquiredAt`, item: "account.acquiredAt", label: "取得の年月", level: "detail", kind: "ym", find, path: ["acquiredAt"], optional: true, help: estate ? "売った年の1月1日に5年を超えて持っていれば長期譲渡です。入れなければ長期とみなします。相続・贈与で受け取った物は、元の持ち主の取得の年月です" : "取得から売るまでが5年を超えれば長期譲渡（2分の1を課税）です。入れなければ長期とみなします。相続・贈与で受け取った物は、元の持ち主の取得の年月です" }),
+      );
+  }
+  return { key: k, title: "売る予定", level: "simple", moreLabel: "売却の費用・取得価額を入れる", fields, actions: [] };
+}
+
+/** 貸していない不動産を収益不動産へ移す: 中身を持たせ、売る予定・取得・毎年の費用を中身の欄へ移す（0123） */
+function moveToRental(h: Household, x: Account): void {
+  const cost = heldCostRow(h, x.id);
+  const p: NonNullable<Account["property"]> = x.property ?? { rental: { monthly: standardBox(0, UNENTERED_RENT) } };
+  if (x.sale !== undefined) p.sale = { at: x.sale.at, ...(x.sale.price !== undefined ? { price: x.sale.price } : {}), ...(x.sale.costRate !== undefined ? { costRate: x.sale.costRate } : {}) };
+  const basis = x.costBasis?.value;
+  if (typeof basis === "number" && x.acquiredAt !== undefined) {
+    p.acquisition = { price: basis, at: x.acquiredAt };
+    delete x.costBasis;
+  }
+  if (cost !== undefined && typeof cost.amount.value === "number") p.expenses = { annual: cost.amount };
+  x.property = p;
+  delete x.sale;
+  delete x.acquiredAt;
+  delete x.subtype;
+  dropHeldCostRows(h, x.id);
 }
 
 function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {

@@ -265,6 +265,7 @@
 | 構造ごとの耐用年数（木造22・軽量鉄骨19・重量鉄骨34・RC47年） | `app/src/workspace/input/labels.ts` の `USEFUL_LIFE`・`engine/src/sdk/helpers.ts`・`engine/src/components/asset.realEstate/index.ts` の `TAX_USEFUL_LIFE` | 法令（減価償却資産の耐用年数等に関する省令）。法改正のとき |
 | ヒアリングの住宅ローン控除の仮の条件（新築は省エネ基準適合住宅・中古は一般の住宅・持分100%） | `hearing/src/import.ts` | 法令（仮定）。法改正のとき |
 | 固定資産税の標準税率1.4%・都市計画税の上限0.3%・小規模住宅用地の特例（1/6・1/3）・新築住宅の減額（建物の1/2、戸建て3年・マンション5年、認定長期優良住宅は5年・7年）・評価替えの3年ごと（0112） | `app/src/workspace/input/propertyTax.ts` の `PROPERTY_TAX_LAW` | 法令（地方税法 第350条・第702条の4・第349条の3の2・第702条の3・附則第15条の6・第15条の7・第341条）。法改正のとき（**新築の軽減の期限の延長は見直しのたびに確かめる**）。購入の予定と今住んでいる持ち家（0112 の追記 2026-11-03）の両方の推定に使う |
+| 特例の当たらない宅地（別荘の敷地・更地）の固定資産税・都市計画税の課税標準の上限＝評価額の70%（0123） | `app/src/workspace/input/heldEstateTax.ts` の `HELD_ESTATE_LAW` | 法令（地方税法 附則第18条・第25条。商業地等の負担水準の上限）。法改正のとき。貸していない不動産の毎年の費用の目安だけに使う |
 | 自動車税（種別割）の標準税率 年3.6万円・あげる贈与の行の110万円・所得割10%・第一種奨学金の0% | `hearing/src/estimates.ts`・`app/src/workspace/input/moneyRows.ts`・`stages/housingLoans.ts` | 法令・制度の値 |
 | 国の教育ローンの融資の上限（350万円・450万円）・返済期間の上限（20年）・奨学金の返還年数算出表・留学の支援制度の支給の上限 | `app/src/workspace/input/stages/education.ts` | 制度の値（公表の改定のとき） |
 | 金利の目安の予備の値（住宅ローン 変動0.8%・ほか2%・今返している分0.8%、奨学金1%・今返している分0.75%、自動車ローン2.5%） | `hearing/src/housingEstimates.ts` の `FALLBACK`・`CURRENT_FALLBACK`・`hearing/src/loanRates.ts` の `estimateOf` | マスタデータの写しが読めないときだけの予備（ふだんは1章の値。事務所の値は1章の値で変える）。毎リリース、マスタデータと大きくずれていないか |
