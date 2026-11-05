@@ -60,7 +60,8 @@ export function assumptionRows(wh: WorkingHousehold): AssumptionRow[] {
     for (const g of sec.groups)
       for (const f of g.fields) {
         const group: ListGroup | null = ECONOMY.has(f.key) ? "economy" : sec.key === "assume/main" ? "range" : sec.key === "assume/realEstate" && g.key === "assume/realEstate/fields" ? "realEstate" : null;
-        if (group === null || f.key.startsWith("assume/endYear/age/")) continue;
+        // 表の最後の年は年の欄の行1つ（年齢で入れる欄・何歳まで見るかの選び方は同じ値の別の入れ方）
+        if (group === null || f.key.startsWith("assume/endYear/age/") || f.key === "assume/endYear/choice") continue;
         const st = f.get(wh);
         const s = fieldStatus(f, wh);
         const ex = st.derived ?? null;

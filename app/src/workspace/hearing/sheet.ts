@@ -9,7 +9,7 @@ import { approveAll, createHearingSheet, exportableSheets, importHearingSheet, k
 import type { EngineRequest as HearingEngineRequest } from "../../../../hearing/src/types.ts";
 import { fillsByEstimate } from "../../../../hearing/src/estimates.ts";
 import type { EngineRequest, Household, Member } from "../../engine/types.ts";
-import { endYearIsStandard, standardEndYear, type WorkingHousehold } from "../input/household.ts";
+import { endYearForAge, followedEndAge, type WorkingHousehold } from "../input/household.ts";
 import { fillEducation } from "../input/fill.ts";
 import { memberLabels } from "../input/labels.ts";
 import { withDeathEstimate } from "../input/stages/care.ts";
@@ -471,9 +471,13 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
     const rest = JSON.stringify({ ...h, events: [] });
     h.events = (h.events ?? []).filter((e) => !dropped.has(e.id) || rest.includes(e.id));
   }
-  // 表の最後の年: 大人が入れ替わったら、一番若い大人が100歳になる年まで（0008 の3）。取り込む前に標準のままだった年だけ合わせる
-  // （人が入れた年・確定した年は変えない。家族の欄の追いかけ〔followStandards〕と同じ決まり）
-  if (chosen.some((c) => c.collection === "members") && endYearIsStandard(wh.request)) request.input.endYear = standardEndYear(h);
+  // 表の最後の年: 大人が入れ替わったら、一番若い大人が100歳（か選んだ年齢）になる年まで（0008 の3）。取り込む前に標準・選び方の年齢の年の
+  // ままだった年だけ合わせる（人が年で入れた年・確定した年は変えない。家族の欄の追いかけ〔followStandards〕と同じ決まり。0070 の追記 2026-11-05）
+  const endAge = followedEndAge(wh.request);
+  if (chosen.some((c) => c.collection === "members") && endAge !== null) {
+    const y = endYearForAge(h, endAge);
+    if (Number.isFinite(y)) request.input.endYear = y;
+  }
   // 推定・仮の印: 入れた物の assumed を、今の世帯の ID に読み替えて入れる。置き換えた物の古い印は外す
   const touched = new Set(chosen.map((c) => ids.get(c.target.object) ?? c.target.object));
   const assumed: Record<string, string> = {};

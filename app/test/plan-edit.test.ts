@@ -45,7 +45,8 @@ describe("どの数の欄も、プランを選んで直すとそのプランの�
     for (const stage of buildStages(view))
       for (const f of allFields(stage)) {
         const card = allFields(stage);
-        if (f.readOnly !== undefined || f.structural === true || f.sideEffects !== undefined) continue;
+        // どのプランにも共通の欄（表の最後の年）は差分にしない（test/end-year-common.test.ts。0043 の追記 2026-11-05）
+        if (f.readOnly !== undefined || f.structural === true || f.sideEffects !== undefined || f.planShared !== undefined) continue;
         const now = f.get(view).value;
         const nv = bumped(f, now);
         if (nv === null) continue;
@@ -96,7 +97,7 @@ describe("選択・オンオフ・年月の欄も、プランを選んで直す�
     for (const stage of buildStages(view)) {
       const card = allFields(stage);
       for (const f of card) {
-        if (f.readOnly !== undefined || f.sideEffects !== undefined) continue;
+        if (f.readOnly !== undefined || f.sideEffects !== undefined || f.planShared !== undefined) continue;
         const now = f.get(view).value;
         const nv = other(f, now);
         if (nv === null) continue;
@@ -111,7 +112,9 @@ describe("選択・オンオフ・年月の欄も、プランを選んで直す�
         expect(JSON.stringify(w.request), f.key).toBe(reqBefore);
         expect(w.proposals[0]!.diffs.length, f.key).toBeGreaterThan(0);
         const v2 = planView(w, cat, "B");
-        expect(canon(v2), f.key).toBe(canon(edited));
+        // プランで大人の続柄・生年月を直して付いていった表の最後の年は、プランに持たない（どのプランも現状と同じ年で終わる。0043 の追記 2026-11-05）
+        expect(v2.request.input.endYear, f.key).toBe(wh.request.input.endYear);
+        expect(canon(v2), f.key).toBe(canon({ ...edited, request: { ...edited.request, input: { ...edited.request.input, endYear: wh.request.input.endYear } } }));
         const back = settleFields(recordPlanEdit(w, cat, "B", v2, f.set(v2, now as string)), cat, "B", card);
         const v3 = planView(back, cat, "B");
         // 戻した世帯がもとの世帯と同じなら、差分は残らない

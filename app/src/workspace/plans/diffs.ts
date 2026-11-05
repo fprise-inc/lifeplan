@@ -51,6 +51,21 @@ export interface PlanDiff {
 
 export const isLever = (t: DiffTarget): t is { lever: string; object?: string; member?: string } => "lever" in t;
 
+/**
+ * どのプランにも共通の入力項目（世帯で1つの値。プランの差分にしない。0043 の追記 2026-11-05）: 表の最後の年。プランの表はいつも現状と同じ年で終わる。
+ * プランを直している間にこの欄を変えると現状に書き（planEdit.ts の recordPlanEdit）、前の版で作った差分は読むときに外して知らせる（plans/sharedItems.ts）
+ */
+export const PLAN_SHARED_ITEMS: ReadonlySet<string> = new Set(["plan.endYear"]);
+
+/** 表の最後の年を人の年齢で入れる欄の合成の対策（0036 の追記 2026-10-29。共通の項目なのでプランには持たない） */
+export const PLAN_SHARED_LEVERS: ReadonlySet<string> = new Set(["endYearAge"]);
+
+/** どのプランにも共通の項目を変える差分か（当て先が要求の入力の共通の項目・その合成の対策） */
+export function isSharedDiff(d: Pick<PlanDiff, "target" | "item">): boolean {
+  if (isLever(d.target)) return PLAN_SHARED_LEVERS.has(d.target.lever);
+  return "plan" in d.target && d.target.plan === "input" && d.item !== null && PLAN_SHARED_ITEMS.has(d.item);
+}
+
 /** 差分の当て先（値を変える差分で、合成の対策でも読み替えられなかった差分でもないもの） */
 export function addressOf(d: PlanDiff): Address | null {
   if (d.op !== "set" || d.unresolved === true || isLever(d.target) || "collection" in d.target || d.item === null || d.at === null) return null;

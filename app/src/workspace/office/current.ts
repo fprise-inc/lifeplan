@@ -31,9 +31,11 @@ export interface OfficeNow {
   basis: string;
   /** FP顧問料の料金表 */
   fee: FeeTable;
+  /** 表の最後の年の既定の年齢（若い方の大人がこの年齢になる年まで。90・95・100・105。null は提供元の既定の100歳。0073 の追記 2026-11-05） */
+  endAge: number | null;
 }
 
-export const STANDARD_OFFICE_NOW: OfficeNow = { inheritLikelihood: "likely", assumptions: {}, basis: "事務所の既定値", fee: STANDARD_FEE_TABLE };
+export const STANDARD_OFFICE_NOW: OfficeNow = { inheritLikelihood: "likely", assumptions: {}, basis: "事務所の既定値", fee: STANDARD_FEE_TABLE, endAge: null };
 
 let now: OfficeNow = STANDARD_OFFICE_NOW;
 

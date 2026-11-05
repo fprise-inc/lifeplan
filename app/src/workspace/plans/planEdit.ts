@@ -5,6 +5,7 @@
 //   物の種類が変わった所（賃貸⇄持ち家・働き方の種類など）は置き換えの組（同じ pair の remove と add）
 // - 現状と違う所の印・戻す・違いの一覧（diffRows）・カードごとの数もここで作る
 // 欄のキーは差分に書かない（当て先だけ。0036 の2）。世帯ファイルの形は変えない
+// - どのプランにも共通の項目（表の最後の年。0043 の追記 2026-11-05）は差分にせず、現状に書く（sharedToCurrent）
 import type { Proposal } from "./plans.ts";
 import { acknowledge, applyPlan, chainOf, diffKey, dropChange, findPlan, rowKeyOf, setPlanValue, type Review } from "./plans.ts";
 import { addressOf, boxAt, isLever, sameJson, type DiffBox, type PlanDiff } from "./diffs.ts";
@@ -532,15 +533,54 @@ export function refersTo(obj: unknown, id: string, top = true): boolean {
   return Object.entries(obj).some(([k, v]) => !(top && k === "id") && k !== "valueStates" && refersTo(v, id, false));
 }
 
+/** 表の最後の年の値の状態の行（要求の入力の valueStates の "plan.endYear"） */
+const endYearRow = (i: Obj): unknown => (isObj(i.valueStates) ? i.valueStates["plan.endYear"] : undefined);
+
+/** 大人（本人・配偶者）の続柄と生年月（表の最後の年の標準の年を決める物） */
+const adultsKey = (wh: WorkingHousehold): string =>
+  JSON.stringify(wh.request.input.household.members.filter((m) => m.kind === "self" || m.kind === "spouse").map((m) => [m.id, m.kind, m.birth]));
+
+/**
+ * どのプランにも共通の項目（表の最後の年。diffs.ts の PLAN_SHARED_ITEMS。0043 の追記 2026-11-05）を、プランの差分にせず現状に書く。
+ * - 表の最後の年の欄（年・年齢・何歳まで見るか）・その「この値にする」などで変えた値は、現状の表の最後の年（と値の状態の行）にする
+ * - プランで大人の生年月・続柄を直したことで付いていった表の最後の年（followStandards）は、現状に書かず、プランの中身も現状の値のままにする
+ *   （プランの表はいつも現状と同じ年で終わる）
+ * 返す after は、現状に書いた後のプランの中身と表の最後の年がそろった世帯（差分を作るときに表の最後の年の違いが出ない）
+ */
+function sharedToCurrent(wh: WorkingHousehold, before: WorkingHousehold, after: WorkingHousehold): { wh: WorkingHousehold; after: WorkingHousehold } {
+  const bi = inputOf(before);
+  const ai = inputOf(after);
+  if (bi.endYear === ai.endYear && sameJson(endYearRow(bi) ?? null, endYearRow(ai) ?? null)) return { wh, after };
+  const withEnd = (w: WorkingHousehold, from: Obj): WorkingHousehold => {
+    const request = structuredClone(w.request);
+    const input = request.input as unknown as Obj;
+    input.endYear = from.endYear;
+    const row = endYearRow(from);
+    const rows = (isObj(input.valueStates) ? input.valueStates : {}) as Obj;
+    if (row === undefined) delete rows["plan.endYear"];
+    else rows["plan.endYear"] = structuredClone(row);
+    if (Object.keys(rows).length > 0) input.valueStates = rows;
+    else delete input.valueStates;
+    return { ...w, request };
+  };
+  // 家族を直したことで変わった表の最後の年: 現状の値に戻す
+  if (adultsKey(before) !== adultsKey(after)) return { wh, after: withEnd(after, bi) };
+  return { wh: withEnd(wh, ai), after };
+}
+
 /**
  * 入力の部品で直した作業中の世帯を、そのプランの差分にする（0036 の8）。before は直す前の作業中の世帯（planView）、after は部品が返した世帯。
  * 違いを差分にしてから当て直し、まだ違う所があればもう一度（足した物を戻した後の中の値など）。現状（request）は変えない
+ * （どのプランにも共通の項目〔表の最後の年〕だけは現状に書く。sharedToCurrent）
  */
-export function recordPlanEdit(wh: WorkingHousehold, cat: Catalog, pid: string, before: WorkingHousehold, after: WorkingHousehold, opts: RecordOptions = {}): WorkingHousehold {
+export function recordPlanEdit(wh: WorkingHousehold, cat: Catalog, pid: string, before: WorkingHousehold, after0: WorkingHousehold, opts: RecordOptions = {}): WorkingHousehold {
   if (findPlan(wh.proposals, pid) === undefined) return wh;
+  // どのプランにも共通の項目（表の最後の年）は、プランの差分にせず現状に書く（0043 の追記 2026-11-05）
+  const shared = sharedToCurrent(wh, before, after0);
+  const after = shared.after;
   const to = inputOf(after);
-  let w = wh;
-  let from = inputOf(before);
+  let w = shared.wh;
+  let from = inputOf(w === wh ? before : planView(w, cat, pid));
   for (let i = 0; i < 4; i++) {
     const changes = householdChanges(from, to);
     if (changes.length === 0) break;

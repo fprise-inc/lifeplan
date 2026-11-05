@@ -196,7 +196,7 @@ describe("表の最後の年", () => {
     expect(fieldOf(wh, "assume/conv/timing").get(wh).value).toContain("年の真ん中");
   });
 
-  it("プランで表の最後の年を直すと、要求の入力の差分（plan.endYear）になる", () => {
+  it("プランで表の最後の年を直しても、プランの差分にせず現状の表の最後の年が変わる（どのプランにも共通。0043 の追記 2026-11-05）", () => {
     const wh0 = open();
     const self = roles(wh0.request).find((r) => r.key === "self")!.member;
     const plan: Proposal = { id: "00000000-0000-4000-8000-00000000b070", name: "プランB", base: null, diffs: [], tags: [], createdAt: "2026-10-27T00:00:00Z", updatedAt: "2026-10-27T00:00:00Z", origin: { kind: "manual" } } as unknown as Proposal;
@@ -205,7 +205,9 @@ describe("表の最後の年", () => {
     const before = planView(wh, cat, plan.id);
     const after = fieldOf(before, "assume/endYear").set(before, 2070);
     const n = recordPlanEdit(wh, cat, plan.id, before, after);
-    expect(n.proposals[0]!.diffs).toMatchObject([{ op: "set", target: { plan: "input" }, item: "plan.endYear", at: [] }]);
+    expect(n.proposals[0]!.diffs).toEqual([]);
+    expect(n.request.input.endYear).toBe(2070);
+    expect(planView(n, cat, plan.id).request.input.endYear).toBe(2070);
   });
 });
 

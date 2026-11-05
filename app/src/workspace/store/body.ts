@@ -89,6 +89,8 @@
 //   退職給付の学歴 retirementBenefits[].education は書かない（本体の変換の段が前の値ID を直し、学歴を外し、開いたときの知らせ neutralEstimates を足す）
 //   （0.46 のまま。0041 の追記 2026-11-01）: 「書類で確かめる」は今の自動車ローン（kind car の負債）の欄に出し、これから買う車のローン
 //   （cars[].valueStates の car.loan/…）には出さない。前に付けた所は読むときに推定にし、開いたときの知らせ carLoanEstimated を足す（形は変えない）
+//   （0.58 のまま。0043 の追記 2026-11-05）: 表の最後の年（plan.endYear）はどのプランにも共通にした。前の画面で作ったプランの差分の表の最後の年
+//   （と合成の対策 endYearAge）は読むときに外し、開いたときの知らせ planEndYearShared を足す（形は変えない。plans/sharedItems.ts）
 // - proposals: 案（数に上限なし。0008 の5）。案の名前は `title` に入れる（0012 の禁止語の検査に当たらない名前）
 // - hearing: ヒアリングの依頼・取り込み・同意の下書きの記録（0018。取り込みの記録・同意の記録への分け方は後の版）
 // - workspace: 案の帯の並び・基準の案・選んだ案・対策に足した項目・出発点にした見本
@@ -120,6 +122,7 @@ import { emptyPlan } from "../contingency/planData.ts";
 import type { HearingLog } from "../hearing/sheet.ts";
 import { withElementIds, withoutPlainMarks, type WorkingHousehold } from "../input/household.ts";
 import { withoutFutureCarLoanDocs } from "../input/carLoanDocs.ts";
+import { withoutSharedPlanDiffs } from "../plans/sharedItems.ts";
 import { withLegacyAllowanceNotice } from "../input/livingAllowance.ts";
 import { withLegacyPetNotice } from "../input/petTemplate.ts";
 import { extWithParts, LIVING_PARTS_EXT, partsToSave, readLivingParts } from "../input/livingParts.ts";
@@ -256,7 +259,8 @@ export function fromBody(json: string): BodyState {
   // これから買う車のローンに付けた「書類で確かめる」は、読むときに推定にする（値はそのまま。carLoanDocs.ts。0041 の追記 2026-11-01）。
   // 内訳の仕送り（前の内訳）に値があれば、ほかの入力項目に移すよう知らせる（値はそのまま。livingAllowance.ts。0106）。
   // 前の「＋ 項目を追加」のペットの行があれば、えさ・用品と病気・けがの入れ先を知らせる（行はそのまま。petTemplate.ts。0106 の追記）
-  const wh: WorkingHousehold = withLegacyPetNotice(withLegacyAllowanceNotice(withoutFutureCarLoanDocs(withoutPlainMarks({
+  // プランで変えていた表の最後の年（前の版の差分）は外し、どのプランも現状の年で終わると知らせる（表の最後の年はどのプランにも共通。sharedItems.ts。0043 の追記 2026-11-05）
+  const wh: WorkingHousehold = withoutSharedPlanDiffs(withLegacyPetNotice(withLegacyAllowanceNotice(withoutFutureCarLoanDocs(withoutPlainMarks({
     labelsByMember: {},
     postRetirement: {},
     memo: [],
@@ -269,7 +273,7 @@ export function fromBody(json: string): BodyState {
     request: withElementIds(h.request),
     proposals,
     ...(isObj(b.hearing) ? { hearing: b.hearing as unknown as HearingLog } : {}),
-  }))));
+  })))));
   // 次回確かめるの印（0.29 から）: 形の合わない行は捨て、空なら欄を持たない
   const recheck = readRecheck(wh.recheck);
   if (recheck.length > 0) wh.recheck = recheck;

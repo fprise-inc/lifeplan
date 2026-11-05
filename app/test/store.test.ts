@@ -81,7 +81,8 @@ function sample(): BodyState {
 /** 0.14 から: 明細の取り込みの記録（架空。元のファイルは持たず、指紋と番号を消した後の行・FP が決めたこと・世帯の決まりだけ。0034） */
 /**
  * 0.17 の見本の世帯（0035 の12）: sample() に、贈与者（世帯ファイルでは世帯の外の家族の構成員）・仮の印（値の状態の欄）・欄の差分
- * （当て先）・表の最後の年の差分（要求の入力）・世帯の外の家族の印のある親を足す。足す・外す・置き換えの組などは、書き出した後に足す
+ * （当て先）・世帯の外の家族の印のある親を足す。足す・外す・置き換えの組などは、書き出した後に足す。
+ * 表の最後の年の値も渡すが、どのプランにも共通の項目なので差分にならない（0043 の追記 2026-11-05。前は要求の入力の差分になっていた）
  */
 function sample017(): BodyState {
   const s = sample();
@@ -1225,7 +1226,11 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   it("0.17 の見本を読んで書き戻しても、差分（足す・外す・置き換えの組・読み替えられなかった差分を含む）・値の状態の欄・世帯の外の家族・知らせを失わない", () => {
     const body = JSON.parse(readFileSync(join(REPO_DIR, "crates", "household-store", "tests", "fixtures", "household-format", "0.17", "body.json"), "utf8")) as Record<string, Record<string, unknown>>;
     const again = bodyObject(fromBody(JSON.stringify(body))) as unknown as Record<string, Record<string, unknown>>;
-    expect(again.proposals).toEqual(body.proposals);
+    // 表の最後の年の差分（プランD）だけは、どのプランにも共通にしたので読むときに外し、開いたときの知らせを足す（0043 の追記 2026-11-05）
+    const plans = body.proposals as unknown as { title: string; diffs: { item: string | null }[] }[];
+    const endYearPlans = plans.filter((p) => p.diffs.some((d) => d.item === "plan.endYear"));
+    expect(endYearPlans.map((p) => p.title)).toEqual(["プランD 資産を足す・表を2085年まで"]);
+    expect(again.proposals).toEqual(plans.map((p) => ({ ...p, diffs: p.diffs.filter((d) => d.item !== "plan.endYear") })));
     expect(again.workspace!.shownItems).toEqual(body.workspace!.shownItems);
     // 生年月の無い世帯の外の家族（画面の中では贈与者）は、構成員の並びの最後に書き戻す（中身は同じ）
     const byId = (r: unknown) => {
@@ -1234,7 +1239,9 @@ describe("世帯ファイルの本文（0011 の2）", () => {
       return x;
     };
     expect(byId(again.household!.request)).toEqual(byId(body.household!.request));
-    expect(again.household!.notices).toEqual(body.household!.notices);
+    const notices = again.household!.notices as unknown as { kind: string }[];
+    expect(notices.filter((n) => n.kind !== "planEndYearShared")).toEqual(body.household!.notices);
+    expect(notices.find((n) => n.kind === "planEndYearShared")).toMatchObject({ plans: 1, names: ["プランD 資産を足す・表を2085年まで"], years: [2085], endYear: 2078 });
     expect(again.household!.assumed).toEqual(body.household!.assumed);
   });
 
@@ -1964,7 +1971,8 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(stored.household.assumed).toBeUndefined();
     const diffs = stored.proposals.flatMap((p) => p.diffs);
     expect(diffs.every((d) => d.key === undefined && d.op === "set")).toBe(true);
-    expect(diffs.find((d) => d.item === "plan.endYear")).toMatchObject({ target: { plan: "input" }, at: [] });
+    // 表の最後の年はどのプランにも共通（0043 の追記 2026-11-05）: 結果のタブの値で渡しても差分にしない
+    expect(diffs.find((d) => d.item === "plan.endYear")).toBeUndefined();
     expect(diffs.find((d) => d.item === "account.marketValue")).toMatchObject({ at: [] });
     expect(diffs.filter((d) => isLever(d.target)).map((d) => (d.target as { lever: string }).lever).sort()).toEqual(["livingMonthly", "retireAge"]);
     expect(stored.workspace.shownItems[0]).toEqual({ target: { lever: "loanRateShift" }, item: null, at: [] });

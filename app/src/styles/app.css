@@ -1415,7 +1415,8 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .plan-count.on-card { position: absolute; top: 8px; right: 8px; z-index: 2; margin: 0; color: var(--ink); background: #fff; border: 1.5px solid var(--ink-2); }
 .ipanel.plan-mode .ip-band { background: var(--plan-c); height: 8px; }
 .ip-plan { margin: 0; padding: 4px 16px; background: color-mix(in srgb, var(--plan-c) 12%, #fff); font-size: 0.9rem; }
-.fld:has(> .fld-plan) { border-left: 3px solid var(--plan-c, var(--prop)); padding-left: 8px; }
+/* どのプランにも共通の欄の一言（.shared。表の最後の年。0043 の追記 2026-11-05）は現状と違う印ではないので、枠の色を付けない */
+.fld:has(> .fld-plan:not(.shared)) { border-left: 3px solid var(--plan-c, var(--prop)); padding-left: 8px; }
 .fld-plan { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; font-size: 0.85rem; color: var(--ink-2); }
 .fld-plan.lever { font-style: italic; }
 .plan-tag { display: inline-block; margin-left: 8px; font-size: 0.72rem; font-weight: 700; border: 1.5px solid var(--plan-c, var(--prop)); color: var(--ink); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
