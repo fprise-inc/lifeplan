@@ -255,9 +255,10 @@ export interface AccountInput {
   readonly kind: AccountKind;
   /**
    * その他の資産の細目（種類 otherAsset だけ。表示だけで、計算には使わない）: 自社株〔出資額〕・会社への貸付金（0105）と、貴金属・暗号資産・
-   * 美術品や骨董品・会員権・敷金や保証金・事業用の資産（0120）。無ければ「その他」
+   * 美術品や骨董品・会員権・敷金や保証金・事業用の資産（0120）。無ければ「その他」。
+   * 貸していない不動産（種類 realEstate で中身 property の無いもの）の細目: 土地（更地）・山林や農地・別荘・空き家（0122。表示と固定資産税の目安の元だけ）
    */
-  readonly subtype?: "ownCompanyShares" | "loanToCompany" | "preciousMetal" | "cryptoAsset" | "art" | "membership" | "securityDeposit" | "businessAsset";
+  readonly subtype?: "ownCompanyShares" | "loanToCompany" | "preciousMetal" | "cryptoAsset" | "art" | "membership" | "securityDeposit" | "businessAsset" | HeldEstateSubtype;
   readonly owner: string;
   readonly marketValue: ValueBox<Yen>;
   readonly costBasis?: ValueBox<Yen>;
@@ -298,6 +299,27 @@ export interface AccountInput {
   readonly uninvested?: Yen;
   /** 不動産の中身（不動産の器だけ。土地と建物に分けて評価し、貸しているなら家賃収入・経費・不動産所得を出す。asset.realEstate。0028） */
   readonly property?: RealEstatePropertyInput;
+  /** 取得の年月（貸していない不動産・その他の資産だけ。売ったときの所有期間に使う。取得価額は costBasis。0122） */
+  readonly acquiredAt?: string;
+  /** 売る予定（貸していない不動産・その他の資産だけ。その月に売り、手取りを現金にし、その年から評価額を消す。asset.heldSale。0122） */
+  readonly sale?: HeldSaleInput;
+}
+
+/** 貸していない不動産の細目（0122）: 土地（更地）・山林や農地・別荘・空き家 */
+export type HeldEstateSubtype = "vacantLand" | "forestFarm" | "villa" | "vacantHouse";
+
+/** 売ったときの税の扱い（その他の資産だけ。0122）: 総合課税の譲渡所得・非課税（生活用動産・敷金の返還など）・雑所得 */
+export type HeldSaleTaxation = "transfer" | "nonTaxable" | "miscellaneous";
+
+/** 貸していない不動産・その他の資産の売る予定（0122） */
+export interface HeldSaleInput {
+  readonly at: Timepoint;
+  /** 売却価格（省略はその年の年末の評価額） */
+  readonly price?: Yen;
+  /** 売却の費用の割合（省略は、不動産は前提 realEstateValuation.saleCostRate か目安、その他の資産は0） */
+  readonly costRate?: string;
+  /** 税の扱い（その他の資産だけ。省略は中身から: 敷金・保証金は非課税、ほかは総合課税の譲渡所得。不動産は分離課税で、この欄を読まない） */
+  readonly taxation?: HeldSaleTaxation;
 }
 
 /** 不動産の経費の費目（0080）: 建物管理費・修繕積立金／固定資産税・都市計画税／損害保険／地代／共用部の光熱費・清掃・設備点検／入居者募集の費用・
@@ -859,6 +881,8 @@ export interface PeriodicExpenseInput {
   readonly gift?: OutgoingGiftInput;
   /** 夢プラン（種類 dream の行だけ。順位・計算に入れるか・ひとことメモ。計算には使わない。画面が計算に入れない夢を要求から外す。0103） */
   readonly dream?: DreamInput;
+  /** つながる物（資産の器の ID。0122）: その器に売る予定（accounts[].sale）があれば、売る月から払わない */
+  readonly object?: string;
 }
 
 /** 夢プランの1件の、行の外の値（0103。計算には使わない） */
@@ -869,7 +893,7 @@ export interface DreamInput {
 }
 
 /** 出るお金の種類（0044） */
-export type MoneyOutKind = "general" | "allowance" | "childSupport" | "gift" | "education" | "repair" | "realEstateCost" | "livingAnnual" | "car" | "other" | "dream";
+export type MoneyOutKind = "general" | "allowance" | "childSupport" | "gift" | "education" | "repair" | "realEstateCost" | "livingAnnual" | "car" | "other" | "dream" | "assetCost";
 
 /** あげる贈与（0044） */
 export interface OutgoingGiftInput {

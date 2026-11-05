@@ -344,6 +344,29 @@ export const OTHER_ASSET_OPTIONS: Option[] = [...Object.entries(OTHER_ASSET_SUBT
 export const otherAssetSubtypeOf = (subtype: string | undefined): (typeof OTHER_ASSET_SUBTYPES)[OtherAssetSubtype] | null =>
   subtype !== undefined && Object.hasOwn(OTHER_ASSET_SUBTYPES, subtype) ? OTHER_ASSET_SUBTYPES[subtype as OtherAssetSubtype] : null;
 
+/**
+ * 貸していない不動産（中身 property の無い不動産の器）の細目（0122）。表示と、毎年の費用（固定資産税）の目安の元・売ったときの知らせだけで使う。
+ * 細目の無いものは「その他」。label は欄の選択肢、short はまとまりの見出し、note は「?」の説明
+ */
+export const HELD_ESTATE_SUBTYPES = {
+  vacantLand: { label: "土地（更地）", short: "土地", note: "建物の無い宅地・使っていない空き地など。固定資産税の目安は、住宅用地の特例が当たらない土地として出します。" },
+  forestFarm: { label: "山林・農地", short: "山林・農地", note: "山林・田畑など。評価の仕方が宅地と違うので、固定資産税の目安は出しません（納税通知書の額を入れてください）。" },
+  villa: { label: "別荘", short: "別荘", note: "ふだん住んでいない別荘・セカンドハウス。別荘の土地は住宅用地の特例が当たらないので、固定資産税の目安はその形で出します。" },
+  vacantHouse: { label: "空き家（住んでいない家）", short: "空き家", note: "相続した実家など、住んでいない家。住宅用地の特例を当てた固定資産税の目安を出します（特定空家として勧告を受けると特例が外れます）。" },
+} as const;
+export type HeldEstateSubtypeKey = keyof typeof HELD_ESTATE_SUBTYPES;
+/** 貸していない不動産の中身の選択肢（「その他」は細目を持たない） */
+export const HELD_ESTATE_OPTIONS: Option[] = [...Object.entries(HELD_ESTATE_SUBTYPES).map(([value, x]) => ({ value, label: x.label })), { value: "other", label: "その他" }];
+export const heldEstateSubtypeOf = (subtype: string | undefined): (typeof HELD_ESTATE_SUBTYPES)[HeldEstateSubtypeKey] | null =>
+  subtype !== undefined && Object.hasOwn(HELD_ESTATE_SUBTYPES, subtype) ? HELD_ESTATE_SUBTYPES[subtype as HeldEstateSubtypeKey] : null;
+
+/** その他の資産を売ったときの税の扱い（0122） */
+export const HELD_SALE_TAXATION: Option[] = [
+  { value: "transfer", label: "譲渡所得（総合課税）" },
+  { value: "nonTaxable", label: "非課税（生活に使う物・返ってくる敷金など）" },
+  { value: "miscellaneous", label: "雑所得" },
+];
+
 export const ASSET_CLASSES: Option[] = [
   { value: "cash.deposit", label: "預金" },
   { value: "cash.foreign", label: "外貨預金" },

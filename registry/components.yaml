@@ -40,6 +40,12 @@ entries:
     aliases: []
     replacedBy: null
     replaceable: true
+  - id: asset.heldSale
+    status: active
+    label: "貸していない不動産・その他の資産の売却"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: asset.realEstate
     status: active
     label: "住まい以外の不動産（評価額・家賃収入・経費・不動産所得・売却）"

@@ -27,12 +27,20 @@
 //   合わせて赤字なら公的年金等の雑所得から引き（同項。雑所得の金額は1号と2号の合計）、引ききれない分はほかの所得と通算しない（69条1項は
 //   不動産・事業・山林・譲渡の損失だけ）。捨てた額を miscellaneousLoss で添え、知らせ N_LIMIT_APPLIED（income.miscellaneousLoss）を出す
 // - 入るお金の行の事業所得は赤字のまま事業所得に足す（income.flows の businessNet）。赤字はほかの所得と通算し、青色なら純損失を繰り越す
+// 約束の版 1.8（改訂9。0122。貸していない不動産・その他の資産の売る予定）: 売る予定の無い人の結果は同じ
+// - その他の資産を売った総合課税の譲渡所得（asset.heldSale の transfer）: 名義の人×年で短期・長期の譲渡益を足し、片方の損失をもう片方から引く。
+//   譲渡所得の特別控除（incomeTax.transferIncome.specialDeduction。50万円まで）を短期から先に引き（所得税法33条4項・5項）、短期は全額、長期は
+//   2分の1（incomeTax.transferIncome.longTerm.taxableRatio。22条2項2号）を総所得金額に入れ、transfer で添える。引ききれない損失はほかの所得と
+//   通算しない（貴金属・美術品・会員権などの生活に通常必要でない資産の損失。69条2項。事業用の資産の損失も同じに扱う近似。知らせ
+//   N_LIMIT_APPLIED heldAsset.transferLoss）
+// - その他の資産を売った雑所得（asset.heldSale の miscellaneous。FP が雑所得を選んだ物）は、公的年金等以外の雑所得に赤字も含めて足す
 import {
   defineComponent,
   monthIndex,
   yen,
   type BusinessOutput,
   type EmploymentIncomeOutput,
+  type HeldSaleOutput,
   type IncomeFlowsOutput,
   type InsuranceIncomeOutput,
   type MemberInput,
@@ -46,6 +54,7 @@ import {
 
 const ADJUST = "incomeTax.incomeAdjustment.salaryAndPension.limit";
 const TEMP = { special: "incomeTax.temporaryIncome.specialDeduction", ratio: "incomeTax.temporaryIncome.taxableRatio" };
+const TRANSFER = { special: "incomeTax.transferIncome.specialDeduction", ratio: "incomeTax.transferIncome.longTerm.taxableRatio" };
 const BLUE = { electronic: "incomeTax.blueReturnDeduction.electronic", doubleEntry: "incomeTax.blueReturnDeduction.doubleEntry", simple: "incomeTax.blueReturnDeduction.simple" } as const;
 /** 事業的規模の目安（所得税基本通達26-9。国税庁 No.1373: 独立した室数がおおむね10室以上、独立家屋はおおむね5棟以上。1棟を2室とみなして合わせる） */
 export const BUSINESS_SCALE_ROOMS = 10;
@@ -54,8 +63,8 @@ export const ROOMS_PER_HOUSE = 2;
 export default defineComponent<{ member: string; year: number }, TotalIncomeOutput>({
   id: "tax.totalIncome",
   title: "合計所得金額",
-  contract: "1.7",
-  revision: 8,
+  contract: "1.8",
+  revision: 9,
   requires: {
     "tax.employmentIncome": ">=1 <2",
     "tax.publicPensionIncome": ">=1 <2",
@@ -65,8 +74,9 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
     "asset.realEstate": ">=1 <2",
     "income.flows": ">=1 <2",
     "tax.realEstateSale": ">=1 <2",
+    "asset.heldSale": ">=1 <2",
   },
-  params: [ADJUST, ...Object.values(TEMP), ...Object.values(BLUE)],
+  params: [ADJUST, ...Object.values(TEMP), ...Object.values(TRANSFER), ...Object.values(BLUE)],
   reads: ["member.taxReturn"],
   input: "tax.memberYear.input",
   output: "tax.totalIncome.output",
@@ -99,9 +109,48 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
       const t = yen(gross > special ? gross - special : 0);
       temporary = at.money.mulRate(t, at.paramRate(TEMP.ratio) ?? ctx.rate.of("1"), "conv.tax.exact");
     }
+    // その他の資産の売る予定（0122）: 総合課税の譲渡所得（短期・長期）と雑所得
+    let transferShort = 0;
+    let transferLong = 0;
+    let heldMisc = 0;
+    let heldTransfer = false;
+    for (const x of ctx.call<HeldSaleOutput>("asset.heldSale", {}).sales) {
+      if (x.owner !== input.member || Number(x.ym.slice(0, 4)) !== input.year || x.gain === undefined) continue;
+      if (x.taxation === "miscellaneous") heldMisc += x.gain;
+      else if (x.taxation === "transfer") {
+        heldTransfer = true;
+        if (x.term === "short") transferShort += x.gain;
+        else transferLong += x.gain;
+      }
+    }
+    let transfer: { short: Yen; long: Yen; included: Yen } | null = null;
+    if (heldTransfer) {
+      // 短期と長期の間で損失を引き、引ききれない損失は捨てる（ほかの所得と通算しない）
+      if (transferShort < 0 && transferLong > 0) {
+        transferLong = Math.max(0, transferLong + transferShort);
+        transferShort = 0;
+      } else if (transferLong < 0 && transferShort > 0) {
+        transferShort = Math.max(0, transferShort + transferLong);
+        transferLong = 0;
+      }
+      if (transferShort < 0 || transferLong < 0) ctx.notice("N_LIMIT_APPLIED", [input.member, "heldAsset.transferLoss"]);
+      const at = ctx.at(monthIndex(input.year, 1));
+      let short = Math.max(0, transferShort);
+      let long = Math.max(0, transferLong);
+      const special = at.paramYen(TRANSFER.special);
+      const ratio = at.paramRate(TRANSFER.ratio);
+      if (special === null || ratio === null) ctx.notice("N_PARAM_MISSING", [TRANSFER.special, TRANSFER.ratio]);
+      let left = (special ?? 0) as number;
+      const fromShort = Math.min(left, short);
+      short -= fromShort;
+      left -= fromShort;
+      long -= Math.min(left, long);
+      const included = yen(short + (long > 0 ? at.money.mulRate(yen(long), ratio ?? ctx.rate.of("1"), "conv.tax.exact") : 0));
+      transfer = { short: yen(Math.max(0, transferShort)), long: yen(Math.max(0, transferLong)), included };
+    }
     // 公的年金等以外の雑所得（入るお金の行と保険。赤字も含めて差し引く。民泊・宿の雑所得は下で足す）
     const flowMisc = flowRow === undefined ? 0 : (flowRow.miscellaneousNet ?? flowRow.miscBusiness + flowRow.miscOther);
-    let miscNet = (ins.miscellaneousNet ?? ins.miscellaneous) + flowMisc;
+    let miscNet = (ins.miscellaneousNet ?? ins.miscellaneous) + flowMisc + heldMisc;
     // 土地建物等の譲渡所得（分離課税。特別控除の前）
     const sale = ctx.call<RealEstateSaleTaxOutput>("tax.realEstateSale", {}).byMember.find((r) => r.member === input.member && r.year === input.year);
     const landBuilding = sale !== undefined && sale.short + sale.long > 0 ? { short: sale.short, long: sale.long } : null;
@@ -173,7 +222,7 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
       miscellaneousLoss = -miscNet - used;
       if (miscellaneousLoss > 0) ctx.notice("N_LIMIT_APPLIED", [input.member, "income.miscellaneousLoss"]);
     }
-    const before = employment + pensionPart + biz + (realEstate ?? 0) + temporary + miscellaneous;
+    const before = employment + pensionPart + biz + (realEstate ?? 0) + temporary + miscellaneous + (transfer?.included ?? 0);
     const total: Yen = yen(Math.max(0, before));
     const netLoss = before < 0 ? yen(-before) : null;
     const retirement = ctx.call<RetirementIncomeOutput>("tax.retirementIncome", { member: input.member, year: input.year }).income;
@@ -193,6 +242,7 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
       ...(netLoss !== null ? { netLoss } : {}),
       ...(lodgingMisc !== null || lodgingBusiness !== null ? { lodging: { miscellaneous: yen(lodgingMisc ?? 0), business: yen(lodgingBusiness ?? 0) } } : {}),
       ...(miscellaneousLoss > 0 ? { miscellaneousLoss: yen(miscellaneousLoss) } : {}),
+      ...(transfer !== null ? { transfer } : {}),
     };
   },
 });

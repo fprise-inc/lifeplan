@@ -87,7 +87,8 @@ describe("その他の資産の中身の細目（0120）", () => {
     wh = fieldOf(wh, `sav/${a.id}/kind`).set(wh, "realEstate");
     expect(accOf(wh, a.id)).toMatchObject({ kind: "realEstate" });
     expect(accOf(wh, a.id).subtype).toBeUndefined();
-    expect(fieldsOf(wh).has(`sav/${a.id}/subtype`)).toBe(false);
+    // 貸していない不動産の中身（土地・別荘・空き家など。0122）の欄になる（その他の資産の中身は残さない）
+    expect(fieldOf(wh, `sav/${a.id}/subtype`).get(wh)).toMatchObject({ value: "other", implicit: true });
   });
 
   it("役員の細目（自社株・会社への貸付金）には中身の欄を出さない（今までどおり）", () => {

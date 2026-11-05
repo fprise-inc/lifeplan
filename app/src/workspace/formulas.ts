@@ -43,6 +43,7 @@ export const FORMULA_LABELS: Readonly<Record<string, { label: string; text: stri
   "asset.realEstate.rent": { label: "家賃収入", text: "家賃収入 ＝ 満室時の家賃（月額） × (1 − 空室率)（家賃は変化率で毎年動かす）" },
   "asset.realEstate.expenses": { label: "不動産の経費", text: "経費 ＝ 年額 ÷ 12 ＋ 受け取る家賃 × 家賃に対する割合（管理費・修繕積立金・固定資産税・管理委託料など）" },
   "asset.realEstate.sale": { label: "不動産の売却の手取り", text: "売却の手取り ＝ 売却価格（入れていなければその年の評価額）− 売却価格 × 売却の費用の割合（譲渡所得の税は別の行。ローンを返すときは返済の行）" },
+  "asset.heldSale.sale": { label: "資産の売却の手取り", text: "売却の手取り ＝ 売却価格（入れていなければその年の年末の評価額）− 売却価格 × 売却の費用の割合（不動産の譲渡所得の税は別の行。その他の資産の譲渡所得は所得税・住民税の行に入る）" },
   "tax.realEstateSale.incomeTax": {
     label: "不動産の譲渡所得の所得税",
     text: "所得税 ＝ 譲渡所得（売却価格 −（取得費 ＋ 売却の費用））× 15%（長期）・30%（短期）＋ 復興特別所得税・防衛特別所得税。取得費 ＝ 取得価額 ＋ 取得時の諸費用 − 建物の減価償却の累計（売却価格の5%のほうが大きければそれ）。翌年3月に払う",

@@ -1,0 +1,20 @@
+id: incomeTax.transferIncome.longTerm.holdingYears
+title: 総合課税の長期譲渡所得になる所有期間（取得の日から譲渡の日までがこの年数を超えれば長期、以内は短期）
+unit: years
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2020-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 5
+    sources:
+      - {"type": "law", "lawNumber": "昭和四十年法律第三十三号"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/joto/3152.htm", "retrievedAt": "2026-11-05", "retrievedVia": "searchExcerpt", "locator": "No.3152 譲渡所得の計算のしかた（総合課税）", "note": "公表資料の本文を読み、値は条文の位置と一致（原本の指紋は未取得）"}
+    recordedIn: "2026.16.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "所得税法 第33条第3項第1号・第2号（資産の取得の日以後5年以内にされた譲渡は短期）。原本での確認待ち"}

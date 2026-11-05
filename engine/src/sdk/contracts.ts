@@ -103,12 +103,44 @@ export interface TotalIncomeOutput {
    * 約束の版 1.7 の任意の欄。0086）
    */
   readonly miscellaneousLoss?: Yen;
+  /**
+   * その他の資産を売った総合課税の譲渡所得（約束の版 1.8 の任意の欄。0122）。short・long は短期と長期を差し引いた後の譲渡益（0より下げない。
+   * 特別控除の前）、included は特別控除（50万円まで。短期から先）の後の短期と長期の2分の1の合計で、total に入っている
+   */
+  readonly transfer?: { readonly short: Yen; readonly long: Yen; readonly included: Yen };
 }
 
 /** tax.lossCarryforward: 青色申告の人の純損失の繰越控除（総所得金額から引く額。合計所得金額〔tax.totalIncome の total〕は控除の前。0081） */
 export interface LossCarryforwardOutput {
   /** 年の昇順。繰り越す損失か引く額のある年だけ。deducted はその年の総所得金額から引く額、remaining は年末に繰り越す残り（翌年以後に引ける分） */
   readonly byYear: readonly { readonly year: number; readonly netLoss: Yen; readonly deducted: Yen; readonly remaining: Yen }[];
+}
+
+/** asset.heldSale: 貸していない不動産・その他の資産の売る予定（0122） */
+export interface HeldSaleOutput {
+  /** 売却の手取り（不動産は cf.income.lumpSum.realEstateSale、その他の資産は cf.income.lumpSum.other） */
+  readonly flows: readonly Flow[];
+  /**
+   * 売る器ごと（計算基準月から表の最後の月までに売るものだけ）。value は売る年の年末の評価額（売らなければ）、price は売却価格、costs は売却の費用、
+   * proceeds は手取り。taxation は税の扱い（landBuilding は土地建物等の分離課税〔tax.realEstateSale〕、transfer は総合課税の譲渡所得、
+   * miscellaneous は雑所得〔どちらも tax.totalIncome〕、nonTaxable は非課税）。非課税でなければ acquisitionCost（取得費）・estimated（概算取得費を
+   * 使ったか）・gain（売却価格−〔取得費＋売却の費用〕。マイナスは損失）、譲渡所得なら term（長期・短期）
+   */
+  readonly sales: readonly {
+    readonly object: string;
+    readonly owner: string;
+    readonly kind: "realEstate" | "otherAsset";
+    readonly ym: string;
+    readonly value: Yen;
+    readonly price: Yen;
+    readonly costs: Yen;
+    readonly proceeds: Yen;
+    readonly taxation: "landBuilding" | "transfer" | "miscellaneous" | "nonTaxable";
+    readonly acquisitionCost?: Yen;
+    readonly estimated?: boolean;
+    readonly gain?: Yen;
+    readonly term?: "long" | "short";
+  }[];
 }
 
 /** tax.realEstateSale: 住まい以外の不動産を売ったときの譲渡所得（分離課税）と税（名義の人×売った年。0081） */

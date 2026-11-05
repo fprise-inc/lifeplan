@@ -27,7 +27,7 @@ import { presetNum, presetRate, presetText } from "../../../../hearing/src/prese
 type Obj = Record<string, unknown>;
 
 /** お金の行を置くカード（介護・親 care と相続・贈与 inherit は、カードを組み直すまでライフイベントの区画） */
-export type MoneyCard = "family" | "work" | "pension" | "living" | "education" | "housing" | "insurance" | "rental" | "events" | "car" | "care" | "inherit";
+export type MoneyCard = "family" | "work" | "pension" | "living" | "education" | "housing" | "insurance" | "rental" | "events" | "car" | "care" | "inherit" | "savings";
 
 /** 入るお金の種類: 名前・課税の扱いの既定・1回の行とくり返す行の表の行の既定（エンジンの engine/src/sdk/incomeKinds.ts と同じ。テストで突き合わせる）・置くカード・既定の時期 */
 export const INCOME_KINDS: readonly { kind: IncomeFlowKind; label: string; help?: string; tax: IncomeTaxTreatment; once: string; repeat: string; card: MoneyCard; cadence: Cadence }[] = [
@@ -289,7 +289,12 @@ const CADENCES: Option[] = [
 ];
 
 const incomeKind = (k: IncomeFlowKind | undefined) => INCOME_KINDS.find((x) => x.kind === k) ?? (INCOME_KINDS.at(-1) as (typeof INCOME_KINDS)[number]);
-const outKind = (k: MoneyOutKind | undefined) => OUT_KINDS.find((x) => x.kind === (k ?? "general")) ?? (OUT_KINDS[0] as (typeof OUT_KINDS)[number]);
+/**
+ * 資産の毎年の費用（0122）: 貯蓄・運用の貸していない不動産の欄（毎年かかる費用）だけで足す（物の ID でつなぐ）。OUT_KINDS に入れず、
+ * お金の行の区画・種類の選択肢には出さない（カード savings はお金の行の区画を持たない）
+ */
+const ASSET_COST_KIND: (typeof OUT_KINDS)[number] = { kind: "assetCost", label: "資産の毎年の費用", row: "cf.expense.other.realEstate", card: "savings", cadence: "repeat", everyYears: 1, amount: 0, preset: "資産の毎年の費用 額は未入力" };
+const outKind = (k: MoneyOutKind | undefined) => (k === "assetCost" ? ASSET_COST_KIND : (OUT_KINDS.find((x) => x.kind === (k ?? "general")) ?? (OUT_KINDS[0] as (typeof OUT_KINDS)[number])));
 
 /** 入るお金の行の課税の扱い（省略は種類の既定） */
 export const incomeTreatment = (f: Pick<IncomeFlow, "kind" | "taxTreatment">): IncomeTaxTreatment => f.taxTreatment ?? incomeKind(f.kind).tax;
