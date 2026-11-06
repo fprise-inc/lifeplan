@@ -156,7 +156,8 @@
           },
           "corporatePension": {
             "db": false
-          }
+          },
+          "unemploymentClaim": false
         },
         {
           "id": "4a688cd5-6857-428a-8032-712450aba248",
@@ -192,7 +193,8 @@
               }
             }
           },
-          "employmentInsuranceCovered": true
+          "employmentInsuranceCovered": true,
+          "unemploymentClaim": false
         }
       ],
       "accounts": [
@@ -264,6 +266,17 @@
           "deductionCategory": {
             "type": "general",
             "regime": "new"
+          },
+          "coverages": [
+            {
+              "id": "6962ebd1-8ea5-4ac8-91c8-921b20dc6078",
+              "role": "main",
+              "benefit": "death",
+              "amount": 5000000
+            }
+          ],
+          "simple": {
+            "returnRate": "0.85"
           }
         }
       ],

@@ -361,7 +361,9 @@ const livingStagesRise: WatchRule = {
  */
 const TABLE_TO_CHART: Readonly<Record<string, readonly string[]>> = {
   salary: ["salary"],
+  business: ["salary"],
   pension: ["pension"],
+  corporatePension: ["incomeOther"],
   retirement: ["incomeOther"],
   benefit: ["incomeOther"],
   rent: ["realEstateIn"],

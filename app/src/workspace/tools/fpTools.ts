@@ -8,7 +8,7 @@ import { fromRequest, type WorkingHousehold } from "../input/household.ts";
 import { inputItems } from "../input/items.ts";
 import { memberLabel } from "../input/labels.ts";
 import { INCOME_KINDS } from "../input/moneyRows.ts";
-import { formatYearMonth, wareki } from "../input/units.ts";
+import { amountText as yenText, formatYearMonth, wareki } from "../input/units.ts";
 import { fieldValueText, objectCards, planIndex } from "../plans/planEdit.ts";
 import { man } from "../../presentation/format.ts";
 
@@ -33,18 +33,45 @@ export interface ContentsSection {
   rows: ContentsRow[];
 }
 
-/** 物の額の短い文（口座の時価・行の額・ローンの残高か借入額・保険料など。無ければ null） */
+/** 物の額の短い文（口座の時価・行の額・ローンの残高か借入額・保険料・介護の月々の費用・FP顧問料など。無ければ null）。額は欄の外の書き方（0131 の7） */
 function amountText(collection: string, o: Obj): string | null {
-  if (collection === "insurance" && isObj(o.premium) && typeof o.premium.amount === "number") return `保険料 ${o.premium.amount.toLocaleString("ja-JP")}円（${o.premium.frequency === "monthly" ? "月" : o.premium.frequency === "annual" ? "年" : "1回"}）`;
+  if (collection === "insurance" && isObj(o.premium) && typeof o.premium.amount === "number") {
+    const f = o.premium.frequency;
+    return `保険料 ${f === "monthly" || f === "annual" ? yenText(o.premium.amount, f === "monthly" ? "month" : "year") : `${yenText(o.premium.amount)}（1回）`}`;
+  }
   if (collection === "debt") {
     const b = boxValue(o.balance) ?? boxValue(o.principal);
-    return b === null ? null : `${boxValue(o.balance) !== null ? "残高" : "借入額"} ${man(b)}万円`;
+    return b === null ? null : `${boxValue(o.balance) !== null ? "残高" : "借入額"} ${yenText(b)}`;
   }
+  if (collection === "care") return careText(o);
+  if (collection === "advisoryFee") return feeText(o);
   for (const k of ["marketValue", "amount", "monthly", "price"]) {
     const v = boxValue(o[k]);
-    if (v !== null && v > 0) return `${k === "monthly" ? "月 " : ""}${v >= 10000 ? `${man(v)}万円` : `${v.toLocaleString("ja-JP")}円`}`;
+    if (v !== null && v > 0) return yenText(v, k === "monthly" ? "month" : undefined);
   }
   return null;
+}
+
+/** 介護の物: 在宅か施設か・月々の費用・期間（「施設・月13.8万円・55か月」。額・期間が未入力なら入っている所だけ） */
+function careText(o: Obj): string | null {
+  const parts = [o.place === "facility" ? "施設" : "在宅"];
+  const monthly = (boxValue(o.serviceMonthly) ?? 0) + (boxValue(o.otherMonthly) ?? 0);
+  if (monthly > 0) parts.push(yenText(monthly, "month"));
+  if (typeof o.months === "number") parts.push(`${String(o.months)}か月`);
+  return parts.join("・");
+}
+
+/** FP顧問料: 単発の料金と継続の顧問料（「単発30万円＋月1万円」。止めている契約は「（止めている）」） */
+function feeText(o: Obj): string | null {
+  const t = isObj(o.terms) ? o.terms : {};
+  const parts: string[] = [];
+  const once = Array.isArray(t.oneTime) ? t.oneTime.reduce((a: number, x: unknown) => a + (isObj(x) && typeof x.amount === "number" ? x.amount : 0), 0) : 0;
+  if (once > 0) parts.push(`単発${yenText(once)}`);
+  const r = isObj(t.recurring) ? t.recurring : null;
+  if (r !== null && typeof r.monthly === "number" && r.monthly > 0) parts.push(yenText(r.monthly, "month"));
+  else if (r !== null && typeof r.annual === "number" && r.annual > 0) parts.push(yenText(r.annual, "year"));
+  if (parts.length === 0) return null;
+  return `${parts.join("＋")}${o.enabled === false ? "（止めている）" : ""}`;
 }
 
 /** 世帯の中身（人・収入・退職給付・口座と不動産・保険・ローン・出るお金・介護・相続と贈与…）をカードの順に。読むだけ */

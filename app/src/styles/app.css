@@ -744,7 +744,8 @@ html.big .ipanel { width: min(1000px, calc(100vw - 32px)); }
 .ip-tools > .help { margin-left: -4px; }
 .ip-tools .help-btn { font-size: 0.78rem; }
 .ip-lead { margin: 0; color: var(--ink-2); font-size: 0.88rem; grid-column: 2 / 4; }
-.ip-body { flex: 1; overflow-y: auto; padding: 4px 18px 20px; overscroll-behavior: contain; }
+/* Tab・「＋」で移った欄が、動く所の下の端（下の帯のすぐ上）やパネルの上の端にくっついて半分隠れないように、余白を取って見える所まで動かす */
+.ip-body { flex: 1; overflow-y: auto; padding: 4px 18px 20px; overscroll-behavior: contain; scroll-padding: 56px 0 72px; }
 .ip-foot { flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 18px; border-top: 1px solid var(--line); background: var(--card); box-shadow: 0 -6px 16px rgba(20, 30, 50, 0.06); }
 .ip-note { flex: 1 1 260px; font-size: 0.86rem; color: var(--ink-2); margin: 0; }
 .ip-note.warn { color: var(--short-ink); font-weight: 700; }
@@ -1531,7 +1532,13 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .dl-o { font-size: 0.82rem; color: var(--ink-2); }
 .dl-act { display: inline-flex; gap: 10px; }
 .dl-note { flex: 1 1 100%; font-size: 0.88rem; }
-.dl-on .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.dl-on { display: inline-flex; align-items: center; gap: 4px; font-size: 0.82rem; color: var(--ink-2); }
+.dl-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.dl-head h2 { margin: 0; font-size: 1rem; }
+/* 違いの一覧の文字のリンク（編集の対象の箱の右端）。現状のときは同じ幅の場所だけを空ける（選んでも配置を動かさない。0077） */
+.ih-target-diffs { display: inline-block; box-sizing: border-box; min-width: 8.5em; padding: 2px 4px; border: 0; text-align: left; font-size: 0.85rem; line-height: inherit; white-space: nowrap; }
+.ih-target-diffs.off { visibility: hidden; }
+.ih-target-diffs[data-review] { color: var(--est-ink); }
 
 /* 結果の見方（0044 の追記）: すべて入れる｜確実な分だけ・外している物の一覧（保存しない） */
 .rows-view { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 10px 0 6px; font-size: 13px; }

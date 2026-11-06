@@ -46,6 +46,12 @@ export const RECORD_ONLY: readonly ShapeRule[] = [
   { shape: "work:work/*/officer/guarantee", why: "会社の借入の連帯保証の額（資産と負債のタブで図の外に見せるだけ）" },
   { shape: "living:living/*/stage/*/mode", why: "段階の額の入れ方（割合で／月額で）の切り替え。同じ額のまま書き直す" },
   { shape: "living:living/*/stage/*/label", why: "段階の節目の名前（時期は「いつから」で決まる）" },
+  // 親の介護と相続の見本（2026-11-07 に足した見本）で、はじめてたどった欄
+  { shape: "care:ev/*/label", why: "お金の行の名前（表示用）" },
+  { shape: "care:ev/*/priority", why: "優先度（表示と「確実な分だけ」の見方だけ。計算には使わない）" },
+  { shape: "inheritance:in/*/label", why: "入るお金の行の名前（表示用）" },
+  { shape: "inheritance:ev/*/label", why: "出るお金の行の名前（表示用）" },
+  { shape: "inheritance:ev/*/priority", why: "優先度（表示と「確実な分だけ」の見方だけ。計算には使わない）" },
 ];
 
 /**
@@ -57,6 +63,14 @@ export const NOT_EFFECTIVE_YET: readonly ShapeRule[] = [
 
 /** この点検（欄を1つずつ動かし、キャッシュフロー表・相続税の目安・ご本人の死亡の万一を見る）では効き目を見られない欄。効く条件か見え方を書く */
 export const NOT_OBSERVED: readonly ShapeRule[] = [
+  { shape: "care:family/*/outside/of", why: "誰の家族か（ご本人の親か配偶者の親か）は、呼び方と、ご本人・配偶者が亡くなった後の相続の相手の見え方に使う。見本の親は同じ呼び方の人が1人ずつで、相続の行は相手を決めてある" },
+  { shape: "inheritance:in/*/counterparty", why: "受け取る相続の相手は、推定のままの時期を相手の亡くなる見込みに合わせるとき（0135）と、二人とも亡くなった後の相続人の見え方に使う。見本の相続は時期を確定で入れてある" },
+  { shape: "inheritance:in/*/includeInBase", why: "基本の計算に入れるかは、見込みが「当てにしない」の行だけに効く（見本の相続は「確実」）" },
+  { shape: "inheritance:ev/*/counterparty", why: "あげる贈与の相手は、贈与税（基礎控除を超える年）と相続税の生前の贈与の加算に効く。見本の贈与は年50万円で基礎控除の中" },
+  { shape: "inheritance:ev/*/gift/purpose", why: "贈与の使い道（住宅資金の非課税など）は、贈与税がかかる額のときだけ効く（見本の贈与は基礎控除の中）" },
+  { shape: "inheritance:ev/*/gift/method", why: "課税の方法（暦年・相続時精算）は、贈与税がかかる額か相続時精算課税の加算のときだけ効く（見本の贈与は基礎控除の中で、相続の目安の年より前に終わる）" },
+  { shape: "assumptions:ev/fee/*/rec/monthly", why: "「現状にも入れる」を外した FP顧問料（提案の側の契約）は、プランの結果にだけ効く（この点検は現状の結果を見る）" },
+  { shape: "fee:ev/fee/*/rec/monthly", why: "「現状にも入れる」を外した FP顧問料（提案の側の契約）は、プランの結果にだけ効く（この点検は現状の結果を見る）" },
   { shape: "savings:sav/*/mix/*/share", why: "口座の資産の配分の割合は、配分に資産の種類が2つ以上あるときだけ（1つだけの配分はその種類の利回りで、割合によらない）" },
   { shape: "family:family/*/expected", why: "これから加わるは、加わる時期と組で効く（時期が空のままでは今いるのと同じ）" },
   { shape: "work:work/period/*/size", why: "勤め先の従業員数は、パートなどの社会保険の加入の境目をまたぐときだけ" },

@@ -20,6 +20,7 @@ import type { MixPart } from "./allocation.ts";
 import { pctText } from "./decimal.ts";
 import { addAt, addressOf, boxAt, collectionOf, indexOfObject, isLever, isSharedDiff, placeExists, removeAt, removedNow, sameJson, writeAt, type DiffBox, type PlanDiff } from "./diffs.ts";
 import { catalogKeysOf, reemploymentFor, type Catalog, type ItemValue, type MovableItem, type RateShift } from "./items.ts";
+import { COLLECTION_LABELS, diffRows, type DiffRow } from "./planEdit.ts";
 
 export type { DiffOrigin, PlanDiff } from "./diffs.ts";
 
@@ -530,7 +531,8 @@ export interface ChangeRow {
 /** キーに戻せない差分の一覧の名前（例: 「足す: 負債」） */
 function otherLabel(d: PlanDiff, wh: WorkingHousehold): string {
   const own = ("object" in d.target ? d.target.object : "member" in d.target ? d.target.member : null) ?? null;
-  const name = d.item !== null ? (ITEM_LABELS[d.item] ?? d.item) : ((own !== null ? collectionOf(inputOf(wh), own) : null) ?? ("collection" in d.target ? d.target.collection : "物"));
+  const col = (own !== null ? collectionOf(inputOf(wh), own) : null) ?? ("collection" in d.target ? d.target.collection : null);
+  const name = d.item !== null ? (ITEM_LABELS[d.item] ?? "入力項目の値") : col !== null ? (COLLECTION_LABELS[col] ?? "物") : "物";
   if (d.unresolved === true) return `読み替えられなかった差分（${d.legacy?.key ?? name}）`;
   if (d.pair != null) return `置き換え: ${name}`;
   return d.op === "add" ? `足す: ${name}` : d.op === "remove" ? `外す: ${name}` : name;
@@ -541,13 +543,27 @@ export function changesOf(list: readonly Proposal[], id: string, wh: WorkingHous
   const w = list === wh.proposals ? wh : { ...wh, proposals: [...list] };
   const applied = applyPlan(w, id, cat);
   const out: ChangeRow[] = [];
+  // 入力で直した差分（動かす項目の一覧に無い差分）は、入力のホームの違いの一覧と同じ文にする（欄の名前・選択肢の言葉。0043）
+  let listed: Map<string, DiffRow> | null = null;
+  const listedRow = (d: PlanDiff): DiffRow | undefined => {
+    if (listed === null) {
+      listed = new Map();
+      for (const r of diffRows(w, cat, id)) for (const x of r.diffs) listed.set(x.id, r);
+    }
+    return listed.get(d.id);
+  };
   for (const [k, { diff, group, owner }] of effectiveDiffs(w, id)) {
     const inherited = owner !== id;
     const rv = group.map((d) => applied.reviews.get(d.id)).find((r) => r !== undefined && r.state !== "ok") ?? applied.reviews.get(diff.id) ?? review("ok");
     const it = k.startsWith("diff:") ? undefined : cat.byKey.get(k);
     if (it === undefined) {
       const missing = !k.startsWith("diff:");
-      out.push({ key: k, label: missing ? (diff.item ?? k) : otherLabel(diff, w), from: "—", to: "—", inherited, state: missing ? "missing" : rv.state, reviewNote: missing ? REVIEW_NOTES.missing : rv.note });
+      const row = missing ? undefined : listedRow(diff);
+      if (row !== undefined) {
+        out.push({ key: k, label: row.label, from: row.from, to: row.to, inherited, state: rv.state, reviewNote: rv.note });
+        continue;
+      }
+      out.push({ key: k, label: missing ? (ITEM_LABELS[diff.item ?? ""] ?? "動かす項目") : otherLabel(diff, w), from: "—", to: "—", inherited, state: missing ? "missing" : rv.state, reviewNote: missing ? REVIEW_NOTES.missing : rv.note });
       continue;
     }
     const now = it.read(w);
@@ -581,6 +597,13 @@ export function changesOfValues(values: Values, wh: WorkingHousehold, cat: Catal
     if (it.same(v, now)) continue;
     out.push({ key: it.key, label: it.label, from: it.text(now), to: it.text(v), inherited: false, state: "ok", reviewNote: null });
   }
+  // 入力で直した差分（動かす項目の一覧に無い差分。値の中では @plan で指す）も、違いの一覧と同じ文で足す（提案書・持ち帰り用のレポートの変更点にも入る）
+  const planId = values[PLAN_SLOT];
+  if (typeof planId === "string" && findPlan(wh.proposals, planId) !== undefined)
+    for (const r of diffRows(wh, cat, planId)) {
+      if (!r.enabled || r.diffs.some((d) => diffKey(d, wh) !== null)) continue;
+      out.push({ key: `diff:${r.key}`, label: r.label, from: r.from, to: r.to, inherited: r.inherited, state: "ok", reviewNote: null });
+    }
   return out;
 }
 

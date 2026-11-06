@@ -7,6 +7,7 @@ import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
 import { ageInYear, leaveYear, presentInYear, roles, type Role } from "./roles.ts";
 import { DEFICIT_NOTE, deficitSources, OUTSIDE_INCOME_NOTE, outsideName } from "./resultRows.ts";
 import { resolveTimepoint } from "./timepoint.ts";
+import { amountText, formatYearMonth } from "./input/units.ts";
 import { dreamIncluded, dreamList, dreamSummary } from "../../../report/src/dreams.ts";
 import { ROW_NAMES, rowName, type OfficeRowNames } from "../../../report/src/rowNames.ts";
 import { childScholarshipNotes } from "../../../report/src/childScholarships.ts";
@@ -166,10 +167,14 @@ export function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
   const outsideNote = (r: Role) => (r.member.outside !== undefined ? { note: OUTSIDE_INCOME_NOTE } : {});
   const span = (r: Role) => (r.member.outside !== undefined ? "（家計を1つにする間）" : "");
   for (const r of rs) defs.push({ key: `salary:${r.key}`, label: `${rowName(names, "salary", { person: who(r) })}${span(r)}`, group: "income", kind: "value", match: byMember("cf.income.salary", r), evidence: true, ...outsideNote(r) });
+  // 事業所得（自営業・フリーランス）は人ごとに給与と並べる（「その他の収入」に入れない。値の無い人は表に出ない）
+  for (const r of rs) defs.push({ key: `business:${r.key}`, label: `${rowName(names, "business", { person: who(r) })}${span(r)}`, group: "income", kind: "value", match: byMember("cf.income.business", r), evidence: true, ...outsideNote(r) });
   for (const r of rs) defs.push({ key: `pension:${r.key}`, label: `${rowName(names, "pension", { person: who(r) })}${span(r)}`, group: "income", kind: "value", match: byMember("cf.income.pension", r), evidence: true, ...outsideNote(r) });
   const ids = new Set(rs.map((r) => r.member.id));
   const known = (c: TableCell, p: string) => under(c.row, p) && c.member !== undefined && ids.has(c.member);
   defs.push(
+    // 年金で受け取る企業年金・iDeCo・小規模企業共済の分割・個人年金保険など（cf.income.corporatePension の全部。一時金は「退職金」か「その他の収入」）
+    { key: "corporatePension", label: "企業年金・個人年金", group: "income", kind: "value", match: (c) => under(c.row, "cf.income.corporatePension"), evidence: true },
     { key: "retirement", label: "退職金", group: "income", kind: "value", match: (c) => under(c.row, "cf.income.lumpSum.retirement"), evidence: true },
     { key: "benefit", label: "給付・手当", group: "income", kind: "value", match: (c) => under(c.row, "cf.income.benefit"), evidence: true },
     ...(hasRent ? [{ key: "rent", label: "家賃収入", group: "income" as const, kind: "value" as const, match: isRent, evidence: true }] : []),
@@ -179,7 +184,7 @@ export function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
       label: "その他の収入",
       group: "income",
       kind: "value",
-      match: (c) => under(c.row, "cf.income") && !known(c, "cf.income.salary") && !known(c, "cf.income.pension") && !under(c.row, "cf.income.lumpSum.retirement") && !under(c.row, "cf.income.benefit") && !isRent(c) && !(hasReSale && isReSale(c)),
+      match: (c) => under(c.row, "cf.income") && !known(c, "cf.income.salary") && !known(c, "cf.income.business") && !known(c, "cf.income.pension") && !under(c.row, "cf.income.corporatePension") && !under(c.row, "cf.income.lumpSum.retirement") && !under(c.row, "cf.income.benefit") && !isRent(c) && !(hasReSale && isReSale(c)),
       evidence: true,
     },
     { key: "incomeTotal", label: "収入合計", group: "income", kind: "total", match: (c) => under(c.row, "cf.income"), evidence: false },
@@ -447,7 +452,21 @@ function goals(req: EngineRequest, proposed: readonly TableCell[], years: readon
     if (p.kind === "dream") continue;
     const amount = p.amount.value ?? 0;
     const to = resolveTimepoint(h, p.to) ?? undefined;
-    cards.push({ category: "その他", priority: "できれば", title: ROW_LABELS[p.row] === undefined || p.row === "cf.expense.lumpSum.other" ? "何年かごとの支出" : (ROW_LABELS[p.row] as string), when: `${p.everyYears}年ごとに ${man(amount)}万円`, amount: null, ...status(to !== undefined ? parseYm(to).y : last) });
+    // 回数は行の入れ方のまま（1回は「2027年11月 110万円」、毎月は「毎月 5万円」、毎年は「毎年 110万円」、n年ごとは「3年ごとに 30万円」）。
+    // 優先度は行の値（省略は入力の欄の既定と同じ「必ず」）
+    const at = resolveTimepoint(h, p.from);
+    // 1回の行は終わりが始まりと同じ月（入力のお金の行の回数の決まりと同じ。moneyRows.ts の cadenceOf）
+    const once = p.monthly !== true && p.everyYears === 1 && at !== null && to === at;
+    const head = once ? (at !== null ? formatYearMonth(at) : "1回") : p.monthly === true ? "毎月" : p.everyYears === 1 ? "毎年" : `${p.everyYears}年ごとに`;
+    const generic = ROW_LABELS[p.row] === undefined || p.row === "cf.expense.lumpSum.other";
+    cards.push({
+      category: "その他",
+      priority: p.priority === "want" || p.priority === "wish" ? "できれば" : "必ず",
+      title: generic ? (once ? "一時的な支出" : "何年かごとの支出") : (ROW_LABELS[p.row] as string),
+      when: `${head} ${amountText(amount)}`,
+      amount: null,
+      ...status(once && at !== null ? parseYm(at).y : to !== undefined ? parseYm(to).y : last),
+    });
   }
   // 夢プランの夢（0103。前の「やりたいこと」の仮のカードの代わり。夢が無ければ入れる所を案内する1枚）
   const d = dreamGoals(req, dreams, years, depP);
@@ -567,7 +586,8 @@ export function toPresentation(input: PresentInput): PresentationModel {
 
   const { y: by, m: bm } = parseYm(base.input.baseMonth);
   return {
-    members: rs.filter((r) => present(r, by)).map((r) => ({ label: r.label, age: ageInYear(r.member, by) })),
+    // 世帯の外の家族（介護・親で足した親・祖父母など）は、世帯の人の並びに出さない（「ご家族 92歳」が並ぶため。表の年齢の行には「お母さま」などで出る）
+    members: rs.filter((r) => r.member.outside === undefined && present(r, by)).map((r) => ({ label: r.label, age: ageInYear(r.member, by) })),
     asOf: `${by}年${bm}月時点`,
     headline,
     verdict: verdict(self, depP, depC, endAge),
@@ -694,7 +714,8 @@ export function flowChart(req: EngineRequest, table: readonly TableCell[], years
     years,
     ages: years.map((y) => (self !== undefined ? ageInYear(self.member, y) : null)),
     income: [
-      series("salary", "給与", table, years, isWork),
+      // 事業所得のある世帯は、系列の名前を提案書の「家計の今」と同じ「給与・事業の収入」にする（表は人ごとの「○○の事業所得」の行）
+      series("salary", table.some((c) => under(c.row, "cf.income.business") && c.amount !== 0) ? "給与・事業の収入" : "給与", table, years, isWork),
       series("pension", "年金", table, years, (c) => under(c.row, "cf.income.pension")),
       ...(withRe ? [series("realEstateIn", "不動産（家賃・売却）", table, years, isReIn)] : []),
       series("incomeOther", "その他の収入", table, years, (c) => under(c.row, "cf.income") && !isWork(c) && !under(c.row, "cf.income.pension") && !isReIn(c)),

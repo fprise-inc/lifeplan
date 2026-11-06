@@ -120,7 +120,8 @@
           },
           "corporatePension": {
             "db": false
-          }
+          },
+          "unemploymentClaim": false
         },
         {
           "id": "666f3257-2033-4d06-9d19-84ef0b58b58b",
@@ -168,6 +169,14 @@
             "pension": {
               "value": 320000,
               "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          },
+          "valueStates": {
+            "employment.retirementBenefit": {
+              "state": "notApplicable",
               "origin": {
                 "kind": "manual"
               }

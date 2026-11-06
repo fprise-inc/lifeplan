@@ -29,13 +29,6 @@ const OP = (s: string) => `操作 ${s}`;
 /** 直す待ちの一覧（今ある不具合。直したまとまりがその行を消す） */
 const PENDING: readonly Pending[] = [
   {
-    key: "vocational-fee-in-sample",
-    what: "ひとり親と子2人の見本の第2子（専門学校・私立）の学費が入っていない",
-    rule: "schoolFeeZero",
-    cases: ["見本 4-3-01"],
-    match: /学費が入っていない/,
-  },
-  {
     key: "home-value-in-models",
     what: "持ち家の時価の元（評価額・購入の価格）が無いモデル世帯で、今の家が資産に入らず純資産が大きくマイナス",
     rule: "negativeNetWorthNow",
@@ -55,20 +48,6 @@ const PENDING: readonly Pending[] = [
     rule: "livingStagesRise",
     cases: [OP("退職後の生活費の割合だけを下げる")],
     match: /より高い/,
-  },
-  {
-    key: "business-and-pension-rows",
-    what: "事業所得・企業年金（iDeCo・小規模企業共済・個人年金を含む）がキャッシュフロー表の「その他の収入」に入り、事業所得はグラフでは給与に入る",
-    rule: "rowGrouping",
-    cases: "all",
-    match: /cf\.income\.(business|corporatePension)/,
-  },
-  {
-    key: "internal-names-in-lists",
-    what: "世帯の中身の一覧・違いの一覧・変えたことに、内部の名前（incomeFlow・member など）や生の値（home → facility）が出る",
-    rule: "screenWords",
-    cases: [OP("受け取る相続の相手を変える"), OP("相続・贈与の行とプランの違い")],
-    match: /(世帯の中身の一覧|違いの一覧|変えたこと)/,
   },
 ];
 
