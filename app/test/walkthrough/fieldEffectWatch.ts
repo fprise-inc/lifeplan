@@ -65,7 +65,6 @@ export const NOT_EFFECTIVE_YET: readonly ShapeRule[] = [
 export const NOT_OBSERVED: readonly ShapeRule[] = [
   { shape: "care:family/*/outside/of", why: "誰の家族か（ご本人の親か配偶者の親か）は、呼び方と、ご本人・配偶者が亡くなった後の相続の相手の見え方に使う。見本の親は同じ呼び方の人が1人ずつで、相続の行は相手を決めてある" },
   { shape: "inheritance:in/*/counterparty", why: "受け取る相続の相手は、推定のままの時期を相手の亡くなる見込みに合わせるとき（0135）と、二人とも亡くなった後の相続人の見え方に使う。見本の相続は時期を確定で入れてある" },
-  { shape: "inheritance:in/*/includeInBase", why: "基本の計算に入れるかは、見込みが「当てにしない」の行だけに効く（見本の相続は「確実」）" },
   { shape: "inheritance:ev/*/counterparty", why: "あげる贈与の相手は、贈与税（基礎控除を超える年）と相続税の生前の贈与の加算に効く。見本の贈与は年50万円で基礎控除の中" },
   { shape: "inheritance:ev/*/gift/purpose", why: "贈与の使い道（住宅資金の非課税など）は、贈与税がかかる額のときだけ効く（見本の贈与は基礎控除の中）" },
   { shape: "inheritance:ev/*/gift/method", why: "課税の方法（暦年・相続時精算）は、贈与税がかかる額か相続時精算課税の加算のときだけ効く（見本の贈与は基礎控除の中で、相続の目安の年より前に終わる）" },
