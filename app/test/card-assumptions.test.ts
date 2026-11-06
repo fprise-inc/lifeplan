@@ -235,7 +235,9 @@ describe("前提と推定の一覧", () => {
     const rows = assumptionRows(wh);
     expect(rows.find((r) => r.id === "field:assume/inflation")).toMatchObject({ group: "economy", state: "推定", value: "1%" });
     expect(rows.find((r) => r.id === "field:assume/endYear")).toMatchObject({ group: "range" });
-    expect(assumptionRows(blankHousehold("2026-10")).some((r) => r.group === "estimate" && r.card === "家族")).toBe(true);
+    expect(assumptionRows(blankHousehold("2026-10")).some((r) => r.group === "estimate" && r.card === "基本生活費")).toBe(true);
+    // 仮の値（新しい顧客の生年月）は推定の根拠に並べない（推定と分けて未入力の側。0041 の追記 2026-11-06）
+    expect(assumptionRows(blankHousehold("2026-10")).some((r) => r.group === "estimate" && r.card === "家族")).toBe(false);
     expect(rows.find((r) => r.id === "cg:living/before")).toMatchObject({ group: "contingency", value: "70%" });
     const a = setAgreed(wh, null, "field:assume/inflation", "2026-10-27");
     expect(a.agreed).toEqual({ current: { "field:assume/inflation": { on: "2026-10-27" } } });

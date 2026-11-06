@@ -82,7 +82,7 @@ describe("確かめの一覧", () => {
   it("推定の行の根拠は「根拠」で開く（閉じた形では出さない）。未入力の行の文は状態の知らせなので出したまま", () => {
     const wh = open("salariedCoupleTwoKids");
     const rows = checkList(wh);
-    const est = rows.find((r) => r.kind === "estimated" && r.detail !== null);
+    const est = rows.find((r) => (r.kind === "estimated" || r.kind === "premise") && r.detail !== null);
     const miss = rows.find((r) => r.kind === "missing" && r.detail !== null);
     expect(est).toBeDefined();
     expect(miss).toBeDefined();

@@ -1,5 +1,5 @@
 // 確かめの一覧（入力のホームの道具。0041・0072）: 未入力・書類待ち・確かめの注意・計算の知らせ・推定を並べ、行から欄へ移る（「開く」）。
-// 行の操作（推定で埋める・該当なし・確定）とまとめての操作は、世帯を直す（元に戻すで戻せる）。欄に移るだけでは何も変えない。
+// 行の操作（推定で入れる・該当なし・この値にする）とまとめての操作は、世帯を直す（元に戻すで戻せる）。欄に移るだけでは何も変えない。
 // - 絞り込み: カード・状態（種類と「次回確かめる」）・出どころ（手で・ヒアリング・取り込み・AI・自動）・確かさ（書類・申告・概算）。
 //   確かさが申告・概算の確定の値は、確かさか種類で絞り込んだときだけ出す
 // - 行ごとの「次回確かめる」の印（recheck.ts。世帯ファイルに残す）と、印の行の書き出し（面談で確かめることの文）
@@ -11,12 +11,12 @@ import type { WorkingHousehold } from "./household.ts";
 import type { NoticeRow } from "../engineNotices.ts";
 import { findObject } from "../store/readings.ts";
 import { today } from "../report/assemble.ts";
-import { ackedRows, CERTAINTY_LABELS, CHECK_KIND_LABELS, checkCounts, checkList, confirmAllEstimates, DEFAULT_KINDS, fillAll, KIND_ORDER, ORIGIN_LABELS, type Certainty, type CheckKind, type CheckRow, type OriginKind } from "./checkRows.ts";
+import { ackedRows, CERTAINTY_LABELS, CHECK_KIND_LABELS, checkCounts, checkList, confirmAllEstimates, DEFAULT_KINDS, fillAll, confirmAllLabel, CONFIRM_ALL_NOTE, fillAllLabel, KIND_ORDER, KIND_UNITS, kindCount, ORIGIN_LABELS, type Certainty, type CheckKind, type CheckRow, type OriginKind } from "./checkRows.ts";
 import { isRechecked, recheckMarks, recheckText, setRecheck } from "./recheck.ts";
 import { Help } from "../../presentation/Help.tsx";
 
 /** 根拠を、行を開いたときだけ出す種類（推定・書類待ち・確かさ。0077）。ほかの種類の文は状態の知らせなので常に出す */
-export const BASIS_ON_OPEN: ReadonlySet<CheckKind> = new Set<CheckKind>(["estimated", "unknown", "certainty"]);
+export const BASIS_ON_OPEN: ReadonlySet<CheckKind> = new Set<CheckKind>(["estimated", "unknown", "certainty", "premise"]);
 
 /** プランの編集中に、そのプランで足した物の行を出すための道具 */
 export interface CheckPlan {
@@ -42,7 +42,15 @@ interface Props {
   onDocRequests?: () => void;
 }
 
-/** 入力のホームの見出しの下に出す、確かめの一覧の入口の数（未入力・書類待ち・推定） */
+/**
+ * 入力のホームの「確かめの一覧」のボタンの文: 未入力と推定の数だけ（ほかの種類があれば「ほか」。数の並びは開いた中だけ。0041 の追記 2026-11-06）
+ */
+export function checkButtonText(counts: Readonly<Record<CheckKind, number>>): string {
+  const others = counts.notStarted + counts.unknown + counts.notice + counts.calc;
+  return `確かめの一覧（${kindCount("missing", counts.missing, "未入力")}・${kindCount("estimated", counts.estimated)}${others > 0 ? " ほか" : ""}）`;
+}
+
+/** 入力のホームの見出しの下に出す、確かめの一覧の入口の数（未入力・書類待ち・推定。前提条件の標準の値は数えない） */
 export function checkSummary(wh: WorkingHousehold, notices: readonly NoticeRow[] = []): { total: number; counts: Record<CheckKind, number> } {
   const counts = checkCounts(checkList(wh, notices));
   return { total: counts.missing + counts.notStarted + counts.unknown + counts.notice + counts.calc + counts.estimated, counts };
@@ -88,6 +96,8 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
   const [filter, setFilter] = useState<CheckFilter>({ card: "", kind: "", origin: "", certainty: "" });
   const [copied, setCopied] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  /** まとめての「この値にする」を押す前の確かめの1行を出しているか */
+  const [asking, setAsking] = useState(false);
   /** 根拠を開いた行 */
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const toggleOpen = (id: string) => setOpened((o) => {
@@ -105,6 +115,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
   const shownAcked = kind === "acked" ? acked.filter((r) => card === "" || r.card === card) : [];
   const shownPlan = planRows.filter((r) => passesFilter(r, filter, () => false));
   const counts = checkCounts(all);
+  const premise = kind === "" ? all.filter((r) => r.kind === "premise" && (card === "" || r.card === card) && (filter.origin === "" || r.origin === filter.origin) && (filter.certainty === "" || r.certainty === filter.certainty)) : [];
   const fillable = shown.filter((r) => (r.kind === "missing" || r.kind === "notStarted") && r.actions.some((a) => a.key === "fill")).length;
   // まとめて確定にできる推定（推定が値でなく決まりの欄は「この値にする」を持たない）
   const estimated = all.filter((r) => r.kind === "estimated" && (card === "" || r.card === card) && r.actions.some((a) => a.key === "confirm")).length;
@@ -195,19 +206,26 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
         <h2>
           確かめの一覧
           <Help label="確かめの一覧" id="checklist">
-            <p>未入力・まだ入れていない項目・書類待ち・確かめの注意・計算のお知らせ・推定の欄を並べます。いつも現状の世帯を見ます（プランの編集中は、そのプランで足した物の行も出します）。</p>
+            <p>未入力・まだ入れていない項目・書類待ち・確かめの注意・計算のお知らせ・推定の欄を並べます。いつも現状の世帯を見ます（プランの編集中は、そのプランで足した物の行も出します）。数は欄の数（○か所）で、注意・お知らせは件数です。</p>
+            <p>仮の値（生年月など、推定できない欄に計算のために置いた値）は、未入力に出します。前提条件の既定の値のままの前提は、いちばん下の「前提条件の標準の値」にまとめます（推定の数には入れません）。</p>
+            <p>「入っていない所を推定で入れる」は、入っていない物（教育費・退職金・住居費など）を推定で入れます。「推定のままの値を「この値にする」」は、推定のままの値をその値のまま確定にします（確定にすると、家族や収入を直しても推定で入れ直されません）。</p>
             <p>書類待ちは、欄で「書類で確かめる」にした所です（住民税は住民税の決定通知書、退職金・企業年金は会社の退職金規程・制度の資料、年金の加入月数はねんきん定期便、住宅ローン・自動車ローンは返済予定表、手術の額は保険証券）。確かめるまでは代わりの値で計算し、書類の値を打つか「この値にする」で消えます。「書類のお願いにまとめる」で、送ってもらう書類の一覧とお願いの文を出せます。</p>
             <p>「開く」でその欄に移ります（移るだけでは値も状態も変わりません）。推定・書類待ち・確かさの行は「根拠」で根拠が開きます。</p>
             <p>確かさが申告・概算の値は、確かさか状態で絞り込んだときだけ出します。「次回確かめる」は、次の面談・見直しで確かめる所の印です（世帯に残ります。計算は変わりません）。</p>
             <p>お客さまと確かめてそのままでよい注意（医療保険を2本とも続けるなど）は「確認した」で隠せます。中身が変わると、また出ます。隠した注意は状態の「確認した注意」で見られ、「また出す」で戻せます。</p>
           </Help>
         </h2>
-        <p class="ck-lead">
-          未入力 {counts.missing}
-          {counts.notStarted > 0 ? `・まだ入れていない ${counts.notStarted}` : ""}・書類待ち {counts.unknown}・確かめの注意 {counts.notice}
-          {counts.calc > 0 ? `・計算のお知らせ ${counts.calc}` : ""}・推定 {counts.estimated}
-          {marks.length > 0 ? `・次回確かめる ${marks.length}` : ""}
-          {acked.length > 0 ? `・確認した注意 ${acked.length}` : ""}
+        <p class="ck-lead" data-ck-lead>
+          {[
+            kindCount("missing", counts.missing, "未入力"),
+            ...(counts.notStarted > 0 ? [kindCount("notStarted", counts.notStarted, "まだ入れていない")] : []),
+            kindCount("unknown", counts.unknown),
+            kindCount("notice", counts.notice),
+            ...(counts.calc > 0 ? [kindCount("calc", counts.calc, "計算のお知らせ")] : []),
+            kindCount("estimated", counts.estimated),
+            ...(marks.length > 0 ? [`次回確かめる ${marks.length}か所`] : []),
+            ...(acked.length > 0 ? [`確認した注意 ${acked.length}件`] : []),
+          ].join("・")}
         </p>
         <div class="ck-tools">
           <label>
@@ -264,24 +282,16 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
               class="add-btn"
               onClick={() => {
                 const r = fillAll(wh, card === "" ? undefined : card);
-                if (r.count > 0) onEdit(r.wh, `推定で埋めました（${r.count}件）`);
+                if (r.count > 0) onEdit(r.wh, `推定で入れました（${r.count}か所）`);
               }}
               data-ck-fill-all
             >
-              推定で埋める（{card === "" ? "まとめて" : "この項目"} {fillable}件）
+              {fillAllLabel(fillable, card === "" ? "" : "この項目")}
             </button>
           ) : null}
-          {estimated > 0 ? (
-            <button
-              type="button"
-              class="add-btn"
-              onClick={() => {
-                const r = confirmAllEstimates(wh, card === "" ? undefined : card);
-                if (r.count > 0) onEdit(r.wh, `推定の値をまとめて使いました（${r.count}つ）`);
-              }}
-              data-ck-confirm-all
-            >
-              {card === "" ? `推定の値をまとめて使う（全部 ${estimated}つ）` : `この項目の推定の値をまとめて使う（${estimated}つ）`}
+          {estimated > 0 && !asking ? (
+            <button type="button" class="add-btn" onClick={() => setAsking(true)} title="推定のままの値を、その値のまま確定にします（押すと確かめの1行が出ます）" data-ck-confirm-all>
+              {confirmAllLabel(estimated, card === "" ? "全部" : "この項目")}
             </button>
           ) : null}
           {marks.length > 0 ? (
@@ -290,6 +300,26 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
             </button>
           ) : null}
         </div>
+        {asking && estimated > 0 ? (
+          <p class="ck-ask" role="alert" data-ck-confirm-ask>
+            {CONFIRM_ALL_NOTE}
+            <button
+              type="button"
+              class="btn small primary"
+              onClick={() => {
+                setAsking(false);
+                const r = confirmAllEstimates(wh, card === "" ? undefined : card);
+                if (r.count > 0) onEdit(r.wh, `推定のままの値を「この値にする」にしました（${r.count}か所）`);
+              }}
+              data-ck-confirm-run
+            >
+              この値にする（{estimated}か所）
+            </button>
+            <button type="button" class="btn small" onClick={() => setAsking(false)} data-ck-confirm-cancel>
+              キャンセル
+            </button>
+          </p>
+        ) : null}
         {note !== null ? (
           <p class="in-note" role="status">
             {note}
@@ -298,7 +328,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
         {copied !== null ? <textarea class="ck-copy" readOnly value={copied} rows={Math.min(12, copied.split("\n").length + 1)} aria-label="次回確かめること" data-ck-recheck-text /> : null}
       </div>
       {kind === "acked" && shownAcked.length === 0 ? <p class="in-note">「確認した」にした注意はありません。</p> : null}
-      {kind !== "acked" && shown.length === 0 && shownPlan.length === 0 ? <p class="in-note">確かめる所はありません。</p> : null}
+      {kind !== "acked" && shown.length === 0 && shownPlan.length === 0 && premise.length === 0 ? <p class="in-note">確かめる所はありません。</p> : null}
       {shownPlan.length > 0 && plan !== undefined ? (
         <div class="ck-kind ck-plan" data-ck-kind="plan">
           <h3>
@@ -313,7 +343,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
         return (
           <div class={`ck-kind ck-${k}`} key={k} data-ck-kind={k}>
             <h3>
-              {CHECK_KIND_LABELS[k]}（{list.length}）
+              {CHECK_KIND_LABELS[k]}（{list.length}{KIND_UNITS[k]}）
               {k === "unknown" && onDocRequests !== undefined ? (
                 <button type="button" class="link-btn ck-docs" onClick={onDocRequests} data-ck-doc-requests title="書類待ちの欄を、お客さまに送ってもらう書類の一覧にまとめます">
                   書類のお願いにまとめる
@@ -324,6 +354,16 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan, onDo
           </div>
         );
       })}
+      {/* 前提条件の標準の値: 推定の数とまとめての操作に入れず、いちばん下の折りたたみの1行（状態で「前提条件の標準の値」を選ぶと、ほかの種類と同じに並ぶ） */}
+      {kind === "" && premise.length > 0 ? (
+        <details class="ck-kind ck-premise" data-ck-kind="premise-fold">
+          <summary>
+            {CHECK_KIND_LABELS.premise}（{premise.length}{KIND_UNITS.premise}）
+          </summary>
+          <p class="in-note">前提条件の入力項目の、既定の値のままの前提です。事務所の既定値か、この世帯に合わせて前提条件の入力項目で直します（推定の数には入れていません）。</p>
+          <ul>{premise.map((r) => line(r, false))}</ul>
+        </details>
+      ) : null}
       {kind === "recheck" ? <RecheckGone wh={wh} rows={all} /> : null}
       {shownAcked.length > 0 ? (
         <div class="ck-kind ck-acked" data-ck-kind="acked">
