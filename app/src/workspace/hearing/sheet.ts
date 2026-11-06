@@ -13,6 +13,7 @@ import { endYearForAge, followedEndAge, type WorkingHousehold } from "../input/h
 import { fillEducation } from "../input/fill.ts";
 import { memberLabels } from "../input/labels.ts";
 import { withDeathEstimate } from "../input/stages/care.ts";
+import { withWorkEndEstimates } from "../input/stages/work.ts";
 import { withEntry } from "../input/stages/housingLoans.ts";
 import { roles } from "../roles.ts";
 import type { WebLogEntry } from "./web.ts";
@@ -169,10 +170,13 @@ const GROUP: Record<string, string> = {
   insuranceContracts: "保険",
   livingExpenses: "生活費",
   savingsChecks: "年間の貯蓄",
+  careExpenses: "介護",
+  incomeFlows: "入るお金",
+  periodicExpenses: "出るお金",
 };
 
 /** 構成員を指す欄（物の中で構成員の ID を持つ欄） */
-const MEMBER_REFS = ["member", "owner", "insured", "policyholder", "payer", "child", "debtor", "beneficiary"];
+const MEMBER_REFS = ["member", "owner", "insured", "policyholder", "payer", "child", "debtor", "beneficiary", "counterparty"];
 /** 物の種類を表す欄（同じ種類どうしで対応づける） */
 const KIND_FIELDS = ["kind", "type", "template", "mode", "stage"];
 
@@ -322,6 +326,13 @@ function titleOf(c: Candidate, imp: EngineRequest): string {
   // 親・祖父母（世帯の外の家族）は父・母・義父・義母と呼ぶ（介護・親の項目と同じ）
   if (c.collection === "members" && (v.kind === "parent" || v.kind === "grandparent")) return memberLabels({ request: imp, assumed: {}, labelsByMember: {} } as unknown as WorkingHousehold).get(v.id) ?? "ご家族";
   if (c.collection === "members") return label.get(v.id) ?? "ご家族";
+  // ご両親の介護・仕送り・援助（詳細版の版3から）: 母の介護・母への仕送り・母からの援助。受け取る予定の相続は相手を聞かない
+  const elders = memberLabels({ request: imp, assumed: {}, labelsByMember: {} } as unknown as WorkingHousehold);
+  const elder = (id: unknown) => (typeof id === "string" ? imp.input.household.members.find((m) => m.id === id && (m.kind === "parent" || m.kind === "grandparent")) : undefined);
+  if (c.collection === "careExpenses" && elder(v.member) !== undefined) return `${elders.get(v.member as string) ?? "親"}の介護`;
+  if (c.collection === "periodicExpenses" && v.kind === "allowance") return elder(v.counterparty) !== undefined ? `${elders.get(v.counterparty as string) ?? "親"}への仕送り` : "仕送り";
+  if (c.collection === "incomeFlows" && v.kind === "support") return elder(v.counterparty) !== undefined ? `${elders.get(v.counterparty as string) ?? "親"}からの援助` : "援助";
+  if (c.collection === "incomeFlows" && v.kind === "inheritance") return "受け取る予定の相続・贈与";
   for (const k of MEMBER_REFS) if (typeof v[k] === "string" && label.has(v[k] as string)) return `${label.get(v[k] as string) as string}の${group}`;
   return group;
 }
@@ -516,6 +527,10 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
     if (m.kind === "child" && fillsByEstimate("goal.education")) filled = fillEducation(filled, m.id);
     if (m.kind === "parent" && (m.leaves === null || m.leaves === undefined)) filled = withDeathEstimate(filled, m.id);
   }
+  // 取り込んだ働き方（会社員・パートなど）に終わりが無ければ、働く最後の年齢の推定を入れる（画面で働き方を入れたときと同じ。シートで定年を聞いて
+  // 答えがあれば終わりがあるので何もしない。働き方を取り込まなかった人は変えない）
+  const workers = new Set(chosen.filter((c) => c.collection === "employmentPeriods").map((c) => (remap(c.value as Obj, ids).member as string | undefined) ?? ""));
+  if (workers.size > 0) filled = withWorkEndEstimates(filled, workers);
   // 簡易のシートの残高と返済額から置いた住宅ローンは、ローンの入れ方を「今の残高から」にする（0052）
   for (const c of chosen) {
     if (c.collection !== "debts" || r.loanEntry[c.target.object] === undefined) continue;

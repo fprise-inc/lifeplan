@@ -294,13 +294,15 @@ describe("推定の額の丸め（千円単位）", () => {
 });
 
 describe("取り込んだ世帯の働く最後の年齢（終わりの無い期間に推定を入れる部品）", () => {
-  it("ヒアリングシートから取り込んだ会社員・パートの終わりの無い期間に、定年・働く最後の推定を入れる", async () => {
+  it("ヒアリングシートから取り込んだ会社員・パートの終わりの無い期間に、取り込みの承認で定年・働く最後の推定を入れる", async () => {
     const wh = withRefreshedEstimates(blankHousehold(BASE, ids()));
     const r = await importSheet(new Uint8Array(readFileSync(join(REPO_DIR, "hearing", "samples", "basic-2-sample.xlsx"))), wh, ids());
     if (!r.ok) throw new Error("取り込めない");
     const imported = withRefreshedEstimates(applyImport(wh, r.view, new Set(r.view.candidates.map((c) => c.id)), approvalTime(new Date(2026, 9, 18, 10, 0, 0))).wh);
-    expect((imported.request.input.household.employmentPeriods ?? []).some((p) => p.to === null)).toBe(true);
+    // 取り込みの承認（applyImport）が、終わりの無い今の働き方に推定を入れる。もう一度呼んでも変わらない
+    expect((imported.request.input.household.employmentPeriods ?? []).every((p) => p.to !== null)).toBe(true);
     const w = withRefreshedEstimates(withWorkEndEstimates(imported));
+    expect(w.request.input.household.employmentPeriods).toEqual(imported.request.input.household.employmentPeriods);
     expect((w.request.input.household.employmentPeriods ?? []).every((p) => p.to !== null)).toBe(true);
     for (const m of w.request.input.household.members.filter((x) => x.kind === "self" || x.kind === "spouse")) {
       const ps = periods(w, m.id);

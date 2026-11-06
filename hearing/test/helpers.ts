@@ -17,8 +17,10 @@ export const basic = (): SheetDefinition => sheet("basic", 1);
 export const simple = (): SheetDefinition => sheet("basic", 2);
 /** full 版1（廃止。basic 版1 と同じ項目。書き出さないが、配ったシートを取り込める） */
 export const full = (): SheetDefinition => sheet("full", 1);
-/** full 版2（詳細版の今の版。版1 に会社役員の方の会社とのお金の欄を足した。0105） */
+/** full 版2（廃止。版1 に会社役員の方の会社とのお金の欄を足した。0105。書き出さないが、配ったシートを取り込める） */
 export const full2 = (): SheetDefinition => sheet("full", 2);
+/** full 版3（詳細版の今の版。版2 にご両親・仕送りと援助・介護・受け取る予定の相続の欄を足した） */
+export const full3 = (): SheetDefinition => sheet("full", 3);
 
 export const OFFICE = { name: "【架空】みらいFP事務所", purpose: "ライフプランの作成と、家計・保険・資産運用のご相談のため", privacyContact: "【架空】みらいFP事務所 個人情報の窓口（privacy@example.invalid）" };
 

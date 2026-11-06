@@ -301,14 +301,14 @@ export async function household3(p: Page): Promise<Notes> {
   await p.click("＋ 母を足す", { within: "panel", exact: true });
   await p.type("生年月", "1937-06");
   await p.click("＋ 介護を推定で入れる（この人）", { within: "panel", exact: true });
-  await p.choose("払う人", "ご本人");
+  await p.choose("払う人", "世帯（ご本人）");
   await p.type("月々の費用（自己負担の合計）", "8");
   await save(p, n, "介護・親");
 
   await open(p, n, "相続・贈与", "詳細");
   await p.click("＋ 相続・遺贈", { within: "panel", exact: true });
   await p.type("額", "1500");
-  n.seen.inheritWhenBefore = await fieldValue(p, "受け取る時期");
+  n.seen.inheritWhenBefore = await fieldValue(p, "時期");
   await save(p, n, "相続・贈与");
 
   // 母の亡くなる見込みを直す（相続の時期・介護の終わりがついてくるか）
@@ -316,7 +316,7 @@ export async function household3(p: Page): Promise<Notes> {
   await p.type("亡くなる見込み", "95");
   await save(p, n, "介護・親");
   await open(p, n, "相続・贈与", "詳細");
-  n.seen.inheritWhenAfter = await fieldValue(p, "受け取る時期");
+  n.seen.inheritWhenAfter = await fieldValue(p, "時期");
   await p.click("キャンセル", { within: "panel", exact: true });
 
   await open(p, n, "貯蓄・運用");

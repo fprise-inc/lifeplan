@@ -218,9 +218,33 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: hs.family.parent.allowance
+    status: active
+    label: "仕送り（ご両親へ・毎月）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.family.parent.care
+    status: active
+    label: "介護が始まっているか"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.family.parent.careMonthly
+    status: active
+    label: "介護の費用（毎月・ご家族が払っている額）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: hs.family.parent.cohabiting
     status: active
     label: "いっしょに暮らしているか"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.family.parent.support
+    status: active
+    label: "援助（ご両親から・毎月）"
     since: draft
     aliases: []
     replacedBy: null
@@ -299,6 +323,24 @@ entries:
   - id: hs.income.salary
     status: active
     label: "給与の年収（賞与を含む）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.inherit.amount
+    status: active
+    label: "受け取る額の目安"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.inherit.expected
+    status: active
+    label: "受け取る予定の相続・贈与"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.inherit.year
+    status: active
+    label: "受け取る時期の見込み"
     since: draft
     aliases: []
     replacedBy: null

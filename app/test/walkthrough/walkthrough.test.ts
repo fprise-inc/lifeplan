@@ -234,10 +234,10 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
     it.fails("収益不動産の取得の年月を Backspace で消しても、取得価額が残る", () => {
       expect(d.notes.seen.acquisitionAfterClear).not.toBe("");
     });
-    it.fails("母の亡くなる見込みを直すと、相続の受け取る時期がついてくる", () => {
+    it("母の亡くなる見込みを直すと、相続の受け取る時期がついてくる", () => {
       expect(d.notes.seen.inheritWhenAfter).not.toBe(d.notes.seen.inheritWhenBefore);
     });
-    it.fails("介護を受ける人が亡くなった後は、介護の費用を払わない", () => {
+    it("介護を受ける人が亡くなった後は、介護の費用を払わない", () => {
       const leaves = mother().leaves?.memberAge?.years ?? 0;
       const deathYear = Number(mother().birth.birthYearMonth.slice(0, 4)) + leaves;
       const care = d.table.filter((c) => c.row.includes("care") && c.row.startsWith("cf.expense") && c.year > deathYear + 1);
@@ -249,8 +249,6 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
     panelChecks(() => d);
     watchChecks(() => d, [
       { rule: "pastRetirementEstimate", match: /db/, what: "定年の後に足した企業年金（年金で受け取る）の一時金の額が、推定0円・受け取りが過去のまま残る" },
-      { rule: "careAndInheritanceAfterDeath", match: /介護の費用/, what: "介護を受ける人が亡くなった後も、介護の費用が続く" },
-      { rule: "careAndInheritanceAfterDeath", match: /相続の時期/, what: "亡くなる見込みを直しても、受け取る相続の時期がついてこない" },
       { rule: "rowGrouping", match: /corporatePension/, what: "企業年金がキャッシュフロー表の「その他の収入」に入る" },
       { rule: "zeroCostBasis", match: /taxable/, what: "課税口座を足すと、取得価額が0円で入る" },
       { rule: "screenWords", match: /incomeFlow/, what: "世帯の中身の一覧に内部の名前（incomeFlow）が出る" },

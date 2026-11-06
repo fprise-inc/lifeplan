@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createHearingSheet, layoutDigest, readSheetXlsx, OFFICIAL_SHEETS, REQUESTED_DOCUMENTS_HEADING, REQUESTED_DOCUMENTS_NOTE, type HearingRequest, type ReadResult } from "../src/index.ts";
 import { answerCells } from "../src/definition.ts";
-import { full2, bytes, editXlsx, HEARING_DIR, insertRow, modelHousehold, OFFICE, rezip, setCell, text, toSharedStrings, unzip } from "./helpers.ts";
+import { full3, bytes, editXlsx, HEARING_DIR, insertRow, modelHousehold, OFFICE, rezip, setCell, text, toSharedStrings, unzip } from "./helpers.ts";
 
-const def = full2();
+const def = full3();
 const ANS = "xl/worksheets/sheet2.xml";
 const sample = () => new Uint8Array(readFileSync(join(HEARING_DIR, "samples", "basic-1-sample.xlsx")));
 
@@ -30,7 +30,7 @@ describe("書き出したシート", () => {
     expect(text(files.get("docProps/custom.xml"))).toContain('name="lifeplan.requestId"><vt:lpwstr>R-ABCDEF</vt:lpwstr>');
     const intro = text(files.get("xl/worksheets/sheet1.xml"));
     expect(intro).toContain("R-ABCDEF");
-    expect(intro).toContain("full-2");
+    expect(intro).toContain("full-3");
     expect(intro).toContain("お名前は書かないでください");
     // マクロ・外部リンクは無い
     expect([...files.keys()].some((n) => /vba|externalLink|embeddings/.test(n))).toBe(false);

@@ -4,7 +4,7 @@
 // - 不足（計算に要る欄が空）・矛盾・読めない値を知らせ、面談のチェックリストに載せる（「わからない」も載せる。0018 の6）
 // - 空欄・「わからない」を目安で補った欄には、入力の画面の「推定あり」（0008 の 2026-10-11 の追記の2）と同じ印を付ける:
 //   値の箱を持つ欄は state: estimated（わからないは unknown＋substitute）、値の箱を持たない欄は assumed（欄のキー → 理由）
-import full2 from "../sheets/full/2.json" with { type: "json" };
+import full3 from "../sheets/full/3.json" with { type: "json" };
 import { answerKey, type Answer, type FilledSheet } from "./answers.ts";
 import { axisOf, itemByKey, type SheetDefinition, type SheetItem } from "./definition.ts";
 import { bonusShareEstimate, businessEstimate, careerStartMonth, fillsByEstimate, HEARING_UNKNOWN_BASIS, NOT_FILLED_BASIS, healthRateEstimate, livingEstimate, residentTaxEstimate, residentTaxYear, retirementLumpSumEstimate, salaryEstimate, type Estimate } from "./estimates.ts";
@@ -15,16 +15,19 @@ import { monthsFromPayment, principalFromPayment, standardTermMonths } from "./l
 import { addMonths, ageAt, reachedMonth, ymIndex } from "./months.ts";
 import type {
   Account,
+  CareExpense,
   Debt,
   EducationStage,
   EmploymentPeriod,
   EngineRequest,
   Goal,
   Household,
+  IncomeFlow,
   InsuranceContract,
   LivingExpense,
   Member,
   PensionRecord,
+  PeriodicExpense,
   Relation,
   Residence,
   ResidentTaxAssessment,
@@ -154,7 +157,7 @@ const SALARIED = new Set(["regular", "contract", "partTime", "civilServant", "ex
 const MAIN_JOB = new Set(["regular", "contract", "civilServant", "executive"]);
 
 /** シートの外の項目キーの表示名（簡易版のシートで聞かない欄を補ったときの知らせ・面談のチェックリストに使う。詳細版の今の版の言葉） */
-const FALLBACK = full2 as unknown as SheetDefinition;
+const FALLBACK = full3 as unknown as SheetDefinition;
 const FALLBACK_ITEMS = itemByKey(FALLBACK);
 
 /** 項目キーの表示名（シート定義に無い項目は詳細版の言葉。どちらにも無ければキーのまま） */
@@ -470,7 +473,8 @@ export function importAnswers(def: SheetDefinition, filled: FilledSheet, options
 
   simpleAliases(c);
   const adults = importFamily(c, h, options.baseMonth, asOf);
-  importParents(c, h, adults, asOf);
+  importParents(c, h, adults, asOf, options.baseMonth);
+  importInheritance(c, h, options.baseMonth);
   const periods = importWork(c, h, adults, options.baseMonth);
   importPension(c, h, adults, asOf);
   importHousing(c, h, adults, asOf, options.baseMonth);
@@ -676,9 +680,10 @@ const P = "hs.family.parent";
 /**
  * ご両親（ご本人のお父さま・お母さま、配偶者の方のお父さま・お母さま）を、世帯の外の家族（家計を世帯と別にする親）として取り込む。
  * 性別と誰の親かは欄で決まる。年齢があれば仮の生年月、無ければお子さま（本人・配偶者）の生年の30年前（介護・親のカードの「＋ 両家の親を足す」と同じ）。
- * 同居かは扶養と同居の欄（同居している）に入れる。亡くなる見込み・扶養・親のお金・介護の費用はシートで聞かない
+ * 同居かは扶養と同居の欄（同居している）に入れる。亡くなる見込み・扶養・親のお金はシートで聞かない（亡くなる見込みは承認したときに画面の側で平均余命の推定を入れる）。
+ * 詳細版の版3 からは、仕送り・援助・介護が始まっているかも聞く（importParentMoney）
  */
-function importParents(c: Ctx, h: Household, adults: Adults, asOf: string): void {
+function importParents(c: Ctx, h: Household, adults: Adults, asOf: string, baseMonth: string): void {
   const axis = c.def.axes.find((a) => a.id === "parent");
   if (axis === undefined || !c.has(`${P}.alive`)) return;
   for (let n = 1; n <= axis.count; n++) {
@@ -713,8 +718,76 @@ function importParents(c: Ctx, h: Household, adults: Adults, asOf: string): void
       c.field(id, `${P}.cohabiting`, n, "member.support", "/support/cohabiting", "confirmed");
     }
     h.members.push(m);
-    c.candidate("members", "member.kind", m, undefined, "亡くなる見込み・扶養・親のお金・介護の費用はシートでお聞きしていません。介護・親の項目で入れてください");
+    const asked = c.has(`${P}.care`);
+    c.candidate("members", "member.kind", m, undefined, asked ? "亡くなる見込み・扶養・親のお金はシートでお聞きしていません。介護・親の項目で入れてください" : "亡くなる見込み・扶養・親のお金・介護の費用はシートでお聞きしていません。介護・親の項目で入れてください");
+    importParentMoney(c, h, m, n, baseMonth);
   }
+}
+
+/**
+ * ご両親への仕送り・ご両親からの援助（毎月）と、介護が始まっているか（詳細版の版3から。0059）。仕送りは相手をこの親にした仕送りの出るお金の行、
+ * 援助は入るお金の行（援助・仕送りを受ける）にし、どちらも今の月から毎月（終わりは入れない。相手が亡くなる見込みの月で止まる）。
+ * 介護が始まっていれば、この親の介護の費用を1件（始まりは前の月〔始まった年月はシートで聞かない。仮の値〕・期間は統計の平均・月々の費用は記入の額）
+ */
+function importParentMoney(c: Ctx, h: Household, m: Member, n: number, baseMonth: string): void {
+  const at = { at: baseMonth };
+  const allowance = c.get<number>(`${P}.allowance`, n);
+  if (allowance.status === "value" && allowance.value > 0) {
+    const id = c.newId();
+    const row: PeriodicExpense = { id, label: "仕送り", kind: "allowance", row: "cf.expense.other", from: at, to: null, everyYears: 1, monthly: true, amount: c.box(`${P}.allowance`, n, allowance.value), counterparty: m.id };
+    c.field(id, `${P}.allowance`, n, "periodicExpense.amount", "/amount", "confirmed");
+    (h.periodicExpenses ??= []).push(row);
+    c.candidate("periodicExpenses", "periodicExpense.amount", row, undefined, "今の月から毎月としました。始まり・終わりは面談で確かめてください");
+  }
+  const support = c.get<number>(`${P}.support`, n);
+  if (support.status === "value" && support.value > 0) {
+    const id = c.newId();
+    const flow: IncomeFlow = { id, label: "援助・仕送りを受ける", kind: "support", from: at, to: null, everyYears: 1, monthly: true, amount: c.box(`${P}.support`, n, support.value), counterparty: m.id };
+    c.field(id, `${P}.support`, n, "incomeFlow.amount", "/amount", "confirmed");
+    (h.incomeFlows ??= []).push(flow);
+    c.candidate("incomeFlows", "incomeFlow.amount", flow, undefined, "今の月から毎月としました。始まり・終わりは面談で確かめてください");
+  }
+  const care = c.get<string>(`${P}.care`, n);
+  if (care.status === "value" && (care.value === "home" || care.value === "facility")) {
+    const id = c.newId();
+    const ce: CareExpense = { id, member: m.id, from: { at: addMonths(baseMonth, -1) }, place: care.value };
+    c.field(id, `${P}.care`, n, "care.place", "/place", "confirmed");
+    c.assume(`ev/care/${id}/from`, "仮の値（介護が始まっている。始まった年月はシートでお聞きしていません）", { objectId: id, key: `${P}.care`, index: n, item: "care.from", path: "/from" });
+    const monthly = c.get<number>(`${P}.careMonthly`, n);
+    if (monthly.status === "value") {
+      ce.otherMonthly = c.box(`${P}.careMonthly`, n, monthly.value);
+      c.field(id, `${P}.careMonthly`, n, "care.otherMonthly", "/otherMonthly", "confirmed");
+    }
+    (h.careExpenses ??= []).push(ce);
+    c.candidate("careExpenses", "care.place", ce, undefined, "介護の期間・一時費用・介護保険のサービスの額は、空欄のまま統計の平均で推定します。面談で確かめてください");
+  } else if (c.get<number>(`${P}.careMonthly`, n).status === "value") c.contradiction(`${P}.careMonthly`, n, "介護が始まっていないのに、介護の費用の記入があります（取り込みませんでした）");
+}
+
+/**
+ * 受け取る予定の相続・贈与（詳細版の版3から）: 「ある」なら、相続・遺贈の入るお金の行を1件（時期は記入の年の1月・無ければ1年後、額は目安の額・
+ * 無ければ未入力）。見込みは「当てにしない」（基本の計算に入れない。面談で確かめて「確実」にする）。相手（誰から）はシートで聞かない
+ */
+function importInheritance(c: Ctx, h: Household, baseMonth: string): void {
+  const I = "hs.inherit";
+  if (!c.has(`${I}.expected`)) return;
+  const expected = c.get<string>(`${I}.expected`);
+  const year = c.get<number>(`${I}.year`);
+  const amount = c.get<number>(`${I}.amount`);
+  if (expected.status !== "value" || expected.value !== "yes") {
+    if (year.status === "value" || amount.status === "value") c.contradiction(`${I}.expected`, undefined, "「ある」が選ばれていませんが、時期・額の記入があります（取り込みませんでした）");
+    return;
+  }
+  const id = c.newId();
+  const at = year.status === "value" ? { at: `${String(year.value)}-01` } : { at: addMonths(baseMonth, 12) };
+  if (year.status === "value" && ymIndex(at.at) < ymIndex(baseMonth)) c.contradiction(`${I}.year`, undefined, "受け取る時期の見込みが今より前です");
+  const box: ValueBox<number> = amount.status === "value" ? c.box(`${I}.amount`, undefined, amount.value) : { value: 0, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "未入力（額を入れてください。0円で計算中）" } };
+  const flow: IncomeFlow = { id, label: "相続・遺贈", kind: "inheritance", from: at, to: at, everyYears: 1, amount: box, likelihood: "uncertain" };
+  c.field(id, `${I}.expected`, undefined, "incomeFlow.kind", "/kind", "confirmed");
+  if (year.status === "value") c.field(id, `${I}.year`, undefined, "incomeFlow.from", "/from", "confirmed");
+  else c.assume(`in/${id}/from`, "仮の値（受け取る時期の見込みの記入が無いため1年後）", { objectId: id, key: `${I}.year`, item: "incomeFlow.from", path: "/from" });
+  if (amount.status === "value") c.field(id, `${I}.amount`, undefined, "incomeFlow.amount", "/amount", "confirmed");
+  (h.incomeFlows ??= []).push(flow);
+  c.candidate("incomeFlows", "incomeFlow.kind", flow, undefined, "見込みは「当てにしない」（基本の計算に入れない）で入れました。相手（誰から）・見込みは面談で確かめてください");
 }
 
 // ---- 働き方と収入 ----
