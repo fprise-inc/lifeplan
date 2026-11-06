@@ -262,13 +262,14 @@ export async function household3(p: Page): Promise<Notes> {
   await p.choose("年金の入れ方", "書類から");
   await p.type("国民年金の加入月数", "480");
   await p.type("厚生年金の加入月数", "498");
-  await p.type("老齢基礎年金（65歳からの見込額）", "81.6");
-  await p.type("老齢厚生年金（65歳からの見込額）", "123");
+  // 書類から写す年金の額は円の欄（書類の数字をそのまま打つ。0141）
+  await p.type("老齢基礎年金（65歳からの見込額）", "816000");
+  await p.type("老齢厚生年金（65歳からの見込額）", "1230000");
   await p.choose("年金の入れ方", "書類から", { nth: 1 });
   await p.type("国民年金の加入月数", "480", { nth: 1 });
   await p.type("厚生年金の加入月数", "456", { nth: 1 });
-  await p.type("老齢基礎年金（65歳からの見込額）", "81.6", { nth: 1 });
-  await p.type("老齢厚生年金（65歳からの見込額）", "90", { nth: 1 });
+  await p.type("老齢基礎年金（65歳からの見込額）", "816,000", { nth: 1 });
+  await p.type("老齢厚生年金（65歳からの見込額）", "90万", { nth: 1 });
   await save(p, n, "年金");
   n.seen.pensionCardAfter = await cardText(p, "年金");
 
