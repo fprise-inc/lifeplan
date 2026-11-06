@@ -13,7 +13,8 @@ import { findEntries, findInInput } from "../src/workspace/input/inputSearch.ts"
 import { inputItems, saveItem } from "../src/workspace/input/items.ts";
 import { addOutside, addParentsOf, careSpan, joinHousehold } from "../src/workspace/input/stages/care.ts";
 import { addMember } from "../src/workspace/input/stages/family.ts";
-import { addParentAsCounterparty, INHERIT_AFTER_MONTHS } from "../src/workspace/input/stages/inheritance.ts";
+import { INHERIT_AFTER_MONTHS } from "../src/workspace/input/stages/inheritance.ts";
+import { donorOptions, memberLabel as memberLabelOf } from "../src/workspace/input/labels.ts";
 import { addAdvisoryFee } from "../src/workspace/input/stages/fees.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
@@ -172,22 +173,32 @@ describe("世帯の外の家族の欄", () => {
     expect(actionsOf("care", joined).map((a) => a.key)).not.toContain(`family/${p.id}/outside/join`);
   });
 
-  it("配偶者がいれば「＋ ご本人の父母を足す」「＋ 配偶者の父母を足す」（2人ずつ。両家の4人のボタンは無くした）。いる人は足さない", () => {
+  it("親を足すのは「＋ ご本人の親を足す」「＋ 配偶者の親を足す」（配偶者がいなければ「＋ 親を足す」）。押すと「父」「母」「父母」から選ぶ。いる方は出さない", () => {
     const wh = couple();
-    const simple = actionsOf("care", wh).filter((a) => a.level === "simple" && a.key.includes("/add/")).map((a) => a.label);
-    expect(simple).toEqual(["＋ ご本人の父母を足す", "＋ 配偶者の父母を足す"]);
-    expect(actionsOf("care", wh).map((a) => a.key)).not.toContain("care/add/bothParents");
-    // 母だけいれば、ご本人の父母を足すと父だけ足す
     const self = hh(wh).members.find((m) => m.kind === "self")!;
-    const withMother = addOutside(wh, "parent", { sex: "female" });
-    const both = actionOf("care", withMother, "care/add/selfParents").run(withMother);
+    const spouse = hh(wh).members.find((m) => m.kind === "spouse")!;
+    const adds = actionsOf("care", wh).filter((a) => a.choice?.key.startsWith("care/add/parents/") === true);
+    // 1つの「＋」の選択肢（0040 の追記）。ボタンの名前は choice の label、選択肢はそれぞれの label
+    expect([...new Set(adds.map((a) => a.choice!.label))]).toEqual(["＋ ご本人の親を足す", "＋ 配偶者の親を足す"]);
+    expect(adds.filter((a) => a.choice!.key === "care/add/parents/self").map((a) => a.label)).toEqual(["父", "母", "父母"]);
+    expect(actionsOf("care", wh).map((a) => a.key)).not.toContain("care/add/bothParents");
+    // 母だけを1押しで（足してから外す手数が無い）
+    const mother = adds.find((a) => a.choice!.key === "care/add/parents/spouse" && a.label === "母")!.run(wh);
+    expect(parents(mother).map((m) => [m.sex, m.outside?.of])).toEqual([["female", spouse.id]]);
+    expect(memberLabelOf(mother, parents(mother)[0]!.id)).toBe("義母");
+    // 母がいれば、選択肢は「父」だけ（「父母」も出さない）。両方いればボタンを出さない
+    const withMother = actionOf("care", wh, "family/add/mother").run(wh);
+    expect(actionsOf("care", withMother).filter((a) => a.choice?.key === "care/add/parents/self").map((a) => a.label)).toEqual(["父"]);
+    const both = actionOf("care", withMother, "family/add/father").run(withMother);
     expect(parents(both).map((m) => [m.sex, m.outside?.of])).toEqual([
       ["female", self.id],
       ["male", self.id],
     ]);
-    expect(actionsOf("care", both).map((a) => a.key)).not.toContain("care/add/selfParents");
-    // 配偶者がいなければ「＋ 父を足す」「＋ 母を足す」
-    expect(actionsOf("care", blankHousehold(BASE, seq())).filter((a) => a.level === "simple" && a.key.includes("/add/")).map((a) => a.label)).toEqual(["＋ 父を足す", "＋ 母を足す"]);
+    expect(actionsOf("care", both).some((a) => a.choice?.key === "care/add/parents/self")).toBe(false);
+    // 父母は2人まとめて
+    expect(parents(actionOf("care", wh, "care/add/selfParents").run(wh))).toHaveLength(2);
+    // 配偶者がいなければ「＋ 親を足す」
+    expect([...new Set(actionsOf("care", blankHousehold(BASE, seq())).filter((a) => a.choice?.key.startsWith("care/add/parents/") === true).map((a) => a.choice!.label))]).toEqual(["＋ 親を足す"]);
   });
 
   it("親への仕送り・親からの援助は、世帯の外の家族が1人以上いれば標準（いなければ詳細）", () => {
@@ -238,27 +249,29 @@ describe("介護の物の見出し", () => {
 });
 
 describe("相続・贈与", () => {
-  it("「＋ 父を足す」: 介護・親の世帯の外の家族として足し（亡くなる見込みは推定）、受け取る相続の行の相手にする。時期は亡くなる見込みの10か月後の推定", () => {
+  it("親を足すのは1つ（区画「親・祖父母（相続の相手・贈与する人）」の「＋ 親を足す」。介護・親と同じ選び方）。足した親は相続の相手にも援助の贈与する人にも選べる。生年月を入れない贈与する人は詳細", () => {
     const wh = couple();
-    const add = actionOf("inheritance", wh, "inherit/addFather");
-    const next = add.run(wh);
+    const acts = actionsOf("inheritance", wh);
+    const simple = acts.filter((a) => a.level === "simple" && (a.choice?.key.startsWith("inherit/add/parents/") === true || a.label.includes("親を足す") || a.label.includes("父を足す")));
+    expect([...new Set(simple.map((a) => a.choice?.label ?? a.label))]).toEqual(["＋ ご本人の親を足す", "＋ 配偶者の親を足す"]);
+    expect(acts.find((a) => a.key === "family/add/donor-parent")).toMatchObject({ level: "detail", label: "＋ 生年月を入れない贈与する人（親）" });
+    expect(acts.some((a) => a.key === "inherit/addFather")).toBe(false);
+    const sec = stage("inheritance", wh).sections.find((s) => s.key === "family/donors")!;
+    expect(sec.title).toBe("親・祖父母（相続の相手・贈与する人）");
+    // 父を足すと、介護・親の世帯の外の家族（亡くなる見込みは推定）。受け取る相続の行の相手にも、援助の贈与する人にも選べる
+    const next = acts.find((a) => a.key === "inherit/add/selfFather")!.run(wh);
     const father = parents(next)[0]!;
-    expect(father.sex).toBe("male");
     expect(father.leaves).not.toBeNull();
-    const row = (hh(next).incomeFlows ?? []).find((f) => f.kind === "inheritance")!;
+    expect(groupsOf("care", next).some((g) => g.key === `family/${father.id}`)).toBe(true);
+    const withRow = actionOf("inheritance", next, "money/inherit/in/add/inheritance").run(next);
+    const row = (hh(withRow).incomeFlows ?? []).find((f) => f.kind === "inheritance")!;
+    const cp = fieldOf("inheritance", withRow, `in/${row.id}/counterparty`)!;
+    expect(cp.kind === "select" ? cp.options.map((o) => o.value) : []).toContain(father.id);
+    expect(donorOptions(next).map((o) => o.value)).toContain(father.id);
+    // 相手に選ぶと、時期は亡くなる見込みの10か月後の推定
+    const h0 = hh(withRow);
     expect(row.counterparty).toBe(father.id);
-    const h0 = hh(next);
     expect(resolveTimepoint(h0, row.from)).toBe(addMonths(resolveTimepoint(h0, father.leaves!)!, INHERIT_AFTER_MONTHS));
-    expect(next.assumed[`in/${row.id}/from`]).toBeDefined();
-    // 父がいれば「＋ 父を足す」は出さない
-    expect(actionsOf("inheritance", next).map((a) => a.key)).not.toContain("inherit/addFather");
-    expect(actionsOf("inheritance", next).map((a) => a.key)).toContain("inherit/addMother");
-    // 相手の無い相続の行があれば、その行の相手にする（行を増やさない）
-    const rowOnly = actionOf("inheritance", wh, "money/inherit/in/add/inheritance").run(wh);
-    const addRow = actionOf("inheritance", rowOnly, "money/inherit/in/add/inheritance").run;
-    const withMother = addParentAsCounterparty(rowOnly, "female", addRow);
-    expect((hh(withMother).incomeFlows ?? []).filter((f) => f.kind === "inheritance")).toHaveLength(1);
-    expect((hh(withMother).incomeFlows ?? [])[0]!.counterparty).toBe(parents(withMother)[0]!.id);
   });
 
   it("見込みと「計算に入れる」は1つの考え方: 確実ならチェックの欄を出さず計算に入れる。当てにしないときだけ「この行を計算に入れる」、入れた後は「計算から外す」", () => {

@@ -17,7 +17,7 @@ import { formatYearMonth } from "../units.ts";
 import { addInheritedDebt, addOutsideGrandchild, inheritedDebtGroups, moneySections } from "../moneyRows.ts";
 import { NONE_CLAIMED } from "./events.ts";
 import { addDonorActions } from "./family.ts";
-import { addOutside } from "./care.ts";
+import { parentAddActions } from "./care.ts";
 
 const purposeText = (p: string) => GIFT_PURPOSES.find((o) => o.value === p)?.label ?? "援助";
 const whenText = (h: Household, at: Parameters<typeof resolveTimepoint>[1]) => {
@@ -201,43 +201,6 @@ function withIncludeAction(wh: WorkingHousehold, g: GroupDef): GroupDef {
 const INCLUDE_FIELD = /^(in|inherit\/debt)\/[^/]+\/includeInBase$/;
 const withoutIncludeField = (g: GroupDef): GroupDef => (g.fields.some((f) => INCLUDE_FIELD.test(f.key)) ? { ...g, fields: g.fields.filter((f) => !INCLUDE_FIELD.test(f.key)) } : g);
 
-/**
- * 区画「受け取る予定の相続・贈与」の「＋ 父を足す」「＋ 母を足す」: ご本人の父・母（まだいない方）を介護・親の世帯の外の家族として足し
- * （亡くなる見込みは平均余命の推定）、受け取る相続の行の相手にする（相手の無い相続の行があればその行、無ければ相続の行を足す）。時期は亡くなる見込みの10か月後の推定
- */
-export function addParentAsCounterparty(wh: WorkingHousehold, sex: "male" | "female", addRow: (w: WorkingHousehold) => WorkingHousehold): WorkingHousehold {
-  const before = new Set(wh.request.input.household.members.map((m) => m.id));
-  let w = addOutside(wh, "parent", { sex });
-  const parent = w.request.input.household.members.find((m) => !before.has(m.id));
-  if (parent === undefined) return w;
-  let row = (w.request.input.household.incomeFlows ?? []).find((f) => f.kind === "inheritance" && f.counterparty === undefined);
-  if (row === undefined) {
-    const rows = new Set((w.request.input.household.incomeFlows ?? []).map((f) => f.id));
-    w = addRow(w);
-    row = (w.request.input.household.incomeFlows ?? []).find((f) => !rows.has(f.id));
-  }
-  if (row === undefined) return w;
-  const id = row.id;
-  w = mutate(w, (h) => {
-    const x = (h.incomeFlows ?? []).find((y) => y.id === id);
-    if (x !== undefined) x.counterparty = parent.id;
-  });
-  return inheritTimingFromCounterparty(w, id);
-}
-
-/** ご本人の側の父・母がまだいなければ、区画「受け取る予定の相続・贈与」に足すボタン */
-function parentCounterpartyActions(wh: WorkingHousehold, addRow: ActionDef | undefined): ActionDef[] {
-  if (addRow === undefined) return [];
-  const h = wh.request.input.household;
-  const self = h.members.find((m) => m.kind === "self");
-  const has = (sex: "male" | "female") => h.members.some((m) => m.kind === "parent" && m.sex === sex && (m.outside?.of ?? self?.id) === self?.id);
-  const help = "介護・親の世帯の外の家族として足し（亡くなる見込みは平均余命の推定）、受け取る相続の相手にします。時期は亡くなる見込みの10か月後の推定です";
-  return [
-    ...(has("male") ? [] : [{ key: "inherit/addFather", label: "＋ 父を足す", help, level: "simple" as const, run: (w: WorkingHousehold) => addParentAsCounterparty(w, "male", addRow.run) }]),
-    ...(has("female") ? [] : [{ key: "inherit/addMother", label: "＋ 母を足す", help, level: "simple" as const, run: (w: WorkingHousehold) => addParentAsCounterparty(w, "female", addRow.run) }]),
-  ];
-}
-
 // ---- 区画C 遺したい額・区画D 相続税の目安の設定 ----
 
 type Obj = Record<string, unknown>;
@@ -415,12 +378,11 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
     {
       key: "inherit/receive",
       title: moneyIn?.title ?? "受け取る予定の相続・贈与",
-      note: "受け取れるかどうかの見込み（確実・当てにしない）を行ごとに選びます。「確実」の行は計算に入れ、「当てにしない」にした行は除いて計算します（「この行を計算に入れる」で入れられます）。相続で受け取る時期は、相手の亡くなる見込みの10か月後を推定で入れます。相手の親がまだいなければ「＋ 父を足す」「＋ 母を足す」で足せます",
+      note: "受け取れるかどうかの見込み（確実・当てにしない）を行ごとに選びます。「確実」の行は計算に入れ、「当てにしない」にした行は除いて計算します（「この行を計算に入れる」で入れられます）。相続で受け取る時期は、相手の亡くなる見込みの10か月後を推定で入れます。相手の親がまだいなければ、区画「親・祖父母（相続の相手・贈与する人）」の「＋ 親を足す」で足してから相手に選びます",
       level: "simple",
       groups: [...(moneyIn?.groups ?? []).map((g) => withIncludeAction(wh, withCounterpartyFollow(withoutIncludeField(g)))), ...inheritedDebtGroups(wh).map((g) => withIncludeAction(wh, withoutIncludeField(g))), ...groupsOf(readGroup("inherit/receive", undefined, lines.receive))],
       actions: [
         ...receiveActions(moneyIn?.actions ?? []),
-        ...parentCounterpartyActions(wh, (moneyIn?.actions ?? []).find((a) => a.key === "money/inherit/in/add/inheritance")),
         { key: "money/inherit/addDebt", label: "＋ 相続で受け継ぐ借金", level: "detail", run: (w: WorkingHousehold) => addInheritedDebt(w) },
       ],
     },
@@ -434,11 +396,15 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
     },
     {
       key: "family/donors",
-      title: "贈与する人（親・祖父母）",
-      note: "介護・親の項目で足した親・祖父母は、そのまま住宅資金・教育資金などの援助の贈与する人に選べます。生年月を入れずに贈与する人だけを置くときは、ここで足します。同じ人からの贈与は、贈与税の基礎控除・相続時精算課税の特別控除を合わせて数えます。足した人は、介護・親の項目の世帯の外の家族に並びます",
+      title: "親・祖父母（相続の相手・贈与する人）",
+      note: "「＋ 親を足す」で足した親は、介護・親の項目の世帯の外の家族に並び（亡くなる見込みは平均余命の推定）、受け取る相続の相手にも、住宅資金・教育資金などの援助の贈与する人にも選べます。介護・親の項目で足した親・祖父母も同じです。生年月を入れずに贈与する人だけを置くときは「詳細」の「＋ 生年月を入れない贈与する人（親）」で足します。同じ人からの贈与は、贈与税の基礎控除・相続時精算課税の特別控除を合わせて数えます",
       level: "simple",
       groups: groupsOf(readGroup("inherit/donors", undefined, donorLines(wh))),
-      actions: addDonorActions(wh),
+      // 標準は介護・親の家族として足す「＋ 親を足す」（父・母・父母から選ぶ）だけ。生年月を入れない贈与する人は詳細（同じ親が2人並ぶのを防ぐ）
+      actions: [
+        ...parentAddActions(wh, "inherit"),
+        ...addDonorActions(wh).map((a): ActionDef => ({ ...a, level: "detail", label: a.key === "family/add/donor-parent" ? "＋ 生年月を入れない贈与する人（親）" : a.key === "family/add/donor-grandparent" ? "＋ 生年月を入れない贈与する人（祖父母）" : a.label })),
+      ],
     },
     {
       key: "inherit/legacy",

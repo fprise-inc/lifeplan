@@ -298,9 +298,9 @@ export async function household3(p: Page): Promise<Notes> {
   await save(p, n, "収益不動産");
 
   await open(p, n, "介護・親", "詳細");
-  // 配偶者のいる世帯: 「＋ ご本人の父母を足す」（2人ずつ）で足し、母だけにする（先に足した父を外す）
-  await p.click("＋ ご本人の父母を足す", { within: "panel", exact: true });
-  await p.click("この家族を外す", { within: "panel", exact: true });
+  // 配偶者のいる世帯: 「＋ ご本人の親を足す」を押して「母」を選ぶ（父・母・父母から選ぶ）
+  await p.click("＋ ご本人の親を足す", { within: "panel", exact: true });
+  await p.click("母", { within: "panel", exact: true });
   await p.type("生年月", "1937-06");
   await p.click("＋ 母の介護を推定で入れる", { within: "panel", exact: true });
   await p.choose("払う人", "世帯（ご本人）");

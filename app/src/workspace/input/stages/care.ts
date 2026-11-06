@@ -453,24 +453,36 @@ export function addParentsOf(wh: WorkingHousehold, sideId: string): WorkingHouse
   return missingParents(h, side).reduce((w, sex) => addOutside(w, "parent", { of: side.id, sex, birthYear: Number(side.birth.birthYearMonth.slice(0, 4)) - 30 }), wh);
 }
 
-const addOutsideActions = (wh: WorkingHousehold): ActionDef[] => {
+/**
+ * 親を足すボタン（介護・親と相続・贈与で同じ形）: 「＋ ご本人の親を足す」「＋ 配偶者の親を足す」（配偶者がいなければ「＋ 親を足す」）を押すと、
+ * その場で「父」「母」「父母」から選ぶ（1つの「＋」の選択肢。0040 の追記）。いる方は選択肢に出さず、両方いればボタンを出さない。
+ * 足した人は世帯の外の家族（亡くなる見込みは平均余命の推定）で、受け取る相続の相手にも、援助の贈与する人にも選べる。
+ * keyHead は入力項目ごとの頭（介護・親は今までのキー〔ご本人の父・母は family/add/father・mother〕のまま）
+ */
+export function parentAddActions(wh: WorkingHousehold, keyHead: "care" | "inherit" = "care"): ActionDef[] {
   const h = wh.request.input.household;
   const self = h.members.find((m) => m.kind === "self");
   const spouse = h.members.find((m) => m.kind === "spouse" && m.expected !== true);
-  // 配偶者がいれば、どちらの親かをボタンで決める（2人ずつ。1人だけなら、足した後に「この家族を外す」。いる方は足さない）。
-  // 配偶者がいなければ父・母を1人ずつ（ご本人の親）
-  const sides: ActionDef[] =
-    self !== undefined && spouse !== undefined
-      ? [
-          ...(missingParents(h, self).length > 0 ? [{ key: "care/add/selfParents", label: "＋ ご本人の父母を足す", level: "simple" as const, run: (w: WorkingHousehold) => addParentsOf(w, self.id) }] : []),
-          ...(missingParents(h, spouse).length > 0 ? [{ key: "care/add/spouseParents", label: "＋ 配偶者の父母を足す", level: "simple" as const, run: (w: WorkingHousehold) => addParentsOf(w, spouse.id) }] : []),
-        ]
-      : [
-          { key: "family/add/father", label: "＋ 父を足す", level: "simple", run: (w) => addOutside(w, "parent", { sex: "male" }) },
-          { key: "family/add/mother", label: "＋ 母を足す", level: "simple", run: (w) => addOutside(w, "parent", { sex: "female" }) },
-        ];
+  if (self === undefined) return [];
+  const help = "選んだ親を、世帯の外の家族（家計が別）として足します。亡くなる見込みは平均余命の推定です。足した親は、受け取る相続の相手にも、住宅資金・教育資金の援助の贈与する人にも選べます";
+  const sideActions = (side: Member, isSelf: boolean): ActionDef[] => {
+    const missing = missingParents(h, side);
+    if (missing.length === 0) return [];
+    const key = (what: "father" | "mother" | "both") =>
+      keyHead === "care" && isSelf ? (what === "both" ? "care/add/selfParents" : `family/add/${what}`) : `${keyHead}/add/${isSelf ? "self" : "spouse"}${what === "father" ? "Father" : what === "mother" ? "Mother" : "Parents"}`;
+    const choice = { key: `${keyHead}/add/parents/${isSelf ? "self" : "spouse"}`, label: spouse === undefined ? "＋ 親を足す" : `＋ ${isSelf ? "ご本人" : "配偶者"}の親を足す`, help };
+    const one = (sex: "male" | "female") => (w: WorkingHousehold) => addOutside(w, "parent", { of: side.id, sex, birthYear: Number(side.birth.birthYearMonth.slice(0, 4)) - 30 });
+    return [
+      ...missing.map((sex): ActionDef => ({ key: key(sex === "male" ? "father" : "mother"), label: sex === "male" ? "父" : "母", level: "simple", choice, run: one(sex) })),
+      ...(missing.length === 2 ? [{ key: key("both"), label: "父母", level: "simple" as const, choice, run: (w: WorkingHousehold) => addParentsOf(w, side.id) }] : []),
+    ];
+  };
+  return [...sideActions(self, true), ...(spouse !== undefined ? sideActions(spouse, false) : [])];
+}
+
+const addOutsideActions = (wh: WorkingHousehold): ActionDef[] => {
   return [
-    ...sides,
+    ...parentAddActions(wh, "care"),
     { key: "family/add/grandparent", label: "＋ 祖父母を足す", level: "detail", run: (w) => addOutside(w, "grandparent") },
     { key: "care/add/sibling", label: "＋ 兄弟姉妹を足す", level: "detail", run: (w) => addOutside(w, "sibling") },
     { key: "care/add/child", label: "＋ 離れて暮らす子・前の結婚の子を足す", level: "detail", run: (w) => addOutside(w, "child") },
