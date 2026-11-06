@@ -79,7 +79,7 @@
 
 - 画面: `app/src/workspace/input/units.ts`（`readYen`・`amountWarning`・`amountText`・`rateText`・`eraYear`・`ymWithEra`）、`FieldViews.tsx`（欄の読み・離れたときに決める・知らせ・入力例・選ぶ欄の見出し・時点の欄の年齢の例と人の選択）、`form.ts`（`FieldDef.example`・`blankMeans`・`typicalMax`・年月の `ageInput`・`Option.group`・`WhenSpec.edge`・`who`）、`when.ts`（読みの表記・`edgeOf`・`ageExample`・`birthFromAge`）、`placeholder.ts`（`blankLineFor`）、`savings/SavingsPanel.tsx`（離れたときに決める）、`stages/work.ts`（始まりの欄の `edge`）。
 - 世帯ファイルの形式の版・計算・書く値の形は変えない。見本の世帯の結果は変わらない（読みと入れ方だけの変更）。
-- テスト: `app/test/field-input-reading.test.ts`（読み取りの表・知らせ・離れたときに決める・生年月に年齢・入力例・端の読み・人の絞り・額と率の書き方・見出し）、`app/test/time-point.test.ts`（読みの表記を新しい形に）。
+- テスト: `app/test/field-input-reading.test.ts`（読み取りの表・知らせ・離れたときに決める・生年月に年齢・入力例・端の読み・人の絞り・額と率の書き方・見出し）、`app/test/time-point.test.ts`（読みの表記を新しい形に）、`app/test/units-table.test.ts`（0129 の単位の読み取りの表。直す待ちの行を消し、円の欄の「0.5」を「読めない」に直し、「1億2000」などの行を足した）。
 
 ## 未確定・後の段階に回したこと
 
