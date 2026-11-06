@@ -198,8 +198,14 @@ export interface RealEstateProperty {
   landShare?: string;
   /** 取得。内訳（土地・建物・建物附属設備）・建物附属設備の耐用年数・取得時の諸費用・自己資金は 0080 */
   acquisition?: { price: number; at: string; parts?: { land?: number; building?: number; equipment?: number }; equipmentLife?: number; costs?: number; equity?: number };
+  /**
+   * 減価償却の引き継ぎ（確定申告の減価償却の明細。0126）: year の年末の未償却残高 book と年間（12か月分）の償却費 annual。両方そろった部分だけを、
+   * その翌年から残高が1円になるまで償却する（取得価額からの計算の代わり）
+   */
+  depreciationCarryover?: { year?: number; building?: { book?: number; annual?: number }; equipment?: { book?: number; annual?: number } };
   /** 家賃以外の月の収入（共益費・駐車場・その他）と礼金・更新料の年あたりの見込みは 0080 */
-  rental?: { monthly: Box<number>; vacancyRate?: string; growth?: string; from?: Timepoint; to?: Timepoint | null; commonFee?: number; parking?: number; otherMonthly?: number; keyMoney?: number } & Staged;
+  /** rentBy: 家賃の入れ方（満室時の家賃と空室率 fullOccupancy〔省略〕・今の実際の家賃収入 actual。actual なら空室率は使わない。0126） */
+  rental?: { rentBy?: "fullOccupancy" | "actual"; monthly: Box<number>; vacancyRate?: string; growth?: string; from?: Timepoint; to?: Timepoint | null; commonFee?: number; parking?: number; otherMonthly?: number; keyMoney?: number } & Staged;
   /** 経費の費目（年額。1つでも入れたら年額はその合計）は 0080 */
   expenses?: { annual?: Box<number>; rate?: string; growth?: string; items?: Partial<Record<RealEstateExpenseItem, number>> } & Staged;
   /** 大きな修繕の予定（0080） */

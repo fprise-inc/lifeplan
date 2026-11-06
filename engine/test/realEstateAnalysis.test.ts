@@ -314,3 +314,29 @@ describe("含み益・帳簿価額・建物の無い物件（約束の版 1.1）
     expect(p?.depreciationEnd).toEqual({ building: null, equipment: null });
   });
 });
+
+describe("今の実際の家賃収入で入れた物件（約束の版 1.2・0126）", () => {
+  const req = base({ accounts: [account(P, property({ rental: { rentBy: "actual", monthly: box(95000), vacancyRate: "0.05", commonFee: 9500, keyMoney: 120000 } }))] });
+  const p = analysis(req).properties[0];
+  const y = p?.years.find((x) => x.year === 2027);
+  it("満室の額が無いので表面利回り・損益分岐の入居率は null。今の家賃収入での表面利回り（礼金・更新料を除く年額÷取得価額）を出す", () => {
+    expect(p?.rentBy).toBe("actual");
+    expect(p?.lodging).toBe(false);
+    expect(y?.gross).toBeNull();
+    expect(y?.grossYield).toBeNull();
+    expect(y?.breakEven).toBeNull();
+    sameRate(y?.currentYield ?? null, r12((95000 + 9500) * 12, 25000000));
+    // 実質利回り・返済比率などは今までどおり出す
+    expect(y?.netYield).not.toBeNull();
+    expect(y?.dscr).not.toBeNull();
+  });
+  it("満室時の家賃で入れた物件には currentYield も rentBy も無い。合計の表面利回りは満室のときの収入のある物件だけ", () => {
+    const b = analysis(base());
+    expect(b.properties[0]?.rentBy).toBeUndefined();
+    expect(b.properties[0]?.years[0]?.currentYield).toBeUndefined();
+    const two = analysis(base({ accounts: [account(P, property({ rental: { rentBy: "actual", monthly: box(95000) } })), account(Q)] }));
+    const t = two.total.find((x) => x.year === 2027);
+    const q = two.properties.find((x) => x.object === Q)?.years.find((x) => x.year === 2027);
+    expect(t?.grossYield).toBe(q?.grossYield);
+  });
+});

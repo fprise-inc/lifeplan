@@ -481,3 +481,76 @@ describe("年末の帳簿価額・貸し続けたときの償却の終わり（�
     expect(out(base({ accounts: [account(property({ builtYear: 2020 }))] })).properties[0]?.facts?.depreciationEndIfContinued).toBeUndefined();
   });
 });
+
+describe("家賃の入れ方（今の実際の家賃収入。改訂8・0126）", () => {
+  it("今の実際の家賃収入で入れたら、家賃と家賃以外の月の収入に空室率を掛けない（値が残っていても読まない）。満室の額は出さず、受け取った収入を current に", () => {
+    const o = out(base({ accounts: [account(property({ rental: { rentBy: "actual", monthly: box(95000), vacancyRate: "0.05", commonFee: 5000, keyMoney: 120000 } }))] }));
+    const rent = (ym: string) => o.flows.filter((f) => f.ym === ym && f.row === "cf.income.other.rental").reduce((s, f) => s + f.amount, 0);
+    expect(rent("2026-03")).toBe(95000 + 5000 + 10000);
+    const p = o.properties[0];
+    const c = p?.cash?.find((x) => x.year === 2026);
+    expect(c?.gross).toBeNull();
+    expect(c?.current).toBe(100000 * 12);
+    expect(c?.rent).toBe(110000 * 12);
+    expect(p?.facts?.rentBy).toBe("actual");
+    // 割合の経費（5%）は家賃と家賃以外の月の収入に掛ける（礼金・更新料には掛けない）
+    expect(o.flows.filter((f) => f.ym === "2026-03" && f.row === "cf.expense.other.realEstate").reduce((s, f) => s + f.amount, 0)).toBe(20000 + 5000);
+  });
+
+  it("満室時の家賃と空室率で（省略・fullOccupancy）は今までどおり。facts に rentBy を書かず、current も出さない", () => {
+    const a = out(base()).properties[0];
+    const b = out(base({ accounts: [account(property({ rental: { rentBy: "fullOccupancy", monthly: box(100000), vacancyRate: "0.05", growth: "-0.01" } }))] })).properties[0];
+    expect(b).toEqual(a);
+    expect(a?.facts?.rentBy).toBeUndefined();
+    expect(a?.cash?.[0]?.current).toBeUndefined();
+  });
+});
+
+describe("減価償却の引き継ぎ（確定申告の数字。改訂8・0126）", () => {
+  const carry = { year: 2025, building: { book: 10000000, annual: 400000 } };
+  it("引き継いだ年の翌年から入れた年額で、未償却残高が1円になるまで。引き継いだ年とその前の年（計算の窓の中）も同じ年額", () => {
+    const p = out(base({ accounts: [account(property({ depreciationCarryover: carry }))] })).properties[0];
+    const dep = (y: number) => p?.income.find((x) => x.year === y)?.depreciation;
+    expect(dep(2024)).toBe(400000);
+    expect(dep(2025)).toBe(400000);
+    expect(dep(2026)).toBe(400000);
+    // 1,000万円÷40万円＝25年: 2026〜2049年に40万円、2050年に 399,999円（1円を残す）
+    expect(dep(2049)).toBe(400000);
+    expect(dep(2050)).toBe(399999);
+    expect(dep(2051)).toBe(0);
+    expect(p?.facts?.depreciationEnd).toEqual({ building: 2050, equipment: null });
+    // 帳簿価額＝土地の分（取得価額−建物の償却の基＝1,000万円）＋その年の年末の未償却残高
+    expect(p?.years.find((x) => x.year === 2026)?.book).toBe(10000000 + 10000000 - 400000);
+  });
+
+  it("取得価額が無くても償却する（取得の入力を求める知らせは出さない）。帳簿価額は出さない", () => {
+    const req = base({ accounts: [account(property({ acquisition: undefined, depreciationCarryover: carry }))] });
+    const p = out(req).properties[0];
+    expect(p?.income.find((x) => x.year === 2026)?.depreciation).toBe(400000);
+    expect(p?.years.every((x) => x.book === undefined)).toBe(true);
+    expect(notices(full(req)).some((n) => n.code === "N_INPUT_REQUIRED" && n.ids.includes("account.property.acquisition"))).toBe(false);
+  });
+
+  it("入れていない部分は償却しない（建物附属設備だけを入れたら、取得価額の内訳の建物は償却しない）", () => {
+    const p = out(base({ accounts: [account(property({ acquisition: { price: 25000000, at: "2020-04", parts: { land: 10000000, building: 12000000, equipment: 3000000 } }, depreciationCarryover: { year: 2025, equipment: { book: 1000000, annual: 200000 } } }))] })).properties[0];
+    expect(p?.income.find((x) => x.year === 2026)?.depreciation).toBe(200000);
+    expect(p?.facts?.depreciationEnd).toEqual({ building: null, equipment: 2030 });
+  });
+
+  it("売ったときの取得費は、土地の分＋売るときの未償却残高（引き継いだ残高から、その後の償却を引いた額）", () => {
+    const p = out(base({ accounts: [account(property({ depreciationCarryover: carry, sale: { at: at("2035-06") } }))] })).properties[0];
+    // 2026〜2034年に 40万円×9、2035年は5か月 166,666円
+    const left = 10000000 - 400000 * 9 - 166666;
+    expect(p?.sale?.acquisitionCost).toBe(10000000 + left);
+    expect(p?.sale?.estimated).toBe(false);
+    // 売るまでに終わらないので、貸し続けたら終わる年
+    expect(p?.facts?.depreciationEnd.building).toBeNull();
+    expect(p?.facts?.depreciationEndIfContinued?.building).toBe(2050);
+  });
+
+  it("引き継いだ残高が1円なら、もう償却しない（終わった年は引き継いだ年）", () => {
+    const p = out(base({ accounts: [account(property({ depreciationCarryover: { year: 2025, building: { book: 1, annual: 400000 } } }))] })).properties[0];
+    expect(p?.income.find((x) => x.year === 2026)?.depreciation).toBe(0);
+    expect(p?.facts?.depreciationEnd.building).toBe(2025);
+  });
+});

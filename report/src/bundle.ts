@@ -77,6 +77,8 @@ export interface RealEstateAnalysisAmounts {
   /** 含み益（評価額−帳簿価額。前の版のエンジンの結果には無い） */
   unrealizedGain?: number | null;
   grossYield: string | null;
+  /** 今の家賃収入での表面利回り（今の実際の家賃収入で入れた物件だけ。0126。前の版のエンジンの結果には無い） */
+  currentYield?: string | null;
   netYield: string | null;
   breakEven: string | null;
   repaymentRatio: string | null;
@@ -113,6 +115,8 @@ export interface RealEstateAnalysisProperty {
   depreciationEndIfContinued?: { building: number | null; equipment: number | null };
   deadCross: number | null;
   lodging: boolean;
+  /** 今の実際の家賃収入で入れた物件（満室の額が無いので、表面利回り・損益分岐の入居率は null。0126） */
+  rentBy?: "actual";
   years: RealEstateAnalysisYear[];
   exit: { ym: string; price: number; costs: number; proceeds: number; loanPayoff: number; tax: number; net: number } | null;
 }

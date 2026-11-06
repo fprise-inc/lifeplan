@@ -66,7 +66,7 @@ describe("収益不動産の入力項目", () => {
     const k = `sav/${a.id}`;
     const titles = stageOf(wh).sections[0]!.groups.map((g) => g.title).filter((t) => t !== undefined);
     // 評価額がまだ入っていない物件は、見出しで未入力と分かる。売却・大きな修繕の予定は、標準では別の「▸」の入口（売却・大きな修繕の予定）から開く
-    expect(titles).toEqual(["物件1（評価額は未入力）", "土地と建物", "家賃収入", "経費", "売却・大きな修繕の予定", "売却", "申告（ご本人）: 持ち主ごと・その人の物件をまとめて"]);
+    expect(titles).toEqual(["物件1（評価額は未入力）", "土地と建物", "減価償却を確定申告の数字から引き継ぐ", "家賃収入", "経費", "売却・大きな修繕の予定", "売却", "申告（ご本人）: 持ち主ごと・その人の物件をまとめて"]);
     expect(stageOf(wh).sections[0]!.groups.flatMap((g) => g.actions).map((x) => x.key)).toContain(`${k}/property/addLoan`);
     expect(fieldStatus(fieldOf(wh, `${k}/value`), wh).status).toBe("missing");
     expect(fieldStatus(fieldOf(wh, `${k}/property/rent`), wh).status).toBe("missing");

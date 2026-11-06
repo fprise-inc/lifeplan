@@ -202,3 +202,35 @@ describe.skipIf(bin === null)("物件が2件の世帯: 全体の1枚と物件ご
     expect(other).toContain(normalize("家賃収入"));
   });
 });
+
+describe("今の実際の家賃収入・減価償却の引き継ぎ（0126）", () => {
+  // 見本の世帯の物件を、今の実際の家賃収入で入れ、減価償却を前の年の確定申告から引き継ぐ
+  const req = modelHousehold("dualAssetsTwoKids");
+  const acc = (req.input.household.accounts ?? []).find((x) => x.property !== undefined)!;
+  const p0 = (acc as unknown as { property: Record<string, unknown> & { rental: Record<string, unknown> } }).property;
+  (acc as unknown as { property: Record<string, unknown> }).property = { ...p0, rental: { ...p0.rental, rentBy: "actual" }, depreciationCarryover: { year: 2025, building: { book: 8000000, annual: 300000 } } };
+  const [run] = runAll([req]);
+  const one = buildProposalInput({ document: { issuedOn: "2026-10-20" }, current: run!, proposal: run! });
+  const p = one.rental!.properties[0]!;
+  const e = run!.result.summary.realEstateAnalysis!.properties[0]!;
+
+  it("表面利回りは今の収入での利回り、損益分岐の入居率は「—」。引き継いだ年と入れ方の印を載せ、JSON Schema に合う", () => {
+    const x = e.years.find((z) => z.year === one.rental!.pointYear)!;
+    expect(e.rentBy).toBe("actual");
+    expect(p.actualRent).toBe(true);
+    expect(p.depreciationFrom).toBe(2025);
+    expect(p.point?.grossYield).toBe(pctText(x.currentYield));
+    expect(p.point?.breakEven).toBe("—");
+    expect(p.years.find((y) => y.year === 2027)?.depreciation).toBe(300000);
+    expect(validate(one), JSON.stringify(validate.errors)).toBe(true);
+  });
+
+  it.skipIf(bin === null)("PDF: 今の収入での表面利回りの札・入れ方と引き継ぎの1行・損益分岐を出していない理由", () => {
+    const res = renderAndExtract(bin as string, one, sampleFrame({ document: { issuedOn: "2026-10-20" }, current: run!, proposal: run! }, one));
+    const t = normalize(res.pages.join("\n"));
+    expect(t).toContain(normalize(`表面利回り（今の収入で） ${p.point!.grossYield}`));
+    expect(t).toContain(normalize("家賃収入は今の実際の額で入力"));
+    expect(t).toContain(normalize("減価償却は2025年の確定申告から引き継ぎ"));
+    expect(t).toContain(normalize("損益分岐の入居率は出していません"));
+  });
+});

@@ -517,14 +517,15 @@ export interface RealEstateOutput {
      * 「1泊の単価×営業日数」で売上を入れたときの稼働率100%の売上で、月の売上の見込みで入れたときは null）、rent は受け取った収入（家賃収入の行の
      * この物件の分）、expenses は経費（大きな修繕を除く。貸していない月の分も含む）、repairs は大きな修繕
      */
-    readonly cash?: readonly { readonly year: number; readonly months: number; readonly gross: Yen | null; readonly rent: Yen; readonly expenses: Yen; readonly repairs: Yen }[];
+    readonly cash?: readonly { readonly year: number; readonly months: number; readonly gross: Yen | null; readonly current?: Yen; readonly rent: Yen; readonly expenses: Yen; readonly repairs: Yen }[];
     /**
      * 約束の版 1.2: 物件の事実。acquisition は取得価額の合計（内訳があれば内訳の合計）・取得時の諸費用・自己資金（入れたときだけ）、builtYear は
      * 建った年（省略は取得の年など。0028）、legalLife は建物の構造の法定耐用年数、depreciationEnd は建物・建物附属設備の減価償却が終わる年（帳簿の残りが
      * 1円になる年。表の最後まで貸していれば表の期間の後の年も数える。償却が無い・途中で売る・貸し終わるときは null）、lodging は民泊・宿の
      * 「1泊の単価×営業日数」の入れ方の値（営業日数は上限を当てた後）。約束の版 1.3: depreciationEndIfContinued は、売る・貸し終わるまでに償却が
      * 終わらないとき、その後も同じ年額で貸し続けたら終わる年（終わる・償却が無い部分は null。どちらも null なら欄が無い）、noBuilding は建物の分が
-     * 無い物件（貸している土地・駐車場で、土地の割合が 1・取得価額の内訳に建物が無い）のとき true
+     * 無い物件（貸している土地・駐車場で、土地の割合が 1・取得価額の内訳に建物が無い）のとき true。約束の版 1.4（0126）: rentBy は今の実際の家賃収入で
+     * 入れた物件のとき actual（cash の gross は null で、current に受け取った家賃と家賃以外の月の収入〔礼金・更新料を除く〕）
      */
     readonly facts?: {
       readonly acquisition: { readonly total: Yen; readonly costs: Yen; readonly equity?: Yen } | null;
@@ -534,6 +535,7 @@ export interface RealEstateOutput {
       readonly depreciationEndIfContinued?: { readonly building: number | null; readonly equipment: number | null };
       readonly noBuilding?: true;
       readonly lodging?: { readonly nightly: Yen; readonly occupancy: string; readonly days: number };
+      readonly rentBy?: "actual";
     };
   }[];
 }
@@ -560,6 +562,8 @@ export interface RealEstateAnalysisOutput {
     readonly deadCross: number | null;
     /** 民泊・宿（表面利回りを出さない） */
     readonly lodging: boolean;
+    /** 約束の版 1.2（0126）: 今の実際の家賃収入で入れた物件（満室の額が無いので、表面利回り・損益分岐の入居率は null で、currentYield を出す） */
+    readonly rentBy?: "actual";
     readonly years: readonly RealEstateAnalysisYear[];
     /** 今の予定の売却（売らなければ null）。net＝proceeds−loanPayoff−tax */
     readonly exit: { readonly ym: string; readonly price: Yen; readonly costs: Yen; readonly proceeds: Yen; readonly loanPayoff: Yen; readonly tax: Yen; readonly net: Yen } | null;
@@ -595,6 +599,8 @@ export interface RealEstateAnalysisAmounts {
   /** 約束の版 1.1: 含み益（評価額−帳簿価額。帳簿価額が無ければ null） */
   readonly unrealizedGain?: Yen | null;
   readonly grossYield: string | null;
+  /** 約束の版 1.2（0126）: 今の家賃収入での表面利回り（今の実際の家賃収入で入れた物件だけ。受け取った家賃と家賃以外の月の収入〔礼金・更新料を除く〕の年額÷取得価額） */
+  readonly currentYield?: string | null;
   readonly netYield: string | null;
   readonly breakEven: string | null;
   readonly repaymentRatio: string | null;

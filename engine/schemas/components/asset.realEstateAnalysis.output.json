@@ -157,6 +157,10 @@
             "description": "民泊・宿（表面利回りを出さない）",
             "type": "boolean"
           },
+          "rentBy": {
+            "description": "1.2（0126）: 今の実際の家賃収入で入れた物件（表面利回り・損益分岐の入居率は null で、currentYield を出す）",
+            "const": "actual"
+          },
           "years": {
             "type": "array",
             "items": {
@@ -324,6 +328,17 @@
                 },
                 "grossYield": {
                   "description": "表面利回り（年換算）",
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "urn:financia:schema:common#/$defs/rate"
+                    }
+                  ]
+                },
+                "currentYield": {
+                  "description": "1.2（0126）: 今の家賃収入での表面利回り（年換算。今の実際の家賃収入で入れた物件だけ）",
                   "oneOf": [
                     {
                       "type": "null"

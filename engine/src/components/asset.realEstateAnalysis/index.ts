@@ -25,6 +25,9 @@
 // - 売却（exit。今の予定の売却）: 手取り（売却価格−費用）・売ったときの一括の返済・譲渡所得の税（tax.realEstateSale の名義の人×年の額。
 //   同じ年に同じ人が売る物件が他にもあれば、黒字の譲渡所得の割合で分ける）・税引後の手取り
 // - 合計（total）: 年ごとに物件の金額を足す。率は物件の年換算の額を足して出す（分母は数字のある物件の分だけ）
+// - 改訂3・約束の版 1.2（0126）: 今の実際の家賃収入で入れた物件（asset.realEstate の facts.rentBy が actual）は、満室のときの収入が無いので、
+//   表面利回り・損益分岐の入居率を null にし、今の家賃収入での表面利回り（currentYield＝受け取った家賃と家賃以外の月の収入〔礼金・更新料を除く。
+//   cash.current〕の年換算÷取得価額）を出す。物件に rentBy を写す。合計の表面利回り・損益分岐は、満室のときの収入のある物件だけで出す（今までどおり）
 import {
   addYen,
   ageMonth,
@@ -74,8 +77,8 @@ const max0 = (v: number): Yen => yen(v > 0 ? v : 0);
 export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>({
   id: "asset.realEstateAnalysis",
   title: "収益不動産の分析の数字（利回り・返済比率・手残りなど）",
-  contract: "1.1",
-  revision: 2,
+  contract: "1.2",
+  revision: 3,
   requires: {
     "asset.realEstate": ">=1 <2",
     "debt.schedule": ">=1 <2",
@@ -240,7 +243,8 @@ export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>(
       const acq = facts?.acquisition ?? null;
       const equityIn = acq?.equity;
       const lodging = facts?.lodging;
-      const isLodging = p.incomeKind !== undefined || lodging !== undefined || cash.some((c) => c.gross === null);
+      const actualRent = facts?.rentBy === "actual";
+      const isLodging = !actualRent && (p.incomeKind !== undefined || lodging !== undefined || cash.some((c) => c.gross === null));
       const years: Row[] = [];
       let deadCross: number | null = null;
       for (const c of cash) {
@@ -296,6 +300,7 @@ export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>(
           age,
           remainingLife: facts === undefined || age === null ? null : Math.max(0, facts.legalLife - age),
           grossYield: isLodging || c.gross === null || acq === null ? null : annualRatio(c.gross, c.months, acq.total),
+          ...(actualRent ? { currentYield: acq === null || c.current === undefined ? null : annualRatio(c.current, c.months, acq.total) } : {}),
           netYield: acq === null ? null : annualRatio(noi, c.months, acq.total + acq.costs),
           breakEven: c.gross === null || c.months === 0 ? null : ratio(c.expenses + debtService, c.gross),
           repaymentRatio: !hasLoan || c.months === 0 ? null : ratio(debtService, c.rent),
@@ -330,6 +335,7 @@ export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>(
         ...(facts?.depreciationEndIfContinued !== undefined ? { depreciationEndIfContinued: facts.depreciationEndIfContinued } : {}),
         deadCross,
         lodging: isLodging,
+        ...(actualRent ? { rentBy: "actual" as const } : {}),
         years,
         exit,
       });
