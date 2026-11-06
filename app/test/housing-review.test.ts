@@ -55,25 +55,24 @@ describe("修繕・管理の費用の呼び方（建て方ごと）", () => {
     expect(fieldOf(wh, "/maint").label).toBe("修繕・管理の費用（毎月）");
     wh = set(wh, "/style", "condo");
     expect(fieldOf(wh, "/maint").label).toBe("管理費・修繕積立金（毎月）");
-    expect(fieldOf(wh, "/maintGrowth").label).toBe("管理費・修繕積立金の変動率（年）");
+    expect(fieldOf(wh, "/maintGrowth").label).toBe("管理費・修繕積立金の伸び率（年）");
     wh = set(wh, "/style", "house");
     expect(fieldOf(wh, "/maint").label).toBe("修繕の積み立て（毎月）");
   });
 });
 
-describe("家賃の変動率", () => {
-  it("年率（ほかの率の欄と同じ）。空欄なら統計の目安（民営家賃の10年の年平均）を知らせる。「当てる」は使わない", () => {
+describe("家賃の伸び率", () => {
+  it("年率（ほかの率の欄と同じ。名前は「伸び率（年）」）。統計の目安（民営家賃の10年の年平均）は欄の下でなく「?」の中。「当てる」は使わない", () => {
     const wh = action(salaried(), "housing/addRent");
     const f = fieldOf(wh, "/rentGrowth");
-    expect(f.label).toBe("家賃の変動率（年）");
+    expect(f.label).toBe("家賃の伸び率（年）");
     expect(f.help).toContain("年あたりの率");
     expect(f.help).not.toContain("当て");
-    const hint = f.get(wh).hint ?? "";
-    expect(hint).toContain("消費者物価指数の民営家賃");
-    expect(hint).toContain("2015〜2025年");
+    expect(f.help).toContain("消費者物価指数の民営家賃");
+    expect(f.help).toContain("2015〜2025年");
+    expect(f.get(wh).hint ?? null).toBeNull();
     expect(masterValue("housing.statistics.rentGrowth")?.reviewed).toBe(true);
     expect(set(wh, "/rentGrowth", "0.01") !== wh).toBe(true);
-    expect(fieldOf(set(wh, "/rentGrowth", "0.01"), "/rentGrowth").get(set(wh, "/rentGrowth", "0.01")).hint ?? null).toBeNull();
   });
 });
 

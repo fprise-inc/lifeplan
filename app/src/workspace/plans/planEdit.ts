@@ -652,7 +652,9 @@ export function settleFields(wh: WorkingHousehold, cat: Catalog, pid: string, fi
   let w = wh;
   const look = (v: WorkingHousehold, f: FieldDef) => {
     try {
-      return JSON.stringify([f.get(v).value, fieldStatus(f, v).status]);
+      // 推定と確定の違い（確定の印）はプランの差分にしない。既定の値の欄で、推定の値と同じ値を打ち直すと確定になるが、値と計算は同じ（0145 の追記）
+      const s = fieldStatus(f, v).status;
+      return JSON.stringify([f.get(v).value, s === "estimated" || s === "confirmed" ? "value" : s]);
     } catch {
       return null;
     }

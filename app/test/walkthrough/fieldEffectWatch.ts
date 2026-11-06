@@ -72,7 +72,6 @@ export const NOT_OBSERVED: readonly ShapeRule[] = [
   { shape: "assumptions:ev/fee/*/rec/monthly", why: "「現状にも入れる」を外した FP顧問料（提案の側の契約）は、プランの結果にだけ効く（この点検は現状の結果を見る）" },
   { shape: "fee:ev/fee/*/rec/monthly", why: "「現状にも入れる」を外した FP顧問料（提案の側の契約）は、プランの結果にだけ効く（この点検は現状の結果を見る）" },
   { shape: "savings:sav/*/mix/*/share", why: "口座の資産の配分の割合は、配分に資産の種類が2つ以上あるときだけ（1つだけの配分はその種類の利回りで、割合によらない）" },
-  { shape: "family:family/*/expected", why: "これから加わるは、加わる時期と組で効く（時期が空のままでは今いるのと同じ）" },
   { shape: "work:work/period/*/size", why: "勤め先の従業員数は、パートなどの社会保険の加入の境目をまたぐときだけ" },
   { shape: "work:work/period/*/corpDb", why: "勤め先の企業年金の有無は、iDeCo の掛金の上限だけ" },
   { shape: "work:work/period/*/endsWith", why: "辞め方は、辞めた後に失業給付を受け取る人だけ" },
@@ -123,6 +122,5 @@ export const NOT_OBSERVED: readonly ShapeRule[] = [
   { shape: "care:family/*/birth", why: "世帯の外の家族の生年月は、亡くなる見込み・介護の時期を年齢の形で持つときだけ" },
   { shape: "care:family/*/sex", why: "世帯の外の家族の性別は、亡くなる見込みの推定（推定のままのとき）だけ" },
   { shape: "care:family/*/allowance", why: "仕送りの欄は支出に入らない（扶養の判定だけ）" },
-  { shape: "care:family/*/outside/employeeInsurance", why: "勤め先の健康保険は、扶養の判定だけ" },
   { shape: "care:ev/care/*/on/mode", why: "介護の万一のときの扱いは、介護を払っている間にご本人が亡くなる想定だけ" },
 ];

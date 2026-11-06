@@ -35,6 +35,7 @@ import { DiffList, PlanTarget, type PlanEditProps } from "./PlanEdit.tsx";
 import { countsByCard, diffRows, planIndex, planView, recordPlanEdit } from "../plans/planEdit.ts";
 import { ItemChooser, type OfficeItems } from "./ItemChooser.tsx";
 import { levelIn } from "./itemChoice.ts";
+import { sortChildrenByBirth } from "./stages/family.ts";
 
 interface Props {
   wh: WorkingHousehold;
@@ -425,7 +426,8 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   const save = (next: WorkingHousehold, id: string) => {
     const label = itemOf(next, id)?.label;
     if (editing !== null && plans !== undefined) plans.onSavePlan(next);
-    else onSave(next);
+    // 家族は保存のときに子を生年月の順に並べ直す（打っている間は並び替えない。family.ts の panelOrder）
+    else onSave(id === "family" ? sortChildrenByBirth(next) : next);
     backTo.current = id;
     setOpenId(null);
     setFocusAt(null);
