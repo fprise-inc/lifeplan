@@ -48,3 +48,11 @@ export function fittingPlaceholder(cls: string, ...candidates: readonly (string 
   for (const c of candidates) if (c !== null && c !== undefined && c !== "" && fitsIn(cls, c)) return c;
   return "";
 }
+
+/**
+ * 空欄の意味（「最初から」など）が欄の中の「空欄＝○○」に収まらないとき、欄の下に出す1行（「空欄なら: ○○」）。収まるなら null
+ * （欄の中に出すので要らない）
+ */
+export function blankLineFor(cls: string, blankMeans: string): string | null {
+  return fitsIn(cls, `空欄＝${blankMeans}`) ? null : `空欄なら: ${blankMeans}`;
+}

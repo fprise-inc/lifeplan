@@ -20,14 +20,14 @@ import { inSimpleOnlyGroup, type Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { InputPanel } from "./InputPanel.tsx";
-import { DEFAULT_LAYOUT, fillCard, nothingEnteredYet, groupedItems, inputItems, itemOf, itemStage, notApplicableCard, pinItems, progressOf, shownItems, summarySegments, togglePin, type CardLayout, type InputItem, type ItemStatus, type PinItem, type Summary } from "./items.ts";
+import { DEFAULT_LAYOUT, estimatedList, fillCard, nothingEnteredYet, groupedItems, inputItems, itemOf, itemStage, notApplicableCard, pinItems, progressOf, shownItems, summarySegments, togglePin, type CardLayout, type InputItem, type ItemStatus, type PinItem, type Summary } from "./items.ts";
 import { InputFind } from "./InputFind.tsx";
 import type { FindHit, FindTarget } from "./inputSearch.ts";
 import { inheritanceTaxNote, useInheritanceEstimate } from "./inheritanceLine.ts";
 import { pensionEstimateSummary, usePensionEstimate } from "./pensionEstimate.ts";
 import { STAGE_ORDER } from "./stages/index.ts";
-import { StatusBadge, statusText } from "./StatusBadge.tsx";
-import { CheckList, checkSummary } from "./CheckList.tsx";
+import { STATUS_TEXT, StatusBadge, statusText } from "./StatusBadge.tsx";
+import { CheckList, checkButtonText, checkSummary } from "./CheckList.tsx";
 import { DocRequests } from "./DocRequests.tsx";
 import { docRequests } from "./docRequests.ts";
 import type { NoticeRow } from "../engineNotices.ts";
@@ -80,7 +80,7 @@ interface Props {
 }
 
 /** 進み具合の状態の名前（絞り込みの文） */
-const STATUS_NAMES: Record<ItemStatus, string> = { missing: "未入力（0円の所あり）", done: "入力済み", est: "推定で計算中", na: "該当なし", empty: "まだ入れていない" };
+const STATUS_NAMES: Record<ItemStatus, string> = { missing: "未入力（0円の所あり）", done: "入力済み", est: "推定で計算中", na: "該当なし", empty: "まだ入れていない", std: "既定の値で計算中" };
 
 interface CardActions {
   /** 「当てはまらない」の1押し（プランの編集中は押せない。ボタンは出したまま、配置を動かさない） */
@@ -108,6 +108,7 @@ function SummaryText({ s, plain }: { s: Summary; plain?: boolean }) {
 
 function Card({ item, onOpen, flash, diffs, acts }: { item: InputItem; onOpen: (id: string) => void; flash: boolean; diffs?: { label: string; n: number } | undefined; acts: CardActions }) {
   const s = item.summary;
+  const tip = item.status === "est" ? estimatedList(item.estimatedNames ?? [], item.estimated) : null;
   const showNa = item.canNa;
   const showFill = item.canFill;
   return (
@@ -138,9 +139,23 @@ function Card({ item, onOpen, flash, diffs, acts }: { item: InputItem; onOpen: (
               {s.note}
             </span>
           ) : null}
-          <StatusBadge item={item} mini />
+          {tip === null ? <StatusBadge item={item} mini /> : null}
         </span>
       </button>
+      {/* 推定で計算中の札: カーソルを合わせる・キーボードでフォーカスする・押すと、何が推定かの短い一覧（「?」と同じ吹き出しの部品。札の文字と大きさは変えない。
+          開くボタンの中にボタンを入れられないので、札だけをボタンの外の同じ所に置く。0041 の追記 2026-11-06） */}
+      {tip !== null ? (
+        <div class="ih-est-tip" data-est-tip={item.id}>
+          <Help label={`${item.label}の推定`} mark={STATUS_TEXT.est} markClass="ih-st est mini" target="推定のままの欄">
+            <ul class="ih-est-list">
+              {tip.names.map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+              {tip.rest > 0 ? <li>ほか {tip.rest}か所</li> : null}
+            </ul>
+          </Help>
+        </div>
+      ) : null}
       {item.hint !== null ? (
         <div class="ih-hint" data-hint={item.id}>
           <p>{item.hint}</p>
@@ -188,7 +203,7 @@ function PinCard({ pin, onOpen, onUnpin, planLabel }: { pin: PinItem; onOpen: (i
       </button>
       {onUnpin !== undefined ? (
         <button type="button" class="link-btn" onClick={() => onUnpin(pin)} data-unpin={pin.id} title="ピンだけを外します（物は残ります）">
-          外す
+          ピンを外す
         </button>
       ) : null}
     </div>
@@ -445,9 +460,9 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
           </Help>
         </h1>
           <div class="ih-check">
+            {/* 数は短く「未入力 3か所・推定 15か所 ほか」。種類ごとの数の並びは開いた中だけ（0041 の追記 2026-11-06） */}
             <button type="button" class="add-btn" aria-expanded={checkOpen} onClick={() => setCheckOpen(!checkOpen)} data-check-open>
-              確かめの一覧（未入力 {check.counts.missing}・書類待ち {check.counts.unknown}・注意 {check.counts.notice}
-              {check.counts.calc > 0 ? `・計算のお知らせ ${check.counts.calc}` : ""}・推定 {check.counts.estimated}）
+              {checkButtonText(check.counts)}
             </button>
             {docCount > 0 || docsOpen ? (
               <button type="button" class="add-btn" aria-expanded={docsOpen} onClick={() => setDocsOpen(!docsOpen)} data-docs-open>
@@ -458,8 +473,10 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
         </div>
         <div class="ih-prog" aria-live="polite">
           <div class="ih-prog-line" data-progress>
-            <button type="button" class={`ih-prog-miss${p.missing > 0 ? " on" : ""}${statusFilter === "missing" ? " sel" : ""}`} data-progress-missing={p.missing} aria-pressed={statusFilter === "missing"} onClick={() => filterBy("missing")}>
-              <span class="ih-st missing mini">未入力（0円の所あり）</span> <span class="n">{p.missing}</span>
+            {/* 未入力の入力項目の数。1以上のときだけ赤い札、0なら灰色の文字だけ（0041 の追記 2026-11-06） */}
+            <button type="button" class={`ih-prog-miss${p.missing > 0 ? " on" : " zero"}${statusFilter === "missing" ? " sel" : ""}`} data-progress-missing={p.missing} aria-pressed={statusFilter === "missing"} onClick={() => filterBy("missing")}>
+              {p.missing > 0 ? <span class="ih-st missing mini">未入力（0円の所あり）</span> : <span class="ih-prog-zero">未入力</span>} <span class="n">{p.missing}</span>
+              <span class="u">項目</span>
             </button>
             <span class="ih-prog-rest">
               {p.total}項目中{" "}
@@ -478,6 +495,14 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
               <button type="button" class={`ih-prog-f${statusFilter === "empty" ? " sel" : ""}`} aria-pressed={statusFilter === "empty"} onClick={() => filterBy("empty")} data-progress-filter="empty">
                 まだ入れていない <span class="n">{p.empty}</span>
               </button>
+              {p.std > 0 || statusFilter === "std" ? (
+                <>
+                  ・
+                  <button type="button" class={`ih-prog-f${statusFilter === "std" ? " sel" : ""}`} aria-pressed={statusFilter === "std"} onClick={() => filterBy("std")} data-progress-filter="std">
+                    既定の値で計算中 <span class="n">{p.std}</span>
+                  </button>
+                </>
+              ) : null}
             </span>
           </div>
           <div class="ih-prog-bar" aria-hidden="true">
@@ -560,7 +585,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
             ピン
             <Help label="ピン">
               <p>ホームに出した物です。押すと、その物だけを開きます。進み具合には数えません。</p>
-              <p>入力項目の中の物の見出しの「📌 ホームに出す」で出します（前の版の「＋ 項目を追加」で足した物も、ここに出ます）。「外す」はピンだけを外します（物は残ります）。</p>
+              <p>入力項目の中の物の見出しの「📌 ホームに出す」で出します（前の版の「＋ 項目を追加」で足した物も、ここに出ます）。「ピンを外す」はピンだけを外します（物は残ります）。</p>
             </Help>
           </h2>
           <div class="ih-pin-list">

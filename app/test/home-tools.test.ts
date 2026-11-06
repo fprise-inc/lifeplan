@@ -6,7 +6,7 @@ import { renderToString } from "preact-render-to-string";
 import { checkList, confirmAllEstimates, DEFAULT_KINDS, valueMeta } from "../src/workspace/input/checkRows.ts";
 import { passesFilter, planOnlyRows } from "../src/workspace/input/CheckList.tsx";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
-import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { InputView } from "../src/workspace/input/InputView.tsx";
 import { readRecheck, recheckText, setRecheck } from "../src/workspace/input/recheck.ts";
 import { addCar } from "../src/workspace/input/stages/cars.ts";
@@ -35,7 +35,8 @@ function confirmedBoxField(wh: WorkingHousehold): FieldDef {
 describe("確かめの一覧の1行（今の値・出どころ・確かさ）と絞り込み", () => {
   it("推定の行に今の値を言葉で出す。未入力の行は値を出さない", () => {
     const rows = checkList(open("salariedCoupleTwoKids"));
-    const est = rows.filter((r) => r.kind === "estimated");
+    // この見本の推定は前提条件の標準の値だけ（いちばん下の折りたたみ）
+    const est = rows.filter((r) => r.kind === "estimated" || r.kind === "premise");
     expect(est.length).toBeGreaterThan(0);
     expect(est.some((r) => typeof r.value === "string" && r.value.length > 0)).toBe(true);
     for (const r of rows.filter((x) => x.kind === "missing")) expect(r.value ?? null).toBeNull();
@@ -62,8 +63,8 @@ describe("確かめの一覧の1行（今の値・出どころ・確かさ）と
     expect(checkList(wh0).some((r) => r.id === `field:${f.key}`)).toBe(false);
   });
 
-  it("「この項目の推定の値をまとめて使う」はそのカードの推定だけを確定にする", () => {
-    const wh = open("salariedCoupleTwoKids");
+  it("「この項目の推定のままの値を「この値にする」」はその入力項目の推定だけを確定にする（前提条件の標準の値は入れない）", () => {
+    const wh = blankHousehold("2026-10");
     const before = checkList(wh).filter((r) => r.kind === "estimated");
     const card = before.find((r) => r.actions.some((a) => a.key === "confirm"))!.card;
     const r = confirmAllEstimates(wh, card);
@@ -76,7 +77,7 @@ describe("確かめの一覧の1行（今の値・出どころ・確かさ）と
 
 describe("次回確かめるの印", () => {
   it("付け外しと書き出しの文。値は写さず、書き出すときの今の値を添える。氏名は入らない", () => {
-    const wh = open("salariedCoupleTwoKids");
+    const wh = blankHousehold("2026-10");
     const rows = checkList(wh);
     const r = rows.find((x) => x.kind === "estimated" && x.value != null)!;
     const on = setRecheck(wh, r, "2026-10-27");

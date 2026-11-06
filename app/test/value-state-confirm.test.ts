@@ -91,9 +91,8 @@ describe("空欄のまま推定で計算する欄の確定", () => {
     const stop = fields(wh).find((f) => f.key === "sav/stopAge")!;
     expect(fieldStatus(stop, wh).status).toBe("estimated");
     expect(availableOps(stop, wh)).not.toContain("confirm");
-    const row = checkList(wh).find((x) => x.fieldKey === "sav/stopAge");
-    expect(row?.kind).toBe("estimated");
-    expect(row?.actions).toEqual([]);
-    expect(estimatedFields(wh).some((f) => f.key === "sav/stopAge")).toBe(true);
+    // 値を出さない推定（決まりで決まる推定）は、確かめの一覧に出さず、まとめての操作にも入れない（0041 の追記 2026-11-06）
+    expect(checkList(wh).find((x) => x.fieldKey === "sav/stopAge")).toBeUndefined();
+    expect(estimatedFields(wh).some((f) => f.key === "sav/stopAge")).toBe(false);
   });
 });
