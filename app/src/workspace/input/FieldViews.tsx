@@ -431,6 +431,7 @@ export function Section({ section, wh, level, onEdit }: { section: SectionDef; w
           <div class="in-section-h">
             <h3>
               {section.title}
+              {section.summary !== undefined ? <small class="in-sum">{section.summary}</small> : null}
               {sHelp}
             </h3>
             {/* 押したときに欄からフォーカスを外さない（外すと、欄の値が入れ直されて「保存していない変更」になるため） */}
@@ -442,6 +443,7 @@ export function Section({ section, wh, level, onEdit }: { section: SectionDef; w
         ) : (
           <h3>
             {section.title}
+            {section.summary !== undefined ? <small class="in-sum">{section.summary}</small> : null}
             {sHelp}
           </h3>
         )}
@@ -596,6 +598,7 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
         <div class="in-group-h">
           <h4>
             {group.title}
+            {group.summary !== undefined ? <small class="in-sum">{group.summary}</small> : null}
             {noteHelp}
           </h4>
           <PlanGroupTag group={group} wh={wh} />

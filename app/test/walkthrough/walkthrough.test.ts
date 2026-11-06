@@ -217,26 +217,30 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       expect(h().incomeFlows?.find((f) => f.kind === "inheritance")?.amount.value).toBe(15_000_000);
       expect(h().accounts!.filter((a) => a.kind === "deposit" || a.kind === "taxable").map((a) => a.marketValue?.value)).toEqual([25_000_000, 8_000_000]);
     });
-    it.fails("パートに変えると、配偶者の年収の推定が正社員の推定から変わる", () => {
+    it("パートに変えると、配偶者の年収の推定が正社員の推定から変わる", () => {
       expect(d.notes.seen.spouseAnnualPart).not.toBe(d.notes.seen.spouseAnnualBefore);
     });
-    it.fails("定年が計算の基準の月より前の人に、目安の退職一時金を足さない（受け取りが過去）", () => {
+    it("定年が計算の基準の月より前の人に、目安の退職一時金を足さない（受け取りが過去）", () => {
       expect(d.notes.seen.retirementCard).not.toMatch(/見込み/);
     });
-    it.fails("企業年金を年金で受け取るとき、一時金の欄を未入力に数えない", () => {
+    it("企業年金を年金で受け取るとき、一時金の欄を未入力に数えない", () => {
       expect(d.notes.seen.retirementCardAfter).not.toContain("未入力");
     });
-    it.fails("1995年に建った持ち家を、今買った新築の扱いで評価しない（建物の評価額が新築の額にならない）", () => {
-      // 評価額 3,000万円・土地の割合30% の持ち家と、評価額 1,500万円の区分マンション。持ち家の建物が新築の扱いなら建物は 3,150万円
-      expect(sum(d.table, "cf.balance.account.realEstate.building", yearOf(d.wh.request))).toBeLessThan(20_000_000);
+    it("1995年に建った持ち家を、今買った新築の扱いで評価しない（建物の評価額が新築の額にならない）", () => {
+      // 評価額 3,000万円の持ち家（1995年築の木造）。新築の扱いなら建物は土地の割合30%の残りの 2,100万円。今の時価で入れたので、
+      // 土地の割合を建った年からの目安（68%）で分け、建物は 1,000万円より少ない
+      const own = h().residences!.find((r) => r.kind === "own")!;
+      const building = d.table.filter((c) => c.object === own.id && c.row === "cf.balance.account.realEstate.building" && c.year === yearOf(d.wh.request)).reduce((a, c) => a + c.amount, 0);
+      expect(building).toBeGreaterThan(0);
+      expect(building).toBeLessThan(10_000_000);
     });
     it("収益不動産の取得の年月を Backspace で消しても、取得価額が残る", () => {
       expect(d.notes.seen.acquisitionAfterClear).not.toBe("");
     });
-    it.fails("母の亡くなる見込みを直すと、相続の受け取る時期がついてくる", () => {
+    it("母の亡くなる見込みを直すと、相続の受け取る時期がついてくる", () => {
       expect(d.notes.seen.inheritWhenAfter).not.toBe(d.notes.seen.inheritWhenBefore);
     });
-    it.fails("介護を受ける人が亡くなった後は、介護の費用を払わない", () => {
+    it("介護を受ける人が亡くなった後は、介護の費用を払わない", () => {
       const leaves = mother().leaves?.memberAge?.years ?? 0;
       const deathYear = Number(mother().birth.birthYearMonth.slice(0, 4)) + leaves;
       const care = d.table.filter((c) => c.row.includes("care") && c.row.startsWith("cf.expense") && c.year > deathYear + 1);
@@ -248,9 +252,6 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
     panelChecks(() => d);
     watchChecks(() => d, [
       { rule: "pastRetirementEstimate", match: /db/, what: "定年の後に足した企業年金（年金で受け取る）の一時金の額が、推定0円・受け取りが過去のまま残る" },
-      { rule: "workTypeEstimates", match: /定年の推定/, what: "今の働き方が再雇用・パートなのに、定年の推定が残る" },
-      { rule: "careAndInheritanceAfterDeath", match: /介護の費用/, what: "介護を受ける人が亡くなった後も、介護の費用が続く" },
-      { rule: "careAndInheritanceAfterDeath", match: /相続の時期/, what: "亡くなる見込みを直しても、受け取る相続の時期がついてこない" },
       { rule: "rowGrouping", match: /corporatePension/, what: "企業年金がキャッシュフロー表の「その他の収入」に入る" },
       { rule: "screenWords", match: /incomeFlow/, what: "世帯の中身の一覧に内部の名前（incomeFlow）が出る" },
     ]);

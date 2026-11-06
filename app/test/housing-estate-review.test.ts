@@ -131,7 +131,6 @@ describe("住宅取得等資金の非課税の期限", () => {
 
   it("期限の前に受け取る援助（2026年12月の購入）は、既定で省エネ等住宅の非課税。知らせは出さない", () => {
     let wh = action(salaried(), "housing/addPurchase");
-    wh = set(wh, `${bought(wh).id}/from`, "2026-12");
     wh = set(wh, "/purchase/at", "2026-12");
     wh = action(wh, "/purchase/addGiftAction");
     expect(bought(wh).purchase!.gifts![0]!.housingExemption).toBe("energySaving");
@@ -164,8 +163,6 @@ describe("借入額の推定と住宅資金の援助", () => {
 
   it("注文住宅の土地の分のローンの根拠の文は「土地の代金から、土地の決済で払う頭金を引いた額」", () => {
     let wh = action(salaried(), "housing/addPurchase");
-    const id = bought(wh).id;
-    wh = set(wh, `${id}/from`, "2029-03");
     wh = set(wh, "/purchase/at", "2029-03");
     wh = set(wh, "/purchase/type", "custom");
     wh = action(action(wh, "housing/addMortgage"), "/purchase/addLandLoan");
@@ -205,20 +202,38 @@ describe("フラット35を選んだとき", () => {
 });
 
 describe("ペアローンと家の名義と持分", () => {
-  it("配偶者に家の持分が無いと知らせ、借入の割合で持分を分けられる。控除の要約は実際の持分から", () => {
+  it("ペアローンを足すと、FP が名義と持分を選んでいなければ借入の割合で分けて推定の印。控除の持分も家の名義と持分から", () => {
     let wh = action(action(dual(), "housing/addPurchase"), "housing/addMortgage");
-    wh = action(wh, `housing/debt/${loans(wh)[0]!.id}/addPair`);
+    wh = settle(action(wh, `housing/debt/${loans(wh)[0]!.id}/addPair`));
     const [a, b] = loans(wh);
+    // 2本の借入額は半分ずつ → 持分も半分ずつ（推定。「登記の持分に直してください」）
+    expect(bought(wh).ownership?.map((o) => o.share)).toEqual(["0.5", "0.5"]);
+    const owner = fieldOf(wh, `${bought(wh).id}/owner`);
+    expect(fieldStatus(owner, wh)).toMatchObject({ status: "estimated", basis: "借入の割合で分けた持分（登記の持分に直してください）" });
+    expect(a!.housing?.ownership).toEqual(bought(wh).ownership);
+    expect(b!.housing?.ownership).toEqual(bought(wh).ownership);
+    expect(String(fieldOf(wh, `${b!.id}/creditSummary`).get(wh).value)).toContain("持分 ご本人 50%・配偶者 50%");
+    expect(fieldOf(wh, `${b!.id}/creditSummary`).get(wh).warn ?? null).toBeNull();
+    expect(hasAction(wh, "/shareByLoans")).toBe(false);
+    // 推定のままなら、借入額を直すと分け直す
+    wh = set(wh, `${b!.id}/principal`, 10_000_000);
+    const total = loans(wh).reduce((sum, d) => sum + d.principal, 0);
     const self = wh.request.input.household.members.find((m) => m.kind === "self")!.id;
-    // 家は本人100%のまま: 控除の持分も家の名義と持分から（配偶者のローンは控除0円）
-    expect(a!.housing?.ownership).toEqual([{ member: self, share: "1" }]);
-    expect(b!.housing?.ownership).toEqual([{ member: self, share: "1" }]);
-    expect(String(fieldOf(wh, `${b!.id}/creditSummary`).get(wh).value)).toContain("持分 ご本人 100%");
-    expect(fieldOf(wh, `${b!.id}/creditSummary`).get(wh).warn).toContain("配偶者に家の持分が無い");
-    expect(fieldOf(wh, `${a!.id}/creditSummary`).get(wh).warn ?? null).toBeNull();
+    expect(Number(bought(wh).ownership?.find((o) => o.member === self)?.share)).toBeCloseTo(Math.round((loans(wh)[0]!.principal / total) * 1000) / 1000, 3);
+  });
+
+  it("FP が名義と持分を選んであれば、ペアローンを足しても変えず、持分の無い人に知らせと「借入の割合で持分を分ける」", () => {
+    let wh = action(action(dual(), "housing/addPurchase"), "housing/addMortgage");
+    const spouse = wh.request.input.household.members.find((m) => m.kind === "spouse")!.id;
+    wh = set(wh, `${bought(wh).id}/owner`, spouse);
+    wh = settle(action(wh, `housing/debt/${loans(wh)[0]!.id}/addPair`));
+    const [a] = loans(wh);
+    expect(bought(wh).ownership).toEqual([{ member: spouse, share: "1" }]);
+    expect(a!.housing?.ownership).toEqual([{ member: spouse, share: "1" }]);
+    expect(fieldOf(wh, `${a!.id}/creditSummary`).get(wh).warn).toContain("ご本人に家の持分が無い");
     const owner = fieldOf(wh, `${bought(wh).id}/owner`);
     expect(owner.level).toBe("simple");
-    expect(owner.get(wh).warn).toContain("配偶者に、この家の持分がありません");
+    expect(owner.get(wh).warn).toContain("に、この家の持分がありません");
     expect(owner.get(wh).warnFix?.label).toBe("借入の割合で持分を分ける");
     expect(hasAction(wh, "/shareByLoans")).toBe(true);
     // 借入の割合で分ける（2本の借入額は半分ずつ）
@@ -227,12 +242,11 @@ describe("ペアローンと家の名義と持分", () => {
     const [a2, b2] = loans(wh);
     expect(a2!.housing?.ownership).toEqual(bought(wh).ownership);
     expect(String(fieldOf(wh, `${b2!.id}/creditSummary`).get(wh).value)).toContain("持分 ご本人 50%・配偶者 50%");
-    expect(fieldOf(wh, `${b2!.id}/creditSummary`).get(wh).warn ?? null).toBeNull();
     expect(fieldOf(wh, `${bought(wh).id}/owner`).get(wh).warn ?? null).toBeNull();
     expect(hasAction(wh, "/shareByLoans")).toBe(false);
     // 配偶者のローンの控除が計算に入る（配偶者の所得税が少なくなる）
     const before = action(action(dual(), "housing/addPurchase"), "housing/addMortgage");
-    const paired = action(before, `housing/debt/${loans(before)[0]!.id}/addPair`);
+    const paired = settle(action(set(before, `${bought(before).id}/owner`, spouse), `housing/debt/${loans(before)[0]!.id}/addPair`));
     const spouseOf = (w: WorkingHousehold) => w.request.input.household.members.find((m) => m.kind === "spouse")!.id;
     const tax = (w: WorkingHousehold) => preview(w.request).table.filter((c) => c.row.startsWith("cf.taxSi.incomeTax") && c.member === spouseOf(w) && c.year === 2030).reduce((s, c) => s + c.amount, 0);
     expect(tax(wh)).toBeLessThan(tax(paired));

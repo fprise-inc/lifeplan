@@ -235,9 +235,12 @@ function retirementWhat(b: RetirementBenefit): string {
   return typeof v === "number" && v > 0 ? `退職一時金 ${manOf(v)}（統計の平均）` : `${KIND_SHORT[b.kind as BenefitKind] ?? "退職金"}の見込み（退職手当の計算）`;
 }
 
-function retirementEstimate(h: Household, m: Member, p: EmploymentPeriod): { benefit: RetirementBenefit; basis: string } | null {
+function retirementEstimate(h: Household, m: Member, p: EmploymentPeriod, baseMonth: string): { benefit: RetirementBenefit; basis: string } | null {
   const kind = autoKindOf(p.type);
   if (kind === null) return null;
+  // 受け取り（勤め先を辞めた翌月）が計算の基準の月より前になる目安は足さない（もう受け取った退職金を、推定で将来の収入にしない。ホームの見込みにも入らない）
+  const end = p.to === null ? null : resolveTimepoint(h, p.to);
+  if (end !== null && addMonths(end, 1) < baseMonth) return null;
   const b = initialBenefit(h, m, kind, { id: "", employment: p.id });
   if (kind === "lumpSum") return isUnenteredBox(b.amount) ? null : { benefit: b, basis: (b.amount as unknown as { estimate: { basis: string } }).estimate.basis };
   if (b.estimate?.finalMonthly === undefined) return null;
@@ -250,7 +253,7 @@ export function fillRetirement(wh: WorkingHousehold, memberId: string): WorkingH
   const m = h.members.find((x) => x.id === memberId);
   const p = m === undefined ? undefined : currentPeriod(h, m.id, wh.request.input.baseMonth);
   if (m === undefined || p === undefined || !AUTO_TYPES.has(p.type) || (h.retirementBenefits ?? []).some((b) => b.member === memberId)) return wh;
-  const est = retirementEstimate(h, m, p);
+  const est = retirementEstimate(h, m, p, wh.request.input.baseMonth);
   if (est === null) return wh;
   return mutate(wh, (hh, req) => {
     // 初めの形は仮の ID で作った（値の状態の行の鍵は物の ID を含まないので、ID を付け直すだけでよい）
@@ -478,7 +481,10 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
   for (const m of h.members.filter((x) => x.kind === "self" || x.kind === "spouse")) {
     const p = currentPeriod(h, m.id, base);
     if (p === undefined || !AUTO_TYPES.has(p.type) || (h.retirementBenefits ?? []).some((b) => b.member === m.id) || retirementNotApplicable(wh, m.id)) continue;
-    const est = retirementEstimate(h, m, p);
+    // もう辞めた勤め先（受け取りが計算の基準の月より前）の退職金は、入っていなくても知らせない（推定で足さない。retirementEstimate）
+    const ended = p.to === null ? null : resolveTimepoint(h, p.to);
+    if (ended !== null && addMonths(ended, 1) < base) continue;
+    const est = retirementEstimate(h, m, p, base);
     out.push({
       id: `work/retirement/${m.id}`,
       card: "retirement",

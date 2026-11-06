@@ -1398,7 +1398,8 @@
             "asOf": { "description": "value の時点（省略は購入の月。購入が無ければ計算基準月）", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
             "structure": { "description": "建物の構造（省略は木造）", "enum": ["wood", "lightSteel", "steel", "rc"] },
             "builtYear": { "description": "建物が建った年（省略は asOf の年。新築とみなす）", "$ref": "urn:financia:schema:common#/$defs/year" },
-            "landShare": { "description": "土地の割合（0〜1。省略は前提の realEstateValuation.landShare か目安）", "$ref": "urn:financia:schema:common#/$defs/rate" }
+            "landShare": { "description": "土地の割合（0〜1。省略は前提の realEstateValuation.landShare か目安）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "basis": { "description": "評価の基にする額の入れ方（画面の側。market 今の時価・purchase 買った値段。計算エンジンは読まない。省略は画面が asOf から読む）", "enum": ["market", "purchase"] }
           }
         },
         "sale": {
@@ -1409,7 +1410,8 @@
           "properties": {
             "price": { "description": "売却価格（省略はその年の評価額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
             "costRate": { "description": "売却の費用の割合（省略は前提の realEstateValuation.saleCostRate か目安）", "$ref": "urn:financia:schema:common#/$defs/rate" },
-            "tax": { "description": "譲渡所得の税の額（所得税・住民税の合計。入れた額を売った月に払う。省略は税を計算しない〔知らせ N_NOT_SUPPORTED〕。0053）", "$ref": "urn:financia:schema:common#/$defs/boxYen" }
+            "tax": { "description": "譲渡所得の税の額（所得税・住民税の合計。入れた額を売った月に払う。省略は税を計算しない〔知らせ N_NOT_SUPPORTED〕。0053）", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+            "repayLoan": { "description": "売ったときに、この住まいの住宅ローン（debt.housing.residence がこの住まい、無ければ借入の月に購入する・住んでいる持ち家）を住み終わりの月に一括で返す（省略は返す。収益不動産の sale.repayLoan と同じ。debt.schedule 改訂6）", "type": "boolean" }
           }
         }
       }

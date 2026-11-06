@@ -647,9 +647,6 @@
               "default": "0.04"
             }
           },
-          "depositReturn": {
-            "default": "0.002"
-          },
           "inflation": {
             "byYear": {
               "2027": "0.03",
@@ -1578,35 +1575,6 @@
               "owner": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
               "structure": "wood",
               "subtype": "vacantHouse"
-            },
-            {
-              "asOf": "2026-10",
-              "contributions": [],
-              "id": "00000000-0000-4000-8000-000000006601",
-              "kind": "realEstate",
-              "marketValue": {
-                "origin": {
-                  "kind": "manual"
-                },
-                "state": "confirmed",
-                "value": 15000000
-              },
-              "owner": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
-              "property": {
-                "acquisition": {
-                  "at": "2012-04"
-                },
-                "kind": "condo",
-                "rental": {
-                  "monthly": {
-                    "origin": {
-                      "kind": "manual"
-                    },
-                    "state": "confirmed",
-                    "value": 70000
-                  }
-                }
-              }
             }
           ],
           "cars": [
@@ -3929,6 +3897,37 @@
               "to": null,
               "valuation": {
                 "structure": "wood"
+              }
+            },
+            {
+              "from": {
+                "at": "2010-04"
+              },
+              "id": "00000000-0000-4000-8000-000000006601",
+              "kind": "own",
+              "ownership": [
+                {
+                  "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+                  "share": "1"
+                }
+              ],
+              "sale": {
+                "repayLoan": false
+              },
+              "to": {
+                "at": "2035-03"
+              },
+              "valuation": {
+                "asOf": "2026-10",
+                "basis": "market",
+                "builtYear": 1998,
+                "value": {
+                  "origin": {
+                    "kind": "manual"
+                  },
+                  "state": "confirmed",
+                  "value": 32000000
+                }
               }
             }
           ],

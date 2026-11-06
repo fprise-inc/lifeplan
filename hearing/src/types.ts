@@ -183,6 +183,47 @@ export interface Household {
   savingsChecks?: SavingsCheck[];
   retirementBenefits?: RetirementBenefit[];
   goals?: Goal[];
+  careExpenses?: CareExpense[];
+  incomeFlows?: IncomeFlow[];
+  periodicExpenses?: PeriodicExpense[];
+}
+
+/** 介護の費用（詳細版のご両親の「介護が始まっているか」から。0059） */
+export interface CareExpense {
+  id: string;
+  member: string;
+  from: Timepoint;
+  months?: number;
+  place: "home" | "facility";
+  otherMonthly?: ValueBox<number>;
+}
+
+/** 入るお金の行（ご両親からの援助・受け取る予定の相続。0044） */
+export interface IncomeFlow {
+  id: string;
+  label: string;
+  kind: "support" | "inheritance";
+  from: Timepoint;
+  to: Timepoint | null;
+  everyYears: number;
+  monthly?: boolean;
+  amount: ValueBox<number>;
+  counterparty?: string;
+  likelihood?: "certain" | "uncertain";
+}
+
+/** 出るお金の行（ご両親への仕送り。0044） */
+export interface PeriodicExpense {
+  id: string;
+  label: string;
+  kind: "allowance";
+  row: string;
+  from: Timepoint;
+  to: Timepoint | null;
+  everyYears: number;
+  monthly?: boolean;
+  amount: ValueBox<number>;
+  counterparty?: string;
 }
 
 export interface EngineRequest {

@@ -348,6 +348,8 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-icon { width: 1.4em; height: 1.4em; flex: none; vertical-align: -0.32em; margin-right: 0.3em; color: var(--ink); }
 /* 区画・まとまりの見出しの横の「?」 */
 .in-section h3 .help, .in-group-h h4 .help { margin-left: 6px; }
+/* 見出しの横の要約（入れた結果の額など。GroupDef・SectionDef の summary） */
+.in-section h3 .in-sum, .in-group-h h4 .in-sum { margin-left: 10px; font-size: 0.82rem; font-weight: 400; color: var(--ink-2); }
 .in-group-help { margin: 0 0 4px; }
 .ip-head h2 .help-btn { font-size: 0.78rem; }
 .fld-c { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }

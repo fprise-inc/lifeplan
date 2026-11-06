@@ -368,9 +368,33 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.63 より前の版に Web の依頼の記録は無い"
             );
         }
-        // 0.66 から（0137）: 前提条件の預金の利回り。前の版の見本は変換の段で既定の値（0.1%）が入る。0.66 の見本は 0.2% と、取得の年月だけの取得
-        let deposit = &now["household"]["request"]["input"]["assumptions"]["depositReturn"];
         if migrate::parse(v).unwrap() >= (0, 66) {
+            // 0.66 から（0052・0025 の追記 2026-11-07）: 住まいを売ったときに住宅ローンを返すか・持ち家の評価の入れ方
+            let residences = now["household"]["request"]["input"]["household"]["residences"]
+                .as_array()
+                .unwrap();
+            assert!(
+                residences
+                    .iter()
+                    .any(|r| r["sale"]["repayLoan"] == false && r["valuation"]["basis"] == "market"),
+                "{v}: 売ったときに住宅ローンを返さない・今の時価で入れた持ち家"
+            );
+        } else {
+            let residences = now["household"]["request"]["input"]["household"]["residences"]
+                .as_array()
+                .map(|a| a.to_vec())
+                .unwrap_or_default();
+            assert!(
+                residences
+                    .iter()
+                    .all(|r| r["sale"].get("repayLoan").is_none()
+                        && r["valuation"].get("basis").is_none()),
+                "{v}: 0.66 より前の版に住まいの売却の返済・評価の入れ方は無い"
+            );
+        }
+        // 0.67 から（0137）: 前提条件の預金の利回り。前の版の見本は変換の段で既定の値（0.1%）が入る。0.67 の見本は 0.2% と、取得の年月だけの取得
+        let deposit = &now["household"]["request"]["input"]["assumptions"]["depositReturn"];
+        if migrate::parse(v).unwrap() >= (0, 67) {
             assert_eq!(deposit["default"], "0.002", "{v}: 預金の利回り");
             let accounts = now["household"]["request"]["input"]["household"]["accounts"]
                 .as_array()

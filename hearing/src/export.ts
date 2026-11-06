@@ -80,8 +80,46 @@ export function exportAnswers(def: SheetDefinition, request: EngineRequest, opti
     put("hs.family.child.birthYearMonth", i + 1, v(m.birth.birthYearMonth));
     if (known(`family/${m.id}/sex`)) put("hs.family.child.sex", i + 1, v(m.sex));
   });
-  const others = h.members.filter((m) => m.kind !== "self" && m.kind !== "spouse" && m.kind !== "child");
-  if (others.length > 0) issues.push(issue("info", "H_EXPORT_OVERFLOW", "親・祖父母などのご家族は、この版のシートに載りません"));
+  // ご両親（ご本人の父・母、配偶者の方の父・母。詳細版の版3から）: ご健在か・年齢・同居か・仕送り・援助・介護が始まっているか
+  const parentsAsked = items.has("hs.family.parent.alive");
+  const slots: (Member | undefined)[] = [];
+  if (parentsAsked) {
+    const parentsOf = (side: Member | undefined, sex: "male" | "female") => (side === undefined ? undefined : h.members.find((m) => m.kind === "parent" && m.sex === sex && (m.outside?.of ?? self?.id) === side.id && !slots.includes(m)));
+    for (const [side, sex] of [[self, "male"], [self, "female"], [spouse, "male"], [spouse, "female"]] as const) slots.push(parentsOf(side, sex));
+    slots.slice(0, axisCount("parent")).forEach((m, i) => {
+      if (m === undefined) return;
+      const n = i + 1;
+      const gone = m.leaves !== null && known(`family/${m.id}/leaves`) && ymIndex(resolveAt(m.leaves, h) ?? base) <= ymIndex(base);
+      put("hs.family.parent.alive", n, v(gone ? "deceased" : "alive"));
+      if (gone) return;
+      // 年齢は、生年月が分かっているか、前のシートの年齢から置いた仮の生年月なら書く（子の生年の30年前などの仮の値は書かない）
+      const birthNote = assumed[`family/${m.id}/birth`];
+      if (birthNote === undefined || birthNote.includes("歳として")) put("hs.family.parent.age", n, v(ageAt(m, base)));
+      if (m.support !== undefined) put("hs.family.parent.cohabiting", n, v(m.support.cohabiting ? "together" : "apart"));
+      const monthlyOf = (rows: readonly { counterparty?: string; monthly?: boolean; amount: ValueBox<number>; to: unknown }[]) => rows.find((r) => r.counterparty === m.id && r.monthly === true);
+      const allowance = monthlyOf((h.periodicExpenses ?? []).filter((r) => r.kind === "allowance"));
+      if (allowance !== undefined && items.has("hs.family.parent.allowance")) put("hs.family.parent.allowance", n, boxVal(allowance.amount));
+      const support = monthlyOf((h.incomeFlows ?? []).filter((r) => r.kind === "support"));
+      if (support !== undefined && items.has("hs.family.parent.support")) put("hs.family.parent.support", n, boxVal(support.amount));
+      const care = (h.careExpenses ?? []).find((x) => x.member === m.id && ymIndex(resolveAt(x.from, h) ?? base) < ymIndex(base));
+      if (items.has("hs.family.parent.care")) {
+        if (care !== undefined) {
+          put("hs.family.parent.care", n, v(care.place));
+          if (care.otherMonthly !== undefined) put("hs.family.parent.careMonthly", n, boxVal(care.otherMonthly));
+        } else put("hs.family.parent.care", n, v("none"));
+      }
+    });
+    // 受け取る予定の相続・贈与（今の世帯の相続・遺贈の行の最初の1件）
+    const inh = (h.incomeFlows ?? []).find((f) => f.kind === "inheritance");
+    if (items.has("hs.inherit.expected") && inh !== undefined) {
+      put("hs.inherit.expected", undefined, v("yes"));
+      const at = resolveAt(inh.from, h);
+      if (at !== null && known(`in/${inh.id}/from`)) put("hs.inherit.year", undefined, v(Number(at.slice(0, 4))));
+      put("hs.inherit.amount", undefined, boxVal(inh.amount));
+    }
+  }
+  const others = h.members.filter((m) => m.kind !== "self" && m.kind !== "spouse" && m.kind !== "child" && !slots.includes(m));
+  if (others.length > 0) issues.push(issue("info", "H_EXPORT_OVERFLOW", parentsAsked ? "ご両親のほかの、祖父母などのご家族は、この版のシートに載りません" : "親・祖父母などのご家族は、この版のシートに載りません"));
 
   // 働き方と収入
   const periods = new Map<string, EmploymentPeriod>();

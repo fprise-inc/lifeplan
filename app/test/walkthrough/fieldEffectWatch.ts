@@ -53,7 +53,6 @@ export const RECORD_ONLY: readonly ShapeRule[] = [
  * （消し忘れると「直す待ちの一覧の欄は、まだ効かない」のテストが落ちる）
  */
 export const NOT_EFFECTIVE_YET: readonly ShapeRule[] = [
-  { shape: "pension:pension/*/amounts/transitional", why: "ねんきん定期便の経過的加算: 加入月数から計算し直すので、額を入れても見込みが変わらない（欄を出さないか、計算に使うかを決める）" },
 ];
 
 /** この点検（欄を1つずつ動かし、キャッシュフロー表・相続税の目安・ご本人の死亡の万一を見る）では効き目を見られない欄。効く条件か見え方を書く */
@@ -80,6 +79,7 @@ export const NOT_OBSERVED: readonly ShapeRule[] = [
   { shape: "housing:housing/debt/*/rateType", why: "金利の種類は、金利の見込みが「今の金利のまま」では効かない" },
   { shape: "rental:housing/debt/*/rateType", why: "金利の種類は、金利の見込みが「今の金利のまま」では効かない" },
   { shape: "car:housing/debt/*/rateType", why: "金利の種類は、金利の見込みが「今の金利のまま」では効かない" },
+  { shape: "housing:housing/debt/*/refinance/*/rateType", why: "借り換えの新しい金利の種類は、5年ルール・125%ルール・変動金利の上乗せ（ストレステスト）が効くときだけ" },
   { shape: "housing:housing/debt/*/cap125", why: "125%ルールは、金利が上がる見込みのときだけ" },
   { shape: "housing:housing/debt/*/rateCutPeriod", why: "当初の金利の引き下げの期間は、引き下げ幅と組で効く" },
   { shape: "housing:housing/debt/*/clHigh", why: "団信の特約は、就業不能・病気の想定だけ" },

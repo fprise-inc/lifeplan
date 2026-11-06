@@ -19,6 +19,8 @@
 // - 額は計算基準年の価格で、伸び方（省略は物価上昇率）で伸ばす。払う人（payer。省略は介護を受ける人）の行に載せる。
 //   払う人の万一のときの扱い（onContingency）を当てる。介護休業給付は、働き方の期間の休業（leaveKind: care）で benefit.employment が出す
 // 改訂4: 世帯の外の家族（0035 の4）も、同居していなければ別の世帯で判定する
+// 改訂5: 介護を受ける人が亡くなった後（離れた後）は出さない。世帯の外の家族の亡くなる見込み・構成員の離れる月（leaves）の月から、
+//   万一の想定で介護を受ける人が亡くなるときはその月の翌月から（期間・一時費用が残っていても）。今までは期間の終わりまで出していた
 import {
   addMonths,
   ageMonth,
@@ -79,7 +81,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   id: "care.expense",
   title: "介護の費用（自己負担割合・高額介護サービス費）",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: {
     "contingency.event": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -223,6 +225,14 @@ export default defineComponent<Record<string, never>, FlowsResult>({
         }
         if (c.months === undefined) ctx.notice("N_DEFAULT_USED", [c.id, "care.months"]);
       }
+      // 介護を受ける人が亡くなった（離れた）月から出さない（改訂5）
+      const cared = members.find((x) => x.id === c.member);
+      const caredEv = cared === undefined ? null : ctx.call<ContingencyEventOutput>("contingency.event", { member: cared.id }).event;
+      const stops = [
+        ...(cared !== undefined && cared.leaves !== null && cared.leaves !== undefined ? [ctx.time.resolve(cared.leaves)] : []),
+        ...(caredEv !== null && caredEv.kind === "death" ? [addMonths(parseYm(caredEv.month), 1)] : []),
+      ];
+      const stop = stops.length === 0 ? null : Math.min(...stops);
       const payer = c.payer ?? c.member;
       const ev = c.onContingency === undefined ? null : ctx.call<ContingencyEventOutput>("contingency.event", { member: payer }).event;
       const row = c.place === "facility" ? "cf.expense.care.facility" : "cf.expense.care.nursing";
@@ -232,7 +242,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
       const ot = other === null ? null : grownByYear(ctx, ctx.money.mulRatio(other, 12, 1, "conv.exact"), c.growth, fy, ly);
       const iv = initial === null ? null : grownByYear(ctx, initial, c.growth, fy, ly);
       const push = (m: MonthIndex, amount: Yen, formula: string) => {
-        if (amount <= 0 || m < base || m > end) return;
+        if (amount <= 0 || m < base || m > end || (stop !== null && m >= stop)) return;
         const cr = contingencyRatio(ctx, c.onContingency, ev, m);
         const a = cr === null ? amount : ctx.money.mulRate(amount, cr, "conv.expense.share");
         if (a > 0) flows.push({ row, ym: formatYm(m), amount: a, accrualYear: yearOf(m), member: payer, object: c.id, formula });

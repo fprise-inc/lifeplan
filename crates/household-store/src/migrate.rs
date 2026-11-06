@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.66";
+pub const CURRENT: &str = "0.67";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -223,17 +223,21 @@ pub const CURRENT: &str = "0.66";
 ///   省略は `fullOccupancy`）と、減価償却の引き継ぎ `accounts[].property.depreciationCarryover`（確定申告の数字。引き継ぐ年と、建物・建物附属設備の
 ///   年末の未償却残高と年間の償却費）を足した（0126。足すだけの MINOR）。前の版のアプリは入力の検査で知らない欄を通さないので、版を上げて閲覧だけにする。
 ///   変換の段は形式の版だけを書き換える。0.64 の段の後に積む
-/// - 0.66: 前提条件に預金の利回り `assumptions.depositReturn`（預金・外貨預金の資産クラスが資産クラスごとの利回りに無いときの利回り。
+/// - 0.66: 住まいを売ったときに住宅ローンを返すか `residences[].sale.repayLoan`（省略は返す。計算エンジンの debt.schedule 改訂6）と、
+///   持ち家の評価の入れ方 `residences[].valuation.basis`（`market` 今の時価・`purchase` 買った値段。画面の側で、計算エンジンは読まない）を足した
+///   （0052・0025 の追記 2026-11-07。足すだけの MINOR）。前の版のアプリは入力の検査で知らない欄を通さないので、版を上げて閲覧だけにする。
+///   変換の段は形式の版だけを書き換える（前の版の売る予定の住まいは、省略＝返すとして読む）。0.65 の段の後に積む
+/// - 0.67: 前提条件に預金の利回り `assumptions.depositReturn`（預金・外貨預金の資産クラスが資産クラスごとの利回りに無いときの利回り。
 ///   省略は運用利回り）を足し、収益不動産の取得 `accounts[].property.acquisition` を取得の年月だけでも持てるようにした（`price` を省略できる。0137）。
 ///   変換の段は、今の世帯の前提条件に預金の利回りが無ければ既定の値（0.1%。普通預金の金利の目安）を書く（利用者の判断で、今ある世帯も
-///   預金を運用利回りで増やさない。預金のある世帯の結果が少し変わる）。控え・プランの差分には触れない。0.65 の段の後に積む
+///   預金を運用利回りで増やさない。預金のある世帯の結果が少し変わる）。控え・プランの差分には触れない。0.66 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
-    "0.62", "0.63", "0.64", "0.65", "0.66",
+    "0.62", "0.63", "0.64", "0.65", "0.66", "0.67",
 ];
 
 /// 1段分の変換
@@ -569,6 +573,11 @@ pub const STEPS: &[Step] = &[
         from: "0.65",
         to: "0.66",
         apply: v0_65_to_0_66,
+    },
+    Step {
+        from: "0.66",
+        to: "0.67",
+        apply: v0_66_to_0_67,
     },
 ];
 
@@ -2256,12 +2265,22 @@ fn v0_57_to_0_58(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.65 → 0.66: 足した欄（住まいを売ったときに住宅ローンを返すか・持ち家の評価の入れ方。0052・0025 の追記 2026-11-07）は前の版の世帯に無いので、
+/// 形式の版だけを書き換える。ほかの欄に触れない（返すかの省略は返す）
+fn v0_65_to_0_66(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.66".into());
+    }
+    Ok(body)
+}
+
 /// 預金の利回りの既定の値（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ。0137）
 const DEPOSIT_RETURN_DEFAULT: &str = "0.001";
 
-/// 0.65 → 0.66: 今の世帯の前提条件に預金の利回り（depositReturn）が無ければ、既定の値を書く（0137。前の版は預金を運用利回りで計算していた）。
+/// 0.66 → 0.67: 今の世帯の前提条件に預金の利回り（depositReturn）が無ければ、既定の値を書く（0137。前の版は預金を運用利回りで計算していた）。
 /// 前提条件の無い世帯・もう持っている世帯はそのまま。収益不動産の取得の年月だけの取得は足す形なので触れない。控えの中身は変えない
-fn v0_65_to_0_66(mut body: Value) -> Result<Value, StoreError> {
+fn v0_66_to_0_67(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(a) = obj
         .get_mut("household")
@@ -2278,7 +2297,7 @@ fn v0_65_to_0_66(mut body: Value) -> Result<Value, StoreError> {
         }
     }
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
-        meta.insert("formatVersion".into(), "0.66".into());
+        meta.insert("formatVersion".into(), "0.67".into());
     }
     Ok(body)
 }
@@ -3229,7 +3248,8 @@ mod tests {
         assert_eq!(access("0.64").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.65").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.66").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.67").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.67").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.68").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3242,7 +3262,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.67", b.clone()).unwrap(),
+            upgrade("0.68", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -3651,16 +3671,33 @@ mod tests {
     }
 
     #[test]
-    fn v0_65_to_0_66_writes_deposit_return() {
-        // 預金の利回りの無い世帯は既定の値（0.1%）を書く。もう持っている世帯・前提条件の無い本文はそのまま
+    fn v0_65_to_0_66_only_bumps_version() {
+        // 足した欄（住まいを売ったときに住宅ローンを返すか・持ち家の評価の入れ方）は前の版の世帯に無いので、世帯はそのまま
         let b = serde_json::json!({
             "meta": {"formatVersion": "0.65"},
+            "household": {"request": {"input": {"baseMonth": "2026-10", "household": {
+                "residences": [
+                    {"id": "r1", "kind": "own", "from": {"at": "2015-04"}, "to": {"at": "2040-03"}, "sale": {},
+                     "valuation": {"value": {"value": 40000000, "state": "confirmed"}, "asOf": "2015-04"}}
+                ]
+            }}}}
+        });
+        let u = upgrade("0.65", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+    }
+
+    #[test]
+    fn v0_66_to_0_67_writes_deposit_return() {
+        // 預金の利回りの無い世帯は既定の値（0.1%）を書く。もう持っている世帯・前提条件の無い本文はそのまま
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.66"},
             "household": {"request": {"input": {"baseMonth": "2026-10",
                 "assumptions": {"investmentReturn": {"default": "0.03"}},
                 "household": {"accounts": []}}}},
             "snapshots": [{"request": {"input": {"assumptions": {"investmentReturn": {"default": "0.03"}}}}}]
         });
-        let u = upgrade("0.65", b.clone()).unwrap();
+        let u = upgrade("0.66", b.clone()).unwrap();
         assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(
             u["household"]["request"]["input"]["assumptions"]["depositReturn"],
@@ -3672,13 +3709,13 @@ mod tests {
         );
         assert_eq!(u["snapshots"], b["snapshots"], "控えの中身は変えない");
         let own = serde_json::json!({
-            "meta": {"formatVersion": "0.65"},
+            "meta": {"formatVersion": "0.66"},
             "household": {"request": {"input": {"assumptions": {"investmentReturn": {"default": "0.01"}, "depositReturn": {"default": "0.002"}}}}}
         });
-        let u = upgrade("0.65", own.clone()).unwrap();
+        let u = upgrade("0.66", own.clone()).unwrap();
         assert_eq!(u["household"], own["household"]);
-        let none = serde_json::json!({"meta": {"formatVersion": "0.65"}, "household": {"request": {"input": {}}}});
-        let u = upgrade("0.65", none.clone()).unwrap();
+        let none = serde_json::json!({"meta": {"formatVersion": "0.66"}, "household": {"request": {"input": {}}}});
+        let u = upgrade("0.66", none.clone()).unwrap();
         assert_eq!(u["household"], none["household"]);
     }
 
