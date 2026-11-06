@@ -33,6 +33,7 @@ const STANDARD: Readonly<Record<string, string>> = {
   inflation: DEFAULT_ASSUMPTIONS.inflation.default,
   wageGrowth: DEFAULT_ASSUMPTIONS.wageGrowth.default,
   investmentReturn: DEFAULT_ASSUMPTIONS.investmentReturn.default,
+  depositReturn: DEFAULT_ASSUMPTIONS.depositReturn.default,
   pensionMacroSlide: DEFAULT_ASSUMPTIONS.pensionMacroSlide.default,
 };
 
@@ -42,6 +43,7 @@ const SERIES_RANGES: Readonly<Record<string, PctRange>> = {
   wageGrowth: GROWTH_RANGE,
   educationInflation: GROWTH_RANGE,
   investmentReturn: RETURN_RANGE,
+  depositReturn: RETURN_RANGE,
   pensionMacroSlide: SLIDE_RANGE,
   pensionMacroSlideEmployee: SLIDE_RANGE,
 };
@@ -117,6 +119,31 @@ function seriesField(name: string, label: string, help: string, level: "simple" 
     item: sp.item,
     at: ["default"],
   });
+  const seriesState = (wh: WorkingHousehold): FieldState => {
+    const s = seriesAt(wh, sp);
+    const a = assumptionsOf(wh);
+    const ex = s?.byYear !== undefined ? Object.keys(s.byYear).length : 0;
+    const derived = ex > 0 ? `例外の年 ${ex}年（「詳細」の「例外の年」で直します）` : null;
+    const warn = rateWarning(name, a);
+    if (follows !== undefined && s === undefined) {
+      const v = (getPath(a, [follows.name, "default"]) as string | undefined) ?? null;
+      return { value: v, estimated: follows.basis, derived, warn };
+    }
+    // 預金の利回りの無い前の要求（変換の段を通らない計算の要求の写しなど）は空欄で、計算は運用利回りと同じと添える（入れるとその率。0137）
+    if (s === undefined && name === "depositReturn") {
+      const inv = (getPath(a, ["investmentReturn", "default"]) as string | undefined) ?? null;
+      return { value: null, hint: `空欄（運用利回りと同じ${inv !== null ? ` ${pctText(inv)}` : ""}で計算しています）`, derived, warn };
+    }
+    if (s === undefined) return { value: null, hint: "入れない（0%で計算）", derived, warn };
+    const fv = follows !== undefined ? ((getPath(a, [follows.name, "default"]) as string | undefined) ?? null) : null;
+    const est = standard !== undefined && sameRate(s.default, standard) ? STANDARD_BASIS : follows !== undefined && fv !== null && sameRate(s.default, fv) ? follows.basis : null;
+    return {
+      value: s.default,
+      ...(est !== null ? { estimated: est } : {}),
+      derived,
+      warn,
+    };
+  };
   return field({
     key: `assume/${name}`,
     item: sp.item,
@@ -129,24 +156,11 @@ function seriesField(name: string, label: string, help: string, level: "simple" 
     help,
     address,
     get: (wh): FieldState => {
-      const s = seriesAt(wh, sp);
+      const st = seriesState(wh);
+      // 預金の利回り: 資産の種類ごとの利回りに預金・外貨預金があれば、その種類はそちらで計算する（0137）
       const a = assumptionsOf(wh);
-      const ex = s?.byYear !== undefined ? Object.keys(s.byYear).length : 0;
-      const derived = ex > 0 ? `例外の年 ${ex}年（「詳細」の「例外の年」で直します）` : null;
-      const warn = rateWarning(name, a);
-      if (follows !== undefined && s === undefined) {
-        const v = (getPath(a, [follows.name, "default"]) as string | undefined) ?? null;
-        return { value: v, estimated: follows.basis, derived, warn };
-      }
-      if (s === undefined) return { value: null, hint: "入れない（0%で計算）", derived, warn };
-      const fv = follows !== undefined ? ((getPath(a, [follows.name, "default"]) as string | undefined) ?? null) : null;
-      const est = standard !== undefined && sameRate(s.default, standard) ? STANDARD_BASIS : follows !== undefined && fv !== null && sameRate(s.default, fv) ? follows.basis : null;
-      return {
-        value: s.default,
-        ...(est !== null ? { estimated: est } : {}),
-        derived,
-        warn,
-      };
+      const own = name === "depositReturn" ? ASSET_CLASSES.filter((o) => o.value.startsWith("cash.") && a?.assetReturns?.[o.value] !== undefined) : [];
+      return own.length === 0 ? st : { ...st, hint: `${own.map((o) => `${o.label}は「資産の種類ごとの利回り」の${o.label}（${pctText(a?.assetReturns?.[o.value]?.default ?? "0")}）`).join("、")}で計算しています` };
     },
     set: (wh, v) => {
       const cur = seriesAt(wh, sp);
@@ -281,6 +295,12 @@ function exceptionGroups(wh: WorkingHousehold, key: string, sp: SeriesPlace, wha
   };
   return { groups, add };
 }
+
+/**
+ * 例外の年の見出し・足すボタンの括弧の中の名前: 欄の名前から「（年）」を外す。括弧の中に区別がある欄（年金の調整率の基礎年金・厚生年金）は
+ * 区別を残す（「年金の調整率（基礎年金・年）」→「年金の調整率・基礎年金」）
+ */
+export const exceptionWhat = (label: string): string => label.replace(/（年）$/, "").replace(/（(.+)・年）$/, "・$1");
 
 /** 率の幅の見せ方（足す幅なので、プラスにも符号を付ける） */
 const signedPct = (r: string): string => (cmpRate(r, "0") > 0 ? `+${pctText(r, 1)}` : pctText(r, 1));
@@ -718,7 +738,8 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
   const series: [string, string, string, "simple" | "detail"][] = [
     ["inflation", "物価上昇率（年）", "基本生活費などの変動率に使います（今の値段で入れた額を、この率で伸ばします）", "simple"],
     ["wageGrowth", "賃金上昇率（年）", "給与の伸び（年齢ごとの昇給カーブとは別。名目の率）", "simple"],
-    ["investmentReturn", "運用利回り（年）", "資産の配分を入れていない口座の利回り（費用・税を引く前。長い期間の平均の目安）", "simple"],
+    ["investmentReturn", "運用利回り（年）", "預金以外で、資産の配分を入れていない口座の利回りです（運用の費用を引いた後。税は計算で引きます）。長い期間の平均の目安で入れます", "simple"],
+    ["depositReturn", "預金の利回り（年）", "預金・外貨預金と、合計の入れ方の運用しない分の利回りです（資産配分の現金も同じ）。既定は0.1%（普通預金の金利の目安）", "detail"],
     ["educationInflation", "教育費の上昇率（年）", "入れなければ物価上昇率と同じ", "detail"],
     ["pensionMacroSlide", "年金の調整率（基礎年金・年）", "マクロ経済スライドの率。将来の年金額の伸びから差し引く率", "detail"],
     ["pensionMacroSlideEmployee", "年金の調整率（厚生年金・年）", "入れなければ基礎年金の調整率と同じ", "detail"],
@@ -728,7 +749,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
   for (const [name, label] of series) {
     const fol = FOLLOWS[name];
     const fb = fol !== undefined ? ((getPath(wh.request.input.assumptions, [fol.name, "default"]) as string | undefined) ?? "0") : (STANDARD[name] ?? "0");
-    const ex = exceptionGroups(wh, `assume/${name}`, { path: [name], item: `assumptions.${name}` }, label.replace(/（.*$/, ""), fb, SERIES_RANGES[name] ?? GROWTH_RANGE);
+    const ex = exceptionGroups(wh, `assume/${name}`, { path: [name], item: `assumptions.${name}` }, exceptionWhat(label), fb, SERIES_RANGES[name] ?? GROWTH_RANGE);
     exGroups.push(...ex.groups);
     exAdds.push(ex.add);
   }
@@ -783,11 +804,11 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
     {
       key: "assume/assetReturns",
       title: "資産の種類ごとの利回り",
-      note: "貯蓄・運用の項目の資産配分と同じ値です（どちらで直しても同じ）。利回りは費用・税を引く前の年率",
+      note: "貯蓄・運用の項目の資産配分と同じ値です（どちらで直しても同じ）。資産の種類ごとの利回りは、信託報酬などの運用の費用を引く前の年率です（費用は資産配分の信託報酬で引きます。税は計算で引きます）。運用利回り・預金の利回りは費用を引いた後の率です",
       level: "detail",
       groups: assetReturnGroups(wh),
+      // 足すボタンは、まだ足していない資産の種類を全部出す（先頭の6つだけにしない）
       actions: ASSET_CLASSES.filter((o) => !have.has(o.value))
-        .slice(0, 6)
         .map((o) => ({
           key: `assume/addReturn/${o.value}`,
           label: `＋ ${o.label}`,
@@ -797,8 +818,9 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
             const a = (request.input.assumptions ??= {
               investmentReturn: { default: "0.01" },
             });
+            // 預金・外貨預金は、今の預金の利回り（無ければ既定の値）から始める
             (a.assetReturns ??= {})[o.value] = {
-              default: o.value.startsWith("cash") ? "0.001" : "0.03",
+              default: o.value.startsWith("cash") ? (a.depositReturn?.default ?? DEFAULT_ASSUMPTIONS.depositReturn.default) : "0.03",
             };
             return { ...w, request };
           },

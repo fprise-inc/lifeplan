@@ -197,7 +197,7 @@ export interface RealEstateProperty {
   builtYear?: number;
   landShare?: string;
   /** 取得。内訳（土地・建物・建物附属設備）・建物附属設備の耐用年数・取得時の諸費用・自己資金は 0080 */
-  acquisition?: { price: number; at: string; parts?: { land?: number; building?: number; equipment?: number }; equipmentLife?: number; costs?: number; equity?: number };
+  acquisition?: { price?: number; at: string; parts?: { land?: number; building?: number; equipment?: number }; equipmentLife?: number; costs?: number; equity?: number };
   /**
    * 減価償却の引き継ぎ（確定申告の減価償却の明細。0126）: year の年末の未償却残高 book と年間（12か月分）の償却費 annual。両方そろった部分だけを、
    * その翌年から残高が1円になるまで償却する（取得価額からの計算の代わり）
@@ -925,7 +925,7 @@ export interface EngineRequest {
     baseMonth: string;
     endYear: number;
     household: Household;
-    assumptions?: { investmentReturn: YearSeries; wageGrowth?: YearSeries; inflation?: YearSeries; educationInflation?: YearSeries; pensionMacroSlide?: YearSeries; assetReturns?: Record<string, YearSeries>; realEstateValuation?: RealEstateValuationSetting; investment?: InvestmentSetting; assetVolatility?: Record<string, string>; returnShifts?: ReturnShift[]; surplusSaving?: SurplusSavingSetting; withdrawal?: { order?: ({ kind: string } | { object: string })[]; minimumDeposit?: number }; marketShocks?: { year: number; drop: string; kinds?: string[]; assetClasses?: string[] }[]; pensionMacroSlideEmployee?: YearSeries; incomeShocks?: { id?: string; member: string; from: string; to: string; ratio: string }[]; [key: string]: unknown };
+    assumptions?: { investmentReturn: YearSeries; depositReturn?: YearSeries; wageGrowth?: YearSeries; inflation?: YearSeries; educationInflation?: YearSeries; pensionMacroSlide?: YearSeries; assetReturns?: Record<string, YearSeries>; realEstateValuation?: RealEstateValuationSetting; investment?: InvestmentSetting; assetVolatility?: Record<string, string>; returnShifts?: ReturnShift[]; surplusSaving?: SurplusSavingSetting; withdrawal?: { order?: ({ kind: string } | { object: string })[]; minimumDeposit?: number }; marketShocks?: { year: number; drop: string; kinds?: string[]; assetClasses?: string[] }[]; pensionMacroSlideEmployee?: YearSeries; incomeShocks?: { id?: string; member: string; from: string; to: string; ratio: string }[]; [key: string]: unknown };
     contingencies?: Contingency[];
     /** 働き方の置き換え（0085。万一の重ねの後に、期間の始まりからその人の働き方の期間を置き換える） */
     workChanges?: EmploymentPeriod[];

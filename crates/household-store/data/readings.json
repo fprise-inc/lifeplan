@@ -1959,6 +1959,13 @@
     "assetVolatility"
    ]
   },
+  "assumptions.depositReturn": {
+   "collection": null,
+   "path": [
+    "assumptions",
+    "depositReturn"
+   ]
+  },
   "assumptions.educationInflation": {
    "collection": null,
    "path": [

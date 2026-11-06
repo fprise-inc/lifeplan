@@ -4,11 +4,11 @@
 // 画面に添える見込み（NISA の枠を使い切る年・受け取りの概算）だけを出す
 import type { Account, EngineRequest, Household, InvestmentSetting, Member, Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth, parseYm, readLevers } from "../../levers.ts";
-import { expectedReturn } from "../../plans/allocation.ts";
+import { classRate, DEPOSIT_CLASSES, expectedReturn } from "../../plans/allocation.ts";
 import { cmpRate, pctText } from "../../plans/decimal.ts";
 import { resolveTimepoint } from "../form.ts";
-import { confirmedBox, mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
-import { presetNum, presetRate } from "../../../../../hearing/src/presets.ts";
+import { confirmedBox, mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
+import { isPresetId, presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
 
 export type Method = "total" | "accounts" | "allocation";
 export const METHODS: readonly { id: Method; label: string; lead: string }[] = [
@@ -362,7 +362,7 @@ export function rateText(r: number): string {
 export function switchMethod(wh: WorkingHousehold, to: Method): WorkingHousehold {
   const from = methodOf(wh.request);
   if (from === to) return wh;
-  return mutate(wh, (h, req) => {
+  const next = mutate(wh, (h, req) => {
     if (to === "total") {
       const view = totalViewOf({ ...req, input: { ...req.input, assumptions: { ...req.input.assumptions, investment: { ...investmentOf(req), method: from } } } } as EngineRequest);
       let p = pooledOf(h);
@@ -380,6 +380,11 @@ export function switchMethod(wh: WorkingHousehold, to: Method): WorkingHousehold
     setInvestment(req, { method: to === "accounts" ? undefined : to });
     if (to !== "total") dropDoneUnallocated(h, req);
   });
+  // 資産配分にしたら、画面に出している配分・信託報酬・期待リターンを計算に渡す。資産配分から戻したら、推定のまま書いた期待リターンを外す
+  // （口座の入れ方で資産の配分を持つ口座の利回りが、切り替える前と同じになるように。0137）
+  if (to === "allocation") return fillAllocation(next);
+  if (from === "allocation") return dropEstimatedClassReturns(next);
+  return next;
 }
 
 /** まだ分けていない分が0になったら、まとめた器を外す（外したら true） */
@@ -454,6 +459,97 @@ export const DEFAULT_MIX: readonly { assetClass: string; share: string }[] = [
 /** 運用の費用の既定（presets.ts の目安） */
 export const defaultFee = (): string => presetRate("preset.invest.fee");
 
+// ---- 資産配分を計算に渡す（0137）----
+// 画面に出している割合・信託報酬・期待リターンと、計算に渡す値を食い違わせない。期待リターンの無い資産の種類（預金の種類を除く）は、目安を
+// 「推定」の印で前提条件の資産の種類ごとの利回り（assumptions.assetReturns）に書く（打つと確定。空にすると目安の推定に戻る）。預金の種類
+// （現金・外貨預金）は前提条件の預金の利回りに任せる（書かない）
+
+/** 資産の種類の期待リターンの欄のキー（前提条件の「資産の種類ごとの利回り」の欄と同じ。仮の印のキー） */
+export const classReturnKey = (assetClass: string): string => `assume/assetReturns/${assetClass}/default`;
+
+const classPresetId = (assetClass: string): string => `preset.invest.${assetClass}.return`;
+
+/** 資産の種類の期待リターンの目安（無い資産の種類は null） */
+export const classReturnPreset = (assetClass: string): string | null => (isPresetId(classPresetId(assetClass)) ? presetRate(classPresetId(assetClass)) : null);
+
+/** 期待リターンの目安の根拠の文（事務所の推定の値があればその根拠の文） */
+export const classReturnBasis = (assetClass: string): string => {
+  const name = CLASSES.find((c) => c.key === assetClass)?.name ?? assetClass;
+  return presetBasis(presetText(classPresetId(assetClass), (v) => `${name}の期待リターンの目安 ${pctText(String(v))}`));
+};
+
+/** 資産配分の割合（今と段階）に出てくる、割合のある資産の種類 */
+function allocationClasses(req: EngineRequest): string[] {
+  const alloc = investmentOf(req).allocation;
+  const mixes = [alloc?.mix ?? DEFAULT_MIX, ...(alloc?.stages ?? []).map((st) => st.mix)];
+  return [...new Set(mixes.flatMap((m) => m.filter((x) => Number(x.share) > 0).map((x) => x.assetClass)))];
+}
+
+/**
+ * 資産配分の入れ方で、まだ計算に渡っていないもの（配分そのもの・期待リターンの無い資産の種類。預金の種類と目安の無い種類は除く）。
+ * 資産配分の入れ方でない・全部渡っていれば空
+ */
+export function allocationGaps(req: EngineRequest): string[] {
+  const inv = investmentOf(req);
+  if (inv.method !== "allocation") return [];
+  const out: string[] = [];
+  if (inv.allocation === undefined) out.push("割合と信託報酬");
+  const own = req.input.assumptions?.assetReturns ?? {};
+  for (const c of allocationClasses(req)) if (!DEPOSIT_CLASSES.has(c) && own[c] === undefined && classReturnPreset(c) !== null) out.push(`${CLASSES.find((x) => x.key === c)?.name ?? c}の期待リターン`);
+  return out;
+}
+
+/** 資産配分を計算に渡す（allocationGaps の分を書く。割合と信託報酬は画面の既定、期待リターンは目安を推定の印で）。渡っていれば同じ世帯 */
+export function fillAllocation(wh: WorkingHousehold): WorkingHousehold {
+  if (allocationGaps(wh.request).length === 0) return wh;
+  const assumed = { ...wh.assumed };
+  const next = mutate(wh, (_h, req) => {
+    if (investmentOf(req).allocation === undefined) setInvestment(req, { allocation: { mix: [...DEFAULT_MIX], fee: defaultFee() } });
+    const a = (req.input.assumptions ??= { investmentReturn: { default: "0.01" } });
+    for (const c of allocationClasses(req)) {
+      const mu = classReturnPreset(c);
+      if (DEPOSIT_CLASSES.has(c) || a.assetReturns?.[c] !== undefined || mu === null) continue;
+      (a.assetReturns ??= {})[c] = { default: mu };
+      assumed[classReturnKey(c)] = classReturnBasis(c);
+    }
+  });
+  return { ...next, assumed };
+}
+
+/** 推定のまま（仮の印のまま）の資産の種類の期待リターンを外す（資産配分から別の入れ方に戻したとき） */
+export function dropEstimatedClassReturns(wh: WorkingHousehold): WorkingHousehold {
+  const own = wh.request.input.assumptions?.assetReturns ?? {};
+  const marked = Object.keys(own).filter((c) => wh.assumed[classReturnKey(c)] !== undefined);
+  if (marked.length === 0) return wh;
+  const next = mutate(wh, (_h, req) => {
+    const a = req.input.assumptions;
+    if (a?.assetReturns === undefined) return;
+    for (const c of marked) delete a.assetReturns[c];
+    if (Object.keys(a.assetReturns).length === 0) delete a.assetReturns;
+  });
+  return { ...next, assumed: Object.fromEntries(Object.entries(next.assumed).filter(([k]) => !marked.some((c) => classReturnKey(c) === k))) };
+}
+
+/**
+ * 資産配分の表で期待リターンを直す: 値を書いたら確定（推定の印を外す）。空にしたら、目安のある種類は目安の推定に戻し（画面と計算を食い違わせない）、
+ * 預金の種類と目安の無い種類は外す（預金の利回り・運用利回りで計算）
+ */
+export function setClassReturn(wh: WorkingHousehold, assetClass: string, v: string | null): WorkingHousehold {
+  const mu = v === null && !DEPOSIT_CLASSES.has(assetClass) ? classReturnPreset(assetClass) : null;
+  const next = mutate(wh, (_h, req) => {
+    const a = (req.input.assumptions ??= { investmentReturn: { default: "0.01" } });
+    const m = { ...(a.assetReturns ?? {}) };
+    const value = v ?? mu;
+    if (value === null) delete m[assetClass];
+    else m[assetClass] = { ...(m[assetClass] ?? {}), default: value };
+    if (Object.keys(m).length === 0) delete a.assetReturns;
+    else a.assetReturns = m;
+  });
+  const { [classReturnKey(assetClass)]: _old, ...rest } = next.assumed;
+  void _old;
+  return { ...next, assumed: v === null && mu !== null ? { ...rest, [classReturnKey(assetClass)]: classReturnBasis(assetClass) } : rest };
+}
+
 export interface ClassRow {
   key: string;
   name: string;
@@ -471,10 +567,13 @@ export function classRows(req: EngineRequest): ClassRow[] {
   const inv = investmentOf(req);
   const mix = inv.allocation?.mix ?? DEFAULT_MIX;
   const a = req.input.assumptions;
+  const year = parseYm(req.input.baseMonth).y + 1;
   return CLASSES.map((c) => {
     const own = a?.assetReturns?.[c.key]?.default;
     const sd = a?.assetVolatility?.[c.key];
-    return { key: c.key, name: c.name, color: c.color, weight: Math.round(Number(mix.find((m) => m.assetClass === c.key)?.share ?? "0") * 1000) / 10, mu: own ?? c.mu, muOwn: own !== undefined, sd: sd ?? c.sd, sdOwn: sd !== undefined };
+    // 期待リターンの無い種類は、計算と同じ値（預金の種類は預金の利回り、ほかは運用利回り。資産配分の入れ方でなければ目安を見せる。0137）
+    const fallback = inv.method === "allocation" || DEPOSIT_CLASSES.has(c.key) ? classRate(req, c.key, year).rate : c.mu;
+    return { key: c.key, name: c.name, color: c.color, weight: Math.round(Number(mix.find((m) => m.assetClass === c.key)?.share ?? "0") * 1000) / 10, mu: own ?? fallback, muOwn: own !== undefined, sd: sd ?? c.sd, sdOwn: sd !== undefined };
   });
 }
 
@@ -497,7 +596,9 @@ export function portfolioOf(req: EngineRequest): Portfolio {
   const expected = rows.reduce((s, r, i) => s + (w[i] ?? 0) * Number(r.mu), 0);
   let v = 0;
   for (let i = 0; i < rows.length; i++) for (let j = 0; j < rows.length; j++) v += (w[i] ?? 0) * (w[j] ?? 0) * Number(rows[i]?.sd) * Number(rows[j]?.sd) * (CORR[i]?.[j] ?? 0);
-  const fee = Number(investmentOf(req).allocation?.fee ?? defaultFee());
+  // 信託報酬: 配分を書いた世帯は書いた値（無ければ引かない。計算と同じ）。まだ配分の無い世帯は目安
+  const alloc = investmentOf(req).allocation;
+  const fee = Number(alloc === undefined ? defaultFee() : (alloc.fee ?? "0"));
   const risky = rows.reduce((s, r, i) => s + (CLASSES[i]?.risky === true ? (w[i] ?? 0) : 0), 0);
   return { expected, fee, net: expected - fee, sd: Math.sqrt(v), risky };
 }
