@@ -152,9 +152,9 @@ export class Page {
   async settle(what = ""): Promise<void> {
     const t0 = Date.now();
     await sleep(150);
-    // 「計算しています」が出ている間は待つ（5秒まで。ずっと出たままの所は stuck に残す）
-    await this.until("!document.body.innerText.includes('計算しています')", "計算が終わる", 5_000).catch(async () => {
-      this.stuck.push(`${what}: ${await this.eval<string>(`const el = [...document.querySelectorAll("body *")].filter((e) => w.vis(e) && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.includes("計算しています"))).at(-1); return el ? (el.className + " " + w.txt(el.parentElement ?? el).slice(0, 80)) : ""`).catch(() => "")}`);
+    // 「計算しています…」の札が出ている間は待つ（5秒まで。ずっと出たままの所は stuck に残す）
+    await this.until("!document.body.innerText.includes('計算しています…')", "計算が終わる", 5_000).catch(async () => {
+      this.stuck.push(`${what}: ${await this.eval<string>(`const el = [...document.querySelectorAll("body *")].filter((e) => w.vis(e) && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.includes("計算しています…"))).at(-1); return el ? (el.className + " " + w.txt(el.parentElement ?? el).slice(0, 80)) : ""`).catch(() => "")}`);
     });
     await sleep(150);
     this.waits.push({ what, ms: Date.now() - t0 });

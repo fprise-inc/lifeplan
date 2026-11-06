@@ -1,7 +1,7 @@
 // 通しの入力のテスト: 3つの世帯を見えないブラウザで画面のキー入力（押す・打つ・Tab・保存）で最初から結果まで入れ、入れた値が世帯の中身と
 // 計算の結果に届いたか、開いたパネルの文字に内部の名前が出ていないかを確かめる。見本の棚の主な世帯は、全部の入力項目のパネルを開いて結果のタブまで見る。
 // 今ある不具合は「直す待ち」（it.fails。まだ落ちることを確かめる）にして CI を通す。直したまとまりが it.fails を it にする（直ったのに it.fails のままだと落ちる）。
-// 流すのは FINANCIA_WALKTHROUGH=1 のときだけ（CI の通しの入力のジョブ・手元の npm run check:walkthrough）。ブラウザの場所は browser.ts
+// 決まりは設計記録 0132。流すのは FINANCIA_WALKTHROUGH=1 のときだけ（CI の通しの入力のジョブ・手元の npm run check:walkthrough）。ブラウザの場所は browser.ts
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { forEngine } from "../../src/engine/moneyRows.ts";
 import type { EngineRequest, TableCell } from "../../src/engine/types.ts";
@@ -9,6 +9,7 @@ import type { WorkingHousehold } from "../../src/workspace/input/household.ts";
 import { rowDefs } from "../../src/workspace/present.ts";
 import { fromBody } from "../../src/workspace/store/body.ts";
 import { preview } from "../helpers.ts";
+import { subjectOf, watch } from "../watch/rules.ts";
 import { browserPath, start, type Session } from "./browser.ts";
 import { WALKTHROUGH } from "./fieldEffect.ts";
 import { household1, household2, household3, openSample, walkPanels, type Notes } from "./households.ts";
@@ -26,8 +27,8 @@ export function internalWords(text: string): string[] {
   return [...out];
 }
 
-/** 「○つ」の数え方（「2つ」「15つ」など）が出ている所 */
-const tsuCounts = (text: string): string[] => [...text.matchAll(/[（(]?\d+つ[）)]?/g)].map((m) => m[0]);
+/** 「○つ」の数え方が出ている所（0129 と同じく、括弧の中の「（4つ）」と2桁以上の「12つ」だけ。文の中の「1つにまとめる」は見ない） */
+const tsuCounts = (text: string): string[] => [...text.matchAll(/[（(]\d+つ[）)]|\d{2,}つ/g)].map((m) => m[0]);
 
 interface Done {
   notes: Notes;
@@ -37,6 +38,8 @@ interface Done {
   rows: string[];
   /** 資産と負債のタブの文字 */
   bs: string;
+  /** ありえない結果の見張り（0129 の決まり）に当たった所 */
+  watched: { rule: string; problems: string[] }[];
 }
 
 const yearOf = (req: EngineRequest) => Number(req.input.baseMonth.slice(0, 4));
@@ -67,7 +70,7 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
     await s.page.settle();
     await s.page.shot(SHOTS, `${name}_万一のとき`);
     await s.page.click("入力", { exact: true });
-    return { notes, wh, table, rows, bs };
+    return { notes, wh, table, rows, bs, watched: watch(subjectOf(name, wh)) };
   }
 
   const panelChecks = (get: () => Done | Notes) => {
@@ -79,10 +82,23 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       const bad = Object.entries(panels()).flatMap(([k, t]) => internalWords(t).map((w) => `${k}: ${w}`));
       expect(bad).toEqual([]);
     });
-    it.fails("開いたパネルの文字に「○つ」の数え方が出ない（「○か所」「○件」にそろえる）", () => {
+    it("開いたパネルの文字に「○つ」の数え方が出ない（「○か所」「○件」にそろえる）", () => {
       const bad = Object.entries(panels()).flatMap(([k, t]) => tsuCounts(t).map((w) => `${k}: ${w}`));
       expect(bad).toEqual([]);
     });
+  };
+
+  /** 0129 の見張りの決まりを当てる。known は今ある不具合で当たる所（直す待ち。まだ当たることを it.fails で確かめる） */
+  const watchChecks = (get: () => Done, known: readonly { rule: string; match: RegExp; what: string }[]) => {
+    const hits = (k: { rule: string; match: RegExp }) => get().watched.filter((w) => w.rule === k.rule).flatMap((w) => w.problems.filter((p) => k.match.test(p)));
+    it("ありえない結果の見張りの決まりに当たらない（直す待ちを除く）", () => {
+      const rest = get().watched.flatMap((w) => w.problems.filter((p) => !known.some((k) => k.rule === w.rule && k.match.test(p))).map((p) => `${w.rule}: ${p}`));
+      expect(rest, rest.join("\n")).toEqual([]);
+    });
+    for (const k of known)
+      it.fails(`見張りの直す待ち: ${k.what}`, () => {
+        expect(hits(k)).toEqual([]);
+      });
   };
 
   describe("世帯① 会社員の夫婦と子2人・持ち家（住宅ローンあり）・標準の欄だけ", () => {
@@ -116,7 +132,7 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
     it("結果のタブに表が出て、給与の行がある", () => {
       expect(d.rows.some((r) => r.includes("給与"))).toBe(true);
     });
-    it.fails("円の欄（保険の年金月額）に「15万」と打つと 150,000円として入る（今は15円）", () => {
+    it("円の欄（保険の年金月額）に「15万」と打つと 150,000円として入る", () => {
       const cov = h().insuranceContracts?.[0]?.coverages?.find((c) => c.benefit === "incomeProtection");
       expect(cov?.amount).toBe(150_000);
     });
@@ -125,6 +141,10 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       expect(d.bs).not.toContain("純資産がマイナスに");
     });
     panelChecks(() => d);
+    watchChecks(() => d, [
+      { rule: "negativeNetWorthNow", match: /純資産が|資産に入っていない/, what: "持ち家を標準の欄だけで入れると、今の家が資産に入らず純資産が大きくマイナス" },
+      { rule: "zeroCostBasis", match: /nisa/, what: "NISA を足すと、取得価額が0円で入る" },
+    ]);
   });
 
   describe("世帯② 自営業のひとり親と子1人・賃貸・詳細も使う", () => {
@@ -154,7 +174,7 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       expect([monthly(800_000), monthly(1_500_000)]).toEqual([23_000, 30_000]);
       expect(h().goals?.some((g) => JSON.stringify(g).includes("50000"))).toBe(true);
     });
-    it.fails("養育費・手当は、足したときの始まりが今月で、今年から表に入る（今は1年後）", () => {
+    it("養育費・手当は、足したときの始まりが今月で、今年から表に入る", () => {
       expect(d.notes.seen.childSupportFrom).toBe(d.wh.request.input.baseMonth);
       expect(sum(d.table, "cf.income.other", yearOf(d.wh.request))).toBeGreaterThan(0);
     });
@@ -165,6 +185,10 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       expect(d.table.some((c) => c.row.startsWith("cf.income.business") && other.match(c))).toBe(false);
     });
     panelChecks(() => d);
+    watchChecks(() => d, [
+      { rule: "rowGrouping", match: /cf\.income\.business/, what: "事業所得がキャッシュフロー表の「その他の収入」に入る" },
+      { rule: "screenWords", match: /incomeFlow/, what: "世帯の中身の一覧に内部の名前（incomeFlow）が出る" },
+    ]);
   });
 
   describe("世帯③ 60代の夫婦・再雇用と企業年金・完済の持ち家・区分マンション1室・母の介護と相続", () => {
@@ -223,6 +247,15 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       expect(d.rows.some((r) => r.includes("企業年金"))).toBe(true);
     });
     panelChecks(() => d);
+    watchChecks(() => d, [
+      { rule: "pastRetirementEstimate", match: /db/, what: "定年の後に足した企業年金（年金で受け取る）の一時金の額が、推定0円・受け取りが過去のまま残る" },
+      { rule: "workTypeEstimates", match: /定年の推定/, what: "今の働き方が再雇用・パートなのに、定年の推定が残る" },
+      { rule: "careAndInheritanceAfterDeath", match: /介護の費用/, what: "介護を受ける人が亡くなった後も、介護の費用が続く" },
+      { rule: "careAndInheritanceAfterDeath", match: /相続の時期/, what: "亡くなる見込みを直しても、受け取る相続の時期がついてこない" },
+      { rule: "rowGrouping", match: /corporatePension/, what: "企業年金がキャッシュフロー表の「その他の収入」に入る" },
+      { rule: "zeroCostBasis", match: /taxable/, what: "課税口座を足すと、取得価額が0円で入る" },
+      { rule: "screenWords", match: /incomeFlow/, what: "世帯の中身の一覧に内部の名前（incomeFlow）が出る" },
+    ]);
   });
 
   // 見本の棚の主な世帯: 全部の入力項目のパネルを開いて閉じ、結果のタブまで出す（見本は保存しないので、世帯の中身の確かめはしない）
