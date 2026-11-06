@@ -618,7 +618,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
   const d = "detail" as const;
   if (level === "detail") {
     fields.push(
-      timepointField({ key: `${prefix}/from`, item: "employment.from", label: "始まり", level: "detail", find, path: ["from"], ageOf: (h) => h.members.find((x) => x.id === m.id), modes: ["age", "ym"], monthOnly: PERIOD_MONTH_ONLY }),
+      timepointField({ key: `${prefix}/from`, item: "employment.from", label: "始まり", level: "detail", find, path: ["from"], ageOf: (h) => h.members.find((x) => x.id === m.id), modes: ["age", "ym"], monthOnly: PERIOD_MONTH_ONLY, edge: "from" }),
       timepointField({
         key: `${prefix}/to`,
         item: "employment.to",

@@ -146,11 +146,10 @@ function NumBox(p: {
         setStart(shown);
       }}
       onInput={(e) => {
+        // 打っている間は下書きだけ（世帯は変えない）。離れたとき（Enter）に決める（入力の欄の決まり。FieldViews.tsx の Field と同じ）
         const t = (e.currentTarget as HTMLInputElement).value;
         setDraft(t);
         p.onProblem?.(rangeProblem(t));
-        const v = parse(t);
-        if (v !== undefined && t.trim() !== "") p.onCommit(v);
       }}
       onBlur={(e) => {
         const t = (e.currentTarget as HTMLInputElement).value;
