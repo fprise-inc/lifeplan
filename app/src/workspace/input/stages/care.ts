@@ -238,9 +238,10 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const allowance = elder ? (m.support?.allowance ?? 0) : 0;
   const hasRow = (h.periodicExpenses ?? []).some((p) => p.kind === "allowance" && p.counterparty === m.id);
   if (allowance > 0 && !hasRow) actions.push({ key: `${k}/allowanceRow`, label: "＋ 仕送りを出るお金の行にする", level: "simple", run: (w) => allowanceRow(w, m.id, allowance) });
-  else if (elder && !hasRow)
-    actions.push({ key: `${k}/allowanceAdd`, label: "＋ 仕送り（毎月）", help: "この人への仕送りを、親への仕送りの行（毎月）で足します。別居の親の健康保険の扶養の判定にも、この行の額を使います", level: "detail", run: (w) => addAllowanceRow(w, m.id) });
   if (hasBirth(m) && !(h.careExpenses ?? []).some((c) => c.member === m.id)) actions.push({ key: `${k}/care/estimate`, label: "＋ 介護を推定で入れる（この人）", level: "simple", run: (w) => fillCareFor(w, m.id) });
+  // 「＋ 仕送り（毎月）」は詳細だけのボタンなので、標準にも出るボタンの後ろに置く（詳細に切り替えても標準のボタンの位置が動かない）
+  if (elder && !hasRow && !(allowance > 0))
+    actions.push({ key: `${k}/allowanceAdd`, label: "＋ 仕送り（毎月）", help: "この人への仕送りを、親への仕送りの行（毎月）で足します。別居の親の健康保険の扶養の判定にも、この行の額を使います", level: "detail", run: (w) => addAllowanceRow(w, m.id) });
   const gifts = donorUses(h, m.id);
   const notes = [
     ...(m.outside !== undefined ? [OUTSIDE_NOTE] : []),
