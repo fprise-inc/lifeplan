@@ -2,9 +2,8 @@
 // 世帯の外の家族（親・祖父母など）は介護・親の項目（care.ts）、贈与する人は相続・贈与のカード（inheritance.ts）に出し、ここは読むだけの1行
 import type { Household, IncomeFlowKind, Member, MoneyOutKind, Relation, Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageAt } from "../../levers.ts";
-import { roles } from "../../roles.ts";
 import { resolveTimepoint } from "../../timepoint.ts";
-import { byId, field, plain, removeAction, timepointField, type ActionDef, type Val, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { byId, field, plain, removeAction, timepointField, type ActionDef, type Val, type FieldDef, type GroupDef, type Option, type SectionDef, type StageDef } from "../form.ts";
 import { followStandards, LEAVES_BASIS, mutate, newId, standardLeavesPoint, type WorkingHousehold } from "../household.ts";
 import { addExpense, addIncome, defaultSupportChild, moneySections, setSupportChild } from "../moneyRows.ts";
 import { NONE_CLAIMED } from "./events.ts";
@@ -14,6 +13,7 @@ import { DONOR_KINDS, KIND_OPTIONS, memberLabel, memberOptions, SEX_OPTIONS } fr
 import { EVENT_KIND_LABEL, eventName, FP_EVENT_KINDS, freezeTimepoints, refsTo, whenPeople } from "../namedEvents.ts";
 import { wareki } from "../units.ts";
 import { readGroup, readLine } from "../readLines.ts";
+import { addOutside } from "./care.ts";
 import { fillsByEstimate } from "../../../../../hearing/src/estimates.ts";
 
 const members = (h: Household) => h.members;
@@ -90,7 +90,7 @@ export function addMember(wh: WorkingHousehold, kind: "spouse" | "child" | "pare
   const sex = kind === "spouse" ? oppositeSex(self?.sex) : "male";
   const expected = kind === "child" && o.expected === true;
   // これから生まれる子: 生まれる予定の月（今から2年後の推定）を生年月にし、その月に加わる
-  const born = expected ? addMonths(base, EXPECTED_CHILD_MONTHS) : `${birthYear}-04`;
+  const born = expected ? addMonths(base, EXPECTED_CHILD_MONTHS) : kind === "child" ? nextChildBirth(h0, base, `${birthYear}-04`) : `${birthYear}-04`;
   const m: Member = { id: newMemberId, kind, birth: { birthYearMonth: born, bornOnFirst: false }, sex, joins: expected ? { at: born } : null, leaves: null, expected };
   // 子の独立の標準: 22歳になった後の最初の3月末の翌月（年齢の時点で持つので、生年月を直すと合わせて動く）
   if (kind === "child") m.leaves = standardLeavesPoint(newMemberId);
@@ -115,6 +115,21 @@ export function addMember(wh: WorkingHousehold, kind: "spouse" | "child" | "pare
   return { ...next, assumed: { ...next.assumed, ...marks } };
 }
 
+/**
+ * 2人目からの子の仮の生年月: 世帯の中のいちばん下の子（これから生まれる子を除く）の3年後。計算の基準の月より後になるなら基準の月
+ * （双子として教育費の推定が同じ年に重ならないように）。子がいなければ first（ご本人の32歳の年の4月か、今年の4月）
+ */
+export function nextChildBirth(h: Household, base: string, first: string): string {
+  const born = h.members.filter((x) => x.kind === "child" && x.outside === undefined && x.expected !== true).map((x) => x.birth.birthYearMonth).sort();
+  const last = born.at(-1);
+  if (last === undefined) return first;
+  const next = addMonths(last, CHILD_SPACING_MONTHS);
+  return next > base ? base : next;
+}
+
+/** 2人目からの子の仮の生年月の間（3年） */
+export const CHILD_SPACING_MONTHS = 36;
+
 /** 子を足し、その子の進路を推定（標準の進路の型）で入れる。expected はこれから生まれる子 */
 export function addChildWithEducation(wh: WorkingHousehold, id: () => string = newId, expected = false): WorkingHousehold {
   const before = new Set(wh.request.input.household.members.map((m) => m.id));
@@ -134,6 +149,24 @@ const SPOUSE_SEX_HELP = "足したときにご本人と逆の性別を入れて�
 
 const oppositeSex = (sex: unknown): "male" | "female" => (sex === "female" ? "male" : "female");
 
+/** 呼び名の入力例（続柄で変える。ご本人にも「上のお子さん」と出さない） */
+const NICKNAME_EXAMPLE: Readonly<Record<string, string>> = { self: "例: 世帯主", spouse: "例: パートナー", child: "例: 上のお子さん", other: "例: 弟" };
+
+/**
+ * 家族の入力項目の続柄の選択肢（子・同居のその他の家族だけ）。配偶者は「＋ 配偶者」で足した人だけにし（続柄を配偶者に変えると、夫婦の関係の無い
+ * 2人目の配偶者ができ、家族の入力項目から見えなくなるため）、親・祖父母は介護・親の入力項目で足す（選ぶと世帯の外の家族になって、この入力項目から消えるため）。
+ * 前の版で別の続柄が入っている人は、その続柄を「（前に選んだ続柄）」として残す（黙って書き換えない）
+ */
+export function familyKindOptions(current: string | undefined): Option[] {
+  const base: Option[] = [
+    { value: "child", label: "子" },
+    { value: "other", label: "その他の家族（同居の兄弟姉妹など）" },
+  ];
+  if (current === undefined || base.some((o) => o.value === current)) return base;
+  const old = KIND_OPTIONS.find((o) => o.value === current);
+  return [...base, { value: current, label: `${old?.label ?? current}（前に選んだ続柄）` }];
+}
+
 /** 構成員1人のまとまり（家計を1つにする人。世帯の外の家族は介護・親の項目の形で出す。care.ts の outsideGroup） */
 export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const find = byId(members, m.id);
@@ -142,26 +175,10 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
     const age = ageAt({ ...m, birth: { ...m.birth, birthYearMonth: ym } }, wh.request.input.baseMonth);
     return age < 0 ? expectedBirthHint(wh, ym) : `${age}歳（${wareki(ym)}）`;
   };
-  const fields: FieldDef[] = [
-    field({
-      key: `family/${m.id}/nickname`,
-      item: null,
-      label: "呼び名（任意）",
-      // 表示だけの値（続柄から「ご本人」「第1子」などと出す）。標準には出さない
-      level: "detail",
-      kind: "text",
-      placeholder: "例: 上のお子さん",
-      help: "FP が付ける呼び名です。お名前は入れないでください",
-      optional: true,
-      get: (w) => ({ value: w.labelsByMember[m.id] ?? null }),
-      set: (w, v) => {
-        const { [m.id]: _old, ...rest } = w.labelsByMember;
-        void _old;
-        return { ...w, labelsByMember: v === null || v === "" ? rest : { ...rest, [m.id]: String(v) } };
-      },
-    }),
-  ];
-  if (m.kind !== "self")
+  // 並びは標準と同じ「続柄 → 生年月 → 性別」で、詳細で増える欄（1日生まれ・呼び名・関係・加わる時期）は後ろ
+  const fields: FieldDef[] = [];
+  // 続柄: 配偶者は「＋ 配偶者」で足した人なので選ばない（外すのは「この家族を外す」）。子・同居のその他の家族だけ選び直せる
+  if (m.kind !== "self" && m.kind !== "spouse")
     fields.push(
       following(plain({
         key: `family/${m.id}/kind`,
@@ -169,30 +186,33 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
         label: "続柄",
         level: "simple",
         kind: "select",
-        options: KIND_OPTIONS,
+        options: familyKindOptions(m.kind),
         structural: true,
         find,
         path: ["kind"],
+        help: "親・祖父母、離れて暮らす子（家計が別の家族）は、介護・親の入力項目で足します",
       })),
     );
   const expectedChild = m.kind === "child" && m.expected === true;
   fields.push(
     expectedChild
-      ? following(expectedBirthField(m))
+      ? following(expectedBirthField(m, wh.request.input.baseMonth))
       : following(plain({
           key: `family/${m.id}/birth`,
           item: "member.birth",
           label: "生年月",
           level: "simple",
           kind: "ym",
+          // 年齢しか分からなければ「38歳」と打てる（仮の印で、生まれた年月の幅のまん中を入れる。0131 の3）
+          ageInput: true,
+          example: "例: 1985-04",
           find,
           path: ["birth", "birthYearMonth"],
-          help: "生まれた日は入れません（1日生まれのときだけ、「詳細」で選びます）",
+          help: "生まれた日は入れません（1日生まれのときだけ、「詳細」で選びます）。年齢しか分からなければ「38歳」のように入れられます",
           hint: (v) => (typeof v === "string" ? ageNow(v) : null),
           // 子の生年月を直したら、進路の段を新しい年齢に合わせる（終わった段を外し、前の年齢で終わっていた段を足す）
           ...(m.kind === "child" ? { after: (h: Household, _t: unknown, _v: Val, wh: WorkingHousehold) => alignChild(h, m.id, wh) } : {}),
         })),
-    following(plain({ key: `family/${m.id}/bornOnFirst`, item: "member.birth", label: "1日生まれ", level: "detail", kind: "bool", find, path: ["birth", "bornOnFirst"], help: "年齢に達する月が1か月早くなります（年金・定年などの時期）。結果の差は1か月です" })),
     // 性別: 標準は本人だけ（1押し）。配偶者は足したときに本人の逆を入れ、詳細で直す（同性のご夫婦も入れられる）。性別は推定するものではないので、
     // 推定の印は付けない（初めの値を普通の値として入れる）。
     // 子の性別は計算に使わないので出さない（世帯ファイルの値は今のまま持つ。黙って書き換えない。0046 の追記 2026-10-27）
@@ -211,17 +231,31 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
           help: m.kind === "spouse" ? SPOUSE_SEX_HELP : "遺族年金・寡婦控除・年収の目安・平均余命の計算に使います",
         }),
       ]),
+    following(plain({ key: `family/${m.id}/bornOnFirst`, item: "member.birth", label: "1日生まれ", level: "detail", kind: "bool", find, path: ["birth", "bornOnFirst"], help: "年齢に達する月が1か月早くなります（年金・定年などの時期）。結果の差は1か月です" })),
+    field({
+      key: `family/${m.id}/nickname`,
+      item: null,
+      label: "呼び名（任意）",
+      // 表示だけの値（続柄から「ご本人」「第1子」などと出す）。標準には出さない
+      level: "detail",
+      kind: "text",
+      placeholder: NICKNAME_EXAMPLE[m.kind] ?? "例: 上のお子さん",
+      help: "FP が付ける呼び名です。お名前は入れないでください",
+      optional: true,
+      get: (w) => ({ value: w.labelsByMember[m.id] ?? null }),
+      set: (w, v) => {
+        const { [m.id]: _old, ...rest } = w.labelsByMember;
+        void _old;
+        return { ...w, labelsByMember: v === null || v === "" ? rest : { ...rest, [m.id]: String(v) } };
+      },
+    }),
   );
   // 子の独立は、子ども・教育のカードの詳細の「独立の時期」で入れる（education.ts の leavesField。同じ値を2か所に出さない）
   if (m.kind === "spouse") {
     const rel = relationLine(wh, m);
     if (rel !== null) fields.push(rel);
   }
-  if (m.kind !== "self" && !expectedChild)
-    fields.push(
-      plain({ key: `family/${m.id}/expected`, item: "member.expected", label: m.kind === "spouse" ? "これから加わる（結婚の予定）" : "これから加わる", level: "detail", kind: "bool", find, path: ["expected"] }),
-      timepointField({ key: `family/${m.id}/joins`, item: "member.joins", label: m.kind === "spouse" ? "結婚の予定（加わる時期）" : "加わる時期", level: "detail", find, path: ["joins"], mode: "ym", ageOf: (h) => h.members.find((x) => x.id === m.id), dateStyle: "birth", optional: true, nullText: "最初から" }),
-    );
+  if (m.kind !== "self" && !expectedChild) fields.push(...joinFields(wh, m));
   const actions: ActionDef[] = m.kind === "self" ? [] : [{ key: `family/${m.id}/remove`, label: "この家族を外す", level: "simple", danger: true, run: (w) => removeMember(w, m.id) }];
   if (expectedChild) actions.unshift({ key: `family/${m.id}/born`, label: "生まれました（生年月を確かめて家族にする）", level: "simple", run: (w) => markBorn(w, m.id) });
   if (m.kind === "spouse") actions.push({ key: `family/${m.id}/swap`, label: "ご本人と配偶者を入れ替える", level: "detail", title: "続柄だけを入れ替えます。働き方・年金・口座・保険の名義は人に付いたままです", run: (w) => swapSelfSpouse(w) });
@@ -231,6 +265,46 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
   return { key: `family/${m.id}`, title: memberLabel(wh, m.id), level: "simple", moreLabel, fields, actions };
 }
 
+/**
+ * 「加わる時期」の1欄（空欄＝最初から）。配偶者は、時期を入れたら「これから加わる（結婚の予定）」（expected）として扱い、空にすると最初からいる人に戻す。
+ * 配偶者は、最初の夫婦の関係の始まりが空か、前の加わる時期と同じなら、関係の始まりも同じ時点にする（結婚の予定の月に入籍する、として）。
+ * 前の版で「これから加わる」の印だけがあって時期が空の人は、印を外せるように前の欄（チェック）も出す
+ */
+function joinFields(wh: WorkingHousehold, m: Member): FieldDef[] {
+  const find = byId(members, m.id);
+  const spouse = m.kind === "spouse";
+  const tp = timepointField({
+    key: `family/${m.id}/joins`,
+    item: "member.joins",
+    label: spouse ? "加わる時期（結婚の予定）" : "加わる時期",
+    level: "detail",
+    find,
+    path: ["joins"],
+    mode: "ym",
+    ageOf: (h) => h.members.find((x) => x.id === m.id),
+    dateStyle: "birth",
+    optional: true,
+    nullText: "最初から",
+    help: spouse ? "結婚の予定などで、これから家族に加わる月。入れると、その月から世帯の人数・収入に入ります。夫婦の関係の始まり（入籍）も同じ月にします（違うときは「夫婦の関係」で直します）" : "これから家族に加わる月（同居を始めるなど）。空欄なら最初から家族です",
+    after: (h, target, v, w0) => {
+      const x = target as unknown as Member;
+      const before = w0.request.input.household.members.find((y) => y.id === m.id);
+      // 子の「これから加わる」の印は「これから生まれる子」の意味なので、配偶者（結婚の予定）だけ印を合わせる
+      if (!spouse) return;
+      x.expected = v !== null;
+      const rel = spouseRelations(h, m.id)[0];
+      if (rel === undefined) return;
+      const was = before?.joins ?? null;
+      const synced = rel.from === null || (was !== null && resolveTimepoint(w0.request.input.household, rel.from) === resolveTimepoint(w0.request.input.household, was));
+      if (synced) rel.from = x.joins == null ? null : structuredClone(x.joins);
+    },
+  });
+  const legacy = spouse && m.expected === true && (m.joins ?? null) === null;
+  return legacy
+    ? [plain({ key: `family/${m.id}/expected`, item: "member.expected", label: "これから加わる（前の版の印）", level: "detail", kind: "bool", find, path: ["expected"], help: "前の版で、加わる時期を入れずに付けた印です。加わる時期を入れるか、印を外してください" }), tp]
+    : [tp];
+}
+
 // ---- これから生まれる子・独立の標準・本人と配偶者の入れ替え ----
 
 /**
@@ -238,13 +312,15 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
  * 読みは「今から2年後・ご本人39歳（令和10年10月）」の形。前の版で加わる月を年齢・出来事の形で持っている世帯は、
  * 開いただけでは書き換えない（FP が年月を入れ直したときに、生年月と加わる月をその年月にする）
  */
-function expectedBirthField(m: Member): FieldDef {
+function expectedBirthField(m: Member, base: string): FieldDef {
   const f = plain({
     key: `family/${m.id}/birth`,
     item: "member.birth",
     label: "生まれる予定",
     level: "simple",
     kind: "ym",
+    // 入力例は未来の年月（生年月の欄の例と分ける）
+    example: `例: ${addMonths(base, EXPECTED_CHILD_MONTHS)}`,
     find: byId(members, m.id),
     path: ["birth", "birthYearMonth"],
     help: "生まれる予定の月（出産予定日の月）。その月から家族に加わります",
@@ -352,7 +428,8 @@ function relationLine(wh: WorkingHousehold, m: Member): FieldDef | null {
   const rs = spouseRelations(h, m.id);
   if (rs.length === 0) return null;
   const many = rs.length > 1 || rs.some((r) => r.from !== null || r.to !== null);
-  return field({ key: `family/${m.id}/relation`, item: null, label: "関係", level: "simple", kind: "text", readOnly: many ? "詳細あり（「詳細」の「夫婦の関係」で直せます）" : "詳しく入れるの「夫婦の関係」で直せます", get: (w) => ({ value: relationSummary(w.request.input.household, spouseRelations(w.request.input.household, m.id)) }), set: (w) => w });
+  // 詳細では、すぐ下に「夫婦の関係」のまとまりがあるので出さない（同じ中身を2回出さない。simpleOnly）
+  return { ...field({ key: `family/${m.id}/relation`, item: null, label: "関係", level: "simple", kind: "text", readOnly: many ? "段階があります。「詳細」の「夫婦の関係」で直せます" : "「詳細」の「夫婦の関係」で直せます", get: (w) => ({ value: relationSummary(w.request.input.household, spouseRelations(w.request.input.household, m.id)) }), set: (w) => w }), simpleOnly: true };
 }
 
 /**
@@ -398,7 +475,7 @@ function fixRelations(h: Household, before: Household, memberId: string, relId: 
 }
 
 /** 詳細の「夫婦の関係」のまとまり（段ごと）。関係の形・始まり・終わり。離婚した後の注意と、財産分与・養育費の行を足すボタン */
-const RELATION_NOTE = "事実婚から入籍・離婚のように、関係を期間で分けて入れられます。期間は重ならないように、前後の段の時点を合わせます";
+const RELATION_NOTE = "事実婚から入籍・離婚のように、関係を期間で分けて入れられます。期間は重ならないように、前後の段階の時点を合わせます";
 
 function relationGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
   const h = wh.request.input.household;
@@ -418,7 +495,7 @@ function relationGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
         ...timepointField({
           key: `${k}/from`,
           item: "relation.from",
-          label: i === 0 ? "関係の始まり（入籍・結婚）" : "この段の始まり（入籍など）",
+          label: i === 0 ? "関係の始まり（入籍・結婚）" : "この段階の始まり（入籍など）",
           level: "detail",
           find,
           path: ["from"],
@@ -428,7 +505,7 @@ function relationGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
           optional: true,
           nullText: "最初から",
           after: (hh, _t, _v, w0) => fixRelations(hh, w0.request.input.household, m.id, rid, "from"),
-          help: i === 0 ? "入れなければ「最初から」（今も続いている関係）" : "前の段の終わりは、この前の月に合わせます",
+          help: i === 0 ? "入れなければ「最初から」（今も続いている関係）" : "前の段階の終わりは、この前の月に合わせます",
         }),
         address: at("relation.from"),
       },
@@ -436,7 +513,7 @@ function relationGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
         ...timepointField({
           key: `${k}/to`,
           item: "relation.to",
-          label: last ? "関係の終わり（最後の月）" : "この段の終わり（最後の月）",
+          label: last ? "関係の終わり" : "この段階の終わり",
           level: "detail",
           find,
           path: ["to"],
@@ -444,10 +521,10 @@ function relationGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
           mode: "ym",
           ...(last ? { anchor: "divorce" } : {}),
           optional: true,
-          nullText: last ? "今も続いている（最後まで）" : "次の段の前の月まで",
+          nullText: last ? "今も続いている（最後まで）" : "次の段階の前の月まで",
           startPath: ["from"],
           after: (hh, _t, _v, w0) => fixRelations(hh, w0.request.input.household, m.id, rid, "to"),
-          help: last ? `離婚・別居などで関係が終わった最後の月。入れると、${who}はその翌月に世帯を離れます（収入・年金・生活費の人数に入りません）` : "次の段の始まりは、この次の月に合わせます",
+          help: last ? `離婚・別居などで関係が終わった最後の月。入れると、${who}はその翌月に世帯を離れます（収入・年金・生活費の人数に入りません）` : "次の段階の始まりは、この次の月に合わせます",
         }),
         address: at("relation.to"),
       },
@@ -532,14 +609,37 @@ function childEndPoint(h: Household): Timepoint | null {
   return youngest === undefined ? null : { memberAge: { member: youngest.id, years: 18, ageSwitch: "firstMarch31AfterReach" } };
 }
 
-/** 仕送りの相手にする子（離れて暮らす子）: 世帯の外の子、無ければ独立の早い子 */
+/**
+ * 仕送りの相手にする子（離れて暮らす子）: 世帯の外の子だけ。一緒に暮らす子しかいない世帯には「＋ 離れて暮らす子への仕送り」を出さない
+ * （独立した後の子への援助は、相手を選べる仕送りの行のまま足せる。在学中の自宅外の仕送りは子ども・教育の入力項目）
+ */
 function allowanceChild(h: Household): string | undefined {
-  const kids = h.members.filter((x) => x.kind === "child");
-  const out = kids.find((x) => x.outside !== undefined);
-  if (out !== undefined) return out.id;
-  const leaves = (x: Member) => resolveTimepoint(h, x.leaves) ?? "9999-12";
-  return [...kids].sort((a, b) => leaves(a).localeCompare(leaves(b)))[0]?.id;
+  return h.members.find((x) => x.kind === "child" && x.outside !== undefined)?.id;
 }
+
+/** 手当・給付金のボタンの「?」（児童扶養手当・自治体の手当は計算しないので、受け取っている額を入れてもらう） */
+export const BENEFIT_HELP = "児童扶養手当・自治体の手当（ひとり親の手当など）は計算に入れていません。受け取っている額を入れてください（児童手当は、子ども・教育の入力項目で計算します）";
+
+/**
+ * ひとり親の世帯か（計算の基準の月に、配偶者が世帯にいなくて、一緒に暮らす子がいる）。配偶者がいても、関係が終わって世帯を離れていれば
+ * ひとり親とみなす
+ */
+export function singleParent(wh: WorkingHousehold): boolean {
+  const h = wh.request.input.household;
+  const base = wh.request.input.baseMonth;
+  const here = (m: Member) => {
+    const leaves = resolveTimepoint(h, m.leaves ?? null);
+    const joins = resolveTimepoint(h, m.joins ?? null);
+    return (leaves === null || leaves > base) && (joins === null || joins <= base);
+  };
+  const spouse = h.members.some((m) => m.kind === "spouse" && here(m));
+  const kids = h.members.some((m) => m.kind === "child" && m.outside === undefined && m.expected !== true && m.birth.birthYearMonth <= base && here(m));
+  return !spouse && kids;
+}
+
+/** ひとり親の世帯の読むだけの1行の「?」 */
+export const SINGLE_PARENT_HELP =
+  "ひとり親控除は、配偶者と死別した後（万一のときの想定）だけ計算に入れます。離婚・未婚のひとり親の控除は、今は計算に入れていません。児童扶養手当・自治体のひとり親の手当も計算しないので、受け取っている額を「＋ 児童扶養手当など」で入れてください";
 
 /** 家族のカードの「入るお金」「出るお金」の区画（簡易の1行。足すときの既定を家族の形に合わせる） */
 function familyMoney(wh: WorkingHousehold): SectionDef[] {
@@ -558,6 +658,8 @@ function familyMoney(wh: WorkingHousehold): SectionDef[] {
       const dir = sec.key.endsWith("/out") ? "out" : "in";
       // 仕送りは相手の子がいるときだけ（相手のいない仕送りは介護・親の項目の行になるため）
       if (dir === "out" && kind === "allowance") return kid === undefined ? [] : [{ ...a, label: "＋ 離れて暮らす子への仕送り", run: (w) => familyRow(w, "out", "allowance") }];
+      // 手当・給付金: ひとり親の世帯では、児童扶養手当などを入れるボタンだと分かる名前にする（足す行は同じ）
+      if (dir === "in" && kind === "benefit") return [{ ...a, ...(singleParent(wh) ? { label: "＋ 児童扶養手当など" } : {}), help: BENEFIT_HELP, run: (w) => familyRow(w, dir, kind) }];
       return [{ ...a, run: (w) => familyRow(w, dir, kind) }];
     }),
   }));
@@ -694,15 +796,45 @@ export function addDonorActions(wh: WorkingHousehold): ActionDef[] {
   ];
 }
 
+/**
+ * 家族の入力項目の人の並び: ご本人・配偶者の後は、世帯ファイルの並び（足した順）。生年月の順にしないのは、打っている間（生年月を直したとき）に
+ * 子が並び直って、Tab で次に進むと同じ子の欄に戻るのを防ぐため。生年月の順への並べ直しは保存のとき（sortChildrenByBirth）。
+ * 呼び名（第1子・第2子）は今までどおり生年月の順
+ */
+export function panelOrder(h: Household): Member[] {
+  const inside = h.members.filter((m) => !outsidePerson(m));
+  const rank = (m: Member) => (m.kind === "self" ? 0 : m.kind === "spouse" ? 1 : 2);
+  return inside.map((m, i) => ({ m, i })).sort((a, b) => rank(a.m) - rank(b.m) || a.i - b.i).map((x) => x.m);
+}
+
+/**
+ * 世帯の子を生年月の順に並べ直す（家族の入力項目を保存したとき。InputView.tsx）。ほかの人と、子どうしの並びが変わらなければ同じ世帯を返す。
+ * 計算・呼び名は生年月の順で読むので、並べ直しても結果は変わらない（入力項目の並びだけ）
+ */
+export function sortChildrenByBirth(wh: WorkingHousehold): WorkingHousehold {
+  const ms = wh.request.input.household.members;
+  const kids = ms.filter((m) => m.kind === "child");
+  const sorted = [...kids].sort((a, b) => (a.birth.birthYearMonth < b.birth.birthYearMonth ? -1 : a.birth.birthYearMonth > b.birth.birthYearMonth ? 1 : 0));
+  if (sorted.every((m, i) => m === kids[i])) return wh;
+  return mutate(wh, (h) => {
+    const byId = new Map(h.members.map((m) => [m.id, m]));
+    let k = 0;
+    h.members = h.members.map((m) => (m.kind === "child" ? (byId.get((sorted[k++] as Member).id) as Member) : m));
+  });
+}
+
 export function familyStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;
-  const order = roles(wh.request).map((r) => r.member);
+  const base = wh.request.input.baseMonth;
+  const order = panelOrder(h);
   const hasSpouse = h.members.some((m) => m.kind === "spouse");
   const outside = h.members.filter(outsidePerson);
   const donors = h.donors ?? [];
-  // 世帯の外の家族・贈与する人は、介護・親／相続・贈与のカードで入れる（ここは読むだけの1行）
+  // 世帯の外の家族・贈与する人は、介護・親／相続・贈与のカードで入れる（ここは読むだけの1行。人ごとに「母（89歳）」）
+  const outsideText = outside.map((m) => (m.birth.birthYearMonth <= base ? `${memberLabel(wh, m.id)}（${ageAt(m, base)}歳）` : memberLabel(wh, m.id))).join("・");
   const ro = readGroup("family/elsewhere", undefined, [
-    ...(outside.length > 0 ? [readLine("family/outside", "世帯の外の家族", outside.map((m) => memberLabel(wh, m.id)).join("・"), "介護・親")] : []),
+    ...(singleParent(wh) ? [{ ...readLine("family/singleParent", "ひとり親控除・児童扶養手当", "計算に入れていません", "家族"), readOnly: SINGLE_PARENT_HELP }] : []),
+    ...(outside.length > 0 ? [readLine("family/outside", "世帯の外の家族", outsideText, "介護・親")] : []),
     ...(donors.length > 0 ? [readLine("family/donors", "贈与する人（親・祖父母）", `${donors.length}人`, "相続・贈与")] : []),
   ]);
   const spouse = h.members.find((m) => m.kind === "spouse");
@@ -714,7 +846,7 @@ export function familyStage(wh: WorkingHousehold): StageDef {
       note: "お名前の欄はありません。続柄と、必要なら FP が付ける呼び名で表します",
       level: "simple",
       // 配偶者の「夫婦の関係」は、配偶者のまとまりの直後（配偶者の枠の中に描く。partOf）
-      groups: [...order.filter((m) => !outsidePerson(m)).flatMap((m) => [memberGroup(wh, m), ...(m.id === spouse?.id ? relations : [])]), ...(ro !== null ? [ro] : [])],
+      groups: [...order.flatMap((m) => [memberGroup(wh, m), ...(m.id === spouse?.id ? relations : [])]), ...(ro !== null ? [ro] : [])],
       actions: [
         ...(hasSpouse
           ? []
@@ -725,6 +857,14 @@ export function familyStage(wh: WorkingHousehold): StageDef {
         // 新しく足す子は、進路を最初から推定（標準の進路の型）で入れる（古い世帯の子に黙って入れることはしない。fill.ts）
         { key: "family/add/child", label: "＋ 子", level: "simple", run: (w) => addChildWithEducation(w) },
         { key: "family/add/expectedChild", label: "＋ これから生まれる子", level: "simple", run: (w) => addChildWithEducation(w, newId, true) },
+        // 離れて暮らす子（前の結婚の子など。家計が別）は世帯の外の家族として足す（物は介護・親の入力項目に並ぶ。ここには読むだけの1行で出る）
+        {
+          key: "family/add/outsideChild",
+          label: "＋ 離れて暮らす子",
+          level: "simple",
+          help: "前の結婚の子など、家計が別の子です。介護・親の入力項目の世帯の外の家族に並び、生年月などはそこで直します。養育費・仕送りの行の相手に選べます",
+          run: (w) => addOutside(w, "child"),
+        },
       ],
     },
     {

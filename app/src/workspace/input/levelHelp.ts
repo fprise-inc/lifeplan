@@ -81,8 +81,8 @@ export const LEVEL_HELP: Readonly<Record<StageId, LevelHelpDef>> = {
     fallback: "estimate",
   },
   care: {
-    simple: [["親などの続柄と生年月", "生年月"], ["介護を受ける人"], ["在宅か施設か"]],
-    detail: [["介護の期間と月々の費用", "月々の費用"], ["扶養", "扶養している"], ["仕送りの額"]],
+    simple: [["親などの生年月と同居", "生年月"], ["介護を受ける人"], ["在宅か施設か"]],
+    detail: [["続柄と呼び名", "続柄"], ["介護の期間と月々の費用", "月々の費用"], ["扶養と親の年金", "扶養している"], ["仕送りの額"]],
     fallback: "estimate",
   },
   inheritance: {

@@ -52,19 +52,21 @@ function representative(): WorkingHousehold {
 }
 
 describe("最初の5枚の標準の欄の数", () => {
-  it("代表の世帯で、家族8・働き方と収入10・基本生活費4・住まい8〜10・貯蓄8（今の残高から入れたローンで合計38。黒字の上限は詳細〔入っていれば標準〕。配偶者の性別は詳細。住宅ローンは金利の種類も標準）", () => {
+  it("代表の世帯で、家族7（配偶者の続柄は選ばない）・働き方と収入10・基本生活費4・住まい10〜11・貯蓄8（今の残高から入れたローンで合計39。住宅ローンの名義と、今の残高からの借りた年月も標準。黒字の上限は標準。配偶者の性別は詳細。住宅ローンは金利の種類も標準）", () => {
     let wh = representative();
     const count = (w: WorkingHousehold) => (["family", "work", "living", "housing", "savings"] as const).map((s) => simpleFields(w, s).length);
     // 見本の住宅ローンは型どおりでない金利の段（2段）を持つので「金利の段階で入れる」になり、標準でも段の欄（2段×3欄）が開く（0052 の追記 2026-11-02）
-    expect(count(wh)).toEqual([8, 10, 4, 16, 8]);
+    // 配偶者のいる世帯の住宅ローンは、ローンの名義も標準（ペアローンの入口と並べる。2026-11-07）
+    expect(count(wh)).toEqual([7, 10, 4, 17, 8]);
     // 金利の段の無いローン（今の金利のまま）で数える
     wh = mutate(wh, (h) => {
       for (const d of h.debts ?? []) d.rateSchedule = d.rateSchedule.slice(0, 1);
     });
-    expect(count(wh)).toEqual([8, 10, 4, 10, 8]);
+    expect(count(wh)).toEqual([7, 10, 4, 11, 8]);
     for (const d of wh.request.input.household.debts ?? []) wh = switchEntry(wh, d.id, "balance");
-    expect(count(wh)).toEqual([8, 10, 4, 8, 8]);
-    expect(count(wh).reduce((a, b) => a + b, 0)).toBe(38);
+    // 今の残高から入れる住宅ローンは、借りた年月（入居の年月）も標準（入れないと住宅ローン控除を計算しない。2026-11-07）
+    expect(count(wh)).toEqual([7, 10, 4, 10, 8]);
+    expect(count(wh).reduce((a, b) => a + b, 0)).toBe(39);
   });
 });
 
@@ -159,14 +161,18 @@ describe("働き方と収入: 年収（賞与込み）の1欄", () => {
     expect((total.boxed!.read(total.boxed!.write(conf, box as never)) as { value: number }).value).toBe(box.value);
   });
 
-  it("役員だけは標準でも月の報酬（年額）と賞与を分けて聞く（まとめた1欄は出さない）", () => {
+  it("役員だけは標準でも役員報酬（月額）と賞与を分けて聞く（まとめた1欄は出さない。世帯ファイルは年額のまま）", () => {
     const wh = open("executiveOwner");
     const exec = members(wh).find((m) => (wh.request.input.household.employmentPeriods ?? []).some((p) => p.member === m.id && p.type === "executive"))!;
     const simple = simpleFields(wh, "work").filter((f) => f.key.startsWith(`work/${exec.id}/now/`)).map((f) => f.key.split("/").at(-1));
     expect(simple).toEqual(["type", "annual", "bonus"]);
     const annual = fieldOf(wh, "work", `work/${exec.id}/now/annual`);
-    expect(annual.label).toContain("月の報酬");
-    const w = annual.set(wh, 15000000);
+    expect(annual.label).toBe("月の報酬（役員報酬の月額）");
+    expect(annual.kind === "yen" && annual.basis).toBe("monthly");
+    const before = (wh.request.input.household.employmentPeriods ?? []).find((x) => x.member === exec.id && x.type === "executive")!;
+    expect(annual.get(wh).value).toBe(Math.round(before.salary!.annual.value! / 12));
+    // 月額で入れると、世帯ファイルには12か月分の年額で書く
+    const w = annual.set(wh, 1250000);
     const p = (w.request.input.household.employmentPeriods ?? []).find((x) => x.member === exec.id && x.type === "executive")!;
     expect(p.salary!.annual).toMatchObject({ value: 15000000, state: "confirmed" });
     expect(p.salary!.bonus!.value).toBe(1200000);
@@ -253,10 +259,11 @@ describe("子ども・教育", () => {
 });
 
 describe("住まい・ローン", () => {
-  it("建て方・固定資産税・評価・団信・ローンの名義・入居の年月は詳細", () => {
+  it("建て方・固定資産税・評価・団信・入居の年月は詳細。配偶者のいる世帯の住宅ローンの名義は標準", () => {
     const wh = open("salariedCoupleTwoKids");
     const fs = fieldsOf(wh, "housing");
-    for (const tail of ["/style", "/tax", "/valuation/value", "/valuation/builtYear", "/creditLife", "/debtors", "/credit/moveIn"]) {
+    expect(fs.filter((f) => f.key.endsWith("/debtors")).every((f) => f.level === "simple")).toBe(true);
+    for (const tail of ["/style", "/tax", "/valuation/value", "/valuation/builtYear", "/creditLife", "/credit/moveIn"]) {
       const hit = fs.filter((f) => f.key.endsWith(tail));
       expect(hit.length, tail).toBeGreaterThan(0);
       expect(hit.every((f) => f.level === "detail"), tail).toBe(true);

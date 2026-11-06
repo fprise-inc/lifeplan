@@ -105,6 +105,9 @@ type PointFull = InheritancePoint & {
 };
 
 const man = (yen: number) => `${manText(yen)}万円`;
+
+/** 相続人がいない時点に添える1行 */
+export const NO_HEIRS_HINT = "兄弟姉妹（亡くなっていれば甥・姪）がいれば、介護・親の項目の「＋ 兄弟姉妹を足す」（詳細）で足すと、相続人に数えます";
 /** 相続税の目安の不動産の評価の割合の既定（計算エンジンの inheritance.estimate の REAL_ESTATE_RATIO と同じ。時価の80%） */
 const REAL_ESTATE_RATIO_DEFAULT = "0.8";
 
@@ -117,6 +120,8 @@ export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): 
     if (answer === null) continue;
     const title = p.point === "bothAfter" ? `二人とも亡くなった後（${p.month.slice(0, 4)}年）` : p.point === "contingency" ? `万一のタブで${memberLabel(wh, p.decedent)}が亡くなったら` : `いま${memberLabel(wh, p.decedent)}が亡くなったら`;
     const details: string[] = [];
+    // 相続人がいない（子のいない夫婦の二人とも亡くなった後など）: 兄弟姉妹・甥姪が相続人になる世帯で、何を入れればよいかを添える
+    if (p.status === "noHeirs") details.push(NO_HEIRS_HINT);
     if (p.status === "ok") {
       const a = p.assets;
       // 不動産の評価の割合（相続税の目安の設定。入れていなければ計算エンジンの既定の80%）

@@ -7,7 +7,7 @@
 // - 額は、受け取り開始の年の次の年（今受け取っていれば計算の基準の年の次の年）の、その人の老齢年金の行の合計（加給年金・振替加算・
 //   在職中の停止を含む結果の額）。計算の道が無い所（画面の確かめなど）では出さない
 import { useEffect, useMemo, useState } from "preact/hooks";
-import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
+import type { EngineRequest, PensionRecord, PreviewResult } from "../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth } from "../levers.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import type { WorkingHousehold } from "./household.ts";
@@ -114,7 +114,26 @@ export function pensionEstimateSummary(wh: WorkingHousehold, r: PreviewResult | 
   if (lines.length === 0) return null;
   const total = lines.reduce((s, l) => s + (l.annual ?? 0), 0);
   const all = lines.every((l) => l.receiving);
-  return { pre: lines.length > 1 ? "夫婦で月" : "月", main: manText(Math.round(total / 12)), unit: all ? "万円（今・推定）" : "万円（65歳から・推定）" };
+  // 「推定」は推計（書類が無い）の人がいるときだけ（書類から入れた人だけなら付けない）
+  const est = anyEstimated(wh, lines) ? "・推定" : "";
+  return { pre: lines.length > 1 ? "夫婦で月" : "月", main: manText(Math.round(total / 12)), unit: all ? `万円（今${est}）` : `万円（65歳から${est}）` };
+}
+
+/** 推計（書類が無い）の人が見込みの行にいるか */
+function anyEstimated(wh: Pick<WorkingHousehold, "request">, lines: readonly PensionLine[]): boolean {
+  const recs = wh.request.input.household.pensionRecords ?? [];
+  return lines.some((l) => modeOf(recs.find((x) => x.member === l.member)) === "");
+}
+
+/**
+ * 書類の額（見込額・今の年額。老齢基礎・老齢厚生・経過的加算の合計）。加入月数から計算する50歳未満の定期便と、額を入れていない記録は null
+ * （見込みとの差を「これからの加入・加給年金など」として見せる。0141）
+ */
+export function documentAmount(rec: PensionRecord | undefined): number | null {
+  if (rec === undefined || !(rec.kind === "statementOver50" || rec.kind === "projection" || rec.kind === "receiving")) return null;
+  const a = rec.amounts;
+  const sum = (a?.basic?.value ?? 0) + (a?.employee?.value ?? 0) + (a?.transitional?.value ?? 0);
+  return sum > 0 ? sum : null;
 }
 
 /** パネルの「年金の見込み」の行（人ごとの文と、夫婦の合計の文） */
@@ -128,13 +147,21 @@ export function estimateView(wh: WorkingHousehold, est: { std: PreviewResult | n
     const mode = modeOf(rec);
     const c = claimed?.find((x) => x.member === l.member);
     const sub: string[] = [];
-    if (c !== undefined && rec?.claim !== undefined && c.from !== l.from && c.annual !== null) sub.push(`受け取り開始（${c.from.replace(/から$/, "")}）から ${annualText(c.annual)}`);
+    // 受け取り開始を変えている人は、見込みの行を受け取り開始からの額にし、65歳からの額は「?」の中に
+    const moved = c !== undefined && rec?.claim !== undefined && c.from !== l.from && c.annual !== null;
+    if (moved && l.annual !== null) sub.push(`65歳から受け取った場合 ${annualText(l.annual)}`);
     if (statementMonthsMissing(rec)) sub.push("加入月数が0か月のままなので、少なく（50歳以上の定期便は0円で）出ています");
-    sub.push(mode === "" ? "推定（書類が無いので、働き方の期間から推計した額）。定期便があれば「書類の額で置き換える」で写せます" : mode === "history" ? "加入歴に、これからの加入（働き方の期間）を足した額" : rec?.kind === "receiving" ? "改定通知書の額に、加給年金・振替加算・これからの加入を足した額" : "書類の額に、これからの加入（働き方の期間）を足した額（推定）");
-    return { member: l.member, who: memberLabel(wh, l.member), text: l.annual === null ? "計算の期間の外です" : `${l.from} ${annualText(l.annual)}`, sub };
+    // 書類からの人は、書類の額と、見込みとの差（これからの加入・加給年金・振替加算など）の内訳
+    const doc = documentAmount(rec);
+    if (doc !== null && l.annual !== null && !moved) sub.push(`内訳: 書類の額 年${manText(doc)}万円＋これからの加入・加給年金など ${l.annual - doc >= 0 ? "" : "▲"}年${manText(Math.abs(l.annual - doc))}万円`);
+    sub.push(mode === "" ? "推定（書類が無いので、働き方の期間から推計した額）。定期便があれば「書類の額で置き換える」で写せます" : mode === "history" ? "加入歴に、これからの加入（働き方の期間）を足した額" : rec?.kind === "receiving" ? "改定通知書の額に、加給年金・振替加算・これからの加入を足した額" : "書類の額に、これからの加入（働き方の期間）と加給年金を足した額");
+    const shown = moved ? (c as PensionLine) : l;
+    const mark = mode === "" ? "（推定）" : "";
+    return { member: l.member, who: memberLabel(wh, l.member), text: shown.annual === null ? "計算の期間の外です" : `${shown.from} ${annualText(shown.annual)}${mark}`, sub };
   });
   const sum = std.filter((l) => l.annual !== null);
-  const total = sum.length > 1 ? `夫婦で月${manText(Math.round(sum.reduce((s, l) => s + (l.annual ?? 0), 0) / 12))}万円（${sum.every((l) => l.receiving) ? "今" : "65歳から"}・推定）` : null;
+  const estMark = anyEstimated(wh, sum) ? "・推定" : "";
+  const total = sum.length > 1 ? `夫婦で月${manText(Math.round(sum.reduce((s, l) => s + (l.annual ?? 0), 0) / 12))}万円（${sum.every((l) => l.receiving) ? "今" : "65歳から"}${estMark}）` : null;
   return { people, total };
 }
 
