@@ -9,6 +9,7 @@ import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { addCar, upkeepAnnual } from "../src/workspace/input/stages/cars.ts";
 import { addAdvisoryFee } from "../src/workspace/input/stages/fees.ts";
+import { amountText } from "../src/workspace/input/units.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { oneMinus } from "../src/workspace/input/units.ts";
 import { advisoryFeeInCurrent, applyAdvisoryFee, applyLevers, hasAdvisoryFee } from "../src/workspace/levers.ts";
@@ -63,7 +64,7 @@ describe("車の入力", () => {
     expect(c1.upkeepMode).toBe("detail");
     expect(c1.upkeep).toEqual({ annual: total });
     expect(upkeepAnnual(c1)).toBe(total);
-    expect(fieldOf(wh, "/upkeepSum").get(wh).value).toBe(total);
+    expect(fieldOf(wh, "/upkeepSum").get(wh).value).toBe(`年${amountText(total)}`);
     expect(fieldOf(wh, "/tax").get(wh).estimated).not.toBeNull();
     wh = fieldOf(wh, "/parking").set(wh, 120000);
     expect(upkeepAnnual(wh.request.input.household.cars![0]!)).toBe(total + 120000);

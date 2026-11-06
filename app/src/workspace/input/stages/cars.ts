@@ -14,12 +14,12 @@ import type { Address } from "../../store/readings.ts";
 import { CAR_ESTIMATE, type Estimate } from "../estimates.ts";
 import { byId, field, getPath, plain, resolveTimepoint, setPath, timepointField, timeView, type ActionDef, type FieldDef, type Finder, type GroupDef, type Level, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, presetBasis, standardBox, wrapBasis, type WorkingHousehold } from "../household.ts";
-import { GROWTH_KINDS, memberLabel, memberOptions } from "../labels.ts";
+import { GROWTH_KINDS, holderOptions, memberLabel, WORDS } from "../labels.ts";
 import { addExpense, moneySections } from "../moneyRows.ts";
 import { materializeEvent } from "../namedEvents.ts";
 import { manYen } from "../readLines.ts";
 import { putRow, rowAt, type StateRow } from "../rows.ts";
-import { oneMinus } from "../units.ts";
+import { amountText, oneMinus, rateText } from "../units.ts";
 import { carLoanGroups, newCarLoan } from "./housing.ts";
 import { fixGrowth } from "./living.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./onContingency.ts";
@@ -390,12 +390,15 @@ const REPLACE_UNTIL_BASIS = `既定の値（${REPLACE_UNTIL_AGE}歳まで買い�
 
 /**
  * 買い替えを変える（0101）。買い替え続けるは省略（replace を消す）。この1台だけは、手放す時期が空なら目安を推定で入れる。
- * ○歳までは70歳まで（推定）。買い替える形に戻したとき、推定のままの手放す時期（この1台だけの目安）は外す（最後まで）。周期・下取りなどの値は残す
+ * ○歳までは70歳まで（推定）。買い替える形に戻したとき、推定のままの手放す時期（この1台だけの目安）は、買い替える車の既定（名義の人の75歳。推定）に戻す。
+ * 既定（75歳）のままの車をこの1台だけにしたら、この1台だけの目安に入れ替える。周期・下取りなどの値は残す
  */
 export function setReplace(wh: WorkingHousehold, carId: string, kind: ReplaceKind): WorkingHousehold {
   const cur = (wh.request.input.household.cars ?? []).find((x) => x.id === carId);
   if (cur?.purchase === undefined || replaceKind(cur) === kind) return wh;
   const dropUntil = kind !== "none" && untilIsKeepEstimate(wh, carId);
+  // 足したときの既定（名義の人の75歳）のままの車を「この1台だけ」にしたら、この1台だけの目安（推定）に入れ替える
+  const dropRelease = kind === "none" && untilIsReleaseEstimate(wh, carId);
   const next = mutate(wh, (h, req) => {
     const x = (h.cars ?? []).find((y) => y.id === carId);
     if (x?.purchase === undefined) return;
@@ -408,6 +411,11 @@ export function setReplace(wh: WorkingHousehold, carId: string, kind: ReplaceKin
     }
     if (kind !== "until") putRow(input, addr(carId, "car.replace", ["until"]), undefined);
     if (dropUntil) {
+      // 買い替える形に戻したら、推定のままの手放す時期は、買い替える車の既定（名義の人の75歳。推定）に戻す
+      x.until = releaseAt(h, x.owner, req.input.baseMonth);
+      putRow(input, addr(carId, "car.until"), estRow(RELEASE_BASIS));
+    }
+    if (dropRelease) {
       x.until = null;
       putRow(input, addr(carId, "car.until"), undefined);
     }
@@ -501,7 +509,24 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
     });
     return { ...moved, assumed: { ...moved.assumed, [key]: e.basis } };
   };
-  const fields: FieldDef[] = [plain({ key: `${k}/owner`, item: "car.owner", label: "名義（使う人）", level: "simple", kind: "select", options: memberOptions(wh), find, path: ["owner"] })];
+  // 名義の候補は持てる人だけ（今の車・リースは今18歳以上、これから買う車は買う月に18歳以上）。名義を変えたら、推定のままの手放す時期（名義の人の年齢）も新しい名義の人に
+  const holderAt = !lease && !owned && c.purchase !== undefined ? (resolveTimepoint(h0, c.purchase.first) ?? undefined) : undefined;
+  const fields: FieldDef[] = [
+    plain({
+      key: `${k}/owner`,
+      item: "car.owner",
+      label: WORDS.holder,
+      level: "simple",
+      kind: "select",
+      options: holderOptions(wh, "age18", c.owner, holderAt),
+      find,
+      path: ["owner"],
+      help: "使う人で選びます（手放す時期・買い替える年齢は、この人の年齢で数えます）",
+      after: (hh, t, _v, w) => {
+        if (untilIsReleaseEstimate(w, c.id)) (t as unknown as Car).until = releaseAt(hh, String(t.owner), w.request.input.baseMonth);
+      },
+    }),
+  ];
   if (lease) fields.push(...leaseFields(c, k, find, refreshUpkeep));
   else {
     fields.push(...replaceFields(c, i, k));
@@ -554,7 +579,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
       plain({
         key: `${k}/owned`,
         item: "car.purchase",
-        label: "今の車を持っている",
+        label: "今の車（外すと「これから買う車」）",
         level: "detail",
         kind: "bool",
         find,
@@ -616,12 +641,12 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
         item: "car.upkeep",
         label: "維持費（年額の合計）",
         level: "simple",
-        kind: "yen",
-        basis: "annual",
+        // 読むだけの合計は、欄の外の額の書き方（万円で小数1桁まで）で見せる
+        kind: "text",
         readOnly: `内訳で入れています（「詳細」で直せます）。車検は1回の額を周期でならしています${lease ? "。リース・長期レンタルの月額に含む分は数えません" : ""}`,
         get: (w) => {
           const x = car(w.request.input.household, w);
-          return { value: x === undefined ? null : breakdownAnnual(x) };
+          return { value: x === undefined ? null : amountText(breakdownAnnual(x), "year") };
         },
         set: (w) => w,
       }),
@@ -644,7 +669,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
   // いつまで乗るか（名義の人の年齢で）。今の車に乗り続けるときは、買い替えのすぐ下に出している
   if (!keepCurrent) fields.push(untilField(c, k, car, owner, false));
   fields.push(plain({ key: `${k}/growth`, item: "car.growth", label: lease ? "維持費の伸び方" : "価格・維持費の伸び方", level: "detail", kind: "select", options: GROWTH_KINDS, find, path: ["growth", "kind"], fallback: "inflation", optional: true, after: (_h, t, v) => fixGrowth(t, v), ...(lease ? { help: "リース・長期レンタルの月額は伸ばしません（契約の額のまま）" } : {}) }));
-  if (c.growth?.kind === "rate") fields.push(plain({ key: `${k}/growthRate`, item: "car.growth", label: "決まった伸び率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["growth", "rate"] }));
+  if (c.growth?.kind === "rate") fields.push(plain({ key: `${k}/growthRate`, item: "car.growth", label: WORDS.growthRate, level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["growth", "rate"] }));
   fields.push(...onContingencyFields({ key: `${k}/on`, item: "car.onContingency", find, path: ["onContingency"], level: "detail", help: lease ? "名義の人などの万一の月の翌月から、リースの月額と維持費をこの扱いにします" : "名義の人などの万一の月の翌月から、買い替えと維持費をこの扱いにします。組んだローンの返済は続きます" }));
   fields.push(...onContingencyDetailFields({ key: `${k}/on`, item: "car.onContingency", find, path: ["onContingency"], on: c.onContingency, level: "detail" }));
   // 見出しの一生の費用（今の値段で）
@@ -676,7 +701,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
       return { ...next, assumed: Object.fromEntries(Object.entries(next.assumed).filter(([key]) => !key.startsWith(`${k}/`))) };
     },
   });
-  const head: GroupDef = { key: k, title: `車 ${i + 1}（${memberLabel(wh, c.owner)}${lease ? `・${c.lease?.type === "longRental" ? "長期レンタル" : "カーリース"}` : ""}）`, ...(lifeNote !== null ? { note: lifeNote } : {}), level: "simple", moreLabel: lease ? "契約の年数・月額の中身を入れる" : "維持費の内訳・ローンを入れる", fields, actions };
+  const head: GroupDef = { key: k, title: `車 ${i + 1}（${memberLabel(wh, c.owner)}・${lease ? (c.lease?.type === "longRental" ? "長期レンタル" : "カーリース") : owned ? "今の車" : "これから買う車"}）`, ...(lifeNote !== null ? { note: lifeNote } : {}), level: "simple", moreLabel: lease ? "契約の年数・月額の中身を入れる" : "維持費の内訳・ローンを入れる", fields, actions };
   // 世帯が最後に手放す車にだけ、手放した後の移動の費用（0101。各名義の最後の車ではない）
   const after: GroupDef[] =
     lastCarOfHousehold(h0, c.id) && !afterCarAdded(h0, c.id)
@@ -805,6 +830,14 @@ function firstField(wh: WorkingHousehold, c: Car, k: string, find: Finder, owner
   );
 }
 
+/** ローンで買うときの借り方の1行（標準の買い方の欄の下。条件は「▸」の中で直す） */
+export function loanLine(l: NonNullable<Car["loan"]>): string {
+  const n = l.share === undefined ? 1 : Number(l.share);
+  const share = n >= 1 ? "全額" : Math.abs(n * 10 - Math.round(n * 10)) < 1e-9 ? `${String(Math.round(n * 10))}割` : rateText(l.share as string);
+  const term = l.termMonths % 12 === 0 ? `${l.termMonths / 12}年` : `${l.termMonths}か月`;
+  return `借入: 下取りを引いた額の${share}・${term}・年${rateText(l.rate)}（▸ で変えられます）`;
+}
+
 /** 買い方（現金／ローン）とローンの条件 */
 function payFields(c: Car, k: string, car: (h: Household, w: WorkingHousehold) => Car | undefined): FieldDef[] {
   const fields: FieldDef[] = [
@@ -820,7 +853,10 @@ function payFields(c: Car, k: string, car: (h: Household, w: WorkingHousehold) =
         { value: "loan", label: "ローン" },
       ],
       help: "残価設定ローンは、まだ計算に入っていません。リース・長期レンタルは「＋ リース・長期レンタル（月額）」で足します",
-      get: (w) => ({ value: car(w.request.input.household, w)?.loan === undefined ? "cash" : "loan" }),
+      get: (w) => {
+        const x = car(w.request.input.household, w);
+        return { value: x?.loan === undefined ? "cash" : "loan", hint: x?.loan === undefined ? null : loanLine(x.loan) };
+      },
       set: (w, v) => {
         const loan = v === "loan";
         const next = mutate(w, (h, req) => {
@@ -1092,7 +1128,7 @@ function untilField(c: Car, k: string, car: (h: Household, w: WorkingHousehold) 
   const oneTime = !isLeaseCar(c) && replaceKind(c) === "none";
   const help = [
     prominent ? "今の車を手放す時期です。名義の人の年齢で入れます" : "名義の人の年齢で入れます",
-    `その年齢に達する月で手放します（${oneTime ? (c.purchase?.owned === true ? "推定は今から5年です" : "推定は、買ってから13年〔乗用車の平均使用年数の目安〕です") : "入れなければ最後まで乗ります"}）`,
+    `その年齢に達する月で手放します（${oneTime ? (c.purchase?.owned === true ? "推定は今から5年です" : "推定は、買ってから13年〔乗用車の平均使用年数の目安〕です") : `足したときは名義の人の${RELEASE_AGE}歳を推定で入れています。空にすると最後まで乗ります`}）`,
     "運転免許の更新で認知機能の検査が始まる75歳ごろを目安にするFPも多いです",
     isLeaseCar(c) ? "リース・長期レンタルは、手放す月まで月額を数えます" : "手放すときの売却額は、まだ計算に入っていません",
   ].join("。");
@@ -1106,7 +1142,8 @@ function untilField(c: Car, k: string, car: (h: Household, w: WorkingHousehold) 
     // 買い替えない車は、空にしたら目安（推定）に戻す
     return withOneTimeUntil(next, c.id);
   };
-  return field({
+  // 推定の印（足したときの既定・この1台だけの目安）は物の値の状態の行に持つので、その行を当て先にする（「この値にする」で印が外れる）
+  return withAddress(field({
     key: `${k}/untilAge`,
     item: "car.until",
     label: "手放す時期",
@@ -1167,7 +1204,7 @@ function untilField(c: Car, k: string, car: (h: Household, w: WorkingHousehold) 
         });
       },
     }),
-  });
+  }), addr(c.id, "car.until"));
 }
 
 /** 合計と内訳の差を置く名前つきの行の名前 */
@@ -1239,7 +1276,27 @@ export function setUpkeepMode(wh: WorkingHousehold, carId: string, to: "total" |
   return { ...next, assumed };
 }
 
-/** 車を足す（目安の値で。目安で入れた欄は「推定」）。owned は今の車（次の買い替えから）か、これから買う車か */
+/**
+ * 足した車の手放す時期の既定（推定）: 名義の人が75歳になる月（運転免許の更新で認知機能の検査が始まる年齢の目安。利用者の判断で「最後まで」から変えた）。
+ * 名義の人がもう75歳以上なら次の誕生月の年齢（足した車がすぐ消えないように）。これから足す車だけで、前に足した車は書き換えない
+ */
+export const RELEASE_AGE = 75;
+export const RELEASE_BASIS = `既定の値（名義の人が${RELEASE_AGE}歳で手放す。運転免許の更新で認知機能の検査が始まる年齢の目安。この世帯に合わせて直してください）`;
+
+/** 名義の人の手放す時期の既定の時点（75歳、もう過ぎていれば次の年齢） */
+export function releaseAt(h: Household, ownerId: string, baseMonth: string): Timepoint {
+  const o = h.members.find((m) => m.id === ownerId);
+  const age = o === undefined ? 0 : ageAt(o, baseMonth);
+  return { memberAge: { member: ownerId, years: Math.max(RELEASE_AGE, age + 1), months: 0 } };
+}
+
+/** 手放す時期が、足したときの既定（名義の人の75歳。推定）のままか */
+function untilIsReleaseEstimate(wh: WorkingHousehold, carId: string): boolean {
+  const row = rowAt(inputOf(wh.request), addr(carId, "car.until"));
+  return row?.state === "estimated" && row.estimate?.basis === RELEASE_BASIS;
+}
+
+/** 車を足す（目安の値で。目安で入れた欄は「推定」）。owned は今の車（次の買い替えから）か、これから買う車か。手放す時期は名義の人の75歳（推定） */
 export function addCar(wh: WorkingHousehold, id: () => string = newId, owned = true): WorkingHousehold {
   const h = wh.request.input.household;
   const owner = h.members.find((m) => m.kind === "self") ?? h.members[0];
@@ -1254,8 +1311,10 @@ export function addCar(wh: WorkingHousehold, id: () => string = newId, owned = t
       purchase: { first: { at: addMonths(wh.request.input.baseMonth, 36) }, everyYears: CAR_ESTIMATE.everyYears.value, price: CAR_ESTIMATE.price.value, tradeIn: trade.value, owned },
       upkeep: { annual: CAR_ESTIMATE.upkeep.value },
       upkeepMode: "total",
+      until: releaseAt(hh, owner.id, wh.request.input.baseMonth),
     });
     putRow(inputOf(req), addr(carId, "car.purchase", ["first"]), estRow(FIRST_BASIS));
+    putRow(inputOf(req), addr(carId, "car.until"), estRow(RELEASE_BASIS));
   });
   return { ...next, assumed: { ...next.assumed, [`${k}/every`]: CAR_ESTIMATE.everyYears.basis, [`${k}/price`]: CAR_ESTIMATE.price.basis, [`${k}/tradeIn`]: trade.basis, [`${k}/upkeep`]: CAR_ESTIMATE.upkeep.basis } };
 }
@@ -1272,8 +1331,9 @@ export function addLeaseCar(wh: WorkingHousehold, id: () => string = newId): Wor
   const body: Car = { id: carId, owner: owner.id, lease: { type: "carLease", monthly: 0 }, upkeepMode: "total" };
   const est = upkeepEstimate(body);
   const next = mutate(wh, (hh, req) => {
-    (hh.cars ??= []).push({ ...body, upkeep: { annual: est.value } });
+    (hh.cars ??= []).push({ ...body, upkeep: { annual: est.value }, until: releaseAt(hh, owner.id, wh.request.input.baseMonth) });
     putRow(inputOf(req), addr(carId, "car.lease", ["monthly"]), estRow(LEASE_UNENTERED));
+    putRow(inputOf(req), addr(carId, "car.until"), estRow(RELEASE_BASIS));
   });
   return { ...next, assumed: { ...next.assumed, [`${k}/upkeep`]: est.basis } };
 }
@@ -1295,13 +1355,16 @@ export const carDebts = (h: Household): Debt[] => (h.debts ?? []).filter((d) => 
 /** 今返している自動車ローン（住まい・ローンのカードから移した。0069）。返済の欄は、ほかのローンと同じ部品 */
 function carLoanSection(wh: WorkingHousehold): SectionDef {
   const debts = carDebts(wh.request.input.household);
+  // 今の車があれば、標準にも足すボタン（今の車のローンが残っているかは面談で毎回聞く）
+  const ownedCar = (wh.request.input.household.cars ?? []).some((c) => c.purchase?.owned === true);
+  const level = debts.length > 0 || ownedCar ? "simple" : "detail";
   return {
     key: "car/loans",
     title: "今返している自動車ローン",
     ...(debts.length === 0 ? { note: "今の車のローンを返しているときに入れます（これから買う車のローンは、車の「買い方」で入れます）" } : {}),
-    level: debts.length === 0 ? "detail" : "simple",
+    level,
     groups: debts.flatMap((d, i) => carLoanGroups(wh, d, i)),
-    actions: [{ key: "car/addCarLoan", label: "＋ 自動車ローン", level: "detail", run: (w) => newCarLoan(w) }],
+    actions: [{ key: "car/addCarLoan", label: ownedCar ? "＋ 今返している自動車ローン" : "＋ 自動車ローン", level, run: (w) => newCarLoan(w) }],
   };
 }
 

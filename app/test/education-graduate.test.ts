@@ -60,9 +60,15 @@ describe("インターナショナルスクール", () => {
   it("幼稚園〜高校の公立・私立で選べ、学費は未入力の警告（統計の目安なし）。年額は簡易に出す", () => {
     let wh = fresh();
     const hs = goalOf(wh).education!.stages.findIndex((s) => s.stage === "highSchool");
-    const sector = fieldOf(wh, `/stage/${hs}/sector`);
+    // 標準の公立・私立は「公立／私立」の2つ。インターナショナルスクール・国立は詳細の欄で選ぶ（選んでいれば標準にも出す）
+    const simple = fieldOf(wh, `/stage/${hs}/sector`);
+    expect(simple.kind === "select" ? simple.options.map((o) => o.value) : []).toEqual(["public", "private"]);
+    const sector = fieldOf(wh, `/stage/${hs}/sectorAll`);
+    expect(sector.level).toBe("detail");
     expect(sector.kind === "select" ? sector.options.map((o) => o.value) : []).toContain("international");
     wh = sector.set(wh, "international");
+    const shown = fieldOf(wh, `/stage/${hs}/sector`);
+    expect(shown.kind === "select" ? shown.options.map((o) => o.value) : []).toContain("international");
     const annual = fieldOf(wh, `/stage/${hs}/annual`);
     expect(annual.level).toBe("simple");
     expect(annual.get(wh).estimated).toBe(INTERNATIONAL_MISSING);

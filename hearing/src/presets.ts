@@ -96,7 +96,7 @@ const APP_PRESETS: readonly PresetDef[] = [
   p("preset.education.outside.lessons", 8000, "yen", "教育", "学校外の行: 習い事（月額）", "template"),
   p("preset.education.outside.other", 5000, "yen", "教育", "学校外の行: その他（月額）", "template"),
   p("preset.education.scholarship.monthly", 50000, "yen", "教育", "貸与の奨学金: 月額", "template", "仮の値（返す年数は日本学生支援機構の返還年数算出表で決まる）"),
-  p("preset.education.loan.rate", "0.0405", "pct", "教育", "教育ローンの金利（国の教育ローン。固定）", "template", "日本政策金融公庫「国の教育ローン」の固定金利（令和8年7月1日現在。保証料は別）", "market"),
+  p("preset.education.loan.rate", "0.046", "pct", "教育", "教育ローンの金利（国の教育ローン。固定）", "template", "日本政策金融公庫「国の教育ローン」の固定金利（令和8年11月2日現在。保証料は別）", "market", 2),
   p("preset.education.abroad", 3500000, "yen", "教育", "留学の費用", "template"),
   p("preset.education.otherRow", 100000, "yen", "教育", "その他の教育費の行（年額）", "template"),
   p("preset.education.childGift.amount", 1000000, "yen", "教育", "子の結婚の援助（1人）", "template", "よくある額"),

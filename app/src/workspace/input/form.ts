@@ -237,6 +237,8 @@ export interface GroupDef {
   title?: string;
   /** まとまりの説明（推定の根拠・注意など） */
   note?: string;
+  /** 見出しの横に小さく出す要約（入れた結果の額など。例: 「4年で約420万円」）。見出しの名前ではないので、探して開く・確かめの一覧には使わない */
+  summary?: string;
   level: Level;
   fields: FieldDef[];
   actions: ActionDef[];
@@ -304,6 +306,8 @@ export interface SectionDef {
   key: string;
   title: string;
   note?: string;
+  /** 見出しの横に小さく出す要約（GroupDef の summary と同じ。例: 子の「12歳・小6・これからの教育費 約1,480万円」） */
+  summary?: string;
   level: Level;
   groups: GroupDef[];
   actions: ActionDef[];
