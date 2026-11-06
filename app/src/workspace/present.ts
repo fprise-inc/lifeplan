@@ -130,6 +130,12 @@ export function propertyLoanCell(req: EngineRequest): (c: TableCell) => boolean 
   return (c) => ids.size > 0 && c.object !== undefined && ids.has(c.object);
 }
 
+/** 住まい以外の不動産（中身 property を持つ不動産の器）を売った手取りのマス。物の ID で見分ける（住まいの売却・中身の無い不動産の売却は入らない。0128） */
+export function propertySaleCell(req: EngineRequest): (c: TableCell) => boolean {
+  const ids = new Set((req.input.household.accounts ?? []).filter((a) => a.kind === "realEstate" && a.property !== undefined).map((a) => a.id));
+  return (c) => ids.size > 0 && c.row === "cf.income.lumpSum.realEstateSale" && c.object !== undefined && ids.has(c.object);
+}
+
 /**
  * 表の行の定義。names は事務所の名前（カスタム層の名前の差し替えで FP が承認した、表の行の名前。0016 の 2026-11-02 の追記）。
  * 結果の表・お客さまに見せる画面・提案書・持ち帰り用のレポートで同じ名前にする（提案書も report/src/rowNames.ts の同じ当て方）
@@ -146,6 +152,9 @@ export function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
   const hasReExp = props.some((a) => a.property?.rental !== undefined || a.property?.expenses !== undefined || (a.property?.repairs ?? []).length > 0);
   const isRent = (c: TableCell) => hasRent && c.row === "cf.income.other.rental";
   const isReExp = (c: TableCell) => hasReExp && c.row === "cf.expense.other.realEstate";
+  // 住まい以外の不動産を売った手取りは「不動産の売却」の行にする（売る予定を入れた物件があるときだけ。住まいの売却は「その他の収入」のまま。0128）
+  const isReSale = propertySaleCell(req);
+  const hasReSale = props.some((a) => a.property?.sale !== undefined);
   // 住まい以外の不動産のローン（負債の property）は、返済と残高を住まいのローン・その他の支出と分けた行にする（0127）
   const reLoan = propertyLoanCell(req);
   const isReLoanPay = (c: TableCell) => reLoan(c) && under(c.row, "cf.expense");
@@ -164,12 +173,13 @@ export function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
     { key: "retirement", label: "退職金", group: "income", kind: "value", match: (c) => under(c.row, "cf.income.lumpSum.retirement"), evidence: true },
     { key: "benefit", label: "給付・手当", group: "income", kind: "value", match: (c) => under(c.row, "cf.income.benefit"), evidence: true },
     ...(hasRent ? [{ key: "rent", label: "家賃収入", group: "income" as const, kind: "value" as const, match: isRent, evidence: true }] : []),
+    ...(hasReSale ? [{ key: "realEstateSale", label: "不動産の売却", group: "income" as const, kind: "value" as const, match: isReSale, evidence: true }] : []),
     {
       key: "incomeOther",
       label: "その他の収入",
       group: "income",
       kind: "value",
-      match: (c) => under(c.row, "cf.income") && !known(c, "cf.income.salary") && !known(c, "cf.income.pension") && !under(c.row, "cf.income.lumpSum.retirement") && !under(c.row, "cf.income.benefit") && !isRent(c),
+      match: (c) => under(c.row, "cf.income") && !known(c, "cf.income.salary") && !known(c, "cf.income.pension") && !under(c.row, "cf.income.lumpSum.retirement") && !under(c.row, "cf.income.benefit") && !isRent(c) && !(hasReSale && isReSale(c)),
       evidence: true,
     },
     { key: "incomeTotal", label: "収入合計", group: "income", kind: "total", match: (c) => under(c.row, "cf.income"), evidence: false },
@@ -224,6 +234,31 @@ export function walletDepletions(summary: unknown): { member: string; depleted: 
   return ws.flatMap((w) => (w.depleted !== null ? [{ member: w.member, depleted: w.depleted }] : []));
 }
 
+/**
+ * 住まい以外の不動産の出来事（物件を売る・大きな修繕。印は「不」）。object はその物件の物の ID（収益不動産のタブのグラフで物件ごとに分ける。0128）。
+ * 売却は売った手取りのマスがある年、大きな修繕は分析の数字でその年に持っていて修繕の額がある物（売った後の修繕は載せない。0127）。年の範囲では絞らない
+ */
+export function propertyEvents(req: EngineRequest, proposed: readonly TableCell[], summary?: unknown): (EventChip & { object: string })[] {
+  const h = req.input.household;
+  const self = roles(req).find((r) => r.key === "self");
+  const out: (EventChip & { object: string })[] = [];
+  const props = (h.accounts ?? []).filter((a) => a.kind === "realEstate" && a.property !== undefined);
+  const propName = (a: (typeof props)[number], i: number) => (a.property?.name !== undefined && a.property.name.trim() !== "" ? a.property.name : `物件${i + 1}`);
+  const analysis = new Map(((summary as { realEstateAnalysis?: { properties?: { object: string; years: { year: number; repairs: number }[] }[] } } | null | undefined)?.realEstateAnalysis?.properties ?? []).map((p) => [p.object, p]));
+  props.forEach((a, i) => {
+    const sold = proposed.find((c) => c.row === "cf.income.lumpSum.realEstateSale" && c.object === a.id && c.amount > 0);
+    if (sold !== undefined) out.push({ object: a.id, year: sold.year, icon: "不", text: `${propName(a, i)}を売却${self !== undefined ? `（${self.label}${ageInYear(self.member, sold.year)}歳）` : ""}`, short: false });
+    const rows = analysis.get(a.id)?.years ?? [];
+    for (const r of a.property?.repairs ?? []) {
+      const m = resolveTimepoint(h, r.at);
+      if (m === null) continue;
+      const y = parseYm(m).y;
+      if (rows.some((x) => x.year === y && x.repairs > 0)) out.push({ object: a.id, year: y, icon: "不", text: `${propName(a, i)}の大きな修繕${r.label !== undefined && r.label !== "" ? `（${r.label}）` : ""}`, short: false });
+    }
+  });
+  return out;
+}
+
 /** 年のライフイベント（案の要求と結果から。学校・独立・退職・年金・ローン完済・世帯の外の家族のお金が尽きる見込み・資産が尽きる年） */
 export function eventsOf(req: EngineRequest, proposed: readonly TableCell[], years: readonly number[], summary?: unknown): EventChip[] {
   const rs = roles(req);
@@ -265,21 +300,8 @@ export function eventsOf(req: EngineRequest, proposed: readonly TableCell[], yea
   const paid = [...loan.entries()].filter(([, v]) => v > 0).map(([y]) => y).sort((a, b) => a - b).at(-1);
   const self = rs.find((r) => r.key === "self");
   if (paid !== undefined && paid < req.input.endYear) add(paid, "家", `住宅ローン完済${self !== undefined ? `（${self.label}${ageInYear(self.member, paid)}歳）` : ""}`);
-  // 住まい以外の不動産を売る・大きな修繕（0127。提案書のライフイベント表と同じ出来事）
-  const props = (h.accounts ?? []).filter((a) => a.kind === "realEstate" && a.property !== undefined);
-  const propName = (a: (typeof props)[number], i: number) => (a.property?.name !== undefined && a.property.name.trim() !== "" ? a.property.name : `物件${i + 1}`);
-  const analysis = new Map(((summary as { realEstateAnalysis?: { properties?: { object: string; years: { year: number; repairs: number }[] }[] } } | null | undefined)?.realEstateAnalysis?.properties ?? []).map((p) => [p.object, p]));
-  props.forEach((a, i) => {
-    const sold = proposed.find((c) => c.row === "cf.income.lumpSum.realEstateSale" && c.object === a.id && c.amount > 0);
-    if (sold !== undefined) add(sold.year, "不", `${propName(a, i)}を売却${self !== undefined ? `（${self.label}${ageInYear(self.member, sold.year)}歳）` : ""}`);
-    const rows = analysis.get(a.id)?.years ?? [];
-    for (const r of a.property?.repairs ?? []) {
-      const m = resolveTimepoint(h, r.at);
-      if (m === null) continue;
-      const y = parseYm(m).y;
-      if (rows.some((x) => x.year === y && x.repairs > 0)) add(y, "不", `${propName(a, i)}の大きな修繕${r.label !== undefined && r.label !== "" ? `（${r.label}）` : ""}`);
-    }
-  });
+  // 住まい以外の不動産を売る・大きな修繕（0127。提案書のライフイベント表と同じ出来事。収益不動産のタブのグラフも同じ印。0128）
+  for (const e of propertyEvents(req, proposed, summary)) add(e.year, e.icon, e.text);
   for (const w of walletDepletions(summary)) {
     const m = h.members.find((x) => x.id === w.member);
     if (m === undefined) continue;
@@ -663,7 +685,8 @@ export function flowChart(req: EngineRequest, table: readonly TableCell[], years
   const props = new Set((req.input.household.accounts ?? []).filter((a) => a.kind === "realEstate" && a.property !== undefined).map((a) => a.id));
   const reLoan = propertyLoanCell(req);
   const ofProp = (c: TableCell) => c.object !== undefined && props.has(c.object);
-  const isReIn = (c: TableCell) => ofProp(c) && (c.row === "cf.income.other.rental" || c.row === "cf.income.lumpSum.realEstateSale");
+  const isReSale = propertySaleCell(req);
+  const isReIn = (c: TableCell) => (ofProp(c) && c.row === "cf.income.other.rental") || isReSale(c);
   const isReOut = (c: TableCell) => under(c.row, "cf.expense") && (c.row === "cf.expense.other.realEstate" || reLoan(c));
   const withRe = props.size > 0;
   return {

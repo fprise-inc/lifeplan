@@ -10,12 +10,15 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { deadCrossText, depreciationEndText, pctText, saleCompareOf, saleVariantRequest, saleVariants, timesText, type RealEstateAnalysis, type RealEstateAnalysisProperty, type RealEstateAnalysisTotal, type RealEstateAnalysisYear, type SaleCompare, type SaleResult, type SaleVariant } from "../../../report/src/index.ts";
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
-import type { RentalMetricModel, RentalPropertyViewModel, RentalSaleModel, RentalTabModel, RentalTableModel, RentalTotalViewModel } from "../presentation/model.ts";
+import type { RentalChartModel, RentalMetricModel, RentalPropertyViewModel, RentalSaleModel, RentalTabModel, RentalTableModel, RentalTotalViewModel } from "../presentation/model.ts";
 import { group, man } from "../presentation/format.ts";
 import { BUILDING_STRUCTURES } from "./input/labels.ts";
 import { carryoverActive, isLandOnlyKind, RENTAL_KINDS, rentalName, rentalProperties, rentWords } from "./input/stages/rental.ts";
-import { displayYears } from "./present.ts";
+import { ageAxis, displayYears, familyText, personLabel, propertyEvents } from "./present.ts";
 import { roles } from "./roles.ts";
+import type { WorkingHousehold } from "./input/household.ts";
+import type { Catalog } from "./plans/items.ts";
+import { planView, recordPlanEdit } from "./plans/planEdit.ts";
 
 type ReportRequest = Parameters<typeof saleVariants>[0];
 const asReport = (req: EngineRequest): ReportRequest => req as unknown as ReportRequest;
@@ -216,6 +219,31 @@ export function yearTable(rows: readonly Amounts[], opt: { lodging: boolean; dea
 
 // ---- 一覧（全体の物件ごとの行・入力項目の一覧表） ----
 
+/**
+ * 年ごとの手残りとローン残高のグラフ（0128）。年は下の年ごとの表と同じ行（rows）。object は物件の物の ID（全体は null で、全物件の出来事）。
+ * 出来事の「不」の印は結果のタブと同じ文（propertyEvents）。ローン残高がどの年も 0 なら線を出さない
+ */
+export function rentalChart(req: EngineRequest, result: PreviewResult, rows: readonly Amounts[], object: string | null): RentalChartModel {
+  const years = rows.map((r) => r.year);
+  const rs = roles(req);
+  const inRange = new Set(years);
+  const events = propertyEvents(req, result.table, result.summary)
+    .filter((e) => inRange.has(e.year) && (object === null || e.object === object))
+    .map(({ object: _o, ...chip }) => (void _o, chip))
+    .sort((a, b) => a.year - b.year);
+  const loan = rows.map((r) => r.loanBalance);
+  return {
+    years,
+    axis: ageAxis(rs, years),
+    family: years.map((y) => familyText(rs, y, undefined, (r) => personLabel(req, r))),
+    before: rows.map((r) => r.cashBeforeTax),
+    after: rows.map((r) => r.cashAfterTax),
+    loan: loan.some((v) => v !== 0) ? loan : null,
+    text: { before: rows.map((r) => manYen(r.cashBeforeTax)), after: rows.map((r) => manYen(r.cashAfterTax)), loan: loan.map(manYen) },
+    events,
+  };
+}
+
 export interface RentalFigure {
   grossYield: string;
   netYield: string;
@@ -262,7 +290,7 @@ const TOTAL_COLUMNS = [
   { key: "value", label: "評価額" },
 ];
 
-function totalView(req: EngineRequest, a: RealEstateAnalysis, year: number): RentalTotalViewModel {
+function totalView(req: EngineRequest, result: PreviewResult, a: RealEstateAnalysis, year: number): RentalTotalViewModel {
   const f = figuresAt(a, year);
   const rows = a.properties.map((p) => {
     const y = p.years.find((x) => x.year === year);
@@ -275,7 +303,8 @@ function totalView(req: EngineRequest, a: RealEstateAnalysis, year: number): Ren
   });
   const t = a.total.find((x) => x.year === year);
   const totalRow = [`合計（${a.properties.length}件）`, "", f.total.grossYield, f.total.netYield, f.total.monthly === null ? dash : yenText(f.total.monthly), pctText(t?.repaymentRatio), timesText(t?.dscr), pctText(t?.ltv), t === undefined ? dash : manYen(t.loanBalance), t === undefined ? dash : manYen(t.value)];
-  return { kind: "total", key: "total", year, columns: TOTAL_COLUMNS, rows, totalRow, table: yearTable(shownYears(req, a.total), { lodging: false, deadCross: null }) };
+  const shown = shownYears(req, a.total);
+  return { kind: "total", key: "total", year, columns: TOTAL_COLUMNS, rows, totalRow, chart: rentalChart(req, result, shown, null), table: yearTable(shown, { lodging: false, deadCross: null }) };
 }
 
 // ---- 物件 ----
@@ -305,7 +334,7 @@ function factsOf(req: EngineRequest, p: RealEstateAnalysisProperty): string[] {
 
 const kindOf = (req: EngineRequest, object: string): string | undefined => (req.input.household.accounts ?? []).find((x) => x.id === object)?.property?.kind;
 
-function propertyView(req: EngineRequest, p: RealEstateAnalysisProperty, year: number | null, sale: RentalSaleModel | null): RentalPropertyViewModel {
+function propertyView(req: EngineRequest, result: PreviewResult, p: RealEstateAnalysisProperty, year: number | null, sale: RentalSaleModel | null): RentalPropertyViewModel {
   const rows = shownYears(req, p.years);
   const baseYear = Number(req.input.baseMonth.slice(0, 4));
   const kind = kindOf(req, p.object);
@@ -317,6 +346,7 @@ function propertyView(req: EngineRequest, p: RealEstateAnalysisProperty, year: n
     facts: factsOf(req, p),
     year: y?.year ?? displayYears(req)[0] ?? 0,
     metrics: propertyMetrics(p, y, { baseYear, landOnly: isLandOnlyKind(kind), ...(kind !== undefined ? { kind } : {}) }),
+    chart: rentalChart(req, result, rows, p.object),
     // 計算の最初の年から上回っている（「もう上回っています」）ときは、表の行に印を付けない
     table: yearTable(rows, { lodging: p.lodging, deadCross: p.deadCross !== null && p.deadCross > baseYear && !noDepreciation(p, isLandOnlyKind(kind)) ? p.deadCross : null, ...(kind !== undefined ? { kind } : {}) }),
     deadCross: noDepreciation(p, isLandOnlyKind(kind)) ? null : p.deadCross,
@@ -341,6 +371,7 @@ const saleModelOf = (s: RentalSaleState | null, object: string): RentalSaleModel
     status: "ready",
     endYear: s.compare.endYear,
     rows: s.compare.rows.map((r) => ({
+      key: r.key,
       label: r.label,
       current: r.current,
       net: r.net === null ? dash : manYen(r.net),
@@ -362,15 +393,41 @@ export function rentalTabModel(p: { req: EngineRequest; result: PreviewResult; u
   let view: RentalTabModel["view"];
   if (selected === "total") {
     const years = shownYears(p.req, a.total).map((t) => t.year);
-    view = totalView(p.req, a, p.ui.year !== null && years.includes(p.ui.year) ? p.ui.year : (years[0] ?? firstYear));
+    view = totalView(p.req, p.result, a, p.ui.year !== null && years.includes(p.ui.year) ? p.ui.year : (years[0] ?? firstYear));
   } else {
     const prop = a.properties.find((x) => x.object === selected) as RealEstateAnalysisProperty;
-    view = propertyView(p.req, prop, p.ui.year, saleModelOf(p.sale, prop.object));
+    view = propertyView(p.req, p.result, prop, p.ui.year, saleModelOf(p.sale, prop.object));
   }
   return { views, selected, view, provisional: p.provisional };
 }
 
 // ---- 写しの要求の計算（画面の側。0075 の「写しの要求」） ----
+
+// ---- 売る年を変えた比べの行から、その売り方のプランを作る（0128）----
+// 作り方は帯の「＋ このプランを元に作る」（見ているプランを土台にした新しいプラン）と同じで、そのプランに、入力画面でプランを直したときと
+// 同じ差分の記録（recordPlanEdit）で、その物件の売る年だけを変えた差分を足す。売り方は比べの行の写しの要求（saleVariantRequest）と同じ:
+// 売る年（持ち続けるなら売却の予定を外す）・その年の評価額で売る（売却価格は外す）・売却の費用の割合と売ったときにローンを返すかは今の予定のまま
+
+/** 比べの行の鍵から売り方（今の予定の行・見つからない鍵は null） */
+export function saleVariantOf(req: EngineRequest, object: string, key: string): SaleVariant | null {
+  const v = saleVariants(asReport(req), object).find((x) => x.key === key);
+  return v === undefined || v.current ? null : v;
+}
+
+/** その売り方のプランの名前（頭はプランの呼び名。例: 「プランC 見本ハイツを2046年10月に売る」「プランC 見本ハイツを持ち続ける」） */
+export function salePlanName(head: string, propName: string, v: SaleVariant): string {
+  return `${head} ${propName}を${v.ym === null ? "持ち続ける" : `${ymText(v.ym)}に売る`}`;
+}
+
+/** プラン pid（作ったばかりの、見ているプランを土台にしたプラン）に、物件 object の売る年を v にする差分を記録する。現状（入力）は変えない */
+export function recordSaleVariant(wh: WorkingHousehold, cat: Catalog, pid: string, object: string, v: SaleVariant): WorkingHousehold {
+  const before = planView(wh, cat, pid);
+  const after: WorkingHousehold = { ...before, request: asApp(saleVariantRequest(asReport(before.request), object, { ...v, current: false })) };
+  return recordPlanEdit(wh, cat, pid, before, after);
+}
+
+/** 物件の名前（物件名、無ければ「物件1」…。比べの行のプランの名前に使う） */
+export const rentalPropertyName = (req: EngineRequest, object: string): string => nameOf(req, object).name;
 
 type ComputeOne = (req: EngineRequest) => Promise<PreviewResult | null>;
 

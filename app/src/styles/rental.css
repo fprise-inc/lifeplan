@@ -34,3 +34,29 @@
 .rt-mark { display: inline-block; margin-left: 6px; font-size: 0.72rem; font-weight: 700; color: var(--est-ink); border: 1px solid var(--est); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
 .rt-legend { margin: 8px 0 0; font-size: 0.82rem; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
 .rt-legend .rt-mark { margin-left: 0; }
+
+/* 年ごとの手残りとローン残高のグラフ（0128）。部品・文字の大きさは結果のタブのグラフ（.chart）と同じ。
+   手残りの棒は不動産の収入の色（収支の推移の「不動産（家賃・売却）」）の濃淡、ローン残高の線は不動産の支出の色（「不動産（経費・ローン）」） */
+:root { --c-rt-before: var(--c-inc-re); --c-rt-after: #2f6964; --c-rt-loan: #8a4f52; }
+html.dark { --c-rt-after: #9fd0cb; --c-rt-loan: #e0a2a4; }
+.pbg-rentalBefore { fill: var(--c-rt-before); }
+.pbg-rentalAfter { fill: var(--c-rt-after); }
+.rt-chart { position: relative; margin-top: 4px; }
+.rt-chart .plot { position: relative; }
+.rt-chart .rt-neg { fill-opacity: 0.7; stroke-width: 1.2; }
+.rt-chart .rt-loan-line { fill: none; stroke: var(--c-rt-loan); stroke-width: 2.5; stroke-dasharray: 7 4; stroke-linejoin: round; }
+html.big .rt-chart .rt-loan-line { stroke-width: 3.5; }
+.rt-chart .rt-loan-tick, .rt-chart .rt-loan-unit { fill: var(--c-rt-loan); }
+.rt-chart .hv-dot.rt-loan-dot { fill: var(--card); stroke: var(--c-rt-loan); stroke-width: 2.5; }
+.year-tip .yt-dot.rt-loan-dot { background: var(--card); border: 2px solid var(--c-rt-loan); }
+.year-tip .yt-s .swatch { width: 14px; height: 10px; }
+.rt-chart .year-tip { max-width: calc(100% - 8px); }
+.rt-chart .year-tip .yt-x { color: var(--ink-2); white-space: normal; }
+.rt-legend-chart { margin: 6px 0 2px; }
+.rt-legend-chart .lg.rt-loan i { border-top: 3px dashed var(--c-rt-loan); }
+.rt-legend-chart .rt-ev-dot { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 1.3rem; height: 1.3rem; border-radius: 50%; border: 2px solid var(--ink); background: var(--card); }
+.rt-legend-chart .rt-ev-dot .ev-dot-t { font-size: 0.75rem; font-weight: 700; line-height: 1; color: var(--ink); }
+
+/* 売る年を変えた比べの「この売り方でプランを作る」（0128） */
+.rt-table td.rt-plan { text-align: right; white-space: nowrap; }
+.rt-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

@@ -12,6 +12,7 @@ export const ROW_NAMES: Readonly<Record<string, string>> = {
   retirement: "退職金",
   benefit: "給付・手当",
   rent: "家賃収入",
+  realEstateSale: "不動産の売却",
   incomeOther: "その他の収入",
   incomeTotal: "収入合計",
   living: "基本生活費",

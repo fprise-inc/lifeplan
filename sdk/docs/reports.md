@@ -26,7 +26,7 @@
 |---|---|
 | `basis.years` | 表に出す年（年ごとの並びは、どれもこの順） |
 | `members` | 構成員の鍵・呼び方・年ごとの年齢 |
-| `cashflow.current`・`.proposal` | キャッシュフロー表（現状・提案）の行（住まい以外の不動産のローンがある世帯は、行の鍵 `realEstateLoan`〔不動産のローンの返済〕・`realEstateDebt`〔不動産のローン残高〕もある） |
+| `cashflow.current`・`.proposal` | キャッシュフロー表（現状・提案）の行（住まい以外の不動産のローンがある世帯は、行の鍵 `realEstateLoan`〔不動産のローンの返済〕・`realEstateDebt`〔不動産のローン残高〕もある。住まい以外の不動産を売る予定を入れた世帯は、収入の行の鍵 `realEstateSale`〔不動産の売却。売った手取り。「その他の収入」から外す〕もある） |
 | `cashflow.keyYears` | 抜粋で必ず載せる年（現状と提案の両方の出来事の年。任意） |
 | `assets`・`balanceSheet` | 金融資産の推移、資産と負債 |
 | `comparison` | 案の比較（列は現状と各案） |

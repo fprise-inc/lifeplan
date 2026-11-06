@@ -1,12 +1,13 @@
 // 収益不動産のタブ（提示層の部品。物件ごと・年ごとの分析の数字）。受け取るのは RentalTabModel と手続きだけ（0016 の2・0082）。
 // 配置（上から）: 見るもの（全体〔物件が2件以上〕と物件ごと）→ プランの帯（作業の層が渡す）→
-// 物件: 見出しの1行 → 指標（選んだ年）→ 年ごとの表（行を押すとその年の指標）→ 売る年を変えた比べ。
-// 全体: 物件ごとの1行と合計の行（選んだ年）→ 合計の年ごとの表。
+// 物件: 見出しの1行 → 指標（選んだ年）→ 年ごとの手残りとローン残高のグラフ → 年ごとの表（行を押すとその年の指標）→ 売る年を変えた比べ。
+// 全体: 物件ごとの1行と合計の行（選んだ年）→ 全物件の年ごとの手残りとローン残高のグラフ → 合計の年ごとの表（グラフは 0128）。
 // 欄の説明・式は「?」の中に入れ、画面には欄の名前・値・印・操作の名前だけを出す
 import type { ComponentChildren } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import { Help } from "./Help.tsx";
-import type { RentalPropertyViewModel, RentalSaleModel, RentalTabModel, RentalTableModel, RentalTotalViewModel } from "./model.ts";
+import { RentalChart, RentalChartLegend } from "./RentalChart.tsx";
+import type { RentalChartModel, RentalPropertyViewModel, RentalSaleModel, RentalTabModel, RentalTableModel, RentalTotalViewModel } from "./model.ts";
 
 /** 文で出す指標（札の幅で折り返し、字を少し小さくする。0127） */
 const TEXT_METRICS: ReadonlySet<string> = new Set(["depreciationEnd", "deadCross"]);
@@ -19,12 +20,14 @@ export interface RentalTabProps {
   onView: (key: string) => void;
   /** 指標を見る年を選んだ（表の行を押した） */
   onYear: (year: number) => void;
+  /** 売る年を変えた比べの行の売り方で、見ているプランを元に新しいプランを作る（object は物件、key は売り方。作れないときは省略） */
+  onSalePlan?: (object: string, key: string) => void;
 }
 
 /** 元金の返済が減価償却費を上回る年の印 */
 export const DEAD_CROSS_MARK = "元金＞償却";
 
-export function RentalTab({ model, band, onView, onYear }: RentalTabProps) {
+export function RentalTab({ model, band, onView, onYear, onSalePlan }: RentalTabProps) {
   const v = model.view;
   return (
     <div class="rt-tab" data-rental-tab>
@@ -46,13 +49,13 @@ export function RentalTab({ model, band, onView, onYear }: RentalTabProps) {
       ) : v.kind === "total" ? (
         <TotalView view={v} onView={onView} onYear={onYear} provisional={model.provisional} />
       ) : (
-        <PropertyView view={v} onYear={onYear} provisional={model.provisional} />
+        <PropertyView view={v} onYear={onYear} provisional={model.provisional} {...(onSalePlan !== undefined ? { onSalePlan } : {})} />
       )}
     </div>
   );
 }
 
-function PropertyView({ view, onYear, provisional }: { view: RentalPropertyViewModel; onYear: (y: number) => void; provisional: boolean }) {
+function PropertyView({ view, onYear, provisional, onSalePlan }: { view: RentalPropertyViewModel; onYear: (y: number) => void; provisional: boolean; onSalePlan?: (object: string, key: string) => void }) {
   return (
     <>
       <section class="card rt-card" aria-labelledby="h-rt" data-rental-property={view.key}>
@@ -85,6 +88,7 @@ function PropertyView({ view, onYear, provisional }: { view: RentalPropertyViewM
           ))}
         </dl>
       </section>
+      <ChartCard key={view.key} id="h-rt-chart" title="年ごとの手残りとローン残高" chart={view.chart} selected={view.year} onYear={onYear} />
       <section class="card rt-card" aria-labelledby="h-rt-years">
         <div class="bs-head">
           <h2 id="h-rt-years">年ごとの数字</h2>
@@ -100,12 +104,12 @@ function PropertyView({ view, onYear, provisional }: { view: RentalPropertyViewM
           </p>
         ) : null}
       </section>
-      {view.sale !== null ? <SaleCompare sale={view.sale} /> : null}
+      {view.sale !== null ? <SaleCompare sale={view.sale} {...(onSalePlan !== undefined ? { onPlan: (key: string) => onSalePlan(view.key, key) } : {})} /> : null}
     </>
   );
 }
 
-function SaleCompare({ sale }: { sale: RentalSaleModel }) {
+function SaleCompare({ sale, onPlan }: { sale: RentalSaleModel; onPlan?: (key: string) => void }) {
   return (
     <section class="card rt-card" aria-labelledby="h-rt-sale" data-rental-sale>
       <div class="bs-head">
@@ -115,6 +119,7 @@ function SaleCompare({ sale }: { sale: RentalSaleModel }) {
             <p>この物件の売る年だけを変えて、世帯全体を計算し直した数字です（ほかの入力は同じ）。今の予定の行は、このプランの結果そのものです。</p>
             <p>今の予定と違う年に売るときは、その年の評価額で売るとしています（売却の費用の割合と、売ったときにローンを返すかは今の予定のまま）。</p>
             <p>税引後の手取りは、売却価格−売却の費用−売ったときに返すローン−譲渡所得の税です。</p>
+            <p>「この売り方でプランを作る」を押すと、見ているプランを元に、この物件の売る時期だけを変えた新しいプランを作って選びます（現状の入力は変えません）。</p>
           </Help>
         </h2>
       </div>
@@ -132,6 +137,11 @@ function SaleCompare({ sale }: { sale: RentalSaleModel }) {
                 <th scope="col" class="num">{sale.endYear}年の金融資産</th>
                 <th scope="col" class="num">今の予定との差</th>
                 <th scope="col" class="num">{sale.endYear}年の評価額−ローン残高</th>
+                {onPlan !== undefined ? (
+                  <th scope="col">
+                    <span class="rt-sr">プランにする</span>
+                  </th>
+                ) : null}
               </tr>
             </thead>
             <tbody>
@@ -142,6 +152,15 @@ function SaleCompare({ sale }: { sale: RentalSaleModel }) {
                   <td class="num">{r.financialEnd}</td>
                   <td class="num">{r.diff}</td>
                   <td class="num">{r.equityEnd}</td>
+                  {onPlan !== undefined ? (
+                    <td class="rt-plan">
+                      {r.current ? null : (
+                        <button type="button" class="btn small" onClick={() => onPlan(r.key)} data-sale-plan={r.key}>
+                          この売り方でプランを作る
+                        </button>
+                      )}
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
@@ -207,6 +226,7 @@ function TotalView({ view, onView, onYear, provisional }: { view: RentalTotalVie
           </table>
         </div>
       </section>
+      <ChartCard id="h-rt-tchart" title="全物件の年ごとの手残りとローン残高" chart={view.chart} selected={view.year} onYear={onYear} />
       <section class="card rt-card" aria-labelledby="h-rt-tyears">
         <div class="bs-head">
           <h2 id="h-rt-tyears">全物件の合計の年ごとの数字</h2>
@@ -215,6 +235,27 @@ function TotalView({ view, onView, onYear, provisional }: { view: RentalTotalVie
         <YearTable table={view.table} selected={view.year} onYear={onYear} />
       </section>
     </>
+  );
+}
+
+/** 年ごとの手残りとローン残高のグラフの区画（0128） */
+function ChartCard({ id, title, chart, selected, onYear }: { id: string; title: string; chart: RentalChartModel; selected: number; onYear: (y: number) => void }) {
+  if (chart.years.length === 0) return null;
+  return (
+    <section class="card rt-card" aria-labelledby={id} data-rental-chart-card>
+      <div class="bs-head">
+        <h2 id={id}>
+          {title}
+          <Help label={title}>
+            <p>棒は年ごとの手残り（左が税引前、右が税引後）、線はその年の年末のローン残高（右の目盛り）です。年は下の表と同じです。</p>
+            <p>手残りがマイナスの年（大きな修繕の年など）は、棒が0の線より下に伸び、赤い斜線を重ねます。「不」の丸は、物件の売却と大きな修繕の年です。</p>
+            <p>グラフを押すと、その年の指標になります（表の行を押したのと同じ）。</p>
+          </Help>
+        </h2>
+      </div>
+      <RentalChartLegend model={chart} />
+      <RentalChart model={chart} selected={selected} onYear={onYear} label={title} />
+    </section>
   );
 }
 

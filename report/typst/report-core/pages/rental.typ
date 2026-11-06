@@ -46,6 +46,98 @@
   )
 }
 
+/// 年ごとの手残りとローン残高のグラフ（0128。アプリの収益不動産のタブのグラフと同じ中身）: 手残り（税引前・税引後）の棒と、ローン残高の線（右の目盛り）。
+/// 年は年ごとの表と同じ（表は多いと間引くが、グラフは全部の年）。marks は「不」の印を付ける年（大きな修繕・売却の年）。マイナスの棒は赤い枠
+#let rental-chart(years, marks: (), height: 64pt) = {
+  let n = years.len()
+  if n == 0 { return none }
+  let before-c = rgb("#5e9e9a")
+  let after-c = rgb("#2f6964")
+  let loan-c = rgb("#8a4f52")
+  let vals = years.map(y => y.cashBeforeTax) + years.map(y => y.cashAfterTax)
+  let lo = calc.min(0, ..vals) / 10000
+  let hi = calc.max(0, ..vals) / 10000
+  let step = nice-step(hi - lo)
+  lo = calc.floor(lo / step) * step
+  hi = calc.ceil(hi / step) * step
+  if hi == lo { hi = lo + step }
+  let loans = years.map(y => y.loanBalance)
+  let has-loan = loans.any(v => v != 0)
+  let lhi = calc.max(1, ..loans) / 10000
+  let marks = marks.filter(m => years.any(y => y.year == m)).dedup()
+  let mark-row = if marks.len() > 0 { 12pt } else { 0pt }
+  layout(size => {
+    let left-w = 40pt
+    let right-w = if has-loan { 30pt } else { 4pt }
+    let w = size.width - left-w - right-w
+    let ht = height
+    let band = w / n
+    let xs(i) = left-w + band * (i + 0.5)
+    let ys(v) = ht - ht * (v / 10000 - lo) / (hi - lo)
+    // ローン残高の右の目盛りは、0 を手残りの 0 の線にそろえ、上の端までを使う（アプリのグラフと同じ）。
+    // 目盛りの数は 0 の線から上の端までの高さで決める（手残りのマイナスが大きいときは減らして重ねない）
+    let lcount = calc.max(1, calc.floor(ys(0) / 11pt))
+    let lstep = nice-step(lhi * 5 / lcount)
+    let lhi = calc.ceil(lhi / lstep) * lstep
+    let ly(v) = ys(0) - ys(0) * (v / 10000) / lhi
+    let bw = calc.max(0.6pt, band * 0.34)
+    block(width: 100%, height: ht + mark-row + 28pt, inset: (top: 14pt), above: 2pt, below: 2pt, {
+      let t = lo
+      while t <= hi + step / 1000 {
+        let y = ht - ht * (t - lo) / (hi - lo)
+        place(top + left, dx: left-w, dy: y, line(length: w, stroke: if t == 0 { 0.8pt + ink } else { 0.3pt + rule }))
+        place(top + left, dx: 0pt, dy: y - 4pt, box(width: left-w - 4pt, align(right, text(size: 6.5pt, fill: muted, (if t < 0 { "▲" } else { "" }) + group(int(calc.abs(t)))))))
+        t += step
+      }
+      place(top + left, dx: 0pt, dy: -11pt, text(size: 6.5pt, fill: muted, "（万円）"))
+      if has-loan {
+        let t = 0
+        while t <= lhi + lstep / 1000 {
+          place(top + left, dx: left-w + w + 3pt, dy: ly(t * 10000) - 4pt, text(size: 6.5pt, fill: loan-c, group(int(t))))
+          t += lstep
+        }
+        place(top + left, dx: left-w + w + 3pt, dy: -14pt, text(size: 6.5pt, fill: loan-c, "残高"))
+      }
+      for (i, y) in years.enumerate() {
+        for (k, v, c) in ((0, y.cashBeforeTax, before-c), (1, y.cashAfterTax, after-c)) {
+          if v != 0 {
+            let top-y = calc.min(ys(0), ys(v))
+            let h = calc.max(0.4pt, calc.abs(ys(v) - ys(0)))
+            place(top + left, dx: xs(i) - bw + k * bw, dy: top-y, rect(width: bw, height: h, fill: c, stroke: if v < 0 { 0.7pt + warn } else { none }))
+          }
+        }
+        if calc.rem(y.year, 5) == 0 or i == 0 {
+          place(top + left, dx: xs(i) - 12pt, dy: ht + mark-row + 2pt, box(width: 24pt, align(center, text(size: 6.5pt, fill: muted, str(y.year)))))
+        }
+        if marks.contains(y.year) {
+          place(top + left, dx: xs(i) - 4.5pt, dy: ht + 2pt, box(width: 9pt, height: 9pt, radius: 4.5pt, stroke: 0.6pt + ink, fill: white, align(center + horizon, text(size: 5.5pt, weight: "bold", "不"))))
+        }
+      }
+      place(top + left, dx: left-w, dy: ys(0), line(length: w, stroke: 0.8pt + ink))
+      if has-loan and n > 1 {
+        let pts = loans.enumerate().map(((i, v)) => (xs(i), ly(v)))
+        place(top + left, curve(stroke: (paint: loan-c, thickness: 1.2pt, dash: "dashed"), curve.move(pts.at(0)), ..pts.slice(1).map(p => curve.line(p))))
+      }
+      place(top + left, dx: left-w, dy: ht + mark-row + 11pt, {
+        set text(size: 7pt)
+        box(baseline: -1pt, rect(width: 9pt, height: 7pt, fill: before-c))
+        h(3pt); box("手残り（税引前）"); h(10pt)
+        box(baseline: -1pt, rect(width: 9pt, height: 7pt, fill: after-c))
+        h(3pt); box("手残り（税引後）"); h(10pt)
+        if has-loan { box(baseline: -2.5pt, line(length: 16pt, stroke: (paint: loan-c, thickness: 1.2pt, dash: "dashed"))); h(3pt); box("ローン残高（右の目盛り）"); h(10pt) }
+        if vals.any(v => v < 0) { box(baseline: -1pt, rect(width: 9pt, height: 7pt, stroke: 0.7pt + warn)); h(3pt); box("マイナスの年"); h(10pt) }
+        if marks.len() > 0 { box("不＝大きな修繕・売却の年") }
+      })
+    })
+  })
+}
+
+/// グラフの見出し（区切りの見出しより小さく、ページに収まるように）
+#let rental-chart-title(title) = block(above: 8pt, below: 0pt, text(size: 9pt, weight: "bold", fill: ink, title))
+
+/// 物件の「不」の印の年（大きな修繕の年と売った年）
+#let rental-marks(p) = p.years.filter(y => y.repairs != 0).map(y => y.year) + (if p.exit != none { (int(p.exit.month.slice(0, 4)),) } else { () })
+
 /// 指標の札（4つずつ2段）
 #let rental-cards(m, lodging, land-only: false, land: false, actual: false) = {
   let cards = (
@@ -114,6 +206,8 @@
       callout(color: warn)[◆ #str(p.deadCross)年から、元金の返済が減価償却費を上回ります（手残りがあっても、税の上の所得が増えやすくなります）。]
     }
   }
+  rental-chart-title("年ごとの手残りとローン残高")
+  rental-chart(p.years, marks: rental-marks(p))
   section("年ごとの数字（万円）")
   rental-year-table(p.years, income: if p.lodging { "売上" } else { rental-income-label(p) }, dead-mark: not rental-no-depreciation(p))
   if p.exit != none {
@@ -173,6 +267,8 @@
       )
     },
   )
+  rental-chart-title("全物件の年ごとの手残りとローン残高")
+  rental-chart(r.total.years, marks: r.properties.map(rental-marks).flatten().sorted())
   section("全物件の合計の年ごとの数字（万円）")
   rental-year-table(r.total.years)
   note[合計の率は、物件ごとの年あたりの額を足して出しています（分母は数字のある物件の分）。物件ごとの数字は次のページから。]
