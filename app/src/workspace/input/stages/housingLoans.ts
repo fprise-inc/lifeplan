@@ -53,6 +53,8 @@ const rowOf = (wh: WorkingHousehold, a: Address | null): StateRow | undefined =>
 const isEstimate = (r: StateRow | undefined, head?: string): boolean => r?.state === "estimated" && r.origin.kind === "auto" && (head === undefined || (r.estimate?.basis ?? "").startsWith(head));
 
 export const SOLVED = "逆算";
+/** 過去の年月を入れる欄（借入の年月・残高の時点）の入力例 */
+const PAST_EXAMPLE = "例: 2018-04";
 const UNENTERED_PAYMENT = "未入力（毎月の返済額を入れてください。今は5年で返すとみなしています）";
 export const TENTATIVE = "仮（残高の時点から借りたとみなす。契約書の値があれば入れてください）";
 /** 借入額の仮の行（値を根拠の文に入れる: 残高に合わせて直したときに、古い行として外れないように） */
@@ -277,6 +279,9 @@ function paymentField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" 
     level,
     kind: "yen",
     basis: "monthly",
+    // 返済予定表・通帳の円の額をそのまま写す（保険料と同じ円の欄。「9万」と打てば9万円として読む。0131）
+    unit: "yen",
+    example: "例: 72933",
     sideEffects: "入れた返済額から、借入額・金利・完済の年のどれかを逆算します",
     help:
       mode === "payment"
@@ -390,8 +395,9 @@ function debtorFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         key: `${k}/debtors`,
         item: "debt.debtors",
         label: "ローンの名義",
-        // 既定は本人。ペアローンは「＋ ペアローン」のボタンで足すので、ローンの名義は詳細（0078）
-        level: "detail",
+        // 既定は本人。配偶者のいる世帯の住宅ローンは、標準でも「＋ ペアローン」の入口と並べて出す（誰が借りたか・連帯債務かで控除・団信が変わる）。
+        // ほかは詳細（0078）
+        level: d.kind === "mortgage" && d.property === undefined && spouse !== undefined ? "simple" : "detail",
         kind: "select",
         structural: true,
         options,
@@ -424,7 +430,7 @@ function debtorFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         field({
           key: `${k}/share`,
           item: "debt.debtors",
-          label: "本人の負担割合（連帯債務）",
+          label: "ご本人の負担割合（連帯債務）",
           level: "detail",
           kind: "pct",
           help: "残りが配偶者の負担。住宅ローン控除は負担割合で分けます",
@@ -654,6 +660,19 @@ export function creditActive(h: Household, hs: DebtHousing | undefined, baseMont
   return ym !== null && monthsBetween(ym, baseMonth) < CREDIT_YEARS * 12;
 }
 
+/**
+ * 控除の期間が終わったローンの要約（「控除の期間は終わっています（2012年4月入居・2021年まで）」。終わっていなければ null）。
+ * 終わったかは住宅の種類の欄と同じ決まり（creditActive。入居から最も長い13年を過ぎた）で見る。文の「○年まで」は入居の年から、2019年9月までの
+ * 入居は10年、それより後は13年で数える（10年の世帯は、終わってから3年は今までどおりの要約）。計算エンジンは制度データの期間で控除するので、これは見せ方だけ
+ */
+export function creditEndedText(h: Household, hs: DebtHousing | undefined, baseMonth: string): string | null {
+  if (hs === undefined || hs.creditDisabled === true) return null;
+  const ym = moveInOf(h, hs);
+  if (ym === null || ym > baseMonth || creditActive(h, hs, baseMonth)) return null;
+  const last = Number(ym.slice(0, 4)) + (ym < "2019-10" ? 10 : CREDIT_YEARS) - 1;
+  return `控除の期間は終わっています（${formatYearMonth(ym)}入居・${String(last)}年まで）`;
+}
+
 /** 住宅ローン控除の条件（要約の1行は標準、住宅の種類は控除が効く間だけ標準、ほかは詳細。0052・0078） */
 function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
   const key = creditKey(d.id);
@@ -669,12 +688,14 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
       d.id,
     );
   const addr = (path: string[]) => () => at(d.id, "debt.housing", path);
+  // 控除の期間が終わったローンは、要約を詳細へ（「控除の期間は終わっています」。今の結果に効かない）
+  const ended = creditEndedText(wh.request.input.household, d.housing, wh.request.input.baseMonth);
   const fields: FieldDef[] = [
     field({
       key: `${k}/creditSummary`,
       item: "debt.housing",
       label: "住宅ローン控除",
-      level: "simple",
+      level: ended === null ? "simple" : "detail",
       kind: "text",
       readOnly: "控除の額・期間は入居の年と住宅の種類から、制度で決まります。条件は「詳細」で直せます",
       get: (w) => {
@@ -682,11 +703,13 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         const x = (h.debts ?? []).find((y) => y.id === d.id);
         const hs = x?.housing;
         if (x === undefined || hs === undefined) {
-          if (balanceMode) return { value: creditNotApplicable(w, d.id) ? "控除は該当なし" : "今の残高から入れたローンは借りた年が分からないので、入居の年月を入れるまで控除を計算しません" };
+          if (balanceMode) return { value: creditNotApplicable(w, d.id) ? "控除は該当なし" : x !== undefined && isHomeLoan(x) ? "借りた年月（入居の年月）を入れるまで控除を計算しません（今の残高から入れたローンは、借りた年が分からないため）" : "今の残高から入れたローンは借りた年が分からないので、入居の年月を入れるまで控除を計算しません" };
           const ym = x === undefined ? null : resolveTimepoint(h, x.start);
           return { value: ym !== null && Number(ym.slice(0, 4)) < CREDIT_DATA_FROM_YEAR ? `${CREDIT_DATA_FROM_YEAR - 1}年以前に借りたローンの控除は計算しません` : "控除は計算しません" };
         }
         if (hs.creditDisabled === true) return { value: "控除を受けない" };
+        const over = creditEndedText(h, hs, w.request.input.baseMonth);
+        if (over !== null) return { value: over };
         const moveIn = moveInOf(h, hs);
         // 持分は控除の条件の持分（家の名義と持分から写す。housingCredit.ts）。無ければ計算エンジンは主債務者を100%とみなす
         const own = hs.ownership === undefined || hs.ownership.length === 0 ? "持分は主債務者が100%" : `持分 ${hs.ownership.map((o) => `${memberLabelOf(h, o.member)} ${Math.round(Number(o.share) * 1000) / 10}%`).join("・")}`;
@@ -707,8 +730,10 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         item: "debt.housing",
         ...(hs === undefined ? { sideEffects: "入れると住宅ローン控除の条件（控えめの既定）を置きます" } : {}),
         label: "入居の年月（控除）",
-        // 控除の条件は詳細（入居から13年を過ぎたローンは効かない。今の残高から入れたローンの未入力の知らせは、要約の1行と確かめの一覧に出る。0078）
+        // 控除の条件は詳細（入居から13年を過ぎたローンは効かない。今の残高から入れたローンの未入力の知らせは、要約の1行と確かめの一覧に出る。0078）。
+        // 今の残高から入れた住まいの住宅ローンは、標準の「借りた年月（入居の年月）」で入れるので、未入力でも標準に上げない
         level: "detail",
+        ...(balanceMode && isHomeLoan(d) ? { missingShownBy: `${k}/start` } : {}),
         kind: "ym",
         help: `住み始めた年月。控除の期間と借入限度額は入居の年で決まります（${CREDIT_DATA_FROM_YEAR}年より前の入居は計算しません）`,
         get: (w) => {
@@ -797,7 +822,13 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         level: creditActive(wh.request.input.household, hs, wh.request.input.baseMonth) ? "simple" : "detail",
         kind: "select",
         options: PROPERTY_TYPES,
-        help: "分からなければ、そのままで構いません（控除のある種類のうち、控除が少なめに出る種類で計算します。新築は、入居が2027年までなら省エネ基準適合住宅、2028年からならZEH水準省エネ住宅〔省エネ基準適合住宅だと控除がありません〕。中古はその他の住宅）",
+        // 2027年・2028年の境目の話は、入居が2024年からのローンだけ（それより前の入居の世帯には当てはまらない）
+        help: (() => {
+          const ym = moveInOf(wh.request.input.household, hs);
+          return ym === null || Number(ym.slice(0, 4)) >= 2024
+            ? "分からなければ、そのままで構いません（控除のある種類のうち、控除が少なめに出る種類で計算します。新築は、入居が2027年までなら省エネ基準適合住宅、2028年からならZEH水準省エネ住宅〔省エネ基準適合住宅だと控除がありません〕。中古はその他の住宅）"
+            : "分からなければ、そのままで構いません（控除のある種類のうち、控除が少なめに出る種類で計算します）";
+        })(),
         get: (w) => ({ value: hsOf(w)?.propertyType ?? null, assumed: mark(w), warn: creditWarn(w.request.input.household, hsOf(w)) }),
         set: (w, v) => edit(w, (x) => void (x.propertyType = v as DebtHousing["propertyType"])),
       }),
@@ -990,8 +1021,13 @@ function rateCutFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
   const addr = () => at(d.id, "debt.rateSchedule");
   if (c === null)
     return [
+      // 標準では「詳細」で直すと書き、詳細を開いているときは下の金利の段階で直すと書く（同じ値を見せる2つの欄。標準だけの欄は詳細では出さない）
       withAddress(
-        field({ key: `${k}/rateSteps`, item: "debt.rateSchedule", label: "金利の段階", level: "simple", kind: "text", readOnly: "金利の段階で入れています。「詳細」の「金利の段階」で直せます", get: () => ({ value: "金利の段階で入れている（「詳細」で直す）" }), set: (w) => w }),
+        field({ key: `${k}/rateSteps`, item: "debt.rateSchedule", label: "金利の段階", level: "simple", simpleOnly: true, kind: "text", readOnly: "金利の段階で入れています。「詳細」の「金利の段階」で直せます", get: () => ({ value: "金利の段階で入れている（「詳細」で直す）" }), set: (w) => w }),
+        addr,
+      ),
+      withAddress(
+        field({ key: `${k}/rateStepsDetail`, item: "debt.rateSchedule", label: "金利の段階", level: "detail", kind: "text", readOnly: "金利の段階で入れています。下の「金利の段階」で直せます", get: () => ({ value: "金利の段階で入れている（下の金利の段階で直す）" }), set: (w) => w }),
         addr,
       ),
     ];
@@ -1081,6 +1117,13 @@ function rateTypeField(wh: WorkingHousehold, d: Debt, k: string, level: "simple"
     ...inner,
     ...(notes.length > 0 ? { sideEffects: notes.join("。") } : {}),
     help: "変動・固定期間選択型・全期間固定で、金利の目安が変わります（金利を入れていれば変えません）",
+    // 全期間固定なのに、後に変動金利・固定期間選択型の段が残っている（自動では外さない。押したときだけ外す）
+    get: (w) => {
+      const st = inner.get(w);
+      const x = (w.request.input.household.debts ?? []).find((y) => y.id === d.id);
+      const left = x === undefined ? null : laterFloatingSteps(w.request.input.household, x);
+      return left === null ? st : { ...st, warn: `全期間固定なのに、後の金利の段階（${left}）が残っています。全期間固定なら外してください`, warnFix: { label: "後の金利の段階を外す", run: (w2) => followLoan(w2, dropFloatingSteps(w2, d.id), d.id, "rate") } };
+    },
     set: (w, v) => {
       const h0 = w.request.input.household;
       const d0 = (h0.debts ?? []).find((x) => x.id === d.id);
@@ -1109,6 +1152,22 @@ function rateTypeField(wh: WorkingHousehold, d: Debt, k: string, level: "simple"
       });
       return followLoan(next, w2, d.id, "rate");
     },
+  });
+}
+
+/** 最初の段が全期間固定なのに後に残る、変動金利・固定期間選択型の段の文（「2031年 1%〔変動金利〕」。無ければ null） */
+export function laterFloatingSteps(h: Household, d: Debt): string | null {
+  if (d.rateSchedule[0]?.type !== "fixed") return null;
+  const later = d.rateSchedule.slice(1).filter((x) => x.type !== "fixed");
+  if (later.length === 0) return null;
+  return later.map((x) => `${(resolveTimepoint(h, x.from) ?? "").slice(0, 4)}年 ${pct(x.rate)}〔${RATE_TYPES.find((o) => o.value === x.type)?.label ?? x.type}〕`).join("・");
+}
+
+/** 全期間固定の後に残る変動金利・固定期間選択型の段を外す（全期間固定の段〔当初の引き下げの後の段など〕は残す） */
+function dropFloatingSteps(wh: WorkingHousehold, id: string): WorkingHousehold {
+  return editDebt(wh, id, (x) => {
+    if (x.rateSchedule[0]?.type !== "fixed") return;
+    x.rateSchedule = x.rateSchedule.filter((s0, i) => i === 0 || s0.type === "fixed");
   });
 }
 
@@ -1214,7 +1273,10 @@ function startField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | 
   const find = byId(debts, d.id);
   const self = wh.request.input.household.members.find((m) => m.kind === "self");
   const ageOf = self !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === self.id) } : {};
-  const inner = timepointField({ key: `${k}/start`, item: "debt.start", label: "借入の年月", level, find, path: ["start"], mode: "ym", ...ageOf });
+  // 今の残高から入れた住まいの住宅ローンは「借りた年月（入居の年月）」（控除の入居・持ち家の住み始めにも使う）。過去の年月を入れる欄は入力例も過去の年月
+  const balanceHome = isHomeLoan(d) && fromBalance(wh, d.id);
+  const past = !startsLater(wh, d.id);
+  const inner = timepointField({ key: `${k}/start`, item: "debt.start", label: balanceHome ? "借りた年月（入居の年月）" : "借入の年月", level, find, path: ["start"], mode: "ym", ...ageOf, ...(past ? { example: PAST_EXAMPLE } : {}) });
   // 全期間固定の当初の引き下げは借入の月から数えるので、借入の年月を直したら、引き下げの終わり（2つ目の段）も同じだけ動かす
   const keepCut = (w0: WorkingHousehold, w1: WorkingHousehold): WorkingHousehold => {
     const x0 = (w0.request.input.household.debts ?? []).find((y) => y.id === d.id);
@@ -1228,7 +1290,6 @@ function startField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | 
   };
   // 今の残高から入れた住まいの住宅ローン: 借りた年月を入れたら、持ち家の住み始め（入れていなければ）も同じ年月にする。控除の入居も借りた年月で置く
   // （housingCredit.ts の withProvisionalHousing。0052 の追記 2026-11-07）
-  const balanceHome = isHomeLoan(d) && fromBalance(wh, d.id);
   const fillHome = (w0: WorkingHousehold, w1: WorkingHousehold): WorkingHousehold => {
     if (w1 === w0 || !balanceHome) return w1;
     const x0 = (w0.request.input.household.debts ?? []).find((y) => y.id === d.id);
@@ -1252,6 +1313,15 @@ function startField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | 
   );
 }
 
+/** 今の残高を写す書類（ローンの種類で変える。カードローン・リボには年末残高証明書が無い） */
+function balanceSource(d: Debt): string {
+  if (d.subtype === "cardLoan") return "利用明細・カード会社のサイトの今の残高";
+  if (d.kind === "scholarship") return "返還のお知らせ・返還の情報を見るサイトの返還残額";
+  if (d.subtype === "policyLoan") return "保険会社の契約内容のお知らせの貸付の残高";
+  if (d.subtype === "personal" || d.subtype === "companyLoan") return "借用書・返済の記録から数えた今の残高";
+  return "年末残高証明書・返済予定表の残高";
+}
+
 function balanceField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | "detail"): FieldDef {
   const find = byId(debts, d.id);
   const mode = entryOf(wh, d.id);
@@ -1264,7 +1334,7 @@ function balanceField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" 
     find,
     path: ["balance"],
     optional: mode !== "balance",
-    help: mode === "balance" ? "年末残高証明書・返済予定表の残高。時点は「残高の時点」（入れなければ今月）" : "返済予定表の残高。入れなければ借入額と金利から計算します",
+    help: mode === "balance" ? `${balanceSource(d)}。時点は「残高の時点」（入れなければ今月）` : "返済予定表の残高。入れなければ借入額と金利から計算します",
   });
   if (mode !== "balance") return inner;
   return field({
@@ -1491,12 +1561,13 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
   if (d.property === undefined) fields.push(entryField(wh, d, k, mortgage ? S : D));
   if (mode === "principal") fields.push(principal(S), startField(wh, d, k, S), ...rate(S), term(S), paymentField(wh, d, k, S), ...balanceD);
   else if (mode === "payment") fields.push(paymentField(wh, d, k, S), ...rate(S), startField(wh, d, k, S), term(S), principal(D), ...balanceD);
-  else fields.push(balance(S), paymentField(wh, d, k, S), payoffField(wh, d, k, mortgage ? S : D), ...rate(D), startField(wh, d, k, D), principal(D));
+  // 今の残高から入れる住まいの住宅ローンは、借りた年月（入居の年月）を標準に1欄（入れないと住宅ローン控除を計算しない。標準の欄の見直しの決め 2026-11-06）
+  else fields.push(balance(S), paymentField(wh, d, k, S), payoffField(wh, d, k, mortgage ? S : D), ...rate(D), startField(wh, d, k, mortgage && isHomeLoan(d) ? S : D), principal(D));
   // 変動金利の住宅ローンは、金利の見込みを標準に1欄（今の金利のままは楽観。0078）
   if (mortgage && isVariableNow(wh.request.input.household, d, wh.request.input.baseMonth)) fields.push(rateOutlookField(d, k));
   // 全期間固定の住宅ローンは、金利の段階の代わりに当初の金利の引き下げ（詳細。0052 の追記 2026-11-02）
   fields.push(...rateCutFields(wh, d, k));
-  if (!later) fields.push(plain({ key: `${k}/balanceAsOf`, item: "debt.balanceAsOf", label: "残高の時点", level: D, kind: "ym", find, path: ["balanceAsOf"], optional: true, help: "年末残高証明書なら前の年の12月" }));
+  if (!later) fields.push(plain({ key: `${k}/balanceAsOf`, item: "debt.balanceAsOf", label: "残高の時点", level: D, kind: "ym", find, path: ["balanceAsOf"], optional: true, help: "年末残高証明書なら前の年の12月", example: `例: ${String(Number(wh.request.input.baseMonth.slice(0, 4)) - 1)}-12` }));
   fields.push(
     methodField(wh, d, k),
     plain({ key: `${k}/bonus`, item: "debt.repayment", label: "ボーナス返済の割合", level: D, kind: "pct", min: 0, max: 100, find, path: ["repayment", "bonusShare"], optional: true, fallback: "0" }),
@@ -1792,7 +1863,10 @@ export function loanMoreActions(wh: WorkingHousehold, d: Debt, k: string): Actio
               mutate(w, (hh) => {
                 const x = (hh.debts ?? []).find((y) => y.id === d.id) as Debt;
                 const last = x.rateSchedule.at(-1);
-                const from = addMonths(w.request.input.baseMonth, 60);
+                // これから借りるローンは借入の月から、今返しているローンは今月から5年後（後ろの段があれば、その段の5年後）
+                const ref = outlookBase(hh, x, w.request.input.baseMonth).ref;
+                const lastAt = last === undefined ? null : resolveTimepoint(hh, last.from);
+                const from = addMonths(lastAt !== null && lastAt > ref ? lastAt : ref, 60);
                 x.rateSchedule.push({ id: newId(), from: { at: from }, type: last?.type ?? "variable", rate: last?.rate ?? presetRate("preset.loan.addRate.fallback") });
               }),
           },

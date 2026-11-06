@@ -136,13 +136,12 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       const cov = h().insuranceContracts?.[0]?.coverages?.find((c) => c.benefit === "incomeProtection");
       expect(cov?.amount).toBe(150_000);
     });
-    it.fails("持ち家を標準の欄だけで入れても、持ち家の価値が資産に入り、純資産がマイナスにならない", () => {
+    it("持ち家を標準の欄だけで入れても、持ち家の価値が資産に入り、純資産がマイナスにならない（評価額は未入力の警告なので標準に出る）", () => {
       expect(sum(d.table, "cf.balance.account.realEstate", yearOf(d.wh.request))).toBeGreaterThan(0);
       expect(d.bs).not.toContain("純資産がマイナスに");
     });
     panelChecks(() => d);
     watchChecks(() => d, [
-      { rule: "negativeNetWorthNow", match: /純資産が|資産に入っていない/, what: "持ち家を標準の欄だけで入れると、今の家が資産に入らず純資産が大きくマイナス" },
       { rule: "zeroCostBasis", match: /nisa/, what: "NISA を足すと、取得価額が0円で入る" },
     ]);
   });

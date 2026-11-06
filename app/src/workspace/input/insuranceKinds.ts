@@ -149,13 +149,14 @@ export const KINDS: readonly KindDef[] = [
   },
   { kind: "education", label: "学資保険", group: "savings", frequent: true, template: "insurance.education", main: { benefit: "maturity", label: "満期金", basis: "once" }, end: { childAge: 18 }, payUntil: "end", deduction: "general", savings: true, child: true },
   { kind: "privateAnnuity", label: "個人年金保険", group: "savings", template: "insurance.privateAnnuity", main: { benefit: "annuity", label: "年金の年額", basis: "annual", help: "受け取りの始まりから10年間（年数は「詳細」で）" }, end: { age: 65 }, payUntil: 60, deduction: "pension", savings: true },
-  { kind: "foreignCurrency", label: "外貨建て保険（目安）", group: "savings", template: "insurance.foreignCurrency", main: { benefit: "death", label: "死亡保険金（円の目安）", basis: "once" }, end: "lifetime", payUntil: 65, deduction: "general", estimate: true, note: "目安（為替で変わります）。円の目安の額だけで計算し、積立金を前提の利回りで伸ばしません" },
-  { kind: "variable", label: "変額保険（目安）", group: "savings", template: "insurance.variable", main: { benefit: "death", label: "死亡保険金（円の目安）", basis: "once" }, end: "lifetime", payUntil: 65, deduction: "general", estimate: true, note: "目安（運用で変わります）。円の目安の額だけで計算し、積立金を前提の利回りで伸ばしません" },
+  { kind: "foreignCurrency", label: "外貨建て保険（目安）", group: "savings", template: "insurance.foreignCurrency", main: { benefit: "death", label: "死亡保険金（円の目安）", basis: "once", help: "設計書の円換算の額か、外貨の額×今の為替で円に直した額を入れます（為替で変わる目安です）" }, end: "lifetime", payUntil: 65, deduction: "general", estimate: true, note: "目安（為替で変わります）。円の目安の額だけで計算し、積立金を前提の利回りで伸ばしません" },
+  { kind: "variable", label: "変額保険（目安）", group: "savings", template: "insurance.variable", main: { benefit: "death", label: "死亡保険金（円の目安）", basis: "once", help: "設計書の死亡保険金（基本保険金額）を入れます。運用で増える分は入れません（運用で変わる目安です）" }, end: "lifetime", payUntil: 65, deduction: "general", estimate: true, note: "目安（運用で変わります）。円の目安の額だけで計算し、積立金を前提の利回りで伸ばしません" },
   { kind: "mutualAid", label: "共済（総合・医療）", group: "other", template: "insurance.term", main: { benefit: "death", label: "死亡保険金（共済金）", basis: "once", help: "年齢で保障が段階的に変わる型は、「詳細」で保障の行を期間で分けて入れます" }, end: { age: 65 }, payUntil: "end", deduction: "general" },
   { kind: "nonLife", label: "損害保険", group: "other", template: "insurance.nonLife", main: null, end: "lifetime", payUntil: "lifetime", deduction: "none", note: "保険料だけを計算します。保険金は計算しません（受け取る見込みは入るお金の行で）" },
 ];
 
-export const KIND_OPTIONS = KINDS.map((k) => ({ value: k.kind, label: k.label }));
+/** 種類の選択肢（「＋ 保険契約を足す」の一覧と同じ見出しで分ける） */
+export const KIND_OPTIONS = KINDS.map((k) => ({ value: k.kind, label: k.label, group: KIND_GROUPS.find((g) => g.group === k.group)?.label ?? "そのほか" }));
 
 const BY_KIND = new Map(KINDS.map((k) => [k.kind, k]));
 const FROM_TEMPLATE: Readonly<Record<string, InsuranceKind>> = {

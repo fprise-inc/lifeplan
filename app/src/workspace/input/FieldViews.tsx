@@ -785,10 +785,10 @@ export function choiceSections(items: readonly ActionDef[]): { heading: string; 
 }
 
 /**
- * 選択肢をまとめた「＋」のボタン（0040 の 2026-10-29 の追記。例: 「＋ 月額の変化」）。押すとすぐ右に選択肢（「この年だけ」「この月から先」）と「やめる」を並べ、
+ * 選択肢をまとめた「＋」のボタン（0040 の 2026-10-29 の追記。例: 「＋ 月額の変化」）。押すとすぐ右に選択肢（「この年だけ」「この月から先」）と「キャンセル」を並べ、
  * 選ぶとその物を足して（足した物は見える所へ動かして光らせ、最初の欄に移る）選択肢を閉じる。「?」は1つ（選択肢の違いを書く）。
  * 選択肢が見出しを持つとき（「＋ 保険契約を足す」。0055 の追記 2026-11-02）は、ボタンの下に見出しごとの一覧を開いて最初の選択肢に移る。
- * Esc か「やめる」で閉じて、元のボタンに戻る
+ * Esc か「キャンセル」で閉じて、元のボタンに戻る（選び直しの取りやめは「キャンセル」。0130）
  */
 function ChoiceAction({ head, items, wh, onEdit }: { head: NonNullable<ActionDef["choice"]>; items: readonly ActionDef[]; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
   const [open, setOpen] = useState(false);
@@ -821,7 +821,7 @@ function ChoiceAction({ head, items, wh, onEdit }: { head: NonNullable<ActionDef
   );
   const cancel = (
     <button type="button" class="link-btn" onClick={close} data-choice-cancel>
-      やめる
+      キャンセル
     </button>
   );
   // Esc は選択肢だけを閉じる（入力項目の画面まで閉じない）

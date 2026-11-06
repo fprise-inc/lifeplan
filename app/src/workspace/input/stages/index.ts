@@ -73,8 +73,28 @@ export function buildStage(id: StageId, wh: WorkingHousehold): StageDef {
   const stage = BUILDERS[id](wh);
   if (!MONEY_CARDS.has(id)) return stage;
   // ピンにした物も属するカードに出す（ピンは見せ方だけ。0045）
-  const money = moneySections(wh, id as MoneyCard, { claimed: NONE_CLAIMED, ...(id === "work" ? { level: "simple" as const, inTitle: "入るお金" } : {}), ...(id === "rental" ? { level: "simple" as const, outTitle: "不動産の一時の経費（出るお金）", note: rentalMoneyNote(wh) } : {}) });
+  const money = moneySections(wh, id as MoneyCard, {
+    claimed: NONE_CLAIMED,
+    ...(id === "work" ? { level: "simple" as const, inTitle: "入るお金" } : {}),
+    ...(id === "rental" ? { level: "simple" as const, outTitle: "不動産の一時の経費（出るお金）", note: rentalMoneyNote(wh) } : {}),
+    ...(id === "housing" ? { kindLevel: housingMoneyLevel(wh) } : {}),
+  });
   return money.length === 0 ? stage : { ...stage, sections: [...stage.sections, ...money] };
+}
+
+/**
+ * 住まいのお金の行のボタンの出し方: 売電・修繕・リフォームは、持ち家か購入の予定があるときだけ（賃貸・家賃なしだけの世帯には出さない）。
+ * 戸建て（か建て方を選んでいない持ち家）の修繕・リフォームは標準でも出す（外壁・屋根などの大きな修繕を毎回聞くため。マンションは管理費・修繕積立金に含む）
+ */
+export function housingMoneyLevel(wh: WorkingHousehold): (kind: string) => "simple" | "detail" | null {
+  const owned = (wh.request.input.household.residences ?? []).filter((r) => r.kind === "own");
+  // 購入の予定は購入の種類（マンション・戸建て）で建て方が決まる。選んでいなければ戸建てかもしれないので標準に出す
+  const house = owned.some((r) => r.style === "house" || (r.style === undefined && r.valuation?.structure !== "rc"));
+  return (kind) => {
+    if (kind !== "repair" && kind !== "powerSale") return "detail";
+    if (owned.length === 0) return null;
+    return kind === "repair" && house ? "simple" : "detail";
+  };
 }
 
 function rentalMoneyNote(wh: WorkingHousehold): string {

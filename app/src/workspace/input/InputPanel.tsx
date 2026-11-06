@@ -1,7 +1,7 @@
 // 入力のパネル（作業の層の部品）: カードを押すと画面の中央に開き、背景を暗くする（別の窓は出さない）。
 // 中身は今までの入力の欄（簡易と詳細の切り替えを含む）。値は下書きに入れ、「保存」で世帯に入れる。× と Esc で閉じる（保存していない変更があれば先に知らせる）
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { allFields, type Level } from "./form.ts";
+import { allFields, raiseFields, type Level } from "./form.ts";
 import { fieldDomId, FieldStateOps, FieldSuggestions, GroupOpen, PinControls, PlanMarksContext, Section, SectionLinks, visible, type GroupOpenState, type PinControl, type PlanMarks, type SectionLink } from "./FieldViews.tsx";
 import { dropStaleRows } from "./rows.ts";
 import { applyStateOp, availableOps, confirmAll, endedLongAgo, fieldStatus, holderOfField, planStateOp, type StateOp } from "./valueState.ts";
@@ -127,7 +127,17 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
   /** 年金のカードの年金の見込み（計算の結果から読むだけ。プランを直しているときは、そのプランの額） */
   const pensionEst = usePensionEstimate(shown, itemId === "pension", computeOne);
   const item = useMemo(() => itemOf(shown, itemId, { inheritanceTax: inheritanceTaxNote(inheritance), pension: pensionEstimateSummary(shown, pensionEst.std) }), [shown, itemId, inheritance, pensionEst]);
-  const stage = useMemo(() => itemStage(shown, itemId), [shown, itemId]);
+  /**
+   * 未入力の警告の欄は、入るまで標準に出す（raiseFields。2026-11-06 の利用者の判断）。開いている間は、入れた後も標準に残す
+   * （入れた途端に欄が消えると、打った所を見失うため）。パネルを開き直すと、元の標準・詳細に戻る
+   */
+  const raised = useRef(new Set<string>());
+  const stage = useMemo(() => {
+    const st = itemStage(shown, itemId);
+    if (st === null) return null;
+    for (const f of allFields(st)) if (f.level === "detail" && f.readOnly === undefined && f.missingShownBy === undefined && fieldStatus(f, shown).status === "missing") raised.current.add(f.key);
+    return raiseFields(st, raised.current);
+  }, [shown, itemId]);
   const surplusSug = useSurplusSuggestion(shown, itemId === "living", computeOne);
   /** 答え合わせの「実際の年間の貯蓄額」の欄の下の1行（計算の年間収支・実際の額・差。計算の結果を読むだけ。0106 の追記） */
   const checkLine = useSavingsCheckLine(shown, itemId === "living", computeOne);
