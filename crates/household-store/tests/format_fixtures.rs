@@ -387,7 +387,8 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(
                 residences
                     .iter()
-                    .all(|r| r["sale"].get("repayLoan").is_none() && r["valuation"].get("basis").is_none()),
+                    .all(|r| r["sale"].get("repayLoan").is_none()
+                        && r["valuation"].get("basis").is_none()),
                 "{v}: 0.66 より前の版に住まいの売却の返済・評価の入れ方は無い"
             );
         }
