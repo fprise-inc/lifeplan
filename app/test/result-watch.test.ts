@@ -69,6 +69,10 @@ describe.each(WATCH_CASES.map((c) => c.name))("%s", (name) => {
 });
 
 describe("直す待ちの一覧（まだおかしい所があることを確かめる。直したら行を消す）", () => {
+  // 一覧が空のときも組を残す（新しい不具合を見つけたら、ここへ行を足す）
+  test("直す待ちの鍵は重ならない", () => {
+    expect(new Set(PENDING.map((p) => p.key)).size).toBe(PENDING.length);
+  });
   for (const p of PENDING) {
     test.fails(`直す待ち: ${p.what}（${p.key}）`, () => {
       const rule = WATCH_RULES.find((r) => r.id === p.rule)!;
