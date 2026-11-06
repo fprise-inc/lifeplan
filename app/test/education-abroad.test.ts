@@ -58,7 +58,9 @@ describe("留学", () => {
     const group = stage(wh).sections.flatMap((s) => s.groups).find((g) => g.key.endsWith(`/abroad/${id}`))!;
     expect(group.fields.map((f) => f.label)).toEqual(["学校", "何年生のとき", "留学の形", "1回の額", "万一のときの扱い"]);
     const on = fieldOf(wh, `/abroad/${id}/on`);
-    expect(on.kind === "select" ? on.options.map((o) => o.label) : []).toEqual(["続ける", "やめる"]);
+    expect(on.kind === "select" ? on.options.map((o) => o.label) : []).toEqual(["続ける（既定）", "やめる"]);
+    // 万一のときの扱いは詳細（既定は続ける）
+    expect(on.level).toBe("detail");
     expect(fields(wh).some((f) => f.key.includes(`/abroad/${id}/`) && /払う人|伸び|行|該当する万一/.test(f.label))).toBe(false);
   });
 
