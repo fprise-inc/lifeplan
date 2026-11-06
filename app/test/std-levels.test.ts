@@ -52,19 +52,19 @@ function representative(): WorkingHousehold {
 }
 
 describe("最初の5枚の標準の欄の数", () => {
-  it("代表の世帯で、家族8・働き方と収入10・基本生活費5・住まい8〜10・貯蓄8（今の残高から入れたローンで合計39。黒字の上限は標準。配偶者の性別は詳細。住宅ローンは金利の種類も標準）", () => {
+  it("代表の世帯で、家族8・働き方と収入10・基本生活費4・住まい8〜10・貯蓄8（今の残高から入れたローンで合計38。黒字の上限は詳細〔入っていれば標準〕。配偶者の性別は詳細。住宅ローンは金利の種類も標準）", () => {
     let wh = representative();
     const count = (w: WorkingHousehold) => (["family", "work", "living", "housing", "savings"] as const).map((s) => simpleFields(w, s).length);
     // 見本の住宅ローンは型どおりでない金利の段（2段）を持つので「金利の段階で入れる」になり、標準でも段の欄（2段×3欄）が開く（0052 の追記 2026-11-02）
-    expect(count(wh)).toEqual([8, 10, 5, 16, 8]);
+    expect(count(wh)).toEqual([8, 10, 4, 16, 8]);
     // 金利の段の無いローン（今の金利のまま）で数える
     wh = mutate(wh, (h) => {
       for (const d of h.debts ?? []) d.rateSchedule = d.rateSchedule.slice(0, 1);
     });
-    expect(count(wh)).toEqual([8, 10, 5, 10, 8]);
+    expect(count(wh)).toEqual([8, 10, 4, 10, 8]);
     for (const d of wh.request.input.household.debts ?? []) wh = switchEntry(wh, d.id, "balance");
-    expect(count(wh)).toEqual([8, 10, 5, 8, 8]);
-    expect(count(wh).reduce((a, b) => a + b, 0)).toBe(39);
+    expect(count(wh)).toEqual([8, 10, 4, 8, 8]);
+    expect(count(wh).reduce((a, b) => a + b, 0)).toBe(38);
   });
 });
 

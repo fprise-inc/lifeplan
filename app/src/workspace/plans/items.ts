@@ -24,6 +24,7 @@ import { bucketShares, expectedReturn, type MixPart } from "./allocation.ts";
 import { addRate, cmpRate, nonNegative, pctText, subRate } from "./decimal.ts";
 import { ageAt } from "../levers.ts";
 import { setSurplusRatio, surplusRatioOf } from "../surplus.ts";
+import { independenceOf } from "../input/livingStages.ts";
 import { accountsOf, drawdownOf, drawdownStartDefault, INVEST_KINDS, methodOf, NOT_FINANCIAL, portfolioOf, rateOf, rateText, setDrawdown, setStopAge, stopAgeOf, stopAgeOrEstimate, stopEstimateOf, totalViewOf, valueOf } from "../input/savings/model.ts";
 import { clampRate, RETURN_RANGE, type PctRange } from "../input/rateRanges.ts";
 
@@ -222,9 +223,17 @@ function leverNote(k: LeverKey, wh: WorkingHousehold, selfId: string, demo: Demo
     return v === 65 ? "原則の65歳" : null;
   }
   if (k === "nisaMonthly") return demo?.notes?.nisaMonthly ?? "働いている間、毎月積み立てる";
-  const st = (h.livingExpenses ?? []).find((l) => l.mode === "total")?.stages ?? [];
+  const l = (h.livingExpenses ?? []).find((x) => x.mode === "total");
+  const st = l?.stages ?? [];
   const names: Record<string, string> = { childIndependence: "子の独立後は", retirement: "退職後は", age70: "70歳から", age80: "80歳から" };
-  const parts = st.filter((s) => s.ratio !== undefined && names[s.label] !== undefined).map((s) => `${names[s.label]}${pct(s.ratio as string)}`);
+  // 子の独立の段が2つ以上なら、どの子の独立かを書く（「第1子の独立後は94%、第2子の独立後は85%」）
+  const several = st.filter((s) => s.label === "childIndependence").length >= 2;
+  const nameOf = (s: (typeof st)[number]): string => {
+    if (s.label !== "childIndependence" || !several || l === undefined) return names[s.label] as string;
+    const kids = independenceOf(h, wh.request.input.baseMonth, wh.request.input.endYear, l, s);
+    return kids.length > 0 ? `${kids.map((id) => memberLabel(wh, id)).join("・")}の独立後は` : (names[s.label] as string);
+  };
+  const parts = st.filter((s) => s.ratio !== undefined && names[s.label] !== undefined).map((s) => `${nameOf(s)}${pct(s.ratio as string)}`);
   return parts.length > 0 ? parts.join("、") : null;
 }
 
