@@ -703,6 +703,9 @@
       "investmentReturn": {
         "default": "0.01"
       },
+      "depositReturn": {
+        "default": "0.001"
+      },
       "wageGrowth": {
         "default": "0.01"
       },
@@ -724,9 +727,6 @@
         },
         "reit.global": {
           "default": "0.04"
-        },
-        "cash.deposit": {
-          "default": "0.001"
         }
       },
       "investment": {

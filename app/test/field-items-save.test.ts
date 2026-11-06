@@ -32,7 +32,7 @@ const PER_PATTERN = process.env.FIELD_SAVE_ALL !== undefined ? Infinity : 3;
  */
 const NOT_MOVABLE: Record<string, string> = {
   ...Object.fromEntries(
-    ["assetReturns/bond.domestic", "assetReturns/bond.global", "assetReturns/cash.deposit", "assetReturns/cash.foreign", "assetReturns/equity.domestic", "assetReturns/equity.global", "assetReturns/reit.domestic", "assetReturns/reit.global", "educationInflation", "inflation", "investmentReturn", "pensionMacroSlide", "pensionMacroSlideEmployee", "realEstate/landGrowth", "wageGrowth"].flatMap((s) =>
+    ["assetReturns/bond.domestic", "assetReturns/bond.global", "assetReturns/cash.deposit", "assetReturns/cash.foreign", "assetReturns/equity.domestic", "assetReturns/equity.global", "assetReturns/reit.domestic", "assetReturns/reit.global", "depositReturn", "educationInflation", "inflation", "investmentReturn", "pensionMacroSlide", "pensionMacroSlideEmployee", "realEstate/landGrowth", "wageGrowth"].flatMap((s) =>
       ["from", "to", "rate"].map((x) => [`field:assume/${s}/ex/{n}/${x}`, "例外の期間は年ごとの値の並びで、1つの期間の始まり・終わり・率を変えると複数の年の値が変わる（期間は ID を持たない）"]),
     ),
   ),

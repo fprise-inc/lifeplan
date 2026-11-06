@@ -4,7 +4,7 @@
 // 相続税の目安の不動産の評価の割合・FP顧問料の料金表・法人経営者向けの機能（合算BS。0107）。新しく作る世帯（料金表は新しく足す契約）に写す（作った世帯は変わらない。違うときは確かめの一覧に知らせが出る）
 import { useEffect, useRef, useState } from "preact/hooks";
 import { STAGE_ORDER } from "../input/stages/index.ts";
-import { END_AGES, STANDARD_END_AGE } from "../input/household.ts";
+import { DEFAULT_ASSUMPTIONS, END_AGES, STANDARD_END_AGE } from "../input/household.ts";
 import { DEFAULT_LAYOUT } from "../input/items.ts";
 import type { Level, StageId } from "../input/form.ts";
 import { ALWAYS_SHOWN, isHiddenIn, levelIn, withLevel, withShown } from "../input/itemChoice.ts";
@@ -161,7 +161,8 @@ const settingTexts = (v: OfficeSettings): Record<string, string> => ({
   reverseAge: v.protection.protection?.reverseUntilAge !== undefined ? String(v.protection.protection.reverseUntilAge) : "",
 });
 
-const STANDARD_PCT: Readonly<Record<OfficeAssumption, string>> = { inflation: "1", wageGrowth: "1", investmentReturn: "1", pensionMacroSlide: "0.4" };
+/** 前提条件の既定の値（パーセント。新しい世帯の DEFAULT_ASSUMPTIONS から。系列を OFFICE_ASSUMPTIONS に足せば、ここも付いてくる） */
+const STANDARD_PCT: Readonly<Record<OfficeAssumption, string>> = Object.fromEntries(OFFICE_ASSUMPTIONS.map((k) => [k, rateToPct(DEFAULT_ASSUMPTIONS[k].default)])) as Record<OfficeAssumption, string>;
 
 export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onDismissNotice, onCheckCodes, onDecideCandidate, custom, onEstimates, previewEstimates, branding }: OfficeSettingsPanelProps) {
   const [s, setS] = useState<OfficeSettings>(value);
