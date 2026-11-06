@@ -131,6 +131,26 @@ export function outsideChildSupported(ctx: Ctx, m: MemberInput, month: MonthInde
   });
 }
 
+/**
+ * 親・祖父母（別居）への仕送りの年額を、その人を相手にした仕送りの出るお金の行（種類 allowance。1回だけの行を除く）から読む（健康保険の扶養の判定の
+ * 「仕送りの額」。0059 の追記）。月 month を含む行の額（今の値段。月額の行は12か月分、毎年の行はその額、何年かごとの行は1年あたり）の合計。
+ * 行が1つも無ければ null（呼ぶ側は人の欄 support.allowance を使う）。行があれば欄より行を使う。
+ * 呼ぶ部品の reads に OUTSIDE_CHILD_SUPPORT_READS と periodicExpense.everyYears を書く
+ */
+export function allowanceRowsAnnual(ctx: Ctx, member: string, month: MonthIndex): Yen | null {
+  const rows = ctx.list<PeriodicExpenseInput>("periodicExpense").filter((r) => r.kind === "allowance" && r.counterparty === member && !isOnceRow(ctx, r));
+  if (rows.length === 0) return null;
+  let total = 0;
+  for (const r of rows) {
+    const to = r.to === undefined || r.to === null ? null : ctx.time.resolve(r.to);
+    if (ctx.time.resolve(r.from) > month || (to !== null && month > to)) continue;
+    const a = boxValue(r.amount);
+    if (a === undefined || a === null || a <= 0) continue;
+    total += r.monthly === true ? ctx.money.mulRatio(a, 12, 1, "conv.exact") : ctx.money.mulRatio(a, 1, Math.max(1, r.everyYears), "conv.exact");
+  }
+  return yen(total);
+}
+
 /** outsideChildSupported が読む入力項目（呼ぶ部品の reads に足す） */
 export const OUTSIDE_CHILD_SUPPORT_READS = [
   "periodicExpense.kind",

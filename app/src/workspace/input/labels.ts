@@ -531,8 +531,31 @@ export function donorLabel(wh: WorkingHousehold, d: { kind: string; of?: string 
   return d.of !== undefined ? `${memberLabel(wh, d.of)}の${k}` : `受け取る人の${k}`;
 }
 
+/**
+ * 援助（住宅資金・教育資金など）の贈与する人に選べる人: 介護・親の項目の親・祖父母（世帯の外の家族。選ぶとその人を贈与する人として扱う。
+ * 世帯ファイルでは援助の donor がその構成員の ID を指す）と、生年月を入れない贈与する人（donors）。
+ * 前に援助で選んだ世帯の外の家族が親・祖父母でなくなっても、選んだまま見えるように候補に残す
+ */
+export function donorCandidates(wh: WorkingHousehold): Option[] {
+  const h = wh.request.input.household;
+  const used = new Set<string>();
+  for (const r of h.residences ?? []) for (const g of r.purchase?.gifts ?? []) if (g.donor !== undefined) used.add(g.donor);
+  for (const goal of h.goals ?? []) for (const g of goal.education?.gifts ?? []) if (g.donor !== undefined) used.add(g.donor);
+  const elder = (m: Member) => m.kind === "parent" || m.kind === "grandparent";
+  const elders = memberOptions(wh, (m) => (m.outside !== undefined || elder(m)) && (elder(m) || used.has(m.id)));
+  return [...elders, ...(h.donors ?? []).map((d) => ({ value: d.id, label: `生年月を入れない贈与する人（${donorLabel(wh, d)}）` }))];
+}
+
 export function donorOptions(wh: WorkingHousehold): Option[] {
-  return [{ value: "", label: "贈与する人を選ばない" }, ...(wh.request.input.household.donors ?? []).map((d) => ({ value: d.id, label: donorLabel(wh, d) }))];
+  return [{ value: "", label: "贈与する人を選ばない" }, ...donorCandidates(wh)];
+}
+
+/** 援助の贈与する人（donor）として選ばれている数（世帯の外の家族の構成員・生年月を入れない贈与する人のどちらの ID でも） */
+export function donorUses(h: Household, id: string): number {
+  let n = 0;
+  for (const r of h.residences ?? []) for (const g of r.purchase?.gifts ?? []) if (g.donor === id) n++;
+  for (const goal of h.goals ?? []) for (const g of goal.education?.gifts ?? []) if (g.donor === id) n++;
+  return n;
 }
 
 const PREFS = "北海道,青森,岩手,宮城,秋田,山形,福島,茨城,栃木,群馬,埼玉,千葉,東京,神奈川,新潟,富山,石川,福井,山梨,長野,岐阜,静岡,愛知,三重,滋賀,京都,大阪,兵庫,奈良,和歌山,鳥取,島根,岡山,広島,山口,徳島,香川,愛媛,高知,福岡,佐賀,長崎,熊本,大分,宮崎,鹿児島,沖縄".split(",");

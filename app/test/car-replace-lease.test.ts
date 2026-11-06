@@ -98,7 +98,9 @@ describe("買い替えの欄（0101）", () => {
     expect(carOf(wh, id).until?.offset).toEqual({ years: 13, months: 0 });
     const back = setReplace(wh, id, "repeat");
     expect(carOf(back, id).purchase!.replace).toBeUndefined();
-    expect(carOf(back, id).until).toBeNull();
+    // 買い替え続けるに戻すと、推定のままの手放す時期は、買い替える車の既定（名義の人の75歳。推定）に戻る
+    expect(carOf(back, id).until).toMatchObject({ memberAge: { years: 75, months: 0 } });
+    expect(fieldStatus(fieldOf(back, `${id}/untilAge`), back).basis).toContain("75歳");
     // FP が入れた手放す時期は、戻しても残す
     const kept = setReplace(setReplace(until.set(wh, 72), id, "none"), id, "repeat");
     expect(carOf(kept, id).until).toMatchObject({ memberAge: { years: 72 } });
@@ -219,7 +221,8 @@ describe("手放した後の移動の費用は世帯が最後に手放す車だ�
     wh = addCar(wh, gen, false);
     const [a, b] = wh.request.input.household.cars! as [Car, Car];
     wh = fieldOf(wh, `${a.id}/untilAge`).set(wh, 75);
-    // まだ手放す時期の無い車がある: どちらにも出さない
+    // まだ手放す時期の無い車（最後まで乗る）がある: どちらにも出さない
+    wh = fieldOf(wh, `${b.id}/untilAge`).set(wh, null);
     expect(groups(wh).some((g) => g.key.endsWith("/afterCar"))).toBe(false);
     wh = fieldOf(wh, `${b.id}/untilAge`).set(wh, 72);
     expect(lastCarOfHousehold(wh.request.input.household, a.id)).toBe(true);
@@ -228,10 +231,12 @@ describe("手放した後の移動の費用は世帯が最後に手放す車だ�
     expect(g.key).toBe(`ev/car/${a.id}/afterCar`);
     expect(g.title).toBe("この後、世帯に車がありません");
     expect(g.actions[0]!.label).toBe("＋ 手放した後の移動の費用を足す");
-    // 手放す時期の説明に、75歳ごろを目安にする FP が多いこと。既定は最後まで
+    // 手放す時期の説明に、75歳ごろを目安にする FP が多いこと。足した車の既定は名義の人の75歳（推定）
     expect(fieldOf(wh, `${a.id}/untilAge`).help).toContain("75歳ごろ");
     const fresh = addCar(open("salariedCoupleTwoKids"), ids());
-    expect(fresh.request.input.household.cars![0]!.until).toBeUndefined();
+    const fc = fresh.request.input.household.cars![0]!;
+    expect(fc.until).toEqual({ memberAge: { member: fc.owner, years: 75, months: 0 } });
+    expect(fieldStatus(fieldOf(fresh, `${fc.id}/untilAge`), fresh).status).toBe("estimated");
   });
 });
 
