@@ -255,6 +255,15 @@ describe("住まいの欄", () => {
   });
 });
 
+describe("働き方の入るお金", () => {
+  it("「＋ 売却代金（事業・出資持分）」は詳細だけ。ほかの「＋」と区画は標準のまま", () => {
+    const sec = buildStage("work", blankHousehold(BASE)).sections.find((s) => s.key === "money/work/in")!;
+    expect(sec.level).toBe("simple");
+    expect(sec.actions.find((a) => a.key === "money/work/in/add/saleBusiness")?.level).toBe("detail");
+    expect(sec.actions.filter((a) => a.key !== "money/work/in/add/saleBusiness").every((a) => a.level === "simple")).toBe(true);
+  });
+});
+
 describe("保険の欄", () => {
   const withKind = (key: string, base = blankHousehold(BASE)): WorkingHousehold => action(base, key, "insurance");
   it("死亡の保障の無い契約（医療保険）には受取人・死亡保険金の税を出さない。受取人の候補に被保険者を出さない", () => {

@@ -75,7 +75,8 @@ export function buildStage(id: StageId, wh: WorkingHousehold): StageDef {
   // ピンにした物も属するカードに出す（ピンは見せ方だけ。0045）
   const money = moneySections(wh, id as MoneyCard, {
     claimed: NONE_CLAIMED,
-    ...(id === "work" ? { level: "simple" as const, inTitle: "入るお金" } : {}),
+    // 働き方の入るお金は標準。売却代金（事業・出資持分）はめったに使わないので「＋」を詳細だけに出す
+    ...(id === "work" ? { level: "simple" as const, inTitle: "入るお金", kindLevel: (kind: string) => (kind === "saleBusiness" ? ("detail" as const) : "simple") } : {}),
     ...(id === "rental" ? { level: "simple" as const, outTitle: "不動産の一時の経費（出るお金）", note: rentalMoneyNote(wh) } : {}),
     ...(id === "housing" ? { kindLevel: housingMoneyLevel(wh) } : {}),
   });
