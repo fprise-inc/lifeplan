@@ -734,7 +734,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
                 <>
                   <p class="pl-sub">
                     {c.name}さん向け・{expiresLabel(c.expires)}
-                    {c.replaces > 0 ? `。入れると、今のコード（更新の前のもの）${c.replaces}つは外れます` : ""}
+                    {c.replaces > 0 ? `。入れると、今のコード（更新の前のもの）${c.replaces}件は外れます` : ""}
                   </p>
                   <table class="os-code-diff" data-feature-candidate-diff>
                     <thead>

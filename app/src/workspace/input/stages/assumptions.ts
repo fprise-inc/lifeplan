@@ -738,7 +738,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
     {
       key: "assume/main",
       title: "経済の前提",
-      note: `${std > 0 ? `前提は既定の値（仮の値）で計算中です（${std}つ）。` : ""}事務所の既定値（設定）はまだありません。入れる額は計算の基準の年の値段で、物価で伸びます`,
+      note: `${std > 0 ? `前提は既定の値（仮の値）で計算中です（${std}か所）。` : ""}事務所の既定値（設定）はまだありません。入れる額は計算の基準の年の値段で、物価で伸びます`,
       level: "simple",
       groups: [
         {
