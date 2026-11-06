@@ -146,13 +146,15 @@ describe("預金の利回り（0137）", () => {
     expect(wh.request.input.assumptions?.depositReturn?.default).toBe("0.001");
   });
 
-  it("預金の利回りの無い前の要求は、計算と同じ運用利回りを推定として見せる。資産の種類ごとの利回りに預金があれば、そちらで計算すると添える", () => {
+  it("預金の利回りの無い前の要求は空欄で、計算は運用利回りと同じと添える。資産の種類ごとの利回りに預金があれば、そちらで計算すると添える", () => {
     const req = structuredClone(modelHousehold("single45"));
     delete (req.input.assumptions as { depositReturn?: unknown }).depositReturn;
     const wh = fromRequest(req);
     const f = fieldIn(buildStage("assumptions", wh), "assume/depositReturn");
-    expect(f.get(wh)).toMatchObject({ value: req.input.assumptions!.investmentReturn.default, estimated: "運用利回りと同じ（空欄にすると既定の値）" });
-    const sample = open("salariedCoupleTwoKids");
+    expect(f.get(wh)).toMatchObject({ value: null, hint: "空欄（運用利回りと同じ 1%で計算しています）" });
+    const sample = mutate(open("salariedCoupleTwoKids"), (_h, r) => {
+      r.input.assumptions = { ...r.input.assumptions!, assetReturns: { ...(r.input.assumptions!.assetReturns ?? {}), "cash.deposit": { default: "0.001" } } };
+    });
     const g = fieldIn(buildStage("assumptions", sample), "assume/depositReturn").get(sample);
     expect(g.value).toBe("0.001");
     expect(g.hint).toBe("預金は「資産の種類ごとの利回り」の預金（0.1%）で計算しています");

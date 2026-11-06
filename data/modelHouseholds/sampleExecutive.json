@@ -574,9 +574,6 @@
       "assetReturns": {
         "equity.global": {
           "default": "0.04"
-        },
-        "cash.deposit": {
-          "default": "0.001"
         }
       }
     }

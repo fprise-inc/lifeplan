@@ -54,11 +54,11 @@ export const RECORD_ONLY: readonly ShapeRule[] = [
  */
 export const NOT_EFFECTIVE_YET: readonly ShapeRule[] = [
   { shape: "pension:pension/*/amounts/transitional", why: "ねんきん定期便の経過的加算: 加入月数から計算し直すので、額を入れても見込みが変わらない（欄を出さないか、計算に使うかを決める）" },
-  { shape: "savings:sav/*/mix/*/share", why: "資産配分の割合: 画面に出ているのに、口座の利回りの計算に入らない" },
 ];
 
 /** この点検（欄を1つずつ動かし、キャッシュフロー表・相続税の目安・ご本人の死亡の万一を見る）では効き目を見られない欄。効く条件か見え方を書く */
 export const NOT_OBSERVED: readonly ShapeRule[] = [
+  { shape: "savings:sav/*/mix/*/share", why: "口座の資産の配分の割合は、配分に資産の種類が2つ以上あるときだけ（1つだけの配分はその種類の利回りで、割合によらない）" },
   { shape: "family:family/*/expected", why: "これから加わるは、加わる時期と組で効く（時期が空のままでは今いるのと同じ）" },
   { shape: "work:work/period/*/size", why: "勤め先の従業員数は、パートなどの社会保険の加入の境目をまたぐときだけ" },
   { shape: "work:work/period/*/corpDb", why: "勤め先の企業年金の有無は、iDeCo の掛金の上限だけ" },

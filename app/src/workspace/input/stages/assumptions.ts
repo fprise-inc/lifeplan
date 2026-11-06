@@ -129,8 +129,11 @@ function seriesField(name: string, label: string, help: string, level: "simple" 
       const v = (getPath(a, [follows.name, "default"]) as string | undefined) ?? null;
       return { value: v, estimated: follows.basis, derived, warn };
     }
-    // 預金の利回りの無い前の要求（見本の写しなど）は、計算と同じ運用利回りを見せる（空欄にすると既定の値。0137）
-    if (s === undefined && name === "depositReturn") return { value: (getPath(a, ["investmentReturn", "default"]) as string | undefined) ?? null, estimated: "運用利回りと同じ（空欄にすると既定の値）", derived, warn };
+    // 預金の利回りの無い前の要求（変換の段を通らない計算の要求の写しなど）は空欄で、計算は運用利回りと同じと添える（入れるとその率。0137）
+    if (s === undefined && name === "depositReturn") {
+      const inv = (getPath(a, ["investmentReturn", "default"]) as string | undefined) ?? null;
+      return { value: null, hint: `空欄（運用利回りと同じ${inv !== null ? ` ${pctText(inv)}` : ""}で計算しています）`, derived, warn };
+    }
     if (s === undefined) return { value: null, hint: "入れない（0%で計算）", derived, warn };
     const fv = follows !== undefined ? ((getPath(a, [follows.name, "default"]) as string | undefined) ?? null) : null;
     const est = standard !== undefined && sameRate(s.default, standard) ? STANDARD_BASIS : follows !== undefined && fv !== null && sameRate(s.default, fv) ? follows.basis : null;

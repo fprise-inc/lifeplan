@@ -143,7 +143,6 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
     panelChecks(() => d);
     watchChecks(() => d, [
       { rule: "negativeNetWorthNow", match: /純資産が|資産に入っていない/, what: "持ち家を標準の欄だけで入れると、今の家が資産に入らず純資産が大きくマイナス" },
-      { rule: "zeroCostBasis", match: /nisa/, what: "NISA を足すと、取得価額が0円で入る" },
     ]);
   });
 
@@ -231,7 +230,7 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       // 評価額 3,000万円・土地の割合30% の持ち家と、評価額 1,500万円の区分マンション。持ち家の建物が新築の扱いなら建物は 3,150万円
       expect(sum(d.table, "cf.balance.account.realEstate.building", yearOf(d.wh.request))).toBeLessThan(20_000_000);
     });
-    it.fails("収益不動産の取得の年月を Backspace で消しても、取得価額が残る", () => {
+    it("収益不動産の取得の年月を Backspace で消しても、取得価額が残る", () => {
       expect(d.notes.seen.acquisitionAfterClear).not.toBe("");
     });
     it.fails("母の亡くなる見込みを直すと、相続の受け取る時期がついてくる", () => {
@@ -253,7 +252,6 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       { rule: "careAndInheritanceAfterDeath", match: /介護の費用/, what: "介護を受ける人が亡くなった後も、介護の費用が続く" },
       { rule: "careAndInheritanceAfterDeath", match: /相続の時期/, what: "亡くなる見込みを直しても、受け取る相続の時期がついてこない" },
       { rule: "rowGrouping", match: /corporatePension/, what: "企業年金がキャッシュフロー表の「その他の収入」に入る" },
-      { rule: "zeroCostBasis", match: /taxable/, what: "課税口座を足すと、取得価額が0円で入る" },
       { rule: "screenWords", match: /incomeFlow/, what: "世帯の中身の一覧に内部の名前（incomeFlow）が出る" },
     ]);
   });
