@@ -176,14 +176,14 @@ export function scaleInputs(m: MainChartModel, t: Series, mode: ChartMode, n: nu
 export { EVENT_R };
 
 /** 丸と丸の間（中心の間隔） */
-const eventGap = (fs: number) => (2 * EVENT_R + 3) * fs;
+export const eventGap = (fs: number) => (2 * EVENT_R + 3) * fs;
 
 /**
  * right: 右の余白（文字の大きさ 16px のとき）。rows: 年のイベントの丸の段の数（2段のときは下の余白を1段分広げる）。
  * short: 「!」の段を設ける（できごとの丸の段のすぐ上。その分だけ下の余白を広げ、できごとの丸の段と年の目盛りの位置・大きさは変えない）。
  * ages: 年齢の段の数（夫婦は2段。増えた段の分だけ下の余白を広げる。AgeAxis.tsx）
  */
-function frameOf(w: number, h: number, fs: number, right: number, rows = 1, short = false, ages = 1): Frame {
+export function frameOf(w: number, h: number, fs: number, right: number, rows = 1, short = false, ages = 1): Frame {
   // rows = 0: 年のイベントの丸を描かない（縮めた表示。年と年齢の目盛りの分だけ空ける。「!」の段も設けない）
   return { width: w, height: h, left: 64 * fs, right: right * fs, top: 26 * fs, bottom: ((rows === 0 ? 44 : 70 + (rows - 1) * (2 * EVENT_R + 3) + (short ? SHORT_ROW : 0)) + ageExtra(ages)) * fs };
 }
@@ -226,7 +226,7 @@ export function shortSources(model: MainChartModel, opt: { explain: boolean; mul
 }
 
 /** 年のイベントの丸の置き場所（x と段）。x は年の位置から、重なる丸は横に並べ直す（狭いグラフでは2段にする） */
-function eventLayout(events: readonly EventChip[], years: readonly number[], f: Frame, fs: number): { x: number[]; row: number[]; rows: number } {
+export function eventLayout(events: readonly EventChip[], years: readonly number[], f: Frame, fs: number): { x: number[]; row: number[]; rows: number } {
   const n = years.length;
   const band = n > 0 ? (f.width - f.left - f.right) / n : 0;
   const xs = events.map((e) => f.left + band * (years.indexOf(e.year) + 0.5));
@@ -284,10 +284,10 @@ function bars(up: StackSeries[], down: StackSeries[], s: Scale, n: number, hatch
   return out;
 }
 
-const tickText = (t: number) => (t < 0 ? "▲" : "") + group(t);
+export const tickText = (t: number) => (t < 0 ? "▲" : "") + group(t);
 
 /** 表示（HTML の小さな箱）の実際の大きさを測る（文字の大きさ・中身が変わったとき） */
-function useBoxSize(ref: RefObject<HTMLElement>): { w: number; h: number } | null {
+export function useBoxSize(ref: RefObject<HTMLElement>): { w: number; h: number } | null {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   useLayoutEffect(() => {
     const el = ref.current;

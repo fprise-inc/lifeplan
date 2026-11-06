@@ -14,6 +14,8 @@ export const PATTERN: Readonly<Record<string, string>> = {
   education: "solid",
   insurance: "solid",
   realEstateOut: "solid",
+  rentalBefore: "solid",
+  rentalAfter: "solid",
   expenseOther: "solid",
   deposit: "solid",
   nisa: "solid",

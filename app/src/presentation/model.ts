@@ -746,8 +746,29 @@ export interface RentalTableModel {
   rows: { year: number; cells: string[]; deadCross: boolean; negative: boolean[] }[];
 }
 
+/**
+ * 年ごとの手残りとローン残高のグラフ（年は下の年ごとの表と同じ。0128）。金額は円。
+ * 手残りは棒（税引前・税引後）、ローン残高は線（右の目盛り）。events は物件の売却・大きな修繕の「不」の印（結果のタブの出来事と同じ文）
+ */
+export interface RentalChartModel {
+  years: number[];
+  /** 年の目盛りの下の年齢の段（結果のタブのグラフと同じ） */
+  axis: AgeAxisRow[];
+  /** 年を指したときの札の見出しの家族の年齢 */
+  family: string[];
+  before: Yen[];
+  after: Yen[];
+  /** ローン残高（ローンの無い物件・全物件でローンが無いときは null。線と右の目盛りを出さない） */
+  loan: Yen[] | null;
+  /** 年を指したときの札の金額（下の表と同じ書き方の万円の文字。「▲」つき） */
+  text: { before: string[]; after: string[]; loan: string[] };
+  events: EventChip[];
+}
+
 /** 売る年を変えた比べの1行 */
 export interface RentalSaleRowModel {
+  /** 売り方の鍵（この売り方でプランを作るときに渡す） */
+  key: string;
   label: string;
   current: boolean;
   net: string;
@@ -770,6 +791,7 @@ export interface RentalPropertyViewModel {
   /** 指標を見る年 */
   year: number;
   metrics: RentalMetricModel[];
+  chart: RentalChartModel;
   table: RentalTableModel;
   /** 元金の返済が減価償却費を上回る最初の年（表に印を付ける） */
   deadCross: number | null;
@@ -785,6 +807,7 @@ export interface RentalTotalViewModel {
   columns: { key: string; label: string }[];
   rows: { key: string; cells: string[] }[];
   totalRow: string[];
+  chart: RentalChartModel;
   table: RentalTableModel;
 }
 

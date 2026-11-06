@@ -21,7 +21,7 @@ import { BalanceTab, type BsView } from "../presentation/BalanceTab.tsx";
 import type { BsPlanModel, BsPrevModel } from "../presentation/model.ts";
 import { balanceTabModel, bsPlan, bsPrev, defaultGuideBasis } from "./balanceTab.ts";
 import { RentalTab } from "../presentation/RentalTab.tsx";
-import { analysisOf, hasRentalProperty, rentalTabModel, resolveRentalView, useRentalSale, type RentalUi } from "./rentalTab.ts";
+import { analysisOf, hasRentalProperty, recordSaleVariant, rentalPropertyName, rentalTabModel, resolveRentalView, salePlanName, saleVariantOf, useRentalSale, type RentalUi } from "./rentalTab.ts";
 import { MONEY_THREE_NAME_CHOICES, moneyThreeModel } from "./moneyThree.ts";
 import { snapshotDateText, TRIGGER_TEXT } from "./snapshots/snapshots.ts";
 import { colorStyle, PLAN_COLORS } from "../presentation/planLines.tsx";
@@ -1699,6 +1699,29 @@ export function App() {
     const newLetter = planLetters(r.wh.proposals).get(r.id)?.letter ?? "";
     placeNew(w, r.wh, r.id, w.drafts, `${planLabel(srcLetter)}を写して ${planLabel(newLetter)} を作りました。下の対策で動かしてください`);
   }, [placeNew]);
+  /**
+   * 収益不動産のタブの「売る年を変えた比べ」の行から: 帯の「＋ このプランを元に作る」と同じく見ているプランを写して新しいプランを作り、
+   * そのプランに、その物件の売る年だけを変えた差分を入力画面でプランを直したときと同じ記録で足して、そのまま選ぶ（0128。現状は変えない）
+   */
+  const salePlan = useCallback(
+    (object: string, key: string) => {
+      const o = openedRef.current;
+      const w = workRef.current;
+      if (o === null) return;
+      const src = w.sel;
+      const req = reqOf(o, valuesOf(o.wh, w, src));
+      const v = saleVariantOf(req, object, key);
+      if (v === null) return;
+      const head = planLabel(headLetter(suggestName(o.wh.proposals, savedValues(o.wh, src), o.wh, o.catalog, src === CURRENT ? null : src)) ?? "");
+      const name = salePlanName(head, rentalPropertyName(req, object), v);
+      const r = savePlan(o.wh, o.catalog, { name, base: src === CURRENT ? null : src, values: valuesOf(o.wh, w, src), now: nowIso() });
+      const wh = recordSaleVariant(r.wh, o.catalog, r.id, object, v);
+      const srcLetter = planLetters(o.wh.proposals).get(src)?.letter ?? "A";
+      const newLetter = planLetters(wh.proposals).get(r.id)?.letter ?? "";
+      placeNew(w, wh, r.id, w.drafts, `${planLabel(srcLetter)}を元に ${planLabel(newLetter)}「${name.slice(head.length + 1)}」を作りました（現状の入力は変えていません）`);
+    },
+    [placeNew, reqOf],
+  );
   /** 入力の画面の編集の対象を選ぶ（0036 の8）: プランを選ぶと、結果のタブでもそのプランを選ぶ（帯に無ければ足す）。現状を選ぶと現状 */
   const selectInputPlan = useCallback(
     (id: string | null) => {
@@ -2769,6 +2792,7 @@ export function App() {
                 band={<PlanBand model={band} onSelect={select} onBase={setBase} onAdd={duplicate} onRemove={removePlan} />}
                 onView={(view) => setRentalUi({ view, year: null })}
                 onYear={(year) => setRentalUi((u) => ({ ...u, view: rentalModel.selected, year }))}
+                onSalePlan={salePlan}
               />
             </>
           )

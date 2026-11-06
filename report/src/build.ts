@@ -207,6 +207,10 @@ function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
   const hasReExp = props.some((a) => a.property?.rental !== undefined || a.property?.expenses !== undefined || (a.property?.repairs ?? []).length > 0);
   const isRent = (c: TableCell) => hasRent && c.row === "cf.income.other.rental";
   const isReExp = (c: TableCell) => hasReExp && c.row === "cf.expense.other.realEstate";
+  // 住まい以外の不動産を売った手取りは「不動産の売却」の行にする（売る予定を入れた物件があるときだけ。住まいの売却は「その他の収入」のまま。アプリと同じ。0128）
+  const propIds = new Set(props.map((a) => a.id));
+  const hasReSale = props.some((a) => a.property?.sale !== undefined);
+  const isReSale = (c: TableCell) => hasReSale && c.row === "cf.income.lumpSum.realEstateSale" && c.object !== undefined && propIds.has(c.object);
   // 住まい以外の不動産のローン（負債の property）の返済と残高は、住まいのローン・その他の支出と分けた行にする（アプリと同じ。0127）
   const reLoanIds = new Set((req.input.household.debts ?? []).filter((d) => d.property !== undefined).map((d) => d.id));
   const reLoan = (c: TableCell) => reLoanIds.size > 0 && c.object !== undefined && reLoanIds.has(c.object);
@@ -221,12 +225,13 @@ function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
     { key: "retirement", label: "退職金", group: "income", kind: "value", match: (c) => under(c.row, "cf.income.lumpSum.retirement") },
     { key: "benefit", label: "給付・手当", group: "income", kind: "value", match: (c) => under(c.row, "cf.income.benefit") },
     ...(hasRent ? [{ key: "rent", label: "家賃収入", group: "income" as const, kind: "value" as const, match: isRent }] : []),
+    ...(hasReSale ? [{ key: "realEstateSale", label: "不動産の売却", group: "income" as const, kind: "value" as const, match: isReSale }] : []),
     {
       key: "incomeOther",
       label: "その他の収入",
       group: "income",
       kind: "value",
-      match: (c) => under(c.row, "cf.income") && !known(c, "cf.income.salary") && !known(c, "cf.income.pension") && !under(c.row, "cf.income.lumpSum.retirement") && !under(c.row, "cf.income.benefit") && !isRent(c),
+      match: (c) => under(c.row, "cf.income") && !known(c, "cf.income.salary") && !known(c, "cf.income.pension") && !under(c.row, "cf.income.lumpSum.retirement") && !under(c.row, "cf.income.benefit") && !isRent(c) && !isReSale(c),
     },
     { key: "incomeTotal", label: "収入合計", group: "income", kind: "total", match: (c) => under(c.row, "cf.income") },
     { key: "living", label: "基本生活費", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.living") && c.row !== "cf.expense.living.surplus") },
