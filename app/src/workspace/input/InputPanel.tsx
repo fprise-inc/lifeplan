@@ -4,11 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { allFields, type Level } from "./form.ts";
 import { fieldDomId, FieldStateOps, FieldSuggestions, GroupOpen, PinControls, PlanMarksContext, Section, SectionLinks, visible, type GroupOpenState, type PinControl, type PlanMarks, type SectionLink } from "./FieldViews.tsx";
 import { dropStaleRows } from "./rows.ts";
-import { applyStateOp, availableOps, confirmAll, fieldStatus, planStateOp, type StateOp } from "./valueState.ts";
+import { applyStateOp, availableOps, confirmAll, endedLongAgo, fieldStatus, holderOfField, planStateOp, type StateOp } from "./valueState.ts";
 import type { FieldDef } from "./form.ts";
 import type { Catalog } from "../plans/items.ts";
 import { diffRows, fieldMark, groupMark, planView, recordPlanEdit, referrersOf, removedObjects, removedRows, revertField, revertRow, settleFields, withoutObjects, type Referrer } from "../plans/planEdit.ts";
 import { fillAll, gapsOf } from "./fill.ts";
+import { GapBand } from "./GapBand.tsx";
+import { confirmAllLabel, CONFIRM_ALL_NOTE } from "./checkRows.ts";
 import { useSurplusSuggestion } from "./surplusSuggest.ts";
 import { useSavingsCheckLine } from "./savingsCheckLine.ts";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
@@ -110,6 +112,8 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
   const [leaving, setLeaving] = useState(false);
   /** 知らせが「明細のパネルを開く前に保存する」か（false なら「閉じると変更が消える」） */
   const [toStatement, setToStatement] = useState(false);
+  /** まとめての「この値にする」を押す前の確かめの1行を出しているか */
+  const [asking, setAsking] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   /** 欄に見せる世帯: 現状を直すときは下書き、プランを直すときは下書きにそのプランを当てた作業中の世帯 */
   const shown = useMemo(() => (plan === undefined ? draft : planView(draft, plan.cat, plan.id)), [draft, plan]);
@@ -334,27 +338,35 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
   // 見えている欄のうち推定のままの欄（「推定の値をまとめて使う」で確定にする欄）
   // 詳細では、標準だけのまとまり（今の働き方など。同じ値を詳細の欄で入れる）の欄を数えない
   const shownFields = allFields({ ...stage, sections: sections.map((s) => ({ ...s, groups: s.groups.filter((g) => level === "simple" || g.simpleOnly !== true) })) }).filter((f) => visible(level, f.level));
-  const estimatedShown = shownFields.filter((f) => f.quietEstimate === undefined && fieldStatus(f, shown).status === "estimated" && availableOps(f, shown).includes("confirm")).length;
+  // 「この値にする」にできる推定（仮の値・ずっと前に終わった物は入れない。確かめの一覧のまとめての操作と同じ決まり）
+  const confirmableOf = (f: FieldDef) => f.quietEstimate === undefined && fieldStatus(f, shown).status === "estimated" && availableOps(f, shown).includes("confirm") && !endedLongAgo(shown, holderOfField(f, shown));
+  const estimatedShown = shownFields.filter(confirmableOf).length;
+  // 隠れた欄（詳細・閉じたまとまり）にも推定があれば、ボタンは「見えている ○か所」と書く（見出しの数と数え方を分ける）
+  const estimatedAll = allFields(stage).filter(confirmableOf).length;
   // このカードの入っていない物（古い世帯では自動で推定を入れず、ここと確かめの一覧に出す。fill.ts）
   const gaps = gapsOf(shown).filter((g) => g.card === itemId);
   // まだ何も入れていない項目（赤い帯を出さない）
   const quiet = item.status === "empty";
   const confirmShown = () => {
-    if (plan === undefined) return edit(confirmAll(draft, shownFields).wh);
+    setAsking(false);
+    const targets = shownFields.filter(confirmableOf);
+    if (plan === undefined) return edit(confirmAll(draft, targets).wh);
     let w = latest.current;
-    for (const f of shownFields) if (f.quietEstimate === undefined && fieldStatus(f, planView(w, plan.cat, plan.id)).status === "estimated") w = planStateOp(w, plan.cat, plan.id, f, "confirm");
+    for (const f of targets) if (fieldStatus(f, planView(w, plan.cat, plan.id)).status === "estimated") w = planStateOp(w, plan.cat, plan.id, f, "confirm");
     commit(w);
   };
   const removed = item.added !== null && item.summary === null;
   // 保存の下の1行は状態だけ（推定のままの欄の数）。保存すると何が起きるかは「?」の中（0077）
-  const note = leaving ? null : !removed && item.estimated > 0 ? `推定・仮の値のままの欄: ${item.estimated}つ` : null;
+  const note = leaving ? null : !removed && item.estimated > 0 ? `推定・仮の値のままの欄: ${item.estimated}か所` : null;
   const saveHelp = removed
     ? "保存すると、このピンがなくなります。"
     : plan !== undefined
       ? `保存すると、${plan.label}の差分になります（現状は変わりません）。`
       : item.added !== null
         ? "保存すると、この物に入れた値が世帯に入ります。"
-        : "保存すると、この項目は「入力済み」になります（何も入れずに保存すると「該当なし」）。";
+        : itemId === "assumptions"
+          ? "保存すると、入れた前提が世帯に入ります。前提条件は、値を打つか「この値にする」を押すと「入力済み」になります（既定の値のままなら「既定の値で計算中」）。"
+          : "保存すると、この項目は「入力済み」になります（何も入れずに保存すると「該当なし」）。";
 
   return (
     <>
@@ -475,44 +487,31 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
               ))}
             </ul>
           ) : null}
-          {/* 入っていない物: 入れ始めた項目は赤い帯で知らせ、まだ入れていない項目は帯を出さず、目安と「該当なし」の操作だけを控えめに（0045 の追記） */}
-          {gaps.length > 0 ? (
-            <div class={`ip-gaps${quiet ? " quiet" : ""}`} role="note" data-gaps={quiet ? "quiet" : "alert"}>
-              {quiet ? null : <p>未入力（0円で計算中）の所があります。</p>}
-              <ul>
-                {gaps.map((g) => (
-                  <li key={g.id} data-gap={g.id}>
-                    <span>{quiet ? `${g.label}:` : `${g.label}: ${g.note}`}</span>
-                    {g.fill !== undefined ? (
-                      <button type="button" class="link-btn" onClick={() => edit(g.fill?.(shown) ?? shown)} {...(g.basis !== undefined ? { title: `推定: ${g.basis}` } : {})} data-gap-fill>
-                        推定で埋める
-                      </button>
-                    ) : null}
-                    {g.none !== undefined ? (
-                      <button type="button" class="link-btn" onClick={() => edit(g.none?.(shown) ?? shown)} data-gap-none>
-                        該当なし{g.noneLabel !== undefined ? `（${g.noneLabel}）` : ""}
-                      </button>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-              {gaps.filter((g) => g.fill !== undefined).length > 1 ? (
-                <button type="button" class="link-btn" onClick={() => edit(fillAll(shown, itemId).wh)} data-gap-fill-card>
-                  この項目を推定で埋める
-                </button>
-              ) : null}
-            </div>
-          ) : null}
           {estimatedShown > 0 ? (
             <div class="ip-bulk">
-              {/* 見えている推定の欄の全部に「この値にする」を押すのと同じ（0041 の追記） */}
-              <button type="button" class="fld-fill" onClick={confirmShown} title="見えている推定の欄に、推定の値をまとめて入れます（確定になります）" data-confirm-all>
-                推定の値をまとめて使う（{estimatedShown}つ）
-              </button>
+              {/* 見えている推定の欄の全部に「この値にする」を押すのと同じ（0041 の追記）。押す前に、何が変わるかの1行を出す */}
+              {asking ? (
+                <p class="ip-ask" role="alert" data-confirm-ask>
+                  {CONFIRM_ALL_NOTE}
+                  <button type="button" class="fld-fill" onClick={confirmShown} data-confirm-run>
+                    この値にする（{estimatedShown}か所）
+                  </button>
+                  <button type="button" class="link-btn" onClick={() => setAsking(false)} data-confirm-cancel>
+                    キャンセル
+                  </button>
+                </p>
+              ) : (
+                <button type="button" class="fld-fill" onClick={() => setAsking(true)} title="見えている推定のままの値を、その値のまま確定にします（押すと確かめの1行が出ます）" data-confirm-all>
+                  {confirmAllLabel(estimatedShown, estimatedShown < estimatedAll ? "見えている" : "")}
+                </button>
+              )}
             </div>
           ) : null}
         </div>
         <div class="ip-body" data-reveal-root>
+          {/* 入っていない物（1件を1行。パネルの上の固定の場所でなく本文の頭に置き、欄と一緒に流れる）。入れ始めた項目は赤い帯で知らせ、まだ入れていない項目は
+              帯を出さず、推定と「該当なし」の操作だけを控えめに（0045 の追記・0041 の追記 2026-11-06） */}
+          <GapBand gaps={gaps} wh={shown} onEdit={edit} quiet={quiet} onFillAll={() => edit(fillAll(shown, itemId).wh)} />
           <GroupOpen.Provider value={groupOpen ?? null}>
           <PinControls.Provider value={pins}>
           {itemId === "savings" ? (

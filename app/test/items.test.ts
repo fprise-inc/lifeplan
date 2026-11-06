@@ -256,7 +256,7 @@ describe("カードの状態（4つ）", () => {
     expect(items.filter((i) => i.status === "empty").map((i) => i.id)).toEqual(["rental", "car", "care", "inheritance"]);
     // 子ども・教育の学費の統計の平均（学校の種類で決まる推定）は数えないので、進路を入れた子ども・教育は入力済み（0062 の追記 2026-10-31）
     expect(byId(items, "education").status).toBe("done");
-    expect(progressOf(items)).toEqual({ total: 15, done: 9, est: 0, missing: 2, na: 0, empty: 4 });
+    expect(progressOf(items)).toEqual({ total: 15, done: 9, est: 0, missing: 2, na: 0, empty: 4, std: 0 });
     // 失業給付を「受け取らない」と決めると、働き方と収入は入力済み
     const decided = notApplicableCard(wh, "work");
     expect(byId(inputItems(decided), "work").status).toBe("done");
@@ -270,10 +270,11 @@ describe("カードの状態（4つ）", () => {
     expect(byId(items, "living")).toMatchObject({ status: "est", estimated: 4 });
     expect(byId(items, "pension")).toMatchObject({ status: "est", estimated: 1 });
     expect(byId(items, "education").status).toBe("na");
-    expect(byId(items, "assumptions").status).toBe("done");
+    // 前提条件は既定の値のままなら「既定の値で計算中」（0041 の追記 2026-11-06）
+    expect(byId(items, "assumptions").status).toBe("std");
     // 入れ始める前の項目は、入っていない物があっても「まだ入れていない」（赤い数に入れない。0045 の追記）
     expect(byId(items, "insurance")).toMatchObject({ status: "empty", missing: 1 });
-    expect(progressOf(items)).toEqual({ total: 15, done: 1, est: 3, missing: 0, na: 1, empty: 10 });
+    expect(progressOf(items)).toEqual({ total: 15, done: 0, est: 3, missing: 0, na: 1, empty: 10, std: 1 });
   });
 
   it("0円で計算している欄（未入力の印の0円）があれば、物があっても未入力（0円の所あり）", () => {
@@ -383,7 +384,8 @@ describe("入れ始めた項目だけに抜けを知らせる（0045 の追記�
   it("確かめの一覧: まだ入れていない項目の行は警告（未入力）でなく「まだ入れていない項目」にまとめ、入っていない物の無い項目も1行ずつ出す", () => {
     const wh = blankHousehold("2026-10", seq());
     const rows = checkList(wh);
-    expect(rows.filter((r) => r.kind === "missing")).toEqual([]);
+    // 未入力の側は、仮の値の生年月だけ（推定と分けた。0041 の追記 2026-11-06）
+    expect(rows.filter((r) => r.kind === "missing").map((r) => r.fieldKey?.endsWith("/birth"))).toEqual([true]);
     const ns = rows.filter((r) => r.kind === "notStarted");
     expect(ns.map((r) => r.id)).toEqual([
       "notStarted:work",
@@ -415,11 +417,14 @@ describe("入れ始めた項目だけに抜けを知らせる（0045 の追記�
     expect(quiet).not.toContain("未入力（0円で計算中）の所があります");
     expect(quiet).not.toContain("住まいが入っていないので");
     expect(quiet).not.toContain("ih-st missing");
-    expect(quiet).toContain("推定で埋める");
+    expect(quiet).toContain("推定で入れる");
+    expect(quiet).not.toContain("推定で埋める");
     expect(quiet).toContain("該当なし（住居費なし）");
     const started = panel(housingAction(wh, "add/cardLoan"));
     expect(started).toContain('data-gaps="alert"');
-    expect(started).toContain("未入力（0円で計算中）の所があります");
+    // 1件を1行（「住居費: 未入力（0円）」）。パネルの上の固定の場所でなく本文の頭（0041 の追記 2026-11-06）
+    expect(started).toContain("住居費: 未入力（0円）");
+    expect(started.indexOf("data-gaps=")).toBeGreaterThan(started.indexOf('class="ip-body"'));
     expect(started).toContain('<span class="ih-st missing">未入力（0円の所あり）</span>');
   });
 });
@@ -446,7 +451,7 @@ describe("カードの1行の案内・1押し（どの項目も同じ決まり�
     expect(html).toContain('data-progress-missing="0"');
     expect(html).not.toContain("ih-prog-miss on");
     // 状態ごとの数は押すとそのカードだけに絞るボタン（0072）
-    expect(html.replace(/<button[^>]*>|<\/button>/g, "")).toContain('15項目中 入力済み <span class="n">1</span>・推定で計算中 <span class="n">3</span>・該当なし <span class="n">1</span>・まだ入れていない <span class="n">10</span>');
+    expect(html.replace(/<button[^>]*>|<\/button>/g, "")).toContain('15項目中 入力済み <span class="n">0</span>・推定で計算中 <span class="n">3</span>・該当なし <span class="n">1</span>・まだ入れていない <span class="n">10</span>・既定の値で計算中 <span class="n">1</span>');
     expect(html).toContain('data-progress-filter="est"');
     expect(html.indexOf("data-progress-missing")).toBeLessThan(html.indexOf("15項目中"));
     expect(html).not.toContain("data-first-guide");
@@ -456,7 +461,7 @@ describe("カードの1行の案内・1押し（どの項目も同じ決まり�
     expect(html).toContain('data-card-na="insurance"');
     expect(html).toContain("入れなくても計算できます（保障は無しで計算中）");
     // 状態は色だけでなく文字でも
-    for (const t of ["入力済み", "推定で計算中（1項目）", "該当なし", "まだ入っていません"]) expect(html).toContain(t);
+    for (const t of ["入力済み", "推定で計算中（1か所）", "該当なし", "まだ入っていません"]) expect(html).toContain(t);
     // まだ入れていない項目のカードには赤い札を出さない（点線の枠は灰色。s-empty）
     expect(html).not.toContain("ih-st missing mini\">未入力（0円の所あり）</span></span></button>");
     expect((html.match(/ih-card s-empty/g) ?? []).length).toBe(10);
@@ -482,7 +487,7 @@ describe("カードの1行の案内・1押し（どの項目も同じ決まり�
     expect(html).toContain('class="scrim"');
     expect(html).toContain('role="dialog"');
     // 保存の下は状態だけ。保存すると何が起きるかは「?」の中（0077）
-    expect(html).toContain("推定・仮の値のままの欄: 1つ");
+    expect(html).toContain("推定・仮の値のままの欄: 1か所");
     expect(html).toContain("保存しても、推定の欄が残る間は項目は「推定で計算中」のままです。");
     expect(html).toContain("data-save");
   });
@@ -521,7 +526,7 @@ describe("ピン", () => {
     const child = wh.request.input.household.members.find((m) => m.kind === "child")!;
     const w = withAdded(wh, ["care", `abroad:${child.id}`, "abroad", "periodic"]);
     expect(pinItems(w).map((p) => [p.owner, p.label, p.art])).toEqual([
-      ["care", expect.stringMatching(/^介護（/), "events"],
+      ["care", expect.stringMatching(/の介護$/), "events"],
       ["education", "留学", "abroad"],
       ["events", "留学", "abroad"],
       ["events", "新しい支出", "events"],
@@ -727,15 +732,18 @@ describe("要約の数字1つ", () => {
     expect(sumText(byId(items, "work"))).toMatch(/^年収 [\d,]+万円$/);
     expect(sumText(byId(items, "retirement"))).toBe("見込み 1,800万円");
     expect(sumText(byId(items, "living"))).toBe("月30万円");
-    expect(sumText(byId(items, "education"))).toBe("2人・私立あり");
+    // 私立になる最初の段（前の「私立あり」は既定の型でどの子も同じになり、何も伝えなかった。0041 の追記 2026-11-06）
+    expect(sumText(byId(items, "education"))).toBe("2人・高校から私立 1人");
     expect(sumText(byId(items, "housing"))).toBe("残高 2,240万円");
-    expect(sumText(byId(items, "assumptions"))).toBe("物価 1.0%");
+    // 物価と、結果に一番効く運用利回り（0041 の追記 2026-11-06）
+    expect(sumText(byId(items, "assumptions"))).toBe("物価 1.0%・運用 1.0%");
   });
   it("車・介護・親・相続・贈与・ほかの型", () => {
     expect(sumText(byId(inputItems(open("unexplainedSpending")), "car"))).toBe("1台・維持費 年18.6万円");
     const care = inputItems(open("parentCare"));
     expect(sumText(byId(care, "family"))).toBe("1人（＋親1）");
-    expect(sumText(byId(care, "care"))).toBe("2件の介護・世帯の外 1人");
+    // 介護の費用の額（期間を入れていない介護があるときは月の額）と介護を受ける人・親の人数（0041 の追記 2026-11-06）
+    expect(sumText(byId(care, "care"))).toBe("介護 月36万円（母・ご本人）・親 1人");
     expect(sumText(byId(inputItems(open("housingGiftFromParents")), "inheritance"))).toBe("2件の援助");
     // 相続税の目安は要約にしない。入れた中身があるときだけ、下の小さな1行にする（0060 の 2026-10-29 の追記）
     const gift = byId(inputItems(open("housingGiftFromParents"), { inheritanceTax: "相続税: かからない見込み" }), "inheritance");

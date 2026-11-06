@@ -295,7 +295,7 @@ function ProposalPdf(p: Props) {
           {drafted ? <p class="rp-note warn">保存していない変更を含むプランがあります。今の中身（結果と同じ）で作ります。</p> : null}
           {estimates.length > 0 ? (
             <p class="rp-note" data-report-estimates>
-              推定・仮の値のままの欄があります（FP向けの表示）: {estimates.map((e) => `${e.label} ${e.count}つ`).join("・")}。提案書には「一部は統計の平均で補っています」とだけ載せ、どの欄かは書きません。
+              推定・仮の値のままの欄があります（FP向けの表示）: {estimates.map((e) => `${e.label} ${e.count}か所`).join("・")}。提案書には「一部は統計の平均で補っています」とだけ載せ、どの欄かは書きません。
             </p>
           ) : null}
         </fieldset>
