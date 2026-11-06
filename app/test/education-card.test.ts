@@ -11,6 +11,7 @@ import { allFields, type FieldDef, type StageDef } from "../src/workspace/input/
 import { blankHousehold, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { addIncome } from "../src/workspace/input/moneyRows.ts";
 import { rowAt } from "../src/workspace/input/rows.ts";
+import { resolveTimepoint } from "../src/workspace/input/form.ts";
 import { addChildWithEducation, addMember } from "../src/workspace/input/stages/family.ts";
 import { addChildExpense, addChildIncome, addEducationLoan, addScholarship, educationRowChild, HIGHER_SUPPORT_NOTE, outOfSchoolModeOf, replaceHigher, VOCATIONAL_MISSING } from "../src/workspace/input/stages/education.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
@@ -123,7 +124,7 @@ describe("学校外の費用の入れ方（統計の平均で／行で入れる�
     const statOnly = eduSum(wh.request, "cf.expense.education.outOfSchool");
     expect(statOnly).toBeGreaterThan(0);
     // 行で入れる に切り替えると、段ごとに統計の平均の行（推定）を作る。結果はほぼ同じ（月額に丸めた分だけ違う）
-    const rows = fieldOf(wh, `edu/${g.id}/outMode`).set(wh, "rows");
+    const rows = fieldOf(wh, `edu/${g.id}/outUniform`).set(wh, "rows");
     const g2 = goalOf(rows);
     expect(g2.education!.outOfSchoolMode).toBe("rows");
     const lessons = g2.education!.lessons!;
@@ -138,11 +139,11 @@ describe("学校外の費用の入れ方（統計の平均で／行で入れる�
     expect(fieldStatus(allFields(stage(cram)).find((f) => f.key === `edu/${g.id}/lesson/1/monthly`)!, cram).status).toBe("confirmed");
     expect(eduSum(cram.request, "cf.expense.education.outOfSchool")).toBeGreaterThan(rowsSum);
     // 統計に戻すと行は消さずに残し、計算に使わない。もう一度「行で入れる」にしても行を作り直さない
-    const back = fieldOf(cram, `edu/${g.id}/outMode`).set(cram, "statistics");
+    const back = fieldOf(cram, `edu/${g.id}/outUniform`).set(cram, "statistics");
     expect(goalOf(back).education!.lessons).toHaveLength(3);
     expect(eduSum(back.request, "cf.expense.education.outOfSchool")).toBe(statOnly);
     expect(groups(back).some((x) => x.key.startsWith(`edu/${g.id}/lesson/`))).toBe(false);
-    const again = fieldOf(back, `edu/${g.id}/outMode`).set(back, "rows");
+    const again = fieldOf(back, `edu/${g.id}/outUniform`).set(back, "rows");
     expect(goalOf(again).education!.lessons).toHaveLength(3);
     expect(goalOf(again).education!.lessons![1]!.monthly).toBe(42000);
   });
@@ -150,7 +151,7 @@ describe("学校外の費用の入れ方（統計の平均で／行で入れる�
   it("行に種類（塾・習い事・その他）。行で入れるときの足すボタン", () => {
     let wh = fresh();
     const g = goalOf(wh);
-    wh = fieldOf(wh, `edu/${g.id}/outMode`).set(wh, "rows");
+    wh = fieldOf(wh, `edu/${g.id}/outUniform`).set(wh, "rows");
     wh = actionOf(wh, `edu/${g.id}/addLesson/lesson`).run(wh);
     const l = goalOf(wh).education!.lessons!.at(-1)!;
     expect([l.kind, l.label, l.monthly]).toEqual(["lesson", "習い事", 8000]);
@@ -163,10 +164,10 @@ describe("学校外の費用の入れ方（統計の平均で／行で入れる�
     const wh = fromRequest(modelHousehold("educationTwoKids"));
     const g = (wh.request.input.household.goals ?? []).find((x) => (x.education?.lessons ?? []).length > 0)!;
     expect(outOfSchoolModeOf(g)).toBe("legacy");
-    const f = fieldOf(wh, `edu/${g.id}/outMode`);
+    const f = fieldOf(wh, `edu/${g.id}/outUniform`);
     expect(f.get(wh).value).toBe("legacy");
     expect(groups(wh).find((x) => x.key === `edu/${g.id}/out`)?.note).toContain("前の形");
-    expect(f.kind === "select" && f.options.map((o) => o.value)).toEqual(["statistics", "rows", "legacy"]);
+    expect(f.kind === "select" && f.options.map((o) => o.value)).toEqual(["statistics", "none", "custom", "rows", "legacy"]);
   });
 });
 
@@ -258,7 +259,9 @@ describe("奨学金・教育ローン", () => {
     const w = addScholarship(wh, g.id, "00000000-0000-4000-8000-0000000000c1");
     const s = goalOf(w).education!.scholarships![0]!;
     // 日本学生支援機構: 第二種の利率固定方式の年3.0%、返す年数は返還年数算出表（貸与総額240万円は基礎額16万円で15年）
-    expect(s).toMatchObject({ monthly: 50000, from: { at: "2035-04" }, to: { at: "2039-03" }, rate: "0.03", termMonths: 180, repaidBy: "child" });
+    // 受け取りの始まりは子の年齢（大学の入学の学年の4月）で書く（子の物差しで読み、生年月を直すと動く）
+    expect(s).toMatchObject({ monthly: 50000, from: { memberAge: { member: g.owner, years: 18, ageSwitch: "schoolYear" } }, to: { at: "2039-03" }, rate: "0.03", termMonths: 180, repaidBy: "child" });
+    expect(resolveTimepoint(w.request.input.household, s.from)).toBe("2035-04");
     const k = `edu/${g.id}/scholar/${s.id}`;
     expect(fieldStatus(fieldOf(w, `${k}/monthly`), w).status).toBe("estimated");
     const term = fieldOf(w, `${k}/term`);
@@ -316,8 +319,9 @@ describe("奨学金・教育ローン", () => {
     const kept = fieldOf(typed, `${k}/type`).set(typed, "first");
     expect(goalOf(kept).education!.scholarships![0]!).toMatchObject({ type: "first", rate: "0.012" });
     // 見出しに種類
-    expect(groups(first).find((x) => x.key === k)!.title).toBe("貸与の奨学金（第一種） 月50,000円");
-    expect(groups(w).find((x) => x.key === k)!.title).toBe("貸与の奨学金（第二種） 月50,000円");
+    // 見出しの額は欄の外の書き方（万円）で、返す人も添える
+    expect(groups(first).find((x) => x.key === k)!.title).toBe("貸与の奨学金（第一種） 月5万円・子が返す");
+    expect(groups(w).find((x) => x.key === k)!.title).toBe("貸与の奨学金（第二種） 月5万円・子が返す");
   });
 
   it("教育ローンを足すと入学の前の1月に本人が借り、借りた額が入金になる", () => {
@@ -325,11 +329,11 @@ describe("奨学金・教育ローン", () => {
     const g = goalOf(wh);
     const w = addEducationLoan(wh, g.id, "00000000-0000-4000-8000-0000000000c2");
     const l = goalOf(w).education!.loans![0]!;
-    // 国の教育ローン: 入学の年の学費（入学金と1年目の学費の統計の平均。上限350万円）・年4.05%・20年
+    // 国の教育ローン: 入学の年の学費（入学金と1年目の学費の統計の平均。上限350万円）・年4.60%・20年
     const uni = goalOf(w).education!.stages.find((x) => x.stage === "university")!;
     const st = stageStatistic(uni)!;
     const amount = Math.round((st.annual! + st.entrance!) / 10000) * 10000;
-    expect(l).toMatchObject({ at: { at: "2035-01" }, amount, rate: "0.0405", termMonths: 240 });
+    expect(l).toMatchObject({ at: { at: "2035-01" }, amount, rate: "0.046", termMonths: 240 });
     expect(fieldStatus(fieldOf(w, `edu/${g.id}/loan/${l.id}/amount`), w).status).toBe("estimated");
     expect(preview(w.request).table.filter((c) => c.row === "cf.income.other.scholarship" && c.year === 2035).reduce((a, c) => a + c.amount, 0)).toBe(amount);
     // 住まい・ローンのカードには読むだけの1行
@@ -348,7 +352,8 @@ describe("この子の入るお金・出るお金", () => {
     w = addChildIncome(w, c.id, "childPays", "00000000-0000-4000-8000-0000000000d2");
     const h: Household = w.request.input.household;
     const [support, pays] = h.incomeFlows!;
-    expect(support).toMatchObject({ recipient: c.id, from: { at: "2035-04" }, to: { at: "2038-04" }, everyYears: 1 });
+    expect(support).toMatchObject({ recipient: c.id, from: { memberAge: { member: c.id, years: 18, ageSwitch: "schoolYear" } }, to: { memberAge: { member: c.id, years: 21, ageSwitch: "schoolYear" } }, everyYears: 1 });
+    expect([resolveTimepoint(h, support!.from), resolveTimepoint(h, support!.to)]).toEqual(["2035-04", "2038-04"]);
     expect(pays).toMatchObject({ recipient: c.id, monthly: true, to: { at: "2039-03" } });
     const sec = stage(w).sections.find((s) => s.key === `edu/${c.id}`)!;
     expect(sec.groups.some((x) => x.key === `in/${support!.id}`)).toBe(true);
@@ -384,7 +389,7 @@ describe("欄の往復と計算", () => {
   it("同じ値を入れ直しても世帯は変わらない。どの足す操作の後も要求はスキーマを通る", () => {
     let wh = fresh();
     const g = goalOf(wh);
-    wh = fieldOf(wh, `edu/${g.id}/outMode`).set(wh, "rows");
+    wh = fieldOf(wh, `edu/${g.id}/outUniform`).set(wh, "rows");
     wh = addScholarship(wh, g.id);
     wh = addEducationLoan(wh, g.id);
     for (const f of fields(wh)) {

@@ -667,8 +667,8 @@ describe("車を複数台・FP顧問料は前提条件の中", () => {
     expect(cars[1]!.purchase).toMatchObject({ price: 2500000, tradeIn: 380000, everyYears: 8, owned: true });
     expect(cars[1]!.upkeep).toEqual({ annual: 360000 });
     expect(cars[1]!.upkeepMode).toBe("total");
-    // 推定: 次の買い替えの時期・周期・価格・下取り・維持費
-    expect(byId(inputItems(two), "car")).toMatchObject({ status: "est", estimated: 5 });
+    // 推定: 次の買い替えの時期・周期・価格・下取り・維持費・手放す時期（名義の人の75歳）
+    expect(byId(inputItems(two), "car")).toMatchObject({ status: "est", estimated: 6 });
     expect(sumText(byId(inputItems(two), "car"))).toBe("2台・維持費 年54.6万円");
     const p = preview(two.request);
     for (const c of cars) expect(p.table.some((x) => x.object === c.id && x.row.startsWith("cf.expense")), c.id).toBe(true);

@@ -47,7 +47,6 @@ const BY_LABEL: Readonly<Record<string, PctRange>> = {
   // 入力項目をまたぐ言葉の決まりの率の欄の名前（決まった率の伸び方）。前の名前は、まだ当てはめていない入力項目のために残す
   "伸び率（年）": GROWTH_RANGE,
   "決まった変動率（年）": GROWTH_RANGE,
-  "決まった伸び率（年）": GROWTH_RANGE,
   "この期間の伸び（年率）": GROWTH_RANGE,
   "家賃の変動率（年）": GROWTH_RANGE,
   "固定資産税の変動率（年）": GROWTH_RANGE,
