@@ -97,7 +97,8 @@
                 "kind": "manual"
               }
             }
-          }
+          },
+          "unemploymentClaim": false
         },
         {
           "id": "496ee5b5-937e-43e9-9043-ec808189ead4",
@@ -149,7 +150,8 @@
                 "kind": "manual"
               }
             }
-          }
+          },
+          "unemploymentClaim": false
         }
       ],
       "accounts": [

@@ -361,13 +361,13 @@ describe("オフの差分・取り込みは現状へ・結果のタブと同じ�
     const off = renderToString(h(ImportMenu, { off: { label: "プランB", toCurrent: () => undefined }, initialOpen: true }, h("span", { "data-hearing": true }, "ヒアリングシート")));
     expect(off).toContain("data-to-current");
     expect(off).not.toContain("data-hearing");
-    // プランの操作（開いたとき）: 違いの一覧・結果を見る・新しいプラン・複製・土台に（0072・0077）
+    // プランの操作（開いたとき）: 結果を見る・新しいプラン・複製・土台に（0072・0077）。違いの一覧は箱の中の文字のリンク（メニューの外）
     const { PlanTarget } = await import("../src/workspace/input/PlanEdit.tsx");
     const planProps = { list: [{ id: "B", label: "プランB", name: "プランB", color: "#0072c6" }], sel: "B", onSelect: () => undefined, onNew: () => undefined, onCopy: () => undefined, cat, onSavePlan: () => undefined, lock: null, onResults: () => undefined };
     const menu = renderToString(h(PlanTarget, { p: planProps, diffs: { rows: [], open: false, onOpen: () => undefined }, initialMenu: true }));
     expect(menu).toContain("data-plan-results");
-    expect(menu.indexOf("data-diff-open")).toBeGreaterThan(menu.indexOf("data-plan-band"));
-    expect(menu.indexOf("data-diff-open")).toBeLessThan(menu.indexOf("data-plan-new"));
+    expect(menu.indexOf("data-diff-open")).toBeGreaterThan(menu.indexOf("data-plan-copy"));
+    expect(menu).toContain("違いの一覧（0）");
     expect(menu).toContain("data-plan-copy");
     // 現状のとき: FP のメニューから開いた取り込みの中身はそのまま出る（入力の入った世帯なので、ホームに「取り込む ▾」は出さない）
     const cur = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", importsOpen: true, imports: h("span", { "data-hearing": true }, "ヒアリングシート") }));

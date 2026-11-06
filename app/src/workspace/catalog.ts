@@ -102,7 +102,7 @@ export const DEMO_HOUSEHOLDS: readonly DemoHousehold[] = [
     id: "dualAssetsTwoKids",
     sampleNo: "3-4-03",
     title: "共働きの夫婦と子2人（資産が多め）",
-    traits: ["会社員", "共働き", "持ち家", "住宅ローン", "教育費", "資産運用"],
+    traits: ["会社員", "共働き", "持ち家", "住宅ローン", "教育費", "資産運用", "収益不動産"],
     targetAge: 95,
     steps: {
       retireAge: [60, 62, 65, 68, 70],
@@ -227,7 +227,7 @@ export const DEMO_HOUSEHOLDS: readonly DemoHousehold[] = [
     steps: { retireAge: [60, 62, 65, 68, 70], pensionAge: [60, 65, 68, 70, 75], nisaMonthly: [0, 10000, 20000, 30000], livingMonthly: [145000, 155000, 165000, 175000] },
     firstProposal: { retireAge: 65, pensionAge: 65, nisaMonthly: 20000, livingMonthly: 155000 },
     notes: { nisaMonthly: "働いている間、毎月積み立てる", livingMonthly: "家賃（月7.2万円）は別。子の独立後は70%、退職後は95%、80歳から85%" },
-    memo: ["ひとり親の手当（児童扶養手当など）は計算に入れていない。児童手当は入る（架空の例）", "長女は国立大学（自宅）、長男は専門学校を希望（架空の例）"],
+    memo: ["ひとり親の手当（児童扶養手当など）は計算に入れていない。児童手当は入る（架空の例）", "長女は国立大学（自宅）、長男は専門学校を希望。専門学校の学費は学校の案内の額（年110万円・入学金20万円。架空の例）"],
   },
   {
     id: "sampleSelfEmployedFamily",
@@ -269,8 +269,8 @@ export const DEMO_HOUSEHOLDS: readonly DemoHousehold[] = [
   {
     id: "rentalSample",
     sampleNo: "3-4-05",
-    title: "収益不動産を持つ会社員の夫婦と子1人（見本）",
-    traits: ["会社員", "共働き", "持ち家", "住宅ローン", "教育費"],
+    title: "収益不動産を持つ会社員の夫婦と子1人",
+    traits: ["会社員", "共働き", "持ち家", "住宅ローン", "教育費", "収益不動産"],
     targetAge: 95,
     steps: { retireAge: [60, 62, 65, 68, 70], pensionAge: [60, 65, 68, 70, 75], nisaMonthly: [0, 30000, 50000, 80000], livingMonthly: [300000, 320000, 340000] },
     firstProposal: {},
@@ -281,6 +281,29 @@ export const DEMO_HOUSEHOLDS: readonly DemoHousehold[] = [
       { name: "プランB 65歳まで働く（60歳から再雇用）", tags: ["老後"], values: { "lever:retireAge": 65 } },
       { name: "プランC 住宅ローンを300万円繰上返済", tags: ["住宅"], values: { "loan:1a4ab6d6-d333-45e9-97c8-193f070433a8:prepay": 3000000 } },
     ],
+  },
+  // 2026-11-07 に足した見本（すべて架空）: 親の介護と相続の画面を見せる2世帯。どちらも入力の画面の操作と同じ欄・ボタンで入れた世帯
+  {
+    id: "sampleParentsCare",
+    sampleNo: "3-5-02",
+    title: "親の介護と相続を控える夫婦・50代",
+    traits: ["会社員", "共働き", "持ち家", "資産運用", "親の介護・相続"],
+    targetAge: 95,
+    steps: { retireAge: [60, 62, 65, 68, 70], pensionAge: [60, 65, 68, 70, 75], nisaMonthly: [0, 30000, 50000, 80000], livingMonthly: [180000, 200000, 209000, 230000, 250000] },
+    firstProposal: { pensionAge: 68, nisaMonthly: 50000 },
+    notes: { retireAge: "ご本人は正社員（年収800万円）。配偶者はパート（年収120万円）", livingMonthly: "生活費は世帯の人数の統計の推定（2人）" },
+    memo: ["ご本人の父（82歳）は施設で介護（父のお金から払い、足りない分は世帯）。毎月3万円を仕送りしている（架空の例）", "ご本人の母（79歳）は同居で扶養している（架空の例）", "父からの相続（2,000万円）の見込み、孫への贈与（毎年50万円・5年）、FP顧問料の提案（単発30万円＋月1万円）（架空の例）"],
+  },
+  {
+    id: "sampleSeniorRental",
+    sampleNo: "3-6-01",
+    title: "退職前後の夫婦・60代（企業年金・収益不動産・親の介護と相続）",
+    traits: ["会社員", "共働き", "持ち家", "資産運用", "収益不動産", "親の介護・相続"],
+    targetAge: 95,
+    steps: { retireAge: [65, 66, 68, 70], pensionAge: [65, 68, 70, 75], nisaMonthly: [0, 10000, 30000, 50000], livingMonthly: [180000, 200000, 209000, 230000, 250000] },
+    firstProposal: { retireAge: 68, nisaMonthly: 30000 },
+    notes: { retireAge: "60歳で定年、今は再雇用（年収350万円）。配偶者はパート（年収100万円）" },
+    memo: ["確定給付企業年金を65歳から年60万円・10年で受け取る（架空の例）", "持ち家は完済（1995年築）。区分マンション1室を月7万円で貸している（2010年に1,800万円で取得。架空の例）", "預金2,500万円・課税口座800万円・NISA（月1万円）（架空の例）", "母（89歳）の在宅の介護を月8万円で払う。母からの相続（1,500万円）の見込み（架空の例）"],
   },
 ];
 

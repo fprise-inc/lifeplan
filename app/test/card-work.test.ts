@@ -14,7 +14,7 @@ import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { civilRetirementAge, reemploymentSalary } from "../src/workspace/input/stages/work.ts";
 import { fieldAddress, fieldStatus } from "../src/workspace/input/valueState.ts";
 import { readLevers } from "../src/workspace/levers.ts";
-import { modelHousehold, preview } from "./helpers.ts";
+import { modelWithGaps, preview } from "./helpers.ts";
 
 const BASE = "2026-10";
 let n = 0;
@@ -221,8 +221,8 @@ describe("辞め方・失業給付・高年齢雇用継続給付の欄", () => {
 
 describe("古い世帯: 失業給付は自動で入れず、確かめの一覧で知らせる", () => {
   it("開いても期間を書き換えない。推定で埋めると受け取る、受け取らないと決めると一覧から消える", () => {
-    const wh = withRefreshedEstimates(fromRequest(modelHousehold("salariedCoupleTwoKids")));
-    expect(JSON.stringify(wh.request.input.household.employmentPeriods)).toBe(JSON.stringify(modelHousehold("salariedCoupleTwoKids").input.household.employmentPeriods));
+    const wh = withRefreshedEstimates(fromRequest(modelWithGaps("salariedCoupleTwoKids")));
+    expect(JSON.stringify(wh.request.input.household.employmentPeriods)).toBe(JSON.stringify(modelWithGaps("salariedCoupleTwoKids").input.household.employmentPeriods));
     const missing = missingUnemployment(wh.request.input.household);
     expect(missing.length).toBeGreaterThan(0);
     const gap = gapsOf(wh).find((g) => g.id === `work/unemployment/${missing[0]!.id}`)!;

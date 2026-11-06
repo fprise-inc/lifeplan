@@ -40,7 +40,7 @@ import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { countsByCard, diffRows, planIndex, planView, recordPlanEdit } from "../src/workspace/plans/planEdit.ts";
 import type { Proposal } from "../src/workspace/plans/plans.ts";
 import { roles } from "../src/workspace/roles.ts";
-import { modelHousehold, preview } from "./helpers.ts";
+import { modelHousehold, modelWithGaps, preview } from "./helpers.ts";
 import { legacyAdded, withLegacyAdded } from "./legacyAdded.ts";
 
 const MODELS = readdirSync(join(REPO_DIR, "data", "modelHouseholds"))
@@ -52,7 +52,7 @@ const seq = () => {
   let n = 0;
   return () => `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}`;
 };
-const open = (id: string, memo: string[] = []) => fromRequest(modelHousehold(id), { memo });
+const open = (id: string, memo: string[] = []) => fromRequest(modelWithGaps(id), { memo });
 const byId = (items: InputItem[], id: string) => items.find((i) => i.id === id) as InputItem;
 const sumText = (i: InputItem) => (i.summary === null ? null : `${i.summary.pre ?? ""}${i.summary.main}${i.summary.unit ?? ""}`);
 const fieldOf = (stage: StageDef | null, suffix: string): FieldDef => allFields(stage as StageDef).find((f) => f.key.endsWith(suffix)) as FieldDef;

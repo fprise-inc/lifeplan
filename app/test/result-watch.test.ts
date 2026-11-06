@@ -28,27 +28,6 @@ const OP = (s: string) => `操作 ${s}`;
 
 /** 直す待ちの一覧（今ある不具合。直したまとまりがその行を消す） */
 const PENDING: readonly Pending[] = [
-  {
-    key: "vocational-fee-in-sample",
-    what: "ひとり親と子2人の見本の第2子（専門学校・私立）の学費が入っていない",
-    rule: "schoolFeeZero",
-    cases: ["見本 4-3-01"],
-    match: /学費が入っていない/,
-  },
-  {
-    key: "business-and-pension-rows",
-    what: "事業所得・企業年金（iDeCo・小規模企業共済・個人年金を含む）がキャッシュフロー表の「その他の収入」に入り、事業所得はグラフでは給与に入る",
-    rule: "rowGrouping",
-    cases: "all",
-    match: /cf\.income\.(business|corporatePension)/,
-  },
-  {
-    key: "internal-names-in-lists",
-    what: "世帯の中身の一覧・違いの一覧・変えたことに、内部の名前（incomeFlow・member など）や生の値（home → facility）が出る",
-    rule: "screenWords",
-    cases: [OP("受け取る相続の相手を変える"), OP("相続・贈与の行とプランの違い")],
-    match: /(世帯の中身の一覧|違いの一覧|変えたこと)/,
-  },
 ];
 
 const caseNames = WATCH_CASES.map((c) => c.name);
@@ -90,6 +69,10 @@ describe.each(WATCH_CASES.map((c) => c.name))("%s", (name) => {
 });
 
 describe("直す待ちの一覧（まだおかしい所があることを確かめる。直したら行を消す）", () => {
+  // 一覧が空のときも組を残す（新しい不具合を見つけたら、ここへ行を足す）
+  test("直す待ちの鍵は重ならない", () => {
+    expect(new Set(PENDING.map((p) => p.key)).size).toBe(PENDING.length);
+  });
   for (const p of PENDING) {
     test.fails(`直す待ち: ${p.what}（${p.key}）`, () => {
       const rule = WATCH_RULES.find((r) => r.id === p.rule)!;

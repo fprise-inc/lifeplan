@@ -175,17 +175,14 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       expect(d.notes.seen.childSupportFrom).toBe(d.wh.request.input.baseMonth);
       expect(sum(d.table, "cf.income.other", yearOf(d.wh.request))).toBeGreaterThan(0);
     });
-    it.fails("結果の表で、事業所得が「事業所得」の行に出る（今は「その他の収入」）", () => {
+    it("結果の表で、事業所得が「ご本人の事業所得」の行に出る（「その他の収入」に入れない）", () => {
       expect(d.rows.some((r) => r.includes("事業所得"))).toBe(true);
       const defs = rowDefs(d.wh.request);
       const other = defs.find((x) => x.key === "incomeOther")!;
       expect(d.table.some((c) => c.row.startsWith("cf.income.business") && other.match(c))).toBe(false);
     });
     panelChecks(() => d);
-    watchChecks(() => d, [
-      { rule: "rowGrouping", match: /cf\.income\.business/, what: "事業所得がキャッシュフロー表の「その他の収入」に入る" },
-      { rule: "screenWords", match: /incomeFlow/, what: "世帯の中身の一覧に内部の名前（incomeFlow）が出る" },
-    ]);
+    watchChecks(() => d, []);
   });
 
   describe("世帯③ 60代の夫婦・再雇用と企業年金・完済の持ち家・区分マンション1室・母の介護と相続", () => {
@@ -244,14 +241,12 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       const care = d.table.filter((c) => c.row.includes("care") && c.row.startsWith("cf.expense") && c.year > deathYear + 1);
       expect(care).toEqual([]);
     });
-    it.fails("結果の表で、企業年金が「企業年金」の行に出る（今は「その他の収入」）", () => {
+    it("結果の表で、企業年金が「企業年金・個人年金」の行に出る（「その他の収入」に入れない）", () => {
       expect(d.rows.some((r) => r.includes("企業年金"))).toBe(true);
     });
     panelChecks(() => d);
     watchChecks(() => d, [
       { rule: "pastRetirementEstimate", match: /db/, what: "定年の後に足した企業年金（年金で受け取る）の一時金の額が、推定0円・受け取りが過去のまま残る" },
-      { rule: "rowGrouping", match: /corporatePension/, what: "企業年金がキャッシュフロー表の「その他の収入」に入る" },
-      { rule: "screenWords", match: /incomeFlow/, what: "世帯の中身の一覧に内部の名前（incomeFlow）が出る" },
     ]);
   });
 

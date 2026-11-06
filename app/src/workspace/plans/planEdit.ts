@@ -589,6 +589,7 @@ export function recordPlanEdit(wh: WorkingHousehold, cat: Catalog, pid: string, 
     w = next;
     from = inputOf(planView(w, cat, pid));
   }
+  w = pruneIdleReplacements(w, cat, pid);
   // 画面の側の値: このプランで足した構成員の呼び名と、足した項目のカード（物はプランの差分。カードの記録は世帯に1つ）
   const nowMembers = new Set((wh.request.input.household.members ?? []).map((m) => m.id));
   const labels = Object.entries(after.labelsByMember).filter(([id, l]) => !nowMembers.has(id) && w.labelsByMember[id] !== l);
@@ -616,6 +617,28 @@ export function recordPlanEdit(wh: WorkingHousehold, cat: Catalog, pid: string, 
   if (w.proposals !== wh.proposals) {
     const t = new Date().toISOString();
     w = { ...w, proposals: w.proposals.map((p) => (p.id === pid && p !== findPlan(wh.proposals, pid) ? { ...p, updatedAt: t } : p)) };
+  }
+  return w;
+}
+
+/**
+ * 中身の変わらない置き換えの組を外す: 物の形を変えて（回数を1回から毎月にするなど）から戻すと、置き換えの組が「同じ物を外して同じ物を足す」に
+ * なって残る。組を外しても、そのプランの中身のその物が同じなら、組は要らない
+ */
+function pruneIdleReplacements(wh: WorkingHousehold, cat: Catalog, pid: string): WorkingHousehold {
+  let w = wh;
+  const p = findPlan(w.proposals, pid);
+  if (p === undefined) return w;
+  const pairs = new Set(p.diffs.filter((d) => d.pair != null).map((d) => d.pair as string));
+  for (const pair of pairs) {
+    const group = findPlan(w.proposals, pid)?.diffs.filter((d) => d.pair === pair) ?? [];
+    const add = group.find((d) => d.op === "add");
+    const rm = group.find((d) => d.op === "remove");
+    if (add === undefined || rm === undefined || !isObj(add.value) || typeof add.value.id !== "string" || objectIdOf(rm.target) !== add.value.id) continue;
+    const id = add.value.id;
+    const without = withDiffs(w, pid, (ds) => ds.filter((d) => d.pair !== pair));
+    const hit = objectsOf(inputOf(planView(without, cat, pid))).get(id);
+    if (hit !== undefined && sameJson(hit.obj, add.value)) w = without;
   }
   return w;
 }
@@ -706,8 +729,8 @@ export function removedObjects(before: WorkingHousehold, after: WorkingHousehold
 
 // ---- 物と値の見せ方 ----
 
-/** 物の集まりの呼び名（違いの一覧の「何を」） */
-const COLLECTION_LABELS: Readonly<Record<string, string>> = {
+/** 物の集まりの呼び名（違いの一覧・変えたこと・世帯の中身の一覧の「何を」）。物の集まり（COLLECTIONS）の全部に書く（テストで確かめる） */
+export const COLLECTION_LABELS: Readonly<Record<string, string>> = {
   member: "家族",
   relation: "家族の関係",
   event: "出来事",
@@ -721,7 +744,9 @@ const COLLECTION_LABELS: Readonly<Record<string, string>> = {
   debt: "ローン",
   residence: "住まい",
   livingExpense: "生活費",
-  periodicExpense: "支出",
+  periodicExpense: "出るお金",
+  incomeFlow: "入るお金",
+  transfer: "口座の間の移し替え",
   car: "車",
   advisoryFee: "FP顧問料",
   savingsCheck: "貯まり方の控え",
@@ -733,11 +758,18 @@ const COLLECTION_LABELS: Readonly<Record<string, string>> = {
 
 /** 物の呼び名（例: 「車（1台目）」ではなく「車「ミニバン」」のように、物が名前を持てば添える） */
 export function objectLabel(wh: WorkingHousehold, collection: string, obj: Obj): string {
-  const base = COLLECTION_LABELS[collection] ?? collection;
+  const base = COLLECTION_LABELS[collection] ?? "物";
   if (collection === "member" && typeof obj.id === "string") {
     const known = wh.request.input.household.members.some((m) => m.id === obj.id);
-    return known ? `${base}「${memberLabel(wh, obj.id)}」` : `${base}（${typeof obj.kind === "string" ? (KIND_TEXT[obj.kind] ?? obj.kind) : "新しい人"}）`;
+    return known ? `${base}「${memberLabel(wh, obj.id)}」` : `${base}（${typeof obj.kind === "string" ? (KIND_TEXT[obj.kind] ?? "新しい人") : "新しい人"}）`;
   }
+  // 家族の関係は、つながる2人の呼び方を添える（例: 家族の関係（ご本人と母））
+  if (collection === "relation") {
+    const ends = [obj.a ?? obj.parent, obj.b ?? obj.child].filter((x): x is string => typeof x === "string").map((id) => memberLabel(wh, id));
+    return ends.length === 2 ? `${base}（${ends[0]}と${ends[1]}）` : base;
+  }
+  // 介護は、受ける人と在宅か施設かを添える（例: 介護（母・施設））。場所を変えた置き換えで前と後が分かるように
+  if (collection === "care" && typeof obj.member === "string") return `${base}（${memberLabel(wh, obj.member)}・${obj.place === "facility" ? "施設" : "在宅"}）`;
   const name = typeof obj.label === "string" ? obj.label : typeof obj.name === "string" ? obj.name : null;
   const kind = typeof obj.kind === "string" ? (KIND_TEXT[obj.kind] ?? null) : typeof obj.type === "string" ? (KIND_TEXT[obj.type] ?? null) : null;
   const who = typeof obj.member === "string" ? memberLabel(wh, obj.member) : typeof obj.owner === "string" ? memberLabel(wh, obj.owner) : null;
@@ -945,11 +977,17 @@ function cardOf(d: PlanDiff, index: PlanIndex, now: Obj, view: Obj): string | nu
   const col = id === null ? null : (collectionIn(now, id) ?? collectionIn(view, id));
   return col !== null ? (COLLECTION_CARDS[col] ?? null) : null;
 }
+/**
+ * 人を出すカード: 世帯の中の人と離れて暮らす子は家族、世帯の外の親・祖父母などは介護・親（その人を足す・直す入力項目。
+ * 欄から引くと、その人を最初に指す欄の入力項目〔ご本人なら年金〕になってしまうため）
+ */
+const memberCard = (m: Obj): string => (isObj(m.outside) && m.kind !== "child" ? "care" : "family");
+
 /** 世帯の物の全部と、その物を出すカード・呼び名（世帯の中身の一覧。0074）。並びは物の集まりの順 */
 export function objectCards(wh: WorkingHousehold): { id: string; collection: string; card: string | null; label: string; obj: Obj }[] {
   const index = planIndex([wh]);
   const out: { id: string; collection: string; card: string | null; label: string; obj: Obj }[] = [];
-  for (const [id, o] of objectsOf(inputOf(wh))) out.push({ id, collection: o.collection, card: index.targets.get(targetKey(targetFor(o.collection, id))) ?? COLLECTION_CARDS[o.collection] ?? null, label: objectLabel(wh, o.collection, o.obj), obj: o.obj });
+  for (const [id, o] of objectsOf(inputOf(wh))) out.push({ id, collection: o.collection, card: o.collection === "member" ? memberCard(o.obj) : (index.targets.get(targetKey(targetFor(o.collection, id))) ?? COLLECTION_CARDS[o.collection] ?? null), label: objectLabel(wh, o.collection, o.obj), obj: o.obj });
   return out;
 }
 const collectionIn = (input: Obj, id: string): string | null => objectsOf(input).get(id)?.collection ?? null;
@@ -1058,8 +1096,10 @@ function describe(d: PlanDiff, group: readonly PlanDiff[], wh: WorkingHousehold,
     const add = group.find((x) => x.op === "add");
     const col = add !== undefined && "collection" in add.target ? add.target.collection : (rm !== undefined ? collectionIn(now, objectIdOf(rm.target) ?? "") : null) ?? "物";
     const from = rm !== undefined && isObj(rm.before) ? objectLabel(wh, col, rm.before) : "—";
-    const to = add !== undefined && isObj(add.value) ? objectLabel(view, col, add.value) : "なし";
-    return { kind: "replace", label: `置き換え: ${COLLECTION_LABELS[col] ?? col}`, from, to };
+    const to0 = add !== undefined && isObj(add.value) ? objectLabel(view, col, add.value) : "なし";
+    // 呼び名が同じ物の置き換え（相手・中身を変えた）は、後ろにそう書く（「入るお金「相続・遺贈」 → 入るお金「相続・遺贈」」で何が変わったか分からないため）
+    const to = to0 === from ? `${to0}（中身を変えた）` : to0;
+    return { kind: "replace", label: `置き換え: ${COLLECTION_LABELS[col] ?? "物"}`, from, to };
   }
   if (d.op === "add") {
     if ("collection" in d.target) {
@@ -1091,7 +1131,26 @@ function describe(d: PlanDiff, group: readonly PlanDiff[], wh: WorkingHousehold,
   }
   if (it !== undefined) return { kind: "set", label: it.label, from: it.text(it.read(wh)), to: it.text(unbox(d.value) as ItemValue) };
   const name = ITEM_LABELS[a.item] ?? a.item;
+  // まとまった値（扶養と同居など）を丸ごと変えた差分は、中の欄ごとの言葉で見せる（生の値・JSON を出さない）
+  const parts = subFieldTexts(index, a, now, d.value, wh, view);
+  if (parts !== null) return { kind: "set", label: `${name}（${ownerLabel(a.target, wh, view)}）`, ...parts };
   return { kind: "set", label: `${name}（${ownerLabel(a.target, wh, view)}）`, from: boxText(undefined, boxAt(now, a), wh), to: boxText(undefined, d.value, view) };
+}
+
+/**
+ * まとまった値の差分の中の欄（当て先がこの差分の中にある欄）ごとの「欄の名前: 値」。違う欄だけを「・」でつなぐ（全部同じなら全部）。
+ * 中に欄が無ければ null
+ */
+function subFieldTexts(index: PlanIndex, a: Address, now: Obj, value: unknown, wh: WorkingHousehold, view: WorkingHousehold): { from: string; to: string } | null {
+  const head = a.at.length === 0 ? `${targetKey(a.target)}|${a.item}|` : `${addressKey(a)}/`;
+  const subs: { field: FieldDef; at: string[] }[] = [];
+  for (const [k, e] of index.fields) if (k.startsWith(head) && k.length > head.length) subs.push({ field: e.field, at: k.slice(head.length).split("/") });
+  if (subs.length === 0) return null;
+  const inner = unbox(value);
+  const rows = subs.map(({ field, at }) => ({ label: field.label, from: boxText(field, boxAt(now, { ...a, at: [...a.at, ...at] }), wh), to: boxText(field, getPath(inner, at), view) }));
+  const changed = rows.filter((r) => r.from !== r.to);
+  const shown = changed.length > 0 ? changed : rows;
+  return { from: shown.map((r) => `${r.label}: ${r.from}`).join("・"), to: shown.map((r) => `${r.label}: ${r.to}`).join("・") };
 }
 
 /** 並びの要素の呼び名（その要素の欄のまとまりの見出し。例: 「退職後」） */

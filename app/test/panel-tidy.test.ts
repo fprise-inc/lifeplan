@@ -12,13 +12,13 @@ import { fromRequest, type WorkingHousehold } from "../src/workspace/input/house
 import { InputPanel } from "../src/workspace/input/InputPanel.tsx";
 import { STAGE_ORDER } from "../src/workspace/input/stages/index.ts";
 import { REPO_DIR } from "../scripts/lib.ts";
-import { modelHousehold } from "./helpers.ts";
+import { modelWithGaps } from "./helpers.ts";
 
 const noop = () => undefined;
 const MODELS = readdirSync(join(REPO_DIR, "data", "modelHouseholds"))
   .filter((f) => f.endsWith(".json"))
   .map((f) => f.slice(0, -5));
-const open = (m: string): WorkingHousehold => fromRequest(modelHousehold(m), {});
+const open = (m: string): WorkingHousehold => fromRequest(modelWithGaps(m), {});
 const panel = (wh: WorkingHousehold, card: string, level: "simple" | "detail" = "detail") => renderToString(h(InputPanel, { wh, itemId: card, level, onLevel: noop, onSave: noop, onClose: noop }));
 
 /** 画面に常に出ている部分（「?」の中の隠した説明を除く） */

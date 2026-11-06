@@ -287,11 +287,11 @@ function workFields(wh: WorkingHousehold, base: readonly string[], k: string, af
   const type = planField({ key: `${k}/type`, label: "働き方", kind: "select", options: SURVIVOR_WORK_TYPES, path: [...base, "type"], fallback: "keep" });
   const salary = planField({
     key: `${k}/salary`,
-    label: w?.type === "selfEmployed" ? "事業の所得（年額）" : "年収（賞与を除く）",
+    label: w?.type === "selfEmployed" ? "事業所得（年額）" : "年収（税込み・賞与込み）",
     kind: "yen",
     basis: "annual",
     path: [...base, "annualSalary"],
-    help: "入れなければ、働き方ごとの目安で推定します",
+    help: w?.type === "selfEmployed" ? "入れなければ、働き方ごとの目安で推定します" : "入れなければ、働き方ごとの目安で推定します。賞与に分けず、年収を12で割った月々の給与として計算します（働き方と収入の年収と同じ、賞与込みの額を入れます）",
     maxYen: 1500 * MAN,
     auto: "働き方ごとの目安",
   });
@@ -347,7 +347,7 @@ export function premiseItems(wh: WorkingHousehold, sc: Scenario | undefined): Pr
       out.push(
         one("death:work", f.type, { label: `残された${pl}の働き方` }),
         one("death:salary", f.salary, {
-          label: `残された${pl}の${f.w?.type === "selfEmployed" ? "事業の所得（年額）" : "年収（賞与を除く）"}`,
+          label: `残された${pl}の${f.w?.type === "selfEmployed" ? "事業所得（年額）" : "年収（税込み・賞与込み）"}`,
           ...(PAID(f.w?.type) ? {} : { inactive: f.w?.type === "none" ? "働かないので0円です" : "今の働き方のままです（働き方を選ぶと入れられます）" }),
         }),
         PAID(f.w?.type) || f.w?.type === "none" ? many("death:workWhen", `残された${pl}の働き方を変える時期と何歳まで`, f.when) : null,

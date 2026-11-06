@@ -49,8 +49,29 @@ const Parts = ({ parts }: { parts: readonly VerdictPart[] }) => <>{parts.map((p,
 const mn = (v: Yen) => `${man(v)}万円`;
 const g = (y: BsYearModel, k: BsGroupKey) => y.lines.reduce((s, l) => (l.group === k ? s + l.amount : s), 0);
 
+/**
+ * 今の年の札は「2026年末の見込み（入力した値から）」（図の今の年は、入力した残高から計算の基準の月の後のお金の動きを足した年末の額で、
+ * 入れた値そのものではないため）。先の年は「見込み（2040年）」
+ */
 function KindTag({ fact, year }: { fact: boolean; year?: number }) {
-  return fact ? <span class="bs-kind f">事実（今・入力した値）</span> : <span class="bs-kind e">見込み{year !== undefined ? `（${year}年）` : ""}</span>;
+  return fact ? <span class="bs-kind f">{year !== undefined ? `${year}年末の見込み` : "今の年の見込み"}（入力した値から）</span> : <span class="bs-kind e">見込み{year !== undefined ? `（${year}年）` : ""}</span>;
+}
+
+/** 月額の欄の外の書き方（1万円以上は万円で小数1桁まで、1万円未満は円。入力の欄の外の額と同じ決まり〔workspace/input/units.ts の amountText〕） */
+function monthText(v: number): string {
+  const a = Math.abs(v);
+  if (a < 10000) return `月${group(a)}円`;
+  const tenths = Math.floor(a / 1000) + (a % 1000 >= 500 ? 1 : 0);
+  return `月${group(Math.floor(tenths / 10))}${tenths % 10 > 0 ? `.${tenths % 10}` : ""}万円`;
+}
+
+/** 家計の体力の目安の分母の文（「基本生活費 月30万円＋車 月3万円で計算」。生活費の行に入る車の費用は分けて書く） */
+export function livingBasisText(year: Pick<BsYearModel, "living" | "livingCar" | "loanPay">, withLoan: boolean): string {
+  if (year.living <= 0) return "";
+  const m = (v: number) => monthText(Math.round(v / 12));
+  const car = year.livingCar ?? 0;
+  const parts = [`基本生活費 ${m(year.living - car)}`, ...(car > 0 ? [`車 ${m(car)}`] : []), ...(withLoan && year.loanPay > 0 ? [`ローン返済 ${m(year.loanPay)}`] : [])];
+  return `${parts.join("＋")}で計算`;
 }
 
 /** 図の高さ（文字の大きさ 16px のとき）の上限と下限 */
@@ -440,8 +461,8 @@ export function HealthCard({ year, first, guide, onEditGuide, wide = false }: { 
   return (
     <div class={`bs-health${wide ? " wide" : ""}`} data-bs-health data-bs-basis={withLoan ? "livingLoan" : "living"}>
       <div class="hh2">
-        家計の体力の目安 <KindTag fact={year.fact} />
-        <small>{year.living > 0 ? (withLoan ? `生活費＋ローン返済 月${man((year.living + year.loanPay) / 12)}万円で計算` : `生活費 月${man(year.living / 12)}万円で計算`) : ""}</small>
+        家計の体力の目安 <KindTag fact={year.fact} year={year.year} />
+        <small>{livingBasisText(year, withLoan)}</small>
       </div>
       <div class="hm" data-health="months">
         <span class="hk">すぐ使えるお金</span>
@@ -621,8 +642,8 @@ function YearBar({ plan, yi, onYear, play, onPlay, onStop, barRef }: { plan: BsP
             : null}
         </div>
         <div class="yb-key">
-          <span class="bs-kind f">事実</span>
-          今の年は入力した値
+          <span class="bs-kind f">今の年</span>
+          入力した値から出した年末の見込み
           <span class="bs-kind e">見込み</span>
           つまみを先に動かした年（図の左上の札で分かります）
         </div>
@@ -767,7 +788,7 @@ function ColumnHead({ open, onToggle, onClose, plan, col, who, canRemove, onPick
           </span>
           <PopIcon />
         </button>
-        <KindTag fact={y.fact} />
+        <KindTag fact={y.fact} year={y.year} />
       </div>
       {open ? <ColumnPicker plan={plan} index={col.index} canRemove={canRemove} onPick={onPick} onRemove={onRemove} onClose={onClose} /> : null}
     </div>
@@ -1006,7 +1027,7 @@ function PlansView({ model, lr, onLr, yi, height, part }: { model: BalanceTabMod
               {p.name}
               {"\u3000"}
               {p.title}
-              <KindTag fact={y.fact} />
+              <KindTag fact={y.fact} year={y.year} />
             </div>
             <BsFigure year={y} groups={model.groups} scale={sc} compact height={height} label={`${p.name}の${y.year}年のバランスシート`} />
             {y.guarantee > 0 ? <GuaranteeNote year={y} compact /> : null}
