@@ -58,7 +58,6 @@ export const NOT_EFFECTIVE_YET: readonly ShapeRule[] = [
 
 /** この点検（欄を1つずつ動かし、キャッシュフロー表・相続税の目安・ご本人の死亡の万一を見る）では効き目を見られない欄。効く条件か見え方を書く */
 export const NOT_OBSERVED: readonly ShapeRule[] = [
-  { shape: "family:family/*/expected", why: "これから加わるは、加わる時期と組で効く（時期が空のままでは今いるのと同じ）" },
   { shape: "work:work/period/*/size", why: "勤め先の従業員数は、パートなどの社会保険の加入の境目をまたぐときだけ" },
   { shape: "work:work/period/*/corpDb", why: "勤め先の企業年金の有無は、iDeCo の掛金の上限だけ" },
   { shape: "work:work/period/*/endsWith", why: "辞め方は、辞めた後に失業給付を受け取る人だけ" },

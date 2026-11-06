@@ -85,6 +85,7 @@ export const LATER_FIELD_ENTRIES: readonly ReadingEntry[] = [
   {"from":"field:retirement/{object}/amount","until":"0.35","to":{"target":"object","item":"retirementBenefit.amount","at":[]}},
   {"from":"field:retirement/{object}/annual","until":"0.35","to":{"target":"object","item":"retirementBenefit.receipt","at":["annualAmount"]}},
   {"from":"field:retirement/{object}/finalMonthly","until":"0.35","to":{"target":"object","item":"retirementBenefit.estimate","at":["finalMonthly"]}},
+  {"from":"field:retirement/{object}/guarantee","until":"0.65","to":{"target":"object","item":"retirementBenefit.receipt","at":["guaranteeYears"]}},
   {"from":"field:retirement/{object}/lumpShare","until":"0.35","to":{"target":"object","item":"retirementBenefit.receipt","at":["lumpShare"]}},
   {"from":"field:retirement/{object}/multiplier","until":"0.35","to":{"target":"object","item":"retirementBenefit.estimate","at":["multiplier"]}},
   {"from":"field:retirement/{object}/rate","until":"0.35","to":{"target":"object","item":"retirementBenefit.receipt","at":["conversionRate"]}},

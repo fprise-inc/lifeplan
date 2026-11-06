@@ -96,9 +96,9 @@ export async function household1(p: Page): Promise<Notes> {
   await p.click("＋ 子", { within: "panel", exact: true });
   await p.click("＋ 子", { within: "panel", exact: true });
   await p.type("生年月", "1990-08", { nth: 1 });
-  // 子は生年月の順に並び直るので、下の子から入れる（上から入れると、1人目に入れた後に並びが変わり、次の欄が同じ子になる）
-  await p.type("生年月", "2023-02", { nth: 3 });
+  // 打っている間は子を並び替えない（保存のときに生年月の順に並べる。0141）ので、上の子から順に入れる
   await p.type("生年月", "2020-06", { nth: 2 });
+  await p.type("生年月", "2023-02", { nth: 3 });
   await save(p, n, "家族");
 
   await open(p, n, "働き方と収入");
@@ -155,7 +155,8 @@ export async function household2(p: Page): Promise<Notes> {
   await open(p, n, "家族", "詳細");
   await p.click("＋ 子", { within: "panel", exact: true });
   await p.click("＋ 養育費を受け取る", { within: "panel", exact: true });
-  await p.click("＋ 手当・給付金", { within: "panel", exact: true });
+  // ひとり親の世帯では「＋ 児童扶養手当など」の名前（足す行は手当・給付金。0141）
+  await p.click("＋ 児童扶養手当など", { within: "panel", exact: true });
   await p.type("生年月", "1984-06");
   await p.choose("性別", "女性");
   await p.type("生年月", "2011-07", { nth: 1 });
@@ -226,8 +227,8 @@ export async function household3(p: Page): Promise<Notes> {
   await p.click("＋ 子", { within: "panel", exact: true });
   await p.type("生年月", "1963-04");
   await p.type("生年月", "1966-03", { nth: 1 });
-  await p.type("生年月", "1995-09", { nth: 3 });
   await p.type("生年月", "1992-06", { nth: 2 });
+  await p.type("生年月", "1995-09", { nth: 3 });
   await save(p, n, "家族");
 
   await open(p, n, "働き方と収入");
@@ -246,8 +247,9 @@ export async function household3(p: Page): Promise<Notes> {
   // 定年の後の再雇用の人・パートに変えた人には、目安の退職一時金は足されない（受け取りが過去・パートの勤め先）。企業年金を足す
   await open(p, n, "退職金・企業年金", "詳細");
   n.seen.retirementCard = await cardText(p, "退職金・企業年金");
+  // 「＋ 退職金・企業年金を足す」は種類を選んでから足す（0141）
   await p.click("＋ 退職金・企業年金を足す", { within: "panel", exact: true });
-  await p.choose("種類", "確定給付企業年金");
+  await p.click("確定給付企業年金（企業年金基金・企業年金連合会を含む）", { within: "panel", exact: true });
   await p.choose("受け取り方", "年金");
   await p.choose("勤め先", "正社員");
   await p.type("年金の年額", "60");

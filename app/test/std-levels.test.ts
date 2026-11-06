@@ -159,14 +159,18 @@ describe("働き方と収入: 年収（賞与込み）の1欄", () => {
     expect((total.boxed!.read(total.boxed!.write(conf, box as never)) as { value: number }).value).toBe(box.value);
   });
 
-  it("役員だけは標準でも月の報酬（年額）と賞与を分けて聞く（まとめた1欄は出さない）", () => {
+  it("役員だけは標準でも役員報酬（月額）と賞与を分けて聞く（まとめた1欄は出さない。世帯ファイルは年額のまま）", () => {
     const wh = open("executiveOwner");
     const exec = members(wh).find((m) => (wh.request.input.household.employmentPeriods ?? []).some((p) => p.member === m.id && p.type === "executive"))!;
     const simple = simpleFields(wh, "work").filter((f) => f.key.startsWith(`work/${exec.id}/now/`)).map((f) => f.key.split("/").at(-1));
     expect(simple).toEqual(["type", "annual", "bonus"]);
     const annual = fieldOf(wh, "work", `work/${exec.id}/now/annual`);
-    expect(annual.label).toContain("月の報酬");
-    const w = annual.set(wh, 15000000);
+    expect(annual.label).toBe("月の報酬（役員報酬の月額）");
+    expect(annual.kind === "yen" && annual.basis).toBe("monthly");
+    const before = (wh.request.input.household.employmentPeriods ?? []).find((x) => x.member === exec.id && x.type === "executive")!;
+    expect(annual.get(wh).value).toBe(Math.round(before.salary!.annual.value! / 12));
+    // 月額で入れると、世帯ファイルには12か月分の年額で書く
+    const w = annual.set(wh, 1250000);
     const p = (w.request.input.household.employmentPeriods ?? []).find((x) => x.member === exec.id && x.type === "executive")!;
     expect(p.salary!.annual).toMatchObject({ value: 15000000, state: "confirmed" });
     expect(p.salary!.bonus!.value).toBe(1200000);

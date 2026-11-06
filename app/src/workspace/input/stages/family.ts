@@ -276,7 +276,7 @@ function joinFields(wh: WorkingHousehold, m: Member): FieldDef[] {
   const tp = timepointField({
     key: `family/${m.id}/joins`,
     item: "member.joins",
-    label: "加わる時期",
+    label: spouse ? "加わる時期（結婚の予定）" : "加わる時期",
     level: "detail",
     find,
     path: ["joins"],
