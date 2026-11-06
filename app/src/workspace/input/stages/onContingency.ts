@@ -1,11 +1,12 @@
 // 万一のときの扱い（onContingency。続ける・やめる・割合を変える）の欄。車・FP顧問料・周期的な支出で同じ形を使う（エンジンの設定をそのまま読み書きする）
+// 選択肢は3つ（入力項目をまたぐ言葉の決まり）: 「続ける（既定）」は空（省略）。前の世帯の mode "continue" も計算は同じなので「続ける」と読み、
+// 書き換えない（別の扱いを選び直したときだけ書く。「続ける」を選ぶと空にする）
 import type { Household, OnContingency } from "../../../engine/types.ts";
 import { field, getPath, plain, setPath, type FieldDef, type Finder, type Level, type Option } from "../form.ts";
 import { mutate } from "../household.ts";
 
 export const ON_CONTINGENCY_MODES: Option[] = [
-  { value: "", label: "指定しない（続く）" },
-  { value: "continue", label: "続ける" },
+  { value: "", label: "続ける（既定）" },
   { value: "stop", label: "やめる" },
   { value: "ratio", label: "割合を変える" },
 ];
@@ -28,13 +29,17 @@ export function onContingencyFields(o: { key: string; item: string; find: Finder
       kind: "select",
       options: ON_CONTINGENCY_MODES,
       help: o.help ?? "万一（死亡など）が起きた月の翌月から、この扱いにします",
-      get: (wh) => ({ value: read(wh.request.input.household, wh)?.mode ?? "" }),
+      // 空と "continue" は同じ「続ける」（計算はどちらも続く）
+      get: (wh) => {
+        const mode = read(wh.request.input.household, wh)?.mode;
+        return { value: mode === undefined || mode === "continue" ? "" : mode };
+      },
       set: (wh, v) =>
         mutate(wh, (h, req) => {
           const t = o.find(h, { ...wh, request: req });
           if (t === undefined) return;
           const cur = getPath(t, o.path) as OnContingency | undefined;
-          if (v === "" || v === null) return setPath(t, o.path, undefined);
+          if (v === "" || v === null || v === "continue") return setPath(t, o.path, undefined);
           const next: OnContingency = { mode: v as OnContingency["mode"] };
           if (v === "ratio") next.ratio = cur?.ratio ?? "0.5";
           if (cur?.kinds !== undefined) next.kinds = cur.kinds;
@@ -47,7 +52,8 @@ export function onContingencyFields(o: { key: string; item: string; find: Finder
 
 /** 割合と該当する万一（やり方が決まっているときだけ出す） */
 export function onContingencyDetailFields(o: { key: string; item: string; find: Finder; path: readonly string[]; on: OnContingency | undefined; level?: Level }): FieldDef[] {
-  if (o.on === undefined) return [];
+  // 続ける（空・前の世帯の "continue"）は割合も該当する万一も効かないので出さない
+  if (o.on === undefined || o.on.mode === "continue") return [];
   const out: FieldDef[] = [];
   if (o.on.mode === "ratio") out.push(plain({ key: `${o.key}/ratio`, item: o.item, label: "万一の後の割合（今の額に対して）", level: o.level ?? "simple", kind: "pct", find: o.find, path: [...o.path, "ratio"] }));
   out.push(

@@ -444,6 +444,8 @@ export interface DebtScheduleOutput {
   readonly payoff: string | null;
   /** 年ごとの利息（計算基準月から。ボーナス返済の分を含む。利息の付いた年だけ・年の昇順。約束の版 1.2 の任意の欄。0028） */
   readonly interest?: readonly { readonly year: number; readonly amount: Yen }[];
+  /** 借り換えごとの、借り換えの直前の残高（before）と新しいローンの借入額（principal。費用を含めたらその分を足す）・期間（約束の版 1.3 の任意の欄） */
+  readonly refinances?: readonly { readonly ym: string; readonly before: Yen; readonly principal: Yen; readonly termMonths: number }[];
 }
 
 /** housing.residence: 住まいのお金の動きと、購入した持ち家（不動産の残高の計算に使う） */

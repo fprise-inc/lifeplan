@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { approveAll, createHearingSheet, exportAnswers, importAnswers, importHearingSheet, type Answer, type FilledSheet } from "../src/index.ts";
 import { itemByKey } from "../src/definition.ts";
 import { formatValue } from "../src/values.ts";
-import { engineAvailable, full, full2, HEARING_DIR, idSeq, modelHousehold, OFFICE, preview } from "./helpers.ts";
+import { engineAvailable, full, full2, full3, HEARING_DIR, idSeq, modelHousehold, OFFICE, preview } from "./helpers.ts";
 import { sampleAnswers, sampleBytes, type SampleFile } from "./sample.ts";
 
 const def = full2();
@@ -31,7 +31,9 @@ describe("詳細版 full 版2 のシート定義", () => {
     expect(v2.filter((k) => !NEW_KEYS.includes(k))).toEqual(v1);
     for (const k of NEW_KEYS) expect(items.get(k), k).toMatchObject({ addedIn: 2, retiredIn: null, states: ["unknown", "notApplicable"] });
     expect(full().status).toBe("retired");
-    expect(def.status).toBe("draft");
+    // 版2 は版3（ご両親などの欄を足した）で廃止。版2 の項目は版3 にそのまま残る
+    expect(def.status).toBe("retired");
+    for (const k of v2) expect(full3().items.some((i) => i.key === k), k).toBe(true);
     // お仕事と収入の欄（ご本人・配偶者の方ごと）の最後、退職金の見込み額の後ろ
     const work = def.sections.find((s) => s.id === "work")?.groups.find((g) => g.id === "work");
     expect(work?.axis).toBe("adult");
@@ -158,11 +160,11 @@ describe("見本のシート full-2", () => {
     const want = pick(sampleAnswers(def, json));
     expect(pick(ex.answers).sort((x, y) => `${x.key}#${x.index ?? 0}`.localeCompare(`${y.key}#${y.index ?? 0}`))).toEqual(want.sort((x, y) => `${x.key}#${x.index ?? 0}`.localeCompare(`${y.key}#${y.index ?? 0}`)));
 
-    // .xlsx の往復: 書き出し → 取り込み → 書き出しで同じ回答
-    const s = await createHearingSheet({ definition: def, household: { request: r.request, assumed: r.assumed }, requestId: "R-7K3P9Q", customerNo: "A0042", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-11-01" });
+    // .xlsx の往復（今の版の詳細版で）: 書き出し → 取り込み → 書き出しで同じ回答
+    const s = await createHearingSheet({ definition: full3(), household: { request: r.request, assumed: r.assumed }, requestId: "R-7K3P9Q", customerNo: "A0042", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-11-01" });
     const back = await importHearingSheet(s.bytes, { baseMonth: "2026-10", requests: [s.request], newId: idSeq("again") });
     if (!back.ok) throw new Error(JSON.stringify(back.issues));
-    expect(exportAnswers(def, back.request, { assumed: back.assumed }).answers).toEqual(s.filled.answers);
+    expect(exportAnswers(full3(), back.request, { assumed: back.assumed }).answers).toEqual(s.filled.answers);
   });
 
   it("返済期間を仮の値（返済額が無いので5年）で置いた借入金は、毎月の返済額を書かない", () => {

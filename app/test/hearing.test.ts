@@ -219,11 +219,11 @@ describe("シートの種類（簡易・詳細・見直し）", () => {
   it("既定は簡易（basic の最新の版）。詳細と見直しは詳細のシート（full）で、見直しだけ前回の値を記入する", async () => {
     expect(SHEET_KINDS.map((k) => k.value)).toEqual(["simple", "detail", "review"]);
     expect(`${defaultSheet().sheetId}-${defaultSheet().version}`).toBe("basic-2");
-    expect(`${sheetFor("detail").sheetId}-${sheetFor("detail").version}`).toBe("full-2");
+    expect(`${sheetFor("detail").sheetId}-${sheetFor("detail").version}`).toBe("full-3");
     expect(sheetFor("review")).toBe(sheetFor("detail"));
     const src = fromRequest(modelHousehold("salariedCoupleTwoKids"));
     const review = await exportSheet(src, { definition: sheetFor("review"), prefill: true, customerNo: "A0001", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-10-27", random: new Uint8Array([1, 2, 3, 4, 5, 6]) });
-    expect(review.request).toMatchObject({ sheetId: "full", sheetVersion: 2, prefilled: true });
+    expect(review.request).toMatchObject({ sheetId: "full", sheetVersion: 3, prefilled: true });
     expect(review.issues.some((i) => i.code === "H_EXPORT_PREFILL")).toBe(true);
     // 簡易のシートには前回の値を記入しない（範囲・合計の欄の形が違う）
     await expect(exportSheet(src, { definition: sheetFor("simple"), prefill: true, customerNo: "A0001", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-10-27", random: new Uint8Array(6) })).rejects.toThrow("詳細版");

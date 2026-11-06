@@ -89,7 +89,7 @@ describe("「＋」で1件足すと、外の枠は1つだけ増える", () => {
   const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"), {});
   // 入力項目・足すボタン・増える外の枠（物の中に足す物は 0）
   const cases: [string, string, number][] = [
-    ["education", "＋ 教育資金の援助を受ける", 1],
+    ["education", "祖父母などの援助", 1],
     ["education", "＋ 留学", 1],
     ["family", "＋ 手当・給付金", 1],
     ["work", "＋ 副業・雑所得", 1],

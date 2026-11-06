@@ -5,6 +5,7 @@
 // 値の箱を持たない項目なので、印は WorkingHousehold.assumed に欄のキーで持つ（車の推定と同じ）
 import type { Debt, DebtHousing, Household, Residence } from "../../engine/types.ts";
 import { addMonths } from "../levers.ts";
+import { putRow, rowAt } from "./rows.ts";
 import { resolveTimepoint } from "./form.ts";
 import { newId, type WorkingHousehold } from "./household.ts";
 import { buildingPriceOf, customOfLandLoan, isCustomBuild, landLoanCreditable, landLoansOf, landMonthOf } from "./customBuild.ts";
@@ -25,6 +26,12 @@ export const creditAssumedText = (hs: DebtHousing): string => (hs.newBuild && hs
 
 /** 新築の仮の住宅の種類（入居の月に控除のある最も控えめな種類。ヒアリングシートの取り込みと同じ決まりなので hearing の側に置く） */
 export { provisionalNewType };
+/** ペアローンの2本目の金利の推定の根拠の頭（1本目の金利を写した。1本目を直すと入れ直す。0052 の追記 2026-11-07） */
+export const PAIR_RATE_HEAD = "ペアローンの1本目と同じ";
+export const pairRateBasis = (rate: string): string => `${PAIR_RATE_HEAD}（年${(Math.round(Number(rate) * 100000) / 1000).toLocaleString("ja-JP", { maximumFractionDigits: 3 })}%。直してください）`;
+/** 借入の割合で分けた家の持分の推定の根拠（ペアローンを足したとき。借入額を直すと分け直す。利用者の判断 2026-11-06） */
+export const SHARE_BY_LOANS = "借入の割合で分けた持分（登記の持分に直してください）";
+
 export const PRINCIPAL_ESTIMATE = "購入の予定の物件の価格から頭金を引いた額（価格・頭金を直すと入れ直します）";
 /** 借入額の推定の印か（文はローンごとに実際の計算に合わせる。principalEstimateText） */
 export const isPrincipalEstimate = (t: string | undefined): boolean => t !== undefined && /を引いた額（.*を直すと入れ直します）$/u.test(t);
@@ -121,11 +128,26 @@ function acquisitionOf(h: Household, r: Residence, ym: string): number {
   return landMonthOf(h, r) === ym ? (p.land?.price ?? 0) : buildingPriceOf(r);
 }
 
-/** 仮の条件の入居の年月: 土地の分のローン（土地先行融資）は注文住宅の住み始め、ほかは借入の年月 */
+/**
+ * 仮の条件の入居の年月: 土地の分のローン（土地先行融資）と購入の家のローンはその家の住み始め（購入の時期。0052 の追記 2026-11-07）、ほかは借入の年月
+ */
 function moveInMonth(h: Household, d: Debt, ym: string): string {
-  const r = customOfLandLoan(h, d);
+  const r = customOfLandLoan(h, d) ?? purchaseLink(h, d)?.residence;
   return (r === undefined ? null : resolveTimepoint(h, r.from)) ?? ym;
 }
+
+/** 購入の家の住宅ローン（土地の分のローンを除く）の控除の入居は、その家の住み始め（欄は読むだけ。0052 の追記 2026-11-07）。その家（無ければ undefined） */
+export function moveInFromResidence(h: Household, d: Debt): Residence | undefined {
+  if (!isHomeLoan(d) || customOfLandLoan(h, d) !== undefined) return undefined;
+  const r = purchaseOfLoan(h, d);
+  return r !== undefined && resolveTimepoint(h, r.from) !== null ? r : undefined;
+}
+
+/** 借りた年月が仮（今の残高から入れて、借入の年月をまだ入れていない）。値の状態の行の根拠が「仮」で始まる */
+export const startTentative = (d: Debt): boolean => {
+  const row = ((d as unknown as { valueStates?: Record<string, { state?: string; estimate?: { basis?: string } }> }).valueStates ?? {})["debt.start"];
+  return row?.state === "estimated" && (row.estimate?.basis ?? "").startsWith("仮");
+};
 
 /** 購入の予定とつながる住宅ローン（借入の年月が購入の月）の、購入の予定と見合う借入額の合計。つながらなければ null */
 export function purchaseLink(h: Household, d: Debt): { residence: Residence; expected: number; loans: Debt[]; land: boolean } | null {
@@ -231,7 +253,7 @@ export const fromBalance = (wh: WorkingHousehold, id: string): boolean => wh.loa
 export function withProvisionalHousing(wh: WorkingHousehold, id: () => string = newId): WorkingHousehold {
   const h0 = wh.request.input.household;
   const marked = Object.keys(wh.assumed).some((k) => /^housing\/debt\/[^/]+\/(credit|principal)$/.test(k));
-  if (!marked && !newBuildOff(h0) && !ownershipOff(h0) && !(h0.debts ?? []).some((d) => isHomeLoan(d) && d.housing === undefined && needsCredit(h0, d) && !fromBalance(wh, d.id))) return wh;
+  if (!marked && !newBuildOff(h0) && !ownershipOff(h0) && !moveInOff(h0) && !pairOff(wh) && !(h0.debts ?? []).some((d) => isHomeLoan(d) && d.housing === undefined && needsCredit(h0, d) && !balanceTentative(wh, d))) return followInheritedHome(wh);
   const request = structuredClone(wh.request);
   const h = request.input.household;
   const assumed = { ...wh.assumed };
@@ -239,7 +261,7 @@ export function withProvisionalHousing(wh: WorkingHousehold, id: () => string = 
     if (!isHomeLoan(d)) continue;
     const ym = resolveTimepoint(h, d.start);
     const key = creditKey(d.id);
-    if (fromBalance(wh, d.id)) {
+    if (balanceTentative(wh, d)) {
       if (d.housing !== undefined && assumed[key] !== undefined) {
         const ev = d.housing.moveIn;
         delete d.housing;
@@ -270,15 +292,78 @@ export function withProvisionalHousing(wh: WorkingHousehold, id: () => string = 
       if (p !== null) d.principal = p;
       assumed[principalKey(d.id)] = principalEstimateText(h, d);
     }
+    // 購入の家のローンの控除の入居は、その家の住み始め（FP が確定にした条件でも。欄は読むだけ）
+    const home = d.housing === undefined ? undefined : moveInFromResidence(h, d);
+    const ev = home === undefined ? undefined : (h.events ?? []).find((e) => e.id === d.housing?.moveIn);
+    if (home !== undefined && ev !== undefined && resolveTimepoint(h, ev.at) !== resolveTimepoint(h, home.from)) ev.at = structuredClone(home.from);
+  }
+  // ペアローンの2本目の金利が1本目の写しの推定なら、1本目の金利の段に合わせ直す
+  for (const d of h.debts ?? []) {
+    const partner = d.pairWith === undefined ? undefined : (h.debts ?? []).find((x) => x.id === d.pairWith);
+    if (partner === undefined || !pairRateFollows(request, d)) continue;
+    const id0 = d.rateSchedule[0]?.id;
+    d.rateSchedule = partner.rateSchedule.map((x, j) => ({ ...structuredClone(x), id: j === 0 && id0 !== undefined ? id0 : (d.rateSchedule[j]?.id ?? id()) }));
+    if (id0 !== undefined) putRow(request.input as unknown as Record<string, unknown>, { target: { object: d.id }, item: "debt.rateSchedule", at: [id0, "rate"] }, { state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis: pairRateBasis(partner.rateSchedule[0]?.rate ?? "0") } });
+  }
+  // 借入の割合で分けた推定の持分は、借入額に合わせて分け直す
+  for (const r of h.residences ?? []) {
+    if (!shareByLoansMarked(request, r)) continue;
+    const shares = sharesByLoans(h, r);
+    if (shares !== null && shares.length > 1 && JSON.stringify(shares) !== JSON.stringify(r.ownership)) r.ownership = shares;
+  }
+  // 控除の持分は家の名義と持分から（分け直した持分を写す）
+  for (const d of h.debts ?? []) {
+    const own = isHomeLoan(d) ? ownershipOfHousing(h, d.housing) : null;
+    if (d.housing !== undefined && own !== null && JSON.stringify(own) !== JSON.stringify(d.housing.ownership ?? null)) d.housing = { ...d.housing, ownership: own };
   }
   const ids = new Set((h.debts ?? []).map((d) => d.id));
   for (const k of Object.keys(assumed)) {
     const m = /^housing\/debt\/([^/]+)\/(credit|principal)$/.exec(k);
     if (m !== null && !ids.has(m[1] as string)) delete assumed[k];
   }
-  if (JSON.stringify(request) === JSON.stringify(wh.request) && JSON.stringify(assumed) === JSON.stringify(wh.assumed)) return wh;
-  return { ...wh, request, assumed };
+  if (JSON.stringify(request) === JSON.stringify(wh.request) && JSON.stringify(assumed) === JSON.stringify(wh.assumed)) return followInheritedHome(wh);
+  return followInheritedHome({ ...wh, request, assumed });
 }
+
+/** 今の残高から入れて、借りた年月がまだ仮のローン（控除の仮の条件を置かない。借りた年月を入れたら、借入の年月を入居として置く。0052 の追記 2026-11-07） */
+const balanceTentative = (wh: WorkingHousehold, d: Debt): boolean => fromBalance(wh, d.id) && startTentative(d);
+
+/** 購入の家のローンの控除の入居が、その家の住み始めとずれているか */
+const moveInOff = (h: Household): boolean =>
+  (h.debts ?? []).some((d) => {
+    const home = d.housing === undefined ? undefined : moveInFromResidence(h, d);
+    const ev = home === undefined ? undefined : (h.events ?? []).find((e) => e.id === d.housing?.moveIn);
+    return home !== undefined && ev !== undefined && resolveTimepoint(h, ev.at) !== resolveTimepoint(h, home.from);
+  });
+
+type Req = WorkingHousehold["request"];
+const inputObj = (req: Req) => req.input as unknown as Record<string, unknown>;
+/** ペアローンの2本目の金利が1本目の写しの推定か */
+const pairRateFollows = (req: Req, d: Debt): boolean => {
+  const id0 = d.rateSchedule[0]?.id;
+  const row = id0 === undefined ? undefined : rowAt(inputObj(req), { target: { object: d.id }, item: "debt.rateSchedule", at: [id0, "rate"] });
+  return row?.state === "estimated" && (row.estimate?.basis ?? "").startsWith(PAIR_RATE_HEAD);
+};
+/** 家の持分が借入の割合で分けた推定か */
+const shareByLoansMarked = (req: Req, r: Residence): boolean => {
+  const row = rowAt(inputObj(req), { target: { object: r.id }, item: "residence.ownership", at: [] });
+  return row?.state === "estimated" && row.estimate?.basis === SHARE_BY_LOANS;
+};
+/** 写しの推定・分けた持分が1本目・借入額と合っていないか */
+const pairOff = (wh: WorkingHousehold): boolean => {
+  const h = wh.request.input.household;
+  return (
+    (h.debts ?? []).some((d) => {
+      const p = d.pairWith === undefined ? undefined : (h.debts ?? []).find((x) => x.id === d.pairWith);
+      return p !== undefined && pairRateFollows(wh.request, d) && JSON.stringify(p.rateSchedule.map((x) => [x.from, x.type, x.rate])) !== JSON.stringify(d.rateSchedule.map((x) => [x.from, x.type, x.rate]));
+    }) ||
+    (h.residences ?? []).some((r) => {
+      if (!shareByLoansMarked(wh.request, r)) return false;
+      const s = sharesByLoans(h, r);
+      return s !== null && s.length > 1 && JSON.stringify(s) !== JSON.stringify(r.ownership);
+    })
+  );
+};
 
 /** ローンを外したときに、そのローンの仮の条件のために置いた入居のイベントも外す（ほかから指されていなければ） */
 export function dropProvisionalEvent(h: Household, d: Debt, wh: WorkingHousehold): void {
@@ -334,4 +419,44 @@ export function sharesByLoans(h: Household, r: Residence): { member: string; sha
   const rest = 1000 - rows.reduce((s, x) => s + x.permille, 0);
   (rows[0] as { permille: number }).permille += rest;
   return rows.filter((x) => x.permille > 0).map((x) => ({ member: x.member, share: String(x.permille / 1000) }));
+}
+
+/** 相続する家の住み始めの印（受け取る相続の行があればその月、無ければ10年後） */
+export const inheritFromAssumed = (linked: boolean): string =>
+  linked ? "受け取る相続の時期（相続・贈与の項目の受け取る相続の行。相続の時期を直すと合わせます）" : "相続の時期の目安（10年後。相続・贈与の項目に受け取る相続を入れると合わせます）";
+
+// ---- 相続する家の住み始め ----
+
+const tp = (ym: string) => ({ at: ym });
+
+/** 相続する家（家賃なしの住まいの後に、翌月から住む持ち家）の住み始めの推定を、受け取る相続の行の月に合わせる（印のある間だけ） */
+export function followInheritedHome(wh: WorkingHousehold): WorkingHousehold {
+  const marked = Object.keys(wh.assumed).filter((k) => /^housing\/res\/[^/]+\/from$/.test(k) && /相続の時期/.test(wh.assumed[k] ?? ""));
+  if (marked.length === 0) return wh;
+  const h0 = wh.request.input.household;
+  const flow = (h0.incomeFlows ?? []).find((f) => f.kind === "inheritance");
+  const when = flow === undefined ? null : resolveTimepoint(h0, flow.from);
+  if (when === null) return wh;
+  const request = structuredClone(wh.request);
+  const h = request.input.household;
+  const assumed = { ...wh.assumed };
+  for (const k of marked) {
+    const rid = k.split("/")[2] as string;
+    const r = (h.residences ?? []).find((x) => x.id === rid);
+    if (r === undefined) {
+      delete assumed[k];
+      continue;
+    }
+    const from = resolveTimepoint(h, r.from);
+    if (from === null) continue;
+    if (from !== when) {
+      const prevEnd = addMonths(from, -1);
+      for (const x of h.residences ?? []) if (x.id !== rid && x.to != null && resolveTimepoint(h, x.to) === prevEnd) x.to = tp(addMonths(when, -1));
+      r.from = tp(when);
+      if (r.valuation?.asOf === from) r.valuation = { ...r.valuation, asOf: when };
+    }
+    assumed[k] = inheritFromAssumed(true);
+  }
+  if (JSON.stringify(request) === JSON.stringify(wh.request) && JSON.stringify(assumed) === JSON.stringify(wh.assumed)) return wh;
+  return { ...wh, request, assumed };
 }

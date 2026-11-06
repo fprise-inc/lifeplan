@@ -31,10 +31,10 @@ const run = (...answers: Answer[]) => importAnswers(def, sheet(...answers), { ba
 const base = [a("hs.meta.filledOn", "2026-10"), a("hs.family.adult.birthYearMonth", "1986-05", 1), a("hs.family.adult.sex", "male", 1), a("hs.family.adult.birthYearMonth", "notApplicable", 2), a("hs.housing.type", "family")];
 
 describe("簡易版のシート定義", () => {
-  it("書き出せるのは簡易版（basic 版2）と詳細版（full 版2）。basic 版1・full 版1 は廃止（書き出さないが取り込める）", () => {
-    expect(exportableSheets().map((d) => `${d.sheetId}-${d.version}`).sort()).toEqual(["basic-2", "full-2"]);
+  it("書き出せるのは簡易版（basic 版2）と詳細版（full 版3）。basic 版1・full 版1・full 版2 は廃止（書き出さないが取り込める）", () => {
+    expect(exportableSheets().map((d) => `${d.sheetId}-${d.version}`).sort()).toEqual(["basic-2", "full-3"]);
     expect(latestSheet("basic")?.version).toBe(2);
-    expect(latestSheet("full")?.version).toBe(2);
+    expect(latestSheet("full")?.version).toBe(3);
     expect(basic().status).toBe("retired");
     expect(full().status).toBe("retired");
     expect(OFFICIAL_SHEETS.some((d) => d.sheetId === "basic" && d.version === 1)).toBe(true);

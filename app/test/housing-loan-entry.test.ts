@@ -123,9 +123,28 @@ describe("ローンの名義", () => {
 });
 
 describe("金利の段階で入れる（変動金利）", () => {
-  it("選ぶと標準のままで金利の段階の欄と「＋ 金利の段階」が出る。計算は今の金利のままと同じ", () => {
+  it("これから変動金利で借りるローンの見込みの既定は「10年で1%上がる」（推定の印）。今返しているローンは今の金利のまま", () => {
     const wh = buying();
     const id = loan(wh).id;
+    const f = fieldOf(wh, `${id}/rateOutlook`);
+    expect(f.get(wh).value).toBe("up1");
+    expect(fieldStatus(f, wh)).toMatchObject({ status: "estimated" });
+    expect(fieldStatus(f, wh).basis).toContain("10年で1%上がる見込み");
+    const steps = loan(wh).rateSchedule;
+    expect(steps.map((x) => x.from.at)).toEqual(["2028-10", "2033-10", "2038-10"]);
+    expect(Number(steps[2]!.rate) - Number(steps[0]!.rate)).toBeCloseTo(0.01, 9);
+    // 今の残高から入れる今のローン（借入の年月が今まで）は今の金利のまま
+    const now = action(salaried(), "housing/addMortgage");
+    expect(fieldOf(now, `${loan(now).id}/rateOutlook`).get(now).value).toBe("flat");
+    // 見込みを選び直すと推定の印は外れる
+    const flat = f.set(wh, "flat");
+    expect(fieldStatus(fieldOf(flat, `${id}/rateOutlook`), flat).status).toBe("confirmed");
+  });
+
+  it("選ぶと標準のままで金利の段階の欄と「＋ 金利の段階」が出る。計算は今の金利のままと同じ", () => {
+    const wh0 = buying();
+    const id = loan(wh0).id;
+    const wh = fieldOf(wh0, `${id}/rateOutlook`).set(wh0, "flat");
     const f = fieldOf(wh, `${id}/rateOutlook`);
     expect(options(f)).toContain("金利の段階で入れる");
     expect(f.get(wh).value).toBe("flat");

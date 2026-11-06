@@ -245,6 +245,16 @@ function wageAmount(measure: WageMeasure, employment: "regular" | "nonRegular", 
  * - 役員: 仮の値
  */
 export function salaryEstimate(type: string, options: SalaryOptions = {}): { annual: Estimate; bonus: Estimate } | null {
+  const e = salaryRaw(type, options);
+  // 推定の額は千円単位に丸める（生活費の推定と同じ。「118.404万円」のような端数を出さない）
+  return e === null ? null : { annual: { ...e.annual, value: roundThousand(e.annual.value) }, bonus: { ...e.bonus, value: roundThousand(e.bonus.value) } };
+}
+
+/** 推定の額を千円単位に（四捨五入） */
+const roundThousand = (v: number): number => Math.round(v / 1000) * 1000;
+
+/** 給与と賞与の目安の丸める前の額（比を取るときは丸めない額で。reemploymentRatio） */
+function salaryRaw(type: string, options: SalaryOptions = {}): { annual: Estimate; bonus: Estimate } | null {
   if (!PROVISIONAL_TYPES.has(type)) return null;
   const salaryId = `preset.wage.provisional.${type}.salary`;
   const bonusId = `preset.wage.provisional.${type}.bonus`;
@@ -281,8 +291,8 @@ export function salaryEstimate(type: string, options: SalaryOptions = {}): { ann
  * 人の属性で分けない（0118）
  */
 export function reemploymentRatio(type: string): number | null {
-  const after = salaryEstimate(type, { age: 62 });
-  const before = salaryEstimate(type, { age: 57 });
+  const after = salaryRaw(type, { age: 62 });
+  const before = salaryRaw(type, { age: 57 });
   if (after === null || before === null || before.annual.value <= 0) return null;
   return after.annual.value / before.annual.value;
 }
@@ -370,7 +380,7 @@ const BUSINESS_ID = "wageStats.business.operatingProfit";
 export function businessEstimate(): Estimate {
   const v = masterAmount(BUSINESS_ID);
   if (v === null) return { value: 3000000, basis: "個人企業の営業利益の目安（仮の値）" };
-  return { value: v, basis: officeBasisOf(BUSINESS_ID) ?? `${titleOf(BUSINESS_ID)}${pendingOf(BUSINESS_ID)}` };
+  return { value: roundThousand(v), basis: officeBasisOf(BUSINESS_ID) ?? `${titleOf(BUSINESS_ID)}${pendingOf(BUSINESS_ID)}` };
 }
 
 // ---- 標準報酬月額 ----
@@ -431,7 +441,8 @@ export function residentTaxEstimate(salary: number, business: number, incomeYear
   const basicAmount = (basic === null ? null : bracketStep(basic, income)?.amount) ?? 430000;
   const perCapita = ["residentTax.perCapita.municipal", "residentTax.perCapita.prefectural", "forestEnvironmentTax.amount"].reduce((sum, id) => sum + ((regulationValue(id, fiscal) as number | null) ?? 0), 0);
   const taxable = income - basicAmount - (s + business) * presetNum("preset.residentTax.socialInsuranceRatio");
-  const value = taxable <= 0 ? 0 : Math.round((taxable * 0.1 + perCapita) / 100) * 100;
+  // 推定の額は千円単位（年収の推定と同じ）
+  const value = taxable <= 0 ? 0 : roundThousand(taxable * 0.1 + perCapita);
   return { value, basis: RESIDENT_BASIS };
 }
 

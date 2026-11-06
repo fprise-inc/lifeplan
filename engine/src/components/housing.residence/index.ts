@@ -6,7 +6,7 @@
 //   今の家賃が前の更新〔計算基準月より前のこともある〕で決まった額なので、その更新の間の年数分をそのまま当てる。前は住み始めの家賃とみなして過去の更新の分も重ねていた）
 // - 購入: 購入の月（省略は住み始め）に頭金と諸費用を払う。注文住宅（改訂5。0115）は、頭金・諸費用の内数の土地の決済の分（purchase.land）と
 //   引き渡しの前の建物の代金の支払い（purchase.payments。頭金の内数）をそれぞれの月に払い、残りを購入の月（引き渡し）に払う。親・祖父母からの資金援助は受け取る構成員の一時金の収入にする
-//   （贈与税・住宅取得等資金の非課税は贈与の作業で扱う。ここは額の入力まで）
+//   （贈与税・住宅取得等資金の非課税は gift.received・gift.tax が計算する。ここは額の入力まで。改訂6: 前は「贈与税は計算していない」と誤って知らせていた）
 // - 固定資産税・都市計画税: 年額（上昇率は計算基準年からの年ごと）を、その年の4月・7月・12月と翌年2月の4回に分ける（端数は最初の回）。
 //   持ち家の期間の年だけ。地域ごとの値は持たない（入力の額）
 // - 修繕費・管理費: 月額（上昇率は計算基準年からの年ごと）
@@ -58,7 +58,7 @@ export default defineComponent<Record<string, never>, ResidenceOutput>({
   id: "housing.residence",
   title: "住まい（家賃・購入・固定資産税・修繕費）",
   contract: "1.0",
-  revision: 5,
+  revision: 6,
   requires: {},
   params: [],
   reads: [
@@ -155,7 +155,6 @@ export default defineComponent<Record<string, never>, ResidenceOutput>({
         push(at, "cf.expense.housing.purchase.costs", costs, "housing.residence.purchaseCosts");
         const gifts = h.purchase.gifts ?? [];
         for (const gf of gifts) push(at, "cf.income.lumpSum.gift", gf.amount, "housing.residence.gift", gf.recipient);
-        if (gifts.some((gf) => gf.amount > 0)) ctx.notice("N_NOT_SUPPORTED", ["giftTax"]);
         properties.push({ object: h.id, owner, from: formatYm(at), to: h.to === null ? null : formatYm(to), price: h.purchase.price });
       }
       // 固定資産税（持ち家の期間の年。年額を4回に分ける）

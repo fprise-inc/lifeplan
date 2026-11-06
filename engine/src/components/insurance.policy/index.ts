@@ -36,6 +36,7 @@
 //   払込保険料×年金額÷年金の総額）、積立金は受け取った回数の分だけ value から減る（解約返戻金・亡くなったときの額）。解約して受け取る
 //   （surrender）なら払込の終わりの月に value を解約で受け取る（insurance.term がその月で終わりにする。一時所得）。保障の部分の死亡保険金は
 //   保障の明細のとおり（定期保険と同じ）。利率の変動は計算しない（設計書の数字を入れ直す）。払込の終わりが無ければ積立金は0とし、入力を求める
+// - 改訂4（0137）: 預金の利回り（assumptions.depositReturn）を読む。預金・外貨預金の資産クラス（cash.deposit・cash.foreign）が前提の資産クラスごとの利回りに無いときの利回り（省略は運用利回りで、前の要求は今までどおり。0137）
 import {
   addMonths,
   addYen,
@@ -95,7 +96,7 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
   id: "insurance.policy",
   title: "保険契約（保険年度ごとの値と受け取り）",
   contract: "1.1",
-  revision: 3,
+  revision: 4,
   requires: { "insurance.term": ">=1 <2", "insurance.premiumPayment": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [],
   reads: [
@@ -120,6 +121,7 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
     "relation.child",
     "assumptions.investmentReturn",
     "assumptions.assetReturns",
+    "assumptions.depositReturn",
   ],
   input: "object.input",
   output: "insurance.policy.output",

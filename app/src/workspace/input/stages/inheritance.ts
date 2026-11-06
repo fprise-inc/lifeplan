@@ -11,7 +11,7 @@ import type { Household, IncomeFlow, InheritanceTaxRequest, Member, Timepoint } 
 import { excludedIncome } from "../../../engine/moneyRows.ts";
 import { field, resolveTimepoint, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, type WorkingHousehold } from "../household.ts";
-import { donorLabel, GIFT_PURPOSES, memberLabel } from "../labels.ts";
+import { donorLabel, donorUses, GIFT_PURPOSES, memberLabel } from "../labels.ts";
 import { manYen, readGroup, readLine } from "../readLines.ts";
 import type { Address } from "../../store/readings.ts";
 import { formatYearMonth } from "../units.ts";
@@ -46,15 +46,15 @@ export function giftLines(wh: WorkingHousehold): { receive: FieldDef[]; give: Fi
   return { receive, give };
 }
 
-/** 贈与する人（物と欄は介護・親の項目の世帯の外の家族。ここは読むだけの1行） */
+/**
+ * 贈与する人（物と欄は介護・親の項目の世帯の外の家族。ここは読むだけの1行）: 援助で選ばれている介護・親の親・祖父母と、
+ * 生年月を入れない贈与する人（donors。選ばれていなくても並べる）
+ */
 export function donorLines(wh: WorkingHousehold): FieldDef[] {
   const h = wh.request.input.household;
-  return (h.donors ?? []).map((d) => {
-    let used = 0;
-    for (const r of h.residences ?? []) for (const g of r.purchase?.gifts ?? []) if (g.donor === d.id) used++;
-    for (const goal of h.goals ?? []) for (const g of goal.education?.gifts ?? []) if (g.donor === d.id) used++;
-    return readLine(`inherit/donor/${d.id}`, `贈与する人（${donorLabel(wh, d)}）`, used > 0 ? `援助 ${String(used)} 件で選ばれています` : "まだ援助で選ばれていません", "介護・親");
-  });
+  const usedText = (n: number) => (n > 0 ? `援助 ${String(n)} 件で選ばれています` : "まだ援助で選ばれていません");
+  const elders = h.members.filter((m) => m.outside !== undefined && donorUses(h, m.id) > 0).map((m) => readLine(`inherit/donor/${m.id}`, `贈与する人（${memberLabel(wh, m.id)}）`, usedText(donorUses(h, m.id)), "介護・親"));
+  return [...elders, ...(h.donors ?? []).map((d) => readLine(`inherit/donor/${d.id}`, `生年月を入れない贈与する人（${donorLabel(wh, d)}）`, usedText(donorUses(h, d.id)), "介護・親"))];
 }
 
 // ---- 区画A 受け取る予定 ----
@@ -92,6 +92,60 @@ export function inheritTimingFromCounterparty(wh: WorkingHousehold, flowId: stri
     x.to = structuredClone(at);
   });
   return { ...next, assumed: { ...next.assumed, [`in/${flowId}/from`]: INHERIT_BASIS } };
+}
+
+/**
+ * 受け取る相続の時期が推定のまま（仮の印がある）なら、相手の亡くなる見込みについてこさせる: 相手の亡くなる見込みを直したとき（介護・親の
+ * 亡くなる見込みの欄・平均余命で入れる）と、行の相手を変えたときに、新しい亡くなる見込みの10か月後で入れ直す。FP が入れた時期（印の無い時期）は変えない
+ */
+export function followInheritTiming(wh: WorkingHousehold, counterparty: string): WorkingHousehold {
+  let w = wh;
+  for (const f of wh.request.input.household.incomeFlows ?? []) {
+    if (f.kind !== "inheritance" || f.counterparty !== counterparty || wh.assumed[`in/${f.id}/from`] === undefined) continue;
+    w = inheritTimingFromCounterparty(w, f.id);
+  }
+  return w;
+}
+
+/** 欄の書き込み（打つ・選ぶ・時点の部品・値の状態の操作）の後に、世帯を整える関数を通す */
+export function afterWrite(f: FieldDef, tidy: (before: WorkingHousehold, after: WorkingHousehold) => WorkingHousehold): FieldDef {
+  const wrap = (w: WorkingHousehold, next: WorkingHousehold) => (next === w ? next : tidy(w, next));
+  const time = f.time;
+  return {
+    ...f,
+    set: (w, v) => wrap(w, f.set(w, v)),
+    ...(f.write !== undefined ? { write: (w: WorkingHousehold, v: Parameters<NonNullable<FieldDef["write"]>>[1]) => wrap(w, (f.write as NonNullable<FieldDef["write"]>)(w, v)) } : {}),
+    ...(f.boxed !== undefined ? { boxed: { ...f.boxed, write: (w: WorkingHousehold, b: Record<string, unknown> | undefined) => wrap(w, (f.boxed as NonNullable<FieldDef["boxed"]>).write(w, b)) } } : {}),
+    ...(time !== undefined ? { time: { ...time, setWhen: (w: WorkingHousehold, tp: Timepoint | null, how: "auto" | "this") => wrap(w, time.setWhen(w, tp, how)) } } : {}),
+  } as FieldDef;
+}
+
+/**
+ * 受け取る相続の行の相手と時期の欄: 相手を変えたら、推定のままの受け取る時期を新しい相手の亡くなる見込みから入れ直す。
+ * 時期を FP が入れたら（相手の亡くなる見込みからの推定の）仮の印を外す（その後は亡くなる見込みを直しても動かさない）
+ */
+function withCounterpartyFollow(g: GroupDef): GroupDef {
+  const id = g.key.startsWith("in/") && !g.key.slice(3).includes("/") ? g.key.slice(3) : null;
+  if (id === null) return g;
+  const mark = `in/${id}/from`;
+  return {
+    ...g,
+    fields: g.fields.map((f) => {
+      if (f.key === `in/${id}/counterparty`)
+        return afterWrite(f, (_before, after) => {
+          const x = (after.request.input.household.incomeFlows ?? []).find((y) => y.id === id);
+          return x === undefined || x.counterparty === undefined || after.assumed[mark] === undefined ? after : inheritTimingFromCounterparty(after, id);
+        });
+      if (f.key === mark)
+        return afterWrite(f, (_before, after) => {
+          if (after.assumed[mark] === undefined) return after;
+          const { [mark]: _gone, ...rest } = after.assumed;
+          void _gone;
+          return { ...after, assumed: rest };
+        });
+      return f;
+    }),
+  };
 }
 
 /** 区画Aの「＋ 足す」: 足した後に、受け取る時期を相手の亡くなる見込みから推定する */
@@ -301,7 +355,7 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
       title: moneyIn?.title ?? "受け取る予定の相続・贈与",
       note: "受け取れるかどうかの見込み（確実・当てにしない）を行ごとに選びます。「当てにしない」にした分は、除いて計算します。相続で受け取る時期は、亡くなる見込みの10か月後を目安に入れます",
       level: "simple",
-      groups: [...(moneyIn?.groups ?? []).map((g) => withIncludeAction(wh, g)), ...inheritedDebtGroups(wh), ...groupsOf(readGroup("inherit/receive", undefined, lines.receive))],
+      groups: [...(moneyIn?.groups ?? []).map((g) => withIncludeAction(wh, withCounterpartyFollow(g))), ...inheritedDebtGroups(wh), ...groupsOf(readGroup("inherit/receive", undefined, lines.receive))],
       actions: [...receiveActions(moneyIn?.actions ?? []), { key: "money/inherit/addDebt", label: "＋ 相続で受け継ぐ借金", level: "detail", run: (w: WorkingHousehold) => addInheritedDebt(w) }],
     },
     {
@@ -315,7 +369,7 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
     {
       key: "family/donors",
       title: "贈与する人（親・祖父母）",
-      note: "世帯の外の親・祖父母を贈与する人として足すと、住宅資金・教育資金などの援助で選べます。同じ人からの贈与は、贈与税の基礎控除・相続時精算課税の特別控除を合わせて数えます。足した人は、介護・親の項目の世帯の外の家族に並びます",
+      note: "介護・親の項目で足した親・祖父母は、そのまま住宅資金・教育資金などの援助の贈与する人に選べます。生年月を入れずに贈与する人だけを置くときは、ここで足します。同じ人からの贈与は、贈与税の基礎控除・相続時精算課税の特別控除を合わせて数えます。足した人は、介護・親の項目の世帯の外の家族に並びます",
       level: "simple",
       groups: groupsOf(readGroup("inherit/donors", undefined, donorLines(wh))),
       actions: addDonorActions(wh),

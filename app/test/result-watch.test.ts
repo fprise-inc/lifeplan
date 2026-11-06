@@ -8,7 +8,7 @@ import { beforeAll, describe, expect, it, test } from "vitest";
 import type { EngineRequest, PreviewResult, TableCell } from "../src/engine/types.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { WATCH_CASES } from "./watch/cases.ts";
-import { housingConditions, rowGroupingProblems, subjectOf, textProblems, WATCH_RULES, type WatchSubject } from "./watch/rules.ts";
+import { housingConditions, keptHomeConditions, rowGroupingProblems, subjectOf, textProblems, WATCH_RULES, type WatchSubject } from "./watch/rules.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 /** 直す待ちの一覧の1行 */
@@ -36,76 +36,6 @@ const PENDING: readonly Pending[] = [
     match: /学費が入っていない/,
   },
   {
-    key: "past-retirement-estimate",
-    what: "定年が過ぎた人を会社員として入れると、受け取りが過去の目安の退職一時金が推定で足される",
-    rule: "pastRetirementEstimate",
-    cases: [OP("60歳の新しい顧客を会社員として入れる"), OP("シニアの夫婦の配偶者を会社員として入れる")],
-    match: /受け取りが/,
-  },
-  {
-    key: "retirement-estimate-after-type-change",
-    what: "今の働き方が正社員・公務員でない（パートに変えた・定年の後の再雇用）のに、定年の推定が残る",
-    rule: "workTypeEstimates",
-    cases: [OP("60歳の新しい顧客を会社員として入れる"), OP("シニアの夫婦の配偶者を会社員として入れる"), OP("会社員として入れてからパートに変える")],
-    match: /定年の推定/,
-  },
-  {
-    key: "self-employed-no-end",
-    what: "自営業として入れると働く最後の年齢が入らず、100歳まで事業所得が入る",
-    rule: "workToTableEnd",
-    cases: [OP("自営業として入れる")],
-    match: /selfEmployed の期間に終わりが無く/,
-  },
-  {
-    key: "civil-servant-from-self-no-end",
-    what: "自営業から公務員に変えても定年が入らず、公務員として100歳まで働く",
-    rule: "workToTableEnd",
-    cases: [OP("自営業として入れてから公務員に変える")],
-    match: /civilServant の期間に終わりが無く/,
-  },
-  {
-    key: "imported-work-no-end",
-    what: "ヒアリングシートから取り込んだ会社員・パートの働き方に終わりが無く、100歳を過ぎても給与が入る",
-    rule: "workToTableEnd",
-    cases: [OP("ヒアリングシートを取り込む")],
-    match: /期間に終わりが無く/,
-  },
-  {
-    key: "kept-home-vanishes",
-    what: "持ち家に住み終わりを入れると、「そのまま持つ」のまま住み終わりの年で資産から消える",
-    rule: "keptHomeVanishes",
-    cases: [OP("持ち家に住み終わりを入れる")],
-    match: /資産から消える/,
-  },
-  {
-    key: "sold-home-loan",
-    what: "住まいを住み終わりの月に売っても、その家の住宅ローンを返し続ける",
-    rule: "soldHomeLoanContinues",
-    cases: [OP("住宅ローンの残る持ち家を売る")],
-    match: /返している/,
-  },
-  {
-    key: "housing-overlap-notice",
-    what: "持ち家の世帯に購入の予定を足すと、今の家が終わらず住まいが2つ重なり、知らせも無い",
-    rule: "housingOverlapGap",
-    cases: [OP("持ち家の世帯に住宅購入の予定を足す")],
-    match: /2つ重なる/,
-  },
-  {
-    key: "housing-gap-notice",
-    what: "最後の住まいの住み終わりの後に住まいが無い（住居費0円）のに、知らせが無い",
-    rule: "housingOverlapGap",
-    cases: [OP("持ち家に住み終わりを入れる"), OP("住宅ローンの残る持ち家を売る")],
-    match: /先の住まいが入っていない/,
-  },
-  {
-    key: "purchase-dates-follow",
-    what: "購入の時期を直しても、住み始め・借入の年月・控除の入居がついてこない",
-    rule: "purchaseDates",
-    cases: [OP("購入の時期を1年遅らせる")],
-    match: /ずれている/,
-  },
-  {
     key: "home-value-in-models",
     what: "持ち家の時価の元（評価額・購入の価格）が無いモデル世帯で、今の家が資産に入らず純資産が大きくマイナス",
     rule: "negativeNetWorthNow",
@@ -120,20 +50,6 @@ const PENDING: readonly Pending[] = [
     match: /純資産が|資産に入っていない/,
   },
   {
-    key: "care-after-death",
-    what: "介護を受ける人の亡くなる見込みを入れても、介護の費用が亡くなった後も続く",
-    rule: "careAndInheritanceAfterDeath",
-    cases: [OP("介護の途中で亡くなる見込みを入れる")],
-    match: /介護の費用が/,
-  },
-  {
-    key: "inheritance-timing-counterparty",
-    what: "受け取る相続の相手を変えても、受け取る時期の推定が前の相手の亡くなる見込みのまま",
-    rule: "careAndInheritanceAfterDeath",
-    cases: [OP("受け取る相続の相手を変える")],
-    match: /受け取る相続の時期/,
-  },
-  {
     key: "living-stages-follow",
     what: "退職後の生活費の割合を下げても、推定の70歳・80歳の段が追いかけず、退職直後より高い",
     rule: "livingStagesRise",
@@ -146,20 +62,6 @@ const PENDING: readonly Pending[] = [
     rule: "rowGrouping",
     cases: "all",
     match: /cf\.income\.(business|corporatePension)/,
-  },
-  {
-    key: "allocation-passed",
-    what: "運用の入れ方を資産配分に切り替えても、画面に出している割合・期待リターンが計算に渡らない",
-    rule: "allocationPassed",
-    cases: [OP("運用の入れ方を資産配分に切り替える")],
-    match: /渡っていない/,
-  },
-  {
-    key: "zero-cost-basis",
-    what: "NISA・課税口座を足すと、取得価額が0円で入る",
-    rule: "zeroCostBasis",
-    cases: [OP("NISA と課税口座を足して残高を入れる")],
-    match: /取得価額が0円/,
   },
   {
     key: "internal-names-in-lists",
@@ -288,7 +190,9 @@ describe("見張りが見張れていること（わざと壊した世帯・結�
       const at2050 = t.filter((c) => c.object === r.id && c.year === 2050 && c.row.startsWith("cf.balance.account.realEstate"));
       return [...keep, ...(at2050.length > 0 ? at2050 : [{ row: "cf.balance.account.realEstate.land", year: 2050, amount: 10_000_000, object: r.id }])];
     });
-    expect(ruleOf("keptHomeVanishes").check(s).length).toBeGreaterThan(0);
+    expect(keptHomeConditions(s).length).toBeGreaterThan(0);
+    // 住まいの「住み終わりの後」に計算から外している旨の知らせが出ているので、黙っては消えていない
+    expect(ruleOf("keptHomeVanishes").check(s)).toEqual([]);
   });
 
   it("売った家の住宅ローンを売った後も返す", () => {

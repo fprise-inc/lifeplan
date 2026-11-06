@@ -1,4 +1,4 @@
-# 計算エンジンとアプリの画面・ヒアリングシート・明細の取り込み・表計算のファイルの土台・持ち帰り用のレポートの自動テスト（0002・0004・0005・0006・0007・0016・0017・0018・0021・0030・0034・0113）
+# 計算エンジンとアプリの画面・ヒアリングシート・明細の取り込み・表計算のファイルの土台・持ち帰り用のレポート・通しの入力と欄の効き目の自動テスト（0002・0004・0005・0006・0007・0016・0017・0018・0021・0030・0034・0113・0129・0132）
 # アプリの3つの OS でのビルド（バンドル）は、手で起動するかリリースのときだけ（app-bundle.yml。実行の分数に限りがあるため）
 name: ci
 on:
@@ -171,6 +171,38 @@ jobs:
       - name: Rust のテスト（正の計算・根拠の記録・画面の移動の制限）
         working-directory: app/src-tauri
         run: cargo test --locked --config 'profile.dev.package."*".opt-level=0'
+
+  # 通しの入力と欄の効き目（0132）: 3つの世帯を見えないブラウザで画面のキー入力で入れて結果まで出す・見本の棚の主な世帯の全部のパネルを開く・
+  # 入力項目の欄を1つずつ動かして結果が変わるかを見る。app の変更のときだけ、app のジョブと並べて流す（app のジョブの時間を延ばさない）
+  walkthrough:
+    needs: [engine, changes]
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: engine-dist
+          path: engine/dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - name: 通しの入力（ヘッドレスのブラウザで画面のキー入力）と欄ごとの効き目（直す待ちの一覧の行は「まだ落ちる」で通る）
+        env:
+          WALKTHROUGH_SHOTS: ${{ runner.temp }}/walkthrough
+        run: npm run check:walkthrough
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: walkthrough-shots
+          path: ${{ runner.temp }}/walkthrough
+          if-no-files-found: ignore
 
   # 提案書の PDF（0009）: 帳票の入力を組み立てる部品（report/）と、Typst を組み込んだ report-pdf のテスト。
   # 見本の PDF（架空のモデル世帯）を作って成果物に残す。Linux だけで流す（Typst は大きいのでホストの3つの OS には入れない）

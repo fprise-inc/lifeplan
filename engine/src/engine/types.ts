@@ -358,9 +358,9 @@ export interface RealEstatePropertyInput {
   readonly landShare?: string;
   /** 持ち始める時点（相続・贈与で受け取る不動産。その月から評価額・家賃収入・経費に入れ、受け取るときの支払いは無い。省略は前から持っている。0039） */
   readonly holdFrom?: Timepoint;
-  /** 取得（減価償却の基。price は土地と建物の合計の取得価額、at は取得の年月） */
+  /** 取得（減価償却の基。price は土地と建物の合計の取得価額、at は取得の年月。取得の年月だけでもよい〔price の省略は取得価額が未入力。0137〕） */
   readonly acquisition?: {
-    readonly price: Yen;
+    readonly price?: Yen;
     readonly at: string;
     /** 取得価額の内訳（土地・建物・建物附属設備。入れたら土地の割合より優先して取得価額を分ける。0080） */
     readonly parts?: { readonly land?: Yen; readonly building?: Yen; readonly equipment?: Yen };
@@ -579,7 +579,14 @@ export interface ResidenceInput {
   /** 持ち家の評価（土地と建物に分け、土地は上昇率、建物は耐用年数で減らす。housing.valuation） */
   readonly valuation?: ResidenceValuationInput;
   /** 売却（住み終わりの月に売り、手取りを現金にする） */
-  readonly sale?: { readonly price?: Yen; readonly costRate?: string; /** 0053: 譲渡所得の税の額（入れた額を売った月に払う） */ readonly tax?: ValueBox<Yen> };
+  readonly sale?: {
+    readonly price?: Yen;
+    readonly costRate?: string;
+    /** 0053: 譲渡所得の税の額（入れた額を売った月に払う） */
+    readonly tax?: ValueBox<Yen>;
+    /** 売ったときにこの住まいの住宅ローンを住み終わりの月に一括で返す（省略は返す。debt.schedule 改訂6） */
+    readonly repayLoan?: boolean;
+  };
 }
 
 /** 建物の構造（耐用年数の目安を選ぶ） */
@@ -595,6 +602,8 @@ export interface ResidenceValuationInput {
   readonly builtYear?: number;
   /** 土地の割合（省略は前提の realEstateValuation.landShare か目安） */
   readonly landShare?: string;
+  /** 評価の基にする額の入れ方（画面の側。market 今の時価・purchase 買った値段。計算エンジンは読まない） */
+  readonly basis?: "market" | "purchase";
 }
 
 export type CoverageBenefit =
@@ -1248,6 +1257,8 @@ export interface EngineInput {
   readonly household: HouseholdInput;
   readonly assumptions: {
     readonly investmentReturn: YearSeries;
+    /** 預金の利回り（預金・外貨預金の資産クラスが assetReturns に無いときに使う。省略は運用利回り。0137） */
+    readonly depositReturn?: YearSeries;
     readonly wageGrowth?: YearSeries;
     readonly inflation?: YearSeries;
     readonly educationInflation?: YearSeries;

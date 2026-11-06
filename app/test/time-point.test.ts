@@ -62,6 +62,10 @@ const ym = (text: string, o: Partial<WhenCtx> = {}) => {
   return typeof t === "string" ? t : resolveTimepoint(H, t);
 };
 
+
+/** 欄の外の年月の形（西暦の年月・和暦の年） */
+const ERA_YM = /\d{4}年\d{1,2}月・(令和|平成|昭和|大正|明治)(元|\d+)年/;
+const ERA_YM_ALL = new RegExp(ERA_YM.source, "g");
 describe("年月と和暦の読み取り", () => {
   it.each([
     ["2041-06", "2041-06"],
@@ -241,11 +245,11 @@ describe("見せ方と読み直し", () => {
     expect(showWhen({ at: "2020-10" }, ctx({ defaultMode: "now" }))).toBe("2020-10");
   });
   it("欄の下の読み替えた形", () => {
-    expect(readWhen({ memberAge: { member: SELF, years: 60 } }, ctx())).toBe("ご本人が60歳になる月（令和28年5月）");
-    expect(readWhen({ memberAge: { member: SELF, years: 64, months: 11 } }, ctx({ ageMeans: "before" }))).toBe("ご本人が65歳になる前の月（令和33年4月）");
-    expect(readWhen({ memberAge: { member: SELF, years: 65, ageSwitch: "monthAfterReach" } }, ctx({ ageMeans: "after" }))).toBe("ご本人が65歳になった翌月（令和33年6月）");
-    expect(readWhen({ event: MOVE_IN, offset: { years: 10 } }, ctx())).toBe("入居から10年後（入居は令和10年4月・令和20年4月）");
-    expect(readWhen({ at: "2041-06" }, ctx())).toBe("今から14年8か月後・ご本人55歳（令和23年6月）");
+    expect(readWhen({ memberAge: { member: SELF, years: 60 } }, ctx())).toBe("ご本人が60歳になる月（2046年5月・令和28年）");
+    expect(readWhen({ memberAge: { member: SELF, years: 64, months: 11 } }, ctx({ ageMeans: "before" }))).toBe("ご本人が65歳になる前の月（2051年4月・令和33年）まで");
+    expect(readWhen({ memberAge: { member: SELF, years: 65, ageSwitch: "monthAfterReach" } }, ctx({ ageMeans: "after" }))).toBe("ご本人が65歳になった翌月（2051年6月・令和33年）から");
+    expect(readWhen({ event: MOVE_IN, offset: { years: 10 } }, ctx())).toBe("入居から10年後（2038年4月・令和20年。入居は2028年4月）");
+    expect(readWhen({ at: "2041-06" }, ctx())).toBe("今から14年8か月後・ご本人55歳（2041年6月・令和23年）");
     expect(readWhen(null, ctx(), "最後まで")).toBe("最後まで");
     expect(readWhen({ at: "2040-03" }, ctx({ start: { at: "2030-04" } }))).toContain("始まりから10年間");
   });
@@ -299,7 +303,7 @@ describe("時点の欄の読み書き", () => {
     expect(j.time!.when.modes).toEqual(DEFAULT_WHEN_MODES);
     const w2 = j.set(wh, "2027-04");
     const age = Math.floor((2027 * 12 + 3 - (Number(sp.birth.birthYearMonth.slice(0, 4)) * 12 + Number(sp.birth.birthYearMonth.slice(5, 7)) - 1)) / 12);
-    expect(j.get(w2).when!.read).toBe(`${age}歳（令和9年4月）`);
+    expect(j.get(w2).when!.read).toBe(`${age}歳（2027年4月・令和9年）`);
     const old = structuredClone(wh.request);
     old.input.household.members.find((m) => m.id === sp.id)!.joins = { memberAge: { member: sp.id, years: 60 } };
     const wo = fromRequest(old);
@@ -379,7 +383,7 @@ describe("時点の欄の読み書き", () => {
     const rec = wh.request.input.household.pensionRecords!.find((r) => r.member === self.id)!;
     const f = byKey(wh, `pension/${rec.id}/claim`);
     expect(f.kind).toBe("int");
-    expect(f.time!.state(wh).read).toBe("65歳から（標準）: ご本人が65歳になった翌月（令和28年8月）");
+    expect(f.time!.state(wh).read).toBe("65歳から（標準）: ご本人が65歳になった翌月（2046年8月・令和28年）から");
     const tp66: Timepoint = { memberAge: { member: self.id, years: 66, months: 3, ageSwitch: "monthAfterReach" } };
     const w1 = f.time!.setWhen(wh, tp66, "auto");
     const r1 = w1.request.input.household.pensionRecords!.find((r) => r.member === self.id)!;
@@ -454,24 +458,24 @@ describe("時点の形を年齢・出来事に直しても、計算の結果は�
   });
 });
 
-describe("年月の表記はどの欄も同じ（欄に「2041-06」、横に和暦と今の読み）", () => {
-  it("時点の部品の年月の形: 欄は「2041-06」、読みは「今から○年後・人の年齢（和暦）」", () => {
+describe("年月の表記はどの欄も同じ（欄に「2041-06」、横に今の読みと「2041年6月・令和23年」）", () => {
+  it("時点の部品の年月の形: 欄は「2041-06」、読みは「今から○年後・人の年齢（西暦の年月・和暦の年）」", () => {
     for (const c of [ctx(), ctx({ defaultMode: "ym" }), ctx({ ageMeans: "before", defaultMode: "ym" }), ctx({ person: null, defaultMode: "ym" })]) {
       expect(showWhen({ at: "2041-06" }, { ...c, mode: "ym" })).toBe("2041-06");
     }
-    expect(readWhen({ at: "2041-06" }, ctx({ person: null }))).toBe("今から14年8か月後（令和23年6月）");
-    expect(readWhen({ at: "2051-04" }, ctx({ ageMeans: "before" }))).toBe("今から24年6か月後・ご本人が65歳になる前の月（令和33年4月）");
-    expect(readWhen({ at: "2020-10" }, ctx({ person: null }))).toBe("令和2年10月");
+    expect(readWhen({ at: "2041-06" }, ctx({ person: null }))).toBe("今から14年8か月後（2041年6月・令和23年）");
+    expect(readWhen({ at: "2051-04" }, ctx({ ageMeans: "before" }))).toBe("今から24年6か月後・ご本人が65歳になる前の月（2051年4月・令和33年）まで");
+    expect(readWhen({ at: "2020-10" }, ctx({ person: null }))).toBe("2020年10月・令和2年");
     // 打つときの例も同じ形。「2041年6月」「令和23年6月」と打っても読める
     expect(parseWhen("それ", ctx({ modes: ["ym"], defaultMode: "ym" }))).toMatchObject({ ok: false, reason: expect.stringContaining("2041-06") });
     for (const text of ["2041-06", "2041年6月", "令和23年6月", "2041/6"]) expect(parseWhen(text, ctx({ modes: ["ym"], defaultMode: "ym" }))).toEqual({ ok: true, tp: { at: "2041-06" }, via: "ym" });
   });
-  it("年月だけの欄の読み: 今より後は「今から○年後（和暦）」、今月までは和暦だけ", () => {
-    expect(readYearMonth("2031-04", "2026-10")).toBe("今から4年6か月後（令和13年4月）");
-    expect(readYearMonth("2026-10", "2026-10")).toBe("令和8年10月");
-    expect(readYearMonth("2025-12", "2026-10")).toBe("令和7年12月");
+  it("年月だけの欄の読み: 今より後は「今から○年後（2031年4月・令和13年）」、今月までは「2025年12月・令和7年」", () => {
+    expect(readYearMonth("2031-04", "2026-10")).toBe("今から4年6か月後（2031年4月・令和13年）");
+    expect(readYearMonth("2026-10", "2026-10")).toBe("2026年10月・令和8年");
+    expect(readYearMonth("2025-12", "2026-10")).toBe("2025年12月・令和7年");
   });
-  it.each(MODELS)("見本 %s: どの時点の欄も年月の形は「YYYY-MM」で見せ、年月の欄の読みに「2041年6月」の形を出さない", (id) => {
+  it.each(MODELS)("見本 %s: どの時点の欄も年月の形は「YYYY-MM」で見せ、欄の下の読みの年月は「2041年6月・令和23年」の形（和暦の年を添える）", (id) => {
     const wh = open(id);
     const fields = buildStages(wh).flatMap((s) => allFields(s));
     for (const f of fields.filter((x) => x.time !== undefined)) {
@@ -479,11 +483,14 @@ describe("年月の表記はどの欄も同じ（欄に「2041-06」、横に和
       const raw = st.linked?.at ?? st.raw;
       if (raw?.at === undefined || modeOf(raw, st.ctx) !== "ym") continue;
       expect(showWhen(raw, st.ctx), f.key).toMatch(/^\d{4}-\d{2}$/);
-      expect(st.read, f.key).not.toMatch(/\d{4}年\d{1,2}月/);
+      // 読みの年月は西暦を主に、和暦の年を添える（「2041年6月・令和23年」）。和暦だけ・西暦だけの年月を出さない
+      expect(st.read, f.key).toMatch(ERA_YM);
+      expect(st.read.replace(ERA_YM_ALL, ""), f.key).not.toMatch(/\d{4}年\d{1,2}月|(令和|平成|昭和|大正|明治)(元|\d+)年\d{1,2}月/);
     }
     for (const f of fields.filter((x) => x.kind === "ym")) {
       const hint = f.get(wh).hint;
-      if (typeof hint === "string") expect(hint, f.key).not.toMatch(/\d{4}年\d{1,2}月/);
+      // 欄ごとの読み（生年月の「○歳（和暦）」など）は欄の持ち主の決まり。西暦の年月を出すなら和暦の年を添える
+      if (typeof hint === "string") expect(hint.replace(ERA_YM_ALL, ""), f.key).not.toMatch(/\d{4}年\d{1,2}月/);
     }
   });
 });

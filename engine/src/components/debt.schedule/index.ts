@@ -18,6 +18,11 @@
 // - 売ったときに返す（改訂5。0081）: 住まい以外の不動産を指す負債（property）で、その不動産に売却の予定があり「売ったときにローンを返す」
 //   （sale.repayLoan。省略は返す）なら、売る月の返済の後に残り（ボーナス返済の分・未払利息を含む）を一括で返す（繰上返済の行。計算式ID
 //   debt.schedule.salePayoff）。売却の手取りは asset.realEstate が同じ月に入れる
+// - 住まいを売ったときに返す（改訂6）: 住まいの住宅ローン（property の無い mortgage）で、そのローンの住まい（debt.housing.residence、無ければ
+//   借入の月に購入する持ち家、無ければ借入の月に住んでいる持ち家）を住み終わりの月に売り、「売ったときにローンを返す」（residence.sale.repayLoan。
+//   省略は返す）なら、収益不動産と同じく住み終わりの月の返済の後に残りを一括で返す（計算式ID debt.schedule.salePayoff）。売却の手取りは housing.valuation
+// - 約束の版 1.3（改訂6）: 借り換えごとの、借り換えの直前の残高と新しいローンの借入額・期間（refinances。任意の欄）を添える
+//   （住宅ローン控除の借り換えの扱い〔新しいローンの年末残高×直前の残高÷新しい借入額・償還期間10年以上〕に使う。tax.housingLoanCredit）
 import {
   addMonths,
   boxValue,
@@ -35,6 +40,7 @@ import {
   type Flow,
   type MonthIndex,
   type RateStep,
+  type ResidenceInput,
   type VariableRules,
   type Yen,
 } from "../../sdk/index.ts";
@@ -76,11 +82,30 @@ const ROWS: Readonly<Record<DebtInput["kind"], string>> = {
   other: "cf.expense.debt.other",
 };
 
+/**
+ * 住まいの住宅ローンの、住まいを売る月（改訂6）。そのローンの住まいを住み終わりの月に売り、売ったときにローンを返す（省略は返す）なら
+ * 住み終わりの月。住まいは debt.housing.residence、無ければ借入の月に購入する持ち家、無ければ借入の月に住んでいる持ち家
+ */
+function homeSaleMonth(ctx: Ctx, d: DebtInput, start: MonthIndex): MonthIndex | null {
+  if (d.kind !== "mortgage" || d.property !== undefined || d.inheritedFrom !== undefined) return null;
+  const own = ctx.list<ResidenceInput>("residence").filter((r) => r.kind === "own");
+  const span = (r: ResidenceInput) => ({ from: ctx.time.resolve(r.from), to: r.to === null ? null : ctx.time.resolve(r.to) });
+  const r =
+    own.find((x) => x.id === d.housing?.residence) ??
+    own.find((x) => x.purchase !== undefined && ctx.time.resolve(x.purchase.at ?? x.from) === start) ??
+    own.find((x) => {
+      const p = span(x);
+      return p.from <= start && (p.to === null || start <= p.to);
+    });
+  if (r === undefined || r.to === null || r.sale === undefined || r.sale.repayLoan === false) return null;
+  return ctx.time.resolve(r.to);
+}
+
 export default defineComponent<{ object: string } | { loan: DebtInput }, DebtScheduleOutput>({
   id: "debt.schedule",
   title: "負債の返済",
-  contract: "1.2",
-  revision: 5,
+  contract: "1.3",
+  revision: 6,
   requires: { "debt.creditLifeEvents": ">=1 <2" },
   params: [],
   reads: [
@@ -96,7 +121,13 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
     "debt.prepayments",
     "debt.refinance",
     "debt.property",
+    "debt.housing",
     "account.property",
+    "residence.kind",
+    "residence.from",
+    "residence.to",
+    "residence.purchase",
+    "residence.sale",
   ],
   input: "debt.schedule.input",
   output: "debt.schedule.output",
@@ -202,13 +233,16 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
     const refinances = (d.refinance ?? []).map((p) => ({ ...p, m: ctx.time.resolve(p.at) }));
     // 売ったときに返す月（住まい以外の不動産のローン。0081）
     const propSale = d.property === undefined ? undefined : ctx.list<AccountInput>("account").find((a) => a.id === d.property)?.property?.sale;
-    const payoffAt: MonthIndex | null = propSale !== undefined && propSale.repayLoan !== false ? ctx.time.resolve(propSale.at) : null;
+    const payoffAt: MonthIndex | null = propSale !== undefined && propSale.repayLoan !== false ? ctx.time.resolve(propSale.at) : homeSaleMonth(ctx, d, start);
+    const refinanced: { ym: string; before: Yen; principal: Yen; termMonths: number }[] = [];
     for (let m = addMonths(cur, 1); m <= end && n > 0; m = addMonths(m, 1)) {
       // 借り換え: その月から新しいローン
       const rf = refinances.find((x) => x.m === m);
       if (rf !== undefined) {
         const costs = yen(rf.costs ?? 0);
-        main = yen(main + bonus + unpaid + (rf.costsFinanced === true ? costs : 0));
+        const before = yen(main + bonus + unpaid);
+        main = yen(before + (rf.costsFinanced === true ? costs : 0));
+        refinanced.push({ ym: formatYm(m), before, principal: main, termMonths: rf.termMonths });
         if (rf.costsFinanced !== true) emit(m, feeRow, costs, "debt.schedule.refinanceCosts");
         bonus = yen(0);
         unpaid = yen(0);
@@ -336,6 +370,6 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
       }
     }
     const interest = [...interestByYear.entries()].sort((a, b) => a[0] - b[0]).map(([year, amount]) => ({ year, amount }));
-    return { flows, yearEnd, firstPayment: formatYm(addMonths(start, 1)), payoff: payoff === null ? null : formatYm(payoff), ...(interest.length > 0 ? { interest } : {}) };
+    return { flows, yearEnd, firstPayment: formatYm(addMonths(start, 1)), payoff: payoff === null ? null : formatYm(payoff), ...(interest.length > 0 ? { interest } : {}), ...(refinanced.length > 0 ? { refinances: refinanced } : {}) };
   },
 });
