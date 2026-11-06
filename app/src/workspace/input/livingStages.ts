@@ -79,9 +79,14 @@ export function facilityStarts(h: Household): { care: string; member: string; fr
  * その月に世帯で暮らしている人の数（生活費の人数）。now は計算基準月の数え方（予定の子は数えない）
  */
 export function countAt(h: Household, month: string, o: { now?: boolean } = {}): number {
+  return membersAt(h, month, o).length;
+}
+
+/** その月に世帯で暮らしている人（countAt の人。スマホの台数などの目安に使う） */
+export function membersAt(h: Household, month: string, o: { now?: boolean } = {}): Member[] {
   const away = awayPeriods(h);
   const care = facilityStarts(h);
-  return h.members.filter((m) => inHouseholdAt(h, m, month, o.now === true, away, care)).length;
+  return h.members.filter((m) => inHouseholdAt(h, m, month, o.now === true, away, care));
 }
 
 function inHouseholdAt(h: Household, m: Member, month: string, now: boolean, away: ReturnType<typeof awayPeriods>, care: ReturnType<typeof facilityStarts>): boolean {
@@ -267,13 +272,66 @@ export function rememberDropped(l: LivingExpense, stageId: string): void {
 
 const stageMonth = (h: Household, s: Stage): string => resolveTimepoint(h, s.at) ?? "9999-12";
 
+/** 段の時点から今の額に対する割合（割合の段はその値、月額の段は今の額で割った値。今の額が0なら null） */
+function stageRatio(l: LivingExpense, s: Stage): number | null {
+  if (s.ratio !== undefined) return Number(s.ratio);
+  const m = (s.monthly as Box<number> | undefined)?.value;
+  const base = l.mode === "byCategory" ? (l.categories ?? []).reduce((t, c) => t + (c.monthly.value ?? 0), 0) : (l.monthly?.value ?? 0);
+  return m == null || base <= 0 ? null : m / base;
+}
+
+/** その月の推定の割合（今の額に対する。推定の段と同じ式。人数が0なら null） */
+function autoRatioAt(h: Household, baseMonth: string, ym: string): number | null {
+  const self = h.members.find((m) => m.kind === "self");
+  const retire = retireMonth(h);
+  const n = countAt(h, ym);
+  if (n === 0) return null;
+  const n0 = countAt(h, baseMonth, { now: true });
+  return (livingStatistic(n).value / livingStatistic(n0).value) * (ageLevel(self, retire, ym) / ageLevel(self, retire, baseMonth));
+}
+
+/**
+ * 退職後の段を FP が直したときの、その後の推定の段の合わせ方: 退職後の段（節目が「退職後」の最初の段）が推定でなければ、それより後の推定の段の割合を
+ * 「FP の退職後の割合 × （その段の推定の割合 ÷ 退職後の月の推定の割合）」にする（人数が変わらなければ 退職後の割合 × 70歳・80歳の目安の比）。
+ * 退職後の段が推定のまま・無いときは null（そのまま）
+ */
+function retiredAnchor(h: Household, baseMonth: string, l: LivingExpense): { ym: string; ratio: number; scale: number } | null {
+  const first = ((l.stages ?? []) as Stage[])
+    .filter((s) => s.label === "retirement")
+    .map((s) => ({ s, ym: resolveTimepoint(h, s.at) }))
+    .filter((x): x is { s: Stage; ym: string } => x.ym !== null)
+    .sort((a, b) => a.ym.localeCompare(b.ym))[0];
+  if (first === undefined || (first.s.id !== undefined && isAutoStage(l, first.s.id))) return null;
+  const fp = stageRatio(l, first.s);
+  const auto = autoRatioAt(h, baseMonth, first.ym);
+  if (fp === null || auto === null || auto <= 0) return null;
+  return { ym: first.ym, ratio: fp, scale: fp / auto };
+}
+
+/**
+ * 推定の段（autoStages）に、FP が直した退職後の段を当てる（retiredAnchor）。退職後の段より後の推定の段だけ割合と根拠の文を変える
+ */
+export function anchoredAutoStages(h: Household, baseMonth: string, endYear: number, l: LivingExpense): AutoStage[] {
+  const want = autoStages(h, baseMonth, endYear, l.id);
+  const a = retiredAnchor(h, baseMonth, l);
+  if (a === null) return want;
+  const pct = (x: number) => `${Math.round(x * 100)}%`;
+  const autoAtAnchor = a.ratio / a.scale;
+  return want.map((w) => {
+    if (w.ym <= a.ym) return w;
+    const ratio = round2(Number(w.ratio) * a.scale);
+    const rel = Number(w.ratio) / autoAtAnchor;
+    return { ...w, ratio, basis: `${AUTO_STAGE_BASIS}（入れた退職後の割合 ${pct(a.ratio)} × 退職後から見た目安の比 ${pct(rel)}。人数の変化と年齢の目安の比を、退職後の段に合わせて掛けました）` };
+  });
+}
+
 /**
  * 推定の段階を入れ直す（l をそのまま書き換える）。start が true なら、推定の段がまだ無くても入れる（新しい世帯・「推定で入れる」を押したとき）。
- * 推定のままの段だけ書き換え・外し、FP が直した段・FP が足した段は変えない
+ * 推定のままの段だけ書き換え・外し、FP が直した段・FP が足した段は変えない。退職後の段を FP が直していれば、その後の推定の段は退職後の割合に合わせる
  */
 export function applyAutoStages(h: Household, baseMonth: string, endYear: number, l: LivingExpense, start = false): boolean {
   if (!start && !autoActive(l)) return false;
-  const want = autoStages(h, baseMonth, endYear, l.id);
+  const want = anchoredAutoStages(h, baseMonth, endYear, l);
   const before = JSON.stringify(l);
   const input = wrap(l);
   const kept: Stage[] = [];
@@ -347,6 +405,17 @@ export function autoStageTitle(stage: AutoStage, name: (memberId: string) => str
     }
   });
   return [...new Set(parts)].join("・");
+}
+
+/**
+ * 子の独立の段が、どの子の独立か（子の ID）。推定から作った段（ID が推定の段と同じ）はその理由から、FP が足した段は時点が子の年齢・出来事ならその子。
+ * 分からなければ空（結果の対策の文で「第1子の独立後は」「第2子の独立後は」と分けるため）
+ */
+export function independenceOf(h: Household, baseMonth: string, endYear: number, l: LivingExpense, s: Stage): string[] {
+  const a = s.id === undefined ? undefined : autoStages(h, baseMonth, endYear, l.id).find((x) => x.id === s.id);
+  if (a !== undefined) return a.reasons.filter((r) => r.startsWith("leaves/")).map((r) => r.slice("leaves/".length));
+  const who = s.at.memberAge?.member ?? (s.at as { memberEvent?: { member?: string } }).memberEvent?.member;
+  return who !== undefined && h.members.some((m) => m.id === who && m.kind === "child") ? [who] : [];
 }
 
 /** 段の時点の年（表示用） */

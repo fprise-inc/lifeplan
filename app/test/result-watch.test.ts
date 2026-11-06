@@ -50,13 +50,6 @@ const PENDING: readonly Pending[] = [
     match: /純資産が|資産に入っていない/,
   },
   {
-    key: "living-stages-follow",
-    what: "退職後の生活費の割合を下げても、推定の70歳・80歳の段が追いかけず、退職直後より高い",
-    rule: "livingStagesRise",
-    cases: [OP("退職後の生活費の割合だけを下げる")],
-    match: /より高い/,
-  },
-  {
     key: "business-and-pension-rows",
     what: "事業所得・企業年金（iDeCo・小規模企業共済・個人年金を含む）がキャッシュフロー表の「その他の収入」に入り、事業所得はグラフでは給与に入る",
     rule: "rowGrouping",
