@@ -16,7 +16,7 @@
 //   返済余裕率（DSCR）＝（実際に入る収入−経費）÷約定の返済、借入の割合（LTV）＝年末のローン残高÷年末の評価額（ローンのある物件）、
 //   自己資金に対する手残りの割合（CCR）＝税引前の手残り（年換算）÷自己資金（入れたときだけ）。年換算は×12÷貸している月数（表に載る月の分）。
 //   民泊・宿は表面利回りを出さず（満室の考えが無い）、稼働率と1泊の単価・営業日数・年の売上を並べる（損益分岐は稼働率100%の売上に対する割合）
-// - 築年数＝その年−建った年。残りの耐用年数（改訂3）＝その年から建物の減価償却が終わる年までの年数（その年を含む。0より下げない）で、
+// - 築年数＝その年−建った年。残りの耐用年数（改訂4）＝その年から建物の減価償却が終わる年までの年数（その年を含む。0より下げない）で、
 //   実際に償却に使う耐用年数（中古は簡便法）で数える（法定耐用年数−築年数ではない。法定耐用年数は物件の legalLife）。売る・貸し終わるまでに
 //   終わらなければ貸し続けたら終わる年まで。償却していない建物（取得価額が無い・貸していない）と建物の無い物件（facts.noBuilding）は出さない
 // - 売ったときの手残りの目安（equity）＝年末の評価額−年末のローン残高。含み益（unrealizedGain。改訂2）＝年末の評価額−年末の帳簿価額
@@ -27,6 +27,11 @@
 // - 売却（exit。今の予定の売却）: 手取り（売却価格−費用）・売ったときの一括の返済・譲渡所得の税（tax.realEstateSale の名義の人×年の額。
 //   同じ年に同じ人が売る物件が他にもあれば、黒字の譲渡所得の割合で分ける）・税引後の手取り
 // - 合計（total）: 年ごとに物件の金額を足す。率は物件の年換算の額を足して出す（分母は数字のある物件の分だけ）
+// - 改訂3・約束の版 1.2（0126）: 今の実際の家賃収入で入れた物件（asset.realEstate の facts.rentBy が actual）は、満室のときの収入が無いので、
+//   表面利回り・損益分岐の入居率を null にし、今の家賃収入での表面利回り（currentYield＝受け取った家賃と家賃以外の月の収入〔礼金・更新料を除く。
+//   cash.current〕の年換算÷取得価額）を出す。物件に rentBy を写す。合計の表面利回り・損益分岐は、満室のときの収入のある物件だけで出す（今までどおり）
+// - 改訂4（0127）: 残りの耐用年数を、実際の償却で建物の償却が終わる年までの年数にした（減価償却を引き継いだ物件は、引き継いだ残高と年額で
+//   終わる年まで）
 import {
   addYen,
   ageMonth,
@@ -76,8 +81,8 @@ const max0 = (v: number): Yen => yen(v > 0 ? v : 0);
 export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>({
   id: "asset.realEstateAnalysis",
   title: "収益不動産の分析の数字（利回り・返済比率・手残りなど）",
-  contract: "1.1",
-  revision: 3,
+  contract: "1.2",
+  revision: 4,
   requires: {
     "asset.realEstate": ">=1 <2",
     "debt.schedule": ">=1 <2",
@@ -243,7 +248,8 @@ export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>(
       const acq = facts?.acquisition ?? null;
       const equityIn = acq?.equity;
       const lodging = facts?.lodging;
-      const isLodging = p.incomeKind !== undefined || lodging !== undefined || cash.some((c) => c.gross === null);
+      const actualRent = facts?.rentBy === "actual";
+      const isLodging = !actualRent && (p.incomeKind !== undefined || lodging !== undefined || cash.some((c) => c.gross === null));
       const years: Row[] = [];
       let deadCross: number | null = null;
       for (const c of cash) {
@@ -273,7 +279,7 @@ export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>(
         if (deadCross === null && c.months > 0 && hasLoan && principal > 0 && principal > depCmp) deadCross = y;
         const noi = c.rent - c.expenses;
         const age = facts === undefined || noBuilding ? null : Math.max(0, y - facts.builtYear);
-        // 残りの耐用年数（改訂3。0126）: 実際に償却に使う耐用年数（中古は簡便法）で数え、その年から建物の減価償却が終わる年までの年数（その年を含む）。
+        // 残りの耐用年数（改訂4。0127）: 実際に償却に使う耐用年数（中古は簡便法）で数え、その年から建物の減価償却が終わる年までの年数（その年を含む）。
         // 売る・貸し終わるまでに終わらなければ、貸し続けたら終わる年まで。償却していない（取得価額が無い・貸していない）建物は出さない
         const bookValue = value === null ? null : (bookOf.get(y) ?? null);
         const row: Row = {
@@ -301,6 +307,7 @@ export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>(
           age,
           remainingLife: lifeEnd === null || age === null ? null : Math.max(0, lifeEnd - y + 1),
           grossYield: isLodging || c.gross === null || acq === null ? null : annualRatio(c.gross, c.months, acq.total),
+          ...(actualRent ? { currentYield: acq === null || c.current === undefined ? null : annualRatio(c.current, c.months, acq.total) } : {}),
           netYield: acq === null ? null : annualRatio(noi, c.months, acq.total + acq.costs),
           breakEven: c.gross === null || c.months === 0 ? null : ratio(c.expenses + debtService, c.gross),
           repaymentRatio: !hasLoan || c.months === 0 ? null : ratio(debtService, c.rent),
@@ -335,6 +342,7 @@ export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>(
         ...(facts?.depreciationEndIfContinued !== undefined ? { depreciationEndIfContinued: facts.depreciationEndIfContinued } : {}),
         deadCross,
         lodging: isLodging,
+        ...(actualRent ? { rentBy: "actual" as const } : {}),
         years,
         exit,
       });

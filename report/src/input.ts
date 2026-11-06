@@ -229,7 +229,7 @@ export interface ProposalInput {
   /** ご家族の夢（夢プラン。0103）。夢が無い・章を外したときは null。省略は、この欄の前の版の入力 */
   dreams?: DreamsView | null;
   /**
-   * keyYears: 抜粋（layout.cashflow の excerpt）で必ず載せる年。現状と提案の両方の出来事の年（退職・売却・大きな修繕・住まいの購入など。0126）。
+   * keyYears: 抜粋（layout.cashflow の excerpt）で必ず載せる年。現状と提案の両方の出来事の年（退職・売却・大きな修繕・住まいの購入など。0127）。
    * 省略は、この欄の前の版の入力（ライフイベント表の年を使う）
    */
   cashflow: { current: CfTable; proposal: CfTable; keyYears?: number[] };
@@ -347,6 +347,10 @@ export interface RentalPropertyView {
   deadCrossNow?: boolean;
   /** 民泊・宿（表面利回りの代わりに稼働率・1泊の単価・営業日数・年の売上） */
   lodging: boolean;
+  /** 今の実際の家賃収入で入れた物件（表面利回りは今の収入から、損益分岐の入居率は出さない。0126。省略は満室時の家賃で入れた物件か前の版の入力） */
+  actualRent?: boolean;
+  /** 減価償却を確定申告の数字から引き継いだ年（0126。省略は取得価額からの計算か前の版の入力） */
+  depreciationFrom?: number;
   /** pointYear（持っていなければ最初に持っている年）の指標 */
   point: RentalMetrics | null;
   /** 年ごと（basis.years のうち、持っている月が表にある年） */

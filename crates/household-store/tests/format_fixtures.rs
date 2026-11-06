@@ -368,6 +368,31 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.63 より前の版に Web の依頼の記録は無い"
             );
         }
+        if migrate::parse(v).unwrap() >= (0, 65) {
+            // 0.65 から（0126）: 収益不動産の家賃の入れ方（今の実際の家賃収入）と減価償却の引き継ぎ（確定申告の数字）
+            let accounts = now["household"]["request"]["input"]["household"]["accounts"]
+                .as_array()
+                .unwrap();
+            assert!(
+                accounts
+                    .iter()
+                    .any(|a| a["property"]["rental"]["rentBy"] == "actual"
+                        && a["property"]["depreciationCarryover"]["year"] == 2025
+                        && a["property"]["depreciationCarryover"]["building"]["annual"] == 360000),
+                "{v}: 今の実際の家賃収入で入れ、減価償却を引き継いだ物件"
+            );
+        } else {
+            let accounts = now["household"]["request"]["input"]["household"]["accounts"]
+                .as_array()
+                .unwrap();
+            assert!(
+                accounts
+                    .iter()
+                    .all(|a| a["property"]["rental"].get("rentBy").is_none()
+                        && a["property"].get("depreciationCarryover").is_none()),
+                "{v}: 0.65 より前の版に家賃の入れ方・減価償却の引き継ぎは無い"
+            );
+        }
         if migrate::parse(v).unwrap() >= (0, 64) {
             // 0.64 から（0123 の追記 2026-11-05）: 貸していない不動産の持ち始める時点・建物が建った年と構造
             let accounts = now["household"]["request"]["input"]["household"]["accounts"]

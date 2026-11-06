@@ -135,7 +135,7 @@ describe("バランスシートの図の色", () => {
       ["land", "building"],
       ["mortgage", "netWorth"],
       ["mortgage", "carLoan"],
-      // 不動産のローン（0126 で分け方を分けた）は、住宅ローン・その他の負債の両方と隣り合う
+      // 不動産のローン（0127 で分け方を分けた）は、住宅ローン・その他の負債の両方と隣り合う
       ["mortgage", "propertyLoan"],
       ["propertyLoan", "carLoan"],
       ["building", "car"],

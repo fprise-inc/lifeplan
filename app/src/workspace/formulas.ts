@@ -40,7 +40,7 @@ export const FORMULA_LABELS: Readonly<Record<string, { label: string; text: stri
   "housing.residence.maintenance": { label: "修繕費", text: "修繕費 ＝ 月額 × 上昇率での延ばし" },
   "housing.valuation.sale": { label: "持ち家の売却の手取り", text: "売却の手取り ＝ 売却価格（入れていなければその年の評価額）− 売却価格 × 売却の費用の割合（譲渡所得の税は別の行）" },
   "housing.valuation.saleTax": { label: "持ち家の譲渡所得の税", text: "譲渡所得の税 ＝ 入れた額（所得税・住民税の合計。売った月に払う。税の自動の計算はまだ無い）" },
-  "asset.realEstate.rent": { label: "家賃収入", text: "家賃収入 ＝ 満室時の家賃（月額） × (1 − 空室率)（家賃は変化率で毎年動かす）" },
+  "asset.realEstate.rent": { label: "家賃収入", text: "家賃収入 ＝ 満室時の家賃（月額） × (1 − 空室率)（今の実際の家賃収入で入れた物件は、その額のまま。家賃は変化率で毎年動かす）" },
   "asset.realEstate.expenses": { label: "不動産の経費", text: "経費 ＝ 年額 ÷ 12 ＋ 受け取る家賃 × 家賃に対する割合（管理費・修繕積立金・固定資産税・管理委託料など）" },
   "asset.realEstate.repair": { label: "大きな修繕", text: "大きな修繕 ＝ 入力した額（その月に払う一時の支出。貸している月なら、全額をその年の不動産所得の経費にする）" },
   "asset.realEstate.sale": { label: "不動産の売却の手取り", text: "売却の手取り ＝ 売却価格（入れていなければその年の評価額）− 売却価格 × 売却の費用の割合（譲渡所得の税は別の行。ローンを返すときは返済の行）" },
@@ -83,12 +83,12 @@ export const FORMULA_LABELS: Readonly<Record<string, { label: string; text: stri
 };
 
 /**
- * 制度の値を使わず、入力した値だけから出す計算式（0126）。根拠の「使った制度の値」に、その部品がほかの計算（譲渡所得など）のために読んだ
+ * 制度の値を使わず、入力した値だけから出す計算式（0127）。根拠の「使った制度の値」に、その部品がほかの計算（譲渡所得など）のために読んだ
  * 制度の値を並べないようにする（家賃収入・不動産の経費・大きな修繕・売却の手取り・年末の借入の残高）
  */
 export const INPUT_ONLY_FORMULAS: ReadonlySet<string> = new Set(["asset.realEstate.rent", "asset.realEstate.expenses", "asset.realEstate.repair", "asset.realEstate.sale", "plan.cashflow.debt"]);
 
-/** 住まい以外の不動産のローン（負債の property）の返済の計算式の名前（住宅ローンの名前で出さない。0126） */
+/** 住まい以外の不動産のローン（負債の property）の返済の計算式の名前（住宅ローンの名前で出さない。0127） */
 export const PROPERTY_LOAN_LABELS: Readonly<Record<string, string>> = {
   "debt.schedule.equalPayment": "ローンの返済（元利均等）",
   "debt.schedule.equalPrincipal": "ローンの返済（元金均等）",

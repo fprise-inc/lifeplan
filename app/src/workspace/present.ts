@@ -124,7 +124,7 @@ export function carExpense(req: EngineRequest): (c: TableCell) => boolean {
   return (c) => ids.size > 0 && c.object !== undefined && ids.has(c.object) && under(c.row, "cf.expense");
 }
 
-/** 住まい以外の不動産のローン（負債の property）のマス。負債の物の ID で見分ける（0126） */
+/** 住まい以外の不動産のローン（負債の property）のマス。負債の物の ID で見分ける（0127） */
 export function propertyLoanCell(req: EngineRequest): (c: TableCell) => boolean {
   const ids = new Set((req.input.household.debts ?? []).filter((d) => d.property !== undefined).map((d) => d.id));
   return (c) => ids.size > 0 && c.object !== undefined && ids.has(c.object);
@@ -146,7 +146,7 @@ export function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
   const hasReExp = props.some((a) => a.property?.rental !== undefined || a.property?.expenses !== undefined || (a.property?.repairs ?? []).length > 0);
   const isRent = (c: TableCell) => hasRent && c.row === "cf.income.other.rental";
   const isReExp = (c: TableCell) => hasReExp && c.row === "cf.expense.other.realEstate";
-  // 住まい以外の不動産のローン（負債の property）は、返済と残高を住まいのローン・その他の支出と分けた行にする（0126）
+  // 住まい以外の不動産のローン（負債の property）は、返済と残高を住まいのローン・その他の支出と分けた行にする（0127）
   const reLoan = propertyLoanCell(req);
   const isReLoanPay = (c: TableCell) => reLoan(c) && under(c.row, "cf.expense");
   const hasReLoan = (req.input.household.debts ?? []).some((d) => d.property !== undefined);
@@ -265,7 +265,7 @@ export function eventsOf(req: EngineRequest, proposed: readonly TableCell[], yea
   const paid = [...loan.entries()].filter(([, v]) => v > 0).map(([y]) => y).sort((a, b) => a - b).at(-1);
   const self = rs.find((r) => r.key === "self");
   if (paid !== undefined && paid < req.input.endYear) add(paid, "家", `住宅ローン完済${self !== undefined ? `（${self.label}${ageInYear(self.member, paid)}歳）` : ""}`);
-  // 住まい以外の不動産を売る・大きな修繕（0126。提案書のライフイベント表と同じ出来事）
+  // 住まい以外の不動産を売る・大きな修繕（0127。提案書のライフイベント表と同じ出来事）
   const props = (h.accounts ?? []).filter((a) => a.kind === "realEstate" && a.property !== undefined);
   const propName = (a: (typeof props)[number], i: number) => (a.property?.name !== undefined && a.property.name.trim() !== "" ? a.property.name : `物件${i + 1}`);
   const analysis = new Map(((summary as { realEstateAnalysis?: { properties?: { object: string; years: { year: number; repairs: number }[] }[] } } | null | undefined)?.realEstateAnalysis?.properties ?? []).map((p) => [p.object, p]));
@@ -653,7 +653,7 @@ const series = (key: string, label: string, table: readonly TableCell[], years: 
 
 /**
  * 収支の推移: 収入（給与・年金・その他）と支出（生活費・住宅・教育・保険・その他）の積み上げ。
- * 住まい以外の不動産を持つ世帯は、収入に「不動産」（家賃収入と、その物件を売った手取り）、支出に「不動産」（経費・大きな修繕・その物件のローンの返済）を足す（0126）
+ * 住まい以外の不動産を持つ世帯は、収入に「不動産」（家賃収入と、その物件を売った手取り）、支出に「不動産」（経費・大きな修繕・その物件のローンの返済）を足す（0127）
  */
 export function flowChart(req: EngineRequest, table: readonly TableCell[], years: number[], title: string): FlowChartModel {
   const self = roles(req).find((r) => r.key === "self");

@@ -1,4 +1,4 @@
-// 収益不動産を持つ見本の世帯（見本 3-4-05。data/modelHouseholds/rentalSample.json。架空）と、その見本で見つかった画面の直し（0126）:
+// 収益不動産を持つ見本の世帯（見本 3-4-05。data/modelHouseholds/rentalSample.json。架空）と、その見本で見つかった画面の直し（0127）:
 // 見本の一覧に入っていること、表の行で住まいのローンと不動産のローンを分ける、収支の推移の「不動産」の色、数字の根拠の物件ごとの内訳と
 // 使った制度の値、収益不動産のタブの減価償却が終わる年と残りの耐用年数、ライフイベントの物件の売却・大きな修繕
 import { readdirSync } from "node:fs";
@@ -10,6 +10,9 @@ import { DEMO_HOUSEHOLDS, type DemoHousehold } from "../src/workspace/catalog.ts
 import { buildEvidence } from "../src/workspace/evidence.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { fromRequest } from "../src/workspace/input/household.ts";
+import { CURRENT } from "../src/workspace/plans/band.ts";
+import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
+import { BODY_FORMAT_VERSION, bodyOf, EMPTY_CARRY, fromBody } from "../src/workspace/store/body.ts";
 import { applyValues, normalizeValues } from "../src/workspace/plans/plans.ts";
 import { displayYears, eventsOf, flowChart, rowDefs } from "../src/workspace/present.ts";
 import { rentalTabModel } from "../src/workspace/rentalTab.ts";
@@ -71,6 +74,19 @@ describe("見本の一覧の「収益不動産を持つ会社員の夫婦と子1
       const values = normalizeValues(p.values, {}, wh, cat);
       expect(last(applyValues(wh, values, cat)), p.name).not.toBe(last(req));
     }
+  });
+});
+
+describe("世帯ファイルの形式の今の版で開ける", () => {
+  it("見本を開いて世帯ファイルの本文にし、読み戻すと同じ（今の版。変換の段を通らずに読める）", () => {
+    expect(BODY_FORMAT_VERSION).toBe("0.65");
+    const wh = fromRequest(req);
+    const text = bodyOf({ wh, workspace: { template: ID, band: [], base: CURRENT, selected: CURRENT, shownItems: [] }, display: { result: DEFAULT_DISPLAY_SETTINGS, balance: DEFAULT_BALANCE_SETTINGS }, carry: EMPTY_CARRY });
+    const back = fromBody(text);
+    expect(back.wh.request).toEqual(fromBody(bodyOf({ wh: back.wh, workspace: back.workspace, display: back.display, carry: back.carry })).wh.request);
+    expect(preview(back.wh.request).table.length).toBeGreaterThan(0);
+    // 家賃の入れ方・減価償却の引き継ぎ（0.65 で足した任意の欄）を入れていない見本は、今までどおり満室の家賃から計算する
+    expect(JSON.stringify(back.wh.request)).not.toContain("depreciationCarryover");
   });
 });
 

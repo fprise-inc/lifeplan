@@ -38,7 +38,7 @@
   --bs-businessAsset: #3f4f5b;
   /* 負債 */
   --bs-mortgage: #a46738;
-  --bs-propertyLoan: #4a2712; /* 不動産のローン（分け方を住宅ローン・その他の負債と分けた。0126） */
+  --bs-propertyLoan: #4a2712; /* 不動産のローン（分け方を住宅ローン・その他の負債と分けた。0127） */
   --bs-carLoan: #65411f;
   --bs-scholarship: #643b29;
   --bs-companyLoan: #6a3f22; /* 会社からの借入金（0105） */

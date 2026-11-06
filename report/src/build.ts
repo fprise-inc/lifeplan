@@ -207,7 +207,7 @@ function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
   const hasReExp = props.some((a) => a.property?.rental !== undefined || a.property?.expenses !== undefined || (a.property?.repairs ?? []).length > 0);
   const isRent = (c: TableCell) => hasRent && c.row === "cf.income.other.rental";
   const isReExp = (c: TableCell) => hasReExp && c.row === "cf.expense.other.realEstate";
-  // 住まい以外の不動産のローン（負債の property）の返済と残高は、住まいのローン・その他の支出と分けた行にする（アプリと同じ。0126）
+  // 住まい以外の不動産のローン（負債の property）の返済と残高は、住まいのローン・その他の支出と分けた行にする（アプリと同じ。0127）
   const reLoanIds = new Set((req.input.household.debts ?? []).filter((d) => d.property !== undefined).map((d) => d.id));
   const reLoan = (c: TableCell) => reLoanIds.size > 0 && c.object !== undefined && reLoanIds.has(c.object);
   const isReLoanPay = (c: TableCell) => reLoan(c) && under(c.row, "cf.expense");
@@ -580,7 +580,7 @@ function lifeEventItems(ctx: Ctx, run: Run = ctx.bundle.proposal): { year: numbe
 }
 
 /**
- * 不動産の出来事（0126）: 住まいの購入・売却、住まい以外の不動産を売る・持ち始める、収益不動産の大きな修繕。
+ * 不動産の出来事（0127）: 住まいの購入・売却、住まい以外の不動産を売る・持ち始める、収益不動産の大きな修繕。
  * 売る・買うはキャッシュフロー表のマス（その案で起きる年）から、大きな修繕は物件の入力と分析の数字（その年に持っていて修繕の額がある）から
  */
 function propertyEvents(run: Run): { year: number; text: string }[] {
@@ -626,7 +626,7 @@ function propertyEvents(run: Run): { year: number; text: string }[] {
   return out;
 }
 
-/** その案の出来事（年ごと）。ライフイベント表は提案の案、キャッシュフロー表の抜粋の年は現状と提案の両方から作る（0126） */
+/** その案の出来事（年ごと）。ライフイベント表は提案の案、キャッシュフロー表の抜粋の年は現状と提案の両方から作る（0127） */
 function eventsByYear(ctx: Ctx, run: Run): Map<number, string[]> {
   const req = run.request;
   const h = req.input.household;
@@ -684,7 +684,7 @@ function events(ctx: Ctx): ProposalInput["events"] {
     }));
 }
 
-/** キャッシュフロー表の抜粋に必ず載せる年: 現状と提案の両方の出来事の年（退職・売却・大きな修繕・住まいの購入など。0126） */
+/** キャッシュフロー表の抜粋に必ず載せる年: 現状と提案の両方の出来事の年（退職・売却・大きな修繕・住まいの購入など。0127） */
 function keyYears(ctx: Ctx): number[] {
   const ys = new Set<number>();
   for (const run of [ctx.bundle.current, ctx.bundle.proposal]) for (const y of eventsByYear(ctx, run).keys()) ys.add(y);
@@ -799,7 +799,7 @@ export function sheetOf(table: readonly TableCell[], points: readonly YearPoint[
   const otherAssetLines = OTHER_ASSET_LINES.map((x) => ({ label: x.label, values: at((c) => c.row === "cf.balance.account.otherAsset" && lineOfCell(c) === x.key) }));
   const others = [...OTHER_ASSET_KINDS.filter((k) => k !== "otherAsset").map((k) => ({ label: OTHER_ASSET_LABEL[k] as string, values: at((c) => c.row === `cf.balance.account.${k}`) })), ...otherAssetLines].filter((x) => any(x.values));
   const totalAssets = ys.map((_, i) => (finPos[i] ?? 0) + (realEstate[i] ?? 0) + others.reduce((s, x) => s + (x.values[i] ?? 0), 0));
-  // 住まい以外の不動産のローン（負債の property）は「不動産のローン」の行（図の分け方と同じ。0126）
+  // 住まい以外の不動産のローン（負債の property）は「不動産のローン」の行（図の分け方と同じ。0127）
   const propertyDebts = new Set((household?.debts ?? []).filter((d) => d.property !== undefined).map((d) => d.id));
   const isPropertyDebt = (c: TableCell) => c.object !== undefined && propertyDebts.has(c.object);
   const isDebtRow = (c: TableCell) => c.row === "cf.balance.debt.mortgage" || c.row === "cf.balance.debt.unpaidInterest" || c.row === "cf.balance.debt.other";
@@ -1565,16 +1565,24 @@ function rentalNameOf(req: EngineRequest, object: string): { name: string | null
   return { name, label: name ?? `物件${i + 1}`, kind };
 }
 
+/** 減価償却を確定申告の数字から引き継いだ年（未償却残高と年間の償却費の両方がそろった部分があるときだけ。エンジンと同じ。0126） */
+function carryFrom(p: { depreciationCarryover?: { year?: number; building?: { book?: number; annual?: number }; equipment?: { book?: number; annual?: number } } } | undefined): number | null {
+  const c = p?.depreciationCarryover;
+  if (c?.year === undefined) return null;
+  return [c.building, c.equipment].some((x) => x?.book !== undefined && x.annual !== undefined) ? c.year : null;
+}
+
 /** 月の手残り（年の手残り÷貸している月数。0の側へ切り捨て。画面と同じ） */
 const monthlyOf = (v: number, months: number): number => (months > 0 ? Math.trunc(v / months) : 0);
 
-function rentalMetrics(y: RealEstateAnalysisYear | undefined, lodging: boolean): RentalMetrics | null {
+/** actual: 今の実際の家賃収入で入れた物件（表面利回りは今の収入での利回り、損益分岐の入居率は「—」。画面と同じ。0126） */
+function rentalMetrics(y: RealEstateAnalysisYear | undefined, lodging: boolean, actual = false): RentalMetrics | null {
   if (y === undefined) return null;
   return {
     year: y.year,
-    grossYield: lodging ? "—" : pctText(y.grossYield),
+    grossYield: lodging ? "—" : actual ? pctText(y.currentYield) : pctText(y.grossYield),
     netYield: pctText(y.netYield),
-    breakEven: pctText(y.breakEven),
+    breakEven: actual ? "—" : pctText(y.breakEven),
     repaymentRatio: pctText(y.repaymentRatio),
     dscr: timesText(y.dscr),
     ltv: pctText(y.ltv),
@@ -1641,7 +1649,9 @@ function rental(ctx: Ctx): RentalView | null {
       deadCross: p.deadCross !== null && p.deadCross <= endYear ? p.deadCross : null,
       deadCrossNow: p.deadCross !== null && p.deadCross <= ctx.baseYear,
       lodging: p.lodging,
-      point: rentalMetrics(at, p.lodging),
+      ...(p.rentBy === "actual" ? { actualRent: true } : {}),
+      ...(carryFrom(prop) !== null ? { depreciationFrom: carryFrom(prop) as number } : {}),
+      point: rentalMetrics(at, p.lodging, p.rentBy === "actual"),
       // 計算の最初の年から上回っている（もう上回っている）ときは、表の行に印を付けない（画面と同じ）
       years: years.map((y) => rentalRow(y, p.deadCross !== null && p.deadCross > ctx.baseYear ? p.deadCross : null)),
       exit: p.exit === null ? null : { month: p.exit.ym, price: p.exit.price, costs: p.exit.costs, proceeds: p.exit.proceeds, loanPayoff: p.exit.loanPayoff, tax: p.exit.tax, net: p.exit.net },

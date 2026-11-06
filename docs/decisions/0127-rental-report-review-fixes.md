@@ -1,8 +1,8 @@
-# 0126. 収益不動産の見え方の直し（キャッシュフロー表の抜粋の年・ライフイベント・住まいのローンと不動産のローンの行・根拠の内訳・減価償却が終わる年と残りの耐用年数・バランスシートの不動産のローン）と、収益不動産を持つ見本の世帯
+# 0127. 収益不動産の見え方の直し（キャッシュフロー表の抜粋の年・ライフイベント・住まいのローンと不動産のローンの行・根拠の内訳・減価償却が終わる年と残りの耐用年数・バランスシートの不動産のローン）と、収益不動産を持つ見本の世帯
 
 - 状態: 採用（一部未確定）（2026-11-06）
 - 固定の強さ: 内部（表の行の鍵 `realEstateLoan`・`realEstateDebt` とバランスシートの分け方 `propertyLoan` は、事務所の名前・独自帳票から使われるので名前は変えない。行の並び・言葉・色・グラフの系列・根拠の書き方は後から変えてよい。変えたら追記に書く）。世帯ファイルの形式の版は変えない
-- 前提にする記録: 0006（根拠の記録と根拠の表示）、0009（提案書）、0016（提示層と帳票の約束・表の行の事務所の名前）、0027（資産と負債のタブ・分け方）、0028（住まい以外の不動産）、0068（ライフイベント）、0079〜0082（収益不動産）
+- 前提にする記録: 0126（家賃の入れ方・減価償却の引き継ぎ）、0006（根拠の記録と根拠の表示）、0009（提案書）、0016（提示層と帳票の約束・表の行の事務所の名前）、0027（資産と負債のタブ・分け方）、0028（住まい以外の不動産）、0068（ライフイベント）、0079〜0082（収益不動産）
 
 ## 背景
 
@@ -53,7 +53,7 @@
 
 ### 6. 残りの耐用年数は、実際の償却の耐用年数で数える
 
-- 分析の数字の `remainingLife` を「その年から建物の減価償却が終わる年までの年数（その年を含む。0より下げない）」にした（`asset.realEstateAnalysis` 改訂3）。実際に償却に使う耐用年数（中古は簡便法）と償却率の端数で決まる、建物の償却が終わる年（`depreciationEnd.building`。売る・貸し終わるまでに終わらなければ、貸し続けたら終わる年）から数える。償却していない建物（取得価額が無い・貸していない）は出さない（null）。
+- 分析の数字の `remainingLife` を「その年から建物の減価償却が終わる年までの年数（その年を含む。0より下げない）」にした（`asset.realEstateAnalysis` 改訂4）。実際に償却に使う耐用年数（中古は簡便法）と償却率の端数で決まる、建物の償却が終わる年（`depreciationEnd.building`。売る・貸し終わるまでに終わらなければ、貸し続けたら終わる年）から数える。償却していない建物（取得価額も減価償却の引き継ぎも無い・貸していない）は出さない（null）。減価償却を引き継いだ物件（0126）は、引き継いだ未償却残高と年額で建物の償却が終わる年まで数える（`asset.realEstate` が引き継ぎから出す終わる年を使うので、別の数え方を持たない）。
 - 法定耐用年数は物件の欄 `legalLife` のまま（言葉は「法定耐用年数」）。画面の「?」に、法定耐用年数−築年数とは違うこと（中古は簡便法の耐用年数のほうが長いこと）を書いた。
 - 理由: 画面に「残りの耐用年数」と「減価償却が終わる年」が並ぶので、同じ物差し（実際の償却）で数えないと、FP には食い違って見える。法定で数えた残りの年数は、融資の期間の目安などの別の意味で、要るなら別の言葉の欄にする（未確定）。
 
@@ -82,7 +82,7 @@
 
 ## 影響
 
-- **エンジン**: `asset.realEstateAnalysis` 改訂3（`remainingLife` の数え方。約束の版 1.1 のまま。形は変えない）。SDK の約束（`engine/src/sdk/contracts.ts`）の説明。
+- **エンジン**: `asset.realEstateAnalysis` 改訂4（`remainingLife` の数え方。約束の版は 1.2 のまま〔0126 の家賃の入れ方で 1.2・改訂3〕。形は変えない）。SDK の約束（`engine/src/sdk/contracts.ts`）の説明。
 - **提案書**: `report/src/build.ts`（行 `realEstateLoan`・`realEstateDebt`、出来事の作り方を案ごとにした `eventsByYear`・不動産の出来事・`keyYears`、バランスシートの年の表の「不動産のローン」）、`rowNames.ts`、`rentalText.ts`（減価償却が終わる年）、`bsGroups.ts`・`sdk.ts`（分け方 `propertyLoan`）、帳票の入力のスキーマと型（`cashflow.keyYears`）、Typst（`pages/cashflow.typ`・`parts/layout.typ`）。
 - **画面**: `app/src/workspace/present.ts`（行・収支の推移・出来事）、`evidence.ts`・`formulas.ts`（根拠）、`rentalTab.ts`・`RentalTab.tsx`・`rental.css`（指標）、`balanceTab.ts`・`bsLayout.ts`・`BsFigure.tsx`・`BsTrend.tsx`・`BalanceTab.tsx`・`balance.css`・`model.ts`（分け方）、`StackChart.tsx`・`app.css`（色）、`catalog.ts`（見本）。
 - **テスト**: `app/test/rental-report-review.test.ts`・`report/test/rental-report-review.test.ts`（新）、`engine/test/realEstateAnalysis.test.ts`（残りの耐用年数）、`app/test/balance-sheet.test.ts`・`asset-rich-household.test.ts`・`bs-colors.test.ts`・`mobile.test.ts`・`crates/report-pdf/tests/bs_colors.rs`（分け方・色）。

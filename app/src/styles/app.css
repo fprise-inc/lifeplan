@@ -849,7 +849,7 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
   --c-edu: #5f8f73;
   --c-ins: #8e7aa3;
   --c-exp-other: #c2c7ce;
-  /* 住まい以外の不動産（家賃・売却と、経費・ローン。0126） */
+  /* 住まい以外の不動産（家賃・売却と、経費・ローン。0127） */
   --c-inc-re: #5e9e9a;
   --c-exp-re: #a8787a;
 }

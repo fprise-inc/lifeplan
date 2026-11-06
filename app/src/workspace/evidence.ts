@@ -79,7 +79,7 @@ export function propertyNames(req: EngineRequest): Map<string, string> {
   return out;
 }
 
-/** 表の行の名前（名前の無い行は「そのほかの計算」）。計算式の名前がまだ無いときに、計算の部品の名前の代わりに出す（0126） */
+/** 表の行の名前（名前の無い行は「そのほかの計算」）。計算式の名前がまだ無いときに、計算の部品の名前の代わりに出す（0127） */
 function rowName(row: string): string {
   return ROW_LABELS[row] ?? "そのほかの計算";
 }
@@ -95,7 +95,7 @@ export function buildEvidence(full: FullResult, req: EngineRequest, rowKey: stri
   const def = rowDefs(req, names).find((d) => d.key === rowKey);
   if (def === undefined) return null;
   const byAccrual = full.header.calcConventions?.aggregation === "accrual";
-  // 内訳の1行: 計算式ごと。住まい以外の不動産（物件・その物件のローン）の分は物件ごとに分け、物件名を添える（0126）
+  // 内訳の1行: 計算式ごと。住まい以外の不動産（物件・その物件のローン）の分は物件ごとに分け、物件名を添える（0127）
   const breakdown = new Map<string, { formula: string; row: string; property: string | null; amount: number }>();
   const calls = new Set<number>();
   const propertyOf = propertyNames(req);

@@ -1174,6 +1174,26 @@ function sample063(): BodyState {
   return { ...s, wh: { ...s.wh, hearing: { requests: [], imports: [], consents: [], web } as never } };
 }
 
+/**
+ * 0.65 の見本の世帯（0126）: sample063() に、0.64 の貸していない不動産の持ち始める時点（空き家）を足し、収益不動産の物件に家賃の入れ方
+ * （今の実際の家賃収入）と減価償却の引き継ぎ（確定申告の数字）を入れる。空室率は前の値のまま残す（計算には使わない）
+ */
+function sample065(): BodyState {
+  const s = sample063();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const box = (v: number) => ({ value: v, state: "confirmed", origin: { kind: "manual" } }) as never;
+  hh.accounts = [
+    ...(hh.accounts ?? []),
+    { id: "00000000-0000-4000-8000-000000006401", kind: "realEstate", subtype: "vacantHouse", owner: self.id, marketValue: box(9000000), asOf: req.input.baseMonth, contributions: [], holdFrom: { at: "2036-04" }, builtYear: 1990, structure: "wood" } as never,
+  ];
+  const a = (hh.accounts ?? []).find((x) => x.property?.repairs !== undefined)!;
+  a.property!.rental!.rentBy = "actual";
+  a.property!.depreciationCarryover = { year: 2025, building: { book: 9800000, annual: 360000 }, equipment: { book: 1200000, annual: 150000 } };
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 describe("世帯ファイルの本文（0011 の2）", () => {
   it("保存→読み込みで同じ（現状・案・帯の並び・表示の設定・拡張領域）", () => {
     const s = sample();
@@ -1212,7 +1232,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.64");
+    expect(BODY_FORMAT_VERSION).toBe("0.65");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1385,7 +1405,18 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample063())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample065())), null, 2) + "\n");
+  });
+
+  it("0.65 の形（0126）: 収益不動産の家賃の入れ方と減価償却の引き継ぎを保存して読み戻す。空室率が残っていても今の実際の家賃収入なら使わない", () => {
+    const s = sample065();
+    const stored = bodyObject(s) as unknown as { household: { request: { input: { household: { accounts: { property?: { rental?: { rentBy?: string }; depreciationCarryover?: unknown } }[] } } } } };
+    const p = stored.household.request.input.household.accounts.find((x) => x.property?.depreciationCarryover !== undefined)?.property;
+    expect(p?.rental?.rentBy).toBe("actual");
+    expect(p?.depreciationCarryover).toEqual({ year: 2025, building: { book: 9800000, annual: 360000 }, equipment: { book: 1200000, annual: 150000 } });
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(preview(back.wh.request).table).not.toEqual(preview(sample063().wh.request).table);
   });
 
   it("0.63 の形（0125）: Web のヒアリングの依頼の記録（鍵・受け取った答えと書類）を取り込みの記録の区画に保存して読み戻す。計算には使わない", () => {

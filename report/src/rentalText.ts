@@ -49,14 +49,14 @@ export interface DepreciationEndFacts {
   depreciationEndIfContinued?: { building: number | null; equipment: number | null };
   /** 今の予定で売る（売らずに貸し終わるなら false） */
   sells: boolean;
-  /** 計算基準年（計算の最初の年）。この年までに終わった分は「設備は2024年に終わり」と書く（0126）。省略は終わったかを見ない */
+  /** 計算基準年（計算の最初の年）。この年までに終わった分は「設備は2024年に終わり」と書く（0127）。省略は終わったかを見ない */
   baseYear?: number;
 }
 
 /**
  * 減価償却が終わる年の文（画面と提案書で同じ）。売る・貸し終わるまでに終わらないときは、理由が分かる文にする
  * （「売るまでには終わりません（2065年に終わる見込み）」）。計算基準年までに終わった分は「設備は2024年に終わり」と書き、
- * これから終わる分を先に置く（「建物 2031年・設備は2024年に終わり」。0126）。償却が無ければ null（呼ぶ側で「—」と、その理由）
+ * これから終わる分を先に置く（「建物 2031年・設備は2024年に終わり」。0127）。償却が無ければ null（呼ぶ側で「—」と、その理由）
  */
 export function depreciationEndText(p: DepreciationEndFacts): string | null {
   const until = p.sells ? "売るまで" : "貸し終わるまで";

@@ -165,5 +165,5 @@ export function groupTotal(at: BsAt, g: BsGroup): Yen {
   return at.lines.reduce((s, l) => (l.group === g ? s + l.amount : s), 0);
 }
 
-/** 分け方の並び（資産の4つ・負債の3つ。不動産のローンは 0126 で足した） */
+/** 分け方の並び（資産の4つ・負債の3つ。不動産のローンは 0127 で足した） */
 export const GROUP_ORDER: readonly BsGroup[] = ["liquid", "market", "locked", "illiquid", "mortgage", "propertyLoan", "debt"];

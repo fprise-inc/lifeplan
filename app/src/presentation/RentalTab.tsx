@@ -8,7 +8,7 @@ import { useLayoutEffect, useRef } from "preact/hooks";
 import { Help } from "./Help.tsx";
 import type { RentalPropertyViewModel, RentalSaleModel, RentalTabModel, RentalTableModel, RentalTotalViewModel } from "./model.ts";
 
-/** 文で出す指標（札の幅で折り返し、字を少し小さくする。0126） */
+/** 文で出す指標（札の幅で折り返し、字を少し小さくする。0127） */
 const TEXT_METRICS: ReadonlySet<string> = new Set(["depreciationEnd", "deadCross"]);
 
 export interface RentalTabProps {

@@ -69,7 +69,7 @@ describe("バランスシートの分け方（提案書と同じ部品）", () =
     expect(byKey.land).toMatchObject({ group: "illiquid", label: "土地", amount: 12_000_000 });
     expect(byKey.building).toMatchObject({ group: "illiquid", label: "建物", amount: 24_000_000 });
     expect(byKey.realEstateOther).toMatchObject({ group: "illiquid", amount: 10_000_000 });
-    // 住まい以外の不動産のローンは、分け方も「不動産のローン」（箱の名前と横の見出しをそろえる。0126）
+    // 住まい以外の不動産のローンは、分け方も「不動産のローン」（箱の名前と横の見出しをそろえる。0127）
     expect(byKey.propertyLoan).toMatchObject({ group: "propertyLoan", label: "不動産のローン", amount: 4_000_000 });
     expect(byKey.car!.group).toBe("illiquid");
     expect(byKey.insurance).toMatchObject({ group: "illiquid", label: "保険の解約返戻金" });

@@ -89,12 +89,12 @@ describe("物件ごと・年ごとの指標の式", () => {
     expect(y?.equity).toBe(v - (y?.loanBalance ?? 0));
     expect(y?.age).toBe(12);
     // 残りの耐用年数は実際の償却で数える（2020年に築5年で取得: 簡便法で 47−5＋1＝43年、償却率 0.024〔1÷43 を小数3桁に切り上げ〕で
-    // 2020年4月から償却して 2061年に終わる。0126）
+    // 2020年4月から償却して 2061年に終わる。0127）
     expect(p?.depreciationEnd.building).toBe(2061);
     expect(y?.remainingLife).toBe(2061 - 2027 + 1);
   });
 
-  it("残りの耐用年数は、中古の簡便法の耐用年数で数えた、その年から建物の償却が終わる年までの年数（法定耐用年数−築年数ではない。0126）", () => {
+  it("残りの耐用年数は、中古の簡便法の耐用年数で数えた、その年から建物の償却が終わる年までの年数（法定耐用年数−築年数ではない。0127）", () => {
     // 木造（法定22年）・2008年築を2016年11月に取得: 簡便法で 22−8＋1＝15年 → 2031年に終わる。2027年は築19年で、法定で数えると残り3年、実際は5年（2027〜2031年）
     const wood = base({ accounts: [account(P, property({ structure: "wood", builtYear: 2008, acquisition: { price: 25000000, at: "2016-11", costs: 1500000 } }))] });
     const w = analysis(wood).properties[0];
@@ -111,6 +111,14 @@ describe("物件ごと・年ごとの指標の式", () => {
     expect(s0?.depreciationEnd.building).toBeNull();
     const cont = s0?.depreciationEndIfContinued?.building as number;
     expect(s0?.years.find((x) => x.year === 2027)?.remainingLife).toBe(cont - 2027 + 1);
+    // 減価償却を引き継いだ物件は、引き継いだ未償却残高と年額で償却が終わる年まで（2025年末の残り 300万円・年額 60万円 → 2026〜2029年に
+    // 60万円、2030年に 599,999円で終わる〔1円を残す〕。取得価額からの簡便法の年数〔2031年まで〕ではない。0126 の引き継ぎと 0127 の数え方）
+    const carried = base({ accounts: [account(P, property({ structure: "wood", builtYear: 2008, acquisition: { price: 25000000, at: "2016-11", costs: 1500000 }, depreciationCarryover: { year: 2025, building: { book: 3000000, annual: 600000 } } }))] });
+    const c0 = analysis(carried).properties[0];
+    expect(c0?.depreciationEnd.building).toBe(2030);
+    expect(c0?.years.find((x) => x.year === 2027)?.remainingLife).toBe(4);
+    expect(c0?.years.find((x) => x.year === 2030)?.remainingLife).toBe(1);
+    expect(c0?.years.find((x) => x.year === 2031)?.remainingLife).toBe(0);
     // 取得価額が無い（償却しない）建物は出さない
     const noAcq = base({ accounts: [account(P, property({ acquisition: undefined }))], debts: [] });
     expect(analysis(noAcq).properties[0]?.years.every((x) => x.remainingLife === null)).toBe(true);
@@ -337,5 +345,31 @@ describe("含み益・帳簿価額・建物の無い物件（約束の版 1.1）
     expect(p?.legalLife).toBeNull();
     expect(p?.years.every((x) => x.age === null && x.remainingLife === null)).toBe(true);
     expect(p?.depreciationEnd).toEqual({ building: null, equipment: null });
+  });
+});
+
+describe("今の実際の家賃収入で入れた物件（約束の版 1.2・0126）", () => {
+  const req = base({ accounts: [account(P, property({ rental: { rentBy: "actual", monthly: box(95000), vacancyRate: "0.05", commonFee: 9500, keyMoney: 120000 } }))] });
+  const p = analysis(req).properties[0];
+  const y = p?.years.find((x) => x.year === 2027);
+  it("満室の額が無いので表面利回り・損益分岐の入居率は null。今の家賃収入での表面利回り（礼金・更新料を除く年額÷取得価額）を出す", () => {
+    expect(p?.rentBy).toBe("actual");
+    expect(p?.lodging).toBe(false);
+    expect(y?.gross).toBeNull();
+    expect(y?.grossYield).toBeNull();
+    expect(y?.breakEven).toBeNull();
+    sameRate(y?.currentYield ?? null, r12((95000 + 9500) * 12, 25000000));
+    // 実質利回り・返済比率などは今までどおり出す
+    expect(y?.netYield).not.toBeNull();
+    expect(y?.dscr).not.toBeNull();
+  });
+  it("満室時の家賃で入れた物件には currentYield も rentBy も無い。合計の表面利回りは満室のときの収入のある物件だけ", () => {
+    const b = analysis(base());
+    expect(b.properties[0]?.rentBy).toBeUndefined();
+    expect(b.properties[0]?.years[0]?.currentYield).toBeUndefined();
+    const two = analysis(base({ accounts: [account(P, property({ rental: { rentBy: "actual", monthly: box(95000) } })), account(Q)] }));
+    const t = two.total.find((x) => x.year === 2027);
+    const q = two.properties.find((x) => x.object === Q)?.years.find((x) => x.year === 2027);
+    expect(t?.grossYield).toBe(q?.grossYield);
   });
 });
