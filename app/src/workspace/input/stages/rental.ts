@@ -64,16 +64,16 @@ export function rentWords(kind: string | undefined): { income: string; rent: str
       income: "駐車場の収入",
       rent: "満車時の駐車料（合計）",
       rentHelp: "すべての区画が埋まっているときの、駐車場全体の月の駐車料の合計です。自販機・看板などの収入は、「詳細」で別の欄に入れます",
-      vacancy: "空き区画の割合",
+      vacancy: "空車率（空き区画の割合）",
       vacancyHelp: "1年を通して、区画が空いている割合の見込みです。満車時の駐車料からこの割合を引いて計算します（例: 20区画のうち平均して2区画空くなら 10%）",
     };
   if (kind === "land")
     return {
       income: "地代収入",
       rent: "地代（月額）",
-      rentHelp: "土地を貸して受け取る地代の月額です（年払いなら12で割った額）。権利金・更新料は、「詳細」の礼金・更新料の欄に年あたりにならして入れます",
-      vacancy: "貸していない割合",
-      vacancyHelp: "1年を通して、借り手がいない割合の見込みです。地代からこの割合を引いて計算します（ずっと貸しているなら 0%）",
+      rentHelp: "土地を貸して受け取る地代の月額です（年払いなら12で割った額）。更新料・承諾料などは、「詳細」の更新料・承諾料などの欄に年あたりにならして入れます",
+      vacancy: "地代が入らない割合",
+      vacancyHelp: "契約が終わってから次の借り手が決まるまでの空き期間や、滞納の見込みです。契約が続く間はふつう 0% です。地代からこの割合を引いて計算します",
     };
   return {
     income: "家賃収入",
@@ -92,20 +92,20 @@ export function rentByWords(kind: string | undefined): { options: Option[]; actu
   if (kind === "parking")
     return {
       options: [
-        { value: "fullOccupancy", label: "満車時の駐車料と空き区画の割合で" },
+        { value: "fullOccupancy", label: "満車時の駐車料と空車率で" },
         { value: "actual", label: "今の実際の駐車料の収入で" },
       ],
       actualRent: "今の駐車料の収入（合計・月額）",
-      actualHelp: `${doc}駐車料の収入です（空き区画を見込んだ後の額なので、空き区画の割合は引きません）。年額で分かるときは、年額に切り替えて入れます。自販機・看板などの収入は、「詳細」で別の欄に入れます`,
+      actualHelp: `${doc}駐車料の収入です（空き区画を見込んだ後の額なので、空車率は引きません）。年額で分かるときは、年額に切り替えて入れます。自販機・看板などの収入は、「詳細」で別の欄に入れます`,
     };
   if (kind === "land")
     return {
       options: [
-        { value: "fullOccupancy", label: "地代と貸していない割合で" },
+        { value: "fullOccupancy", label: "地代と地代が入らない割合で" },
         { value: "actual", label: "今の実際の地代収入で" },
       ],
       actualRent: "今の地代収入（月額）",
-      actualHelp: `${doc}地代収入です（貸していない期間を見込んだ後の額なので、貸していない割合は引きません）。年額で分かるときは、年額に切り替えて入れます。権利金・更新料は、「詳細」の欄に年あたりにならして入れます`,
+      actualHelp: `${doc}地代収入です（空き期間や滞納を見込んだ後の額なので、地代が入らない割合は引きません）。年額で分かるときは、年額に切り替えて入れます。更新料・承諾料などは、「詳細」の欄に年あたりにならして入れます`,
     };
   return {
     options: [
@@ -120,6 +120,10 @@ export function rentByWords(kind: string | undefined): { options: Option[]; actu
 export const actualRent = (p: RealEstateProperty | undefined): boolean => p !== undefined && p.lodging === undefined && p.rental?.rentBy === "actual";
 /** 大きな修繕の例（種類ごと） */
 export const repairExamples = (kind: string | undefined): string => (kind === "parking" ? "舗装の打ち直し・機械式駐車設備の更新" : kind === "land" ? "整地・擁壁や塀の補修" : "外壁・屋根・設備の更新");
+/** 評価額の意味（時価。0079 の追記 2026-11-06） */
+const MARKET_VALUE_NOTE = "今売るとしたらの値段の目安（時価）です。固定資産税評価額・相続税評価額（路線価）ではありません。";
+/** 会社名義の物件の案内（名義の欄の「?」。0079 の追記 2026-11-06） */
+export const CORPORATE_NOTE = "家族の誰の名義かを選びます。会社（法人）の名義の物件はここに入れません。家計には、会社からの役員報酬・会社への貸付金・自社株などとして入れます";
 const LAND_ONLY_WARN ="貸している土地・駐車場には建物が無いので、ふつうは土地の割合を入れません。今はこの割合で建物の分を減価償却しています。空にすると、取得価額と評価額を全部土地として計算します";
 const LAND_ONLY_PART_WARN = "貸している土地・駐車場には建物が無いので、今はこの額を建物として減価償却しています。舗装・機械式駐車設備などは、設備の欄に入れてください";
 /** 民泊・宿の計算に入れていないもの（消費税・個人事業税は扱わない。0080・0081。種類の欄の「?」の中） */
@@ -193,7 +197,7 @@ export const EXPENSE_ITEMS: readonly ExpenseItemDef[] = [
   // 貸している土地には建物の管理が無いので出さない（入れてあれば「管理費」として出す）
   { key: "management", label: "建物管理費・修繕積立金", show: (p) => p.kind !== "land", byKind: { parking: { label: "管理費・設備の保守", help: "清掃・巡回・機械式駐車設備の保守点検などの、毎年の額です" }, land: { label: "管理費" } } },
   { key: "propertyTax", label: "固定資産税・都市計画税", show: () => true },
-  { key: "insurance", label: "損害保険（火災・地震）", show: () => true, byKind: { parking: { label: "保険料（施設賠償責任など）" }, land: { label: "保険料（施設賠償責任など）" } } },
+  { key: "insurance", label: "損害保険（火災・地震）", show: () => true, byKind: { parking: { label: "保険料（施設賠償責任など）" }, land: { label: "保険料（施設賠償責任など）", help: "建物は借り手のものなので、地主の保険はふつう少額か0円です" } } },
   { key: "groundRent", label: "地代", show: (p) => p.tenure === "leasehold", help: "借地権の物件で、土地の持ち主に払う地代です" },
   { key: "facility", label: "共用部の光熱費・清掃・設備点検", show: (p) => p.lodging === undefined && p.kind !== "land", byKind: { parking: { label: "照明などの電気代・設備点検" }, land: { label: "光熱費・清掃など" } } },
   {
@@ -363,11 +367,12 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
   const noBuilding = isLandOnlyKind(p.kind) && !landOnlyWithBuilding(p);
   const growthBase = "入れなければ前提条件の土地の上昇率（入れていなければ物価上昇率）。";
   const valueLabel = !noBuilding ? "今の評価額（土地と建物の合計）" : p.kind === "parking" ? "今の評価額（土地と設備の合計）" : "今の評価額（土地）";
+  // 評価額は時価（今売るとしたらの値段の目安）。固定資産税評価額・相続税評価額（路線価）と取り違えないように書く（0079 の追記 2026-11-06）
   const valueHelp = !noBuilding
-    ? undefined
+    ? `${MARKET_VALUE_NOTE}土地の割合で土地と建物に分け、建物は構造の耐用年数で減らし、土地は土地の評価額の増減率で動かします`
     : p.kind === "parking"
-      ? "舗装・機械式駐車設備などの設備も含めた、駐車場全体の今の評価額です。全部を土地として扱い、土地の評価額の増減率で動かします"
-      : "貸している土地の今の評価額です。借地権の付いた土地（底地）は、更地より低い額になるのがふつうです。土地の評価額の増減率で動かします";
+      ? `舗装・機械式駐車設備などの設備も含めた、駐車場全体の今の時価（売るとしたらの値段の目安）です。固定資産税評価額・相続税評価額（路線価）ではありません。全部を土地として扱い、土地の評価額の増減率で動かします`
+      : `貸している土地の今の時価（売るとしたらの値段の目安）です。固定資産税評価額・相続税評価額（路線価）ではありません。借地権の付いた土地（底地）は、更地より低い額になるのがふつうです。土地の評価額の増減率で動かします`;
   const growthHelp = !noBuilding
     ? `${growthBase}建物は構造の耐用年数で減らします`
     : p.kind === "parking"
@@ -407,8 +412,8 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
       onAccount(a.id, "account.property.name"),
     ),
     kindField,
-    plain({ key: `${k}/owner`, item: "account.owner", label: "名義", level: "simple", kind: "select", options: memberOptions(wh), find, path: ["owner"] }),
-    yenBox({ key: `${k}/value`, item: "account.marketValue", label: valueLabel, level: "simple", basis: "once", find, path: ["marketValue"], ...(valueHelp !== undefined ? { help: valueHelp } : {}) }),
+    plain({ key: `${k}/owner`, item: "account.owner", label: "名義", level: "simple", kind: "select", options: memberOptions(wh), find, path: ["owner"], help: CORPORATE_NOTE }),
+    yenBox({ key: `${k}/value`, item: "account.marketValue", label: valueLabel, level: "simple", basis: "once", find, path: ["marketValue"], help: valueHelp }),
     plain({ key: `${k}/asOf`, item: "account.asOf", label: "評価額の時点", level: "detail", kind: "ym", find, path: ["asOf"] }),
     // 持ち始める時点（0039。相続・贈与で受け取る物件。その月から評価額・家賃収入・経費に入れ、受け取るときの支払いは無い）。物件そのものの時点なので、
     // 評価額の時点の後に置く（前は「土地と建物」のまとまりの中にあった）
@@ -853,10 +858,10 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       rentYen(
         "keyMoney",
         ["rental", "keyMoney"],
-        p.kind === "land" ? "権利金・更新料（年あたりの見込み）" : "礼金・更新料（年あたりの見込み）",
+        p.kind === "land" ? "更新料・承諾料など（年あたりの見込み）" : "礼金・更新料（年あたりの見込み）",
         "annual",
         p.kind === "land"
-          ? "契約・更新の周期からならした、1年あたりの権利金・更新料です。12か月に分けて受け取るとみなします（貸していない割合は掛けません）"
+          ? "更新料や、名義を変えるとき・建て替えのときの承諾料などを、年あたりにならした額です。12か月に分けて受け取るとみなします（地代が入らない割合は掛けません）。保証金は返すお金なので入れません"
           : `入居の入れ替わり・更新の周期からならした、1年あたりの礼金・更新料です。12か月に分けて受け取るとみなします（${vac}は掛けません）`,
       ),
     );
@@ -866,7 +871,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       timepointField({ key: `${kp}/rentFrom`, item: "account.property", label: "貸し始め", level: "detail", find: findP, path: ["rental", "from"], mode: "ym", optional: true, absentWhenEmpty: true, nullText: p.acquisition !== undefined ? "取得の月から" : "前から貸している", ...ageOf }),
       timepointField({ key: `${kp}/rentTo`, item: "account.property", label: "貸し終わり", level: "detail", find: findP, path: ["rental", "to"], startPath: ["rental", "from"], mode: "ym", optional: true, absentWhenEmpty: true, nullText: p.sale !== undefined ? "売るまで" : "最後まで", ...ageOf }),
     );
-  groups.push({ key: `${kp}/rental`, title: lodging !== undefined ? "宿泊の売上" : words.income, level: "simple", moreLabel: lodging !== undefined ? "売上の変化率・貸す期間を入れる" : p.kind === "land" ? "権利金・貸す期間などを入れる" : landOnly ? "その他の収入・貸す期間などを入れる" : "共益費・礼金などを入れる", ...(p.rental !== undefined && p.acquisition === undefined && withBuilding && !carryoverActive(p) ? { note: "取得価額と取得の年月を入れると、減価償却費を引いた不動産所得で税を計算します" } : {}), fields: rentFields, actions: [] });
+  groups.push({ key: `${kp}/rental`, title: lodging !== undefined ? "宿泊の売上" : words.income, level: "simple", moreLabel: lodging !== undefined ? "売上の変化率・貸す期間を入れる" : p.kind === "land" ? "更新料・貸す期間などを入れる" : landOnly ? "その他の収入・貸す期間などを入れる" : "共益費・礼金などを入れる", ...(p.rental !== undefined && p.acquisition === undefined && withBuilding && !carryoverActive(p) ? { note: "取得価額と取得の年月を入れると、減価償却費を引いた不動産所得で税を計算します" } : {}), fields: rentFields, actions: [] });
   // 家賃と経費の年額の段階・例外の年（0040。詳細）
   const staged = (part: "rental" | "expenses", what: string, basis: "monthly" | "annual", value: (x: Account) => number | null, yearly = false): GroupDef[] =>
     stagedGroups(wh, {
@@ -907,7 +912,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     plain({
       key: `${kp}/expRate`,
       item: "account.property",
-      label: lodging !== undefined ? "運営代行の手数料（売上に対する割合）" : p.kind === "land" ? "地代に対する割合" : p.kind === "parking" ? "駐車料に対する割合" : "家賃に対する割合",
+      label: lodging !== undefined ? "運営代行の手数料（売上に対する割合）" : p.kind === "land" ? "管理委託料など（地代に対する割合）" : p.kind === "parking" ? "管理委託料など（駐車料に対する割合）" : "管理委託料など（家賃に対する割合）",
       level: "simple",
       kind: "pct",
       min: 0,
@@ -915,7 +920,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       find: findP,
       path: ["expenses", "rate"],
       optional: true,
-      help: lodging !== undefined ? "運営代行・管理の会社に払う、売上に比例する手数料です（例: 20%）" : landOnly ? `管理委託料など、受け取る${p.kind === "land" ? "地代" : "駐車料"}（その他の月の収入を含む。${p.kind === "land" ? "権利金" : "礼金"}・更新料は含まない）に比例する経費（例: 5%）` : "管理委託料など、受け取る家賃（共益費・駐車場などの月の収入を含む。礼金・更新料は含まない）に比例する経費（例: 5%）",
+      help: lodging !== undefined ? "運営代行・管理の会社に払う、売上に比例する手数料です（例: 20%）" : landOnly ? `管理委託料など、受け取る${p.kind === "land" ? "地代" : "駐車料"}（その他の月の収入を含む。${p.kind === "land" ? "更新料・承諾料など" : "礼金・更新料"}は含まない）に比例する経費（例: 5%）` : "管理委託料など、受け取る家賃（共益費・駐車場などの月の収入を含む。礼金・更新料は含まない）に比例する経費（例: 5%）",
     }),
   ];
   if (lodging !== undefined)

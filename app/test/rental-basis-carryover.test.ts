@@ -30,8 +30,8 @@ describe("家賃の入れ方（0126）", () => {
     expect(f).toMatchObject({ label: "家賃の入れ方", level: "simple" });
     expect(f.get(wh).value).toBe("fullOccupancy");
     expect(f.kind === "select" && f.options.map((o) => o.label)).toEqual(["満室時の家賃と空室率で", "今の実際の家賃収入で"]);
-    expect(rentByWords("parking").options.map((o) => o.label)).toEqual(["満車時の駐車料と空き区画の割合で", "今の実際の駐車料の収入で"]);
-    expect(rentByWords("land").options.map((o) => o.label)).toEqual(["地代と貸していない割合で", "今の実際の地代収入で"]);
+    expect(rentByWords("parking").options.map((o) => o.label)).toEqual(["満車時の駐車料と空車率で", "今の実際の駐車料の収入で"]);
+    expect(rentByWords("land").options.map((o) => o.label)).toEqual(["地代と地代が入らない割合で", "今の実際の地代収入で"]);
     const lodging = set(wh, `sav/${a.id}/property/kind`, "lodging");
     expect(hasField(lodging, `${k}/rentBy`)).toBe(false);
   });

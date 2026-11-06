@@ -47,11 +47,11 @@
 }
 
 /// 指標の札（4つずつ2段）
-#let rental-cards(m, lodging, land-only: false, actual: false) = {
+#let rental-cards(m, lodging, land-only: false, land: false, actual: false) = {
   let cards = (
     if lodging and m.lodging != none { ("稼働率", m.lodging.occupancy) } else if actual { ("表面利回り（今の収入で）", m.grossYield) } else { ("表面利回り", m.grossYield) },
     ("実質利回り（NOI）", m.netYield),
-    (if lodging or land-only { "損益分岐の稼働率" } else { "損益分岐の入居率" }, m.breakEven),
+    (if lodging { "損益分岐の稼働率" } else if land { "損益分岐の地代の割合" } else if land-only { "損益分岐の稼働率" } else { "損益分岐の入居率" }, m.breakEven),
     ("返済比率", m.repaymentRatio),
     ("返済余裕率（DSCR）", m.dscr),
     ("借入の割合（LTV）", m.ltv),
@@ -86,13 +86,13 @@
   if m != none {
     text(size: 8pt, fill: muted, str(m.year) + "年の指標")
     v(2pt)
-    rental-cards(m, p.lodging, land-only: rental-land-only(p), actual: p.at("actualRent", default: false))
+    rental-cards(m, p.lodging, land-only: rental-land-only(p), land: p.kind != none and p.kind.key == "land", actual: p.at("actualRent", default: false))
     let more = ()
     more.push("自己資金に対する手残りの割合（CCR） " + m.ccr)
     if m.at("unrealizedGain", default: none) != none { more.push("含み益 " + man-unit(m.unrealizedGain)) }
     if m.equity != none { more.push("売ったときの手残りの目安（ローン返済後・売却の費用と税の前） " + man-unit(m.equity)) }
     if m.age != none { more.push("築" + str(m.age) + "年・残りの耐用年数 " + str(m.remainingLife) + "年") }
-    if p.at("actualRent", default: false) { more.push("満室時の収入を入れていないので、損益分岐の" + if rental-land-only(p) { "稼働率" } else { "入居率" } + "は出していません") }
+    if p.at("actualRent", default: false) { more.push("満室時の収入を入れていないので、" + if p.kind != none and p.kind.key == "land" { "損益分岐の地代の割合" } else if rental-land-only(p) { "損益分岐の稼働率" } else { "損益分岐の入居率" } + "は出していません") }
     if p.lodging and m.lodging != none { more.push("1泊の単価 " + yen(m.lodging.nightly) + "・営業日数 " + str(m.lodging.days) + "日・年の売上 " + man-unit(m.lodging.sales)) }
     let dep = p.depreciationEnd.building
     let depText = p.at("depreciationEndText", default: none)
