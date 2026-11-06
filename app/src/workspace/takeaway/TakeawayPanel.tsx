@@ -126,7 +126,7 @@ export function TakeawayPanel(p: Props) {
         await p
           .onSnapshot({
             trigger: "takeaway",
-            memo: `持ち帰り用のレポート（プラン${payload.plans.length}つ${usePw ? "・パスワードつき" : ""}）`,
+            memo: `持ち帰り用のレポート（プラン${payload.plans.length}件${usePw ? "・パスワードつき" : ""}）`,
             plan: { id: proposal, letter: l.letter, name: l.name },
             takeaway: { plans: payload.plans.map((x) => ({ letter: x.letter, name: x.name })), proposal: payload.proposal, password: usePw, knobs: [...payload.levers.items.map((i) => i.key), ...(payload.levers.fee !== null ? ["fee"] : [])], views: ["chart", ...(views.balance ? ["balance"] : []), ...(views.moneyThree ? ["moneyThree"] : []), ...(views.table ? ["table"] : [])], createdOn: payload.createdOn, digest: r.digest },
           })

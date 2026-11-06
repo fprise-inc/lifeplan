@@ -383,7 +383,7 @@ describe("古い世帯を開いたとき: 0円・未入力だった所に推定�
     expect(["missing", "notStarted"]).toContain(rows[0]!.kind);
     expect(rows.filter((r) => r.id.startsWith("gap:education/") || r.id === "gap:housing").every((r) => r.kind === "notStarted")).toBe(true);
     const kinds = rows.map((r) => r.kind);
-    const order = ["missing", "notStarted", "unknown", "notice", "estimated"];
+    const order = ["missing", "notStarted", "unknown", "notice", "calc", "estimated", "certainty", "premise"];
     expect([...kinds].sort((a, b) => order.indexOf(a) - order.indexOf(b))).toEqual(kinds);
   });
 

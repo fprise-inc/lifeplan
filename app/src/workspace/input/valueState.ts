@@ -8,7 +8,10 @@
 import type { Catalog } from "../plans/items.ts";
 import { applyPlan, setPlanValue } from "../plans/plans.ts";
 import { boxAt, isSharedDiff, writeAt, type DiffBox } from "../plans/diffs.ts";
-import { readAt, resolveAssumedKey, resolveKey, type Address } from "../store/readings.ts";
+import { findObject, readAt, resolveAssumedKey, resolveKey, type Address } from "../store/readings.ts";
+import { resolveTimepoint } from "../timepoint.ts";
+import { addMonths } from "../levers.ts";
+import type { Timepoint } from "../../engine/types.ts";
 import type { FieldDef, Val } from "./form.ts";
 import { mutate, type WorkingHousehold } from "./household.ts";
 import { putRow, rowAt, type StateRow } from "./rows.ts";
@@ -30,6 +33,11 @@ export interface FieldStatus {
   approved: boolean;
   /** 推定（書類待ちは代わりの値）を事務所の推定の値から作った印（0111 の追記 2026-11-03。印が無ければ持たない＝公式の目安から） */
   office?: OfficeSourceView;
+  /**
+   * 仮の値（生年月など、推定が成り立たない欄に計算のために置いた値）。状態は推定のまま読むが、「この値にする」・まとめての操作の対象にせず、
+   * 確かめの一覧では未入力の側に出す（推定と分ける。0041 の追記 2026-11-06）
+   */
+  provisional?: true;
 }
 
 /** 値の状態の操作。unknown は「書類で確かめる」（書類を見るまで今の値か推定を代わりに使う。前の「わからない」。0041 の追記 2026-10-31） */
@@ -73,6 +81,22 @@ export const STATUS_LABELS: Readonly<Record<ValueStatus, string>> = {
   confirmed: "確定",
   missing: "未入力（0円で計算中）",
 };
+
+/** 仮の値の根拠の文は「仮の値」で始まる（新しい顧客・「＋ 配偶者」「＋ 子」の生年月など。前提条件の「既定の値（仮の値。…）」は前提の推定で、仮の値ではない） */
+export const isProvisionalBasis = (basis: string | null | undefined): boolean => typeof basis === "string" && basis.startsWith("仮の値");
+
+/**
+ * 仮の値の印の文（印・確かめの一覧）: 生年月なら「仮の値（40歳として計算中）。生年月を入れてください」。
+ * 年齢は計算の基準の月の年齢（生年月の欄の値から）。年齢が読めない欄は「仮の値（…として計算中）。…を入れてください」の形の欄の名前だけ
+ */
+export function provisionalText(f: Pick<FieldDef, "label" | "kind">, wh: WorkingHousehold, value: Val): string {
+  const base = wh.request.input.baseMonth;
+  if (f.kind === "ym" && typeof value === "string" && /^\d{4}-\d{2}$/.test(value) && /^\d{4}-\d{2}$/.test(base)) {
+    const months = (Number(base.slice(0, 4)) - Number(value.slice(0, 4))) * 12 + (Number(base.slice(5, 7)) - Number(value.slice(5, 7)));
+    if (months >= 0) return `仮の値（${Math.floor(months / 12)}歳として計算中）。${f.label}を入れてください`;
+  }
+  return `仮の値で計算中です。${f.label}を入れてください`;
+}
 
 /** 「まだ額を入れていない」印の0円の推定（年金の見込額・退職金・統計の無い年収など）の根拠の文は「未入力」で始まる */
 export const isUnenteredBasis = (basis: string | null | undefined): boolean => typeof basis === "string" && basis.startsWith("未入力");
@@ -127,7 +151,10 @@ export function fieldStatus(f: FieldDef, wh: WorkingHousehold): FieldStatus {
     }
   } else {
     const assumed = wh.assumed[f.key];
-    if (assumed !== undefined) return plainStatus("estimated", assumed === "" ? "仮の値" : assumed);
+    if (assumed !== undefined) {
+      const basis = assumed === "" ? "仮の値" : assumed;
+      return isProvisionalBasis(basis) ? { ...plainStatus("estimated", provisionalText(f, wh, st.value)), provisional: true } : plainStatus("estimated", basis);
+    }
     const a = fieldAddress(f, wh);
     const row = a === null ? undefined : rowAt(input(wh), a);
     if (row !== undefined) {
@@ -139,7 +166,7 @@ export function fieldStatus(f: FieldDef, wh: WorkingHousehold): FieldStatus {
     }
   }
   if (st.estimated != null) return isUnenteredBasis(st.estimated) ? plainStatus("missing", st.estimated) : plainStatus("estimated", st.estimated);
-  if (st.assumed != null) return plainStatus("estimated", st.assumed);
+  if (st.assumed != null) return isProvisionalBasis(st.assumed) ? { ...plainStatus("estimated", provisionalText(f, wh, st.value)), provisional: true } : plainStatus("estimated", st.assumed);
   if (st.value === null && f.kind === "yen" && f.optional !== true && f.readOnly === undefined) return plainStatus("missing");
   return plainStatus("confirmed");
 }
@@ -179,7 +206,8 @@ export function availableOps(f: FieldDef, wh: WorkingHousehold, s: FieldStatus =
   const a = fieldAddress(f, wh);
   const stateful = f.boxed !== undefined || a !== null;
   const value = f.get(wh).value;
-  if ((s.status === "estimated" && confirmable(f, wh, a)) || (s.status === "unknown" && value !== null)) out.push("confirm");
+  // 仮の値（生年月など）は「この値にする」で確定にしない（推定が成り立たない欄。入れてもらう値。0041 の追記 2026-11-06）
+  if ((s.status === "estimated" && s.provisional !== true && confirmable(f, wh, a)) || (s.status === "unknown" && value !== null)) out.push("confirm");
   if (f.blankIsEstimate === true && s.status !== "estimated") out.push("revert");
   const asked = stateful && (f.item === null || !PREMISE_ITEM.test(f.item));
   // 箱でない値は、見せている値が世帯にある（その物の行に書ける）か、空欄の推定を書ける欄だけ（見せるだけの既定の値〔自動車ローンの頭金0の割合など〕は
@@ -365,3 +393,31 @@ export function planStateOp(wh: WorkingHousehold, cat: Catalog, planId: string, 
   if (box === null) return wh;
   return setPlanValue(wh, cat, planId, a, box, (w) => boxForField(w, f, a));
 }
+
+/** 前提条件の標準の値の欄か（前提条件の入力項目の、経済の前提・不動産の評価・表の期間など。FP顧問料の欄は含めない） */
+export const isPremiseField = (f: Pick<FieldDef, "key">): boolean => f.key.startsWith("assume/");
+
+/** 働き方の期間の推定を、終わった後どれだけ出し続けるか（辞めた後の失業給付などは終わってからもしばらく効く） */
+const ENDED_PERIOD_MONTHS = 24;
+
+/**
+ * ずっと前に終わった物か（当て先の物の終わりが計算の基準の月より前。働き方の期間は終わりから2年より前）。
+ * その物の推定は結果に効かないので、確かめの一覧に出さず、入力項目の推定の数にも入れない
+ */
+export function endedLongAgo(wh: WorkingHousehold, holder: string | null | undefined): boolean {
+  if (holder == null) return false;
+  const h = wh.request.input.household;
+  const o = findObject(wh.request.input as unknown as Record<string, unknown>, holder) as { to?: Timepoint | null } | undefined;
+  if (o === undefined || o.to == null || typeof o.to !== "object") return false;
+  const to = resolveTimepoint(h, o.to);
+  if (to === null) return false;
+  const period = (h.employmentPeriods ?? []).some((p) => p.id === holder);
+  return to < (period ? addMonths(wh.request.input.baseMonth, -ENDED_PERIOD_MONTHS) : wh.request.input.baseMonth);
+}
+
+/** 欄の当て先の物・構成員の ID */
+export function holderOfField(f: FieldDef, wh: WorkingHousehold): string | null {
+  const t = fieldAddress(f, wh)?.target;
+  return t === undefined ? null : "object" in t ? t.object : "member" in t ? t.member : null;
+}
+

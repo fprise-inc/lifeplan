@@ -166,7 +166,8 @@ describe("推定で埋める（入っていない物）", () => {
     const { wh, self } = withStatement();
     const g = gapsOf(wh).find((x) => x.id === `pension/amounts/${self}`)!;
     expect(g).toMatchObject({ card: "pension", basis: expect.stringContaining("働き方の期間から推計") });
-    expect(checkList(wh)[0]!.id).toContain("pension/amounts");
+    // 未入力の側（いちばん上の種類）に出る（同じ未入力の仮の生年月は、カードの順で先に並ぶ）
+    expect(checkList(wh).find((r) => r.id.includes("pension/amounts"))?.kind).toBe("missing");
     const { wh: filled, count } = fillAll(wh, "pension");
     expect(count).toBe(1);
     expect(filled.request.input.household.pensionRecords).toBeUndefined();
