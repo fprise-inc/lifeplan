@@ -29,13 +29,6 @@ const OP = (s: string) => `操作 ${s}`;
 /** 直す待ちの一覧（今ある不具合。直したまとまりがその行を消す） */
 const PENDING: readonly Pending[] = [
   {
-    key: "count-in-assumptions-note",
-    what: "前提条件の区画の注記が、既定の値の数を「（4つ）」の形で数える",
-    rule: "screenWords",
-    cases: "all",
-    match: /前提は既定の値.*「○つ」の数え方/,
-  },
-  {
     key: "vocational-fee-in-sample",
     what: "ひとり親と子2人の見本の第2子（専門学校・私立）の学費が入っていない",
     rule: "schoolFeeZero",
