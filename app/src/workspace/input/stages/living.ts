@@ -704,8 +704,10 @@ function stageGroups(wh: WorkingHousehold, l: LivingExpense, find: Finder): Grou
           ),
     ];
     // 見出しに番号を付けない（標準では退職後の段だけが見え、番号が飛ぶため）。退職後の段は「退職後（2051年4月・ご本人65歳から）」
-    const name = retiredStd ? "退職後" : nameOf(s);
-    const when = ym === "9999-12" ? "" : self !== undefined ? `（${ymText(ym)}・${memberLabel(wh, self.id)}${ageAt(self, ym)}歳から）` : `（${ymText(ym)}から）`;
+    // 70歳・80歳の段（ほかの理由と重なっていない段）は、年齢を2回書かないよう「70歳から（2056年6月）」
+    const ageOnly = AGE_STAGE_NAMES[s.label] !== undefined && !nameOf(s).includes("・");
+    const name = retiredStd ? "退職後" : ageOnly ? (AGE_STAGE_NAMES[s.label] as string) : nameOf(s);
+    const when = ym === "9999-12" ? "" : ageOnly ? `（${ymText(ym)}）` : self !== undefined ? `（${ymText(ym)}・${memberLabel(wh, self.id)}${ageAt(self, ym)}歳から）` : `（${ymText(ym)}から）`;
     return {
       key,
       title: `${name}${when}`,
