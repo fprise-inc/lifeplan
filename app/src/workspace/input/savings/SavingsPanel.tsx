@@ -1,7 +1,7 @@
 // 入力の「貯蓄・運用」のパネルの中身（作業の層。0026）: 入れ方（合計／口座／資産配分）・口座ごとの残高と期間を分けた積立と利回り・
 // NISA の枠の知らせ・資産配分・iDeCo と企業型DC の受け取り・運用の期間（積立をやめる年・取り崩し）。値を変えるたびに onEdit に新しい世帯を渡す
 import { Fragment } from "preact";
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { Account, EngineRequest } from "../../../engine/types.ts";
 import { Help, HelpOf } from "../../../presentation/Help.tsx";
 import { DonutPair, type DonutItem, type DonutPane } from "../../../presentation/Donut.tsx";
@@ -15,12 +15,18 @@ import { buildStage } from "../stages/index.ts";
 import { accountMoreLabel, MAIN_ADD_KINDS } from "../stages/savings.ts";
 import { revealAdded } from "../../../presentation/revealAdded.ts";
 import { formatYen, normalizeNumberText, parseInteger, parseYen, pctFromRate, rateFromPct } from "../units.ts";
+import { enterInput, type Settled } from "../pendingInput.ts";
 import { outOfRangeText, rangeText, rateInRange, RETURN_RANGE, type PctRange } from "../rateRanges.ts";
 import {
   accountMonthlyAt,
   accountsOf,
+  allocationGaps,
   CLASSES,
+  classReturnKey,
   classRows,
+  defaultFee,
+  fillAllocation,
+  setClassReturn,
   DC_KINDS,
   defaultPayoutAge,
   drawdownOf,
@@ -111,6 +117,17 @@ function NumBox(p: {
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [start, setStart] = useState<string | null>(null);
+  const el = useRef<HTMLInputElement>(null);
+  /** 打ちかけの値の登録を外す（pendingInput.ts。入っている間だけ持つ） */
+  const leaveInput = useRef<(() => void) | null>(null);
+  const settleNow = useRef<() => Settled>(() => "none");
+  useEffect(
+    () => () => {
+      leaveInput.current?.();
+      leaveInput.current = null;
+    },
+    [],
+  );
   const shown = p.value === null ? "" : p.unit === "man" ? formatYen(p.value as number, "man") : p.unit === "pct" ? pctFromRate(String(p.value)) : String(p.value);
   const parse = (t: string): number | string | null | undefined => {
     if (normalizeNumberText(t) === "") return p.optional === true ? null : undefined;
@@ -127,6 +144,16 @@ function NumBox(p: {
     return Number.isFinite(v) && v >= 0 ? v : undefined;
   };
   const bad = draft !== null && parse(draft) === undefined;
+  // 欄を離れずに画面を変える操作の前（pendingInput.ts）: 打ちかけの値を決める。読めなければ欄に残して止める
+  settleNow.current = () => {
+    const t = el.current?.value ?? draft ?? shown;
+    if (!shouldCommitOnBlur(start, t)) return "none";
+    const v = parse(t);
+    if (v === undefined) return "rejected";
+    p.onCommit(v);
+    setStart(t);
+    return "committed";
+  };
   // 範囲の外の率の知らせ（「15%より大きい値は設定できません。」。読めない文字は赤い枠だけ）
   const rangeProblem = (t: string): string | null => (p.unit === "pct" ? readPct(t, p.range).problem : null);
   return (
@@ -141,18 +168,21 @@ function NumBox(p: {
       {...(p.describedBy !== undefined ? { "aria-describedby": p.describedBy } : {})}
       data-sv={p.data}
       {...(p.id !== undefined ? { id: p.id } : {})}
+      ref={el}
       onFocus={() => {
         setDraft(shown);
         setStart(shown);
+        leaveInput.current = enterInput({ settle: () => settleNow.current(), focus: () => el.current?.focus() });
       }}
       onInput={(e) => {
+        // 打っている間は下書きだけ（世帯は変えない）。離れたとき（Enter）に決める（入力の欄の決まり。FieldViews.tsx の Field と同じ）
         const t = (e.currentTarget as HTMLInputElement).value;
         setDraft(t);
         p.onProblem?.(rangeProblem(t));
-        const v = parse(t);
-        if (v !== undefined && t.trim() !== "") p.onCommit(v);
       }}
       onBlur={(e) => {
+        leaveInput.current?.();
+        leaveInput.current = null;
         const t = (e.currentTarget as HTMLInputElement).value;
         if (shouldCommitOnBlur(start, t)) {
           const v = parse(t);
@@ -956,24 +986,19 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
   const inv = investmentOf(req);
   const [by, setBy] = useState<"account" | "class">("class");
   const edit = (fn: (r: EngineRequest) => void) => onEdit(mutate(wh, (_h, r) => fn(r)));
-  const setWeight = (key: string, w: number) => edit((r) => editAllocation(r, { mix: mixFromWeights(classRows(r).map((x) => ({ key: x.key, weight: x.key === key ? w : x.weight }))) }));
-  const setSeries = (field: "assetReturns" | "assetVolatility", key: string, v: string | null) =>
+  // 割合を直したら、新しく割合を持った資産の種類の期待リターンも計算に渡す（目安を推定の印で。0137）
+  const setWeight = (key: string, w: number) => onEdit(fillAllocation(mutate(wh, (_h, r) => editAllocation(r, { mix: mixFromWeights(classRows(r).map((x) => ({ key: x.key, weight: x.key === key ? w : x.weight }))) }))));
+  const setVolatility = (key: string, v: string | null) =>
     edit((r) => {
       const a = (r.input.assumptions ??= { investmentReturn: { default: "0.01" } });
-      if (field === "assetReturns") {
-        const m = { ...(a.assetReturns ?? {}) };
-        if (v === null) delete m[key];
-        else m[key] = { default: v };
-        if (Object.keys(m).length === 0) delete a.assetReturns;
-        else a.assetReturns = m;
-      } else {
-        const m = { ...(a.assetVolatility ?? {}) };
-        if (v === null) delete m[key];
-        else m[key] = v;
-        if (Object.keys(m).length === 0) delete a.assetVolatility;
-        else a.assetVolatility = m;
-      }
+      const m = { ...(a.assetVolatility ?? {}) };
+      if (v === null) delete m[key];
+      else m[key] = v;
+      if (Object.keys(m).length === 0) delete a.assetVolatility;
+      else a.assetVolatility = m;
     });
+  // まだ計算に渡っていないもの（前の版で資産配分にした世帯・前提条件で期待リターンを外した種類）
+  const gaps = allocationGaps(req);
   const panes: DonutPane[] = [{ title: "今の内訳", sub: by === "account" ? "口座ごと" : "資産の種類ごと（運用する口座は下の割合）", items: currentMix(req, by) }];
   return (
     <>
@@ -982,6 +1007,14 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
           資産の種類ごとの割合
           <Help label="資産の種類ごとの割合">運用する口座（NISA・iDeCo・企業型DC・課税口座）に共通の、資産の種類ごとの割合です。預金は現金のまま。商品は選ばず、資産の種類で入れます。期待リターンと値動きの大きさは、入れなければ事務所の既定値で計算します。</Help>
         </h3>
+        {gaps.length > 0 ? (
+          <div class="sv-carry" role="status" data-alloc-gap>
+            {gaps.join("・")}が、まだ計算に入っていません（今は運用利回りで計算しています）。{" "}
+            <button type="button" class="link-btn" onClick={() => onEdit(fillAllocation(wh))}>
+              表の値で計算する
+            </button>
+          </div>
+        ) : null}
         <div class="sv-tw">
           <table class="sv-cls">
             <thead>
@@ -1009,10 +1042,11 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
                     <NumBox value={c.weight} unit="num" size="s" label={`${c.name}の割合`} onCommit={(v) => typeof v === "number" && setWeight(c.key, v)} /> %
                   </td>
                   <td>
-                    <NumBox value={c.muOwn ? c.mu : null} unit="pct" size="s" optional placeholder={pctFromRate(CLASSES.find((x) => x.key === c.key)?.mu ?? "0")} label={`${c.name}の期待リターン`} onCommit={(v) => setSeries("assetReturns", c.key, typeof v === "string" ? v : null)} /> %
+                    <NumBox value={c.muOwn ? c.mu : null} unit="pct" size="s" optional est={wh.assumed[classReturnKey(c.key)] !== undefined} placeholder={pctFromRate(c.mu)} label={`${c.name}の期待リターン`} onCommit={(v) => onEdit(setClassReturn(wh, c.key, typeof v === "string" ? v : null))} /> %
+                    {wh.assumed[classReturnKey(c.key)] !== undefined ? <EstTag text="推定" /> : null}
                   </td>
                   <td>
-                    <NumBox value={c.sdOwn ? c.sd : null} unit="pct" size="s" optional placeholder={pctFromRate(CLASSES.find((x) => x.key === c.key)?.sd ?? "0")} label={`${c.name}の値動きの大きさ`} onCommit={(v) => setSeries("assetVolatility", c.key, typeof v === "string" ? v : null)} /> %
+                    <NumBox value={c.sdOwn ? c.sd : null} unit="pct" size="s" optional placeholder={pctFromRate(CLASSES.find((x) => x.key === c.key)?.sd ?? "0")} label={`${c.name}の値動きの大きさ`} onCommit={(v) => setVolatility(c.key, typeof v === "string" ? v : null)} /> %
                   </td>
                 </tr>
               ))}
@@ -1050,7 +1084,7 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
         <div class="sv-fld">
           <span class="lbl">信託報酬（年・平均）</span>
           <div class="ctl">
-            <NumBox value={inv.allocation?.fee ?? null} unit="pct" size="s" optional placeholder={pctFromRate("0.0025")} label="信託報酬" onCommit={(v) => edit((r) => editAllocation(r, { fee: typeof v === "string" ? v : "0.0025" }))} />
+            <NumBox value={inv.allocation?.fee ?? null} unit="pct" size="s" optional placeholder={pctFromRate(defaultFee())} label="信託報酬" onCommit={(v) => edit((r) => editAllocation(r, { fee: typeof v === "string" ? v : defaultFee() }))} />
             <span class="u">%</span>
           </div>
           <p class="help">持っている投資信託の平均。商品名からは選ばず、FPが入れます。期待リターンから差し引きます。値動きの大きさは計算には使わず、目減りの扱いは期待リターンに含めて入れる前提です。</p>

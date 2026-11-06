@@ -12,13 +12,17 @@
 // 2年（socialInsurance.health.continuation.maxMonths）までで、その後は上の決まりで導く。健康保険法38条1号）
 // 改訂5: 世帯の外の家族（0035 の4）は、扶養していると入れたときだけ扶養の候補。勤め先の健康保険に入っている世帯の外の家族は扶養する人になれる
 // 改訂6: 収入の見込みの1年のうち表の外の月は、1年前の月とみなす（表の長さで扶養の判定を変えない。0003 の追記）
+// 改訂7: 別居の親・祖父母の仕送りの額は、その人を相手にした仕送りの出るお金の行があれば、その月を含む行の額（年額）を使う（無ければ今までどおり
+//   人の欄 support.allowance。0059 の追記）
 import {
   addMonths,
   addYen,
+  allowanceRowsAnnual,
   ageMonth,
   defineComponent,
   EMPLOYER_HEALTH_KINDS,
   isOutside,
+  OUTSIDE_CHILD_SUPPORT_READS,
   monthOf,
   prospectiveMonths,
   prospectiveYear,
@@ -57,7 +61,7 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
   id: "socialInsurance.healthStatus",
   title: "健康保険の種類（導く）",
   contract: "1.0",
-  revision: 6,
+  revision: 7,
   requires: {
     "socialInsurance.employeeStatus": ">=1 <2",
     "income.salary": ">=1 <2",
@@ -68,7 +72,7 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
     "benefit.unemployment": ">=1 <2",
   },
   params: Object.values(P),
-  reads: ["member.outside", "member.kind", "member.birth", "member.joins", "member.leaves", "member.support", "employment.healthInsurance.kind", "employment.type"],
+  reads: ["member.outside", "member.kind", "member.birth", "member.joins", "member.leaves", "member.support", "employment.healthInsurance.kind", "employment.type", ...OUTSIDE_CHILD_SUPPORT_READS, "periodicExpense.everyYears"],
   memberScope: ["employment"],
   input: "member.input",
   output: "socialInsurance.healthStatus.output",
@@ -96,7 +100,9 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
     const elder = me.kind === "parent" || me.kind === "grandparent" || isOutside(me);
     const canBeDependent = !elder || me.support?.dependent === true;
     const cohabiting = isOutside(me) ? me.support?.cohabiting === true : !elder || me.support?.cohabiting !== false;
-    const allowance = elder && !cohabiting && me.support?.allowance !== undefined ? ctx.money.mulRatio(me.support.allowance, 12, 1, "conv.exact") : null;
+    const allowanceField = me.support?.allowance !== undefined ? ctx.money.mulRatio(me.support.allowance, 12, 1, "conv.exact") : null;
+    // 仕送りの年額（その月を含む仕送りの行があれば行の額、無ければ人の欄。別居の親・祖父母だけ。改訂7）
+    const allowanceAt = (m: MonthIndex): Yen | null => (elder && !cohabiting ? (allowanceRowsAnnual(ctx, member, m) ?? allowanceField) : null);
     const supporters = ctx
       .list<MemberInput>("member")
       .filter((m) => m.id !== member)
@@ -194,6 +200,7 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
             // 同居なら扶養する人の収入の2分の1の未満、別居なら仕送りの額の未満（世帯の外の家族の扶養に入る世帯の人は別居）
             if (x.apart) return true;
             if (cohabiting) return ctx.money.mulRatio(income, 2, 1, "conv.exact") < incomeOf(x.id).prospective(m);
+            const allowance = allowanceAt(m);
             return allowance === null || income < allowance;
           })
         : undefined;

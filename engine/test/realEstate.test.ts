@@ -152,6 +152,24 @@ describe("家賃収入・経費・減価償却費", () => {
     expect(fresh.filter((x) => x.depreciation > 0).at(-1)?.depreciation).toBeLessThan(230000);
   });
 
+  it("取得の年月だけの取得（取得価額が未入力。0137）: 減価償却費・帳簿価額・取得費に使わず知らせる。建った年の省略は取得の年、売ったときの長期と短期は取得の年月から", () => {
+    const dateOnly = property({ acquisition: { at: "2024-04" }, builtYear: undefined, sale: { at: at("2027-06") } });
+    const r = full(base({ accounts: [account(dateOnly)] }));
+    expect(notices(r).some((n) => n.code === "N_INPUT_REQUIRED" && n.ids.includes("account.property.acquisition"))).toBe(true);
+    const o = out(base({ accounts: [account(dateOnly)] }));
+    const p = o.properties[0];
+    expect(p?.income.every((x) => x.depreciation === 0)).toBe(true);
+    expect(p?.facts?.acquisition).toBeNull();
+    expect(p?.facts?.builtYear).toBe(2024);
+    // 取得価額が無いので概算取得費（売却価格の5%）。2024年4月の取得を2027年6月に売る（1月1日で5年以下）ので短期
+    expect(p?.sale?.estimated).toBe(true);
+    expect(p?.sale?.term).toBe("short");
+    // 取得価額のある取得は今までと同じ（建った年の省略・償却）
+    const priced = out(base({ accounts: [account(property({ acquisition: { price: 25000000, at: "2024-04" }, builtYear: undefined }))] })).properties[0];
+    expect(priced?.facts?.builtYear).toBe(2024);
+    expect(priced?.income.some((x) => x.depreciation > 0)).toBe(true);
+  });
+
   it("取得の入力が無い賃貸は減価償却費を入れず、知らせる", () => {
     const r = full(base({ accounts: [account(property({ acquisition: undefined }))] }));
     expect(notices(r).some((n) => n.code === "N_INPUT_REQUIRED" && n.ids.includes("account.property.acquisition"))).toBe(true);

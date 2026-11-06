@@ -49,7 +49,7 @@ describe("取り込み", () => {
     const r = run(...minimal, a("hs.work.type", "regular", 1), a("hs.income.salary", "unknown", 1), a("hs.expense.living", "unknown"));
     const p = r.request.input.household.employmentPeriods[0];
     // 年収は書類で確かめる欄でない（0041 の追記 2026-10-31）: 統計の目安の推定にし、根拠に「ヒアリングで『わからない』」と書く
-    expect(p?.salary?.annual).toMatchObject({ state: "estimated", value: 4978800, origin: { kind: "auto" }, estimate: { method: "statistic" } });
+    expect(p?.salary?.annual).toMatchObject({ state: "estimated", value: 4979000, origin: { kind: "auto" }, estimate: { method: "statistic" } });
     expect((p?.salary?.annual as { estimate?: { basis?: string } } | undefined)?.estimate?.basis?.startsWith("ヒアリングで「わからない」。")).toBe(true);
     expect(r.candidates.find((c) => c.collection === "employmentPeriods")?.fields.find((f) => f.key === "hs.income.salary")?.state).toBe("estimated");
     // 基本生活費は「わからない」を持たない（0100）: 統計の目安の推定にし、根拠に「ヒアリングで『わからない』」と書く（チェックリストには載る）

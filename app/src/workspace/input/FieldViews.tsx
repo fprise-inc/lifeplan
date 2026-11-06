@@ -1,25 +1,26 @@
 // 入力の欄の部品（作業の層）: 区画・まとまり・欄。欄は段階の定義（form.ts・stages/）だけを見て描く。
 // 値を変えるたびに世帯を作り直して onEdit に渡す（入力のパネルでは下書きに、万一の画面では世帯にそのまま入れる）。
 // 0077: 欄の説明（help・読むだけの理由・ほかへの影響）と区画・まとまりの説明は、名前の横の「?」の中へ。推定の根拠は状態の印を押したときに開く。
-// 灰色の入力例は欄の幅に収まる物だけ（placeholder.ts）
+// 灰色の入力例は欄の幅に収まる物だけ（placeholder.ts）。欄は、離れたとき（か Enter）に値を決める（打っている途中の空や読めない文字で物を消さない）
 import { createContext, type ComponentChildren } from "preact";
 import { useContext, useEffect, useRef, useState } from "preact/hooks";
 import { Help, HelpOf } from "../../presentation/Help.tsx";
 import { PopIcon } from "../../presentation/icons.tsx";
 import { FieldIcon } from "./fieldIcons.tsx";
 import { InfoNote } from "./InfoNote.tsx";
-import { fittingPlaceholder, textEm } from "./placeholder.ts";
+import { blankLineFor, fittingPlaceholder, textEm } from "./placeholder.ts";
+import { enterInput, noteRejected, type Settled } from "./pendingInput.ts";
 import type { Timepoint } from "../../engine/types.ts";
-import { groupShown, type ActionDef, type FieldDef, type GroupDef, type Level, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
+import { groupShown, type ActionDef, type FieldDef, type GroupDef, type Level, type Option, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { availableOps, fieldStatus, hasFieldValue, FILL_LABEL, fillTitle, OP_LABELS, opTitle, STATUS_LABELS, substituteText, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
-import { formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
+import { amountWarning, formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, pctFromRate, rateFromPct, readYen, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
 import { outOfRangeText, rateInRange } from "./rateRanges.ts";
 import { revealAdded, revealOpened } from "../../presentation/revealAdded.ts";
 import { applyOfficeName, applyOfficeText, arrangeFields, officeLabel, OfficeFieldsContext, OfficeNamesContext, OfficeTextsContext, type OfficeTextEntry } from "../office/customTexts.ts";
 import { estimateTextId, estimateValueText, ESTIMATE_OFFICIAL, fieldTextId } from "./textIds.ts";
 import { fillName } from "../../../../report/src/rowNames.ts";
-import { convertWhen, eventOptionText, modeOf, parseWhen, readWhen, readYearMonth, showWhen, strictShown, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
+import { ageExample, birthFromAge, convertWhen, eventOptionText, modeOf, parseWhen, readWhen, readYearMonth, showWhen, strictShown, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 import { isOfficeBasisText } from "../../../../hearing/src/statistics.ts";
 import type { OfficeSourceView } from "./officeSource.ts";
 
@@ -430,6 +431,7 @@ export function Section({ section, wh, level, onEdit }: { section: SectionDef; w
           <div class="in-section-h">
             <h3>
               {section.title}
+              {section.summary !== undefined ? <small class="in-sum">{section.summary}</small> : null}
               {sHelp}
             </h3>
             {/* 押したときに欄からフォーカスを外さない（外すと、欄の値が入れ直されて「保存していない変更」になるため） */}
@@ -441,6 +443,7 @@ export function Section({ section, wh, level, onEdit }: { section: SectionDef; w
         ) : (
           <h3>
             {section.title}
+            {section.summary !== undefined ? <small class="in-sum">{section.summary}</small> : null}
             {sHelp}
           </h3>
         )}
@@ -595,6 +598,7 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
         <div class="in-group-h">
           <h4>
             {group.title}
+            {group.summary !== undefined ? <small class="in-sum">{group.summary}</small> : null}
             {noteHelp}
           </h4>
           <PlanGroupTag group={group} wh={wh} />
@@ -884,9 +888,9 @@ export function rejectReason(f: FieldDef, text: string, unit: YenUnit = "man"): 
   if (t === "") return f.optional === true ? null : "空にはできません。値を入れてください";
   switch (f.kind) {
     case "yen": {
-      const v = parseYen(text, unit);
-      if (v === null) return `数字で入れてください（例: ${unit === "man" ? "12.5" : "125000"}）`;
-      return v < 0 ? "マイナスの額は入れられません。0 以上の額を入れてください" : null;
+      const r = readYen(text, unit);
+      if (!r.ok) return r.reason;
+      return r.yen < 0 ? "マイナスの額は入れられません。0 以上の額を入れてください" : null;
     }
     case "int": {
       const v = parseInteger(text);
@@ -905,7 +909,9 @@ export function rejectReason(f: FieldDef, text: string, unit: YenUnit = "man"): 
     case "decimal":
       return /^\d+(\.\d+)?$/.test(t) ? null : "0 以上の数字で入れてください";
     case "ym":
-      return parseYearMonth(text) === null ? "年月は「2041-06」「令和23年6月」のように、西暦か和暦の年と月で入れてください" : null;
+      if (parseYearMonth(text) !== null) return null;
+      if (f.ageInput === true) return birthFromAge(text, "2000-01") !== null ? null : "年月は「1988-05」「昭和63年5月」のように、西暦か和暦の年と月で入れてください（年齢しか分からなければ「38歳」）";
+      return "年月は「2020-04」「令和2年4月」のように、西暦か和暦の年と月で入れてください";
     default:
       return null;
   }
@@ -957,7 +963,92 @@ export function StateOpLinks({ f, ops, run, lead }: { f: FieldDef; ops: readonly
 /** 欄を離れるときに書くか: 入ったときと同じ文字のまま離れたら書かない（欄に入って離れる・Tab で通るだけで、値も状態も変えない。0041） */
 export const shouldCommitOnBlur = (startText: string | null, text: string): boolean => startText === null || text !== startText;
 
-/** 欄1つ。打っている間は下書きの文字を持ち、読める値になったらすぐ世帯に入れる（計算は親が間引く） */
+/** 打った文字を欄の値として読んだ結果。note は読み替えの知らせ（「15万円（150,000円）として入れました」）、warn は桁の確かめ、assume は仮の印の理由 */
+export interface FieldRead {
+  v: Val;
+  note: string | null;
+  warn: string | null;
+  assume: string | null;
+}
+
+/**
+ * 打った文字を欄の値として読む（読めない・入れられない文字は undefined）。円の欄は見せている単位（unit）と期間（period）で読み、保存の期間の額にする。
+ * 生年月の欄（ageInput）は年齢でも読み、生まれた年月の推定を仮の値にする
+ */
+export function readField(f: FieldDef, text: string, o: { unit: YenUnit; period: YenPeriod; baseMonth: string }): FieldRead | undefined {
+  const plainRead = (v: Val): FieldRead => ({ v, note: null, warn: null, assume: null });
+  if (normalizeNumberText(text) === "") return f.optional === true ? plainRead(null) : undefined;
+  switch (f.kind) {
+    case "yen": {
+      const r = readYen(text, o.unit);
+      if (!r.ok || r.yen < 0) return undefined;
+      const stored = fromPeriod(r.yen, f.basis, o.period);
+      return { v: stored, note: r.note, warn: amountWarning(r, o.unit, { basis: f.basis, stored, typicalMax: f.typicalMax, text }), assume: null };
+    }
+    case "int": {
+      const v = parseInteger(text);
+      if (v === null) return undefined;
+      if ((f.min !== undefined && v < f.min) || (f.max !== undefined && v > f.max)) return undefined;
+      return plainRead(v);
+    }
+    case "pct": {
+      const r = rateFromPct(text);
+      return r === null || !pctInRange(f, r) ? undefined : plainRead(r);
+    }
+    case "decimal": {
+      const t = normalizeNumberText(text);
+      return /^\d+(\.\d+)?$/.test(t) ? plainRead(t) : undefined;
+    }
+    case "ym": {
+      const ym = parseYearMonth(text);
+      if (ym !== null) return plainRead(ym);
+      const b = f.ageInput === true ? birthFromAge(text, o.baseMonth) : null;
+      if (b === null) return undefined;
+      return { v: b.ym, note: `${b.age}歳（${formatYearMonth(b.ym)}生まれとして入れました。月が分かれば直してください）`, warn: null, assume: `仮の値（${b.age}歳から推定した生年月）` };
+    }
+    default:
+      return plainRead(text);
+  }
+}
+
+/** 仮の印を付けた世帯（生年月の欄に年齢で入れたときなど） */
+const withAssumed = (wh: WorkingHousehold, key: string, why: string | null): WorkingHousehold => (why === null ? wh : { ...wh, assumed: { ...wh.assumed, [key]: why } });
+
+/** 選ぶ欄の選択肢。見出し（group）のある選択肢は、同じ見出しが続く所を optgroup にまとめる */
+export function optionNodes(options: readonly Option[]): ComponentChildren[] {
+  const out: ComponentChildren[] = [];
+  let i = 0;
+  while (i < options.length) {
+    const head = options[i]?.group;
+    if (head === undefined) {
+      const o = options[i] as Option;
+      out.push(
+        <option value={o.value} key={o.value}>
+          {o.label}
+        </option>,
+      );
+      i++;
+      continue;
+    }
+    const list: Option[] = [];
+    while (i < options.length && options[i]?.group === head) list.push(options[i++] as Option);
+    out.push(
+      <optgroup label={head} key={`g:${head}:${list[0]?.value ?? ""}`}>
+        {list.map((o) => (
+          <option value={o.value} key={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </optgroup>,
+    );
+  }
+  return out;
+}
+
+/**
+ * 欄1つ。打っている間は下書きの文字を持ち、欄を離れたとき（Enter）に読んで世帯に入れる（打っている途中の空や読めない文字・途中の数で
+ * 物を消したり、関連する値を動かしたりしない。時点の欄と同じ）。読めない文字は、打っている間から欄の下に理由を出す
+ */
 export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
   // 事務所の名前（カスタム層の名前の差し替え。承認した物だけ）: 欄の名前・読み上げの名前・「?」の見出しのどこでも同じ名前にする
   const names = useContext(OfficeNamesContext);
@@ -970,16 +1061,31 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   const status = stateOps !== null ? fieldStatus(f, wh) : null;
   const ops = stateOps !== null && status !== null ? availableOps(f, wh, status) : [];
   const [draft, setDraft] = useState<string | null>(null);
-  /** 欄に入ったときの文字（離れるときに同じ文字なら何も書かない。0041） */
-  const [startText, setStartText] = useState<string | null>(null);
+  /** 欄に入ったときの文字（離れるときに同じ文字なら何も書かない。0041）。打ちかけの値を決めたら、決めた文字にする */
+  const startText = useRef<string | null>(null);
+  const inputEl = useRef<HTMLInputElement>(null);
+  /** 打ちかけの値の登録を外す（pendingInput.ts。入っている間だけ持つ） */
+  const leaveInput = useRef<(() => void) | null>(null);
+  /** 打ちかけの値を決める（画面を変える操作の前に pendingInput.ts から呼ぶ。描くたびに今の下書きの読み方にする） */
+  const settleNow = useRef<() => Settled>(() => "none");
+  // 欄が消えたら登録だけ外す（消えた欄から値は書かない。消える前の操作が決めている）
+  useEffect(
+    () => () => {
+      leaveInput.current?.();
+      leaveInput.current = null;
+    },
+    [],
+  );
   /** 使えない文字のまま欄を離れたときの知らせ（前の値のままにしたこと）。次に打つまで出す */
   const [rejected, setRejected] = useState<string | null>(null);
+  /** 入れたときの知らせ（読み替え・桁の確かめ）。次に欄に入るまで出す */
+  const [told, setTold] = useState<{ note: string | null; warn: string | null } | null>(null);
   const [unit, setUnit] = useState<YenUnit>(f.kind === "yen" ? (f.unit ?? "man") : "man");
   const [period, setPeriod] = useState<YenPeriod>(f.kind === "yen" && f.basis === "annual" ? "annual" : "monthly");
   const id = fieldDomId(f.key);
   const commit = (v: Val) => onEdit(f.set(wh, v));
-  /** 打って入れる（未入力の欄に打った値は、0円でも確定。valueState.ts の typeValue。0041 の追記） */
-  const commitTyped = (v: Val) => onEdit(typeValue(f, wh, v));
+  /** 打って入れる（未入力の欄に打った値は、0円でも確定。valueState.ts の typeValue。0041 の追記）。仮の値なら仮の印も付ける */
+  const commitTyped = (r: FieldRead) => onEdit(withAssumed(typeValue(f, wh, r.v), f.key, r.assume));
   const runOp = (op: StateOp) => {
     if (stateOps === null) return;
     onEdit(stateOps(wh, f, op));
@@ -1011,6 +1117,8 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   let filledInside = false;
   /** 入れた文字を使えない理由（打っている間）か、使えないまま離れた知らせ */
   let problem: string | null = null;
+  /** 空欄の意味が欄に収まらなかったときの、欄の下の1行（「空欄なら: ○○」） */
+  let blankLine: string | null = null;
   if (f.time !== undefined && f.readOnly === undefined && (f.kind === "when" || inSection)) {
     return <WhenField f={f} time={f.time} state={state.when ?? f.time.state(wh)} label={f.label} badge={badge} id={id} wh={wh} onEdit={onEdit} warn={state.warn ?? null} status={shownStatus} fill={fill(false)} extras={stateLines} />;
   }
@@ -1022,11 +1130,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
     control = (
       <select id={id} value={state.value === null ? "" : String(state.value)} onChange={(e) => commit((e.currentTarget as HTMLSelectElement).value)}>
         {state.value === null || !f.options.some((o) => o.value === state.value) ? <option value="">（選ぶ）</option> : null}
-        {f.options.map((o) => (
-          <option value={o.value} key={o.value}>
-            {o.label}
-          </option>
-        ))}
+        {optionNodes(f.options)}
       </select>
     );
   } else if (f.kind === "bool") {
@@ -1043,65 +1147,70 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
       if (f.kind === "pct") return pctFromRate(String(state.value));
       return String(state.value);
     })();
-    const parse = (text: string): Val | undefined => {
-      if (normalizeNumberText(text) === "") return f.optional === true ? null : undefined;
-      if (f.kind === "yen") {
-        const v = parseYen(text, unit);
-        return v === null || v < 0 ? undefined : fromPeriod(v, f.basis, period);
-      }
-      if (f.kind === "int") {
-        const v = parseInteger(text);
-        if (v === null) return undefined;
-        if ((f.min !== undefined && v < f.min) || (f.max !== undefined && v > f.max)) return undefined;
-        return v;
-      }
-      if (f.kind === "pct") {
-        const r = rateFromPct(text);
-        return r === null || !pctInRange(f, r) ? undefined : r;
-      }
-      if (f.kind === "decimal") {
-        const t = normalizeNumberText(text);
-        return /^\d+(\.\d+)?$/.test(t) ? t : undefined;
-      }
-      if (f.kind === "ym") return parseYearMonth(text) ?? undefined;
-      return text;
+    const parse = (text: string): FieldRead | undefined => readField(f, text, { unit, period, baseMonth: wh.request.input.baseMonth });
+    /** 打った文字を決める（入ったときと同じ文字なら何もしない。読めれば書いて知らせを出す。読めなければ書かない） */
+    const decide = (t: string): Settled => {
+      if (!shouldCommitOnBlur(startText.current, t)) return "none";
+      const r = parse(t);
+      if (r === undefined) return "rejected";
+      commitTyped(r);
+      startText.current = t;
+      setTold(r.note !== null || r.warn !== null ? { note: r.note, warn: r.warn } : null);
+      return "committed";
     };
+    // 欄を離れずに画面を変える操作の前（pendingInput.ts）: 今の下書きを決める。読めなければ欄に残して止める（理由は下書きから欄の下に出ている）
+    settleNow.current = () => decide(inputEl.current?.value ?? draft ?? shown);
     const bad = draft !== null && parse(draft) === undefined;
     problem = bad ? (rejectReason(f, draft, unit) ?? "この値は入れられません") : rejected;
     const inputClass = f.kind === "text" ? "txt" : f.kind === "ym" ? "ym" : "num";
     filledInside = canFill && fillInside(inputClass, shown);
+    // 灰色の入力例: 空欄に意味のある欄は「空欄＝○○」を先に（収まらなければ欄の下の1行）、次に欄ごとの例。年月の欄の共通の例は過去の年月
+    const blankMeans = f.blankMeans ?? (state.estimated != null ? "推定" : null);
+    const blankText = blankMeans !== null ? `空欄＝${blankMeans}` : null;
+    const example = f.example ?? (f.kind === "ym" ? (f.ageInput === true ? "例: 1988-05" : "例: 2020-04") : null);
+    const placeholder =
+      f.kind === "text"
+        ? fittingPlaceholder("txt", f.placeholder, example)
+        : shownStatus === "notApplicable"
+          ? "該当なし"
+          : shownStatus === "missing"
+            ? "未入力"
+            : fittingPlaceholder(inputClass, blankText, example);
+    blankLine = (draft ?? shown) === "" && f.blankMeans !== undefined ? blankLineFor(inputClass, f.blankMeans) : null;
     const input = (
       <input
+        ref={inputEl}
         id={id}
         type="text"
         inputMode={f.kind === "text" || f.kind === "ym" ? undefined : "decimal"}
         class={`${inputClass}${bad ? " bad" : ""}${filledInside ? " has-fill" : ""}`}
         value={draft ?? shown}
-        placeholder={f.kind === "ym" ? "例: 2041-06" : f.kind === "text" ? fittingPlaceholder("txt", f.placeholder) : shownStatus === "notApplicable" ? "該当なし" : shownStatus === "missing" ? "未入力" : state.estimated != null ? "空欄＝推定" : ""}
+        placeholder={placeholder}
         aria-invalid={bad ? true : undefined}
         aria-describedby={problem !== null ? `${id}-problem` : undefined}
         onFocus={() => {
           setDraft(shown);
-          setStartText(shown);
+          startText.current = shown;
+          setTold(null);
+          leaveInput.current = enterInput({ settle: () => settleNow.current(), focus: () => inputEl.current?.focus() });
         }}
         onInput={(e) => {
-          const t = (e.currentTarget as HTMLInputElement).value;
-          setDraft(t);
+          // 打っている間は下書きだけ（世帯は変えない）。読めない文字の理由は下書きから欄の下に出す
+          setDraft((e.currentTarget as HTMLInputElement).value);
           setRejected(null);
-          if (f.kind === "text") return;
-          const v = parse(t);
-          if (v !== undefined) commitTyped(v);
+          setTold(null);
         }}
         onBlur={(e) => {
+          leaveInput.current?.();
+          leaveInput.current = null;
           const t = (e.currentTarget as HTMLInputElement).value;
           // 入ったときと同じ文字のまま離れたら、何も書かない（欄に入って離れる・Tab で通るだけで値も状態も変えない。0041）
-          if (shouldCommitOnBlur(startText, t)) {
-            const v = parse(t);
-            if (v !== undefined) commitTyped(v);
-            else setRejected(`「${t}」は入れられないため、前の値のままです。${rejectReason(f, t, unit) ?? ""}`);
+          if (decide(t) === "rejected") {
+            setRejected(`「${t}」は入れられないため、前の値のままです。${rejectReason(f, t, unit) ?? ""}`);
+            noteRejected(() => inputEl.current?.focus());
           }
           setDraft(null);
-          setStartText(null);
+          startText.current = null;
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
@@ -1185,6 +1294,21 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
           {problem}
         </div>
       ) : null}
+      {blankLine !== null ? (
+        <div class="fld-help" data-field-blank={f.key}>
+          {blankLine}
+        </div>
+      ) : null}
+      {told?.note != null ? (
+        <div class="fld-help" role="status" data-field-read-note={f.key}>
+          {told.note}
+        </div>
+      ) : null}
+      {told?.warn != null ? (
+        <div class="fld-help warn" role="status" data-field-size-warn={f.key}>
+          {told.warn}
+        </div>
+      ) : null}
       {state.derived != null ? <div class="fld-help warn">{state.derived}</div> : null}
       {state.warn != null ? (
         <div class="fld-help warn" data-field-warn>
@@ -1198,7 +1322,8 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
 
 /** 入れ方の選び方の並び（欄で使える入れ方だけ） */
 const MODE_ORDER: readonly WhenMode[] = ["age", "ym", "event", "now"];
-const PLACEHOLDER: Record<WhenMode, string> = { age: "例: 60歳", ym: "例: 2041-06", event: "例: 10年後・翌月", now: "例: 5年後" };
+/** 入れ方ごとの灰色の入力例（年齢は物差しの人で変える。when.ts の ageExample） */
+const PLACEHOLDER: Record<WhenMode, string> = { age: "例: 65歳", ym: "例: 2041-06", event: "例: 10年後・翌月", now: "例: 5年後" };
 /** 空の欄で入れ方を選んだときに、欄の下に出す打ち方（出来事からは横の選択肢で選ぶ） */
 const PICK_HINT: Record<Exclude<WhenMode, "event">, string> = { age: "年齢を打ってください（例: 60 と打つと60歳）", ym: "年月を打ってください（例: 2041-06・令和23年6月）", now: "何年後かを打ってください（例: 5 と打つと今から5年後）" };
 
@@ -1220,6 +1345,16 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
   const [rejected, setRejected] = useState<string | null>(null);
   const [picked, setPicked] = useState<WhenMode | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  /** 打ちかけの値の登録を外す（pendingInput.ts） */
+  const leaveInput = useRef<(() => void) | null>(null);
+  const settleNow = useRef<() => Settled>(() => "none");
+  useEffect(
+    () => () => {
+      leaveInput.current?.();
+      leaveInput.current = null;
+    },
+    [],
+  );
   // 出来事が正本の欄は、出来事の時点を見せて直す（出来事を指していることは下の行で知らせる）
   const actualRaw = state.linked?.at ?? state.raw;
   // 使える入れ方だけで見せる欄は、ほかの形の前の値を同じ月の既定の入れ方で見せる（直すとその形で書く。0101）
@@ -1253,16 +1388,31 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
   const person = shownRaw?.memberAge?.member ?? state.ctx.person;
   const evId = mode === "event" ? state.raw?.event : undefined;
   const leave = (text: string) => {
+    leaveInput.current?.();
+    leaveInput.current = null;
     setDraft(null);
     if (text === shown) return;
     const r = readText(time, wh, ctx, text);
     if ("reason" in r) {
       setRejected(`「${text}」は入れられないため、前の値のままです。${r.reason}`);
+      noteRejected(() => input.current?.focus());
       return;
     }
     setRejected(null);
     setPicked(null);
     commit(r.tp, "auto");
+  };
+  // 欄を離れずに画面を変える操作の前（pendingInput.ts）: 打ちかけの時点を決める。読めなければ欄に残して止める（理由は欄の下に出ている）
+  settleNow.current = () => {
+    const text = input.current?.value ?? draft ?? shown;
+    if (text === shown) return "none";
+    const r = readText(time, wh, ctx, text);
+    if ("reason" in r) return "rejected";
+    setRejected(null);
+    setPicked(null);
+    commit(r.tp, "auto");
+    setDraft(null);
+    return "committed";
   };
   return (
     <div class={`fld when${status === "estimated" ? " is-est" : status !== null && status !== "confirmed" ? ` is-${STATUS_CLASS[status]}` : ""}`} data-when={f.key} data-field={f.key}>
@@ -1278,10 +1428,13 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
           type="text"
           class={`when-in${problem !== null && live !== null ? " bad" : ""}`}
           value={draft ?? shown}
-          placeholder={fittingPlaceholder("when-in", picked === null && state.raw === null && time.when.nullText !== undefined ? `空欄＝${time.when.nullText}` : null, PLACEHOLDER[mode])}
+          placeholder={fittingPlaceholder("when-in", picked === null && state.raw === null && time.when.nullText !== undefined ? `空欄＝${time.when.nullText}` : null, f.example, mode === "age" ? ageExample({ h: state.ctx.h, person }) : PLACEHOLDER[mode])}
           aria-invalid={live !== null && "reason" in live ? true : undefined}
           aria-describedby={`${id}-read`}
-          onFocus={() => setDraft(shown)}
+          onFocus={() => {
+            setDraft(shown);
+            leaveInput.current = enterInput({ settle: () => settleNow.current(), focus: () => input.current?.focus() });
+          }}
           onInput={(e) => {
             setDraft((e.currentTarget as HTMLInputElement).value);
             setRejected(null);
@@ -1300,7 +1453,7 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
             ))}
           </select>
         ) : null}
-        {mode === "age" && state.ctx.people.length > 1 ? (
+        {mode === "age" && state.ctx.people.length > 1 && state.ctx.personFixed !== true ? (
           <select class="when-who" aria-label={`${label}は誰の年齢で`} value={person ?? ""} onChange={(e) => commit(withPerson(shownRaw, (e.currentTarget as HTMLSelectElement).value, state.ctx), state.linked !== null ? "auto" : "this")} data-when-who>
             {person === null ? <option value="">（誰の年齢か）</option> : null}
             {state.ctx.people.map((p) => (

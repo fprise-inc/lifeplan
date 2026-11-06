@@ -38,6 +38,7 @@ import { useNurseryFee } from "./nurseryFeeView.ts";
 import { nurseryMethodNote } from "./stages/education.ts";
 import { historyScope, undoController, useUndoScope } from "../undo/controller.ts";
 import { deepEqual, UndoHistory } from "../undo/history.ts";
+import { guardPanel, settleInput } from "./pendingInput.ts";
 
 export interface InputPanelProps {
   /** 保存されている世帯（下書きの始まり） */
@@ -106,6 +107,8 @@ function jumpTo(el: HTMLElement): void {
 export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, computeOne, onStatement, focusKey, focusAt, plan, groupOpen }: InputPanelProps) {
   const [draft, setDraft] = useState<WorkingHousehold>(wh);
   const [dirty, setDirty] = useState(false);
+  /** 保存していない変更があるか（描く前にも読めるように。閉じる前に打ちかけの値を決めた直後など） */
+  const dirtyRef = useRef(false);
   const [leaving, setLeaving] = useState(false);
   /** 知らせが「明細のパネルを開く前に保存する」か（false なら「閉じると変更が消える」） */
   const [toStatement, setToStatement] = useState(false);
@@ -146,6 +149,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
     latest.current = n;
     setDraft(n);
     setDirty(true);
+    dirtyRef.current = true;
     setLeaving(false);
     setToStatement(false);
   };
@@ -228,13 +232,17 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
         latest.current = s;
         setDraft(s);
         setDirty(true);
+    dirtyRef.current = true;
         setLeaving(false);
         setToStatement(false);
       },
     ),
   );
+  // 閉じる・保存・明細を開く前に、欄の打ちかけの値を決める（読めない打ち方なら、その欄に戻して止める。pendingInput.ts・0131）。
+  // 決めた値は下書きに入るので、変更の有無と保存する世帯は描く前の値（dirtyRef・latest）で見る
   const tryClose = () => {
-    if (dirty && (!leaving || toStatement)) {
+    if (!settleInput().ok) return;
+    if (dirtyRef.current && (!leaving || toStatement)) {
       setLeaving(true);
       setToStatement(false);
       return;
@@ -242,7 +250,15 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
     onClose();
   };
   // プランを直しているときは、カードの「保存した」印（現状の記録）は付けない
-  const save = () => onSave(plan === undefined ? saveItem(draft, itemId) : draft, itemId);
+  const save = () => {
+    if (!settleInput().ok) return;
+    const d = latest.current;
+    onSave(plan === undefined ? saveItem(d, itemId) : d, itemId);
+  };
+  const saveToStatement = () => {
+    if (!settleInput().ok || onStatement === undefined) return;
+    onStatement(saveItem(latest.current, itemId));
+  };
   // 基本生活費の見出しの横の「明細から出す」（0034）。保存していない変更があれば、先に保存するかを聞く
   const links = useMemo<Record<string, SectionLink>>(() => {
     if (itemId !== "living" || onStatement === undefined) return NO_LINKS;
@@ -250,7 +266,8 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
       label: "明細から出す",
       title: "カード・銀行の明細から月平均を出し、候補として入れます",
       onClick: () => {
-        if (dirty) {
+        if (!settleInput().ok) return;
+        if (dirtyRef.current) {
           setLeaving(true);
           setToStatement(true);
           return;
@@ -297,6 +314,19 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
+
+  // 開いている間: 世帯の切り替え・アプリを閉じる・ページを読み直す前に、保存していない変更があれば「保存していない変更があります」を出して止める（0131）
+  useEffect(
+    () =>
+      guardPanel({
+        unsaved: () => dirtyRef.current,
+        warn: () => {
+          setLeaving(true);
+          setToStatement(false);
+        },
+      }),
+    [],
+  );
 
   // 知らせが出たら、その中のボタンに移る
   useEffect(() => {
@@ -587,7 +617,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
                 }}>
                 入力に戻る
               </button>
-              <button type="button" class="btn primary" onClick={() => onStatement(saveItem(draft, itemId))} data-save-statement>
+              <button type="button" class="btn primary" onClick={saveToStatement} data-save-statement>
                 保存して明細を開く
               </button>
             </>

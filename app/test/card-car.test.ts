@@ -188,7 +188,7 @@ describe("今返している自動車ローン・一生の費用・カードの�
     expect(life.purchases).toBeGreaterThan(3);
     expect(life.total).toBeGreaterThan(life.purchases * (c.purchase!.price - (c.purchase!.tradeIn ?? 0)));
     const head = buildStage("car", wh).sections[0]!.groups.find((g) => g.key === `ev/car/${c.id}`)!;
-    expect(head.note).toMatch(/^この車の一生の費用（今の値段で・最後まで）約[\d,.]+万円（買い替え\d+回・維持費 年36万円/);
+    expect(head.note).toMatch(/^この車の一生の費用（今の値段で・手放すまで）約[\d,.]+万円（買い替え\d+回・維持費 年36万円/);
   });
 
   it("車の入力項目の出るお金の区画にカーシェアのひな形は無い（ときどき使うカーシェアは基本生活費の交通費）", () => {

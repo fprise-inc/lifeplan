@@ -450,12 +450,12 @@ describe("時期・何年ごとを変えたときの額（0100 の追記）", ()
     const id = added(wh).id;
     wh = fieldOf(wh, `ev/${id}/cadence`).set(wh, "monthly");
     expect(amountOf(wh)).toMatchObject({ value: 4200, state: "estimated" });
-    expect(amountOf(wh).estimate!.basis).toContain("時期に合わせて直した額。元は年額");
+    expect(amountOf(wh).estimate!.basis).toContain("回数に合わせて直した額。元は年額");
     expect(fieldStatus(fieldOf(wh, `ev/${id}/amount`), wh).status).toBe("estimated");
     wh = fieldOf(wh, `ev/${id}/cadence`).set(wh, "repeat");
     // 元の時期に戻すと、額も根拠も元のまま
     expect(amountOf(wh)).toMatchObject({ value: 50000, state: "estimated" });
-    expect(amountOf(wh).estimate!.basis).not.toContain("時期に合わせて直した額");
+    expect(amountOf(wh).estimate!.basis).not.toContain("回数に合わせて直した額");
     // 1回にすると年あたりが無いので変えない
     const once = fieldOf(wh, `ev/${id}/cadence`).set(wh, "once");
     expect(amountOf(once).value).toBe(50000);

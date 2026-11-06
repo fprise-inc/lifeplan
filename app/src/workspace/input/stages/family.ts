@@ -47,6 +47,9 @@ function removeMemberRaw(wh: WorkingHousehold, id: string): WorkingHousehold {
       h.debts = h.debts.filter((d) => d.debtors.length > 0);
     }
     if (h.donors !== undefined) for (const d of h.donors) if (d.of === id) delete d.of;
+    // 援助（住宅資金・教育資金）の贈与する人がこの人（介護・親の親・祖父母）なら、贈与する人を空にする
+    for (const r of h.residences ?? []) for (const g of r.purchase?.gifts ?? []) if (g.donor === id) delete g.donor;
+    for (const goal of h.goals ?? []) for (const g of goal.education?.gifts ?? []) if (g.donor === id) delete g.donor;
     // お金の行の相手がこの人なら、相手を空にする（外した人を指したままにしない）
     for (const r of [...(h.incomeFlows ?? []), ...(h.periodicExpenses ?? [])]) if (r.counterparty === id) delete r.counterparty;
     for (const key of ["cars", "advisoryFees"] as const) {

@@ -227,10 +227,10 @@ describe("住宅ローンの1件の中枠（大枠 → 中枠）", () => {
   const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"), {});
   const d = loan(wh);
   const k = `housing/debt/${d.id}`;
-  it("1件の枠の中を、借入の内容・金利・返済・繰上返済・団体信用生命保険・住宅ローン控除の中枠に分ける（中枠は物の「▸ 続きを見る」の単位にしない）", () => {
+  it("1件の枠の中を、借入の内容・金利・返済・繰上返済・借り換え・団体信用生命保険・住宅ローン控除の中枠に分ける（中枠は物の「▸ 続きを見る」の単位にしない）", () => {
     const sec = stage(wh).sections.find((s) => s.key === "housing/loans")!;
     const bands = sec.groups.filter((g) => g.band === true);
-    expect(bands.map((g) => g.title)).toEqual(["借入の内容", "金利", "返済", "繰上返済", "団体信用生命保険", "住宅ローン控除"]);
+    expect(bands.map((g) => g.title)).toEqual(["借入の内容", "金利", "返済", "繰上返済", "借り換え", "団体信用生命保険", "住宅ローン控除"]);
     const units = groupUnits(sec.groups);
     for (const b of bands) expect(units.get(b.key)).toBe(k);
     expect(headsWithMore(sec.groups)).toEqual(new Set([k]));

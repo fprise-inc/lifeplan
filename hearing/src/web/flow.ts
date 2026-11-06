@@ -1,6 +1,7 @@
-// Web のヒアリング（0125・0130）のお客さまの画面の流れ: 1画面に小さなまとまり（人ごと・お住まい・お金）を並べ、答えに合わせて問いを飛ばす。
+// Web のヒアリング（0125・0138）のお客さまの画面の流れ: 1画面に小さなまとまり（人ごと・お住まい・お金）を並べ、答えに合わせて問いを飛ばす。
 // - 手軽さが主軸（通常の票が主）: 人ごとに「生年月・年齢・性別」「働き方・年収」、お住まいは「住まいの形・家賃かローン」、お金は「預貯金・投資」を同じ画面に。
-//   ご両親は1人1画面（ご健在か・お年・同居）、お子さまの生年月は全員を1画面に。まとめ方は GROUPS・ACROSS の表（詳細の票にも同じ表が効く）
+//   ご両親は1人1画面（ご健在か・お年・同居。詳細の票は介護が始まっているかも。お金〔仕送り・援助・介護の費用〕はもう1画面）、
+//   受け取る予定の相続・贈与は時期・額と1画面、お子さまの生年月は全員を1画面に。まとめ方は GROUPS・ACROSS の表（詳細の票にも同じ表が効く）
 // - 分岐の問い（配偶者の方がいるか・お子さまの人数・住宅ローンの本数・保険の件数・ご両親のことを聞いてよいか）は答えの一覧に入れず、決まった答えに写す
 //   （配偶者の方がいない → 配偶者の方の生年月・年齢・ご結婚の形を「該当なし」。人数を超える分・聞かないと答えた分は出さない＝未回答）。受け皿は Excel と同じ
 //   同じ区画の分岐の問いは1画面にまとめる（ご家族: 配偶者の方・お子さまの人数）
@@ -179,6 +180,12 @@ const SHOW: Readonly<Record<string, Cond>> = {
   "hs.loan.balanceTotalRange": home(HAS_LOAN),
   "hs.family.parent.age": ALIVE,
   "hs.family.parent.cohabiting": ALIVE,
+  "hs.family.parent.care": ALIVE,
+  "hs.family.parent.allowance": ALIVE,
+  "hs.family.parent.support": ALIVE,
+  "hs.family.parent.careMonthly": all(ALIVE, isNot("hs.family.parent.care", ["none"])),
+  "hs.inherit.year": isAny("hs.inherit.expected", ["yes"]),
+  "hs.inherit.amount": isAny("hs.inherit.expected", ["yes"]),
   "hs.insurance.monthlyBenefit": isAny("hs.insurance.type", ["insurance.incomeProtection"]),
   "hs.insurance.deathBenefit": isNot("hs.insurance.type", ["insurance.medical", "insurance.cancer"]),
   "hs.education.living": isNot("hs.education.after", ["@na"]),
@@ -192,7 +199,9 @@ const GROUPS: Readonly<Record<string, readonly string[]>> = {
   "hs.housing.type": ["hs.housing.rent", "hs.loan.monthlyTotal", "hs.loan.balanceTotal"],
   "hs.assets.depositTotal": ["hs.assets.investTotal"],
   "hs.expense.living": ["hs.insurance.premiumTotal"],
-  "hs.family.parent.alive": ["hs.family.parent.age", "hs.family.parent.cohabiting"],
+  "hs.family.parent.alive": ["hs.family.parent.age", "hs.family.parent.cohabiting", "hs.family.parent.care"],
+  "hs.family.parent.allowance": ["hs.family.parent.support", "hs.family.parent.careMonthly"],
+  "hs.inherit.expected": ["hs.inherit.year", "hs.inherit.amount"],
 };
 
 /** 番号ごとに分けず、全員を1画面に並べる項目（続けて出す項目が無いときだけ。簡易の票のお子さまの生年月） */
@@ -237,6 +246,8 @@ function indexOn(d: Draft, axis: string | undefined, n: number | undefined): boo
 export function itemShown(p: QuestionsPacket, d: Draft, item: WebItem, n: number | undefined): boolean {
   if (!indexOn(d, item.axis?.id, n)) return false;
   if (item.key === "hs.family.spouse.marriage") return d.gates.spouse === 1;
+  // 受け取る予定の相続・贈与は、ご両親のことを「答えない」と言った方には聞かない（ご両親の区画の問い。分岐の問いを聞いていなければ聞く）
+  if (item.key.startsWith("hs.inherit.") && d.gates.parent === 0) return false;
   const c = SHOW[item.key];
   return c === undefined || c(d, n);
 }

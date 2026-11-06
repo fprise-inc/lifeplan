@@ -127,16 +127,18 @@ describe("開いても中身が少ない所は「▸ 続きを見る」を付け
     expect(g!.fields.some((f) => f.key === "living/surplus/cap")).toBe(true);
   });
 
-  it("子の学校外の費用の入れ方（塾・習い事の行）: 「学校外の費用の入れ方」を最初から出す", () => {
+  it("子の学校外の費用（塾・習い事の行）: 行で入れるときの説明のまとまりを最初から出す（入れ方は進路の「学校外の費用」の1つの欄）", () => {
     const goal = wh.request.input.household.goals!.find((g) => g.kind === "education")!;
-    const w = allFields(buildStage("education", wh)).find((f) => f.key === `edu/${goal.id}/outMode`)!.set(wh, "rows");
+    const w = allFields(buildStage("education", wh)).find((f) => f.key === `edu/${goal.id}/outUniform`)!.set(wh, "rows");
     allShown(w, "education", groupsOf(w, "education").find((x) => x.key === `edu/${goal.id}/out`));
   });
 
-  it("子の留学: 「万一のときの扱い」を最初から出す", () => {
+  it("子の留学: 「万一のときの扱い」は詳細（既定は続ける）で、「▸ 万一のときの扱いを入れる」で開く", () => {
     const goal = wh.request.input.household.goals!.find((g) => g.kind === "education")!;
     const w = addAbroad(wh, goal.id);
-    allShown(w, "education", groupsOf(w, "education").find((x) => x.key.startsWith(`edu/${goal.id}/abroad/`)));
+    const g = groupsOf(w, "education").find((x) => x.key.startsWith(`edu/${goal.id}/abroad/`))!;
+    expect(g.moreLabel).toBe("万一のときの扱いを入れる");
+    expect(g.fields.find((f) => f.key.endsWith("/on"))!.level).toBe("detail");
   });
 
   it("住まい（家賃なし）: 住み始め・住み終わりと「この家を相続する」を最初から出す", () => {

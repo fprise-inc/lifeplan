@@ -23,6 +23,7 @@
 // - 売る月が計算基準月より前なら、もう売ったとみなして手取りも税も出さない（評価額は計算基準年から出さない）。表の最後の月より後は売らない
 // - 改訂2（0123 の追記 2026-11-05）: 持ち始める時点（accounts[].holdFrom）より前の月に売る予定は、売らない（まだ持っていない。評価額も plan.cashflow が
 //   持ち始めた年の年末から載せる）。持ち始める時点の無い世帯の結果は同じ
+// - 改訂3（0137）: 預金の利回り（assumptions.depositReturn）を読む。預金・外貨預金の資産クラス（cash.deposit・cash.foreign）が前提の資産クラスごとの利回りに無いときの利回り（省略は運用利回りで、前の要求は今までどおり。0137）
 import {
   accountMixAt,
   accountReturnRate,
@@ -69,7 +70,7 @@ export default defineComponent<Record<string, never>, HeldSaleOutput>({
   id: "asset.heldSale",
   title: "貸していない不動産・その他の資産の売却",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: {},
   params: Object.values(P),
   reads: [
@@ -90,6 +91,7 @@ export default defineComponent<Record<string, never>, HeldSaleOutput>({
     "account.holdFrom",
     "assumptions.investmentReturn",
     "assumptions.assetReturns",
+    "assumptions.depositReturn",
     "assumptions.marketShocks",
     "assumptions.investment",
     "assumptions.returnShifts",

@@ -16,6 +16,9 @@
 // - 入居の年は確定申告で受ける（firstYear。還付は翌年3月。0003）。2年目からは年末調整で受ける（incomeTax.annual が判定）
 // - 約束の版 1.1: 住民税の控除の上限の基礎に足す額の差し引き（residentBasicOffset。居住年が平成28年〜令和7年のとき48万円。地方税法附則5条の4）を添える
 // 改訂3: 世帯の外の家族（0035 の4）の子は子育ての特例に数えない
+// 改訂5: 借り換え（debt.refinance。国税庁 タックスアンサー No.1233・措通41-16）: 借り換えた年からは、新しいローンの年末残高を対象にする。
+//   新しいローンの借入額（費用を含めたらその分を足す）が借り換えの直前の残高より多ければ、年末残高×直前の残高÷新しい借入額にする。
+//   控除の期間は当初の入居の年から（延びない）。新しいローンの償還期間が10年未満なら、借り換えた年から受けない
 import {
   ageMonth,
   defineComponent,
@@ -67,7 +70,7 @@ export default defineComponent<{ member: string; year: number }, HousingLoanCred
   id: "tax.housingLoanCredit",
   title: "住宅借入金等特別控除",
   contract: "1.1",
-  revision: 4,
+  revision: 5,
   requires: { "debt.schedule": ">=1 <2", "tax.incomeWithin": ">=1 <2" },
   params: [...Object.values(P), ...LIMITS, `${C}.limit.used.other`, ...PERIODS],
   reads: ["member.outside", "debt.kind", "debt.debtors", "debt.housing", "residence.to", "member.kind", "member.birth", "relation.type", "relation.a", "relation.b"],
@@ -119,7 +122,11 @@ export default defineComponent<{ member: string; year: number }, HousingLoanCred
       if (incomeLimit !== null && !ctx.call<{ within: boolean }>("tax.incomeWithin", { member, year, limit: incomeLimit }).within) continue;
       const rep = ctx.call<DebtScheduleOutput>("debt.schedule", { object: d.id });
       if (rep.payoff !== null && ctx.time.resolve({ at: rep.payoff }) - ctx.time.resolve({ at: rep.firstPayment }) + 1 < MIN_TERM_MONTHS && yearOf(ctx.time.resolve({ at: rep.payoff })) <= year) continue;
-      const balance = rep.yearEnd.find((e) => e.year === year)?.balance ?? yen(0);
+      // 借り換え（その年までの最後の借り換え）: 償還期間10年未満は受けない。新しい借入額が直前の残高より多ければ比で減らす
+      const rf = (rep.refinances ?? []).filter((x) => yearOf(ctx.time.resolve({ at: x.ym })) <= year).at(-1);
+      if (rf !== undefined && rf.termMonths < MIN_TERM_MONTHS) continue;
+      let balance = rep.yearEnd.find((e) => e.year === year)?.balance ?? yen(0);
+      if (rf !== undefined && rf.principal > rf.before) balance = ctx.money.mulRatio(balance, rf.before, rf.principal, "conv.exact");
       if (balance <= 0) continue;
       if (inSpecial) {
         ctx.notice("N_NOT_SUPPORTED", [P.special]);

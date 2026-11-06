@@ -4,7 +4,7 @@ import type { Account, Household } from "../../../engine/types.ts";
 import type { Address } from "../../store/readings.ts";
 import { ageAt, ageReachedMonth } from "../../levers.ts";
 import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
-import { confirmedBox, mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
+import { mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
 import { putRow } from "../rows.ts";
 import { ACCOUNT_KINDS, ASSET_CLASSES, BUILDING_STRUCTURES, HELD_ESTATE_OPTIONS, HELD_SALE_TAXATION, heldEstateSubtypeOf, memberLabel, memberOptions, OTHER_ASSET_OPTIONS, otherAssetSubtypeOf, VALUATION_DEFAULTS } from "../labels.ts";
 import { addMonths } from "../../levers.ts";
@@ -21,6 +21,25 @@ const UNENTERED_VALUE = "未入力（評価額を入れてください。0円で
 const onAccount = (id: string, item: string, at: string[] = []) => (): Address => ({ target: { object: id }, item, at });
 const withAddress = (f: FieldDef, a: () => Address): FieldDef => ({ ...f, address: a });
 const WITH_COST = new Set(["taxable", "nisa", "legacyNisa", "juniorNisa", "childNisa", "cryptoAsset"]);
+
+/**
+ * 残高があるのに取得価額が0円の課税口座・NISA の知らせ（前の版の画面は、足したときに0円を確定の値で書いていた。0137）。値は変えず、
+ * 欄と確かめの一覧に知らせを出し、「時価と同じにする」（取得価額を外す）を押したときだけ直す。暗号資産は0円で買うこともあるので出さない
+ */
+export const ZERO_COST_NOTICE = "取得価額が0円です（残高の全部を値上がりの分として、課税口座の税・NISA の枠を数えています）。分からなければ時価と同じにします";
+function zeroCostNotice(id: string, f: FieldDef): FieldDef {
+  const accountOf = (w: WorkingHousehold) => (w.request.input.household.accounts ?? []).find((x) => x.id === id);
+  const zero = (w: WorkingHousehold): boolean => {
+    const x = accountOf(w);
+    return x !== undefined && x.kind !== "cryptoAsset" && x.costBasis?.value === 0 && (x.marketValue?.value ?? 0) > 0;
+  };
+  const clear = (w: WorkingHousehold): WorkingHousehold =>
+    mutate(w, (h) => {
+      const x = (h.accounts ?? []).find((y) => y.id === id);
+      if (x !== undefined) delete x.costBasis;
+    });
+  return { ...f, get: (w) => (zero(w) ? { ...f.get(w), warn: ZERO_COST_NOTICE, warnFix: { label: "時価と同じにする", run: clear } } : f.get(w)) };
+}
 /**
  * 暗号資産のまとまりの説明（0122・0124）。金融資産に入れ、2028年からの申告分離課税で取り崩す（2027年までと雑所得の物は取り崩さない）
  */
@@ -324,7 +343,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   ];
   if (WITH_COST.has(a.kind))
     fields.push(
-      yenBox({
+      zeroCostNotice(a.id, yenBox({
         key: `${k}/cost`,
         item: "account.costBasis",
         label: a.kind === "cryptoAsset" ? "取得価額（買った額の合計）" : "取得価額（元本）",
@@ -337,7 +356,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
           a.kind === "cryptoAsset"
             ? "今持っている暗号資産を買った額の合計（総平均法などで出した取得価額）です。入れなければ時価と同じ（今までの値上がりの分に税がかからない）とします。2028年からの取り崩しの利益の税の計算に使います"
             : "入れなければ時価と同じとします。NISA の枠・課税口座の税の計算に使います",
-      }),
+      })),
     );
   // 暗号資産を売ったときの税の扱い（0124）
   if (a.kind === "cryptoAsset")
@@ -940,10 +959,8 @@ export function savingsStage(wh: WorkingHousehold): StageDef {
         const owner = CHILD_KINDS.has(kind) && child !== undefined ? child.id : self.id;
         // 残高は「未入力（0円で計算中）」の印で始める（打つと確定。0041）
         const a: Account = { id: newId(), kind, owner, marketValue: standardBox(0, NON_FINANCIAL.has(kind) ? UNENTERED_VALUE : UNENTERED_BALANCE), asOf: w.request.input.baseMonth, contributions: [] };
-        if (kind === "nisa" || kind === "taxable" || kind === "childNisa") {
-          a.costBasis = confirmedBox(0);
-          a.assetMix = [{ assetClass: "equity.global", share: "1" }];
-        }
+        // 取得価額は書かない（空欄＝時価と同じ。0円を書くと、残高の全部を値上がりの分として税・NISA の枠を数える。0137）
+        if (kind === "nisa" || kind === "taxable" || kind === "childNisa") a.assetMix = [{ assetClass: "equity.global", share: "1" }];
         (hh.accounts ??= []).push(a);
       }),
   });

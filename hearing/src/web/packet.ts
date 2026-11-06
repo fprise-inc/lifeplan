@@ -203,8 +203,8 @@ export async function selectionDigest(s: WebSelection): Promise<string> {
 /**
  * 「該当なし」のボタンの言葉（省略は「当てはまらない」。null は出さない）。
  * - 配偶者の方がいるか・人数は分岐の問いで聞くので、家族の欄には出さない
- * - 答えに合わせて飛ばした後にしか出ない問い（働いている方の年収・賃貸の方の家賃・住宅ローンのある方の残高）には出さない（0130）
- * - 「働いていない」は働き方の選択肢にあるので、小さなボタンでは出さない（同じ言葉が2つ並ばないように。0130）
+ * - 答えに合わせて飛ばした後にしか出ない問い（働いている方の年収・賃貸の方の家賃・住宅ローンのある方の残高）には出さない（0138）
+ * - 「働いていない」は働き方の選択肢にあるので、小さなボタンでは出さない（同じ言葉が2つ並ばないように。0138）
  */
 const NA_LABEL: Readonly<Record<string, string | null>> = {
   "hs.family.adult.birthYearMonth": null,
@@ -225,10 +225,13 @@ const NA_LABEL: Readonly<Record<string, string | null>> = {
   "hs.assets.depositTotal": null,
   "hs.assets.investTotal": "持っていない",
   "hs.insurance.premiumTotal": "保険に入っていない",
+  "hs.family.parent.allowance": "仕送りはしていない",
+  "hs.family.parent.support": "援助は受けていない",
+  "hs.family.parent.careMonthly": "払っていない",
 };
 
 /**
- * お客さまの画面の問いの言葉（シートの欄の名前のままだと分かりにくいもの。0130）。シート定義・配置の指紋は変えない（画面用の補い）。
+ * お客さまの画面の問いの言葉（シートの欄の名前のままだと分かりにくいもの。0138）。シート定義・配置の指紋は変えない（画面用の補い）。
  * 繰り返しの見出し（ご本人・ご本人のお父さま …）は問いの上に別に出す
  */
 export const WEB_LABELS: Readonly<Record<string, string>> = {
@@ -238,6 +241,10 @@ export const WEB_LABELS: Readonly<Record<string, string>> = {
   "hs.family.parent.alive": "ご健在ですか",
   "hs.family.parent.age": "お年はおいくつですか",
   "hs.family.parent.cohabiting": "いっしょに暮らしていますか",
+  "hs.family.parent.care": "介護は始まっていますか",
+  "hs.family.parent.allowance": "毎月の仕送り（ご両親へ）",
+  "hs.family.parent.support": "毎月の援助（ご両親から）",
+  "hs.inherit.expected": "これから受け取る予定の相続・贈与はありますか",
   "hs.housing.rent": "毎月の家賃（管理費・共益費を含む）",
   "hs.plan.events": "これからの予定はありますか（住宅の購入・転職・独立・車の買い替えなど）",
   "hs.consult.topics": "ご相談したいこと・気になっていることを、自由にお書きください",
@@ -262,7 +269,7 @@ export function webGuide(text: string | undefined, key?: string): string | undef
   return t === "" ? undefined : t;
 }
 
-/** 前回の値（Excel の書き出しと同じ言葉）を、お客さまの画面の答えの形にする: 選択肢はラベル → 値、年月は「1985年（昭和60年）」「4月」→ 1985・4（0130） */
+/** 前回の値（Excel の書き出しと同じ言葉）を、お客さまの画面の答えの形にする: 選択肢はラベル → 値、年月は「1985年（昭和60年）」「4月」→ 1985・4（0138） */
 export function webPrefill(item: SheetItem, a: Pick<Answer, "status" | "raw" | "raw2">): Pick<Answer, "status" | "raw" | "raw2"> {
   if (a.status !== "value" || a.raw === undefined || a.raw.kind === "bool") return a;
   const t = a.raw.text.normalize("NFKC").trim();
@@ -371,7 +378,7 @@ export async function buildPacket(def: SheetDefinition, s: WebSelection, o: Pack
   };
 }
 
-/** お客さまのページの最初の画面の注意（シートの注意書きの Web 版。0130 で短く: 「当てはまらない」の説明は外し、名前の代わりに見分ける仕組みは言葉を変えた） */
+/** お客さまのページの最初の画面の注意（シートの注意書きの Web 版。0138 で短く: 「当てはまらない」の説明は外し、名前の代わりに見分ける仕組みは言葉を変えた） */
 export const WEB_NOTES: readonly string[] = [
   "お名前は書かないでください。お名前がなくても、担当の FP にはどなたのお答えか分かります。",
   "わからないときは「わからない」を、あとで考えたいときは「あとで」を押してください。途中まででも送れます。答えていない所は、面談のときにうかがいます。",

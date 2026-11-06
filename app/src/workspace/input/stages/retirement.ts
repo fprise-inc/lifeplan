@@ -211,7 +211,10 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
       benefitAt(b.id, "retirementBenefit.kind"),
     ),
   );
-  if (HAS_AMOUNT.has(kind)) fields.push(amountField(wh, b, prefix, find));
+  // 確定給付企業年金を年金だけで受け取るときは、一時金の見込み額の欄を出さない（未入力にも数えない。年金の年額の欄で入れる）。
+  // 一時金の額（入れた額・推定）があれば残して見せる（年金の年額が空欄のとき、その額から年金に直すため）
+  const amountShown = !(kind === "db" && method === "annuity" && (b.amount === undefined || isUnenteredBox(b.amount)));
+  if (HAS_AMOUNT.has(kind) && amountShown) fields.push(amountField(wh, b, prefix, find));
   // 見込みの計算の欄（公務員の俸給月額と理由・役員の最終報酬月額と功績倍率）。見込み額が空欄（見込みの計算で出す）のときは標準に出す
   if (COMPUTED.has(kind)) {
     fields.push(
@@ -297,7 +300,8 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
   }
   // 年金の年額（年金で受けるとき。国民年金基金・年金払い退職給付は必ず。目安が無いので、入れるまでは未入力の警告）
   if (method !== "lumpSum") {
-    const required = ANNUITY_ONLY.has(kind);
+    // 一時金の欄を出さないとき（確定給付企業年金を年金だけで受け取る）は、年金の年額を入れる欄にする（入れるまでは未入力）
+    const required = ANNUITY_ONLY.has(kind) || !amountShown;
     fields.push(
       withAddress(
         {

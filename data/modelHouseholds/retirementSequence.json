@@ -330,6 +330,9 @@
       "investmentReturn": {
         "default": "0.02"
       },
+      "depositReturn": {
+        "default": "0.001"
+      },
       "inflation": {
         "default": "0.01"
       },

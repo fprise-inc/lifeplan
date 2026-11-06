@@ -41,7 +41,7 @@
   color: var(--hf-accent);
   font-size: 16px;
 }
-/* 進み具合: 段（はじめに・区画・書類・確かめ）の印と今の段の名前。分母は答えで変わらない（0130） */
+/* 進み具合: 段（はじめに・区画・書類・確かめ）の印と今の段の名前。分母は答えで変わらない（0138） */
 .hf-progress {
   display: flex;
   align-items: center;
@@ -483,7 +483,7 @@
   padding: 8px 6px;
 }
 
-/* 1画面にまとめた問い（0130） */
+/* 1画面にまとめた問い（0138） */
 .hf-field.more {
   margin-top: 22px;
   padding-top: 16px;

@@ -147,6 +147,18 @@ export function stageStatistic(s: EducationStage): StageStatistic | null {
   return { annual: sumOf(ids), entrance: masterAmount(admission), outOfSchool: null, basis: titles([...ids, admission]), annualBasis, entranceBasis, lunchRelief: 0, note };
 }
 
+/**
+ * 専門学校の学費の目安（「学費を目安で入れる」のボタンで入れる値。推定の印。国の統計が無いので、業界団体の調査の平均を使う）。
+ * 公益社団法人東京都専修学校各種学校協会「学生・生徒納付金調査」令和7年度（調査統計資料の調査2）の専門課程・昼間部の総平均（千円）:
+ * 入学金 183・授業料 740・実習費 138・設備費 176・その他 82（初年度の合計 1,318。科目ごとの平均なので横の合計は一致しない）。
+ * 年額は入学金を除く4つ（授業料・実習費・設備費・その他）の和。東京都内の私立の専門学校の値で、2年目からも同じ年額として数える（計算基準年の値段）
+ */
+export const VOCATIONAL_GUIDE = {
+  annual: 1136000,
+  entrance: 183000,
+  basis: "業界団体の調査の平均（東京都専修学校各種学校協会「学生・生徒納付金調査」令和7年度・専門課程・昼間部の総平均。都内の私立の専門学校）。学校の案内の額で直してください",
+} as const;
+
 /** 公立・私立の高専の未入力（0090） */
 export const KOSEN_MISSING = "未入力（公立・私立の高専の学費の統計はありません。年額を入れるまで0円で計算中）";
 /** インターナショナルスクールの未入力（0089） */

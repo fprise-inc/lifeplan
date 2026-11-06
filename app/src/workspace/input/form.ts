@@ -9,7 +9,7 @@ import { boxBasis, confirmedBox, estimatedBox, mutate, newId, type WorkingHouseh
 import { eventChoices, eventName, materializeEvent, pointsToCandidate, refsTo, whenPeople } from "./namedEvents.ts";
 import { clampRate, rangeText, rateInRange } from "./rateRanges.ts";
 import { pctFromRate, sameRate, type YenBasis, type YenUnit } from "./units.ts";
-import { DEFAULT_WHEN_MODES, readWhen, sameWhen, type AgeMeans, type WhenCtx, type WhenMode } from "./when.ts";
+import { DEFAULT_WHEN_MODES, readWhen, sameWhen, type AgeMeans, type WhenCtx, type WhenEdge, type WhenMode } from "./when.ts";
 
 export { resolveTimepoint };
 import type { Address } from "../store/readings.ts";
@@ -22,6 +22,8 @@ export type Val = number | string | boolean | null | Timepoint;
 export interface Option {
   value: string;
   label: string;
+  /** 選ぶ欄の見出し（optgroup）。同じ見出しが続く選択肢を1つの見出しの下にまとめる。見出しの無い選択肢は見出しの外 */
+  group?: string;
 }
 
 export interface FieldState {
@@ -86,7 +88,14 @@ export interface WhenSpec {
    * 既定の入れ方で見せ、その旨を1行添える。直すと既定の入れ方の形で書く（出来事が正本の欄で出来事を指しているときは、出来事のほうを動かす）
    */
   strictModes?: boolean;
+  /** 期間の端の欄か（読みの後ろの「まで」「から」。when.ts の edgeOf。省略は欄の決まりから） */
+  edge?: WhenEdge;
+  /** 年齢で選べる人: fixed はその欄の人だけ（人の選択を出さない。定年・働く最後など）、関数はその人を候補に出すか（今入っている人はいつも出す） */
+  who?: WhoRule;
 }
+
+/** 時点の欄で年齢を選べる人の決まり */
+export type WhoRule = "fixed" | ((m: Member, wh: WorkingHousehold) => boolean);
 
 interface FieldBase {
   /** 世帯の中で一意の欄のキー（段階/物の ID/項目） */
@@ -110,6 +119,15 @@ interface FieldBase {
    */
   swapNote?: string;
   help?: string;
+  /**
+   * 灰色の入力例（例: 「例: 1985-04」）。欄ごとに持つ。空欄に意味のある欄（blankMeans）は「空欄＝○○」を先に使い、欄に収まらない例は使わない
+   * （placeholder.ts。収まらない「空欄＝○○」は欄の下の「空欄なら: ○○」の1行に出す）
+   */
+  example?: string;
+  /** 空欄の意味（例: 「最初から」「推定」）。空欄のとき、欄の中に「空欄＝○○」、収まらなければ欄の下に「空欄なら: ○○」 */
+  blankMeans?: string;
+  /** 円の欄の目安の上限（保存の期間の円の額）。超える額を打ったら「桁を確かめてください」を1回出す（書くのは止めない。units.ts の amountWarning） */
+  typicalMax?: number;
   /** 空にできる（空は「入れない」。推定の値があれば推定に戻る） */
   optional?: boolean;
   /** 物の形が変わる選択（年金の入れ方・働き方の種類など）。往復のテストでは別に確かめる */
@@ -170,7 +188,8 @@ export type FieldDef = FieldBase &
     | { kind: "pct"; min?: number; max?: number }
     | { kind: "decimal"; suffix?: string }
     | { kind: "select"; options: Option[] }
-    | { kind: "ym" }
+    // ageInput: 生年月の欄。「38歳」「38」と打てば、生まれた年月を推定して仮の値（仮の印）で入れる（when.ts の birthFromAge）
+    | { kind: "ym"; ageInput?: boolean }
     | { kind: "when" }
     | { kind: "bool" }
     | { kind: "text"; placeholder?: string }
@@ -218,6 +237,8 @@ export interface GroupDef {
   title?: string;
   /** まとまりの説明（推定の根拠・注意など） */
   note?: string;
+  /** 見出しの横に小さく出す要約（入れた結果の額など。例: 「4年で約420万円」）。見出しの名前ではないので、探して開く・確かめの一覧には使わない */
+  summary?: string;
   level: Level;
   fields: FieldDef[];
   actions: ActionDef[];
@@ -285,6 +306,8 @@ export interface SectionDef {
   key: string;
   title: string;
   note?: string;
+  /** 見出しの横に小さく出す要約（GroupDef の summary と同じ。例: 子の「12歳・小6・これからの教育費 約1,480万円」） */
+  summary?: string;
   level: Level;
   groups: GroupDef[];
   actions: ActionDef[];
@@ -421,6 +444,10 @@ export function yenBox(o: {
   optional?: boolean;
   /** 欄の横に添える補助（目安など） */
   hint?: (wh: WorkingHousehold) => string | null;
+  /** 灰色の入力例（FieldDef.example） */
+  example?: string;
+  /** 目安の上限（FieldDef.typicalMax。保存の期間の円の額） */
+  typicalMax?: number;
 }): FieldDef {
   return field({
     key: o.key,
@@ -431,6 +458,8 @@ export function yenBox(o: {
     basis: o.basis,
     ...(o.unit !== undefined ? { unit: o.unit } : {}),
     ...(o.help !== undefined ? { help: o.help } : {}),
+    ...(o.example !== undefined ? { example: o.example } : {}),
+    ...(o.typicalMax !== undefined ? { typicalMax: o.typicalMax } : {}),
     optional: o.optional === true || o.estimate !== undefined,
     ...(o.estimate !== undefined ? { blankIsEstimate: true } : {}),
     get: (wh) => {
@@ -502,8 +531,17 @@ export function plain(o: {
   hint?: (v: Val, wh: WorkingHousehold) => string | null;
   /** 値を書いた後の始末（関連する値の調整） */
   after?: (h: Household, target: Obj, v: Val, wh: WorkingHousehold) => void;
+  /** 灰色の入力例（FieldDef.example） */
+  example?: string;
+  /** 空欄の意味（FieldDef.blankMeans） */
+  blankMeans?: string;
+  /** 円の欄の目安の上限（FieldDef.typicalMax） */
+  typicalMax?: number;
+  /** 年月の欄で年齢も受け付ける（生年月の欄。FieldDef の ym の ageInput） */
+  ageInput?: boolean;
 }): FieldDef {
   const kindPart: Record<string, unknown> = { kind: o.kind };
+  if (o.kind === "ym" && o.ageInput === true) kindPart.ageInput = true;
   if (o.kind === "yen") kindPart.basis = o.basis ?? "once";
   if (o.kind === "yen" && o.unit !== undefined) kindPart.unit = o.unit;
   if (o.kind === "select") kindPart.options = o.options ?? [];
@@ -516,6 +554,9 @@ export function plain(o: {
     label: o.label,
     level: o.level,
     ...(o.help !== undefined ? { help: o.help } : {}),
+    ...(o.example !== undefined ? { example: o.example } : {}),
+    ...(o.blankMeans !== undefined ? { blankMeans: o.blankMeans } : {}),
+    ...(o.typicalMax !== undefined ? { typicalMax: o.typicalMax } : {}),
     ...(o.optional === true ? { optional: true } : {}),
     ...(o.structural === true ? { structural: true } : {}),
     ...(kindPart as { kind: "int" }),
@@ -556,10 +597,23 @@ export function whenContext(wh: WorkingHousehold, spec: WhenSpec, o: { person?: 
     ...(o.start != null ? { notBefore: resolveTimepoint(h, o.start) } : {}),
     ...(o.current?.event !== undefined ? { keep: o.current.event } : {}),
   };
+  // 年齢で選べる人を欄の決まりで絞る（今入っている人・欄の人はいつも残す。持てない人を候補に出さない）
+  const keep = new Set([o.person ?? null, o.current?.memberAge?.member ?? null]);
+  const rule = spec.who;
+  const all = whenPeople(wh);
+  const people =
+    rule === undefined
+      ? all
+      : all.filter((p) => {
+          if (keep.has(p.id)) return true;
+          if (rule === "fixed") return false;
+          const m = h.members.find((x) => x.id === p.id);
+          return m !== undefined && rule(m, wh);
+        });
   return {
     h,
     baseMonth: wh.request.input.baseMonth,
-    people: whenPeople(wh),
+    people,
     person: o.person ?? null,
     events: spec.modes.includes("event") ? eventChoices(wh, choice) : [],
     modes: spec.modes,
@@ -569,6 +623,8 @@ export function whenContext(wh: WorkingHousehold, spec: WhenSpec, o: { person?: 
     optional: o.optional === true,
     ...(o.start !== undefined ? { start: o.start } : {}),
     ...(o.current !== undefined ? { current: o.current } : {}),
+    ...(spec.edge !== undefined ? { edge: spec.edge } : {}),
+    ...(rule === "fixed" && o.person != null ? { personFixed: true } : {}),
   };
 }
 
@@ -601,6 +657,10 @@ export interface WhenOptions {
   strictModes?: boolean;
   /** 空のときに、読み替えた形の代わりに見せる省略のときの時点（例: 年金の受け取り開始は65歳になった翌月） */
   fallback?: (h: Household) => Timepoint | null;
+  /** 期間の端の欄か（読みの後ろの「まで」「から」。WhenSpec.edge） */
+  edge?: WhenEdge;
+  /** 年齢で選べる人（WhenSpec.who） */
+  who?: WhoRule;
 }
 
 const specOf = (o: WhenOptions): WhenSpec => ({
@@ -613,6 +673,8 @@ const specOf = (o: WhenOptions): WhenSpec => ({
   ...(o.dateStyle !== undefined ? { dateStyle: o.dateStyle } : {}),
   ...(o.check !== undefined ? { check: o.check } : {}),
   ...(o.strictModes === true ? { strictModes: true } : {}),
+  ...(o.edge !== undefined ? { edge: o.edge } : {}),
+  ...(o.who !== undefined ? { who: o.who } : {}),
 });
 
 /**
@@ -689,6 +751,8 @@ export function timepointField(
     startPath?: readonly string[];
     /** ほかの入力と合わないときの知らせ */
     warn?: (wh: WorkingHousehold) => string | null;
+    /** 灰色の入力例（FieldDef.example。省略は入れ方ごとの例。年齢は物差しの人で変える） */
+    example?: string;
   },
 ): FieldDef {
   const read = (wh: WorkingHousehold) => (getPath(o.find(wh.request.input.household, wh), o.path) as Timepoint | null | undefined) ?? null;
@@ -712,6 +776,7 @@ export function timepointField(
     kind: "when",
     time,
     ...(o.help !== undefined ? { help: o.help } : {}),
+    ...(o.example !== undefined ? { example: o.example } : {}),
     ...(o.optional === true ? { optional: true } : {}),
     get: (wh) => {
       const h = wh.request.input.household;

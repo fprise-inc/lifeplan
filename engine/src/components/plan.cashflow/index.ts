@@ -66,6 +66,7 @@
 // - 改訂23（0123 の追記 2026-11-05）: 貸していない不動産の持ち始める時点（accounts[].holdFrom。これから相続・購入する土地・別荘など）。その年の年末が
 //   持ち始める月より前の年は、その器の評価額の行を出さない（時価は asOf の時点の額から増減率で動かし続け、持ち始めた年の年末から載せる。受け取るときの
 //   支払いは無い。収益不動産の property.holdFrom と同じ）。持ち始める時点の無い世帯の結果は同じ
+// - 改訂24（0137）: 預金の利回り（assumptions.depositReturn）を読む。預金・外貨預金の資産クラス（cash.deposit・cash.foreign）が前提の資産クラスごとの利回りに無いときの利回り（省略は運用利回りで、前の要求は今までどおり。0137）
 import {
   accountReturnRate,
   accountMixAt,
@@ -197,7 +198,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
   id: "plan.cashflow",
   title: "キャッシュフロー表",
   contract: "1.8",
-  revision: 23,
+  revision: 24,
   requires: {
     "plan.flows": ">=1 <2",
     "outside.wallet": ">=1 <2",
@@ -248,6 +249,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     "goal.owner",
     "assumptions.investmentReturn",
     "assumptions.assetReturns",
+    "assumptions.depositReturn",
     "assumptions.withdrawal",
     "assumptions.marketShocks",
     "assumptions.investment",
