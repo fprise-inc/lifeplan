@@ -27,6 +27,8 @@ export interface EstimateEntry {
   source: "statistic" | "preset";
   /** コードの中の目安の効く所（空欄を補う推定・ボタンで足すときの初めの値・計算のときにエンジンが引く目安） */
   use?: PresetUse;
+  /** 今は使わない前の分け方の値（前の版の世帯の内訳の目安だけに使う）。一覧の既定では出さず、探したとき・事務所で変えてあるときだけ出す */
+  legacy?: boolean;
 }
 
 /** コードの中の目安の公式の値（マスタデータの値と同じ形。題名は出典・時点、版は一覧の rev） */
@@ -84,7 +86,8 @@ function describe(id: string, title: string): Omit<EstimateEntry, "id" | "offici
     if (p[2] === "basicMonthly") return { group: "生活費", name: "基本生活費（月額・世帯人員別）", unit: "yen", axis: "世帯人員" };
     const c = p[3] ?? "";
     const label = LIVING.get(c) ?? c;
-    return { group: "生活費", name: `基本生活費の内訳: ${label}（月額・世帯人員別${c === "transport" || c === "otherConsumption" ? "。前の分け方" : ""}）`, unit: "yen", axis: "世帯人員" };
+    const legacy = c === "transport" || c === "otherConsumption";
+    return { group: "生活費", name: `基本生活費の内訳: ${label}（月額・世帯人員別${legacy ? "。前の分け方" : ""}）`, unit: "yen", axis: "世帯人員", ...(legacy ? { legacy: true } : {}) };
   }
   if (p[0] === "care") return { group: "介護", name: CARE[p[2] ?? ""] ?? title, unit: p[2] === "months" ? "months" : "yen", axis: null };
   if (p[0] === "lifeTable") return { group: "平均余命", name: `平均余命（${SEX[p[2] ?? ""] ?? ""}・年齢別）`, unit: "years", axis: "年齢" };

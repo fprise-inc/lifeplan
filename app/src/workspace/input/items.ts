@@ -9,10 +9,11 @@
 //   「探して開く」（inputSearch.ts）で、入れる入力項目の欄へ案内する。前に足した物とピンは今までどおり読み、計算し、ホームに出す（直す・外すはできる。0045 の 2026-11-04 の追記）
 // FP顧問料は「前提条件」のカードの中の欄のまとまり（stages/assumptions.ts）。車は「車」のカードの中で1台ずつ足す（stages/cars.ts）
 import type { AdvisoryFee, Car, CareExpense, Household, PeriodicExpense } from "../../engine/types.ts";
+import { careEstimate } from "../../../../hearing/src/estimates.ts";
 import { addMonths, ageAt } from "../levers.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import { allFields, type FieldDef, type SectionDef, type StageDef, type StageId } from "./form.ts";
-import { educationStagesAddress, fillAll, gapsOf, retirementNotApplicable, type Gap } from "./fill.ts";
+import { ADULT_CARE_NONE, educationStagesAddress, fillAll, gapsOf, retirementNotApplicable, type Gap } from "./fill.ts";
 import { newId, type AddedItem, type WorkingHousehold } from "./household.ts";
 import { earners, memberLabel } from "./labels.ts";
 import { isRow, rowAt } from "./rows.ts";
@@ -302,13 +303,25 @@ function housingSummary(h: Household): Summary | null {
 }
 
 /** 介護の費用1件の額（月の費用×か月＋はじめの費用。名目の額。期間を入れていなければ null） */
-function careTotal(c: CareExpense): number | null {
-  if (c.months === undefined) return null;
-  return ((c.serviceMonthly?.value ?? 0) + (c.otherMonthly?.value ?? 0)) * c.months + (c.initial?.value ?? 0);
+/** 要約に足す介護保険のサービスの額の自己負担の割合（札の目安。計算は所得で1〜3割と高額介護サービス費の上限） */
+const CARE_SERVICE_COPAY_FOR_SUMMARY = 0.1;
+
+/**
+ * 介護の費用1件の月の額: 介護保険のサービスの額（10割）は1割負担として、月々の費用（保険の対象外）と足す。どちらも入っていなければ、
+ * 計算と同じ統計の平均の推定（前は0円として数え、「介護 約0万円」と出ていた）
+ */
+function careMonthly(c: CareExpense): number {
+  const service = c.serviceMonthly?.value;
+  const other = c.otherMonthly?.value;
+  if (service === undefined && other === undefined) return careEstimate(c.place === "facility" ? "facility" : "home")?.monthly ?? 0;
+  return Math.round((service ?? 0) * CARE_SERVICE_COPAY_FOR_SUMMARY) + (other ?? 0);
 }
 
-/** 介護の費用1件の月の額 */
-const careMonthly = (c: CareExpense): number => (c.serviceMonthly?.value ?? 0) + (c.otherMonthly?.value ?? 0);
+/** 介護の費用1件の総額（名目）。期間を入れていなければ null（要約は月の額にする）。はじめの費用が空なら、計算と同じ統計の平均の推定 */
+function careTotal(c: CareExpense): number | null {
+  if (c.months === undefined) return null;
+  return careMonthly(c) * c.months + (c.initial?.value ?? careEstimate(c.place === "facility" ? "facility" : "home")?.initial ?? 0);
+}
 
 /**
  * 介護・親の要約: 「介護 約760万円（母）・親 4人」（介護の費用の総額〔月の費用×か月＋はじめの費用。名目。介護を受ける人の名前〕と、世帯の外の家族の人数）。
@@ -955,7 +968,8 @@ export function saveItem(wh: WorkingHousehold, id: string): WorkingHousehold {
   // プランで足した物のピン（現状には物が無い）は残す（0036 の8）
   const inPlans = new Set(wh.proposals.flatMap((p) => p.diffs.map((d) => (d.op === "add" && typeof d.value === "object" && d.value !== null ? (d.value as { id?: unknown }).id : undefined))));
   const addedItems = wh.addedItems.filter((a) => addedObject(h, a) !== null || inPlans.has(a.ref));
-  const alive = new Set([...STAGE_ORDER.map((s) => s.id as string), ...addedItems.map((a) => a.id)]);
+  // 入力項目の ID でない印（ご本人・配偶者の介護を入れないと決めた印）も残す
+  const alive = new Set([...STAGE_ORDER.map((s) => s.id as string), ...addedItems.map((a) => a.id), ADULT_CARE_NONE]);
   const mark = id.startsWith("added:") ? [] : [id];
   const confirmed = [...new Set([...wh.confirmed, ...mark])].filter((x) => alive.has(x));
   return { ...wh, addedItems, confirmed };

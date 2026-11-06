@@ -7,8 +7,7 @@
 // - 区画C 遺したい額（表示だけ。表の最後の年の金融資産と比べる。input.legacy）
 // - 区画D 相続税の目安: 結果は計算の結果から読む（inheritanceLine.ts。表示だけで、お金の流れには入れない）。ここは目安の設定の欄
 //   （不動産の評価の割合・名義の無い財産の分け方・葬式の費用・養子・法定相続人の数を直す口・FP が入れた額。input.inheritanceTax。0039・0060）
-import type { Household, IncomeFlow, InheritanceTaxRequest, Member, Timepoint } from "../../../engine/types.ts";
-import { excludedIncome } from "../../../engine/moneyRows.ts";
+import type { Household, InheritanceTaxRequest, Member, Timepoint } from "../../../engine/types.ts";
 import { field, resolveTimepoint, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, type WorkingHousehold } from "../household.ts";
 import { donorLabel, donorUses, GIFT_PURPOSES, memberLabel } from "../labels.ts";
@@ -18,6 +17,7 @@ import { formatYearMonth } from "../units.ts";
 import { addInheritedDebt, addOutsideGrandchild, inheritedDebtGroups, moneySections } from "../moneyRows.ts";
 import { NONE_CLAIMED } from "./events.ts";
 import { addDonorActions } from "./family.ts";
+import { addOutside } from "./care.ts";
 
 const purposeText = (p: string) => GIFT_PURPOSES.find((o) => o.value === p)?.label ?? "援助";
 const whenText = (h: Household, at: Parameters<typeof resolveTimepoint>[1]) => {
@@ -161,22 +161,81 @@ function receiveActions(actions: readonly ActionDef[]): ActionDef[] {
   }));
 }
 
-/** 見込みが「当てにしない」で基本の計算に入れていない行に「この行を計算に入れる」（プランを直しているときは、そのプランの差分になる） */
+/** 前の言い方（チェックの欄「基本の計算に入れる」を指す説明）を、1押しの言い方に */
+const INCLUDE_NOTE_OLD = "「詳細」の「基本の計算に入れる」で入れられます";
+const INCLUDE_NOTE_DEBT_OLD = "「基本の計算に入れる」で入れられます";
+const INCLUDE_NOTE = "「この行を計算に入れる」で入れられます";
+
+/**
+ * 見込みと「基本の計算に入れる」を1つの考え方にする（受け取る相続・贈与の行と、相続で受け継ぐ借金）: 見込みが「確実」なら計算に入る（チェックの欄は出さない。
+ * 前は「確実」でも空のチェックが並び、外れているように見えた）。「当てにしない」のときだけ「この行を計算に入れる」の1押し、入れた後は「計算から外す」の1押し
+ * （どちらも見込みは「当てにしない」のまま。プランを直しているときは、そのプランの差分になる）
+ */
 function withIncludeAction(wh: WorkingHousehold, g: GroupDef): GroupDef {
-  const id = g.key.startsWith("in/") && !g.key.slice(3).includes("/") ? g.key.slice(3) : null;
-  const f: IncomeFlow | undefined = id === null ? undefined : (wh.request.input.household.incomeFlows ?? []).find((x) => x.id === id);
-  if (f === undefined || !excludedIncome(f)) return g;
-  const include: ActionDef = {
-    key: `in/${f.id}/includeInBase`,
-    label: "この行を計算に入れる（見込みは「当てにしない」のまま）",
-    level: "simple",
-    run: (w) =>
-      mutate(w, (h) => {
-        const x = (h.incomeFlows ?? []).find((y) => y.id === f.id);
-        if (x !== undefined) x.includeInBase = true;
-      }),
-  };
-  return { ...g, actions: [include, ...g.actions] };
+  const income = g.key.startsWith("in/") && !g.key.slice(3).includes("/") ? g.key.slice(3) : null;
+  const debt = g.key.startsWith("inherit/debt/") ? g.key.slice("inherit/debt/".length) : null;
+  const h = wh.request.input.household;
+  const row: { likelihood?: string; includeInBase?: boolean } | undefined =
+    income !== null ? (h.incomeFlows ?? []).find((x) => x.id === income) : debt !== null ? (h.debts ?? []).find((x) => x.id === debt) : undefined;
+  if (row === undefined) return g;
+  const id = (income ?? debt) as string;
+  const prefix = income !== null ? `in/${id}` : `inherit/debt/${id}`;
+  const note = g.note?.replace(INCLUDE_NOTE_OLD, INCLUDE_NOTE).replace(INCLUDE_NOTE_DEBT_OLD, INCLUDE_NOTE);
+  const set = (on: boolean) => (w: WorkingHousehold) =>
+    mutate(w, (hh) => {
+      const x: { includeInBase?: boolean } | undefined = income !== null ? (hh.incomeFlows ?? []).find((y) => y.id === id) : (hh.debts ?? []).find((y) => y.id === id);
+      if (x === undefined) return;
+      if (on) x.includeInBase = true;
+      else delete x.includeInBase;
+    });
+  const uncertain = row.likelihood === "uncertain";
+  const actions: ActionDef[] = !uncertain
+    ? []
+    : row.includeInBase === true
+      ? [{ key: `${prefix}/excludeFromBase`, label: "計算から外す（見込みは「当てにしない」のまま）", level: "simple", run: set(false) }]
+      : [{ key: `${prefix}/includeInBase`, label: "この行を計算に入れる（見込みは「当てにしない」のまま）", level: "simple", run: set(true) }];
+  return { ...g, ...(note !== undefined ? { note } : {}), actions: [...actions, ...g.actions] };
+}
+
+/** 「基本の計算に入れる」のチェックの欄（行の詳細のまとまりにある）を出さない。代わりに見込みが「当てにしない」の行の1押し（withIncludeAction） */
+const INCLUDE_FIELD = /^(in|inherit\/debt)\/[^/]+\/includeInBase$/;
+const withoutIncludeField = (g: GroupDef): GroupDef => (g.fields.some((f) => INCLUDE_FIELD.test(f.key)) ? { ...g, fields: g.fields.filter((f) => !INCLUDE_FIELD.test(f.key)) } : g);
+
+/**
+ * 区画「受け取る予定の相続・贈与」の「＋ 父を足す」「＋ 母を足す」: ご本人の父・母（まだいない方）を介護・親の世帯の外の家族として足し
+ * （亡くなる見込みは平均余命の推定）、受け取る相続の行の相手にする（相手の無い相続の行があればその行、無ければ相続の行を足す）。時期は亡くなる見込みの10か月後の推定
+ */
+export function addParentAsCounterparty(wh: WorkingHousehold, sex: "male" | "female", addRow: (w: WorkingHousehold) => WorkingHousehold): WorkingHousehold {
+  const before = new Set(wh.request.input.household.members.map((m) => m.id));
+  let w = addOutside(wh, "parent", { sex });
+  const parent = w.request.input.household.members.find((m) => !before.has(m.id));
+  if (parent === undefined) return w;
+  let row = (w.request.input.household.incomeFlows ?? []).find((f) => f.kind === "inheritance" && f.counterparty === undefined);
+  if (row === undefined) {
+    const rows = new Set((w.request.input.household.incomeFlows ?? []).map((f) => f.id));
+    w = addRow(w);
+    row = (w.request.input.household.incomeFlows ?? []).find((f) => !rows.has(f.id));
+  }
+  if (row === undefined) return w;
+  const id = row.id;
+  w = mutate(w, (h) => {
+    const x = (h.incomeFlows ?? []).find((y) => y.id === id);
+    if (x !== undefined) x.counterparty = parent.id;
+  });
+  return inheritTimingFromCounterparty(w, id);
+}
+
+/** ご本人の側の父・母がまだいなければ、区画「受け取る予定の相続・贈与」に足すボタン */
+function parentCounterpartyActions(wh: WorkingHousehold, addRow: ActionDef | undefined): ActionDef[] {
+  if (addRow === undefined) return [];
+  const h = wh.request.input.household;
+  const self = h.members.find((m) => m.kind === "self");
+  const has = (sex: "male" | "female") => h.members.some((m) => m.kind === "parent" && m.sex === sex && (m.outside?.of ?? self?.id) === self?.id);
+  const help = "介護・親の世帯の外の家族として足し（亡くなる見込みは平均余命の推定）、受け取る相続の相手にします。時期は亡くなる見込みの10か月後の推定です";
+  return [
+    ...(has("male") ? [] : [{ key: "inherit/addFather", label: "＋ 父を足す", help, level: "simple" as const, run: (w: WorkingHousehold) => addParentAsCounterparty(w, "male", addRow.run) }]),
+    ...(has("female") ? [] : [{ key: "inherit/addMother", label: "＋ 母を足す", help, level: "simple" as const, run: (w: WorkingHousehold) => addParentAsCounterparty(w, "female", addRow.run) }]),
+  ];
 }
 
 // ---- 区画C 遺したい額・区画D 相続税の目安の設定 ----
@@ -209,8 +268,8 @@ function writeTax(wh: WorkingHousehold, fn: (t: InheritanceTaxRequest) => void):
 }
 
 /** 相続税の目安の設定の1つの値の欄（率・円・人数） */
-function taxField(o: { key: string; label: string; kind: "pct" | "yen" | "int"; at: string[]; help: string; get: (t: InheritanceTaxRequest) => number | string | null; set: (t: InheritanceTaxRequest, v: number | string | null) => void }): FieldDef {
-  const base = { key: o.key, item: "plan.inheritanceTax", label: o.label, level: "detail" as const, optional: true, help: o.help, get: (w: WorkingHousehold) => ({ value: o.get(taxOf(w)) }), set: (w: WorkingHousehold, v: unknown) => writeTax(w, (t) => o.set(t, v === null || v === "" ? null : (v as number | string))), address: onInput("plan.inheritanceTax", o.at) };
+function taxField(o: { key: string; label: string; kind: "pct" | "yen" | "int"; at: string[]; help: string; blankMeans?: string; get: (t: InheritanceTaxRequest) => number | string | null; set: (t: InheritanceTaxRequest, v: number | string | null) => void }): FieldDef {
+  const base = { key: o.key, item: "plan.inheritanceTax", label: o.label, level: "detail" as const, optional: true, help: o.help, ...(o.blankMeans !== undefined ? { blankMeans: o.blankMeans } : {}), get: (w: WorkingHousehold) => ({ value: o.get(taxOf(w)) }), set: (w: WorkingHousehold, v: unknown) => writeTax(w, (t) => o.set(t, v === null || v === "" ? null : (v as number | string))), address: onInput("plan.inheritanceTax", o.at) };
   // 割合（不動産の評価の割合・亡くなる人の分）は 0〜100%（計算エンジンの入力で 0〜1。外の値は計算が止まる）
   if (o.kind === "pct") return field({ ...base, kind: "pct", min: 0, max: 100 });
   if (o.kind === "int") return field({ ...base, kind: "int", suffix: "人", min: 0, max: 30 });
@@ -230,6 +289,7 @@ function taxSettingFields(wh: WorkingHousehold): FieldDef[] {
       kind: "pct",
       at: ["realEstateRatio"],
       help: "時価に掛ける割合です。入れなければ時価の80%（土地の路線価は公示価格等の8割程度を目安に定められるため。建物の固定資産税評価額も時価より低いのが普通）。路線価で分かれば直してください",
+      blankMeans: "80%",
       get: (t) => t.realEstateRatio ?? null,
       set: (t, v) => (v === null ? delete t.realEstateRatio : (t.realEstateRatio = String(v))),
     }),
@@ -242,6 +302,7 @@ function taxSettingFields(wh: WorkingHousehold): FieldDef[] {
         kind: "pct",
         at: ["unassignedShare"],
         help: "名義を入れていない預金・持ち家など。入れなければ夫婦で半分ずつ（50%）",
+      blankMeans: "50%",
         get: (t) => t.unassignedShare ?? null,
         set: (t, v) => (v === null ? delete t.unassignedShare : (t.unassignedShare = String(v))),
       }),
@@ -252,7 +313,8 @@ function taxSettingFields(wh: WorkingHousehold): FieldDef[] {
       label: "葬式の費用",
       kind: "yen",
       at: ["funeral"],
-      help: "財産から引きます",
+      help: "財産から引きます。入れなければ0円",
+      blankMeans: "0円",
       get: (t) => t.funeral ?? null,
       set: (t, v) => (v === null ? delete t.funeral : (t.funeral = Number(v))),
     }),
@@ -353,10 +415,14 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
     {
       key: "inherit/receive",
       title: moneyIn?.title ?? "受け取る予定の相続・贈与",
-      note: "受け取れるかどうかの見込み（確実・当てにしない）を行ごとに選びます。「当てにしない」にした分は、除いて計算します。相続で受け取る時期は、亡くなる見込みの10か月後を目安に入れます",
+      note: "受け取れるかどうかの見込み（確実・当てにしない）を行ごとに選びます。「確実」の行は計算に入れ、「当てにしない」にした行は除いて計算します（「この行を計算に入れる」で入れられます）。相続で受け取る時期は、相手の亡くなる見込みの10か月後を推定で入れます。相手の親がまだいなければ「＋ 父を足す」「＋ 母を足す」で足せます",
       level: "simple",
-      groups: [...(moneyIn?.groups ?? []).map((g) => withIncludeAction(wh, withCounterpartyFollow(g))), ...inheritedDebtGroups(wh), ...groupsOf(readGroup("inherit/receive", undefined, lines.receive))],
-      actions: [...receiveActions(moneyIn?.actions ?? []), { key: "money/inherit/addDebt", label: "＋ 相続で受け継ぐ借金", level: "detail", run: (w: WorkingHousehold) => addInheritedDebt(w) }],
+      groups: [...(moneyIn?.groups ?? []).map((g) => withIncludeAction(wh, withCounterpartyFollow(withoutIncludeField(g)))), ...inheritedDebtGroups(wh).map((g) => withIncludeAction(wh, withoutIncludeField(g))), ...groupsOf(readGroup("inherit/receive", undefined, lines.receive))],
+      actions: [
+        ...receiveActions(moneyIn?.actions ?? []),
+        ...parentCounterpartyActions(wh, (moneyIn?.actions ?? []).find((a) => a.key === "money/inherit/in/add/inheritance")),
+        { key: "money/inherit/addDebt", label: "＋ 相続で受け継ぐ借金", level: "detail", run: (w: WorkingHousehold) => addInheritedDebt(w) },
+      ],
     },
     {
       key: "inherit/give",

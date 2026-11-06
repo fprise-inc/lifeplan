@@ -298,9 +298,11 @@ export async function household3(p: Page): Promise<Notes> {
   await save(p, n, "収益不動産");
 
   await open(p, n, "介護・親", "詳細");
-  await p.click("＋ 母を足す", { within: "panel", exact: true });
+  // 配偶者のいる世帯: 「＋ ご本人の父母を足す」（2人ずつ）で足し、母だけにする（先に足した父を外す）
+  await p.click("＋ ご本人の父母を足す", { within: "panel", exact: true });
+  await p.click("この家族を外す", { within: "panel", exact: true });
   await p.type("生年月", "1937-06");
-  await p.click("＋ 介護を推定で入れる（この人）", { within: "panel", exact: true });
+  await p.click("＋ 母の介護を推定で入れる", { within: "panel", exact: true });
   await p.choose("払う人", "世帯（ご本人）");
   await p.type("月々の費用（自己負担の合計）", "8");
   await save(p, n, "介護・親");
@@ -311,9 +313,10 @@ export async function household3(p: Page): Promise<Notes> {
   n.seen.inheritWhenBefore = await fieldValue(p, "時期");
   await save(p, n, "相続・贈与");
 
-  // 母の亡くなる見込みを直す（相続の時期・介護の終わりがついてくるか）
+  // 母の亡くなる見込みを直す（相続の時期・介護の終わりがついてくるか）。生年月を入れた時点で平均余命の推定（89歳の母は95歳ごろ）が入るので、
+  // それと違う年齢にする
   await open(p, n, "介護・親", "詳細");
-  await p.type("亡くなる見込み", "95");
+  await p.type("亡くなる見込み", "92");
   await save(p, n, "介護・親");
   await open(p, n, "相続・贈与", "詳細");
   n.seen.inheritWhenAfter = await fieldValue(p, "時期");

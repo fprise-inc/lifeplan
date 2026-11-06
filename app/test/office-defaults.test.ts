@@ -9,7 +9,7 @@ import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { setOfficeNow, STANDARD_OFFICE_NOW } from "../src/workspace/office/current.ts";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
-import { feeFromTexts, OfficeSettingsPanel, pctToRate, rateToPct, yenFromText } from "../src/workspace/office/OfficeSettingsPanel.tsx";
+import { feeFromTexts, feeYenFromText, OfficeSettingsPanel, pctToRate, rateToPct, yenFromText } from "../src/workspace/office/OfficeSettingsPanel.tsx";
 import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, isDefaultSettings, layoutOf, officeBasis, publishOfficeSettings, readFeeTable, readOfficeSettings, STANDARD_FEE_TABLE, type OfficeSettings } from "../src/workspace/office/settings.ts";
 import { addAdvisoryFee } from "../src/workspace/input/stages/fees.ts";
 import { officeNow } from "../src/workspace/office/current.ts";
@@ -136,15 +136,22 @@ describe("FP顧問料の料金表", () => {
     expect(readOfficeSettings(JSON.parse(JSON.stringify({ ...SETTINGS, fee: t }))).fee).toEqual(t);
   });
 
-  it("画面の欄の文字から料金表（円・○年目）。読めない・重なる段階は保存しない", () => {
+  it("画面の欄の文字から料金表（万円・○年目。入力の画面の FP顧問料と同じ万円）。読めない・重なる段階は保存しない", () => {
     expect(yenFromText("12,000円")).toBe(12000);
     expect(yenFromText("１２０００")).toBe(12000);
     expect(yenFromText("")).toBeUndefined();
     expect(yenFromText("1.5")).toBeUndefined();
-    const ok = feeFromTexts(STANDARD_FEE_TABLE, { oneTime: "300,000", amount: "10000", steps: [{ year: "4", amount: "15000" }, { year: "2", amount: "12000" }] });
+    // 料金表の額は万円（「30」は30万円）。円を付ければ円で読む
+    expect(feeYenFromText("30")).toBe(300000);
+    expect(feeYenFromText("1.2")).toBe(12000);
+    expect(feeYenFromText("12,000円")).toBe(12000);
+    expect(feeYenFromText("")).toBeUndefined();
+    expect(feeYenFromText("x")).toBeUndefined();
+    const ok = feeFromTexts(STANDARD_FEE_TABLE, { oneTime: "30", amount: "1", steps: [{ year: "4", amount: "1.5" }, { year: "2", amount: "1.2" }] });
+    expect(ok).toMatchObject({ oneTime: 300000, amount: 10000 });
     expect(ok?.steps).toEqual([{ year: 2, amount: 12000 }, { year: 4, amount: 15000 }]);
-    expect(feeFromTexts(STANDARD_FEE_TABLE, { oneTime: "0", amount: "10000", steps: [{ year: "1", amount: "1" }] })).toBeNull();
-    expect(feeFromTexts(STANDARD_FEE_TABLE, { oneTime: "0", amount: "10000", steps: [{ year: "2", amount: "1" }, { year: "2", amount: "2" }] })).toBeNull();
+    expect(feeFromTexts(STANDARD_FEE_TABLE, { oneTime: "0", amount: "1", steps: [{ year: "1", amount: "1" }] })).toBeNull();
+    expect(feeFromTexts(STANDARD_FEE_TABLE, { oneTime: "0", amount: "1", steps: [{ year: "2", amount: "1" }, { year: "2", amount: "2" }] })).toBeNull();
   });
 
   it("画面に料金表の区画（払い方・段階・万一のときの扱い）を出す。率の欄は無い", () => {
