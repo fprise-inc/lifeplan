@@ -100,7 +100,7 @@ entries:
     replacedBy: null
   - id: hs.consent.externalAi
     status: active
-    label: "（任意）分析のために、外部のAIサービスに情報を渡すことに同意します"
+    label: "（任意）担当の FP が、AI を使ってお答えを整理することがあります（お名前は渡しません）。このことに同意します"
     since: draft
     aliases: []
     replacedBy: null
