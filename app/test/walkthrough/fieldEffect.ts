@@ -1,7 +1,7 @@
 // 欄ごとの効き目: 入力項目の欄の定義を全部たどり、見本・モデル世帯で、計算に使う欄を1つずつ動かして、結果（キャッシュフロー表〔資産と負債の行を含む〕・
 // 相続税の目安・万一のとき〔ご本人の死亡〕）のどこかが変わることを確かめる。記録だけの欄は変わらないことを確かめる。
 // 今「入れても効かない」欄は「直す待ちの一覧」（fieldEffectWatch.ts）に入れ、まだ効かないことを確かめる（直ったのに一覧に残っていると落ちる）。
-// 計算の回数が多いので、入力項目で4つのファイルに分けて並べて流す（field-effect-*.test.ts）。CI では通しの入力と同じジョブで流す（FINANCIA_WALKTHROUGH=1）
+// 決まりは設計記録 0132。計算の回数が多いので、入力項目で4つのファイルに分けて並べて流す（field-effect-*.test.ts）。CI では通しの入力と同じジョブで流す（FINANCIA_WALKTHROUGH=1）
 import { readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
