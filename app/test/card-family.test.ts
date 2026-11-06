@@ -243,14 +243,19 @@ describe("家族のお金の行", () => {
     expect(() => preview(w1.request)).not.toThrow();
   });
 
-  it("離れて暮らす子への仕送りは子がいるときだけ。相手は子で、行は家族のカードに残る", () => {
+  it("離れて暮らす子への仕送りは、離れて暮らす子がいるときだけ。相手はその子で、行は家族のカードに残る", () => {
     const solo = couple();
     expect(hasAction(solo, "money/family/out/add/allowance")).toBe(false);
-    const wh = fromRequest(modelHousehold("singleEarnerTwoKids"));
+    // 一緒に暮らす子しかいない世帯には出さない（代わりに家族の構成の「＋ 離れて暮らす子」）
+    const inside = fromRequest(modelHousehold("singleEarnerTwoKids"));
+    expect(hasAction(inside, "money/family/out/add/allowance")).toBe(false);
+    expect(hasAction(inside, "family/add/outsideChild")).toBe(true);
+    const wh = action(inside, "family/add/outsideChild").run(inside);
+    const apart = wh.request.input.household.members.find((m) => m.kind === "child" && m.outside !== undefined)!;
     const w1 = action(wh, "money/family/out/add/allowance").run(wh);
     const p = (w1.request.input.household.periodicExpenses ?? []).at(-1) as PeriodicExpense;
     expect(p.kind).toBe("allowance");
-    expect(w1.request.input.household.members.find((m) => m.id === p.counterparty)!.kind).toBe("child");
+    expect(p.counterparty).toBe(apart.id);
     expect(stage(w1).sections.find((s) => s.key === "money/family/out")!.groups.some((g) => g.key === `ev/${p.id}`)).toBe(true);
     expect(buildStage("care", w1).sections.flatMap((s) => s.groups).some((g) => g.key === `ev/${p.id}`)).toBe(false);
   });
