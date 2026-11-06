@@ -227,9 +227,13 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
     it.fails("企業年金を年金で受け取るとき、一時金の欄を未入力に数えない", () => {
       expect(d.notes.seen.retirementCardAfter).not.toContain("未入力");
     });
-    it.fails("1995年に建った持ち家を、今買った新築の扱いで評価しない（建物の評価額が新築の額にならない）", () => {
-      // 評価額 3,000万円・土地の割合30% の持ち家と、評価額 1,500万円の区分マンション。持ち家の建物が新築の扱いなら建物は 3,150万円
-      expect(sum(d.table, "cf.balance.account.realEstate.building", yearOf(d.wh.request))).toBeLessThan(20_000_000);
+    it("1995年に建った持ち家を、今買った新築の扱いで評価しない（建物の評価額が新築の額にならない）", () => {
+      // 評価額 3,000万円の持ち家（1995年築の木造）。新築の扱いなら建物は土地の割合30%の残りの 2,100万円。今の時価で入れたので、
+      // 土地の割合を建った年からの目安（68%）で分け、建物は 1,000万円より少ない
+      const own = h().residences!.find((r) => r.kind === "own")!;
+      const building = d.table.filter((c) => c.object === own.id && c.row === "cf.balance.account.realEstate.building" && c.year === yearOf(d.wh.request)).reduce((a, c) => a + c.amount, 0);
+      expect(building).toBeGreaterThan(0);
+      expect(building).toBeLessThan(10_000_000);
     });
     it.fails("収益不動産の取得の年月を Backspace で消しても、取得価額が残る", () => {
       expect(d.notes.seen.acquisitionAfterClear).not.toBe("");

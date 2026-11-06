@@ -80,6 +80,7 @@ export const NOT_OBSERVED: readonly ShapeRule[] = [
   { shape: "housing:housing/debt/*/rateType", why: "金利の種類は、金利の見込みが「今の金利のまま」では効かない" },
   { shape: "rental:housing/debt/*/rateType", why: "金利の種類は、金利の見込みが「今の金利のまま」では効かない" },
   { shape: "car:housing/debt/*/rateType", why: "金利の種類は、金利の見込みが「今の金利のまま」では効かない" },
+  { shape: "housing:housing/debt/*/refinance/*/rateType", why: "借り換えの新しい金利の種類は、5年ルール・125%ルール・変動金利の上乗せ（ストレステスト）が効くときだけ" },
   { shape: "housing:housing/debt/*/cap125", why: "125%ルールは、金利が上がる見込みのときだけ" },
   { shape: "housing:housing/debt/*/rateCutPeriod", why: "当初の金利の引き下げの期間は、引き下げ幅と組で効く" },
   { shape: "housing:housing/debt/*/clHigh", why: "団信の特約は、就業不能・病気の想定だけ" },

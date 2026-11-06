@@ -1137,7 +1137,7 @@ function valueBasisField(wh: WorkingHousehold, r: Residence, kv: string): FieldD
     ...field({
       key: `${kv}/basis`,
       item: "residence.valuation",
-      label: "評価額の入れ方",
+      label: "評価の入れ方",
       level: "detail",
       kind: "select",
       options: VALUE_BASES,
@@ -1189,7 +1189,7 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
         yenBox({
           key: `${kv}/value`,
           item: "residence.valuation",
-          label: bought ? "評価の基にする額" : inherited ? "評価額" : valueBasisOf(r, base) === "market" ? "今の時価（土地と建物）" : "買った値段（土地と建物）",
+          label: bought ? "評価の基にする額" : inherited || valueBasisOf(r, base) === "market" ? "評価額" : "買った値段（土地と建物）",
           level: "detail",
           basis: "once",
           find,
