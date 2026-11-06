@@ -20,12 +20,13 @@
 #let summary-keys = ("incomeTotal", "expenseTotal", "net", "financial")
 #let summary-labels = (incomeTotal: "収入合計", expenseTotal: "支出合計", net: "年間収支", financial: "金融資産残高")
 
-/// 載せる年（basis.years の位置）。excerpt は最初と最後の年・5年ごと・ライフイベント表の年
+/// 載せる年（basis.years の位置）。excerpt は最初と最後の年・5年ごと・主な出来事の年（現状と提案の両方の出来事の年 cashflow.keyYears。
+/// 省略は前の版の入力で、ライフイベント表の年。0126）
 #let year-index(data, mode) = {
   let years = data.basis.years
   let n = years.len()
   if mode != "excerpt" { return range(n) }
-  let marked = data.events.map(e => e.year)
+  let marked = data.cashflow.at("keyYears", default: data.events.map(e => e.year))
   range(n).filter(i => i == 0 or i == n - 1 or calc.rem(years.at(i), 5) == 0 or years.at(i) in marked)
 }
 

@@ -849,6 +849,9 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
   --c-edu: #5f8f73;
   --c-ins: #8e7aa3;
   --c-exp-other: #c2c7ce;
+  /* 住まい以外の不動産（家賃・売却と、経費・ローン。0126） */
+  --c-inc-re: #5e9e9a;
+  --c-exp-re: #a8787a;
 }
 .pb-changes { border: 1.5px solid var(--line); background: var(--card); border-radius: 99px; padding: 3px 12px; cursor: pointer; }
 .pb-review { border: 2px solid var(--est); background: var(--est-bg); color: var(--est-ink); border-radius: 99px; padding: 2px 10px; font-weight: 700; cursor: pointer; white-space: nowrap; }
@@ -934,6 +937,8 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .pbg-education { fill: var(--c-edu); }
 .pbg-insurance { fill: var(--c-ins); }
 .pbg-expenseOther { fill: var(--c-exp-other); }
+.pbg-realEstateIn { fill: var(--c-inc-re); }
+.pbg-realEstateOut { fill: var(--c-exp-re); }
 .pbg-expenseOther + .pfg { stroke: rgba(60, 68, 80, 0.55); }
 .stack-year { flex-wrap: wrap; }
 .kv-group { display: inline-flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; }

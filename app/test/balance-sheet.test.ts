@@ -69,7 +69,8 @@ describe("バランスシートの分け方（提案書と同じ部品）", () =
     expect(byKey.land).toMatchObject({ group: "illiquid", label: "土地", amount: 12_000_000 });
     expect(byKey.building).toMatchObject({ group: "illiquid", label: "建物", amount: 24_000_000 });
     expect(byKey.realEstateOther).toMatchObject({ group: "illiquid", amount: 10_000_000 });
-    expect(byKey.propertyLoan).toMatchObject({ group: "debt", label: "不動産のローン", amount: 4_000_000 });
+    // 住まい以外の不動産のローンは、分け方も「不動産のローン」（箱の名前と横の見出しをそろえる。0126）
+    expect(byKey.propertyLoan).toMatchObject({ group: "propertyLoan", label: "不動産のローン", amount: 4_000_000 });
     expect(byKey.car!.group).toBe("illiquid");
     expect(byKey.insurance).toMatchObject({ group: "illiquid", label: "保険の解約返戻金" });
     expect(byKey.mortgage).toMatchObject({ group: "mortgage", amount: 24_010_000 });
@@ -125,7 +126,7 @@ describe("資産と負債のタブ（本物のエンジンの値）", () => {
     const y0 = p.years[0]!;
     expect(y0.living).toBe(p.years[1]!.living);
     expect(y0.living).toBeGreaterThan(2_000_000);
-    expect(Object.keys(y0.notes).sort()).toEqual(["debt", "illiquid", "liquid", "locked", "market", "mortgage", "neg", "netWorth"]);
+    expect(Object.keys(y0.notes).sort()).toEqual(["debt", "illiquid", "liquid", "locked", "market", "mortgage", "neg", "netWorth", "propertyLoan"]);
     expect(p.jumps.map((j) => j.key)).toEqual(["now", "ten", "retire", "age75"]);
     expect(p.marks.some((m) => m.kind === "retire")).toBe(true);
     // ローンを返している年: 元金の分は純資産として残る（箱を押したときの説明）
@@ -463,7 +464,7 @@ describe("住まい以外の不動産（家賃収入・経費・土地と建物�
     expect(y0.notes.illiquid).toContain("建物は年数とともに価値が減りますが、土地は残ります");
     expect(y20.notes.illiquid).toContain("土地（");
     // 賃貸のマンションのローンは「不動産のローン」
-    expect(y0.lines.find((l) => l.key === "propertyLoan")).toMatchObject({ group: "debt", label: "不動産のローン" });
+    expect(y0.lines.find((l) => l.key === "propertyLoan")).toMatchObject({ group: "propertyLoan", label: "不動産のローン" });
   });
 
   it("結果の表に「家賃収入」「不動産の経費」の行が出て、その他の収入・支出から外れる", () => {

@@ -207,6 +207,11 @@ function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
   const hasReExp = props.some((a) => a.property?.rental !== undefined || a.property?.expenses !== undefined || (a.property?.repairs ?? []).length > 0);
   const isRent = (c: TableCell) => hasRent && c.row === "cf.income.other.rental";
   const isReExp = (c: TableCell) => hasReExp && c.row === "cf.expense.other.realEstate";
+  // 住まい以外の不動産のローン（負債の property）の返済と残高は、住まいのローン・その他の支出と分けた行にする（アプリと同じ。0126）
+  const reLoanIds = new Set((req.input.household.debts ?? []).filter((d) => d.property !== undefined).map((d) => d.id));
+  const reLoan = (c: TableCell) => reLoanIds.size > 0 && c.object !== undefined && reLoanIds.has(c.object);
+  const isReLoanPay = (c: TableCell) => reLoan(c) && under(c.row, "cf.expense");
+  const hasReLoan = reLoanIds.size > 0;
   for (const r of rs) defs.push({ key: `salary:${r.key}`, label: rowName(names, "salary", { person: r.label }), group: "income", kind: "value", match: byMember("cf.income.salary", r) });
   for (const r of rs) defs.push({ key: `pension:${r.key}`, label: rowName(names, "pension", { person: r.label }), group: "income", kind: "value", match: byMember("cf.income.pension", r) });
   const ids = new Set(rs.map((r) => r.member.id));
@@ -227,20 +232,22 @@ function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
     { key: "living", label: "基本生活費", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.living") && c.row !== "cf.expense.living.surplus") },
     // 黒字のうち貯まらない分（0031。値のある年だけ）
     { key: "surplusSpend", label: "ゆとりの支出", group: "expense", kind: "value", match: (c) => c.row === "cf.expense.living.surplus" },
-    { key: "housing", label: "住居費（ローン・税・修繕）", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.housing") },
+    { key: "housing", label: "住居費（ローン・税・修繕）", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.housing") && !isReLoanPay(c) },
     { key: "education", label: "教育費", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.education") },
     { key: "insurance", label: "保険料", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.insurance")) },
     { key: "lumpSum", label: "一時的支出（旅行など）", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.lumpSum")) },
     ...(hasCar ? [{ key: "car", label: "車の費用", group: "expense" as const, kind: "value" as const, match: car }] : []),
     ...(hasReExp ? [{ key: "realEstateExpense", label: "不動産の経費", group: "expense" as const, kind: "value" as const, match: isReExp }] : []),
+    ...(hasReLoan ? [{ key: "realEstateLoan", label: "不動産のローンの返済", group: "expense" as const, kind: "value" as const, match: isReLoanPay }] : []),
     { key: "advisoryFee", label: "FP顧問料", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.advisoryFee") },
-    { key: "expenseOther", label: "その他の支出", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense") && !known5.some((p) => under(c.row, p)) && !isReExp(c)) },
+    { key: "expenseOther", label: "その他の支出", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense") && !known5.some((p) => under(c.row, p)) && !isReExp(c) && !isReLoanPay(c)) },
     { key: "taxSi", label: "税・社会保険料", group: "expense", kind: "value", match: (c) => under(c.row, "cf.taxSi") },
     { key: "expenseTotal", label: "支出合計", group: "expense", kind: "total", match: (c) => under(c.row, "cf.expense") || under(c.row, "cf.taxSi") },
     { key: "net", label: "年間収支", group: "net", kind: "total", match: (c) => c.row === "cf.net" },
     { key: "nisaIn", label: "NISAへの積立", group: "assets", kind: "value", match: (c) => under(c.row, "cf.transfer.nisa") },
     { key: "financial", label: "金融資産残高", group: "assets", kind: "total", match: (c) => c.row === "cf.balance.financial" },
-    { key: "debt", label: "住宅ローン残高", group: "assets", kind: "value", match: (c) => under(c.row, "cf.balance.debt") },
+    { key: "debt", label: "住宅ローン残高", group: "assets", kind: "value", match: (c) => under(c.row, "cf.balance.debt") && !reLoan(c) },
+    ...(hasReLoan ? [{ key: "realEstateDebt", label: "不動産のローン残高", group: "assets" as const, kind: "value" as const, match: (c: TableCell) => under(c.row, "cf.balance.debt") && reLoan(c) }] : []),
   );
   // 事務所の名前（カスタム層の名前の差し替え。人ごとの行は上で当てた）
   return defs.map((d) => (d.key.includes(":") ? d : { ...d, label: rowName(names, d.key) }));
@@ -499,12 +506,12 @@ function rowAmountText(h: Household, r: RowLike, v0: number): string | null {
  * 行（出るお金・入るお金の行の ID）の、年 year のキャッシュフロー表の額（提案の計算のマス。物価の上昇などで伸ばした額）。毎月の行は
  * その年に払う月の数で割った1か月の額。計算に出ない行（世帯の外の家族が払うなど）は0
  */
-function cfRowAmount(ctx: Ctx, r: RowLike & { id: string }, year: number, prefix: "cf.expense" | "cf.income"): number {
-  const h = ctx.bundle.proposal.request.input.household;
+function cfRowAmount(run: Run, r: RowLike & { id: string }, year: number, prefix: "cf.expense" | "cf.income"): number {
+  const h = run.request.input.household;
   let sum = 0;
-  for (const c of ctx.bundle.proposal.result.table) if (c.object === r.id && c.year === year && under(c.row, prefix)) sum += c.amount;
+  for (const c of run.result.table) if (c.object === r.id && c.year === year && under(c.row, prefix)) sum += c.amount;
   if (r.monthly !== true || sum <= 0) return sum;
-  const base = ctx.bundle.proposal.request.input.baseMonth;
+  const base = run.request.input.baseMonth;
   const from = monthOfTimepoint(h, r.from);
   const to = r.to == null ? null : monthOfTimepoint(h, r.to);
   const start = [from ?? base, base, `${year}-01`].sort().at(-1) as string;
@@ -523,8 +530,8 @@ const EVENT_IN_KINDS: ReadonlySet<string> = new Set(["celebration", "saleGoods",
  * 額はキャッシュフロー表と同じその年の額（物価の上昇などで伸ばした額。今の値段ではない。0068 の追記 2026-11-01）。子への援助は入れた額のまま
  * （エンジンも伸ばさない）
  */
-function lifeEventItems(ctx: Ctx): { year: number; text: string }[] {
-  const req = ctx.bundle.proposal.request;
+function lifeEventItems(ctx: Ctx, run: Run = ctx.bundle.proposal): { year: number; text: string }[] {
+  const req = run.request;
   const h = req.input.household;
   const base = req.input.baseMonth;
   const out: { year: number; text: string }[] = [];
@@ -546,7 +553,7 @@ function lifeEventItems(ctx: Ctx): { year: number; text: string }[] {
     if (p.kind === "dream" && !dreamIncluded(p)) continue;
     const y = firstYear(p);
     if (y === null) continue;
-    const amt = rowAmountText(h, p, cfRowAmount(ctx, p, y, "cf.expense"));
+    const amt = rowAmountText(h, p, cfRowAmount(run, p, y, "cf.expense"));
     const named = p.label !== undefined && p.label !== "" ? p.label : p.kind === "dream" ? "夢" : onceRow(h, p) ? "一時的支出" : p.monthly === true ? "毎月の支出" : "何年かごとの支出";
     const name = p.kind === "dream" ? `★${named}` : named;
     out.push({ year: y, text: amt === null ? name : `${name}（${amt}）` });
@@ -556,7 +563,7 @@ function lifeEventItems(ctx: Ctx): { year: number; text: string }[] {
     const y = firstYear(f);
     if (y === null) continue;
     const name = f.label !== undefined && f.label !== "" ? f.label : "一時的な入金";
-    const amt = rowAmountText(h, f, cfRowAmount(ctx, f, y, "cf.income"));
+    const amt = rowAmountText(h, f, cfRowAmount(run, f, y, "cf.income"));
     out.push({ year: y, text: `${name}（受け取り${amt === null ? "" : ` ${amt}`}）` });
   }
   for (const g of h.goals ?? []) {
@@ -572,8 +579,56 @@ function lifeEventItems(ctx: Ctx): { year: number; text: string }[] {
   return out;
 }
 
-function events(ctx: Ctx): ProposalInput["events"] {
-  const req = ctx.bundle.proposal.request;
+/**
+ * 不動産の出来事（0126）: 住まいの購入・売却、住まい以外の不動産を売る・持ち始める、収益不動産の大きな修繕。
+ * 売る・買うはキャッシュフロー表のマス（その案で起きる年）から、大きな修繕は物件の入力と分析の数字（その年に持っていて修繕の額がある）から
+ */
+function propertyEvents(run: Run): { year: number; text: string }[] {
+  const h = run.request.input.household;
+  const base = run.request.input.baseMonth;
+  const out: { year: number; text: string }[] = [];
+  const residences = new Set((h.residences ?? []).map((r) => r.id));
+  const accounts = new Map((h.accounts ?? []).filter((a) => a.kind === "realEstate").map((a) => [a.id, a]));
+  // 物件名（収益不動産のまとめの章と同じ: 入れていなければ「物件1」）。中身の無い不動産の器は「不動産」
+  const nameOf = (id: string): string => (accounts.get(id)?.property !== undefined ? rentalNameOf(run.request, id).label : "不動産");
+  const seen = new Set<string>();
+  const once = (year: number, text: string) => {
+    const k = `${year}|${text}`;
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push({ year, text });
+  };
+  for (const c of run.result.table) {
+    if (c.amount <= 0 || c.object === undefined) continue;
+    if (c.row === "cf.income.lumpSum.realEstateSale") {
+      if (residences.has(c.object)) once(c.year, "住まいを売却");
+      else if (accounts.has(c.object)) once(c.year, `${nameOf(c.object)}を売却`);
+    } else if (under(c.row, "cf.expense.housing.purchase") && residences.has(c.object)) once(c.year, "住まいを購入");
+  }
+  const analysis = new Map((run.result.summary.realEstateAnalysis?.properties ?? []).map((p) => [p.object, p]));
+  for (const a of accounts.values()) {
+    const p = a.property;
+    if (p === undefined) continue;
+    // これから持ち始める物件（持ち始める月・取得の月が計算基準月より後）
+    const from = monthOfTimepoint(h, p.holdFrom) ?? (p.acquisition !== undefined && p.acquisition.at > base ? p.acquisition.at : null);
+    if (from !== null && from > base) once(parseYm(from).y, `${nameOf(a.id)}を取得`);
+    const rows = analysis.get(a.id)?.years ?? [];
+    for (const r of p.repairs ?? []) {
+      const m = monthOfTimepoint(h, r.at);
+      if (m === null || m < base) continue;
+      const y = parseYm(m).y;
+      if (!rows.some((x) => x.year === y && x.repairs > 0)) continue;
+      const amt = manText(r.amount);
+      const what = [r.label !== undefined && r.label !== "" ? r.label : null, amt].filter((x): x is string => x !== null).join(" ");
+      out.push({ year: y, text: `${nameOf(a.id)}の大きな修繕${what !== "" ? `（${what}）` : ""}` });
+    }
+  }
+  return out;
+}
+
+/** その案の出来事（年ごと）。ライフイベント表は提案の案、キャッシュフロー表の抜粋の年は現状と提案の両方から作る（0126） */
+function eventsByYear(ctx: Ctx, run: Run): Map<number, string[]> {
+  const req = run.request;
   const h = req.input.household;
   const first = ctx.years[0] ?? 0;
   const last = ctx.years.at(-1) ?? 0;
@@ -606,22 +661,34 @@ function events(ctx: Ctx): ProposalInput["events"] {
     add(parseYm(ps).y, `${r.label}が年金の受け取りを開始（${ageAt(r.member, addMonths(ps, -1))}歳）`);
   }
   for (const e of carPurchases(req)) add(e.year, e.text);
-  for (const e of lifeEventItems(ctx)) add(e.year, e.text);
-  const loan = sumByYear(ctx.bundle.proposal.result.table, (c) => under(c.row, "cf.expense.housing.loan"));
+  for (const e of propertyEvents(run)) add(e.year, e.text);
+  for (const e of lifeEventItems(ctx, run)) add(e.year, e.text);
+  const loan = sumByYear(run.result.table, (c) => under(c.row, "cf.expense.housing.loan"));
   const paid = [...loan.entries()].filter(([, v]) => v > 0).map(([y]) => y).sort((a, b) => a - b).at(-1);
   if (paid !== undefined && paid < req.input.endYear) add(paid, "住宅ローンの返済が終わる");
-  const fee = ctx.bundle.proposal.result.summary.advisoryFee;
+  const fee = run.result.summary.advisoryFee;
   const feeFirst = fee?.byYear.find((b) => b.amount > 0)?.year;
   if (feeFirst !== undefined) add(Math.max(feeFirst, first), "FP顧問料の支払いを開始");
-  const dep = depletionYear(ctx.bundle.proposal.result, ctx.years);
-  if (dep !== null) add(dep, "金融資産が不足する（提案）");
-  return [...byYear.entries()]
+  const dep = depletionYear(run.result, ctx.years);
+  if (dep !== null) add(dep, run === ctx.bundle.proposal ? "金融資産が不足する（提案）" : "金融資産が不足する（現状）");
+  return byYear;
+}
+
+function events(ctx: Ctx): ProposalInput["events"] {
+  return [...eventsByYear(ctx, ctx.bundle.proposal).entries()]
     .sort(([a], [b]) => a - b)
     .map(([year, items]) => ({
       year,
       ages: ctx.rs.filter((r) => presentIn(r, year) && (r.key === "self" || r.key === "spouse")).map((r) => `${r.label}${ageInYear(r.member, year)}歳`).join("・"),
       items,
     }));
+}
+
+/** キャッシュフロー表の抜粋に必ず載せる年: 現状と提案の両方の出来事の年（退職・売却・大きな修繕・住まいの購入など。0126） */
+function keyYears(ctx: Ctx): number[] {
+  const ys = new Set<number>();
+  for (const run of [ctx.bundle.current, ctx.bundle.proposal]) for (const y of eventsByYear(ctx, run).keys()) ys.add(y);
+  return [...ys].sort((a, b) => a - b);
 }
 
 /** 夢の時期の文（「2031年（ご本人60歳）」「2031年から2040年まで・毎年」） */
@@ -732,10 +799,16 @@ export function sheetOf(table: readonly TableCell[], points: readonly YearPoint[
   const otherAssetLines = OTHER_ASSET_LINES.map((x) => ({ label: x.label, values: at((c) => c.row === "cf.balance.account.otherAsset" && lineOfCell(c) === x.key) }));
   const others = [...OTHER_ASSET_KINDS.filter((k) => k !== "otherAsset").map((k) => ({ label: OTHER_ASSET_LABEL[k] as string, values: at((c) => c.row === `cf.balance.account.${k}`) })), ...otherAssetLines].filter((x) => any(x.values));
   const totalAssets = ys.map((_, i) => (finPos[i] ?? 0) + (realEstate[i] ?? 0) + others.reduce((s, x) => s + (x.values[i] ?? 0), 0));
-  const mortgage = at((c) => c.row === "cf.balance.debt.mortgage" || c.row === "cf.balance.debt.unpaidInterest");
-  const otherDebt = at((c) => c.row === "cf.balance.debt.other");
+  // 住まい以外の不動産のローン（負債の property）は「不動産のローン」の行（図の分け方と同じ。0126）
+  const propertyDebts = new Set((household?.debts ?? []).filter((d) => d.property !== undefined).map((d) => d.id));
+  const isPropertyDebt = (c: TableCell) => c.object !== undefined && propertyDebts.has(c.object);
+  const isDebtRow = (c: TableCell) => c.row === "cf.balance.debt.mortgage" || c.row === "cf.balance.debt.unpaidInterest" || c.row === "cf.balance.debt.other";
+  const mortgage = at((c) => (c.row === "cf.balance.debt.mortgage" || c.row === "cf.balance.debt.unpaidInterest") && !isPropertyDebt(c));
+  const propertyLoan = at((c) => isDebtRow(c) && isPropertyDebt(c));
+  const otherDebt = at((c) => c.row === "cf.balance.debt.other" && !isPropertyDebt(c));
   const debts = [
     { label: "住宅ローン", values: mortgage },
+    { label: "不動産のローン", values: propertyLoan },
     { label: "その他の負債", values: otherDebt },
     { label: "預金の不足", values: short },
   ].filter((x) => any(x.values));
@@ -835,7 +908,7 @@ function balanceFigure(ctx: Ctx, points: readonly YearPoint[]): BalanceFigure {
     point: points[i] as YearPoint,
     fact: a.year === ctx.baseYear,
     assets: [...(["liquid", "market", "locked"] as const).map((g) => box(a, g)), ...illiquid(a)].filter((b) => b.amount > 0),
-    liabilities: [box(a, "mortgage"), box(a, "debt"), { key: "netWorth", label: "純資産", amount: Math.max(0, a.netWorth) }].filter((b) => b.amount > 0),
+    liabilities: [box(a, "mortgage"), box(a, "propertyLoan"), box(a, "debt"), { key: "netWorth", label: "純資産", amount: Math.max(0, a.netWorth) }].filter((b) => b.amount > 0),
     negative: Math.max(0, -a.netWorth),
     totalAssets: a.totalAssets,
     totalLiabilities: a.totalLiabilities,
@@ -1564,7 +1637,7 @@ function rental(ctx: Ctx): RentalView | null {
       acquisition: p.acquisition === null || prop?.acquisition === undefined ? null : { month: prop.acquisition.at, total: p.acquisition.total, costs: p.acquisition.costs, equity: p.acquisition.equity ?? null },
       legalLife: p.legalLife,
       depreciationEnd: { ...p.depreciationEnd },
-      depreciationEndText: depreciationEndText({ ...p, sells: p.exit !== null }),
+      depreciationEndText: depreciationEndText({ ...p, sells: p.exit !== null, baseYear: ctx.baseYear }),
       deadCross: p.deadCross !== null && p.deadCross <= endYear ? p.deadCross : null,
       deadCrossNow: p.deadCross !== null && p.deadCross <= ctx.baseYear,
       lodging: p.lodging,
@@ -1630,7 +1703,7 @@ export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
     basics: basics(ctx),
     events: events(ctx),
     dreams: dreams(ctx),
-    cashflow: { current: cashflowTable(bundle.current, years, "キャッシュフロー表（現状）", bundle.names), proposal: cashflowTable(bundle.proposal, years, "キャッシュフロー表（提案）", bundle.names) },
+    cashflow: { current: cashflowTable(bundle.current, years, "キャッシュフロー表（現状）", bundle.names), proposal: cashflowTable(bundle.proposal, years, "キャッシュフロー表（提案）", bundle.names), keyYears: keyYears(ctx) },
     assets: { current: seriesOf(financialOf(bundle.current.result), years), proposal: seriesOf(financialOf(bundle.proposal.result), years) },
     balanceSheet: balanceSheet(ctx),
     education: education(ctx),

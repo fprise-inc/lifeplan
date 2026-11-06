@@ -181,7 +181,11 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["current", "proposal"],
-      "properties": { "current": { "$ref": "#/$defs/cfTable" }, "proposal": { "$ref": "#/$defs/cfTable" } }
+      "properties": {
+        "current": { "$ref": "#/$defs/cfTable" },
+        "proposal": { "$ref": "#/$defs/cfTable" },
+        "keyYears": { "description": "抜粋（layout.cashflow の excerpt）で必ず載せる年。現状と提案の両方の出来事の年（退職・売却・大きな修繕・住まいの購入など。0126）。省略は、この欄の前の版の入力（ライフイベント表の年を使う）", "type": "array", "items": { "$ref": "#/$defs/year" } }
+      }
     },
     "assets": {
       "type": "object",

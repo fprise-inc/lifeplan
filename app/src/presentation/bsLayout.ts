@@ -4,7 +4,7 @@ import type { BsGroupKey, BsGuide, BsLineModel, BsYearModel, Yen } from "./model
 /** 左（資産）の分け方。上から */
 export const LEFT_GROUPS: readonly BsGroupKey[] = ["liquid", "market", "locked", "illiquid"];
 /** 右（負債と純資産）の分け方。上から（純資産は一番下に別に置く） */
-export const RIGHT_GROUPS: readonly BsGroupKey[] = ["mortgage", "debt"];
+export const RIGHT_GROUPS: readonly BsGroupKey[] = ["mortgage", "propertyLoan", "debt"];
 export const FINANCIAL_GROUPS: readonly BsGroupKey[] = ["liquid", "market", "locked"];
 
 /** 図の1つの箱（分け方のまとまり）。parts は箱の中の項目（上から） */
@@ -15,7 +15,7 @@ export interface FigBox {
   parts: { key: string; label: string; value: Yen }[];
 }
 
-/** 図に描く箱（左: 資産の4つ＋純資産のマイナス、右: 住宅ローン・その他の負債・純資産） */
+/** 図に描く箱（左: 資産の4つ＋純資産のマイナス、右: 住宅ローン・不動産のローン・その他の負債・純資産） */
 export function figureBoxes(y: Pick<BsYearModel, "lines" | "netWorth" | "netParts">): { left: FigBox[]; right: FigBox[] } {
   const mk = (side: "L" | "R", g: BsGroupKey): FigBox => {
     const parts = y.lines.filter((l: BsLineModel) => l.group === g).map((l) => ({ key: l.key, label: l.label, value: Math.max(0, l.amount) }));

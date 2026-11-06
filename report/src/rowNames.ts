@@ -22,6 +22,7 @@ export const ROW_NAMES: Readonly<Record<string, string>> = {
   lumpSum: "一時的支出（旅行など）",
   car: "車の費用",
   realEstateExpense: "不動産の経費",
+  realEstateLoan: "不動産のローンの返済",
   advisoryFee: "FP顧問料",
   expenseOther: "その他の支出",
   taxSi: "税・社会保険料",
@@ -30,6 +31,7 @@ export const ROW_NAMES: Readonly<Record<string, string>> = {
   nisaIn: "NISAへの積立",
   financial: "金融資産残高",
   debt: "住宅ローン残高",
+  realEstateDebt: "不動産のローン残高",
 };
 
 /** 人ごとの行（名前に {person} が入る） */

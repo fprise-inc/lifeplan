@@ -1,11 +1,13 @@
 // バランスシートの図の分け方（アプリの「資産と負債」のタブと、提案書のバランスシートの図で同じ決まりを使う）。
 // - 資産は使いやすさで4つに分ける: すぐ使えるお金（預金など）／値動きのある運用（NISA・課税口座など）／
 //   引き出せないお金（iDeCo・企業型DC など）／換金しにくい資産（不動産・車・保険の解約返戻金・その他の資産）。上の3つが金融資産。
-// - 負債は住宅ローンと、その他の負債（車のローン・奨学金・その他の借入、金融資産が尽きた後の「資金の不足」）。
+// - 負債は住宅ローンと、不動産のローン（住まい以外の不動産を指す負債 property。0126）と、その他の負債（車のローン・奨学金・その他の借入、
+//   金融資産が尽きた後の「資金の不足」）。
 // - 金融資産の器のマイナス（決済口座の不足）は、資産から外して負債の側の「資金の不足」に置く。
 // - 不動産は土地と建物の項目に分ける（エンジンの cf.balance.account.realEstate.land・.building。持ち家と、中身を入れた住まい以外の不動産の合計）。
 //   土地と建物に分けていない不動産（中身の無い不動産の器）は「その他の不動産」。建物は年数とともに減り、土地は残る（0028）。
-// - 住まい以外の不動産のローン（負債の property）は「不動産のローン」。
+// - 住まい以外の不動産のローン（負債の property）は、分け方「不動産のローン」の項目「不動産のローン」（2026-11-06 にその他の負債から分けた。
+//   箱の名前と横の見出しをそろえる。0126）。
 // - 役員として働く人の家計の側（0105）: その他の資産の細目の自社株（出資額）・会社への貸付金は換金しにくい資産の項目、ローンの細目の
 //   会社からの借入金は「その他の負債」の項目にする（細目は表示だけ。額はエンジンの行のまま）。会社の借入の連帯保証は負債に入れない。
 // - その他の資産の中身（0120）: 細目の貴金属・美術品や骨董品・会員権・敷金や保証金・事業用の資産は、それぞれ換金しにくい資産の項目
@@ -17,11 +19,11 @@ import type { TableCell } from "./bundle.ts";
 
 export type Yen = number;
 
-/** 資産の4つの分け方と、負債の2つの分け方 */
-export type BsGroup = "liquid" | "market" | "locked" | "illiquid" | "mortgage" | "debt";
+/** 資産の4つの分け方と、負債の3つの分け方（住宅ローン・不動産のローン・その他の負債。0126） */
+export type BsGroup = "liquid" | "market" | "locked" | "illiquid" | "mortgage" | "propertyLoan" | "debt";
 
 export const BS_ASSET_GROUPS: readonly BsGroup[] = ["liquid", "market", "locked", "illiquid"];
-export const BS_DEBT_GROUPS: readonly BsGroup[] = ["mortgage", "debt"];
+export const BS_DEBT_GROUPS: readonly BsGroup[] = ["mortgage", "propertyLoan", "debt"];
 /** 金融資産に入る分け方 */
 export const BS_FINANCIAL_GROUPS: readonly BsGroup[] = ["liquid", "market", "locked"];
 
@@ -31,6 +33,7 @@ export const BS_GROUP_LABEL: Record<BsGroup, string> = {
   locked: "引き出せないお金",
   illiquid: "換金しにくい資産",
   mortgage: "住宅ローン",
+  propertyLoan: "不動産のローン",
   debt: "その他の負債",
 };
 
@@ -41,6 +44,7 @@ export const BS_GROUP_SHORT: Record<BsGroup, string> = {
   locked: "引き出せない",
   illiquid: "換金しにくい",
   mortgage: "住宅ローン",
+  propertyLoan: "不動産のローン",
   debt: "その他の負債",
 };
 
@@ -176,8 +180,8 @@ export function bsSeries(table: readonly TableCell[], years: readonly number[], 
       else if (kind === "otherAsset" && c.object !== undefined && assetSub.has(c.object)) add(other[i] as Map<string, number>, assetSub.get(c.object) as string, c.amount);
       else if (NON_FINANCIAL.has(kind)) add(other[i] as Map<string, number>, ILLIQUID.find((x) => x.kind === kind)?.key ?? "otherAsset", c.amount);
       else add(fin[i] as Map<string, number>, kind, c.amount);
-    } else if (c.row === "cf.balance.debt.mortgage" || c.row === "cf.balance.debt.unpaidInterest") add(other[i] as Map<string, number>, "mortgage", c.amount);
-    else if (c.row === "cf.balance.debt.other") add(other[i] as Map<string, number>, DEBT_LABEL[(c.object !== undefined ? debtKind.get(c.object) : undefined) ?? ""]?.key ?? "debtOther", c.amount);
+    } else if ((c.row === "cf.balance.debt.mortgage" || c.row === "cf.balance.debt.unpaidInterest") && (c.object === undefined || debtKind.get(c.object) !== "property")) add(other[i] as Map<string, number>, "mortgage", c.amount);
+    else if (c.row === "cf.balance.debt.other" || c.row === "cf.balance.debt.mortgage" || c.row === "cf.balance.debt.unpaidInterest") add(other[i] as Map<string, number>, DEBT_LABEL[(c.object !== undefined ? debtKind.get(c.object) : undefined) ?? ""]?.key ?? "debtOther", c.amount);
   }
   return years.map((year, i) => {
     const amounts = new Map<string, number>();
@@ -236,6 +240,7 @@ function groupOf(key: string): BsGroup {
   if (a !== undefined) return a.group;
   if (key === "finOther") return "liquid";
   if (key === "mortgage") return "mortgage";
-  if (key === "propertyLoan" || key === "carLoan" || key === "scholarship" || key === "companyLoan" || key === "debtOther" || key === "short") return "debt";
+  if (key === "propertyLoan") return "propertyLoan";
+  if (key === "carLoan" || key === "scholarship" || key === "companyLoan" || key === "debtOther" || key === "short") return "debt";
   return "illiquid";
 }

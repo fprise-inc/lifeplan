@@ -77,7 +77,7 @@ export interface YearDetail {
   financial: Yen;
 }
 
-export type EventIcon = "学" | "独" | "退" | "年" | "家" | "親" | "！";
+export type EventIcon = "学" | "独" | "退" | "年" | "家" | "親" | "不" | "！";
 
 export interface EventChip {
   year: number;
@@ -512,7 +512,7 @@ export interface InvestChartModel {
 // ---- 資産と負債のタブ（家計のバランスシート）----
 
 /** 資産の4つの分け方（すぐ使える・値動きあり・引き出せない・換金しにくい）と、負債の2つ（住宅ローン・その他の負債） */
-export type BsGroupKey = "liquid" | "market" | "locked" | "illiquid" | "mortgage" | "debt";
+export type BsGroupKey = "liquid" | "market" | "locked" | "illiquid" | "mortgage" | "propertyLoan" | "debt";
 
 /** 箱の中の項目（例: 預金・NISA・持ち家（土地・建物）・資金の不足）。key は提示用の鍵（物の ID を含まない） */
 export interface BsLineModel {

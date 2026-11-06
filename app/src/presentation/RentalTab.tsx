@@ -8,6 +8,9 @@ import { useLayoutEffect, useRef } from "preact/hooks";
 import { Help } from "./Help.tsx";
 import type { RentalPropertyViewModel, RentalSaleModel, RentalTabModel, RentalTableModel, RentalTotalViewModel } from "./model.ts";
 
+/** 文で出す指標（札の幅で折り返し、字を少し小さくする。0126） */
+const TEXT_METRICS: ReadonlySet<string> = new Set(["depreciationEnd", "deadCross"]);
+
 export interface RentalTabProps {
   model: RentalTabModel;
   /** プランの帯（作業の層の部品。結果のタブと同じ） */
@@ -70,7 +73,7 @@ function PropertyView({ view, onYear, provisional }: { view: RentalPropertyViewM
         </h3>
         <dl class="rt-metrics" data-rental-metrics>
           {view.metrics.map((m) => (
-            <div key={m.key} class="rt-metric" data-metric={m.key}>
+            <div key={m.key} class={TEXT_METRICS.has(m.key) ? "rt-metric text" : "rt-metric"} data-metric={m.key}>
               <dt>
                 {m.label}
                 <Help label={m.label}>

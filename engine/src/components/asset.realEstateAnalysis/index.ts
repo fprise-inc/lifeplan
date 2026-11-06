@@ -16,7 +16,9 @@
 //   返済余裕率（DSCR）＝（実際に入る収入−経費）÷約定の返済、借入の割合（LTV）＝年末のローン残高÷年末の評価額（ローンのある物件）、
 //   自己資金に対する手残りの割合（CCR）＝税引前の手残り（年換算）÷自己資金（入れたときだけ）。年換算は×12÷貸している月数（表に載る月の分）。
 //   民泊・宿は表面利回りを出さず（満室の考えが無い）、稼働率と1泊の単価・営業日数・年の売上を並べる（損益分岐は稼働率100%の売上に対する割合）
-// - 築年数＝その年−建った年、残りの耐用年数＝法定耐用年数−築年数（0より下げない）。建物の無い物件（asset.realEstate の facts.noBuilding）は出さない
+// - 築年数＝その年−建った年。残りの耐用年数（改訂3）＝その年から建物の減価償却が終わる年までの年数（その年を含む。0より下げない）で、
+//   実際に償却に使う耐用年数（中古は簡便法）で数える（法定耐用年数−築年数ではない。法定耐用年数は物件の legalLife）。売る・貸し終わるまでに
+//   終わらなければ貸し続けたら終わる年まで。償却していない建物（取得価額が無い・貸していない）と建物の無い物件（facts.noBuilding）は出さない
 // - 売ったときの手残りの目安（equity）＝年末の評価額−年末のローン残高。含み益（unrealizedGain。改訂2）＝年末の評価額−年末の帳簿価額
 //   （bookValue＝取得価額＋取得時の諸費用−減価償却の累計。asset.realEstate の years[].book。取得の入力が無ければ出さない）
 // - 減価償却が終わる年が売る・貸し終わるまでに来ないときは、貸し続けたら終わる年（depreciationEndIfContinued。改訂2）を添える
@@ -75,7 +77,7 @@ export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>(
   id: "asset.realEstateAnalysis",
   title: "収益不動産の分析の数字（利回り・返済比率・手残りなど）",
   contract: "1.1",
-  revision: 2,
+  revision: 3,
   requires: {
     "asset.realEstate": ">=1 <2",
     "debt.schedule": ">=1 <2",
@@ -236,6 +238,7 @@ export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>(
       const valueOf = new Map(p.years.map((v) => [v.year, v.value]));
       const bookOf = new Map(p.years.flatMap((v) => (v.book === undefined ? [] : [[v.year, v.book] as const])));
       const noBuilding = facts?.noBuilding === true;
+      const lifeEnd = noBuilding ? null : (facts?.depreciationEnd.building ?? facts?.depreciationEndIfContinued?.building ?? null);
       const incomeOf = new Map(p.income.map((v) => [v.year, v]));
       const acq = facts?.acquisition ?? null;
       const equityIn = acq?.equity;
@@ -270,6 +273,8 @@ export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>(
         if (deadCross === null && c.months > 0 && hasLoan && principal > 0 && principal > depCmp) deadCross = y;
         const noi = c.rent - c.expenses;
         const age = facts === undefined || noBuilding ? null : Math.max(0, y - facts.builtYear);
+        // 残りの耐用年数（改訂3。0126）: 実際に償却に使う耐用年数（中古は簡便法）で数え、その年から建物の減価償却が終わる年までの年数（その年を含む）。
+        // 売る・貸し終わるまでに終わらなければ、貸し続けたら終わる年まで。償却していない（取得価額が無い・貸していない）建物は出さない
         const bookValue = value === null ? null : (bookOf.get(y) ?? null);
         const row: Row = {
           year: y,
@@ -294,7 +299,7 @@ export default defineComponent<Record<string, never>, RealEstateAnalysisOutput>(
           bookValue,
           unrealizedGain: value === null || bookValue === null ? null : yen(value - bookValue),
           age,
-          remainingLife: facts === undefined || age === null ? null : Math.max(0, facts.legalLife - age),
+          remainingLife: lifeEnd === null || age === null ? null : Math.max(0, lifeEnd - y + 1),
           grossYield: isLodging || c.gross === null || acq === null ? null : annualRatio(c.gross, c.months, acq.total),
           netYield: acq === null ? null : annualRatio(noi, c.months, acq.total + acq.costs),
           breakEven: c.gross === null || c.months === 0 ? null : ratio(c.expenses + debtService, c.gross),

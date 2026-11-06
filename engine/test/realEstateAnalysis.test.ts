@@ -88,7 +88,32 @@ describe("物件ごと・年ごとの指標の式", () => {
     expect(y?.value).toBe(v);
     expect(y?.equity).toBe(v - (y?.loanBalance ?? 0));
     expect(y?.age).toBe(12);
-    expect(y?.remainingLife).toBe(47 - 12);
+    // 残りの耐用年数は実際の償却で数える（2020年に築5年で取得: 簡便法で 47−5＋1＝43年、償却率 0.024〔1÷43 を小数3桁に切り上げ〕で
+    // 2020年4月から償却して 2061年に終わる。0126）
+    expect(p?.depreciationEnd.building).toBe(2061);
+    expect(y?.remainingLife).toBe(2061 - 2027 + 1);
+  });
+
+  it("残りの耐用年数は、中古の簡便法の耐用年数で数えた、その年から建物の償却が終わる年までの年数（法定耐用年数−築年数ではない。0126）", () => {
+    // 木造（法定22年）・2008年築を2016年11月に取得: 簡便法で 22−8＋1＝15年 → 2031年に終わる。2027年は築19年で、法定で数えると残り3年、実際は5年（2027〜2031年）
+    const wood = base({ accounts: [account(P, property({ structure: "wood", builtYear: 2008, acquisition: { price: 25000000, at: "2016-11", costs: 1500000 } }))] });
+    const w = analysis(wood).properties[0];
+    expect(w?.legalLife).toBe(22);
+    expect(w?.depreciationEnd.building).toBe(2031);
+    const row = (yy: number) => w?.years.find((x) => x.year === yy);
+    expect(row(2027)?.age).toBe(19);
+    expect(row(2027)?.remainingLife).toBe(5);
+    expect(row(2031)?.remainingLife).toBe(1);
+    expect(row(2032)?.remainingLife).toBe(0);
+    // 売るまでに終わらないときは、貸し続けたら終わる年まで数える
+    const sold = base({ accounts: [account(P, property({ sale: { at: at("2030-06") } }))] });
+    const s0 = analysis(sold).properties[0];
+    expect(s0?.depreciationEnd.building).toBeNull();
+    const cont = s0?.depreciationEndIfContinued?.building as number;
+    expect(s0?.years.find((x) => x.year === 2027)?.remainingLife).toBe(cont - 2027 + 1);
+    // 取得価額が無い（償却しない）建物は出さない
+    const noAcq = base({ accounts: [account(P, property({ acquisition: undefined }))], debts: [] });
+    expect(analysis(noAcq).properties[0]?.years.every((x) => x.remainingLife === null)).toBe(true);
   });
 
   it("率: 表面利回り・実質利回り（分母は取得価額＋諸費用）・損益分岐の入居率・返済比率・返済余裕率・借入の割合・自己資金に対する手残りの割合", () => {

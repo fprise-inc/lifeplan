@@ -350,13 +350,14 @@
   building: rgb("#6a7780"),
   illiquidOther: rgb("#414f5a"),
   mortgage: rgb("#a46738"),
+  propertyLoan: rgb("#4a2712"),
   debt: rgb("#65411f"),
   netWorth: rgb("#355ba4"),
 )
 // 箱の形: 箱の間に細い余白を空け、角を少し丸める（画面の図と同じ形）
 #let bs-gap = 1.5pt
 #let bs-radius = 3pt
-#let bs-short = (liquid: "すぐ使える", market: "値動きあり", locked: "引き出せない", illiquid: "換金しにくい", land: "土地", building: "建物", illiquidOther: "車・その他", mortgage: "住宅ローン", debt: "その他の負債", netWorth: "純資産")
+#let bs-short = (liquid: "すぐ使える", market: "値動きあり", locked: "引き出せない", illiquid: "換金しにくい", land: "土地", building: "建物", illiquidOther: "車・その他", mortgage: "住宅ローン", propertyLoan: "不動産のローン", debt: "その他の負債", netWorth: "純資産")
 
 /// 1本の柱（箱を上から積む）。total はこの柱の額、h は縮尺の高さ（scale の額に当たる）
 /// labels: true なら箱の中に入力の label をそのまま書く（会社と合わせたバランスシートの「会社の財産」「個人の財産」など。0107）

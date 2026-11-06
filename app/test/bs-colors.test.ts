@@ -135,6 +135,9 @@ describe("バランスシートの図の色", () => {
       ["land", "building"],
       ["mortgage", "netWorth"],
       ["mortgage", "carLoan"],
+      // 不動産のローン（0126 で分け方を分けた）は、住宅ローン・その他の負債の両方と隣り合う
+      ["mortgage", "propertyLoan"],
+      ["propertyLoan", "carLoan"],
       ["building", "car"],
     ];
     for (const k of ["N", "P", "D", "T", "G"] as const)
@@ -144,11 +147,11 @@ describe("バランスシートの図の色", () => {
   });
 
   it("提案書の図は画面と同じ色", () => {
-    const same: Record<string, string> = { liquid: "deposit", market: "nisa", locked: "ideco", illiquid: "land", land: "land", building: "building", illiquidOther: "car", mortgage: "mortgage", debt: "carLoan", netWorth: "netWorth" };
+    const same: Record<string, string> = { liquid: "deposit", market: "nisa", locked: "ideco", illiquid: "land", land: "land", building: "building", illiquidOther: "car", mortgage: "mortgage", propertyLoan: "propertyLoan", debt: "carLoan", netWorth: "netWorth" };
     expect([...typColors.keys()].sort()).toEqual(Object.keys(same).sort());
     for (const [t, a] of Object.entries(same)) expect(typColors.get(t), t).toBe(c(a));
     // 推移のグラフの色も図の箱と同じ
-    for (const [g, a] of Object.entries({ "g-liquid": "deposit", "g-market": "nisa", "g-locked": "ideco", "g-realEstate": "land", "g-other": "car", "g-mortgage": "mortgage", "g-debt": "carLoan", "t-mortgage": "mortgage", "t-debt": "carLoan" })) expect(c(g), g).toBe(c(a));
+    for (const [g, a] of Object.entries({ "g-liquid": "deposit", "g-market": "nisa", "g-locked": "ideco", "g-realEstate": "land", "g-other": "car", "g-mortgage": "mortgage", "g-propertyLoan": "propertyLoan", "g-debt": "carLoan", "t-mortgage": "mortgage", "t-propertyLoan": "propertyLoan", "t-debt": "carLoan" })) expect(c(g), g).toBe(c(a));
   });
 });
 

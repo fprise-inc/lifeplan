@@ -99,8 +99,8 @@ const HELP = {
   monthlyAfter: "税引前の手残りから、その物件で増える税と社会保険料（所得税・住民税・国民健康保険などの近似。その物件の所得の分）を引いた額を、貸している月数で割った額です。",
   equity: "年末の評価額−年末のローン残高です。売ったときにローンを返した後に残る額の目安で、売却の費用（仲介手数料など）と譲渡所得の税は引いていません（実際の手取りはこれより少なくなります）。",
   unrealizedGain: "年末の評価額−年末の帳簿価額です。帳簿価額は、取得価額＋取得時の諸費用−その年の年末までの減価償却費の累計です。売ったときの譲渡所得の目安で、売却の費用と税は引いていません。取得価額を入れていなければ出しません。",
-  age: "築年数はその年−建った年、残りの耐用年数は建物の構造の法定耐用年数−築年数です（0より下げません）。",
-  depreciationEnd: "建物（と建物附属設備）の減価償却が終わる年です。終わった後は不動産所得が増え、税が増えます。売る・貸し終わるまでに終わらないときは「売るまでには終わりません」と出し、そのまま貸し続けたら終わる年を括弧に書きます。取得価額を入れていないとき、建物の無い物件（貸している土地・駐車場で設備を入れていない）は、減価償却をしないので出しません。",
+  age: "築年数はその年−建った年です。残りの耐用年数は、実際に減価償却に使う耐用年数（中古で買った建物は簡便法の耐用年数）で数えた、その年から建物の減価償却が終わる年までの年数です（その年を含みます）。法定耐用年数−築年数とは違います（中古は簡便法の耐用年数のほうが長くなります）。売るまでに終わらないときは、貸し続けたら終わる年まで数えます。取得価額を入れていないときは出しません。",
+  depreciationEnd: "建物（と建物附属設備）の減価償却が終わる年です。終わった後は不動産所得が増え、税が増えます。計算の最初の年までに終わった分は「設備は2024年に終わり」のように書きます。売る・貸し終わるまでに終わらないときは「売るまでには終わりません」と出し、そのまま貸し続けたら終わる年を括弧に書きます。取得価額を入れていないとき、建物の無い物件（貸している土地・駐車場で設備を入れていない）は、減価償却をしないので出しません。",
   deadCross: "元金の返済が減価償却費（建物と建物附属設備）を上回る最初の年です。この年から、帳簿の上の所得より手元に残るお金が少なくなり、税の分だけ手残りが苦しくなりやすくなります。計算の最初の年から上回っていれば「もう上回っています」と出します。ローンの無い物件・上回る年が表の期間に無い物件は出しません。",
 } as const;
 
@@ -161,7 +161,7 @@ export function propertyMetrics(p: RealEstateAnalysisProperty, y: RealEstateAnal
   if (p.builtYear !== null || !landOnly) m("age", "築年数／残りの耐用年数", y?.age == null ? dash : `${y.age}年／${yearsText(y.remainingLife)}`, HELP.age);
   // 建物の無い物件で建物の分が無ければ、建物を前提にした「?」にしない（前の版の建物の分が残る物件は builtYear があり、今までの「?」）
   const lhDep = landOnly && p.builtYear === null ? lh : null;
-  const endText = depreciationEndText({ ...p, sells: p.exit !== null }) ?? noDepreciationText(p, landOnly, o.kind);
+  const endText = depreciationEndText({ ...p, sells: p.exit !== null, baseYear: o.baseYear }) ?? noDepreciationText(p, landOnly, o.kind);
   m("depreciationEnd", "減価償却が終わる年", endText, lhDep?.depreciationEnd ?? HELP.depreciationEnd);
   const deadText = noDepreciation(p, landOnly) ? "—（減価償却がありません）" : (deadCrossText(p.deadCross, o.baseYear) ?? dash);
   m("deadCross", "元金の返済が減価償却費を上回る年", deadText, lhDep?.deadCross ?? HELP.deadCross);

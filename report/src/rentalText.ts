@@ -49,21 +49,31 @@ export interface DepreciationEndFacts {
   depreciationEndIfContinued?: { building: number | null; equipment: number | null };
   /** 今の予定で売る（売らずに貸し終わるなら false） */
   sells: boolean;
+  /** 計算基準年（計算の最初の年）。この年までに終わった分は「設備は2024年に終わり」と書く（0126）。省略は終わったかを見ない */
+  baseYear?: number;
 }
 
 /**
  * 減価償却が終わる年の文（画面と提案書で同じ）。売る・貸し終わるまでに終わらないときは、理由が分かる文にする
- * （「売るまでには終わりません（2065年に終わる見込み）」）。償却が無ければ null（呼ぶ側で「—」と、その理由）
+ * （「売るまでには終わりません（2065年に終わる見込み）」）。計算基準年までに終わった分は「設備は2024年に終わり」と書き、
+ * これから終わる分を先に置く（「建物 2031年・設備は2024年に終わり」。0126）。償却が無ければ null（呼ぶ側で「—」と、その理由）
  */
 export function depreciationEndText(p: DepreciationEndFacts): string | null {
   const until = p.sells ? "売るまで" : "貸し終わるまで";
+  const ended = (end: number | null): end is number => end !== null && p.baseYear !== undefined && end <= p.baseYear;
   const one = (end: number | null, later: number | null | undefined): string | null => (end !== null ? `${end}年` : later != null ? `${until}には終わりません（${later}年に終わる見込み）` : null);
-  const b = one(p.depreciationEnd.building, p.depreciationEndIfContinued?.building);
-  const e = one(p.depreciationEnd.equipment, p.depreciationEndIfContinued?.equipment);
-  if (b !== null && e !== null) return `建物 ${b}・設備 ${e}`;
-  if (b !== null) return b;
-  if (e !== null) return `設備 ${e}`;
-  return null;
+  const parts = [
+    { name: "建物", end: p.depreciationEnd.building, later: p.depreciationEndIfContinued?.building },
+    { name: "設備", end: p.depreciationEnd.equipment, later: p.depreciationEndIfContinued?.equipment },
+  ].filter((x) => one(x.end, x.later) !== null);
+  if (parts.length === 0) return null;
+  const open = parts.filter((x) => !ended(x.end));
+  const done = parts.filter((x) => ended(x.end));
+  const doneText = done.map((x) => `${x.name}は${x.end}年に終わり`);
+  if (open.length === 0) return done.length === 2 ? `建物は${done[0]?.end}年、設備は${done[1]?.end}年に終わり` : parts[0]?.name === "建物" ? `${parts[0]?.end}年に終わり` : (doneText[0] as string);
+  // これから終わる物が建物だけで、ほかに何も無いときは名前を付けない（前の書き方のまま）
+  const openText = open.map((x) => (parts.length === 1 && x.name === "建物" ? (one(x.end, x.later) as string) : `${x.name} ${one(x.end, x.later)}`));
+  return [...openText, ...doneText].join("・");
 }
 
 /** 元金の返済が減価償却費を上回る年の文。計算の最初の年（計算基準年）から上回っていれば「もう上回っています」 */

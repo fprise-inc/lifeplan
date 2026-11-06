@@ -207,7 +207,7 @@ const ymLabel = (ym: string | null) => (ym === null ? null : `${Number(ym.slice(
 
 function column(key: CombinedColumn["key"], name: string, lines: BsLine[], year: number): CombinedColumn {
   const kept = lines.filter((l) => l.amount > 0);
-  const isDebt = (g: BsGroup) => g === "mortgage" || g === "debt";
+  const isDebt = (g: BsGroup) => g === "mortgage" || g === "propertyLoan" || g === "debt";
   const totalAssets = kept.filter((l) => !isDebt(l.group)).reduce((s, l) => s + l.amount, 0);
   const totalLiabilities = kept.filter((l) => isDebt(l.group)).reduce((s, l) => s + l.amount, 0);
   const financial = kept.filter((l) => l.group === "liquid" || l.group === "market" || l.group === "locked").reduce((s, l) => s + l.amount, 0);
