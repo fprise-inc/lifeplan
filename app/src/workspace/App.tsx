@@ -45,6 +45,7 @@ import { explainModel } from "./explain.ts";
 import type { Level } from "./input/form.ts";
 import { blankHousehold, fromRequest, sampleRequest, withElementIds, type WorkingHousehold } from "./input/household.ts";
 import { InputView } from "./input/InputView.tsx";
+import { settleBeforeLeave, settleInput } from "./input/pendingInput.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
 import { withOfficeSources } from "./input/officeSource.ts";
 import { applyLook, brandOf, EMPTY_BRANDING, readBranding, resolveMode, setBrandingNow, usesStandardColor, type Appearance, type OfficeBranding } from "./office/branding.ts";
@@ -726,6 +727,13 @@ export function App() {
   const overwriteOnLeave = useRef<(ids: string[]) => void>(() => undefined);
   /** 分岐を選ぶ画面を開く（下で定める openFork。離れる前の確かめから呼ぶ） */
   const openForkRef = useRef<(id: string) => void>(() => undefined);
+  /** 今の世帯を、自動保存に今すぐ渡す（打ちかけの値を決めた直後。描くのを待たずに、参照の今の値で） */
+  const pushLatest = useCallback(() => {
+    const o = openedRef.current;
+    const sr = storedRef.current;
+    if (o === null || sr === null || sr.readOnly) return;
+    autosaver.current?.change(bodyFor(o, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, sr.carry));
+  }, []);
   /**
    * 世帯を離れる前（切り替える・アプリを閉じる）: 自動保存の残りを待たずに書く。保存できなかったら黙って捨てずに、
    * 保存し直す・変更を捨てて離れる・やめるを選ばせる。離れてよければ true。onAsk は初めて聞く前に呼ぶ（閉じるときは本体に待ってもらう）
@@ -738,6 +746,13 @@ export function App() {
       waited = true;
       await onAsk?.();
     };
+    // 欄の打ちかけの値を先に決める（読めない打ち方・入力のパネルの保存していない変更があれば、そこで知らせて離れない。0131）
+    const settled = settleBeforeLeave();
+    if (!settled.go) {
+      await wait();
+      return false;
+    }
+    if (settled.committed) pushLatest();
     // プランの保存していない変更（結果のタブで動かした値）は世帯ファイルに入らない。保存する世帯なら、離れる前に確かめる（0096 の追記）
     const o0 = openedRef.current;
     const sr0 = storedRef.current;
@@ -802,10 +817,29 @@ export function App() {
         }
       })();
     };
-    const hide = () => void autosaver.current?.flush();
+    const hide = () => {
+      // ページを閉じる前に決めた打ちかけの値（beforeunload）も入れてから書く
+      pushLatest();
+      void autosaver.current?.flush();
+    };
     window.addEventListener("pagehide", hide);
     return () => window.removeEventListener("pagehide", hide);
-  }, [host, leaveCurrent]);
+  }, [host, leaveCurrent, pushLatest]);
+
+  // ページを閉じる・読み直す前: 欄の打ちかけの値を決める。読めない打ち方か、入力のパネルに保存していない変更があれば、
+  // ブラウザの確かめを出す（黙って消さない。0131）
+  useEffect(() => {
+    const before = (e: BeforeUnloadEvent) => {
+      const s = settleBeforeLeave();
+      if (s.committed) pushLatest();
+      if (!s.go) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", before);
+    return () => window.removeEventListener("beforeunload", before);
+  }, [pushLatest]);
 
   // ---- 計算の要求（枠: 現状・帯の案。表示の設定で FP顧問料の一文を出すときは、選んだ案の顧問料を入れ替えた枠 alt も）----
   const reqCache = useRef(new Map<string, EngineRequest>());
@@ -1572,6 +1606,8 @@ export function App() {
   /** 帯のカードを押した: その案を選ぶ（グラフの実線・1文・対策・表がその案に替わる） */
   const select = useCallback(
     (letter: string) => {
+      // プランを変える前に、欄の打ちかけの値を決める（0131）
+      if (!settleInput().ok) return;
       const o = openedRef.current;
       const w = workRef.current;
       if (o === null) return;
@@ -1725,6 +1761,7 @@ export function App() {
   /** 入力の画面の編集の対象を選ぶ（0036 の8）: プランを選ぶと、結果のタブでもそのプランを選ぶ（帯に無ければ足す）。現状を選ぶと現状 */
   const selectInputPlan = useCallback(
     (id: string | null) => {
+      if (!settleInput().ok) return;
       const o = openedRef.current;
       const w = workRef.current;
       if (o === null) return;
@@ -2372,7 +2409,10 @@ export function App() {
       <TopBar
         tabs={shownTabs}
         tab={tab}
-        onTab={setTab}
+        onTab={(t) => {
+          // タブを変える前に、欄の打ちかけの値を決める（読めなければその欄に戻して変えない。0131）
+          if (settleInput().ok) setTab(t);
+        }}
         household={
           host !== null
             ? {

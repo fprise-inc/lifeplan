@@ -45,7 +45,7 @@ const TABLE: readonly (readonly [string, number | null, number | null])[] = [
  * 鍵は「打った文字@欄の単位」（yen＝円の欄、man＝万円の欄）
  */
 const PENDING: ReadonlySet<string> = new Set<string>([
-  // 今は無い（末尾の単位を見て換算する読み取りにした。0130）
+  // 今は無い（末尾の単位を見て換算する読み取りにした。0131）
 ]);
 
 const rows = TABLE.flatMap(([text, yen, man]) =>

@@ -9,6 +9,7 @@ import { PopIcon } from "../../presentation/icons.tsx";
 import { FieldIcon } from "./fieldIcons.tsx";
 import { InfoNote } from "./InfoNote.tsx";
 import { blankLineFor, fittingPlaceholder, textEm } from "./placeholder.ts";
+import { enterInput, noteRejected, type Settled } from "./pendingInput.ts";
 import type { Timepoint } from "../../engine/types.ts";
 import { groupShown, type ActionDef, type FieldDef, type GroupDef, type Level, type Option, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
@@ -1057,8 +1058,21 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   const status = stateOps !== null ? fieldStatus(f, wh) : null;
   const ops = stateOps !== null && status !== null ? availableOps(f, wh, status) : [];
   const [draft, setDraft] = useState<string | null>(null);
-  /** 欄に入ったときの文字（離れるときに同じ文字なら何も書かない。0041） */
-  const [startText, setStartText] = useState<string | null>(null);
+  /** 欄に入ったときの文字（離れるときに同じ文字なら何も書かない。0041）。打ちかけの値を決めたら、決めた文字にする */
+  const startText = useRef<string | null>(null);
+  const inputEl = useRef<HTMLInputElement>(null);
+  /** 打ちかけの値の登録を外す（pendingInput.ts。入っている間だけ持つ） */
+  const leaveInput = useRef<(() => void) | null>(null);
+  /** 打ちかけの値を決める（画面を変える操作の前に pendingInput.ts から呼ぶ。描くたびに今の下書きの読み方にする） */
+  const settleNow = useRef<() => Settled>(() => "none");
+  // 欄が消えたら登録だけ外す（消えた欄から値は書かない。消える前の操作が決めている）
+  useEffect(
+    () => () => {
+      leaveInput.current?.();
+      leaveInput.current = null;
+    },
+    [],
+  );
   /** 使えない文字のまま欄を離れたときの知らせ（前の値のままにしたこと）。次に打つまで出す */
   const [rejected, setRejected] = useState<string | null>(null);
   /** 入れたときの知らせ（読み替え・桁の確かめ）。次に欄に入るまで出す */
@@ -1131,6 +1145,18 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
       return String(state.value);
     })();
     const parse = (text: string): FieldRead | undefined => readField(f, text, { unit, period, baseMonth: wh.request.input.baseMonth });
+    /** 打った文字を決める（入ったときと同じ文字なら何もしない。読めれば書いて知らせを出す。読めなければ書かない） */
+    const decide = (t: string): Settled => {
+      if (!shouldCommitOnBlur(startText.current, t)) return "none";
+      const r = parse(t);
+      if (r === undefined) return "rejected";
+      commitTyped(r);
+      startText.current = t;
+      setTold(r.note !== null || r.warn !== null ? { note: r.note, warn: r.warn } : null);
+      return "committed";
+    };
+    // 欄を離れずに画面を変える操作の前（pendingInput.ts）: 今の下書きを決める。読めなければ欄に残して止める（理由は下書きから欄の下に出ている）
+    settleNow.current = () => decide(inputEl.current?.value ?? draft ?? shown);
     const bad = draft !== null && parse(draft) === undefined;
     problem = bad ? (rejectReason(f, draft, unit) ?? "この値は入れられません") : rejected;
     const inputClass = f.kind === "text" ? "txt" : f.kind === "ym" ? "ym" : "num";
@@ -1150,6 +1176,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
     blankLine = (draft ?? shown) === "" && f.blankMeans !== undefined ? blankLineFor(inputClass, f.blankMeans) : null;
     const input = (
       <input
+        ref={inputEl}
         id={id}
         type="text"
         inputMode={f.kind === "text" || f.kind === "ym" ? undefined : "decimal"}
@@ -1160,8 +1187,9 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
         aria-describedby={problem !== null ? `${id}-problem` : undefined}
         onFocus={() => {
           setDraft(shown);
-          setStartText(shown);
+          startText.current = shown;
           setTold(null);
+          leaveInput.current = enterInput({ settle: () => settleNow.current(), focus: () => inputEl.current?.focus() });
         }}
         onInput={(e) => {
           // 打っている間は下書きだけ（世帯は変えない）。読めない文字の理由は下書きから欄の下に出す
@@ -1170,17 +1198,16 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
           setTold(null);
         }}
         onBlur={(e) => {
+          leaveInput.current?.();
+          leaveInput.current = null;
           const t = (e.currentTarget as HTMLInputElement).value;
           // 入ったときと同じ文字のまま離れたら、何も書かない（欄に入って離れる・Tab で通るだけで値も状態も変えない。0041）
-          if (shouldCommitOnBlur(startText, t)) {
-            const r = parse(t);
-            if (r !== undefined) {
-              commitTyped(r);
-              setTold(r.note !== null || r.warn !== null ? { note: r.note, warn: r.warn } : null);
-            } else setRejected(`「${t}」は入れられないため、前の値のままです。${rejectReason(f, t, unit) ?? ""}`);
+          if (decide(t) === "rejected") {
+            setRejected(`「${t}」は入れられないため、前の値のままです。${rejectReason(f, t, unit) ?? ""}`);
+            noteRejected(() => inputEl.current?.focus());
           }
           setDraft(null);
-          setStartText(null);
+          startText.current = null;
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
@@ -1315,6 +1342,16 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
   const [rejected, setRejected] = useState<string | null>(null);
   const [picked, setPicked] = useState<WhenMode | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  /** 打ちかけの値の登録を外す（pendingInput.ts） */
+  const leaveInput = useRef<(() => void) | null>(null);
+  const settleNow = useRef<() => Settled>(() => "none");
+  useEffect(
+    () => () => {
+      leaveInput.current?.();
+      leaveInput.current = null;
+    },
+    [],
+  );
   // 出来事が正本の欄は、出来事の時点を見せて直す（出来事を指していることは下の行で知らせる）
   const actualRaw = state.linked?.at ?? state.raw;
   // 使える入れ方だけで見せる欄は、ほかの形の前の値を同じ月の既定の入れ方で見せる（直すとその形で書く。0101）
@@ -1348,16 +1385,31 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
   const person = shownRaw?.memberAge?.member ?? state.ctx.person;
   const evId = mode === "event" ? state.raw?.event : undefined;
   const leave = (text: string) => {
+    leaveInput.current?.();
+    leaveInput.current = null;
     setDraft(null);
     if (text === shown) return;
     const r = readText(time, wh, ctx, text);
     if ("reason" in r) {
       setRejected(`「${text}」は入れられないため、前の値のままです。${r.reason}`);
+      noteRejected(() => input.current?.focus());
       return;
     }
     setRejected(null);
     setPicked(null);
     commit(r.tp, "auto");
+  };
+  // 欄を離れずに画面を変える操作の前（pendingInput.ts）: 打ちかけの時点を決める。読めなければ欄に残して止める（理由は欄の下に出ている）
+  settleNow.current = () => {
+    const text = input.current?.value ?? draft ?? shown;
+    if (text === shown) return "none";
+    const r = readText(time, wh, ctx, text);
+    if ("reason" in r) return "rejected";
+    setRejected(null);
+    setPicked(null);
+    commit(r.tp, "auto");
+    setDraft(null);
+    return "committed";
   };
   return (
     <div class={`fld when${status === "estimated" ? " is-est" : status !== null && status !== "confirmed" ? ` is-${STATUS_CLASS[status]}` : ""}`} data-when={f.key} data-field={f.key}>
@@ -1376,7 +1428,10 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
           placeholder={fittingPlaceholder("when-in", picked === null && state.raw === null && time.when.nullText !== undefined ? `空欄＝${time.when.nullText}` : null, f.example, mode === "age" ? ageExample({ h: state.ctx.h, person }) : PLACEHOLDER[mode])}
           aria-invalid={live !== null && "reason" in live ? true : undefined}
           aria-describedby={`${id}-read`}
-          onFocus={() => setDraft(shown)}
+          onFocus={() => {
+            setDraft(shown);
+            leaveInput.current = enterInput({ settle: () => settleNow.current(), focus: () => input.current?.focus() });
+          }}
           onInput={(e) => {
             setDraft((e.currentTarget as HTMLInputElement).value);
             setRejected(null);
