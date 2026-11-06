@@ -47,8 +47,7 @@ const sum = (r: PreviewResult, row: string, year: number) => r.table.filter((c) 
 /** 住宅の購入を足し、引き渡しを 2029年3月（住み始めも）にして注文住宅を選ぶ（4,000万円・頭金400万円の既定のまま） */
 function customHouse(): WorkingHousehold {
   let wh = action(salaried(), "housing/addPurchase");
-  const id = bought(wh).id;
-  wh = set(wh, `${id}/from`, "2029-03");
+  // 住み始めは購入の時期（引き渡し）についてくる（購入の1件に住み始めの欄は無い）
   wh = set(wh, "/purchase/at", "2029-03");
   return set(wh, "/purchase/type", "custom");
 }

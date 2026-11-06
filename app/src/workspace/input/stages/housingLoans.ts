@@ -8,7 +8,7 @@ import { addMonths } from "../../levers.ts";
 import type { Address } from "../../store/readings.ts";
 import { byId, field, getPath, plain, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef } from "../form.ts";
 import { mutate, newId, presetBasis, PRESET_HEADS, standardBox, wrapBasis, type LoanEntry, type WorkingHousehold } from "../household.ts";
-import { CREDIT_DATA_FROM_YEAR, creditKey, estimatedPrincipal, fromBalance, isHomeLoan, newBuildFromPurchase, PRINCIPAL_ESTIMATE, principalKey, principalMismatch, purchaseMonth, startsLater, withoutCreditMark } from "../housingCredit.ts";
+import { CREDIT_DATA_FROM_YEAR, creditKey, estimatedPrincipal, fromBalance, homeLoansOf, isHomeLoan, moveInFromResidence, newBuildFromPurchase, pairRateBasis, PRINCIPAL_ESTIMATE, principalKey, principalMismatch, purchaseMonth, purchaseOfLoan, SHARE_BY_LOANS, sharesByLoans, startsLater, startTentative, withoutCreditMark, withProvisionalHousing } from "../housingCredit.ts";
 import { DEBT_KINDS, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS } from "../labels.ts";
 import { fittedRateText, monthlyPayment, monthsBetween, monthsFromPayment, principalFromPayment, rateText } from "../loanMath.ts";
 import { putRow, rowAt, type StateRow } from "../rows.ts";
@@ -20,6 +20,7 @@ import { standardTermMonths as termOfMember } from "../../../../../hearing/src/l
 import { presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
 import { repayingScholarshipRateEstimate } from "../../../../../hearing/src/loanRates.ts";
 import { executiveMembers, hasExecutive } from "../officer.ts";
+import { alignLoanToPurchase, loanPurchaseGap } from "../housingFollow.ts";
 import { isOfficeBasisText } from "../../../../../hearing/src/statistics.ts";
 
 type Obj = Record<string, unknown>;
@@ -125,6 +126,21 @@ function putNowRate(h: Household, d: Debt, ym: string | null, r: string): void {
     // 逆算した金利は小数7桁（loanMath.ts の fittedRateText と同じ桁）
     s0.rate = rateText(Math.max(0, Number(r) - Number(c.cut)), 7);
   } else s0.rate = r;
+}
+
+/**
+ * その月の返済の後の残高の目安（返し始めの残高・今の金利・残りの回数の元利均等。金利の段階・繰上返済・ボーナス返済は見ない。画面の知らせの「約」の額）。
+ * 返し始めより前の月は返し始めの残高、返し終えていれば0
+ */
+export function balanceAtMonth(h: Household, d: Debt, ym: string): number {
+  const n = loanNow(h, d);
+  if (n.from === null || ym <= n.from) return n.balance;
+  const k = Math.min(n.months, monthsBetween(n.from, ym));
+  if (k >= n.months) return 0;
+  const i = n.rate / 12;
+  if (i === 0) return Math.max(0, n.balance - (n.balance / n.months) * k);
+  const pay = (n.balance * i * (1 + i) ** n.months) / ((1 + i) ** n.months - 1);
+  return Math.max(0, n.balance * (1 + i) ** k - (pay * ((1 + i) ** k - 1)) / i);
 }
 
 const bonusOf = (d: Debt): number => Number(d.repayment.bonusShare ?? "0");
@@ -321,7 +337,9 @@ function payoffField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" |
         const s = x === undefined ? null : resolveTimepoint(w.request.input.household, x.start);
         if (x === undefined || s === null) return { value: null };
         const ym = addMonths(s, x.repayment.termMonths);
-        return { value: ym, hint: readYearMonth(ym, w.request.input.baseMonth) };
+        // 今の残高から入れた住宅ローンは、返済額と完済の年月から逆算した金利を欄の下に添える（金利の欄は詳細。0052 の追記 2026-11-07）
+        const solved = x.kind === "mortgage" && entryOf(w, x.id) === "balance" && isEstimate(rowOf(w, addrRate(x)), SOLVED) ? `＝金利 年${(Math.round(Number(nowRate(w.request.input.household, x, w.request.input.baseMonth)) * 10000) / 100).toLocaleString("ja-JP", { maximumFractionDigits: 2 })}%（逆算）` : null;
+        return { value: ym, hint: [readYearMonth(ym, w.request.input.baseMonth), solved].filter((t) => t !== null).join(" ") };
       },
       set: (w, v) => {
         if (typeof v !== "string") return w;
@@ -562,7 +580,16 @@ function principalField(wh: WorkingHousehold, d: Debt, k: string, level: "simple
     get: (w) => {
       const h = w.request.input.household;
       const x = (h.debts ?? []).find((y) => y.id === d.id);
-      return { value: x?.principal ?? null, estimated: w.assumed[key] ?? null, warn: x === undefined ? null : principalMismatch(h, x) };
+      // 購入の家のローンで、借入の年月が購入の時期とずれている（手で直したなど）: 知らせと「購入の時期に合わせる」（0052 の追記 2026-11-07）
+      const gap = x === undefined ? null : loanPurchaseGap(h, x);
+      const gapText = gap === null ? null : `購入の時期（${formatYearMonth(gap.purchase)}）と借入の年月（${formatYearMonth(gap.start)}）が違います。購入のローンなら借入の年月を合わせます`;
+      const warn = [gapText, x === undefined ? null : principalMismatch(h, x)].filter((t) => t !== null).join("。");
+      return {
+        value: x?.principal ?? null,
+        estimated: w.assumed[key] ?? null,
+        warn: warn === "" ? null : warn,
+        ...(gap !== null ? { warnFix: { label: "購入の時期に合わせる", run: (w2: WorkingHousehold) => withProvisionalHousing(mutate(w2, (hh) => alignLoanToPurchase(hh, d.id))) } } : {}),
+      };
     },
     set: (w, v) => {
       let est = false;
@@ -720,6 +747,27 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
       hs === undefined ? addr([]) : addr(["moveIn"]),
     ),
   );
+  // 購入の家のローンの入居は、その家の住み始め（購入の時期）から読む（欄は読むだけ。購入の時期を直すと動く。0052 の追記 2026-11-07）
+  const home = hs === undefined ? undefined : moveInFromResidence(wh.request.input.household, d);
+  if (home !== undefined) {
+    const i = fields.findIndex((f) => f.key === `${k}/credit/moveIn`);
+    fields[i] = field({
+      key: `${k}/credit/moveIn`,
+      item: "debt.housing",
+      label: "入居の年月（控除）",
+      level: "detail",
+      kind: "text",
+      readOnly: "購入した家の住み始め（購入の時期）を入居とみなします。直すときは住宅の購入の「購入の時期」を直します",
+      get: (w) => {
+        const h = w.request.input.household;
+        const x = (h.debts ?? []).find((y) => y.id === d.id);
+        const r = x === undefined ? undefined : moveInFromResidence(h, x);
+        const ym = r === undefined ? null : resolveTimepoint(h, r.from);
+        return { value: ym === null ? null : `入居 ${formatYearMonth(ym)}（住まいの住み始めから）` };
+      },
+      set: (w) => w,
+    });
+  }
   if (hs === undefined) return fields;
   fields.push(
     withAddress(
@@ -1178,7 +1226,30 @@ function startField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | 
       if (s !== null && s1 !== undefined) s1.from = { at: addMonths(s, c0.months) };
     });
   };
-  return withAddress(field({ ...inner, ...followNote(wh, d), set: (w, v) => followLoan(w, keepCut(w, inner.set(w, v)), d.id, "start") }), () => addrStart(d.id));
+  // 今の残高から入れた住まいの住宅ローン: 借りた年月を入れたら、持ち家の住み始め（入れていなければ）も同じ年月にする。控除の入居も借りた年月で置く
+  // （housingCredit.ts の withProvisionalHousing。0052 の追記 2026-11-07）
+  const balanceHome = isHomeLoan(d) && fromBalance(wh, d.id);
+  const fillHome = (w0: WorkingHousehold, w1: WorkingHousehold): WorkingHousehold => {
+    if (w1 === w0 || !balanceHome) return w1;
+    const x0 = (w0.request.input.household.debts ?? []).find((y) => y.id === d.id);
+    if (x0 === undefined || !startTentative(x0)) return w1;
+    return mutate(w1, (h, req) => {
+      const x = (h.debts ?? []).find((y) => y.id === d.id);
+      const s = x === undefined ? null : resolveTimepoint(h, x.start);
+      const base = req.input.baseMonth;
+      const home = (h.residences ?? []).find((r) => r.kind === "own" && r.purchase === undefined && resolveTimepoint(h, r.from) === base && (r.to === null || (resolveTimepoint(h, r.to) ?? base) >= base));
+      if (s !== null && s < base && home !== undefined) home.from = { at: s };
+    });
+  };
+  return withAddress(
+    field({
+      ...inner,
+      ...followNote(wh, d),
+      ...(balanceHome ? { help: "返済予定表・契約書の借りた年月。入れると、持ち家の住み始め（入れていなければ）と住宅ローン控除の入居も同じ年月にします" } : {}),
+      set: (w, v) => withProvisionalHousing(fillHome(w, followLoan(w, keepCut(w, inner.set(w, v)), d.id, "start"))),
+    }),
+    () => addrStart(d.id),
+  );
 }
 
 function balanceField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | "detail"): FieldDef {
@@ -1629,6 +1700,20 @@ export function newMortgage(wh: WorkingHousehold, pairOf?: string): WorkingHouse
       putRow(input, addrStart(id), estRow("standard", TENTATIVE));
     }
     if (partner === undefined) putRow(input, at(id, "debt.rateSchedule", [rid, "rate"]), estRow("standard", rateEstimate.basis));
+    else {
+      // ペアローンの2本目: 1本目の金利の段（見込みの段も）と値の状態を写す（1本目が推定なら2本目も推定。1本目を直すと入れ直す。0052 の追記 2026-11-07）
+      d.rateSchedule = partner.rateSchedule.map((x, j) => ({ ...structuredClone(x), id: j === 0 ? rid : newId() }));
+      const pr = partner.rateSchedule[0]?.id === undefined ? undefined : rowAt(input, at(partner.id, "debt.rateSchedule", [partner.rateSchedule[0].id, "rate"]));
+      if (pr?.state === "estimated") putRow(input, at(id, "debt.rateSchedule", [rid, "rate"]), estRow("derived", pairRateBasis(partner.rateSchedule[0]?.rate ?? "0")));
+      if (rowAt(input, at(partner.id, "debt.rateSchedule"))?.state === "estimated") putRow(input, at(id, "debt.rateSchedule"), structuredClone(rowAt(input, at(partner.id, "debt.rateSchedule")) as StateRow));
+    }
+    // これから変動金利で借りる住宅ローンは、金利の見込みを「10年で1%上がる」にする（推定の印。今返しているローンは今の金利のまま。利用者の判断 2026-11-06）
+    if (partner === undefined && start > base && d.rateSchedule[0]?.type === "variable") {
+      const cur = Number(d.rateSchedule[0].rate);
+      const adds = [presetRate("preset.loan.outlook.up1.after5"), presetRate("preset.loan.outlook.up1.after10")];
+      d.rateSchedule.push(...adds.map((add, j) => ({ id: newId(), from: { at: addMonths(start, OUTLOOK_STEP_MONTHS * (j + 1)) }, type: "variable" as const, rate: rateText(cur + Number(add)) })));
+      putRow(input, at(id, "debt.rateSchedule"), estRow("standard", OUTLOOK_DEFAULT_BASIS()));
+    }
     putRow(input, addrTerm(id), estRow("standard", `既定の値（返済期間${Math.round(d.repayment.termMonths / 12)}年。完済が${presetNum("preset.loan.mortgage.payoffAge")}歳を超えないように）`));
     // 購入の予定とつながるなら、借入額は物件の価格−頭金（推定）
     const e = linked && partner === undefined ? estimatedPrincipal(hh, d) : null;
@@ -1639,7 +1724,54 @@ export function newMortgage(wh: WorkingHousehold, pairOf?: string): WorkingHouse
   });
   let w = estimated ? { ...next, assumed: { ...next.assumed, [principalKey(id)]: PRINCIPAL_ESTIMATE } } : next;
   if (!linked) w = withEntry(w, id, "balance");
+  if (pairOf !== undefined) w = splitOwnershipByPair(w, id);
   return w;
+}
+
+
+/** 金利の見込みの既定の根拠（これから変動金利で借りるローン） */
+const OUTLOOK_DEFAULT_BASIS = () => `既定の値（これから変動金利で借りるので、10年で${pctText(presetRate("preset.loan.outlook.up1.after10"))}上がる見込み。今の金利のままは楽観の見込みです。直してください）`;
+
+
+/**
+ * ペアローンを足したとき、その家の名義と持分を FP がまだ選んでいなければ（ご本人100%のままで、値の状態の行が無い）、借入の割合で分けて推定の印を付ける。
+ * FP が選んだ持分は変えない（知らせと「借入の割合で持分を分ける」のまま）
+ */
+function splitOwnershipByPair(wh: WorkingHousehold, debtId: string): WorkingHousehold {
+  return mutate(wh, (h, req) => {
+    const d = (h.debts ?? []).find((x) => x.id === debtId);
+    const partner = d?.pairWith === undefined ? undefined : (h.debts ?? []).find((x) => x.id === d.pairWith);
+    if (d === undefined || partner === undefined) return;
+    const r = (h.residences ?? []).find((x) => x.kind === "own" && homeLoansOf(h, x).some((y) => y.id === partner.id)) ?? purchaseOfLoan(h, partner);
+    const self = h.members.find((m) => m.kind === "self");
+    if (r === undefined || self === undefined) return;
+    const input = inputOf(req);
+    const own = r.ownership ?? [];
+    const untouched = own.length === 1 && own[0]?.member === self.id && Number(own[0].share) === 1 && rowAt(input, at(r.id, "residence.ownership")) === undefined;
+    if (!untouched) return;
+    const shares = sharesByLoans(h, r);
+    if (shares === null || shares.length < 2) return;
+    r.ownership = shares;
+    putRow(input, at(r.id, "residence.ownership"), estRow("derived", SHARE_BY_LOANS));
+  });
+}
+
+/**
+ * 借り換えを1件足す（住まいの住宅ローン。収益不動産のローンと同じ欄 debt.refinance。0052 の追記 2026-11-07）: 5年後に、変動金利の新しく借りるときの目安の金利で、
+ * 完済の年月を変えない期間（残りの回数）で借り換える。費用は入れない
+ */
+export function addHomeRefinance(wh: WorkingHousehold, debtId: string): WorkingHousehold {
+  return mutate(wh, (h, req) => {
+    const x = (h.debts ?? []).find((y) => y.id === debtId);
+    if (x === undefined) return;
+    const base = req.input.baseMonth;
+    const start = resolveTimepoint(h, x.start) ?? base;
+    const when = addMonths(start > base ? start : base, 60);
+    const payoff = addMonths(start, x.repayment.termMonths);
+    const term = Math.min(600, Math.max(12, monthsBetween(when, payoff)));
+    const est = rateEstimateOf("variable");
+    (x.refinance ??= []).push({ at: { at: when }, rateSchedule: [{ id: newId(), from: { at: when }, type: "variable", rate: est.rate }], termMonths: term });
+  });
 }
 
 /** ローンのまとまりのボタン（金利の段階・繰上返済。住宅ローンはペアローン） */

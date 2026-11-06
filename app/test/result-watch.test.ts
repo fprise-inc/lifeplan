@@ -8,7 +8,7 @@ import { beforeAll, describe, expect, it, test } from "vitest";
 import type { EngineRequest, PreviewResult, TableCell } from "../src/engine/types.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { WATCH_CASES } from "./watch/cases.ts";
-import { housingConditions, rowGroupingProblems, subjectOf, textProblems, WATCH_RULES, type WatchSubject } from "./watch/rules.ts";
+import { housingConditions, keptHomeConditions, rowGroupingProblems, subjectOf, textProblems, WATCH_RULES, type WatchSubject } from "./watch/rules.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 /** 直す待ちの一覧の1行 */
@@ -34,41 +34,6 @@ const PENDING: readonly Pending[] = [
     rule: "schoolFeeZero",
     cases: ["見本 4-3-01"],
     match: /学費が入っていない/,
-  },
-  {
-    key: "kept-home-vanishes",
-    what: "持ち家に住み終わりを入れると、「そのまま持つ」のまま住み終わりの年で資産から消える",
-    rule: "keptHomeVanishes",
-    cases: [OP("持ち家に住み終わりを入れる")],
-    match: /資産から消える/,
-  },
-  {
-    key: "sold-home-loan",
-    what: "住まいを住み終わりの月に売っても、その家の住宅ローンを返し続ける",
-    rule: "soldHomeLoanContinues",
-    cases: [OP("住宅ローンの残る持ち家を売る")],
-    match: /返している/,
-  },
-  {
-    key: "housing-overlap-notice",
-    what: "持ち家の世帯に購入の予定を足すと、今の家が終わらず住まいが2つ重なり、知らせも無い",
-    rule: "housingOverlapGap",
-    cases: [OP("持ち家の世帯に住宅購入の予定を足す")],
-    match: /2つ重なる/,
-  },
-  {
-    key: "housing-gap-notice",
-    what: "最後の住まいの住み終わりの後に住まいが無い（住居費0円）のに、知らせが無い",
-    rule: "housingOverlapGap",
-    cases: [OP("持ち家に住み終わりを入れる"), OP("住宅ローンの残る持ち家を売る")],
-    match: /先の住まいが入っていない/,
-  },
-  {
-    key: "purchase-dates-follow",
-    what: "購入の時期を直しても、住み始め・借入の年月・控除の入居がついてこない",
-    rule: "purchaseDates",
-    cases: [OP("購入の時期を1年遅らせる")],
-    match: /ずれている/,
   },
   {
     key: "home-value-in-models",
@@ -239,7 +204,9 @@ describe("見張りが見張れていること（わざと壊した世帯・結�
       const at2050 = t.filter((c) => c.object === r.id && c.year === 2050 && c.row.startsWith("cf.balance.account.realEstate"));
       return [...keep, ...(at2050.length > 0 ? at2050 : [{ row: "cf.balance.account.realEstate.land", year: 2050, amount: 10_000_000, object: r.id }])];
     });
-    expect(ruleOf("keptHomeVanishes").check(s).length).toBeGreaterThan(0);
+    expect(keptHomeConditions(s).length).toBeGreaterThan(0);
+    // 住まいの「住み終わりの後」に計算から外している旨の知らせが出ているので、黙っては消えていない
+    expect(ruleOf("keptHomeVanishes").check(s)).toEqual([]);
   });
 
   it("売った家の住宅ローンを売った後も返す", () => {

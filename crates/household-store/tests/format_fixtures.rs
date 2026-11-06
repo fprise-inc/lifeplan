@@ -368,6 +368,30 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.63 より前の版に Web の依頼の記録は無い"
             );
         }
+        if migrate::parse(v).unwrap() >= (0, 66) {
+            // 0.66 から（0052・0025 の追記 2026-11-07）: 住まいを売ったときに住宅ローンを返すか・持ち家の評価の入れ方
+            let residences = now["household"]["request"]["input"]["household"]["residences"]
+                .as_array()
+                .unwrap();
+            assert!(
+                residences
+                    .iter()
+                    .any(|r| r["sale"]["repayLoan"] == false && r["valuation"]["basis"] == "market"),
+                "{v}: 売ったときに住宅ローンを返さない・今の時価で入れた持ち家"
+            );
+        } else {
+            let residences = now["household"]["request"]["input"]["household"]["residences"]
+                .as_array()
+                .map(|a| a.to_vec())
+                .unwrap_or_default();
+            assert!(
+                residences
+                    .iter()
+                    .all(|r| r["sale"].get("repayLoan").is_none()
+                        && r["valuation"].get("basis").is_none()),
+                "{v}: 0.66 より前の版に住まいの売却の返済・評価の入れ方は無い"
+            );
+        }
         if migrate::parse(v).unwrap() >= (0, 65) {
             // 0.65 から（0126）: 収益不動産の家賃の入れ方（今の実際の家賃収入）と減価償却の引き継ぎ（確定申告の数字）
             let accounts = now["household"]["request"]["input"]["household"]["accounts"]

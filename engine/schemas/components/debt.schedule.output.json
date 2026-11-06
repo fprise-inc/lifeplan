@@ -31,6 +31,21 @@
         "required": ["year", "amount"],
         "properties": { "year": { "$ref": "urn:financia:schema:common#/$defs/year" }, "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } }
       }
+    },
+    "refinances": {
+      "description": "借り換えごとの、借り換えの直前の残高と新しいローンの借入額・期間（約束の版 1.3 の任意の欄。住宅ローン控除の借り換えの扱いに使う）",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ym", "before", "principal", "termMonths"],
+        "properties": {
+          "ym": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "before": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "principal": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "termMonths": { "type": "integer", "minimum": 1 }
+        }
+      }
     }
   }
 }
