@@ -271,6 +271,66 @@ describe("取り込みで今の値を壊さない", () => {
     expect(p?.leaves).toBeDefined();
     expect(out.assumed[`family/${p?.id ?? ""}/leaves`]).toContain("平均余命");
   });
+
+  it("定年を聞いていない・答えの無い働き方は、今の終わりを残し、働く最後の年齢の推定で置きかえない（終わりの無い取り込んだ働き方だけ推定を入れる）", async () => {
+    const wh = filled();
+    const before = wh.request.input.household.employmentPeriods ?? [];
+    const got = await answeredWeb(wh, { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1981, 7), [draftKey("hs.work.type", 1)]: v("regular"), [draftKey("hs.income.annual", 1)]: num("900") });
+    const view = importWeb(got.wh, got.entry, "0.1.0", seq);
+    const work = view.candidates.find((c) => c.title === "ご本人の仕事と収入");
+    expect(work?.fields.flatMap((f) => f.diffs).find((d) => d.label === "仕事を終える年月")).toMatchObject({ current: "2041年6月", kept: true });
+    const out = applyImport(got.wh, view, defaultSelection(view), AT_WEB).wh;
+    const h = out.request.input.household;
+    const me = h.members.find((m) => m.kind === "self")!;
+    // 期間は増えず（推定の定年後の再雇用を足さない）、終わりは今の 2041年6月のまま。推定の印も付けない
+    expect((h.employmentPeriods ?? []).filter((p) => p.member === me.id)).toHaveLength(before.filter((p) => p.member === me.id).length);
+    expect((h.employmentPeriods ?? []).find((p) => p.member === me.id && p.type === "regular")?.to).toEqual({ at: "2041-06" });
+    expect(Object.keys(out.assumed).filter((k) => k.startsWith(`work/${me.id}/`))).toEqual([]);
+    // 今の世帯で終わりを入れていなかった期間も、答えが無ければ今のまま（推定を入れない）
+    const open = structuredClone(wh.request);
+    for (const p of open.input.household.employmentPeriods ?? []) if (p.member === me.id) p.to = null;
+    const w2 = { ...wh, request: open };
+    const got2 = await answeredWeb(w2, { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1981, 7), [draftKey("hs.work.type", 1)]: v("regular"), [draftKey("hs.income.annual", 1)]: num("900") });
+    const view2 = importWeb(got2.wh, got2.entry, "0.1.0", seq);
+    const out2 = applyImport(got2.wh, view2, defaultSelection(view2), AT_WEB).wh;
+    expect((out2.request.input.household.employmentPeriods ?? []).find((p) => p.member === me.id && p.type === "regular")?.to).toBeNull();
+    // 空の世帯に取り込んだ働き方（終わりが無い）には、推定を入れる
+    const got3 = await answeredWeb(blank(), { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1981, 7), [draftKey("hs.work.type", 1)]: v("regular"), [draftKey("hs.income.annual", 1)]: num("900") }, { spouse: 0, child: 0 });
+    const view3 = importWeb(got3.wh, got3.entry, "0.1.0", seq);
+    const out3 = applyImport(got3.wh, view3, defaultSelection(view3), AT_WEB).wh;
+    const me3 = out3.request.input.household.members.find((m) => m.kind === "self")!;
+    expect((out3.request.input.household.employmentPeriods ?? []).find((p) => p.member === me3.id && p.type === "regular")?.to).not.toBeNull();
+    expect(out3.assumed[`work/${me3.id}/mainEnd`]).toBeDefined();
+  });
+
+  it("推定の印（働く最後の年齢・親の亡くなる見込み）と子の独立の時期は、構成員の候補を承認しても今のまま。元に戻すと推定の分も前に戻る", async () => {
+    // 1回目: 空の世帯に取り込む（働き方の終わりと親の亡くなる見込みは推定）
+    const first = await answeredWeb(blank(), { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1981, 7), [draftKey("hs.work.type", 1)]: v("regular"), [draftKey("hs.income.annual", 1)]: num("900"), [draftKey("hs.family.parent.alive", 1)]: v("alive"), [draftKey("hs.family.parent.age", 1)]: num("70") }, { spouse: 0, child: 0 });
+    const v1 = importWeb(first.wh, first.entry, "0.1.0", seq);
+    const w1 = markImported(applyImport(first.wh, v1, defaultSelection(v1), AT_WEB).wh, first.entry.record.requestId, AT_WEB);
+    const me = w1.request.input.household.members.find((m) => m.kind === "self")!;
+    const father = w1.request.input.household.members.find((m) => m.kind === "parent")!;
+    const marks = (w: WorkingHousehold) => Object.keys(w.assumed).filter((k) => k.startsWith(`work/${me.id}/`) || k === `family/${father.id}/leaves`).sort();
+    expect(marks(w1)).toEqual(expect.arrayContaining([`family/${father.id}/leaves`, `work/${me.id}/mainEnd`]));
+    // 元に戻すと、取り込みの前の世帯（推定も無い）に戻る
+    const undone = keepWebLog(first.wh, w1);
+    expect(marks(undone)).toEqual([]);
+    expect(undone.request.input.household.employmentPeriods ?? []).toEqual(first.wh.request.input.household.employmentPeriods ?? []);
+    // 2回目: 生年月と親の年齢を答え直す（定年は聞いていない）。ご本人・父の候補を承認しても、推定の印は残る
+    const second = await answeredWeb(w1, { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1981, 9), [draftKey("hs.work.type", 1)]: v("regular"), [draftKey("hs.income.annual", 1)]: num("900"), [draftKey("hs.family.parent.alive", 1)]: v("alive"), [draftKey("hs.family.parent.age", 1)]: num("72") }, { spouse: 0, child: 0 });
+    const v2 = importWeb(second.wh, second.entry, "0.1.0", seq);
+    expect(v2.candidates.find((c) => c.title === "ご本人")?.kind).toBe("changed");
+    const w2 = applyImport(second.wh, v2, defaultSelection(v2), AT_WEB).wh;
+    expect(marks(w2)).toEqual(marks(w1));
+    expect(w2.request.input.household.members.find((m) => m.id === father.id)?.leaves).toEqual(father.leaves);
+    // 子の独立の時期（シートで聞かない）は、子の生年月を答えても今のまま
+    const wh = filled();
+    const kids = wh.request.input.household.members.filter((m) => m.kind === "child");
+    const got = await answeredWeb(wh, { [draftKey("hs.family.child.birthYearMonth", 1)]: ym(2012, 6) });
+    const view = importWeb(got.wh, got.entry, "0.1.0", seq);
+    const out = applyImport(got.wh, view, new Set(view.candidates.map((c) => c.id)), AT_WEB).wh.request.input.household;
+    for (const k of kids) expect(out.members.find((m) => m.id === k.id)?.leaves).toEqual(k.leaves);
+  });
 });
 
 const AT_WEB = approvalTime(new Date(2026, 10, 7, 10, 0, 0));

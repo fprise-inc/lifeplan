@@ -188,6 +188,7 @@ type Lists = Record<string, Obj[]>;
 const GROUP: Record<string, string> = {
   members: "家族",
   employmentPeriods: "仕事と収入",
+  retirementBenefits: "退職金",
   residentTaxAssessments: "住民税",
   pensionRecords: "公的年金",
   residences: "住まい",
@@ -259,10 +260,32 @@ function keepParent(prev: Obj, next: Obj): Obj {
 /** 細目で見分ける一覧（その他の資産の自社株・会社への貸付金、会社からの借入金。0105）。保険の細目は対応づけに使わない */
 const SUBTYPE_COLLECTIONS = new Set(["accounts", "debts"]);
 
-/** 本人・配偶者・子: 連帯保証の額（0105）をシートで聞いていない（版1 のシート・空欄）とき・性別の記入が無いときは、今の値を残す */
+/**
+ * 本人・配偶者・子: 連帯保証の額（0105）をシートで聞いていない（版1 のシート・空欄）とき・性別の記入が無いときは、今の値を残す。
+ * 世帯を離れる時期（子の独立・亡くなる見込み）はどのシートでも聞かないので、今の値を残す（0139）
+ */
 function keepMember(prev: Obj, next: Obj, fields: readonly FieldRecord[]): Obj {
   const out: Obj = next.companyGuarantee === undefined && prev.companyGuarantee !== undefined ? { ...next, companyGuarantee: prev.companyGuarantee } : { ...next };
   if (!fields.some((f) => f.path === "/sex") && prev.sex !== undefined) out.sex = prev.sex;
+  if (!fields.some((f) => f.path.startsWith("/leaves")) && prev.leaves !== undefined) out.leaves = structuredClone(prev.leaves);
+  return out;
+}
+
+/**
+ * ご両親の仕送り・援助・介護の費用と、受け取る予定の相続・贈与の行（詳細版の版3から）。シートで聞くのは額・介護の場所など一部の欄だけなので、
+ * 今の世帯に同じ行があれば、記録のある欄だけを入れ、聞かない欄（始まり・終わり・相手・見込み・介護の期間や一時費用など）は今の値を残す（0139）
+ */
+function patchesRow(collection: string, o: Obj): boolean {
+  if (collection === "careExpenses") return true;
+  if (collection === "periodicExpenses") return o.kind === "allowance";
+  if (collection === "incomeFlows") return o.kind === "support" || o.kind === "inheritance";
+  return false;
+}
+
+/** 今の行に、記録のある欄だけを取り込んだ行の値で入れる */
+function patchRow(prev: Obj, next: Obj, fields: readonly FieldRecord[]): Obj {
+  const out = structuredClone(prev);
+  for (const f of fields) setAt(out, f.path, valueAt(next, f.path));
   return out;
 }
 
@@ -271,6 +294,8 @@ function signature(collection: string, o: Obj, members: Map<string, string>): st
   const parts: string[] = [collection];
   for (const k of KIND_FIELDS) if (typeof o[k] === "string") parts.push(`${k}=${o[k] as string}`);
   if (SUBTYPE_COLLECTIONS.has(collection) && typeof o.subtype === "string") parts.push(`subtype=${o.subtype}`);
+  // 受け取る予定の相続・贈与は、シートで相手を聞かない（今の行に相手があっても同じ行として対応づける。0139）
+  if (collection === "incomeFlows" && o.kind === "inheritance") return parts.join("|");
   for (const k of MEMBER_REFS) if (typeof o[k] === "string") parts.push(`${k}=${members.get(o[k] as string) ?? (o[k] as string)}`);
   return parts.join("|");
 }
@@ -430,6 +455,7 @@ const PATH_LABELS: Readonly<Record<string, string>> = {
   "debt.housing /housing": "住宅ローン控除の条件",
   "employment.from /from/at": "仕事を始めた年月",
   "employment.to /to/at": "仕事を終える年月",
+  "employment.to /to": "仕事を終える年月",
   "residence.from /from/at": "住み始めた年月",
   "pensionRecord.amounts /amounts/basic": "老齢基礎年金の額",
   "pensionRecord.amounts /amounts/employee": "老齢厚生年金の額",
@@ -555,6 +581,8 @@ export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold): Imp
     }
     // 性別の記入が無い（初めの値を入れただけ）なら、今の値と比べない（承認しても今の性別を残す。keepMember）
     if (found !== undefined && c.collection === "members" && !c.fields.some((f) => f.path === "/sex") && found.sex !== undefined) found = { ...found, sex: mapped.sex };
+    // 世帯を離れる時期（子の独立・亡くなる見込み）はシートで聞かない（承認しても今の値を残す。keepMember）
+    if (found !== undefined && c.collection === "members" && v.kind !== "parent" && !c.fields.some((f) => f.path.startsWith("/leaves"))) found = { ...found, leaves: mapped.leaves };
     let changedFields = 0;
     let keptFields = 0;
     /** 記入どおりの値（範囲・推定・仮でない）で変わる欄の数 */
@@ -584,8 +612,9 @@ export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold): Imp
     }
     for (const f of c.fields) if (f.noAnswer === true && (found === undefined || !keepable(found, f.path))) filledKeys.add(`${f.key}#${f.index ?? 0}`);
     // 親はシートで聞いた欄（生年月・性別・同居か）だけで比べる（亡くなる見込みなど、聞かない欄は承認しても今の値を残す）
+    // ご両親の仕送り・援助・介護・受け取る予定の相続の行も、記録のある欄だけで比べる（聞かない欄は承認しても今の値を残す。patchRow）
     const parent = c.collection === "members" && v.kind === "parent";
-    const whole = !parent && found !== undefined && JSON.stringify(plain(mapped)) !== JSON.stringify(plain({ ...found, id: v.id }));
+    const whole = !parent && !patchesRow(c.collection, v) && found !== undefined && JSON.stringify(plain(mapped)) !== JSON.stringify(plain({ ...found, id: v.id }));
     const kind: CandidateKind = found === undefined ? "new" : changedFields > 0 ? "changed" : keptFields > 0 ? "noAnswer" : whole ? "changed" : "same";
     const seen = new Set<string>();
     const fields: FieldView[] = [];
@@ -662,6 +691,10 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
   const dropped = new Set<string>();
   /** お答えの無い欄で今の値を残した所の、仮の印のキー（取り込んだ側の印は入れず、今の印を残す） */
   const keptUiKeys = new Set<string>();
+  /** 働き方の期間の終わりを取り込んだ側の値にした人（今の終わりを残した人は入れない）。働く最後の年齢の推定と印はこの人だけ入れ直す */
+  const endFromImport = new Set<string>();
+  /** 世帯を離れる時期を今の値のまま残した構成員（亡くなる見込み・子の独立の推定の印も残す） */
+  const keptLeaves = new Set<string>();
   for (const c of chosen) {
     const src = (impLists[c.collection] ?? []).find((o) => o.id === c.target.object);
     if (src === undefined) continue;
@@ -686,7 +719,7 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
       // 前の物の値の状態の行のうち、取り込みで値が変わらない所の行（FP が決めた「該当なし」「わからない」・確定の記録）は残す。
       // 値が変わった所は取り込んだ値と承認の記録が正（0041）
       const prev = list[at] as Obj;
-      const merged = c.collection === "members" ? (obj.kind === "parent" ? keepParent(prev, obj) : keepMember(prev, obj, c.fields)) : obj;
+      const merged = c.collection === "members" ? (obj.kind === "parent" ? keepParent(prev, obj) : keepMember(prev, obj, c.fields)) : patchesRow(c.collection, obj) ? patchRow(prev, obj, c.fields) : obj;
       // お答えの無い欄（空欄・「あとで」・聞いていない）は、今の値があれば今の値のまま（目安・仮の値・0円で上書きしない）
       for (const f of c.fields) {
         if (f.noAnswer !== true || !keepable(prev, f.path)) continue;
@@ -694,10 +727,13 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
         if (f.uiKey !== undefined) keptUiKeys.add(f.uiKey);
       }
       carryRows(prev, merged, c.collection === "members" ? { member: merged.id } : { object: merged.id });
+      if (c.collection === "members" && prev.leaves !== undefined && prev.leaves !== null && JSON.stringify(prev.leaves) === JSON.stringify(merged.leaves)) keptLeaves.add(merged.id);
+      if (c.collection === "employmentPeriods" && typeof merged.member === "string" && c.fields.some((f) => f.path.startsWith("/to") && !(f.noAnswer === true && keepable(prev, f.path)))) endFromImport.add(merged.member);
       list[at] = merged;
       replaced++;
     } else {
       list.push(obj);
+      if (c.collection === "employmentPeriods" && typeof obj.member === "string") endFromImport.add(obj.member);
       added++;
     }
     // 新しい構成員の関係（配偶者・親子）
@@ -725,7 +761,19 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
   const touched = new Set(chosen.map((c) => ids.get(c.target.object) ?? c.target.object));
   const assumed: Record<string, string> = {};
   const keptCurrent = new Set([...keptUiKeys].map((k) => remap(k.split("/"), ids).join("/")));
-  for (const [k, v] of Object.entries(wh.assumed)) if (![...touched].some((id) => k.includes(id)) || keptCurrent.has(k)) assumed[k] = v;
+  /**
+   * 今の印を残すか: 置き換えた物の印は外す（取り込んだ側の印が正）。ただし、今の値を残した欄の印、今のまま残した世帯を離れる時期の印、
+   * 働く最後の年齢の推定の印（人ごと）は、期間の終わりを取り込んだ側の値にしたときだけ外す（構成員を置き換えただけでは外さない。0139）
+   */
+  const keepMark = (k: string): boolean => {
+    if (keptCurrent.has(k)) return true;
+    const work = /^work\/([^/]+)\/(mainEnd|postType|retireAge)$/.exec(k);
+    if (work !== null) return !endFromImport.has(work[1] ?? "");
+    const leaves = /^family\/([^/]+)\/leaves$/.exec(k);
+    if (leaves !== null && keptLeaves.has(leaves[1] ?? "")) return true;
+    return ![...touched].some((id) => k.includes(id));
+  };
+  for (const [k, v] of Object.entries(wh.assumed)) if (keepMark(k)) assumed[k] = v;
   for (const [k, v] of Object.entries(r.assumed)) {
     if (keptUiKeys.has(k)) continue;
     const c = chosen.find((x) => k.includes(x.target.object));
@@ -755,7 +803,8 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
   }
   // 取り込んだ働き方（会社員・パートなど）に終わりが無ければ、働く最後の年齢の推定を入れる（画面で働き方を入れたときと同じ。シートで定年を聞いて
   // 答えがあれば終わりがあるので何もしない。働き方を取り込まなかった人は変えない）
-  const workers = new Set(chosen.filter((c) => c.collection === "employmentPeriods").map((c) => (remap(c.value as Obj, ids).member as string | undefined) ?? ""));
+  // 今の世帯の終わりを残した期間（定年の答えが無い）は、終わりが無くても推定を入れない（答えの無い所は今のまま。0139）
+  const workers = endFromImport;
   if (workers.size > 0) filled = withWorkEndEstimates(filled, workers);
   // 簡易のシートの残高と返済額から置いた住宅ローンは、ローンの入れ方を「今の残高から」にする（0052）
   for (const c of chosen) {

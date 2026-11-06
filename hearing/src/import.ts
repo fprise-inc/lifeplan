@@ -368,10 +368,13 @@ class Ctx {
   }
 
   /** 欄の記録を物ごとにためる（読み替えた項目は、値を出したシートの項目で記録する） */
-  /** fromAnswer: この項目は空欄でも、値はほかの答えから分けたもの（年収から分けた賞与など。今の値を残すと答えと合わなくなる） */
-  field(objectId: string, key: string, index: number | undefined, item: string, path: string, state: FieldRecord["state"], uiKey?: string, fromAnswer = false): void {
+  /**
+   * answer: auto はその項目の答えの有無で決める。derived はこの項目が空欄でも、値はほかの答えから分けたもの（年収から分けた賞与など。今の値を
+   * 残すと答えと合わなくなる）。notAsked は項目に答えがあっても、この欄はシートで聞いていない（介護が始まった年月など。今の値を残す）
+   */
+  field(objectId: string, key: string, index: number | undefined, item: string, path: string, state: FieldRecord["state"], uiKey?: string, answer: "auto" | "derived" | "notAsked" = "auto"): void {
     const g = this.get(key, index);
-    const noAnswer = !fromAnswer && g.status !== "value" && g.status !== "unknown" && g.status !== "notApplicable";
+    const noAnswer = answer === "notAsked" || (answer === "auto" && g.status !== "value" && g.status !== "unknown" && g.status !== "notApplicable");
     const review = g.status === "value" ? g.review : undefined;
     const range = g.status === "value" ? g.range : undefined;
     const s = this.src(key, index);
@@ -383,9 +386,9 @@ class Ctx {
   }
 
   /** 値の箱を持たない欄を仮の値で補った印（入力の画面の欄のキー） */
-  assume(uiKey: string, reason: string, at: { objectId: string; key: string; index?: number; item: string; path: string }): void {
+  assume(uiKey: string, reason: string, at: { objectId: string; key: string; index?: number; item: string; path: string; notAsked?: boolean }): void {
     this.assumed[uiKey] = reason;
-    this.field(at.objectId, at.key, at.index, at.item, at.path, "assumed", uiKey);
+    this.field(at.objectId, at.key, at.index, at.item, at.path, "assumed", uiKey, at.notAsked === true ? "notAsked" : "auto");
     this.issues.push(issue("info", "H_ASSUMED", `${this.label(at.key, at.index)}: ${reason}`, this.src(at.key, at.index)));
   }
 
@@ -768,7 +771,7 @@ function importParentMoney(c: Ctx, h: Household, m: Member, n: number, baseMonth
     const id = c.newId();
     const ce: CareExpense = { id, member: m.id, from: { at: addMonths(baseMonth, -1) }, place: care.value };
     c.field(id, `${P}.care`, n, "care.place", "/place", "confirmed");
-    c.assume(`ev/care/${id}/from`, "仮の値（介護が始まっている。始まった年月はシートでお聞きしていません）", { objectId: id, key: `${P}.care`, index: n, item: "care.from", path: "/from" });
+    c.assume(`ev/care/${id}/from`, "仮の値（介護が始まっている。始まった年月はシートでお聞きしていません）", { objectId: id, key: `${P}.care`, index: n, item: "care.from", path: "/from", notAsked: true });
     const monthly = c.get<number>(`${P}.careMonthly`, n);
     if (monthly.status === "value") {
       ce.otherMonthly = c.box(`${P}.careMonthly`, n, monthly.value);
@@ -801,7 +804,8 @@ function importInheritance(c: Ctx, h: Household, baseMonth: string): void {
   c.field(id, `${I}.expected`, undefined, "incomeFlow.kind", "/kind", "confirmed");
   if (year.status === "value") c.field(id, `${I}.year`, undefined, "incomeFlow.from", "/from", "confirmed");
   else c.assume(`in/${id}/from`, "仮の値（受け取る時期の見込みの記入が無いため1年後）", { objectId: id, key: `${I}.year`, item: "incomeFlow.from", path: "/from" });
-  if (amount.status === "value") c.field(id, `${I}.amount`, undefined, "incomeFlow.amount", "/amount", "confirmed");
+  // 額の記入が無ければ、お答えの無い欄（今の世帯に同じ行があれば今の額を残す。0139）
+  c.field(id, `${I}.amount`, undefined, "incomeFlow.amount", "/amount", amount.status === "value" ? "confirmed" : "estimated");
   (h.incomeFlows ??= []).push(flow);
   c.candidate("incomeFlows", "incomeFlow.kind", flow, undefined, "見込みは「当てにしない」（基本の計算に入れない）で入れました。相手（誰から）・見込みは面談で確かめてください");
 }
@@ -867,8 +871,11 @@ function importWork(c: Ctx, h: Household, adults: Adults, baseMonth: string): Ma
         c.contradiction("hs.work.retireAge", n, "定年の年齢を、もう過ぎています（計算基準月まで働くとして取り込みました。辞める月を面談で確かめてください）");
         to = baseMonth;
       }
-    } else if (ra.status === "unknown" && MAIN_JOB.has(type)) {
-      c.check("hs.work.retireAge", n, "unknown", "定年が決まっていない（今の勤め先で働き続けるとして計算します）");
+    } else {
+      // 終わりの無い期間も欄の記録を付ける: 答えが無い（空欄・「あとで」・このシートで聞いていない）なら、取り込む側は今の世帯の終わりを残す
+      // （今の終わりを「無し」にして、働く最後の年齢の推定で置きかえない。0139）。「わからない」は答え（今の終わりが確定なら粗い答え）
+      c.field(id, "hs.work.retireAge", n, "employment.to", "/to", ra.status === "unknown" ? "unknown" : "confirmed");
+      if (ra.status === "unknown" && MAIN_JOB.has(type)) c.check("hs.work.retireAge", n, "unknown", "定年が決まっていない（今の勤め先で働き続けるとして計算します）");
     }
 
     const p: EmploymentPeriod = { id, member: m.id, from: { at: from }, to: to === null ? null : { at: to }, type };
@@ -1039,7 +1046,7 @@ function importSalary(c: Ctx, p: EmploymentPeriod, m: Member, n: number, baseMon
         // 範囲の答えから分けた年収は、出どころ「ヒアリング」の概算の推定（承認の記録が付く）
         annual = tr !== null ? { value: rest.value, state: "estimated", origin: { kind: "hearing", ref: c.ref }, estimate: { method: "derived", basis: rest.basis }, certainty: "rough" } : c.estimated(rest, "derived");
         // 賞与は年収の答えから分けた値（今の賞与を残すと、年収の答えと合計が合わなくなる）
-        c.field(id, "hs.income.bonus", n, "employment.salary.bonus", "/salary/bonus", "estimated", undefined, true);
+        c.field(id, "hs.income.bonus", n, "employment.salary.bonus", "/salary/bonus", "estimated", undefined, "derived");
         c.issues.push(issue("info", "H_ESTIMATED", `${c.label("hs.income.bonus", n)}: 空欄のため、年収のうち ${share.value.toLocaleString("ja-JP")}円を賞与の目安としました`, { key: "hs.income.bonus", index: n }));
       }
     }

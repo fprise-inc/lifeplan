@@ -289,6 +289,15 @@ describe("取り込み: 答えの無い欄の印と、Web の記入の年月（�
     expect(r.candidates.find((c) => c.collection === "members")?.fields.find((f) => f.path === "/birth/birthYearMonth")?.noAnswer).toBeUndefined();
   });
 
+  it("定年の答えが無い働き方の期間にも、終わりの欄の記録（noAnswer）が付く。「わからない」は答え、記入があれば年月の欄（0139）", () => {
+    const end = (...more: Answer[]) => r0(...more).candidates.find((c) => c.collection === "employmentPeriods")?.fields.find((f) => f.path.startsWith("/to"));
+    const r0 = (...more: Answer[]) => run(...minimal, a("hs.work.type", "regular", 1), a("hs.income.salary", 4500000, 1), ...more);
+    expect(end()).toMatchObject({ path: "/to", noAnswer: true });
+    expect(end(a("hs.work.retireAge", "unknown", 1))).toMatchObject({ path: "/to", state: "unknown" });
+    expect(end(a("hs.work.retireAge", "unknown", 1))?.noAnswer).toBeUndefined();
+    expect(end(a("hs.work.retireAge", 60, 1))).toMatchObject({ path: "/to/at", state: "confirmed" });
+  });
+
   it("「わからない」は答え（noAnswer にしない）", () => {
     const r = run(...minimal, a("hs.expense.living", "unknown"));
     expect(r.candidates.find((c) => c.collection === "livingExpenses")?.fields[0]?.noAnswer).toBeUndefined();
