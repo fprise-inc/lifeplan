@@ -374,9 +374,11 @@ fn every_format_version_has_a_fixture_and_opens() {
                 .as_array()
                 .unwrap();
             assert!(
-                accounts.iter().any(|a| a["property"]["rental"]["rentBy"] == "actual"
-                    && a["property"]["depreciationCarryover"]["year"] == 2025
-                    && a["property"]["depreciationCarryover"]["building"]["annual"] == 360000),
+                accounts
+                    .iter()
+                    .any(|a| a["property"]["rental"]["rentBy"] == "actual"
+                        && a["property"]["depreciationCarryover"]["year"] == 2025
+                        && a["property"]["depreciationCarryover"]["building"]["annual"] == 360000),
                 "{v}: 今の実際の家賃収入で入れ、減価償却を引き継いだ物件"
             );
         } else {
@@ -384,8 +386,10 @@ fn every_format_version_has_a_fixture_and_opens() {
                 .as_array()
                 .unwrap();
             assert!(
-                accounts.iter().all(|a| a["property"]["rental"].get("rentBy").is_none()
-                    && a["property"].get("depreciationCarryover").is_none()),
+                accounts
+                    .iter()
+                    .all(|a| a["property"]["rental"].get("rentBy").is_none()
+                        && a["property"].get("depreciationCarryover").is_none()),
                 "{v}: 0.65 より前の版に家賃の入れ方・減価償却の引き継ぎは無い"
             );
         }
