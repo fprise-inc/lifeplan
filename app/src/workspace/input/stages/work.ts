@@ -46,8 +46,39 @@ function salariedDefaults(type: string): Pick<EmploymentPeriod, "healthInsurance
   return {
     healthInsurance: fixHealthInsurance({ kind: type === "civilServant" ? "mutualAid" : type === "partTime" ? "dependent" : "kyokaikenpo" }),
     pensionCategory: type === "civilServant" ? "employee3" : type === "partTime" ? "none" : "employee1",
-    employer: { size: type === "partTime" ? 50 : 100, weeklyHours: type === "partTime" ? "20" : "40" },
+    // パートの週の時間は、年収の推定（時給×週15時間。preset.wage.partTime.weeklyHours）とそろえる
+    employer: { size: type === "partTime" ? 50 : 100, weeklyHours: type === "partTime" ? String(presetNum("preset.wage.partTime.weeklyHours")) : "40" },
   };
+}
+
+/** 勤め先の従業員数・週の所定労働時間の初めの値の根拠（推定の印。「勤め先の社会保険: わからない」の判定がこの値で動くことが分かるように） */
+const employerBasis = (type: string, what: "size" | "hours"): string => {
+  const d = salariedDefaults(type).employer as { size: number; weeklyHours: string };
+  return what === "size" ? `既定の値（${type === "partTime" ? "パートの" : ""}勤め先の従業員数・${d.size}人。社会保険の判定に使います）` : `既定の値（${type === "partTime" ? "パートの" : ""}週の所定労働時間・${d.weeklyHours}時間。社会保険の判定に使います）`;
+};
+
+/** 勤め先の初めの値（従業員数・週の時間）のままの期間に、推定の印を付ける（FP が直すとその欄の印は外れる） */
+function markEmployerDefaults(wh: WorkingHousehold, p: EmploymentPeriod): WorkingHousehold {
+  if (!SALARIED.has(p.type)) return wh;
+  const d = salariedDefaults(p.type).employer;
+  if (!sameJson(p.employer, d)) return wh;
+  return { ...wh, assumed: { ...wh.assumed, [`work/period/${p.id}/size`]: employerBasis(p.type, "size"), [`work/period/${p.id}/hours`]: employerBasis(p.type, "hours") } };
+}
+
+/** 健康保険が勤め先の種類（協会けんぽ・健保組合・共済）の配偶者がいるか（その月。パートの健康保険の初めの値を「家族の扶養」にするか） */
+function spouseEmployeeHealth(h: Household, m: Member, month: string): boolean {
+  return h.members
+    .filter((x) => x.id !== m.id && (x.kind === "self" || x.kind === "spouse"))
+    .some((x) => periodsOf(h, x.id).some((q) => (q.from.at ?? "") <= month && (q.to === null || (q.to.at ?? "9999-12") >= month) && q.healthInsurance !== undefined && ["kyokaikenpo", "union", "mutualAid"].includes(q.healthInsurance.kind)));
+}
+
+/**
+ * パートの健康保険の初めの値: 配偶者が勤め先の健康保険のときだけ「家族の扶養」、ほかは国民健康保険（p を書き換える）。
+ * 初めの値（家族の扶養）のままのときだけ直す
+ */
+function fixPartTimeHealth(h: Household, m: Member, p: EmploymentPeriod): void {
+  if (p.type !== "partTime" || p.healthInsurance?.kind !== "dependent") return;
+  if (!spouseEmployeeHealth(h, m, p.from.at ?? "")) p.healthInsurance = { kind: "national" };
 }
 
 /** 自動で入れた推定の値（出どころ auto のまま。FP が入れた値・確定の値ではない） */
@@ -68,7 +99,9 @@ export function convertPeriod(p: EmploymentPeriod, type: string, member: Member 
     const was = SALARIED.has(p.type) && p.type !== type ? salariedDefaults(p.type) : null;
     const now = salariedDefaults(type);
     const keep = <T,>(cur: T | undefined, before: T | undefined, next: T): T => (cur === undefined || (was !== null && sameJson(cur, before)) ? next : cur);
-    out.healthInsurance = keep(healthInsurance, was?.healthInsurance, now.healthInsurance as NonNullable<EmploymentPeriod["healthInsurance"]>);
+    // パートの健康保険の初めの値は、配偶者の健康保険で「家族の扶養」か国民健康保険（fixPartTimeHealth）。どちらも初めの値として入れ替える
+    const partDefault = p.type === "partTime" && sameJson(healthInsurance, { kind: "national" });
+    out.healthInsurance = partDefault && p.type !== type ? (now.healthInsurance as NonNullable<EmploymentPeriod["healthInsurance"]>) : keep(healthInsurance, was?.healthInsurance, now.healthInsurance as NonNullable<EmploymentPeriod["healthInsurance"]>);
     out.pensionCategory = keep(pensionCategory, was?.pensionCategory, now.pensionCategory as NonNullable<EmploymentPeriod["pensionCategory"]>);
     out.employer = keep(employer, was?.employer, now.employer as NonNullable<EmploymentPeriod["employer"]>);
     const annual = est !== null ? estimatedBox(est.annual.value, est.annual.basis) : estimatedBox(0, "未入力");
@@ -204,6 +237,42 @@ const mainEnd = (): { age: number; basis: string } => {
 };
 export const retirementAgeEstimate = (type: string, m: Member): { age: number; basis: string } => (type === "civilServant" ? { age: civilRetirementAge(m), basis: CIVIL_END_BASIS } : mainEnd());
 
+/** 自営業の働く最後の年齢の目安の値ID（事務所の既定値で変えられる） */
+export const SELF_EMPLOYED_END_ID = "preset.work.selfEmployedRetireAge";
+/** パート・契約の働く最後の年齢の目安（65歳までの雇用確保の決まり） */
+const PART_END = { age: 65, basis: "既定の値（パート・契約の働く最後の年齢・65歳。65歳までの雇用確保の決まりから）" };
+/** 役員の退任の年齢の目安（役員の世帯の見本も70歳） */
+const EXECUTIVE_END = { age: 70, basis: "既定の値（役員の退任の年齢・70歳）" };
+
+/**
+ * 目安の年齢がもう過ぎている人（今の年齢が目安以上）の働く最後の年齢: 65歳前なら65歳（65歳までの雇用確保の決まり）、65歳からは今から5年
+ * （90歳まで。90歳に近い人は次の年齢）。目安の年齢になる前の月が計算の基準の月より前のときに使う
+ */
+function lateEnd(est: { age: number; basis: string }, m: Member, base: string): { age: number; basis: string } {
+  if (addMonths(ageReachedMonth(m, est.age), -1) >= base) return est;
+  const now = ageAt(m, base);
+  const age = now < 65 ? 65 : Math.max(now + 1, Math.min(90, now + 5));
+  return { age, basis: `既定の値（目安の${est.age}歳を今の年齢〔${now}歳〕が過ぎているので、${now < 65 ? "65歳までの雇用確保の決まりから65歳" : `今から${age - now}年の${age}歳`}まで）` };
+}
+
+/** 定年の推定（正社員・公務員）。目安の定年をもう過ぎている人は lateEnd（過去の定年を推定しない） */
+export const mainEndEstimate = (type: string, m: Member, base: string): { age: number; basis: string } => lateEnd(retirementAgeEstimate(type, m), m, base);
+
+/**
+ * 働く最後の年齢の推定（期間の終わりの無い働き方・入れたときの終わり）: 正社員・公務員は定年（mainEndEstimate）、自営業は事務所の既定値（70歳）、
+ * パート・契約は65歳、役員は70歳。休業中・働いていないは null（終わりを置かない）
+ */
+export function lastAgeEstimate(type: string, m: Member, base: string): { age: number; basis: string } | null {
+  if (type === "regular" || type === "civilServant") return mainEndEstimate(type, m, base);
+  if (type === "selfEmployed") {
+    const age = presetNum(SELF_EMPLOYED_END_ID);
+    return lateEnd({ age, basis: presetText(SELF_EMPLOYED_END_ID, (v) => `既定の値（自営業の働く最後の年齢・${String(v)}歳）`) }, m, base);
+  }
+  if (type === "partTime" || type === "contract") return lateEnd(PART_END, m, base);
+  if (type === "executive") return lateEnd(EXECUTIVE_END, m, base);
+  return null;
+}
+
 /**
  * 定年後の再雇用の年収の推定: 定年前の年収 ×（60〜64歳の平均÷55〜59歳の平均）。平均は同じ働き方の男女計の年齢階級の表（hearing/src/estimates.ts。
  * 人の属性で分けない。0118）。表が無い働き方は null
@@ -212,7 +281,7 @@ export function reemploymentSalary(type: string, mainAnnual: number): { value: n
   const ratio = salaryEstimate(type, { age: 62 }) === null ? null : reemploymentRatio(type);
   if (ratio === null || mainAnnual <= 0) return null;
   const value = Math.round((mainAnnual * ratio) / 1000) * 1000;
-  return { value, basis: `定年前の年収×${(ratio * 100).toFixed(0)}%（同じ働き方の60〜64歳の平均÷55〜59歳の平均。賃金の統計の年齢階級の表〔男女計〕）` };
+  return { value, basis: `今の年収（賞与を除く）×${(ratio * 100).toFixed(0)}%（同じ働き方の60〜64歳の平均÷55〜59歳の平均。賃金の統計の年齢階級の表〔男女計〕）` };
 }
 
 const estKeys = (m: Member) => ({ mainEnd: `work/${m.id}/mainEnd`, postType: `work/${m.id}/postType`, retireAge: `work/${m.id}/retireAge` });
@@ -237,7 +306,7 @@ export function estimatePost(wh: WorkingHousehold, m: Member): WorkingHousehold 
   const main = currentPeriod(h, m.id, wh.request.input.baseMonth);
   if (main === undefined || (main.type !== "regular" && main.type !== "civilServant") || main.to?.at === undefined) return wh;
   const k = estKeys(m);
-  const end = retirementAgeEstimate(main.type, m);
+  const end = mainEndEstimate(main.type, m, wh.request.input.baseMonth);
   const fromAge = ageAt(m, addMonths(main.to.at, 1));
   let w: WorkingHousehold = { ...wh, postRetirement: { ...wh.postRetirement, [m.id]: { fromAge, type: null, annualSalary: null } } };
   if (fromAge !== end.age) w = setMainEnd(w, m, end.age);
@@ -279,7 +348,7 @@ function followPost(before: WorkingHousehold, after: WorkingHousehold): WorkingH
     if (post === undefined || main === undefined) continue;
     // 定年: 働き方を正社員⇄公務員に変えたら、その推定の定年に（定年後の予定の推定もそろえ直す）
     if (w.assumed[k.mainEnd] !== undefined && (main.type === "regular" || main.type === "civilServant")) {
-      const want = retirementAgeEstimate(main.type, m);
+      const want = mainEndEstimate(main.type, m, w.request.input.baseMonth);
       // 定年後の予定も推定のまま（仮の印がある）か、65歳の定年で定年後の予定が無いとき
       const postEstimated = w.assumed[k.postType] !== undefined || (post.type === null && post.fromAge >= 65);
       if (want.age !== post.fromAge && postEstimated) {
@@ -306,8 +375,116 @@ function followPost(before: WorkingHousehold, after: WorkingHousehold): WorkingH
   return w;
 }
 
+/** その人の働き方の期間の、いちばん遅い終わりの月（終わりの無い期間があれば null） */
+function lastEndOf(h: Household, m: Member): string | null {
+  const ps = periodsOf(h, m.id);
+  if (ps.length === 0 || ps.some((p) => p.to === null)) return null;
+  return ps.map((p) => resolveTimepoint(h, p.to)).filter((x): x is string => x !== null).sort().at(-1) ?? null;
+}
+
+/**
+ * 働く最後の月が欄・ボタンで変わったのに、働く最後の年齢の推定の印が前のまま残っていれば外す（「＋ 働き方」で期間を足した・詳細で終わりを直したなど）。
+ * 推定を入れ直す操作は印を書き直すので、印が同じ文のままのときだけ外す
+ */
+function dropStaleEndMarks(before: WorkingHousehold, after: WorkingHousehold): WorkingHousehold {
+  let w = after;
+  for (const m of earners(after.request.input.household)) {
+    const key = estKeys(m).retireAge;
+    const mark = before.assumed[key];
+    if (mark === undefined || w.assumed[key] !== mark) continue;
+    if (lastEndOf(before.request.input.household, m) === lastEndOf(w.request.input.household, m)) continue;
+    w = { ...w, assumed: Object.fromEntries(Object.entries(w.assumed).filter(([k]) => k !== key)) };
+  }
+  return w;
+}
+
 /** 働き方と収入のカードの欄・ボタンの後始末: 推定のままの定年後の予定を入れ直し、新しく作った期間に給付を受け取るかの推定を入れる */
-const afterWorkEdit = (before: WorkingHousehold, after: WorkingHousehold): WorkingHousehold => markNewPeriods(before, followPost(before, after));
+const afterWorkEdit = (before: WorkingHousehold, after: WorkingHousehold): WorkingHousehold => markNewPeriods(before, followPost(before, dropStaleEndMarks(before, after)));
+
+const dropMarks = (wh: WorkingHousehold, keys: readonly string[]): WorkingHousehold => (keys.some((k) => wh.assumed[k] !== undefined) ? { ...wh, assumed: Object.fromEntries(Object.entries(wh.assumed).filter(([k]) => !keys.includes(k))) } : wh);
+
+/**
+ * 終わりを推定で入れた期間の、辞めた後の給付を受け取るかの推定（失業給付・高年齢雇用継続給付）。欄も行も無い期間だけ（新しく作った期間と同じ。
+ * 終わりの無かった期間に終わりを置くと、辞めた後の給付が「未入力」にならないように）
+ */
+function markEndedClaims(wh: WorkingHousehold, memberId: string): WorkingHousehold {
+  return mutate(wh, (h) => {
+    for (const p of (h.employmentPeriods ?? []).filter((x) => x.member === memberId)) {
+      const o = p as Record<string, unknown>;
+      const rows = (o.valueStates ?? {}) as Record<string, unknown>;
+      if (p.unemploymentClaim === undefined && rows[UNEMPLOYMENT_ITEM] === undefined && unemploymentApplies(h, p)) putEstimate(p, UNEMPLOYMENT_ITEM, unemploymentEstimate(h, p), UNEMPLOYMENT_BASIS);
+      if (p.elderlyContinuationClaim === undefined && rows[CONTINUATION_ITEM] === undefined && continuationApplies(h, p)) putEstimate(p, CONTINUATION_ITEM, true, CONTINUATION_BASIS);
+    }
+  });
+}
+
+/**
+ * 終わりの無い今の働き方の期間に、働く最後の年齢の推定を入れる（期間の終わりを置き、印は働く最後の年齢の欄・正社員と公務員は定年の欄）。
+ * 正社員・公務員は定年と定年後の予定の推定（estimatePost）と退職金の目安（ensureRetirement）も。休業中・働いていない・終わりのある期間は何もしない
+ */
+export function estimateWorkEnd(wh: WorkingHousehold, memberId: string): WorkingHousehold {
+  const h = wh.request.input.household;
+  const m = h.members.find((x) => x.id === memberId);
+  const base = wh.request.input.baseMonth;
+  const cur = m === undefined ? undefined : currentPeriod(h, m.id, base);
+  if (m === undefined || cur === undefined || cur.to !== null) return wh;
+  const est = lastAgeEstimate(cur.type, m, base);
+  if (est === null) return wh;
+  const lastMonth = addMonths(ageReachedMonth(m, est.age), -1);
+  // 期間の終わりを置く（働く最後の年齢の欄と同じく、退職の段の生活費・NISA の積立の終わりも合わせる）。打ち手が動かさなかったときは直接書く
+  let w: WorkingHousehold = { ...wh, request: applyRetireMonth(wh.request, m.id, lastMonth) };
+  if ((w.request.input.household.employmentPeriods ?? []).find((x) => x.id === cur.id)?.to === null)
+    w = mutate(w, (hh) => {
+      const x = (hh.employmentPeriods ?? []).find((y) => y.id === cur.id);
+      if (x !== undefined) x.to = { at: lastMonth };
+    });
+  const k = estKeys(m);
+  if (cur.type === "regular" || cur.type === "civilServant") {
+    w = { ...w, postRetirement: { ...w.postRetirement, [m.id]: { fromAge: est.age, type: null, annualSalary: null } } };
+    return markEndedClaims(estimatePost(ensureRetirement(w, m.id), m), m.id);
+  }
+  return markEndedClaims({ ...w, assumed: { ...w.assumed, [k.retireAge]: est.basis } }, m.id);
+}
+
+/** 取り込んだ世帯などで、終わりの無い今の働き方の期間の人（ご本人・配偶者）に働く最後の年齢の推定を入れる（estimateWorkEnd） */
+export function withWorkEndEstimates(wh: WorkingHousehold, memberIds?: ReadonlySet<string>): WorkingHousehold {
+  let w = wh;
+  for (const m of earners(wh.request.input.household)) if (memberIds === undefined || memberIds.has(m.id)) w = estimateWorkEnd(w, m.id);
+  return w;
+}
+
+/**
+ * 働き方の種類を変えたときの、働く最後と定年の推定の入れ直し（今の働き方の期間だけ）。期間の終わりが無いか、終わりが推定のまま
+ * （定年・働く最後の年齢の印がある）なら、推定のままの定年後の予定を外し、新しい種類の推定（正社員・公務員は定年と定年後の予定、自営業は
+ * 事務所の既定値、パート・契約は65歳、役員は70歳）を入れ直す。FP が入れた終わり（印の無い終わり）は残す
+ */
+function refitWorkEnd(wh: WorkingHousehold, m: Member, periodId: string, beforeType: string): WorkingHousehold {
+  const h = wh.request.input.household;
+  const base = wh.request.input.baseMonth;
+  const cur = currentPeriod(h, m.id, base);
+  if (cur === undefined || cur.id !== periodId || cur.type === beforeType) return wh;
+  const k = estKeys(m);
+  const post = wh.postRetirement[m.id];
+  const main = mainPeriod(h, m, post);
+  const isMain = main?.id === cur.id;
+  const lastOne = periodsOf(h, m.id).at(-1)?.id === cur.id;
+  const estimated = cur.to === null || (isMain && wh.assumed[k.mainEnd] !== undefined) || (!isMain && lastOne && wh.assumed[k.retireAge] !== undefined && post === undefined);
+  if (!estimated) return wh;
+  let w = wh;
+  // 推定のままの定年後の期間（再雇用）を外す（働く最後＝今の定年）
+  if (isMain && post !== undefined && wh.assumed[k.postType] !== undefined) w = setRetireAge({ ...w, postRetirement: { ...w.postRetirement, [m.id]: { ...post, type: null, annualSalary: null } } }, m, post.fromAge);
+  const { [m.id]: _drop, ...restPost } = w.postRetirement;
+  void _drop;
+  w = dropMarks({ ...w, postRetirement: restPost }, [k.mainEnd, k.postType, k.retireAge]);
+  const est = lastAgeEstimate(cur.type, m, base);
+  if (est === null) return w;
+  w = { ...w, request: applyRetireMonth(w.request, m.id, addMonths(ageReachedMonth(m, est.age), -1)) };
+  if (cur.type === "regular" || cur.type === "civilServant") {
+    w = { ...w, postRetirement: { ...w.postRetirement, [m.id]: { fromAge: est.age, type: null, annualSalary: null } } };
+    return markEndedClaims(estimatePost(w, m), m.id);
+  }
+  return markEndedClaims({ ...w, assumed: { ...w.assumed, [k.retireAge]: est.basis } }, m.id);
+}
 
 /** 定年後の期間の年収（事業所得）の箱 */
 function postBox(h: Household, m: Member, post: PostRetirement | undefined): { period: EmploymentPeriod; box: Box<number>; path: string[] } | undefined {
@@ -319,11 +496,24 @@ function postBox(h: Household, m: Member, post: PostRetirement | undefined): { p
 }
 
 /** 定年後の年収の欄: 値の箱は定年後の期間の年収（推定なら推定の印。確定は「この値にする」）。書くと定年後の予定の年収と期間の箱の両方を書く */
+/**
+ * 定年後の年収の欄: 値の箱は定年後の期間の年収（推定なら推定の印。確定は「この値にする」）。書くと定年後の予定の年収と期間の箱の両方を書く。
+ * 給与の働き方は「定年後の年収（税込み・賞与込み）」（今の年収と同じ基準）。見せる値は定年後の期間の年収と賞与の合計で、合計を入れると、
+ * 人が入れた賞与（確定）はそのまま、ほかは賃金の統計（定年後の働き方・定年の年齢）の年収と賞与の割合で賞与を分ける（賞与は推定の印。
+ * 世帯ファイルは年収と賞与の2つの箱のまま）。定年後の予定の年収（annualSalary）は賞与を除く年収
+ */
 function postSalaryField(m: Member, type: PostRetirement["type"]): FieldDef {
   const item = type === "selfEmployed" ? "employment.business.income" : "employment.salary.annual";
-  const write = (w: WorkingHousehold, box: Record<string, unknown> | undefined): WorkingHousehold => {
+  const salaried = type !== "selfEmployed";
+  /** 定年後の期間の賞与（給与の働き方。無ければ0） */
+  const bonusOf = (w: WorkingHousehold): { box: SalaryBox | undefined; value: number } => {
+    const pb = postBox(w.request.input.household, m, w.postRetirement[m.id]);
+    const b = salaried ? (pb?.period.salary?.bonus as SalaryBox | undefined) : undefined;
+    return { box: b, value: boxValue(b) ?? 0 };
+  };
+  const writeBoxes = (w: WorkingHousehold, box: Record<string, unknown>, bonus: Record<string, unknown> | null): WorkingHousehold => {
     const cur = w.postRetirement[m.id];
-    if (cur === undefined || box === undefined) return w;
+    if (cur === undefined) return w;
     const pb = postBox(w.request.input.household, m, cur);
     const value = typeof box.value === "number" ? box.value : cur.annualSalary;
     // 定年後の期間がまだ無い（働く最後を定年にしている）ときは、定年後の予定の年収だけ（働く最後を延ばすと、この年収で期間を足す）
@@ -331,30 +521,84 @@ function postSalaryField(m: Member, type: PostRetirement["type"]): FieldDef {
     if (pb === undefined) return next;
     return mutate(next, (hh) => {
       const x = (hh.employmentPeriods ?? []).find((y) => y.id === pb.period.id) as EmploymentPeriod;
-      if (pb.path[0] === "salary" && x.salary !== undefined) x.salary.annual = structuredClone(box) as unknown as Box<number>;
+      if (pb.path[0] === "salary" && x.salary !== undefined) {
+        x.salary.annual = structuredClone(box) as unknown as Box<number>;
+        if (bonus !== null) x.salary.bonus = structuredClone(bonus) as unknown as Box<number>;
+      }
       if (pb.path[0] === "business" && x.business !== undefined) x.business.income = structuredClone(box) as unknown as Box<number>;
     });
+  };
+  /** 値の操作（この値にする・推定に戻すなど）の書き戻し: 見せている合計の箱から賞与を引いて年収の箱にする（賞与はそのまま） */
+  const write = (w: WorkingHousehold, box: Record<string, unknown> | undefined): WorkingHousehold => {
+    if (box === undefined) return w;
+    if (!salaried) return writeBoxes(w, box, null);
+    const bonus = bonusOf(w).value;
+    const next: Record<string, unknown> = { ...structuredClone(box) };
+    if (typeof box.value === "number" && box.value >= bonus) next.value = box.value - bonus;
+    return writeBoxes(w, next, null);
+  };
+  /** 合計を入れたとき: 人が入れた賞与はそのまま、ほかは統計の割合で賞与を分ける */
+  const setTotal = (w: WorkingHousehold, total: number): WorkingHousehold => {
+    const cur = w.postRetirement[m.id];
+    if (cur === undefined) return w;
+    const confirmed: Record<string, unknown> = { state: "confirmed", origin: { kind: "manual" } };
+    // 定年後の期間がまだ無い（働く最後を定年にしている）ときは、分けずに定年後の予定の年収にする（期間を足すときの年収）
+    if (!salaried || type === null || postBox(w.request.input.household, m, cur) === undefined) return writeBoxes(w, { ...confirmed, value: total }, null);
+    const b = bonusOf(w).box;
+    // 確定の賞与（人が入れた額。打ち手で作った定年後の期間の0円も）はそのまま（今の年収の欄と同じ決まり）
+    if (b !== undefined && b.state === "confirmed" && typeof b.value === "number" && b.value <= total) return writeBoxes(w, { ...confirmed, value: total - b.value }, null);
+    const e = salaryEstimate(type, { age: cur.fromAge });
+    const ratio = e === null || e.annual.value + e.bonus.value <= 0 ? 0 : e.bonus.value / (e.annual.value + e.bonus.value);
+    const bonus = roundThousand(total * ratio);
+    const basis = `定年後の年収（賞与込み）${manText(total)}を、賃金の統計の年収と賞与の割合（賞与 ${Math.round(ratio * 1000) / 10}%）で分けた額`;
+    return writeBoxes(w, { ...confirmed, value: total - bonus }, { value: bonus, state: "estimated", origin: { kind: "auto" }, estimate: { method: BONUS_SPLIT_METHOD, basis } });
   };
   return {
     ...field({
       key: `work/${m.id}/postSalary`,
       item,
-      label: type === "selfEmployed" ? "定年後の事業所得（年額）" : "定年後の年収（年額・賞与を除く）",
+      label: salaried ? "定年後の年収（税込み・賞与込み）" : "定年後の事業所得（年額）",
       level: "simple",
       kind: "yen",
       basis: "annual",
+      ...(salaried ? { help: "源泉徴収票の支払金額にあたる額（給与と賞与の合計）。賞与の内訳は「詳細」の定年後の働き方の期間で直せます（入れていなければ統計の割合で分けます）" } : {}),
       get: (w) => {
         const pb = postBox(w.request.input.household, m, w.postRetirement[m.id]);
-        return { value: pb?.box.value ?? w.postRetirement[m.id]?.annualSalary ?? null, estimated: boxBasis(pb?.box) };
+        const bonus = bonusOf(w).value;
+        const base = pb?.box.value ?? w.postRetirement[m.id]?.annualSalary ?? null;
+        return { value: base === null ? null : base + bonus, estimated: boxBasis(pb?.box), ...(bonus > 0 ? { hint: `うち賞与 ${manText(bonus)}${boxBasis(bonusOf(w).box) !== null ? "（推定）" : ""}` } : {}) };
       },
-      set: (w, v) => (v === null ? w : write(w, { value: Number(v), state: "confirmed", origin: { kind: "manual" } })),
+      set: (w, v) => (v === null ? w : setTotal(w, Math.max(0, Math.round(Number(v))))),
     }),
-    boxed: { read: (w) => postBox(w.request.input.household, m, w.postRetirement[m.id])?.box, write },
+    boxed: {
+      read: (w) => {
+        const box = postBox(w.request.input.household, m, w.postRetirement[m.id])?.box;
+        if (box === undefined) return undefined;
+        const bonus = bonusOf(w).value;
+        return typeof box.value === "number" && bonus > 0 ? { ...structuredClone(box), value: box.value + bonus } : box;
+      },
+      write,
+    },
     address: (w) => {
       const pb = postBox(w.request.input.household, m, w.postRetirement[m.id]);
       return pb === undefined ? null : { target: { object: pb.period.id }, item, at: [] };
     },
   };
+}
+
+/**
+ * 終わりの無い今の働き方で収入が表の最後まで入る人の注意（確かめの一覧の「確かめの注意」にも出る）: 「働く最後の年齢が決まっていません
+ * （100歳まで事業所得を入れています）」と、推定の年齢にするボタン。休業中・働いていないは出さない
+ */
+function openEnded(wh: WorkingHousehold, m: Member): { text: string; fix: string } | null {
+  const h = wh.request.input.household;
+  const base = wh.request.input.baseMonth;
+  const cur = currentPeriod(h, m.id, base);
+  if (cur === undefined || cur.to !== null) return null;
+  const est = lastAgeEstimate(cur.type, m, base);
+  if (est === null) return null;
+  const endAge = ageAt(m, `${wh.request.input.endYear}-12`);
+  return { text: `働く最後の年齢が決まっていません（${endAge}歳まで${cur.type === "selfEmployed" ? "事業所得" : "給与"}を入れています）`, fix: `${est.age}歳までにする（推定）` };
 }
 
 function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
@@ -376,7 +620,9 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
   const main = mainPeriod(h, m, post);
   const who = memberLabel(wh, m.id);
   const fields: FieldDef[] = [];
-  if (post !== undefined && main !== undefined) {
+  // 定年をもう過ぎている人（定年後の期間が今の働き方）は、定年・定年後の働き方・定年後の年収を出さず、働く最後の年齢だけ（今の年収は今の働き方の欄で直す）
+  const retired = main?.to?.at !== undefined && main.to.at < wh.request.input.baseMonth;
+  if (post !== undefined && main !== undefined && !retired) {
     fields.push(
       field({
         key: `work/${m.id}/mainEnd`,
@@ -470,7 +716,13 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
       help: post?.type != null ? "定年より後の年齢にすると、定年後の働き方で働く期間を足します" : "この年齢になる月の前月まで働きます",
       get: (w) => {
         const v = readLevers(w.request, m.id).retireAge ?? null;
-        return { value: v, hint: v === null ? "終わりを決めていない（最後まで）" : null, assumed: w.assumed[`work/${m.id}/retireAge`] ?? null };
+        const open = v === null ? openEnded(w, m) : null;
+        return {
+          value: v,
+          hint: v === null ? "終わりを決めていない（最後まで）" : null,
+          assumed: w.assumed[`work/${m.id}/retireAge`] ?? null,
+          ...(open !== null ? { warn: open.text, warnFix: { label: open.fix, run: (ww: WorkingHousehold) => estimateWorkEnd(ww, m.id) } } : {}),
+        };
       },
       set: (w, v) => (v === null ? w : setRetireAge(w, m, Number(v))),
       // 時点の部品（0038）: 「65歳」＝65歳になる前の月まで働く。年月（60歳の年度末など）でも入れられる。「5年後」と打っても年月に読む
@@ -525,6 +777,37 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
   };
 }
 
+/** 働き方の入口の選択肢（「働き方を入れる」の1つのボタンの中。選んだ種類で推定を入れて期間を作る） */
+const ENTRY_TYPES: readonly { type: string; label: string }[] = [
+  { type: "regular", label: "正社員" },
+  { type: "partTime", label: "パート・アルバイト" },
+  { type: "contract", label: "契約社員・嘱託（再雇用など）" },
+  { type: "civilServant", label: "公務員" },
+  { type: "executive", label: "会社役員" },
+  { type: "selfEmployed", label: "自営業" },
+  { type: "leave", label: "休業中（産休・育休・病気など）" },
+  { type: "unemployed", label: "働いていない（専業主婦・主夫など）" },
+];
+const ENTRY_HELP =
+  "今の働き方を選びます。年収は統計の目安、終わりは働く最後の年齢の目安（正社員・公務員は定年と65歳までの再雇用、自営業は事務所の既定値、パート・契約は65歳、役員は70歳）を推定で入れます。目安の年齢をもう過ぎている人は、今の働き方のまま65歳（65歳からは今から5年）までにします。どれも後から直せます";
+/** 22歳の4月から始める働き方（勤めの期間は厚生年金の推計に使う）。ほかは計算の基準の月から */
+const FROM_CAREER_START: ReadonlySet<string> = new Set(["regular", "contract", "civilServant", "executive", "selfEmployed"]);
+
+/** 働き方を入れる（入口の選択肢）: 選んだ種類の期間を作り、年収・住民税・働く最後・定年と定年後の予定・退職金の目安を推定で入れる */
+export function startWork(w: WorkingHousehold, m: Member, type: string): WorkingHousehold {
+  const base = w.request.input.baseMonth;
+  const start = FROM_CAREER_START.has(type) ? careerStartMonth(m.birth.birthYearMonth) : base;
+  const p = convertPeriod({ id: newId(), member: m.id, from: { at: start < base ? start : base }, to: null, type }, type, m, base);
+  const working = type !== "unemployed" && type !== "leave";
+  let next = mutate(w, (hh) => {
+    fixPartTimeHealth(hh, m, p);
+    (hh.employmentPeriods ??= []).push(p);
+    if (working) ensureResidentTax(hh, m.id, base, newId);
+  });
+  next = markEmployerDefaults(next, p);
+  return estimateWorkEnd(next, m.id);
+}
+
 function nowGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const h = wh.request.input.household;
   const base = wh.request.input.baseMonth;
@@ -537,37 +820,14 @@ function nowGroup(wh: WorkingHousehold, m: Member): GroupDef {
       note: "働き方が入っていません（収入なしで計算しています）",
       level: "simple",
       fields: [],
-      actions: [
-        {
-          key: `work/${m.id}/start`,
-          label: "会社員として入れる",
-          level: "simple",
-          run: (w) => {
-            const from = careerStartMonth(m.birth.birthYearMonth);
-            const to = addMonths(ageReachedMonth(m, 60), -1);
-            const p = convertPeriod({ id: newId(), member: m.id, from: { at: from < base ? from : base }, to: { at: to }, type: "regular" }, "regular", m, base);
-            const next = mutate(w, (hh) => {
-              (hh.employmentPeriods ??= []).push(p);
-              ensureResidentTax(hh, m.id, base, newId);
-            });
-            // 定年と定年後の予定は推定で入れる（正社員は60歳で定年、65歳まで再雇用。年収は定年前の年収×60〜64歳の平均の割合）
-            return estimatePost(ensureRetirement({ ...next, postRetirement: { ...next.postRetirement, [m.id]: { fromAge: 60, type: null, annualSalary: null } } }, m.id), m);
-          },
-        },
-        {
-          key: `work/${m.id}/startSelf`,
-          label: "自営業として入れる",
-          level: "simple",
-          run: (w) => {
-            const from = careerStartMonth(m.birth.birthYearMonth);
-            const p = convertPeriod({ id: newId(), member: m.id, from: { at: from < base ? from : base }, to: null, type: "selfEmployed" }, "selfEmployed", m, base);
-            return mutate(w, (hh) => {
-              (hh.employmentPeriods ??= []).push(p);
-              ensureResidentTax(hh, m.id, base, newId);
-            });
-          },
-        },
-      ],
+      // 60歳からは、今の働き方（再雇用・嘱託）を先頭に（定年の後の人を正社員の定年・退職金の推定から始めない）
+      actions: (ageAt(m, base) >= 60 ? [...ENTRY_TYPES.filter((e) => e.type === "contract"), ...ENTRY_TYPES.filter((e) => e.type !== "contract")] : ENTRY_TYPES).map((e) => ({
+        key: e.type === "regular" ? `work/${m.id}/start` : e.type === "selfEmployed" ? `work/${m.id}/startSelf` : `work/${m.id}/start/${e.type}`,
+        label: e.label,
+        level: "simple" as const,
+        choice: { key: `work/${m.id}/entry`, label: "働き方を入れる", help: ENTRY_HELP },
+        run: (w: WorkingHousehold) => startWork(w, m, e.type),
+      })),
     };
   const find = byId(periods, cur.id);
   // 詳しい欄は、詳細の「働き方 1・2…」のまとまりに出す（同じ期間を2か所に出さない）。このまとまりは標準のときだけ出す
@@ -646,17 +906,26 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
       options: EMPLOYMENT_TYPES,
       structural: true,
       get: (w) => ({ value: (find(w.request.input.household, w)?.type as string | undefined) ?? null }),
-      // 正社員・公務員にしたら、退職金の目安を最初から入れる（その人の退職金が無く、該当なしにもしていないとき。fill.ts）
-      set: (w, v) =>
-        ensureRetirement(
-          mutate(w, (h, req) => {
-            const list = h.employmentPeriods ?? [];
-            const i = list.findIndex((x) => x.id === p.id);
-            if (i >= 0 && v !== null) list[i] = convertPeriod(list[i] as EmploymentPeriod, String(v), m, req.input.baseMonth);
-            ensureResidentTax(h, m.id, req.input.baseMonth, newId);
-          }),
-          m.id,
-        ),
+      // 種類を変えたら、終わりが無いか推定のままなら働く最後・定年の推定を新しい種類で入れ直し（refitWorkEnd）、正社員・公務員にしたら退職金の目安を
+      // 最初から入れる（その人の退職金が無く、該当なしにもしていないとき。fill.ts）。勤め先の初めの値のままの従業員数・週の時間には推定の印
+      set: (w, v) => {
+        const before = (find(w.request.input.household, w) as EmploymentPeriod | undefined)?.type ?? p.type;
+        let next = mutate(w, (h, req) => {
+          const list = h.employmentPeriods ?? [];
+          const i = list.findIndex((x) => x.id === p.id);
+          if (i >= 0 && v !== null) {
+            const conv = convertPeriod(list[i] as EmploymentPeriod, String(v), m, req.input.baseMonth);
+            if (conv.type !== before) fixPartTimeHealth(h, m, conv);
+            list[i] = conv;
+          }
+          ensureResidentTax(h, m.id, req.input.baseMonth, newId);
+        });
+        next = ensureRetirement(refitWorkEnd(next, m, p.id, before), m.id);
+        const now = (next.request.input.household.employmentPeriods ?? []).find((x) => x.id === p.id);
+        if (now === undefined || now.type === before) return next;
+        next = dropMarks(next, [`work/period/${p.id}/size`, `work/period/${p.id}/hours`]);
+        return markEmployerDefaults(next, now);
+      },
     }),
   );
   if (p.type === "leave") fields.push(plain({ key: `${prefix}/leaveKind`, item: "employment.leaveKind", label: "休業の種類", level, kind: "select", options: LEAVE_KINDS, find, path: ["leaveKind"] }));
@@ -1333,16 +1602,22 @@ function addPeriodAction(wh: WorkingHousehold, m: Member, n: number): ActionDef 
     key: `work/${m.id}/addPeriod`,
     label: `＋ ${memberLabel(wh, m.id)}の働き方 ${n}`,
     level: "detail",
-    help: "正社員→育休→時短→退職→パート、定年→再雇用のように、働き方を期間に分けて並べます。期間は重ならないようにします。足した期間は、前の期間の次の月からパート・アルバイトで始まります（種類・始まり・終わりは足した後に直せます）",
+    help: "正社員→育休→時短→退職→パート、定年→再雇用のように、働き方を期間に分けて並べます。期間は重ならないようにします。足した期間は、前の期間の次の月からパート・アルバイトで5年間です（種類・始まり・終わりは足した後に直せます）",
     run: (w) => {
       const ps = periodsOf(w.request.input.household, m.id);
       const lastEnd = ps.map((p) => p.to?.at).filter((x): x is string => x !== undefined).sort().at(-1);
       const from = lastEnd !== undefined ? addMonths(lastEnd, 1) : w.request.input.baseMonth;
-      const p = convertPeriod({ id: newId(), member: m.id, from: { at: from }, to: { at: addMonths(ageReachedMonth(m, 65), -1) < from ? from : addMonths(ageReachedMonth(m, 65), -1) }, type: "partTime" }, "partTime", m, w.request.input.baseMonth);
-      return mutate(w, (hh, req) => {
+      // 終わりは始まりから5年（90歳になる前の月まで。1か月だけの期間を作らない）
+      const cap = addMonths(ageReachedMonth(m, 90), -1);
+      const five = addMonths(from, 59);
+      const to = five < cap ? five : cap < from ? from : cap;
+      const p = convertPeriod({ id: newId(), member: m.id, from: { at: from }, to: { at: to }, type: "partTime" }, "partTime", m, w.request.input.baseMonth);
+      const next = mutate(w, (hh, req) => {
+        fixPartTimeHealth(hh, m, p);
         (hh.employmentPeriods ??= []).push(p);
         ensureResidentTax(hh, m.id, req.input.baseMonth, newId);
       });
+      return markEmployerDefaults(next, p);
     },
   };
 }

@@ -116,13 +116,16 @@ const APP_PRESETS: readonly PresetDef[] = [
   p("preset.health.mutualAidRate", "0.0490", "pct", "給与・収入", "共済組合・健康保険組合の保険料率の目安（本人の負担分。協会けんぽの料率が読めないとき）", "fill", "仮の値"),
   p("preset.residentTax.socialInsuranceRatio", "0.15", "pct", "給与・収入", "住民税の概算で収入から引く社会保険料の割合", "fill", "仮定"),
   p("preset.work.retirementAge", 60, "age", "給与・収入", "定年（会社員）", "fill"),
+  // 自営業は定年が無い。入れないと表の最後まで事業所得が入るので、推定の印で70歳を入れる（見本の自営業の世帯も70歳）
+  p("preset.work.selfEmployedRetireAge", 70, "age", "給与・収入", "自営業の働く最後の年齢", "fill"),
   p("preset.retirement.executiveMultiplier", "1", "coef", "退職金", "役員の退職金の功績倍率", "fill", "出典なし（役員の地位でおよそ1.0〜3.0）"),
   p("preset.retirement.dbYears", 10, "yearCount", "退職金", "確定給付企業年金の年金で受け取る年数", "template"),
   p("preset.retirement.dbLumpShare", "0.5", "pct", "退職金", "確定給付企業年金の一時金と年金の併用: 一時金の割合", "template"),
   p("preset.work.employerSize", 300, "count", "給与・収入", "ヒアリングシートの勤め先の規模（空欄のとき。人）", "fill", "仮の値"),
   p("preset.work.employerSize.partTime", 30, "count", "給与・収入", "ヒアリングシートの勤め先の規模（パート。空欄のとき。人）", "fill", "仮の値"),
   p("preset.work.weeklyHours", 40, "hours", "給与・収入", "ヒアリングシートの勤務時間（空欄のとき。週）", "fill", "仮の値"),
-  p("preset.work.weeklyHours.partTime", 20, "hours", "給与・収入", "ヒアリングシートの勤務時間（パート。空欄のとき。週）", "fill", "仮の値"),
+  // パートの年収の推定（週15時間）とそろえた（2026-11-07。前は20時間）
+  p("preset.work.weeklyHours.partTime", 15, "hours", "給与・収入", "ヒアリングシートの勤務時間（パート。空欄のとき。週）", "fill", "仮の値", "guide", 2),
   // ---- 車 ----
   p("preset.car.everyYears", 8, "yearCount", "車", "車の乗り換えの間隔", "fill", "仮の値"),
   p("preset.car.price", 2500000, "yen", "車", "車の新車の価格", "fill", "仮の値", "market"),

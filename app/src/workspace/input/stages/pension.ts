@@ -54,7 +54,10 @@ export function defaultDocument(m: Member, baseMonth: string): string {
 
 /** 書類からの記録で、老齢基礎年金・老齢厚生年金の額がどちらもまだ入っていない（0円で計算中） */
 export function amountsUnentered(rec: PensionRecord | undefined): boolean {
-  return rec !== undefined && DOC_SET.has(rec.kind) && isUnentered(rec.amounts?.basic) && isUnentered(rec.amounts?.employee);
+  if (rec === undefined || !DOC_SET.has(rec.kind)) return false;
+  // 50歳未満の定期便は老齢厚生年金の額だけ（老齢基礎年金は加入月数から計算する）
+  if (rec.kind === "statementUnder50") return isUnentered(rec.amounts?.employee) && (rec.amounts?.basic === undefined || isUnentered(rec.amounts.basic));
+  return isUnentered(rec.amounts?.basic) && isUnentered(rec.amounts?.employee);
 }
 
 /** 残した前の記録（構成員ごと・入れ方ごとに1件） */
@@ -95,6 +98,12 @@ export function convertRecord(h: Household, m: Member, rec: PensionRecord | unde
   if (STATEMENTS.has(kind)) {
     out.months = rec?.months ?? { basic: 0, employee: 0 };
     out.amounts = { ...rec?.amounts, ...amounts };
+    // 50歳未満の定期便の老齢基礎年金の額は計算に使わない（加入月数から計算する。エンジンの pension.record）ので、未入力の印の箱は置かない
+    if (kind === "statementUnder50" && isUnentered(out.amounts.basic)) {
+      const { basic: _b, ...rest } = out.amounts;
+      void _b;
+      out.amounts = rest;
+    }
   } else if (kind === "receiving" || kind === "projection") {
     out.amounts = { ...rec?.amounts, ...amounts };
     if (rec?.months !== undefined) out.months = rec.months;
@@ -122,6 +131,8 @@ export function switchPension(wh: WorkingHousehold, memberId: string, target: st
   if ((cur === undefined && to === "") || (cur !== undefined && cur.kind === target)) return wh;
   let kept = keptOf(wh, memberId);
   let next: PensionRecord | null;
+  // 新しく作った記録か（残した記録に戻したとき・同じ区分の中で種類を変えたときは、前の記録の加入月数をそのまま引き継ぐ）
+  let fresh = false;
   if (cur !== undefined && from === to) next = convertRecord(h, m, cur, target, base);
   else {
     if (cur !== undefined) kept = [...kept.filter((r) => modeOf(r) !== from), structuredClone(cur)];
@@ -134,6 +145,7 @@ export function switchPension(wh: WorkingHousehold, memberId: string, target: st
         // 残した記録が無ければ、今の記録の時点・受け取り開始を引き継いで新しく作る（今の記録は残したので、別の ID にする）
         const seed: PensionRecord | undefined = cur === undefined ? undefined : { id: newId(), member: cur.member, kind: cur.kind, asOf: cur.asOf, ...(cur.claim !== undefined ? { claim: structuredClone(cur.claim) } : {}) };
         next = convertRecord(h, m, seed, target, base);
+        fresh = true;
       }
     }
   }
@@ -146,7 +158,9 @@ export function switchPension(wh: WorkingHousehold, memberId: string, target: st
     const mm = hh.members.find((x) => x.id === memberId);
     if (next === null && cur?.claim !== undefined && mm !== undefined && mm.pensionClaim === undefined) mm.pensionClaim = structuredClone(cur.claim);
   });
-  return withKept(w, memberId, kept);
+  // 新しく定期便にしたら、加入月数に代わりの値を推定の印で入れておく（0か月のまま年金を少なく・0円で計算しない。定期便を見たら写す）
+  const done = withKept(w, memberId, kept);
+  return fresh ? fillMonths(done, memberId, "estimated") : done;
 }
 
 // ---- 定期便の加入月数（書類で確かめるまでの代わりの値） ----
@@ -375,7 +389,7 @@ const AMOUNT_LABEL: Record<string, [string, string]> = {
 
 /** 額の欄の説明（写す書類の欄） */
 const AMOUNT_HELP: Record<string, string> = {
-  statementUnder50: "ねんきん定期便の「これまでの加入実績に応じた年金額」の欄の額。これからの加入の分は、働き方の期間から足します",
+  statementUnder50: "ねんきん定期便の「これまでの加入実績に応じた年金額」の欄の老齢厚生年金の額。これからの加入の分は、働き方の期間から足します。老齢基礎年金は加入月数から計算するので、額は写しません",
   statementOver50: "ねんきん定期便の「老齢年金の見込額」の欄の額（60歳まで今の加入を続けたときに65歳から受け取る額）",
   receiving:
     "年金額改定通知書の年金額（年額）。加給年金・振替加算は計算で足すので、除いて写します（二重になりません）。年金振込通知書の額（2か月分・税などを引いた後）ではありません",
@@ -505,7 +519,14 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
   fields.push(plain({ key: `${prefix}/asOf`, item: "pensionRecord.asOf", label: rec.kind === "history" ? "加入歴の終わりの月" : "書類の作成年月", level: "simple", kind: "ym", find, path: ["asOf"], help: "この月より後の加入は、働き方の期間から足します" }));
   if (STATEMENTS.has(rec.kind)) {
     fields.push(
-      monthsField(m, rec, "basic", "国民年金の加入月数", 600, "定期便の「加入期間」の欄の国民年金（計）。免除・猶予の月は含めません。定期便が手元に無ければ「書類で確かめる」（代わりの値で計算）"),
+      monthsField(
+        m,
+        rec,
+        "basic",
+        "国民年金の加入月数",
+        600,
+        "老齢基礎年金の額に数える月数です。定期便の「年金加入期間 合計（未納月数を除く）」の月数（国民年金 計〔第1号・第3号〕と厚生年金保険 計の合計）を写します。会社員・公務員の厚生年金の月も老齢基礎年金の月に数えるので、「国民年金 計」だけでは足りません。20歳前・60歳からの厚生年金の月と、免除・猶予の月は含めません。定期便が手元に無ければ空欄のまま（20歳の月から作成年月までの代わりの値で計算）",
+      ),
       monthsField(m, rec, "employee", "厚生年金の加入月数", 900),
       plain({ key: `${prefix}/months/qualifying`, item: "pensionRecord.months", label: "受給資格期間の月数", level: "detail", kind: "int", suffix: "か月", min: 0, max: 900, find, path: ["months", "qualifying"], optional: true, help: "入れなければ、加入月数と免除・猶予の月数の合計" }),
     );
@@ -513,14 +534,30 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
   const labels = AMOUNT_LABEL[rec.kind];
   if (labels !== undefined) {
     const help = AMOUNT_HELP[rec.kind];
+    // 50歳未満の定期便の老齢基礎年金の額は写さない（計算は加入月数から。同じ物を二重に持たない）
+    if (rec.kind !== "statementUnder50")
+      fields.push(yenBox({ key: `${prefix}/amounts/basic`, item: "pensionRecord.amounts", label: labels[0], level: "simple", basis: "annual", find, path: ["amounts", "basic"], optional: true, ...(help !== undefined ? { help } : {}) }));
     fields.push(
-      yenBox({ key: `${prefix}/amounts/basic`, item: "pensionRecord.amounts", label: labels[0], level: "simple", basis: "annual", find, path: ["amounts", "basic"], optional: true, ...(help !== undefined ? { help } : {}) }),
       yenBox({ key: `${prefix}/amounts/employee`, item: "pensionRecord.amounts", label: labels[1], level: "simple", basis: "annual", find, path: ["amounts", "employee"], optional: true, ...(help !== undefined ? { help } : {}) }),
       yenBox({ key: `${prefix}/amounts/transitional`, item: "pensionRecord.amounts", label: "経過的加算", level: "detail", basis: "annual", find, path: ["amounts", "transitional"], optional: true, help: "入れなければ加入月数から計算します" }),
       yenBox({ key: `${prefix}/amounts/special`, item: "pensionRecord.amounts", label: "特別支給の老齢厚生年金（報酬比例部分）", level: "detail", basis: "annual", find, path: ["amounts", "special"], optional: true, help: "入れなければ生年月と加入の記録から計算します（対象の生年月の人だけ）" }),
     );
   }
-  fields.push(...claimFields(m, find, prefix));
+  // 受給中（年金額改定通知書）は受け取り開始を選ばない（計算は今受け取っている年金とみなし、受け取り開始を読まない）。読むだけの1行
+  if (rec.kind === "receiving")
+    fields.push(
+      field({
+        key: `${prefix}/receivingNow`,
+        item: null,
+        label: "受け取り開始",
+        level: "simple",
+        kind: "text",
+        readOnly: "年金額改定通知書の額で、今受け取っている年金として計算します（受け取り開始は変えられません）。繰下げを待っていて、まだ受け取っていない人は、書類の種類を「ねんきん定期便（50歳以上）」にして受け取り開始を入れます",
+        get: () => ({ value: "受給中（今の年金額で計算）" }),
+        set: (w) => w,
+      }),
+    );
+  else fields.push(...claimFields(m, find, prefix));
   const missing = statementMonthsMissing(rec);
   const actions: ActionDef[] = missing ? [{ key: `${prefix}/months/unknown`, label: "加入月数を書類で確かめる（それまで代わりの値で計算する）", level: "simple", run: (w) => fillMonths(w, m.id, "unknown") }] : [];
   const notes = [...(missing ? [monthsMissingText(rec.kind)] : []), ...(kept.length > 0 ? ["前の入れ方の記録を残しています（入れ方を戻すと戻ります）"] : [])];
