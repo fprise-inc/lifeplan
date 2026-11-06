@@ -99,6 +99,7 @@
       "required": ["investmentReturn"],
       "properties": {
         "investmentReturn": { "title": "運用利回り（年率）", "x-item": "assumptions.investmentReturn", "$ref": "urn:financia:schema:common#/$defs/yearSeries" },
+        "depositReturn": { "title": "預金の利回り（年率。預金・外貨預金の資産クラスが資産クラスごとの利回りに無いときに使う。省略は運用利回り。0137）", "x-item": "assumptions.depositReturn", "$ref": "urn:financia:schema:common#/$defs/yearSeries" },
         "wageGrowth": { "title": "賃金上昇率（年率。省略は0）", "x-item": "assumptions.wageGrowth", "$ref": "urn:financia:schema:common#/$defs/yearSeries" },
         "inflation": { "title": "物価上昇率（年率。省略は0。年金額の改定に使う）", "x-item": "assumptions.inflation", "$ref": "urn:financia:schema:common#/$defs/yearSeries" },
         "educationInflation": { "title": "教育費の上昇率（年率。省略は物価上昇率。学費・学校外活動費に使い、公的支援には使わない）", "x-item": "assumptions.educationInflation", "$ref": "urn:financia:schema:common#/$defs/yearSeries" },
@@ -1012,10 +1013,10 @@
             "builtYear": { "description": "建物が建った年（省略は取得の年。取得も無ければ時価の時点の年＝新築とみなす）", "$ref": "urn:financia:schema:common#/$defs/year" },
             "landShare": { "description": "土地の割合（0〜1。評価額と取得価額を土地と建物に分ける。省略は前提の realEstateValuation.landShare か目安）", "$ref": "urn:financia:schema:common#/$defs/rate" },
             "acquisition": {
-              "description": "取得（減価償却の基。price は土地と建物の合計の取得価額、at は取得の年月）",
+              "description": "取得（減価償却の基。price は土地と建物の合計の取得価額、at は取得の年月。取得の年月だけでもよい〔price の省略は取得価額が未入力で、減価償却・帳簿価額・売ったときの取得費に使わない。0137〕）",
               "type": "object",
               "additionalProperties": false,
-              "required": ["price", "at"],
+              "required": ["at"],
               "properties": {
                 "price": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                 "at": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
@@ -1397,7 +1398,8 @@
             "asOf": { "description": "value の時点（省略は購入の月。購入が無ければ計算基準月）", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
             "structure": { "description": "建物の構造（省略は木造）", "enum": ["wood", "lightSteel", "steel", "rc"] },
             "builtYear": { "description": "建物が建った年（省略は asOf の年。新築とみなす）", "$ref": "urn:financia:schema:common#/$defs/year" },
-            "landShare": { "description": "土地の割合（0〜1。省略は前提の realEstateValuation.landShare か目安）", "$ref": "urn:financia:schema:common#/$defs/rate" }
+            "landShare": { "description": "土地の割合（0〜1。省略は前提の realEstateValuation.landShare か目安）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "basis": { "description": "評価の基にする額の入れ方（画面の側。market 今の時価・purchase 買った値段。計算エンジンは読まない。省略は画面が asOf から読む）", "enum": ["market", "purchase"] }
           }
         },
         "sale": {
@@ -1408,7 +1410,8 @@
           "properties": {
             "price": { "description": "売却価格（省略はその年の評価額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
             "costRate": { "description": "売却の費用の割合（省略は前提の realEstateValuation.saleCostRate か目安）", "$ref": "urn:financia:schema:common#/$defs/rate" },
-            "tax": { "description": "譲渡所得の税の額（所得税・住民税の合計。入れた額を売った月に払う。省略は税を計算しない〔知らせ N_NOT_SUPPORTED〕。0053）", "$ref": "urn:financia:schema:common#/$defs/boxYen" }
+            "tax": { "description": "譲渡所得の税の額（所得税・住民税の合計。入れた額を売った月に払う。省略は税を計算しない〔知らせ N_NOT_SUPPORTED〕。0053）", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+            "repayLoan": { "description": "売ったときに、この住まいの住宅ローン（debt.housing.residence がこの住まい、無ければ借入の月に購入する・住んでいる持ち家）を住み終わりの月に一括で返す（省略は返す。収益不動産の sale.repayLoan と同じ。debt.schedule 改訂6）", "type": "boolean" }
           }
         }
       }

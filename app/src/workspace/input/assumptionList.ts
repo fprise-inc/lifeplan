@@ -40,7 +40,7 @@ export interface AssumptionRow {
   warn: string | null;
 }
 
-const ECONOMY = new Set(["assume/inflation", "assume/wageGrowth", "assume/investmentReturn", "assume/educationInflation", "assume/pensionMacroSlide", "assume/pensionMacroSlideEmployee"]);
+const ECONOMY = new Set(["assume/inflation", "assume/wageGrowth", "assume/investmentReturn", "assume/depositReturn", "assume/educationInflation", "assume/pensionMacroSlide", "assume/pensionMacroSlideEmployee"]);
 
 function valueText(f: FieldDef, wh: WorkingHousehold): string {
   const v = f.get(wh).value;

@@ -7,6 +7,7 @@
 //   併用（mixed。一括の割合 lumpShare）。分割の額は、受け取りの始まりの残高を回数で等分する（分割の間の利息は扱わない）。
 //   分割で受け取る間は、まだ受け取っていない額を年末の残高に残す
 //   一括は退職所得の一時金（勤続期間は加入の始まり enrolledSince〜受け取りの前の月。掛金納付月数の近似）として retirement.receipts に渡す
+// - 改訂2（0137）: 預金の利回り（assumptions.depositReturn）を読む。預金・外貨預金の資産クラス（cash.deposit・cash.foreign）が前提の資産クラスごとの利回りに無いときの利回り（省略は運用利回りで、前の要求は今までどおり。0137）
 import {
   accountReturnRate,
   addMonths,
@@ -36,7 +37,7 @@ export default defineComponent<{ member: string }, MutualAidOutput>({
   id: "account.mutualAid",
   title: "小規模企業共済の残高と受け取り",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {},
   params: Object.values(P),
   reads: [
@@ -49,6 +50,7 @@ export default defineComponent<{ member: string }, MutualAidOutput>({
     "account.payout",
     "assumptions.investmentReturn",
     "assumptions.assetReturns",
+    "assumptions.depositReturn",
   ],
   memberScope: ["account"],
   input: "member.input",

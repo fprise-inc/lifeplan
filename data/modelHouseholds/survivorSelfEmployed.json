@@ -257,6 +257,9 @@
       "investmentReturn": {
         "default": "0.01"
       },
+      "depositReturn": {
+        "default": "0.001"
+      },
       "wageGrowth": {
         "default": "0.01"
       },

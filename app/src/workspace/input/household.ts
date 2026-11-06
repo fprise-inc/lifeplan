@@ -267,6 +267,8 @@ export function fromRequest(request0: EngineRequest, extras: { memo?: string[]; 
 /** 計算の要求のうち、世帯ごとに変わらない部分の既定（前提条件は事務所の標準値ができるまでの仮の値。0008 の8） */
 export const DEFAULT_ASSUMPTIONS = {
   investmentReturn: { default: "0.01" },
+  // 預金・外貨預金の利回り（普通預金の金利の目安。運用利回りと分ける。0137）
+  depositReturn: { default: "0.001" },
   wageGrowth: { default: "0.01" },
   inflation: { default: "0.01" },
   pensionMacroSlide: { default: "0.004" },

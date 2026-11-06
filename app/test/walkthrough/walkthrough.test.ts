@@ -143,7 +143,6 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
     panelChecks(() => d);
     watchChecks(() => d, [
       { rule: "negativeNetWorthNow", match: /純資産が|資産に入っていない/, what: "持ち家を標準の欄だけで入れると、今の家が資産に入らず純資産が大きくマイナス" },
-      { rule: "zeroCostBasis", match: /nisa/, what: "NISA を足すと、取得価額が0円で入る" },
     ]);
   });
 
@@ -227,11 +226,15 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
     it("企業年金を年金で受け取るとき、一時金の欄を未入力に数えない", () => {
       expect(d.notes.seen.retirementCardAfter).not.toContain("未入力");
     });
-    it.fails("1995年に建った持ち家を、今買った新築の扱いで評価しない（建物の評価額が新築の額にならない）", () => {
-      // 評価額 3,000万円・土地の割合30% の持ち家と、評価額 1,500万円の区分マンション。持ち家の建物が新築の扱いなら建物は 3,150万円
-      expect(sum(d.table, "cf.balance.account.realEstate.building", yearOf(d.wh.request))).toBeLessThan(20_000_000);
+    it("1995年に建った持ち家を、今買った新築の扱いで評価しない（建物の評価額が新築の額にならない）", () => {
+      // 評価額 3,000万円の持ち家（1995年築の木造）。新築の扱いなら建物は土地の割合30%の残りの 2,100万円。今の時価で入れたので、
+      // 土地の割合を建った年からの目安（68%）で分け、建物は 1,000万円より少ない
+      const own = h().residences!.find((r) => r.kind === "own")!;
+      const building = d.table.filter((c) => c.object === own.id && c.row === "cf.balance.account.realEstate.building" && c.year === yearOf(d.wh.request)).reduce((a, c) => a + c.amount, 0);
+      expect(building).toBeGreaterThan(0);
+      expect(building).toBeLessThan(10_000_000);
     });
-    it.fails("収益不動産の取得の年月を Backspace で消しても、取得価額が残る", () => {
+    it("収益不動産の取得の年月を Backspace で消しても、取得価額が残る", () => {
       expect(d.notes.seen.acquisitionAfterClear).not.toBe("");
     });
     it("母の亡くなる見込みを直すと、相続の受け取る時期がついてくる", () => {
@@ -250,7 +253,6 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
     watchChecks(() => d, [
       { rule: "pastRetirementEstimate", match: /db/, what: "定年の後に足した企業年金（年金で受け取る）の一時金の額が、推定0円・受け取りが過去のまま残る" },
       { rule: "rowGrouping", match: /corporatePension/, what: "企業年金がキャッシュフロー表の「その他の収入」に入る" },
-      { rule: "zeroCostBasis", match: /taxable/, what: "課税口座を足すと、取得価額が0円で入る" },
       { rule: "screenWords", match: /incomeFlow/, what: "世帯の中身の一覧に内部の名前（incomeFlow）が出る" },
     ]);
   });

@@ -30,7 +30,11 @@ import { readHearingTemplates, type HearingTemplate } from "../hearing/web.ts";
 
 export { STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
 
-/** 前提条件の標準値にできる系列（新しい世帯に写す。値は小数の文字。例: "0.01"） */
+/**
+ * 前提条件の標準値にできる系列（新しい世帯に写す。値は小数の文字。例: "0.01"）。系列の名前は前提条件の年ごとの列の名前（assumptions.<名前>）で、
+ * 前提条件の欄のキー assume/<名前> と仮の印のキーが同じ。預金の利回り（depositReturn。0137）を足すときは、ここに名前を1つ足し、範囲と名前の表に
+ * 1行ずつ添える（既定の値は DEFAULT_ASSUMPTIONS から引く）
+ */
 export const OFFICE_ASSUMPTIONS = ["inflation", "wageGrowth", "investmentReturn", "pensionMacroSlide"] as const;
 export type OfficeAssumption = (typeof OFFICE_ASSUMPTIONS)[number];
 

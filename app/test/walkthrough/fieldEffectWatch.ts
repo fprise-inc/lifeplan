@@ -53,11 +53,11 @@ export const RECORD_ONLY: readonly ShapeRule[] = [
  * （消し忘れると「直す待ちの一覧の欄は、まだ効かない」のテストが落ちる）
  */
 export const NOT_EFFECTIVE_YET: readonly ShapeRule[] = [
-  { shape: "savings:sav/*/mix/*/share", why: "資産配分の割合: 画面に出ているのに、口座の利回りの計算に入らない" },
 ];
 
 /** この点検（欄を1つずつ動かし、キャッシュフロー表・相続税の目安・ご本人の死亡の万一を見る）では効き目を見られない欄。効く条件か見え方を書く */
 export const NOT_OBSERVED: readonly ShapeRule[] = [
+  { shape: "savings:sav/*/mix/*/share", why: "口座の資産の配分の割合は、配分に資産の種類が2つ以上あるときだけ（1つだけの配分はその種類の利回りで、割合によらない）" },
   { shape: "work:work/period/*/size", why: "勤め先の従業員数は、パートなどの社会保険の加入の境目をまたぐときだけ" },
   { shape: "work:work/period/*/corpDb", why: "勤め先の企業年金の有無は、iDeCo の掛金の上限だけ" },
   { shape: "work:work/period/*/endsWith", why: "辞め方は、辞めた後に失業給付を受け取る人だけ" },
@@ -78,6 +78,7 @@ export const NOT_OBSERVED: readonly ShapeRule[] = [
   { shape: "housing:housing/debt/*/rateType", why: "金利の種類は、金利の見込みが「今の金利のまま」では効かない" },
   { shape: "rental:housing/debt/*/rateType", why: "金利の種類は、金利の見込みが「今の金利のまま」では効かない" },
   { shape: "car:housing/debt/*/rateType", why: "金利の種類は、金利の見込みが「今の金利のまま」では効かない" },
+  { shape: "housing:housing/debt/*/refinance/*/rateType", why: "借り換えの新しい金利の種類は、5年ルール・125%ルール・変動金利の上乗せ（ストレステスト）が効くときだけ" },
   { shape: "housing:housing/debt/*/cap125", why: "125%ルールは、金利が上がる見込みのときだけ" },
   { shape: "housing:housing/debt/*/rateCutPeriod", why: "当初の金利の引き下げの期間は、引き下げ幅と組で効く" },
   { shape: "housing:housing/debt/*/clHigh", why: "団信の特約は、就業不能・病気の想定だけ" },

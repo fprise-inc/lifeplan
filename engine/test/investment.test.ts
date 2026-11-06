@@ -162,6 +162,40 @@ describe("入れ方（合計・口座・資産配分）（0026）", () => {
     expect(cells(r, "cf.balance.account.taxable", 2026)).toBe(10300000);
   });
 
+  it("預金の利回り（0137）: 預金・外貨預金・資産配分の現金は、資産の種類ごとの利回りに無ければ預金の利回り。省略は運用利回り（前の要求は今までどおり）", () => {
+    const fx = { id: uid("fx"), kind: "fxDeposit", owner: A, marketValue: box(1000000), asOf: "2025-12", contributions: [] };
+    const req = (deposit?: string, own?: string) =>
+      mk([dep(10000000), fx, tx(10000000, 0)], (_h, input) => {
+        const a = input.assumptions as Obj;
+        a.investmentReturn = { default: "0.03" };
+        if (deposit !== undefined) a.depositReturn = { default: deposit };
+        if (own !== undefined) a.assetReturns = { "cash.deposit": { default: own } };
+      });
+    const bal = (r: ReturnType<typeof full>, row: string) => cells(r, row, 2026);
+    // 預金の利回りが無い: 預金・外貨預金も運用利回り（3%）
+    const old = full(req());
+    expect(bal(old, "cf.balance.account.fxDeposit")).toBe(1030000);
+    // 預金の利回り 0.1%: 外貨預金は 1,001,000円、課税口座は運用利回りのまま
+    const r = full(req("0.001"));
+    expect(bal(r, "cf.balance.account.fxDeposit")).toBe(1001000);
+    expect(bal(r, "cf.balance.account.taxable")).toBe(bal(old, "cf.balance.account.taxable"));
+    expect(bal(r, "cf.balance.financial")).toBeLessThan(bal(old, "cf.balance.financial"));
+    // 資産の種類ごとの利回りに預金があれば、そちら（外貨預金は預金の利回りのまま）
+    const ownR = full(req("0.001", "0.002"));
+    expect(bal(ownR, "cf.balance.account.fxDeposit")).toBe(1001000);
+    expect(bal(ownR, "cf.balance.financial")).toBeGreaterThan(bal(r, "cf.balance.financial"));
+    // 資産配分の現金（cash.deposit）も預金の利回り
+    const alloc = mk([dep(0), tx(10000000, 0)], (_h, input) => {
+      const a = input.assumptions as Obj;
+      a.investmentReturn = { default: "0.03" };
+      a.depositReturn = { default: "0.001" };
+      a.assetReturns = { "equity.global": { default: "0.06" } };
+      a.investment = { method: "allocation", allocation: { mix: [{ assetClass: "equity.global", share: "0.5" }, { assetClass: "cash.deposit", share: "0.5" }] } };
+    });
+    // 6%×0.5＋0.1%×0.5 = 3.05%
+    expect(cells(full(alloc), "cf.balance.account.taxable", 2026)).toBe(10305000);
+  });
+
   it("リバランスしないときは、資産の種類ごとの増え方で割合がずれる（株が増えると利回りも上がる）", () => {
     const mix = [{ assetClass: "equity.global", share: "0.5" }, { assetClass: "bond.global", share: "0.5" }];
     const run = (rebalance: boolean) =>
