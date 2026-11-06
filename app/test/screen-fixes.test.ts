@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { PensionRecord } from "../src/engine/types.ts";
 import { allFields, type FieldDef, type Val } from "../src/workspace/input/form.ts";
 import { rejectReason } from "../src/workspace/input/FieldViews.tsx";
-import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { blankHousehold, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
 import { fillEducation } from "../src/workspace/input/fill.ts";
 import { inputItems } from "../src/workspace/input/items.ts";
@@ -17,6 +17,9 @@ import { readLevers } from "../src/workspace/levers.ts";
 import { ageSliderBounds, buildCatalog } from "../src/workspace/plans/items.ts";
 import { applyValues } from "../src/workspace/plans/plans.ts";
 import { modelHousehold, preview } from "./helpers.ts";
+
+/** 推定の額は千円単位に丸める（統計の額×12・時給×時間のまま出さない） */
+const thousand = (v: number): number => Math.round(v / 1000) * 1000;
 
 const BASE = "2026-10";
 
@@ -122,15 +125,17 @@ describe("働き方: 給与の種類どうしで変えたら推定を入れ替�
 
   it("正社員→パート: 推定のままの年収・賞与・健康保険・厚生年金はパートの推定・初めの値になる", () => {
     const { wh, spouse, f } = start();
-    expect(periodOf(wh, spouse.id).salary?.annual.value).toBe(414900 * 12);
+    expect(periodOf(wh, spouse.id).salary?.annual.value).toBe(thousand(414900 * 12));
     const w2 = f("/type").set(wh, "partTime");
     const p = periodOf(w2, spouse.id);
     expect(p.type).toBe("partTime");
-    expect(p.salary?.annual).toMatchObject({ value: 1518 * 15 * 52, state: "estimated" });
+    expect(p.salary?.annual).toMatchObject({ value: thousand(1518 * 15 * 52), state: "estimated" });
     expect(p.salary?.bonus).toMatchObject({ value: 0, state: "estimated" });
-    expect(p.healthInsurance?.kind).toBe("dependent");
+    // 健康保険の初めの値は、配偶者（ご本人）が勤め先の健康保険のときだけ家族の扶養。ご本人は働き方が無いので国民健康保険
+    expect(p.healthInsurance?.kind).toBe("national");
     expect(p.pensionCategory).toBe("none");
-    expect(p.employer).toEqual({ size: 50, weeklyHours: "20" });
+    // 週の時間の初めの値は年収の推定（週15時間）とそろえる
+    expect(p.employer).toEqual({ size: 50, weeklyHours: "15" });
     // 標準報酬月額は書かない（勤め先の保険に入らないパート。入る働き方でも空欄なら給与から毎年決め直す。0047 の追記 2026-10-29 の2）
     expect(p.standardMonthlyRemuneration).toBeUndefined();
     expect(() => preview(w2.request)).not.toThrow();
@@ -160,6 +165,13 @@ describe("年金: 定期便の加入月数が0か月のままを黙って0円に
     // 入れ方の区分「書類から」を選ぶと、年齢（53歳）から書類の種類は定期便（50歳以上）になる（0066）
     wh = fieldOf(wh, "pension", `pension/${self.id}/mode`).set(wh, "document");
     expect(wh.request.input.household.pensionRecords?.[0]?.kind).toBe("statementOver50");
+    // 定期便にした時点で加入月数に代わりの値が入る。ここでは前の版で保存した、0か月のままの定期便を見る
+    wh = mutate(wh, (h) => {
+      for (const r of h.pensionRecords ?? []) {
+        r.months = { basic: 0, employee: 0 };
+        delete r.valueStates;
+      }
+    });
     wh = set(wh, "pension", "/amounts/basic", 780000);
     wh = set(wh, "pension", "/amounts/employee", 1250000);
     return { wh, self };
