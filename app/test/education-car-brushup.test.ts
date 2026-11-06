@@ -221,7 +221,8 @@ describe("奨学金・教育ローン・留学・子への援助", () => {
     expect(giftDonorOptions(w, undefined)).toEqual([]);
     const withDonor = mutate(w, (h) => void (h.donors = [{ id: "00000000-0000-4000-8000-0000000000d9", kind: "grandparent", of: h.members[0]!.id }]));
     const opts = giftDonorOptions(withDonor, undefined);
-    expect(opts.map((o) => o.label)).toEqual(["世帯から出す", "ご本人の祖父母から出す"]);
+    // 生年月の無い贈与する人は「生年月を入れない贈与する人（…）」と書く（介護・親の親と見分けるため。0135）
+    expect(opts.map((o) => o.label)).toEqual(["世帯から出す", "生年月を入れない贈与する人（ご本人の祖父母）から出す"]);
     const donor = fieldIn(edu(withDonor), `edu/${g.id}/gift/0/donor`);
     expect([donor.label, donor.level]).toEqual(["出す人", "simple"]);
   });
