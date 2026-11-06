@@ -47,7 +47,7 @@ fn ratio_white(hex: &str) -> f64 {
 #[test]
 fn box_colors_keep_white_text_readable() {
     let cs = typst_colors();
-    assert_eq!(cs.len(), 10, "{cs:?}");
+    assert_eq!(cs.len(), 11, "{cs:?}");
     for (k, c) in &cs {
         let r = ratio_white(c);
         assert!(r >= 4.5, "{k} {c}: 白い文字との差 {r:.2}");
@@ -65,6 +65,7 @@ fn box_colors_match_the_app() {
         ("building", "building"),
         ("illiquidOther", "car"),
         ("mortgage", "mortgage"),
+        ("propertyLoan", "propertyLoan"),
         ("debt", "carLoan"),
         ("netWorth", "netWorth"),
     ];

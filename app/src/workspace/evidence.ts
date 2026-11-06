@@ -2,10 +2,10 @@
 // 提示層に渡すのは EvidenceView（式・制度の値・出典・制度データの版）だけ。部品の指紋・入力の物の ID などは渡さない
 import type { FullResult, TraceNode } from "../engine/types.ts";
 import type { EngineRequest } from "../engine/types.ts";
-import { PARAM_LABELS } from "../generated/labels.ts";
+import { PARAM_LABELS, ROW_LABELS } from "../generated/labels.ts";
 import type { EvidenceView } from "../presentation/model.ts";
 import { group } from "../presentation/format.ts";
-import { FORMULA_LABELS } from "./formulas.ts";
+import { FORMULA_LABELS, INPUT_ONLY_FORMULAS, PROPERTY_LOAN_LABELS } from "./formulas.ts";
 import { rowDefs } from "./present.ts";
 import type { OfficeRowNames } from "../../../report/src/rowNames.ts";
 import { surplusEvidenceNote } from "./surplus.ts";
@@ -59,28 +59,65 @@ export function collectParams(nodes: readonly TraceNode[], start: number, depth 
   return [...out.values()];
 }
 
+/**
+ * 住まい以外の不動産の物件名（物の ID → 名前）。物件の器と、その物件を指す負債の両方から引く。名前の無い物件は「物件1」「物件2」…
+ * （収益不動産の物件の並びの番号）
+ */
+export function propertyNames(req: EngineRequest): Map<string, string> {
+  const h = req.input.household;
+  const out = new Map<string, string>();
+  (h.accounts ?? [])
+    .filter((a) => a.kind === "realEstate" && a.property !== undefined)
+    .forEach((a, i) => {
+      const n = a.property?.name;
+      out.set(a.id, n !== undefined && n.trim() !== "" ? n : `物件${i + 1}`);
+    });
+  for (const d of h.debts ?? []) {
+    const n = d.property === undefined ? undefined : out.get(d.property);
+    if (n !== undefined) out.set(d.id, n);
+  }
+  return out;
+}
+
+/** 表の行の名前（名前の無い行は「そのほかの計算」）。計算式の名前がまだ無いときに、計算の部品の名前の代わりに出す（0127） */
+function rowName(row: string): string {
+  return ROW_LABELS[row] ?? "そのほかの計算";
+}
+
+/** 内訳の1行の名前（物件の分は「家賃収入（見本ハイツ）」。物件のローンの返済は住宅ローンの名前にしない。名前の無い計算式は表の行の名前） */
+function breakdownLabel(formula: string, row: string, property: string | null): string {
+  const label = (property !== null ? PROPERTY_LOAN_LABELS[formula] : undefined) ?? FORMULA_LABELS[formula]?.label ?? rowName(row);
+  return property === null ? label : `${label}（${property}）`;
+}
+
 /** names は表の行の事務所の名前（根拠の見出しの行の名前。表と同じ名前にする） */
 export function buildEvidence(full: FullResult, req: EngineRequest, rowKey: string, year: number, names?: OfficeRowNames): EvidenceView | null {
   const def = rowDefs(req, names).find((d) => d.key === rowKey);
   if (def === undefined) return null;
   const byAccrual = full.header.calcConventions?.aggregation === "accrual";
-  const breakdown = new Map<string, number>();
+  // 内訳の1行: 計算式ごと。住まい以外の不動産（物件・その物件のローン）の分は物件ごとに分け、物件名を添える（0127）
+  const breakdown = new Map<string, { formula: string; row: string; property: string | null; amount: number }>();
   const calls = new Set<number>();
+  const propertyOf = propertyNames(req);
   let total = 0;
+  const add = (formula: string, row: string, object: string | undefined, amount: number, t: number | undefined) => {
+    total += amount;
+    const property = object === undefined ? null : (propertyOf.get(object) ?? null);
+    const key = `${formula}|${property ?? ""}`;
+    const b = breakdown.get(key) ?? { formula, row, property, amount: 0 };
+    b.amount += amount;
+    breakdown.set(key, b);
+    // 入力した値だけから出す式は、部品がほかの計算のために読んだ制度の値を「使った制度の値」に並べない
+    if (t !== undefined && !INPUT_ONLY_FORMULAS.has(formula)) calls.add(t);
+  };
   full.flows.forEach((f, i) => {
     const y = byAccrual ? f.accrualYear : Number(f.ym.slice(0, 4));
     if (y !== year || !def.match({ row: f.row, year: y, amount: f.amount, ...(f.member !== undefined ? { member: f.member } : {}), ...(f.object !== undefined ? { object: f.object } : {}) })) return;
-    total += f.amount;
-    breakdown.set(f.formula, (breakdown.get(f.formula) ?? 0) + f.amount);
-    const t = full.trace.flows[i];
-    if (t !== undefined) calls.add(t);
+    add(f.formula, f.row, f.object, f.amount, full.trace.flows[i]);
   });
   full.annual.forEach((a, i) => {
     if (a.year !== year || !def.match({ row: a.row, year: a.year, amount: a.amount, ...(a.member !== undefined ? { member: a.member } : {}), ...(a.object !== undefined ? { object: a.object } : {}) })) return;
-    total += a.amount;
-    breakdown.set(a.formula, (breakdown.get(a.formula) ?? 0) + a.amount);
-    const t = full.trace.annual[i];
-    if (t !== undefined) calls.add(t);
+    add(a.formula, a.row, a.object, a.amount, full.trace.annual[i]);
   });
   if (breakdown.size === 0) return null;
   const params = new Map<string, Extract<TraceNode, { type: "param" }>>();
@@ -94,8 +131,8 @@ export function buildEvidence(full: FullResult, req: EngineRequest, rowKey: stri
     title: `${year}年 ${def.label}`,
     total,
     context,
-    breakdown: [...breakdown.entries()].map(([formula, amount]) => ({ label: FORMULA_LABELS[formula]?.label ?? formula, amount })),
-    formulas: [...breakdown.keys()].map((f) => FORMULA_LABELS[f]?.text ?? `計算式 ${f}`),
+    breakdown: [...breakdown.values()].map((b) => ({ label: breakdownLabel(b.formula, b.row, b.property), amount: b.amount })),
+    formulas: [...new Map([...breakdown.values()].map((b) => [b.formula, b.row])).entries()].map(([f, row]) => FORMULA_LABELS[f]?.text ?? `${rowName(row)}（式の説明はまだ載せていません）`),
     params: [...params.values()].map((p) => ({
         label: PARAM_LABELS[p.id] ?? p.id,
         value: paramValueText(p.id, p.value),

@@ -1158,7 +1158,7 @@ function SheetTable({ plan, yi, groups }: { plan: BsPlanModel; yi: number; group
         <caption>負債・純資産</caption>
         {head}
         <tbody>
-          {groupRows(["mortgage", "debt"])}
+          {groupRows(["mortgage", "propertyLoan", "debt"])}
           {row("g", "負債の合計", y.totalLiabilities, y0.totalLiabilities, "tl")}
           {row("g", "純資産", y.netWorth, y0.netWorth, "nw")}
           {row("tot", "負債と純資産の合計", y.totalLiabilities + y.netWorth, y0.totalLiabilities + y0.netWorth, "tt")}

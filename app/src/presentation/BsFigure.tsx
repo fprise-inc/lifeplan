@@ -15,7 +15,7 @@
 //   まとまりの名前・合計・内訳の札。薄くて名前や金額を書けない箱も、これで読める。タッチでは押すと内訳の小窓が開く
 import type { ComponentChildren } from "preact";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "preact/hooks";
-import { allocHeights, figureBoxes, spreadLabels, tickStep, FINANCIAL_GROUPS, type FigBox } from "./bsLayout.ts";
+import { allocHeights, figureBoxes, spreadLabels, tickStep, FINANCIAL_GROUPS, RIGHT_GROUPS, type FigBox } from "./bsLayout.ts";
 import { FigTip, useFigTip, type FigTipData } from "./FigTip.tsx";
 import { group, man } from "./format.ts";
 import { useNarrow } from "./narrow.ts";
@@ -141,8 +141,8 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
   });
   const nw = t.nw?.[0] ?? year.netWorth;
   const shown = { lines, netWorth: nw, ...(year.netParts !== undefined ? { netParts: year.netParts } : {}) };
-  const A = lines.filter((l) => l.group !== "mortgage" && l.group !== "debt").reduce((s, l) => s + l.amount, 0);
-  const L = lines.filter((l) => l.group === "mortgage" || l.group === "debt").reduce((s, l) => s + l.amount, 0);
+  const A = lines.filter((l) => !RIGHT_GROUPS.includes(l.group)).reduce((s, l) => s + l.amount, 0);
+  const L = lines.filter((l) => RIGHT_GROUPS.includes(l.group)).reduce((s, l) => s + l.amount, 0);
   const Tot = Math.max(A, L, 1);
   const SC = Math.max(t.sc?.[0] ?? Tot, Tot);
   const fin = lines.filter((l) => FINANCIAL_GROUPS.includes(l.group)).reduce((s, l) => s + l.amount, 0);

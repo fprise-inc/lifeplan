@@ -13,6 +13,9 @@
 .rt-metric { border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 12px; background: var(--card); display: flex; flex-direction: column; gap: 2px; }
 .rt-metric dt { font-size: 0.8rem; color: var(--ink-2); font-weight: 700; display: flex; align-items: center; gap: 4px; }
 .rt-metric dd { margin: 0; font-size: 1.15rem; font-weight: 700; text-align: left; }
+/* 文の指標（減価償却が終わる年・元金の返済が減価償却費を上回る年）は札の幅で折り返す（切らない。0127） */
+.rt-tab .rt-metric dd.num { white-space: normal; overflow-wrap: anywhere; min-width: 0; }
+.rt-metric.text dd { font-size: 1rem; line-height: 1.4; text-align: left; }
 
 /* 表 */
 .rt-scroll { overflow-x: auto; }

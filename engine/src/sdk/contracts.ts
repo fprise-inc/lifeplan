@@ -615,6 +615,7 @@ export interface RealEstateAnalysisYear extends RealEstateAnalysisAmounts {
   /** 表に載る月のうち貸している月数 */
   readonly months: number;
   readonly age: number | null;
+  /** 残りの耐用年数: その年から建物の減価償却が終わる年までの年数（その年を含む）。実際に償却に使う耐用年数（中古は簡便法）で数える（改訂3。0127） */
   readonly remainingLife: number | null;
   /** 民泊・宿の「1泊の単価×営業日数」の入れ方の値と、年の売上（年換算） */
   readonly lodging?: { readonly occupancy: string; readonly nightly: Yen; readonly days: number; readonly sales: Yen };

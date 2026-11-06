@@ -81,7 +81,7 @@ describe("計算の結果（数字が自然か）", () => {
     const keys = plan.years[0]!.lines.map((l) => l.key);
     for (const k of ["deposit", "zaikei", "nisa", "taxable", "fxDeposit", "esop", "ideco", "corporateDc", "land", "building", "car", "insurance", "otherAsset", "mortgage", "propertyLoan", "carLoan"]) expect(keys, k).toContain(k);
     const groups = new Set(plan.years[0]!.lines.map((l) => l.group));
-    expect([...groups].sort()).toEqual(["debt", "illiquid", "liquid", "locked", "market", "mortgage"]);
+    expect([...groups].sort()).toEqual(["debt", "illiquid", "liquid", "locked", "market", "mortgage", "propertyLoan"]);
   });
 
   it("運用の期間は 積み立てる・据え置く（60〜64歳）・取り崩す（65歳から毎月35万円）。金融資産は100歳まで持つ", () => {

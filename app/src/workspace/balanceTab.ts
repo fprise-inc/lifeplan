@@ -226,6 +226,7 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
       locked: "iDeCo・企業型DC・小規模企業共済など。原則として決まった年齢（iDeCo・企業型DCは60歳）まで引き出せません。受け取ると「すぐ使えるお金」に移ります。",
       illiquid: `住んでいる家・貸している不動産・使っている車・保険の解約返戻金など、すぐにはお金にしにくいもの。${lineOf(i, "ownShares") > 0 ? "自社株は出資額（払い込んだ額）で見ています。実際の株の価値はずっと高いことがあり、相続税に影響します。" : ""}${land + building > 0 ? `不動産は土地（${mn(land)}）と建物（${mn(building)}）に分けて見込んでいます。土地は上昇率で動かし、建物は構造の耐用年数で定額で減らして、建てたときの価値の一定の割合を下限に残します。建物は年数とともに価値が減りますが、土地は残ります。` : ""}`,
       mortgage: `${(loanPay[i] ?? 0) > 0 ? `年間の返済額は${mn(loanPay[i] ?? 0)}。` : ""}${loanEnd !== null && year <= loanEnd ? `${loanEnd}年（${ageText(loanEnd)}）に返し終わる見込みです。` : ""}返済のうち元金の分は、純資産として残ります。`,
+      propertyLoan: "貸している不動産など、住まい以外の不動産を買うために借りたお金です。返済は家賃収入から出す前提で、毎年の支出の「不動産のローンの返済」に入っています。物件を売るときに返す予定なら、売る月に残りを一括で返します。",
       debt: a.shortfall > 0 ? "「資金の不足」は、金融資産が尽きた後に足りない分を、借りている状態として負債に置いたものです（実際には家の売却などで補う必要があります）。" : `車のローン・奨学金など、住宅ローンのほかに借りているお金です。${lineOf(i, "companyLoan") > 0 ? "会社からの借入金の返済は、毎年の支出に入っています。" : ""}`,
       netWorth: "持っているものを全部お金に換えて、借りているものを返したときに残る額です。家や車はすぐには使えないので、それを除いた額も添えています。",
       neg: "負債が資産より多い状態（債務超過）です。家や持ち物を全部お金に換えても、借りている分を返しきれません。左の箱の下に点線で置き、左右の高さをそろえています。",
@@ -262,7 +263,7 @@ export function monthsText(m: number): string {
 /** 控えの見込みの今と今の実際の差の、大きい項目（最大4つ） */
 export function prevItems(expected: BsYearModel, actual: BsYearModel): string[] {
   const keys = new Map<string, { label: string; debt: boolean }>();
-  for (const l of [...expected.lines, ...actual.lines]) keys.set(l.key, { label: l.label, debt: l.group === "mortgage" || l.group === "debt" });
+  for (const l of [...expected.lines, ...actual.lines]) keys.set(l.key, { label: l.label, debt: l.group === "mortgage" || l.group === "propertyLoan" || l.group === "debt" });
   const amt = (m: BsYearModel, k: string) => m.lines.find((l) => l.key === k)?.amount ?? 0;
   return [...keys.entries()]
     .map(([k, v]) => ({ ...v, d: amt(actual, k) - amt(expected, k) }))

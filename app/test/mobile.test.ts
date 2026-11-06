@@ -85,6 +85,7 @@ const groups = {
   locked: { name: "引き出せないお金", short: "引き出せない" },
   illiquid: { name: "換金しにくい資産", short: "換金しにくい" },
   mortgage: { name: "住宅ローン", short: "住宅ローン" },
+  propertyLoan: { name: "不動産のローン", short: "不動産のローン" },
   debt: { name: "その他の負債", short: "その他の負債" },
 };
 const year = (lines: BsYearModel["lines"], netWorth: number): BsYearModel => {
@@ -200,7 +201,7 @@ describe("バランスシートの図: 箱の文字の色と下の線", () => {
     const typ = readFileSync(join(APP_DIR, "..", "report", "typst", "report-core", "parts", "layout.typ"), "utf8");
     const tcol = /#let bs-colors = \(([\s\S]*?)\n\)/.exec(typ)?.[1] ?? "";
     const tvars = [...tcol.matchAll(/(\w+): rgb\("(#[0-9a-f]{6})"\)/g)];
-    expect(tvars.length).toBe(10);
+    expect(tvars.length).toBe(11);
     for (const [, k, c] of tvars) expect(ratio(c as string), `Typst ${k} ${c}`).toBeGreaterThanOrEqual(4.5);
     const get = (k: string) => (vars.find((m) => m[1] === k)?.[2] ?? "") as string;
     expect(lum(get("building"))).toBeGreaterThan(lum(get("land")) * 1.3);

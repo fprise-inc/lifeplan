@@ -228,7 +228,11 @@ export interface ProposalInput {
   events: { year: number; ages: string; items: string[] }[];
   /** ご家族の夢（夢プラン。0103）。夢が無い・章を外したときは null。省略は、この欄の前の版の入力 */
   dreams?: DreamsView | null;
-  cashflow: { current: CfTable; proposal: CfTable };
+  /**
+   * keyYears: 抜粋（layout.cashflow の excerpt）で必ず載せる年。現状と提案の両方の出来事の年（退職・売却・大きな修繕・住まいの購入など。0127）。
+   * 省略は、この欄の前の版の入力（ライフイベント表の年を使う）
+   */
+  cashflow: { current: CfTable; proposal: CfTable; keyYears?: number[] };
   assets: { current: Yen[]; proposal: Yen[] };
   /** 資産と負債の推移（キャッシュフロー表の章の続き。章を外したときは null） */
   balanceSheet: {

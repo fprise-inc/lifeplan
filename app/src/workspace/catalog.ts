@@ -266,6 +266,22 @@ export const DEMO_HOUSEHOLDS: readonly DemoHousehold[] = [
       { name: "プランC 65歳で役員を退く", tags: ["老後"], values: { "lever:retireAge": 65 } },
     ],
   },
+  {
+    id: "rentalSample",
+    sampleNo: "3-4-05",
+    title: "収益不動産を持つ会社員の夫婦と子1人（見本）",
+    traits: ["会社員", "共働き", "持ち家", "住宅ローン", "教育費"],
+    targetAge: 95,
+    steps: { retireAge: [60, 62, 65, 68, 70], pensionAge: [60, 65, 68, 70, 75], nisaMonthly: [0, 30000, 50000, 80000], livingMonthly: [300000, 320000, 340000] },
+    firstProposal: {},
+    reemployment: { fromAge: 60, type: "contract", annualSalary: 4800000, standardMonthlyRemuneration: 400000 },
+    notes: { retireAge: "60歳から再雇用（年収480万円）" },
+    memo: ["木造アパート1棟8戸（2016年に中古で取得）と区分マンション1室を貸している（架空の例）", "アパートは2041年10月（60歳）に売る予定。2029年に外壁・屋根の修繕（架空の例）"],
+    plans: [
+      { name: "プランB 65歳まで働く（60歳から再雇用）", tags: ["老後"], values: { "lever:retireAge": 65 } },
+      { name: "プランC 住宅ローンを300万円繰上返済", tags: ["住宅"], values: { "loan:1a4ab6d6-d333-45e9-97c8-193f070433a8:prepay": 3000000 } },
+    ],
+  },
 ];
 
 /** アプリの見本を見本番号の順に */

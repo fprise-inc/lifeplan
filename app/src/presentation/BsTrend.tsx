@@ -20,6 +20,7 @@ export const TREND_ASSETS: readonly { key: string; label: string; of: (y: BsYear
 ];
 export const TREND_DEBTS: readonly { key: string; label: string; of: (y: BsYearModel) => Yen }[] = [
   { key: "mortgage", label: "住宅ローン", of: (y) => sumWhere(y, (l) => l.group === "mortgage") },
+  { key: "propertyLoan", label: "不動産のローン", of: (y) => sumWhere(y, (l) => l.group === "propertyLoan") },
   { key: "debt", label: "その他の負債", of: (y) => sumWhere(y, (l) => l.group === "debt" && l.key !== "short") },
   { key: "short", label: "資金の不足", of: (y) => y.shortfall },
 ];

@@ -47,7 +47,7 @@ export interface CombinedBsChapter {
   notices: string[];
 }
 
-const SHORT: Record<BsGroup, string> = { liquid: "現預金", market: "値動きあり", locked: "引き出せない", illiquid: "そのほかの資産", mortgage: "住宅ローン", debt: "借入金など" };
+const SHORT: Record<BsGroup, string> = { liquid: "現預金", market: "値動きあり", locked: "引き出せない", illiquid: "そのほかの資産", mortgage: "住宅ローン", propertyLoan: "不動産のローン", debt: "借入金など" };
 
 function fig(c: CombinedColumn, sub: string): CombinedFigureColumn {
   const box = (g: BsGroup) => ({ key: g, label: SHORT[g], amount: groupTotal(c, g) });
@@ -56,7 +56,7 @@ function fig(c: CombinedColumn, sub: string): CombinedFigureColumn {
     name: c.name,
     sub,
     assets: (["liquid", "market", "locked", "illiquid"] as const).map(box).filter((b) => b.amount > 0),
-    liabilities: [box("mortgage"), box("debt"), ...net].filter((b) => b.amount > 0),
+    liabilities: [box("mortgage"), box("propertyLoan"), box("debt"), ...net].filter((b) => b.amount > 0),
     negative: Math.max(0, -c.netWorth),
     totalAssets: c.totalAssets,
     totalLiabilities: c.totalLiabilities,

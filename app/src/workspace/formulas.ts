@@ -42,6 +42,7 @@ export const FORMULA_LABELS: Readonly<Record<string, { label: string; text: stri
   "housing.valuation.saleTax": { label: "持ち家の譲渡所得の税", text: "譲渡所得の税 ＝ 入れた額（所得税・住民税の合計。売った月に払う。税の自動の計算はまだ無い）" },
   "asset.realEstate.rent": { label: "家賃収入", text: "家賃収入 ＝ 満室時の家賃（月額） × (1 − 空室率)（今の実際の家賃収入で入れた物件は、その額のまま。家賃は変化率で毎年動かす）" },
   "asset.realEstate.expenses": { label: "不動産の経費", text: "経費 ＝ 年額 ÷ 12 ＋ 受け取る家賃 × 家賃に対する割合（管理費・修繕積立金・固定資産税・管理委託料など）" },
+  "asset.realEstate.repair": { label: "大きな修繕", text: "大きな修繕 ＝ 入力した額（その月に払う一時の支出。貸している月なら、全額をその年の不動産所得の経費にする）" },
   "asset.realEstate.sale": { label: "不動産の売却の手取り", text: "売却の手取り ＝ 売却価格（入れていなければその年の評価額）− 売却価格 × 売却の費用の割合（譲渡所得の税は別の行。ローンを返すときは返済の行）" },
   "asset.heldSale.sale": { label: "資産の売却の手取り", text: "売却の手取り ＝ 売却価格（入れていなければその年の年末の評価額）− 売却価格 × 売却の費用の割合（不動産の譲渡所得の税は別の行。その他の資産の譲渡所得は所得税・住民税の行に入る）" },
   "tax.realEstateSale.incomeTax": {
@@ -49,6 +50,9 @@ export const FORMULA_LABELS: Readonly<Record<string, { label: string; text: stri
     text: "所得税 ＝ 譲渡所得（売却価格 −（取得費 ＋ 売却の費用））× 15%（長期）・30%（短期）＋ 復興特別所得税・防衛特別所得税。取得費 ＝ 取得価額 ＋ 取得時の諸費用 − 建物の減価償却の累計（売却価格の5%のほうが大きければそれ）。翌年3月に払う",
   },
   "tax.realEstateSale.residentTax": { label: "不動産の譲渡所得の住民税", text: "住民税 ＝ 譲渡所得 × 5%（長期）・9%（短期）。翌年度に4回に分けて払う" },
+  "debt.schedule.equalPrincipal": { label: "ローンの返済（元金均等）", text: "毎月の返済額 ＝ 元金 ÷ 返済の月数 ＋ その月の利息（元金均等返済）" },
+  "debt.schedule.prepaymentFee": { label: "繰上返済の手数料", text: "繰上返済の手数料 ＝ 入力した額（繰上返済の月に払う）" },
+  "debt.schedule.refinanceCosts": { label: "借り換えの費用", text: "借り換えの費用 ＝ 入力した額（借り換えの月に払う。借入に含めるときは払わない）" },
   "debt.schedule.salePayoff": { label: "売ったときのローンの返済", text: "物件を売る月に、その月の返済の後のローンの残高を一括で返す" },
   "insurance.premiumPayment.monthly": { label: "保険料", text: "保険料 ＝ 契約の保険料（払込の期間の間）" },
   "plan.cashflow.closing": { label: "年末の金融資産", text: "年末の金融資産 ＝ 年初の残高 ＋ 年間収支 ＋ 運用益" },
@@ -76,4 +80,16 @@ export const FORMULA_LABELS: Readonly<Record<string, { label: string; text: stri
   "socialInsurance.continuation.health": { label: "健康保険料（任意継続）", text: CONTINUATION },
   "socialInsurance.continuation.care": { label: "介護保険料（任意継続）", text: CONTINUATION },
   "socialInsurance.continuation.childSupport": { label: "子ども・子育て支援金（任意継続）", text: CONTINUATION },
+};
+
+/**
+ * 制度の値を使わず、入力した値だけから出す計算式（0127）。根拠の「使った制度の値」に、その部品がほかの計算（譲渡所得など）のために読んだ
+ * 制度の値を並べないようにする（家賃収入・不動産の経費・大きな修繕・売却の手取り・年末の借入の残高）
+ */
+export const INPUT_ONLY_FORMULAS: ReadonlySet<string> = new Set(["asset.realEstate.rent", "asset.realEstate.expenses", "asset.realEstate.repair", "asset.realEstate.sale", "plan.cashflow.debt"]);
+
+/** 住まい以外の不動産のローン（負債の property）の返済の計算式の名前（住宅ローンの名前で出さない。0127） */
+export const PROPERTY_LOAN_LABELS: Readonly<Record<string, string>> = {
+  "debt.schedule.equalPayment": "ローンの返済（元利均等）",
+  "debt.schedule.equalPrincipal": "ローンの返済（元金均等）",
 };
