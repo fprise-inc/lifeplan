@@ -202,3 +202,23 @@ describe.skipIf(bin === null)("物件が2件の世帯: 全体の1枚と物件ご
     expect(other).toContain(normalize("家賃収入"));
   });
 });
+
+describe.skipIf(bin === null)("貸している土地の1枚: 損益分岐は地代の割合", () => {
+  // 見本の世帯の物件をもう1件（貸している土地。ローンなし・取得の入力なし）足す
+  const req = modelHousehold("dualAssetsTwoKids");
+  const first = (req.input.household.accounts ?? []).find((x) => x.property !== undefined)!;
+  const land = JSON.parse(JSON.stringify(first)) as typeof first;
+  (land as { id: string }).id = "1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
+  (land as unknown as { property: Record<string, unknown> }).property = { name: "貸地", kind: "land", rental: { monthly: { value: 50000, state: "confirmed", origin: { kind: "manual" } } }, expenses: { annual: { value: 100000, state: "confirmed", origin: { kind: "manual" } } } };
+  (req.input.household as unknown as { accounts: unknown[] }).accounts = [...(req.input.household.accounts ?? []), land];
+  const [run] = runAll([req]);
+  const input = buildProposalInput({ document: { issuedOn: "2026-10-20" }, current: run!, proposal: run! });
+  const res = renderAndExtract(bin as string, input, sampleFrame({ document: { issuedOn: "2026-10-20" }, current: run!, proposal: run! }, input));
+  it("「損益分岐の地代の割合」と「地代収入」。稼働率・入居率の言葉にしない", () => {
+    const page = normalize(res.pages.find((t) => normalize(t).includes(normalize("貸地（貸している土地）")))!);
+    expect(page).toContain(normalize("損益分岐の地代の割合"));
+    expect(page).toContain(normalize("地代収入"));
+    expect(page).not.toContain(normalize("損益分岐の稼働率"));
+    expect(page).not.toContain(normalize("損益分岐の入居率"));
+  });
+});
