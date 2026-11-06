@@ -4,6 +4,7 @@
 import type { ReadingEntry } from "./readings.ts";
 
 export const LATER_FIELD_ENTRIES: readonly ReadingEntry[] = [
+  {"from":"field:assume/depositReturn","until":"0.66","to":{"target":"assumptions","item":"assumptions.depositReturn","at":["default"]}},
   {"from":"field:assume/pensionMacroSlideEmployee","until":"0.35","to":{"target":"assumptions","item":"assumptions.pensionMacroSlideEmployee","at":["default"]}},
   {"from":"field:edu/{object}/abroad/{id}/amount","until":"0.40","to":{"target":"object","item":"goal.education","at":["abroad",{"id":1},"amount"]}},
   {"from":"field:edu/{object}/abroad/{id}/grade","until":"0.40","to":{"target":"object","item":"goal.education","at":["abroad",{"id":1},"grade"]}},

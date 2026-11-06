@@ -358,9 +358,9 @@ export interface RealEstatePropertyInput {
   readonly landShare?: string;
   /** 持ち始める時点（相続・贈与で受け取る不動産。その月から評価額・家賃収入・経費に入れ、受け取るときの支払いは無い。省略は前から持っている。0039） */
   readonly holdFrom?: Timepoint;
-  /** 取得（減価償却の基。price は土地と建物の合計の取得価額、at は取得の年月） */
+  /** 取得（減価償却の基。price は土地と建物の合計の取得価額、at は取得の年月。取得の年月だけでもよい〔price の省略は取得価額が未入力。0137〕） */
   readonly acquisition?: {
-    readonly price: Yen;
+    readonly price?: Yen;
     readonly at: string;
     /** 取得価額の内訳（土地・建物・建物附属設備。入れたら土地の割合より優先して取得価額を分ける。0080） */
     readonly parts?: { readonly land?: Yen; readonly building?: Yen; readonly equipment?: Yen };
@@ -1248,6 +1248,8 @@ export interface EngineInput {
   readonly household: HouseholdInput;
   readonly assumptions: {
     readonly investmentReturn: YearSeries;
+    /** 預金の利回り（預金・外貨預金の資産クラスが assetReturns に無いときに使う。省略は運用利回り。0137） */
+    readonly depositReturn?: YearSeries;
     readonly wageGrowth?: YearSeries;
     readonly inflation?: YearSeries;
     readonly educationInflation?: YearSeries;

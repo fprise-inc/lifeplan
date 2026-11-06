@@ -1,7 +1,8 @@
 // 資産運用の配分（株式・債券・預金などの割合）から、期待の利回りを決める。
 // 計算エンジンの決まり（engine/src/sdk/helpers.ts の accountReturnRate）と同じ:
 // - 器の利回り＝Σ（配分の割合 × 前提の資産クラスごとの利回り assumptions.assetReturns）
-// - 前提に無い資産クラスは運用利回り（assumptions.investmentReturn）、ただし不動産は0
+// - 前提に無い資産クラスは運用利回り（assumptions.investmentReturn）、ただし不動産は0、預金・外貨預金は預金の利回り（assumptions.depositReturn。
+//   省略は運用利回り。0137）
 // - 配分を持たない器は、預金・外貨預金・不動産はその資産クラス、ほかは運用利回り
 // 配分の入力（account.assetMix）は計算エンジンにもともとある省略できる項目で、入れなければ今の結果は変わらない
 import type { Account, EngineRequest, YearSeries } from "../../engine/types.ts";
@@ -28,6 +29,8 @@ export function bucketOf(assetClass: string): Bucket | null {
 }
 
 const CASH_KINDS: Readonly<Record<string, string>> = { deposit: "cash.deposit", fxDeposit: "cash.foreign", realEstate: "realEstate" };
+/** 預金の利回り（assumptions.depositReturn）を代わりに使う資産クラス（エンジンの DEPOSIT_CLASSES と同じ。0137） */
+export const DEPOSIT_CLASSES: ReadonlySet<string> = new Set(["cash.deposit", "cash.foreign"]);
 
 function seriesAt(s: YearSeries | undefined, year: number): string | undefined {
   if (s === undefined) return undefined;
@@ -39,7 +42,8 @@ export function classRate(req: EngineRequest, assetClass: string, year: number):
   const a = req.input.assumptions;
   const own = seriesAt(a?.assetReturns?.[assetClass], year);
   if (own !== undefined) return { rate: own, fromAssumption: true };
-  return { rate: assetClass === "realEstate" ? "0" : (seriesAt(a?.investmentReturn, year) ?? "0"), fromAssumption: false };
+  const invest = seriesAt(a?.investmentReturn, year) ?? "0";
+  return { rate: assetClass === "realEstate" ? "0" : DEPOSIT_CLASSES.has(assetClass) ? (seriesAt(a?.depositReturn, year) ?? invest) : invest, fromAssumption: false };
 }
 
 /** 器のその年の利回り（配分×資産クラスの利回り）。10進の文字列のまま */

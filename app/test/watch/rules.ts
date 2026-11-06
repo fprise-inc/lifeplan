@@ -411,7 +411,8 @@ const allocationPassed: WatchRule = {
     const inv = a?.investment;
     if (inv?.method !== "allocation") return [];
     if (inv.allocation === undefined || inv.allocation.mix.length === 0) return ["資産配分の入れ方なのに、計算に資産の種類ごとの割合が渡っていない（運用利回りの1つの値で計算）"];
-    const missing = inv.allocation.mix.filter((x) => Number(x.share) > 0 && a?.assetReturns?.[x.assetClass] === undefined).map((x) => x.assetClass);
+    // 預金の種類（現金・外貨預金）は、前提条件の預金の利回りがあればそれで計算する（運用利回りにならない。0137）
+    const missing = inv.allocation.mix.filter((x) => Number(x.share) > 0 && a?.assetReturns?.[x.assetClass] === undefined && !(x.assetClass.startsWith("cash.") && a?.depositReturn !== undefined)).map((x) => x.assetClass);
     return missing.length > 0 ? [`資産配分の ${missing.join("・")} の期待リターンが計算に渡っていない（運用利回りで計算）`] : [];
   },
 };

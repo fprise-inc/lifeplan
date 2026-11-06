@@ -20,8 +20,13 @@ import { outOfRangeText, rangeText, rateInRange, RETURN_RANGE, type PctRange } f
 import {
   accountMonthlyAt,
   accountsOf,
+  allocationGaps,
   CLASSES,
+  classReturnKey,
   classRows,
+  defaultFee,
+  fillAllocation,
+  setClassReturn,
   DC_KINDS,
   defaultPayoutAge,
   drawdownOf,
@@ -981,24 +986,19 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
   const inv = investmentOf(req);
   const [by, setBy] = useState<"account" | "class">("class");
   const edit = (fn: (r: EngineRequest) => void) => onEdit(mutate(wh, (_h, r) => fn(r)));
-  const setWeight = (key: string, w: number) => edit((r) => editAllocation(r, { mix: mixFromWeights(classRows(r).map((x) => ({ key: x.key, weight: x.key === key ? w : x.weight }))) }));
-  const setSeries = (field: "assetReturns" | "assetVolatility", key: string, v: string | null) =>
+  // 割合を直したら、新しく割合を持った資産の種類の期待リターンも計算に渡す（目安を推定の印で。0137）
+  const setWeight = (key: string, w: number) => onEdit(fillAllocation(mutate(wh, (_h, r) => editAllocation(r, { mix: mixFromWeights(classRows(r).map((x) => ({ key: x.key, weight: x.key === key ? w : x.weight }))) }))));
+  const setVolatility = (key: string, v: string | null) =>
     edit((r) => {
       const a = (r.input.assumptions ??= { investmentReturn: { default: "0.01" } });
-      if (field === "assetReturns") {
-        const m = { ...(a.assetReturns ?? {}) };
-        if (v === null) delete m[key];
-        else m[key] = { default: v };
-        if (Object.keys(m).length === 0) delete a.assetReturns;
-        else a.assetReturns = m;
-      } else {
-        const m = { ...(a.assetVolatility ?? {}) };
-        if (v === null) delete m[key];
-        else m[key] = v;
-        if (Object.keys(m).length === 0) delete a.assetVolatility;
-        else a.assetVolatility = m;
-      }
+      const m = { ...(a.assetVolatility ?? {}) };
+      if (v === null) delete m[key];
+      else m[key] = v;
+      if (Object.keys(m).length === 0) delete a.assetVolatility;
+      else a.assetVolatility = m;
     });
+  // まだ計算に渡っていないもの（前の版で資産配分にした世帯・前提条件で期待リターンを外した種類）
+  const gaps = allocationGaps(req);
   const panes: DonutPane[] = [{ title: "今の内訳", sub: by === "account" ? "口座ごと" : "資産の種類ごと（運用する口座は下の割合）", items: currentMix(req, by) }];
   return (
     <>
@@ -1007,6 +1007,14 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
           資産の種類ごとの割合
           <Help label="資産の種類ごとの割合">運用する口座（NISA・iDeCo・企業型DC・課税口座）に共通の、資産の種類ごとの割合です。預金は現金のまま。商品は選ばず、資産の種類で入れます。期待リターンと値動きの大きさは、入れなければ事務所の既定値で計算します。</Help>
         </h3>
+        {gaps.length > 0 ? (
+          <div class="sv-carry" role="status" data-alloc-gap>
+            {gaps.join("・")}が、まだ計算に入っていません（今は運用利回りで計算しています）。{" "}
+            <button type="button" class="link-btn" onClick={() => onEdit(fillAllocation(wh))}>
+              表の値で計算する
+            </button>
+          </div>
+        ) : null}
         <div class="sv-tw">
           <table class="sv-cls">
             <thead>
@@ -1034,10 +1042,11 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
                     <NumBox value={c.weight} unit="num" size="s" label={`${c.name}の割合`} onCommit={(v) => typeof v === "number" && setWeight(c.key, v)} /> %
                   </td>
                   <td>
-                    <NumBox value={c.muOwn ? c.mu : null} unit="pct" size="s" optional placeholder={pctFromRate(CLASSES.find((x) => x.key === c.key)?.mu ?? "0")} label={`${c.name}の期待リターン`} onCommit={(v) => setSeries("assetReturns", c.key, typeof v === "string" ? v : null)} /> %
+                    <NumBox value={c.muOwn ? c.mu : null} unit="pct" size="s" optional est={wh.assumed[classReturnKey(c.key)] !== undefined} placeholder={pctFromRate(c.mu)} label={`${c.name}の期待リターン`} onCommit={(v) => onEdit(setClassReturn(wh, c.key, typeof v === "string" ? v : null))} /> %
+                    {wh.assumed[classReturnKey(c.key)] !== undefined ? <EstTag text="推定" /> : null}
                   </td>
                   <td>
-                    <NumBox value={c.sdOwn ? c.sd : null} unit="pct" size="s" optional placeholder={pctFromRate(CLASSES.find((x) => x.key === c.key)?.sd ?? "0")} label={`${c.name}の値動きの大きさ`} onCommit={(v) => setSeries("assetVolatility", c.key, typeof v === "string" ? v : null)} /> %
+                    <NumBox value={c.sdOwn ? c.sd : null} unit="pct" size="s" optional placeholder={pctFromRate(CLASSES.find((x) => x.key === c.key)?.sd ?? "0")} label={`${c.name}の値動きの大きさ`} onCommit={(v) => setVolatility(c.key, typeof v === "string" ? v : null)} /> %
                   </td>
                 </tr>
               ))}
@@ -1075,7 +1084,7 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
         <div class="sv-fld">
           <span class="lbl">信託報酬（年・平均）</span>
           <div class="ctl">
-            <NumBox value={inv.allocation?.fee ?? null} unit="pct" size="s" optional placeholder={pctFromRate("0.0025")} label="信託報酬" onCommit={(v) => edit((r) => editAllocation(r, { fee: typeof v === "string" ? v : "0.0025" }))} />
+            <NumBox value={inv.allocation?.fee ?? null} unit="pct" size="s" optional placeholder={pctFromRate(defaultFee())} label="信託報酬" onCommit={(v) => edit((r) => editAllocation(r, { fee: typeof v === "string" ? v : defaultFee() }))} />
             <span class="u">%</span>
           </div>
           <p class="help">持っている投資信託の平均。商品名からは選ばず、FPが入れます。期待リターンから差し引きます。値動きの大きさは計算には使わず、目減りの扱いは期待リターンに含めて入れる前提です。</p>

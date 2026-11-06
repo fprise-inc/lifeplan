@@ -295,6 +295,14 @@ entries:
     replacedBy: null
     collection: null
     path: [assumptions, assetVolatility]
+  - id: assumptions.depositReturn
+    status: active
+    label: "預金の利回り（年率。預金・外貨預金の資産クラスが資産クラスごとの利回りに無いときに使う。省略は運用利回り。0137）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: null
+    path: [assumptions, depositReturn]
   - id: assumptions.educationInflation
     status: active
     label: "教育費の上昇率（年率。省略は物価上昇率。学費・学校外活動費に使い、公的支援には使わない）"

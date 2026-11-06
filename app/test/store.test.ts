@@ -1194,6 +1194,23 @@ function sample065(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/**
+ * 0.66 の見本の世帯（0137）: sample065() に、前提条件の預金の利回り（0.2%）と、収益不動産の物件をもう1件（取得の年月だけの取得）足す
+ */
+function sample066(): BodyState {
+  const s = sample065();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const box = (v: number) => ({ value: v, state: "confirmed", origin: { kind: "manual" } }) as never;
+  req.input.assumptions = { ...req.input.assumptions!, depositReturn: { default: "0.002" } };
+  hh.accounts = [
+    ...(hh.accounts ?? []),
+    { id: "00000000-0000-4000-8000-000000006601", kind: "realEstate", owner: self.id, marketValue: box(15000000), asOf: req.input.baseMonth, contributions: [], property: { kind: "condo", acquisition: { at: "2012-04" }, rental: { monthly: box(70000) } } } as never,
+  ];
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 describe("世帯ファイルの本文（0011 の2）", () => {
   it("保存→読み込みで同じ（現状・案・帯の並び・表示の設定・拡張領域）", () => {
     const s = sample();
@@ -1232,7 +1249,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.65");
+    expect(BODY_FORMAT_VERSION).toBe("0.66");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1405,7 +1422,25 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample065())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample066())), null, 2) + "\n");
+  });
+
+  it("0.66 の形（0137）: 前提条件の預金の利回りと、取得の年月だけの収益不動産の取得を保存して読み戻す。預金の利回りは計算に効く", () => {
+    const s = sample066();
+    const stored = bodyObject(s) as unknown as { household: { request: { input: { assumptions: { depositReturn?: unknown }; household: { accounts: { id: string; property?: { acquisition?: unknown } }[] } } } } };
+    expect(stored.household.request.input.assumptions.depositReturn).toEqual({ default: "0.002" });
+    expect(stored.household.request.input.household.accounts.find((x) => x.id === "00000000-0000-4000-8000-000000006601")?.property?.acquisition).toEqual({ at: "2012-04" });
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    // 資産の種類ごとの利回りの預金を外した世帯で、預金の利回りの有る無しで結果が違う（無ければ運用利回り）
+    const withoutCash = (r: BodyState["wh"]["request"], keep: boolean): BodyState["wh"]["request"] => {
+      const x = structuredClone(r);
+      const a = x.input.assumptions as { depositReturn?: unknown; assetReturns?: Record<string, unknown> };
+      if (a.assetReturns !== undefined) for (const k of Object.keys(a.assetReturns)) if (k.startsWith("cash.")) delete a.assetReturns[k];
+      if (!keep) delete a.depositReturn;
+      return x;
+    };
+    expect(preview(withoutCash(back.wh.request, true)).table).not.toEqual(preview(withoutCash(back.wh.request, false)).table);
   });
 
   it("0.65 の形（0126）: 収益不動産の家賃の入れ方と減価償却の引き継ぎを保存して読み戻す。空室率が残っていても今の実際の家賃収入なら使わない", () => {
