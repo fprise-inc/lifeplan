@@ -143,7 +143,6 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
     panelChecks(() => d);
     watchChecks(() => d, [
       { rule: "negativeNetWorthNow", match: /純資産が|資産に入っていない/, what: "持ち家を標準の欄だけで入れると、今の家が資産に入らず純資産が大きくマイナス" },
-      { rule: "zeroCostBasis", match: /nisa/, what: "NISA を足すと、取得価額が0円で入る" },
     ]);
   });
 
@@ -235,7 +234,7 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       expect(building).toBeGreaterThan(0);
       expect(building).toBeLessThan(10_000_000);
     });
-    it.fails("収益不動産の取得の年月を Backspace で消しても、取得価額が残る", () => {
+    it("収益不動産の取得の年月を Backspace で消しても、取得価額が残る", () => {
       expect(d.notes.seen.acquisitionAfterClear).not.toBe("");
     });
     it("母の亡くなる見込みを直すと、相続の受け取る時期がついてくる", () => {
@@ -254,7 +253,6 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
     watchChecks(() => d, [
       { rule: "pastRetirementEstimate", match: /db/, what: "定年の後に足した企業年金（年金で受け取る）の一時金の額が、推定0円・受け取りが過去のまま残る" },
       { rule: "rowGrouping", match: /corporatePension/, what: "企業年金がキャッシュフロー表の「その他の収入」に入る" },
-      { rule: "zeroCostBasis", match: /taxable/, what: "課税口座を足すと、取得価額が0円で入る" },
       { rule: "screenWords", match: /incomeFlow/, what: "世帯の中身の一覧に内部の名前（incomeFlow）が出る" },
     ]);
   });

@@ -70,6 +70,9 @@
 //     分けて入れたら、取得価額からの計算（構造・建った年・簡便法）の代わりに、その翌年から入れた年額で、残高が1円になるまで償却する（貸している月数で
 //     月割り）。入れた年とその前の年（計算の窓の中）は同じ年額を償却費とする。入れていない部分（設備など）は償却しない。取得価額が無くても償却する。
 //     帳簿価額・譲渡所得の取得費は、取得価額があれば「土地の分（取得価額＋諸費用−建物と設備の償却の基）＋その時点の未償却残高」
+// - 改訂9・約束の版 1.5（0137。取得の年月だけの取得）: 取得（acquisition）は取得の年月（at）だけでもよい（price を省略できる）。取得価額（price。
+//   内訳 parts があれば内訳の合計）が無い取得は、減価償却・帳簿価額・売ったときの取得費に使わず（取得の入力が無いときと同じ。知らせ N_INPUT_REQUIRED・
+//   概算取得費）、取得の年月だけを建った年の省略・貸し始めの省略・売ったときの長期と短期の分けに使う。取得価額のある取得は今までと同じ結果
 // 計算基準年の2年前から計算する（前の年の所得で決まる住民税・国民健康保険料のため。お金の動きは計算基準月から）
 import {
   addMonths,
@@ -157,8 +160,8 @@ function monthsIn(y: number, lo: MonthIndex, hi: MonthIndex): number {
 export default defineComponent<Record<string, never>, RealEstateOutput>({
   id: "asset.realEstate",
   title: "住まい以外の不動産（評価額・家賃収入・経費・不動産所得・売却）",
-  contract: "1.4",
-  revision: 8,
+  contract: "1.5",
+  revision: 9,
   requires: { "debt.schedule": ">=1 <2" },
   params: [HOLDING, ESTIMATED],
   reads: ["account.kind", "account.owner", "account.marketValue", "account.asOf", "account.valueGrowth", "account.property", "debt.property", "debt.principal", "assumptions.inflation", "assumptions.realEstateValuation"],
@@ -187,6 +190,8 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       const acqAt: MonthIndex | null = p.acquisition === undefined ? null : ctx.time.resolve({ at: p.acquisition.at });
       // 取得価額の内訳（入れたら土地の割合より優先して取得価額を分ける。評価額の土地の割合の省略にも使う）
       const parts = p.acquisition?.parts;
+      // 取得価額のある取得（取得の年月だけの取得は、減価償却・帳簿価額・取得費に使わない。改訂9）
+      const priced = p.acquisition !== undefined && (p.acquisition.price !== undefined || parts !== undefined) ? p.acquisition : undefined;
       const partLand = yen(parts?.land ?? 0);
       const partBuilding = yen(parts?.building ?? 0);
       const partEquipment = yen(parts?.equipment ?? 0);
@@ -403,9 +408,9 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       const depAll = new Map<number, Yen>();
       // 取得価額からの償却の基（建物・建物附属設備）。取得の入力があるときだけ（帳簿価額・取得費の土地の分を出す）
       let bases: { building: Yen; equipment: Yen } | null = null;
-      if (p.acquisition !== undefined) {
-        const acq = p.acquisition;
-        const price = acq.price;
+      if (priced !== undefined) {
+        const acq = priced;
+        const price = yen(acq.price ?? 0);
         const building = parts !== undefined ? partBuilding : yen(price - ctx.money.mulRate(price, ctx.rate.of(share), VAL));
         const equipment = parts !== undefined ? partEquipment : yen(0);
         const total = parts !== undefined ? yen(partsTotal) : price;
@@ -483,8 +488,8 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
           }
           depreciateFrom(x.book, x.annual, carry.year + 1, from, rTo, x.part, x.book <= 1 ? carry.year : null, carryAfter);
         }
-      } else if (r !== undefined && p.acquisition !== undefined && bases !== null && acqAt !== null && rFrom !== null && rTo !== null) {
-        const acq = p.acquisition;
+      } else if (r !== undefined && priced !== undefined && bases !== null && acqAt !== null && rFrom !== null && rTo !== null) {
+        const acq = priced;
         const { building: buildingBase, equipment: equipmentBase } = bases;
         const elapsed = yearOf(acqAt) - built;
         const start = maxM(acqAt, rFrom);
@@ -546,13 +551,15 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         let estimated = true;
         let term: "long" | "short" = "long";
         if (acq !== undefined && acqAt !== null) {
-          const total = parts !== undefined ? yen(partsTotal) : acq.price;
-          // 償却の累計（売る前の月まで。売った年の年末までと同じ。引き継いだときは償却の基−売るときの未償却残高）
-          const actual = yen(Math.max(0, total + (acq.costs ?? 0) - accDep(y)));
-          if (actual >= estimatedCost) {
-            acquisitionCost = actual;
-            estimated = false;
-          }
+          if (priced !== undefined) {
+            const total = parts !== undefined ? yen(partsTotal) : yen(priced.price ?? 0);
+            // 償却の累計（売る前の月まで。売った年の年末までと同じ。引き継いだときは償却の基−売るときの未償却残高）
+            const actual = yen(Math.max(0, total + (priced.costs ?? 0) - accDep(y)));
+            if (actual >= estimatedCost) {
+              acquisitionCost = actual;
+              estimated = false;
+            }
+          } else ctx.notice("N_ASSUMED", [a.id, "realEstate.saleEstimatedCost"]);
           const years0 = at0.paramCount(HOLDING);
           if (years0 === null) ctx.notice("N_PARAM_MISSING", [HOLDING]);
           term = yearOf(acqAt) <= y - (years0 ?? 5) - 1 ? "long" : "short";
@@ -569,9 +576,9 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       }
       const u = r !== undefined && incomeKind === "realEstate" ? scaleUnits(p.kind, p.units) : null;
       const units = u !== null && u.rooms + u.houses > 0 ? u : null;
-      const acqTotal = p.acquisition === undefined ? null : parts !== undefined ? yen(partsTotal) : p.acquisition.price;
+      const acqTotal = priced === undefined ? null : parts !== undefined ? yen(partsTotal) : yen(priced.price ?? 0);
       const facts: NonNullable<RealEstateOutput["properties"][number]["facts"]> = {
-        acquisition: p.acquisition === undefined || acqTotal === null ? null : { total: acqTotal, costs: yen(p.acquisition.costs ?? 0), ...(p.acquisition.equity !== undefined ? { equity: yen(p.acquisition.equity) } : {}) },
+        acquisition: priced === undefined || acqTotal === null ? null : { total: acqTotal, costs: yen(priced.costs ?? 0), ...(priced.equity !== undefined ? { equity: yen(priced.equity) } : {}) },
         builtYear: built,
         legalLife: TAX_USEFUL_LIFE[structure],
         depreciationEnd: depEnd,

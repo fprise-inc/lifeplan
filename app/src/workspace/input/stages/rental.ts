@@ -12,7 +12,7 @@ import type { Account, Debt, Household, Member, RealEstateExpenseItem, RealEstat
 import type { Address } from "../../store/readings.ts";
 import { addMonths } from "../../levers.ts";
 import { byId, field, plain, removeAction, resolveTimepoint, timepointField, yenBox, type FieldDef, type Finder, type GroupDef, type Option, type StageDef } from "../form.ts";
-import { confirmedBox, mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
+import { confirmedBox, mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
 import { BUILDING_STRUCTURES, memberLabels, memberOptions, VALUATION_DEFAULTS } from "../labels.ts";
 import { monthsBetween } from "../loanMath.ts";
 import { stagedGroups } from "../staged.ts";
@@ -681,6 +681,48 @@ function carryoverGroup(wh: WorkingHousehold, a: Account): GroupDef {
   };
 }
 
+/** 取得に、取得の年月のほかに何も無いか（取得価額・内訳・諸費用・自己資金・設備の耐用年数のどれも無い） */
+function acqIsEmpty(acq: Record<string, unknown>): boolean {
+  return Object.keys(acq).every((k) => k === "at" || acq[k] === undefined);
+}
+
+/**
+ * 取得の年月の推定の印（0137）: 取得価額（か内訳）を先に入れて取得の年月を評価額の時点で補ったとき・取得の年月を空にして評価額の時点に
+ * 戻したときに、取得の年月の欄に「既定の値（評価額の時点）」の印を付ける。取得の年月を打つと、欄の決まりで印が外れる。補った年月のまま
+ * 取得価額を空にしたら、補った年月も外す（年月だけの取得を黙って残さない）
+ */
+function withAcqAtMark(f: FieldDef, key: string, id: string, asOf: string): FieldDef {
+  const basis = presetBasis(`評価額の時点 ${Number(asOf.slice(0, 4))}年${Number(asOf.slice(5, 7))}月`);
+  type Acq = { price?: number; at?: string; parts?: unknown };
+  const acqOf = (w: WorkingHousehold) => (w.request.input.household.accounts ?? []).find((x) => x.id === id)?.property?.acquisition as Acq | undefined;
+  const unmark = (w: WorkingHousehold): WorkingHousehold => (w.assumed[key] === undefined ? w : { ...w, assumed: Object.fromEntries(Object.entries(w.assumed).filter(([k]) => k !== key)) });
+  const mark = (before: WorkingHousehold, after: WorkingHousehold, v: unknown): WorkingHousehold => {
+    if (after === before) return after;
+    const was = acqOf(before);
+    const now = acqOf(after);
+    const priced = now !== undefined && (now.price !== undefined || now.parts !== undefined);
+    if (priced) {
+      // 年月の欄を空にした・取得価額を入れて年月が無かった → 評価額の時点で補った印
+      const filled = now.at === asOf && (f.key === key ? v === null : was?.at === undefined);
+      return filled ? { ...after, assumed: { ...after.assumed, [key]: basis } } : after;
+    }
+    // 補った年月のまま取得価額を外した → 補った年月も外す
+    if (now !== undefined && before.assumed[key] !== undefined && now.at === asOf && f.key !== key)
+      return unmark(
+        mutate(after, (h) => {
+          const x = (h.accounts ?? []).find((y) => y.id === id);
+          const acq = x?.property?.acquisition as Record<string, unknown> | undefined;
+          if (x?.property === undefined || acq === undefined) return;
+          delete acq.at;
+          if (Object.keys(acq).length === 0) delete x.property.acquisition;
+        }),
+      );
+    return now?.at === undefined ? unmark(after) : after;
+  };
+  const set: FieldDef["set"] = (w, v) => mark(w, f.set(w, v), v);
+  return { ...f, set, ...(f.write !== undefined ? { write: (w: WorkingHousehold, v: Parameters<FieldDef["set"]>[1]) => mark(w, (f.write as FieldDef["set"])(w, v), v) } : {}) };
+}
+
 /** 物件の中身: 土地と建物（構造・建った年・土地の割合・取得）、貸している（家賃・空室・変化率・期間）、経費、売却、ローン（0028） */
 function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   const find = byId(accounts, a.id);
@@ -701,8 +743,11 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   const partsTotal = acquisitionPartsTotal(p);
   const partsShare = partsTotal !== null && partsTotal > 0 ? String(Math.round(((p.acquisition?.parts?.land ?? 0) / partsTotal) * 1e6) / 1e6) : undefined;
   // 内訳を入れたら、取得価額（合計）は内訳の合計で、ここでは書き換えない
-  const acqPriceField = (f: FieldDef): FieldDef =>
-    partsTotal === null ? f : { ...f, readOnly: "取得価額の内訳を入れているので、その合計です（内訳の欄で直します）", get: (w) => ({ ...f.get(w), derived: "内訳の合計" }) };
+  const acqPriceField = (f: FieldDef, wrap: (f: FieldDef) => FieldDef = (x) => x): FieldDef =>
+    partsTotal === null ? wrap(f) : { ...f, readOnly: "取得価額の内訳を入れているので、その合計です（内訳の欄で直します）", get: (w) => ({ ...f.get(w), derived: "内訳の合計" }) };
+  // 取得の年月を評価額の時点で補ったときの推定の印（取得の年月の欄の仮の印。打つと確定。0137）
+  const acqAtKey = `${kp}/acqAt`;
+  const acqMarks = (f: FieldDef): FieldDef => withAcqAtMark(f, acqAtKey, a.id, asOf);
   // 建物の無い種類（貸している土地・駐車場）は、建物の構造・建った年・土地の割合を出さない（全部を土地として計算する）。
   // 前の版で建物の分が入っている（土地の割合が1未満・内訳の建物）ときは、黙って変えずに欄を出し、土地の割合の欄で知らせる
   const landOnly = isLandOnlyKind(p.kind);
@@ -766,15 +811,17 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
           help: landOnly
             ? `売ったときの取得費と、借入の利息のうち土地の取得のための分の計算に使います。建物が無いので減価償却はしません（全部を土地として計算します）${p.kind === "parking" ? "（舗装・機械式駐車設備などは、「詳細」の取得価額の内訳の設備に入れると、その耐用年数で減価償却します）" : ""}`
             : "減価償却費（建物の分）の計算に使います。入れなければ減価償却費は計算しません。取得価額の内訳を入れたときは、その合計です",
+          // 取得価額を入れて取得の年月が無ければ、評価額の時点で補う（推定の印）。取得価額を空にしても取得の年月・内訳などは残す
+          // （補った年月のままなら年月も外す。acqMarks。0137）
           after: (h, _t, v, w) => {
             const x = find(h, w) as Account | undefined;
-            if (x?.property === undefined) return;
-            if (v === null) delete x.property.acquisition;
-            else if (x.property.acquisition !== undefined) x.property.acquisition.at ??= asOf;
+            const acq = x?.property?.acquisition as { price?: number; at?: string } | undefined;
+            if (x?.property === undefined || acq === undefined) return;
+            if (v !== null) acq.at ??= asOf;
           },
-        })),
-        plain({
-          key: `${kp}/acqAt`,
+        }), acqMarks),
+        acqMarks(plain({
+          key: acqAtKey,
           item: "account.property",
           label: "取得の年月",
           level: "simple",
@@ -782,13 +829,16 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
           find: findP,
           path: ["acquisition", "at"],
           optional: true,
-          help: "取得価額といっしょに入れます",
+          help: "取得価額が無くても、先に入れておけます（建った年・貸し始めの省略に使います）。空にすると、取得価額があれば評価額の時点で計算します",
+          // 空にしたら年月だけ外す（取得価額・内訳などは残す）。取得価額があれば評価額の時点で補う（推定の印。acqMarks）。0137
           after: (h, _t, v, w) => {
             const x = find(h, w) as Account | undefined;
-            if (x?.property?.acquisition === undefined) return;
-            if (v === null || x.property.acquisition.price === undefined) delete x.property.acquisition;
+            const acq = x?.property?.acquisition as { price?: number; at?: string; parts?: unknown } | undefined;
+            if (x?.property === undefined || acq === undefined || v !== null) return;
+            if (acq.price !== undefined || acq.parts !== undefined) acq.at = asOf;
+            else if (acqIsEmpty(acq)) delete x.property.acquisition;
           },
-        }),
+        })),
         ...acquisitionFields(wh, a),
       ],
       actions: [],
@@ -871,7 +921,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       timepointField({ key: `${kp}/rentFrom`, item: "account.property", label: "貸し始め", level: "detail", find: findP, path: ["rental", "from"], mode: "ym", optional: true, absentWhenEmpty: true, nullText: p.acquisition !== undefined ? "取得の月から" : "前から貸している", ...ageOf }),
       timepointField({ key: `${kp}/rentTo`, item: "account.property", label: "貸し終わり", level: "detail", find: findP, path: ["rental", "to"], startPath: ["rental", "from"], mode: "ym", optional: true, absentWhenEmpty: true, nullText: p.sale !== undefined ? "売るまで" : "最後まで", ...ageOf }),
     );
-  groups.push({ key: `${kp}/rental`, title: lodging !== undefined ? "宿泊の売上" : words.income, level: "simple", moreLabel: lodging !== undefined ? "売上の変化率・貸す期間を入れる" : p.kind === "land" ? "更新料・貸す期間などを入れる" : landOnly ? "その他の収入・貸す期間などを入れる" : "共益費・礼金などを入れる", ...(p.rental !== undefined && p.acquisition === undefined && withBuilding && !carryoverActive(p) ? { note: "取得価額と取得の年月を入れると、減価償却費を引いた不動産所得で税を計算します" } : {}), fields: rentFields, actions: [] });
+  groups.push({ key: `${kp}/rental`, title: lodging !== undefined ? "宿泊の売上" : words.income, level: "simple", moreLabel: lodging !== undefined ? "売上の変化率・貸す期間を入れる" : p.kind === "land" ? "更新料・貸す期間などを入れる" : landOnly ? "その他の収入・貸す期間などを入れる" : "共益費・礼金などを入れる", ...(p.rental !== undefined && p.acquisition?.price === undefined && p.acquisition?.parts === undefined && withBuilding && !carryoverActive(p) ? { note: "取得価額と取得の年月を入れると、減価償却費を引いた不動産所得で税を計算します" } : {}), fields: rentFields, actions: [] });
   // 家賃と経費の年額の段階・例外の年（0040。詳細）
   const staged = (part: "rental" | "expenses", what: string, basis: "monthly" | "annual", value: (x: Account) => number | null, yearly = false): GroupDef[] =>
     stagedGroups(wh, {

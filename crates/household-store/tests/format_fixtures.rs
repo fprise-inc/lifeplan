@@ -392,6 +392,26 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.66 より前の版に住まいの売却の返済・評価の入れ方は無い"
             );
         }
+        // 0.67 から（0137）: 前提条件の預金の利回り。前の版の見本は変換の段で既定の値（0.1%）が入る。0.67 の見本は 0.2% と、取得の年月だけの取得
+        let deposit = &now["household"]["request"]["input"]["assumptions"]["depositReturn"];
+        if migrate::parse(v).unwrap() >= (0, 67) {
+            assert_eq!(deposit["default"], "0.002", "{v}: 預金の利回り");
+            let accounts = now["household"]["request"]["input"]["household"]["accounts"]
+                .as_array()
+                .unwrap();
+            assert!(
+                accounts
+                    .iter()
+                    .any(|a| a["property"]["acquisition"]["at"] == "2012-04"
+                        && a["property"]["acquisition"].get("price").is_none()),
+                "{v}: 取得の年月だけの取得"
+            );
+        } else if now["household"]["request"]["input"]["assumptions"].is_object() {
+            assert_eq!(
+                deposit["default"], "0.001",
+                "{v}: 変換の段で預金の利回りの既定の値が入る"
+            );
+        }
         if migrate::parse(v).unwrap() >= (0, 65) {
             // 0.65 から（0126）: 収益不動産の家賃の入れ方（今の実際の家賃収入）と減価償却の引き継ぎ（確定申告の数字）
             let accounts = now["household"]["request"]["input"]["household"]["accounts"]

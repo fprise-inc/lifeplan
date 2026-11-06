@@ -1530,7 +1530,7 @@ export function realEstateOf(run: Run): RealEstateProperty[] {
       use: p?.rental !== undefined ? "rental" : "held",
       structure: { key: structure, label: STRUCTURE_LABEL[structure] ?? structure },
       builtYear: p?.builtYear ?? null,
-      acquisition: p?.acquisition === undefined ? null : { price: p.acquisition.price, month: p.acquisition.at },
+      acquisition: p?.acquisition?.price === undefined ? null : { price: p.acquisition.price, month: p.acquisition.at },
       years: rows,
       totals: { rent: sum("rent"), expenses: sum("expenses"), loanRepayment: sum("loanRepayment"), cashAfterLoan: sum("cashAfterLoan") },
       sale: d.sale === null ? null : { month: d.sale.ym, value: d.sale.value, price: d.sale.price, costs: d.sale.costs, proceeds: d.sale.proceeds, tax: null },

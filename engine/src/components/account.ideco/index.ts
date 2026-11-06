@@ -10,6 +10,7 @@
 // - 資産の時価の下落（ストレステスト。前提 marketShocks）: その年の年末の残高を、その割合だけ下げる（改訂4: 資産クラスを書いた下落は、
 //   配分のうちその資産クラスの割合だけ。利回りは FP が入れた器の利回り・運用の費用・利回りの書き換えも見る。0026）
 // - 利回りの段階と例外の年（改訂5。0040）: 器の利回りは年ごとの段（器の利回りか資産の配分）と例外の年で決め、資産クラスを書いた下落はその年の段の配分で割合を出す
+// - 改訂6（0137）: 預金の利回り（assumptions.depositReturn）を読む。預金・外貨預金の資産クラス（cash.deposit・cash.foreign）が前提の資産クラスごとの利回りに無いときの利回り（省略は運用利回りで、前の要求は今までどおり。0137）
 import {
   accountReturnRate,
   accountMixAt,
@@ -46,7 +47,7 @@ export default defineComponent<{ member: string }, IdecoAccountOutput>({
   id: "account.ideco",
   title: "iDeCo・企業型DCの残高と受け取り",
   contract: "1.0",
-  revision: 5,
+  revision: 6,
   requires: { "account.idecoPayout": ">=1 <2", "ideco.contribution": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [],
   reads: [
@@ -60,6 +61,7 @@ export default defineComponent<{ member: string }, IdecoAccountOutput>({
     "account.fee",
     "assumptions.investmentReturn",
     "assumptions.assetReturns",
+    "assumptions.depositReturn",
     "assumptions.marketShocks",
     "assumptions.investment",
     "assumptions.returnShifts",

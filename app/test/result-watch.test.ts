@@ -64,20 +64,6 @@ const PENDING: readonly Pending[] = [
     match: /cf\.income\.(business|corporatePension)/,
   },
   {
-    key: "allocation-passed",
-    what: "運用の入れ方を資産配分に切り替えても、画面に出している割合・期待リターンが計算に渡らない",
-    rule: "allocationPassed",
-    cases: [OP("運用の入れ方を資産配分に切り替える")],
-    match: /渡っていない/,
-  },
-  {
-    key: "zero-cost-basis",
-    what: "NISA・課税口座を足すと、取得価額が0円で入る",
-    rule: "zeroCostBasis",
-    cases: [OP("NISA と課税口座を足して残高を入れる")],
-    match: /取得価額が0円/,
-  },
-  {
     key: "internal-names-in-lists",
     what: "世帯の中身の一覧・違いの一覧・変えたことに、内部の名前（incomeFlow・member など）や生の値（home → facility）が出る",
     rule: "screenWords",
