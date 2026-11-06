@@ -275,8 +275,10 @@ describe("住宅ローンの入れ方の区分", () => {
     expect(d.balance).toMatchObject({ state: "estimated" });
     expect(d.balance!.value).toBeLessThan(d.principal);
     expect(d.balanceAsOf).toBe(BASE);
-    // 今の残高からのローンには控除の仮の条件を置かない（仮の条件は外す）
-    expect(d.housing).toBeUndefined();
+    // 借りた年月を入れてある（仮でない）今の残高からのローンは、借りた年月を入居として控除の仮の条件を置いたまま（0052 の追記 2026-11-07。
+    // 借りた年月が仮のままのローンには置かない: housing-review.test.ts）
+    expect(d.housing).toBeDefined();
+    expect(wh.request.input.household.events?.find((e) => e.id === d.housing?.moveIn)?.at).toEqual({ at: "2020-04" });
   });
 });
 

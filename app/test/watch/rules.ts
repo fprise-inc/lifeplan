@@ -150,23 +150,34 @@ const workToTableEnd: WatchRule = {
   },
 };
 
-/** 住み終わりのある持ち家（売らない）が、住み終わりの後に資産から消える（「そのまま持つ」を選んだのに） */
+/** 住み終わりのある持ち家（売らない）が、住み終わりの後に資産から消える（知らせの有無は見ない） */
+export function keptHomeConditions(s: WatchSubject): string[] {
+  const h = hh(s);
+  const out: string[] = [];
+  for (const r of h.residences ?? []) {
+    if (r.kind !== "own" || r.to == null || r.sale !== undefined) continue;
+    const end = resolveTimepoint(h, r.to);
+    if (end === null) continue;
+    const y = yearOf(end) + 1;
+    if (y > endYear(s)) continue;
+    const held = (year: number) => sumWhere(s.result.table, (c) => c.object === r.id && c.year === year && under(c.row, "cf.balance.account.realEstate"));
+    if (held(yearOf(end)) > 0 && held(y) === 0) out.push(`売らない持ち家（住み終わり ${end}）が ${y}年に資産から消える`);
+  }
+  return out;
+}
+
+/**
+ * 住み終わりのある持ち家（売らない）が、住み終わりの後に黙って資産から消える。消えるなら、住まいの「住み終わりの後」にその旨の知らせ
+ * （住み終わりの年で計算から外している・空き家として持ち続ける）が出ている（0052 の追記 2026-11-07）
+ */
 const keptHomeVanishes: WatchRule = {
   id: "keptHomeVanishes",
-  title: "売らない持ち家が、住み終わりの後に資産から消えていない",
+  title: "売らない持ち家が、住み終わりの後に黙って資産から消えていない",
   check: (s) => {
-    const h = hh(s);
-    const out: string[] = [];
-    for (const r of h.residences ?? []) {
-      if (r.kind !== "own" || r.to == null || r.sale !== undefined) continue;
-      const end = resolveTimepoint(h, r.to);
-      if (end === null) continue;
-      const y = yearOf(end) + 1;
-      if (y > endYear(s)) continue;
-      const held = (year: number) => sumWhere(s.result.table, (c) => c.object === r.id && c.year === year && under(c.row, "cf.balance.account.realEstate"));
-      if (held(yearOf(end)) > 0 && held(y) === 0) out.push(`売らない持ち家（住み終わり ${end}）が ${y}年に資産から消える`);
-    }
-    return out;
+    const found = keptHomeConditions(s);
+    if (found.length === 0) return [];
+    const told = housingNotes(s.wh).some((t) => /住み終わりの年.*外しています|空き家）で持ち続けます/.test(t));
+    return told ? [] : found.map((t) => `${t}のに、住まい・ローンの入力項目に知らせが無い`);
   },
 };
 
