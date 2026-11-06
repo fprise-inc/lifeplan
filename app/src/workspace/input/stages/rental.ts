@@ -83,6 +83,41 @@ export function rentWords(kind: string | undefined): { income: string; rent: str
     vacancyHelp: "1年を通して、部屋が空いている割合の見込みです。満室時の家賃からこの割合を引いて計算します（例: 1年のうち平均して半月空くなら 4%）。共益費・駐車場などの収入からも同じ割合を引きます",
   };
 }
+/**
+ * 家賃の入れ方（0126）: 満室時の家賃と空室率で（省略）か、今の実際の家賃収入で。種類ごとの言葉（貸している土地は地代、駐車場は駐車料）。
+ * 民泊・宿は売上の入れ方（lodging.salesBy）があるので使わない
+ */
+export function rentByWords(kind: string | undefined): { options: Option[]; actualRent: string; actualHelp: string } {
+  const doc = "確定申告書（不動産所得の収支内訳書・青色申告決算書）やレントロールの、今の実際の";
+  if (kind === "parking")
+    return {
+      options: [
+        { value: "fullOccupancy", label: "満車時の駐車料と空車率で" },
+        { value: "actual", label: "今の実際の駐車料の収入で" },
+      ],
+      actualRent: "今の駐車料の収入（合計・月額）",
+      actualHelp: `${doc}駐車料の収入です（空き区画を見込んだ後の額なので、空車率は引きません）。年額で分かるときは、年額に切り替えて入れます。自販機・看板などの収入は、「詳細」で別の欄に入れます`,
+    };
+  if (kind === "land")
+    return {
+      options: [
+        { value: "fullOccupancy", label: "地代と地代が入らない割合で" },
+        { value: "actual", label: "今の実際の地代収入で" },
+      ],
+      actualRent: "今の地代収入（月額）",
+      actualHelp: `${doc}地代収入です（空き期間や滞納を見込んだ後の額なので、地代が入らない割合は引きません）。年額で分かるときは、年額に切り替えて入れます。更新料・承諾料などは、「詳細」の欄に年あたりにならして入れます`,
+    };
+  return {
+    options: [
+      { value: "fullOccupancy", label: "満室時の家賃と空室率で" },
+      { value: "actual", label: "今の実際の家賃収入で" },
+    ],
+    actualRent: "今の家賃収入（合計・月額）",
+    actualHelp: `${doc}家賃収入です（空室を見込んだ後の額なので、空室率は引きません）。年額で分かるときは、年額に切り替えて入れます。共益費・駐車場の収入・礼金・更新料は、「詳細」で別の欄に入れます（申告書の賃貸料に含まれていれば、家賃から除いて入れます）`,
+  };
+}
+/** 今の実際の家賃収入で入れているか（民泊・宿は使わない。エンジンと同じ） */
+export const actualRent = (p: RealEstateProperty | undefined): boolean => p !== undefined && p.lodging === undefined && p.rental?.rentBy === "actual";
 /** 大きな修繕の例（種類ごと） */
 export const repairExamples = (kind: string | undefined): string => (kind === "parking" ? "舗装の打ち直し・機械式駐車設備の更新" : kind === "land" ? "整地・擁壁や塀の補修" : "外壁・屋根・設備の更新");
 /** 評価額の意味（時価。0079 の追記 2026-11-06） */
@@ -258,7 +293,8 @@ export function lodgingMonthlySales(p: RealEstateProperty): number | null {
 }
 
 /**
- * 月の収入（空室率を引いた後。貸していなければ 0）: 満室時の家賃と家賃以外の月の収入（共益費・駐車場・その他）から、それぞれ空室率を引いた額。
+ * 月の収入（空室率を引いた後。貸していなければ 0）: 満室時の家賃と家賃以外の月の収入（共益費・駐車場・その他）から、それぞれ空室率を引いた額
+ * （今の実際の家賃収入で入れたときは、そのままの額。0126）。
  * 民泊・宿は月の売上（空室率は使わない）。礼金・更新料は入れない。エンジンと同じく円未満を切り捨てる
  */
 export function monthlyIncome(a: Account): number {
@@ -266,7 +302,8 @@ export function monthlyIncome(a: Account): number {
   const r = p?.rental;
   if (p === undefined || r === undefined) return 0;
   if (p.lodging !== undefined) return lodgingMonthlySales(p) ?? (r.monthly.value ?? 0);
-  const keep = 1 - Number(r.vacancyRate ?? "0");
+  // 今の実際の家賃収入で入れたら、空室率を引かない（0126）
+  const keep = actualRent(p) ? 1 : 1 - Number(r.vacancyRate ?? "0");
   const extra = (r.commonFee ?? 0) + (r.parking ?? 0) + (r.otherMonthly ?? 0);
   return Math.floor((r.monthly.value ?? 0) * keep) + (extra > 0 ? Math.floor(extra * keep) : 0);
 }
@@ -513,6 +550,137 @@ function acquisitionFields(wh: WorkingHousehold, a: Account): FieldDef[] {
   return fields;
 }
 
+/** 家賃の入れ方の「?」（0126） */
+export const RENT_BY_HELP =
+  "満室時の家賃と空室率で入れるか、今の実際の家賃収入（確定申告書やレントロールの額）で入れるかを選びます。今の実際の家賃収入で入れると、空室を見込んだ後の額として扱い、空室率は引きません（二重に引かないように）。共益費・駐車場などの月の収入も同じ扱いです。満室時の家賃が無いので、収益不動産のタブの表面利回りは今の家賃収入から出し、損益分岐の入居率は出しません";
+
+/**
+ * 今の実際の家賃収入で入れているのに空室の割合が残っているときの1行（計算に使っていないことを知らせ、「外す」を添える。0126。
+ * 住宅ローンの5年ルールの残りの知らせと同じ作り）。残っていなければ欄を出さない
+ */
+function vacancyLeftFields(a: Account, vac: string): FieldDef[] {
+  const left = a.property?.rental?.vacancyRate;
+  if (left === undefined) return [];
+  return [
+    withAddress(
+      field({
+        key: `sav/${a.id}/property/vacancyLeft`,
+        item: "account.property",
+        label: vac,
+        level: "simple",
+        kind: "text",
+        readOnly: "今の実際の家賃収入で入れているので、使いません",
+        get: () => ({
+          value: `${vac}が残っています（計算には使っていません）`,
+          warn: `満室時の家賃で入れていたときの${vac}（${Math.round(Number(left) * 1000) / 10}%）が残っています。今の実際の家賃収入は空室を見込んだ後の額なので、計算には使っていません。いらなければ「外す」を押してください（満室時の家賃で入れる形に戻すと、また使います）。`,
+          warnFix: {
+            label: "外す",
+            run: (w: WorkingHousehold) =>
+              mutate(w, (h) => {
+                const r = (h.accounts ?? []).find((x) => x.id === a.id)?.property?.rental;
+                if (r !== undefined) delete r.vacancyRate;
+              }),
+          },
+        }),
+        set: (w) => w,
+      }),
+      onAccount(a.id, "account.property", ["rental", "vacancyRate"]),
+    ),
+  ];
+}
+
+/** 減価償却の引き継ぎの「?」（0126） */
+export const CARRYOVER_HELP =
+  "確定申告書の「減価償却費の計算」（収支内訳書・青色申告決算書）の、ある年の年末の未償却残高と、その年の償却費を写します。入れると、取得価額・建物の構造・建った年からの計算の代わりに、その翌年からこの年額で、未償却残高が1円になるまで減価償却します（資本的支出・取得価額の分け方の違い・相続で受け継いだ物件などで、計算と申告の数字が合わないとき）。入れていない部分（設備など）は減価償却しません。売ったときの取得費・帳簿価額も、この残高から出します";
+
+/** 引き継ぎの数字がそろった部分があるか（未償却残高と年間の償却費の両方。エンジンと同じ） */
+export function carryoverActive(p: RealEstateProperty | undefined): boolean {
+  const c = p?.depreciationCarryover;
+  return c !== undefined && [c.building, c.equipment].some((x) => x?.book !== undefined && x.annual !== undefined);
+}
+
+/**
+ * 減価償却の引き継ぎ（確定申告の数字。詳細。0126）: 引き継ぐ年・建物と建物附属設備（設備）の未償却残高と年間の償却費。
+ * 欄を書いたら、空の部分を外し、数字があれば引き継ぐ年を入れておく（省略は計算の基準の年の前の年。計算の基準の年が後で動いても年が変わらない
+ * ように、値として持つ）。額を全部空にしたら引き継ぎごと外す（既定でない年だけが入っていれば残す）。額の欄は引き継ぎの形（年）も作るので structural（申告の事実で、対策で動かすものではない）
+ */
+function carryoverGroup(wh: WorkingHousehold, a: Account): GroupDef {
+  const find = byId(accounts, a.id);
+  const findP: Finder = (h, w) => (find(h, w) as Account | undefined)?.property as Record<string, unknown> | undefined;
+  const kp = `sav/${a.id}/property`;
+  const p = a.property ?? {};
+  const baseYear = Number(wh.request.input.baseMonth.slice(0, 4));
+  const tidy = (_h: Household, t: Record<string, unknown>) => {
+    const c = t.depreciationCarryover as RealEstateProperty["depreciationCarryover"] & Record<string, unknown>;
+    if (c === undefined) return;
+    for (const k of ["building", "equipment"] as const) {
+      const x = c[k];
+      if (x !== undefined && x.book === undefined && x.annual === undefined) delete c[k];
+    }
+    // 額が1つも無ければ外す（先に年だけを入れたとき〔既定の前の年でない年〕は残す）
+    if (c.building === undefined && c.equipment === undefined) {
+      if (c.year === undefined || c.year === baseYear - 1) delete t.depreciationCarryover;
+      return;
+    }
+    c.year ??= baseYear - 1;
+  };
+  const landOnly = isLandOnlyKind(p.kind);
+  const c = p.depreciationCarryover;
+  const showBuilding = !landOnly || landOnlyWithBuilding(p) || c?.building !== undefined;
+  const yenField = (part: "building" | "equipment", what: "book" | "annual", label: string, help: string): FieldDef => {
+    const f = withAddress(
+      plain({ key: `${kp}/carry/${part}/${what}`, item: "account.property", label, level: "detail", kind: "yen", basis: what === "book" ? "once" : "annual", find: findP, path: ["depreciationCarryover", part, what], optional: true, help, after: tidy, structural: true }),
+      onAccount(a.id, "account.property", ["depreciationCarryover", part, what]),
+    );
+    return {
+      ...f,
+      get: (w) => {
+        const st = f.get(w);
+        const x = (find(w.request.input.household, w) as Account | undefined)?.property?.depreciationCarryover?.[part];
+        const other = what === "book" ? x?.annual : x?.book;
+        if (st.value !== null && other === undefined) return { ...st, warn: `${what === "book" ? "年間の償却費" : "未償却残高"}も入れてください（両方そろうまで、この部分は計算に使いません）` };
+        return st;
+      },
+    };
+  };
+  const equipName = landOnly ? "設備" : "建物附属設備";
+  const fields: FieldDef[] = [
+    withAddress(
+      plain({ key: `${kp}/carry/year`, item: "account.property", label: "引き継ぐ年（その年の年末の数字）", level: "detail", kind: "int", suffix: "年", min: 1950, max: baseYear, find: findP, path: ["depreciationCarryover", "year"], optional: true, fallback: baseYear - 1, help: "写す確定申告の年です（ふつうは前の年）。その年の年末の未償却残高から、翌年の分を償却します", after: tidy, structural: true }),
+      onAccount(a.id, "account.property", ["depreciationCarryover", "year"]),
+    ),
+  ];
+  if (showBuilding)
+    fields.push(
+      yenField("building", "book", "建物の未償却残高（年末）", "減価償却費の計算の、建物の「未償却残高（期末残高）」です。資本的支出（増築・大規模な改修）の分も建物に含めて申告していれば、その合計です"),
+      yenField("building", "annual", "建物の年間の償却費", "その年の建物の償却費（12か月分）です。その年の償却期間が12か月に満たない（取得した年など）ときは、12か月分に直した額を入れます"),
+    );
+  const equipBook = yenField("equipment", "book", `${equipName}の未償却残高（年末）`, `減価償却費の計算の、${landOnly ? "舗装・機械式駐車設備などの設備" : "給排水・電気・ガス・空調などの設備"}の「未償却残高（期末残高）」です。申告に設備が無い（建物にまとめている）ときは空のままにします`);
+  fields.push(
+    {
+      ...equipBook,
+      get: (w) => {
+        const st = equipBook.get(w);
+        const pp = (find(w.request.input.household, w) as Account | undefined)?.property;
+        // 取得価額の内訳に設備があるのに、引き継ぎに設備が無い（建物だけを引き継いでいる）
+        if (st.value === null && carryoverActive(pp) && (pp?.acquisition?.parts?.equipment ?? 0) > 0 && pp?.depreciationCarryover?.equipment === undefined)
+          return { ...st, warn: `取得価額の内訳に${equipName}がありますが、引き継ぎの数字に${equipName}が無いので、${equipName}の減価償却はしていません（申告で建物にまとめているなら、このままで構いません）` };
+        return st;
+      },
+    },
+    yenField("equipment", "annual", `${equipName}の年間の償却費`, `その年の${equipName}の償却費（12か月分）です`),
+  );
+  const on = carryoverActive(p);
+  return {
+    key: `${kp}/carry`,
+    title: "減価償却を確定申告の数字から引き継ぐ",
+    level: "detail",
+    note: on ? `${c?.year ?? baseYear - 1}年の確定申告の数字から、その翌年の分を減価償却しています（取得価額・建物の構造・建った年からの減価償却の計算は使っていません）` : `${CARRYOVER_HELP}。入れなければ、取得価額・建物の構造・建った年から計算します`,
+    fields,
+    actions: [],
+  };
+}
+
 /** 物件の中身: 土地と建物（構造・建った年・土地の割合・取得）、貸している（家賃・空室・変化率・期間）、経費、売却、ローン（0028） */
 function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   const find = byId(accounts, a.id);
@@ -626,6 +794,8 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       actions: [],
     },
   ];
+  // 減価償却の引き継ぎ（確定申告の数字。詳細。0126）: 貸している物件（か、前に入れた引き継ぎがある物件）だけ
+  if (p.rental !== undefined || p.depreciationCarryover !== undefined) groups.push(carryoverGroup(wh, a));
   // 貸している（家賃収入）。民泊・宿は宿泊の売上（0080）
   const lodging = p.lodging;
   const rentFields: FieldDef[] = [
@@ -653,14 +823,24 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   // 駐車場の種類では、駐車場の収入は満車時の駐車料と重なるので、入れてあれば知らせる。どちらも計算は今までどおり足す）
   const words = rentWords(p.kind);
   const vac = words.vacancy;
+  // 家賃の入れ方（0126）: 今の実際の家賃収入なら、空室の割合を出さず、家賃以外の月の収入にも掛けない
+  const byWords = rentByWords(p.kind);
+  const actual = actualRent(p);
+  const extraRule = actual ? `今の実際の額で入れます（${vac}は掛けません）。変化率は家賃と同じに掛けます` : `${vac}と変化率は家賃と同じに掛けます`;
   const showExtra = (x: number | undefined) => !landOnly || x !== undefined;
-  const parkingExtra = rentYen("parking", ["rental", "parking"], "駐車場の収入（月額）", "monthly", `物件の駐車場の収入です。${vac}と変化率は家賃と同じに掛けます`);
+  const parkingExtra = rentYen("parking", ["rental", "parking"], "駐車場の収入（月額）", "monthly", `物件の駐車場の収入です。${extraRule}`);
   if (p.rental !== undefined && lodging !== undefined) rentFields.push(...lodgingSalesFields(wh, a));
   else if (p.rental !== undefined)
     rentFields.push(
-      yenBox({ key: `${kp}/rent`, item: "account.property", label: words.rent, level: "simple", basis: "monthly", help: words.rentHelp, find: findP, path: ["rental", "monthly"] }),
-      plain({ key: `${kp}/vacancy`, item: "account.property", label: vac, level: "simple", kind: "pct", find: findP, path: ["rental", "vacancyRate"], optional: true, fallback: "0", help: words.vacancyHelp }),
-      ...(showExtra(p.rental.commonFee) ? [rentYen("commonFee", ["rental", "commonFee"], "共益費（月額）", "monthly", `家賃とは別に受け取る共益費・管理費です。${vac}と変化率は家賃と同じに掛けます`)] : []),
+      withAddress(
+        plain({ key: `${kp}/rentBy`, item: "account.property", label: "家賃の入れ方", level: "simple", kind: "select", options: byWords.options, find: findP, path: ["rental", "rentBy"], optional: true, fallback: "fullOccupancy", structural: true, help: RENT_BY_HELP }),
+        onAccount(a.id, "account.property", ["rental", "rentBy"]),
+      ),
+      yenBox({ key: `${kp}/rent`, item: "account.property", label: actual ? byWords.actualRent : words.rent, level: "simple", basis: "monthly", help: actual ? byWords.actualHelp : words.rentHelp, find: findP, path: ["rental", "monthly"] }),
+      ...(actual
+        ? vacancyLeftFields(a, vac)
+        : [plain({ key: `${kp}/vacancy`, item: "account.property", label: vac, level: "simple", kind: "pct", find: findP, path: ["rental", "vacancyRate"], optional: true, fallback: "0", help: words.vacancyHelp })]),
+      ...(showExtra(p.rental.commonFee) ? [rentYen("commonFee", ["rental", "commonFee"], "共益費（月額）", "monthly", `家賃とは別に受け取る共益費・管理費です。${extraRule}`)] : []),
       ...(showExtra(p.rental.parking)
         ? [
             p.kind === "parking"
@@ -674,7 +854,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
               : parkingExtra,
           ]
         : []),
-      rentYen("otherMonthly", ["rental", "otherMonthly"], "その他の月の収入", "monthly", `自販機・看板・アンテナの設置料など、毎月の収入です。${vac}と変化率は家賃と同じに掛けます`),
+      rentYen("otherMonthly", ["rental", "otherMonthly"], "その他の月の収入", "monthly", `自販機・看板・アンテナの設置料など、毎月の収入です。${extraRule}`),
       rentYen(
         "keyMoney",
         ["rental", "keyMoney"],
@@ -691,7 +871,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       timepointField({ key: `${kp}/rentFrom`, item: "account.property", label: "貸し始め", level: "detail", find: findP, path: ["rental", "from"], mode: "ym", optional: true, absentWhenEmpty: true, nullText: p.acquisition !== undefined ? "取得の月から" : "前から貸している", ...ageOf }),
       timepointField({ key: `${kp}/rentTo`, item: "account.property", label: "貸し終わり", level: "detail", find: findP, path: ["rental", "to"], startPath: ["rental", "from"], mode: "ym", optional: true, absentWhenEmpty: true, nullText: p.sale !== undefined ? "売るまで" : "最後まで", ...ageOf }),
     );
-  groups.push({ key: `${kp}/rental`, title: lodging !== undefined ? "宿泊の売上" : words.income, level: "simple", moreLabel: lodging !== undefined ? "売上の変化率・貸す期間を入れる" : p.kind === "land" ? "更新料・貸す期間などを入れる" : landOnly ? "その他の収入・貸す期間などを入れる" : "共益費・礼金などを入れる", ...(p.rental !== undefined && p.acquisition === undefined && withBuilding ? { note: "取得価額と取得の年月を入れると、減価償却費を引いた不動産所得で税を計算します" } : {}), fields: rentFields, actions: [] });
+  groups.push({ key: `${kp}/rental`, title: lodging !== undefined ? "宿泊の売上" : words.income, level: "simple", moreLabel: lodging !== undefined ? "売上の変化率・貸す期間を入れる" : p.kind === "land" ? "更新料・貸す期間などを入れる" : landOnly ? "その他の収入・貸す期間などを入れる" : "共益費・礼金などを入れる", ...(p.rental !== undefined && p.acquisition === undefined && withBuilding && !carryoverActive(p) ? { note: "取得価額と取得の年月を入れると、減価償却費を引いた不動産所得で税を計算します" } : {}), fields: rentFields, actions: [] });
   // 家賃と経費の年額の段階・例外の年（0040。詳細）
   const staged = (part: "rental" | "expenses", what: string, basis: "monthly" | "annual", value: (x: Account) => number | null, yearly = false): GroupDef[] =>
     stagedGroups(wh, {

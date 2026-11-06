@@ -1492,16 +1492,24 @@ function rentalNameOf(req: EngineRequest, object: string): { name: string | null
   return { name, label: name ?? `物件${i + 1}`, kind };
 }
 
+/** 減価償却を確定申告の数字から引き継いだ年（未償却残高と年間の償却費の両方がそろった部分があるときだけ。エンジンと同じ。0126） */
+function carryFrom(p: { depreciationCarryover?: { year?: number; building?: { book?: number; annual?: number }; equipment?: { book?: number; annual?: number } } } | undefined): number | null {
+  const c = p?.depreciationCarryover;
+  if (c?.year === undefined) return null;
+  return [c.building, c.equipment].some((x) => x?.book !== undefined && x.annual !== undefined) ? c.year : null;
+}
+
 /** 月の手残り（年の手残り÷貸している月数。0の側へ切り捨て。画面と同じ） */
 const monthlyOf = (v: number, months: number): number => (months > 0 ? Math.trunc(v / months) : 0);
 
-function rentalMetrics(y: RealEstateAnalysisYear | undefined, lodging: boolean): RentalMetrics | null {
+/** actual: 今の実際の家賃収入で入れた物件（表面利回りは今の収入での利回り、損益分岐の入居率は「—」。画面と同じ。0126） */
+function rentalMetrics(y: RealEstateAnalysisYear | undefined, lodging: boolean, actual = false): RentalMetrics | null {
   if (y === undefined) return null;
   return {
     year: y.year,
-    grossYield: lodging ? "—" : pctText(y.grossYield),
+    grossYield: lodging ? "—" : actual ? pctText(y.currentYield) : pctText(y.grossYield),
     netYield: pctText(y.netYield),
-    breakEven: pctText(y.breakEven),
+    breakEven: actual ? "—" : pctText(y.breakEven),
     repaymentRatio: pctText(y.repaymentRatio),
     dscr: timesText(y.dscr),
     ltv: pctText(y.ltv),
@@ -1568,7 +1576,9 @@ function rental(ctx: Ctx): RentalView | null {
       deadCross: p.deadCross !== null && p.deadCross <= endYear ? p.deadCross : null,
       deadCrossNow: p.deadCross !== null && p.deadCross <= ctx.baseYear,
       lodging: p.lodging,
-      point: rentalMetrics(at, p.lodging),
+      ...(p.rentBy === "actual" ? { actualRent: true } : {}),
+      ...(carryFrom(prop) !== null ? { depreciationFrom: carryFrom(prop) as number } : {}),
+      point: rentalMetrics(at, p.lodging, p.rentBy === "actual"),
       // 計算の最初の年から上回っている（もう上回っている）ときは、表の行に印を付けない（画面と同じ）
       years: years.map((y) => rentalRow(y, p.deadCross !== null && p.deadCross > ctx.baseYear ? p.deadCross : null)),
       exit: p.exit === null ? null : { month: p.exit.ym, price: p.exit.price, costs: p.exit.costs, proceeds: p.exit.proceeds, loanPayoff: p.exit.loanPayoff, tax: p.exit.tax, net: p.exit.net },

@@ -371,11 +371,26 @@ export interface RealEstatePropertyInput {
     /** 自己資金（計算には使わない。分析の数字のため。0080） */
     readonly equity?: Yen;
   };
+  /**
+   * 減価償却の引き継ぎ（確定申告の減価償却の明細の数字。0126）: year の年末の未償却残高 book と、年間（12か月分）の償却費 annual を、建物と建物附属設備に
+   * 分けて。入れたら取得価額からの計算の代わりに、その翌年から annual で残高が1円になるまで償却する（入れていない部分は償却しない）。
+   * book と annual の両方がそろった部分だけを使う（どの部分もそろっていなければ、取得価額からの計算のまま）
+   */
+  readonly depreciationCarryover?: {
+    readonly year: number;
+    readonly building?: { readonly book?: Yen; readonly annual?: Yen };
+    readonly equipment?: { readonly book?: Yen; readonly annual?: Yen };
+  };
   /** 貸している（家賃収入） */
   readonly rental?: {
-    /** 満室時の家賃の合計（月額。物件全体の分。空室率を引く前） */
+    /**
+     * 家賃の入れ方（0126）: fullOccupancy は満室時の家賃と空室率（省略）、actual は今の実際の家賃収入（monthly と家賃以外の月の収入は空室を見込んだ後の額。
+     * 空室率は使わない）
+     */
+    readonly rentBy?: "fullOccupancy" | "actual";
+    /** 満室時の家賃の合計（月額。物件全体の分。空室率を引く前）。rentBy が actual なら今の実際の家賃収入（月額） */
     readonly monthly: ValueBox<Yen>;
-    /** 空室率（1年を通して部屋が空いている割合の見込み。省略は0） */
+    /** 空室率（1年を通して部屋が空いている割合の見込み。省略は0。rentBy が actual なら使わない） */
     readonly vacancyRate?: string;
     /** 家賃の変化率（年率。マイナスも書ける。省略は0） */
     readonly growth?: string;

@@ -62,6 +62,14 @@
 //   - 年末の帳簿価額（years[].book。取得の入力があるときだけ）: 取得価額（内訳があれば内訳の合計）＋取得時の諸費用−その年の年末までの建物と
 //     建物附属設備の減価償却の累計。分析の数字の含み益（評価額−帳簿価額）の材料
 //   - 売る・貸し終わるまでに償却が終わらないとき、貸し続けたら終わる年（facts.depreciationEndIfContinued。終わる部分は null）
+// - 改訂8・約束の版 1.4（0126。家賃の入れ方・減価償却の引き継ぎ）: どれも任意の欄で、入れなければ今までと同じ結果
+//   - 家賃の入れ方（rental.rentBy）が actual（今の実際の家賃収入）なら、rental.monthly と家賃以外の月の収入（共益費・駐車場・その他）は空室を
+//     見込んだ後の額とみなし、空室率（rental.vacancyRate）を掛けない（値が残っていても読まない）。分析の材料の cash.gross は null（満室の額が無い）、
+//     代わりに cash.current（受け取った家賃と家賃以外の月の収入。礼金・更新料は入れない）を出し、facts.rentBy に actual を書く
+//   - 減価償却の引き継ぎ（depreciationCarryover）: ある年（year）の年末の未償却残高（book）と年間の償却費（annual。12か月分）を、建物と建物附属設備に
+//     分けて入れたら、取得価額からの計算（構造・建った年・簡便法）の代わりに、その翌年から入れた年額で、残高が1円になるまで償却する（貸している月数で
+//     月割り）。入れた年とその前の年（計算の窓の中）は同じ年額を償却費とする。入れていない部分（設備など）は償却しない。取得価額が無くても償却する。
+//     帳簿価額・譲渡所得の取得費は、取得価額があれば「土地の分（取得価額＋諸費用−建物と設備の償却の基）＋その時点の未償却残高」
 // 計算基準年の2年前から計算する（前の年の所得で決まる住民税・国民健康保険料のため。お金の動きは計算基準月から）
 import {
   addMonths,
@@ -75,7 +83,6 @@ import {
   RATE_ONE,
   RATE_ZERO,
   SALE_COST_RATE,
-  subYen,
   stagedYen,
   yearOf,
   yen,
@@ -150,8 +157,8 @@ function monthsIn(y: number, lo: MonthIndex, hi: MonthIndex): number {
 export default defineComponent<Record<string, never>, RealEstateOutput>({
   id: "asset.realEstate",
   title: "住まい以外の不動産（評価額・家賃収入・経費・不動産所得・売却）",
-  contract: "1.3",
-  revision: 7,
+  contract: "1.4",
+  revision: 8,
   requires: { "debt.schedule": ">=1 <2" },
   params: [HOLDING, ESTIMATED],
   reads: ["account.kind", "account.owner", "account.marketValue", "account.asOf", "account.valueGrowth", "account.property", "debt.property", "debt.principal", "assumptions.inflation", "assumptions.realEstateValuation"],
@@ -230,7 +237,9 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       const rTo: MonthIndex | null = r === undefined ? null : r.to === undefined || r.to === null ? holdEnd : minM(ctx.time.resolve(r.to), holdEnd);
       const rented = (y: number) => (rFrom === null || rTo === null ? 0 : monthsIn(y, maxM(rFrom, calcStart), rTo));
       // 民泊・宿は空室の割合を使わない（稼働率で入れる）
-      const keep = lodging !== undefined ? RATE_ONE : ctx.rate.sub(RATE_ONE, ctx.rate.of(r?.vacancyRate ?? "0"));
+      // 今の実際の家賃収入で入れたとき（rentBy actual）も空室率を掛けない（改訂8）
+      const actualRent = lodging === undefined && r?.rentBy === "actual";
+      const keep = lodging !== undefined || actualRent ? RATE_ONE : ctx.rate.sub(RATE_ONE, ctx.rate.of(r?.vacancyRate ?? "0"));
       const rentGrowth = ctx.rate.of(r?.growth ?? "0");
       const rentRef = rFrom === null ? baseYear : Math.max(yearOf(rFrom), baseYear);
       // 月の売上・家賃の元の額（民泊・宿の「1泊の単価×稼働率×営業日数」は、年の売上を12で割る。円未満切り捨て）
@@ -328,7 +337,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         const keyParts = keyMoney0 > 0 ? ctx.money.allocate(rentUp(keyMoney0, k), [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "conv.flow.allocate", "last") : null;
         let rentSum = yen(0);
         let expSum = yen(0);
-        const c = { months: 0, held: 0, gross: yen(0), rent: yen(0), expenses: yen(0), repairs: yen(0) };
+        const c = { months: 0, held: 0, gross: yen(0), current: yen(0), rent: yen(0), expenses: yen(0), repairs: yen(0) };
         // 満室のときの月の収入（空室を見込む前。家賃以外の月の収入を含み、礼金・更新料は入れない）
         const grossOf = (m: MonthIndex): Yen => {
           if (lodging !== undefined) return lodgingNight ? rentUp(potential0 as Yen, k) : yen(0);
@@ -355,7 +364,10 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
           if (isRented && rentM + keyM > 0) {
             push(m, "cf.income.other.rental", addYen(rentM, keyM), "asset.realEstate.rent");
             rentSum = addYen(rentSum, addYen(rentM, keyM));
-            if (inTable) c.rent = addYen(c.rent, addYen(rentM, keyM));
+            if (inTable) {
+              c.rent = addYen(c.rent, addYen(rentM, keyM));
+              c.current = addYen(c.current, rentM);
+            }
             if (expRate !== null && rentM > 0) exp = addYen(exp, ctx.money.mulRate(rentM, expRate, RENT));
           }
           push(m, "cf.expense.other.realEstate", exp, "asset.realEstate.expenses");
@@ -374,7 +386,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         }
         rentByYear.set(y, rentSum);
         expByYear.set(y, expSum);
-        if (c.held > 0) cash.push({ year: y, months: c.months, gross: lodging !== undefined && !lodgingNight ? null : c.gross, rent: c.rent, expenses: c.expenses, repairs: c.repairs });
+        if (c.held > 0) cash.push({ year: y, months: c.months, gross: (lodging !== undefined && !lodgingNight) || actualRent ? null : c.gross, ...(actualRent ? { current: c.current } : {}), rent: c.rent, expenses: c.expenses, repairs: c.repairs });
         if (lodging !== undefined && y >= baseYear && rentSum > 10_000_000) ctx.notice("N_NOT_SUPPORTED", [a.id, "realEstate.consumptionTax"]);
       }
       if (repairExpensed) ctx.notice("N_ASSUMED", [a.id, "realEstate.repairExpensed"]);
@@ -389,9 +401,9 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       const depEndIfContinued: { building: number | null; equipment: number | null } = { building: null, equipment: null };
       // 年ごとの減価償却費（計算基準年の2年前より前の年も。年末の帳簿価額の材料。改訂7）
       const depAll = new Map<number, Yen>();
-      // 売る前の月までの償却の累計（譲渡所得の取得費から引く）
-      let accumulated = yen(0);
-      if (r !== undefined && p.acquisition !== undefined && acqAt !== null && rFrom !== null && rTo !== null) {
+      // 取得価額からの償却の基（建物・建物附属設備）。取得の入力があるときだけ（帳簿価額・取得費の土地の分を出す）
+      let bases: { building: Yen; equipment: Yen } | null = null;
+      if (p.acquisition !== undefined) {
         const acq = p.acquisition;
         const price = acq.price;
         const building = parts !== undefined ? partBuilding : yen(price - ctx.money.mulRate(price, ctx.rate.of(share), VAL));
@@ -399,55 +411,100 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         const total = parts !== undefined ? yen(partsTotal) : price;
         const costs = yen(acq.costs ?? 0);
         const costOf = (x: Yen): Yen => (costs > 0 && total > 0 && x > 0 ? ctx.money.mulRatio(costs, x, total, VAL) : yen(0));
-        const buildingBase = addYen(building, costOf(building));
-        const equipmentBase = addYen(equipment, costOf(equipment));
-        buildingCost = addYen(buildingBase, equipmentBase);
-        const elapsed = yearOf(acqAt) - built;
-        const start = maxM(acqAt, rFrom);
-        const depreciate = (base0: Yen, life: number, part: "building" | "equipment") => {
-          const annual = ctx.money.mulRate(base0, ctx.rate.of(straightLineRate(life)), DEP);
-          let book = base0;
-          let last: number | null = null;
-          for (let y = yearOf(start); y <= endYear && book > 1; y++) {
-            const months = monthsIn(y, start, rTo);
-            if (months === 0) continue;
-            const d0 = months === 12 ? annual : ctx.money.mulRatio(annual, months, 12, DEP);
-            const d = yen(Math.min(d0, book - 1));
-            book = yen(book - d);
-            if (d > 0) last = y;
-            if (d > 0) depAll.set(y, addYen(depAll.get(y) ?? yen(0), d));
-            if (y >= yearOf(calcStart)) depByYear.set(y, addYen(depByYear.get(y) ?? yen(0), d));
+        bases = { building: addYen(building, costOf(building)), equipment: addYen(equipment, costOf(equipment)) };
+        buildingCost = addYen(bases.building, bases.equipment);
+      }
+      // 減価償却の引き継ぎ（確定申告の数字。改訂8）: 入れた部分だけ
+      const carry = p.depreciationCarryover;
+      // 未償却残高と年間の償却費の両方がそろった部分だけ（どれもそろっていなければ、取得価額からの計算のまま）
+      const carryParts = carry === undefined ? [] : (["building", "equipment"] as const).flatMap((k) => {
+        const x = carry[k];
+        return x?.book === undefined || x.annual === undefined ? [] : [{ part: k, book: yen(x.book), annual: yen(x.annual) }];
+      });
+      // 引き継いだ年の年末の未償却残高の合計と、引き継いだ年より前の年（計算の窓の中）の償却費
+      const carryPre = new Map<number, Yen>();
+      const carryAfter = new Map<number, Yen>();
+      /**
+       * 年額 annual で、fromYear の年から（startM の月から貸している月数で月割り）帳簿の残り book0 が1円になるまで償却する。last0 は、もう終わって
+       * いるときの終わった年（引き継いだ残高が1円以下）
+       */
+      const depreciateFrom = (book0: Yen, annual: Yen, fromYear: number, startM: MonthIndex, rTo0: MonthIndex, part: "building" | "equipment", last0: number | null, after: Map<number, Yen> | null) => {
+        let book = book0;
+        let last: number | null = last0;
+        for (let y = fromYear; y <= endYear && book > 1; y++) {
+          const months = monthsIn(y, startM, rTo0);
+          if (months === 0) continue;
+          const d0 = months === 12 ? annual : ctx.money.mulRatio(annual, months, 12, DEP);
+          const d = yen(Math.min(d0, book - 1));
+          book = yen(book - d);
+          if (d > 0) last = y;
+          if (d > 0) depAll.set(y, addYen(depAll.get(y) ?? yen(0), d));
+          if (d > 0 && after !== null) after.set(y, addYen(after.get(y) ?? yen(0), d));
+          if (y >= yearOf(calcStart)) depByYear.set(y, addYen(depByYear.get(y) ?? yen(0), d));
+        }
+        // 表の最後の月まで貸していて、まだ残っていれば、その後も同じ年額で数える（売る・貸し終わるなら、そこで終わり）
+        if (book > 1 && rTo0 >= end && annual > 0) {
+          let b = book;
+          let y = endYear;
+          while (b > 1) {
+            y++;
+            b = yen(b - Math.min(annual, b - 1));
           }
-          accumulated = addYen(accumulated, subYen(base0, book));
-          // 表の最後の月まで貸していて、まだ残っていれば、その後も同じ年額で数える（売る・貸し終わるなら、そこで終わり）
-          if (book > 1 && rTo >= end && annual > 0) {
+          last = y;
+        } else if (book > 1) {
+          last = null;
+          // 貸し終わり（売る前の月）の後も同じ年額で貸し続けたら終わる年（その年の残りの月は月割り）
+          if (annual > 0 && rTo0 >= startM) {
             let b = book;
-            let y = endYear;
+            let y = yearOf(rTo0);
+            const rest = monthIndex(y, 12) - rTo0;
+            if (rest > 0) b = yen(b - Math.min(ctx.money.mulRatio(annual, rest, 12, DEP), b - 1));
             while (b > 1) {
               y++;
               b = yen(b - Math.min(annual, b - 1));
             }
-            last = y;
-          } else if (book > 1) {
-            last = null;
-            // 貸し終わり（売る前の月）の後も同じ年額で貸し続けたら終わる年（その年の残りの月は月割り）
-            if (annual > 0 && rTo >= start) {
-              let b = book;
-              let y = yearOf(rTo);
-              const rest = monthIndex(y, 12) - rTo;
-              if (rest > 0) b = yen(b - Math.min(ctx.money.mulRatio(annual, rest, 12, DEP), b - 1));
-              while (b > 1) {
-                y++;
-                b = yen(b - Math.min(annual, b - 1));
-              }
-              depEndIfContinued[part] = y;
-            }
+            depEndIfContinued[part] = y;
           }
-          depEnd[part] = last;
-        };
-        if (buildingBase > 0) depreciate(buildingBase, usedLife(TAX_USEFUL_LIFE[structure], elapsed), "building");
-        if (equipmentBase > 0) depreciate(equipmentBase, acq.equipmentLife ?? usedLife(EQUIPMENT_LIFE, elapsed), "equipment");
-      } else if (r !== undefined) ctx.notice("N_INPUT_REQUIRED", [a.id, "account.property.acquisition"]);
+        }
+        depEnd[part] = last;
+      };
+      if (r !== undefined && carry !== undefined && carryParts.length > 0 && rFrom !== null && rTo !== null) {
+        const from = maxM(rFrom, monthIndex(carry.year + 1, 1));
+        for (const x of carryParts) {
+          // 引き継いだ年とその前の年（計算の窓の中）は、入れた年額を貸している月数で（残高は前の年ほど多いので、1円の止めは当てない）
+          for (let y = yearOf(calcStart); y <= Math.min(carry.year, endYear); y++) {
+            const months = rented(y);
+            if (months === 0 || x.annual <= 0) continue;
+            const d = months === 12 ? x.annual : ctx.money.mulRatio(x.annual, months, 12, DEP);
+            if (d <= 0) continue;
+            depAll.set(y, addYen(depAll.get(y) ?? yen(0), d));
+            carryPre.set(y, addYen(carryPre.get(y) ?? yen(0), d));
+            depByYear.set(y, addYen(depByYear.get(y) ?? yen(0), d));
+          }
+          depreciateFrom(x.book, x.annual, carry.year + 1, from, rTo, x.part, x.book <= 1 ? carry.year : null, carryAfter);
+        }
+      } else if (r !== undefined && p.acquisition !== undefined && bases !== null && acqAt !== null && rFrom !== null && rTo !== null) {
+        const acq = p.acquisition;
+        const { building: buildingBase, equipment: equipmentBase } = bases;
+        const elapsed = yearOf(acqAt) - built;
+        const start = maxM(acqAt, rFrom);
+        if (buildingBase > 0) depreciateFrom(buildingBase, ctx.money.mulRate(buildingBase, ctx.rate.of(straightLineRate(usedLife(TAX_USEFUL_LIFE[structure], elapsed))), DEP), yearOf(start), start, rTo, "building", null, null);
+        if (equipmentBase > 0) depreciateFrom(equipmentBase, ctx.money.mulRate(equipmentBase, ctx.rate.of(straightLineRate(acq.equipmentLife ?? usedLife(EQUIPMENT_LIFE, elapsed))), DEP), yearOf(start), start, rTo, "equipment", null, null);
+      } else if (r !== undefined && carryParts.length === 0) ctx.notice("N_INPUT_REQUIRED", [a.id, "account.property.acquisition"]);
+      // 帳簿の上の償却の累計（その年の年末まで。取得価額の償却の基からの差）。引き継いだときは「償却の基−その年の年末の未償却残高」
+      const carryBook0 = carryParts.reduce((s0, x) => addYen(s0, x.book), yen(0));
+      const accDep = (y: number): number => {
+        if (carry === undefined || carryParts.length === 0 || r === undefined) {
+          let acc = 0;
+          for (const [yy, d] of depAll) if (yy <= y) acc += d;
+          return acc;
+        }
+        // 引き継いだ年の年末の残高から、その後の償却を引き（前の年なら、その年の後の引き継いだ年までの償却を足し）た残高
+        let left: number = carryBook0;
+        if (y >= carry.year) for (const [yy, d] of carryAfter) if (yy <= y) left -= d;
+        if (y < carry.year) for (const [yy, d] of carryPre) if (yy > y && yy <= carry.year) left += d;
+        return (buildingCost ?? 0) - left;
+      };
 
       // 借入の利息（この不動産を指す負債。貸している月数の分）と、そのうち土地の取得のための分
       const intByYear = new Map<number, Yen>();
@@ -490,7 +547,8 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         let term: "long" | "short" = "long";
         if (acq !== undefined && acqAt !== null) {
           const total = parts !== undefined ? yen(partsTotal) : acq.price;
-          const actual = yen(Math.max(0, total + (acq.costs ?? 0) - accumulated));
+          // 償却の累計（売る前の月まで。売った年の年末までと同じ。引き継いだときは償却の基−売るときの未償却残高）
+          const actual = yen(Math.max(0, total + (acq.costs ?? 0) - accDep(y)));
           if (actual >= estimatedCost) {
             acquisitionCost = actual;
             estimated = false;
@@ -520,6 +578,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         ...(depEndIfContinued.building !== null || depEndIfContinued.equipment !== null ? { depreciationEndIfContinued: depEndIfContinued } : {}),
         ...(noBuilding ? { noBuilding: true } : {}),
         ...(lodgingFacts !== null ? { lodging: lodgingFacts } : {}),
+        ...(actualRent ? { rentBy: "actual" as const } : {}),
       };
       // 年末の帳簿価額（取得価額＋取得時の諸費用−その年の年末までの償却の累計。取得の入力があるときだけ。改訂7）
       const bookBase = facts.acquisition === null ? null : addYen(facts.acquisition.total, facts.acquisition.costs);
@@ -527,9 +586,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         bookBase === null
           ? years
           : years.map((v) => {
-              let acc = yen(0);
-              for (const [yy, d] of depAll) if (yy <= v.year) acc = addYen(acc, d);
-              return { ...v, book: subYen(bookBase, acc) };
+              return { ...v, book: yen(Math.max(0, bookBase - accDep(v.year))) };
             });
       properties.push({ object: a.id, owner, years: booked, income, sale, ...(incomeKind !== "realEstate" ? { incomeKind } : {}), ...(units !== null ? { units } : {}), cash, facts });
     }

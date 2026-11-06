@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.64";
+pub const CURRENT: &str = "0.65";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -219,13 +219,17 @@ pub const CURRENT: &str = "0.64";
 /// - 0.64: 貸していない不動産の持ち始める時点 `accounts[].holdFrom`（これから相続・購入する土地・別荘など）と、建物が建った年・構造
 ///   `accounts[].builtYear`・`accounts[].structure`（画面の固定資産税の目安だけ）を足した（0123 の追記 2026-11-05。足すだけの MINOR）。
 ///   前の版のアプリは入力の検査で知らない欄を通さないので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える。0.63 の段の後に積む
+/// - 0.65: 収益不動産の家賃の入れ方 `accounts[].property.rental.rentBy`（`fullOccupancy` 満室時の家賃と空室率・`actual` 今の実際の家賃収入。
+///   省略は `fullOccupancy`）と、減価償却の引き継ぎ `accounts[].property.depreciationCarryover`（確定申告の数字。引き継ぐ年と、建物・建物附属設備の
+///   年末の未償却残高と年間の償却費）を足した（0126。足すだけの MINOR）。前の版のアプリは入力の検査で知らない欄を通さないので、版を上げて閲覧だけにする。
+///   変換の段は形式の版だけを書き換える。0.64 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
-    "0.62", "0.63", "0.64",
+    "0.62", "0.63", "0.64", "0.65",
 ];
 
 /// 1段分の変換
@@ -551,6 +555,11 @@ pub const STEPS: &[Step] = &[
         from: "0.63",
         to: "0.64",
         apply: v0_63_to_0_64,
+    },
+    Step {
+        from: "0.64",
+        to: "0.65",
+        apply: v0_64_to_0_65,
     },
 ];
 
@@ -2238,6 +2247,16 @@ fn v0_57_to_0_58(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.64 → 0.65: 足した欄（収益不動産の家賃の入れ方・減価償却の引き継ぎ。0126）は前の版の世帯に無いので、形式の版だけを書き換える。
+/// ほかの欄に触れない（家賃の入れ方の省略は満室時の家賃と空室率で、前の版と同じ計算）
+fn v0_64_to_0_65(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.65".into());
+    }
+    Ok(body)
+}
+
 /// 0.63 → 0.64: 足した欄（貸していない不動産の持ち始める時点・建物が建った年と構造。0123 の追記 2026-11-05）は前の版の世帯に無いので、
 /// 形式の版だけを書き換える。ほかの欄に触れない
 fn v0_63_to_0_64(mut body: Value) -> Result<Value, StoreError> {
@@ -3172,7 +3191,8 @@ mod tests {
         assert_eq!(access("0.62").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.63").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.64").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.65").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.65").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.66").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3185,7 +3205,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.65", b.clone()).unwrap(),
+            upgrade("0.66", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -3589,6 +3609,23 @@ mod tests {
             }}}}
         });
         let u = upgrade("0.51", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+    }
+
+    #[test]
+    fn v0_64_to_0_65_only_bumps_version() {
+        // 足した欄（収益不動産の家賃の入れ方・減価償却の引き継ぎ。0126）は前の版の世帯に無いので、世帯はそのまま
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.64"},
+            "household": {"request": {"input": {"baseMonth": "2026-10", "household": {
+                "accounts": [
+                    {"id": "a1", "kind": "realEstate", "owner": "m1", "asOf": "2026-10", "contributions": [],
+                     "property": {"rental": {"monthly": {"value": 100000, "state": "confirmed"}, "vacancyRate": "0.05"}}}
+                ]
+            }}}}
+        });
+        let u = upgrade("0.64", b.clone()).unwrap();
         assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
     }

@@ -47,9 +47,9 @@
 }
 
 /// 指標の札（4つずつ2段）
-#let rental-cards(m, lodging, land-only: false, land: false) = {
+#let rental-cards(m, lodging, land-only: false, land: false, actual: false) = {
   let cards = (
-    if lodging and m.lodging != none { ("稼働率", m.lodging.occupancy) } else { ("表面利回り", m.grossYield) },
+    if lodging and m.lodging != none { ("稼働率", m.lodging.occupancy) } else if actual { ("表面利回り（今の収入で）", m.grossYield) } else { ("表面利回り", m.grossYield) },
     ("実質利回り（NOI）", m.netYield),
     (if lodging { "損益分岐の稼働率" } else if land { "損益分岐の地代の割合" } else if land-only { "損益分岐の稼働率" } else { "損益分岐の入居率" }, m.breakEven),
     ("返済比率", m.repaymentRatio),
@@ -77,18 +77,22 @@
     facts.push(a)
     if p.acquisition.equity != none { facts.push("自己資金 " + man-unit(p.acquisition.equity)) }
   }
+  // 家賃の入れ方・減価償却の引き継ぎ（0126。省略は前の版の入力）
+  if p.at("actualRent", default: false) { facts.push(rental-income-label(p) + "は今の実際の額で入力") }
+  if p.at("depreciationFrom", default: none) != none { facts.push("減価償却は" + str(p.depreciationFrom) + "年の確定申告から引き継ぎ") }
   if p.exit != none { facts.push("売却の予定 " + ym-ja(p.exit.month)) }
   block(below: 6pt, text(fill: muted, facts.join("・")))
   let m = p.point
   if m != none {
     text(size: 8pt, fill: muted, str(m.year) + "年の指標")
     v(2pt)
-    rental-cards(m, p.lodging, land-only: rental-land-only(p), land: p.kind != none and p.kind.key == "land")
+    rental-cards(m, p.lodging, land-only: rental-land-only(p), land: p.kind != none and p.kind.key == "land", actual: p.at("actualRent", default: false))
     let more = ()
     more.push("自己資金に対する手残りの割合（CCR） " + m.ccr)
     if m.at("unrealizedGain", default: none) != none { more.push("含み益 " + man-unit(m.unrealizedGain)) }
     if m.equity != none { more.push("売ったときの手残りの目安（ローン返済後・売却の費用と税の前） " + man-unit(m.equity)) }
     if m.age != none { more.push("築" + str(m.age) + "年・残りの耐用年数 " + str(m.remainingLife) + "年") }
+    if p.at("actualRent", default: false) { more.push("満室時の収入を入れていないので、" + if p.kind != none and p.kind.key == "land" { "損益分岐の地代の割合" } else if rental-land-only(p) { "損益分岐の稼働率" } else { "損益分岐の入居率" } + "は出していません") }
     if p.lodging and m.lodging != none { more.push("1泊の単価 " + yen(m.lodging.nightly) + "・営業日数 " + str(m.lodging.days) + "日・年の売上 " + man-unit(m.lodging.sales)) }
     let dep = p.depreciationEnd.building
     let depText = p.at("depreciationEndText", default: none)
@@ -148,7 +152,7 @@
       (
         p.label,
         if p.kind == none { "—" } else { p.kind.label },
-        if m == none { "—" } else { m.grossYield },
+        if m == none { "—" } else if p.at("actualRent", default: false) and m.grossYield != "—" { m.grossYield + "（今の収入）" } else { m.grossYield },
         if m == none { "—" } else { m.netYield },
         if m == none { "—" } else { yen(m.monthlyBeforeTax) },
         if m == none { "—" } else { m.dscr },

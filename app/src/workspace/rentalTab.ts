@@ -13,7 +13,7 @@ import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import type { RentalMetricModel, RentalPropertyViewModel, RentalSaleModel, RentalTabModel, RentalTableModel, RentalTotalViewModel } from "../presentation/model.ts";
 import { group, man } from "../presentation/format.ts";
 import { BUILDING_STRUCTURES } from "./input/labels.ts";
-import { isLandOnlyKind, RENTAL_KINDS, rentalName, rentalProperties, rentWords } from "./input/stages/rental.ts";
+import { carryoverActive, isLandOnlyKind, RENTAL_KINDS, rentalName, rentalProperties, rentWords } from "./input/stages/rental.ts";
 import { displayYears } from "./present.ts";
 import { roles } from "./roles.ts";
 
@@ -134,6 +134,15 @@ function landOnlyHelp(kind: string | undefined) {
   };
 }
 
+/** 今の実際の家賃収入で入れた物件（0126）: 満室の額が無いので、損益分岐の入居率は出さない */
+export const NO_FULL_TEXT = "—（満室時の額を入れていません）";
+const breakEvenActualHelp = (label: string) => `今の実際の収入で入れているので、満室のとき（全部を貸しているとき）の収入が分からず、${label}は出していません。満室時の額と空室の割合で入れると出します。`;
+/** 今の家賃収入での表面利回りの「?」（種類の言葉。0126） */
+export function currentYieldHelp(kind: string | undefined): string {
+  const what = kind === "parking" ? "駐車料" : kind === "land" ? "地代" : "家賃";
+  return `今の実際の${what}収入（${kind === "land" ? "地代" : `${what}と共益費・駐車場など`}の月の収入。${kind === "land" ? "権利金" : "礼金"}・更新料は入れない）の年額÷取得価額です（今の収入での利回り）。満室時の${what}で入れていないので、満室のときの表面利回りは出していません。`;
+}
+
 /** 物件のその年の指標。baseYear は計算基準年（計算の最初の年）、landOnly は種類が貸している土地・駐車場、kind はその種類 */
 export function propertyMetrics(p: RealEstateAnalysisProperty, y: RealEstateAnalysisYear | undefined, o: { baseYear: number; landOnly?: boolean; kind?: string } = { baseYear: 0 }): RentalMetricModel[] {
   const out: RentalMetricModel[] = [];
@@ -147,9 +156,11 @@ export function propertyMetrics(p: RealEstateAnalysisProperty, y: RealEstateAnal
     m("nightly", "1泊の単価", l === undefined ? dash : yenText(l.nightly), HELP.nightly);
     m("days", "営業日数", l === undefined ? dash : `${l.days}日`, HELP.days);
     m("sales", "年の売上", sales === null ? dash : manYen(sales), HELP.lodgingSales);
-  } else m("grossYield", "表面利回り", pctText(y?.grossYield), lh?.grossYield ?? HELP.grossYield);
+  } else if (p.rentBy === "actual") m("grossYield", "表面利回り（今の収入で）", pctText(y?.currentYield), currentYieldHelp(o.kind));
+  else m("grossYield", "表面利回り", pctText(y?.grossYield), lh?.grossYield ?? HELP.grossYield);
   m("netYield", "実質利回り", pctText(y?.netYield), HELP.netYield);
-  m("breakEven", breakEvenLabel(p.lodging, landOnly, o.kind), pctText(y?.breakEven), p.lodging ? HELP.breakEvenLodging : (lh?.breakEven ?? HELP.breakEven));
+  if (p.rentBy === "actual") m("breakEven", breakEvenLabel(p.lodging, landOnly, o.kind), NO_FULL_TEXT, breakEvenActualHelp(breakEvenLabel(p.lodging, landOnly, o.kind)));
+  else m("breakEven", breakEvenLabel(p.lodging, landOnly, o.kind), pctText(y?.breakEven), p.lodging ? HELP.breakEvenLodging : (lh?.breakEven ?? HELP.breakEven));
   m("repaymentRatio", "返済比率", pctText(y?.repaymentRatio), HELP.repaymentRatio);
   m("dscr", "返済余裕率（DSCR）", timesText(y?.dscr), HELP.dscr);
   m("ltv", "借入の割合（LTV）", pctText(y?.ltv), HELP.ltv);
@@ -227,11 +238,16 @@ function figuresAt(a: RealEstateAnalysis, year: number): { byObject: Map<string,
     const monthly = y === undefined ? null : monthlyOf(y.cashBeforeTax, y.months);
     // 物件の行に出す額（円未満を切り捨てた額）を足す。合計の行が物件の行の足し算と一致するように
     if (monthly !== null) sum = (sum ?? 0) + monthly;
-    byObject.set(p.object, { grossYield: p.lodging ? dash : pctText(y?.grossYield), netYield: pctText(y?.netYield), monthly });
+    // 今の実際の家賃収入で入れた物件は、今の収入での表面利回り（印を添える。0126）
+    const gy = p.lodging ? dash : p.rentBy === "actual" ? currentYieldText(y?.currentYield) : pctText(y?.grossYield);
+    byObject.set(p.object, { grossYield: gy, netYield: pctText(y?.netYield), monthly });
   }
   const t = a.total.find((x) => x.year === year);
   return { byObject, total: { grossYield: pctText(t?.grossYield), netYield: pctText(t?.netYield), monthly: sum } };
 }
+
+/** 一覧の表の、今の収入での表面利回り（「4.1%（今の収入）」。数字が無ければ「—」） */
+export const currentYieldText = (v: string | null | undefined): string => (v == null ? dash : `${pctText(v)}（今の収入）`);
 
 const TOTAL_COLUMNS = [
   { key: "name", label: "物件名" },
@@ -280,6 +296,9 @@ function factsOf(req: EngineRequest, p: RealEstateAnalysisProperty): string[] {
     const extra = [...(p.acquisition.costs > 0 ? [`諸費用 ${manWhole(p.acquisition.costs)}`] : []), ...(p.acquisition.equity !== undefined ? [`自己資金 ${manWhole(p.acquisition.equity)}`] : [])];
     out.push(`${ymText(acq.at)}に取得 ${manWhole(p.acquisition.total)}${extra.length > 0 ? `（${extra.join("・")}）` : ""}`);
   }
+  // 家賃の入れ方・減価償却の引き継ぎ（0126）
+  if (p.rentBy === "actual") out.push(`${rentWords(prop?.kind).income}は今の実際の額で入力`);
+  if (carryoverActive(prop)) out.push(`減価償却は${prop?.depreciationCarryover?.year ?? Number(req.input.baseMonth.slice(0, 4)) - 1}年の確定申告から引き継ぎ`);
   if (p.exit !== null) out.push(`${ymText(p.exit.ym)}に売る予定`);
   return out;
 }
