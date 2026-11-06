@@ -274,15 +274,15 @@ describe("固定資産税の推定（0112）", () => {
     expect(fieldOf(own, "/taxGrowth").help).toContain("入れなければ変えません");
   });
 
-  it("推定の段を外すと、入れ直しで足し直さない", () => {
+  it("推定の段を外すと、入れ直しで足し直さない（推定の段は1つの表に畳み、表の「推定の変化を外す」で外す）", () => {
     let wh = action(salaried(), "housing/addPurchase");
     const r = bought(wh);
-    const sid = taxStageId(r.id, 2032);
-    wh = action(wh, `/propertyTax/stage/${sid}/remove`);
-    expect(stagesOf(bought(wh)).has(2032)).toBe(false);
+    expect(stagesOf(r).size).toBeGreaterThan(3);
+    wh = action(wh, `/propertyTax/autoStages/remove`);
+    expect(bought(wh).propertyTax?.stages).toBeUndefined();
     wh = set(wh, "/purchase/price", 45000000);
-    expect(stagesOf(bought(wh)).has(2032)).toBe(false);
-    expect(stagesOf(bought(wh)).has(2030)).toBe(true);
+    expect(bought(wh).propertyTax?.stages).toBeUndefined();
+    expect(taxStageId(r.id, 2032)).not.toBe("");
   });
 
   it("目安の割合を事務所の推定の値で変えると、推定に効く（法令の値は変えられない）", () => {

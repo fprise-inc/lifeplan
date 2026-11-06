@@ -120,9 +120,12 @@ export async function household1(p: Page): Promise<Notes> {
 
   await open(p, n, "住まい・ローン");
   await p.click("＋ 持ち家（今住んでいる）", { within: "panel" });
+  // 評価額は未入力の警告なので、入るまで標準に出る（入れないと今の家が資産に入らない）
+  await p.type("評価額", "3500");
   await p.click("＋ 住宅ローン", { within: "panel", exact: true });
   await p.type("今の残高", "2800");
-  await p.type("毎月の返済額", "9");
+  // 毎月の返済額は円の欄（返済予定表の数字をそのまま打つ。「9万」も9万円）
+  await p.type("毎月の返済額", "9万");
   await p.type("完済の年月", "2058-03");
   await save(p, n, "住まい・ローン");
 

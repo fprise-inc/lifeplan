@@ -128,6 +128,11 @@ interface FieldBase {
   blankMeans?: string;
   /** 円の欄の目安の上限（保存の期間の円の額）。超える額を打ったら「桁を確かめてください」を1回出す（書くのは止めない。units.ts の amountWarning） */
   typicalMax?: number;
+  /**
+   * 未入力の警告でも標準に上げない欄の、代わりに標準で入れる欄のキー（同じ値を入れる欄が標準にあるとき。例: 今の残高から入れた住宅ローンの
+   * 控除の入居の年月は、標準の「借りた年月（入居の年月）」で入れる）。raiseFields の決まり（入力のパネル）が見る
+   */
+  missingShownBy?: string;
   /** 空にできる（空は「入れない」。推定の値があれば推定に戻る） */
   optional?: boolean;
   /** 物の形が変わる選択（年金の入れ方・働き方の種類など）。往復のテストでは別に確かめる */
@@ -818,6 +823,28 @@ export function removeAction(key: string, label: string, level: Level, run: (h: 
       return out ?? next;
     },
   };
+}
+
+/**
+ * 未入力の警告の欄を、入るまで標準に出す（どの入力項目にも同じ決まり。2026-11-06 の利用者の判断）: raised の欄（未入力〔0円で計算している〕の
+ * 詳細の欄）を標準にし、詳細のまとまり・区画の中にあれば、そのまとまり・区画も標準にする（ほかの詳細の欄は今のまま「▸」の中・詳細）。
+ * 名義と持分が「持分の無い人がいる」ときだけ標準に上がるのと同じ形。どの欄を上げるかは画面の側（入力のパネル）が決める（開いている間は、
+ * 入れた後も下げない。入れた途端に欄が消えると、打った所を見失うため。次に開いたときは元の標準・詳細）
+ */
+export function raiseFields(stage: StageDef, raised: ReadonlySet<string>): StageDef {
+  if (raised.size === 0) return stage;
+  const up = (f: FieldDef): FieldDef => (raised.has(f.key) && f.level === "detail" ? { ...f, level: "simple" } : f);
+  const sections = stage.sections.map((s) => {
+    const groups = s.groups.map((g) => {
+      const fields = g.fields.map(up);
+      if (fields.every((f, i) => f === g.fields[i])) return g;
+      // 詳細のまとまりを上げたときは、物の中の中枠にする（見出しのあるまとまりが物の頭になって「▸」が2つ並ばないように。ほかの詳細の欄は物の頭の「▸」で開く）
+      return { ...g, fields, ...(g.level === "detail" && g.simpleOnly !== true ? { level: "simple" as const, band: true } : {}) };
+    });
+    if (groups.every((g, i) => g === s.groups[i])) return s;
+    return { ...s, groups, level: "simple" as const };
+  });
+  return { ...stage, sections };
 }
 
 /** 段階の全部の欄（テスト・数え上げ用） */
