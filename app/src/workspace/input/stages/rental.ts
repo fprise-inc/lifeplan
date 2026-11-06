@@ -17,6 +17,7 @@ import { BUILDING_STRUCTURES, holderOptions, memberLabels, VALUATION_DEFAULTS } 
 import { monthsBetween } from "../loanMath.ts";
 import { putRow } from "../rows.ts";
 import { stagedGroups } from "../staged.ts";
+import { markDefault } from "../defaultMark.ts";
 import { amountText, rateText } from "../units.ts";
 import { creditLifeFields, loanFields, loanStepGroups } from "./housing.ts";
 import { addHomeRefinance, at, loanMoreActions } from "./housingLoans.ts";
@@ -254,18 +255,11 @@ export function rentalName(h: Household, a: Account): string {
 export const propertyValueUnentered = (a: Account): boolean => a.marketValue?.state === "estimated" && (a.marketValue.value ?? 0) === 0;
 
 /**
- * 既定の値（入れなければこの値で計算する値）の推定の印（0130 の「推定の印」。前提条件の不動産の評価の est と同じ形）: 欄が既定の値を見せて
- * いる（値が無いか、既定の値と同じ値。plain の implicit）ときに、根拠の文つきの推定にする。値そのものは変えない。打って違う値にすると確定、
- * 既定の値と同じ値に戻すと既定（推定）に戻る（plain の決まり。推定と同じ値を書き戻しても確定にしない。0041）
+ * 既定の値（入れなければこの値で計算する値）の推定の印（0130 の「推定の印」。defaultMark.ts）: 物件の中身（property）の path に値が無く、
+ * 既定の値で埋まっているときだけ推定。既定の値と同じ値でも、入れてあれば確定（0145 の追記）
  */
-function withDefaultMark(f: FieldDef, basis: string): FieldDef {
-  return {
-    ...f,
-    get: (w) => {
-      const st = f.get(w);
-      return st.implicit === true && st.assumed == null ? { ...st, estimated: basis } : st;
-    },
-  };
+function withDefaultMark(f: FieldDef, basis: string, accountId: string, path: readonly string[]): FieldDef {
+  return markDefault(f, basis, (h) => (h.accounts ?? []).find((y) => y.id === accountId)?.property as Record<string, unknown> | undefined, path);
 }
 
 /** 足したときの目安の値に、推定の行を書く（打つと、値が変わったときに行が外れて確定になる。0041） */
@@ -813,6 +807,8 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       onAccount(a.id, "account.property", ["structure"]),
     ),
     presetBasis("入れなければ木造で計算します"),
+    a.id,
+    ["structure"],
   );
   const structureField: FieldDef =
     p.kind !== "condo"
@@ -821,7 +817,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
           ...structureBase,
           get: (w) => {
             const st = structureBase.get(w);
-            // 木造（既定）で計算しているとき（構造が空か木造）だけ
+            // 構造が入っておらず、木造（既定）で計算しているときだけ（木造と入れた区分マンションには出さない）
             return st.estimated == null
               ? st
               : {
@@ -846,6 +842,8 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       onAccount(a.id, "account.property", ["builtYear"]),
     ),
     presetBasis(acquisitionYear !== null ? `取得の年 ${acquisitionYear}年に新築とみなしました` : `評価額の時点の年 ${Number(asOf.slice(0, 4))}年に新築とみなしました`),
+    a.id,
+    ["builtYear"],
   );
   const landShareBase = plain({
     key: `${kp}/landShare`,
@@ -861,8 +859,9 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     fallback: partsShare ?? setting?.landShare ?? VALUATION_DEFAULTS.landShare,
     help: "評価額と取得価額を土地と建物に分けます。マンションは土地の割合が小さめです。取得価額の内訳を入れたときは、取得価額は内訳で分け、この割合は評価額だけに使います（入れなければ内訳の土地の割合）",
   });
-  // 土地の割合は当て先を持たない欄のまま（前の版と同じ。既定の値は内訳・前提条件で変わる）
-  const landShareMarked = withDefaultMark(landShareBase, partsShare !== undefined ? presetBasis("取得価額の内訳の土地の割合") : setting?.landShare !== undefined ? presetBasis("前提条件の不動産の評価の土地の割合") : presetBasis(`土地の割合の目安 ${rateText(VALUATION_DEFAULTS.landShare)}`));
+  // 土地の割合（既定の値は内訳・前提条件で変わる）
+  // 取得価額の内訳を入れた物件は、内訳の土地の割合（入れた値から出した割合）なので推定にしない
+  const landShareMarked = partsShare !== undefined ? landShareBase : withDefaultMark(landShareBase, setting?.landShare !== undefined ? presetBasis("前提条件の不動産の評価の土地の割合") : presetBasis(`土地の割合の目安 ${rateText(VALUATION_DEFAULTS.landShare)}`), a.id, ["landShare"]);
   const landShareField: FieldDef = !landOnly
     ? landShareMarked
     : {
@@ -984,7 +983,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       yenBox({ key: `${kp}/rent`, item: "account.property", label: actual ? byWords.actualRent : words.rent, level: "simple", basis: "monthly", help: actual ? byWords.actualHelp : words.rentHelp, find: findP, path: ["rental", "monthly"] }),
       ...(actual
         ? vacancyLeftFields(a, vac)
-        : [withDefaultMark(withAddress(plain({ key: `${kp}/vacancy`, item: "account.property", label: vac, level: "simple", kind: "pct", find: findP, path: ["rental", "vacancyRate"], optional: true, fallback: "0", help: words.vacancyHelp }), onAccount(a.id, "account.property", ["rental", "vacancyRate"])), presetBasis(`入れなければ${vac} 0%（満室）で計算します`))]),
+        : [withDefaultMark(withAddress(plain({ key: `${kp}/vacancy`, item: "account.property", label: vac, level: "simple", kind: "pct", find: findP, path: ["rental", "vacancyRate"], optional: true, fallback: "0", help: words.vacancyHelp }), onAccount(a.id, "account.property", ["rental", "vacancyRate"])), presetBasis(`入れなければ${vac} 0%（満室）で計算します`), a.id, ["rental", "vacancyRate"])]),
       ...(showExtra(p.rental.commonFee) ? [rentYen("commonFee", ["rental", "commonFee"], "共益費（月額）", "monthly", `家賃とは別に受け取る共益費・管理費です。${extraRule}`)] : []),
       ...(showExtra(p.rental.parking)
         ? [
@@ -1102,6 +1101,8 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       withDefaultMark(
         withAddress(plain({ key: `${kp}/saleCost`, item: "account.property", label: "売却の費用（売却価格に対する割合）", level: "detail", kind: "pct", find: findP, path: ["sale", "costRate"], optional: true, fallback: setting?.saleCostRate ?? VALUATION_DEFAULTS.saleCostRate, help: "仲介手数料・印紙税など。譲渡所得の計算では譲渡費用として引きます" }), onAccount(a.id, "account.property", ["sale", "costRate"])),
         setting?.saleCostRate !== undefined ? presetBasis("前提条件の不動産の評価の売却の費用") : presetBasis(`売却の費用の目安 ${rateText(VALUATION_DEFAULTS.saleCostRate)}（仲介手数料の上限・印紙税・登記）`),
+        a.id,
+        ["sale", "costRate"],
       ),
     );
   if (p.sale !== undefined && propertyLoans(wh.request.input.household, a.id).length > 0)

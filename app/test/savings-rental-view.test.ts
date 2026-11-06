@@ -17,7 +17,9 @@ import { CLASSES, payoutAgeBasis, rateBasisOf } from "../src/workspace/input/sav
 import { SavingsPanel } from "../src/workspace/input/savings/SavingsPanel.tsx";
 import { RentalOverview } from "../src/workspace/input/RentalOverview.tsx";
 import { estimatedFields } from "../src/workspace/input/checkRows.ts";
-import { fieldStatus } from "../src/workspace/input/valueState.ts";
+import { applyStateOp, confirmAll, fieldStatus } from "../src/workspace/input/valueState.ts";
+import { buildCatalog } from "../src/workspace/plans/items.ts";
+import { planView, recordPlanEdit, settleFields } from "../src/workspace/plans/planEdit.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const open = (id: string): WorkingHousehold => fromRequest(modelHousehold(id));
@@ -344,6 +346,82 @@ describe("収益不動産: 既定の値の推定の印", () => {
     const labels = [...fieldsOf(sample, "rental").values()].map((f) => f.label);
     expect(labels).toEqual(expect.arrayContaining(["家賃の伸び率（年）", "年額の伸び率（年）", "土地の評価額の伸び率（年）"]));
     expect(labels.some((l) => /変化率|増減率/.test(l))).toBe(false);
+  });
+});
+
+describe("既定の値の推定の印は、明示の操作をした欄では確定（確定は明示の操作だけ、の裏返しの誤りを作らない）", () => {
+  const ID = "00000000-0000-4000-8000-00000000a002";
+  const fresh = () => addRentalProperty(open("single45"), () => ID);
+  const st = (wh: WorkingHousehold, key: string, stage: StageId = "rental") => fieldStatus(fieldOf(wh, key, stage), wh).status;
+
+  it("既定の値と同じ値でも、世帯に入れてある値は確定（見本の作り手が入れた木造など）", () => {
+    const sample = open("rentalSample");
+    const apt = accountsOf(sample).find((a) => a.property?.kind === "apartment")!;
+    expect(apt.property?.structure).toBe("wood");
+    expect(st(sample, `sav/${apt.id}/property/structure`)).toBe("confirmed");
+    // 見本の収益不動産の入力項目に、既定の値の推定は残らない（売却の費用も見本に入れてある）
+    const marked = [...fieldsOf(sample, "rental").values()].filter((f) => /\/property\/(structure|builtYear|landShare|vacancy|saleCost)$/.test(f.key));
+    expect(marked.filter((f) => fieldStatus(f, sample).status === "estimated").map((f) => f.key)).toEqual([]);
+  });
+
+  it("打って既定の値に戻しても確定（木造→鉄骨造→木造・30%→35%→30%）。値は世帯に書く", () => {
+    let wh = fresh();
+    wh = fieldOf(wh, `sav/${ID}/property/structure`, "rental").set(wh, "steel");
+    wh = fieldOf(wh, `sav/${ID}/property/structure`, "rental").set(wh, "wood");
+    expect(accOf(wh, "realEstate").property?.structure).toBe("wood");
+    expect(st(wh, `sav/${ID}/property/structure`)).toBe("confirmed");
+    wh = fieldOf(wh, `sav/${ID}/property/landShare`, "rental").set(wh, "0.35");
+    wh = fieldOf(wh, `sav/${ID}/property/landShare`, "rental").set(wh, "0.3");
+    expect(st(wh, `sav/${ID}/property/landShare`)).toBe("confirmed");
+  });
+
+  it("「この値にする」とまとめての確定で、既定の値の欄は確定になる", () => {
+    const wh = fresh();
+    for (const k of ["structure", "builtYear", "landShare", "vacancy"]) {
+      const key = `sav/${ID}/property/${k}`;
+      expect(st(wh, key), k).toBe("estimated");
+      const c = applyStateOp(wh, fieldOf(wh, key, "rental"), "confirm");
+      expect(st(c, key), k).toBe("confirmed");
+    }
+    const all = confirmAll(wh, [...fieldsOf(wh, "rental").values()]).wh;
+    for (const k of ["structure", "builtYear", "landShare", "vacancy"]) expect(st(all, `sav/${ID}/property/${k}`), k).toBe("confirmed");
+  });
+
+  it("前提条件: 不動産の評価の目安・土地の上昇率・経済の前提も、打った値は標準と同じでも確定（空欄にすると推定に戻る）", () => {
+    let wh = open("salariedCoupleTwoKids");
+    const a = (k: string) => st(wh, k, "assumptions");
+    expect(a("assume/realEstate/landShare")).toBe("estimated");
+    wh = fieldOf(wh, "assume/realEstate/landShare", "assumptions").set(wh, "0.35");
+    wh = fieldOf(wh, "assume/realEstate/landShare", "assumptions").set(wh, "0.3");
+    expect(a("assume/realEstate/landShare")).toBe("confirmed");
+    const inf = wh.request.input.assumptions!.inflation!.default;
+    wh = fieldOf(wh, "assume/realEstate/landGrowth", "assumptions").set(wh, "0.02");
+    wh = fieldOf(wh, "assume/realEstate/landGrowth", "assumptions").set(wh, inf);
+    expect(a("assume/realEstate/landGrowth")).toBe("confirmed");
+    wh = fieldOf(wh, "assume/realEstate/landGrowth", "assumptions").set(wh, null);
+    expect(a("assume/realEstate/landGrowth")).toBe("estimated");
+    expect(a("assume/inflation")).toBe("estimated");
+    wh = fieldOf(wh, "assume/inflation", "assumptions").set(wh, "0.02");
+    wh = fieldOf(wh, "assume/inflation", "assumptions").set(wh, "0.01");
+    expect(a("assume/inflation")).toBe("confirmed");
+    wh = fieldOf(wh, "assume/inflation", "assumptions").set(wh, null);
+    expect(a("assume/inflation")).toBe("estimated");
+  });
+
+  it("プランで既定の値の欄を直して既定の値に戻すと、確定の印の違いだけでは差分を残さない", () => {
+    const req = modelHousehold("rentalSample");
+    const wh: WorkingHousehold = { ...fromRequest(req, {}), proposals: [{ id: "B", name: "プランB", createdAt: "2026-10-26T00:00:00Z", updatedAt: "2026-10-26T00:00:00Z", base: null, tags: [], diffs: [] }] };
+    const cat = buildCatalog(wh, memberId(wh, "self"), null);
+    const apt = accountsOf(wh).find((x) => x.property?.kind === "apartment")!;
+    const key = `sav/${apt.id}/property/saleCost`;
+    const cur = mutate(wh, (hh) => void delete (hh.accounts ?? []).find((x) => x.id === apt.id)!.property!.sale!.costRate);
+    const view = planView(cur, cat, "B");
+    const f = fieldOf(view, key, "rental");
+    const w1 = recordPlanEdit(cur, cat, "B", view, f.set(view, "0.05"));
+    expect(w1.proposals[0]!.diffs.length).toBeGreaterThan(0);
+    const v2 = planView(w1, cat, "B");
+    const back = settleFields(recordPlanEdit(w1, cat, "B", v2, fieldOf(v2, key, "rental").set(v2, "0.04")), cat, "B", [...fieldsOf(v2, "rental").values()]);
+    expect(back.proposals[0]!.diffs).toEqual([]);
   });
 });
 
