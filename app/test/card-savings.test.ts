@@ -247,7 +247,9 @@ describe("口座ごとの詳細の欄", () => {
   });
 
   it("小規模企業共済は受け取り方と受け取りの始まり（空欄は受け取らない）・分割の年数（10年か15年）", () => {
-    let wh = action(open(), "sav/add/smallBusinessMutualAid").run(open());
+    // 小規模企業共済は自営業か会社役員の期間がある人だけが持てる（足すボタンもその人がいるときだけ）
+    const self = fromRequest(modelHousehold("selfEmployed"));
+    let wh = action(self, "sav/add/smallBusinessMutualAid").run(self);
     const aid = acc(wh, "smallBusinessMutualAid");
     expect(fieldsOf(wh).has(`sav/${aid.id}/payoutAt`)).toBe(false);
     wh = fieldOf(wh, `sav/${aid.id}/value`).set(wh, 3_000_000);

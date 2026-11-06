@@ -13,13 +13,15 @@ import type { Address } from "../../store/readings.ts";
 import { addMonths } from "../../levers.ts";
 import { byId, field, plain, removeAction, resolveTimepoint, timepointField, yenBox, type FieldDef, type Finder, type GroupDef, type Option, type StageDef } from "../form.ts";
 import { confirmedBox, mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
-import { BUILDING_STRUCTURES, memberLabels, memberOptions, VALUATION_DEFAULTS } from "../labels.ts";
+import { BUILDING_STRUCTURES, holderOptions, memberLabels, VALUATION_DEFAULTS } from "../labels.ts";
 import { monthsBetween } from "../loanMath.ts";
+import { putRow } from "../rows.ts";
 import { stagedGroups } from "../staged.ts";
+import { amountText, rateText } from "../units.ts";
 import { creditLifeFields, loanFields, loanStepGroups } from "./housing.ts";
-import { loanMoreActions } from "./housingLoans.ts";
+import { addHomeRefinance, at, loanMoreActions } from "./housingLoans.ts";
 import { GROWTH_RANGE } from "../rateRanges.ts";
-import { presetNum, presetRate } from "../../../../../hearing/src/presets.ts";
+import { presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
 
 const accounts = (h: Household) => h.accounts;
 /** 欄の当て先（器の中の入力項目） */
@@ -251,13 +253,28 @@ export function rentalName(h: Household, a: Account): string {
 /** 評価額がまだ入っていない（「＋ 物件を足す」の印のまま） */
 export const propertyValueUnentered = (a: Account): boolean => a.marketValue?.state === "estimated" && (a.marketValue.value ?? 0) === 0;
 
-/** 円を万円の文字に（1万円未満は小数1桁まで） */
-function man(yen: number): string {
-  const m = yen / 10000;
-  if (Number.isInteger(m)) return m.toLocaleString("ja-JP");
-  if (Math.abs(yen) < 1_000_000) return String(Math.round(m * 10) / 10);
-  return Math.round(m).toLocaleString("ja-JP");
+/**
+ * 既定の値（入れなければこの値で計算する値）の推定の印（0130 の「推定の印」。前提条件の不動産の評価の est と同じ形）: 欄が既定の値を見せて
+ * いる（値が無いか、既定の値と同じ値。plain の implicit）ときに、根拠の文つきの推定にする。値そのものは変えない。打って違う値にすると確定、
+ * 既定の値と同じ値に戻すと既定（推定）に戻る（plain の決まり。推定と同じ値を書き戻しても確定にしない。0041）
+ */
+function withDefaultMark(f: FieldDef, basis: string): FieldDef {
+  return {
+    ...f,
+    get: (w) => {
+      const st = f.get(w);
+      return st.implicit === true && st.assumed == null ? { ...st, estimated: basis } : st;
+    },
+  };
 }
+
+/** 足したときの目安の値に、推定の行を書く（打つと、値が変わったときに行が外れて確定になる。0041） */
+function estimatedRow(input: object, a: Address, basis: string): void {
+  putRow(input as Record<string, unknown>, a, { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis } });
+}
+
+/** 区分マンションの構造の推定（区分マンションの多くは鉄筋コンクリート造。木造の既定は一棟アパート・戸建ての形） */
+export const CONDO_STRUCTURE_BASIS = presetBasis("区分マンションは鉄筋コンクリート造とみなしました。構造が違えば直してください");
 
 /** その物件のローン（負債の型で、debts[].property がその器を指すもの。0028） */
 export const propertyLoans = (h: Household, id: string): Debt[] => (h.debts ?? []).filter((d) => d.property === id);
@@ -362,6 +379,7 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
   const kp = `${k}/property`;
   const p = a.property ?? {};
   const whole = p.kind !== undefined && WHOLE_BUILDING.has(p.kind);
+  const condo = p.kind === "condo";
   // 建物の無い種類（駐車場・貸している土地）は、評価額の名前と「?」を種類に合わせる。前の版で建物の分が入っている物件は、
   // 計算が今までどおり建物の分を年数で減らすので、今までの名前と「?」のまま（0079 の追記 2026-11-06）
   const noBuilding = isLandOnlyKind(p.kind) && !landOnlyWithBuilding(p);
@@ -405,14 +423,29 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
     }),
     onAccount(a.id, "account.property", ["kind"]),
   );
-  const kindField: FieldDef = kindBase;
+  // 種類を区分マンションにしたら、構造が入っていなければ鉄筋コンクリート造を推定の印で入れる（木造の既定のまま評価額・減価償却を計算しない）
+  const structureKey = `${kp}/structure`;
+  const kindField: FieldDef = {
+    ...kindBase,
+    set: (w, v) => {
+      const next = kindBase.set(w, v);
+      if (v !== "condo" || next === w) return next;
+      const x = (next.request.input.household.accounts ?? []).find((y) => y.id === a.id);
+      if (x?.property === undefined || x.property.structure !== undefined) return next;
+      const out = mutate(next, (hh) => {
+        const y = (hh.accounts ?? []).find((z) => z.id === a.id);
+        if (y?.property !== undefined) y.property.structure = "rc";
+      });
+      return { ...out, assumed: { ...out.assumed, [structureKey]: CONDO_STRUCTURE_BASIS } };
+    },
+  };
   const fields: FieldDef[] = [
     withAddress(
       plain({ key: `${kp}/name`, item: "account.property.name", label: "物件名", level: "simple", kind: "text", find: findP, path: ["name"], optional: true, help: "入れなければ「物件1」「物件2」と呼びます。ふだんの呼び方（「○○のアパート」など）で入れると見分けやすくなります" }),
       onAccount(a.id, "account.property.name"),
     ),
     kindField,
-    plain({ key: `${k}/owner`, item: "account.owner", label: "名義", level: "simple", kind: "select", options: memberOptions(wh), find, path: ["owner"], help: CORPORATE_NOTE }),
+    plain({ key: `${k}/owner`, item: "account.owner", label: "名義", level: "simple", kind: "select", options: holderOptions(wh, "anyone", a.owner), find, path: ["owner"], help: CORPORATE_NOTE }),
     yenBox({ key: `${k}/value`, item: "account.marketValue", label: valueLabel, level: "simple", basis: "once", find, path: ["marketValue"], help: valueHelp }),
     plain({ key: `${k}/asOf`, item: "account.asOf", label: "評価額の時点", level: "detail", kind: "ym", find, path: ["asOf"] }),
     // 持ち始める時点（0039。相続・贈与で受け取る物件。その月から評価額・家賃収入・経費に入れ、受け取るときの支払いは無い）。物件そのものの時点なので、
@@ -436,7 +469,7 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
     plain({
       key: `${k}/growth`,
       item: "account.valueGrowth",
-      label: "土地の評価額の増減率（年）",
+      label: "土地の評価額の伸び率（年）",
       level: "simple",
       kind: "pct",
       ...GROWTH_RANGE,
@@ -454,17 +487,18 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
         return v !== null && v < 1 ? { ...s, warn: "計算はまだ全部を名義の人の分として扱います（評価額・家賃・経費・ローンは物件全体の額で入れてください）" } : s;
       },
     },
-    withAddress(plain({ key: `${kp}/tenure`, item: "account.property", label: "権利", level: "detail", kind: "select", options: TENURES, find: findP, path: ["tenure"], optional: true }), onAccount(a.id, "account.property", ["tenure"])),
-    withAddress(plain({ key: `${kp}/units`, item: "account.property", label: "戸数", level: whole ? "simple" : "detail", kind: "int", suffix: "戸", min: 1, max: 9999, find: findP, path: ["units"], optional: true, help: "一棟のときの部屋の数です。空室は、家賃収入の「空室率」で入れます" }), onAccount(a.id, "account.property", ["units"])),
-    withAddress(plain({ key: `${kp}/landArea`, item: "account.property", label: "土地の面積", level: "detail", kind: "decimal", suffix: "㎡", find: findP, path: ["area", "land"], optional: true }), onAccount(a.id, "account.property", ["area", "land"])),
+    withAddress(plain({ key: `${kp}/tenure`, item: "account.property", label: "権利", level: "detail", kind: "select", options: TENURES, find: findP, path: ["tenure"], optional: true, help: TENURE_HELP }), onAccount(a.id, "account.property", ["tenure"])),
+    // 区分マンション（1室）には戸数・土地の面積を出さない（入れてあれば出す）
+    ...(!condo || p.units !== undefined ? [unitsField(a, kp, findP, whole)] : []),
+    ...(!condo || p.area?.land !== undefined ? [withAddress(plain({ key: `${kp}/landArea`, item: "account.property", label: "土地の面積", level: "detail", kind: "decimal", suffix: "㎡", find: findP, path: ["area", "land"], optional: true, help: AREA_HELP }), onAccount(a.id, "account.property", ["area", "land"]))] : []),
     // 建物の無い種類は出さない（入れてあれば出す）
-    ...(!noBuilding || p.area?.floor !== undefined ? [withAddress(plain({ key: `${kp}/floorArea`, item: "account.property", label: "建物の延べ床面積", level: "detail", kind: "decimal", suffix: "㎡", find: findP, path: ["area", "floor"], optional: true }), onAccount(a.id, "account.property", ["area", "floor"]))] : []),
+    ...(!noBuilding || p.area?.floor !== undefined ? [withAddress(plain({ key: `${kp}/floorArea`, item: "account.property", label: "建物の延べ床面積", level: "detail", kind: "decimal", suffix: "㎡", find: findP, path: ["area", "floor"], optional: true, help: AREA_HELP }), onAccount(a.id, "account.property", ["area", "floor"]))] : []),
     withAddress(plain({ key: `${kp}/memo`, item: "account.property.memo", label: "メモ", level: "detail", kind: "text", find: findP, path: ["memo"], optional: true, help: "物件について FP が覚えておくこと（管理会社・修繕の予定など）。計算には使いません" }), onAccount(a.id, "account.property.memo")),
   ];
   const kl = kindLabel(a);
   return {
     key: k,
-    title: `${rentalName(h, a)}（${[kl, propertyValueUnentered(a) ? "評価額は未入力" : `評価額 ${man(a.marketValue?.value ?? 0)}万円`].filter((x) => x !== null).join("・")}）`,
+    title: `${rentalName(h, a)}（${[kl, propertyValueUnentered(a) ? "評価額は未入力" : `評価額 ${amountText(a.marketValue?.value ?? 0)}`].filter((x) => x !== null).join("・")}）`,
     level: "simple",
     // 売却・大きな修繕の予定は、別の「▸」（売却・大きな修繕の予定のまとまり）で開く
     moreLabel: "所在地・持分・メモなどを入れる",
@@ -476,6 +510,25 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
       }),
     ],
   };
+}
+
+/** 面積の「?」（記録のための欄。計算部品は面積を読まない） */
+const AREA_HELP = "記録のための欄です（計算には使いません）";
+/** 権利の「?」（借地権を選ぶと地代の欄が出るだけ） */
+const TENURE_HELP = "借地権を選ぶと、経費の内訳に地代の欄が出ます。借地権の評価や更新料の計算はしません";
+/** 戸数が空の一棟の物件（事業的規模の目安を1室で数えている） */
+export const UNITS_BLANK = "未入力（1室で数えています。青色申告の事業的規模〔5棟10室〕の判定に使います）";
+
+/** 戸数（一棟は標準）。一棟の物件で空なら、1室で数えていることを知らせる */
+function unitsField(a: Account, kp: string, findP: Finder, whole: boolean): FieldDef {
+  const f = withAddress(
+    plain({ key: `${kp}/units`, item: "account.property", label: "戸数", level: whole ? "simple" : "detail", kind: "int", suffix: "戸", min: 1, max: 9999, find: findP, path: ["units"], optional: true, help: "一棟のときの部屋の数です。空室は、家賃収入の「空室率」で入れます。種類と戸数は、事業的規模の目安（5棟10室）を数えるときだけ計算に使います" }),
+    onAccount(a.id, "account.property", ["units"]),
+  );
+  return whole ? { ...f, get: (w) => {
+    const st = f.get(w);
+    return st.value === null ? { ...st, warn: UNITS_BLANK } : st;
+  } } : f;
 }
 
 /** 取得価額の内訳（土地・建物・建物附属設備）・建物附属設備の耐用年数・取得時の諸費用・自己資金（詳細。0080） */
@@ -752,8 +805,48 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   // 前の版で建物の分が入っている（土地の割合が1未満・内訳の建物）ときは、黙って変えずに欄を出し、土地の割合の欄で知らせる
   const landOnly = isLandOnlyKind(p.kind);
   const withBuilding = !landOnly || landOnlyWithBuilding(p);
-  const structureField = plain({ key: `${kp}/structure`, item: "account.property", label: "建物の構造", level: "simple", kind: "select", options: BUILDING_STRUCTURES, find: findP, path: ["structure"], optional: true, fallback: "wood", help: "評価額の建物の部分を耐用年数（木造22年・軽量鉄骨19年・重量鉄骨34年・鉄筋コンクリート47年）で減らします。減価償却の耐用年数にも使います" });
-  const builtYearField = plain({ key: `${kp}/builtYear`, item: "account.property", label: "建物が建った年", level: "simple", kind: "int", suffix: "年", min: 1900, max: 2200, find: findP, path: ["builtYear"], optional: true, fallback: acquisitionYear ?? Number(asOf.slice(0, 4)), help: "入れなければ取得の年（取得の年が無ければ評価額の時点の年）に新築とみなします" });
+  // 既定の値で埋まる欄（構造・建った年・土地の割合・空室率・売却の費用）は、既定の値と分かるように推定の印と根拠を出す（値そのものは変えない。
+  // 不動産に詳しい FP の確認で決めた既定のまま）。区分マンションで構造が空なら、木造で計算していることを知らせ、鉄筋コンクリート造にするボタン
+  const structureBase = withDefaultMark(
+    withAddress(
+      plain({ key: `${kp}/structure`, item: "account.property", label: "建物の構造", level: "simple", kind: "select", options: BUILDING_STRUCTURES, find: findP, path: ["structure"], optional: true, fallback: "wood", help: "評価額の建物の部分を耐用年数（木造22年・軽量鉄骨19年・重量鉄骨34年・鉄筋コンクリート47年）で減らします。減価償却の耐用年数にも使います" }),
+      onAccount(a.id, "account.property", ["structure"]),
+    ),
+    presetBasis("入れなければ木造で計算します"),
+  );
+  const structureField: FieldDef =
+    p.kind !== "condo"
+      ? structureBase
+      : {
+          ...structureBase,
+          get: (w) => {
+            const st = structureBase.get(w);
+            // 木造（既定）で計算しているとき（構造が空か木造）だけ
+            return st.estimated == null
+              ? st
+              : {
+                  ...st,
+                  warn: "区分マンションの多くは鉄筋コンクリート造です。今は木造（耐用年数22年）で、建物の評価額と減価償却を計算しています",
+                  warnFix: {
+                    label: "鉄筋コンクリート造にする",
+                    run: (ww) => {
+                      const out = mutate(ww, (hh) => {
+                        const y = (hh.accounts ?? []).find((z) => z.id === a.id);
+                        if (y?.property !== undefined) y.property.structure = "rc";
+                      });
+                      return { ...out, assumed: { ...out.assumed, [`${kp}/structure`]: CONDO_STRUCTURE_BASIS } };
+                    },
+                  },
+                };
+          },
+        };
+  const builtYearField = withDefaultMark(
+    withAddress(
+      plain({ key: `${kp}/builtYear`, item: "account.property", label: "建物が建った年", level: "simple", kind: "int", suffix: "年", min: 1900, max: 2200, find: findP, path: ["builtYear"], optional: true, fallback: acquisitionYear ?? Number(asOf.slice(0, 4)), help: "入れなければ取得の年（取得の年が無ければ評価額の時点の年）に新築とみなします" }),
+      onAccount(a.id, "account.property", ["builtYear"]),
+    ),
+    presetBasis(acquisitionYear !== null ? `取得の年 ${acquisitionYear}年に新築とみなしました` : `評価額の時点の年 ${Number(asOf.slice(0, 4))}年に新築とみなしました`),
+  );
   const landShareBase = plain({
     key: `${kp}/landShare`,
     item: "account.property",
@@ -768,8 +861,10 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     fallback: partsShare ?? setting?.landShare ?? VALUATION_DEFAULTS.landShare,
     help: "評価額と取得価額を土地と建物に分けます。マンションは土地の割合が小さめです。取得価額の内訳を入れたときは、取得価額は内訳で分け、この割合は評価額だけに使います（入れなければ内訳の土地の割合）",
   });
+  // 土地の割合は当て先を持たない欄のまま（前の版と同じ。既定の値は内訳・前提条件で変わる）
+  const landShareMarked = withDefaultMark(landShareBase, partsShare !== undefined ? presetBasis("取得価額の内訳の土地の割合") : setting?.landShare !== undefined ? presetBasis("前提条件の不動産の評価の土地の割合") : presetBasis(`土地の割合の目安 ${rateText(VALUATION_DEFAULTS.landShare)}`));
   const landShareField: FieldDef = !landOnly
-    ? landShareBase
+    ? landShareMarked
     : {
         ...landShareBase,
         get: (w) => {
@@ -876,7 +971,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   // 家賃の入れ方（0126）: 今の実際の家賃収入なら、空室の割合を出さず、家賃以外の月の収入にも掛けない
   const byWords = rentByWords(p.kind);
   const actual = actualRent(p);
-  const extraRule = actual ? `今の実際の額で入れます（${vac}は掛けません）。変化率は家賃と同じに掛けます` : `${vac}と変化率は家賃と同じに掛けます`;
+  const extraRule = actual ? `今の実際の額で入れます（${vac}は掛けません）。伸び率は家賃と同じに掛けます` : `${vac}と伸び率は家賃と同じに掛けます`;
   const showExtra = (x: number | undefined) => !landOnly || x !== undefined;
   const parkingExtra = rentYen("parking", ["rental", "parking"], "駐車場の収入（月額）", "monthly", `物件の駐車場の収入です。${extraRule}`);
   if (p.rental !== undefined && lodging !== undefined) rentFields.push(...lodgingSalesFields(wh, a));
@@ -889,7 +984,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       yenBox({ key: `${kp}/rent`, item: "account.property", label: actual ? byWords.actualRent : words.rent, level: "simple", basis: "monthly", help: actual ? byWords.actualHelp : words.rentHelp, find: findP, path: ["rental", "monthly"] }),
       ...(actual
         ? vacancyLeftFields(a, vac)
-        : [plain({ key: `${kp}/vacancy`, item: "account.property", label: vac, level: "simple", kind: "pct", find: findP, path: ["rental", "vacancyRate"], optional: true, fallback: "0", help: words.vacancyHelp })]),
+        : [withDefaultMark(withAddress(plain({ key: `${kp}/vacancy`, item: "account.property", label: vac, level: "simple", kind: "pct", find: findP, path: ["rental", "vacancyRate"], optional: true, fallback: "0", help: words.vacancyHelp }), onAccount(a.id, "account.property", ["rental", "vacancyRate"])), presetBasis(`入れなければ${vac} 0%（満室）で計算します`))]),
       ...(showExtra(p.rental.commonFee) ? [rentYen("commonFee", ["rental", "commonFee"], "共益費（月額）", "monthly", `家賃とは別に受け取る共益費・管理費です。${extraRule}`)] : []),
       ...(showExtra(p.rental.parking)
         ? [
@@ -917,11 +1012,11 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     );
   if (p.rental !== undefined)
     rentFields.push(
-      plain({ key: `${kp}/rentGrowth`, item: "account.property", label: lodging !== undefined ? "売上の変化率（年）" : p.kind === "land" ? "地代の変化率（年）" : p.kind === "parking" ? "駐車料の変化率（年）" : "家賃の変化率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find: findP, path: ["rental", "growth"], optional: true, fallback: "0", help: landOnly ? "下がる見込みはマイナスで入れます" : "古くなって家賃が下がる見込みはマイナスで入れます" }),
+      plain({ key: `${kp}/rentGrowth`, item: "account.property", label: lodging !== undefined ? "売上の伸び率（年）" : p.kind === "land" ? "地代の伸び率（年）" : p.kind === "parking" ? "駐車料の伸び率（年）" : "家賃の伸び率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find: findP, path: ["rental", "growth"], optional: true, fallback: "0", help: landOnly ? "下がる見込みはマイナスで入れます" : "古くなって家賃が下がる見込みはマイナスで入れます" }),
       timepointField({ key: `${kp}/rentFrom`, item: "account.property", label: "貸し始め", level: "detail", find: findP, path: ["rental", "from"], mode: "ym", optional: true, absentWhenEmpty: true, nullText: p.acquisition !== undefined ? "取得の月から" : "前から貸している", ...ageOf }),
       timepointField({ key: `${kp}/rentTo`, item: "account.property", label: "貸し終わり", level: "detail", find: findP, path: ["rental", "to"], startPath: ["rental", "from"], mode: "ym", optional: true, absentWhenEmpty: true, nullText: p.sale !== undefined ? "売るまで" : "最後まで", ...ageOf }),
     );
-  groups.push({ key: `${kp}/rental`, title: lodging !== undefined ? "宿泊の売上" : words.income, level: "simple", moreLabel: lodging !== undefined ? "売上の変化率・貸す期間を入れる" : p.kind === "land" ? "更新料・貸す期間などを入れる" : landOnly ? "その他の収入・貸す期間などを入れる" : "共益費・礼金などを入れる", ...(p.rental !== undefined && p.acquisition?.price === undefined && p.acquisition?.parts === undefined && withBuilding && !carryoverActive(p) ? { note: "取得価額と取得の年月を入れると、減価償却費を引いた不動産所得で税を計算します" } : {}), fields: rentFields, actions: [] });
+  groups.push({ key: `${kp}/rental`, title: lodging !== undefined ? "宿泊の売上" : words.income, level: "simple", moreLabel: lodging !== undefined ? "売上の伸び率・貸す期間を入れる" : p.kind === "land" ? "更新料・貸す期間などを入れる" : landOnly ? "その他の収入・貸す期間などを入れる" : "共益費・礼金などを入れる", ...(p.rental !== undefined && p.acquisition?.price === undefined && p.acquisition?.parts === undefined && withBuilding && !carryoverActive(p) ? { note: "取得価額と取得の年月を入れると、減価償却費を引いた不動産所得で税を計算します" } : {}), fields: rentFields, actions: [] });
   // 家賃と経費の年額の段階・例外の年（0040。詳細）
   const staged = (part: "rental" | "expenses", what: string, basis: "monthly" | "annual", value: (x: Account) => number | null, yearly = false): GroupDef[] =>
     stagedGroups(wh, {
@@ -953,7 +1048,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   const itemFields = EXPENSE_ITEMS.filter((x) => x.show(p) || p.expenses?.items?.[x.key] !== undefined).map((x) => {
     const t = expenseItemText(x, p);
     return withAddress(
-      plain({ key: `${kp}/expItem/${x.key}`, item: "account.property", label: t.label, level: "detail", kind: "yen", basis: "annual", find: findP, path: ["expenses", "items", x.key], optional: true, help: `年額です。費目を1つでも入れると、経費の年額はその合計になります${t.help !== undefined ? `。${t.help}` : ""}` }),
+      plain({ key: `${kp}/expItem/${x.key}`, item: "account.property", label: t.label, level: "detail", kind: "yen", basis: "annual", find: findP, path: ["expenses", "items", x.key], optional: true, help: `年額です（月額で分かる額は、欄の横の「年額」を押すと月額で入れられます）。費目を1つでも入れると、経費の年額はその合計になります${t.help !== undefined ? `。${t.help}` : ""}` }),
       onAccount(a.id, "account.property", ["expenses", "items", x.key]),
     );
   });
@@ -975,12 +1070,11 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   ];
   if (lodging !== undefined)
     expFields.push(withAddress(plain({ key: `${kp}/platformRate`, item: "account.property", label: "仲介サイトの手数料（売上に対する割合）", level: "simple", kind: "pct", find: findP, path: ["lodging", "platformRate"], optional: true, help: "宿泊の予約サイトに払う手数料です（例: 15%）" }), onAccount(a.id, "account.property", ["lodging", "platformRate"])));
-  expFields.push(plain({ key: `${kp}/expGrowth`, item: "account.property", label: "年額の変化率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find: findP, path: ["expenses", "growth"], optional: true, fallback: "0", help: landOnly ? "固定資産税の評価替えによる増減など" : "修繕積立金の値上がりなど" }), ...itemFields);
+  expFields.push(plain({ key: `${kp}/expGrowth`, item: "account.property", label: "年額の伸び率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find: findP, path: ["expenses", "growth"], optional: true, fallback: "0", help: landOnly ? "固定資産税の評価替えによる増減など" : "修繕積立金の値上がりなど" }), ...itemFields);
   groups.push({ key: `${kp}/expenses`, title: "経費", level: "simple", moreLabel: "経費の内訳を入れる", fields: expFields, actions: [] });
   if (p.expenses !== undefined) groups.push(...staged("expenses", "経費の年額", "annual", (x) => expenseItemsTotal(x.property) ?? x.property?.expenses?.annual?.value ?? null, true));
-  // 売却・大きな修繕の予定（標準では、このまとまりの「▸」で開く。詳細では、修繕と売却のまとまりをそのまま出す）
+  // 売却・大きな修繕の予定（標準では、このまとまりの「▸」で開く。詳細では、売却と修繕のまとまりをそのまま出す。並びは見出しと同じ売却→大きな修繕）
   groups.push(plansGroup(wh, a));
-  groups.push(...repairGroups(wh, a).map((g) => ({ ...g, unitOf: `${kp}/plans` })));
   // 売却の予定
   const saleFields: FieldDef[] = [
     field({
@@ -1005,7 +1099,10 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     saleFields.push(
       timepointField({ key: `${kp}/saleAt`, item: "account.property", label: "売る時期", level: "simple", find: findP, path: ["sale", "at"], ...ageOf }),
       plain({ key: `${kp}/salePrice`, item: "account.property", label: "売却価格", level: "simple", kind: "yen", basis: "once", find: findP, path: ["sale", "price"], optional: true, help: "入れなければ、その年の評価額で売るとみなします" }),
-      plain({ key: `${kp}/saleCost`, item: "account.property", label: "売却の費用（売却価格に対する割合）", level: "detail", kind: "pct", find: findP, path: ["sale", "costRate"], optional: true, fallback: setting?.saleCostRate ?? VALUATION_DEFAULTS.saleCostRate, help: "仲介手数料・印紙税など。譲渡所得の計算では譲渡費用として引きます" }),
+      withDefaultMark(
+        withAddress(plain({ key: `${kp}/saleCost`, item: "account.property", label: "売却の費用（売却価格に対する割合）", level: "detail", kind: "pct", find: findP, path: ["sale", "costRate"], optional: true, fallback: setting?.saleCostRate ?? VALUATION_DEFAULTS.saleCostRate, help: "仲介手数料・印紙税など。譲渡所得の計算では譲渡費用として引きます" }), onAccount(a.id, "account.property", ["sale", "costRate"])),
+        setting?.saleCostRate !== undefined ? presetBasis("前提条件の不動産の評価の売却の費用") : presetBasis(`売却の費用の目安 ${rateText(VALUATION_DEFAULTS.saleCostRate)}（仲介手数料の上限・印紙税・登記）`),
+      ),
     );
   if (p.sale !== undefined && propertyLoans(wh.request.input.household, a.id).length > 0)
     saleFields.push(
@@ -1015,6 +1112,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       ),
     );
   groups.push({ key: `${kp}/sale`, title: "売却", level: "detail", unitOf: `${kp}/plans`, fields: saleFields, actions: [] });
+  groups.push(...repairGroups(wh, a).map((g) => ({ ...g, unitOf: `${kp}/plans` })));
   // この物件のローン（負債の型。「住まい・ローン」の住宅ローン以外のローンと同じ欄）
   const loans = propertyLoans(wh.request.input.household, a.id);
   for (const d of loans) groups.push(...propertyLoanGroups(wh, d));
@@ -1028,20 +1126,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
         key: `${kp}/addLoan`,
         label: "＋ この物件のローン",
         level: "simple",
-        run: (w) =>
-          mutate(w, (h) => {
-            const start = (find(h, w) as Account | undefined)?.property?.acquisition?.at ?? w.request.input.baseMonth;
-            (h.debts ??= []).push({
-              id: newId(),
-              kind: "other",
-              property: a.id,
-              debtors: [{ member: a.owner, role: "primary" }],
-              principal: presetNum("preset.rental.loan.principal"),
-              start: { at: start },
-              rateSchedule: [{ from: { at: start }, type: "fixed", rate: presetRate("preset.rental.loan.rate") }],
-              repayment: { method: "equalPayment", termMonths: presetNum("preset.rental.loan.termYears") * 12 },
-            });
-          }),
+        run: (w) => addPropertyLoan(w, a.id),
       },
     ],
   });
@@ -1069,6 +1154,34 @@ function plansGroup(wh: WorkingHousehold, a: Account): GroupDef {
     fields: [],
     actions: [],
   };
+}
+
+/**
+ * この物件のローンを1本足す（借入額・金利・返済期間は目安の値。どれも推定の行を付け、打つと確定。借りていない額で計算が進むのに気づけるように）。
+ * 借入の年月は取得の年月（無ければ今月）
+ */
+export function addPropertyLoan(w: WorkingHousehold, accountId: string, id: () => string = newId): WorkingHousehold {
+  return mutate(w, (h, req) => {
+    const acc = (h.accounts ?? []).find((y) => y.id === accountId);
+    if (acc === undefined) return;
+    const start = acc.property?.acquisition?.at ?? req.input.baseMonth;
+    const debtId = id();
+    const rateId = id();
+    (h.debts ??= []).push({
+      id: debtId,
+      kind: "other",
+      property: acc.id,
+      debtors: [{ member: acc.owner, role: "primary" }],
+      principal: presetNum("preset.rental.loan.principal"),
+      start: { at: start },
+      rateSchedule: [{ id: rateId, from: { at: start }, type: "fixed", rate: presetRate("preset.rental.loan.rate") }],
+      repayment: { method: "equalPayment", termMonths: presetNum("preset.rental.loan.termYears") * 12 },
+    });
+    const input = req.input as unknown as object;
+    estimatedRow(input, at(debtId, "debt.principal"), presetBasis(presetText("preset.rental.loan.principal", (v) => `収益不動産のローンの借入額の目安 ${amountText(Number(v))}`)));
+    estimatedRow(input, at(debtId, "debt.rateSchedule", [rateId, "rate"]), presetBasis(presetText("preset.rental.loan.rate", (v) => `収益不動産のローンの金利の目安 ${rateText(String(v))}（固定）`)));
+    estimatedRow(input, at(debtId, "debt.repayment", ["termMonths"]), presetBasis(presetText("preset.rental.loan.termYears", (v) => `収益不動産のローンの返済期間の目安 ${String(v)}年`)));
+  });
 }
 
 /** 民泊・宿の売上の欄（営業の形・売上の入れ方と、1泊の単価・稼働率・営業日数か月の売上の見込み。0080） */
@@ -1156,16 +1269,24 @@ function repairGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
         label: "＋ 大きな修繕",
         level: "detail",
         help: `${repairExamples(a.property?.kind)}など、何年かに一度の大きな修繕の予定です。その月の一時的支出にし、全額をその年の経費として計算します`,
-        run: (w) =>
-          mutate(w, (h) => {
-            const p = (h.accounts ?? []).find((y) => y.id === a.id)?.property;
-            if (p === undefined) return;
-            (p.repairs ??= []).push({ id: newId(), at: { at: addMonths(w.request.input.baseMonth, presetNum("preset.rental.repair.afterMonths")) }, amount: presetNum("preset.rental.repair.amount") });
-          }),
+        run: (w) => addRepair(w, a.id),
       },
     ],
   });
   return groups;
+}
+
+/** 大きな修繕を1件足す（年月・金額は目安の値。どちらも推定の行を付け、打つと確定） */
+export function addRepair(w: WorkingHousehold, accountId: string, id: () => string = newId): WorkingHousehold {
+  return mutate(w, (h, req) => {
+    const p = (h.accounts ?? []).find((y) => y.id === accountId)?.property;
+    if (p === undefined) return;
+    const rid = id();
+    (p.repairs ??= []).push({ id: rid, at: { at: addMonths(req.input.baseMonth, presetNum("preset.rental.repair.afterMonths")) }, amount: presetNum("preset.rental.repair.amount") });
+    const input = req.input as unknown as object;
+    estimatedRow(input, onAccount(accountId, "account.property", ["repairs", rid, "amount"])(), presetBasis(presetText("preset.rental.repair.amount", (v) => `大きな修繕の額の目安 ${amountText(Number(v))}`)));
+    estimatedRow(input, onAccount(accountId, "account.property", ["repairs", rid, "at"])(), presetBasis(presetText("preset.rental.repair.afterMonths", (v) => `大きな修繕の時期の目安 今から${Math.round(Number(v) / 12)}年後`)));
+  });
 }
 
 /** 物件のローンの団信の対象の「?」（住宅ローン向けの文ではなく、収益物件のローン向け） */
@@ -1202,17 +1323,31 @@ function propertyLoanGroups(wh: WorkingHousehold, d: Debt): GroupDef[] {
           label: "＋ 借り換え",
           level: "detail",
           help: "その月に残りの残高を新しいローンで返します（新しい金利・期間・費用を入れます）",
-          run: (w) =>
-            mutate(w, (h) => {
-              const x = (h.debts ?? []).find((y) => y.id === d.id);
-              if (x === undefined) return;
-              const when = addMonths(w.request.input.baseMonth, 60);
-              (x.refinance ??= []).push({ at: { at: when }, rateSchedule: [{ id: newId(), from: { at: when }, type: "fixed", rate: x.rateSchedule.at(-1)?.rate ?? presetRate("preset.rental.loan.rate") }], termMonths: presetNum("preset.rental.refinance.termMonths") });
-            }),
+          run: (w) => addPropertyRefinance(w, d.id),
         },
       ],
     },
   ];
+}
+
+/**
+ * 物件のローンの借り換えを1件足す: 時期と形は住まいの住宅ローンと同じ共通の関数（housingLoans.ts の addHomeRefinance。5年後、これから借りるローンは
+ * 借入の月の5年後）で作り、金利は収益物件のローンの形（固定・今の最後の金利）、返済期間は収益不動産の借り換えの目安に置き換える
+ * （住宅ローンの変動金利の目安・完済を変えない期間は、アパートローンには当てない）
+ */
+export function addPropertyRefinance(w: WorkingHousehold, debtId: string): WorkingHousehold {
+  const before = (w.request.input.household.debts ?? []).find((y) => y.id === debtId);
+  if (before === undefined) return w;
+  const rate = before.rateSchedule.at(-1)?.rate ?? presetRate("preset.rental.loan.rate");
+  const n = (before.refinance ?? []).length;
+  return mutate(addHomeRefinance(w, debtId), (h) => {
+    const r = (h.debts ?? []).find((y) => y.id === debtId)?.refinance?.[n];
+    const first = r?.rateSchedule[0];
+    if (r === undefined || first === undefined) return;
+    first.type = "fixed";
+    first.rate = rate;
+    r.termMonths = presetNum("preset.rental.refinance.termMonths");
+  });
 }
 
 /** 物件の持ち主ごとの申告の仕方（青色・白色）と青色申告特別控除の額・事業的規模の目安（詳細。members[].taxReturn。0081） */
@@ -1284,7 +1419,10 @@ export function taxReturnGroups(wh: WorkingHousehold): GroupDef[] {
         kind: "text",
         readOnly: "物件の種類と戸数から数えています",
         help: BUSINESS_SCALE_HELP,
-        get: () => ({ value: `${scale.met ? "当たります" : "当たりません"}${count !== "" ? `（${count}）` : ""}` }),
+        get: () => {
+          const blank = rentalProperties(h).some((a) => a.owner === id && a.property?.kind !== undefined && WHOLE_BUILDING.has(a.property.kind) && a.property.units === undefined);
+          return { value: `${scale.met ? "当たります" : "当たりません"}${count !== "" ? `（${count}）` : ""}`, ...(blank ? { warn: "戸数が入っていない一棟の物件があります（1室で数えています）" } : {}) };
+        },
         set: (w) => w,
       }),
     );

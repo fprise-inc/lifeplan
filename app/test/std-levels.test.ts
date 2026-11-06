@@ -318,27 +318,30 @@ describe("保険: 標準の「終わり」", () => {
 });
 
 describe("貯蓄・運用", () => {
-  it("預貯金の名義と積立をやめる年齢は詳細。利回りの説明に「費用を引いた後」", () => {
+  it("預金の名義は夫婦の世帯では標準（相続・万一で効く）・単身の世帯では詳細。積立をやめる年齢は詳細。利回りの説明に「費用を引いた後」", () => {
     const wh = open("salariedCoupleTwoKids");
     const fs = fieldsOf(wh, "savings");
     const dep = wh.request.input.household.accounts!.find((a) => a.kind === "deposit")!;
     const nisa = wh.request.input.household.accounts!.find((a) => a.kind === "nisa")!;
-    expect(fs.find((f) => f.key === `sav/${dep.id}/owner`)?.level).toBe("detail");
+    expect(fs.find((f) => f.key === `sav/${dep.id}/owner`)?.level).toBe("simple");
+    const single = open("single45");
+    const sdep = single.request.input.household.accounts!.find((a) => a.kind === "deposit")!;
+    expect(fieldsOf(single, "savings").find((f) => f.key === `sav/${sdep.id}/owner`)?.level).toBe("detail");
     expect(fs.find((f) => f.key === `sav/${nisa.id}/owner`)?.level).toBe("simple");
     expect(fs.find((f) => f.key === "sav/stopAge")?.level).toBe("detail");
     expect(fs.find((f) => f.key === `sav/${nisa.id}/rate`)?.help).toContain("信託報酬などの費用を引いた後");
   });
 
-  it("画面: 標準では積立をやめる年齢を読むだけ・預貯金の名義を選ばない。詳細では入れられる", () => {
+  it("画面: 標準では積立をやめる年齢を読むだけ。夫婦の世帯は標準でも預金の名義を選べる。詳細では入れられる", () => {
     const wh = open("salariedCoupleTwoKids");
     const simple = renderToString(h(SavingsPanel, { wh, level: "simple", onEdit: () => undefined }));
     const detail = renderToString(h(SavingsPanel, { wh, level: "detail", onEdit: () => undefined }));
     expect(simple).toContain("data-stop-age-read");
     expect(simple).not.toContain('data-num="stop-age"');
     expect(detail).not.toContain("data-stop-age-read");
-    // 名義を選ぶ部品: 標準は預貯金の外の口座（NISA）だけ、詳細は全部の口座
+    // 名義を選ぶ部品: 夫婦の世帯は標準でも預金と NISA の両方
     const owners = (html: string) => (html.match(/aria-label="[^"]*の名義"/g) ?? []).length;
-    expect(owners(simple)).toBe(1);
+    expect(owners(simple)).toBe(2);
     expect(owners(detail)).toBe(2);
   });
 });

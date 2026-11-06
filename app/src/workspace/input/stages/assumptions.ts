@@ -16,7 +16,7 @@ import type { Address } from "../../store/readings.ts";
 import { field, getPath, plain, type ActionDef, type FieldDef, type FieldState, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { DEFAULT_ASSUMPTIONS, defaultEndAge, END_AGES, endAgeOf, endYearForAge, mutate, STANDARD_END_AGE, standardEndYear, type WorkingHousehold } from "../household.ts";
 import { ASSET_CLASSES, BUILDING_STRUCTURES, memberLabel, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
-import { sameRate } from "../units.ts";
+import { sameRate, ymWithEra } from "../units.ts";
 import { cmpRate, pctText } from "../../plans/decimal.ts";
 import { feeSections } from "./fees.ts";
 import { GROWTH_RANGE, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../rateRanges.ts";
@@ -24,6 +24,9 @@ import { presetNum } from "../../../../../hearing/src/presets.ts";
 
 type Obj = Record<string, unknown>;
 type Assumptions = NonNullable<WorkingHousehold["request"]["input"]["assumptions"]>;
+
+/** 不動産の評価の区画の名前（持ち家だけでなく、収益不動産・貸していない不動産の計算にも使う） */
+export const REAL_ESTATE_SECTION = "不動産の評価（持ち家・収益不動産など）";
 
 /** 既定の値（仮の値）の根拠の文（事務所の標準値ができるまで。0070） */
 export const STANDARD_BASIS = "既定の値（仮の値。事務所で根拠を確かめて直してください）";
@@ -384,13 +387,16 @@ function assetReturnGroups(wh: WorkingHousehold): GroupDef[] {
   });
 }
 
-/** 持ち家の評価の前提（assumptions.realEstateValuation。空欄は計算エンジンの目安を推定として見せる。0025） */
+/** 不動産（持ち家・購入の予定・収益不動産・貸していない不動産）を持つ世帯か。無ければ不動産の評価の区画を出さない */
+export const ownsRealEstate = (w: WorkingHousehold): boolean => (w.request.input.household.residences ?? []).some((r) => r.kind === "own") || (w.request.input.household.accounts ?? []).some((x) => x.kind === "realEstate");
+
+/** 不動産の評価の前提（assumptions.realEstateValuation。持ち家・収益不動産・貸していない不動産の計算に使う。空欄は計算エンジンの目安を推定として見せる。0025） */
 function valuationGroups(wh: WorkingHousehold): GroupDef[] {
   const find = (_h: Household, w: WorkingHousehold) => w.request.input.assumptions as Record<string, unknown> | undefined;
   const item = "assumptions.realEstateValuation";
   const R = "realEstateValuation";
   /** 空欄は目安（推定。根拠 0025 の目安）。持ち家・不動産が無い世帯では使わないので、推定の数に入れない */
-  const owns = (w: WorkingHousehold) => (w.request.input.household.residences ?? []).some((r) => r.kind === "own") || (w.request.input.household.accounts ?? []).some((x) => x.kind === "realEstate");
+  const owns = ownsRealEstate;
   const est = (f: FieldDef, basis: string): FieldDef => ({
     ...f,
     get: (w) => {
@@ -413,7 +419,7 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
           ...GROWTH_RANGE,
           optional: true,
           blankIsEstimate: true,
-          help: "入れなければ物価上昇率と同じ",
+          help: "持ち家・収益不動産の土地の値動きです。入れなければ物価上昇率と同じ。貸していない土地・別荘・空き家には使いません（その物の評価額の伸び率で動き、入れなければ0%）",
           address: () => ({ target: { plan: "assumptions" }, item, at: ["landGrowth", "default"] }),
           // 空欄は物価上昇率と同じ（推定。見せる値は物価上昇率）
           get: (w) => {
@@ -729,14 +735,15 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
     item: "plan.baseMonth",
     label: "計算の基準の月",
     level: "detail",
-    kind: "ym",
+    kind: "text",
     help: "この月から計算します。入れる額は、この月の年の値段で入れます（物価で伸ばす額は、この年から伸びます）",
     readOnly: "見直しの版（現状の版を積む）ができてから変えられます",
-    get: (w) => ({ value: w.request.input.baseMonth }),
+    // 欄の外の年月の書き方（「2026年11月・令和8年」。読むだけの欄なので、欄の中の「2026-11」の形にしない）
+    get: (w) => ({ value: ymWithEra(w.request.input.baseMonth) }),
     set: (w) => w,
   });
   const series: [string, string, string, "simple" | "detail"][] = [
-    ["inflation", "物価上昇率（年）", "基本生活費などの変動率に使います（今の値段で入れた額を、この率で伸ばします）", "simple"],
+    ["inflation", "物価上昇率（年）", "伸び方が「物価に合わせる」の額（基本生活費など）に使います（今の値段で入れた額を、この率で伸ばします）", "simple"],
     ["wageGrowth", "賃金上昇率（年）", "給与の伸び（年齢ごとの昇給カーブとは別。名目の率）", "simple"],
     ["investmentReturn", "運用利回り（年）", "預金以外で、資産の配分を入れていない口座の利回りです（運用の費用を引いた後。税は計算で引きます）。長い期間の平均の目安で入れます", "simple"],
     ["depositReturn", "預金の利回り（年）", "預金・外貨預金と、合計の入れ方の運用しない分の利回りです（資産配分の現金も同じ）。既定は0.1%（普通預金の金利の目安）", "detail"],
@@ -793,14 +800,19 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
       groups: exGroups,
       actions: exAdds,
     },
-    {
-      key: "assume/realEstate",
-      title: "持ち家の評価",
-      note: "土地は上昇率で動き、建物は構造の耐用年数で定額で減らします。入れなければ推定で計算します",
-      level: "detail",
-      groups: valuationGroups(wh),
-      actions: [],
-    },
+    // 持ち家・収益不動産・貸していない不動産のどれも無い世帯では出さない（使わない前提を見せない）
+    ...(ownsRealEstate(wh)
+      ? [
+          {
+            key: "assume/realEstate",
+            title: REAL_ESTATE_SECTION,
+            note: "持ち家・収益不動産の土地は上昇率で動き、建物は構造の耐用年数で定額で減らします（物件ごとに入れた値があればそちら）。入れなければ推定で計算します",
+            level: "detail" as const,
+            groups: valuationGroups(wh),
+            actions: [],
+          },
+        ]
+      : []),
     {
       key: "assume/assetReturns",
       title: "資産の種類ごとの利回り",
