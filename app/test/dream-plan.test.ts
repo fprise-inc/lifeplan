@@ -95,18 +95,18 @@ describe("夢プランの区画（ライフイベントの入力項目のいち�
     expect(groupOf(fresh, ids[0]).title).toMatch(/^夢1｜移住 額は未入力 \d{4}年\d+月$/u);
   });
 
-  it("1件を1つの枠（まとまり1つ）。欄は名前・時期（1回／年ごと）・額・時期・ひとことメモ・計算に入れる・額の入れ方（詳細）。優先度・種類・表の行の欄は無い", () => {
+  it("1件を1つの枠（まとまり1つ）。欄は名前・回数（1回／年ごと）・額・時期・ひとことメモ・計算に入れる・額の入れ方（詳細）。優先度・種類・表の行の欄は無い", () => {
     const wh = threeDreams();
     const g = groupOf(wh, ids[1]);
     expect(dreamSec(wh).groups.filter((x) => x.key.startsWith(`ev/${ids[1]}`))).toHaveLength(1);
-    expect(g.fields.map((f) => f.label)).toEqual(["名前", "時期", "額", "時期", "ひとことメモ（なぜかなえたいか）", "計算に入れるか", "額の入れ方"]);
+    expect(g.fields.map((f) => f.label)).toEqual(["名前", "回数", "額", "時期", "ひとことメモ（なぜかなえたいか）", "計算に入れるか", "額の入れ方"]);
     const cadence = g.fields.find((f) => f.key.endsWith("/cadence"))!;
     expect(cadence.kind === "select" ? cadence.options.map((o) => o.value) : []).toEqual(["once", "repeat"]);
     expect(g.fields.some((f) => f.key.endsWith("/priority") || f.key.endsWith("/row") || f.key.endsWith("/kind"))).toBe(false);
     expect(g.title).toMatch(/^夢2｜憧れの車 600万円・1回 \d{4}年\d+月$/u);
     // 年ごとにすると、何年ごと・終わりの欄が出る
     const repeat = cadence.set(wh, "repeat");
-    expect(groupOf(repeat, ids[1]).fields.map((f) => f.label)).toEqual(["名前", "時期", "年額", "初め", "何年ごと", "終わり", "ひとことメモ（なぜかなえたいか）", "計算に入れるか", "伸び方"]);
+    expect(groupOf(repeat, ids[1]).fields.map((f) => f.label)).toEqual(["名前", "回数", "年額", "始まり", "何年ごと", "終わり", "ひとことメモ（なぜかなえたいか）", "計算に入れるか", "伸び方"]);
     // ひとことメモと計算に入れる
     const note = g.fields.find((f) => f.key.endsWith("/dreamNote"))!;
     const inc = g.fields.find((f) => f.key.endsWith("/dreamInclude"))!;

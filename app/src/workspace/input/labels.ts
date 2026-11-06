@@ -1,5 +1,6 @@
 // 入力の画面の言葉（FP が慣れた言葉。日本FP協会・FP技能検定の言葉を標準にする）と、構成員の呼び方
 import type { Household, Member } from "../../engine/types.ts";
+import { ageAt } from "../levers.ts";
 import { roles } from "../roles.ts";
 import type { Option } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
@@ -47,6 +48,73 @@ export function memberOptions(wh: WorkingHousehold, filter: (m: Member) => boole
 }
 
 export const isAdult = (m: Member) => m.kind === "self" || m.kind === "spouse";
+
+// ---- 名義・人の候補（入力項目をまたぐ言葉の決まりの「名義・人」）: 候補は、その物を持てる人だけ ----
+
+/**
+ * 持てる人の決まり（物の種類ごと）:
+ * - anyone: 世帯の人なら誰でも（預金・課税口座・外貨預金・暗号資産・保険・不動産・その他の資産）
+ * - pensionInsured: 20歳以上か、働き方の期間がある人（iDeCo。会社員の配偶者〔第3号〕も入れる。20歳前でも厚生年金に入って働いていれば入れる）
+ * - employee: 勤めている期間（会社員・公務員・役員・パートなど。自営業と働いていないを除く）がある人（企業型DC・財形貯蓄・持株会）
+ * - selfEmployedOrExecutive: 自営業か会社役員の期間がある人（小規模企業共済）
+ * - age18: その時に18歳以上の人（NISA・旧NISA・今の車。これから買う車は買う月で見る）
+ * - child: 子（こどもNISA・ジュニアNISA）
+ */
+export type HolderRule = "anyone" | "pensionInsured" | "employee" | "selfEmployedOrExecutive" | "age18" | "child";
+
+/** 口座の種類ごとの持てる人（書いていない種類は anyone） */
+export const ACCOUNT_HOLDER_RULES: Readonly<Partial<Record<string, HolderRule>>> = {
+  ideco: "pensionInsured",
+  corporateDc: "employee",
+  zaikei: "employee",
+  esop: "employee",
+  smallBusinessMutualAid: "selfEmployedOrExecutive",
+  nisa: "age18",
+  legacyNisa: "age18",
+  childNisa: "child",
+  juniorNisa: "child",
+};
+export const accountHolderRule = (kind: string): HolderRule => ACCOUNT_HOLDER_RULES[kind] ?? "anyone";
+
+const NOT_EMPLOYEE: ReadonlySet<string> = new Set(["selfEmployed", "unemployed"]);
+
+/**
+ * その人が持てるか（at はいつの時点で見るか。省略は計算の基準の月）。世帯の外の家族とこれから生まれる子は持てない。
+ * 働き方の期間は、いつの期間でもあれば持てるとする（今は働いていなくても、前に入った iDeCo・財形を持ち続けることがあるため）
+ */
+export function canHold(h: Household, baseMonth: string, rule: HolderRule, m: Member, at: string = baseMonth): boolean {
+  if (m.outside !== undefined || m.expected === true) return false;
+  const periods = (h.employmentPeriods ?? []).filter((e) => e.member === m.id);
+  switch (rule) {
+    case "anyone":
+      return true;
+    case "pensionInsured":
+      return ageAt(m, at) >= 20 || periods.some((e) => e.type !== "unemployed");
+    case "employee":
+      return periods.some((e) => !NOT_EMPLOYEE.has(e.type));
+    case "selfEmployedOrExecutive":
+      return periods.some((e) => e.type === "selfEmployed" || e.type === "executive");
+    case "age18":
+      return ageAt(m, at) >= 18;
+    case "child":
+      return m.kind === "child";
+  }
+}
+
+/** 前に選んだが、今の決まりでは持てない人の名前の添え書き（世帯の値は書き換えず、そのまま見せて計算する） */
+export const LEGACY_HOLDER_SUFFIX = "（前に選んだ人）";
+
+/**
+ * 名義・人の欄の選択肢（持てる人だけ）。今入っている人が持てない人なら、添え書きを付けて後ろに残す（黙って書き換えない）。
+ * 当てはめは各入力項目の側（口座の名義・車の名義など）
+ */
+export function holderOptions(wh: WorkingHousehold, rule: HolderRule, current: string | undefined, at?: string): Option[] {
+  const h = wh.request.input.household;
+  const base = wh.request.input.baseMonth;
+  const out = memberOptions(wh, (m) => canHold(h, base, rule, m, at ?? base));
+  if (current !== undefined && current !== "" && !out.some((o) => o.value === current) && h.members.some((m) => m.id === current)) out.push({ value: current, label: `${memberLabel(wh, current)}${LEGACY_HOLDER_SUFFIX}` });
+  return out;
+}
 
 /** 本人・配偶者（働き方・年金の段階に出す人）。働き方の期間がある人も含める */
 export function earners(h: Household): Member[] {
@@ -169,11 +237,45 @@ export const LIVING_CATEGORIES: Option[] = [
   { value: "otherConsumption", label: "その他の消費（こづかい・交際費など）" },
 ];
 
+/**
+ * 伸び方の選択肢（入力項目をまたぐ言葉の決まり）: 欄の名前は「伸び方」、率の欄は「伸び率（年）」。働き方の期間だけ「賃金に合わせる」を足す
+ * （働き方の入力項目の側）。値（inflation・rate・none）と既定は変えない
+ */
 export const GROWTH_KINDS: Option[] = [
-  { value: "inflation", label: "物価上昇率に合わせる" },
-  { value: "rate", label: "決まった変動率" },
+  { value: "inflation", label: "物価に合わせる" },
+  { value: "rate", label: "決まった率で" },
   { value: "none", label: "変えない" },
 ];
+
+/**
+ * 入力項目をまたいで使う言葉（決まりの表の正は設計記録 0130。各入力項目の欄はこの言葉を使う）。
+ * 制度・統計の名前（物価上昇率・賃金上昇率など）はこの決まりの外で、そのまま使う
+ */
+export const WORDS = {
+  /** 伸び方の欄の名前 */
+  growth: "伸び方",
+  /** 決まった率の欄の名前 */
+  growthRate: "伸び率（年）",
+  /** くり返しの欄（1回／毎月／年ごと） */
+  cadence: "回数",
+  /** 1回のお金の「いつ」 */
+  when: "時期",
+  /** くり返す物・期間の始まりと終わり */
+  start: "始まり",
+  end: "終わり",
+  /** 終わりが空のとき */
+  untilLast: "最後まで",
+  /** 物の持ち主 */
+  holder: "名義",
+  /** 物・行を外すボタン */
+  remove: "外す",
+  /** 選び直しの取りやめ */
+  cancel: "キャンセル",
+  /** 開いたまとまりを閉じるボタン */
+  close: "▾ 閉じる",
+  /** ご本人の呼び方（「本人の」と書かない） */
+  self: "ご本人",
+} as const;
 
 export const SCHOOL_STAGES: Option[] = [
   { value: "nursery", label: "保育園（2歳まで）" },
@@ -307,7 +409,7 @@ export const BENEFITS: Option[] = [
 ];
 
 export const ACCOUNT_KINDS: Option[] = [
-  { value: "deposit", label: "預貯金" },
+  { value: "deposit", label: "預金" },
   { value: "taxable", label: "課税口座" },
   { value: "nisa", label: "NISA" },
   { value: "childNisa", label: "こどもNISA" },
