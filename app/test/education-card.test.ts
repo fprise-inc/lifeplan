@@ -329,11 +329,11 @@ describe("奨学金・教育ローン", () => {
     const g = goalOf(wh);
     const w = addEducationLoan(wh, g.id, "00000000-0000-4000-8000-0000000000c2");
     const l = goalOf(w).education!.loans![0]!;
-    // 国の教育ローン: 入学の年の学費（入学金と1年目の学費の統計の平均。上限350万円）・年4.05%・20年
+    // 国の教育ローン: 入学の年の学費（入学金と1年目の学費の統計の平均。上限350万円）・年4.60%・20年
     const uni = goalOf(w).education!.stages.find((x) => x.stage === "university")!;
     const st = stageStatistic(uni)!;
     const amount = Math.round((st.annual! + st.entrance!) / 10000) * 10000;
-    expect(l).toMatchObject({ at: { at: "2035-01" }, amount, rate: "0.0405", termMonths: 240 });
+    expect(l).toMatchObject({ at: { at: "2035-01" }, amount, rate: "0.046", termMonths: 240 });
     expect(fieldStatus(fieldOf(w, `edu/${g.id}/loan/${l.id}/amount`), w).status).toBe("estimated");
     expect(preview(w.request).table.filter((c) => c.row === "cf.income.other.scholarship" && c.year === 2035).reduce((a, c) => a + c.amount, 0)).toBe(amount);
     // 住まい・ローンのカードには読むだけの1行

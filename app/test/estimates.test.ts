@@ -6,6 +6,9 @@ import { refreshEstimates, salaryEstimate, smrEstimate } from "../src/workspace/
 import { convertPeriod } from "../src/workspace/input/stages/work.ts";
 import { salaryEstimate as hearingSalary } from "../../hearing/src/estimates.ts";
 
+/** 推定の額は千円単位に丸める（統計の額×12・時給×時間のまま出さない） */
+const thousand = (v: number): number => Math.round(v / 1000) * 1000;
+
 const BASE = "2026-10";
 
 describe("推定の目安（入力の画面）", () => {
@@ -17,7 +20,7 @@ describe("推定の目安（入力の画面）", () => {
     const wh = blankHousehold(BASE, () => "self-1");
     const self = wh.request.input.household.members[0]!;
     const p = convertPeriod({ id: "p1", member: self.id, from: { at: "2008-04" }, to: null, type: "regular" } as EmploymentPeriod, "partTime", self, BASE);
-    expect(p.salary?.annual).toMatchObject({ value: 1518 * 15 * 52, state: "estimated", origin: { kind: "auto" } });
+    expect(p.salary?.annual).toMatchObject({ value: thousand(1518 * 15 * 52), state: "estimated", origin: { kind: "auto" } });
     expect(p.standardMonthlyRemuneration).toBeUndefined();
     expect(smrEstimate(1518 * 15 * 52, BASE).health.value).toBe(98000);
     expect(smrEstimate(600000, BASE).pension.value).toBe(88000);
@@ -51,9 +54,9 @@ describe("推定の目安（入力の画面）", () => {
     ];
     refreshEstimates(h, BASE);
     const [p1, p2] = h.employmentPeriods;
-    expect(p1?.salary?.annual.value).toBe(414900 * 12);
+    expect(p1?.salary?.annual.value).toBe(thousand(414900 * 12));
     expect((p1?.salary?.annual as { estimate?: { basis: string } }).estimate?.basis).toContain("賃金構造基本統計調査");
-    expect(p1?.salary?.bonus?.value).toBe(1278700);
+    expect(p1?.salary?.bonus?.value).toBe(thousand(1278700));
     // 性別を変えても推定は同じ（人の属性で推定の数字を分けない。0118）
     const flipped = structuredClone(h);
     flipped.members[0]!.sex = self.sex === "male" ? "female" : "male";

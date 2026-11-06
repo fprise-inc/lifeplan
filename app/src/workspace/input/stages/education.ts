@@ -949,7 +949,7 @@ const yearsField = (key: string, label: string, find: Finder, max: number, addre
  *   総額÷基礎額の年数）。返し始めは貸与の終わりの翌月から数えて7か月目。利率の数は、ほかのローンの「奨学金の返済」と同じ目安
  *   （マスタデータ master.loanRates。hearing/src/loanRates.ts）から読む
  * - 教育ローン: 日本政策金融公庫「国の教育ローン」。額は入学の年にかかる学費（入学金と1年目の学費。統計の平均）で、融資の上限（子1人350万円。
- *   自宅外通学・大学院・海外留学などは450万円）まで。金利は固定の年4.05%（令和8年7月1日現在。保証料は別）、返す年数は上限の20年
+ *   自宅外通学・大学院・海外留学などは450万円）まで。金利は固定の年4.60%（令和8年11月2日現在。保証料は別）、返す年数は上限の20年
  */
 /** 貸与の奨学金のひな形の根拠の文（月額は presets.ts の目安、利率はマスタデータ。事務所の推定の値があればその値。読むたびに作る） */
 export const scholarshipBasis = (): string =>
@@ -961,7 +961,7 @@ export const scholarshipBasis = (): string =>
 export const loanBasis = (): string =>
   officeBasisOf("preset.education.loan.rate") ??
   presetBasis(
-    `国の教育ローン（日本政策金融公庫）: 入学の年の学費（入学金と1年目の学費の統計の平均。上限350万円）・${presetText("preset.education.loan.rate", (v) => (presetIsOffice("preset.education.loan.rate") ? `固定金利 年${pctText(v)}` : `固定金利 年${pctText(v)}（令和8年7月1日現在）`))}・返済期間は上限の20年`,
+    `国の教育ローン（日本政策金融公庫）: 入学の年の学費（入学金と1年目の学費の統計の平均。上限350万円）・${presetText("preset.education.loan.rate", (v) => (presetIsOffice("preset.education.loan.rate") ? `固定金利 年${pctText(v)}` : `固定金利 年${pctText(v)}（令和8年11月2日現在）`))}・返済期間は上限の20年`,
   );
 
 /** 日本学生支援機構「奨学金返還年数算出表」: 貸与総額（以下）→ 割賦金の基礎額。340万円を超えると総額の20分の1 */

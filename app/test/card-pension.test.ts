@@ -38,11 +38,18 @@ const selfOf = (wh: WorkingHousehold) => wh.request.input.household.members.find
 const input = (wh: WorkingHousehold) => wh.request.input as unknown as Obj;
 const pensionTotal = (req: EngineRequest, member?: string) => preview(req).table.filter((c) => c.row === "cf.income.pension" && c.object === undefined && (member === undefined || c.member === member)).reduce((s, c) => s + c.amount, 0);
 
-/** 40歳の本人（空の世帯）を会社員にして、書類からを選ぶ */
-function withStatement(): { wh: WorkingHousehold; self: string } {
+/** 40歳の本人（空の世帯）を会社員にして、書類からを選ぶ。legacy は前の版で保存した定期便（加入月数が0か月のまま・代わりの値の行も無い） */
+function withStatement(legacy = false): { wh: WorkingHousehold; self: string } {
   let wh = blankHousehold(BASE, ids());
   const self = selfOf(wh).id;
   wh = fieldOf(wh, `pension/${self}/mode`).set(wh, "document");
+  if (legacy)
+    wh = mutate(wh, (h) => {
+      for (const r of h.pensionRecords ?? []) {
+        r.months = { basic: 0, employee: 0 };
+        delete r.valueStates;
+      }
+    });
   return { wh, self };
 }
 
@@ -71,7 +78,8 @@ describe("入れ方の区分と書類の種類", () => {
 
   it("推計に戻しても書類の記録は画面の側に残し（計算には渡さない）、書類からに戻すと同じ記録に戻る", () => {
     const { wh: w0, self } = withStatement();
-    let wh = fieldOf(w0, "/amounts/basic").set(w0, 500000);
+    // 50歳未満の定期便は老齢厚生年金の額だけを写す（老齢基礎年金は加入月数から計算する）
+    let wh = fieldOf(w0, "/amounts/employee").set(w0, 500000);
     wh = fieldOf(wh, "/months/basic").set(wh, 200);
     const rec = recordsOf(wh)[0]!;
     const est = fieldOf(wh, `pension/${self}/mode`).set(wh, "");
@@ -86,9 +94,10 @@ describe("入れ方の区分と書類の種類", () => {
 
   it("書類の種類を変えても作成年月・加入月数・値の状態の行は引き継ぎ、額の欄の名前と未入力の文は新しい書類のもの", () => {
     const { wh: w0, self } = withStatement();
-    let wh = fieldOf(w0, "/asOf").set(w0, "2026-06");
-    wh = actionOf(wh, "/months/unknown").run(wh);
+    // 定期便にした時点で、加入月数に代わりの値（推定の印）が入っている
+    const wh = fieldOf(w0, "/asOf").set(w0, "2026-06");
     const before = recordsOf(wh)[0]!;
+    expect(before.valueStates).toBeDefined();
     const w = fieldOf(wh, `pension/${self}/kind`).set(wh, "statementOver50");
     const after = recordsOf(w)[0]!;
     expect(after).toMatchObject({ id: before.id, kind: "statementOver50", asOf: "2026-06", months: before.months, valueStates: before.valueStates });
@@ -118,7 +127,7 @@ describe("入れ方の区分と書類の種類", () => {
 
 describe("定期便の加入月数（わからない・代わりの値）", () => {
   it("0か月のままは空欄で見せ、「加入月数がわからない」で代わりの値（20歳の月から作成年月まで・働き方の期間の厚生年金の月）にする", () => {
-    const { wh, self } = withStatement();
+    const { wh, self } = withStatement(true);
     const rec = recordsOf(wh)[0]!;
     expect(statementMonthsMissing(rec)).toBe(true);
     expect(fieldOf(wh, "/months/basic").get(wh).value).toBeNull();
@@ -148,7 +157,7 @@ describe("定期便の加入月数（わからない・代わりの値）", () =
   });
 
   it("書類待ちの行と状態の印の文は「代わりの値」を重ねない（根拠がもう「代わりの値（…）」で始まる）", () => {
-    const { wh: w0 } = withStatement();
+    const { wh: w0 } = withStatement(true);
     const w = actionOf(w0, "/months/unknown").run(w0);
     const f = fieldOf(w, "/months/basic");
     const row = checkList(w).find((r) => r.fieldKey === f.key)!;
@@ -172,12 +181,13 @@ describe("推定で埋める（入っていない物）", () => {
     expect(count).toBe(1);
     expect(filled.request.input.household.pensionRecords).toBeUndefined();
     expect(filled.pensionKept?.[self]).toHaveLength(1);
-    expect(pensionTotal(filled.request, self)).toBeGreaterThan(pensionTotal(wh.request, self));
+    // 50歳未満の定期便の老齢基礎年金は加入月数（定期便にしたときの代わりの値）から計算するので、推計に戻しても少なくならない
+    expect(pensionTotal(filled.request, self)).toBeGreaterThanOrEqual(pensionTotal(wh.request, self));
   });
 
   it("額を入れて加入月数が0か月のままなら、推定で埋めると代わりの値を推定（出どころ auto）で入れる", () => {
-    const { wh: w0, self } = withStatement();
-    const wh = fieldOf(w0, "/amounts/basic").set(w0, 400000);
+    const { wh: w0, self } = withStatement(true);
+    const wh = fieldOf(w0, "/amounts/employee").set(w0, 400000);
     const g = gapsOf(wh).find((x) => x.id === `pension/months/${self}`)!;
     expect(g.basis).toContain("代わりの値");
     const w = g.fill!(wh);
@@ -325,7 +335,7 @@ describe("年金の見込み（計算の結果から読む。0067）", () => {
     const wh = blankHousehold(BASE, ids());
     const v = estimateView(wh, { std: preview(pensionEstimateRequest(wh.request, false)), claimed: null })!;
     expect(v.people[0]!.sub.at(-1)).toContain("書類が無いので、働き方の期間から推計した額");
-    const { wh: doc } = withStatement();
+    const { wh: doc } = withStatement(true);
     expect(pensionEstimateSummary(doc, preview(pensionEstimateRequest(doc.request, false)))).toBeNull();
   });
 });
