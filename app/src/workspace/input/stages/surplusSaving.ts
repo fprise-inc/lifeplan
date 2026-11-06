@@ -1,7 +1,7 @@
 // 基本生活費のカードの「毎年の黒字のうち、貯金に回る割合」（0031。前提の assumptions.surplusSaving）。
 // 貯まらない分は使ってしまうお金（ゆとりの支出）なので、生活費の欄に置く（前提条件は FP の側の設定で、顧客と一緒に見る所ではないため。0031 の追記）。
 // - 目安から選ぶ: ずっと同じ・子育て中と子の独立後で分ける・退職の前後で分ける（期間はこの世帯の末子の独立・退職の時点で入る）
-// - カスタム（自由に組む）: 「本人の○歳から○%」の組を足す（最大4つ）。目安の区切りの後でカスタムを選ぶと、区切りを年齢の形にして自分で直せるようにする（0100 の追記）
+// - カスタム（自由に組む）: 「ご本人の○歳から○%」の組を足す（最大4つ）。目安の区切りの後でカスタムを選ぶと、区切りを年齢の形にして自分で直せるようにする（0100 の追記）
 // - 上限（年○万円まで）・控えから見た実際の割合の提案（欄のキー living/surplus/ratio。surplusSuggest.ts）も同じ所に
 import type { Timepoint } from "../../../engine/types.ts";
 import { ageAt, parseYm } from "../../levers.ts";
@@ -18,12 +18,16 @@ const MAX_CHANGES = 4;
 const withReq = (wh: WorkingHousehold, request: WorkingHousehold["request"]): WorkingHousehold => ({ ...wh, request });
 const pctText = (r: string) => `${Math.round(Number(r) * 100)}%`;
 
-/** 目安のボタンの名前 */
+/** 目安のボタンの名前（割合と区切りの年はボタンの側で添える: 「ずっと同じ（目安 60%）」「子育て中と独立後で分ける（60%→80%・2044年から）」） */
 export const PRESET_LABELS: Readonly<Record<SurplusPreset, string>> = {
   same: "ずっと同じ",
-  children: "子育て中と子の独立後で分ける",
+  children: "子育て中と独立後で分ける",
   retirement: "退職の前後で分ける",
 };
+
+/** 空欄の割合の意味（入れなければ黒字を全部貯金に回す。初めの値は100%のまま）。欄の中は「空欄＝100%」、欄の下に何が起きるかの1行 */
+export const SURPLUS_BLANK = "100%";
+export const SURPLUS_BLANK_HINT = "黒字を全部貯金に回す計算です（実際より多めに出やすくなります）";
 
 /** 目安ごとの、はじめの期間と区切りの後の期間の呼び方 */
 const PERIOD_NAMES: Readonly<Record<"children" | "retirement", { before: string; after: string }>> = {
@@ -77,7 +81,11 @@ function changeGroups(wh: WorkingHousehold, preset: SurplusPreset | "custom" | n
       min: 0,
       max: 100,
       optional: true,
-      get: (w) => ({ value: (surplusOf(w.request)?.changes ?? [])[i]?.ratio ?? null, hint: (surplusOf(w.request)?.changes ?? [])[i]?.ratio === undefined ? "空欄＝100%" : null }),
+      blankMeans: SURPLUS_BLANK,
+      get: (w) => {
+        const v = (surplusOf(w.request)?.changes ?? [])[i]?.ratio ?? null;
+        return { value: v, hint: v === null ? SURPLUS_BLANK_HINT : null };
+      },
       set: (w, v) =>
         edit(w, (x) => {
           const { ratio: _r, ...rest } = x;
@@ -88,7 +96,7 @@ function changeGroups(wh: WorkingHousehold, preset: SurplusPreset | "custom" | n
     const ageField = field({
       key: `living/surplus/change/${i}/age`,
       item: ITEM,
-      label: "本人の年齢（この年から）",
+      label: "ご本人の年齢（この年から）",
       level: named !== null ? "detail" : "simple",
       kind: "int",
       suffix: "歳から",
@@ -199,10 +207,12 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
     if (p !== "same" && pts[p] === null) return null;
     const v = PRESET_RATIOS[p];
     const at = p === "same" ? null : pts[p];
-    const atText = at === null ? "" : `（${parseYm(at).y}年${self !== undefined ? `・ご本人${ageAt(self, at)}歳` : ""}で区切る）`;
+    // 名前に目安の割合と区切りの年を入れる（押す前に何が入るか分かるように）
+    const atText = at === null ? "" : `・${parseYm(at).y}年${self !== undefined ? `・ご本人${ageAt(self, at)}歳` : ""}から`;
+    const ratioText = v.after === null ? `目安 ${pctText(v.before)}` : `${pctText(v.before)}→${pctText(v.after)}`;
     return {
       key: `living/surplus/preset/${p}`,
-      label: `${PRESET_LABELS[p]}${atText}`,
+      label: `${PRESET_LABELS[p]}（${ratioText}${atText}）`,
       level: "simple",
       pressed: preset === p,
       title: v.after === null ? `目安 ${pctText(v.before)}` : `目安 ${pctText(v.before)} → ${pctText(v.after)}`,
@@ -224,6 +234,7 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
   const main: GroupDef = {
     key: "living/surplus/fields",
     level: "simple",
+    moreLabel: "上限を入れる",
     fields: [
       field({
         key: "living/surplus/ratio",
@@ -235,8 +246,12 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
         min: 0,
         max: 100,
         optional: true,
-        help: "入れなければ100%（黒字をすべて貯金に回す）で計算します。例えば60%なら、残りの4割は使ってしまうお金（ゆとりの支出）として支出に入れます。赤字の年、退職金などまとまったお金が入る年、貯金を取り崩す予定の年には使いません",
-        get: (w) => ({ value: surplusOf(w.request)?.ratio ?? null, hint: surplusOf(w.request)?.ratio === undefined ? "空欄＝100%" : null }),
+        help: "入れなければ100%（黒字をすべて貯金に回す）で計算します。実際には黒字の一部を使ってしまう世帯が多く、100%のままだと貯蓄が多めに出やすくなります。例えば60%なら、残りの4割は使ってしまうお金（ゆとりの支出）として支出に入れます。赤字の年、退職金などまとまったお金が入る年、貯金を取り崩す予定の年には使いません",
+        blankMeans: SURPLUS_BLANK,
+        get: (w) => {
+          const v = surplusOf(w.request)?.ratio ?? null;
+          return { value: v, hint: v === null ? SURPLUS_BLANK_HINT : null };
+        },
         set: (w, v) => {
           const cur = surplusOf(w.request) ?? {};
           const { ratio: _r, ...rest } = cur;
@@ -248,8 +263,8 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
         key: "living/surplus/cap",
         item: ITEM,
         label: "貯金に回る額の上限（年）",
-        // 開いても欄が1つだけになるので、標準でも出す（期間を変える行の上限は詳細のまま）
-        level: "simple",
+        // 使う人が少ないので詳細（標準では割合の欄の下の「▸ 上限を入れる」で開く）。入っていれば標準にも出す（結果に効く値を隠さない）
+        level: surplusOf(req)?.cap !== undefined ? "simple" : "detail",
         kind: "yen",
         basis: "annual",
         optional: true,
@@ -280,7 +295,8 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
         return withReq(w, setSurplus(w.request, { ...cur, changes: [...(cur.changes ?? []), next] }));
       },
     });
-  if (s !== undefined) actions.push({ key: "living/surplus/clear", label: "外す", help: "黒字が全部貯金に回る計算に戻します", level: "simple", danger: true, run: (w) => withReq(w, setSurplus(w.request, undefined)) });
+  // 期間の組の「外す」と同じまとまりに並ぶので、何を外すかを書く
+  if (s !== undefined) actions.push({ key: "living/surplus/clear", label: "割合を外す（全部貯金に戻す）", help: "目安・期間・上限を外して、黒字が全部貯金に回る計算に戻します", level: "simple", danger: true, run: (w) => withReq(w, setSurplus(w.request, undefined)) });
   return {
     key: "living/surplus",
     title: "毎年の黒字のうち、貯金に回る割合",

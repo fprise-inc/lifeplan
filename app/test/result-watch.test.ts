@@ -42,13 +42,6 @@ const PENDING: readonly Pending[] = [
     cases: [OP("ヒアリングシートを取り込む")],
     match: /純資産が|資産に入っていない/,
   },
-  {
-    key: "living-stages-follow",
-    what: "退職後の生活費の割合を下げても、推定の70歳・80歳の段が追いかけず、退職直後より高い",
-    rule: "livingStagesRise",
-    cases: [OP("退職後の生活費の割合だけを下げる")],
-    match: /より高い/,
-  },
 ];
 
 const caseNames = WATCH_CASES.map((c) => c.name);
