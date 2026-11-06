@@ -120,11 +120,16 @@ describe("開いても中身が少ない所は「▸ 続きを見る」を付け
     allShown(w, "pension", g);
   });
 
-  it("毎年の黒字のうち貯金に回る割合: 「貯金に回る額の上限（年）」を最初から出す", () => {
+  it("毎年の黒字のうち貯金に回る割合: 「貯金に回る額の上限（年）」は「▸ 上限を入れる」で開く。入っていれば最初から出す", () => {
     const w = open("surplusSaving");
-    const g = groupsOf(w, "living").find((x) => x.key === "living/surplus/fields");
-    allShown(w, "living", g);
-    expect(g!.fields.some((f) => f.key === "living/surplus/cap")).toBe(true);
+    const g = groupsOf(w, "living").find((x) => x.key === "living/surplus/fields")!;
+    expect(g.moreLabel).toBe("上限を入れる");
+    expect(headsOf(w, "living").has(g.key)).toBe(true);
+    expect(g.fields.find((f) => f.key === "living/surplus/cap")!.level).toBe("detail");
+    const cap = g.fields.find((f) => f.key === "living/surplus/cap")!;
+    const w2 = cap.set(w, 1_200_000);
+    const g2 = groupsOf(w2, "living").find((x) => x.key === "living/surplus/fields");
+    allShown(w2, "living", g2);
   });
 
   it("子の学校外の費用（塾・習い事の行）: 行で入れるときの説明のまとまりを最初から出す（入れ方は進路の「学校外の費用」の1つの欄）", () => {

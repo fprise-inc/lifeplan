@@ -209,10 +209,10 @@ export const OUT_TEMPLATES: readonly EventTemplate[] = [
   { key: "wedding", label: "結婚の費用", name: "結婚の費用", group: "family", amount: null, everyYears: null, priority: "need", help: "時期は、配偶者が家族に加わる時期（入っていなければ1年後）です。額は入れてください", match: /結婚の費用|挙式|結婚式/u },
   { key: "comingOfAge", label: "子の成人式（振袖・スーツ・写真）", name: "成人式", group: "family", ...amountOf("preset.events.comingOfAge"), everyYears: null, priority: "need", help: "これから成人式を迎える子ごとに、その子が20歳になる年度（4月〜翌年3月）の1月で1行ずつ足します（1人15万円の目安）。時期はその子の年齢で持つので、子の生年月を直すと一緒に動きます", match: /成人式/u },
   { key: "childWedding", label: "子の結婚の援助", name: "結婚の援助", group: "family", ...amountOf("preset.education.childGift.amount"), everyYears: null, priority: "want", help: "子ども・教育の入力項目の「子への援助（結婚資金）」として、30歳前の子ごとに、その子が30歳になる時期で足します（1人100万円の目安）。直すときは子ども・教育の入力項目で直します。援助の優先度は「できれば」にします（結果の「確実な分だけ」で外して見られます。子ども・教育の入力項目で直せます）", match: /結婚の援助/u },
-  { key: "funeral", label: "親の葬儀（世帯が払う分）", name: "葬儀", group: "parents", ...amountOf("preset.events.funeral"), everyYears: null, priority: "need", help: "親ごとに1行ずつ、世帯が払う分を足します（1回120万円の目安）。時期は、親の年齢と性別から平均余命で見た推定です（亡くなる見込みが入っていればその時期）。香典は入るお金で入れられます。葬儀の費用を相続税から引く扱いは、相続・贈与の入力項目で見ます", match: /葬儀|葬式/u },
+  { key: "funeral", label: "親の葬儀（世帯が払う分）", name: "葬儀", group: "parents", ...amountOf("preset.events.funeral"), everyYears: null, priority: "need", help: "親ごとに1行ずつ、世帯が払う分を足します（1回120万円の目安）。時期は、親の年齢と性別から平均余命で見た推定です（亡くなる見込みが入っていればその時期）。香典は入るお金で入れられます。葬儀の費用を相続税から引く扱いは、相続・贈与の入力項目で見ます。親を介護・親の入力項目に入れていないときは、ご本人より30歳上の親として1行だけ入れます（介護・親で親を足すと、親ごとに1行ずつ入ります）", match: /葬儀|葬式/u },
   { key: "memorial", label: "法事", name: "法事", group: "parents", ...amountOf("preset.events.memorial"), everyYears: null, priority: "need", help: "時期は、葬儀の行があればその1年後（一周忌）、無ければ1年後です", match: /法事|法要|一周忌|回忌/u },
   { key: "grave", label: "お墓・仏壇", name: "お墓・仏壇", group: "parents", amount: null, everyYears: null, priority: "need", help: "お墓や仏壇の費用は、墓じまい・永代供養・新しく建てるなどで0〜300万円ほどと幅があります。額を入れてください", match: /墓|仏壇/u },
-  { key: "reserve", label: "予備費", name: "予備費", group: "reserve", amount: null, everyYears: 1, priority: "need", help: "毎年、今の生活費の1か月分を入れます（足した後に直せます）", match: /予備費/u },
+  { key: "reserve", label: "予備費（毎年、生活費の1か月分）", name: "予備費", group: "reserve", amount: null, everyYears: 1, priority: "need", help: "1回ではなく、毎年、今の生活費の1か月分を最後まで入れます（足した後に額・何年ごと・終わりを直せます）", match: /予備費/u },
 ];
 
 const UNENTERED = "未入力（額を入れてください。0円で計算中）";
@@ -510,6 +510,25 @@ function unavailable(wh: WorkingHousehold, key: string): string | null {
   return null;
 }
 
+/** 親を入れていない世帯の葬儀のボタンの横の1行 */
+export const FUNERAL_NO_PARENTS = "介護・親で親を足すと、親ごとに1行ずつ入ります";
+
+/** 後ろの「ほかのひな形」の見出し（当てはまらない世帯のひな形。隠さずに後ろに回す） */
+export const OTHER_TEMPLATES = "ほかのひな形";
+
+/** 配偶者がいない、またはこれから加わる世帯か（結婚の費用・結婚のお祝いが当てはまる） */
+function weddingAhead(wh: WorkingHousehold): boolean {
+  const spouse = wh.request.input.household.members.find((m) => m.kind === "spouse");
+  return spouse === undefined || ahead(wh, spouse.joins);
+}
+
+/** そのひな形が、この世帯に当てはまるか（当てはまらないひな形は「ほかのひな形」へ回す。押せるまま） */
+function templateFits(wh: WorkingHousehold, key: string): boolean {
+  if (key === "wedding" || key === "weddingGift") return weddingAhead(wh);
+  if (key === "birthGift") return expectedChildTiming(wh) !== null;
+  return true;
+}
+
 /** そのまとまりのひな形が当てはまる人のいない世帯か（子のいない・これから結婚しない世帯の「家族の節目」、親のいない世帯の「親・お墓」）。後ろに回す（隠さない） */
 function groupAway(h: Household, g: EventTemplateGroup): boolean {
   if (g === "family") {
@@ -529,25 +548,31 @@ export function templateGroupOrder(h: Household): EventTemplateGroup[] {
 function outTemplateGroup(wh: WorkingHousehold): GroupDef {
   const h = wh.request.input.household;
   const actions: ActionDef[] = [];
+  const others: ActionDef[] = [];
   for (const g of templateGroupOrder(h)) {
-    const label = TEMPLATE_GROUPS.find((x) => x.key === g)?.label ?? "";
+    const groupLabel = TEMPLATE_GROUPS.find((x) => x.key === g)?.label ?? "";
     for (const t of OUT_TEMPLATES.filter((x) => x.group === g)) {
+      const fits = templateFits(wh, t.key);
+      const label = fits ? groupLabel : OTHER_TEMPLATES;
       const added =
         t.key === "childWedding"
           ? addedText(h, childWeddingGifts(h))
           : addedText(h, templateRows(h, t).map((p) => ({ at: p.from, amount: p.amount.value ?? 0 })));
       const off = unavailable(wh, t.key);
-      actions.push({
+      // 親を入れていない世帯の葬儀: 押せるまま、親を足すと親ごとに入ることを横に添える
+      const note = t.key === "funeral" && parentsOf(h).length === 0 ? FUNERAL_NO_PARENTS : null;
+      const side = added !== undefined ? (note !== null ? `${added}・${note}` : added) : note !== null ? `（${note}）` : undefined;
+      (fits ? actions : others).push({
         key: `ev/template/${t.key}`,
         label: `＋ ${t.label}`,
         level: "simple",
         ...(t.help !== undefined ? { help: t.help } : {}),
-        chip: { group: label, ...(off !== null && added === undefined ? { added: off, disabled: true } : added !== undefined ? { added } : {}) },
+        chip: { group: label, ...(off !== null && added === undefined ? { added: off, disabled: true } : side !== undefined ? { added: side } : {}) },
         run: (w) => addOutTemplate(w, t.key),
       });
     }
   }
-  return { key: "ev/templates", title: "よくあるライフイベント（当てはまるものだけ足してください）", level: "simple", chips: true, fields: [], actions };
+  return { key: "ev/templates", title: "よくあるライフイベント（当てはまるものだけ足してください）", level: "simple", chips: true, fields: [], actions: [...actions, ...others] };
 }
 
 /** 子への援助（結婚資金）の読むだけの行（子ども・教育の入力項目で直す） */
@@ -560,12 +585,17 @@ function childWeddingLines(wh: WorkingHousehold): GroupDef | null {
   return readGroup("events/childWedding", "子への援助（結婚資金）", lines, "子ども・教育の入力項目の「子への援助」です。直すときは子ども・教育の入力項目で直します（ここと二重には数えません）");
 }
 
-/** 入るお金のひな形（祝い金・一時の給付金。額は未入力の警告）。時期: 結婚のお祝いは配偶者が加わる時期、出産のお祝いは生まれる予定の子が加わる月 */
+/**
+ * 入るお金のひな形（祝い金。額は未入力の警告）。時期: 結婚のお祝いは配偶者が加わる時期、出産のお祝いは生まれる予定の子が加わる月。
+ * 前のひな形「一時の給付金」は外した（種類のボタン「＋ 祝い金・お見舞い・給付金」と同じ種類の行になり、2つ並んでいた。前に入れた行はふつうの行のまま）
+ */
 export const IN_TEMPLATES: readonly { key: string; label: string; help?: string }[] = [
   { key: "weddingGift", label: "結婚のお祝い", help: "時期は、配偶者が家族に加わる時期（入っていなければ1年後）です" },
   { key: "birthGift", label: "出産のお祝い", help: "時期は、生まれる予定の子が家族に加わる月（いなければ1年後）です。出産育児一時金は自動で計算します" },
-  { key: "benefit", label: "一時の給付金" },
 ];
+
+/** 種類のボタンの名前（お金の行の種類の名前「祝い金・お見舞い・一時の給付金」を、ひな形と並べたときに短く） */
+const IN_KIND_LABELS: Readonly<Record<string, string>> = { celebration: "＋ 祝い金・お見舞い・給付金" };
 
 export function addIncomeTemplate(wh: WorkingHousehold, label: string, id: string = newId()): WorkingHousehold {
   const key = IN_TEMPLATES.find((t) => t.label === label)?.key;
@@ -585,11 +615,13 @@ export function addIncomeTemplate(wh: WorkingHousehold, label: string, id: strin
 /** 入るお金のひな形のボタン（行を足した後も出す。足したひな形は「入れた（…）」） */
 function inTemplateActions(wh: WorkingHousehold): ActionDef[] {
   const h = wh.request.input.household;
-  return IN_TEMPLATES.map((t): ActionDef => {
+  const all = IN_TEMPLATES.map((t): ActionDef => {
     const rows = (h.incomeFlows ?? []).filter((f) => incomeCard(f) === "events" && f.label === t.label);
     const added = addedText(h, rows.map((f) => ({ at: f.from, amount: f.amount.value ?? 0 })));
-    return { key: `in/template/${t.key}`, label: `＋ ${t.label}`, level: "simple", ...(t.help !== undefined ? { help: t.help } : {}), chip: { group: "入るお金", ...(added !== undefined ? { added } : {}) }, run: (w) => addIncomeTemplate(w, t.label) };
+    return { key: `in/template/${t.key}`, label: `＋ ${t.label}`, level: "simple", ...(t.help !== undefined ? { help: t.help } : {}), chip: { group: templateFits(wh, t.key) ? "入るお金" : OTHER_TEMPLATES, ...(added !== undefined ? { added } : {}) }, run: (w) => addIncomeTemplate(w, t.label) };
   });
+  // 当てはまるひな形を前に、当てはまらないひな形は後ろの「ほかのひな形」に
+  return [...all.filter((a) => a.chip?.group !== OTHER_TEMPLATES), ...all.filter((a) => a.chip?.group === OTHER_TEMPLATES)];
 }
 
 // ---- 入る⇄出るの付け替え・基本生活費へ移す（0068） ----
@@ -894,7 +926,7 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
       ? null
       : {
           ...inSec,
-          note: `${inRows.length === 0 ? "まだありません。" : ""}祝い金・お見舞い・一時の給付金・物の売却などの入金です。香典もここで入れられます。相続・贈与、親からの援助、副業の収入などは、それぞれの入力項目で入れます`,
+          note: `${inRows.length === 0 ? "まだありません。" : ""}祝い金・お見舞い・給付金・物の売却などの入金です。香典もここで入れられます。相続・贈与、親からの援助、副業の収入などは、それぞれの入力項目で入れます`,
           groups: [
             ...inSec.groups.map((g) => {
               const m = /^in\/([^/]+)$/.exec(g.key);
@@ -903,7 +935,11 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
             }),
             { key: "in/templates", title: "よくある入金（当てはまるものだけ足してください）", level: "simple", chips: true, fields: [], actions: inTemplateActions(wh) },
           ],
-          actions: inSec.actions,
+          actions: inSec.actions.map((a) => {
+            const kind = /\/in\/add\/([^/]+)$/.exec(a.key)?.[1];
+            const label = kind !== undefined ? IN_KIND_LABELS[kind] : undefined;
+            return label !== undefined ? { ...a, label } : a;
+          }),
         };
   const sections: SectionDef[] = [dreamSection(wh), outSection, ...(inSection !== null ? [inSection] : []), scheduleSection(wh)];
   return { id: "events", label: "ライフイベント", lead: "夢プランと、ご家族に起きること・備えの一時的な収支（結婚・成人式・葬儀・法事・予備費・祝い金など）、世帯の予定の一覧。", sections };

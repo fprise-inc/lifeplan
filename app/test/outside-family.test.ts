@@ -37,7 +37,12 @@ describe("介護・親のカードの世帯の外の家族", () => {
     const parent = wh.request.input.household.members.find((m) => m.kind === "parent")!;
     const g = groups(wh).find((x) => x.key === `family/${parent.id}`)!;
     expect(g.note).toContain("世帯の外の家族");
-    const add = g.actions.find((a) => a.key === `family/${parent.id}/outside/addPeriod`)!;
+    // 同居の親は「＋ 家計を1つにする（今から・生活費の人数と年金を世帯に入れる）」の1押し（同居でない人は詳細の「＋ 家計を1つにする期間を足す」）
+    expect(parent.support?.cohabiting).toBe(true);
+    expect(g.actions.find((a) => a.key === `family/${parent.id}/outside/addPeriod`)).toBeUndefined();
+    const notCohab = allFields(buildStage("care", wh)).find((f) => f.key === `family/${parent.id}/cohabiting`)!.set(wh, false);
+    const add = groups(notCohab).find((x) => x.key === `family/${parent.id}`)!.actions.find((a) => a.key === `family/${parent.id}/outside/addPeriod`)!;
+    expect(add.level).toBe("detail");
     const withPeriod = add.run(wh);
     const fields = allFields(buildStage("care", withPeriod));
     const income = fields.find((f) => f.key === `family/${parent.id}/outside/income`)!;

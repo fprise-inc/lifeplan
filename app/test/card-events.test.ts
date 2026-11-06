@@ -62,6 +62,7 @@ describe("ライフイベントのひな形（小さなボタン。標準と詳�
     expect(g.level).toBe("simple");
     expect(g.title).toBe("よくあるライフイベント（当てはまるものだけ足してください）");
     expect(g.actions.every((a) => a.level === "simple" && a.chip !== undefined)).toBe(true);
+    // 配偶者のいない世帯なので、結婚の費用は前のまま
     expect(g.actions.map((a) => [a.chip!.group, a.label])).toEqual([
       ["家族の節目", "＋ 結婚の費用"],
       ["家族の節目", "＋ 子の成人式（振袖・スーツ・写真）"],
@@ -69,7 +70,7 @@ describe("ライフイベントのひな形（小さなボタン。標準と詳�
       ["親・お墓", "＋ 親の葬儀（世帯が払う分）"],
       ["親・お墓", "＋ 法事"],
       ["親・お墓", "＋ お墓・仏壇"],
-      ["備え", "＋ 予備費"],
+      ["備え", "＋ 予備費（毎年、生活費の1か月分）"],
     ]);
     // 外したひな形（家族旅行・長寿のお祝い）と、置かないひな形（孫の誕生のお祝い）
     expect(OUT_TEMPLATES.some((t) => /家族旅行|長寿|孫/u.test(t.label))).toBe(false);
@@ -85,8 +86,46 @@ describe("ライフイベントのひな形（小さなボタン。標準と詳�
     // 入るお金のひな形も小さなボタン
     const inn = s.sections.find((x) => x.key === "money/events/in")!.groups.find((x) => x.key === "in/templates")!;
     expect(inn.chips).toBe(true);
-    expect(inn.actions.map((a) => a.key)).toEqual(["in/template/weddingGift", "in/template/birthGift", "in/template/benefit"]);
+    // 「一時の給付金」のひな形は外した（種類のボタン「＋ 祝い金・お見舞い・給付金」と2つ並んでいた）。生まれる予定の子がいないので出産のお祝いは後ろ
+    expect(inn.actions.map((a) => [a.key, a.chip!.group])).toEqual([
+      ["in/template/weddingGift", "入るお金"],
+      ["in/template/birthGift", "ほかのひな形"],
+    ]);
     expect(inn.actions.find((a) => a.key === "in/template/birthGift")!.help).toContain("出産育児一時金は自動で計算します");
+    const kinds = s.sections.find((x) => x.key === "money/events/in")!.actions.map((a) => a.label);
+    expect(kinds).toContain("＋ 祝い金・お見舞い・給付金");
+    expect(kinds.some((l) => l.includes("一時の給付金"))).toBe(false);
+  });
+
+  it("結婚・出産のひな形は、当てはまる世帯でだけ前に出し、ほかは後ろの「ほかのひな形」に回す（隠さない）", () => {
+    // 配偶者がもういる世帯: 結婚の費用・結婚のお祝いは後ろ
+    const married = bare("salariedCoupleTwoKids");
+    const out = chips(married).actions;
+    expect(out.at(-1)).toMatchObject({ key: "ev/template/wedding", chip: { group: "ほかのひな形" } });
+    expect(out.slice(0, -1).every((a) => a.chip!.group !== "ほかのひな形")).toBe(true);
+    const inMarried = events(married).sections.find((x) => x.key === "money/events/in")!.groups.find((x) => x.key === "in/templates")!.actions;
+    expect(inMarried.map((a) => a.chip!.group)).toEqual(["ほかのひな形", "ほかのひな形"]);
+    // 配偶者がこれから加わる世帯・生まれる予定の子がいる世帯: 前に出す
+    const later = mutate(married, (h) => {
+      h.members.find((m) => m.kind === "spouse")!.joins = { at: "2028-04" };
+      h.members.push({ id: "00000000-0000-4000-8000-0000000000c9", kind: "child", birth: { birthYearMonth: "2028-10", bornOnFirst: false }, sex: "female", joins: null, leaves: null, expected: true });
+    });
+    expect(chips(later).actions.find((a) => a.key === "ev/template/wedding")!.chip!.group).toBe("家族の節目");
+    const inLater = events(later).sections.find((x) => x.key === "money/events/in")!.groups.find((x) => x.key === "in/templates")!.actions;
+    expect(inLater.map((a) => a.chip!.group)).toEqual(["入るお金", "入るお金"]);
+  });
+
+  it("親を入れていない世帯の葬儀のボタンの横に、介護・親で親を足すと親ごとに入ることを添える（押せるまま）", () => {
+    const wh = bare("salariedCoupleTwoKids");
+    expect(wh.request.input.household.members.some((m) => m.kind === "parent")).toBe(false);
+    const btn = chips(wh).actions.find((a) => a.key === "ev/template/funeral")!;
+    expect(btn.chip).toMatchObject({ added: "（介護・親で親を足すと、親ごとに1行ずつ入ります）" });
+    expect(btn.chip!.disabled).toBeUndefined();
+    const added = chips(addOutTemplate(wh, "funeral", seq())).actions.find((a) => a.key === "ev/template/funeral")!;
+    expect(added.chip!.added).toMatch(/^入れた（.+）・介護・親で親を足すと、親ごとに1行ずつ入ります$/);
+    // 親を入れた世帯には出さない
+    const withParent = chips(bare("parentCare")).actions.find((a) => a.key === "ev/template/funeral")!;
+    expect(withParent.chip!.added ?? "").not.toContain("介護・親で親を足す");
   });
 
   it("足したひな形は「入れた（年・額）」をボタンの横に出し、押せるまま（もう一度押すと、もう1行）", () => {
@@ -156,7 +195,7 @@ describe("ライフイベントのひな形（小さなボタン。標準と詳�
     expect((p.amount as { estimate?: { basis: string } }).estimate?.basis).toBe(`よくある額の目安（予備費 毎年、生活費の1か月分〔月${String(monthly / 10000)}万円〕。この世帯に合わせて直してください）`);
     expect(statusOf(wh, "e4/every")).toBe("estimated");
     const btn = chip(wh0, "reserve");
-    expect(btn.label).toBe("＋ 予備費");
+    expect(btn.label).toBe("＋ 予備費（毎年、生活費の1か月分）");
     expect(btn.help).toContain("生活費の1か月分");
   });
 
