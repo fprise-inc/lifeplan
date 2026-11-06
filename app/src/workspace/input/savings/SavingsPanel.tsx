@@ -1,7 +1,7 @@
 // 入力の「貯蓄・運用」のパネルの中身（作業の層。0026）: 入れ方（合計／口座／資産配分）・口座ごとの残高と期間を分けた積立と利回り・
 // NISA の枠の知らせ・資産配分・iDeCo と企業型DC の受け取り・運用の期間（積立をやめる年・取り崩し）。値を変えるたびに onEdit に新しい世帯を渡す
 import { Fragment } from "preact";
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { Account, EngineRequest } from "../../../engine/types.ts";
 import { Help, HelpOf } from "../../../presentation/Help.tsx";
 import { DonutPair, type DonutItem, type DonutPane } from "../../../presentation/Donut.tsx";
@@ -15,6 +15,7 @@ import { buildStage } from "../stages/index.ts";
 import { accountMoreLabel, MAIN_ADD_KINDS } from "../stages/savings.ts";
 import { revealAdded } from "../../../presentation/revealAdded.ts";
 import { formatYen, normalizeNumberText, parseInteger, parseYen, pctFromRate, rateFromPct } from "../units.ts";
+import { enterInput, type Settled } from "../pendingInput.ts";
 import { outOfRangeText, rangeText, rateInRange, RETURN_RANGE, type PctRange } from "../rateRanges.ts";
 import {
   accountMonthlyAt,
@@ -111,6 +112,17 @@ function NumBox(p: {
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [start, setStart] = useState<string | null>(null);
+  const el = useRef<HTMLInputElement>(null);
+  /** 打ちかけの値の登録を外す（pendingInput.ts。入っている間だけ持つ） */
+  const leaveInput = useRef<(() => void) | null>(null);
+  const settleNow = useRef<() => Settled>(() => "none");
+  useEffect(
+    () => () => {
+      leaveInput.current?.();
+      leaveInput.current = null;
+    },
+    [],
+  );
   const shown = p.value === null ? "" : p.unit === "man" ? formatYen(p.value as number, "man") : p.unit === "pct" ? pctFromRate(String(p.value)) : String(p.value);
   const parse = (t: string): number | string | null | undefined => {
     if (normalizeNumberText(t) === "") return p.optional === true ? null : undefined;
@@ -127,6 +139,16 @@ function NumBox(p: {
     return Number.isFinite(v) && v >= 0 ? v : undefined;
   };
   const bad = draft !== null && parse(draft) === undefined;
+  // 欄を離れずに画面を変える操作の前（pendingInput.ts）: 打ちかけの値を決める。読めなければ欄に残して止める
+  settleNow.current = () => {
+    const t = el.current?.value ?? draft ?? shown;
+    if (!shouldCommitOnBlur(start, t)) return "none";
+    const v = parse(t);
+    if (v === undefined) return "rejected";
+    p.onCommit(v);
+    setStart(t);
+    return "committed";
+  };
   // 範囲の外の率の知らせ（「15%より大きい値は設定できません。」。読めない文字は赤い枠だけ）
   const rangeProblem = (t: string): string | null => (p.unit === "pct" ? readPct(t, p.range).problem : null);
   return (
@@ -141,18 +163,21 @@ function NumBox(p: {
       {...(p.describedBy !== undefined ? { "aria-describedby": p.describedBy } : {})}
       data-sv={p.data}
       {...(p.id !== undefined ? { id: p.id } : {})}
+      ref={el}
       onFocus={() => {
         setDraft(shown);
         setStart(shown);
+        leaveInput.current = enterInput({ settle: () => settleNow.current(), focus: () => el.current?.focus() });
       }}
       onInput={(e) => {
+        // 打っている間は下書きだけ（世帯は変えない）。離れたとき（Enter）に決める（入力の欄の決まり。FieldViews.tsx の Field と同じ）
         const t = (e.currentTarget as HTMLInputElement).value;
         setDraft(t);
         p.onProblem?.(rangeProblem(t));
-        const v = parse(t);
-        if (v !== undefined && t.trim() !== "") p.onCommit(v);
       }}
       onBlur={(e) => {
+        leaveInput.current?.();
+        leaveInput.current = null;
         const t = (e.currentTarget as HTMLInputElement).value;
         if (shouldCommitOnBlur(start, t)) {
           const v = parse(t);

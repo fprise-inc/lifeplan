@@ -4,8 +4,8 @@
 // 書く値はエンジンの時点の型（0003 の6）そのもの: 年月と○年後は {at}、年齢は {memberAge}、出来事からは {event, offset}。
 // ここは世帯を変えない純粋な関数だけを持つ（欄の読み書きは form.ts の timepointField、出来事の一覧と作り方は namedEvents.ts）
 import type { Household, Timepoint } from "../../engine/types.ts";
-import { ageSwitchMonth, monthIndex, monthText, resolveTimepoint, type AgeSwitch } from "../timepoint.ts";
-import { parseWareki, wareki } from "./units.ts";
+import { ageSwitchMonth, monthIndex, monthText, resolveTimepoint, shiftMonth, type AgeSwitch } from "../timepoint.ts";
+import { formatYearMonth, parseWareki, ymWithEra } from "./units.ts";
 
 /** 入れ方 */
 export type WhenMode = "ym" | "age" | "event" | "now";
@@ -79,6 +79,48 @@ export interface WhenCtx {
   current?: Timepoint | null;
   /** 今見せている入れ方（打った文字の読み方が変わる: 年齢なら「60」を60歳、今からなら「5」を5年後） */
   mode?: WhenMode;
+  /**
+   * 期間の端の欄か（読みの後ろに「まで」「から」を付ける）: until は終わりの欄（「60歳になる前の月（2044年5月）まで」）、from は始まりの欄
+   * （「60歳になる月（2044年6月）から」）。省略は欄の決まりから: 始まりのある欄（start）と ageMeans before は until、ageMeans after は from、ほかは付けない
+   */
+  edge?: WhenEdge;
+  /** 年齢の人を選べない欄（定年・働く最後など、その人の欄。人の選択を出さない） */
+  personFixed?: boolean;
+}
+
+/** 期間の端（読みに「まで」「から」を付ける） */
+export type WhenEdge = "from" | "until";
+
+/** 欄の読みの端（明示が無ければ欄の決まりから） */
+export function edgeOf(ctx: Pick<WhenCtx, "edge" | "start" | "ageMeans">): WhenEdge | null {
+  if (ctx.edge !== undefined) return ctx.edge;
+  if (ctx.start !== undefined || ctx.ageMeans === "before") return "until";
+  if (ctx.ageMeans === "after") return "from";
+  return null;
+}
+
+/**
+ * 年齢の入れ方の灰色の入力例（物差しの人で変える）: 子は「例: 22歳」、親・祖父母は「例: 85歳」、ほかの大人は「例: 65歳」。
+ * 人が決まっていなければ大人の例
+ */
+export function ageExample(ctx: Pick<WhenCtx, "h" | "person">): string {
+  const kind = ctx.h.members.find((m) => m.id === ctx.person)?.kind;
+  if (kind === "child") return "例: 22歳";
+  if (kind === "parent" || kind === "grandparent") return "例: 85歳";
+  return "例: 65歳";
+}
+
+/**
+ * 生年月の欄に打った年齢（「38歳」「38」）を、生まれた年月の推定にする（今の月で、その年齢の幅のまん中の月。1日生まれでない前提）。
+ * 年齢と読めなければ null。0〜120歳
+ */
+export function birthFromAge(text: string, baseMonth: string): { age: number; ym: string } | null {
+  const t = normalizeWhenText(text).replace(/(歳|才)$/, "");
+  if (!/^\d{1,3}$/.test(t)) return null;
+  const age = Number(t);
+  if (age > 120) return null;
+  // 今の月にその年齢である生まれ月は「今の月の age 年前」から「その11か月前」まで。まん中（6か月前寄り）を取る
+  return { age, ym: shiftMonth(baseMonth, -(age * 12 + 6)) };
 }
 
 export type WhenParse = { ok: true; tp: Timepoint | null; via: WhenMode | "duration" | "empty" } | { ok: false; reason: string };
@@ -465,17 +507,21 @@ export function showWhen(tp: Timepoint | null | undefined, ctx: WhenCtx): string
   return at;
 }
 
-/** 年月だけの欄（時点の部品でない「2041-06」の欄）の読み: 「今から5年後（令和13年4月）」。今月より前・今月は和暦だけ */
+/**
+ * 年月だけの欄（時点の部品でない「2041-06」の欄）の読み: 「今から5年後（2031年4月・令和13年）」。今月より前・今月は「2020年4月・令和2年」。
+ * 欄の外の年月は西暦を主に、和暦の年を添える（入力の画面の決まり）
+ */
 export function readYearMonth(ym: string, baseMonth: string): string {
   const d = monthIndex(ym) - monthIndex(baseMonth);
-  return d > 0 ? `今から${span(d)}後（${wareki(ym)}）` : wareki(ym);
+  return d > 0 ? `今から${span(d)}後（${ymWithEra(ym)}）` : ymWithEra(ym);
 }
 
 /** 欄の下に出す読み替えた形（例: 「ご本人が60歳になる月（2046年4月）」「入居から10年後（2038年4月）」） */
 export function readWhen(tp: Timepoint | null | undefined, ctx: WhenCtx, nullText?: string): string {
   if (tp == null) return nullText ?? "空欄";
   const ym = resolveTimepoint(ctx.h, tp);
-  const when = ym === null ? "（解けない時点）" : wareki(ym);
+  const when = ym === null ? "（解けない時点）" : ymWithEra(ym);
+  const edge = edgeOf(ctx);
   let out: string;
   if (tp.memberAge !== undefined) {
     const a = tp.memberAge;
@@ -504,8 +550,8 @@ export function readWhen(tp: Timepoint | null | undefined, ctx: WhenCtx, nullTex
   } else if (tp.event !== undefined) {
     const e = ctx.events.find((x) => x.id === tp.event);
     const d = offsetMonths(tp);
-    const base = e?.ym != null ? wareki(e.ym) : "（解けない時点）";
-    out = d === 0 ? `${eventLabel(ctx, tp.event)}の月（${when}）` : `${eventWords(eventLabel(ctx, tp.event), d)}（${eventLabel(ctx, tp.event)}は${base}・${when}）`;
+    const base = e?.ym != null ? formatYearMonth(e.ym) : "（解けない時点）";
+    out = d === 0 ? `${eventLabel(ctx, tp.event)}の月（${when}）` : `${eventWords(eventLabel(ctx, tp.event), d)}（${when}。${eventLabel(ctx, tp.event)}は${base}）`;
   } else if (ctx.dateStyle === "birth") {
     // 生年月の欄と同じ読み: 欄の人の年齢（和暦）。年齢が出せなければ和暦だけ
     const total = ctx.person !== null ? reachMonths(ctx.h, ctx.person, tp.at as string) : null;
@@ -521,10 +567,13 @@ export function readWhen(tp: Timepoint | null | undefined, ctx: WhenCtx, nullTex
       const who = personLabel(ctx, ctx.person)?.label ?? "";
       // 欄の決まりで「○歳」と言える月は、その言い方で（働く最後: 60歳になる前の月、受け取り開始: 65歳になった翌月）
       if (total !== null && total >= 0 && ctx.ageMeans !== "reach" && wholeAge(total, ctx.ageMeans)) parts.push(ctx.ageMeans === "before" ? `${who}が${(total + 1) / 12}歳になる前の月` : `${who}が${(total - 1) / 12}歳になった翌月`);
+      // 始まりの欄は「○歳になる月から」と読めるように（終わりの欄の「○歳になる前の月まで」と並べて違いが分かるように）
+      else if (total !== null && total >= 0 && edge === "from" && wholeAge(total, ctx.ageMeans)) parts.push(`${who}が${total / 12}歳になる月`);
       else if (total !== null && total >= 0) parts.push(`${who}${Math.floor(total / 12)}歳`);
     }
     out = parts.length > 0 ? `${parts.join("・")}（${when}）` : when;
   }
+  if (edge !== null && ym !== null) out += edge === "until" ? "まで" : "から";
   if (ctx.start !== undefined && ym !== null) {
     const s = resolveTimepoint(ctx.h, ctx.start);
     if (s !== null && monthIndex(ym) >= monthIndex(s)) out += `。始まりから${span(monthIndex(ym) - monthIndex(s) + 1)}間`;
