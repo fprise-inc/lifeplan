@@ -13,6 +13,7 @@ import { endYearForAge, followedEndAge, type WorkingHousehold } from "../input/h
 import { fillEducation } from "../input/fill.ts";
 import { memberLabels } from "../input/labels.ts";
 import { withDeathEstimate } from "../input/stages/care.ts";
+import { withWorkEndEstimates } from "../input/stages/work.ts";
 import { withEntry } from "../input/stages/housingLoans.ts";
 import { roles } from "../roles.ts";
 import type { WebLogEntry } from "./web.ts";
@@ -526,6 +527,10 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
     if (m.kind === "child" && fillsByEstimate("goal.education")) filled = fillEducation(filled, m.id);
     if (m.kind === "parent" && (m.leaves === null || m.leaves === undefined)) filled = withDeathEstimate(filled, m.id);
   }
+  // 取り込んだ働き方（会社員・パートなど）に終わりが無ければ、働く最後の年齢の推定を入れる（画面で働き方を入れたときと同じ。シートで定年を聞いて
+  // 答えがあれば終わりがあるので何もしない。働き方を取り込まなかった人は変えない）
+  const workers = new Set(chosen.filter((c) => c.collection === "employmentPeriods").map((c) => (remap(c.value as Obj, ids).member as string | undefined) ?? ""));
+  if (workers.size > 0) filled = withWorkEndEstimates(filled, workers);
   // 簡易のシートの残高と返済額から置いた住宅ローンは、ローンの入れ方を「今の残高から」にする（0052）
   for (const c of chosen) {
     if (c.collection !== "debts" || r.loanEntry[c.target.object] === undefined) continue;

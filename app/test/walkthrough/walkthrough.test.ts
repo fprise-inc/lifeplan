@@ -218,13 +218,13 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       expect(h().incomeFlows?.find((f) => f.kind === "inheritance")?.amount.value).toBe(15_000_000);
       expect(h().accounts!.filter((a) => a.kind === "deposit" || a.kind === "taxable").map((a) => a.marketValue?.value)).toEqual([25_000_000, 8_000_000]);
     });
-    it.fails("パートに変えると、配偶者の年収の推定が正社員の推定から変わる", () => {
+    it("パートに変えると、配偶者の年収の推定が正社員の推定から変わる", () => {
       expect(d.notes.seen.spouseAnnualPart).not.toBe(d.notes.seen.spouseAnnualBefore);
     });
-    it.fails("定年が計算の基準の月より前の人に、目安の退職一時金を足さない（受け取りが過去）", () => {
+    it("定年が計算の基準の月より前の人に、目安の退職一時金を足さない（受け取りが過去）", () => {
       expect(d.notes.seen.retirementCard).not.toMatch(/見込み/);
     });
-    it.fails("企業年金を年金で受け取るとき、一時金の欄を未入力に数えない", () => {
+    it("企業年金を年金で受け取るとき、一時金の欄を未入力に数えない", () => {
       expect(d.notes.seen.retirementCardAfter).not.toContain("未入力");
     });
     it.fails("1995年に建った持ち家を、今買った新築の扱いで評価しない（建物の評価額が新築の額にならない）", () => {
@@ -249,7 +249,6 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
     panelChecks(() => d);
     watchChecks(() => d, [
       { rule: "pastRetirementEstimate", match: /db/, what: "定年の後に足した企業年金（年金で受け取る）の一時金の額が、推定0円・受け取りが過去のまま残る" },
-      { rule: "workTypeEstimates", match: /定年の推定/, what: "今の働き方が再雇用・パートなのに、定年の推定が残る" },
       { rule: "rowGrouping", match: /corporatePension/, what: "企業年金がキャッシュフロー表の「その他の収入」に入る" },
       { rule: "zeroCostBasis", match: /taxable/, what: "課税口座を足すと、取得価額が0円で入る" },
       { rule: "screenWords", match: /incomeFlow/, what: "世帯の中身の一覧に内部の名前（incomeFlow）が出る" },

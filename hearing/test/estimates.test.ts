@@ -4,21 +4,24 @@ import { businessEstimate, healthRateEstimate, isLegacyLivingEstimate, LIVING_SP
 import { masterValue } from "../src/statistics.ts";
 import { MASTER_VALUES } from "../src/statistics.generated.ts";
 
+/** 給与・賞与の推定は千円単位に丸める */
+const thousand = (v: number): number => Math.round(v / 1000) * 1000;
+
 describe("推定の目安", () => {
   it("正社員・契約社員は賃金構造基本統計調査の年齢階級別の「きまって支給する現金給与額」×12 と年間賞与（男女計）", () => {
     const m = salaryEstimate("regular", { age: 45 });
-    expect(m?.annual.value).toBe(428900 * 12);
-    expect(m?.bonus.value).toBe(1352900);
+    expect(m?.annual.value).toBe(thousand(428900 * 12));
+    expect(m?.bonus.value).toBe(thousand(1352900));
     expect(m?.annual.basis).toContain("賃金構造基本統計調査（厚生労働省）令和7年");
     expect(m?.annual.basis).toContain("男女計");
     expect(m?.annual.basis).toContain("45歳の階級×12");
     expect(m?.annual.basis).not.toContain("upTo");
     expect(m?.annual.basis).not.toContain("原本での確かめ前");
     // 年齢を渡さなければ年齢計
-    expect(salaryEstimate("regular")?.annual.value).toBe(390900 * 12);
+    expect(salaryEstimate("regular")?.annual.value).toBe(thousand(390900 * 12));
     // 規模を渡せば規模別の表（1,000人以上）
-    expect(salaryEstimate("regular", { age: 27, size: 2000 })?.annual.value).toBe(355700 * 12);
-    expect(salaryEstimate("contract", { age: 40 })?.annual.value).toBe(247100 * 12);
+    expect(salaryEstimate("regular", { age: 27, size: 2000 })?.annual.value).toBe(thousand(355700 * 12));
+    expect(salaryEstimate("contract", { age: 40 })?.annual.value).toBe(thousand(247100 * 12));
     expect(salaryEstimate("selfEmployed")).toBeNull();
   });
 
@@ -36,13 +39,13 @@ describe("推定の目安", () => {
   });
 
   it("公務員は行政職俸給表（一）の年齢階層別の平均給与月額×12（賞与は仮の値）", () => {
-    expect(salaryEstimate("civilServant", { age: 45 })?.annual.value).toBe(467753 * 12);
-    expect(salaryEstimate("civilServant")?.annual.value).toBe(414480 * 12);
+    expect(salaryEstimate("civilServant", { age: 45 })?.annual.value).toBe(thousand(467753 * 12));
+    expect(salaryEstimate("civilServant")?.annual.value).toBe(thousand(414480 * 12));
     expect(salaryEstimate("civilServant")?.bonus).toEqual({ value: 1500000, basis: "賞与の目安（仮の値。出典の統計の値が無い）" });
   });
 
   it("パートは短時間労働者の時給（男女計）×週15時間×52週", () => {
-    expect(salaryEstimate("partTime")?.annual.value).toBe(1518 * 15 * 52);
+    expect(salaryEstimate("partTime")?.annual.value).toBe(thousand(1518 * 15 * 52));
     expect(salaryEstimate("partTime")?.annual.basis).toContain("男女計");
     expect(salaryEstimate("partTime")?.bonus.value).toBe(0);
   });

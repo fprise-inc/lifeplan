@@ -11,6 +11,7 @@ import { REPO_DIR } from "../scripts/lib.ts";
 import { preview } from "./helpers.ts";
 
 const FULL3 = new Uint8Array(readFileSync(join(REPO_DIR, "hearing", "samples", "full-3-sample.xlsx")));
+const SIMPLE = new Uint8Array(readFileSync(join(REPO_DIR, "hearing", "samples", "basic-2-sample.xlsx")));
 const AT = approvalTime(new Date(2026, 10, 7, 10, 0, 0));
 let n = 0;
 const seq = () => `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}`;
@@ -49,5 +50,21 @@ describe("詳細版（full 版3）のご両親の取り込み", () => {
     expect(h.careExpenses ?? []).toEqual([]);
     expect((h.periodicExpenses ?? []).filter((p) => p.kind === "allowance")).toEqual([]);
     expect(out.skipped).toEqual(expect.arrayContaining(["母の介護", "母への仕送り"]));
+  });
+});
+
+describe("取り込んだ働き方の終わり", () => {
+  it("簡易版で取り込んだ会社員・パートの今の働き方に、働く最後の年齢の推定（仮の印）が入り、100歳まで給与が続かない", async () => {
+    const wh = blank();
+    const r = await importSheet(SIMPLE, wh, seq);
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    const out = applyImport(wh, r.view, new Set(r.view.candidates.map((c) => c.id)), AT);
+    const h = out.wh.request.input.household;
+    const working = (h.employmentPeriods ?? []).filter((p) => p.type !== "unemployed" && p.type !== "leave");
+    expect(working.length).toBeGreaterThan(0);
+    for (const p of working) expect(p.to, p.type).not.toBeNull();
+    const years = preview(withRefreshedEstimates(out.wh).request).table.filter((c) => c.row.startsWith("cf.income.salary") && c.amount > 0).map((c) => c.year);
+    expect(years.length).toBeGreaterThan(0);
+    expect(Math.max(...years)).toBeLessThan(2026 + 45);
   });
 });

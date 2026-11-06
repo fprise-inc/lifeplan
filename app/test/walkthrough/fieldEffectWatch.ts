@@ -53,7 +53,6 @@ export const RECORD_ONLY: readonly ShapeRule[] = [
  * （消し忘れると「直す待ちの一覧の欄は、まだ効かない」のテストが落ちる）
  */
 export const NOT_EFFECTIVE_YET: readonly ShapeRule[] = [
-  { shape: "pension:pension/*/amounts/transitional", why: "ねんきん定期便の経過的加算: 加入月数から計算し直すので、額を入れても見込みが変わらない（欄を出さないか、計算に使うかを決める）" },
   { shape: "savings:sav/*/mix/*/share", why: "資産配分の割合: 画面に出ているのに、口座の利回りの計算に入らない" },
 ];
 

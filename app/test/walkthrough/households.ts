@@ -102,8 +102,11 @@ export async function household1(p: Page): Promise<Notes> {
   await save(p, n, "家族");
 
   await open(p, n, "働き方と収入");
-  await p.click("会社員として入れる", { within: "panel", exact: true });
-  await p.click("会社員として入れる", { within: "panel", exact: true });
+  // 働き方の入口は「働き方を入れる」の1つのボタンの中の選択肢
+  await p.click("働き方を入れる", { within: "panel", exact: true });
+  await p.click("正社員", { within: "panel", exact: true });
+  await p.click("働き方を入れる", { within: "panel", exact: true });
+  await p.click("正社員", { within: "panel", exact: true });
   await p.type("年収（税込み・賞与込み）", "550");
   await p.type("年収（税込み・賞与込み）", "400", { nth: 1 });
   await save(p, n, "働き方と収入");
@@ -163,7 +166,8 @@ export async function household2(p: Page): Promise<Notes> {
   await save(p, n, "家族");
 
   await open(p, n, "働き方と収入", "詳細");
-  await p.click("自営業として入れる", { within: "panel", exact: true });
+  await p.click("働き方を入れる", { within: "panel", exact: true });
+  await p.click("自営業", { within: "panel", exact: true });
   await p.type("事業所得（年額）", "350");
   await p.type("働く最後の年齢", "70");
   await save(p, n, "働き方と収入");
@@ -227,8 +231,11 @@ export async function household3(p: Page): Promise<Notes> {
   await save(p, n, "家族");
 
   await open(p, n, "働き方と収入");
-  await p.click("会社員として入れる", { within: "panel", exact: true });
-  await p.click("会社員として入れる", { within: "panel", exact: true });
+  // ご本人（63歳）は今の働き方の再雇用から（定年の前の正社員も作る）。配偶者は正社員で入れてからパートに変える
+  await p.click("働き方を入れる", { within: "panel", exact: true });
+  await p.click("契約社員・嘱託（再雇用など）", { within: "panel", exact: true });
+  await p.click("働き方を入れる", { within: "panel", exact: true });
+  await p.click("正社員", { within: "panel", exact: true });
   n.seen.spouseAnnualBefore = await fieldValue(p, "年収（税込み・賞与込み）", 1);
   await p.choose("働き方", "パート・アルバイト", { nth: 1 });
   n.seen.spouseAnnualPart = await fieldValue(p, "年収（税込み・賞与込み）", 1);
@@ -236,11 +243,9 @@ export async function household3(p: Page): Promise<Notes> {
   await p.type("年収（税込み・賞与込み）", "100", { nth: 1 });
   await save(p, n, "働き方と収入");
 
-  // 推定で足された退職一時金（受け取りの時期を見てから外す）。企業年金を足す
+  // 定年の後の再雇用の人・パートに変えた人には、目安の退職一時金は足されない（受け取りが過去・パートの勤め先）。企業年金を足す
   await open(p, n, "退職金・企業年金", "詳細");
   n.seen.retirementCard = await cardText(p, "退職金・企業年金");
-  await p.click("外す", { within: "panel", exact: true });
-  await p.click("外す", { within: "panel", exact: true });
   await p.click("＋ 退職金・企業年金を足す", { within: "panel", exact: true });
   await p.choose("種類", "確定給付企業年金");
   await p.choose("受け取り方", "年金");
