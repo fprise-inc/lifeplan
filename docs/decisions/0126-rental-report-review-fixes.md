@@ -85,7 +85,7 @@
 - **エンジン**: `asset.realEstateAnalysis` 改訂3（`remainingLife` の数え方。約束の版 1.1 のまま。形は変えない）。SDK の約束（`engine/src/sdk/contracts.ts`）の説明。
 - **提案書**: `report/src/build.ts`（行 `realEstateLoan`・`realEstateDebt`、出来事の作り方を案ごとにした `eventsByYear`・不動産の出来事・`keyYears`、バランスシートの年の表の「不動産のローン」）、`rowNames.ts`、`rentalText.ts`（減価償却が終わる年）、`bsGroups.ts`・`sdk.ts`（分け方 `propertyLoan`）、帳票の入力のスキーマと型（`cashflow.keyYears`）、Typst（`pages/cashflow.typ`・`parts/layout.typ`）。
 - **画面**: `app/src/workspace/present.ts`（行・収支の推移・出来事）、`evidence.ts`・`formulas.ts`（根拠）、`rentalTab.ts`・`RentalTab.tsx`・`rental.css`（指標）、`balanceTab.ts`・`bsLayout.ts`・`BsFigure.tsx`・`BsTrend.tsx`・`BalanceTab.tsx`・`balance.css`・`model.ts`（分け方）、`StackChart.tsx`・`app.css`（色）、`catalog.ts`（見本）。
-- **テスト**: `app/test/rental-report-review.test.ts`・`report/test/rental-report-review.test.ts`（新）、`engine/test/realEstateAnalysis.test.ts`（残りの耐用年数）、`app/test/balance-sheet.test.ts`・`asset-rich-household.test.ts`・`bs-colors.test.ts`・`mobile.test.ts`（分け方・色）。
+- **テスト**: `app/test/rental-report-review.test.ts`・`report/test/rental-report-review.test.ts`（新）、`engine/test/realEstateAnalysis.test.ts`（残りの耐用年数）、`app/test/balance-sheet.test.ts`・`asset-rich-household.test.ts`・`bs-colors.test.ts`・`mobile.test.ts`・`crates/report-pdf/tests/bs_colors.rs`（分け方・色）。
 - **結果の変わり方**: 表・税・お金の動きは変わらない。住まい以外の不動産のローンがある世帯は、表の「住宅ローン残高」「住居費」「その他の支出」の額が、分けた行の分だけ減る（合計は同じ）。分析の数字の残りの耐用年数の値が変わる（中古で買った建物は長く、新築で買った建物も償却率の端数で変わることがある）。バランスシートの「その他の負債」の額が、不動産のローンの分だけ減る（負債の合計は同じ）。
 
 ## 未確定・後の段階に回したこと
