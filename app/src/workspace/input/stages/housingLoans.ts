@@ -7,7 +7,7 @@ import type { Debt, DebtHousing, EngineRequest, Household } from "../../../engin
 import { addMonths } from "../../levers.ts";
 import type { Address } from "../../store/readings.ts";
 import { byId, field, getPath, plain, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef } from "../form.ts";
-import { mutate, newId, presetBasis, standardBox, wrapBasis, type LoanEntry, type WorkingHousehold } from "../household.ts";
+import { mutate, newId, presetBasis, PRESET_HEADS, standardBox, wrapBasis, type LoanEntry, type WorkingHousehold } from "../household.ts";
 import { CREDIT_DATA_FROM_YEAR, creditKey, estimatedPrincipal, fromBalance, isHomeLoan, newBuildFromPurchase, PRINCIPAL_ESTIMATE, principalKey, principalMismatch, purchaseMonth, startsLater, withoutCreditMark } from "../housingCredit.ts";
 import { DEBT_KINDS, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS } from "../labels.ts";
 import { fittedRateText, monthlyPayment, monthsBetween, monthsFromPayment, principalFromPayment, rateText } from "../loanMath.ts";
@@ -1515,7 +1515,8 @@ export function otherLoanHeadFields(wh: WorkingHousehold, d: Debt, k: string): F
             // 金利が種類の目安のまま（推定）なら、新しい種類の目安に入れ直す
             const a = addrRate(x);
             const step = x.rateSchedule[0];
-            if (a !== null && step !== undefined && (isEstimate(rowAt(inputOf(req), a), "既定の値") || isEstimate(rowAt(inputOf(req), a), "標準の値"))) {
+            // （根拠の頭は今の「既定の値」と、前の版の「目安のボタンの値」「標準の値」の両方を読む）
+            if (a !== null && step !== undefined && [...PRESET_HEADS, "標準の値"].some((head) => isEstimate(rowAt(inputOf(req), a), head))) {
               step.rate = sub.rate;
               putRow(inputOf(req), a, estRow("standard", wrapBasis(sub.rateBasis, (b) => `既定の値（${b}。わかれば直してください）`)));
             }

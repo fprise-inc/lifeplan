@@ -133,11 +133,10 @@ describe("推定の欄の「この値にする」", () => {
   });
 });
 
-describe("パネルの「推定の値をまとめて使う」", () => {
+describe("パネルの「推定のままの値を「この値にする」」", () => {
   it.each([
     ["blank", "assumptions"],
     ["blank", "living"],
-    ["blank", "family"],
     ["salariedCoupleTwoKids", "assumptions"],
   ])("%s の %s: パネルの上に出し、数は欄の「この値にする」の数と同じ", (m, card) => {
     const wh = m === "blank" ? blankHousehold(BASE, ids()) : fromRequest(modelHousehold(m), {});
@@ -145,7 +144,7 @@ describe("パネルの「推定の値をまとめて使う」", () => {
       const html = panel(wh, card, level);
       const fills = count(html, "data-fill-estimate");
       expect(fills, level).toBeGreaterThan(0);
-      const bulk = /<div class="ip-bulk"><button type="button" class="fld-fill"[^>]*data-confirm-all="true">推定の値をまとめて使う（(\d+)つ）<\/button>/.exec(html);
+      const bulk = /<div class="ip-bulk"><button type="button" class="fld-fill"[^>]*data-confirm-all="true">推定のままの値を「この値にする」（(?:見えている )?(\d+)か所）<\/button>/.exec(html);
       expect(bulk, level).not.toBeNull();
       expect(Number(bulk![1])).toBe(fills);
       // パネルの頭（本体より上）にある
@@ -157,6 +156,13 @@ describe("パネルの「推定の値をまとめて使う」", () => {
     const html = panel(fromRequest(modelHousehold("salariedCoupleTwoKids"), {}), "family");
     expect(html).not.toContain("data-fill-estimate");
     expect(html).not.toContain("data-confirm-all");
+  });
+
+  it("新しい顧客の家族: 仮の生年月は「この値にする」もまとめての操作も出さない（仮の値は入れてもらう値）", () => {
+    const html = panel(blankHousehold(BASE, ids()), "family");
+    expect(html).not.toContain("data-fill-estimate");
+    expect(html).not.toContain("data-confirm-all");
+    expect(html).toContain("推定・仮の値のままの欄: 1か所");
   });
 });
 

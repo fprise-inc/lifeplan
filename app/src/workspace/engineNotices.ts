@@ -309,12 +309,16 @@ function subjectOrder(wh: WorkingHousehold): (name: string) => number {
 }
 
 /**
- * 子の知らせのうち、FP が直す所でないもの: 子の年金の加入記録の推計（子は加入記録を入れないので、推計なのが当たり前）。
+ * 子・世帯の外の家族の知らせのうち、FP が直す所でないもの: 子・世帯の外の家族の年金の加入記録の推計（加入記録を入れないので、推計なのが当たり前）。
  * 受給資格期間に足りない知らせは、エンジンが働き方も加入の記録も入れていない子には出さない（働き方を入れた子には出す）
  */
 const CHILD_SILENT = new Set(["N_ESTIMATED|pensionRecord"]);
 function dropSubject(code: string, topic: string, subject: string, req: EngineRequest): boolean {
-  if (CHILD_SILENT.has(`${code}|${topic}`)) return req.input.household.members.find((m) => m.id === subject)?.kind === "child";
+  if (CHILD_SILENT.has(`${code}|${topic}`)) {
+    // 世帯の外の家族（親など）も年金の加入記録を入れない（親の年金は介護・親の入力項目の欄で入れる）ので、加入記録の推計の対象に数えない（0041 の追記 2026-11-06）
+    const m = req.input.household.members.find((x) => x.id === subject);
+    return m?.kind === "child" || m?.outside !== undefined;
+  }
   return false;
 }
 

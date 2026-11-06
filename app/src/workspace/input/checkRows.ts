@@ -1,7 +1,10 @@
 // 確かめの一覧（推定の一覧。0041）: 推定・書類待ち・未入力の所と確かめの注意を、カードごとに並べる。行から欄へ移れる（「開く」）。
 // 並び（上から）: ① 未入力（0円で計算中）② まだ入れていない項目（入れ始める前の項目。警告にせず、見落としに気づける所として1か所にまとめる。0045 の追記）
 // ③ 書類待ち（「書類で確かめる」にした欄。確かめる書類を添える）④ 確かめの注意（目安のボタンと同じ確定の値・ほかの入力と合わない値）
-// ⑤ 計算の知らせ（現状の計算結果の知らせのうち、入力で直せるもの。0064）⑥ 推定（影響の大きい順）⑦ 確かさが申告・概算の確定の値（絞り込みで出す）
+// ⑤ 計算の知らせ（現状の計算結果の知らせのうち、入力で直せるもの。0064）⑥ 推定（結果に効く順）⑦ 確かさが申告・概算の確定の値（絞り込みで出す）
+// ⑧ 前提条件の標準の値（前提条件の入力項目の、既定の値のままの前提。推定の数と「この値にする」のまとめての操作に入れず、一覧のいちばん下の折りたたみ。0041 の追記 2026-11-06）
+// - 仮の値（生年月など、推定が成り立たない欄に置いた値）は推定と分け、①未入力の側に出す（「この値にする」を出さない）
+// - 過去に終わった物（ずっと前に終わった働き方の期間・終わった住まいなど）の推定と、値を出さない推定（決まりで決まる推定）は出さない
 // - 1行は「カード › まとまり: 欄」・今の値・状態の印・根拠・出どころ（手で・ヒアリング・取り込み・AI）・確かさ（書類・申告・概算）と操作
 // - 同じ値を2つの欄が見せる（今の働き方の欄と、働き方の期間の欄など）ときは、当て先で1行にまとめる
 // - 一覧は世帯の物と欄の定義から毎回作る（保存しない）
@@ -19,10 +22,16 @@ import { insuranceOverlapNotices } from "./insuranceView.ts";
 import { ackOf, ackToday, setNoticeAck } from "./noticeAck.ts";
 import { inputItems, itemStage } from "./items.ts";
 import { holderOf, rowAt } from "./rows.ts";
-import { applyStateOp, availableOps, confirmAll, fieldAddress, fieldStatus, substituteText, type FieldStatus } from "./valueState.ts";
+import { applyStateOp, availableOps, confirmAll, endedLongAgo, fieldAddress, fieldStatus, holderOfField, isPremiseField, substituteText, type FieldStatus } from "./valueState.ts";
 import { fieldValueText } from "../plans/planEdit.ts";
+import { PRESET_HEAD } from "./household.ts";
+import { ageAt } from "../levers.ts";
+import { memberLabel } from "./labels.ts";
+import type { Household } from "../../engine/types.ts";
 
-export type CheckKind = "missing" | "notStarted" | "unknown" | "notice" | "calc" | "estimated" | "certainty";
+export { endedLongAgo, holderOfField, isPremiseField };
+
+export type CheckKind = "missing" | "notStarted" | "unknown" | "notice" | "calc" | "estimated" | "certainty" | "premise";
 
 export const CHECK_KIND_LABELS: Readonly<Record<CheckKind, string>> = {
   missing: "未入力（0円で計算中）",
@@ -32,9 +41,19 @@ export const CHECK_KIND_LABELS: Readonly<Record<CheckKind, string>> = {
   calc: "計算のお知らせ（入力で直せる所）",
   estimated: "推定",
   certainty: "確かさが申告・概算の値",
+  premise: "前提条件の標準の値",
 };
 
-export const KIND_ORDER: readonly CheckKind[] = ["missing", "notStarted", "unknown", "notice", "calc", "estimated", "certainty"];
+export const KIND_ORDER: readonly CheckKind[] = ["missing", "notStarted", "unknown", "notice", "calc", "estimated", "certainty", "premise"];
+
+/**
+ * 種類ごとの数の単位（欄・値の数は「か所」、物の数は「件」。どの画面も同じ数え方。0041 の追記 2026-11-06）。
+ * 確かめの注意・計算のお知らせは知らせの数なので「件」
+ */
+export const KIND_UNITS: Readonly<Record<CheckKind, string>> = { missing: "か所", notStarted: "か所", unknown: "か所", notice: "件", calc: "件", estimated: "か所", certainty: "か所", premise: "か所" };
+
+/** 「推定 15か所」の形（種類の名前と数と単位） */
+export const kindCount = (k: CheckKind, n: number, label: string = CHECK_KIND_LABELS[k]): string => `${label} ${n}${KIND_UNITS[k]}`;
 
 /** 絞り込みをしないときに出す種類（確かさの行は、確かさか種類で絞り込んだときだけ出す） */
 export const DEFAULT_KINDS: readonly CheckKind[] = ["missing", "notStarted", "unknown", "notice", "calc", "estimated"];
@@ -178,16 +197,72 @@ function asStandard(f: FieldDef, what: string): CheckAction | null {
     run: (w) => {
       const b = f.boxed?.read(w) as { value?: unknown } | undefined;
       if (b === undefined || typeof b.value !== "number") return w;
-      return f.boxed?.write(w, { value: b.value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: `目安のボタンの値（${what}）` } }) ?? w;
+      return f.boxed?.write(w, { value: b.value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: `${PRESET_HEAD}（${what}）` } }) ?? w;
     },
   };
 }
 
+/** 入っていない物の行の文: 今の扱いと、「推定で入れる」で入る中身・ほかの入れ方の案内（押す前に何が入るか分かるように。0041 の追記 2026-11-06） */
+export function gapDetail(g: Pick<Gap, "note" | "what" | "alt">): string {
+  return [g.note, ...(g.what !== undefined ? [`推定で入れる中身: ${g.what}`] : []), ...(g.alt !== undefined ? [g.alt] : [])].join("。");
+}
+
 function gapRow(g: Gap, cardLabel: string, notStarted: boolean): CheckRow {
   const actions: CheckAction[] = [];
-  if (g.fill !== undefined) actions.push({ key: "fill", label: "推定で埋める", run: g.fill, ...(g.basis !== undefined ? { title: `推定: ${g.basis}` } : {}) });
+  if (g.fill !== undefined) actions.push({ key: "fill", label: FILL_GAP_LABEL, run: g.fill, ...(g.basis !== undefined ? { title: `推定: ${g.basis}` } : {}) });
   if (g.none !== undefined) actions.push({ key: "none", label: `該当なし${g.noneLabel !== undefined ? `（${g.noneLabel}）` : ""}`, run: g.none });
-  return { id: `gap:${g.id}`, kind: notStarted ? "notStarted" : "missing", card: g.card, cardLabel, label: g.label, detail: g.note, fieldKey: null, level: "simple", impact: 0, actions };
+  return { id: `gap:${g.id}`, kind: notStarted ? "notStarted" : "missing", card: g.card, cardLabel, label: g.label, detail: gapDetail(g), fieldKey: null, level: "simple", impact: 0, actions };
+}
+
+/** 入っていない物を推定で入れる操作の名前（ホーム・パネル・確かめの一覧で同じ言葉。推定のままの値を確定にする「この値にする」とは別の言葉） */
+export const FILL_GAP_LABEL = "推定で入れる";
+
+/** 推定のままの値をまとめて「この値にする」の前に出す1行（押すと何が変わるか。入力のパネルと同じ文） */
+export const CONFIRM_ALL_NOTE = "この値にすると、家族や収入を直しても推定で入れ直されません。";
+
+/** 推定のままの値をまとめて「この値にする」のボタンの名前（数は「か所」。見えている欄だけを数えるときは「見えている」と書く） */
+export const confirmAllLabel = (n: number, scope: "" | "全部" | "この項目" | "見えている" = ""): string => `推定のままの値を「この値にする」（${scope !== "" ? `${scope} ` : ""}${n}か所）`;
+
+/** 入っていない所をまとめて推定で入れるボタンの名前 */
+export const fillAllLabel = (n: number, scope: "" | "この項目" = ""): string => `入っていない所を${FILL_GAP_LABEL}（${scope !== "" ? `${scope} ` : ""}${n}か所）`;
+
+/** 年月の書き方（欄の外は「2030年4月」。欄の中の「2030-04」の形を読み替える。0041 の追記 2026-11-06） */
+export const yearMonthText = (t: string): string => t.replace(/(\d{4})-(\d{2})(?!\d)/g, (_m, y: string, mo: string) => `${y}年${Number(mo)}月`);
+
+/**
+ * 推定の並びで、影響の額が大きく出ても結果への効き方が小さい欄（社会保険料・控除の計算の材料）。推定の中のいちばん下に並べる
+ * （上は退職金・年収・生活費・住まい・教育。0041 の追記 2026-11-06）
+ */
+const LOW_IMPACT_ITEMS: ReadonlySet<string> = new Set(["employment.standardMonthlyRemuneration", "insurance.deductionCategory", "employment.healthInsurance.employeeRate", "employment.healthInsurance.kind", "employment.healthInsurance.insurer"]);
+
+/** 耐用年数の前提の欄（構造ごと）の構造。耐用年数の欄でなければ null */
+const lifeStructure = (f: Pick<FieldDef, "key">): string | null => /^assume\/realEstate\/life\/(.+)$/.exec(f.key)?.[1] ?? null;
+
+/** 世帯にある建物の構造（持ち家〔構造が無ければマンションは鉄筋コンクリート造・ほかは木造〕・不動産の物件・貸していない不動産） */
+export function structuresInUse(h: Household): Set<string> {
+  const out = new Set<string>();
+  for (const r of h.residences ?? []) {
+    if (r.kind === "rent") continue;
+    const v = (r as { valuation?: { structure?: string }; style?: string }).valuation?.structure;
+    out.add(v ?? ((r as { style?: string }).style === "condo" ? "rc" : "wood"));
+  }
+  for (const a of h.accounts ?? []) {
+    const s = (a.property as { structure?: string } | undefined)?.structure ?? (a as { structure?: string }).structure;
+    if (s !== undefined) out.add(s);
+    else if (a.kind === "realEstate" && a.property !== undefined) out.add("wood");
+  }
+  return out;
+}
+
+/** 年月の値の文に、当て先の人の年齢を添える（「2030年4月（父96歳）」。年月で入れた時点だけ。年齢・出来事の時点はその文のまま） */
+function withAge(text: string, f: FieldDef, wh: WorkingHousehold, holder: string | null): string {
+  const shown = yearMonthText(text);
+  if ((f.kind !== "when" && f.kind !== "ym") || f.key.endsWith("/birth")) return shown;
+  const v = f.get(wh).value as unknown;
+  const at = typeof v === "string" ? v : typeof v === "object" && v !== null && typeof (v as { at?: unknown }).at === "string" ? (v as { at: string }).at : null;
+  const m = holder === null ? undefined : wh.request.input.household.members.find((x) => x.id === holder);
+  if (m === undefined || at === null || !/^\d{4}-\d{2}$/.test(at) || (m.birth as { birthYearMonth?: string } | undefined)?.birthYearMonth === undefined) return shown;
+  return `${shown}（${memberLabel(wh, m.id)}${ageAt(m, at)}歳）`;
 }
 
 /** 入っていない物の無い、まだ入れていない項目の1行（開くだけ） */
@@ -231,9 +306,11 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
   for (const n of notices) {
     if (n.card === null || !labels.has(n.card)) continue;
     const meta = noticeMeta(n);
-    rows.push({ id: `calc:${n.key}`, kind: "calc", card: n.card, cardLabel: labels.get(n.card) ?? n.card, label: n.text, detail: meta.length > 0 ? meta.join("／") : null, fieldKey: null, level: "simple", impact: 0, actions: [] });
+    rows.push({ id: `calc:${n.key}`, kind: "calc", card: n.card, cardLabel: labels.get(n.card) ?? n.card, label: yearMonthText(n.text), detail: meta.length > 0 ? yearMonthText(meta.join("／")) : null, fieldKey: null, level: "simple", impact: 0, actions: [] });
   }
   const seen = new Set<string>();
+  let inUse: Set<string> | null = null;
+  const structures = (): Set<string> => (inUse ??= structuresInUse(wh.request.input.household));
   // 推定を入れ直した世帯（事務所の値を変えた後の推定の行の「入れ直す」。要るときに1回だけ作る）
   let refreshed: WorkingHousehold | null = null;
   const refreshedFor = (f: FieldDef): ((w: WorkingHousehold) => WorkingHousehold) | null => {
@@ -260,8 +337,15 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
       const meta = valueMeta(f, wh);
       const t = a?.target;
       const holder = t === undefined ? null : "object" in t ? t.object : "member" in t ? t.member : null;
-      const value = s.status === "missing" || s.status === "notApplicable" ? null : st.value === null || st.value === undefined ? null : fieldValueText(f, st.value, wh);
+      const value = s.status === "missing" || s.status === "notApplicable" ? null : st.value === null || st.value === undefined ? null : withAge(fieldValueText(f, st.value, wh), f, wh, holder);
       const base = { card: item.id, cardLabel: item.label, label: labelOf(group.title ?? section.title, f), fieldKey: f.key, level, value, origin: meta.origin, certainty: meta.certainty, holder };
+      // ずっと前に終わった物の推定・書類待ちは出さない（結果に効かない）
+      if ((s.status === "estimated" || s.status === "unknown") && endedLongAgo(wh, holder)) continue;
+      // 仮の値（生年月など）は推定と分け、未入力の側に（「この値にする」を出さない。欄に入れてもらう値）
+      if (s.status === "estimated" && s.provisional === true) {
+        rows.push({ ...base, value: null, id: `field:${f.key}`, kind: "missing", detail: s.basis, impact: 0, actions: [] });
+        continue;
+      }
       if (s.status === "missing") rows.push({ ...base, id: `field:${f.key}`, kind: "missing", detail: s.basis ?? "空欄（0円で計算しています）", impact: 0, actions: [] });
       else if (s.status === "unknown")
         rows.push({ ...base, id: `field:${f.key}`, kind: "unknown", detail: unknownDetail(f, s), impact: impactOf(f, wh), actions: [], ...(f.docCheck !== undefined ? { doc: { name: f.docCheck, holder: f.docFor ?? holder, field: f.label } } : {}) });
@@ -291,8 +375,19 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
             ...(availableOps(f, wh, s).includes("confirm") ? [{ key: "confirm", label: "この値にする", title: "前の値から作った推定の値のまま確定にします", run: (w: WorkingHousehold) => applyStateOp(w, f, "confirm") }] : []),
           ],
         });
-      } else if (s.status === "estimated" && f.quietEstimate === undefined)
-        rows.push({ ...base, id: `field:${f.key}`, kind: "estimated", detail: s.basis, impact: impactOf(f, wh), actions: availableOps(f, wh, s).includes("confirm") ? [{ key: "confirm", label: "この値にする", title: "この値のまま確定にします", run: (w) => applyStateOp(w, f, "confirm") }] : [] });
+      } else if (s.status === "estimated" && f.quietEstimate === undefined) {
+        const confirm = availableOps(f, wh, s).includes("confirm");
+        // 値を出さない推定（決まりで決まる推定で、「この値にする」もできない欄）は出さない
+        if (value === null && !confirm) continue;
+        const actions: CheckAction[] = confirm ? [{ key: "confirm", label: "この値にする", title: "この値のまま確定にします", run: (w) => applyStateOp(w, f, "confirm") }] : [];
+        // 前提条件の標準の値: 推定の数・まとめての操作に入れず、いちばん下の折りたたみに（耐用年数は、その構造の建物がある世帯だけ）
+        if (item.id === "assumptions" && isPremiseField(f)) {
+          const life = lifeStructure(f);
+          if (life === null || structures().has(life)) rows.push({ ...base, id: `field:${f.key}`, kind: "premise", detail: s.basis, impact: 0, actions });
+          continue;
+        }
+        rows.push({ ...base, id: `field:${f.key}`, kind: "estimated", detail: s.basis, impact: LOW_IMPACT_ITEMS.has(f.item ?? "") ? -1 : impactOf(f, wh), actions });
+      }
       else if (isPresetCandidate(f, wh, s)) {
         const what = PRESET_VALUES[f.item as string]?.what ?? "目安";
         const std = asStandard(f, what);
@@ -376,7 +471,7 @@ function explicitConfirm(wh: WorkingHousehold, f: FieldDef, what: string): Worki
   return next === marked ? wh : next;
 }
 
-/** 推定の欄の全部（「推定の値をまとめて使う」の全部。card を渡すとそのカードだけ）。同じ値を見せる欄は1つに */
+/** 推定のままの値で「この値にする」にできる欄の全部（確かめの一覧のまとめての操作。card を渡すとその入力項目だけ）。同じ値を見せる欄は1つに */
 export function estimatedFields(wh: WorkingHousehold, card?: string): FieldDef[] {
   const out: FieldDef[] = [];
   const seen = new Set<string>();
@@ -390,13 +485,16 @@ export function estimatedFields(wh: WorkingHousehold, card?: string): FieldDef[]
       const id = a !== null ? JSON.stringify(a) : `key:${f.key}`;
       if (seen.has(id)) continue;
       seen.add(id);
-      if (fieldStatus(f, wh).status === "estimated" && f.quietEstimate === undefined) out.push(f);
+      // 前提条件の標準の値・仮の値・ずっと前に終わった物の推定は、まとめての「この値にする」に入れない（確かめの一覧の推定の行と同じ）
+      if (item.id === "assumptions" && isPremiseField(f)) continue;
+      const st = fieldStatus(f, wh);
+      if (st.status === "estimated" && st.provisional !== true && f.quietEstimate === undefined && !endedLongAgo(wh, holderOfField(f, wh)) && availableOps(f, wh, st).includes("confirm")) out.push(f);
     }
   }
   return out;
 }
 
-/** 推定の値をまとめて使う（全部か、card のカードだけ） */
+/** 推定のままの値をまとめて「この値にする」（全部か、card の入力項目だけ） */
 export function confirmAllEstimates(wh: WorkingHousehold, card?: string): { wh: WorkingHousehold; count: number } {
   return confirmAll(wh, estimatedFields(wh, card));
 }
@@ -405,7 +503,7 @@ export { fillAll };
 
 /** 種類ごとの数 */
 export function checkCounts(rows: readonly CheckRow[]): Record<CheckKind, number> {
-  const out: Record<CheckKind, number> = { missing: 0, notStarted: 0, unknown: 0, notice: 0, calc: 0, estimated: 0, certainty: 0 };
+  const out: Record<CheckKind, number> = { missing: 0, notStarted: 0, unknown: 0, notice: 0, calc: 0, estimated: 0, certainty: 0, premise: 0 };
   for (const r of rows) out[r.kind]++;
   return out;
 }
