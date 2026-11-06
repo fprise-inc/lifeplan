@@ -97,13 +97,30 @@ describe("詳細の欄（延べ床面積・共益費・駐車場の収入）", (
     const park = ofKind("parking");
     const kp = `sav/${first(park).id}/property`;
     expect(fieldOf(park, `${kp}/rent`).label).toBe("満車時の駐車料（合計）");
-    expect(fieldOf(park, `${kp}/vacancy`).label).toBe("空き区画の割合");
+    expect(fieldOf(park, `${kp}/vacancy`).label).toBe("空車率（空き区画の割合）");
+    expect(fieldOf(park, `${kp}/expRate`).label).toBe("管理委託料など（駐車料に対する割合）");
     expect(stageOf(park).sections[0]!.groups.find((g) => g.key === `${kp}/rental`)!.title).toBe("駐車場の収入");
     const land = ofKind("land");
     const kl = `sav/${first(land).id}/property`;
     expect(fieldOf(land, `${kl}/rent`).label).toBe("地代（月額）");
-    expect(fieldOf(land, `${kl}/keyMoney`).label).toBe("権利金・更新料（年あたりの見込み）");
+    expect(fieldOf(land, `${kl}/keyMoney`).label).toBe("更新料・承諾料など（年あたりの見込み）");
+    expect(fieldOf(land, `${kl}/keyMoney`).help).toContain("保証金は返すお金なので入れません");
+    expect(fieldOf(land, `${kl}/vacancy`).label).toBe("地代が入らない割合");
+    expect(fieldOf(land, `${kl}/vacancy`).help).toContain("滞納");
+    expect(fieldOf(land, `${kl}/expRate`).label).toBe("管理委託料など（地代に対する割合）");
+    expect(fieldOf(land, `sav/${first(land).id}/value`).help).toContain("時価（売るとしたらの値段の目安）");
+    expect(fieldOf(park, `sav/${first(park).id}/value`).help).toContain("時価（売るとしたらの値段の目安）");
+    for (const f of fields(land)) expect(`${f.label}${f.help ?? ""}`).not.toMatch(/権利金|貸していない割合/);
     expect(stageOf(land).sections[0]!.groups.find((g) => g.key === `${kl}/rental`)!.title).toBe("地代収入");
+  });
+
+  it("建物のある種類: 評価額は時価の説明（固定資産税評価額・路線価ではない）、名義は会社名義を入れない案内、管理委託料の欄の名前", () => {
+    const apt = setProp(open(), (p) => void (p.kind = "apartment"));
+    const id = first(apt).id;
+    expect(fieldOf(apt, `sav/${id}/value`).help).toContain("固定資産税評価額・相続税評価額（路線価）ではありません");
+    expect(fieldOf(apt, `sav/${id}/value`).help).toContain("建物は構造の耐用年数で減らし");
+    expect(fieldOf(apt, `sav/${id}/owner`).help).toContain("会社（法人）の名義の物件はここに入れません");
+    expect(fieldOf(apt, `sav/${id}/property/expRate`).label).toBe("管理委託料など（家賃に対する割合）");
   });
 });
 
@@ -122,6 +139,8 @@ describe("経費の費目", () => {
     expect(land.has("facility")).toBe(false);
     expect(land.get("propertyTax")).toBe("固定資産税・都市計画税");
     for (const label of land.values()) expect(label).not.toMatch(/建物|修繕積立金|入居者/);
+    const landWh = ofKind("land", (p) => delete (p.expenses as { items?: unknown } | undefined)?.items);
+    expect(fields(landWh).find((f) => f.key === `sav/${first(landWh).id}/property/expItem/insurance`)!.help).toContain("建物は借り手のものなので、地主の保険はふつう少額か0円です");
   });
   it("貸している土地でも、値が入っていれば「管理費」として出す。建物のある種類は今までの名前", () => {
     const land = items(ofKind("land", (p) => {
@@ -135,13 +154,14 @@ describe("経費の費目", () => {
 });
 
 describe("結果の収益不動産のタブ", () => {
-  it("貸している土地（ローンあり）: 損益分岐は稼働率、減価償却は「建物が無い」、元金の返済が減価償却費を上回る年は出さない、表の列は地代収入", () => {
+  it("貸している土地（ローンあり）: 損益分岐は地代の割合、減価償却は「建物が無い」、元金の返済が減価償却費を上回る年は出さない、表の列は地代収入", () => {
     const wh = ofKind("land");
     const p = analysisOf(preview(wh.request))!.properties[0]!;
     const y = p.years.find((x) => x.year === 2027);
     const ms = propertyMetrics(p, y, { baseYear: 2026, landOnly: true, kind: "land" });
     const m = (k: string) => ms.find((x) => x.key === k)!;
-    expect(m("breakEven").label).toBe("損益分岐の稼働率");
+    expect(m("breakEven").label).toBe("損益分岐の地代の割合");
+    expect(m("breakEven").help).toContain("満額の地代のうち");
     expect(m("grossYield").help).toContain("地代");
     expect(m("depreciationEnd").value).toBe("—（建物が無いので、減価償却しません）");
     expect(m("deadCross").value).toBe("—（減価償却がありません）");
@@ -154,6 +174,7 @@ describe("結果の収益不動産のタブ", () => {
     const ms = propertyMetrics(p, p.years[1], { baseYear: 2026, landOnly: true, kind: "parking" });
     expect(ms.find((x) => x.key === "depreciationEnd")!.value).toBe("—（設備を入れていないので、減価償却しません）");
     expect(yearTable(p.years, { lodging: false, deadCross: null, kind: "parking" }).columns[1]!.label).toBe("駐車場の収入");
+    expect(ms.find((x) => x.key === "breakEven")!.label).toBe("損益分岐の稼働率");
     const apt = analysisOf(preview(open().request))!.properties[0]!;
     expect(propertyMetrics(apt, apt.years[1], { baseYear: 2026 }).find((x) => x.key === "breakEven")!.label).toBe("損益分岐の入居率");
   });

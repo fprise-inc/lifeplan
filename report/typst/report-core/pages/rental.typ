@@ -47,11 +47,11 @@
 }
 
 /// 指標の札（4つずつ2段）
-#let rental-cards(m, lodging, land-only: false) = {
+#let rental-cards(m, lodging, land-only: false, land: false) = {
   let cards = (
     if lodging and m.lodging != none { ("稼働率", m.lodging.occupancy) } else { ("表面利回り", m.grossYield) },
     ("実質利回り（NOI）", m.netYield),
-    (if lodging or land-only { "損益分岐の稼働率" } else { "損益分岐の入居率" }, m.breakEven),
+    (if lodging { "損益分岐の稼働率" } else if land { "損益分岐の地代の割合" } else if land-only { "損益分岐の稼働率" } else { "損益分岐の入居率" }, m.breakEven),
     ("返済比率", m.repaymentRatio),
     ("返済余裕率（DSCR）", m.dscr),
     ("借入の割合（LTV）", m.ltv),
@@ -83,7 +83,7 @@
   if m != none {
     text(size: 8pt, fill: muted, str(m.year) + "年の指標")
     v(2pt)
-    rental-cards(m, p.lodging, land-only: rental-land-only(p))
+    rental-cards(m, p.lodging, land-only: rental-land-only(p), land: p.kind != none and p.kind.key == "land")
     let more = ()
     more.push("自己資金に対する手残りの割合（CCR） " + m.ccr)
     if m.at("unrealizedGain", default: none) != none { more.push("含み益 " + man-unit(m.unrealizedGain)) }

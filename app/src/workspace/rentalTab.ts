@@ -119,10 +119,12 @@ export const noDepreciation = (p: RealEstateAnalysisProperty, landOnly: boolean)
 /** 建物の無い種類（駐車場・貸している土地）の指標の名前と「?」（0079 の追記 2026-11-06。数字は同じ） */
 function landOnlyHelp(kind: string | undefined) {
   const parking = kind === "parking";
-  const full = parking ? "満車のとき" : "貸しているとき";
+  const full = parking ? "満車のとき" : "満額の地代のとき";
   return {
-    grossYield: `${full}の収入（${parking ? "駐車料" : "地代"}とその他の月の収入。${parking ? "礼金" : "権利金"}・更新料は入れない）の年額÷取得価額です。`,
-    breakEven: `（経費＋約定の返済）÷${full}の収入です。${parking ? "区画の埋まっている割合" : "貸している割合"}がこれを下回ると、税引前の手残りが赤字になる目安です。`,
+    grossYield: `${full}の収入（${parking ? "駐車料" : "地代"}とその他の月の収入。${parking ? "礼金・更新料" : "更新料・承諾料など"}は入れない）の年額÷取得価額です。`,
+    breakEven: parking
+      ? "（経費＋約定の返済）÷満車のときの収入です。区画の埋まっている割合がこれを下回ると、税引前の手残りが赤字になる目安です。"
+      : "満額の地代のうち、何%が入れば税引前の手残りが赤字にならないかの目安です（（経費＋約定の返済）÷満額の地代とその他の月の収入）。",
     depreciationEnd: parking
       ? "設備（舗装・機械式駐車設備など）の減価償却が終わる年です。終わった後は不動産所得が増え、税が増えます。売る・貸し終わるまでに終わらないときは「売るまでには終わりません」と出し、そのまま貸し続けたら終わる年を括弧に書きます。取得価額を入れていないとき、設備を入れていないときは、減価償却をしないので出しません。"
       : "貸している土地は建物が無いので、減価償却をしません（取得価額と評価額を全部土地として計算します）。",
@@ -147,7 +149,7 @@ export function propertyMetrics(p: RealEstateAnalysisProperty, y: RealEstateAnal
     m("sales", "年の売上", sales === null ? dash : manYen(sales), HELP.lodgingSales);
   } else m("grossYield", "表面利回り", pctText(y?.grossYield), lh?.grossYield ?? HELP.grossYield);
   m("netYield", "実質利回り", pctText(y?.netYield), HELP.netYield);
-  m("breakEven", breakEvenLabel(p.lodging, landOnly), pctText(y?.breakEven), p.lodging ? HELP.breakEvenLodging : (lh?.breakEven ?? HELP.breakEven));
+  m("breakEven", breakEvenLabel(p.lodging, landOnly, o.kind), pctText(y?.breakEven), p.lodging ? HELP.breakEvenLodging : (lh?.breakEven ?? HELP.breakEven));
   m("repaymentRatio", "返済比率", pctText(y?.repaymentRatio), HELP.repaymentRatio);
   m("dscr", "返済余裕率（DSCR）", timesText(y?.dscr), HELP.dscr);
   m("ltv", "借入の割合（LTV）", pctText(y?.ltv), HELP.ltv);
@@ -172,8 +174,9 @@ export function propertyMetrics(p: RealEstateAnalysisProperty, y: RealEstateAnal
 
 type Amounts = RealEstateAnalysisYear | RealEstateAnalysisTotal;
 
-/** 損益分岐の指標の名前（民泊・宿と建物の無い種類は稼働率。数字は同じ） */
-export const breakEvenLabel = (lodging: boolean, landOnly: boolean): string => (lodging || landOnly ? "損益分岐の稼働率" : "損益分岐の入居率");
+/** 損益分岐の指標の名前（民泊・宿と駐車場は稼働率、貸している土地は地代の割合。数字は同じ。0082 の追記 2026-11-06） */
+export const breakEvenLabel = (lodging: boolean, landOnly: boolean, kind?: string): string =>
+  lodging ? "損益分岐の稼働率" : landOnly && kind === "land" ? "損益分岐の地代の割合" : landOnly ? "損益分岐の稼働率" : "損益分岐の入居率";
 
 /** 年ごとの表（物件と全体で同じ列。大きな修繕は1年でもあれば列を出す）。kind はその物件の種類（収入の列の名前。全体は省略で「家賃収入」） */
 export function yearTable(rows: readonly Amounts[], opt: { lodging: boolean; deadCross: number | null; kind?: string }): RentalTableModel {
