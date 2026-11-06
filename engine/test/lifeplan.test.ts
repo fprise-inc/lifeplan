@@ -135,6 +135,17 @@ describe("被保険者の種別と適用拡大（決定2）", () => {
       // 別居: 年金 100万円 ≧ 仕送り 月5万円×12 → 国民健康保険。仕送り 月10万円なら扶養
       expect(kind(req({ dependent: true, cohabiting: false, allowance: 50000 }), P, "2027-06", stubs)?.kind).toBe("national");
       expect(kind(req({ dependent: true, cohabiting: false, allowance: 100000 }), P, "2027-06", stubs)?.kind).toBe("dependent");
+      // 仕送りの出るお金の行（相手がこの親）があれば、人の欄より行の額で判定する（欄と同じ額なら同じ判定）
+      const withRow = (support: Record<string, unknown>, monthly: number, from = "2027-01") => {
+        const r = req(support);
+        (r.input.household as unknown as { periodicExpenses: unknown[] }).periodicExpenses = [{ id: uid("allow"), kind: "allowance", counterparty: P, row: "cf.expense.other", from: { at: from }, to: null, everyYears: 1, monthly: true, amount: box(monthly) }];
+        return r;
+      };
+      expect(kind(withRow({ dependent: true, cohabiting: false }, 100000), P, "2027-06", stubs)?.kind).toBe("dependent");
+      expect(kind(withRow({ dependent: true, cohabiting: false }, 50000), P, "2027-06", stubs)?.kind).toBe("national");
+      expect(kind(withRow({ dependent: true, cohabiting: false, allowance: 100000 }, 50000), P, "2027-06", stubs)?.kind).toBe("national");
+      // 行が始まる前の月は行の額が0（仕送りなし）→ 国民健康保険
+      expect(kind(withRow({ dependent: true, cohabiting: false, allowance: 100000 }, 100000, "2027-09"), P, "2027-06", stubs)?.kind).toBe("national");
       // 20歳の配偶者の収入 140万円: 配偶者は130万円の基準 → 国民健康保険。20歳の子なら150万円の基準 → 扶養
       const young = household({
         baseMonth: "2027-01",

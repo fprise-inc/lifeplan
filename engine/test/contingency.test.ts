@@ -385,6 +385,45 @@ describe("医療費（medical.highCost）・介護（care.expense）", () => {
     expect(month(care(900000), "2030-03")).toBe(24600);
   });
 
+  it("介護保険の対象の費用（10割）を入れたとき、月々の費用は保険の対象外の費用として、自己負担の額に足す（合計ではない）", () => {
+    const req = edit(family({ endYear: 2032 }), (h, input) => {
+      (input.assumptions as Obj).inflation = { default: "0" };
+      h.careExpenses = [{ id: uid("care"), member: W, from: at("2030-01"), months: 12, serviceMonthly: box(200000), otherMonthly: box(50000), initial: box(0) }];
+    });
+    const fs = call<{ flows: Flow[] }>(req, "care.expense", {}).flows;
+    expect(sumFlows(fs, (f) => f.ym === "2030-03" && f.formula === "care.expense.service")).toBe(20000);
+    expect(sumFlows(fs, (f) => f.ym === "2030-03" && f.formula === "care.expense.other")).toBe(50000);
+  });
+
+  it("介護を受ける人が亡くなる見込みの月からは、期間が残っていても介護の費用を出さない（世帯の外の家族）", () => {
+    const P = uid("p");
+    const req = edit(family({ endYear: 2040 }), (h, input) => {
+      (input.assumptions as Obj).inflation = { default: "0" };
+      (h.members as Obj[]).push({ ...member("p", "parent", "1950-03"), leaves: at("2031-06"), outside: { of: H, periods: [] } });
+      h.careExpenses = [{ id: uid("care"), member: P, from: at("2030-01"), months: 60, otherMonthly: box(100000), initial: box(0) }];
+    });
+    const fs = call<{ flows: Flow[] }>(req, "care.expense", {}).flows;
+    expect(sumFlows(fs, (f) => f.ym === "2031-05")).toBe(100000);
+    expect(sumFlows(fs, (f) => f.ym >= "2031-06")).toBe(0);
+    // 亡くなった後に始まる介護は、一時費用も出さない
+    const later = edit(req, (h) => ((h.careExpenses as Obj[])[0]!.from = at("2032-01")));
+    expect(sumFlows(call<{ flows: Flow[] }>(later, "care.expense", {}).flows, () => true)).toBe(0);
+  });
+
+  it("万一の想定で介護を受ける人が亡くなると、その月の翌月から介護の費用を出さない", () => {
+    const req = death(
+      edit(family({ endYear: 2040 }), (h, input) => {
+        (input.assumptions as Obj).inflation = { default: "0" };
+        h.careExpenses = [{ id: uid("care"), member: W, from: at("2030-01"), months: 60, otherMonthly: box(100000), initial: box(0) }];
+      }),
+      "2031-03",
+      W,
+    );
+    const fs = call<{ flows: Flow[] }>(req, "care.expense", {}).flows;
+    expect(sumFlows(fs, (f) => f.ym === "2031-03")).toBe(100000);
+    expect(sumFlows(fs, (f) => f.ym >= "2031-04")).toBe(0);
+  });
+
   it("何も入れなければ統計の既定（知らせ）", () => {
     const req = edit(family({ endYear: 2040 }), (h) => (h.careExpenses = [{ id: uid("care"), member: W, from: at("2030-01") }]));
     const r = run(req);

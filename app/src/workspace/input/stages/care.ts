@@ -14,13 +14,14 @@ import { adultsWithoutCare, careTemplate, deathEstimate, fillAdultsCare, fillCar
 import { addMonths, ageAt } from "../../levers.ts";
 import { byId, field, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type Option, type SectionDef, type StageDef } from "../form.ts";
 import { estimatedBox, mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
-import { DONOR_KINDS, memberLabel, SEX_OPTIONS } from "../labels.ts";
+import { DONOR_KINDS, donorUses, memberLabel, SEX_OPTIONS } from "../labels.ts";
 import { manYen, readGroup, readLine } from "../readLines.ts";
 import { roles } from "../../roles.ts";
 import { formatYearMonth, wareki } from "../units.ts";
-import { moneySections } from "../moneyRows.ts";
-import { careGroup, NONE_CLAIMED } from "./events.ts";
+import { addExpense, moneySections } from "../moneyRows.ts";
+import { careGroup, carePayerLine, NONE_CLAIMED } from "./events.ts";
 import { addMember, donorGroups, expectedBirthHint, outsidePerson, removeMember } from "./family.ts";
+import { afterWrite, followInheritTiming } from "./inheritance.ts";
 
 const members = (h: Household) => h.members;
 
@@ -89,6 +90,16 @@ function allowanceRow(wh: WorkingHousehold, member: string, monthly: number): Wo
   return mutate(wh, (h) => {
     const at = wh.request.input.baseMonth;
     (h.periodicExpenses ??= []).push({ id: newId(), label: "仕送り", kind: "allowance", counterparty: member, row: "cf.expense.other", from: { at }, to: null, everyYears: 1, monthly: true, amount: standardBox(monthly, "仕送りの額（扶養の判定に使う）の欄から") });
+  });
+}
+
+/** この人を相手にした仕送りの出るお金の行（毎月・額は未入力）を足す */
+function addAllowanceRow(wh: WorkingHousehold, member: string): WorkingHousehold {
+  const before = new Set((wh.request.input.household.periodicExpenses ?? []).map((p) => p.id));
+  const next = addExpense(wh, "allowance");
+  return mutate(next, (h) => {
+    const p = (h.periodicExpenses ?? []).find((x) => !before.has(x.id));
+    if (p !== undefined) p.counterparty = member;
   });
 }
 
@@ -195,12 +206,16 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
     fields.push(onMember(m.id, plain({ key: `${k}/dependent`, item: "member.support", label: "扶養している（税・健康保険）", level: "detail", kind: "bool", find, path: ["support", "dependent"], ensure: ensureSupport(m.id), after: fillSupport, optional: true, fallback: false }), ["dependent"]));
     const limit = dependentLimitText(wh, m);
     if (limit !== null) fields.push(infoLine(`care/outside/${m.id}/dependentLimit`, "扶養の境目（目安）", limit, "制度の値から出した目安です。年金のほかに収入がある人は、合計所得で確かめてください"));
-    fields.push(onMember(m.id, plain({ key: `${k}/allowance`, item: "member.support", label: "仕送りの額（月額）", level: "detail", kind: "yen", basis: "monthly", find, path: ["support", "allowance"], ensure: ensureSupport(m.id), after: fillSupport, optional: true, help: ALLOWANCE_HELP }), ["allowance"]));
+    // 仕送りの行（相手がこの人）があれば、扶養の判定は行の額を使うので、仕送りの額の欄は出さない（前に入れた欄の値は残す。行が無くなれば使う）。
+    // 行が無ければ欄を出し（扶養の判定にだけ使う）、「＋ 仕送り（毎月）」で行も足せる
+    const rowsTo = (h.periodicExpenses ?? []).filter((p) => p.kind === "allowance" && p.counterparty === m.id);
+    if (rowsTo.length > 0) fields.push(infoLine(`care/outside/${m.id}/allowanceRows`, "仕送りの額（扶養の判定）", "親への仕送りの行の額を使います", "別居の親の健康保険の扶養の判定は、この人を相手にした仕送りの行の額（月額の12か月分）と比べます"));
+    else fields.push(onMember(m.id, plain({ key: `${k}/allowance`, item: "member.support", label: "仕送りの額（月額）", level: "detail", kind: "yen", basis: "monthly", find, path: ["support", "allowance"], ensure: ensureSupport(m.id), after: fillSupport, optional: true, help: ALLOWANCE_HELP }), ["allowance"]));
   }
   // 亡くなる見込み（世帯の外の家族では leaves がその意味。親のお金を見る期間・相続人の数え方・介護の目安の始まりに使う）
   if (m.outside !== undefined && hasBirth(m)) {
     fields.push(
-      onMember(m.id, clearsAssumed(
+      onMember(m.id, afterWrite(clearsAssumed(
         timepointField({
           key: `${k}/leaves`,
           item: "member.leaves",
@@ -211,9 +226,9 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
           ageOf: (hh) => hh.members.find((x) => x.id === m.id),
           optional: true,
           nullText: "入れない（表の最後まで）",
-          help: "この人の家計（親のお金）を見る期間と、相続人の数え方は、この時点までです。「平均余命で入れる」で推定を入れられます",
+          help: "この人の家計（親のお金）を見る期間と、相続人の数え方は、この時点までです。介護の費用もこの月から出しません。推定のままの相続の受け取る時期はこの時点についてきます。「平均余命で入れる」で推定を入れられます",
         }),
-      )),
+      ), (_before, after) => followInheritTiming(after, m.id))),
     );
     const est = deathEstimate(m, base);
     if ((m.leaves === null || m.leaves === undefined) && est !== null) actions.push({ key: `${k}/leaves/estimate`, label: `亡くなる見込みを平均余命で入れる（${String(est.age)}歳ごろ）`, level: "detail", run: (w) => withDeathEstimate(w, m.id) });
@@ -223,8 +238,15 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const allowance = elder ? (m.support?.allowance ?? 0) : 0;
   const hasRow = (h.periodicExpenses ?? []).some((p) => p.kind === "allowance" && p.counterparty === m.id);
   if (allowance > 0 && !hasRow) actions.push({ key: `${k}/allowanceRow`, label: "＋ 仕送りを出るお金の行にする", level: "simple", run: (w) => allowanceRow(w, m.id, allowance) });
+  else if (elder && !hasRow)
+    actions.push({ key: `${k}/allowanceAdd`, label: "＋ 仕送り（毎月）", help: "この人への仕送りを、親への仕送りの行（毎月）で足します。別居の親の健康保険の扶養の判定にも、この行の額を使います", level: "detail", run: (w) => addAllowanceRow(w, m.id) });
   if (hasBirth(m) && !(h.careExpenses ?? []).some((c) => c.member === m.id)) actions.push({ key: `${k}/care/estimate`, label: "＋ 介護を推定で入れる（この人）", level: "simple", run: (w) => fillCareFor(w, m.id) });
-  const notes = [...(m.outside !== undefined ? [OUTSIDE_NOTE] : []), ...(allowance > 0 && !hasRow ? ["仕送りの額は扶養の判定にだけ使い、支出には入っていません。支出にするなら「＋ 仕送りを出るお金の行にする」を押してください"] : [])];
+  const gifts = donorUses(h, m.id);
+  const notes = [
+    ...(m.outside !== undefined ? [OUTSIDE_NOTE] : []),
+    ...(allowance > 0 && !hasRow ? ["仕送りの額は扶養の判定にだけ使い、支出には入っていません。支出にするなら「＋ 仕送りを出るお金の行にする」を押してください"] : []),
+    ...(gifts > 0 ? [`住宅資金・教育資金などの援助 ${String(gifts)} 件で、贈与する人に選ばれています`] : []),
+  ];
   return { key: k, title: outsideTitle(wh, m), level: "simple", moreLabel: "扶養・仕送りなどを入れる", ...(notes.length > 0 ? { note: notes.join("。") } : {}), fields, actions };
 }
 
@@ -237,7 +259,7 @@ export function withDeathEstimate(wh: WorkingHousehold, id: string): WorkingHous
     const x = h.members.find((y) => y.id === id);
     if (x !== undefined) x.leaves = structuredClone(est.point);
   });
-  return { ...next, assumed: { ...next.assumed, [`family/${id}/leaves`]: est.basis } };
+  return followInheritTiming({ ...next, assumed: { ...next.assumed, [`family/${id}/leaves`]: est.basis } }, id);
 }
 
 /** 家計を1つにする期間（0035 の4。いまは1つ目の期間だけ。始まり・終わり・生活費の人数に入れる・収入を世帯に入れる） */
@@ -348,7 +370,11 @@ function careTitle(wh: WorkingHousehold, c: CareExpense): string {
   const months = c.months ?? est?.months;
   const monthly = c.otherMonthly?.value ?? null;
   const money = monthly !== null ? `月${manYen(monthly)}` : est !== null ? `月${manYen(est.monthly)}（目安）` : "";
-  return `${memberLabel(wh, c.member)}の介護（${c.place === "facility" ? "施設" : "在宅"}）: ${from !== null ? formatYearMonth(from) : "—"}〜${months !== undefined ? `${String(months)}か月` : ""}${money !== "" ? `・${money}` : ""}`;
+  // 介護を受ける人の亡くなる見込みが期間の途中なら、その前の月まで（care.expense はその月から出さない）
+  const gone = resolveTimepoint(h, h.members.find((m) => m.id === c.member)?.leaves ?? null);
+  const last = from !== null && months !== undefined ? addMonths(from, months - 1) : null;
+  const span = gone !== null && from !== null && last !== null && gone <= last ? (gone > from ? `${formatYearMonth(addMonths(gone, -1))}（亡くなる見込みまで）` : "（亡くなる見込みの後のため0円）") : months !== undefined ? `${String(months)}か月` : "";
+  return `${memberLabel(wh, c.member)}の介護（${c.place === "facility" ? "施設" : "在宅"}）: ${from !== null ? formatYearMonth(from) : "—"}〜${span}${money !== "" ? `・${money}` : ""}`;
 }
 
 function shiftAge(t: Timepoint, months: number): Timepoint {
@@ -379,7 +405,7 @@ function careCostGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
   const g = careGroup(wh, c);
   const est = careEstimate(placeOf(c));
   const next: ActionDef = { key: `ev/care/${c.id}/nextStage`, label: "＋ 次の段階を足す", help: "在宅から施設へなど、次の段階の介護を足します", level: "simple", run: (w) => addNextCareStage(w, c.id) };
-  return { ...g, title: careTitle(wh, c), moreLabel: "期間・一時費用などを入れる", note: `入れていない額・期間は、統計の平均で推定します（${est?.basis ?? "生命保険文化センターの調査"}）`, actions: [next, ...g.actions] };
+  return { ...g, title: careTitle(wh, c), moreLabel: "期間・一時費用などを入れる", note: `${carePayerLine(wh, c)}。入れていない額・期間は、統計の平均で推定します（${est?.basis ?? "生命保険文化センターの調査"}）`, actions: [next, ...g.actions] };
 }
 
 /** 本人・配偶者の介護が無いときの説明（未入力の警告。確かめの一覧のいちばん上にも出る。fill.ts の gapsOf） */

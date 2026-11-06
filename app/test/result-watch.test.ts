@@ -120,20 +120,6 @@ const PENDING: readonly Pending[] = [
     match: /純資産が|資産に入っていない/,
   },
   {
-    key: "care-after-death",
-    what: "介護を受ける人の亡くなる見込みを入れても、介護の費用が亡くなった後も続く",
-    rule: "careAndInheritanceAfterDeath",
-    cases: [OP("介護の途中で亡くなる見込みを入れる")],
-    match: /介護の費用が/,
-  },
-  {
-    key: "inheritance-timing-counterparty",
-    what: "受け取る相続の相手を変えても、受け取る時期の推定が前の相手の亡くなる見込みのまま",
-    rule: "careAndInheritanceAfterDeath",
-    cases: [OP("受け取る相続の相手を変える")],
-    match: /受け取る相続の時期/,
-  },
-  {
     key: "living-stages-follow",
     what: "退職後の生活費の割合を下げても、推定の70歳・80歳の段が追いかけず、退職直後より高い",
     rule: "livingStagesRise",
