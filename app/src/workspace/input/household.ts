@@ -174,11 +174,18 @@ export function standardBox(value: number, basis: string): Box<number> & { estim
   return { value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis } };
 }
 
+/** 既定の値の根拠の頭（今の文） */
+export const PRESET_HEAD = "既定の値";
+/** 既定の値の根拠の頭（今の文と、前の版の文）。根拠の頭で推定のままかを見分けるときは両方を読む */
+export const PRESET_HEADS: readonly string[] = [PRESET_HEAD, "目安のボタンの値"];
+
 /**
- * 目安のボタンの値の根拠の文。what が事務所の推定の値の根拠の文そのもの（0111）なら、包まずにそのまま（事務所の値から作った推定を、
- * 根拠の文が完全に同じかで見分けるため）
+ * 既定の値（よくある額・目安。前の「目安のボタンの値」）の根拠の文。what が事務所の推定の値の根拠の文そのもの（0111）なら、包まずにそのまま（事務所の値から作った推定を、
+ * 根拠の文が完全に同じかで見分けるため）。画面に「目安のボタン」は無いので、頭は「既定の値」（0041 の追記 2026-11-06）。
+ * 前の文（「目安のボタンの値（…）」）で保存した世帯も推定のまま読む（根拠の頭で見分ける所は PRESET_HEADS の両方を読む）
  */
-export const presetBasis = (what: string): string => (isOfficeBasisText(what) ? what : `目安のボタンの値（${what}。この世帯に合わせて直してください）`);
+export const presetBasis = (what: string): string => (isOfficeBasisText(what) ? what : `${PRESET_HEAD}（${what}。この世帯に合わせて直してください）`);
+
 
 /** 根拠の文を包む（事務所の推定の値の根拠の文そのものなら包まない。presetBasis と同じ決まり） */
 export const wrapBasis = (basis: string, wrap: (b: string) => string): string => (isOfficeBasisText(basis) ? basis : wrap(basis));
@@ -298,7 +305,7 @@ export function withoutPlainMarks(wh: WorkingHousehold): WorkingHousehold {
   return { ...next, assumed };
 }
 
-/** 空の世帯（本人だけ）。生年月は仮の値で、FP が入れ直すまで「仮」の印を出す。性別は推定するものではないので、初めの値を普通の値として入れる（印を付けない） */
+/** 空の世帯（本人だけ）。生年月は仮の値（40歳。valueState.ts の provisionalText で「仮の値（40歳として計算中）」）で、FP が入れ直すまで仮の値の印を出す。性別は推定するものではないので、初めの値を普通の値として入れる（印を付けない） */
 export function blankHousehold(baseMonth: string, id: () => string = newId): WorkingHousehold {
   const selfId = id();
   const { y } = parseYm(baseMonth);

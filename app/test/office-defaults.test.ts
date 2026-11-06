@@ -79,7 +79,8 @@ describe("新しい世帯に写す", () => {
     expect(checkList(next).some((r) => r.fieldKey === "assume/inflation" && r.kind === "notice")).toBe(false);
     // 確定にした値には知らせを出さない
     const conf = checkList(wh).find((r) => r.fieldKey === "assume/wageGrowth");
-    expect(conf?.kind).toBe("estimated");
+    // 前提条件の標準の値は、推定でなく「前提条件の標準の値」の行（0041 の追記 2026-11-06）
+    expect(conf?.kind).toBe("premise");
   });
 });
 

@@ -25,15 +25,17 @@ const pointText = (p: InheritancePoint): string | null => {
 };
 
 /**
- * 入力項目の要約の下の小さな1行（「相続税: かからない見込み」「相続税: 約120万円」）。
+ * 入力項目の要約の下の小さな1行（「相続税（二人とも亡くなった後）: かからない見込み」「相続税（二人とも亡くなった後）: 約120万円」）。
  * 二人とも亡くなった後の目安。無ければ、いまの目安の大きい方。主な表示は入れた中身（items.ts。0060 の 2026-10-29 の追記）
  */
 export function inheritanceTaxNote(r: PreviewResult | null): string | null {
   const points = (r?.inheritanceTax?.points ?? []).filter((p) => p.status === "ok");
   const p = points.find((x) => x.point === "bothAfter") ?? [...points].sort((a, b) => b.payable - a.payable)[0];
   if (p === undefined) return null;
-  if (p.state === "confirmed") return `相続税: ${manText(p.amount)}万円`;
-  return p.noTax ? "相続税: かからない見込み" : `相続税: 約${manText(p.payable)}万円`;
+  // どの場面の相続税かを書く（二人とも亡くなった後の目安と、いま亡くなったときの目安は額が大きく違う。0041 の追記 2026-11-06）
+  const head = `相続税（${p.point === "bothAfter" ? "二人とも亡くなった後" : "いま亡くなったら"}）`;
+  if (p.state === "confirmed") return `${head}: ${manText(p.amount)}万円`;
+  return p.noTax ? `${head}: かからない見込み` : `${head}: 約${manText(p.payable)}万円`;
 }
 
 /** 相続税の目安の計算（今の世帯が変わったら計算し直す）。計算の道が無ければ null のまま */

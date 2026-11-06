@@ -45,8 +45,14 @@ export interface Gap {
   note: string;
   /** 推定で埋める（目安を作れないときは無い） */
   fill?: (wh: WorkingHousehold) => WorkingHousehold;
-  /** この推定の根拠（「推定で埋める」の横に出す） */
+  /** この推定の根拠（「推定で入れる」の説明に出す） */
   basis?: string;
+  /**
+   * 「推定で入れる」で入る中身の1行（例: 「賃貸・家賃 月8万円（よくある額）」）。押す前に何が入るかが分かるように、行の下に出す（0041 の追記 2026-11-06）
+   */
+  what?: string;
+  /** 推定のほかに考えられる入れ方の案内（例: 持ち家なら住まい・ローンで入れる）。行の下に出す */
+  alt?: string;
   /** 該当なし（FP が「無い」と決める） */
   none?: (wh: WorkingHousehold) => WorkingHousehold;
   /** 「該当なし」の言い方（例: 「勤め先に制度が無い」） */
@@ -55,6 +61,9 @@ export interface Gap {
 
 const estimatedRow = (method: string, basis: string): StateRow => ({ state: "estimated", origin: { kind: "auto" }, estimate: { method, basis } });
 const notApplicableRow: StateRow = { state: "notApplicable", origin: { kind: "manual" } };
+
+/** 中身の1行の額（万円で小数1桁まで） */
+const manOf = (yen: number): string => `${(Math.round(yen / 1000) / 10).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円`;
 
 // ---- 教育 ----
 
@@ -220,6 +229,12 @@ export function leavesToSchool(wh: WorkingHousehold, id: string): WorkingHouseho
 const benefitAddress = (periodId: string) => ({ target: { object: periodId }, item: "employment.retirementBenefit", at: [] as string[] });
 
 /** 今の働き方で自動で足す退職給付の目安（正社員は退職一時金、公務員は退職手当の見込みの計算）。作れなければ null */
+/** 退職金の「推定で入れる」の中身の1行 */
+function retirementWhat(b: RetirementBenefit): string {
+  const v = b.amount?.value;
+  return typeof v === "number" && v > 0 ? `退職一時金 ${manOf(v)}（統計の平均）` : `${KIND_SHORT[b.kind as BenefitKind] ?? "退職金"}の見込み（退職手当の計算）`;
+}
+
 function retirementEstimate(h: Household, m: Member, p: EmploymentPeriod): { benefit: RetirementBenefit; basis: string } | null {
   const kind = autoKindOf(p.type);
   if (kind === null) return null;
@@ -455,6 +470,7 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
       note: "進路が入っていないので、教育費を0円で計算しています",
       fill: (w) => fillEducation(w, c.id),
       basis: EDUCATION_BASIS,
+      what: "幼稚園〜高校は公立、大学は私立・文系・自宅（既定の進路の型）",
       none: (w) => educationNone(w, c.id),
       noneLabel: "教育費なし",
     });
@@ -468,7 +484,7 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
       card: "retirement",
       label: `${memberLabel(wh, m.id)}の退職金`,
       note: "退職金が入っていないので、0円で計算しています",
-      ...(est !== null ? { fill: (w: WorkingHousehold) => fillRetirement(w, m.id), basis: est.basis } : {}),
+      ...(est !== null ? { fill: (w: WorkingHousehold) => fillRetirement(w, m.id), basis: est.basis, what: retirementWhat(est.benefit) } : {}),
       none: (w) => retirementNone(w, m.id),
       noneLabel: "勤め先に制度が無い",
     });
@@ -486,6 +502,7 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
         note: "書類から入れる形で、老齢基礎年金・老齢厚生年金の額がまだ入っていないので、年金を0円で計算しています",
         fill: (w) => switchPension(w, m.id, ""),
         basis: "働き方の期間から推計（書類の記録は残し、「書類から」に戻すと戻ります）",
+        what: "働き方の期間から推計した額",
       });
     else if (statementMonthsMissing(rec))
       out.push({
@@ -495,6 +512,7 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
         note: rec.kind === "statementOver50" ? "加入月数が0か月のままなので、年金を0円で計算しています" : "加入月数が0か月のままなので、年金を少なく計算しています",
         fill: (w) => fillMonths(w, m.id, "estimated"),
         basis: substituteMonths(h, m, rec.asOf, base).basis,
+        what: "20歳の月から書類の作成年月までの月と、働き方の期間の厚生年金の月",
       });
   }
   // 失業給付を入れていない勤め（古い世帯。推定なら受け取る期間）: 推定で埋める（おまかせ）か、受け取らない
@@ -513,6 +531,7 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
       note: "失業給付を入れていないので、受け取らないで計算しています",
       fill: (w) => edit(w, (x, hh) => putEstimate(x, UNEMPLOYMENT_ITEM, unemploymentEstimate(hh, x), UNEMPLOYMENT_BASIS)),
       basis: UNEMPLOYMENT_BASIS,
+      what: "受け取る（受け取る期間はおまかせ）",
       none: (w) => edit(w, (x) => void (x.unemploymentClaim = false)),
       noneLabel: "受け取らない",
     });
@@ -526,10 +545,22 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
       note: "基本生活費が入っていないので、0円で計算しています",
       fill: (w) => mutate(w, (hh, req) => void (hh.livingExpenses ??= []).push(startLiving(hh, base, req.input.endYear, newId()))),
       basis: est.basis,
+      what: `基本生活費 月${manOf(est.value)}（世帯の人数の統計の平均）`,
     });
   }
   if ((h.residences ?? []).length === 0 && !(h.debts ?? []).some((d) => d.kind === "mortgage") && !confirmed.has("housing"))
-    out.push({ id: "housing", card: "housing", label: "住居費", note: "住まいが入っていないので、住居費を0円で計算しています", fill: fillHousing, basis: rentBasis(), none: (w) => markCard(w, "housing"), noneLabel: "住居費なし" });
+    out.push({
+      id: "housing",
+      card: "housing",
+      label: "住居費",
+      note: "住まいが入っていないので、住居費を0円で計算しています",
+      fill: fillHousing,
+      basis: rentBasis(),
+      what: `賃貸・家賃 月${manOf(rentStandard())}（よくある額）`,
+      alt: "持ち家なら、住まい・ローンを開いて持ち家を入れてください",
+      none: (w) => markCard(w, "housing"),
+      noneLabel: "住居費なし",
+    });
   // 本人・配偶者の介護の費用（自動で入れない。外れると大きく誤るので、未入力の警告と「目安で入れる」。入れないと決めたらカードを保存）
   if (!confirmed.has("care")) {
     const est = careEstimate("home");
@@ -540,7 +571,7 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
         label: `${memberLabel(wh, m.id)}の介護の費用`,
         note: "介護の費用が入っていないので、0円で計算しています（自動では入れません）",
         fill: (w) => fillCareFor(w, m.id),
-        ...(est !== null ? { basis: `${est.basis}・亡くなる見込み（簡易生命表の平均余命）の前の期間` } : {}),
+        ...(est !== null ? { basis: `${est.basis}・亡くなる見込み（簡易生命表の平均余命）の前の期間`, what: `在宅の介護 月${manOf(est.monthly)}・はじめの費用 ${manOf(est.initial)}（亡くなる見込みの前の期間。統計の平均）` } : {}),
         none: (w) => markCard(w, "care"),
         noneLabel: "介護の費用を入れない",
       });
