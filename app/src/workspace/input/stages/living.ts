@@ -14,9 +14,11 @@ import { householdSize, isPureSplit, LIVING_CATEGORY_ORDER, livingEstimate, spli
 import { byId, field, getPath, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { confirmedBox, mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
 import { GROWTH_KINDS, LIVING_CATEGORIES, LIVING_STAGE_LABELS, memberLabel } from "../labels.ts";
-import { applyAutoStages, autoActive, autoBasis, autoStages, autoStageTitle, isAutoStage, rememberDropped, settleStage, startLiving } from "../livingStages.ts";
+import { applyAutoStages, autoActive, autoBasis, autoStages, autoStageTitle, isAutoStage, membersAt, rememberDropped, settleStage, startLiving } from "../livingStages.ts";
+import { schoolEntryYear } from "../../present.ts";
 import { addExpense, expenseCard, moneySections } from "../moneyRows.ts";
 import { readLine } from "../readLines.ts";
+import { amountText } from "../units.ts";
 import { putRow } from "../rows.ts";
 import type { Address } from "../../store/readings.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./onContingency.ts";
@@ -134,12 +136,16 @@ export const CATEGORY_GROUP_HELP = [
   "・たばこ → その他",
 ].join("\n");
 
-/** 同じ人数の世帯の平均（欄の横の目安） */
-function averageHint(wh: WorkingHousehold, cats: readonly string[]): string | null {
+/**
+ * 同じ人数の世帯の平均（欄の横の比べ）。欄が推定のまま（＝平均から作った値）のときは出さない（同じ数を2つ並べないため）。
+ * FP が直したときだけ、比べとして出す。額の書き方は欄の外の書き方（amountText。千円の位で四捨五入）
+ */
+function averageHint(wh: WorkingHousehold, cats: readonly string[], estimated: boolean): string | null {
+  if (estimated) return null;
   const avg = livingCategoryAverages(householdSize(wh.request.input.household, wh.request.input.baseMonth));
   if (avg === null) return null;
   const v = cats.reduce((s, c) => s + ((avg.amounts as Record<string, number>)[c] ?? 0), 0);
-  return v > 0 ? `同じ人数の世帯の平均 月${man(v)}` : null;
+  return v > 0 ? `同じ人数の世帯の平均 ${amountText(Math.round(v), "month")}` : null;
 }
 
 function categoryField(l: LivingExpense, find: Finder, c: string, level: "simple" | "detail", label: string): FieldDef {
@@ -161,7 +167,7 @@ function categoryField(l: LivingExpense, find: Finder, c: string, level: "simple
     path: ["monthly"],
     optional: true,
     ...(CAT_HELP[c] !== undefined ? { help: CAT_HELP[c] } : {}),
-    hint: (w) => [averageHint(w, [c]), storedPartsHint(w, find, c)].filter((x) => x !== null).join("。") || null,
+    hint: (w) => [averageHint(w, [c], elOf(find, w, c)?.monthly.state === "estimated"), storedPartsHint(w, find, c)].filter((x) => x !== null).join("。") || null,
   });
   // 名前の左のアイコン（内訳ごとの絵。前の分け方の交通・通信費は交通費と同じ絵）
   f.icon = c === "transport" ? "transit" : c;
@@ -357,7 +363,7 @@ function groupField(l: LivingExpense, find: Finder, own: readonly string[], memb
       const xs = els(w);
       const est = xs.filter((x) => x.monthly.state === "estimated");
       const part = b !== undefined && b.state !== "estimated" && est.length > 0 ? `うち${est.map((x) => std(x.category)).join("・")}は推定（${boxBasisOf(est[0]?.monthly as Box<number>) ?? "推定"}）` : null;
-      return { value: b?.value ?? null, estimated: b?.state === "estimated" ? boxBasisOf(b) : null, ...(part !== null ? { partEstimated: part } : {}), hint: averageHint(w, members) };
+      return { value: b?.value ?? null, estimated: b?.state === "estimated" ? boxBasisOf(b) : null, ...(part !== null ? { partEstimated: part } : {}), hint: averageHint(w, members, b?.state === "estimated") };
     },
     set: (w, v) => (v === null ? drop(w) : writeAmount(w, Number(v))),
     // 値の状態の操作（この値にする）: まとめた内訳の推定を、どれもその額のまま確定にする
@@ -438,7 +444,7 @@ function splitFields(l: LivingExpense, find: Finder, r: Extract<LivingRow, { kin
       const v = el?.monthly.value ?? null;
       // ほかの並べ方で分けた額があれば、その名前と額を添える（この並べ方の行とは名前が違うので、目安で見せている）
       const other = partsOf(w, el?.id, v) !== null && partsOf(w, el?.id, v, labels) === null ? storedPartsHint(w, find, c) : null;
-      return { value: v, hint: [averageHint(w, [c]), other !== null ? `前の${other}` : null].filter((x) => x !== null).join("。") || null };
+      return { value: v, hint: [averageHint(w, [c], el?.monthly.state === "estimated"), other !== null ? `前の${other}` : null].filter((x) => x !== null).join("。") || null };
     },
     set: (w) => w,
   });
@@ -492,7 +498,7 @@ function totalField(l: LivingExpense, find: Finder): FieldDef {
     readOnly: "内訳の合計です。内訳の欄を直すと、自動で変わります（この額で計算します）",
     get: (w) => {
       const v = sum(w);
-      return { value: v, hint: v === null ? null : `年 ${man(v * 12)}` };
+      return { value: v, hint: v === null ? null : amountText(v * 12, "year") };
     },
     set: (w) => w,
   });
@@ -544,14 +550,36 @@ function stageTitles(wh: WorkingHousehold, l: LivingExpense): Map<string, string
 
 const baseMonthly = (l: LivingExpense | undefined): number => (l === undefined ? 0 : l.mode === "byCategory" ? (l.categories ?? []).reduce((s, c) => s + (c.monthly.value ?? 0), 0) : (l.monthly?.value ?? 0));
 
+/** 段の今の額に対する割合（割合の段はその値、月額の段は今の額で割った値） */
+const ratioOfStage = (s: Stage, base: number): number | null => (s.ratio !== undefined ? Number(s.ratio) : s.monthly?.value != null && base > 0 ? s.monthly.value / base : null);
+/** 欄の外の年月（「2051年4月」） */
+const ymText = (ym: string): string => `${ym.slice(0, 4)}年${Number(ym.slice(5, 7))}月`;
+/** 退職後の段の欄の下に出す、その後の年齢の段（「70歳から月15.7万円・80歳から月14.7万円（推定）」） */
+const AGE_STAGE_NAMES: Readonly<Record<string, string>> = { age70: "70歳から", age80: "80歳から" };
+
 function stageGroups(wh: WorkingHousehold, l: LivingExpense, find: Finder): GroupDef[] {
   const h = wh.request.input.household;
   const self = h.members.find((m) => m.kind === "self");
   const titles = stageTitles(wh, l);
   const sorted = (l.stages ?? []).map((s, i) => ({ s, i, ym: resolveTimepoint(h, s.at) ?? "9999-12" })).sort((a, b) => a.ym.localeCompare(b.ym));
   // 標準に出す退職後の段: 節目が「退職後」の最初の段
-  const retiredIndex = sorted.find((x) => x.s.label === "retirement")?.i;
-  return sorted.map(({ s, i, ym }, n): GroupDef => {
+  const retiredAt = sorted.findIndex((x) => x.s.label === "retirement");
+  const retiredIndex = sorted[retiredAt]?.i;
+  const nameOf = (x: Stage): string => (x.id !== undefined ? titles.get(x.id) : undefined) ?? LIVING_STAGE_LABELS.find((o) => o.value === x.label)?.label ?? "節目";
+  /** 退職後の段の割合の欄の下: 直前の段との比（「第2子の独立の後（月20.8万円）の80%」）と、その後の70歳・80歳の段の額 */
+  const retiredHint = (v: number | null): string[] => {
+    const base = baseMonthly(l);
+    if (base <= 0 || v === null) return [];
+    const out: string[] = [];
+    const prev = retiredAt > 0 ? sorted[retiredAt - 1] : undefined;
+    const pr = prev === undefined ? null : ratioOfStage(prev.s, base);
+    if (prev !== undefined && pr !== null && pr > 0) out.push(`${nameOf(prev.s)}の後（${amountText(Math.round(base * pr), "month")}）の${Math.round((v / pr) * 100)}%`);
+    const later = sorted.slice(retiredAt + 1).filter((x) => AGE_STAGE_NAMES[x.s.label] !== undefined);
+    const items = later.map((x) => ({ text: `${AGE_STAGE_NAMES[x.s.label]}${amountText(Math.round(base * (ratioOfStage(x.s, base) ?? 0)), "month")}`, auto: x.s.id !== undefined && isAutoStage(l, x.s.id) }));
+    if (items.length > 0) out.push(items.every((x) => x.auto) ? `${items.map((x) => x.text).join("・")}（推定）` : items.map((x) => `${x.text}${x.auto ? "（推定）" : ""}`).join("・"));
+    return out;
+  };
+  return sorted.map(({ s, i, ym }): GroupDef => {
     const sid = s.id;
     const findStage: Finder = (hh, w) => {
       const list = (getPath(find(hh, w), ["stages"]) as Stage[] | undefined) ?? [];
@@ -617,7 +645,7 @@ function stageGroups(wh: WorkingHousehold, l: LivingExpense, find: Finder): Grou
             level: "detail",
             kind: "select",
             options: [
-              { value: "ratio", label: "最初の額に対する割合で" },
+              { value: "ratio", label: "今の額に対する割合で" },
               { value: "monthly", label: "月額で" },
             ],
             structural: true,
@@ -650,12 +678,12 @@ function stageGroups(wh: WorkingHousehold, l: LivingExpense, find: Finder): Grou
             yenBox({
               key: `${key}/monthly`,
               item: "livingExpense.stages",
-              label: retiredStd ? "退職後の生活費（月額）" : "その後の月額",
+              label: retiredStd ? "退職後の生活費（月額）" : "月額（今の値段）",
               level: valueLevel,
               basis: "monthly",
               find: findStage,
               path: ["monthly"],
-              hint: () => (base > 0 && s.monthly?.value != null ? `今の額の${Math.round((s.monthly.value / base) * 100)}%` : null),
+              hint: () => (base > 0 && s.monthly?.value != null ? [`今の額の${Math.round((s.monthly.value / base) * 100)}%`, ...(retiredStd ? retiredHint(s.monthly.value / base) : [])].join("。") : null),
             }),
             ["monthly"],
           )
@@ -664,28 +692,29 @@ function stageGroups(wh: WorkingHousehold, l: LivingExpense, find: Finder): Grou
               plain({
                 key: `${key}/ratio`,
                 item: "livingExpense.stages",
-                label: retiredStd ? "退職後の生活費（今の額に対する割合）" : "その後の割合（最初の額に対して）",
+                label: retiredStd ? "退職後の生活費（今の額に対する割合）" : "今の額に対する割合",
                 level: valueLevel,
                 kind: "pct",
                 find: findStage,
                 path: ["ratio"],
-                hint: (v) => (base > 0 && v !== null ? `＝月${man(Math.round(base * Number(v)))}（今の値段）` : null),
+                hint: (v) => (base > 0 && v !== null ? [`＝${amountText(Math.round(base * Number(v)), "month")}（今の値段）`, ...(retiredStd ? retiredHint(Number(v)) : [])].join("。") : null),
               }),
               ["ratio"],
             ),
           ),
     ];
-    const name = (sid !== undefined ? titles.get(sid) : undefined) ?? LIVING_STAGE_LABELS.find((o) => o.value === s.label)?.label ?? "節目";
-    const when = self !== undefined && ym !== "9999-12" ? `（${ym.slice(0, 4)}年・${memberLabel(wh, self.id)}${ageAt(self, ym)}歳）` : "";
+    // 見出しに番号を付けない（標準では退職後の段だけが見え、番号が飛ぶため）。退職後の段は「退職後（2051年4月・ご本人65歳から）」
+    const name = retiredStd ? "退職後" : nameOf(s);
+    const when = ym === "9999-12" ? "" : self !== undefined ? `（${ymText(ym)}・${memberLabel(wh, self.id)}${ageAt(self, ym)}歳から）` : `（${ymText(ym)}から）`;
     return {
       key,
-      title: `段階 ${n + 1}: ${name}${when}`,
+      title: `${name}${when}`,
       ...(auto ? { note: "家族の人数と年齢から、推定で作った段階です。家族・進路・働き方を変えると作り直します。直した段は、作り直しても変わりません" } : {}),
       level: valueLevel,
       moreLabel: "節目・入れ方を変える",
       fields,
       actions: [
-        removeAction(`${key}/remove`, "この段階を外す", "detail", (hh, w) => {
+        removeAction(`${key}/remove`, "外す", "detail", (hh, w) => {
           const t = find(hh, w) as unknown as LivingExpense | undefined;
           if (t === undefined) return;
           t.stages = (t.stages ?? []).filter((x, j) => (sid !== undefined ? x.id !== sid : j !== i));
@@ -746,6 +775,24 @@ function stageActions(l: LivingExpense, find: Finder): { simple: ActionDef[]; de
 
 // ---- 毎月の生活費のまとまり ----
 
+/** 段の節目の短い名前（「▸」の文に並べる） */
+const STAGE_SHORT: Readonly<Record<string, string>> = { childIndependence: "子の独立", retirement: "退職後", age70: "70歳", age80: "80歳", other: "人数の変わり目" };
+
+/**
+ * 毎月の生活費の「▸」の文: 標準に出ている退職後の段のほかに段があれば「子の独立・70歳・80歳の段（推定 4段）を見る」、無ければ「退職後などの段階を入れる」
+ */
+export function stagesMoreLabel(wh: WorkingHousehold, l: LivingExpense): string {
+  const h = wh.request.input.household;
+  const sorted = (l.stages ?? []).map((s) => ({ s, ym: resolveTimepoint(h, s.at) ?? "9999-12" })).sort((a, b) => a.ym.localeCompare(b.ym));
+  const retired = sorted.find((x) => x.s.label === "retirement")?.s;
+  const others = sorted.map((x) => x.s).filter((s) => s !== retired);
+  if (others.length === 0) return "退職後などの段階を入れる";
+  const names = [...new Set(others.map((s) => STAGE_SHORT[s.label] ?? "節目"))];
+  const auto = others.filter((s) => s.id !== undefined && isAutoStage(l, s.id)).length;
+  const count = auto === others.length ? `推定 ${auto}段` : auto > 0 ? `${others.length}段・推定 ${auto}段` : `${others.length}段`;
+  return `${names.join("・")}の段（${count}）を見る`;
+}
+
 /** 生活費の万一のときの扱いの「指定しない」は、死亡のとき遺族の生活費の割合（万一のタブ）が効く */
 const survivorDefault = (f: FieldDef): FieldDef => (f.kind === "select" ? { ...f, options: f.options.map((o) => (o.value === "" ? { ...o, label: "指定しない（死亡は遺族の生活費の割合）" } : o)) } : f);
 
@@ -793,6 +840,11 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
           path: ["monthly"],
           estimate: (h) => livingEstimate(h, wh.request.input.baseMonth),
           help: "推定は統計の平均（同じ人数の世帯）です。結果の対策「毎月の生活費」でも動かせます",
+          // 内訳で入れたときの合計の行と同じく、年額も添える
+          hint: (w) => {
+            const v = (find(w.request.input.household, w) as unknown as LivingExpense | undefined)?.monthly?.value;
+            return v == null || v <= 0 ? null : amountText(v * 12, "year");
+          },
         }),
         addr(l.id, "livingExpense.monthly"),
       ),
@@ -820,7 +872,7 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
   if (l.growth?.kind === "rate")
     main.push(
       withAddress(
-        plain({ key: `${key}/growthRate`, item: "livingExpense.growth", label: "決まった変動率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["growth", "rate"], help: "マイナスも入れられます" }),
+        plain({ key: `${key}/growthRate`, item: "livingExpense.growth", label: "伸び率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["growth", "rate"], help: "マイナスも入れられます" }),
         addr(l.id, "livingExpense.growth", ["rate"]),
       ),
     );
@@ -865,7 +917,7 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
       title: index === 0 ? "毎月の生活費" : `毎月の生活費 ${index + 1}`,
       note: [LIVING_NOTE, badge].filter((x) => x !== null).join("。"),
       level: "simple",
-      moreLabel: "退職後などの段階を入れる",
+      moreLabel: stagesMoreLabel(wh, l),
       fields: main,
       actions: index === 0 ? [] : [removeAction(`${key}/remove`, "外す", "detail", (h) => void (h.livingExpenses = (h.livingExpenses ?? []).filter((x) => x.id !== l.id)))],
     },
@@ -875,7 +927,7 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
   groups.push(...stageGroups(wh, l, find).map((g) => ({ ...g, ownBox: true })));
   const acts = stageActions(l, find);
   if (acts.simple.length > 0) groups.push({ key: `${key}/stages/auto`, level: "simple", note: "子の誕生・独立、退職、70歳・80歳などで生活費が変わる段階がまだありません", fields: [], actions: acts.simple, ownBox: true });
-  groups.push({ key: `${key}/stages/add`, title: "段階を足す", level: "detail", note: "段階は、その時点から「最初の額に対する割合」か「月額（今の値段）」に変えます。何段でも足せます", fields: [], actions: acts.detail, ownBox: true });
+  groups.push({ key: `${key}/stages/add`, title: "段階を足す", level: "detail", note: "段階は、その時点から「今の額に対する割合」か「月額（今の値段）」に変えます。何段でも足せます", fields: [], actions: acts.detail, ownBox: true });
   return groups;
 }
 
@@ -913,12 +965,20 @@ const annualPreset = (key: string, every: boolean) => ({
 });
 
 export const ANNUAL_TEMPLATES: readonly AnnualTemplate[] = [
-  { key: "medical", label: "通院・歯の治療", ...annualPreset("medical", false), row: "cf.expense.care.medical", match: /通院|歯|治療|医療|病院/u, unless: /ペット|動物/u },
+  {
+    key: "medical",
+    label: "通院・歯の治療",
+    ...annualPreset("medical", false),
+    row: "cf.expense.care.medical",
+    help: "歯の治療・人間ドック・健診など、年に1回ほどのまとまった医療費です。毎月の通院・薬・サプリ・メガネは、毎月の生活費の内訳の「医療費」に入れます（両方に入れると二重です）",
+    match: /通院|歯|治療|医療|病院/u,
+    unless: /ペット|動物/u,
+  },
   { key: "pet", label: "ペットの病気・けが", ...annualPreset("pet", false), help: "動物病院の費用です。ペット保険に入っているなら、保険料は毎月の生活費の「趣味・娯楽」に入れます", match: /ペット|動物病院/u },
   { key: "homecoming", label: "帰省", ...annualPreset("homecoming", false), match: /帰省/u },
   { key: "appliances", label: "家電・家具の買い替え", ...annualPreset("appliances", true), match: /家電|家具/u },
   { key: "fees", label: "年会費・サブスクの年払い", ...annualPreset("fees", false), match: /年会費|サブスク|会費/u },
-  { key: "smartphone", label: "スマホの買い替え", ...annualPreset("smartphone", true), per: "1台", help: "1台分の額です。家族の分も入れるときは、1人1行ずつ足してください（2行目からは「＋ その他の年1回・数年に1回の支出」で足せます）", match: /スマホ|スマートフォン|携帯電話/u },
+  { key: "smartphone", label: "スマホの買い替え", ...annualPreset("smartphone", true), per: "1台", help: "大人と中学生以上の子の人数分の台数で、1行に足します（1台分の額×台数）。台数が違えば、行の名前と額を直してください", match: /スマホ|スマートフォン|携帯電話/u },
   { key: "pc", label: "パソコンの買い替え", ...annualPreset("pc", true), match: /パソコン/u },
 ];
 
@@ -934,19 +994,57 @@ export const annualBasis = (t: AnnualTemplate) => ({
   everyYears: `よくある間隔の目安（${t.label} ${t.everyYears === 1 ? "毎年" : `${t.everyYears}年ごと`}。この世帯に合わせて直してください）`,
 });
 
-/** ひな形の行を足す（額と何年ごとは目安＝推定。何年ごとは物の値の状態の欄を持たない数なので、仮の印で持つ） */
+/**
+ * スマホの台数の目安: 今世帯で暮らしている人のうち、大人（18歳以上）と中学生以上の子（中学校の入学の4月を過ぎた子）の人数。1台より少なくしない
+ */
+export function phoneCount(wh: WorkingHousehold): number {
+  const h = wh.request.input.household;
+  const base = wh.request.input.baseMonth;
+  const n = membersAt(h, base, { now: true }).filter((m) => {
+    if (m.kind === "self" || m.kind === "spouse" || ageAt(m, base) >= 18) return true;
+    const entry = schoolEntryYear(m.birth.birthYearMonth, m.birth.bornOnFirst === true, "juniorHigh");
+    return entry !== null && `${entry}-04` <= base;
+  }).length;
+  return Math.max(1, n);
+}
+
+/** ひな形の行を足す（額と何年ごとは目安＝推定。何年ごとは物の値の状態の欄を持たない数なので、仮の印で持つ）。スマホは人数分の台数で1行 */
 export function addAnnual(wh: WorkingHousehold, t: AnnualTemplate, id: string = newId()): WorkingHousehold {
   const w = addExpense(wh, "livingAnnual", id);
   const basis = annualBasis(t);
+  const units = t.key === "smartphone" ? phoneCount(wh) : 1;
   const next = mutate(w, (h) => {
     const p = (h.periodicExpenses ?? []).find((x) => x.id === id);
     if (p === undefined) return;
-    p.label = t.label;
+    p.label = units > 1 ? `${t.label}（${units}台）` : t.label;
     p.everyYears = t.everyYears;
     if (t.row !== undefined) p.row = t.row;
-    p.amount = standardBox(t.amount, basis.amount) as PeriodicExpense["amount"];
+    p.amount = standardBox(t.amount * units, units > 1 ? `${basis.amount}×${units}台（大人と中学生以上の子の人数）` : basis.amount) as PeriodicExpense["amount"];
   });
   return { ...next, assumed: { ...next.assumed, [`ev/${id}/every`]: basis.everyYears } };
+}
+
+/**
+ * ひな形で足した行の額を「この値にする」で確定にしたら、何年ごと（仮の印）も一緒に確定にする（押す数を減らす。何年ごとの印はそれまで残す）。
+ * 額の欄の書き方（boxed.write）を包む。確定の箱を書いたときだけ
+ */
+function confirmEveryWithAmount(f: FieldDef): FieldDef {
+  const m = /^ev\/(.+)\/amount$/.exec(f.key);
+  const boxed = f.boxed;
+  if (m === null || boxed === undefined) return f;
+  const every = `ev/${m[1] as string}/every`;
+  return {
+    ...f,
+    boxed: {
+      ...boxed,
+      write: (w, b) => {
+        const next = boxed.write(w, b);
+        const state = (b as { state?: string } | undefined)?.state;
+        if (state !== "confirmed" || next.assumed[every] === undefined) return next;
+        return { ...next, assumed: Object.fromEntries(Object.entries(next.assumed).filter(([k]) => k !== every)) };
+      },
+    },
+  };
 }
 
 const CARD_NAMES: Record<string, string> = { events: "ライフイベント", housing: "住まい・ローン", car: "車", education: "子ども・教育", care: "介護・親", living: "基本生活費" };
@@ -987,8 +1085,8 @@ function annualSection(wh: WorkingHousehold): SectionDef | null {
   const empty = out.groups.length === 0;
   return {
     ...out,
+    groups: [...out.groups.map((g) => ({ ...g, fields: g.fields.map(confirmEveryWithAmount) })), annualChecklist(wh, out.actions)],
     note: `${empty ? "まだありません。" : ""}帰省・家電や家具・スマホ・パソコンの買い替え・年会費など、年1回・数年に1回の暮らしの支出です`,
-    groups: [...out.groups, annualChecklist(wh, out.actions)],
     actions: [],
   };
 }
