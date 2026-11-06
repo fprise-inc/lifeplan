@@ -149,8 +149,7 @@ const OPERATIONS: readonly WatchCase[] = [
     name: "操作 受け取る相続の相手を変える",
     build: () => {
       let wh = open("salariedCoupleTwoKids");
-      wh = press(wh, "care", "family/add/father");
-      wh = press(wh, "care", "family/add/mother");
+      wh = press(wh, "care", "care/add/selfParents");
       wh = press(wh, "inheritance", "money/inherit/in/add/inheritance");
       const h = wh.request.input.household;
       const flow = (h.incomeFlows ?? []).find((f) => f.kind === "inheritance")!;

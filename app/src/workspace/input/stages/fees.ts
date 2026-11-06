@@ -11,6 +11,7 @@ import { officeNow, type FeeTable } from "../../office/current.ts";
 import { resolveTimepoint } from "../../timepoint.ts";
 import { byId, field, getPath, plain, timepointField, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, type WorkingHousehold } from "../household.ts";
+import { formatYearMonth } from "../units.ts";
 import { memberLabel, memberOptions } from "../labels.ts";
 import { monthsBetween } from "../loanMath.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./onContingency.ts";
@@ -20,13 +21,24 @@ const fees = (h: Household) => h.advisoryFees;
 
 type Recurring = NonNullable<NonNullable<AdvisoryFee["terms"]>["recurring"]>;
 
+/** 単発の料金の名前（1件だけなら番号を付けない） */
+const oneTimeName = (i: number, n: number): string => (n > 1 ? `単発の料金 ${i + 1}` : "単発の料金");
+
 /** 単発の料金の欄（額と年月） */
-function oneTimeFields(k: string, find: Finder, i: number): FieldDef[] {
+function oneTimeFields(k: string, find: Finder, i: number, n: number): FieldDef[] {
   const findOne: Finder = (h, w) => (getPath(find(h, w), ["terms", "oneTime", String(i)]) as Record<string, unknown> | undefined) ?? undefined;
   return [
-    plain({ key: `${k}/one/${i}/amount`, item: "advisoryFee.terms", label: `単発の料金 ${i + 1}（税込み）`, help: "相談料・プラン作成料など、1回の料金", level: "simple", kind: "yen", basis: "once", find: findOne, path: ["amount"] }),
+    plain({ key: `${k}/one/${i}/amount`, item: "advisoryFee.terms", label: `${oneTimeName(i, n)}（税込）`, help: "相談料・プラン作成料など、1回の料金", level: "simple", kind: "yen", basis: "once", find: findOne, path: ["amount"] }),
     timepointField({ key: `${k}/one/${i}/at`, item: "advisoryFee.terms", label: "払う年月", level: "simple", find: findOne, path: ["at"] }),
   ];
+}
+
+/** 継続の顧問料がいつから始まるかの1行（「2027年12月から（単発の料金の12か月後）」。始まりの欄は詳細） */
+function recurringStartHint(h: Household, c: AdvisoryFee): string | null {
+  const from = c.terms?.recurring?.from === undefined ? null : resolveTimepoint(h, c.terms.recurring.from);
+  if (from === null) return null;
+  const firstOne = (c.terms?.oneTime ?? []).map((o) => resolveTimepoint(h, o.at)).find((x) => x !== null) ?? null;
+  return `${formatYearMonth(from)}から${firstOne !== null && addMonths(firstOne, 12) === from ? "（単発の料金の12か月後）" : ""}`;
 }
 
 export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): GroupDef[] {
@@ -50,13 +62,14 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
       optional: true,
       fallback: true,
       help: "すでに契約しているときに入れます。まだのときは入れなくて構いません（結果の画面で、入れた場合と比べられます）",
+      hint: (v) => (v === true ? null : "今は、結果の画面の対策で「入れる」にしたプランだけで計算します"),
     }),
-    ...(c.terms?.oneTime ?? []).flatMap((_, i) => oneTimeFields(k, find, i)),
   ];
+  const ones = c.terms?.oneTime ?? [];
   const groups: GroupDef[] = [
     {
       key: k,
-      title: `FP顧問料 ${n + 1}${byOther ? `（${memberLabel(wh, c.payer)}が払う）` : ""}`,
+      title: `FP顧問料${n > 0 || (wh.request.input.household.advisoryFees ?? []).length > 1 ? ` ${n + 1}` : ""}${byOther ? `（${memberLabel(wh, c.payer)}が払う）` : ""}`,
       note: "金額は税込。個人が払う顧問料は所得から差し引かずに計算します",
       level: "simple",
       // 「▸ 続きを見る」は、本人のほかの人が払う契約で払う人の欄を開くときだけ出る（0078 の追記 2026-11-01）
@@ -75,18 +88,6 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
               ((x.terms ??= {}).oneTime ??= []).push({ at: { at: addMonths(w.request.input.baseMonth, 1) }, amount: one > 0 ? one : 300000 });
             }),
         },
-        ...(c.terms?.oneTime ?? []).map((_, i) => ({
-          key: `${k}/removeOne/${i}`,
-          label: `単発の料金 ${i + 1} を外す`,
-          level: "simple" as const,
-          danger: true,
-          run: (w: WorkingHousehold) =>
-            mutate(w, (h) => {
-              const t = (fee(h, w) as AdvisoryFee).terms as NonNullable<AdvisoryFee["terms"]>;
-              t.oneTime = (t.oneTime ?? []).filter((_x, j) => j !== i);
-              if (t.oneTime.length === 0) delete t.oneTime;
-            }),
-        })),
         {
           key: `${k}/remove`,
           label: "この契約を外す",
@@ -101,6 +102,20 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
       ],
     },
   ];
+  // 単発の料金ごとのまとまり（外すボタンは料金の所に。契約の見出しの右には「この契約を外す」だけ。1件だけなら番号を付けない）
+  const removeOne = (i: number) => ({
+    key: `${k}/removeOne/${i}`,
+    label: "外す",
+    level: "simple" as const,
+    danger: true,
+    run: (w: WorkingHousehold) =>
+      mutate(w, (h) => {
+        const t = (fee(h, w) as AdvisoryFee).terms as NonNullable<AdvisoryFee["terms"]>;
+        t.oneTime = (t.oneTime ?? []).filter((_x, j) => j !== i);
+        if (t.oneTime.length === 0) delete t.oneTime;
+      }),
+  });
+  ones.forEach((_, i) => groups.push({ key: `${k}/one/${i}`, title: oneTimeName(i, ones.length), level: "simple", fields: oneTimeFields(k, find, i, ones.length), actions: [removeOne(i)] }));
   // 継続
   const findRec: Finder = (h, w) => (getPath(find(h, w), ["terms", "recurring"]) as Record<string, unknown> | undefined) ?? undefined;
   if (r === undefined) {
@@ -154,8 +169,8 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
         }),
     }),
     monthly
-      ? plain({ key: `${k}/rec/monthly`, item: "advisoryFee.terms", label: "継続の顧問料（月額・税込）", level: "simple", kind: "yen", basis: "monthly", find: findRec, path: ["monthly"] })
-      : plain({ key: `${k}/rec/annual`, item: "advisoryFee.terms", label: "継続の顧問料（年額・税込）", level: "simple", kind: "yen", basis: "annual", find: findRec, path: ["annual"] }),
+      ? plain({ key: `${k}/rec/monthly`, item: "advisoryFee.terms", label: "継続の顧問料（月額・税込）", level: "simple", kind: "yen", basis: "monthly", find: findRec, path: ["monthly"], hint: (_v, w) => recurringStartHint(w.request.input.household, fee(w.request.input.household, w) ?? c) })
+      : plain({ key: `${k}/rec/annual`, item: "advisoryFee.terms", label: "継続の顧問料（年額・税込）", level: "simple", kind: "yen", basis: "annual", find: findRec, path: ["annual"], hint: (_v, w) => recurringStartHint(w.request.input.household, fee(w.request.input.household, w) ?? c) }),
     timepointField({
       key: `${k}/rec/from`,
       item: "advisoryFee.terms",

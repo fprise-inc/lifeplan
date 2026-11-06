@@ -362,6 +362,8 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-help.when-read { color: var(--ink); }
 .in-group.compact { display: grid; grid-template-columns: 170px minmax(0, 1fr); align-items: center; gap: 4px 12px; padding: 8px 12px; }
 .in-group.compact .in-group-h { margin: 0; flex-direction: column; align-items: flex-start; gap: 0; }
+/* 左の狭い列の見出しでは、要約（介護の「2036年9月から55か月・月5.2万円」など）を見出しの下の行に（見出しの途中で折り返さない） */
+.in-group.compact .in-group-h h4 .in-sum { display: block; margin-left: 0; }
 .in-group.compact .fields { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 /* 欄が1つだけのまとまりは、その欄を行の幅いっぱいに置く（選ぶ欄の選択肢が長いとき、1列の幅で切れないように。例: 学校外の費用の入れ方） */
 .in-group.compact .fields > .fld:only-child { grid-column: 1 / -1; }

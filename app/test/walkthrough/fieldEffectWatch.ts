@@ -109,6 +109,5 @@ export const NOT_OBSERVED: readonly ShapeRule[] = [
   { shape: "care:family/*/birth", why: "世帯の外の家族の生年月は、亡くなる見込み・介護の時期を年齢の形で持つときだけ" },
   { shape: "care:family/*/sex", why: "世帯の外の家族の性別は、亡くなる見込みの推定（推定のままのとき）だけ" },
   { shape: "care:family/*/allowance", why: "仕送りの欄は支出に入らない（扶養の判定だけ）" },
-  { shape: "care:family/*/outside/employeeInsurance", why: "勤め先の健康保険は、扶養の判定だけ" },
   { shape: "care:ev/care/*/on/mode", why: "介護の万一のときの扱いは、介護を払っている間にご本人が亡くなる想定だけ" },
 ];

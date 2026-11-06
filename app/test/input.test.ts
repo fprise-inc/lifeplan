@@ -303,7 +303,8 @@ describe("段階の操作（足す・外す・選ぶ）", () => {
   it("贈与する人を相続・贈与の段階で登録し、住宅資金の援助で選べる", () => {
     let wh = open("housingPurchase");
     const inherit = buildStage("inheritance", wh);
-    wh = inherit.sections.find((s) => s.key === "family/donors")!.actions[0]!.run(wh);
+    // 生年月を入れない贈与する人は詳細の「＋ 生年月を入れない贈与する人（親）」（標準の「＋ 親を足す」は介護・親の家族として足す。0143）
+    wh = inherit.sections.find((s) => s.key === "family/donors")!.actions.find((a) => a.key === "family/add/donor-parent")!.run(wh);
     const donor = wh.request.input.household.donors![0]!;
     const housing = buildStage("housing", wh);
     const addGift = housing.sections[0]!.groups.flatMap((g) => g.actions).find((a) => a.key.endsWith("/addGiftAction"));
