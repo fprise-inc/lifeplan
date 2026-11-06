@@ -1194,6 +1194,23 @@ function sample065(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/**
+ * 0.66 の見本の世帯（0052・0025 の追記 2026-11-07）: sample065() に、住み終わりの月に売る持ち家（売ったときに住宅ローンを返さない）と、
+ * 今の時価で入れた持ち家の評価の入れ方を足す
+ */
+function sample066(): BodyState {
+  const s = sample065();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const box = (v: number) => ({ value: v, state: "confirmed", origin: { kind: "manual" } }) as never;
+  hh.residences = [
+    ...(hh.residences ?? []),
+    { id: "00000000-0000-4000-8000-000000006601", kind: "own", from: { at: "2010-04" }, to: { at: "2035-03" }, ownership: [{ member: self.id, share: "1" }], valuation: { value: box(32000000), asOf: req.input.baseMonth, builtYear: 1998, basis: "market" }, sale: { repayLoan: false } },
+  ];
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 describe("世帯ファイルの本文（0011 の2）", () => {
   it("保存→読み込みで同じ（現状・案・帯の並び・表示の設定・拡張領域）", () => {
     const s = sample();
@@ -1232,7 +1249,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.65");
+    expect(BODY_FORMAT_VERSION).toBe("0.66");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1405,7 +1422,18 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample065())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample066())), null, 2) + "\n");
+  });
+
+  it("0.66 の形（0052・0025 の追記）: 住まいを売ったときに住宅ローンを返すかと、持ち家の評価の入れ方を保存して読み戻す", () => {
+    const s = sample066();
+    const stored = bodyObject(s) as unknown as { household: { request: { input: { household: { residences: { id: string; sale?: { repayLoan?: boolean }; valuation?: { basis?: string } }[] } } } } };
+    const r = stored.household.request.input.household.residences.find((x) => x.id === "00000000-0000-4000-8000-000000006601");
+    expect(r?.sale?.repayLoan).toBe(false);
+    expect(r?.valuation?.basis).toBe("market");
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(() => preview(back.wh.request)).not.toThrow();
   });
 
   it("0.65 の形（0126）: 収益不動産の家賃の入れ方と減価償却の引き継ぎを保存して読み戻す。空室率が残っていても今の実際の家賃収入なら使わない", () => {

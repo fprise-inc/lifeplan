@@ -575,9 +575,10 @@ export interface Residence {
   maintenance?: { monthly: Box<number>; growth?: string } & Staged;
   ownership?: { member: string; share: string }[];
   /** 持ち家の評価（housing.valuation） */
-  valuation?: { value?: Box<number>; asOf?: string; structure?: string; builtYear?: number; landShare?: string };
-  /** 住み終わりの月に売る。tax は譲渡所得の税の額（0053。入れた額を売った月に払う） */
-  sale?: { price?: number; costRate?: string; tax?: Box<number> };
+  /** basis: 評価の基にする額の入れ方（画面の側。market 今の時価・purchase 買った値段。計算エンジンは読まない。形式 0.66） */
+  valuation?: { value?: Box<number>; asOf?: string; structure?: string; builtYear?: number; landShare?: string; basis?: "market" | "purchase" };
+  /** 住み終わりの月に売る。tax は譲渡所得の税の額（0053。入れた額を売った月に払う）。repayLoan は売ったときに住宅ローンを返すか（省略は返す。形式 0.66） */
+  sale?: { price?: number; costRate?: string; tax?: Box<number>; repayLoan?: boolean };
   [key: string]: unknown;
 }
 

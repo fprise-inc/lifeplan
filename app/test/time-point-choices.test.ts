@@ -65,9 +65,8 @@ describe("「出来事から」の選択肢", () => {
     const texts = st.ctx.events.map(eventOptionText);
     expect(texts).toContain("入居（住宅の購入・2028年10月）");
     expect(texts.some((t) => t.includes("住まい 1"))).toBe(false);
-    // 住み始めの欄に、その住まい自身の入居（まだ出来事でない物）を出さない
-    const from = byKey(wh, `housing/res/${BUY}/from`).time!.state(wh);
-    expect(from.ctx.events.some((e) => e.label === "入居（住宅の購入）")).toBe(false);
+    // 購入の1件には住み始めの欄を出さない（購入の時期に住み始める。0052 の追記 2026-11-07）
+    expect(byKey(wh, `housing/res/${BUY}/from`)).toBeUndefined();
   });
 
   it("分けた名前で打っても、見せた文字を打ち直しても同じ時点に読む（全角のかっこ）", () => {

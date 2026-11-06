@@ -579,7 +579,14 @@ export interface ResidenceInput {
   /** 持ち家の評価（土地と建物に分け、土地は上昇率、建物は耐用年数で減らす。housing.valuation） */
   readonly valuation?: ResidenceValuationInput;
   /** 売却（住み終わりの月に売り、手取りを現金にする） */
-  readonly sale?: { readonly price?: Yen; readonly costRate?: string; /** 0053: 譲渡所得の税の額（入れた額を売った月に払う） */ readonly tax?: ValueBox<Yen> };
+  readonly sale?: {
+    readonly price?: Yen;
+    readonly costRate?: string;
+    /** 0053: 譲渡所得の税の額（入れた額を売った月に払う） */
+    readonly tax?: ValueBox<Yen>;
+    /** 売ったときにこの住まいの住宅ローンを住み終わりの月に一括で返す（省略は返す。debt.schedule 改訂6） */
+    readonly repayLoan?: boolean;
+  };
 }
 
 /** 建物の構造（耐用年数の目安を選ぶ） */
@@ -595,6 +602,8 @@ export interface ResidenceValuationInput {
   readonly builtYear?: number;
   /** 土地の割合（省略は前提の realEstateValuation.landShare か目安） */
   readonly landShare?: string;
+  /** 評価の基にする額の入れ方（画面の側。market 今の時価・purchase 買った値段。計算エンジンは読まない） */
+  readonly basis?: "market" | "purchase";
 }
 
 export type CoverageBenefit =
