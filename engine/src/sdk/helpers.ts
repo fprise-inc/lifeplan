@@ -268,6 +268,8 @@ export function annualReturn(ctx: Ctx, opening: Yen, net: Yen, r: Rate, months: 
 
 /** 預金・外貨預金の既定の資産クラス（assetMix を省略したとき） */
 const CASH_KINDS: Readonly<Record<string, string>> = { deposit: "cash.deposit", fxDeposit: "cash.foreign", realEstate: "realEstate" };
+/** 預金の利回り（assumptions.depositReturn）を代わりに使う資産クラス（預金・外貨預金。資産配分の現金も同じ） */
+const DEPOSIT_CLASSES: ReadonlySet<string> = new Set(["cash.deposit", "cash.foreign"]);
 /** 器の利回りも資産の配分も無いときの利回りを0にする器（暗号資産。0122） */
 const ZERO_DEFAULT_KINDS: ReadonlySet<string> = new Set(["cryptoAsset"]);
 /** 運用する器（資産配分・利回りの書き換え（returnShifts）を当てる。まとめた金融資産の器を含む。0026） */
@@ -298,7 +300,8 @@ function returnSteps(ctx: Ctx, account: ReturnAccount): StageStep<ReturnSpec>[] 
 /** 器の決め方 spec のその年の利回り（運用の費用・利回りの書き換えの前）。リバランスしない配分のずれは driftFrom の年から数える */
 function specRate(ctx: Ctx, kind: string, spec: ReturnSpec, year: number, driftFrom: number): Rate {
   const classRate = (cls: string, y: number): Rate => {
-    const fallback = cls === "realEstate" ? RATE_ZERO : ctx.assumption("investmentReturn", y);
+    // 前提に無い資産クラスの代わり: 不動産は0、預金・外貨預金は預金の利回り（省略は運用利回り。前の版の要求は今までどおり）、ほかは運用利回り
+    const fallback = cls === "realEstate" ? RATE_ZERO : DEPOSIT_CLASSES.has(cls) ? ctx.assumption("depositReturn", y, ctx.assumption("investmentReturn", y)) : ctx.assumption("investmentReturn", y);
     return ctx.assumptionIn("assetReturns", cls, y, fallback) ?? fallback;
   };
   const mix = spec.assetMix;
@@ -331,8 +334,9 @@ function specRate(ctx: Ctx, kind: string, spec: ReturnSpec, year: number, driftF
 
 /**
  * 器のその年の利回り: 資産クラスの配分（assetMix）×前提の資産クラスごとの利回り（assumptions.assetReturns）。
- * 前提に無い資産クラスは運用利回り（assumptions.investmentReturn）、ただし不動産は0。assetMix を省略した器は、預金・外貨預金・不動産は
- * その資産クラス、暗号資産は0（0122）、ほかは運用利回り。部品の reads に assumptions.investmentReturn と assumptions.assetReturns が要る。
+ * 前提に無い資産クラスは運用利回り（assumptions.investmentReturn）、ただし不動産は0、預金・外貨預金（cash.deposit・cash.foreign）は預金の利回り
+ * （assumptions.depositReturn。省略は運用利回り）。assetMix を省略した器は、預金・外貨預金・不動産はその資産クラス、暗号資産は0（0122）、
+ * ほかは運用利回り。部品の reads に assumptions.investmentReturn・assumptions.depositReturn・assumptions.assetReturns が要る。
  * 0026: FP が入れた器の利回り（expectedReturn）があればそれを使う。運用の費用（fee）を引く。資産配分の入れ方でリバランスしないときは、
  * 資産クラスごとの増え方で割合がずれる（計算基準年からの資産クラスの増え方で重みを付け直す）。運用する器には利回りの書き換え（returnShifts）を当てる。
  * reads に assumptions.investment と assumptions.returnShifts も要る
