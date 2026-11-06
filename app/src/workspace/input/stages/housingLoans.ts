@@ -1102,7 +1102,10 @@ function variableRuleFields(wh: WorkingHousehold, d: Debt, k: string, level: "si
     ];
   const r = d.repayment.variableRules;
   if (r?.fiveYear !== true && r?.cap125 !== true) return [];
-  const on = [r.fiveYear === true ? "5年ルール" : null, r.cap125 === true ? "125%ルール" : null].filter((x): x is string => x !== null).join("・");
+  // 入っている決まりだけを、何の決まりかの短い説明つきで書く（2026-11-06 の追記の4。利用者の了承した言葉）
+  const on = [r.fiveYear === true ? "「5年ルール（返済額は5年ごとにだけ見直す）」" : null, r.cap125 === true ? "「125%ルール（見直しで返済額は前の1.25倍まで）」" : null]
+    .filter((x): x is string => x !== null)
+    .join("");
   return [
     withAddress(
       field({
@@ -1113,8 +1116,8 @@ function variableRuleFields(wh: WorkingHousehold, d: Debt, k: string, level: "si
         kind: "text",
         readOnly: "変動金利だけの決まりです。全期間固定では出しません",
         get: () => ({
-          value: `${on}が入っている（計算には使っていない）`,
-          warn: `全期間固定のローンに${on}が入っています。変動金利だけの決まりなので、計算には使っていません（金利の種類を変動金利・固定期間選択型に戻すと使います）`,
+          value: "変動金利のときの決まりが残っています（計算には使っていません）",
+          warn: `変動金利で入れていたときの${on}が残っています。全期間固定は返済額が最後まで変わらないので、計算には使っていません。いらなければ「外す」を押してください（金利の種類を変動金利に戻すと、また使います）。`,
           warnFix: { label: "外す", run: (w: WorkingHousehold) => editDebt(w, d.id, (x) => void delete x.repayment.variableRules) },
         }),
         set: (w) => w,

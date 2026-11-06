@@ -91,11 +91,26 @@ describe("フラット35の団信と、全期間固定の5年ルール・125%ル
     expect(fieldMaybe(wh, `${id}/fiveYear`, "housing")).toBeUndefined();
     expect(fieldMaybe(wh, `${id}/cap125`, "housing")).toBeUndefined();
     const note = fieldOf(wh, `${id}/variableRules`).get(wh);
-    expect(note.warn).toContain("計算には使っていません");
+    expect(note.value).toBe("変動金利のときの決まりが残っています（計算には使っていません）");
+    expect(note.warn).toBe(
+      "変動金利で入れていたときの「5年ルール（返済額は5年ごとにだけ見直す）」「125%ルール（見直しで返済額は前の1.25倍まで）」が残っています。全期間固定は返済額が最後まで変わらないので、計算には使っていません。いらなければ「外す」を押してください（金利の種類を変動金利に戻すと、また使います）。",
+    );
     wh = settle(note.warnFix!.run(wh));
     expect(loans(wh)[0]!.repayment.variableRules).toBeUndefined();
     expect(fieldMaybe(wh, `${id}/variableRules`, "housing")).toBeUndefined();
     expect(() => preview(wh.request)).not.toThrow();
+  });
+});
+
+describe("全期間固定の5年ルール・125%ルールの知らせ（片方だけ）", () => {
+  it("入っているのが125%ルールだけなら、その片方だけを書く", () => {
+    let wh = action(action(salaried(), "housing/addPurchase"), "housing/addMortgage");
+    const id = loans(wh)[0]!.id;
+    wh = set(wh, `${id}/fiveYear`, false);
+    wh = set(wh, `${id}/rateType`, "fixed");
+    const note = fieldOf(wh, `${id}/variableRules`).get(wh);
+    expect(note.warn).toContain("変動金利で入れていたときの「125%ルール（見直しで返済額は前の1.25倍まで）」が残っています。");
+    expect(note.warn).not.toContain("5年ルール");
   });
 });
 
