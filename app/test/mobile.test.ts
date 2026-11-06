@@ -85,6 +85,7 @@ const groups = {
   locked: { name: "引き出せないお金", short: "引き出せない" },
   illiquid: { name: "換金しにくい資産", short: "換金しにくい" },
   mortgage: { name: "住宅ローン", short: "住宅ローン" },
+  propertyLoan: { name: "不動産のローン", short: "不動産のローン" },
   debt: { name: "その他の負債", short: "その他の負債" },
 };
 const year = (lines: BsYearModel["lines"], netWorth: number): BsYearModel => {

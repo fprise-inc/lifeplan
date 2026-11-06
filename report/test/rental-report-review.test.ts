@@ -26,7 +26,7 @@ const proposal = structuredClone(current) as EngineRequest;
   const h = proposal.input.household;
   const self = h.members.find((m) => m.kind === "self")!;
   const work = h.employmentPeriods.find((e) => e.member === self.id)!;
-  h.employmentPeriods.push({ ...structuredClone(work), id: "0b6f6c1e-6a52-4a8e-9a3b-2f1d7c5e9a01", type: "contract", from: { at: "2041-08" }, to: { at: "2046-07" }, salary: { annual: { value: 4800000, state: "confirmed", origin: { kind: "manual" } }, bonus: { value: 0, state: "confirmed", origin: { kind: "manual" } } }, standardMonthlyRemuneration: { health: { value: 400000, state: "confirmed", origin: { kind: "manual" } }, pension: { value: 400000, state: "confirmed", origin: { kind: "manual" } } } } as typeof work);
+  (h.employmentPeriods as (typeof h.employmentPeriods)[number][]).push({ ...structuredClone(work), id: "0b6f6c1e-6a52-4a8e-9a3b-2f1d7c5e9a01", type: "contract", from: { at: "2041-08" }, to: { at: "2046-07" }, salary: { annual: { value: 4800000, state: "confirmed", origin: { kind: "manual" } }, bonus: { value: 0, state: "confirmed", origin: { kind: "manual" } } }, standardMonthlyRemuneration: { health: { value: 400000, state: "confirmed", origin: { kind: "manual" } }, pension: { value: 400000, state: "confirmed", origin: { kind: "manual" } } } } as typeof work);
   const heights = h.accounts.find((a) => a.id === HEIGHTS)!;
   (heights.property as { sale: unknown }).sale = { at: { at: "2046-10" } };
 }
@@ -53,7 +53,7 @@ describe("キャッシュフロー表の抜粋の年と、ライフイベント�
     expect(at(2036)).toContain("見本ハイツ（架空）の大きな修繕（給湯器・共用部の設備の更新 180万円）");
     // 持っていない物件の修繕は載せない（売った後の年に修繕を入れても出ない）
     const late = structuredClone(proposal) as EngineRequest;
-    const hp = late.input.household.accounts.find((a) => a.id === HEIGHTS)!.property as { repairs: { at: unknown }[] };
+    const hp = late.input.household.accounts.find((a) => a.id === HEIGHTS)!.property as unknown as { repairs: { at: unknown }[] };
     hp.repairs.push({ ...structuredClone(hp.repairs[0]!), id: "0b6f6c1e-6a52-4a8e-9a3b-2f1d7c5e9a02", at: { at: "2050-06" } } as (typeof hp.repairs)[number]);
     const [c2, p2] = runAll([current, late]);
     const i2 = buildProposalInput({ ...bundle, current: c2!, proposal: p2! });
