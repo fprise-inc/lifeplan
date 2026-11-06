@@ -437,6 +437,20 @@ export function adultsWithoutCare(h: Household): Member[] {
   return h.members.filter((m) => (m.kind === "self" || m.kind === "spouse") && m.expected !== true && !(h.careExpenses ?? []).some((c) => c.member === m.id));
 }
 
+/**
+ * ご本人・配偶者の介護の費用を「入れない」と決めた印（保存した項目の印 confirmed に置く。入力項目の ID ではない）。
+ * 介護・親の項目を保存しただけでは付けない（確定は明示の操作だけ）。帯の「該当なし（介護の費用を入れない）」・区画の「…の介護は入れない」・
+ * 入力項目の「当てはまらない」の1押しで付ける。前の版で項目を保存しただけの世帯（印 "care" だけ）は、未入力に戻る
+ */
+export const ADULT_CARE_NONE = "care/adultsNone";
+
+export const adultsCareDeclined = (wh: WorkingHousehold): boolean => wh.confirmed.includes(ADULT_CARE_NONE);
+
+/** ご本人・配偶者の介護の費用を入れないと決める（介護・親の項目も保存した扱いにする） */
+export function declineAdultsCare(wh: WorkingHousehold): WorkingHousehold {
+  return markCard(markCard(wh, "care"), ADULT_CARE_NONE);
+}
+
 /** 本人・配偶者の介護の目安を入れる（まだ無い人だけ） */
 export function fillAdultsCare(wh: WorkingHousehold): WorkingHousehold {
   return adultsWithoutCare(wh.request.input.household).reduce((w, m) => fillCareFor(w, m.id), wh);
@@ -567,8 +581,9 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
       none: (w) => markCard(w, "housing"),
       noneLabel: "住居費なし",
     });
-  // 本人・配偶者の介護の費用（自動で入れない。外れると大きく誤るので、未入力の警告と「目安で入れる」。入れないと決めたらカードを保存）
-  if (!confirmed.has("care")) {
+  // 本人・配偶者の介護の費用（自動で入れない。外れると大きく誤るので、未入力の警告と「推定で入れる」。入れないと決めるのは「該当なし」を押したときだけで、
+  // 介護・親の項目を保存しただけでは決めない〔母の介護を足して保存しても、ご本人・配偶者の未入力は残る〕）
+  if (!confirmed.has(ADULT_CARE_NONE)) {
     const est = careEstimate("home");
     for (const m of adultsWithoutCare(h))
       out.push({
@@ -578,7 +593,7 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
         note: "介護の費用が入っていないので、0円で計算しています（自動では入れません）",
         fill: (w) => fillCareFor(w, m.id),
         ...(est !== null ? { basis: `${est.basis}・亡くなる見込み（簡易生命表の平均余命）の前の期間`, what: `在宅の介護 月${manOf(est.monthly)}・はじめの費用 ${manOf(est.initial)}（亡くなる見込みの前の期間。統計の平均）` } : {}),
-        none: (w) => markCard(w, "care"),
+        none: declineAdultsCare,
         noneLabel: "介護の費用を入れない",
       });
   }

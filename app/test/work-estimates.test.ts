@@ -30,6 +30,8 @@ const fieldOf = (wh: WorkingHousehold, key: string, stage: StageId = "work"): Fi
   return f;
 };
 const edit = (wh: WorkingHousehold, key: string, v: Val, stage: StageId = "work") => withRefreshedEstimates(fieldOf(wh, key, stage).set(wh, v));
+/** 働く最後の年齢を空にする（時点の部品で空を入れる。定年後の予定の無い人だけ） */
+const clearEnd = (wh: WorkingHousehold, self: string) => withRefreshedEstimates(fieldOf(wh, `work/${self}/retireAge`).time!.setWhen(wh, null, "auto"));
 const actionsOf = (wh: WorkingHousehold, stage: StageId = "work") => buildStage(stage, wh).sections.flatMap((s) => [...s.actions, ...s.groups.flatMap((g) => g.actions)]);
 const press = (wh: WorkingHousehold, key: string, stage: StageId = "work") => {
   const a = actionsOf(wh, stage).find((x) => x.key === key);
@@ -72,7 +74,8 @@ describe("働き方の入口（「働き方を入れる」の1つのボタンの
     expect(periods(w, self)).toMatchObject([{ type: "unemployed", from: { at: BASE }, to: null }]);
     expect(periods(w, self)[0]!.salary).toBeUndefined();
     expect(Object.keys(w.assumed).filter((k) => k.startsWith(`work/${self}`))).toEqual([]);
-    expect(fieldOf(w, `work/${self}/retireAge`).get(w).warn ?? null).toBeNull();
+    // 働いていない（この後の働き方も無い）人には、定年後の予定のまとまり（働く最後の年齢）を出さない
+    expect(allFields(buildStage("work", w)).some((f) => f.key === `work/${self}/retireAge`)).toBe(false);
   });
 });
 
@@ -98,7 +101,9 @@ describe("自営業の働く最後の年齢（推定。事務所の既定値で�
     const { wh, self } = newCustomer("1980-06");
     let w = press(wh, `work/${self}/startSelf`);
     const p = periods(w, self)[0]!;
-    w = edit(w, `work/period/${p.id}/to`, null);
+    // 今の期間の詳細の「終わり」は働く最後の年齢と同じ物なので出さない。働く最後の年齢を空にすると終わりを外す
+    expect(allFields(buildStage("work", w)).some((f) => f.key === `work/period/${p.id}/to`)).toBe(false);
+    w = clearEnd(w, self);
     expect(periods(w, self)[0]!.to).toBeNull();
     const st = fieldOf(w, `work/${self}/retireAge`).get(w);
     expect(st.warn).toBe(`働く最後の年齢が決まっていません（${w.request.input.endYear - 1980}歳まで事業所得を入れています）`);
@@ -113,8 +118,7 @@ describe("働き方の種類を変えたときの推定の入れ直し", () => {
   it("自営業→公務員: 終わりの無い期間に公務員の定年（生まれた年度）を入れる", () => {
     const { wh, self } = newCustomer("1980-06");
     let w = press(wh, `work/${self}/startSelf`);
-    const p = periods(w, self)[0]!;
-    w = edit(w, `work/period/${p.id}/to`, null);
+    w = clearEnd(w, self);
     w = edit(w, `work/${self}/now/type`, "civilServant");
     const age = civilRetirementAge(selfOf(w));
     expect(w.postRetirement[self]?.fromAge).toBe(age);

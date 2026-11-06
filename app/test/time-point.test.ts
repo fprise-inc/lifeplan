@@ -425,12 +425,17 @@ describe("時点の欄の読み書き", () => {
   });
 
   it("働き方の期間は年月で持つ（年齢で入れても年月にする）", () => {
-    const wh = open("salariedCoupleTwoKids");
-    const self = wh.request.input.household.members.find((m) => m.kind === "self")!;
-    const p = wh.request.input.household.employmentPeriods!.find((x) => x.member === self.id)!;
+    const w0 = open("salariedCoupleTwoKids");
+    const self = w0.request.input.household.members.find((m) => m.kind === "self")!;
+    // 今の働き方の期間の終わりは、定年の欄（か働く最後の年齢の欄）と同じ物なので詳細に出さない（0141）。後ろに足した期間の終わりで確かめる
+    const add = buildStages(w0).flatMap((s) => s.sections.flatMap((x) => x.groups.flatMap((g) => g.actions))).find((a) => a.key === `work/${self.id}/addPeriod`)!;
+    const wh = add.run(w0);
+    const main = wh.request.input.household.employmentPeriods!.find((x) => x.member === self.id)!;
+    expect(byKey(wh, `work/period/${main.id}/to`)).toBeUndefined();
+    const p = wh.request.input.household.employmentPeriods!.filter((x) => x.member === self.id).at(-1)!;
     const f = byKey(wh, `work/period/${p.id}/to`);
-    const w1 = f.time!.setWhen(wh, { memberAge: { member: self.id, years: 64, months: 11 } }, "auto");
-    expect(w1.request.input.household.employmentPeriods!.find((x) => x.id === p.id)!.to).toEqual({ at: "2046-06" });
+    const w1 = f.time!.setWhen(wh, { memberAge: { member: self.id, years: 63, months: 11 } }, "auto");
+    expect(w1.request.input.household.employmentPeriods!.find((x) => x.id === p.id)!.to).toEqual({ at: "2045-06" });
   });
 });
 

@@ -312,10 +312,11 @@ describe("年金の見込み（計算の結果から読む。0067）", () => {
     expect(l65!.annual).toBeGreaterThan(0);
     expect(l70!.annual!).toBeGreaterThan(l65!.annual!);
     const v = estimateView(wh, { std, claimed })!;
-    expect(v.people[0]!.text).toMatch(/^65歳から 年[\d,.]+万円（月[\d,.]+万円）$/);
-    expect(v.people[0]!.sub[0]).toMatch(/^受け取り開始（基礎70歳・厚生65歳）から 年/);
+    // 見込みの行は受け取り開始からの額（推計の人だけ「推定」。この見本は定期便から）。65歳からの額は「?」の中
+    expect(v.people[0]!.text).toMatch(/^基礎70歳・厚生65歳から 年[\d,.]+万円（月[\d,.]+万円）$/);
+    expect(v.people[0]!.sub[0]).toMatch(/^65歳から受け取った場合 年/);
     const s = pensionEstimateSummary(wh, std)!;
-    expect(s).toMatchObject({ pre: "月", unit: "万円（65歳から・推定）" });
+    expect(s).toMatchObject({ pre: "月", unit: "万円（65歳から）" });
     expect(inputItems(wh, { pension: s }).find((i) => i.id === "pension")!.summary).toEqual(s);
   });
 
@@ -324,11 +325,20 @@ describe("年金の見込み（計算の結果から読む。0067）", () => {
     const std = preview(pensionEstimateRequest(wh.request, false));
     const v = estimateView(wh, { std, claimed: null })!;
     expect(v.people.map((p) => p.text.slice(0, 1))).toEqual(["今", "今"]);
-    expect(v.total).toMatch(/^夫婦で月[\d,.]+万円（今・推定）$/);
-    expect(pensionEstimateSummary(wh, std)).toMatchObject({ pre: "夫婦で月", unit: "万円（今・推定）" });
+    // 2人とも書類（改定通知書）から入れているので「推定」を付けない
+    expect(v.total).toMatch(/^夫婦で月[\d,.]+万円（今）$/);
+    expect(pensionEstimateSummary(wh, std)).toMatchObject({ pre: "夫婦で月", unit: "万円（今）" });
+    // 「推定」は推計（書類が無い）の人がいるときだけ。定期便から入れた夫婦には付けない
     const couple = open("salariedCoupleTwoKids");
     const s2 = pensionEstimateSummary(couple, preview(pensionEstimateRequest(couple.request, false)))!;
-    expect(s2).toMatchObject({ pre: "夫婦で月", unit: "万円（65歳から・推定）" });
+    expect(s2).toMatchObject({ pre: "夫婦で月", unit: "万円（65歳から）" });
+    const estReq = modelHousehold("dualNoKids");
+    estReq.input.endYear = 2090;
+    const est = fromRequest(estReq);
+    const s3 = pensionEstimateSummary(est, preview(pensionEstimateRequest(est.request, false)))!;
+    expect(s3).toMatchObject({ pre: "夫婦で月", unit: "万円（65歳から・推定）" });
+    const v3 = estimateView(est, { std: preview(pensionEstimateRequest(est.request, false)), claimed: null })!;
+    expect(v3.people.every((p) => p.text.endsWith("（推定）"))).toBe(true);
   });
 
   it("推計の人は推定の額と「書類の額で置き換える」の案内、加入月数が0か月のままの定期便は要約に出さない", () => {
@@ -341,10 +351,11 @@ describe("年金の見込み（計算の結果から読む。0067）", () => {
 });
 
 describe("推計のしかたと受け取り開始の欄（0066 の 2026-10-29 の追記）", () => {
-  it("推計（書類なし）のときは、入れ方の欄の横に推計のしかたを出す。書類からのときは出さない", () => {
+  it("推計（書類なし）のときは、入れ方の欄の横に何から推計しているかの1行（推計のしかたの長い文は「?」）。書類からのときは出さない", () => {
     const wh = blankHousehold(BASE, ids());
     const self = selfOf(wh).id;
-    expect(fieldOf(wh, `pension/${self}/mode`).get(wh).hint).toMatch(/^推計のしかた: 生年月と、働き方と収入の項目の働き方の期間/);
+    expect(fieldOf(wh, `pension/${self}/mode`).get(wh).hint).toMatch(/^推計: 働き方の期間がまだありません/);
+    expect(fieldOf(wh, `pension/${self}/mode`).help).toMatch(/推計のしかた: 生年月と、働き方と収入の項目の働き方の期間/);
     const doc = fieldOf(wh, `pension/${self}/mode`).set(wh, "document");
     expect(fieldOf(doc, `pension/${self}/mode`).get(doc).hint ?? null).toBeNull();
   });
