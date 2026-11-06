@@ -175,6 +175,22 @@ describe("目安の定年をもう過ぎている人（60歳以上）", () => {
     for (const b of w.request.input.household.retirementBenefits ?? []) expect(b.employment).toBe(periods(w, self)[0]!.id);
   });
 
+  it("定年を過ぎた人の「契約社員・嘱託（再雇用など）」: 定年の前の月までの正社員と、今の再雇用（65歳まで・推定）を作り、退職金の目安と定年の欄は出さない", () => {
+    const { wh, self } = newCustomer("1963-04");
+    const w = press(wh, `work/${self}/start/contract`);
+    expect(periods(w, self)).toMatchObject([
+      { type: "regular", from: { at: "1985-04" }, to: { at: "2023-03" }, endsWith: "retirement" },
+      { type: "contract", from: { at: "2023-04" }, to: { at: "2028-03" } },
+    ]);
+    expect(w.assumed[`work/${self}/retireAge`]).toContain("65歳");
+    expect(w.assumed[`work/${self}/mainEnd`]).toBeUndefined();
+    expect(w.request.input.household.retirementBenefits ?? []).toEqual([]);
+    const keys = fieldsOf(w).map((f) => f.key);
+    expect(keys).toContain(`work/${self}/retireAge`);
+    expect(keys).not.toContain(`work/${self}/mainEnd`);
+    expect(() => preview(w.request)).not.toThrow();
+  });
+
   it("勤め先の期間がもう終わっている（定年の後）なら、退職金の目安を足さない", () => {
     const { wh, self } = newCustomer("1963-06");
     const w = mutate(wh, (h) => {

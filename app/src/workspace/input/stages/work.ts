@@ -796,6 +796,10 @@ const FROM_CAREER_START: ReadonlySet<string> = new Set(["regular", "contract", "
 /** 働き方を入れる（入口の選択肢）: 選んだ種類の期間を作り、年収・住民税・働く最後・定年と定年後の予定・退職金の目安を推定で入れる */
 export function startWork(w: WorkingHousehold, m: Member, type: string): WorkingHousehold {
   const base = w.request.input.baseMonth;
+  if (type === "contract") {
+    const after = startReemployed(w, m);
+    if (after !== null) return after;
+  }
   const start = FROM_CAREER_START.has(type) ? careerStartMonth(m.birth.birthYearMonth) : base;
   const p = convertPeriod({ id: newId(), member: m.id, from: { at: start < base ? start : base }, to: null, type }, type, m, base);
   const working = type !== "unemployed" && type !== "leave";
@@ -805,6 +809,30 @@ export function startWork(w: WorkingHousehold, m: Member, type: string): Working
     if (working) ensureResidentTax(hh, m.id, base, newId);
   });
   next = markEmployerDefaults(next, p);
+  return estimateWorkEnd(next, m.id);
+}
+
+/**
+ * 定年（会社員の目安）をもう過ぎた人の「契約社員・嘱託（再雇用など）」: 22歳の4月から定年の前の月までの正社員（辞め方は定年。厚生年金の推計と
+ * 前の勤め先の企業年金の当て先に使う）と、定年の月からの今の再雇用（働く最後は推定。65歳前なら65歳まで）を作る。定年後の予定は定年の欄を出さない
+ * 形（今の働き方が定年後の期間）。過去の勤め先の退職金の目安は足さない（受け取りが過去）。定年の前の人は null（ふつうの契約の期間）
+ */
+function startReemployed(w: WorkingHousehold, m: Member): WorkingHousehold | null {
+  const base = w.request.input.baseMonth;
+  const end = retirementAgeEstimate("regular", m);
+  const mainLast = addMonths(ageReachedMonth(m, end.age), -1);
+  const from = careerStartMonth(m.birth.birthYearMonth);
+  if (mainLast >= base || from > mainLast) return null;
+  const main = convertPeriod({ id: newId(), member: m.id, from: { at: from }, to: { at: mainLast }, type: "regular" }, "regular", m, base);
+  main.endsWith = "retirement";
+  (main as Record<string, unknown>).valueStates = { "employment.endsWith": { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "今の勤め先を定年で辞めた（再雇用の前）" } } };
+  const re = convertPeriod({ id: newId(), member: m.id, from: { at: addMonths(mainLast, 1) }, to: null, type: "contract" }, "contract", m, base);
+  let next = mutate(w, (hh) => {
+    (hh.employmentPeriods ??= []).push(main, re);
+    ensureResidentTax(hh, m.id, base, newId);
+  });
+  next = markEmployerDefaults(markEmployerDefaults(next, main), re);
+  next = { ...next, postRetirement: { ...next.postRetirement, [m.id]: { fromAge: end.age, type: "contract", annualSalary: re.salary?.annual.value ?? null } } };
   return estimateWorkEnd(next, m.id);
 }
 

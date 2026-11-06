@@ -380,6 +380,9 @@ function claimFields(m: Member, find: Finder, prefix: string, prop: "claim" | "p
 
 // ---- 書類の欄 ----
 
+/** 経過的加算を加入月数から計算する記録か（エンジンの pension.oldAgeBase と同じ決まり: 見込額だけの記録と、厚生年金の月数の無い受給中の記録だけが額を読む） */
+const transitionalFromMonths = (rec: PensionRecord): boolean => rec.kind !== "projection" && !(rec.kind === "receiving" && (rec.months?.employee ?? 0) === 0);
+
 const AMOUNT_LABEL: Record<string, [string, string]> = {
   statementUnder50: ["老齢基礎年金（これまでの加入実績に応じた額）", "老齢厚生年金（これまでの加入実績に応じた額）"],
   statementOver50: ["老齢基礎年金（65歳からの見込額）", "老齢厚生年金（65歳からの見込額）"],
@@ -537,9 +540,12 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
     // 50歳未満の定期便の老齢基礎年金の額は写さない（計算は加入月数から。同じ物を二重に持たない）
     if (rec.kind !== "statementUnder50")
       fields.push(yenBox({ key: `${prefix}/amounts/basic`, item: "pensionRecord.amounts", label: labels[0], level: "simple", basis: "annual", find, path: ["amounts", "basic"], optional: true, ...(help !== undefined ? { help } : {}) }));
+    fields.push(yenBox({ key: `${prefix}/amounts/employee`, item: "pensionRecord.amounts", label: labels[1], level: "simple", basis: "annual", find, path: ["amounts", "employee"], optional: true, ...(help !== undefined ? { help } : {}) }));
+    // 経過的加算の額は、加入月数から計算する記録（定期便・厚生年金の月数のある受給中）では読まない（エンジンの pension.oldAgeBase）。
+    // 写しても効かない欄は出さない。見込額だけの記録・月数の無い受給中の記録だけ
+    if (!transitionalFromMonths(rec))
+      fields.push(yenBox({ key: `${prefix}/amounts/transitional`, item: "pensionRecord.amounts", label: "経過的加算", level: "detail", basis: "annual", find, path: ["amounts", "transitional"], optional: true, help: "見込額の書類の経過的加算の額（年額）。入れなければ0円です" }));
     fields.push(
-      yenBox({ key: `${prefix}/amounts/employee`, item: "pensionRecord.amounts", label: labels[1], level: "simple", basis: "annual", find, path: ["amounts", "employee"], optional: true, ...(help !== undefined ? { help } : {}) }),
-      yenBox({ key: `${prefix}/amounts/transitional`, item: "pensionRecord.amounts", label: "経過的加算", level: "detail", basis: "annual", find, path: ["amounts", "transitional"], optional: true, help: "入れなければ加入月数から計算します" }),
       yenBox({ key: `${prefix}/amounts/special`, item: "pensionRecord.amounts", label: "特別支給の老齢厚生年金（報酬比例部分）", level: "detail", basis: "annual", find, path: ["amounts", "special"], optional: true, help: "入れなければ生年月と加入の記録から計算します（対象の生年月の人だけ）" }),
     );
   }
