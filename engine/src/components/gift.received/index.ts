@@ -11,6 +11,7 @@
 // 改訂4（0044）: 入るお金の行のうち課税の扱いが「贈与税で見る」の行（受け取る人。省略は本人。贈与者は相手）と、あげる贈与の出るお金の行
 // （受け取る人は相手の世帯の外の家族。贈与者は払う人か本人。世帯から出し、受け取る人の贈与税は要約にだけ出す。生活費・教育費をその都度
 // 払う贈与は非課税なので集めない）も集める。額は income.flows・expense.periodic のお金の動き（受け取り・支払いの月の額）
+// 改訂5: あげる贈与の相手が世帯の子でも、直系尊属からの贈与として扱う（前は世帯の外の子・孫だけ）
 import {
   defineComponent,
   formatYm,
@@ -33,7 +34,7 @@ export default defineComponent<{ member: string }, GiftReceivedOutput>({
   id: "gift.received",
   title: "受け取る贈与（集める）",
   contract: "1.2",
-  revision: 4,
+  revision: 5,
   requires: { "insurance.policy": ">=1 <2", "income.flows": ">=1 <2", "expense.periodic": ">=1 <2" },
   params: [],
   reads: [
@@ -155,8 +156,8 @@ export default defineComponent<{ member: string }, GiftReceivedOutput>({
       const members = ctx.list<MemberInput>("member");
       const me = members.find((m) => m.id === member);
       const self = members.find((m) => m.kind === "self")?.id ?? null;
-      // 世帯の外の子・孫（世帯の人の子・孫）なら直系尊属からの贈与
-      const direct = me !== undefined && isOutside(me) && (me.kind === "child" || me.kind === "grandchild");
+      // 世帯の子と、世帯の外の子・孫（世帯の人の子・孫）なら直系尊属からの贈与（改訂5: 世帯の子も。あげる贈与の相手に世帯の子を選べるようにした）
+      const direct = me !== undefined && (me.kind === "child" || me.kind === "grandchild");
       const out = ctx.call<{ flows: readonly Flow[] }>("expense.periodic", {});
       for (const e of given) {
         for (const x of flowsOf(out, e.id)) {

@@ -217,6 +217,21 @@ describe("出るお金の行の広げた欄（expense.periodic）", () => {
     expect(((asNeeded.summary as { gifts?: unknown[] }).gifts ?? []).length).toBe(0);
   });
 
+  it("あげる贈与: 相手が世帯の子（18歳以上）でも直系尊属からの贈与として特例税率で見る", () => {
+    const C = uid("mr-child");
+    const req = edit(withExpense(pe("gift", { kind: "gift", row: "cf.expense.lumpSum.gift", counterparty: C, payer: S, amount: box(2000000), gift: { method: "calendar", purpose: "general" } })), (h) => {
+      (h.members as Obj[]).push(member("mr-child", "child", "2005-06") as unknown as Obj);
+      (h.relations as Obj[]).push({ type: "parentOf", parent: S, child: C });
+    });
+    const gifts = (run(req).summary as { gifts?: { year: number; recipient: string; amount: number; tax: number; inCashflow: boolean }[] }).gifts ?? [];
+    // (2,000,000 − 1,100,000) = 900,000 → 10% = 90,000（200万円以下の段は特例も一般も同じ）。
+    // 税率の違いの出る額で確かめる: 500万円 → 特例 (3,900,000 × 15% − 100,000) = 485,000（一般なら 3,900,000 × 20% − 250,000 = 530,000）
+    expect(gifts).toContainEqual(expect.objectContaining({ year: 2028, recipient: C, amount: 2000000, tax: 90000 }));
+    const big = edit(req, (h) => void ((h.periodicExpenses as Obj[])[0]!.amount = box(5000000)));
+    const g2 = (run(big).summary as { gifts?: { recipient: string; tax: number }[] }).gifts ?? [];
+    expect(g2).toContainEqual(expect.objectContaining({ recipient: C, tax: 485000 }));
+  });
+
   it("払う人が世帯の外の家族の行は、世帯から出さない", () => {
     expect(call<{ flows: Flow[] }>(withExpense(pe("o", { payer: P })), "expense.periodic", {}).flows).toEqual([]);
   });
