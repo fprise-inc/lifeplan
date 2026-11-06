@@ -9,6 +9,7 @@ import { approveAll, createHearingSheet, exportableSheets, importHearingSheet, k
 import type { EngineRequest as HearingEngineRequest } from "../../../../hearing/src/types.ts";
 import { fillsByEstimate } from "../../../../hearing/src/estimates.ts";
 import type { EngineRequest, Household, Member } from "../../engine/types.ts";
+import { ITEM_LABELS } from "../../generated/labels.ts";
 import { endYearForAge, followedEndAge, type WorkingHousehold } from "../input/household.ts";
 import { fillEducation } from "../input/fill.ts";
 import { memberLabels } from "../input/labels.ts";
@@ -109,7 +110,25 @@ export function withRequest(wh: WorkingHousehold, request: HearingRequest): Work
 
 // ---- 取り込み: 候補を今の世帯と照らす ----
 
-export type CandidateKind = "new" | "changed" | "same";
+/**
+ * 候補の種類: 新規・変更・同じ・お答えなし（今の世帯にある物で、違う所がどれもお答えの無い欄〔空欄・「あとで」・聞いていない〕だけ。
+ * 候補にせず、今の値のまま残す）
+ */
+export type CandidateKind = "new" | "changed" | "same" | "noAnswer";
+
+/** 変更の候補の、今の値と届いた値の違う欄（物の中の場所ごと） */
+export interface FieldDiff {
+  /** 欄の名前（残高・借入額・返済期間 …） */
+  label: string;
+  /** 今の値（今の世帯の値を言葉で） */
+  current: string;
+  /** 届いた値（承認すると入る値を言葉で） */
+  next: string;
+  /** お答えが無い欄なので、承認しても今の値のまま */
+  kept: boolean;
+  /** 今の値が確定で、届いた値が範囲・推定・仮の値（今の値の方が詳しい） */
+  rough: boolean;
+}
 
 export interface FieldView {
   label: string;
@@ -119,6 +138,10 @@ export interface FieldView {
   mark: "estimated" | "range" | "assumed" | "unknown" | "notApplicable" | null;
   /** 印の理由（推定の根拠など） */
   note: string | null;
+  /** この項目に答えが無い（空欄・「あとで」・このシートでは聞いていない） */
+  noAnswer: boolean;
+  /** 変更の候補のとき、この項目から入る欄の「今 → 届いた値」 */
+  diffs: FieldDiff[];
 }
 
 export interface CandidateView {
@@ -133,9 +156,13 @@ export interface CandidateView {
   /** 矛盾（シートの中で食い違う答え）の知らせ */
   contradictions: string[];
   fields: FieldView[];
-  /** 変更のとき: 今の値と違う欄の数 */
+  /** 変更のとき: 今の値と違う欄の数（お答えの無い欄〔今の値のまま〕は数えない） */
   changedFields: number;
   note: string | null;
+  /** 既定でチェックを外す理由（今の値の方が詳しい: 今の値が確定で、届いた値が範囲・推定・仮の値だけ）。null は外さない */
+  keep: string | null;
+  /** 記入どおりの値と一緒に、今の確定の値が範囲・推定・仮の値に置きかわる欄があるときの知らせ（既定で入れる） */
+  caution: string | null;
 }
 
 export interface ImportView {
@@ -228,9 +255,11 @@ function keepParent(prev: Obj, next: Obj): Obj {
 /** 細目で見分ける一覧（その他の資産の自社株・会社への貸付金、会社からの借入金。0105）。保険の細目は対応づけに使わない */
 const SUBTYPE_COLLECTIONS = new Set(["accounts", "debts"]);
 
-/** 連帯保証の額（0105）をシートで聞いていない（版1 のシート・空欄）ときは、今の値を残す */
-function keepGuarantee(prev: Obj, next: Obj): Obj {
-  return next.companyGuarantee === undefined && prev.companyGuarantee !== undefined ? { ...next, companyGuarantee: prev.companyGuarantee } : next;
+/** 本人・配偶者・子: 連帯保証の額（0105）をシートで聞いていない（版1 のシート・空欄）とき・性別の記入が無いときは、今の値を残す */
+function keepMember(prev: Obj, next: Obj, fields: readonly FieldRecord[]): Obj {
+  const out: Obj = next.companyGuarantee === undefined && prev.companyGuarantee !== undefined ? { ...next, companyGuarantee: prev.companyGuarantee } : { ...next };
+  if (!fields.some((f) => f.path === "/sex") && prev.sex !== undefined) out.sex = prev.sex;
+  return out;
 }
 
 /** 物の対応の鍵: 一覧・種類（その他の資産・ローンは細目も）・指している構成員（今の世帯の ID に読み替えたもの） */
@@ -326,6 +355,146 @@ function titleOf(c: Candidate, imp: EngineRequest): string {
   return group;
 }
 
+// ---- 今の値と届いた値を比べる（今の値を壊さない。お答えの無い欄は今の値のまま・今の方が詳しければ既定で残す） ----
+
+/** 物の中の場所（JSON Pointer の形 /a/b/0）の値 */
+function valueAt(o: unknown, path: string): unknown {
+  return path
+    .split("/")
+    .slice(1)
+    .reduce<unknown>((x, seg) => (x !== null && typeof x === "object" ? (x as Record<string, unknown>)[seg] : undefined), o);
+}
+
+/** 物の中の場所の入れ物（最後の段の1つ前） */
+function parentAt(o: unknown, path: string): { parent: Record<string, unknown>; last: string } | null {
+  const segs = path.split("/").slice(1);
+  const last = segs.pop();
+  if (last === undefined) return null;
+  const parent = segs.reduce<unknown>((x, seg) => (x !== null && typeof x === "object" ? (x as Record<string, unknown>)[seg] : undefined), o);
+  return parent !== null && typeof parent === "object" ? { parent: parent as Record<string, unknown>, last } : null;
+}
+
+/** 物の中の場所に値を入れる（undefined は欄を外す。途中の入れ物が無ければ入れない） */
+function setAt(o: unknown, path: string, value: unknown): void {
+  const at = parentAt(o, path);
+  if (at === null) return;
+  if (value === undefined) delete at.parent[at.last];
+  else at.parent[at.last] = structuredClone(value);
+}
+
+type Box = { state: string; value?: unknown; origin: unknown };
+const isBox = (v: unknown): v is Box => v !== null && typeof v === "object" && "state" in v && "origin" in v;
+
+/** 今の世帯のその欄に値があるか（値の箱は確定か推定のときだけ。未入力・わからない・該当なしは値なし） */
+function hasValue(v: unknown): boolean {
+  if (v === undefined || v === null) return false;
+  return !isBox(v) || v.state === "confirmed" || v.state === "estimated";
+}
+
+/**
+ * お答えの無い欄で、今の物の値を残せるか。値の箱は確定・推定・該当なし（FP が決めたもの）のとき、箱の無い欄は入れ物があれば
+ * 欄が無い・なし（null）も今の値として残す。値の箱が未入力・わからないなら、補った値（目安など）を入れる
+ */
+function keepable(cur: Obj, path: string): boolean {
+  const v = valueAt(cur, path);
+  if (isBox(v)) return v.state === "confirmed" || v.state === "estimated" || v.state === "notApplicable";
+  return v !== undefined || parentAt(cur, path) !== null;
+}
+
+/** 今の値が確定（推定・仮の印の無い値）か。値の箱は確定の状態、箱の無い欄は仮の印（assumed）が無いこと */
+function isFirm(v: unknown, uiKey: string | null, assumed: Readonly<Record<string, string>>): boolean {
+  if (!hasValue(v)) return false;
+  if (isBox(v)) return v.state === "confirmed";
+  return uiKey === null || assumed[uiKey] === undefined;
+}
+
+/** 欄の名前（入力項目IDと物の中の場所から。無ければ場所だけ・入力項目の名前の順） */
+const PATH_LABELS: Readonly<Record<string, string>> = {
+  "debt.repayment /repayment/termMonths": "返済期間",
+  "debt.repayment /repayment/method": "返済の方法",
+  "debt.rateSchedule /rateSchedule/0/rate": "金利",
+  "debt.rateSchedule /rateSchedule/0/type": "金利の種類",
+  "debt.debtors /debtors/0/member": "借りている人",
+  "debt.start /start/at": "借りた年月",
+  "debt.housing /housing": "住宅ローン控除の条件",
+  "employment.from /from/at": "仕事を始めた年月",
+  "employment.to /to/at": "仕事を終える年月",
+  "residence.from /from/at": "住み始めた年月",
+  "pensionRecord.amounts /amounts/basic": "老齢基礎年金の額",
+  "pensionRecord.amounts /amounts/employee": "老齢厚生年金の額",
+  "pensionRecord.months /months/basic": "年金の加入期間（合計）",
+  "pensionRecord.months /months/employee": "厚生年金の加入期間",
+  "member.birth /birth/birthYearMonth": "生年月",
+  "member.kind /related/0/marriage": "ご結婚の形",
+  "member.support /support/cohabiting": "同居か",
+};
+
+function pathLabel(f: Pick<FieldRecord, "path" | "item">, fallback: string): string {
+  if (f.item === "goal.education") return `進路（${String(Number(/stages\/(\d+)/.exec(f.path)?.[1] ?? 0) + 1)}つ目の学校）`;
+  return PATH_LABELS[`${f.item} ${f.path}`] ?? ITEM_LABELS[f.item] ?? fallback;
+}
+
+/** 決まった言葉の値（進路・金利・返済の方法など。シートの選択肢の言葉が無いとき） */
+const WORDS: Readonly<Record<string, string>> = {
+  kindergarten: "幼稚園",
+  elementary: "小学校",
+  juniorHigh: "中学校",
+  highSchool: "高校",
+  university: "大学",
+  public: "公立",
+  private: "私立",
+  national: "国立",
+  humanities: "文系",
+  science: "理系",
+  away: "自宅外",
+  home: "自宅",
+  variable: "変動金利",
+  fixed: "固定金利",
+  fixedPeriod: "固定期間選択",
+  equalPayment: "元利均等",
+  equalPrincipal: "元金均等",
+};
+
+const ymWords = (ym: string): string => `${ym.slice(0, 4)}年${Number(ym.slice(5, 7))}月`;
+
+/** 世帯の値を言葉に（候補の「今 → 届いた値」の表示用。単位は欄の場所から） */
+function valueText(v: unknown, path: string, labels: ReadonlyMap<string, string>, choices: ReadonlyMap<string, string>): string {
+  if (v === undefined) return "入れていない";
+  if (v === null) return "なし";
+  if (isBox(v)) {
+    if (v.state === "confirmed") return valueText(v.value, path, labels, choices);
+    if (v.state === "estimated") return `${valueText(v.value, path, labels, choices)}（推定）`;
+    if (v.state === "unknown") return "わからない";
+    if (v.state === "notApplicable") return "該当なし";
+    return "（未入力）";
+  }
+  if (typeof v === "boolean") return v ? "はい" : "いいえ";
+  if (typeof v === "number") {
+    if (path.endsWith("termMonths")) return `${String(v)}か月${v % 12 === 0 ? `（${String(v / 12)}年）` : ""}`;
+    if (/months/i.test(path)) return `${String(v)}か月`;
+    if (/hours/i.test(path)) return `${String(v)}時間`;
+    if (path.endsWith("/size")) return `${String(v)}人`;
+    return `${v.toLocaleString("ja-JP")}円`;
+  }
+  if (typeof v === "string") {
+    if (/^\d{4}-\d{2}$/.test(v)) return ymWords(v);
+    const numeric = /^-?\d+(\.\d+)?$/.test(v);
+    if (/rate/i.test(path) && numeric) return `${String(Math.round(Number(v) * 1e6) / 1e4)}%`;
+    if (/hours/i.test(path) && numeric) return `${v}時間`;
+    return labels.get(v) ?? choices.get(v) ?? WORDS[v] ?? v;
+  }
+  if (typeof v === "object" && typeof (v as { at?: unknown }).at === "string") return valueText((v as { at: string }).at, path, labels, choices);
+  // 進路の1つ（学校・公立か私立か・文系か理系か・自宅か）
+  if (typeof v === "object" && typeof (v as { stage?: unknown }).stage === "string") {
+    const o = v as Record<string, unknown>;
+    return ["stage", "sector", "field", "living"].flatMap((k) => (typeof o[k] === "string" ? [WORDS[o[k] as string] ?? (o[k] as string)] : [])).join("・");
+  }
+  return "（詳しい値）";
+}
+
+const PARENT_NEW_NOTE = "亡くなる見込みは、平均余命の推定（仮の値）で入れます（介護・親の項目で親を足したときと同じ）。扶養・親のお金・介護の費用はシートでお聞きしていません。介護・親の項目で入れてください";
+const PARENT_KEEP_NOTE = "亡くなる見込み・扶養・親のお金・介護の費用はシートでお聞きしていないので、今の値のままです";
+
 /** 返ってきた .xlsx を読み、候補を今の世帯と照らした一覧にする（現状は変えない） */
 export async function importSheet(bytes: Uint8Array, wh: WorkingHousehold, newId?: () => string): Promise<ImportOutcome> {
   const r = await importHearingSheet(bytes, { baseMonth: wh.request.input.baseMonth, requests: logOf(wh).requests, ...(newId !== undefined ? { newId } : {}) });
@@ -346,6 +515,13 @@ export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold): Imp
   for (const c of r.checklist) if (c.reason === "contradiction") contradictions.set(c.key, [...(contradictions.get(c.key) ?? []), c.message]);
   for (const i of r.issues) if (i.code === "H_CONTRADICTION" && i.key !== undefined) contradictions.set(i.key, [...new Set([...(contradictions.get(i.key) ?? []), i.message])]);
 
+  // 「今 → 届いた値」の言葉: 構成員の ID は呼び名（今の世帯と取り込んだ側の両方）、選ぶ答えは選択肢の言葉
+  const names = new Map<string, string>([...roles(imp).map((x) => [x.member.id, x.label] as const), ...roles(wh.request).map((x) => [x.member.id, x.label] as const)]);
+  const choicesOf = (key: string) => new Map((r.definition.items.find((i) => i.key === key)?.choices ?? []).map((x) => [x.value, x.label]));
+  /** お答えの無い欄で今の値を残した項目（key#index）と、お答えの無い欄を補った値のまま入れる項目 */
+  const keptKeys = new Set<string>();
+  const filledKeys = new Set<string>();
+
   const candidates: CandidateView[] = r.candidates.map((c) => {
     const v = c.value as Obj;
     let found: Obj | undefined;
@@ -361,21 +537,45 @@ export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold): Imp
       }
     }
     const mapped = remap(v, match);
-    // 連帯保証の額をシートで聞いていない（版1・空欄）なら、今の値と比べない（承認しても今の値を残す。keepGuarantee）
+    // 連帯保証の額をシートで聞いていない（版1・空欄）なら、今の値と比べない（承認しても今の値を残す。keepMember）
     if (found !== undefined && c.collection === "members" && mapped.companyGuarantee === undefined && found.companyGuarantee !== undefined) {
       found = { ...found };
       delete found.companyGuarantee;
     }
+    // 性別の記入が無い（初めの値を入れただけ）なら、今の値と比べない（承認しても今の性別を残す。keepMember）
+    if (found !== undefined && c.collection === "members" && !c.fields.some((f) => f.path === "/sex") && found.sex !== undefined) found = { ...found, sex: mapped.sex };
     let changedFields = 0;
+    let keptFields = 0;
+    /** 記入どおりの値（範囲・推定・仮でない）で変わる欄の数 */
+    let firmChanges = 0;
+    const rough: string[] = [];
+    const diffs = new Map<string, FieldDiff[]>();
     if (found !== undefined) {
       for (const f of c.fields) {
-        const at = (o: unknown) => f.path.split("/").slice(1).reduce<unknown>((x, seg) => (x !== null && typeof x === "object" ? (x as Record<string, unknown>)[seg] : undefined), o);
-        if (JSON.stringify(plain(at(mapped))) !== JSON.stringify(plain(at(found)))) changedFields++;
+        const next = valueAt(mapped, f.path);
+        const cur = valueAt(found, f.path);
+        if (JSON.stringify(plain(next)) === JSON.stringify(plain(cur))) continue;
+        const row = `${f.key}#${f.index ?? 0}`;
+        const label = pathLabel(f, keyLabel(r.definition, f.key));
+        // お答えの無い欄（空欄・「あとで」・聞いていない）は、今の値があれば承認しても今の値のまま（applyImport で戻す）
+        const kept = f.noAnswer === true && keepable(found, f.path);
+        const uiKey = f.uiKey === undefined ? null : remap(f.uiKey.split("/"), match).join("/");
+        const isRough = !kept && (f.state === "estimated" || f.state === "unknown" || f.state === "assumed") && isFirm(cur, uiKey, wh.assumed);
+        if (kept) {
+          keptFields++;
+          keptKeys.add(row);
+        } else changedFields++;
+        if (isRough && !rough.includes(label)) rough.push(label);
+        if (!kept && (f.state === "confirmed" || f.state === "notApplicable")) firmChanges++;
+        const choices = choicesOf(f.key);
+        diffs.set(row, [...(diffs.get(row) ?? []), { label, current: valueText(cur, f.path, names, choices), next: kept ? valueText(cur, f.path, names, choices) : valueText(next, f.path, names, choices), kept, rough: isRough }]);
       }
     }
+    for (const f of c.fields) if (f.noAnswer === true && (found === undefined || !keepable(found, f.path))) filledKeys.add(`${f.key}#${f.index ?? 0}`);
     // 親はシートで聞いた欄（生年月・性別・同居か）だけで比べる（亡くなる見込みなど、聞かない欄は承認しても今の値を残す）
     const parent = c.collection === "members" && v.kind === "parent";
-    const kind: CandidateKind = found === undefined ? "new" : changedFields > 0 || (!parent && JSON.stringify(plain(mapped)) !== JSON.stringify(plain({ ...found, id: v.id }))) ? "changed" : "same";
+    const whole = !parent && found !== undefined && JSON.stringify(plain(mapped)) !== JSON.stringify(plain({ ...found, id: v.id }));
+    const kind: CandidateKind = found === undefined ? "new" : changedFields > 0 ? "changed" : keptFields > 0 ? "noAnswer" : whole ? "changed" : "same";
     const seen = new Set<string>();
     const fields: FieldView[] = [];
     const assumedKey = Object.keys(r.assumed).find((key) => key.includes(v.id));
@@ -385,22 +585,36 @@ export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold): Imp
       const mark = markOf(v, f, assumedKey !== undefined ? assumedOf(assumedKey) : null);
       if (seen.has(k)) {
         // 同じ答えから補った別の欄（年収から標準報酬の目安など）は、印のあるものだけを1行足す
-        if (mark.mark !== null && !fields.some((x) => x.label.startsWith(label) && x.mark === mark.mark)) fields.push({ label: `${label}から補った値`, answer: "目安", ...mark });
+        if (mark.mark !== null && !fields.some((x) => x.label.startsWith(label) && x.mark === mark.mark)) fields.push({ label: `${label}から補った値`, answer: "目安", ...mark, noAnswer: false, diffs: [] });
         continue;
       }
       seen.add(k);
       const a = r.record.answers.find((x) => x.key === f.key && (x.index ?? 0) === (f.index ?? 0));
-      fields.push({ label, answer: answerText(r.definition, a, f.key), ...mark });
+      fields.push({ label, answer: answerText(r.definition, a, f.key), ...mark, noAnswer: f.noAnswer === true, diffs: kind === "changed" || kind === "noAnswer" ? (diffs.get(k) ?? []) : [] });
     }
     const cons = [...new Set(c.fields.flatMap((f) => contradictions.get(f.key) ?? []))];
-    return { id: c.id, group: groupOf(c), title: titleOf(c, imp), kind, review: c.status === "needsReview", contradictions: cons, fields, changedFields, note: c.note };
+    // 今の値が確定で、届いた値が範囲・推定・仮の値だけなら、既定で残す（チェックを外す）。記入どおりの値でも変わる欄があれば既定で入れ、
+    // 仮の値などに置きかわる欄を知らせる
+    const keep = kind === "changed" && rough.length > 0 && firmChanges === 0 ? `今の値の方が詳しいので残します（届いた${rough.join("・")}は範囲・推定・仮の値です）。届いた値にするなら、チェックを入れてください` : null;
+    const caution = kind === "changed" && rough.length > 0 && firmChanges > 0 ? `${rough.join("・")}は、今の確定の値が範囲・推定・仮の値に置きかわります。今の値を残すなら、承認の後に入力の画面で直してください` : null;
+    // 親: 新しく入る親は、亡くなる見込みを平均余命の推定（仮）で入れる（applyImport。介護・親の項目で親を足したときと同じ）。今いる親は聞かない欄を残す
+    const note = parent ? (found === undefined ? PARENT_NEW_NOTE : PARENT_KEEP_NOTE) : c.note;
+    return { id: c.id, group: groupOf(c), title: titleOf(c, imp), kind, review: c.status === "needsReview", contradictions: cons, fields, changedFields, note, keep, caution };
   });
-  return { definition: r.definition, candidates, checklist: r.checklist, issues: r.issues, memo: r.memo, consents: r.consents, pending: r.pending, result: r, match };
+  // 今の値を残した項目の「記入がありません（0円として計算します）」などの知らせは、残した値と合わないので出さない
+  // （同じ項目を、今の値の無い物で補った値のまま使うときは出す）
+  const quiet = (key: string | undefined, index: number | undefined) => key !== undefined && keptKeys.has(`${key}#${index ?? 0}`) && !filledKeys.has(`${key}#${index ?? 0}`);
+  const checklist = r.checklist.filter((x) => !(x.reason === "missing" && quiet(x.key, x.index)));
+  const issues = r.issues.filter((x) => !((x.code === "H_MISSING" || x.code === "H_ESTIMATED" || x.code === "H_ASSUMED") && x.level !== "error" && quiet(x.key, x.index)));
+  return { definition: r.definition, candidates, checklist, issues, memo: r.memo, consents: r.consents, pending: r.pending, result: r, match };
 }
 
-/** 既定で承認する候補: 新規と変更（同じ中身の候補・要確認・矛盾のある候補は、FP が選んだときだけ） */
+/**
+ * 既定で承認する候補: 新規と変更（同じ中身の候補・要確認・矛盾のある候補・今の値の方が詳しい変更は、FP が選んだときだけ）。
+ * お答えなしの物は候補にしない（今の値のまま）
+ */
 export function defaultSelection(view: ImportView): Set<string> {
-  return new Set(view.candidates.filter((c) => c.kind !== "same" && !c.review && c.contradictions.length === 0).map((c) => c.id));
+  return new Set(view.candidates.filter((c) => (c.kind === "new" || c.kind === "changed") && !c.review && c.contradictions.length === 0 && c.keep === null).map((c) => c.id));
 }
 
 export interface ApplyResult {
@@ -423,7 +637,9 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
   const request = structuredClone(wh.request);
   const h = request.input.household;
   const curLists = lists(h);
-  const chosen = r.candidates.filter((c) => selected.has(c.id));
+  // お答えなしの物（今の値のまま）は、選ばれていても入れない
+  const noAnswer = new Set(view.candidates.filter((c) => c.kind === "noAnswer").map((c) => c.id));
+  const chosen = r.candidates.filter((c) => selected.has(c.id) && !noAnswer.has(c.id));
   // 新しく入る構成員は、そのままの ID で入る。入らない（承認しなかった）新規の構成員を指す物は入れない
   const present = new Set([...h.members.map((m) => m.id), ...chosen.filter((c) => c.collection === "members").map((c) => (c.value as Obj).id)]);
   const imported = new Set(approved.input.household.members.map((m) => m.id));
@@ -433,6 +649,8 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
   let replaced = 0;
   const viewOf = new Map(view.candidates.map((c) => [c.id, c]));
   const dropped = new Set<string>();
+  /** お答えの無い欄で今の値を残した所の、仮の印のキー（取り込んだ側の印は入れず、今の印を残す） */
+  const keptUiKeys = new Set<string>();
   for (const c of chosen) {
     const src = (impLists[c.collection] ?? []).find((o) => o.id === c.target.object);
     if (src === undefined) continue;
@@ -457,7 +675,13 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
       // 前の物の値の状態の行のうち、取り込みで値が変わらない所の行（FP が決めた「該当なし」「わからない」・確定の記録）は残す。
       // 値が変わった所は取り込んだ値と承認の記録が正（0041）
       const prev = list[at] as Obj;
-      const merged = c.collection === "members" ? (obj.kind === "parent" ? keepParent(prev, obj) : keepGuarantee(prev, obj)) : obj;
+      const merged = c.collection === "members" ? (obj.kind === "parent" ? keepParent(prev, obj) : keepMember(prev, obj, c.fields)) : obj;
+      // お答えの無い欄（空欄・「あとで」・聞いていない）は、今の値があれば今の値のまま（目安・仮の値・0円で上書きしない）
+      for (const f of c.fields) {
+        if (f.noAnswer !== true || !keepable(prev, f.path)) continue;
+        setAt(merged, f.path, valueAt(prev, f.path));
+        if (f.uiKey !== undefined) keptUiKeys.add(f.uiKey);
+      }
       carryRows(prev, merged, c.collection === "members" ? { member: merged.id } : { object: merged.id });
       list[at] = merged;
       replaced++;
@@ -489,10 +713,12 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
   // 推定・仮の印: 入れた物の assumed を、今の世帯の ID に読み替えて入れる。置き換えた物の古い印は外す
   const touched = new Set(chosen.map((c) => ids.get(c.target.object) ?? c.target.object));
   const assumed: Record<string, string> = {};
-  for (const [k, v] of Object.entries(wh.assumed)) if (![...touched].some((id) => k.includes(id))) assumed[k] = v;
+  const keptCurrent = new Set([...keptUiKeys].map((k) => remap(k.split("/"), ids).join("/")));
+  for (const [k, v] of Object.entries(wh.assumed)) if (![...touched].some((id) => k.includes(id)) || keptCurrent.has(k)) assumed[k] = v;
   for (const [k, v] of Object.entries(r.assumed)) {
-    const c = r.candidates.find((x) => k.includes(x.target.object));
-    if (c !== undefined && selected.has(c.id)) assumed[remap(k.split("/"), ids).join("/")] = v;
+    if (keptUiKeys.has(k)) continue;
+    const c = chosen.find((x) => k.includes(x.target.object));
+    if (c !== undefined) assumed[remap(k.split("/"), ids).join("/")] = v;
   }
   const log = logOf(wh);
   const memo = r.memo.length > 0 ? [...wh.memo, ...r.memo.map((m) => `ヒアリング（${r.record.requestId}）: ${m}`)] : wh.memo;

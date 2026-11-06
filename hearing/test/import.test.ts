@@ -272,3 +272,36 @@ describe("取り込み", () => {
     expect(r.record).toEqual({ kind: "hearing", requestId: "R-ABCDEF", sheetId: "basic", sheetVersion: 1, layoutDigest: M.layoutDigest, exportedOn: "2026-10-01", answers });
   });
 });
+
+describe("取り込み: 答えの無い欄の印と、Web の記入の年月（今の値を壊さないため）", () => {
+  it("答えの無い欄（空欄・聞いていない）で補った値の欄には noAnswer、仮の値の欄には入力の画面のキー（uiKey）が付く。答えた欄には付かない", () => {
+    const r = run(...minimal, a("hs.work.type", "regular", 1), a("hs.income.salary", 4500000, 1));
+    const work = r.candidates.find((c) => c.collection === "employmentPeriods");
+    const from = work?.fields.find((f) => f.path === "/from/at");
+    expect(from).toMatchObject({ state: "assumed", noAnswer: true });
+    expect(from?.uiKey).toBe(`work/period/${work?.target.object ?? ""}/from`);
+    expect(r.assumed[from?.uiKey ?? ""]).toBeDefined();
+    const salary = work?.fields.find((f) => f.path === "/salary/annual");
+    expect(salary?.noAnswer).toBeUndefined();
+    // 生活費は空欄 → 目安で補った値（noAnswer）
+    expect(r.candidates.find((c) => c.collection === "livingExpenses")?.fields[0]).toMatchObject({ state: "estimated", noAnswer: true });
+    // 本人の生年月は答えた
+    expect(r.candidates.find((c) => c.collection === "members")?.fields.find((f) => f.path === "/birth/birthYearMonth")?.noAnswer).toBeUndefined();
+  });
+
+  it("「わからない」は答え（noAnswer にしない）", () => {
+    const r = run(...minimal, a("hs.expense.living", "unknown"));
+    expect(r.candidates.find((c) => c.collection === "livingExpenses")?.fields[0]?.noAnswer).toBeUndefined();
+  });
+
+  it("Web の答え（記入の年月は送った月）は、計算基準月より後でも1年までは知らせない。1年を超えたら知らせる。Excel は今までどおり知らせる", () => {
+    const base = minimal.filter((x) => x.key !== "hs.meta.filledOn");
+    const web = (filledOn: string) => importAnswers(def, sheet(a("hs.meta.filledOn", filledOn), ...base), { baseMonth: "2026-10", newId: idSeq("web"), filledOnIsSubmission: true });
+    const later = (r: ReturnType<typeof run>) => r.issues.filter((i) => i.key === "hs.meta.filledOn" && i.code === "H_CONTRADICTION");
+    expect(later(web("2026-11"))).toEqual([]);
+    expect(web("2026-11").checklist.some((c) => c.key === "hs.meta.filledOn")).toBe(false);
+    expect(later(web("2027-10"))).toEqual([]);
+    expect(later(web("2027-11"))[0]?.message).toContain("1年を超えて後");
+    expect(later(run(a("hs.meta.filledOn", "2026-11"), ...base))[0]?.message).toContain("記入の年月が計算基準月より後");
+  });
+});

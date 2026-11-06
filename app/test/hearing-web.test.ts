@@ -6,7 +6,8 @@ import { memoryStore } from "../../hearing/relay/store.ts";
 import { answersOf, draftKey, initialDraft, openRequest, submitAnswers, uploadFile, type Draft, type RelayTransport } from "../../hearing/src/web/index.ts";
 import { API_PREFIX } from "../../hearing/src/web/protocol.ts";
 import { applyImport, approvalTime, defaultSelection } from "../src/workspace/hearing/sheet.ts";
-import { docRequestStatus, documentFromTemplate, importWeb, invitationText, issueWeb, keepWebLog, markImported, officeFace, previewPacket, readHearingTemplates, receiveWeb, receivedDocuments, removeOnServer, statusOf, templateSelection, webLog, withCustom, withoutFile } from "../src/workspace/hearing/web.ts";
+import { docRequestStatus, documentFromTemplate, importWeb, invitationText, issueWeb, keepWebLog, markImported, officeFace, previewPacket, readHearingTemplates, receiveWeb, receivedDocuments, removeOnServer, sentAtText, STATUS_TEXT, statusOf, templateSelection, webLog, withCustom, withoutFile } from "../src/workspace/hearing/web.ts";
+import type { DraftAnswer } from "../../hearing/src/web/flow.ts";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
 import { readOfficeSettings, withHearingTemplates, DEFAULT_OFFICE_SETTINGS } from "../src/workspace/office/settings.ts";
@@ -129,3 +130,147 @@ describe("Web のヒアリング（FP の側）", () => {
     expect(withHearingTemplates(s, []).hearingTemplates).toBeUndefined();
   });
 });
+
+// ---- 取り込みで今の値を壊さない（値の入った世帯に「初回の前」で聞いて取り込む） ----
+
+const num = (text: string) => ({ status: "value" as const, raw: { kind: "number" as const, text } });
+
+/** 値の入った世帯（夫婦と子2人。預貯金 800万円・住宅ローン 残高 2,240万円・生活費 月30万円） */
+const filled = (): WorkingHousehold => fromRequest(modelHousehold("salariedCoupleTwoKids"));
+
+/** 「初回の前」の URL を発行し、お客さまが答えて送り、FP が受け取ったところまで */
+async function answeredWeb(wh: WorkingHousehold, answers: Record<string, DraftAnswer>, gates: Record<string, number> = { spouse: 1, child: 2 }, submittedAt = new Date("2026-11-06T13:15:00Z")) {
+  const { t } = relayFor();
+  const r = await issueWeb(wh, { selection: templateSelection("first", wh), customerNo: "A1", office: OFFICE, days: 14, pageUrl: "https://relay.test/h/", transport: t, now: NOW });
+  const o = await openRequest(new URL(r.entry.record.url).hash, t);
+  const d0 = initialDraft(o.packet);
+  const d: Draft = { ...d0, gates: { ...d0.gates, ...gates }, answers: { [draftKey("hs.consent.purpose")]: v("given"), ...answers } };
+  await submitAnswers(o, answersOf(o.packet, d, submittedAt), t);
+  const got = await receiveWeb(r.wh, r.entry, t, NOW);
+  if (got === null) throw new Error("受け取れない");
+  return got;
+}
+
+describe("取り込みで今の値を壊さない", () => {
+  it("「あとで」・空欄の項目は、今の値を空欄・0円・目安で上書きしない（候補にせず「お答えなし」。知らせの「0円として計算します」も出さない）", async () => {
+    const wh = filled();
+    const got = await answeredWeb(wh, { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1981, 7), [draftKey("hs.assets.depositTotal")]: { status: "later" } });
+    const view = importWeb(got.wh, got.entry, "0.1.0", seq);
+    const deposit = view.candidates.find((c) => c.group === "貯蓄・投資");
+    expect(deposit?.kind).toBe("noAnswer");
+    expect(deposit?.fields[0]?.diffs[0]).toMatchObject({ current: "8,000,000円", kept: true });
+    // 生活費（空欄・目安）も今の値のまま
+    expect(view.candidates.find((c) => c.group === "生活費")?.kind).toBe("noAnswer");
+    const sel = defaultSelection(view);
+    expect(view.candidates.filter((c) => c.kind === "noAnswer").some((c) => sel.has(c.id))).toBe(false);
+    expect([...view.issues.map((i) => i.message), ...view.checklist.map((c) => c.message)].some((m) => m.includes("0円として計算します"))).toBe(false);
+    // FP が全部にチェックを入れても、お答えなしの物は入れない
+    const all = new Set(view.candidates.map((c) => c.id));
+    const h = applyImport(got.wh, view, all, AT_WEB).wh.request.input.household;
+    expect((h.accounts ?? []).find((a) => a.kind === "deposit")?.marketValue).toMatchObject({ value: 8000000, state: "confirmed" });
+    expect(h.livingExpenses?.[0]?.monthly).toMatchObject({ value: 300000, state: "confirmed" });
+    expect(h.members.find((m) => m.kind === "spouse")?.birth.birthYearMonth).toBe("1983-10");
+  });
+
+  it("粗い答え（毎月の返済額だけ・残高は「わからない」）で置いた仮のローンは、詳しく入れてあったローンを既定で残す。候補には「今 → 届いた値」が並ぶ", async () => {
+    const wh = filled();
+    const got = await answeredWeb(wh, { [draftKey("hs.housing.type")]: v("own"), [draftKey("hs.loan.monthlyTotal")]: num("98000"), [draftKey("hs.loan.balanceTotal")]: { status: "unknown" } });
+    const view = importWeb(got.wh, got.entry, "0.1.0", seq);
+    const loan = view.candidates.find((c) => c.group === "住宅ローン");
+    expect(loan?.kind).toBe("changed");
+    expect(loan?.keep).toContain("今の値の方が詳しいので残します");
+    expect(defaultSelection(view).has(loan?.id ?? "")).toBe(false);
+    const diffs = loan?.fields.flatMap((f) => f.diffs) ?? [];
+    expect(diffs.find((d) => d.label === "残高")).toMatchObject({ current: "22,400,000円", next: "わからない", rough: true });
+    expect(diffs.find((d) => d.label === "借入額")).toMatchObject({ current: "32,000,000円", rough: true });
+    const out = applyImport(got.wh, view, defaultSelection(view), AT_WEB).wh.request.input.household;
+    expect(out.debts?.[0]).toMatchObject({ principal: 32000000, balance: { value: 22400000, state: "confirmed" }, start: { at: "2016-04" } });
+  });
+
+  it("範囲の答えも、確定の今の値を既定で残す（Excel と同じ候補の画面）", async () => {
+    const wh = filled();
+    const got = await answeredWeb(wh, { [draftKey("hs.work.type", 1)]: v("regular"), [draftKey("hs.income.annualRange", 1)]: v("600〜700万円") });
+    const view = importWeb(got.wh, got.entry, "0.1.0", seq);
+    const work = view.candidates.find((c) => c.title === "ご本人の仕事と収入");
+    expect(work?.keep).not.toBeNull();
+    expect(work?.fields.flatMap((f) => f.diffs).find((d) => d.label === "給与")).toMatchObject({ current: "6,200,000円", rough: true });
+    expect(defaultSelection(view).has(work?.id ?? "")).toBe(false);
+  });
+
+  it("答えた欄だけが変わる: 答えの無い欄（性別・仕事を始めた年月など）は、承認しても今の値と今の仮の印のまま", async () => {
+    const base = filled();
+    // ご本人を女性にしておく（性別を答えないと、取り込みの初めの値は男性）
+    const wh: WorkingHousehold = { ...base, request: { ...base.request, input: { ...base.request.input, household: { ...base.request.input.household, members: base.request.input.household.members.map((m) => (m.kind === "self" ? { ...m, sex: "female" as const } : m)) } } } };
+    // 配偶者の方は年収だけ答える（生年月は答えない → 仮の値〔ご本人と同じ年月〕で補うが、今の生年月を残す）
+    const got = await answeredWeb(wh, { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1980, 1), [draftKey("hs.work.type", 1)]: v("regular"), [draftKey("hs.income.annual", 1)]: num("900"), [draftKey("hs.income.annual", 2)]: num("120") });
+    const view = importWeb(got.wh, got.entry, "0.1.0", seq);
+    const self = view.candidates.find((c) => c.title === "ご本人");
+    expect(self?.kind).toBe("changed");
+    const work = view.candidates.find((c) => c.title === "ご本人の仕事と収入");
+    expect(work?.kind).toBe("changed");
+    expect(work?.keep).toBeNull();
+    expect(work?.fields.flatMap((f) => f.diffs).find((d) => d.label === "仕事を始めた年月")).toMatchObject({ current: "2004年4月", kept: true });
+    const sel = defaultSelection(view);
+    expect(sel.has(self?.id ?? "")).toBe(true);
+    expect(sel.has(work?.id ?? "")).toBe(true);
+    const out = applyImport(got.wh, view, sel, AT_WEB).wh;
+    const h = out.request.input.household;
+    const me = h.members.find((m) => m.kind === "self");
+    expect(me).toMatchObject({ sex: "female", birth: { birthYearMonth: "1980-01" } });
+    const p = (h.employmentPeriods ?? []).find((x) => x.member === me?.id);
+    expect(p?.salary?.annual).toMatchObject({ value: expect.any(Number) as number });
+    expect(p?.from).toEqual({ at: "2004-04" });
+    expect(view.candidates.find((c) => c.title === "配偶者")?.kind).toBe("noAnswer");
+    expect(h.members.find((m) => m.kind === "spouse")?.birth.birthYearMonth).toBe("1983-10");
+    expect(out.assumed[`work/period/${p?.id ?? ""}/from`]).toBeUndefined();
+  });
+
+  it("Web の答えでは「記入の年月が計算基準月より後」を出さない（送った月はお客さまが選んだ年月でない）。1年を超えて離れたときだけ出す", async () => {
+    const wh = filled();
+    expect(wh.request.input.baseMonth).toBe("2026-10");
+    const got = await answeredWeb(wh, { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1981, 7) });
+    const view = importWeb(got.wh, got.entry, "0.1.0", seq);
+    const later = (vw: typeof view) => [...vw.issues.map((i) => i.message), ...vw.checklist.map((c) => c.message)].filter((m) => m.includes("計算基準月") && m.includes("後です"));
+    expect(later(view)).toEqual([]);
+    const far = await answeredWeb(wh, { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1981, 7) }, { spouse: 1, child: 2 }, new Date("2027-12-01T09:00:00Z"));
+    expect(later(importWeb(far.wh, far.entry, "0.1.0", seq)).some((m) => m.includes("1年を超えて"))).toBe(true);
+  });
+
+  it("送った日時は受け取りの記録にあり、画面の言葉にできる", async () => {
+    const got = await answeredWeb(filled(), {});
+    expect(got.entry.received?.submittedAt).toBe("2026-11-06T13:15:00.000Z");
+    expect(sentAtText(got.entry.received?.submittedAt ?? "")).toMatch(/11月[67]日/);
+    expect(sentAtText("x")).toBe("不明");
+  });
+
+  it("元に戻すと、依頼の記録は「取り込み済み」のままだが、世帯の取り込みの記録と照らして「取り込みを元に戻しました」と出す。やり直すと取り込み済みに戻る", async () => {
+    const got = await answeredWeb(blank(), { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1985, 6) }, { spouse: 0, child: 0 });
+    const before = got.wh;
+    const view = importWeb(before, got.entry, "0.1.0", seq);
+    const done = markImported(applyImport(before, view, defaultSelection(view), AT_WEB).wh, got.entry.record.requestId, AT_WEB);
+    const e = () => webLog(done)[0]!;
+    expect(statusOf(e(), NOW, false, done)).toBe("imported");
+    // 元に戻す: 世帯は前の状態、依頼の記録は今のもの（keepWebLog）
+    const undone = keepWebLog(before, done);
+    expect(webLog(undone)[0]?.state).toBe("imported");
+    expect(statusOf(webLog(undone)[0]!, NOW, false, undone)).toBe("undone");
+    expect(STATUS_TEXT.undone).toContain("元に戻しました");
+    // やり直す
+    const redone = keepWebLog(done, undone);
+    expect(statusOf(webLog(redone)[0]!, NOW, false, redone)).toBe("imported");
+  });
+
+  it("取り込んだ親には、画面で足した親と同じく、亡くなる見込みを平均余命の推定（仮の印）で入れる", async () => {
+    const got = await answeredWeb(blank(), { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1985, 6), [draftKey("hs.family.parent.alive", 1)]: v("alive"), [draftKey("hs.family.parent.age", 1)]: { status: "value", raw: { kind: "number", text: "70" } } }, { spouse: 0, child: 0 });
+    const view = importWeb(got.wh, got.entry, "0.1.0", seq);
+    const father = view.candidates.find((c) => c.kind === "new" && c.title === "父");
+    expect(father?.note).toContain("平均余命の推定");
+    const out = applyImport(got.wh, view, defaultSelection(view), AT_WEB).wh;
+    const p = out.request.input.household.members.find((m) => m.kind === "parent");
+    expect(p?.leaves).not.toBeNull();
+    expect(p?.leaves).toBeDefined();
+    expect(out.assumed[`family/${p?.id ?? ""}/leaves`]).toContain("平均余命");
+  });
+});
+
+const AT_WEB = approvalTime(new Date(2026, 10, 7, 10, 0, 0));
