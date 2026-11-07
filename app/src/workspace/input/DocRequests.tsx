@@ -7,20 +7,22 @@ import { useMemo, useState } from "preact/hooks";
 import { Help } from "../../presentation/Help.tsx";
 import type { Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
-import { docRequests, requestMessage, SAFE_SENDING } from "./docRequests.ts";
+import { docRequests, requestMessage, SAFE_SENDING, type DocRequest } from "./docRequests.ts";
 import { docRequestStatus } from "../hearing/web.ts";
 
 interface Props {
   wh: WorkingHousehold;
   /** 入力項目を開いて欄に移る */
   onOpen: (card: string, fieldKey: string | null, level: Level) => void;
+  /** 1通の書類の読み取りへ進む（「この書類を読む」。0154 の3。プランの編集中は渡さない） */
+  onRead?: (req: DocRequest) => void;
   onClose?: () => void;
 }
 
 /** お名前・事務所名（アプリを開いている間だけ覚える。保存しない） */
 const remembered = { name: "", office: "" };
 
-export function DocRequests({ wh, onOpen, onClose }: Props) {
+export function DocRequests({ wh, onOpen, onRead, onClose }: Props) {
   const reqs = useMemo(() => docRequests(wh), [wh]);
   // Web のヒアリングで頼んだ・届いた書類（0125。書類待ちの1通と結びつけたもの）
   const web = useMemo(() => docRequestStatus(wh), [wh]);
@@ -49,6 +51,7 @@ export function DocRequests({ wh, onOpen, onClose }: Props) {
           <Help label="書類のお願い" id="docRequests">
             <p>欄で「書類で確かめる」にした所（書類待ち）から、お客さまに送ってもらう書類を、人・契約・ローンごとに1通ずつまとめます。</p>
             <p>書類ごとに、その書類から写す欄と今の代わりの値を並べます。「開く」でその欄に移り、書類の値を打つと書類待ちが消え、この一覧からも消えます。</p>
+            <p>「この書類を読む」は、届いた書類の読み取り（電子データ〔XML〕・AI の答えの貼り付け）へ進みます。読んだ値は確かめて承認したものだけが入り、書類待ちが消えます。</p>
             <p>「文をコピー」は、メール・メッセージに貼るお願いの文を写します。書類の名前と見たい所だけで、金額・番号・顧客番号は入りません。お名前・事務所名は文に入れるだけで、保存しません。</p>
             <p>同じ一覧は、ヒアリングシートを書き出すときに1枚目の「今回お願いしたい書類」にも載ります。</p>
           </Help>
@@ -62,6 +65,11 @@ export function DocRequests({ wh, onOpen, onClose }: Props) {
           {reqs.map((r) => (
             <li key={r.id} data-dr-doc={r.id}>
               <span class="dr-title">{r.title}</span>
+              {onRead !== undefined ? (
+                <button type="button" class="link-btn dr-read" onClick={() => onRead(r)} data-dr-read={r.id} title="この書類の読み取り（電子データ・AI の答えの貼り付け）へ進みます。読んだ値は確かめて承認したものだけが入ります">
+                  この書類を読む
+                </button>
+              ) : null}
               {web.get(r.id) !== undefined ? (
                 <span class={`dr-web${(web.get(r.id)?.files ?? 0) > 0 ? "" : " wait"}`} data-dr-web={r.id}>
                   {(web.get(r.id)?.files ?? 0) > 0 ? `Web で届いた（${web.get(r.id)?.files ?? 0}）— 取り込みの「Web の依頼」の書類で開けます` : web.get(r.id)?.answer === "notAvailable" ? "Web で頼んだ: 手元にない" : web.get(r.id)?.answer === "later" ? "Web で頼んだ: あとで送る" : "Web で頼んでいます"}

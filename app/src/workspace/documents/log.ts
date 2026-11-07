@@ -114,6 +114,7 @@ function readObject(v: unknown): DocObject | null {
     status: v.status === "accepted" || v.status === "rejected" ? v.status : "pending",
   };
   if (typeof v.created === "string" && UUID.test(v.created)) o.created = v.created;
+  if (v.linked === true && o.created !== undefined && o.status === "accepted") o.linked = true;
   if (typeof v.decidedAt === "string" && TIME.test(v.decidedAt)) o.decidedAt = v.decidedAt;
   return o;
 }

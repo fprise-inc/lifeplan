@@ -108,7 +108,7 @@ pub struct ProposeArgs {
 }
 
 /// 書類の種類（画面の読み口の DOC_TYPES と同じ。知らない種類はアプリが「そのほかの書類」にする）
-pub const DOC_TYPES: [&str; 14] = [
+pub const DOC_TYPES: [&str; 16] = [
     "pensionStatement",
     "pensionNotice",
     "withholdingSlip",
@@ -117,8 +117,10 @@ pub const DOC_TYPES: [&str; 14] = [
     "lifeInsuranceDeduction",
     "earthquakeInsuranceDeduction",
     "smallBusinessMutualAidDeduction",
+    "pensionPremiumDeduction",
     "insurancePolicy",
     "housingLoanBalance",
+    "housingLoanCredit",
     "loanSchedule",
     "taxReturn",
     "brokerageBalance",
@@ -167,7 +169,7 @@ pub struct DocObjectArg {
     /// 仮の鍵（例 c1。values の newObject で指す。英数字と _ - の16字まで）
     #[schemars(regex(pattern = r"^[A-Za-z0-9_-]{1,16}$"))]
     pub key: String,
-    /// 種類（「集まり:種類」。今は保険の契約 insurance:<保険の種類> だけ。例 insurance:medical）
+    /// 種類（「集まり:種類」。保険の契約 insurance:<保険の種類>〔例 insurance:medical〕・住宅ローン debt:mortgage・口座 account:ideco と account:smallBusinessMutualAid）
     #[schemars(regex(pattern = r"^[a-z][A-Za-z]*:[A-Za-z0-9]+$"))]
     pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]

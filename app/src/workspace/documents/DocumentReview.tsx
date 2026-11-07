@@ -1,7 +1,8 @@
 // 書類の読み取りの確かめの画面（0148 の2）と、入力のホームの「取り込む」の入口。
 // - 1画面に1通。左に書類から読んだ所（元の場所と、その所の文字。伏せ字の後）、右に入る欄の行（共通の部品 ReviewTable）。行を押すと左のその所が光る
 // - 1つずつ承認・直す・入れない。まとめて承認は確からしさが高く、今の値が空・推定・書類待ちか同じ値の行だけ（review/rows.ts の bulkEligible）
-// - 新しい物（保険の契約など）は、物ごとに「足す」を選んでから、その中の値を承認する。同じ契約がありそうなら知らせる（黙ってまとめない）
+// - 新しい物（保険の契約・住宅ローン・iDeCo など）は、物ごとに「足す」か「今の○○に当てる」を選んでから、その中の値を承認する。同じ物がありそうなら
+//   知らせる（黙ってまとめない。0154 の3）
 // - 照合だけの値は入力にせず、書類の額とアプリの計算を並べる
 // - 世帯の値を変える操作は、読み取りの記録を先に入れてから、元に戻せる変更として現状に入れる（呼ぶ側の onChange）
 // - 保険の契約の候補がある書類（控除証明書など）は、入れ漏れの一覧（今の保険の入力に無さそうな契約）を上に出す（0153 の3）
@@ -16,8 +17,8 @@ import { pendingCount, pendingTotal, removable, withoutReading, withReading } fr
 import { readProposal } from "./proposal.ts";
 import { deductionProposals, readDeductionFile } from "./deductionXml.ts";
 import { gapDate, gapText } from "./insuranceGaps.ts";
-import { acceptCandidates, acceptObject, correctCandidate, docReview, rejectCandidates, rejectObject, reopenCandidate, withHolder, type CalcOf, type Chosen } from "./review.ts";
-import { SAMPLE_DEDUCTION_XML, SAMPLE_DOCUMENTS } from "./samples.ts";
+import { acceptCandidates, acceptObject, correctCandidate, docReview, linkObject, rejectCandidates, rejectObject, reopenCandidate, withHolder, type CalcOf, type Chosen } from "./review.ts";
+import { SAMPLE_DEDUCTION_XML, SAMPLE_DOCUMENTS, SAMPLE_MORE_XML } from "./samples.ts";
 import { docTypeLabel, type DocumentLog, type DocumentReading } from "./types.ts";
 
 export interface DocChange {
@@ -75,11 +76,12 @@ export function AiDocumentBand({ wh, failed, onOpen, onDismiss }: { wh: WorkingH
   );
 }
 
-/** 架空の控除証明書の電子データ（XML）を、XML の読み手で読んだ記録（見本の世帯だけ。0153 の4） */
+/** 架空の控除証明書などの電子データ（XML）を、XML の読み手で読んだ記録（見本の世帯だけ。0153 の4・0154 の5） */
 export function xmlSampleReadings(wh: WorkingHousehold, at: string = approvalTime(), newId: () => string = () => crypto.randomUUID()): DocumentReading[] {
   const members = roles(wh.request).map((r) => ({ key: r.key, id: r.member.id }));
-  const reader = { id: "sample.deductionXml", version: 1 };
-  return deductionProposals(SAMPLE_DEDUCTION_XML).proposals.flatMap((p) => {
+  const reader = { id: "sample.deductionXml", version: 2 };
+  // 保険料の控除証明書（0153）と、ほかの控除証明書・住宅ローンの証明書（0154）
+  return [...deductionProposals(SAMPLE_DEDUCTION_XML).proposals, ...deductionProposals(SAMPLE_MORE_XML).proposals].flatMap((p) => {
     const r = readProposal(p.raw, { via: "sample", at, newId, reader, members }).reading;
     return r === null ? [] : [{ ...r, dropped: r.dropped + p.masked }];
   });
@@ -90,62 +92,83 @@ const alreadyRead = (wh: WorkingHousehold, sha256: string | undefined): boolean 
 
 const MAX_FILES = 10;
 
+/**
+ * 電子データ（XML）のファイルを読んで、読み取りの記録にする（このパソコンの中だけで読む。世帯は変えない）。前に読んだファイル（同じ指紋）は足さない。
+ * 画面に出す知らせ（2つ以上のファイルなら理由にファイル名を添える。記録には残さない）も返す
+ */
+export async function readXmlFiles(wh: WorkingHousehold, files: readonly File[]): Promise<{ fresh: DocumentReading[]; msg: { ok: boolean; text: string } }> {
+  const members = roles(wh.request).map((r) => ({ key: r.key, id: r.member.id }));
+  const fresh: DocumentReading[] = [];
+  const notes: string[] = [];
+  let again = 0;
+  try {
+    for (const f of files.slice(0, MAX_FILES)) {
+      const res = await readDeductionFile(new Uint8Array(await f.arrayBuffer()), { at: approvalTime(), newId: () => crypto.randomUUID(), members });
+      notes.push(...res.issues.map((x) => (files.length > 1 ? `「${f.name}」: ${x}` : x)));
+      // 前に読んだファイル（同じ指紋）は足さない。1つのファイルの証明書は、まとめて足すか足さないか
+      const sha = res.readings[0]?.file?.sha256;
+      if (alreadyRead(wh, sha) || fresh.some((x) => x.file?.sha256 === sha)) again += res.readings.length;
+      else fresh.push(...res.readings);
+    }
+  } catch {
+    notes.push("ファイルを読めませんでした");
+  }
+  if (files.length > MAX_FILES) notes.push(`一度に読めるのは${MAX_FILES}ファイルまでです`);
+  if (again > 0) notes.push(`前に読んだファイルの証明書（${again}通）は、もう一度は足していません`);
+  const objects = fresh.reduce((n, r) => n + r.objects.length, 0);
+  const msg = fresh.length > 0 ? { ok: true, text: `証明書${fresh.length}通${objects > 0 ? `・契約やローン・口座${objects}件` : ""}を読みました。${notes.join("。")}` } : { ok: false, text: notes.length > 0 ? notes.join("。") : "読める証明書がありませんでした" };
+  return { fresh, msg };
+}
+
+/** 電子データ（XML）のファイルを選ぶボタン（入力のホームの入口と、「この書類を読む」の入口で使う） */
+export function XmlFileButton({ wh, label = "控除証明書の電子データ（XML）を読む", onReadings }: { wh: WorkingHousehold; label?: string; onReadings: (readings: DocumentReading[]) => void }) {
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const readFiles = async (files: FileList | null) => {
+    if (files === null || files.length === 0) return;
+    setBusy(true);
+    const res = await readXmlFiles(wh, [...files]);
+    setBusy(false);
+    setMsg(res.msg);
+    if (res.fresh.length > 0) onReadings(res.fresh);
+  };
+  return (
+    <>
+      <label class={`btn${busy ? " disabled" : ""}`} data-documents-xml>
+        {label}
+        <input
+          type="file"
+          accept=".xml,application/xml,text/xml"
+          multiple
+          hidden
+          disabled={busy}
+          onChange={(e) => {
+            const input = e.currentTarget as HTMLInputElement;
+            void readFiles(input.files).then(() => (input.value = ""));
+          }}
+          data-documents-xml-file
+        />
+      </label>
+      {msg !== null ? (
+        <span class={msg.ok ? "rk-ok" : "hh-err"} role="status" data-documents-xml-msg>
+          {msg.text}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
 /** 入力のホームの「取り込む」の中の入口（書類の読み取り）。onReadings があれば、控除証明書の電子データ（XML）を読む入口も、onPaste があれば AI の答えを貼り付ける入口（0151）も出す */
 export function DocumentEntry({ wh, sample, onOpen, onSamples, onReadings, onPaste }: { wh: WorkingHousehold; sample: boolean; onOpen: () => void; onSamples: () => void; onReadings?: (readings: DocumentReading[]) => void; onPaste?: () => void }) {
   const readings = wh.documents?.readings ?? [];
   const pending = pendingTotal(wh);
-  const [xmlMsg, setXmlMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const readFiles = async (files: FileList | null) => {
-    if (files === null || files.length === 0 || onReadings === undefined) return;
-    setBusy(true);
-    const members = roles(wh.request).map((r) => ({ key: r.key, id: r.member.id }));
-    const fresh: DocumentReading[] = [];
-    const notes: string[] = [];
-    let again = 0;
-    try {
-      for (const f of [...files].slice(0, MAX_FILES)) {
-        const res = await readDeductionFile(new Uint8Array(await f.arrayBuffer()), { at: approvalTime(), newId: () => crypto.randomUUID(), members });
-        // 理由にはファイル名を添える（画面に出すだけで、記録には残さない）
-        notes.push(...res.issues.map((x) => (files.length > 1 ? `「${f.name}」: ${x}` : x)));
-        // 前に読んだファイル（同じ指紋）は足さない。1つのファイルの証明書は、まとめて足すか足さないか
-        const sha = res.readings[0]?.file?.sha256;
-        if (alreadyRead(wh, sha) || fresh.some((x) => x.file?.sha256 === sha)) again += res.readings.length;
-        else fresh.push(...res.readings);
-      }
-    } catch {
-      notes.push("ファイルを読めませんでした");
-    }
-    if (files.length > MAX_FILES) notes.push(`一度に読めるのは${MAX_FILES}ファイルまでです`);
-    if (again > 0) notes.push(`前に読んだファイルの証明書（${again}通）は、もう一度は足していません`);
-    setBusy(false);
-    const contracts = fresh.reduce((n, r) => n + r.objects.length, 0);
-    setXmlMsg(fresh.length > 0 ? { ok: true, text: `証明書${fresh.length}通・契約${contracts}件を読みました。${notes.join("。")}` } : { ok: false, text: notes.length > 0 ? notes.join("。") : "読める証明書がありませんでした" });
-    if (fresh.length > 0) onReadings(fresh);
-  };
   return (
     <div class="hs-tools" role="group" aria-label="書類の読み取り" data-imports-documents>
       <span class="hs-tools-h">書類の読み取り</span>
-      {onReadings !== undefined ? (
-        <label class={`btn${busy ? " disabled" : ""}`} data-documents-xml>
-          控除証明書の電子データ（XML）を読む
-          <input
-            type="file"
-            accept=".xml,application/xml,text/xml"
-            multiple
-            hidden
-            disabled={busy}
-            onChange={(e) => {
-              const input = e.currentTarget as HTMLInputElement;
-              void readFiles(input.files).then(() => (input.value = ""));
-            }}
-            data-documents-xml-file
-          />
-        </label>
-      ) : null}
+      {onReadings !== undefined ? <XmlFileButton wh={wh} onReadings={onReadings} /> : null}
       {onReadings !== undefined && sample ? (
         <button type="button" class="btn" onClick={() => onReadings(xmlSampleReadings(wh))} data-documents-xml-sample>
-          架空の控除証明書の電子データで試す
+          架空の控除証明書などの電子データで試す
         </button>
       ) : null}
       {readings.length > 0 ? (
@@ -166,12 +189,7 @@ export function DocumentEntry({ wh, sample, onOpen, onSamples, onReadings, onPas
       <span class="in-note">書類から読んだ値は候補として届き、確かめて承認したものだけが現状に入ります。個人番号などの番号は読みません・残しません。AI接続口からの候補もここに届きます。</span>
       {onReadings !== undefined ? (
         <span class="in-note" data-documents-xml-note>
-          控除証明書の電子データ（マイナポータルから保存した生命保険料・地震保険料の XML）は、このパソコンの中だけで読みます（外へ送りません）。元のファイル・氏名・証券番号は保存しません。
-        </span>
-      ) : null}
-      {xmlMsg !== null ? (
-        <span class={xmlMsg.ok ? "rk-ok" : "hh-err"} role="status" data-documents-xml-msg>
-          {xmlMsg.text}
+          控除証明書などの電子データ（マイナポータルから保存した XML。生命保険料・地震保険料・国民年金保険料等・小規模企業共済等掛金〔iDeCo〕の控除証明書と、住宅ローンの年末残高等証明書・住宅借入金等特別控除証明書）は、このパソコンの中だけで読みます（外へ送りません）。元のファイル・氏名・住所・証券番号・基礎年金番号は保存しません。
         </span>
       ) : null}
     </div>
@@ -382,14 +400,14 @@ export function DocumentReview(p: DocumentReviewProps) {
                     {g.object.status === "pending" ? (
                       <>
                         <span>
-                          この書類の契約を、新しい物として足しますか（確からしさ {g.object.confidence}）。足すと、下の値を承認できます。
+                          この書類の{g.object.noun === "保険契約" ? "契約" : g.object.noun}を、新しい物として足しますか（確からしさ {g.object.confidence}）。足すか今の{g.object.noun}に当てると、下の値を承認できます。
                         </span>
                         <button
                           type="button"
                           class="btn small primary"
                           onClick={() => {
                             const res = acceptObject(p.wh, reading, g.object?.key ?? "", approvalTime());
-                            if (res === null) setMsg({ ok: false, text: "足せませんでした" });
+                            if (res === null) setMsg({ ok: false, text: `足せませんでした（この世帯では、入力の画面に「＋ ${g.object?.noun ?? ""}」のボタンがありません。名義の人の働き方などを確かめてください）` });
                             else {
                               put(res.reading, res.wh);
                               setMsg({ ok: true, text: "新しい物を足しました。値を確かめて承認してください" });
@@ -399,12 +417,31 @@ export function DocumentReview(p: DocumentReviewProps) {
                         >
                           足す
                         </button>
+                        {g.object.links.slice(0, 4).map((t) => (
+                          <button
+                            type="button"
+                            key={t.id}
+                            class="btn small"
+                            title={`新しく足さずに、今の${g.object?.noun ?? ""}「${t.label}」の欄に、下の値を当てます（値は1つずつ承認します）`}
+                            onClick={() => {
+                              const next = linkObject(p.wh, reading, g.object?.key ?? "", t.id, approvalTime());
+                              if (next === null) setMsg({ ok: false, text: "当てられませんでした" });
+                              else {
+                                put(next);
+                                setMsg({ ok: true, text: `今の${g.object?.noun ?? ""}「${t.label}」に当てました。値を確かめて承認してください` });
+                              }
+                            }}
+                            data-documents-object-link={`${g.object?.key ?? ""}:${t.id}`}
+                          >
+                            {t.label.includes(g.object?.noun ?? "") ? `今の「${t.label}」に当てる` : `今の${g.object?.noun ?? ""}「${t.label}」に当てる`}
+                          </button>
+                        ))}
                         <button type="button" class="link-btn" onClick={() => put(rejectObject(reading, g.object?.key ?? "", approvalTime()))} data-documents-object-reject={g.object.key}>
                           足さない
                         </button>
                       </>
                     ) : (
-                      <span>{g.object.status === "accepted" ? "足しました" : "足さないことにしました"}</span>
+                      <span>{g.object.status === "accepted" ? (g.object.linkedTo !== null ? `今の${g.object.noun}「${g.object.linkedTo}」に当てました` : "足しました") : "足さないことにしました"}</span>
                     )}
                   </div>
                 ) : null}

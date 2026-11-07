@@ -1,36 +1,26 @@
-// 保険料控除証明書の電子データ（マイナポータル連携の XML）の読み手（0153 の2）。このパソコンの中だけで読み、外へ送らない。
-// 公的な仕様（年末調整のソフトが取り込む形）に合わせて、生命保険料控除証明書と地震保険料控除証明書を読む。
-// 1つのファイルに証明書が何通・契約の明細が何件あってもよい。証明書1通を読み取りの記録1件にし、明細1件を新しい保険の契約の候補1件にする。
+// 控除証明書の電子データ（マイナポータル連携の XML）の読み手（0153 の2・0154 の1）。このパソコンの中だけで読み、外へ送らない。
+// 公的な仕様（年末調整のソフトが取り込む形）に合わせて、生命保険料・地震保険料の控除証明書をこのファイルで読み、
+// 国民年金保険料等・小規模企業共済等掛金の控除証明書と住宅ローンの証明書（年末残高等証明書・住宅借入金等特別控除証明書）は certificatesXml.ts で読む。
+// 1つのファイルに証明書が何通・契約の明細が何件あってもよい。証明書1通を読み取りの記録1件にし、明細1件を新しい物（保険の契約・ローン・口座）の候補1件にする。
 // - 読む: 保険会社名・保険の種類（年金の種類）・契約日・払込方法・区分（一般・介護医療・個人年金、新・旧）ごとの保険料と申告額・証明日。
 //   地震保険は区分（地震・旧長期損害）・保険の対象（建物・家財）・保険期間の始まり・保険料と控除の対象額
 // - 読まない（木に入れずに捨てる）: 契約者・被保険者・受取人の氏名、証券番号（枝番号）・被保険者番号、法人番号、事業所（団体）のコード、
-//   受取人の生年月日、その他の欄（自由な文）
+//   受取人の生年月日、その他の欄（自由な文）。ほかの証明書の読まない欄は certificatesXml.ts の CERTIFICATE_SKIPPED
 // - 出す形は書類の候補の答え（document-candidates@1）で、読み口 readProposal を通す（番号を落とす決まり・上限も同じ）
 // 要素の名前は仕様の札の名前（要素の意味の名前は、この読み手が付ける）
-import { cleanText } from "./privacy.ts";
 import { readProposal, type ProposalContext } from "./proposal.ts";
-import { PROPOSAL_CONTRACT, type DocType, type DocumentReading } from "./types.ts";
+import { CERTIFICATE_SKIPPED, LOAN_BALANCE, LOAN_CREDIT_FORMS, loanBalanceAnswer, loanCreditAnswer, MUTUAL_AID, mutualAidAnswer, PENSION_PREMIUM, pensionPremiumAnswer, type CertificateAnswer } from "./certificatesXml.ts";
+import { PROPOSAL_CONTRACT, type DocumentReading } from "./types.ts";
 import { childOf, decodeXml, findAll, findFirst, parseXml, textOf, type XmlElement } from "./xml.ts";
+import { amountOf, dateOf, dateText, kubunOf, shortIn, ym, type Count } from "./xmlValues.ts";
 
 /** 読み手の ID と版（読み取りの記録と成績に残る。読み方を変えたら版を上げる） */
-export const DEDUCTION_XML_READER = { id: "xml.deductionCertificate", version: 1 } as const;
+export const DEDUCTION_XML_READER = { id: "xml.deductionCertificate", version: 2 } as const;
 
 const LIFE = "TEG800";
 const QUAKE = "TEG810";
-/** ほかの控除証明書・申告書（まだ読まない。理由を出す） */
-const OTHERS: Readonly<Record<string, string>> = {
-  TEG840: "国民年金保険料等控除証明書",
-  TEG850: "小規模企業共済等掛金控除証明書",
-  TEG900: "住宅取得資金に係る借入金の年末残高等証明書",
-  TEG910: "住宅借入金等特別控除証明書",
-  TEG911: "住宅借入金等特別控除証明書",
-  TEG912: "住宅借入金等特別控除証明書",
-  TEG913: "住宅借入金等特別控除証明書",
-  TEG916: "住宅借入金等特別控除証明書",
-  TEG917: "住宅借入金等特別控除証明書",
-  TEG918: "住宅借入金等特別控除証明書",
-  TEG919: "住宅借入金等特別控除証明書",
-};
+/** 読む証明書の要素の名前（生命保険・地震保険・国民年金保険料等・小規模企業共済等・年末残高等・住宅借入金等特別控除の版ごと） */
+const CERTIFICATES = new Set([LIFE, QUAKE, PENSION_PREMIUM, MUTUAL_AID, LOAN_BALANCE, ...Object.keys(LOAN_CREDIT_FORMS)]);
 
 /**
  * 読まない要素（氏名・番号・自由な文）。parseXml の skip に渡し、中身を木に入れない。
@@ -55,81 +45,19 @@ export const SKIPPED = new Set([
   "WDE00060",
   "WDE00215",
   "WDE00220",
+  ...CERTIFICATE_SKIPPED,
 ]);
 
 type Raw = Record<string, unknown>;
 
-export interface CertificateProposal {
-  docType: Extract<DocType, "lifeInsuranceDeduction" | "earthquakeInsuranceDeduction">;
-  /** 読み口が受ける答え（document-candidates@1） */
-  raw: Raw;
-  /** 契約の明細の数 */
-  contracts: number;
-  /** 読み手が番号らしい所を消した数（読み口の数に足す） */
-  masked: number;
-}
+/** 証明書1通の答え（読み口が受ける document-candidates@1）・新しい物の候補の数・読み手が番号らしい所を消した数（読み口の数に足す） */
+export type CertificateProposal = CertificateAnswer;
 
 export interface DeductionRead {
   proposals: CertificateProposal[];
   /** 読まなかった理由（値・文字は入れない） */
   issues: string[];
 }
-
-// ---- 値の読み方 ----
-
-/** 金額（整数の円。カンマ・空白は外す）。無い・読めなければ null */
-function amountOf(e: XmlElement | undefined): number | null {
-  const s = textOf(e).normalize("NFKC").replace(/[,\s円]/gu, "");
-  if (!/^-?\d{1,13}$/u.test(s)) return null;
-  const n = Number(s);
-  return Number.isSafeInteger(n) ? n : null;
-}
-
-/** 日付（年・月・日の子の要素か、20180401・2018-04-01 の形）→ 年月日。読めなければ null */
-function dateOf(e: XmlElement | undefined): { y: number; m: number; d: number | null } | null {
-  if (e === undefined) return null;
-  const y = childOf(e, "yyyy");
-  if (y !== undefined) {
-    const yy = Number(textOf(y));
-    const mm = Number(textOf(childOf(e, "mm")) || "NaN");
-    const dd = childOf(e, "dd") !== undefined ? Number(textOf(childOf(e, "dd"))) : null;
-    return valid(yy, mm, dd);
-  }
-  const s = textOf(e).normalize("NFKC");
-  const m = /^(\d{4})[-/年.]?(\d{1,2})(?:[-/月.]?(\d{1,2})日?)?$/u.exec(s);
-  if (m === null) return null;
-  return valid(Number(m[1]), Number(m[2]), m[3] !== undefined ? Number(m[3]) : null);
-}
-
-function valid(y: number, m: number, d: number | null): { y: number; m: number; d: number | null } | null {
-  if (!Number.isInteger(y) || y < 1900 || y > 2200 || !Number.isInteger(m) || m < 1 || m > 12) return null;
-  if (d !== null && (!Number.isInteger(d) || d < 1 || d > 31)) return { y, m, d: null };
-  return { y, m, d };
-}
-
-const ym = (d: { y: number; m: number }): string => `${d.y}-${String(d.m).padStart(2, "0")}`;
-const dateText = (d: { y: number; m: number; d: number | null }): string => `${d.y}年${d.m}月${d.d !== null ? `${d.d}日` : ""}`;
-
-/** 区分（区分の名前の子があればその名前、無ければ文字） */
-function kubunOf(e: XmlElement | undefined): { code: string | null; name: string } {
-  if (e === undefined) return { code: null, name: "" };
-  const cd = childOf(e, "kubun_CD");
-  const nm = childOf(e, "kubun_NM");
-  if (cd !== undefined || nm !== undefined) return { code: textOf(cd) || null, name: textOf(nm) };
-  return { code: null, name: textOf(e) };
-}
-
-/** 文字（会社名・保険の種類）: 番号らしい所を消し、短くする。消した数を数える（読み取りの記録の dropped に足す） */
-interface Count {
-  masked: number;
-}
-const shortIn =
-  (count: Count) =>
-  (s: string, max = 60): string => {
-    const c = cleanText(s, max);
-    if (c.masked) count.masked++;
-    return c.text;
-  };
 
 // ---- 保険料と払い方 ----
 
@@ -371,21 +299,33 @@ function quakeProposal(cert: XmlElement, issues: string[]): CertificateProposal 
 export function deductionProposals(text: string): DeductionRead {
   const parsed = parseXml(text, { skip: SKIPPED });
   if (!parsed.ok) return { proposals: [], issues: [`XML として読めません: ${parsed.reason}`] };
-  const certs = findAll(parsed.root, new Set([LIFE, QUAKE, ...Object.keys(OTHERS)]));
+  const certs = findAll(parsed.root, CERTIFICATES);
   const issues: string[] = [];
   const proposals: CertificateProposal[] = [];
-  const later = new Set<string>();
   for (const c of certs.slice(0, 50)) {
-    if (c.name === LIFE) {
-      const p = lifeProposal(c, issues);
-      if (p !== null) proposals.push(p);
-    } else if (c.name === QUAKE) {
-      const p = quakeProposal(c, issues);
-      if (p !== null) proposals.push(p);
-    } else later.add(OTHERS[c.name] as string);
+    const form = LOAN_CREDIT_FORMS[c.name];
+    const p =
+      c.name === LIFE
+        ? lifeProposal(c, issues)
+        : c.name === QUAKE
+          ? quakeProposal(c, issues)
+          : c.name === PENSION_PREMIUM
+            ? pensionPremiumAnswer(c)
+            : c.name === MUTUAL_AID
+              ? mutualAidAnswer(c, issues)
+              : c.name === LOAN_BALANCE
+                ? loanBalanceAnswer(c, issues)
+                : form !== undefined
+                  ? loanCreditAnswer(c, form, issues)
+                  : null;
+    if (p === null) continue;
+    // 値の候補も照合の値も無い証明書（額の無い証明書）は、読めなかったことにする
+    const raw = p.raw as { values?: unknown[]; references?: unknown[] };
+    if ((raw.values?.length ?? 0) === 0 && (raw.references?.length ?? 0) === 0) issues.push("額の書かれていない証明書がありました（読める値がありません）");
+    else proposals.push(p);
   }
-  if (later.size > 0) issues.push(`${[...later].join("・")}の電子データは、まだ読めません（生命保険料・地震保険料の控除証明書だけを読みました）`);
-  if (certs.length === 0) issues.push("生命保険料・地震保険料の控除証明書の電子データではありません");
+  if (certs.length > 50) issues.push("証明書が多すぎるので、先の50通だけ読みました");
+  if (certs.length === 0) issues.push("控除証明書の電子データではありません（生命保険料・地震保険料・国民年金保険料等・小規模企業共済等掛金の控除証明書と、住宅ローンの年末残高等証明書・住宅借入金等特別控除証明書を読めます）");
   return { proposals, issues: [...new Set(issues)] };
 }
 
