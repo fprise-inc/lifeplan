@@ -333,6 +333,17 @@ pub struct Saved {
     pub saved_at: String,
 }
 
+/// 今の世帯ファイルが開けないときに残っている、直前の世代（`.prev`。0011 の7）の時点。戻す前に FP に見せる
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreviousGeneration {
+    pub generation: u64,
+    /// 直前の世代を保存した日時（本文の meta の記録。無ければ None）
+    pub saved_at: Option<String>,
+    /// 直前の世代を保存した人の表示名（事務所で共有しているとき）
+    pub saved_by: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RenameOutcome {
@@ -372,11 +383,26 @@ struct Session {
     share_problem: Option<StoreError>,
 }
 
-/// 開いた世帯の本文から持ち越す「誰が直したか」の記録（0023 の6）
+/// 本体が保存のたびに書き直す meta の欄（[`Store::with_meta`]）。これ以外の欄は開いた本文から持ち越す
+const META_WRITTEN: [&str; 8] = [
+    "format",
+    "formatVersion",
+    "savedAt",
+    "appVersion",
+    "customerNo",
+    "savedBy",
+    "revisions",
+    "editors",
+];
+
+/// 開いた世帯の本文から持ち越す meta: 「誰が直したか」の記録（0023 の6）と、変換の段が書いた記録
+/// （合算BS の引き継ぎ `extTransfers`。0011 の4）・このアプリが知らない欄（捨てない決まり）。
+/// 画面は meta を持たない本文で保存するので、本体が持ち越さないと最初の保存で消える
 #[derive(Default, Clone)]
 struct MetaCarry {
     revisions: Vec<Value>,
     editors: serde_json::Map<String, Value>,
+    rest: serde_json::Map<String, Value>,
 }
 
 impl MetaCarry {
@@ -393,8 +419,17 @@ impl MetaCarry {
                 .and_then(Value::as_object)
                 .cloned()
                 .unwrap_or_default(),
+            rest: m.map(rest_of_meta).unwrap_or_default(),
         }
     }
+}
+
+/// meta のうち、本体が書き直さない欄
+fn rest_of_meta(m: &serde_json::Map<String, Value>) -> serde_json::Map<String, Value> {
+    m.iter()
+        .filter(|(k, _)| !META_WRITTEN.contains(&k.as_str()))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect()
 }
 
 struct OpenState {
@@ -1295,6 +1330,11 @@ impl Store {
             Some(Value::Object(m)) => m,
             _ => serde_json::Map::new(),
         };
+        // 開いた本文の meta の欄（変換の記録・知らない欄）を持ち越す。画面が meta を渡したときは、その値を使う
+        for (k, v) in &carry.rest {
+            meta.entry(k.clone()).or_insert_with(|| v.clone());
+        }
+        carry.rest = rest_of_meta(&meta);
         meta.insert("format".into(), HOUSEHOLD_FORMAT.into());
         meta.insert("formatVersion".into(), migrate::CURRENT.into());
         meta.insert("savedAt".into(), saved_at.into());
@@ -1534,16 +1574,7 @@ impl Store {
                 }
                 Err(_) => return Err(StoreError::IO),
             };
-            let header = container::read_household_header(&bytes)?;
-            if header.household_id != id {
-                return Err(StoreError::CORRUPT);
-            }
-            let access = migrate::access(&header.format_version)?;
-            let keys = self.keys_for_read(s, id)?;
-            let key = keys.find(&header.key_id).ok_or(StoreError::CORRUPT)?;
-            let (h, plain) = container::open_household(&bytes, &key)?;
-            let value: Value = serde_json::from_slice(&plain).map_err(|_| StoreError::CORRUPT)?;
-            let mut value = migrate::upgrade(&h.format_version, value)?;
+            let (h, mut value, access) = self.decode_household(s, id, &bytes)?;
             if let Some(meta) = value.get_mut("meta").and_then(Value::as_object_mut) {
                 meta.insert("customerNo".into(), customer_no.clone().into());
             }
@@ -1584,6 +1615,92 @@ impl Store {
         };
         g.opened.insert(id.to_owned(), state);
         Ok(opened)
+    }
+
+    /// 世帯ファイルのバイト列を、この世帯のファイルとして開き、今の形式の版へ変換した本文を返す
+    fn decode_household(
+        &self,
+        s: &Session,
+        id: &str,
+        bytes: &[u8],
+    ) -> Result<(HouseholdHeader, Value, Access), StoreError> {
+        let header = container::read_household_header(bytes)?;
+        if header.household_id != id {
+            return Err(StoreError::CORRUPT);
+        }
+        let access = migrate::access(&header.format_version)?;
+        let keys = self.keys_for_read(s, id)?;
+        let key = keys.find(&header.key_id).ok_or(StoreError::CORRUPT)?;
+        let (h, plain) = container::open_household(bytes, &key)?;
+        let value: Value = serde_json::from_slice(&plain).map_err(|_| StoreError::CORRUPT)?;
+        let value = migrate::upgrade(&h.format_version, value)?;
+        Ok((h, value, access))
+    }
+
+    /// 今のファイルが開けず、直前の世代（`.prev`）が開けるときだけ、その時点とバイト列を返す（0011 の7）
+    fn previous_of(&self, s: &Session, id: &str) -> Option<(PreviousGeneration, Vec<u8>)> {
+        Self::label_of(s, id).ok()?;
+        let path = self.hh_path(s, id);
+        if let Ok(cur) = fs::read(&path) {
+            if self.decode_household(s, id, &cur).is_ok() {
+                return None;
+            }
+        }
+        let prev = fs::read(atomic::prev_path(&path)).ok()?;
+        let (h, value, _) = self.decode_household(s, id, &prev).ok()?;
+        let text = |p: &str| value.pointer(p).and_then(Value::as_str).map(str::to_owned);
+        Some((
+            PreviousGeneration {
+                generation: h.generation,
+                saved_at: text("/meta/savedAt"),
+                saved_by: text("/meta/savedBy/name"),
+            },
+            prev,
+        ))
+    }
+
+    /// 世帯ファイルが開けない（壊れた・途中で切れた・空）ときに、直前の世代で開き直せるか。
+    /// 開き直せるときは、その時点（世代・保存した日時・保存した人）を返す。今のファイルが開けるとき・直前の世代が無いか開けないときは None
+    pub fn previous_generation(&self, id: &str) -> Result<Option<PreviousGeneration>, StoreError> {
+        if !crypto::is_uuid(id) {
+            return Err(StoreError::UNKNOWN_HOUSEHOLD);
+        }
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        Self::usable(s)?;
+        self.refresh_shared(s)?;
+        Ok(self.previous_of(s, id).map(|(p, _)| p))
+    }
+
+    /// 開けない世帯ファイルを、直前の世代（`.prev`）で置き換えて開く（0011 の7）。
+    /// 壊れたファイルは捨てずに、この PC の中の `conflicts/` に別名（`.broken-<日付>-<乱数>`）で暗号化のまま残す。
+    /// 直前の世代のファイルはそのまま残る。今のファイルが開けるとき・直前の世代が開けないときは [`StoreError::NO_PREVIOUS`]
+    pub fn open_previous(&self, id: &str) -> Result<Opened, StoreError> {
+        if !crypto::is_uuid(id) {
+            return Err(StoreError::UNKNOWN_HOUSEHOLD);
+        }
+        {
+            let mut g = self.lock();
+            let now = self.now();
+            let s = self.ready_session(&mut g)?;
+            let (_, prev) = self.previous_of(s, id).ok_or(StoreError::NO_PREVIOUS)?;
+            let path = self.hh_path(s, id);
+            if let Ok(cur) = fs::read(&path) {
+                let mut r = [0u8; 4];
+                crypto::fill_random(&mut r);
+                let aside = self.root.join(CONFLICTS_DIR).join(format!(
+                    "{id}.{HOUSEHOLD_EXT}.broken-{}-{}",
+                    date_of(now),
+                    crypto::hex_encode(&r)
+                ));
+                atomic::replace(&aside, &cur, FailPoint::None)?;
+                remove_if_exists(&path)?;
+            }
+            // 今のファイルが無い状態で書くので、直前の世代（.prev）は置き換わらずに残る
+            atomic::replace(&path, &prev, FailPoint::None)?;
+            g.opened.remove(id);
+        }
+        self.open(id)
     }
 
     /// 開いている世帯を保存する（一時ファイルに書いて差し替え、直前の世代を残す）。

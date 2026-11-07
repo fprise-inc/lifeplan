@@ -109,3 +109,28 @@ export function setCell(files: Map<string, Uint8Array>, sheetPath: string, ref: 
   s = s.replace(re, xml === null ? `<c r="${ref}" s="${st}"/>` : xml.replace(/^<c\b/, `<c r="${ref}" s="${st}"`));
   files.set(sheetPath, bytes(s));
 }
+
+/**
+ * セルの表示の書式を変える（Excel で「0.625%」と打つと、値を 0.00625 にしてパーセントの書式を付ける）。
+ * numFmt は組み込みの書式の番号（9「0%」・10「0.00%」など）か、書式の文字（「0.000%」など）
+ */
+export function setNumberFormat(files: Map<string, Uint8Array>, sheetPath: string, ref: string, numFmt: number | string): void {
+  let st = text(files.get("xl/styles.xml"));
+  let id: number;
+  if (typeof numFmt === "number") id = numFmt;
+  else {
+    id = 164 + (st.match(/<numFmt /g) ?? []).length;
+    const esc = numFmt.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    const fmt = `<numFmt numFmtId="${id}" formatCode="${esc}"/>`;
+    st = st.includes("<numFmts") ? st.replace(/<numFmts count="(\d+)">/, (_m, c: string) => `<numFmts count="${Number(c) + 1}">`).replace("</numFmts>", `${fmt}</numFmts>`) : st.replace(/(<styleSheet[^>]*>)/, `$1<numFmts count="1">${fmt}</numFmts>`);
+  }
+  const m = /<cellXfs count="(\d+)">/.exec(st);
+  if (m === null) throw new Error("cellXfs が無い");
+  const index = Number(m[1]);
+  st = st.replace(m[0], `<cellXfs count="${index + 1}">`).replace("</cellXfs>", `<xf numFmtId="${id}" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>`);
+  files.set("xl/styles.xml", bytes(st));
+  const s = text(files.get(sheetPath));
+  const re = new RegExp(`<c r="${ref}" s="\\d+"`);
+  if (!re.test(s)) throw new Error(`セルが無い: ${ref}`);
+  files.set(sheetPath, bytes(s.replace(re, `<c r="${ref}" s="${index}"`)));
+}
