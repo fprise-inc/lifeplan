@@ -3,7 +3,7 @@
 // 住宅ローンとほかのローン（housingLoans.ts）。お金の行（補助金・売電・修繕）は moneyRows.ts の区画を後ろに置く（stages/index.ts）
 import type { Debt, Household, Residence, YearSeries } from "../../../engine/types.ts";
 import { addMonths } from "../../levers.ts";
-import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { afterWrite, byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, presetBasis, standardBox, wrapBasis, type WorkingHousehold } from "../household.ts";
 import { rentBasis, rentStandard } from "../fill.ts";
 import { debtorsWithoutShare, dropProvisionalEvent, PRINCIPAL_ESTIMATE, principalKey, purchaseMonth, sharesByLoans, withProvisionalHousing } from "../housingCredit.ts";
@@ -34,6 +34,7 @@ import {
   landShareByAge,
   loansOfHome,
   MOVE_OUT_ASSUMED,
+  applyMoveOutAfter,
   purchaseFromGap,
   residenceNotes,
   toKey,
@@ -394,20 +395,31 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
     },
   ].filter(() => !buying);
   // 住み始め・住み終わりの仮の印（相続する家の住み始め・住み替えで前の持ち家を終えた月。印は WorkingHousehold.assumed。直すと外れる）
-  const marked = (f: FieldDef): FieldDef => field({ ...f, get: (w) => ({ ...f.get(w), assumed: w.assumed[f.key] ?? null }) });
+  // 画面の時点の部品は time.setWhen で書く（field の書き方を通らない）ので、値が変わったら印もそこで外す（段4の確かめ。打っても「推定」が残っていた）
+  const marked = (f: FieldDef): FieldDef => {
+    const g = field({ ...f, get: (w) => ({ ...f.get(w), assumed: w.assumed[f.key] ?? null }) });
+    const time = g.time;
+    if (time === undefined) return g;
+    const setWhen = (w: WorkingHousehold, tp: Parameters<typeof time.setWhen>[1], how: "auto" | "this"): WorkingHousehold => {
+      const next = time.setWhen(w, tp, how);
+      if (next === w || w.assumed[f.key] === undefined || next.assumed[f.key] !== w.assumed[f.key] || g.get(next).value === g.get(w).value) return next;
+      const { [f.key]: _gone, ...rest } = next.assumed;
+      void _gone;
+      return { ...next, assumed: rest };
+    };
+    return { ...g, time: { ...time, setWhen } };
+  };
   // 購入の1件は住み始めを出さない（購入の時期〔注文住宅は建物の引き渡しの時期〕に住み始める。ずれていれば購入の時期の欄に知らせ。0052 の追記 2026-11-07）
   if (!buying) fields.push(marked(timepointField({ key: `${k}/from`, item: "residence.from", label: "住み始め", level: showPeriod ? "simple" : "detail", find, path: ["from"], mode: "ym", anchor: "moveIn", ...ageOf })));
   const toField = marked(timepointField({ key: `${k}/to`, item: "residence.to", label: "住み終わり", level: showPeriod ? "simple" : "detail", find, path: ["to"], startPath: ["from"], optional: true, nullText: "最後まで住む", ...ageOf }));
   // 住み終わりを直したら、空き家として持ち続ける不動産の持ち始めも住み終わりの翌月に合わせる
+  // （画面の時点の欄は time.setWhen で書くので、afterWrite で set と両方を包む）
   fields.push(
-    field({
-      ...toField,
-      set: (w, v) => {
+    afterWrite(toField, (w, next) => {
         const held = (() => {
           const x = find(w.request.input.household, w) as Residence | undefined;
           return x === undefined ? undefined : heldFromHome(w.request.input.household, x);
         })();
-        const next = toField.set(w, v);
         if (held === undefined || next === w) return next;
         return mutate(next, (h) => {
           const x = (h.residences ?? []).find((y) => y.id === r.id);
@@ -417,7 +429,6 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
           a.holdFrom = { at: addMonths(end, 1) };
           a.asOf = addMonths(end, 1);
         });
-      },
     }),
   );
   if (r.kind === "rent" && !free) {
@@ -738,8 +749,14 @@ function purchaseAtField(wh: WorkingHousehold, r: Residence, kp: string, custom:
       return x === undefined ? null : purchaseFromGap(w.request.input.household, x);
     },
   });
-  return {
-    ...field({
+  const month = (w: WorkingHousehold): string | null => {
+    const h = w.request.input.household;
+    const x = (h.residences ?? []).find((y) => y.id === r.id);
+    return x === undefined ? null : purchaseMonth(h, x);
+  };
+  // 画面の時点の欄は time.setWhen で書く（set を通らない）ので、afterWrite で両方を包む（段4の確かめで、画面のキー入力では連動が抜けていた）
+  const follow = afterWrite(
+    field({
       ...inner,
       sideEffects: "前の住まいの住み終わり・この家の住宅ローンの借入の年月と金利の段・控除の入居も一緒に動かします",
       get: (w) => {
@@ -748,20 +765,14 @@ function purchaseAtField(wh: WorkingHousehold, r: Residence, kp: string, custom:
         const gap = x === undefined ? null : purchaseFromGap(w.request.input.household, x);
         return gap === null ? st : { ...st, warnFix: { label: "購入の時期に合わせる", run: (w2: WorkingHousehold) => mutate(w2, (h) => alignFromToPurchase(h, r.id)) } };
       },
-      set: (w, v) => {
-        const h0 = w.request.input.household;
-        const x0 = (h0.residences ?? []).find((y) => y.id === r.id);
-        const old = x0 === undefined ? null : purchaseMonth(h0, x0);
-        const next = inner.set(w, v);
-        if (next === w || old === null) return next;
-        const h1 = next.request.input.household;
-        const x1 = (h1.residences ?? []).find((y) => y.id === r.id);
-        const now = x1 === undefined ? null : purchaseMonth(h1, x1);
-        return now === null || now === old ? next : withProvisionalHousing(mutate(next, (h) => followPurchaseMonth(h, r.id, old, now)));
-      },
     }),
-    address: () => at(r.id, "residence.purchase", ["at"]),
-  };
+    (w0, w1) => {
+      const old = month(w0);
+      const now = month(w1);
+      return old === null || now === null || now === old ? w1 : withProvisionalHousing(mutate(w1, (h) => followPurchaseMonth(h, r.id, old, now)));
+    },
+  );
+  return { ...follow, address: () => at(r.id, "residence.purchase", ["at"]) };
 }
 
 /** 注文住宅の土地の欄（土地の決済の時期・土地の代金〔標準〕、建物の代金〔詳細。合計−土地の代金を直す〕。0115） */
@@ -1325,6 +1336,8 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
           const held = x?.sale !== undefined ? heldFromHome(w.request.input.household, x) : undefined;
           return {
             value: x?.sale !== undefined ? "sell" : "keep",
+            // 住み替えで住み終わりにしたときの初めの値の仮の印（選び直すと外れる）
+            assumed: w.assumed[`${k}/after`] ?? null,
             ...(held !== undefined
               ? {
                   warn: "空き家として持ち続けるために作った貸していない不動産（貯蓄・運用）が残っています。売るなら外してください（二重に数えます）",
@@ -1401,7 +1414,10 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
         ? undefined
         : held !== undefined
           ? `住み終わりの翌月（${formatYearMonth(addMonths(end, 1))}）から、貯蓄・運用の貸していない不動産（空き家）で持ち続けます。人に貸すなら、その不動産の「収益不動産へ移す」で移します`
-          : `売らない家は、住み終わりの年（${end.slice(0, 4)}年）で資産・固定資産税・修繕費から外しています。持ち続けるなら「空き家として持ち続ける」で、貯蓄・運用に貸していない不動産を作ります（人に貸すなら、作った不動産を「収益不動産へ移す」）`;
+          : wh.assumed[toKey(r.id)] === MOVE_OUT_ASSUMED
+            ? // 住み替えで住み終わりにした家（段4の確かめ: 家の価値が資産から消えることが分かりにくかった）
+              `住み替えで住み終わりにした家です。売らないので、住み終わりの年（${end.slice(0, 4)}年）で資産・固定資産税・修繕費から外しています（家の価値も売った代金も入りません）。売るなら「住み終わりの後」を「住み終わりの月に売る」に、持ち続けるなら「空き家として持ち続ける」を押します`
+            : `売らない家は、住み終わりの年（${end.slice(0, 4)}年）で資産・固定資産税・修繕費から外しています。持ち続けるなら「空き家として持ち続ける」で、貯蓄・運用に貸していない不動産を作ります（人に貸すなら、作った不動産を「収益不動産へ移す」）`;
     const keepActions: ActionDef[] =
       r.sale === undefined && end !== null && held === undefined
         ? [{ key: `${k}/keepVacant`, label: "空き家として持ち続ける", help: "住み終わりの翌月から持ち始める貸していない不動産（空き家）を、貯蓄・運用に作ります。評価額は住み終わりの年の評価額の目安（推定）、建った年・構造・名義を写します", level: "simple", run: (w) => keepAsVacant(w, r.id) }]
@@ -1481,16 +1497,14 @@ function refinanceGroups(d: Debt, k: string): GroupDef[] {
       level: "detail",
       fields: [
         withA(
-          field({
-            ...timepointField({ key: `${kr}/at`, item: "debt.refinance", label: "借り換えの年月", level: "detail", find: findR, path: ["at"], mode: "ym" }),
-            // 新しいローンの金利の始まりも同じ月にそろえる
-            set: (w, v) =>
-              mutate(timepointField({ key: `${kr}/at`, item: "debt.refinance", label: "借り換えの年月", level: "detail", find: findR, path: ["at"], mode: "ym" }).set(w, v), (h, req) => {
-                const r = findR(h, { ...w, request: req }) as { at?: unknown; rateSchedule?: { from: unknown }[] } | undefined;
-                const first = r?.rateSchedule?.[0];
-                if (r?.at !== undefined && first !== undefined) first.from = structuredClone(r.at);
-              }),
-          }),
+          // 新しいローンの金利の始まりも同じ月にそろえる（画面の時点の欄は time.setWhen で書くので、afterWrite で set と両方を包む）
+          afterWrite(timepointField({ key: `${kr}/at`, item: "debt.refinance", label: "借り換えの年月", level: "detail", find: findR, path: ["at"], mode: "ym" }), (w, next) =>
+            mutate(next, (h, req) => {
+              const r = findR(h, { ...w, request: req }) as { at?: unknown; rateSchedule?: { from: unknown }[] } | undefined;
+              const first = r?.rateSchedule?.[0];
+              if (r?.at !== undefined && first !== undefined) first.from = structuredClone(r.at);
+            }),
+          ),
         ),
         withA(plain({ key: `${kr}/rate`, item: "debt.refinance", label: "新しい金利（年）", level: "detail", kind: "pct", find: findRate, path: ["rate"] })),
         withA(plain({ key: `${kr}/rateType`, item: "debt.refinance", label: "新しい金利の種類", level: "detail", kind: "select", options: RATE_TYPES, find: findRate, path: ["type"] })),
@@ -1664,9 +1678,11 @@ export function housingStage(wh: WorkingHousehold): StageDef {
           const at24 = addMonths(base, presetNum("preset.housing.purchase.afterMonths"));
           // 今の持ち家（住み終わりが空）も購入の前の月で住み終わる（住み替え。推定の印。売る・持ち続けるは「住み終わりの後」で選ぶ。0052 の追記 2026-11-07）
           const movedOut = (w.request.input.household.residences ?? []).filter((r) => r.kind === "own" && r.to === null && (resolveTimepoint(w.request.input.household, r.from) ?? base) < at24).map((r) => r.id);
+          let afterMarks: Record<string, string> = {};
           const added = mutate(w, (hh, req) => {
-            // 今の住まい（賃貸・家賃なし・持ち家）は購入の前の月で終える
+            // 今の住まい（賃貸・家賃なし・持ち家）は購入の前の月で終える。住み終わりにした持ち家の「住み終わりの後」は初めの値（MOVE_OUT_AFTER）と仮の印
             for (const r of hh.residences ?? []) if (r.to === null && (r.kind === "rent" || movedOut.includes(r.id))) r.to = { at: addMonths(at24, -1) };
+            afterMarks = applyMoveOutAfter(hh, movedOut);
             const price = PRICE_PRESET();
             const down = Math.round((price * DOWN_RATE()) / 10000) * 10000;
             const costs = Math.round((price * COSTS_RATE()) / 10000) * 10000;
@@ -1689,7 +1705,7 @@ export function housingStage(wh: WorkingHousehold): StageDef {
             // 固定資産税は、物件の価格などからの推定（最初の年の額と変化の段。購入の種類を選ぶと入れ直す。0112）
             applyPropertyTaxEstimate(hh, res, req.input.endYear, req.input.assumptions?.realEstateValuation?.landShare, true);
           });
-          return movedOut.length === 0 ? added : { ...added, assumed: { ...added.assumed, ...Object.fromEntries(movedOut.map((id) => [toKey(id), MOVE_OUT_ASSUMED])) } };
+          return movedOut.length === 0 ? added : { ...added, assumed: { ...added.assumed, ...Object.fromEntries(movedOut.map((id) => [toKey(id), MOVE_OUT_ASSUMED])), ...afterMarks } };
         },
       },
     ],
