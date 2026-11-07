@@ -16,7 +16,7 @@
 | 保険料控除の区分（一般・介護医療・個人年金） | `insurance.deductionCategory` `["type"]` | `"general"`・`"careMedical"`・`"pension"`。地震保険料は `"earthquake"`、旧長期損害保険料は `"longTermNonLife"` |
 | 新旧の制度（「新」「旧」・新制度・旧制度） | `insurance.deductionCategory` `["regime"]` | `"new"`・`"old"`（地震保険料控除証明書には無い） |
 | 契約日（契約年月日） | `insurance.contractDate` | `"YYYY-MM"`（日は書かない） |
-| 払込方法（月払・年払・一時払） | `insurance.premium`（`at` なし） | `"monthly"`・`"annual"`・`"single"`。半年払いは書かず `note` に |
+| 払込方法（月払・年払・一時払） | `insurance.premium` `["frequency"]` | `"monthly"`・`"annual"`・`"single"`。半年払いは書かず `note` に |
 | 1回の保険料（「月払保険料」などとして印字されているとき） | `insurance.premium` `["amount"]` | 円の整数・`"period": "once"`。払込方法の候補より後に書く |
 | 契約者 | `insurance.policyholder` | 宛名の人なら `"holder"`。名前は書かない |
 | 被保険者 | `insurance.insured` | 契約者と同じ名前なら `"holder"`。違えば書かず、`note` に「被保険者は契約者と違う方です」 |
@@ -74,7 +74,7 @@
     { "item": "insurance.deductionCategory", "at": ["type"], "newObject": "c1", "value": "careMedical", "source": { "page": 1, "where": "介護医療保険料" }, "confidence": "high" },
     { "item": "insurance.deductionCategory", "at": ["regime"], "newObject": "c1", "value": "new", "source": { "page": 1, "where": "新制度" }, "confidence": "high" },
     { "item": "insurance.contractDate", "newObject": "c1", "value": "2019-07", "source": { "page": 1, "where": "契約日", "text": "令和元年7月1日" }, "confidence": "high" },
-    { "item": "insurance.premium", "newObject": "c1", "value": "monthly", "source": { "page": 1, "where": "払込方法", "text": "月払" }, "confidence": "high" },
+    { "item": "insurance.premium", "at": ["frequency"], "newObject": "c1", "value": "monthly", "source": { "page": 1, "where": "払込方法", "text": "月払" }, "confidence": "high" },
     { "item": "insurance.premium", "at": ["amount"], "newObject": "c1", "value": 3240, "period": "once", "source": { "page": 1, "where": "月払保険料", "text": "3,240円" }, "confidence": "high" },
     { "item": "insurance.policyholder", "newObject": "c1", "value": "holder", "source": { "page": 1, "where": "契約者" }, "confidence": "high", "note": "名前は読んでいません。宛名の方としています" },
     { "item": "insurance.insured", "newObject": "c1", "value": "holder", "source": { "page": 1, "where": "被保険者" }, "confidence": "medium", "note": "契約者と同じ名前でした" },
@@ -82,7 +82,7 @@
     { "item": "insurance.deductionCategory", "at": ["type"], "newObject": "c2", "value": "pension", "source": { "page": 2, "where": "個人年金保険料" }, "confidence": "high" },
     { "item": "insurance.deductionCategory", "at": ["regime"], "newObject": "c2", "value": "new", "source": { "page": 2, "where": "新制度" }, "confidence": "high" },
     { "item": "insurance.contractDate", "newObject": "c2", "value": "2015-04", "source": { "page": 2, "where": "契約日", "text": "平成27年4月1日" }, "confidence": "high" },
-    { "item": "insurance.premium", "newObject": "c2", "value": "monthly", "source": { "page": 2, "where": "払込方法", "text": "月払" }, "confidence": "high" },
+    { "item": "insurance.premium", "at": ["frequency"], "newObject": "c2", "value": "monthly", "source": { "page": 2, "where": "払込方法", "text": "月払" }, "confidence": "high" },
     { "item": "insurance.premium", "at": ["amount"], "newObject": "c2", "value": null, "unreadable": true, "source": { "page": 2, "where": "月払保険料" }, "confidence": "low" }
   ],
   "references": [

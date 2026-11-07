@@ -61,7 +61,7 @@ describe("欄の一覧（fields.md）", () => {
 
   it("書類から入る主な欄が載っている（年金の記録の型・加入月数・額・給与・賞与・事業所得・申告の仕方・保険の契約・ローン）", () => {
     const keys = new Set(fieldRows().map((r) => `${r.item}|${(r.at ?? []).join("/")}`));
-    for (const k of ["pensionRecord.kind|", "pensionRecord.months|basic", "pensionRecord.amounts|employee", "employment.salary.annual|", "employment.business.income|", "member.taxReturn|method", "insurance.premium|", "insurance.premium|amount", "insurance.coverages|amount", "debt.balance|", "debt.repayment|termMonths", "debt.rateSchedule|rate"]) expect(keys).toContain(k);
+    for (const k of ["pensionRecord.kind|", "pensionRecord.months|basic", "pensionRecord.amounts|employee", "employment.salary.annual|", "employment.business.income|", "member.taxReturn|method", "insurance.premium|frequency", "insurance.premium|amount", "insurance.coverages|amount", "debt.balance|", "debt.repayment|termMonths", "debt.rateSchedule|rate"]) expect(keys).toContain(k);
   });
 });
 
@@ -227,7 +227,7 @@ describe("当て先の決め方の足し（0152 の3）", () => {
 
   it("場所を書かない候補は場所の無い欄を先にする（保険の払い方）。明細の ID を除いた場所でも当たる（主契約の保障の額）", () => {
     const wh = open("salariedCoupleTwoKids");
-    const r = reading(wh, [{ item: "insurance.premium", newObject: "c1", value: "annual" }, { item: "insurance.coverages", at: ["amount"], newObject: "c1", value: 10000, period: "once" }], [{ key: "c1", kind: "insurance:term" }]);
+    const r = reading(wh, [{ item: "insurance.premium", at: ["frequency"], newObject: "c1", value: "annual" }, { item: "insurance.coverages", at: ["amount"], newObject: "c1", value: 10000, period: "once" }], [{ key: "c1", kind: "insurance:term" }]);
     const added = acceptObject(wh, r, "c1", AT)!;
     const rows = docReview(added.wh, added.reading).groups.flatMap((g) => g.rows);
     expect(rows.map((x) => [x.label.split(": ").at(-1), x.problem])).toEqual([

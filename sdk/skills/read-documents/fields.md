@@ -78,7 +78,7 @@
 | `insurance.label`（名前） | （なし） | 契約の表示名 | 文字（200字まで） |  | 人の物の欄 |
 | `insurance.policyholder`（契約者） | （なし） | 契約者 | 人（self・spouse・child1…・holder） |  | 人の物の欄 |
 | `insurance.premium`（保険料） | `["amount"]` | 保険料（月額）・保険料（年額） | 円の整数 | 1回の額・時点の額 | 人の物の欄 |
-| `insurance.premium`（保険料） | （なし） | 払い方 | 選択肢: `monthly`（月払い）・`annual`（年払い）・`single`（一時払い） |  | 人の物の欄 |
+| `insurance.premium`（保険料） | `["frequency"]` | 払い方 | 選択肢: `monthly`（月払い）・`annual`（年払い）・`single`（一時払い） |  | 人の物の欄 |
 | `insurance.schedule`（年次の数表） | `["rows","<ID>","surrenderValue"]` | 解約の月の解約返戻金（円） | 円の整数 | 1回の額・時点の額 | 人の物の欄 |
 | `insurance.schedule`（年次の数表） | （なし） | 保障の推移の形 | 選択肢: `constant`（一定）・`decreasing`（毎年同じ額ずつ減る（終わりに0円）） |  | 人の物の欄 |
 | `insurance.simple`（数表の無い契約を型） | `["account","after"]` | 払込が終わった後（種類を決める欄） | 選択肢: `wholeLife`（終身保険に移す）・`annuity`（年金で受け取る）・`surrender`（解約して受け取る） |  | 人の物の欄 |

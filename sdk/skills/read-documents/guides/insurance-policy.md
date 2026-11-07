@@ -15,7 +15,7 @@
 | 契約者 | `insurance.policyholder` | `"holder"`（宛名の人）か続柄の鍵 |
 | 被保険者 | `insurance.insured` | 契約者と同じ名前なら `"holder"`。別の人で、FP が続柄を言っていればその鍵（`"spouse"`・`"child1"`…）、分からなければ書かず `note` に |
 | 契約日・契約の年月 | `insurance.contractDate` | `"YYYY-MM"` |
-| 払込方法 | `insurance.premium`（`at` なし） | `"monthly"`（月払）・`"annual"`（年払）・`"single"`（一時払）。払い方の候補を保険料の額より先に書く |
+| 払込方法 | `insurance.premium` `["frequency"]` | `"monthly"`（月払）・`"annual"`（年払）・`"single"`（一時払）。払い方の候補を保険料の額より先に書く |
 | 保険料（1回の額。月払なら毎月の額） | `insurance.premium` `["amount"]` | 円の整数・`"period": "once"`。主契約と特約の合計（証券の「合計保険料」） |
 | 主契約の保障の額（死亡保険金・入院給付金日額・がん診断給付金・年金月額・就業不能の月額・満期金・年金の年額） | `insurance.coverages` `["amount"]` | 円の整数。`period` は種類の主な保障の期間（[fields.md](../fields.md) の「新しい物の種類」の表）。医療保険は1日の額で `"once"` |
 | 保険料払込免除特約がある | `insurance.waiver` | `true` |
@@ -53,7 +53,7 @@
     { "item": "insurance.policyholder", "newObject": "c1", "value": "holder", "source": { "page": 1, "where": "契約者" }, "confidence": "high", "note": "名前は読んでいません" },
     { "item": "insurance.insured", "newObject": "c1", "value": "holder", "source": { "page": 1, "where": "被保険者" }, "confidence": "medium", "note": "契約者と同じ名前でした" },
     { "item": "insurance.contractDate", "newObject": "c1", "value": "2016-10", "source": { "page": 1, "where": "契約日", "text": "平成28年10月1日" }, "confidence": "high" },
-    { "item": "insurance.premium", "newObject": "c1", "value": "monthly", "source": { "page": 1, "where": "払込方法", "text": "月払（口座振替）" }, "confidence": "high" },
+    { "item": "insurance.premium", "at": ["frequency"], "newObject": "c1", "value": "monthly", "source": { "page": 1, "where": "払込方法", "text": "月払（口座振替）" }, "confidence": "high" },
     { "item": "insurance.premium", "at": ["amount"], "newObject": "c1", "value": 8900, "period": "once", "source": { "page": 1, "where": "合計保険料", "text": "8,900円" }, "confidence": "high" },
     { "item": "insurance.coverages", "at": ["amount"], "newObject": "c1", "value": 3000000, "period": "once", "source": { "page": 1, "where": "主契約 死亡・高度障害保険金", "text": "300万円" }, "confidence": "high" },
     { "item": "insurance.waiver", "newObject": "c1", "value": true, "source": { "page": 1, "where": "保険料払込免除特約" }, "confidence": "high" }
