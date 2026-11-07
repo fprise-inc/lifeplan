@@ -21,7 +21,7 @@
 //   （値の状態の決まり）。欄を空にしたら目安に戻す（目安が出なければ行を外す）。目安が出なくなった推定のままの行は外す
 import type { Account, Box, Household, PeriodicExpense, YearSeries } from "../../engine/types.ts";
 import { resolveTimepoint } from "../timepoint.ts";
-import type { FieldDef } from "./form.ts";
+import { afterWrite, type FieldDef } from "./form.ts";
 import { mutate, newId, type WorkingHousehold } from "./household.ts";
 import { VALUATION_DEFAULTS } from "./labels.ts";
 import { manOf, pctOf, PROPERTY_TAX_LAW, reassessYear, round100, taxGuide as guide } from "./propertyTax.ts";
@@ -182,12 +182,8 @@ export function startsHeldEstateCost(f: FieldDef, aid: string): FieldDef {
           const a = (h.accounts ?? []).find((x) => x.id === aid);
           if (a !== undefined) applyHeldEstateCost(h, a, req.input.baseMonth, req.input.assumptions?.realEstateValuation?.landShare, true, req.input.assumptions?.assetReturns?.realEstate);
         });
-  return {
-    ...f,
-    set: (wh, v) => after(wh, f.set(wh, v)),
-    ...(f.write !== undefined ? { write: (wh: WorkingHousehold, v: Parameters<FieldDef["set"]>[1]) => after(wh, f.write!(wh, v)) } : {}),
-    ...(f.boxed !== undefined ? { boxed: { ...f.boxed, write: (wh: WorkingHousehold, box: Record<string, unknown> | undefined) => after(wh, f.boxed!.write(wh, box)) } } : {}),
-  };
+  // 時点の欄（持ち始める時点）は画面が time.setWhen で書くので、afterWrite で set・write・箱・time.setWhen を全部包む
+  return afterWrite(f, after);
 }
 
 /** 欄を空にしたときの目安（出せなければ null） */

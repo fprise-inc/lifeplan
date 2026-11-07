@@ -6,7 +6,7 @@
 import type { Debt, DebtHousing, EngineRequest, Household } from "../../../engine/types.ts";
 import { addMonths } from "../../levers.ts";
 import type { Address } from "../../store/readings.ts";
-import { byId, field, getPath, plain, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef } from "../form.ts";
+import { afterWrite, byId, field, getPath, plain, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef } from "../form.ts";
 import { mutate, newId, presetBasis, PRESET_HEADS, standardBox, wrapBasis, type LoanEntry, type WorkingHousehold } from "../household.ts";
 import { CREDIT_DATA_FROM_YEAR, creditKey, estimatedPrincipal, fromBalance, homeLoansOf, isHomeLoan, moveInFromResidence, newBuildFromPurchase, pairRateBasis, PRINCIPAL_ESTIMATE, principalKey, principalMismatch, purchaseMonth, purchaseOfLoan, SHARE_BY_LOANS, sharesByLoans, startsLater, startTentative, withoutCreditMark, withProvisionalHousing } from "../housingCredit.ts";
 import { DEBT_KINDS, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS } from "../labels.ts";
@@ -325,6 +325,12 @@ function paymentField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" 
   });
 }
 
+/** 今の残高から入れた住宅ローンで、借りた年月がまだ仮のときの、借りた年月の欄の下の1行（控除を0円で計算している） */
+export const START_UNENTERED_CREDIT = "未入力: 借りた年月を入れるまで、住宅ローン控除を0円で計算しています（控除が当てはまらなければ、「詳細」の入居の年月（控除）で「該当なし」）";
+
+/** 今の残高から入れた住宅ローンで、完済の年月が推定のままのときの、完済の年月の欄の下の1行（逆算の金利の代わり） */
+export const PAYOFF_FOR_RATE = "完済の年月を入れると、毎月の返済額から金利を逆算します";
+
 /** 完済の年月（区分「今の残高から」。借入の年月＋返済期間） */
 function payoffField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | "detail"): FieldDef {
   const find = (w: WorkingHousehold) => (w.request.input.household.debts ?? []).find((x) => x.id === d.id);
@@ -343,7 +349,9 @@ function payoffField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" |
         if (x === undefined || s === null) return { value: null };
         const ym = addMonths(s, x.repayment.termMonths);
         // 今の残高から入れた住宅ローンは、返済額と完済の年月から逆算した金利を欄の下に添える（金利の欄は詳細。0052 の追記 2026-11-07）
-        const solved = x.kind === "mortgage" && entryOf(w, x.id) === "balance" && isEstimate(rowOf(w, addrRate(x)), SOLVED) ? `＝金利 年${(Math.round(Number(nowRate(w.request.input.household, x, w.request.input.baseMonth)) * 10000) / 100).toLocaleString("ja-JP", { maximumFractionDigits: 2 })}%（逆算）` : null;
+        // 完済の年月が推定（既定の返済期間）のままなら、推定の完済から逆算した金利は当てにならないので出さず、入れ方を書く（段4の確かめ）
+        const solvedRate = x.kind === "mortgage" && entryOf(w, x.id) === "balance" && isEstimate(rowOf(w, addrRate(x)), SOLVED);
+        const solved = !solvedRate ? null : isEstimate(rowOf(w, addrTerm(x.id))) ? PAYOFF_FOR_RATE : `＝金利 年${(Math.round(Number(nowRate(w.request.input.household, x, w.request.input.baseMonth)) * 10000) / 100).toLocaleString("ja-JP", { maximumFractionDigits: 2 })}%（逆算）`;
         return { value: ym, hint: [readYearMonth(ym, w.request.input.baseMonth), solved].filter((t) => t !== null).join(" ") };
       },
       set: (w, v) => {
@@ -1302,13 +1310,37 @@ function startField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | 
       if (s !== null && s < base && home !== undefined) home.from = { at: s };
     });
   };
+  const startOf = (w: WorkingHousehold): string | null => {
+    const x = (w.request.input.household.debts ?? []).find((y) => y.id === d.id);
+    return x === undefined ? null : resolveTimepoint(w.request.input.household, x.start);
+  };
+  // 画面の時点の欄は time.setWhen で書く（set を通らない）ので、afterWrite で両方を包む。通らないと、今の残高から入れたローンで借りた年月を入れたとき
+  // 返済期間がそのままで完済の年月が前にずれ、入れた毎月の返済額も変わっていた（段4の確かめ）。完済の年月はそのまま（期間を直す。followLoan）
   return withAddress(
-    field({
-      ...inner,
-      ...followNote(wh, d),
-      ...(balanceHome ? { help: "返済予定表・契約書の借りた年月。入れると、持ち家の住み始め（入れていなければ）と住宅ローン控除の入居も同じ年月にします" } : {}),
-      set: (w, v) => withProvisionalHousing(fillHome(w, followLoan(w, keepCut(w, inner.set(w, v)), d.id, "start"))),
-    }),
+    afterWrite(
+      field({
+        ...inner,
+        // 住まいの住宅ローンは、借入の年月を直すと控除の仮の条件（入居の年月）も置き直す（今の残高から入れたローンは持ち家の住み始めも。0136 の 10）
+        ...(() => {
+          const notes = [followNote(wh, d).sideEffects, isHomeLoan(d) ? (balanceHome ? "持ち家の住み始め（入れていなければ）と住宅ローン控除の入居も同じ年月にします" : "住宅ローン控除の仮の条件も、借入の年月に合わせて置き直します") : undefined].filter((t): t is string => t !== undefined);
+          return notes.length > 0 ? { sideEffects: notes.join("。") } : {};
+        })(),
+        ...(balanceHome ? { help: "返済予定表・契約書の借りた年月。入れると、持ち家の住み始め（入れていなければ）と住宅ローン控除の入居も同じ年月にします。完済の年月と毎月の返済額は変えません" } : {}),
+        // 借りた年月が仮の間は控除を0円で計算している（入力項目の札の「未入力（0円の所あり）」の元）。どの欄か分かるように、この欄の下に書く（段4の確かめ）
+        ...(balanceHome
+          ? {
+              get: (w: WorkingHousehold) => {
+                const st = inner.get(w);
+                const x = (w.request.input.household.debts ?? []).find((y) => y.id === d.id);
+                const open = x !== undefined && x.housing === undefined && startTentative(x) && !creditNotApplicable(w, d.id);
+                return open ? { ...st, warn: START_UNENTERED_CREDIT } : st;
+              },
+            }
+          : {}),
+      }),
+      // 同じ月のまま形だけ変えた（年月→年齢など）ときは何もついてこさせない
+      (w, next) => (startOf(w) === startOf(next) ? next : withProvisionalHousing(fillHome(w, followLoan(w, keepCut(w, next), d.id, "start")))),
+    ),
     () => addrStart(d.id),
   );
 }

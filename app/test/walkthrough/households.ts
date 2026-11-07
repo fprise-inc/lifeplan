@@ -3,6 +3,7 @@
 // ① 会社員の夫婦（38歳・36歳）と子2人（6歳・3歳）、持ち家（住宅ローンあり）。ざっくり（標準の欄だけ）
 // ② 自営業のひとり親（42歳・女性）と子1人（15歳）、賃貸、国民年金・国保。詳しく（詳細も使う）
 // ③ 60代の夫婦（63歳・60歳）、再雇用・企業年金、持ち家は完済、区分マンション1室を貸す、母の介護と相続の見込み。詳しく
+// ④ 賃貸から住宅を買う予定の人（40歳）。購入の時期を画面で直して、前の賃貸の住み終わり・住宅ローンの借入の年月・控除の入居がついてくるか（標準の欄だけ）
 import type { Page } from "./browser.ts";
 
 export interface Notes {
@@ -127,6 +128,10 @@ export async function household1(p: Page): Promise<Notes> {
   // 毎月の返済額は円の欄（返済予定表の数字をそのまま打つ。「9万」も9万円）
   await p.type("毎月の返済額", "9万");
   await p.type("完済の年月", "2058-03");
+  // 借りた年月は今の残高から入れたローンの標準の欄（控除の入居・持ち家の住み始めにも使う）。入れても、入れた返済額・完済の年月は変わらない
+  await p.type("借りた年月（入居の年月）", "2023-04");
+  n.seen.loanPaymentAfterStart = await fieldValue(p, "毎月の返済額");
+  n.seen.loanPayoffAfterStart = await fieldValue(p, "完済の年月");
   await save(p, n, "住まい・ローン");
 
   await open(p, n, "保険");
@@ -335,5 +340,43 @@ export async function household3(p: Page): Promise<Notes> {
   await p.type("課税口座（特定口座）の残高", "800");
   await p.type("課税口座（特定口座）の利回り", "3");
   await save(p, n, "貯蓄・運用");
+  return n;
+}
+
+/**
+ * ④ 賃貸から住宅を買う予定。購入の時期を画面のキー入力で2回直す（住宅ローンを足す前と後）。どちらも、前の賃貸の住み終わり・購入した家の住み始め・
+ * 住宅ローンの借入の年月と控除の入居がついてくるか（時点の欄は欄を離れたときに決める。決めた値が連動を通るか）。最後に借入の年月だけを手で
+ * ずらし、借入額の欄の下の「購入の時期に合わせる」を押して戻す（欄の下の知らせのボタン）
+ */
+export async function household4(p: Page): Promise<Notes> {
+  const n = newNotes();
+  await newHousehold(p);
+  await open(p, n, "家族");
+  await p.type("生年月", "1986-05");
+  await save(p, n, "家族");
+
+  await open(p, n, "住まい・ローン");
+  await p.click("＋ 賃貸", { within: "panel", exact: true });
+  await p.type("家賃（管理費込み）", "10");
+  await p.click("＋ 住宅購入の予定", { within: "panel", exact: true });
+  // 住宅ローンを足す前に直す
+  await p.type("購入の時期", "2030-04");
+  n.seen.rentEndAfterFirst = await fieldValue(p, "住み終わり");
+  await p.click("＋ 住宅ローン", { within: "panel", exact: true });
+  n.seen.loanStartAfterAdd = await fieldValue(p, "借入の年月");
+  // 住宅ローンを足した後に直す
+  await p.type("購入の時期", "2031-10");
+  n.seen.rentEndAfterSecond = await fieldValue(p, "住み終わり");
+  n.seen.loanStartAfterSecond = await fieldValue(p, "借入の年月");
+  n.seen.purchasePanel = await p.panelText();
+  await save(p, n, "住まい・ローン");
+
+  // 借入の年月だけを手でずらすと、借入額の欄の下に知らせと「購入の時期に合わせる」が出る。押すと借入の年月が購入の時期に戻る
+  await open(p, n, "住まい・ローン");
+  await p.type("借入の年月", "2032-01");
+  n.seen.gapPanel = await p.panelText();
+  await p.click("購入の時期に合わせる", { within: "panel", exact: true });
+  n.seen.loanStartAfterFix = await fieldValue(p, "借入の年月");
+  await save(p, n, "住まい・ローン");
   return n;
 }
