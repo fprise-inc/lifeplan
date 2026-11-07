@@ -94,14 +94,20 @@ describe("100年分の表", () => {
 });
 
 describe("計算方式の設定と2本の時間軸", () => {
-  it("aggregation を切り替えると載る年だけが変わり、合計は変わらない。住民税は所得の年に帰属する", () => {
+  it("aggregation を切り替えると載る年だけが変わる。発生の年の表の合計は、帰属の年が表の最後の年までの分（0165）。住民税は所得の年に帰属する", () => {
     const req = modelHousehold("single25");
     const cash = run(req);
     const acc = clone(req);
     (acc.input.calcConventions as { aggregation: string }).aggregation = "accrual";
     const accrual = run(acc);
     const total = (x: EngineResult, row: string) => cells(x).filter((c) => c.row === row).reduce((s, c) => s + c.amount, 0);
-    for (const row of ["cf.taxSi.residentTax", "cf.taxSi.health", "cf.income.salary"]) expect(total(accrual, row)).toBe(total(cash, row));
+    // 表の最後の年に帰属して表の後に払う分（翌年の住民税など）も、発生の年の表には載る（0165）
+    const endYear = (req.input as { endYear: number }).endYear;
+    const longer = run({ ...req, input: { ...req.input, endYear: endYear + 2 } });
+    const accrued = (row: string) => longer.flows.filter((f) => f.row === row && f.accrualYear <= endYear).reduce((s, f) => s + f.amount, 0);
+    for (const row of ["cf.taxSi.residentTax", "cf.taxSi.health", "cf.income.salary"]) expect(total(accrual, row)).toBe(accrued(row));
+    expect(total(accrual, "cf.income.salary")).toBe(total(cash, "cf.income.salary"));
+    expect(total(accrual, "cf.taxSi.residentTax")).toBeGreaterThan(total(cash, "cf.taxSi.residentTax"));
     // 2027年1〜5月に払う住民税（令和8年度分＝2025年の所得）は、表の最初の年（2026）に載る
     expect(cell(accrual, "cf.taxSi.residentTax", 2026)).toBeGreaterThan(cell(cash, "cf.taxSi.residentTax", 2026));
     expect(cash.flows.filter((f) => f.row === "cf.taxSi.residentTax" && f.ym >= "2027-06").every((f) => f.accrualYear === 2026)).toBe(true);

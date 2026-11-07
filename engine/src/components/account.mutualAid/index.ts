@@ -8,25 +8,35 @@
 //   分割で受け取る間は、まだ受け取っていない額を年末の残高に残す
 //   一括は退職所得の一時金（勤続期間は加入の始まり enrolledSince〜受け取りの前の月。掛金納付月数の近似）として retirement.receipts に渡す
 // - 改訂2（0137）: 預金の利回り（assumptions.depositReturn）を読む。預金・外貨預金の資産クラス（cash.deposit・cash.foreign）が前提の資産クラスごとの利回りに無いときの利回り（省略は運用利回りで、前の要求は今までどおり。0137）
+// - 改訂3（0165）: 共済契約者の死亡（万一の想定 contingency.event）: 死亡の月の翌月に、その時の残高を死亡を事由とする共済金として遺族
+//   （死亡の当時の配偶者。いなければ子）が一時金で受け取る（account.ideco の死亡一時金と同じ形）。みなし相続財産（相続税法3条1項2号の
+//   退職手当金等）で、退職所得・雑所得の税をかけないので receipts・annuities に入れない（知らせ N_INHERITANCE_TAX）。分割の受け取りの間に
+//   亡くなったら、まだ受け取っていない分割の分を同じ月に遺族へ一時金で渡す。前は死亡を見ず、生前の受け取りの予定どおりに亡くなった人の
+//   所得として受け取った
 import {
   accountReturnRate,
   addMonths,
   addYen,
   annualReturn,
   boxValue,
+  childrenOf,
   defineComponent,
   formatYm,
   monthOf,
   parseYm,
   RATE_ZERO,
+  spousesAt,
   yearOf,
   yen,
   type AccountInput,
   type AnnuityPayment,
+  type ContingencyEventOutput,
   type Flow,
   type IdecoAccountYear,
+  type MemberInput,
   type MonthIndex,
   type MutualAidOutput,
+  type RelationInput,
   type RetirementReceipt,
   type Yen,
 } from "../../sdk/index.ts";
@@ -37,8 +47,8 @@ export default defineComponent<{ member: string }, MutualAidOutput>({
   id: "account.mutualAid",
   title: "小規模企業共済の残高と受け取り",
   contract: "1.0",
-  revision: 2,
-  requires: {},
+  revision: 3,
+  requires: { "contingency.event": ">=1 <2" },
   params: Object.values(P),
   reads: [
     "account.kind",
@@ -51,6 +61,14 @@ export default defineComponent<{ member: string }, MutualAidOutput>({
     "assumptions.investmentReturn",
     "assumptions.assetReturns",
     "assumptions.depositReturn",
+    "member.kind",
+    "relation.type",
+    "relation.a",
+    "relation.b",
+    "relation.from",
+    "relation.to",
+    "relation.parent",
+    "relation.child",
   ],
   memberScope: ["account"],
   input: "member.input",
@@ -66,6 +84,18 @@ export default defineComponent<{ member: string }, MutualAidOutput>({
     const annuities: AnnuityPayment[] = [];
     const paid: AnnuityPayment[] = [];
     let capped = false;
+    // 死亡の月の翌月（死亡を事由とする共済金）と受け取る遺族（改訂3）
+    const ev = ctx.call<ContingencyEventOutput>("contingency.event", { member }).event;
+    const deathPay = ev !== null && ev.kind === "death" ? addMonths(parseYm(ev.month), 1) : null;
+    let heir = member;
+    if (deathPay !== null) {
+      const relations = ctx.list<RelationInput>("relation");
+      heir = spousesAt(ctx, relations, member, addMonths(deathPay, -1))[0] ?? childrenOf(ctx.list<MemberInput>("member"), relations, member)[0]?.id ?? member;
+    }
+    const deathFlow = (ym: MonthIndex, amount: Yen, object: string) => {
+      flows.push({ row: "cf.income.lumpSum.inheritance", ym: formatYm(ym), amount, accrualYear: yearOf(ym), member: heir, object, formula: "account.mutualAid.deathLumpSum" });
+      ctx.notice("N_INHERITANCE_TAX", ["account.mutualAid.deathLumpSum", object]);
+    };
     for (const a of list) {
       const payout = a.payout;
       const start: MonthIndex | null = payout?.start === undefined ? null : ctx.time.resolve(payout.start);
@@ -105,6 +135,23 @@ export default defineComponent<{ member: string }, MutualAidOutput>({
       const installmentsByYear = new Map<number, Yen>();
       let pending = yen(0);
       for (let y = yearOf(base); y <= yearOf(end); y++) {
+        // 亡くなった後（改訂3）: 死亡の年の後は残高も受け取りも無い
+        if (deathPay !== null && y > yearOf(deathPay)) {
+          years.push({ year: y, contributions: yen(0), payout: yen(0), returns: yen(0), closing: yen(0) });
+          continue;
+        }
+        // 受け取りが始まる前に亡くなった（改訂3）: 死亡の月の翌月までの運用益と掛金を足した残高を、遺族が一時金で受け取る
+        if (deathPay !== null && y === yearOf(deathPay) && deathPay >= base && (start === null || start >= deathPay || yearOf(start) > y)) {
+          const elapsed = y === yearOf(base) ? deathPay - base : monthOf(deathPay) - 1;
+          const before = sumBefore(y, monthOf(deathPay));
+          const r = a.assetMix === undefined ? RATE_ZERO : accountReturnRate(ctx, a, y);
+          const ret = annualReturn(ctx, v, before, r, elapsed);
+          const balance = addYen(addYen(v, before), ret);
+          if (balance > 0 && deathPay <= end) deathFlow(deathPay, balance, a.id);
+          v = yen(0);
+          years.push({ year: y, contributions: before, payout: balance, returns: ret, closing: yen(0) });
+          continue;
+        }
         if (start !== null && yearOf(start) < y) {
           const got = installmentsByYear.get(y) ?? yen(0);
           pending = yen(pending - got);
@@ -147,6 +194,31 @@ export default defineComponent<{ member: string }, MutualAidOutput>({
         const gotNow = installmentsByYear.get(y) ?? yen(0);
         pending = n > 0 ? yen(rest - gotNow) : yen(0);
         years.push({ year: y, contributions: contrib, payout: addYen(lump, gotNow), returns: ret, closing: pending });
+      }
+      // 分割の受け取りの間に亡くなった（改訂3）: 死亡の月の翌月から後の分割の分を、その月に遺族へ一時金で渡す
+      if (deathPay !== null && start !== null && start < deathPay) {
+        const dp = formatYm(deathPay);
+        let rest = yen(0);
+        for (let i = annuities.length - 1; i >= 0; i--) {
+          const x = annuities[i] as AnnuityPayment;
+          if (x.object !== a.id || x.ym < dp) continue;
+          rest = addYen(rest, x.amount);
+          annuities.splice(i, 1);
+        }
+        for (let i = flows.length - 1; i >= 0; i--) {
+          const f = flows[i] as Flow;
+          if (f.object === a.id && f.formula === "account.mutualAid.installment" && f.ym >= dp) flows.splice(i, 1);
+        }
+        if (rest > 0) {
+          if (deathPay <= end) deathFlow(deathPay, rest, a.id);
+          for (let i = 0; i < years.length; i++) {
+            const e = years[i] as IdecoAccountYear;
+            if (e.year < yearOf(deathPay)) continue;
+            const got = annuities.filter((x) => x.object === a.id && yearOf(parseYm(x.ym)) === e.year).reduce((s0, x) => addYen(s0, x.amount), yen(0));
+            const lumpNow = e.year === yearOf(start) ? receipts.filter((x) => x.object === a.id).reduce((s0, x) => addYen(s0, x.amount), yen(0)) : yen(0);
+            years[i] = { ...e, payout: e.year === yearOf(deathPay) ? addYen(addYen(got, lumpNow), rest) : yen(0), closing: yen(0) };
+          }
+        }
       }
       accounts.push({ object: a.id, years });
     }

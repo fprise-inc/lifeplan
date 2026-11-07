@@ -38,10 +38,13 @@
 // - 改訂8（0090）: 高専（kosen。15歳の学年から5年。国立は国立高等専門学校機構の入学料・授業料、公立・私立は学校の年額を入れるまで0円）。
 //   高専の後の大学・短大・専門学校（編入）は、高専を出た翌月の4月から。専門職大学院（graduateProfessional。2年、系統 law は法科大学院で3年）は、
 //   国立は省令の標準額（法科大学院は別の額）、公立は大学院の平均、私立は専門職学位課程の平均（法科大学院とその他）
+// - 改訂10（0165）: 払う人を書いていない子への援助は、払う月に世帯にいる最初の親（関係 parentOf の並び。無ければ本人・配偶者）が払う
+//   （前は子の最初の親のまま、亡くなった親の名で払った。額は変わらない）
 // 教育費の上昇率は学校の費用・学校外活動費・仕送り・留学に当て、公的支援には当てない（0010 の5）
 import {
   addMonths,
   defineComponent,
+  firstPresent,
   formatYm,
   grownByYear,
   monthIndex,
@@ -55,6 +58,7 @@ import {
   type Enrollment,
   type Flow,
   type GoalInput,
+  type MemberInput,
   type MonthIndex,
   type SchoolStage,
   type Yen,
@@ -97,10 +101,10 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
   id: "education.cost",
   title: "教育費",
   contract: "1.1",
-  revision: 9,
+  revision: 10,
   requires: { "debt.schedule": ">=1 <2", "contingency.event": ">=1 <2" },
   params: PARAMS,
-  reads: ["goal.kind", "goal.owner", "goal.education", "member.kind", "relation.type", "relation.parent", "relation.child", "assumptions.inflation", "assumptions.educationInflation"],
+  reads: ["goal.kind", "goal.owner", "goal.education", "member.kind", "member.birth", "member.joins", "member.leaves", "relation.type", "relation.parent", "relation.child", "assumptions.inflation", "assumptions.educationInflation"],
   memberScope: ["goal"],
   replaceable: true,
   input: "member.input",
@@ -115,8 +119,11 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
     const childRepaid: NonNullable<EducationCostOutput["childRepaid"]>[number][] = [];
     const enrollments: Enrollment[] = [];
     // 子の親（関係 parentOf の最初の親。関係が無ければ本人）。奨学金を親が返す・援助を払う人の既定
-    const rel = ctx.list<{ type: string; parent?: string; child?: string }>("relation").find((r) => r.type === "parentOf" && r.child === child);
-    const parent: string = rel?.parent ?? ctx.list<{ id: string; kind: string }>("member").find((m) => m.kind === "self")?.id ?? child;
+    const rels = ctx.list<{ type: string; parent?: string; child?: string }>("relation").filter((r) => r.type === "parentOf" && r.child === child);
+    const members = ctx.list<MemberInput>("member");
+    const parent: string = rels[0]?.parent ?? members.find((m) => m.kind === "self")?.id ?? child;
+    // 援助を払う親の候補（並びの順。関係が無ければ本人・配偶者）
+    const parents: string[] = rels.length > 0 ? rels.map((r) => r.parent as string) : members.filter((m) => m.kind === "self").concat(members.filter((m) => m.kind === "spouse")).map((m) => m.id);
     const at0 = ctx.at(base);
     // 事務所の既定値で「推定で埋めない」にしたとき（0111 の2回目）は、統計の目安を引かない（入れていない段は0円。知らせ N_INPUT_REQUIRED）
     const fills = ctx.fillsByEstimate("education");
@@ -440,7 +447,9 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
       for (const gf of e.gifts ?? []) {
         // 世帯の外の贈与者（donors）が出す援助は世帯から出さない（贈与税は gift.tax）
         if (gf.donor !== undefined) continue;
-        push(ctx.time.resolve(gf.at), gf.purpose === "wedding" ? "cf.expense.lumpSum.wedding" : "cf.expense.lumpSum.gift", gf.amount, `education.cost.gift.${gf.purpose}`, gf.payer ?? parent);
+        // 払う人を書いていない援助は、払う月に世帯にいる最初の親（0165。亡くなった親の名で払わない）
+        const gm = ctx.time.resolve(gf.at);
+        push(gm, gf.purpose === "wedding" ? "cf.expense.lumpSum.wedding" : "cf.expense.lumpSum.gift", gf.amount, `education.cost.gift.${gf.purpose}`, gf.payer ?? firstPresent(ctx, members, parents, gm) ?? parent);
       }
       if ((e.gifts ?? []).length > 0) ctx.notice("N_NOT_SUPPORTED", ["giftTax"]);
     }
