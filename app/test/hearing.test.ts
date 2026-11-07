@@ -325,3 +325,30 @@ describe("承認の日時", () => {
     expect(approvalTime()).toMatch(/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$/);
   });
 });
+
+describe("値の入った世帯に記入済みのシート（Excel）を取り込む: 今の値を壊さない（Web と同じ候補の画面）", () => {
+  it("範囲・推定・仮の値は、確定の今の値を既定で残し、空欄の項目は候補にしない。候補には「今 → 届いた値」が並ぶ", async () => {
+    const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"));
+    const r = await importSheet(SIMPLE, wh, seq);
+    if (!r.ok) throw new Error("取り込めない");
+    const v = r.view;
+    const sel = defaultSelection(v);
+    const loan = v.candidates.find((c) => c.group === "住宅ローン");
+    expect(loan?.keep).toContain("今の値の方が詳しいので残します");
+    expect(sel.has(loan?.id ?? "")).toBe(false);
+    expect(loan?.fields.flatMap((f) => f.diffs).find((d) => d.label === "残高")).toMatchObject({ current: "22,400,000円", rough: true });
+    // 住民税は空欄 → お答えなし（今の値のまま）
+    const tax = v.candidates.find((c) => c.group === "住民税");
+    expect(tax?.kind).toBe("noAnswer");
+    expect(sel.has(tax?.id ?? "")).toBe(false);
+    // 記入どおりの生年月は変更として既定で入る
+    const self = v.candidates.find((c) => c.title === "ご本人");
+    expect(self?.fields[0]?.diffs[0]).toMatchObject({ current: "1981年7月", next: "1984年7月", rough: false, kept: false });
+    expect(sel.has(self?.id ?? "")).toBe(true);
+    const h = applyImport(wh, v, sel, AT).wh.request.input.household;
+    expect(h.debts?.[0]).toMatchObject({ principal: 32000000, balance: { value: 22400000 } });
+    expect((h.residentTaxAssessments as { amount: unknown }[] | undefined)?.[0]?.amount).toMatchObject({ value: 380000, state: "confirmed" });
+    expect((h.accounts ?? []).find((a) => a.kind === "deposit")?.marketValue).toMatchObject({ value: 8000000, state: "confirmed" });
+    expect(h.members.find((m) => m.kind === "self")?.birth.birthYearMonth).toBe("1984-07");
+  });
+});
