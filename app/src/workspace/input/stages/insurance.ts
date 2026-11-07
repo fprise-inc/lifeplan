@@ -1076,7 +1076,8 @@ function coverageGroup(wh: WorkingHousehold, c: InsuranceContract, cov: Coverage
       }),
       () => at(c.id, "insurance.coverages", [cov.id, "insured"]),
     ),
-    plain({
+    {
+      ...plain({
       key: `${kc}/benefit`,
       item: "insurance.coverages",
       label: "給付の種類",
@@ -1093,7 +1094,9 @@ function coverageGroup(wh: WorkingHousehold, c: InsuranceContract, cov: Coverage
         const before = (contractIn(w0.request.input.household)?.coverages ?? []).find((z) => z.id === cov.id)?.benefit;
         if (x !== undefined && before !== undefined && typeof v === "string" && before !== v) refitBenefit(h, x, t, before, v);
       },
-    }),
+      }),
+      sideEffects: "額の意味が変わる種類（年額・月額・日額など）にすると、額を0円の未入力にします。年金にすると、受け取りの始まりを65歳・年数を10年の推定にします",
+    },
     mainRow
       ? readOnlyOf(`${kc}/amount`, amountLabel(cov.benefit), kd.main?.label ?? "主な保障", (h) => {
           const a = covNow(h)?.amount;
