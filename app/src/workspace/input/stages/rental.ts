@@ -406,7 +406,7 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
   const self = h.members.find((m) => m.id === a.owner);
   const ageOf = self !== undefined ? { ageOf: (hh: Household) => hh.members.find((m) => m.id === self.id) } : {};
   const shareField = withAddress(
-    plain({ key: `${kp}/share`, item: "account.property", label: "持分", level: "detail", kind: "pct", find: findP, path: ["share"], optional: true, help: "共有名義のとき、名義の人の持分です（例: 2分の1なら 50%）。入れなければ全部（単独の名義）" }),
+    plain({ key: `${kp}/share`, item: "account.property", label: "持分", level: "detail", kind: "pct", min: 0, max: 100, find: findP, path: ["share"], optional: true, help: "共有名義のとき、名義の人の持分です（例: 2分の1なら 50%）。入れなければ全部（単独の名義）" }),
     onAccount(a.id, "account.property", ["share"]),
   );
   const kindBase = withAddress(
@@ -996,7 +996,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       yenBox({ key: `${kp}/rent`, item: "account.property", label: actual ? byWords.actualRent : words.rent, level: "simple", basis: "monthly", help: actual ? byWords.actualHelp : words.rentHelp, find: findP, path: ["rental", "monthly"] }),
       ...(actual
         ? vacancyLeftFields(a, vac)
-        : [withDefaultMark(withAddress(plain({ key: `${kp}/vacancy`, item: "account.property", label: vac, level: "simple", kind: "pct", find: findP, path: ["rental", "vacancyRate"], optional: true, fallback: "0", help: words.vacancyHelp }), onAccount(a.id, "account.property", ["rental", "vacancyRate"])), presetBasis(`入れなければ${vac} 0%（満室）で計算します`), a.id, ["rental", "vacancyRate"])]),
+        : [withDefaultMark(withAddress(plain({ key: `${kp}/vacancy`, item: "account.property", label: vac, level: "simple", kind: "pct", min: 0, max: 100, find: findP, path: ["rental", "vacancyRate"], optional: true, fallback: "0", help: words.vacancyHelp }), onAccount(a.id, "account.property", ["rental", "vacancyRate"])), presetBasis(`入れなければ${vac} 0%（満室）で計算します`), a.id, ["rental", "vacancyRate"])]),
       ...(showExtra(p.rental.commonFee) ? [rentYen("commonFee", ["rental", "commonFee"], "共益費（月額）", "monthly", `家賃とは別に受け取る共益費・管理費です。${extraRule}`)] : []),
       ...(showExtra(p.rental.parking)
         ? [
@@ -1112,7 +1112,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       timepointField({ key: `${kp}/saleAt`, item: "account.property", label: "売る時期", level: "simple", find: findP, path: ["sale", "at"], ...ageOf }),
       plain({ key: `${kp}/salePrice`, item: "account.property", label: "売却価格", level: "simple", kind: "yen", basis: "once", find: findP, path: ["sale", "price"], optional: true, help: "入れなければ、その年の評価額で売るとみなします" }),
       withDefaultMark(
-        withAddress(plain({ key: `${kp}/saleCost`, item: "account.property", label: "売却の費用（売却価格に対する割合）", level: "detail", kind: "pct", find: findP, path: ["sale", "costRate"], optional: true, fallback: setting?.saleCostRate ?? VALUATION_DEFAULTS.saleCostRate, help: "仲介手数料・印紙税など。譲渡所得の計算では譲渡費用として引きます" }), onAccount(a.id, "account.property", ["sale", "costRate"])),
+        withAddress(plain({ key: `${kp}/saleCost`, item: "account.property", label: "売却の費用（売却価格に対する割合）", level: "detail", kind: "pct", min: 0, max: 100, find: findP, path: ["sale", "costRate"], optional: true, fallback: setting?.saleCostRate ?? VALUATION_DEFAULTS.saleCostRate, help: "仲介手数料・印紙税など。譲渡所得の計算では譲渡費用として引きます" }), onAccount(a.id, "account.property", ["sale", "costRate"])),
         setting?.saleCostRate !== undefined ? presetBasis("前提条件の不動産の評価の売却の費用") : presetBasis(`売却の費用の目安 ${rateText(VALUATION_DEFAULTS.saleCostRate)}（仲介手数料の上限・印紙税・登記）`),
         a.id,
         ["sale", "costRate"],
