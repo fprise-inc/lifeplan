@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { allFields, raiseFields, type Level } from "./form.ts";
 import { DocReadContext, fieldDomId, FieldStateOps, FieldSuggestions, GroupOpen, PinControls, PlanMarksContext, Section, SectionLinks, visible, type GroupOpenState, type PinControl, type PlanMarks, type SectionLink } from "./FieldViews.tsx";
 import { dropStaleRows } from "./rows.ts";
+import { keepRefs } from "./refs.ts";
 import { applyStateOp, availableOps, confirmAll, endedLongAgo, fieldStatus, holderOfField, planStateOp, type StateOp } from "./valueState.ts";
 import type { FieldDef } from "./form.ts";
 import type { Catalog } from "../plans/items.ts";
@@ -181,15 +182,17 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
     if (plan === undefined) return;
     const cur = latest.current;
     const before = planView(cur, plan.cat, plan.id);
-    const n = recordPlanEdit(cur, plan.cat, plan.id, before, target, causes !== undefined ? { causes } : {});
+    // 外した物を指す欄の片付け（0163）は、連鎖の確かめ（一緒に外す物を選ぶ）の後に
+    const n = recordPlanEdit(cur, plan.cat, plan.id, before, keepRefs(before, target), causes !== undefined ? { causes } : {});
     commit(settleFields(n, plan.cat, plan.id, cardFields(planView(n, plan.cat, plan.id))));
   };
   const edit = (next: WorkingHousehold) => {
     const cur = latest.current;
     if (plan === undefined) {
       if (next === cur) return;
-      // 値が変わった所の前からの値の状態の行（書類待ち・該当なし・承認など）を外してから、推定のままの値を入れ直す（0041）
-      commit(withProvisionalHousing(withRefreshedEstimates(dropStaleRows(cur, next))));
+      // 値が変わった所の前からの値の状態の行（書類待ち・該当なし・承認など）を外してから、推定のままの値を入れ直す（0041）。
+      // 外した物を指す欄（持ち家を指す住宅ローン・勤め先を指す退職金など）も片付ける（0163）
+      commit(withProvisionalHousing(withRefreshedEstimates(keepRefs(cur, dropStaleRows(cur, next)))));
       return;
     }
     const made = madeBy.current.get(next);

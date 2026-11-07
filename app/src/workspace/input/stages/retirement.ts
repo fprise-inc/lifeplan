@@ -286,25 +286,30 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
   const endYm = resolveTimepoint(h, b.service?.to ?? periodOf(h, b)?.to ?? null);
   const leftText = endYm !== null ? `勤め先を辞めた翌月（${formatYearMonth(addMonths(endYm, 1))}）` : "勤め先を辞めた翌月";
   const paidAtShown = !(kind === "db" && method === "annuity" && b.paidAt === undefined);
-  if (paidAtShown)
-    fields.push(
-      withAddress(
-        timepointField({
-          key: `${prefix}/paidAt`,
-          item: "retirementBenefit.paidAt",
-          label: ANNUITY_ONLY.has(kind) ? "支給の月" : "受け取る時期",
-          level: "detail",
-          find,
-          path: ["paidAt"],
-          ageOf,
-          mode: "ym",
-          optional: true,
-          absentWhenEmpty: true,
-          nullText: leftText,
-        }),
-        benefitAt(b.id, "retirementBenefit.paidAt"),
-      ),
-    );
+  if (paidAtShown) {
+    const paidAt = timepointField({
+      key: `${prefix}/paidAt`,
+      item: "retirementBenefit.paidAt",
+      label: ANNUITY_ONLY.has(kind) ? "支給の月" : "受け取る時期",
+      level: "detail",
+      find,
+      path: ["paidAt"],
+      ageOf,
+      mode: "ym",
+      optional: true,
+      absentWhenEmpty: true,
+      nullText: leftText,
+    });
+    // 空欄でも、勤め先（働き方の期間）の終わり・勤続期間の終わりが無いと受け取る時期が決まらず、計算に入らない（勤め先の期間を外した後など。
+    // 0163）。入れるまで未入力の印（標準に上がる）
+    const undecided = (w: WorkingHousehold): boolean => {
+      const hh = w.request.input.household;
+      const x = find(hh, w) as RetirementBenefit | undefined;
+      if (x === undefined || x.paidAt !== undefined || (method === "annuity" && x.receipt?.start !== undefined)) return false;
+      return resolveTimepoint(hh, x.service?.to ?? periodOf(hh, x)?.to ?? null) === null;
+    };
+    fields.push(withAddress({ ...paidAt, get: (w) => (undecided(w) ? { ...paidAt.get(w), estimated: UNDECIDED_PAID_AT } : paidAt.get(w)) }, benefitAt(b.id, "retirementBenefit.paidAt")));
+  }
   // 受け取り方（DB だけ選ぶ）
   if (kind === "db") {
     fields.push(
@@ -581,6 +586,9 @@ export function addBenefitActions(wh: WorkingHousehold, m: Member): ActionDef[] 
 export function addBenefitAction(wh: WorkingHousehold, m: Member): ActionDef {
   return addBenefitActions(wh, m)[0] as ActionDef;
 }
+
+/** 受け取る時期が決まらない退職金の、受け取る時期の欄の未入力の印（0163） */
+export const UNDECIDED_PAID_AT = "未入力（勤め先の働き方の期間が無いので、受け取る時期が決まりません。勤め先か受け取る時期を入れるまで、計算に入れていません）";
 
 /** 退職金・企業年金の出る勤め先になる働き方の種類（再雇用・パートなどの期間より、この期間を既定の勤め先にする） */
 const CAREER_TYPES = new Set(["regular", "civilServant", "executive"]);
