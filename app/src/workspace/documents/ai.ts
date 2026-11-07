@@ -1,7 +1,8 @@
 // AI から届いた書類の候補と、貼り付けた AI の答えを、読み取りの記録にする（0151）。
 // - AI接続口の道具（propose_inputs）の答えは、本体がメモリの中に置いているだけ（世帯ファイルには書かない）。ここで読み口 readProposal
 //   （番号を落とす決まり・登録簿にある入力項目だけ）を通して読み取りの記録にしてから、本体の承認待ちから外す
-// - 貼り付けは readProposalText。外部AIへの提供の同意（0014）がある世帯（と見本の世帯）だけで使える
+// - 貼り付けは readProposalText。外部AIへの提供の同意（0014）がある世帯（と見本の世帯）だけで使える。
+//   同意は書類を AI に渡すことを含む説明（版2〜。0157）でのものに限る（版1の説明の同意では、取り直すまで使えない）
 // - どちらも世帯の値は変えない（承認は確かめの画面）
 import type { AiDocumentProposal } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
@@ -53,13 +54,18 @@ export function ingestAiProposals(wh: WorkingHousehold, proposals: readonly AiDo
   return out;
 }
 
-/** 貼り付けの入口を使えるか: 見本の世帯はいつでも、保存した世帯は外部AIへの提供の同意があるときだけ */
+/**
+ * 貼り付けの入口を使えるか: 見本の世帯はいつでも、保存した世帯は外部AIへの提供の同意があるときだけ。
+ * 同意は書類を AI に渡すことを含む説明（版2〜）でのものに限る（`consentDocuments`。0157）
+ */
 export type PasteGate = { ok: true; sample: boolean } | { ok: false; reason: string };
 
-export function pasteGate(o: { sample: boolean; saved: boolean; consentState: string | null }): PasteGate {
+export function pasteGate(o: { sample: boolean; saved: boolean; consentState: string | null; consentDocuments: boolean }): PasteGate {
   if (o.sample) return { ok: true, sample: true };
   if (!o.saved) return { ok: false, reason: "保存していない世帯では使えません。世帯を保存し、外部AIへの提供の同意を記録してから使ってください。" };
-  if (o.consentState === "given") return { ok: true, sample: false };
+  if (o.consentState === "given" && o.consentDocuments) return { ok: true, sample: false };
+  if (o.consentState === "given")
+    return { ok: false, reason: "この世帯の同意は前の版の説明でいただいたもので、書類を AI に渡すことは含まれていません。書類を AI に渡す前に、お客さまに今の説明を見せて、同意を記録し直してください（「同意と共有を開く」）。計算に要る項目を AI に渡すことは、今の同意のまま続けられます。" };
   if (o.consentState === "refused") return { ok: false, reason: "お客さまは外部AIへの提供に同意しませんでした。書類は AI に渡さず、手で入れてください。" };
   if (o.consentState === "withdrawn") return { ok: false, reason: "お客さまは外部AIへの提供の同意を撤回しました。書類は AI に渡さず、手で入れてください。" };
   return { ok: false, reason: "外部AIへの提供の同意が記録されていません。書類を AI に渡す前に、同意を記録してください（「AI に資料を渡す」の「同意と共有を開く」）。" };

@@ -525,6 +525,8 @@ export interface AiConsentRecord {
   explanationRef?: string;
   externalAi?: { company: string; country: string; noTrainingConfirmed: boolean };
   scope?: string;
+  /** 書類の読み取りで書類を AI に渡すことを含む説明（版2〜）で同意した（0157）。無い同意は書類に使わない */
+  documents?: boolean;
   fpConfirmed: boolean;
   recordedAt: string;
   origin: "thisOffice" | "previousOffice";
@@ -605,9 +607,16 @@ export interface AiDocumentProposal {
 /** 世帯の「同意とAIの記録」 */
 export interface AiHouseholdView {
   consentState: "none" | AiConsentDecision;
+  /**
+   * 今の同意が、書類を AI に渡すことを含む説明（版2〜）でのものか（0157）。`given` で false なら、
+   * 計算に要る項目は渡せるが、書類を AI に渡す前に同意を取り直す。無い本体〔古い版・テストの代わり〕は false として扱う
+   */
+  consentDocuments?: boolean;
   consents: AiConsentRecord[];
   explanation: string;
   explanationRef: string;
+  /** 説明文の版（0157） */
+  explanationVersion?: number;
   share: AiShareStatus | null;
   records: AiShareRecord[];
   candidates: AiCandidate[];
