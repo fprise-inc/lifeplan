@@ -14,7 +14,7 @@
 
 use crate::consent::{
     self, current_external_ai, explanation_ref, verify_consents_append_only, Author, ConsentRecord,
-    ExternalAiConsentInput, EXTERNAL_AI_EXPLANATION,
+    ExternalAiConsentInput, EXTERNAL_AI_EXPLANATION, EXTERNAL_AI_EXPLANATION_VERSION,
 };
 use crate::documents::PendingDocumentProposal;
 use crate::proposal::{PendingProposal, ProposalOrigin, ProposedDiff};
@@ -112,10 +112,14 @@ pub fn verify_candidates(before: &[AiCandidate], after: &[AiCandidate]) -> Resul
 pub struct HouseholdAiView {
     /// 外部AIへの提供の同意の今の状態: `none`／`given`／`refused`／`withdrawn`
     pub consent_state: String,
+    /// 今の同意が、書類を AI に渡すことを含む説明（版2〜）でのものか（`given` のときだけ true。0157）。
+    /// `given` で false の世帯は、書類を AI に渡す前に同意を取り直す（計算の項目は渡せる）
+    pub consent_documents: bool,
     pub consents: Vec<ConsentRecord>,
-    /// 同意を得るときに見せる説明文と、その指紋
+    /// 同意を得るときに見せる説明文と、その指紋・版
     pub explanation: String,
     pub explanation_ref: String,
+    pub explanation_version: u32,
     /// 共有中なら、その共有（期限内のもの）
     pub share: Option<ShareStatus>,
     /// AIに渡した記録（新しい順ではなく、記録の順。呼び出し元の実行ファイルはファイル名だけ）
@@ -356,7 +360,8 @@ impl HouseholdBook {
 
     /// 画面に返す形
     pub fn view(&self, records: &[AiShareRecord], share: Option<ShareStatus>) -> HouseholdAiView {
-        let consent_state = match self.consent().map(|c| c.decision) {
+        let consent = self.consent();
+        let consent_state = match consent.as_ref().map(|c| c.decision) {
             None => "none",
             Some(ConsentDecision::Given) => "given",
             Some(ConsentDecision::Refused) => "refused",
@@ -364,9 +369,11 @@ impl HouseholdBook {
         };
         HouseholdAiView {
             consent_state: consent_state.into(),
+            consent_documents: consent.is_some_and(|c| c.documents),
             consents: self.consents.clone(),
             explanation: EXTERNAL_AI_EXPLANATION.into(),
             explanation_ref: explanation_ref(EXTERNAL_AI_EXPLANATION),
+            explanation_version: EXTERNAL_AI_EXPLANATION_VERSION,
             share,
             records: for_screen(records),
             candidates: self.candidates.clone(),

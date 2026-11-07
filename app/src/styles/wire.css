@@ -80,9 +80,16 @@
 .hs-kind.bad { border-color: var(--short-ink); color: var(--on-fill); background: var(--short-ink); }
 .hs-bad { margin: 2px 0; color: var(--short-ink); font-size: 0.85rem; font-weight: 700; }
 .hs-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0 16px; margin: 4px 0 0; font-size: 0.85rem; }
-.hs-fields div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dotted var(--line-2); padding: 1px 0; }
-.hs-fields dt { color: var(--ink-2); }
-.hs-fields dd { margin: 0; text-align: right; white-space: nowrap; }
+/* 項目の名前・答えの2列。範囲の根拠と「今 → 届いた値」は下の段に全幅で（名前が縦に1字ずつ崩れないように） */
+.hs-fields .hs-field { display: grid; grid-template-columns: minmax(7em, 1fr) auto; gap: 0 8px; align-items: baseline; border-bottom: 1px dotted var(--line-2); padding: 1px 0; }
+.hs-fields dt { color: var(--ink-2); min-width: 0; }
+.hs-fields dd { margin: 0; text-align: right; }
+.hs-fields dd.hs-more { grid-column: 1 / -1; text-align: left; }
+.hs-diffs { list-style: none; margin: 0 0 2px; padding: 0 0 0 8px; font-size: 0.8rem; border-left: 2px solid var(--line-2); }
+.hs-diffs li.kept { color: var(--ink-2); }
+.hs-diffs li.rough { border-left: 2px solid var(--est); margin-left: -10px; padding-left: 8px; }
+.hs-diff-l { color: var(--ink-2); margin-right: 4px; }
+.hs-keep { margin: 4px 0; font-size: 0.85rem; color: var(--est-ink); background: var(--est-bg); border-radius: 4px; padding: 2px 6px; }
 .hs-list { margin: 0; padding-left: 1.2em; font-size: 0.88rem; }
 
 /* ---- 控え（入力のホームの上部。控えめに置く） ---- */

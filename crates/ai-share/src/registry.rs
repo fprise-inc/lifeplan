@@ -525,6 +525,13 @@ impl ShareRegistry {
         let mut st = self.lock();
         usable(&mut st, share_id, now)?;
         let share = st.shares.get(share_id).ok_or_else(not_shared)?;
+        // 書類を AI に渡すことを含む説明での同意が要る（版1の説明の同意では受けない。0157）。共有は閉じない（計算の項目は今までどおり読める）
+        if st.require_consent && !consent_covers_documents(&share.source) {
+            return Err((
+                ErrorCode::NotShared,
+                "この世帯のお客さまの同意は、書類を AI に渡すことを含んでいません（前の版の説明で同意した世帯です）。書類から読んだ値の候補は受け取れません。FPがアプリの「同意と共有」でお客さまに今の説明を見せ、同意を記録し直すまで、この世帯の書類を読まないでください（渡された書類の内容は使わないでください）。".to_owned(),
+            ));
+        }
         let (restored, counts) =
             documents::validate(answer, &share.pseudonyms).map_err(|m| (ErrorCode::Invalid, m))?;
         let household_id = share.source.household_id.clone();
@@ -699,6 +706,14 @@ fn consent_given(source: &SharedHouseholdSource) -> bool {
         .external_ai_consent
         .as_ref()
         .is_some_and(|c| c.decision == ConsentDecision::Given)
+}
+
+/// 書類を AI に渡すことを含む説明（版2〜）で同意した世帯か（0157）
+fn consent_covers_documents(source: &SharedHouseholdSource) -> bool {
+    source
+        .external_ai_consent
+        .as_ref()
+        .is_some_and(|c| c.decision == ConsentDecision::Given && c.documents)
 }
 
 fn not_shared() -> Refusal {

@@ -42,6 +42,7 @@ fn source() -> SharedHouseholdSource {
         external_ai_consent: Some(ai_share::ConsentRef {
             decision: ai_share::ConsentDecision::Given,
             record_id: "c".into(),
+            documents: true,
         }),
     }
 }

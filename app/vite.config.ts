@@ -695,7 +695,8 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
  * 開発用のサーバーの AI接続口（本体の ai_* の代わり。メモリの中だけ）。画面の確かめ用で、本物の受け口は開けない。
  * 決まり（既定はオフ・同意が無ければ渡さない・撤回で共有を止める・候補は判断を1回だけ）は本体（ai-share）と同じにしてある。
  * `/__dev/ai/simulate?kind=read|propose|documents` で、AI からの読み取り・プランの候補・書類から読んだ値の候補（0151。接続口の見本の答え）が届いたことにする。
- * `/__dev/ai/proposeFeatureCode`（POST {code}）で、機能を有効にするコードの候補が届いたことにする
+ * `/__dev/ai/proposeFeatureCode`（POST {code}）で、機能を有効にするコードの候補が届いたことにする。
+ * `/__dev/ai/oldConsent?id=<世帯の内部ID>` で、前の版の説明（書類を含まない）で同意した行を足す（0157。取り直しの画面を見る）
  */
 const devAi = {
   enabled: false,
@@ -704,7 +705,7 @@ const devAi = {
   /** 書類から読んだ値の候補（本体と同じく、メモリの中だけ。画面が受け取ったら takeDocuments で外す） */
   documents: [] as { candidateId: string; shareId: string; householdId: string; receivedAt: string; connector: string | null; answer: unknown }[],
 };
-const DEV_AI_EXPLANATION = "（開発用の見本）ご相談の内容をもとにしたライフプランの計算や見直しの検討に、FPが契約している外部のAIを使うことがあります。\nAIに渡すのは、計算に必要な項目だけです。お名前・ご住所・FPのメモは渡しません。\nこの同意はいつでも撤回でき、撤回した後はAIに渡しません。";
+const DEV_AI_EXPLANATION = "（開発用の見本）ご相談の内容をもとにしたライフプランの計算や見直しの検討に、FPが契約している外部のAIを使うことがあります。\n計算や見直しの検討でAIに渡すのは、計算に必要な項目だけです。お名前・ご住所・FPのメモは渡しません。\n担当のFPは、書類から数字を読み取るときに、AIを使うことがあります。お名前・ご住所・各種の番号は伏せてから渡します。\nこの同意はいつでも撤回でき、撤回した後はAIに渡しません。";
 
 function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: unknown } | { ok: false; code: string } {
   const now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
@@ -727,10 +728,11 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
     devAi.share = null;
   };
   const consentState = (b: ReturnType<typeof book>) => (b.consents.at(-1)?.decision as string | undefined) ?? "none";
+  const consentDocuments = (b: ReturnType<typeof book>) => consentState(b) === "given" && b.consents.at(-1)?.documents === true;
   const view = () => {
     const b = book();
     const sh = shareStatus();
-    return { consentState: consentState(b), consents: b.consents, explanation: DEV_AI_EXPLANATION, explanationRef: "sha256:dev", share: sh !== null && sh.householdId === id ? sh : null, records: b.records, candidates: b.candidates, documentProposals: devAi.documents.filter((d) => d.householdId === id), allowlistVersion: "reduced@2", fields: ["member.birth", "income.salary.annual", "livingExpense.monthly", "account.marketValue", "assumptions.inflation"], saved: devStore.households.has(id) };
+    return { consentState: consentState(b), consentDocuments: consentDocuments(b), consents: b.consents, explanation: DEV_AI_EXPLANATION, explanationRef: "sha256:dev", explanationVersion: 2, share: sh !== null && sh.householdId === id ? sh : null, records: b.records, candidates: b.candidates, documentProposals: devAi.documents.filter((d) => d.householdId === id), allowlistVersion: "reduced@2", fields: ["member.birth", "income.salary.annual", "livingExpense.monthly", "account.marketValue", "assumptions.inflation"], saved: devStore.households.has(id) };
   };
   const setup = (title: string, client: string, text: string) => ({ client, title, text });
   switch (op) {
@@ -782,9 +784,9 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
       const i = a.input as Record<string, unknown>;
       const b = book();
       if (i.fpConfirmed !== true) return { ok: false, code: "E_AI_CONSENT_FP_CONFIRM" };
-      if (i.decision === "given" && consentState(b) === "given") return { ok: false, code: "E_AI_CONSENT_ALREADY" };
+      if (i.decision === "given" && consentDocuments(b)) return { ok: false, code: "E_AI_CONSENT_ALREADY" };
       if (i.decision === "withdrawn" && consentState(b) !== "given") return { ok: false, code: "E_AI_CONSENT_NOT_GIVEN" };
-      b.consents.push({ id: crypto.randomUUID(), kind: "externalAi", decision: i.decision, obtainedOn: i.obtainedOn, method: i.method, explanationRef: "sha256:dev", ...(i.decision === "given" ? { externalAi: { company: i.company, country: i.country, noTrainingConfirmed: i.noTrainingConfirmed }, scope: "reduced" } : {}), fpConfirmed: true, recordedAt: now, origin: "thisOffice" });
+      b.consents.push({ id: crypto.randomUUID(), kind: "externalAi", decision: i.decision, obtainedOn: i.obtainedOn, method: i.method, explanationRef: "sha256:dev", ...(i.decision === "given" ? { externalAi: { company: i.company, country: i.country, noTrainingConfirmed: i.noTrainingConfirmed }, scope: "reduced", documents: true } : {}), fpConfirmed: true, recordedAt: now, origin: "thisOffice" });
       if (i.decision !== "given" && active()?.householdId === id) end("consentWithdrawn");
       return { ok: true, value: view() };
     }
@@ -809,6 +811,12 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
       Object.assign(c, { status: a.accept === true ? "accepted" : "rejected", decidedAt: now, decidedBy: "fp", planId: a.accept === true ? a.plan : null });
       return { ok: true, value: view() };
     }
+    case "oldConsent": {
+      // 前の版の説明（書類を含まない）で同意した行（documents の欄が無い）を足す（0157。取り直しの画面の確かめ用）
+      if (!devStore.households.has(id)) return { ok: false, code: "E_STORE_NOT_OPEN" };
+      book().consents.push({ id: crypto.randomUUID(), kind: "externalAi", decision: "given", obtainedOn: "2026-10-19", method: "paper", explanationRef: "sha256:dev-v1", externalAi: { company: "架空AI株式会社", country: "日本", noTrainingConfirmed: true }, scope: "reduced", fpConfirmed: true, recordedAt: now, origin: "thisOffice" });
+      return { ok: true, value: view() };
+    }
     case "takeDocuments": {
       devAi.documents = devAi.documents.filter((d) => !(d.householdId === id && d.candidateId === a.candidate));
       return devStore.households.has(id) ? { ok: true, value: view() } : { ok: false, code: "E_STORE_NOT_OPEN" };
@@ -819,6 +827,8 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
       const b = devAi.books.get(s.householdId)!;
       const r = b.records.find((x) => x.shareId === s.shareId)! as { reads: Record<string, unknown>[]; proposals: Record<string, unknown>[] };
       if (a.kind === "documents") {
+        // 前の版の説明の同意では、書類の候補を受けない（本体の handle_propose_documents と同じ。0157）
+        if (!consentDocuments(b)) return { ok: false, code: "NOT_SHARED" };
         // 接続口と読み口の両方に通す見本の答えに、証券番号の欄の候補を1つ混ぜる（読み口で落ちることを画面で見る）
         const answer = JSON.parse(readFileSync(join(REPO_DIR, "crates", "lifeplan", "tests", "fixtures", "propose-inputs", "answer.json"), "utf8")) as { values: unknown[] };
         answer.values.push({ item: "insurance.label", newObject: "c1", value: "AB-0012345678", source: { where: "証券番号" }, confidence: "high" });
