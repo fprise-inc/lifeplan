@@ -14,7 +14,7 @@ import { adultsCareDeclined, adultsWithoutCare, careTemplate, deathEstimate, dec
 import { addMonths, ageAt } from "../../levers.ts";
 import { byId, field, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type Option, type SectionDef, type StageDef } from "../form.ts";
 import { estimatedBox, mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
-import { DONOR_KINDS, donorUses, memberLabel, SEX_OPTIONS } from "../labels.ts";
+import { DONOR_KINDS, donorUses, memberLabel, SEX_OPTIONS, WORDS } from "../labels.ts";
 import { manYen, readGroup, readLine } from "../readLines.ts";
 import { roles } from "../../roles.ts";
 import { formatYearMonth, wareki } from "../units.ts";
@@ -262,7 +262,7 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
       hint: (v) => (v === true && m.outside !== undefined && periods.length === 0 ? "同居でも家計は別として計算します（扶養の判定に使います）。家計が1つなら「＋ 家計を1つにする」" : null),
     }), ["cohabiting"]),
   );
-  const actions: ActionDef[] = [{ key: `${k}/remove`, label: "この家族を外す", level: "simple", danger: true, run: (w) => removeMember(w, m.id) }];
+  const actions: ActionDef[] = [{ key: `${k}/remove`, label: WORDS.remove, level: "simple", danger: true, run: (w) => removeMember(w, m.id) }];
   if (m.outside !== undefined) periodFields(m, fields, actions, m.support?.cohabiting === true);
   // 扶養（税・健康保険。75歳からは健康保険の扶養に入れないので税だけ）と、扶養の境目の1行（全文は「?」）
   const late = lateElderly(wh, m);
@@ -494,12 +494,15 @@ const addOutsideActions = (wh: WorkingHousehold): ActionDef[] => {
 
 const placeOf = (c: CareExpense): "home" | "facility" => (c.place === "facility" ? "facility" : "home");
 
-/** 介護の物の見出し（「母の介護（在宅）」）。期間と額は見出しの下の要約（careSpan）に分ける（左の狭い列で折り返さないように） */
+/**
+ * 介護の物の見出し（「母の介護」）。在宅か施設か・期間・額は見出しの下の要約（careSpan）に分ける（左の狭い列で折り返さないように）。
+ * 見出しに在宅か施設かを入れない: プランで施設に変えても、違いの一覧・要約の名前が前の値のまま残るため（通しの確かめ。0150）
+ */
 function careTitle(wh: WorkingHousehold, c: CareExpense): string {
-  return `${memberLabel(wh, c.member)}の介護（${c.place === "facility" ? "施設" : "在宅"}）`;
+  return `${memberLabel(wh, c.member)}の介護`;
 }
 
-/** 介護の物の見出しの下の1行（「2031年4月から55か月・月5.2万円（推定）」）。入れていない月額・期間は統計の平均の推定 */
+/** 介護の物の見出しの下の1行（「在宅・2031年4月から55か月・月5.2万円（推定）」）。入れていない月額・期間は統計の平均の推定 */
 export function careSpan(wh: WorkingHousehold, c: CareExpense): string {
   const h = wh.request.input.household;
   const from = resolveTimepoint(h, c.from);
@@ -519,8 +522,8 @@ export function careSpan(wh: WorkingHousehold, c: CareExpense): string {
         ? `${start}${formatYearMonth(addMonths(gone, -1))}まで（亡くなる見込みまで）`
         : "亡くなる見込みの後のため0円"
       : `${start}${months !== undefined ? `${String(months)}か月` : ""}`;
-  const line = [span, money].filter((x) => x !== "").join("・");
-  return estimated && line !== "" ? `${line}（推定）` : line;
+  const line = [c.place === "facility" ? "施設" : "在宅", span, money].filter((x) => x !== "").join("・");
+  return estimated ? `${line}（推定）` : line;
 }
 
 function shiftAge(t: Timepoint, months: number): Timepoint {

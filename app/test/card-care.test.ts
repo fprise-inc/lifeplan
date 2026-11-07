@@ -294,10 +294,11 @@ describe("介護・親のカード: 介護の費用（区画B）", () => {
     const a = resolveTimepoint(h, first.from)!;
     const b = resolveTimepoint(h, second.from)!;
     expect((Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + (Number(b.slice(5)) - Number(a.slice(5)))).toBe(first.months);
-    // 見出しは「父の介護（在宅）」、その下の1行に「2027年5月から55か月・月5.2万円（推定）」（左の狭い列で折り返さないように2行に分ける）
+    // 見出しは「父の介護」、その下の1行に「在宅・2027年5月から55か月・月5.2万円（推定）」（左の狭い列で折り返さないように2行に分ける。
+    // 在宅か施設かは見出しに入れず要約の頭に。0150）
     const g0 = stage(next).sections.find((s) => s.key === "care/costs")!.groups[0]!;
-    expect(g0.title).toMatch(/^父の介護（在宅）$/);
-    expect(g0.summary).toMatch(/^\d{4}年\d{1,2}月から55か月・月5\.2万円（推定）$/);
+    expect(g0.title).toMatch(/^父の介護$/);
+    expect(g0.summary).toMatch(/^在宅・\d{4}年\d{1,2}月から55か月・月5\.2万円（推定）$/);
   });
 
   it("始まり・期間・月々の費用は詳細（もう始まっている介護だけ月々の費用は標準）、伸び方・万一のときの扱いは詳細の欄（当て先つき）", () => {

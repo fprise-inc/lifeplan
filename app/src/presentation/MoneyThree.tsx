@@ -259,6 +259,16 @@ function Stepper({ value, min, max, label, onChange, attr }: { value: number; mi
   );
 }
 
+/**
+ * 一覧の額の万円の数。月額・年額の小さな額（10万円未満）は小数1桁（「保険料 月0.5万円」。整数に丸めると「月0万円」になって、入れた額が消えて見えた。
+ * 入力項目をまたいだそろえ。0150）
+ */
+export function itemMan(it: { per: string; amount: Yen }): string {
+  if (it.per === "" || it.amount === 0 || Math.abs(it.amount) >= 100000) return man(it.amount);
+  const tenths = Math.round(Math.abs(it.amount) / 1000);
+  return `${it.amount < 0 ? "▲" : ""}${Math.floor(tenths / 10)}${tenths % 10 > 0 ? `.${tenths % 10}` : ""}`;
+}
+
 /** 中身の一覧（3枚とも同じ形） */
 export function BoxList({ box }: { box: MoneyThreeBox }) {
   // 先頭の文字（年・符号）が1つも無い一覧は、その列を詰める（狭い幅で読みやすく）
@@ -273,7 +283,7 @@ export function BoxList({ box }: { box: MoneyThreeBox }) {
               <span class="m3-lab">{it.label}</span>
               <span class="m3-amt num">
                 {it.per}
-                {man(it.amount)}
+                {itemMan(it)}
                 <small>万円</small>
               </span>
             </li>

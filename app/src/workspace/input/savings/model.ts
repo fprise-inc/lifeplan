@@ -10,6 +10,7 @@ import { resolveTimepoint } from "../form.ts";
 import { confirmedBox, mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
 import { isPresetId, presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
 import { ASSET_CLASSES } from "../labels.ts";
+import { regulationValue } from "../../../../../hearing/src/statistics.ts";
 
 export type Method = "total" | "accounts" | "allocation";
 export const METHODS: readonly { id: Method; label: string; lead: string }[] = [
@@ -849,8 +850,8 @@ export function defaultPayoutAge(req: EngineRequest, a: Account): number {
 }
 
 /**
- * 受け取りを始める年齢の推定の根拠の文（「退職の年（63歳）」）。退職の年が65歳より後なら65歳で止めているので、そう書く（iDeCo は加入できる
- * 年齢の上限が65歳。退職の年と言わない）。60歳より前なら、受け取りを始められる年齢の下限の60歳
+ * 受け取りを始める年齢の推定の根拠の文（「退職の年（63歳）」）。退職の年が65歳より後なら65歳で止めているので、そう書く（退職の年と言わない）。
+ * 60歳より前なら、受け取りを始められる年齢の下限の60歳
  */
 export function payoutAgeBasis(req: EngineRequest, a: Account): string {
   const h = req.input.household;
@@ -858,9 +859,24 @@ export function payoutAgeBasis(req: EngineRequest, a: Account): string {
   const self = selfOf(h);
   const retire = owner !== undefined && owner.id !== self?.id ? (readLevers(req, owner.id).retireAge ?? retireAgeOf(req)) : retireAgeOf(req);
   const age = defaultPayoutAge(req, a);
-  if (retire !== null && retire > 65) return a.kind === "ideco" ? `${age}歳（iDeCo に入れる年齢の上限）` : `${age}歳（推定は65歳までにしています）`;
+  // iDeCo も同じ言い方（加入できる年齢の上限は2026年12月から70歳になる前の月まで〔制度データ ideco.enrollment.untilAge〕で、65歳は上限ではない。0150）
+  if (retire !== null && retire > 65) return `${age}歳（推定は65歳までにしています）`;
   if (retire !== null && retire < 60) return `${age}歳（受け取りを始められる年齢の下限）`;
   return `退職の年（${age}歳）`;
+}
+
+/**
+ * iDeCo の掛金を出す最後の年齢の表の言い方（通しの確かめ。0150）: 受け取りを始める年齢（入れた値か推定）と、加入できる年齢の上限
+ * （制度データ ideco.enrollment.untilAge。2026年12月から70歳）の早いほう。受け取りを始めた月からは掛金を出さない（エンジンと同じ決まり）。
+ * 表の最後の期間を「〜64歳（65歳で受け取りを始める前の月まで）」と書くのに使う。名義の人がいなければ null
+ */
+export function idecoStop(req: EngineRequest, a: Account): { stopAge: number; endNote: string } | null {
+  const owner = ownerOf(req.input.household, a);
+  if (owner === undefined) return null;
+  const payout = payoutAgeOf(req.input.household, a) ?? defaultPayoutAge(req, a);
+  const limit = regulationValue("ideco.enrollment.untilAge", `${ageReachedMonth(owner, payout)}-01`);
+  const until = typeof limit === "number" ? limit : 65;
+  return payout <= until ? { stopAge: payout, endNote: `${payout}歳で受け取りを始める前の月まで` } : { stopAge: until, endNote: `${until}歳になる前の月まで・加入できる年齢の上限` };
 }
 
 /** 受け取りを始める年齢（入れていれば。空欄は null） */

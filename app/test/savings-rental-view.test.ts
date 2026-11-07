@@ -155,7 +155,7 @@ describe("貯蓄・運用: 推定の印と言葉", () => {
     expect(html).not.toContain("期待リターン（年）");
   });
 
-  it("iDeCo の受け取りを始める年齢の推定: 退職が65歳より後なら「65歳（iDeCo に入れる年齢の上限）」（退職の年と言わない）", () => {
+  it("iDeCo の受け取りを始める年齢の推定: 退職が65歳より後なら「65歳（推定は65歳までにしています）」（退職の年と言わない。加入の上限は2026年12月から70歳なので上限とも言わない。0150）", () => {
     let wh = open("single45");
     const ideco = accOf(wh, "ideco");
     expect(payoutAgeBasis(wh.request, ideco)).toMatch(/^退職の年（\d+歳）$/);
@@ -164,8 +164,8 @@ describe("貯蓄・運用: 推定の印と言葉", () => {
       const p = (hh.employmentPeriods ?? [])[0]!;
       p.to = { at: "2051-01" };
     });
-    expect(payoutAgeBasis(wh.request, accOf(wh, "ideco"))).toBe("65歳（iDeCo に入れる年齢の上限）");
-    expect(fieldStatus(fieldOf(wh, `sav/${ideco.id}/payoutAge`), wh).basis).toBe("65歳（iDeCo に入れる年齢の上限）");
+    expect(payoutAgeBasis(wh.request, accOf(wh, "ideco"))).toBe("65歳（推定は65歳までにしています）");
+    expect(fieldStatus(fieldOf(wh, `sav/${ideco.id}/payoutAge`), wh).basis).toBe("65歳（推定は65歳までにしています）");
   });
 
   it("単身の世帯の「積立をやめる年齢」に「（ご本人）」を付けない。加入の始まりは「加入した年月」、積立の終わりは「積立の終わり」", () => {

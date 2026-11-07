@@ -113,6 +113,23 @@ export function defaultStages(child: Member, baseMonth: string): EducationStage[
   return out;
 }
 
+/**
+ * 教育の段がもう全部過ぎた子か（通しの確かめ。0150。独立した34歳の子など）: 進路が入っていれば、どの段も終わっている。進路が無ければ、
+ * この年齢でこれからの段が無い。これからの段がある子・奨学金や教育ローンなどの物がある子は過ぎていない
+ */
+export function educationFinished(child: Member, goal: Goal | undefined, baseMonth: string): boolean {
+  const e = goal?.education;
+  // 奨学金・教育ローン・援助・留学・習い事の物があれば、今までどおりの区画（返済などが続くため）
+  if (e !== undefined && [e.scholarships, e.loans, e.gifts, e.lessons, e.abroad].some((x) => (x ?? []).length > 0)) return false;
+  const stages = e?.stages ?? [];
+  if (stages.length === 0) return defaultStages(child, baseMonth).length === 0;
+  return stages.every((s) => stageEnded(child, s, baseMonth));
+}
+
+/** 教育の段が全部過ぎた子の区画の見出しの横の1行（推定に数えない。進路の欄は出さない。「?」の中は FINISHED_HELP） */
+export const finishedSummary = (child: Member, baseMonth: string): string => `${ageAt(child, baseMonth)}歳・教育は終わっています`;
+const FINISHED_HELP = "教育の段階（幼稚園〜大学）がもう全部過ぎているので、この子の教育費は計算していません。仕送り・援助などのこの子のお金は、下の「＋」で入れます";
+
 /** 標準の進路の型の名前（ボタンと推定の印に出す。入る型とずらさない） */
 export function defaultCourseLabel(child: Member, baseMonth: string): string {
   const stages = defaultStages(child, baseMonth);
@@ -1521,6 +1538,11 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
   const who = memberLabel(wh, child.id);
   const money = childMoneyGroups(wh, child, goal);
   const noneAction: ActionDef = { key: `edu/${child.id}/none`, label: "この子の教育費を入れない", help: "この子の教育費を「該当なし」にします", level: "detail", run: (w) => educationNotApplicable(w, child.id) };
+  // 教育の段が全部過ぎた子（独立した子など）は、1行だけ（進路の型・推定の欄を出さず、推定にも数えない。通しの確かめ。0150）。
+  // この子の入るお金・出るお金の行があれば、その行は今までどおり
+  if (educationFinished(child, goal, base)) {
+    return { key: `edu/${child.id}`, title: who, summary: finishedSummary(child, base), note: FINISHED_HELP, level: "simple", groups: [...leavesGroups(child), ...money.groups], actions: money.actions };
+  }
   if (goal === undefined) {
     const course = defaultCourseLabel(child, base);
     const has = defaultStages(child, base).length > 0;
@@ -1646,7 +1668,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
             ]
           : []),
       ],
-      actions: [removeAction(`edu/${goal.id}/remove`, "進路を外す", "detail", (hh) => void (hh.goals = (hh.goals ?? []).filter((g) => g.id !== goal.id))), ...(row?.state === "notApplicable" ? [] : [noneAction])],
+      actions: [removeAction(`edu/${goal.id}/remove`, WORDS.remove, "detail", (hh) => void (hh.goals = (hh.goals ?? []).filter((g) => g.id !== goal.id))), ...(row?.state === "notApplicable" ? [] : [noneAction])],
     },
   ];
   groups.push(...leavesGroups(child));
