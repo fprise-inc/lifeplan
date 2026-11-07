@@ -109,6 +109,8 @@
 //   0.67 から: 前提条件の預金の利回り assumptions.depositReturn（預金・外貨預金の利回り。省略は運用利回り）と、収益不動産の取得の年月だけの
 //   取得 accounts[].property.acquisition（price を省略できる）を持つ（0137。本体の変換の段は、預金の利回りの無い今の世帯に既定の値 0.1% を書く）
 //   0.68 から: 本文の区画 documents（書類の読み取りの記録。0148。下の documents を見る）。足すだけ。本体の変換の段は版だけを書き換える
+//   0.69 から: 構成員の婚姻の状態 members[].maritalStatus（配偶者の関係が無い期間の婚姻の状態。unmarried・divorced・bereaved・married。
+//   ひとり親控除・寡婦控除の判定。省略は婚姻していないとみなす。0156）。足すだけ。本体の変換の段は版だけを書き換える
 //   （0.46 のまま。0041 の追記 2026-11-01）: 「書類で確かめる」は今の自動車ローン（kind car の負債）の欄に出し、これから買う車のローン
 //   （cars[].valueStates の car.loan/…）には出さない。前に付けた所は読むときに推定にし、開いたときの知らせ carLoanEstimated を足す（形は変えない）
 //   （0.58 のまま。0043 の追記 2026-11-05）: 表の最後の年（plan.endYear）はどのプランにも共通にした。前の画面で作ったプランの差分の表の最後の年
@@ -172,7 +174,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.68";
+export const BODY_FORMAT_VERSION = "0.69";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 

@@ -171,6 +171,23 @@ fn every_format_version_has_a_fixture_and_opens() {
             migrate::parse(v).unwrap() >= (0, 51),
             "{v}: 三大疾病保険の契約は 0.51 からの見本"
         );
+        // 0.69 から: 構成員の婚姻の状態（maritalStatus。0156）。変換で書き足さない（前の版の世帯は欄が無い＝婚姻していないとみなす）
+        let marital = now["household"]["request"]["input"]["household"]["members"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["kind"] == "self")
+            .and_then(|m| m.get("maritalStatus"))
+            .cloned();
+        if migrate::parse(v).unwrap() >= (0, 69) {
+            assert_eq!(
+                marital,
+                Some(Value::from("divorced")),
+                "{v}: ご本人の婚姻の状態は 0.69 からの見本"
+            );
+        } else {
+            assert!(marital.is_none(), "{v}: 婚姻の状態は変換で書き足さない");
+        }
         // 0.68 から: 書類の読み取りの記録（区画 documents。0148）。変換で中身を変えない。承認した値は承認の記録と確かさ「書類で確認」を持つ
         let documents = now
             .get("documents")

@@ -539,6 +539,11 @@
             "employee": { "$ref": "urn:financia:schema:common#/$defs/timepoint" }
           }
         },
+        "maritalStatus": {
+          "title": "配偶者の関係が無い期間の婚姻の状態（ひとり親控除・寡婦控除の判定。未婚 unmarried・離婚 divorced・死別 bereaved・婚姻している married〔別居などで配偶者を世帯に入れていない〕。省略は婚姻していないとみなし、寡婦控除は判定しない。0156）",
+          "x-item": "member.maritalStatus",
+          "enum": ["unmarried", "divorced", "bereaved", "married"]
+        },
         "taxReturn": {
           "title": "所得税の申告の仕方（青色・白色）と青色申告特別控除（不動産所得・事業所得のある人。省略は白色。0081）",
           "x-item": "member.taxReturn",

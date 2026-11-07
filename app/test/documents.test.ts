@@ -398,7 +398,7 @@ describe("読み取りの成績（数だけ）", () => {
 
 describe("世帯ファイルの区画 documents（形式 0.68）", () => {
   it("区画に置いて読み戻す。household の区画には入れない。読んでいない世帯は区画を作らない", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.68");
+    expect(BODY_FORMAT_VERSION).toBe("0.69");
     const wh = open();
     expect(bodyObject(body(wh)).documents).toBeUndefined();
     const r = read(wh, proposal([residentTax(318000)]));
