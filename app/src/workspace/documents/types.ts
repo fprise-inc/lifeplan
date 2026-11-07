@@ -1,5 +1,6 @@
 // 書類の読み取り（0148）の形: 書類から読んだ値を、現状にすぐ入れずに「候補」として持つ。
-// - 読み手（アプリの中の読み手・FP の AI・貼り付けた AI の答え・架空の見本）は、どれも同じ形の候補を出す（proposal.ts の読み口を通る）
+// - 読み手（FP の AI・貼り付けた AI の答え・架空の見本）は、どれも同じ形の候補を出す（proposal.ts の読み口を通る）
+// - 読めるのは保険証券・ご契約内容のお知らせ・設計書だけ（0159）。前に読んだほかの書類の記録は捨てずに残し、見るだけにする
 // - 候補は FP が承認するまで現状にもプランにも効かない。承認したら値の出どころ（取り込み・AI）と確かさ「書類で確認」、承認の記録を付けて現状へ（apply.ts）
 // - 世帯ファイルでは本文の区画 documents に置く（形式の版 0.68 から。読んでいない世帯は区画ごと無い。明細の statements・移行の migrations と同じ置き方）
 // - 持たないもの: 元のファイル・ファイル名・個人番号などの番号（読んだ時点で消す。privacy.ts）・名前・住所・伏せ字の前の文字
@@ -10,8 +11,17 @@ export const DOCUMENT_LOG_VERSION = 1;
 /** 読み口が受ける答えの形の名前（AI の道具・貼り付け・アプリの中の読み手が出す形。版を変えるときは @2 を足し、@1 も読む） */
 export const PROPOSAL_CONTRACT = "document-candidates@1";
 
-/** 書類の種類（読み取りの記録の見出しと、読み取りの成績の数え分けに使う。足すだけ） */
-export type DocType =
+/**
+ * 読める書類の種類（今の読み口が受ける種類。0159 で保険証券・ご契約内容のお知らせ・設計書だけに絞った）。
+ * 打つ数が多い・読み方が難しい・行が多いデータのどれかに当たる書類だけを取り込む（ほかの書類は、欄の「?」の一言を見て打つ）
+ */
+export type DocType = "insurancePolicy";
+
+/**
+ * 取り込みを外した書類の種類（0159）。前に読んだ記録の見出しに使うだけで、読み口は受けない。記録は捨てずに残し、確かめの画面では見るだけ
+ * （値の候補は承認できない）。足すだけ（消さない。世帯ファイルの記録の値なので）
+ */
+export type RetiredDocType =
   | "pensionStatement"
   | "pensionNotice"
   | "withholdingSlip"
@@ -21,7 +31,6 @@ export type DocType =
   | "earthquakeInsuranceDeduction"
   | "smallBusinessMutualAidDeduction"
   | "pensionPremiumDeduction"
-  | "insurancePolicy"
   | "housingLoanBalance"
   | "housingLoanCredit"
   | "loanSchedule"
@@ -29,7 +38,12 @@ export type DocType =
   | "brokerageBalance"
   | "other";
 
-export const DOC_TYPES: readonly { value: DocType; label: string }[] = [
+/** 読み取りの記録の書類の種類（今読める種類か、取り込みを外した種類） */
+export type RecordedDocType = DocType | RetiredDocType;
+
+export const DOC_TYPES: readonly { value: DocType; label: string }[] = [{ value: "insurancePolicy", label: "保険証券・ご契約内容のお知らせ・設計書" }];
+
+export const RETIRED_DOC_TYPES: readonly { value: RetiredDocType; label: string }[] = [
   { value: "pensionStatement", label: "ねんきん定期便" },
   { value: "pensionNotice", label: "年金額改定通知書・振込通知書" },
   { value: "withholdingSlip", label: "給与所得の源泉徴収票" },
@@ -39,7 +53,6 @@ export const DOC_TYPES: readonly { value: DocType; label: string }[] = [
   { value: "earthquakeInsuranceDeduction", label: "地震保険料控除証明書" },
   { value: "smallBusinessMutualAidDeduction", label: "小規模企業共済等掛金控除証明書" },
   { value: "pensionPremiumDeduction", label: "国民年金保険料等控除証明書" },
-  { value: "insurancePolicy", label: "保険証券・ご契約内容のお知らせ・設計書" },
   { value: "housingLoanBalance", label: "住宅ローンの年末残高等証明書" },
   { value: "housingLoanCredit", label: "住宅借入金等特別控除証明書（年末調整のため）" },
   { value: "loanSchedule", label: "ローンの返済予定表" },
@@ -48,10 +61,16 @@ export const DOC_TYPES: readonly { value: DocType; label: string }[] = [
   { value: "other", label: "そのほかの書類" },
 ];
 
-export const docTypeLabel = (t: DocType): string => DOC_TYPES.find((d) => d.value === t)?.label ?? "書類";
+/** 読み口が受ける値の候補の入力項目の頭（保険の契約の欄だけ。0159） */
+export const READABLE_ITEM_PREFIX = "insurance.";
+
+/** 取り込みを外した種類の記録か（確かめの画面で見るだけにする） */
+export const isRetired = (r: { docType: RecordedDocType }): boolean => !DOC_TYPES.some((d) => d.value === r.docType);
+
+export const docTypeLabel = (t: RecordedDocType): string => DOC_TYPES.find((d) => d.value === t)?.label ?? RETIRED_DOC_TYPES.find((d) => d.value === t)?.label ?? "書類";
 
 /**
- * どこから読んだか: reader（アプリの中の読み手。このパソコンの中だけで読む）・ai（AI接続口の道具で FP の AI から届いた）・
+ * どこから読んだか: reader（アプリの中の読み手。このパソコンの中だけで読む。0159 で電子データの読み手を外したので、前の記録だけ）・ai（AI接続口の道具で FP の AI から届いた）・
  * paste（ウェブのチャット AI の答えを貼り付けた）・sample（架空の見本。見本の世帯でだけ使う）
  */
 export type Via = "reader" | "ai" | "paste" | "sample";
@@ -168,15 +187,16 @@ export interface DocReference {
 export interface DocumentReading {
   id: string;
   kind: "document";
-  docType: DocType;
+  /** 書類の種類（取り込みを外した種類の記録も、そのまま残す。0159） */
+  docType: RecordedDocType;
   /** 読んだ（候補が届いた）日時 */
   at: string;
   via: Via;
-  /** アプリの中の読み手の ID と版（via が reader・sample） */
+  /** アプリの中の読み手の ID と版（via が reader・sample。reader は前の記録だけ） */
   reader?: { id: string; version: number };
   /** AI の名乗り（自己申告。via が ai・paste。分からなければ持たない） */
   ai?: { connector: string };
-  /** 元のファイルの指紋と大きさ（アプリの中で読んだときだけ。ファイルそのもの・ファイル名は持たない） */
+  /** 元のファイルの指紋と大きさ（アプリの中で読んだときだけ。前の記録だけ。ファイルそのもの・ファイル名は持たない） */
   file?: { sha256: string; bytes: number };
   /** 書類の時点（作成・証明の年月） */
   asOf?: string;

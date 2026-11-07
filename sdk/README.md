@@ -6,7 +6,7 @@ FP の PC のカスタム層に置く SDK フォルダ（設計記録 [0019](../
 - `docs/reports.md` … 帳票（Typst）の作り変えと、帳票に渡す値の場所
 - `docs/extensions.md` … 拡張の束（宣言型の入力欄・見せ方の差し込み口 `view.balance`・`report.chapter`・提案書の拡張の章）の作り方（0114）
 - `docs/document-reading.md` … 書類を読んで入力の候補を返す AI 向けの説明書（答えの形 `document-candidates@1`・値の書き方・読まないもの。0148・0152）
-- `skills/read-documents/` … スキル「書類を読んで入力の候補を出す」（`SKILL.md`・書類ごとの手引き `guides/`・入力の欄の一覧 `fields.md`〔入力の画面の定義から作る。`npm run gen:document-fields`〕。0152）
+- `skills/read-documents/` … スキル「書類を読んで入力の候補を出す」（保険証券・ご契約内容のお知らせ・設計書だけ。`SKILL.md`・手引き `guides/insurance-policy.md`・入力の欄の一覧 `fields.md`〔入力の画面の定義から作る。`npm run gen:document-fields`〕。0152・0159）
 - `docs/extension-points.md` … 計算エンジンの差し込み口と、差し替えてよい公式部品の一覧・差し替えの約束（入力と出力の形・約束の版と改訂・公式の計算と違うことの見せ方。0119）
 - `examples/reports/<帳票名>/main.typ` … 独自帳票の見本（カスタム層の `reports/<帳票名>/` と同じ形）
 - `examples/extensions/<束の名前>/` … 拡張の束の見本（カスタム層の `modules/<束の名前>/` と同じ形）。`combined-bs/` は合算BS で、アプリに同梱した公式の拡張 `ext.official.combinedBs` と同じファイル（アプリはここを読み込む）
