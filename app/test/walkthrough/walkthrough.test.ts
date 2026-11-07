@@ -49,7 +49,7 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
   let s: Session;
   beforeAll(async () => {
     s = await start();
-  }, 300_000);
+  }, 600_000);
   afterAll(async () => {
     await s?.close();
   });

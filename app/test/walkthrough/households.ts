@@ -139,7 +139,7 @@ export async function household1(p: Page): Promise<Notes> {
   await save(p, n, "保険");
 
   await open(p, n, "貯蓄・運用");
-  await p.click("＋ 預貯金", { within: "panel", exact: true });
+  await p.click("＋ 預金", { within: "panel", exact: true });
   await p.click("＋ NISA", { within: "panel", exact: true });
   await p.type("預金の残高", "500");
   await p.type("NISAの残高", "200");
@@ -206,7 +206,7 @@ export async function household2(p: Page): Promise<Notes> {
   await save(p, n, "保険");
 
   await open(p, n, "貯蓄・運用", "詳細");
-  await p.click("＋ 預貯金", { within: "panel", exact: true });
+  await p.click("＋ 預金", { within: "panel", exact: true });
   await p.click("＋ iDeCo", { within: "panel", exact: true });
   await p.click("＋ 小規模企業共済", { within: "panel", exact: true });
   await p.type("預金の残高", "200");
@@ -329,7 +329,7 @@ export async function household3(p: Page): Promise<Notes> {
   await p.click("キャンセル", { within: "panel", exact: true });
 
   await open(p, n, "貯蓄・運用");
-  await p.click("＋ 預貯金", { within: "panel", exact: true });
+  await p.click("＋ 預金", { within: "panel", exact: true });
   await p.click("＋ 課税口座", { within: "panel", exact: true });
   await p.type("預金の残高", "2500");
   await p.type("課税口座（特定口座）の残高", "800");
