@@ -9,10 +9,12 @@ import { addExpense, addIncome, defaultSupportChild, moneySections, setSupportCh
 import { NONE_CLAIMED } from "./events.ts";
 import { creditKey } from "../housingCredit.ts";
 import { alignEducationToAge, fillEducation } from "../fill.ts";
-import { DONOR_KINDS, KIND_OPTIONS, memberLabel, memberOptions, SEX_OPTIONS } from "../labels.ts";
+import { DONOR_KINDS, KIND_OPTIONS, memberLabel, memberOptions, SEX_OPTIONS, WORDS } from "../labels.ts";
 import { EVENT_KIND_LABEL, eventName, FP_EVENT_KINDS, freezeTimepoints, refsTo, whenPeople } from "../namedEvents.ts";
 import { wareki } from "../units.ts";
 import { readGroup, readLine } from "../readLines.ts";
+import { rowAt } from "../rows.ts";
+import { resolveAssumedKey } from "../../store/readings.ts";
 import { addOutside } from "./care.ts";
 import { fillsByEstimate } from "../../../../../hearing/src/estimates.ts";
 
@@ -167,6 +169,16 @@ export function familyKindOptions(current: string | undefined): Option[] {
   return [...base, { value: current, label: `${old?.label ?? current}（前に選んだ続柄）` }];
 }
 
+/** 生年月を年齢から入れた（「38歳」と打った）確定か（値の状態の行の根拠が「年齢から」。欄の読みに「年齢から」を添える） */
+function fromAge(wh: WorkingHousehold, memberId: string): boolean {
+  const input = wh.request.input as unknown as Record<string, unknown>;
+  // 生年月の欄は当て先を持たない（仮の印の読み替え表で構成員の生年月の値の状態の行に当たる。valueState.ts の typeFromAge と同じ当て先）
+  const r = resolveAssumedKey(`family/${memberId}/birth`, input);
+  if (r === null || r.kind !== "address") return false;
+  const row = rowAt(input, r.address);
+  return row?.state === "confirmed" && typeof row.estimate?.basis === "string" && row.estimate.basis.startsWith("年齢から");
+}
+
 /** 構成員1人のまとまり（家計を1つにする人。世帯の外の家族は介護・親の項目の形で出す。care.ts の outsideGroup） */
 export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const find = byId(members, m.id);
@@ -177,7 +189,7 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
   };
   // 並びは標準と同じ「続柄 → 生年月 → 性別」で、詳細で増える欄（1日生まれ・呼び名・関係・加わる時期）は後ろ
   const fields: FieldDef[] = [];
-  // 続柄: 配偶者は「＋ 配偶者」で足した人なので選ばない（外すのは「この家族を外す」）。子・同居のその他の家族だけ選び直せる
+  // 続柄: 配偶者は「＋ 配偶者」で足した人なので選ばない（外すのは区画の「外す」）。子・同居のその他の家族だけ選び直せる
   if (m.kind !== "self" && m.kind !== "spouse")
     fields.push(
       following(plain({
@@ -203,13 +215,13 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
           label: "生年月",
           level: "simple",
           kind: "ym",
-          // 年齢しか分からなければ「38歳」と打てる（仮の印で、生まれた年月の幅のまん中を入れる。0131 の3）
+          // 年齢しか分からなければ「38歳」と打てる（生まれた年月の幅のまん中を、根拠「年齢から」を残した確定で入れる。0131 の3・0041 の追記 2026-11-07）
           ageInput: true,
           example: "例: 1985-04",
           find,
           path: ["birth", "birthYearMonth"],
           help: "生まれた日は入れません（1日生まれのときだけ、「詳細」で選びます）。年齢しか分からなければ「38歳」のように入れられます",
-          hint: (v) => (typeof v === "string" ? ageNow(v) : null),
+          hint: (v, w) => (typeof v === "string" ? `${ageNow(v)}${fromAge(w, m.id) ? "・年齢から" : ""}` : null),
           // 子の生年月を直したら、進路の段を新しい年齢に合わせる（終わった段を外し、前の年齢で終わっていた段を足す）
           ...(m.kind === "child" ? { after: (h: Household, _t: unknown, _v: Val, wh: WorkingHousehold) => alignChild(h, m.id, wh) } : {}),
         })),
@@ -256,7 +268,7 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
     if (rel !== null) fields.push(rel);
   }
   if (m.kind !== "self" && !expectedChild) fields.push(...joinFields(wh, m));
-  const actions: ActionDef[] = m.kind === "self" ? [] : [{ key: `family/${m.id}/remove`, label: "この家族を外す", level: "simple", danger: true, run: (w) => removeMember(w, m.id) }];
+  const actions: ActionDef[] = m.kind === "self" ? [] : [{ key: `family/${m.id}/remove`, label: WORDS.remove, level: "simple", danger: true, run: (w) => removeMember(w, m.id) }];
   if (expectedChild) actions.unshift({ key: `family/${m.id}/born`, label: "生まれました（生年月を確かめて家族にする）", level: "simple", run: (w) => markBorn(w, m.id) });
   if (m.kind === "spouse") actions.push({ key: `family/${m.id}/swap`, label: "ご本人と配偶者を入れ替える", level: "detail", title: "続柄だけを入れ替えます。働き方・年金・口座・保険の名義は人に付いたままです", run: (w) => swapSelfSpouse(w) });
   // 「▸ 続きを見る」の文（0078 の追記 2026-11-01）: 開くと出る欄の代表。ご本人の性別は標準で出ていて、子の性別は出さず、

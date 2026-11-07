@@ -562,3 +562,9 @@ const PREFS = "北海道,青森,岩手,宮城,秋田,山形,福島,茨城,栃木
 
 /** 協会けんぽの支部（都道府県。kyokaikenpo.01〜47） */
 export const KYOKAI_BRANCHES: Option[] = PREFS.map((p, i) => ({ value: `kyokaikenpo.${String(i + 1).padStart(2, "0")}`, label: `${p}支部` }));
+
+/**
+ * 時点の欄で年齢を選べる人を大人（ご本人・配偶者）だけにする決まり（時点の部品の who。今入っている人・欄の人〔被保険者・名義の人〕はいつも出る）。
+ * 車の手放す時期・保険の保障の終わり・預金の引き出せない期間の終わりなど、子の年齢で決めることのない欄に使う（入力項目をまたいだそろえ。0150）
+ */
+export const ADULTS_WHO = (m: Member): boolean => m.kind === "self" || m.kind === "spouse";

@@ -14,7 +14,7 @@ import type { Address } from "../../store/readings.ts";
 import { CAR_ESTIMATE, type Estimate } from "../estimates.ts";
 import { byId, field, getPath, plain, resolveTimepoint, setPath, timepointField, timeView, type ActionDef, type FieldDef, type Finder, type GroupDef, type Level, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, presetBasis, standardBox, wrapBasis, type WorkingHousehold } from "../household.ts";
-import { GROWTH_KINDS, holderOptions, memberLabel, WORDS } from "../labels.ts";
+import { ADULTS_WHO, GROWTH_KINDS, holderOptions, memberLabel, WORDS } from "../labels.ts";
 import { addExpense, moneySections } from "../moneyRows.ts";
 import { materializeEvent } from "../namedEvents.ts";
 import { manYen } from "../readLines.ts";
@@ -772,6 +772,7 @@ function replaceUntilField(c: Car, k: string, find: Finder, owner: (h: Household
       find,
       path: ["purchase", "replace", "until"],
       ageOf: owner,
+      who: ADULTS_WHO,
       mode: "age",
       modes: ["age", "ym"],
       ageMeans: "before",
@@ -1189,6 +1190,7 @@ function untilField(c: Car, k: string, car: (h: Household, w: WorkingHousehold) 
     // 時点の部品（0038）: 名義の人の年齢（既定）・年月・今から・出来事からで入れる。結果のタブで動かす項目は年齢の整数のまま
     time: timeView({
       ageOf: owner,
+      who: ADULTS_WHO,
       optional: true,
       nullText: oneTime ? "推定" : "最後まで",
       anchor: "carRelease",

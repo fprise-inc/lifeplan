@@ -11,7 +11,7 @@ import { byId, field, plain, rateBox, removeAction, timepointField, timeView, ye
 import { boxBasis, estimatedBox, mutate, newId, periodsOf, reemploymentOf, type PostRetirement, type WorkingHousehold } from "../household.ts";
 import { continuationApplies, CONTINUATION_BASIS, CONTINUATION_ITEM, defaultEndsWith, dropClaim, isEstimated, markNewPeriods, putEstimate, unemploymentApplies, unemploymentEstimate, UNEMPLOYMENT_BASIS, UNEMPLOYMENT_ITEM } from "../claims.ts";
 import { ensureRetirement } from "../fill.ts";
-import { earners, EMPLOYMENT_TYPES, HEALTH_INSURANCE, KYOKAI_BRANCHES, LEAVE_KINDS, memberLabel, PENSION_CATEGORY, POST_RETIREMENT_TYPES } from "../labels.ts";
+import { earners, EMPLOYMENT_TYPES, HEALTH_INSURANCE, KYOKAI_BRANCHES, LEAVE_KINDS, memberLabel, PENSION_CATEGORY, POST_RETIREMENT_TYPES, WORDS } from "../labels.ts";
 import { formatYearMonth } from "../units.ts";
 import { readGroup, readLine } from "../readLines.ts";
 import { GROWTH_RANGE } from "../rateRanges.ts";
@@ -1185,6 +1185,9 @@ function smrField(wh: WorkingHousehold, find: Finder, prefix: string, kind: SmrK
       // 書くと期間の間ずっと同じ額になる。0041 の 2026-10-29 の追記の「推定のある欄だけ」の決まりで、空欄の目安は値を書く推定ではないため）
       ...(boxOf(period(wh), kind) === undefined ? { blankEstimate: (w: WorkingHousehold) => (boxOf(period(w), kind) === undefined ? blank(period(w)) : null) } : {}),
     }),
+    // 空欄の目安は、給与から毎年決め直す決まり（確かめて確定にする値ではない）: 確かめの一覧・推定の数・まとめての確定に入れない
+    // （欄の「推定」の印と「この値にする」は今のまま。通しの確かめで、値の無い「標準報酬月額 根拠 ▾」が働き方ごとに並んでいた）
+    ...(boxOf(period(wh), kind) === undefined ? { quietEstimate: "給与から毎年決め直す標準報酬月額" } : {}),
     boxed: { read: (w) => boxOf(period(w), kind), write: put },
     address: (w) => {
       const x = period(w);
@@ -1446,6 +1449,9 @@ function claimField(o: { key: string; item: typeof UNEMPLOYMENT_ITEM | typeof CO
         { value: "no", label: "受け取らない" },
       ],
       help: o.help,
+      // おまかせ（推定）は期間の形から決める目安で、期間を変えると入れ直す: 確かめの一覧・推定の数・まとめての確定に入れない
+      // （通しの確かめで、どの働き方の期間にも「辞めた後に失業給付を受け取る おまかせ（推定）」が並んでいた）
+      quietEstimate: "期間の形から決める目安（期間を変えると入れ直す）",
       get: (w) => {
         const x = cur(w);
         if (x === undefined) return { value: null };
@@ -1701,7 +1707,7 @@ function periodListGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
       title: `${who}の働き方 ${i + 1}${now ? "（今の働き方）" : ""}`,
       level: "detail",
       fields: p.id === cur?.id ? [...fields, residentTaxField(wh, m)] : fields,
-      actions: [removeAction(`work/period/${p.id}/remove`, "この期間を外す", "detail", (hh) => void (hh.employmentPeriods = (hh.employmentPeriods ?? []).filter((x) => x.id !== p.id)))],
+      actions: [removeAction(`work/period/${p.id}/remove`, WORDS.remove, "detail", (hh) => void (hh.employmentPeriods = (hh.employmentPeriods ?? []).filter((x) => x.id !== p.id)))],
     };
   });
   // 期間が無い人は、今の働き方のまとまりの「会社員として入れる」などで始める（足すボタンも出す）

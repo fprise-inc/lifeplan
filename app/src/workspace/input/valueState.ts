@@ -337,14 +337,105 @@ export function applyStateOp(wh: WorkingHousehold, f: FieldDef, op: StateOp): Wo
 /**
  * 欄に打って入れる（打った・文字を変えて離れたとき。0041 の追記）: 未入力（0円で計算中）の欄に打った値は、今の値と同じ（0円）でも
  * 確定にする（未入力は状態を持たず、そこへ打つのは明示の操作のため）。ほかの状態の欄は欄の書き方（同じ値なら変えない）のまま。
- * 箱でない値で、未入力の印が行にあり値が同じなら、行を外して打った値（確定）にする
+ * 箱でない値で、未入力の印が行にあり値が同じなら、行を外して打った値（確定）にする。
+ * 推定（書類待ちは代わりの値）と同じ値を打ったときも確定にする（打つのは明示の操作。0041 の追記 2026-11-07）。欄の部品が自分で
+ * 書き戻すとき（入って離れる・同じ文字のまま離れる）は、ここを通らない（FieldViews.tsx の Field）
  */
 export function typeValue(f: FieldDef, wh: WorkingHousehold, v: Val): WorkingHousehold {
+  if (v !== null && sameTyped(f, wh, v)) return typedConfirm(f, wh, v);
   if (v === null || f.write === undefined || fieldStatus(f, wh).status !== "missing") return f.set(wh, v);
   const next = f.write(wh, v);
   if (fieldStatus(f, next).status !== "missing") return next;
   const a = f.boxed === undefined ? fieldAddress(f, next) : null;
   return a !== null && rowAt(input(next), a) !== undefined ? withRow(withoutAssumed(next, f.key), a, undefined) : next;
+}
+
+/** 打った値が、推定（書類待ちは代わりの値）の今の値と同じか（推定・書類待ちの欄だけ） */
+function sameTyped(f: FieldDef, wh: WorkingHousehold, v: Val): boolean {
+  const s = fieldStatus(f, wh).status;
+  if (s !== "estimated" && s !== "unknown") return false;
+  const cur = f.get(wh).value;
+  return cur !== null && JSON.stringify(cur) === JSON.stringify(v);
+}
+
+/** 打って入れた確定の行（根拠を残さない。「この値にする」の確定と見分ける） */
+const TYPED_ROW: StateRow = { state: "confirmed", origin: { kind: "manual" } };
+
+/**
+ * 推定と同じ値を打ったときの確定（0041 の追記 2026-11-07）: 値はそのまま、状態だけを打って入れた確定（推定の根拠を残さない）にする。
+ * 「この値にする」と同じ道（applyStateOp の confirm）で確定にしてから根拠を外す。仮の値（生年月など）と「この値にする」を持たない推定は、
+ * 値を書き直して仮の印・推定の行を外す
+ */
+function typedConfirm(f: FieldDef, wh: WorkingHousehold, v: Val): WorkingHousehold {
+  const s = fieldStatus(f, wh);
+  if (s.provisional === true || !availableOps(f, wh, s).includes("confirm")) {
+    const w = f.write !== undefined ? f.write(withoutAssumed(wh, f.key), v) : withoutAssumed(wh, f.key);
+    if (f.boxed !== undefined) {
+      const b = f.boxed.read(w);
+      return isBox(b) && b.state !== "confirmed" ? f.boxed.write(w, confirmedBox(v, null)) : w;
+    }
+    const a = fieldAddress(f, w);
+    return a !== null && rowAt(input(w), a) !== undefined ? withRow(w, a, TYPED_ROW) : w;
+  }
+  return withoutBasis(f, wh, applyStateOp(wh, f, "confirm"));
+}
+
+/** 「この値にする」で確定にした世帯から、推定の根拠を外す（打った確定にする）。確定にならなかったら前の世帯 */
+function withoutBasis(f: FieldDef, wh: WorkingHousehold, c: WorkingHousehold): WorkingHousehold {
+  if (c === wh) return wh;
+  if (f.boxed !== undefined) {
+    const b = f.boxed.read(c);
+    return isBox(b) && b.state === "confirmed" && b.estimate !== undefined ? f.boxed.write(c, confirmedBox(b.value, null)) : c;
+  }
+  const a = fieldAddress(f, c);
+  return a !== null && rowAt(input(c), a)?.state === "confirmed" ? withRow(c, a, TYPED_ROW) : c;
+}
+
+/**
+ * 推定・書類待ちの欄に、今の値と同じ文字を打って離れた（時点の欄など、打った文字から値を作り直さない欄。0041 の追記 2026-11-07）:
+ * 今の値のまま打った確定にする。推定・書類待ちでなければ同じ世帯
+ */
+export function confirmTyped(f: FieldDef, wh: WorkingHousehold): WorkingHousehold {
+  const s = fieldStatus(f, wh).status;
+  if (s !== "estimated" && s !== "unknown") return wh;
+  const v = f.get(wh).value;
+  if (v !== null) return typedConfirm(f, wh, v);
+  // 時点の欄は値を時点の部品で持つ（欄の値は空）: 「この値にする」と同じ道で確定にして根拠を外す。ほかの値の無い推定は変えない
+  if (f.time === undefined || !availableOps(f, wh).includes("confirm")) return wh;
+  return withoutBasis(f, wh, applyStateOp(wh, f, "confirm"));
+}
+
+/** 年齢から出した生年月の確定の根拠の文は「年齢から」で始まる（欄の読みに「年齢から」を添える） */
+export const isFromAgeBasis = (basis: string | null | undefined): boolean => typeof basis === "string" && basis.startsWith("年齢から");
+
+/**
+ * 年齢で入れた生年月（「38歳」）の確定（0041 の追記 2026-11-07）: 打つのは明示の操作なので確定にし、確かさが「年齢から」と分かるよう、
+ * 推定の根拠（年齢から出した生年月）を残した確定の行にする（「この値にする」の確定と同じ形）。当て先の無い欄は値だけ（仮の印を外す）
+ */
+export function typeFromAge(f: FieldDef, wh: WorkingHousehold, v: Val, basis: string): WorkingHousehold {
+  const w0 = withoutAssumed(wh, f.key);
+  const w = f.write !== undefined ? f.write(w0, v) : f.set(w0, v);
+  if (f.boxed !== undefined) return f.boxed.write(w, confirmedBox(v, { method: "standard", basis }));
+  const a = ageBasisAddress(f, w);
+  return a === null ? w : withRow(w, a, { state: "confirmed", origin: { kind: "manual" }, estimate: { method: "standard", basis } });
+}
+
+/**
+ * 年齢から出した値の確定の行の当て先: 欄の当て先、無ければ仮の印の当て先（生年月の欄は当て先を持たず、仮の印の読み替え表で構成員の
+ * 生年月の値の状態の行に当たる）
+ */
+function ageBasisAddress(f: FieldDef, wh: WorkingHousehold): Address | null {
+  const a = fieldAddress(f, wh);
+  if (a !== null) return a;
+  const r = resolveAssumedKey(f.key, input(wh));
+  return r !== null && r.kind === "address" ? r.address : null;
+}
+
+/** 年齢から出した値の確定か（その欄の値の状態の行の根拠が「年齢から」。欄の読みに「年齢から」を添える） */
+export function fromAgeBasis(f: FieldDef, wh: WorkingHousehold): string | null {
+  const a = ageBasisAddress(f, wh);
+  const row = a === null ? undefined : rowAt(input(wh), a);
+  return row?.state === "confirmed" && isFromAgeBasis(row.estimate?.basis) ? (row.estimate?.basis ?? null) : null;
 }
 
 /** まとまり・カード・全部の「推定の値をまとめて使う」: 推定の欄を、それぞれその値で確定にする。確定にした数も返す */
