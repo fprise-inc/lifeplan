@@ -133,10 +133,14 @@ describe.skipIf(bin === null)("PDF の収益不動産のまとめのページ", 
 });
 
 describe("物件が2件の世帯: 全体の1枚の月の手残り", () => {
-  // 円未満の端数が物件ごとに出るよう、見本の世帯に駐車場（月の賃料を 60,001〜60,012円で変える・年の経費 120,005円）を足す
+  // 円未満の端数が物件ごとに出るよう、見本の世帯に駐車場（月の賃料を 60,001〜60,012円で変える・年の経費 120,005円）を足す。
+  // もとの物件の年の経費に11円足し、税引前の年の手残りを12で割った端数が駐車場の端数より大きくなるようにする
+  // （もとの物件は手残りがマイナス、駐車場はプラスなので、物件ごとに切り捨てた合計と、足してから切り捨てた額が必ず1円ずれる。
+  // 税引後の端数は税の計算の直しで動き、たまたま1件もずれなくなることがあったため、税引前でずれを作る）
   const reqs = Array.from({ length: 12 }, (_, i) => {
     const req = modelHousehold("dualAssetsTwoKids");
     const first = (req.input.household.accounts ?? []).find((x) => x.property !== undefined)!;
+    (first as unknown as { property: { expenses: { annual: { value: number } } } }).property.expenses.annual.value += 11;
     const second = JSON.parse(JSON.stringify(first)) as typeof first;
     (second as { id: string }).id = "0b9a1c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2e";
     (second as unknown as { property: Record<string, unknown> }).property = { structure: "wood", name: "月極駐車場", kind: "parking", rental: { monthly: { value: 60001 + i, state: "confirmed", origin: { kind: "manual" } } }, expenses: { annual: { value: 120005, state: "confirmed", origin: { kind: "manual" } } } };

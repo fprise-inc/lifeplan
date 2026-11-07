@@ -74,8 +74,9 @@ describe("ひとり親控除（離婚・未婚のひとり親も。0156）", () 
   });
 
   it("境目: 本人の合計所得金額500万円以下なら受け、1円でも超えたら受けない", () => {
-    const at500 = parent({ annual: 6777777 });
-    const over = parent({ annual: 6777778 });
+    // 給与所得＝収入×90%−110万円の1円未満を切り捨て（所得税法別表第五の備考。0167）: 6,777,778円 → 5,000,000.2 → 5,000,000円
+    const at500 = parent({ annual: 6777778 });
+    const over = parent({ annual: 6777779 });
     expect(total(at500, S)).toBe(5000000);
     expect(total(over, S)).toBe(5000001);
     expect(ded(at500).singleParent).toBe(350000);
@@ -148,7 +149,7 @@ describe("寡婦控除（ひとり親でない女性。0156）", () => {
     const withParent = parent({ child: null, marital: "divorced", members: [mother], relations: rel });
     expect(status(withParent)).toEqual({ widow: true, singleParent: false });
     expect(ded(withParent).widow).toBe(270000);
-    expect(status(parent({ child: null, marital: "divorced", members: [mother], relations: rel, annual: 6777778 })).widow).toBe(false);
+    expect(status(parent({ child: null, marital: "divorced", members: [mother], relations: rel, annual: 6777779 })).widow).toBe(false);
     // 世帯の関係の離婚でも同じ（扶養親族がいなければ受けない）
     expect(status(parent({ child: null, ...ex("2025-06") })).widow).toBe(false);
     expect(status(parent({ child: null, ...ex("2025-06"), members: [...ex("2025-06").members, mother], relations: [...ex("2025-06").relations, ...rel] })).widow).toBe(true);

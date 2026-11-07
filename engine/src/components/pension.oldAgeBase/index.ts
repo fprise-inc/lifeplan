@@ -19,6 +19,9 @@
 // - 障害の想定の法定免除の月（第1号で障害基礎年金1・2級を受ける月。国民年金法89条）は、老齢基礎年金の額では全額免除の月（2009年4月以後は1/2）。
 //   額で入れた記録（見込額・定期便）は60歳まで納める前提の額なので、法定免除の月の（1−割合）の分を満額から按分して引く
 // 改訂5: 受給資格期間に足りない知らせは、働き方（勤め先の期間）も加入の記録も入れていない子には出さない（額は変えない）
+// 改訂6（0167）: 受給の始まりを65歳に達した月の翌月から12か月未満（66歳になる前）にしたときは繰下げにならないので、増額なしで65歳の翌月から
+// 受け取る（国民年金法28条1項・18条1項。知らせ N_ASSUMED pension.deferral.beforeSixtySix）。見込額だけの記録でも、対象の生年月の人には特別支給の
+// 老齢厚生年金を生年月日から計算する（額は記録の老齢厚生年金の見込額から。SDK の specialOldAgeStart）
 import {
   addMonths,
   ageMonth,
@@ -148,7 +151,7 @@ export default defineComponent<{ member: string }, Out>({
   id: "pension.oldAgeBase",
   title: "老齢年金の月ごとの額（障害年金と選ぶ前）",
   contract: "1.1",
-  revision: 5,
+  revision: 6,
   requires: {
     "pension.record": ">=1 <2",
     "pension.revision": ">=1 <2",
@@ -235,6 +238,7 @@ export default defineComponent<{ member: string }, Out>({
       CB = claim.basic;
       CE = claim.employee;
       if (claim.aligned) ctx.notice("N_ASSUMED", ["pension.earlyClaim.simultaneous", member]);
+      if (claim.beforeSixtySix) ctx.notice("N_ASSUMED", ["pension.deferral.beforeSixtySix", member]);
       // 遺族年金の受給権と繰下げ: 65歳に達した月から66歳に達した月までに受給権を持てば繰り下げられない（N から）。66歳の後に得ると、その日に
       // 申出があったとみなし翌月から（増額の月数はそこまで）。65歳になる前に受給権が消えていれば関係しない
       if (CB > N || CE > N) {
