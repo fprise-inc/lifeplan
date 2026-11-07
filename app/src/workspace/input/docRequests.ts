@@ -42,6 +42,10 @@ export interface DocRequest {
   /** 一覧の見出し（例: ねんきん定期便（ご本人）） */
   title: string;
   values: DocRequestValue[];
+  /** 書類の名義の人（構成員の ID。保険証券は契約者か被保険者、返済予定表はローンの名義の人。決まらなければ null。書類の読み取りの初めの値。0154 の3） */
+  holder: string | null;
+  /** 書類の物（保険の契約・ローンの ID。人の書類は null。書類の読み取りで当てる物の初めの値） */
+  object: string | null;
 }
 
 type Obj = Record<string, unknown>;
@@ -56,30 +60,30 @@ function locate(wh: WorkingHousehold, id: string): { coll: string; obj: Obj } | 
 }
 
 /** 書類の持ち主: まとめる鍵・書類の名前（ローンの種類で言い分ける）・持ち主の言葉 */
-function ownerOf(wh: WorkingHousehold, doc: string, holder: string | null, who: (id: unknown) => string): { group: string; doc: string; whose: string | null } {
+function ownerOf(wh: WorkingHousehold, doc: string, holder: string | null, who: (id: unknown) => string): { group: string; doc: string; whose: string | null; member: string | null; object: string | null } {
   const at = holder === null ? null : locate(wh, holder);
-  if (at === null || holder === null) return { group: holder ?? "", doc, whose: null };
+  if (at === null || holder === null) return { group: holder ?? "", doc, whose: null, member: null, object: null };
   const { coll, obj } = at;
   switch (coll) {
     case "members":
-      return { group: holder, doc, whose: who(holder) };
+      return { group: holder, doc, whose: who(holder), member: holder, object: null };
     case "residentTaxAssessments":
     case "pensionRecords":
     case "retirementBenefits":
       // 人の書類は、同じ人の物（退職一時金と企業年金など）を1通にまとめる
-      return { group: typeof obj.member === "string" ? obj.member : holder, doc, whose: who(obj.member) };
+      return { group: typeof obj.member === "string" ? obj.member : holder, doc, whose: who(obj.member), member: str(obj.member), object: null };
     case "insuranceContracts": {
       const name = str(obj.label) ?? kindOf(obj as { subtype?: string; template: string }).label;
-      return { group: holder, doc, whose: `${name}・${who(obj.insured)}` };
+      return { group: holder, doc, whose: `${name}・${who(obj.insured)}`, member: str(obj.policyholder) ?? str(obj.insured), object: holder };
     }
     case "debts": {
       const debtors = Array.isArray(obj.debtors) ? obj.debtors : [];
       const first = isObj(debtors[0]) ? debtors[0].member : undefined;
       const kind = obj.kind === "mortgage" ? "住宅ローン" : obj.kind === "car" ? "自動車ローン" : "ローン";
-      return { group: holder, doc: doc === CHECK_DOCUMENTS.loan ? `${kind}の${doc}` : doc, whose: str(obj.label) ?? who(first) };
+      return { group: holder, doc: doc === CHECK_DOCUMENTS.loan ? `${kind}の${doc}` : doc, whose: str(obj.label) ?? who(first), member: str(first), object: holder };
     }
     default:
-      return { group: holder, doc, whose: null };
+      return { group: holder, doc, whose: null, member: null, object: null };
   }
 }
 
@@ -97,7 +101,7 @@ export function docRequests(wh: WorkingHousehold, rows: readonly CheckRow[] = ch
     const id = `${o.doc}|${o.group}`;
     let e = out.get(id);
     if (e === undefined) {
-      e = { id, doc: o.doc, whose: o.whose, title: o.whose !== null ? `${o.doc}（${o.whose}）` : o.doc, values: [] };
+      e = { id, doc: o.doc, whose: o.whose, title: o.whose !== null ? `${o.doc}（${o.whose}）` : o.doc, values: [], holder: o.member, object: o.object };
       out.set(id, e);
     }
     e.values.push({ rowId: r.id, card: r.card, cardLabel: r.cardLabel, label: r.label, field: r.doc.field, value: r.value ?? null, detail: r.detail, fieldKey: r.fieldKey, level: r.level });
