@@ -9,7 +9,8 @@
 //     市町村民税所得割合算額が所得の上限（57,700円。ひとり親世帯等は77,101円）未満なら、年齢と通っているかを問わず世帯の子の年長の順で数える（14条。
 //     ひとり親世帯等は2番目から0円）。きょうだいが通っているかは、その子の教育の目標の保育所・幼稚園の段で見る（保育所の段だけで幼稚園の段が無い子は、
 //     就学まで保育所に通うとみなす）
-//   - ひとり親世帯等: その月に世帯にいる子の親が1人のとき（在宅障害児のいる世帯などは扱わない）
+//   - ひとり親世帯等: その月に世帯にいる子の親が1人で、その親が配偶者のない者のとき（在宅障害児のいる世帯などは扱わない）。配偶者のない者
+//     （母子及び父子並びに寡婦福祉法6条1項）かは、ひとり親控除と同じ婚姻の状態の見方で決める（sdk の marriedAt。改訂5）
 //   - 自動の額は制度の名目額なので、教育費の上昇率を当てない（0010 の5 と同じ考え方）。給付単価（公定価格）が上限より低い場合・自治体の独自の軽減の細部
 //     （第1子からの無償化など）は扱わない。FP は月額を入れる（0 なら保育料なし）か、割合を変えて合わせる
 // - 通い始め（from）の省略は、その子の育児休業（働き方の期間の leave・childcare）の終わりの翌月。育児休業の入力が無ければ1歳の学年の4月
@@ -17,6 +18,8 @@
 // 改訂4（0029 の追記 2026-10-30）: 保育料とは別にかかるお金（教材・被服・保護者会・行事・通園など。段の extraAnnual。省略は統計の目安
 //   education.statistics.nursery.extra）を、通い始めから3歳の4月の前の月まで毎月（年額÷12。教育費の上昇率で伸ばす）。表の行は学校の費用。
 //   目安の値が無いパックでは数えない（知らせない。保育料の計算とは別の目安のため）
+// 改訂5（0169）: 世帯にいる親が1人でも、その月に配偶者の関係（法律婚・事実婚。子の親でない再婚の相手も）がある親と、構成員の欄
+//   maritalStatus が「婚姻している（別居など）」の親（終わった法律婚の関係が無いとき）は、ひとり親世帯等にしない（ひとり親控除の判定と同じ見方）
 import {
   addMonths,
   bracketFor,
@@ -24,6 +27,7 @@ import {
   formatYm,
   grownByYear,
   isOutside,
+  marriedAt,
   monthIndex,
   monthOf,
   residentTaxYearOf,
@@ -85,7 +89,7 @@ export default defineComponent<{ member: string }, FlowsResult>({
   id: "education.nurseryFee",
   title: "保育料（0〜2歳。収入から自動で計算）",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: { "residentTax.annual": ">=1 <2" },
   params: [...Object.values(P), LEVY_ROUNDING, EXTRA],
   reads: [
@@ -97,9 +101,15 @@ export default defineComponent<{ member: string }, FlowsResult>({
     "member.birth",
     "member.joins",
     "member.leaves",
+    "member.maritalStatus",
     "relation.type",
     "relation.parent",
     "relation.child",
+    "relation.a",
+    "relation.b",
+    "relation.marriage",
+    "relation.from",
+    "relation.to",
     "employment.member",
     "employment.type",
     "employment.leaveKind",
@@ -228,12 +238,12 @@ export default defineComponent<{ member: string }, FlowsResult>({
           auto = true;
           const { levy, exempt } = householdLevy(taxYearOf(m));
           if (exempt) continue;
-          // ひとり親世帯等（その月に世帯にいる親が1人）
-          const present = earners.filter((id) => {
+          // ひとり親世帯等（その月に世帯にいる親が1人で、その親が婚姻していない。改訂5）
+          const present = earners.flatMap((id) => {
             const p = byId.get(id);
-            return p !== undefined && inHousehold(p, m);
+            return p !== undefined && inHousehold(p, m) ? [p] : [];
           });
-          const specified = present.length === 1;
+          const specified = present.length === 1 && !marriedAt(ctx, relations, present[0] as MemberInput, m);
           const specLimit = at.paramYen(P.specifiedLimit);
           let amount: Yen;
           if (specified && specLimit !== null && levy < specLimit) amount = at.paramYen(P.specifiedAmount) ?? yen(0);

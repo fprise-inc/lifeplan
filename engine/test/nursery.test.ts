@@ -169,6 +169,33 @@ describe("保育料の自動の計算（education.nurseryFee）", () => {
     expect(fee(nursery(two, "c", flat(77100)), "2027-10")).toBe(0);
   });
 
+  it("ひとり親世帯等は配偶者のない親だけ: 婚姻している（別居など）・世帯に配偶者の関係がある親は、親が1人でも当てない（改訂5。0169）", () => {
+    const single = (o: { marital?: string; spouse?: Obj } = {}) => {
+      const req = mk([{ ...C, stages: auto() }], { single: true });
+      const h = (req.input as unknown as Obj).household as { members: Obj[]; relations: Obj[] };
+      if (o.marital !== undefined) (h.members[0] as Obj).maritalStatus = o.marital;
+      if (o.spouse !== undefined) {
+        // 子の親ではない配偶者（再婚の相手など。子との親子の関係を入れていない）
+        h.members.push(member("s", "spouse", "1988-01"));
+        h.relations.push({ type: "spouse", a: uid("a"), b: uid("s"), marriage: "legal", from: null, to: null, ...o.spouse });
+      }
+      return req;
+    };
+    // 婚姻していない・未婚・離婚・死別はひとり親世帯等（77,101円未満は 9,000円）
+    for (const marital of [undefined, "unmarried", "divorced", "bereaved"]) expect(fee(nursery(single({ marital }), "c", flat(77100)), "2027-10")).toBe(9000);
+    // 婚姻している（別居など）は国の基準の表の段（48,600〜96,999円は 30,000円）。多子の軽減もふつうの所得の上限で数える
+    expect(fee(nursery(single({ marital: "married" }), "c", flat(77100)), "2027-10")).toBe(30000);
+    const two = mk([{ name: "k0", birth: "2016-06" }, { ...C, stages: auto() }], { single: true });
+    ((two.input as unknown as Obj).household as { members: Obj[] }).members[0]!.maritalStatus = "married";
+    expect(fee(nursery(two, "c", flat(77100)), "2027-10")).toBe(30000);
+    // 世帯に配偶者の関係（法律婚・事実婚）があるその月は、子の親でなくても当てない。関係が終わった後（離婚）は、欄が「婚姻している」でもひとり親世帯等
+    expect(fee(nursery(single({ spouse: {} }), "c", flat(77100)), "2027-10")).toBe(30000);
+    expect(fee(nursery(single({ spouse: { marriage: "deFacto" } }), "c", flat(77100)), "2027-10")).toBe(30000);
+    const ended = nursery(single({ marital: "married", spouse: { to: at("2027-12") } }), "c", flat(77100));
+    expect(fee(ended, "2027-12")).toBe(30000);
+    expect(fee(ended, "2028-01")).toBe(9000);
+  });
+
   it("国の基準に対する割合（省略は目安の 0.8）を掛け、目安の計算であることを知らせる", () => {
     const def = mk([{ ...C, stages: [{ stage: "nursery", from: at("2027-10") }] }]);
     const r = nursery(def, "c", flat(200000));
