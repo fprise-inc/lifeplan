@@ -159,7 +159,7 @@ export function applyRetireMonth(base: EngineRequest, memberId: string, lastMont
   return req;
 }
 
-/** 働く最後の月で、働き方の期間・退職の段階の生活費・NISA の積立の終わりを直す（req を書き換える） */
+/** 働く最後の月で、働き方の期間・退職の段階の生活費（ご本人だけ）・NISA の積立の終わりを直す（req を書き換える） */
 function retireAt(req: EngineRequest, memberId: string, lastMonth: string, stageAt: string, oldEnd: string | null, opts: { reemployment?: Reemployment }): void {
   const h = req.input.household;
   const mine = (h.employmentPeriods ?? []).filter((e) => e.member === memberId);
@@ -202,9 +202,11 @@ function retireAt(req: EngineRequest, memberId: string, lastMonth: string, stage
     }
   }
   h.employmentPeriods = [...others, ...kept];
-  // 退職の段階の生活費・NISA の積立の終わりも、退職に合わせる
-  for (const l of h.livingExpenses ?? []) {
-    for (const s of l.stages ?? []) if (s.label === "retirement") s.at = { at: stageAt };
+  // 退職の段階の生活費は、ご本人の退職のときだけ合わせる（世帯の「退職後」の節目は本人の退職の月。0049）。NISA の積立の終わりは持ち主の分だけ
+  if (h.members.find((m) => m.id === memberId)?.kind === "self") {
+    for (const l of h.livingExpenses ?? []) {
+      for (const s of l.stages ?? []) if (s.label === "retirement") s.at = { at: stageAt };
+    }
   }
   for (const a of h.accounts ?? []) {
     if (a.kind !== "nisa" || a.owner !== memberId) continue;

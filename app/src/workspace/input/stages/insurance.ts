@@ -1085,11 +1085,13 @@ function coverageGroup(wh: WorkingHousehold, c: InsuranceContract, cov: Coverage
       options: COVERAGE_BENEFITS,
       find: findCov,
       path: ["benefit"],
-      after: (h, target, v) => {
+      after: (h, target, v, w0) => {
         const x = contractIn(h);
         const t = target as unknown as Coverage;
         // 給付の種類に合わない欄（限度日数・最低保証の月数など）は計算が読まないので残す（戻したときに消えない）
         if (x !== undefined && v !== "death" && (x.schedule?.rows ?? []).some((r) => r.coverage === t.id && r.deathBenefit !== undefined)) setDecreasing(h, x, t, false);
+        const before = (contractIn(w0.request.input.household)?.coverages ?? []).find((z) => z.id === cov.id)?.benefit;
+        if (x !== undefined && before !== undefined && typeof v === "string" && before !== v) refitBenefit(h, x, t, before, v);
       },
     }),
     mainRow
@@ -1118,7 +1120,11 @@ function coverageGroup(wh: WorkingHousehold, c: InsuranceContract, cov: Coverage
     ),
     mainRow && ep === "from"
       ? readOnlyOf(`${kc}/from`, "受け取りの始まり", "受け取りの始まり", (h) => endText(h, covNow(h)?.from, "—"))
-      : timepointField({ key: `${kc}/from`, item: "insurance.coverages", label: cov.benefit === "annuity" ? "受け取りの始まり" : "保障の始まり", level: "detail", find: findCov, path: ["from"], ageOf: covInsured, who: ADULTS_WHO, mode: "ym" }),
+      : withAddress(
+          timepointField({ key: `${kc}/from`, item: "insurance.coverages", label: cov.benefit === "annuity" ? "受け取りの始まり" : "保障の始まり", level: "detail", find: findCov, path: ["from"], ageOf: covInsured, who: ADULTS_WHO, mode: "ym" }),
+          // 年金にしたときの受け取りの始まりの推定の印（refitBenefit）を欄に出す
+          () => at(c.id, "insurance.coverages", [cov.id, "from"]),
+        ),
     mainRow && ep === "to"
       ? readOnlyOf(`${kc}/to`, "保障の終わり", "保障の終わり", (h) => endText(h, covNow(h)?.to, "終身"))
       : withAddress(
@@ -1211,6 +1217,38 @@ export function insuranceMoreLabel(kind: string): string {
       return "更新・特約・受取人などを入れる";
     default:
       return "契約者・保障の明細などを入れる";
+  }
+}
+
+/** 給付の額の意味（一時金・年額・月額・日額）。給付の種類を変えて意味が変わったら、額をそのまま使わない */
+function amountBasisOf(benefit: string): "once" | "annual" | "monthly" | "daily" {
+  if (benefit === "annuity") return "annual";
+  if (benefit === "incomeProtection" || benefit === "incapacity") return "monthly";
+  return benefit === "hospitalDaily" ? "daily" : "once";
+}
+
+/**
+ * 保障の給付の種類を変えたときの始末（0164）。額の意味が変わったら額を0円にして未入力の印（死亡保険金500万円を年金の年額にしない）。
+ * 年金にしたら、受け取りの始まりを被保険者の65歳・年数を10年にして推定の印（個人年金保険のひな形と同じ。契約の月から一生分を確定で入れない）。
+ * 年金から戻したら、保障の始まりを契約の月に戻して推定の印を外す
+ */
+function refitBenefit(h: Household, x: InsuranceContract, t: Coverage, before: string, after: string): void {
+  const o = x as unknown as Obj;
+  if (amountBasisOf(before) !== amountBasisOf(after)) {
+    t.amount = 0;
+    putRowIn(o, "insurance.coverages", [t.id, "amount"], estRow("standard", UNENTERED_MAIN));
+  }
+  if (after === "annuity") {
+    const d = defaultEnd(h, kindDef("privateAnnuity") as KindDef, t.insured ?? x.insured);
+    t.from = d.tp ?? { at: x.contractDate };
+    putRowIn(o, "insurance.coverages", [t.id, "from"], estRow("standard", d.basis));
+    if (t.years === undefined) {
+      t.years = 10;
+      putRowIn(o, "insurance.coverages", [t.id, "years"], estRow("standard", `${STANDARD}（個人年金保険: 10年）`));
+    }
+  } else if (before === "annuity") {
+    t.from = { at: x.contractDate };
+    putRowIn(o, "insurance.coverages", [t.id, "from"], undefined);
   }
 }
 
