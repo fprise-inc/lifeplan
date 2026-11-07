@@ -13,6 +13,7 @@ import { buildProposalInput, CHAPTERS, DEFAULT_LAYOUT, isExtChapterId, saleVaria
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import { withoutDreams } from "../../engine/moneyRows.ts";
 import { adults, baseRequest, defaultYear, occursMonth, scenarioRequest, scenarios, survivorOf } from "../contingency/requests.ts";
+import { premiseFor } from "../contingency/planPremise.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { inputItems } from "../input/items.ts";
 import { hasAdvisoryFee } from "../levers.ts";
@@ -135,16 +136,18 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
     if (nd !== proposal) requests.withoutDreams = nd;
   }
 
-  // 万一: 提案の世帯で、大人ごとの死亡（遺族がいるとき）を計算基準年の翌年に。必要保障額は大人をまとめて1つの要求で
-  const whP: WorkingHousehold = { ...wh, request: proposal };
+  // 万一: 提案の世帯で、大人ごとの死亡（遺族がいるとき）を計算基準年の翌年に。必要保障額は大人をまとめて1つの要求で。
+  // 前提は提案のプランの前提（共通の前提にそのプランの上書きを当てたもの。万一のタブでそのプランを見たときと同じ。0071・0168）
+  const premise = premiseFor(wh, choice.proposal);
+  const whP: WorkingHousehold = { ...wh, contingency: premise, request: proposal };
   const deaths = on.has("contingency") ? scenarios(whP).filter((s) => s.kind === "death") : [];
   const year = defaultYear(proposal);
   deaths.forEach((s, i) => (requests[`death${i}`] = scenarioRequest(whP, s, year)));
   const grown = adults(proposal.input.household).map((a) => a.member.id);
   if (on.has("contingency") && grown.length > 0 && deaths.length > 0) {
     const p = baseRequest(proposal);
-    const s = survivorOf(wh.contingency.survivor);
-    p.input.protection = { members: grown, method: "accumulation", ...(s !== undefined ? { survivor: s } : {}), ...(wh.contingency.horizon !== undefined ? { horizon: { ...wh.contingency.horizon } } : {}) };
+    const s = survivorOf(premise.survivor);
+    p.input.protection = { members: grown, method: "accumulation", ...(s !== undefined ? { survivor: s } : {}), ...(premise.horizon !== undefined ? { horizon: { ...premise.horizon } } : {}) };
     requests.protection = p;
   }
 
