@@ -35,7 +35,7 @@ import type {
   SavingsCheck,
   ValueBox,
 } from "./types.ts";
-import { formatValue, parseValue, rangeEstimate } from "./values.ts";
+import { formatValue, parseValue, rangeEstimate, rateDoubt } from "./values.ts";
 
 export interface ImportOptions {
   /** 計算基準月（"YYYY-MM"） */
@@ -280,7 +280,13 @@ class Ctx {
         this.check(a.key, a.index, "invalid", p.reason);
         return;
       }
-      const review = a.review ?? [];
+      const review = [...(a.review ?? [])];
+      // 率の欄のあり得る範囲より小さい値（% で打った値が 100分の1 で読まれた疑い）は、知らせて要確認にする（黙って使わない）
+      const doubt = typeof p.value === "string" ? rateDoubt(it, p.value) : null;
+      if (doubt !== null) {
+        review.push(doubt);
+        this.issues.push(issue("warning", "H_RATE_DOUBT", `${this.label(a.key, a.index)}: ${doubt}（要確認にしました）`, at));
+      }
       this.got.set(k, { status: "value", value: p.value, ...(review.length > 0 ? { review } : {}) });
       if (review.length > 0) this.check(a.key, a.index, "review", review.join("・"));
       return;

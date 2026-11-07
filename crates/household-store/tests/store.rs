@@ -638,3 +638,188 @@ fn responses_never_contain_paths() {
         );
     }
 }
+
+/// 0011 の4: 変換の段が meta に書いた記録（合算BS の引き継ぎ `extTransfers` など）は、画面が meta を持たない本文で保存しても残る
+#[test]
+fn migration_records_in_meta_survive_saves() {
+    let env = Env::new();
+    let store = env.store();
+    store.status().unwrap();
+    let o = create(&store, 1);
+    let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/household-format/0.56/body.json");
+    let b056 = std::fs::read_to_string(fixture).unwrap();
+    store.write_raw_for_test(&o.id, "0.56", &b056, 2).unwrap();
+    let s2 = env.store();
+    s2.status().unwrap();
+    let opened: serde_json::Value = serde_json::from_str(&s2.open(&o.id).unwrap().body).unwrap();
+    let transfers = opened["meta"]["extTransfers"].clone();
+    assert!(transfers.is_array(), "開いたとき: 変換の記録がある");
+    // 画面は meta を書かずに本文を返す（app/src/workspace/store/body.ts の bodyObject）
+    let screen = without_meta(&opened.to_string()).to_string();
+    s2.save(&o.id, &screen, "").unwrap();
+    s2.save(&o.id, &screen, "").unwrap();
+    let s3 = env.store();
+    s3.status().unwrap();
+    let again: serde_json::Value = serde_json::from_str(&s3.open(&o.id).unwrap().body).unwrap();
+    assert_eq!(
+        again["meta"]["extTransfers"], transfers,
+        "保存し直しても、変換の記録が残る: {}",
+        again["meta"]
+    );
+    assert_eq!(
+        again["meta"]["formatVersion"],
+        household_store::migrate::CURRENT
+    );
+}
+
+/// 0011 の4 の捨てない決まり: このアプリが知らない meta の欄も、保存し直して失わない。画面が meta を渡したときは、その値を使う
+#[test]
+fn unknown_meta_fields_are_kept_and_the_screen_can_replace_them() {
+    let env = Env::new();
+    let store = env.store();
+    store.status().unwrap();
+    let o = create(&store, 1);
+    let mut b: serde_json::Value = serde_json::from_str(&body(1)).unwrap();
+    b["meta"] = serde_json::json!({"laterRecord": [{"at": "2026-11-07"}], "savedAt": "古い値"});
+    store
+        .write_raw_for_test(&o.id, household_store::migrate::CURRENT, &b.to_string(), 2)
+        .unwrap();
+    let s2 = env.store();
+    s2.status().unwrap();
+    s2.open(&o.id).unwrap();
+    s2.save(&o.id, &body(2), "").unwrap();
+    let s3 = env.store();
+    s3.status().unwrap();
+    let v: serde_json::Value = serde_json::from_str(&s3.open(&o.id).unwrap().body).unwrap();
+    assert_eq!(
+        v["meta"]["laterRecord"],
+        serde_json::json!([{"at": "2026-11-07"}])
+    );
+    assert_ne!(v["meta"]["savedAt"], "古い値", "本体が書く欄は本体の値");
+    let mut with_meta: serde_json::Value = serde_json::from_str(&body(3)).unwrap();
+    with_meta["meta"] = serde_json::json!({"laterRecord": "画面の値"});
+    s3.save(&o.id, &with_meta.to_string(), "").unwrap();
+    s3.save(&o.id, &body(4), "").unwrap();
+    let s4 = env.store();
+    s4.status().unwrap();
+    let v: serde_json::Value = serde_json::from_str(&s4.open(&o.id).unwrap().body).unwrap();
+    assert_eq!(v["meta"]["laterRecord"], "画面の値");
+}
+
+/// 0011 の7: 今のファイルが壊れていて（空・途中で切れた・ゼロで埋まった）、直前の世代が開けるときは、どの時点の物かを見せて、
+/// 直前の世代で開き直せる。壊れたファイルは捨てずに、この PC の中に別名で残す
+#[test]
+fn a_broken_file_can_be_reopened_from_the_previous_generation() {
+    let env = Env::new();
+    let store = env.store();
+    store.status().unwrap();
+    let o = create(&store, 1);
+    store.save(&o.id, &body(2), "").unwrap();
+    env.clock.advance_days(1);
+    let saved3 = store.save(&o.id, &body(3), "").unwrap();
+    let p = store.household_path_for_test(&o.id);
+    let good = std::fs::read(&p).unwrap();
+    let prev = std::fs::read(household_store::atomic::prev_path(&p)).unwrap();
+    // 今のファイルが開けるときは、直前の世代を勧めない
+    assert!(store.previous_generation(&o.id).unwrap().is_none());
+    assert_eq!(
+        store.open_previous(&o.id).unwrap_err(),
+        StoreError::NO_PREVIOUS
+    );
+    let broken: Vec<(&str, Vec<u8>)> = vec![
+        ("空", vec![]),
+        ("半分で切れた", good[..good.len() / 2].to_vec()),
+        ("最後の1バイトが無い", good[..good.len() - 1].to_vec()),
+        ("頭の9バイトだけ", good[..9].to_vec()),
+        ("ゼロで埋まった", vec![0u8; good.len()]),
+    ];
+    for (name, bytes) in broken {
+        std::fs::write(&p, &bytes).unwrap();
+        std::fs::write(household_store::atomic::prev_path(&p), &prev).unwrap();
+        let s2 = env.store();
+        s2.status().unwrap();
+        assert!(s2.open(&o.id).is_err(), "{name}: 開けない");
+        let info = s2
+            .previous_generation(&o.id)
+            .unwrap()
+            .unwrap_or_else(|| panic!("{name}: 直前の世代を勧める"));
+        assert_eq!(info.generation, 2, "{name}");
+        assert!(
+            info.saved_at
+                .as_deref()
+                .is_some_and(|t| t < saved3.saved_at.as_str()),
+            "{name}: 直前の保存の日時 {:?}",
+            info.saved_at
+        );
+        let r = s2.open_previous(&o.id).unwrap();
+        assert_eq!(r.generation, 2, "{name}");
+        assert_eq!(
+            without_meta(&r.body)["proposals"][0]["n"],
+            2,
+            "{name}: 直前の保存の中身"
+        );
+        assert_eq!(
+            std::fs::read(&p).unwrap(),
+            prev,
+            "{name}: 今のファイルは直前の世代の写し"
+        );
+        assert_eq!(
+            std::fs::read(household_store::atomic::prev_path(&p)).unwrap(),
+            prev,
+            "{name}: 直前の世代はそのまま残る"
+        );
+        let kept: Vec<Vec<u8>> = std::fs::read_dir(env.root.join("conflicts"))
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().contains(".broken-"))
+            .map(|e| std::fs::read(e.path()).unwrap())
+            .collect();
+        assert!(kept.contains(&bytes), "{name}: 壊れたファイルは別名で残す");
+        // 戻した後はふつうに保存できる
+        let s = s2.save(&o.id, &body(4), "").unwrap();
+        assert_eq!(s.generation, 3, "{name}");
+        let s3 = env.store();
+        s3.status().unwrap();
+        assert_eq!(
+            without_meta(&s3.open(&o.id).unwrap().body)["proposals"][0]["n"],
+            4,
+            "{name}"
+        );
+        std::fs::write(&p, &good).unwrap();
+    }
+    // 直前の世代も壊れていれば勧めない
+    std::fs::write(&p, b"").unwrap();
+    std::fs::write(household_store::atomic::prev_path(&p), b"").unwrap();
+    let s4 = env.store();
+    s4.status().unwrap();
+    assert!(s4.previous_generation(&o.id).unwrap().is_none());
+    assert_eq!(
+        s4.open_previous(&o.id).unwrap_err(),
+        StoreError::NO_PREVIOUS
+    );
+    // 直前の世代が無ければ勧めない
+    std::fs::remove_file(household_store::atomic::prev_path(&p)).unwrap();
+    assert!(s4.previous_generation(&o.id).unwrap().is_none());
+}
+
+/// 直前の世代の日時と、戻した結果に、データフォルダのパスが入らない（0016 の1）
+#[test]
+fn previous_generation_responses_never_contain_paths() {
+    let env = Env::new();
+    let store = env.store();
+    store.status().unwrap();
+    let o = create(&store, 1);
+    store.save(&o.id, &body(2), "").unwrap();
+    let p = store.household_path_for_test(&o.id);
+    std::fs::write(&p, b"").unwrap();
+    let root = env.root.to_string_lossy().into_owned();
+    let info = serde_json::to_string(&store.previous_generation(&o.id).unwrap().unwrap()).unwrap();
+    let r = serde_json::to_string(&store.open_previous(&o.id).unwrap()).unwrap();
+    for t in [info, r] {
+        assert!(
+            !t.contains(&root) && !t.contains(".lphf") && !t.contains("conflicts"),
+            "{t}"
+        );
+    }
+}
