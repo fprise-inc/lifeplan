@@ -12,7 +12,7 @@ import { withDocumentLog, readDocumentLog } from "../src/workspace/documents/log
 import { acceptCandidates, acceptObject, docReview, linkObject, linkTargets, withHolder } from "../src/workspace/documents/review.ts";
 import { NEW_OBJECT_KINDS } from "../src/workspace/documents/objects.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
-import { SAMPLE_MORE_XML } from "../src/workspace/documents/samples.ts";
+import { SAMPLE_MORE_XML, SAMPLE_PENSION_SLIP_XML } from "../src/workspace/documents/samples.ts";
 import type { DocumentReading } from "../src/workspace/documents/types.ts";
 import { DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { modelHousehold, preview } from "./helpers.ts";
@@ -87,7 +87,7 @@ describe("架空の見本の読み取り", () => {
     const wh = open();
     const rs = await readAll(wh);
     expect(rs.map((r) => r.docType)).toEqual(["pensionPremiumDeduction", "smallBusinessMutualAidDeduction", "housingLoanBalance", "housingLoanCredit"]);
-    expect(rs.every((r) => r.via === "reader" && r.reader?.id === DEDUCTION_XML_READER.id && r.reader.version === 2)).toBe(true);
+    expect(rs.every((r) => r.via === "reader" && r.reader?.id === DEDUCTION_XML_READER.id && r.reader.version === 3)).toBe(true);
     const saved = noIds(JSON.stringify(bodyObject(body(withDocumentLog(wh, { version: 1, readings: rs })))));
     for (const w of NEVER) expect(saved, w).not.toContain(w);
     // 読まない要素は木に入れない（小規模企業共済等の住所・基礎年金番号の欄も）
@@ -277,5 +277,41 @@ describe("物の種類の一覧", () => {
       const r: DocumentReading = { id: newId(), kind: "document", docType: "other", at: AT, via: "reader", objects: [{ key: "x1", kind, source: {}, confidence: "high", status: "pending" }], candidates: [], references: [], dropped: 0 };
       expect(acceptObject(wh, r, "x1", AT), kind).not.toBeNull();
     }
+  });
+});
+
+describe("公的年金等の源泉徴収票", () => {
+  it("支払金額・源泉徴収税額・社会保険料の額を照合だけの値にする（年分の12月）。住所・氏名・生年月日・扶養親族・摘要・法人番号・電話番号・電子署名は残らない", async () => {
+    const wh = open("sampleSeniorCouple");
+    const res = await readFile(wh, SAMPLE_PENSION_SLIP_XML);
+    expect(res.issues).toEqual([]);
+    const r = res.readings[0]!;
+    expect(r).toMatchObject({ docType: "publicPensionWithholding", asOf: "2025-12", via: "reader", reader: { version: 3 }, candidates: [], objects: [] });
+    expect(r.references.map((x) => [x.label, x.amount, x.row ?? null, x.year ?? null])).toEqual([
+      ["公的年金の支払金額(架空年金機構)", 1980000, "cf.income.pension", 2025],
+      ["源泉徴収税額(公的年金・架空年金機構)", 12400, "cf.taxSi.incomeTax", 2025],
+      ["年金から天引きされた社会保険料", 168000, null, null],
+    ]);
+    const saved = noIds(JSON.stringify(bodyObject(body(withDocumentLog(wh, { version: 1, readings: [r] })))));
+    for (const w of ["架空 太郎", "架空 花子", "カクウ", "架空県", "1234-567890", "1150", "9999999999999", "000-0000-0000", "QUJD", "摘要", "介護保険料"]) expect(saved, w).not.toContain(w);
+    // 確かめの画面では、アプリの計算と並べる（行と年のある値）
+    const v = docReview(wh, r, {}, (row, year) => (row === "cf.income.pension" && year === 2025 ? 1950000 : null));
+    expect(v.references.map((x) => x.calc)).toEqual([1950000, null, null]);
+  });
+
+  it("古い版（平成28年以降用）は社会保険料の金額と支払者の札が違う。区分の号ごとの額を足す。額が無ければ理由を出す", () => {
+    const old = deductionProposals(
+      xml(`<TEG404>${era("ZHB00000", "4", 30)}<ZHC00000><ZHC00020>架空 太郎</ZHC00020></ZHC00000><ZHD00000><ZHD00010><ZHD00020><ZHD00040>1200000</ZHD00040></ZHD00020><ZHD00050><ZHD00070>3000</ZHD00070></ZHD00050></ZHD00010><ZHD00080><ZHD00090><ZHD00110>300000</ZHD00110></ZHD00090></ZHD00080></ZHD00000><ZHI00000>90000</ZHI00000><ZHJ00000><ZHJ00010>基礎年金番号 1234-567890</ZHJ00010></ZHJ00000><ZHK00000><ZHK00005>9999999999999</ZHK00005><ZHK00020>架空の基金</ZHK00020><ZHK00030>000-0000-0000</ZHK00030></ZHK00000></TEG404>`),
+    ).proposals[0]!;
+    expect(old.raw.asOf).toBe("2018-12");
+    expect(old.raw.references).toMatchObject([
+      { label: "公的年金の支払金額（架空の基金）", amount: 1500000, year: 2018 },
+      { amount: 3000, row: "cf.taxSi.incomeTax" },
+      { label: "年金から天引きされた社会保険料", amount: 90000 },
+    ]);
+    expect(JSON.stringify(old.raw)).not.toMatch(/太郎|1234-567890|9999999999999|000-0000/u);
+    const empty = deductionProposals(xml(`<TEG408>${era("ZQB00000", "5", 7)}</TEG408>`));
+    expect(empty).toEqual({ proposals: [], issues: ["公的年金等の源泉徴収票に、支払金額・源泉徴収税額・社会保険料の額がありません"] });
+    for (const t of ["ZQC00000", "ZQL00000", "ZQM00000", "ZQN00000", "ZQO00000", "ZQP00010", "ZQP00020", "ZQP00040", "ZHC00000", "ZHJ00000", "ZHK00005", "Signature"]) expect(SKIPPED.has(t), t).toBe(true);
   });
 });

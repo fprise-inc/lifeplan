@@ -364,6 +364,7 @@ describe("画面", () => {
       ["sample", "sample.deductionXml", "smallBusinessMutualAidDeduction"],
       ["sample", "sample.deductionXml", "housingLoanBalance"],
       ["sample", "sample.deductionXml", "housingLoanCredit"],
+      ["sample", "sample.deductionXml", "publicPensionWithholding"],
     ]);
     expect(deductionProposals(SAMPLE_DEDUCTION_XML).proposals.map((p) => p.contracts)).toEqual([3, 1, 1]);
   });
