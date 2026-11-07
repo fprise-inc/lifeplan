@@ -137,7 +137,7 @@ export function documentAmount(rec: PensionRecord | undefined): number | null {
 }
 
 /** パネルの「年金の見込み」の行（人ごとの文と、夫婦の合計の文） */
-export function estimateView(wh: WorkingHousehold, est: { std: PreviewResult | null; claimed: PreviewResult | null }): { people: { member: string; who: string; text: string; sub: string[] }[]; total: string | null } | null {
+export function estimateView(wh: WorkingHousehold, est: { std: PreviewResult | null; claimed: PreviewResult | null }): { people: { member: string; who: string; text: string; breakdown: string | null; sub: string[] }[]; total: string | null } | null {
   if (est.std === null) return null;
   const h = wh.request.input.household;
   const std = pensionLines(wh, est.std, false);
@@ -151,13 +151,14 @@ export function estimateView(wh: WorkingHousehold, est: { std: PreviewResult | n
     const moved = c !== undefined && rec?.claim !== undefined && c.from !== l.from && c.annual !== null;
     if (moved && l.annual !== null) sub.push(`65歳から受け取った場合 ${annualText(l.annual)}`);
     if (statementMonthsMissing(rec)) sub.push("加入月数が0か月のままなので、少なく（50歳以上の定期便は0円で）出ています");
-    // 書類からの人は、書類の額と、見込みとの差（これからの加入・加給年金・振替加算など）の内訳
+    // 書類からの人は、書類の額と、見込みとの差（これからの加入・加給年金・振替加算など）の内訳。見込みの行のすぐ下に出す（「?」の中に
+    // しまうと、書類の額と見込みの差に気づいても理由が見えない。通しの確かめ。0150）
     const doc = documentAmount(rec);
-    if (doc !== null && l.annual !== null && !moved) sub.push(`内訳: 書類の額 年${manText(doc)}万円＋これからの加入・加給年金など ${l.annual - doc >= 0 ? "" : "▲"}年${manText(Math.abs(l.annual - doc))}万円`);
+    const breakdown = doc !== null && l.annual !== null && !moved && l.annual !== doc ? `内訳: 書類の額 年${manText(doc)}万円＋これからの加入・加給年金など ${l.annual - doc >= 0 ? "" : "▲"}年${manText(Math.abs(l.annual - doc))}万円` : null;
     sub.push(mode === "" ? "推定（書類が無いので、働き方の期間から推計した額）。定期便があれば「書類の額で置き換える」で写せます" : mode === "history" ? "加入歴に、これからの加入（働き方の期間）を足した額" : rec?.kind === "receiving" ? "改定通知書の額に、加給年金・振替加算・これからの加入を足した額" : "書類の額に、これからの加入（働き方の期間）と加給年金を足した額");
     const shown = moved ? (c as PensionLine) : l;
     const mark = mode === "" ? "（推定）" : "";
-    return { member: l.member, who: memberLabel(wh, l.member), text: shown.annual === null ? "計算の期間の外です" : `${shown.from} ${annualText(shown.annual)}${mark}`, sub };
+    return { member: l.member, who: memberLabel(wh, l.member), text: shown.annual === null ? "計算の期間の外です" : `${shown.from} ${annualText(shown.annual)}${mark}`, breakdown, sub };
   });
   const sum = std.filter((l) => l.annual !== null);
   const estMark = anyEstimated(wh, sum) ? "・推定" : "";

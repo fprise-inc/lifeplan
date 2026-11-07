@@ -75,8 +75,20 @@ export type CalcOf = (row: string, year: number, member: string | null) => numbe
 
 const created = (r: DocumentReading): Map<string, string> => new Map(r.objects.flatMap((o) => (o.created !== undefined ? [[o.key, o.created] as const] : [])));
 
+/**
+ * 当てる欄が何本もあるとき、選択肢の値の候補は、その値を選択肢に持つ欄に絞る（年金の「入れ方」と「書類の種類」のように、同じ入力項目の
+ * 選択の欄が2つあるとき。0152 の3）。1本に決まれば当てる
+ */
+function bySelectValue(res: Resolution, c: DocCandidate): Resolution {
+  if (res.kind !== "choose" || typeof c.value !== "string") return res;
+  const v = c.value;
+  const fit = res.places.filter((p) => p.field.kind === "select" && p.field.options.some((o) => o.value === v));
+  if (fit.length === 1) return { kind: "field", place: fit[0] as FieldPlace };
+  return fit.length > 1 ? { kind: "choose", places: fit } : res;
+}
+
 function resolve(wh: WorkingHousehold, places: readonly FieldPlace[], r: DocumentReading, c: DocCandidate, chosen: Chosen, made: ReadonlyMap<string, string> = created(r)): Resolution {
-  const res = resolveTarget(wh, places, r, c.target, made);
+  const res = bySelectValue(resolveTarget(wh, places, r, c.target, made), c);
   const pick = chosen[c.id] ?? null;
   if (res.kind === "choose" && pick !== null) {
     const p = res.places.find((x) => x.field.key === pick);

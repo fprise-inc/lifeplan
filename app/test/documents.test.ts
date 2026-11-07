@@ -363,13 +363,11 @@ describe("まとめての承認の決まり（共通の部品）", () => {
     expect(docReview(wh, r).bulk).toEqual([]);
   });
 
-  it("種類を決める欄（年金の記録の型など）は1つずつ。当てる欄を選ぶと承認できる", () => {
+  it("種類を決める欄（年金の記録の型など）は1つずつ。同じ入力項目の選択の欄が2つあれば、値を選択肢に持つ欄に当てる（0152 の3）", () => {
     const wh = open();
     const r = read(wh, proposal([{ item: "pensionRecord.kind", member: "self", value: "statementUnder50", source: { where: "見出し" }, confidence: "high" }], { docType: "pensionStatement" }));
-    const v0 = docReview(wh, r).groups[0]!.rows[0]!;
-    expect(v0.problem).toBe("当てる欄を選んでください");
-    const kind = v0.choices!.find((c) => c.label.endsWith("書類の種類"))!;
-    const v1 = docReview(wh, r, { [r.candidates[0]!.id]: kind.id }).groups[0]!.rows[0]!;
+    const v1 = docReview(wh, r).groups[0]!.rows[0]!;
+    expect(v1.label.endsWith("書類の種類")).toBe(true);
     expect(v1).toMatchObject({ structural: true, problem: null });
     expect(bulkEligible(v1)).toBe(false);
   });

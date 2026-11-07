@@ -3,7 +3,8 @@
 // - 物（object）: その物の欄（当て先の向き先がその物か、欄のキーにその物の ID がある）
 // - 人（member）: その人の欄（向き先がその人・その人の物〔member・owner・insured・policyholder がその人〕・欄のキーにその人の ID）。
 //   働き方の期間の欄が何本も当たるときは、今の働き方の期間を先にする
-// - どちらも無い: 世帯で1つの値（前提条件など。向き先が plan）
+// - どちらも無い: 世帯で1つの値（前提条件など。向き先が plan）。世帯で1つの欄が無ければ、その入力項目の欄から FP が物を選ぶ（0152 の3）
+// - 場所 at を書かない・明細の ID を除いて書いた候補の欄の選び方は placesOf（0152 の3）
 import type { StageId } from "../input/form.ts";
 import type { FieldDef, Level } from "../input/form.ts";
 import type { WorkingHousehold } from "../input/household.ts";
@@ -92,13 +93,34 @@ function belongsTo(wh: WorkingHousehold, objectId: string, memberId: string): bo
 const keyHas = (f: FieldDef, id: string): boolean => f.key.split("/").includes(id);
 /** 欄のキーの中の ID（当て先の無い欄は、キーの中の物・人の ID で持ち主を見る） */
 const keyIds = (f: FieldDef): string[] => f.key.split("/").filter((x) => UUID.test(x));
-const sameAt = (a: readonly string[], b: readonly string[] | undefined): boolean => b === undefined || (a.length === b.length && a.every((x, i) => x === b[i]));
+const sameAt = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((x, i) => x === b[i]);
+/** 場所から、物の中の明細の ID（保険の保障・ローンの金利の段階など）を除いた形 */
+const withoutIds = (a: readonly string[]): string[] => a.filter((x) => !UUID.test(x));
+
+/**
+ * 入力項目と場所で欄を選ぶ（0152 の3）:
+ * - 場所を書かない候補は、場所の無い欄（当て先の無い欄・場所が空の欄）を先にする（保険の「払い方」と「保険料の額」のように、同じ入力項目に
+ *   場所のある欄と無い欄があるとき）。場所の無い欄が無ければ、その入力項目の欄の全部
+ * - 場所を書いた候補は、場所の同じ欄。無ければ、欄の場所から明細の ID を除いた形が同じ欄（書類を読む AI は保障・金利の段階の ID を
+ *   知らないので ["amount"]・["rate"] のように書く。何本も当たれば FP が選ぶ）
+ */
+function placesOf(places: readonly FieldPlace[], target: CandidateTarget): FieldPlace[] {
+  const all = places.filter((p) => p.field.item === target.item);
+  const at = target.at;
+  if (at === undefined) {
+    const plain = all.filter((p) => p.address === null || p.address.at.length === 0);
+    return plain.length > 0 ? plain : all;
+  }
+  const exact = all.filter((p) => p.address !== null && sameAt(p.address.at, at));
+  if (exact.length > 0) return exact;
+  return all.filter((p) => p.address !== null && p.address.at.some((x) => UUID.test(x)) && sameAt(withoutIds(p.address.at), at));
+}
 
 /**
  * 候補の当て先を欄に当てる。created は新しい物の鍵 → 作った物の ID（足した物だけ）
  */
 export function resolveTarget(wh: WorkingHousehold, places: readonly FieldPlace[], reading: DocumentReading, target: CandidateTarget, created: ReadonlyMap<string, string>): Resolution {
-  const byItem = places.filter((p) => p.field.item === target.item && (p.address === null ? target.at === undefined : sameAt(p.address.at, target.at)));
+  const byItem = placesOf(places, target);
   if (byItem.length === 0) return { kind: "missing", reason: "この世帯に、この値を入れる欄がありません" };
   let objectId: string | null = null;
   if (target.newObject !== undefined) {
@@ -118,7 +140,8 @@ export function resolveTarget(wh: WorkingHousehold, places: readonly FieldPlace[
     found = byItem.filter((p) => {
       const t = p.address?.target;
       if (t !== undefined && "member" in t) return t.member === m;
-      if (t !== undefined && "object" in t) return belongsTo(wh, t.object, m) || keyHas(p.field, m);
+      // 構成員そのものの欄（申告の仕方など。向き先がその構成員）もその人の欄
+      if (t !== undefined && "object" in t) return t.object === m || belongsTo(wh, t.object, m) || keyHas(p.field, m);
       return keyIds(p.field).some((id) => id === m || belongsTo(wh, id, m));
     });
     // 働き方の期間が何本も当たるときは、今の期間を先にする
@@ -129,6 +152,9 @@ export function resolveTarget(wh: WorkingHousehold, places: readonly FieldPlace[
     }
   } else {
     found = byItem.filter((p) => p.address === null || "plan" in p.address.target);
+    // 人も物も書かない候補で、世帯で1つの欄が無い（ローンの残高のように物の欄だけの入力項目）ときは、その入力項目の欄の全部から FP が
+    // 物を選ぶ（1本しか無くても選んでもらう。どの物の値かを書類からは決めない。0152 の3）
+    if (found.length === 0) return { kind: "choose", places: byItem };
   }
   if (found.length === 0) return { kind: "missing", reason: "この世帯に、この値を入れる欄がありません" };
   if (found.length === 1) return { kind: "field", place: found[0] as FieldPlace };

@@ -26,6 +26,11 @@ export function PensionEstimate({ wh, est }: { wh: WorkingHousehold; est: Return
               </Help>
             ) : null}
           </p>
+          {p.breakdown !== null ? (
+            <p class="sub" data-estimate-breakdown>
+              {p.breakdown}
+            </p>
+          ) : null}
         </div>
       ))}
       {v.total !== null ? (

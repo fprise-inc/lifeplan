@@ -231,13 +231,13 @@ describe("入力のホームの介護・親の要約", () => {
 });
 
 describe("介護の物の見出し", () => {
-  it("見出しは「母の介護（施設）」、下の1行に「2027年4月から60か月・月…」。入れていない月額・期間は「（推定）」", () => {
+  it("見出しは「母の介護」、下の1行に「施設・2027年4月から60か月・月…」。入れていない月額・期間は「（推定）」（在宅か施設かは要約の頭に。0150）", () => {
     const wh = open("parentCare");
     const c = hh(wh).careExpenses![0]!;
     const g = groupsOf("care", wh).find((x) => x.key === `ev/care/${c.id}`)!;
-    expect(g.title).toBe("母の介護（施設）");
+    expect(g.title).toBe("母の介護");
     expect(g.summary).toBe(careSpan(wh, c));
-    expect(g.summary).toMatch(/^2027年4月から60か月/);
+    expect(g.summary).toMatch(/^施設・2027年4月から60か月/);
     expect(g.summary).not.toContain("（推定）");
     const blank = mutate(wh, (x) => {
       const y = x.careExpenses![0]!;
