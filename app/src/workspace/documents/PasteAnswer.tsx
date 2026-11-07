@@ -1,6 +1,7 @@
 // ウェブのチャット AI の答えを貼り付ける入口（0151）。AI接続口を使えない FP が、ウェブのチャット AI に書類を読ませた答え
 // （document-candidates@1 の JSON）を貼り付け、同じ読み口（readProposalText）と同じ確かめの画面で承認する。
-// - 書類の中身は AI の会社に渡るので、外部AIへの提供の同意（0014）がある世帯（と見本の世帯）だけで使える。名前・番号を伏せて渡してもらう
+// - 書類の内容はお使いの AI サービスへ送られるので、書類を AI に渡すことを含む外部AIへの提供の同意（0014・0157）がある世帯
+//   （と見本の世帯）だけで使える。名前・番号を伏せて渡してもらう
 // - 読めない答え・形の違う答えは、理由を出して取り込まない。読めた候補は、FP が「取り込んで確かめる」を押したときだけ読み取りの記録に入る
 // - 貼り付けた文そのものは保存しない（読み取りの記録には、読み口を通った候補だけが入る）
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -27,8 +28,11 @@ export interface PasteAnswerProps {
   onClose: () => void;
 }
 
-/** 伏せてから渡すもの（画面の注意と、確かめの印の文に使う） */
-export const PASTE_WARNING = "書類の中身は AI の会社に渡ります。お名前などを伏せて渡してください（ご住所・個人番号〔マイナンバー〕・基礎年金番号・証券番号・口座番号・健康の告知の欄も）。";
+/** 画面のいちばん上の注意（SDK フォルダの説明書・スキルの FP への注意と同じ文。0157） */
+export const PASTE_WARNING = "書類の内容は、読み取りのために、お使いの AI サービスへ送られます。お名前・ご住所・番号などは伏せてからお渡しください。送った内容の扱いはサービスの規約によります（学習に使わない設定にしておくと安心です）。";
+
+/** 伏せるものの一覧（注意のすぐ下に小さく出す） */
+export const PASTE_MASK_ITEMS = "伏せるもの: お名前・ご住所・個人番号（マイナンバー）・基礎年金番号・証券番号・口座番号・健康の告知の欄。";
 
 export function PasteAnswer(p: PasteAnswerProps) {
   const [text, setText] = useState("");
@@ -55,6 +59,9 @@ export function PasteAnswer(p: PasteAnswerProps) {
         <h2 id="dp-title">AI の答えを貼り付ける</h2>
         <p class="hh-warn" data-documents-paste-warning>
           {PASTE_WARNING}
+        </p>
+        <p class="in-note" data-documents-paste-mask>
+          {PASTE_MASK_ITEMS}
         </p>
         {!p.gate.ok ? (
           <>

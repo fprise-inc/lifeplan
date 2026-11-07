@@ -373,6 +373,72 @@ fn the_screen_view_has_no_paths() {
     assert!(view.share.is_some());
 }
 
+/// 版1の説明（書類を含まない）で同意した世帯（0157）: 計算の項目は今までどおり渡せるが、書類の候補は受けない。
+/// 今の版の説明で取り直すと、書類の候補も受け、説明文は両方の版が1回ずつ写る
+#[test]
+fn consents_on_the_first_explanation_need_renewal_for_documents() {
+    let v1 = ai_share::consent::EXTERNAL_AI_EXPLANATION_V1;
+    let v1_ref = ai_share::consent::explanation_ref(v1);
+    let mut file: Value = serde_json::from_str(&body("salariedCoupleTwoKids")).unwrap();
+    file["consents"] = json!([{
+        "id": "c-old", "kind": "externalAi", "decision": "given", "obtainedOn": "2026-10-19", "method": "paper",
+        "explanationRef": v1_ref,
+        "externalAi": { "company": "架空AI株式会社", "country": "日本", "noTrainingConfirmed": true },
+        "scope": "reduced", "fpConfirmed": true, "recordedAt": "2026-10-19T00:00:00Z", "origin": "thisOffice"
+    }]);
+    file["consentExplanations"] = json!({ v1_ref.clone(): v1 });
+    let (mut b, _) =
+        HouseholdBook::from_opened(HOUSEHOLD_ID, Some(CUSTOMER_NO.into()), 1, &file.to_string())
+            .unwrap();
+    let (reg, _) = registry();
+    let view = b.view(&[], None);
+    assert_eq!(view.consent_state, "given");
+    assert!(!view.consent_documents);
+    assert_eq!(view.explanation_version, 2);
+    assert_ne!(view.explanation_ref, v1_ref);
+
+    // 計算の項目は渡せる・読める。書類の候補は受けない（共有は閉じない）
+    let g = reg.grant(b.source().unwrap(), opts()).unwrap();
+    get(&reg, &g.share_id).unwrap();
+    let answer: Value = serde_json::from_str(
+        &std::fs::read_to_string(
+            repo().join("crates/lifeplan/tests/fixtures/propose-inputs/answer.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let err = reg
+        .handle_propose_documents(&g.share_id, &answer, &Caller::default())
+        .unwrap_err();
+    assert!(err.1.contains("前の版の説明"), "{}", err.1);
+    assert!(reg.document_proposals(HOUSEHOLD_ID).is_empty());
+    get(&reg, &g.share_id).unwrap();
+
+    // 書き戻しても前の行は変わらない（documents の欄を足さない）
+    let composed: Value =
+        serde_json::from_str(&b.compose(&reg.records(HOUSEHOLD_ID)).unwrap()).unwrap();
+    assert!(composed["consents"][0].get("documents").is_none());
+
+    // 今の版の説明で取り直す: 同意がもうあっても記録できる
+    let r = b
+        .record_consent(&consent(ConsentDecision::Given), TODAY, NOW, None)
+        .unwrap();
+    assert!(r.documents);
+    assert!(b.view(&[], None).consent_documents);
+    assert_eq!(b.explanations.len(), 2, "両方の版の説明文が1回ずつ");
+    assert_eq!(b.explanations.get(&v1_ref).map(String::as_str), Some(v1));
+    assert!(reg.update_source(&g.share_id, b.source().unwrap()));
+    reg.handle_propose_documents(&g.share_id, &answer, &Caller::default())
+        .unwrap();
+    assert_eq!(reg.document_proposals(HOUSEHOLD_ID).len(), 1);
+    // 今の版の同意は2回は記録しない
+    assert_eq!(
+        b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW, None)
+            .unwrap_err(),
+        "E_AI_CONSENT_ALREADY"
+    );
+}
+
 /// 事務所で共有しているときは、同意の記録とAIの候補の判断に、書いた人（メンバー）が残る（0023 の6）
 #[test]
 fn authors_are_recorded_when_the_office_is_shared() {
