@@ -8,7 +8,17 @@
 - **人・物**: 「人の欄」は `member`（`holder`〔書類の名義の人〕・`self`・`spouse`・`child1`…）を書きます。「人の物の欄」（その人の働き方・年金の記録・保険の契約など）は `member` で当たります（今の働き方の期間が先）。新しく足す物（保険の契約）の欄は `newObject`（`objects` の鍵）を書きます。「物の欄」（ローンなど）は `object`（今ある物の ID。AI接続口で世帯を受け取ったときだけ）を書き、分からなければ書きません（FP が当てる物を選びます）。
 - **種類を決める欄**は、計算を大きく変えるので、FP が1つずつ承認します（まとめての承認に入りません）。
 - 欄の名前は、入力の画面の名前です（世帯・種類によって名前が変わる欄は、いくつか並べています）。
-- 時点の欄（「65歳まで」「払込の終わり」のように、年月か年齢で決める欄）は、書類からは入れられないので載せていません。
+- **時点の欄**（「年月（YYYY-MM。時点の欄）」。借りた年月・払込の終わりのように、年月か年齢・出来事で決める欄）は、書類に印字された年月だけを `"YYYY-MM"` で書きます（決まった年月の時点として入ります）。年齢・出来事で決める入れ方は、FP が欄で直します。
+
+## account
+
+| 入力項目ID | 場所 at | 欄の名前 | 値の書き方 | 額の期間 | 人・物 |
+|---|---|---|---|---|---|
+| `account.contributions`（積立・掛金） | （なし） | 毎月の積立 | 円の整数 | 月額 | 人の物の欄 |
+| `account.contributions`（積立・掛金） | （なし） | 積立の終わり | 年月（YYYY-MM。時点の欄） |  | 人の物の欄 |
+| `account.contributions`（積立・掛金） | （なし） | 積立をやめる年齢（ご本人）・積立をやめる年齢 | 整数（歳）・20〜90 |  | 世帯の欄 |
+| `account.enrolledSince`（iDeCo・企業型DC の加入者等期間の始まり） | （なし） | 加入した年月 | 年月（YYYY-MM） |  | 人の物の欄 |
+| `account.owner`（名義の構成員） | （なし） | 名義 | 人（self・spouse・child1…・holder） |  | 人の物の欄 |
 
 ## debt
 
@@ -31,17 +41,23 @@
 | `debt.housing`（住宅ローン控除に使う住宅の情報） | （なし） | 入居の年月（控除） | 年月（YYYY-MM） |  | 物の欄 |
 | `debt.label`（名前） | （なし） | 借入先・名前 | 文字（200字まで） |  | 物の欄 |
 | `debt.prepayments`（繰上返済） | `["<ID>","amount"]` | 額 | 円の整数 | 1回の額・時点の額 | 物の欄 |
+| `debt.prepayments`（繰上返済） | （なし） | 年月 | 年月（YYYY-MM。時点の欄） |  | 物の欄 |
 | `debt.prepayments`（繰上返済） | （なし） | 方法 | 選択肢: `shortenTerm`（期間短縮型）・`reducePayment`（返済額軽減型） |  | 物の欄 |
 | `debt.principal`（借入額） | （なし） | 借入額 | 円の整数 | 1回の額・時点の額 | 物の欄 |
 | `debt.product`（商品） | （なし） | 商品 | 選択肢: `bank`（銀行などの住宅ローン）・`flat35`（フラット35（全期間固定）） |  | 物の欄 |
 | `debt.rateSchedule`（金利の段階） | `["<ID>","rate"]` | 金利（当初・年）・金利（年） | 率（「1.2%」のように % を付けた文字） |  | 物の欄 |
+| `debt.rateSchedule`（金利の段階） | （なし） | この金利になる年月 | 年月（YYYY-MM。時点の欄） |  | 物の欄 |
 | `debt.rateSchedule`（金利の段階） | （なし） | 当初の金利の引き下げ（期間）（種類を決める欄） | 選択肢: `0`（なし）・`60`（5年）・`120`（10年） |  | 物の欄 |
 | `debt.rateSchedule`（金利の段階） | （なし） | 金利の種類 | 選択肢: `variable`（変動金利）・`fixedPeriod`（固定期間選択型）・`fixed`（全期間固定） |  | 物の欄 |
 | `debt.rateSchedule`（金利の段階） | （なし） | 金利の見込み（変動金利）（種類を決める欄） | 選択肢: `flat`（今の金利のまま）・`up1`（10年で1%上がる（5年後に＋0.5%・10年後に＋1%））・`up2`（10年で2%上がる（5年後に＋1%・10年後に＋2%））・`custom`（金利の段階で入れる） |  | 物の欄 |
+| `debt.refinance`（借り換え） | （なし） | 借り換えの年月 | 年月（YYYY-MM。時点の欄） |  | 物の欄 |
 | `debt.repayment`（返済の方法） | `["bonusShare"]` | ボーナス返済の割合 | 率（「1.2%」のように % を付けた文字） |  | 物の欄 |
+| `debt.repayment`（返済の方法） | `["termMonths"]` | 完済の年月 | 年月（YYYY-MM） |  | 物の欄 |
 | `debt.repayment`（返済の方法） | `["termMonths"]` | 返済期間 | 整数（年）・1〜50 |  | 物の欄 |
 | `debt.repayment`（返済の方法） | （なし） | 5年ルール・125%ルール | 真偽（true・false） |  | 物の欄 |
+| `debt.repayment`（返済の方法） | （なし） | 毎月の返済額 | 円の整数 | 月額 | 物の欄 |
 | `debt.repayment`（返済の方法） | （なし） | 返済方法 | 選択肢: `equalPayment`（元利均等）・`equalPrincipal`（元金均等） |  | 物の欄 |
+| `debt.start`（借入の月） | （なし） | 借入の年月・借りた年月（入居の年月） | 年月（YYYY-MM。時点の欄） |  | 物の欄 |
 | `debt.subtype`（ローンの種類の細目） | （なし） | 種類（種類を決める欄） | 選択肢: `cardLoan`（カードローン・リボ）・`scholarship`（奨学金の返済（第二種・有利子））・`scholarshipFree`（奨学金の返済（第一種・無利子））・`renovation`（リフォームローン）・`policyLoan`（契約者貸付（保険））・`personal`（親・知人からの借入）・`other`（その他のローン） |  | 物の欄 |
 
 ## employment
@@ -65,11 +81,14 @@
 | `insurance.coverages`（主契約と特約の明細） | `["<ID>","amount"]` | 年金の年額 | 円の整数 | 年額 | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | `["<ID>","amount"]` | 死亡保険金・入院日額（1日）・満期金・金額 | 円の整数 | 1回の額・時点の額 | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | `["<ID>","everyYears"]` | 祝金の間隔 | 整数（年）・1〜50 |  | 人の物の欄 |
+| `insurance.coverages`（主契約と特約の明細） | `["<ID>","from"]` | 受け取りの始まり | 年月（YYYY-MM。時点の欄） |  | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | `["<ID>","insured"]` | 被保険者 | 人（self・spouse・child1…・holder） |  | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | `["<ID>","maxDays"]` | 入院の1回の限度日数 | 整数（日）・1〜1095 |  | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | `["<ID>","minimumMonths"]` | 最低保証の月数 | 整数（か月）・0〜600 |  | 人の物の欄 |
+| `insurance.coverages`（主契約と特約の明細） | `["<ID>","to"]` | 保障の終わり | 年月（YYYY-MM。時点の欄） |  | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | `["<ID>","waitingMonths"]` | 免責の月数 | 整数（か月）・0〜120 |  | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | `["<ID>","years"]` | 年金の年数 | 整数（年）・1〜100 |  | 人の物の欄 |
+| `insurance.coverages`（主契約と特約の明細） | （なし） | 保障の始まり | 年月（YYYY-MM。時点の欄） |  | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | （なし） | 死亡保険金 | 円の整数 | 1回の額・時点の額 | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | （なし） | 給付の種類 | 選択肢: `death`（死亡保険金）・`incomeProtection`（収入保障（年金月額））・`incapacity`（就業不能）・`highDisability`（高度障害）・`maturity`（満期金）・`annuity`（年金）・`survival`（祝金）・`hospitalDaily`（入院日額）・`surgery`（手術）・`cancerLump`（がん一時金）・`threeMajorLump`（三大疾病一時金（がん・心疾患・脳卒中））・`other`（その他（計算に入りません）） |  | 人の物の欄 |
 | `insurance.deductionCategory`（保険料控除の区分） | `["regime"]` | 新旧の制度 | 選択肢: `new`（新制度（2012年以後の契約））・`old`（旧制度） |  | 人の物の欄 |
@@ -79,6 +98,7 @@
 | `insurance.policyholder`（契約者） | （なし） | 契約者 | 人（self・spouse・child1…・holder） |  | 人の物の欄 |
 | `insurance.premium`（保険料） | `["amount"]` | 保険料（月額）・保険料（年額） | 円の整数 | 1回の額・時点の額 | 人の物の欄 |
 | `insurance.premium`（保険料） | `["frequency"]` | 払い方 | 選択肢: `monthly`（月払い）・`annual`（年払い）・`single`（一時払い） |  | 人の物の欄 |
+| `insurance.premium`（保険料） | `["payUntil"]` | 払込の終わり・保険期間の終わり | 年月（YYYY-MM。時点の欄） |  | 人の物の欄 |
 | `insurance.schedule`（年次の数表） | `["rows","<ID>","surrenderValue"]` | 解約の月の解約返戻金（円） | 円の整数 | 1回の額・時点の額 | 人の物の欄 |
 | `insurance.schedule`（年次の数表） | （なし） | 保障の推移の形 | 選択肢: `constant`（一定）・`decreasing`（毎年同じ額ずつ減る（終わりに0円）） |  | 人の物の欄 |
 | `insurance.simple`（数表の無い契約を型） | `["account","after"]` | 払込が終わった後（種類を決める欄） | 選択肢: `wholeLife`（終身保険に移す）・`annuity`（年金で受け取る）・`surrender`（解約して受け取る） |  | 人の物の欄 |
@@ -86,6 +106,7 @@
 | `insurance.simple`（数表の無い契約を型） | `["account","value"]` | 払込が終わった時の積立金の目安 | 円の整数 | 1回の額・時点の額 | 人の物の欄 |
 | `insurance.simple`（数表の無い契約を型） | `["returnRateDuring"]` | 払込中の解約返戻率 | 率（「1.2%」のように % を付けた文字） |  | 人の物の欄 |
 | `insurance.simple`（数表の無い契約を型） | `["returnRate"]` | 解約返戻率（払込の終わりの時点）・払込が終わった時の解約返戻率 | 率（「1.2%」のように % を付けた文字） |  | 人の物の欄 |
+| `insurance.surrender`（解約する月） | （なし） | 解約の月 | 年月（YYYY-MM。時点の欄） |  | 人の物の欄 |
 | `insurance.template`（保険の種類のひな形） | （なし） | 種類（種類を決める欄） | 選択肢: `term`（定期保険）・`decreasingTerm`（逓減定期保険）・`incomeProtection`（収入保障保険）・`wholeLife`（終身保険）・`lowSurrender`（低解約返戻金型終身保険）・`account`（アカウント型保険（利率変動型積立終身保険））・`endowment`（養老保険）・`groupTerm`（団体保険（勤務先））・`medical`（医療保険）・`cancer`（がん保険）・`threeMajor`（三大疾病保険）・`incapacity`（就業不能保険）・`care`（民間の介護保険）・`education`（学資保険）・`privateAnnuity`（個人年金保険）・`foreignCurrency`（外貨建て保険（目安））・`variable`（変額保険（目安））・`mutualAid`（共済（総合・医療））・`nonLife`（損害保険） |  | 人の物の欄 |
 | `insurance.waiver`（保険料の払込免除） | （なし） | 払込免除 | 真偽（true・false） |  | 人の物の欄 |
 
@@ -128,7 +149,7 @@
 
 ## 新しい物の種類（`objects[].kind`）
 
-保険の契約は、書類の1件の契約ごとに `objects` に1つ書き、その契約の値の候補に `newObject` でその鍵を書きます。
+保険の契約・住宅ローン・iDeCo・小規模企業共済は、書類の1件ごとに `objects` に1つ書き、その物の値の候補に `newObject` でその鍵を書きます。同じ物が世帯にもうあれば、FP が確かめの画面で「今の○○に当てる」を選びます（AI は、今ある物の ID が分かるときだけ `object` に書き、`objects` には書きません）。
 
 | kind | 名前 | 主な保障（`insurance.coverages` の `["amount"]`） | 保障の額の期間 |
 |---|---|---|---|
@@ -151,3 +172,6 @@
 | `insurance:variable` | 変額保険（目安） | 死亡保険金（円の目安） | 1回の額・時点の額 |
 | `insurance:mutualAid` | 共済（総合・医療） | 死亡保険金（共済金） | 1回の額・時点の額 |
 | `insurance:nonLife` | 損害保険 | （保障の額を持たない。保険料だけ） |  |
+| `debt:mortgage` | 住宅ローン | （保障の欄は無い。`debt.` の欄に当てる） |  |
+| `account:ideco` | iDeCo | （保障の欄は無い。`account.` の欄に当てる） |  |
+| `account:smallBusinessMutualAid` | 小規模企業共済 | （保障の欄は無い。`account.` の欄に当てる） |  |
