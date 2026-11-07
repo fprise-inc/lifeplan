@@ -38,6 +38,8 @@ function readBody(req: import("node:http").IncomingMessage): Promise<Buffer> {
 
 /** Web のヒアリングの受け付けの置き場（開発用のサーバーのメモリの中だけ。0125） */
 const devRelayStore = memoryStore();
+/** 開発用のサーバーの受け付けの時計を何日進めるか（期限・延長の上限を手元で試すため。POST /__dev/hearing-clock {"days": n}。0158） */
+let devRelayShiftDays = 0;
 
 /**
  * お客さまのページ（h/index.html）の CSP を、開発用のサーバーのときだけ緩める（vite の差し込みの style と、変更を届ける ws のため）。
@@ -887,7 +889,7 @@ function devHost(): Plugin {
             void _o;
             out = await fetch(`${target.replace(/\/$/, "")}${path}`, { method: req.method ?? "GET", headers: rest, ...(body !== undefined ? { body } : {}) });
           } else {
-            out = await handleApi(new Request(`http://${req.headers.host ?? "localhost"}${path}`, { method: req.method ?? "GET", headers, ...(body !== undefined ? { body } : {}) }), { store: devRelayStore, now: () => new Date() });
+            out = await handleApi(new Request(`http://${req.headers.host ?? "localhost"}${path}`, { method: req.method ?? "GET", headers, ...(body !== undefined ? { body } : {}) }), { store: devRelayStore, now: () => new Date(Date.now() + devRelayShiftDays * 86400_000) });
           }
           res.statusCode = out.status;
           res.setHeader("content-type", out.headers.get("content-type") ?? "application/json");
@@ -900,6 +902,17 @@ function devHost(): Plugin {
       });
       server.middlewares.use("/__dev/", (req, res, next) => {
         const path = (req.url ?? "").replace(/^\/+/, "");
+        // 受け付けの時計を進める（メモリの置き場のときだけ。期限・延長の上限を手元で試す）
+        if (path === "hearing-clock" && req.method === "POST") {
+          void (async () => {
+            const raw = (await readBody(req)).toString("utf8");
+            const days = Number((JSON.parse(raw === "" ? "{}" : raw) as { days?: unknown }).days ?? 0);
+            devRelayShiftDays = Number.isFinite(days) ? Math.trunc(days) : 0;
+            res.setHeader("content-type", "application/json; charset=utf-8");
+            res.end(JSON.stringify({ days: devRelayShiftDays }));
+          })();
+          return;
+        }
         // カスタム層の説明の文（本体の custom_texts_*・custom_dir_* の代わり。0016 の追記 2026-11-02）
         const cu = /^custom\/([A-Za-z]+)$/.exec(path);
         if (cu !== null && req.method === "POST") {

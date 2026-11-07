@@ -1,10 +1,11 @@
-// Web のヒアリング（0125）: 暗号化して開くまでの一周、期限切れ・消したもの・改ざんした暗号文を断ること、問いを飛ばす決まり、取り込みの候補
+// Web のヒアリング（0125・0158）: 暗号化して開くまでの一周、書類の送り（何回でも・答えの後も）、期限の延長、期限切れ・消したもの・改ざんした暗号文を断ること、
+// 分岐の答えを届けること、問いを飛ばす決まり、取り込みの候補
 import { describe, expect, it } from "vitest";
-import { handleApi, PAGE_HEADERS } from "../relay/handler.ts";
+import { handleApi, PAGE_HEADERS, sweepExpired } from "../relay/handler.ts";
 import { memoryStore } from "../relay/store.ts";
 import { importAnswers } from "../src/index.ts";
 import { exportAnswers } from "../src/export.ts";
-import { answersOf, answerText, b64u, buildPacket, checkAnswers, estimate, gateText, progress, screenId, webPrefill, yearChoices, DOCUMENT_TEMPLATES, draftKey, filledOf, fromB64u, importDefinition, initialDraft, issueRequest, openRequest, receive, relay, removeFile, screens, selectionFromSheet, sniffMime, submitAnswers, uploadFile, utf8, type Draft, type DraftAnswer, type QuestionsPacket, type RelayTransport, type Screen, type WebSelection } from "../src/web/index.ts";
+import { answersOf, answerText, b64u, buildPacket, checkAnswers, checkDocuments, estimate, extendRequest, extendTarget, gateText, markSent, progress, removeReceived, screenId, sendDocuments, unsentFiles, webPrefill, yearChoices, DOCUMENT_TEMPLATES, draftKey, filledOf, fromB64u, importDefinition, initialDraft, issueRequest, openRequest, receive, relay, removeFile, screens, selectionFromSheet, sniffMime, submitAnswers, uploadFile, utf8, type Draft, type DraftAnswer, type DraftFile, type Opened, type QuestionsPacket, type RelayTransport, type Screen, type WebSelection } from "../src/web/index.ts";
 import { API_PREFIX } from "../src/web/protocol.ts";
 import { full2, full3, full4, idSeq, modelHousehold, simple } from "./helpers.ts";
 
@@ -29,11 +30,17 @@ const withAnswers = (d: Draft, a: Record<string, DraftAnswer>, gates: Draft["gat
 const itemScreens = (list: Screen[]) => list.flatMap((s) => (s.kind === "item" ? s.fields.map((f) => draftKey(f.key, f.index)) : []));
 const itemOnly = (list: Screen[]) => list.filter((s): s is Extract<Screen, { kind: "item" }> => s.kind === "item");
 const jpeg = (n: number) => new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array.from({ length: n }, (_, i) => i % 251)]) as Uint8Array<ArrayBuffer>;
+/** ファイルを置いて、下書きの1ファイルにする */
+async function put(o: Opened, t: RelayTransport, bytes: Uint8Array<ArrayBuffer>, label = "写真1"): Promise<DraftFile> {
+  const up = await uploadFile(o, bytes, t);
+  return { fileId: up.fileId, mime: "image/jpeg", bytes: bytes.length, sha256: up.sha256, label };
+}
+const DAY = 86400_000;
 
 async function issueSimple(t: RelayTransport, sel?: WebSelection, def = simple()) {
   const selection = sel ?? { ...selectionFromSheet(def), custom: [{ key: "ext.office.qabcd", label: "ご相談のきっかけは何ですか" }], documents: [{ id: "d1", kind: "withholding", title: "源泉徴収票（ご本人）", purpose: DOCUMENT_TEMPLATES[0]!.purpose, where: DOCUMENT_TEMPLATES[0]!.where }] };
   const withCustom: WebSelection = sel ?? { ...selection, sections: [...selection.sections, { id: "fp", items: [{ key: "ext.office.qabcd", mode: "ask" }] }] };
-  const issued = await issueRequest({ definition: def, selection: withCustom, requestId: "R-7K3P9Q", customerNo: "A0042", office: OFFICE, days: 30, now: new Date("2026-11-05T09:00:00Z"), pageUrl: "https://relay.test/h/", transport: t });
+  const issued = await issueRequest({ definition: def, selection: withCustom, requestId: "R-7K3P9Q", customerNo: "A0042", office: OFFICE, now: new Date("2026-11-05T09:00:00Z"), pageUrl: "https://relay.test/h/", transport: t });
   return { def, issued };
 }
 
@@ -77,22 +84,30 @@ describe("暗号化して開くまでの一周", () => {
       { spouse: 1, child: 1 },
     );
     const photo = jpeg(3000);
-    const up = await uploadFile(opened, photo, transport);
-    d = { ...d, documents: { d1: { status: "attached", files: [{ fileId: up.fileId, mime: "image/jpeg", bytes: photo.length, sha256: up.sha256, label: "写真1" }] } } };
+    const f1 = await put(opened, transport, photo);
+    d = { ...d, documents: { d1: { status: "attached", files: [f1] } } };
+    // 書類の送り（答えと別に）→ 答え
+    expect(await sendDocuments(opened, unsentFiles(d), transport)).toEqual([f1.fileId]);
     const packet = answersOf(opened.packet, d, new Date("2026-11-06T10:00:00+09:00"));
+    expect(packet.gates).toEqual({ spouse: 1, child: 1 });
+    expect(packet.documents).toEqual([{ id: "d1", status: "attached" }]);
     await submitAnswers(opened, packet, transport);
-    expect((await openRequest(new URL(url).hash, transport)).submitted).toBe(true);
+    const again = await openRequest(new URL(url).hash, transport);
+    expect(again.submitted).toBe(true);
+    expect(again.submittedAt).toBe("2026-11-05T09:00:00Z");
     // 答えの暗号文にも、言葉は平文で載らない
     expect([...store.dump().values()].join("\n")).not.toContain("友人の紹介");
 
     const got = await receive(issued.record, def, transport);
     expect(got).not.toBeNull();
-    expect(got!.files).toHaveLength(1);
-    expect(got!.files[0]!.bytes).toEqual(photo);
-    expect(got!.missingFiles).toBe(0);
-    expect(got!.checked.dropped).toBe(0);
-    expect(got!.checked.documents[0]).toMatchObject({ id: "d1", status: "attached" });
-    const filled = filledOf(issued.record, got!.checked, "0.1.0");
+    expect(got!.batches).toHaveLength(1);
+    expect(got!.batches[0]!.files).toHaveLength(1);
+    expect(got!.batches[0]!.files[0]!.bytes).toEqual(photo);
+    expect(got!.batches[0]!.missingFiles).toBe(0);
+    expect(got!.answers!.dropped).toBe(0);
+    expect(got!.answers!.gates).toEqual({ spouse: 1, child: 1 });
+    expect(got!.answers!.documents[0]).toEqual({ id: "d1", status: "attached" });
+    const filled = filledOf(issued.record, got!.answers!, "0.1.0");
     expect(filled.management).toMatchObject({ sheetId: "basic", sheetVersion: 2, requestId: "R-7K3P9Q", layoutDigest: issued.record.digest });
     const r = importAnswers(importDefinition(def, issued.record.selection), filled, { baseMonth: "2026-11", newId: idSeq("web") });
     const members = r.candidates.filter((c) => c.collection === "members");
@@ -106,23 +121,135 @@ describe("暗号化して開くまでの一周", () => {
     // 記入の年月は送った月
     expect(filled.answers.find((a) => a.key === "hs.meta.filledOn")).toMatchObject({ raw: { text: "2026" }, raw2: { text: "11" } });
 
-    // 受け取ったら消す
+    // 受け取ったら、受け取った答えと送りだけを消す（依頼と問いは期限まで残り、お客さまは書類を足せる）
+    await removeReceived(issued.record, transport, { answers: true, batches: got!.batches.map((b) => b.batchId) });
+    expect([...store.dump().keys()].filter((k) => !k.startsWith("m/") && !k.endsWith("/q"))).toEqual([]);
+    expect(await receive(issued.record, def, transport)).toBeNull();
+    // FP が依頼を消すと全部消える
     await relay.remove(transport, issued.record.serverId, issued.record.secrets.pickupToken);
     expect(store.size()).toBe(0);
     await expect(openRequest(new URL(url).hash, transport)).rejects.toThrow("E_RELAY_GONE");
   });
 
-  it("書類は外せる（送る前だけ）。送った後は書類を足せず、答えも2回は送れない", async () => {
-    const { transport } = relayFor();
-    const { issued } = await issueSimple(transport);
+  it("書類は答えと別に動く: 答えの前に書類だけ送れる・答えの後も何回でも送れる。答えは2回は送れない。送り状に載せたファイルは外せない", async () => {
+    const { transport, store } = relayFor();
+    const { def, issued } = await issueSimple(transport);
     const o = await openRequest(new URL(issued.record.url).hash, transport);
+    // 付けて外す（送り状に載せる前は外せる）
     const a = await uploadFile(o, jpeg(10), transport);
     await removeFile(o, a.fileId, transport);
+    expect([...store.dump().keys()].some((k) => k.includes("/f/"))).toBe(false);
+    // 答えの前に書類だけ送る
+    const f1 = await put(o, transport, jpeg(100));
+    let d: Draft = { ...initialDraft(o.packet), documents: { d1: { status: "attached", files: [f1] } } };
+    const sent1 = await sendDocuments(o, unsentFiles(d), transport);
+    d = markSent(d, sent1, "2026-11-05T09:00:00Z");
+    expect(unsentFiles(d)).toEqual([]);
+    // 同じ送りをもう一度送るのは受ける（つながりが切れたときの送り直し）。送り状に載せたファイルは外せない
+    await sendDocuments(o, [{ id: "d1", files: [f1] }], transport);
+    await expect(removeFile(o, f1.fileId, transport)).rejects.toThrow("E_RELAY_SEALED");
+    // 別の送りに同じファイルを載せられない・置いていないファイルを載せられない
+    const f2 = await put(o, transport, jpeg(200), "写真2");
+    await expect(sendDocuments(o, [{ id: "d1", files: [f1, f2] }], transport)).rejects.toThrow("E_RELAY_SEALED");
+    await expect(sendDocuments(o, [{ id: "d1", files: [{ ...f2, fileId: "AAAAAAAAAAAAAAAA" }] }], transport)).rejects.toThrow("E_RELAY_BAD");
+    // 答え（1回だけ）
+    await submitAnswers(o, answersOf(o.packet, d, new Date()), transport);
+    await expect(submitAnswers(o, answersOf(o.packet, d, new Date()), transport)).rejects.toThrow("E_RELAY_SUBMITTED");
+    // 答えの後も、書類を2回に分けて送れる
+    await sendDocuments(o, [{ id: "d1", files: [f2] }], transport);
+    const f3 = await put(o, transport, jpeg(300), "写真3");
+    await sendDocuments(o, [{ id: "d1", files: [f3] }], transport);
     const st = await relay.status(transport, issued.record.serverId, issued.record.secrets.pickupToken);
-    expect(st.files).toHaveLength(0);
-    await submitAnswers(o, answersOf(o.packet, initialDraft(o.packet), new Date()), transport);
-    await expect(submitAnswers(o, answersOf(o.packet, initialDraft(o.packet), new Date()), transport)).rejects.toThrow("E_RELAY_SUBMITTED");
-    await expect(uploadFile(o, jpeg(10), transport)).rejects.toThrow("E_RELAY_SUBMITTED");
+    expect(st.submitted).toBe(true);
+    expect(st.answers).toBe(true);
+    expect(st.batches.map((b) => b.files.length)).toEqual([1, 1, 1]);
+    // FP が答えと書類を受け取って消した後も、お客さまは書類を足せる。FP は次に新しい送りだけを受け取る
+    const got = await receive(issued.record, def, transport);
+    expect(got!.answers).not.toBeNull();
+    expect(got!.batches.flatMap((b) => b.files.map((f) => f.fileId)).sort()).toEqual([f1.fileId, f2.fileId, f3.fileId].sort());
+    await removeReceived(issued.record, transport, { answers: true, batches: got!.batches.map((b) => b.batchId) });
+    const f4 = await put(o, transport, jpeg(400), "写真4");
+    await sendDocuments(o, [{ id: "d1", files: [f4] }], transport);
+    const next = await receive(issued.record, def, transport, { answers: false });
+    expect(next!.answers).toBeNull();
+    expect(next!.batches).toHaveLength(1);
+    expect(next!.batches[0]!.files[0]!.fileId).toBe(f4.fileId);
+    // もう受け取った送りは読まない（消し損ねたとき）
+    expect(await receive(issued.record, def, transport, { answers: false, knownBatches: [next!.batches[0]!.batchId] })).toBeNull();
+    // 送りの数の上限
+    expect(st.batches.length).toBeLessThan(30);
+  });
+
+  it("書類の送り状を信用しない: 頼んでいない書類・送りに載っていないファイル・重なり・形の違いを捨てる", () => {
+    const sel: WebSelection = { ...selectionFromSheet(simple()), documents: [{ id: "d1", kind: "withholding", title: "源泉徴収票", purpose: "", where: "" }] };
+    const f = (fileId: string) => ({ fileId, mime: "image/jpeg", bytes: 10, sha256: "a".repeat(64) });
+    const ok = "A".repeat(16);
+    const r = checkDocuments({ format: "fprise-lifeplan-hearing-web-documents", version: "0.2", requestId: "R-7K3P9Q", batchId: "B".repeat(16), sentAt: "2026-11-06T00:00:00Z", documents: [{ id: "d1", files: [f(ok), f(ok), f("C".repeat(16)), { ...f("D".repeat(16)), mime: "image/svg+xml" }] }, { id: "d9", files: [f(ok)] }] }, sel, "R-7K3P9Q", "B".repeat(16), [ok, "D".repeat(16)]);
+    expect(r.documents).toEqual([{ id: "d1", files: [f(ok)] }]);
+    expect(r.dropped).toBe(4);
+    expect(() => checkDocuments({ format: "fprise-lifeplan-hearing-web-documents", version: "0.2", requestId: "R-7K3P9Q", batchId: "X".repeat(16), sentAt: "", documents: [] }, sel, "R-7K3P9Q", "B".repeat(16), [])).toThrow("E_WEB_DOCUMENTS_REQUEST");
+    expect(() => checkDocuments({ format: "fprise-lifeplan-hearing-web-documents", version: "0.1", requestId: "R-7K3P9Q", batchId: "B".repeat(16), sentAt: "", documents: [] }, sel, "R-7K3P9Q", "B".repeat(16), [])).toThrow("E_WEB_DOCUMENTS_SHAPE");
+  });
+});
+
+describe("期限: 30日の決め打ちと延長（押した日から30日・作った日から90日まで）", () => {
+  it("作った日から30日。延長は押した日から30日に延び、作った日から90日を超えない。上限では断る", async () => {
+    const now = { t: new Date("2026-11-05T09:00:00Z") };
+    const { transport } = relayFor(now);
+    const { issued } = await issueSimple(transport);
+    const rec = issued.record;
+    expect(rec.expiresAt).toBe("2026-12-05T09:00:00Z");
+    expect(rec.limitAt).toBe("2027-02-03T09:00:00Z");
+    // 作った日に押しても延びない（もう30日先まである）
+    expect(extendTarget(rec, now.t)).toBeNull();
+    expect((await extendRequest(rec, transport)).expiresAt).toBe("2026-12-05T09:00:00Z");
+    // 25日目に押す → その日から30日
+    now.t = new Date(now.t.getTime() + 25 * DAY);
+    expect(extendTarget(rec, now.t)).toEqual({ to: "2026-12-30T09:00:00Z", capped: false });
+    const e1 = await extendRequest(rec, transport);
+    expect(e1.expiresAt).toBe("2026-12-30T09:00:00Z");
+    // お客さまの画面の期限も延びる
+    const o = await openRequest(new URL(rec.url).hash, transport);
+    expect(o.packet.expiresAt).toBe("2026-12-30T09:00:00Z");
+    // 50日目に押す → その日から30日。70日目に押す → 90日で止まる
+    now.t = new Date(new Date("2026-11-05T09:00:00Z").getTime() + 50 * DAY);
+    expect((await extendRequest(rec, transport)).expiresAt).toBe("2027-01-24T09:00:00Z");
+    now.t = new Date(new Date("2026-11-05T09:00:00Z").getTime() + 70 * DAY);
+    expect(extendTarget({ ...rec, expiresAt: "2027-01-24T09:00:00Z" }, now.t)).toEqual({ to: "2027-02-03T09:00:00Z", capped: true });
+    const e2 = await extendRequest({ ...rec, ...e1 }, transport);
+    expect(e2.expiresAt).toBe("2027-02-03T09:00:00Z");
+    expect(extendTarget({ ...rec, ...e2 }, now.t)).toBeNull();
+    await expect(extendRequest(rec, transport)).rejects.toThrow("E_RELAY_EXTEND_LIMIT");
+    // 90日を過ぎると断り、消す
+    now.t = new Date("2027-02-03T09:00:01Z");
+    await expect(openRequest(new URL(rec.url).hash, transport)).rejects.toThrow("E_RELAY_EXPIRED");
+    await expect(extendRequest(rec, transport)).rejects.toThrow("E_RELAY_GONE");
+  });
+
+  it("延長は受け取りの合言葉だけ（お客さまの送るときの合言葉・ほかの依頼の合言葉では延ばせない）", async () => {
+    const { transport } = relayFor();
+    const { issued } = await issueSimple(transport);
+    const other = await issueSimple(transport);
+    const o = await openRequest(new URL(issued.record.url).hash, transport);
+    await expect(extendRequest({ ...issued.record, secrets: { ...issued.record.secrets, pickupToken: o.keys.submitToken } }, transport)).rejects.toThrow("E_RELAY_DENIED");
+    await expect(extendRequest({ ...issued.record, secrets: { ...issued.record.secrets, pickupToken: other.issued.record.secrets.pickupToken } }, transport)).rejects.toThrow("E_RELAY_DENIED");
+    await expect(relay.removeAnswers(transport, issued.record.serverId, o.keys.submitToken)).rejects.toThrow("E_RELAY_DENIED");
+  });
+
+  it("毎日の掃除: 期限を過ぎた依頼を中身ごと消し、期限の中のもの（延長したものを含む）は残す", async () => {
+    const now = { t: new Date("2026-11-05T09:00:00Z") };
+    const { transport, store } = relayFor(now);
+    const a = await issueSimple(transport);
+    const b = await issueSimple(transport);
+    const o = await openRequest(new URL(a.issued.record.url).hash, transport);
+    const f = await put(o, transport, jpeg(50));
+    await sendDocuments(o, [{ id: "d1", files: [f] }], transport);
+    now.t = new Date("2026-11-30T09:00:00Z");
+    await extendRequest(b.issued.record, transport);
+    now.t = new Date("2026-12-06T09:00:00Z");
+    expect(await sweepExpired({ store, now: () => now.t })).toBe(1);
+    expect([...store.dump().keys()].some((k) => k.includes(a.issued.record.serverId))).toBe(false);
+    expect([...store.dump().keys()].filter((k) => k.includes(b.issued.record.serverId))).toHaveLength(2);
   });
 });
 
@@ -147,22 +274,31 @@ describe("断ること", () => {
     await expect(relay.submit(transport, issued.record.serverId, "1.abc", issued.record.secrets.pickupToken)).rejects.toThrow("E_RELAY_DENIED");
   });
 
-  it("改ざんした答えの暗号文・別の書類の暗号文への付け替えを開かない", async () => {
+  it("改ざんした答えの暗号文・別の書類の暗号文への付け替え・別の送り状への付け替えを開かない", async () => {
     const { transport, store } = relayFor();
     const { def, issued } = await issueSimple(transport);
     const o = await openRequest(new URL(issued.record.url).hash, transport);
-    const a = await uploadFile(o, jpeg(100), transport);
-    const b = await uploadFile(o, jpeg(200), transport);
-    let d = initialDraft(o.packet);
-    d = { ...d, documents: { d1: { status: "attached", files: [{ fileId: a.fileId, mime: "image/jpeg", bytes: 104, sha256: a.sha256, label: "写真1" }, { fileId: b.fileId, mime: "image/jpeg", bytes: 204, sha256: b.sha256, label: "写真2" }] } } };
-    await submitAnswers(o, answersOf(o.packet, d, new Date()), transport);
+    const a = await put(o, transport, jpeg(100));
+    const b = await put(o, transport, jpeg(200), "写真2");
+    await sendDocuments(o, [{ id: "d1", files: [a, b] }], transport);
+    await submitAnswers(o, answersOf(o.packet, initialDraft(o.packet), new Date()), transport);
     const m = store.dump() as Map<string, string>;
     const id = issued.record.serverId;
     // 書類 a の置き場に書類 b の暗号文を入れる（サーバーが付け替えた）→ 開かない
     m.set(`r/${id}/f/${a.fileId}`, m.get(`r/${id}/f/${b.fileId}`) as string);
     const got = await receive(issued.record, def, transport);
-    expect(got!.files.map((f) => f.fileId)).toEqual([b.fileId]);
-    expect(got!.missingFiles).toBe(1);
+    expect(got!.batches[0]!.files.map((f) => f.fileId)).toEqual([b.fileId]);
+    expect(got!.batches[0]!.missingFiles).toBe(1);
+    // 送り状を別の送りの番号の所に移す → 開かない（受け取らずに数える）
+    const c = await put(o, transport, jpeg(300), "写真3");
+    await sendDocuments(o, [{ id: "d1", files: [c] }], transport);
+    const keys = [...m.keys()].filter((k) => k.includes("/b/"));
+    const [k1, k2] = keys as [string, string];
+    const v1 = JSON.parse(m.get(k1) as string) as { data: string };
+    const v2 = JSON.parse(m.get(k2) as string) as { data: string; files: string[]; at: string };
+    m.set(k2, JSON.stringify({ ...v2, data: v1.data }));
+    const got2 = await receive(issued.record, def, transport, { answers: false });
+    expect(got2!.badBatches).toBe(1);
     // 答えの暗号文の1字を変える → 開かない
     const env = m.get(`r/${id}/a`) as string;
     const last = env.at(-2) === "A" ? "B" : "A";
@@ -180,16 +316,16 @@ describe("断ること", () => {
     await expect(openRequest("#1.short.key", transport)).rejects.toThrow("E_WEB_LINK");
   });
 
-  it("サーバーは大きすぎる・形の違う・期限の長すぎる依頼を断る", async () => {
+  it("サーバーは大きすぎる・形の違う依頼を断る（期限はサーバーが決める）", async () => {
     const { transport } = relayFor();
     const id = b64u(new Uint8Array(16).fill(1));
     const hash = "a".repeat(64);
     const base = { id, submitHash: hash, pickupHash: "b".repeat(64), questions: "1.aaaa.bbbb" };
-    await expect(relay.create(transport, { ...base, expiresAt: "2027-03-01T00:00:00Z" })).rejects.toThrow("E_RELAY_BAD");
-    await expect(relay.create(transport, { ...base, questions: `1.${"a".repeat(500 * 1024)}`, expiresAt: "2026-11-20T00:00:00Z" })).rejects.toThrow("E_RELAY_TOO_LARGE");
-    await expect(relay.create(transport, { ...base, submitHash: base.pickupHash, expiresAt: "2026-11-20T00:00:00Z" })).rejects.toThrow("E_RELAY_BAD");
-    await relay.create(transport, { ...base, expiresAt: "2026-11-20T00:00:00Z" });
-    await expect(relay.create(transport, { ...base, expiresAt: "2026-11-20T00:00:00Z" })).rejects.toThrow("E_RELAY_SUBMITTED");
+    await expect(relay.create(transport, { ...base, questions: `1.${"a".repeat(500 * 1024)}` })).rejects.toThrow("E_RELAY_TOO_LARGE");
+    await expect(relay.create(transport, { ...base, submitHash: base.pickupHash })).rejects.toThrow("E_RELAY_BAD");
+    await expect(relay.create(transport, { ...base, questions: "<script>" })).rejects.toThrow("E_RELAY_BAD");
+    expect(await relay.create(transport, base)).toEqual({ expiresAt: "2026-12-05T09:00:00Z", limitAt: "2027-02-03T09:00:00Z" });
+    await expect(relay.create(transport, base)).rejects.toThrow("E_RELAY_SUBMITTED");
   });
 
   it("別の所（Origin）からの呼び出しを断り、答えには守りの見出しを付けない値を入れない", async () => {
@@ -210,9 +346,11 @@ describe("届いた答えを信用しない", () => {
     const r = checkAnswers(
       {
         format: "fprise-lifeplan-hearing-web-answers",
-        version: "0.1",
+        version: "0.2",
         requestId: "R-7K3P9Q",
         submittedAt: "2026-11-06T01:00:00.000Z",
+        // 分岐の答え: 知らない問い・選んでいない項目の問い（ご両親）・範囲の外（お子さま9人）・形の違う値は捨てる
+        gates: { spouse: 0, child: 9, parent: 1, pets: 2, loan: "1" },
         answers: [
           { key: "hs.family.adult.sex", index: 1, status: "value", raw: { kind: "text", text: "female" } },
           { key: "hs.family.adult.sex", index: 1, status: "value", raw: { kind: "text", text: "male" } },
@@ -229,9 +367,12 @@ describe("届いた答えを信用しない", () => {
       "R-7K3P9Q",
     );
     expect(r.answers).toHaveLength(1);
-    expect(r.dropped).toBe(6);
+    expect(r.gates).toEqual({ spouse: 0 });
+    expect(r.dropped).toBe(6 + 4);
     expect(() => checkAnswers({ format: "x" }, def, sel, "R-7K3P9Q")).toThrow("E_WEB_ANSWERS_SHAPE");
-    expect(() => checkAnswers({ format: "fprise-lifeplan-hearing-web-answers", version: "0.1", requestId: "R-AAAAAA", submittedAt: "", answers: [], documents: [] }, def, sel, "R-7K3P9Q")).toThrow("E_WEB_ANSWERS_REQUEST");
+    expect(() => checkAnswers({ format: "fprise-lifeplan-hearing-web-answers", version: "0.2", requestId: "R-AAAAAA", submittedAt: "", answers: [], gates: {}, documents: [] }, def, sel, "R-7K3P9Q")).toThrow("E_WEB_ANSWERS_REQUEST");
+    // 前の形（0.1。分岐の答えが無い）は受けない
+    expect(() => checkAnswers({ format: "fprise-lifeplan-hearing-web-answers", version: "0.1", requestId: "R-7K3P9Q", submittedAt: "", answers: [], documents: [] }, def, sel, "R-7K3P9Q")).toThrow("E_WEB_ANSWERS_SHAPE");
   });
 
   it("書類の形は見出しのバイトで決める（SVG・HTML は受け付けない）", () => {
@@ -251,6 +392,15 @@ describe("問いを飛ばす決まり", () => {
     const o = await openRequest(new URL(issued.record.url).hash, transport);
     return o.packet;
   }
+
+  it("分岐の答え（お子さま0人・ご両親のことは答えない など）を答えに入れて届ける。出なかった分岐の問いの答えは送らない", async () => {
+    const p = await packetOf();
+    const d = withAnswers(initialDraft(p), { [draftKey("hs.housing.type")]: v("rent") }, { spouse: 0, child: 0, parent: 0, loan: 2 });
+    const a = answersOf(p, d, new Date("2026-11-06T00:00:00Z"));
+    // 賃貸なので住宅ローンの本数は聞いていない（下書きに残っていても送らない）
+    expect(a.gates).toEqual({ spouse: 0, child: 0, parent: 0 });
+    expect(a.version).toBe("0.2");
+  });
 
   it("配偶者の方がいなければ配偶者の方の問いと、配偶者の方のご両親の問いを出さず、生年月を「該当なし」で送る", async () => {
     const p = await packetOf();
@@ -425,7 +575,7 @@ describe("問いを飛ばす決まり", () => {
     const prefill = exportAnswers(def, req).answers;
     const sel = selectionFromSheet(def, () => "confirm");
     const { transport } = relayFor();
-    const issued = await issueRequest({ definition: def, selection: sel, requestId: "R-7K3P9Q", customerNo: "A1", office: OFFICE, days: 14, now: new Date("2026-11-05T09:00:00Z"), pageUrl: "https://relay.test/h/", prefill, transport });
+    const issued = await issueRequest({ definition: def, selection: sel, requestId: "R-7K3P9Q", customerNo: "A1", office: OFFICE, now: new Date("2026-11-05T09:00:00Z"), pageUrl: "https://relay.test/h/", prefill, transport });
     const o = await openRequest(new URL(issued.record.url).hash, transport);
     const d = initialDraft(o.packet);
     expect(d.gates.spouse).toBe(1);

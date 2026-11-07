@@ -1,4 +1,4 @@
-// お客さまの画面（0125。app/src/hearingForm/Form.tsx）: 最初の画面・問いの画面・書類の画面・確かめの画面の中身（見本の形で文字に描く）
+// お客さまの画面（0125・0158。app/src/hearingForm/Form.tsx）: 最初の画面・問いの画面・書類の画面・確かめの画面・送った後・答えの後の書類の画面の中身（見本の形で文字に描く）
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
@@ -16,7 +16,7 @@ const office = officeFace({ name: "【架空】みらいFP事務所", color: "#2
 
 async function packet() {
   const sel0 = templateSelection("first", wh);
-  return previewPacket(wh, { ...sel0, documents: [documentFromTemplate(sel0, "withholding")] }, office, 14, NOW);
+  return previewPacket(wh, { ...sel0, documents: [documentFromTemplate(sel0, "withholding")] }, office, NOW);
 }
 
 describe("お客さまの画面", () => {
@@ -82,6 +82,27 @@ describe("お客さまの画面", () => {
     const p = await packet();
     const d = { ...initialDraft(p), gates: { spouse: 0, child: 0 }, documents: { [p.documents[0]!.id]: { status: "later" as const, files: [] } } };
     const html = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: d, startAt: "sent", now: () => NOW }));
-    for (const t of ["【架空】みらいFP事務所に届きました", "に送りました", "「あとで送る」にした書類", "担当の FP から送り方をお知らせします", "送った内容を見る", "印刷する", "閉じる前に印刷してください", "このページの仕組み"]) expect(html).toContain(t);
+    for (const t of ["【架空】みらいFP事務所に届きました", "に送りました", "「あとで送る」にした書類", "届いたリンクを開き直して送ってください", "書類を続けて送る", "送った内容を見る", "印刷する", "閉じる前に印刷してください", "このページの仕組み"]) expect(html).toContain(t);
+  });
+
+  it("書類の画面: 付けた書類は「書類だけ先に送る」ができる。送ったファイルは「送りました」で外せない", async () => {
+    const p = await packet();
+    const id = p.documents[0]!.id;
+    const f = { fileId: "AAAAAAAAAAAAAAAA", mime: "image/jpeg" as const, bytes: 10, sha256: "a".repeat(64), label: "写真 1" };
+    const a = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: { ...initialDraft(p), documents: { [id]: { status: "attached", files: [f] } } }, startAt: "documents" }));
+    for (const t of ["書類だけ先に送る", "付けました（1）", "外す", "お答えを送った後でも、期限までに同じリンクから送れます"]) expect(a).toContain(t);
+    const b = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: { ...initialDraft(p), documents: { [id]: { status: "attached", files: [{ ...f, sentAt: "2026-11-05T09:00:00Z" }] } } }, startAt: "documents" }));
+    for (const t of ["送りました（1）", "送りました"]) expect(b).toContain(t);
+    expect(b).not.toContain("書類だけ先に送る");
+    expect(b).not.toContain(">外す<");
+  });
+
+  it("答えの後の書類の画面（同じ URL を開き直した）: 答えはもう送ってあること・期限まで何回でも・手元にない／あとで送るは出さない・この端末から送った書類の控え", async () => {
+    const p = await packet();
+    const html = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: initialDraft(p), answeredAt: "2026-11-06T01:00:00Z", more: { documents: {}, sent: [{ at: "2026-11-06T01:00:00Z", items: [{ id: p.documents[0]!.id, files: 2 }] }] }, now: () => NOW }));
+    for (const t of ["書類を送る", "お答えは11月6日に送っていただいています", "このページから何回でも送れます", "撮る", "ファイルを選ぶ", "この端末から送った書類", `${p.documents[0]!.title}（2）`, "書類を付けてください"]) expect(html).toContain(t);
+    expect(html).not.toContain("手元にない");
+    expect(html).not.toContain("あとで送る");
+    expect(html).toContain('data-hf-screen="more"');
   });
 });

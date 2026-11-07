@@ -1,7 +1,8 @@
 // 受け付けのサーバー（0125）の入口（Cloudflare Workers）。API（/api/hearing/v1/…）は handler.ts、ほかはお客さまのページ（静的なファイル）。
 // どの答えにも守りの見出しを付ける。ログに中身・IP を書かない（console を使わない。wrangler.toml で観測のログを切る）
+// 毎日決まった時刻に、期限を過ぎた依頼を中身ごと消す（scheduled。wrangler.toml の [triggers]。0158）
 import { API_PREFIX } from "../src/web/protocol.ts";
-import { handleApi, PAGE_HEADERS, type RateLimiter } from "./handler.ts";
+import { handleApi, PAGE_HEADERS, sweepExpired, type RateLimiter } from "./handler.ts";
 import { r2Store, type R2BucketLike } from "./r2.ts";
 
 interface Env {
@@ -17,7 +18,15 @@ function withHeaders(res: Response, extra: Readonly<Record<string, string>>): Re
   return r;
 }
 
+interface ScheduledContext {
+  waitUntil(p: Promise<unknown>): void;
+}
+
 export default {
+  scheduled(_event: unknown, env: Env, ctx: ScheduledContext): void {
+    ctx.waitUntil(sweepExpired({ store: r2Store(env.HEARING), now: () => new Date() }));
+  },
+
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     if (url.pathname === API_PREFIX || url.pathname.startsWith(`${API_PREFIX}/`)) {

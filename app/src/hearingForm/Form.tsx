@@ -3,12 +3,14 @@
 // - 手軽さが主軸: 金額は「だいたいの範囲」を押すだけで答えられ、きっちりした額は「くわしい額を入れる」で開く。空のまま「次へ」は「あとで」と同じ
 // - スマホを先に考える（文字は大きめ・押す所は大きく・1列）。外のフォント・画像は読まない（CSP）
 // - 問いの流れは hearing/src/web/flow.ts（答えに合わせて問いを飛ばす・人数で繰り返す・1画面にまとめる）
+// - 書類は答えと別に動く（0158）: 書類の画面の「書類だけ先に送る」、送るときは書類を先に送ってから答え。答えを送った後の画面と、
+//   同じ URL を開き直したときは「書類を送る」の画面（期限まで何回でも）。この端末から送った書類の控えを出す
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import { MONTH_LABELS, yearLabel } from "../../../hearing/src/definition.ts";
 import { DOCUMENT_LIMITS, PHOTO_TIPS } from "../../../hearing/src/web/documents.ts";
-import { answerText, draftKey, estimate, fieldAnswered, fieldKeys, gateAnswerText, gateText, indexLabel, initialDraft, MONTH_UNKNOWN, normNumber, progress, screenId, screens, START_SECTION, START_TITLE, yearChoices, type Draft, type DraftAnswer, type DraftDocument, type DraftFile, type GateId, type Screen, type ScreenField } from "../../../hearing/src/web/flow.ts";
-import type { QuestionsPacket, WebItem } from "../../../hearing/src/web/packet.ts";
+import { answerText, draftKey, estimate, fieldAnswered, fieldKeys, gateAnswerText, gateText, indexLabel, initialDraft, markSent, MONTH_UNKNOWN, normNumber, progress, screenId, screens, START_SECTION, START_TITLE, unsentFiles, yearChoices, type Draft, type DraftAnswer, type DraftDocument, type DraftFile, type Screen, type ScreenField } from "../../../hearing/src/web/flow.ts";
+import type { GateId, QuestionsPacket, WebItem } from "../../../hearing/src/web/packet.ts";
 import { prepareFile } from "./photo.ts";
 
 export interface FormProps {
@@ -22,16 +24,60 @@ export interface FormProps {
   /** 書類のファイルを暗号化して置く（live だけ） */
   upload?: (bytes: Uint8Array<ArrayBuffer>) => Promise<{ fileId: string; sha256: string }>;
   removeFile?: (fileId: string) => Promise<void>;
+  /** 書類の送り（live だけ。置いたファイルの送り状を送り、送ったファイルの番号を返す）。失敗は符号の文字で投げる */
+  sendDocuments?: (list: readonly { readonly id: string; readonly files: readonly DraftFile[] }[]) => Promise<string[]>;
   /** 送る（live）。失敗は符号の文字で投げる */
   submit?: (d: Draft) => Promise<void>;
+  /** 答えをもう送ってある（同じ URL を開き直した）ときの送った日時。あれば「書類を送る」の画面から始める */
+  answeredAt?: string | null;
+  /** 答えを送った後の書類の下書きと、この端末から送った書類の控え（live は端末の中に暗号化して残す） */
+  more?: MoreState;
+  onMore?: (m: MoreState) => void;
   /** 見本で最初に開く画面（FP のアプリの見本の「この問いを見る」。見本だけ "sent" で送った後の画面） */
   startAt?: string;
   /** 今の日時（年の選択肢・送った日時。試しで固定する） */
   now?: () => Date;
 }
 
+/** この端末から送った書類の控え（1回の送りごと。書類の ID とファイルの数だけ。中身・ファイル名は残さない） */
+export interface SentRecord {
+  readonly at: string;
+  readonly items: readonly { readonly id: string; readonly files: number }[];
+}
+
+/** 答えを送った後の「書類を送る」の画面の状態 */
+export interface MoreState {
+  readonly documents: Readonly<Record<string, DraftDocument>>;
+  readonly sent: readonly SentRecord[];
+}
+
+export const EMPTY_MORE: MoreState = { documents: {}, sent: [] };
+
+/** 端末に残した控えを読む（形の違うものは空） */
+export function readMore(v: unknown): MoreState {
+  if (typeof v !== "object" || v === null) return EMPTY_MORE;
+  const o = v as Record<string, unknown>;
+  const documents = typeof o.documents === "object" && o.documents !== null ? (o.documents as MoreState["documents"]) : {};
+  const sent = Array.isArray(o.sent) ? (o.sent as unknown[]).filter((x): x is SentRecord => typeof x === "object" && x !== null && typeof (x as SentRecord).at === "string" && Array.isArray((x as SentRecord).items)) : [];
+  return { documents, sent };
+}
+
+/** 下書きの中の送ったファイルを、送った日時ごとの控えにする */
+function sentRecordsOf(d: Pick<Draft, "documents">): SentRecord[] {
+  const by = new Map<string, Map<string, number>>();
+  for (const [id, x] of Object.entries(d.documents))
+    for (const f of x.files) {
+      if (f.sentAt === undefined) continue;
+      const m = by.get(f.sentAt) ?? new Map<string, number>();
+      m.set(id, (m.get(id) ?? 0) + 1);
+      by.set(f.sentAt, m);
+    }
+  return [...by.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([at, m]) => ({ at, items: [...m.entries()].map(([id, files]) => ({ id, files })) }));
+}
+
 const ERRORS: Record<string, string> = {
   E_RELAY_SUBMITTED: "このご質問には、もうお答えいただいています。",
+  E_RELAY_SEALED: "その書類はもう送ってあります。ページを開き直してください。",
   E_RELAY_EXPIRED: "回答の期限が過ぎています。担当の FP にご連絡ください。",
   E_RELAY_GONE: "このリンクはもう使えません。担当の FP にご連絡ください。",
   E_RELAY_TOO_LARGE: "送る内容が大きすぎます。書類の数を減らしてください。",
@@ -207,7 +253,7 @@ function fileLabel(f: DraftFile): string {
 }
 
 /** 書類の画面（書類ごとに、撮る・ファイルを選ぶ・手元にない・あとで送る） */
-function Documents({ p, d, mode, setDoc, upload, removeFile, thumbs }: { p: QuestionsPacket; d: Draft; mode: FormProps["mode"]; setDoc: (id: string, x: DraftDocument) => void; upload: FormProps["upload"]; removeFile: FormProps["removeFile"]; thumbs: Map<string, string> }) {
+function Documents({ p, d, mode, setDoc, upload, removeFile, thumbs, after = false }: { p: QuestionsPacket; d: Pick<Draft, "documents">; mode: FormProps["mode"]; setDoc: (id: string, x: DraftDocument) => void; upload: FormProps["upload"]; removeFile: FormProps["removeFile"]; thumbs: Map<string, string>; after?: boolean }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<Record<string, string>>({});
   const [tips, setTips] = useState(true);
@@ -273,9 +319,10 @@ function Documents({ p, d, mode, setDoc, upload, removeFile, thumbs }: { p: Ques
       </details>
       {p.documents.map((doc) => {
         const x = d.documents[doc.id] ?? { status: "blank", files: [] };
-        const chip = x.status === "attached" ? `付けました（${x.files.length}）` : x.status === "notAvailable" ? "手元にない" : x.status === "later" ? "あとで送る" : "まだ";
+        const unsent = x.files.filter((f) => f.sentAt === undefined).length;
+        const chip = x.status === "attached" ? (unsent === 0 ? `送りました（${x.files.length}）` : `付けました（${x.files.length}）`) : x.status === "notAvailable" ? "手元にない" : x.status === "later" ? "あとで送る" : "まだ";
         return (
-          <section class={`hf-doc s-${x.status}`} key={doc.id} data-hf-doc={doc.id}>
+          <section class={`hf-doc s-${x.status}`} key={doc.id} data-hf-doc={doc.id} data-hf-doc-files={x.files.length}>
             <div class="hf-doc-h">
               <h3>{doc.title}</h3>
               <span class={`hf-chip c-${x.status}`}>{chip}</span>
@@ -288,9 +335,13 @@ function Documents({ p, d, mode, setDoc, upload, removeFile, thumbs }: { p: Ques
                   <li key={f.fileId}>
                     {thumbs.has(f.fileId) ? <img src={thumbs.get(f.fileId)} alt="" /> : <span class="hf-file-ic" aria-hidden="true">{f.mime === "application/pdf" ? "PDF" : "写"}</span>}
                     <span>{fileLabel(f)}</span>
-                    <button type="button" class="hf-link" onClick={() => void drop(doc.id, f)}>
-                      外す
-                    </button>
+                    {f.sentAt !== undefined ? (
+                      <span class="hf-sent-mark">送りました</span>
+                    ) : (
+                      <button type="button" class="hf-link" onClick={() => void drop(doc.id, f)}>
+                        外す
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -304,12 +355,16 @@ function Documents({ p, d, mode, setDoc, upload, removeFile, thumbs }: { p: Ques
                 <input type="file" accept="image/jpeg,image/png,image/heic,image/heif,application/pdf" multiple disabled={busy !== null} onChange={(e) => void attach(doc.id, (e.currentTarget as HTMLInputElement).files).then(() => ((e.target as HTMLInputElement).value = ""))} />
                 ファイルを選ぶ
               </label>
-              <button type="button" class={`hf-state${x.status === "notAvailable" ? " on" : ""}`} aria-pressed={x.status === "notAvailable"} onClick={() => setDoc(doc.id, { status: x.status === "notAvailable" ? "blank" : "notAvailable", files: x.files })}>
-                手元にない
-              </button>
-              <button type="button" class={`hf-state${x.status === "later" ? " on" : ""}`} aria-pressed={x.status === "later"} onClick={() => setDoc(doc.id, { status: x.status === "later" ? "blank" : "later", files: x.files })}>
-                あとで送る
-              </button>
+              {after ? null : (
+                <>
+                  <button type="button" class={`hf-state${x.status === "notAvailable" ? " on" : ""}`} aria-pressed={x.status === "notAvailable"} onClick={() => setDoc(doc.id, { status: x.status === "notAvailable" ? "blank" : "notAvailable", files: x.files })}>
+                    手元にない
+                  </button>
+                  <button type="button" class={`hf-state${x.status === "later" ? " on" : ""}`} aria-pressed={x.status === "later"} onClick={() => setDoc(doc.id, { status: x.status === "later" ? "blank" : "later", files: x.files })}>
+                    あとで送る
+                  </button>
+                </>
+              )}
             </div>
             {busy === doc.id ? <p class="hf-note">暗号化して送っています…</p> : null}
             {err[doc.id] !== undefined && err[doc.id] !== "" ? <p class="hf-err">{err[doc.id]}</p> : null}
@@ -520,10 +575,95 @@ function Question({ p, d, f, itemOf, setAnswer, first, showHead, now, mode }: { 
   );
 }
 
+/** 答えを送った後の「書類を送る」の画面（送った直後と、同じ URL を開き直したとき）。期限まで何回でも送れる */
+function MoreDocuments({ props, answeredAt, initial, thumbs }: { props: FormProps; answeredAt: string | null; initial: MoreState; thumbs: Map<string, string> }) {
+  const { packet: p, mode } = props;
+  const clock = props.now ?? (() => new Date());
+  const [m, setM] = useState<MoreState>(initial);
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    props.onMore?.(m);
+  }, [m]);
+  const pending = unsentFiles(m);
+  const count = pending.reduce((n, x) => n + x.files.length, 0);
+  const send = async () => {
+    setSending(true);
+    setErr(null);
+    try {
+      if (props.sendDocuments !== undefined) await props.sendDocuments(pending);
+      const at = clock().toISOString();
+      for (const x of pending) for (const f of x.files) thumbs.delete(f.fileId);
+      // 送った分は控えに移し、次の送りは空から（続けて送れる）
+      setM((cur) => ({ documents: {}, sent: [...cur.sent, { at, items: pending.map((x) => ({ id: x.id, files: x.files.length })) }] }));
+      setDone(at);
+    } catch (e) {
+      setErr(errorText(e instanceof Error ? e.message : String(e)));
+    } finally {
+      setSending(false);
+    }
+  };
+  const style = p.office.color !== null ? ({ "--hf-accent": p.office.color } as Record<string, string>) : undefined;
+  const title = (id: string) => p.documents.find((x) => x.id === id)?.title ?? id;
+  return (
+    <div class={`hf${mode === "preview" ? " preview" : ""}`} style={style} data-hf-screen="more">
+      <Office p={p} />
+      {mode === "preview" ? <p class="hf-banner">見本です（お客さまにはこう見えます。書類は送られません）</p> : null}
+      <main class="hf-main">
+        <h1 class="hf-q">書類を送る</h1>
+        <p class="hf-pre" data-hf-answered>
+          {answeredAt !== null ? `お答えは${new Date(answeredAt).toLocaleDateString("ja-JP", { month: "long", day: "numeric" })}に送っていただいています。` : "お答えは送っていただいています。"}
+          ありがとうございました。書類は、回答の期限（{dateText(p.expiresAt)}）まで、このページから何回でも送れます。
+        </p>
+        <Documents p={p} d={m} mode={mode} thumbs={thumbs} upload={props.upload} removeFile={props.removeFile} after setDoc={(id, x) => setM((cur) => ({ ...cur, documents: { ...cur.documents, [id]: x } }))} />
+        {err !== null ? (
+          <p class="hf-err" role="alert">
+            {err}
+          </p>
+        ) : null}
+        {done !== null && count === 0 ? (
+          <p class="hf-pre" role="status" data-hf-more-done>
+            {new Date(done).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}に送りました。担当の FP が受け取ります。ほかにもあれば、続けて送れます。
+          </p>
+        ) : null}
+        {m.sent.length > 0 ? (
+          <section class="hf-rv-sec" data-hf-sent-docs>
+            <h3>この端末から送った書類</h3>
+            <ul class="hf-sent-docs">
+              {m.sent.map((r) => (
+                <li key={r.at}>
+                  {new Date(r.at).toLocaleString("ja-JP", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}: {r.items.map((x) => `${title(x.id)}（${x.files}）`).join("・")}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+        <About p={p} />
+      </main>
+      <nav class="hf-nav">
+        <span />
+        <button type="button" class="hf-next" disabled={count === 0 || sending} onClick={() => void send()} data-hf-send-docs>
+          {sending ? "送っています…" : count === 0 ? "書類を付けてください" : `書類を送る（${count}）`}
+        </button>
+      </nav>
+    </div>
+  );
+}
+
 export function HearingForm(props: FormProps): JSX.Element {
   const { packet: p, mode } = props;
   const clock = props.now ?? (() => new Date());
   const [d, setD] = useState<Draft>(props.initial);
+  // 答えを送った後の「書類を送る」の画面（同じ URL を開き直したときは最初から）
+  const [more, setMore] = useState<MoreState | null>(props.answeredAt !== undefined && props.answeredAt !== null ? (props.more ?? EMPTY_MORE) : null);
+  const [earlyErr, setEarlyErr] = useState<string | null>(null);
+  const [earlySending, setEarlySending] = useState(false);
   const list = useMemo(() => screens(p, d), [p, d]);
   const [cur, setCur] = useState<string>(props.startAt ?? "intro");
   const [back, setBack] = useState(false);
@@ -534,6 +674,8 @@ export function HearingForm(props: FormProps): JSX.Element {
   const [showSent, setShowSent] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [sendErr, setSendErr] = useState<string | null>(null);
+  /** 送った直後の「書類を続けて送る」の始まりの状態（答えと一緒に送った書類の控え） */
+  const [moreAfter, setMoreAfter] = useState<MoreState>(EMPTY_MORE);
   const thumbs = useRef(new Map<string, string>()).current;
   const itemOf = useMemo(() => new Map(p.items.map((i) => [i.key, i])), [p]);
   const est = useMemo(() => estimate(p), [p]);
@@ -621,11 +763,36 @@ export function HearingForm(props: FormProps): JSX.Element {
     if (back) return toReview();
     go(at + 1);
   };
+  /** まだ送っていない書類を送り、送った印を付けた下書きを返す（答えの前でも。送ったファイルは外せない） */
+  const sendPending = async (cur: Draft): Promise<Draft> => {
+    const pending = unsentFiles(cur);
+    if (pending.length === 0) return cur;
+    const ids = props.sendDocuments !== undefined ? await props.sendDocuments(pending) : pending.flatMap((x) => x.files.map((f) => f.fileId));
+    const next = markSent(cur, ids, clock().toISOString());
+    setD(next);
+    return next;
+  };
+  const sendEarly = async () => {
+    setEarlySending(true);
+    setEarlyErr(null);
+    try {
+      await sendPending(d);
+    } catch (e) {
+      setEarlyErr(errorText(e instanceof Error ? e.message : String(e)));
+    } finally {
+      setEarlySending(false);
+    }
+  };
   const send = async () => {
     setSending(true);
     setSendErr(null);
     try {
-      if (props.submit !== undefined) await props.submit(d);
+      // 書類を先に送る（答えの送信に失敗しても、送った書類は送り直さない）
+      const cur = await sendPending(d);
+      if (props.submit !== undefined) await props.submit(cur);
+      const m: MoreState = { documents: {}, sent: sentRecordsOf(cur) };
+      props.onMore?.(m);
+      setMoreAfter(m);
       setSent(clock());
     } catch (e) {
       setSendErr(errorText(e instanceof Error ? e.message : String(e)));
@@ -636,7 +803,8 @@ export function HearingForm(props: FormProps): JSX.Element {
   const clear = () => {
     for (const x of Object.values(d.documents))
       for (const f of x.files) {
-        if (props.removeFile !== undefined) void props.removeFile(f.fileId).catch(() => undefined);
+        // 送ったファイルはサーバーから外せない（担当の FP に届く）。この端末の控えだけを消す
+        if (props.removeFile !== undefined && f.sentAt === undefined) void props.removeFile(f.fileId).catch(() => undefined);
         const t = thumbs.get(f.fileId);
         if (t !== undefined && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(t);
         thumbs.delete(f.fileId);
@@ -649,6 +817,8 @@ export function HearingForm(props: FormProps): JSX.Element {
   };
   const style = p.office.color !== null ? ({ "--hf-accent": p.office.color } as Record<string, string>) : undefined;
   const now = clock();
+
+  if (more !== null) return <MoreDocuments props={props} answeredAt={props.answeredAt ?? (sent !== null ? sent.toISOString() : null)} initial={more} thumbs={thumbs} />;
 
   if (sent !== null) {
     const laterDocs = p.documents.filter((x) => d.documents[x.id]?.status === "later");
@@ -663,8 +833,16 @@ export function HearingForm(props: FormProps): JSX.Element {
           <p>
             {sent.toLocaleString("ja-JP", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}に送りました。ご協力ありがとうございました。
           </p>
-          {laterDocs.length > 0 ? <p>「あとで送る」にした書類（{laterDocs.map((x) => x.title).join("・")}）は、担当の FP から送り方をお知らせします。</p> : null}
+          {laterDocs.length > 0 ? <p>「あとで送る」にした書類（{laterDocs.map((x) => x.title).join("・")}）は、用意できたら、このページか、届いたリンクを開き直して送ってください（期限は{dateText(p.expiresAt)}までです）。</p> : null}
+          {p.documents.length > 0 && laterDocs.length === 0 ? <p>書類は、あとからでも、届いたリンクを開き直して送れます（期限は{dateText(p.expiresAt)}までです）。</p> : null}
           <p>担当の FP に、送ったことをお知らせください。</p>
+          {p.documents.length > 0 ? (
+            <div class="hf-sent-actions">
+              <button type="button" class="hf-next hf-more-btn" onClick={() => setMore(moreAfter)} data-hf-more>
+                書類を続けて送る
+              </button>
+            </div>
+          ) : null}
           <div class="hf-sent-actions">
             <button type="button" class="hf-state" onClick={() => setShowSent(!showSent)} aria-expanded={showSent} data-hf-show-sent>
               {showSent ? "送った内容を閉じる" : "送った内容を見る"}
@@ -793,6 +971,20 @@ export function HearingForm(props: FormProps): JSX.Element {
       <div>
         <h2 class="hf-q">送っていただきたい書類</h2>
         <Documents p={p} d={d} mode={mode} thumbs={thumbs} upload={props.upload} removeFile={props.removeFile} setDoc={(id, x) => update((cur) => ({ ...cur, documents: { ...cur.documents, [id]: x } }))} />
+        {unsentFiles(d).length > 0 ? (
+          <div class="hf-pre" data-hf-early>
+            <p>付けた書類は、最後にお答えと一緒に送ります。お答えの前に、書類だけ先に送ることもできます。</p>
+            <button type="button" class="hf-state" disabled={earlySending} onClick={() => void sendEarly()} data-hf-send-early>
+              {earlySending ? "送っています…" : "書類だけ先に送る"}
+            </button>
+          </div>
+        ) : null}
+        {earlyErr !== null ? (
+          <p class="hf-err" role="alert">
+            {earlyErr}
+          </p>
+        ) : null}
+        <p class="hf-note">書類は、お答えを送った後でも、期限までに同じリンクから送れます。</p>
       </div>
     );
   } else {
@@ -823,7 +1015,7 @@ export function HearingForm(props: FormProps): JSX.Element {
             {sendErr}
           </p>
         ) : null}
-        <p class="hf-note">送った後は直せません。直したいことがあれば、担当の FP にお伝えください。</p>
+        <p class="hf-note">お答えは、送った後は直せません。直したいことがあれば、担当の FP にお伝えください。書類は、送った後も足せます。</p>
         <ClearDraft onClear={clear} />
       </div>
     );

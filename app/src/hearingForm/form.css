@@ -611,3 +611,22 @@
 .hf-gate-opts.n3 .hf-choices.hf-compact {
   grid-template-columns: 1fr 1fr 1fr;
 }
+/* 書類の送り（0158）: 送ったファイルの印・答えの後の「書類を送る」の画面 */
+.hf-sent-mark {
+  font-size: 14px;
+  color: var(--hf-accent);
+  font-weight: 700;
+}
+.hf-sent-docs {
+  margin: 6px 0 0;
+  padding-left: 1.2em;
+  font-size: 16px;
+}
+.hf-sent-actions .hf-more-btn {
+  margin: 0 auto;
+  min-width: 60%;
+  padding: 0 20px;
+}
+.hf-pre .hf-state {
+  margin-top: 4px;
+}

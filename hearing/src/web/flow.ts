@@ -11,10 +11,8 @@
 // - 見えなくなった問いの答えは、送るときに捨てる（下書きには残すので、戻って答えを変えれば元に戻る）
 import type { Answer, RawValue } from "../answers.ts";
 import { yearLabel } from "../definition.ts";
-import type { DocumentAnswer, QuestionsPacket, WebItem } from "./packet.ts";
-import { ANSWERS_FORMAT, FILLED_ON, WEB_FORMAT_VERSION, type AnswersPacket } from "./packet.ts";
-
-export type GateId = "spouse" | "child" | "loan" | "policy" | "parent";
+import type { DocumentAnswer, DocumentFile, DocumentFiles, GateAnswers, GateId, QuestionsPacket, WebItem } from "./packet.ts";
+import { ANSWERS_FORMAT, DOCUMENTS_FORMAT, FILLED_ON, WEB_FORMAT_VERSION, type AnswersPacket, type DocumentsPacket } from "./packet.ts";
 
 /** 下書きの1つの答え（later は「あとで」。送るときは未回答） */
 export interface DraftAnswer {
@@ -25,11 +23,13 @@ export interface DraftAnswer {
 
 export interface DraftFile {
   readonly fileId: string;
-  readonly mime: AnswersPacket["documents"][number]["files"][number]["mime"];
+  readonly mime: DocumentFile["mime"];
   readonly bytes: number;
   readonly sha256: string;
   /** お客さまの画面に出す名前（「写真1」など。ファイル名は使わない） */
   readonly label: string;
+  /** 書類の送りで送った日時（送ったファイルは外せない。0158） */
+  readonly sentAt?: string;
 }
 
 export interface DraftDocument {
@@ -93,14 +93,21 @@ const COUNT_WORD: Readonly<Partial<Record<GateId, { readonly unit: string; reado
   policy: { unit: "件", zero: "入っていない" },
 };
 
+/** 分岐の問いの選択肢（max は人数・本数・件数の繰り返しの数。配偶者の方・ご両親は使わない）。FP の画面で届いた答えを言葉にするのにも使う */
+export function gateOptions(g: GateId, max: number): readonly { readonly value: string; readonly label: string }[] {
+  if (g === "spouse") return [{ value: "1", label: "いらっしゃる" }, { value: "0", label: "いらっしゃらない" }];
+  if (g === "parent") return [{ value: "1", label: "はい" }, { value: "0", label: "いいえ（今回は答えない）" }];
+  const w = COUNT_WORD[g] as { unit: string; zero: string };
+  return Array.from({ length: max + 1 }, (_, n) => ({ value: String(n), label: n === 0 ? w.zero : n === max && max > 2 ? `${n}${w.unit}以上` : `${n}${w.unit}` }));
+}
+
 /** 分岐の問いの言葉と選択肢（人数・本数は「1人」「2本」。最後の段は「4人以上」のように） */
 export function gateText(p: QuestionsPacket, g: GateId): { readonly label: string; readonly lead: string; readonly options: readonly { readonly value: string; readonly label: string }[] } {
   const t = GATE_TEXT[g];
-  if (g === "spouse") return { ...t, options: [{ value: "1", label: "いらっしゃる" }, { value: "0", label: "いらっしゃらない" }] };
-  if (g === "parent") return { ...t, options: [{ value: "1", label: "はい" }, { value: "0", label: "いいえ（今回は答えない）" }] };
+  if (g === "spouse" || g === "parent") return { ...t, options: gateOptions(g, 1) };
   const w = COUNT_WORD[g] as { unit: string; zero: string };
   const max = axisCount(p, g);
-  const options = Array.from({ length: max + 1 }, (_, n) => ({ value: String(n), label: n === 0 ? w.zero : n === max && max > 2 ? `${n}${w.unit}以上` : `${n}${w.unit}` }));
+  const options = gateOptions(g, max);
   const lead = max > 2 ? `${t.lead}${max + 1}${w.unit}以上のときは「${max}${w.unit}以上」を選び、${max}${w.unit}までお答えください。` : t.lead;
   return { label: t.label, lead, options };
 }
@@ -391,13 +398,45 @@ export function answersOf(p: QuestionsPacket, d: Draft, submittedAt: Date): Answ
     const m = p.items.find((i) => i.key === "hs.family.spouse.marriage");
     if (m !== undefined && m.states.includes("notApplicable")) out.push({ key: m.key, status: "notApplicable" });
   }
+  // 書類は状態だけ（ファイルは書類の送りで別に届く。送る前に unsentFiles の分を送る）
   const documents: DocumentAnswer[] = p.documents.map((doc) => {
     const x = d.documents[doc.id];
-    const files = (x?.files ?? []).map(({ fileId, mime, bytes, sha256 }) => ({ fileId, mime, bytes, sha256 }));
-    const status = x === undefined ? "blank" : x.status === "attached" && files.length === 0 ? "blank" : x.status;
-    return { id: doc.id, status, files: status === "attached" ? files : [] };
+    const status = x === undefined ? "blank" : x.status === "attached" && x.files.length === 0 ? "blank" : x.status;
+    return { id: doc.id, status };
   });
-  return { format: ANSWERS_FORMAT, version: WEB_FORMAT_VERSION, requestId: p.requestId, submittedAt: submittedAt.toISOString(), answers: out, documents };
+  return { format: ANSWERS_FORMAT, version: WEB_FORMAT_VERSION, requestId: p.requestId, submittedAt: submittedAt.toISOString(), answers: out, gates: gateAnswersOf(p, d), documents };
+}
+
+/** 送る分岐の答え: 今の答えで出る分岐の問いのうち、答えたものだけ（人数を「0」と答えたことも FP に届ける。0158） */
+export function gateAnswersOf(p: QuestionsPacket, d: Draft): GateAnswers {
+  const asked = new Set(screens(p, d).flatMap((s) => (s.kind === "gate" ? s.gates : [])));
+  const out: Partial<Record<GateId, number>> = {};
+  for (const g of asked) {
+    const v = d.gates[g];
+    if (v !== undefined) out[g] = v;
+  }
+  return out;
+}
+
+/** まだ送っていない、付けた書類のファイル（書類ごと。答えの前でも後でも、書類の送りで送る） */
+export function unsentFiles(d: Pick<Draft, "documents">): { readonly id: string; readonly files: readonly DraftFile[] }[] {
+  return Object.entries(d.documents)
+    .map(([id, x]) => ({ id, files: x.files.filter((f) => f.sentAt === undefined) }))
+    .filter((x) => x.files.length > 0);
+}
+
+/** 書類の送り状（暗号化する前の中身）。batchId は送るファイルの番号から決める（customer.ts の batchIdOf） */
+export function documentsPacketOf(p: QuestionsPacket, list: readonly { readonly id: string; readonly files: readonly DraftFile[] }[], batchId: string, sentAt: Date): DocumentsPacket {
+  const documents: DocumentFiles[] = list.map((x) => ({ id: x.id, files: x.files.map(({ fileId, mime, bytes, sha256 }) => ({ fileId, mime, bytes, sha256 })) }));
+  return { format: DOCUMENTS_FORMAT, version: WEB_FORMAT_VERSION, requestId: p.requestId, batchId, sentAt: sentAt.toISOString(), documents };
+}
+
+/** 送ったファイルに送った日時の印を付ける（送ったファイルは外せない・もう一度送らない） */
+export function markSent<T extends Pick<Draft, "documents">>(d: T, fileIds: readonly string[], at: string): T {
+  const ids = new Set(fileIds);
+  const documents: Record<string, DraftDocument> = {};
+  for (const [id, x] of Object.entries(d.documents)) documents[id] = { ...x, files: x.files.map((f) => (ids.has(f.fileId) && f.sentAt === undefined ? { ...f, sentAt: at } : f)) };
+  return { ...d, documents };
 }
 
 // ---- 画面に出す言葉 ----

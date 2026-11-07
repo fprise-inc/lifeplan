@@ -38,6 +38,7 @@ import { scenarioRequest, scenarios } from "../src/workspace/contingency/request
 import { premiseFor } from "../src/workspace/contingency/planPremise.ts";
 import { smrEstimate, smrMonth } from "../src/workspace/input/estimates.ts";
 import { barNotices, householdNoticeText, type BarInputs } from "../src/workspace/header/status.ts";
+import { gateLines, limitOf, webLog } from "../src/workspace/hearing/web.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 import { readProposal } from "../src/workspace/documents/proposal.ts";
 import { acceptCandidates } from "../src/workspace/documents/review.ts";
@@ -1272,6 +1273,34 @@ function sample069(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/**
+ * 0.70 の見本の世帯（0158）: sample069() の Web のヒアリングの依頼の記録を今の形に（延長の上限と延ばした期限・分岐の問いの答え・状態だけの書類の欄・
+ * 受け取った書類の送りの記録2回分・ファイルの送りの番号）。鍵・合言葉は形だけの試験の文字
+ */
+function sample070(): BodyState {
+  const s = sample069();
+  const log = s.wh.hearing as unknown as { web: Record<string, unknown>[] } & Record<string, unknown>;
+  const e = log.web[0] as { record: Record<string, unknown>; files: Record<string, unknown>[] };
+  const fake = (c: string, n: number) => c.repeat(n);
+  const web = [
+    {
+      ...e,
+      record: { ...e.record, expiresAt: "2027-01-04T09:00:00Z", limitAt: "2027-02-03T09:00:00Z" },
+      state: "received",
+      received: { at: "2026-11-06T01:00:00Z", submittedAt: "2026-11-06T00:30:00.000Z", answers: [{ key: "hs.family.adult.birthYearMonth", index: 1, status: "value", raw: { kind: "text", text: "1985" }, raw2: { kind: "number", text: "6" } }], documents: [{ id: "d1", status: "attached" }], gates: { spouse: 0, child: 0 }, dropped: 0 },
+      files: [
+        { ...e.files[0], batchId: fake("G", 16) },
+        { docId: "d1", fileId: fake("H", 16), mime: "image/jpeg", data: "_9j_4A", bytes: 4, sha256: "2".repeat(64), batchId: fake("J", 16) },
+      ],
+      batches: [
+        { batchId: fake("G", 16), sentAt: "2026-11-06T00:20:00.000Z", receivedAt: "2026-11-06T01:00:00Z", documents: [{ id: "d1", files: 1 }], missingFiles: 0 },
+        { batchId: fake("J", 16), sentAt: "2026-11-08T10:00:00.000Z", receivedAt: "2026-11-08T11:00:00Z", documents: [{ id: "d1", files: 1 }], missingFiles: 0 },
+      ],
+    },
+  ];
+  return { ...s, wh: { ...s.wh, hearing: { ...log, web } as never } };
+}
+
 describe("世帯ファイルの本文（0011 の2）", () => {
   it("保存→読み込みで同じ（現状・案・帯の並び・表示の設定・拡張領域）", () => {
     const s = sample();
@@ -1310,7 +1339,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.69");
+    expect(BODY_FORMAT_VERSION).toBe("0.70");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1485,7 +1514,26 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample069())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample070())), null, 2) + "\n");
+  });
+
+  it("0.70 の形（0158）: Web のヒアリングの依頼の記録の延長の上限・分岐の答え・書類の送りの記録を保存して読み戻す。前の版の記録（欄が無い）も画面の部品で読める", () => {
+    const s = sample070();
+    const stored = bodyObject(s) as unknown as { hearing: { web: { record: { limitAt?: string }; received: { gates?: Record<string, number> }; batches?: unknown[]; files: { batchId?: string }[] }[] } };
+    const w = stored.hearing.web[0]!;
+    expect(w.record.limitAt).toBe("2027-02-03T09:00:00Z");
+    expect(w.received.gates).toEqual({ spouse: 0, child: 0 });
+    expect(w.batches).toHaveLength(2);
+    expect(w.files.map((f) => f.batchId)).toEqual(["G".repeat(16), "J".repeat(16)]);
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(webLog(back.wh)[0]?.batches).toHaveLength(2);
+    expect(gateLines(webLog(back.wh)[0]!).map((l) => `${l.label} ${l.text}`)).toEqual(["配偶者の方 いらっしゃらない", "お子さま いない"]);
+    // 前の版（0.69）の記録: 延長の上限は発行の日時から90日、分岐の答えと送りの記録は無し
+    const old = webLog(sample069().wh)[0]!;
+    expect(limitOf(old.record)).toBe("2027-02-03T09:00:00Z");
+    expect(gateLines(old)).toEqual([]);
+    expect(old.batches).toBeUndefined();
   });
 
   it("0.69 の形（0156）: 構成員の婚姻の状態を保存して読み戻す。欄の無い前の版の世帯は婚姻していないとみなす（欄を書き足さない）", () => {
