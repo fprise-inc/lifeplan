@@ -14,7 +14,7 @@ import { HORIZON_KINDS, PROTECTION_METHODS } from "../contingency/inputs.ts";
 import { normalProtection, OPEN_SCENES, PREMISE_KINDS, premiseStarts, SCENE_KINDS, sceneShown, withPremiseStart, type OpenScene, type PremiseKind, type ProtectionSetting } from "../contingency/premiseChoice.ts";
 import type { ScenarioKind } from "../contingency/requests.ts";
 import { outOfRangeText, rangeText, type PctRange } from "../input/rateRanges.ts";
-import { rateFromPct, readYen } from "../input/units.ts";
+import { normalizeNumberText, rateFromPct, readYen } from "../input/units.ts";
 import { ASSUMPTION_LABELS, ASSUMPTION_RANGES, ASSUMPTION_STANDARDS, DEFAULT_OFFICE_SETTINGS, FEE_MAX, FEE_STEP_YEAR_MAX, layoutOf, OFFICE_ASSUMPTIONS, type FeeTable, type OfficeAssumption, type OfficeSettings } from "./settings.ts";
 import { revealAdded } from "../../presentation/revealAdded.ts";
 import { LivingLayoutEditor } from "./LivingLayoutEditor.tsx";
@@ -60,9 +60,12 @@ export interface OfficeSettingsPanelProps {
   branding?: Omit<BrandingSectionProps, "shared">;
 }
 
-/** 「1.5」（%）→ "0.015"。空は null。読めない・範囲の外は undefined（整数の部分は3桁まで読む。評価の割合の 100% を入れられるように） */
+/**
+ * 「1.5」（%）→ "0.015"。空は null。読めない・範囲の外は undefined（整数の部分は3桁まで読む。評価の割合の 100% を入れられるように）。
+ * 全角の数字・小数点・マイナスは、入力の画面の率の欄と同じく半角にしてから読む（units.ts の normalizeNumberText。0162）
+ */
 export function pctToRate(text: string, lo = -5, hi = 20): string | null | undefined {
-  const t = text.trim().replace(/[％%]$/, "");
+  const t = normalizeNumberText(text).replace(/[％%]$/, "");
   if (t === "") return null;
   if (!/^-?\d{1,3}(\.\d{1,4})?$/.test(t)) return undefined;
   const v = Number(t);

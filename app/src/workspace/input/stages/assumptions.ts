@@ -512,6 +512,8 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
             label: "売却の費用（売却価格に対する割合）",
             level: "detail",
             kind: "pct",
+            min: 0,
+            max: 100,
             find,
             path: [R, "saleCostRate"],
             optional: true,
