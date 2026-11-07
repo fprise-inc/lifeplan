@@ -8,16 +8,18 @@ import { carryRows } from "../input/rows.ts";
 import { approveAll, createHearingSheet, exportableSheets, importHearingSheet, keyLabel, latestSheet, requestIdFrom, type Answer, type Candidate, type ChecklistItem, type ConsentDraft, type FieldRecord, type HearingRequest, type ImportRecord, type Issue, type OfficeInfo, type SheetDefinition } from "../../../../hearing/src/index.ts";
 import type { EngineRequest as HearingEngineRequest } from "../../../../hearing/src/types.ts";
 import { fillsByEstimate } from "../../../../hearing/src/estimates.ts";
+import { addMonths } from "../../../../hearing/src/months.ts";
 import type { EngineRequest, Household, Member } from "../../engine/types.ts";
 import { ITEM_LABELS } from "../../generated/labels.ts";
 import { endYearForAge, followedEndAge, type WorkingHousehold } from "../input/household.ts";
 import { fillEducation } from "../input/fill.ts";
-import { memberLabels } from "../input/labels.ts";
+import { EMPLOYMENT_TYPES, memberLabels, PENSION_CATEGORY } from "../input/labels.ts";
 import { withDeathEstimate } from "../input/stages/care.ts";
 import { withWorkEndEstimates } from "../input/stages/work.ts";
 import { BLUE_DEDUCTIONS, TAX_RETURN_METHODS } from "../input/taxReturn.ts";
 import { withEntry } from "../input/stages/housingLoans.ts";
 import { roles } from "../roles.ts";
+import { resolveTimepoint } from "../timepoint.ts";
 import type { WebLogEntry } from "./web.ts";
 
 /** 世帯ごとのヒアリングの記録（世帯ファイル 0011 の取り込みの記録・同意の記録に入れるまでの、画面の中の置き場） */
@@ -165,6 +167,32 @@ export interface CandidateView {
   keep: string | null;
   /** 記入どおりの値と一緒に、今の確定の値が範囲・推定・仮の値に置きかわる欄があるときの知らせ（既定で入れる） */
   caution: string | null;
+  /** 働き方の種類が変わった（今の期間と届いた働き方の種類が違う）ときの、承認の入れ方。それ以外は null */
+  work: WorkChange | null;
+}
+
+/**
+ * 働き方の種類が変わったときの承認の入れ方: 今の期間を届いた働き方に置きかえる（今の入力が古かった）か、今の期間を届いた働き方を始めた
+ * 年月の前の月で終えて、届いた働き方の期間を足す（転職・独立・役員になった）か
+ */
+export type WorkChangeMode = "replace" | "split";
+
+export interface WorkChange {
+  /** 今の働き方・届いた働き方（言葉） */
+  current: string;
+  next: string;
+  /** 今の期間の始まり（YYYY-MM。解けなければ null） */
+  currentFrom: string | null;
+  /** 届いた働き方を始めた年月（YYYY-MM。答えが無ければ null） */
+  nextFrom: string | null;
+  /** 「終えて足す」の、今の期間の最後の月（YYYY-MM）。始めた年月の答えが無い・今の期間の始まりより後でないときは選べない（null） */
+  splitEnd: string | null;
+  /** 既定の入れ方（「終えて足す」が選べればそれ。選べなければ置きかえる） */
+  mode: WorkChangeMode;
+  /** 今の期間の終わりが働く最後の年齢・定年の推定（届いた働き方で推定し直す。推定の定年後の期間は外す） */
+  endEstimated: boolean;
+  /** 今の世帯の、この後の働き方の期間（FP が入れたもの。そのまま残す）の言葉。無ければ null */
+  following: string | null;
 }
 
 export interface ImportView {
@@ -302,6 +330,78 @@ function signature(collection: string, o: Obj, members: Map<string, string>): st
   if (collection === "incomeFlows" && o.kind === "inheritance") return parts.join("|");
   for (const k of MEMBER_REFS) if (typeof o[k] === "string") parts.push(`${k}=${members.get(o[k] as string) ?? (o[k] as string)}`);
   return parts.join("|");
+}
+
+/** 働き方の期間の始まり・終わり（年月。解けなければ null） */
+const fromOf = (h: Household, o: Obj): string | null => resolveTimepoint(h, o.from as Parameters<typeof resolveTimepoint>[1]);
+const toOf = (h: Household, o: Obj): string | null => resolveTimepoint(h, o.to as Parameters<typeof resolveTimepoint>[1]);
+
+/**
+ * 今の世帯の、その人の今（計算基準月）にかかっている働き方の期間。ヒアリングの答えは「今の働き方」なので、種類が違っても同じ期間として
+ * 対応づける（種類で分けると、今の期間を残したまま新しい期間が足され、給与が二重になった）。同じ種類の期間があればそれを先に
+ */
+function currentWork(h: Household, member: string, type: unknown, base: string, used: ReadonlySet<string>): Obj | undefined {
+  const live = (lists(h).employmentPeriods ?? []).filter((o) => {
+    if (used.has(o.id) || o.member !== member) return false;
+    const from = fromOf(h, o);
+    const to = toOf(h, o);
+    return (from === null || from <= base) && (o.to === null || o.to === undefined || (to !== null && to >= base));
+  });
+  return live.find((o) => o.type === type) ?? live[0];
+}
+
+/** 終わりを推定で入れたときに足す、辞めた後の給付を受け取るかの推定（シートで聞かない。比べない） */
+const AUTO_CLAIMS = [
+  ["unemploymentClaim", "employment.unemploymentClaim"],
+  ["elderlyContinuationClaim", "employment.elderlyContinuationClaim"],
+] as const;
+
+function withoutAutoClaims(o: Obj): Obj {
+  const rows = o.valueStates as Record<string, { state?: string; origin?: { kind?: string } }> | undefined;
+  if (rows === undefined) return o;
+  const out: Obj = { ...o };
+  const left = { ...rows };
+  for (const [field, item] of AUTO_CLAIMS) {
+    const row = left[item];
+    if (row?.state !== "estimated" || row.origin?.kind !== "auto") continue;
+    delete out[field];
+    delete left[item];
+  }
+  if (Object.keys(left).length === 0) delete out.valueStates;
+  else out.valueStates = left;
+  return out;
+}
+
+/** 働く最後の年齢・定年の推定の印がある（今の終わりが推定。0133） */
+const endEstimatedOf = (wh: WorkingHousehold, member: string): boolean => wh.assumed[`work/${member}/mainEnd`] !== undefined || wh.assumed[`work/${member}/retireAge`] !== undefined;
+
+/** 推定の定年後の期間（定年後の予定の推定〔postType の印〕で、今の期間の終わりの次の月から始まる期間） */
+function estimatedPostPeriods(wh: WorkingHousehold, member: string, cur: Obj): Obj[] {
+  const h = wh.request.input.household;
+  const end = toOf(h, cur);
+  if (end === null || wh.assumed[`work/${member}/postType`] === undefined || wh.postRetirement[member] === undefined) return [];
+  return (lists(h).employmentPeriods ?? []).filter((o) => o.member === member && o.id !== cur.id && fromOf(h, o) === addMonths(end, 1));
+}
+
+/** 今の期間の後に始まる働き方の期間（推定の定年後の期間を除く） */
+function followingPeriods(wh: WorkingHousehold, member: string, cur: Obj, dropped: readonly Obj[]): Obj[] {
+  const h = wh.request.input.household;
+  const from = fromOf(h, cur) ?? "";
+  return (lists(h).employmentPeriods ?? []).filter((o) => o.member === member && o.id !== cur.id && !dropped.some((d) => d.id === o.id) && (fromOf(h, o) ?? "") > from).sort((a, b) => ((fromOf(h, a) ?? "") < (fromOf(h, b) ?? "") ? -1 : 1));
+}
+
+/** 働き方の種類が変わったときの入れ方（今の期間 cur・届いた期間 v） */
+function workChangeOf(wh: WorkingHousehold, c: Candidate, v: Obj, cur: Obj, labels: ReadonlyMap<string, string>, choices: ReadonlyMap<string, string>): WorkChange {
+  const h = wh.request.input.household;
+  const member = cur.member as string;
+  const currentFrom = fromOf(h, cur);
+  const answered = c.fields.some((f) => f.path === "/from/at" && f.noAnswer !== true && f.state === "confirmed");
+  const nextFrom = answered ? ((v.from as { at?: string } | undefined)?.at ?? null) : null;
+  const splitEnd = nextFrom !== null && currentFrom !== null && nextFrom > currentFrom && nextFrom <= wh.request.input.baseMonth ? addMonths(nextFrom, -1) : null;
+  const endEstimated = endEstimatedOf(wh, member);
+  const rest = followingPeriods(wh, member, cur, endEstimated ? estimatedPostPeriods(wh, member, cur) : []);
+  const following = rest.length === 0 ? null : rest.map((o) => `${valueText(o.type, "/type", labels, choices)}（${(() => { const f = fromOf(h, o); return f === null ? "" : `${ymWords(f)}〜`; })()}）`).join("・");
+  return { current: valueText(cur.type, "/type", labels, choices), next: valueText(v.type, "/type", labels, choices), currentFrom, nextFrom, splitEnd, mode: splitEnd !== null ? "split" : "replace", endEstimated, following };
 }
 
 /** ID の文字列を読み替える（物の中の構成員・物への参照） */
@@ -457,6 +557,7 @@ const PATH_LABELS: Readonly<Record<string, string>> = {
   "debt.debtors /debtors/0/member": "借りている人",
   "debt.start /start/at": "借りた年月",
   "debt.housing /housing": "住宅ローン控除の条件",
+  "employment.type /type": "働き方",
   "employment.from /from/at": "仕事を始めた年月",
   "employment.to /to/at": "仕事を終える年月",
   "employment.to /to": "仕事を終える年月",
@@ -523,6 +624,9 @@ function valueText(v: unknown, path: string, labels: ReadonlyMap<string, string>
     if (/^\d{4}-\d{2}$/.test(v)) return ymWords(v);
     // 確定申告の仕方（0155）: 入力の画面と同じ言葉
     if (path.startsWith("/taxReturn/")) return [...TAX_RETURN_METHODS, ...BLUE_DEDUCTIONS].find((o) => o.value === v)?.label ?? v;
+    // 厚生年金の種別・働き方（シートの選択肢に無い種類）: 入力の画面と同じ言葉
+    if (path === "/pensionCategory") return PENSION_CATEGORY.find((o) => o.value === v)?.label ?? v;
+    if (path === "/type" && !choices.has(v)) return EMPLOYMENT_TYPES.find((o) => o.value === v)?.label ?? v;
     const numeric = /^-?\d+(\.\d+)?$/.test(v);
     if (/rate/i.test(path) && numeric) return `${String(Math.round(Number(v) * 1e6) / 1e4)}%`;
     if (/hours/i.test(path) && numeric) return `${v}時間`;
@@ -573,6 +677,13 @@ export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold): Imp
     if (c.collection === "members") {
       const id = members.get(v.id);
       found = id === undefined ? undefined : cur.members.find((m) => m.id === id) as unknown as Obj | undefined;
+    } else if (c.collection === "employmentPeriods" && typeof v.member === "string") {
+      // 働き方の期間: その人の今（計算基準月）にかかっている期間と、種類が違っても対応づける（0139 の追記 2026-11-07）
+      found = currentWork(cur, members.get(v.member) ?? v.member, v.type, wh.request.input.baseMonth, used);
+      if (found !== undefined) {
+        used.add(found.id);
+        match.set(v.id, found.id);
+      }
     } else {
       const sig = signature(c.collection, v, members);
       found = (curLists[c.collection] ?? []).find((o) => !used.has(o.id) && signature(c.collection, o, new Map()) === sig);
@@ -597,6 +708,12 @@ export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold): Imp
       if (mapped.taxReturn === undefined) delete found.taxReturn;
       else found.taxReturn = mapped.taxReturn;
     }
+    const work = c.collection === "employmentPeriods" && found !== undefined && found.type !== v.type ? workChangeOf(wh, c, v, found, names, choicesOf("hs.work.type")) : null;
+    // 定年の「わからない」「該当なし」（終わり無し）と、今の終わりが働く最後の年齢の推定（取り込みの後に入れた推定など）は同じとみる
+    // （取り込み直しで「変わった」に出さない。承認しても推定が入り直す。0139 の追記 2026-11-07）。推定と一緒に入れた辞めた後の給付の推定も比べない
+    const endEstimated = c.collection === "employmentPeriods" && found !== undefined && endEstimatedOf(wh, found.member as string);
+    const sameOpenEnd = work === null && endEstimated && c.fields.some((f) => f.path === "/to" && f.noAnswer !== true) && mapped.to === null;
+    if (found !== undefined && sameOpenEnd) found = withoutAutoClaims({ ...found, to: null });
     let changedFields = 0;
     let keptFields = 0;
     /** 記入どおりの値（範囲・推定・仮でない）で変わる欄の数 */
@@ -610,8 +727,9 @@ export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold): Imp
         if (JSON.stringify(plain(next)) === JSON.stringify(plain(cur))) continue;
         const row = `${f.key}#${f.index ?? 0}`;
         const label = pathLabel(f, keyLabel(r.definition, f.key));
-        // お答えの無い欄（空欄・「あとで」・聞いていない）は、今の値があれば承認しても今の値のまま（applyImport で戻す）
-        const kept = f.noAnswer === true && keepable(found, f.path);
+        // お答えの無い欄（空欄・「あとで」・聞いていない）は、今の値があれば承認しても今の値のまま（applyImport で戻す）。働き方の種類が
+        // 変わり、今の終わりが推定なら、終わりは届いた働き方で推定し直す（残さない）
+        const kept = f.noAnswer === true && keepable(found, f.path) && !(work?.endEstimated === true && f.path.startsWith("/to"));
         const uiKey = f.uiKey === undefined ? null : remap(f.uiKey.split("/"), match).join("/");
         const isRough = !kept && (f.state === "estimated" || f.state === "unknown" || f.state === "assumed") && isFirm(cur, uiKey, wh.assumed);
         if (kept) {
@@ -653,7 +771,7 @@ export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold): Imp
     const caution = kind === "changed" && rough.length > 0 && firmChanges > 0 ? `${rough.join("・")}は、今の確定の値が範囲・推定・仮の値に置きかわります。今の値を残すなら、承認の後に入力の画面で直してください` : null;
     // 親: 新しく入る親は、亡くなる見込みを平均余命の推定（仮）で入れる（applyImport。介護・親の項目で親を足したときと同じ）。今いる親は聞かない欄を残す
     const note = parent ? (found === undefined ? PARENT_NEW_NOTE : PARENT_KEEP_NOTE) : c.note;
-    return { id: c.id, group: groupOf(c), title: titleOf(c, imp), kind, review: c.status === "needsReview", contradictions: cons, fields, changedFields, note, keep, caution };
+    return { id: c.id, group: groupOf(c), title: titleOf(c, imp), kind, review: c.status === "needsReview", contradictions: cons, fields, changedFields, note, keep, caution, work };
   });
   // 今の値を残した項目の「記入がありません（0円として計算します）」などの知らせは、残した値と合わないので出さない
   // （同じ項目を、今の値の無い物で補った値のまま使うときは出す）
@@ -671,6 +789,26 @@ export function defaultSelection(view: ImportView): Set<string> {
   return new Set(view.candidates.filter((c) => (c.kind === "new" || c.kind === "changed") && !c.review && c.contradictions.length === 0 && c.keep === null).map((c) => c.id));
 }
 
+/** 働き方の種類が変わった候補の、候補の画面の言葉（見出し・2つの入れ方・添える知らせ） */
+export function workChangeTexts(w: WorkChange): { head: string; split: string | null; replace: string; notes: string[] } {
+  const since = w.currentFrom === null ? "" : `・${ymWords(w.currentFrom)}〜`;
+  const notes: string[] = [];
+  if (w.splitEnd === null) notes.push(`仕事を始めた年月のお答えが無い（または今の期間の始まりより前・計算基準月より後の）ため、今の期間を${w.next}に置きかえます`);
+  if (w.endEstimated) notes.push("今の期間の終わりは働く最後の年齢の推定なので残しません（推定の定年後の期間は外し、定年のお答えが無ければ、届いた働き方で推定し直します）");
+  if (w.following !== null) notes.push(`この後の働き方の期間（${w.following}）はそのまま残します。届いた働き方に終わりが無ければ、その前の月で終えます。届いた定年と重なるときは、承認の後に入力の画面で直してください`);
+  return {
+    head: `働き方が変わりました: 今 ${w.current} → 届いた値 ${w.next}`,
+    split: w.splitEnd === null || w.nextFrom === null ? null : `今の期間（${w.current}${since}）を${ymWords(w.splitEnd)}で終えて、${w.next}の期間を${ymWords(w.nextFrom)}から足す（転職・独立・役員になったとき）`,
+    replace: `今の期間を${w.next}に置きかえる（今の入力が古かったとき。今の期間の${w.current}は残りません）`,
+    notes,
+  };
+}
+
+/** 働き方の種類が変わった候補の、既定の入れ方（候補の ID → 入れ方） */
+export function defaultWorkModes(view: ImportView): Map<string, WorkChangeMode> {
+  return new Map(view.candidates.flatMap((c) => (c.work !== null ? [[c.id, c.work.mode] as const] : [])));
+}
+
 export interface ApplyResult {
   wh: WorkingHousehold;
   /** 現状に入れた候補の数（新規・変更） */
@@ -684,7 +822,7 @@ export interface ApplyResult {
  * 承認した候補を現状に入れる: 承認の記録を付け（approveAll）、構成員と物の ID を今の世帯のものに読み替え、
  * 変更は今の物を置き換え、新規は足す。推定・仮の印（assumed）・メモ・同意の下書き・取り込みの記録も入れる
  */
-export function applyImport(wh: WorkingHousehold, view: ImportView, selected: ReadonlySet<string>, at: string): ApplyResult {
+export function applyImport(wh: WorkingHousehold, view: ImportView, selected: ReadonlySet<string>, at: string, workModes?: ReadonlyMap<string, WorkChangeMode>): ApplyResult {
   const r = view.result;
   const approved = approveAll(r, at) as unknown as EngineRequest;
   const impLists = lists(approved.input.household);
@@ -702,6 +840,17 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
   let added = 0;
   let replaced = 0;
   const viewOf = new Map(view.candidates.map((c) => [c.id, c]));
+  /** 働き方の種類が変わった候補の入れ方（「終えて足す」が選べなければ置きかえる） */
+  const modeOf = (id: string): WorkChangeMode | null => {
+    const w = viewOf.get(id)?.work ?? null;
+    if (w === null) return null;
+    const m = workModes?.get(id) ?? w.mode;
+    return m === "split" && w.splitEnd === null ? "replace" : m;
+  };
+  // 「終えて足す」の期間は今の期間と別の物（取り込んだ ID のまま足す。退職金などの参照も新しい期間を指す）
+  for (const c of chosen) if (modeOf(c.id) === "split") ids.delete(c.target.object);
+  /** 推定の定年後の予定を外した人（働き方の種類が変わり、今の終わりが推定だった人） */
+  const postDropped = new Set<string>();
   const dropped = new Set<string>();
   /** お答えの無い欄で今の値を残した所の、仮の印のキー（取り込んだ側の印は入れず、今の印を残す） */
   const keptUiKeys = new Set<string>();
@@ -719,6 +868,34 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
       continue;
     }
     const list = (curLists[c.collection] ??= []);
+    // 働き方の種類が変わった（0139 の追記 2026-11-07）: 今の終わりが推定なら、推定の定年後の期間と予定を外し、届いた働き方で推定し直す。
+    // 「終えて足す」は今の期間を届いた働き方を始めた年月の前の月で終え、届いた期間を足す
+    const work = viewOf.get(c.id)?.work ?? null;
+    const mode = modeOf(c.id);
+    const oldId = view.match.get(c.target.object);
+    const old = work === null || oldId === undefined ? undefined : list.find((o) => o.id === oldId);
+    let following: Obj[] = [];
+    if (work !== null && old !== undefined && typeof old.member === "string") {
+      const member = old.member;
+      const posts = work.endEstimated ? estimatedPostPeriods(wh, member, old) : [];
+      for (const p of posts) {
+        const i = list.findIndex((o) => o.id === p.id);
+        if (i >= 0) list.splice(i, 1);
+      }
+      if (work.endEstimated) postDropped.add(member);
+      following = followingPeriods(wh, member, old, posts);
+      if (mode === "split" && work.splitEnd !== null) {
+        const end = toOf(h, old);
+        if (end === null || end > work.splitEnd) old.to = { at: work.splitEnd };
+        // 届いた働き方に終わりが無く、今の世帯にこの後の期間（FP が入れた予定）があれば、その前の月で終える（重ねない）
+        const next = following[0] === undefined ? null : fromOf(h, following[0]);
+        if (obj.to === null && next !== null) obj.to = { at: addMonths(next, -1) };
+        else if (obj.to === null) endFromImport.add(member);
+        list.push(obj);
+        added++;
+        continue;
+      }
+    }
     const at = list.findIndex((o) => o.id === obj.id);
     // 住宅ローンの入居のイベント（住宅ローン控除の条件 debt.housing が指す）は、ローンといっしょに入れる。置き換えたローンの前のイベントは外す
     const moveIn = (o: Obj | undefined) => ((o?.housing as { moveIn?: string } | undefined)?.moveIn ?? null);
@@ -734,15 +911,20 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
       // 値が変わった所は取り込んだ値と承認の記録が正（0041）
       const prev = list[at] as Obj;
       const merged = c.collection === "members" ? (obj.kind === "parent" ? keepParent(prev, obj) : keepMember(prev, obj, c.fields)) : patchesRow(c.collection, obj) ? patchRow(prev, obj, c.fields) : obj;
-      // お答えの無い欄（空欄・「あとで」・聞いていない）は、今の値があれば今の値のまま（目安・仮の値・0円で上書きしない）
+      // お答えの無い欄（空欄・「あとで」・聞いていない）は、今の値があれば今の値のまま（目安・仮の値・0円で上書きしない）。働き方の種類が
+      // 変わり、今の終わりが推定なら、終わりは残さない（届いた働き方で推定し直す）
+      const keepsEnd = (f: FieldRecord) => !(work?.endEstimated === true && f.path.startsWith("/to"));
       for (const f of c.fields) {
-        if (f.noAnswer !== true || !keepable(prev, f.path)) continue;
+        if (f.noAnswer !== true || !keepable(prev, f.path) || !keepsEnd(f)) continue;
         setAt(merged, f.path, valueAt(prev, f.path));
         if (f.uiKey !== undefined) keptUiKeys.add(f.uiKey);
       }
       carryRows(prev, merged, c.collection === "members" ? { member: merged.id } : { object: merged.id });
       if (c.collection === "members" && prev.leaves !== undefined && prev.leaves !== null && JSON.stringify(prev.leaves) === JSON.stringify(merged.leaves)) keptLeaves.add(merged.id);
-      if (c.collection === "employmentPeriods" && typeof merged.member === "string" && c.fields.some((f) => f.path.startsWith("/to") && !(f.noAnswer === true && keepable(prev, f.path)))) endFromImport.add(merged.member);
+      // 働き方の種類が変わり、届いた働き方に終わりが無いとき、今の世帯にこの後の期間（FP が入れた予定）があれば、その前の月で終える（重ねない）
+      const next = work !== null && following[0] !== undefined ? fromOf(h, following[0]) : null;
+      if (work !== null && merged.to === null && next !== null) merged.to = { at: addMonths(next, -1) };
+      else if (c.collection === "employmentPeriods" && typeof merged.member === "string" && c.fields.some((f) => f.path.startsWith("/to") && !(f.noAnswer === true && keepable(prev, f.path) && keepsEnd(f)))) endFromImport.add(merged.member);
       list[at] = merged;
       replaced++;
     } else {
@@ -782,7 +964,7 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
   const keepMark = (k: string): boolean => {
     if (keptCurrent.has(k)) return true;
     const work = /^work\/([^/]+)\/(mainEnd|postType|retireAge)$/.exec(k);
-    if (work !== null) return !endFromImport.has(work[1] ?? "");
+    if (work !== null) return !endFromImport.has(work[1] ?? "") && !postDropped.has(work[1] ?? "");
     const leaves = /^family\/([^/]+)\/leaves$/.exec(k);
     if (leaves !== null && keptLeaves.has(leaves[1] ?? "")) return true;
     return ![...touched].some((id) => k.includes(id));
@@ -795,9 +977,11 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
   }
   const log = logOf(wh);
   const memo = r.memo.length > 0 ? [...wh.memo, ...r.memo.map((m) => `ヒアリング（${r.record.requestId}）: ${m}`)] : wh.memo;
+  const postRetirement = postDropped.size === 0 ? wh.postRetirement : Object.fromEntries(Object.entries(wh.postRetirement).filter(([k]) => !postDropped.has(k)));
   const next: WorkingHousehold = {
     ...wh,
     request,
+    postRetirement,
     assumed,
     memo,
     hearing: {
