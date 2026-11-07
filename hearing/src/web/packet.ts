@@ -3,6 +3,8 @@
 //   FP の独自の質問（ext.office.*。自由記述。計算に使わずメモに入る。0018 の3）・頼む書類を選ぶ。項目キーは公式のものをそのまま使う（0018 の5）
 // - 取り込みは、アプリの側に残した依頼の記録（選び方と指紋）を正にする。届いた答えは信用しない: 形を確かめ、選んだ項目・繰り返しの範囲の外は捨てる
 // - 答えの受け皿は Excel と同じ（filled-sheet の回答の一覧 Answer[]。依頼番号）。記入の年月（hs.meta.filledOn）は送った月をページが入れる
+// - 0.2（0158）: 分岐の問いの答え（配偶者の方がいるか・お子さまの人数など。gates）を答えに足した。書類は答えと別の「書類の送り」
+//   （DocumentsPacket。何回でも）で届き、答えには書類ごとの状態（付けた・手元にない・あとで送る・まだ）だけを入れる
 import type { Answer, RawValue } from "../answers.ts";
 import { axisOf, itemByKey, type Axis, type SheetDefinition, type SheetItem } from "../definition.ts";
 import { canonicalJson } from "../layout.ts";
@@ -11,7 +13,8 @@ import { sha256Hex } from "./e2e.ts";
 
 export const QUESTIONS_FORMAT = "fprise-lifeplan-hearing-web-questions";
 export const ANSWERS_FORMAT = "fprise-lifeplan-hearing-web-answers";
-export const WEB_FORMAT_VERSION = "0.1";
+export const DOCUMENTS_FORMAT = "fprise-lifeplan-hearing-web-documents";
+export const WEB_FORMAT_VERSION = "0.2";
 /** 記入の年月（送った月をページが入れる。問いには出さない） */
 export const FILLED_ON = "hs.meta.filledOn";
 /** FP の独自の質問の項目キーの頭（0011 の拡張の名前空間。作成者は事務所） */
@@ -119,13 +122,32 @@ export interface QuestionsPacket {
   readonly years: { readonly from: number; readonly to: number };
 }
 
-/** 書類1通の答え */
+/** 書類1通の答え（答えを送ったときの状態。ファイルは書類の送りで別に届く） */
 export interface DocumentAnswer {
   readonly id: string;
-  /** attached 付けた・notAvailable 手元にない・later あとで送る・blank まだ */
+  /** attached 付けた（送った）・notAvailable 手元にない・later あとで送る・blank まだ */
   readonly status: "attached" | "notAvailable" | "later" | "blank";
-  readonly files: readonly { readonly fileId: string; readonly mime: DocumentMime; readonly bytes: number; readonly sha256: string }[];
 }
+
+/** 書類のファイル1つの申告（送り状に載せる。FP は指紋・形・大きさが合うものだけを受け取る） */
+export interface DocumentFile {
+  readonly fileId: string;
+  readonly mime: DocumentMime;
+  readonly bytes: number;
+  readonly sha256: string;
+}
+
+/** 書類の送りの1通分（どの書類のファイルか） */
+export interface DocumentFiles {
+  readonly id: string;
+  readonly files: readonly DocumentFile[];
+}
+
+/** 分岐の問い（配偶者の方がいるか・お子さまの人数・住宅ローンの本数・保険の件数・ご両親のことを聞いてよいか） */
+export type GateId = "spouse" | "child" | "loan" | "policy" | "parent";
+export const GATE_IDS: readonly GateId[] = ["spouse", "child", "loan", "policy", "parent"];
+/** 分岐の問いの答え（配偶者の方・ご両親は 1 か 0、人数・本数・件数は数。聞いた問いだけ） */
+export type GateAnswers = Readonly<Partial<Record<GateId, number>>>;
 
 /** お客さまから届く答え（暗号化する前の中身） */
 export interface AnswersPacket {
@@ -134,7 +156,19 @@ export interface AnswersPacket {
   readonly requestId: string;
   readonly submittedAt: string;
   readonly answers: readonly Answer[];
+  /** 分岐の問いの答え（0.2） */
+  readonly gates: GateAnswers;
   readonly documents: readonly DocumentAnswer[];
+}
+
+/** お客さまから届く書類の送り状（暗号化する前の中身。答えと別に、期限まで何回でも。0158） */
+export interface DocumentsPacket {
+  readonly format: typeof DOCUMENTS_FORMAT;
+  readonly version: string;
+  readonly requestId: string;
+  readonly batchId: string;
+  readonly sentAt: string;
+  readonly documents: readonly DocumentFiles[];
 }
 
 // ---- 選び方 → 問い ----
@@ -419,9 +453,21 @@ function readRaw(v: unknown, max: number): RawValue | null {
 export interface CheckedAnswers {
   readonly answers: Answer[];
   readonly documents: DocumentAnswer[];
+  /** 分岐の問いの答え（選んだ項目に関わる問いだけ） */
+  readonly gates: GateAnswers;
   readonly submittedAt: string;
   /** 捨てた答え（形が違う・選んでいない項目・範囲の外など）の数 */
   readonly dropped: number;
+}
+
+/** その分岐の問いが、選んだ項目に関わるか（関わらない分岐の答えは捨てる）。人数・本数・件数の上限（繰り返しの数）も返す */
+function gateLimit(def: SheetDefinition, s: WebSelection, g: GateId): number | null {
+  const keys = s.sections.flatMap((x) => x.items.map((i) => i.key));
+  const axes = new Set(keys.map((k) => axisOf(def, k)?.id).filter((x): x is string => x !== undefined));
+  if (g === "spouse") return axes.has("adult") || axes.has("parent") || keys.includes("hs.family.spouse.marriage") ? 1 : null;
+  if (g === "parent") return axes.has("parent") ? 1 : null;
+  if (!axes.has(g)) return null;
+  return def.axes.find((a) => a.id === g)?.count ?? null;
 }
 
 /**
@@ -429,7 +475,7 @@ export interface CheckedAnswers {
  * 選んでいない項目・繰り返しの範囲の外・選べない状態・重なりは捨てて数える（黙って取り込まない）
  */
 export function checkAnswers(json: unknown, def: SheetDefinition, s: WebSelection, requestId: string): CheckedAnswers {
-  if (!isObj(json) || json.format !== ANSWERS_FORMAT || typeof json.version !== "string" || !/^0\.\d+$/.test(json.version) || !Array.isArray(json.answers) || !Array.isArray(json.documents) || typeof json.submittedAt !== "string") throw new Error("E_WEB_ANSWERS_SHAPE");
+  if (!isObj(json) || json.format !== ANSWERS_FORMAT || json.version !== WEB_FORMAT_VERSION || !Array.isArray(json.answers) || !Array.isArray(json.documents) || typeof json.submittedAt !== "string" || !isObj(json.gates)) throw new Error("E_WEB_ANSWERS_SHAPE");
   if (json.requestId !== requestId) throw new Error("E_WEB_ANSWERS_REQUEST");
   if (json.answers.length > 2000 || json.documents.length > DOCUMENT_LIMITS.documents) throw new Error("E_WEB_ANSWERS_SHAPE");
   const idef = importDefinition(def, s);
@@ -463,28 +509,71 @@ export function checkAnswers(json: unknown, def: SheetDefinition, s: WebSelectio
     }
     answers.push({ key: a.key, ...(index !== undefined ? { index: index as number } : {}), status: status as Answer["status"], ...(status === "value" && raw !== undefined ? { raw } : {}), ...(status === "value" && raw2 !== undefined ? { raw2 } : {}) });
   }
-  const docIds = new Set(s.documents.map((d) => d.id));
-  const documents: DocumentAnswer[] = [];
-  let files = 0;
-  let total = 0;
-  for (const d of json.documents as unknown[]) {
-    if (!isObj(d) || typeof d.id !== "string" || !docIds.has(d.id) || !["attached", "notAvailable", "later", "blank"].includes(d.status as string) || !Array.isArray(d.files) || documents.some((x) => x.id === d.id)) {
+  // 分岐の答え: 知っている問い・選んだ項目に関わる問い・数の範囲の中だけ
+  const gates: Partial<Record<GateId, number>> = {};
+  for (const [g, n] of Object.entries(json.gates)) {
+    const lim = (GATE_IDS as readonly string[]).includes(g) ? gateLimit(def, s, g as GateId) : null;
+    if (lim === null || typeof n !== "number" || !Number.isInteger(n) || n < 0 || n > lim) {
       dropped++;
       continue;
     }
-    const list: DocumentAnswer["files"][number][] = [];
+    gates[g as GateId] = n;
+  }
+  const docIds = new Set(s.documents.map((d) => d.id));
+  const documents: DocumentAnswer[] = [];
+  for (const d of json.documents as unknown[]) {
+    if (!isObj(d) || typeof d.id !== "string" || !docIds.has(d.id) || !["attached", "notAvailable", "later", "blank"].includes(d.status as string) || documents.some((x) => x.id === d.id)) {
+      dropped++;
+      continue;
+    }
+    documents.push({ id: d.id, status: d.status as DocumentAnswer["status"] });
+  }
+  return { answers, documents, gates, submittedAt: json.submittedAt.slice(0, 40), dropped };
+}
+
+export interface CheckedDocuments {
+  readonly sentAt: string;
+  readonly documents: DocumentFiles[];
+  /** 捨てた申告（頼んでいない書類・形の違うファイル・送りに載っていないファイル）の数 */
+  readonly dropped: number;
+}
+
+const MIMES: readonly string[] = ["image/jpeg", "image/png", "image/heic", "application/pdf"];
+
+/**
+ * 届いた書類の送り状（JSON）を確かめる。形の違うものは E_WEB_DOCUMENTS_SHAPE、依頼番号・送りの番号が違えば E_WEB_DOCUMENTS_REQUEST。
+ * 頼んでいない書類・形の違うファイル・サーバーの送りに載っていないファイル・重なりは捨てて数える。1回の送りの数と大きさの上限を超えれば形の違うもの
+ */
+export function checkDocuments(json: unknown, s: WebSelection, requestId: string, batchId: string, serverFiles: readonly string[]): CheckedDocuments {
+  if (!isObj(json) || json.format !== DOCUMENTS_FORMAT || json.version !== WEB_FORMAT_VERSION || !Array.isArray(json.documents) || typeof json.sentAt !== "string") throw new Error("E_WEB_DOCUMENTS_SHAPE");
+  if (json.requestId !== requestId || json.batchId !== batchId) throw new Error("E_WEB_DOCUMENTS_REQUEST");
+  if (json.documents.length > DOCUMENT_LIMITS.documents) throw new Error("E_WEB_DOCUMENTS_SHAPE");
+  const docIds = new Set(s.documents.map((d) => d.id));
+  const allowed = new Set(serverFiles);
+  const used = new Set<string>();
+  const documents: DocumentFiles[] = [];
+  let dropped = 0;
+  let files = 0;
+  let total = 0;
+  for (const d of json.documents as unknown[]) {
+    if (!isObj(d) || typeof d.id !== "string" || !docIds.has(d.id) || !Array.isArray(d.files) || documents.some((x) => x.id === d.id)) {
+      dropped++;
+      continue;
+    }
+    const list: DocumentFile[] = [];
     for (const f of (d.files as unknown[]).slice(0, DOCUMENT_LIMITS.filesPerDocument)) {
-      if (!isObj(f) || typeof f.fileId !== "string" || !/^[A-Za-z0-9_-]{16}$/.test(f.fileId) || !["image/jpeg", "image/png", "image/heic", "application/pdf"].includes(f.mime as string) || typeof f.bytes !== "number" || !Number.isInteger(f.bytes) || f.bytes <= 0 || f.bytes > DOCUMENT_LIMITS.fileBytes || typeof f.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(f.sha256)) {
+      if (!isObj(f) || typeof f.fileId !== "string" || !/^[A-Za-z0-9_-]{16}$/.test(f.fileId) || !allowed.has(f.fileId) || used.has(f.fileId) || !MIMES.includes(f.mime as string) || typeof f.bytes !== "number" || !Number.isInteger(f.bytes) || f.bytes <= 0 || f.bytes > DOCUMENT_LIMITS.fileBytes || typeof f.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(f.sha256)) {
         dropped++;
         continue;
       }
+      used.add(f.fileId);
       files++;
       total += f.bytes;
-      if (files > DOCUMENT_LIMITS.files || total > DOCUMENT_LIMITS.totalBytes) throw new Error("E_WEB_ANSWERS_SHAPE");
+      if (files > DOCUMENT_LIMITS.files || total > DOCUMENT_LIMITS.totalBytes) throw new Error("E_WEB_DOCUMENTS_SHAPE");
       list.push({ fileId: f.fileId, mime: f.mime as DocumentMime, bytes: f.bytes, sha256: f.sha256 });
     }
-    const status = d.status as DocumentAnswer["status"];
-    documents.push({ id: d.id, status: status === "attached" && list.length === 0 ? "blank" : status, files: status === "attached" ? list : [] });
+    dropped += Math.max(0, (d.files as unknown[]).length - DOCUMENT_LIMITS.filesPerDocument);
+    if (list.length > 0) documents.push({ id: d.id, files: list });
   }
-  return { answers, documents, submittedAt: json.submittedAt.slice(0, 40), dropped };
+  return { sentAt: json.sentAt.slice(0, 40), documents, dropped };
 }

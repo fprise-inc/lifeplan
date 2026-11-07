@@ -1,5 +1,5 @@
 // Web のヒアリング（0125）の FP の画面: 聞く項目・並び・確かめてもらう項目・独自の質問・頼む書類を選び、顧客にどう見えるかを見本で見て、
-// URL を発行する（有効期限・案内文のひな形をコピー）。送るのは FP（メールなど）。アプリはメールを送らない
+// URL を発行する（有効期限は30日の決め打ち。延長は依頼の一覧で。0158）・案内文のひな形をコピー。送るのは FP（メールなど）。アプリはメールを送らない
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { HearingForm } from "../../hearingForm/Form.tsx";
 import { initialDraft, screenId, screenOf, screens } from "../../../../hearing/src/web/flow.ts";
@@ -34,7 +34,7 @@ interface Props {
 }
 
 /** 事務所の文（アプリを開いている間だけ覚える。ヒアリングシートの書き出しと同じ） */
-const remembered = { purpose: "ライフプランの作成と、家計・保険・資産運用のご相談のため", privacyContact: "", customerNo: "", days: 30 };
+const remembered = { purpose: "ライフプランの作成と、家計・保険・資産運用のご相談のため", privacyContact: "", customerNo: "" };
 
 /** 繰り返しの軸の言葉（項目選びで、誰の・何の問いかを見分ける） */
 const AXIS_HINT: Readonly<Record<string, string>> = { adult: "ご本人・配偶者の方ごと", child: "お子さまごと", parent: "ご両親ごと", loan: "ローンごと", policy: "保険ごと" };
@@ -71,11 +71,11 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, persisted,
   useEffect(() => {
     let live = true;
     if (problems.length > 0) return;
-    void previewPacket(wh, sel, face, form.days, new Date()).then((p) => live && setPacket(p), () => live && setPacket(null));
+    void previewPacket(wh, sel, face, new Date()).then((p) => live && setPacket(p), () => live && setPacket(null));
     return () => {
       live = false;
     };
-  }, [sel, face.name, face.purpose, face.privacyContact, face.color, form.days]);
+  }, [sel, face.name, face.purpose, face.privacyContact, face.color]);
 
   const pickTemplate = (k: string) => {
     setKind(k);
@@ -123,10 +123,10 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, persisted,
   const issue = async () => {
     setBusy(true);
     setErr(null);
-    Object.assign(remembered, { purpose: form.purpose, privacyContact: form.privacyContact, customerNo: form.customerNo, days: form.days });
+    Object.assign(remembered, { purpose: form.purpose, privacyContact: form.privacyContact, customerNo: form.customerNo });
     try {
       const cfg = await web.config();
-      const r = await issueWeb(wh, { selection: sel, customerNo: form.customerNo, office: face, days: form.days, pageUrl: cfg.pageUrl, transport: web.call });
+      const r = await issueWeb(wh, { selection: sel, customerNo: form.customerNo, office: face, pageUrl: cfg.pageUrl, transport: web.call });
       onSave(r.wh);
       await saveNow();
       setIssued(r.entry);
@@ -372,18 +372,8 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, persisted,
                   setForm((f) => ({ ...f, privacyContact: v }));
                 }} />
               </label>
-              <label>
-                <span>有効期限</span>
-                <select value={String(form.days)} onChange={(e) => {
-                  const v = Number((e.currentTarget as HTMLSelectElement).value);
-                  setForm((f) => ({ ...f, days: v }));
-                }} data-web-days>
-                  <option value="7">7日</option>
-                  <option value="14">14日</option>
-                  <option value="30">30日（最長）</option>
-                </select>
-              </label>
             </div>
+            <p class="rp-note" data-web-expiry-note>回答の期限は、発行した日から30日です。足りないときは、依頼の一覧の「延長」で、押した日から30日に延ばせます（発行した日から90日まで）。</p>
             {sel.sections.some((s) => s.items.some((i) => i.mode === "confirm")) ? <p class="hs-warn">「確かめてもらう」項目の今の値は、問いと一緒に暗号化して送ります。URL を知っている人は今の値を読めるので、送り先を確かめてください。</p> : null}
             {!persisted ? <p class="fatal">世帯を保存してから発行してください（受け取りの鍵は世帯ファイルの中に置きます）。</p> : null}
             {problems.length > 0 ? <p class="fatal">{problems.join("・")}</p> : null}

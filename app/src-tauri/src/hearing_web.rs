@@ -77,15 +77,18 @@ fn b64url_ok(s: &str, len: usize) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }
 
-/// 通してよい道か: /requests・/requests/<id>・/requests/<id>/(answers|status)・/requests/<id>/files/<fileId>。
-/// FP のアプリが使う動き（作る・状況・答え・書類・消す）だけ
+/// 通してよい道か: /requests・/requests/<id>・/requests/<id>/(answers|status|extend)・/requests/<id>/files/<fileId>・
+/// /requests/<id>/batches/<batchId>。FP のアプリが使う動き（作る・状況・答え・書類の送りと書類・受け取った分を消す・延長・消す。0158）だけ
 pub fn allowed_call(method: &str, path: &str) -> bool {
     let parts: Vec<&str> = path.strip_prefix('/').unwrap_or("").split('/').collect();
     match (method, parts.as_slice()) {
         ("POST", ["requests"]) => true,
         ("DELETE", ["requests", id]) => b64url_ok(id, 22),
         ("GET", ["requests", id, "status" | "answers"]) => b64url_ok(id, 22),
+        ("DELETE", ["requests", id, "answers"]) => b64url_ok(id, 22),
+        ("POST", ["requests", id, "extend"]) => b64url_ok(id, 22),
         ("GET", ["requests", id, "files", f]) => b64url_ok(id, 22) && b64url_ok(f, 16),
+        ("GET" | "DELETE", ["requests", id, "batches", b]) => b64url_ok(id, 22) && b64url_ok(b, 16),
         _ => false,
     }
 }
@@ -303,9 +306,27 @@ mod tests {
         assert!(allowed_call("GET", &format!("/requests/{id}/answers")));
         assert!(allowed_call("GET", &format!("/requests/{id}/files/{f}")));
         assert!(allowed_call("DELETE", &format!("/requests/{id}")));
-        // お客さまの動き（答えを送る・書類を置く）・知らない道・形の違う名前は通さない
+        // 受け取った分を消す・書類の送りを読む・延長（0158）
+        assert!(allowed_call("DELETE", &format!("/requests/{id}/answers")));
+        assert!(allowed_call("GET", &format!("/requests/{id}/batches/{f}")));
+        assert!(allowed_call(
+            "DELETE",
+            &format!("/requests/{id}/batches/{f}")
+        ));
+        assert!(allowed_call("POST", &format!("/requests/{id}/extend")));
+        // お客さまの動き（答えを送る・書類を置く・書類の送りを送る・書類を外す）・知らない道・形の違う名前は通さない
         assert!(!allowed_call("PUT", &format!("/requests/{id}/answers")));
         assert!(!allowed_call("PUT", &format!("/requests/{id}/files/{f}")));
+        assert!(!allowed_call(
+            "DELETE",
+            &format!("/requests/{id}/files/{f}")
+        ));
+        assert!(!allowed_call("PUT", &format!("/requests/{id}/batches/{f}")));
+        assert!(!allowed_call("GET", &format!("/requests/{id}/extend")));
+        assert!(!allowed_call(
+            "GET",
+            &format!("/requests/{id}/batches/short")
+        ));
         assert!(!allowed_call("GET", &format!("/requests/{id}")));
         assert!(!allowed_call("GET", "/requests/short/status"));
         assert!(!allowed_call("GET", &format!("/requests/{id}/status/x")));

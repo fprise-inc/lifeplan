@@ -97,11 +97,13 @@ export function parseFragment(hash: string): Fragment | null {
 }
 
 /** 何の暗号文か（AAD に入れる） */
-export type Purpose = { readonly kind: "questions" } | { readonly kind: "answers" } | { readonly kind: "document"; readonly docId: string } | { readonly kind: "draft" };
+export type Purpose = { readonly kind: "questions" } | { readonly kind: "answers" } | { readonly kind: "document"; readonly docId: string } | { readonly kind: "batch"; readonly batchId: string } | { readonly kind: "draft" };
+
+/** 用途の文字（AAD と鍵の導きに入れる。書類のファイルは番号、書類の送り状は送りの番号で分ける。0158） */
+const what = (p: Purpose): string => (p.kind === "document" ? `document:${p.docId}` : p.kind === "batch" ? `batch:${p.batchId}` : p.kind);
 
 function aad(id: string, p: Purpose, extra: string): Uint8Array<ArrayBuffer> {
-  const what = p.kind === "document" ? `document:${p.docId}` : p.kind;
-  return utf8(`financia-hearing|${E2E_VERSION}|${id}|${what}|${extra}`);
+  return utf8(`financia-hearing|${E2E_VERSION}|${id}|${what(p)}|${extra}`);
 }
 
 /** 問いを暗号化する（問いを解く鍵で。AAD に FP の公開鍵を入れ、フラグメントの公開鍵との組み合わせを確かめる）。封筒は「1.iv.暗号文」 */
@@ -148,7 +150,7 @@ export async function sealForFp(plain: Uint8Array<ArrayBuffer>, fpPublicKey: Uin
   const ephPub = b64u(new Uint8Array(await subtle().exportKey("raw", eph.publicKey)));
   const shared = new Uint8Array(await subtle().deriveBits({ name: "ECDH", public: fp }, eph.privateKey, 256));
   const salt = randomBytes(16);
-  const info = `financia-hearing-seal|${E2E_VERSION}|${id}|${p.kind === "document" ? `document:${p.docId}` : p.kind}`;
+  const info = `financia-hearing-seal|${E2E_VERSION}|${id}|${what(p)}`;
   const key = await aesKey(await hkdf(shared, salt, info, 32));
   const iv = randomBytes(12);
   const ct = new Uint8Array(await subtle().encrypt({ name: "AES-GCM", iv, additionalData: aad(id, p, ephPub) }, key, plain));
@@ -163,7 +165,7 @@ export async function openAsFp(envelope: string, privateKeyPkcs8: string, id: st
     const priv = await subtle().importKey("pkcs8", fromB64u(privateKeyPkcs8), { name: "ECDH", namedCurve: "P-256" }, false, ["deriveBits"]);
     const eph = await subtle().importKey("raw", fromB64u(m[1] as string), { name: "ECDH", namedCurve: "P-256" }, false, []);
     const shared = new Uint8Array(await subtle().deriveBits({ name: "ECDH", public: eph }, priv, 256));
-    const info = `financia-hearing-seal|${E2E_VERSION}|${id}|${p.kind === "document" ? `document:${p.docId}` : p.kind}`;
+    const info = `financia-hearing-seal|${E2E_VERSION}|${id}|${what(p)}`;
     const key = await aesKey(await hkdf(shared, fromB64u(m[2] as string), info, 32));
     return new Uint8Array(await subtle().decrypt({ name: "AES-GCM", iv: fromB64u(m[3] as string), additionalData: aad(id, p, m[1] as string) }, key, fromB64u(m[4] as string)));
   } catch {

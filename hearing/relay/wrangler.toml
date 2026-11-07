@@ -20,7 +20,11 @@ directory = "../../app/dist-hearing-form"
 binding = "ASSETS"
 run_worker_first = true
 
-# 暗号文の置き場（R2）。期限の決まり（31日で消す）は R2 の設定で足す（README の本番の手順）
+# 毎日の掃除（期限を過ぎた依頼を中身ごと消す。0158）。時刻は UTC（日本の 3:15）
+[triggers]
+crons = ["15 18 * * *"]
+
+# 暗号文の置き場（R2）。期限の決まり（置いてから91日で消す。掃除が止まったときの備え）は R2 の設定で足す（README の本番の手順）
 [[r2_buckets]]
 binding = "HEARING"
 # 置き換える: R2 のバケットの名前
