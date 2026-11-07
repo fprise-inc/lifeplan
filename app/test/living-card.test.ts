@@ -583,14 +583,15 @@ describe("区画（0048 の3〜5）", () => {
     expect(() => preview(wh.request)).not.toThrow();
   });
 
-  it("スマホは1台分（4年ごとに12万円）、パソコンは5年ごとに15万円。家具だけの古い行も家電・家具の買い替えとして「入れた」", () => {
+  it("スマホは大人と中学生以上の子の台数分（1台 4年ごとに12万円×台数）、パソコンは5年ごとに15万円。家具だけの古い行も家電・家具の買い替えとして「入れた」", () => {
     let wh = family();
     const phone = annualBtn(wh, "smartphone");
-    expect(phone.help).toContain("1台分");
+    expect(phone.help).toContain("1台分の額×台数");
     wh = phone.run(wh);
+    // ご本人・配偶者の2台（子は10歳で、まだ中学生でない）
     const p = wh.request.input.household.periodicExpenses!.at(-1)!;
-    expect(p).toMatchObject({ label: "スマホの買い替え", everyYears: 4, amount: { value: 120000 } });
-    expect(fieldStatus(fieldOf(wh, `ev/${p.id}/amount`), wh).basis).toBe("よくある額の目安（スマホの買い替え 1台 4年ごとに12万円。この世帯に合わせて直してください）");
+    expect(p).toMatchObject({ label: "スマホの買い替え（2台）", everyYears: 4, amount: { value: 240000 } });
+    expect(fieldStatus(fieldOf(wh, `ev/${p.id}/amount`), wh).basis).toBe("よくある額の目安（スマホの買い替え 1台 4年ごとに12万円。この世帯に合わせて直してください）×2台（大人と中学生以上の子の人数）");
     wh = annualBtn(wh, "pc").run(wh);
     expect(wh.request.input.household.periodicExpenses!.at(-1)!).toMatchObject({ label: "パソコンの買い替え", everyYears: 5, amount: { value: 150000 } });
     // 前に足した「家具の買い替え」の行だけでも、家電・家具の買い替えは入れた
@@ -648,10 +649,10 @@ describe("区画（0048 の3〜5）", () => {
     expect((w2.request.input.household as { savingsChecks?: unknown }).savingsChecks).toBeUndefined();
   });
 
-  it("黒字の上限は標準（開いても欄が1つだけになるため）、黒字の行き先と遺族の生活費は読むだけの1行。欄はどれも当て先を持つ（読むだけの行を除く）", () => {
+  it("黒字の上限は詳細（入っていれば標準にも）、黒字の行き先と遺族の生活費は読むだけの1行。欄はどれも当て先を持つ（読むだけの行を除く）", () => {
     const wh = family();
     const fields = allFields(stage(wh));
-    expect(fields.find((f) => f.key === "living/surplus/cap")!.level).toBe("simple");
+    expect(fields.find((f) => f.key === "living/surplus/cap")!.level).toBe("detail");
     const dest = fields.find((f) => f.key === "ro/living/surplus/destination")!;
     expect(dest.readOnly).toBeDefined();
     expect(dest.get(wh).value).toContain("収支が入る口座");
@@ -764,7 +765,7 @@ describe("内訳の合計の行・迷いやすい物の入れ先・前の内訳�
     expect(last.item).toBeNull();
     const sum = () => living(wh).categories!.reduce((s, c) => s + c.monthly.value!, 0);
     expect(last.get(wh).value).toBe(sum());
-    expect(last.get(wh).hint).toBe(`年 ${(Math.round((sum() * 12) / 1000) / 10).toLocaleString("ja-JP")}万円`);
+    expect(last.get(wh).hint).toBe(`年${(Math.round((sum() * 12) / 1000) / 10).toLocaleString("ja-JP")}万円`);
     const food = living(wh).categories!.findIndex((c) => c.category === "food");
     wh = edit(wh, fieldOf(wh, `living/${living(wh).id}/cat/${food}`).set(wh, 120000));
     expect(categoriesGroup(wh).fields.at(-1)!.get(wh).value).toBe(sum());

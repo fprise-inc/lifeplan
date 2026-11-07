@@ -85,6 +85,7 @@
    "employmentPeriods": [
     {
      "id": "e68e7a65-5b6f-4c03-8394-a3699478de34",
+     "unemploymentClaim": false,
      "member": "8c59e0ed-42c6-4b91-99cd-faab96947438",
      "from": {
       "at": "2004-04"
@@ -140,6 +141,7 @@
     },
     {
      "id": "af656c13-2d7e-4a59-8aeb-d7253c3692dd",
+     "unemploymentClaim": false,
      "member": "b8db3bf3-9e29-4c9f-ae21-cd1e702137d1",
      "from": {
       "at": "2006-04"
@@ -388,7 +390,8 @@
       "sale": {
        "at": {
         "at": "2041-10"
-       }
+       },
+       "costRate": "0.04"
       }
      }
     },

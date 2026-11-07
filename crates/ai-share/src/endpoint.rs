@@ -171,6 +171,9 @@ async fn serve(
             Request::Propose { share_id, proposal } => {
                 registry.handle_propose(share_id, proposal, &caller)
             }
+            Request::ProposeDocuments { share_id, answer } => {
+                registry.handle_propose_documents(share_id, answer, &caller)
+            }
             Request::ProposeFeatureCode { code } => {
                 registry.handle_propose_feature_code(code, &caller)
             }

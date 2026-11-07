@@ -146,7 +146,7 @@ describe("入力の欄と資産と負債のタブ（0105）", () => {
     expect(html).toContain("保証を含めると純資産は");
     expect(html).toContain(`${Math.round((now.netWorth - 30_000_000) / 10000).toLocaleString("ja-JP")}万円`);
     expect(html).toContain('data-bs-basis="livingLoan"');
-    expect(html).toContain("生活費＋ローン返済 月");
+    expect(html).toMatch(/基本生活費 月[\d.,]+万円(＋車 月[\d.,]+万?円)?＋ローン返済 月[\d.,]+万円で計算/);
   });
 
   it("働き方と収入の役員の区画に、保証の額の欄を出す", () => {

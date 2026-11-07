@@ -171,6 +171,33 @@ fn every_format_version_has_a_fixture_and_opens() {
             migrate::parse(v).unwrap() >= (0, 51),
             "{v}: 三大疾病保険の契約は 0.51 からの見本"
         );
+        // 0.68 から: 書類の読み取りの記録（区画 documents。0148）。変換で中身を変えない。承認した値は承認の記録と確かさ「書類で確認」を持つ
+        let documents = now
+            .get("documents")
+            .and_then(|d| d["readings"].as_array())
+            .is_some_and(|l| l.iter().any(|r| r["kind"] == "document"));
+        assert_eq!(
+            documents,
+            migrate::parse(v).unwrap() >= (0, 68),
+            "{v}: 書類の読み取りの記録は 0.68 からの見本"
+        );
+        if documents {
+            assert_eq!(
+                now["documents"], expected["documents"],
+                "{v}: 読み取りの記録の中身は変換で変えない"
+            );
+            let periods = now["household"]["request"]["input"]["household"]["employmentPeriods"]
+                .as_array()
+                .unwrap();
+            assert!(
+                periods
+                    .iter()
+                    .any(|p| p["salary"]["bonus"]["certainty"] == "document"
+                        && p["salary"]["bonus"]["origin"]["kind"] == "import"
+                        && p["salary"]["bonus"]["approval"]["by"] == "fp"),
+                "{v}: 書類の値を承認した値の箱"
+            );
+        }
         // 0.56 から: 他のソフトからの移行の取り込みの記録（区画 migrations）と推定の出し方 migrated（0113 の7・10）
         let migrated = now
             .get("migrations")

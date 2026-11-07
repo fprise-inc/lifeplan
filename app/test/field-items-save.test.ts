@@ -40,6 +40,7 @@ const NOT_MOVABLE: Record<string, string> = {
   "field:edu/{id}/scholar/{id}/term": "年数を月数に直して書く（並びの要素の中の値で、物を持たせる合成の対策にできない）",
   "field:living/{id}/cat/new-allowance": "まだ無い費目の欄（入れると費目を足す。費目ごとに合成の対策を作らない）",
   "field:savings/new/actual": "まだ無い年の貯まった額の欄（入れると確かめの記録を足す。プランで動かすものではない）",
+  "field:retirement/{id}/contrib": "国民年金基金の掛金の月額は、入れると掛金の始まり・終わりも足す（1つの値をそのまま書かない）。プランでは動かさない",
   "field:housing/res/{id}/purchase/building": "注文住宅の建物の代金は合計−土地の代金を見せる欄で、直すと合計を書き土地の代金の推定の印を外す（1つの値をそのまま書かない。プランでは合計か土地の代金を動かす。0115）",
 };
 /** 型が NOT_MOVABLE のどれかに当たるか（まだ無い費目の欄は、費目の名前によらず出さない） */

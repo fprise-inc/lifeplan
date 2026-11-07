@@ -68,7 +68,7 @@ describe("基本生活費のカードの欄（毎年の黒字のうち、貯金�
 
   it("目安を選ぶと、この世帯の時点で期間が入る（はじめの割合は入れてあればそのまま）。選んでいる目安は押した状態", () => {
     const kids = action(wh0, "living/surplus/preset/children")!;
-    expect(kids.label).toContain("子育て中と子の独立後で分ける");
+    expect(kids.label).toContain("子育て中と独立後で分ける（50%→80%");
     expect(kids.label).toContain("2037年");
     expect(kids.pressed).toBe(false);
     const a = kids.run(wh0);

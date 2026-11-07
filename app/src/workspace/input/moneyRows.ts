@@ -1208,8 +1208,9 @@ export function addExpense(wh: WorkingHousehold, kind: MoneyOutKind, id: string 
       kind === "allowance"
         ? (h.members.find((m) => isOutside(m) && (m.kind === "parent" || m.kind === "grandparent"))?.id ?? h.donors?.[0]?.id)
         : kind === "gift"
-          ? h.members.find((m) => isOutside(m) && (m.kind === "grandchild" || m.kind === "child"))?.id
+          ? giftDefault(h)?.id
           : undefined;
+    const several = kind === "gift" && giftCandidates(h).length > 1;
     const p: PeriodicExpense = {
       id,
       label: def.label.replace(/（.*）$/, ""),
@@ -1228,8 +1229,29 @@ export function addExpense(wh: WorkingHousehold, kind: MoneyOutKind, id: string 
     if (onceAsEntered(def.card)) applyOnceGrowth(h, p);
     (h.periodicExpenses ??= []).push(p);
     if (now) markStartNow(req, id, "periodicExpense.from", START_NOW_BASIS.out);
+    // あげる贈与の相手の候補が2人以上なら、既定の相手は推定の印（選び直してもらう。通しの確かめ。0150）
+    if (several && counterparty !== undefined) putRow(req.input as unknown as Record<string, unknown>, { target: { object: id }, item: "periodicExpense.counterparty", at: [] }, { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: GIFT_TO_BASIS } });
   });
 }
+
+/** あげる贈与の相手の候補（giftRecipientOptions と同じ並び: 世帯の子〔上から〕、離れて暮らす子・孫。これから生まれる子は入れない） */
+function giftCandidates(h: Household): Member[] {
+  const kids = h.members.filter((x) => !isOutside(x) && x.kind === "child" && x.expected !== true).sort((a, b) => (a.birth.birthYearMonth < b.birth.birthYearMonth ? -1 : 1));
+  return [...kids, ...h.members.filter((x) => isOutside(x) && (x.kind === "child" || x.kind === "grandchild"))];
+}
+
+/**
+ * あげる贈与を足したときの既定の相手（通しの確かめ。0150）: 候補が1人ならその人。2人以上なら、離れて暮らす子・孫（前からの既定）、
+ * いなければ第1子（推定の印を付ける）。候補がいなければ相手なし（その他の人。贈与税は計算しない）
+ */
+function giftDefault(h: Household): Member | undefined {
+  const all = giftCandidates(h);
+  if (all.length <= 1) return all[0];
+  return all.find((m) => isOutside(m)) ?? all[0];
+}
+
+/** 2人以上の候補から既定で選んだ相手の推定の根拠 */
+export const GIFT_TO_BASIS = "相手の候補が2人以上のため、既定で選んでいます（受け取る人を選んでください）";
 
 // ---- 出るお金の行のまとまり（周期的な支出。欄のキーは今までの ev/<物>/…） ----
 
@@ -1316,33 +1338,50 @@ export function periodicStageGroups(wh: WorkingHousehold, p: PeriodicExpense): G
 export function moneySections(
   wh: WorkingHousehold,
   card: MoneyCard,
-  o: { claimed: ReadonlySet<string>; level?: "simple" | "detail"; inTitle?: string; outTitle?: string; note?: string },
+  o: {
+    claimed: ReadonlySet<string>;
+    level?: "simple" | "detail";
+    inTitle?: string;
+    outTitle?: string;
+    note?: string;
+    /**
+     * 種類ごとの「＋」のボタンの出し方（省略は区画の level）。null はボタンを出さない（その世帯に当てはまらない種類。例: 賃貸の世帯の売電）。
+     * 標準のボタンが1つでもあれば、区画を標準でも出す（行の中の欄は今の標準・詳細のまま。住まいの修繕・リフォーム）
+     */
+    kindLevel?: (kind: string) => "simple" | "detail" | null;
+  },
 ): SectionDef[] {
   const h = wh.request.input.household;
-  const { incomes: inKinds, outs: outKinds } = kindsOf(card);
-  const level = o.level ?? "detail";
+  const kinds = kindsOf(card);
+  const shown = <T extends { kind: string }>(xs: readonly T[]) => xs.filter((x) => o.kindLevel?.(x.kind) !== null);
+  const inKinds = shown(kinds.incomes);
+  const outKinds = shown(kinds.outs);
+  const base = o.level ?? "detail";
+  const kindLevel = (kind: string): "simple" | "detail" => o.kindLevel?.(kind) ?? base;
+  const sectionLevel = (ks: readonly { kind: string }[]): "simple" | "detail" => (ks.some((x) => kindLevel(x.kind) === "simple") ? "simple" : base);
   const out: SectionDef[] = [];
   const order = (a: { from: Timepoint }, b: { from: Timepoint }) => (resolveTimepoint(h, a.from) ?? "").localeCompare(resolveTimepoint(h, b.from) ?? "");
-  if (inKinds.length > 0) {
+  // 区画は、ボタンを出さない種類しか無くても今の行を見せるために出す（例: 賃貸に移った世帯の売電の行）
+  if (kinds.incomes.length > 0) {
     const rows = (h.incomeFlows ?? []).filter((f) => incomeCard(f) === card && !o.claimed.has(f.id)).sort(order);
     out.push({
       key: `money/${card}/in`,
       title: o.inTitle ?? "入るお金",
       ...(rows.length === 0 ? { note: "まだありません" } : {}),
-      level,
+      level: sectionLevel(inKinds),
       groups: rows.flatMap((f) => incomeGroups(wh, f, card)),
-      actions: inKinds.map((x): ActionDef => ({ key: `money/${card}/in/add/${x.kind}`, label: `＋ ${x.label}`, ...(x.help !== undefined ? { help: x.help } : {}), level, run: (w) => addIncome(w, x.kind) })),
+      actions: inKinds.map((x): ActionDef => ({ key: `money/${card}/in/add/${x.kind}`, label: `＋ ${x.label}`, ...(x.help !== undefined ? { help: x.help } : {}), level: kindLevel(x.kind), run: (w) => addIncome(w, x.kind) })),
     });
   }
-  if (outKinds.length > 0) {
+  if (kinds.outs.length > 0) {
     const rows = (h.periodicExpenses ?? []).filter((p) => expenseCard(h, p) === card && !o.claimed.has(p.id)).sort(order);
     out.push({
       key: `money/${card}/out`,
       title: o.outTitle ?? "出るお金",
       ...(o.note !== undefined ? { note: o.note } : rows.length === 0 ? { note: "まだありません" } : {}),
-      level,
+      level: sectionLevel(outKinds),
       groups: rows.flatMap((p) => periodicGroups(wh, p)),
-      actions: outKinds.map((x): ActionDef => ({ key: `money/${card}/out/add/${x.kind}`, label: `＋ ${x.label}`, ...(x.help !== undefined ? { help: x.help } : {}), level, run: (w) => addExpense(w, x.kind) })),
+      actions: outKinds.map((x): ActionDef => ({ key: `money/${card}/out/add/${x.kind}`, label: `＋ ${x.label}`, ...(x.help !== undefined ? { help: x.help } : {}), level: kindLevel(x.kind), run: (w) => addExpense(w, x.kind) })),
     });
   }
   return out;

@@ -11,7 +11,7 @@ import { knownNotice, noticeCounts, noticeMeta, noticeRows, paramName, parseNoti
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { fromRequest } from "../src/workspace/input/household.ts";
 import { REPO_DIR } from "../scripts/lib.ts";
-import { modelHousehold, preview } from "./helpers.ts";
+import { modelHousehold, modelWithGaps, preview } from "./helpers.ts";
 
 const result = (notices: { code: string; ids: string[] }[]): PreviewResult => ({ header: { engine: { version: "x", sourceDigest: "x" }, baseMonth: "2026-10", endYear: 2080, notices }, table: [], summary: null });
 
@@ -83,7 +83,7 @@ describe("見本の世帯の知らせ", () => {
   });
 
   it("専門学校の学費が入っていない子は、入力が足りない知らせとして教育のカードへ", () => {
-    const req = modelHousehold("sampleSingleParent");
+    const req = modelWithGaps("sampleSingleParent");
     const rows = noticeRows(fromRequest(req), [{ label: "プランA", result: preview(req) }]);
     const r = rows.find((x) => x.kind === "input");
     expect(r?.card).toBe("education");
@@ -158,7 +158,7 @@ describe("まとめる", () => {
 
 describe("確かめの一覧と結果のタブ", () => {
   it("入力で直せる知らせだけを、確かめの一覧の「計算の知らせ」に出す（開くだけ）", () => {
-    const req = modelHousehold("sampleSingleParent");
+    const req = modelWithGaps("sampleSingleParent");
     const wh = fromRequest(req);
     const notices = noticeRows(wh, [{ label: "プランA", result: preview(req) }]);
     const rows = checkList(wh, notices).filter((r) => r.kind === "calc");
@@ -170,7 +170,7 @@ describe("確かめの一覧と結果のタブ", () => {
   });
 
   it("結果のタブ: 閉じているときは種類ごとの数の1行。開くと種類ごとの行と「入力で開く」", () => {
-    const req = modelHousehold("sampleSingleParent");
+    const req = modelWithGaps("sampleSingleParent");
     const rows = noticeRows(fromRequest(req), [{ label: "プランA", result: preview(req) }]);
     const closed = renderToString(h(CalcNotices, { rows }));
     expect(closed).toContain("入力が足りない 1");

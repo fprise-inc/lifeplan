@@ -30,7 +30,7 @@ export const ageBandName = (a: number) => `${a}0代`;
 export const familyName = (n: number) => FAMILY_SHAPES.find((f) => f.n === n)?.name ?? "";
 
 /** 見本の絞り込みの項目（番号に入れないもの: 働き方・稼ぎ方・住まいなど） */
-export const SAMPLE_TRAITS: readonly string[] = ["会社員", "公務員", "自営業", "役員", "年金生活", "共働き", "片働き", "持ち家", "賃貸", "住宅ローン", "教育費", "資産運用"];
+export const SAMPLE_TRAITS: readonly string[] = ["会社員", "公務員", "自営業", "役員", "年金生活", "共働き", "片働き", "持ち家", "賃貸", "住宅ローン", "教育費", "資産運用", "収益不動産", "親の介護・相続"];
 
 /** FP が作る見本の順番の始まり（01〜09 はアプリに入っている見本） */
 export const FIRST_OWN_SAMPLE = 10;

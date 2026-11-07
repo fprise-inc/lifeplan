@@ -209,12 +209,14 @@ describe("プランで足す・外す・基本の計算に入れる（0036）", 
     expect((applyPlan(w2, "B", cat).request.input.household.incomeFlows ?? []).map((f) => f.id)).toEqual([id(50)]);
   });
 
-  it("不確かな受け取る相続は現状では計算に入らず、プランで「基本の計算に入れる」を set すると、そのプランだけ入る", () => {
+  it("不確かな受け取る相続は現状では計算に入らず、プランで「この行を計算に入れる」を押すと、そのプランだけ入る", () => {
     const { wh, cat } = setup(withRows(base(), { incomes: [income(1, { likelihood: "uncertain" })] }));
     expect(forEngine(wh.request).input.household.incomeFlows).toEqual([]);
     const view = planView(wh, cat, "B");
-    const f = allFields(buildStage("inheritance", view)).find((x) => x.key === `in/${id(1)}/includeInBase`) as FieldDef;
-    const w = recordPlanEdit(wh, cat, "B", view, f.set(view, true));
+    // 相続・贈与の入力項目では、チェックの欄「基本の計算に入れる」は出さず、見込みが「当てにしない」の行の1押し（0143）
+    expect(allFields(buildStage("inheritance", view)).find((x) => x.key === `in/${id(1)}/includeInBase`)).toBeUndefined();
+    const a = buildStage("inheritance", view).sections.flatMap((s) => s.groups.flatMap((g) => g.actions)).find((x) => x.key === `in/${id(1)}/includeInBase`)!;
+    const w = recordPlanEdit(wh, cat, "B", view, a.run(view));
     const d = w.proposals[0]!.diffs;
     expect(d.map((x) => [x.op, x.item, x.at])).toEqual([["set", "incomeFlow.includeInBase", []]]);
     expect((forEngine(applyPlan(w, "B", cat).request).input.household.incomeFlows ?? []).map((x) => x.id)).toEqual([id(1)]);

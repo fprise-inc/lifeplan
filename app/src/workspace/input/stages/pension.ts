@@ -12,7 +12,7 @@ import { byId, field, plain, removeAction, resolveTimepoint, timepointField, tim
 import { formatYearMonth } from "../units.ts";
 import { sameWhen } from "../when.ts";
 import { estimatedBox, mutate, newId, periodsOf, standardBox, type WorkingHousehold } from "../household.ts";
-import { DOCUMENT_KINDS, earners, HISTORY_CATEGORIES, memberLabel, PENSION_MODES } from "../labels.ts";
+import { DOCUMENT_KINDS, earners, EMPLOYMENT_TYPES, HISTORY_CATEGORIES, memberLabel, PENSION_MODES } from "../labels.ts";
 import { incomeGroups, moneySections } from "../moneyRows.ts";
 import { readGroup, readLine } from "../readLines.ts";
 import { putRow, type StateRow } from "../rows.ts";
@@ -283,7 +283,8 @@ function claimFields(m: Member, find: Finder, prefix: string, prop: "claim" | "p
     const x = find(w.request.input.household, w) as Holder | undefined;
     return x === undefined ? undefined : { claim: x[prop] };
   };
-  const common = { ageOf: (h: Household) => h.members.find((x) => x.id === m.id), mode: "age" as const, ageMeans: "after" as const, optional: true, nullText: "65歳から（標準）", fallback: () => std(), check };
+  // 年齢はこの記録の人だけ（ほかの家族・子の年齢を選ばせない。入力項目をまたいだそろえ。0150）
+  const common = { ageOf: (h: Household) => h.members.find((x) => x.id === m.id), who: "fixed" as const, mode: "age" as const, ageMeans: "after" as const, optional: true, nullText: "65歳から（標準）", fallback: () => std(), check };
   /**
    * 繰上げ（65歳になった翌月より前）は老齢基礎年金と老齢厚生年金を同時にする決まり（国民年金法附則9条の2第2項）。片方だけを直したとき、
    * 直した方かもう片方が繰上げなら、もう片方も同じ時点にそろえる。繰下げは別々のまま（0066 の 2026-10-29 の追記）
@@ -372,13 +373,30 @@ function claimFields(m: Member, find: Finder, prefix: string, prop: "claim" | "p
           else r[prop] = claim;
         }),
     });
-  const fields = [both, one("basic", "老齢基礎年金の受け取り開始"), one("employee", "老齢厚生年金の受け取り開始")];
+  // 空欄の意味（灰色の文字）は「空欄＝65歳から」（共通の年齢の例「例: 65歳」は繰上げ・繰下げを勧めるように見えるので使わない。
+  // 時点の部品は「空欄＝65歳から（標準）」が欄に収まらないと入力例に戻るので、入力例にも同じ文を持たせる）
+  const fields = [both, one("basic", "老齢基礎年金の受け取り開始"), one("employee", "老齢厚生年金の受け取り開始")].map((f): FieldDef => ({ ...f, blankMeans: "65歳から", example: "空欄＝65歳から" }));
   if (addr === undefined) return fields;
   const parts = [null, "basic", "employee"] as const;
   return fields.map((f, i) => ({ ...f, address: () => addr(parts[i] ?? null) }));
 }
 
 // ---- 書類の欄 ----
+
+/**
+ * 厚生年金に入った（入る）期間がある人か: 働き方の期間の厚生年金の種別、書類の厚生年金の加入月数・額、加入歴の厚生年金の行。
+ * 無い人（働き方が自営業だけ・働いていないだけ）には老齢厚生年金の受け取り開始の欄を出さない（働き方をまだ入れていない人には出す）
+ */
+export function hasEmployeePension(h: Household, m: Member, rec: PensionRecord | undefined): boolean {
+  // 働き方をまだ入れていない人は、決められないので出す
+  if (periodsOf(h, m.id).length === 0) return true;
+  if (periodsOf(h, m.id).some((p) => typeof p.pensionCategory === "string" && p.pensionCategory.startsWith("employee"))) return true;
+  if ((rec?.months?.employee ?? 0) > 0 || (rec?.amounts?.employee?.value ?? 0) > 0) return true;
+  return (rec?.history ?? []).some((r) => r.category === "employee");
+}
+
+/** 受け取り開始の欄から、厚生年金の期間が無い人の老齢厚生年金の欄を外す */
+const withoutEmployeeClaim = (fs: FieldDef[], show: boolean): FieldDef[] => (show ? fs : fs.filter((f) => !f.key.endsWith("/claim/employee")));
 
 /** 経過的加算を加入月数から計算する記録か（エンジンの pension.oldAgeBase と同じ決まり: 見込額だけの記録と、厚生年金の月数の無い受給中の記録だけが額を読む） */
 const transitionalFromMonths = (rec: PensionRecord): boolean => rec.kind !== "projection" && !(rec.kind === "receiving" && (rec.months?.employee ?? 0) === 0);
@@ -398,6 +416,12 @@ const AMOUNT_HELP: Record<string, string> = {
     "年金額改定通知書の年金額（年額）。加給年金・振替加算は計算で足すので、除いて写します（二重になりません）。年金振込通知書の額（2か月分・税などを引いた後）ではありません",
   projection: "ねんきんネットの見込額の試算、または分かっている見込額（年額。65歳から受け取る額）。企業年金・基金の年金は含めません（退職金・企業年金の項目で入れます）",
 };
+
+/**
+ * 書類から写す年金の額の欄の単位: 円（ねんきん定期便・年金額改定通知書・年金決定通知書は円で書いてあるので、書類の数字をそのまま打つ。
+ * 「78万」「78万円」と打っても読む。0131 の readYen）。世帯ファイルは今までどおり円の整数
+ */
+const DOC_UNIT = "yen" as const;
 
 const EXEMPT: [string, string][] = [
   ["paid", "第1号の納付済みの月数"],
@@ -456,6 +480,22 @@ function monthsField(m: Member, rec: PensionRecord, part: "basic" | "employee", 
 export const ESTIMATE_HOW =
   "推計のしかた: 生年月と、働き方と収入の項目の働き方の期間（働き方・始まりと終わり・年収）から、国民年金・厚生年金に入る月数と平均の報酬を出して、老齢基礎年金と老齢厚生年金を計算します。過去の報酬は今の年収の水準とみなします";
 
+/**
+ * 推計の人の欄の横の1行: どの働き方の期間から推計しているか（「推計: 2006年4月からの働き方（正社員）で計算しています」）。
+ * 推計のしかたの長い文（ESTIMATE_HOW）は入れ方の欄の「?」の中
+ */
+export function estimateLine(wh: WorkingHousehold, m: Member): string {
+  const h = wh.request.input.household;
+  const ps = periodsOf(h, m.id)
+    .map((p) => ({ p, from: resolveTimepoint(h, p.from) }))
+    .filter((x): x is { p: (typeof x)["p"]; from: string } => x.from !== null)
+    .sort((a, b) => (a.from < b.from ? -1 : 1));
+  const first = ps[0];
+  if (first === undefined) return "推計: 働き方の期間がまだありません（働き方と収入の項目で入れると、その期間から推計します）";
+  const types = [...new Set(ps.map((x) => EMPLOYMENT_TYPES.find((o) => o.value === x.p.type)?.label ?? x.p.type))];
+  return `推計: ${formatYearMonth(first.from)}からの働き方（${types.join("→")}）で計算しています`;
+}
+
 /** 公的年金の「▸ 続きを見る」の文（開くと、受け取り開始が基礎と厚生に分かれる。0078 の追記 2026-11-01） */
 const PENSION_MORE = "受け取り開始を基礎と厚生で分ける";
 
@@ -473,11 +513,11 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
     kind: "select",
     options: PENSION_MODES,
     structural: true,
-    help: "手元の書類で選びます。書類が無ければ、働き方から計算した推定のままで構いません",
-    // 推計のときは、どう推計しているかを欄の横に出す（0066 の 2026-10-29 の追記）
+    help: `手元の書類で選びます。書類が無ければ、働き方から計算した推定のままで構いません。\n${ESTIMATE_HOW}`,
+    // 推計のときは、何から推計しているかを欄の横に短く出す（推計のしかたの長い文は「?」の中。0141）
     get: (w) => {
       const value = modeOf(recordOf(w.request.input.household, m.id));
-      return { value, ...(value === "" ? { hint: ESTIMATE_HOW } : {}) };
+      return { value, ...(value === "" ? { hint: estimateLine(w, m) } : {}) };
     },
     set: (w, v) => {
       const mode = String(v ?? "");
@@ -491,12 +531,12 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
       {
         key: `pension/${m.id}`,
         title: `${who}の公的年金`,
-        // 推計のしかたは入れ方の欄の横に出す（ESTIMATE_HOW）。ここは前に入れた記録を残しているときの説明だけ
+        // 推計のしかたは入れ方の欄の「?」（ESTIMATE_HOW）と横の1行。ここは前に入れた記録を残しているときの説明だけ
         ...(back.length > 0 ? { note: `前に入れた記録（${back.join("・")}）を残しています。入れ方を戻すと戻ります` } : {}),
         level: "simple",
         moreLabel: PENSION_MORE,
         // 推計でも受け取り開始は標準（繰上げ・繰下げで結果が大きく動く。記録の無い人は構成員の pensionClaim に持つ。0078）
-        fields: [modeField, ...claimFields(m, byId((hh: Household) => hh.members, m.id), `pension/${m.id}/estimate`, "pensionClaim", (part) => ({ target: { member: m.id }, item: "member.pensionClaim", at: part === null ? [] : [part] }))],
+        fields: [modeField, ...withoutEmployeeClaim(claimFields(m, byId((hh: Household) => hh.members, m.id), `pension/${m.id}/estimate`, "pensionClaim", (part) => ({ target: { member: m.id }, item: "member.pensionClaim", at: part === null ? [] : [part] })), hasEmployeePension(h, m, undefined))],
         actions: [{ key: `pension/${m.id}/toDocument`, label: "書類の額で置き換える", level: "simple", run: (w) => modeField.set(w, "document") }],
       },
     ];
@@ -539,14 +579,14 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
     const help = AMOUNT_HELP[rec.kind];
     // 50歳未満の定期便の老齢基礎年金の額は写さない（計算は加入月数から。同じ物を二重に持たない）
     if (rec.kind !== "statementUnder50")
-      fields.push(yenBox({ key: `${prefix}/amounts/basic`, item: "pensionRecord.amounts", label: labels[0], level: "simple", basis: "annual", find, path: ["amounts", "basic"], optional: true, ...(help !== undefined ? { help } : {}) }));
-    fields.push(yenBox({ key: `${prefix}/amounts/employee`, item: "pensionRecord.amounts", label: labels[1], level: "simple", basis: "annual", find, path: ["amounts", "employee"], optional: true, ...(help !== undefined ? { help } : {}) }));
+      fields.push(yenBox({ key: `${prefix}/amounts/basic`, item: "pensionRecord.amounts", label: labels[0], level: "simple", basis: "annual", unit: DOC_UNIT, example: "例: 780000", find, path: ["amounts", "basic"], optional: true, ...(help !== undefined ? { help } : {}) }));
+    fields.push(yenBox({ key: `${prefix}/amounts/employee`, item: "pensionRecord.amounts", label: labels[1], level: "simple", basis: "annual", unit: DOC_UNIT, example: "例: 1250000", find, path: ["amounts", "employee"], optional: true, ...(help !== undefined ? { help } : {}) }));
     // 経過的加算の額は、加入月数から計算する記録（定期便・厚生年金の月数のある受給中）では読まない（エンジンの pension.oldAgeBase）。
     // 写しても効かない欄は出さない。見込額だけの記録・月数の無い受給中の記録だけ
     if (!transitionalFromMonths(rec))
-      fields.push(yenBox({ key: `${prefix}/amounts/transitional`, item: "pensionRecord.amounts", label: "経過的加算", level: "detail", basis: "annual", find, path: ["amounts", "transitional"], optional: true, help: "見込額の書類の経過的加算の額（年額）。入れなければ0円です" }));
+      fields.push(yenBox({ key: `${prefix}/amounts/transitional`, item: "pensionRecord.amounts", label: "経過的加算", level: "detail", basis: "annual", unit: DOC_UNIT, find, path: ["amounts", "transitional"], optional: true, help: "見込額の書類の経過的加算の額（年額）。入れなければ0円です" }));
     fields.push(
-      yenBox({ key: `${prefix}/amounts/special`, item: "pensionRecord.amounts", label: "特別支給の老齢厚生年金（報酬比例部分）", level: "detail", basis: "annual", find, path: ["amounts", "special"], optional: true, help: "入れなければ生年月と加入の記録から計算します（対象の生年月の人だけ）" }),
+      yenBox({ key: `${prefix}/amounts/special`, item: "pensionRecord.amounts", label: "特別支給の老齢厚生年金（報酬比例部分）", level: "detail", basis: "annual", unit: DOC_UNIT, find, path: ["amounts", "special"], optional: true, help: "入れなければ生年月と加入の記録から計算します（対象の生年月の人だけ）" }),
     );
   }
   // 受給中（年金額改定通知書）は受け取り開始を選ばない（計算は今受け取っている年金とみなし、受け取り開始を読まない）。読むだけの1行
@@ -563,7 +603,7 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
         set: (w) => w,
       }),
     );
-  else fields.push(...claimFields(m, find, prefix));
+  else fields.push(...withoutEmployeeClaim(claimFields(m, find, prefix), hasEmployeePension(h, m, rec)));
   const missing = statementMonthsMissing(rec);
   const actions: ActionDef[] = missing ? [{ key: `${prefix}/months/unknown`, label: "加入月数を書類で確かめる（それまで代わりの値で計算する）", level: "simple", run: (w) => fillMonths(w, m.id, "unknown") }] : [];
   const notes = [...(missing ? [monthsMissingText(rec.kind)] : []), ...(kept.length > 0 ? ["前の入れ方の記録を残しています（入れ方を戻すと戻ります）"] : [])];
@@ -786,7 +826,7 @@ function receivingGroups(wh: WorkingHousehold, f: IncomeFlow): GroupDef[] {
       at("incomeFlow.pensionType"),
     ),
     withA(
-      yenBox({ key: `${k}/amount`, item: "incomeFlow.amount", label: "年額", level: "simple", basis: "annual", find, path: ["amount"], help: "年金決定通知書・年金額改定通知書の年額を入れます。遺族年金・障害年金は税がかからないので、源泉徴収票には載りません" }),
+      yenBox({ key: `${k}/amount`, item: "incomeFlow.amount", label: "年額", level: "simple", basis: "annual", unit: DOC_UNIT, find, path: ["amount"], help: "年金決定通知書・年金額改定通知書の年額を入れます。遺族年金・障害年金は税がかからないので、源泉徴収票には載りません" }),
       at("incomeFlow.amount"),
     ),
     withA(timepointField({ key: `${k}/from`, item: "incomeFlow.from", label: "計算に入れる始まり", level: "simple", find, path: ["from"], ageOf, help: "もう受け取っているなら、そのままで構いません" }), at("incomeFlow.from")),

@@ -20,7 +20,7 @@ import { modelHousehold } from "./helpers.ts";
 
 const NOW = "2026-10-19T01:00:00.000Z";
 const no = async (): Promise<never> => Promise.reject("E");
-const host: AiHost = { status: no, setEnabled: no, copySetup: no, household: no, recordConsent: no, startShare: no, stopShare: no, decide: no };
+const host: AiHost = { status: no, setEnabled: no, copySetup: no, household: no, recordConsent: no, startShare: no, stopShare: no, decide: no, takeDocuments: no };
 
 const status = (over: Partial<AiStatus> = {}): AiStatus => ({
   enabled: false,
@@ -199,10 +199,10 @@ describe("AIからの候補（承認するまで世帯に入らない）", () =>
 });
 
 describe("画面にパスや鍵が渡らない（0016 の1）", () => {
-  it("AI接続口の命令に渡すのは、内部ID・設定の入切・文面の種類・同意の入力・期限・申告・候補の判断だけ", () => {
+  it("AI接続口の命令に渡すのは、内部ID・設定の入切・文面の種類・同意の入力・期限・申告・候補の判断（受け取った書類の候補の ID を含む）だけ", () => {
     const src = readFileSync(join(APP_DIR, "src", "engine", "host.ts"), "utf8");
     const calls = [...src.matchAll(/invoke<[^>]*>\("(ai_[a-z_]+)"(?:, \{ ([^}]*) \})?\)/g)];
-    expect(calls.map((c) => c[1]).sort()).toEqual(["ai_candidate_decide", "ai_consent_record", "ai_household", "ai_set_enabled", "ai_setup_copy", "ai_share_start", "ai_share_stop", "ai_status"]);
+    expect(calls.map((c) => c[1]).sort()).toEqual(["ai_candidate_decide", "ai_consent_record", "ai_documents_taken", "ai_household", "ai_set_enabled", "ai_setup_copy", "ai_share_start", "ai_share_stop", "ai_status"]);
     const allowed = new Set(["id", "enabled", "client", "input", "minutes", "destination", "candidate", "accept", "plan"]);
     for (const c of calls) {
       const args = (c[2] ?? "").split(",").map((x) => x.trim()).filter((x) => x !== "");
@@ -213,7 +213,7 @@ describe("画面にパスや鍵が渡らない（0016 の1）", () => {
   it("本体の AI の命令は、パス・鍵を返す型を持たない（返すのは状態・記録・伏せた文面だけ）", () => {
     const rs = readFileSync(join(APP_DIR, "src-tauri", "src", "ai.rs"), "utf8");
     const sigs = [...rs.matchAll(/#\[tauri::command\]\s*pub async fn (ai_[a-z_]+)\(([^)]*)\)\s*->\s*([^{]+)\{/g)];
-    expect(sigs.length).toBe(8);
+    expect(sigs.length).toBe(9);
     for (const [, name, args, ret] of sigs) {
       expect(`${args}`.toLowerCase(), name).not.toMatch(/path|dir|file|key/);
       expect(`${ret}`, name).not.toMatch(/PathBuf|String,|Vec<u8>/);

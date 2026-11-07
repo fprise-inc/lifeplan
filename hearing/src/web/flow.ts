@@ -103,6 +103,7 @@ const SHOW: Readonly<Record<string, Cond>> = {
   "hs.income.salary": SALARIED,
   "hs.income.bonus": SALARIED,
   "hs.income.business": all(WORKING, isAny("hs.work.type", ["selfEmployed"])),
+  "hs.income.taxReturn": all(WORKING, isAny("hs.work.type", ["selfEmployed"])),
   "hs.income.annual": WORKING,
   "hs.income.annualRange": WORKING,
   "hs.income.residentTax": WORKING,

@@ -9,6 +9,9 @@
 //! - **記録**: 世帯ファイルの `consents`・`consentExplanations`・`aiShares`・`candidates` は本体だけが書く。画面から届いた本文に
 //!   これらの区画が入っていても使わない（ai-share の `HouseholdBook`）。読まれた記録・届いた候補は、裏の見回りが世帯ファイルへ書き戻す。
 //! - **候補**: AIの出したプランの候補は `candidates` に承認待ちで入るだけ。FPが画面で「プランとして保存」か「捨てる」を選んだ記録を残す。
+//! - **書類から読んだ値の候補**（0151）: 届いた答えはメモリの中だけに置き、世帯ファイルには書かない（番号が混ざっていても残さない）。
+//!   画面が「同意とAIの記録」で受け取り、読み口（番号を落とす決まり）を通して読み取りの記録（本文の区画 `documents`）にしてから、
+//!   `ai_documents_taken` で承認待ちから外す。
 //!
 //! 画面（WebView）には、鍵・パス（データフォルダ・作業フォルダ・接続口の実行ファイル）を渡さない（0016 の1）。
 //! 接続の設定の文面は、場所を `<接続口の場所>` に伏せた形で見せ、本物の場所の入った文面は本体が OS のクリップボードに写す。
@@ -488,7 +491,9 @@ fn view(ai: &AiState, books: &HashMap<String, Entry>, id: &str) -> Result<Househ
         .active_shares()
         .into_iter()
         .find(|s| s.household_id == id);
-    Ok(e.book.view(&ai.registry.records(id), share))
+    let mut v = e.book.view(&ai.registry.records(id), share);
+    v.document_proposals = ai.registry.document_proposals(id);
+    Ok(v)
 }
 
 // ------------------------------------------------------------------ 命令（パス・鍵を引数に取らない・返さない）
@@ -667,6 +672,20 @@ pub async fn ai_candidate_decide(
             .map_err(str::to_owned)?;
         ai.persist_locked(store, &mut books);
         view(ai, &books, &id)
+    })
+    .await
+}
+
+/// 画面が読み取りの記録にした（または読めなかった）書類の候補を、承認待ちから外す（0151）
+#[tauri::command]
+pub async fn ai_documents_taken(
+    app: AppHandle,
+    id: String,
+    candidate: String,
+) -> Result<HouseholdAiView, String> {
+    blocking(app, move |ai, _| {
+        ai.registry.take_document_proposal(&id, &candidate);
+        view(ai, &lock(&ai.books), &id)
     })
     .await
 }

@@ -4,7 +4,7 @@
 // - 入力の項目の定義（input/stages/ の欄）から作る、数の欄すべて
 // 動かした値は案（plans.ts）の差分にだけ入り、入力（現状）は変えない（0008 の5）
 import type { Debt, EngineRequest, ReturnShift } from "../../engine/types.ts";
-import { group, monthlyMan } from "../../presentation/format.ts";
+import { group } from "../../presentation/format.ts";
 import type { DemoHousehold } from "../catalog.ts";
 import { allFields, resolveTimepoint, type FieldDef, type StageDef } from "../input/form.ts";
 import { mutate, reemploymentOf, type WorkingHousehold } from "../input/household.ts";
@@ -16,7 +16,7 @@ import { ageReachedMonth } from "../levers.ts";
 import type { Option } from "../input/form.ts";
 import type { Box, EmploymentPeriod, Household, Member, Timepoint } from "../../engine/types.ts";
 import { buildStages, STAGE_ORDER } from "../input/stages/index.ts";
-import { pctFromRate, sameRate } from "../input/units.ts";
+import { amountText, pctFromRate, sameRate } from "../input/units.ts";
 import { addMonths, advisoryFeeInCurrent, hasAdvisoryFee, LEVER_KEYS, parseYm, pensionClaimMonth, pensionStarted, readLevers, type LeverKey, type LeverValues } from "../levers.ts";
 import { roles } from "../roles.ts";
 import { keyOf, resolveKey, type Reading } from "../store/readings.ts";
@@ -24,6 +24,7 @@ import { bucketShares, expectedReturn, type MixPart } from "./allocation.ts";
 import { addRate, cmpRate, nonNegative, pctText, subRate } from "./decimal.ts";
 import { ageAt } from "../levers.ts";
 import { setSurplusRatio, surplusRatioOf } from "../surplus.ts";
+import { independenceOf } from "../input/livingStages.ts";
 import { accountsOf, drawdownOf, drawdownStartDefault, INVEST_KINDS, methodOf, NOT_FINANCIAL, portfolioOf, rateOf, rateText, setDrawdown, setStopAge, stopAgeOf, stopAgeOrEstimate, stopEstimateOf, totalViewOf, valueOf } from "../input/savings/model.ts";
 import { clampRate, RETURN_RANGE, type PctRange } from "../input/rateRanges.ts";
 
@@ -205,8 +206,11 @@ const LEVER_LABEL: Record<LeverKey, (who: string) => string> = {
 const LEVER_SHORT: Record<LeverKey, string> = { retireAge: "働く年齢", pensionAge: "年金の受け取り", nisaMonthly: "NISA", livingMonthly: "生活費" };
 const LEVER_ITEM: Record<LeverKey, string> = { retireAge: "employment.to", pensionAge: "pensionRecord.claim", nisaMonthly: "account.contributions", livingMonthly: "livingExpense.monthly" };
 
+/**
+ * 対策の値の文。金額は万円の小数1桁まで（「月20.9万円」。基準の札とスライダーの値で円と万円を混ぜない。通しの確かめ。0150）
+ */
 export const leverValueText = (k: LeverKey, v: number): string =>
-  k === "retireAge" ? `${v}歳まで` : k === "pensionAge" ? `${v}歳から` : k === "nisaMonthly" ? (v === 0 ? "なし" : `月${monthlyMan(v)}`) : `月${monthlyMan(v)}`;
+  k === "retireAge" ? `${v}歳まで` : k === "pensionAge" ? `${v}歳から` : k === "nisaMonthly" ? (v === 0 ? "なし" : `月${amountText(v)}`) : `月${amountText(v)}`;
 const leverTick = (k: LeverKey, v: number): string => (k === "nisaMonthly" || k === "livingMonthly" ? (v === 0 ? "0" : `${v / 10000}万`) : String(v));
 const pct = (r: string) => `${Math.round(Number(r) * 100)}%`;
 
@@ -214,6 +218,15 @@ function leverNote(k: LeverKey, wh: WorkingHousehold, selfId: string, demo: Demo
   const h = wh.request.input.household;
   if (k === "retireAge") {
     const p = wh.postRetirement[selfId];
+    const self = h.members.find((m) => m.id === selfId);
+    // もう定年の後の働き方の期間にいる人（63歳・今は再雇用など）には、過去の定年の文を出さず、今の働き方のまま働くと書く（通しの確かめ。0150）
+    if (self !== undefined && p != null && ageAt(self, wh.request.input.baseMonth) >= p.fromAge) {
+      const now = nowPeriodOf(h, selfId, wh.request.input.baseMonth);
+      if (now === undefined || !(WORKING_TYPES.has(now.type) || now.type === "selfEmployed")) return null;
+      const name = now.type === "selfEmployed" ? "自営業" : now.type === "partTime" ? "パート" : now.type === "contract" ? "再雇用" : (EMPLOYMENT_TYPES.find((o) => o.value === now.type)?.label ?? "");
+      const income = periodIncome(now);
+      return `今の働き方（${name}${income > 0 ? `・${now.type === "selfEmployed" ? "事業所得" : "年収"}${Math.round(income / 10000)}万円` : ""}）のまま`;
+    }
     if (p?.type != null && p.annualSalary !== null) return `${p.fromAge}歳から${p.type === "selfEmployed" ? "自営業" : p.type === "partTime" ? "パート" : "再雇用"}（年収${Math.round(p.annualSalary / 10000)}万円）`;
     return null;
   }
@@ -222,9 +235,17 @@ function leverNote(k: LeverKey, wh: WorkingHousehold, selfId: string, demo: Demo
     return v === 65 ? "原則の65歳" : null;
   }
   if (k === "nisaMonthly") return demo?.notes?.nisaMonthly ?? "働いている間、毎月積み立てる";
-  const st = (h.livingExpenses ?? []).find((l) => l.mode === "total")?.stages ?? [];
+  const l = (h.livingExpenses ?? []).find((x) => x.mode === "total");
+  const st = l?.stages ?? [];
   const names: Record<string, string> = { childIndependence: "子の独立後は", retirement: "退職後は", age70: "70歳から", age80: "80歳から" };
-  const parts = st.filter((s) => s.ratio !== undefined && names[s.label] !== undefined).map((s) => `${names[s.label]}${pct(s.ratio as string)}`);
+  // 子の独立の段が2つ以上なら、どの子の独立かを書く（「第1子の独立後は94%、第2子の独立後は85%」）
+  const several = st.filter((s) => s.label === "childIndependence").length >= 2;
+  const nameOf = (s: (typeof st)[number]): string => {
+    if (s.label !== "childIndependence" || !several || l === undefined) return names[s.label] as string;
+    const kids = independenceOf(h, wh.request.input.baseMonth, wh.request.input.endYear, l, s);
+    return kids.length > 0 ? `${kids.map((id) => memberLabel(wh, id)).join("・")}の独立後は` : (names[s.label] as string);
+  };
+  const parts = st.filter((s) => s.ratio !== undefined && names[s.label] !== undefined).map((s) => `${nameOf(s)}${pct(s.ratio as string)}`);
   return parts.length > 0 ? parts.join("、") : null;
 }
 

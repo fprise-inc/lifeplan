@@ -23,6 +23,35 @@ export function modelHousehold(id: string): EngineRequest {
   return JSON.parse(readFileSync(join(REPO_DIR, "data", "modelHouseholds", `${id}.json`), "utf8")) as EngineRequest;
 }
 
+/**
+ * 見本の棚の世帯を、未入力を埋める前（2026-11-07 より前）の形にする。見本の未入力は埋めた（失業給付は「受け取らない」・終身保険の死亡保険金と
+ * 解約返戻率・専門学校の学費・配偶者の退職金の「制度が無い」）ので、未入力・確かめの一覧・計算の知らせの仕組みを見るテストはこの形で見る
+ */
+export function modelWithGaps(id: string): EngineRequest {
+  const req = structuredClone(modelHousehold(id));
+  const h = req.input.household;
+  for (const p of h.employmentPeriods ?? []) {
+    if (p.unemploymentClaim === false && (p.valueStates as Record<string, unknown> | undefined)?.["employment.unemploymentClaim"] === undefined) delete p.unemploymentClaim;
+    const vs = p.valueStates as Record<string, { state?: string }> | undefined;
+    if (vs?.["employment.retirementBenefit"]?.state === "notApplicable" && id === "lifetime100Plan") {
+      delete vs["employment.retirementBenefit"];
+      if (Object.keys(vs).length === 0) delete p.valueStates;
+    }
+  }
+  for (const c of h.insuranceContracts ?? [])
+    if (c.id === "64286f3e-7cba-4f7f-85c0-0ab25c94ec1b") {
+      delete c.coverages;
+      delete c.simple;
+    }
+  for (const g of h.goals ?? [])
+    for (const st of g.education?.stages ?? [])
+      if (st.stage === "vocational" && id === "sampleSingleParent") {
+        delete st.annualOverride;
+        delete st.entranceOverride;
+      }
+  return req;
+}
+
 export function preview(req: EngineRequest): PreviewResult {
   const { engine, packs } = realEngine();
   const out = JSON.parse(engine.runBatch(JSON.stringify([req]), packs, '{"preview":true}')) as unknown[];

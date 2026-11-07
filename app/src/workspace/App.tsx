@@ -102,6 +102,12 @@ import { RecoveryPanel, type RecoveryMode } from "./store/RecoveryPanel.tsx";
 import { StoragePanel } from "./store/StoragePanel.tsx";
 import { keepSnapshots, makeSnapshot, type Snapshot, type SnapshotDraft } from "./snapshots/snapshots.ts";
 import { keepStatements, withLog } from "./statement/model.ts";
+import { AiDocumentBand, DocumentEntry, DocumentReview, withSamples, type DocChange } from "./documents/DocumentReview.tsx";
+import { keepDocuments, withDocumentLog, withReading } from "./documents/log.ts";
+import type { DocumentReading } from "./documents/types.ts";
+import { ingestAiProposals, pasteGate } from "./documents/ai.ts";
+import { PasteAnswer } from "./documents/PasteAnswer.tsx";
+import { GUIDE_DOC_TYPES, guideText } from "./documents/guides.ts";
 import { StatementPanel } from "./statement/StatementPanel.tsx";
 import type { StatementLog } from "../../../statement/src/index.ts";
 import { SnapshotTools } from "./snapshots/SnapshotTools.tsx";
@@ -189,6 +195,8 @@ export function parseHash(hash: string): {
   bell?: string | null;
   /** #feedback: 「要望・不具合を送る」を開いて開く（画面の確かめ用） */
   feedback?: boolean;
+  /** #documents=sample: 見本の世帯に架空の書類の見本を読み、書類の読み取りの確かめの画面を開いて開く（#documents は開くだけ。画面の確かめ用。0148） */
+  documents?: "open" | "sample";
   /** #statement=review: 入力で明細のパネルをその手順で開く（閉じると基本生活費のパネルに戻る。0034。画面の確かめ用） */
   statement?: "accounts" | "import" | "review" | "result";
   /** #look=dark: 暗い画面で開く（画面の確かめ用。保存しない。画面には選ぶ所を出さない。0121） */
@@ -268,6 +276,7 @@ export function parseHash(hash: string): {
     else if (k === "notices") out.notices = true;
     else if (k === "bell") out.bell = v !== undefined && v !== "" ? decodeURIComponent(v) : null;
     else if (k === "feedback") out.feedback = true;
+    else if (k === "documents") out.documents = v === "sample" ? "sample" : "open";
     else if (k === "statement" && (v === "accounts" || v === "import" || v === "review" || v === "result")) out.statement = v;
     else if (k === "report" && (v === "takeaway" || v === "pdf")) out.reportMode = v;
     else if (k === "look" && (v === "dark" || v === "light" || v === "system")) out.look = v;
@@ -534,6 +543,15 @@ export function App() {
   const noticeLocalRef = useRef<LocalState>(EMPTY_LOCAL);
   const [noticeFocus, setNoticeFocus] = useState<{ key: string | null; n: number } | null>(initial.bell !== undefined ? { key: initial.bell, n: 1 } : null);
   const [feedbackOpen, setFeedbackOpen] = useState(initial.feedback === true);
+  /** 書類の読み取りの確かめの画面（0148） */
+  const [docsOpen, setDocsOpen] = useState(initial.documents !== undefined);
+  /** 確かめの画面で初めに開く読み取りの記録（読んだばかりの書類〔XML の読み手。0153〕・AI から届いた帯・貼り付けから開くとき〔0151〕） */
+  const [docsInitial, setDocsInitial] = useState<string | undefined>(undefined);
+  /** AI の答えを貼り付ける入口（0151） */
+  const [pasteOpen, setPasteOpen] = useState(false);
+  /** AI接続口から届いたが、読める候補が無いため取り込まなかった書類の候補の理由（帯に出す。0151） */
+  const [aiDocFailed, setAiDocFailed] = useState<{ count: number; issues: string[] }>({ count: 0, issues: [] });
+  const docsSeeded = useRef(false);
   // 事務所の見た目（0121）: 事務所の名前・ロゴ・基調の色と、この PC の画面の明るさ。事務所の既定値とは別の欄（本体が画像を確かめる）
   const [branding, setBranding] = useState<OfficeBranding>(initial.look !== undefined ? { appearance: initial.look } : EMPTY_BRANDING);
   const brandingRef = useRef<OfficeBranding>(branding);
@@ -1364,7 +1382,7 @@ export function App() {
         const o = openedRef.current;
         if (o === null || dual.current === null) return;
         // 推定を入れ直してから、推定の元の印を付ける（事務所の推定の値から作った推定か。0111 の追記 2026-11-03）
-        const n = openedFrom(o.demo, withOfficeSources(withRefreshedEstimates(keepStatements(keepSnapshots(next, o.wh), o.wh)), o.wh));
+        const n = openedFrom(o.demo, withOfficeSources(withRefreshedEstimates(keepDocuments(keepStatements(keepSnapshots(next, o.wh), o.wh), o.wh)), o.wh));
         if (n === null) return;
         reqCache.current.clear();
         rawCache.current.clear();
@@ -1385,7 +1403,7 @@ export function App() {
     if (o === null) return;
     // 控えは元に戻す・やり直すの対象にしない（作った後は変えない）。今の控えを持ち越す。
     // Web のヒアリングの依頼の記録（鍵・受け取った答えと書類）も持ち越す（サーバーの状態と食い違わないように。0125）
-    const sw = keepWebLog(keepStatements(keepSnapshots(s.wh, o.wh), o.wh), o.wh);
+    const sw = keepDocuments(keepWebLog(keepStatements(keepSnapshots(s.wh, o.wh), o.wh), o.wh), o.wh);
     const n = sw === o.wh ? o : sw.request === o.wh.request ? { ...o, wh: sw } : openedFrom(o.demo, sw);
     if (n === null) return;
     reqCache.current.clear();
@@ -1435,6 +1453,22 @@ export function App() {
     openedRef.current = n;
     setOpened(n);
   }, []);
+  /** 書類の読み取りの記録を変える（元に戻す・やり直すの対象にしない。明細の取り込みの記録と同じ。0148） */
+  const putDocuments = useCallback((log: WorkingHousehold["documents"]) => {
+    const o = openedRef.current;
+    if (o === null) return;
+    const n: Opened = { ...o, wh: withDocumentLog(o.wh, log) };
+    openedRef.current = n;
+    setOpened(n);
+  }, []);
+  /** 書類の確かめの画面の操作: 記録を先に入れ、現状の値は元に戻せる変更として入れる */
+  const onDocChange = useCallback(
+    (c: DocChange) => {
+      putDocuments(c.log);
+      if (c.wh !== undefined) edit(withDocumentLog(c.wh, c.log));
+    },
+    [putDocuments, edit],
+  );
   /**
    * 拡張の束の入力欄の値を変える（0114 の4。世帯ファイルの拡張領域 ext["<key>"]。合算BS の会社の入力など。計算の要求の外なので計算し直さない。
    * 元に戻す・やり直すの履歴には積む。保存した世帯なら自動保存で世帯ファイルに書く）
@@ -1473,7 +1507,7 @@ export function App() {
       history.track(() => {
         const o = openedRef.current;
         if (o === null) return;
-        const n = { ...o, wh: withOfficeSources(keepStatements(keepSnapshots(next, o.wh), o.wh), o.wh) };
+        const n = { ...o, wh: withOfficeSources(keepDocuments(keepStatements(keepSnapshots(next, o.wh), o.wh), o.wh), o.wh) };
         reqCache.current.clear();
         rawCache.current.clear();
         openedRef.current = n;
@@ -1643,6 +1677,34 @@ export function App() {
   );
   // ---- AI接続口（0014・0015）: 状態と世帯の記録は本体から読む。AIからの候補は FP が承認したときだけプランになる ----
   const ai = useAi(host?.ai ?? null, storeStatus?.state === "ready", storedInfo?.id ?? null);
+  // AI接続口から届いた書類の候補（0151）: 本体はメモリの中に置いているだけ。読み口（番号を落とす決まり）を通して読み取りの記録にし、
+  // 世帯ファイルに書けてから本体の承認待ちから外す（書けなければ外さず、次の読み直しでもう一度。同じ候補は2回足さない）
+  const docIngesting = useRef(false);
+  const setAiView = ai.setView;
+  useEffect(() => {
+    const list = ai.view?.documentProposals ?? [];
+    const sr = storedInfo;
+    const o = openedRef.current;
+    if (list.length === 0 || host === null || sr === null || sr.readOnly || o === null || docIngesting.current) return;
+    const mine = list.filter((p) => p.householdId === sr.id);
+    if (mine.length === 0) return;
+    docIngesting.current = true;
+    const res = ingestAiProposals(o.wh, mine);
+    if (res.added.length > 0) putDocuments(res.log);
+    if (res.failed.length > 0) setAiDocFailed((f) => ({ count: f.count + res.failed.length, issues: [...new Set([...f.issues, ...res.failed.flatMap((x) => x.issues)])] }));
+    void (async () => {
+      try {
+        if (!(await saveNow())) return;
+        let v = null;
+        for (const id of res.taken) v = await host.ai.takeDocuments(sr.id, id);
+        if (v !== null) setAiView(v);
+      } catch {
+        // 次の読み直しでもう一度
+      } finally {
+        docIngesting.current = false;
+      }
+    })();
+  }, [ai.view, host, storedInfo, putDocuments, saveNow, setAiView]);
   // 機能を有効にするコード（0110 の追記）: 提供元が止めたかの確かめは本体の裏で行うので、状態を1分ごとに読み直す。
   // AIからコードの候補が届いた・減ったときもすぐ読み直す（候補の中身は featureStatus に入る）
   const codeCandidates = ai.status?.featureCodeCandidates ?? 0;
@@ -2400,6 +2462,38 @@ export function App() {
     window.scrollTo({ top: 0 });
   };
   const save = saveText(savingStored, saveState, storeMessage, presence !== null);
+  /** 見本の世帯か（保存していない見本・保存した見本の棚の世帯）。架空の書類の見本はここでだけ読む（0148） */
+  const sampleHousehold = opened !== null && ((storedInfo === null && opened.demo !== null) || storedInfo?.sample !== undefined);
+  /** アプリの中の読み手で読んだ書類（控除証明書の電子データなど）を記録に足し、確かめの画面を開く（0153） */
+  const addDocReadings = (rs: readonly DocumentReading[]) => {
+    const o = openedRef.current;
+    if (o === null || rs.length === 0) return;
+    let log = o.wh.documents;
+    for (const r of rs) log = withReading(log, r);
+    putDocuments(log);
+    setDocsInitial(rs[0]?.id);
+    setDocsOpen(true);
+  };
+  const loadDocSamples = () => {
+    if (opened === null || !sampleHousehold) return;
+    putDocuments(withSamples(opened.wh).log);
+    setDocsOpen(true);
+  };
+  /** 照合だけの値と比べる計算の結果の額（現状の計算。その年・その人の分） */
+  const docCalc = (row: string, year: number, member: string | null): number | null => {
+    const r = resultOf(CURRENT);
+    if (r === null) return null;
+    const cells = r.table.filter((c) => c.row === row && c.year === year && (member === null || c.member === member));
+    return cells.length === 0 ? null : cells.reduce((n, c) => n + c.amount, 0);
+  };
+  // #documents=sample（画面の確かめ用）: 見本の世帯に架空の書類の見本を1回だけ読む
+  if (initial.documents === "sample" && !docsSeeded.current && opened !== null && sampleHousehold) {
+    docsSeeded.current = true;
+    queueMicrotask(() => {
+      const o = openedRef.current;
+      if (o !== null) putDocuments(withSamples(o.wh).log);
+    });
+  }
   const basis = model === null ? null : { members: model.members.map((m) => `${m.label} ${m.age}歳`).join("・"), asOf: model.asOf };
   return (
     <OfficeTextsContext.Provider value={officeTexts}>
@@ -2460,6 +2554,17 @@ export function App() {
       />
       <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
       <AiCodeCandidateBand count={officeSettingsOpen ? 0 : (ai.status?.featureCodeCandidates ?? 0)} onOpen={() => setOfficeSettingsOpen(true)} />
+      {opened !== null && !docsOpen ? (
+        <AiDocumentBand
+          wh={opened.wh}
+          failed={aiDocFailed}
+          onOpen={(id) => {
+            setDocsInitial(id);
+            setDocsOpen(true);
+          }}
+          onDismiss={() => setAiDocFailed({ count: 0, issues: [] })}
+        />
+      ) : null}
       <main class="wrap">
         {presence !== null && storedInfo !== null ? (
           <div class="presence-band" role="status" data-presence-band>
@@ -2733,6 +2838,17 @@ export function App() {
                                 },
                               }
                             : {})}
+                        />
+                        <DocumentEntry
+                          wh={opened.wh}
+                          sample={sampleHousehold}
+                          onOpen={() => {
+                            setDocsInitial(undefined);
+                            setDocsOpen(true);
+                          }}
+                          onSamples={loadDocSamples}
+                          onPaste={() => setPasteOpen(true)}
+                          onReadings={addDocReadings}
                         />
                         {storedInfo !== null ? (
                           <div class="hs-tools" role="group" aria-label="AI に資料を渡す" data-imports-ai>
@@ -3108,6 +3224,29 @@ export function App() {
           }}
           onOpenConnector={() => setAiPanel("connector")}
           onClose={() => setAiPanel(null)}
+        />
+      ) : null}
+      {docsOpen && opened !== null ? <DocumentReview wh={opened.wh} calc={docCalc} onChange={onDocChange} onClose={() => setDocsOpen(false)} {...(docsInitial !== undefined ? { initial: docsInitial } : {})} /> : null}
+      {pasteOpen && opened !== null ? (
+        <PasteAnswer
+          wh={opened.wh}
+          gate={pasteGate({ sample: sampleHousehold, saved: storedInfo !== null, consentState: ai.view?.consentState ?? null })}
+          guide={{ options: GUIDE_DOC_TYPES, text: guideText }}
+          {...(storedInfo !== null
+            ? {
+                onOpenConsent: () => {
+                  setPasteOpen(false);
+                  openAiShare();
+                },
+              }
+            : {})}
+          onRead={(reading) => {
+            putDocuments(withReading(openedRef.current?.wh.documents, reading));
+            setPasteOpen(false);
+            setDocsInitial(reading.id);
+            setDocsOpen(true);
+          }}
+          onClose={() => setPasteOpen(false)}
         />
       ) : null}
       {feedbackOpen ? (

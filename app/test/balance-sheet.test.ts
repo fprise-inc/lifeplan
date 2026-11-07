@@ -118,7 +118,8 @@ describe("資産と負債のタブ（本物のエンジンの値）", () => {
     expect(grp(y0, "liquid")).toBe(sumRows(r, ["cf.balance.account.deposit"], 2026));
     expect(grp(y0, "market")).toBe(sumRows(r, ["cf.balance.account.nisa", "cf.balance.account.taxable"], 2026));
     expect(grp(y0, "locked")).toBe(sumRows(r, ["cf.balance.account.ideco", "cf.balance.account.corporateDc"], 2026));
-    expect(grp(y0, "illiquid")).toBe(sumRows(r, ["cf.balance.account.realEstate"], 2026));
+    // すぐにはお金にしにくいもの: 住んでいる家と、終身保険の解約返戻金
+    expect(grp(y0, "illiquid")).toBe(sumRows(r, ["cf.balance.account.realEstate", "cf.balance.account.insurance"], 2026));
     expect(grp(y0, "mortgage")).toBe(sumRows(r, ["cf.balance.debt.mortgage", "cf.balance.debt.unpaidInterest"], 2026));
   });
 

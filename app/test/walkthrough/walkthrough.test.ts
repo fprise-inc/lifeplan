@@ -12,7 +12,7 @@ import { preview } from "../helpers.ts";
 import { subjectOf, watch } from "../watch/rules.ts";
 import { browserPath, start, type Session } from "./browser.ts";
 import { WALKTHROUGH } from "./fieldEffect.ts";
-import { household1, household2, household3, openSample, walkPanels, type Notes } from "./households.ts";
+import { household1, household2, household3, household4, openSample, walkPanels, type Notes } from "./households.ts";
 
 const SHOTS = process.env.WALKTHROUGH_SHOTS;
 const RUN = WALKTHROUGH && browserPath() !== null;
@@ -49,7 +49,7 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
   let s: Session;
   beforeAll(async () => {
     s = await start();
-  }, 300_000);
+  }, 600_000);
   afterAll(async () => {
     await s?.close();
   });
@@ -136,14 +136,22 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       const cov = h().insuranceContracts?.[0]?.coverages?.find((c) => c.benefit === "incomeProtection");
       expect(cov?.amount).toBe(150_000);
     });
-    it.fails("持ち家を標準の欄だけで入れても、持ち家の価値が資産に入り、純資産がマイナスにならない", () => {
+    it("今の残高から入れた住宅ローンで借りた年月を入れても、入れた毎月の返済額・完済の年月は変わらず、持ち家の住み始めと控除の入居が借りた年月になる", () => {
+      expect(d.notes.seen.loanPaymentAfterStart).toBe("90,000");
+      expect(d.notes.seen.loanPayoffAfterStart).toBe("2058-03");
+      const loan = h().debts![0]!;
+      expect(loan.start).toEqual({ at: "2023-04" });
+      // 完済の年月＝借りた年月＋返済期間
+      expect(loan.repayment.termMonths).toBe((2058 - 2023) * 12 - 1);
+      expect(h().residences!.find((r) => r.kind === "own")!.from).toEqual({ at: "2023-04" });
+      expect(h().events?.find((e) => e.id === loan.housing?.moveIn)?.at).toEqual({ at: "2023-04" });
+    });
+    it("持ち家を標準の欄だけで入れても、持ち家の価値が資産に入り、純資産がマイナスにならない（評価額は未入力の警告なので標準に出る）", () => {
       expect(sum(d.table, "cf.balance.account.realEstate", yearOf(d.wh.request))).toBeGreaterThan(0);
       expect(d.bs).not.toContain("純資産がマイナスに");
     });
     panelChecks(() => d);
-    watchChecks(() => d, [
-      { rule: "negativeNetWorthNow", match: /純資産が|資産に入っていない/, what: "持ち家を標準の欄だけで入れると、今の家が資産に入らず純資産が大きくマイナス" },
-    ]);
+    watchChecks(() => d, []);
   });
 
   describe("世帯② 自営業のひとり親と子1人・賃貸・詳細も使う", () => {
@@ -165,6 +173,16 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       expect(sum(d.table, "cf.income.business", yearOf(d.wh.request) + 1)).toBeGreaterThan(3_000_000);
       expect(sum(d.table, "cf.income.business", y70 + 1)).toBe(0);
     });
+    it("働き方と収入の確定申告で入れた青色申告（65万円）が入り、白色のときより所得税・住民税が下がる", () => {
+      const self = h().members.find((m) => m.kind === "self")!;
+      expect(self.taxReturn).toEqual({ method: "blue", blueDeduction: "electronic" });
+      const white = structuredClone(d.wh.request);
+      delete (white.input.household.members.find((m) => m.kind === "self") as { taxReturn?: unknown }).taxReturn;
+      const table = preview(forEngine(white)).table;
+      const y = yearOf(d.wh.request) + 2;
+      expect(sum(table, "cf.taxSi.incomeTax", y)).toBeGreaterThan(sum(d.table, "cf.taxSi.incomeTax", y));
+      expect(sum(table, "cf.taxSi.residentTax", y)).toBeGreaterThan(sum(d.table, "cf.taxSi.residentTax", y));
+    });
     it("家賃 月7.5万円・奨学金 月5万円・iDeCo 80万円 月2.3万円・小規模企業共済 150万円 月3万円が入る", () => {
       expect(sum(d.table, "cf.expense.housing.rent", yearOf(d.wh.request) + 1)).toBe(900_000);
       const monthly = (v: number) => h().accounts!.find((a) => a.marketValue?.value === v)?.contributions?.[0]?.monthly ?? null;
@@ -177,17 +195,14 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       expect(d.notes.seen.childSupportFrom).toBe(d.wh.request.input.baseMonth);
       expect(sum(d.table, "cf.income.other", yearOf(d.wh.request))).toBeGreaterThan(0);
     });
-    it.fails("結果の表で、事業所得が「事業所得」の行に出る（今は「その他の収入」）", () => {
+    it("結果の表で、事業所得が「ご本人の事業所得」の行に出る（「その他の収入」に入れない）", () => {
       expect(d.rows.some((r) => r.includes("事業所得"))).toBe(true);
       const defs = rowDefs(d.wh.request);
       const other = defs.find((x) => x.key === "incomeOther")!;
       expect(d.table.some((c) => c.row.startsWith("cf.income.business") && other.match(c))).toBe(false);
     });
     panelChecks(() => d);
-    watchChecks(() => d, [
-      { rule: "rowGrouping", match: /cf\.income\.business/, what: "事業所得がキャッシュフロー表の「その他の収入」に入る" },
-      { rule: "screenWords", match: /incomeFlow/, what: "世帯の中身の一覧に内部の名前（incomeFlow）が出る" },
-    ]);
+    watchChecks(() => d, []);
   });
 
   describe("世帯③ 60代の夫婦・再雇用と企業年金・完済の持ち家・区分マンション1室・母の介護と相続", () => {
@@ -246,15 +261,52 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       const care = d.table.filter((c) => c.row.includes("care") && c.row.startsWith("cf.expense") && c.year > deathYear + 1);
       expect(care).toEqual([]);
     });
-    it.fails("結果の表で、企業年金が「企業年金」の行に出る（今は「その他の収入」）", () => {
+    it("結果の表で、企業年金が「企業年金・個人年金」の行に出る（「その他の収入」に入れない）", () => {
       expect(d.rows.some((r) => r.includes("企業年金"))).toBe(true);
     });
     panelChecks(() => d);
     watchChecks(() => d, [
       { rule: "pastRetirementEstimate", match: /db/, what: "定年の後に足した企業年金（年金で受け取る）の一時金の額が、推定0円・受け取りが過去のまま残る" },
-      { rule: "rowGrouping", match: /corporatePension/, what: "企業年金がキャッシュフロー表の「その他の収入」に入る" },
-      { rule: "screenWords", match: /incomeFlow/, what: "世帯の中身の一覧に内部の名前（incomeFlow）が出る" },
     ]);
+  });
+
+  describe("世帯④ 賃貸から住宅を買う予定・購入の時期を画面で直す（標準の欄だけ）", () => {
+    let d: Done;
+    beforeAll(async () => {
+      d = await finish("世帯4", await household4(s.page));
+    }, 600_000);
+    const h = () => d.wh.request.input.household;
+    const bought = () => h().residences!.find((r) => r.purchase !== undefined)!;
+    const rent = () => h().residences!.find((r) => r.kind === "rent")!;
+    const loan = () => h().debts!.find((x) => x.kind === "mortgage")!;
+
+    it("住宅ローンを足す前に購入の時期を直すと、前の賃貸の住み終わりが購入の前の月になり、足したローンの借入の年月は購入の時期", () => {
+      expect(d.notes.seen.rentEndAfterFirst).toBe("2030-03");
+      expect(d.notes.seen.loanStartAfterAdd).toBe("2030-04");
+    });
+    it("住宅ローンを足した後に購入の時期を直すと、前の賃貸の住み終わり・借入の年月がついてくる（画面のキー入力で）", () => {
+      expect(d.notes.seen.rentEndAfterSecond).toBe("2031-09");
+      expect(d.notes.seen.loanStartAfterSecond).toBe("2031-10");
+      expect(d.notes.seen.purchasePanel).not.toContain("が違います");
+    });
+    it("保存した世帯で、購入の時期・購入した家の住み始め・前の賃貸の住み終わり・借入の年月と最初の金利の段・控除の入居がそろう", () => {
+      expect(bought().purchase!.at).toEqual({ at: "2031-10" });
+      expect(bought().from).toEqual({ at: "2031-10" });
+      expect(rent().to).toEqual({ at: "2031-09" });
+      expect(loan().start).toEqual({ at: "2031-10" });
+      expect(loan().rateSchedule[0]!.from).toEqual({ at: "2031-10" });
+      expect(h().events?.find((e) => e.id === loan().housing?.moveIn)?.at).toEqual({ at: "2031-10" });
+    });
+    it("借入の年月だけを手でずらすと、欄の下に知らせと「購入の時期に合わせる」が出て、押すと借入の年月が購入の時期に戻る", () => {
+      expect(d.notes.seen.gapPanel).toContain("購入の時期（2031年10月）と借入の年月（2032年1月）が違います");
+      expect(d.notes.seen.loanStartAfterFix).toBe("2031-10");
+    });
+    it("結果の表で、買う前の年（2030年）に住宅ローンの返済が無く、家賃を払う", () => {
+      expect(sum(d.table, "cf.expense.housing.loan", 2030)).toBe(0);
+      expect(sum(d.table, "cf.expense.housing.rent", 2030)).toBeGreaterThan(0);
+    });
+    panelChecks(() => d);
+    watchChecks(() => d, []);
   });
 
   // 見本の棚の主な世帯: 全部の入力項目のパネルを開いて閉じ、結果のタブまで出す（見本は保存しないので、世帯の中身の確かめはしない）

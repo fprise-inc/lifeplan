@@ -44,3 +44,19 @@ export const officeNow = (): OfficeNow => now;
 export function setOfficeNow(n: OfficeNow): void {
   now = n;
 }
+
+/**
+ * 前提条件の標準値の系列のうち、前提条件の年ごとの列（assumptions.<名前>。欄のキー assume/<名前>）でない物の置き場所（0073 の追記 2026-11-07）:
+ * 貸していない不動産（空き家・土地・別荘）の値動きは、計算が評価額の伸び率の無い貸していない不動産に当てる「資産の種類ごとの利回り」の不動産
+ * （assumptions.assetReturns.realEstate。無ければ0%）に写す。欄のキーと仮の印のキーは、その欄（assume/assetReturns/realEstate/default）
+ */
+export const NESTED_OFFICE_ASSUMPTIONS: Readonly<Record<string, { path: readonly string[]; key: string }>> = {
+  heldEstateGrowth: { path: ["assetReturns", "realEstate"], key: "assume/assetReturns/realEstate/default" },
+};
+
+/** 前提条件の欄のキー → 前提条件の標準値の系列の名前（前提条件の欄でなければ null。確かめの一覧の「事務所の新しい値があります」が使う） */
+export function officeAssumptionOfKey(key: string): string | null {
+  for (const [name, p] of Object.entries(NESTED_OFFICE_ASSUMPTIONS)) if (p.key === key) return name;
+  const m = /^assume\/([a-zA-Z]+)$/.exec(key);
+  return m === null ? null : (m[1] as string);
+}

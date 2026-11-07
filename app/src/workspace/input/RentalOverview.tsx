@@ -5,12 +5,14 @@ import { Help } from "../../presentation/Help.tsx";
 import type { rentalFigures } from "../rentalTab.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { rentalOverview } from "./stages/rental.ts";
+import { amountText } from "./units.ts";
 
 /** 分析の数字（null は計算の道が無いか数字が無い、"loading" は求めている間） */
 export type RentalOverviewFigures = ReturnType<typeof rentalFigures> | "loading";
 
-const man = (yen: number) => `${Math.round(yen / 10000).toLocaleString("ja-JP")}万円`;
-const yen = (v: number) => `${v < 0 ? "▲" : ""}${Math.abs(v).toLocaleString("ja-JP")}円`;
+// 欄の外の額の書き方（万円で小数1桁・1万円未満は円・マイナスは▲。units.ts の amountText）
+const man = (yen: number) => amountText(Math.round(yen));
+const yen = man;
 
 export function RentalOverview({ wh, figures = null }: { wh: WorkingHousehold; figures?: RentalOverviewFigures }) {
   const ov = rentalOverview(wh);
@@ -37,7 +39,7 @@ export function RentalOverview({ wh, figures = null }: { wh: WorkingHousehold; f
             <th scope="col">物件名</th>
             <th scope="col">種類</th>
             <th scope="col" class="num">評価額</th>
-            <th scope="col" class="num">ローン残高</th>
+            <th scope="col" class="num">ローン残高（今）</th>
             <th scope="col" class="num">月の収入（空室率を引いた後）</th>
             <th scope="col" class="num">表面利回り</th>
             <th scope="col" class="num">実質利回り</th>

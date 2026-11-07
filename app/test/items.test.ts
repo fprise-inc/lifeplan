@@ -40,7 +40,7 @@ import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { countsByCard, diffRows, planIndex, planView, recordPlanEdit } from "../src/workspace/plans/planEdit.ts";
 import type { Proposal } from "../src/workspace/plans/plans.ts";
 import { roles } from "../src/workspace/roles.ts";
-import { modelHousehold, preview } from "./helpers.ts";
+import { modelHousehold, modelWithGaps, preview } from "./helpers.ts";
 import { legacyAdded, withLegacyAdded } from "./legacyAdded.ts";
 
 const MODELS = readdirSync(join(REPO_DIR, "data", "modelHouseholds"))
@@ -52,7 +52,7 @@ const seq = () => {
   let n = 0;
   return () => `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}`;
 };
-const open = (id: string, memo: string[] = []) => fromRequest(modelHousehold(id), { memo });
+const open = (id: string, memo: string[] = []) => fromRequest(modelWithGaps(id), { memo });
 const byId = (items: InputItem[], id: string) => items.find((i) => i.id === id) as InputItem;
 const sumText = (i: InputItem) => (i.summary === null ? null : `${i.summary.pre ?? ""}${i.summary.main}${i.summary.unit ?? ""}`);
 const fieldOf = (stage: StageDef | null, suffix: string): FieldDef => allFields(stage as StageDef).find((f) => f.key.endsWith(suffix)) as FieldDef;
@@ -743,7 +743,9 @@ describe("要約の数字1つ", () => {
     const care = inputItems(open("parentCare"));
     expect(sumText(byId(care, "family"))).toBe("1人（＋親1）");
     // 介護の費用の額（期間を入れていない介護があるときは月の額）と介護を受ける人・親の人数（0041 の追記 2026-11-06）
-    expect(sumText(byId(care, "care"))).toBe("介護 月36万円（母・ご本人）・親 1人");
+    // 介護保険のサービスの額（10割の25万円）は1割負担として、月々の費用11万円と足す。額の入っていないご本人の介護は統計の平均の推定（在宅 月5.2万円）（0143。
+    // 前はサービスの額を10割のまま足し、空の介護は0円で数えていた）
+    expect(sumText(byId(care, "care"))).toBe("介護 月18.7万円（母・ご本人）・親 1人");
     expect(sumText(byId(inputItems(open("housingGiftFromParents")), "inheritance"))).toBe("2件の援助");
     // 相続税の目安は要約にしない。入れた中身があるときだけ、下の小さな1行にする（0060 の 2026-10-29 の追記）
     const gift = byId(inputItems(open("housingGiftFromParents"), { inheritanceTax: "相続税: かからない見込み" }), "inheritance");

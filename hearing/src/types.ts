@@ -30,6 +30,8 @@ export interface Member {
   support?: { dependent: boolean; cohabiting: boolean; allowance?: number };
   /** 会社の借入の連帯保証の額（会社役員の方。負債には入れない。計算には使わない。0105） */
   companyGuarantee?: ValueBox<number>;
+  /** 所得税の申告の仕方と青色申告特別控除の区分（自営業の方。0081・0155） */
+  taxReturn?: { method: "blue" | "white"; blueDeduction?: "electronic" | "doubleEntry" | "simple" };
 }
 
 export type Relation =

@@ -156,7 +156,8 @@
           },
           "corporatePension": {
             "db": false
-          }
+          },
+          "unemploymentClaim": false
         },
         {
           "id": "791483e2-4ca9-4f8d-ac25-1f92f1774084",
@@ -211,7 +212,8 @@
           },
           "corporatePension": {
             "db": false
-          }
+          },
+          "unemploymentClaim": false
         }
       ],
       "accounts": [

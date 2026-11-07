@@ -14,7 +14,7 @@ import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { civilRetirementAge, reemploymentSalary } from "../src/workspace/input/stages/work.ts";
 import { fieldAddress, fieldStatus } from "../src/workspace/input/valueState.ts";
 import { readLevers } from "../src/workspace/levers.ts";
-import { modelHousehold, preview } from "./helpers.ts";
+import { modelWithGaps, preview } from "./helpers.ts";
 
 const BASE = "2026-10";
 let n = 0;
@@ -200,7 +200,14 @@ describe("辞め方・失業給付・高年齢雇用継続給付の欄", () => {
     const w1 = edit(wh, `work/period/${main.id}/endsWith`, "involuntary");
     expect(periods(w1, self)[0]!.endsWith).toBe("involuntary");
     expect(() => preview(w1.request)).not.toThrow();
-    expect(edit(w1, `work/period/${main.id}/endsWith`, "").request.input.household.employmentPeriods!.find((p) => p.id === main.id)!.endsWith).toBeUndefined();
+    // 定年後の予定の定年で辞める期間の先頭の「自動」は推定の定年（選択肢の先頭と、推定の「定年」がそろう）。選ぶと推定の定年に戻す
+    expect(f.kind === "select" && f.options[0]!.label).toBe("自動: 定年（定年後の予定の定年で辞めるので）");
+    const back = edit(w1, `work/period/${main.id}/endsWith`, "");
+    expect(back.request.input.household.employmentPeriods!.find((p) => p.id === main.id)!.endsWith).toBe("retirement");
+    expect(fieldStatus(fieldOf(back, `work/period/${main.id}/endsWith`), back).status).toBe("estimated");
+    // 定年後の予定の無い期間の「自動」は、今までどおり空に戻す（エンジンの自動の決まり）
+    const w2 = edit(wh, `work/period/${post.id}/endsWith`, "voluntary");
+    expect(edit(w2, `work/period/${post.id}/endsWith`, "").request.input.household.employmentPeriods!.find((p) => p.id === post.id)!.endsWith).toBeUndefined();
   });
 
   it("欄の当て先は期間の入力項目ID", () => {
@@ -214,8 +221,8 @@ describe("辞め方・失業給付・高年齢雇用継続給付の欄", () => {
 
 describe("古い世帯: 失業給付は自動で入れず、確かめの一覧で知らせる", () => {
   it("開いても期間を書き換えない。推定で埋めると受け取る、受け取らないと決めると一覧から消える", () => {
-    const wh = withRefreshedEstimates(fromRequest(modelHousehold("salariedCoupleTwoKids")));
-    expect(JSON.stringify(wh.request.input.household.employmentPeriods)).toBe(JSON.stringify(modelHousehold("salariedCoupleTwoKids").input.household.employmentPeriods));
+    const wh = withRefreshedEstimates(fromRequest(modelWithGaps("salariedCoupleTwoKids")));
+    expect(JSON.stringify(wh.request.input.household.employmentPeriods)).toBe(JSON.stringify(modelWithGaps("salariedCoupleTwoKids").input.household.employmentPeriods));
     const missing = missingUnemployment(wh.request.input.household);
     expect(missing.length).toBeGreaterThan(0);
     const gap = gapsOf(wh).find((g) => g.id === `work/unemployment/${missing[0]!.id}`)!;

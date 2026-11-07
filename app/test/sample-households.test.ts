@@ -17,7 +17,7 @@ import { modelHousehold, preview } from "./helpers.ts";
 /** 2026-10-21 に足した見本（見本の一覧から） */
 const SAMPLES: readonly DemoHousehold[] = DEMO_HOUSEHOLDS.filter((d) => d.id.startsWith("sample"));
 
-const TRAITS = new Set(["会社員", "公務員", "自営業", "役員", "年金生活", "共働き", "片働き", "持ち家", "賃貸", "住宅ローン", "教育費", "資産運用"]);
+const TRAITS = new Set(["会社員", "公務員", "自営業", "役員", "年金生活", "共働き", "片働き", "持ち家", "賃貸", "住宅ローン", "教育費", "資産運用", "収益不動産", "親の介護・相続"]);
 /** 既存の見本の番号（夫婦と子・40代の3件と、夫婦と子・30代の1件） */
 const TAKEN = ["3-4-01", "3-4-02", "3-4-03", "3-3-01"];
 const UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;

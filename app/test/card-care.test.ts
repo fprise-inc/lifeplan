@@ -8,7 +8,7 @@ import { adultsWithoutCare, applyCareDefaults, careTemplate, deathEstimate, gaps
 import { allFields, resolveTimepoint, type FieldDef, type StageDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { checkList } from "../src/workspace/input/checkRows.ts";
-import { inputItems } from "../src/workspace/input/items.ts";
+import { inputItems, saveItem } from "../src/workspace/input/items.ts";
 import { memberLabel } from "../src/workspace/input/labels.ts";
 import { addMember } from "../src/workspace/input/stages/family.ts";
 import { addBothParents, addNextCareStage, addOutside, dependentLimitText } from "../src/workspace/input/stages/care.ts";
@@ -68,9 +68,12 @@ describe("介護・親のカード: 世帯の外の家族（区画A）", () => {
     expect(ageAt(p!, BASE)).toBe(70);
     expect(est.age).toBe(Math.floor(70 + lifeExpectancy(70, "male")!.value));
     expect(fieldStatus(fieldOf(wh, `family/${p!.id}/leaves`), wh).status).toBe("estimated");
-    // 簡易の欄: 続柄・生年月・同居（と呼び名）。扶養・亡くなる見込みは詳細
+    // 標準の欄: 誰の家族か（配偶者がいるとき）・生年月・同居。続柄・呼び名（足すボタンで決まり、見出し「父（70歳）」で分かる）・扶養・亡くなる見込みは詳細
     const simple = stage(wh).sections.find((s) => s.key === "care/outside")!.groups[0]!.fields.filter((f) => f.level === "simple").map((f) => f.key.split("/").slice(2).join("/"));
-    expect(simple).toEqual(["nickname", "kind", "birth", "cohabiting"]);
+    expect(simple).toEqual(["birth", "cohabiting"]);
+    expect(fieldOf(wh, `family/${p!.id}/kind`).level).toBe("detail");
+    expect(fieldOf(wh, `family/${p!.id}/nickname`).level).toBe("detail");
+    expect(stage(wh).sections.find((s) => s.key === "care/outside")!.groups[0]!.title).toBe("父（70歳）");
     // 亡くなる見込みを直すと仮の印が外れる
     const f = fieldOf(wh, `family/${p!.id}/leaves`);
     const moved = f.time!.setWhen(wh, { memberAge: { member: p!.id, years: 95 } }, "auto");
@@ -162,14 +165,17 @@ describe("介護・親のカード: 世帯の外の家族（区画A）", () => {
     expect(dependentLimits(76, `${BASE}-01`)!.health).toBeNull();
     const line = fieldOf(wh, `ro/care/outside/${p.id}/dependentLimit`);
     expect(line.readOnly).toBeDefined();
-    expect(String(line.get(wh).value)).toContain("年172万円まで");
-    expect(String(line.get(wh).value)).toContain("180万円未満");
+    // 欄には短い1行、全文（健康保険の扶養の境目まで）は「?」の中
+    expect(String(line.get(wh).value)).toBe("税の扶養は、年金だけなら年172万円まで");
+    expect(line.help).toContain("年172万円まで");
+    expect(line.help).toContain("180万円未満");
     // 年金の額を入れると、その額と比べる
     const withPension = mutate(wh, (h) => {
       const x = h.members.find((m) => m.id === p.id)!;
       x.wallet = { pension: { value: 2000000, state: "confirmed", origin: { kind: "manual" } } };
     });
     expect(dependentLimitText(withPension, parents(withPension)[0]!)).toContain("範囲を超えます");
+    expect(String(fieldOf(withPension, `ro/care/outside/${p.id}/dependentLimit`).get(withPension).value)).toBe("年金 年200万円は、税の扶養の範囲を超えます");
     // 75歳以上は健康保険の扶養に入れない
     const old = mutate(wh, (h) => void (h.members.find((m) => m.id === p.id)!.birth.birthYearMonth = "1948-04"));
     expect(dependentLimitText(old, parents(old)[0]!)).toContain("後期高齢者医療");
@@ -242,8 +248,14 @@ describe("介護・親のカード: 介護の費用（区画B）", () => {
     expect(diff).toBe(est.months);
     expect(gapsOf(filled).filter((g) => g.card === "care")).toEqual([]);
     expect(careTotal(filled)).toBeGreaterThan(careTotal(wh));
-    // 入れないと決めた（カードを保存した）ら警告は消える
-    expect(gapsOf({ ...wh, confirmed: ["care"] }).filter((g) => g.card === "care")).toEqual([]);
+    // 介護・親の項目を保存しただけでは、入れないと決めたことにしない（警告は残る）。「該当なし（介護の費用を入れない）」を押したときだけ消える
+    expect(gapsOf(saveItem(wh, "care")).filter((g) => g.card === "care")).toHaveLength(2);
+    const declined = gaps[0]!.none!(wh);
+    expect(gapsOf(declined).filter((g) => g.card === "care")).toEqual([]);
+    // 入れないと決めた印は、もう一度保存しても残る（入力項目の ID でなくても消さない）
+    expect(gapsOf(saveItem(declined, "care")).filter((g) => g.card === "care")).toEqual([]);
+    // 区画のボタン「…の介護は入れない」も同じ
+    expect(gapsOf(actionOf(wh, "care/declineAdults").run(wh)).filter((g) => g.card === "care")).toEqual([]);
   });
 
   it("事務所の設定の既定: 既定（warn）は何もせず、「最初から入れる」（fill）なら新しい世帯に目安を入れる", () => {
@@ -282,8 +294,11 @@ describe("介護・親のカード: 介護の費用（区画B）", () => {
     const a = resolveTimepoint(h, first.from)!;
     const b = resolveTimepoint(h, second.from)!;
     expect((Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + (Number(b.slice(5)) - Number(a.slice(5)))).toBe(first.months);
-    // 見出しは「父の介護（在宅）: …」
-    expect(stage(next).sections.find((s) => s.key === "care/costs")!.groups[0]!.title).toMatch(/の介護（在宅）: \d{4}年\d{1,2}月〜55か月・月5\.2万円（目安）/);
+    // 見出しは「父の介護」、その下の1行に「在宅・2027年5月から55か月・月5.2万円（推定）」（左の狭い列で折り返さないように2行に分ける。
+    // 在宅か施設かは見出しに入れず要約の頭に。0150）
+    const g0 = stage(next).sections.find((s) => s.key === "care/costs")!.groups[0]!;
+    expect(g0.title).toMatch(/^父の介護$/);
+    expect(g0.summary).toMatch(/^在宅・\d{4}年\d{1,2}月から55か月・月5\.2万円（推定）$/);
   });
 
   it("始まり・期間・月々の費用は詳細（もう始まっている介護だけ月々の費用は標準）、伸び方・万一のときの扱いは詳細の欄（当て先つき）", () => {
