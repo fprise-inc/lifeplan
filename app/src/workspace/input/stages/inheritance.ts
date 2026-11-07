@@ -8,7 +8,7 @@
 // - 区画D 相続税の目安: 結果は計算の結果から読む（inheritanceLine.ts。表示だけで、お金の流れには入れない）。ここは目安の設定の欄
 //   （不動産の評価の割合・名義の無い財産の分け方・葬式の費用・養子・法定相続人の数を直す口・FP が入れた額。input.inheritanceTax。0039・0060）
 import type { Household, InheritanceTaxRequest, Member, Timepoint } from "../../../engine/types.ts";
-import { field, resolveTimepoint, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { afterWrite, field, resolveTimepoint, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, type WorkingHousehold } from "../household.ts";
 import { donorLabel, donorUses, GIFT_PURPOSES, memberLabel } from "../labels.ts";
 import { manYen, readGroup, readLine } from "../readLines.ts";
@@ -107,18 +107,8 @@ export function followInheritTiming(wh: WorkingHousehold, counterparty: string):
   return w;
 }
 
-/** 欄の書き込み（打つ・選ぶ・時点の部品・値の状態の操作）の後に、世帯を整える関数を通す */
-export function afterWrite(f: FieldDef, tidy: (before: WorkingHousehold, after: WorkingHousehold) => WorkingHousehold): FieldDef {
-  const wrap = (w: WorkingHousehold, next: WorkingHousehold) => (next === w ? next : tidy(w, next));
-  const time = f.time;
-  return {
-    ...f,
-    set: (w, v) => wrap(w, f.set(w, v)),
-    ...(f.write !== undefined ? { write: (w: WorkingHousehold, v: Parameters<NonNullable<FieldDef["write"]>>[1]) => wrap(w, (f.write as NonNullable<FieldDef["write"]>)(w, v)) } : {}),
-    ...(f.boxed !== undefined ? { boxed: { ...f.boxed, write: (w: WorkingHousehold, b: Record<string, unknown> | undefined) => wrap(w, (f.boxed as NonNullable<FieldDef["boxed"]>).write(w, b)) } } : {}),
-    ...(time !== undefined ? { time: { ...time, setWhen: (w: WorkingHousehold, tp: Timepoint | null, how: "auto" | "this") => wrap(w, time.setWhen(w, tp, how)) } } : {}),
-  } as FieldDef;
-}
+// 欄の書き込みの後に世帯を整える関数を通す afterWrite は、欄の部品（form.ts）へ移した（住まい・ローンの時点の欄でも使う）
+export { afterWrite } from "../form.ts";
 
 /**
  * 受け取る相続の行の相手と時期の欄: 相手を変えたら、推定のままの受け取る時期を新しい相手の亡くなる見込みから入れ直す。
