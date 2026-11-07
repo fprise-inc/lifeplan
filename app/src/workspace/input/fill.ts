@@ -17,6 +17,7 @@ import { putRow, rowAt, type StateRow } from "./rows.ts";
 import { COURSE_PRESETS, defaultStages, nurseryFreeMonth, presetOf, STAGE_ORDER } from "./stages/education.ts";
 import { isHigher, STAGE_START_AGE, stagePeriod, stageYears } from "./educationCost.ts";
 import { amountsUnentered, fillMonths, pensionMembers, statementMonthsMissing, substituteMonths, switchPension } from "./stages/pension.ts";
+import { benefitPeriod } from "./stages/retirement.ts";
 import { currentPeriodId } from "../store/readings.ts";
 import { missingUnemployment, putEstimate, UNEMPLOYMENT_BASIS, UNEMPLOYMENT_ITEM, unemploymentEstimate } from "./claims.ts";
 import { AUTO_TYPES, autoKindOf, civilEstimate, COMPUTED, finalMonthlyAt, initialBenefit, isAutoBenefit, isUnenteredBox, KIND_SHORT, prevalenceText, reasonAt, rowOfBenefit, type BenefitKind } from "./retirementBenefits.ts";
@@ -259,6 +260,35 @@ export function fillRetirement(wh: WorkingHousehold, memberId: string): WorkingH
     // 初めの形は仮の ID で作った（値の状態の行の鍵は物の ID を含まないので、ID を付け直すだけでよい）
     (hh.retirementBenefits ??= []).push(structuredClone({ ...est.benefit, id: newId() }));
     putRow(req.input as unknown as Obj, benefitAddress(p.id), undefined);
+  });
+}
+
+/**
+ * 勤め先（働き方の期間）を持たない退職金（勤め先の期間を外した後など。0163）を、働き方の期間を足した後に、退職給付を足すときと同じ既定の
+ * 勤め先（benefitPeriod。0150）に付ける。付けるのは、勤め先が指す先の無い退職金と、勤め先も勤続期間も受け取る時期も無い（このままでは
+ * 計算に入らない）退職金だけ。国民年金基金は勤め先を持たない
+ */
+export function adoptBenefits(wh: WorkingHousehold, memberId: string): WorkingHousehold {
+  const h = wh.request.input.household;
+  const m = h.members.find((x) => x.id === memberId);
+  if (m === undefined) return wh;
+  const ids = new Set((h.employmentPeriods ?? []).map((p) => p.id));
+  const orphan = (b: RetirementBenefit) =>
+    b.member === memberId &&
+    b.kind !== "nationalPensionFund" &&
+    (b.employment !== undefined ? !ids.has(b.employment) : b.service === undefined && b.paidAt === undefined && b.receipt?.start === undefined);
+  const to = new Map<string, string>();
+  for (const b of h.retirementBenefits ?? []) {
+    if (!orphan(b)) continue;
+    const p = benefitPeriod(h, m, wh.request.input.baseMonth, b.kind as BenefitKind);
+    if (p !== undefined) to.set(b.id, p.id);
+  }
+  if (to.size === 0) return wh;
+  return mutate(wh, (hh) => {
+    for (const b of hh.retirementBenefits ?? []) {
+      const p = to.get(b.id);
+      if (p !== undefined) b.employment = p;
+    }
   });
 }
 
