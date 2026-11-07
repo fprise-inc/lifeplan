@@ -572,7 +572,7 @@ function postSalaryField(m: Member, type: PostRetirement["type"]): FieldDef {
       level: "simple",
       kind: "yen",
       basis: "annual",
-      ...(salaried ? { help: "源泉徴収票の支払金額にあたる額（給与と賞与の合計）。賞与の内訳は「詳細」の定年後の働き方の期間で直せます（入れていなければ統計の割合で分けます）" } : {}),
+      ...(salaried ? { help: "源泉徴収票の「支払金額」（賞与込み）にあたる額。賞与の内訳は「詳細」の定年後の働き方の期間で直せます（入れていなければ統計の割合で分けます）" } : {}),
       get: (w) => {
         const pb = postBox(w.request.input.household, m, w.postRetirement[m.id]);
         const bonus = bonusOf(w).value;
@@ -1010,7 +1010,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
         ? [salaryTotalField(wh, m, p, find, prefix)]
         : [
             // 並びは年収 → 賞与 → 伸び率 → 統計の年齢カーブ（額の2欄を続け、伸び方の欄は後ろ）
-            yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "年収（税込み・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "源泉徴収票の支払金額から賞与を除いた額" }),
+            yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "年収（税込み・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "源泉徴収票の「支払金額」（賞与込み）から、賞与の明細の合計を引いた額" }),
             yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null }),
             growthField(wh, p, find, prefix, "salary", d),
             ...curveFields(wh, m, p, find, prefix),
@@ -1050,7 +1050,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
       fields.push({ ...plain({ key: `${prefix}/corpDbMonthly`, item: "employment.corporatePension", label: "他制度掛金相当額（月額）", level: d, kind: "yen", basis: "monthly", find, path: ["corporatePension", "dbEquivalentMonthly"], optional: true, help: "勤め先から知らされる額。入れなければ、iDeCo の上限を他制度ありの決まりで見ます" }), address: () => ({ target: { object: p.id }, item: "employment.corporatePension", at: ["dbEquivalentMonthly"] }) });
   }
   if (p.type === "selfEmployed")
-    fields.push(yenBox({ key: `${prefix}/business`, item: "employment.business.income", label: "事業所得（年額）", level, basis: "annual", find, path: ["business", "income"], estimate: () => businessEstimate(), help: "確定申告書の所得金額（青色申告特別控除の前）。青色申告なら、控除は下の「確定申告」で選ぶと計算で引きます" }), growthField(wh, p, find, prefix, "business", d));
+    fields.push(yenBox({ key: `${prefix}/business`, item: "employment.business.income", label: "事業所得（年額）", level, basis: "annual", find, path: ["business", "income"], estimate: () => businessEstimate(), help: "確定申告書の所得金額（青色申告特別控除の前）。青色申告決算書の「青色申告特別控除前の所得金額」を写します（決算書が無ければ、申告書第一表の「事業（営業等）」の所得金額に「青色申告特別控除額」を足した額）。青色申告なら、控除は下の「確定申告」で選ぶと計算で引きます" }), growthField(wh, p, find, prefix, "business", d));
   if (level === "detail") fields.push(...claimFields(wh, m, p, find, prefix));
   return fields;
 }
@@ -1265,7 +1265,7 @@ function salaryTotalField(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, 
       basis: "annual",
       optional: true,
       blankIsEstimate: true,
-      help: "源泉徴収票の支払金額（給与と賞与の合計）。賞与の内訳は「詳細」の「働き方 1・2…」で直せます（入れていなければ統計の割合で分けます）",
+      help: "源泉徴収票の「支払金額」（賞与込み）を写します。金額は「千」と「円」の枠をつなげて読み、「内」の額は足しません。年の途中で勤め始めた・辞めた年の票は1年分ではありません。賞与の内訳は「詳細」の「働き方 1・2…」で直せます（入れていなければ統計の割合で分けます）",
       get: (w) => {
         const { a, b } = boxes(w);
         const bv = boxValue(b);

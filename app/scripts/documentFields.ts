@@ -2,9 +2,9 @@
 // 書類の候補（答えの形 document-candidates@1）の当て先は、入力項目ID と場所 at で入力の画面の欄に当たる（documents/resolve.ts）。
 // AI が迷わず書けるように、書類から入る入力項目の欄ごとに、場所・欄の名前・値の書き方（円・整数の単位・率・年月・選択肢）・額の期間を並べる。
 //
-// - 欄は、見本の世帯すべての入力の画面と、その変え方（年金の記録の型ごと・免除の内訳を足した形・保険の種類ごとに1件足した形）から集める。
-//   変え方は画面のボタン・欄と同じ操作で作る（形を手で作らない）
-// - 場所の中の物の中の明細の ID（保険の保障・金利の段階など）は `<ID>` と書き、AI が書く形（ID を除いた形）を添える
+// - 読めるのは保険証券・ご契約内容のお知らせ・設計書だけ（0159）なので、保険の契約の欄（insurance.）だけを載せる
+// - 欄は、見本の世帯すべての入力の画面と、保険の種類ごとに1件足した形から集める。足す形は画面のボタンと同じ操作で作る（形を手で作らない）
+// - 場所の中の物の中の明細の ID（保険の保障など）は `<ID>` と書き、AI が書く形（ID を除いた形）を添える
 // - 時点の欄（when）は、書類の年月を決まった年月の時点として入れられる（documents/apply.ts の coerce。0154 の4）。年齢・出来事で決める入れ方は欄で直す
 //
 // npm run gen:document-fields で書き直す。中身が今の画面の定義と同じかは test/documentGuides.test.ts が確かめる（変えたら書き直す）
@@ -17,29 +17,14 @@ import { createObject } from "../src/workspace/documents/apply.ts";
 import { NEW_OBJECT_KINDS } from "../src/workspace/documents/objects.ts";
 import { findObject } from "../src/workspace/store/readings.ts";
 import { fieldPlaces } from "../src/workspace/documents/resolve.ts";
-import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
+import type { FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { KINDS } from "../src/workspace/input/insuranceKinds.ts";
-import { DOCUMENT_KINDS } from "../src/workspace/input/labels.ts";
-import { buildStages } from "../src/workspace/input/stages/index.ts";
+import { READABLE_ITEM_PREFIX } from "../src/workspace/documents/types.ts";
 import { REPO_DIR } from "./lib.ts";
 
-/** 書類から入る入力項目（この頭の入力項目の欄だけを載せる。書類の手引きを足したら、ここにも足す） */
-export const DOCUMENT_ITEM_PREFIXES = [
-  "pensionRecord.",
-  "employment.salary.annual",
-  "employment.salary.bonus",
-  "employment.business.income",
-  "employment.standardMonthlyRemuneration",
-  "residentTaxAssessment.amount",
-  "member.taxReturn",
-  "insurance.",
-  "debt.",
-  "account.owner",
-  "account.contributions",
-  "account.enrolledSince",
-  "retirementBenefit.contributions",
-] as const;
+/** 書類から入る入力項目（この頭の入力項目の欄だけを載せる。読み口が受ける入力項目と同じ。0159） */
+export const DOCUMENT_ITEM_PREFIXES = [READABLE_ITEM_PREFIX] as const;
 
 export const DOCUMENT_FIELDS_PATH = join(REPO_DIR, "sdk", "skills", "read-documents", "fields.md");
 
@@ -53,28 +38,6 @@ function models(): WorkingHousehold[] {
     .map((f) => fromRequest(JSON.parse(readFileSync(join(dir, f), "utf8")) as EngineRequest, {}));
 }
 
-const fieldsOf = (wh: WorkingHousehold): FieldDef[] => buildStages(wh).flatMap(allFields);
-const actionsOf = (wh: WorkingHousehold) => buildStages(wh).flatMap((st) => st.sections.flatMap((s) => [...s.actions, ...s.groups.flatMap((g) => g.actions)]));
-
-/** 年金の記録の型ごとの形（入れ方「書類から」→ 書類の種類。画面の欄と同じ操作）と、免除・猶予の内訳を足した形 */
-function pensionVariants(wh: WorkingHousehold): WorkingHousehold[] {
-  const out: WorkingHousehold[] = [];
-  for (const m of wh.request.input.household.members) {
-    const mode = fieldsOf(wh).find((f) => f.key === `pension/${m.id}/mode`);
-    if (mode === undefined) continue;
-    const doc = mode.set(wh, "document");
-    for (const k of DOCUMENT_KINDS) {
-      const kind = fieldsOf(doc).find((f) => f.key === `pension/${m.id}/kind`);
-      if (kind === undefined) continue;
-      const w = kind.set(doc, k.value);
-      out.push(w);
-      const add = actionsOf(w).find((a) => a.key.startsWith("pension/") && a.key.endsWith("/c1/add"));
-      if (add !== undefined) out.push(add.run(w));
-    }
-    break;
-  }
-  return out;
-}
 
 /** 保険の種類ごとに1件足した形（書類から足す新しい物と同じ作り方。documents/apply.ts の createObject） */
 function insuranceVariants(wh: WorkingHousehold): WorkingHousehold[] {
@@ -158,7 +121,7 @@ const esc = (s: string): string => s.replace(/\|/gu, "／").replace(/\n/gu, " ")
 export function buildDocumentFields(): string {
   const rows = new Map<string, Row>();
   const base = models();
-  const all = [...base, ...pensionVariants(base.find((w) => w.request.input.household.members.length > 1) ?? (base[0] as WorkingHousehold)), ...insuranceVariants(base[0] as WorkingHousehold)];
+  const all = [...base, ...insuranceVariants(base[0] as WorkingHousehold)];
   for (const wh of all) {
     for (const p of fieldPlaces(wh)) {
       const f = p.field;
@@ -188,17 +151,18 @@ export function buildDocumentFields(): string {
   const order = (r: Row): string => `${r.item}|${r.at.join("/")}|${[...r.labels][0] ?? ""}`;
   const sorted = [...rows.values()].sort((a, b) => (order(a) < order(b) ? -1 : order(a) > order(b) ? 1 : 0));
   const lines: string[] = [
-    "# 入力の欄の一覧（書類から入る入力項目）",
+    "# 入力の欄の一覧（保険の書類から入る入力項目）",
     "",
     "<!-- 自動生成（app/scripts/documentFields.ts。npm run gen:document-fields）。手で直さない -->",
     "",
     "書類の候補の `values[].item`（入力項目ID）と `at`（場所）は、この一覧の組み合わせだけを書きます。値は「値の書き方」の形で、円の欄の `period` は「額の期間」に合わせます（違う期間の額は、FP が直して入れることになります）。",
     "",
-    "- **場所**の `<ID>` は、物の中の明細（保険の保障・ローンの金利の段階など）の ID です。ID を知らないときは `<ID>` を除いて書きます（例: `[\"<ID>\", \"amount\"]` → `\"at\": [\"amount\"]`。何本も当たれば FP が選びます）。場所が「（なし）」の欄は `at` を書きません。",
-    "- **人・物**: 「人の欄」は `member`（`holder`〔書類の名義の人〕・`self`・`spouse`・`child1`…）を書きます。「人の物の欄」（その人の働き方・年金の記録・保険の契約など）は `member` で当たります（今の働き方の期間が先）。新しく足す物（保険の契約）の欄は `newObject`（`objects` の鍵）を書きます。「物の欄」（ローンなど）は `object`（今ある物の ID。AI接続口で世帯を受け取ったときだけ）を書き、分からなければ書きません（FP が当てる物を選びます）。",
+    "- 読めるのは保険証券・ご契約内容のお知らせ・設計書だけです（`docType` は `insurancePolicy`）。この一覧に無い入力項目の候補は、アプリが読みません。",
+    "- **場所**の `<ID>` は、物の中の明細（保険の保障など）の ID です。ID を知らないときは `<ID>` を除いて書きます（例: `[\"<ID>\", \"amount\"]` → `\"at\": [\"amount\"]`。何本も当たれば FP が選びます）。場所が「（なし）」の欄は `at` を書きません。",
+    "- **人・物**: 「人の欄」は `member`（`holder`〔書類の名義の人〕・`self`・`spouse`・`child1`…）を書きます。「人の物の欄」（その人の保険の契約）は `member` で当たります（その人の契約が何件もあれば FP が選びます）。新しく足す契約の欄は `newObject`（`objects` の鍵）を書きます。今ある契約の ID が分かるとき（AI接続口で世帯を受け取ったとき）だけ `object` に書きます。",
     "- **種類を決める欄**は、計算を大きく変えるので、FP が1つずつ承認します（まとめての承認に入りません）。",
     "- 欄の名前は、入力の画面の名前です（世帯・種類によって名前が変わる欄は、いくつか並べています）。",
-    "- **時点の欄**（「年月（YYYY-MM。時点の欄）」。借りた年月・払込の終わりのように、年月か年齢・出来事で決める欄）は、書類に印字された年月だけを `\"YYYY-MM\"` で書きます（決まった年月の時点として入ります）。年齢・出来事で決める入れ方は、FP が欄で直します。",
+    "- **時点の欄**（「年月（YYYY-MM。時点の欄）」。払込の終わり・保障の終わりのように、年月か年齢・出来事で決める欄）は、書類に印字された年月だけを `\"YYYY-MM\"` で書けます（決まった年月の時点として入ります）。保険の手引きでは書かない欄です（年齢で決まることが多いため）。",
     "",
   ];
   let current = "";
@@ -218,7 +182,7 @@ export function buildDocumentFields(): string {
     "",
     "## 新しい物の種類（`objects[].kind`）",
     "",
-    "保険の契約・住宅ローン・iDeCo・小規模企業共済は、書類の1件ごとに `objects` に1つ書き、その物の値の候補に `newObject` でその鍵を書きます。同じ物が世帯にもうあれば、FP が確かめの画面で「今の○○に当てる」を選びます（AI は、今ある物の ID が分かるときだけ `object` に書き、`objects` には書きません）。",
+    "保険の契約は、証券1通（主契約と特約で1つの契約）ごとに `objects` に1つ書き、その契約の値の候補に `newObject` でその鍵を書きます。同じ契約が世帯にもうあれば、FP が確かめの画面で「今の○○に当てる」を選びます（AI は、今ある契約の ID が分かるときだけ `object` に書き、`objects` には書きません）。",
     "",
     "| kind | 名前 | 主な保障（`insurance.coverages` の `[\"amount\"]`） | 保障の額の期間 |",
     "|---|---|---|---|",
@@ -227,7 +191,6 @@ export function buildDocumentFields(): string {
     if (NEW_OBJECT_KINDS[`insurance:${k.kind}`] === undefined) continue;
     lines.push(`| \`insurance:${k.kind}\` | ${esc(k.label)} | ${k.main === null ? "（保障の額を持たない。保険料だけ）" : esc(k.main.label)} | ${k.main === null ? "" : (PERIOD[k.main.basis] ?? k.main.basis)} |`);
   }
-  for (const [kind, k] of Object.entries(NEW_OBJECT_KINDS)) if (!kind.startsWith("insurance:")) lines.push(`| \`${kind}\` | ${esc(k.label.replace(/^新しい\s*/u, ""))} | （保障の欄は無い。${kind.startsWith("debt:") ? "`debt.` の欄" : "`account.` の欄"}に当てる） |  |`);
   lines.push("");
   return lines.join("\n");
 }

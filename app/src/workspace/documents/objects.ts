@@ -1,10 +1,8 @@
-// 書類から足す新しい物の種類（0148 の1・0154 の2）: 物の候補の kind（「集まり:種類」）→ その物を足す入力項目のボタン。
+// 書類から足す新しい物の種類（0148 の1・0154 の2・0159）: 物の候補の kind（「集まり:種類」）→ その物を足す入力項目のボタン。
 // 足すときは入力の画面の「＋」と同じボタンを押した形で作り（その種類の既定・推定の印も同じ）、その中の欄に値の候補を当てる。
 // 同じ種類の物がもうあれば、新しく足さずに「今ある物に当てる」も選べる（sameKind で今ある物を探す。0154 の3）。
-// - 保険の契約（控除証明書・保険証券）: insurance:<保険の種類の細目>
-// - 住宅ローン（年末残高等証明書・住宅借入金等特別控除証明書）: debt:mortgage（住まいの住宅ローンの「＋ 住宅ローン」）
-// - iDeCo・小規模企業共済の口座（小規模企業共済等掛金控除証明書）: account:ideco・account:smallBusinessMutualAid（貯蓄・運用の「＋ iDeCo」「＋ 小規模企業共済」。
-//   小規模企業共済のボタンは、足せる人〔事業所得・役員〕がいる世帯にだけある）
+// - 保険の契約（保険証券・ご契約内容のお知らせ・設計書）: insurance:<保険の種類の細目>
+// 住宅ローン・iDeCo・小規模企業共済は、取り込みを外した書類（控除証明書など）の物なので足せない（0159。前の記録の物は RETIRED_OBJECT_KINDS で残す）
 import { addKey } from "../input/stages/insurance.ts";
 import { KINDS } from "../input/insuranceKinds.ts";
 import type { StageId } from "../input/form.ts";
@@ -29,7 +27,6 @@ export interface NewObjectKind {
 }
 
 const str = (v: unknown): string | null => (typeof v === "string" && v !== "" ? v : null);
-const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
 
 const insuranceKinds = KINDS.map((k): [string, NewObjectKind] => [
   `insurance:${k.kind}`,
@@ -44,28 +41,14 @@ const insuranceKinds = KINDS.map((k): [string, NewObjectKind] => [
   },
 ]);
 
-const accountKinds = (["ideco", "smallBusinessMutualAid"] as const).map((kind): [string, NewObjectKind] => [
-  `account:${kind}`,
-  {
-    label: kind === "ideco" ? "新しい iDeCo" : "新しい小規模企業共済",
-    noun: kind === "ideco" ? "iDeCo" : "小規模企業共済",
-    collection: "accounts",
-    stage: "savings" as StageId,
-    action: `sav/add/${kind}`,
-    sameKind: (x) => x.kind === kind,
-    ownerOf: (x) => [str(x.owner)].filter((m): m is string => m !== null),
-  },
-]);
+export const NEW_OBJECT_KINDS: Readonly<Record<string, NewObjectKind>> = Object.fromEntries(insuranceKinds);
 
-const mortgage: NewObjectKind = {
-  label: "新しい住宅ローン",
-  noun: "住宅ローン",
-  collection: "debts",
-  stage: "housing" as StageId,
-  action: "housing/addMortgage",
-  // 住まいの住宅ローン（不動産の欄のローンは除く）
-  sameKind: (x) => x.kind === "mortgage" && x.property === undefined,
-  ownerOf: (x) => (Array.isArray(x.debtors) ? x.debtors.flatMap((d) => (isObj(d) && typeof d.member === "string" ? [d.member] : [])) : []),
+/**
+ * 取り込みを外した書類（0159）で足せた物の種類。前の記録の物の候補を捨てずに残すためだけに持つ（読み口は受けない・足せない）。
+ * 前の記録は確かめの画面で見るだけ
+ */
+export const RETIRED_OBJECT_KINDS: Readonly<Record<string, string>> = {
+  "debt:mortgage": "住宅ローン",
+  "account:ideco": "iDeCo",
+  "account:smallBusinessMutualAid": "小規模企業共済",
 };
-
-export const NEW_OBJECT_KINDS: Readonly<Record<string, NewObjectKind>> = Object.fromEntries([...insuranceKinds, ["debt:mortgage", mortgage], ...accountKinds]);
