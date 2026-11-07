@@ -173,6 +173,16 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       expect(sum(d.table, "cf.income.business", yearOf(d.wh.request) + 1)).toBeGreaterThan(3_000_000);
       expect(sum(d.table, "cf.income.business", y70 + 1)).toBe(0);
     });
+    it("働き方と収入の確定申告で入れた青色申告（65万円）が入り、白色のときより所得税・住民税が下がる", () => {
+      const self = h().members.find((m) => m.kind === "self")!;
+      expect(self.taxReturn).toEqual({ method: "blue", blueDeduction: "electronic" });
+      const white = structuredClone(d.wh.request);
+      delete (white.input.household.members.find((m) => m.kind === "self") as { taxReturn?: unknown }).taxReturn;
+      const table = preview(forEngine(white)).table;
+      const y = yearOf(d.wh.request) + 2;
+      expect(sum(table, "cf.taxSi.incomeTax", y)).toBeGreaterThan(sum(d.table, "cf.taxSi.incomeTax", y));
+      expect(sum(table, "cf.taxSi.residentTax", y)).toBeGreaterThan(sum(d.table, "cf.taxSi.residentTax", y));
+    });
     it("家賃 月7.5万円・奨学金 月5万円・iDeCo 80万円 月2.3万円・小規模企業共済 150万円 月3万円が入る", () => {
       expect(sum(d.table, "cf.expense.housing.rent", yearOf(d.wh.request) + 1)).toBe(900_000);
       const monthly = (v: number) => h().accounts!.find((a) => a.marketValue?.value === v)?.contributions?.[0]?.monthly ?? null;
