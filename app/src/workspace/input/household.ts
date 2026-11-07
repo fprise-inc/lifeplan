@@ -11,6 +11,7 @@ import type { HearingLog } from "../hearing/sheet.ts";
 import type { StatementLog } from "../../../../statement/src/index.ts";
 import type { Snapshot } from "../snapshots/snapshots.ts";
 import type { MigrationLog } from "../store/migrations.ts";
+import type { DocumentLog } from "../documents/types.ts";
 import type { RecheckMark } from "./recheck.ts";
 import type { NoticeAck } from "./noticeAck.ts";
 import type { ItemChoice } from "./itemChoice.ts";
@@ -139,6 +140,11 @@ export interface WorkingHousehold {
    * 世帯ファイルでは本文の区画 migrations に置く（形式の版 0.56 から）。元のファイルは持たない。元に戻す・やり直すの対象にしない
    */
   migrations?: MigrationLog;
+  /**
+   * 書類の読み取りの記録（0148。書類1通ごとに、読んだ値の候補・新しい物の候補・照合だけの値と、承認・直した・入れないの結果）。
+   * 世帯ファイルでは本文の区画 documents に置く（形式の版 0.68 から）。元のファイル・個人番号などの番号は持たない。元に戻す・やり直すの対象にしない
+   */
+  documents?: DocumentLog;
 }
 
 /** ローンの入れ方の区分（0052） */

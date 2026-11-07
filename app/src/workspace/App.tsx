@@ -102,6 +102,8 @@ import { RecoveryPanel, type RecoveryMode } from "./store/RecoveryPanel.tsx";
 import { StoragePanel } from "./store/StoragePanel.tsx";
 import { keepSnapshots, makeSnapshot, type Snapshot, type SnapshotDraft } from "./snapshots/snapshots.ts";
 import { keepStatements, withLog } from "./statement/model.ts";
+import { DocumentEntry, DocumentReview, withSamples, type DocChange } from "./documents/DocumentReview.tsx";
+import { keepDocuments, withDocumentLog } from "./documents/log.ts";
 import { StatementPanel } from "./statement/StatementPanel.tsx";
 import type { StatementLog } from "../../../statement/src/index.ts";
 import { SnapshotTools } from "./snapshots/SnapshotTools.tsx";
@@ -189,6 +191,8 @@ export function parseHash(hash: string): {
   bell?: string | null;
   /** #feedback: 「要望・不具合を送る」を開いて開く（画面の確かめ用） */
   feedback?: boolean;
+  /** #documents=sample: 見本の世帯に架空の書類の見本を読み、書類の読み取りの確かめの画面を開いて開く（#documents は開くだけ。画面の確かめ用。0148） */
+  documents?: "open" | "sample";
   /** #statement=review: 入力で明細のパネルをその手順で開く（閉じると基本生活費のパネルに戻る。0034。画面の確かめ用） */
   statement?: "accounts" | "import" | "review" | "result";
   /** #look=dark: 暗い画面で開く（画面の確かめ用。保存しない。画面には選ぶ所を出さない。0121） */
@@ -268,6 +272,7 @@ export function parseHash(hash: string): {
     else if (k === "notices") out.notices = true;
     else if (k === "bell") out.bell = v !== undefined && v !== "" ? decodeURIComponent(v) : null;
     else if (k === "feedback") out.feedback = true;
+    else if (k === "documents") out.documents = v === "sample" ? "sample" : "open";
     else if (k === "statement" && (v === "accounts" || v === "import" || v === "review" || v === "result")) out.statement = v;
     else if (k === "report" && (v === "takeaway" || v === "pdf")) out.reportMode = v;
     else if (k === "look" && (v === "dark" || v === "light" || v === "system")) out.look = v;
@@ -534,6 +539,9 @@ export function App() {
   const noticeLocalRef = useRef<LocalState>(EMPTY_LOCAL);
   const [noticeFocus, setNoticeFocus] = useState<{ key: string | null; n: number } | null>(initial.bell !== undefined ? { key: initial.bell, n: 1 } : null);
   const [feedbackOpen, setFeedbackOpen] = useState(initial.feedback === true);
+  /** 書類の読み取りの確かめの画面（0148） */
+  const [docsOpen, setDocsOpen] = useState(initial.documents !== undefined);
+  const docsSeeded = useRef(false);
   // 事務所の見た目（0121）: 事務所の名前・ロゴ・基調の色と、この PC の画面の明るさ。事務所の既定値とは別の欄（本体が画像を確かめる）
   const [branding, setBranding] = useState<OfficeBranding>(initial.look !== undefined ? { appearance: initial.look } : EMPTY_BRANDING);
   const brandingRef = useRef<OfficeBranding>(branding);
@@ -1364,7 +1372,7 @@ export function App() {
         const o = openedRef.current;
         if (o === null || dual.current === null) return;
         // 推定を入れ直してから、推定の元の印を付ける（事務所の推定の値から作った推定か。0111 の追記 2026-11-03）
-        const n = openedFrom(o.demo, withOfficeSources(withRefreshedEstimates(keepStatements(keepSnapshots(next, o.wh), o.wh)), o.wh));
+        const n = openedFrom(o.demo, withOfficeSources(withRefreshedEstimates(keepDocuments(keepStatements(keepSnapshots(next, o.wh), o.wh), o.wh)), o.wh));
         if (n === null) return;
         reqCache.current.clear();
         rawCache.current.clear();
@@ -1385,7 +1393,7 @@ export function App() {
     if (o === null) return;
     // 控えは元に戻す・やり直すの対象にしない（作った後は変えない）。今の控えを持ち越す。
     // Web のヒアリングの依頼の記録（鍵・受け取った答えと書類）も持ち越す（サーバーの状態と食い違わないように。0125）
-    const sw = keepWebLog(keepStatements(keepSnapshots(s.wh, o.wh), o.wh), o.wh);
+    const sw = keepDocuments(keepWebLog(keepStatements(keepSnapshots(s.wh, o.wh), o.wh), o.wh), o.wh);
     const n = sw === o.wh ? o : sw.request === o.wh.request ? { ...o, wh: sw } : openedFrom(o.demo, sw);
     if (n === null) return;
     reqCache.current.clear();
@@ -1435,6 +1443,22 @@ export function App() {
     openedRef.current = n;
     setOpened(n);
   }, []);
+  /** 書類の読み取りの記録を変える（元に戻す・やり直すの対象にしない。明細の取り込みの記録と同じ。0148） */
+  const putDocuments = useCallback((log: WorkingHousehold["documents"]) => {
+    const o = openedRef.current;
+    if (o === null) return;
+    const n: Opened = { ...o, wh: withDocumentLog(o.wh, log) };
+    openedRef.current = n;
+    setOpened(n);
+  }, []);
+  /** 書類の確かめの画面の操作: 記録を先に入れ、現状の値は元に戻せる変更として入れる */
+  const onDocChange = useCallback(
+    (c: DocChange) => {
+      putDocuments(c.log);
+      if (c.wh !== undefined) edit(withDocumentLog(c.wh, c.log));
+    },
+    [putDocuments, edit],
+  );
   /**
    * 拡張の束の入力欄の値を変える（0114 の4。世帯ファイルの拡張領域 ext["<key>"]。合算BS の会社の入力など。計算の要求の外なので計算し直さない。
    * 元に戻す・やり直すの履歴には積む。保存した世帯なら自動保存で世帯ファイルに書く）
@@ -1473,7 +1497,7 @@ export function App() {
       history.track(() => {
         const o = openedRef.current;
         if (o === null) return;
-        const n = { ...o, wh: withOfficeSources(keepStatements(keepSnapshots(next, o.wh), o.wh), o.wh) };
+        const n = { ...o, wh: withOfficeSources(keepDocuments(keepStatements(keepSnapshots(next, o.wh), o.wh), o.wh), o.wh) };
         reqCache.current.clear();
         rawCache.current.clear();
         openedRef.current = n;
@@ -2400,6 +2424,28 @@ export function App() {
     window.scrollTo({ top: 0 });
   };
   const save = saveText(savingStored, saveState, storeMessage, presence !== null);
+  /** 見本の世帯か（保存していない見本・保存した見本の棚の世帯）。架空の書類の見本はここでだけ読む（0148） */
+  const sampleHousehold = opened !== null && ((storedInfo === null && opened.demo !== null) || storedInfo?.sample !== undefined);
+  const loadDocSamples = () => {
+    if (opened === null || !sampleHousehold) return;
+    putDocuments(withSamples(opened.wh).log);
+    setDocsOpen(true);
+  };
+  /** 照合だけの値と比べる計算の結果の額（現状の計算。その年・その人の分） */
+  const docCalc = (row: string, year: number, member: string | null): number | null => {
+    const r = resultOf(CURRENT);
+    if (r === null) return null;
+    const cells = r.table.filter((c) => c.row === row && c.year === year && (member === null || c.member === member));
+    return cells.length === 0 ? null : cells.reduce((n, c) => n + c.amount, 0);
+  };
+  // #documents=sample（画面の確かめ用）: 見本の世帯に架空の書類の見本を1回だけ読む
+  if (initial.documents === "sample" && !docsSeeded.current && opened !== null && sampleHousehold) {
+    docsSeeded.current = true;
+    queueMicrotask(() => {
+      const o = openedRef.current;
+      if (o !== null) putDocuments(withSamples(o.wh).log);
+    });
+  }
   const basis = model === null ? null : { members: model.members.map((m) => `${m.label} ${m.age}歳`).join("・"), asOf: model.asOf };
   return (
     <OfficeTextsContext.Provider value={officeTexts}>
@@ -2734,6 +2780,7 @@ export function App() {
                               }
                             : {})}
                         />
+                        <DocumentEntry wh={opened.wh} sample={sampleHousehold} onOpen={() => setDocsOpen(true)} onSamples={loadDocSamples} />
                         {storedInfo !== null ? (
                           <div class="hs-tools" role="group" aria-label="AI に資料を渡す" data-imports-ai>
                             <span class="hs-tools-h">AI に資料を渡す</span>
@@ -3110,6 +3157,7 @@ export function App() {
           onClose={() => setAiPanel(null)}
         />
       ) : null}
+      {docsOpen && opened !== null ? <DocumentReview wh={opened.wh} calc={docCalc} onChange={onDocChange} onClose={() => setDocsOpen(false)} /> : null}
       {feedbackOpen ? (
         <FeedbackPanel
           receipts={noticeLocal.receipts}
