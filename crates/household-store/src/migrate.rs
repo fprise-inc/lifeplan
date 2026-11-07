@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.68";
+pub const CURRENT: &str = "0.69";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -234,13 +234,17 @@ pub const CURRENT: &str = "0.68";
 /// - 0.68: 本文の区画 `documents`（書類の読み取りの記録。0148。書類1通ごとに、読んだ値の候補・新しい物の候補・照合だけの値と、承認・直した・
 ///   入れないの結果。元のファイル・個人番号などの番号は持たない。任意で、読んでいない世帯には無い）を足した（足すだけの MINOR）。
 ///   前の版のアプリは区画を読めず、承認の記録の指す先が消えるので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える。0.67 の段の後に積む
+/// - 0.69: 構成員の婚姻の状態 `members[].maritalStatus`（配偶者の関係が無い期間の婚姻の状態。未婚 `unmarried`・離婚 `divorced`・死別 `bereaved`・
+///   婚姻している `married`〔別居などで配偶者を世帯に入れていない〕。ひとり親控除・寡婦控除の判定。省略は婚姻していないとみなす。0156）を足した
+///   （足すだけの MINOR）。前の版のアプリは入力の検査で知らない欄を通さないので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える
+///   （前の版の世帯は欄が無い＝婚姻していないとみなす）。0.68 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
-    "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68",
+    "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69",
 ];
 
 /// 1段分の変換
@@ -586,6 +590,11 @@ pub const STEPS: &[Step] = &[
         from: "0.67",
         to: "0.68",
         apply: v0_67_to_0_68,
+    },
+    Step {
+        from: "0.68",
+        to: "0.69",
+        apply: v0_68_to_0_69,
     },
 ];
 
@@ -2292,6 +2301,15 @@ fn v0_67_to_0_68(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.68 → 0.69: 構成員の婚姻の状態（maritalStatus。0156）は任意の欄なので、形式の版だけを書き換える（前の版の世帯は欄が無い＝婚姻していないとみなす）
+fn v0_68_to_0_69(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.69".into());
+    }
+    Ok(body)
+}
+
 /// 預金の利回りの既定の値（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ。0137）
 const DEPOSIT_RETURN_DEFAULT: &str = "0.001";
 
@@ -3267,7 +3285,8 @@ mod tests {
         assert_eq!(access("0.66").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.67").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.68").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.69").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.69").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.70").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3280,7 +3299,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.69", b.clone()).unwrap(),
+            upgrade("0.70", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -3703,6 +3722,20 @@ mod tests {
         let u = upgrade("0.65", b.clone()).unwrap();
         assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
+    }
+
+    #[test]
+    fn v0_68_to_0_69_only_bumps_version() {
+        // 婚姻の状態の欄は足さない（省略は婚姻していないとみなす）。ほかの欄に触れない
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.68"},
+            "household": {"request": {"input": {"household": {"members": [{"id": "m1", "kind": "self", "sex": "female"}]}}}},
+            "proposals": []
+        });
+        let u = upgrade("0.68", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+        assert_eq!(u["proposals"], b["proposals"]);
     }
 
     #[test]

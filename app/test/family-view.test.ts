@@ -8,7 +8,7 @@ import { addOutside } from "../src/workspace/input/stages/care.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { memberLabel } from "../src/workspace/input/labels.ts";
 import { addMonths } from "../src/workspace/levers.ts";
-import { modelHousehold } from "./helpers.ts";
+import { modelHousehold, preview } from "./helpers.ts";
 
 const BASE = "2026-10";
 let n = 0;
@@ -171,11 +171,12 @@ describe("離れて暮らす子・世帯の外の家族・ひとり親", () => {
     expect(line).toMatch(/（89歳）/);
   });
 
-  it("ひとり親の世帯（配偶者がいなくて一緒に暮らす子がいる）は、控除・手当を計算に入れていない1行と「＋ 児童扶養手当など」", () => {
+  it("ひとり親の世帯（配偶者がいなくて一緒に暮らす子がいる）は、控除は計算に入れていて手当は入れていない1行と「＋ 児童扶養手当など」（0156）", () => {
     const wh = fromRequest(modelHousehold("sampleSingleParent"));
     expect(singleParent(wh)).toBe(true);
-    expect(fieldOf(wh, "ro/family/singleParent").get(wh).value).toBe("計算に入れていません");
-    expect(fieldOf(wh, "ro/family/singleParent").readOnly).toMatch(/離婚・未婚のひとり親の控除は、今は計算に入れていません/);
+    expect(fieldOf(wh, "ro/family/singleParent").get(wh).value).toBe("控除は計算に入れています（手当は入れていません）");
+    expect(fieldOf(wh, "ro/family/singleParent").readOnly).toMatch(/未婚・離婚・死別のどれでも/);
+    expect(fieldOf(wh, "ro/family/singleParent").readOnly).not.toMatch(/今は計算に入れていません/);
     const benefit = actions(wh).find((a) => a.key.endsWith("/in/add/benefit"))!;
     expect(benefit.label).toBe("＋ 児童扶養手当など");
     expect(benefit.help).toMatch(/^児童扶養手当・自治体の手当/);
@@ -184,6 +185,38 @@ describe("離れて暮らす子・世帯の外の家族・ひとり親", () => {
     expect(singleParent(pair)).toBe(false);
     expect(hasField(pair, "ro/family/singleParent")).toBe(false);
     expect(actions(pair).find((a) => a.key.endsWith("/in/add/benefit"))!.label).not.toBe("＋ 児童扶養手当など");
+  });
+});
+
+describe("婚姻の状態（ひとり親控除・寡婦控除の判定。0156）", () => {
+  const selfId = (wh: WorkingHousehold) => wh.request.input.household.members.find((m) => m.kind === "self")!.id;
+
+  it("配偶者が世帯にいないご本人にだけ、詳細の欄「婚姻の状態」（空欄＝婚姻していない）。夫婦の世帯・配偶者には出さない", () => {
+    const wh = fromRequest(modelHousehold("sampleSingleParent"));
+    const f = fieldOf(wh, `family/${selfId(wh)}/marital`);
+    expect(f.level).toBe("detail");
+    expect(f.item).toBe("member.maritalStatus");
+    expect(f.get(wh).value).toBe("");
+    expect(f.blankMeans).toBe("婚姻していない");
+    expect(f.kind === "select" ? f.options.map((o) => o.value) : []).toEqual(["", "unmarried", "divorced", "bereaved", "married"]);
+    // 単身の世帯にも出る（寡婦控除の判定）
+    const single = fromRequest(modelHousehold("sampleSingle40s"));
+    expect(hasField(single, `family/${selfId(single)}/marital`)).toBe(true);
+    const pair = couple();
+    expect(allFields(stage(pair)).some((x) => x.key.endsWith("/marital"))).toBe(false);
+  });
+
+  it("選ぶと世帯の構成員に書き、空欄に戻すと欄を消す。「婚姻している（別居など）」ならひとり親の1行は「どちらも計算に入れていません」で、計算の結果も変わる", () => {
+    const wh = fromRequest(modelHousehold("sampleSingleParent"));
+    const key = `family/${selfId(wh)}/marital`;
+    const married = set(wh, key, "married");
+    expect(married.request.input.household.members.find((m) => m.kind === "self")!.maritalStatus).toBe("married");
+    expect(fieldOf(married, "ro/family/singleParent").get(married).value).toBe("どちらも計算に入れていません（婚姻している）");
+    const back = set(married, key, "");
+    expect("maritalStatus" in back.request.input.household.members.find((m) => m.kind === "self")!).toBe(false);
+    // 離婚・未婚は空欄と同じ結果（ひとり親控除）。婚姻している（別居など）は控除が無くなり、税が増える
+    expect(preview(set(wh, key, "divorced").request).table).toEqual(preview(wh.request).table);
+    expect(preview(married.request).table).not.toEqual(preview(wh.request).table);
   });
 });
 

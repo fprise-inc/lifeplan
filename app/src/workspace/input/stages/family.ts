@@ -262,6 +262,24 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
       },
     }),
   );
+  // 婚姻の状態（配偶者が世帯にいないご本人だけ。詳細。ひとり親控除・寡婦控除の判定。0156）
+  if (m.kind === "self" && !spouseAtBase(wh))
+    fields.push(
+      plain({
+        key: `family/${m.id}/marital`,
+        item: "member.maritalStatus",
+        label: "婚姻の状態",
+        level: "detail",
+        kind: "select",
+        options: MARITAL_OPTIONS,
+        find,
+        path: ["maritalStatus"],
+        optional: true,
+        fallback: "",
+        blankMeans: "婚姻していない",
+        help: MARITAL_HELP,
+      }),
+    );
   // 子の独立は、子ども・教育のカードの詳細の「独立の時期」で入れる（education.ts の leavesField。同じ値を2か所に出さない）
   if (m.kind === "spouse") {
     const rel = relationLine(wh, m);
@@ -632,26 +650,52 @@ function allowanceChild(h: Household): string | undefined {
 /** 手当・給付金のボタンの「?」（児童扶養手当・自治体の手当は計算しないので、受け取っている額を入れてもらう） */
 export const BENEFIT_HELP = "児童扶養手当・自治体の手当（ひとり親の手当など）は計算に入れていません。受け取っている額を入れてください（児童手当は、子ども・教育の入力項目で計算します）";
 
+/** 計算の基準の月に世帯にいる人か（加わる時期の後で、離れる時期の前） */
+function hereAtBase(wh: WorkingHousehold, m: Member): boolean {
+  const h = wh.request.input.household;
+  const base = wh.request.input.baseMonth;
+  const leaves = resolveTimepoint(h, m.leaves ?? null);
+  const joins = resolveTimepoint(h, m.joins ?? null);
+  return (leaves === null || leaves > base) && (joins === null || joins <= base);
+}
+
+/** 計算の基準の月に配偶者（法律婚・事実婚）が世帯にいるか。関係が終わって世帯を離れた配偶者はいない */
+function spouseAtBase(wh: WorkingHousehold): boolean {
+  return wh.request.input.household.members.some((m) => m.kind === "spouse" && hereAtBase(wh, m));
+}
+
 /**
  * ひとり親の世帯か（計算の基準の月に、配偶者が世帯にいなくて、一緒に暮らす子がいる）。配偶者がいても、関係が終わって世帯を離れていれば
  * ひとり親とみなす
  */
 export function singleParent(wh: WorkingHousehold): boolean {
-  const h = wh.request.input.household;
   const base = wh.request.input.baseMonth;
-  const here = (m: Member) => {
-    const leaves = resolveTimepoint(h, m.leaves ?? null);
-    const joins = resolveTimepoint(h, m.joins ?? null);
-    return (leaves === null || leaves > base) && (joins === null || joins <= base);
-  };
-  const spouse = h.members.some((m) => m.kind === "spouse" && here(m));
-  const kids = h.members.some((m) => m.kind === "child" && m.outside === undefined && m.expected !== true && m.birth.birthYearMonth <= base && here(m));
-  return !spouse && kids;
+  const kids = wh.request.input.household.members.some((m) => m.kind === "child" && m.outside === undefined && m.expected !== true && m.birth.birthYearMonth <= base && hereAtBase(wh, m));
+  return !spouseAtBase(wh) && kids;
 }
 
-/** ひとり親の世帯の読むだけの1行の「?」 */
+/** ひとり親の世帯の読むだけの1行の「?」（ひとり親控除は計算する。児童扶養手当は計算しない。0156） */
 export const SINGLE_PARENT_HELP =
-  "ひとり親控除は、配偶者と死別した後（万一のときの想定）だけ計算に入れます。離婚・未婚のひとり親の控除は、今は計算に入れていません。児童扶養手当・自治体のひとり親の手当も計算しないので、受け取っている額を「＋ 児童扶養手当など」で入れてください";
+  "ひとり親控除は、婚姻していない人（未婚・離婚・死別のどれでも）で、生計を一にする子（子の所得が上限以下。令和8年分は62万円）がいて、合計所得金額が500万円以下の年に計算に入れます（所得税35万円・住民税30万円）。別居していて離婚していないときは、「詳細」のご本人の「婚姻の状態」で「婚姻している（別居など）」を選んでください。児童扶養手当・自治体のひとり親の手当は計算しないので、受け取っている額を「＋ 児童扶養手当など」で入れてください";
+
+/** 婚姻の状態の選択肢（配偶者が世帯にいないご本人。空欄は婚姻していないとみなす。0156） */
+export const MARITAL_OPTIONS: Option[] = [
+  { value: "", label: "入れない（婚姻していない）" },
+  { value: "unmarried", label: "未婚" },
+  { value: "divorced", label: "離婚" },
+  { value: "bereaved", label: "死別" },
+  { value: "married", label: "婚姻している（別居など）" },
+];
+
+/** 婚姻の状態の欄の「?」 */
+export const MARITAL_HELP =
+  "ひとり親控除・寡婦控除の判定に使います。ひとり親控除は、未婚・離婚・死別のどれでも、生計を一にする子がいて合計所得金額が500万円以下なら受けます（空欄も同じ）。寡婦控除（女性。ひとり親に当たらない年）は、死別なら受け、離婚なら扶養親族がいるときだけ受けます（未婚・空欄は受けません）。別居していて離婚していなければ「婚姻している（別居など）」を選びます（どちらも受けません）。世帯に入れた夫婦の関係が終わった後は、その終わり方（離婚・万一のときの想定の死別）で判定します。事実婚のパートナーは「＋ パートナー（事実婚）」で入れます";
+
+/** ひとり親の世帯の読むだけの1行の値（ご本人の婚姻の状態が「婚姻している」なら控除も入らない） */
+function singleParentLine(wh: WorkingHousehold): string {
+  const self = wh.request.input.household.members.find((m) => m.kind === "self");
+  return self?.maritalStatus === "married" ? "どちらも計算に入れていません（婚姻している）" : "控除は計算に入れています（手当は入れていません）";
+}
 
 /** 家族のカードの「入るお金」「出るお金」の区画（簡易の1行。足すときの既定を家族の形に合わせる） */
 function familyMoney(wh: WorkingHousehold): SectionDef[] {
@@ -845,7 +889,7 @@ export function familyStage(wh: WorkingHousehold): StageDef {
   // 世帯の外の家族・贈与する人は、介護・親／相続・贈与のカードで入れる（ここは読むだけの1行。人ごとに「母（89歳）」）
   const outsideText = outside.map((m) => (m.birth.birthYearMonth <= base ? `${memberLabel(wh, m.id)}（${ageAt(m, base)}歳）` : memberLabel(wh, m.id))).join("・");
   const ro = readGroup("family/elsewhere", undefined, [
-    ...(singleParent(wh) ? [{ ...readLine("family/singleParent", "ひとり親控除・児童扶養手当", "計算に入れていません", "家族"), readOnly: SINGLE_PARENT_HELP }] : []),
+    ...(singleParent(wh) ? [{ ...readLine("family/singleParent", "ひとり親控除・児童扶養手当", singleParentLine(wh), "家族"), readOnly: SINGLE_PARENT_HELP }] : []),
     ...(outside.length > 0 ? [readLine("family/outside", "世帯の外の家族", outsideText, "介護・親")] : []),
     ...(donors.length > 0 ? [readLine("family/donors", "贈与する人（親・祖父母）", `${donors.length}人`, "相続・贈与")] : []),
   ]);

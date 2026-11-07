@@ -10,6 +10,7 @@ import { readProposalText, type ProposalContext } from "../src/workspace/documen
 import { acceptCandidates, acceptObject, docReview, type Chosen } from "../src/workspace/documents/review.ts";
 import { DOC_TYPES, PROPOSAL_CONTRACT, type DocumentReading } from "../src/workspace/documents/types.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { buildStages } from "../src/workspace/input/stages/index.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { modelHousehold } from "./helpers.ts";
 
@@ -118,6 +119,8 @@ describe("説明書と手引きの答えの見本", () => {
 const WALKS: { file: string; index: number; household: string; choose?: string; missing?: string[] }[] = [
   { file: "pension.md", index: 0, household: "single45" },
   { file: "pension.md", index: 1, household: "sampleSeniorCouple" },
+  // 封書の免除・猶予の内訳は、年金の記録に内訳の欄が無いと当たらない（FP が「＋ 免除・猶予の月を入れる」を押すまで。下のテストで押した後）
+  { file: "pension.md", index: 2, household: "civilServant", missing: ['pensionRecord.months ["category1","paid"]', 'pensionRecord.months ["category1","exemptFull"]', 'pensionRecord.months ["category1","deferred"]'] },
   { file: "withholding-slip.md", index: 1, household: "salariedCoupleTwoKids" },
   // 申告の仕方の欄は、事業所得のある人の働き方と収入の「確定申告」にもある（収益不動産の「申告」と同じ値。0155）。事業所得だけの人にも全部入る
   { file: "tax-return.md", index: 0, household: "selfEmployed" },
@@ -191,8 +194,23 @@ describe("見本の世帯で FP が承認していくと、読めなかった欄
     const rec = (res.wh.request.input.household.pensionRecords ?? []).find((x) => x.member === self) as unknown as { kind: string; asOf: string; months: { basic: number; employee: number }; amounts: { employee: unknown } };
     expect(rec.kind).toBe("statementUnder50");
     expect(rec.asOf).toBe("2026-06");
-    expect(rec.months).toMatchObject({ basic: 196, employee: 172 });
+    expect(rec.months).toMatchObject({ basic: 196, employee: 196 });
     expect(JSON.stringify(rec.amounts.employee)).toContain("412300");
+  });
+
+  it("ねんきん定期便（封書）: FP が免除・猶予の内訳を足すと、納付済・全額免除・学特等の月が内訳に入り、加入月数は免除を除いた月になる", () => {
+    const base = open("civilServant");
+    const self = roles(base.request).find((r) => r.key === "self")!.member.id;
+    const recId = (base.request.input.household.pensionRecords ?? []).find((x) => x.member === self)!.id;
+    const add = buildStages(base)
+      .flatMap((st) => st.sections.flatMap((sec) => [...sec.actions, ...sec.groups.flatMap((g) => g.actions)]))
+      .find((x) => x.key === `pension/${recId}/c1/add`)!;
+    const wh = add.run(base);
+    const a = answers(text(join(GUIDES, "pension.md")))[2] as string;
+    const res = walk(wh, readProposalText(a, ctx(wh)).reading!);
+    expect(res.reading.candidates.filter((c) => c.status === "pending")).toEqual([]);
+    const rec = (res.wh.request.input.household.pensionRecords ?? []).find((x) => x.member === self) as unknown as { months: Record<string, unknown> };
+    expect(rec.months).toMatchObject({ basic: 255, employee: 225, qualifying: 297, category1: { paid: 30, exemptFull: 18, deferred: 24 } });
   });
 
   it("保険証券: 新しい終身保険が1件足され、主契約の死亡保険金・払い方・保険料・払込免除が入る（特約は照合だけ）", () => {
