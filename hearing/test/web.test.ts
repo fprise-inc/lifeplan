@@ -6,7 +6,7 @@ import { importAnswers } from "../src/index.ts";
 import { exportAnswers } from "../src/export.ts";
 import { answersOf, b64u, checkAnswers, DOCUMENT_TEMPLATES, draftKey, filledOf, fromB64u, importDefinition, initialDraft, issueRequest, openRequest, receive, relay, removeFile, screens, selectionFromSheet, sniffMime, submitAnswers, uploadFile, utf8, type Draft, type DraftAnswer, type QuestionsPacket, type RelayTransport, type Screen, type WebSelection } from "../src/web/index.ts";
 import { API_PREFIX } from "../src/web/protocol.ts";
-import { full3, idSeq, modelHousehold, simple } from "./helpers.ts";
+import { full4, idSeq, modelHousehold, simple } from "./helpers.ts";
 
 const OFFICE = { name: "【架空】みらいFP事務所", color: "#2f6f5e", purpose: "ライフプランの作成のため", privacyContact: "" };
 
@@ -293,11 +293,13 @@ describe("問いを飛ばす決まり", () => {
     expect(answersOf(p, d, new Date()).answers.some((a) => a.key === "hs.housing.rent")).toBe(false);
   });
 
-  it("詳細の票: 自営業なら事業の所得を聞き給与を聞かない。会社役員だけ会社とのお金を聞く。ローン・保険は本数で繰り返す", async () => {
-    const p = await packetOf(full3());
+  it("詳細の票: 自営業なら事業の所得と確定申告の仕方を聞き給与を聞かない。会社役員だけ会社とのお金を聞く。ローン・保険は本数で繰り返す", async () => {
+    const p = await packetOf(full4());
     const d = withAnswers(initialDraft(p), { [draftKey("hs.work.type", 1)]: v("selfEmployed"), [draftKey("hs.work.type", 2)]: v("executive"), [draftKey("hs.housing.type")]: v("own") }, { spouse: 1, child: 0, loan: 1, policy: 2 });
     const keys = itemScreens(screens(p, d));
     expect(keys).toContain("hs.income.business#1");
+    expect(keys).toContain("hs.income.taxReturn#1");
+    expect(keys).not.toContain("hs.income.taxReturn#2");
     expect(keys).not.toContain("hs.income.salary#1");
     expect(keys).toContain("hs.company.shares#2");
     expect(keys).not.toContain("hs.company.shares#1");
@@ -307,7 +309,7 @@ describe("問いを飛ばす決まり", () => {
   });
 
   it("見直し: 確かめてもらう項目は前回の値から始め、分岐の答えも前回の値から決める", async () => {
-    const def = full3();
+    const def = full4();
     const req = modelHousehold("dualHighTwoKids");
     const prefill = exportAnswers(def, req).answers;
     const sel = selectionFromSheet(def, () => "confirm");

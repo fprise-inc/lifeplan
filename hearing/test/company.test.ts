@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { approveAll, createHearingSheet, exportAnswers, importAnswers, importHearingSheet, type Answer, type FilledSheet } from "../src/index.ts";
 import { itemByKey } from "../src/definition.ts";
 import { formatValue } from "../src/values.ts";
-import { engineAvailable, full, full2, full3, HEARING_DIR, idSeq, modelHousehold, OFFICE, preview } from "./helpers.ts";
+import { engineAvailable, full, full2, full3, full4, HEARING_DIR, idSeq, modelHousehold, OFFICE, preview } from "./helpers.ts";
 import { sampleAnswers, sampleBytes, type SampleFile } from "./sample.ts";
 
 const def = full2();
@@ -161,10 +161,10 @@ describe("見本のシート full-2", () => {
     expect(pick(ex.answers).sort((x, y) => `${x.key}#${x.index ?? 0}`.localeCompare(`${y.key}#${y.index ?? 0}`))).toEqual(want.sort((x, y) => `${x.key}#${x.index ?? 0}`.localeCompare(`${y.key}#${y.index ?? 0}`)));
 
     // .xlsx の往復（今の版の詳細版で）: 書き出し → 取り込み → 書き出しで同じ回答
-    const s = await createHearingSheet({ definition: full3(), household: { request: r.request, assumed: r.assumed }, requestId: "R-7K3P9Q", customerNo: "A0042", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-11-01" });
+    const s = await createHearingSheet({ definition: full4(), household: { request: r.request, assumed: r.assumed }, requestId: "R-7K3P9Q", customerNo: "A0042", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-11-01" });
     const back = await importHearingSheet(s.bytes, { baseMonth: "2026-10", requests: [s.request], newId: idSeq("again") });
     if (!back.ok) throw new Error(JSON.stringify(back.issues));
-    expect(exportAnswers(full3(), back.request, { assumed: back.assumed }).answers).toEqual(s.filled.answers);
+    expect(exportAnswers(full4(), back.request, { assumed: back.assumed }).answers).toEqual(s.filled.answers);
   });
 
   it("返済期間を仮の値（返済額が無いので5年）で置いた借入金は、毎月の返済額を書かない", () => {

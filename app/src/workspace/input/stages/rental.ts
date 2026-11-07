@@ -8,7 +8,7 @@
 //   借入先・金利の段階・繰上返済・借り換え・団信、民泊・宿の営業の形と売上（1泊の単価×稼働率×営業日数か月の売上の見込み）と経費の入れ方
 // - 税と出口（0081）: 売ったときにこの物件のローンを返すか（売却の詳細）、民泊・宿の所得の区分（雑所得・事業所得・不動産所得。詳細）、
 //   物件の持ち主ごとの申告の仕方（青色・白色）と青色申告特別控除の額、事業的規模の目安（5棟10室。種類と戸数から）
-import type { Account, Debt, Household, Member, RealEstateExpenseItem, RealEstateProperty } from "../../../engine/types.ts";
+import type { Account, Debt, Household, RealEstateExpenseItem, RealEstateProperty } from "../../../engine/types.ts";
 import type { Address } from "../../store/readings.ts";
 import { addMonths } from "../../levers.ts";
 import { byId, field, plain, removeAction, resolveTimepoint, timepointField, yenBox, type FieldDef, type Finder, type GroupDef, type Option, type StageDef } from "../form.ts";
@@ -23,6 +23,9 @@ import { creditLifeFields, loanFields, loanStepGroups } from "./housing.ts";
 import { addHomeRefinance, at, loanMoreActions } from "./housingLoans.ts";
 import { GROWTH_RANGE } from "../rateRanges.ts";
 import { presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
+import { lodgingIncomeKind, taxReturnFields } from "../taxReturn.ts";
+
+export { BLUE_DEDUCTIONS, lodgingIncomeKind, TAX_RETURN_METHODS } from "../taxReturn.ts";
 
 const accounts = (h: Household) => h.accounts;
 /** 欄の当て先（器の中の入力項目） */
@@ -137,17 +140,6 @@ export const LODGING_INCOME_KINDS: Option[] = [
   { value: "business", label: "事業所得" },
   { value: "realEstate", label: "不動産所得" },
 ];
-export const lodgingIncomeKind = (l: NonNullable<RealEstateProperty["lodging"]>): "miscellaneous" | "business" | "realEstate" => l.incomeKind ?? (l.business === "inn" ? "business" : "miscellaneous");
-/** 申告の仕方と青色申告特別控除の区分（0081） */
-export const TAX_RETURN_METHODS: Option[] = [
-  { value: "white", label: "白色" },
-  { value: "blue", label: "青色" },
-];
-export const BLUE_DEDUCTIONS: Option[] = [
-  { value: "electronic", label: "65万円" },
-  { value: "doubleEntry", label: "55万円" },
-  { value: "simple", label: "10万円" },
-];
 /** 事業的規模の目安（5棟10室。1棟を2室として合わせる。エンジンの tax.totalIncome と同じ数え方） */
 export const BUSINESS_SCALE_ROOMS = 10;
 export const BUSINESS_SCALE_HELP =
@@ -168,11 +160,6 @@ export function businessScale(h: Household, member: string): { rooms: number; ho
   return { rooms, houses, met: rooms + houses * 2 >= BUSINESS_SCALE_ROOMS };
 }
 
-/** その人に事業所得があるか（自営の働き方・事業所得の民泊・宿。青色申告特別控除の55万円・65万円の要件） */
-function hasBusinessIncome(h: Household, member: string): boolean {
-  if ((h.employmentPeriods ?? []).some((x) => x.member === member && x.type === "selfEmployed")) return true;
-  return rentalProperties(h).some((a) => a.owner === member && a.property?.lodging !== undefined && lodgingIncomeKind(a.property.lodging) === "business");
-}
 /** 住宅宿泊事業の営業日数の上限（エンジンと同じ） */
 export const PRIVATE_LODGING_DAYS = 180;
 /** 民泊・宿の営業の形 */
@@ -1357,59 +1344,10 @@ export function taxReturnGroups(wh: WorkingHousehold): GroupDef[] {
   const owners = [...new Set(rentalProperties(h).map((a) => a.owner))];
   const labels = memberLabels(wh);
   return owners.map((id): GroupDef => {
-    const findM: Finder = (hh) => hh.members.find((m) => m.id === id) as Record<string, unknown> | undefined;
-    const m = h.members.find((x) => x.id === id) as Member | undefined;
     const k = `rental/taxReturn/${id}`;
-    const addr = (at: string) => (): Address => ({ target: { object: id }, item: "member.taxReturn", at: [at] });
-    const fields: FieldDef[] = [
-      withAddress(
-        plain({
-          key: `${k}/method`,
-          item: "member.taxReturn",
-          label: "申告の仕方",
-          level: "detail",
-          kind: "select",
-          options: TAX_RETURN_METHODS,
-          find: findM,
-          path: ["taxReturn", "method"],
-          optional: true,
-          fallback: "white",
-          structural: true,
-          help: "青色申告なら、青色申告特別控除を不動産所得（と事業所得）から引き、損益通算で引ききれない赤字を翌年から3年繰り越します。白色は、引ききれない赤字を捨てます",
-          // 白色（空欄）に戻したら申告の欄ごと外す
-          after: (_h, t, v) => void (v === null || v === "white" ? delete t.taxReturn : undefined),
-        }),
-        addr("method"),
-      ),
-    ];
-    if (m?.taxReturn?.method === "blue") {
-      const scale = businessScale(h, id);
-      const business = hasBusinessIncome(h, id);
-      const dedBase = withAddress(
-        plain({
-          key: `${k}/blueDeduction`,
-          item: "member.taxReturn",
-          label: "青色申告特別控除",
-          level: "detail",
-          kind: "select",
-          options: BLUE_DEDUCTIONS,
-          find: findM,
-          path: ["taxReturn", "blueDeduction"],
-          optional: true,
-          fallback: "simple",
-          help: "65万円は複式簿記の帳簿と e-Tax での申告（か電子帳簿の保存）、55万円は複式簿記の帳簿と貸借対照表・損益計算書を期限内に出すとき、それ以外は10万円です。55万円・65万円は、不動産所得が事業的規模か事業所得があるときだけ使えます。不動産所得・事業所得の黒字の合計が上限で、不動産所得から先に引きます",
-        }),
-        addr("blueDeduction"),
-      );
-      fields.push({
-        ...dedBase,
-        get: (w) => {
-          const st = dedBase.get(w);
-          return (st.value === "electronic" || st.value === "doubleEntry") && !scale.met && !business ? { ...st, warn: "事業的規模の目安に当たらず事業所得も無いので、10万円で計算しています" } : st;
-        },
-      });
-    }
     const scale = businessScale(h, id);
+    // 申告の仕方・青色申告特別控除は、働き方と収入の「確定申告」と同じ欄（同じ当て先。taxReturn.ts。0155）
+    const fields: FieldDef[] = taxReturnFields(wh, id, k, "detail", scale.met);
     const count = [scale.rooms > 0 ? `${scale.rooms}室` : "", scale.houses > 0 ? `${scale.houses}棟` : ""].filter((x) => x !== "").join("・");
     fields.push(
       field({

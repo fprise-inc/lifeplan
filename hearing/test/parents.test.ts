@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { approveAll, createHearingSheet, exportAnswers, importAnswers, importHearingSheet, type Answer, type FilledSheet } from "../src/index.ts";
 import { itemByKey } from "../src/definition.ts";
 import { formatValue } from "../src/values.ts";
-import { engineAvailable, full2, full3, HEARING_DIR, idSeq, OFFICE, preview, simple } from "./helpers.ts";
+import { engineAvailable, full2, full3, full4, HEARING_DIR, idSeq, OFFICE, preview, simple } from "./helpers.ts";
 import { sampleBytes, type SampleFile } from "./sample.ts";
 
 const def = full3();
@@ -27,14 +27,14 @@ const base = [a("hs.meta.filledOn", "2026-10"), a("hs.family.adult.birthYearMont
 const mother = [a("hs.family.parent.alive", "alive", 2), a("hs.family.parent.age", 88, 2), a("hs.family.parent.cohabiting", "apart", 2)];
 
 describe("詳細版 full 版3 のシート定義", () => {
-  it("版2 の項目をそのまま残し、ご両親の3問（簡易版と同じキー）と新しい7問を足した。版2 は廃止", () => {
+  it("版2 の項目をそのまま残し、ご両親の3問（簡易版と同じキー）と新しい7問を足した。版2 は廃止（版3 も版4 を足して廃止。0155）", () => {
     const v2 = full2().items.map((i) => i.key);
     const v3 = def.items.map((i) => i.key);
     expect(v3.filter((k) => !NEW_KEYS.includes(k) && !PARENT_KEYS.includes(k))).toEqual(v2);
     for (const k of [...PARENT_KEYS, ...NEW_KEYS]) expect(items.get(k), k).toMatchObject({ addedIn: 3, retiredIn: null });
     for (const k of PARENT_KEYS) expect(items.get(k)?.label).toBe(itemByKey(simple()).get(k)?.label);
     expect(full2().status).toBe("retired");
-    expect(def.status).toBe("draft");
+    expect(def.status).toBe("retired");
     expect(def.axes.find((x) => x.id === "parent")?.count).toBe(4);
   });
 
@@ -112,7 +112,7 @@ describe("見本のシート full-3", () => {
     expect(Buffer.compare(Buffer.from(await sampleBytes(`${NAME}.json`, json)), Buffer.from(xlsx))).toBe(0);
   });
 
-  it("取り込むと、エラーなしでご両親3人・仕送り・援助・母の介護・受け取る予定の相続が入り、計算エンジンで計算できる。前回の値を記入して書き出すと同じ回答", async () => {
+  it("取り込むと、エラーなしでご両親3人・仕送り・援助・母の介護・受け取る予定の相続が入り、計算エンジンで計算できる。前回の値を記入して（今の版の詳細版で）書き出すと同じ回答", async () => {
     const r = await importHearingSheet(xlsx, { baseMonth: "2026-10", newId: idSeq("sample-full3") });
     if (!r.ok) throw new Error(JSON.stringify(r.issues));
     expect(`${r.definition.sheetId}-${r.definition.version}`).toBe("full-3");
@@ -126,10 +126,10 @@ describe("見本のシート full-3", () => {
       const out = preview(approveAll(r, "2026-11-07T10:00:00+09:00"));
       expect(out.error, JSON.stringify(out.error)).toBeUndefined();
     }
-    const s = await createHearingSheet({ definition: def, household: { request: r.request, assumed: r.assumed }, requestId: "R-7K3P9Q", customerNo: "A0042", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-11-07" });
+    const s = await createHearingSheet({ definition: full4(), household: { request: r.request, assumed: r.assumed }, requestId: "R-7K3P9Q", customerNo: "A0042", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-11-07" });
     const back = await importHearingSheet(s.bytes, { baseMonth: "2026-10", requests: [s.request], newId: idSeq("again") });
     if (!back.ok) throw new Error(JSON.stringify(back.issues));
-    expect(exportAnswers(def, back.request, { assumed: back.assumed }).answers).toEqual(s.filled.answers);
+    expect(exportAnswers(full4(), back.request, { assumed: back.assumed }).answers).toEqual(s.filled.answers);
     const pick = (list: readonly Answer[]) => list.filter((x) => (x.key.startsWith("hs.family.parent.") || x.key.startsWith("hs.inherit.")) && x.status === "value").map((x) => `${x.key}#${x.index ?? 0}`);
     expect(pick(s.filled.answers)).toContain("hs.family.parent.careMonthly#2");
     expect(pick(s.filled.answers)).toContain("hs.inherit.amount#0");
