@@ -66,6 +66,11 @@ export interface MemberInput {
   readonly support?: { readonly dependent: boolean; readonly cohabiting: boolean; readonly allowance?: Yen };
   /** 0081: 所得税の申告の仕方（青色・白色）と青色申告特別控除の区分（65万円 electronic・55万円 doubleEntry・10万円 simple。省略は simple）。省略は白色 */
   readonly taxReturn?: { readonly method: "blue" | "white"; readonly blueDeduction?: "electronic" | "doubleEntry" | "simple" };
+  /**
+   * 0156: 配偶者の関係が無い期間の婚姻の状態（ひとり親控除・寡婦控除の判定）。未婚・離婚・死別・婚姻している（別居などで配偶者を世帯に入れていない）。
+   * 省略は婚姻していないとみなす（ひとり親控除は判定し、寡婦控除は判定しない）。世帯に配偶者の関係があれば、その期間と終わりの後は関係から決める
+   */
+  readonly maritalStatus?: "unmarried" | "divorced" | "bereaved" | "married";
   /** 0105: 会社の借入の連帯保証の額（役員として働く人の今の額。負債には入れない。計算には使わない） */
   readonly companyGuarantee?: ValueBox<Yen>;
   /** 0035 の4: 世帯の外の家族（家計を世帯と別にする家族）。お金の動きは家計を1つにする期間のうち収入を世帯に入れる期間だけ世帯に入れ、世帯の判定の顔ぶれに入れない（sdk の isOutside・sameHousehold） */

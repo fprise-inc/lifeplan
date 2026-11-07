@@ -3,7 +3,8 @@
 // （iDeCo の掛金と企業型DCの加入者掛金。拠出限度額で止めた後の額を ideco.contribution から、その年の分だけ読む）。
 // 配偶者控除・配偶者特別控除（tax.spouseDeduction）と扶養控除・特定親族特別控除（tax.dependentDeduction）は、他の構成員の所得で決まるので
 // 小さな部品に分けている（配偶者の所得が変わっても控除の額が同じなら、ここから先を計算し直さない。0006 の追記）
-// ひとり親控除・寡婦控除（改訂7。約束の版 1.1 の任意の欄）: 配偶者と死別した人を tax.survivorStatus で判定する（万一の想定で自動で切り替わる）。
+// ひとり親控除・寡婦控除（改訂7。約束の版 1.1 の任意の欄）: tax.survivorStatus で判定する（離婚・未婚・死別のひとり親と寡婦。万一の想定の死別でも
+// 自動で切り替わる。0156）。
 // 住民税の調整控除の人的控除額の差は、寡婦1万円・ひとり親（母）5万円・ひとり親（父）1万円（制度データ）
 // 改訂（0044）: 合計所得金額の判定に、分離課税の譲渡所得（tax.totalIncome の separate。入るお金の行）も足す
 import {
@@ -176,7 +177,7 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     // 小規模企業共済の掛金（全額。その年に払った分）
     for (const p of ctx.callMonths<{ ym: string; amount: Yen }>("account.mutualAid", { member }, "paid", monthIndex(year, 1), monthIndex(year, 12))) smallBusiness = yen(smallBusiness + p.amount);
 
-    // ひとり親控除・寡婦控除（配偶者と死別した人）
+    // ひとり親控除・寡婦控除（tax.survivorStatus の判定。0156）
     const sv = ctx.call<{ widow: boolean; singleParent: boolean }>("tax.survivorStatus", { member, year });
     let widow = yen(0);
     let singleParent = yen(0);

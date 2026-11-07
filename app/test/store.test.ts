@@ -1263,6 +1263,15 @@ function sample068(): BodyState {
   return { ...s, wh: withDocumentLog(acc.wh, withReading(undefined, acc.reading)) };
 }
 
+/** 0.69 の見本の世帯（0156）: sample068() のご本人に婚姻の状態「離婚」（配偶者の関係が無い期間の婚姻の状態。ひとり親控除・寡婦控除の判定） */
+function sample069(): BodyState {
+  const s = sample068();
+  const req = structuredClone(s.wh.request);
+  const self = req.input.household.members.find((m) => m.kind === "self")!;
+  self.maritalStatus = "divorced";
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 describe("世帯ファイルの本文（0011 の2）", () => {
   it("保存→読み込みで同じ（現状・案・帯の並び・表示の設定・拡張領域）", () => {
     const s = sample();
@@ -1301,7 +1310,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.68");
+    expect(BODY_FORMAT_VERSION).toBe("0.69");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1476,7 +1485,17 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample068())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample069())), null, 2) + "\n");
+  });
+
+  it("0.69 の形（0156）: 構成員の婚姻の状態を保存して読み戻す。欄の無い前の版の世帯は婚姻していないとみなす（欄を書き足さない）", () => {
+    const s = sample069();
+    const stored = bodyObject(s) as unknown as { household: { request: { input: { household: { members: { kind: string; maritalStatus?: string }[] } } } } };
+    expect(stored.household.request.input.household.members.find((m) => m.kind === "self")?.maritalStatus).toBe("divorced");
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    const before = bodyObject(sample068()) as unknown as typeof stored;
+    expect(before.household.request.input.household.members.some((m) => m.maritalStatus !== undefined)).toBe(false);
   });
 
   it("0.68 の形（0148）: 書類の読み取りの記録を区画 documents に保存して読み戻す。承認した値は承認の記録と確かさを持ち、計算できる。記録は計算に効かない", () => {

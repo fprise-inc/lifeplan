@@ -30,6 +30,8 @@ export interface Member {
   /** 0081: 所得税の申告の仕方（青色・白色）と青色申告特別控除の区分（65万円 electronic・55万円 doubleEntry・10万円 simple。省略は simple）。省略は白色 */
   taxReturn?: { method: "blue" | "white"; blueDeduction?: "electronic" | "doubleEntry" | "simple" };
   support?: { dependent?: boolean; cohabiting?: boolean; allowance?: number };
+  /** 0156: 配偶者の関係が無い期間の婚姻の状態（ひとり親控除・寡婦控除の判定）。省略は婚姻していないとみなす（寡婦控除は判定しない） */
+  maritalStatus?: "unmarried" | "divorced" | "bereaved" | "married";
   /** 0105: 会社の借入の連帯保証の額（役員として働く人の今の額。負債には入れず、資産と負債のタブで図の外に見せる。計算には使わない） */
   companyGuarantee?: Box<number>;
   /** 世帯の外の家族（0035 の4。家計を世帯と別にする家族）。期間は家計を1つにする期間（living は生活費の人数、income は収入を世帯に入れる） */
