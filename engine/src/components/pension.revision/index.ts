@@ -8,9 +8,13 @@
 // 比の値が無い年度は基礎年金と同じ比で動かす。
 // 新規裁定者の改定率（newAward）も持つ: 加給年金額・配偶者の特別加算は、受給者本人の年齢によらず「27条の3・27条の5の適用がないものとした改定率」
 // （厚生年金保険法44条2項・昭和60年改正法附則60条2項）を掛ける。制度データにある年度は、その年度に65歳になる生年月日の行、無い年度は賃金で延ばす
+// 改訂3: 計算基準月の年度の3年前より後に制度データの年度が1つも無い（データの最後の年度より4年以上後の計算基準月）ときは、
+// 値のある最後の年度まで前へさかのぼって探し、その年度から前提で延ばす（前は値が見つからず JS の例外で止まった）。表はその年度から出す。
+// 値が1つも無いデータの組（架空の見本など）では E_PARAM_NO_VALUE で止める
 import {
   ageMonth,
   defineComponent,
+  fail,
   fiscalYearOf,
   fiscalYearStart,
   rate,
@@ -49,7 +53,7 @@ export default defineComponent<{ member: string }, { byFiscalYear: Row[] }>({
   id: "pension.revision",
   title: "年金額の改定率",
   contract: "1.1",
-  revision: 2,
+  revision: 3,
   requires: {},
   params: [RATE_ID, EXISTING_AGE, EMP_FACTOR],
   reads: ["assumptions.inflation", "assumptions.wageGrowth", "assumptions.pensionMacroSlide", "assumptions.pensionMacroSlideEmployee"],
@@ -58,7 +62,7 @@ export default defineComponent<{ member: string }, { byFiscalYear: Row[] }>({
   compute(input, ctx) {
     const { base, end } = ctx.time;
     const member = input.member;
-    const firstFy = fiscalYearOf(base) - 3;
+    const windowFirst = fiscalYearOf(base) - 3;
     const lastFy = fiscalYearOf(end);
     const existingFrom = fiscalYearOf(ageMonth(ctx, base, EXISTING_AGE, member));
     const out: Row[] = [];
@@ -72,22 +76,23 @@ export default defineComponent<{ member: string }, { byFiscalYear: Row[] }>({
     let lastKnownRef = "";
     // 制度データの最初の年度より前は、最初の年度の値とみなす（計算基準月より前の年金額の推計のため）
     const known: { fy: number; r: Rate; e: Rate | null; n: Rate }[] = [];
-    for (let fy = firstFy; fy <= lastFy; fy++) {
+    const knownAt = (fy: number): boolean => {
       const at = ctx.at(fiscalYearStart(fy));
-      if (at.has(RATE_ID, { member }) && at.param(RATE_ID, { member }).entry.value !== "notApplicable") {
-        const sel = at.param(RATE_ID, { member });
-        const e = at.has(EMP_FACTOR, { member }) ? at.paramRate(EMP_FACTOR, { member }) : null;
-        const birth = newAwardBirth(fy);
-        const nsel = at.has(RATE_ID, { birth }) ? at.param(RATE_ID, { birth }) : sel;
-        const nv = nsel.entry.value === "notApplicable" ? sel.entry.value : nsel.entry.value;
-        known.push({ fy, r: rate(sel.entry.value as string), e, n: rate(nv as string) });
-        lastKnownRef = `${RATE_ID}@${sel.entry.rev}`;
-      }
-    }
-    if (known.length === 0) {
-      // 値が1つも無いときは延長の仮定のとおり読む（E_PARAM_NO_VALUE で止まる）
-      ctx.at(fiscalYearStart(firstFy)).paramRate(RATE_ID, { member });
-    }
+      if (!at.has(RATE_ID, { member }) || at.param(RATE_ID, { member }).entry.value === "notApplicable") return false;
+      const sel = at.param(RATE_ID, { member });
+      const e = at.has(EMP_FACTOR, { member }) ? at.paramRate(EMP_FACTOR, { member }) : null;
+      const birth = newAwardBirth(fy);
+      const nsel = at.has(RATE_ID, { birth }) ? at.param(RATE_ID, { birth }) : sel;
+      const nv = nsel.entry.value === "notApplicable" ? sel.entry.value : nsel.entry.value;
+      known.push({ fy, r: rate(sel.entry.value as string), e, n: rate(nv as string) });
+      lastKnownRef = `${RATE_ID}@${sel.entry.rev}`;
+      return true;
+    };
+    for (let fy = windowFirst; fy <= lastFy; fy++) knownAt(fy);
+    // 改訂3: 窓の中に値が無ければ、値のある最後の年度まで前へさかのぼる（そこから前提で延ばす）
+    for (let fy = windowFirst - 1; known.length === 0 && fy > windowFirst - 100; fy--) knownAt(fy);
+    if (known.length === 0) fail("E_PARAM_NO_VALUE", [RATE_ID, `${windowFirst}-04-01`]);
+    const firstFy = Math.min(windowFirst, (known[0] as { fy: number }).fy);
     const firstKnown = known[0] as { fy: number; r: Rate; n: Rate };
     for (let fy = firstFy; fy <= lastFy; fy++) {
       const k = known.find((x) => x.fy === fy);

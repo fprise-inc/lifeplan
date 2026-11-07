@@ -29,7 +29,7 @@ export default defineComponent<{ member: string; fromYear: number }, PremiumOutp
   id: "socialInsurance.nationalPension",
   title: "国民年金保険料",
   contract: "1.1",
-  revision: 3,
+  revision: 4,
   requires: { "pension.category": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [PREMIUM, ROUND],
   reads: ["assumptions.wageGrowth"],
@@ -61,9 +61,11 @@ export default defineComponent<{ member: string; fromYear: number }, PremiumOutp
       return v;
     };
     // 既知の最後の年度を先に探す
-    for (let fy = fiscalYearOf(ctx.time.base) - 2; fy <= fiscalYearOf(ctx.time.end); fy++) {
-      if (ctx.at(fiscalYearStart(fy)).has(PREMIUM) && ctx.at(fiscalYearStart(fy)).paramYen(PREMIUM) !== null) premiumOf(fy);
-    }
+    const knownFy = (fy: number): boolean => ctx.at(fiscalYearStart(fy)).has(PREMIUM) && ctx.at(fiscalYearStart(fy)).paramYen(PREMIUM) !== null;
+    for (let fy = fiscalYearOf(ctx.time.base) - 2; fy <= fiscalYearOf(ctx.time.end); fy++) if (knownFy(fy)) premiumOf(fy);
+    // 改訂4: 計算基準月の年度の2年前より後に値が無い（データの最後の年度より3年以上後の計算基準月）ときは、値のある最後の年度まで前へさかのぼり、
+    // そこから賃金の伸びで延ばす（前は延長の仮定で最後の値のまま。2年前までに値があるときと延ばし方が食い違った）
+    for (let fy = fiscalYearOf(ctx.time.base) - 3; lastKnown === null && fy > fiscalYearOf(ctx.time.base) - 100; fy--) if (knownFy(fy)) premiumOf(fy);
     const flows: Flow[] = [];
     // 法定免除（障害1・2級の想定。働けるようになる月の前まで）
     const ev = ctx.call<ContingencyEventOutput>("contingency.event", { member: input.member }).event;
