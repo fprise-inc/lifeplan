@@ -477,6 +477,11 @@ function goals(req: EngineRequest, proposed: readonly TableCell[], years: readon
   return { needTotal: need.length, needReady: need.filter((c) => c.ready === true).length, cards, dreamLine: d.line, childRepaid };
 }
 
+/** 計算できなかったときの目標（前の計算の残りで「準備できています」と出さない。未入力の夢のカードはそのまま。0169） */
+function failedGoals(g: GoalsModel): GoalsModel {
+  return { ...g, needReady: 0, dreamLine: null, cards: g.cards.map((c) => (c.ready === null ? c : { ...c, ready: false, shortNote: NOT_COMPUTED })) };
+}
+
 /** FP顧問料の ON/OFF の材料（顧問料の契約があるときだけ） */
 export interface FeeInput {
   on: boolean;
@@ -525,7 +530,15 @@ export interface PresentInput {
   dreams?: DreamsInput;
   /** 表の行の事務所の名前（カスタム層の名前の差し替え。省略は公式の名前） */
   rowNames?: OfficeRowNames;
+  /**
+   * 選んだプランか基準のプランが今の入力で計算できなかった（計算エンジンのエラー。結果は前の計算の残り）。結論の1文と目標の札に
+   * 「足りる」「準備できています」を出さない（0169）
+   */
+  failed?: boolean;
 }
+
+/** 計算できなかったときの目標の札の文（0169） */
+export const NOT_COMPUTED = "計算できていません";
 
 export function toPresentation(input: PresentInput): PresentationModel {
   const { base, proposal, current, proposed } = input;
@@ -590,8 +603,8 @@ export function toPresentation(input: PresentInput): PresentationModel {
     members: rs.filter((r) => r.member.outside === undefined && present(r, by)).map((r) => ({ label: r.label, age: ageInYear(r.member, by) })),
     asOf: `${by}年${bm}月時点`,
     headline,
-    verdict: verdict(self, depP, depC, endAge),
-    result: resultVerdict(names, self, depP, depC, endAge),
+    verdict: input.failed === true ? { tone: "flat", parts: [{ text: "今の入力では計算できませんでした", strong: true }] } : verdict(self, depP, depC, endAge),
+    result: input.failed === true ? { tone: "flat", parts: [{ text: "今の入力では計算できませんでした", strong: true }], sub: [] } : resultVerdict(names, self, depP, depC, endAge),
     names,
     chart,
     flows: flowChart(proposal, proposed.table, years, "収支の推移（提案）"),
@@ -602,7 +615,7 @@ export function toPresentation(input: PresentInput): PresentationModel {
     yearDetail,
     events: evs,
     table,
-    goals: goals(proposal, proposed.table, years, depP, input.dreams, proposed.summary),
+    goals: input.failed === true ? failedGoals(goals(proposal, proposed.table, years, depP, input.dreams, proposed.summary)) : goals(proposal, proposed.table, years, depP, input.dreams, proposed.summary),
     fee: input.fee === undefined ? null : feeLine({ fee: input.fee, targetYear, targetLabel: self !== undefined ? `${self.label}${age(targetYear)}歳` : `${targetYear}年`, finP, finC, ...(custom ? { baseLabel: `${names.base}（基準）` } : {}) }),
     provisional: input.provisional,
   };
