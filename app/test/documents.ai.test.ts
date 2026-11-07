@@ -1,7 +1,7 @@
 // AI接続口の書類の候補の道具（propose_inputs）と、ウェブのチャット AI の答えを貼り付ける入口（0151）:
 // 道具の入力の形と読み口の上限・種類の一覧がそろっていること、接続口のテストと同じ見本が読み口を通ること、届いた候補・貼り付けた答えが
 // 読み取りの記録になるだけで現状を変えないこと、個人番号などの番号が残らないこと、同意の無い世帯では貼り付けられないこと
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
@@ -81,7 +81,7 @@ describe("道具の入力の形（接続口）と読み口の上限・種類の�
     const r = readProposal(answer(), { via: "ai", at: AT, newId, connector: "test-ai 1.2", members: members(wh) });
     expect(r.issues).toEqual([]);
     expect(r.reading).not.toBeNull();
-    expect(r.reading!.candidates).toHaveLength(8);
+    expect(r.reading!.candidates).toHaveLength(9);
     expect(r.reading!.objects).toHaveLength(1);
     expect(r.reading!.references).toHaveLength(1);
     expect(r.reading!.candidates.filter((c) => c.unreadable === true)).toHaveLength(1);
@@ -109,7 +109,7 @@ describe("AI接続口から届いた候補を、読み取りの記録にする",
 
   it("同じ候補は2回足さない（外し損ねても読み直すだけ）。読めない答えは理由を残して外す", () => {
     const wh = withDocumentLog(open(), ingestAiProposals(open(), [proposal()], newId).log);
-    const again = ingestAiProposals(wh, [proposal(), proposal({ candidateId: CID2, answer: { contract: PROPOSAL_CONTRACT, values: [{ item: "no.such.item", value: 1 }] } })], newId);
+    const again = ingestAiProposals(wh, [proposal(), proposal({ candidateId: CID2, answer: { contract: PROPOSAL_CONTRACT, docType: "insurancePolicy", values: [{ item: "no.such.item", value: 1 }] } })], newId);
     expect(again.added).toEqual([]);
     expect(again.taken).toEqual([CID, CID2]);
     expect(again.failed).toHaveLength(1);
@@ -172,7 +172,9 @@ describe("貼り付けの入口", () => {
       ['{"contract": "document-candidates@1", "values": [', "AI", "答えの JSON を読めません（途中で切れていないか確かめてください）"],
       ['{"contract": "document-candidates@1", "values": [}', "AI", "答えの JSON を読めません（途中で切れていないか確かめてください）"],
       [JSON.stringify({ ...answer(), contract: "other@1" }), "AI", `答えの形の名前（contract）が「${PROPOSAL_CONTRACT}」ではありません`],
-      [JSON.stringify({ contract: PROPOSAL_CONTRACT, values: [{ item: "no.such.item", value: 1 }] }), "AI", "読める候補がありませんでした"],
+      [JSON.stringify({ contract: PROPOSAL_CONTRACT, docType: "insurancePolicy", values: [{ item: "no.such.item", value: 1 }] }), "AI", "読める候補がありませんでした"],
+      // 保険の書類のほかは読まない（0159）
+      [JSON.stringify({ ...answer(), docType: "withholdingSlip" }), "AI", "読めるのは保険証券・ご契約内容のお知らせ・設計書（docType は insurancePolicy）だけです。ほかの書類は、書類を見て入力の欄に打ってください（欄の「?」に書類のどこを見るかがあります）"],
     ];
     for (const [text, connector, why] of cases) {
       const r = readPasted(wh, text, connector, AT, newId);
@@ -201,30 +203,27 @@ describe("貼り付けの入口", () => {
     const withGuide = renderToString(h(PasteAnswer, { wh, gate: { ok: true, sample: true }, guide: { options: GUIDE_DOC_TYPES, text: guideText }, onRead: () => undefined, onClose: () => undefined }));
     expect(withGuide).toContain("data-documents-paste-guide");
     expect(withGuide).toContain("data-documents-paste-guide-type");
-    expect(withGuide).toContain("ねんきん定期便");
+    // 読めるのは保険の書類だけなので、書類の種類を選ぶ欄は出さない（0159）
+    expect(withGuide).not.toContain("<select");
+    expect(withGuide).toContain("読めるのは保険証券・ご契約内容のお知らせ・設計書だけです");
   });
 });
 
 describe("貼り付けで写す読み方の手引き（SDK フォルダの説明書・手引き・欄の一覧）", () => {
   const sdk = (...p: string[]) => readFileSync(join(REPO_DIR, "sdk", ...p), "utf8").trim();
-  it("書類の種類ごとに、説明書・その書類の手引き・欄の一覧をそのまま写す。世帯のデータは入らない", () => {
-    const pension = guideText("pensionStatement");
-    expect(pension).toContain(sdk("docs", "document-reading.md"));
-    expect(pension).toContain(sdk("skills", "read-documents", "guides", "pension.md"));
-    expect(pension).toContain(sdk("skills", "read-documents", "fields.md"));
-    expect(pension).not.toContain(sdk("skills", "read-documents", "guides", "withholding-slip.md"));
-    expect(guideText("earthquakeInsuranceDeduction")).toContain(sdk("skills", "read-documents", "guides", "insurance-deduction.md"));
-    expect(guideText("housingLoanBalance")).toContain(sdk("skills", "read-documents", "guides", "housing-loan.md"));
-    const other = guideText("other");
-    expect(other).toContain('docType を "other"');
-    expect(other).toContain(sdk("skills", "read-documents", "fields.md"));
-    for (const t of GUIDE_DOC_TYPES) {
-      expect(DOC_TYPES.some((d) => d.value === t.value)).toBe(true);
-      expect(hasTwelve(guideText(t.value))).toBe(false);
-    }
-    // 手引きのある書類の種類は、スキルの表の種類とそろう（その他を除く）
+  it("説明書・保険の書類の手引き・欄の一覧をそのまま写す。世帯のデータは入らない。読める書類は保険だけ（0159）", () => {
+    expect(GUIDE_DOC_TYPES.map((t) => t.value)).toEqual(["insurancePolicy"]);
+    const text = guideText("insurancePolicy");
+    expect(text).toContain(sdk("docs", "document-reading.md"));
+    expect(text).toContain(sdk("skills", "read-documents", "guides", "insurance-policy.md"));
+    expect(text).toContain(sdk("skills", "read-documents", "fields.md"));
+    expect(hasTwelve(text)).toBe(false);
+    for (const t of GUIDE_DOC_TYPES) expect(DOC_TYPES.some((d) => d.value === t.value)).toBe(true);
+    // 手引きのある書類の種類は、スキルの表の種類とそろう
     const skill = sdk("skills", "read-documents", "SKILL.md");
-    for (const t of GUIDE_DOC_TYPES.filter((x) => x.value !== "other")) expect(skill, t.value).toContain(`\`${t.value}\``);
+    for (const t of GUIDE_DOC_TYPES) expect(skill, t.value).toContain(`\`${t.value}\``);
+    // 外した書類の手引きは無い
+    expect(readdirSync(join(REPO_DIR, "sdk", "skills", "read-documents", "guides"))).toEqual(["insurance-policy.md"]);
   });
 
   it("説明書の使い方の表に、AI接続口の道具の名前が書いてある", () => {

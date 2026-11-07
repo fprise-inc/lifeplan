@@ -104,7 +104,6 @@ import { keepSnapshots, makeSnapshot, type Snapshot, type SnapshotDraft } from "
 import { keepStatements, withLog } from "./statement/model.ts";
 import { AiDocumentBand, DocumentEntry, DocumentReview, withSamples, type DocChange } from "./documents/DocumentReview.tsx";
 import { keepDocuments, withDocumentLog, withReading } from "./documents/log.ts";
-import type { DocumentReading } from "./documents/types.ts";
 import { ingestAiProposals, pasteGate } from "./documents/ai.ts";
 import { PasteAnswer } from "./documents/PasteAnswer.tsx";
 import { DocumentStart } from "./documents/DocumentStart.tsx";
@@ -2469,16 +2468,6 @@ export function App() {
   const save = saveText(savingStored, saveState, storeMessage, presence !== null);
   /** 見本の世帯か（保存していない見本・保存した見本の棚の世帯）。架空の書類の見本はここでだけ読む（0148） */
   const sampleHousehold = opened !== null && ((storedInfo === null && opened.demo !== null) || storedInfo?.sample !== undefined);
-  /** アプリの中の読み手で読んだ書類（控除証明書の電子データなど）を記録に足し、確かめの画面を開く（0153） */
-  const addDocReadings = (rs: readonly DocumentReading[], start: DocStart | null = null) => {
-    const o = openedRef.current;
-    if (o === null || rs.length === 0) return;
-    let log = o.wh.documents;
-    for (const r of rs) log = withReading(log, withStart(o.wh, r, start));
-    putDocuments(log);
-    setDocsInitial(rs[0]?.id);
-    setDocsOpen(true);
-  };
   const loadDocSamples = () => {
     if (opened === null || !sampleHousehold) return;
     putDocuments(withSamples(opened.wh).log);
@@ -2854,7 +2843,6 @@ export function App() {
                           }}
                           onSamples={loadDocSamples}
                           onPaste={() => setPasteOpen(true)}
-                          onReadings={addDocReadings}
                         />
                         {storedInfo !== null ? (
                           <div class="hs-tools" role="group" aria-label="AI に資料を渡す" data-imports-ai>
@@ -3265,10 +3253,6 @@ export function App() {
         <DocumentStart
           wh={opened.wh}
           start={docStart}
-          onReadings={(rs) => {
-            addDocReadings(rs, docStart);
-            setDocStart(null);
-          }}
           onPaste={() => {
             setPasteStart(docStart);
             setDocStart(null);

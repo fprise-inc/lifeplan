@@ -1351,7 +1351,7 @@ function balanceSource(d: Debt): string {
   if (d.kind === "scholarship") return "返還のお知らせ・返還の情報を見るサイトの返還残額";
   if (d.subtype === "policyLoan") return "保険会社の契約内容のお知らせの貸付の残高";
   if (d.subtype === "personal" || d.subtype === "companyLoan") return "借用書・返済の記録から数えた今の残高";
-  return "年末残高証明書・返済予定表の残高";
+  return "返済予定表の、今に近い月の「返済後残高」（年末残高証明書なら「年末残高」の額。括弧の中は当初の借入額です）";
 }
 
 function balanceField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | "detail"): FieldDef {
@@ -1366,7 +1366,7 @@ function balanceField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" 
     find,
     path: ["balance"],
     optional: mode !== "balance",
-    help: mode === "balance" ? `${balanceSource(d)}。時点は「残高の時点」（入れなければ今月）` : "返済予定表の残高。入れなければ借入額と金利から計算します",
+    help: mode === "balance" ? `${balanceSource(d)}。時点は「残高の時点」（入れなければ今月）` : "返済予定表の、今に近い月の「返済後残高」。入れなければ借入額と金利から計算します",
   });
   if (mode !== "balance") return inner;
   return field({
@@ -1599,7 +1599,7 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
   if (mortgage && isVariableNow(wh.request.input.household, d, wh.request.input.baseMonth)) fields.push(rateOutlookField(d, k));
   // 全期間固定の住宅ローンは、金利の段階の代わりに当初の金利の引き下げ（詳細。0052 の追記 2026-11-02）
   fields.push(...rateCutFields(wh, d, k));
-  if (!later) fields.push(plain({ key: `${k}/balanceAsOf`, item: "debt.balanceAsOf", label: "残高の時点", level: D, kind: "ym", find, path: ["balanceAsOf"], optional: true, help: "年末残高証明書なら前の年の12月", example: `例: ${String(Number(wh.request.input.baseMonth.slice(0, 4)) - 1)}-12` }));
+  if (!later) fields.push(plain({ key: `${k}/balanceAsOf`, item: "debt.balanceAsOf", label: "残高の時点", level: D, kind: "ym", find, path: ["balanceAsOf"], optional: true, help: "返済予定表なら、写した行の返済日の年月。年末残高証明書なら前の年の12月", example: `例: ${String(Number(wh.request.input.baseMonth.slice(0, 4)) - 1)}-12` }));
   fields.push(
     methodField(wh, d, k),
     plain({ key: `${k}/bonus`, item: "debt.repayment", label: "ボーナス返済の割合", level: D, kind: "pct", min: 0, max: 100, find, path: ["repayment", "bonusShare"], optional: true, fallback: "0" }),

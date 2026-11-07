@@ -402,7 +402,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       basis: "monthly",
       optional: true,
       ...(noContribution ? { readOnly: SETTLEMENT_SAVES } : {}),
-      help: a.kind === "nisa" ? "結果の対策「NISAの積立額」でも動かせます" : undefined,
+      help: a.kind === "nisa" ? "結果の対策「NISAの積立額」でも動かせます" : a.kind === "ideco" ? "小規模企業共済等掛金払込証明書の、月ごとの払込額（いちばん後の月）" : a.kind === "smallBusinessMutualAid" ? "小規模企業共済等掛金払込証明書の「掛金月額」" : undefined,
       get: (w) => {
         const x = find(w.request.input.household, w) as Account | undefined;
         const value = (firstContribution(w.request.input.household, w)?.monthly as number | undefined) ?? null;
