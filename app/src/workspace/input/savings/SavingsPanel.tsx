@@ -154,7 +154,7 @@ function NumBox(p: {
   // 欄を離れずに画面を変える操作の前（pendingInput.ts）: 打ちかけの値を決める。読めなければ欄に残して止める
   settleNow.current = () => {
     const t = el.current?.value ?? draft ?? shown;
-    if (!shouldCommitOnBlur(start, t, typed.current)) return "none";
+    if (!shouldCommitOnBlur(start, t) && !typed.current) return "none";
     const v = parse(t);
     if (v === undefined) return "rejected";
     p.onCommit(v);
@@ -197,7 +197,7 @@ function NumBox(p: {
         // 打ったなら同じ文字でも書く（推定の欄は確定になる。確定の欄は同じ値なので変わらない）
         const typedNow = typed.current;
         typed.current = false;
-        if (shouldCommitOnBlur(start, t, typedNow)) {
+        if (shouldCommitOnBlur(start, t) || typedNow) {
           const v = parse(t);
           if (v !== undefined) p.onCommit(v);
           const why = rangeProblem(t);

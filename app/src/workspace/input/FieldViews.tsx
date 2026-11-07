@@ -960,14 +960,14 @@ export function StateOpLinks({ f, ops, run, lead }: { f: FieldDef; ops: readonly
   );
 }
 
-/**
- * 欄を離れるときに書くか: 入ったときと同じ文字のまま離れたら書かない（欄に入って離れる・Tab で通るだけで、値も状態も変えない。0041）。
- * ただし推定（書類待ち・仮の値）の欄に文字を打ったなら、同じ文字でも書く（typedEstimate。打った値は推定と同じでも確定。0041 の追記 2026-11-07）
- */
-export const shouldCommitOnBlur = (startText: string | null, text: string, typedEstimate = false): boolean => startText === null || text !== startText || typedEstimate;
+/** 欄を離れるときに書くか: 入ったときと同じ文字のまま離れたら書かない（欄に入って離れる・Tab で通るだけで、値も状態も変えない。0041） */
+export const shouldCommitOnBlur = (startText: string | null, text: string): boolean => startText === null || text !== startText;
 
-/** 打ったら同じ値でも書く欄の状態か（推定・書類待ち。仮の値も推定の状態で読む） */
-const typedStateful = (s: { status: ValueStatus }): boolean => s.status === "estimated" || s.status === "unknown";
+/**
+ * 打ったら同じ文字でも書く欄の状態か（推定・書類待ち。仮の値も推定の状態で読む）。欄に入ってから文字を打ったなら、入ったときと同じ文字に
+ * 戻っても書く（打った値は推定と同じでも確定。0041 の追記 2026-11-07）。打たずに離れたら shouldCommitOnBlur のとおり書かない
+ */
+export const typedStateful = (s: { status: ValueStatus }): boolean => s.status === "estimated" || s.status === "unknown";
 
 /**
  * 打った文字を欄の値として読んだ結果。note は読み替えの知らせ（「15万円（150,000円）として入れました」）、warn は桁の確かめ、
@@ -1161,7 +1161,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
     const parse = (text: string): FieldRead | undefined => readField(f, text, { unit, period, baseMonth: wh.request.input.baseMonth });
     /** 打った文字を決める（入ったときと同じ文字なら何もしない。読めれば書いて知らせを出す。読めなければ書かない） */
     const decide = (t: string): Settled => {
-      if (!shouldCommitOnBlur(startText.current, t, typed.current && typedStateful(status ?? fieldStatus(f, wh)))) return "none";
+      if (!shouldCommitOnBlur(startText.current, t) && !(typed.current && typedStateful(status ?? fieldStatus(f, wh)))) return "none";
       const r = parse(t);
       if (r === undefined) return "rejected";
       commitTyped(r);
@@ -1366,12 +1366,12 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
   /** 打ったが同じ時点の文字のまま: 推定・書類待ちの欄なら、その値のまま打った確定にする（valueState.ts の confirmTyped） */
   const sameTyped = (text: string, wasTyped: boolean): boolean => text === shown && wasTyped && status !== null && typedStateful({ status });
   /**
-   * 打った時点を書く。空欄に灰色で見せている推定と同じ時点を打った（書いても世帯が変わらない）なら、推定・書類待ちの欄は打った確定にする
+   * 打った時点を書く。書いた後も推定・書類待ちのまま（空欄に灰色で見せている推定と同じ時点を打ったなど）なら、打った確定にする
    * （0041 の追記 2026-11-07。「70」と打っても推定のままだった）
    */
   const commitTypedWhen = (tp: Timepoint | null, wasTyped: boolean) => {
     const next = time.setWhen(wh, tp, "auto");
-    onEdit(next === wh && wasTyped && status !== null && typedStateful({ status }) ? confirmTyped(f, wh) : next);
+    onEdit(wasTyped && tp !== null && typedStateful(fieldStatus(f, next)) ? confirmTyped(f, next) : next);
   };
   /** 打ちかけの値の登録を外す（pendingInput.ts） */
   const leaveInput = useRef<(() => void) | null>(null);
