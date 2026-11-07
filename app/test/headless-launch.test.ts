@@ -69,8 +69,9 @@ describe("見えないブラウザの起動の待ち方", () => {
 
   it("2回とも起動に失敗したら、決まった時間を待たずに理由（ブラウザの出力）つきで失敗する", async () => {
     const t0 = Date.now();
-    const err = await launchHeadless(fakeBrowser("exit"), [], { prefix: "financia-headless-d-", timeoutMs: 30_000, log: () => undefined }).catch((e: unknown) => e as Error);
-    expect(err).toBeInstanceOf(Error);
+    const got = await launchHeadless(fakeBrowser("exit"), [], { prefix: "financia-headless-d-", timeoutMs: 30_000, log: () => undefined }).catch((e: unknown) => e);
+    expect(got).toBeInstanceOf(Error);
+    const err = got as Error;
     expect(err.message).toContain("ブラウザの DevTools の口が開きませんでした");
     expect(err.message).toContain("1回目");
     expect(err.message).toContain("2回目");
