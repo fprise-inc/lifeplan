@@ -279,6 +279,32 @@ const purchaseDates: WatchRule = {
 };
 
 /**
+ * 住宅購入の予定に住宅ローンがつながっていない（物件の価格−頭金が借入にも預金からの払いにも入らない）。そのときは知らせが出ている（0161）。
+ * つながるローンの見分け方は、控除の条件の住まいがその家か、借入の年月が購入の月（注文住宅は土地の決済の月も）
+ */
+export function unfundedPurchases(h: Household): string[] {
+  const out: string[] = [];
+  for (const r of h.residences ?? []) {
+    if (r.kind !== "own" || r.purchase === undefined) continue;
+    const months = [resolveTimepoint(h, r.purchase.at), r.purchase.land !== undefined ? resolveTimepoint(h, r.purchase.land.at) : null].filter((x): x is string => x !== null);
+    const linked = (h.debts ?? []).some((d) => d.kind === "mortgage" && d.property === undefined && (d.housing?.residence === r.id || months.includes(resolveTimepoint(h, d.start) ?? "")));
+    const left = r.purchase.price - (r.purchase.downPayment ?? 0);
+    if (!linked && left > 0) out.push(`購入の予定（${months[0] ?? "時期なし"}）の価格−頭金 ${yen(left)} を払う住宅ローンが無い`);
+  }
+  return out;
+}
+const purchaseUnfunded: WatchRule = {
+  id: "purchaseUnfunded",
+  title: "住宅購入の予定にローンが無く、価格−頭金が計算に入らないときは知らせが出ている",
+  check: (s) => {
+    const found = unfundedPurchases(hh(s));
+    if (found.length === 0) return [];
+    const told = housingNotes(s.wh).some((t) => /払い方が入っていません/.test(t));
+    return told ? [] : found.map((t) => `${t}のに、住まい・ローンの入力項目に知らせが無い`);
+  },
+};
+
+/**
  * 持ち家の評価額が未入力の警告で、住まい・ローンの入力項目の標準に出ている（入るまで標準に出す決まり。黙って0円ではない）。
  * 入力のパネル（InputPanel.tsx の raiseFields）と同じ見分け方: 評価額の欄の状態が未入力
  */
@@ -618,6 +644,7 @@ export const WATCH_RULES: readonly WatchRule[] = [
   soldHomeLoanContinues,
   housingOverlapGap,
   purchaseDates,
+  purchaseUnfunded,
   negativeNetWorthNow,
   careAndInheritanceAfterDeath,
   livingStagesRise,
