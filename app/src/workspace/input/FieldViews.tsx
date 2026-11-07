@@ -105,6 +105,12 @@ function PlanGroupTag({ group, wh }: { group: GroupDef; wh: WorkingHousehold }) 
 /** 開いたときに移る欄のキー（確かめの一覧から「開く」で来たとき） */
 export const FocusField = createContext<string | null>(null);
 
+/**
+ * 書類待ちの欄の「この書類を読む」（0154 の3）: 欄のキーを渡すと、その欄の書類（書類のお願いの1通）の読み取りへ進む。
+ * 入力のパネルが置く（プランの編集中・読み取りの入口の無い画面では null で、ボタンを出さない）
+ */
+export const DocReadContext = createContext<((fieldKey: string) => void) | null>(null);
+
 /** 欄の DOM の ID（確かめの一覧から欄へ移るときにも使う） */
 export const fieldDomId = (key: string): string => `fld-${key.replace(/[^A-Za-z0-9_-]/g, "_")}`;
 
@@ -115,8 +121,10 @@ const STATUS_CLASS: Record<ValueStatus, string> = { estimated: "est", unknown: "
  * 状態の印（推定・仮・書類待ち・該当なし・未入力）。根拠（推定の出どころ・代わりの値・0円の理由）があれば、印を押すと根拠が開く（0077）。
  * 書類待ちは、確かめる書類（欄の定義の docCheck）を添える。確定の欄には何も出さない
  */
-export function StateMark({ status, basis, text, label, fieldKey, doc, estimate, office }: { status: ValueStatus; basis: string | null; text: string; label: string; fieldKey?: string; doc?: string | undefined; estimate?: { id: string | null; value: string }; office?: OfficeSourceView | undefined }) {
+export function StateMark({ status, basis, text, label, fieldKey, doc, docKey, estimate, office }: { status: ValueStatus; basis: string | null; text: string; label: string; fieldKey?: string; doc?: string | undefined; docKey?: string; estimate?: { id: string | null; value: string }; office?: OfficeSourceView | undefined }) {
   const texts = useContext(OfficeTextsContext);
+  const readDoc = useContext(DocReadContext);
+  const readKey = docKey ?? fieldKey;
   // 事務所の推定の値から作った推定（値の箱の印。0111 の追記 2026-11-03）は、印の文字を変えずに点線の下線だけ足す（顧客と見る画面を重くしない）
   const fromOffice = office !== undefined && (status === "estimated" || status === "unknown");
   const cls = `badge ${STATUS_CLASS[status]}${fromOffice ? " office" : ""}`;
@@ -150,6 +158,13 @@ export function StateMark({ status, basis, text, label, fieldKey, doc, estimate,
         </p>
       ) : null}
       {est !== null && basis !== null ? <OfficeTextMark entry={est.office} official={`推定: ${basis}`} /> : null}
+      {status === "unknown" && readDoc !== null && readKey !== undefined ? (
+        <p>
+          <button type="button" class="link-btn" onClick={() => readDoc(readKey)} data-state-read-doc={readKey} title="この書類の読み取り（電子データ・AI の答えの貼り付け）へ進みます。読んだ値は確かめて承認したものだけが入ります">
+            この書類を読む
+          </button>
+        </p>
+      ) : null}
     </Help>
   );
 }
@@ -1126,7 +1141,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   // 状態の印（根拠は印を押すと開く。0077）
   const badge =
     shownStatus !== null && shownStatus !== "confirmed" ? (
-      <StateMark status={shownStatus} basis={shownStatus === "notApplicable" ? null : basisText} text={shownStatus === "estimated" && status === null && state.estimated == null ? "仮" : shownStatus === "missing" ? "未入力" : STATUS_LABELS[shownStatus]} label={f.label} doc={f.docCheck} estimate={{ id: estimateTextId(f, wh), value: estimateValueText(f, wh) }} office={status?.office} />
+      <StateMark status={shownStatus} basis={shownStatus === "notApplicable" ? null : basisText} text={shownStatus === "estimated" && status === null && state.estimated == null ? "仮" : shownStatus === "missing" ? "未入力" : STATUS_LABELS[shownStatus]} label={f.label} doc={f.docCheck} docKey={f.key} estimate={{ id: estimateTextId(f, wh), value: estimateValueText(f, wh) }} office={status?.office} />
     ) : null;
   // 欄の値は確定でも、内訳の一部が推定（年収〔賞与込み〕の賞与など）: 欄の名前の横の札は出さない（札は欄の値そのものが推定のときだけ。
   // 通しの確かめ。0150）。内訳の行（「うち賞与 108.1万円（推定）」）の後ろに小さな「推定」の印を置き、押すと推定の部分の根拠

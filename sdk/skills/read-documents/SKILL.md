@@ -1,6 +1,6 @@
 ---
 name: read-documents
-description: お客さまの書類（ねんきん定期便・年金額改定通知書・源泉徴収票・確定申告書の控え・保険料控除証明書・保険証券や設計書・住宅ローンの年末残高等証明書や返済予定表）を読んで、ファイナンシアの入力の候補を答えの形 document-candidates@1 の JSON で返す。FP が書類を渡して「読んで」「入力の候補にして」「ファイナンシアに入れられる形にして」と頼んだときに使う。
+description: お客さまの書類（ねんきん定期便・年金額改定通知書・源泉徴収票〔給与・公的年金等〕・確定申告書の控え・保険料控除証明書・保険証券や設計書・住宅ローンの年末残高等証明書や返済予定表）を読んで、ファイナンシアの入力の候補を答えの形 document-candidates@1 の JSON で返す。FP が書類を渡して「読んで」「入力の候補にして」「ファイナンシアに入れられる形にして」と頼んだときに使う。
 ---
 
 # 書類を読んで入力の候補を出す
@@ -16,10 +16,12 @@ FP が渡した書類を読み、ファイナンシアが読める答え（`docu
    |---|---|---|
    | ねんきん定期便（はがき・封書）・年金額改定通知書 | `pensionStatement`・`pensionNotice` | [guides/pension.md](guides/pension.md) |
    | 給与所得の源泉徴収票 | `withholdingSlip` | [guides/withholding-slip.md](guides/withholding-slip.md) |
+   | 公的年金等の源泉徴収票 | `publicPensionWithholding` | [guides/public-pension-withholding.md](guides/public-pension-withholding.md) |
    | 確定申告書（控え）・青色申告決算書・収支内訳書 | `taxReturn` | [guides/tax-return.md](guides/tax-return.md) |
    | 生命保険料控除証明書・地震保険料控除証明書 | `lifeInsuranceDeduction`・`earthquakeInsuranceDeduction` | [guides/insurance-deduction.md](guides/insurance-deduction.md) |
    | 保険証券・ご契約内容のお知らせ・設計書 | `insurancePolicy` | [guides/insurance-policy.md](guides/insurance-policy.md) |
    | 住宅ローンの年末残高等証明書・返済予定表 | `housingLoanBalance`・`loanSchedule` | [guides/housing-loan.md](guides/housing-loan.md) |
+   | 年末調整のための住宅借入金等特別控除証明書（税務署） | `housingLoanCredit` | [guides/housing-loan.md](guides/housing-loan.md) |
 
    この表に無い書類は、`docType` を `"other"` にし、[fields.md](fields.md) で当て先がはっきり分かる値だけを書く（迷う値は書かない）。
 3. **はじめに FP へ1回伝える**: 書類は AI の会社に渡ること、外部の AI に渡す同意のある世帯だけにすること、名前・個人番号・基礎年金番号・証券番号を伏せてほしいこと。伏せていない番号が見えても、読まずに進める。

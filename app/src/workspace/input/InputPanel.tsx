@@ -2,7 +2,7 @@
 // 中身は今までの入力の欄（簡易と詳細の切り替えを含む）。値は下書きに入れ、「保存」で世帯に入れる。× と Esc で閉じる（保存していない変更があれば先に知らせる）
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { allFields, raiseFields, type Level } from "./form.ts";
-import { fieldDomId, FieldStateOps, FieldSuggestions, GroupOpen, PinControls, PlanMarksContext, Section, SectionLinks, visible, type GroupOpenState, type PinControl, type PlanMarks, type SectionLink } from "./FieldViews.tsx";
+import { DocReadContext, fieldDomId, FieldStateOps, FieldSuggestions, GroupOpen, PinControls, PlanMarksContext, Section, SectionLinks, visible, type GroupOpenState, type PinControl, type PlanMarks, type SectionLink } from "./FieldViews.tsx";
 import { dropStaleRows } from "./rows.ts";
 import { applyStateOp, availableOps, confirmAll, endedLongAgo, fieldStatus, holderOfField, planStateOp, type StateOp } from "./valueState.ts";
 import type { FieldDef } from "./form.ts";
@@ -30,6 +30,8 @@ import { pensionEstimateSummary, usePensionEstimate } from "./pensionEstimate.ts
 import { StatusBadge } from "./StatusBadge.tsx";
 import { SavingsPanel } from "./savings/SavingsPanel.tsx";
 import type { FindTarget } from "./inputSearch.ts";
+import { docRequests } from "./docRequests.ts";
+import { docStartOf, STAGE_STARTS, type DocStart } from "../documents/start.ts";
 import { InsuranceOverview } from "./InsuranceOverview.tsx";
 import { RentalOverview } from "./RentalOverview.tsx";
 import { useRentalFigures } from "../rentalTab.ts";
@@ -52,6 +54,11 @@ export interface InputPanelProps {
   computeOne?: (req: EngineRequest) => Promise<PreviewResult | null>;
   /** 基本生活費のパネルの「明細から出す」（0034）。保存していない変更を保存してから開くときは、保存する世帯を渡す */
   onStatement?: (saved?: WorkingHousehold) => void;
+  /**
+   * 書類の読み取りへ進む（0154 の3。保険・年金の見出しの「書類から読む」と、書類待ちの欄の「この書類を読む」）。保存していない変更があれば、
+   * 先に保存する世帯を渡す。プランの編集中は渡さない（取り込みは現状に入るので）
+   */
+  onReadDoc?: (start: DocStart, saved?: WorkingHousehold) => void;
   /** 開いたときに移る欄のキー（確かめの一覧の「開く」。欄に移るだけで、値も状態も変えない） */
   focusKey?: string;
   /**
@@ -104,7 +111,7 @@ function jumpTo(el: HTMLElement): void {
   box.classList.add("jumped");
 }
 
-export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, computeOne, onStatement, focusKey, focusAt, plan, groupOpen }: InputPanelProps) {
+export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, computeOne, onStatement, onReadDoc, focusKey, focusAt, plan, groupOpen }: InputPanelProps) {
   const [draft, setDraft] = useState<WorkingHousehold>(wh);
   const [dirty, setDirty] = useState(false);
   /** 保存していない変更があるか（描く前にも読めるように。閉じる前に打ちかけの値を決めた直後など） */
@@ -269,6 +276,25 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
     if (!settleInput().ok || onStatement === undefined) return;
     onStatement(saveItem(latest.current, itemId));
   };
+  // 書類の読み取りへ進む（0154 の3）。保存していない変更は保存してから進む（読み取りの確かめの画面は現状を直すので、パネルの下書きと食い違わせない）
+  const readDoc = (start: DocStart) => {
+    if (onReadDoc === undefined || !settleInput().ok) return;
+    onReadDoc(start, dirtyRef.current ? saveItem(latest.current, itemId) : undefined);
+  };
+  const readDocRef = useRef(readDoc);
+  readDocRef.current = readDoc;
+  // 書類待ちの欄の「この書類を読む」: その欄の書類（書類のお願いの1通）の持ち主を、名義の人・物の初めの値にする
+  const readDocOf = useMemo(
+    () =>
+      onReadDoc === undefined
+        ? null
+        : (fieldKey: string) => {
+            const req = docRequests(latest.current).find((r) => r.values.some((v) => v.fieldKey === fieldKey));
+            if (req !== undefined) readDocRef.current(docStartOf(req));
+          },
+    [onReadDoc],
+  );
+  const stageStart = onReadDoc !== undefined ? STAGE_STARTS[itemId] : undefined;
   // 基本生活費の見出しの横の「明細から出す」（0034）。保存していない変更があれば、先に保存するかを聞く
   const links = useMemo<Record<string, SectionLink>>(() => {
     if (itemId !== "living" || onStatement === undefined) return NO_LINKS;
@@ -444,6 +470,14 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
               ×
             </button>
           </div>
+          {stageStart !== undefined ? (
+            <p class="ip-docread" data-panel-read-doc={itemId}>
+              <span>書類から読む: {stageStart.line}。</span>
+              <button type="button" class="link-btn" onClick={() => readDoc(stageStart.start)} data-panel-read-doc-open title="書類の読み取りへ進みます（保存していない変更は保存します）。読んだ値は確かめて承認したものだけが入ります">
+                書類から読む
+              </button>
+            </p>
+          ) : null}
           {chain !== null ? (
             <div class="ip-chain" role="alertdialog" aria-label="一緒に外す物" data-plan-chain>
               <p>外す物を指している物があります。一緒に外す物を選んでください（選ばなかった物は残ります）。</p>
@@ -522,6 +556,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
           {/* 入っていない物（1件を1行。パネルの上の固定の場所でなく本文の頭に置き、欄と一緒に流れる）。入れ始めた項目は赤い帯で知らせ、まだ入れていない項目は
               帯を出さず、推定と「該当なし」の操作だけを控えめに（0045 の追記・0041 の追記 2026-11-06） */}
           <GapBand gaps={gaps} wh={shown} onEdit={edit} quiet={quiet} onFillAll={() => edit(fillAll(shown, itemId).wh)} />
+          <DocReadContext.Provider value={readDocOf}>
           <GroupOpen.Provider value={groupOpen ?? null}>
           <PinControls.Provider value={pins}>
           {itemId === "savings" ? (
@@ -616,6 +651,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
           )}
           </PinControls.Provider>
           </GroupOpen.Provider>
+          </DocReadContext.Provider>
         </div>
         <div class="ip-foot" role={leaving ? "alert" : undefined}>
           {leaving && toStatement && onStatement !== undefined ? (

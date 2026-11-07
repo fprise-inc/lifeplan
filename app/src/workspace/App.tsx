@@ -107,6 +107,8 @@ import { keepDocuments, withDocumentLog, withReading } from "./documents/log.ts"
 import type { DocumentReading } from "./documents/types.ts";
 import { ingestAiProposals, pasteGate } from "./documents/ai.ts";
 import { PasteAnswer } from "./documents/PasteAnswer.tsx";
+import { DocumentStart } from "./documents/DocumentStart.tsx";
+import { withStart, type DocStart } from "./documents/start.ts";
 import { GUIDE_DOC_TYPES, guideText } from "./documents/guides.ts";
 import { StatementPanel } from "./statement/StatementPanel.tsx";
 import type { StatementLog } from "../../../statement/src/index.ts";
@@ -549,6 +551,9 @@ export function App() {
   const [docsInitial, setDocsInitial] = useState<string | undefined>(undefined);
   /** AI の答えを貼り付ける入口（0151） */
   const [pasteOpen, setPasteOpen] = useState(false);
+  /** 「この書類を読む」の入口（書類のお願いの1通・書類待ちの欄・入力項目の見出しから。0154 の3）と、そこから開いた貼り付けの初めの値 */
+  const [docStart, setDocStart] = useState<DocStart | null>(null);
+  const [pasteStart, setPasteStart] = useState<DocStart | null>(null);
   /** AI接続口から届いたが、読める候補が無いため取り込まなかった書類の候補の理由（帯に出す。0151） */
   const [aiDocFailed, setAiDocFailed] = useState<{ count: number; issues: string[] }>({ count: 0, issues: [] });
   const docsSeeded = useRef(false);
@@ -2465,11 +2470,11 @@ export function App() {
   /** 見本の世帯か（保存していない見本・保存した見本の棚の世帯）。架空の書類の見本はここでだけ読む（0148） */
   const sampleHousehold = opened !== null && ((storedInfo === null && opened.demo !== null) || storedInfo?.sample !== undefined);
   /** アプリの中の読み手で読んだ書類（控除証明書の電子データなど）を記録に足し、確かめの画面を開く（0153） */
-  const addDocReadings = (rs: readonly DocumentReading[]) => {
+  const addDocReadings = (rs: readonly DocumentReading[], start: DocStart | null = null) => {
     const o = openedRef.current;
     if (o === null || rs.length === 0) return;
     let log = o.wh.documents;
-    for (const r of rs) log = withReading(log, r);
+    for (const r of rs) log = withReading(log, withStart(o.wh, r, start));
     putDocuments(log);
     setDocsInitial(rs[0]?.id);
     setDocsOpen(true);
@@ -2724,6 +2729,7 @@ export function App() {
           <>
             {error !== null ? <p class="fatal">今の入力では計算できませんでした{error}</p> : null}
             <InputView
+              onReadDoc={setDocStart}
               key={cardOpen?.n ?? 0}
               wh={opened.wh}
               onSave={edit}
@@ -3240,13 +3246,43 @@ export function App() {
                 },
               }
             : {})}
+          {...(pasteStart !== null ? { initialGuide: pasteStart.docType } : {})}
           onRead={(reading) => {
-            putDocuments(withReading(openedRef.current?.wh.documents, reading));
+            const o = openedRef.current;
+            putDocuments(withReading(o?.wh.documents, o === null ? reading : withStart(o.wh, reading, pasteStart)));
             setPasteOpen(false);
+            setPasteStart(null);
             setDocsInitial(reading.id);
             setDocsOpen(true);
           }}
-          onClose={() => setPasteOpen(false)}
+          onClose={() => {
+            setPasteOpen(false);
+            setPasteStart(null);
+          }}
+        />
+      ) : null}
+      {docStart !== null && opened !== null ? (
+        <DocumentStart
+          wh={opened.wh}
+          start={docStart}
+          onReadings={(rs) => {
+            addDocReadings(rs, docStart);
+            setDocStart(null);
+          }}
+          onPaste={() => {
+            setPasteStart(docStart);
+            setDocStart(null);
+            setPasteOpen(true);
+          }}
+          {...(storedInfo !== null
+            ? {
+                onAiShare: () => {
+                  setDocStart(null);
+                  openAiShare();
+                },
+              }
+            : {})}
+          onClose={() => setDocStart(null)}
         />
       ) : null}
       {feedbackOpen ? (

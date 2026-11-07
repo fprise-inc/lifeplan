@@ -20,6 +20,8 @@ export interface PasteAnswerProps {
   gate: PasteGate;
   /** AI に渡す読み方の手引き（あれば書類の種類を選んで「読み方の手引きを写す」を出す） */
   guide?: PasteGuide;
+  /** 初めに選んでおく書類の種類（「この書類を読む」から開いたとき。0154 の3） */
+  initialGuide?: DocType;
   /** 同意を記録する画面を開く（保存した世帯だけ） */
   onOpenConsent?: () => void;
   /** 読めた答えを読み取りの記録に入れ、確かめの画面を開く */
@@ -36,7 +38,7 @@ export function PasteAnswer(p: PasteAnswerProps) {
   const [masked, setMasked] = useState(false);
   const [result, setResult] = useState<{ reading: DocumentReading | null; issues: string[] } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const [guideType, setGuideType] = useState<DocType | null>(p.guide?.options[0]?.value ?? null);
+  const [guideType, setGuideType] = useState<DocType | null>((p.initialGuide !== undefined && p.guide?.options.some((o) => o.value === p.initialGuide) === true ? p.initialGuide : undefined) ?? p.guide?.options[0]?.value ?? null);
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => panel.current?.focus({ preventScroll: true }), []);
   useEffect(() => {

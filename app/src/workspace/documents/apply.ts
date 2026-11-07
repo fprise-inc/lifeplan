@@ -13,6 +13,7 @@ import { fieldAddress, fieldStatus } from "../input/valueState.ts";
 import { readAt } from "../store/readings.ts";
 import { NEW_OBJECT_KINDS } from "./objects.ts";
 import { memberIdOf } from "./resolve.ts";
+import { roles } from "../roles.ts";
 import type { CandidateValue, DocCandidate, DocumentReading } from "./types.ts";
 
 type Obj = Record<string, unknown>;
@@ -36,6 +37,7 @@ export function coerce(wh: WorkingHousehold, reading: Pick<DocumentReading, "hol
     }
     case "int": {
       const n = typeof v === "number" ? (Number.isSafeInteger(v) ? v : null) : typeof v === "string" ? parseInteger(v) : null;
+      if (n === null && typeof v === "string" && parseYearMonth(v) !== null) return bad(`年月の値です。この欄は${f.suffix === "年" ? "年数" : f.suffix === "か月" ? "月数" : "数"}で入れるので、書類を見て直して入れてください`);
       if (n === null) return bad("整数として読めません");
       if (f.min !== undefined && n < f.min) return bad(`${f.min}より小さい値は入れられません`);
       if (f.max !== undefined && n > f.max) return bad(`${f.max}より大きい値は入れられません`);
@@ -61,6 +63,14 @@ export function coerce(wh: WorkingHousehold, reading: Pick<DocumentReading, "hol
         if (m !== null && f.options.some((o) => o.value === m)) return { ok: true, value: m };
         return bad(v === "holder" ? "書類の名義（どなたの書類か）を選んでください" : "当てる人がこの世帯にいません");
       }
+      // 続柄の鍵を値に持つ選択の欄（ローンの名義の self・spouse など）は、書類の名義の人の続柄に当てる（0154 の4）
+      if (v === "holder" && f.options.some((o) => o.value === "self")) {
+        const m = memberIdOf(wh, reading, v);
+        if (m === null) return bad("書類の名義（どなたの書類か）を選んでください");
+        const key = roles(wh.request).find((x) => x.member.id === m)?.key;
+        const opt = key === undefined ? undefined : f.options.find((o) => o.value === key);
+        return opt !== undefined ? { ok: true, value: opt.value } : bad("書類の名義の人は、この欄の選択肢にありません");
+      }
       return bad("欄の選択肢にありません");
     }
     case "ym": {
@@ -75,8 +85,11 @@ export function coerce(wh: WorkingHousehold, reading: Pick<DocumentReading, "hol
     }
     case "text":
       return typeof v === "string" ? { ok: true, value: v } : { ok: true, value: String(v) };
-    case "when":
-      return bad("時点の欄は、まだ書類から入れられません（欄を開いて入れてください）");
+    case "when": {
+      // 時点の欄は、書類の年月（決まった年月の時点）だけを入れる。年齢・出来事で決める入れ方は、欄を開いて直す（0154 の4）
+      const ym = typeof v === "string" ? parseYearMonth(v) : null;
+      return ym === null ? bad("時点の欄は、年月（YYYY-MM）だけを書類から入れられます") : { ok: true, value: ym };
+    }
   }
 }
 

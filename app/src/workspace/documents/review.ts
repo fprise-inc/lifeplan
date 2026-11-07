@@ -33,6 +33,12 @@ export interface ObjectView {
   where: string | null;
   /** 同じ契約かもしれない今ある物の名前（黙ってまとめない。知らせるだけ） */
   similar: string[];
+  /** 当てられる今ある物（「今の○○に当てる」。0154 の3） */
+  links: LinkTarget[];
+  /** 今ある物の呼び名（「今の住宅ローンに当てる」の「住宅ローン」） */
+  noun: string;
+  /** 今ある物に当てた（足していない）ときの、その物の名前 */
+  linkedTo: string | null;
 }
 
 export interface ReferenceView {
@@ -87,8 +93,22 @@ function bySelectValue(res: Resolution, c: DocCandidate): Resolution {
   return fit.length > 1 ? { kind: "choose", places: fit } : res;
 }
 
+/**
+ * 当てる欄が何本もあるとき、候補の値の形で入れられる欄に絞る（口座の「毎月の積立」〔円〕と「積立の終わり」〔時点〕のように、同じ入力項目の
+ * 場所の無い欄が2つあるとき。0154 の4）。1本に決まれば当てる
+ */
+function byValueShape(wh: WorkingHousehold, res: Resolution, r: DocumentReading, c: DocCandidate): Resolution {
+  // 人も物も書かない候補は、どの物の値かを書類からは決めない（1本でも FP が選ぶ。0152 の3）
+  const t = c.target;
+  if (res.kind !== "choose" || c.value === null || (t.member === undefined && t.object === undefined && t.newObject === undefined)) return res;
+  const v = c.value;
+  const fit = res.places.filter((p) => coerce(wh, r, p.field, v).ok);
+  if (fit.length === 1) return { kind: "field", place: fit[0] as FieldPlace };
+  return fit.length > 1 && fit.length < res.places.length ? { kind: "choose", places: fit } : res;
+}
+
 function resolve(wh: WorkingHousehold, places: readonly FieldPlace[], r: DocumentReading, c: DocCandidate, chosen: Chosen, made: ReadonlyMap<string, string> = created(r)): Resolution {
-  const res = bySelectValue(resolveTarget(wh, places, r, c.target, made), c);
+  const res = byValueShape(wh, bySelectValue(resolveTarget(wh, places, r, c.target, made), c), r, c);
   const pick = chosen[c.id] ?? null;
   if (res.kind === "choose" && pick !== null) {
     const p = res.places.find((x) => x.field.key === pick);
@@ -116,7 +136,7 @@ const editOf = (f: FieldDef): RowEdit | null => {
     case "text":
       return { kind: "text" };
     case "when":
-      return null;
+      return { kind: "ym" };
   }
 };
 
@@ -208,21 +228,58 @@ function groupLabel(wh: WorkingHousehold, p: FieldPlace): string {
 function objectLabel(r: DocumentReading, key: string): string | null {
   const o = r.objects.find((x) => x.key === key);
   if (o === undefined) return null;
-  const name = r.candidates.find((c) => c.target.newObject === key && c.target.item === "insurance.label" && typeof c.value === "string")?.value;
-  const kind = NEW_OBJECT_KINDS[o.kind]?.label ?? "新しい物";
-  return typeof name === "string" ? `${kind}: ${name}` : kind;
+  const name = r.candidates.find((c) => c.target.newObject === key && c.target.item === "insurance.label" && typeof c.value === "string")?.value ?? (o.kind.startsWith("insurance:") ? undefined : o.source.text);
+  // 今ある物に当てた物は「書類の○○」（新しく足していない）
+  const kind = o.linked === true ? `書類の${NEW_OBJECT_KINDS[o.kind]?.noun ?? "物"}` : (NEW_OBJECT_KINDS[o.kind]?.label ?? "新しい物");
+  return typeof name === "string" && name !== "" ? `${kind}: ${name}` : kind;
 }
 
-/** 同じ契約かもしれない今ある物（同じ集まり・同じ型で、名義の人が被保険者か契約者） */
+/** 今ある物の名前（名前が無ければ種類と持ち主） */
+function existingLabel(wh: WorkingHousehold, kind: string, x: Obj): string {
+  const k = NEW_OBJECT_KINDS[kind];
+  if (typeof x.label === "string" && x.label !== "") return x.label;
+  const noun = kind.startsWith("insurance:") ? (k?.label.replace(/^新しい保険契約（(.*)）$/u, "$1") ?? "契約") : (k?.noun ?? "物");
+  const names = new Map(roles(wh.request).map((m) => [m.member.id, m.label]));
+  const who = (k?.ownerOf(x) ?? []).map((m) => names.get(m)).find((n) => n !== undefined);
+  return who !== undefined ? `${noun}（${who}）` : noun;
+}
+
+export interface LinkTarget {
+  id: string;
+  label: string;
+}
+
+/**
+ * 物の候補を当てられる今ある物（同じ集まり・同じ種類。書類の名義の人の物を先に）。この記録のほかの物の候補で足した・当てた物も含める
+ * （1通の書類の何件かの契約が同じ今の物になることは無いが、選ぶのは FP）
+ */
+export function linkTargets(wh: WorkingHousehold, r: DocumentReading, o: DocObject): LinkTarget[] {
+  const k = NEW_OBJECT_KINDS[o.kind];
+  if (k === undefined) return [];
+  const list = (wh.request.input.household as unknown as Obj)[k.collection];
+  if (!Array.isArray(list)) return [];
+  const own = (x: Obj) => r.holder !== undefined && k.ownerOf(x).includes(r.holder);
+  return (list as Obj[])
+    .filter((x) => typeof x.id === "string" && k.sameKind(x))
+    .sort((a, b) => Number(own(b)) - Number(own(a)))
+    .map((x) => ({ id: x.id as string, label: existingLabel(wh, o.kind, x) }));
+}
+
+/** 同じ物かもしれない今ある物（同じ集まり・同じ種類で、名義の人の物。名義を選ぶ前は同じ種類の物の全部。保険は被保険者か契約者） */
 function similarOf(wh: WorkingHousehold, r: DocumentReading, o: DocObject): string[] {
   const k = NEW_OBJECT_KINDS[o.kind];
   if (k === undefined || o.status === "accepted") return [];
   const list = (wh.request.input.household as unknown as Obj)[k.collection];
   if (!Array.isArray(list)) return [];
-  const kind = o.kind.split(":")[1];
-  return (list as Obj[])
-    .filter((x) => (x.subtype === kind || (x.subtype === undefined && typeof x.template === "string" && x.template.endsWith(`.${kind}`))) && (r.holder === undefined || x.insured === r.holder || x.policyholder === r.holder))
-    .map((x) => (typeof x.label === "string" && x.label !== "" ? x.label : (NEW_OBJECT_KINDS[o.kind]?.label.replace(/^新しい/u, "") ?? "契約")));
+  return (list as Obj[]).filter((x) => k.sameKind(x) && (r.holder === undefined || k.ownerOf(x).includes(r.holder))).map((x) => existingLabel(wh, o.kind, x));
+}
+
+/** 当てた今ある物の名前（世帯から外れていれば null） */
+function linkedName(wh: WorkingHousehold, o: DocObject): string | null {
+  const k = NEW_OBJECT_KINDS[o.kind];
+  const list = k === undefined ? undefined : (wh.request.input.household as unknown as Obj)[k.collection];
+  const x = Array.isArray(list) ? (list as Obj[]).find((y) => y.id === o.created) : undefined;
+  return x === undefined ? null : existingLabel(wh, o.kind, x);
 }
 
 /** 確かめの画面の中身を作る */
@@ -241,6 +298,9 @@ export function docReview(wh: WorkingHousehold, r: DocumentReading, chosen: Chos
       confidence: CONFIDENCE_LABELS[o.confidence],
       where: o.source.where ?? null,
       similar: [...new Set([...similarOf(wh, r, o), ...matched])],
+      links: o.status === "pending" ? linkTargets(wh, r, o) : [],
+      noun: NEW_OBJECT_KINDS[o.kind]?.noun ?? "物",
+      linkedTo: o.linked === true && o.created !== undefined ? (linkedName(wh, o) ?? "今ある物") : null,
     });
   }
   // まだ足していない新しい物の行は、足したときの形（その種類の既定）を写しの世帯に作って見せる（世帯は変えない）
@@ -275,7 +335,8 @@ export function docReview(wh: WorkingHousehold, r: DocumentReading, chosen: Chos
     if (dup !== undefined) notices.push(`同じファイルを前にも読んでいます（${dup.at.slice(0, 10)}）。`);
   }
   if (r.asOf !== undefined && r.asOf < addMonths(wh.request.input.baseMonth, -12)) notices.push(`書類の時点（${formatYearMonth(r.asOf)}）が、計算の基準の月より1年以上前です。新しい書類か確かめてください。`);
-  for (const o of objectViews.values()) if (o.similar.length > 0) notices.push(`${o.label}と同じ契約が、もうあるかもしれません（${o.similar.join("・")}）。同じなら「足さない」にして、今の契約の欄を直してください。`);
+  for (const o of objectViews.values())
+    if (o.similar.length > 0) notices.push(`${o.label}と同じ${o.noun === "保険契約" ? "契約" : o.noun}が、もうあるかもしれません（${o.similar.join("・")}）。同じなら「今の${o.noun}に当てる」で、今の${o.noun}の欄に入れられます（新しく足しません）。`);
   const memberOpts = roles(wh.request).map((x) => ({ id: x.member.id, label: x.label }));
   const holder = r.holder !== undefined && memberOpts.some((m) => m.id === r.holder) ? r.holder : null;
   const allRows = [...groups.values()].flatMap((g) => g.rows);
@@ -376,6 +437,7 @@ export function parseEdit(wh: WorkingHousehold, r: DocumentReading, f: FieldDef,
       v = /^-?\d+(\.\d+)?$/u.test(t) ? t : null;
       break;
     case "ym":
+    case "when":
       v = parseYearMonth(t);
       break;
     case "bool":
@@ -389,8 +451,6 @@ export function parseEdit(wh: WorkingHousehold, r: DocumentReading, f: FieldDef,
     case "text":
       v = cleanValue(t, LIMITS.textValue).text;
       break;
-    case "when":
-      v = null;
   }
   if (v === null || (typeof v === "object" && v !== null)) return { ok: false, reason: "この欄の値として読めません" };
   return { ok: true, value: v, stored: v as CandidateValue };
@@ -437,6 +497,16 @@ export function acceptObject(wh: WorkingHousehold, r: DocumentReading, key: stri
   const made = createObject(wh, o.kind);
   if (made === null) return null;
   return { wh: made.wh, reading: { ...r, objects: r.objects.map((x) => (x.key === key ? { ...x, status: "accepted", created: made.id, decidedAt: at } : x)) }, count: 1, failed: [] };
+}
+
+/**
+ * 新しい物を足さずに、今ある物に当てる（0154 の3）。その中の値の候補は、当てた物の欄に当たる（世帯は変えない。値は1つずつ承認する）。
+ * 当てられない物（同じ種類でない・世帯に無い）なら null
+ */
+export function linkObject(wh: WorkingHousehold, r: DocumentReading, key: string, target: string, at: string): DocumentReading | null {
+  const o = r.objects.find((x) => x.key === key);
+  if (o === undefined || o.status !== "pending" || !linkTargets(wh, r, o).some((t) => t.id === target)) return null;
+  return { ...r, objects: r.objects.map((x) => (x.key === key ? { ...x, status: "accepted", created: target, linked: true, decidedAt: at } : x)) };
 }
 
 /** 新しい物を足さない（その中の未決の値の候補も入れないにする） */
