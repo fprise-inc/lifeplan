@@ -21,6 +21,7 @@
     "check:licenses": "node --disable-warning=ExperimentalWarning scripts/check-licenses.ts",
     "check:distribution": "node --disable-warning=ExperimentalWarning scripts/distribution.ts --check",
     "gen:distribution": "node --disable-warning=ExperimentalWarning scripts/distribution.ts",
+    "gen:document-fields": "npm run prepare-assets && node --disable-warning=ExperimentalWarning scripts/documentFields.ts",
     "tauri": "tauri"
   },
   "dependencies": {
