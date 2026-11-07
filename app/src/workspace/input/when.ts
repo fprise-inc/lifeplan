@@ -356,6 +356,29 @@ export function durationEnd(ctx: Pick<WhenCtx, "h">, start: Timepoint | null | u
 }
 
 /**
+ * 終わりの欄の時点が、始まり（ctx.start）より前か（0162）。前なら欄の下に出す1行、そうでなければ（どちらかが年月に解けないときも）null。
+ * 同じ月は1か月の期間なので入れられる。打った値は読み取りで止め（FieldViews.tsx の readText）、入っている値は欄の知らせで出す（form.ts の timepointField）
+ */
+export function endBeforeStart(ctx: Pick<WhenCtx, "h" | "start">, tp: Timepoint | null | undefined, typed = true): string | null {
+  if (tp == null || ctx.start == null) return null;
+  const from = resolveTimepoint(ctx.h, ctx.start);
+  const to = resolveTimepoint(ctx.h, tp);
+  if (from === null || to === null || monthIndex(to) >= monthIndex(from)) return null;
+  return typed
+    ? `終わり（${formatYearMonth(to)}）が始まり（${formatYearMonth(from)}）より前です。始まりの月か、それより後の時点を入れてください`
+    : `終わり（${formatYearMonth(to)}）が始まり（${formatYearMonth(from)}）より前なので、この期間は計算に入りません。終わりを直してください`;
+}
+
+/**
+ * 欄に打った文字を読むときの物差し（0162）: 見せている入れ方・今の値に加え、年齢の人は横の「誰の年齢で」に見せている人
+ * （今の時点が年齢の形ならその人、ほかは欄の既定の人）。人の名前を書かずに「20」と打ったら、選んでいる人の20歳と読む
+ * （前は欄の既定の人〔ご本人など〕の20歳になり、子の年齢で決めた終わりが黙って過去になった）
+ */
+export function typingCtx(ctx: WhenCtx, shown: Timepoint | null | undefined, mode: WhenMode): WhenCtx {
+  return { ...ctx, mode, current: shown ?? null, person: shown?.memberAge?.member ?? ctx.person };
+}
+
+/**
  * 打った文字を読む。読めた時点はエンジンの時点の型のまま返す（年齢・出来事を年月に直さない。今からは年月にする）。
  * 読めなければ、欄の下に出す1行の理由を返す
  */

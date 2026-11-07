@@ -221,6 +221,9 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
           kind: "ym",
           // 年齢しか分からなければ「38歳」と打てる（生まれた年月の幅のまん中を、根拠「年齢から」を残した確定で入れる。0131 の3・0041 の追記 2026-11-07）
           ageInput: true,
+          // 今月より後の生年月は入れない（これから生まれる子は「＋ これから生まれる子」）・120歳まで（0162）
+          latest: wh.request.input.baseMonth,
+          earliest: addMonths(wh.request.input.baseMonth, -(121 * 12 - 1)),
           example: "例: 1985-04",
           find,
           path: ["birth", "birthYearMonth"],
