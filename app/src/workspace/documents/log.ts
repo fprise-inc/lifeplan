@@ -1,11 +1,12 @@
 // 書類の読み取りの記録（本文の区画 documents。形式の版 0.68 から。0148 の1）。読んでいない世帯は区画ごと無い。
 // 読むときは形を確かめ、形の合わない記録・候補は捨てる（知らない欄は持たない）。文字は読むときにも番号を消し直す（privacy.ts）。
 // 元に戻す・やり直すの対象にしない（明細の取り込みの記録と同じ。承認で変えた現状の値は、元に戻せる変更として入れる）
+// 取り込みを外した書類（0159）の記録も捨てずに読む（書類の種類・物の種類をそのまま残す。確かめの画面では見るだけ。番号を消し直すのは同じ）
 import type { WorkingHousehold } from "../input/household.ts";
 import { knownItem } from "./proposal.ts";
 import { cleanText, cleanValue, isPersonalNumberValue } from "./privacy.ts";
-import { NEW_OBJECT_KINDS } from "./objects.ts";
-import { DOC_TYPES, DOCUMENT_LOG_VERSION, LIMITS, type AppliedTo, type CandidateStatus, type CandidateTarget, type CandidateValue, type Confidence, type DocCandidate, type DocDecision, type DocObject, type DocReference, type DocSource, type DocType, type DocumentLog, type DocumentReading, type Via } from "./types.ts";
+import { NEW_OBJECT_KINDS, RETIRED_OBJECT_KINDS } from "./objects.ts";
+import { DOC_TYPES, DOCUMENT_LOG_VERSION, isRetired, RETIRED_DOC_TYPES, LIMITS, type AppliedTo, type CandidateStatus, type CandidateTarget, type CandidateValue, type Confidence, type DocCandidate, type DocDecision, type DocObject, type DocReference, type DocSource, type DocumentLog, type DocumentReading, type RecordedDocType, type Via } from "./types.ts";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -105,7 +106,7 @@ function readCandidate(v: unknown, keys: ReadonlySet<string>): DocCandidate | nu
 }
 
 function readObject(v: unknown): DocObject | null {
-  if (!isObj(v) || typeof v.key !== "string" || !OBJECT_KEY.test(v.key) || typeof v.kind !== "string" || NEW_OBJECT_KINDS[v.kind] === undefined) return null;
+  if (!isObj(v) || typeof v.key !== "string" || !OBJECT_KEY.test(v.key) || typeof v.kind !== "string" || (NEW_OBJECT_KINDS[v.kind] === undefined && RETIRED_OBJECT_KINDS[v.kind] === undefined)) return null;
   const o: DocObject = {
     key: v.key,
     kind: v.kind,
@@ -151,7 +152,7 @@ function readReading(v: unknown): DocumentReading | null {
   const reading: DocumentReading = {
     id: v.id,
     kind: "document",
-    docType: DOC_TYPES.some((d) => d.value === v.docType) ? (v.docType as DocType) : "other",
+    docType: [...DOC_TYPES, ...RETIRED_DOC_TYPES].some((d) => d.value === v.docType) ? (v.docType as RecordedDocType) : "other",
     at: v.at,
     via: v.via as Via,
     objects,
@@ -205,8 +206,8 @@ export function withoutReading(log: DocumentLog | undefined, id: string): Docume
 /** 外せる記録か（現状に入れた候補が無い） */
 export const removable = (r: DocumentReading): boolean => !r.candidates.some((c) => c.status === "accepted" || c.status === "corrected") && !r.objects.some((o) => o.status === "accepted");
 
-/** 未決の候補（値・新しい物）の数 */
-export const pendingCount = (r: DocumentReading): number => r.candidates.filter((c) => c.status === "pending").length + r.objects.filter((o) => o.status === "pending").length;
+/** 未決の候補（値・新しい物）の数。取り込みを外した書類の記録は見るだけなので数えない（0159） */
+export const pendingCount = (r: DocumentReading): number => isRetired(r) ? 0 : r.candidates.filter((c) => c.status === "pending").length + r.objects.filter((o) => o.status === "pending").length;
 
 /** 世帯の中の未決の候補の数（入口の数に出す） */
 export const pendingTotal = (wh: Pick<WorkingHousehold, "documents">): number => (wh.documents?.readings ?? []).reduce((n, r) => n + pendingCount(r), 0);

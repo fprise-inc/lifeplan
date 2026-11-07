@@ -40,10 +40,7 @@ import { smrEstimate, smrMonth } from "../src/workspace/input/estimates.ts";
 import { barNotices, householdNoticeText, type BarInputs } from "../src/workspace/header/status.ts";
 import { gateLines, limitOf, webLog } from "../src/workspace/hearing/web.ts";
 import { modelHousehold, preview } from "./helpers.ts";
-import { readProposal } from "../src/workspace/documents/proposal.ts";
-import { acceptCandidates } from "../src/workspace/documents/review.ts";
-import { readDocumentLog, withDocumentLog, withReading } from "../src/workspace/documents/log.ts";
-import { PROPOSAL_CONTRACT } from "../src/workspace/documents/types.ts";
+import { readDocumentLog, withDocumentLog } from "../src/workspace/documents/log.ts";
 
 const NOW = "2026-10-18T10:00:00.000Z";
 
@@ -1234,34 +1231,25 @@ function sample067(): BodyState {
 }
 
 /**
- * 0.68 の見本の世帯（0148）: sample067() に、書類の読み取りの記録を1通（承認した候補1つ・未決の候補1つ・照合だけの値1つ・番号を消した数）足し、
- * 承認した値に承認の記録と確かさ「書類で確認」を付ける（画面の読み口と承認の部品で作る）
+ * 0.68 の見本の世帯（0148）: sample067() に、書類の読み取りの記録を1通（源泉徴収票。承認した候補1つ・未決の候補1つ・照合だけの値1つ・番号を消した数）足し、
+ * 承認した値に承認の記録と確かさ「書類で確認」を付ける。0159 で源泉徴収票の取り込みを外したので、記録と承認した値は 0.68 の見本の世帯ファイルの物を
+ * そのまま使う（取り込みを外した書類の前の記録を、捨てずに読んで書き戻せることの確かめを兼ねる）
  */
 function sample068(): BodyState {
   const s = sample067();
-  let k = 0;
-  const newId = () => `00000000-0000-4000-8000-${String(6800 + ++k).padStart(12, "0")}`;
-  const members = roles(s.wh.request).map((r) => ({ key: r.key, id: r.member.id }));
-  const at = "2026-11-07T10:00:00+09:00";
-  const p = readProposal(
-    {
-      contract: PROPOSAL_CONTRACT,
-      docType: "withholdingSlip",
-      asOf: "2026-01",
-      holder: "self",
-      values: [
-        { item: "employment.salary.bonus", member: "holder", value: 1500000, period: "annual", source: { page: 1, where: "賞与の合計", text: "賞与 1,500,000" }, confidence: "high" },
-        { item: "employment.salary.annual", member: "holder", value: 5800000, period: "annual", source: { page: 1, where: "支払金額（賞与を除く分）" }, confidence: "medium", note: "架空の見本の添え書き" },
-        { item: "employment.salary.annual", member: "holder", value: "1234 5678 9012", source: { where: "個人番号" } },
-      ],
-      references: [{ label: "源泉徴収税額", amount: 152300, row: "cf.taxSi.incomeTax", year: 2026, source: { where: "源泉徴収税額" } }],
-    },
-    { via: "reader", at, newId, reader: { id: "test.fixture", version: 1 }, members },
-  );
-  const r = p.reading!;
-  const acc = acceptCandidates(s.wh, r, [r.candidates[0]!.id], {}, at);
-  if (acc.count !== 1) throw new Error(`0.68 の見本の承認: ${acc.failed.join("・")}`);
-  return { ...s, wh: withDocumentLog(acc.wh, withReading(undefined, acc.reading)) };
+  const fx = JSON.parse(readFileSync(join(REPO_DIR, "crates", "household-store", "tests", "fixtures", "household-format", "0.68", "body.json"), "utf8")) as {
+    documents: unknown;
+    household: { request: { input: { household: { employmentPeriods: { id: string; salary?: { bonus?: unknown } }[] } } } };
+  };
+  const log = readDocumentLog(fx.documents);
+  const to = log.readings[0]?.candidates.find((c) => c.status === "accepted")?.decided?.to?.target;
+  const periodId = to !== undefined && "object" in to ? to.object : null;
+  const bonus = fx.household.request.input.household.employmentPeriods.find((p) => p.id === periodId)?.salary?.bonus;
+  const req = structuredClone(s.wh.request);
+  const period = req.input.household.employmentPeriods?.find((p) => p.id === periodId);
+  if (period?.salary === undefined || bonus === undefined) throw new Error("0.68 の見本の賞与が見つかりません");
+  (period.salary as { bonus?: unknown }).bonus = structuredClone(bonus);
+  return { ...s, wh: withDocumentLog({ ...s.wh, request: req }, log) };
 }
 
 /** 0.69 の見本の世帯（0156）: sample068() のご本人に婚姻の状態「離婚」（配偶者の関係が無い期間の婚姻の状態。ひとり親控除・寡婦控除の判定） */
