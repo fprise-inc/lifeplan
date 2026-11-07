@@ -221,7 +221,8 @@ export function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
 const STAGE_AGE: Record<string, number> = { elementary: 6, juniorHigh: 12, highSchool: 15, university: 18 };
 const STAGE_NAME: Record<string, string> = { elementary: "小学校", juniorHigh: "中学校", highSchool: "高校", university: "大学" };
 const SECTOR: Record<string, string> = { public: "公立", private: "私立", national: "国立" };
-const FIELD: Record<string, string> = { humanities: "文系", science: "理系" };
+// 大学の系統の言い方は提案書（report/src/build.ts の FIELD）と同じ
+const FIELD: Record<string, string> = { humanities: "文系", science: "理系", medical: "医歯系" };
 const LIVING: Record<string, string> = { away: "自宅外", home: "自宅" };
 
 /** 学校に入る年（表示のための目安。4月2日〜翌年4月1日生まれが同じ学年） */
