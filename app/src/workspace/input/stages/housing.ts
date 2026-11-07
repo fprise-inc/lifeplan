@@ -1145,6 +1145,21 @@ export function valuationHint(wh: WorkingHousehold, r: Residence): string | null
 }
 
 // 「売らない」は計算の扱いのまま書く（住み終わりの年で資産・固定資産税・修繕費から外れる。持ち続けるなら空き家の不動産を作る。0052 の追記 2026-11-07）
+/** 売る家に評価額も売却価格も入っていないときの知らせ（空欄の売却価格は評価額で読むので、0円で売ることになる。住み替えで売るとみなしたとき〔0136 の 2026-11-07 の追記〕に気づけるように） */
+export const SALE_NO_VALUE = "評価額が入っていないので、売却価格0円で計算しています。評価額か売却価格を入れてください";
+
+function withNoValueWarn(f: FieldDef, r: Residence): FieldDef {
+  return {
+    ...f,
+    get: (w) => {
+      const s = f.get(w);
+      const x = (w.request.input.household.residences ?? []).find((y) => y.id === r.id);
+      const noValue = x?.sale !== undefined && x.sale.price == null && x.valuation?.value === undefined;
+      return noValue && s.warn == null ? { ...s, warn: SALE_NO_VALUE } : s;
+    },
+  };
+}
+
 const AFTER_CHOICES = [
   { value: "keep", label: "売らない（住み終わりで計算から外す）" },
   { value: "sell", label: "住み終わりの月に売る" },
@@ -1357,7 +1372,7 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
     ];
     if (r.sale !== undefined)
       fields.push(
-        plain({
+        withNoValueWarn(plain({
           key: `${ks}/price`,
           item: "residence.sale",
           label: "売却価格",
@@ -1370,7 +1385,7 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
           help: "入れなければ、その年の評価額で売るとみなします",
           // 売る月に住宅ローンが残るなら知らせ（返すかどうかで文を変える。計算エンジンの debt.schedule が売る月に返す）
           ...(left > 0 ? { hint: () => (r.sale?.repayLoan === false ? `売る月に住宅ローンが約${formatYen(left, "man")}万円残ります（返さないので、売った後も返済が続きます）` : `売る月に住宅ローンが約${formatYen(left, "man")}万円残ります（売った月に一括で返します）`) } : {}),
-        }),
+        }), r),
         plain({ key: `${ks}/cost`, item: "residence.sale", label: "売却の費用（売却価格に対する割合）", level: "detail", kind: "pct", find, path: ["sale", "costRate"], optional: true, fallback: setting?.saleCostRate ?? VALUATION_DEFAULTS.saleCostRate, help: "仲介手数料・印紙税など" }),
         ...(left > 0
           ? [
@@ -1409,12 +1424,18 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
     const h0 = wh.request.input.household;
     const held = r.sale === undefined ? heldFromHome(h0, r) : undefined;
     const end = resolveTimepoint(h0, r.to);
+    const movedByPurchase = wh.assumed[toKey(r.id)] === MOVE_OUT_ASSUMED;
     const keepNote =
-      r.sale !== undefined || end === null
+      end === null
         ? undefined
-        : held !== undefined
+        : r.sale !== undefined
+          ? movedByPurchase
+            ? // 住み替えで住み終わりにした家を売るとみなしたとき（初めの値。0136 の 2026-11-07 の追記）
+              `住み替えで住み終わりにした家です。住み終わりの月（${formatYearMonth(end)}）に売るとみなしています（売却価格が空欄なら、その年の評価額）。持ち続けるなら「住み終わりの後」を「売らない」にして「空き家として持ち続ける」を押します`
+            : undefined
+          : held !== undefined
           ? `住み終わりの翌月（${formatYearMonth(addMonths(end, 1))}）から、貯蓄・運用の貸していない不動産（空き家）で持ち続けます。人に貸すなら、その不動産の「収益不動産へ移す」で移します`
-          : wh.assumed[toKey(r.id)] === MOVE_OUT_ASSUMED
+          : movedByPurchase
             ? // 住み替えで住み終わりにした家（段4の確かめ: 家の価値が資産から消えることが分かりにくかった）
               `住み替えで住み終わりにした家です。売らないので、住み終わりの年（${end.slice(0, 4)}年）で資産・固定資産税・修繕費から外しています（家の価値も売った代金も入りません）。売るなら「住み終わりの後」を「住み終わりの月に売る」に、持ち続けるなら「空き家として持ち続ける」を押します`
             : `売らない家は、住み終わりの年（${end.slice(0, 4)}年）で資産・固定資産税・修繕費から外しています。持ち続けるなら「空き家として持ち続ける」で、貯蓄・運用に貸していない不動産を作ります（人に貸すなら、作った不動産を「収益不動産へ移す」）`;
@@ -1423,7 +1444,8 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
         ? [{ key: `${k}/keepVacant`, label: "空き家として持ち続ける", help: "住み終わりの翌月から持ち始める貸していない不動産（空き家）を、貯蓄・運用に作ります。評価額は住み終わりの年の評価額の目安（推定）、建った年・構造・名義を写します", level: "simple", run: (w) => keepAsVacant(w, r.id) }]
         : [];
     // 住み終わりのすぐ下に並べる（持ち家の評価・名義の「▸」の後ろに離れないように）
-    groups.push({ key: ks, title: "住み終わりの後", level: "simple", ...(keepNote !== undefined ? { note: keepNote } : {}), fields, actions: keepActions, placeIn: { group: k, after: `${k}/to` } });
+    // 売るときは詳細の欄（売却の費用・ローンを返すか）があるので「▸」の文を付ける（住み替えで売るとみなしたときにも出る）
+    groups.push({ key: ks, title: "住み終わりの後", level: "simple", ...(keepNote !== undefined ? { note: keepNote } : {}), ...(r.sale !== undefined ? { moreLabel: left > 0 ? "売却の費用・ローンの返し方を入れる" : "売却の費用を入れる" } : {}), fields, actions: keepActions, placeIn: { group: k, after: `${k}/to` } });
   }
   return groups;
 }

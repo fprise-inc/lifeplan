@@ -14,6 +14,7 @@ import { applyMoveOutAfter, moveOutAfterMark, MOVE_OUT_AFTER } from "../src/work
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { PAYOFF_FOR_RATE, START_UNENTERED_CREDIT } from "../src/workspace/input/stages/housingLoans.ts";
+import { SALE_NO_VALUE } from "../src/workspace/input/stages/housing.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { addMonths } from "../src/workspace/levers.ts";
 import { modelHousehold, preview } from "./helpers.ts";
@@ -179,20 +180,54 @@ describe("完済の年月が推定のときの逆算の金利（S4-015）", () =
   });
 });
 
-describe("住み替えの「住み終わりの後」（S4-005 は利用者の判断待ち。初めの値は1か所で切り替える）", () => {
-  it("今は前と同じ「売らない」で、仮の印と、家の価値が資産から外れることを住み終わりの後に書く", () => {
+describe("住み替えの「住み終わりの後」（S4-005: 利用者の判断で初めの値は「住み終わりの月に売る」）", () => {
+  it("住宅購入の予定を足すと、今の持ち家を住み終わりの月に売るとみなし（売却価格は空欄＝評価額）、仮の印と区画の文を「売る」の向きで出す", () => {
     const wh = action(fromRequest(modelHousehold("dualAssetsTwoKids")), "housing/addPurchase");
     const own = residences(wh).find((r) => r.kind === "own" && r.purchase === undefined)!;
-    expect(MOVE_OUT_AFTER).toBe("keep");
-    expect(own.sale).toBeUndefined();
+    expect(MOVE_OUT_AFTER).toBe("sell");
+    expect(own.sale).toEqual({});
     const after = fieldOf(wh, `housing/res/${own.id}/after`);
-    expect(fieldStatus(after, wh)).toMatchObject({ status: "estimated", basis: moveOutAfterMark("keep") });
-    expect(notes(wh)).toContain("住み替えで住み終わりにした家です");
-    expect(notes(wh)).toContain("家の価値も売った代金も入りません");
-    // 選び直すと仮の印が外れる
-    const sold = set(wh, `housing/res/${own.id}/after`, "sell");
-    expect(fieldStatus(fieldOf(sold, `housing/res/${own.id}/after`), sold).status).toBe("confirmed");
-    expect(residences(sold).find((r) => r.id === own.id)!.sale).toEqual({});
+    expect(after.get(wh).value).toBe("sell");
+    expect(fieldStatus(after, wh)).toMatchObject({ status: "estimated", basis: moveOutAfterMark("sell") });
+    expect(moveOutAfterMark("sell")).toContain("売るとみなしています");
+    expect(moveOutAfterMark("sell")).toContain("空き家として持ち続ける");
+    expect(notes(wh)).toContain("住み終わりの月");
+    expect(notes(wh)).toContain("売るとみなしています");
+    expect(notes(wh)).not.toContain("家の価値も売った代金も入りません");
+    // 選び直すと仮の印が外れ、売らないときの文と「空き家として持ち続ける」になる
+    const kept = set(wh, `housing/res/${own.id}/after`, "keep");
+    expect(fieldStatus(fieldOf(kept, `housing/res/${own.id}/after`), kept).status).toBe("confirmed");
+    expect(residences(kept).find((r) => r.id === own.id)!.sale).toBeUndefined();
+    expect(notes(kept)).toContain("家の価値も売った代金も入りません");
+  });
+
+  it("評価額の入っていない家を売るとみなしたときは、売却価格の欄に0円で売ることになると知らせ、評価額か売却価格を入れると消える", () => {
+    const wh = action(fromRequest(modelHousehold("pairLoan")), "housing/addPurchase");
+    const own = residences(wh).find((r) => r.kind === "own" && r.purchase === undefined)!;
+    expect(own.valuation?.value).toBeUndefined();
+    expect(fieldOf(wh, `housing/res/${own.id}/sale/price`).get(wh).warn).toBe(SALE_NO_VALUE);
+    const priced = set(wh, `housing/res/${own.id}/sale/price`, 45_000_000);
+    expect(fieldOf(priced, `housing/res/${own.id}/sale/price`).get(priced).warn ?? null).toBeNull();
+    const valued = set(wh, `housing/res/${own.id}/valuation/value`, 45_000_000);
+    expect(fieldOf(valued, `housing/res/${own.id}/sale/price`).get(valued).warn ?? null).toBeNull();
+    // 評価額の入っている家には出さない
+    const w2 = action(fromRequest(modelHousehold("dualAssetsTwoKids")), "housing/addPurchase");
+    const o2 = residences(w2).find((r) => r.kind === "own" && r.purchase === undefined)!;
+    expect(fieldOf(w2, `housing/res/${o2.id}/sale/price`).get(w2).warn ?? null).toBeNull();
+  });
+
+  it("今ある世帯（足す前から住み終わりの決まった持ち家）は書き換えない", () => {
+    const wh = fromRequest(modelHousehold("dualAssetsTwoKids"));
+    const before = residences(wh).map((r) => structuredClone(r.sale));
+    const after = action(wh, "housing/addPurchase");
+    const ids = new Set(residences(wh).map((r) => r.id));
+    // 足す前の住まいのうち、今回の住み替えで住み終わりにした物（住み終わりが空だった持ち家）だけが変わる
+    residences(wh).forEach((r, i) => {
+      const x = residences(after).find((y) => y.id === r.id)!;
+      if (r.kind === "own" && r.to === null) expect(x.sale).toEqual({});
+      else expect(x.sale).toEqual(before[i]);
+    });
+    expect(residences(after).filter((r) => !ids.has(r.id))).toHaveLength(1);
   });
 
   it("切り替えを「売る」にすると、住み終わりにした家を住み終わりの月に売る（売却価格は空欄＝評価額）", () => {
