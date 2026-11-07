@@ -119,8 +119,8 @@ const WALKS: { file: string; index: number; household: string; choose?: string; 
   { file: "pension.md", index: 0, household: "single45" },
   { file: "pension.md", index: 1, household: "sampleSeniorCouple" },
   { file: "withholding-slip.md", index: 1, household: "salariedCoupleTwoKids" },
-  // 申告の仕方の欄は、今は収益不動産の持ち主の画面にだけある（事業所得だけの人には無い）。欄の無い候補は FP が入れないにする
-  { file: "tax-return.md", index: 0, household: "selfEmployed", missing: ['member.taxReturn ["method"]', 'member.taxReturn ["blueDeduction"]'] },
+  // 申告の仕方の欄は、事業所得のある人の働き方と収入の「確定申告」にもある（収益不動産の「申告」と同じ値。0155）。事業所得だけの人にも全部入る
+  { file: "tax-return.md", index: 0, household: "selfEmployed" },
   { file: "tax-return.md", index: 0, household: "rentalSample", missing: ["employment.business.income []"] },
   { file: "insurance-deduction.md", index: 0, household: "salariedCoupleTwoKids" },
   { file: "insurance-policy.md", index: 0, household: "salariedCoupleTwoKids" },

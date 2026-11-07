@@ -18,6 +18,7 @@ import { GROWTH_RANGE } from "../rateRanges.ts";
 import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 import { executiveMembers } from "../officer.ts";
 import { presetNum, presetText } from "../../../../../hearing/src/presets.ts";
+import { hasBusinessIncome, taxReturnFields } from "../taxReturn.ts";
 
 /** 働き方の期間の時点は年月で持つ（定年・再雇用の見つけ方などが年月で読むため。0038） */
 const PERIOD_MONTH_ONLY = "働き方の期間は年月で持ちます（年齢・「5年後」のように入れても、その年月にします）";
@@ -1049,7 +1050,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
       fields.push({ ...plain({ key: `${prefix}/corpDbMonthly`, item: "employment.corporatePension", label: "他制度掛金相当額（月額）", level: d, kind: "yen", basis: "monthly", find, path: ["corporatePension", "dbEquivalentMonthly"], optional: true, help: "勤め先から知らされる額。入れなければ、iDeCo の上限を他制度ありの決まりで見ます" }), address: () => ({ target: { object: p.id }, item: "employment.corporatePension", at: ["dbEquivalentMonthly"] }) });
   }
   if (p.type === "selfEmployed")
-    fields.push(yenBox({ key: `${prefix}/business`, item: "employment.business.income", label: "事業所得（年額）", level, basis: "annual", find, path: ["business", "income"], estimate: () => businessEstimate(), help: "確定申告書の所得金額（青色申告特別控除の前）" }), growthField(wh, p, find, prefix, "business", d));
+    fields.push(yenBox({ key: `${prefix}/business`, item: "employment.business.income", label: "事業所得（年額）", level, basis: "annual", find, path: ["business", "income"], estimate: () => businessEstimate(), help: "確定申告書の所得金額（青色申告特別控除の前）。青色申告なら、控除は下の「確定申告」で選ぶと計算で引きます" }), growthField(wh, p, find, prefix, "business", d));
   if (level === "detail") fields.push(...claimFields(wh, m, p, find, prefix));
   return fields;
 }
@@ -1762,12 +1763,25 @@ function officerGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
   };
 }
 
+/**
+ * 事業所得のある人（自営の働き方・事業所得の入るお金の行・事業所得の民泊・宿）の確定申告: 申告の仕方と青色申告特別控除（0155）。
+ * 収益不動産の「申告」と同じ欄・同じ値（members[].taxReturn）。入れないと白色（控除なし）の推定。標準に出す（青色申告特別控除の有無で
+ * 90歳の金融資産が500万円以上動く世帯があり、顧客が答えられる。0078 の決め方）
+ */
+function taxReturnGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
+  if (!hasBusinessIncome(wh.request.input.household, m.id)) return null;
+  const k = `work/${m.id}/taxReturn`;
+  return { key: k, title: `${memberLabel(wh, m.id)}の確定申告`, level: "simple", fields: taxReturnFields(wh, m.id, k, "simple", false), actions: [] };
+}
+
 export function workStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;
   const people = earners(h);
   // 人ごとの区画: 標準は今の働き方 → 定年後の予定。詳細は働き方 1・2…（＋ 働き方を足す）→ 定年後の予定（今の働き方のまとまりは標準だけ。0047 の追記）
   const sections: SectionDef[] = people.map((m) => {
     const groups: GroupDef[] = [nowGroup(wh, m), ...periodListGroups(wh, m)];
+    const tr = taxReturnGroup(wh, m);
+    if (tr !== null) groups.push(tr);
     const r = retirementGroup(wh, m);
     if (r !== null) groups.push(r);
     const benefits = (h.retirementBenefits ?? []).filter((b) => b.member === m.id);
