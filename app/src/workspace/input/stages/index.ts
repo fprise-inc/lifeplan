@@ -3,8 +3,9 @@
 // 収益不動産は貯蓄・運用の後に足した。0079）。
 // 入力のホームでは、項目ごとのカード（items.ts）になる。並べ替えは事務所の設定の形（items.ts の CardLayout）で受ける。
 // FP顧問料は前提条件の中の欄のまとまり（カードにしない。区画 fee は前提条件のパネルの中身を作るときにだけ使う）
-import type { StageDef, StageId } from "../form.ts";
+import type { ActionDef, StageDef, StageId } from "../form.ts";
 import { allFields } from "../form.ts";
+import { keepRefs } from "../refs.ts";
 import type { WorkingHousehold } from "../household.ts";
 import { assumptionsStage } from "./assumptions.ts";
 import { carStage } from "./cars.ts";
@@ -70,6 +71,19 @@ const RENTAL_MONEY_NOTE =
   "物件ごとに分けない、不動産にかかる一時的支出です。家計の支出として出ますが、不動産所得の経費には入れません。物件の大規模修繕・原状回復は、物件の「売却・大きな修繕の予定」で入れると、貸している間なら全額をその年の経費にします。毎年かかる経費は物件の「経費」の年額で入れます";
 
 export function buildStage(id: StageId, wh: WorkingHousehold): StageDef {
+  return withRefsKept(buildRaw(id, wh));
+}
+
+/**
+ * ボタンの操作で外した物（人・口座・保険の保障など）を指す欄を、操作の中で片付ける（0163）。指す先に付いている物（持ち家の住宅ローンなど）の
+ * 欄は残し、入力のパネルが、プランを直すときの連鎖の確かめの後に片付ける
+ */
+function withRefsKept(stage: StageDef): StageDef {
+  const wrap = (a: ActionDef): ActionDef => ({ ...a, run: (w) => keepRefs(w, a.run(w), { dependents: false }) });
+  return { ...stage, sections: stage.sections.map((s) => ({ ...s, actions: s.actions.map(wrap), groups: s.groups.map((g) => ({ ...g, actions: g.actions.map(wrap) })) })) };
+}
+
+function buildRaw(id: StageId, wh: WorkingHousehold): StageDef {
   const stage = BUILDERS[id](wh);
   if (!MONEY_CARDS.has(id)) return stage;
   // ピンにした物も属するカードに出す（ピンは見せ方だけ。0045）

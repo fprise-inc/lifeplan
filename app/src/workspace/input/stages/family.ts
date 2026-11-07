@@ -17,15 +17,19 @@ import { rowAt } from "../rows.ts";
 import { resolveAssumedKey } from "../../store/readings.ts";
 import { addOutside } from "./care.ts";
 import { fillsByEstimate } from "../../../../../hearing/src/estimates.ts";
+import { keepRefs } from "../refs.ts";
 
 const members = (h: Household) => h.members;
 
 /** 欄を書いた後に、標準のままの値（表の最後の年・子の独立の年月）を新しい標準に合わせる（household.ts の followStandards） */
 const following = (f: FieldDef): FieldDef => ({ ...f, set: (w, v) => followStandards(w, f.set(w, v)) });
 
-/** 構成員を外す: その人を指す物もいっしょに外す（名義・当事者は構成員 ID で指すため。0008 の1） */
+/**
+ * 構成員を外す: その人を指す物もいっしょに外す（名義・当事者は構成員 ID で指すため。0008 の1）。死亡保険金の受取人・持ち家の持分・
+ * 休業の対象の子など、その人を指す欄は refs.ts の決まりで片付ける（0163）
+ */
 export function removeMember(wh: WorkingHousehold, id: string): WorkingHousehold {
-  return followStandards(wh, removeMemberRaw(wh, id));
+  return followStandards(wh, keepRefs(wh, removeMemberRaw(wh, id), { dependents: false }));
 }
 
 function removeMemberRaw(wh: WorkingHousehold, id: string): WorkingHousehold {
@@ -217,6 +221,9 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
           kind: "ym",
           // 年齢しか分からなければ「38歳」と打てる（生まれた年月の幅のまん中を、根拠「年齢から」を残した確定で入れる。0131 の3・0041 の追記 2026-11-07）
           ageInput: true,
+          // 今月より後の生年月は入れない（これから生まれる子は「＋ これから生まれる子」）・120歳まで（0162）
+          latest: wh.request.input.baseMonth,
+          earliest: addMonths(wh.request.input.baseMonth, -(121 * 12 - 1)),
           example: "例: 1985-04",
           find,
           path: ["birth", "birthYearMonth"],

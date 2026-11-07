@@ -19,6 +19,7 @@ import type { NoticeRow } from "../engineNotices.ts";
 import { noticeMeta } from "../engineNotices.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { insuranceOverlapNotices } from "./insuranceView.ts";
+import { unfundedPurchaseNotice } from "./stages/housing.ts";
 import { ackOf, ackToday, setNoticeAck } from "./noticeAck.ts";
 import { inputItems, itemStage } from "./items.ts";
 import { holderOf, rowAt } from "./rows.ts";
@@ -406,6 +407,13 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
         rows.push({ ...base, id: `field:${f.key}`, kind: "certainty", detail: `${CERTAINTY_LABELS[meta.certainty]}の値です${meta.origin !== null && meta.origin !== "manual" ? `（${ORIGIN_LABELS[meta.origin]}）` : ""}。書類で確かめるときの候補`, impact: impactOf(f, wh), actions: [] });
     }
   });
+  // 住宅購入の予定に住宅ローンが無い（物件の価格−頭金が計算に入らない。0161）: 物件の価格が推定のままでも確かめの注意に出す
+  // （確定の値なら、上の欄の知らせの行で出ている）
+  for (const r of wh.request.input.household.residences ?? []) {
+    const n = unfundedPurchaseNotice(wh, r.id);
+    if (n === null || rows.some((x) => x.kind === "notice" && x.fieldKey === n.fieldKey)) continue;
+    rows.push({ id: `notice:unfundedPurchase:${r.id}`, kind: "notice", card: "housing", cardLabel: labels.get("housing") ?? "住まい・ローン", label: "住宅の購入: 物件の価格", detail: n.detail, fieldKey: n.fieldKey, level: "simple", impact: 0, actions: n.fix !== null ? [{ key: "fix", label: n.fix.label, run: n.fix.run }] : [] });
+  }
   const order = new Map(items.map((i, n) => [i.id, n]));
   return rows.sort((x, y) => {
     const k = KIND_ORDER.indexOf(x.kind) - KIND_ORDER.indexOf(y.kind);

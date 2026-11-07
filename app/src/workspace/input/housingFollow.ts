@@ -12,6 +12,7 @@ import { USEFUL_LIFE, VALUATION_DEFAULTS } from "./labels.ts";
 import { formatYearMonth, formatYen } from "./units.ts";
 import { isCustomBuild, landMonthOf } from "./customBuild.ts";
 import { homeLoansOf } from "./housingCredit.ts";
+import { applyHeldEstateCost } from "./heldEstateTax.ts";
 export { followInheritedHome, inheritFromAssumed } from "./housingCredit.ts";
 
 const isHomeLoan = (d: Debt): boolean => d.kind === "mortgage" && d.property === undefined;
@@ -23,6 +24,9 @@ export const toKey = (rid: string): string => `housing/res/${rid}/to`;
 
 /** 住み替えで今の持ち家を購入の前の月で住み終わらせたときの印 */
 export const MOVE_OUT_ASSUMED = "住み替え: 購入の前の月で住み終わるとみなしています（売る・持ち続けるは「住み終わりの後」で選びます。直してください）";
+
+/** 住み替えで今の賃貸（家賃なしを含む）を購入の前の月で住み終わらせたときの印（購入の予定を外すと戻すために持つ。0161） */
+export const MOVE_OUT_RENT_ASSUMED = "住み替え: 購入の前の月で住み終わるとみなしています（直してください）";
 
 export const afterKey = (rid: string): string => `housing/res/${rid}/after`;
 
@@ -59,7 +63,13 @@ export function followPurchaseMonth(h: Household, rid: string, old: string, next
   if (r === undefined) return;
   if (resolveTimepoint(h, r.from) === old) r.from = r.purchase !== undefined ? structuredClone(r.purchase.at) : tp(next);
   const prevEnd = addMonths(old, -1);
-  for (const x of h.residences ?? []) if (x.id !== rid && x.to != null && resolveTimepoint(h, x.to) === prevEnd) x.to = tp(addMonths(next, -1));
+  for (const x of h.residences ?? []) {
+    if (x.id === rid || x.to == null || resolveTimepoint(h, x.to) !== prevEnd) continue;
+    // その家から作った空き家の持ち始める時点も、新しい住み終わりの翌月についてこさせる（つながりは月の一致で見るので、先に引く。0161）
+    const held = heldFromHome(h, x);
+    x.to = tp(addMonths(next, -1));
+    if (held !== undefined) moveHeldStart(held, addMonths(next, -1));
+  }
   const land = r.purchase !== undefined && isCustomBuild(r) ? landMonthOf(h, r) : null;
   for (const d of h.debts ?? []) {
     if (!isHomeLoan(d)) continue;
@@ -75,6 +85,35 @@ export function followPurchaseMonth(h: Household, rid: string, old: string, next
     const ev = (h.events ?? []).find((e) => e.id === d.housing?.moveIn);
     if (ev !== undefined && resolveTimepoint(h, ev.at) === old) ev.at = tp(next);
   }
+}
+
+/**
+ * 住み替えの購入（「＋ 住宅購入の予定」で足した1件）を外すときに、その購入のために画面が住み終わりにした今の住まいを戻す（h を書き換える。0161）:
+ * 住み終わりの仮の印（MOVE_OUT_ASSUMED・MOVE_OUT_RENT_ASSUMED）が残っていて（FP が直していない）、住み終わりが外す購入の前の月の住まいは、
+ * 住み終わりを空（最後まで住む）に戻し、初めの値で入れた「住み終わりの月に売る」（中身の空の sale）も外す。売却価格などを入れた家・空き家を作った家は
+ * FP が先へ進めたものとして残す。返すのは外す仮の印の鍵（住み終わり・住み終わりの後）
+ */
+export function undoMoveOut(h: Household, assumed: Readonly<Record<string, string>>, removed: Residence): string[] {
+  const moveIn = removed.purchase === undefined ? null : (resolveTimepoint(h, removed.from) ?? resolveTimepoint(h, removed.purchase.at));
+  if (moveIn === null) return [];
+  const prevEnd = addMonths(moveIn, -1);
+  const drop: string[] = [];
+  for (const x of h.residences ?? []) {
+    const mark = assumed[toKey(x.id)];
+    if (x.id === removed.id || x.to == null || (mark !== MOVE_OUT_ASSUMED && mark !== MOVE_OUT_RENT_ASSUMED) || resolveTimepoint(h, x.to) !== prevEnd) continue;
+    if (x.sale !== undefined && Object.keys(x.sale).length > 0) continue;
+    if (heldFromHome(h, x) !== undefined) continue;
+    x.to = null;
+    delete x.sale;
+    drop.push(toKey(x.id), afterKey(x.id));
+  }
+  return drop;
+}
+
+/** 空き家の持ち始める時点（と評価額の時点）を、元の家の住み終わり end の翌月にする */
+export function moveHeldStart(a: Account, end: string): void {
+  a.holdFrom = tp(addMonths(end, 1));
+  a.asOf = addMonths(end, 1);
 }
 
 /** 購入の1件の住み始めが購入の時期とずれているときの知らせ（前の版の世帯・ほかの欄で直した世帯） */
@@ -292,5 +331,8 @@ export function keepAsVacant(wh: WorkingHousehold, rid: string): WorkingHousehol
     ...(r.valuation?.structure !== undefined ? { structure: r.valuation.structure } : r.style === "condo" ? { structure: "rc" } : {}),
   };
   (h.accounts ??= []).push(a);
+  // 毎年の費用（固定資産税の目安）の推定の行も入れる（貯蓄・運用で中身「空き家」を選んだときと同じ。0123・0161）
+  const as = request.input.assumptions;
+  applyHeldEstateCost(h, a, request.input.baseMonth, as?.realEstateValuation?.landShare, true, as?.assetReturns?.realEstate);
   return { ...wh, request };
 }

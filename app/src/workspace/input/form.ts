@@ -9,7 +9,7 @@ import { boxBasis, confirmedBox, estimatedBox, mutate, newId, type WorkingHouseh
 import { eventChoices, eventName, materializeEvent, pointsToCandidate, refsTo, whenPeople } from "./namedEvents.ts";
 import { clampRate, rangeText, rateInRange } from "./rateRanges.ts";
 import { pctFromRate, sameRate, type YenBasis, type YenUnit } from "./units.ts";
-import { DEFAULT_WHEN_MODES, readWhen, sameWhen, type AgeMeans, type WhenCtx, type WhenEdge, type WhenMode } from "./when.ts";
+import { DEFAULT_WHEN_MODES, endBeforeStart, readWhen, sameWhen, type AgeMeans, type WhenCtx, type WhenEdge, type WhenMode } from "./when.ts";
 
 export { resolveTimepoint };
 import type { Address } from "../store/readings.ts";
@@ -167,6 +167,11 @@ interface FieldBase {
    * プランを直している間に欄の下に出す一言（0043 の追記 2026-11-05）
    */
   planShared?: string;
+  /**
+   * 読めた値でも、ほかの入力と合わず書けないときの理由（例: 今の残高から入れた住宅ローンで、完済の年月までに返せない毎月の返済額）。
+   * 入力の画面は、理由を欄の下に出して書かない（「入れました」にしない）。set はその値を受けても世帯を変えない。0161
+   */
+  refuse?: (wh: WorkingHousehold, v: Val) => string | null;
   /** ほかの値もいっしょに変える欄（例: 働く最後の年齢は、退職後の生活費の節目・積立の終わりも合わせる）。その説明 */
   sideEffects?: string;
   /**
@@ -194,7 +199,8 @@ export type FieldDef = FieldBase &
     | { kind: "decimal"; suffix?: string }
     | { kind: "select"; options: Option[] }
     // ageInput: 生年月の欄。「38歳」「38」と打てば、生まれた年月を推定して仮の値（仮の印）で入れる（when.ts の birthFromAge）
-    | { kind: "ym"; ageInput?: boolean }
+    // earliest・latest: 入れられる年月の範囲（その月を含む。外の年月は欄の下に理由を出して書かない。生年月は今月まで・120歳まで。0162）
+    | { kind: "ym"; ageInput?: boolean; earliest?: string; latest?: string }
     | { kind: "when" }
     | { kind: "bool" }
     | { kind: "text"; placeholder?: string }
@@ -544,9 +550,14 @@ export function plain(o: {
   typicalMax?: number;
   /** 年月の欄で年齢も受け付ける（生年月の欄。FieldDef の ym の ageInput） */
   ageInput?: boolean;
+  /** 年月の欄の入れられる範囲（FieldDef の ym の earliest・latest） */
+  earliest?: string;
+  latest?: string;
 }): FieldDef {
   const kindPart: Record<string, unknown> = { kind: o.kind };
   if (o.kind === "ym" && o.ageInput === true) kindPart.ageInput = true;
+  if (o.kind === "ym" && o.earliest !== undefined) kindPart.earliest = o.earliest;
+  if (o.kind === "ym" && o.latest !== undefined) kindPart.latest = o.latest;
   if (o.kind === "yen") kindPart.basis = o.basis ?? "once";
   if (o.kind === "yen" && o.unit !== undefined) kindPart.unit = o.unit;
   if (o.kind === "select") kindPart.options = o.options ?? [];
@@ -761,6 +772,7 @@ export function timepointField(
   },
 ): FieldDef {
   const read = (wh: WorkingHousehold) => (getPath(o.find(wh.request.input.household, wh), o.path) as Timepoint | null | undefined) ?? null;
+  const startOf = (wh: WorkingHousehold) => (o.startPath === undefined ? undefined : ((getPath(o.find(wh.request.input.household, wh), o.startPath) as Timepoint | null | undefined) ?? null));
   const time = timeView({
     ...o,
     read,
@@ -771,7 +783,7 @@ export function timepointField(
         setPath(target, o.path, tp === null ? (o.optional === true && o.absentWhenEmpty !== true ? null : undefined) : tp);
         o.after?.(h, target, tp, wh);
       }),
-    ...(o.startPath !== undefined ? { start: (wh: WorkingHousehold) => (getPath(o.find(wh.request.input.household, wh), o.startPath as readonly string[]) as Timepoint | null | undefined) ?? null } : {}),
+    ...(o.startPath !== undefined ? { start: (wh: WorkingHousehold) => startOf(wh) ?? null } : {}),
   });
   return field({
     key: o.key,
@@ -788,12 +800,14 @@ export function timepointField(
       const t = read(wh);
       const ym = resolveTimepoint(h, t ?? o.fallback?.(h));
       const who = o.ageOf?.(h);
+      // 終わりの欄: 入っている終わりが始まりより前なら知らせる（打った値は読み取りで止める。0162）
+      const warn = o.warn?.(wh) ?? (o.startPath !== undefined ? endBeforeStart({ h, start: startOf(wh) }, t, false) : null);
       return {
         value: ym,
         hint: ym === null ? (o.nullText ?? null) : who !== undefined ? `${ageAt(who, ym)}歳` : null,
         when: time.state(wh),
         ...(t === null && o.optional === true ? { implicit: true } : {}),
-        ...(o.warn !== undefined ? { warn: o.warn(wh) } : {}),
+        ...(o.warn !== undefined || warn !== null ? { warn } : {}),
       };
     },
     set: (wh, v) => {

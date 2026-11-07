@@ -7,6 +7,7 @@
 //   「売ったときにローンを返す」は今の予定のまま
 // - 計算は1案ずつ全部を計算し直す（物件の分だけの近似にしない）。重さは物件の数×2〜3回の計算で、画面ではタブを開いている物件の分だけ求める
 import type { EngineRequest } from "./bundle.ts";
+import { monthOfTimepoint } from "./timepoint.ts";
 
 type Account = EngineRequest["input"]["household"]["accounts"][number];
 
@@ -53,21 +54,20 @@ export interface SaleCompare {
 const ymOf = (y: number, m: number) => `${y}-${String(m).padStart(2, "0")}`;
 const jaYm = (ym: string) => `${Number(ym.slice(0, 4))}年${Number(ym.slice(5, 7))}月`;
 
-function resolveAt(tp: unknown): string | null {
-  if (typeof tp === "object" && tp !== null && typeof (tp as { at?: unknown }).at === "string") return (tp as { at: string }).at;
-  return null;
-}
-
-/** 物件（中身を入れた不動産の器で、家賃の入力があるもの）の売る年の案。今の予定の売却が時点の年月でなければ（年齢・できごとなど）、今の予定と持ち続けるだけ */
+/**
+ * 物件（中身を入れた不動産の器で、家賃の入力があるもの）の売る年の案。今の予定の売却・持ち始める月は、年月・年齢・できごとのどの形でも解く（0168）。
+ * 今の予定の売却の時点が解けなければ（いない構成員・無いできごと）、今の予定と持ち続けるだけ
+ */
 export function saleVariants(req: EngineRequest, object: string): SaleVariant[] {
   const a = (req.input.household.accounts ?? []).find((x) => x.id === object);
   const p = a?.property;
   if (a === undefined || p === undefined) return [];
   const base = req.input.baseMonth;
   const endYear = req.input.endYear;
-  const holdFrom = resolveAt(p.holdFrom);
+  const h = req.input.household;
+  const holdFrom = monthOfTimepoint(h, p.holdFrom);
   const ok = (ym: string) => ym > base && ym <= ymOf(endYear, 12) && (holdFrom === null || ym > holdFrom);
-  const planned = p.sale === undefined ? null : resolveAt(p.sale.at);
+  const planned = p.sale === undefined ? null : monthOfTimepoint(h, p.sale.at);
   if (p.sale !== undefined) {
     const out: SaleVariant[] = [];
     if (planned === null) return [{ key: "planned", label: "今の予定で売る", ym: null, current: true }, { key: "hold", label: "持ち続ける", ym: null, current: false }];
