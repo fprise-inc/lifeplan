@@ -551,7 +551,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
         ) : null}
       </div>
       {editing !== null && pcat !== undefined && diffOpen && plans !== undefined ? <DiffList rows={rows} wh={wh} planId={editing.id} planLabel={plans.list.find((x) => x.id === editing.id)?.label ?? "このプラン"} cat={pcat} onEdit={plans.onSavePlan} onOpen={open} onClose={() => setDiffOpen(false)} /> : null}
-      {docsOpen ? <DocRequests wh={wh} onOpen={openField} onClose={() => setDocsOpen(false)} {...(onReadDoc !== undefined && editing === null ? { onRead: (r: DocRequest) => onReadDoc(docStartOf(r)) } : {})} /> : null}
+      {docsOpen ? <DocRequests wh={wh} onOpen={openField} onClose={() => setDocsOpen(false)} {...(onReadDoc !== undefined && editing === null ? { onRead: (r: DocRequest) => { const st = docStartOf(r); if (st !== null) onReadDoc(st); } } : {})} /> : null}
       {checkOpen ? (
         <CheckList
           wh={wh}
