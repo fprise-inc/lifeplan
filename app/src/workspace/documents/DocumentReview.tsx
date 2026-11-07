@@ -18,7 +18,7 @@ import { readProposal } from "./proposal.ts";
 import { deductionProposals, readDeductionFile } from "./deductionXml.ts";
 import { gapDate, gapText } from "./insuranceGaps.ts";
 import { acceptCandidates, acceptObject, correctCandidate, docReview, linkObject, rejectCandidates, rejectObject, reopenCandidate, withHolder, type CalcOf, type Chosen } from "./review.ts";
-import { SAMPLE_DEDUCTION_XML, SAMPLE_DOCUMENTS, SAMPLE_MORE_XML } from "./samples.ts";
+import { SAMPLE_DEDUCTION_XML, SAMPLE_DOCUMENTS, SAMPLE_MORE_XML, SAMPLE_PENSION_SLIP_XML } from "./samples.ts";
 import { docTypeLabel, type DocumentLog, type DocumentReading } from "./types.ts";
 
 export interface DocChange {
@@ -79,9 +79,9 @@ export function AiDocumentBand({ wh, failed, onOpen, onDismiss }: { wh: WorkingH
 /** 架空の控除証明書などの電子データ（XML）を、XML の読み手で読んだ記録（見本の世帯だけ。0153 の4・0154 の5） */
 export function xmlSampleReadings(wh: WorkingHousehold, at: string = approvalTime(), newId: () => string = () => crypto.randomUUID()): DocumentReading[] {
   const members = roles(wh.request).map((r) => ({ key: r.key, id: r.member.id }));
-  const reader = { id: "sample.deductionXml", version: 2 };
+  const reader = { id: "sample.deductionXml", version: 3 };
   // 保険料の控除証明書（0153）と、ほかの控除証明書・住宅ローンの証明書（0154）
-  return [...deductionProposals(SAMPLE_DEDUCTION_XML).proposals, ...deductionProposals(SAMPLE_MORE_XML).proposals].flatMap((p) => {
+  return [...deductionProposals(SAMPLE_DEDUCTION_XML).proposals, ...deductionProposals(SAMPLE_MORE_XML).proposals, ...deductionProposals(SAMPLE_PENSION_SLIP_XML).proposals].flatMap((p) => {
     const r = readProposal(p.raw, { via: "sample", at, newId, reader, members }).reading;
     return r === null ? [] : [{ ...r, dropped: r.dropped + p.masked }];
   });
@@ -189,7 +189,7 @@ export function DocumentEntry({ wh, sample, onOpen, onSamples, onReadings, onPas
       <span class="in-note">書類から読んだ値は候補として届き、確かめて承認したものだけが現状に入ります。個人番号などの番号は読みません・残しません。AI接続口からの候補もここに届きます。</span>
       {onReadings !== undefined ? (
         <span class="in-note" data-documents-xml-note>
-          控除証明書などの電子データ（マイナポータルから保存した XML。生命保険料・地震保険料・国民年金保険料等・小規模企業共済等掛金〔iDeCo〕の控除証明書と、住宅ローンの年末残高等証明書・住宅借入金等特別控除証明書）は、このパソコンの中だけで読みます（外へ送りません）。元のファイル・氏名・住所・証券番号・基礎年金番号は保存しません。
+          控除証明書などの電子データ（マイナポータルから保存した XML。生命保険料・地震保険料・国民年金保険料等・小規模企業共済等掛金〔iDeCo〕の控除証明書と、住宅ローンの年末残高等証明書・住宅借入金等特別控除証明書、公的年金等の源泉徴収票）は、このパソコンの中だけで読みます（外へ送りません）。元のファイル・氏名・住所・証券番号・基礎年金番号は保存しません。
         </span>
       ) : null}
     </div>

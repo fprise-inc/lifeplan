@@ -11,7 +11,7 @@ import { today } from "../report/assemble.ts";
 import { docRequests, docRequestTitles } from "../input/docRequests.ts";
 import { WebBuilder, type OfficeLook } from "./WebBuilder.tsx";
 import { WebRequests } from "./WebRequests.tsx";
-import { markImported, type HearingTemplate } from "./web.ts";
+import { markImported, sentAtText, type HearingTemplate } from "./web.ts";
 import { applyImport, approvalTime, CUSTOMER_NO_PATTERN, defaultSelection, exportSheet, importSheet, randomBytes, sheetFor, SHEET_KINDS, withRequest, type CandidateView, type FieldView, type ImportView, type Issue, type SheetKind } from "./sheet.ts";
 
 interface Props {
@@ -30,7 +30,7 @@ export interface WebProps {
   saveNow: () => Promise<boolean>;
 }
 
-const KIND_TEXT: Record<CandidateView["kind"], string> = { new: "新規", changed: "変更", same: "同じ" };
+const KIND_TEXT: Record<CandidateView["kind"], string> = { new: "新規", changed: "変更", same: "同じ", noAnswer: "お答えなし" };
 
 /** 事務所の表示（シートの1枚目。設定の保存は後の回なので、アプリを開いている間だけ覚える） */
 const office = { name: "", purpose: "ライフプランの作成と、家計・保険・資産運用のご相談のため", privacyContact: "", customerNo: "A0001" };
@@ -38,14 +38,12 @@ const office = { name: "", purpose: "ライフプランの作成と、家計・�
 function Mark({ f }: { f: FieldView }) {
   // 入力の画面と同じ印: 推定（目安で補った・シートの「わからない」を推定にした）・推定（範囲の真ん中）・書類待ち（書類で確かめる欄の「わからない」。
   // 代わりの値で計算する。0041 の追記 2026-10-31）・仮（値の箱の無い欄の仮の値）
+  // 範囲の根拠の長い文は、欄の下の段に出す（FieldRow）
   if (f.mark === "range")
     return (
-      <>
-        <span class="badge est" title={f.note ?? "金額の範囲の真ん中"} data-hearing-mark="range">
-          推定（範囲の真ん中）
-        </span>
-        {f.note !== null ? <small class="hs-basis">{f.note}</small> : null}
-      </>
+      <span class="badge est" title={f.note ?? "金額の範囲の真ん中"} data-hearing-mark="range">
+        推定（範囲の真ん中）
+      </span>
     );
   if (f.mark === "unknown")
     return (
@@ -66,6 +64,33 @@ function Mark({ f }: { f: FieldView }) {
       </span>
     );
   return null;
+}
+
+/** 候補の1つの項目: お客さまの答え（印つき）と、変更のときの「今 → 届いた値」。長い根拠は下の段に（項目の名前が縦に崩れないように） */
+function FieldRow({ f }: { f: FieldView }) {
+  return (
+    <div class="hs-field" data-hearing-field={f.noAnswer ? "noAnswer" : "answered"}>
+      <dt>{f.label}</dt>
+      <dd>
+        {f.answer} <Mark f={f} />
+      </dd>
+      {(f.mark === "range" && f.note !== null) || f.diffs.length > 0 ? (
+        <dd class="hs-more">
+          {f.mark === "range" && f.note !== null ? <small class="hs-basis">{f.note}</small> : null}
+          {f.diffs.length > 0 ? (
+            <ul class="hs-diffs">
+              {f.diffs.map((d, i) => (
+                <li key={i} class={d.kept ? "kept" : d.rough ? "rough" : ""} data-hearing-diff={d.kept ? "kept" : d.rough ? "rough" : "changed"}>
+                  <span class="hs-diff-l">{d.label}</span> 今 <b>{d.current}</b>
+                  {d.kept ? <> （お答えが無いので今の値のまま）</> : <> → 届いた値 <b>{d.next}</b></>}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </dd>
+      ) : null}
+    </div>
+  );
 }
 
 function IssueList({ issues }: { issues: readonly Issue[] }) {
@@ -180,7 +205,7 @@ function ExportPanel({ wh, sheets, onSave, onClose }: Props & { onClose: () => v
   );
 }
 
-function ReviewPanel({ wh, view, onSave, onClose, heading }: { wh: WorkingHousehold; view: ImportView; onSave: (w: WorkingHousehold) => void; onClose: (msg: string | null) => void; heading?: string }) {
+function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt }: { wh: WorkingHousehold; view: ImportView; onSave: (w: WorkingHousehold) => void; onClose: (msg: string | null) => void; heading?: string; sentAt?: string }) {
   const [sel, setSel] = useState<Set<string>>(() => defaultSelection(view));
   const count = (k: CandidateView["kind"]) => view.candidates.filter((c) => c.kind === k).length;
   const toggle = (id: string, on: boolean) =>
@@ -195,24 +220,32 @@ function ReviewPanel({ wh, view, onSave, onClose, heading }: { wh: WorkingHouseh
     onSave(r.wh);
     onClose(`${r.added + r.replaced}件を現状に入れました（新規 ${r.added}件・変更 ${r.replaced}件）${r.skipped.length > 0 ? `。入れなかったもの: ${r.skipped.join("、")}` : ""}`);
   };
-  const groups = [...new Set(view.candidates.map((c) => c.group))];
+  const shown = view.candidates.filter((c) => c.kind !== "noAnswer");
+  const kept = view.candidates.filter((c) => c.kind === "noAnswer");
+  const groups = [...new Set(shown.map((c) => c.group))];
   return (
     <section class="card hs-panel hs-review" aria-label="取り込みの確認" data-hearing-review>
       <div class="card-h">
         <h2>{heading ?? "記入済みのシートの取り込み"}（{view.definition.title} 版{view.definition.version}）</h2>
         <span class="aside">
           新規 {count("new")}・変更 {count("changed")}・同じ {count("same")}
-          {view.candidates.some((c) => c.review) ? `・要確認 ${view.candidates.filter((c) => c.review).length}` : ""}
-          {view.candidates.some((c) => c.contradictions.length > 0) ? `・矛盾 ${view.candidates.filter((c) => c.contradictions.length > 0).length}` : ""}
+          {kept.length > 0 ? `・お答えなし ${kept.length}` : ""}
+          {shown.some((c) => c.review) ? `・要確認 ${shown.filter((c) => c.review).length}` : ""}
+          {shown.some((c) => c.contradictions.length > 0) ? `・矛盾 ${shown.filter((c) => c.contradictions.length > 0).length}` : ""}
         </span>
       </div>
-      <p class="rp-note">チェックした候補だけを現状に入れます。入れるまでは計算に使いません。「推定」「仮」の印は入力の画面と同じです（推定で補った値・仮の値）。</p>
+      {sentAt !== undefined ? (
+        <p class="rp-note" data-hearing-sent-at>
+          お客さまが送った日時: {sentAtText(sentAt)}（心当たりのない日時なら、別の方が送ったおそれがあります。承認する前にお客さまに確かめてください）
+        </p>
+      ) : null}
+      <p class="rp-note">チェックした候補だけを現状に入れます。入れるまでは計算に使いません。「推定」「仮」の印は入力の画面と同じです（推定で補った値・仮の値）。変更の候補は「今 → 届いた値」を並べます。お答えの無い欄（空欄・「あとで」）は、承認しても今の値のままです。</p>
       <IssueList issues={view.issues} />
       {groups.map((g) => (
         <div class="hs-group" key={g}>
           <h3>{g}</h3>
           {view.candidates
-            .filter((c) => c.group === g)
+            .filter((c) => c.group === g && c.kind !== "noAnswer")
             .map((c) => (
               <div class={`hs-cand k-${c.kind}${c.review || c.contradictions.length > 0 ? " attn" : ""}`} key={c.id} data-candidate={c.kind}>
                 <label class="hs-cand-h">
@@ -228,14 +261,19 @@ function ReviewPanel({ wh, view, onSave, onClose, heading }: { wh: WorkingHouseh
                     {m}
                   </p>
                 ))}
+                {c.keep !== null ? (
+                  <p class="hs-keep" data-hearing-keep>
+                    {c.keep}
+                  </p>
+                ) : null}
+                {c.caution !== null ? (
+                  <p class="hs-keep" data-hearing-caution>
+                    {c.caution}
+                  </p>
+                ) : null}
                 <dl class="hs-fields">
                   {c.fields.map((f, i) => (
-                    <div key={i}>
-                      <dt>{f.label}</dt>
-                      <dd>
-                        {f.answer} <Mark f={f} />
-                      </dd>
-                    </div>
+                    <FieldRow key={i} f={f} />
                   ))}
                 </dl>
                 {c.note !== null ? <p class="rp-note">{c.note}</p> : null}
@@ -243,6 +281,19 @@ function ReviewPanel({ wh, view, onSave, onClose, heading }: { wh: WorkingHouseh
             ))}
         </div>
       ))}
+      {kept.length > 0 ? (
+        <div class="hs-group" data-hearing-kept>
+          <h3>お答えがありません（今の値のまま。{kept.length}）</h3>
+          <p class="rp-note">お客さまが空欄・「あとで」にした項目や、このシートで聞いていない項目です。今の世帯の値を残し、候補にしません。</p>
+          <ul class="hs-list">
+            {kept.map((c) => (
+              <li key={c.id} data-hearing-kept-item>
+                {c.title}: {[...new Set(c.fields.flatMap((f) => f.diffs.filter((d) => d.kept).map((d) => `${d.label}（今 ${d.current}）`)))].join("、")}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {view.checklist.length > 0 ? (
         <div class="hs-group">
           <h3>面談で確かめること（{view.checklist.length}）</h3>
@@ -284,8 +335,8 @@ function ReviewPanel({ wh, view, onSave, onClose, heading }: { wh: WorkingHouseh
 export function HearingTools({ wh, sheets, onSave, webProps }: Props & { webProps?: WebProps }) {
   const [mode, setMode] = useState<null | "export" | "busy" | "web">(null);
   const [view, setView] = useState<ImportView | null>(null);
-  /** Web の依頼から取り込んでいるとき、その依頼番号（承認したら取り込み済みの印を付ける） */
-  const [webImport, setWebImport] = useState<string | null>(null);
+  /** Web の依頼から取り込んでいるとき、その依頼番号と、お客さまが送った日時（承認したら取り込み済みの印を付ける） */
+  const [webImport, setWebImport] = useState<{ id: string; sentAt: string | null } | null>(null);
   const [issues, setIssues] = useState<readonly Issue[] | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const pick = async () => {
@@ -335,9 +386,9 @@ export function HearingTools({ wh, sheets, onSave, webProps }: Props & { webProp
           appVersion={APP_VERSION}
           onSave={onSave}
           saveNow={webProps.saveNow}
-          onImport={(v, id) => {
+          onImport={(v, id, sentAt) => {
             setMsg(null);
-            setWebImport(id);
+            setWebImport({ id, sentAt });
             setView(v);
           }}
         />
@@ -359,8 +410,9 @@ export function HearingTools({ wh, sheets, onSave, webProps }: Props & { webProp
         <ReviewPanel
           wh={wh}
           view={view}
-          onSave={(w) => onSave(webImport !== null ? markImported(w, webImport, approvalTime()) : w)}
-          {...(webImport !== null ? { heading: `Web のお答えの取り込み（${webImport}）` } : {})}
+          onSave={(w) => onSave(webImport !== null ? markImported(w, webImport.id, approvalTime()) : w)}
+          {...(webImport !== null ? { heading: `Web のお答えの取り込み（${webImport.id}）` } : {})}
+          {...(webImport?.sentAt != null ? { sentAt: webImport.sentAt } : {})}
           onClose={(m) => {
             setView(null);
             setWebImport(null);

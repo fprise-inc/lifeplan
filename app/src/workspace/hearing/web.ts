@@ -84,23 +84,32 @@ export function withWebEntry(wh: WorkingHousehold, e: WebLogEntry): WorkingHouse
   return { ...wh, hearing: { ...log, web: [...list, e] } };
 }
 
-/** 画面に出す状況（期限は発行の記録の日時で決める） */
-export type WebStatus = "issued" | "answered" | "received" | "imported" | "expired" | "cancelled";
+/**
+ * 画面に出す状況（期限は発行の記録の日時で決める）。undone は、取り込んだ後に元に戻して、世帯の取り込みの記録からその依頼が消えたもの
+ * （依頼の記録は元に戻すで戻さない〔keepWebLog〕ので、世帯の取り込みの記録と照らして出す）
+ */
+export type WebStatus = "issued" | "answered" | "received" | "imported" | "undone" | "expired" | "cancelled";
 
 /** その依頼がまだ書類・答えを受け付けているか（期限の中・取り消していない・受け付けを終えていない） */
 export function accepting(e: WebLogEntry, now: Date): boolean {
   return e.state !== "cancelled" && e.closedAt === undefined && Date.parse(e.record.expiresAt) > now.getTime();
 }
 
-export function statusOf(e: WebLogEntry, now: Date, answered = false): WebStatus {
-  if (e.state === "imported") return "imported";
+export function statusOf(e: WebLogEntry, now: Date, answered = false, wh?: WorkingHousehold): WebStatus {
+  if (e.state === "imported") return wh !== undefined && !logOf(wh).imports.some((i) => i.requestId === e.record.requestId) ? "undone" : "imported";
   if (e.state === "received") return "received";
   if (e.state === "cancelled") return "cancelled";
   if (Date.parse(e.record.expiresAt) <= now.getTime()) return "expired";
   return answered ? "answered" : "issued";
 }
 
-export const STATUS_TEXT: Readonly<Record<WebStatus, string>> = { issued: "発行済み", answered: "回答あり", received: "受け取り済み", imported: "取り込み済み", expired: "期限切れ", cancelled: "取り消し" };
+export const STATUS_TEXT: Readonly<Record<WebStatus, string>> = { issued: "発行済み", answered: "回答あり", received: "受け取り済み", imported: "取り込み済み", undone: "受け取り済み（取り込みを元に戻しました）", expired: "期限切れ", cancelled: "取り消し" };
+
+/** お客さまが送った日時の言葉（例: 11月6日 22:15） */
+export function sentAtText(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "不明" : d.toLocaleString("ja-JP", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
 
 // ---- 元のシート・ひな形 ----
 
@@ -406,7 +415,8 @@ export function importWeb(wh: WorkingHousehold, e: WebLogEntry, appVersion: stri
   if (def === undefined || e.received === undefined) throw new Error("E_HEARING_NO_SHEET");
   const idef = importDefinition(def, e.record.selection);
   const filled = filledOf(e.record, { answers: e.received.answers }, appVersion);
-  const r = importAnswers(idef, filled, { baseMonth: wh.request.input.baseMonth, ...(newId !== undefined ? { newId } : {}) });
+  // 記入の年月は送った月（ページが入れる）。計算基準月より後でも、1年までは知らせない
+  const r = importAnswers(idef, filled, { baseMonth: wh.request.input.baseMonth, filledOnIsSubmission: true, ...(newId !== undefined ? { newId } : {}) });
   return viewOfResult({ ok: true, ...r, definition: idef, requestRecord: null }, wh);
 }
 

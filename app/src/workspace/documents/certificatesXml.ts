@@ -4,6 +4,7 @@
 // - 小規模企業共済等掛金控除証明書: 小規模企業共済・iDeCo の口座（新しい物の候補。今ある口座にも当てられる）と毎月の掛金
 // - 住宅取得資金に係る借入金の年末残高等証明書（金融機関の証明書）: 住宅ローン（新しい物の候補。今あるローンにも当てられる）の残高・時点・借入額・借りた年月・完済の年月・名義
 // - 年末調整のための住宅借入金等特別控除証明書（税務署の証明書。居住の年ごとの版）: 住宅ローンの入居の年月・住宅の種類・新築か中古か・年末残高（調書の方式の版だけ）
+// - 公的年金等の源泉徴収票（源泉徴収票等のオンライン化の形。年分ごとの版）: 支払金額・源泉徴収税額・社会保険料の額（どれも照合だけの値。0154 の追記）
 // 読まない（木に入れずに捨てる）: 氏名・住所・郵便番号・基礎年金番号・共済契約者番号・整理番号・お問い合わせ番号・ユニークコード・法人番号・事業免許番号・
 // 債権者の所在地と連絡先・借入の番号・連帯債務者の名前・備考・その他の文。出す形は書類の候補の答え（document-candidates@1）で、読み口 readProposal を通す
 import { PROPOSAL_CONTRACT, type DocType } from "./types.ts";
@@ -24,6 +25,34 @@ export interface CertificateAnswer {
 export const PENSION_PREMIUM = "TEG840";
 export const MUTUAL_AID = "TEG850";
 export const LOAN_BALANCE = "TEG900";
+
+/**
+ * 公的年金等の源泉徴収票の版ごとの札（源泉徴収票等のオンライン化の仕様。年分の版ごとに接頭辞が違う）。
+ * 支払を受ける者（住所・氏名・生年月日）・扶養親族の氏名・摘要・支払者の法人番号と所在地と電話番号は読まない（CERTIFICATE_SKIPPED）。
+ * old: 平成19年〜平成28年以降用（社会保険料の金額は I00000・摘要は J00000・支払者は K00000）、new: 平成30年以降用から（社会保険料の額は K00000・摘要は O00000・支払者は P00000）
+ */
+interface PensionSlipForm {
+  p: string;
+  layout: "old" | "new";
+}
+export const PUBLIC_PENSION_FORMS: Readonly<Record<string, PensionSlipForm>> = {
+  TEG400: { p: "YA", layout: "old" },
+  TEG401: { p: "ZB", layout: "old" },
+  TEG402: { p: "ZD", layout: "old" },
+  TEG403: { p: "ZE", layout: "old" },
+  TEG404: { p: "ZH", layout: "old" },
+  TEG405: { p: "ZJ", layout: "new" },
+  TEG406: { p: "ZM", layout: "new" },
+  TEG407: { p: "ZN", layout: "new" },
+  TEG408: { p: "ZQ", layout: "new" },
+};
+const slipTags = (f: PensionSlipForm) =>
+  f.layout === "old"
+    ? { social: `${f.p}I00000`, payerName: `${f.p}K00020`, skip: [`${f.p}C00000`, `${f.p}J00000`, `${f.p}N00000`, `${f.p}O00000`, `${f.p}P00000`, `${f.p}K00005`, `${f.p}K00010`, `${f.p}K00030`] }
+    : { social: `${f.p}K00000`, payerName: `${f.p}P00030`, skip: [`${f.p}C00000`, `${f.p}L00000`, `${f.p}M00000`, `${f.p}N00000`, `${f.p}O00000`, `${f.p}P00010`, `${f.p}P00020`, `${f.p}P00040`] };
+/** 明細の区分（所得税法第203条の3の号ごと）の支払金額・源泉徴収税額の札（内書は読まない） */
+const SLIP_PAID = ["D00040", "D00110", "D00180", "D00250"];
+const SLIP_TAX = ["D00070", "D00140", "D00210", "D00280"];
 
 /** 年末調整のための住宅借入金等特別控除証明書の版ごとの札（接頭辞・居住開始年月日〔新築等・増改築等〕・住宅の区分等・年末残高・備考・適用種別） */
 interface CreditForm {
@@ -78,6 +107,9 @@ export const CERTIFICATE_SKIPPED: readonly string[] = [
   "WIB00010",
   "WIB00030",
   "WIC00000",
+  // 電子署名（電子証明書の中に名前が入る。読み手は署名を確かめない。0153 の1）
+  "Signature",
+  ...Object.values(PUBLIC_PENSION_FORMS).flatMap((f) => slipTags(f).skip),
   ...Object.values(LOAN_CREDIT_FORMS).flatMap((f) => [`${f.p}D00010`, `${f.p}D00090`, `${f.p}D00130`, `${f.p}D00160`, `${f.p}D00170`, `${f.p}G00000`, ...(f.remarks !== null ? [f.remarks] : [])]),
 ];
 
@@ -322,4 +354,35 @@ export function loanCreditAnswer(cert: XmlElement, form: CreditForm, issues: str
   const raw: Raw = { contract: PROPOSAL_CONTRACT, docType: "housingLoanCredit", objects, values, references: [] };
   if (issued !== null) raw.asOf = ym(issued);
   return { docType: "housingLoanCredit", raw, contracts: objects.length, masked: count.masked };
+}
+
+// ---- 公的年金等の源泉徴収票 ----
+
+/**
+ * 支払金額・源泉徴収税額（区分の号ごとの額の合計）・社会保険料の額を、照合だけの値にする（年金の額は年金額改定通知書で入れる。手引き
+ * public-pension-withholding.md と同じ扱い）。支払金額は公的年金の行、源泉徴収税額は所得税の行と、年分の年で比べる。書類の時点は年分の12月
+ */
+export function publicPensionAnswer(cert: XmlElement, form: PensionSlipForm, issues: string[]): CertificateAnswer | null {
+  const count: Count = { masked: 0 };
+  const short = shortIn(count);
+  const t = slipTags(form);
+  const year = yearOf(childOf(cert, `${form.p}B00000`));
+  const body = childOf(cert, `${form.p}D00000`) ?? cert;
+  const paid = sum(SLIP_PAID.map((x) => amountOf(findFirst(body, `${form.p}${x}`))));
+  const tax = sum(SLIP_TAX.map((x) => amountOf(findFirst(body, `${form.p}${x}`))));
+  const social = amountOf(childOf(cert, t.social));
+  const payer = short(textOf(findFirst(cert, t.payerName)), 20);
+  if (paid === null && tax === null && social === null) {
+    issues.push("公的年金等の源泉徴収票に、支払金額・源泉徴収税額・社会保険料の額がありません");
+    return null;
+  }
+  const of = payer !== "" ? `（${payer}）` : "";
+  const p0 = cert.name;
+  const references: Raw[] = [];
+  if (paid !== null) references.push({ label: `公的年金の支払金額${of}`, amount: paid, ...(year !== null ? { row: "cf.income.pension", year } : {}), source: { where: "支払金額", path: `${p0}/${form.p}D00000` } });
+  if (tax !== null) references.push({ label: `源泉徴収税額（公的年金${payer !== "" ? `・${payer}` : ""}）`, amount: tax, ...(year !== null ? { row: "cf.taxSi.incomeTax", year } : {}), source: { where: "源泉徴収税額", path: `${p0}/${form.p}D00000` } });
+  if (social !== null) references.push({ label: "年金から天引きされた社会保険料", amount: social, source: { where: "社会保険料の額", path: `${p0}/${t.social}` } });
+  const raw: Raw = { contract: PROPOSAL_CONTRACT, docType: "publicPensionWithholding", values: [], references };
+  if (year !== null) raw.asOf = `${year}-12`;
+  return { docType: "publicPensionWithholding", raw, contracts: 0, masked: count.masked };
 }

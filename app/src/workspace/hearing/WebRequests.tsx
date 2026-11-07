@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { HearingWebHost } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import type { ImportView } from "./sheet.ts";
-import { accepting, checkAnswered, cleanupOnServer, documentFileName, extendState, extendWeb, fileBytes, gateLines, importWeb, invitationText, limitOf, receiveWeb, removeOnServer, STATUS_TEXT, statusOf, webLog, withoutFile, withWebEntry, type StoredDocumentFile, type WebLogEntry } from "./web.ts";
+import { accepting, checkAnswered, cleanupOnServer, documentFileName, extendState, extendWeb, fileBytes, gateLines, importWeb, invitationText, limitOf, receiveWeb, removeOnServer, sentAtText, STATUS_TEXT, statusOf, webLog, withoutFile, withWebEntry, type StoredDocumentFile, type WebLogEntry } from "./web.ts";
 
 interface Props {
   wh: WorkingHousehold;
@@ -15,7 +15,7 @@ interface Props {
   appVersion: string;
   onSave: (wh: WorkingHousehold) => void;
   saveNow: () => Promise<boolean>;
-  onImport: (view: ImportView, requestId: string) => void;
+  onImport: (view: ImportView, requestId: string, submittedAt: string | null) => void;
 }
 
 const DOC_STATUS: Record<string, string> = { attached: "届いた", notAvailable: "手元にない", later: "あとで送る", blank: "まだ" };
@@ -53,6 +53,8 @@ const dayTime = (iso: string) => new Date(iso).toLocaleString("ja-JP", { month: 
 export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, onImport }: Props) {
   const list = webLog(wh).slice().sort((a, b) => (a.record.issuedAt < b.record.issuedAt ? 1 : -1));
   const [answered, setAnswered] = useState<Record<string, boolean>>({});
+  /** 確かめたら、まだ受け取っていない答えか書類の送りがあった（「受け取る」を出す） */
+  const [arrived, setArrived] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<Record<string, string>>({});
   const [open, setOpen] = useState<string | null>(null);
@@ -88,12 +90,14 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
       const a = await checkAnswered(e, web.call);
       if (a === null) return note(e.record.requestId, "サーバーにありません（期限が過ぎたか、消しました）");
       setAnswered((x) => ({ ...x, [e.record.requestId]: a.answered }));
+      setArrived((x) => ({ ...x, [e.record.requestId]: a.newAnswers || a.batches > 0 }));
       const parts = [...(a.newAnswers ? ["答え"] : []), ...(a.batches > 0 ? [`書類（${a.batches}回分）`] : [])];
       note(e.record.requestId, parts.length > 0 ? `${parts.join("と")}が届いています。「受け取る」を押してください` : a.answered ? "新しく届いた書類はありません" : "まだ届いていません");
     });
   const take = (e: WebLogEntry) =>
     run(e, async () => {
       const r = await receiveWeb(wh, e, web.call);
+      setArrived((x) => ({ ...x, [e.record.requestId]: false }));
       if (r === null) return note(e.record.requestId, e.received === undefined ? "まだ届いていません" : "新しく届いた書類はありません");
       onSave(r.wh);
       // 世帯ファイルに書けてから、受け取った分だけサーバーから消す（書けなければ消さない。もう一度受け取れる）
@@ -141,7 +145,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
       </div>
       <ul class="wr-list">
         {list.map((e) => {
-          const st = statusOf(e, now, answered[e.record.requestId] === true);
+          const st = statusOf(e, now, answered[e.record.requestId] === true, wh);
           const id = e.record.requestId;
           const docs = e.record.selection.documents;
           const live = accepting(e, now);
@@ -156,6 +160,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                 {e.closedAt !== undefined ? <span class="hs-kind wr-st cancelled">受け付け終了</span> : null}
                 <small>
                   発行 {day(e.record.issuedAt)}・期限 <span data-web-expires>{day(e.record.expiresAt)}</span>（延長は {day(limitOf(e.record))} まで）・項目 {e.record.selection.sections.reduce((n, s) => n + s.items.length, 0)}・書類 {docs.length}
+                  {e.received !== undefined ? <span data-web-sent-at>・お客さまが送った日時 {sentAtText(e.received.submittedAt)}</span> : null}
                 </small>
               </div>
               {e.received !== undefined || batches.length > 0 ? (
@@ -172,12 +177,15 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
               <div class="rp-actions">
                 {live ? (
                   <>
-                    <button type="button" class="btn" disabled={busy !== null} onClick={() => void check(e)} data-web-check>
+                    {/* 届いていると分かるまでは「届いたかを確かめる」が主のボタン。分かったら「受け取る」を主にする（0139・0158） */}
+                    <button type="button" class={`btn${arrived[id] === true ? "" : " primary"}`} disabled={busy !== null} onClick={() => void check(e)} data-web-check>
                       届いたかを確かめる
                     </button>
-                    <button type="button" class="btn primary" disabled={busy !== null} onClick={() => void take(e)} data-web-receive>
-                      受け取る
-                    </button>
+                    {arrived[id] === true ? (
+                      <button type="button" class="btn primary" disabled={busy !== null} onClick={() => void take(e)} data-web-receive>
+                        受け取る
+                      </button>
+                    ) : null}
                     <button type="button" class="btn" disabled={busy !== null || !ext.ok} onClick={() => void extend(e)} title={ext.ok ? "押した日から30日に延ばします（発行した日から90日まで）" : undefined} data-web-extend>
                       {ext.ok && ext.to !== null ? `延長（${day(ext.to)}まで）` : "延長（今日から30日）"}
                     </button>
@@ -203,11 +211,12 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                     )}
                   </>
                 ) : null}
-                {st === "received" || st === "imported" ? (
-                  <button type="button" class={`btn${st === "received" ? " primary" : ""}`} onClick={() => onImport(importWeb(wh, e, appVersion), id)} data-web-import>
+                {st === "received" || st === "imported" || st === "undone" ? (
+                  <button type="button" class={`btn${st === "imported" ? "" : " primary"}`} onClick={() => onImport(importWeb(wh, e, appVersion), id, e.received?.submittedAt ?? null)} data-web-import>
                     {st === "received" ? "取り込む（候補を確かめる）" : "もう一度取り込む"}
                   </button>
                 ) : null}
+                {st === "undone" ? <span class="rp-note">取り込みを元に戻したので、世帯には入っていません（受け取った答えはこの世帯に残っています）。</span> : null}
                 {(e.received !== undefined || batches.length > 0) && docs.length > 0 ? (
                   <button type="button" class="btn" onClick={() => setOpen(open === id ? null : id)} aria-expanded={open === id} data-web-docs-open>
                     書類（{e.files?.length ?? 0}）
