@@ -417,7 +417,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
           <h2 id="ip-title">
             {item.label}
             {item.added !== null ? <span class="fp-tag">📌 ピン</span> : null}
-            <StatusBadge item={item} />
+            <StatusBadge item={item} {...(estimatedShown < estimatedAll ? { shown: estimatedShown } : {})} />
             {/* カードの説明と入れ方の決まりは「?」の中（0077） */}
             <Help label={item.label} id="panel">
               {item.lead !== "" ? <p>{item.lead}</p> : null}

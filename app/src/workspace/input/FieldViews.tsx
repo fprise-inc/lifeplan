@@ -13,7 +13,7 @@ import { enterInput, noteRejected, type Settled } from "./pendingInput.ts";
 import type { Timepoint } from "../../engine/types.ts";
 import { groupShown, type ActionDef, type FieldDef, type GroupDef, type Level, type Option, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
-import { availableOps, fieldStatus, hasFieldValue, FILL_LABEL, fillTitle, OP_LABELS, opTitle, STATUS_LABELS, substituteText, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
+import { availableOps, fieldStatus, hasFieldValue, FILL_LABEL, fillTitle, OP_LABELS, opTitle, STATUS_LABELS, substituteText, confirmTyped, typeFromAge, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
 import { amountWarning, formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, pctFromRate, rateFromPct, readYen, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
 import { outOfRangeText, rateInRange } from "./rateRanges.ts";
 import { revealAdded, revealOpened } from "../../presentation/revealAdded.ts";
@@ -960,30 +960,39 @@ export function StateOpLinks({ f, ops, run, lead }: { f: FieldDef; ops: readonly
   );
 }
 
-/** 欄を離れるときに書くか: 入ったときと同じ文字のまま離れたら書かない（欄に入って離れる・Tab で通るだけで、値も状態も変えない。0041） */
-export const shouldCommitOnBlur = (startText: string | null, text: string): boolean => startText === null || text !== startText;
+/**
+ * 欄を離れるときに書くか: 入ったときと同じ文字のまま離れたら書かない（欄に入って離れる・Tab で通るだけで、値も状態も変えない。0041）。
+ * ただし推定（書類待ち・仮の値）の欄に文字を打ったなら、同じ文字でも書く（typedEstimate。打った値は推定と同じでも確定。0041 の追記 2026-11-07）
+ */
+export const shouldCommitOnBlur = (startText: string | null, text: string, typedEstimate = false): boolean => startText === null || text !== startText || typedEstimate;
 
-/** 打った文字を欄の値として読んだ結果。note は読み替えの知らせ（「15万円（150,000円）として入れました」）、warn は桁の確かめ、assume は仮の印の理由 */
+/** 打ったら同じ値でも書く欄の状態か（推定・書類待ち。仮の値も推定の状態で読む） */
+const typedStateful = (s: { status: ValueStatus }): boolean => s.status === "estimated" || s.status === "unknown";
+
+/**
+ * 打った文字を欄の値として読んだ結果。note は読み替えの知らせ（「15万円（150,000円）として入れました」）、warn は桁の確かめ、
+ * fromAge は年齢から出した値の確定の根拠（「38歳」と打った生年月。確定にし、確かさは「年齢から」と残す。0041 の追記 2026-11-07）
+ */
 export interface FieldRead {
   v: Val;
   note: string | null;
   warn: string | null;
-  assume: string | null;
+  fromAge: string | null;
 }
 
 /**
  * 打った文字を欄の値として読む（読めない・入れられない文字は undefined）。円の欄は見せている単位（unit）と期間（period）で読み、保存の期間の額にする。
- * 生年月の欄（ageInput）は年齢でも読み、生まれた年月の推定を仮の値にする
+ * 生年月の欄（ageInput）は年齢でも読み、生まれた年月の幅のまん中を年齢から出した確定の値にする（根拠は「年齢から」）
  */
 export function readField(f: FieldDef, text: string, o: { unit: YenUnit; period: YenPeriod; baseMonth: string }): FieldRead | undefined {
-  const plainRead = (v: Val): FieldRead => ({ v, note: null, warn: null, assume: null });
+  const plainRead = (v: Val): FieldRead => ({ v, note: null, warn: null, fromAge: null });
   if (normalizeNumberText(text) === "") return f.optional === true ? plainRead(null) : undefined;
   switch (f.kind) {
     case "yen": {
       const r = readYen(text, o.unit);
       if (!r.ok || r.yen < 0) return undefined;
       const stored = fromPeriod(r.yen, f.basis, o.period);
-      return { v: stored, note: r.note, warn: amountWarning(r, o.unit, { basis: f.basis, stored, typicalMax: f.typicalMax, text }), assume: null };
+      return { v: stored, note: r.note, warn: amountWarning(r, o.unit, { basis: f.basis, stored, typicalMax: f.typicalMax, text }), fromAge: null };
     }
     case "int": {
       const v = parseInteger(text);
@@ -1004,15 +1013,12 @@ export function readField(f: FieldDef, text: string, o: { unit: YenUnit; period:
       if (ym !== null) return plainRead(ym);
       const b = f.ageInput === true ? birthFromAge(text, o.baseMonth) : null;
       if (b === null) return undefined;
-      return { v: b.ym, note: `${b.age}歳（${formatYearMonth(b.ym)}生まれとして入れました。月が分かれば直してください）`, warn: null, assume: `仮の値（${b.age}歳から推定した生年月）` };
+      return { v: b.ym, note: `${b.age}歳（${formatYearMonth(b.ym)}生まれとして入れました。月が分かれば直してください）`, warn: null, fromAge: `年齢から（${b.age}歳と聞いて出した生年月）` };
     }
     default:
       return plainRead(text);
   }
 }
-
-/** 仮の印を付けた世帯（生年月の欄に年齢で入れたときなど） */
-const withAssumed = (wh: WorkingHousehold, key: string, why: string | null): WorkingHousehold => (why === null ? wh : { ...wh, assumed: { ...wh.assumed, [key]: why } });
 
 /** 選ぶ欄の選択肢。見出し（group）のある選択肢は、同じ見出しが続く所を optgroup にまとめる */
 export function optionNodes(options: readonly Option[]): ComponentChildren[] {
@@ -1063,6 +1069,8 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   const [draft, setDraft] = useState<string | null>(null);
   /** 欄に入ったときの文字（離れるときに同じ文字なら何も書かない。0041）。打ちかけの値を決めたら、決めた文字にする */
   const startText = useRef<string | null>(null);
+  /** 欄に入ってから文字を打ったか（打っていれば、同じ文字に戻っても推定の欄は確定にする。打つのは明示の操作。0041 の追記 2026-11-07） */
+  const typed = useRef(false);
   const inputEl = useRef<HTMLInputElement>(null);
   /** 打ちかけの値の登録を外す（pendingInput.ts。入っている間だけ持つ） */
   const leaveInput = useRef<(() => void) | null>(null);
@@ -1084,8 +1092,11 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   const [period, setPeriod] = useState<YenPeriod>(f.kind === "yen" && f.basis === "annual" ? "annual" : "monthly");
   const id = fieldDomId(f.key);
   const commit = (v: Val) => onEdit(f.set(wh, v));
-  /** 打って入れる（未入力の欄に打った値は、0円でも確定。valueState.ts の typeValue。0041 の追記）。仮の値なら仮の印も付ける */
-  const commitTyped = (r: FieldRead) => onEdit(withAssumed(typeValue(f, wh, r.v), f.key, r.assume));
+  /**
+   * 打って入れる（未入力の欄に打った値は0円でも、推定と同じ値でも確定。valueState.ts の typeValue。0041 の追記）。
+   * 年齢から出した生年月は、根拠「年齢から」を残した確定（typeFromAge）
+   */
+  const commitTyped = (r: FieldRead) => onEdit(r.fromAge !== null ? typeFromAge(f, wh, r.v, r.fromAge) : typeValue(f, wh, r.v));
   const runOp = (op: StateOp) => {
     if (stateOps === null) return;
     onEdit(stateOps(wh, f, op));
@@ -1096,10 +1107,10 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   const badge =
     shownStatus !== null && shownStatus !== "confirmed" ? (
       <StateMark status={shownStatus} basis={shownStatus === "notApplicable" ? null : basisText} text={shownStatus === "estimated" && status === null && state.estimated == null ? "仮" : shownStatus === "missing" ? "未入力" : STATUS_LABELS[shownStatus]} label={f.label} doc={f.docCheck} estimate={{ id: estimateTextId(f, wh), value: estimateValueText(f, wh) }} office={status?.office} />
-    ) : state.partEstimated != null ? (
-      // 欄の値は確定でも、内訳の一部が推定（年収〔賞与込み〕の賞与など）なら「推定」の印（押すと根拠。0077 の追記）
-      <StateMark status="estimated" basis={state.partEstimated} text="推定" label={f.label} />
     ) : null;
+  // 欄の値は確定でも、内訳の一部が推定（年収〔賞与込み〕の賞与など）: 欄の名前の横の札は出さない（札は欄の値そのものが推定のときだけ。
+  // 通しの確かめ。0150）。内訳の行（「うち賞与 108.1万円（推定）」）の後ろに小さな「推定」の印を置き、押すと推定の部分の根拠
+  const partLine = shownStatus === "confirmed" || shownStatus === null ? (state.partEstimated ?? null) : null;
 
   // 推定の値をそのまま入れる（値の状態の操作の確定と同じ）は、欄の横か中のボタン（0041 の追記）
   const canFill = ops.includes("confirm") && shownStatus !== null;
@@ -1150,11 +1161,12 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
     const parse = (text: string): FieldRead | undefined => readField(f, text, { unit, period, baseMonth: wh.request.input.baseMonth });
     /** 打った文字を決める（入ったときと同じ文字なら何もしない。読めれば書いて知らせを出す。読めなければ書かない） */
     const decide = (t: string): Settled => {
-      if (!shouldCommitOnBlur(startText.current, t)) return "none";
+      if (!shouldCommitOnBlur(startText.current, t, typed.current && typedStateful(status ?? fieldStatus(f, wh)))) return "none";
       const r = parse(t);
       if (r === undefined) return "rejected";
       commitTyped(r);
       startText.current = t;
+      typed.current = false;
       setTold(r.note !== null || r.warn !== null ? { note: r.note, warn: r.warn } : null);
       return "committed";
     };
@@ -1191,12 +1203,14 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
         onFocus={() => {
           setDraft(shown);
           startText.current = shown;
+          typed.current = false;
           setTold(null);
           leaveInput.current = enterInput({ settle: () => settleNow.current(), focus: () => inputEl.current?.focus() });
         }}
         onInput={(e) => {
           // 打っている間は下書きだけ（世帯は変えない）。読めない文字の理由は下書きから欄の下に出す
           setDraft((e.currentTarget as HTMLInputElement).value);
+          typed.current = true;
           setRejected(null);
           setTold(null);
         }}
@@ -1211,6 +1225,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
           }
           setDraft(null);
           startText.current = null;
+          typed.current = false;
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
@@ -1268,6 +1283,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
         ) : hint !== null ? (
           <span class="fld-hint">{hint}</span>
         ) : null}
+        {partLine !== null ? <StateMark status="estimated" basis={partLine} text="推定" label={`${f.label}の内訳`} /> : null}
       </div>
       {sug !== undefined ? (
         <div class="fld-suggest" data-suggest={f.key}>
@@ -1345,6 +1361,18 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
   const [rejected, setRejected] = useState<string | null>(null);
   const [picked, setPicked] = useState<WhenMode | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  /** 欄に入ってから文字を打ったか（推定の欄は、同じ文字に戻っても確定にする。0041 の追記 2026-11-07） */
+  const typed = useRef(false);
+  /** 打ったが同じ時点の文字のまま: 推定・書類待ちの欄なら、その値のまま打った確定にする（valueState.ts の confirmTyped） */
+  const sameTyped = (text: string, wasTyped: boolean): boolean => text === shown && wasTyped && status !== null && typedStateful({ status });
+  /**
+   * 打った時点を書く。空欄に灰色で見せている推定と同じ時点を打った（書いても世帯が変わらない）なら、推定・書類待ちの欄は打った確定にする
+   * （0041 の追記 2026-11-07。「70」と打っても推定のままだった）
+   */
+  const commitTypedWhen = (tp: Timepoint | null, wasTyped: boolean) => {
+    const next = time.setWhen(wh, tp, "auto");
+    onEdit(next === wh && wasTyped && status !== null && typedStateful({ status }) ? confirmTyped(f, wh) : next);
+  };
   /** 打ちかけの値の登録を外す（pendingInput.ts） */
   const leaveInput = useRef<(() => void) | null>(null);
   const settleNow = useRef<() => Settled>(() => "none");
@@ -1391,6 +1419,12 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
     leaveInput.current?.();
     leaveInput.current = null;
     setDraft(null);
+    const wasTyped = typed.current;
+    typed.current = false;
+    if (sameTyped(text, wasTyped)) {
+      onEdit(confirmTyped(f, wh));
+      return;
+    }
     if (text === shown) return;
     const r = readText(time, wh, ctx, text);
     if ("reason" in r) {
@@ -1400,17 +1434,23 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
     }
     setRejected(null);
     setPicked(null);
-    commit(r.tp, "auto");
+    commitTypedWhen(r.tp, wasTyped);
   };
   // 欄を離れずに画面を変える操作の前（pendingInput.ts）: 打ちかけの時点を決める。読めなければ欄に残して止める（理由は欄の下に出ている）
   settleNow.current = () => {
     const text = input.current?.value ?? draft ?? shown;
+    const wasTyped = typed.current;
+    typed.current = false;
+    if (sameTyped(text, wasTyped)) {
+      onEdit(confirmTyped(f, wh));
+      return "committed";
+    }
     if (text === shown) return "none";
     const r = readText(time, wh, ctx, text);
     if ("reason" in r) return "rejected";
     setRejected(null);
     setPicked(null);
-    commit(r.tp, "auto");
+    commitTypedWhen(r.tp, wasTyped);
     setDraft(null);
     return "committed";
   };
@@ -1433,10 +1473,12 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
           aria-describedby={`${id}-read`}
           onFocus={() => {
             setDraft(shown);
+            typed.current = false;
             leaveInput.current = enterInput({ settle: () => settleNow.current(), focus: () => input.current?.focus() });
           }}
           onInput={(e) => {
             setDraft((e.currentTarget as HTMLInputElement).value);
+            typed.current = true;
             setRejected(null);
           }}
           onBlur={(e) => leave((e.currentTarget as HTMLInputElement).value)}

@@ -133,11 +133,14 @@ describe("働き方と収入: 年収（賞与込み）の1欄", () => {
     expect(total.get(w).value).toBe(8000000);
     expect(total.get(w).hint).toContain("推定");
     expect(fieldStatus(total, w).status).toBe("confirmed");
-    // 年収は確定でも賞与が推定なので、欄の名前の横に「推定」の印（押すと賞与の根拠）
+    // 年収は確定でも賞与が推定なので、内訳の行（うち賞与 …（推定））の後ろに「推定」の印（押すと賞与の根拠）。欄の名前の横には出さない
+    // （札は欄の値そのものが推定のときだけ。0150）
     expect(total.get(w).partEstimated).toMatch(/^賞与は年収（賞与込み）800万円を、賃金の統計/);
     const html = renderToString(h(Field, { f: total, wh: w, onEdit: () => {} }));
     expect(html).toMatch(/class="help-btn help-mark badge est"[^>]*data-state="estimated">推定</);
     expect(html).toContain("推定: 賞与は年収（賞与込み）800万円を");
+    const label = /<div class="fld-l">([\s\S]*?)<\/div>/.exec(html)?.[1] ?? "";
+    expect(label).not.toContain('data-state="estimated"');
     // 賞与も確定なら印は出さない
     expect(total.get(wh0).partEstimated ?? null).toBeNull();
     expect(() => preview(w.request)).not.toThrow();

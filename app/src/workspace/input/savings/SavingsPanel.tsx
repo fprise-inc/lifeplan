@@ -9,6 +9,7 @@ import { addMonths, ageAt } from "../../levers.ts";
 import { actionHelp, Field, fieldDomId, Group, MoreToggle, Section, shouldCommitOnBlur, useGroupOpen, visible } from "../FieldViews.tsx";
 import { FieldStateBadge, FieldStateLine } from "../FieldStateLine.tsx";
 import { allFields, type FieldDef, type GroupDef, type Level, type SectionDef } from "../form.ts";
+import { fieldStatus, typeValue } from "../valueState.ts";
 import { mutate, type WorkingHousehold } from "../household.ts";
 import { accountHolderRule, holderOptions, memberLabel } from "../labels.ts";
 import { buildStage } from "../stages/index.ts";
@@ -48,6 +49,7 @@ import {
   accountName,
   payoutAgeBasis,
   payoutAgeOf,
+  idecoStop,
   payoutEstimate,
   pooledOf,
   PAYOUT_METHODS,
@@ -120,6 +122,8 @@ function NumBox(p: {
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [start, setStart] = useState<string | null>(null);
+  /** 欄に入ってから文字を打ったか（打ったなら同じ文字に戻っても書く。推定の欄は推定と同じ値でも確定になる。0041 の追記 2026-11-07） */
+  const typed = useRef(false);
   const el = useRef<HTMLInputElement>(null);
   /** 打ちかけの値の登録を外す（pendingInput.ts。入っている間だけ持つ） */
   const leaveInput = useRef<(() => void) | null>(null);
@@ -150,11 +154,12 @@ function NumBox(p: {
   // 欄を離れずに画面を変える操作の前（pendingInput.ts）: 打ちかけの値を決める。読めなければ欄に残して止める
   settleNow.current = () => {
     const t = el.current?.value ?? draft ?? shown;
-    if (!shouldCommitOnBlur(start, t)) return "none";
+    if (!shouldCommitOnBlur(start, t, typed.current)) return "none";
     const v = parse(t);
     if (v === undefined) return "rejected";
     p.onCommit(v);
     setStart(t);
+    typed.current = false;
     return "committed";
   };
   // 範囲の外の率の知らせ（「15%より大きい値は設定できません。」。読めない文字は赤い枠だけ）
@@ -175,19 +180,24 @@ function NumBox(p: {
       onFocus={() => {
         setDraft(shown);
         setStart(shown);
+        typed.current = false;
         leaveInput.current = enterInput({ settle: () => settleNow.current(), focus: () => el.current?.focus() });
       }}
       onInput={(e) => {
         // 打っている間は下書きだけ（世帯は変えない）。離れたとき（Enter）に決める（入力の欄の決まり。FieldViews.tsx の Field と同じ）
         const t = (e.currentTarget as HTMLInputElement).value;
         setDraft(t);
+        typed.current = true;
         p.onProblem?.(rangeProblem(t));
       }}
       onBlur={(e) => {
         leaveInput.current?.();
         leaveInput.current = null;
         const t = (e.currentTarget as HTMLInputElement).value;
-        if (shouldCommitOnBlur(start, t)) {
+        // 打ったなら同じ文字でも書く（推定の欄は確定になる。確定の欄は同じ値なので変わらない）
+        const typedNow = typed.current;
+        typed.current = false;
+        if (shouldCommitOnBlur(start, t, typedNow)) {
           const v = parse(t);
           if (v !== undefined) p.onCommit(v);
           const why = rangeProblem(t);
@@ -315,7 +325,9 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
    */
   const editField = (f: FieldDef | undefined, v: number | string | null) => {
     if (f === undefined) return;
-    const next = (f.write ?? f.set)(wh, v);
+    // 推定・書類待ちの欄に打った値は、推定と同じ値でも確定（typeValue。0041 の追記 2026-11-07）
+    const st = fieldStatus(f, wh).status;
+    const next = st === "estimated" || st === "unknown" ? typeValue(f, wh, v) : (f.write ?? f.set)(wh, v);
     if (next === wh) return;
     let dropped = false;
     const out = mutate(next, (hh, r) => {
@@ -782,8 +794,8 @@ function AccountsTable(p: {
     <StepsEditor
       steps={stepsOf(h, base, a, t)}
       now={ownerNow(a)}
-      {...stopFor(a)}
-      noStop={DC_KINDS.has(a.kind)}
+      {...(a.kind === "ideco" ? (idecoStop(req, a) ?? { stopAge: null }) : stopFor(a))}
+      noStop={a.kind === "corporateDc"}
       label={label}
       onChange={(s) => editAcc((hh) => writeSteps(hh, base, find(hh, a.id), t, s, stopAge))}
     />
@@ -894,7 +906,7 @@ function AccountsTable(p: {
                   ) : (
                     steps(a, "all", name)
                   )}
-                  {a.kind === "corporateDc" ? <span class="memo">会社の掛金（給与からの上乗せを含む）。退職まで</span> : a.kind === "ideco" ? <span class="memo">加入できる年齢まで</span> : null}
+                  {a.kind === "corporateDc" ? <span class="memo">会社の掛金（給与からの上乗せを含む）。退職まで</span> : a.kind === "ideco" ? <span class="memo">国民年金に入っている月など、加入できる月だけ（計算で判定）</span> : null}
                   {isSettle && (a.contributions ?? []).length > 0 ? (
                     <div class="fld-help warn sv-rate-msg" data-settlement-unused>
                       {SETTLEMENT_CONTRIBUTION_UNUSED}{" "}

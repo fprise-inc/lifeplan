@@ -283,7 +283,8 @@ function claimFields(m: Member, find: Finder, prefix: string, prop: "claim" | "p
     const x = find(w.request.input.household, w) as Holder | undefined;
     return x === undefined ? undefined : { claim: x[prop] };
   };
-  const common = { ageOf: (h: Household) => h.members.find((x) => x.id === m.id), mode: "age" as const, ageMeans: "after" as const, optional: true, nullText: "65歳から（標準）", fallback: () => std(), check };
+  // 年齢はこの記録の人だけ（ほかの家族・子の年齢を選ばせない。入力項目をまたいだそろえ。0150）
+  const common = { ageOf: (h: Household) => h.members.find((x) => x.id === m.id), who: "fixed" as const, mode: "age" as const, ageMeans: "after" as const, optional: true, nullText: "65歳から（標準）", fallback: () => std(), check };
   /**
    * 繰上げ（65歳になった翌月より前）は老齢基礎年金と老齢厚生年金を同時にする決まり（国民年金法附則9条の2第2項）。片方だけを直したとき、
    * 直した方かもう片方が繰上げなら、もう片方も同じ時点にそろえる。繰下げは別々のまま（0066 の 2026-10-29 の追記）
