@@ -41,37 +41,43 @@
   color: var(--hf-accent);
   font-size: 16px;
 }
+/* 進み具合: 段（はじめに・区画・書類・確かめ）の印と今の段の名前。分母は答えで変わらない（0138） */
 .hf-progress {
-  position: relative;
-  height: 26px;
-  background: #fff;
-  padding: 0 18px 10px;
   display: flex;
   align-items: center;
+  gap: 12px;
+  background: #fff;
+  padding: 0 18px 10px;
 }
-.hf-progress::before {
-  content: "";
-  position: absolute;
-  left: 18px;
-  right: 80px;
-  top: 6px;
+.hf-steps {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.hf-steps li {
+  flex: 1;
   height: 6px;
   border-radius: 3px;
   background: var(--hf-line);
 }
-.hf-bar {
-  position: absolute;
-  left: 18px;
-  top: 6px;
-  height: 6px;
-  border-radius: 3px;
+.hf-steps li.done,
+.hf-steps li.now {
   background: var(--hf-accent);
-  max-width: calc(100% - 98px);
+}
+.hf-steps li.now {
+  opacity: 0.55;
 }
 .hf-progress span {
-  margin-left: auto;
+  flex: none;
+  max-width: 45%;
   font-size: 14px;
   color: var(--hf-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .hf-banner {
   margin: 0;
@@ -475,4 +481,133 @@
 .hf-doc-actions .hf-state {
   font-size: 16px;
   padding: 8px 6px;
+}
+
+/* 1画面にまとめた問い（0138） */
+.hf-field.more {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hf-line);
+}
+.hf-q2 {
+  font-size: 20px;
+  line-height: 1.5;
+  margin: 2px 0 10px;
+}
+.hf-who-line {
+  margin: 0 0 2px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--hf-accent);
+}
+.hf-basis-line {
+  margin: 0 0 4px;
+  font-size: 15px;
+  color: var(--hf-sub);
+}
+/* 金額のだいたいの範囲（2列で短く） */
+.hf-choices.hf-compact {
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.hf-compact .hf-choice {
+  min-height: 48px;
+  font-size: 16px;
+  padding: 8px 10px;
+  text-align: center;
+}
+.hf-link.hf-open {
+  margin-left: 0;
+}
+.hf-exact {
+  margin-top: 6px;
+}
+/* 最初の画面 */
+.hf-title {
+  margin: -6px 0 12px;
+  color: var(--hf-sub);
+}
+.hf-facts {
+  list-style: none;
+  padding: 12px 14px;
+  margin: 0 0 16px;
+  background: #fff;
+  border-radius: 12px;
+  border-left: 5px solid var(--hf-accent);
+}
+.hf-facts li {
+  margin: 4px 0;
+}
+/* この端末の入力を消す */
+.hf-clear {
+  margin: 16px 0 0;
+}
+.hf-clear .hf-link {
+  margin-left: 0;
+  color: var(--hf-sub);
+}
+.hf-clear.ask {
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 14px;
+  border: 2px solid var(--hf-bad);
+}
+.hf-clear.ask p {
+  margin: 0 0 8px;
+}
+.hf-clear.ask .hf-state {
+  margin-right: 8px;
+}
+/* このページの仕組み（一番下に小さく） */
+.hf-about {
+  margin-top: 28px;
+  font-size: 14px;
+  color: var(--hf-sub);
+}
+.hf-about summary {
+  cursor: pointer;
+  text-decoration: underline;
+}
+.hf-about ul {
+  margin: 6px 0 0;
+  padding-left: 1.2em;
+}
+.hf-sent .hf-about,
+.hf-sent .hf-sent-list {
+  text-align: left;
+}
+.hf-sent-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+.hf-pre p {
+  margin: 0 0 8px;
+}
+.hf-pre p:last-child {
+  margin-bottom: 0;
+}
+/* 印刷（送った内容の控え）: ボタンと見本の印を出さない */
+@media print {
+  .hf {
+    background: #fff;
+    max-width: none;
+  }
+  .hf-nav,
+  .hf-sent-actions,
+  .hf-about,
+  .hf-banner,
+  .hf-check,
+  .hf-link {
+    display: none !important;
+  }
+  .hf-sent {
+    padding-top: 0;
+  }
+}
+/* 分岐の問いの選択肢は横に並べて短く（人数は3列） */
+.hf-gate-opts.n3 .hf-choices.hf-compact {
+  grid-template-columns: 1fr 1fr 1fr;
 }
