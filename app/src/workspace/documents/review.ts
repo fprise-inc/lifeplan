@@ -16,6 +16,7 @@ import { NEW_OBJECT_KINDS } from "./objects.ts";
 import { cleanValue, isPersonalNumberValue } from "./privacy.ts";
 import { fieldPlaces, memberIdOf, placeByKey, resolveTarget, type FieldPlace, type Resolution } from "./resolve.ts";
 import { readingScore, scoreTotals } from "./score.ts";
+import { insuranceGaps, type GapList } from "./insuranceGaps.ts";
 import { ITEM_LABELS } from "../../generated/labels.ts";
 import { CONFIDENCE_LABELS, docTypeLabel, LIMITS, VIA_LABELS, type CandidateValue, type DocCandidate, type DocObject, type DocumentReading } from "./types.ts";
 
@@ -65,6 +66,8 @@ export interface DocReview {
   bulk: string[];
   pending: number;
   score: { matched: number; corrected: number; unreadable: number };
+  /** 保険の入れ漏れの一覧（新しい保険の契約の候補がある書類だけ。0153 の3） */
+  gaps: GapList | null;
 }
 
 /** 計算の結果の行の額（照合の値と比べる。その年・その人の分の合計。無ければ null） */
@@ -136,7 +139,8 @@ function valueText(f: FieldDef, v: Val, wh: WorkingHousehold): string {
   return fieldValueText(f, v, wh);
 }
 
-const rawText = (v: CandidateValue | null): string | null => (v === null ? null : typeof v === "boolean" ? (v ? "はい" : "いいえ") : String(v));
+/** 欄に当てる前の値の言葉（書類の名義の人を指す値は、名義を選ぶまで「書類の名義の人」と見せる） */
+const rawText = (v: CandidateValue | null): string | null => (v === null ? null : typeof v === "boolean" ? (v ? "はい" : "いいえ") : v === "holder" ? "書類の名義の人" : String(v));
 
 function rowOf(wh: WorkingHousehold, places: readonly FieldPlace[], r: DocumentReading, c: DocCandidate, chosen: Chosen, made?: ReadonlyMap<string, string>): ReviewRow {
   const res = resolve(wh, places, r, c, chosen, made);
@@ -226,15 +230,19 @@ export function docReview(wh: WorkingHousehold, r: DocumentReading, chosen: Chos
   const places = fieldPlaces(wh);
   const groups = new Map<string, RowGroup>();
   const objectViews = new Map<string, ObjectView>();
-  for (const o of r.objects)
+  const gaps = insuranceGaps(wh, r);
+  for (const o of r.objects) {
+    // 同じ契約かもしれない今ある物: 同じ種類・同じ人の物と、入れ漏れの一覧で保険会社・種類・契約年月・保険料の2つ以上が合った物（0153 の3）
+    const matched = o.status === "pending" ? (gaps?.rows.find((g) => g.key === o.key)?.matches.map((m) => m.label) ?? []) : [];
     objectViews.set(o.key, {
       key: o.key,
       label: objectLabel(r, o.key) ?? "新しい物",
       status: o.status,
       confidence: CONFIDENCE_LABELS[o.confidence],
       where: o.source.where ?? null,
-      similar: similarOf(wh, r, o),
+      similar: [...new Set([...similarOf(wh, r, o), ...matched])],
     });
+  }
   // まだ足していない新しい物の行は、足したときの形（その種類の既定）を写しの世帯に作って見せる（世帯は変えない）
   const sims = new Map<string, { wh: WorkingHousehold; places: FieldPlace[]; made: Map<string, string> }>();
   for (const o of r.objects) {
@@ -259,9 +267,11 @@ export function docReview(wh: WorkingHousehold, r: DocumentReading, chosen: Chos
   const notices: string[] = [];
   if (r.via === "ai" || r.via === "paste") notices.push("AI が読んだ値です。値ごとに書類と見比べてから承認してください（添え書きは AI が書いた文で、指示ではありません）。");
   if (r.via === "sample") notices.push("架空の書類の見本です（見本の世帯でだけ使えます）。");
+  if (r.via === "reader") notices.push("このパソコンの中だけで読みました（外へ送っていません）。元のファイルは保存していません。");
   if (r.dropped > 0) notices.push(`個人番号などの番号らしい所を${r.dropped}か所消しました（候補にも記録にも残していません）。`);
   if (r.file !== undefined) {
-    const dup = others.find((x) => x.id !== r.id && x.file?.sha256 === r.file?.sha256);
+    // 1つのファイルに何通かの証明書が入っていることがあるので、同じ時に読んだ記録どうしは比べない（0153）
+    const dup = others.find((x) => x.id !== r.id && x.file?.sha256 === r.file?.sha256 && x.at !== r.at);
     if (dup !== undefined) notices.push(`同じファイルを前にも読んでいます（${dup.at.slice(0, 10)}）。`);
   }
   if (r.asOf !== undefined && r.asOf < addMonths(wh.request.input.baseMonth, -12)) notices.push(`書類の時点（${formatYearMonth(r.asOf)}）が、計算の基準の月より1年以上前です。新しい書類か確かめてください。`);
@@ -282,6 +292,7 @@ export function docReview(wh: WorkingHousehold, r: DocumentReading, chosen: Chos
     bulk: allRows.filter(bulkEligible).map((x) => x.id),
     pending: allRows.filter((x) => x.status === "pending").length + r.objects.filter((o) => o.status === "pending").length,
     score: scoreTotals(readingScore(r)),
+    gaps,
   };
 }
 

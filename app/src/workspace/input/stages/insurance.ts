@@ -461,19 +461,23 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
       }),
       () => at(c.id, "insurance.premium", ["amount"]),
     ),
-    plain({
-      key: `${k}/freq`,
-      item: "insurance.premium",
-      label: "払い方",
-      level: "simple",
-      kind: "select",
-      options: PREMIUM_FREQUENCY,
-      find,
-      path: ["premium", "frequency"],
-      after: (_h, target, v) => {
-        if (v === "single") (target as unknown as InsuranceContract).premium.payUntil = null;
-      },
-    }),
+    // 当て先（insurance.premium の frequency）は、書類の読み取りの候補が払い方を当てるのに使う（0153）
+    withAddress(
+      plain({
+        key: `${k}/freq`,
+        item: "insurance.premium",
+        label: "払い方",
+        level: "simple",
+        kind: "select",
+        options: PREMIUM_FREQUENCY,
+        find,
+        path: ["premium", "frequency"],
+        after: (_h, target, v) => {
+          if (v === "single") (target as unknown as InsuranceContract).premium.payUntil = null;
+        },
+      }),
+      () => at(c.id, "insurance.premium", ["frequency"]),
+    ),
   );
   // 主な保障の額（種類で給付が変わる1欄）と終わり。標準の「終わり」は、定期の保険では保障の終わり、終身の保険では払込の終わりとして聞く。
   // 満期金・年金を受け取る保険（養老・学資・個人年金）は、受け取りの時期（保障の終わり・受け取りの始まり）と払込の終わりの両方を標準に出す（0078）

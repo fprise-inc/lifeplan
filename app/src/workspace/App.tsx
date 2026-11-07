@@ -103,7 +103,8 @@ import { StoragePanel } from "./store/StoragePanel.tsx";
 import { keepSnapshots, makeSnapshot, type Snapshot, type SnapshotDraft } from "./snapshots/snapshots.ts";
 import { keepStatements, withLog } from "./statement/model.ts";
 import { DocumentEntry, DocumentReview, withSamples, type DocChange } from "./documents/DocumentReview.tsx";
-import { keepDocuments, withDocumentLog } from "./documents/log.ts";
+import { keepDocuments, withDocumentLog, withReading } from "./documents/log.ts";
+import type { DocumentReading } from "./documents/types.ts";
 import { StatementPanel } from "./statement/StatementPanel.tsx";
 import type { StatementLog } from "../../../statement/src/index.ts";
 import { SnapshotTools } from "./snapshots/SnapshotTools.tsx";
@@ -541,6 +542,8 @@ export function App() {
   const [feedbackOpen, setFeedbackOpen] = useState(initial.feedback === true);
   /** 書類の読み取りの確かめの画面（0148） */
   const [docsOpen, setDocsOpen] = useState(initial.documents !== undefined);
+  /** 確かめの画面で初めに開く読み取りの記録（読んだばかりの書類。0153） */
+  const [docsInitial, setDocsInitial] = useState<string | undefined>(undefined);
   const docsSeeded = useRef(false);
   // 事務所の見た目（0121）: 事務所の名前・ロゴ・基調の色と、この PC の画面の明るさ。事務所の既定値とは別の欄（本体が画像を確かめる）
   const [branding, setBranding] = useState<OfficeBranding>(initial.look !== undefined ? { appearance: initial.look } : EMPTY_BRANDING);
@@ -2426,6 +2429,16 @@ export function App() {
   const save = saveText(savingStored, saveState, storeMessage, presence !== null);
   /** 見本の世帯か（保存していない見本・保存した見本の棚の世帯）。架空の書類の見本はここでだけ読む（0148） */
   const sampleHousehold = opened !== null && ((storedInfo === null && opened.demo !== null) || storedInfo?.sample !== undefined);
+  /** アプリの中の読み手で読んだ書類（控除証明書の電子データなど）を記録に足し、確かめの画面を開く（0153） */
+  const addDocReadings = (rs: readonly DocumentReading[]) => {
+    const o = openedRef.current;
+    if (o === null || rs.length === 0) return;
+    let log = o.wh.documents;
+    for (const r of rs) log = withReading(log, r);
+    putDocuments(log);
+    setDocsInitial(rs[0]?.id);
+    setDocsOpen(true);
+  };
   const loadDocSamples = () => {
     if (opened === null || !sampleHousehold) return;
     putDocuments(withSamples(opened.wh).log);
@@ -2780,7 +2793,16 @@ export function App() {
                               }
                             : {})}
                         />
-                        <DocumentEntry wh={opened.wh} sample={sampleHousehold} onOpen={() => setDocsOpen(true)} onSamples={loadDocSamples} />
+                        <DocumentEntry
+                          wh={opened.wh}
+                          sample={sampleHousehold}
+                          onOpen={() => {
+                            setDocsInitial(undefined);
+                            setDocsOpen(true);
+                          }}
+                          onSamples={loadDocSamples}
+                          onReadings={addDocReadings}
+                        />
                         {storedInfo !== null ? (
                           <div class="hs-tools" role="group" aria-label="AI に資料を渡す" data-imports-ai>
                             <span class="hs-tools-h">AI に資料を渡す</span>
@@ -3157,7 +3179,7 @@ export function App() {
           onClose={() => setAiPanel(null)}
         />
       ) : null}
-      {docsOpen && opened !== null ? <DocumentReview wh={opened.wh} calc={docCalc} onChange={onDocChange} onClose={() => setDocsOpen(false)} /> : null}
+      {docsOpen && opened !== null ? <DocumentReview wh={opened.wh} calc={docCalc} onChange={onDocChange} onClose={() => setDocsOpen(false)} {...(docsInitial !== undefined ? { initial: docsInitial } : {})} /> : null}
       {feedbackOpen ? (
         <FeedbackPanel
           receipts={noticeLocal.receipts}
