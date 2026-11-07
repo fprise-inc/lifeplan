@@ -20,8 +20,10 @@ export type DocType =
   | "lifeInsuranceDeduction"
   | "earthquakeInsuranceDeduction"
   | "smallBusinessMutualAidDeduction"
+  | "pensionPremiumDeduction"
   | "insurancePolicy"
   | "housingLoanBalance"
+  | "housingLoanCredit"
   | "loanSchedule"
   | "taxReturn"
   | "brokerageBalance"
@@ -36,8 +38,10 @@ export const DOC_TYPES: readonly { value: DocType; label: string }[] = [
   { value: "lifeInsuranceDeduction", label: "生命保険料控除証明書" },
   { value: "earthquakeInsuranceDeduction", label: "地震保険料控除証明書" },
   { value: "smallBusinessMutualAidDeduction", label: "小規模企業共済等掛金控除証明書" },
+  { value: "pensionPremiumDeduction", label: "国民年金保険料等控除証明書" },
   { value: "insurancePolicy", label: "保険証券・ご契約内容のお知らせ・設計書" },
   { value: "housingLoanBalance", label: "住宅ローンの年末残高等証明書" },
+  { value: "housingLoanCredit", label: "住宅借入金等特別控除証明書（年末調整のため）" },
   { value: "loanSchedule", label: "ローンの返済予定表" },
   { value: "taxReturn", label: "確定申告書" },
   { value: "brokerageBalance", label: "証券口座の残高" },
@@ -131,7 +135,8 @@ export interface DocCandidate {
 
 /**
  * 新しい物の候補（保険の契約・ローン・口座など。書類から、今の世帯に無い物を足す）。種類 kind は「集まり:種類」（例 insurance:medical）で、
- * 作り方は apply.ts の NEW_OBJECT_KINDS。FP が「足す」を選んだときに、その種類の既定で物を作り、その中の値の候補を当てる
+ * 作り方は objects.ts の NEW_OBJECT_KINDS。FP が「足す」を選んだときに、その種類の既定で物を作り、その中の値の候補を当てる。
+ * 同じ物がもうあれば「今ある物に当てる」も選べる（作らずに、その物の欄に値の候補を当てる。0154 の3）
  */
 export interface DocObject {
   key: string;
@@ -139,8 +144,10 @@ export interface DocObject {
   source: DocSource;
   confidence: Confidence;
   status: "pending" | "accepted" | "rejected";
-  /** 作った物の ID（足したときだけ） */
+  /** 作った物の ID（足したとき）か、当てた今ある物の ID（linked のとき） */
   created?: string;
+  /** 新しく足さずに、今ある物に当てた（created はその物の ID。0154 の3） */
+  linked?: true;
   decidedAt?: string;
 }
 

@@ -70,7 +70,7 @@ describe("欄の一覧（fields.md）", () => {
 describe("説明書と手引きの答えの見本", () => {
   it("手引きは書類ごとに1つずつあり、どれも読む欄・読まないもの・答えの見本を持つ。スキルの表の手引きはどれもある", () => {
     const files = guideFiles();
-    expect(files).toEqual(["housing-loan.md", "insurance-deduction.md", "insurance-policy.md", "pension.md", "tax-return.md", "withholding-slip.md"]);
+    expect(files).toEqual(["housing-loan.md", "insurance-deduction.md", "insurance-policy.md", "pension.md", "public-pension-withholding.md", "tax-return.md", "withholding-slip.md"]);
     for (const f of files) {
       const md = text(join(GUIDES, f));
       expect(md).toMatch(/## \d\. 読まないもの/u);
@@ -125,7 +125,9 @@ const WALKS: { file: string; index: number; household: string; choose?: string; 
   { file: "insurance-deduction.md", index: 0, household: "salariedCoupleTwoKids" },
   { file: "insurance-policy.md", index: 0, household: "salariedCoupleTwoKids" },
   { file: "housing-loan.md", index: 0, household: "salariedCoupleTwoKids" },
-  { file: "housing-loan.md", index: 1, household: "salariedCoupleTwoKids" },
+  // 住宅ローンが世帯に無いとき: 新しいローンとして足す（返済期間の欄は完済の年月。借りた年月は時点の欄。0154）
+  { file: "housing-loan.md", index: 1, household: "single45" },
+  { file: "housing-loan.md", index: 2, household: "salariedCoupleTwoKids" },
 ];
 
 /**

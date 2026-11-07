@@ -1,6 +1,6 @@
 // 保険の入れ漏れの一覧（0153 の3）: 控除証明書などの書類にある保険の契約のうち、今の保険の入力に無さそうな契約を一覧にする。
 // - 書類の契約ごとに、今ある契約と「保険会社（名前の中の会社名）・種類・契約年月・年間の保険料」を比べ、2つ以上が合えば「同じ契約かも」と知らせる
-//   （黙ってまとめない。同じなら FP が「足さない」にして、今の契約の欄を直す）。1つも合わなければ「入力に無さそう」
+//   （黙ってまとめない。同じなら FP が「今の保険契約に当てる」を選ぶ。0154 の3）。1つも合わなければ「入力に無さそう」
 // - 種類だけが同じ契約は、手がかりとして名前だけ添える（同じとはみなさない）
 // - 一覧は画面を開くたびに今の世帯から作る（保存しない）。この記録で足した契約は「足しました」、足さないにした契約は「足さないにしました」
 // - 読み手（控除証明書の XML）・AI の答え・貼り付けのどれでも、新しい保険の契約の候補があれば同じに作る
@@ -11,7 +11,7 @@ import { DEDUCTION_TYPES } from "../input/labels.ts";
 import { formatYearMonth } from "../input/units.ts";
 import type { CandidateValue, DocCandidate, DocumentReading } from "./types.ts";
 
-export type GapStatus = "missing" | "maybe" | "added" | "rejected";
+export type GapStatus = "missing" | "maybe" | "added" | "linked" | "rejected";
 
 export interface GapMatch {
   /** 今ある契約の名前（名前が無ければ種類） */
@@ -102,7 +102,7 @@ export function insuranceGaps(wh: WorkingHousehold, r: DocumentReading): GapList
       if (reasons.length >= 2) matches.push({ label: xl, reasons });
       else if (kindSame) sameKind.push(xl);
     }
-    const status: GapStatus = o.status === "accepted" ? "added" : o.status === "rejected" ? "rejected" : matches.length > 0 ? "maybe" : "missing";
+    const status: GapStatus = o.status === "accepted" ? (o.linked === true ? "linked" : "added") : o.status === "rejected" ? "rejected" : matches.length > 0 ? "maybe" : "missing";
     return { key: o.key, label: name, kind: def?.label ?? "保険", contractDate, annual, deduction: deductionLabel(ded), status, matches, sameKind };
   });
   return { rows, missing: rows.filter((x) => x.status === "missing").length, maybe: rows.filter((x) => x.status === "maybe").length };
@@ -113,6 +113,8 @@ export function gapText(g: GapRow): string {
   switch (g.status) {
     case "added":
       return "足しました";
+    case "linked":
+      return "今の契約に当てました";
     case "rejected":
       return "足さないことにしました";
     case "maybe":
