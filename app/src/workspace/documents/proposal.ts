@@ -1,5 +1,7 @@
-// 書類の候補の読み口（0148 の4）: アプリの中の読み手・AI接続口の道具・貼り付けた AI の答え・架空の見本は、どれもここを通して
+// 書類の候補の読み口（0148 の4）: AI接続口の道具・貼り付けた AI の答え・架空の見本は、どれもここを通して
 // 読み取りの記録（候補の受け皿）にする。届いた答えは信用しない（0015・0016）:
+// - 読めるのは保険証券・ご契約内容のお知らせ・設計書（docType insurancePolicy）の、保険の契約の欄（insurance.）の候補だけ（0159）。
+//   ほかの書類の答えは読まずに理由を出す（ほかの書類は、欄の「?」の一言を見て打つ）
 // - 形を確かめ、知らない欄は捨てる。入力項目ID は登録簿にあるものだけ。大きさの上限を超える分は読まない
 // - 個人番号などの番号は、候補に入る前に落とす（privacy.ts）。落とした数だけ残す
 // - 文字（元の場所の文字・添え書き・文字の値）は伏せ字の後の文字として持ち、画面では文字のまま出す（HTML にしない・指示として読まない）
@@ -11,7 +13,7 @@
 //   references?: [{label, amount, row?, year?, source?}] }
 import { ITEM_LABELS } from "../../generated/labels.ts";
 import { cleanText, cleanValue, isNumberField, isPersonalNumberValue } from "./privacy.ts";
-import { DOC_TYPES, LIMITS, PROPOSAL_CONTRACT, type CandidateTarget, type CandidateValue, type Confidence, type DocCandidate, type DocObject, type DocReference, type DocSource, type DocType, type DocumentReading, type Via } from "./types.ts";
+import { DOC_TYPES, LIMITS, PROPOSAL_CONTRACT, READABLE_ITEM_PREFIX, type CandidateTarget, type CandidateValue, type Confidence, type DocCandidate, type DocObject, type DocReference, type DocSource, type DocType, type DocumentReading, type Via } from "./types.ts";
 import { NEW_OBJECT_KINDS } from "./objects.ts";
 
 type Obj = Record<string, unknown>;
@@ -26,7 +28,6 @@ export interface ProposalContext {
   reader?: { id: string; version: number };
   /** AI の名乗り（自己申告。AI接続口なら接続口が受けた名前、貼り付けなら FP が入れた名前） */
   connector?: string;
-  file?: { sha256: string; bytes: number };
   /** 続柄の鍵 → 構成員の ID（答えの holder〔書類の名義の続柄〕を記録の名義の人の初めの値にする。無ければ名義は FP が選ぶ） */
   members?: readonly { key: string; id: string }[];
 }
@@ -45,7 +46,6 @@ const OBJECT_KEY = /^[A-Za-z0-9_-]{1,16}$/u;
 const YM = /^[0-9]{4}-(0[1-9]|1[0-2])$/u;
 const ROW = /^cf(\.[a-z][a-zA-Z0-9]*)+$/u;
 const PATH = /^[A-Za-z0-9_./-]{1,120}$/u;
-const SHA = /^sha256:[0-9a-f]{64}$/u;
 const CONFIDENCES: readonly Confidence[] = ["high", "medium", "low"];
 
 /** 入力項目ID が登録簿にあるか */
@@ -88,6 +88,7 @@ function readValue(v: unknown, count: { masked: number }): CandidateValue | null
 
 function readTarget(v: Obj, objectKeys: ReadonlySet<string>): CandidateTarget | string {
   if (typeof v.item !== "string" || !knownItem(v.item)) return "登録簿に無い入力項目の候補";
+  if (!v.item.startsWith(READABLE_ITEM_PREFIX)) return "保険の契約の欄でない候補（読めるのは保険の書類だけです）";
   const t: CandidateTarget = { item: v.item };
   if (v.at !== undefined) {
     if (!Array.isArray(v.at) || v.at.length > 4 || !v.at.every((x) => typeof x === "string" && AT_STEP.test(x))) return "場所の書き方が違う候補";
@@ -116,7 +117,9 @@ export function readProposal(raw: unknown, ctx: ProposalContext): ProposalResult
   if (!isObj(raw)) return { reading: null, issues: ["答えの形が違います（{ … } の形の JSON ではありません）"] };
   if (raw.contract !== PROPOSAL_CONTRACT) return { reading: null, issues: [`答えの形の名前（contract）が「${PROPOSAL_CONTRACT}」ではありません`] };
   const count = { masked: 0, dropped: 0 };
-  const docType: DocType = DOC_TYPES.some((d) => d.value === raw.docType) ? (raw.docType as DocType) : "other";
+  if (!DOC_TYPES.some((d) => d.value === raw.docType))
+    return { reading: null, issues: ["読めるのは保険証券・ご契約内容のお知らせ・設計書（docType は insurancePolicy）だけです。ほかの書類は、書類を見て入力の欄に打ってください（欄の「?」に書類のどこを見るかがあります）"] };
+  const docType = raw.docType as DocType;
   // 新しい物の候補
   const objects: DocObject[] = [];
   const keys = new Set<string>();
@@ -219,7 +222,6 @@ export function readProposal(raw: unknown, ctx: ProposalContext): ProposalResult
     const c = cleanText(ctx.connector, LIMITS.connector);
     if (c.text !== "") reading.ai = { connector: c.text };
   }
-  if (ctx.file !== undefined && SHA.test(ctx.file.sha256) && Number.isSafeInteger(ctx.file.bytes) && ctx.file.bytes >= 0) reading.file = { sha256: ctx.file.sha256, bytes: ctx.file.bytes };
   if (typeof raw.asOf === "string" && YM.test(raw.asOf)) reading.asOf = raw.asOf;
   const holder = typeof raw.holder === "string" ? ctx.members?.find((m) => m.key === raw.holder || m.id === raw.holder)?.id : undefined;
   if (holder !== undefined) reading.holder = holder;

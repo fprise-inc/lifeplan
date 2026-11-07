@@ -22,7 +22,7 @@
           "type": "string"
         },
         "kind": {
-          "description": "種類（「集まり:種類」。保険の契約 insurance:<保険の種類>〔例 insurance:medical〕・住宅ローン debt:mortgage・口座 account:ideco と account:smallBusinessMutualAid）",
+          "description": "種類（「集まり:種類」。保険の契約 insurance:<保険の種類>〔例 insurance:medical〕だけ）",
           "pattern": "^[a-z][A-Za-z]*:[A-Za-z0-9]+$",
           "type": "string"
         },
@@ -44,7 +44,7 @@
       "type": "object"
     },
     "DocReferenceArg": {
-      "description": "照合だけの値（源泉徴収税額など。入力にせず、アプリの計算と並べて差を見せる）",
+      "description": "照合だけの値（特約の保障の額・積立金の額など。入力にせず、FPが見比べる）",
       "properties": {
         "amount": {
           "description": "書類の額（円の整数）",
@@ -57,7 +57,7 @@
           "type": "string"
         },
         "row": {
-          "description": "比べるキャッシュフロー表の行 ID（例 cf.taxSi.incomeTax）",
+          "description": "比べるキャッシュフロー表の行 ID（例 cf.taxSi.incomeTax。保険の書類ではふつう書かない）",
           "pattern": "^cf(\\.[a-z][a-zA-Z0-9]*)+$",
           "type": [
             "string",
@@ -134,7 +134,7 @@
           ]
         },
         "where": {
-          "description": "見出しの言葉（例: 支払金額。40字まで）。番号の欄（個人番号・基礎年金番号・証券番号など）の候補は出さない",
+          "description": "見出しの言葉（例: 合計保険料。40字まで）。番号の欄（個人番号・基礎年金番号・証券番号など）の候補は出さない",
           "maxLength": 40,
           "type": [
             "string",
@@ -172,7 +172,7 @@
           ]
         },
         "item": {
-          "description": "入力項目 ID（ファイナンシアの登録簿の ID。例 employment.salary.annual・pensionRecord.months）。登録簿に無い ID の候補はアプリが読まない",
+          "description": "入力項目 ID（ファイナンシアの登録簿の ID。保険の契約の欄 insurance. だけ。例 insurance.premium・insurance.coverages）。ほかの ID の候補はアプリが読まない",
           "type": "string"
         },
         "member": {
@@ -271,22 +271,7 @@
         "docType": {
           "description": "書類の種類",
           "enum": [
-            "pensionStatement",
-            "pensionNotice",
-            "withholdingSlip",
-            "publicPensionWithholding",
-            "residentTaxNotice",
-            "lifeInsuranceDeduction",
-            "earthquakeInsuranceDeduction",
-            "smallBusinessMutualAidDeduction",
-            "pensionPremiumDeduction",
-            "insurancePolicy",
-            "housingLoanBalance",
-            "housingLoanCredit",
-            "loanSchedule",
-            "taxReturn",
-            "brokerageBalance",
-            "other"
+            "insurancePolicy"
           ],
           "type": [
             "string",

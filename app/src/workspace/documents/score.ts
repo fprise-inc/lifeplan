@@ -3,13 +3,13 @@
 // 送る仕組みはまだ作らない（この形と、画面で数を見せるところまで）。
 // 数え方: 合った＝書類の値のまま承認した、直した＝直して入れた（読めた値を直した）、読めなかった＝読み手が値を出せなかった欄（その後 FP が入れても）。
 // 入れない（捨てた）候補は数えない（読み違いとは限らないため。読み違いなら「直す」で入れてもらう）
-import type { DocType, DocumentReading, Via } from "./types.ts";
+import type { DocumentReading, RecordedDocType, Via } from "./types.ts";
 
 export const SCORE_CONTRACT = "document-reading-score@1";
 
 export interface ReadingScore {
   contract: typeof SCORE_CONTRACT;
-  docType: DocType;
+  docType: RecordedDocType;
   via: Via;
   reader?: { id: string; version: number };
   ai?: { connector: string };

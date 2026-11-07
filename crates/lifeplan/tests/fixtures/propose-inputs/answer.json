@@ -1,22 +1,143 @@
 {
   "contract": "document-candidates@1",
-  "docType": "lifeInsuranceDeduction",
-  "asOf": "2026-10",
+  "docType": "insurancePolicy",
+  "asOf": "2026-04",
   "holder": "self",
   "objects": [
-    { "key": "c1", "kind": "insurance:medical", "source": { "page": 1, "where": "保険の種類", "text": "医療保険（無配当）" }, "confidence": "high" }
+    {
+      "key": "c1",
+      "kind": "insurance:wholeLife",
+      "source": {
+        "page": 1,
+        "where": "主契約",
+        "text": "終身保険（低解約返戻金特則なし）"
+      },
+      "confidence": "high"
+    }
   ],
   "values": [
-    { "item": "insurance.label", "newObject": "c1", "value": "架空のみどり生命 医療保険", "source": { "page": 1, "where": "保険会社名・保険の種類" }, "confidence": "high" },
-    { "item": "insurance.insured", "newObject": "c1", "value": "holder", "source": { "page": 1, "where": "被保険者" }, "confidence": "medium", "note": "名前は読んでいません。書類の名義の人にしています" },
-    { "item": "insurance.contractDate", "newObject": "c1", "value": "2019-07", "source": { "page": 1, "where": "契約日", "text": "契約日 2019年7月1日", "box": [0.12, 0.31, 0.2, 0.03] }, "confidence": "high" },
-    { "item": "insurance.premium", "at": ["frequency"], "newObject": "c1", "value": "monthly", "source": { "page": 1, "where": "払込方法", "text": "月払" }, "confidence": "high" },
-    { "item": "insurance.premium", "at": ["amount"], "newObject": "c1", "value": 2980, "period": "once", "source": { "page": 1, "where": "月払保険料", "text": "月払保険料 2,980円" }, "confidence": "high" },
-    { "item": "insurance.deductionCategory", "at": ["type"], "newObject": "c1", "value": "careMedical", "source": { "page": 1, "where": "介護医療保険料", "path": "certificate/contract/category" }, "confidence": "high" },
-    { "item": "insurance.deductionCategory", "at": ["regime"], "newObject": "c1", "value": "new", "source": { "page": 1, "where": "新制度" }, "confidence": "high" },
-    { "item": "insurance.policyholder", "newObject": "c1", "value": null, "unreadable": true, "source": { "page": 1, "where": "契約者" }, "confidence": "low", "note": "かすれていて読めません" }
+    {
+      "item": "insurance.label",
+      "newObject": "c1",
+      "value": "架空のさくら生命 終身保険",
+      "source": {
+        "page": 1,
+        "where": "保険会社名・商品名"
+      },
+      "confidence": "high"
+    },
+    {
+      "item": "insurance.policyholder",
+      "newObject": "c1",
+      "value": "holder",
+      "source": {
+        "page": 1,
+        "where": "契約者"
+      },
+      "confidence": "high",
+      "note": "名前は読んでいません"
+    },
+    {
+      "item": "insurance.insured",
+      "newObject": "c1",
+      "value": "holder",
+      "source": {
+        "page": 1,
+        "where": "被保険者"
+      },
+      "confidence": "medium",
+      "note": "契約者と同じ名前でした"
+    },
+    {
+      "item": "insurance.contractDate",
+      "newObject": "c1",
+      "value": "2016-10",
+      "source": {
+        "page": 1,
+        "where": "契約日",
+        "text": "平成28年10月1日"
+      },
+      "confidence": "high"
+    },
+    {
+      "item": "insurance.premium",
+      "at": [
+        "frequency"
+      ],
+      "newObject": "c1",
+      "value": "monthly",
+      "source": {
+        "page": 1,
+        "where": "払込方法",
+        "text": "月払（口座振替）"
+      },
+      "confidence": "high"
+    },
+    {
+      "item": "insurance.premium",
+      "at": [
+        "amount"
+      ],
+      "newObject": "c1",
+      "value": 8900,
+      "period": "once",
+      "source": {
+        "page": 1,
+        "where": "合計保険料",
+        "text": "8,900円"
+      },
+      "confidence": "high"
+    },
+    {
+      "item": "insurance.coverages",
+      "at": [
+        "amount"
+      ],
+      "newObject": "c1",
+      "value": 3000000,
+      "period": "once",
+      "source": {
+        "page": 1,
+        "where": "主契約 死亡・高度障害保険金",
+        "text": "300万円"
+      },
+      "confidence": "high"
+    },
+    {
+      "item": "insurance.waiver",
+      "newObject": "c1",
+      "value": true,
+      "source": {
+        "page": 1,
+        "where": "保険料払込免除特約"
+      },
+      "confidence": "high"
+    },
+    {
+      "item": "insurance.deductionCategory",
+      "at": [
+        "type"
+      ],
+      "newObject": "c1",
+      "value": null,
+      "unreadable": true,
+      "source": {
+        "page": 1,
+        "where": "保険料控除の区分"
+      },
+      "confidence": "low",
+      "note": "かすれていて読めません"
+    }
   ],
   "references": [
-    { "label": "介護医療保険料の申告額（新制度）", "amount": 35760, "source": { "page": 1, "where": "申告額（12月まで）", "text": "35,760円" } }
+    {
+      "label": "特約: 定期保険特約 死亡保険金",
+      "amount": 10000000,
+      "source": {
+        "page": 1,
+        "where": "定期保険特約",
+        "text": "1,000万円（65歳まで）"
+      }
+    }
   ]
 }
