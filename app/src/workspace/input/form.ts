@@ -803,6 +803,22 @@ export function timepointField(
   });
 }
 
+/**
+ * 欄の書き込み（打つ・選ぶ・時点の部品・値の状態の操作）の後に、世帯を整える関数を通す。時点の欄は画面が time.setWhen で書く（set を通らない）ので、
+ * set を上書きしてほかの欄をついてこさせる欄は、これで set と time.setWhen の両方を包む（片方だけだと、画面のキー入力で連動が抜ける）
+ */
+export function afterWrite(f: FieldDef, tidy: (before: WorkingHousehold, after: WorkingHousehold) => WorkingHousehold): FieldDef {
+  const wrap = (w: WorkingHousehold, next: WorkingHousehold) => (next === w ? next : tidy(w, next));
+  const time = f.time;
+  return {
+    ...f,
+    set: (w, v) => wrap(w, f.set(w, v)),
+    ...(f.write !== undefined ? { write: (w: WorkingHousehold, v: Parameters<NonNullable<FieldDef["write"]>>[1]) => wrap(w, (f.write as NonNullable<FieldDef["write"]>)(w, v)) } : {}),
+    ...(f.boxed !== undefined ? { boxed: { ...f.boxed, write: (w: WorkingHousehold, b: Record<string, unknown> | undefined) => wrap(w, (f.boxed as NonNullable<FieldDef["boxed"]>).write(w, b)) } } : {}),
+    ...(time !== undefined ? { time: { ...time, setWhen: (w: WorkingHousehold, tp: Timepoint | null, how: "auto" | "this") => wrap(w, time.setWhen(w, tp, how)) } } : {}),
+  } as FieldDef;
+}
+
 /** 配列の中から ID で物を探す Finder */
 export function byId(list: (h: Household) => unknown[] | undefined, id: string): Finder {
   return (h) => (list(h) ?? []).find((x) => (x as Obj).id === id) as Obj | undefined;

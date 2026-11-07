@@ -12,7 +12,7 @@ import { preview } from "../helpers.ts";
 import { subjectOf, watch } from "../watch/rules.ts";
 import { browserPath, start, type Session } from "./browser.ts";
 import { WALKTHROUGH } from "./fieldEffect.ts";
-import { household1, household2, household3, openSample, walkPanels, type Notes } from "./households.ts";
+import { household1, household2, household3, household4, openSample, walkPanels, type Notes } from "./households.ts";
 
 const SHOTS = process.env.WALKTHROUGH_SHOTS;
 const RUN = WALKTHROUGH && browserPath() !== null;
@@ -136,6 +136,16 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       const cov = h().insuranceContracts?.[0]?.coverages?.find((c) => c.benefit === "incomeProtection");
       expect(cov?.amount).toBe(150_000);
     });
+    it("今の残高から入れた住宅ローンで借りた年月を入れても、入れた毎月の返済額・完済の年月は変わらず、持ち家の住み始めと控除の入居が借りた年月になる", () => {
+      expect(d.notes.seen.loanPaymentAfterStart).toBe("90,000");
+      expect(d.notes.seen.loanPayoffAfterStart).toBe("2058-03");
+      const loan = h().debts![0]!;
+      expect(loan.start).toEqual({ at: "2023-04" });
+      // 完済の年月＝借りた年月＋返済期間
+      expect(loan.repayment.termMonths).toBe((2058 - 2023) * 12 - 1);
+      expect(h().residences!.find((r) => r.kind === "own")!.from).toEqual({ at: "2023-04" });
+      expect(h().events?.find((e) => e.id === loan.housing?.moveIn)?.at).toEqual({ at: "2023-04" });
+    });
     it("持ち家を標準の欄だけで入れても、持ち家の価値が資産に入り、純資産がマイナスにならない（評価額は未入力の警告なので標準に出る）", () => {
       expect(sum(d.table, "cf.balance.account.realEstate", yearOf(d.wh.request))).toBeGreaterThan(0);
       expect(d.bs).not.toContain("純資産がマイナスに");
@@ -248,6 +258,45 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
     watchChecks(() => d, [
       { rule: "pastRetirementEstimate", match: /db/, what: "定年の後に足した企業年金（年金で受け取る）の一時金の額が、推定0円・受け取りが過去のまま残る" },
     ]);
+  });
+
+  describe("世帯④ 賃貸から住宅を買う予定・購入の時期を画面で直す（標準の欄だけ）", () => {
+    let d: Done;
+    beforeAll(async () => {
+      d = await finish("世帯4", await household4(s.page));
+    }, 600_000);
+    const h = () => d.wh.request.input.household;
+    const bought = () => h().residences!.find((r) => r.purchase !== undefined)!;
+    const rent = () => h().residences!.find((r) => r.kind === "rent")!;
+    const loan = () => h().debts!.find((x) => x.kind === "mortgage")!;
+
+    it("住宅ローンを足す前に購入の時期を直すと、前の賃貸の住み終わりが購入の前の月になり、足したローンの借入の年月は購入の時期", () => {
+      expect(d.notes.seen.rentEndAfterFirst).toBe("2030-03");
+      expect(d.notes.seen.loanStartAfterAdd).toBe("2030-04");
+    });
+    it("住宅ローンを足した後に購入の時期を直すと、前の賃貸の住み終わり・借入の年月がついてくる（画面のキー入力で）", () => {
+      expect(d.notes.seen.rentEndAfterSecond).toBe("2031-09");
+      expect(d.notes.seen.loanStartAfterSecond).toBe("2031-10");
+      expect(d.notes.seen.purchasePanel).not.toContain("が違います");
+    });
+    it("保存した世帯で、購入の時期・購入した家の住み始め・前の賃貸の住み終わり・借入の年月と最初の金利の段・控除の入居がそろう", () => {
+      expect(bought().purchase!.at).toEqual({ at: "2031-10" });
+      expect(bought().from).toEqual({ at: "2031-10" });
+      expect(rent().to).toEqual({ at: "2031-09" });
+      expect(loan().start).toEqual({ at: "2031-10" });
+      expect(loan().rateSchedule[0]!.from).toEqual({ at: "2031-10" });
+      expect(h().events?.find((e) => e.id === loan().housing?.moveIn)?.at).toEqual({ at: "2031-10" });
+    });
+    it("借入の年月だけを手でずらすと、欄の下に知らせと「購入の時期に合わせる」が出て、押すと借入の年月が購入の時期に戻る", () => {
+      expect(d.notes.seen.gapPanel).toContain("購入の時期（2031年10月）と借入の年月（2032年1月）が違います");
+      expect(d.notes.seen.loanStartAfterFix).toBe("2031-10");
+    });
+    it("結果の表で、買う前の年（2030年）に住宅ローンの返済が無く、家賃を払う", () => {
+      expect(sum(d.table, "cf.expense.housing.loan", 2030)).toBe(0);
+      expect(sum(d.table, "cf.expense.housing.rent", 2030)).toBeGreaterThan(0);
+    });
+    panelChecks(() => d);
+    watchChecks(() => d, []);
   });
 
   // 見本の棚の主な世帯: 全部の入力項目のパネルを開いて閉じ、結果のタブまで出す（見本は保存しないので、世帯の中身の確かめはしない）
