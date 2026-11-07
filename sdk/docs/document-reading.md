@@ -42,7 +42,7 @@ FP への注意（AI からも、書類を受け取ったときに1回、この�
 | `docType` | 書類の種類。`pensionStatement`（ねんきん定期便）・`pensionNotice`（年金額改定通知書）・`withholdingSlip`（給与所得の源泉徴収票）・`taxReturn`（確定申告書）・`lifeInsuranceDeduction`（生命保険料控除証明書）・`earthquakeInsuranceDeduction`（地震保険料控除証明書）・`insurancePolicy`（保険証券・ご契約内容のお知らせ・設計書）・`housingLoanBalance`（住宅ローンの年末残高等証明書）・`loanSchedule`（ローンの返済予定表）・`residentTaxNotice`（住民税の決定通知書）・`other`（そのほか） |
 | `asOf` | 書類の時点（作成・証明の年月。`YYYY-MM`）。手引きに書き方がある |
 | `holder` | 書類の名義の人（どなたの書類か）を続柄の鍵で: `self`（ご本人）・`spouse`（配偶者）・`child1`・`child2`…。FP が言ったときだけ書く。名前から決めない。書かなければ FP が画面で選ぶ |
-| `objects` | 書類から**新しく足す物**（今は保険の契約だけ）。`{ "key": "c1", "kind": "insurance:medical", "source": {…}, "confidence": "high" }`。鍵は英数字16字まで。種類の一覧は [fields.md](../skills/read-documents/fields.md) の最後 |
+| `objects` | 書類から**新しく足す物**（保険の契約・住宅ローン・iDeCo・小規模企業共済）。`{ "key": "c1", "kind": "insurance:medical", "source": {…}, "confidence": "high" }`。鍵は英数字16字まで。種類の一覧は [fields.md](../skills/read-documents/fields.md) の最後 |
 | `values` | 入力の値の候補（下の 3） |
 | `references` | **照合だけの値**（入力にしない値。源泉徴収税額・社会保険料の額など。下の 4） |
 

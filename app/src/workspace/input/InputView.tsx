@@ -29,7 +29,8 @@ import { STAGE_ORDER } from "./stages/index.ts";
 import { STATUS_TEXT, StatusBadge, statusText } from "./StatusBadge.tsx";
 import { CheckList, checkButtonText, checkSummary } from "./CheckList.tsx";
 import { DocRequests } from "./DocRequests.tsx";
-import { docRequests } from "./docRequests.ts";
+import { docRequests, type DocRequest } from "./docRequests.ts";
+import { docStartOf, type DocStart } from "../documents/start.ts";
 import type { NoticeRow } from "../engineNotices.ts";
 import { DiffList, PlanTarget, type PlanEditProps } from "./PlanEdit.tsx";
 import { countsByCard, diffRows, planIndex, planView, recordPlanEdit } from "../plans/planEdit.ts";
@@ -75,6 +76,11 @@ interface Props {
   officeItems?: OfficeItems;
   /** 「探して開く」に初めに入れておく言葉（URL の #find=留学。画面の確かめ用） */
   findQuery?: string;
+  /**
+   * 書類の読み取りへ進む（0154 の3）: 書類のお願いの1通の「この書類を読む」・書類待ちの欄・保険と年金の見出しの「書類から読む」。
+   * 取り込みは現状に入るので、プランの編集中は入口を出さない
+   */
+  onReadDoc?: (start: DocStart) => void;
   /** 取り込みの中身を開いているか（親が持つ。FP のメニューから開く）。省くとホームの中で持つ */
   importsOpen?: boolean;
   onImportsOpen?: (open: boolean) => void;
@@ -264,7 +270,7 @@ export function ImportMenu({ children, off, initialOpen = false, open: outer, on
   );
 }
 
-export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false, officeItems, findQuery }: Props) {
+export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false, officeItems, findQuery, onReadDoc }: Props) {
   /** 直しているプラン（直せないときは現状） */
   const editing = plans !== undefined && plans.sel !== null && plans.lock === null ? (plans.list.find((x) => x.id === plans.sel) ?? null) : null;
   const pcat = plans?.cat;
@@ -397,6 +403,14 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
     backTo.current = null;
     setOpenId(null);
     setStatementOpen(true);
+  };
+  // 書類の読み取りへ進む（パネルから: 保存していない変更を保存し、パネルを閉じてから）
+  const readDocFromPanel = (start: DocStart, saved?: WorkingHousehold) => {
+    if (onReadDoc === undefined) return;
+    if (saved !== undefined) onSave(saved);
+    backTo.current = null;
+    setOpenId(null);
+    onReadDoc(start);
   };
   const backFromStatement = (approved?: number) => {
     setStatementOpen(false);
@@ -537,7 +551,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
         ) : null}
       </div>
       {editing !== null && pcat !== undefined && diffOpen && plans !== undefined ? <DiffList rows={rows} wh={wh} planId={editing.id} planLabel={plans.list.find((x) => x.id === editing.id)?.label ?? "このプラン"} cat={pcat} onEdit={plans.onSavePlan} onOpen={open} onClose={() => setDiffOpen(false)} /> : null}
-      {docsOpen ? <DocRequests wh={wh} onOpen={openField} onClose={() => setDocsOpen(false)} /> : null}
+      {docsOpen ? <DocRequests wh={wh} onOpen={openField} onClose={() => setDocsOpen(false)} {...(onReadDoc !== undefined && editing === null ? { onRead: (r: DocRequest) => onReadDoc(docStartOf(r)) } : {})} /> : null}
       {checkOpen ? (
         <CheckList
           wh={wh}
@@ -611,6 +625,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
           {...(focusAt !== null ? { focusAt } : {})}
           {...(computeOne !== undefined ? { computeOne } : {})}
           {...(openId === "living" && statement !== undefined && editing === null ? { onStatement: openStatement } : {})}
+          {...(onReadDoc !== undefined && editing === null ? { onReadDoc: readDocFromPanel } : {})}
           {...(editing !== null && pcat !== undefined ? { plan: { id: editing.id, label: editing.label, color: editing.color, cat: pcat } } : {})}
         />
       ) : null}

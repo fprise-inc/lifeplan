@@ -22,7 +22,7 @@
           "type": "string"
         },
         "kind": {
-          "description": "種類（「集まり:種類」。今は保険の契約 insurance:<保険の種類> だけ。例 insurance:medical）",
+          "description": "種類（「集まり:種類」。保険の契約 insurance:<保険の種類>〔例 insurance:medical〕・住宅ローン debt:mortgage・口座 account:ideco と account:smallBusinessMutualAid）",
           "pattern": "^[a-z][A-Za-z]*:[A-Za-z0-9]+$",
           "type": "string"
         },
@@ -279,8 +279,10 @@
             "lifeInsuranceDeduction",
             "earthquakeInsuranceDeduction",
             "smallBusinessMutualAidDeduction",
+            "pensionPremiumDeduction",
             "insurancePolicy",
             "housingLoanBalance",
+            "housingLoanCredit",
             "loanSchedule",
             "taxReturn",
             "brokerageBalance",

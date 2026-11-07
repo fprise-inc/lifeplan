@@ -8,6 +8,7 @@ import housingLoanMd from "../../../../sdk/skills/read-documents/guides/housing-
 import insuranceDeductionMd from "../../../../sdk/skills/read-documents/guides/insurance-deduction.md?raw";
 import insurancePolicyMd from "../../../../sdk/skills/read-documents/guides/insurance-policy.md?raw";
 import pensionMd from "../../../../sdk/skills/read-documents/guides/pension.md?raw";
+import publicPensionMd from "../../../../sdk/skills/read-documents/guides/public-pension-withholding.md?raw";
 import taxReturnMd from "../../../../sdk/skills/read-documents/guides/tax-return.md?raw";
 import withholdingSlipMd from "../../../../sdk/skills/read-documents/guides/withholding-slip.md?raw";
 import { docTypeLabel, type DocType } from "./types.ts";
@@ -17,11 +18,13 @@ const GUIDE_OF: Partial<Record<DocType, { file: string; md: string }>> = {
   pensionStatement: { file: "guides/pension.md", md: pensionMd },
   pensionNotice: { file: "guides/pension.md", md: pensionMd },
   withholdingSlip: { file: "guides/withholding-slip.md", md: withholdingSlipMd },
+  publicPensionWithholding: { file: "guides/public-pension-withholding.md", md: publicPensionMd },
   taxReturn: { file: "guides/tax-return.md", md: taxReturnMd },
   lifeInsuranceDeduction: { file: "guides/insurance-deduction.md", md: insuranceDeductionMd },
   earthquakeInsuranceDeduction: { file: "guides/insurance-deduction.md", md: insuranceDeductionMd },
   insurancePolicy: { file: "guides/insurance-policy.md", md: insurancePolicyMd },
   housingLoanBalance: { file: "guides/housing-loan.md", md: housingLoanMd },
+  housingLoanCredit: { file: "guides/housing-loan.md", md: housingLoanMd },
   loanSchedule: { file: "guides/housing-loan.md", md: housingLoanMd },
 };
 

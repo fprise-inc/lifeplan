@@ -175,3 +175,113 @@ export const SAMPLE_DEDUCTION_XML = `<?xml version="1.0" encoding="UTF-8"?>
   </TEG810>
 </DATA>
 `;
+
+/**
+ * 架空の控除証明書の電子データの残り（0154 の5）: 公的な仕様の形に合わせた、国民年金保険料等控除証明書1通・小規模企業共済等掛金控除証明書（iDeCo）1通・
+ * 住宅取得資金に係る借入金の年末残高等証明書1通・年末調整のための住宅借入金等特別控除証明書（令和6年以降居住開始用）1通を1つのファイルに入れた、架空の値の XML。
+ * 氏名・住所・基礎年金番号・共済契約者番号・整理番号・借入の番号・連帯債務者名・備考の欄も入れてあり、読み手が読まない（木に入れない）ことを確かめに使う。
+ * 日付は和暦の子の要素（元号の番号・元号の文字の両方）。見本の世帯でだけ読む
+ */
+export const SAMPLE_MORE_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<DATA xmlns="urn:example:kyotsu" xmlns:gen="urn:example:general">
+  <TEG840 VR="2.0" id="TEG840">
+    <WOA00000><kubun_CD>1</kubun_CD><kubun_NM>国民年金保険料</kubun_NM></WOA00000>
+    <WOB00000><kubun_CD>1</kubun_CD></WOB00000>
+    <WOC00000><gen:era>5</gen:era><gen:yy>8</gen:yy></WOC00000>
+    <WOD00000>1234-567890</WOD00000>
+    <WOE00000>架空 太郎</WOE00000>
+    <WOF00000>架空県架空市1-2-3</WOF00000>
+    <WOK00000>176400</WOK00000>
+    <WOL00000>35280</WOL00000>
+    <WOM00000>211680</WOM00000>
+    <WOP00000><WOP00010>期間外の納付があります</WOP00010></WOP00000>
+    <WOQ00000><gen:era>5</gen:era><gen:yy>8</gen:yy><gen:mm>10</gen:mm><gen:dd>30</gen:dd></WOQ00000>
+    <WOR00000>架空年金機構</WOR00000>
+    <WOT00000>UQ20261030000001</WOT00000>
+  </TEG840>
+  <TEG850 VR="1.0" id="TEG850">
+    <WPA00000><gen:era>5</gen:era><gen:yy>8</gen:yy></WPA00000>
+    <WPB00000><kubun_CD>2</kubun_CD><kubun_NM>個人型確定拠出年金（iDeCo）</kubun_NM></WPB00000>
+    <WPC00000>架空 太郎</WPC00000>
+    <WPD00000>架空県架空市1-2-3</WPD00000>
+    <WPE00000>1234-567890</WPE00000>
+    <WPF00000><gen:era>5</gen:era><gen:yy>8</gen:yy></WPF00000>
+    <WPG00000><WPG00010><gen:mm>9</gen:mm></WPG00010><WPG00020>207000</WPG00020></WPG00000>
+    <WPH00000><WPH00010><gen:mm>10</gen:mm></WPH00010><WPH00020><gen:mm>12</gen:mm></WPH00020><WPH00030>69000</WPH00030></WPH00000>
+    <WPI00000>276000</WPI00000>
+    <WPL00000>
+      <WPL00010><WPL00020>23000</WPL00020><WPL00030>架空の備考</WPL00030></WPL00010>
+      <WPL00040><WPL00050>23000</WPL00050></WPL00040>
+      <WPL00070><WPL00080>23000</WPL00080></WPL00070>
+      <WPL00100><WPL00110>23000</WPL00110></WPL00100>
+      <WPL00130><WPL00140>23000</WPL00140></WPL00130>
+      <WPL00160><WPL00170>23000</WPL00170></WPL00160>
+      <WPL00190><WPL00200>23000</WPL00200></WPL00190>
+      <WPL00220><WPL00230>23000</WPL00230></WPL00220>
+      <WPL00250><WPL00260>23000</WPL00260></WPL00250>
+      <WPL00280><WPL00290>23000</WPL00290></WPL00280>
+      <WPL00310><WPL00320>23000</WPL00320></WPL00310>
+      <WPL00340><WPL00350>23000</WPL00350></WPL00340>
+    </WPL00000>
+    <WPM00000>架空 太郎様の備考</WPM00000>
+    <WPN00000><gen:era>5</gen:era><gen:yy>8</gen:yy><gen:mm>10</gen:mm><gen:dd>15</gen:dd></WPN00000>
+    <WPO00000>架空の年金連合会</WPO00000>
+    <WPP00000>UQ20261015000002</WPP00000>
+  </TEG850>
+  <TEG900 VR="1.0" id="TEG900">
+    <WIA00000>
+      <WIA00010><WIA00020>架空県架空市1-2-3</WIA00020><WIA00030>架空 太郎</WIA00030></WIA00010>
+      <WIA00040>
+        <WIA00050><kubun_CD>3</kubun_CD></WIA00050>
+        <WIA00060>
+          <WIA00070>28450000</WIA00070>
+          <WIA00080>
+            <WIA00090><gen:era>4</gen:era><gen:yy>30</gen:yy><gen:mm>4</gen:mm><gen:dd>25</gen:dd></WIA00090>
+            <WIA00100>35000000</WIA00100>
+          </WIA00080>
+        </WIA00060>
+        <WIA00110>
+          <WIA00120><gen:era>4</gen:era><gen:yy>30</gen:yy><gen:mm>5</gen:mm></WIA00120>
+          <WIA00130><gen:era>5</gen:era><gen:yy>35</gen:yy><gen:mm>4</gen:mm></WIA00130>
+          <WIA00140>35</WIA00140>
+          <WIA00150>0</WIA00150>
+        </WIA00110>
+        <WIA00160>42000000</WIA00160>
+        <WIA00170>
+          <WIA00180><kubun_CD>2</kubun_CD></WIA00180>
+          <WIA00190>架空 花子</WIA00190>
+        </WIA00170>
+        <WIA00290><gen:era>5</gen:era><gen:yy>7</gen:yy><gen:mm>12</gen:mm><gen:dd>31</gen:dd></WIA00290>
+        <WIA00300><gen:era>5</gen:era><gen:yy>8</gen:yy><gen:mm>1</gen:mm><gen:dd>20</gen:dd></WIA00300>
+      </WIA00040>
+    </WIA00000>
+    <WIB00000><WIB00010>架空県架空市4-5-6</WIB00010><WIB00020>架空のさくら銀行</WIB00020><WIB00030>架空第999号</WIB00030></WIB00000>
+    <WIC00000><WIC00010>9999999999999</WIC00010><WIC00020>架空支店</WIC00020><WIC00030>000-0000-0000</WIC00030><WIC00040>LN-1234567</WIC00040><WIC00060>架空 太郎様</WIC00060></WIC00000>
+  </TEG900>
+  <TEG913 VR="1.0" id="TEG913">
+    <WVA00000><gen:era>5</gen:era><gen:yy>8</gen:yy></WVA00000>
+    <WVB00000><gen:era>5</gen:era><gen:yy>8</gen:yy></WVB00000>
+    <WVD00000>
+      <WVD00010><WVD00020>1</WVD00020><WVD00030>2</WVD00030><WVD00040>3</WVD00040></WVD00010>
+      <WVD00090><WVD00100>架空県架空市</WVD00100><WVD00110>7-8-9</WVD00110></WVD00090>
+      <WVD00130>架空\u3000次郎</WVD00130>
+      <WVD00140><gen:era>5</gen:era><gen:yy>8</gen:yy><gen:mm>10</gen:mm><gen:dd>1</gen:dd></WVD00140>
+      <WVD00150>架空</WVD00150>
+      <WVD00160>架空 署長</WVD00160>
+    </WVD00000>
+    <WVG00000>12345678</WVG00000>
+    <WVH00000><gen:era>5</gen:era><gen:yy>8</gen:yy></WVH00000>
+    <WVI00000>
+      <WVI00230>
+        <WVI00240>（令和\u3000６年中居住者・認定住宅等用）</WVI00240>
+        <WVI00250>
+          <WVI00260><WVI00300><gen:era>5</gen:era><gen:yy>6</gen:yy><gen:mm>8</gen:mm><gen:dd>4</gen:dd></WVI00300></WVI00260>
+          <WVI00500><WVI00510>ＺＥＨ水準省エネ住宅・新築</WVI00510></WVI00500>
+          <WVI00530><WVI00560>39200000</WVI00560></WVI00530>
+          <WVI00570><WVI00580>架空 次郎様</WVI00580></WVI00570>
+        </WVI00250>
+      </WVI00230>
+    </WVI00000>
+  </TEG913>
+</DATA>
+`;

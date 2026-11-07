@@ -196,15 +196,16 @@ describe("読めないファイルは理由を出して読まない", () => {
     const cut = await readFile(wh, SAMPLE_DEDUCTION_XML.slice(0, 600));
     expect(cut.readings).toEqual([]);
     expect(cut.issues[0]).toMatch(/^XML として読めません: /u);
+    // 額の無い証明書（0154 で読めるようになった国民年金保険料等の証明書）は、読める値が無いと理由を出す
     const other = await readFile(wh, "<TEG840><WKA00000>架空</WKA00000></TEG840>");
-    expect(other).toEqual({ readings: [], issues: [expect.stringContaining("国民年金保険料等控除証明書の電子データは、まだ読めません")] });
-    expect((await readFile(wh, "<NTAAPP001><x/></NTAAPP001>")).issues).toEqual(["生命保険料・地震保険料の控除証明書の電子データではありません"]);
+    expect(other).toEqual({ readings: [], issues: ["額の書かれていない証明書がありました（読める値がありません）"] });
+    expect((await readFile(wh, "<NTAAPP001><x/></NTAAPP001>")).issues).toEqual([expect.stringMatching(/^控除証明書の電子データではありません/u)]);
     expect((await readFile(wh, new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2]))).issues[0]).toContain("ZIP");
     expect((await readFile(wh, `<!DOCTYPE x><TEG800/>`)).issues[0]).toContain("文書型の宣言");
     expect((await readFile(wh, "<TEG800><WCA00000>架空</WCA00000></TEG800>")).issues).toEqual(["生命保険料控除証明書に、契約の明細がありません"]);
   });
 
-  it("生命保険料の証明書と、まだ読めない証明書が一緒のファイルでは、読める分だけ読んで残りの理由を出す", async () => {
+  it("生命保険料の証明書と、読めない証明書（掛金の種別の無い小規模企業共済等）が一緒のファイルでは、読める分だけ読んで残りの理由を出す", async () => {
     const wh = open();
     const xml = `<DATA>${life(detail("<WCE00050>医療保険</WCE00050>")).replace(/^<\?xml[^>]*\?>/u, "")}<TEG850><x/></TEG850></DATA>`;
     const res = await readFile(wh, xml);
@@ -348,16 +349,21 @@ describe("画面", () => {
     expect(html).toContain("控除証明書の電子データ（XML）を読む");
     expect(html).toContain("このパソコンの中だけで読みます");
     expect(html).not.toContain("data-documents-xml-sample");
-    expect(renderToString(h(DocumentEntry, { ...base, sample: true, onReadings: () => undefined }))).toContain("架空の控除証明書の電子データで試す");
+    expect(renderToString(h(DocumentEntry, { ...base, sample: true, onReadings: () => undefined }))).toContain("架空の控除証明書などの電子データで試す");
   });
 
   it("架空の電子データの見本は、XML の読み手を通して見本の記録になる", () => {
     const wh = open();
     const rs = xmlSampleReadings(wh, AT, newId);
+    // 保険料の控除証明書（0153）と、ほかの控除証明書・住宅ローンの証明書（0154）
     expect(rs.map((r) => [r.via, r.reader?.id, r.docType])).toEqual([
       ["sample", "sample.deductionXml", "lifeInsuranceDeduction"],
       ["sample", "sample.deductionXml", "lifeInsuranceDeduction"],
       ["sample", "sample.deductionXml", "earthquakeInsuranceDeduction"],
+      ["sample", "sample.deductionXml", "pensionPremiumDeduction"],
+      ["sample", "sample.deductionXml", "smallBusinessMutualAidDeduction"],
+      ["sample", "sample.deductionXml", "housingLoanBalance"],
+      ["sample", "sample.deductionXml", "housingLoanCredit"],
     ]);
     expect(deductionProposals(SAMPLE_DEDUCTION_XML).proposals.map((p) => p.contracts)).toEqual([3, 1, 1]);
   });
