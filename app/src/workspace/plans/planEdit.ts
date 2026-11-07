@@ -7,7 +7,7 @@
 // 欄のキーは差分に書かない（当て先だけ。0036 の2）。世帯ファイルの形は変えない
 // - どのプランにも共通の項目（表の最後の年。0043 の追記 2026-11-05）は差分にせず、現状に書く（sharedToCurrent）
 import type { Proposal } from "./plans.ts";
-import { acknowledge, applyPlan, chainOf, diffKey, dropChange, findPlan, rowKeyOf, setPlanValue, type Review } from "./plans.ts";
+import { acknowledge, applyDiffs, applyPlan, chainOf, diffKey, dropChange, effectiveDiffs, findPlan, rowKeyOf, setPlanValue, type Review } from "./plans.ts";
 import { addressOf, boxAt, isLever, sameJson, type DiffBox, type PlanDiff } from "./diffs.ts";
 import { fieldText, type Catalog, type ItemValue } from "./items.ts";
 import { COLLECTIONS, ITEM_PLACES } from "../../generated/readings.ts";
@@ -580,14 +580,24 @@ export function recordPlanEdit(wh: WorkingHousehold, cat: Catalog, pid: string, 
   const after = shared.after;
   const to = inputOf(after);
   let w = shared.wh;
-  let from = inputOf(w === wh ? before : planView(w, cat, pid));
-  for (let i = 0; i < 4; i++) {
-    const changes = householdChanges(from, to);
-    if (changes.length === 0) break;
-    const next = applyChanges(w, cat, pid, changes, to, opts);
-    if (sameJson(next.proposals, w.proposals)) break;
-    w = next;
-    from = inputOf(planView(w, cat, pid));
+  const record = (start: Obj) => {
+    let from = start;
+    for (let i = 0; i < 4; i++) {
+      const changes = householdChanges(from, to);
+      if (changes.length === 0) break;
+      const next = applyChanges(w, cat, pid, changes, to, opts);
+      if (sameJson(next.proposals, w.proposals)) break;
+      w = next;
+      from = inputOf(planView(w, cat, pid));
+    }
+  };
+  record(inputOf(w === wh ? before : planView(w, cat, pid)));
+  // 結果のタブの対策が動かした欄を直したとき: 対策が後から当たって打った値を上書きしないよう、対策の値を直す（直せなければ対策を外す。0162）
+  const edited = householdChanges(inputOf(before), to).flatMap((c) => (c.kind === "set" ? [c.address] : []));
+  const followed = followLevers(w, cat, pid, after, to, edited);
+  if (followed !== w) {
+    w = followed;
+    record(inputOf(planView(w, cat, pid)));
   }
   w = pruneIdleReplacements(w, cat, pid);
   // 画面の側の値: このプランで足した構成員の呼び名と、足した項目のカード（物はプランの差分。カードの記録は世帯に1つ）
@@ -617,6 +627,57 @@ export function recordPlanEdit(wh: WorkingHousehold, cat: Catalog, pid: string, 
   if (w.proposals !== wh.proposals) {
     const t = new Date().toISOString();
     w = { ...w, proposals: w.proposals.map((p) => (p.id === pid && p !== findPlan(wh.proposals, pid) ? { ...p, updatedAt: t } : p)) };
+  }
+  return w;
+}
+
+/**
+ * 結果のタブの対策（働く最後の年齢・年金の受け取り開始・生活費・NISA などの合成の対策）で動かした欄を、入力の画面で直したとき（0162）。
+ * 対策は欄の差分の後に当たるので、そのままでは打った値を対策の値で上書きし、打った値が黙って消えていた。
+ * 直した所のうち、このプランの中身でまだ打った値になっていない所を動かしている対策について、
+ * 1. 対策の値を、直した後の中身から読んだ値にする（このプランの対策なら直す。土台のプランの対策なら、このプランで同じ対策を上書きする）。
+ *    対策の値で打った値になれば、同じ所の欄の差分は外す
+ * 2. それでも打った値にならない・ほかの所が崩れる（退職の段の始まりだけを動かした・基礎と厚生の受け取り開始を別々にしたなど、対策の1つの値で
+ *    言えない形）なら、このプランの対策を外す（外した後の違いは、呼んだ側が欄の差分にする）。土台のプランの対策は外せないので、そのまま
+ */
+function followLevers(wh: WorkingHousehold, cat: Catalog, pid: string, after: WorkingHousehold, to: Obj, edited: readonly Address[]): WorkingHousehold {
+  if (edited.length === 0) return wh;
+  const stuck = (w: WorkingHousehold, at: readonly Address[]): Address[] => {
+    const v = inputOf(planView(w, cat, pid));
+    return at.filter((a) => !sameJson(unbox(readAt(v, a)), unbox(readAt(to, a))));
+  };
+  let w = wh;
+  for (const [k, e] of effectiveDiffs(wh, pid)) {
+    const left = stuck(w, edited);
+    if (left.length === 0) break;
+    if (!isLever(e.diff.target)) continue;
+    const it = cat.byKey.get(k);
+    if (it === undefined) continue;
+    // この対策が動かしている所（対策を外すと値が変わる所）
+    const view = inputOf(planView(w, cat, pid));
+    const without = inputOf({ ...w, request: applyDiffs(w, chainOf(w.proposals, pid).map((p) => ({ id: p.id, diffs: p.diffs.filter((d) => d.id !== e.diff.id) })), cat).request });
+    const moved = left.filter((a) => !sameJson(readAt(without, a), readAt(view, a)));
+    if (moved.length === 0) continue;
+    const want = it.read(after);
+    const value: DiffBox = { value: want, state: "confirmed", origin: { kind: "manual" } };
+    const own = e.owner === pid;
+    const retried = own
+      ? withDiffs(w, pid, (ds) => ds.map((d) => (d.id === e.diff.id ? { ...d, value, origin: { kind: "manual" } } : d)))
+      : withDiffs(w, pid, (ds) => [...ds, { ...structuredClone(e.diff), id: newId(), value, origin: { kind: "manual" }, note: null }]);
+    const rest = (x: WorkingHousehold) => householdChanges(inputOf(planView(x, cat, pid)), to).length;
+    // 対策の値を直して、打った所がそろい、ほかの所を崩さない（違いが減る）ときだけ。基礎と厚生の受け取り開始を別々にしたなど、
+    // 対策の1つの値で言えない形は対策を外す
+    if (stuck(retried, moved).length === 0 && rest(retried) < rest(w)) {
+      // 対策の値で打った値になるなら、同じ所の欄の差分は要らない（違いの一覧に同じ変更を2行出さない）
+      const covered = (d: PlanDiff) => {
+        const x = d.op === "set" && !isLever(d.target) ? addressOf(d) : null;
+        return x !== null && moved.some((a) => overlaps(x, a));
+      };
+      const trimmed = withDiffs(retried, pid, (ds) => ds.filter((d) => !covered(d)));
+      w = stuck(trimmed, moved).length === 0 && rest(trimmed) <= rest(retried) ? trimmed : retried;
+      continue;
+    }
+    if (own) w = withDiffs(w, pid, (ds) => ds.filter((d) => d.id !== e.diff.id));
   }
   return w;
 }
