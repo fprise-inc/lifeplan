@@ -13,6 +13,7 @@ import { bsHouseholdOf, bsSeries, BS_GROUP_LABEL, groupTotal, OTHER_ASSET_LINES,
 import { DEFAULT_MONEY_THREE, moneyThreeModel, type MoneyThreeModel } from "./moneyThree.ts";
 import { carPurchaseMonths } from "../../engine/src/sdk/cars.ts";
 import { dreamIncluded, dreamList, dreamSummary } from "./dreams.ts";
+import { addMonths, monthOfTimepoint, parseYm, ym, yearOfTimepoint } from "./timepoint.ts";
 import {
   type Comparison,
   DEFAULT_LAYOUT,
@@ -50,18 +51,7 @@ const under = (row: string, prefix: string): boolean => row === prefix || row.st
 
 // ---- 時点と年齢 ----
 
-export function parseYm(s: string): { y: number; m: number } {
-  const [y, m] = s.split("-").map(Number) as [number, number];
-  return { y, m };
-}
-
-const ym = (y: number, m: number): string => `${y}-${String(m).padStart(2, "0")}`;
-
-function addMonths(s: string, n: number): string {
-  const { y, m } = parseYm(s);
-  const i = y * 12 + (m - 1) + n;
-  return ym(Math.floor(i / 12), (i % 12) + 1);
-}
+export { parseYm };
 
 /** その年齢に達する月（1日生まれは前の月） */
 function ageReachedMonth(member: Member, age: number): string {
@@ -80,9 +70,9 @@ function ageAt(member: Member, month: string): number {
 /** 各年12月末時点の年齢 */
 const ageInYear = (m: Member, year: number): number => year - parseYm(m.birth.birthYearMonth).y;
 
-const leaveYear = (m: Member): number | null => (m.leaves !== null && "at" in m.leaves ? parseYm(m.leaves.at).y : null);
-
-const atOf = (t: Timepoint | null | undefined): string | null => (t !== null && t !== undefined && "at" in t ? t.at : null);
+/** 世帯を抜ける年（子の独立など）・加わる年（結婚の予定の配偶者など）。年齢・出来事の時点も解く（アプリの roles.ts と同じ。0168） */
+const leaveYear = (h: Household, m: Member): number | null => yearOfTimepoint(h, m.leaves);
+const joinYear = (h: Household, m: Member): number | null => yearOfTimepoint(h, m.joins);
 
 const monthLabel = (s: string): string => {
   const { y, m } = parseYm(s);
@@ -136,7 +126,16 @@ export function roles<M extends RoleMember = Member>(req: { input: { household: 
   return out;
 }
 
-const presentIn = (r: Role, y: number): boolean => ageInYear(r.member, y) >= 0 && (leaveYear(r.member) === null || y <= (leaveYear(r.member) as number));
+/**
+ * その年に世帯にいるか（年齢を出すか）: 生まれていて、加わる年より前でなく、抜ける年より後でない（アプリの roles.ts の presentInYear と同じ。
+ * 加わる年・抜ける年は、月が年の途中でもその年を含める）。構成員の時点は提案の世帯で解く
+ */
+function presentIn(ctx: { bundle: ProposalBundle }, r: Role, y: number): boolean {
+  const h = ctx.bundle.proposal.request.input.household;
+  const join = joinYear(h, r.member);
+  const leave = leaveYear(h, r.member);
+  return ageInYear(r.member, y) >= 0 && (join === null || y >= join) && (leave === null || y <= leave);
+}
 
 // ---- 表のマスの集計 ----
 
@@ -392,10 +391,12 @@ function outcome(ctx: Ctx, run: Run): Outcome {
   };
 }
 
+/** 退職の月（働き方の期間の最後の終わりの翌月。終わりの無い期間があれば null）。終わりは年齢・出来事の時点も解く（0168） */
 function retirementMonth(req: EngineRequest, member: Member): string | null {
-  const ends = req.input.household.employmentPeriods
+  const h = req.input.household;
+  const ends = h.employmentPeriods
     .filter((e) => e.member === member.id)
-    .map((e) => atOf(e.to))
+    .map((e) => monthOfTimepoint(h, e.to))
     .filter((x): x is string => x !== null)
     .sort();
   const open = req.input.household.employmentPeriods.some((e) => e.member === member.id && e.to === null);
@@ -403,64 +404,29 @@ function retirementMonth(req: EngineRequest, member: Member): string | null {
   return open || last === undefined ? null : addMonths(last, 1);
 }
 
-/** 公的年金の受け取りを始める月（基礎年金。指定が無ければ65歳に達した月の翌月） */
+/**
+ * 公的年金の受け取りを始める月（基礎年金。指定が無ければ65歳に達した月の翌月）。年金の記録があれば記録の claim、記録が無い人
+ * （働き方の期間からの推計）は構成員の pensionClaim（計算エンジンの sdk/pension.ts の claimInput・アプリの打ち手と同じ。0078）。
+ * 時点は年齢・出来事の形も解く（0168）
+ */
 function pensionStartMonth(req: EngineRequest, member: Member): string {
-  const rec = (req.input.household.pensionRecords ?? []).find((r) => r.member === member.id);
-  const claim = atOf(rec?.claim?.basic ?? null);
-  return claim ?? addMonths(ageReachedMonth(member, 65), 1);
+  const h = req.input.household;
+  const rec = (h.pensionRecords ?? []).find((r) => r.member === member.id);
+  const claim = rec !== undefined ? rec.claim : member.pensionClaim;
+  return monthOfTimepoint(h, claim?.basic) ?? addMonths(ageReachedMonth(member, 65), 1);
 }
 
 /**
- * 構成員がその年齢（月まで）に関わる月（計算エンジンの time/ageSwitch.ts と同じ決まり。省略は達する月）。
- * 「○歳の4月」（schoolYear）・「○歳になった翌月」（monthAfterReach）なども、計算と同じ年月にする
+ * 年金の章の「受け取りの開始」の年: 受け取り開始の月の年から後で、老齢年金のある最初の年（受け取り開始が表より前なら、表の中の最初の年）。
+ * 特別支給の老齢厚生年金（65歳より前の分）で開始の年を決めない。年金の無い人は null
  */
-function ageSwitchMonth(m: Member, years: number, months: number, rule: string | undefined): string {
-  const birthday = addMonths(m.birth.birthYearMonth, years * 12 + months);
-  const reach = m.birth.bornOnFirst ? addMonths(birthday, -1) : birthday;
-  const { y, m: mo } = parseYm(reach);
-  switch (rule) {
-    case "monthAfterReach":
-      return addMonths(reach, 1);
-    case "birthdayMonth":
-      return birthday;
-    case "monthAfterBirthday":
-      return addMonths(birthday, 1);
-    case "firstMarch31AfterReach":
-      return ym(mo <= 3 ? y : y + 1, 3);
-    case "schoolYear": {
-      const b = parseYm(birthday);
-      const same = b.m < 4 || (b.m === 4 && m.birth.bornOnFirst);
-      return ym(same ? b.y : b.y + 1, 4);
-    }
-    case "schoolYearJanuary": {
-      // その年齢になる年度の1月（子の成人式。0104）
-      const b = parseYm(birthday);
-      const same = b.m < 4 || (b.m === 4 && m.birth.bornOnFirst);
-      return ym(same ? b.y : b.y + 1, 1);
-    }
-    default:
-      return reach;
-  }
+function pensionStartYear(req: EngineRequest, member: Member, m: Map<number, number>, years: readonly number[]): number | null {
+  const from = parseYm(pensionStartMonth(req, member)).y;
+  return years.find((y) => y >= from && (m.get(y) ?? 0) > 0) ?? null;
 }
 
-/**
- * 時点を年月にする（計算エンジンの time/timepoint.ts と同じ決まり）: 年月、構成員の年齢（年齢の切り替えの規則つき）、名前つきの出来事（の年月＋ずらし）。
- * 解けない時点（いない構成員・無い出来事・出来事の循環）は null
- */
-function monthOfTimepoint(h: Household, t: Timepoint | null | undefined, stack: readonly string[] = []): string | null {
-  if (t === null || t === undefined) return null;
-  if ("at" in t && typeof t.at === "string") return t.at;
-  const ma = (t as { memberAge?: { member: string; years: number; months?: number; ageSwitch?: string } }).memberAge;
-  if (ma !== undefined) {
-    const m = h.members.find((x) => x.id === ma.member);
-    return m === undefined ? null : ageSwitchMonth(m, ma.years, ma.months ?? 0, ma.ageSwitch);
-  }
-  const ev = t as { event?: string; offset?: { years?: number; months?: number } };
-  if (ev.event === undefined || stack.includes(ev.event)) return null;
-  const e = (h.events ?? []).find((x) => x.id === ev.event);
-  const base = e === undefined ? null : monthOfTimepoint(h, e.at, [...stack, ev.event]);
-  return base === null ? null : addMonths(base, (ev.offset?.years ?? 0) * 12 + (ev.offset?.months ?? 0));
-}
+/** 年金の年額: 受け取りの開始の翌年（1年を通して受け取る年）の額。翌年が表に無ければ開始の年の額 */
+const pensionAnnual = (m: Map<number, number>, start: number | null): number | null => (start === null ? null : (m.get(start + 1) ?? m.get(start) ?? null));
 
 /**
  * 車の買い替え（購入）の年: 計算エンジンの車の部品と同じ決め方（SDK の carPurchaseMonths。最初の年月から周期ごと、手放す月より前と表の最後まで、
@@ -660,7 +626,7 @@ function eventsByYear(ctx: Ctx, run: Run): Map<number, string[]> {
     }
   }
   for (const r of ctx.rs) {
-    const ly = leaveYear(r.member);
+    const ly = leaveYear(h, r.member);
     if (ly !== null && r.member.kind === "child") add(ly, `${r.label}が独立`);
   }
   for (const r of ctx.rs.filter((x) => x.key === "self" || x.key === "spouse")) {
@@ -688,7 +654,7 @@ function events(ctx: Ctx): ProposalInput["events"] {
     .sort(([a], [b]) => a - b)
     .map(([year, items]) => ({
       year,
-      ages: ctx.rs.filter((r) => presentIn(r, year) && (r.key === "self" || r.key === "spouse")).map((r) => `${r.label}${ageInYear(r.member, year)}歳`).join("・"),
+      ages: ctx.rs.filter((r) => presentIn(ctx, r, year) && (r.key === "self" || r.key === "spouse")).map((r) => `${r.label}${ageInYear(r.member, year)}歳`).join("・"),
       items,
     }));
 }
@@ -1000,17 +966,17 @@ function retirement(ctx: Ctx): ProposalInput["retirement"] {
   const maps = adults.map((r) => ({ r, m: sumByYear(run.result.table, (c) => isOldAgePension(c) && c.member === r.member.id) }));
   if (maps.every((x) => total(x.m, ctx.years) === 0)) return null;
   const pensions = maps.map(({ r, m }) => {
-    const start = ctx.years.find((y) => (m.get(y) ?? 0) > 0);
+    const start = pensionStartYear(run.request, r.member, m, ctx.years);
     return {
       label: r.label,
-      start: start === undefined ? null : { year: start, label: `${r.label}${ageInYear(r.member, start)}歳（${start}年）` },
-      annual: start === undefined ? null : (m.get(start + 1) ?? m.get(start) ?? null),
+      start: start === null ? null : { year: start, label: `${r.label}${ageInYear(r.member, start)}歳（${start}年）` },
+      annual: pensionAnnual(m, start),
       total: total(m, ctx.years),
     };
   });
   const all = sumByYear(run.result.table, isOldAgePension);
   const years = trimYears([all], ctx.years);
-  const ageText = (y: number) => adults.filter((r) => presentIn(r, y)).map((r) => `${r.label}${ageInYear(r.member, y)}歳`).join("・");
+  const ageText = (y: number) => adults.filter((r) => presentIn(ctx, r, y)).map((r) => `${r.label}${ageInYear(r.member, y)}歳`).join("・");
   const table: YearTable = {
     columns: [...adults.map((r) => `${r.label}の年金`), "ご家族の合計"],
     rows: years.map((y) => ({ year: y, ages: ageText(y), cells: [...maps.map((x) => x.m.get(y) ?? 0), all.get(y) ?? 0] })),
@@ -1046,10 +1012,10 @@ function retirement(ctx: Ctx): ProposalInput["retirement"] {
         label: who.label,
         options: d.options.map((o) => {
           const m = sumByYear(o.run.result.table, (c) => isOldAgePension(c) && c.member === who.member.id);
-          const start = ctx.years.find((y) => (m.get(y) ?? 0) > 0);
+          const member = o.run.request.input.household.members.find((x) => x.id === who.member.id) ?? who.member;
           return {
             label: `${o.startAge}歳から受け取る`,
-            annual: start === undefined ? null : (m.get(start + 1) ?? m.get(start) ?? null),
+            annual: pensionAnnual(m, pensionStartYear(o.run.request, member, m, ctx.years)),
             totalToTarget: total(m, upTo),
             financialAtTarget: financialOf(o.run.result).get(ctx.target.year) ?? 0,
           };
@@ -1128,9 +1094,9 @@ function contingency(ctx: Ctx): ProposalInput["contingency"] {
   return { scenarios, protection };
 }
 
-function premiumText(p: Household["insuranceContracts"][number]["premium"]): string {
+function premiumText(h: Household, p: Household["insuranceContracts"][number]["premium"]): string {
   const head = p.frequency === "monthly" ? "月額" : p.frequency === "annual" ? "年額" : "一時払";
-  const until = atOf(p.payUntil);
+  const until = monthOfTimepoint(h, p.payUntil);
   return `${head}${yenText(p.amount)}${until !== null ? `（${monthLabel(until)}まで）` : ""}`;
 }
 
@@ -1147,10 +1113,13 @@ function insurance(ctx: Ctx): ProposalInput["insurance"] {
     const n = names[i] as string;
     return names.filter((x) => x === n).length > 1 ? `${n}（${label.get(c.insured) ?? "ご家族"}）` : n;
   });
+  // 払込の終わりの時点は、その契約のある世帯で解く（提案の契約は提案の世帯、解約する契約は現状の世帯）
+  const hP = ctx.bundle.proposal.request.input.household;
+  const hC = ctx.bundle.current.request.input.household;
   const contracts = all.map((c, i) => ({
     label: display[i] as string,
     insured: label.get(c.insured) ?? "ご家族",
-    premium: premiumText(c.premium),
+    premium: premiumText(proIds.has(c.id) ? hP : hC, c.premium),
     benefits: (c.coverages ?? []).map((v) => `${BENEFIT_LABEL[v.benefit] ?? "給付"} ${yenText(v.amount)}`),
     status: (curIds.has(c.id) && proIds.has(c.id) ? "継続" : proIds.has(c.id) ? "新規" : "解約") as "継続" | "新規" | "解約",
   }));
@@ -1166,7 +1135,7 @@ function insurance(ctx: Ctx): ProposalInput["insurance"] {
     columns: [...shown.map((i) => display[i] as string), "合計（提案）", "合計（現状）"],
     rows: years.map((y) => ({
       year: y,
-      ages: adults.filter((r) => presentIn(r, y)).map((r) => `${r.label}${ageInYear(r.member, y)}歳`).join("・"),
+      ages: adults.filter((r) => presentIn(ctx, r, y)).map((r) => `${r.label}${ageInYear(r.member, y)}歳`).join("・"),
       cells: [...shown.map((i) => (perContract[i] as Map<number, number>).get(y) ?? 0), totalP.get(y) ?? 0, totalC.get(y) ?? 0],
     })),
   };
@@ -1174,9 +1143,9 @@ function insurance(ctx: Ctx): ProposalInput["insurance"] {
 }
 
 /** FP顧問料の料金の段階の文（例: 「2030年1月から月15,000円、2033年1月から月20,000円」）。段階が無ければ null */
-function stepsText(steps: readonly { at: Parameters<typeof atOf>[0]; annual?: number; monthly?: number }[], per: "年" | "月"): string | null {
+function stepsText(h: Household, steps: readonly { at: unknown; annual?: number; monthly?: number }[], per: "年" | "月"): string | null {
   const parts = steps.flatMap((st) => {
-    const at = atOf(st.at);
+    const at = monthOfTimepoint(h, st.at);
     const amount = st.annual ?? st.monthly;
     return at === null || amount === undefined ? [] : [`${monthLabel(at)}から${per}${yenText(amount)}`];
   });
@@ -1186,16 +1155,17 @@ function stepsText(steps: readonly { at: Parameters<typeof atOf>[0]; annual?: nu
 function advisoryFeeAssumption(ctx: Ctx): ProposalInput["assumptions"]["advisoryFee"] {
   const fee = ctx.bundle.proposal.result.summary.advisoryFee;
   if (fee === undefined || fee.total === 0) return null;
-  const contracts = (ctx.bundle.proposal.request.input.household.advisoryFees ?? [])
+  const h = ctx.bundle.proposal.request.input.household;
+  const contracts = (h.advisoryFees ?? [])
     .filter((f) => f.enabled !== false)
     .map((f) => {
       const rec = f.terms?.recurring;
-      const from = atOf(rec?.from ?? null);
-      const to = atOf(rec?.to ?? null);
+      const from = monthOfTimepoint(h, rec?.from);
+      const to = monthOfTimepoint(h, rec?.to);
       return {
         label: f.menu?.label ?? "FP顧問料",
         oneTime: (f.terms?.oneTime ?? []).flatMap((o) => {
-          const at = atOf(o.at);
+          const at = monthOfTimepoint(h, o.at);
           return at === null ? [] : [{ month: monthLabel(at), amount: o.amount }];
         }),
         recurring:
@@ -1207,7 +1177,7 @@ function advisoryFeeAssumption(ctx: Ctx): ProposalInput["assumptions"]["advisory
                 from: from !== null ? monthLabel(from) : "契約の時点",
                 to: to !== null ? monthLabel(to) : null,
                 // 改定は料金の段階の額だけを書く（「2030年1月から月15,000円」）。値上げの率は顧客に見せない（計算には入っている）
-                revision: stepsText(rec.revision?.steps ?? [], rec.annual !== undefined ? "年" : "月"),
+                revision: stepsText(h, rec.revision?.steps ?? [], rec.annual !== undefined ? "年" : "月"),
               },
       };
     });
@@ -1216,11 +1186,15 @@ function advisoryFeeAssumption(ctx: Ctx): ProposalInput["assumptions"]["advisory
 }
 
 /** 黒字のうち貯まる割合の文（例: 「60%（黒字の年だけ。貯まらない分は「ゆとりの支出」）」。入れていなければ null。0031） */
-export function surplusText(s: EngineRequest["input"]["assumptions"]["surplusSaving"]): string | null {
+export function surplusText(s: EngineRequest["input"]["assumptions"]["surplusSaving"], h: Household): string | null {
   if (s === undefined) return null;
   const one = (r: { ratio?: string; cap?: number }) => [r.ratio !== undefined ? percent(r.ratio) : "", r.cap !== undefined ? `年${group(Math.round(r.cap / 10000))}万円まで` : ""].filter((x) => x !== "").join("・");
   const head = one(s);
-  const changes = (s.changes ?? []).map((c) => `${"at" in c.from ? `${c.from.at.slice(0, 4)}年` : "memberAge" in c.from ? `${c.from.memberAge.years}歳` : "途中"}から${one(c) || "100%"}`);
+  // 変わる時点は、年月・年齢・出来事のどの形でも解いた年で書く（解けない時点は「途中」。0168）
+  const changes = (s.changes ?? []).map((c) => {
+    const y = yearOfTimepoint(h, c.from);
+    return `${y !== null ? `${y}年` : "途中"}から${one(c) || "100%"}`;
+  });
   if (head === "" && changes.length === 0) return null;
   return `${[head || "100%", ...changes].join("、")}（黒字の年だけ。貯まらない分は「ゆとりの支出」として支出に入れています）`;
 }
@@ -1239,7 +1213,7 @@ function assumptions(ctx: Ctx): ProposalInput["assumptions"] {
   rate("教育費の上昇率", a.educationInflation);
   rate("公的年金の調整率（マクロ経済スライド）", a.pensionMacroSlide);
   // 黒字のうち貯まる割合（0031）
-  const surplus = surplusText(a.surplusSaving);
+  const surplus = surplusText(a.surplusSaving, ctx.bundle.proposal.request.input.household);
   if (surplus !== null) rates.push({ label: "黒字のうち貯まる割合", value: surplus });
   const dataSet = (ctx.bundle.proposal.result.header.data ?? []).map((d) => ({ label: PACK_LABEL[d.packId] ?? d.packId, version: d.version, fictional: d.fictional === true }));
   let survivor: ProposalInput["assumptions"]["survivor"] = null;
@@ -1699,7 +1673,9 @@ export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
   const rs = roles(req);
   const self = rs.find((r) => r.key === "self");
   const lastYear = years.at(-1) ?? req.input.endYear;
-  const targetYear = self !== undefined && bundle.targetAge !== undefined ? Math.min(lastYear, parseYm(self.member.birth.birthYearMonth).y + bundle.targetAge) : lastYear;
+  // 目標の年: 本人のその年齢の年。今より前の年齢（保存した表示の設定・別の世帯で選んだ年齢が残っていたとき）は表の最初の年、
+  // 表の最後の年より後は表の最後の年（アプリの present.ts の targetYearOf と同じ。表に無い年を引くと「0円」になるため）
+  const targetYear = self !== undefined && bundle.targetAge !== undefined ? Math.min(lastYear, Math.max(years[0] as number, parseYm(self.member.birth.birthYearMonth).y + bundle.targetAge)) : lastYear;
   const baseYear = parseYm(req.input.baseMonth).y;
   const ctx: Ctx = { bundle, years, rs, self, baseYear, target: { year: targetYear, label: "" } };
   ctx.target = { year: targetYear, label: pointLabel(ctx, targetYear) };
@@ -1711,7 +1687,7 @@ export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
     document: { title: bundle.document.title ?? "ライフプランのご提案", issuedOn: bundle.document.issuedOn, preparedBy: bundle.document.preparedBy ?? null },
     basis: { baseMonth: req.input.baseMonth, baseMonthLabel: monthLabel(req.input.baseMonth), years },
     // 世帯の外の家族（介護・親で足した親・祖父母など）は家族の行に出さない（「ご家族 92歳」が並ぶため。アプリの結果のタブと同じ）
-    members: rs.filter((r) => r.member.outside === undefined).map((r) => ({ key: r.key, label: r.label, ageAtBase: ageAt(r.member, req.input.baseMonth), ages: years.map((y) => (presentIn(r, y) ? ageInYear(r.member, y) : null)) })),
+    members: rs.filter((r) => r.member.outside === undefined).map((r) => ({ key: r.key, label: r.label, ageAtBase: ageAt(r.member, req.input.baseMonth), ages: years.map((y) => (presentIn(ctx, r, y) ? ageInYear(r.member, y) : null)) })),
     assumptions: assumptions(ctx),
     summary: {
       target: ctx.target,
