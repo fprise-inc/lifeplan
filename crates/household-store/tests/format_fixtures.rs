@@ -406,6 +406,24 @@ fn every_format_version_has_a_fixture_and_opens() {
                 w[0]["files"][0]["mime"], "image/jpeg",
                 "{v}: 受け取った書類"
             );
+            // 0.70 から（0158）: 延長の上限・分岐の答え・受け取った書類の送りの記録。変換で書き足さない
+            if migrate::parse(v).unwrap() >= (0, 70) {
+                assert_eq!(
+                    w[0]["record"]["limitAt"], "2027-02-03T09:00:00Z",
+                    "{v}: 延長の上限"
+                );
+                assert_eq!(w[0]["received"]["gates"]["child"], 0, "{v}: 分岐の答え");
+                assert_eq!(
+                    w[0]["batches"].as_array().map(Vec::len),
+                    Some(2),
+                    "{v}: 受け取った書類の送りの記録"
+                );
+            } else {
+                assert!(
+                    w[0].get("batches").is_none() && w[0]["received"].get("gates").is_none(),
+                    "{v}: 送りの記録と分岐の答えは変換で書き足さない"
+                );
+            }
         } else {
             assert!(
                 web.is_none(),

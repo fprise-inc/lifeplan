@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.69";
+pub const CURRENT: &str = "0.70";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -238,13 +238,19 @@ pub const CURRENT: &str = "0.69";
 ///   婚姻している `married`〔別居などで配偶者を世帯に入れていない〕。ひとり親控除・寡婦控除の判定。省略は婚姻していないとみなす。0156）を足した
 ///   （足すだけの MINOR）。前の版のアプリは入力の検査で知らない欄を通さないので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える
 ///   （前の版の世帯は欄が無い＝婚姻していないとみなす）。0.68 の段の後に積む
+/// - 0.70: Web のヒアリングの依頼の記録 `hearing.web` の1件に任意の欄を足した（0158）: 依頼の記録の延長の上限 `record.limitAt`（期限
+///   `record.expiresAt` は延長で書き換える）・受け取った答えの分岐の問いの答え `received.gates`・受け取った書類の送りの記録 `batches`・
+///   受け取った書類のファイルの送りの番号 `files[].batchId`・受け付けを終えた日時 `closedAt`（足すだけの MINOR）。受け取った答えの書類の欄は
+///   状態だけになる（前の版の記録の `received.documents[].files`・`received.missingFiles` は読むときに使わない）。前の版のアプリは受け取った
+///   書類の送りの記録を知らずに書き戻すので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の記録は欄が無い＝延長の上限は
+///   発行の日時から90日・分岐の答えは無し・送りの記録は無し）。0.69 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
-    "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69",
+    "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70",
 ];
 
 /// 1段分の変換
@@ -595,6 +601,11 @@ pub const STEPS: &[Step] = &[
         from: "0.68",
         to: "0.69",
         apply: v0_68_to_0_69,
+    },
+    Step {
+        from: "0.69",
+        to: "0.70",
+        apply: v0_69_to_0_70,
     },
 ];
 
@@ -2310,6 +2321,16 @@ fn v0_68_to_0_69(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.69 → 0.70: Web のヒアリングの依頼の記録に足した欄（延長の上限・分岐の答え・書類の送りの記録・受け付けを終えた日時。0158）は任意の欄なので、
+/// 形式の版だけを書き換える（前の版の記録は欄が無い＝延長の上限は発行の日時から90日・分岐の答えは無し・送りの記録は無し）
+fn v0_69_to_0_70(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.70".into());
+    }
+    Ok(body)
+}
+
 /// 預金の利回りの既定の値（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ。0137）
 const DEPOSIT_RETURN_DEFAULT: &str = "0.001";
 
@@ -3286,7 +3307,8 @@ mod tests {
         assert_eq!(access("0.67").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.68").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.69").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.70").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.70").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.71").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3299,7 +3321,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.70", b.clone()).unwrap(),
+            upgrade("0.71", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -3722,6 +3744,22 @@ mod tests {
         let u = upgrade("0.65", b.clone()).unwrap();
         assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
+    }
+
+    #[test]
+    fn v0_69_to_0_70_only_bumps_version() {
+        // Web のヒアリングの依頼の記録の欄（延長の上限・分岐の答え・送りの記録）は足さない。ほかの欄に触れない
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.69"},
+            "household": {"request": {"input": {"household": {"members": [{"id": "m1", "kind": "self"}]}}}},
+            "hearing": {"requests": [], "imports": [], "consents": [], "web": [{"record": {"kind": "web", "requestId": "R-7K3P9Q", "expiresAt": "2026-12-05T09:00:00Z"}, "state": "received", "received": {"answers": [], "documents": [{"id": "d1", "status": "attached", "files": []}], "dropped": 0, "missingFiles": 0}}]},
+            "proposals": []
+        });
+        let u = upgrade("0.69", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+        assert_eq!(u["hearing"], b["hearing"]);
+        assert_eq!(u["proposals"], b["proposals"]);
     }
 
     #[test]

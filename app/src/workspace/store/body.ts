@@ -111,6 +111,9 @@
 //   0.68 から: 本文の区画 documents（書類の読み取りの記録。0148。下の documents を見る）。足すだけ。本体の変換の段は版だけを書き換える
 //   0.69 から: 構成員の婚姻の状態 members[].maritalStatus（配偶者の関係が無い期間の婚姻の状態。unmarried・divorced・bereaved・married。
 //   ひとり親控除・寡婦控除の判定。省略は婚姻していないとみなす。0156）。足すだけ。本体の変換の段は版だけを書き換える
+//   0.70 から: Web のヒアリングの依頼の記録 hearing.web の1件に、延長の上限 record.limitAt・分岐の問いの答え received.gates・受け取った書類の
+//   送りの記録 batches・ファイルの送りの番号 files[].batchId・受け付けを終えた日時 closedAt（0158）。足すだけ。本体の変換の段は版だけを書き換える
+//   （前の版の記録は欄が無い＝延長の上限は発行の日時から90日・分岐の答えは無し。受け取った答えの書類の欄は状態だけを使う）
 //   （0.46 のまま。0041 の追記 2026-11-01）: 「書類で確かめる」は今の自動車ローン（kind car の負債）の欄に出し、これから買う車のローン
 //   （cars[].valueStates の car.loan/…）には出さない。前に付けた所は読むときに推定にし、開いたときの知らせ carLoanEstimated を足す（形は変えない）
 //   （0.58 のまま。0043 の追記 2026-11-05）: 表の最後の年（plan.endYear）はどのプランにも共通にした。前の画面で作ったプランの差分の表の最後の年
@@ -174,7 +177,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.69";
+export const BODY_FORMAT_VERSION = "0.70";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
