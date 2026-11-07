@@ -9,6 +9,7 @@ import type { Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { docRequests, requestMessage, SAFE_SENDING, type DocRequest } from "./docRequests.ts";
 import { docRequestStatus } from "../hearing/web.ts";
+import { readableDoc } from "../documents/start.ts";
 
 interface Props {
   wh: WorkingHousehold;
@@ -65,8 +66,8 @@ export function DocRequests({ wh, onOpen, onRead, onClose }: Props) {
           {reqs.map((r) => (
             <li key={r.id} data-dr-doc={r.id}>
               <span class="dr-title">{r.title}</span>
-              {onRead !== undefined ? (
-                <button type="button" class="link-btn dr-read" onClick={() => onRead(r)} data-dr-read={r.id} title="この書類の読み取り（電子データ・AI の答えの貼り付け）へ進みます。読んだ値は確かめて承認したものだけが入ります">
+              {onRead !== undefined && readableDoc(r.doc) ? (
+                <button type="button" class="link-btn dr-read" onClick={() => onRead(r)} data-dr-read={r.id} title="この書類の読み取り（AI の答えの貼り付け）へ進みます。読んだ値は確かめて承認したものだけが入ります">
                   この書類を読む
                 </button>
               ) : null}

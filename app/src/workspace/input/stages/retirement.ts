@@ -434,7 +434,7 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
           find,
           path: ["contributions", "monthly"],
           optional: true,
-          help: "社会保険料控除になります。払い終えたら空欄",
+          help: "国民年金基金の掛金の月額（国民年金保険料等控除証明書の掛金は1年分なので、12で割ります）。社会保険料控除になります。払い終えたら空欄",
           hint: () => (unpaid ? "掛金を入れていないので、社会保険料控除を計算していません" : null),
           after: (_h, target, v) => {
             const x = target as RetirementBenefit;
