@@ -967,9 +967,12 @@ function retirement(ctx: Ctx): ProposalInput["retirement"] {
   if (maps.every((x) => total(x.m, ctx.years) === 0)) return null;
   const pensions = maps.map(({ r, m }) => {
     const start = pensionStartYear(run.request, r.member, m, ctx.years);
+    // 年齢は受け取り開始の年齢（ライフイベント表の「年金の受け取りを開始（65歳）」と同じ）。受け取り開始が表より前なら、その年の年齢
+    const ps = pensionStartMonth(run.request, r.member);
+    const age = start !== null && parseYm(ps).y >= (ctx.years[0] ?? 0) ? ageAt(r.member, addMonths(ps, -1)) : start === null ? null : ageInYear(r.member, start);
     return {
       label: r.label,
-      start: start === null ? null : { year: start, label: `${r.label}${ageInYear(r.member, start)}歳（${start}年）` },
+      start: start === null ? null : { year: start, label: `${r.label}${age}歳（${start}年）` },
       annual: pensionAnnual(m, start),
       total: total(m, ctx.years),
     };

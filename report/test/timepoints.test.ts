@@ -121,6 +121,16 @@ describe("年金の受け取り開始", () => {
     set(s, "pensionClaim", { basic: { at: "2045-09" }, employee: { at: "2045-09" } });
     expect(eventsWith(inputOf(req), "ご本人が年金")).toEqual(["2045 ご本人が年金の受け取りを開始（62歳）"]);
   });
+  it("年金の章の開始は受け取り開始の年と年齢（特別支給の老齢厚生年金の年で決めない）、年額は翌年の額", () => {
+    // 1965年12月生まれの女性（配偶者）: 64歳の2030年から特別支給、65歳に達した翌月の2031年1月から老齢年金
+    const input = inputOf(modelHousehold("executiveOwner"));
+    const sp = input.retirement?.pensions.find((p) => p.label === "配偶者");
+    const row = (y: number) => input.retirement?.table.rows.find((r) => r.year === y)?.cells[1];
+    expect(row(2030)).toBeGreaterThan(0);
+    expect(sp?.start).toEqual({ year: 2031, label: "配偶者65歳（2031年）" });
+    expect(sp?.annual).toBe(row(2032));
+    expect(eventsWith(input, "配偶者が年金")).toEqual(["2031 配偶者が年金の受け取りを開始（65歳）"]);
+  });
   it("受け取り開始を年齢の形で書いても同じ", () => {
     const req = modelHousehold("advisoryFeeProposal");
     const s = self(req.input.household);
