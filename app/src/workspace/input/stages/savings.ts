@@ -1044,8 +1044,8 @@ export function savingsStage(wh: WorkingHousehold): StageDef {
           ...((h.accounts ?? []).some((a) => !NON_FINANCIAL.has(a.kind) && (a.contributions ?? []).length > 0) ? [periodGroup(wh)] : []),
         ],
         actions: [
-          // 足すボタンの名前は「預金」にそろえる決まりだが、探して開くの言い換えの辞書（searchWords.ts）が「預貯金」で当てているので、辞書と一緒に直す
-          ...add("deposit", "預貯金"),
+          // 足すボタンの名前は口座の種類の名前（「預金」）にそろえる（探して開くの言い換えの辞書 searchWords.ts も「＋ 預金」に当てる）
+          ...add("deposit", "預金"),
           ...add("nisa", "NISA"),
           ...add("ideco", "iDeCo"),
           ...add("taxable", "課税口座"),

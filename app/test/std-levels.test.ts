@@ -167,7 +167,7 @@ describe("働き方と収入: 年収（賞与込み）の1欄", () => {
     const simple = simpleFields(wh, "work").filter((f) => f.key.startsWith(`work/${exec.id}/now/`)).map((f) => f.key.split("/").at(-1));
     expect(simple).toEqual(["type", "annual", "bonus"]);
     const annual = fieldOf(wh, "work", `work/${exec.id}/now/annual`);
-    expect(annual.label).toBe("月の報酬（役員報酬の月額）");
+    expect(annual.label).toBe("役員報酬（月額）");
     expect(annual.kind === "yen" && annual.basis).toBe("monthly");
     const before = (wh.request.input.household.employmentPeriods ?? []).find((x) => x.member === exec.id && x.type === "executive")!;
     expect(annual.get(wh).value).toBe(Math.round(before.salary!.annual.value! / 12));

@@ -4,7 +4,7 @@
 // 相続税の目安の不動産の評価の割合・FP顧問料の料金表・法人経営者向けの機能（合算BS。0107）。新しく作る世帯（料金表は新しく足す契約）に写す（作った世帯は変わらない。違うときは確かめの一覧に知らせが出る）
 import { useEffect, useRef, useState } from "preact/hooks";
 import { STAGE_ORDER } from "../input/stages/index.ts";
-import { DEFAULT_ASSUMPTIONS, END_AGES, STANDARD_END_AGE } from "../input/household.ts";
+import { END_AGES, STANDARD_END_AGE } from "../input/household.ts";
 import { DEFAULT_LAYOUT } from "../input/items.ts";
 import type { Level, StageId } from "../input/form.ts";
 import { ALWAYS_SHOWN, isHiddenIn, levelIn, withLevel, withShown } from "../input/itemChoice.ts";
@@ -15,7 +15,7 @@ import { normalProtection, OPEN_SCENES, PREMISE_KINDS, premiseStarts, SCENE_KIND
 import type { ScenarioKind } from "../contingency/requests.ts";
 import { outOfRangeText, rangeText, type PctRange } from "../input/rateRanges.ts";
 import { rateFromPct, readYen } from "../input/units.ts";
-import { ASSUMPTION_LABELS, ASSUMPTION_RANGES, DEFAULT_OFFICE_SETTINGS, FEE_MAX, FEE_STEP_YEAR_MAX, layoutOf, OFFICE_ASSUMPTIONS, type FeeTable, type OfficeAssumption, type OfficeSettings } from "./settings.ts";
+import { ASSUMPTION_LABELS, ASSUMPTION_RANGES, ASSUMPTION_STANDARDS, DEFAULT_OFFICE_SETTINGS, FEE_MAX, FEE_STEP_YEAR_MAX, layoutOf, OFFICE_ASSUMPTIONS, type FeeTable, type OfficeAssumption, type OfficeSettings } from "./settings.ts";
 import { revealAdded } from "../../presentation/revealAdded.ts";
 import { LivingLayoutEditor } from "./LivingLayoutEditor.tsx";
 import { withLivingDraft } from "./settings.ts";
@@ -161,8 +161,16 @@ const settingTexts = (v: OfficeSettings): Record<string, string> => ({
   reverseAge: v.protection.protection?.reverseUntilAge !== undefined ? String(v.protection.protection.reverseUntilAge) : "",
 });
 
-/** 前提条件の既定の値（パーセント。新しい世帯の DEFAULT_ASSUMPTIONS から。系列を OFFICE_ASSUMPTIONS に足せば、ここも付いてくる） */
-const STANDARD_PCT: Readonly<Record<OfficeAssumption, string>> = Object.fromEntries(OFFICE_ASSUMPTIONS.map((k) => [k, rateToPct(DEFAULT_ASSUMPTIONS[k].default)])) as Record<OfficeAssumption, string>;
+/** 前提条件の既定の値（パーセント。settings.ts の ASSUMPTION_STANDARDS から。系列を OFFICE_ASSUMPTIONS に足せば、ここも付いてくる） */
+const STANDARD_PCT: Readonly<Record<OfficeAssumption, string>> = Object.fromEntries(OFFICE_ASSUMPTIONS.map((k) => [k, rateToPct(ASSUMPTION_STANDARDS[k])])) as Record<OfficeAssumption, string>;
+
+/** 前提条件の既定値の欄の下の1行（入れなければ既定の値。貸していない不動産の値動きは、評価額の伸び率を入れていない物に使う） */
+const assumptionNote = (k: OfficeAssumption): string =>
+  k === "heldEstateGrowth"
+    ? `入れなければ${STANDARD_PCT[k]}%（評価額のまま）。貯蓄・運用の貸していない不動産で、評価額の伸び率を入れていない物に使います（新しい世帯の前提条件の「資産の種類ごとの利回り」の不動産に写します）。${rangeText(ASSUMPTION_RANGES[k])}`
+    : k === "depositReturn"
+      ? `入れなければ既定の値（${STANDARD_PCT[k]}%。仮の値）。預金・外貨預金の利回りです。${rangeText(ASSUMPTION_RANGES[k])}`
+      : `入れなければ既定の値（${STANDARD_PCT[k]}%。仮の値）。${rangeText(ASSUMPTION_RANGES[k])}`;
 
 export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onDismissNotice, onCheckCodes, onDecideCandidate, custom, onEstimates, previewEstimates, branding }: OfficeSettingsPanelProps) {
   const [s, setS] = useState<OfficeSettings>(value);
@@ -603,7 +611,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
         <section class="os-sec" aria-labelledby="os-assume">
           <h3 id="os-assume">前提条件の既定値</h3>
           <div class="os-grid">
-            {OFFICE_ASSUMPTIONS.map((k) => pct(k, ASSUMPTION_LABELS[k], STANDARD_PCT[k], `入れなければ既定の値（${STANDARD_PCT[k]}%。仮の値）。${rangeText(ASSUMPTION_RANGES[k])}`, ASSUMPTION_RANGES[k]))}
+            {OFFICE_ASSUMPTIONS.map((k) => pct(k, ASSUMPTION_LABELS[k], STANDARD_PCT[k], assumptionNote(k), ASSUMPTION_RANGES[k]))}
             {pct("realEstateRatio", "相続税の目安: 不動産の評価の割合（時価に掛ける）", "80", "入れなければ時価の80%")}
             <label class="os-pct">
               <span>表の最後の年（何歳まで見るか）</span>
