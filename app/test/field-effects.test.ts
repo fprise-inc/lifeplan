@@ -11,7 +11,6 @@ import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { equipmentLifeDefault, usedLife } from "../src/workspace/input/stages/rental.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { ageReachedMonth, applyLevers } from "../src/workspace/levers.ts";
-import { usedLife as engineUsedLife } from "../../engine/src/components/asset.realEstate/index.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const open = (id: string): WorkingHousehold => {
@@ -75,9 +74,12 @@ describe("建物附属設備の耐用年数: 空欄に見せる年数＝計算�
     return req;
   };
 
-  it("簡便法の年数はエンジンと同じ", () => {
+  it("簡便法の年数はエンジンと同じ（耐用年数省令3条1項2号。エンジンの asset.realEstate の usedLife と同じ式）", () => {
+    // 経過が耐用年数より短い: 耐用年数 − 経過 ＋ 経過×0.2。過ぎた: 耐用年数×0.2。端数は切り捨て、2年に満たなければ2年
+    const law = (life: number, e: number) => (e <= 0 ? life : Math.max(2, e >= life ? Math.floor(life * 0.2) : life - e + Math.floor(e * 0.2)));
     for (const life of [15, 6, 3])
-      for (let e = -1; e <= 20; e++) expect(usedLife(life, e)).toBe(engineUsedLife(life, e));
+      for (let e = -1; e <= 20; e++) expect(usedLife(life, e), `${life}年・経過${e}年`).toBe(law(life, e));
+    expect([usedLife(15, 8), usedLife(15, 15), usedLife(15, 20), usedLife(6, 3), usedLife(3, 1)]).toEqual([8, 3, 3, 3, 2]);
   });
 
   it("中古（2008年築を2016年に取得）は、空欄に簡便法の8年を見せ、計算も8年。15年と打てば15年で計算する", () => {
