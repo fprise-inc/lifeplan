@@ -11,7 +11,7 @@ import { InfoNote } from "./InfoNote.tsx";
 import { blankLineFor, fittingPlaceholder, textEm } from "./placeholder.ts";
 import { enterInput, noteRejected, type Settled } from "./pendingInput.ts";
 import type { Timepoint } from "../../engine/types.ts";
-import { groupShown, type ActionDef, type FieldDef, type GroupDef, type Level, type Option, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
+import { groupShown, type ActionDef, type FieldDef, type FieldState, type GroupDef, type Level, type Option, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { availableOps, fieldStatus, hasFieldValue, FILL_LABEL, fillTitle, OP_LABELS, opTitle, STATUS_LABELS, substituteText, confirmTyped, typeFromAge, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
 import { amountWarning, formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, pctFromRate, rateFromPct, readYen, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
@@ -960,6 +960,26 @@ export function StateOpLinks({ f, ops, run, lead }: { f: FieldDef; ops: readonly
   );
 }
 
+/**
+ * ほかの入力と合わないときの知らせ（欄の下の1行）。直し方（FieldState.warnFix）があれば、その横にボタン（押したときだけ直す。0070 で確かめの一覧の
+ * 注意の行に出していた物を、欄の下にも出す。段4の確かめで、購入の時期の「購入の時期に合わせる」が入力のパネルに出ていなかった）
+ */
+function WarnLine({ f, text, fix, wh, onEdit }: { f: FieldDef; text: string; fix: FieldState["warnFix"] | null; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
+  return (
+    <div class="fld-help warn" data-field-warn>
+      {text}
+      {fix != null ? (
+        <>
+          {" "}
+          <button type="button" class="link-btn" aria-label={`${f.label}: ${fix.label}`} onClick={() => onEdit(fix.run(wh))} data-warn-fix={f.key}>
+            {fix.label}
+          </button>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 /** 欄を離れるときに書くか: 入ったときと同じ文字のまま離れたら書かない（欄に入って離れる・Tab で通るだけで、値も状態も変えない。0041） */
 export const shouldCommitOnBlur = (startText: string | null, text: string): boolean => startText === null || text !== startText;
 
@@ -1131,7 +1151,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   /** 空欄の意味が欄に収まらなかったときの、欄の下の1行（「空欄なら: ○○」） */
   let blankLine: string | null = null;
   if (f.time !== undefined && f.readOnly === undefined && (f.kind === "when" || inSection)) {
-    return <WhenField f={f} time={f.time} state={state.when ?? f.time.state(wh)} label={f.label} badge={badge} id={id} wh={wh} onEdit={onEdit} warn={state.warn ?? null} status={shownStatus} fill={fill(false)} extras={stateLines} />;
+    return <WhenField f={f} time={f.time} state={state.when ?? f.time.state(wh)} label={f.label} badge={badge} id={id} wh={wh} onEdit={onEdit} warn={state.warn ?? null} warnFix={state.warnFix ?? null} status={shownStatus} fill={fill(false)} extras={stateLines} />;
   }
   if (f.readOnly !== undefined) {
     // 円の欄は万円（か円）の書き方で、月額・年額を添える
@@ -1326,11 +1346,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
         </div>
       ) : null}
       {state.derived != null ? <div class="fld-help warn">{state.derived}</div> : null}
-      {state.warn != null ? (
-        <div class="fld-help warn" data-field-warn>
-          {state.warn}
-        </div>
-      ) : null}
+      {state.warn != null ? <WarnLine f={f} text={state.warn} fix={state.warnFix ?? null} wh={wh} onEdit={onEdit} /> : null}
       {stateLines}
     </div>
   );
@@ -1356,7 +1372,7 @@ function readText(time: TimeView, wh: WorkingHousehold, ctx: WhenCtx, text: stri
  * 横の「入れ方」で見せ方を選び直せる（同じ月のまま形を変える）。読み替えた形と、読めない理由を欄の下に1行で出す。
  * 打っている間は世帯を変えず、欄を離れたとき（Enter）に入れる
  */
-function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status, fill, extras }: { f: FieldDef; time: TimeView; state: WhenState; label: string; badge: ComponentChildren; id: string; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; warn: string | null; status: ValueStatus | null; fill: ComponentChildren; extras: ComponentChildren }) {
+function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, warnFix, status, fill, extras }: { f: FieldDef; time: TimeView; state: WhenState; label: string; badge: ComponentChildren; id: string; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; warn: string | null; warnFix: FieldState["warnFix"]; status: ValueStatus | null; fill: ComponentChildren; extras: ComponentChildren }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [rejected, setRejected] = useState<string | null>(null);
   const [picked, setPicked] = useState<WhenMode | null>(null);
@@ -1541,11 +1557,7 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
           「{state.linked.label}」の出来事の時点です。ここを直すと出来事が動き、{state.linked.refs > 1 ? `この出来事を指すほかの${state.linked.refs - 1}件も一緒に動きます` : "この出来事を指す物も一緒に動きます"}
         </div>
       ) : null}
-      {warn !== null ? (
-        <div class="fld-help warn" data-field-warn>
-          {warn}
-        </div>
-      ) : null}
+      {warn !== null ? <WarnLine f={f} text={warn} fix={warnFix ?? null} wh={wh} onEdit={onEdit} /> : null}
       {problem !== null ? (
         <div class="fld-help bad" id={`${id}-problem`} role="alert" data-field-problem={f.key}>
           {problem}

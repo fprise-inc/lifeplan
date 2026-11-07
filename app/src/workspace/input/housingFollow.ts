@@ -24,6 +24,27 @@ export const toKey = (rid: string): string => `housing/res/${rid}/to`;
 /** 住み替えで今の持ち家を購入の前の月で住み終わらせたときの印 */
 export const MOVE_OUT_ASSUMED = "住み替え: 購入の前の月で住み終わるとみなしています（売る・持ち続けるは「住み終わりの後」で選びます。直してください）";
 
+export const afterKey = (rid: string): string => `housing/res/${rid}/after`;
+
+/**
+ * 住み替え（「＋ 住宅購入の予定」）で住み終わりにした今の持ち家の「住み終わりの後」の初めの値。keep は売らない（住み終わりの年で計算から外す）、
+ * sell は住み終わりの月に売る（売却価格は空欄＝その年の評価額）。利用者の判断を待っている（段4の確かめ）ので今は前と同じ keep。
+ * 答えが出たら、ここだけを変える（足すときの初めの値と仮の印の文が変わる。今ある世帯は書き換えない）
+ */
+export const MOVE_OUT_AFTER: "keep" | "sell" = "keep";
+
+/** 住み替えで住み終わりにした今の持ち家の「住み終わりの後」の仮の印 */
+export const moveOutAfterMark = (after: "keep" | "sell"): string =>
+  after === "sell"
+    ? "住み替え: 住み終わりの月に売るとみなしています（売却価格は空欄なら評価額。持ち続けるなら選び直してください）"
+    : "住み替え: 売らないとみなしています（家の価値も売った代金も、住み終わりの後は計算に入りません。売るなら「住み終わりの月に売る」を選んでください）";
+
+/** 住み替えで住み終わりにした今の持ち家に「住み終わりの後」の初めの値を入れる（h を書き換える）。返すのは仮の印（欄のキー → 文） */
+export function applyMoveOutAfter(h: Household, ids: readonly string[], after: "keep" | "sell" = MOVE_OUT_AFTER): Record<string, string> {
+  for (const r of h.residences ?? []) if (ids.includes(r.id) && after === "sell") r.sale ??= {};
+  return Object.fromEntries(ids.map((id) => [afterKey(id), moveOutAfterMark(after)]));
+}
+
 /**
  * 購入の時期を old から next に直した後の世帯に、前の購入の月と同じだった物をついてこさせる（h を書き換える）:
  * - この家の住み始め（old と同じなら。購入の1件の住み始めは購入の時期と同じ）
