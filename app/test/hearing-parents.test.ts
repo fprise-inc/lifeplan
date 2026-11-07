@@ -163,3 +163,61 @@ describe("値の入った世帯に詳細版（full 版3）のご両親を取り�
     expect(out.request.input.household.members.find((m) => m.id === fil.id)?.birth.birthYearMonth).toBe("1956-05");
   });
 });
+
+describe("値の入った世帯に詳細版（full 版4）を取り込む: 確定申告の仕方・働き方の終わり（今の値を壊さない。0139・0155）", () => {
+  const FILE = "full-4-sample.json";
+  async function sheet4(change: Record<string, SampleFile["values"][string] | undefined> = {}): Promise<Uint8Array> {
+    const sample = JSON.parse(readFileSync(join(REPO_DIR, "hearing", "samples", FILE), "utf8")) as SampleFile;
+    const values: Record<string, SampleFile["values"][string]> = { ...sample.values };
+    for (const [k, v] of Object.entries(change)) {
+      if (v === undefined) delete values[k];
+      else values[k] = v;
+    }
+    return sampleBytes(FILE, { ...sample, values });
+  }
+  /** 版4 の見本を空の世帯に取り込み、ご本人（会社役員）にも申告の仕方を入れた世帯 */
+  async function base(): Promise<WorkingHousehold> {
+    const wh0 = blank();
+    const r = await importSheet(await sheet4(), wh0, seq);
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    const w1 = applyImport(wh0, r.view, new Set(r.view.candidates.map((c) => c.id)), AT).wh;
+    const h = structuredClone(w1.request.input.household);
+    h.members.find((m) => m.kind === "self")!.taxReturn = { method: "blue", blueDeduction: "simple" };
+    return { ...w1, request: { ...w1.request, input: { ...w1.request.input, household: h } } };
+  }
+  const tax = (w: WorkingHousehold, kind: "self" | "spouse") => w.request.input.household.members.find((m) => m.kind === kind)?.taxReturn;
+
+  it("版4 の見本を取り込むと、自営業の配偶者の方に申告の仕方（青色・電子申告）が入る", async () => {
+    const w = await base();
+    expect(tax(w, "spouse")).toEqual({ method: "blue", blueDeduction: "electronic" });
+  });
+
+  it("確定申告の仕方が空欄・自営業でない人の答えなら、今の申告の仕方を残す（候補の違いにもしない）", async () => {
+    const w = await base();
+    const r = await importSheet(await sheet4({ "hs.income.taxReturn#2": undefined, "hs.income.taxReturn#1": "white" }), w, seq);
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(r.view.candidates.find((c) => c.title === "配偶者")?.kind).toBe("same");
+    expect(r.view.candidates.find((c) => c.title === "ご本人")?.kind).toBe("same");
+    expect(r.view.issues.some((i) => i.message.includes("働き方が自営業ではありません"))).toBe(true);
+    const out = applyImport(w, r.view, new Set(r.view.candidates.map((c) => c.id)), AT).wh;
+    expect(tax(out, "spouse")).toEqual({ method: "blue", blueDeduction: "electronic" });
+    expect(tax(out, "self")).toEqual({ method: "blue", blueDeduction: "simple" });
+  });
+
+  it("確定申告の仕方を答え直したら、変更の候補になり承認で入る。定年が空欄の働き方は今の終わりのまま", async () => {
+    const w = await base();
+    const me = w.request.input.household.members.find((m) => m.kind === "self")!;
+    const end = (x: WorkingHousehold) => (x.request.input.household.employmentPeriods ?? []).find((p) => p.member === me.id && p.type === "executive")?.to;
+    const before = end(w);
+    expect(before).not.toBeNull();
+    const r = await importSheet(await sheet4({ "hs.income.taxReturn#2": "white", "hs.work.retireAge#1": undefined }), w, seq);
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    const spouse = r.view.candidates.find((c) => c.title === "配偶者");
+    expect(spouse?.kind).toBe("changed");
+    expect(spouse?.fields.flatMap((f) => f.diffs).find((d) => d.label === "確定申告の仕方")).toMatchObject({ current: "青色", next: "白色" });
+    const out = applyImport(w, r.view, defaultSelection(r.view), AT).wh;
+    expect(tax(out, "spouse")).toEqual({ method: "white" });
+    expect(end(out)).toEqual(before);
+    expect(r.view.candidates.find((c) => c.title === "ご本人の仕事と収入")?.kind).toBe("noAnswer");
+  });
+});

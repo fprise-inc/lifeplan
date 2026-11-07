@@ -15,6 +15,7 @@ import { fillEducation } from "../input/fill.ts";
 import { memberLabels } from "../input/labels.ts";
 import { withDeathEstimate } from "../input/stages/care.ts";
 import { withWorkEndEstimates } from "../input/stages/work.ts";
+import { BLUE_DEDUCTIONS, TAX_RETURN_METHODS } from "../input/taxReturn.ts";
 import { withEntry } from "../input/stages/housingLoans.ts";
 import { roles } from "../roles.ts";
 import type { WebLogEntry } from "./web.ts";
@@ -268,6 +269,9 @@ function keepMember(prev: Obj, next: Obj, fields: readonly FieldRecord[]): Obj {
   const out: Obj = next.companyGuarantee === undefined && prev.companyGuarantee !== undefined ? { ...next, companyGuarantee: prev.companyGuarantee } : { ...next };
   if (!fields.some((f) => f.path === "/sex") && prev.sex !== undefined) out.sex = prev.sex;
   if (!fields.some((f) => f.path.startsWith("/leaves")) && prev.leaves !== undefined) out.leaves = structuredClone(prev.leaves);
+  // 確定申告の仕方（詳細版の版4 から。0155）: 答えが無い（空欄・わからない・該当なし・版3 までのシート）か、自営業でない人の答え（取り込まない）
+  // なら、今の申告の仕方を残す（0139）
+  if (!fields.some((f) => f.path.startsWith("/taxReturn")) && prev.taxReturn !== undefined) out.taxReturn = structuredClone(prev.taxReturn);
   return out;
 }
 
@@ -464,6 +468,8 @@ const PATH_LABELS: Readonly<Record<string, string>> = {
   "member.birth /birth/birthYearMonth": "生年月",
   "member.kind /related/0/marriage": "ご結婚の形",
   "member.support /support/cohabiting": "同居か",
+  "member.taxReturn /taxReturn/method": "確定申告の仕方",
+  "member.taxReturn /taxReturn/blueDeduction": "青色申告特別控除",
 };
 
 function pathLabel(f: Pick<FieldRecord, "path" | "item">, fallback: string): string {
@@ -515,6 +521,8 @@ function valueText(v: unknown, path: string, labels: ReadonlyMap<string, string>
   }
   if (typeof v === "string") {
     if (/^\d{4}-\d{2}$/.test(v)) return ymWords(v);
+    // 確定申告の仕方（0155）: 入力の画面と同じ言葉
+    if (path.startsWith("/taxReturn/")) return [...TAX_RETURN_METHODS, ...BLUE_DEDUCTIONS].find((o) => o.value === v)?.label ?? v;
     const numeric = /^-?\d+(\.\d+)?$/.test(v);
     if (/rate/i.test(path) && numeric) return `${String(Math.round(Number(v) * 1e6) / 1e4)}%`;
     if (/hours/i.test(path) && numeric) return `${v}時間`;
@@ -583,6 +591,12 @@ export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold): Imp
     if (found !== undefined && c.collection === "members" && !c.fields.some((f) => f.path === "/sex") && found.sex !== undefined) found = { ...found, sex: mapped.sex };
     // 世帯を離れる時期（子の独立・亡くなる見込み）はシートで聞かない（承認しても今の値を残す。keepMember）
     if (found !== undefined && c.collection === "members" && v.kind !== "parent" && !c.fields.some((f) => f.path.startsWith("/leaves"))) found = { ...found, leaves: mapped.leaves };
+    // 確定申告の仕方の答えが無い（取り込まない）なら、今の値と比べない（承認しても今の値を残す。keepMember）
+    if (found !== undefined && c.collection === "members" && v.kind !== "parent" && !c.fields.some((f) => f.path.startsWith("/taxReturn"))) {
+      found = { ...found };
+      if (mapped.taxReturn === undefined) delete found.taxReturn;
+      else found.taxReturn = mapped.taxReturn;
+    }
     let changedFields = 0;
     let keptFields = 0;
     /** 記入どおりの値（範囲・推定・仮でない）で変わる欄の数 */
