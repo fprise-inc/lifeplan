@@ -16,7 +16,7 @@ export type ListGroup = "economy" | "range" | "realEstate" | "estimate" | "conti
 export const LIST_GROUP_LABELS: Readonly<Record<ListGroup, string>> = {
   economy: "経済の前提",
   range: "計算の範囲・決まり",
-  realEstate: "持ち家の評価",
+  realEstate: "不動産の評価（持ち家・収益不動産など）",
   estimate: "推定の根拠（各入力項目）",
   contingency: "万一の前提",
 };

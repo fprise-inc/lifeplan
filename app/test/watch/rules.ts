@@ -4,6 +4,7 @@
 // 決まりは入力の形と計算の結果だけを見る（画面は描かない）。画面に出る文字の決まりは、画面を描かずに文を作る関数を呼んで集める
 import type { EngineRequest, Household, Member, PreviewResult, TableCell } from "../../src/engine/types.ts";
 import { checkList } from "../../src/workspace/input/checkRows.ts";
+import { fieldStatus } from "../../src/workspace/input/valueState.ts";
 import { allFields, type FieldDef, type StageDef } from "../../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../../src/workspace/input/household.ts";
 import { isAutoStage, retireMonth } from "../../src/workspace/input/livingStages.ts";
@@ -277,25 +278,45 @@ const purchaseDates: WatchRule = {
   },
 };
 
-/** 今の年の純資産が大きくマイナス（持ち家の時価が入っていない・桁の誤りなど）。今住んでいる持ち家が資産に無いのも見る */
+/**
+ * 持ち家の評価額が未入力の警告で、住まい・ローンの入力項目の標準に出ている（入るまで標準に出す決まり。黙って0円ではない）。
+ * 入力のパネル（InputPanel.tsx の raiseFields）と同じ見分け方: 評価額の欄の状態が未入力
+ */
+function homeValueTold(wh: WorkingHousehold, rid: string): boolean {
+  const f = allFields(buildStage("housing", wh)).find((x) => x.key === `housing/res/${rid}/valuation/value`);
+  return f !== undefined && fieldStatus(f, wh).status === "missing";
+}
+
+/**
+ * 今の年の純資産が大きくマイナス（持ち家の時価が入っていない・桁の誤りなど）。今住んでいる持ち家が資産に無いのも見る。
+ * 持ち家の評価額が未入力の警告で標準に出ているなら、その家は資産に無くてもおかしい所としない（知らせている）。純資産も、その家の住宅ローンの
+ * 残高を足し戻して見る（家の値が0円のぶんだけマイナスなのは知らせのとおり。ほかの誤りで大きくマイナスなら引っかかる）
+ */
 const NET_WORTH_FLOOR = -10_000_000;
 const negativeNetWorthNow: WatchRule = {
   id: "negativeNetWorthNow",
-  title: "今の年の純資産が大きくマイナスでなく、今住んでいる持ち家が資産に入っている",
+  title: "今の年の純資産が大きくマイナスでなく、今住んでいる持ち家が資産に入っている（入っていなければ、評価額が未入力の警告で標準に出ている）",
   check: (s) => {
     const h = hh(s);
     const y = yearOf(baseMonth(s));
     const out: string[] = [];
-    const at = bsSeries(s.result.table, [y], bsHouseholdOf(h))[0];
-    if (at !== undefined && at.netWorth < NET_WORTH_FLOOR) out.push(`${y}年の純資産が ${yen(at.netWorth)}`);
+    const told: string[] = [];
     for (const r of h.residences ?? []) {
       if (r.kind !== "own") continue;
       const from = resolveTimepoint(h, r.from);
       const to = r.to == null ? null : resolveTimepoint(h, r.to);
       if (from === null || from > baseMonth(s) || (to !== null && to < baseMonth(s))) continue;
       const v = sumWhere(s.result.table, (c) => c.object === r.id && c.year === y && under(c.row, "cf.balance.account.realEstate"));
-      if (v <= 0) out.push(`今住んでいる持ち家が ${y}年の資産に入っていない（時価の元が無い）`);
+      if (v > 0) continue;
+      if (homeValueTold(s.wh, r.id)) told.push(r.id);
+      else out.push(`今住んでいる持ち家が ${y}年の資産に入っていない（時価の元が無い）`);
     }
+    // 知らせている家の住宅ローン（控除の条件の住まいがその家か、家のローンが1本だけの世帯のそのローン）の残高
+    const mortgages = (h.debts ?? []).filter((d) => d.kind === "mortgage" && d.property === undefined);
+    const tied = mortgages.filter((d) => (d.housing?.residence !== undefined ? told.includes(d.housing.residence) : told.length > 0)).map((d) => d.id);
+    const back = sumWhere(s.result.table, (c) => c.object !== undefined && tied.includes(c.object) && c.year === y && under(c.row, "cf.balance.debt"));
+    const at = bsSeries(s.result.table, [y], bsHouseholdOf(h))[0];
+    if (at !== undefined && at.netWorth + back < NET_WORTH_FLOOR) out.unshift(`${y}年の純資産が ${yen(at.netWorth)}`);
     return out;
   },
 };
@@ -361,7 +382,9 @@ const livingStagesRise: WatchRule = {
  */
 const TABLE_TO_CHART: Readonly<Record<string, readonly string[]>> = {
   salary: ["salary"],
+  business: ["salary"],
   pension: ["pension"],
+  corporatePension: ["incomeOther"],
   retirement: ["incomeOther"],
   benefit: ["incomeOther"],
   rent: ["realEstateIn"],

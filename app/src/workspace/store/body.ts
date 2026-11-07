@@ -108,6 +108,7 @@
 //   residences[].valuation.basis（market・purchase。画面の側）を持つ（0052・0025 の追記 2026-11-07。足すだけ。本体の変換の段は版だけを書き換える）
 //   0.67 から: 前提条件の預金の利回り assumptions.depositReturn（預金・外貨預金の利回り。省略は運用利回り）と、収益不動産の取得の年月だけの
 //   取得 accounts[].property.acquisition（price を省略できる）を持つ（0137。本体の変換の段は、預金の利回りの無い今の世帯に既定の値 0.1% を書く）
+//   0.68 から: 本文の区画 documents（書類の読み取りの記録。0148。下の documents を見る）。足すだけ。本体の変換の段は版だけを書き換える
 //   （0.46 のまま。0041 の追記 2026-11-01）: 「書類で確かめる」は今の自動車ローン（kind car の負債）の欄に出し、これから買う車のローン
 //   （cars[].valueStates の car.loan/…）には出さない。前に付けた所は読むときに推定にし、開いたときの知らせ carLoanEstimated を足す（形は変えない）
 //   （0.58 のまま。0043 の追記 2026-11-05）: 表の最後の年（plan.endYear）はどのプランにも共通にした。前の画面で作ったプランの差分の表の最後の年
@@ -133,6 +134,9 @@
 // - migrations: 他のソフトからの移行の取り込みの記録（0113 の10。0.56 から。移行したことの無い世帯は区画を作らない）。元のファイル・ファイル名・
 //   伏せ字の前の文字・家族の名前は持たず、指紋と大きさ・読み手・規則と辞書の版・伏せ字の後の抽出結果・参照値（計算に入らない）・移行メモ・
 //   移行元の数え方・候補・AI に見出しを渡したかだけ。読むときは store/migrations.ts の readMigrationLog で形を確かめる（形の合わないものは捨てる）
+// - documents: 書類の読み取りの記録（0148。0.68 から。読んでいない世帯は区画を作らない）。書類1通ごとに、読んだ値の候補（当て先・値・
+//   元の場所〔伏せ字の後の文字〕・確からしさ・承認・直した・入れないの結果）・新しい物の候補・照合だけの値・番号を消した数。元のファイル・
+//   ファイル名・個人番号などの番号・名前は持たない。読むときは documents/log.ts の readDocumentLog で形を確かめ、番号を消し直す
 // - extDefinitions / ext: 拡張領域（0011 の4。読んだものをそのまま書き戻し、失わない）
 //   公式の項目 ext.official.livingParts: 基本生活費の内訳を分けた行の額（0109。input/livingParts.ts。作業中の世帯の livingParts と行き来する。
 //   形式の版は上げない。知らないアプリも拡張領域のまま書き戻す）
@@ -162,11 +166,13 @@ import { definitionOf, readExtValue } from "../extensions/fields.ts";
 import type { ExtValue } from "../../../../report/src/index.ts";
 import { readLog, type StatementLog } from "../../../../statement/src/index.ts";
 import { hasMigrations, readMigrationLog, withoutOrphanCompatibility, type MigrationLog } from "./migrations.ts";
+import { hasDocuments, readDocumentLog } from "../documents/log.ts";
+import type { DocumentLog } from "../documents/types.ts";
 import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.67";
+export const BODY_FORMAT_VERSION = "0.68";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
@@ -187,7 +193,7 @@ export interface SavedWorkspace {
 
 export interface HouseholdBody {
   meta?: Record<string, unknown>;
-  household: Omit<WorkingHousehold, "proposals" | "hearing" | "snapshots" | "statements" | "migrations">;
+  household: Omit<WorkingHousehold, "proposals" | "hearing" | "snapshots" | "statements" | "migrations" | "documents">;
   proposals: StoredProposal[];
   hearing: HearingLog | null;
   /** 控え（0.3 から。無ければ区画ごと省く） */
@@ -196,6 +202,8 @@ export interface HouseholdBody {
   statements?: StatementLog;
   /** 他のソフトからの移行の取り込みの記録（0.56 から。移していなければ区画ごと省く。0113 の10） */
   migrations?: MigrationLog;
+  /** 書類の読み取りの記録（0.68 から。読んでいなければ区画ごと省く。0148） */
+  documents?: DocumentLog;
   workspace: SavedWorkspace;
   display: StoredDisplay;
   extDefinitions: Record<string, unknown>;
@@ -214,7 +222,7 @@ export interface BodyState {
 export const EMPTY_CARRY: BodyState["carry"] = { extDefinitions: {}, ext: {} };
 
 export function bodyObject(s: BodyState): HouseholdBody {
-  const { proposals, hearing, snapshots, statements, migrations, livingParts: _parts, extValues, ...household } = s.wh;
+  const { proposals, hearing, snapshots, statements, migrations, documents, livingParts: _parts, extValues, ...household } = s.wh;
   void _parts;
   // 内訳を分けた行の額は拡張領域に（0109。合計が今の額と同じ物だけ）
   const extra = extWithExtensions(extWithParts(s.carry, partsToSave(s.wh)), extValues);
@@ -225,6 +233,7 @@ export function bodyObject(s: BodyState): HouseholdBody {
     ...(snapshots !== undefined && snapshots.length > 0 ? { snapshots } : {}),
     ...(statements !== undefined && hasStatements(statements) ? { statements } : {}),
     ...(migrations !== undefined && hasMigrations(migrations) ? { migrations } : {}),
+    ...(documents !== undefined && hasDocuments(documents) ? { documents } : {}),
     workspace: s.workspace,
     display: s.display,
     extDefinitions: extra.extDefinitions,
@@ -273,10 +282,11 @@ export function fromBody(json: string): BodyState {
   if (!isObj(raw) || !isObj(raw.household) || !isObj(raw.household.request)) throw new Error("E_BODY_SHAPE");
   const b = fromStoredBody(raw);
   if (!isObj(b.household) || !isObj(b.household.request)) throw new Error("E_BODY_SHAPE");
-  const { snapshots: _inHousehold, statements: _st, migrations: _mg, ...h } = b.household as unknown as Partial<WorkingHousehold> & { request: EngineRequest };
+  const { snapshots: _inHousehold, statements: _st, migrations: _mg, documents: _dc, ...h } = b.household as unknown as Partial<WorkingHousehold> & { request: EngineRequest };
   void _inHousehold;
   void _st;
   void _mg;
+  void _dc;
   const proposals: Proposal[] = (Array.isArray(b.proposals) ? (b.proposals as StoredProposal[]) : []).map(({ title, ...p }) => ({ ...p, name: title }));
   // 推定と呼ばない欄（性別）に前の版の画面で付けた仮の印は、読むときに外す（値はそのまま。household.ts の withoutPlainMarks）。
   // これから買う車のローンに付けた「書類で確かめる」は、読むときに推定にする（値はそのまま。carLoanDocs.ts。0041 の追記 2026-11-01）。
@@ -319,6 +329,11 @@ export function fromBody(json: string): BodyState {
   if (isObj(b.migrations)) {
     const migrations = readMigrationLog(b.migrations);
     if (hasMigrations(migrations)) wh.migrations = migrations;
+  }
+  // 書類の読み取りの記録（0.68 から。0148）: 形の合わない記録・候補は捨て、番号を消し直す。空なら欄を持たない
+  if (isObj(b.documents)) {
+    const documents = readDocumentLog(b.documents);
+    if (hasDocuments(documents)) wh.documents = documents;
   }
   const fixed = withoutOrphanCompatibility(wh);
   if (fixed !== wh) {

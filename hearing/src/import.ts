@@ -4,7 +4,7 @@
 // - 不足（計算に要る欄が空）・矛盾・読めない値を知らせ、面談のチェックリストに載せる（「わからない」も載せる。0018 の6）
 // - 空欄・「わからない」を目安で補った欄には、入力の画面の「推定あり」（0008 の 2026-10-11 の追記の2）と同じ印を付ける:
 //   値の箱を持つ欄は state: estimated（わからないは unknown＋substitute）、値の箱を持たない欄は assumed（欄のキー → 理由）
-import full3 from "../sheets/full/3.json" with { type: "json" };
+import full4 from "../sheets/full/4.json" with { type: "json" };
 import { answerKey, type Answer, type FilledSheet } from "./answers.ts";
 import { axisOf, itemByKey, type SheetDefinition, type SheetItem } from "./definition.ts";
 import { bonusShareEstimate, businessEstimate, careerStartMonth, fillsByEstimate, HEARING_UNKNOWN_BASIS, NOT_FILLED_BASIS, healthRateEstimate, livingEstimate, residentTaxEstimate, residentTaxYear, retirementLumpSumEstimate, salaryEstimate, type Estimate } from "./estimates.ts";
@@ -157,7 +157,7 @@ const SALARIED = new Set(["regular", "contract", "partTime", "civilServant", "ex
 const MAIN_JOB = new Set(["regular", "contract", "civilServant", "executive"]);
 
 /** シートの外の項目キーの表示名（簡易版のシートで聞かない欄を補ったときの知らせ・面談のチェックリストに使う。詳細版の今の版の言葉） */
-const FALLBACK = full3 as unknown as SheetDefinition;
+const FALLBACK = full4 as unknown as SheetDefinition;
 const FALLBACK_ITEMS = itemByKey(FALLBACK);
 
 /** 項目キーの表示名（シート定義に無い項目は詳細版の言葉。どちらにも無ければキーのまま） */
@@ -547,6 +547,7 @@ const SPOUSE_KEYS = [
   "hs.work.type",
   "hs.income.salary",
   "hs.income.business",
+  "hs.income.taxReturn",
   "hs.pension.notice.type",
   "hs.assets.deposit",
   "hs.assets.nisa",
@@ -591,6 +592,7 @@ function importFamily(c: Ctx, h: Household, baseMonth: string, asOf: string): Ad
   }
   const self: Member = { id: selfId, kind: "self", birth: { birthYearMonth: birth, bornOnFirst: false }, sex: sexOf(c, selfId, S, 1, "male"), joins: null, leaves: null, expected: false };
   companyGuarantee(c, self, 1);
+  taxReturn(c, self, 1);
   h.members.push(self);
   c.candidate("members", "member.kind", self);
 
@@ -614,6 +616,7 @@ function importFamily(c: Ctx, h: Household, baseMonth: string, asOf: string): Ad
     }
     spouse = { id, kind: "spouse", birth: { birthYearMonth: sBirth, bornOnFirst: false }, sex: sexOf(c, id, S, 2, self.sex === "male" ? "female" : "male"), joins: null, leaves: null, expected: false };
     companyGuarantee(c, spouse, 2);
+    taxReturn(c, spouse, 2);
     h.members.push(spouse);
     const mg = c.get<string>("hs.family.spouse.marriage");
     let marriage: "legal" | "deFacto" = "legal";
@@ -1574,6 +1577,34 @@ function companyGuarantee(c: Ctx, m: Member, n: number): void {
     m.companyGuarantee = c.unknown({ value: 0, basis: "連帯保証の額がわからないため0円（計算には使わない）" }, "derived");
     c.field(m.id, K, n, "member.companyGuarantee", "/companyGuarantee", "unknown");
   }
+}
+
+/** シートの確定申告の仕方の答え → 申告の仕方と青色申告特別控除の区分（0155） */
+const TAX_RETURN_ANSWERS: Readonly<Record<string, NonNullable<Member["taxReturn"]>>> = {
+  blueElectronic: { method: "blue", blueDeduction: "electronic" },
+  blueDoubleEntry: { method: "blue", blueDeduction: "doubleEntry" },
+  blueSimple: { method: "blue", blueDeduction: "simple" },
+  white: { method: "white" },
+};
+
+/**
+ * 確定申告の仕方（構成員の欄。自営業の方だけ。0155）。空欄・わからない・該当なしは入れない（入力の画面で白色の推定）。
+ * 働き方が自営業でない人の答えは取り込まずに知らせる（事業所得の欄と同じ）
+ */
+function taxReturn(c: Ctx, m: Member, n: number): void {
+  const K = "hs.income.taxReturn";
+  if (!c.has(K)) return;
+  const g = c.get<string>(K, n);
+  if (g.status !== "value") return;
+  if (c.value<string>("hs.work.type", n) !== "selfEmployed") {
+    c.contradiction(K, n, "確定申告の仕方の記入がありますが、働き方が自営業ではありません（取り込みませんでした）");
+    return;
+  }
+  const t = TAX_RETURN_ANSWERS[g.value];
+  if (t === undefined) return;
+  m.taxReturn = { ...t };
+  c.field(m.id, K, n, "member.taxReturn", "/taxReturn/method", "confirmed");
+  if (t.blueDeduction !== undefined) c.field(m.id, K, n, "member.taxReturn", "/taxReturn/blueDeduction", "confirmed");
 }
 
 /**

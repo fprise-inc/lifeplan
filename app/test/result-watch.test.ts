@@ -28,48 +28,6 @@ const OP = (s: string) => `操作 ${s}`;
 
 /** 直す待ちの一覧（今ある不具合。直したまとまりがその行を消す） */
 const PENDING: readonly Pending[] = [
-  {
-    key: "vocational-fee-in-sample",
-    what: "ひとり親と子2人の見本の第2子（専門学校・私立）の学費が入っていない",
-    rule: "schoolFeeZero",
-    cases: ["見本 4-3-01"],
-    match: /学費が入っていない/,
-  },
-  {
-    key: "home-value-in-models",
-    what: "持ち家の時価の元（評価額・購入の価格）が無いモデル世帯で、今の家が資産に入らず純資産が大きくマイナス",
-    rule: "negativeNetWorthNow",
-    cases: ["モデル pairLoan", "モデル pairLoanDeath", "モデル protectionNeed", "モデル survivorEmployeeLoan"],
-    match: /純資産が|資産に入っていない/,
-  },
-  {
-    key: "home-value-imported",
-    what: "ヒアリングシートから取り込んだ持ち家に時価の元が無く、今の家が資産に入らず純資産が大きくマイナス",
-    rule: "negativeNetWorthNow",
-    cases: [OP("ヒアリングシートを取り込む")],
-    match: /純資産が|資産に入っていない/,
-  },
-  {
-    key: "living-stages-follow",
-    what: "退職後の生活費の割合を下げても、推定の70歳・80歳の段が追いかけず、退職直後より高い",
-    rule: "livingStagesRise",
-    cases: [OP("退職後の生活費の割合だけを下げる")],
-    match: /より高い/,
-  },
-  {
-    key: "business-and-pension-rows",
-    what: "事業所得・企業年金（iDeCo・小規模企業共済・個人年金を含む）がキャッシュフロー表の「その他の収入」に入り、事業所得はグラフでは給与に入る",
-    rule: "rowGrouping",
-    cases: "all",
-    match: /cf\.income\.(business|corporatePension)/,
-  },
-  {
-    key: "internal-names-in-lists",
-    what: "世帯の中身の一覧・違いの一覧・変えたことに、内部の名前（incomeFlow・member など）や生の値（home → facility）が出る",
-    rule: "screenWords",
-    cases: [OP("受け取る相続の相手を変える"), OP("相続・贈与の行とプランの違い")],
-    match: /(世帯の中身の一覧|違いの一覧|変えたこと)/,
-  },
 ];
 
 const caseNames = WATCH_CASES.map((c) => c.name);
@@ -111,6 +69,10 @@ describe.each(WATCH_CASES.map((c) => c.name))("%s", (name) => {
 });
 
 describe("直す待ちの一覧（まだおかしい所があることを確かめる。直したら行を消す）", () => {
+  // 一覧が空のときも組を残す（新しい不具合を見つけたら、ここへ行を足す）
+  test("直す待ちの鍵は重ならない", () => {
+    expect(new Set(PENDING.map((p) => p.key)).size).toBe(PENDING.length);
+  });
   for (const p of PENDING) {
     test.fails(`直す待ち: ${p.what}（${p.key}）`, () => {
       const rule = WATCH_RULES.find((r) => r.id === p.rule)!;
@@ -232,6 +194,20 @@ describe("見張りが見張れていること（わざと壊した世帯・結�
     const found = ruleOf("negativeNetWorthNow").check(s);
     expect(found.some((t) => t.includes("資産に入っていない"))).toBe(true);
     expect(found.some((t) => t.includes("純資産が"))).toBe(true);
+  });
+
+  it("評価額が未入力の警告で標準に出ている持ち家は、資産に無くても知らせている。ほかの誤りで純資産が大きくマイナスなら引っかかる", () => {
+    const s0 = subjectOf("モデル pairLoan", modelHousehold("pairLoan"));
+    expect(ruleOf("negativeNetWorthNow").check(s0)).toEqual([]);
+    const y = Number(s0.wh.request.input.baseMonth.slice(0, 4));
+    const s = brokenResult(s0, (t) => [...t, { row: "cf.balance.debt.other", year: y, amount: 50_000_000 }]);
+    expect(ruleOf("negativeNetWorthNow").check(s).some((t) => t.includes("純資産が"))).toBe(true);
+    // 評価額を0円の確定にした（未入力の警告でない）家は、資産に無ければ引っかかる
+    const s2 = brokenInput("pairLoan", (req) => {
+      const r = req.input.household.residences!.find((x) => x.kind === "own")!;
+      r.valuation = { ...(r.valuation ?? {}), value: { value: 0, state: "confirmed", origin: { kind: "manual" } } as never };
+    });
+    expect(ruleOf("negativeNetWorthNow").check(s2).some((t) => t.includes("資産に入っていない"))).toBe(true);
   });
 
   it("亡くなった後の介護の費用・亡くなる見込みとずれた相続の時期（推定）", () => {

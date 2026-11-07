@@ -14,6 +14,7 @@ import { man, manDiff } from "../../presentation/format.ts";
 import { ESTIMATE_GROUPS, editText, estimateEntries, estimateEntry, formatNumber, parseNumber, searchEstimates, sourceText, stepLabel, stepValue, summaryText, type EstimateEntry } from "./estimateCatalog.ts";
 import { AUTO_BASIS, BASIS_TEXT_MAX, basisOf, cleanBasisText, keepOfficeValue, officialUpdates, withNoFill, withOfficeValue, withoutOfficeValue, type OfficeEstimates, type OfficeValue } from "./estimates.ts";
 import { PREVIEW_AGE, type PreviewRow } from "./estimatePreview.ts";
+import { Help } from "../../presentation/Help.tsx";
 
 export interface EstimatesSectionProps {
   value: OfficeEstimates;
@@ -99,6 +100,8 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
   const changedCount = Object.keys(value.values).length;
   const list = useMemo(() => {
     let l = searchEstimates(query);
+    // 前の分け方の値（今は使わない）は、探したとき・事務所で変えてあるときだけ出す
+    if (query.trim() === "") l = l.filter((e) => e.legacy !== true || value.values[e.id] !== undefined);
     if (onlyOffice) l = l.filter((e) => value.values[e.id] !== undefined);
     if (group !== "") l = l.filter((e) => e.group === group);
     return l;
@@ -219,7 +222,10 @@ export function EstimatesSection({ value, onChange, preview, today }: EstimatesS
               <div class="os-est-row">
                 <div class="os-est-name">
                   <span>{e.name}</span>
-                  <small class="os-est-id">{e.id}</small>
+                  {/* 値ID（内部の名前）は「?」の中（探す欄では値ID でも探せる） */}
+                  <Help label={e.name} data={{ "data-office-estimate-id": e.id }}>
+                    値ID: <code class="os-est-id">{e.id}</code>
+                  </Help>
                 </div>
                 <div class="os-est-vals">
                   <span>公式: {summaryText(e, e.official.value)}</span>

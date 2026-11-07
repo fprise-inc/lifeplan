@@ -39,6 +39,10 @@ import { premiseFor } from "../src/workspace/contingency/planPremise.ts";
 import { smrEstimate, smrMonth } from "../src/workspace/input/estimates.ts";
 import { barNotices, householdNoticeText, type BarInputs } from "../src/workspace/header/status.ts";
 import { modelHousehold, preview } from "./helpers.ts";
+import { readProposal } from "../src/workspace/documents/proposal.ts";
+import { acceptCandidates } from "../src/workspace/documents/review.ts";
+import { readDocumentLog, withDocumentLog, withReading } from "../src/workspace/documents/log.ts";
+import { PROPOSAL_CONTRACT } from "../src/workspace/documents/types.ts";
 
 const NOW = "2026-10-18T10:00:00.000Z";
 
@@ -1228,6 +1232,37 @@ function sample067(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/**
+ * 0.68 の見本の世帯（0148）: sample067() に、書類の読み取りの記録を1通（承認した候補1つ・未決の候補1つ・照合だけの値1つ・番号を消した数）足し、
+ * 承認した値に承認の記録と確かさ「書類で確認」を付ける（画面の読み口と承認の部品で作る）
+ */
+function sample068(): BodyState {
+  const s = sample067();
+  let k = 0;
+  const newId = () => `00000000-0000-4000-8000-${String(6800 + ++k).padStart(12, "0")}`;
+  const members = roles(s.wh.request).map((r) => ({ key: r.key, id: r.member.id }));
+  const at = "2026-11-07T10:00:00+09:00";
+  const p = readProposal(
+    {
+      contract: PROPOSAL_CONTRACT,
+      docType: "withholdingSlip",
+      asOf: "2026-01",
+      holder: "self",
+      values: [
+        { item: "employment.salary.bonus", member: "holder", value: 1500000, period: "annual", source: { page: 1, where: "賞与の合計", text: "賞与 1,500,000" }, confidence: "high" },
+        { item: "employment.salary.annual", member: "holder", value: 5800000, period: "annual", source: { page: 1, where: "支払金額（賞与を除く分）" }, confidence: "medium", note: "架空の見本の添え書き" },
+        { item: "employment.salary.annual", member: "holder", value: "1234 5678 9012", source: { where: "個人番号" } },
+      ],
+      references: [{ label: "源泉徴収税額", amount: 152300, row: "cf.taxSi.incomeTax", year: 2026, source: { where: "源泉徴収税額" } }],
+    },
+    { via: "reader", at, newId, reader: { id: "test.fixture", version: 1 }, members },
+  );
+  const r = p.reading!;
+  const acc = acceptCandidates(s.wh, r, [r.candidates[0]!.id], {}, at);
+  if (acc.count !== 1) throw new Error(`0.68 の見本の承認: ${acc.failed.join("・")}`);
+  return { ...s, wh: withDocumentLog(acc.wh, withReading(undefined, acc.reading)) };
+}
+
 describe("世帯ファイルの本文（0011 の2）", () => {
   it("保存→読み込みで同じ（現状・案・帯の並び・表示の設定・拡張領域）", () => {
     const s = sample();
@@ -1266,7 +1301,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.67");
+    expect(BODY_FORMAT_VERSION).toBe("0.68");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1365,6 +1400,8 @@ describe("世帯ファイルの本文（0011 の2）", () => {
       expect(again.extDefinitions).toEqual(moved === null ? orig.extDefinitions : { ...(orig.extDefinitions as object), [CO_KEY]: definitionOf(CO_DECL, CO_KEY) });
       // 0.56 から: 移行の取り込みの記録も、読んで書き戻して失わない（0113 の10）
       if (orig.migrations !== undefined) expect(again.migrations).toEqual(orig.migrations);
+      // 0.68 から: 書類の読み取りの記録も、読んで書き戻して失わない（0148）
+      if (orig.documents !== undefined) expect(again.documents).toEqual(orig.documents);
     }
     // 0.56 の見本: 推定の出し方 migrated の値を持つ世帯を本物のエンジンが受け付け、確定の値にしたときと結果が同じ（0113 の7）
     const b056 = fromBody(readFileSync(join(base, "0.56", "body.json"), "utf8"));
@@ -1439,7 +1476,24 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample067())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample068())), null, 2) + "\n");
+  });
+
+  it("0.68 の形（0148）: 書類の読み取りの記録を区画 documents に保存して読み戻す。承認した値は承認の記録と確かさを持ち、計算できる。記録は計算に効かない", () => {
+    const s = sample068();
+    const stored = bodyObject(s) as unknown as { documents?: { readings: { candidates: { id: string; status: string }[]; dropped: number }[] }; household: Record<string, unknown> & { request: { input: { household: { employmentPeriods: { member: string; salary?: { bonus?: unknown } }[] } } } } };
+    const r = stored.documents?.readings[0];
+    expect(r?.candidates.map((c) => c.status)).toEqual(["accepted", "pending"]);
+    expect(r?.dropped).toBe(1);
+    expect(stored.household.documents).toBeUndefined();
+    const self = roles(s.wh.request).find((x) => x.key === "self")!.member.id;
+    const bonus = stored.household.request.input.household.employmentPeriods.find((p) => p.member === self && p.salary?.bonus !== undefined)?.salary?.bonus;
+    expect(bonus).toMatchObject({ value: 1500000, state: "confirmed", origin: { kind: "import" }, approval: { by: "fp", candidate: r?.candidates[0]?.id }, certainty: "document" });
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(back.wh.documents).toEqual(readDocumentLog(stored.documents));
+    // 記録を外しても計算は同じ（記録は計算の要求に入らない）
+    expect(preview(back.wh.request).table).toEqual(preview(withDocumentLog(back.wh, undefined).request).table);
   });
 
   it("0.67 の形（0137）: 前提条件の預金の利回りと、取得の年月だけの収益不動産の取得を保存して読み戻す。預金の利回りは計算に効く", () => {

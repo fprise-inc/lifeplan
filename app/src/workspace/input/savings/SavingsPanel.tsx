@@ -5,16 +5,17 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { Account, EngineRequest } from "../../../engine/types.ts";
 import { Help, HelpOf } from "../../../presentation/Help.tsx";
 import { DonutPair, type DonutItem, type DonutPane } from "../../../presentation/Donut.tsx";
-import { ageAt } from "../../levers.ts";
+import { addMonths, ageAt } from "../../levers.ts";
 import { actionHelp, Field, fieldDomId, Group, MoreToggle, Section, shouldCommitOnBlur, useGroupOpen, visible } from "../FieldViews.tsx";
 import { FieldStateBadge, FieldStateLine } from "../FieldStateLine.tsx";
 import { allFields, type FieldDef, type GroupDef, type Level, type SectionDef } from "../form.ts";
+import { fieldStatus, typeValue } from "../valueState.ts";
 import { mutate, type WorkingHousehold } from "../household.ts";
-import { memberLabel, memberOptions } from "../labels.ts";
+import { accountHolderRule, holderOptions, memberLabel } from "../labels.ts";
 import { buildStage } from "../stages/index.ts";
-import { accountMoreLabel, MAIN_ADD_KINDS } from "../stages/savings.ts";
+import { accountMoreLabel, dropContributions, flowMatters, MAIN_ADD_KINDS, SETTLEMENT_CONTRIBUTION_UNUSED, SETTLEMENT_SAVES } from "../stages/savings.ts";
 import { revealAdded } from "../../../presentation/revealAdded.ts";
-import { formatYen, normalizeNumberText, parseInteger, parseYen, pctFromRate, rateFromPct } from "../units.ts";
+import { amountText, formatYen, normalizeNumberText, parseInteger, parseYen, pctFromRate, rateFromPct } from "../units.ts";
 import { enterInput, type Settled } from "../pendingInput.ts";
 import { outOfRangeText, rangeText, rateInRange, RETURN_RANGE, type PctRange } from "../rateRanges.ts";
 import {
@@ -46,7 +47,9 @@ import {
   nisaHitOf,
   returnShiftNote,
   accountName,
+  payoutAgeBasis,
   payoutAgeOf,
+  idecoStop,
   payoutEstimate,
   pooledOf,
   PAYOUT_METHODS,
@@ -58,7 +61,9 @@ import {
   setInvestment,
   setStopAge,
   setWithdrawOrder,
+  settlementOf,
   stepsOf,
+  stopMonth,
   stopAgeOf,
   stopAgeOrEstimate,
   stopEstimateOf,
@@ -117,6 +122,8 @@ function NumBox(p: {
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [start, setStart] = useState<string | null>(null);
+  /** 欄に入ってから文字を打ったか（打ったなら同じ文字に戻っても書く。推定の欄は推定と同じ値でも確定になる。0041 の追記 2026-11-07） */
+  const typed = useRef(false);
   const el = useRef<HTMLInputElement>(null);
   /** 打ちかけの値の登録を外す（pendingInput.ts。入っている間だけ持つ） */
   const leaveInput = useRef<(() => void) | null>(null);
@@ -147,11 +154,12 @@ function NumBox(p: {
   // 欄を離れずに画面を変える操作の前（pendingInput.ts）: 打ちかけの値を決める。読めなければ欄に残して止める
   settleNow.current = () => {
     const t = el.current?.value ?? draft ?? shown;
-    if (!shouldCommitOnBlur(start, t)) return "none";
+    if (!shouldCommitOnBlur(start, t) && !typed.current) return "none";
     const v = parse(t);
     if (v === undefined) return "rejected";
     p.onCommit(v);
     setStart(t);
+    typed.current = false;
     return "committed";
   };
   // 範囲の外の率の知らせ（「15%より大きい値は設定できません。」。読めない文字は赤い枠だけ）
@@ -172,19 +180,24 @@ function NumBox(p: {
       onFocus={() => {
         setDraft(shown);
         setStart(shown);
+        typed.current = false;
         leaveInput.current = enterInput({ settle: () => settleNow.current(), focus: () => el.current?.focus() });
       }}
       onInput={(e) => {
         // 打っている間は下書きだけ（世帯は変えない）。離れたとき（Enter）に決める（入力の欄の決まり。FieldViews.tsx の Field と同じ）
         const t = (e.currentTarget as HTMLInputElement).value;
         setDraft(t);
+        typed.current = true;
         p.onProblem?.(rangeProblem(t));
       }}
       onBlur={(e) => {
         leaveInput.current?.();
         leaveInput.current = null;
         const t = (e.currentTarget as HTMLInputElement).value;
-        if (shouldCommitOnBlur(start, t)) {
+        // 打ったなら同じ文字でも書く（推定の欄は確定になる。確定の欄は同じ値なので変わらない）
+        const typedNow = typed.current;
+        typed.current = false;
+        if (shouldCommitOnBlur(start, t) || typedNow) {
           const v = parse(t);
           if (v !== undefined) p.onCommit(v);
           const why = rangeProblem(t);
@@ -202,15 +215,18 @@ function NumBox(p: {
 
 const EstTag = ({ text }: { text: string }) => <span class="sv-est">{text}</span>;
 
-/** 期間を分けた積立: 「45 〜49歳 月[3]万円」を並べ、「＋期間を追加」で足す */
-function StepsEditor(p: { steps: Step[]; now: number; stopAge: number | null; label: string; onChange: (s: Step[]) => void; noStop?: boolean }) {
+/**
+ * 期間を分けた積立: 「45 〜49歳 月[3]万円」を並べ、「＋期間を追加」で足す。最後の期間の終わりは「〜64歳（65歳になる前の月まで）」。
+ * ご本人でない人の口座は、ご本人の積立をやめる年齢の月をその人の年齢で見せ、「（ご本人が65歳になる前の月まで）」と添える（lastTo・endNote）
+ */
+function StepsEditor(p: { steps: Step[]; now: number; stopAge: number | null; label: string; onChange: (s: Step[]) => void; noStop?: boolean; lastTo?: number; endNote?: string }) {
   const stop = p.noStop === true ? null : p.stopAge;
   const steps = p.steps.length > 0 ? p.steps : [{ fromAge: p.now, monthly: 0 }];
   return (
     <div class="sv-steps">
       {steps.map((s, j) => {
         const next = steps[j + 1];
-        const to = next !== undefined ? next.fromAge - 1 : stop !== null ? stop - 1 : null;
+        const to = next !== undefined ? next.fromAge - 1 : stop !== null ? (p.lastTo ?? stop - 1) : null;
         const past = stop !== null && s.fromAge >= stop;
         return (
           <div class={`sv-st${past ? " past" : ""}`} key={j} data-reveal-item>
@@ -231,7 +247,11 @@ function StepsEditor(p: { steps: Step[]; now: number; stopAge: number | null; la
                 }}
               />
             )}
-            <span class="sv-st-to">{to === null ? "歳〜" : `〜${Math.max(s.fromAge, to)}歳`}</span>
+            <span class="sv-st-to">
+              {to === null ? "歳〜" : `〜${Math.max(s.fromAge, to)}歳`}
+              {/* 最後の期間の終わりは「○歳になる前の月まで」（積立をやめる年齢と同じ時点を、同じ言い方で） */}
+              {next === undefined && stop !== null && to !== null ? <small class="sv-st-end">（{p.endNote ?? `${stop}歳になる前の月まで`}）</small> : null}
+            </span>
             <span>月</span>
             <NumBox value={s.monthly} unit="man" size="s" label={`${p.label}の${j + 1}つ目の期間の毎月の積立`} onCommit={(v) => typeof v === "number" && p.onChange(steps.map((x, k) => (k === j ? { ...x, monthly: v } : x)))} />
             <span>万円</span>
@@ -305,7 +325,9 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
    */
   const editField = (f: FieldDef | undefined, v: number | string | null) => {
     if (f === undefined) return;
-    const next = (f.write ?? f.set)(wh, v);
+    // 推定・書類待ちの欄に打った値は、推定と同じ値でも確定（typeValue。0041 の追記 2026-11-07）
+    const st = fieldStatus(f, wh).status;
+    const next = st === "estimated" || st === "unknown" ? typeValue(f, wh, v) : (f.write ?? f.set)(wh, v);
     if (next === wh) return;
     let dropped = false;
     const out = mutate(next, (hh, r) => {
@@ -468,15 +490,17 @@ function FlowSection({ wh, level, flow, onEdit }: { wh: WorkingHousehold; level:
   const v = withdrawViewOf(req);
   const name = (a: Account) => accountName(a, memberLabel(wh, a.owner));
   const min = req.input.assumptions?.withdrawal?.minimumDeposit;
-  const summary = `取り崩す順番: ${v.settlement !== undefined ? `${name(v.settlement)}［収支が入る口座］ → ` : ""}${v.included.map(name).join(" → ") || "なし"}${v.standard ? "（標準）" : ""}${v.excluded.length > 0 ? `。取り崩さない: ${v.excluded.map(name).join("・")}` : ""}${min !== undefined && min > 0 ? `。預金に残しておく額 ${(min / 10000).toLocaleString("ja-JP")}万円` : ""}`;
+  const summary = `取り崩す順番: ${v.settlement !== undefined ? `${name(v.settlement)}［収支が入る口座］ → ` : ""}${v.included.map(name).join(" → ") || "なし"}${v.standard ? "（標準）" : ""}${v.excluded.length > 0 ? `。取り崩さない: ${v.excluded.map(name).join("・")}` : ""}${min !== undefined && min > 0 ? `。預金に残しておく額 ${amountText(min)}` : ""}`;
+  // 取り崩す口座が1つなら、順番・残しておく額に意味が無いので出さない（前に入れた順番・額があれば出す）
+  if (!flowMatters(wh)) return null;
   if (level === "simple")
     return (
       <section class="sv-sec" aria-label="お金の行き先">
         <h3>
-          お金の行き先 <span class="sv-est">詳細あり</span>
+          お金の行き先 <span class="sv-tag">詳細で直せます</span>
         </h3>
         <p class="sv-note" data-flow-summary>
-          {summary}。「詳細」で直せます。
+          {summary}。
         </p>
       </section>
     );
@@ -746,18 +770,32 @@ function AccountsTable(p: {
   const list = accountsOf(h);
   const un = unallocatedOf(req);
   const showUn = hasUnallocated(un);
-  const owners = memberOptions(wh);
-  const multiOwner = owners.length > 1;
   const self = selfOf(h);
   const now = self === undefined ? 0 : ageAt(self, base);
-  const totalMonthly = list.reduce((s, a) => s + accountMonthlyAt(h, base, a, now), 0) + (un !== null ? monthlyAt(un.steps, now) : 0);
+  // 収支が入る口座（決済口座）の積立は計算に使わない（黒字がそのまま貯まる）ので、合計の「今 月○万円」に入れない
+  const settle = settlementOf(h);
+  const totalMonthly = list.reduce((s, a) => s + (a === settle ? 0 : accountMonthlyAt(h, base, a, now)), 0) + (un !== null ? monthlyAt(un.steps, now) : 0);
   const portfolio = portfolioOf(req);
+  // 預金の名義は、夫婦の世帯では標準でも選ぶ（相続・万一で効く）。単身・ひとり親の預金は詳細で
+  const spouse = h.members.some((m) => m.kind === "spouse" && m.outside === undefined);
+  // 積立をやめる年齢はご本人の年齢。期間の表は名義の人の年齢なので、名義の人の年齢に直して見せる（配偶者の口座で、ご本人の65歳が配偶者の63歳など）
+  const stopFor = (a: Account): { stopAge: number; lastTo?: number; endNote?: string } => {
+    const owner = h.members.find((m) => m.id === a.owner);
+    const stop = stopAgeOrEstimate(req);
+    const m = owner === undefined || owner.id === self?.id ? null : stopMonth(h, stop);
+    if (owner === undefined || m === null) return { stopAge: stop };
+    return { stopAge: ageAt(owner, addMonths(m, 1)), lastTo: ageAt(owner, m), endNote: `ご本人が${stop}歳になる前の月まで` };
+  };
+  const ownerNow = (a: Account): number => {
+    const owner = h.members.find((m) => m.id === a.owner);
+    return owner === undefined ? now : ageAt(owner, base);
+  };
   const steps = (a: Account, t: Tranche, label: string) => (
     <StepsEditor
       steps={stepsOf(h, base, a, t)}
-      now={now}
-      stopAge={stopAgeOrEstimate(req)}
-      noStop={DC_KINDS.has(a.kind)}
+      now={ownerNow(a)}
+      {...(a.kind === "ideco" ? (idecoStop(req, a) ?? { stopAge: null }) : stopFor(a))}
+      noStop={a.kind === "corporateDc"}
       label={label}
       onChange={(s) => editAcc((hh) => writeSteps(hh, base, find(hh, a.id), t, s, stopAge))}
     />
@@ -803,6 +841,8 @@ function AccountsTable(p: {
             const moreKey = `sav/${a.id}`;
             const more = moreOf?.(a.id) ?? [];
             const open = more.length > 0 && opened.isOpen(moreKey);
+            const owners = holderOptions(wh, accountHolderRule(a.kind), a.owner);
+            const isSettle = a === settle;
             return (
               <Fragment key={a.id}>
               <tr data-account={a.kind}>
@@ -813,8 +853,8 @@ function AccountsTable(p: {
                   </span>
                   <span class="memo">{info.memo}</span>
                   <span class="own">
-                    {/* 預貯金の名義は詳細で選ぶ（標準は読むだけ。0078） */}
-                    {multiOwner && (level === "detail" || a.kind !== "deposit") ? (
+                    {/* 名義の候補は、その種類を持てる人だけ（iDeCo・NISA などに小さな子を出さない）。単身・ひとり親の預金の名義は詳細で選ぶ（0078） */}
+                    {owners.length > 1 && (level === "detail" || a.kind !== "deposit" || spouse) ? (
                       <select aria-label={`${name}の名義`} value={a.owner} onChange={(e) => editAcc((hh) => void (find(hh, a.id).owner = (e.currentTarget as HTMLSelectElement).value))}>
                         {owners.map((o) => (
                           <option key={o.value} value={o.value}>
@@ -844,7 +884,11 @@ function AccountsTable(p: {
                   ) : null}
                 </td>
                 <td class="l">
-                  {a.kind === "nisa" ? (
+                  {isSettle && (a.contributions ?? []).length === 0 ? (
+                    <span class="memo" data-settlement-saves>
+                      {SETTLEMENT_SAVES}
+                    </span>
+                  ) : a.kind === "nisa" ? (
                     <>
                       <div class="sv-tr">つみたて投資枠</div>
                       {steps(a, "tsumitate", "NISA つみたて投資枠")}
@@ -862,7 +906,15 @@ function AccountsTable(p: {
                   ) : (
                     steps(a, "all", name)
                   )}
-                  {a.kind === "corporateDc" ? <span class="memo">会社の掛金（給与からの上乗せを含む）。退職まで</span> : a.kind === "ideco" ? <span class="memo">加入できる年齢まで</span> : null}
+                  {a.kind === "corporateDc" ? <span class="memo">会社の掛金（給与からの上乗せを含む）。退職まで</span> : a.kind === "ideco" ? <span class="memo">国民年金に入っている月など、加入できる月だけ（計算で判定）</span> : null}
+                  {isSettle && (a.contributions ?? []).length > 0 ? (
+                    <div class="fld-help warn sv-rate-msg" data-settlement-unused>
+                      {SETTLEMENT_CONTRIBUTION_UNUSED}{" "}
+                      <button type="button" class="link-btn" onClick={() => onEdit(dropContributions(wh, a.id))}>
+                        積立を外す
+                      </button>
+                    </div>
+                  ) : null}
                 </td>
                 <td>
                   {allocCalc ? (
@@ -1005,7 +1057,7 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
       <section class="sv-sec" aria-label="資産の種類ごとの割合">
         <h3>
           資産の種類ごとの割合
-          <Help label="資産の種類ごとの割合">運用する口座（NISA・iDeCo・企業型DC・課税口座）に共通の、資産の種類ごとの割合です。預金は現金のまま。商品は選ばず、資産の種類で入れます。期待リターンと値動きの大きさは、入れなければ事務所の既定値で計算します。</Help>
+          <Help label="資産の種類ごとの割合">運用する口座（NISA・iDeCo・企業型DC・課税口座）に共通の、資産の種類ごとの割合です。預金の口座は預金のまま。商品は選ばず、資産の種類で入れます。利回り（期待リターン）は信託報酬を引く前の率で、前提条件の「資産の種類ごとの利回り」と同じ値です（どちらで直しても同じ）。入れなければ目安の値（推定）で計算します。値動きの大きさも、入れなければ目安の値です。</Help>
         </h3>
         {gaps.length > 0 ? (
           <div class="sv-carry" role="status" data-alloc-gap>
@@ -1022,7 +1074,7 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
                 <th class="l">資産の種類</th>
                 <th>割合</th>
                 <th>
-                  期待リターン（年）<span class="fp">FPが入れる値</span>
+                  利回り（年・信託報酬を引く前）<span class="fp">FPが入れる値</span>
                 </th>
                 <th>
                   値動きの大きさ（年）<span class="fp">FPが入れる値</span>
@@ -1042,7 +1094,7 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
                     <NumBox value={c.weight} unit="num" size="s" label={`${c.name}の割合`} onCommit={(v) => typeof v === "number" && setWeight(c.key, v)} /> %
                   </td>
                   <td>
-                    <NumBox value={c.muOwn ? c.mu : null} unit="pct" size="s" optional est={wh.assumed[classReturnKey(c.key)] !== undefined} placeholder={pctFromRate(c.mu)} label={`${c.name}の期待リターン`} onCommit={(v) => onEdit(setClassReturn(wh, c.key, typeof v === "string" ? v : null))} /> %
+                    <NumBox value={c.muOwn ? c.mu : null} unit="pct" size="s" optional est={wh.assumed[classReturnKey(c.key)] !== undefined} placeholder={pctFromRate(c.mu)} label={`${c.name}の利回り`} onCommit={(v) => onEdit(setClassReturn(wh, c.key, typeof v === "string" ? v : null))} /> %
                     {wh.assumed[classReturnKey(c.key)] !== undefined ? <EstTag text="推定" /> : null}
                   </td>
                   <td>
@@ -1069,7 +1121,7 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
         </div>
         <div class="sv-port" data-portfolio>
           <span>
-            組み合わせた期待リターン <b class="num">{pct1(port.expected)}%</b>
+            組み合わせた利回り <b class="num">{pct1(port.expected)}%</b>
           </span>
           <span>
             信託報酬を引くと <b class="num">{pct1(port.net)}%</b>
@@ -1087,7 +1139,7 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
             <NumBox value={inv.allocation?.fee ?? null} unit="pct" size="s" optional placeholder={pctFromRate(defaultFee())} label="信託報酬" onCommit={(v) => edit((r) => editAllocation(r, { fee: typeof v === "string" ? v : defaultFee() }))} />
             <span class="u">%</span>
           </div>
-          <p class="help">持っている投資信託の平均。商品名からは選ばず、FPが入れます。期待リターンから差し引きます。値動きの大きさは計算には使わず、目減りの扱いは期待リターンに含めて入れる前提です。</p>
+          <p class="help">持っている投資信託の平均。商品名からは選ばず、FPが入れます。上の利回りから差し引きます。値動きの大きさは計算には使わず、目減りの扱いは利回りに含めて入れる前提です。</p>
         </div>
       </section>
       <section class="sv-sec" aria-label="資産の内訳">
@@ -1157,7 +1209,7 @@ function PayoutSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; le
       <h3>
         {aids.length > 0 ? "iDeCo・企業型DC・小規模企業共済の受け取り方" : "iDeCo・企業型DC の受け取り方"}
         <Help label="受け取り方">
-          {dcs.length > 0 ? <p>推定は「退職の年（60〜65歳）に一時金」です。受け取ったお金は、預金に入れるか、運用を続けるかを選べます。年金で受け取る年数（推定は10年）・併用の一時金の割合（推定は半分）は「詳細」で。</p> : null}
+          {dcs.length > 0 ? <p>推定は「退職の年（60〜65歳。退職が65歳より後なら65歳）に一時金」です。受け取ったお金は、預金に入れるか、運用を続けるかを選べます。年金で受け取る年数（推定は10年）・併用の一時金の割合（推定は半分）は「詳細」で。</p> : null}
           {aids.length > 0 ? <p>小規模企業共済は、受け取りを始める時期（廃業・退職など）を入れると、その月に受け取ります。入れなければ、受け取らずに残高のまま持ちます。一括は退職所得、分割は公的年金等の雑所得として税を計算します。</p> : null}
         </Help>
       </h3>
@@ -1181,7 +1233,7 @@ function PayoutSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; le
                   ))}
                 </span>
                 {est ? (
-                  <EstTag text="推定あり: 退職の年に一時金" />
+                  <EstTag text={`推定あり: ${payoutAgeBasis(req, a)}に一時金`} />
                 ) : (
                   <button type="button" class="link-btn" onClick={() => edit(a.id, { method: null })}>
                     空欄に戻す
@@ -1194,7 +1246,7 @@ function PayoutSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; le
               <div class="ctl">
                 <NumBox value={payoutAgeOf(h, a)} unit="age" size="s" optional est={ageEst} placeholder={String(defaultPayoutAge(req, a))} label={`${name}の受け取りを始める年齢`} id={fieldDomId(`sav/${a.id}/payoutAge`)} onCommit={(v) => edit(a.id, { age: typeof v === "number" ? Math.min(75, Math.max(60, v)) : null })} />
                 <span class="u">歳</span>
-                {ageEst ? <EstTag text={`推定あり: 退職の年（${defaultPayoutAge(req, a)}歳）`} /> : null}
+                {ageEst ? <EstTag text={`推定あり: ${payoutAgeBasis(req, a)}`} /> : null}
               </div>
             </div>
             <div class="sv-fld">
@@ -1243,9 +1295,13 @@ function PeriodSection(p: { wh: WorkingHousehold; level: Level; onEdit: (w: Work
   // 予定なしから定額・定率にしたときの始める年齢は、65歳か退職の遅い方（過ぎていれば次に迎える年齢。0026 の追記）
   const setDd = (v: Partial<DrawdownView>) => onEdit(mutate(wh, (_h, r) => setDrawdown(r, { ...dd, ...(dd.method === "none" && v.method !== undefined && v.method !== "none" ? { startAge: drawdownStartDefault(req) } : {}), ...v })));
   const est = stopAge === null;
+  // 積立のある口座（収支が入る口座・iDeCo・企業型DC を除く。積立をやめる年齢が効く口座）が無ければ、「積み立てる」の箱と推定の札を出さない
+  const settle = settlementOf(req.input.household);
+  const saving = accountsOf(req.input.household).some((a) => a !== settle && !DC_KINDS.has(a.kind) && (a.contributions ?? []).some((c) => c.monthly > 0));
   return (
     <>
       <div class="sv-per">
+        {saving ? (
         <div class="per-c acc">
           <div class="pt">↑ 積み立てる</div>
           <div class="pv">
@@ -1275,7 +1331,7 @@ function PeriodSection(p: { wh: WorkingHousehold; level: Level; onEdit: (w: Work
             ) : (
               <b data-stop-age-read>{stopAge ?? estimate.age}</b>
             )}{" "}
-            歳でやめる
+            歳になる前の月まで
           </div>
           {est ? (
             <div class="pv">
@@ -1284,6 +1340,7 @@ function PeriodSection(p: { wh: WorkingHousehold; level: Level; onEdit: (w: Work
           ) : null}
           {level === "detail" ? <FieldStateLine f={fields.get("sav/stopAge")} wh={wh} onEdit={onEdit} noBasis /> : null}
         </div>
+        ) : null}
         <div class={`per-c ${wOn ? "hold" : "off"}`}>
           <div class="pt">→ 据え置く</div>
           <div class="pv">
@@ -1304,7 +1361,10 @@ function PeriodSection(p: { wh: WorkingHousehold; level: Level; onEdit: (w: Work
         </div>
       </div>
       <div class="sv-fld">
-        <span class="lbl">取り崩し方</span>
+        <span class="lbl">
+          取り崩し方
+          <Help label="取り崩し方">予定なしは、収支が足りない年だけ取り崩します（順番は「お金の行き先」。既定は預金→課税口座→暗号資産→NISA）。定額・定率は、その額を金融資産から使います（収支の不足のほうが大きい年は不足の分）。</Help>
+        </span>
         <div class="ctl">
           <span class="seg-g sm" role="group" aria-label="取り崩し方">
             <button type="button" aria-pressed={dd.method === "none"} onClick={() => setDd({ method: "none" })}>
@@ -1318,7 +1378,6 @@ function PeriodSection(p: { wh: WorkingHousehold; level: Level; onEdit: (w: Work
             </button>
           </span>
         </div>
-        <p class="help">予定なしは、収支が足りない年だけ取り崩します（順番は「お金の行き先」。既定は預金→課税口座→暗号資産→NISA）。定額・定率は、その額を金融資産から使います（収支の不足のほうが大きい年は不足の分）。</p>
       </div>
       {dd.method === "fixed" ? (
         <div class="sv-fld">
@@ -1327,7 +1386,7 @@ function PeriodSection(p: { wh: WorkingHousehold; level: Level; onEdit: (w: Work
             <NumBox value={dd.monthly} unit="man" size="s" label="毎月の取り崩し額" onCommit={(v) => typeof v === "number" && setDd({ monthly: v })} />
             <span class="u">万円</span>
           </div>
-          <p class="help">年金などで足りない生活費の分を含めた、金融資産から使う額。結果の画面の「取り崩しの計算」で逆算もできます。</p>
+          <p class="help">毎年同じ額です（物価で伸ばしません）。年金などで足りない生活費の分を含めた、金融資産から使う額。結果の画面の「取り崩しの計算」で逆算もできます。</p>
         </div>
       ) : dd.method === "rate" ? (
         <div class="sv-fld">

@@ -389,7 +389,7 @@ describe("税と出口（0081）", () => {
     expect(() => preview(wh.request)).not.toThrow();
   });
 
-  it("申告（物件の持ち主ごと・詳細）: 申告の仕方は既定で白色。青色にすると青色申告特別控除（既定10万円）を選べ、事業的規模の目安に当たらないのに55万円・65万円なら知らせる", () => {
+  it("申告（物件の持ち主ごと・詳細）: 申告の仕方は既定で白色（10万円までの人は推定の印なし）。青色にすると青色申告特別控除（既定10万円）を選べ、事業的規模の目安に当たらないのに55万円・65万円なら知らせる", () => {
     let wh = open();
     const a = rentalProperties(wh.request.input.household)[0]!;
     const g = `rental/taxReturn/${a.owner}`;
@@ -416,8 +416,11 @@ describe("税と出口（0081）", () => {
     expect(scale().get(wh).value).toBe("当たります（10室）");
     expect(fieldOf(wh, `${g}/blueDeduction`).get(wh).warn ?? null).toBeNull();
     expect(() => preview(wh.request)).not.toThrow();
-    // 白色に戻すと申告の欄ごと外れる
+    // 白色に戻すと白色と書き（入れていない＝省略の白色と見分ける。青色の区分は外す）、空にすると申告の欄ごと外れる（0155）
     wh = fieldOf(wh, `${g}/method`).set(wh, "white");
+    expect(member().taxReturn).toEqual({ method: "white" });
+    expect(fieldOf(wh, `${g}/method`).get(wh).implicit).toBeUndefined();
+    wh = fieldOf(wh, `${g}/method`).set(wh, null);
     expect(member().taxReturn).toBeUndefined();
   });
 

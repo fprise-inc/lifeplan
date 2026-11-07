@@ -1,8 +1,9 @@
 // 通しの入力の3つの世帯（人はすべて架空）: 画面のキー入力（押す・打つ・Tab・保存）で、世帯を選ぶ → 空から作る → 入力項目を順に入れる。
 // 途中で見たい物（推定の値・欄の値・パネルの文字）は notes に残し、テスト（walkthrough.test.ts）が世帯の中身・計算の結果と合わせて確かめる。
 // ① 会社員の夫婦（38歳・36歳）と子2人（6歳・3歳）、持ち家（住宅ローンあり）。ざっくり（標準の欄だけ）
-// ② 自営業のひとり親（42歳・女性）と子1人（15歳）、賃貸、国民年金・国保。詳しく（詳細も使う）
+// ② 自営業のひとり親（42歳・女性。青色申告で65万円の控除）と子1人（15歳）、賃貸、国民年金・国保。詳しく（詳細も使う）
 // ③ 60代の夫婦（63歳・60歳）、再雇用・企業年金、持ち家は完済、区分マンション1室を貸す、母の介護と相続の見込み。詳しく
+// ④ 賃貸から住宅を買う予定の人（40歳）。購入の時期を画面で直して、前の賃貸の住み終わり・住宅ローンの借入の年月・控除の入居がついてくるか（標準の欄だけ）
 import type { Page } from "./browser.ts";
 
 export interface Notes {
@@ -96,9 +97,9 @@ export async function household1(p: Page): Promise<Notes> {
   await p.click("＋ 子", { within: "panel", exact: true });
   await p.click("＋ 子", { within: "panel", exact: true });
   await p.type("生年月", "1990-08", { nth: 1 });
-  // 子は生年月の順に並び直るので、下の子から入れる（上から入れると、1人目に入れた後に並びが変わり、次の欄が同じ子になる）
-  await p.type("生年月", "2023-02", { nth: 3 });
+  // 打っている間は子を並び替えない（保存のときに生年月の順に並べる。0141）ので、上の子から順に入れる
   await p.type("生年月", "2020-06", { nth: 2 });
+  await p.type("生年月", "2023-02", { nth: 3 });
   await save(p, n, "家族");
 
   await open(p, n, "働き方と収入");
@@ -120,10 +121,17 @@ export async function household1(p: Page): Promise<Notes> {
 
   await open(p, n, "住まい・ローン");
   await p.click("＋ 持ち家（今住んでいる）", { within: "panel" });
+  // 評価額は未入力の警告なので、入るまで標準に出る（入れないと今の家が資産に入らない）
+  await p.type("評価額", "3500");
   await p.click("＋ 住宅ローン", { within: "panel", exact: true });
   await p.type("今の残高", "2800");
-  await p.type("毎月の返済額", "9");
+  // 毎月の返済額は円の欄（返済予定表の数字をそのまま打つ。「9万」も9万円）
+  await p.type("毎月の返済額", "9万");
   await p.type("完済の年月", "2058-03");
+  // 借りた年月は今の残高から入れたローンの標準の欄（控除の入居・持ち家の住み始めにも使う）。入れても、入れた返済額・完済の年月は変わらない
+  await p.type("借りた年月（入居の年月）", "2023-04");
+  n.seen.loanPaymentAfterStart = await fieldValue(p, "毎月の返済額");
+  n.seen.loanPayoffAfterStart = await fieldValue(p, "完済の年月");
   await save(p, n, "住まい・ローン");
 
   await open(p, n, "保険");
@@ -136,7 +144,7 @@ export async function household1(p: Page): Promise<Notes> {
   await save(p, n, "保険");
 
   await open(p, n, "貯蓄・運用");
-  await p.click("＋ 預貯金", { within: "panel", exact: true });
+  await p.click("＋ 預金", { within: "panel", exact: true });
   await p.click("＋ NISA", { within: "panel", exact: true });
   await p.type("預金の残高", "500");
   await p.type("NISAの残高", "200");
@@ -155,7 +163,8 @@ export async function household2(p: Page): Promise<Notes> {
   await open(p, n, "家族", "詳細");
   await p.click("＋ 子", { within: "panel", exact: true });
   await p.click("＋ 養育費を受け取る", { within: "panel", exact: true });
-  await p.click("＋ 手当・給付金", { within: "panel", exact: true });
+  // ひとり親の世帯では「＋ 児童扶養手当など」の名前（足す行は手当・給付金。0141）
+  await p.click("＋ 児童扶養手当など", { within: "panel", exact: true });
   await p.type("生年月", "1984-06");
   await p.choose("性別", "女性");
   await p.type("生年月", "2011-07", { nth: 1 });
@@ -169,6 +178,9 @@ export async function household2(p: Page): Promise<Notes> {
   await p.click("働き方を入れる", { within: "panel", exact: true });
   await p.click("自営業", { within: "panel", exact: true });
   await p.type("事業所得（年額）", "350");
+  // 確定申告（事業所得のある人の申告の仕方と青色申告特別控除。収益不動産の「申告」と同じ値。0155）
+  await p.choose("申告の仕方", "青色");
+  await p.choose("青色申告特別控除", "65万円");
   await p.type("働く最後の年齢", "70");
   await save(p, n, "働き方と収入");
 
@@ -202,7 +214,7 @@ export async function household2(p: Page): Promise<Notes> {
   await save(p, n, "保険");
 
   await open(p, n, "貯蓄・運用", "詳細");
-  await p.click("＋ 預貯金", { within: "panel", exact: true });
+  await p.click("＋ 預金", { within: "panel", exact: true });
   await p.click("＋ iDeCo", { within: "panel", exact: true });
   await p.click("＋ 小規模企業共済", { within: "panel", exact: true });
   await p.type("預金の残高", "200");
@@ -226,8 +238,8 @@ export async function household3(p: Page): Promise<Notes> {
   await p.click("＋ 子", { within: "panel", exact: true });
   await p.type("生年月", "1963-04");
   await p.type("生年月", "1966-03", { nth: 1 });
-  await p.type("生年月", "1995-09", { nth: 3 });
   await p.type("生年月", "1992-06", { nth: 2 });
+  await p.type("生年月", "1995-09", { nth: 3 });
   await save(p, n, "家族");
 
   await open(p, n, "働き方と収入");
@@ -246,8 +258,9 @@ export async function household3(p: Page): Promise<Notes> {
   // 定年の後の再雇用の人・パートに変えた人には、目安の退職一時金は足されない（受け取りが過去・パートの勤め先）。企業年金を足す
   await open(p, n, "退職金・企業年金", "詳細");
   n.seen.retirementCard = await cardText(p, "退職金・企業年金");
+  // 「＋ 退職金・企業年金を足す」は種類を選んでから足す（0141）
   await p.click("＋ 退職金・企業年金を足す", { within: "panel", exact: true });
-  await p.choose("種類", "確定給付企業年金");
+  await p.click("確定給付企業年金（企業年金基金・企業年金連合会を含む）", { within: "panel", exact: true });
   await p.choose("受け取り方", "年金");
   await p.choose("勤め先", "正社員");
   await p.type("年金の年額", "60");
@@ -260,13 +273,14 @@ export async function household3(p: Page): Promise<Notes> {
   await p.choose("年金の入れ方", "書類から");
   await p.type("国民年金の加入月数", "480");
   await p.type("厚生年金の加入月数", "498");
-  await p.type("老齢基礎年金（65歳からの見込額）", "81.6");
-  await p.type("老齢厚生年金（65歳からの見込額）", "123");
+  // 書類から写す年金の額は円の欄（書類の数字をそのまま打つ。0141）
+  await p.type("老齢基礎年金（65歳からの見込額）", "816000");
+  await p.type("老齢厚生年金（65歳からの見込額）", "1230000");
   await p.choose("年金の入れ方", "書類から", { nth: 1 });
   await p.type("国民年金の加入月数", "480", { nth: 1 });
   await p.type("厚生年金の加入月数", "456", { nth: 1 });
-  await p.type("老齢基礎年金（65歳からの見込額）", "81.6", { nth: 1 });
-  await p.type("老齢厚生年金（65歳からの見込額）", "90", { nth: 1 });
+  await p.type("老齢基礎年金（65歳からの見込額）", "816,000", { nth: 1 });
+  await p.type("老齢厚生年金（65歳からの見込額）", "90万", { nth: 1 });
   await save(p, n, "年金");
   n.seen.pensionCardAfter = await cardText(p, "年金");
 
@@ -298,9 +312,11 @@ export async function household3(p: Page): Promise<Notes> {
   await save(p, n, "収益不動産");
 
   await open(p, n, "介護・親", "詳細");
-  await p.click("＋ 母を足す", { within: "panel", exact: true });
+  // 配偶者のいる世帯: 「＋ ご本人の親を足す」を押して「母」を選ぶ（父・母・父母から選ぶ）
+  await p.click("＋ ご本人の親を足す", { within: "panel", exact: true });
+  await p.click("母", { within: "panel", exact: true });
   await p.type("生年月", "1937-06");
-  await p.click("＋ 介護を推定で入れる（この人）", { within: "panel", exact: true });
+  await p.click("＋ 母の介護を推定で入れる", { within: "panel", exact: true });
   await p.choose("払う人", "世帯（ご本人）");
   await p.type("月々の費用（自己負担の合計）", "8");
   await save(p, n, "介護・親");
@@ -311,20 +327,59 @@ export async function household3(p: Page): Promise<Notes> {
   n.seen.inheritWhenBefore = await fieldValue(p, "時期");
   await save(p, n, "相続・贈与");
 
-  // 母の亡くなる見込みを直す（相続の時期・介護の終わりがついてくるか）
+  // 母の亡くなる見込みを直す（相続の時期・介護の終わりがついてくるか）。生年月を入れた時点で平均余命の推定（89歳の母は95歳ごろ）が入るので、
+  // それと違う年齢にする
   await open(p, n, "介護・親", "詳細");
-  await p.type("亡くなる見込み", "95");
+  await p.type("亡くなる見込み", "92");
   await save(p, n, "介護・親");
   await open(p, n, "相続・贈与", "詳細");
   n.seen.inheritWhenAfter = await fieldValue(p, "時期");
   await p.click("キャンセル", { within: "panel", exact: true });
 
   await open(p, n, "貯蓄・運用");
-  await p.click("＋ 預貯金", { within: "panel", exact: true });
+  await p.click("＋ 預金", { within: "panel", exact: true });
   await p.click("＋ 課税口座", { within: "panel", exact: true });
   await p.type("預金の残高", "2500");
   await p.type("課税口座（特定口座）の残高", "800");
   await p.type("課税口座（特定口座）の利回り", "3");
   await save(p, n, "貯蓄・運用");
+  return n;
+}
+
+/**
+ * ④ 賃貸から住宅を買う予定。購入の時期を画面のキー入力で2回直す（住宅ローンを足す前と後）。どちらも、前の賃貸の住み終わり・購入した家の住み始め・
+ * 住宅ローンの借入の年月と控除の入居がついてくるか（時点の欄は欄を離れたときに決める。決めた値が連動を通るか）。最後に借入の年月だけを手で
+ * ずらし、借入額の欄の下の「購入の時期に合わせる」を押して戻す（欄の下の知らせのボタン）
+ */
+export async function household4(p: Page): Promise<Notes> {
+  const n = newNotes();
+  await newHousehold(p);
+  await open(p, n, "家族");
+  await p.type("生年月", "1986-05");
+  await save(p, n, "家族");
+
+  await open(p, n, "住まい・ローン");
+  await p.click("＋ 賃貸", { within: "panel", exact: true });
+  await p.type("家賃（管理費込み）", "10");
+  await p.click("＋ 住宅購入の予定", { within: "panel", exact: true });
+  // 住宅ローンを足す前に直す
+  await p.type("購入の時期", "2030-04");
+  n.seen.rentEndAfterFirst = await fieldValue(p, "住み終わり");
+  await p.click("＋ 住宅ローン", { within: "panel", exact: true });
+  n.seen.loanStartAfterAdd = await fieldValue(p, "借入の年月");
+  // 住宅ローンを足した後に直す
+  await p.type("購入の時期", "2031-10");
+  n.seen.rentEndAfterSecond = await fieldValue(p, "住み終わり");
+  n.seen.loanStartAfterSecond = await fieldValue(p, "借入の年月");
+  n.seen.purchasePanel = await p.panelText();
+  await save(p, n, "住まい・ローン");
+
+  // 借入の年月だけを手でずらすと、借入額の欄の下に知らせと「購入の時期に合わせる」が出る。押すと借入の年月が購入の時期に戻る
+  await open(p, n, "住まい・ローン");
+  await p.type("借入の年月", "2032-01");
+  n.seen.gapPanel = await p.panelText();
+  await p.click("購入の時期に合わせる", { within: "panel", exact: true });
+  n.seen.loanStartAfterFix = await fieldValue(p, "借入の年月");
+  await save(p, n, "住まい・ローン");
   return n;
 }

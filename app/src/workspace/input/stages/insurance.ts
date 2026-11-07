@@ -11,7 +11,7 @@
 import type { Coverage, Household, InsuranceContract, Member } from "../../../engine/types.ts";
 import { addMonths } from "../../levers.ts";
 import type { Address } from "../../store/readings.ts";
-import { byId, field, plain, removeAction, resolveTimepoint, timepointField, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { byId, field, plain, removeAction, resolveTimepoint, timepointField, type ActionDef, type FieldDef, type Finder, type GroupDef, type Option, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, type WorkingHousehold } from "../household.ts";
 import {
   at,
@@ -41,7 +41,7 @@ import {
   youngestChild,
   type KindDef,
 } from "../insuranceKinds.ts";
-import { BENEFITS, DEDUCTION_TYPES, memberLabel, memberOptions, PREMIUM_FREQUENCY } from "../labels.ts";
+import { ADULTS_WHO, BENEFITS, DEDUCTION_TYPES, memberLabel, memberOptions, PREMIUM_FREQUENCY, WORDS } from "../labels.ts";
 import { monthsBetween } from "../loanMath.ts";
 import { formatYearMonth } from "../units.ts";
 import type { InsuranceAccountInput } from "../../../engine/types.ts";
@@ -336,7 +336,7 @@ export function endLevels(kind: string, single: boolean): { coverage: "simple" |
 }
 
 /** 払込の終わり（時点の部品。空欄は終身払い） */
-function payUntilField(find: Finder, k: string, id: string, level: "simple" | "detail", label: string): FieldDef {
+function payUntilField(find: Finder, k: string, id: string, level: "simple" | "detail", label: string, nullText = "終身払い"): FieldDef {
   return withAddress(
     timepointField({
       key: `${k}/payUntil`,
@@ -346,8 +346,9 @@ function payUntilField(find: Finder, k: string, id: string, level: "simple" | "d
       find: (h, w) => (find(h, w) as InsuranceContract | undefined)?.premium as unknown as Obj | undefined,
       path: ["payUntil"],
       optional: true,
-      nullText: "終身払い（一時払いは不要）",
+      nullText,
       ageOf: (h) => h.members.find((m) => m.id === (h.insuranceContracts ?? []).find((x) => x.id === id)?.insured),
+      who: ADULTS_WHO,
     }),
     () => at(id, "insurance.premium", ["payUntil"]),
   );
@@ -372,16 +373,20 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
     });
 
   const fields: FieldDef[] = [];
-  // 種類（ひな形）
-  fields.push(
+  // 種類（ひな形）。選択肢は「＋ 保険契約を足す」の一覧と同じ見出しで分け、学資保険は子のいる世帯だけ（今の契約の種類はいつも出す）。
+  // 標準では損害保険を出さない（足す一覧と同じ。今の契約が損害保険なら出す）: 標準だけの欄と、詳細の欄（損害保険も出す）の2つにする
+  const hasChild = wh.request.input.household.members.some((m) => m.kind === "child");
+  const kindOptions = (withNonLife: boolean) => KIND_OPTIONS.filter((o) => o.value === kind.kind || ((o.value !== "education" || hasChild) && (o.value !== "nonLife" || withNonLife)));
+  const templateField = (key: string, level: "simple" | "detail", options: Option[], simpleOnly: boolean): FieldDef =>
     withAddress(
       field({
-        key: `${k}/template`,
+        key,
         item: "insurance.template",
         label: "種類",
-        level: "simple",
+        level,
+        ...(simpleOnly ? { simpleOnly: true } : {}),
         kind: "select",
-        options: KIND_OPTIONS,
+        options,
         structural: true,
         sideEffects: "推定のままの値は新しい種類の既定に入れ直します（確定の値はそのまま）",
         get: (w) => ({ value: kindOf(contractIn(w.request.input.household) ?? c).kind }),
@@ -392,8 +397,11 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
         },
       }),
       () => at(c.id, "insurance.subtype"),
-    ),
-  );
+    );
+  const simpleKinds = kindOptions(false);
+  const allKinds = kindOptions(true);
+  if (simpleKinds.length === allKinds.length) fields.push(templateField(`${k}/template`, "simple", allKinds, false));
+  else fields.push(templateField(`${k}/template`, "simple", simpleKinds, true), templateField(`${k}/templateAll`, "detail", allKinds, false));
   // 被保険者
   fields.push(
     withAddress(
@@ -443,7 +451,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
         find,
         path: ["premium", "amount"],
         unit: "yen",
-        ...(kind.kind === "account" ? { help: "保障の部分と積立の部分を合わせた保険料です" } : {}),
+        ...(kind.kind === "account" ? { help: "保障の部分と積立の部分を合わせた保険料です" } : kind.kind === "foreignCurrency" ? { help: "外貨で払う保険料は、今の為替で円に直した額を入れます（為替で変わる目安です）" } : {}),
         // 空にしたら0円の未入力に戻す（保険料の額は省けない）
         after: (_h, target, v) => {
           if (v !== null) return;
@@ -453,19 +461,23 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
       }),
       () => at(c.id, "insurance.premium", ["amount"]),
     ),
-    plain({
-      key: `${k}/freq`,
-      item: "insurance.premium",
-      label: "払い方",
-      level: "simple",
-      kind: "select",
-      options: PREMIUM_FREQUENCY,
-      find,
-      path: ["premium", "frequency"],
-      after: (_h, target, v) => {
-        if (v === "single") (target as unknown as InsuranceContract).premium.payUntil = null;
-      },
-    }),
+    // 当て先（insurance.premium の frequency）は、書類の読み取りの候補が払い方を当てるのに使う（0153）
+    withAddress(
+      plain({
+        key: `${k}/freq`,
+        item: "insurance.premium",
+        label: "払い方",
+        level: "simple",
+        kind: "select",
+        options: PREMIUM_FREQUENCY,
+        find,
+        path: ["premium", "frequency"],
+        after: (_h, target, v) => {
+          if (v === "single") (target as unknown as InsuranceContract).premium.payUntil = null;
+        },
+      }),
+      () => at(c.id, "insurance.premium", ["frequency"]),
+    ),
   );
   // 主な保障の額（種類で給付が変わる1欄）と終わり。標準の「終わり」は、定期の保険では保障の終わり、終身の保険では払込の終わりとして聞く。
   // 満期金・年金を受け取る保険（養老・学資・個人年金）は、受け取りの時期（保障の終わり・受け取りの始まり）と払込の終わりの両方を標準に出す（0078）
@@ -535,6 +547,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
             find: findMain,
             path: [ep],
             ageOf: insuredOf,
+            who: ADULTS_WHO,
             ...(ep === "to" ? { optional: true, nullText: "終身" } : {}),
             after: (h, target) => {
               const xc = contractIn(h);
@@ -557,10 +570,17 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
     }
   } else {
     // 保険料だけの契約（損害保険）: 終わりは保険期間（払込の終わり）
-    fields.push(payUntilField(find, k, c.id, "simple", "保険期間の終わり"));
+    fields.push(payUntilField(find, k, c.id, "simple", "保険期間の終わり", "終わりなし"));
   }
 
+  // 終わりの2つ（保障の終わり・払込の終わり）と払込免除を続けて並べる。一時払いは払込の終わりが無いので出さない
+  if (kind.main !== null && c.premium.frequency !== "single") fields.push(payUntilField(find, k, c.id, ends.premium, "払込の終わり"));
+  fields.push(plain({ key: `${k}/waiver`, item: "insurance.waiver", label: "払込免除", help: "被保険者の障害・就業不能で払込が止まる契約に入れます", level: "detail", kind: "bool", find, path: ["waiver"], optional: true, fallback: false }));
+
   // ---- 詳細 ----
+  // 受取人・死亡保険金の税は、死亡の保障（死亡保険金・収入保障。主契約か特約）のある契約だけ（入っている受取人は残して出す）
+  const deathCover = (c.coverages ?? []).some((x) => x.benefit === "death" || x.benefit === "incomeProtection") || kind.main?.benefit === "death" || kind.main?.benefit === "incomeProtection" || c.simple?.account !== undefined;
+  const showBenef = deathCover || (c.beneficiaries ?? []).length > 0;
   fields.push(
     withAddress(plain({ key: `${k}/label`, item: "insurance.label", label: "契約の表示名", level: "detail", kind: "text", find, path: ["label"], optional: true, help: "保険会社・商品名など。表示だけに使います（持ち帰り用のレポート・AI に渡す範囲には入れません）" }), () => at(c.id, "insurance.label")),
     withAddress(plain({ key: `${k}/holder`, item: "insurance.policyholder", label: "契約者", help: "保険料を払う人です", level: "detail", kind: "select", options: memberOptions(wh), find, path: ["policyholder"] }), () => at(c.id, "insurance.policyholder")),
@@ -586,8 +606,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
       }),
       () => at(c.id, "insurance.contractDate"),
     ),
-    beneficiaryField(wh, c, find, k),
-    taxField(c, k),
+    ...(showBenef ? [beneficiaryField(wh, c, find, k), taxField(c, k)] : []),
   );
   if ((c.coverages ?? []).some((x) => x.benefit === "maturity" || x.benefit === "annuity" || x.benefit === "survival"))
     fields.push(plain({ key: `${k}/annuitant`, item: "insurance.annuitant", label: "満期金・年金・祝金の受取人", level: "detail", kind: "select", options: memberOptions(wh, inHousehold), find, path: ["annuitant"], optional: true, fallback: c.policyholder, help: "入れなければ契約者（契約者が受け取れば一時所得・雑所得、ほかの人なら贈与税）" }));
@@ -613,10 +632,8 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
         () => at(c.id, "insurance.deductionCategory", ["regime"]),
       ),
     );
-  if (kind.main !== null) fields.push(payUntilField(find, k, c.id, ends.premium, "払込の終わり"));
   fields.push(
-    plain({ key: `${k}/waiver`, item: "insurance.waiver", label: "払込免除", help: "被保険者の障害・就業不能で払込が止まる契約に入れます", level: "detail", kind: "bool", find, path: ["waiver"], optional: true, fallback: false }),
-    timepointField({ key: `${k}/surrender`, item: "insurance.surrender", label: "解約の月", level: "detail", find, path: ["surrender"], optional: true, absentWhenEmpty: true, nullText: "解約しない", ageOf: insuredOf, help: "その月に解約返戻金を受け取り、保障と払込が終わります" }),
+    timepointField({ key: `${k}/surrender`, item: "insurance.surrender", label: "解約の月", level: "detail", find, path: ["surrender"], optional: true, absentWhenEmpty: true, nullText: "解約しない", ageOf: insuredOf, who: ADULTS_WHO, help: "その月に解約返戻金を受け取り、保障と払込が終わります" }),
   );
   // 解約返戻金（貯蓄型は返戻率、解約の月がある契約・円の目安の形は解約の月の額）。低解約返戻金型は払込中の率と払込が終わった時の率を標準に、
   // アカウント型は返戻率の代わりに積立の部分（払込が終わった時の積立金・払込の後の扱い）を標準に出す（0055 の追記 2026-11-03）
@@ -630,7 +647,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
 
   const tags = detailTags(wh, c);
   const notes = [kind.note, tags.length > 0 ? `詳細に入っている値: ${tags.join("・")}` : undefined].filter((x): x is string => x !== undefined);
-  const actions: ActionDef[] = [removeAction(`${k}/remove`, "この契約を外す", "simple", (h) => void (h.insuranceContracts = (h.insuranceContracts ?? []).filter((x) => x.id !== c.id)))];
+  const actions: ActionDef[] = [removeAction(`${k}/remove`, WORDS.remove, "simple", (h) => void (h.insuranceContracts = (h.insuranceContracts ?? []).filter((x) => x.id !== c.id)))];
   if (FUND_TEMPLATES.has(c.template) && c.simple?.estimate !== true && (c.simple?.assetClass !== undefined || c.simple?.loadRate !== undefined))
     actions.push({
       key: `${k}/toEstimate`,
@@ -664,7 +681,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
       title: `更新 ${j + 1}`,
       level: "detail",
       fields: [
-        timepointField({ key: `${kr}/at`, item: "insurance.renewals", label: "更新の月", level: "detail", find: findR, path: ["at"], ageOf: insuredOf }),
+        timepointField({ key: `${kr}/at`, item: "insurance.renewals", label: "更新の月", level: "detail", find: findR, path: ["at"], ageOf: insuredOf, who: ADULTS_WHO }),
         plain({ key: `${kr}/premium`, item: "insurance.renewals", label: premiumLabel("更新後の保険料", c.premium.frequency), level: "detail", kind: "yen", basis: "once", find: findR, path: ["premium"] }),
       ],
       actions: [
@@ -742,7 +759,8 @@ function beneficiaryField(wh: WorkingHousehold, c: InsuranceContract, find: Find
     label: "受取人（死亡保険金）",
     level: "detail",
     kind: "select",
-    options: [{ value: "", label: "省略（配偶者、いなければ子）" }, ...memberOptions(wh, inHousehold), ...EXTERNAL],
+    // 被保険者は死亡保険金の受取人にならない（入っている値なら残して出す）
+    options: [{ value: "", label: "省略（配偶者、いなければ子）" }, ...memberOptions(wh, (m) => inHousehold(m) && (m.id !== c.insured || c.beneficiaries?.[0]?.member === m.id)), ...EXTERNAL],
     optional: true,
     ...(multi ? { readOnly: "受取人が複数（割合つき）の契約です。証券どおりの割合のまま計算します" } : {}),
     help: "保険金にかかる税（相続税・所得税・贈与税のどれになるか）と、相続税の非課税枠の計算に使います",
@@ -968,7 +986,7 @@ function surrenderAmountField(c: InsuranceContract, find: Finder, k: string): Fi
     kind: "yen",
     basis: "once",
     optional: true,
-    help: c.surrender === undefined ? "先に解約の月を入れてください（その保険年度の解約返戻金として数えます）" : "お知らせ・設計書の解約返戻金。外貨建て・変額は円の目安（為替・運用で変わります）",
+    help: c.surrender === undefined ? "先に解約の月を入れてください（その保険年度の解約返戻金として数えます）" : c.template === "insurance.foreignCurrency" ? "お知らせ・設計書の解約返戻金。外貨の額なら、今の為替で円に直した額を入れます（為替で変わる目安です）" : "お知らせ・設計書の解約返戻金。変額保険は円の目安（運用で変わります）",
     get: (w) => {
       const h = w.request.input.household;
       const x = find(h, w) as InsuranceContract | undefined;
@@ -1017,6 +1035,21 @@ function coverageGroup(wh: WorkingHousehold, c: InsuranceContract, cov: Coverage
     const t = target as unknown as Coverage;
     if (x !== undefined && t.benefit === "death" && isDecreasing(x, t)) setDecreasing(h, x, t, true);
   };
+  // 主契約の行（契約の上の欄で額と終わりを入れる保障）は、額と終わりを読むだけにする（同じ値を2か所で直せると、どちらが正か迷うため）
+  const kd = kindOf(c);
+  const mainRow = kd.main !== null && mainCoverage(c, kd)?.id === cov.id;
+  const ep = endPath(kd);
+  // 当て先は持たない（推定・未入力の印は上の欄だけに出す。同じ印を2か所に出さない）
+  const readOnlyOf = (key: string, label: string, what: string, value: (h: Household) => string): FieldDef =>
+    withAddress(
+      field({ key, item: "insurance.coverages", label, level: "detail", kind: "text", readOnly: `契約の上の「${what}」で入れます（同じ値です）`, get: (w) => ({ value: `${value(w.request.input.household)}（上の「${what}」と同じ）` }), set: (w) => w }),
+      () => null,
+    );
+  const covNow = (h: Household) => (contractIn(h)?.coverages ?? []).find((x) => x.id === cov.id);
+  const endText = (h: Household, tp: Coverage["to"] | Coverage["from"] | undefined, none: string): string => {
+    const ym = tp == null ? null : resolveTimepoint(h, tp);
+    return ym === null ? none : formatYearMonth(ym);
+  };
   const fields: FieldDef[] = [
     withAddress(
       field({
@@ -1059,7 +1092,12 @@ function coverageGroup(wh: WorkingHousehold, c: InsuranceContract, cov: Coverage
         if (x !== undefined && v !== "death" && (x.schedule?.rows ?? []).some((r) => r.coverage === t.id && r.deathBenefit !== undefined)) setDecreasing(h, x, t, false);
       },
     }),
-    withAddress(
+    mainRow
+      ? readOnlyOf(`${kc}/amount`, amountLabel(cov.benefit), kd.main?.label ?? "主な保障", (h) => {
+          const a = covNow(h)?.amount;
+          return a === undefined ? "—" : `${a.toLocaleString("ja-JP")}円`;
+        })
+      : withAddress(
       {
         ...plain({
         key: `${kc}/amount`,
@@ -1078,11 +1116,15 @@ function coverageGroup(wh: WorkingHousehold, c: InsuranceContract, cov: Coverage
       },
       () => at(c.id, "insurance.coverages", [cov.id, "amount"]),
     ),
-    timepointField({ key: `${kc}/from`, item: "insurance.coverages", label: cov.benefit === "annuity" ? "受け取りの始まり" : "保障の始まり", level: "detail", find: findCov, path: ["from"], ageOf: covInsured, mode: "ym" }),
-    withAddress(
-      timepointField({ key: `${kc}/to`, item: "insurance.coverages", label: "保障の終わり", level: "detail", find: findCov, path: ["to"], startPath: ["from"], ageOf: covInsured, optional: true, nullText: "終身", after: (h, target) => followDecreasing(h, target) }),
-      () => at(c.id, "insurance.coverages", [cov.id, "to"]),
-    ),
+    mainRow && ep === "from"
+      ? readOnlyOf(`${kc}/from`, "受け取りの始まり", "受け取りの始まり", (h) => endText(h, covNow(h)?.from, "—"))
+      : timepointField({ key: `${kc}/from`, item: "insurance.coverages", label: cov.benefit === "annuity" ? "受け取りの始まり" : "保障の始まり", level: "detail", find: findCov, path: ["from"], ageOf: covInsured, who: ADULTS_WHO, mode: "ym" }),
+    mainRow && ep === "to"
+      ? readOnlyOf(`${kc}/to`, "保障の終わり", "保障の終わり", (h) => endText(h, covNow(h)?.to, "終身"))
+      : withAddress(
+          timepointField({ key: `${kc}/to`, item: "insurance.coverages", label: "保障の終わり", level: "detail", find: findCov, path: ["to"], startPath: ["from"], ageOf: covInsured, who: ADULTS_WHO, optional: true, nullText: "終身", after: (h, target) => followDecreasing(h, target) }),
+          () => at(c.id, "insurance.coverages", [cov.id, "to"]),
+        ),
   ];
   if (cov.benefit === "death")
     fields.push(
@@ -1225,7 +1267,7 @@ export function insuranceStage(wh: WorkingHousehold): StageDef {
   return {
     id: "insurance",
     label: "保険",
-    lead: "加入中の保険契約。種類・被保険者・保険料・主な保障の額・終わりの5つで計算します。証券どおりの明細は「詳細」で入れます。",
+    lead: "加入中の保険契約。種類・被保険者・保険料と払い方・主な保障の額・終わりで計算します（満期金・年金のある保険は、受け取りと払込の終わりの両方）。証券どおりの明細は「詳細」で入れます。",
     sections: [section],
   };
 }

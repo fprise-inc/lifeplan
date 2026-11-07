@@ -5,14 +5,14 @@
 //   間隔（退職所得控除の重なり）は、カードの下の「受け取りの並び」（retirementLineup.ts）で一緒に見る
 // - 辞め方・勤続（働き方の期間）は働き方と収入のカードの物。ここは読むだけ（目安の元）
 // - 区分「規程で」（会社の退職金規程の計算部品）は、計算部品の差し込み口を開く回に出す（今は出さない）
-import type { Account, Household, Member, RetirementBenefit, Timepoint } from "../../../engine/types.ts";
+import type { Account, EmploymentPeriod, Household, Member, RetirementBenefit, Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageReachedMonth } from "../../levers.ts";
 import type { Address } from "../../store/readings.ts";
 import { byId, field, getPath, plain, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, periodsOf, type WorkingHousehold } from "../household.ts";
 import { clearRetirementNone, fillRetirement, retirementNone, retirementNotApplicable } from "../fill.ts";
 import { ACCOUNT_KINDS, EMPLOYMENT_TYPES, earners, memberLabel } from "../labels.ts";
-import { infoNote, readGroup, readLine } from "../readLines.ts";
+import { readGroup, readLine } from "../readLines.ts";
 import { regulationValue } from "../../../../../hearing/src/statistics.ts";
 import {
   addKindOf,
@@ -24,6 +24,7 @@ import {
   COMPUTED,
   convertBenefit,
   dbYearsBasis,
+  endingOf,
   estRow,
   finalMonthlyAt,
   HAS_AMOUNT,
@@ -38,11 +39,12 @@ import {
   multiplierAt,
   periodOf,
   reasonAt,
+  spanOf,
   yearsAt,
   type BenefitKind,
 } from "../retirementBenefits.ts";
 import { putRow } from "../rows.ts";
-import { formatYearMonth } from "../units.ts";
+import { amountText, formatYearMonth } from "../units.ts";
 import { defaultPayoutAge, payoutAgeOf } from "../savings/model.ts";
 import { currentPeriod } from "./work.ts";
 import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
@@ -108,11 +110,7 @@ function amountField(wh: WorkingHousehold, b: RetirementBenefit, prefix: string,
           : lumpEst
             ? "会社の見込み額の通知・退職金の規程の早見表の額を写します（定年の時点の額か、今辞めた場合の額かを確かめて）。推定は勤続年数・辞め方からの平均で、勤続や辞め方を直すと推定も直ります"
             : "定年の時点の額か、今辞めた場合の額かを確かめて写してください。0円は「該当なし」か0円と入れたときだけです",
-    hint: (w) => {
-      const x = (w.request.input.household.retirementBenefits ?? []).find((y) => y.id === b.id);
-      if (x === undefined || x.amount !== undefined || !COMPUTED.has(x.kind)) return null;
-      return "見込みの計算で計算中（額は受け取りの並びに出ます）";
-    },
+    hint: (w) => amountHint(w, b.id),
   });
   // 勤め先がパートなどに変わったのに、FP が入れた退職一時金が残っている（前の勤め先の退職金として残す。文書の3-5）
   const kept = b.kind === "lumpSum" && p !== undefined && !ESTIMATE_FOR_WARN.has(p.type) && b.amount !== undefined && !isEstimateBox(b.amount) && !isUnenteredBox(b.amount);
@@ -121,6 +119,41 @@ function amountField(wh: WorkingHousehold, b: RetirementBenefit, prefix: string,
   const g: FieldDef = { ...f, docCheck: CHECK_DOCUMENTS.retirement };
   return withAddress(warn === null ? g : { ...g, get: (w) => ({ ...g.get(w), warn }) }, benefitAt(b.id, "retirementBenefit.amount"));
 }
+
+/**
+ * 見込み額の欄の横の1行: 目安の退職一時金は前提（勤続年数と期間・辞め方・制度のある会社の平均）、役員退職慰労金の見込みの計算は式と額
+ * （最終報酬月額×在任年数×功績倍率。エンジンの retirement.benefit と同じく在任の月数を年に切り上げる）、公務員の退職手当は計算中の旨
+ */
+export function amountHint(wh: WorkingHousehold, id: string): string | null {
+  const h = wh.request.input.household;
+  const x = (h.retirementBenefits ?? []).find((y) => y.id === id);
+  if (x === undefined) return null;
+  const m = h.members.find((y) => y.id === x.member);
+  const p = periodOf(h, x);
+  if (x.kind === "lumpSum" && m !== undefined && (x.amount === undefined || isEstimateBox(x.amount))) {
+    const span = spanOf(h, m, x, p);
+    if (span === null || lumpEstimate(h, x) === null) return null;
+    const reason = REASON_TEXT[endingOf(h, m, p)] ?? "自己都合";
+    return `勤続${span.years}年（${formatYearMonth(span.from)}〜${formatYearMonth(span.to)}）・${reason}・制度のある会社の平均`;
+  }
+  if (x.amount !== undefined || !COMPUTED.has(x.kind)) return null;
+  if (x.kind === "officerAllowance") {
+    const fm = x.estimate?.finalMonthly;
+    const mul = x.estimate?.multiplier;
+    const from = resolveTimepoint(h, x.officerService?.from ?? (p?.type === "executive" ? (x.service?.from ?? p.from) : null));
+    const to = resolveTimepoint(h, x.officerService?.to ?? (p?.type === "executive" ? (x.service?.to ?? p.to) : null));
+    if (fm !== undefined && mul !== undefined && from !== null && to !== null && to >= from) {
+      const [fy, fmo] = from.split("-").map(Number) as [number, number];
+      const [ty, tmo] = to.split("-").map(Number) as [number, number];
+      const years = Math.ceil(((ty - fy) * 12 + (tmo - fmo) + 1) / 12);
+      return `${amountText(fm)}×在任${years}年×${Number(mul)}倍＝${amountText(Math.round(fm * years * Number(mul)))}（見込みの計算）`;
+    }
+  }
+  return "見込みの計算で計算中（額は受け取りの並びに出ます）";
+}
+
+/** 辞め方の短い言葉（目安の前提の1行） */
+const REASON_TEXT: Readonly<Record<string, string>> = { retirement: "定年", involuntary: "会社都合", voluntary: "自己都合", contractEnd: "契約満了", sickLeave: "自己都合" };
 
 /** 年金の年数（null は終身） */
 function yearsField(b: RetirementBenefit, prefix: string, find: Finder): FieldDef {
@@ -169,9 +202,15 @@ function spanFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, prefi
     x[key] = { from, to };
   };
   const ageOf = (h: Household) => h.members.find((x) => x.id === m.id);
+  // 空欄の意味は、空欄のとき使っている年月（勤め先の期間の始まり・終わり）を添える（「空欄: 2006年4月（勤め先の期間）」）
+  const p0 = periodOf(wh.request.input.household, b);
+  const blank = (end: "from" | "to") => {
+    const ym = resolveTimepoint(wh.request.input.household, end === "from" ? (p0?.from ?? null) : (p0?.to ?? null));
+    return ym !== null ? `${formatYearMonth(ym)}（勤め先の期間の${end === "from" ? "始まり" : "終わり"}）` : `勤め先の期間の${end === "from" ? "始まり" : "終わり"}`;
+  };
   const one = (end: "from" | "to") =>
     withAddress(
-      timepointField({ key: `${prefix}/${key}/${end}`, item, label: `${label}の${end === "from" ? "始まり" : "終わり"}`, level: "detail", find, path: [key, end], ageOf, mode: "ym", optional: true, absentWhenEmpty: true, nullText: `勤め先の期間の${end === "from" ? "始まり" : "終わり"}`, after: complete }),
+      timepointField({ key: `${prefix}/${key}/${end}`, item, label: `${label}の${end === "from" ? "始まり" : "終わり"}`, level: "detail", find, path: [key, end], ageOf, mode: "ym", optional: true, absentWhenEmpty: true, nullText: blank(end), after: complete }),
       benefitAt(b.id, item, [end]),
     );
   return [one("from"), one("to")];
@@ -194,7 +233,7 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
         label: "種類",
         level: "simple",
         kind: "select",
-        options: BENEFIT_KINDS.map((o) => ({ value: o.value, label: o.label })),
+        options: kindOptions(periodOf(h, b)?.type ?? currentPeriod(h, m.id, wh.request.input.baseMonth)?.type),
         structural: true,
         get: (w) => ({ value: ((find(w.request.input.household, w) as RetirementBenefit | undefined)?.kind as string | undefined) ?? null }),
         set: (w, v) =>
@@ -242,26 +281,30 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
       );
     else fields.push(withAddress(plain({ key: `${prefix}/multiplier`, item: "retirementBenefit.estimate", label: "功績倍率", level: "detail", kind: "decimal", suffix: "倍", find, path: ["estimate", "multiplier"], help: "役員の地位でおよそ1.0〜3.0" }), multiplierAt(b.id)));
   }
-  // 受け取る時期（詳細。空欄は勤め先を辞めた翌月。辞める月と違う人は少なく、ずれても運用益と税の差だけ。0078）
+  // 受け取る時期（詳細。空欄は勤め先を辞めた翌月。辞める月と違う人は少なく、ずれても運用益と税の差だけ。0078）。
+  // 確定給付企業年金を年金だけで受け取るときは出さない（時点は「年金の始まり」の1つ。空欄の年金の始まりは辞めた翌月。通しの確かめ。0150）。入れてあれば残して見せる
   const endYm = resolveTimepoint(h, b.service?.to ?? periodOf(h, b)?.to ?? null);
-  fields.push(
-    withAddress(
-      timepointField({
-        key: `${prefix}/paidAt`,
-        item: "retirementBenefit.paidAt",
-        label: ANNUITY_ONLY.has(kind) ? "支給の月" : "受け取る時期",
-        level: "detail",
-        find,
-        path: ["paidAt"],
-        ageOf,
-        mode: "ym",
-        optional: true,
-        absentWhenEmpty: true,
-        nullText: endYm !== null ? `勤め先を辞めた翌月（${formatYearMonth(addMonths(endYm, 1))}）` : "勤め先を辞めた翌月",
-      }),
-      benefitAt(b.id, "retirementBenefit.paidAt"),
-    ),
-  );
+  const leftText = endYm !== null ? `勤め先を辞めた翌月（${formatYearMonth(addMonths(endYm, 1))}）` : "勤め先を辞めた翌月";
+  const paidAtShown = !(kind === "db" && method === "annuity" && b.paidAt === undefined);
+  if (paidAtShown)
+    fields.push(
+      withAddress(
+        timepointField({
+          key: `${prefix}/paidAt`,
+          item: "retirementBenefit.paidAt",
+          label: ANNUITY_ONLY.has(kind) ? "支給の月" : "受け取る時期",
+          level: "detail",
+          find,
+          path: ["paidAt"],
+          ageOf,
+          mode: "ym",
+          optional: true,
+          absentWhenEmpty: true,
+          nullText: leftText,
+        }),
+        benefitAt(b.id, "retirementBenefit.paidAt"),
+      ),
+    );
   // 受け取り方（DB だけ選ぶ）
   if (kind === "db") {
     fields.push(
@@ -339,7 +382,7 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
       );
     fields.push(
       withAddress(
-        timepointField({ key: `${prefix}/start`, item: "retirementBenefit.receipt", label: "年金の始まり", level: "detail", find, path: ["receipt", "start"], ageOf, optional: true, absentWhenEmpty: true, nullText: "支給の月から" }),
+        timepointField({ key: `${prefix}/start`, item: "retirementBenefit.receipt", label: "年金の始まり", level: "detail", find, path: ["receipt", "start"], ageOf, who: "fixed", optional: true, absentWhenEmpty: true, nullText: paidAtShown ? "支給の月から" : leftText }),
         benefitAt(b.id, "retirementBenefit.receipt", ["start"]),
       ),
     );
@@ -437,6 +480,28 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
   return fields;
 }
 
+/** 勤め先の働き方ごとの、よく使う退職給付の種類（先頭に並べる。ほかは「ほかの種類」の見出しの下） */
+const KINDS_BY_WORK: Readonly<Record<string, readonly BenefitKind[]>> = {
+  regular: ["lumpSum", "db"],
+  contract: ["lumpSum", "db"],
+  partTime: ["lumpSum", "db"],
+  civilServant: ["civilServantAllowance", "civilServantPension"],
+  executive: ["officerAllowance", "lumpSum"],
+  selfEmployed: ["nationalPensionFund"],
+};
+
+/** 働き方で並べた種類（世帯ファイルの種類は変えない。今の種類がほかの種類でも選べる） */
+export function orderedKinds(type: string | undefined): BenefitKind[] {
+  const top = KINDS_BY_WORK[type ?? ""] ?? KINDS_BY_WORK.regular!;
+  return [...top, ...BENEFIT_KINDS.map((o) => o.value).filter((v) => !top.includes(v))];
+}
+
+function kindOptions(type: string | undefined): { value: string; label: string; group?: string }[] {
+  const top = KINDS_BY_WORK[type ?? ""] ?? KINDS_BY_WORK.regular!;
+  const label = (v: string) => BENEFIT_KINDS.find((o) => o.value === v)?.label ?? v;
+  return orderedKinds(type).map((v) => (top.includes(v) ? { value: v, label: label(v) } : { value: v, label: label(v), group: "ほかの種類" }));
+}
+
 /** DB の年額の補助（一時金の額を年数と予定利率で年金に直した額。計算エンジンと同じ元利均等の式。予定利率0なら等分） */
 function annuityHint(b: RetirementBenefit): string | null {
   const total = b.amount?.value;
@@ -471,7 +536,9 @@ export function benefitGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
     .filter((b) => b.member === m.id)
     .map((b) => {
       const prefix = `retirement/${b.id}`;
-      return { key: prefix, title: `${who}の${b.label ?? KIND_SHORT[b.kind] ?? "退職金・企業年金"}`, level: "simple", moreLabel: benefitMoreLabel(b), fields: benefitFields(wh, m, b, prefix), actions: [removeBenefitAction(b, prefix)] };
+      // 目安の退職一時金には「勤め先に退職金の制度が無い」（1押しで該当なし。外すと同じ動き。制度の無い勤め先もあるため）
+      const noPlan: ActionDef[] = b.kind === "lumpSum" && (b.amount === undefined || isEstimateBox(b.amount)) ? [{ ...removeBenefitAction(b, `${prefix}/noPlan`), label: "勤め先に退職金の制度が無い", danger: false, help: "この目安を外して「該当なし」にします（働き方を選び直しても、推定で足しません）" }] : [];
+      return { key: prefix, title: `${who}の${b.label ?? KIND_SHORT[b.kind] ?? "退職金・企業年金"}`, level: "simple", moreLabel: benefitMoreLabel(b), fields: benefitFields(wh, m, b, prefix), actions: [...noPlan, removeBenefitAction(b, prefix)] };
     });
 }
 
@@ -487,27 +554,62 @@ export function benefitMoreLabel(b: Pick<RetirementBenefit, "kind" | "receipt">)
   return method === "lumpSum" ? "勤続期間・受け取る時期を入れる" : "年金の受け取り方を入れる";
 }
 
-/** 「＋ 退職金・企業年金を足す」（何件でも）。最初の1件で、今の働き方が正社員・公務員なら目安で入れる。種類の既定は働き方から。該当なしにしてあれば外して足す */
+/**
+ * 「＋ 退職金・企業年金を足す」（何件でも）: 種類を選んでから足す（1つのボタンの中の選択肢。0040 の追記の choice）。種類は今の働き方で並べる
+ * （会社員は退職一時金・確定給付企業年金、公務員は退職手当・年金払い退職給付、役員は役員退職慰労金・退職一時金、自営業は国民年金基金）。
+ * 最初の1件で、今の働き方が正社員・公務員の目安の種類を選んだら目安で入れる。該当なしにしてあれば外して足す。
+ * 先頭の選択肢の鍵は前のボタンと同じ（retirement/<人>/add）、ほかは retirement/<人>/add/<種類>
+ */
+export function addBenefitActions(wh: WorkingHousehold, m: Member): ActionDef[] {
+  const h = wh.request.input.household;
+  const p = currentPeriod(h, m.id, wh.request.input.baseMonth);
+  const have = (h.retirementBenefits ?? []).filter((x) => x.member === m.id);
+  const first = addKindOf(p?.type, have);
+  const kinds = [first, ...orderedKinds(p?.type).filter((k) => k !== first)];
+  const label = (k: string) => BENEFIT_KINDS.find((o) => o.value === k)?.label ?? k;
+  // 該当なしにしてあることは、区画の見出しの下の「該当なし」で見せる（ボタンの名前には書かない。0057 の 2026-10-29 の追記）
+  return kinds.map((kind, i) => ({
+    key: i === 0 ? `retirement/${m.id}/add` : `retirement/${m.id}/add/${kind}`,
+    label: label(kind),
+    level: "simple" as const,
+    choice: { key: `retirement/${m.id}/addKind`, label: "＋ 退職金・企業年金を足す", help: "種類を選んで足します。iDeCo・企業型DC・小規模企業共済は貯蓄・運用の入力項目で入れます" },
+    run: (w: WorkingHousehold) => addBenefit(w, m, kind),
+  }));
+}
+
+/** 「＋ 退職金・企業年金を足す」の先頭の選択肢（今の働き方の既定の種類。前の1つのボタンと同じ動き） */
 export function addBenefitAction(wh: WorkingHousehold, m: Member): ActionDef {
-  return {
-    key: `retirement/${m.id}/add`,
-    // 該当なしにしてあることは、区画の見出しの下の「該当なし」で見せる（ボタンの名前には書かない。0057 の 2026-10-29 の追記）
-    label: "＋ 退職金・企業年金を足す",
-    level: "simple",
-    run: (w) => {
-      const cleared = clearRetirementNone(w, m.id);
-      const filled = fillRetirement(cleared, m.id);
-      if (filled !== cleared) return filled;
-      const h = cleared.request.input.household;
-      const p = currentPeriod(h, m.id, cleared.request.input.baseMonth);
-      const kind = addKindOf(p?.type, (h.retirementBenefits ?? []).filter((x) => x.member === m.id));
-      return mutate(cleared, (hh) => {
-        const b = initialBenefit(hh, m, kind, { id: newId(), ...(p !== undefined ? { employment: p.id } : {}) });
-        (hh.retirementBenefits ??= []).push(b);
-        if (kind === "civilServantPension") hh.retirementBenefits.push(civilPensionFixedHalf(m, newId(), b.employment));
-      });
-    },
-  };
+  return addBenefitActions(wh, m)[0] as ActionDef;
+}
+
+/** 退職金・企業年金の出る勤め先になる働き方の種類（再雇用・パートなどの期間より、この期間を既定の勤め先にする） */
+const CAREER_TYPES = new Set(["regular", "civilServant", "executive"]);
+
+/**
+ * 足した退職給付の既定の勤め先（通しの確かめ。0150）: 今の働き方の期間が正社員・公務員・役員ならその期間。今が再雇用・パートなど
+ * （定年の後）なら、正社員・公務員・役員の期間のうち、いちばん最後に始まった期間（無ければ今の期間）。国民年金基金は勤め先を持たない
+ */
+export function benefitPeriod(h: Household, m: Member, baseMonth: string, kind: BenefitKind): EmploymentPeriod | undefined {
+  const now = currentPeriod(h, m.id, baseMonth);
+  if (kind === "nationalPensionFund" || (now !== undefined && CAREER_TYPES.has(now.type))) return now;
+  const career = (h.employmentPeriods ?? [])
+    .filter((p) => p.member === m.id && CAREER_TYPES.has(p.type) && (resolveTimepoint(h, p.from) ?? "") <= baseMonth)
+    .sort((a, b) => ((resolveTimepoint(h, a.from) ?? "") < (resolveTimepoint(h, b.from) ?? "") ? -1 : 1));
+  return career.at(-1) ?? now;
+}
+
+/** 種類を決めて退職給付を1件足す（目安の種類なら目安で入れる） */
+function addBenefit(w: WorkingHousehold, m: Member, kind: BenefitKind): WorkingHousehold {
+  const cleared = clearRetirementNone(w, m.id);
+  const filled = fillRetirement(cleared, m.id);
+  if (filled !== cleared && (filled.request.input.household.retirementBenefits ?? []).some((b) => b.member === m.id && b.kind === kind)) return filled;
+  const h = cleared.request.input.household;
+  const p = benefitPeriod(h, m, cleared.request.input.baseMonth, kind);
+  return mutate(cleared, (hh) => {
+    const b = initialBenefit(hh, m, kind, { id: newId(), ...(p !== undefined ? { employment: p.id } : {}) });
+    (hh.retirementBenefits ??= []).push(b);
+    if (kind === "civilServantPension") hh.retirementBenefits.push(civilPensionFixedHalf(m, newId(), b.employment));
+  });
 }
 
 /**
@@ -520,11 +622,12 @@ export function deathLineText(baseMonth: string): string {
   return `万一亡くなったときは、受け取る前の退職金が死亡退職金として遺族に支払われることがあり、額は勤め先の退職金の規程で決まります。このアプリでは、勤続の月数で按分した額を目安にします（「万一のとき」のタブで額を入れられます）。相続税の目安では、${ex}を差し引きます`;
 }
 
-/** 死亡退職金の扱いの説明の欄（値ではなく説明なので、幅いっぱいの説明の欄。折りたたみは人が違っても同じ） */
-function deathNote(wh: WorkingHousehold, m: Member): GroupDef | null {
+/** 死亡退職金の扱いの説明（区画の「?」の中。前は開いたままの説明の欄だった。長い説明は「?」へ） */
+function deathNote(wh: WorkingHousehold, m: Member): string | null {
   if (!(wh.request.input.household.retirementBenefits ?? []).some((b) => b.member === m.id && HAS_AMOUNT.has(b.kind))) return null;
-  return infoNote(`retirement/${m.id}/death`, "万一亡くなったときの扱い", deathLineText(wh.request.input.baseMonth), "retirement/death");
+  return `万一亡くなったときの扱い: ${deathLineText(wh.request.input.baseMonth)}`;
 }
+
 
 /** 該当なしにしてある人の区画の説明（頭の「該当なし」は見出しの下に、残りは「?」の中に出る。FieldViews.tsx の splitNote） */
 export const NONE_NOTE = "該当なし。退職金・企業年金は無いとしています（働き方を選び直しても、推定で足しません）。「＋ 退職金・企業年金を足す」で足すと、該当なしを外します";
@@ -534,10 +637,15 @@ export function retirementStage(wh: WorkingHousehold): StageDef {
   const sections: SectionDef[] = people(h).map((m) => {
     const groups = benefitGroups(wh, m);
     const d = deathNote(wh, m);
-    if (d !== null) groups.push(d);
+    // 自営業の人は、小規模企業共済・iDeCo の入れ場所の1行（口座の物なので貯蓄・運用の入力項目で入れる。受け取りは下の「受け取りの並び」に出る）
+    if (currentPeriod(h, m.id, wh.request.input.baseMonth)?.type === "selfEmployed") {
+      const line = readGroup(`retirement/${m.id}/self`, undefined, [readLine(`retirement/${m.id}/self`, "小規模企業共済・iDeCo", "貯蓄・運用で入れます", "貯蓄・運用")]);
+      if (line !== null) groups.push(line);
+    }
     // 退職給付を外して「該当なし」にしてある人は、見出しの下に「該当なし」と出す（説明は「?」の中。0057 の 2026-10-29 の追記）
-    const none = groups.length === 0 && retirementNotApplicable(wh, m.id);
-    return { key: `retirement/${m.id}`, title: memberLabel(wh, m.id), ...(none ? { note: NONE_NOTE } : {}), level: "simple", groups, actions: [addBenefitAction(wh, m)] };
+    const none = benefitGroups(wh, m).length === 0 && retirementNotApplicable(wh, m.id);
+    const note = none ? NONE_NOTE : d;
+    return { key: `retirement/${m.id}`, title: memberLabel(wh, m.id), ...(note !== null ? { note } : {}), level: "simple", groups, actions: addBenefitActions(wh, m) };
   });
   const dc = (h.accounts ?? []).filter((a) => DC_RECEIPT_KINDS.has(a.kind));
   const kindLabel = (k: string) => ACCOUNT_KINDS.find((o) => o.value === k)?.label ?? k;

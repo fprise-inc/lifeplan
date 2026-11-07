@@ -154,7 +154,8 @@ describe("売る年を変えた比べの行から、その売り方のプラン�
       expect(wh.request).toEqual(wh0.request);
       const view = planView(wh, cat, s.id).request as EngineRequest;
       if (v.ym === null) expect(saleOf(view)).toBeUndefined();
-      else expect(saleOf(view)).toEqual({ at: { at: v.ym } });
+      // 売る年だけが変わる（見本の売却の費用 4% などほかの中身はそのまま）
+      else expect(saleOf(view)).toEqual({ ...saleOf(wh0.request), at: { at: v.ym } });
       expect(diffRows(wh, cat, s.id).length).toBeGreaterThan(0);
       // 物件の売り方のほかは現状と同じ
       const strip = (rq: EngineRequest) => {

@@ -1,0 +1,372 @@
+{
+  "$defs": {
+    "DocObjectArg": {
+      "description": "新しい物の候補（今の世帯に無い保険の契約など。FPがアプリで「足す」を選んだときだけ作られる）",
+      "properties": {
+        "confidence": {
+          "description": "確からしさ: high・medium・low（無ければ low）",
+          "enum": [
+            "high",
+            "medium",
+            "low",
+            null
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "key": {
+          "description": "仮の鍵（例 c1。values の newObject で指す。英数字と _ - の16字まで）",
+          "pattern": "^[A-Za-z0-9_-]{1,16}$",
+          "type": "string"
+        },
+        "kind": {
+          "description": "種類（「集まり:種類」。今は保険の契約 insurance:<保険の種類> だけ。例 insurance:medical）",
+          "pattern": "^[a-z][A-Za-z]*:[A-Za-z0-9]+$",
+          "type": "string"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DocSourceArg"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "DocReferenceArg": {
+      "description": "照合だけの値（源泉徴収税額など。入力にせず、アプリの計算と並べて差を見せる）",
+      "properties": {
+        "amount": {
+          "description": "書類の額（円の整数）",
+          "format": "int64",
+          "type": "integer"
+        },
+        "label": {
+          "description": "項目の名前（40字まで）",
+          "maxLength": 40,
+          "type": "string"
+        },
+        "row": {
+          "description": "比べるキャッシュフロー表の行 ID（例 cf.taxSi.incomeTax）",
+          "pattern": "^cf(\\.[a-z][a-zA-Z0-9]*)+$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DocSourceArg"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "year": {
+          "description": "比べる年",
+          "format": "int32",
+          "maximum": 2200,
+          "minimum": 1900,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "amount"
+      ],
+      "type": "object"
+    },
+    "DocSourceArg": {
+      "description": "元の場所（書類のどこから読んだか）",
+      "properties": {
+        "box": {
+          "description": "四角の座標（ページの左上を 0 にした 0〜1 の割合 [x, y, 幅, 高さ]）",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "page": {
+          "description": "ページ（1から）",
+          "format": "uint32",
+          "maximum": 999,
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "path": {
+          "description": "決まった形のデータ（XML・JSON）の要素の道（英数字と / . _ - だけ。120字まで）",
+          "pattern": "^[A-Za-z0-9_./-]{1,120}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "text": {
+          "description": "その所の文字（80字まで。名前・番号は伏せる）",
+          "maxLength": 80,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "where": {
+          "description": "見出しの言葉（例: 支払金額。40字まで）。番号の欄（個人番号・基礎年金番号・証券番号など）の候補は出さない",
+          "maxLength": 40,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "DocValueArg": {
+      "description": "値の候補の1件",
+      "properties": {
+        "at": {
+          "description": "同じ入力項目の中の欄（例 pensionRecord.amounts の [\"basic\"]。英数字と _ - の40字まで・4段まで）",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 4,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "confidence": {
+          "description": "確からしさ: high・medium・low（無ければ low）",
+          "enum": [
+            "high",
+            "medium",
+            "low",
+            null
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "item": {
+          "description": "入力項目 ID（ファイナンシアの登録簿の ID。例 employment.salary.annual・pensionRecord.months）。登録簿に無い ID の候補はアプリが読まない",
+          "type": "string"
+        },
+        "member": {
+          "description": "人: 続柄の鍵（self・spouse・child1…）か holder（書類の名義の人）か、get_shared_household の構成員の仮の ID",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "newObject": {
+          "description": "新しい物（objects の key）",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "note": {
+          "description": "添え書き（200字まで。FPが確かめるときの手がかり。名前・番号は書かない）",
+          "maxLength": 200,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "object": {
+          "description": "今ある物（get_shared_household の物の仮の ID）",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "period": {
+          "description": "書類の額の期間: monthly（月額）・annual（年額）・once（1回・その時点の額）",
+          "enum": [
+            "monthly",
+            "annual",
+            "once",
+            null
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DocSourceArg"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unreadable": {
+          "description": "書類にその欄はあるが、値を読めなかった",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScalarValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "読んだ値。読めなかったときは null と unreadable: true"
+        }
+      },
+      "required": [
+        "item"
+      ],
+      "type": "object"
+    },
+    "DocumentAnswerArg": {
+      "description": "書類1通から読んだ値の候補（答えの形 document-candidates@1。ウェブのチャット AI の答えを貼り付けるときと同じ形）",
+      "properties": {
+        "asOf": {
+          "description": "書類の時点（作成・証明の年月。YYYY-MM）",
+          "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "contract": {
+          "const": "document-candidates@1",
+          "description": "答えの形の名前（いつも \"document-candidates@1\"）",
+          "type": "string"
+        },
+        "docType": {
+          "description": "書類の種類",
+          "enum": [
+            "pensionStatement",
+            "pensionNotice",
+            "withholdingSlip",
+            "publicPensionWithholding",
+            "residentTaxNotice",
+            "lifeInsuranceDeduction",
+            "earthquakeInsuranceDeduction",
+            "smallBusinessMutualAidDeduction",
+            "insurancePolicy",
+            "housingLoanBalance",
+            "loanSchedule",
+            "taxReturn",
+            "brokerageBalance",
+            "other"
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "holder": {
+          "description": "書類の名義の人の続柄の鍵（self・spouse・child1…）。名前は書かない",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "objects": {
+          "description": "新しい物の候補（30件まで）",
+          "items": {
+            "$ref": "#/$defs/DocObjectArg"
+          },
+          "maxItems": 30,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "references": {
+          "description": "照合だけの値（60件まで）",
+          "items": {
+            "$ref": "#/$defs/DocReferenceArg"
+          },
+          "maxItems": 60,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "values": {
+          "description": "値の候補（300件まで）",
+          "items": {
+            "$ref": "#/$defs/DocValueArg"
+          },
+          "maxItems": 300,
+          "type": "array"
+        }
+      },
+      "required": [
+        "contract",
+        "values"
+      ],
+      "type": "object"
+    },
+    "ScalarValue": {
+      "anyOf": [
+        {
+          "description": "円・月数・年数は整数（円の単位。万円で書かない）",
+          "format": "double",
+          "type": "number"
+        },
+        {
+          "description": "年月は YYYY-MM、率は10進の文字列（例 \"0.015\"）、選択肢は値の文字、人を選ぶ欄は続柄の鍵か holder",
+          "type": "string"
+        },
+        {
+          "type": "boolean"
+        }
+      ],
+      "description": "値（数・文字・真偽。道具の入力の JSON Schema のための形で、受けた値はそのまま運ぶ）"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "answer": {
+      "$ref": "#/$defs/DocumentAnswerArg",
+      "description": "書類1通から読んだ値の候補（document-candidates@1。書類が何通もあれば1通ずつ呼ぶ）"
+    },
+    "share_id": {
+      "description": "対象の世帯の共有 ID（list_shared_households で分かる）",
+      "type": "string"
+    }
+  },
+  "required": [
+    "share_id",
+    "answer"
+  ],
+  "type": "object"
+}

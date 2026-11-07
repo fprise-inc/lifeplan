@@ -199,14 +199,14 @@ describe("今住んでいる持ち家の固定資産税の推定（0112 の追�
     expect(own(wh).propertyTax?.stages).toBeUndefined();
   });
 
-  it("推定の段を外すと、入れ直しで足し直さない", () => {
+  it("推定の段を外すと、入れ直しで足し直さない（推定の段は1つの表に畳み、表の「推定の変化を外す」で外す）", () => {
     let wh = home({ value: 40000000, asOf: "2010-04", built: 2010 });
-    const sid = taxStageId(own(wh).id, 2030);
-    wh = action(wh, `/propertyTax/stage/${sid}/remove`);
-    expect(stagesOf(own(wh)).has(2030)).toBe(false);
+    expect(stagesOf(own(wh)).has(2030)).toBe(true);
+    wh = action(wh, `/propertyTax/autoStages/remove`);
+    expect(own(wh).propertyTax?.stages).toBeUndefined();
     wh = set(wh, `${own(wh).id}/valuation/value`, 42000000);
-    expect(stagesOf(own(wh)).has(2030)).toBe(false);
-    expect(stagesOf(own(wh)).has(2033)).toBe(true);
+    expect(own(wh).propertyTax?.stages).toBeUndefined();
+    expect(taxStageId(own(wh).id, 2030)).not.toBe("");
   });
 
   it("目安の割合は事務所の推定の値で変えられる", () => {

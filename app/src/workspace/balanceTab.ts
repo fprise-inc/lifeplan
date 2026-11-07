@@ -8,7 +8,7 @@ import { bsHouseholdOf, bsSeries, BS_GROUP_LABEL, BS_GROUP_SHORT, groupTotal, ty
 import type { BalanceTabModel, BsColumn, BsCustomViewModel, BsGroupKey, BsGuide, BsGuideBasis, BsMarkKind, BsPlanModel, BsPointKey, BsPointModel, BsPrevModel, BsYearModel, VerdictPart } from "../presentation/model.ts";
 import { man } from "../presentation/format.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
-import { ageAxis, depletionYear, eventsOf, SURPLUS_ROW } from "./present.ts";
+import { ageAxis, carExpense, depletionYear, eventsOf, SURPLUS_ROW } from "./present.ts";
 import { ageInYear, leaveYear, presentInYear, roles, type Role } from "./roles.ts";
 import { guaranteeTotal, hasExecutive } from "./input/officer.ts";
 
@@ -143,6 +143,9 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
   const at: BsAt[] = bsSeries(p.table, years, bsHouseholdOf(h));
   const lineOf = (i: number, key: string) => (at[i] as BsAt).lines.find((l) => l.key === key)?.amount ?? 0;
   const living = byYear(p.table, years, (c) => under(c.row, "cf.expense.living") && c.row !== "cf.expense.living.drawdown" && c.row !== SURPLUS_ROW);
+  // 生活費の行に入る車の費用（燃料・駐車場など）は、家計の体力の目安の文で分けて見せる（基本生活費の欄の額と比べられるように）
+  const car = carExpense(req);
+  const livingCar = byYear(p.table, years, (c) => under(c.row, "cf.expense.living") && c.row !== "cf.expense.living.drawdown" && c.row !== SURPLUS_ROW && car(c));
   const loanPay = byYear(p.table, years, (c) => c.row === "cf.expense.housing.loan");
   // 家賃収入で返す住まい以外の不動産のローンは、家計の体力の目安の返済に数えない（0105）
   const propertyDebts = new Set((h.debts ?? []).filter((d) => d.property !== undefined).map((d) => d.id));
@@ -150,6 +153,7 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
   // 計算基準年が年の途中から始まるとき、その年のお金の動きは数か月分しかないので、生活費と返済額は翌年（1年分）の値で見る
   if (parseYm(req.input.baseMonth).m > 1 && years.length > 1) {
     living[0] = living[1] as number;
+    livingCar[0] = livingCar[1] as number;
     loanPay[0] = loanPay[1] as number;
     allLoanPay[0] = allLoanPay[1] as number;
   }
@@ -243,6 +247,7 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
       financial: a.financial,
       shortfall: a.shortfall,
       living: living[i] ?? 0,
+      ...((livingCar[i] ?? 0) > 0 ? { livingCar: livingCar[i] as number } : {}),
       loanPay: allLoanPay[i] ?? 0,
       guarantee: i === 0 ? guarantee : 0,
       events,

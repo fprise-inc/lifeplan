@@ -115,7 +115,8 @@
                 "kind": "manual"
               }
             }
-          }
+          },
+          "unemploymentClaim": false
         }
       ],
       "accounts": [
@@ -398,7 +399,9 @@
               {
                 "stage": "vocational",
                 "sector": "private",
-                "living": "home"
+                "living": "home",
+                "annualOverride": 1100000,
+                "entranceOverride": 200000
               }
             ]
           }

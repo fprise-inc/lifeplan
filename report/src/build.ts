@@ -217,11 +217,15 @@ function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
   const isReLoanPay = (c: TableCell) => reLoan(c) && under(c.row, "cf.expense");
   const hasReLoan = reLoanIds.size > 0;
   for (const r of rs) defs.push({ key: `salary:${r.key}`, label: rowName(names, "salary", { person: r.label }), group: "income", kind: "value", match: byMember("cf.income.salary", r) });
+  // 事業所得（自営業・フリーランス）は人ごとに給与と並べる。値の無い世帯・人は行を出さない（アプリと同じ）
+  for (const r of rs) defs.push({ key: `business:${r.key}`, label: rowName(names, "business", { person: r.label }), group: "income", kind: "value", match: byMember("cf.income.business", r) });
   for (const r of rs) defs.push({ key: `pension:${r.key}`, label: rowName(names, "pension", { person: r.label }), group: "income", kind: "value", match: byMember("cf.income.pension", r) });
   const ids = new Set(rs.map((r) => r.member.id));
   const known = (c: TableCell, p: string) => under(c.row, p) && c.member !== undefined && ids.has(c.member);
   const known5 = ["cf.expense.living", "cf.expense.housing", "cf.expense.education", "cf.expense.insurance", "cf.expense.lumpSum", "cf.expense.advisoryFee"];
   defs.push(
+    // 年金で受け取る企業年金・iDeCo・小規模企業共済の分割・個人年金保険など（cf.income.corporatePension の全部。一時金は「退職金」か「その他の収入」）
+    { key: "corporatePension", label: "企業年金・個人年金", group: "income", kind: "value", match: (c) => under(c.row, "cf.income.corporatePension") },
     { key: "retirement", label: "退職金", group: "income", kind: "value", match: (c) => under(c.row, "cf.income.lumpSum.retirement") },
     { key: "benefit", label: "給付・手当", group: "income", kind: "value", match: (c) => under(c.row, "cf.income.benefit") },
     ...(hasRent ? [{ key: "rent", label: "家賃収入", group: "income" as const, kind: "value" as const, match: isRent }] : []),
@@ -231,7 +235,7 @@ function rowDefs(req: EngineRequest, names?: OfficeRowNames): RowDef[] {
       label: "その他の収入",
       group: "income",
       kind: "value",
-      match: (c) => under(c.row, "cf.income") && !known(c, "cf.income.salary") && !known(c, "cf.income.pension") && !under(c.row, "cf.income.lumpSum.retirement") && !under(c.row, "cf.income.benefit") && !isRent(c) && !isReSale(c),
+      match: (c) => under(c.row, "cf.income") && !known(c, "cf.income.salary") && !known(c, "cf.income.business") && !known(c, "cf.income.pension") && !under(c.row, "cf.income.corporatePension") && !under(c.row, "cf.income.lumpSum.retirement") && !under(c.row, "cf.income.benefit") && !isRent(c) && !isReSale(c),
     },
     { key: "incomeTotal", label: "収入合計", group: "income", kind: "total", match: (c) => under(c.row, "cf.income") },
     { key: "living", label: "基本生活費", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.living") && c.row !== "cf.expense.living.surplus") },
@@ -1706,7 +1710,8 @@ export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
     version: PROPOSAL_INPUT_VERSION,
     document: { title: bundle.document.title ?? "ライフプランのご提案", issuedOn: bundle.document.issuedOn, preparedBy: bundle.document.preparedBy ?? null },
     basis: { baseMonth: req.input.baseMonth, baseMonthLabel: monthLabel(req.input.baseMonth), years },
-    members: rs.map((r) => ({ key: r.key, label: r.label, ageAtBase: ageAt(r.member, req.input.baseMonth), ages: years.map((y) => (presentIn(r, y) ? ageInYear(r.member, y) : null)) })),
+    // 世帯の外の家族（介護・親で足した親・祖父母など）は家族の行に出さない（「ご家族 92歳」が並ぶため。アプリの結果のタブと同じ）
+    members: rs.filter((r) => r.member.outside === undefined).map((r) => ({ key: r.key, label: r.label, ageAtBase: ageAt(r.member, req.input.baseMonth), ages: years.map((y) => (presentIn(r, y) ? ageInYear(r.member, y) : null)) })),
     assumptions: assumptions(ctx),
     summary: {
       target: ctx.target,

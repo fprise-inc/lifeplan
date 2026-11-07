@@ -47,7 +47,7 @@ const NO_FILES: Pick<HostApi, "report" | "sheets" | "takeaway" | "store" | "ai" 
   sheets: { save: no, open: async () => null },
   takeaway: { save: no },
   store: { status: no, list: no, create: no, open: no, save: no, rename: no, remove: no, recoveryKey: no, acknowledgeRecovery: no, testRecoveryKey: no, restoreWithRecoveryKey: no, closeReady: async () => undefined, closeCancel: async () => undefined, forkInfo: no, resolveFork: no, resolveSyncCopies: no, leave: async () => undefined, devFileKeys: async () => false, listSamples: no, setCategory: no, assignSerial: no, makeSample: no, updateSample: no, categories: no, setCategories: no },
-  ai: { status: no, setEnabled: no, copySetup: no, household: no, recordConsent: no, startShare: no, stopShare: no, decide: no },
+  ai: { status: no, setEnabled: no, copySetup: no, household: no, recordConsent: no, startShare: no, stopShare: no, decide: no, takeDocuments: no },
   office: { status: no, start: no, join: no, cancel: no, approve: no, reject: no, remove: no, moveLocal: no, recover: no, end: no, dismissNotices: no, acceptRoster: no, defaults: async () => ({}), putDefaults: no, branding: async () => ({}), putBranding: no, pickLogo: async () => null, featureStatus: async () => ({ today: "2026-11-01", active: [], codes: [], invalid: [] }), addFeatureCode: no, removeFeatureCode: no, dismissFeatureNotice: no, checkFeatureCodes: no, decideFeatureCandidate: no, syncStart: no, syncOpen: no, syncEnd: no, notices: async () => [] },
   statements: { office: no, learn: no, open: async () => null, saveSheet: no, openSheet: async () => null },
 };

@@ -214,6 +214,7 @@ const NA_LABEL: Readonly<Record<string, string | null>> = {
   "hs.work.type": null,
   "hs.income.annual": null,
   "hs.income.salary": null,
+  "hs.income.taxReturn": null,
   "hs.education.elementary": "卒業した",
   "hs.education.juniorHigh": "卒業した",
   "hs.education.highSchool": "卒業した",

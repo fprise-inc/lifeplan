@@ -164,6 +164,10 @@ export function exportAnswers(def: SheetDefinition, request: EngineRequest, opti
       }
     }
     if (p.business !== undefined) put("hs.income.business", n, boxVal(p.business.income));
+    // 確定申告の仕方（自営業の方。入れてある人だけ。0155）
+    const tr = m.taxReturn;
+    if (p.type === "selfEmployed" && tr !== undefined && items.has("hs.income.taxReturn"))
+      put("hs.income.taxReturn", n, v(tr.method === "white" ? "white" : tr.blueDeduction === "electronic" ? "blueElectronic" : tr.blueDeduction === "doubleEntry" ? "blueDoubleEntry" : "blueSimple"));
     const to = resolveAt(p.to, h);
     if (to !== null) put("hs.work.retireAge", n, v(ageAt(m, addMonths(to, 1))));
     const rb = (h.retirementBenefits ?? []).find((b) => b.member === m.id && b.kind === "lumpSum");

@@ -9,10 +9,11 @@
 //   「探して開く」（inputSearch.ts）で、入れる入力項目の欄へ案内する。前に足した物とピンは今までどおり読み、計算し、ホームに出す（直す・外すはできる。0045 の 2026-11-04 の追記）
 // FP顧問料は「前提条件」のカードの中の欄のまとまり（stages/assumptions.ts）。車は「車」のカードの中で1台ずつ足す（stages/cars.ts）
 import type { AdvisoryFee, Car, CareExpense, Household, PeriodicExpense } from "../../engine/types.ts";
+import { careEstimate } from "../../../../hearing/src/estimates.ts";
 import { addMonths, ageAt } from "../levers.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import { allFields, type FieldDef, type SectionDef, type StageDef, type StageId } from "./form.ts";
-import { educationStagesAddress, fillAll, gapsOf, retirementNotApplicable, type Gap } from "./fill.ts";
+import { ADULT_CARE_NONE, educationStagesAddress, fillAll, gapsOf, retirementNotApplicable, type Gap } from "./fill.ts";
 import { newId, type AddedItem, type WorkingHousehold } from "./household.ts";
 import { earners, memberLabel } from "./labels.ts";
 import { isRow, rowAt } from "./rows.ts";
@@ -25,6 +26,7 @@ import { dreamRows } from "./dreams.ts";
 import { buildStage, STAGE_ORDER } from "./stages/index.ts";
 import { giftLines } from "./stages/inheritance.ts";
 import { statementMonthsMissing } from "./stages/pension.ts";
+import { educationFinished } from "./stages/education.ts";
 import { totalViewOf } from "./savings/model.ts";
 import { currentPeriod } from "./stages/work.ts";
 import { endedLongAgo, fieldAddress, fieldStatus, holderOfField, isPremiseField } from "./valueState.ts";
@@ -205,6 +207,22 @@ const HINTS: Partial<Record<StageId, { missing?: string; est?: string }>> = {
 };
 const HINT_ZERO = "0円で計算している所があります";
 const HINT_EST = "推定の値で計算中です";
+/** 推定で計算中のカードの1行に名前を出す欄の数（多ければ「ほか○か所」） */
+const EST_HINT_NAMES = 3;
+
+/**
+ * 推定で計算中のカードの1行（通しの確かめ。0150）: 推定のまま残っている欄の名前（「推定のまま: 国民年金の加入月数」）。決まった文
+ * （「目安の退職金で計算中です」など）は、書類から入れた後でも残っていて、残っている推定と合わなかった。欄の名前が無い推定
+ * （年金の記録が無い人の推計）だけのとき・混じるときは、その項目の決まった文
+ */
+function estHint(id: StageId, names: readonly string[], count: number, implicit: number): string {
+  const fixed = HINTS[id]?.est ?? HINT_EST;
+  const list = implicit > 0 ? null : estimatedList(names, count);
+  if (list === null) return fixed;
+  const shown = list.names.slice(0, EST_HINT_NAMES);
+  const rest = count - shown.length;
+  return `推定のまま: ${shown.join("・")}${rest > 0 ? ` ほか${rest}か所` : ""}`;
+}
 
 // ---- 要約の数字 ----
 
@@ -279,9 +297,14 @@ function firstPrivate(stages: readonly { stage: string; sector?: string }[]): st
  * 子ども・教育の要約: 「2人・大学は私立」「2人・中学から私立 1人」「1人・公立」（私立になる最初の段を書く。前の「私立あり」は既定の型で
  * どの子も同じになり、何も伝えなかった。0041 の追記 2026-11-06）
  */
-function educationSummary(h: Household): Summary | null {
-  const goals = (h.goals ?? []).filter((g) => g.kind === "education");
-  if (goals.length === 0) return null;
+function educationSummary(h: Household, baseMonth: string): Summary | null {
+  const all = (h.goals ?? []).filter((g) => g.kind === "education");
+  // 教育の段が全部過ぎた子（独立した子など）は数えない。どの子も過ぎていれば「教育は終わっています」（通しの確かめ。0150）
+  const goals = all.filter((g) => {
+    const child = h.members.find((m) => m.id === g.owner);
+    return child === undefined || !educationFinished(child, g, baseMonth);
+  });
+  if (goals.length === 0) return all.length > 0 ? { main: "教育は終わっています" } : null;
   const firsts = goals.map((g) => firstPrivate(g.education?.stages ?? []));
   const order = Object.keys(SCHOOL_NAMES);
   const earliest = firsts.filter((x): x is string => x !== null).sort((a, b) => order.indexOf(a) - order.indexOf(b))[0];
@@ -302,13 +325,25 @@ function housingSummary(h: Household): Summary | null {
 }
 
 /** 介護の費用1件の額（月の費用×か月＋はじめの費用。名目の額。期間を入れていなければ null） */
-function careTotal(c: CareExpense): number | null {
-  if (c.months === undefined) return null;
-  return ((c.serviceMonthly?.value ?? 0) + (c.otherMonthly?.value ?? 0)) * c.months + (c.initial?.value ?? 0);
+/** 要約に足す介護保険のサービスの額の自己負担の割合（札の目安。計算は所得で1〜3割と高額介護サービス費の上限） */
+const CARE_SERVICE_COPAY_FOR_SUMMARY = 0.1;
+
+/**
+ * 介護の費用1件の月の額: 介護保険のサービスの額（10割）は1割負担として、月々の費用（保険の対象外）と足す。どちらも入っていなければ、
+ * 計算と同じ統計の平均の推定（前は0円として数え、「介護 約0万円」と出ていた）
+ */
+function careMonthly(c: CareExpense): number {
+  const service = c.serviceMonthly?.value;
+  const other = c.otherMonthly?.value;
+  if (service === undefined && other === undefined) return careEstimate(c.place === "facility" ? "facility" : "home")?.monthly ?? 0;
+  return Math.round((service ?? 0) * CARE_SERVICE_COPAY_FOR_SUMMARY) + (other ?? 0);
 }
 
-/** 介護の費用1件の月の額 */
-const careMonthly = (c: CareExpense): number => (c.serviceMonthly?.value ?? 0) + (c.otherMonthly?.value ?? 0);
+/** 介護の費用1件の総額（名目）。期間を入れていなければ null（要約は月の額にする）。はじめの費用が空なら、計算と同じ統計の平均の推定 */
+function careTotal(c: CareExpense): number | null {
+  if (c.months === undefined) return null;
+  return careMonthly(c) * c.months + (c.initial?.value ?? careEstimate(c.place === "facility" ? "facility" : "home")?.initial ?? 0);
+}
 
 /**
  * 介護・親の要約: 「介護 約760万円（母）・親 4人」（介護の費用の総額〔月の費用×か月＋はじめの費用。名目。介護を受ける人の名前〕と、世帯の外の家族の人数）。
@@ -448,7 +483,7 @@ function baseSummary(id: StageId, wh: WorkingHousehold, inheritanceTax: string |
     case "living":
       return livingSummary(h);
     case "education":
-      return educationSummary(h);
+      return educationSummary(h, wh.request.input.baseMonth);
     case "housing":
       return housingSummary(h);
     case "insurance": {
@@ -559,9 +594,11 @@ function declaredNone(id: StageId, wh: WorkingHousehold): boolean {
     const kids = h.members.filter((m) => m.kind === "child");
     if (kids.length === 0) return (h.periodicExpenses ?? []).every((p) => childOfPeriodic(h, p) === null);
     const input = wh.request.input as unknown as Record<string, unknown>;
+    // どの子も、教育費を「該当なし」にしたか、教育の段が全部過ぎた（独立した子など。この子のお金の行が無いとき。通しの確かめ。0150）
     return kids.every((c) => {
       const g = (h.goals ?? []).find((x) => x.kind === "education" && x.owner === c.id);
-      return g !== undefined && (g.education?.stages ?? []).length === 0 && rowAt(input, educationStagesAddress(g.id))?.state === "notApplicable";
+      if (g !== undefined && (g.education?.stages ?? []).length === 0 && rowAt(input, educationStagesAddress(g.id))?.state === "notApplicable") return true;
+      return educationFinished(c, g, wh.request.input.baseMonth) && !(h.periodicExpenses ?? []).some((p) => childOfPeriodic(h, p) === c.id);
     });
   }
   if (id === "retirement") {
@@ -715,7 +752,7 @@ function addedLabel(wh: WorkingHousehold, o: AddedObject): string {
     case "periodic":
       return o.obj.label !== undefined && o.obj.label !== "" ? o.obj.label : "名前のない支出";
     case "care":
-      // パネルの見出し（「母の介護（在宅）」）と同じ呼び方（0041 の追記 2026-11-06）
+      // パネルの見出し（「母の介護」）と同じ呼び方（0041 の追記 2026-11-06）
       return `${memberLabel(wh, o.obj.member)}の介護`;
     case "car":
       return `車（${memberLabel(wh, o.obj.owner)}）`;
@@ -857,7 +894,8 @@ export function inputItems(wh: WorkingHousehold, opts: ItemOptions = {}): InputI
     const stage = buildStage(id, wh);
     const c = fieldCounts(stage, wh);
     const own = gapsFor(gaps, id);
-    const estimated = c.estimated + implicitEstimates(id, wh);
+    const implicit = implicitEstimates(id, wh);
+    const estimated = c.estimated + implicit;
     const missing = c.missing + own.length;
     const hasData = baseHasData(id, wh);
     const none = declaredNone(id, wh);
@@ -866,7 +904,7 @@ export function inputItems(wh: WorkingHousehold, opts: ItemOptions = {}): InputI
     // 未入力とまだ入れていない項目は、同じ1行の案内と1押し（まだ入れていない項目は、赤くしない控えめな見せ方で）。どの項目も同じ決まり。
     // 何が推定かは「推定で計算中」の札の吹き出し（estimatedNames。InputView.tsx）
     const open = status === "missing" || status === "empty";
-    const hint = !open && status !== "est" ? null : status === "est" ? (HINTS[id]?.est ?? HINT_EST) : hasData && c.missing > 0 ? HINT_ZERO : (HINTS[id]?.missing ?? HINT_ZERO);
+    const hint = !open && status !== "est" ? null : status === "est" ? estHint(id, c.names, estimated, implicit) : hasData && c.missing > 0 ? HINT_ZERO : (HINTS[id]?.missing ?? HINT_ZERO);
     const canNa = open && !NO_NA.has(id) && (!hasData || (c.missing === 0 && own.every((g) => g.none !== undefined)));
     const def = BASE[id];
     return {
@@ -955,7 +993,8 @@ export function saveItem(wh: WorkingHousehold, id: string): WorkingHousehold {
   // プランで足した物のピン（現状には物が無い）は残す（0036 の8）
   const inPlans = new Set(wh.proposals.flatMap((p) => p.diffs.map((d) => (d.op === "add" && typeof d.value === "object" && d.value !== null ? (d.value as { id?: unknown }).id : undefined))));
   const addedItems = wh.addedItems.filter((a) => addedObject(h, a) !== null || inPlans.has(a.ref));
-  const alive = new Set([...STAGE_ORDER.map((s) => s.id as string), ...addedItems.map((a) => a.id)]);
+  // 入力項目の ID でない印（ご本人・配偶者の介護を入れないと決めた印）も残す
+  const alive = new Set([...STAGE_ORDER.map((s) => s.id as string), ...addedItems.map((a) => a.id), ADULT_CARE_NONE]);
   const mark = id.startsWith("added:") ? [] : [id];
   const confirmed = [...new Set([...wh.confirmed, ...mark])].filter((x) => alive.has(x));
   return { ...wh, addedItems, confirmed };

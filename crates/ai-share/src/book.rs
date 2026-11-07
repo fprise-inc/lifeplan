@@ -16,6 +16,7 @@ use crate::consent::{
     self, current_external_ai, explanation_ref, verify_consents_append_only, Author, ConsentRecord,
     ExternalAiConsentInput, EXTERNAL_AI_EXPLANATION,
 };
+use crate::documents::PendingDocumentProposal;
 use crate::proposal::{PendingProposal, ProposalOrigin, ProposedDiff};
 use crate::record::{for_screen, verify_append_only, AiShareRecord};
 use crate::reduce::{allowlist, reduced_items};
@@ -120,6 +121,8 @@ pub struct HouseholdAiView {
     /// AIに渡した記録（新しい順ではなく、記録の順。呼び出し元の実行ファイルはファイル名だけ）
     pub records: Vec<AiShareRecord>,
     pub candidates: Vec<AiCandidate>,
+    /// 届いた、書類から読んだ値の候補（承認待ち。世帯ファイルには書かない。画面が読み口を通して読み取りの記録にする。0151）
+    pub document_proposals: Vec<PendingDocumentProposal>,
     /// 渡す項目（縮約版の許可リストの版と項目）
     pub allowlist_version: String,
     pub fields: Vec<String>,
@@ -367,6 +370,7 @@ impl HouseholdBook {
             share,
             records: for_screen(records),
             candidates: self.candidates.clone(),
+            document_proposals: Vec::new(),
             allowlist_version: allowlist().version.clone(),
             fields: reduced_items(),
             saved: self.generation > 0,

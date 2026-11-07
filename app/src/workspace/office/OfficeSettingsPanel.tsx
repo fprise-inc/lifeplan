@@ -4,7 +4,7 @@
 // 相続税の目安の不動産の評価の割合・FP顧問料の料金表・法人経営者向けの機能（合算BS。0107）。新しく作る世帯（料金表は新しく足す契約）に写す（作った世帯は変わらない。違うときは確かめの一覧に知らせが出る）
 import { useEffect, useRef, useState } from "preact/hooks";
 import { STAGE_ORDER } from "../input/stages/index.ts";
-import { DEFAULT_ASSUMPTIONS, END_AGES, STANDARD_END_AGE } from "../input/household.ts";
+import { END_AGES, STANDARD_END_AGE } from "../input/household.ts";
 import { DEFAULT_LAYOUT } from "../input/items.ts";
 import type { Level, StageId } from "../input/form.ts";
 import { ALWAYS_SHOWN, isHiddenIn, levelIn, withLevel, withShown } from "../input/itemChoice.ts";
@@ -14,8 +14,8 @@ import { HORIZON_KINDS, PROTECTION_METHODS } from "../contingency/inputs.ts";
 import { normalProtection, OPEN_SCENES, PREMISE_KINDS, premiseStarts, SCENE_KINDS, sceneShown, withPremiseStart, type OpenScene, type PremiseKind, type ProtectionSetting } from "../contingency/premiseChoice.ts";
 import type { ScenarioKind } from "../contingency/requests.ts";
 import { outOfRangeText, rangeText, type PctRange } from "../input/rateRanges.ts";
-import { rateFromPct } from "../input/units.ts";
-import { ASSUMPTION_LABELS, ASSUMPTION_RANGES, DEFAULT_OFFICE_SETTINGS, FEE_MAX, FEE_STEP_YEAR_MAX, layoutOf, OFFICE_ASSUMPTIONS, type FeeTable, type OfficeAssumption, type OfficeSettings } from "./settings.ts";
+import { rateFromPct, readYen } from "../input/units.ts";
+import { ASSUMPTION_LABELS, ASSUMPTION_RANGES, ASSUMPTION_STANDARDS, DEFAULT_OFFICE_SETTINGS, FEE_MAX, FEE_STEP_YEAR_MAX, layoutOf, OFFICE_ASSUMPTIONS, type FeeTable, type OfficeAssumption, type OfficeSettings } from "./settings.ts";
 import { revealAdded } from "../../presentation/revealAdded.ts";
 import { LivingLayoutEditor } from "./LivingLayoutEditor.tsx";
 import { withLivingDraft } from "./settings.ts";
@@ -81,29 +81,76 @@ export function yenFromText(text: string): number | undefined {
   return v <= FEE_MAX ? v : undefined;
 }
 
-/** 料金表の欄の文字（額は円・段階は年目と額） */
+/**
+ * 料金表の額の欄（万円）の文字 → 円。入力の画面の FP顧問料の欄と同じ万円で入れる（「30」は30万円、「1.5」は1.5万円。「12,000円」のように円を付ければ円）。
+ * 空・読めない・1円未満の端数・範囲の外は undefined
+ */
+export function feeYenFromText(text: string): number | undefined {
+  const r = readYen(text, "man");
+  if (!r.ok || !Number.isInteger(r.yen) || r.yen < 0) return undefined;
+  return r.yen <= FEE_MAX ? r.yen : undefined;
+}
+
+/** 円 → 料金表の額の欄（万円）の文字 */
+const feeManText = (yen: number): string => String(yen / 10000);
+
+/** 料金表の欄の文字（額は万円・段階は年目と額） */
 interface FeeTexts {
   oneTime: string;
   amount: string;
   steps: { year: string; amount: string }[];
 }
 
-const feeTexts = (f: FeeTable): FeeTexts => ({ oneTime: String(f.oneTime), amount: String(f.amount), steps: f.steps.map((x) => ({ year: String(x.year), amount: String(x.amount) })) });
+const feeTexts = (f: FeeTable): FeeTexts => ({ oneTime: feeManText(f.oneTime), amount: feeManText(f.amount), steps: f.steps.map((x) => ({ year: String(x.year), amount: feeManText(x.amount) })) });
 
 /** 料金表の文字から料金表（読めない欄があれば null） */
 export function feeFromTexts(base: FeeTable, t: FeeTexts): FeeTable | null {
-  const oneTime = yenFromText(t.oneTime);
-  const amount = yenFromText(t.amount);
+  const oneTime = feeYenFromText(t.oneTime);
+  const amount = feeYenFromText(t.amount);
   if (oneTime === undefined || amount === undefined) return null;
   const steps: { year: number; amount: number }[] = [];
   for (const x of t.steps) {
     const year = Number(x.year.trim());
-    const a = yenFromText(x.amount);
+    const a = feeYenFromText(x.amount);
     if (!Number.isInteger(year) || year < 2 || year > FEE_STEP_YEAR_MAX || a === undefined || steps.some((y) => y.year === year)) return null;
     steps.push({ year, amount: a });
   }
   steps.sort((a, b) => a.year - b.year);
   return { ...base, oneTime, amount, steps };
+}
+
+/**
+ * 事務所の既定値のパネルの目次: パネルの中の区画の見出し（.os-sec の h3）を並べ、押すとその見出しへ移る。区画は事務所の見た目・カスタム層など
+ * 世帯や機能で増減するので、描いた後に見出しを読んで作る
+ */
+function OfficeToc({ panel }: { panel: { current: HTMLDivElement | null } }) {
+  const [heads, setHeads] = useState<{ id: string; label: string }[]>([]);
+  useEffect(() => {
+    const read = () => {
+      const list = [...(panel.current?.querySelectorAll<HTMLElement>(".os-sec > h3[id]") ?? [])].map((h) => ({ id: h.id, label: h.textContent?.trim() ?? "" }));
+      setHeads((prev) => (prev.map((x) => `${x.id}:${x.label}`).join("|") === list.map((x) => `${x.id}:${x.label}`).join("|") ? prev : list));
+    };
+    read();
+    const el = panel.current;
+    if (el === null || typeof MutationObserver === "undefined") return;
+    const ob = new MutationObserver(read);
+    ob.observe(el, { childList: true, subtree: true });
+    return () => ob.disconnect();
+  }, [panel]);
+  if (heads.length < 2) return null;
+  return (
+    <nav class="pl-sub os-toc" aria-label="事務所の既定値の目次" data-office-toc>
+      目次:{" "}
+      {heads.map((h, i) => (
+        <span key={h.id}>
+          {i > 0 ? "・" : ""}
+          <button type="button" class="link-btn" onClick={() => panel.current?.querySelector(`#${CSS.escape(h.id)}`)?.scrollIntoView({ block: "start" })} data-office-toc-item={h.id}>
+            {h.label}
+          </button>
+        </span>
+      ))}
+    </nav>
+  );
 }
 
 /** 事務所の既定値から、％・年齢の欄の文字 */
@@ -114,8 +161,16 @@ const settingTexts = (v: OfficeSettings): Record<string, string> => ({
   reverseAge: v.protection.protection?.reverseUntilAge !== undefined ? String(v.protection.protection.reverseUntilAge) : "",
 });
 
-/** 前提条件の既定の値（パーセント。新しい世帯の DEFAULT_ASSUMPTIONS から。系列を OFFICE_ASSUMPTIONS に足せば、ここも付いてくる） */
-const STANDARD_PCT: Readonly<Record<OfficeAssumption, string>> = Object.fromEntries(OFFICE_ASSUMPTIONS.map((k) => [k, rateToPct(DEFAULT_ASSUMPTIONS[k].default)])) as Record<OfficeAssumption, string>;
+/** 前提条件の既定の値（パーセント。settings.ts の ASSUMPTION_STANDARDS から。系列を OFFICE_ASSUMPTIONS に足せば、ここも付いてくる） */
+const STANDARD_PCT: Readonly<Record<OfficeAssumption, string>> = Object.fromEntries(OFFICE_ASSUMPTIONS.map((k) => [k, rateToPct(ASSUMPTION_STANDARDS[k])])) as Record<OfficeAssumption, string>;
+
+/** 前提条件の既定値の欄の下の1行（入れなければ既定の値。貸していない不動産の値動きは、評価額の伸び率を入れていない物に使う） */
+const assumptionNote = (k: OfficeAssumption): string =>
+  k === "heldEstateGrowth"
+    ? `入れなければ${STANDARD_PCT[k]}%（評価額のまま）。貯蓄・運用の貸していない不動産で、評価額の伸び率を入れていない物に使います（新しい世帯の前提条件の「資産の種類ごとの利回り」の不動産に写します）。${rangeText(ASSUMPTION_RANGES[k])}`
+    : k === "depositReturn"
+      ? `入れなければ既定の値（${STANDARD_PCT[k]}%。仮の値）。預金・外貨預金の利回りです。${rangeText(ASSUMPTION_RANGES[k])}`
+      : `入れなければ既定の値（${STANDARD_PCT[k]}%。仮の値）。${rangeText(ASSUMPTION_RANGES[k])}`;
 
 export function OfficeSettingsPanel({ value, onSave, shared, onClose, features = NO_FEATURES, onAddCode, onRemoveCode, onDismissNotice, onCheckCodes, onDecideCandidate, custom, onEstimates, previewEstimates, branding }: OfficeSettingsPanelProps) {
   const [s, setS] = useState<OfficeSettings>(value);
@@ -326,6 +381,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
           新しく作る世帯に写す値と、入力のホームの並びです。写した値は「推定」の印（根拠「事務所の既定値」）で入り、後で変えても作った世帯は黙って変わりません（違うときは確かめの一覧に「事務所の新しい値があります」と出ます）。
           {shared ? "事務所で共有していても、今はこの PC の設定です。" : "この PC の設定です。"}
         </p>
+        <OfficeToc panel={panel} />
         {branding !== undefined ? <BrandingSection {...branding} shared={shared} /> : null}
         <section class="os-sec" aria-labelledby="os-cards">
           <h3 id="os-cards">入力のホームの入力項目の並び</h3>
@@ -555,7 +611,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
         <section class="os-sec" aria-labelledby="os-assume">
           <h3 id="os-assume">前提条件の既定値</h3>
           <div class="os-grid">
-            {OFFICE_ASSUMPTIONS.map((k) => pct(k, ASSUMPTION_LABELS[k], STANDARD_PCT[k], `入れなければ既定の値（${STANDARD_PCT[k]}%。仮の値）。${rangeText(ASSUMPTION_RANGES[k])}`, ASSUMPTION_RANGES[k]))}
+            {OFFICE_ASSUMPTIONS.map((k) => pct(k, ASSUMPTION_LABELS[k], STANDARD_PCT[k], assumptionNote(k), ASSUMPTION_RANGES[k]))}
             {pct("realEstateRatio", "相続税の目安: 不動産の評価の割合（時価に掛ける）", "80", "入れなければ時価の80%")}
             <label class="os-pct">
               <span>表の最後の年（何歳まで見るか）</span>
@@ -589,16 +645,16 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
             <label class="os-pct">
               <span>単発の料金（相談料・プラン作成料）</span>
               <span class="os-in">
-                <input inputMode="numeric" value={fee.oneTime} placeholder="300000" aria-invalid={yenFromText(fee.oneTime) === undefined} onInput={(e) => setFee({ ...fee, oneTime: (e.currentTarget as HTMLInputElement).value })} data-office-fee-one />円
+                <input inputMode="decimal" value={fee.oneTime} placeholder="30" aria-invalid={feeYenFromText(fee.oneTime) === undefined} onInput={(e) => setFee({ ...fee, oneTime: (e.currentTarget as HTMLInputElement).value })} data-office-fee-one />万円
               </span>
-              <small>0円なら単発の料金を入れません</small>
+              <small>税込。0なら単発の料金を入れません</small>
             </label>
             <label class="os-pct">
               <span>継続の顧問料（{per}額）</span>
               <span class="os-in">
-                <input inputMode="numeric" value={fee.amount} placeholder="10000" aria-invalid={yenFromText(fee.amount) === undefined} onInput={(e) => setFee({ ...fee, amount: (e.currentTarget as HTMLInputElement).value })} data-office-fee-amount />円
+                <input inputMode="decimal" value={fee.amount} placeholder="1" aria-invalid={feeYenFromText(fee.amount) === undefined} onInput={(e) => setFee({ ...fee, amount: (e.currentTarget as HTMLInputElement).value })} data-office-fee-amount />万円
               </span>
-              <small>単発の料金の12か月後（翌年の同じ月）から</small>
+              <small>税込。単発の料金の12か月後（翌年の同じ月）から</small>
             </label>
           </div>
           <label class="os-radio">
@@ -615,7 +671,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
                 <span class="os-in">
                   <input inputMode="numeric" size={3} value={x.year} aria-label={`料金の段階 ${i + 1}: 何年目から`} onInput={(e) => setFee({ ...fee, steps: fee.steps.map((y, j) => (j === i ? { ...y, year: (e.currentTarget as HTMLInputElement).value } : y)) })} />
                   年目から{per}
-                  <input inputMode="numeric" value={x.amount} aria-label={`料金の段階 ${i + 1}: 額`} onInput={(e) => setFee({ ...fee, steps: fee.steps.map((y, j) => (j === i ? { ...y, amount: (e.currentTarget as HTMLInputElement).value } : y)) })} />円
+                  <input inputMode="decimal" value={x.amount} aria-label={`料金の段階 ${i + 1}: 額（万円）`} onInput={(e) => setFee({ ...fee, steps: fee.steps.map((y, j) => (j === i ? { ...y, amount: (e.currentTarget as HTMLInputElement).value } : y)) })} />万円
                 </span>
                 <button type="button" class="link-btn" onClick={() => setFee({ ...fee, steps: fee.steps.filter((_y, j) => j !== i) })}>
                   外す
@@ -633,7 +689,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
               }}
               data-office-fee-add-step
             >
-              ＋ 料金の段階（○年目から○円）
+              ＋ 料金の段階（○年目から○万円）
             </button>
           </p>
           <label class="os-radio">
@@ -682,7 +738,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose, features =
           <p class="pl-sub">資産と負債のタブの「見るもの」に「合算BS」が加わり、会社の試算表の数字を入れて、経営者個人（家計）と会社のバランスシートを並べ・相殺し・合算できます。提案書にも章を選んで載せられます。試しの機能です。</p>
         </section>
         ) : null}
-        {bad.length > 0 ? <p class="fatal">数で入れてください（前提は欄の下の範囲〔物価・賃金は -10〜10%、運用利回りは -10〜15%、年金の調整率は 0〜5%〕、評価の割合は 0〜100%、料金表の額は円、段階は2〜{FEE_STEP_YEAR_MAX}年目で重ならないように、必要保障額の年齢は 50〜110歳）。</p> : null}
+        {bad.length > 0 ? <p class="fatal">数で入れてください（前提は欄の下の範囲〔物価・賃金は -10〜10%、運用利回りは -10〜15%、年金の調整率は 0〜5%〕、評価の割合は 0〜100%、料金表の額は万円（円で入れるときは「12,000円」のように円を付ける）、段階は2〜{FEE_STEP_YEAR_MAX}年目で重ならないように、必要保障額の年齢は 50〜110歳）。</p> : null}
         {msg !== null ? (
           <p class={msg.ok ? "rp-note" : "fatal"} role="status" data-office-settings-msg>
             {msg.text}

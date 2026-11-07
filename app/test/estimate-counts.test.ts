@@ -21,13 +21,13 @@ import { putRow, rowAt } from "../src/workspace/input/rows.ts";
 import type { Debt } from "../src/engine/types.ts";
 import { statusText } from "../src/workspace/input/StatusBadge.tsx";
 import { applyStateOp, availableOps, endedLongAgo, fieldStatus, holderOfField } from "../src/workspace/input/valueState.ts";
-import { modelHousehold } from "./helpers.ts";
+import { modelWithGaps } from "./helpers.ts";
 
 const seq = () => {
   let n = 0;
   return () => `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}`;
 };
-const open = (id: string): WorkingHousehold => fromRequest(modelHousehold(id));
+const open = (id: string): WorkingHousehold => fromRequest(modelWithGaps(id));
 const fieldOf = (wh: WorkingHousehold, card: string, key: string | RegExp): FieldDef => {
   const st = itemStage(wh, card);
   const f = st === null ? undefined : allFields(st).find((x) => (typeof key === "string" ? x.key === key : key.test(x.key)));

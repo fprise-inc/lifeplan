@@ -160,8 +160,8 @@ describe("預金の利回り（0137）", () => {
     expect(g.hint).toBe("預金は「資産の種類ごとの利回り」の預金（0.1%）で計算しています");
   });
 
-  it("事務所の既定値に後から足せる形（前提条件の欄のキーと同じ名前の系列。今はまだ足さない）", () => {
-    expect(OFFICE_ASSUMPTIONS).not.toContain("depositReturn");
+  it("事務所の既定値の前提条件の標準値の系列（前提条件の欄のキーと同じ名前。0073 の追記 2026-11-07 で足した）", () => {
+    expect(OFFICE_ASSUMPTIONS).toContain("depositReturn");
     expect(Object.keys(DEFAULT_ASSUMPTIONS)).toContain("depositReturn");
   });
 });

@@ -6,11 +6,10 @@
 // - スマホの幅（375px）でも、グラフ・つまみが出て、横にはみ出さない
 // 使い方: node scripts/check-takeaway.ts <パスワードなしの HTML> [<パスワードありの HTML> <パスワード>] [--shots <写真の置き場>]
 // ブラウザの場所は環境変数 HEADLESS_BROWSER（無ければ CI の実行機が用意している CHROME_BIN）。見つからなければ、何もせず知らせて終わる（--require なら失敗）
-import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { launchHeadless, openSocket } from "./headless.ts";
 
 const args = process.argv.slice(2);
 const flag = (name: string) => {
@@ -35,23 +34,10 @@ if (browserPath === undefined) {
   process.exit(require ? 1 : 0);
 }
 
-const profile = mkdtempSync(join(tmpdir(), "financia-takeaway-check-"));
-const browser = spawn(browserPath, ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", "--disable-background-networking", "--disable-component-update", "--disable-sync", "--host-resolver-rules=MAP * ~NOTFOUND", ...(process.env.CI !== undefined ? ["--no-sandbox"] : []), "about:blank"], { stdio: ["ignore", "ignore", "pipe"] });
-const wsUrl = await new Promise<string>((ok, ng) => {
-  let buf = "";
-  const t = setTimeout(() => ng(new Error("ブラウザの DevTools の口が開きませんでした")), 20_000);
-  browser.stderr.on("data", (c: Buffer) => {
-    buf += c.toString();
-    const m = /DevTools listening on (ws:\/\/\S+)/.exec(buf);
-    if (m !== null) {
-      clearTimeout(t);
-      ok(m[1] as string);
-    }
-  });
-});
+// ブラウザを起こして DevTools の口が開いて答えるのを待つ（決まった時間でなく口が開いた印を待つ。起動に失敗したら1回だけやり直す。headless.ts）
+const { proc: browser, wsUrl } = await launchHeadless(browserPath, ["--no-first-run", "--no-default-browser-check", "--disable-background-networking", "--disable-component-update", "--disable-sync", "--host-resolver-rules=MAP * ~NOTFOUND", ...(process.env.CI !== undefined ? ["--no-sandbox"] : []), "about:blank"], { prefix: "financia-takeaway-check-" });
 
-const ws = new WebSocket(wsUrl);
-await new Promise((ok) => ws.addEventListener("open", ok, { once: true }));
+const ws = await openSocket(wsUrl);
 let nextId = 1;
 const pending = new Map<number, { ok: (v: unknown) => void; ng: (e: Error) => void }>();
 type Listener = (params: Record<string, unknown>, sessionId: string | undefined) => void;
@@ -104,7 +90,8 @@ async function openPage(file: string, viewport: { w: number; h: number; mobile: 
       if (r.exceptionDetails !== undefined) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
       return r.result.value as T;
     },
-    until: async (expr: string, timeout = 20_000) => {
+    // 決まった時間でなく、その物が出るまで待つ（上限は長めに。CI の実行機は描くのが遅いことがある）
+    until: async (expr: string, timeout = 60_000) => {
       const t0 = Date.now();
       while (Date.now() - t0 < timeout) {
         if (await page.eval<boolean>(`!!(${expr})`).catch(() => false)) return;

@@ -71,7 +71,8 @@ export function scheduleItems(wh: WorkingHousehold): ScheduleItem[] {
     // 夢プランの夢は★を付ける（計算に入れない夢はそう添える。0103）
     const name = p.kind === "dream" ? `★${named}${p.dream?.include === false ? "（最初から計算に入れない）" : ""}` : named;
     const v = p.amount.value;
-    add(yearOf(resolveTimepoint(h, p.from)), { dir: "出", name, amount: `${v === null || v === undefined ? "額は未入力" : manYen(v)}・${c === "毎月" ? "月額・毎月" : c}`, lump: c === "1回", card: CARD_LABEL[card] });
+    // 額の無い行（0円）は「額は未入力」（入るお金と同じ。行の見出しの読みとそろえる）
+    add(yearOf(resolveTimepoint(h, p.from)), { dir: "出", name, amount: `${v === null || v === undefined || v === 0 ? "額は未入力" : manYen(v)}・${c === "毎月" ? "月額・毎月" : c}`, lump: c === "1回", card: CARD_LABEL[card] });
   }
   for (const f of h.incomeFlows ?? []) {
     const c = cadenceText(h, f);

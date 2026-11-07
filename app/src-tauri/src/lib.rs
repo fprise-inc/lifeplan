@@ -370,6 +370,7 @@ pub fn run() {
             ai::ai_share_start,
             ai::ai_share_stop,
             ai::ai_candidate_decide,
+            ai::ai_documents_taken,
             office::office_status,
             office::office_start,
             office::office_join,

@@ -1,11 +1,13 @@
 // 通しの入力のテストの道具: 開発用のサーバー（Vite）と見えないブラウザ（DevTools の口 CDP を Node の WebSocket で使う。npm の依存なし）を起こし、
 // 画面を人と同じ操作（押す・打つ・Tab）で動かす。持ち帰り用のレポートの確かめ（scripts/check-takeaway.ts）と同じやり方。
 // ポートは空いている物を OS に選ばせる（開発中のアプリのポート 1420 は使わない）
-import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+// 待ち方（0132 の追記 2026-11-07）: 決まった時間を延ばすのでなく、物が出たことを待つ。ブラウザは DevTools の口が開いて答えるまで待ち、
+// 起動に失敗したら1回だけ起こし直す（scripts/headless.ts）。開発用のサーバーは入口の読み込みが落ち着くまで待ってから画面を開き、
+// 画面が出ない・読み込みが壊れた（依存のまとめ直しで古い部品を読んだ）ときは1回だけ読み直す。押す物・欄は、出るまで少し待って探し直す
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createServer, type ViteDevServer } from "vite";
+import { launchHeadless, openSocket } from "../../scripts/headless.ts";
 import { APP_DIR } from "../../scripts/lib.ts";
 import { AUTOSAVE_MS } from "../../src/workspace/store/autosave.ts";
 import { PAGE_HELPERS } from "./pageHelpers.ts";
@@ -18,6 +20,11 @@ export function browserPath(): string | null {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** 押す物・欄が出るまで探し直す上限（ミリ秒）。出ればすぐ押す */
+const LOCATE_MS = 8_000;
+/** 画面の読み込みが壊れた印（依存のまとめ直しで古い部品を読んだ・部品を読めなかった） */
+const BROKEN_LOAD = /Outdated Optimize Dep|Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed/;
 
 export interface Session {
   url: string;
@@ -35,20 +42,10 @@ export async function start(): Promise<Session> {
   const addr = server.httpServer?.address();
   if (addr === null || addr === undefined || typeof addr === "string") throw new Error("開発用のサーバーのポートが分かりません");
   const url = `http://127.0.0.1:${addr.port}/`;
-  const profile = mkdtempSync(join(tmpdir(), "financia-walkthrough-"));
-  const proc: ChildProcess = spawn(exe, ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", "--disable-background-networking", "--disable-component-update", "--disable-sync", "--lang=ja", ...(process.env.CI !== undefined ? ["--no-sandbox"] : []), "about:blank"], { stdio: ["ignore", "ignore", "pipe"] });
-  const wsUrl = await new Promise<string>((ok, ng) => {
-    let buf = "";
-    const t = setTimeout(() => ng(new Error("ブラウザの DevTools の口が開きませんでした")), 30_000);
-    proc.stderr?.on("data", (c: Buffer) => {
-      buf += c.toString();
-      const m = /DevTools listening on (ws:\/\/\S+)/.exec(buf);
-      if (m !== null) {
-        clearTimeout(t);
-        ok(m[1] as string);
-      }
-    });
-  });
+  // 入口を先に読ませ、静的な読み込みが落ち着くまで待つ（初めの依存のまとめを画面を開く前に済ませ、開いた後のまとめ直しを減らす）
+  await server.warmupRequest("/src/main.tsx").catch(() => undefined);
+  await server.waitForRequestsIdle().catch(() => undefined);
+  const { proc, wsUrl } = await launchHeadless(exe, ["--no-first-run", "--no-default-browser-check", "--disable-background-networking", "--disable-component-update", "--disable-sync", "--lang=ja", ...(process.env.CI !== undefined ? ["--no-sandbox"] : []), "about:blank"], { prefix: "financia-walkthrough-" });
   const cdp = await connect(wsUrl);
   const page = await openPage(cdp, url);
   return {
@@ -75,8 +72,7 @@ interface Cdp {
 }
 
 async function connect(wsUrl: string): Promise<Cdp> {
-  const ws = new WebSocket(wsUrl);
-  await new Promise((ok) => ws.addEventListener("open", ok, { once: true }));
+  const ws = await openSocket(wsUrl);
   let nextId = 1;
   const pending = new Map<number, { ok: (v: unknown) => void; ng: (e: Error) => void }>();
   const listeners: { method: string; fn: (p: Record<string, unknown>, s: string | undefined) => void }[] = [];
@@ -134,6 +130,19 @@ export class Page {
     return r.result.value as T;
   }
 
+  /**
+   * 押す物・欄の場所を探す（ページの中の式。見つかれば座標、無ければ理由の文字）。描き直しの途中で無いことがあるので、
+   * 見つからなければ少しずつ待って探し直す（決まった時間を待つのでなく、出たらすぐ返す。上限 wait ミリ秒。最後の理由の文字を返す）
+   */
+  private async locate(expr: string, wait = LOCATE_MS): Promise<Point | string> {
+    const t0 = Date.now();
+    for (;;) {
+      const r = await this.eval<Point | string>(expr).catch((e: unknown) => `探せませんでした: ${e instanceof Error ? e.message : String(e)}`);
+      if (typeof r !== "string" || Date.now() - t0 >= wait) return r;
+      await sleep(200);
+    }
+  }
+
   async until(expr: string, what: string, timeout = 30_000): Promise<void> {
     const t0 = Date.now();
     while (Date.now() - t0 < timeout) {
@@ -179,7 +188,7 @@ export class Page {
 
   /** 文字で探した押せる物（ボタン・タブ・リンク）を押す。within はパネルの中だけ（panel）か画面全体（page） */
   async click(text: string, o: { within?: "panel" | "page" | "dialog"; nth?: number; exact?: boolean; row?: string } = {}): Promise<void> {
-    const pt = await this.eval<Point | string>(`return w.target(${JSON.stringify(text)}, ${JSON.stringify(o.within ?? "page")}, ${o.nth ?? 0}, ${o.exact === true}, ${JSON.stringify(o.row ?? null)})`);
+    const pt = await this.locate(`return w.target(${JSON.stringify(text)}, ${JSON.stringify(o.within ?? "page")}, ${o.nth ?? 0}, ${o.exact === true}, ${JSON.stringify(o.row ?? null)})`);
     if (typeof pt === "string") throw new Error(pt);
     // 隠れていれば、Tab で来て Enter を押すのと同じにする
     if (pt.covered === true) {
@@ -191,7 +200,7 @@ export class Page {
 
   /** 欄（名前で探す）を押して中を全部選び、文字を打って Tab で次へ（空の文字なら Backspace で消す） */
   async type(label: string, text: string, o: { nth?: number; within?: string } = {}): Promise<void> {
-    const pt = await this.eval<Point | string>(`return w.field(${JSON.stringify(label)}, ${o.nth ?? 0}, ${JSON.stringify(o.within ?? null)})`);
+    const pt = await this.locate(`return w.field(${JSON.stringify(label)}, ${o.nth ?? 0}, ${JSON.stringify(o.within ?? null)})`);
     if (typeof pt === "string") throw new Error(pt);
     await this.enter(pt, label);
     // 人と同じく、中を全部選んでそのまま打つ（選んだ文字が打った文字に置き換わる。途中で空にしない）
@@ -204,7 +213,7 @@ export class Page {
 
   /** 欄の中の文字を Backspace で消す（打つ途中の空で物が消えないかを見る） */
   async clear(label: string, o: { nth?: number; within?: string } = {}): Promise<void> {
-    const pt = await this.eval<Point | string>(`return w.field(${JSON.stringify(label)}, ${o.nth ?? 0}, ${JSON.stringify(o.within ?? null)})`);
+    const pt = await this.locate(`return w.field(${JSON.stringify(label)}, ${o.nth ?? 0}, ${JSON.stringify(o.within ?? null)})`);
     if (typeof pt === "string") throw new Error(pt);
     await this.enter(pt, label);
     await this.key("a", "KeyA", 65, ["selectAll"]);
@@ -215,8 +224,9 @@ export class Page {
 
   /** 選ぶ欄（select）で選択肢を選ぶ。選択肢の一覧はブラウザの外に出るので、押して開いた後、値を選んで変更の出来事を送る */
   async choose(label: string, option: string, o: { nth?: number; within?: string } = {}): Promise<void> {
-    const r = await this.eval<string>(`return w.choose(${JSON.stringify(label)}, ${JSON.stringify(option)}, ${o.nth ?? 0}, ${JSON.stringify(o.within ?? null)})`);
-    if (r !== "ok") throw new Error(r);
+    // 欄が出るまで探し直す（選んだら "ok"。選べない理由の文字は探し直しの対象）
+    const r = await this.locate(`const r = w.choose(${JSON.stringify(label)}, ${JSON.stringify(option)}, ${o.nth ?? 0}, ${JSON.stringify(o.within ?? null)}); return r === "ok" ? { x: 0, y: 0 } : r`);
+    if (typeof r === "string") throw new Error(r);
     await this.settle();
   }
 
@@ -249,8 +259,19 @@ async function openPage(cdp: Cdp, url: string): Promise<Page> {
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false }, sessionId);
   await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: PAGE_HELPERS }, sessionId);
   await cdp.send("Page.navigate", { url }, sessionId);
-  // 初めの依存のまとめ（Vite）で時間がかかることがある
-  await page.until("document.querySelector('[role=tab], nav button')", "アプリの画面が出る", 180_000);
-  await page.settle();
-  return page;
+  // 画面が出て（上の帯の世帯の名前のボタンか、初めての起動の問い）、読み込みが壊れていないことを待つ。出ない・壊れたら1回だけ読み直す
+  // （初めの依存のまとめ〔Vite〕で時間がかかる・開いた後にまとめ直して古い部品を読むことがある）
+  for (let i = 0; ; i++) {
+    const broken = () => page.errors.some((e) => BROKEN_LOAD.test(e));
+    try {
+      await page.until(`document.querySelector('[role=tab], nav button') && (w.all("header button").some((b) => /[▼▲]$/.test(w.txt(b))) || !!w.dialog())`, "アプリの画面が出る", i === 0 ? 120_000 : 180_000);
+      await page.settle();
+      if (!broken()) return page;
+      if (i >= 1) throw new Error(`アプリの画面の読み込みが壊れています（${page.errors.filter((e) => BROKEN_LOAD.test(e)).slice(0, 2).join(" / ")}）`);
+    } catch (e) {
+      if (i >= 1) throw e;
+    }
+    page.errors.length = 0;
+    await cdp.send("Page.reload", { ignoreCache: true }, sessionId);
+  }
 }

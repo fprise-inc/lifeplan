@@ -1,6 +1,6 @@
 // Web のヒアリング（0125・0138）のお客さまの画面の流れ: 1画面に小さなまとまり（人ごと・お住まい・お金）を並べ、答えに合わせて問いを飛ばす。
 // - 手軽さが主軸（通常の票が主）: 人ごとに「生年月・年齢・性別」「働き方・年収」、お住まいは「住まいの形・家賃かローン」、お金は「預貯金・投資」を同じ画面に。
-//   ご両親は1人1画面（ご健在か・お年・同居。詳細の票は介護が始まっているかも。お金〔仕送り・援助・介護の費用〕はもう1画面）、
+//   詳細の票の自営業の方は「事業の所得・確定申告の仕方」を同じ画面に。ご両親は1人1画面（ご健在か・お年・同居。詳細の票は介護が始まっているかも。お金〔仕送り・援助・介護の費用〕はもう1画面）、
 //   受け取る予定の相続・贈与は時期・額と1画面、お子さまの生年月は全員を1画面に。まとめ方は GROUPS・ACROSS の表（詳細の票にも同じ表が効く）
 // - 分岐の問い（配偶者の方がいるか・お子さまの人数・住宅ローンの本数・保険の件数・ご両親のことを聞いてよいか）は答えの一覧に入れず、決まった答えに写す
 //   （配偶者の方がいない → 配偶者の方の生年月・年齢・ご結婚の形を「該当なし」。人数を超える分・聞かないと答えた分は出さない＝未回答）。受け皿は Excel と同じ
@@ -155,6 +155,7 @@ const SHOW: Readonly<Record<string, Cond>> = {
   "hs.income.salary": SALARIED,
   "hs.income.bonus": SALARIED,
   "hs.income.business": all(WORKING, isAny("hs.work.type", ["selfEmployed"])),
+  "hs.income.taxReturn": all(WORKING, isAny("hs.work.type", ["selfEmployed"])),
   "hs.income.annual": WORKING,
   "hs.income.annualRange": WORKING,
   "hs.income.residentTax": WORKING,
@@ -196,6 +197,7 @@ const GROUPS: Readonly<Record<string, readonly string[]>> = {
   "hs.family.adult.birthYearMonth": ["hs.family.adult.sex"],
   "hs.family.child.birthYearMonth": ["hs.family.child.sex"],
   "hs.work.type": ["hs.income.annual"],
+  "hs.income.business": ["hs.income.taxReturn"],
   "hs.housing.type": ["hs.housing.rent", "hs.loan.monthlyTotal", "hs.loan.balanceTotal"],
   "hs.assets.depositTotal": ["hs.assets.investTotal"],
   "hs.expense.living": ["hs.insurance.premiumTotal"],

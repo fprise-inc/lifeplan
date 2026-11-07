@@ -36,7 +36,8 @@ export interface PlanEditProps {
 
 /**
  * 編集の対象の選び方（0077）。プランの色は、この箱の枠と左の小さな点だけに使う（画面全体の色・左の帯は出さない）。
- * 現状とプランで箱の中の並びと大きさを変えない（プランの操作は「プランの操作」の中にまとめ、選んでも配置が1ピクセルも動かない）
+ * 現状とプランで箱の中の並びと大きさを変えない（プランの操作は「プランの操作」の中にまとめ、選んでも配置が1ピクセルも動かない）。
+ * 違いの一覧は、プランを選んでいる間だけ箱の右端の文字のリンク「違いの一覧（n）」で開く。現状のときも同じ幅の場所を空けておき、選んでも配置を動かさない
  */
 export function PlanTarget({ p, diffs, initialMenu = false }: { p: PlanEditProps; diffs?: { rows: readonly DiffRow[]; open: boolean; onOpen: (v: boolean) => void }; initialMenu?: boolean }) {
   const cur = p.list.find((x) => x.id === p.sel) ?? null;
@@ -101,7 +102,6 @@ export function PlanTarget({ p, diffs, initialMenu = false }: { p: PlanEditProps
         </button>
         {menu ? (
           <div class="ih-target-list" role="group" aria-label="プランの操作" data-plan-menu-list>
-            {cur !== null && diffs !== undefined ? <DiffListToggle rows={diffs.rows} open={diffs.open} onOpen={(v) => pick(() => diffs.onOpen(v))()} /> : null}
             {cur !== null && p.onResults !== undefined ? (
               <button type="button" class="link-btn" onClick={pick(p.onResults)} data-plan-results>
                 結果を見る
@@ -123,6 +123,7 @@ export function PlanTarget({ p, diffs, initialMenu = false }: { p: PlanEditProps
           </div>
         ) : null}
       </div>
+      <DiffListLink {...(cur !== null && diffs !== undefined ? { diffs } : {})} />
       {p.lock !== null && cur !== null ? (
         <Help label="直せない理由" mark="入力では直せません" markClass="ih-target-lock" id="plan-lock">
           <p data-plan-lock>{p.lock}</p>
@@ -138,7 +139,7 @@ const REVIEW_FIRST = (r: DiffRow) => r.enabled && r.review !== null && r.review.
  * 違いの一覧（0036 の8）: 差分1件ずつ（置き換えの組は1件）に「何を・現状 → プラン」・オン／オフ・戻す・要確認・出どころ。要確認を上に、
  * カードごとに並べる。オフにした差分・連鎖で一緒に外す差分も出す
  */
-export function DiffList({ rows, wh, planId, cat, onEdit, onOpen }: { rows: readonly DiffRow[]; wh: WorkingHousehold; planId: string; cat: Catalog; onEdit: (next: WorkingHousehold) => void; onOpen: (card: string) => void }) {
+export function DiffList({ rows, wh, planId, planLabel, cat, onEdit, onOpen, onClose }: { rows: readonly DiffRow[]; wh: WorkingHousehold; planId: string; planLabel: string; cat: Catalog; onEdit: (next: WorkingHousehold) => void; onOpen: (card: string) => void; onClose: () => void }) {
   const review = rows.filter(REVIEW_FIRST);
   const rest = rows.filter((r) => !REVIEW_FIRST(r));
   const cards: { card: string | null; label: string; rows: DiffRow[] }[] = [];
@@ -151,7 +152,7 @@ export function DiffList({ rows, wh, planId, cat, onEdit, onOpen }: { rows: read
     <li key={r.key} class={`dl-row${r.enabled ? "" : " off"}${r.cause !== null ? " follower" : ""}${REVIEW_FIRST(r) ? " review" : ""}`} data-diff-row={r.key} data-diff-kind={r.kind}>
       <label class="dl-on" title={r.inherited ? "土台のプランの差分は、土台のプランでオン・オフします" : "オフにすると、この差分を入れずに計算します（差分は残ります）"}>
         <input type="checkbox" checked={r.enabled} disabled={r.inherited} onChange={(e) => onEdit(toggleRow(wh, planId, r, (e.currentTarget as HTMLInputElement).checked))} data-diff-toggle />
-        <span class="sr">{r.enabled ? "オン" : "オフ"}</span>
+        <span class="dl-on-t">計算に入れる</span>
       </label>
       <span class="dl-l">
         {r.label}
@@ -190,6 +191,14 @@ export function DiffList({ rows, wh, planId, cat, onEdit, onOpen }: { rows: read
   );
   return (
     <section class="diff-list" aria-label="違いの一覧" data-diff-list>
+      <div class="dl-head">
+        <h2 data-diff-title>
+          {planLabel}で現状から変えた所（{rows.filter((r) => r.enabled).length}）
+        </h2>
+        <button type="button" class="link-btn" onClick={onClose} data-diff-close>
+          閉じる
+        </button>
+      </div>
       {rows.length === 0 ? <p class="in-note">現状と違う所はまだありません。入力項目を開いて欄を直すと、ここに並びます。</p> : null}
       {review.length > 0 ? (
         <>
@@ -207,14 +216,25 @@ export function DiffList({ rows, wh, planId, cat, onEdit, onOpen }: { rows: read
   );
 }
 
-/** 違いの一覧を開くボタン（数と要確認の数） */
-export function DiffListToggle({ rows, open, onOpen }: { rows: readonly DiffRow[]; open: boolean; onOpen: (v: boolean) => void }) {
-  const on = rows.filter((r) => r.enabled).length;
-  const off = rows.length - on;
-  const rv = rows.filter(REVIEW_FIRST).length;
+/**
+ * 違いの一覧を開く文字のリンク（編集の対象の箱の右端。数は計算に入れている違いの数、要確認があれば色と補足で知らせる）。
+ * プランを選んでいないときは同じ幅の場所だけを空ける（見えない・押せない）
+ */
+export function DiffListLink({ diffs }: { diffs?: { rows: readonly DiffRow[]; open: boolean; onOpen: (v: boolean) => void } }) {
+  // 現状のときも同じ部品（見えない・押せない「off」）にして、選んでも箱の中の並びと大きさを変えない
+  if (diffs === undefined)
+    return (
+      <button type="button" class="link-btn ih-target-diffs off" disabled aria-hidden="true" tabIndex={-1}>
+        違いの一覧（0）
+      </button>
+    );
+  const on = diffs.rows.filter((r) => r.enabled).length;
+  const off = diffs.rows.length - on;
+  const rv = diffs.rows.filter(REVIEW_FIRST).length;
+  const extra = [off > 0 ? `オフ ${off}件` : "", rv > 0 ? `要確認 ${rv}件` : ""].filter((x) => x !== "").join("・");
   return (
-    <button type="button" class="add-btn" aria-expanded={open} onClick={() => onOpen(!open)} data-diff-open>
-      違いの一覧（{on}件{off > 0 ? `・オフ ${off}` : ""}{rv > 0 ? `・要確認 ${rv}` : ""}）
+    <button type="button" class="link-btn ih-target-diffs" aria-expanded={diffs.open} onClick={() => diffs.onOpen(!diffs.open)} title={extra !== "" ? `このほか${extra}` : undefined} {...(rv > 0 ? { "data-review": true } : {})} data-diff-open>
+      違いの一覧（{on}）
     </button>
   );
 }

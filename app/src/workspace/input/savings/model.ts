@@ -9,6 +9,8 @@ import { cmpRate, pctText } from "../../plans/decimal.ts";
 import { resolveTimepoint } from "../form.ts";
 import { confirmedBox, mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
 import { isPresetId, presetNum, presetRate, presetText } from "../../../../../hearing/src/presets.ts";
+import { ASSET_CLASSES } from "../labels.ts";
+import { regulationValue } from "../../../../../hearing/src/statistics.ts";
 
 export type Method = "total" | "accounts" | "allocation";
 export const METHODS: readonly { id: Method; label: string; lead: string }[] = [
@@ -253,6 +255,27 @@ export function rateOf(req: EngineRequest, a: Account): string {
   return expectedReturn(req, a, parseYm(req.input.baseMonth).y + 1);
 }
 
+const ACCOUNT_CASH_CLASS: Readonly<Record<string, string>> = { deposit: "cash.deposit", fxDeposit: "cash.foreign" };
+const classLabel = (assetClass: string): string => ASSET_CLASSES.find((o) => o.value === assetClass)?.label ?? assetClass;
+
+/**
+ * 利回りを入れていない口座の利回りの根拠の文（推定の印の中身。どこから来た値か）: 資産の配分があれば配分、預金・外貨預金は前提条件の
+ * 預金の利回り（資産の種類ごとの利回りにあればそちら）、暗号資産は0%、ほかは前提条件の運用利回り。値は rateOf と同じ決まり
+ */
+export function rateBasisOf(req: EngineRequest, a: Account): string {
+  const year = parseYm(req.input.baseMonth).y + 1;
+  const rate = pctText(expectedReturn(req, a, year));
+  const mix = a.assetMix ?? [];
+  if (mix.length > 0) return presetBasis(`資産の配分 ${mix.map((m) => `${classLabel(m.assetClass)}${Math.round(Number(m.share) * 1000) / 10}%`).join("・")}の利回り ${rate}`);
+  if (a.kind === "cryptoAsset") return presetBasis("0%。今の評価額のまま");
+  const cls = ACCOUNT_CASH_CLASS[a.kind];
+  if (cls !== undefined) {
+    if (classRate(req, cls, year).fromAssumption) return presetBasis(`前提条件の資産の種類ごとの利回りの${classLabel(cls)} ${rate}`);
+    if (req.input.assumptions?.depositReturn !== undefined) return presetBasis(`前提条件の預金の利回り ${rate}`);
+  }
+  return presetBasis(`前提条件の運用利回り ${rate}`);
+}
+
 // ---- 合計の入れ方とまだ分けていない分 ----
 
 /** 今の月から表の最後の年までの、月ごとの本人の積立（器の一覧から） */
@@ -433,11 +456,12 @@ const classPreset = (key: string) => ({
   },
 });
 export const CLASSES: readonly { key: string; name: string; color: string; risky: boolean; mu: string; sd: string }[] = [
-  { key: "equity.domestic", name: "国内株", color: "#2b4c8c", risky: true, ...classPreset("equity.domestic") },
-  { key: "equity.global", name: "外国株", color: "#5a7fc0", risky: true, ...classPreset("equity.global") },
-  { key: "bond.global", name: "債券", color: "#9db3d9", risky: false, ...classPreset("bond.global") },
-  { key: "reit.global", name: "REIT", color: "#c8a35a", risky: true, ...classPreset("reit.global") },
-  { key: "cash.deposit", name: "現金", color: "#cfd5dd", risky: false, ...classPreset("cash.deposit") },
+  // 名前は前提条件の「資産の種類ごとの利回り」と同じ（labels.ts の ASSET_CLASSES。どちらで直しても同じ値なので、同じ名前で見せる）
+  { key: "equity.domestic", name: "国内株式", color: "#2b4c8c", risky: true, ...classPreset("equity.domestic") },
+  { key: "equity.global", name: "外国株式", color: "#5a7fc0", risky: true, ...classPreset("equity.global") },
+  { key: "bond.global", name: "外国債券", color: "#9db3d9", risky: false, ...classPreset("bond.global") },
+  { key: "reit.global", name: "外国REIT", color: "#c8a35a", risky: true, ...classPreset("reit.global") },
+  { key: "cash.deposit", name: "預金", color: "#cfd5dd", risky: false, ...classPreset("cash.deposit") },
 ];
 /** 相場が下がる場合に下げる資産クラス（株・REIT） */
 export const RISKY_CLASSES: readonly string[] = ["equity.domestic", "equity.global", "reit.domestic", "reit.global"];
@@ -516,10 +540,13 @@ export function fillAllocation(wh: WorkingHousehold): WorkingHousehold {
   return { ...next, assumed };
 }
 
-/** 推定のまま（仮の印のまま）の資産の種類の期待リターンを外す（資産配分から別の入れ方に戻したとき） */
+/**
+ * 推定のまま（仮の印のまま）の資産の種類の期待リターンを外す（資産配分から別の入れ方に戻したとき）。外すのは資産配分で目安を書く種類
+ * （fillAllocation と同じく、預金の種類でなく目安のある物）だけ。事務所の既定値で写した不動産（貸していない不動産の値動き。0073 の追記 2026-11-07）は残す
+ */
 export function dropEstimatedClassReturns(wh: WorkingHousehold): WorkingHousehold {
   const own = wh.request.input.assumptions?.assetReturns ?? {};
-  const marked = Object.keys(own).filter((c) => wh.assumed[classReturnKey(c)] !== undefined);
+  const marked = Object.keys(own).filter((c) => !DEPOSIT_CLASSES.has(c) && classReturnPreset(c) !== null && wh.assumed[classReturnKey(c)] !== undefined);
   if (marked.length === 0) return wh;
   const next = mutate(wh, (_h, req) => {
     const a = req.input.assumptions;
@@ -708,6 +735,12 @@ export function resetWithdrawOrder(req: EngineRequest): void {
   else a.withdrawal = w;
 }
 
+/** 取り崩す順番に並ぶ口座の数（収支が入る口座を含む）。2つ以上のときだけ「お金の行き先」に意味がある */
+export function withdrawableCount(req: EngineRequest): number {
+  const v = withdrawViewOf(req);
+  return (v.settlement !== undefined ? 1 : 0) + v.included.length + v.excluded.length;
+}
+
 /** 器の呼び名（種類と名義。例「NISA（夫）」） */
 export const accountName = (a: Account, owner: string): string => `${(KIND_INFO[a.kind]?.name ?? "口座").replace(/（[^）]*）$/, "")}（${owner}）`;
 
@@ -814,6 +847,36 @@ export function defaultPayoutAge(req: EngineRequest, a: Account): number {
   const self = selfOf(h);
   const retire = owner !== undefined && owner.id !== self?.id ? (readLevers(req, owner.id).retireAge ?? retireAgeOf(req)) : retireAgeOf(req);
   return Math.min(65, Math.max(60, retire ?? 65));
+}
+
+/**
+ * 受け取りを始める年齢の推定の根拠の文（「退職の年（63歳）」）。退職の年が65歳より後なら65歳で止めているので、そう書く（退職の年と言わない）。
+ * 60歳より前なら、受け取りを始められる年齢の下限の60歳
+ */
+export function payoutAgeBasis(req: EngineRequest, a: Account): string {
+  const h = req.input.household;
+  const owner = ownerOf(h, a);
+  const self = selfOf(h);
+  const retire = owner !== undefined && owner.id !== self?.id ? (readLevers(req, owner.id).retireAge ?? retireAgeOf(req)) : retireAgeOf(req);
+  const age = defaultPayoutAge(req, a);
+  // iDeCo も同じ言い方（加入できる年齢の上限は2026年12月から70歳になる前の月まで〔制度データ ideco.enrollment.untilAge〕で、65歳は上限ではない。0150）
+  if (retire !== null && retire > 65) return `${age}歳（推定は65歳までにしています）`;
+  if (retire !== null && retire < 60) return `${age}歳（受け取りを始められる年齢の下限）`;
+  return `退職の年（${age}歳）`;
+}
+
+/**
+ * iDeCo の掛金を出す最後の年齢の表の言い方（通しの確かめ。0150）: 受け取りを始める年齢（入れた値か推定）と、加入できる年齢の上限
+ * （制度データ ideco.enrollment.untilAge。2026年12月から70歳）の早いほう。受け取りを始めた月からは掛金を出さない（エンジンと同じ決まり）。
+ * 表の最後の期間を「〜64歳（65歳で受け取りを始める前の月まで）」と書くのに使う。名義の人がいなければ null
+ */
+export function idecoStop(req: EngineRequest, a: Account): { stopAge: number; endNote: string } | null {
+  const owner = ownerOf(req.input.household, a);
+  if (owner === undefined) return null;
+  const payout = payoutAgeOf(req.input.household, a) ?? defaultPayoutAge(req, a);
+  const limit = regulationValue("ideco.enrollment.untilAge", `${ageReachedMonth(owner, payout)}-01`);
+  const until = typeof limit === "number" ? limit : 65;
+  return payout <= until ? { stopAge: payout, endNote: `${payout}歳で受け取りを始める前の月まで` } : { stopAge: until, endNote: `${until}歳になる前の月まで・加入できる年齢の上限` };
 }
 
 /** 受け取りを始める年齢（入れていれば。空欄は null） */

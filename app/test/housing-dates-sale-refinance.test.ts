@@ -263,6 +263,8 @@ describe("今の残高から入れた住宅ローンの借りた年月", () => {
     const d = loans(wh)[0]!;
     expect(d.housing).toBeUndefined();
     wh = set(wh, `${d.id}/payment`, 100000);
+    // 逆算の金利は完済の年月を入れてから（推定の完済からは出さない。段4の確かめ）
+    wh = set(wh, `${d.id}/payoff`, "2050-03");
     expect(String(fieldOf(wh, `${d.id}/payoff`).get(wh).hint)).toMatch(/＝金利 年[\d.]+%（逆算）/);
     wh = set(wh, `${d.id}/start`, "2018-04");
     const own = residences(wh).find((r) => r.kind === "own")!;

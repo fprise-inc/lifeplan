@@ -8,7 +8,7 @@ import type { EngineRequest, OldAgeChoice, SurvivorAssumptions, Timepoint } from
 export interface SurvivorWork {
   /** keep は変えない。none は働かない */
   type: "keep" | "regular" | "contract" | "partTime" | "selfEmployed" | "none";
-  /** 年収（賞与を除く。自営業は事業の所得）。省略は働き方ごとの目安 */
+  /** 年収（画面は「税込み・賞与込み」。計算では賞与に分けず月々の給与にする。自営業は事業所得）。省略は働き方ごとの目安 */
   annualSalary?: number;
   /** 亡くなった月の何か月後から（省略は6） */
   afterMonths?: number;

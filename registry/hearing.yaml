@@ -326,6 +326,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: hs.income.taxReturn
+    status: active
+    label: "確定申告の仕方"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: hs.inherit.amount
     status: active
     label: "受け取る額の目安"
