@@ -41,6 +41,7 @@
 .wr-h small { color: var(--ink-2); }
 .wr-st.answered, .wr-st.received { border-color: var(--good); color: var(--good); }
 .wr-st.expired, .wr-st.cancelled { border-color: var(--base); color: var(--base-ink); }
+.wr-st.undone { border-color: var(--est); color: var(--est-ink); background: var(--est-bg); }
 .wr-docs { display: grid; gap: 8px; border-top: 1px dashed var(--card-line); padding-top: 6px; }
 .wr-doc { display: grid; gap: 4px; }
 .wr-file { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

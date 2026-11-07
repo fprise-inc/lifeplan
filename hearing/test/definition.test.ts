@@ -65,7 +65,8 @@ describe("シート定義", () => {
 
       it("名前の欄・番号類・口座番号・健康の情報を聞く欄が無い（0012・0018 の4）", () => {
         const forbidden = /氏名|お名前|名前|マイナンバー|個人番号|基礎年金番号|口座番号|証券番号|病歴|病名|既往|健康状態|通院|住所|電話/;
-        for (const i of def.items) expect(i.label, i.key).not.toMatch(forbidden);
+        // 同意の文の「お名前は渡しません」は、名前を聞く欄ではない（渡さないことの説明。0138）
+        for (const i of def.items) expect(i.label.replace("（お名前は渡しません）", ""), i.key).not.toMatch(forbidden);
         // 1枚目の注意書きに「お名前は書かない」「聞かないこと」を明記している
         expect(def.intro.notes.some((n) => n.includes("お名前は書かないでください"))).toBe(true);
         expect(def.intro.notes.some((n) => n.includes("お聞きしません") && n.includes("マイナンバー") && n.includes("口座番号") && n.includes("健康"))).toBe(true);

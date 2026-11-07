@@ -2,7 +2,7 @@
 // URL を発行する（有効期限・案内文のひな形をコピー）。送るのは FP（メールなど）。アプリはメールを送らない
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { HearingForm } from "../../hearingForm/Form.tsx";
-import { initialDraft, screenId, screens } from "../../../../hearing/src/web/flow.ts";
+import { initialDraft, screenId, screenOf, screens } from "../../../../hearing/src/web/flow.ts";
 import { DOCUMENT_TEMPLATES } from "../../../../hearing/src/web/documents.ts";
 import { axisOf } from "../../../../hearing/src/definition.ts";
 import { checkSelection, CUSTOM_LABEL_MAX, CUSTOM_MAX, FP_SECTION, selectableItems, type QuestionsPacket, type RequestedDocument, type SelectedSection, type WebSelection } from "../../../../hearing/src/web/packet.ts";
@@ -225,7 +225,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, persisted,
                       const custom = sel.custom.find((c) => c.key === key);
                       const it = items.get(key);
                       const name = custom?.label ?? it?.label ?? key;
-                      const target = list.find((x) => x.kind === "item" && x.key === key);
+                      const target = screenOf(list, key);
                       return (
                         <li key={key} class={chosen === undefined ? "off" : ""} data-web-item={key}>
                           <label>

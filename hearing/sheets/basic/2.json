@@ -503,7 +503,7 @@
     },
     {
       "key": "hs.consent.externalAi",
-      "label": "（任意）分析のために、外部のAIサービスに情報を渡すことに同意します",
+      "label": "（任意）担当の FP が、AI を使ってお答えを整理することがあります（お名前は渡しません）。このことに同意します",
       "type": "choice",
       "choices": [{"value":"given","label":"同意する"},{"value":"refused","label":"同意しない"}],
       "states": [],

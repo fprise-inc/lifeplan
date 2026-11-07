@@ -1,6 +1,7 @@
 // 控除証明書の電子データ（マイナポータル連携の XML）の読み手（0153 の2・0154 の1）。このパソコンの中だけで読み、外へ送らない。
 // 公的な仕様（年末調整のソフトが取り込む形）に合わせて、生命保険料・地震保険料の控除証明書をこのファイルで読み、
-// 国民年金保険料等・小規模企業共済等掛金の控除証明書と住宅ローンの証明書（年末残高等証明書・住宅借入金等特別控除証明書）は certificatesXml.ts で読む。
+// 国民年金保険料等・小規模企業共済等掛金の控除証明書と住宅ローンの証明書（年末残高等証明書・住宅借入金等特別控除証明書）・公的年金等の源泉徴収票は
+// certificatesXml.ts で読む。
 // 1つのファイルに証明書が何通・契約の明細が何件あってもよい。証明書1通を読み取りの記録1件にし、明細1件を新しい物（保険の契約・ローン・口座）の候補1件にする。
 // - 読む: 保険会社名・保険の種類（年金の種類）・契約日・払込方法・区分（一般・介護医療・個人年金、新・旧）ごとの保険料と申告額・証明日。
 //   地震保険は区分（地震・旧長期損害）・保険の対象（建物・家財）・保険期間の始まり・保険料と控除の対象額
@@ -9,18 +10,18 @@
 // - 出す形は書類の候補の答え（document-candidates@1）で、読み口 readProposal を通す（番号を落とす決まり・上限も同じ）
 // 要素の名前は仕様の札の名前（要素の意味の名前は、この読み手が付ける）
 import { readProposal, type ProposalContext } from "./proposal.ts";
-import { CERTIFICATE_SKIPPED, LOAN_BALANCE, LOAN_CREDIT_FORMS, loanBalanceAnswer, loanCreditAnswer, MUTUAL_AID, mutualAidAnswer, PENSION_PREMIUM, pensionPremiumAnswer, type CertificateAnswer } from "./certificatesXml.ts";
+import { CERTIFICATE_SKIPPED, LOAN_BALANCE, LOAN_CREDIT_FORMS, loanBalanceAnswer, loanCreditAnswer, MUTUAL_AID, mutualAidAnswer, PENSION_PREMIUM, pensionPremiumAnswer, PUBLIC_PENSION_FORMS, publicPensionAnswer, type CertificateAnswer } from "./certificatesXml.ts";
 import { PROPOSAL_CONTRACT, type DocumentReading } from "./types.ts";
 import { childOf, decodeXml, findAll, findFirst, parseXml, textOf, type XmlElement } from "./xml.ts";
 import { amountOf, dateOf, dateText, kubunOf, shortIn, ym, type Count } from "./xmlValues.ts";
 
 /** 読み手の ID と版（読み取りの記録と成績に残る。読み方を変えたら版を上げる） */
-export const DEDUCTION_XML_READER = { id: "xml.deductionCertificate", version: 2 } as const;
+export const DEDUCTION_XML_READER = { id: "xml.deductionCertificate", version: 3 } as const;
 
 const LIFE = "TEG800";
 const QUAKE = "TEG810";
 /** 読む証明書の要素の名前（生命保険・地震保険・国民年金保険料等・小規模企業共済等・年末残高等・住宅借入金等特別控除の版ごと） */
-const CERTIFICATES = new Set([LIFE, QUAKE, PENSION_PREMIUM, MUTUAL_AID, LOAN_BALANCE, ...Object.keys(LOAN_CREDIT_FORMS)]);
+const CERTIFICATES = new Set([LIFE, QUAKE, PENSION_PREMIUM, MUTUAL_AID, LOAN_BALANCE, ...Object.keys(LOAN_CREDIT_FORMS), ...Object.keys(PUBLIC_PENSION_FORMS)]);
 
 /**
  * 読まない要素（氏名・番号・自由な文）。parseXml の skip に渡し、中身を木に入れない。
@@ -304,6 +305,7 @@ export function deductionProposals(text: string): DeductionRead {
   const proposals: CertificateProposal[] = [];
   for (const c of certs.slice(0, 50)) {
     const form = LOAN_CREDIT_FORMS[c.name];
+    const slip = PUBLIC_PENSION_FORMS[c.name];
     const p =
       c.name === LIFE
         ? lifeProposal(c, issues)
@@ -317,7 +319,9 @@ export function deductionProposals(text: string): DeductionRead {
                 ? loanBalanceAnswer(c, issues)
                 : form !== undefined
                   ? loanCreditAnswer(c, form, issues)
-                  : null;
+                  : slip !== undefined
+                    ? publicPensionAnswer(c, slip, issues)
+                    : null;
     if (p === null) continue;
     // 値の候補も照合の値も無い証明書（額の無い証明書）は、読めなかったことにする
     const raw = p.raw as { values?: unknown[]; references?: unknown[] };
@@ -325,7 +329,7 @@ export function deductionProposals(text: string): DeductionRead {
     else proposals.push(p);
   }
   if (certs.length > 50) issues.push("証明書が多すぎるので、先の50通だけ読みました");
-  if (certs.length === 0) issues.push("控除証明書の電子データではありません（生命保険料・地震保険料・国民年金保険料等・小規模企業共済等掛金の控除証明書と、住宅ローンの年末残高等証明書・住宅借入金等特別控除証明書を読めます）");
+  if (certs.length === 0) issues.push("控除証明書の電子データではありません（生命保険料・地震保険料・国民年金保険料等・小規模企業共済等掛金の控除証明書と、住宅ローンの年末残高等証明書・住宅借入金等特別控除証明書、公的年金等の源泉徴収票を読めます）");
   return { proposals, issues: [...new Set(issues)] };
 }
 

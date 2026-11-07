@@ -69,6 +69,10 @@ function Page() {
       mode="live"
       initial={state.draft}
       onDraft={save}
+      onClear={() => {
+        clearTimeout(timer.current);
+        store()?.removeItem(draftStorageKey(o.keys));
+      }}
       upload={(bytes) => uploadFile(o, bytes, transport)}
       removeFile={(id) => removeFile(o, id, transport)}
       submit={async (d) => {

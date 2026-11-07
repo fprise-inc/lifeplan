@@ -44,6 +44,10 @@ pub struct ConsentRef {
     pub decision: ConsentDecision,
     /// 参照した同意の記録の `id`
     pub record_id: String,
+    /// 書類を AI に渡すことを含む説明（版2〜）での同意か（`given` のときだけ true。0157）。
+    /// false の世帯は、計算に要る項目は渡せるが、書類から読んだ値の候補（`propose_inputs`）は受けない
+    #[serde(default)]
+    pub documents: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

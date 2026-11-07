@@ -26,6 +26,7 @@ export const XML_DOCS = {
   loan: "住宅ローンの年末残高等証明書・住宅借入金等特別控除証明書",
   pension: "国民年金保険料等の控除証明書",
   account: "小規模企業共済等掛金（iDeCo）の控除証明書",
+  pensionSlip: "公的年金等の源泉徴収票",
 } as const;
 
 /** 書類のお願いの書類の名前 → 書類の種類と、電子データで読める書類 */
@@ -49,8 +50,8 @@ export const STAGE_STARTS: Readonly<Record<string, { line: string; start: DocSta
     start: { title: "保険の書類", docType: "insurancePolicy", xml: XML_DOCS.insurance, holder: null, object: null },
   },
   pension: {
-    line: `ねんきん定期便・年金額改定通知書は AI の答えを貼り付けて、${XML_DOCS.pension}・${XML_DOCS.account}は電子データ（XML）をこのパソコンの中で読めます`,
-    start: { title: "年金の書類", docType: "pensionStatement", xml: `${XML_DOCS.pension}・${XML_DOCS.account}`, holder: null, object: null },
+    line: `ねんきん定期便・年金額改定通知書は AI の答えを貼り付けて、${XML_DOCS.pensionSlip}・${XML_DOCS.pension}・${XML_DOCS.account}は電子データ（XML）をこのパソコンの中で読めます`,
+    start: { title: "年金の書類", docType: "pensionStatement", xml: `${XML_DOCS.pensionSlip}・${XML_DOCS.pension}・${XML_DOCS.account}`, holder: null, object: null },
   },
 };
 
