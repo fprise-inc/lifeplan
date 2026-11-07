@@ -62,7 +62,7 @@ export const LEVEL_HELP: Readonly<Record<StageId, LevelHelpDef>> = {
   },
   savings: {
     simple: [["口座の種類", "種類"], ["今の残高", "今の残高（時価）"], ["毎月の積立"], ["利回り", "利回り（年）"]],
-    detail: [["預貯金の名義", "名義"], ["積立をやめる年齢"], ["運用の費用"], ["資産の配分"]],
+    detail: [["口座の名義", "名義"], ["積立をやめる年齢"], ["運用の費用"], ["資産の配分"]],
     fallback: "estimate",
   },
   rental: {

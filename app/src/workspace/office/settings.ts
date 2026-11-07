@@ -1,5 +1,5 @@
 // 事務所の既定値（0073）: 事務所全体で使う既定を、事務所データ（暗号化。0011 の6）に持つ。世帯ファイルには入れない。
-// - 新しい世帯を作るときに写す（前提条件の標準値・本人と配偶者の介護を最初から入れるか・不動産の評価の割合）。写した値は推定の印で、
+// - 新しい世帯を作るときに写す（前提条件の標準値〔預金の利回り・貸していない不動産の値動きを含む〕・本人と配偶者の介護を最初から入れるか・不動産の評価の割合）。写した値は推定の印で、
 //   根拠「事務所の標準（年月）」。後で事務所の値を変えても、作った世帯は黙って変わらない（確かめの一覧に「事務所の新しい値があります」）
 // - 新しい世帯に写す、入力項目の選び方（出す入力項目と開いたときの入れ方。input/itemChoice.ts）。作った世帯の選び方は世帯ごとに直す
 // - 画面の側で読むだけの既定（入力項目の並び・対策に最初から出す項目・万一のタブの想定の前提に最初から出す項目と場面の帯の並べ方・
@@ -20,7 +20,7 @@ import { STAGE_ORDER } from "../input/stages/index.ts";
 import { isEmptyChoice, readItemChoice, type ItemChoice } from "../input/itemChoice.ts";
 import { isEmptyLeverChoice, readLeverChoice, type LeverChoice } from "../plans/leverChoice.ts";
 import { isEmptyPremiseChoice, isEmptySceneChoice, normalProtection, readPremiseChoice, readProtectionSetting, readSceneChoice, withProtection, type PremiseChoice, type ProtectionSetting, type SceneChoice } from "../contingency/premiseChoice.ts";
-import { setOfficeNow, STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
+import { NESTED_OFFICE_ASSUMPTIONS, setOfficeNow, STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
 import { GROWTH_RANGE, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../input/rateRanges.ts";
 import { readLivingLayout, setLivingLayoutNow, type LivingLayout } from "./livingLayout.ts";
 import type { OfficeHost } from "../../engine/host.ts";
@@ -31,27 +31,48 @@ import { readHearingTemplates, type HearingTemplate } from "../hearing/web.ts";
 export { STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
 
 /**
- * 前提条件の標準値にできる系列（新しい世帯に写す。値は小数の文字。例: "0.01"）。系列の名前は前提条件の年ごとの列の名前（assumptions.<名前>）で、
- * 前提条件の欄のキー assume/<名前> と仮の印のキーが同じ。預金の利回り（depositReturn。0137）を足すときは、ここに名前を1つ足し、範囲と名前の表に
- * 1行ずつ添える（既定の値は DEFAULT_ASSUMPTIONS から引く）
+ * 前提条件の標準値にできる系列（新しい世帯に写す。値は小数の文字。例: "0.01"）。系列の名前はふつう前提条件の年ごとの列の名前（assumptions.<名前>）で、
+ * 前提条件の欄のキー assume/<名前> と仮の印のキーが同じ。前提条件の年ごとの列でない物（貸していない不動産の値動き）は、置き場所と欄のキーを
+ * office/current.ts の NESTED_OFFICE_ASSUMPTIONS に持つ。足すときは、ここに名前を1つ足し、範囲・名前・既定の値の表に1行ずつ添える（0073 の追記 2026-11-07）
  */
-export const OFFICE_ASSUMPTIONS = ["inflation", "wageGrowth", "investmentReturn", "pensionMacroSlide"] as const;
+export const OFFICE_ASSUMPTIONS = ["inflation", "wageGrowth", "investmentReturn", "depositReturn", "pensionMacroSlide", "heldEstateGrowth"] as const;
 export type OfficeAssumption = (typeof OFFICE_ASSUMPTIONS)[number];
 
-/** 前提条件の標準値の欄の範囲（パーセント。入力の画面の前提条件の欄と同じ。0098） */
+/** 前提条件の標準値の欄の範囲（パーセント。入力の画面の前提条件の欄と同じ。0098）。事務所データを読むときも、この範囲の外の値は読まない */
 export const ASSUMPTION_RANGES: Readonly<Record<OfficeAssumption, PctRange>> = {
   inflation: GROWTH_RANGE,
   wageGrowth: GROWTH_RANGE,
   investmentReturn: RETURN_RANGE,
+  depositReturn: RETURN_RANGE,
   pensionMacroSlide: SLIDE_RANGE,
+  // 入力の画面の「資産の種類ごとの利回り」の不動産と同じ範囲
+  heldEstateGrowth: RETURN_RANGE,
 };
 
 export const ASSUMPTION_LABELS: Readonly<Record<OfficeAssumption, string>> = {
   inflation: "物価上昇率（年）",
   wageGrowth: "賃金上昇率（年）",
   investmentReturn: "運用利回り（年）",
+  depositReturn: "預金の利回り（年）",
   pensionMacroSlide: "年金の調整率（マクロ経済スライド）",
+  heldEstateGrowth: "貸していない不動産（空き家・土地・別荘）の値動き（年）",
 };
+
+/**
+ * 前提条件の標準値の既定の値（入れなければこの値。前提条件の年ごとの列は新しい世帯の DEFAULT_ASSUMPTIONS から。貸していない不動産の値動きは、
+ * 計算が資産の種類ごとの利回りの不動産の無いときに使う0%）
+ */
+export const ASSUMPTION_STANDARDS: Readonly<Record<OfficeAssumption, string>> = {
+  inflation: DEFAULT_ASSUMPTIONS.inflation.default,
+  wageGrowth: DEFAULT_ASSUMPTIONS.wageGrowth.default,
+  investmentReturn: DEFAULT_ASSUMPTIONS.investmentReturn.default,
+  depositReturn: DEFAULT_ASSUMPTIONS.depositReturn.default,
+  pensionMacroSlide: DEFAULT_ASSUMPTIONS.pensionMacroSlide.default,
+  heldEstateGrowth: "0",
+};
+
+/** 前提条件の標準値の系列の、前提条件の中の置き場所（道）と、欄のキー・仮の印のキー */
+export const assumptionPlace = (k: OfficeAssumption): { path: readonly string[]; key: string } => NESTED_OFFICE_ASSUMPTIONS[k] ?? { path: [k], key: `assume/${k}` };
 
 /** 法人経営者向けの機能（既定はどれも使わない。0107） */
 export interface OfficeFeatures {
@@ -134,6 +155,8 @@ const sameFee = (a: FeeTable, b: FeeTable) => JSON.stringify(a) === JSON.stringi
 /** 率の文字（-0.2〜0.3 の小数） */
 const RATE = /^-?\d(\.\d{1,6})?$/;
 const rateOk = (v: unknown, lo: number, hi: number): v is string => typeof v === "string" && RATE.test(v) && Number(v) >= lo && Number(v) <= hi;
+/** 前提条件の標準値の率か（系列ごとの欄の範囲の中。画面で保存できる値と同じ範囲） */
+const assumptionOk = (k: OfficeAssumption, v: unknown): v is string => rateOk(v, ASSUMPTION_RANGES[k].min / 100, ASSUMPTION_RANGES[k].max / 100);
 
 /** 読んだ値から設定（読めない所は既定。基本生活費の内訳の並べ方は下の readOfficeSettings で足す） */
 function readCoreSettings(v: unknown): OfficeSettings {
@@ -155,7 +178,7 @@ function readCoreSettings(v: unknown): OfficeSettings {
   const care: CareDefaults = isObj(v.care) && (v.care.selfAndSpouse === "fill" || v.care.selfAndSpouse === "warn") ? { selfAndSpouse: v.care.selfAndSpouse } : DEFAULT_CARE_DEFAULTS;
   const inheritLikelihood: InheritLikelihood = v.inheritLikelihood === "uncertain" ? "uncertain" : "likely";
   const assumptions: Partial<Record<OfficeAssumption, string>> = {};
-  if (isObj(v.assumptions)) for (const k of OFFICE_ASSUMPTIONS) if (rateOk(v.assumptions[k], -0.05, 0.2)) assumptions[k] = v.assumptions[k] as string;
+  if (isObj(v.assumptions)) for (const k of OFFICE_ASSUMPTIONS) if (assumptionOk(k, v.assumptions[k])) assumptions[k] = v.assumptions[k] as string;
   const realEstateRatio = rateOk(v.realEstateRatio, 0, 1) ? (v.realEstateRatio as string) : null;
   // 表の最後の年の既定の年齢（選び方の年齢だけ。100歳は既定と同じなので持たない）
   const endAge = typeof v.endAge === "number" && END_AGES.includes(v.endAge) && v.endAge !== STANDARD_END_AGE ? v.endAge : undefined;
@@ -236,10 +259,15 @@ export function applyOfficeDefaults(wh: WorkingHousehold, s: OfficeSettings): Wo
   if (entries.length === 0 && s.realEstateRatio === null) return w;
   const request = structuredClone(w.request);
   const assumed = { ...w.assumed };
-  const a = (request.input.assumptions ??= structuredClone(DEFAULT_ASSUMPTIONS)) as unknown as Record<string, { default: string } | undefined>;
+  const a = (request.input.assumptions ??= structuredClone(DEFAULT_ASSUMPTIONS)) as unknown as Record<string, unknown>;
   for (const k of entries) {
-    a[k] = { ...(a[k] ?? {}), default: s.assumptions[k] as string };
-    assumed[`assume/${k}`] = basis;
+    // 置き場所（前提条件の年ごとの列か、資産の種類ごとの利回りの不動産）に既定の値を書く。例外の年は残す
+    const { path, key } = assumptionPlace(k);
+    let holder = a;
+    for (const p of path.slice(0, -1)) holder = (holder[p] ??= {}) as Record<string, unknown>;
+    const last = path[path.length - 1] as string;
+    holder[last] = { ...((holder[last] as object | undefined) ?? {}), default: s.assumptions[k] as string };
+    assumed[key] = basis;
   }
   if (s.realEstateRatio !== null) {
     request.input.inheritanceTax = { ...(request.input.inheritanceTax ?? {}), realEstateRatio: s.realEstateRatio };

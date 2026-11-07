@@ -374,6 +374,8 @@ function assetReturnGroups(wh: WorkingHousehold): GroupDef[] {
           find: (_h, w) => (getPath(w.request.input.assumptions, ["assetReturns", cls]) as Obj | undefined) ?? undefined,
           path: ["default"],
           hint: (v) => (v !== null && Number(v) > 0.08 ? "年8%を超えています（事務所の注意の線）" : null),
+          // 不動産は、資産配分の種類でなく、貸していない不動産（空き家・土地・別荘）の値動きに使う（事務所の既定値で写すこともある。0073 の追記 2026-11-07）
+          ...(cls === "realEstate" ? { help: "貯蓄・運用の貸していない不動産（空き家・土地・別荘など）で、評価額の伸び率を入れていない物の値動きです。外すと0%（評価額のまま）。持ち家・収益不動産には使いません（土地の上昇率と建物の耐用年数で動きます）" } : {}),
         }),
       ],
       actions: [
@@ -429,7 +431,7 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
           ...GROWTH_RANGE,
           optional: true,
           blankIsEstimate: true,
-          help: "持ち家・収益不動産の土地の値動きです。入れなければ物価上昇率と同じ。貸していない土地・別荘・空き家には使いません（その物の評価額の伸び率で動き、入れなければ0%）",
+          help: "持ち家・収益不動産の土地の値動きです。入れなければ物価上昇率と同じ。貸していない土地・別荘・空き家には使いません（その物の評価額の伸び率で動き、入れなければ「資産の種類ごとの利回り」の不動産。それも無ければ0%）",
           address: () => ({ target: { plan: "assumptions" }, item, at: ["landGrowth", "default"] }),
           // 空欄は物価上昇率と同じ（推定。見せる値は物価上昇率）
           // 空欄だけ推定（物価上昇率と同じ）。物価上昇率と同じ値でも、入れてあれば確定（0145 の追記）
@@ -844,9 +846,9 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
             const a = (request.input.assumptions ??= {
               investmentReturn: { default: "0.01" },
             });
-            // 預金・外貨預金は、今の預金の利回り（無ければ既定の値）から始める
+            // 預金・外貨預金は今の預金の利回り（無ければ既定の値）から、不動産は今の計算と同じ0%から始める（足しただけで貸していない不動産の値動きを変えない）
             (a.assetReturns ??= {})[o.value] = {
-              default: o.value.startsWith("cash") ? (a.depositReturn?.default ?? DEFAULT_ASSUMPTIONS.depositReturn.default) : "0.03",
+              default: o.value.startsWith("cash") ? (a.depositReturn?.default ?? DEFAULT_ASSUMPTIONS.depositReturn.default) : o.value === "realEstate" ? "0" : "0.03",
             };
             return { ...w, request };
           },
