@@ -55,6 +55,11 @@ fn body(id: &str) -> String {
             "version": 1,
             "imports": [{ "id": "mig-1", "kind": "migration", "memo": [{ "label": "備考", "text": "目印の移行メモ" }], "referenceValues": [{ "row": "cf.net", "year": 2030, "amount": 1830000 }] }]
         },
+        // 書類の読み取りの記録（0148）も、どの版でも AI に渡さない（候補・元の場所の文字・照合の値は計算の要求の外）
+        "documents": {
+            "version": 1,
+            "readings": [{ "id": "doc-1", "kind": "document", "candidates": [{ "source": { "text": "目印の書類の文字" }, "note": "目印の添え書き" }], "references": [{ "label": "目印の照合", "amount": 2470000 }] }]
+        },
     })
     .to_string()
 }
@@ -203,6 +208,10 @@ fn the_reduced_view_has_no_identifiers_or_memos() {
         "migrations",
         "目印の移行メモ",
         "1830000",
+        "documents",
+        "目印の書類の文字",
+        "目印の添え書き",
+        "2470000",
     ] {
         assert!(!out.contains(needle), "縮約版に {needle} が入っている");
     }
