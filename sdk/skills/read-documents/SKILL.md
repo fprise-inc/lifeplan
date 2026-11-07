@@ -1,31 +1,24 @@
 ---
 name: read-documents
-description: お客さまの書類（ねんきん定期便・年金額改定通知書・源泉徴収票〔給与・公的年金等〕・確定申告書の控え・保険料控除証明書・保険証券や設計書・住宅ローンの年末残高等証明書や返済予定表）を読んで、ファイナンシアの入力の候補を答えの形 document-candidates@1 の JSON で返す。FP が書類を渡して「読んで」「入力の候補にして」「ファイナンシアに入れられる形にして」と頼んだときに使う。
+description: お客さまの保険の書類（保険証券・ご契約内容のお知らせ・設計書）を読んで、ファイナンシアの入力の候補を答えの形 document-candidates@1 の JSON で返す。FP が保険の書類を渡して「読んで」「入力の候補にして」「ファイナンシアに入れられる形にして」と頼んだときに使う。ほかの書類（ねんきん定期便・源泉徴収票・確定申告書・住宅ローンの書類・控除証明書など）はアプリが読まないので、このスキルの対象ではない。
 ---
 
 # 書類を読んで入力の候補を出す
 
-FP が渡した書類を読み、ファイナンシアが読める答え（`document-candidates@1`）を作ります。答えは FP がアプリの確かめの画面で1つずつ承認するまで、世帯に何も入りません。**読めない値を推測で埋めない・番号と名前を出さない**の2つが、いちばん大事な決まりです。
+FP が渡した保険の書類を読み、ファイナンシアが読める答え（`document-candidates@1`）を作ります。読めるのは**保険証券・ご契約内容のお知らせ・設計書だけ**です。答えは FP がアプリの確かめの画面で1つずつ承認するまで、世帯に何も入りません。**読めない値を推測で埋めない・番号と名前を出さない**の2つが、いちばん大事な決まりです。
 
 ## 手順
 
 1. **説明書を読む**: [`../../docs/document-reading.md`](../../docs/document-reading.md)（答えの形・値の書き方・読まないもの）。ウェブのチャットでは、FP が貼った説明書の文を読む。
-2. **書類の種類を見分け、その手引きを読む**（書類の見出しの言葉で見分ける。分からなければ FP に聞く）:
+2. **保険の書類か見分け、手引きを読む**（書類の見出しの言葉で見分ける。分からなければ FP に聞く）:
 
    | 書類 | `docType` | 手引き |
    |---|---|---|
-   | ねんきん定期便（はがき・封書）・年金額改定通知書 | `pensionStatement`・`pensionNotice` | [guides/pension.md](guides/pension.md) |
-   | 給与所得の源泉徴収票 | `withholdingSlip` | [guides/withholding-slip.md](guides/withholding-slip.md) |
-   | 公的年金等の源泉徴収票 | `publicPensionWithholding` | [guides/public-pension-withholding.md](guides/public-pension-withholding.md) |
-   | 確定申告書（控え）・青色申告決算書・収支内訳書 | `taxReturn` | [guides/tax-return.md](guides/tax-return.md) |
-   | 生命保険料控除証明書・地震保険料控除証明書 | `lifeInsuranceDeduction`・`earthquakeInsuranceDeduction` | [guides/insurance-deduction.md](guides/insurance-deduction.md) |
    | 保険証券・ご契約内容のお知らせ・設計書 | `insurancePolicy` | [guides/insurance-policy.md](guides/insurance-policy.md) |
-   | 住宅ローンの年末残高等証明書・返済予定表 | `housingLoanBalance`・`loanSchedule` | [guides/housing-loan.md](guides/housing-loan.md) |
-   | 年末調整のための住宅借入金等特別控除証明書（税務署） | `housingLoanCredit` | [guides/housing-loan.md](guides/housing-loan.md) |
 
-   この表に無い書類は、`docType` を `"other"` にし、[fields.md](fields.md) で当て先がはっきり分かる値だけを書く（迷う値は書かない）。
+   ほかの書類（ねんきん定期便・年金額改定通知書・源泉徴収票・確定申告書・保険料控除証明書・住宅ローンの書類など）は、答えの形にしない。FP に「この書類はアプリが読みません。書類を見て入力の欄に打ってください（欄の「?」に書類のどこを見るかがあります）」と伝える。
 3. **はじめに FP へ1回伝える**: 次の文をそのまま伝える。「書類の内容は、読み取りのために、お使いの AI サービスへ送られます。お名前・ご住所・番号などは伏せてからお渡しください。送った内容の扱いはサービスの規約によります（学習に使わない設定にしておくと安心です）。」あわせて、書類を AI に渡すことにお客さまの同意がある世帯だけにしてほしいことを伝える。伏せていない番号が見えても、読まずに進める。
-4. **値を読む**: 手引きの「読む欄」の表のとおりに、入力項目ID・場所・人・値・期間・元の場所・確かさを書く。入力項目ID と場所は [fields.md](fields.md) にある組み合わせだけ。照合だけの値は `references` に書く。
+4. **値を読む**: 手引きの「読む欄」の表のとおりに、入力項目ID・場所・人・値・期間・元の場所・確かさを書く。入力項目ID と場所は [fields.md](fields.md) にある組み合わせ（保険の契約の欄）だけ。照合だけの値は `references` に書く。
 5. **答えを確かめる**（説明書の 7 の確かめ）: 円は円の整数か・年月は西暦か・番号や名前が入っていないか・読めない値を `unreadable` にしたか・円の欄の `period` が書類の額の期間か。
 6. **返す**: AI接続口なら道具 `propose_inputs` で送る（`share_id` と `answer`）。ウェブのチャットなら ```` ```json ```` の囲み1つで返し、その外に「読めなかった欄」「FP に確かめてほしいこと」を数行で書く。
 

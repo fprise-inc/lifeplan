@@ -1,6 +1,7 @@
 // 書類の確かめの画面の中身（0148 の2）: 読み取りの記録1通と今の世帯から、確かめの画面の行（共通の部品 review/rows.ts の形）と
 // 新しい物・照合だけの値・知らせを作り、FP の操作（承認・まとめて承認・直す・入れない・物を足す・名義を選ぶ）を世帯と記録に当てる。
 // 行は毎回作る（保存しない）。世帯の値を変える操作は新しい世帯（元に戻せる変更）と新しい記録の両方を返し、呼ぶ側が記録を先に入れる
+// 取り込みを外した書類（0159）の前の記録は見るだけ: 行は承認・直すができず、物は足せない（入れないと、記録を捨てることはできる）
 import { sameVal, type FieldDef, type Val } from "../input/form.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { addMonths } from "../levers.ts";
@@ -12,13 +13,12 @@ import { findObject } from "../store/readings.ts";
 import { CERTAINTY_LABELS, valueMeta } from "../input/checkRows.ts";
 import { bulkEligible, type Compare, type ReviewRow, type RowEdit } from "../review/rows.ts";
 import { coerce, createObject, metaFor, periodMismatch, writeFromDocument } from "./apply.ts";
-import { NEW_OBJECT_KINDS } from "./objects.ts";
+import { NEW_OBJECT_KINDS, RETIRED_OBJECT_KINDS } from "./objects.ts";
 import { cleanValue, isPersonalNumberValue } from "./privacy.ts";
 import { fieldPlaces, memberIdOf, placeByKey, resolveTarget, type FieldPlace, type Resolution } from "./resolve.ts";
 import { readingScore, scoreTotals } from "./score.ts";
-import { insuranceGaps, type GapList } from "./insuranceGaps.ts";
 import { ITEM_LABELS } from "../../generated/labels.ts";
-import { CONFIDENCE_LABELS, docTypeLabel, LIMITS, VIA_LABELS, type CandidateValue, type DocCandidate, type DocObject, type DocumentReading } from "./types.ts";
+import { CONFIDENCE_LABELS, docTypeLabel, isRetired, LIMITS, VIA_LABELS, type CandidateValue, type DocCandidate, type DocObject, type DocumentReading } from "./types.ts";
 
 type Obj = Record<string, unknown>;
 
@@ -35,7 +35,7 @@ export interface ObjectView {
   similar: string[];
   /** 当てられる今ある物（「今の○○に当てる」。0154 の3） */
   links: LinkTarget[];
-  /** 今ある物の呼び名（「今の住宅ローンに当てる」の「住宅ローン」） */
+  /** 今ある物の呼び名（「今の保険契約に当てる」の「保険契約」） */
   noun: string;
   /** 今ある物に当てた（足していない）ときの、その物の名前 */
   linkedTo: string | null;
@@ -72,9 +72,12 @@ export interface DocReview {
   bulk: string[];
   pending: number;
   score: { matched: number; corrected: number; unreadable: number };
-  /** 保険の入れ漏れの一覧（新しい保険の契約の候補がある書類だけ。0153 の3） */
-  gaps: GapList | null;
+  /** 取り込みを外した書類の前の記録（見るだけ。0159） */
+  retired: boolean;
 }
+
+/** 取り込みを外した書類の前の記録の行に出す理由（0159） */
+export const RETIRED_PROBLEM = "この書類の取り込みは外しました。書類を見て入力の欄に打ってください";
 
 /** 計算の結果の行の額（照合の値と比べる。その年・その人の分の合計。無ければ null） */
 export type CalcOf = (row: string, year: number, member: string | null) => number | null;
@@ -287,26 +290,25 @@ export function docReview(wh: WorkingHousehold, r: DocumentReading, chosen: Chos
   const places = fieldPlaces(wh);
   const groups = new Map<string, RowGroup>();
   const objectViews = new Map<string, ObjectView>();
-  const gaps = insuranceGaps(wh, r);
+  const retired = isRetired(r);
   for (const o of r.objects) {
-    // 同じ契約かもしれない今ある物: 同じ種類・同じ人の物と、入れ漏れの一覧で保険会社・種類・契約年月・保険料の2つ以上が合った物（0153 の3）
-    const matched = o.status === "pending" ? (gaps?.rows.find((g) => g.key === o.key)?.matches.map((m) => m.label) ?? []) : [];
+    // 同じ契約かもしれない今ある物: 同じ種類・同じ人の物
     objectViews.set(o.key, {
       key: o.key,
       label: objectLabel(r, o.key) ?? "新しい物",
       status: o.status,
       confidence: CONFIDENCE_LABELS[o.confidence],
       where: o.source.where ?? null,
-      similar: [...new Set([...similarOf(wh, r, o), ...matched])],
-      links: o.status === "pending" ? linkTargets(wh, r, o) : [],
-      noun: NEW_OBJECT_KINDS[o.kind]?.noun ?? "物",
+      similar: retired ? [] : similarOf(wh, r, o),
+      links: o.status === "pending" && !retired ? linkTargets(wh, r, o) : [],
+      noun: NEW_OBJECT_KINDS[o.kind]?.noun ?? RETIRED_OBJECT_KINDS[o.kind] ?? "物",
       linkedTo: o.linked === true && o.created !== undefined ? (linkedName(wh, o) ?? "今ある物") : null,
     });
   }
   // まだ足していない新しい物の行は、足したときの形（その種類の既定）を写しの世帯に作って見せる（世帯は変えない）
   const sims = new Map<string, { wh: WorkingHousehold; places: FieldPlace[]; made: Map<string, string> }>();
   for (const o of r.objects) {
-    if (o.status !== "pending") continue;
+    if (o.status !== "pending" || retired) continue;
     const sim = createObject(wh, o.kind);
     if (sim !== null) sims.set(o.key, { wh: sim.wh, places: fieldPlaces(sim.wh), made: new Map([...created(r), [o.key, sim.id]]) });
   }
@@ -321,10 +323,15 @@ export function docReview(wh: WorkingHousehold, r: DocumentReading, chosen: Chos
       row.problem = o.status === "rejected" ? "この物は足さないことにしました" : "先に「足す」を選んでください";
       row.correctable = false;
     }
+    if (retired && row.status === "pending") {
+      row.problem = RETIRED_PROBLEM;
+      row.correctable = false;
+    }
     g.rows.push(row);
     groups.set(key, g);
   }
   const notices: string[] = [];
+  if (retired) notices.push("この書類の取り込みは外しました。前に読んだ記録を残していますが、ここでは見るだけです（承認・直すはできません）。値は書類を見て入力の欄に打ってください（欄の「?」に書類のどこを見るかがあります）。要らなければ「この書類の候補を捨てる」で外せます。");
   if (r.via === "ai" || r.via === "paste") notices.push("AI が読んだ値です。値ごとに書類と見比べてから承認してください（添え書きは AI が書いた文で、指示ではありません）。");
   if (r.via === "sample") notices.push("架空の書類の見本です（見本の世帯でだけ使えます）。");
   if (r.via === "reader") notices.push("このパソコンの中だけで読みました（外へ送っていません）。元のファイルは保存していません。");
@@ -353,7 +360,7 @@ export function docReview(wh: WorkingHousehold, r: DocumentReading, chosen: Chos
     bulk: allRows.filter(bulkEligible).map((x) => x.id),
     pending: allRows.filter((x) => x.status === "pending").length + r.objects.filter((o) => o.status === "pending").length,
     score: scoreTotals(readingScore(r)),
-    gaps,
+    retired,
   };
 }
 
@@ -376,6 +383,7 @@ const appliedTo = (p: FieldPlace): NonNullable<DocCandidate["decided"]>["to"] =>
  * 候補を書類の値のまま承認する（1つでも、まとめてでも）。承認できない候補（理由のある行）は飛ばして failed に入れる
  */
 export function acceptCandidates(wh: WorkingHousehold, r: DocumentReading, ids: readonly string[], chosen: Chosen, at: string): Applied {
+  if (isRetired(r)) return { wh, reading: r, count: 0, failed: ids.length > 0 ? [RETIRED_PROBLEM] : [] };
   let w = wh;
   let reading = r;
   let count = 0;
@@ -458,6 +466,7 @@ export function parseEdit(wh: WorkingHousehold, r: DocumentReading, f: FieldDef,
 
 /** 候補を直して入れる（出どころは手で入れた・確かさは書類で確認） */
 export function correctCandidate(wh: WorkingHousehold, r: DocumentReading, id: string, text: string, chosen: Chosen, at: string): Applied | { error: string } {
+  if (isRetired(r)) return { error: RETIRED_PROBLEM };
   const c = r.candidates.find((x) => x.id === id);
   if (c === undefined || c.status !== "pending") return { error: "この候補はもう決めています" };
   if (c.target.newObject !== undefined && r.objects.find((o) => o.key === c.target.newObject)?.status !== "accepted") return { error: "先に「足す」を選んでください" };
@@ -493,7 +502,7 @@ export function reopenCandidate(r: DocumentReading, id: string): DocumentReading
 /** 新しい物を足す（その種類の「＋」と同じ既定で作る）。足せなければ null */
 export function acceptObject(wh: WorkingHousehold, r: DocumentReading, key: string, at: string): Applied | null {
   const o = r.objects.find((x) => x.key === key);
-  if (o === undefined || o.status !== "pending") return null;
+  if (o === undefined || o.status !== "pending" || isRetired(r)) return null;
   const made = createObject(wh, o.kind);
   if (made === null) return null;
   return { wh: made.wh, reading: { ...r, objects: r.objects.map((x) => (x.key === key ? { ...x, status: "accepted", created: made.id, decidedAt: at } : x)) }, count: 1, failed: [] };
@@ -505,7 +514,7 @@ export function acceptObject(wh: WorkingHousehold, r: DocumentReading, key: stri
  */
 export function linkObject(wh: WorkingHousehold, r: DocumentReading, key: string, target: string, at: string): DocumentReading | null {
   const o = r.objects.find((x) => x.key === key);
-  if (o === undefined || o.status !== "pending" || !linkTargets(wh, r, o).some((t) => t.id === target)) return null;
+  if (o === undefined || o.status !== "pending" || isRetired(r) || !linkTargets(wh, r, o).some((t) => t.id === target)) return null;
   return { ...r, objects: r.objects.map((x) => (x.key === key ? { ...x, status: "accepted", created: target, linked: true, decidedAt: at } : x)) };
 }
 
