@@ -285,3 +285,39 @@ export const SAMPLE_MORE_XML = `<?xml version="1.0" encoding="UTF-8"?>
   </TEG913>
 </DATA>
 `;
+
+/**
+ * 架空の公的年金等の源泉徴収票の電子データ（0154 の追記）: 源泉徴収票等のオンライン化の仕様の形（様式 TEG408〔令和5年以降用〕が一番外の要素で、
+ * 電子署名を中に持つ）に合わせた、架空の値の XML。支払を受ける者の住所・氏名・生年月日、扶養親族の氏名、摘要（基礎年金番号・年金コードの例）、
+ * 支払者の法人番号・所在地・電話番号も入れてあり、読み手が読まない（木に入れない）ことを確かめに使う。見本の世帯でだけ読む
+ */
+export const SAMPLE_PENSION_SLIP_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://example.invalid/sample.xsl"?>
+<TEG408 xmlns="urn:example:kyotsu" xmlns:gen="urn:example:general" VR="1.0" id="TEG40820260101000000000001" page="1">
+  <ZQA00000>公的年金等の源泉徴収票</ZQA00000>
+  <ZQB00000><gen:era>5</gen:era><gen:yy>7</gen:yy></ZQB00000>
+  <ZQC00000>
+    <ZQC00010>架空県架空市1-2-3</ZQC00010>
+    <ZQC00020>カクウ タロウ</ZQC00020>
+    <ZQC00030>架空 太郎</ZQC00030>
+    <ZQC00040><gen:era>3</gen:era><gen:yy>35</gen:yy><gen:mm>5</gen:mm><gen:dd>5</gen:dd></ZQC00040>
+  </ZQC00000>
+  <ZQD00000>
+    <ZQD00010>
+      <ZQD00020><ZQD00030>0</ZQD00030><ZQD00040>1980000</ZQD00040></ZQD00020>
+      <ZQD00050><ZQD00060>0</ZQD00060><ZQD00070>12400</ZQD00070></ZQD00050>
+    </ZQD00010>
+  </ZQD00000>
+  <ZQF00000><ZQF00020><kubun_CD>1</kubun_CD></ZQF00020></ZQF00000>
+  <ZQK00000>168000</ZQK00000>
+  <ZQL00000><ZQL00010>カクウ ハナコ</ZQL00010><ZQL00020>架空 花子</ZQL00020></ZQL00000>
+  <ZQO00000><ZQO00010>基礎年金番号 1234-567890 年金コード 1150 介護保険料 72,000円</ZQO00010><ZQO00020>電子交付</ZQO00020></ZQO00000>
+  <ZQP00000>
+    <ZQP00010>9999999999999</ZQP00010>
+    <ZQP00020>架空県架空市4-5-6</ZQP00020>
+    <ZQP00030>架空年金機構</ZQP00030>
+    <ZQP00040>000-0000-0000</ZQP00040>
+  </ZQP00000>
+  <dsig:Signature xmlns:dsig="http://www.w3.org/2000/09/xmldsig#"><dsig:SignedInfo><dsig:Reference URI="#TEG40820260101000000000001"/></dsig:SignedInfo><dsig:SignatureValue>QUJDREVGRw==</dsig:SignatureValue><dsig:KeyInfo><dsig:X509Data><dsig:X509Certificate>Q049S2FrdXUgVGFybw==</dsig:X509Certificate></dsig:X509Data></dsig:KeyInfo></dsig:Signature>
+</TEG408>
+`;
