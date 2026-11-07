@@ -20,6 +20,7 @@ import { deepFreeze } from "./freeze.ts";
 import { numTable, type NumTable } from "./numTable.ts";
 import { applyInvestment } from "./investment.ts";
 import { applyContingency, applyStress, applyWorkChanges } from "./overlay.ts";
+import { danglingRefNotices } from "./refs.ts";
 import type { AnnualRow, CalcConventions, DonorInput, EngineInput, EngineRequest, Flow } from "./types.ts";
 
 export interface RunOptions {
@@ -381,6 +382,9 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   check("engine.request", request, "E_INPUT_SCHEMA");
   const req = deepFreeze(request as EngineRequest);
   const given = readOutsideFamily(req.input);
+  // 基準の月の年は、表の年（common の year）と同じ 1900〜2200 の内（年月の形は年の範囲を持たないので、ここで入力の誤りにする）
+  const givenBaseYear = yearOf(parseYm(given.baseMonth));
+  if (givenBaseYear < 1900 || givenBaseYear > 2200) throw new EngineError("E_ARGUMENT", ["baseMonth"]);
   const batch = options.batch;
   if (batch === undefined) checkPackSchemas(packs, options.packsChecked);
 
@@ -463,6 +467,8 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     const itRefs = [...(it.members ?? []), ...(it.lastSurvivor !== undefined ? [it.lastSurvivor] : []), ...(it.adopted ?? []), ...(it.heirCounts ?? []).map((x) => x.decedent), ...(it.retirementAllowances ?? []).map((x) => x.decedent), ...(it.overrides ?? []).flatMap((x) => (x.decedent !== undefined ? [x.decedent] : []))];
     if (itRefs.some((id) => !memberIds.has(id) && !donorIds.has(id))) throw new EngineError("E_ARGUMENT", ["inheritanceTax.member"]);
   }
+  // 指す先の無い欄（外した物を指したままの欄。0163）: 黙って無視せず知らせる。重ねる前の入力（FP が入れた世帯）で見る
+  const refNotices = danglingRefNotices(given);
   // 年金の加入の記録は構成員ごとに1件まで
   const recordMembers = (h.pensionRecords ?? []).map((r) => r.member);
   if (new Set(recordMembers).size !== recordMembers.length) throw new EngineError("E_ARGUMENT", ["household.pensionRecords.member"]);
@@ -638,6 +644,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     notices: [
       ...mergeProjected([...state.notices.values()]),
       ...invested.notices,
+      ...refNotices,
       ...[...state.extended.entries()].map(([key, r]) =>
         key.startsWith(BACKFILLED)
           ? { code: "N_PARAM_BACKFILLED", ids: [key.slice(BACKFILLED.length), String(r.first), String(r.last)] }

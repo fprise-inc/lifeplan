@@ -8,7 +8,8 @@
 import { moneyThree, MONEY_THREE_MONTHS, MONEY_THREE_YEARS, type MoneyThreeEventPart, type MoneyThreeRegularKind, type MoneyThreeResult } from "../../engine/src/explain/moneyThree.ts";
 import { bsHouseholdOf, bsSeries, type BsGroup, type Yen } from "./bsGroups.ts";
 import type { TableCell } from "./bundle.ts";
-import { parseYm, roles } from "./build.ts";
+import { roles } from "./build.ts";
+import { monthOfTimepoint, parseYm } from "./timepoint.ts";
 
 /** 文の1つ（strong は強調） */
 export interface TextPart {
@@ -25,6 +26,8 @@ export interface MoneyThreeHouseholdRequest {
       members: readonly { id: string; kind: string; sex: string; birth: { birthYearMonth: string; bornOnFirst: boolean } }[];
       goals?: readonly { kind: string; owner?: string; education?: { stages: readonly { stage: string }[] } }[];
       cars?: readonly { id: string; purchase?: { first: unknown; owned?: boolean } }[];
+      /** 名前つきの出来事（車の最初の購入などの時点を解く） */
+      events?: readonly { id: string; at: unknown }[];
       periodicExpenses?: readonly { id: string; row: string; label?: string; everyYears: number; monthly?: boolean; to?: unknown }[];
       accounts?: readonly { id: string; kind: string; subtype?: string; uninvested?: number }[];
       residences?: readonly { id: string }[];
@@ -207,8 +210,9 @@ function partLabeler(req: MoneyThreeHouseholdRequest): (year: number, p: MoneyTh
       }
       case "carPurchase": {
         const c = p.object !== undefined ? cars.get(p.object) : undefined;
-        const at = c?.purchase !== undefined && typeof c.purchase.first === "object" && c.purchase.first !== null ? (c.purchase.first as { at?: unknown }).at : undefined;
-        const first = typeof at === "string" ? parseYm(at).y : null;
+        // 最初の購入の時点は、年齢・出来事の形も解く（0168）
+        const at = c?.purchase !== undefined ? monthOfTimepoint(h, c.purchase.first) : null;
+        const first = at !== null ? parseYm(at).y : null;
         return c?.purchase !== undefined && c.purchase.owned !== true && first === year ? "車の購入" : "車の買い替え";
       }
       case "carLoan":

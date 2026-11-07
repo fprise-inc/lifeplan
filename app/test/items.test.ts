@@ -440,8 +440,13 @@ describe("カードの1行の案内・1押し（どの項目も同じ決まり�
     const couple = open("dualNoKids");
     expect(byId(inputItems(couple), "retirement")).toMatchObject({ canFill: true, canNa: true });
     const filled = fillCard(couple, "retirement");
-    expect(byId(inputItems(filled), "retirement").status).toBe("est");
+    // この見本の働き方の期間は終わりが無いので、受け取る時期が決まらず計算に入らない。受け取る時期の欄が未入力の印になる（0163）
+    expect(byId(inputItems(filled), "retirement").status).toBe("missing");
     expect(() => preview(filled.request)).not.toThrow();
+    // 働き方の期間に終わりがあれば、推定で計算中
+    const ended: WorkingHousehold = { ...filled, request: structuredClone(filled.request) };
+    for (const p of ended.request.input.household.employmentPeriods ?? []) (p as { to: unknown }).to = { at: "2050-03" };
+    expect(byId(inputItems(ended), "retirement").status).toBe("est");
   });
 
   it("描画: 進み具合は未入力（0円の所あり）の数を左に強く、続けて15項目中の入力済み・推定で計算中・当てはまらない・まだ入れていない。最初の5枚の案内と印は出さない", () => {

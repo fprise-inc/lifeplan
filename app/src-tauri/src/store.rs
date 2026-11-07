@@ -176,18 +176,32 @@ pub async fn store_create(
     sample: Option<SampleRequest>,
 ) -> Result<Opened, String> {
     with_ai(app, move |s, ai| {
-        let o = s
-            .create_with(
-                CreateRequest {
-                    body,
-                    summary: summary.clone(),
-                },
-                CreateOptions { category, sample },
-            )
-            .map_err(code)?;
-        ai.on_opened(o, summary)
+        create_household(s, ai, body, summary, CreateOptions { category, sample })
     })
     .await
+}
+
+/// 新しい世帯を作る。画面から届いた本文のうち、アプリ本体だけが書く区画（同意とAIの記録）は使わない
+/// （保存の `replace_body` と同じ決まり。0014 の追記）
+pub(crate) fn create_household(
+    s: &Store,
+    ai: &AiState,
+    body: String,
+    summary: String,
+    opts: CreateOptions,
+) -> Result<Opened, String> {
+    // JSON の物でない本文は、そのまま保存の部品に渡して形の誤りとして断らせる
+    let body = ai_share::book::without_owned_sections(&body).unwrap_or(body);
+    let o = s
+        .create_with(
+            CreateRequest {
+                body,
+                summary: summary.clone(),
+            },
+            opts,
+        )
+        .map_err(code)?;
+    ai.on_opened(o, summary)
 }
 
 /// 見本の棚（FP が作った見本の世帯。0033）

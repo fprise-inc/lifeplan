@@ -8,7 +8,7 @@ import { beforeAll, describe, expect, it, test } from "vitest";
 import type { EngineRequest, PreviewResult, TableCell } from "../src/engine/types.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { WATCH_CASES } from "./watch/cases.ts";
-import { housingConditions, keptHomeConditions, rowGroupingProblems, subjectOf, textProblems, WATCH_RULES, type WatchSubject } from "./watch/rules.ts";
+import { housingConditions, keptHomeConditions, unfundedPurchases, rowGroupingProblems, subjectOf, textProblems, WATCH_RULES, type WatchSubject } from "./watch/rules.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 /** 直す待ちの一覧の1行 */
@@ -186,6 +186,14 @@ describe("見張りが見張れていること（わざと壊した世帯・結�
       r.purchase!.at = { at: "2031-04" };
     });
     expect(ruleOf("purchaseDates").check(s).length).toBeGreaterThan(0);
+  });
+
+  it("住宅購入の予定にローンが無い（価格−頭金が計算に入らない）を見分け、知らせが出ている", () => {
+    const req = clone(modelHousehold("housingPurchase"));
+    expect(unfundedPurchases(req.input.household)).toEqual([]);
+    req.input.household.debts = (req.input.household.debts ?? []).filter((d) => d.kind !== "mortgage");
+    expect(unfundedPurchases(req.input.household).length).toBeGreaterThan(0);
+    expect(ruleOf("purchaseUnfunded").check(subjectOf("ローンを外した housingPurchase", req))).toEqual([]);
   });
 
   it("今住んでいる持ち家が資産に無い・純資産が大きくマイナス", () => {

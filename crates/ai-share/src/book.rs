@@ -18,7 +18,7 @@ use crate::consent::{
 };
 use crate::documents::PendingDocumentProposal;
 use crate::proposal::{PendingProposal, ProposalOrigin, ProposedDiff};
-use crate::record::{for_screen, verify_append_only, AiShareRecord};
+use crate::record::{for_screen, only_read_counts_changed, verify_append_only, AiShareRecord};
 use crate::reduce::{allowlist, reduced_items};
 use crate::registry::ShareStatus;
 use crate::source::{ConsentDecision, ConsentRef, SharedHouseholdSource};
@@ -168,6 +168,14 @@ fn strip_owned(body: &mut Map<String, Value>) {
     }
 }
 
+/// 画面から届いた本文から、アプリ本体だけが書く区画を外す（新しい世帯を作るとき。保存は `replace_body` が外す）。
+/// 本文が JSON の物でなければ `E_AI_BODY`
+pub fn without_owned_sections(body_json: &str) -> Result<String, &'static str> {
+    let mut body = parse_object(body_json)?;
+    strip_owned(&mut body);
+    Ok(Value::Object(body).to_string())
+}
+
 fn parse_object(json: &str) -> Result<Map<String, Value>, &'static str> {
     match serde_json::from_str::<Value>(json) {
         Ok(Value::Object(m)) => Ok(m),
@@ -253,6 +261,23 @@ impl HouseholdBook {
         self.saved_consents != self.consents
             || self.saved_candidates != self.candidates
             || self.saved_ai_shares != ai_shares
+    }
+
+    /// 保存していない変化が、読まれた記録の回数と最後の日時だけか（同じ中身の読み取りが続いた。書き戻しを間引いてよい）
+    pub fn only_read_counts_moved(&self, ai_shares: &[AiShareRecord]) -> bool {
+        self.saved_consents == self.consents
+            && self.saved_candidates == self.candidates
+            && only_read_counts_changed(&self.saved_ai_shares, ai_shares)
+    }
+
+    /// 同じ起動の中で前に持っていた帳面から、世帯ファイルに無い AI の候補を引き継ぐ（開き直したとき。
+    /// 世帯ファイルに書けないまま開き直した候補・分岐で相手の版を選んだときのこちらの候補を落とさない）
+    pub fn carry_candidates_from(&mut self, earlier: &HouseholdBook) {
+        for c in &earlier.candidates {
+            if !self.candidates.iter().any(|x| x.id == c.id) {
+                self.candidates.push(c.clone());
+            }
+        }
     }
 
     /// 外部AIへの提供の同意の今の状態

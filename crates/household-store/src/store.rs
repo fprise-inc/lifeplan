@@ -1716,10 +1716,15 @@ impl Store {
         }
         let mut g = self.lock();
         let fail = g.fail;
-        let (parent, generation, mut carry) = match g.opened.get(id) {
+        let (parent, generation, mut carry, earlier_aside) = match g.opened.get(id) {
             None => return Err(StoreError::NOT_OPEN),
             Some(st) if st.read_only => return Err(StoreError::READ_ONLY),
-            Some(st) => (st.parent_revision.clone(), st.generation, st.carry.clone()),
+            Some(st) => (
+                st.parent_revision.clone(),
+                st.generation,
+                st.carry.clone(),
+                st.conflict.clone(),
+            ),
         };
         let now = self.now();
         let outcome = {
@@ -1773,8 +1778,10 @@ impl Store {
             let path = self.hh_path(s, id);
             let current = fs::read(&path).ok().map(|b| crypto::digest(&b));
             if current.as_deref() != Some(parent.as_str()) {
-                let aside = self.aside_path(id, generation + 1, "ours");
-                atomic::replace(&aside, &bytes, FailPoint::None)?;
+                // 同じ分岐でもう写しを残していれば、その写しを最後の中身で置き換える（試すたびに写しを増やさない）
+                let aside =
+                    earlier_aside.unwrap_or_else(|| self.aside_path(id, generation + 1, "ours"));
+                atomic::replace_no_prev(&aside, &bytes)?;
                 Err(aside)
             } else {
                 atomic::replace(&path, &bytes, fail)?;
