@@ -393,6 +393,34 @@ fn a_branch_is_detected_and_both_versions_are_kept() {
     assert_eq!(kept, 1);
 }
 
+/// 分岐のあいだに保存を何回試しても、こちらの版の写しは1つ（最後に試した中身）。分岐を選ぶとその写しを使う
+#[test]
+fn retrying_after_a_branch_keeps_one_copy_of_ours() {
+    let env = Env::new();
+    let store = env.store();
+    store.status().unwrap();
+    let o = create(&store, 1);
+    let other = env.store();
+    other.status().unwrap();
+    other.open(&o.id).unwrap();
+    other.save(&o.id, &body(10), "").unwrap();
+    for n in 0..5 {
+        assert_eq!(
+            store.save(&o.id, &body(20 + n), "").unwrap_err(),
+            StoreError::CONFLICT
+        );
+    }
+    let kept = std::fs::read_dir(env.root.join("conflicts"))
+        .unwrap()
+        .count();
+    assert_eq!(kept, 1, "試すたびに写しが増えない");
+    // こちらの版を選ぶと、最後に試した中身になる
+    let r = store
+        .resolve_fork(&o.id, household_store::ForkChoice::Ours)
+        .unwrap();
+    assert_eq!(without_meta(&r.body), without_meta(&body(24)));
+}
+
 #[test]
 fn newer_format_versions() {
     let env = Env::new();

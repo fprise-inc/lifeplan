@@ -4,12 +4,14 @@
 use crate::clock::{iso8601, Clock, SystemClock};
 use crate::documents::{self, PendingDocumentProposal};
 use crate::proposal::{self, PendingProposal, ProposalOrigin};
-use crate::record::{AiShareRecord, Caller, ConsentAtGrant, EndReason, ProposalEntry};
+use crate::record::{
+    verify_append_only, AiShareRecord, Caller, ConsentAtGrant, EndReason, ProposalEntry,
+};
 use crate::reduce::{self, allowlist, is_addable, Pseudonyms, Scope};
 use crate::source::{ConsentDecision, SharedHouseholdSource};
 use ai_ipc::ErrorCode;
 use serde::Serialize;
-use serde_json::json;
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -371,39 +373,58 @@ impl ShareRegistry {
         v
     }
 
-    /// この世帯の記録をもう持っているか（同じ起動の中で2回目に世帯を開いたときは、読み込み直さない）
+    /// この世帯の記録をもう持っているか（同じ起動の中で前に世帯を開いたか）
     pub fn has_records(&self, household_id: &str) -> bool {
         self.lock().logs.contains_key(household_id)
     }
 
-    /// 世帯を開いたときに、世帯ファイルの `aiShares` の記録を読み込む（この後の記録はその後ろに足す）。
-    /// 前の起動で終わりの記録が残らなかった共有（アプリが落ちたなど）は、「アプリの終了」で閉じる（0015 の5: 再開しない）
-    pub fn load_records(&self, household_id: &str, mut existing: Vec<AiShareRecord>) {
-        let now = self.now();
-        for r in existing.iter_mut().filter(|r| r.ended_at.is_none()) {
-            let at = if r.expires_at.as_str() < iso8601(now).as_str() {
-                r.expires_at.clone()
-            } else {
-                iso8601(now)
-            };
-            r.end(at, EndReason::AppClosed);
-        }
+    /// 世帯を開いたときに、世帯ファイルの `aiShares` の記録を読み込む（開くたびに呼ぶ。この後の記録はその後ろに足す）。
+    ///
+    /// - 世帯ファイルの記録を土台にし、同じ行（同じ `id`）は、この起動で持っている行がその追記になっていればそちらを使う
+    ///   （この起動の共有の読まれた記録は、世帯ファイルより新しい）。追記になっていなければ世帯ファイルの行を使う
+    /// - この起動で足した行のうち、世帯ファイルに無いもの（もう1台の PC の版を選んだとき・まだ書けていないもの）は後ろに足す
+    /// - 共有中の共有は、合わせた後の自分の行を指し直す
+    /// - 前の起動で終わりの記録が残らなかった共有（アプリが落ちたなど）は、「アプリの終了」で閉じる（0015 の5: 再開しない）。
+    ///   この起動で作った共有の行は閉じない
+    ///
+    /// 戻り値の記録は、世帯ファイルの記録の追記だけ（`verify_append_only` が通る）
+    pub fn load_records(&self, household_id: &str, file: Vec<AiShareRecord>) {
+        let now = iso8601(self.now());
         let mut st = self.lock();
-        st.revision += 1;
-        let log = st.logs.entry(household_id.to_owned()).or_default();
-        if log.is_empty() {
-            *log = existing;
-        } else {
-            let shift = existing.len();
-            let mut merged = existing;
-            merged.append(log);
-            *log = merged;
-            for s in st.shares.values_mut() {
-                if s.source.household_id == household_id {
-                    s.record_index += shift;
+        let local = st.logs.remove(household_id).unwrap_or_default();
+        let mut merged = file;
+        for r in merged.iter_mut() {
+            if let Some(l) = local.iter().find(|l| l.id == r.id) {
+                if verify_append_only(std::slice::from_ref(r), std::slice::from_ref(l)).is_ok() {
+                    *r = l.clone();
                 }
             }
         }
+        for l in local {
+            if !merged.iter().any(|r| r.id == l.id) {
+                merged.push(l);
+            }
+        }
+        for r in merged.iter_mut().filter(|r| r.ended_at.is_none()) {
+            if st.shares.contains_key(&r.share_id) {
+                continue;
+            }
+            let at = if r.expires_at.as_str() < now.as_str() {
+                r.expires_at.clone()
+            } else {
+                now.clone()
+            };
+            r.end(at, EndReason::AppClosed);
+        }
+        for (sid, s) in st.shares.iter_mut() {
+            if s.source.household_id == household_id {
+                if let Some(i) = merged.iter().position(|r| &r.share_id == sid) {
+                    s.record_index = i;
+                }
+            }
+        }
+        st.revision += 1;
+        st.logs.insert(household_id.to_owned(), merged);
     }
 
     /// 世帯の「AIに渡した記録」（世帯ファイルの `aiShares` に書く。書く前に verify_append_only で確かめる）
@@ -637,7 +658,7 @@ impl ShareRegistry {
             "texts": reduced.texts,
         })
         .to_string();
-        let digest = format!("sha256:{:x}", Sha256::digest(payload.as_bytes()));
+        let digest = content_digest(share.scope.name(), &reduced, &share.pseudonyms);
         let household_id = share.source.household_id.clone();
         let index = share.record_index;
         if let Some(r) = st
@@ -699,6 +720,29 @@ impl ShareRegistry {
         })
         .to_string())
     }
+}
+
+/// 返した中身の指紋（0014 の3）。時間で変わる欄（期限・残りの秒数）と共有ごとの欄（共有ID・呼び名）は入れず、
+/// 物の ID は仮名を元に戻した形にかける（同じ中身なら同じ指紋。世帯ファイルの改訂から作り直して照らせる）。
+/// 仮名を戻せない値（文章の中の ID の形の文字など）があれば、仮名のままの形にかける
+fn content_digest(scope: &str, reduced: &reduce::Reduced, pseudonyms: &Pseudonyms) -> String {
+    let texts = Value::Array(reduced.texts.clone());
+    let (input, texts) = match (
+        pseudonyms.restore(&reduced.input),
+        pseudonyms.restore(&texts),
+    ) {
+        (Ok(i), Ok(t)) => (i, t),
+        _ => (reduced.input.clone(), texts),
+    };
+    let content = json!({
+        "scope": scope,
+        "allowlistVersion": allowlist().version,
+        "fields": reduced.fields,
+        "input": input,
+        "texts": texts,
+    })
+    .to_string();
+    format!("sha256:{:x}", Sha256::digest(content.as_bytes()))
 }
 
 fn consent_given(source: &SharedHouseholdSource) -> bool {
