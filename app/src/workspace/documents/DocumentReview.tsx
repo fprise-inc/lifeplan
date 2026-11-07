@@ -4,6 +4,8 @@
 // - 新しい物（保険の契約など）は、物ごとに「足す」を選んでから、その中の値を承認する。同じ契約がありそうなら知らせる（黙ってまとめない）
 // - 照合だけの値は入力にせず、書類の額とアプリの計算を並べる
 // - 世帯の値を変える操作は、読み取りの記録を先に入れてから、元に戻せる変更として現状に入れる（呼ぶ側の onChange）
+// - 保険の契約の候補がある書類（控除証明書など）は、入れ漏れの一覧（今の保険の入力に無さそうな契約）を上に出す（0153 の3）
+// - 入口から、控除証明書の電子データ（XML）のファイルを、このパソコンの中だけで読む（0153 の2。読み手は deductionXml.ts）
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { WorkingHousehold } from "../input/household.ts";
 import { formatYearMonth } from "../input/units.ts";
@@ -12,8 +14,10 @@ import { roles } from "../roles.ts";
 import { ReviewTable } from "../review/ReviewTable.tsx";
 import { pendingCount, pendingTotal, removable, withoutReading, withReading } from "./log.ts";
 import { readProposal } from "./proposal.ts";
+import { deductionProposals, readDeductionFile } from "./deductionXml.ts";
+import { gapDate, gapText } from "./insuranceGaps.ts";
 import { acceptCandidates, acceptObject, correctCandidate, docReview, rejectCandidates, rejectObject, reopenCandidate, withHolder, type CalcOf, type Chosen } from "./review.ts";
-import { SAMPLE_DOCUMENTS } from "./samples.ts";
+import { SAMPLE_DEDUCTION_XML, SAMPLE_DOCUMENTS } from "./samples.ts";
 import { docTypeLabel, type DocumentLog, type DocumentReading } from "./types.ts";
 
 export interface DocChange {
@@ -71,13 +75,79 @@ export function AiDocumentBand({ wh, failed, onOpen, onDismiss }: { wh: WorkingH
   );
 }
 
-/** 入力のホームの「取り込む」の中の入口（書類の読み取り） */
-export function DocumentEntry({ wh, sample, onOpen, onSamples, onPaste }: { wh: WorkingHousehold; sample: boolean; onOpen: () => void; onSamples: () => void; onPaste?: () => void }) {
+/** 架空の控除証明書の電子データ（XML）を、XML の読み手で読んだ記録（見本の世帯だけ。0153 の4） */
+export function xmlSampleReadings(wh: WorkingHousehold, at: string = approvalTime(), newId: () => string = () => crypto.randomUUID()): DocumentReading[] {
+  const members = roles(wh.request).map((r) => ({ key: r.key, id: r.member.id }));
+  const reader = { id: "sample.deductionXml", version: 1 };
+  return deductionProposals(SAMPLE_DEDUCTION_XML).proposals.flatMap((p) => {
+    const r = readProposal(p.raw, { via: "sample", at, newId, reader, members }).reading;
+    return r === null ? [] : [{ ...r, dropped: r.dropped + p.masked }];
+  });
+}
+
+/** もう読んだファイル（同じ指紋の記録がある） */
+const alreadyRead = (wh: WorkingHousehold, sha256: string | undefined): boolean => sha256 !== undefined && (wh.documents?.readings ?? []).some((x) => x.file?.sha256 === sha256);
+
+const MAX_FILES = 10;
+
+/** 入力のホームの「取り込む」の中の入口（書類の読み取り）。onReadings があれば、控除証明書の電子データ（XML）を読む入口も、onPaste があれば AI の答えを貼り付ける入口（0151）も出す */
+export function DocumentEntry({ wh, sample, onOpen, onSamples, onReadings, onPaste }: { wh: WorkingHousehold; sample: boolean; onOpen: () => void; onSamples: () => void; onReadings?: (readings: DocumentReading[]) => void; onPaste?: () => void }) {
   const readings = wh.documents?.readings ?? [];
   const pending = pendingTotal(wh);
+  const [xmlMsg, setXmlMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const readFiles = async (files: FileList | null) => {
+    if (files === null || files.length === 0 || onReadings === undefined) return;
+    setBusy(true);
+    const members = roles(wh.request).map((r) => ({ key: r.key, id: r.member.id }));
+    const fresh: DocumentReading[] = [];
+    const notes: string[] = [];
+    let again = 0;
+    try {
+      for (const f of [...files].slice(0, MAX_FILES)) {
+        const res = await readDeductionFile(new Uint8Array(await f.arrayBuffer()), { at: approvalTime(), newId: () => crypto.randomUUID(), members });
+        // 理由にはファイル名を添える（画面に出すだけで、記録には残さない）
+        notes.push(...res.issues.map((x) => (files.length > 1 ? `「${f.name}」: ${x}` : x)));
+        // 前に読んだファイル（同じ指紋）は足さない。1つのファイルの証明書は、まとめて足すか足さないか
+        const sha = res.readings[0]?.file?.sha256;
+        if (alreadyRead(wh, sha) || fresh.some((x) => x.file?.sha256 === sha)) again += res.readings.length;
+        else fresh.push(...res.readings);
+      }
+    } catch {
+      notes.push("ファイルを読めませんでした");
+    }
+    if (files.length > MAX_FILES) notes.push(`一度に読めるのは${MAX_FILES}ファイルまでです`);
+    if (again > 0) notes.push(`前に読んだファイルの証明書（${again}通）は、もう一度は足していません`);
+    setBusy(false);
+    const contracts = fresh.reduce((n, r) => n + r.objects.length, 0);
+    setXmlMsg(fresh.length > 0 ? { ok: true, text: `証明書${fresh.length}通・契約${contracts}件を読みました。${notes.join("。")}` } : { ok: false, text: notes.length > 0 ? notes.join("。") : "読める証明書がありませんでした" });
+    if (fresh.length > 0) onReadings(fresh);
+  };
   return (
     <div class="hs-tools" role="group" aria-label="書類の読み取り" data-imports-documents>
       <span class="hs-tools-h">書類の読み取り</span>
+      {onReadings !== undefined ? (
+        <label class={`btn${busy ? " disabled" : ""}`} data-documents-xml>
+          控除証明書の電子データ（XML）を読む
+          <input
+            type="file"
+            accept=".xml,application/xml,text/xml"
+            multiple
+            hidden
+            disabled={busy}
+            onChange={(e) => {
+              const input = e.currentTarget as HTMLInputElement;
+              void readFiles(input.files).then(() => (input.value = ""));
+            }}
+            data-documents-xml-file
+          />
+        </label>
+      ) : null}
+      {onReadings !== undefined && sample ? (
+        <button type="button" class="btn" onClick={() => onReadings(xmlSampleReadings(wh))} data-documents-xml-sample>
+          架空の控除証明書の電子データで試す
+        </button>
+      ) : null}
       {readings.length > 0 ? (
         <button type="button" class="btn" onClick={onOpen} data-documents-open>
           読んだ書類を確かめる{pending > 0 ? `（未決 ${pending}件）` : `（${readings.length}通）`}
@@ -94,6 +164,16 @@ export function DocumentEntry({ wh, sample, onOpen, onSamples, onPaste }: { wh: 
         </button>
       ) : null}
       <span class="in-note">書類から読んだ値は候補として届き、確かめて承認したものだけが現状に入ります。個人番号などの番号は読みません・残しません。AI接続口からの候補もここに届きます。</span>
+      {onReadings !== undefined ? (
+        <span class="in-note" data-documents-xml-note>
+          控除証明書の電子データ（マイナポータルから保存した生命保険料・地震保険料の XML）は、このパソコンの中だけで読みます（外へ送りません）。元のファイル・氏名・証券番号は保存しません。
+        </span>
+      ) : null}
+      {xmlMsg !== null ? (
+        <span class={xmlMsg.ok ? "rk-ok" : "hh-err"} role="status" data-documents-xml-msg>
+          {xmlMsg.text}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -260,6 +340,40 @@ export function DocumentReview(p: DocumentReviewProps) {
             </ol>
           </aside>
           <div class="dr-main">
+            {view.gaps !== null ? (
+              <section class="dr-group dr-gaps" data-documents-gaps>
+                <h3>保険の入れ漏れの一覧</h3>
+                <p class="in-note" data-documents-gaps-summary>
+                  この書類の契約 {view.gaps.rows.length}件のうち、今の保険の入力に無さそうな契約 {view.gaps.missing}件・同じ契約かもしれない契約 {view.gaps.maybe}件。
+                  同じ契約かもしれないときは、まとめません（同じなら「足さない」にして、今の契約の欄を直してください）。保障の額は証明書に無いので、足した契約は証券を見て入れてください。
+                </p>
+                <table class="rv-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">書類の契約</th>
+                      <th scope="col">契約年月</th>
+                      <th scope="col">年間の保険料</th>
+                      <th scope="col">控除の区分</th>
+                      <th scope="col">今の保険の入力</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {view.gaps.rows.map((g) => (
+                      <tr key={g.key} class={`dr-gap s-${g.status}`} data-documents-gap={g.key} data-documents-gap-status={g.status}>
+                        <td>
+                          {g.label}
+                          <span class="in-note">（{g.kind}）</span>
+                        </td>
+                        <td>{gapDate(g)}</td>
+                        <td>{g.annual !== null ? yen(g.annual) : "—"}</td>
+                        <td>{g.deduction ?? "—"}</td>
+                        <td>{gapText(g)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+            ) : null}
             {view.groups.map((g) => (
               <section class="dr-group" key={g.key} data-documents-group={g.key}>
                 <h3>{g.label}</h3>

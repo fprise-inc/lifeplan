@@ -893,7 +893,7 @@ async fn propose_inputs_flow() {
     )
     .await;
     assert_eq!(r["status"], "pendingReview");
-    assert_eq!(r["values"], 6);
+    assert_eq!(r["values"], 8);
     assert_eq!(r["objects"], 1);
     assert_eq!(r["references"], 1);
     let pending = reg.document_proposals(HOUSEHOLD_ID);

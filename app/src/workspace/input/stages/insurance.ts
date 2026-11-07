@@ -41,7 +41,7 @@ import {
   youngestChild,
   type KindDef,
 } from "../insuranceKinds.ts";
-import { BENEFITS, DEDUCTION_TYPES, memberLabel, memberOptions, PREMIUM_FREQUENCY } from "../labels.ts";
+import { ADULTS_WHO, BENEFITS, DEDUCTION_TYPES, memberLabel, memberOptions, PREMIUM_FREQUENCY, WORDS } from "../labels.ts";
 import { monthsBetween } from "../loanMath.ts";
 import { formatYearMonth } from "../units.ts";
 import type { InsuranceAccountInput } from "../../../engine/types.ts";
@@ -348,6 +348,7 @@ function payUntilField(find: Finder, k: string, id: string, level: "simple" | "d
       optional: true,
       nullText,
       ageOf: (h) => h.members.find((m) => m.id === (h.insuranceContracts ?? []).find((x) => x.id === id)?.insured),
+      who: ADULTS_WHO,
     }),
     () => at(id, "insurance.premium", ["payUntil"]),
   );
@@ -460,19 +461,23 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
       }),
       () => at(c.id, "insurance.premium", ["amount"]),
     ),
-    plain({
-      key: `${k}/freq`,
-      item: "insurance.premium",
-      label: "払い方",
-      level: "simple",
-      kind: "select",
-      options: PREMIUM_FREQUENCY,
-      find,
-      path: ["premium", "frequency"],
-      after: (_h, target, v) => {
-        if (v === "single") (target as unknown as InsuranceContract).premium.payUntil = null;
-      },
-    }),
+    // 当て先（insurance.premium の frequency）は、書類の読み取りの候補が払い方を当てるのに使う（0153）
+    withAddress(
+      plain({
+        key: `${k}/freq`,
+        item: "insurance.premium",
+        label: "払い方",
+        level: "simple",
+        kind: "select",
+        options: PREMIUM_FREQUENCY,
+        find,
+        path: ["premium", "frequency"],
+        after: (_h, target, v) => {
+          if (v === "single") (target as unknown as InsuranceContract).premium.payUntil = null;
+        },
+      }),
+      () => at(c.id, "insurance.premium", ["frequency"]),
+    ),
   );
   // 主な保障の額（種類で給付が変わる1欄）と終わり。標準の「終わり」は、定期の保険では保障の終わり、終身の保険では払込の終わりとして聞く。
   // 満期金・年金を受け取る保険（養老・学資・個人年金）は、受け取りの時期（保障の終わり・受け取りの始まり）と払込の終わりの両方を標準に出す（0078）
@@ -542,6 +547,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
             find: findMain,
             path: [ep],
             ageOf: insuredOf,
+            who: ADULTS_WHO,
             ...(ep === "to" ? { optional: true, nullText: "終身" } : {}),
             after: (h, target) => {
               const xc = contractIn(h);
@@ -627,7 +633,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
       ),
     );
   fields.push(
-    timepointField({ key: `${k}/surrender`, item: "insurance.surrender", label: "解約の月", level: "detail", find, path: ["surrender"], optional: true, absentWhenEmpty: true, nullText: "解約しない", ageOf: insuredOf, help: "その月に解約返戻金を受け取り、保障と払込が終わります" }),
+    timepointField({ key: `${k}/surrender`, item: "insurance.surrender", label: "解約の月", level: "detail", find, path: ["surrender"], optional: true, absentWhenEmpty: true, nullText: "解約しない", ageOf: insuredOf, who: ADULTS_WHO, help: "その月に解約返戻金を受け取り、保障と払込が終わります" }),
   );
   // 解約返戻金（貯蓄型は返戻率、解約の月がある契約・円の目安の形は解約の月の額）。低解約返戻金型は払込中の率と払込が終わった時の率を標準に、
   // アカウント型は返戻率の代わりに積立の部分（払込が終わった時の積立金・払込の後の扱い）を標準に出す（0055 の追記 2026-11-03）
@@ -641,7 +647,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
 
   const tags = detailTags(wh, c);
   const notes = [kind.note, tags.length > 0 ? `詳細に入っている値: ${tags.join("・")}` : undefined].filter((x): x is string => x !== undefined);
-  const actions: ActionDef[] = [removeAction(`${k}/remove`, "この契約を外す", "simple", (h) => void (h.insuranceContracts = (h.insuranceContracts ?? []).filter((x) => x.id !== c.id)))];
+  const actions: ActionDef[] = [removeAction(`${k}/remove`, WORDS.remove, "simple", (h) => void (h.insuranceContracts = (h.insuranceContracts ?? []).filter((x) => x.id !== c.id)))];
   if (FUND_TEMPLATES.has(c.template) && c.simple?.estimate !== true && (c.simple?.assetClass !== undefined || c.simple?.loadRate !== undefined))
     actions.push({
       key: `${k}/toEstimate`,
@@ -675,7 +681,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
       title: `更新 ${j + 1}`,
       level: "detail",
       fields: [
-        timepointField({ key: `${kr}/at`, item: "insurance.renewals", label: "更新の月", level: "detail", find: findR, path: ["at"], ageOf: insuredOf }),
+        timepointField({ key: `${kr}/at`, item: "insurance.renewals", label: "更新の月", level: "detail", find: findR, path: ["at"], ageOf: insuredOf, who: ADULTS_WHO }),
         plain({ key: `${kr}/premium`, item: "insurance.renewals", label: premiumLabel("更新後の保険料", c.premium.frequency), level: "detail", kind: "yen", basis: "once", find: findR, path: ["premium"] }),
       ],
       actions: [
@@ -1112,11 +1118,11 @@ function coverageGroup(wh: WorkingHousehold, c: InsuranceContract, cov: Coverage
     ),
     mainRow && ep === "from"
       ? readOnlyOf(`${kc}/from`, "受け取りの始まり", "受け取りの始まり", (h) => endText(h, covNow(h)?.from, "—"))
-      : timepointField({ key: `${kc}/from`, item: "insurance.coverages", label: cov.benefit === "annuity" ? "受け取りの始まり" : "保障の始まり", level: "detail", find: findCov, path: ["from"], ageOf: covInsured, mode: "ym" }),
+      : timepointField({ key: `${kc}/from`, item: "insurance.coverages", label: cov.benefit === "annuity" ? "受け取りの始まり" : "保障の始まり", level: "detail", find: findCov, path: ["from"], ageOf: covInsured, who: ADULTS_WHO, mode: "ym" }),
     mainRow && ep === "to"
       ? readOnlyOf(`${kc}/to`, "保障の終わり", "保障の終わり", (h) => endText(h, covNow(h)?.to, "終身"))
       : withAddress(
-          timepointField({ key: `${kc}/to`, item: "insurance.coverages", label: "保障の終わり", level: "detail", find: findCov, path: ["to"], startPath: ["from"], ageOf: covInsured, optional: true, nullText: "終身", after: (h, target) => followDecreasing(h, target) }),
+          timepointField({ key: `${kc}/to`, item: "insurance.coverages", label: "保障の終わり", level: "detail", find: findCov, path: ["to"], startPath: ["from"], ageOf: covInsured, who: ADULTS_WHO, optional: true, nullText: "終身", after: (h, target) => followDecreasing(h, target) }),
           () => at(c.id, "insurance.coverages", [cov.id, "to"]),
         ),
   ];

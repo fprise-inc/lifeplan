@@ -38,10 +38,12 @@ describe("未入力の欄に打った値は、0円でも確定にする", () => 
     expect(fieldStatus(f, typed).explicit).toBe(false);
   });
 
-  it("未入力でない欄は今までどおり（推定・確定の欄に同じ値を打っても変えない）", () => {
+  it("推定の欄に同じ値を打つと、打った確定（根拠なし）になる。確定の欄に同じ値を打っても変えない（0150）", () => {
     const { wh, f } = unentered();
     const est = f.boxed!.write(wh, standardBox(50000, "目安") as unknown as Record<string, unknown>);
-    expect(typeValue(f, est, 50000)).toBe(est);
+    const typed = typeValue(f, est, 50000);
+    expect(fieldStatus(f, typed)).toMatchObject({ status: "confirmed", explicit: false });
+    expect(f.get(typed).value).toBe(50000);
     const conf = typeValue(f, wh, 70000);
     expect(typeValue(f, conf, 70000)).toBe(conf);
   });

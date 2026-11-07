@@ -1208,8 +1208,9 @@ export function addExpense(wh: WorkingHousehold, kind: MoneyOutKind, id: string 
       kind === "allowance"
         ? (h.members.find((m) => isOutside(m) && (m.kind === "parent" || m.kind === "grandparent"))?.id ?? h.donors?.[0]?.id)
         : kind === "gift"
-          ? h.members.find((m) => isOutside(m) && (m.kind === "grandchild" || m.kind === "child"))?.id
+          ? giftDefault(h)?.id
           : undefined;
+    const several = kind === "gift" && giftCandidates(h).length > 1;
     const p: PeriodicExpense = {
       id,
       label: def.label.replace(/（.*）$/, ""),
@@ -1228,8 +1229,29 @@ export function addExpense(wh: WorkingHousehold, kind: MoneyOutKind, id: string 
     if (onceAsEntered(def.card)) applyOnceGrowth(h, p);
     (h.periodicExpenses ??= []).push(p);
     if (now) markStartNow(req, id, "periodicExpense.from", START_NOW_BASIS.out);
+    // あげる贈与の相手の候補が2人以上なら、既定の相手は推定の印（選び直してもらう。通しの確かめ。0150）
+    if (several && counterparty !== undefined) putRow(req.input as unknown as Record<string, unknown>, { target: { object: id }, item: "periodicExpense.counterparty", at: [] }, { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: GIFT_TO_BASIS } });
   });
 }
+
+/** あげる贈与の相手の候補（giftRecipientOptions と同じ並び: 世帯の子〔上から〕、離れて暮らす子・孫。これから生まれる子は入れない） */
+function giftCandidates(h: Household): Member[] {
+  const kids = h.members.filter((x) => !isOutside(x) && x.kind === "child" && x.expected !== true).sort((a, b) => (a.birth.birthYearMonth < b.birth.birthYearMonth ? -1 : 1));
+  return [...kids, ...h.members.filter((x) => isOutside(x) && (x.kind === "child" || x.kind === "grandchild"))];
+}
+
+/**
+ * あげる贈与を足したときの既定の相手（通しの確かめ。0150）: 候補が1人ならその人。2人以上なら、離れて暮らす子・孫（前からの既定）、
+ * いなければ第1子（推定の印を付ける）。候補がいなければ相手なし（その他の人。贈与税は計算しない）
+ */
+function giftDefault(h: Household): Member | undefined {
+  const all = giftCandidates(h);
+  if (all.length <= 1) return all[0];
+  return all.find((m) => isOutside(m)) ?? all[0];
+}
+
+/** 2人以上の候補から既定で選んだ相手の推定の根拠 */
+export const GIFT_TO_BASIS = "相手の候補が2人以上のため、既定で選んでいます（受け取る人を選んでください）";
 
 // ---- 出るお金の行のまとまり（周期的な支出。欄のキーは今までの ev/<物>/…） ----
 

@@ -93,8 +93,8 @@ describe("介護の費用は、介護を受ける人の亡くなる見込みで�
     expect(t.filter((c) => c.year >= 2030).reduce((s, c) => s + c.amount, 0)).toBe(0);
     expect(t.filter((c) => c.year === 2028).reduce((s, c) => s + c.amount, 0)).toBeGreaterThan(0);
     const g = stage("care", wh).sections.find((s) => s.key === "care/costs")!.groups.find((x) => x.key === `ev/care/${care.id}`)!;
-    expect(g.title).toBe("母の介護（施設）");
-    expect(g.summary).toContain("2027年4月から2029年2月まで（亡くなる見込みまで）");
+    expect(g.title).toBe("母の介護");
+    expect(g.summary).toContain("施設・2027年4月から2029年2月まで（亡くなる見込みまで）");
   });
 });
 

@@ -227,11 +227,11 @@ describe("生年月の欄に年齢（「38歳」）", () => {
     expect(birthFromAge("121歳", "2026-11")).toBeNull();
     expect(birthFromAge("1988-05", "2026-11")).toBeNull();
   });
-  it("年齢で入れると仮の値にして知らせる。年月は今までどおり", () => {
+  it("年齢で入れると、年齢から出した確定の値にして知らせる（根拠は「年齢から」。0150）。年月は今までどおり", () => {
     const { birth } = testFields();
     const o = { unit: "man" as const, period: "monthly" as const, baseMonth: "2026-11" };
-    expect(readField(birth, "38歳", o)).toEqual({ v: "1988-05", note: "38歳（1988年5月生まれとして入れました。月が分かれば直してください）", warn: null, assume: "仮の値（38歳から推定した生年月）" });
-    expect(readField(birth, "1988-05", o)).toEqual({ v: "1988-05", note: null, warn: null, assume: null });
+    expect(readField(birth, "38歳", o)).toEqual({ v: "1988-05", note: "38歳（1988年5月生まれとして入れました。月が分かれば直してください）", warn: null, fromAge: "年齢から（38歳と聞いて出した生年月）" });
+    expect(readField(birth, "1988-05", o)).toEqual({ v: "1988-05", note: null, warn: null, fromAge: null });
     expect(rejectReason(birth, "わからない")).toContain("年齢しか分からなければ「38歳」");
     // 年齢を受け付けない年月の欄は今までどおり読めない
     const plainYm = { ...birth, kind: "ym" as const, ageInput: false } as FieldDef;
@@ -248,7 +248,7 @@ describe("円の欄の値の読み（見せている単位と期間で読み、�
     expect(readField(pension, "15", { unit: "yen", period: "monthly", baseMonth: "2026-11" })).toMatchObject({ v: 15, warn: "15円として入れました。万円のつもりなら「15万」と打ってください" });
     expect(readField(pension, "1億2000", { unit: "yen", period: "monthly", baseMonth: "2026-11" })).toBeUndefined();
     expect(rejectReason(pension, "1億2000", "yen")).toBe("「1億2000万」のように、万まで書いてください");
-    expect(readField(pension, "", { unit: "yen", period: "monthly", baseMonth: "2026-11" })).toEqual({ v: null, note: null, warn: null, assume: null });
+    expect(readField(pension, "", { unit: "yen", period: "monthly", baseMonth: "2026-11" })).toEqual({ v: null, note: null, warn: null, fromAge: null });
   });
 });
 
@@ -292,7 +292,7 @@ describe("欄は、離れたとき（Enter）に決める（打っている途�
     (input.props.onBlur as (e: unknown) => void)(ev("十五万"));
     expect(edits).toHaveLength(0);
   });
-  it("生年月に「38歳」と打って離れると、推定した年月と仮の印が入る", () => {
+  it("生年月に「38歳」と打って離れると、年齢から出した年月が確定で入る（仮の印は付けない。0150）", () => {
     const wh = blankHousehold("2026-11");
     const { birth } = testFields();
     const edits: WorkingHousehold[] = [];
@@ -301,7 +301,7 @@ describe("欄は、離れたとき（Enter）に決める（打っている途�
     expect(edits).toHaveLength(0);
     (input.props.onBlur as (e: unknown) => void)(ev("38歳"));
     expect(edits[0]!.request.input.household.members[0]!.birth.birthYearMonth).toBe("1988-05");
-    expect(edits[0]!.assumed["t/birth"]).toBe("仮の値（38歳から推定した生年月）");
+    expect(edits[0]!.assumed["t/birth"]).toBeUndefined();
   });
 });
 

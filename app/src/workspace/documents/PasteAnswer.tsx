@@ -7,13 +7,19 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { WorkingHousehold } from "../input/household.ts";
 import { approvalTime } from "../hearing/sheet.ts";
 import { readPasted, type PasteGate } from "./ai.ts";
-import { docTypeLabel, LIMITS, type DocumentReading } from "./types.ts";
+import { docTypeLabel, LIMITS, type DocType, type DocumentReading } from "./types.ts";
+
+/** AI に渡す読み方の手引き（書類の種類を選ぶと、説明書・その書類の手引き・入力の欄の一覧をまとめた文を写す。guides.ts） */
+export interface PasteGuide {
+  options: readonly { value: DocType; label: string }[];
+  text: (t: DocType) => string;
+}
 
 export interface PasteAnswerProps {
   wh: WorkingHousehold;
   gate: PasteGate;
-  /** AI に渡す読み方の手引き（あれば「手引きを写す」を出す。AI 向けの説明書の回で渡す） */
-  guide?: string;
+  /** AI に渡す読み方の手引き（あれば書類の種類を選んで「読み方の手引きを写す」を出す） */
+  guide?: PasteGuide;
   /** 同意を記録する画面を開く（保存した世帯だけ） */
   onOpenConsent?: () => void;
   /** 読めた答えを読み取りの記録に入れ、確かめの画面を開く */
@@ -30,6 +36,7 @@ export function PasteAnswer(p: PasteAnswerProps) {
   const [masked, setMasked] = useState(false);
   const [result, setResult] = useState<{ reading: DocumentReading | null; issues: string[] } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [guideType, setGuideType] = useState<DocType | null>(p.guide?.options[0]?.value ?? null);
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => panel.current?.focus({ preventScroll: true }), []);
   useEffect(() => {
@@ -73,22 +80,38 @@ export function PasteAnswer(p: PasteAnswerProps) {
               <li>AI の答え（JSON）を、そのまま下に貼り付けて「読む」を押します。前後の文や ```json の囲みがあっても読めます。</li>
               <li>読めた値は候補として確かめの画面に出ます。値ごとに承認したものだけが現状に入ります。</li>
             </ol>
-            {p.guide !== undefined ? (
-              <p>
+            {p.guide !== undefined && guideType !== null ? (
+              <p class="dp-guide">
+                <label>
+                  書類の種類
+                  <select
+                    value={guideType}
+                    onChange={(e) => {
+                      setGuideType((e.currentTarget as HTMLSelectElement).value as DocType);
+                      setCopied(null);
+                    }}
+                    data-documents-paste-guide-type
+                  >
+                    {p.guide.options.map((o) => (
+                      <option value={o.value} key={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <button
                   type="button"
                   class="btn small"
                   onClick={() =>
-                    void navigator.clipboard
-                      ?.writeText(p.guide ?? "")
-                      .then(() => setCopied("手引きを写しました。AI に書類と一緒に渡してください"))
+                    void Promise.resolve(navigator.clipboard?.writeText(p.guide?.text(guideType) ?? ""))
+                      .then(() => setCopied("手引きを写しました。AI のチャットに貼り、書類と一緒に渡してください"))
                       .catch(() => setCopied("写せませんでした"))
                   }
                   data-documents-paste-guide
                 >
                   読み方の手引きを写す
                 </button>
-                {copied !== null ? <span class="in-note"> {copied}</span> : null}
+                {copied !== null ? <span class="in-note">{copied}</span> : null}
               </p>
             ) : null}
             <label class="dp-check">

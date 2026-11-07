@@ -18,6 +18,7 @@ import { NEW_OBJECT_KINDS } from "../src/workspace/documents/objects.ts";
 import { AiDocumentBand, DocumentEntry, DocumentReview } from "../src/workspace/documents/DocumentReview.tsx";
 import { PASTE_WARNING, PasteAnswer } from "../src/workspace/documents/PasteAnswer.tsx";
 import { DOC_TYPES, LIMITS, PROPOSAL_CONTRACT } from "../src/workspace/documents/types.ts";
+import { GUIDE_DOC_TYPES, guideText } from "../src/workspace/documents/guides.ts";
 import { DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { modelHousehold } from "./helpers.ts";
 
@@ -80,7 +81,7 @@ describe("道具の入力の形（接続口）と読み口の上限・種類の�
     const r = readProposal(answer(), { via: "ai", at: AT, newId, connector: "test-ai 1.2", members: members(wh) });
     expect(r.issues).toEqual([]);
     expect(r.reading).not.toBeNull();
-    expect(r.reading!.candidates).toHaveLength(6);
+    expect(r.reading!.candidates).toHaveLength(8);
     expect(r.reading!.objects).toHaveLength(1);
     expect(r.reading!.references).toHaveLength(1);
     expect(r.reading!.candidates.filter((c) => c.unreadable === true)).toHaveLength(1);
@@ -185,7 +186,37 @@ describe("貼り付けの入口", () => {
     expect(ok).toContain("data-documents-paste-masked");
     expect(ok).toMatch(/data-documents-paste-read[^>]*disabled|disabled[^>]*data-documents-paste-read/u);
     expect(ok).not.toContain("data-documents-paste-guide");
-    expect(renderToString(h(PasteAnswer, { wh, gate: { ok: true, sample: true }, guide: "手引き", onRead: () => undefined, onClose: () => undefined }))).toContain("data-documents-paste-guide");
+    const withGuide = renderToString(h(PasteAnswer, { wh, gate: { ok: true, sample: true }, guide: { options: GUIDE_DOC_TYPES, text: guideText }, onRead: () => undefined, onClose: () => undefined }));
+    expect(withGuide).toContain("data-documents-paste-guide");
+    expect(withGuide).toContain("data-documents-paste-guide-type");
+    expect(withGuide).toContain("ねんきん定期便");
+  });
+});
+
+describe("貼り付けで写す読み方の手引き（SDK フォルダの説明書・手引き・欄の一覧）", () => {
+  const sdk = (...p: string[]) => readFileSync(join(REPO_DIR, "sdk", ...p), "utf8").trim();
+  it("書類の種類ごとに、説明書・その書類の手引き・欄の一覧をそのまま写す。世帯のデータは入らない", () => {
+    const pension = guideText("pensionStatement");
+    expect(pension).toContain(sdk("docs", "document-reading.md"));
+    expect(pension).toContain(sdk("skills", "read-documents", "guides", "pension.md"));
+    expect(pension).toContain(sdk("skills", "read-documents", "fields.md"));
+    expect(pension).not.toContain(sdk("skills", "read-documents", "guides", "withholding-slip.md"));
+    expect(guideText("earthquakeInsuranceDeduction")).toContain(sdk("skills", "read-documents", "guides", "insurance-deduction.md"));
+    expect(guideText("housingLoanBalance")).toContain(sdk("skills", "read-documents", "guides", "housing-loan.md"));
+    const other = guideText("other");
+    expect(other).toContain('docType を "other"');
+    expect(other).toContain(sdk("skills", "read-documents", "fields.md"));
+    for (const t of GUIDE_DOC_TYPES) {
+      expect(DOC_TYPES.some((d) => d.value === t.value)).toBe(true);
+      expect(hasTwelve(guideText(t.value))).toBe(false);
+    }
+    // 手引きのある書類の種類は、スキルの表の種類とそろう（その他を除く）
+    const skill = sdk("skills", "read-documents", "SKILL.md");
+    for (const t of GUIDE_DOC_TYPES.filter((x) => x.value !== "other")) expect(skill, t.value).toContain(`\`${t.value}\``);
+  });
+
+  it("説明書の使い方の表に、AI接続口の道具の名前が書いてある", () => {
+    expect(sdk("docs", "document-reading.md")).toContain("`propose_inputs`");
   });
 });
 

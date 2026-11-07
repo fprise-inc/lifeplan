@@ -15,6 +15,7 @@ import { isDream } from "../../../engine/moneyRows.ts";
 import { addDream, DREAM_TEMPLATES, dreamOfTemplate, dreamRows, moveDream, toDream, type DreamTemplate } from "../dreams.ts";
 import { deathEstimate, hasBirth } from "../fill.ts";
 import { manYen, readGroup, readLine } from "../readLines.ts";
+import { formatYearMonth } from "../units.ts";
 import { overlapYears, scheduleItems, yearLabel } from "../schedule.ts";
 import { clearsAssumed } from "./care.ts";
 import { defaultStages } from "./education.ts";
@@ -79,6 +80,37 @@ function careEstimateField(f: FieldDef, value: (wh: WorkingHousehold) => number 
 }
 
 /**
+ * 介護の期間が、介護を受ける人の亡くなる見込みで止まるか（通しの確かめ。0150）: 止まるなら、費用を出す最後の月と月数。
+ * 期間の欄の数（入れた値か統計の推定）は変えず、欄の下に「亡くなる見込みで止まり、2029年5月まで（費用は19か月分）」と出す（careSpan の見出しの1行と同じ決まり）
+ */
+export function careDeathCut(wh: WorkingHousehold, c: CareExpense): { last: string; months: number } | null {
+  const h = wh.request.input.household;
+  const from = resolveTimepoint(h, c.from);
+  const months = c.months ?? careEstimate(c.place === "facility" ? "facility" : "home")?.months;
+  const gone = resolveTimepoint(h, h.members.find((m) => m.id === c.member)?.leaves ?? null);
+  if (from === null || months === undefined || gone === null) return null;
+  const last = addMonths(from, months - 1);
+  if (gone > last) return null;
+  const n = (Number(gone.slice(0, 4)) - Number(from.slice(0, 4))) * 12 + (Number(gone.slice(5, 7)) - Number(from.slice(5, 7)));
+  return { last: addMonths(gone, -1), months: Math.max(0, n) };
+}
+
+/** 期間の欄の下の1行に、亡くなる見込みで止まることを足す */
+function withDeathCut(f: FieldDef, careId: string): FieldDef {
+  return {
+    ...f,
+    get: (wh) => {
+      const st = f.get(wh);
+      const c = (wh.request.input.household.careExpenses ?? []).find((x) => x.id === careId);
+      const cut = c === undefined ? null : careDeathCut(wh, c);
+      if (cut === null) return st;
+      const line = cut.months > 0 ? `亡くなる見込みで止まり、${formatYearMonth(cut.last)}まで（費用は${cut.months}か月分）` : "亡くなる見込みの後に始まるため、費用は出ません";
+      return { ...st, hint: st.hint != null ? `${st.hint}。${line}` : line };
+    },
+  };
+}
+
+/**
  * 介護の費用の欄。始まり・期間・月々の費用は詳細（空欄の期間と額は統計の目安。見出しの1行に出る）。
  * もう始まっている介護だけ、月々の費用を標準に出す（今かかっている額は顧客が答えられ、目安より確か）。
  * 空欄の月々の費用・期間・一時費用は、統計の平均を推定として欄に見せる（「この値にする」で書ける）。
@@ -120,11 +152,14 @@ export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
   const fields: FieldDef[] = [
     plain({ key: `${k}/member`, item: "care.member", label: "介護を受ける人", level: "simple", kind: "select", options: memberOptions(wh), find, path: ["member"] }),
     timepointField({ key: `${k}/from`, item: "care.from", label: "始まり", level: "detail", find, path: ["from"], ageOf: (h) => h.members.find((m) => m.id === (h.careExpenses ?? []).find((x) => x.id === c.id)?.member), anchor: "careStart" }),
-    careEstimateField(
-      plain({ key: `${k}/months`, item: "care.months", label: "期間", level: "detail", kind: "int", suffix: "か月", min: 1, max: 600, find, path: ["months"], optional: true, help: "介護を受ける人の亡くなる見込みが期間の途中なら、その月からは費用を出しません" }),
-      (w) => statOf(w)?.months ?? null,
-      `推定（${basis}）`,
-      (v) => `${String(v)}か月（推定）`,
+    withDeathCut(
+      careEstimateField(
+        plain({ key: `${k}/months`, item: "care.months", label: "期間", level: "detail", kind: "int", suffix: "か月", min: 1, max: 600, find, path: ["months"], optional: true, help: "介護を受ける人の亡くなる見込みが期間の途中なら、その月からは費用を出しません" }),
+        (w) => statOf(w)?.months ?? null,
+        `推定（${basis}）`,
+        (v) => `${String(v)}か月（推定）`,
+      ),
+      c.id,
     ),
     plain({ key: `${k}/place`, item: "care.place", label: "在宅か施設か", level: "simple", kind: "select", options: CARE_PLACE, find, path: ["place"], optional: true, fallback: "home" }),
     other,

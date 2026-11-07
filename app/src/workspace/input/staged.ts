@@ -8,7 +8,7 @@ import type { Household, Member, Timepoint } from "../../engine/types.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import { field, getPath, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type Level } from "./form.ts";
 import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "./household.ts";
-import { ASSET_CLASSES } from "./labels.ts";
+import { ASSET_CLASSES, WORDS } from "./labels.ts";
 import { formatYen, type YenBasis } from "./units.ts";
 import { rowAt } from "./rows.ts";
 import type { Address, Target } from "../store/readings.ts";
@@ -236,7 +236,7 @@ export function stagedGroups(wh: WorkingHousehold, spec: StagedSpec): GroupDef[]
       ...placeIn,
       fields,
       actions: [
-        removeAction(`${k}/remove`, "この変化を外す", LEVEL, (hh, w) => {
+        removeAction(`${k}/remove`, WORDS.remove, LEVEL, (hh, w) => {
           dropFrom(spec.find(hh, w), spec.stages.path, id);
           spec.onRemoveStage?.(hh, id);
         }),
@@ -257,7 +257,7 @@ export function stagedGroups(wh: WorkingHousehold, spec: StagedSpec): GroupDef[]
         { ...plain({ key: `${k}/year`, item: spec.exceptions.item, label: "年", level: LEVEL, kind: "int", suffix: "年", min: 1900, max: 2200, find, path: ["year"] }), address: () => ad(["year"]) },
         { ...yenBox({ key: `${k}/amount`, item: spec.exceptions.item, label: `その年の${spec.what}`, level: LEVEL, basis: spec.basis, find, path: ["amount"], help: `今の価格で入れます。0円はその年に${zeroWord(spec.flow)}` }), address: () => ad(["amount"]) },
       ],
-      actions: [removeAction(`${k}/remove`, "この変化を外す", LEVEL, (hh, w) => dropFrom(spec.find(hh, w), spec.exceptions.path, id))],
+      actions: [removeAction(`${k}/remove`, WORDS.remove, LEVEL, (hh, w) => dropFrom(spec.find(hh, w), spec.exceptions.path, id))],
     };
   };
   // 推定の段（割合が推定のまま）が多いときは、1つの表に畳む: 1段1行の「○年から（今の額に対する割合）」の欄だけにする。
@@ -355,7 +355,7 @@ function foldedGroup(wh: WorkingHousehold, spec: StagedSpec, autos: readonly Obj
     ...placeIn,
     fields,
     actions: [
-      removeAction(`${k}/remove`, "推定の変化を外す", LEVEL, (hh, w) => {
+      removeAction(`${k}/remove`, WORDS.remove, LEVEL, (hh, w) => {
         for (const s of autos) {
           dropFrom(spec.find(hh, w), spec.stages.path, String(s.id));
           spec.onRemoveStage?.(hh, String(s.id));
@@ -435,7 +435,7 @@ export function returnStageGroups(wh: WorkingHousehold, o: { key: string; find: 
       level: LEVEL,
       ...(byMix ? { note: "資産の配分の段では、前提条件の資産の種類ごとの利回りで計算します（運用の費用はこの後に引きます）" } : {}),
       fields,
-      actions: [removeAction(`${k}/remove`, "この変化を外す", LEVEL, (hh, w) => dropFrom(o.find(hh, w), stagesPlace.path, id))],
+      actions: [removeAction(`${k}/remove`, WORDS.remove, LEVEL, (hh, w) => dropFrom(o.find(hh, w), stagesPlace.path, id))],
     });
     if (byMix) groups.push(mixRowsGroup(`${k}/mix`, `${stageTitle(h, what, s.at, true)}の資産の配分`, stagesPlace.item, find, ["assetMix"], ad(["assetMix"]), (s.assetMix as Mix).length));
   };
@@ -452,7 +452,7 @@ export function returnStageGroups(wh: WorkingHousehold, o: { key: string; find: 
         { ...plain({ key: `${k}/year`, item: excPlace.item, label: "年", level: LEVEL, kind: "int", suffix: "年", min: 1900, max: 2200, find, path: ["year"] }), address: () => ad(["year"]) },
         { ...plain({ key: `${k}/rate`, item: excPlace.item, label: "その年の利回り（年）", level: LEVEL, kind: "pct", ...RETURN_RANGE, find, path: ["expectedReturn"], help: "マイナスも入れられます（運用の費用はこの後に引きます）" }), address: () => ad(["expectedReturn"]) },
       ],
-      actions: [removeAction(`${k}/remove`, "この変化を外す", LEVEL, (hh, w) => dropFrom(o.find(hh, w), excPlace.path, id))],
+      actions: [removeAction(`${k}/remove`, WORDS.remove, LEVEL, (hh, w) => dropFrom(o.find(hh, w), excPlace.path, id))],
     });
   };
   for (const c of changeOrder(h, stages, exceptions)) {

@@ -6,7 +6,7 @@ import { ageAt, ageReachedMonth } from "../../levers.ts";
 import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
 import { putRow } from "../rows.ts";
-import { accountHolderRule, ACCOUNT_KINDS, ASSET_CLASSES, BUILDING_STRUCTURES, canHold, HELD_ESTATE_OPTIONS, HELD_SALE_TAXATION, heldEstateSubtypeOf, holderOptions, memberLabel, OTHER_ASSET_OPTIONS, otherAssetSubtypeOf, VALUATION_DEFAULTS } from "../labels.ts";
+import { accountHolderRule, ACCOUNT_KINDS, ADULTS_WHO, ASSET_CLASSES, BUILDING_STRUCTURES, canHold, HELD_ESTATE_OPTIONS, HELD_SALE_TAXATION, heldEstateSubtypeOf, holderOptions, memberLabel, OTHER_ASSET_OPTIONS, otherAssetSubtypeOf, VALUATION_DEFAULTS } from "../labels.ts";
 import { addMonths } from "../../levers.ts";
 import { dropHeldCostRows, heldCostRow, heldEstateCostEstimate, heldEstateTaxInputs, newHeldCostRow, startsHeldEstateCost } from "../heldEstateTax.ts";
 import { isRentalProperty, UNENTERED_RENT } from "./rental.ts";
@@ -492,6 +492,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
           optional: true,
           absentWhenEmpty: true,
           nullText: "いつでも引き出せる",
+          who: ADULTS_WHO,
           help: "その月まで取り崩しません。定期預金の満期・財形の払い出しの条件などで、その月まで取り崩しに使わない口座に入れます。ずっと取り崩さない口座は、お金の行き先の「取り崩さない」で決めます",
           ...(owner !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === owner.id) } : {}),
         }),
@@ -677,13 +678,14 @@ function mutualAidFields(wh: WorkingHousehold, a: Account, k: string): FieldDef[
       label: "受け取り方",
       level: "simple",
       kind: "select",
-      options: MUTUAL_AID_OPTIONS,
+      // 空欄は推定ではなく「受け取らずに残高のまま持つ」（廃業・退職の時期を入れてもらう。iDeCo の「退職の年に一時金」と違い、決まった時期が無い）。
+      // 選ぶ欄では空欄の意味が欄に出ないので、その意味の選択肢を先頭に置いて見せる（「（選ぶ）」のままにしない。入力項目をまたいだそろえ。0150）
+      options: [{ value: "", label: "受け取らない（残高のまま持つ）" }, ...MUTUAL_AID_OPTIONS],
       optional: true,
       structural: true,
-      // 空欄は推定ではなく「受け取らずに残高のまま持つ」（廃業・退職の時期を入れてもらう。iDeCo の「退職の年に一時金」と違い、決まった時期が無い）
       blankMeans: "受け取らない（残高のまま持つ）",
       help: "廃業・退職などで受け取るときに選び、受け取りを始める時期を入れます。入れなければ、受け取らずに残高のまま持ちます（資産には入ります）",
-      get: (w) => ({ value: acc(w)?.payout?.method ?? null }),
+      get: (w) => ({ value: acc(w)?.payout?.method ?? "", implicit: acc(w)?.payout === undefined }),
       set: (w, v) =>
         mutate(w, (h) => {
           const x = find(h, w) as Account | undefined;

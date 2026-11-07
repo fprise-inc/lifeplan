@@ -71,6 +71,8 @@
 .dp-panel { width: min(760px, calc(100vw - 32px)); }
 .dp-steps { margin: 6px 0 10px; padding-left: 22px; font-size: 0.88rem; }
 .dp-steps li { margin: 2px 0; }
+.dp-guide { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0; }
+.dp-guide label { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 0.88rem; }
 .dp-check { display: flex; align-items: flex-start; gap: 6px; margin: 8px 0; font-weight: 700; font-size: 0.9rem; }
 .dp-field { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; font-weight: 700; font-size: 0.88rem; }
 .dp-field input { max-width: 24em; }

@@ -66,3 +66,112 @@ export const SAMPLE_DOCUMENTS: readonly SampleDocument[] = [
     },
   },
 ];
+
+/**
+ * 架空の控除証明書の電子データ（0153 の4）: 公的な仕様の形（生命保険料控除証明書2通・地震保険料控除証明書1通を1つのファイルに）に合わせた、
+ * 架空の値の XML。会社名・氏名・番号・金額はどれも架空で、名前空間も架空の名前にしている（読み手は名前空間を見ない）。
+ * 氏名・証券番号・被保険者番号の欄も入れてあり、読み手が読まない（木に入れない）ことを確かめに使う。見本の世帯でだけ読む
+ */
+export const SAMPLE_DEDUCTION_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<DATA xmlns="urn:example:kyotsu" xmlns:gen="urn:example:general">
+  <TEG800 VR="1.0" id="TEG800">
+    <WCA00000>架空のみどり生命</WCA00000>
+    <WCB00000>9999999999999</WCB00000>
+    <WCC00000><gen:yyyy>2026</gen:yyyy><gen:mm>10</gen:mm><gen:dd>20</gen:dd></WCC00000>
+    <WCD00000>架空 太郎</WCD00000>
+    <WCE00000>
+      <WCE00010><gen:yyyy>2026</gen:yyyy></WCE00010>
+      <WCE00020>生命保険料控除証明書</WCE00020>
+      <WCE00040>AB-0012345678</WCE00040>
+      <WCE00050>終身医療保険</WCE00050>
+      <WCE00060><gen:yyyy>2019</gen:yyyy><gen:mm>6</gen:mm><gen:dd>1</gen:dd></WCE00060>
+      <WCE00080>架空 太郎</WCE00080>
+      <WCE00090>0000000001</WCE00090>
+      <WCE00100>月払</WCE00100>
+      <WCE00110>架空 花子</WCE00110>
+      <WCE00120>0</WCE00120>
+      <WCE00190>
+        <WCE00200><gen:yyyy>2026</gen:yyyy><gen:mm>1</gen:mm></WCE00200>
+        <WCE00210><gen:yyyy>2026</gen:yyyy><gen:mm>10</gen:mm></WCE00210>
+        <WCE00310><WCE00360><WCE00370>32400</WCE00370><WCE00380>0</WCE00380><WCE00390>32400</WCE00390></WCE00360></WCE00310>
+      </WCE00190>
+      <WCE00440>
+        <WCE00550><WCE00600><WCE00610>38880</WCE00610><WCE00620>0</WCE00620><WCE00630>38880</WCE00630></WCE00600></WCE00550>
+      </WCE00440>
+      <WCE00720>証券番号 AB-0012345678 のご契約</WCE00720>
+    </WCE00000>
+    <WCE00000>
+      <WCE00010><gen:yyyy>2026</gen:yyyy></WCE00010>
+      <WCE00040>AB-0012345679</WCE00040>
+      <WCE00050>個人年金保険</WCE00050>
+      <WCE00060><gen:yyyy>2010</gen:yyyy><gen:mm>4</gen:mm><gen:dd>1</gen:dd></WCE00060>
+      <WCE00080>架空 太郎</WCE00080>
+      <WCE00100>年払</WCE00100>
+      <WCE00130>
+        <WCE00140><gen:yyyy>1985</gen:yyyy><gen:mm>5</gen:mm><gen:dd>5</gen:dd></WCE00140>
+        <WCE00150>25</WCE00150>
+        <WCE00160>確定年金</WCE00160>
+        <WCE00170>10</WCE00170>
+      </WCE00130>
+      <WCE00190>
+        <WCE00220><WCE00270><WCE00280>120000</WCE00280><WCE00290>3000</WCE00290><WCE00300>117000</WCE00300></WCE00270></WCE00220>
+      </WCE00190>
+      <WCE00440>
+        <WCE00460><WCE00510><WCE00520>120000</WCE00520><WCE00530>3000</WCE00530><WCE00540>117000</WCE00540></WCE00510></WCE00460>
+      </WCE00440>
+    </WCE00000>
+    <WCE00000>
+      <WCE00010><gen:yyyy>2026</gen:yyyy></WCE00010>
+      <WCE00040>AB-0012345680</WCE00040>
+      <WCE00050>収入保障保険</WCE00050>
+      <WCE00060><gen:yyyy>2021</gen:yyyy><gen:mm>9</gen:mm><gen:dd>1</gen:dd></WCE00060>
+      <WCE00070>K-123</WCE00070>
+      <WCE00080>架空 太郎</WCE00080>
+      <WCE00100>月払</WCE00100>
+      <WCE00190>
+        <WCE00310><WCE00320><WCE00330>42000</WCE00330><WCE00340>0</WCE00340><WCE00350>42000</WCE00350></WCE00320></WCE00310>
+      </WCE00190>
+      <WCE00440>
+        <WCE00550><WCE00560><WCE00570>50400</WCE00570><WCE00580>0</WCE00580><WCE00590>50400</WCE00590></WCE00560></WCE00550>
+      </WCE00440>
+    </WCE00000>
+  </TEG800>
+  <TEG800 VR="1.0" id="TEG800">
+    <WCA00000>架空のそら生命</WCA00000>
+    <WCC00000><gen:yyyy>2026</gen:yyyy><gen:mm>10</gen:mm><gen:dd>15</gen:dd></WCC00000>
+    <WCD00000>架空 太郎</WCD00000>
+    <WCE00000>
+      <WCE00010><gen:yyyy>2026</gen:yyyy></WCE00010>
+      <WCE00040>SK-77777</WCE00040>
+      <WCE00050>がん保険</WCE00050>
+      <WCE00060><gen:yyyy>2022</gen:yyyy><gen:mm>2</gen:mm><gen:dd>1</gen:dd></WCE00060>
+      <WCE00080>架空 太郎</WCE00080>
+      <WCE00100>月払</WCE00100>
+      <WCE00190>
+        <WCE00310><WCE00360><WCE00370>25000</WCE00370><WCE00380>0</WCE00380><WCE00390>25000</WCE00390></WCE00360></WCE00310>
+      </WCE00190>
+      <WCE00440>
+        <WCE00550><WCE00600><WCE00610>30000</WCE00610><WCE00620>0</WCE00620><WCE00630>30000</WCE00630></WCE00600></WCE00550>
+      </WCE00440>
+    </WCE00000>
+  </TEG800>
+  <TEG810 VR="1.0" id="TEG810">
+    <WDA00000>架空のうみ損保</WDA00000>
+    <WDC00000><gen:yyyy>2026</gen:yyyy><gen:mm>10</gen:mm><gen:dd>10</gen:dd></WDC00000>
+    <WDD00000>架空 太郎</WDD00000>
+    <WDE00000>
+      <WDE00010><gen:yyyy>2026</gen:yyyy></WDE00010>
+      <WDE00020><kubun_CD>1</kubun_CD><kubun_NM>地震保険料</kubun_NM></WDE00020>
+      <WDE00030><WDE00040>F-5555-01</WDE00040><WDE00050>01</WDE00050></WDE00030>
+      <WDE00060>架空 太郎</WDE00060>
+      <WDE00070><kubun_CD>1</kubun_CD><kubun_NM>建物</kubun_NM></WDE00070>
+      <WDE00120>
+        <WDE00130><gen:yyyy>2024</gen:yyyy><gen:mm>3</gen:mm><gen:dd>1</gen:dd></WDE00130>
+        <WDE00140>5</WDE00140>
+      </WDE00120>
+      <WDE00150><kubun_CD>1</kubun_CD><kubun_NM>年払</kubun_NM></WDE00150>
+      <WDE00160><WDE00170>21600</WDE00170><WDE00180>21600</WDE00180></WDE00160>
+    </WDE00000>
+  </TEG810>
+</DATA>
+`;
