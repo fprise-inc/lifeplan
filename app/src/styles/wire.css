@@ -90,6 +90,8 @@
 .hs-diffs li.rough { border-left: 2px solid var(--est); margin-left: -10px; padding-left: 8px; }
 .hs-diff-l { color: var(--ink-2); margin-right: 4px; }
 .hs-keep { margin: 4px 0; font-size: 0.85rem; color: var(--est-ink); background: var(--est-bg); border-radius: 4px; padding: 2px 6px; }
+.hs-work-modes { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 4px; font-size: 0.85rem; }
+.hs-work-modes label { display: flex; gap: 6px; align-items: baseline; cursor: pointer; }
 .hs-list { margin: 0; padding-left: 1.2em; font-size: 0.88rem; }
 
 /* ---- 控え（入力のホームの上部。控えめに置く） ---- */
