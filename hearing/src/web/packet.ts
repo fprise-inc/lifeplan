@@ -200,32 +200,95 @@ export async function selectionDigest(s: WebSelection): Promise<string> {
   return sha256Hex(canonicalJson({ web: WEB_FORMAT_VERSION, base: s.base, sections: s.sections, custom: s.custom.map((c) => c.key), documents: s.documents.map((d) => [d.id, d.kind]) }));
 }
 
-/** 「該当なし」のボタンの言葉（Web では、配偶者の方がいるか・人数は分岐の問いで聞くので、家族の欄には出さない） */
+/**
+ * 「該当なし」のボタンの言葉（省略は「当てはまらない」。null は出さない）。
+ * - 配偶者の方がいるか・人数は分岐の問いで聞くので、家族の欄には出さない
+ * - 答えに合わせて飛ばした後にしか出ない問い（働いている方の年収・賃貸の方の家賃・住宅ローンのある方の残高）には出さない（0138）
+ * - 「働いていない」は働き方の選択肢にあるので、小さなボタンでは出さない（同じ言葉が2つ並ばないように。0138）
+ */
 const NA_LABEL: Readonly<Record<string, string | null>> = {
   "hs.family.adult.birthYearMonth": null,
   "hs.family.adult.age": null,
   "hs.family.adult.sex": null,
   "hs.family.spouse.marriage": null,
-  "hs.work.type": "働いていない",
+  "hs.work.type": null,
+  "hs.income.annual": null,
+  "hs.income.salary": null,
+  "hs.income.taxReturn": null,
   "hs.education.elementary": "卒業した",
   "hs.education.juniorHigh": "卒業した",
   "hs.education.highSchool": "卒業した",
   "hs.education.after": "進学しない",
   "hs.insurance.payUntilAge": "終身払い",
-  "hs.housing.rent": "家賃はない",
+  "hs.housing.rent": null,
+  "hs.loan.monthlyTotal": "住宅ローンはない",
+  "hs.loan.balanceTotal": null,
+  "hs.assets.depositTotal": null,
+  "hs.assets.investTotal": "持っていない",
+  "hs.insurance.premiumTotal": "保険に入っていない",
+  "hs.family.parent.allowance": "仕送りはしていない",
+  "hs.family.parent.support": "援助は受けていない",
+  "hs.family.parent.careMonthly": "払っていない",
 };
 
-/** シートの手引きの文を Web の言葉にする（「該当なし」→「当てはまらない」。分岐の問いで聞く「配偶者の方がいらっしゃらない場合」の文は外す） */
+/**
+ * お客さまの画面の問いの言葉（シートの欄の名前のままだと分かりにくいもの。0138）。シート定義・配置の指紋は変えない（画面用の補い）。
+ * 繰り返しの見出し（ご本人・ご本人のお父さま …）は問いの上に別に出す
+ */
+export const WEB_LABELS: Readonly<Record<string, string>> = {
+  "hs.family.adult.birthYearMonth": "生まれた年と月",
+  "hs.family.adult.age": "年齢",
+  "hs.family.child.birthYearMonth": "生まれた年と月（生まれる前なら予定の年月）",
+  "hs.family.parent.alive": "ご健在ですか",
+  "hs.family.parent.age": "お年はおいくつですか",
+  "hs.family.parent.cohabiting": "いっしょに暮らしていますか",
+  "hs.family.parent.care": "介護は始まっていますか",
+  "hs.family.parent.allowance": "毎月の仕送り（ご両親へ）",
+  "hs.family.parent.support": "毎月の援助（ご両親から）",
+  "hs.inherit.expected": "これから受け取る予定の相続・贈与はありますか",
+  "hs.housing.rent": "毎月の家賃（管理費・共益費を含む）",
+  "hs.plan.events": "これからの予定はありますか（住宅の購入・転職・独立・車の買い替えなど）",
+  "hs.consult.topics": "ご相談したいこと・気になっていることを、自由にお書きください",
+  "hs.pension.notice.type": "お手元にある年金の書類はどれですか",
+  "hs.loan.debtor": "このローンを借りている方（名義）",
+  "hs.education.elementary": "小学校は公立・私立のどちらですか（予定を含む）",
+  "hs.education.juniorHigh": "中学校は公立・私立のどちらですか（予定を含む）",
+  "hs.education.highSchool": "高校は公立・私立のどちらですか（予定を含む）",
+  "hs.education.after": "高校の後は、どこへ進む予定ですか",
+};
+
+/** シートの手引きの文を Web の言葉にする（「該当なし」→ ボタンの言葉。ボタンを出さない項目は、その文を外す。分岐の問いで聞く「配偶者の方がいらっしゃらない場合」の文は外す） */
 export function webGuide(text: string | undefined, key?: string): string | undefined {
   if (text === undefined) return undefined;
   const na = key === undefined ? undefined : NA_LABEL[key];
   const t = text
     .split(/(?<=。)/)
-    .filter((x) => !x.includes("配偶者の方がいらっしゃらない"))
+    .filter((x) => !x.includes("配偶者の方がいらっしゃらない") && !(na === null && x.includes("「該当なし」")))
     .join("")
     .replaceAll("「該当なし」", `「${na ?? "当てはまらない"}」`)
     .trim();
   return t === "" ? undefined : t;
+}
+
+/** 前回の値（Excel の書き出しと同じ言葉）を、お客さまの画面の答えの形にする: 選択肢はラベル → 値、年月は「1985年（昭和60年）」「4月」→ 1985・4（0138） */
+export function webPrefill(item: SheetItem, a: Pick<Answer, "status" | "raw" | "raw2">): Pick<Answer, "status" | "raw" | "raw2"> {
+  if (a.status !== "value" || a.raw === undefined || a.raw.kind === "bool") return a;
+  const t = a.raw.text.normalize("NFKC").trim();
+  if (item.type === "choice") {
+    const c = (item.choices ?? []).find((x) => x.label.normalize("NFKC") === t) ?? (item.choices ?? []).find((x) => x.value === t);
+    return c === undefined ? a : { status: "value", raw: { kind: "text", text: c.value } };
+  }
+  if (item.type === "yearMonth") {
+    const y = /^(\d{4})/.exec(t)?.[1];
+    const m = a.raw2 === undefined || a.raw2.kind === "bool" ? undefined : /^(\d{1,2})/.exec(a.raw2.text.normalize("NFKC").trim())?.[1];
+    if (y === undefined) return a;
+    return { status: "value", raw: { kind: "text", text: y }, ...(m !== undefined ? { raw2: { kind: "number", text: String(Number(m)) } } : {}) };
+  }
+  if (item.type === "moneyRange") {
+    const r = (item.ranges ?? []).find((x) => x.label.normalize("NFKC") === t);
+    return r === undefined ? a : { status: "value", raw: { kind: "text", text: r.label } };
+  }
+  return a;
 }
 
 function webItem(def: SheetDefinition, i: SheetItem, section: string): WebItem {
@@ -234,7 +297,7 @@ function webItem(def: SheetDefinition, i: SheetItem, section: string): WebItem {
   const copy = <K extends keyof SheetItem>(k: K) => (i[k] !== undefined ? { [k]: i[k] } : {});
   return {
     key: i.key,
-    label: i.label,
+    label: WEB_LABELS[i.key] ?? i.label,
     type: i.type,
     ...copy("unit"),
     ...copy("unitLabel"),
@@ -285,7 +348,8 @@ export async function buildPacket(def: SheetDefinition, s: WebSelection, o: Pack
       const prefill: Record<string, Pick<Answer, "status" | "raw" | "raw2">> = {};
       for (const a of o.prefill ?? []) {
         if (a.key !== it.key || a.status === "blank") continue;
-        prefill[String(a.index ?? 0)] = { status: a.status, ...(a.raw !== undefined ? { raw: a.raw } : {}), ...(a.raw2 !== undefined ? { raw2: a.raw2 } : {}) };
+        const w = webPrefill(items.get(it.key) as SheetItem, a);
+        prefill[String(a.index ?? 0)] = { status: w.status, ...(w.raw !== undefined ? { raw: w.raw } : {}), ...(w.raw2 !== undefined ? { raw2: w.raw2 } : {}) };
       }
       out.push({ ...base, confirm: true, ...(Object.keys(prefill).length > 0 ? { prefill } : {}) });
     }
@@ -315,10 +379,10 @@ export async function buildPacket(def: SheetDefinition, s: WebSelection, o: Pack
   };
 }
 
-/** お客さまのページの最初の画面の注意（シートの注意書きの Web 版） */
+/** お客さまのページの最初の画面の注意（シートの注意書きの Web 版。0138 で短く: 「当てはまらない」の説明は外し、名前の代わりに見分ける仕組みは言葉を変えた） */
 export const WEB_NOTES: readonly string[] = [
-  "お名前は書かないでください。番号でお客さまを見分けます。",
-  "わからない問いは「わからない」、当てはまらない問いは「当てはまらない」を選んでください。「あとで」で飛ばして、最後にまとめて見直せます。",
+  "お名前は書かないでください。お名前がなくても、担当の FP にはどなたのお答えか分かります。",
+  "わからないときは「わからない」を、あとで考えたいときは「あとで」を押してください。途中まででも送れます。答えていない所は、面談のときにうかがいます。",
   "次のことはお聞きしません: 病歴など健康の情報、マイナンバー・基礎年金番号などの番号、口座番号。",
   "途中で閉じても、この端末のこのブラウザなら続きから答えられます（端末の中に暗号化して残します）。",
 ];

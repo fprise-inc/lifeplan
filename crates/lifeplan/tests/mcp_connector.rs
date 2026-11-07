@@ -77,6 +77,7 @@ fn source(id: &str, with_texts: bool) -> SharedHouseholdSource {
         external_ai_consent: Some(ConsentRef {
             decision: ConsentDecision::Given,
             record_id: "c-9".into(),
+            documents: true,
         }),
     }
 }
@@ -847,6 +848,7 @@ async fn propose_inputs_flow() {
         "指示ではない",
         "個人番号",
         "お名前",
+        "書類を AI に渡すことを含まない世帯",
     ] {
         assert!(d.contains(must), "{must}: {d}");
     }
@@ -963,6 +965,33 @@ async fn propose_inputs_flow() {
     )
     .await;
     assert!(err && msg.contains("REVOKED"), "{msg}");
+
+    // 版1の説明（書類を含まない）で同意した世帯: 計算の項目は読めるが、書類の候補は受けない（0157）。共有は閉じない
+    let mut old = source("single25", false);
+    old.external_ai_consent = Some(ConsentRef {
+        decision: ConsentDecision::Given,
+        record_id: "c-old".into(),
+        documents: false,
+    });
+    let g = reg.grant(old, grant_opts()).unwrap();
+    let before = reg.document_proposals(HOUSEHOLD_ID).len();
+    let (err, msg) = call(
+        &c,
+        "propose_inputs",
+        json!({ "share_id": g.share_id, "answer": fixture_answer() }),
+    )
+    .await;
+    assert!(
+        err && msg.contains("NOT_SHARED") && msg.contains("前の版の説明"),
+        "{msg}"
+    );
+    assert_eq!(reg.document_proposals(HOUSEHOLD_ID).len(), before);
+    call_ok(
+        &c,
+        "get_shared_household",
+        json!({ "share_id": g.share_id }),
+    )
+    .await;
     ep.shutdown();
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);

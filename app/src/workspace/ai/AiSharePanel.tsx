@@ -1,6 +1,7 @@
 // 世帯の「AIとの共有」（中央のパネル。0014・0015）:
 // - 状態のカード（共有しない／同意あり／共有中）
 // - 外部AIへの提供の同意を記録する（範囲・同意の取り方・日付・FP の確認）。撤回もここで記録する（撤回すると共有はすぐに止まる）
+// - 前の版の説明（書類を含まない）で同意した世帯は、今の説明で同意を記録し直せる（0157。計算の項目はそのまま渡せる）
 // - 世帯をAIに渡す（申告した接続先・期限）・取り消す
 // - 記録: 同意の記録・AIに渡した記録（いつ・どの接続から・何を・何回）・AIからの候補
 // 記録を書くのは本体。画面は入力を送り、本体が返した記録を見せるだけ
@@ -30,6 +31,12 @@ interface ConsentForm {
   date: string;
   confirmed: boolean;
 }
+
+/** 前の版の説明で同意した世帯を渡すときの注意（0157） */
+const NO_DOCUMENTS_NOTE = "この世帯の同意は前の版の説明で、書類を AI に渡すことは含みません。同意を記録し直すまで、書類は AI に渡さないでください（AI から書類の候補が届いても受け取りません）。";
+
+/** 同意の記録が書類の読み取りを含むか（`given` の行だけに付ける言葉） */
+const documentsLabel = (documents: boolean | undefined): string => (documents === true ? "・書類の読み取りを含む" : "・前の版の説明（書類を含まない）");
 
 const emptyForm = (): ConsentForm => ({ company: "", country: "", noTraining: false, method: "paper", date: todayText(), confirmed: false });
 
@@ -79,6 +86,8 @@ export function AiSharePanel(p: AiSharePanelProps) {
   const text = SHARE_STATE_TEXT[state];
   const latest = v?.consents.filter((c) => c.kind === "externalAi" && c.origin === "thisOffice").at(-1);
   const enabled = p.status?.enabled === true;
+  // 前の版の説明（書類を含まない）で同意した世帯: 計算の項目は渡せるが、書類を AI に渡す前に取り直す（0157）
+  const renew = v !== null && v.consentState === "given" && v.consentDocuments !== true;
   return (
     <>
       <div class="scrim" aria-hidden="true" onClick={p.onClose} />
@@ -109,12 +118,18 @@ export function AiSharePanel(p: AiSharePanelProps) {
             {latest !== undefined ? (
               <p class="ai-latest" data-ai-consent-latest={latest.decision}>
                 いまの記録: <b>{DECISION_LABELS[latest.decision]}</b>（{latest.obtainedOn}・{methodLabel(latest.method)}
-                {latest.externalAi !== undefined ? `・提供先 ${latest.externalAi.company}（${latest.externalAi.country}）` : ""}）
+                {latest.externalAi !== undefined ? `・提供先 ${latest.externalAi.company}（${latest.externalAi.country}）` : ""}
+                {latest.decision === "given" ? documentsLabel(latest.documents) : ""}）
               </p>
             ) : (
               <p class="in-note">まだ記録がありません。同意が無い世帯は、AIに渡せません（既定は「渡さない」）。</p>
             )}
-            {v.consentState !== "given" ? (
+            {renew ? (
+              <p class="hh-warn" data-ai-consent-renew>
+                この世帯の同意は前の版の説明でいただいたもので、書類の読み取りで書類を AI に渡すことは含まれていません。計算に要る項目を AI に渡すことは、このまま続けられます。書類を AI に渡す前に、お客さまに今の説明を見せて、同意を記録し直してください。今の説明に同意いただけないときは、記録しなくてかまいません（書類は AI に渡さず、手で入れてください）。
+              </p>
+            ) : null}
+            {v.consentState !== "given" || renew ? (
               <form
                 class="ai-form"
                 onSubmit={(e) => {
@@ -123,7 +138,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
                 }}
                 data-ai-consent-form
               >
-                <p class="in-note">顧客に次の説明を見せて（読み上げて）、同意をいただいてから記録してください。</p>
+                <p class="in-note">顧客に次の説明{v.explanationVersion !== undefined ? `（版${v.explanationVersion}）` : ""}を見せて（読み上げて）、同意をいただいてから記録してください。</p>
                 <blockquote class="ai-explain" data-ai-explanation>
                   {v.explanation.split("\n").map((l) => (
                     <p key={l}>{l}</p>
@@ -163,6 +178,9 @@ export function AiSharePanel(p: AiSharePanelProps) {
                     <p class="ai-fields">{v.fields.map(itemName).filter((x, i, a) => a.indexOf(x) === i).join("・")}</p>
                   </details>
                   <p class="in-note">お名前・ご住所・お電話番号は持っていません。顧客番号・FPのメモ・相談内容の文章・呼び名・ほかの世帯は渡しません。</p>
+                  <label>
+                    <input type="checkbox" checked disabled data-ai-scope-documents /> 書類の読み取り: 担当のFPが、お名前・ご住所・番号を伏せた書類を、読み取りのために AI に渡すことがあります（説明の3段落目）
+                  </label>
                 </fieldset>
                 <label class="ai-check">
                   <input type="checkbox" checked={form.noTraining} onChange={(e) => setForm({ ...form, noTraining: (e.currentTarget as HTMLInputElement).checked })} data-ai-no-training />
@@ -174,14 +192,17 @@ export function AiSharePanel(p: AiSharePanelProps) {
                 </label>
                 <div class="ai-actions">
                   <button type="submit" class="btn primary" disabled={busy || !form.confirmed || form.company.trim() === "" || form.country.trim() === ""} data-ai-record-given>
-                    同意を記録する
+                    {renew ? "今の説明で同意を記録し直す" : "同意を記録する"}
                   </button>
-                  <button type="button" class="btn" disabled={busy || !form.confirmed} onClick={() => void record("refused")} data-ai-record-refused>
-                    同意しなかったことを記録する
-                  </button>
+                  {!renew ? (
+                    <button type="button" class="btn" disabled={busy || !form.confirmed} onClick={() => void record("refused")} data-ai-record-refused>
+                      同意しなかったことを記録する
+                    </button>
+                  ) : null}
                 </div>
               </form>
-            ) : withdraw === null ? (
+            ) : null}
+            {v.consentState !== "given" ? null : withdraw === null ? (
               <button type="button" class="link-btn danger" onClick={() => setWithdraw({ method: "inPerson", date: todayText(), confirmed: false })} data-ai-withdraw-open>
                 撤回を記録する
               </button>
@@ -238,6 +259,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
                 <p>
                   AIには「<b>{v.share.alias}</b>」として見えています（顧客番号・お名前は渡していません）。{remainingText(v.share.expiresInSec)}。
                 </p>
+                {renew ? <p class="in-note" data-ai-sharing-no-documents>{NO_DOCUMENTS_NOTE}</p> : null}
                 <button type="button" class="btn danger" disabled={busy} onClick={() => void run(() => p.ai.stopShare(p.householdId), "共有を取り消しました")} data-ai-stop>
                   共有を取り消す
                 </button>
@@ -273,6 +295,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
                   <li>渡すのは計算に要る項目だけ（縮約版）です。物の ID は共有ごとの仮の ID に置き換えます。</li>
                   <li>許可は「このPCのAI接続口全体」に出すものです。申告したアプリの名前は確かめられません（記録には申告として残ります）。</li>
                   <li>取り消しで止まるのは今後の読み取りだけです。すでに送った内容は、AIの会社の側に残ります。</li>
+                  {renew ? <li data-ai-share-no-documents>{NO_DOCUMENTS_NOTE}</li> : null}
                 </ul>
                 <div class="ai-actions">
                   <button type="submit" class="btn primary" disabled={busy || destination.trim() === ""} data-ai-share-start>
@@ -402,6 +425,7 @@ export function AiRecords({ view }: { view: AiHouseholdView }) {
                 <td class="num">{dateTimeText(c.recordedAt)}</td>
                 <td>
                   {DECISION_LABELS[c.decision]}
+                  {c.decision === "given" ? `（${documentsLabel(c.documents).slice(1)}）` : ""}
                   {c.origin === "previousOffice" ? "（引き継ぎ）" : ""}
                 </td>
                 <td class="num">{c.obtainedOn}</td>
