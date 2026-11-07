@@ -4,6 +4,7 @@
 import { masterIds, officialMasterValue, type BracketStep, type MasterValue } from "../../../../hearing/src/statistics.ts";
 import { PRESETS, presetDef, type PresetUse } from "../../../../hearing/src/presets.ts";
 import { LIVING_CATEGORIES } from "../input/labels.ts";
+import { normalizeNumberText } from "../input/units.ts";
 
 /**
  * 数の単位: 円・月数・率（％で見せる）・年数（平均余命。小数）・係数（昇給カーブ・功績倍率）・年数（整数）・歳・日数・時間・数（人数・倍）
@@ -209,7 +210,8 @@ export function editText(unit: EstimateUnit, v: number | string | undefined): st
  * 年数・係数は0以上の小数（小数4桁まで）
  */
 export function parseNumber(unit: EstimateUnit, text: string): number | string | null | undefined {
-  const t = text.trim().replace(/[０-９．－]/g, (c) => (c === "．" ? "." : c === "－" ? "-" : String.fromCharCode(c.charCodeAt(0) - 0xfee0))).replace(/[,，、円%％]|か月|年$|歳$|日$|時間$|人$|倍$/g, "");
+  // 全角の数字・小数点・マイナス（－・−・ー）は、入力の画面の欄と同じく半角にしてから読む（units.ts の normalizeNumberText。0162）
+  const t = normalizeNumberText(text).replace(/[円%％]|か月|年$|歳$|日$|時間$|人$|倍$/g, "");
   if (t === "") return null;
   if (unit === "yen" || unit === "months" || unit === "yearCount" || unit === "age" || unit === "days" || unit === "hours" || unit === "count") {
     if (!/^\d{1,10}$/.test(t)) return undefined;
