@@ -3054,6 +3054,12 @@
     "leaves"
    ]
   },
+  "member.maritalStatus": {
+   "collection": "member",
+   "path": [
+    "maritalStatus"
+   ]
+  },
   "member.outside": {
    "collection": "member",
    "path": [

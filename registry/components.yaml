@@ -517,7 +517,7 @@ entries:
     replacedBy: null
   - id: tax.survivorStatus
     status: active
-    label: "ひとり親・寡婦の判定（配偶者と死別した人）"
+    label: "ひとり親・寡婦の判定"
     since: draft
     aliases: []
     replacedBy: null

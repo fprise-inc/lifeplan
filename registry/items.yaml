@@ -1718,6 +1718,14 @@ entries:
     replacedBy: null
     collection: member
     path: [leaves]
+  - id: member.maritalStatus
+    status: active
+    label: "配偶者の関係が無い期間の婚姻の状態（ひとり親控除・寡婦控除の判定。未婚 unmarried・離婚 divorced・死別 bereaved・婚姻している married〔別居などで配偶者を世帯に入れていない〕。省略は婚姻していないとみなし、寡婦控除は判定しない。0156）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: member
+    path: [maritalStatus]
   - id: member.outside
     status: active
     label: "世帯の外の家族（0035 の4。家計を世帯と別にする家族。生年月・性別を省ける）"
