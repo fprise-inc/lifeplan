@@ -4,7 +4,7 @@
 //   （見本の作り手・FP が入れた値。確定は明示の操作だけ〔0041〕の裏返しの誤りを作らない）
 // - 「この値にする」は値の状態の行（確定）で記録する（valueState.ts の applyStateOp。行は値が変わると外れる）
 // - 世帯に値がある欄で、既定の値と同じ値を打ったときは、省略に戻さずにその値を書く（plain は既定の値と同じ値を省略に戻すので、打った値が推定に
-//   見えてしまう）。値の無い欄に既定と同じ値を打つのは、欄の決まりで何も変えない（推定と同じ値を書き戻しても確定にしない。確定は「この値にする」）
+//   見えてしまう）。値の無い欄に推定と同じ値を打ったときも、打った値として確定にする（0150。推定の値を確かめずにそのまま確定にするのは「この値にする」）
 import type { Household } from "../../engine/types.ts";
 import { getPath, setPath, type FieldDef } from "./form.ts";
 import { mutate, type WorkingHousehold } from "./household.ts";
