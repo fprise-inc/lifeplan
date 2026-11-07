@@ -151,6 +151,8 @@ export interface BandInput {
   settings: DisplaySettings;
   /** 色の番号（assignColors。無いプランは 0） */
   colors: ReadonlyMap<string, number>;
+  /** 今の入力で計算できなかったプラン（計算エンジンのエラー。結果は前の計算の残りなので「足りる」を出さない。0169） */
+  failed?: ReadonlySet<string>;
 }
 
 /** 全部のプランを色分けで重ねる表示の線（帯の順。プランの名前と色の番号と、金融資産・年間収支の数字だけ） */
@@ -178,7 +180,10 @@ export function bandModel(input: BandInput): PlanBandModel {
     const r = results.get(slot) ?? null;
     let shortAge: number | null | undefined;
     let status: string;
-    if (r === null) {
+    if (input.failed?.has(slot) === true) {
+      shortAge = undefined;
+      status = "計算できません";
+    } else if (r === null) {
       shortAge = undefined;
       status = "計算しています";
     } else {
@@ -199,7 +204,7 @@ export function bandModel(input: BandInput): PlanBandModel {
       base: slot === input.base,
       shown: slot === input.selected,
       modified: input.modified.has(slot),
-      metrics: r === null ? [] : cardMetrics(settings, metricsOf(req, r.table, settings.atAge)),
+      metrics: r === null || input.failed?.has(slot) === true ? [] : cardMetrics(settings, metricsOf(req, r.table, settings.atAge)),
       colorIndex: input.colors.get(slot) ?? 0,
     };
   });

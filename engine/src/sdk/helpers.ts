@@ -504,6 +504,34 @@ export function spousesAt(
 }
 
 /**
+ * 月 m に member が婚姻しているか（配偶者のない者でないか。0156・0169）。tax.survivorStatus の婚姻の状態と同じ順で決める:
+ * 1. 配偶者の関係（法律婚・事実婚）がその月にあれば婚姻している
+ * 2. その月までに終わった法律婚の関係があれば、婚姻していない（離婚・死別。構成員の欄は使わない）
+ * 3. 無ければ構成員の欄 maritalStatus が「婚姻している（別居など）」のときだけ婚姻している（省略は婚姻していない）
+ * 呼ぶ部品は reads に member.maritalStatus・relation.type・relation.a・relation.b・relation.marriage・relation.from・relation.to を書く
+ */
+export function marriedAt(
+  ctx: Ctx,
+  relations: readonly { readonly type: string; readonly a?: string; readonly b?: string; readonly marriage?: string; readonly from?: unknown; readonly to?: unknown }[],
+  member: { readonly id: string; readonly maritalStatus?: string },
+  m: MonthIndex,
+): boolean {
+  if (spousesAt(ctx, relations, member.id, m).length > 0) return true;
+  const ended = relations.some(
+    (r) =>
+      r.type === "spouse" &&
+      r.marriage === "legal" &&
+      (r.a === member.id || r.b === member.id) &&
+      r.to !== null &&
+      r.to !== undefined &&
+      ctx.time.resolve(r.to as never) <= m &&
+      (r.from === null || r.from === undefined || ctx.time.resolve(r.from as never) <= m),
+  );
+  if (ended) return false;
+  return member.maritalStatus === "married";
+}
+
+/**
  * member の子（関係の parentOf があればそれで、無ければ member が本人・配偶者のとき家族の種類が child の構成員）。
  * 構成員と関係は部品が reads に書いて読んだもの（member.kind・relation.type・relation.parent・relation.child が要る）
  */

@@ -247,7 +247,7 @@ export function applyOfficeDefaults(wh: WorkingHousehold, s: OfficeSettings): Wo
   if (Object.keys(normalProtection(s.protection)).length > 0) w = { ...w, contingency: withProtection(w.contingency, s.protection) };
   // 表の最後の年の既定の年齢（若い方の大人がその年齢になる年。家族を直すと、その年齢のまま付いていく。input/household.ts の followStandards）
   if (s.endAge !== undefined) {
-    const end = endYearForAge(w.request.input.household, s.endAge);
+    const end = endYearForAge(w.request.input.household, s.endAge, w.request.input.baseMonth);
     if (Number.isFinite(end) && end !== w.request.input.endYear) {
       const request = structuredClone(w.request);
       request.input.endYear = end;
