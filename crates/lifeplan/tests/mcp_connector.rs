@@ -895,7 +895,7 @@ async fn propose_inputs_flow() {
     )
     .await;
     assert_eq!(r["status"], "pendingReview");
-    assert_eq!(r["values"], 8);
+    assert_eq!(r["values"], 9);
     assert_eq!(r["objects"], 1);
     assert_eq!(r["references"], 1);
     let pending = reg.document_proposals(HOUSEHOLD_ID);
@@ -906,7 +906,7 @@ async fn propose_inputs_flow() {
 
     // 構成員の仮の ID は元の ID に戻る
     let mut with_member = fixture_answer();
-    with_member["values"] = json!([{ "item": "employment.salary.annual", "member": alias, "value": 4_800_000, "period": "annual", "source": { "where": "支払金額" }, "confidence": "medium" }]);
+    with_member["values"] = json!([{ "item": "insurance.premium", "at": ["amount"], "member": alias, "value": 8_900, "period": "once", "source": { "where": "合計保険料" }, "confidence": "medium" }]);
     call_ok(
         &c,
         "propose_inputs",

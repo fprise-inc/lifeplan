@@ -1,20 +1,16 @@
-// 「この書類を読む」の画面（0154 の3）: 書類のお願いの1通・入力の欄の「書類待ち」・入力項目（保険・年金）の見出しから開き、その書類の読み方を選ぶ。
-// - 電子データ（XML）で同じ値を読める書類なら、このパソコンの中だけで読む（読み手は deductionXml.ts）
-// - AI の答えを貼り付ける（その書類の種類の読み方の手引きを選んだ形で開く。外部AIへの同意のある世帯だけ。0151）
+// 「この書類を読む」の画面（0154 の3・0159）: 書類のお願いの1通（保険証券）・入力の欄の「書類待ち」・保険の入力項目の見出しから開き、その書類の読み方を選ぶ。
+// - 読めるのは保険証券・ご契約内容のお知らせ・設計書だけ（0159）
+// - AI の答えを貼り付ける（保険の書類の読み方の手引きを写せる形で開く。外部AIへの同意のある世帯だけ。0151）
 // - AI接続口から届く候補も、同じ確かめの画面に届く
 // 名義の人・書類の物の初めの値は、読んだ記録に入れる（start.ts の withStart）。世帯は変えない
 import { useEffect, useRef } from "preact/hooks";
 import type { WorkingHousehold } from "../input/household.ts";
 import { roles } from "../roles.ts";
-import { XmlFileButton } from "./DocumentReview.tsx";
 import type { DocStart } from "./start.ts";
-import { docTypeLabel, type DocumentReading } from "./types.ts";
 
 export interface DocumentStartProps {
   wh: WorkingHousehold;
   start: DocStart;
-  /** 電子データ（XML）を読んだ記録（入口の初めの値は呼ぶ側が入れる） */
-  onReadings: (readings: DocumentReading[]) => void;
   /** AI の答えを貼り付ける画面を開く */
   onPaste: () => void;
   /** AI に資料を渡す（同意と共有）を開く（保存した世帯だけ） */
@@ -37,22 +33,13 @@ export function DocumentStart(p: DocumentStartProps) {
       <div ref={panel} class="rk-panel dr-panel ds-panel" role="dialog" aria-modal="true" aria-labelledby="ds-title" tabIndex={-1} data-documents-start={p.start.docType}>
         <h2 id="ds-title">この書類を読む: {p.start.title}</h2>
         <p class="in-note">
-          書類から読んだ値は候補として届き、確かめの画面で承認したものだけが現状に入ります。
+          保険証券・ご契約内容のお知らせ・設計書から読んだ値は候補として届き、確かめの画面で承認したものだけが現状に入ります。
           {holder !== null ? `書類の名義の人は「${holder}」にしておきます（確かめの画面で変えられます）。` : "書類の名義の人は、確かめの画面で選びます。"}
         </p>
         <ul class="ds-ways">
-          {p.start.xml !== null ? (
-            <li data-documents-start-xml>
-              <b>電子データ（XML）を読む</b>
-              <span>{p.start.xml}をマイナポータルから保存した XML は、このパソコンの中だけで読みます（外へ送りません。氏名・住所・番号は保存しません）。</span>
-              <XmlFileButton wh={p.wh} label="XML のファイルを選ぶ" onReadings={p.onReadings} />
-            </li>
-          ) : null}
           <li data-documents-start-paste>
             <b>AI の答えを貼り付ける</b>
-            <span>
-              {docTypeLabel(p.start.docType)}を、お名前・番号を伏せてウェブのチャット AI に読ませ、答えを貼り付けます（書類を AI に渡すことを含む、外部AIへの提供の同意がある世帯だけ）。読み方の手引きは「{docTypeLabel(p.start.docType)}」を選んだ形で開きます。
-            </span>
+            <span>書類を、お名前・番号を伏せてウェブのチャット AI に読ませ、答えを貼り付けます（書類を AI に渡すことを含む、外部AIへの提供の同意がある世帯だけ）。AI に渡す読み方の手引きは、貼り付けの画面で写せます。</span>
             <button type="button" class="btn" onClick={p.onPaste} data-documents-start-paste-open>
               AI の答えを貼り付ける
             </button>

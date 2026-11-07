@@ -1,6 +1,7 @@
 // 書類を読む AI 向けの説明書と書類ごとの手引き（0152）: SDK フォルダの文書の中の答えの見本が、1本目の読み口（readProposal）を
 // 理由なしで通り、番号を1つも落とさず（見本に番号を入れていない）、入力の欄の一覧（fields.md）にある入力項目・場所だけを使い、
-// 見本の世帯で FP が承認していくと、読めなかった欄のほかは全部が入力に入ること。欄の一覧が今の入力の画面の定義と同じであること
+// 見本の世帯で FP が承認していくと、読めなかった欄のほかは全部が入力に入ること。欄の一覧が今の入力の画面の定義と同じであること。
+// 読めるのは保険証券・ご契約内容のお知らせ・設計書だけ（0159）なので、手引きは保険の1つだけ
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -10,7 +11,6 @@ import { readProposalText, type ProposalContext } from "../src/workspace/documen
 import { acceptCandidates, acceptObject, docReview, type Chosen } from "../src/workspace/documents/review.ts";
 import { DOC_TYPES, PROPOSAL_CONTRACT, type DocumentReading } from "../src/workspace/documents/types.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
-import { buildStages } from "../src/workspace/input/stages/index.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { modelHousehold } from "./helpers.ts";
 
@@ -62,16 +62,19 @@ describe("欄の一覧（fields.md）", () => {
     expect(text(DOCUMENT_FIELDS_PATH)).toBe(buildDocumentFields());
   });
 
-  it("書類から入る主な欄が載っている（年金の記録の型・加入月数・額・給与・賞与・事業所得・申告の仕方・保険の契約・ローン）", () => {
-    const keys = new Set(fieldRows().map((r) => `${r.item}|${(r.at ?? []).join("/")}`));
-    for (const k of ["pensionRecord.kind|", "pensionRecord.months|basic", "pensionRecord.amounts|employee", "employment.salary.annual|", "employment.business.income|", "member.taxReturn|method", "insurance.premium|frequency", "insurance.premium|amount", "insurance.coverages|amount", "debt.balance|", "debt.repayment|termMonths", "debt.rateSchedule|rate"]) expect(keys).toContain(k);
+  it("保険の契約の主な欄だけが載っている（0159。年金・給与・事業所得・ローンなどの欄は載せない）", () => {
+    const rows = fieldRows();
+    const keys = new Set(rows.map((r) => `${r.item}|${(r.at ?? []).join("/")}`));
+    for (const k of ["insurance.label|", "insurance.contractDate|", "insurance.premium|frequency", "insurance.premium|amount", "insurance.coverages|amount", "insurance.deductionCategory|type"]) expect(keys).toContain(k);
+    expect(rows.every((r) => r.item.startsWith("insurance."))).toBe(true);
+    expect(text(DOCUMENT_FIELDS_PATH)).not.toMatch(/debt:mortgage|account:ideco/u);
   });
 });
 
 describe("説明書と手引きの答えの見本", () => {
-  it("手引きは書類ごとに1つずつあり、どれも読む欄・読まないもの・答えの見本を持つ。スキルの表の手引きはどれもある", () => {
+  it("手引きは保険の書類の1つだけで、読む欄・読まないもの・答えの見本を持つ。スキルの表の手引きはどれもある", () => {
     const files = guideFiles();
-    expect(files).toEqual(["housing-loan.md", "insurance-deduction.md", "insurance-policy.md", "pension.md", "public-pension-withholding.md", "tax-return.md", "withholding-slip.md"]);
+    expect(files).toEqual(["insurance-policy.md"]);
     for (const f of files) {
       const md = text(join(GUIDES, f));
       expect(md).toMatch(/## \d\. 読まないもの/u);
@@ -96,7 +99,7 @@ describe("説明書と手引きの答えの見本", () => {
         count++;
       }
     }
-    expect(count).toBeGreaterThanOrEqual(10);
+    expect(count).toBeGreaterThanOrEqual(3);
   });
 
   it("見本の入力項目・場所は欄の一覧にあり、円の欄の期間は一覧の額の期間と同じ", () => {
@@ -117,20 +120,8 @@ describe("説明書と手引きの答えの見本", () => {
 
 /** 見本ごとの、FP が承認していく世帯と、当てる欄を選ぶときの言葉 */
 const WALKS: { file: string; index: number; household: string; choose?: string; missing?: string[] }[] = [
-  { file: "pension.md", index: 0, household: "single45" },
-  { file: "pension.md", index: 1, household: "sampleSeniorCouple" },
-  // 封書の免除・猶予の内訳は、年金の記録に内訳の欄が無いと当たらない（FP が「＋ 免除・猶予の月を入れる」を押すまで。下のテストで押した後）
-  { file: "pension.md", index: 2, household: "civilServant", missing: ['pensionRecord.months ["category1","paid"]', 'pensionRecord.months ["category1","exemptFull"]', 'pensionRecord.months ["category1","deferred"]'] },
-  { file: "withholding-slip.md", index: 1, household: "salariedCoupleTwoKids" },
-  // 申告の仕方の欄は、事業所得のある人の働き方と収入の「確定申告」にもある（収益不動産の「申告」と同じ値。0155）。事業所得だけの人にも全部入る
-  { file: "tax-return.md", index: 0, household: "selfEmployed" },
-  { file: "tax-return.md", index: 0, household: "rentalSample", missing: ["employment.business.income []"] },
-  { file: "insurance-deduction.md", index: 0, household: "salariedCoupleTwoKids" },
   { file: "insurance-policy.md", index: 0, household: "salariedCoupleTwoKids" },
-  { file: "housing-loan.md", index: 0, household: "salariedCoupleTwoKids" },
-  // 住宅ローンが世帯に無いとき: 新しいローンとして足す（返済期間の欄は完済の年月。借りた年月は時点の欄。0154）
-  { file: "housing-loan.md", index: 1, household: "single45" },
-  { file: "housing-loan.md", index: 2, household: "salariedCoupleTwoKids" },
+  { file: "insurance-policy.md", index: 0, household: "single45" },
 ];
 
 /**
@@ -186,33 +177,6 @@ describe("見本の世帯で FP が承認していくと、読めなかった欄
     });
   }
 
-  it("ねんきん定期便（50歳未満）: 推計のままの世帯でも、入れ方・書類の種類を承認すると記録の型が50歳未満の定期便になり、月数・額が入る", () => {
-    const wh = open("single45");
-    const a = answers(text(join(GUIDES, "pension.md")))[0] as string;
-    const res = walk(wh, readProposalText(a, ctx(wh)).reading!);
-    const self = roles(res.wh.request).find((r) => r.key === "self")!.member.id;
-    const rec = (res.wh.request.input.household.pensionRecords ?? []).find((x) => x.member === self) as unknown as { kind: string; asOf: string; months: { basic: number; employee: number }; amounts: { employee: unknown } };
-    expect(rec.kind).toBe("statementUnder50");
-    expect(rec.asOf).toBe("2026-06");
-    expect(rec.months).toMatchObject({ basic: 196, employee: 196 });
-    expect(JSON.stringify(rec.amounts.employee)).toContain("412300");
-  });
-
-  it("ねんきん定期便（封書）: FP が免除・猶予の内訳を足すと、納付済・全額免除・学特等の月が内訳に入り、加入月数は免除を除いた月になる", () => {
-    const base = open("civilServant");
-    const self = roles(base.request).find((r) => r.key === "self")!.member.id;
-    const recId = (base.request.input.household.pensionRecords ?? []).find((x) => x.member === self)!.id;
-    const add = buildStages(base)
-      .flatMap((st) => st.sections.flatMap((sec) => [...sec.actions, ...sec.groups.flatMap((g) => g.actions)]))
-      .find((x) => x.key === `pension/${recId}/c1/add`)!;
-    const wh = add.run(base);
-    const a = answers(text(join(GUIDES, "pension.md")))[2] as string;
-    const res = walk(wh, readProposalText(a, ctx(wh)).reading!);
-    expect(res.reading.candidates.filter((c) => c.status === "pending")).toEqual([]);
-    const rec = (res.wh.request.input.household.pensionRecords ?? []).find((x) => x.member === self) as unknown as { months: Record<string, unknown> };
-    expect(rec.months).toMatchObject({ basic: 255, employee: 225, qualifying: 297, category1: { paid: 30, exemptFull: 18, deferred: 24 } });
-  });
-
   it("保険証券: 新しい終身保険が1件足され、主契約の死亡保険金・払い方・保険料・払込免除が入る（特約は照合だけ）", () => {
     const wh = open("salariedCoupleTwoKids");
     const a = answers(text(join(GUIDES, "insurance-policy.md")))[0] as string;
@@ -227,25 +191,17 @@ describe("見本の世帯で FP が承認していくと、読めなかった欄
     expect(res.reading.references.map((x) => x.label)).toEqual(["特約: 定期保険特約 死亡保険金"]);
   });
 
-  it("住宅ローンの書類: ローンの ID を書かない候補は FP が当てるローンを選び（1本でも選ぶ）、残高・時点・借入額・返済期間が同じローンに入る", () => {
+  it("AI接続口の道具の見本の答え（医療保険・読めなかった欄つき）も、読めなかった欄のほかは全部が入る", () => {
     const wh = open("salariedCoupleTwoKids");
-    const a = answers(text(join(GUIDES, "housing-loan.md")))[0] as string;
-    const reading = readProposalText(a, ctx(wh)).reading!;
-    const rows = docReview(wh, reading).groups.flatMap((g) => g.rows);
-    expect(rows.find((x) => x.incoming.text?.includes("28,450,000") || x.label.includes("今の残高"))?.problem).toBe("当てる欄を選んでください");
-    const res = walk(wh, reading);
-    const objects = new Set(res.reading.candidates.map((c) => (c.decided?.to !== undefined && "object" in c.decided.to.target ? c.decided.to.target.object : "key")));
-    const debt = (res.wh.request.input.household.debts ?? [])[0] as unknown as { id: string; balance: unknown; balanceAsOf: string; principal: unknown; repayment: { termMonths: number } };
-    expect(JSON.stringify(debt.balance)).toContain("28450000");
-    expect(debt.balanceAsOf).toBe("2025-12");
-    expect(debt.repayment.termMonths).toBe(35 * 12);
-    expect([...objects].every((x) => x === debt.id || x === "key")).toBe(true);
+    const a = text(join(REPO_DIR, "crates", "lifeplan", "tests", "fixtures", "propose-inputs", "answer.json"));
+    const res = walk(wh, readProposalText(a, ctx(wh)).reading!);
+    expect(res.reading.candidates.filter((c) => c.status === "pending").map((c) => c.unreadable)).toEqual([true]);
   });
 });
 
 describe("当て先の決め方の足し（0152 の3）", () => {
   const reading = (wh: WorkingHousehold, values: unknown[], objects: unknown[] = []): DocumentReading =>
-    readProposalText(JSON.stringify({ contract: PROPOSAL_CONTRACT, docType: "other", holder: "self", objects, values }), ctx(wh)).reading!;
+    readProposalText(JSON.stringify({ contract: PROPOSAL_CONTRACT, docType: "insurancePolicy", holder: "self", objects, values }), ctx(wh)).reading!;
 
   it("場所を書かない候補は場所の無い欄を先にする（保険の払い方）。明細の ID を除いた場所でも当たる（主契約の保障の額）", () => {
     const wh = open("salariedCoupleTwoKids");
@@ -260,18 +216,16 @@ describe("当て先の決め方の足し（0152 の3）", () => {
 
   it("人も物も書かない候補で世帯で1つの欄が無ければ、その入力項目の欄から FP が選ぶ（1本でも選ぶ）", () => {
     const wh = open("salariedCoupleTwoKids");
-    const row = docReview(wh, reading(wh, [{ item: "debt.principal", value: 30000000, period: "once" }])).groups[0]!.rows[0]!;
+    const row = docReview(wh, reading(wh, [{ item: "insurance.premium", at: ["amount"], value: 15000, period: "once" }])).groups[0]!.rows[0]!;
     expect(row.problem).toBe("当てる欄を選んでください");
     expect(row.choices).toHaveLength(1);
   });
 
-  it("同じ入力項目の選択の欄が何本も当たるときは、値を選択肢に持つ欄に絞る（返済方法。金利の種類は段階ごとの欄から FP が選ぶ）", () => {
+  it("同じ入力項目の選択の欄が何本も当たるときは、値を選択肢に持つ欄に絞る（保険料控除の区分と新旧の制度）", () => {
     const wh = open("salariedCoupleTwoKids");
-    const debt = (wh.request.input.household.debts ?? [])[0]!.id;
-    const [rate, method] = docReview(wh, reading(wh, [{ item: "debt.rateSchedule", object: debt, value: "fixed" }, { item: "debt.repayment", object: debt, value: "equalPrincipal" }])).groups.flatMap((g) => g.rows);
-    expect(rate!.problem).toBe("当てる欄を選んでください");
-    expect(rate!.choices!.length).toBeGreaterThan(1);
-    expect(rate!.choices!.every((c) => c.label.endsWith("金利の種類"))).toBe(true);
-    expect([method!.label.split(": ").at(-1), method!.problem]).toEqual(["返済方法", null]);
+    const contract = (wh.request.input.household.insuranceContracts ?? [])[0]!.id;
+    const [type, regime] = docReview(wh, reading(wh, [{ item: "insurance.deductionCategory", object: contract, value: "careMedical" }, { item: "insurance.deductionCategory", object: contract, value: "old" }])).groups.flatMap((g) => g.rows);
+    expect([type!.label.split(": ").at(-1), type!.problem]).toEqual(["保険料控除の区分", null]);
+    expect([regime!.label.split(": ").at(-1), regime!.problem]).toEqual(["新旧の制度", null]);
   });
 });
