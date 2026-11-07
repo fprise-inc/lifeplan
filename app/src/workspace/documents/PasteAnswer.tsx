@@ -91,23 +91,27 @@ export function PasteAnswer(p: PasteAnswerProps) {
             </ol>
             {p.guide !== undefined && guideType !== null ? (
               <p class="dp-guide">
-                <label>
-                  書類の種類
-                  <select
-                    value={guideType}
-                    onChange={(e) => {
-                      setGuideType((e.currentTarget as HTMLSelectElement).value as DocType);
-                      setCopied(null);
-                    }}
-                    data-documents-paste-guide-type
-                  >
-                    {p.guide.options.map((o) => (
-                      <option value={o.value} key={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {p.guide.options.length > 1 ? (
+                  <label>
+                    書類の種類
+                    <select
+                      value={guideType}
+                      onChange={(e) => {
+                        setGuideType((e.currentTarget as HTMLSelectElement).value as DocType);
+                        setCopied(null);
+                      }}
+                      data-documents-paste-guide-type
+                    >
+                      {p.guide.options.map((o) => (
+                        <option value={o.value} key={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <span data-documents-paste-guide-type={guideType}>読めるのは{docTypeLabel(guideType)}だけです（ほかの書類は、書類を見て欄に打ってください）。</span>
+                )}
                 <button
                   type="button"
                   class="btn small"

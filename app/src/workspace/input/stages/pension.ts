@@ -410,8 +410,10 @@ const AMOUNT_LABEL: Record<string, [string, string]> = {
 
 /** 額の欄の説明（写す書類の欄） */
 const AMOUNT_HELP: Record<string, string> = {
-  statementUnder50: "ねんきん定期便の「これまでの加入実績に応じた年金額」の欄の老齢厚生年金の額。これからの加入の分は、働き方の期間から足します。老齢基礎年金は加入月数から計算するので、額は写しません",
-  statementOver50: "ねんきん定期便の「老齢年金の見込額」の欄の額（60歳まで今の加入を続けたときに65歳から受け取る額）",
+  statementUnder50:
+    "50歳未満と50歳以上で、見込額の欄の意味が違います。50歳未満の定期便は「これまでの加入実績に応じた年金額」の欄の老齢厚生年金の額（一般・公務員・私学の期間の合計）を写します。これからの加入の分は、働き方の期間から足します。老齢基礎年金は加入月数から計算するので、額は写しません",
+  statementOver50:
+    "50歳未満と50歳以上で、見込額の欄の意味が違います。50歳以上の定期便は「老齢年金の種類と見込額」の65歳からの列の額（60歳まで今の加入を続けたときの額）を写します。老齢厚生年金は「報酬比例部分」と「経過的職域加算額」の合計で、「経過的加算部分」は入れません（加入月数から計算します）。額が「＊」なら空欄のまま",
   receiving:
     "年金額改定通知書の年金額（年額）。加給年金・振替加算は計算で足すので、除いて写します（二重になりません）。年金振込通知書の額（2か月分・税などを引いた後）ではありません",
   projection: "ねんきんネットの見込額の試算、または分かっている見込額（年額。65歳から受け取る額）。企業年金・基金の年金は含めません（退職金・企業年金の項目で入れます）",
@@ -554,12 +556,12 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
         kind: "select",
         options: DOCUMENT_KINDS,
         structural: true,
-        help: "ねんきん定期便は、50歳未満（これまでの加入の額）と50歳以上（65歳からの見込みの額）で中身が違います。手元の定期便に合わせて選びます",
+        help: "ねんきん定期便は、50歳未満と50歳以上で、見込額の欄の意味が違います（50歳未満は「これまでの加入実績に応じた年金額」、50歳以上は「老齢年金の種類と見込額」の欄）。年齢でなく、手元の定期便の見出しの言葉で選びます",
         get: (w) => ({ value: recordOf(w.request.input.household, m.id)?.kind ?? "" }),
         set: (w, v) => switchPension(w, m.id, String(v ?? "")),
       }),
     );
-  fields.push(plain({ key: `${prefix}/asOf`, item: "pensionRecord.asOf", label: rec.kind === "history" ? "加入歴の終わりの月" : "書類の作成年月", level: "simple", kind: "ym", find, path: ["asOf"], help: "この月より後の加入は、働き方の期間から足します" }));
+  fields.push(plain({ key: `${prefix}/asOf`, item: "pensionRecord.asOf", label: rec.kind === "history" ? "加入歴の終わりの月" : "書類の作成年月", level: "simple", kind: "ym", find, path: ["asOf"], help: STATEMENTS.has(rec.kind) ? "定期便の「データ作成日」の年月。この月より後の加入は、働き方の期間から足します" : "この月より後の加入は、働き方の期間から足します" }));
   if (STATEMENTS.has(rec.kind)) {
     fields.push(
       monthsField(
