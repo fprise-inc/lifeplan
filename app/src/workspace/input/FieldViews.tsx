@@ -14,13 +14,13 @@ import type { Timepoint } from "../../engine/types.ts";
 import { groupShown, type ActionDef, type FieldDef, type FieldState, type GroupDef, type Level, type Option, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { availableOps, fieldStatus, hasFieldValue, FILL_LABEL, fillTitle, OP_LABELS, opTitle, STATUS_LABELS, substituteText, confirmTyped, typeFromAge, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
-import { amountWarning, formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, pctFromRate, rateFromPct, readYen, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
+import { amountWarning, formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseDatedYearMonth, parseInteger, parseYearMonth, pctFromRate, rateFromPct, readYen, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
 import { outOfRangeText, rateInRange } from "./rateRanges.ts";
 import { revealAdded, revealOpened } from "../../presentation/revealAdded.ts";
 import { applyOfficeName, applyOfficeText, arrangeFields, officeLabel, OfficeFieldsContext, OfficeNamesContext, OfficeTextsContext, type OfficeTextEntry } from "../office/customTexts.ts";
 import { estimateTextId, estimateValueText, ESTIMATE_OFFICIAL, fieldTextId } from "./textIds.ts";
 import { fillName } from "../../../../report/src/rowNames.ts";
-import { ageExample, birthFromAge, convertWhen, eventOptionText, modeOf, parseWhen, readWhen, readYearMonth, showWhen, strictShown, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
+import { ageExample, birthFromAge, convertWhen, endBeforeStart, eventOptionText, modeOf, parseWhen, readWhen, readYearMonth, showWhen, strictShown, typingCtx, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 import { isOfficeBasisText } from "../../../../hearing/src/statistics.ts";
 import type { OfficeSourceView } from "./officeSource.ts";
 
@@ -894,6 +894,14 @@ function pctInRange(f: FieldDef, rate: string): boolean {
   return f.kind !== "pct" || rateInRange(rate, f);
 }
 
+/** 年月の欄の範囲（earliest・latest）の外なら、その理由（0162）。生年月は今月まで（これから生まれる子は別の足し方）・120歳まで */
+function ymOutOfRange(f: FieldDef, ym: string): string | null {
+  if (f.kind !== "ym") return null;
+  if (f.latest !== undefined && ym > f.latest) return `${formatYearMonth(f.latest)}より後の年月は入れられません${f.ageInput === true ? "（これから生まれる子は、家族の「＋ これから生まれる子」で足します）" : ""}`;
+  if (f.earliest !== undefined && ym < f.earliest) return `${formatYearMonth(f.earliest)}より前の年月は入れられません`;
+  return null;
+}
+
 /**
  * 入れた文字を使えない理由（欄のすぐ下に言葉で出す。赤い枠だけにしない）。使える文字なら null。
  * 円の欄は万円か円か（unit）で読む
@@ -923,10 +931,15 @@ export function rejectReason(f: FieldDef, text: string, unit: YenUnit = "man"): 
     }
     case "decimal":
       return /^\d+(\.\d+)?$/.test(t) ? null : "0 以上の数字で入れてください";
-    case "ym":
-      if (parseYearMonth(text) !== null) return null;
+    case "ym": {
+      const ym = parseYearMonth(text);
+      if (ym !== null) return ymOutOfRange(f, ym);
+      // 日つき（1980-02-29・昭和55年2月29日）は日を落として年月で入れる。ありえない日は止める（0162）
+      const dated = parseDatedYearMonth(text);
+      if (dated !== null) return "reason" in dated ? dated.reason : ymOutOfRange(f, dated.ym);
       if (f.ageInput === true) return birthFromAge(text, "2000-01") !== null ? null : "年月は「1988-05」「昭和63年5月」のように、西暦か和暦の年と月で入れてください（年齢しか分からなければ「38歳」）";
       return "年月は「2020-04」「令和2年4月」のように、西暦か和暦の年と月で入れてください";
+    }
     default:
       return null;
   }
@@ -1045,9 +1058,15 @@ export function readField(f: FieldDef, text: string, o: { unit: YenUnit; period:
     }
     case "ym": {
       const ym = parseYearMonth(text);
-      if (ym !== null) return plainRead(ym);
+      if (ym !== null) return ymOutOfRange(f, ym) === null ? plainRead(ym) : undefined;
+      const dated = parseDatedYearMonth(text);
+      if (dated !== null) {
+        if ("reason" in dated || ymOutOfRange(f, dated.ym) !== null) return undefined;
+        const first = dated.day === 1 && f.ageInput === true ? "1日生まれなら、詳細の「1日生まれ」をオンにしてください" : "日は入れません";
+        return { v: dated.ym, note: `${formatYearMonth(dated.ym)}として入れました（${first}）`, warn: null, fromAge: null };
+      }
       const b = f.ageInput === true ? birthFromAge(text, o.baseMonth) : null;
-      if (b === null) return undefined;
+      if (b === null || ymOutOfRange(f, b.ym) !== null) return undefined;
       return { v: b.ym, note: `${b.age}歳（${formatYearMonth(b.ym)}生まれとして入れました。月が分かれば直してください）`, warn: null, fromAge: `年齢から（${b.age}歳と聞いて出した生年月）` };
     }
     default:
@@ -1378,7 +1397,8 @@ const PICK_HINT: Record<Exclude<WhenMode, "event">, string> = { age: "年齢を�
 function readText(time: TimeView, wh: WorkingHousehold, ctx: WhenCtx, text: string): { tp: Timepoint | null } | { reason: string } {
   const r = parseWhen(text, ctx);
   if (!r.ok) return { reason: r.reason };
-  const bad = time.when.check?.(wh, r.tp) ?? null;
+  // 終わりの欄は、始まりより前の終わりを止める（このままでは0か月の期間になる。0162）
+  const bad = endBeforeStart(ctx, r.tp) ?? time.when.check?.(wh, r.tp) ?? null;
   return bad !== null ? { reason: bad } : { tp: r.tp };
 }
 
@@ -1421,8 +1441,10 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, warnFix
   const shownRaw = strict?.tp ?? actualRaw;
   const mode = picked ?? modeOf(shownRaw, state.ctx);
   const ctx: WhenCtx = { ...state.ctx, mode, current: shownRaw };
+  // 打った文字は、横の「誰の年齢で」に見せている人の年齢として読む（when.ts の typingCtx。0162）
+  const typing = typingCtx(state.ctx, shownRaw, mode);
   const shown = showWhen(shownRaw, ctx);
-  const live = draft !== null && draft !== shown ? readText(time, wh, ctx, draft) : null;
+  const live = draft !== null && draft !== shown ? readText(time, wh, typing, draft) : null;
   const problem = live !== null && "reason" in live ? live.reason : rejected;
   const reading = live !== null && "tp" in live ? `→ ${readWhen(live.tp, ctx, time.when.nullText)}` : state.read;
   const commit = (tp: Timepoint | null, how: "auto" | "this") => onEdit(time.setWhen(wh, tp, how));
@@ -1444,7 +1466,7 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, warnFix
     // 出来事が正本の欄は、出来事の時点の形を変える（出来事を指したまま）。ほかの欄は、この欄だけ
     commit(next, state.linked !== null ? "auto" : "this");
   };
-  const person = shownRaw?.memberAge?.member ?? state.ctx.person;
+  const person = typing.person;
   const evId = mode === "event" ? state.raw?.event : undefined;
   const leave = (text: string) => {
     leaveInput.current?.();
@@ -1457,7 +1479,7 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, warnFix
       return;
     }
     if (text === shown) return;
-    const r = readText(time, wh, ctx, text);
+    const r = readText(time, wh, typing, text);
     if ("reason" in r) {
       setRejected(`「${text}」は入れられないため、前の値のままです。${r.reason}`);
       noteRejected(() => input.current?.focus());
@@ -1477,7 +1499,7 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, warnFix
       return "committed";
     }
     if (text === shown) return "none";
-    const r = readText(time, wh, ctx, text);
+    const r = readText(time, wh, typing, text);
     if ("reason" in r) return "rejected";
     setRejected(null);
     setPicked(null);

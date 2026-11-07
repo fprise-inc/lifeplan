@@ -39,7 +39,7 @@ export function pctFromRate(rate: string): string {
 
 /** 百分率の入力（"0.65"・"０．６５"）→ 率（"0.0065"）。読めなければ null */
 export function rateFromPct(text: string): string | null {
-  const t = normalizeNumberText(text).replace(/%$/, "");
+  const t = normalizeNumberText(text).replace(/[%％]$/, "");
   if (!DECIMAL.test(t)) return null;
   return shiftDecimal(t, -2);
 }
@@ -239,6 +239,23 @@ export function parseYearMonth(text: string): string | null {
   const mo = Number(m[2]);
   if (mo < 1 || mo > 12) return null;
   return `${m[1]}-${String(mo).padStart(2, "0")}`;
+}
+
+/**
+ * 日つきの年月（1980-02-29・1980/2/29・1980年2月29日・昭和55年2月29日・S55.2.29）→ 年月と日（0162）。日は年月の欄では持たないので、
+ * 呼ぶ側が日を落として年月で入れる。ありえない日（2月30日・6月31日・平年の2月29日）は理由を返す。日つきの形でなければ null
+ */
+export function parseDatedYearMonth(text: string): { ym: string; day: number } | { reason: string } | null {
+  const t = text.normalize("NFKC").replace(/\s/g, "").replace(/日(生まれ)?$/, "");
+  const m = /^(.+?)(?:月|[.\-/])(\d{1,2})$/.exec(t);
+  if (m === null) return null;
+  const ym = parseYearMonth(m[1] as string);
+  if (ym === null) return null;
+  const day = Number(m[2]);
+  const [y, mo] = ym.split("-").map(Number) as [number, number];
+  const last = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+  if (day < 1 || day > last) return { reason: `${y}年${mo}月は${last}日までです。日を確かめてください` };
+  return { ym, day };
 }
 
 /** 元号の初めの年の前の年（西暦＝これ＋和暦の年） */
