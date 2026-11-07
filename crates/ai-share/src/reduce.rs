@@ -163,7 +163,7 @@ impl Pseudonyms {
         self.back.get(alias).map(String::as_str)
     }
 
-    fn apply(&mut self, v: &Value) -> Value {
+    pub(crate) fn apply(&mut self, v: &Value) -> Value {
         match v {
             Value::String(s) if is_uuid(s) => Value::String(self.alias(s)),
             Value::Array(a) => Value::Array(a.iter().map(|x| self.apply(x)).collect()),

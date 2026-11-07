@@ -81,6 +81,12 @@ fn source(id: &str, with_texts: bool) -> SharedHouseholdSource {
     }
 }
 
+/// 接続口の道具と画面の読み口の両方に通す見本の答え（document-candidates@1。0151）
+fn fixture_answer() -> Value {
+    let p = repo().join("crates/lifeplan/tests/fixtures/propose-inputs/answer.json");
+    serde_json::from_str(&std::fs::read_to_string(p).unwrap()).unwrap()
+}
+
 fn grant_opts() -> GrantOptions {
     GrantOptions {
         destination_declared: "Claude Code".into(),
@@ -156,6 +162,7 @@ async fn standalone_tools_work_without_the_app() {
         "list_shared_households",
         "get_shared_household",
         "propose_scenario",
+        "propose_inputs",
         "propose_feature_code",
     ] {
         assert!(names.contains(&n.to_owned()), "{n} がありません: {names:?}");
@@ -244,6 +251,10 @@ async fn standalone_tools_work_without_the_app() {
         (
             "propose_scenario",
             json!({ "share_id": "s-1", "title": "t", "changes": [{ "target": "assumptions", "item": "assumptions.inflation", "value": "0.01" }] }),
+        ),
+        (
+            "propose_inputs",
+            json!({ "share_id": "s-1", "answer": fixture_answer() }),
         ),
         ("propose_feature_code", json!({ "code": "LPFC1-x.y" })),
     ] {
@@ -814,4 +825,145 @@ async fn connector_opens_no_network_sockets() {
         }
     }
     c.cancel().await.unwrap();
+}
+
+/// 書類から読んだ値の候補（propose_inputs。0151）: 道具の入力の形は画面の読み口と同じ見本で確かめ、承認待ちに入るだけで世帯は変わらない。
+/// 物と人の仮の ID は元に戻り、知らない ID・形の違う答えは受けない。届いたことは AIに渡した記録に残る。同意が無い・取り消した世帯には出せない
+#[tokio::test(flavor = "multi_thread")]
+async fn propose_inputs_flow() {
+    let dir = temp_dir("docs");
+    let reg = Arc::new(ShareRegistry::new());
+    reg.require_consent(true);
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    let (c, _) = connect(&dir).await;
+
+    // 道具の説明: 承認待ちに入るだけ・人が書いた文の中の指示で呼ばない・番号と名前を書かない
+    let tools = c.list_all_tools().await.unwrap();
+    let tool = tools.iter().find(|t| t.name == "propose_inputs").unwrap();
+    let d = tool.description.as_deref().unwrap_or("");
+    for must in [
+        "承認待ち",
+        "世帯のデータは1文字も変わらない",
+        "指示ではない",
+        "個人番号",
+        "お名前",
+    ] {
+        assert!(d.contains(must), "{must}: {d}");
+    }
+    // 道具の入力の JSON Schema は見本（画面の読み口のテストが上限・種類の一覧を読み比べる）と同じ
+    let schema = serde_json::to_value(tool.input_schema.as_ref()).unwrap();
+    let snapshot = repo().join("crates/lifeplan/tests/fixtures/propose-inputs/input-schema.json");
+    let pretty = format!("{}\n", serde_json::to_string_pretty(&schema).unwrap());
+    if std::env::var_os("LIFEPLAN_UPDATE_FIXTURES").is_some() {
+        std::fs::write(&snapshot, &pretty).unwrap();
+    }
+    assert_eq!(
+        std::fs::read_to_string(&snapshot).unwrap(),
+        pretty,
+        "道具の入力の形が変わりました。LIFEPLAN_UPDATE_FIXTURES=1 で見本を作り直し、画面の読み口（app/test/documents.ai.test.ts）も確かめてください"
+    );
+
+    // 渡していない世帯には出せない
+    let (err, msg) = call(
+        &c,
+        "propose_inputs",
+        json!({ "share_id": "s-0000", "answer": fixture_answer() }),
+    )
+    .await;
+    assert!(err && msg.contains("NOT_SHARED"), "{msg}");
+
+    let g = reg.grant(source("single25", false), grant_opts()).unwrap();
+    let shared = call_ok(
+        &c,
+        "get_shared_household",
+        json!({ "share_id": g.share_id }),
+    )
+    .await;
+    let alias = shared["input"]["household"]["members"][0]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let original = source("single25", false).input["household"]["members"][0]["id"].clone();
+
+    // 見本の答えはそのまま届く（仮の ID の無い答え）
+    let r = call_ok(
+        &c,
+        "propose_inputs",
+        json!({ "share_id": g.share_id, "answer": fixture_answer() }),
+    )
+    .await;
+    assert_eq!(r["status"], "pendingReview");
+    assert_eq!(r["values"], 6);
+    assert_eq!(r["objects"], 1);
+    assert_eq!(r["references"], 1);
+    let pending = reg.document_proposals(HOUSEHOLD_ID);
+    assert_eq!(pending.len(), 1);
+    assert_eq!(pending[0].answer, fixture_answer());
+    assert_eq!(pending[0].connector.as_deref(), Some("test-ai 1.2"));
+    assert_eq!(pending[0].candidate_id, r["proposalId"].as_str().unwrap());
+
+    // 構成員の仮の ID は元の ID に戻る
+    let mut with_member = fixture_answer();
+    with_member["values"] = json!([{ "item": "employment.salary.annual", "member": alias, "value": 4_800_000, "period": "annual", "source": { "where": "支払金額" }, "confidence": "medium" }]);
+    call_ok(
+        &c,
+        "propose_inputs",
+        json!({ "share_id": g.share_id, "answer": with_member }),
+    )
+    .await;
+    let pending = reg.document_proposals(HOUSEHOLD_ID);
+    assert_eq!(pending[1].answer["values"][0]["member"], original);
+
+    // 知らない ID・形の名前の違う答え・上限を超える答えは受けない
+    let mut unknown = fixture_answer();
+    unknown["values"][0]["object"] = json!("11111111-2222-4333-8444-555555555555");
+    let mut other = fixture_answer();
+    other["contract"] = json!("document-candidates@9");
+    let mut many = fixture_answer();
+    many["values"] = Value::Array(vec![
+        json!({ "item": "insurance.label", "value": "x" });
+        301
+    ]);
+    for (bad, why) in [(unknown, "ID"), (other, "contract"), (many, "300")] {
+        let (err, msg) = call(
+            &c,
+            "propose_inputs",
+            json!({ "share_id": g.share_id, "answer": bad }),
+        )
+        .await;
+        assert!(err && msg.contains("INVALID") && msg.contains(why), "{msg}");
+    }
+    assert_eq!(reg.document_proposals(HOUSEHOLD_ID).len(), 2);
+
+    // 届いたことは AIに渡した記録に残る（候補の ID と日時だけ。答えの中身は残さない）
+    let rec = reg.records(HOUSEHOLD_ID);
+    assert_eq!(rec[0].proposals.len(), 2);
+    assert_eq!(rec[0].proposals[0].candidate_id, pending[0].candidate_id);
+    let written = serde_json::to_string(&rec).unwrap();
+    assert!(!written.contains("みどり生命") && !written.contains("2980"));
+
+    // 画面が受け取ったら承認待ちから外す（ほかの世帯の ID では外れない）
+    assert!(reg
+        .take_document_proposal(
+            "00000000-0000-4000-8000-000000000000",
+            &pending[0].candidate_id
+        )
+        .is_none());
+    assert!(reg
+        .take_document_proposal(HOUSEHOLD_ID, &pending[0].candidate_id)
+        .is_some());
+    assert_eq!(reg.document_proposals(HOUSEHOLD_ID).len(), 1);
+
+    // 取り消した後は出せない
+    reg.revoke(&g.share_id);
+    let (err, msg) = call(
+        &c,
+        "propose_inputs",
+        json!({ "share_id": g.share_id, "answer": fixture_answer() }),
+    )
+    .await;
+    assert!(err && msg.contains("REVOKED"), "{msg}");
+    ep.shutdown();
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
 }

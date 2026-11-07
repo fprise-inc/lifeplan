@@ -40,8 +40,39 @@ export function withSamples(wh: WorkingHousehold, at: string = approvalTime(), n
   return { log, added };
 }
 
+/** AI接続口から届いて、まだ確かめていない書類（未決の候補のある記録。届いた順） */
+export const aiPending = (wh: Pick<WorkingHousehold, "documents">): DocumentReading[] => (wh.documents?.readings ?? []).filter((r) => r.via === "ai" && pendingCount(r) > 0);
+
+/** AI から書類の候補が届いた帯（0151）。確かめるまで出す（承認するまで現状は変わらない） */
+export function AiDocumentBand({ wh, failed, onOpen, onDismiss }: { wh: WorkingHousehold; failed: { count: number; issues: readonly string[] }; onOpen: (id: string) => void; onDismiss: () => void }) {
+  const list = aiPending(wh);
+  if (list.length === 0 && failed.count === 0) return null;
+  const first = list[0];
+  return (
+    <div class="ai-code-band" role="status" data-documents-ai-band>
+      {list.length > 0 ? <b>AI から書類の候補が届きました（{list.length}通・未決 {list.reduce((n, r) => n + pendingCount(r), 0)}件）</b> : null}
+      {failed.count > 0 ? (
+        <b data-documents-ai-band-failed>
+          AI から届いた書類の候補のうち {failed.count}通は、読める候補が無いため取り込みませんでした（{failed.issues.join("・")}）
+        </b>
+      ) : null}
+      <span class="pl-sub">確かめて承認するまで、現状は変わりません</span>
+      {first !== undefined ? (
+        <button type="button" class="link-btn" onClick={() => onOpen(first.id)} data-documents-ai-band-open>
+          確かめる
+        </button>
+      ) : null}
+      {failed.count > 0 ? (
+        <button type="button" class="link-btn" onClick={onDismiss} data-documents-ai-band-dismiss>
+          わかりました
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 /** 入力のホームの「取り込む」の中の入口（書類の読み取り） */
-export function DocumentEntry({ wh, sample, onOpen, onSamples }: { wh: WorkingHousehold; sample: boolean; onOpen: () => void; onSamples: () => void }) {
+export function DocumentEntry({ wh, sample, onOpen, onSamples, onPaste }: { wh: WorkingHousehold; sample: boolean; onOpen: () => void; onSamples: () => void; onPaste?: () => void }) {
   const readings = wh.documents?.readings ?? [];
   const pending = pendingTotal(wh);
   return (
@@ -52,12 +83,17 @@ export function DocumentEntry({ wh, sample, onOpen, onSamples }: { wh: WorkingHo
           読んだ書類を確かめる{pending > 0 ? `（未決 ${pending}件）` : `（${readings.length}通）`}
         </button>
       ) : null}
+      {onPaste !== undefined ? (
+        <button type="button" class="btn" onClick={onPaste} data-documents-paste-open>
+          AI の答えを貼り付ける
+        </button>
+      ) : null}
       {sample ? (
         <button type="button" class="btn" onClick={onSamples} data-documents-samples>
           架空の書類の見本で試す
         </button>
       ) : null}
-      <span class="in-note">書類から読んだ値は候補として届き、確かめて承認したものだけが現状に入ります。個人番号などの番号は読みません・残しません。</span>
+      <span class="in-note">書類から読んだ値は候補として届き、確かめて承認したものだけが現状に入ります。個人番号などの番号は読みません・残しません。AI接続口からの候補もここに届きます。</span>
     </div>
   );
 }

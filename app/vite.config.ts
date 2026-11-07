@@ -694,13 +694,15 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
 /**
  * 開発用のサーバーの AI接続口（本体の ai_* の代わり。メモリの中だけ）。画面の確かめ用で、本物の受け口は開けない。
  * 決まり（既定はオフ・同意が無ければ渡さない・撤回で共有を止める・候補は判断を1回だけ）は本体（ai-share）と同じにしてある。
- * `/__dev/ai/simulate?kind=read|propose` で、AI からの読み取り・プランの候補が届いたことにする。
+ * `/__dev/ai/simulate?kind=read|propose|documents` で、AI からの読み取り・プランの候補・書類から読んだ値の候補（0151。接続口の見本の答え）が届いたことにする。
  * `/__dev/ai/proposeFeatureCode`（POST {code}）で、機能を有効にするコードの候補が届いたことにする
  */
 const devAi = {
   enabled: false,
   books: new Map<string, { consents: Record<string, unknown>[]; records: Record<string, unknown>[]; candidates: Record<string, unknown>[] }>(),
   share: null as null | { householdId: string; shareId: string; alias: string; expiresMs: number },
+  /** 書類から読んだ値の候補（本体と同じく、メモリの中だけ。画面が受け取ったら takeDocuments で外す） */
+  documents: [] as { candidateId: string; shareId: string; householdId: string; receivedAt: string; connector: string | null; answer: unknown }[],
 };
 const DEV_AI_EXPLANATION = "（開発用の見本）ご相談の内容をもとにしたライフプランの計算や見直しの検討に、FPが契約している外部のAIを使うことがあります。\nAIに渡すのは、計算に必要な項目だけです。お名前・ご住所・FPのメモは渡しません。\nこの同意はいつでも撤回でき、撤回した後はAIに渡しません。";
 
@@ -728,7 +730,7 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
   const view = () => {
     const b = book();
     const sh = shareStatus();
-    return { consentState: consentState(b), consents: b.consents, explanation: DEV_AI_EXPLANATION, explanationRef: "sha256:dev", share: sh !== null && sh.householdId === id ? sh : null, records: b.records, candidates: b.candidates, allowlistVersion: "reduced@2", fields: ["member.birth", "income.salary.annual", "livingExpense.monthly", "account.marketValue", "assumptions.inflation"], saved: devStore.households.has(id) };
+    return { consentState: consentState(b), consents: b.consents, explanation: DEV_AI_EXPLANATION, explanationRef: "sha256:dev", share: sh !== null && sh.householdId === id ? sh : null, records: b.records, candidates: b.candidates, documentProposals: devAi.documents.filter((d) => d.householdId === id), allowlistVersion: "reduced@2", fields: ["member.birth", "income.salary.annual", "livingExpense.monthly", "account.marketValue", "assumptions.inflation"], saved: devStore.households.has(id) };
   };
   const setup = (title: string, client: string, text: string) => ({ client, title, text });
   switch (op) {
@@ -807,12 +809,23 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
       Object.assign(c, { status: a.accept === true ? "accepted" : "rejected", decidedAt: now, decidedBy: "fp", planId: a.accept === true ? a.plan : null });
       return { ok: true, value: view() };
     }
+    case "takeDocuments": {
+      devAi.documents = devAi.documents.filter((d) => !(d.householdId === id && d.candidateId === a.candidate));
+      return devStore.households.has(id) ? { ok: true, value: view() } : { ok: false, code: "E_STORE_NOT_OPEN" };
+    }
     case "simulate": {
       const s = active();
       if (s === null) return { ok: false, code: "E_AI_NOT_SHARED" };
       const b = devAi.books.get(s.householdId)!;
       const r = b.records.find((x) => x.shareId === s.shareId)! as { reads: Record<string, unknown>[]; proposals: Record<string, unknown>[] };
-      if (a.kind === "propose") {
+      if (a.kind === "documents") {
+        // 接続口と読み口の両方に通す見本の答えに、証券番号の欄の候補を1つ混ぜる（読み口で落ちることを画面で見る）
+        const answer = JSON.parse(readFileSync(join(REPO_DIR, "crates", "lifeplan", "tests", "fixtures", "propose-inputs", "answer.json"), "utf8")) as { values: unknown[] };
+        answer.values.push({ item: "insurance.label", newObject: "c1", value: "AB-0012345678", source: { where: "証券番号" }, confidence: "high" });
+        const cid = crypto.randomUUID();
+        devAi.documents.push({ candidateId: cid, shareId: s.shareId, householdId: s.householdId, receivedAt: now, connector: "dev-client 1.0", answer });
+        r.proposals.push({ candidateId: cid, at: now });
+      } else if (a.kind === "propose") {
         const cid = crypto.randomUUID();
         b.candidates.push({ id: cid, source: "ai", shareId: s.shareId, receivedAt: now, title: "物価の上がり方を年1.5%で見直したプラン", summary: "物価の前提を少し高めにし、老後の金融資産がどれだけ変わるかを比べるためのプランです。", diffs: [{ id: crypto.randomUUID(), target: { plan: "assumptions" }, item: "assumptions.inflation", op: "set", value: "0.015", note: "最近の物価の動きに合わせて高めに見る" }, { id: crypto.randomUUID(), target: { plan: "assumptions" }, item: "assumptions.marketShocks", op: "set", value: [{ year: 2030, drop: "0.3" }], note: "下落の年を足す" }], origin: { kind: "ai", connector: "dev-client 1.0" }, status: "pending", decidedAt: null, decidedBy: null, planId: null });
         r.proposals.push({ candidateId: cid, at: now });

@@ -1,0 +1,20 @@
+{
+  "contract": "document-candidates@1",
+  "docType": "lifeInsuranceDeduction",
+  "asOf": "2026-10",
+  "holder": "self",
+  "objects": [
+    { "key": "c1", "kind": "insurance:medical", "source": { "page": 1, "where": "保険種類", "text": "医療保険（無配当）" }, "confidence": "high" }
+  ],
+  "values": [
+    { "item": "insurance.label", "newObject": "c1", "value": "架空のみどり生命 医療保険", "source": { "page": 1, "where": "保険会社名・保険種類" }, "confidence": "high" },
+    { "item": "insurance.insured", "newObject": "c1", "value": "holder", "source": { "page": 1, "where": "被保険者" }, "confidence": "medium", "note": "名前は読んでいません。書類の名義の人にしています" },
+    { "item": "insurance.contractDate", "newObject": "c1", "value": "2019-07", "source": { "page": 1, "where": "契約日", "text": "契約日 2019年7月1日", "box": [0.12, 0.31, 0.2, 0.03] }, "confidence": "high" },
+    { "item": "insurance.premium", "at": ["amount"], "newObject": "c1", "value": 2980, "period": "monthly", "source": { "page": 1, "where": "月払保険料", "text": "月払保険料 2,980円" }, "confidence": "high" },
+    { "item": "insurance.deductionCategory", "at": ["type"], "newObject": "c1", "value": "careMedical", "source": { "page": 1, "where": "新制度・介護医療", "path": "certificate/contract/category" }, "confidence": "high" },
+    { "item": "insurance.policyholder", "newObject": "c1", "value": null, "unreadable": true, "source": { "page": 1, "where": "契約者" }, "confidence": "low", "note": "かすれていて読めません" }
+  ],
+  "references": [
+    { "label": "介護医療保険料（年間・新制度）", "amount": 35760, "source": { "page": 1, "where": "証明額（12月期想定）", "text": "35,760円" } }
+  ]
+}
