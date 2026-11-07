@@ -2,6 +2,7 @@
 //! アプリを終了・再起動すると、すべての共有が無効になる（台帳ごと消える）。
 
 use crate::clock::{iso8601, Clock, SystemClock};
+use crate::documents::{self, PendingDocumentProposal};
 use crate::proposal::{self, PendingProposal, ProposalOrigin};
 use crate::record::{AiShareRecord, Caller, ConsentAtGrant, EndReason, ProposalEntry};
 use crate::reduce::{self, allowlist, is_addable, Pseudonyms, Scope};
@@ -110,6 +111,8 @@ struct State {
     issued: u32,
     logs: HashMap<String, Vec<AiShareRecord>>,
     proposals: Vec<PendingProposal>,
+    /// 書類から読んだ値の候補（0151。画面が読み口を通して読み取りの記録にするまで、メモリの中だけに置く）
+    document_proposals: Vec<PendingDocumentProposal>,
     feature_codes: Vec<FeatureCodeCandidate>,
     /// 外部AIへの提供の同意が `given` の世帯だけを渡せるようにする（アプリ本体の方針。下の `require_consent`）
     require_consent: bool,
@@ -417,6 +420,30 @@ impl ShareRegistry {
         std::mem::take(&mut self.lock().proposals)
     }
 
+    /// 世帯に届いた、書類から読んだ値の候補（届いた順。画面が読み取りの記録にするまで残す。0151）
+    pub fn document_proposals(&self, household_id: &str) -> Vec<PendingDocumentProposal> {
+        self.lock()
+            .document_proposals
+            .iter()
+            .filter(|p| p.household_id == household_id)
+            .cloned()
+            .collect()
+    }
+
+    /// 画面が読み取りの記録にした（または読めなかった）書類の候補を、承認待ちから外す。その世帯の候補だけ
+    pub fn take_document_proposal(
+        &self,
+        household_id: &str,
+        candidate_id: &str,
+    ) -> Option<PendingDocumentProposal> {
+        let mut st = self.lock();
+        let i = st
+            .document_proposals
+            .iter()
+            .position(|p| p.candidate_id == candidate_id && p.household_id == household_id)?;
+        Some(st.document_proposals.remove(i))
+    }
+
     /// 承認待ちの、機能を有効にするコードの候補（届いた順）
     pub fn feature_code_candidates(&self) -> Vec<FeatureCodeCandidate> {
         self.lock().feature_codes.clone()
@@ -483,6 +510,63 @@ impl ShareRegistry {
             "candidateId": id,
             "status": "pendingReview",
             "message": "機能を有効にするコードの候補を、アプリの画面（世帯の一覧の「事務所の既定値」のいちばん下）に承認待ちで出しました。FPが画面で中身（有効になる機能・名前・期限）と、入れる前と後を確かめて「このコードを入れる」を押したときだけ入ります。この道具ではコードは入りません。",
+        })
+        .to_string())
+    }
+
+    /// 書類から読んだ値の候補を、承認待ちに入れる（世帯は変えない。0151）。渡されている世帯（同意あり・期限内）だけ
+    pub fn handle_propose_documents(
+        &self,
+        share_id: &str,
+        answer: &serde_json::Value,
+        caller: &Caller,
+    ) -> Result<String, Refusal> {
+        let now = self.now();
+        let mut st = self.lock();
+        usable(&mut st, share_id, now)?;
+        let share = st.shares.get(share_id).ok_or_else(not_shared)?;
+        let (restored, counts) =
+            documents::validate(answer, &share.pseudonyms).map_err(|m| (ErrorCode::Invalid, m))?;
+        let household_id = share.source.household_id.clone();
+        let index = share.record_index;
+        let waiting = st
+            .document_proposals
+            .iter()
+            .filter(|p| p.household_id == household_id)
+            .count();
+        if waiting >= documents::MAX_PENDING_PER_HOUSEHOLD {
+            return Err((
+                ErrorCode::Invalid,
+                "アプリの画面がまだ受け取っていない書類の候補が多すぎます。FPがアプリでこの世帯を開いて受け取るまで、新しい候補は出せません。".to_owned(),
+            ));
+        }
+        let candidate_id = reduce::random_uuid_v4();
+        st.document_proposals.push(PendingDocumentProposal {
+            candidate_id: candidate_id.clone(),
+            share_id: share_id.to_owned(),
+            household_id: household_id.clone(),
+            received_at: iso8601(now),
+            connector: caller.mcp_client_declared.clone(),
+            answer: restored,
+        });
+        if let Some(r) = st
+            .logs
+            .get_mut(&household_id)
+            .and_then(|l| l.get_mut(index))
+        {
+            r.proposals.push(ProposalEntry {
+                candidate_id: candidate_id.clone(),
+                at: iso8601(now),
+            });
+        }
+        st.revision += 1;
+        Ok(json!({
+            "proposalId": candidate_id,
+            "status": "pendingReview",
+            "values": counts.values,
+            "objects": counts.objects,
+            "references": counts.references,
+            "message": "書類から読んだ値の候補を、アプリの「書類の読み取り」に承認待ちで入れました。FPがアプリの確かめの画面で値ごとに承認するまで、世帯のデータは変わりません。登録簿に無い入力項目・形の違う候補・個人番号などの番号らしい候補は、アプリが読まずに落とします。",
         })
         .to_string())
     }

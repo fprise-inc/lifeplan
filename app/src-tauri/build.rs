@@ -54,6 +54,8 @@ const COMMANDS: &[&str] = &[
     "ai_share_start",
     "ai_share_stop",
     "ai_candidate_decide",
+    // 0151: 画面が読み取りの記録にした書類の候補を、承認待ちから外す
+    "ai_documents_taken",
     // 0023: 事務所での共有（共有フォルダは本体のダイアログで選ばせる。パスも鍵も受け取らない・返さない）
     "office_status",
     "office_start",

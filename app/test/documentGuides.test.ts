@@ -35,6 +35,8 @@ const DOCS = (): { name: string; md: string }[] => [
   { name: "docs/document-reading.md", md: text(join(SDK, "docs", "document-reading.md")) },
   { name: "skills/read-documents/SKILL.md", md: text(join(SKILL, "SKILL.md")) },
   ...guideFiles().map((f) => ({ name: `skills/read-documents/guides/${f}`, md: text(join(GUIDES, f)) })),
+  // AI接続口の道具（propose_inputs）のテストで道具に通す見本の答えも、手引きと同じ決まりにそろえる（0151）
+  { name: "crates/lifeplan/tests/fixtures/propose-inputs/answer.json", md: `\`\`\`json\n${text(join(REPO_DIR, "crates", "lifeplan", "tests", "fixtures", "propose-inputs", "answer.json"))}\`\`\`` },
 ];
 
 const open = (id: string): WorkingHousehold => fromRequest(modelHousehold(id));

@@ -236,7 +236,8 @@ export function readProposalText(text: string, ctx: ProposalContext): ProposalRe
   const body = fenced?.[1] ?? text;
   const start = body.indexOf("{");
   const end = body.lastIndexOf("}");
-  if (start < 0 || end <= start) return { reading: null, issues: ["答えの JSON が見つかりません"] };
+  if (start < 0) return { reading: null, issues: ["答えの JSON が見つかりません"] };
+  if (end <= start) return { reading: null, issues: ["答えの JSON を読めません（途中で切れていないか確かめてください）"] };
   let raw: unknown;
   try {
     raw = JSON.parse(body.slice(start, end + 1));

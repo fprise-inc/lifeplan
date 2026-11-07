@@ -586,6 +586,22 @@ export interface AiCandidate {
   planId: string | null;
 }
 
+/**
+ * AI接続口の道具（propose_inputs）で届いた、書類から読んだ値の候補（0151）。本体はメモリの中に置くだけで、世帯ファイルには書かない。
+ * 画面が読み口（documents/proposal.ts の readProposal。番号を落とす決まり）を通して読み取りの記録にしてから、takeDocuments で外す
+ */
+export interface AiDocumentProposal {
+  /** 候補の ID（AIに渡した記録の proposals の candidateId。読み取りの記録の ID にする） */
+  candidateId: string;
+  shareId: string;
+  householdId: string;
+  receivedAt: string;
+  /** AIのアプリの名乗り（自己申告） */
+  connector: string | null;
+  /** 届いた答え（document-candidates@1。信用しない） */
+  answer: unknown;
+}
+
 /** 世帯の「同意とAIの記録」 */
 export interface AiHouseholdView {
   consentState: "none" | AiConsentDecision;
@@ -595,6 +611,8 @@ export interface AiHouseholdView {
   share: AiShareStatus | null;
   records: AiShareRecord[];
   candidates: AiCandidate[];
+  /** 届いた書類の候補（画面が受け取るまで。無い本体〔古い版・テストの代わり〕は空として扱う） */
+  documentProposals?: AiDocumentProposal[];
   allowlistVersion: string;
   fields: string[];
   saved: boolean;
@@ -622,6 +640,8 @@ export interface AiHost {
   stopShare(id: string): Promise<AiHouseholdView>;
   /** AIの候補についての FP の判断（accept のときは保存したプランの ID） */
   decide(id: string, candidate: string, accept: boolean, plan: string | null): Promise<AiHouseholdView>;
+  /** 読み取りの記録にした（または読めなかった）書類の候補を、本体の承認待ちから外す（0151） */
+  takeDocuments(id: string, candidate: string): Promise<AiHouseholdView>;
 }
 
 /** 本体の命令（0016 の1: 用途ごとの命令だけ） */
@@ -854,6 +874,7 @@ export function tauriHost(): HostApi {
       startShare: (id, minutes, destination) => invoke<AiHouseholdView>("ai_share_start", { id, minutes, destination }),
       stopShare: (id) => invoke<AiHouseholdView>("ai_share_stop", { id }),
       decide: (id, candidate, accept, plan) => invoke<AiHouseholdView>("ai_candidate_decide", { id, candidate, accept, plan }),
+      takeDocuments: (id, candidate) => invoke<AiHouseholdView>("ai_documents_taken", { id, candidate }),
     },
     statements: {
       office: () => invoke<StatementOfficeData>("statement_office"),
@@ -1077,6 +1098,7 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       startShare: async (id, minutes, destination) => devJson<AiHouseholdView>(await devAi("startShare", { id, minutes, destination })),
       stopShare: async (id) => devJson<AiHouseholdView>(await devAi("stopShare", { id })),
       decide: async (id, candidate, accept, plan) => devJson<AiHouseholdView>(await devAi("decide", { id, candidate, accept, plan })),
+      takeDocuments: async (id, candidate) => devJson<AiHouseholdView>(await devAi("takeDocuments", { id, candidate })),
     },
     // 明細の取り込み: 覚えた辞書と形は開発用のサーバーのメモリの中だけ。開くは架空の明細（statement/test/fixtures）を順に返す
     statements: {

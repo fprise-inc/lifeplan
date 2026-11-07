@@ -53,6 +53,7 @@
     "allow-ai-share-start",
     "allow-ai-share-stop",
     "allow-ai-candidate-decide",
+    "allow-ai-documents-taken",
     "allow-office-status",
     "allow-office-start",
     "allow-office-join",

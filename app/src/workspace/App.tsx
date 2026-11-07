@@ -102,9 +102,12 @@ import { RecoveryPanel, type RecoveryMode } from "./store/RecoveryPanel.tsx";
 import { StoragePanel } from "./store/StoragePanel.tsx";
 import { keepSnapshots, makeSnapshot, type Snapshot, type SnapshotDraft } from "./snapshots/snapshots.ts";
 import { keepStatements, withLog } from "./statement/model.ts";
-import { DocumentEntry, DocumentReview, withSamples, type DocChange } from "./documents/DocumentReview.tsx";
+import { AiDocumentBand, DocumentEntry, DocumentReview, withSamples, type DocChange } from "./documents/DocumentReview.tsx";
 import { keepDocuments, withDocumentLog, withReading } from "./documents/log.ts";
 import type { DocumentReading } from "./documents/types.ts";
+import { ingestAiProposals, pasteGate } from "./documents/ai.ts";
+import { PasteAnswer } from "./documents/PasteAnswer.tsx";
+import { GUIDE_DOC_TYPES, guideText } from "./documents/guides.ts";
 import { StatementPanel } from "./statement/StatementPanel.tsx";
 import type { StatementLog } from "../../../statement/src/index.ts";
 import { SnapshotTools } from "./snapshots/SnapshotTools.tsx";
@@ -542,8 +545,12 @@ export function App() {
   const [feedbackOpen, setFeedbackOpen] = useState(initial.feedback === true);
   /** 書類の読み取りの確かめの画面（0148） */
   const [docsOpen, setDocsOpen] = useState(initial.documents !== undefined);
-  /** 確かめの画面で初めに開く読み取りの記録（読んだばかりの書類。0153） */
+  /** 確かめの画面で初めに開く読み取りの記録（読んだばかりの書類〔XML の読み手。0153〕・AI から届いた帯・貼り付けから開くとき〔0151〕） */
   const [docsInitial, setDocsInitial] = useState<string | undefined>(undefined);
+  /** AI の答えを貼り付ける入口（0151） */
+  const [pasteOpen, setPasteOpen] = useState(false);
+  /** AI接続口から届いたが、読める候補が無いため取り込まなかった書類の候補の理由（帯に出す。0151） */
+  const [aiDocFailed, setAiDocFailed] = useState<{ count: number; issues: string[] }>({ count: 0, issues: [] });
   const docsSeeded = useRef(false);
   // 事務所の見た目（0121）: 事務所の名前・ロゴ・基調の色と、この PC の画面の明るさ。事務所の既定値とは別の欄（本体が画像を確かめる）
   const [branding, setBranding] = useState<OfficeBranding>(initial.look !== undefined ? { appearance: initial.look } : EMPTY_BRANDING);
@@ -1670,6 +1677,34 @@ export function App() {
   );
   // ---- AI接続口（0014・0015）: 状態と世帯の記録は本体から読む。AIからの候補は FP が承認したときだけプランになる ----
   const ai = useAi(host?.ai ?? null, storeStatus?.state === "ready", storedInfo?.id ?? null);
+  // AI接続口から届いた書類の候補（0151）: 本体はメモリの中に置いているだけ。読み口（番号を落とす決まり）を通して読み取りの記録にし、
+  // 世帯ファイルに書けてから本体の承認待ちから外す（書けなければ外さず、次の読み直しでもう一度。同じ候補は2回足さない）
+  const docIngesting = useRef(false);
+  const setAiView = ai.setView;
+  useEffect(() => {
+    const list = ai.view?.documentProposals ?? [];
+    const sr = storedInfo;
+    const o = openedRef.current;
+    if (list.length === 0 || host === null || sr === null || sr.readOnly || o === null || docIngesting.current) return;
+    const mine = list.filter((p) => p.householdId === sr.id);
+    if (mine.length === 0) return;
+    docIngesting.current = true;
+    const res = ingestAiProposals(o.wh, mine);
+    if (res.added.length > 0) putDocuments(res.log);
+    if (res.failed.length > 0) setAiDocFailed((f) => ({ count: f.count + res.failed.length, issues: [...new Set([...f.issues, ...res.failed.flatMap((x) => x.issues)])] }));
+    void (async () => {
+      try {
+        if (!(await saveNow())) return;
+        let v = null;
+        for (const id of res.taken) v = await host.ai.takeDocuments(sr.id, id);
+        if (v !== null) setAiView(v);
+      } catch {
+        // 次の読み直しでもう一度
+      } finally {
+        docIngesting.current = false;
+      }
+    })();
+  }, [ai.view, host, storedInfo, putDocuments, saveNow, setAiView]);
   // 機能を有効にするコード（0110 の追記）: 提供元が止めたかの確かめは本体の裏で行うので、状態を1分ごとに読み直す。
   // AIからコードの候補が届いた・減ったときもすぐ読み直す（候補の中身は featureStatus に入る）
   const codeCandidates = ai.status?.featureCodeCandidates ?? 0;
@@ -2519,6 +2554,17 @@ export function App() {
       />
       <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
       <AiCodeCandidateBand count={officeSettingsOpen ? 0 : (ai.status?.featureCodeCandidates ?? 0)} onOpen={() => setOfficeSettingsOpen(true)} />
+      {opened !== null && !docsOpen ? (
+        <AiDocumentBand
+          wh={opened.wh}
+          failed={aiDocFailed}
+          onOpen={(id) => {
+            setDocsInitial(id);
+            setDocsOpen(true);
+          }}
+          onDismiss={() => setAiDocFailed({ count: 0, issues: [] })}
+        />
+      ) : null}
       <main class="wrap">
         {presence !== null && storedInfo !== null ? (
           <div class="presence-band" role="status" data-presence-band>
@@ -2801,6 +2847,7 @@ export function App() {
                             setDocsOpen(true);
                           }}
                           onSamples={loadDocSamples}
+                          onPaste={() => setPasteOpen(true)}
                           onReadings={addDocReadings}
                         />
                         {storedInfo !== null ? (
@@ -3180,6 +3227,28 @@ export function App() {
         />
       ) : null}
       {docsOpen && opened !== null ? <DocumentReview wh={opened.wh} calc={docCalc} onChange={onDocChange} onClose={() => setDocsOpen(false)} {...(docsInitial !== undefined ? { initial: docsInitial } : {})} /> : null}
+      {pasteOpen && opened !== null ? (
+        <PasteAnswer
+          wh={opened.wh}
+          gate={pasteGate({ sample: sampleHousehold, saved: storedInfo !== null, consentState: ai.view?.consentState ?? null })}
+          guide={{ options: GUIDE_DOC_TYPES, text: guideText }}
+          {...(storedInfo !== null
+            ? {
+                onOpenConsent: () => {
+                  setPasteOpen(false);
+                  openAiShare();
+                },
+              }
+            : {})}
+          onRead={(reading) => {
+            putDocuments(withReading(openedRef.current?.wh.documents, reading));
+            setPasteOpen(false);
+            setDocsInitial(reading.id);
+            setDocsOpen(true);
+          }}
+          onClose={() => setPasteOpen(false)}
+        />
+      ) : null}
       {feedbackOpen ? (
         <FeedbackPanel
           receipts={noticeLocal.receipts}
