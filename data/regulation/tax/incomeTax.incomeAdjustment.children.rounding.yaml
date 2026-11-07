@@ -1,0 +1,21 @@
+# 所得金額調整控除（子ども・特別障害者等）の控除額の1円未満の端数（国税庁の資料。条文には端数の定めが無い）
+id: incomeTax.incomeAdjustment.children.rounding
+title: 所得金額調整控除（子ども・特別障害者等）の控除額の1円未満の端数（切り上げ）
+unit: rounding
+kind: rounding
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2020-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "UP", unit: 1}
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1411.htm", retrievedAt: "2026-10-08", sha256: "67ede54d9ec7de574945e2047364e17448963c024d59c8a593aef7d8793df9b5", locator: "国税庁 タックスアンサー No.1411（2）所得金額調整控除額の注", quote: "1円未満の端数があるときは、その端数を切り上げます。"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2025/pdf/nencho_all.pdf", retrievedAt: "2026-10-08", sha256: "4977299123ef22d2775eb9bbbe50a38de81821306fade726560697e568f4e933", locator: "年末調整のしかた（令和7年分）37ページ 所得金額調整控除額の注2と例（8,765,432円 → 26,544円）", quote: "控除額の計算において算出した金額に１円未満の端数があるときは、その端数を切り上げます。"}
+    recordedIn: "2026.18.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "国税庁の2つの資料（タックスアンサー No.1411 と年末調整のしかた）で一致。条文（租税特別措置法41条の3の11・同法施行令26条の5）に端数の定めを見つけていない。生命保険料控除の切り上げ（incomeTax.insuranceDeduction.rounding）と同じく、法令の根拠が見つかるまで確認待ち"}
