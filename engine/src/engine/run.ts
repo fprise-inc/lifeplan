@@ -381,6 +381,9 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   check("engine.request", request, "E_INPUT_SCHEMA");
   const req = deepFreeze(request as EngineRequest);
   const given = readOutsideFamily(req.input);
+  // 基準の月の年は、表の年（common の year）と同じ 1900〜2200 の内（年月の形は年の範囲を持たないので、ここで入力の誤りにする）
+  const givenBaseYear = yearOf(parseYm(given.baseMonth));
+  if (givenBaseYear < 1900 || givenBaseYear > 2200) throw new EngineError("E_ARGUMENT", ["baseMonth"]);
   const batch = options.batch;
   if (batch === undefined) checkPackSchemas(packs, options.packsChecked);
 

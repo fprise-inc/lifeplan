@@ -1,8 +1,11 @@
 //! 縮約のための、世帯の入力の JSON Schema（engine/schemas）の読み方。
-//! 値の各項目について、スキーマの上の場所と入力項目ID（`x-item`）を引く。検証はしない（検証は計算エンジンの仕事）。
+//! 値の各項目について、スキーマの上の場所と入力項目ID（`x-item`）を引く。全体の検証はしない（検証は計算エンジンの仕事）。
+//! 渡してよいかを決めるために、文字列の値と地図の鍵だけは、その場所の形（列挙・定数・正規表現）と照らす。
 
+use regex::Regex;
 use serde_json::Value;
-use std::sync::OnceLock;
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
 
 pub(crate) const INPUT_ID: &str = "urn:financia:schema:engine.input";
 const COMMON_ID: &str = "urn:financia:schema:common";
@@ -193,13 +196,79 @@ pub(crate) fn x_item<'a>(nodes: &[Node<'a>]) -> Option<&'a str> {
         .find_map(|n| n.v.get("x-item").and_then(Value::as_str))
 }
 
-/// 文字列が形の決まったもの（列挙・定数・書式・正規表現）か。決まっていない文字列は人が書いた文章になりうる
-pub(crate) fn constrained_string(nodes: &[Node<'_>]) -> bool {
-    nodes.iter().any(|n| {
-        ["enum", "const", "pattern", "format"]
+/// 文字列の形を決める語（この版のスキーマは `format` を使っていない。使われても照らせないので、合わないとみなす）
+const SHAPE_KEYS: [&str; 4] = ["enum", "const", "pattern", "format"];
+
+/// 文字列が形の決まった欄のもので、値がその形に合うか。形の決まっていない文字列は人が書いた文章になりうるので false。
+/// 当てはまるスキーマのうち、形を決めているどれか1つの、列挙・定数・正規表現のすべてに合えば true
+pub(crate) fn string_fits(nodes: &[Node<'_>], s: &str) -> bool {
+    nodes
+        .iter()
+        .filter(|n| SHAPE_KEYS.iter().any(|k| n.v.get(*k).is_some()))
+        .any(|n| node_accepts(n.v, s))
+}
+
+fn node_accepts(v: &Value, s: &str) -> bool {
+    if let Some(e) = v.get("enum") {
+        if !e
+            .as_array()
+            .is_some_and(|a| a.iter().any(|x| x.as_str() == Some(s)))
+        {
+            return false;
+        }
+    }
+    if let Some(c) = v.get("const") {
+        if c.as_str() != Some(s) {
+            return false;
+        }
+    }
+    if let Some(p) = v.get("pattern") {
+        if !p.as_str().is_some_and(|p| pattern_matches(p, s)) {
+            return false;
+        }
+    }
+    v.get("format").is_none()
+}
+
+/// JSON Schema の正規表現で照らす（`\d` は ECMAScript と同じく 0〜9 だけ。読めない正規表現は合わないとみなす）
+fn pattern_matches(pattern: &str, s: &str) -> bool {
+    static CACHE: OnceLock<Mutex<HashMap<String, Option<Regex>>>> = OnceLock::new();
+    let mut cache = CACHE
+        .get_or_init(|| Mutex::new(HashMap::new()))
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    cache
+        .entry(pattern.to_owned())
+        .or_insert_with(|| Regex::new(&pattern.replace("\\d", "[0-9]")).ok())
+        .as_ref()
+        .is_some_and(|r| r.is_match(s))
+}
+
+impl Schemas {
+    /// 物の鍵 key を渡してよいか: `properties` にある名前か、地図の形（`additionalProperties`）なら鍵の形（`propertyNames`）に合うもの。
+    /// 鍵の形の決まっていない地図の鍵は渡さない
+    pub fn key_fits(&self, parents: &[Node<'_>], key: &str) -> bool {
+        if parents
             .iter()
-            .any(|k| n.v.get(*k).is_some())
-    })
+            .any(|p| p.v.get("properties").and_then(|ps| ps.get(key)).is_some())
+        {
+            return true;
+        }
+        let mut names = Vec::new();
+        for p in parents {
+            if let Some(pn) = p.v.get("propertyNames") {
+                self.expand(
+                    Node {
+                        doc: p.doc,
+                        ptr: format!("{}/propertyNames", p.ptr),
+                        v: pn,
+                    },
+                    &mut names,
+                );
+            }
+        }
+        string_fits(&names, key)
+    }
 }
 
 /// スキーマの場所の文字列（文書の ID＋JSON Pointer）
@@ -223,8 +292,27 @@ mod tests {
         let birth = s.property(&member, "birth");
         assert_eq!(x_item(&birth), Some("member.birth"));
         let ym = s.property(&birth, "birthYearMonth");
-        assert!(constrained_string(&ym));
+        assert!(string_fits(&ym, "1990-04"));
+        assert!(!string_fits(&ym, "1990-13"));
+        assert!(!string_fits(&ym, "1990-04 名前"));
         let id = s.property(&member, "id");
-        assert!(constrained_string(&id), "構成員の ID は UUID の形");
+        assert!(
+            string_fits(&id, "3f2b8c1e-9a4d-4e7b-8c21-5d0f6a9b7e10"),
+            "構成員の ID は UUID の形"
+        );
+        assert!(!string_fits(&id, "名前"));
+        let sex = s.property(&member, "sex");
+        assert!(string_fits(&sex, "female"));
+        assert!(!string_fits(&sex, "名前"));
+    }
+
+    #[test]
+    fn digits_follow_ecmascript() {
+        assert!(pattern_matches("^-?\\d+(\\.\\d+)?$", "12.5"));
+        assert!(
+            !pattern_matches("^-?\\d+(\\.\\d+)?$", "１２"),
+            "全角の数字は \\d に入らない"
+        );
+        assert!(!pattern_matches("(", "x"), "読めない正規表現は合わない");
     }
 }

@@ -2,13 +2,15 @@
 //!
 //! - **縮約版**（既定）: 計算の入力のうち、入力項目ID（0004）の許可リスト（`data/reduced-allowlist.json`）にある項目だけ。
 //!   スキーマに無い項目・形の決まっていない文字列（人が書いた文章になりうるもの）は、許可リストにかかわらず外す。
+//!   形の決まった文字列の欄でも、値がその形（列挙・定数・正規表現）に合わなければ外す。地図の鍵も鍵の形と照らす
+//!   （画面の不具合・壊れた世帯ファイル・移行で、形の欄に文章が入った世帯から文章を渡さないため）。
 //! - **文章の項目**（既定で外す。FPが項目ごとに足せる）: 計算の入力の中の見出し（`periodicExpense.label`）と、
 //!   画面の側の文章（FPのメモ・顧客の相談内容・移行メモ・自由記述）。足したときは入力から抜き出して包み（`client_text`）、`texts` に並べる。
 //! - **どの版でも渡さない**: 世帯の内部ID・表示用の顧客番号・呼び名・同意の記録の中身・取り込みの記録の元データへの参照など（足せない）。
 //! - **物の ID の仮名**: 世帯の中の乱数ID（構成員・物）は、共有ごとに別の乱数IDに置き換える（同じ世帯の別の共有と結びつけられないように）。
 //!   並びの順番は保つ（計算の結果の並びが変わらないように）。プランの候補の ID は戻してから「AIからの候補」に入れる。
 
-use crate::schema::{self, constrained_string, location, x_item, Node};
+use crate::schema::{self, location, string_fits, x_item, Node};
 use crate::source::SharedHouseholdSource;
 use crate::wrap::wrap_client_text;
 use serde_json::{Map, Value};
@@ -267,6 +269,8 @@ struct Walk<'s> {
     added: HashSet<String>,
     fields: BTreeSet<String>,
     texts: Vec<PendingText>,
+    /// 文字列の値と地図の鍵を形と照らす（試験のときだけ外す）
+    check_values: bool,
 }
 
 impl<'s> Walk<'s> {
@@ -284,6 +288,9 @@ impl<'s> Walk<'s> {
                     let child = self.schemas.property(nodes, k);
                     if child.is_empty() {
                         continue; // スキーマに無い項目は渡さない
+                    }
+                    if self.check_values && !self.schemas.key_fits(nodes, k) {
+                        continue; // 鍵の形に合わない地図の鍵は渡さない
                     }
                     if let Some(item) = x_item(&child) {
                         if let Some((_, author)) = TEXT_ITEMS.iter().find(|(i, _)| *i == item) {
@@ -322,15 +329,29 @@ impl<'s> Walk<'s> {
                         .collect(),
                 ))
             }
-            Value::String(_) => {
+            Value::String(s) => {
                 let system = nodes
                     .iter()
                     .any(|n| SYSTEM_STRINGS.contains(&location(n).as_str()));
-                (system || constrained_string(nodes)).then(|| v.clone())
+                let fits = if self.check_values {
+                    string_fits(nodes, s)
+                } else {
+                    schema_has_shape(nodes)
+                };
+                (system || fits).then(|| v.clone())
             }
             other => Some(other.clone()),
         }
     }
+}
+
+/// 形の欄か（値は照らさない。試験で、照らし合わせで減ったものが無いかを比べるためだけ）
+fn schema_has_shape(nodes: &[Node<'_>]) -> bool {
+    nodes.iter().any(|n| {
+        ["enum", "const", "pattern", "format"]
+            .iter()
+            .any(|k| n.v.get(*k).is_some())
+    })
 }
 
 /// 縮約する（アプリ本体の中のこの1か所だけで行う）。`pseudonyms` は共有ごとに持ち、読むたびに同じものを渡す
@@ -338,6 +359,24 @@ pub fn reduce(
     source: &SharedHouseholdSource,
     scope: &Scope,
     pseudonyms: &mut Pseudonyms,
+) -> Reduced {
+    reduce_with(source, scope, pseudonyms, true)
+}
+
+/// 試験用: 値と鍵を形と照らさない縮約（形に合う値だけの世帯で、照らし合わせで何も減らないことを確かめるため）
+#[doc(hidden)]
+pub fn reduce_without_value_checks_for_test(
+    source: &SharedHouseholdSource,
+    pseudonyms: &mut Pseudonyms,
+) -> Reduced {
+    reduce_with(source, &Scope::Reduced, pseudonyms, false)
+}
+
+fn reduce_with(
+    source: &SharedHouseholdSource,
+    scope: &Scope,
+    pseudonyms: &mut Pseudonyms,
+    check_values: bool,
 ) -> Reduced {
     let schemas = schema::schemas();
     let mut root = Vec::new();
@@ -349,6 +388,7 @@ pub fn reduce(
         added: added.clone(),
         fields: BTreeSet::new(),
         texts: Vec::new(),
+        check_values,
     };
     let input = walk
         .value(&source.input, &root, None)

@@ -165,6 +165,13 @@ export function coerce(it: MovableItem, raw: unknown): ItemValue | undefined {
       const s = Array.isArray(v) ? v[0] : v;
       return isObj(s) && typeof s.add === "string" && typeof s.from === "string" && DECIMAL.test(s.add) ? { add: s.add, from: s.from } : undefined;
     }
+    case "work": {
+      // 働き方の種類（選択肢のどれか）と1年の収入（0〜上限の整数の円）。スライダーと同じ範囲
+      if (!isObj(v) || typeof v.type !== "string" || !c.options.some((o) => o.value === v.type)) return undefined;
+      const a = v.annual;
+      const annual = typeof a === "number" ? a : typeof a === "string" && DECIMAL.test(a) ? Number(a) : undefined;
+      return annual !== undefined && Number.isInteger(annual) && annual >= 0 && annual <= c.max ? { type: v.type, annual } : undefined;
+    }
   }
 }
 
