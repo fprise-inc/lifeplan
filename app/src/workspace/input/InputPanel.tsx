@@ -283,14 +283,15 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
   };
   const readDocRef = useRef(readDoc);
   readDocRef.current = readDoc;
-  // 書類待ちの欄の「この書類を読む」: その欄の書類（書類のお願いの1通）の持ち主を、名義の人・物の初めの値にする
+  // 書類待ちの欄の「この書類を読む」: その欄の書類（書類のお願いの1通）の持ち主を、名義の人・物の初めの値にする（読めるのは保険証券だけ。0159）
   const readDocOf = useMemo(
     () =>
       onReadDoc === undefined
         ? null
         : (fieldKey: string) => {
             const req = docRequests(latest.current).find((r) => r.values.some((v) => v.fieldKey === fieldKey));
-            if (req !== undefined) readDocRef.current(docStartOf(req));
+            const st = req === undefined ? null : docStartOf(req);
+            if (st !== null) readDocRef.current(st);
           },
     [onReadDoc],
   );
