@@ -98,13 +98,35 @@ describe("AI接続口の状態（既定はオフ・同意が無ければ渡さ�
     expect(html).toContain("同意を記録すると、渡せるようになります");
     expect(html).not.toContain("data-ai-share-start");
     // 同意があるときだけ、渡すボタンが出る
-    const given = renderToString(h(AiSharePanel, { ai: host, householdId: "h", customerNo: "A0001", status: status({ enabled: true }), view: view({ consentState: "given" }), onView: () => undefined, onOpenConnector: () => undefined, onClose: () => undefined }));
+    const given = renderToString(h(AiSharePanel, { ai: host, householdId: "h", customerNo: "A0001", status: status({ enabled: true }), view: view({ consentState: "given", consentDocuments: true }), onView: () => undefined, onOpenConnector: () => undefined, onClose: () => undefined }));
     expect(given).toContain("data-ai-share-start");
     expect(given).not.toContain("data-ai-consent-form");
+    expect(given).not.toContain("data-ai-consent-renew");
+    expect(given).toContain("data-ai-withdraw-open");
     // AI接続口がオフなら、同意があっても渡せない
     const off = renderToString(h(AiSharePanel, { ai: host, householdId: "h", customerNo: "A0001", status: status(), view: view({ consentState: "given" }), onView: () => undefined, onOpenConnector: () => undefined, onClose: () => undefined }));
     expect(off).not.toContain("data-ai-share-start");
     expect(off).toContain("AI接続口はオフです（既定）");
+  });
+
+  it("世帯のパネル: 前の版の説明（書類を含まない）の同意は、渡せるまま、今の説明で記録し直す欄を出す（0157）", () => {
+    const old = { id: "c-old", kind: "externalAi" as const, decision: "given" as const, obtainedOn: "2026-10-19", method: "paper" as const, externalAi: { company: "架空AI株式会社", country: "日本", noTrainingConfirmed: true }, scope: "reduced", fpConfirmed: true, recordedAt: NOW, origin: "thisOffice" as const };
+    const html = renderToString(h(AiSharePanel, { ai: host, householdId: "h", customerNo: "A0001", status: status({ enabled: true }), view: view({ consentState: "given", consentDocuments: false, explanationVersion: 2, consents: [old] }), onView: () => undefined, onOpenConnector: () => undefined, onClose: () => undefined }));
+    expect(html).toContain("data-ai-consent-renew");
+    expect(html).toContain("data-ai-consent-form");
+    expect(html).toContain("今の説明で同意を記録し直す");
+    expect(html).toContain("説明（版2）");
+    expect(html).toContain("前の版の説明（書類を含まない）");
+    // 取り直しでは「同意しなかった」を記録しない（計算の項目まで止まるため）。撤回はできる
+    expect(html).not.toContain("data-ai-record-refused");
+    expect(html).toContain("data-ai-withdraw-open");
+    // 計算の項目は渡せる。書類は渡さない注意を出す
+    expect(html).toContain("data-ai-share-start");
+    expect(html).toContain("data-ai-share-no-documents");
+    const renewed = renderToString(h(AiSharePanel, { ai: host, householdId: "h", customerNo: "A0001", status: status({ enabled: true }), view: view({ consentState: "given", consentDocuments: true, consents: [old, { ...old, id: "c-new", documents: true }] }), onView: () => undefined, onOpenConnector: () => undefined, onClose: () => undefined }));
+    expect(renewed).not.toContain("data-ai-consent-renew");
+    expect(renewed).not.toContain("data-ai-share-no-documents");
+    expect(renewed).toContain("書類の読み取りを含む");
   });
 
   it("共有中の帯は、共有が無ければ出さない。入力の画面のほかでは顧客番号を出さない", () => {

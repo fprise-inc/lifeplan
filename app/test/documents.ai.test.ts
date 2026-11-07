@@ -134,13 +134,22 @@ describe("AI接続口から届いた候補を、読み取りの記録にする",
 
 describe("貼り付けの入口", () => {
   it("同意のある世帯と見本の世帯だけで使える", () => {
-    expect(pasteGate({ sample: true, saved: false, consentState: null })).toEqual({ ok: true, sample: true });
-    expect(pasteGate({ sample: false, saved: true, consentState: "given" })).toEqual({ ok: true, sample: false });
+    expect(pasteGate({ sample: true, saved: false, consentState: null, consentDocuments: false })).toEqual({ ok: true, sample: true });
+    expect(pasteGate({ sample: false, saved: true, consentState: "given", consentDocuments: true })).toEqual({ ok: true, sample: false });
     for (const consentState of [null, "none", "refused", "withdrawn"]) {
-      const g = pasteGate({ sample: false, saved: true, consentState });
+      const g = pasteGate({ sample: false, saved: true, consentState, consentDocuments: false });
       expect(g.ok, String(consentState)).toBe(false);
     }
-    expect(pasteGate({ sample: false, saved: false, consentState: "given" }).ok).toBe(false);
+    expect(pasteGate({ sample: false, saved: false, consentState: "given", consentDocuments: true }).ok).toBe(false);
+  });
+
+  it("前の版の説明（書類を含まない）の同意では使えず、取り直すように理由を出す（0157）", () => {
+    const g = pasteGate({ sample: false, saved: true, consentState: "given", consentDocuments: false });
+    expect(g.ok).toBe(false);
+    expect(g.ok ? "" : g.reason).toContain("前の版の説明");
+    expect(g.ok ? "" : g.reason).toContain("同意を記録し直してください");
+    // 見本の世帯は同意が要らない
+    expect(pasteGate({ sample: true, saved: true, consentState: "given", consentDocuments: false }).ok).toBe(true);
   });
 
   it("前後の文や ```json の囲みがあっても読み、貼り付けた AI の記録になる。番号は残らない", () => {
@@ -174,9 +183,12 @@ describe("貼り付けの入口", () => {
 
   it("画面: 注意を出し、同意の無い世帯では理由を出して止める。読む前に伏せたことの確かめを求める", () => {
     const wh = open();
-    const blocked = renderToString(h(PasteAnswer, { wh, gate: pasteGate({ sample: false, saved: true, consentState: "none" }), onOpenConsent: () => undefined, onRead: () => undefined, onClose: () => undefined }));
-    expect(PASTE_WARNING).toContain("書類の中身は AI の会社に渡ります。お名前などを伏せて渡してください");
-    expect(blocked).toContain("書類の中身は AI の会社に渡ります");
+    const blocked = renderToString(h(PasteAnswer, { wh, gate: pasteGate({ sample: false, saved: true, consentState: "none", consentDocuments: false }), onOpenConsent: () => undefined, onRead: () => undefined, onClose: () => undefined }));
+    expect(PASTE_WARNING).toBe("書類の内容は、読み取りのために、お使いの AI サービスへ送られます。お名前・ご住所・番号などは伏せてからお渡しください。送った内容の扱いはサービスの規約によります（学習に使わない設定にしておくと安心です）。");
+    expect(blocked).toContain(PASTE_WARNING);
+    expect(blocked).toContain("data-documents-paste-mask");
+    // SDK フォルダの説明書・スキルの FP への注意も同じ文（0157）
+    for (const f of ["sdk/docs/document-reading.md", "sdk/skills/read-documents/SKILL.md"]) expect(readFileSync(join(REPO_DIR, f), "utf8"), f).toContain(PASTE_WARNING);
     expect(blocked).toContain("data-documents-paste-blocked");
     expect(blocked).toContain("外部AIへの提供の同意が記録されていません");
     expect(blocked).toContain("data-documents-paste-consent");

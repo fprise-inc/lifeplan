@@ -9,6 +9,8 @@
 // 開いた説明の文は選んでコピーできる。カーソルを「?」から説明の箱へ動かす途中で閉じないよう、外れてから閉じるまでごく短く待ち（HELP_LEAVE_MS）、すき間も埋める
 // 何の説明かは、「?」を説明する物（欄の名前・ボタン・見出し）のすぐ右に置いて示す。ボタンの「?」は HelpOf でボタンと1つのまとまりにし、開いている間はボタンを薄く強調する（0077 の 2026-10-29 の追記）
 // 開いた説明の箱は body の直下に出す（入力のパネル・一覧・タブの枠の overflow や transform に切られない。0077 の追記）
+// 「?」は Tab の順に入れない（tabindex="-1"。欄から欄へ Tab で進むときに止まらない）。キーボードでは、欄やボタンにフォーカスがあるときに F1
+// （文字を打つ欄の外では「?」のキーも）で、その物の説明を開く。押すたびに同じ物の次の説明（状態の印の根拠など）へ移る（0077 の 2026-11-07 の追記）
 import { render, type ComponentChildren } from "preact";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "preact/hooks";
 
@@ -22,7 +24,7 @@ export interface HelpState {
   pinned: boolean;
 }
 
-export type HelpEvent = "enter" | "leave" | "focus" | "blur" | "press" | "escape" | "outside";
+export type HelpEvent = "enter" | "leave" | "focus" | "blur" | "press" | "key" | "escape" | "outside";
 
 export const HELP_CLOSED: HelpState = { hover: false, focus: false, pinned: false };
 
@@ -123,6 +125,9 @@ export function helpNext(s: HelpState, e: HelpEvent): HelpState {
     case "blur":
       // フォーカスが外へ出たら、押して開いたままの物も閉じる
       return HELP_CLOSED;
+    case "key":
+      // 欄にフォーカスがあるときの F1（helpKeys）で開く。開いたまま（Esc・外を押す・欄からフォーカスが出ると閉じる）
+      return { ...s, pinned: true };
     case "press":
       // 押して開いたままなら閉じる。それ以外（閉じている・カーソルやフォーカスで開いている）なら開いたままにする
       return s.pinned ? HELP_CLOSED : { ...s, pinned: true };
@@ -130,6 +135,94 @@ export function helpNext(s: HelpState, e: HelpEvent): HelpState {
     case "outside":
       return HELP_CLOSED;
   }
+}
+
+/** 「?」の Tab の順（Tab で止まらない。0077 の 2026-11-07 の追記） */
+export const HELP_TAB_INDEX = -1;
+
+/** 開く・閉じるを外から頼む出来事の名前（helpKeys が「?」のボタンに送る） */
+const OPEN_EVENT = "financia-help-open";
+const CLOSE_EVENT = "financia-help-close";
+
+/** 文字を打つ欄か（そこでは「?」のキーは字として打つので、説明を開くのは F1 だけ） */
+export function typesText(el: { tagName: string; isContentEditable?: boolean; getAttribute: (n: string) => string | null }): boolean {
+  if (el.isContentEditable === true) return true;
+  const tag = el.tagName.toLowerCase();
+  if (tag === "textarea") return true;
+  if (tag !== "input") return false;
+  const type = (el.getAttribute("type") ?? "text").toLowerCase();
+  return !["button", "checkbox", "radio", "submit", "reset", "range", "color", "file", "image"].includes(type);
+}
+
+/** 説明を開くキーか: F1（どこでも）。「?」は文字を打つ欄の外だけ。修飾キー（Ctrl・Alt・⌘）と一緒なら開かない */
+export function isHelpKey(e: { key: string; ctrlKey: boolean; altKey: boolean; metaKey: boolean }, inText: boolean): boolean {
+  if (e.ctrlKey || e.altKey || e.metaKey) return false;
+  return e.key === "F1" || (e.key === "?" && !inText);
+}
+
+/** 説明の持ち主（欄・ボタンと「?」のまとまり）。ほかの持ち主の中の「?」は、その持ち主の説明なので選ばない */
+const HELP_OWNER = "[data-field], [data-help-of]";
+
+/**
+ * フォーカスのある物の説明の「?」（近い順）。フォーカスのある所から外へたどり、ほかの持ち主（別の欄・別のボタン）の物を除いた「?」が
+ * 初めて見つかった囲みの「?」を、画面の並びの順で返す（欄なら欄の名前の「?」・状態の印。説明の無い欄なら、まとまり・区画の見出しの「?」）
+ */
+export function helpButtonsFor(from: Element): HTMLElement[] {
+  for (let at: Element | null = from; at !== null; at = at.parentElement) {
+    const found = [...at.querySelectorAll<HTMLElement>("[data-help-btn]")].filter((b) => {
+      const owner = b.closest(HELP_OWNER);
+      return owner === null || owner.contains(from);
+    });
+    if (found.length > 0) return found;
+  }
+  return [];
+}
+
+let keysOn = false;
+/** 開いている説明（キーで開いた物）と、開いたときのフォーカスのある物 */
+let keyOpen: { from: Element; btn: HTMLElement; off: () => void } | null = null;
+
+function closeKeyOpen(): void {
+  if (keyOpen === null) return;
+  const k = keyOpen;
+  keyOpen = null;
+  k.off();
+  k.btn.dispatchEvent(new CustomEvent(CLOSE_EVENT));
+}
+
+/** F1（と「?」）で説明を開く決まりを、画面に1回だけ付ける（最初の「?」を描いたとき） */
+function helpKeys(): void {
+  if (keysOn || typeof window === "undefined") return;
+  keysOn = true;
+  window.addEventListener(
+    "keydown",
+    (e) => {
+      const from = document.activeElement;
+      if (from === null || from === document.body) return;
+      // 説明の箱の中・「?」そのもの（読み上げで移ったとき）では、今の部品の動きのまま
+      if (from.closest("[data-help-pop], .help") !== null) return;
+      if (!isHelpKey(e, typesText(from as HTMLElement))) return;
+      const list = helpButtonsFor(from);
+      if (list.length === 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      // 同じ物で続けて押したら、次の説明へ（最後の次は閉じる）。Esc などで閉じた後なら、また初めから
+      const at = keyOpen !== null && keyOpen.from === from && keyOpen.btn.getAttribute("aria-expanded") === "true" ? list.indexOf(keyOpen.btn) : -1;
+      closeKeyOpen();
+      if (at === list.length - 1) return;
+      const btn = list[at + 1]!;
+      // フォーカスが物から出たら閉じる（説明の箱へ移ったときは閉じない）
+      const onOut = (ev: Event) => {
+        const to = (ev as FocusEvent).relatedTarget;
+        if (to instanceof Node && document.getElementById(btn.getAttribute("aria-controls") ?? "")?.contains(to) === true) return;
+        closeKeyOpen();
+      };
+      from.addEventListener("focusout", onOut);
+      keyOpen = { from, btn, off: () => from.removeEventListener("focusout", onOut) };
+      btn.dispatchEvent(new CustomEvent(OPEN_EVENT));
+    },
+    true,
+  );
 }
 
 interface HelpProps {
@@ -205,6 +298,20 @@ export function Help({ children, label, mark, markClass, id, data, target }: Hel
   /** body の直下の置き場（開いている間だけ body に付ける） */
   const host = useRef<HTMLDivElement | null>(null);
   useEffect(() => hover.dispose, []);
+  // 欄にフォーカスがあるときの F1 で開く・閉じる（helpKeys から）
+  useEffect(() => {
+    helpKeys();
+    const b = btn.current;
+    if (b === null) return;
+    const onOpen = () => ev("key");
+    const onClose = () => ev("outside");
+    b.addEventListener(OPEN_EVENT, onOpen);
+    b.addEventListener(CLOSE_EVENT, onClose);
+    return () => {
+      b.removeEventListener(OPEN_EVENT, onOpen);
+      b.removeEventListener(CLOSE_EVENT, onClose);
+    };
+  }, []);
   // 箱の中で押してドラッグし、外で離したとき（離した所が箱の外なら、そこから待って閉じる）
   useEffect(() => {
     const up = () => hover.dragEnd();
@@ -321,6 +428,8 @@ export function Help({ children, label, mark, markClass, id, data, target }: Hel
       <button
         ref={btn}
         type="button"
+        // Tab で止まらない（欄から欄へ進むとき。キーボードでは F1 で開く。0077 の 2026-11-07 の追記）
+        tabIndex={HELP_TAB_INDEX}
         class={`help-btn${mark !== undefined ? " help-mark" : ""}${markClass !== undefined ? ` ${markClass}` : ""}`}
         aria-label={mark !== undefined ? undefined : `${label}の説明`}
         aria-expanded={open}

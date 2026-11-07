@@ -51,7 +51,7 @@ export function DocumentStart(p: DocumentStartProps) {
           <li data-documents-start-paste>
             <b>AI の答えを貼り付ける</b>
             <span>
-              {docTypeLabel(p.start.docType)}を、お名前・番号を伏せてウェブのチャット AI に読ませ、答えを貼り付けます（外部AIへの提供の同意がある世帯だけ）。読み方の手引きは「{docTypeLabel(p.start.docType)}」を選んだ形で開きます。
+              {docTypeLabel(p.start.docType)}を、お名前・番号を伏せてウェブのチャット AI に読ませ、答えを貼り付けます（書類を AI に渡すことを含む、外部AIへの提供の同意がある世帯だけ）。読み方の手引きは「{docTypeLabel(p.start.docType)}」を選んだ形で開きます。
             </span>
             <button type="button" class="btn" onClick={p.onPaste} data-documents-start-paste-open>
               AI の答えを貼り付ける
@@ -60,7 +60,7 @@ export function DocumentStart(p: DocumentStartProps) {
           {p.onAiShare !== undefined ? (
             <li data-documents-start-ai>
               <b>AI接続口で読む</b>
-              <span>AI接続口を使う AI に書類を渡すと、読んだ値が候補として届きます（同意と共有で、この世帯を渡してから）。</span>
+              <span>AI接続口を使う AI に書類を渡すと、読んだ値が候補として届きます（同意と共有で、この世帯を渡してから。書類を AI に渡すことを含む同意の世帯だけ）。</span>
               <button type="button" class="btn" onClick={p.onAiShare} data-documents-start-ai-open>
                 同意と共有を開く
               </button>
