@@ -114,6 +114,18 @@ describe("言い換えと欄の名前で当たる", () => {
     expect(find(wh, "  ")).toEqual([]);
   });
 
+  it("貯金・預金 → 貯蓄・運用の預金の口座と「＋ 預金」（足すボタンの名前は口座の種類と同じ「預金」）、役員報酬・給料 → 役員の「役員報酬（月額）」", () => {
+    for (const q of ["貯金", "預金", "ちょきん"]) {
+      const hits = find(wh, q).filter((x) => x.card === "savings");
+      expect(hits.slice(0, 5).some((x) => x.label === "＋ 預金" && x.target.kind === "action" && x.target.key === "sav/add/deposit"), q).toBe(true);
+      expect(hits[0]?.label.startsWith("預金") || hits[0]?.label === "＋ 預金", q).toBe(true);
+      expect(hits.some((x) => x.label.includes("預貯金")), q).toBe(false);
+    }
+    const exec = open("executiveOwner");
+    for (const q of ["役員報酬", "やくいんほうしゅう", "給料"]) expect(find(exec, q).some((x) => x.card === "work" && x.label === "役員報酬（月額）"), q).toBe(true);
+    expect(top(exec, "役員報酬")).toMatchObject({ card: "work", label: "役員報酬（月額）" });
+  });
+
   it("入力項目の名前そのもので探すと、その入力項目が先頭", () => {
     expect(top(wh, "年金")).toMatchObject({ card: "pension", target: { kind: "card" } });
     expect(top(wh, "相続・贈与")).toMatchObject({ card: "inheritance", target: { kind: "card" } });

@@ -539,10 +539,13 @@ export function fillAllocation(wh: WorkingHousehold): WorkingHousehold {
   return { ...next, assumed };
 }
 
-/** 推定のまま（仮の印のまま）の資産の種類の期待リターンを外す（資産配分から別の入れ方に戻したとき） */
+/**
+ * 推定のまま（仮の印のまま）の資産の種類の期待リターンを外す（資産配分から別の入れ方に戻したとき）。外すのは資産配分で目安を書く種類
+ * （fillAllocation と同じく、預金の種類でなく目安のある物）だけ。事務所の既定値で写した不動産（貸していない不動産の値動き。0073 の追記 2026-11-07）は残す
+ */
 export function dropEstimatedClassReturns(wh: WorkingHousehold): WorkingHousehold {
   const own = wh.request.input.assumptions?.assetReturns ?? {};
-  const marked = Object.keys(own).filter((c) => wh.assumed[classReturnKey(c)] !== undefined);
+  const marked = Object.keys(own).filter((c) => !DEPOSIT_CLASSES.has(c) && classReturnPreset(c) !== null && wh.assumed[classReturnKey(c)] !== undefined);
   if (marked.length === 0) return wh;
   const next = mutate(wh, (_h, req) => {
     const a = req.input.assumptions;

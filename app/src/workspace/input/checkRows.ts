@@ -8,7 +8,7 @@
 // - 1行は「カード › まとまり: 欄」・今の値・状態の印・根拠・出どころ（手で・ヒアリング・取り込み・AI）・確かさ（書類・申告・概算）と操作
 // - 同じ値を2つの欄が見せる（今の働き方の欄と、働き方の期間の欄など）ときは、当て先で1行にまとめる
 // - 一覧は世帯の物と欄の定義から毎回作る（保存しない）
-import { officeNow } from "../office/current.ts";
+import { officeAssumptionOfKey, officeNow } from "../office/current.ts";
 import { estimateEntry } from "../office/estimateCatalog.ts";
 import { withRefreshedEstimates } from "./estimates.ts";
 import { pctText } from "../plans/decimal.ts";
@@ -443,8 +443,8 @@ export function ackedRows(wh: WorkingHousehold): CheckRow[] {
 
 /** 前提条件の欄で、事務所の既定値がこの世帯の値と違うときの事務所の値（同じ・事務所の値が無い・前提条件の欄でないときは null） */
 function officeNewer(f: FieldDef, wh: WorkingHousehold): string | null {
-  const m = /^assume\/([a-zA-Z]+)$/.exec(f.key);
-  const v = m === null ? undefined : officeNow().assumptions[m[1] as string];
+  const name = officeAssumptionOfKey(f.key);
+  const v = name === null ? undefined : officeNow().assumptions[name];
   if (v === undefined) return null;
   const cur = f.get(wh).value;
   return typeof cur === "string" && sameRate(cur, v) ? null : v;

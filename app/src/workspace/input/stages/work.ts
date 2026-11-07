@@ -999,10 +999,10 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
   if (SALARIED.has(p.type)) {
     fields.push(
       // 標準（今の働き方）は年収（賞与込み）の1欄。賞与の内訳は詳細の「働き方 1・2…」の年収・賞与で直す（0078）。
-      // 役員だけは標準でも月の報酬（年額）と賞与を分けて聞く（社会保険料の上限が月の報酬と賞与で違い、まとめて統計の割合で分けると結果が大きくずれる）
+      // 役員だけは標準でも役員報酬（月額。世帯ファイルは年額）と賞与を分けて聞く（社会保険料の上限が月の報酬と賞与で違い、まとめて統計の割合で分けると結果が大きくずれる）
       ...(level === "simple" && p.type === "executive"
         ? [
-            officerMonthly(yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "月の報酬（役員報酬の月額）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "毎月の役員報酬の額（定期同額給与）。世帯ファイルには12か月分の年額で持ちます" })),
+            officerMonthly(yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "役員報酬（月額）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "毎月の役員報酬の額（定期同額給与）。世帯ファイルには12か月分の年額で持ちます" })),
             yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null, help: "役員の賞与（事前確定届出給与など）の年間の合計。無ければ0" }),
           ]
         : level === "simple"
