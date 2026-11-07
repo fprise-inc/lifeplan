@@ -113,8 +113,8 @@ mod tests {
     fn answer() -> Value {
         json!({
             "contract": CONTRACT,
-            "docType": "withholdingSlip",
-            "values": [{ "item": "employment.salary.annual", "member": "holder", "value": 5_200_000 }]
+            "docType": "insurancePolicy",
+            "values": [{ "item": "insurance.premium", "at": ["amount"], "member": "holder", "value": 3_240 }]
         })
     }
 

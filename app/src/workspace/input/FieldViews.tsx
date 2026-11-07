@@ -23,6 +23,7 @@ import { fillName } from "../../../../report/src/rowNames.ts";
 import { ageExample, birthFromAge, convertWhen, endBeforeStart, eventOptionText, modeOf, parseWhen, readWhen, readYearMonth, showWhen, strictShown, typingCtx, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 import { isOfficeBasisText } from "../../../../hearing/src/statistics.ts";
 import type { OfficeSourceView } from "./officeSource.ts";
+import { readableDoc } from "../documents/start.ts";
 
 export const visible = (level: Level, l: Level) => level === "detail" || l === "simple";
 
@@ -106,7 +107,7 @@ function PlanGroupTag({ group, wh }: { group: GroupDef; wh: WorkingHousehold }) 
 export const FocusField = createContext<string | null>(null);
 
 /**
- * 書類待ちの欄の「この書類を読む」（0154 の3）: 欄のキーを渡すと、その欄の書類（書類のお願いの1通）の読み取りへ進む。
+ * 書類待ちの欄の「この書類を読む」（0154 の3）: 欄のキーを渡すと、その欄の書類（書類のお願いの1通）の読み取りへ進む。読める書類（保険証券。0159）の欄だけに出す。
  * 入力のパネルが置く（プランの編集中・読み取りの入口の無い画面では null で、ボタンを出さない）
  */
 export const DocReadContext = createContext<((fieldKey: string) => void) | null>(null);
@@ -158,9 +159,9 @@ export function StateMark({ status, basis, text, label, fieldKey, doc, docKey, e
         </p>
       ) : null}
       {est !== null && basis !== null ? <OfficeTextMark entry={est.office} official={`推定: ${basis}`} /> : null}
-      {status === "unknown" && readDoc !== null && readKey !== undefined ? (
+      {status === "unknown" && readDoc !== null && readKey !== undefined && doc !== undefined && readableDoc(doc) ? (
         <p>
-          <button type="button" class="link-btn" onClick={() => readDoc(readKey)} data-state-read-doc={readKey} title="この書類の読み取り（電子データ・AI の答えの貼り付け）へ進みます。読んだ値は確かめて承認したものだけが入ります">
+          <button type="button" class="link-btn" onClick={() => readDoc(readKey)} data-state-read-doc={readKey} title="この書類の読み取り（AI の答えの貼り付け）へ進みます。読んだ値は確かめて承認したものだけが入ります">
             この書類を読む
           </button>
         </p>
