@@ -312,6 +312,22 @@ describe("退職給付（retirement.benefit）・小規模企業共済（account
     expect(cells(full(req), "cf.taxSi.incomeTax.retirement", 2032)).toBeGreaterThan(0);
   });
 
+  it("勤め先の期間が無い退職金は、黙って落とさず知らせる（受け取る時期が決まらない・指す先の無い勤め先。0163）", () => {
+    const gone = "00000000-0000-4000-8000-00000000dead";
+    const dangling = full(mk([{ id: uid("rb"), member: A, kind: "lumpSum", employment: gone, amount: box(20000000) }]));
+    expect(cells(dangling, "cf.income.lumpSum.retirement", 2032)).toBe(0);
+    const ids = notices(dangling).filter((n) => n.code === "N_INPUT_REQUIRED").map((n) => n.ids.join(","));
+    expect(ids).toContain(`reference.retirementBenefit.employment,${uid("rb")}`);
+    expect(ids).toContain(`retirement.benefit,${uid("rb")},retirementBenefit.paidAt`);
+    // 勤め先を空にしても（受け取る時期も勤続期間も無い）、受け取る時期の知らせは出る。指す先の知らせは出ない
+    const cleared = notices(full(mk([{ id: uid("rb"), member: A, kind: "lumpSum", amount: box(20000000) }]))).filter((n) => n.code === "N_INPUT_REQUIRED").map((n) => n.ids.join(","));
+    expect(cleared).toContain(`retirement.benefit,${uid("rb")},retirementBenefit.paidAt`);
+    expect(cleared.some((x) => x.startsWith("reference."))).toBe(false);
+    // 勤め先があれば、どちらも出ない
+    const ok = notices(full(mk([{ id: uid("rb"), member: A, kind: "lumpSum", employment: uid("p"), amount: box(20000000) }]))).map((n) => n.ids.join(","));
+    expect(ok.some((x) => x.includes("retirementBenefit.paidAt") || x.startsWith("reference."))).toBe(false);
+  });
+
   it("DB の併用: 一時金と、残りを予定利率0で年数に等分した年金（年6回）。年金は公的年金等の収入", () => {
     const req = mk([{ id: uid("db"), member: A, kind: "db", employment: uid("p"), amount: box(12000000), receipt: { method: "mixed", lumpShare: "0.5", years: 10 } }]);
     const out = call<{ flows: Flow[]; annuities: { ym: string; amount: number }[] }>(req, "retirement.benefit", { member: A });

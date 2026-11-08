@@ -1213,7 +1213,17 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
       if (f.kind === "pct") return pctFromRate(String(state.value));
       return String(state.value);
     })();
-    const parse = (text: string): FieldRead | undefined => readField(f, text, { unit, period, baseMonth: wh.request.input.baseMonth });
+    const readOpts = { unit, period, baseMonth: wh.request.input.baseMonth };
+    /** 読めてもほかの入力と合わず書けない理由（欄の refuse。0161） */
+    const refused = (text: string): string | null => {
+      if (f.refuse === undefined) return null;
+      const r = readField(f, text, readOpts);
+      return r === undefined ? null : f.refuse(wh, r.v);
+    };
+    const parse = (text: string): FieldRead | undefined => {
+      const r = readField(f, text, readOpts);
+      return r !== undefined && f.refuse?.(wh, r.v) != null ? undefined : r;
+    };
     /** 打った文字を決める（入ったときと同じ文字なら何もしない。読めれば書いて知らせを出す。読めなければ書かない） */
     const decide = (t: string): Settled => {
       if (!shouldCommitOnBlur(startText.current, t) && !(typed.current && typedStateful(status ?? fieldStatus(f, wh)))) return "none";
@@ -1228,7 +1238,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
     // 欄を離れずに画面を変える操作の前（pendingInput.ts）: 今の下書きを決める。読めなければ欄に残して止める（理由は下書きから欄の下に出ている）
     settleNow.current = () => decide(inputEl.current?.value ?? draft ?? shown);
     const bad = draft !== null && parse(draft) === undefined;
-    problem = bad ? (rejectReason(f, draft, unit) ?? "この値は入れられません") : rejected;
+    problem = bad ? (refused(draft) ?? rejectReason(f, draft, unit) ?? "この値は入れられません") : rejected;
     const inputClass = f.kind === "text" ? "txt" : f.kind === "ym" ? "ym" : "num";
     filledInside = canFill && fillInside(inputClass, shown);
     // 灰色の入力例: 空欄に意味のある欄は「空欄＝○○」を先に（収まらなければ欄の下の1行）、次に欄ごとの例。年月の欄の共通の例は過去の年月
@@ -1275,7 +1285,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
           const t = (e.currentTarget as HTMLInputElement).value;
           // 入ったときと同じ文字のまま離れたら、何も書かない（欄に入って離れる・Tab で通るだけで値も状態も変えない。0041）
           if (decide(t) === "rejected") {
-            setRejected(`「${t}」は入れられないため、前の値のままです。${rejectReason(f, t, unit) ?? ""}`);
+            setRejected(`「${t}」は入れられないため、前の値のままです。${refused(t) ?? rejectReason(f, t, unit) ?? ""}`);
             noteRejected(() => inputEl.current?.focus());
           }
           setDraft(null);

@@ -136,6 +136,11 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
       if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
       s.lastOpened = a.id ?? null;
       return { ok: true, value: opened(a.id as string, h) };
+    // 開発用のサーバーのメモリの中では世帯ファイルが壊れないので、直前の世代で開き直すことは無い（0011 の7）
+    case "previousGeneration":
+      return { ok: true, value: null };
+    case "openPrevious":
+      return { ok: false, code: "E_STORE_NO_PREVIOUS" };
     case "categories":
       return { ok: true, value: { categories: s.categories, decided: s.categoriesDecided } };
     case "setCategories": {
