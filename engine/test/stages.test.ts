@@ -1,5 +1,5 @@
 // 段階と例外の年・働き方の期間ごとの伸び（0040）のテスト（L1）: 周期的な支出・家賃・修繕費・固定資産税・住まい以外の不動産の家賃と経費・
-// 器の利回りと資産配分の段階、段の境の月、例外の年、少しずつ移す段、給与・事業所得の伸びの率と昇給カーブの値ID、空の段階は今と同じ結果。
+// 器の利回りと資産配分の段階、段の境の月、例外の年、少しずつ移す段、給与・事業所得の増減率と昇給カーブの値ID、空の段階は今と同じ結果。
 // 【架空の見本】の制度データで、手計算と突き合わせる
 import { describe, expect, it } from "vitest";
 import { runEngine } from "../src/engine/run.ts";
@@ -370,7 +370,7 @@ describe("働き方の期間ごとの伸び（income.salary・income.business）
   const mk = (p: Obj) => household({ members: [member("a", "self", "1980-01")], periods: [p], wageGrowth: "0.01", endYear: 2030 });
   const salaryIn = (req: Req, ym: string) => call<{ flows: Flow[] }>(req, "income.salary", { member: A }).flows.filter((f) => f.ym === ym && f.formula === "income.salary.monthly").reduce((s, f) => s + f.amount, 0);
 
-  it("給与の伸びの率は賃金上昇率の代わり（マイナスも書ける）。空欄は賃金上昇率、昇給カーブの値IDは今までどおり", () => {
+  it("給与の増減率は賃金上昇率の代わり（マイナスも書ける）。空欄は賃金上昇率、昇給カーブの値IDは今までどおり", () => {
     const withGrowth = (growth: Obj | undefined) => {
       const x = period("p", { member: "a", from: "2020-04", annual: 6000000 }) as Obj & { salary: Obj };
       if (growth !== undefined) x.salary.growth = growth;
@@ -384,7 +384,7 @@ describe("働き方の期間ごとの伸び（income.salary・income.business）
     expect(() => full(withGrowth({ curve: "wageStats.default", rate: "0.02" }))).toThrow(EngineError);
   });
 
-  it("事業所得の伸びの率（省略は賃金上昇率）", () => {
+  it("事業所得の増減率（省略は賃金上昇率）", () => {
     const self = (growth?: Obj) =>
       mk({ id: uid("p"), member: A, from: at("2020-04"), to: null, type: "selfEmployed", healthInsurance: { kind: "national" }, business: { income: box(5000000), ...(growth !== undefined ? { growth } : {}) } });
     const year = (req: Req, y: number) => call<{ byYear: { year: number; income: number }[] }>(req, "income.business", { member: A }).byYear.find((x) => x.year === y)?.income;

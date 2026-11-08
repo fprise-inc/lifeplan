@@ -180,10 +180,10 @@ describe("住宅ローンの欄", () => {
 });
 
 describe("住まいの欄", () => {
-  it("伸び方の率の欄は「伸び率（年）」。家賃の統計の目安は欄の下でなく「?」の中", () => {
+  it("伸び方の率の欄は家賃は「増減率（年）」、固定資産税・修繕・管理の費用は「伸び率（年）」。家賃の統計の目安は欄の下でなく「?」の中", () => {
     const rent = action(blankHousehold(BASE), "housing/addRent");
     const g = fieldOf(rent, "/rentGrowth");
-    expect(g.label).toBe("家賃の伸び率（年）");
+    expect(g.label).toBe("家賃の増減率（年）");
     expect(g.get(rent).hint ?? null).toBeNull();
     const own = action(blankHousehold(BASE), "housing/addOwn");
     expect(fieldOf(own, "/taxGrowth").label).toBe("固定資産税の伸び率（年）");
