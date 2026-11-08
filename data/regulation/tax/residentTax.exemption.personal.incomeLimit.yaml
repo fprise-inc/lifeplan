@@ -1,0 +1,22 @@
+id: residentTax.exemption.personal.incomeLimit
+title: 住民税を課さない障害者・未成年者・寡婦・ひとり親の前年の合計所得金額の上限（135万円以下）
+unit: JPY
+kind: constant
+basis: "priorYearIncome"
+entries:
+  - rev: 1
+    appliesFrom: "2025-06-01"
+    appliesTo: null
+    enforcedOn: "2021-01-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 1350000
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-11-08", sha256: "e50d5c8fe55e8b799196d82b9009dc126a3ecd1daac48ec8e9e80f4f2e0f928f", locator: "地方税法 第295条第1項第2号（個人の市町村民税の非課税の範囲）・第24条の5第1項第2号（個人の道府県民税）", quote: "寡婦又はひとり親（これらの者の前年の合計所得金額が百三十五万円を超える場合を除く。）"}
+      - {type: "web", url: "https://www.city.edogawa.tokyo.jp/e013/kurashi/zeikin/juminzei/zei_gaiyo/hikazei.html", retrievedAt: "2026-11-08", sha256: "abdb7c0b98d0a4d8ddf4c702667c020f29316b0b65370a1ba964e64d11090cd3", locator: "江戸川区「住民税が課税されない人」", quote: "前年中の合計所得金額が135万円以下の場合"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20210101_502AC0000000005?response_format=xml", retrievedAt: "2026-11-08", sha256: "c6445e3711a5d46b6fc2a2eaac117090edb7ba22666c26fe8e930e150991164c", locator: "地方税法 第295条第1項第2号（e-Gov の2021-01-01施行の版。ひとり親と135万円の今の文言が最初に現れた版）", quote: "寡婦又はひとり親（これらの者の前年の合計所得金額が百三十五万円を超える場合を除く。）"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261001_508AC0000000002"}
+    recordedIn: "2026.19.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-11-08", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合"], note: "条文（市町村民税の295条1項2号・道府県民税の24条の5第1項2号。均等割・所得割とも課さない。分離課税に係る所得割は除く）と江戸川区の説明が一致（135万円以下）。級地による違いは無い。施行日は、値を定める今の文言が最初に現れた e-Gov の版（325AC0000000226_20210101_502AC0000000005。前の版 325AC0000000226_20201228_502AC0000000068 は「寡婦又は寡夫」「百二十五万円」）の施行日 2021-01-01（令和3年度分から）。原本の写しは作業の一時の置き場で照合し、非公開のリポジトリには置いていない。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
