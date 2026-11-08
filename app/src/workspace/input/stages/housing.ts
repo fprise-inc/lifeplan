@@ -609,7 +609,36 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
     groups.push(...loans.flatMap((d, j) => loanGroups(wh, d, j, `この家の住宅ローン${loans.length > 1 ? ` ${j + 1}` : ""}`)));
   }
   if (r.kind === "own") groups.push(...valuationGroups(wh, r, k));
-  return groups;
+  // 現金で買う形の購入は、どの欄・ボタンから合計（物件の価格・土地と建物の代金・購入の種類）が変わっても、頭金を合計についていかせる（0175）
+  return buying ? groups.map((g) => (g.key === k || g.key.startsWith(`${k}/`) ? keepCashGroup(g, r.id) : g)) : groups;
+}
+
+/**
+ * 現金で買う形（purchaseFunding が cash）だった購入で、書き込みの後に住宅ローンがつながらず、頭金が物件の価格（注文住宅は合計）と違えば、
+ * 頭金を合計に合わせる（現金で買うなら合計の全額を払う。合計が変わって「まだ選んでいない」に戻らないように。0175）
+ */
+export function keepCash(before: WorkingHousehold, after: WorkingHousehold, rid: string): WorkingHousehold {
+  if (after === before) return after;
+  const hb = before.request.input.household;
+  const rb = (hb.residences ?? []).find((y) => y.id === rid);
+  if (rb === undefined || purchaseFunding(hb, rb) !== "cash") return after;
+  const ha = after.request.input.household;
+  const ra = (ha.residences ?? []).find((y) => y.id === rid);
+  if (ra?.purchase === undefined || purchaseLoans(ha, ra).length > 0 || ra.purchase.downPayment === ra.purchase.price) return after;
+  return mutate(after, (h) => {
+    const x = (h.residences ?? []).find((y) => y.id === rid);
+    if (x?.purchase !== undefined) x.purchase.downPayment = x.purchase.price;
+  });
+}
+
+function keepCashGroup(g: GroupDef, rid: string): GroupDef {
+  const tidy = (b: WorkingHousehold, a: WorkingHousehold) => keepCash(b, a, rid);
+  return {
+    ...g,
+    fields: g.fields.map((f) => afterWrite(f, tidy)),
+    ...(g.openFields !== undefined ? { openFields: g.openFields.map((f) => afterWrite(f, tidy)) } : {}),
+    actions: g.actions.map((a) => ({ ...a, run: (w: WorkingHousehold) => tidy(w, a.run(w)) })),
+  };
 }
 
 /**
@@ -772,12 +801,10 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
       ? "土地の代金と建物の代金（請負の工事の代金）の合計です。土地の代金を入れていなければ、合計に合わせて目安を出し直します"
       : "頭金・諸費用を入れていなければ、価格に合わせて目安を出し直します",
     // 頭金・諸費用が推定（出どころ auto）なら、価格に合わせて入れ直す（注文住宅の諸費用は土地と建物とつなぎ融資から入れ直す。customBuild.ts）。
-    // 現金で買う形（0175）なら、頭金（現金で払う額）を価格に合わせる
-    after: (_h, target, v, w) => {
+    // 現金で買う形（0175）の頭金は、住宅の購入の欄すべてを包む keepCash で合わせる
+    after: (_h, target, v) => {
       const res = target as unknown as Residence & Obj;
       if (res.purchase === undefined || typeof v !== "number") return;
-      const was = (w.request.input.household.residences ?? []).find((y) => y.id === res.id);
-      if (was !== undefined && purchaseFunding(w.request.input.household, was) === "cash") res.purchase.downPayment = v;
       refreshDownEstimate(res);
       if (!isCustomBuild(res) && isAutoEstimate(stateOf(res, "residence.purchase/costs"))) {
         const nb = res.purchase.newBuild;

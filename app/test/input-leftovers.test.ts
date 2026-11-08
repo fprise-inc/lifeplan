@@ -12,6 +12,10 @@ import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { fillCard, inputItems } from "../src/workspace/input/items.ts";
+import { buildCatalog } from "../src/workspace/plans/items.ts";
+import { planView, recordPlanEdit } from "../src/workspace/plans/planEdit.ts";
+import { savePlan } from "../src/workspace/plans/plans.ts";
+import { roles } from "../src/workspace/roles.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const open = (id: string) => fromRequest(modelHousehold(id));
@@ -143,6 +147,52 @@ describe("住宅の購入: 物件の価格の次に「どう買うか」（現�
     wh = setFunding(wh, "loan");
     expect(bought(wh).purchase!.downPayment).toBe(down0);
     expect(mortgages(wh)[0]!.principal).toBe(bought(wh).purchase!.price - down0);
+  });
+
+  it("注文住宅を現金で買う: 建物の代金・土地の代金・購入の種類のどの欄から合計が変わっても、頭金が合計についていき、現金で買うのまま", () => {
+    let wh = withPurchase();
+    const k = () => `housing/res/${bought(wh).id}/purchase`;
+    const put = (suffix: string, v: string | number) => (wh = panel(wh, fieldOf(wh, "housing", (f) => f.key === `${k()}/${suffix}`).set(wh, v)));
+    put("type", "custom");
+    wh = setFunding(wh, "cash");
+    expect(bought(wh).purchase!.downPayment).toBe(bought(wh).purchase!.price);
+    const land = bought(wh).purchase!.land!.price;
+    put("building", 30_000_000);
+    expect(bought(wh).purchase!.price).toBe(land + 30_000_000);
+    expect(bought(wh).purchase!.downPayment).toBe(land + 30_000_000);
+    expect(funding(wh).get(wh).value).toBe("cash");
+    put("price", 60_000_000);
+    expect(bought(wh).purchase!.downPayment).toBe(60_000_000);
+    // 購入の種類を変えて合計が変わっても（注文住宅をやめる）、現金で買うのまま
+    put("type", "newHouse");
+    expect(bought(wh).purchase!.downPayment).toBe(bought(wh).purchase!.price);
+    expect(funding(wh).get(wh).value).toBe("cash");
+    expect(fieldStatus(funding(wh), wh).status).not.toBe("missing");
+  });
+
+  it("プランの中で選び直す: 現状は変えず、プランの中身に住宅ローンを外す・足す差分と頭金の差分ができる（入力の画面と同じ操作）", () => {
+    const req = modelHousehold("housingPurchase");
+    const self = roles(req).find((r) => r.key === "self")!.member;
+    const wh0 = fromRequest(req, {});
+    const cat = buildCatalog(wh0, self.id, null);
+    const saved = savePlan(wh0, cat, { name: "プランB", base: null, values: {}, now: "2026-11-08T00:00:00Z" });
+    const pid = saved.id;
+    let view = planView(saved.wh, cat, pid);
+    const cashView = funding(view).set(view, "cash");
+    let w = recordPlanEdit(saved.wh, cat, pid, view, cashView);
+    view = planView(w, cat, pid);
+    expect(funding(view).get(view).value).toBe("cash");
+    expect(mortgages(view)).toEqual([]);
+    expect(bought(view).purchase!.downPayment).toBe(bought(view).purchase!.price);
+    // 現状はローンのまま
+    expect(JSON.stringify(w.request)).toBe(JSON.stringify(saved.wh.request));
+    expect(funding(w).get(w).value).toBe("loan");
+    // プランで住宅ローンを使うに戻す
+    const loanView = funding(view).set(view, "loan");
+    w = recordPlanEdit(w, cat, pid, view, loanView);
+    view = planView(w, cat, pid);
+    expect(funding(view).get(view).value).toBe("loan");
+    expect(mortgages(view)).toHaveLength(1);
   });
 
   it("前からある世帯: ローンが付いていれば「住宅ローンを使う」、外すと未入力（現金とはみなさない）", () => {
