@@ -22,7 +22,7 @@ const SETTINGS: OfficeSettings = { ...DEFAULT_OFFICE_SETTINGS, assumptions: { de
 const ESTATE_KEY = "assume/assetReturns/realEstate/default";
 const fieldIn = (wh: WorkingHousehold, stage: "assumptions" | "savings", key: string): FieldDef | undefined => allFields(buildStage(stage, wh)).find((f) => f.key === key);
 
-/** 貸していない不動産（評価額の伸び率は入れない）を足した世帯 */
+/** 貸していない不動産（評価額の増減率は入れない）を足した世帯 */
 function withHeldEstate(wh: WorkingHousehold, value: number): { wh: WorkingHousehold; a: Account } {
   const others = buildStage("savings", wh).sections.find((s) => s.key === "sav/others")!;
   let next = others.actions.find((x) => x.key === "sav/add/realEstate")!.run(wh);
@@ -63,14 +63,14 @@ describe("事務所の既定値の預金の利回り・貸していない不動�
     }
   });
 
-  it("写した値は計算に効く: 評価額の伸び率を入れていない貸していない不動産が年1%で動く（入れた伸び率があればそちら）", () => {
+  it("写した値は計算に効く: 評価額の増減率を入れていない貸していない不動産が年1%で動く（入れた増減率があればそちら）", () => {
     const base = withHeldEstate(blankHousehold("2026-11", ids()), 10_000_000);
     const office = withHeldEstate(applyOfficeDefaults(blankHousehold("2026-11", ids()), SETTINGS), 10_000_000);
     expect(estateAt(base.wh, base.a.id, 2028)).toBe(estateAt(base.wh, base.a.id, 2027));
     const y1 = estateAt(office.wh, office.a.id, 2027);
     const y2 = estateAt(office.wh, office.a.id, 2028);
     expect(y2 / y1).toBeCloseTo(1.01, 4);
-    // その物の伸び率を入れれば、事務所の値でなくそちら
+    // その物の増減率を入れれば、事務所の値でなくそちら
     const own = fieldIn(office.wh, "savings", `sav/${office.a.id}/growth`)!.set(office.wh, "0");
     expect(estateAt(own, office.a.id, 2028)).toBe(estateAt(own, office.a.id, 2027));
   });

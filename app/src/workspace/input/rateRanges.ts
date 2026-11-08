@@ -15,7 +15,7 @@ export interface PctRange {
  * 計算が止まる世帯があるため（0098）
  */
 export const RETURN_RANGE: PctRange = { min: -10, max: 15 };
-/** 上昇率・変化率・伸び率（物価・賃金・教育費・土地・家賃・費用・収入・維持費など）: 年 -10%〜+10%（長い期間の平均として） */
+/** 上昇率・変化率・伸び率・増減率（物価・賃金・教育費・土地・家賃・費用・収入・維持費など）: 年 -10%〜+10%（長い期間の平均として） */
 export const GROWTH_RANGE: PctRange = { min: -10, max: 10 };
 /** 年金の調整率（マクロ経済スライド）: 年 0%〜5%（年金額の伸びから差し引く正の率） */
 export const SLIDE_RANGE: PctRange = { min: 0, max: 5 };
