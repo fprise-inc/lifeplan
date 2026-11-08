@@ -14,6 +14,8 @@
 //   額は見込み額を勤続の月数（死亡の月まで÷予定の終わりまで）で按分する（公務員の退職手当の見込みは死亡の月までの勤続年数の支給率）。
 //   万一の想定に死亡退職金の額（survivor.deathBenefits.retirementAllowance）を入れたときは、ここでは出さない（contingency.lumpSum が出す）。
 //   受け取り中の年金は死亡の月まで。保証期間の残りは死亡の月の翌月に一時金で遺族へ
+// - 改訂4（0170）: 勤続の始まりより前に亡くなるなら死亡退職金は無い（前は見込み額を全額出した）。万一の重ねで働き方の期間を死亡の月で
+//   終えるときも、按分の分母は予定の勤続期間（overlay.ts が勤続期間を書いておく。前は按分が効かず見込み額を全額出した）
 // - 受け取る時期が決まらない（受け取る時期・勤続期間が無く、勤め先の働き方の期間が無いか終わりが無い）一時金・年金は払わず、
 //   知らせ N_INPUT_REQUIRED（retirementBenefit.paidAt）を出す（改訂3。前は黙って払わなかった。0163）
 import {
@@ -63,7 +65,7 @@ export default defineComponent<{ member: string }, RetirementBenefitOutput>({
   id: "retirement.benefit",
   title: "退職給付（退職一時金・DB・公務員・国民年金基金・役員退職慰労金）",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: { "contingency.event": ">=1 <2" },
   params: Object.values(P),
   reads: [
@@ -160,6 +162,8 @@ export default defineComponent<{ member: string }, RetirementBenefitOutput>({
       // 死亡退職金: 支給の月が死亡の月より後の一時金（年金で受ける予定の分を含む）
       if (death !== null && paidAt !== null && paidAt > death && b.kind !== "civilServantPension" && b.kind !== "nationalPensionFund") {
         if (given) continue;
+        // 勤続の始まりより前に亡くなる（まだ勤めていない勤め先）なら、死亡退職金は無い（改訂4。0170）
+        if (sFrom !== null && death < sFrom) continue;
         // 見込み額は勤続の月数で按分（公務員の退職手当の見込みは、勤続期間が死亡の月で終わる働き方の期間から計算済み）
         if (boxValue(b.amount) !== null && boxValue(b.amount) !== undefined && sFrom !== null && sTo !== null && sTo > death && death >= sFrom) {
           total = ctx.money.mulRatio(total, death - sFrom + 1, sTo - sFrom + 1, "conv.retirement.estimate");

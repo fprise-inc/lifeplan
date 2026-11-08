@@ -36,6 +36,8 @@
 //   払込保険料×年金額÷年金の総額）、積立金は受け取った回数の分だけ value から減る（解約返戻金・亡くなったときの額）。解約して受け取る
 //   （surrender）なら払込の終わりの月に value を解約で受け取る（insurance.term がその月で終わりにする。一時所得）。保障の部分の死亡保険金は
 //   保障の明細のとおり（定期保険と同じ）。利率の変動は計算しない（設計書の数字を入れ直す）。払込の終わりが無ければ積立金は0とし、入力を求める
+// - 改訂5・約束の版 1.2（0170）: 年ごとの値に、その年の最初の月（計算基準年は計算基準月）に亡くなったときの死亡保障額（start）を添える
+//   （必要保障額の推移の「その年の1月に亡くなったら」。年末の額 deathBenefit は年の途中で終わる定期保険が0・収入保障の残りが11か月少ない）
 // - 改訂4（0137）: 預金の利回り（assumptions.depositReturn）を読む。預金・外貨預金の資産クラス（cash.deposit・cash.foreign）が前提の資産クラスごとの利回りに無いときの利回り（省略は運用利回りで、前の要求は今までどおり。0137）
 import {
   addMonths,
@@ -95,8 +97,8 @@ const ROW: Readonly<Record<InsuranceReceipt["kind"], string>> = {
 export default defineComponent<{ object: string }, InsurancePolicyOutput>({
   id: "insurance.policy",
   title: "保険契約（保険年度ごとの値と受け取り）",
-  contract: "1.1",
-  revision: 4,
+  contract: "1.2",
+  revision: 5,
   requires: { "insurance.term": ">=1 <2", "insurance.premiumPayment": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [],
   reads: [
@@ -483,10 +485,23 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
           if (v > 0) others.push({ member: P, deathBenefit: v });
         }
       }
+      // その年の最初の月（計算基準年は計算基準月）に亡くなったときの死亡保障額（必要保障額の推移の「その年の1月に亡くなったら」。改訂5・約束の版 1.2。0170）
+      const first = (y === yearOf(base) ? base : monthIndex(y, 1)) as MonthIndex;
+      const firstOthers: { member: string; deathBenefit: Yen }[] = [];
+      if (active(first)) {
+        for (const P of people) {
+          if (P === c.insured) continue;
+          const dm = deathMonth.get(P);
+          if (dm !== undefined && dm < first) continue;
+          const v = deathAt(first, P);
+          if (v > 0) firstOthers.push({ member: P, deathBenefit: v });
+        }
+      }
       years.push({
         year: y,
         premium: yen(premium),
         deathBenefit: live ? deathAt(dec) : yen(0),
+        start: { month: formatYm(first), deathBenefit: active(first) ? deathAt(first) : yen(0), ...(firstOthers.length > 0 ? { others: firstOthers } : {}) },
         surrenderValue: live ? surrenderAt(Math.floor((dec - start + 1) / 12)) : yen(0),
         paid: paidUpTo(dec),
         ...(others.length > 0 ? { others } : {}),

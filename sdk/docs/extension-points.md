@@ -73,7 +73,7 @@
   "kind": "component",
   "entry": "index.ts",
   "provides": [
-    { "type": "replace", "target": "protection.need", "contract": "1", "basedOn": 5 }
+    { "type": "replace", "target": "protection.need", "contract": "1", "basedOn": 6 }
   ]
 }
 ```

@@ -4,6 +4,7 @@
 // pension.survivor を呼べない（循環する）。判定は pension.survivor と同じ SDK の survivorBasis で行う
 // - basic: 遺族基礎年金（子のある配偶者・子。最後の子が18歳に達した後の最初の3月31日まで）
 // - employee: 遺族厚生年金（配偶者は夫なら死亡の当時55歳以上。30歳未満で子の無い妻は5年まで）
+// - 改訂2（0170）: 配偶者が死亡の当時55歳未満の夫なら、子が遺族厚生年金の受給権を得る（遺族基礎年金は夫が受け、子の分は止まるので出さない）
 // 寡婦年金（60歳から65歳になるまで）は65歳で消えるので、繰下げの判定には関わらず、ここでは出さない
 import {
   defineComponent,
@@ -20,7 +21,7 @@ export default defineComponent<{ member: string }, SurvivorRightOutput>({
   id: "pension.survivorRight",
   title: "遺族年金の受給権",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "contingency.event": ">=1 <2", "pension.record": ">=1 <2" },
   params: Object.values(SURVIVOR_BASIS_PARAMS),
   reads: ["member.kind", "member.birth", "member.sex", "relation.type", "relation.a", "relation.b", "relation.from", "relation.to", "relation.parent", "relation.child"],
@@ -37,7 +38,7 @@ export default defineComponent<{ member: string }, SurvivorRightOutput>({
     const rights: SurvivorRightOutput["rights"][number][] = [];
     const from = formatYm(sb.death);
     const ownUntil = sb.isChild ? (sb.childUntil.get(Y) ?? sb.death) : sb.lastKid;
-    if (sb.basicOk && sb.kidsAtDeath) rights.push({ kind: "basic", from, to: formatYm(ownUntil) });
+    if (sb.basicOk && sb.kidsAtDeath && sb.basicSuspended !== true) rights.push({ kind: "basic", from, to: formatYm(ownUntil) });
     if (sb.isSpouse ? sb.spouseEmployeeRight : sb.employeeOk) {
       const to = sb.isChild ? ownUntil : sb.empUntil;
       rights.push({ kind: "employee", from, to: to === null ? null : formatYm(to) });

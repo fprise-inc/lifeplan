@@ -6,7 +6,8 @@ import { ITEMS } from "./items.ts";
 import type { Ctx } from "./ctx.ts";
 
 /**
- * 部品の書き方の約束（ctx の API とマニフェスト）の版。1.3 → 1.4（0119）: 差し替えを許す公式部品を一覧（マニフェストの replaceable）で決め、
+ * 部品の書き方の約束（ctx の API とマニフェスト）の版。1.4 → 1.5（0170）: 必要保障額の推移の部品が、死亡の想定で世帯の全体を計算し直した
+ * お金の動きを読む ctx.deathScenario を足した（ほかの部品では null。公式部品の書き方は変わらない）。1.3 → 1.4（0119）: 差し替えを許す公式部品を一覧（マニフェストの replaceable）で決め、
  * 差し替えの約束（入力・出力のスキーマのキーを公式と同じにする・約束の版は公式と同じ MAJOR で MINOR は公式以下・呼ぶ差し込み口は公式の内・
  * replaceable を書かない・計算式ID は ext. で始める）を組み立て役と部品の呼び出しで確かめるようにした。公式部品の書き方は変わらない。1.2 → 1.3（0111 の2回目）: エンジンが引く目安を値ID で読む ctx.estimate と、
  * 統計の目安で空欄を埋めるかを見る ctx.fillsByEstimate を足した。1.1 → 1.2（0006 の追記（2026-10-09））: 年ごとの列でない前提を読む ctx.setting と、
@@ -14,7 +15,7 @@ import type { Ctx } from "./ctx.ts";
  * ctx.segments・ctx.callMonths・ParamOptions.birth・マニフェストの memberScope を足し、依存の記録の決まり（部品は ctx を通して読んだものだけで
  * 結果を決める・同じ依存なら同じ順に同じものを読む）を明文にした。今の部品の書き方はそのまま使える
  */
-export const COMPONENT_API_VERSION = "1.4";
+export const COMPONENT_API_VERSION = "1.5";
 
 export interface ComponentDefinition<I = unknown, O = unknown> {
   /** 計算部品ID（0004） */

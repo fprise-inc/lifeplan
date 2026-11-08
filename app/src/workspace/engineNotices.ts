@@ -146,6 +146,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_ESTIMATED|pension.disability.oldAgeChoice": { kind: "assumed", text: "障害年金と老齢年金は、多い方を受け取るものとして計算しています" },
   "N_ESTIMATED|pension.survivor.category1Months": { kind: "assumed", text: "国民年金（第1号）の納めた月数が入っていないので、加入記録から推計しています（死亡一時金・寡婦年金）", card: "pension" },
   "N_ESTIMATED|lifeTable.interpolated": { kind: "assumed", text: "平均余命は、表の年齢の間を按分して出しています" },
+  "N_ESTIMATED|debt.startsAfterDeath": { kind: "assumed", text: "借りる人が借入の前に亡くなる想定では、そのローンは組めないので、借りる予定の額を借入の月に現金で払う計算にしています", card: "housing" },
   "N_DEFAULT_USED|care.otherMonthly": { kind: "assumed", text: "介護の費用のうち入っていない所は、目安（統計の平均。事務所の推定の値があればその値）で計算しています", card: "care", group: "care.default", part: "月々の費用" },
   "N_DEFAULT_USED|care.initial": { kind: "assumed", text: "介護の費用のうち入っていない所は、目安（統計の平均。事務所の推定の値があればその値）で計算しています", card: "care", group: "care.default", part: "始めにかかる費用" },
   "N_DEFAULT_USED|care.months": { kind: "assumed", text: "介護の費用のうち入っていない所は、目安（統計の平均。事務所の推定の値があればその値）で計算しています", card: "care", group: "care.default", part: "介護の期間" },
