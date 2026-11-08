@@ -15,6 +15,6 @@ entries:
     sources:
       - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325M50000040017_20260901_506M60000040016?response_format=xml", "retrievedAt": "2026-11-08", "sha256": "8a0053e0163afe0ae296dde80d4b69b67dbedae971f61a333149e908c17a4469", "locator": "相続税法施行規則 第12条の5（複利年金現価率。令和8年9月1日の版）", "quote": "当該割合に小数点以下三位未満の端数があるときは、これを四捨五入する。"}
       - {"type": "law", "lawNumber": "昭和二十五年大蔵省令第十七号", "egovRevisionId": "325M50000040017_20260901_506M60000040016"}
-    recordedIn: "2026.19.0"
+    recordedIn: "2026.20.0"
     supersededIn: null
     approval: {"method": "pendingReview", "paths": 1, "note": "相続税法24条1項1号ハ・3号ハの複利年金現価率（1−1÷（1＋予定利率）の給付期間の年数乗）÷予定利率）の端数を、相続税法施行規則12条の5の条文で読んだ。施行日は確かめていない。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}

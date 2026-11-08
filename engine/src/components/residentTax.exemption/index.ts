@@ -6,6 +6,10 @@
 //   （tax.dependentDeduction と同じ。outsideChildSupported）
 // 改訂4: 1級地の値を既定にした知らせは、級地で判定が変わりうるときだけ出す。1級地の基準は級地の中で最も高いので、1級地の基準を超えれば
 //   どの級地でも課税。級地で変わらない加算の額以下なら、どの級地でも非課税（判定の結果は変えない）
+// 改訂6（0174）: 寡婦・ひとり親で前年の合計所得金額が135万円以下の人は、均等割・所得割とも非課税（地方税法295条1項2号・24条の5第1項2号。
+//   分離課税に係る所得割〔退職所得〕は除く）。寡婦・ひとり親は tax.survivorStatus（所得税の寡婦控除・ひとり親控除と同じ決まり。前の年の12月31日の
+//   現況。地方税法292条1項11号・12号の要件は所得税と同じ）で判定し、合計所得金額は総所得金額等に分離課税の譲渡所得を足した額（退職所得は
+//   現年分離課税なので入れない）。同じ号の障害者・未成年者は扱わない（障害者の区分の入力が無い。未成年者の収入はまれ）
 import {
   defineComponent,
   isOutside,
@@ -27,14 +31,15 @@ const P = {
   ilAdd: "residentTax.exemption.incomeLevy.addition",
   ilDep: "residentTax.exemption.incomeLevy.dependentAddition",
   depLimit: "residentTax.dependentIncomeLimit",
+  personalLimit: "residentTax.exemption.personal.incomeLimit",
 };
 
 export default defineComponent<{ member: string; fiscalYear: number }, { perCapitaExempt: boolean; incomeLevyExempt: boolean; persons: number }>({
   id: "residentTax.exemption",
   title: "住民税の非課税の判定",
   contract: "1.0",
-  revision: 5,
-  requires: { "tax.totalIncome": ">=1 <2", "tax.incomeOrder": ">=1 <2", "tax.incomeWithin": ">=1 <2" },
+  revision: 6,
+  requires: { "tax.totalIncome": ">=1 <2", "tax.incomeOrder": ">=1 <2", "tax.incomeWithin": ">=1 <2", "tax.survivorStatus": ">=1 <2" },
   params: Object.values(P),
   reads: ["member.outside", "member.kind", "member.birth", "member.joins", "member.leaves", "member.support", "relation.type", "relation.a", "relation.b", "relation.marriage", ...OUTSIDE_CHILD_SUPPORT_READS],
   input: "residentTax.annual.input",
@@ -43,7 +48,8 @@ export default defineComponent<{ member: string; fiscalYear: number }, { perCapi
     const { member, fiscalYear } = input;
     const year = fiscalYear - 1;
     const at = ctx.at(monthIndex(fiscalYear, 6));
-    const own = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year }).total;
+    const totalIncome = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year });
+    const own = totalIncome.total;
     const dec = monthIndex(year, 12);
     const members = ctx.list<MemberInput>("member").filter(
       (m) =>
@@ -83,6 +89,12 @@ export default defineComponent<{ member: string; fiscalYear: number }, { perCapi
         persons++;
         dependents++;
       }
+    }
+    // 寡婦・ひとり親で前年の合計所得金額が135万円以下（改訂6。値が無い年は判定しない）
+    const personalLimit = at.has(P.personalLimit) ? at.paramYen(P.personalLimit) : null;
+    if (personalLimit !== null && own + (totalIncome.separate ?? 0) <= personalLimit) {
+      const sv = ctx.call<{ widow: boolean; singleParent: boolean }>("tax.survivorStatus", { member, year });
+      if (sv.widow || sv.singleParent) return { perCapitaExempt: true, incomeLevyExempt: true, persons };
     }
     const threshold = (b: string, a: string, d: string) =>
       at.money.mulRatio(at.paramYen(b) ?? yen(0), persons, 1, "conv.exact") + (at.paramYen(a) ?? 0) + (dependents > 0 ? (at.paramYen(d) ?? 0) : 0);

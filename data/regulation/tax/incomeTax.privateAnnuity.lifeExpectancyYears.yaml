@@ -113,7 +113,7 @@ entries:
     sources:
       - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20260522_508CO0000000093?response_format=xml", "retrievedAt": "2026-11-08", "sha256": "db79531dcae8a7b3fbd2af27e3062c8309074c7b3d4ce78b213d696d7fec7640", "locator": "所得税法施行令 別表 余命年数表（男。令和8年5月22日の版）", "quote": "別表　余命年数表（第八十二条の三、第百八十五条関係）"}
       - {"type": "law", "lawNumber": "昭和四十年政令第九十六号", "egovRevisionId": "340CO0000000096_20260522_508CO0000000093"}
-    recordedIn: "2026.19.0"
+    recordedIn: "2026.20.0"
     supersededIn: null
     approval: {"method": "pendingReview", "paths": 1, "note": "所得税法施行令の別表「余命年数表」（82条の3・185条関係）を e-Gov法令API の条文で読んだ（0〜96歳と97歳以上の98行）。183条1項2号イ(2)が82条の3第2項に準じて計算した支払総額の見込額とし、終身の年金はその年額×支給開始日の余命年数。施行日は確かめていない。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}
   - rev: 2
@@ -225,6 +225,6 @@ entries:
     sources:
       - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20260522_508CO0000000093?response_format=xml", "retrievedAt": "2026-11-08", "sha256": "db79531dcae8a7b3fbd2af27e3062c8309074c7b3d4ce78b213d696d7fec7640", "locator": "所得税法施行令 別表 余命年数表（女。令和8年5月22日の版）", "quote": "別表　余命年数表（第八十二条の三、第百八十五条関係）"}
       - {"type": "law", "lawNumber": "昭和四十年政令第九十六号", "egovRevisionId": "340CO0000000096_20260522_508CO0000000093"}
-    recordedIn: "2026.19.0"
+    recordedIn: "2026.20.0"
     supersededIn: null
     approval: {"method": "pendingReview", "paths": 1, "note": "所得税法施行令の別表「余命年数表」（82条の3・185条関係）を e-Gov法令API の条文で読んだ（0〜96歳と97歳以上の98行）。183条1項2号イ(2)が82条の3第2項に準じて計算した支払総額の見込額とし、終身の年金はその年額×支給開始日の余命年数。施行日は確かめていない。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}

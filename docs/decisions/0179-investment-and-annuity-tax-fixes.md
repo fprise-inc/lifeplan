@@ -1,7 +1,7 @@
 # 0179. 運用と保険の器の直し（旧NISA の内訳の無いとき・移し先の利回り・変額と外貨建の前の払込・年金の税・資産が尽きる年）
 
 - 状態: 採用（一部未確定）（2026-11-08）
-- 固定の強さ: 内部（計算エンジンの部品 `plan.cashflow` の改訂25・`insurance.policy` の改訂6〔約束の版 1.3。受け取りの種類 `annuityRight` を足した〕、制度データ `regulation.tax` 2026.19.0 の5値、エンジンの目安1つ、画面と提案書の「資産が尽きる年」の決め方。世帯ファイルの形式の版は変えない）
+- 固定の強さ: 内部（計算エンジンの部品 `plan.cashflow` の改訂25・`insurance.policy` の改訂6〔約束の版 1.3。受け取りの種類 `annuityRight` を足した〕、制度データ `regulation.tax` 2026.20.0 の5値、エンジンの目安1つ、画面と提案書の「資産が尽きる年」の決め方。世帯ファイルの形式の版は変えない）
 - 前提にする記録: 0002（丸めは規則IDつき）、0007（制度データの形式）、0026（資産運用・取り崩し・「金融資産は○歳まで持ちます」）、0054・0055（保険の受け取りと税の区分・アカウント型）、0111（事務所の推定の値）
 
 ## 背景
@@ -48,7 +48,7 @@
   - 受け取りの `cost`（必要経費）に、総収入金額に入れない部分を含めて入れる（雑所得＝年金の額−cost になるように。約束の版 1.3 の説明に書いた）。
   - 課税割合・特定期間年数の割合の表は、相続税評価割合の百分率の1未満を切り上げた整数で引く（表の境目がどれも整数の百分率で「を超え…以下」なので、引く段は割合のままと同じ）。
 - 相続税の対象になる収入保障の月額（亡くなった人が契約者）は、今までどおり相続税の区分のまま（下の未確定）。
-- 新しい制度データ（`regulation.tax` 2026.19.0。e-Gov法令API の条文で読んだ。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち）: `incomeTax.privateAnnuity.costRatio.rounding`（割合の端数）、`incomeTax.privateAnnuity.lifeExpectancyYears`（余命年数表）、`incomeTax.inheritedAnnuity.taxableShare`（課税割合）、`incomeTax.inheritedAnnuity.specifiedPeriodShare`（特定期間年数の割合）、`inheritanceTax.annuityRight.presentValueFactor.rounding`（複利年金現価率の端数）。値の無い古いデータの組では、割合をそのまま使い、権利の評価の割引をしない（年金の総額）。
+- 新しい制度データ（`regulation.tax` 2026.20.0。e-Gov法令API の条文で読んだ。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち）: `incomeTax.privateAnnuity.costRatio.rounding`（割合の端数）、`incomeTax.privateAnnuity.lifeExpectancyYears`（余命年数表）、`incomeTax.inheritedAnnuity.taxableShare`（課税割合）、`incomeTax.inheritedAnnuity.specifiedPeriodShare`（特定期間年数の割合）、`inheritanceTax.annuityRight.presentValueFactor.rounding`（複利年金現価率の端数）。値の無い古いデータの組では、割合をそのまま使い、権利の評価の割引をしない（年金の総額）。
 
 ### 5. 資産が尽きる年は、使えるお金で払えなくなる年にする
 

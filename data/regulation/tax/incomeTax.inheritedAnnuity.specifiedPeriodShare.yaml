@@ -20,6 +20,6 @@ entries:
     sources:
       - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20260522_508CO0000000093?response_format=xml", "retrievedAt": "2026-11-08", "sha256": "db79531dcae8a7b3fbd2af27e3062c8309074c7b3d4ce78b213d696d7fec7640", "locator": "所得税法施行令 第185条第3項第5号（令和8年5月22日の版）", "quote": "相続税評価割合が百分の十以下である場合"}
       - {"type": "law", "lawNumber": "昭和四十年政令第九十六号", "egovRevisionId": "340CO0000000096_20260522_508CO0000000093"}
-    recordedIn: "2026.19.0"
+    recordedIn: "2026.20.0"
     supersededIn: null
     approval: {"method": "pendingReview", "paths": 1, "note": "所得税法施行令185条3項5号（特定期間年数）を e-Gov法令API の条文で読んだ。特定期間年数は残存期間年数（終身年金は支払開始日余命年数）×この割合−1年（1年未満は切り上げ）。百分の五十を超えるときは使わない（部品は課税割合の表を使う）。施行日は確かめていない。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}
