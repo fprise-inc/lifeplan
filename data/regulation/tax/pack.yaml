@@ -51,9 +51,11 @@
 #   給与所得控除後の給与等の金額（660万円以上）の1円未満の切り捨て（incomeTax.employmentIncome.rounding）を新しいファイルで足した（原本の写しと照らし合わせた。端数の2つ目は条文が無く確認待ち）。
 #   訂正: 給与所得の表の区分の幅（incomeTax.employmentIncome.tableSteps）に、最低保障額＋1,000円未満を0円にする最初の区分を足した行（rev 4〜6）で置き換えた（rev 1〜3 に supersededIn）。
 #   incomeTax.incomeAdjustment.salaryAndPension.limit の出典の位置を、令和8年10月1日の版の条番号（41条の3の11第2項）に直した（値は変えていない）
+# 2026.19.0: 住民税を課さない障害者・未成年者・寡婦・ひとり親の前年の合計所得金額の上限135万円（residentTax.exemption.personal.incomeLimit。地方税法295条1項2号・
+#   24条の5第1項2号）を新しいファイルで足した。e-Gov の条文の XML と江戸川区の説明の2つで照らし合わせた（reviewed）。既存のファイルは変えていない
 packId: regulation.tax
 formatVersion: "0.1"
-version: "2026.18.0"
+version: "2026.19.0"
 features: []
 title: 所得税・住民税
 requires:

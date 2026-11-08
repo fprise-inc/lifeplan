@@ -3020,6 +3020,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: residentTax.exemption.personal.incomeLimit
+    status: active
+    label: "住民税を課さない障害者・未成年者・寡婦・ひとり親の前年の合計所得金額の上限（135万円以下）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: residentTax.generalShares.rate
     status: active
     label: "一般株式等に係る譲渡所得等の住民税の税率（申告分離課税。道府県民税と市町村民税の合計）"
