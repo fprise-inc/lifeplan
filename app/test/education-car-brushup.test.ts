@@ -333,7 +333,7 @@ describe("車", () => {
     expect(soon.kind === "select" && soon.options.some((o) => o.value === child.id)).toBe(false);
   });
 
-  it("見出しに「今の車」「これから買う車」。ローンを選ぶと借り方の1行。今の車があれば標準に「＋ 今返している自動車ローン」。伸び率の名前", () => {
+  it("見出しに「今の車」「これから買う車」。ローンを選ぶと借り方の1行。今の車があれば標準に「＋ 今返している自動車ローン」。増減率の名前", () => {
     let wh = addCar(family(), seq());
     const c = wh.request.input.household.cars![0]!;
     const head = (w: WorkingHousehold) => groupsOf(car(w)).find((g) => g.key === `ev/car/${c.id}`)!;
@@ -351,7 +351,7 @@ describe("車", () => {
     expect(future.actions.map((a) => [a.label, a.level])).toEqual([["＋ 自動車ローン", "detail"]]);
     // 決まった率の伸び方の欄の名前
     wh = fieldIn(car(wh), `ev/car/${c.id}/growth`).set(wh, "rate");
-    expect(fieldIn(car(wh), `ev/car/${c.id}/growthRate`).label).toBe("伸び率（年）");
+    expect(fieldIn(car(wh), `ev/car/${c.id}/growthRate`).label).toBe("増減率（年）");
   });
 
   it("内訳で入れたときの維持費の合計は、万円で小数1桁まで（「年20.4万円」）", () => {

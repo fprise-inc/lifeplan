@@ -476,7 +476,7 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
     plain({
       key: `${k}/growth`,
       item: "account.valueGrowth",
-      label: "土地の評価額の伸び率（年）",
+      label: "土地の評価額の増減率（年）",
       level: "simple",
       kind: "pct",
       ...GROWTH_RANGE,
@@ -983,7 +983,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   // 家賃の入れ方（0126）: 今の実際の家賃収入なら、空室の割合を出さず、家賃以外の月の収入にも掛けない
   const byWords = rentByWords(p.kind);
   const actual = actualRent(p);
-  const extraRule = actual ? `今の実際の額で入れます（${vac}は掛けません）。伸び率は家賃と同じに掛けます` : `${vac}と伸び率は家賃と同じに掛けます`;
+  const extraRule = actual ? `今の実際の額で入れます（${vac}は掛けません）。増減率は家賃と同じに掛けます` : `${vac}と増減率は家賃と同じに掛けます`;
   const showExtra = (x: number | undefined) => !landOnly || x !== undefined;
   const parkingExtra = rentYen("parking", ["rental", "parking"], "駐車場の収入（月額）", "monthly", `物件の駐車場の収入です。${extraRule}`);
   if (p.rental !== undefined && lodging !== undefined) rentFields.push(...lodgingSalesFields(wh, a));
@@ -1024,11 +1024,11 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     );
   if (p.rental !== undefined)
     rentFields.push(
-      plain({ key: `${kp}/rentGrowth`, item: "account.property", label: lodging !== undefined ? "売上の伸び率（年）" : p.kind === "land" ? "地代の伸び率（年）" : p.kind === "parking" ? "駐車料の伸び率（年）" : "家賃の伸び率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find: findP, path: ["rental", "growth"], optional: true, fallback: "0", help: landOnly ? "下がる見込みはマイナスで入れます" : "古くなって家賃が下がる見込みはマイナスで入れます" }),
+      plain({ key: `${kp}/rentGrowth`, item: "account.property", label: lodging !== undefined ? "売上の増減率（年）" : p.kind === "land" ? "地代の増減率（年）" : p.kind === "parking" ? "駐車料の増減率（年）" : "家賃の増減率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find: findP, path: ["rental", "growth"], optional: true, fallback: "0", help: landOnly ? "下がる見込みはマイナスで入れます" : "古くなって家賃が下がる見込みはマイナスで入れます" }),
       timepointField({ key: `${kp}/rentFrom`, item: "account.property", label: "貸し始め", level: "detail", find: findP, path: ["rental", "from"], mode: "ym", optional: true, absentWhenEmpty: true, nullText: p.acquisition !== undefined ? "取得の月から" : "前から貸している", ...ageOf }),
       timepointField({ key: `${kp}/rentTo`, item: "account.property", label: "貸し終わり", level: "detail", find: findP, path: ["rental", "to"], startPath: ["rental", "from"], mode: "ym", optional: true, absentWhenEmpty: true, nullText: p.sale !== undefined ? "売るまで" : "最後まで", ...ageOf }),
     );
-  groups.push({ key: `${kp}/rental`, title: lodging !== undefined ? "宿泊の売上" : words.income, level: "simple", moreLabel: lodging !== undefined ? "売上の伸び率・貸す期間を入れる" : p.kind === "land" ? "更新料・貸す期間などを入れる" : landOnly ? "その他の収入・貸す期間などを入れる" : "共益費・礼金などを入れる", ...(p.rental !== undefined && p.acquisition?.price === undefined && p.acquisition?.parts === undefined && withBuilding && !carryoverActive(p) ? { note: "取得価額と取得の年月を入れると、減価償却費を引いた不動産所得で税を計算します" } : {}), fields: rentFields, actions: [] });
+  groups.push({ key: `${kp}/rental`, title: lodging !== undefined ? "宿泊の売上" : words.income, level: "simple", moreLabel: lodging !== undefined ? "売上の増減率・貸す期間を入れる" : p.kind === "land" ? "更新料・貸す期間などを入れる" : landOnly ? "その他の収入・貸す期間などを入れる" : "共益費・礼金などを入れる", ...(p.rental !== undefined && p.acquisition?.price === undefined && p.acquisition?.parts === undefined && withBuilding && !carryoverActive(p) ? { note: "取得価額と取得の年月を入れると、減価償却費を引いた不動産所得で税を計算します" } : {}), fields: rentFields, actions: [] });
   // 家賃と経費の年額の段階・例外の年（0040。詳細）
   const staged = (part: "rental" | "expenses", what: string, basis: "monthly" | "annual", value: (x: Account) => number | null, yearly = false): GroupDef[] =>
     stagedGroups(wh, {
@@ -1082,7 +1082,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   ];
   if (lodging !== undefined)
     expFields.push(withAddress(plain({ key: `${kp}/platformRate`, item: "account.property", label: "仲介サイトの手数料（売上に対する割合）", level: "simple", kind: "pct", find: findP, path: ["lodging", "platformRate"], optional: true, help: "宿泊の予約サイトに払う手数料です（例: 15%）" }), onAccount(a.id, "account.property", ["lodging", "platformRate"])));
-  expFields.push(plain({ key: `${kp}/expGrowth`, item: "account.property", label: "年額の伸び率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find: findP, path: ["expenses", "growth"], optional: true, fallback: "0", help: landOnly ? "固定資産税の評価替えによる増減など" : "修繕積立金の値上がりなど" }), ...itemFields);
+  expFields.push(plain({ key: `${kp}/expGrowth`, item: "account.property", label: "年額の増減率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find: findP, path: ["expenses", "growth"], optional: true, fallback: "0", help: landOnly ? "固定資産税の評価替えによる増減など" : "修繕積立金の値上がりなど" }), ...itemFields);
   groups.push({ key: `${kp}/expenses`, title: "経費", level: "simple", moreLabel: "経費の内訳を入れる", fields: expFields, actions: [] });
   if (p.expenses !== undefined) groups.push(...staged("expenses", "経費の年額", "annual", (x) => expenseItemsTotal(x.property) ?? x.property?.expenses?.annual?.value ?? null, true));
   // 売却・大きな修繕の予定（標準では、このまとまりの「▸」で開く。詳細では、売却と修繕のまとまりをそのまま出す。並びは見出しと同じ売却→大きな修繕）

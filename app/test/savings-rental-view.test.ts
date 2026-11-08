@@ -341,11 +341,11 @@ describe("収益不動産: 既定の値の推定の印", () => {
     expect(html).toMatch(/\d+(\.\d)?万円/);
   });
 
-  it("伸び方の率の欄は「伸び率（年）」（家賃・年額・土地の評価額・貯蓄の不動産の評価額）", () => {
+  it("伸び方の率の欄は「増減率（年）」（家賃・年額・土地の評価額・貯蓄の不動産の評価額）", () => {
     const sample = open("rentalSample");
     const labels = [...fieldsOf(sample, "rental").values()].map((f) => f.label);
-    expect(labels).toEqual(expect.arrayContaining(["家賃の伸び率（年）", "年額の伸び率（年）", "土地の評価額の伸び率（年）"]));
-    expect(labels.some((l) => /変化率|増減率/.test(l))).toBe(false);
+    expect(labels).toEqual(expect.arrayContaining(["家賃の増減率（年）", "年額の増減率（年）", "土地の評価額の増減率（年）"]));
+    expect(labels.some((l) => /変化率|変動率|伸び率/.test(l))).toBe(false);
   });
 });
 

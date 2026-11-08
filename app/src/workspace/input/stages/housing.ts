@@ -138,9 +138,9 @@ function setKind(h: Household, res: Residence, v: string): void {
  * 建て方が入っていなければ、どちらにも当てはまる呼び方にする
  */
 export function maintenanceLabels(r: Pick<Residence, "style">): { amount: string; growth: string; what: string } {
-  if (r.style === "condo") return { amount: "管理費・修繕積立金（毎月）", growth: "管理費・修繕積立金の伸び率（年）", what: "管理費・修繕積立金" };
-  if (r.style === "house") return { amount: "修繕の積み立て（毎月）", growth: "修繕の積み立ての伸び率（年）", what: "修繕の積み立て" };
-  return { amount: "修繕・管理の費用（毎月）", growth: "修繕・管理の費用の伸び率（年）", what: "修繕・管理の費用" };
+  if (r.style === "condo") return { amount: "管理費・修繕積立金（毎月）", growth: "管理費・修繕積立金の増減率（年）", what: "管理費・修繕積立金" };
+  if (r.style === "house") return { amount: "修繕の積み立て（毎月）", growth: "修繕の積み立ての増減率（年）", what: "修繕の積み立て" };
+  return { amount: "修繕・管理の費用（毎月）", growth: "修繕・管理の費用の増減率（年）", what: "修繕・管理の費用" };
 }
 
 const STYLES = [
@@ -442,7 +442,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
         level: "simple",
         basis: "monthly",
         // 住み始めが計算の基準の月より前なら、今の家賃（計算エンジンは基準の月より後の更新から変動率を当てる。housing.residence の改訂4）
-        help: "今払っている家賃です。前から住んでいる家は、住み始めたときの額ではなく今の額を入れます（伸び率は、これから来る更新の月から使います）",
+        help: "今払っている家賃です。前から住んでいる家は、住み始めたときの額ではなく今の額を入れます（増減率は、これから来る更新の月から使います）",
         find,
         path: ["rent", "monthly"],
       }),
@@ -450,7 +450,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
         key: `${k}/rentGrowth`,
         item: "residence.rent",
         // 年率。計算エンジンは更新の月に、前の更新から経った年数分をまとめて上げ下げする。計算基準月より前の更新は入れた額に含まれるとみなす（housing.residence の改訂4）
-        label: "家賃の伸び率（年）",
+        label: "家賃の増減率（年）",
         level: "detail",
         kind: "pct",
         ...GROWTH_RANGE,
@@ -491,7 +491,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
         ...plain({
           key: `${k}/taxGrowth`,
           item: "residence.propertyTax",
-          label: "固定資産税の伸び率（年）",
+          label: "固定資産税の増減率（年）",
           level: "detail",
           kind: "pct",
           ...GROWTH_RANGE,
@@ -501,11 +501,11 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
           fallback: "0",
           // 推定の段（新築の軽減の終わり・評価替え）があるときは、段と率の関係を書く。計算は段の額に、計算の基準の年からの年数分この率を掛ける（housing.residence）
           help: hasAutoTaxStages(h0, r)
-            ? "固定資産税の推定の段（新築の軽減の終わり・評価替え）で額を動かしています。伸び率を入れると、段の額にさらに毎年この率を掛けます（評価替えの下がり方は段に入っているので、ふつうは入れません）"
+            ? "固定資産税の推定の段（新築の軽減の終わり・評価替え）で額を動かしています。増減率を入れると、段の額にさらに毎年この率を掛けます（評価替えの下がり方は段に入っているので、ふつうは入れません）"
             : "入れなければ変えません。建物の評価が下がる分は、「＋ 固定資産税の変化」で入れられます",
           hint: (_v, w) => {
             const x = find(w.request.input.household, w) as Residence | undefined;
-            return x !== undefined && x.propertyTax?.growth === undefined && hasAutoTaxStages(w.request.input.household, x) ? "下の推定の段で動かしています（伸び率は入れなくて構いません）" : null;
+            return x !== undefined && x.propertyTax?.growth === undefined && hasAutoTaxStages(w.request.input.household, x) ? "下の推定の段で動かしています（増減率は入れなくて構いません）" : null;
           },
         }),
         address: () => at(r.id, "residence.propertyTax", ["growth"]),
