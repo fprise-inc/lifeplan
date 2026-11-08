@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { documentFromCheck, documentFromTemplate, templateSelection, webLog, withWebEntry, type StoredDocumentFile, type WebLogEntry } from "../src/workspace/hearing/web.ts";
 import { byDocument, DOC_CARDS, docFileName, docNameParts, fileNames, filesForCard, receivedFiles, receivedSummary, sizeText, withFileMarks, withoutFiles } from "../src/workspace/hearing/receivedDocs.ts";
 import { DocLinks, ReceivedDocs, type ReceivedDocsState } from "../src/workspace/hearing/ReceivedDocs.tsx";
-import { DOCUMENT_TEMPLATES } from "../../hearing/src/web/documents.ts";
+import { DOCUMENT_TEMPLATES, OWNER_LABEL } from "../../hearing/src/web/documents.ts";
 import type { RequestedDocument, WebSelection } from "../../hearing/src/web/packet.ts";
 import { blankHousehold, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
@@ -64,14 +64,16 @@ describe("受け取った書類（0191）", () => {
   it("書類の名前はひな形の定義から引き、見出しの括弧を持ち主とみる。ひな形の名前の中の括弧は持ち主にしない", () => {
     const sel = templateSelection("first", blank());
     for (const t of DOCUMENT_TEMPLATES) {
-      expect(docNameParts(documentFromTemplate(sel, t.kind, "配偶者"))).toEqual({ name: t.title, whose: "配偶者" });
+      const d = documentFromTemplate(sel, t.kind, "配偶者");
+      expect(docNameParts(d)).toEqual({ name: t.title, whose: d.owner !== undefined ? OWNER_LABEL[d.owner] : null });
       expect(docNameParts(documentFromTemplate(sel, t.kind))).toEqual({ name: t.title, whose: null });
     }
     // 書類待ちの1通の言い分け（自動車ローンの返済予定表）・保険の契約の持ち主
     expect(docNameParts({ id: "d1", kind: "loanSchedule", title: "自動車ローンの返済予定表（ご本人）", purpose: "", where: "", docRequest: "返済予定表|debt1" })).toEqual({ name: "自動車ローンの返済予定表", whose: "ご本人" });
     expect(docNameParts({ id: "d1", kind: "insurancePolicy", title: "保険証券（医療保険・ご本人）", purpose: "", where: "" })).toEqual({ name: "保険証券", whose: "医療保険・ご本人" });
-    // 頼む書類に持ち主の欄があれば、それを使う（書類の頼み方で持ち主を選べるようになったとき）
-    expect(docNameParts({ id: "d1", kind: "withholding", title: "源泉徴収票（配偶者）", purpose: "", where: "", whose: "配偶者" } as RequestedDocument)).toEqual({ name: "源泉徴収票", whose: "配偶者" });
+    // 頼む書類の持ち主の欄（owner）があれば、その言葉を使う
+    expect(docNameParts({ id: "d1", kind: "withholding", title: "源泉徴収票（配偶者の方）", purpose: "", where: "", owner: "spouse" })).toEqual({ name: "源泉徴収票", whose: "配偶者の方" });
+    expect(docNameParts({ id: "d1", kind: null, title: "健康診断の結果（ご本人）", purpose: "", where: "", owner: "self" })).toEqual({ name: "健康診断の結果", whose: "ご本人" });
   });
 
   it("保存のファイル名: 顧客番号_書類の名前_持ち主_受け取った日。お名前は入らない。同じ日の同じ書類は2枚目から _2。後から届いても前の名前は変わらない", () => {
@@ -109,8 +111,14 @@ describe("受け取った書類（0191）", () => {
     const w2 = withWebEntry(wh, { ...e, record: { ...e.record, selection: { ...e.record.selection, documents: [...e.record.selection.documents.slice(0, 2), custom] } } });
     const pending = [{ id: "保険証券|c1", values: [{ card: "insurance" }] } as unknown as DocRequest];
     expect(filesForCard(receivedFiles(w2), "insurance", pending).map((r) => r.name)).toEqual(["健康診断の結果"]);
-    // 公式のひな形は、どれも見ながら打つ入力項目がある
-    for (const t of DOCUMENT_TEMPLATES) expect(DOC_CARDS[t.kind]?.length ?? 0).toBeGreaterThan(0);
+    // 今の公式のひな形は、どれも見ながら打つ入力項目がある。表に無い種類（後で増えた書類）も、一覧と見る枠には出る（入力のパネルの入口だけ出ない）
+    // （今ある種類だけを数える。後で増えた種類は、表に無くても一覧と見る枠には出るので、このテストは落とさない）
+    const now = ["withholding", "payslip", "bonusSlip", "taxReturn", "companyAccounts", "residentTaxNotice", "retirementRules", "pensionNotice", "pensionAmountNotice", "dcNotice", "deposits", "securities", "investStatement", "insurancePolicy", "insuranceDeduction", "loanSchedule", "otherLoanSchedule", "propertyTax", "rentalContract", "householdBook"];
+    for (const t of DOCUMENT_TEMPLATES.filter((x) => now.includes(x.kind))) expect(DOC_CARDS[t.kind]?.length ?? 0, t.kind).toBeGreaterThan(0);
+    const unknown: RequestedDocument = { id: "d3", kind: "somethingNew", title: "新しい書類（ご本人）", purpose: "", where: "" };
+    const w3 = withWebEntry(wh, { ...e, record: { ...e.record, selection: { ...e.record.selection, documents: [...e.record.selection.documents.slice(0, 2), unknown] } } });
+    expect(receivedFiles(w3).find((r) => r.doc.id === "d3")).toMatchObject({ name: "新しい書類", whose: "ご本人" });
+    expect(["work", "pension", "insurance", "housing", "savings"].some((c) => filesForCard(receivedFiles(w3), c, []).some((r) => r.doc.id === "d3"))).toBe(false);
   });
 
   it("見た・保存したの印を付ける（見たは最初の日時のまま・保存したは最後の日時）。FP が消したときだけ消える", () => {

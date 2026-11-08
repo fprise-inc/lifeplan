@@ -4,7 +4,7 @@
 // - 書類は世帯ファイルの中に置いたまま（世帯の鍵で暗号化。0125 の8）。アプリは自動で消さず、消すように促さない。FP が自分のフォルダに保存し、
 //   要らなくなったら FP が消す。一覧に大きさを出して、FP が判断できるようにする
 // - ファイル名にお客さまのお名前は入れない（アプリは氏名を持たない。0012 の2）。顧客番号・書類の名前・持ち主の呼び方（ご本人・配偶者など）・受け取った日
-import { docForCheck, MIME_EXT, templateOf } from "../../../../hearing/src/web/documents.ts";
+import { docForCheck, MIME_EXT, OWNER_LABEL, templateOf } from "../../../../hearing/src/web/documents.ts";
 import type { RequestedDocument } from "../../../../hearing/src/web/packet.ts";
 import type { DocRequest } from "../input/docRequests.ts";
 import type { WorkingHousehold } from "../input/household.ts";
@@ -33,14 +33,24 @@ export interface ReceivedFile {
 export const DOC_CARDS: Readonly<Record<string, readonly string[]>> = {
   withholding: ["work"],
   payslip: ["work"],
+  bonusSlip: ["work"],
   taxReturn: ["work"],
+  companyAccounts: ["work"],
   residentTaxNotice: ["work"],
-  pensionNotice: ["pension"],
   retirementRules: ["retirement"],
-  insurancePolicy: ["insurance"],
-  loanSchedule: ["housing", "car"],
-  propertyTax: ["housing"],
+  dcNotice: ["retirement", "savings"],
+  pensionNotice: ["pension"],
+  pensionAmountNotice: ["pension"],
+  deposits: ["savings"],
+  securities: ["savings"],
   investStatement: ["savings"],
+  insurancePolicy: ["insurance"],
+  insuranceDeduction: ["insurance"],
+  loanSchedule: ["housing", "car"],
+  otherLoanSchedule: ["housing", "car"],
+  propertyTax: ["housing"],
+  rentalContract: ["housing"],
+  householdBook: ["living"],
 };
 
 /** 書類の種類: ひな形の kind。無ければ、結びついた書類待ちの1通の書類の名前から引く */
@@ -52,15 +62,15 @@ export function kindOfDoc(doc: RequestedDocument): string | null {
 
 /**
  * 書類の名前と持ち主。名前はひな形の定義から引き、見出しの残りの括弧の中を持ち主とみる（「ねんきん定期便（ご本人）」→ ねんきん定期便・ご本人）。
- * 頼む書類に持ち主の欄（whose）があれば、それを使う
+ * 頼む書類に持ち主の欄（owner。ご本人・配偶者の方）があれば、その言葉を使う（書類の頼み方の定義の OWNER_LABEL）
  */
 export function docNameParts(doc: RequestedDocument): { name: string; whose: string | null } {
-  const own = (doc as { whose?: unknown }).whose;
   const t = doc.kind !== null ? templateOf(doc.kind) : undefined;
   const title = doc.title.trim();
-  if (typeof own === "string" && own.trim() !== "") {
-    const base = t !== undefined && title.startsWith(t.title) ? t.title : title.replace(new RegExp(`（${escapeRe(own.trim())}）$`), "");
-    return { name: base, whose: own.trim() };
+  if (doc.owner !== undefined) {
+    const label = OWNER_LABEL[doc.owner];
+    const base = t !== undefined && title.startsWith(t.title) ? t.title : title.replace(new RegExp(`（${escapeRe(label)}）$`), "");
+    return { name: base, whose: label };
   }
   if (t !== undefined && title.startsWith(t.title)) {
     const rest = /^（(.+)）$/.exec(title.slice(t.title.length).trim());
