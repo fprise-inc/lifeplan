@@ -260,6 +260,7 @@ function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt }: { wh: Worki
           {kept.length > 0 ? `・お答えなし ${kept.length}` : ""}
           {shown.some((c) => c.review) ? `・要確認 ${shown.filter((c) => c.review).length}` : ""}
           {shown.some((c) => c.contradictions.length > 0) ? `・矛盾 ${shown.filter((c) => c.contradictions.length > 0).length}` : ""}
+          {view.gates.length > 0 ? `・分岐の答えの違い ${view.gates.length}` : ""}
         </span>
       </div>
       {sentAt !== undefined ? (
@@ -268,6 +269,19 @@ function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt }: { wh: Worki
         </p>
       ) : null}
       <p class="rp-note">チェックした候補だけを現状に入れます。入れるまでは計算に使いません。「推定」「仮」の印は入力の画面と同じです（推定で補った値・仮の値）。変更の候補は「今 → 届いた値」を並べます。お答えの無い欄（空欄・「あとで」）は、承認しても今の値のままです。</p>
+      {view.gates.length > 0 ? (
+        <div class="hs-gates" role="note" data-hearing-gates>
+          <h3>要確認: 分岐の答えが今の世帯と違います（{view.gates.length}）</h3>
+          <ul class="hs-list">
+            {view.gates.map((g) => (
+              <li key={g.gate} data-hearing-gate={g.gate}>
+                {g.text}
+              </li>
+            ))}
+          </ul>
+          <p class="rp-note">取り込みでは、今の世帯の人や行を消しません（承認しても今のまま）。お答えのとおりなら、承認の後に入力の画面で直してください。</p>
+        </div>
+      ) : null}
       <IssueList issues={view.issues} />
       {groups.map((g) => (
         <div class="hs-group" key={g}>
@@ -377,8 +391,11 @@ export function HearingTools({ wh, sheets, onSave, webProps }: Props & { webProp
       const bytes = await sheets.open();
       if (bytes === null) return;
       const r = await importSheet(bytes, wh);
-      if (r.ok) setView(r.view);
-      else setIssues(r.issues);
+      if (r.ok) {
+        // Web の取り込みの画面を開いたまま Excel を読んだとき、Web の依頼の見出し・送った日時・取り込み済みの印を持ち越さない
+        setWebImport(null);
+        setView(r.view);
+      } else setIssues(r.issues);
     } catch (e) {
       setIssues([{ level: "error", code: "H_FILE_BROKEN", message: e === "E_IMPORT_TOO_LARGE" ? "ファイルが大きすぎるため読みませんでした" : `読み込めませんでした（${typeof e === "string" ? e : "E_IMPORT"}）` }]);
     } finally {

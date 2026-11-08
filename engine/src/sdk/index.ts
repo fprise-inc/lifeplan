@@ -91,6 +91,7 @@ export type * from "./contracts.ts";
 export { fail } from "./fail.ts";
 export { ageMonth, estimateUnemploymentClaim, UNEMPLOYMENT_ESTIMATE_MIN_IDLE_MONTHS, annualReturn, accountReturnRate, accountMixAt, shockShare, INVEST_KINDS, monthsIn, paymentsIn, paymentsInYear, paidByYear, amountInYear, fiscalYearOf, residentTaxYearOf, fiscalYearStart, fiscalYearEnd, installmentMonths, installmentFlows, reductionRatio, assessedPremium, rateOverride, pensionSpecial, PENSION_SPECIAL_MINIMUM, healthStatusInFiscalYear, LATE_ELDERLY_AGE, prospectiveMonths, prospectiveYear, EMPLOYEE_TYPES, EMPLOYER_HEALTH_KINDS, EMPLOYEE_PENSION_KINDS, grownByYear, monthlyParts, evenMonthPayments, spousesAt, marriedAt, childrenOf, deathMonthIn, isOutside, hasWallet, outsidePeriodAt, outsideIncomeEver, householdMembers, presentAt, householdHeadAt, firstPresent, reassignAfterLeave, inheritanceOf, holdersAt, splitEqually, inheritFlows, propertyIncomeOf, sameHousehold, contingencyRatio, exemptionMonths, EXEMPTION_WEIGHT_IDS, EXEMPTION_WEIGHT_DENOMINATOR, landBuildingValuer, USEFUL_LIFE, LAND_SHARE, RESIDUAL_FLOOR, SALE_COST_RATE, deathMonthOf, insuranceEndMonth, isEarner, EARNER_LIMIT_KEYS, careIncome } from "./helpers.ts";
 export type { ExemptionCounts } from "./helpers.ts";
+export { currentOutlook, deriveHealthStatus, HEALTH_STATUS_PARAMS, HEALTH_STATUS_READS, type OutlookEntry } from "./dependent.ts";
 export {
   legalExemptionWindow,
   oldAgeClaimMonths,

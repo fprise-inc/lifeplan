@@ -78,7 +78,7 @@ export interface EmploymentPeriod {
   pensionCategory?: string;
   employer?: { size?: number; weeklyHours?: string; [key: string]: unknown };
   salary?: { annual: Box<number>; bonus?: Box<number>; growth?: SalaryGrowth; [key: string]: unknown };
-  /** 事業所得。growth.rate はこの期間の伸び（年率。省略は前提の賃金上昇率。0040） */
+  /** 事業所得。growth.rate はこの期間の増減率（年。省略は前提の賃金上昇率。0040） */
   business?: { income: Box<number>; growth?: { rate: string } };
   standardMonthlyRemuneration?: { health: Box<number>; pension: Box<number> };
   /** 期間の終わり方（0037）: retirement・voluntary・involuntary・contractEnd・sickLeave。省略はエンジンが決める */
@@ -90,7 +90,7 @@ export interface EmploymentPeriod {
   [key: string]: unknown;
 }
 
-/** 給与の昇給の仕方（どちらか1つ。0040）: curve は昇給カーブの値ID、rate はこの期間の伸び（年率。前提の賃金上昇率の代わり） */
+/** 給与の昇給の仕方（どちらか1つ。0040）: curve は昇給カーブの値ID、rate はこの期間の増減率（年。前提の賃金上昇率の代わり） */
 export type SalaryGrowth = { curve: string; rate?: undefined } | { rate: string; curve?: undefined };
 
 /** 額の段階の1段（0040）。at の時点から、元の額の代わりに amount（元の欄と同じ基準）か元の額×ratio。rampYears はここから次の段まで何年かけて移すか */

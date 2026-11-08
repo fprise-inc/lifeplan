@@ -760,7 +760,7 @@
               "$ref": "urn:financia:schema:common#/$defs/boxYen"
             },
             "growth": {
-              "title": "昇給の仕方（省略は賃金上昇率だけ。curve は昇給カーブのマスタデータの値ID で賃金上昇率に掛ける、rate はこの期間の伸び（年率。賃金上昇率の代わり。マイナスも書ける。0040））",
+              "title": "昇給の仕方（省略は賃金上昇率だけ。curve は昇給カーブのマスタデータの値ID で賃金上昇率に掛ける、rate はこの期間の増減率（年。賃金上昇率の代わり。マイナスも書ける。0040））",
               "x-item": "employment.salary.growth",
               "type": "object",
               "additionalProperties": false,
@@ -777,7 +777,7 @@
           "properties": {
             "income": { "title": "事業所得（年額）", "x-item": "employment.business.income", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
             "growth": {
-              "title": "事業所得の伸び（省略は賃金上昇率。rate はこの期間の伸び（年率。賃金上昇率の代わり。マイナスも書ける）。0040）",
+              "title": "事業所得の増減率（省略は賃金上昇率。rate はこの期間の増減率（年。賃金上昇率の代わり。マイナスも書ける）。0040）",
               "x-item": "employment.business.growth",
               "type": "object",
               "additionalProperties": false,
