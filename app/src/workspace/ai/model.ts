@@ -25,7 +25,10 @@ export const AI_MESSAGES: Record<string, string> = {
   E_AI_CONSENT_FP_CONFIRM: "説明して同意（撤回）を確かめたことの確認に印を付けてください",
   E_AI_CONSENT_COMPANY: "提供先のAIの会社を入れてください（60文字まで）",
   E_AI_CONSENT_COUNTRY: "AIの会社の所在国を入れてください（30文字まで）",
-  E_AI_CONSENT_ALREADY: "すでに同意が記録されています",
+  E_AI_CONSENT_ALREADY: "すでに同意が記録されています。別の会社の AI に渡すときは、先に撤回を記録してから、その会社で同意を記録してください（この版は1世帯につき1社です）",
+  E_AI_CONSENT_COMPANY_CHANGE: "同意した会社と違う会社では記録し直せません。会社を変えるときは、先に撤回を記録してから、新しい会社で同意を記録してください（この版は1世帯につき1社です）",
+  E_AI_COMPANY: "使うAIの会社を入れてください（60文字まで）",
+  E_AI_COMPANY_MISMATCH: "使うAIの会社が、同意した会社と違うので、渡すのを止めました。同意した会社以外の AI には渡さないでください（この版は1世帯につき1社です）",
   E_AI_CONSENT_NOT_GIVEN: "同意が記録されていないので、撤回は記録できません",
   E_AI_CANDIDATE_DECIDED: "この候補はもう判断済みです",
   E_AI_CANDIDATE_UNKNOWN: "この候補は見つかりません",
@@ -48,6 +51,15 @@ export const METHODS: { value: AiConsentMethod; label: string }[] = [
   { value: "other", label: "その他" },
 ];
 export const methodLabel = (m: string): string => METHODS.find((x) => x.value === m)?.label ?? m;
+
+/**
+ * 同意を記録するときの取り方の選択肢。今の説明で取り直すとき（`renew`）は「ヒアリングシートの同意欄」を出さない
+ * （シートの同意欄の文は書類に触れないので、取り直しにならない。本体も断る。0172）
+ */
+export const consentMethods = (renew: boolean): { value: AiConsentMethod; label: string }[] => (renew ? METHODS.filter((m) => m.value !== "hearingSheet") : METHODS);
+
+/** その取り方で記録した同意が、書類を AI に渡すことを含むか（シートの同意欄は含まない。今の説明を見せた同意だけ含む。0172） */
+export const consentCoversDocuments = (method: AiConsentMethod): boolean => method !== "hearingSheet";
 
 export const DECISION_LABELS: Record<string, string> = { given: "同意した", refused: "同意しなかった", withdrawn: "撤回した" };
 

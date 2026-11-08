@@ -12,6 +12,12 @@
 //! 説明文は版2から、書類の読み取りで書類（お名前・番号を伏せたもの）を AI に渡すことを含む（0157）。版1の説明で同意した世帯は、
 //! 計算に要る項目（縮約版）を渡すことにはそのまま使えるが、書類を AI に渡す操作（貼り付け・接続口の書類の候補）の前に、
 //! 今の版の説明で同意を取り直す（`ConsentRecord::documents`）。
+//!
+//! この版は、外部AIへの提供の同意を1世帯につき1社で持つ（0014 の追記・0172）。2つ目の会社の同意は足さず、会社を変えるときは
+//! 先に撤回を記録する。共有を始めるとき、FP が申告した AI の会社を同意した会社と照らし、合わなければ止める（`check_share_company`）。
+//!
+//! 取り方が「ヒアリングシートの同意欄」の同意は、シートの同意欄の文（`HEARING_SHEET_EXTERNAL_AI_TEXT`）の指紋で、
+//! 書類を含まない同意として記録する（シートの文は書類に触れないため。0172）。書類を AI に渡す世帯は、今の説明を見せて取り直す。
 
 use crate::source::{ConsentDecision, ConsentRef};
 use serde::{Deserialize, Serialize};
@@ -26,6 +32,19 @@ pub const EXTERNAL_AI_EXPLANATION_VERSION: u32 = 2;
 
 /// 版1の説明文（書類の読み取りを含まない）。この文で同意した記録は、書類を AI に渡すことに使わない（0157）
 pub const EXTERNAL_AI_EXPLANATION_V1: &str = "ご相談の内容をもとにしたライフプランの計算や見直しの検討に、FPが契約している外部のAI（生成AIのサービス）を使うことがあります。\nAIに渡すのは、計算に必要な項目（生年月・収入・支出・資産・ローン・保険などの数字）だけです。お名前・ご住所・お電話番号などの、あなたを特定できる情報や、FPのメモは渡しません。\nAIの会社は国外にあることがあります。FPは、渡した情報がAIの学習に使われない設定であることを確かめて使います。\nAIに渡した日時と項目は、この世帯の記録に残ります。この同意はいつでも撤回でき、撤回した後はAIに渡しません（すでに渡した内容は、AIの会社の側に残ることがあります）。";
+
+/// ヒアリングシート（Excel・Web）の外部AIへの提供の同意欄の文（今のシート: 基本の版2・くわしいの版2〜4。0138）。
+/// 取り方が `hearingSheet` の同意は、この文の指紋を持つ（書類の読み取りを含まない。0172）。
+/// 文は `registry/hearing.yaml` の `hs.consent.externalAi` と同じ（テストで確かめる）
+pub const HEARING_SHEET_EXTERNAL_AI_TEXT: &str = "（任意）担当の FP が、AI を使ってお答えを整理することがあります（お名前は渡しません）。このことに同意します";
+
+/// 同意を得るときに見せた文（取り方がヒアリングシートの同意欄ならシートの文、それ以外はアプリの今の説明文）
+pub fn explanation_for(method: ConsentMethod) -> &'static str {
+    match method {
+        ConsentMethod::HearingSheet => HEARING_SHEET_EXTERNAL_AI_TEXT,
+        _ => EXTERNAL_AI_EXPLANATION,
+    }
+}
 
 /// 説明文の指紋（`sha256:` ＋16進）
 pub fn explanation_ref(text: &str) -> String {
@@ -189,6 +208,84 @@ pub fn current_external_ai(records: &[ConsentRecord]) -> Option<ConsentRef> {
         })
 }
 
+/// 今の同意（`given`）の提供先の会社（この事務所の最新の行が `given` のときだけ）
+pub fn consented_company(records: &[ConsentRecord]) -> Option<&str> {
+    records
+        .iter()
+        .rev()
+        .find(|r| r.kind == ConsentKind::ExternalAi && r.origin == ConsentOrigin::ThisOffice)
+        .filter(|r| r.decision == ConsentDecision::Given)
+        .and_then(|r| r.external_ai.as_ref())
+        .map(|e| e.company.as_str())
+}
+
+/// 会社の名前を比べる形にする（全角の英数字を半角に・英字を小文字に・空白と記号を外し・会社の種類の言葉を外す）。
+/// 「Example AI, L.L.C.」と「exampleai」、「架空ＡＩ 株式会社」と「架空AI株式会社」を同じとみる。別の言葉（カタカナ書きなど）は同じとみない
+pub fn company_key(name: &str) -> String {
+    let mut s: String = name
+        .chars()
+        .map(|c| match c {
+            '\u{FF01}'..='\u{FF5E}' => char::from_u32(c as u32 - 0xFEE0).unwrap_or(c),
+            _ => c,
+        })
+        .flat_map(char::to_lowercase)
+        .collect();
+    for w in ["株式会社", "合同会社", "有限会社", "(株)", "㈱"] {
+        s = s.replace(w, "");
+    }
+    let mut s: String = s
+        .chars()
+        .filter(|c| {
+            !c.is_whitespace() && !c.is_ascii_punctuation() && !"・（）「」、。".contains(*c)
+        })
+        .collect();
+    // 後ろの会社の種類の言葉（「Co., Ltd.」のように重なるものも）を外す
+    loop {
+        let before = s.len();
+        for w in [
+            "corporation",
+            "limited",
+            "company",
+            "gmbh",
+            "corp",
+            "inc",
+            "llc",
+            "ltd",
+            "pbc",
+            "plc",
+            "co",
+        ] {
+            if s.len() > w.len() && s.ends_with(w) {
+                s.truncate(s.len() - w.len());
+                break;
+            }
+        }
+        if s.len() == before {
+            return s;
+        }
+    }
+}
+
+/// 2つの会社の名前が同じ会社か（`company_key` が同じで、空でない）
+pub fn same_company(a: &str, b: &str) -> bool {
+    let (a, b) = (company_key(a), company_key(b));
+    !a.is_empty() && a == b
+}
+
+/// 共有を始めるときに FP が申告した AI の会社を、同意した会社と照らす（この版は1世帯につき1社。0172）。
+/// 同意が `given` でなければ `E_AI_NO_CONSENT`、申告が空・長すぎれば `E_AI_COMPANY`、違う会社なら `E_AI_COMPANY_MISMATCH`
+pub fn check_share_company(records: &[ConsentRecord], declared: &str) -> Result<(), &'static str> {
+    let consented = consented_company(records).ok_or("E_AI_NO_CONSENT")?;
+    let declared = declared.trim();
+    if declared.is_empty() || declared.chars().count() > MAX_COMPANY_CHARS {
+        return Err("E_AI_COMPANY");
+    }
+    if !same_company(consented, declared) {
+        return Err("E_AI_COMPANY_MISMATCH");
+    }
+    Ok(())
+}
+
 /// `YYYY-MM-DD` として正しいか（暦として成り立つか）
 pub fn is_date(s: &str) -> bool {
     let b = s.as_bytes();
@@ -253,9 +350,18 @@ pub fn new_external_ai_record(
             if country.is_empty() || country.chars().count() > MAX_COUNTRY_CHARS {
                 return Err("E_AI_CONSENT_COUNTRY");
             }
-            // 同意がもうあっても、版1の説明（書類を含まない）の同意なら、今の版の説明で取り直せる（0157）
-            if current.as_ref().is_some_and(|c| c.documents) {
+            // 同意がもうあっても、書類を含まない同意（版1の説明・ヒアリングシートの同意欄）なら、今の版の説明で取り直せる（0157・0172）。
+            // シートの同意欄では取り直さない（今の説明を見せていないので、書類を含む同意にならない）
+            if current.as_ref().is_some_and(|c| {
+                c.documents
+                    || (c.decision == ConsentDecision::Given
+                        && method == ConsentMethod::HearingSheet)
+            }) {
                 return Err("E_AI_CONSENT_ALREADY");
+            }
+            // この版は1世帯につき1社。取り直しで別の会社にしない（会社を変えるときは先に撤回を記録する。0172）
+            if consented_company(existing).is_some_and(|c| !same_company(c, company)) {
+                return Err("E_AI_CONSENT_COMPANY_CHANGE");
             }
             Some(ExternalAiInfo {
                 company: company.to_owned(),
@@ -278,10 +384,12 @@ pub fn new_external_ai_record(
         obtained_on: input.obtained_on.clone(),
         method,
         hearing_ref: None,
-        explanation_ref: Some(explanation_ref(EXTERNAL_AI_EXPLANATION)),
+        explanation_ref: Some(explanation_ref(explanation_for(method))),
         external_ai,
         scope: (input.decision == ConsentDecision::Given).then(|| SCOPE_REDUCED.to_owned()),
-        documents: input.decision == ConsentDecision::Given,
+        // 書類を含むのは、今の説明（版2〜）を見せて取った `given` だけ（シートの同意欄の文は書類に触れない。0172）
+        documents: input.decision == ConsentDecision::Given
+            && method != ConsentMethod::HearingSheet,
         members: None,
         supersedes: None,
         fp_confirmed: true,
