@@ -496,6 +496,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   // 万一の重ねを同じ入力に当てて根の部品を別に計算する（根拠の記録なし・知らせは捨てる・要求のあいだで使い回さない）。同じ人・同じ月は1回だけ
   const survivor = input.protection?.survivor;
   const worlds = new Map<string, readonly Flow[]>();
+  const FLOWS_COMPONENT = "plan.flows";
   const deathScenario = (member: string, month: MonthIndex): readonly Flow[] => {
     const key = `${member}|${month}`;
     const hit = worlds.get(key);
@@ -530,9 +531,11 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
       paramCache: state.paramCache,
       inputs: new Map(),
     };
-    const wRoot = assembly.impls.get(ROOT_COMPONENT);
-    if (wRoot === undefined) throw new EngineError("E_COMPONENT_UNKNOWN", [ROOT_COMPONENT]);
-    const flows = (invoke(wState, wRoot, {}).output as { flows?: readonly Flow[] }).flows ?? [];
+    // お金の動きを集める部品（plan.flows）までを計算する。残高・運用益・取り崩し・譲渡益の税・現状の検算（plan.cashflow）は、
+    // 必要保障額が数えない物（資産の残り方で変わる）なので計算しない
+    const wFlows = assembly.impls.get(FLOWS_COMPONENT);
+    if (wFlows === undefined) throw new EngineError("E_COMPONENT_UNKNOWN", [FLOWS_COMPONENT]);
+    const flows = (invoke(wState, wFlows, {}).output as { flows?: readonly Flow[] }).flows ?? [];
     worlds.set(key, flows);
     return flows;
   };

@@ -1,7 +1,7 @@
 // 必要保障額・死亡の想定・相続税の目安の見張り（0170。調べる係の R1 の再現のテストから）
 // 必要保障額（protection.need）は、同じ月の死亡の想定で全体を計算し直した表（万一のタブの場面の表）から遺族の収支を組み立てる。区画ごとに表と合うかを見る
 import { describe, expect, it } from "vitest";
-import { runEngine } from "../src/engine/run.ts";
+import { runBatch, runEngine } from "../src/engine/run.ts";
 import { household, member, modelHousehold, period, realPacks, uid, box } from "./helpers.ts";
 
 type Any = any; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -284,4 +284,42 @@ describe("必要保障額の区画が、同じ月の死亡の想定の表と合�
       expect(b.expenses.taxSi).toBe(tax);
     });
   }
+});
+
+describe("必要保障額の近似と使い回し（0170）", () => {
+  it("後の年は最初の年の表を使う: 修学支援の無い世帯では、その年に亡くなる想定で計算し直した額と20万円以内", () => {
+    const req = model("protectionNeed");
+    const q = clone(req);
+    delete q.input.contingencies;
+    delete q.input.inheritanceTax;
+    q.input.protection = { members: [self(req).id], method: "accumulation", horizon: { kind: "age", age: 85 } };
+    const all = run(q).protection.members[0].years;
+    for (const year of [2031, 2036]) {
+      const a = all.find((y: Any) => y.year === year);
+      const e = need(req, year);
+      expect(Math.abs(a.need - e.need)).toBeLessThan(200_000);
+      expect(a.breakdown.expenses.living).toBe(e.breakdown.expenses.living);
+      expect(a.breakdown.resources.survivorPension).toBe(e.breakdown.resources.survivorPension);
+    }
+  });
+
+  it("まとめて計算: 死亡の場面だけに効く入力（団信の対象）を変えた要求でも、1件ずつ計算したときと同じ", () => {
+    const req = model("salariedCoupleTwoKids");
+    const q = clone(req);
+    delete q.input.contingencies;
+    delete q.input.inheritanceTax;
+    q.input.protection = { members: [self(req).id], method: "accumulation" };
+    q.trace = "none";
+    const r = clone(q);
+    const loan = r.input.household.debts.find((d: Any) => d.kind === "mortgage");
+    if (loan.creditLife !== undefined) delete loan.creditLife;
+    else loan.creditLife = { covered: [self(req).id] };
+    const packs = realPacks();
+    const batch = runBatch([q, r, q], packs) as Any[];
+    const one = [q, r].map((x) => runEngine(clone(x), packs) as Any);
+    expect(batch[0].protection).toEqual(one[0].protection);
+    expect(batch[1].protection).toEqual(one[1].protection);
+    expect(batch[2].protection).toEqual(one[0].protection);
+    expect(one[1].protection).not.toEqual(one[0].protection);
+  });
 });
