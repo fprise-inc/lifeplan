@@ -520,7 +520,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       level: "detail",
       fields: [
         plain({ key: `${k}/mix/${j}/class`, item: "account.assetMix", label: "資産の種類", level: "detail", kind: "select", options: ASSET_CLASSES, find: findMix, path: ["assetClass"] }),
-        plain({ key: `${k}/mix/${j}/share`, item: "account.assetMix", label: "割合", level: "detail", kind: "pct", find: findMix, path: ["share"] }),
+        plain({ key: `${k}/mix/${j}/share`, item: "account.assetMix", label: "割合", level: "detail", kind: "pct", min: 0, max: 100, find: findMix, path: ["share"] }),
       ],
       actions: [
         removeAction(`${k}/mix/${j}/remove`, "外す", "detail", (h, w) => {
@@ -654,7 +654,7 @@ function payoutDetailFields(a: Account, k: string, o: { years: string; share: st
       ),
     );
   if (method === "mixed")
-    out.push(withAddress(plain({ key: `${k}/lumpShare`, item: "account.payout", label: o.share, level: "detail", kind: "pct", find, path: ["payout", "lumpShare"], fallback: "0.5", help: "残りを年金（分割）で受け取ります" }), onAccount(a.id, "account.payout", ["lumpShare"])));
+    out.push(withAddress(plain({ key: `${k}/lumpShare`, item: "account.payout", label: o.share, level: "detail", kind: "pct", min: 0, max: 100, find, path: ["payout", "lumpShare"], fallback: "0.5", help: "残りを年金（分割）で受け取ります" }), onAccount(a.id, "account.payout", ["lumpShare"])));
   return out;
 }
 
