@@ -159,6 +159,26 @@ describe("持ち家（今住んでいる）の標準の欄", () => {
   });
 });
 
+describe("見本の世帯（会社員の夫婦と子・持ち家）を標準の欄だけで入れ直す", () => {
+  it("評価の欄を消して、標準の買った値段と土地の値段だけを入れ直すと、資産と負債の不動産が元の世帯と同じになる（もっともらしい額）", () => {
+    const orig = fromRequest(modelHousehold("salariedCoupleTwoKids"));
+    const v0 = owned(orig).valuation!;
+    // 評価の欄を外し、建った年・構造だけ残す（標準でしか入れない FP は、建った年は空欄のまま＝買った年の新築）
+    let wh = mutate(orig, (h) => void ((h.residences ?? []).find((r) => r.kind === "own")!.valuation = { structure: "wood" }));
+    wh = set(wh, "/valuation/value", 38_000_000);
+    wh = set(wh, "/valuation/land", 13_300_000);
+    wh = withRefreshedEstimates(wh);
+    const v = owned(wh).valuation!;
+    expect(v.asOf).toBe(v0.asOf);
+    expect(landOfShare(38_000_000, v.landShare!)).toBe(13_300_000);
+    for (const row of ["cf.balance.account.realEstate.land", "cf.balance.account.realEstate.building"])
+      for (const y of [2026, 2036, 2046]) expect(cells(wh, row, y), `${row} ${String(y)}`).toBe(cells(orig, row, y));
+    // 2026年: 建物は2,470万円を木造22年のうち10年分減らした約1,347万円、土地は1,330万円から上がる
+    expect(Math.round(cells(wh, "cf.balance.account.realEstate.building") / 10_000)).toBe(1347);
+    expect(cells(wh, "cf.balance.account.realEstate.land")).toBeGreaterThan(13_300_000);
+  });
+});
+
 describe("「固定資産税・名義などを入れる」で開く欄", () => {
   it("固定資産税と持ち家の評価を見出しと1行の説明のある中枠に分け、買った値段で入れる家には評価額・時点・土地の割合を出さない", () => {
     const wh = set(set(fresh(), "/from", { at: "2015-04" }), "/valuation/value", 40_000_000);
