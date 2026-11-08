@@ -79,8 +79,12 @@ describe("被保険者の種別と適用拡大（決定2）", () => {
       entry<HealthStatusOutput>(req, "socialInsurance.healthStatus", { member: who }, stubs, realPacks()).months.find((m) => m.month === ym);
     // 偶数月に年額の6分の1ずつ払う年金（stubs 用）
     const yearly = (amount: number) => Array.from({ length: 6 }, (_, k) => 2026 + k).flatMap((y) => [2, 4, 6, 8, 10, 12].map((mo) => ({ ym: `${y}-${String(mo).padStart(2, "0")}`, amount: Math.floor(amount / 6), accrualYear: y })));
+    // 月ごとの年額（扶養の判定はその月の年額で見る。0174）
+    const monthly = (amount: number) => Array.from({ length: 72 }, (_, k) => `${2026 + Math.floor(k / 12)}-${String((k % 12) + 1).padStart(2, "0")}`).map((month) => ({ month, amount }));
     const pensionStub = (who: string, amount: number) => (i: unknown) =>
-      (i as { member: string }).member === who ? { flows: [], months: [], payments: yearly(amount).map((x) => ({ ...x, part: "basic" })) } : { flows: [], months: [], payments: [] };
+      (i as { member: string }).member === who
+        ? { flows: [], months: monthly(amount).map((x) => ({ month: x.month, basic: x.amount, employee: 0, special: 0, suspended: 0 })), payments: yearly(amount).map((x) => ({ ...x, part: "basic" })) }
+        : { flows: [], months: [], payments: [] };
     it("扶養する人は本人・配偶者に限らない（勤める子の扶養に入る60歳以上の親）。同居なら子の収入の2分の1の未満のときだけ", () => {
       const req = (childAnnual: number) =>
         household({
@@ -105,7 +109,7 @@ describe("被保険者の種別と適用拡大（決定2）", () => {
         members: [member("h", "self", "1975-03", { sex: "male" }), member("p", "parent", "1955-02", { support: { dependent: true, cohabiting: true } })],
         periods: [period("ph", { member: "h", from: "1998-04", annual: 8000000, std: [650000, 650000] })],
       });
-      const survivor = (amount: number) => (i: unknown) => ((i as { member: string }).member === P ? { flows: yearly(amount).map((x) => ({ ...x, row: "cf.income.pension.survivor", member: P, formula: "pension.survivor.payment" })), months: [], deceased: null, death: null, lumpSum: 0 } : { flows: [], months: [], deceased: null, death: null, lumpSum: 0 });
+      const survivor = (amount: number) => (i: unknown) => ((i as { member: string }).member === P ? { flows: yearly(amount).map((x) => ({ ...x, row: "cf.income.pension.survivor", member: P, formula: "pension.survivor.payment" })), months: monthly(amount).map((x) => ({ month: x.month, basic: x.amount, employee: 0, widowAddition: 0, widowPension: 0 })), deceased: null, death: null, lumpSum: 0 } : { flows: [], months: [], deceased: null, death: null, lumpSum: 0 });
       // 老齢年金 70万円＋遺族年金 150万円 ≧ 180万円 → 国民健康保険（遺族年金を入れなければ扶養になっていた）
       expect(kind(req, P, "2027-06", { "pension.oldAge": pensionStub(P, 700000), "pension.survivor": survivor(1500000) })?.kind).toBe("national");
       expect(kind(req, P, "2027-06", { "pension.oldAge": pensionStub(P, 700000), "pension.survivor": survivor(1000000) })?.kind).toBe("dependent");
@@ -117,7 +121,7 @@ describe("被保険者の種別と適用拡大（決定2）", () => {
         relations: [spouse],
         periods: [period("ph", { member: "h", from: "1990-04", annual: 8000000, std: [650000, 650000] })],
       });
-      const disability = (i: unknown) => ((i as { member: string }).member === W ? { flows: yearly(1500000).map((x) => ({ ...x, row: "cf.income.pension.disability", member: W, formula: "pension.disability.payment" })), months: [], choices: [] } : { flows: [], months: [], choices: [] });
+      const disability = (i: unknown) => ((i as { member: string }).member === W ? { flows: yearly(1500000).map((x) => ({ ...x, row: "cf.income.pension.disability", member: W, formula: "pension.disability.payment" })), months: monthly(1500000).map((x) => ({ month: x.month, basic: x.amount, employee: 0 })), choices: [] } : { flows: [], months: [], choices: [] });
       expect(kind(couple, W, "2027-06", { "pension.disability": disability })?.kind).toBe("dependent");
       expect(kind(couple, W, "2027-06", { "pension.oldAge": pensionStub(W, 1500000) })?.kind).toBe("national");
     });

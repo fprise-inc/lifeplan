@@ -149,10 +149,10 @@ export interface EmploymentPeriodInput {
     readonly bonusMonths?: readonly number[];
     readonly commutingMonthly?: ValueBox<Yen>;
     readonly contractualMonthly?: ValueBox<Yen>;
-    /** 昇給の仕方（どちらか1つ）: curve は昇給カーブの値ID（賃金上昇率に掛ける）、rate はこの期間の伸び（年率。賃金上昇率の代わり。0040） */
+    /** 昇給の仕方（どちらか1つ）: curve は昇給カーブの値ID（賃金上昇率に掛ける）、rate はこの期間の増減率（年。賃金上昇率の代わり。0040） */
     readonly growth?: { readonly curve: string; readonly rate?: undefined } | { readonly rate: string; readonly curve?: undefined };
   };
-  /** 事業所得。growth.rate はこの期間の伸び（年率。省略は賃金上昇率。0040） */
+  /** 事業所得。growth.rate はこの期間の増減率（年。省略は賃金上昇率。0040） */
   readonly business?: { readonly income: ValueBox<Yen>; readonly growth?: { readonly rate: string } };
   readonly childcareShortHours?: { readonly child: string; readonly wageBefore?: ValueBox<Yen> };
   readonly standardMonthlyRemuneration?: { readonly health: ValueBox<Yen>; readonly pension: ValueBox<Yen> };
