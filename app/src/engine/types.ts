@@ -814,7 +814,8 @@ export interface ProtectionBreakdown {
   expenses: { living: number; housing: number; education: number; premiums: number; care: number; taxSi: number; other: number };
   lump: { funeral: number; reserve: number };
   resources: { survivorPension: number; survivorIncome: number; publicSupport: number };
-  lumpResources: { retirementAllowance: number; dcLump: number; condolence: number };
+  /** mutualAidLump は小規模企業共済の死亡を事由とする共済金（約束の版 1.2。0173） */
+  lumpResources: { retirementAllowance: number; dcLump: number; condolence: number; mutualAidLump?: number };
   creditLife: number;
 }
 

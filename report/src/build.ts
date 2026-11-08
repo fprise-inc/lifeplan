@@ -1082,9 +1082,15 @@ function contingency(ctx: Ctx): ProposalInput["contingency"] {
         if (short > 0 && (maxShort === null || short > maxShort.amount)) maxShort = { year: y.year, amount: short };
       }
       const horizon = m.years[0]?.horizon;
+      // 逆算の方式（万一のタブでそのプランに選んだ出し方。0168 の追記）: 遺族が目標の年齢になるまで金融資産が尽きない保険金
+      const pp = pr.request.input.protection;
+      const reverse = pp?.method === "reverse";
+      const target = pp?.reverseUntilAge !== undefined ? `${surv?.label ?? "ご家族"}が${pp.reverseUntilAge}歳になる` : `${until}${horizon !== undefined ? `（${horizon}年）` : ""}`;
       protection.push({
         title: `${who.label}が亡くなった場合`,
-        sub: `${until}${horizon !== undefined ? `（${horizon}年）` : ""}までの資金。遺族は${surv?.label ?? "お子さま"}`,
+        sub: reverse
+          ? `逆算方式: ${target}まで金融資産が尽きない保険金。遺族は${surv?.label ?? "お子さま"}`
+          : `${until}${horizon !== undefined ? `（${horizon}年）` : ""}までの資金。遺族は${surv?.label ?? "お子さま"}`,
         years: m.years.map((y) => y.year),
         need: m.years.map((y) => y.need),
         needWithAssets: m.years.map((y) => y.needWithAssets),

@@ -203,7 +203,8 @@
           "properties": {
             "retirementAllowance": { "description": "死亡退職金", "$ref": "urn:financia:schema:common#/$defs/yen" },
             "dcLump": { "description": "確定拠出年金の死亡一時金", "$ref": "urn:financia:schema:common#/$defs/yen" },
-            "condolence": { "description": "弔慰金", "$ref": "urn:financia:schema:common#/$defs/yen" }
+            "condolence": { "description": "弔慰金", "$ref": "urn:financia:schema:common#/$defs/yen" },
+            "mutualAidLump": { "description": "1.2: 小規模企業共済の死亡を事由とする共済金（0173）", "$ref": "urn:financia:schema:common#/$defs/yen" }
           }
         },
         "creditLife": { "$ref": "urn:financia:schema:common#/$defs/yen" }

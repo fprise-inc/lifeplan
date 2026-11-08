@@ -5,7 +5,9 @@
 // 金額は税込。enabled が false の契約は計算に入れない（案ごとの ON/OFF。既定では提案の側にだけ入れる。0008 の追記）。
 // 個人が払う顧問料は所得から差し引かない（知らせ N_NOT_DEDUCTIBLE）。継続の万一のときの扱い（onContingency）は、世帯の万一の想定
 // （contingency.event）の月の翌月から当てる（改訂2）
+// 改訂3（0173）: 払う人が万一の想定で亡くなった月の翌月からは、相続する人（死亡の当時の配偶者。いなければ子を等分）が払う（sdk の inheritFlows）
 import {
+  inheritFlows,
   addMonths,
   contingencyRatio,
   defineComponent,
@@ -26,7 +28,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   id: "expense.advisoryFee",
   title: "FP顧問料",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: { "contingency.event": ">=1 <2" },
   params: [],
   reads: ["advisoryFee.payer", "advisoryFee.enabled", "advisoryFee.terms", "member.kind"],
@@ -83,6 +85,6 @@ export default defineComponent<Record<string, never>, FlowsResult>({
       }
     }
     if (flows.length > 0) ctx.notice("N_NOT_DEDUCTIBLE", ["advisoryFee"]);
-    return { flows };
+    return { flows: inheritFlows(ctx, flows) };
   },
 });

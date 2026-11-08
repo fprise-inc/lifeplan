@@ -26,7 +26,9 @@
 // - 改訂7（0170）: 万一の想定で、債務者（主たる債務者・連帯債務者）が全員、借入の月より前に亡くなる世帯の負債（住宅購入の予定のローンなど）は
 //   組めないので返済を計算せず、借入の額を借入の月に現金で払う（住宅ローンは住宅の取得の行 cf.expense.housing.purchase、ほかはその負債の行。
 //   計算式ID debt.schedule.cashInstead。知らせ N_ESTIMATED debt.startsAfterDeath）。団信も効かない。前は亡くなった人の名で借りて遺族が返していた
+// 改訂8（0173）: 返済・借入の前の死亡の現金の支払いのお金の動きは、主たる債務者が万一の想定で亡くなった月の翌月から、相続する人（死亡の当時の配偶者。いなければ子を等分）の名にする（sdk の inheritFlows。団信で消える返済は前と同じく無い）
 import {
+  inheritFlows,
   addMonths,
   boxValue,
   defineComponent,
@@ -109,7 +111,7 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
   id: "debt.schedule",
   title: "負債の返済",
   contract: "1.3",
-  revision: 7,
+  revision: 8,
   requires: { "debt.creditLifeEvents": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [],
   reads: [
@@ -159,7 +161,7 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
           cash.push({ row: d.kind === "mortgage" ? "cf.expense.housing.purchase" : row, ym: formatYm(start), amount: d.principal, accrualYear: yearOf(start), ...(member !== undefined ? { member } : {}), object: d.id, formula: "debt.schedule.cashInstead" });
         }
         ctx.notice("N_ESTIMATED", ["debt.startsAfterDeath", d.id]);
-        return { flows: cash, yearEnd: [], firstPayment: formatYm(addMonths(start, 1)), payoff: null };
+        return { flows: inheritFlows(ctx, cash), yearEnd: [], firstPayment: formatYm(addMonths(start, 1)), payoff: null };
       }
     }
     // ストレステストの変動金利の上乗せ（月の昇順）
@@ -393,6 +395,6 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
       }
     }
     const interest = [...interestByYear.entries()].sort((a, b) => a[0] - b[0]).map(([year, amount]) => ({ year, amount }));
-    return { flows, yearEnd, firstPayment: formatYm(addMonths(start, 1)), payoff: payoff === null ? null : formatYm(payoff), ...(interest.length > 0 ? { interest } : {}), ...(refinanced.length > 0 ? { refinances: refinanced } : {}) };
+    return { flows: inheritFlows(ctx, flows), yearEnd, firstPayment: formatYm(addMonths(start, 1)), payoff: payoff === null ? null : formatYm(payoff), ...(interest.length > 0 ? { interest } : {}), ...(refinanced.length > 0 ? { refinances: refinanced } : {}) };
   },
 });

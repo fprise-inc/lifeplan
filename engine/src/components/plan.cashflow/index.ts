@@ -67,7 +67,13 @@
 //   持ち始める月より前の年は、その器の評価額の行を出さない（時価は asOf の時点の額から増減率で動かし続け、持ち始めた年の年末から載せる。受け取るときの
 //   支払いは無い。収益不動産の property.holdFrom と同じ）。持ち始める時点の無い世帯の結果は同じ
 // - 改訂24（0137）: 預金の利回り（assumptions.depositReturn）を読む。預金・外貨預金の資産クラス（cash.deposit・cash.foreign）が前提の資産クラスごとの利回りに無いときの利回り（省略は運用利回りで、前の要求は今までどおり。0137）
+// - 改訂25（0173。亡くなった人の名義）: 名義の人が万一の想定で亡くなったら、亡くなった月の翌月から、その人の器・不動産・車・負債・保険の
+//   お金の動き（取り崩し・譲渡益の税・移し替えなど）と年末の残高の行を、相続する人（死亡の当時の配偶者。いなければ子を等分）の名にする。
+//   亡くなった人の NISA（旧NISA・ジュニアNISA を含む）は、亡くなった年の翌年の初めに相続する人の課税口座になる（取得価額はその時の時価。
+//   相続の時の時価の近似）。亡くなった年の翌年からは、亡くなった人の NISA の枠の行を出さない
 import {
+  inheritanceOf,
+  splitEqually,
   accountReturnRate,
   accountMixAt,
   shockShare,
@@ -198,8 +204,9 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
   id: "plan.cashflow",
   title: "キャッシュフロー表",
   contract: "1.8",
-  revision: 24,
+  revision: 25,
   requires: {
+    "contingency.event": ">=1 <2",
     "plan.flows": ">=1 <2",
     "outside.wallet": ">=1 <2",
     "insurance.policy": ">=1 <2",
@@ -274,9 +281,25 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     const inputs = ctx.list<AccountInput>("account");
     const own: Flow[] = [];
     const annual: AnnualRow[] = [];
-    const flow = (row: string, m: MonthIndex, amount: Yen, member: string | null, object: string | null, formula: string) => {
+    // 月 m に名義 member の物を持つ人（亡くなった月の翌月からは相続する人。等分。0173）
+    const inhMemo = new Map<string, ReturnType<typeof inheritanceOf>>();
+    const inhOf = (id: string) => {
+      if (!inhMemo.has(id)) inhMemo.set(id, inheritanceOf(ctx, id));
+      return inhMemo.get(id) ?? null;
+    };
+    const namesAt = (member: string | null, m: MonthIndex): readonly (string | null)[] => {
+      const inh = member === null ? null : inhOf(member);
+      return inh === null || m < inh.from ? [member] : inh.heirs;
+    };
+    const split = (amount: Yen, n: number): Yen[] => (n === 1 ? [amount] : splitEqually(ctx, amount, n));
+    const flow = (row: string, m: MonthIndex, amount: Yen, member0: string | null, object: string | null, formula: string) => {
       if (amount === 0) return;
-      own.push({ row, ym: formatYm(m), amount, accrualYear: yearOf(m), ...(member === null ? {} : { member }), ...(object === null ? {} : { object }), formula });
+      const names = namesAt(member0, m);
+      const parts = split(amount, names.length);
+      names.forEach((member, i) => {
+        const a = parts[i] as Yen;
+        if (a !== 0) own.push({ row, ym: formatYm(m), amount: a, accrualYear: yearOf(m), ...(member === null ? {} : { member }), ...(object === null ? {} : { object }), formula });
+      });
     };
 
     // 売る予定のある貸していない不動産・その他の資産の、評価額を出さなくなる年（0123。売る年。計算基準月より前に売ったものは計算基準年から）
@@ -510,6 +533,16 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         f.usedGrowth = yen(f.usedGrowth - f.restoreGrowth);
         f.restore = yen(0);
         f.restoreGrowth = yen(0);
+      }
+      // 亡くなった人の NISA は、亡くなった年の翌年の初めに相続する人の課税口座（取得価額はその時の時価。0173）
+      for (const x of accs) {
+        if (x.owner === null || (x.kind !== "nisa" && x.kind !== "legacyNisa" && x.kind !== "juniorNisa")) continue;
+        const inh = inhOf(x.owner);
+        if (inh === null || y <= yearOf(addMonths(inh.from, -1))) continue;
+        x.kind = "taxable";
+        x.cost = x.value;
+        x.growthCost = yen(0);
+        x.lots = null;
       }
       // こどもNISA は成人の年から成人の NISA（簿価を成人の枠に数える）
       for (const x of accs) {
@@ -798,8 +831,14 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
       const n = yen((net.get(y) ?? 0) - gainsTax);
       let financial = yen(0);
       let returns = yen(0);
-      const balanceRow = (kind: string, amount: Yen, owner: string | null, object: string | null) =>
-        annual.push({ row: `cf.balance.account.${kind}`, year: y, amount, ...(owner === null ? {} : { member: owner }), ...(object === null ? {} : { object }), formula: "plan.cashflow.account" });
+      const balanceRow = (kind: string, amount: Yen, owner0: string | null, object: string | null) => {
+        // 年末に持つ人（0173）
+        const names = namesAt(owner0, dec);
+        const parts = split(amount, names.length);
+        names.forEach((owner, i) =>
+          annual.push({ row: `cf.balance.account.${kind}`, year: y, amount: parts[i] as Yen, ...(owner === null ? {} : { member: owner }), ...(object === null ? {} : { object }), formula: "plan.cashflow.account" }),
+        );
+      };
       for (const x of accs) {
         const gone = x.input === null ? undefined : soldYear.get(x.input.id);
         if (gone !== undefined && gone <= y) {
@@ -846,11 +885,20 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         const e = out.yearEnd.find((x) => x.year === y);
         if (e === undefined || (e.balance <= 0 && e.unpaidInterest <= 0)) continue;
         const member = (d.debtors.find((x) => x.role === "primary") ?? d.debtors[0])?.member;
-        const who = member === undefined ? {} : { member };
-        annual.push({ row: d.kind === "mortgage" ? "cf.balance.debt.mortgage" : "cf.balance.debt.other", year: y, amount: e.balance, ...who, object: d.id, formula: "plan.cashflow.debt" });
-        if (e.unpaidInterest > 0) annual.push({ row: "cf.balance.debt.unpaidInterest", year: y, amount: e.unpaidInterest, ...who, object: d.id, formula: "plan.cashflow.debt" });
+        // 年末に負う人（主たる債務者が亡くなった後は相続する人。0173）
+        const names = namesAt(member ?? null, dec);
+        const balances = split(e.balance, names.length);
+        const unpaid = split(e.unpaidInterest, names.length);
+        names.forEach((who0, i) => {
+          const who = who0 === null ? {} : { member: who0 };
+          annual.push({ row: d.kind === "mortgage" ? "cf.balance.debt.mortgage" : "cf.balance.debt.other", year: y, amount: balances[i] as Yen, ...who, object: d.id, formula: "plan.cashflow.debt" });
+          if ((unpaid[i] as Yen) > 0) annual.push({ row: "cf.balance.debt.unpaidInterest", year: y, amount: unpaid[i] as Yen, ...who, object: d.id, formula: "plan.cashflow.debt" });
+        });
       }
       for (const [owner, f] of frames) {
+        // 亡くなった年の翌年からは、亡くなった人の枠の行を出さない（0173）
+        const inh = inhOf(owner);
+        if (inh !== null && y > yearOf(addMonths(inh.from, -1))) continue;
         annual.push({ row: "cf.balance.nisaFrame", year: y, amount: yen(Math.max(0, (at.paramYen(N.lifetime) ?? 0) - f.used)), member: owner, formula: "plan.cashflow.nisaFrame" });
       }
       openingFinancial = financial;

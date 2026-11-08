@@ -854,6 +854,76 @@ export function reassignAfterLeave<M extends { readonly id: string; readonly kin
   });
 }
 
+/**
+ * 万一の想定（死亡）で亡くなる構成員の名義を受け継ぐ人と、受け継ぐ最初の月（0173）。死亡の当時の配偶者が、いなければ子（等分）が全部を
+ * 相続したとみなし、亡くなった月の翌月から名義を移す（相続する人は contingency.event が決める）。亡くならない人・相続する人のいない人は null。
+ * 呼ぶ部品は requires に contingency.event を書く
+ */
+export function inheritanceOf(ctx: Ctx, member: string): { readonly from: MonthIndex; readonly heirs: readonly string[] } | null {
+  const ev = ctx.call<{ event: { kind: string; month: string; heirs?: readonly string[] } | null }>("contingency.event", { member }).event;
+  if (ev === null || ev.kind !== "death" || ev.heirs === undefined || ev.heirs.length === 0) return null;
+  return { from: (parseYm(ev.month) + 1) as MonthIndex, heirs: ev.heirs };
+}
+
+/** 月 m に名義 owner の物を持つ人（亡くなった月の翌月からは相続する人。等分。0173） */
+export function holdersAt(ctx: Ctx, owner: string, m: MonthIndex): readonly string[] {
+  const inh = inheritanceOf(ctx, owner);
+  return inh === null || m < inh.from ? [owner] : inh.heirs;
+}
+
+/** 額を n 人で等分する（円未満は前の人から。負の額も同じ形で分ける） */
+export function splitEqually(ctx: Ctx, amount: Yen, n: number): Yen[] {
+  if (n <= 1) return [amount];
+  const neg = amount < 0;
+  const parts = ctx.money.allocate(yen(Math.abs(amount)), Array.from({ length: n }, () => 1), "conv.flow.allocate", "first");
+  return neg ? parts.map((p) => yen(-p)) : parts;
+}
+
+/**
+ * 名義の人が亡くなった月の翌月から後のお金の動きを、相続する人の名にする（0173。人が複数なら額を等分して分ける）。亡くならない人の動きは
+ * そのまま。呼ぶ部品は requires に contingency.event を書く
+ */
+export function inheritFlows(ctx: Ctx, flows: readonly Flow[]): Flow[] {
+  const memo = new Map<string, { readonly from: MonthIndex; readonly heirs: readonly string[] } | null>();
+  const of = (id: string) => {
+    if (!memo.has(id)) memo.set(id, inheritanceOf(ctx, id));
+    return memo.get(id) ?? null;
+  };
+  const out: Flow[] = [];
+  for (const f of flows) {
+    const inh = f.member === undefined ? null : of(f.member);
+    if (inh === null || parseYm(f.ym) < inh.from) {
+      out.push(f);
+      continue;
+    }
+    const parts = splitEqually(ctx, f.amount, inh.heirs.length);
+    inh.heirs.forEach((h, i) => {
+      const a = parts[i] as Yen;
+      if (a !== 0) out.push({ ...f, member: h, amount: a });
+    });
+  }
+  return out;
+}
+
+/**
+ * 住まい以外の不動産（asset.realEstate の properties の1件）の、member の year の不動産所得と土地の分の利息（0173）。名義の人が亡くなった年からは
+ * holders の分け方で、それより前の年は名義の人に全部。その年に持っていなければ undefined
+ */
+export function propertyIncomeOf(
+  p: {
+    readonly owner: string;
+    readonly income: readonly { readonly year: number; readonly income: Yen; readonly landInterest: Yen }[];
+    readonly holders?: readonly { readonly year: number; readonly member: string; readonly income: Yen; readonly landInterest: Yen }[];
+  },
+  member: string,
+  year: number,
+): { readonly income: Yen; readonly landInterest: Yen } | undefined {
+  const hs = p.holders?.filter((h) => h.year === year) ?? [];
+  if (hs.length > 0) return hs.find((h) => h.member === member);
+  if (p.owner !== member) return undefined;
+  return p.income.find((x) => x.year === year);
+}
+
 /** 世帯の中の構成員（世帯の外の家族を除く。世帯の税・社会保険・給付・遺族の判定の顔ぶれ） */
 export function householdMembers<M extends { readonly outside?: unknown }>(members: readonly M[]): M[] {
   return members.filter((m) => !isOutside(m));

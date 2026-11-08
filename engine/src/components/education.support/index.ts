@@ -26,8 +26,14 @@
 // 改訂（0089）: 高校の段がインターナショナルスクール（sector international）なら就学支援金を計算しない
 // 改訂7（0165）: 受け取る親は、受け取る月に世帯にいる最初の親（関係 parentOf の並び。無ければ本人・配偶者）。受け取る親が亡くなった後は、
 //   残った親が受け取る（前は亡くなった親の名で出続けた。額・判定は変わらない）
+// 改訂8（0173。修学支援の家計急変）: 生計維持者（親）が万一の想定で亡くなったら、亡くなった月の翌月から、家計急変の決まりで判定し直す
+//   （亡くなった人を除き、残った生計維持者の住民税で区分を決める。生計維持者がだれもいなければ第I区分）。給付型奨学金は亡くなった月の翌月の分から、
+//   授業料の減免はその月より後に始まる半期から、入学金の減免はその月より後に払う物から。定期の判定（4〜9月は前年度・10〜3月はその年度の住民税）で
+//   亡くなった人の住民税が残る年度も、亡くなった人を除く（亡くなる年によらず、亡くなった後の判定が同じになる）。急変の後の見込みの所得ではなく、
+//   残った生計維持者の判定の年度の住民税で判定する近似。死亡のほかの家計急変（失職・病気など）は扱わない
 import {
   addMonths,
+  deathMonthOf,
   firstPresent,
   ageMonth,
   bracketFor,
@@ -84,8 +90,8 @@ export default defineComponent<{ member: string }, FlowsResult>({
   id: "education.support",
   title: "教育の公的支援（就学支援金・修学支援）",
   contract: "1.0",
-  revision: 7,
-  requires: { "education.cost": ">=1 <2", "residentTax.annual": ">=1 <2", "tax.totalIncome": ">=1 <2" },
+  revision: 8,
+  requires: { "education.cost": ">=1 <2", "residentTax.annual": ">=1 <2", "tax.totalIncome": ">=1 <2", "contingency.event": ">=1 <2" },
   params: Object.values(P),
   reads: ["member.kind", "member.birth", "member.joins", "member.leaves", "relation.type", "relation.parent", "relation.child", "goal.kind", "goal.owner", "goal.education"],
   input: "member.input",
@@ -108,15 +114,24 @@ export default defineComponent<{ member: string }, FlowsResult>({
       if (amount > 0 && m >= base && m <= end) flows.push({ row: "cf.income.benefit.education", ym: formatYm(m), amount, accrualYear: yearOf(m), member: recipientAt(m), object: child, formula });
     };
     const monthly12 = (annual: Yen) => ctx.money.allocate(annual, Array.from({ length: 12 }, () => 1), "conv.expense.share", "first");
-    // 支給額算定基準額の区分（その年度の住民税で）
-    const categoryCache = new Map<number, number>();
-    const categoryOf = (fy: number): number => {
-      let c = categoryCache.get(fy);
+    // 生計維持者が亡くなる月（家計急変。改訂8）
+    const deaths = new Map(earners.map((id) => [id, deathMonthOf(ctx, id)]));
+    /** 月 m の判定で数える生計維持者（亡くなった月の翌月からは除く） */
+    const earnersAt = (m: MonthIndex): string[] => earners.filter((id) => {
+      const d = deaths.get(id) ?? null;
+      return d === null || m <= d;
+    });
+    // 支給額算定基準額の区分（その年度の住民税で。m の月の生計維持者）
+    const categoryCache = new Map<string, number>();
+    const categoryOf = (fy: number, m: MonthIndex): number => {
+      const ids = earnersAt(m);
+      const key = `${fy}|${ids.join(",")}`;
+      let c = categoryCache.get(key);
       if (c !== undefined) return c;
       const at = ctx.at(monthIndex(fy, 4));
       const r = at.paramRate(P.calcRate) ?? RATE_ZERO;
       let sum = 0;
-      for (const id of earners) {
+      for (const id of ids) {
         const rt = ctx.call<ResidentTaxOutput>("residentTax.annual", { member: id, fiscalYear: fy });
         if (rt.assessed) {
           // 決定額だけが入っているとき: 課税標準額の内訳が無いので、決定額の10分の6（市町村民税の標準の割合）を課税標準額×6%−調整控除の額とみなす
@@ -128,7 +143,7 @@ export default defineComponent<{ member: string }, FlowsResult>({
       }
       const basis = at.money.round(yen(sum > 0 ? sum : 0), P.calcRounding);
       c = bracketFor(at.paramBrackets(P.categories) ?? [], basis).amount ?? 0;
-      categoryCache.set(fy, c);
+      categoryCache.set(key, c);
       return c;
     };
     // 多子世帯の子の数（扶養の上限の値が無い年の近似: 22歳に達した後の最初の3月31日までの子の数）
@@ -233,23 +248,33 @@ export default defineComponent<{ member: string }, FlowsResult>({
           if (addMonths(halfStart, 5) < base) continue;
           // 4〜9月は前年度、10〜3月はその年度の住民税で判定する（判定に使う住民税の最初の年度より前にしない）
           const taxYear = Math.max(h === 0 ? f.fiscalYear - 1 : f.fiscalYear, firstTaxYear);
-          const cat = categoryOf(taxYear);
           // 多子世帯も、判定に使う住民税の扶養（その年度の前年の12月31日）で数える
           const multi = multiMin !== null && multiChildCount(taxYear, f.fiscalYear) >= multiMin;
-          const eligible = cat >= 1 && cat <= 4;
-          // 第IV区分の減免は、多子世帯でなければ理工農系の学生だけ
-          const waived = eligible && (cat <= 3 || e.scienceAgriculture);
-          const ratio = multi ? ctx.rate.of("1") : waived ? (bracketFor(at.paramBrackets(P.waiverRatio) ?? [], yen(cat)).rate ?? RATE_ZERO) : RATE_ZERO;
-          // 減免の額の端数（100円未満を切り上げ。全額のときは端数が出ない）
-          const waiverOf = (x: Yen): Yen => (at.has(P.waiverRounding) ? at.money.mulRate(x, ratio, P.waiverRounding) : ctx.money.mulRate(x, ratio, "conv.expense.share"));
+          // 月 m の判定（生計維持者が亡くなった月の翌月からは、家計急変で亡くなった人を除いて判定し直す。改訂8）
+          const ruleAt = (m: MonthIndex) => {
+            const cat = categoryOf(taxYear, m);
+            const eligible = cat >= 1 && cat <= 4;
+            // 第IV区分の減免は、多子世帯でなければ理工農系の学生だけ
+            const waived = eligible && (cat <= 3 || e.scienceAgriculture);
+            const ratio = multi ? ctx.rate.of("1") : waived ? (bracketFor(at.paramBrackets(P.waiverRatio) ?? [], yen(cat)).rate ?? RATE_ZERO) : RATE_ZERO;
+            // 減免の額の端数（100円未満を切り上げ。全額のときは端数が出ない）
+            const waiverOf = (x: Yen): Yen => (at.has(P.waiverRounding) ? at.money.mulRate(x, ratio, P.waiverRounding) : ctx.money.mulRate(x, ratio, "conv.expense.share"));
+            return { cat, eligible, waiverOf };
+          };
           const t = tuitionHalves[h] as Yen;
           const c = capHalves[h] as Yen;
-          push(halfStart, waiverOf(t < c ? t : c), "education.support.tuitionWaiver");
-          if (h === 0 && f.admission > 0) push(addMonths(from, publicSector ? -1 : -2), waiverOf(f.admission < capA ? f.admission : capA), "education.support.admissionWaiver");
-          // 給付型奨学金（第I〜第III区分。第IV区分は多子世帯だけ）
-          if (eligible && (cat <= 3 || multi)) {
-            const grant = bracketFor(at.paramBrackets(grantId) ?? [], yen(cat)).amount ?? yen(0);
-            for (let i = 0; i < 6; i++) push(addMonths(halfStart, i), yen(grant), "education.support.grant");
+          push(halfStart, ruleAt(halfStart).waiverOf(t < c ? t : c), "education.support.tuitionWaiver");
+          if (h === 0 && f.admission > 0) {
+            const am = addMonths(from, publicSector ? -1 : -2);
+            push(am, ruleAt(am).waiverOf(f.admission < capA ? f.admission : capA), "education.support.admissionWaiver");
+          }
+          // 給付型奨学金（第I〜第III区分。第IV区分は多子世帯だけ）。月ごとに判定する
+          for (let i = 0; i < 6; i++) {
+            const gm = addMonths(halfStart, i);
+            const g = ruleAt(gm);
+            if (!g.eligible || !(g.cat <= 3 || multi)) continue;
+            const grant = bracketFor(at.paramBrackets(grantId) ?? [], yen(g.cat)).amount ?? yen(0);
+            push(gm, yen(grant), "education.support.grant");
           }
         }
       }

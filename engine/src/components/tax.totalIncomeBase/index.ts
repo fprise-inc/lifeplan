@@ -37,8 +37,14 @@
 //   通算しない（貴金属・美術品・会員権などの生活に通常必要でない資産の損失。69条2項。事業用の資産の損失も同じに扱う近似。知らせ
 //   N_LIMIT_APPLIED heldAsset.transferLoss）
 // - その他の資産を売った雑所得（asset.heldSale の miscellaneous。FP が雑所得を選んだ物）は、公的年金等以外の雑所得に赤字も含めて足す
+// 改訂2（0173。亡くなった人の名義）: 名義の人が万一の想定で亡くなった後は、不動産所得・民泊と宿の所得を持つ人（asset.realEstate の holders。
+//   sdk の propertyIncomeOf）で、その他の資産の売却の所得を売る月に持つ人（相続する人。等分。sdk の holdersAt）で数える
 import {
   defineComponent,
+  holdersAt,
+  parseYm,
+  propertyIncomeOf,
+  splitEqually,
   monthIndex,
   yen,
   type BusinessOutput,
@@ -67,7 +73,7 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
   id: "tax.totalIncomeBase",
   title: "合計所得金額（所得金額調整控除の子ども・特別障害者等の分を引く前）",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {
     "tax.employmentIncome": ">=1 <2",
     "tax.publicPensionIncome": ">=1 <2",
@@ -78,6 +84,7 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
     "income.flows": ">=1 <2",
     "tax.realEstateSale": ">=1 <2",
     "asset.heldSale": ">=1 <2",
+    "contingency.event": ">=1 <2",
   },
   params: [ADJUST, ...Object.values(TEMP), ...Object.values(TRANSFER), ...Object.values(BLUE)],
   reads: ["member.taxReturn"],
@@ -118,12 +125,17 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
     let heldMisc = 0;
     let heldTransfer = false;
     for (const x of ctx.call<HeldSaleOutput>("asset.heldSale", {}).sales) {
-      if (x.owner !== input.member || Number(x.ym.slice(0, 4)) !== input.year || x.gain === undefined) continue;
-      if (x.taxation === "miscellaneous") heldMisc += x.gain;
+      if (Number(x.ym.slice(0, 4)) !== input.year || x.gain === undefined) continue;
+      // 売る月に持つ人（名義の人が亡くなった後は相続する人。等分）
+      const holders = holdersAt(ctx, x.owner, parseYm(x.ym));
+      const k = holders.indexOf(input.member);
+      if (k < 0) continue;
+      const gain = splitEqually(ctx, x.gain, holders.length)[k] as Yen;
+      if (x.taxation === "miscellaneous") heldMisc += gain;
       else if (x.taxation === "transfer") {
         heldTransfer = true;
-        if (x.term === "short") transferShort += x.gain;
-        else transferLong += x.gain;
+        if (x.term === "short") transferShort += gain;
+        else transferLong += gain;
       }
     }
     let transfer: { short: Yen; long: Yen; included: Yen } | null = null;
@@ -166,8 +178,8 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
     let rooms = 0;
     let houses = 0;
     for (const prop of ctx.call<RealEstateOutput>("asset.realEstate", {}).properties) {
-      if (prop.owner !== input.member) continue;
-      const e = prop.income.find((x) => x.year === input.year);
+      // その年に持つ人の分（名義の人が亡くなった後は相続する人。0173）
+      const e = propertyIncomeOf(prop, input.member, input.year);
       if (e === undefined) continue;
       if (prop.incomeKind === "miscellaneous") lodgingMisc = (lodgingMisc ?? 0) + e.income;
       else if (prop.incomeKind === "business") lodgingBusiness = (lodgingBusiness ?? 0) + e.income;

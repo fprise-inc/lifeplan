@@ -495,6 +495,12 @@ export interface RealEstateOutput {
       readonly income: Yen;
     }[];
     /**
+     * 約束の版 1.6（0173）: 名義の人が万一の想定で亡くなったとき、亡くなった年からの年ごとの不動産所得（income）と土地の分の利息（landInterest）を、
+     * 持つ人（亡くなった年は名義の人と相続する人。翌年からは相続する人。等分）に分けたもの。この欄がある年は、その年の不動産所得をこの分け方で
+     * 数える（sdk の propertyIncomeOf）
+     */
+    readonly holders?: readonly { readonly year: number; readonly member: string; readonly income: Yen; readonly landInterest: Yen }[];
+    /**
      * 約束の版 1.1（0081）: 譲渡所得の内訳（任意の欄）。acquisitionCost は取得費（取得価額＋取得時の諸費用−建物と建物附属設備の償却の累計。
      * 概算取得費〔売却価格の5%〕のほうが大きければそれ）、estimated は概算取得費を使ったか、gain は売却価格−（取得費＋売却の費用）、term は長期・短期
      */
@@ -791,6 +797,8 @@ export interface ContingencyEvent {
   readonly medical?: { readonly monthly: Yen; readonly months: number; readonly from?: unknown };
   /** 病気の想定（0054） */
   readonly illness?: { readonly disease: "cancer" | "heartStroke" | "other"; readonly hospitalDays?: number; readonly surgeries?: number };
+  /** 死亡のとき、亡くなった人の名義の物を受け継ぐ人（死亡の当時の配偶者。いなければ子を等分。亡くなった月の翌月から。0173） */
+  readonly heirs?: readonly string[];
 }
 
 export interface ContingencyEventOutput {
