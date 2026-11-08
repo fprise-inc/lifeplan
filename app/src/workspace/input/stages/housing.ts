@@ -986,7 +986,8 @@ function builtYearField(wh: WorkingHousehold, r: Residence, k: string): FieldDef
   const bought = r.purchase !== undefined;
   const inherited = isInheritedHome(wh, r);
   const used = bought && purchaseTypeOf(wh, r)?.type.startsWith("used") === true;
-  const asOf = r.valuation?.asOf ?? (r.purchase !== undefined ? resolveTimepoint(wh.request.input.household, r.purchase.at) : null) ?? wh.request.input.baseMonth;
+  // 評価の時点の省略はエンジンと同じ: 購入の月（購入の時点が空なら住み始め）、購入が無ければ計算基準月（housing.valuation。0164）
+  const asOf = r.valuation?.asOf ?? (r.purchase !== undefined ? resolveTimepoint(wh.request.input.household, r.purchase.at ?? r.from) : null) ?? wh.request.input.baseMonth;
   const asOfYear = Number(asOf.slice(0, 4));
   return plain({
     key: `${k}/valuation/builtYear`,
@@ -1311,7 +1312,8 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
   const bought = r.purchase !== undefined;
   const base = wh.request.input.baseMonth;
   const setting = wh.request.input.assumptions?.realEstateValuation;
-  const asOf = r.valuation?.asOf ?? (r.purchase !== undefined ? resolveTimepoint(wh.request.input.household, r.purchase.at) : null) ?? base;
+  // 評価の時点の省略はエンジンと同じ（購入の時点が空なら住み始め。0164）
+  const asOf = r.valuation?.asOf ?? (r.purchase !== undefined ? resolveTimepoint(wh.request.input.household, r.purchase.at ?? r.from) : null) ?? base;
   const inherited = isInheritedHome(wh, r);
   const groups: GroupDef[] = [
     {

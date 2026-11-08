@@ -21,6 +21,7 @@
 // 改訂4: 世帯の外の家族（0035 の4）も、同居していなければ別の世帯で判定する
 // 改訂5: 介護を受ける人が亡くなった後（離れた後）は出さない。世帯の外の家族の亡くなる見込み・構成員の離れる月（leaves）の月から、
 //   万一の想定で介護を受ける人が亡くなるときはその月の翌月から（期間・一時費用が残っていても）。今までは期間の終わりまで出していた
+// 改訂6（0164）: 在宅か施設か（place）の省略は在宅の統計の月額にする（前は在宅と施設を合わせた平均。表の行は前から在宅の行で、画面も在宅と見せていた）
 import {
   addMonths,
   ageMonth,
@@ -81,7 +82,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   id: "care.expense",
   title: "介護の費用（自己負担割合・高額介護サービス費）",
   contract: "1.0",
-  revision: 5,
+  revision: 6,
   requires: {
     "contingency.event": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -216,7 +217,8 @@ export default defineComponent<Record<string, never>, FlowsResult>({
         if ((service === null && other === null) || initial === null || c.months === undefined) ctx.notice("N_INPUT_REQUIRED", [c.id, "care.noFill"]);
       } else {
         if (service === null && other === null) {
-          other = at0.paramYen(c.place === "home" ? S.home : c.place === "facility" ? S.facility : S.monthly);
+          // 在宅か施設かの省略は在宅（表の行・画面の既定と同じ。改訂6）
+          other = at0.paramYen(c.place === "facility" ? S.facility : S.home);
           ctx.notice("N_DEFAULT_USED", [c.id, "care.otherMonthly"]);
         }
         if (initial === null) {

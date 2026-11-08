@@ -745,7 +745,7 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
       suffix: "歳まで",
       min: 40,
       max: 90,
-      sideEffects: "退職後の生活費の節目と NISA の積立の終わりも、この年齢に合わせます",
+      sideEffects: m.kind === "self" ? "退職後の生活費の節目と NISA の積立の終わりも、この年齢に合わせます" : "NISA の積立の終わりも、この年齢に合わせます",
       help: post?.type != null ? "定年より後の年齢にすると、定年後の働き方で働く期間を足します" : "この年齢になる月の前月まで働きます",
       get: (w) => {
         const v = readLevers(w.request, m.id).retireAge ?? null;
