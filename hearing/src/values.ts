@@ -164,6 +164,27 @@ export function parseValue(def: SheetDefinition, item: SheetItem, raw: RawValue,
   }
 }
 
+/**
+ * 率の欄（percent）のあり得る範囲の下の端（率の10進）。これより小さい正の値は怪しい（0 はそのまま使う）。項目ごとに決め、無い項目は既定。
+ * - 住宅ローンの金利: 0.05%（変動金利の低い所でも 0.2% ほど。0.05% より小さい金利は、% で打った値が 100分の1 で読まれたとみる）
+ */
+const RATE_LOW: Readonly<Record<string, string>> = { "hs.loan.rate": "0.0005" };
+const RATE_LOW_DEFAULT = "0.0005";
+
+/**
+ * 率の欄の値（率の10進。0.625% → "0.00625"）が、あり得る範囲より小さい正の値なら、知らせの文を返す（怪しくなければ null）。
+ * Excel で「0.625%」と打った値が、書式を取れずに（ほかのソフトで保存し直した・小数で打った）100分の1 で読まれた場合を見分ける
+ */
+export function rateDoubt(item: SheetItem, value: string): string | null {
+  if (item.type !== "percent") return null;
+  const d = parseDecimal(value);
+  if (d === null || d.neg) return null;
+  const n = Number(decText(d));
+  if (!(n > 0 && n < Number(RATE_LOW[item.key] ?? RATE_LOW_DEFAULT))) return null;
+  const where = item.guide !== undefined ? `${item.guide}で` : "";
+  return `「${decText({ ...d, ...shiftUp(d, 2) })}%」は${item.label}としてとても小さい値です。「0.625%」のように % を付けて打った値が、100分の1 の数で読まれた可能性があります。${where}確かめてください`;
+}
+
 /** 値をシートのセルの生の値に戻す（書き出し。parseValue の逆） */
 export function formatValue(item: SheetItem, value: number | string): { raw: RawValue; raw2?: RawValue } {
   switch (item.type) {

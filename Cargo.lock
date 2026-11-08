@@ -80,6 +80,7 @@ name = "ai-share"
 version = "0.1.0"
 dependencies = [
  "ai-ipc",
+ "regex",
  "serde",
  "serde_json",
  "sha2 0.10.9",

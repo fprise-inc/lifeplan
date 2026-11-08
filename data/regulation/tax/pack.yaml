@@ -47,9 +47,13 @@
 # 2026.17.0: 令和8年度税制改正の特定暗号資産の申告分離課税（2028年1月1日以後の譲渡等の見込み。0124）の所得税・住民税の税率と譲渡損失の繰越控除の年数を
 #   新しいファイルで足した（incomeTax.cryptoAsset.*・residentTax.cryptoAsset.rate。2027年までは notApplicable）。大綱と解説の検索の要約で読んだ値で、
 #   改正法の条文・施行日・国税庁と金融庁の公表を原本で確かめていないので、すべて確認待ち（pendingReview）。既存のファイルは変えていない
+# 2026.18.0: 所得金額調整控除の子ども・特別障害者等の分（incomeTax.incomeAdjustment.children.*: 給与等の収入金額の下限850万円・上限1,000万円・率10%・扶養親族の年齢23歳・端数）と、
+#   給与所得控除後の給与等の金額（660万円以上）の1円未満の切り捨て（incomeTax.employmentIncome.rounding）を新しいファイルで足した（原本の写しと照らし合わせた。端数の2つ目は条文が無く確認待ち）。
+#   訂正: 給与所得の表の区分の幅（incomeTax.employmentIncome.tableSteps）に、最低保障額＋1,000円未満を0円にする最初の区分を足した行（rev 4〜6）で置き換えた（rev 1〜3 に supersededIn）。
+#   incomeTax.incomeAdjustment.salaryAndPension.limit の出典の位置を、令和8年10月1日の版の条番号（41条の3の11第2項）に直した（値は変えていない）
 packId: regulation.tax
 formatVersion: "0.1"
-version: "2026.17.0"
+version: "2026.18.0"
 features: []
 title: 所得税・住民税
 requires:

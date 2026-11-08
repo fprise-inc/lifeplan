@@ -211,6 +211,23 @@ pub fn verify_append_only(before: &[AiShareRecord], after: &[AiShareRecord]) -> 
     Ok(())
 }
 
+/// `after` が `before` から、最後の読まれた記録の回数と最後の日時だけが進んだものか（行の数・ほかの欄は同じ）
+pub fn only_read_counts_changed(before: &[AiShareRecord], after: &[AiShareRecord]) -> bool {
+    let strip = |r: &AiShareRecord| {
+        let mut r = r.clone();
+        if let Some(last) = r.reads.last_mut() {
+            last.count = 0;
+            last.last_at.clear();
+        }
+        r
+    };
+    before.len() == after.len()
+        && before
+            .iter()
+            .zip(after)
+            .all(|(b, a)| b.reads.len() == a.reads.len() && strip(b) == strip(a))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

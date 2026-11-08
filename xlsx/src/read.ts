@@ -4,6 +4,8 @@
 // - 数式は評価しない（保存されている計算結果だけを見て、数式だったことを返す）
 // - 大きさ・中のファイル数・展開した後の大きさに上限を置く（zip.ts）。DOCTYPE を含む XML は読まない（xml.ts）
 // - 読むのは、使う側が指したシートとセルだけ（シートは指されたときに初めて展開する）
+// - セルの書式は、数がパーセントの書式で表示されているか（percent）だけを見る。Excel は「0.625%」と打つと値を 0.00625 にして
+//   パーセントの書式を付けるので、値だけを見ると 100分の1 に読み違える
 import type { CellValue } from "./cells.ts";
 import { child, childrenNamed, decodeXstring, parseXml, textOf, XmlError, type XmlElement } from "./xml.ts";
 import { DEFAULT_LIMITS, ZipError, ZipReader, type ZipLimits } from "./zip.ts";
@@ -47,6 +49,8 @@ export interface RawCell {
   readonly v?: string;
   readonly f: boolean;
   readonly inline?: string;
+  /** セルの書式の番号（styles.xml の cellXfs の並び） */
+  readonly s?: number;
 }
 
 /** シートのセル（参照 → 生のセル） */
@@ -60,6 +64,8 @@ export interface CellRead {
   readonly formula: boolean;
   /** 数式のセルに計算結果が保存されていない */
   readonly noValue: boolean;
+  /** 数のセルが、パーセントの書式（「0.00%」など）で表示されている（値は 100 で割った数。0.625% なら 0.00625） */
+  readonly percent: boolean;
 }
 
 export interface BookSheetInfo {
@@ -77,13 +83,16 @@ export class Book {
   readonly definedNames: ReadonlyMap<string, string>;
   private readonly zip: ZipReader;
   private readonly shared: readonly string[];
+  /** パーセントの書式のセルの書式の番号 */
+  private readonly percentStyles: ReadonlySet<number>;
   private readonly cache = new Map<string, Sheet | null>();
 
-  private constructor(zip: ZipReader, sheets: readonly BookSheetInfo[], definedNames: ReadonlyMap<string, string>, shared: readonly string[]) {
+  private constructor(zip: ZipReader, sheets: readonly BookSheetInfo[], definedNames: ReadonlyMap<string, string>, shared: readonly string[], percentStyles: ReadonlySet<number>) {
     this.zip = zip;
     this.sheets = sheets;
     this.definedNames = definedNames;
     this.shared = shared;
+    this.percentStyles = percentStyles;
   }
 
   /** ファイルを開く（目次・名前の定義・共有文字列だけを読む。シートは指されたときに読む） */
@@ -114,7 +123,9 @@ export class Book {
       }
       const sstPath = [...rels.values()].find((r) => r.type.endsWith("/sharedStrings"))?.path ?? "xl/sharedStrings.xml";
       const shared = await readShared(zip, sstPath);
-      return { ok: true, book: new Book(zip, sheets, definedNames, shared), notes };
+      const stylesPath = [...rels.values()].find((r) => r.type.endsWith("/styles"))?.path ?? "xl/styles.xml";
+      const percentStyles = await readPercentStyles(zip, stylesPath);
+      return { ok: true, book: new Book(zip, sheets, definedNames, shared, percentStyles), notes };
     } catch (e) {
       return { ok: false, problem: problemOf(e), notes };
     }
@@ -137,9 +148,10 @@ export class Book {
   /** セルを読む（数式は評価しない） */
   cell(sheet: Sheet | null, ref: string): CellRead {
     const c = sheet?.get(ref);
-    if (c === undefined) return { raw: null, formula: false, noValue: false };
+    if (c === undefined) return { raw: null, formula: false, noValue: false, percent: false };
     const raw = cellRaw(c, this.shared);
-    return { raw, formula: c.f, noValue: c.f && raw === null };
+    const percent = raw?.kind === "number" && c.s !== undefined && this.percentStyles.has(c.s);
+    return { raw, formula: c.f, noValue: c.f && raw === null, percent };
   }
 
   /** セルの文字（真偽は true・false の文字。空なら null） */
@@ -194,6 +206,51 @@ async function readShared(zip: ZipReader, path: string): Promise<string[]> {
   return childrenNamed(parseXml(t), "si").map((si) => decodeXstring(textOf(si)));
 }
 
+/** 組み込みのパーセントの書式の番号（9「0%」・10「0.00%」） */
+const BUILTIN_PERCENT = new Set([9, 10]);
+
+/**
+ * 書式の文字がパーセントの書式か（引用 "…"・逃がし \・幅の _x・埋め *x・角かっこ […] の外に「%」がある）。
+ * 「0.000"%"」のように「%」を文字として添えただけの書式は、値を 100 倍して見せないのでパーセントの書式でない
+ */
+export function isPercentFormat(code: string): boolean {
+  for (let i = 0; i < code.length; i++) {
+    const ch = code[i];
+    if (ch === '"') {
+      const j = code.indexOf('"', i + 1);
+      if (j < 0) return false;
+      i = j;
+    } else if (ch === "\\" || ch === "_" || ch === "*") i++;
+    else if (ch === "[") {
+      const j = code.indexOf("]", i + 1);
+      if (j < 0) return false;
+      i = j;
+    } else if (ch === "%") return true;
+  }
+  return false;
+}
+
+/** パーセントの書式のセルの書式の番号（cellXfs の並び）。書式の表が無い・読めないときは空（書式なしとして読む） */
+async function readPercentStyles(zip: ZipReader, path: string): Promise<Set<number>> {
+  const out = new Set<number>();
+  try {
+    const t = await zip.readText(path);
+    if (t === null) return out;
+    const root = parseXml(t);
+    const custom = new Map<number, string>();
+    for (const f of childrenNamed(child(root, "numFmts") ?? root, "numFmt")) custom.set(Number(f.attrs.numFmtId), f.attrs.formatCode ?? "");
+    const xfs = childrenNamed(child(root, "cellXfs") ?? root, "xf");
+    xfs.forEach((xf, i) => {
+      const id = Number(xf.attrs.numFmtId ?? "0");
+      const code = custom.get(id);
+      if (code !== undefined ? isPercentFormat(code) : BUILTIN_PERCENT.has(id)) out.add(i);
+    });
+  } catch (e) {
+    if (e instanceof ZipError && e.kind === "tooLarge") throw e;
+  }
+  return out;
+}
+
 async function readSheet(zip: ZipReader, path: string): Promise<Map<string, RawCell>> {
   const t = await zip.readText(path);
   const out = new Map<string, RawCell>();
@@ -213,6 +270,7 @@ async function readSheet(zip: ZipReader, path: string): Promise<Map<string, RawC
         ...(v !== undefined ? { v: c.attrs.t === "str" ? decodeXstring(textOf(v)) : textOf(v) } : {}),
         f: child(c, "f") !== undefined,
         ...(is !== undefined ? { inline: decodeXstring(textOf(is as XmlElement)) } : {}),
+        ...(c.attrs.s !== undefined && /^\d+$/.test(c.attrs.s) ? { s: Number(c.attrs.s) } : {}),
       });
     }
   }

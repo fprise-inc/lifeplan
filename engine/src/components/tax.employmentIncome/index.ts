@@ -4,15 +4,20 @@
 // 給与収入が別表第五の範囲（660万円未満）のときは、表（別表第五。令和8年分・令和9年分は措置法29条の4第2項の表を含む）の区分の下限に
 // 収入金額を切り下げてから計算する。区分の幅は制度データ（incomeTax.employmentIncome.tableSteps）の段ごとの幅で、控除額が定額の段にも
 // かかる（例: 令和10年分の202.6万〜203.3万円、令和8年分の219.1万〜220万円）
+// 改訂6: 最初の区分（最低保障額＋1,000円未満。表の「691,000円未満 0」の行）は制度データの段で0円にする（給与所得が1〜999円になっていた）。
+// 算式で求める給与所得（収入×(1−率)−加算額）の1円未満の端数は切り捨てる（別表第五の備考。incomeTax.employmentIncome.rounding）。
+// これまでは控除額を切り捨てる仮の規約（conv.tax.fractionalDeduction）で、給与所得が1円多くなっていた（0002 の追記）
 import {
   bracketFor,
   defineComponent,
   monthIndex,
+  RATE_ONE,
   RATE_ZERO,
   subYen,
   yen,
   type Bracket,
   type Ctx,
+  type MonthCtx,
   type EmploymentIncomeOutput,
   type IncomeFlowsOutput,
   type SalaryOutput,
@@ -22,11 +27,13 @@ import {
 const TABLE = "incomeTax.employmentIncomeDeduction";
 const TABLE_BELOW = "incomeTax.employmentIncome.tableBelow";
 const TABLE_STEPS = "incomeTax.employmentIncome.tableSteps";
+const ROUNDING = "incomeTax.employmentIncome.rounding";
 
-function deductionOf(ctx: Ctx, b: Bracket, revenue: Yen): Yen {
-  // 控除額＝収入×率＋加算額（率の無い段は定額）
-  const variable = b.rate === undefined || ctx.rate.compare(b.rate, RATE_ZERO) === 0 ? yen(0) : ctx.money.mulRate(revenue, b.rate, "conv.tax.fractionalDeduction");
-  return yen(variable + (b.amount ?? 0));
+/** 給与所得＝収入−控除額（控除額＝収入×率＋加算額。率の無い段は定額）。率のある段は 収入×(1−率)−加算額 の1円未満を切り捨てる */
+function incomeOf(ctx: Ctx, at: MonthCtx, b: Bracket, revenue: Yen): Yen {
+  const amount = b.amount ?? 0;
+  const v = b.rate === undefined || ctx.rate.compare(b.rate, RATE_ZERO) === 0 ? revenue - amount : at.money.mulRate(revenue, ctx.rate.sub(RATE_ONE, b.rate), ROUNDING) - amount;
+  return yen(v > 0 ? v : 0);
 }
 
 /** 収入金額を含む表の区分の下限（段の下限から、段の幅ずつの区分）。幅 1 は刻みなし */
@@ -48,9 +55,9 @@ export default defineComponent<{ member: string; year: number; revenue?: number 
   id: "tax.employmentIncome",
   title: "給与所得",
   contract: "1.1",
-  revision: 5,
+  revision: 6,
   requires: { "income.salary": ">=1 <2", "income.flows": ">=1 <2" },
-  params: [TABLE, TABLE_BELOW, TABLE_STEPS],
+  params: [TABLE, TABLE_BELOW, TABLE_STEPS, ROUNDING],
   reads: [],
   input: "tax.employmentIncome.input",
   output: "tax.employmentIncome.output",
@@ -70,9 +77,7 @@ export default defineComponent<{ member: string; year: number; revenue?: number 
     let base = revenue;
     const below = at.paramYen(TABLE_BELOW);
     if (below !== null && revenue < below) base = tableLower(ctx, at.paramBrackets(TABLE_STEPS) ?? [], revenue);
-    const b = bracketFor(table, base);
-    const deduction = deductionOf(ctx, b, base);
-    const income = deduction >= base ? yen(0) : subYen(base, deduction);
+    const income = incomeOf(ctx, at, bracketFor(table, base), base);
     return { revenue, deduction: subYen(revenue, income), income };
   },
 });

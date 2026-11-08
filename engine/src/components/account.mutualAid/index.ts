@@ -8,7 +8,8 @@
 //   分割で受け取る間は、まだ受け取っていない額を年末の残高に残す
 //   一括は退職所得の一時金（勤続期間は加入の始まり enrolledSince〜受け取りの前の月。掛金納付月数の近似）として retirement.receipts に渡す
 // - 改訂2（0137）: 預金の利回り（assumptions.depositReturn）を読む。預金・外貨預金の資産クラス（cash.deposit・cash.foreign）が前提の資産クラスごとの利回りに無いときの利回り（省略は運用利回りで、前の要求は今までどおり。0137）
-// - 改訂3（0165）: 共済契約者の死亡（万一の想定 contingency.event）: 死亡の月の翌月に、その時の残高を死亡を事由とする共済金として遺族
+// - 改訂3（0164）: 併用（mixed）の一括の割合（lumpShare）の省略を半分にする（画面の空欄と同じ。0050）。前は0（全額を分割）だった
+// - 改訂4（0165）: 共済契約者の死亡（万一の想定 contingency.event）: 死亡の月の翌月に、その時の残高を死亡を事由とする共済金として遺族
 //   （死亡の当時の配偶者。いなければ子）が一時金で受け取る（account.ideco の死亡一時金と同じ形）。みなし相続財産（相続税法3条1項2号の
 //   退職手当金等）で、退職所得・雑所得の税をかけないので receipts・annuities に入れない（知らせ N_INHERITANCE_TAX）。分割の受け取りの間に
 //   亡くなったら、まだ受け取っていない分割の分を同じ月に遺族へ一時金で渡す。前は死亡を見ず、生前の受け取りの予定どおりに亡くなった人の
@@ -47,7 +48,7 @@ export default defineComponent<{ member: string }, MutualAidOutput>({
   id: "account.mutualAid",
   title: "小規模企業共済の残高と受け取り",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: { "contingency.event": ">=1 <2" },
   params: Object.values(P),
   reads: [
@@ -172,7 +173,8 @@ export default defineComponent<{ member: string }, MutualAidOutput>({
         const before = sumBefore(y, monthOf(start));
         const ret = annualReturn(ctx, v, before, r, elapsed);
         const balance = addYen(addYen(v, before), ret);
-        const lumpShare = payout?.method === "mixed" ? ctx.rate.of(payout.lumpShare ?? "0") : null;
+        // 併用の一括の割合の省略は半分（画面の空欄と同じ。0050・改訂3）
+        const lumpShare = payout?.method === "mixed" ? ctx.rate.of(payout.lumpShare ?? "0.5") : null;
         const lump = payout?.method === "lumpSum" ? balance : lumpShare === null ? yen(0) : ctx.money.mulRate(balance, lumpShare, "conv.retirement.annuity");
         if (lump > 0) {
           flows.push({ row: "cf.income.lumpSum.smallBusiness", ym: formatYm(start), amount: lump, accrualYear: y, member, object: a.id, formula: "account.mutualAid.lumpSum" });

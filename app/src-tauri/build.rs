@@ -23,6 +23,9 @@ const COMMANDS: &[&str] = &[
     "store_list",
     "store_create",
     "store_open",
+    // 0011 の7: 開けない世帯ファイルを直前の世代で開き直す
+    "store_previous_generation",
+    "store_open_previous",
     "store_save",
     "store_rename",
     "store_delete",

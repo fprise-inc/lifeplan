@@ -175,6 +175,32 @@ describe("AIからの候補（承認するまで世帯に入らない）", () =>
     expect(plan.diffs[0]!.approval).toEqual({ by: "fp", at: NOW, candidate: "c-1" });
   });
 
+  it("配偶者の働き方と年収: 選択肢の働き方と、0〜上限の年収なら取り込み、そうでなければ取り込まない", () => {
+    const { wh, cat } = open();
+    const spouse = roles(wh.request).find((r) => r.key === "spouse")!.member.id;
+    const work = cat.items.find((it) => it.control.kind === "work")!;
+    expect(work.item).toBe("employment.type");
+    const now = work.read(wh) as { type: string; annual: number };
+    const diff = (id: string, value: unknown) => ({ id, target: { object: spouse }, item: "employment.type", op: "set" as const, value, note: null });
+    const rows = candidateRows(
+      candidate([
+        diff("d1", { type: "partTime", annual: 1_200_000 }),
+        diff("d2", { type: now.type, annual: now.annual }),
+        diff("d3", { type: "宇宙飛行士", annual: 1_000_000 }),
+        diff("d4", { type: "partTime", annual: -1 }),
+        diff("d5", { type: "partTime" }),
+      ]),
+      wh,
+      cat,
+    );
+    expect(rows[0]!.reason).toBeNull();
+    expect(rows[0]!.value).toEqual({ type: "partTime", annual: 1_200_000 });
+    expect(rows[0]!.to).not.toContain("{");
+    expect(rows[1]!.reason).toBe("今と同じ値です");
+    for (const r of rows.slice(2)) expect(r.reason).toBe("値の形がこの項目に合わないため、取り込みません");
+    expect(Object.keys(candidateValues(rows))).toEqual([work.key]);
+  });
+
   it("AI が書いた題名・説明・理由は文字のまま出す（HTML にしない）", () => {
     const { wh, cat } = open();
     const c = candidate([{ id: "d1", target: { plan: "assumptions" }, item: "assumptions.inflation", op: "set", value: "0.005", note: "<img src=x onerror=alert(1)>" }], "<script>alert(1)</script>");

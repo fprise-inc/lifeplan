@@ -3,13 +3,13 @@
 // - 読むのは管理の値と、シート定義が指すセルだけ（ほかのセル・ほかのシートは読まない）
 // - 管理の値は3か所から読み、食い違えば止める。どのシート定義で読むかは、アプリの側の依頼の記録を正にする
 // - 回答のセルは名前の定義で探し、シート定義の固定の位置と照らし合わせる。食い違いは「要確認」にして黙って使わない
-import { HEARING_FORMAT, HEARING_FORMAT_VERSION, type Answer, type AnswerStatus, type FilledSheet, type Management, type RawValue } from "../answers.ts";
+import { HEARING_FORMAT, HEARING_FORMAT_VERSION, type Answer, type AnswerStatus, type FilledSheet, type Management } from "../answers.ts";
 import { STATE_LABELS, answerCells, cellName, colIndex, colLetter, itemByKey, type SheetDefinition } from "../definition.ts";
 import { issue, type Issue, type IssueCode } from "../issues.ts";
 import { MANAGE_LABEL_COL, MANAGE_ROWS, MANAGE_VALUE_COL, layoutDigest } from "../layout.ts";
 import { MANAGE_KEYS, META_SHEET, PROPERTY_PREFIX } from "./write.ts";
-import { parseRef } from "../../../xlsx/src/cells.ts";
-import { Book, problemOf, type FileNoteCode, type FileProblem, type FileProblemCode } from "../../../xlsx/src/read.ts";
+import { parseRef, shownNumber } from "../../../xlsx/src/cells.ts";
+import { Book, problemOf, type CellRead, type FileNoteCode, type FileProblem, type FileProblemCode } from "../../../xlsx/src/read.ts";
 import { DEFAULT_LIMITS, type ZipLimits } from "../../../xlsx/src/zip.ts";
 
 /** アプリの側に残す依頼の記録（0018 の2・5。世帯ファイルの取り込みの記録に暗号化して置く） */
@@ -168,12 +168,14 @@ async function readBook(book: Book, options: ReadOptions, issues: Issue[]): Prom
       continue;
     }
     const offset = (c: string) => colIndex(c) - valueCol;
-    const read = (dc: number): { raw: RawValue | null; formula: boolean; noValue: boolean } => {
-      return book.cell(sh, `${colLetter(pos.col + dc)}${pos.row}`);
-    };
-    const v1 = read(0);
-    const v2 = item.type === "yearMonth" ? read(offset(col.value2)) : { raw: null, formula: false, noValue: false };
-    const st = item.states.length > 0 ? read(offset(col.status)) : { raw: null, formula: false, noValue: false };
+    const read = (dc: number): CellRead => book.cell(sh, `${colLetter(pos.col + dc)}${pos.row}`);
+    const c1 = read(0);
+    // 率の欄の数のセルは、見えている % の数として読む: パーセントの書式のセル（Excel で「0.625%」と打つと値は 0.00625）は 100 倍し、
+    // 2進の浮動小数点の桁（0.10000000000000001 など）は見えている有効数字 15 桁に丸める
+    const shown = item.type === "percent" && c1.raw?.kind === "number" ? shownNumber(c1.raw.text, c1.percent ? 2 : 0) : null;
+    const v1 = shown !== null ? { ...c1, raw: { kind: "number" as const, text: shown } } : c1;
+    const v2 = item.type === "yearMonth" ? read(offset(col.value2)) : { raw: null, formula: false, noValue: false, percent: false };
+    const st = item.states.length > 0 ? read(offset(col.status)) : { raw: null, formula: false, noValue: false, percent: false };
     for (const x of [v1, v2, st]) {
       if (x.noValue) issues.push(issue("warning", "H_FORMULA_NO_VALUE", `${item.label}: 数式のセルに計算結果が保存されていないため、読みませんでした`, at));
       else if (x.formula) review.push("数式のセルです（保存されている計算結果を読みました）");

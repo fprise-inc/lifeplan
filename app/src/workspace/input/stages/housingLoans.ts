@@ -241,6 +241,13 @@ export function followLoan(before: WorkingHousehold, after: WorkingHousehold, id
   return w;
 }
 
+/** 逆算の金利の行の根拠の文に書いた、FP が入れた毎月の返済額（逆算の行でなければ null） */
+function solvedPayment(r: StateRow | undefined): number | null {
+  if (!isEstimate(r, SOLVED)) return null;
+  const m = /毎月の返済額 ([0-9,]+)円/.exec(r?.estimate?.basis ?? "");
+  return m === null ? null : Number((m[1] ?? "").replace(/,/g, ""));
+}
+
 /** 前の返済額のまま、返しきる月数を解いて期間に書く（ほかのローンの「今の残高から」） */
 function solveMonths(d: Debt, req: EngineRequest, pay: number): void {
   const n = loanNow(req.input.household, d);
@@ -272,12 +279,27 @@ function paymentField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" 
       },
       set: (w) => w,
     });
+  // 今の残高から入れたローンで、入れた返済額では返しきれないとき（住宅ローンは完済の年月までに返せない＝金利がマイナス、ほかのローンは利息にも足りない）の理由。0161
+  const refuse = (w: WorkingHousehold, v: unknown): string | null => {
+    if (mode !== "balance" || typeof v !== "number") return null;
+    const x = find(w);
+    if (x === undefined) return null;
+    const h = w.request.input.household;
+    const n = loanNow(h, x);
+    if (mortgage) {
+      if (fittedRateText(n.balance, v, n.months, x.repayment.method, bonusOf(x)) !== null || n.from === null) return null;
+      return `この返済額（${formatYen(v, "yen")}円）では、今の残高（${formatYen(n.balance, "yen")}円）を完済の年月（${formatYearMonth(addMonths(resolveTimepoint(h, x.start) ?? n.from, x.repayment.termMonths))}）までに返せません（金利がマイナスになります）。返済額か完済の年月を直してください`;
+    }
+    if (monthsFromPayment(n.balance, v, n.rate, x.repayment.method, bonusOf(x)) !== null) return null;
+    return `この返済額（${formatYen(v, "yen")}円）では、今の残高（${formatYen(n.balance, "yen")}円）の利息にも足りず、返し終わりません。返済額か金利を直してください`;
+  };
   return field({
     key: `${k}/payment`,
     item: "debt.repayment",
     label: "毎月の返済額",
     level,
     kind: "yen",
+    refuse,
     basis: "monthly",
     // 返済予定表・通帳の円の額をそのまま写す（保険料と同じ円の欄。「9万」と打てば9万円として読む。0131）
     unit: "yen",
@@ -298,10 +320,16 @@ function paymentField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" 
       if (mode === "balance" && !mortgage && isEstimate(rowOf(w, addrTerm(x.id)), "未入力")) return { value: v, estimated: UNENTERED_PAYMENT };
       if (mode === "balance" && mortgage && isEstimate(rowOf(w, addrRate(x))) && !isEstimate(rowOf(w, addrRate(x)), SOLVED))
         return { value: v, estimated: "目安の金利・返済期間から計算した額（毎月の返済額を入れると、金利を逆算します）" };
+      // 入れた返済額から金利を逆算した後に、完済の年月・残高を直して、その返済額では返せなくなった（金利を解けず、返済額を前の金利から計算し直している。0161）
+      const entered = mode === "balance" && mortgage ? solvedPayment(rowOf(w, addrRate(x))) : null;
+      if (entered !== null && entered !== v) {
+        const why = refuse(w, entered);
+        if (why !== null) return { value: v, warn: `入れた毎月の返済額（${formatYen(entered, "yen")}円）では、完済の年月までに返せません（金利がマイナスになります）。今は金利 年${pct(nowRate(h, x, w.request.input.baseMonth))} のまま、返済額を計算し直しています。返済額か完済の年月を直してください` };
+      }
       return { value: v };
     },
     set: (w, v) => {
-      if (v === null) return w;
+      if (v === null || refuse(w, v) !== null) return w;
       const pay = Number(v);
       const w0 = mode === "payment" ? dropAssumed(w, principalKey(d.id)) : w;
       return editDebt(w0, d.id, (x, req) => {
@@ -1368,17 +1396,25 @@ function balanceField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" 
     optional: mode !== "balance",
     help: mode === "balance" ? `${balanceSource(d)}。時点は「残高の時点」（入れなければ今月）` : "返済予定表の、今に近い月の「返済後残高」。入れなければ借入額と金利から計算します",
   });
-  if (mode !== "balance") return inner;
+  // 残高の時点が空なら計算の基準の月にする（計算は残高の時点があるときだけ残高を使う。入れ方が「今の残高から」でないローン〔収益不動産のローンなど〕も同じ）。
+  // 残高を空にしたら、残高の時点も外す（残高の無い時点は計算に効かない。0161）
+  const withAsOf = (w: WorkingHousehold, v: Parameters<FieldDef["set"]>[1]): WorkingHousehold => {
+    const written = inner.write?.(w, v) ?? inner.set(w, v);
+    if (written === w) return w;
+    const x0 = (written.request.input.household.debts ?? []).find((y) => y.id === d.id);
+    if (x0 === undefined || (v !== null ? x0.balanceAsOf !== undefined : x0.balanceAsOf === undefined || x0.balance !== undefined)) return written;
+    return mutate(written, (h, req) => {
+      const x = (h.debts ?? []).find((y) => y.id === d.id);
+      if (x === undefined) return;
+      if (v !== null) x.balanceAsOf = req.input.baseMonth;
+      else delete x.balanceAsOf;
+    });
+  };
+  if (mode !== "balance") return field({ ...inner, set: withAsOf });
   return field({
     ...inner,
     sideEffects: "残高の時点を入れなければ計算の基準の月にし、入れ方の決まりで金利・完済の年を逆算し直します",
-    set: (w, v) => {
-      const next = mutate(inner.write?.(w, v) ?? inner.set(w, v), (h, req) => {
-        const x = (h.debts ?? []).find((y) => y.id === d.id);
-        if (x !== undefined && v !== null && x.balanceAsOf === undefined) x.balanceAsOf = req.input.baseMonth;
-      });
-      return followLoan(w, next, d.id, "balance");
-    },
+    set: (w, v) => followLoan(w, withAsOf(w, v), d.id, "balance"),
   });
 }
 
@@ -1442,6 +1478,17 @@ function laterLoanWarn(wh: WorkingHousehold, id: string): { text: string; fix: {
  */
 export function switchEntry(wh: WorkingHousehold, id: string, e: LoanEntry): WorkingHousehold {
   let w = withEntry(wh, id, e);
+  // 「借入額から」「毎月の返済額から」にしたら、画面が置いた推定の今の残高（出どころ auto）と残高の時点を外す（残すと計算は残高の時点から
+  // 返し始め、借りた年からの返済が無かったことになる。FP が入れた残高は消さない。0161）
+  if (e !== "balance" && storedEntryOf(wh, id) === "balance") {
+    const d0 = (wh.request.input.household.debts ?? []).find((x) => x.id === id);
+    const b = d0?.balance as { state?: string; origin?: { kind?: string } } | undefined;
+    if (b?.state === "estimated" && b.origin?.kind === "auto")
+      w = editDebt(w, id, (d) => {
+        delete d.balance;
+        delete d.balanceAsOf;
+      });
+  }
   if (e === "balance") {
     w = mutate(w, (h, req) => {
       const d = (h.debts ?? []).find((x) => x.id === id);
