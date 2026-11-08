@@ -146,7 +146,7 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       expect(h().residences!.find((r) => r.kind === "own")!.from).toEqual({ at: "2023-04" });
       expect(h().events?.find((e) => e.id === loan.housing?.moveIn)?.at).toEqual({ at: "2023-04" });
     });
-    it("持ち家を標準の欄だけで入れても、持ち家の価値が資産に入り、純資産がマイナスにならない（評価額は未入力の警告なので標準に出る）", () => {
+    it("持ち家を標準の欄だけで入れても、持ち家の価値が資産に入り、純資産がマイナスにならない（買った値段から評価額を推計する。0176）", () => {
       expect(sum(d.table, "cf.balance.account.realEstate", yearOf(d.wh.request))).toBeGreaterThan(0);
       expect(d.bs).not.toContain("純資産がマイナスに");
     });
