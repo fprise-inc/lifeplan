@@ -467,7 +467,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
         });
     }),
   );
-  // 固定資産税・都市計画税の欄（額と増減率）
+  // 固定資産税・都市計画税の欄（額と伸び率）
   const taxFields: FieldDef[] =
     r.kind !== "own"
       ? []
@@ -624,7 +624,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
     actions.unshift({ key: `${k}/shareByLoans`, label: "借入の割合で持分を分ける", help: "この家の住宅ローンの借入額（連帯債務は負担の割合）の比で、家の名義と持分を夫婦の共有にします。頭金の割合も入れるなら「名義と持分」のご本人の持分を直してください", level: "simple", run: (w) => setOwnershipByLoans(w, r.id) });
   // 購入の予定の持ち家は「住宅の購入」の1件（購入の欄を頭に、住まいの欄をその後に。別の住まいを足したように見せない）
   if (buying) fields.unshift(...purchaseFields(wh, r, k));
-  // 今住んでいる持ち家の詳細の欄（建て方・住み終わり・修繕の増減率・名義）は中枠「建て方・名義など」に分ける（開いた欄が中枠ごとに並ぶ。0176）
+  // 今住んでいる持ち家の詳細の欄（建て方・住み終わり・修繕の伸び率・名義）は中枠「建て方・名義など」に分ける（開いた欄が中枠ごとに並ぶ。0176）
   const homeDetail = ownNow ? fields.filter((f) => f.level !== "simple") : [];
   if (ownNow) fields.splice(0, fields.length, ...fields.filter((f) => f.level === "simple"));
   const groups: GroupDef[] = [
