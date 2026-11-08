@@ -40,17 +40,18 @@ const BY_LABEL: Readonly<Record<string, PctRange>> = {
   "土地の上昇率（年）": GROWTH_RANGE,
   "利回り（年）": RETURN_RANGE,
   "平均の利回り（年）": RETURN_RANGE,
-  "評価額の伸び率（年）": RETURN_RANGE,
+  "評価額の増減率（年）": RETURN_RANGE,
   "運用の費用（年）": FEE_RANGE,
   "利回り（年・この段から）": RETURN_RANGE,
   "その年の利回り（年）": RETURN_RANGE,
   // 入力項目をまたぐ言葉の決まりの率の欄の名前（決まった率の伸び方）。前の名前は、まだ当てはめていない入力項目のために残す
   "伸び率（年）": GROWTH_RANGE,
+  "増減率（年）": GROWTH_RANGE,
   // 住まいの率の欄（伸び率）。修繕・管理の費用の伸び率は、建て方で名前が変わる（マンション「管理費・修繕積立金の伸び率（年）」・戸建て「修繕の積み立ての伸び率（年）」）。見本の世帯は建て方を選んでいない
-  "家賃の伸び率（年）": GROWTH_RANGE,
+  "家賃の増減率（年）": GROWTH_RANGE,
   "固定資産税の伸び率（年）": GROWTH_RANGE,
   "修繕・管理の費用の伸び率（年）": GROWTH_RANGE,
-  "土地の評価額の伸び率（年）": GROWTH_RANGE,
+  "土地の評価額の増減率（年）": GROWTH_RANGE,
   "年額の伸び率（年）": GROWTH_RANGE,
   "値上げの率（年）": GROWTH_RANGE,
 };

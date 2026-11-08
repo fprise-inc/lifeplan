@@ -167,10 +167,10 @@ const settingTexts = (v: OfficeSettings): Record<string, string> => ({
 /** 前提条件の既定の値（パーセント。settings.ts の ASSUMPTION_STANDARDS から。系列を OFFICE_ASSUMPTIONS に足せば、ここも付いてくる） */
 const STANDARD_PCT: Readonly<Record<OfficeAssumption, string>> = Object.fromEntries(OFFICE_ASSUMPTIONS.map((k) => [k, rateToPct(ASSUMPTION_STANDARDS[k])])) as Record<OfficeAssumption, string>;
 
-/** 前提条件の既定値の欄の下の1行（入れなければ既定の値。貸していない不動産の値動きは、評価額の伸び率を入れていない物に使う） */
+/** 前提条件の既定値の欄の下の1行（入れなければ既定の値。貸していない不動産の値動きは、評価額の増減率を入れていない物に使う） */
 const assumptionNote = (k: OfficeAssumption): string =>
   k === "heldEstateGrowth"
-    ? `入れなければ${STANDARD_PCT[k]}%（評価額のまま）。貯蓄・運用の貸していない不動産で、評価額の伸び率を入れていない物に使います（新しい世帯の前提条件の「資産の種類ごとの利回り」の不動産に写します）。${rangeText(ASSUMPTION_RANGES[k])}`
+    ? `入れなければ${STANDARD_PCT[k]}%（評価額のまま）。貯蓄・運用の貸していない不動産で、評価額の増減率を入れていない物に使います（新しい世帯の前提条件の「資産の種類ごとの利回り」の不動産に写します）。${rangeText(ASSUMPTION_RANGES[k])}`
     : k === "depositReturn"
       ? `入れなければ既定の値（${STANDARD_PCT[k]}%。仮の値）。預金・外貨預金の利回りです。${rangeText(ASSUMPTION_RANGES[k])}`
       : `入れなければ既定の値（${STANDARD_PCT[k]}%。仮の値）。${rangeText(ASSUMPTION_RANGES[k])}`;
