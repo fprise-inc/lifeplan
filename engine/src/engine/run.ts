@@ -381,6 +381,48 @@ export function readOutsideFamily(input: EngineInput): EngineInput {
 export function runEngine(request: unknown, packs: readonly unknown[], options: RunOptions = {}): EngineResult {
   check("engine.request", request, "E_INPUT_SCHEMA");
   const req = deepFreeze(request as EngineRequest);
+  if (req.input.calcConventions.aggregation === "accrual" && options.entry === undefined && options.preview !== true) return runAccrual(req, packs, options);
+  return runCore(req, packs, options);
+}
+
+/**
+ * 発生の年で集める表（aggregation: accrual。0165）: 表の最後の年に帰属して表の後に払うお金（翌年2月の年金・翌年3月の確定申告・翌年の
+ * 住民税など）も最後の年に載せるため、表の最後の年を ACCRUAL_TAIL_YEARS 年延ばして計算し（後ろの計算）、帰属の年が表の最後の年までの
+ * お金の動き・年ごとの行・表を、表の長さの計算の結果に入れ替える（表の最初の年より前に帰属する分を最初の年に載せる決まりと対）。
+ * 見出し・必要保障額・相続税の目安・要約の明細（保険・不動産など）は、表の長さの計算のまま（表の終わりそのものを使う部品があるため）。
+ * 後ろの計算がエンジンの誤りで止まる世帯（延ばした年に年齢の上限を超えるなど）は、表の長さの計算のまま返す
+ */
+const ACCRUAL_TAIL_YEARS = 2;
+function runAccrual(req: EngineRequest, packs: readonly unknown[], options: RunOptions): EngineResult {
+  const endYear = req.input.endYear;
+  // 後ろの計算では必要保障額・相続税の目安を出さない（表の長さの計算のものを使う）
+  const rest: Record<string, unknown> = { ...req.input };
+  delete rest.protection;
+  delete rest.inheritanceTax;
+  let tail: EngineResult | null = null;
+  try {
+    tail = runCore(deepFreeze({ ...req, input: { ...rest, endYear: endYear + ACCRUAL_TAIL_YEARS } as unknown as EngineInput }), packs, options);
+  } catch (e) {
+    if (!(e instanceof EngineError)) throw e;
+  }
+  const normal = runCore(req, packs, options);
+  if (tail === null) return normal;
+  const baseYear = yearOf(parseYm(req.input.baseMonth));
+  const keepFlow = tail.flows.map((f) => tableYear(f, "accrual", baseYear) <= endYear);
+  const keepAnnual = tail.annual.map((a) => a.year <= endYear);
+  const flows = tail.flows.filter((_, i) => keepFlow[i]);
+  const annual = tail.annual.filter((_, i) => keepAnnual[i]);
+  const table = tail.table.filter((c) => (c as { year: number }).year <= endYear);
+  let trace = tail.trace;
+  if (trace !== null && typeof trace === "object" && !Array.isArray(trace) && (trace as { mode?: unknown }).mode === "full") {
+    const t = trace as { mode: string; nodes: Json[]; flows: Json[]; annual: Json[] };
+    trace = { ...t, flows: t.flows.filter((_, i) => keepFlow[i]), annual: t.annual.filter((_, i) => keepAnnual[i]) } as unknown as Json;
+  }
+  const summary = summaryOf(table as unknown as readonly { row: string; year: number; amount: number; member?: string; object?: string }[], normal.summary as never);
+  return { ...normal, flows, annual, table, summary, trace };
+}
+
+function runCore(req: EngineRequest, packs: readonly unknown[], options: RunOptions): EngineResult {
   const given = readOutsideFamily(req.input);
   // 基準の月の年は、表の年（common の year）と同じ 1900〜2200 の内（年月の形は年の範囲を持たないので、ここで入力の誤りにする）
   const givenBaseYear = yearOf(parseYm(given.baseMonth));

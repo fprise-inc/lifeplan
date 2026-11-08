@@ -24,8 +24,11 @@
 // 支援の額は名目額で、教育費の上昇率を当てない（0010 の5）
 // 改訂（0090）: 高専（kosen）の1〜3年に就学支援金（国公立は高専の額、私立は私立の額）。4・5年の修学支援はまだ計算しない
 // 改訂（0089）: 高校の段がインターナショナルスクール（sector international）なら就学支援金を計算しない
+// 改訂7（0165）: 受け取る親は、受け取る月に世帯にいる最初の親（関係 parentOf の並び。無ければ本人・配偶者）。受け取る親が亡くなった後は、
+//   残った親が受け取る（前は亡くなった親の名で出続けた。額・判定は変わらない）
 import {
   addMonths,
+  firstPresent,
   ageMonth,
   bracketFor,
   parseYm,
@@ -81,7 +84,7 @@ export default defineComponent<{ member: string }, FlowsResult>({
   id: "education.support",
   title: "教育の公的支援（就学支援金・修学支援）",
   contract: "1.0",
-  revision: 6,
+  revision: 7,
   requires: { "education.cost": ">=1 <2", "residentTax.annual": ">=1 <2", "tax.totalIncome": ">=1 <2" },
   params: Object.values(P),
   reads: ["member.kind", "member.birth", "member.joins", "member.leaves", "relation.type", "relation.parent", "relation.child", "goal.kind", "goal.owner", "goal.education"],
@@ -98,10 +101,11 @@ export default defineComponent<{ member: string }, FlowsResult>({
     const relations = ctx.list<RelationInput>("relation");
     const parents = relations.filter((r): r is Extract<RelationInput, { type: "parentOf" }> => r.type === "parentOf" && r.child === child).map((r) => r.parent);
     const earners = parents.length > 0 ? parents : members.filter((m) => m.kind === "self" || m.kind === "spouse").map((m) => m.id);
-    const recipient = earners[0] ?? child;
+    // 受け取る親（改訂の 0165）: 受け取る月に世帯にいる最初の親（亡くなった親の名で受け取らない）
+    const recipientAt = (m: MonthIndex): string => firstPresent(ctx, members, earners, m) ?? child;
     const flows: Flow[] = [];
     const push = (m: MonthIndex, amount: Yen, formula: string) => {
-      if (amount > 0 && m >= base && m <= end) flows.push({ row: "cf.income.benefit.education", ym: formatYm(m), amount, accrualYear: yearOf(m), member: recipient, object: child, formula });
+      if (amount > 0 && m >= base && m <= end) flows.push({ row: "cf.income.benefit.education", ym: formatYm(m), amount, accrualYear: yearOf(m), member: recipientAt(m), object: child, formula });
     };
     const monthly12 = (annual: Yen) => ctx.money.allocate(annual, Array.from({ length: 12 }, () => 1), "conv.expense.share", "first");
     // 支給額算定基準額の区分（その年度の住民税で）
