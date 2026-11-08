@@ -464,14 +464,17 @@ export function gateNotes(wh: WorkingHousehold): { requestId: string; receivedAt
   return { requestId: e.record.requestId, receivedAt: e.received.at, lines };
 }
 
-/** 受け取った答えを、Excel と同じ候補の一覧にする（取り込みの画面で FP が承認する） */
+/**
+ * 受け取った答えを、Excel と同じ候補の一覧にする（取り込みの画面で FP が承認する）。分岐の答え（お子さまの人数など）も渡し、今の世帯と
+ * 違えば要確認の知らせを出す（人や行は消さない。0139 の追記 2026-11-08）
+ */
 export function importWeb(wh: WorkingHousehold, e: WebLogEntry, appVersion: string, newId?: () => string): ImportView {
   const def = sheetOf(e.record.selection);
   if (def === undefined || e.received === undefined) throw new Error("E_HEARING_NO_SHEET");
   const idef = importDefinition(def, e.record.selection);
   const filled = filledOf(e.record, { answers: e.received.answers }, appVersion);
   // 記入の年月は送った月（ページが入れる）。計算基準月より後でも、1年までは知らせない
-  const r = importAnswers(idef, filled, { baseMonth: wh.request.input.baseMonth, filledOnIsSubmission: true, ...(newId !== undefined ? { newId } : {}) });
+  const r = importAnswers(idef, filled, { baseMonth: wh.request.input.baseMonth, filledOnIsSubmission: true, gates: e.received.gates ?? {}, ...(newId !== undefined ? { newId } : {}) });
   return viewOfResult({ ok: true, ...r, definition: idef, requestRecord: null }, wh);
 }
 
