@@ -47,7 +47,18 @@ export interface ImportOptions {
    * 知らせない（計算基準月の時点の額として扱うのは同じ）
    */
   readonly filledOnIsSubmission?: boolean;
+  /**
+   * 分岐の問いの答え（Web のヒアリングだけ。0158）。Excel のシートには無い（省略）。取り込みの部品は世帯を知らないので、形を確かめて
+   * 結果（ImportResult.gates）に写すだけ。今の世帯と照らして知らせるのはアプリの側（0139 の追記 2026-11-08）
+   */
+  readonly gates?: GateAnswersIn;
 }
+
+/** 分岐の問い: 配偶者の方がいるか・お子さまの人数・住宅ローンの本数・保険の件数・ご両親のことを答えるか（Web のヒアリング。0158） */
+export type GateKind = "spouse" | "child" | "loan" | "policy" | "parent";
+export const GATE_KINDS: readonly GateKind[] = ["spouse", "child", "loan", "policy", "parent"];
+/** 分岐の問いの答え（配偶者の方・ご両親のことは 1 か 0、ほかは数。お客さまに聞いた問いだけ） */
+export type GateAnswersIn = Readonly<Partial<Record<GateKind, number>>>;
 
 /** 候補の中で、どの欄をシートのどの項目から入れたか */
 export interface FieldRecord {
@@ -145,6 +156,11 @@ export interface ImportResult {
    * 画面の見せ方と逆算の決まりだけで、計算の要求には入れない
    */
   readonly loanEntry: Readonly<Record<string, "balance">>;
+  /**
+   * 分岐の問いの答え（Web のヒアリングで届いたものだけ。Excel は無い）。このシートに無い問い・数の範囲の外は捨てる。
+   * 世帯の人や行は変えない（「0人」の答えでも今の子を消す候補は作らない。照らして知らせるのはアプリの側）
+   */
+  readonly gates?: GateAnswersIn;
 }
 
 /** 計算の要求のうち、世帯ごとに変わらない部分の既定（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ） */
@@ -534,7 +550,25 @@ export function importAnswers(def: SheetDefinition, filled: FilledSheet, options
     pending: c.pending,
     record: { kind: "hearing", requestId: m.requestId, sheetId: m.sheetId, sheetVersion: m.sheetVersion, layoutDigest: m.layoutDigest, exportedOn: m.exportedOn, answers: filled.answers },
     loanEntry: c.loanEntry,
+    ...(options.gates !== undefined ? { gates: gatesOf(def, options.gates) } : {}),
   };
+}
+
+/**
+ * 分岐の問いの答えの形を確かめる: 知っている問いで、このシートに関わる軸があり、数が 0〜繰り返しの数（配偶者の方・ご両親のことは 0 か 1）のものだけ。
+ * 「答えない」（ご両親のこと 0）の下の問いは答えが届かないので、ほかの空欄と同じくお答えの無い所（今の値のまま）になる
+ */
+function gatesOf(def: SheetDefinition, g: GateAnswersIn): GateAnswersIn {
+  const out: Partial<Record<GateKind, number>> = {};
+  for (const k of GATE_KINDS) {
+    const n = g[k];
+    if (typeof n !== "number" || !Number.isInteger(n) || n < 0) continue;
+    const axis = def.axes.find((a) => a.id === (k === "spouse" ? "adult" : k));
+    if (axis === undefined) continue;
+    const max = k === "spouse" || k === "parent" ? 1 : axis.count;
+    if (n <= max) out[k] = n;
+  }
+  return out;
 }
 
 /**
