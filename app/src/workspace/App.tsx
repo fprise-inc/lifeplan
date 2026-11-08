@@ -3,7 +3,7 @@
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DualEngine } from "../engine/dual.ts";
-import { devBrowserHost, isTauri, singleCompute, tauriHost, webEngine, type AiCandidate, type ForkInfo, type HostApi, type OfficeStatus, type PresenceView, type StorageNotice, type StoredHousehold, type StoredOpened, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
+import { devBrowserHost, isTauri, singleCompute, tauriHost, webEngine, type AiCandidate, type ForkInfo, type HostApi, type OfficeStatus, type PresenceView, type PreviousGeneration, type StorageNotice, type StoredHousehold, type StoredOpened, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
 import { isEngineError } from "../engine/types.ts";
 import { ALL_ROWS, applyRowsView, forEngine, pickRow, viewMode, withoutDreams, type RowsView } from "../engine/moneyRows.ts";
 import { RowsViewBar } from "./RowsViewBar.tsx";
@@ -94,7 +94,8 @@ import { Autosaver, saveBeforeLeave, type SaveState } from "./store/autosave.ts"
 import { LeaveDialog, type LeaveDialogChoice } from "./store/LeaveDialog.tsx";
 import { bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "./store/body.ts";
 import { ForkPanel, type ForkChoiceUi } from "./store/ForkPanel.tsx";
-import { HouseholdPanel, storeMessage, copyRequest, defaultCategory } from "./store/HouseholdPanel.tsx";
+import { HouseholdPanel, storeMessage, openMessage, copyRequest, defaultCategory } from "./store/HouseholdPanel.tsx";
+import { PreviousPanel, offersPrevious } from "./store/PreviousPanel.tsx";
 import { editorsOf, mergeForkBodies, presenceText } from "./store/office.ts";
 import { guessShape, sampleNoText, shelfItems, type Category, type CategoryEdit, type CategorySettings, type SampleInfo, type SampleRequest, type ShelfItem } from "./store/numbering.ts";
 import { OfficePanel } from "./store/OfficePanel.tsx";
@@ -619,6 +620,8 @@ export function App() {
   const pausedBody = useRef<string | null>(null);
   /** 分岐を選ぶ画面 */
   const [fork, setFork] = useState<{ id: string; info: ForkInfo | null; busy: boolean; error: string | null } | null>(null);
+  /** 世帯ファイルが開けなかったときの、直前の保存で開き直す画面（0011 の7） */
+  const [prevOffer, setPrevOffer] = useState<{ id: string; code: string; info: PreviousGeneration; busy: boolean; error: string | null } | null>(null);
   /** 開いた世帯のメンバーの表示名（世帯ファイルの記録から。メモの書いた人の表示に使う） */
   const [fileEditors, setFileEditors] = useState<Record<string, string>>({});
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
@@ -1126,11 +1129,45 @@ export function App() {
       if (host === null) return false;
       if (!(await leaveCurrent("switch"))) return false;
       forgetUnsavedScreen();
-      await loadStored(await host.store.open(id));
+      let r: StoredOpened;
+      try {
+        r = await host.store.open(id);
+      } catch (e) {
+        // 壊れた・読めないときは、直前の保存（直前の世代）が開けるかを本体に聞き、開ければ開き直す画面を出す（0011 の7）
+        const code = codeOf(e);
+        if (offersPrevious(code)) {
+          const info = await host.store.previousGeneration(id).catch(() => null);
+          if (info !== null) setPrevOffer({ id, code, info, busy: false, error: null });
+        }
+        throw e;
+      }
+      await loadStored(r);
       return true;
     },
     [host, loadStored, leaveCurrent, forgetUnsavedScreen],
   );
+
+  /** 開けなかった世帯を、直前の保存で開き直す（開けなかったファイルは本体がこの PC の中に別名で残す。0011 の7） */
+  const openPrevious = useCallback(async () => {
+    if (host === null || prevOffer === null) return;
+    const offer = prevOffer;
+    setPrevOffer({ ...offer, busy: true, error: null });
+    try {
+      if (!(await leaveCurrent("switch"))) {
+        setPrevOffer({ ...offer, busy: false });
+        return;
+      }
+      forgetUnsavedScreen();
+      await loadStored(await host.store.openPrevious(offer.id));
+      setPrevOffer(null);
+      setHhError(null);
+      setHhOpen(false);
+      setStoredList(await host.store.list());
+      say("直前の保存の内容で開きました（開けなかったファイルは、このPCの中に別名で残しました）");
+    } catch (e) {
+      setPrevOffer({ ...offer, busy: false, error: openMessage(codeOf(e)) });
+    }
+  }, [host, prevOffer, leaveCurrent, forgetUnsavedScreen, loadStored, say]);
 
   /** 見本を開く（アプリの見本は保存しない世帯として、自分で作った見本は保存しないで開く。動かしても見本は変わらない。0033） */
   const openSample = useCallback(async (item: ShelfItem) => (item.kind === "app" ? open(item.id) : openStored(item.id)), [open, openStored]);
@@ -1249,7 +1286,7 @@ export function App() {
     const last = !dev && storeStatus?.state === "ready" ? storeStatus.lastOpened : null;
     if (last !== null)
       void openStored(last).catch((e: unknown) => {
-        setHhError(storeMessage(codeOf(e)));
+        setHhError(openMessage(codeOf(e)));
         void open(id, initial.levers);
       });
     else void open(id, initial.levers);
@@ -1288,15 +1325,16 @@ export function App() {
   useEffect(() => {
     if (host !== null && !panelsOpen) void host.office.notices().then(setStorageNotices, () => undefined);
   }, [host, panelsOpen]);
+  /** 世帯の一覧の操作の失敗を一覧に出す（`message` は文言の選び方。開く操作は開く操作の言葉で出す） */
   const guard = useCallback(
-    async (fn: () => Promise<boolean | void>) => {
+    async (fn: () => Promise<boolean | void>, message: (code: string) => string = storeMessage) => {
       setHhError(null);
       try {
         // 世帯を離れるのをやめたときは、世帯の一覧を開いたままにする
         if ((await fn()) === false) return;
         setHhOpen(false);
       } catch (e) {
-        setHhError(storeMessage(codeOf(e)));
+        setHhError(message(codeOf(e)));
       }
     },
     [],
@@ -2010,14 +2048,18 @@ export function App() {
   const names = { selected: planLabel(letterOf(work.sel)), base: planLabel(letterOf(work.base)), same: work.sel === work.base };
   const feeShown = opened !== null && shows(settings, "feeLine") && hasAdvisoryFee(opened.wh.request) && work.sel !== CURRENT;
   const provisional = selView?.source !== "canonical" || selView.stale;
+  // 今の入力で計算できなかった（エラーの）プランは、前の計算の残りの結果で「足りる」「準備できています」を出さない（0169）
+  const failedSlots = new Set(slots.filter((id) => views.get(id)?.error != null));
+  const failed = failedSlots.has(work.sel) || failedSlots.has(work.base);
   const model = useMemo(() => {
     if (opened === null || selReq === null || selRes === null || baseRes === null) return null;
     const fee = feeShown ? { on: feeOn, alt: altRes } : undefined;
     const dreams = { raw: rawReqOf(opened, valuesOf(opened.wh, work, work.sel)), withoutDreams: noDreamRes };
-    const m = toPresentation({ base: opened.wh.request, proposal: selReq, current: baseRes, proposed: selRes, targetAge: settings.atAge, selectedYear, provisional, names, dreams, ...(baseReq !== null ? { baseProposal: baseReq } : {}), ...(fee !== undefined ? { fee } : {}), ...(rowNames !== undefined ? { rowNames } : {}) });
+    const m = toPresentation({ base: opened.wh.request, proposal: selReq, current: baseRes, proposed: selRes, targetAge: settings.atAge, selectedYear, provisional, names, dreams, failed, ...(baseReq !== null ? { baseProposal: baseReq } : {}), ...(fee !== undefined ? { fee } : {}), ...(rowNames !== undefined ? { rowNames } : {}) });
+    if (failed) return m;
     const extra = verdictMetrics(settings, { name: names.selected, m: metricsOf(opened.wh.request, selRes.table, settings.atAge) }, names.same ? null : { name: names.base, m: metricsOf(opened.wh.request, baseRes.table, settings.atAge) });
     return extra.length > 0 ? { ...m, result: { ...m.result, sub: [...m.result.sub, ...extra] } } : m;
-  }, [opened, work, rawReqOf, selReq, baseReq, selRes, baseRes, altRes, noDreamRes, feeOn, feeShown, selectedYear, provisional, settings, names.selected, names.base, names.same, rowNames]);
+  }, [opened, work, rawReqOf, selReq, baseReq, selRes, baseRes, altRes, noDreamRes, feeOn, feeShown, selectedYear, provisional, failed, settings, names.selected, names.base, names.same, rowNames]);
   const explain = useMemo(
     () => (explainStep === null || opened === null || selReq === null || selRes === null ? null : explainModel(selReq, selRes, settings.atAge)),
     [explainStep !== null, opened, selReq, selRes, settings.atAge],
@@ -2029,7 +2071,7 @@ export function App() {
     colorMap.current = m;
     return m;
   }, [work.band, letters]);
-  const band = opened === null ? null : bandModel({ req: opened.wh.request, slots, letters, results: new Map(slots.map((id) => [id, resultOf(id)])), modified, base: work.base, selected: work.sel, settings, colors });
+  const band = opened === null ? null : bandModel({ req: opened.wh.request, slots, letters, results: new Map(slots.map((id) => [id, resultOf(id)])), modified, base: work.base, selected: work.sel, settings, colors, failed: failedSlots });
   // 全部のプランを色分けで重ねる表示: 帯の全部のプランの線（プランの名前と色の番号と数字だけ）をグラフの値に足す
   const slotResults = slots.map((id) => resultOf(id));
   // 計算の知らせ（0064）: 帯の全部のプランの結果の知らせを、FP 向けの行にまとめる（結果のタブ）。現状の分は確かめの一覧にも出す
@@ -2624,7 +2666,7 @@ export function App() {
               currentShape={opened !== null ? guessShape(opened.wh.request) : null}
               unsavedTitle={opened !== null && storedInfo === null && opened.demo === null ? "新しい世帯" : null}
               initialTab={hhTab}
-              onOpen={(id) => void guard(() => openStored(id))}
+              onOpen={(id) => void guard(() => openStored(id), openMessage)}
               onCreate={(category) =>
                 void guard(async () => {
                   if (!(await open(BLANK))) return false;
@@ -2660,7 +2702,7 @@ export function App() {
                 }
               }}
               onDelete={deleteStored}
-              onOpenSample={(item) => void guard(() => openSample(item))}
+              onOpenSample={(item) => void guard(() => openSample(item), openMessage)}
               onCustomerFromSample={(item, category) =>
                 void guard(async () => {
                   if (!(await openSample(item))) return false;
@@ -3396,7 +3438,7 @@ export function App() {
             void refreshStore();
             // 世帯を共有フォルダへ移した: 開いていた世帯は、移した先から開き直す
             const sr = storedRef.current;
-            if (sr !== null) void openStored(sr.id).catch((e: unknown) => setHhError(storeMessage(codeOf(e))));
+            if (sr !== null) void openStored(sr.id).catch((e: unknown) => setHhError(openMessage(codeOf(e))));
           }}
           onRecovery={() => setRecovery("first")}
           onStorage={() => {
@@ -3421,7 +3463,7 @@ export function App() {
             void refreshStore();
             // 世帯を同期フォルダへ移した・この PC の中へ戻した: 開いていた世帯は、移した先から開き直す
             const sr = storedRef.current;
-            if (sr !== null) void openStored(sr.id).catch((e: unknown) => setHhError(storeMessage(codeOf(e))));
+            if (sr !== null) void openStored(sr.id).catch((e: unknown) => setHhError(openMessage(codeOf(e))));
           }}
           onRecovery={() => setRecovery("manage")}
           onOffice={() => {
@@ -3443,6 +3485,17 @@ export function App() {
           onChoose={(c) => void chooseFork(c)}
           onSyncCopies={(adopt) => void chooseSyncCopies(adopt)}
           onClose={() => setFork(null)}
+        />
+      ) : null}
+      {prevOffer !== null && host !== null ? (
+        <PreviousPanel
+          customerNo={storedList.find((h) => h.id === prevOffer.id)?.customerNo ?? ""}
+          reason={openMessage(prevOffer.code)}
+          info={prevOffer.info}
+          busy={prevOffer.busy}
+          error={prevOffer.error}
+          onOpen={() => void openPrevious()}
+          onClose={() => setPrevOffer(null)}
         />
       ) : null}
       {recovery !== null && host !== null ? (

@@ -322,7 +322,7 @@ export function blankHousehold(baseMonth: string, id: () => string = newId): Wor
     trace: "none",
     input: {
       baseMonth,
-      endYear: endYearForAge({ members: [self] } as Household, defaultEndAge()),
+      endYear: endYearForAge({ members: [self] } as Household, defaultEndAge(), baseMonth),
       calcConventions: { aggregation: "cash", investmentTiming: "midYear", compatibility: null },
       household: { members: [self], relations: [], events: [], employmentPeriods: [], accounts: [], insuranceContracts: [], livingExpenses: [] },
       assumptions: structuredClone(DEFAULT_ASSUMPTIONS),
@@ -352,20 +352,41 @@ export const STANDARD_END_AGE = 100;
 /** 表の最後の年の既定の年齢: 事務所の既定値で選んでいればその年齢（0073 の追記 2026-11-05）、無ければ100歳 */
 export const defaultEndAge = (): number => officeNow().endAge ?? STANDARD_END_AGE;
 
-/** 若い方の大人（本人・配偶者）がその年齢になる年（子は含めない。大人がいなければ -Infinity） */
-export function endYearForAge(h: Pick<Household, "members">, age: number): number {
+/** 表の最初の年: 計算基準月が年の途中なら翌年（その年は数か月分しかないため。present.ts の displayYears と同じ） */
+export function firstTableYear(baseMonth: string): number {
+  const { y, m } = parseYm(baseMonth);
+  return m > 1 ? y + 1 : y;
+}
+
+/** 年齢で決めた表の最後の年でも、表は少なくともこの年数を見せる（若い方がすでにその年齢を過ぎている・近いとき。0169） */
+export const MIN_TABLE_YEARS = 5;
+
+/**
+ * 若い方の大人（本人・配偶者）がその年齢になる年（子は含めない。大人がいなければ -Infinity）。
+ * 「○歳になる年」は、表の年齢の行・年齢の欄と同じく、その年の12月末に○歳の年（生まれ年＋年齢。1月1日生まれも同じ。0169）。
+ * 計算基準月を渡すと、表が少なくとも MIN_TABLE_YEARS 年分になるように後ろへずらす（101歳以上の人で表の最後の年が今年より前になり、
+ * 計算できなくなっていたため。0169）
+ */
+export function endYearForAge(h: Pick<Household, "members">, age: number, baseMonth?: string): number {
   const adults = h.members.filter((m) => m.kind === "self" || m.kind === "spouse");
-  return Math.max(...adults.map((m) => parseYm(ageReachedMonth(m, age)).y));
+  const y = Math.max(...adults.map((m) => parseYm(m.birth.birthYearMonth).y + age));
+  return baseMonth === undefined || !Number.isFinite(y) ? y : Math.max(y, firstTableYear(baseMonth) + MIN_TABLE_YEARS - 1);
 }
 
 /** 表の最後の年: 一番若い大人（本人・配偶者）が既定の年齢（100歳か事務所の既定値の年齢）になる年まで（0008 の3 の標準）。子は含めない */
-export function standardEndYear(h: Household): number {
-  return endYearForAge(h, defaultEndAge());
+export function standardEndYear(h: Household, baseMonth?: string): number {
+  return endYearForAge(h, defaultEndAge(), baseMonth);
 }
 
-/** 表の最後の年が、選び方の年齢（90・95・100・105歳）のどれかになる年なら、その年齢。どれでもなければ null */
-export function endAgeOf(h: Pick<Household, "members">, endYear: number): number | null {
-  return END_AGES.find((a) => endYearForAge(h, a) === endYear) ?? null;
+/**
+ * 表の最後の年が、選び方の年齢（90・95・100・105歳）のどれかになる年なら、その年齢。どれでもなければ null。
+ * 表を少なくとも5年分にした世帯（endYearForAge）でいくつもの年齢が同じ年になるときは、既定の年齢、無ければ一番上の年齢
+ */
+export function endAgeOf(h: Pick<Household, "members">, endYear: number, baseMonth?: string): number | null {
+  const hits = END_AGES.filter((a) => endYearForAge(h, a, baseMonth) === endYear);
+  if (hits.length === 0) return null;
+  const d = defaultEndAge();
+  return hits.includes(d) ? d : (hits.at(-1) as number);
 }
 
 const endYearPinned = (req: EngineRequest): boolean => (req.input as { valueStates?: Record<string, { state?: string }> }).valueStates?.["plan.endYear"]?.state === "confirmed";
@@ -377,7 +398,7 @@ const endYearPinned = (req: EngineRequest): boolean => (req.input as { valueStat
  */
 export function followedEndAge(req: EngineRequest): number | null {
   if (endYearPinned(req)) return null;
-  return endAgeOf(req.input.household, req.input.endYear);
+  return endAgeOf(req.input.household, req.input.endYear, req.input.baseMonth);
 }
 
 /**
@@ -386,7 +407,7 @@ export function followedEndAge(req: EngineRequest): number | null {
  * 表が本人129歳まで続き、前提条件の標準の年とも食い違っていた。保存した世帯（見本を開いて保存した写しも）はこれを通さない（黙って書き換えない）
  */
 export function sampleRequest(req: EngineRequest): EngineRequest {
-  const std = standardEndYear(req.input.household);
+  const std = standardEndYear(req.input.household, req.input.baseMonth);
   if (!Number.isFinite(std) || req.input.endYear === std) return req;
   const out = structuredClone(req);
   out.input.endYear = std;
@@ -433,7 +454,7 @@ export function followStandards(before: WorkingHousehold, after: WorkingHousehol
   const endBefore = before.request.input.endYear;
   // 表の最後の年は、選び方の年齢（既定の100歳を含む）の年のままなら、その年齢のまま付いていく（0070 の追記 2026-11-05）
   const age = followedEndAge(before.request);
-  const stdAfter = age === null ? Number.NaN : endYearForAge(ha, age);
+  const stdAfter = age === null ? Number.NaN : endYearForAge(ha, age, after.request.input.baseMonth);
   const fixEnd = age !== null && Number.isFinite(stdAfter) && after.request.input.endYear === endBefore && stdAfter !== endBefore;
   // 独立の時点が子の独立の出来事を指している（出来事が正本。0038）なら、出来事の年月を見る
   const leavesAt = (h: Household, m: Member): Timepoint | null | undefined => {

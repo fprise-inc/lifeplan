@@ -10,6 +10,8 @@
 //   介護を受ける人（本人を除く。始まりが最も近いもの）。重なる介護が無い休業は、対象の家族が分からないので1人の家族として通算する
 //   雇用保険に入っていない月（役員・公務員）の休業は出ない
 // 日数は月単位の近似で1か月を30日とみなす（PR の提案）。給付金は2か月分ずつ、その2か月の次の月に払う。時短の給付は翌月
+// 改訂5（0169）: 世帯に配偶者の関係が無くても、構成員の欄 maritalStatus が「婚姻している（別居など）」なら配偶者がいるとみなす。
+//   世帯の外の配偶者の育児休業は分からないので、出生後休業支援給付の配偶者の要件を満たさないとして出さない
 import {
   addMonths,
   addYen,
@@ -56,12 +58,13 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
   id: "benefit.employment",
   title: "雇用保険の育児・介護の給付",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: { "socialInsurance.employeeStatus": ">=1 <2", "income.salary": ">=1 <2" },
   params: Object.values(P),
   reads: [
     "member.kind",
     "member.birth",
+    "member.maritalStatus",
     "relation.type",
     "relation.a",
     "relation.b",
@@ -95,6 +98,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
     const salary = new Map<string, Yen>();
     for (const x of ctx.call<SalaryOutput>("income.salary", { member }).payments) salary.set(x.ym, addYen(salary.get(x.ym) ?? yen(0), x.salary));
     const members = ctx.list<MemberInput>("member");
+    const me = members.find((m) => m.id === member);
     const children = members.filter((c) => c.kind === "child");
     const relations = ctx.list<RelationInput>("relation");
     const spouses = relations.flatMap((r) => (r.type === "spouse" && (r.a === member || r.b === member) ? [r.a === member ? r.b : r.a] : []));
@@ -110,8 +114,9 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
     };
     const spouseCondition = (child: MemberInput, within: number): boolean => {
       const birth = parseYm(child.birth.birthYearMonth);
-      // 配偶者がいない（ひとり親）ときは、配偶者の育児休業を要件としない
-      if (spouses.length === 0) return true;
+      // 配偶者がいない（ひとり親）ときは、配偶者の育児休業を要件としない。世帯に配偶者の関係が無くても、欄が「婚姻している（別居など）」なら
+      // 配偶者がいる。その配偶者の育児休業は分からないので、要件を満たさないとする（改訂5）
+      if (spouses.length === 0) return me?.maritalStatus !== "married";
       return spouses.some((sp) => {
         const st = ctx.call<EmployeeStatusOutput>("socialInsurance.employeeStatus", { member: sp }).months;
         const insuredAtBirth = st.some((s) => s.month === child.birth.birthYearMonth && s.employment);

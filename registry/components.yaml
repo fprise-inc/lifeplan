@@ -527,3 +527,9 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: tax.totalIncomeBase
+    status: active
+    label: "合計所得金額（所得金額調整控除の子ども・特別障害者等の分を引く前）"
+    since: draft
+    aliases: []
+    replacedBy: null

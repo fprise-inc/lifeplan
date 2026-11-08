@@ -22,14 +22,17 @@ export function recordEmployeeMonths(rec: RecordOutput, before: MonthIndex | nul
 
 /**
  * 特別支給の老齢厚生年金の受給権を得て支給が始まる月（生年月日・性別の開始年齢。厚生年金の1年以上。対象でなければ null）。
- * 受給中・見込額だけの記録は求めない（記録に特別支給の額があれば65歳の12か月前とみなす）
+ * 受給中の記録は求めない（記録に特別支給の額があれば65歳の12か月前とみなす）。
+ * 見込額だけの記録も、定期便と同じく生年月日から求める（0167。見込額は65歳からの額で、対象の生年月の人は50歳以上の定期便の世代）。
+ * 見込額だけの記録で厚生年金の加入月数を入れていないときは、老齢厚生年金の見込額があれば1年以上とみなす（受給資格期間と同じ扱い）
  */
 export function specialOldAgeStart(ctx: Ctx, at0: MonthCtx, rec: RecordOutput, member: string, N: MonthIndex): MonthIndex | null {
   const receiving = rec.kind === "receiving";
   let SA: MonthIndex | null = null;
-  if (!receiving && rec.kind !== "projection") {
+  if (!receiving) {
     const years = at0.paramCount(SPECIAL_OLD_AGE_PARAMS.specialAge, { member });
-    const qual = (at0.paramCount(SPECIAL_OLD_AGE_PARAMS.specialMonths) ?? 12) <= recordEmployeeMonths(rec, N);
+    const assumed = rec.kind === "projection" && rec.employeeMonths === 0 && (rec.amounts.employee ?? 0) > 0;
+    const qual = assumed || (at0.paramCount(SPECIAL_OLD_AGE_PARAMS.specialMonths) ?? 12) <= recordEmployeeMonths(rec, N);
     if (years !== null && qual) {
       const sel = at0.param(SPECIAL_OLD_AGE_PARAMS.specialAge, { member });
       SA = ctx.time.ageSwitch(member, { years }, (sel.def.ageSwitch ?? "monthAfterReach") as never);
@@ -50,10 +53,18 @@ export function claimInput(ctx: Ctx, member: string, input0: PensionRecordInput 
 }
 
 /**
+ * 繰下げの申出ができるのは、65歳に達した日から1年を経過した日（66歳）より後（国民年金法28条1項・厚生年金保険法44条の3第1項）。
+ * 受給を始める月が65歳に達した月の翌月 N から12か月未満なら繰下げではなく普通の請求で、増額は無く N の分からさかのぼって受ける（国民年金法18条1項）
+ */
+export const DEFERRAL_MIN_MONTHS = 12;
+
+/**
  * 老齢基礎年金・老齢厚生年金の受給を始める月（入力の claim。省略は65歳に達した月の翌月 N）。
  * 繰上げは老齢基礎年金と老齢厚生年金を同時に請求する（国民年金法附則9条の2第2項・厚生年金保険法附則7条の3第2項）ので、
  * どちらかを N より前にしたときは、早い方の月に両方をそろえる（aligned）。特別支給の老齢厚生年金を受ける世代（SA がある）の一部繰上げは扱わず、そろえない。
- * 厚生年金の加入が無い人はそろえない。繰下げは別々にできる（そろえない）。受給中の記録（すでに受け始めている）は呼ぶ側で扱う
+ * 厚生年金の加入が無い人はそろえない。繰下げは別々にできる（そろえない）。受給中の記録（すでに受け始めている）は呼ぶ側で扱う。
+ * N の後で66歳になる前（N から12か月未満）の月は繰下げにならないので N にする（beforeSixtySix。さかのぼって受ける分は N から毎月受けるとみなす。
+ * 公的年金の収入の年は本来の支払期月なので、税の年もこれで合う。0167）
  */
 export function oldAgeClaimMonths(
   ctx: Ctx,
@@ -61,14 +72,25 @@ export function oldAgeClaimMonths(
   input: { readonly claim?: PensionRecordInput["claim"] } | undefined,
   N: MonthIndex,
   SA: MonthIndex | null,
-): { basic: MonthIndex; employee: MonthIndex; aligned: boolean } {
-  const basic = input?.claim?.basic !== undefined ? ctx.time.resolve(input.claim.basic) : N;
-  const employee = input?.claim?.employee !== undefined ? ctx.time.resolve(input.claim.employee) : N;
+): { basic: MonthIndex; employee: MonthIndex; aligned: boolean; beforeSixtySix: boolean } {
+  let basic = input?.claim?.basic !== undefined ? ctx.time.resolve(input.claim.basic) : N;
+  let employee = input?.claim?.employee !== undefined ? ctx.time.resolve(input.claim.employee) : N;
+  // 66歳になる前の受給の始まりは普通の請求（増額なし・N の分から）
+  const sixtySix = addMonths(N, DEFERRAL_MIN_MONTHS);
+  let beforeSixtySix = false;
+  if (basic > N && basic < sixtySix) {
+    basic = N;
+    beforeSixtySix = true;
+  }
+  if (employee > N && employee < sixtySix) {
+    employee = N;
+    beforeSixtySix = true;
+  }
   const early = basic < employee ? basic : employee;
   // 厚生年金の加入が無い人は老齢基礎年金だけなので、そろえない
   const hasEmployee = rec.amounts.employee !== null || recordEmployeeMonths(rec, null) > 0;
-  if (hasEmployee && SA === null && early < N && basic !== employee) return { basic: early, employee: early, aligned: true };
-  return { basic, employee, aligned: false };
+  if (hasEmployee && SA === null && early < N && basic !== employee) return { basic: early, employee: early, aligned: true, beforeSixtySix };
+  return { basic, employee, aligned: false, beforeSixtySix };
 }
 
 /**

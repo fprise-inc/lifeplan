@@ -30,6 +30,8 @@
 //   遺族年金から引く（世帯の受け取りは遺族年金の額。自分の老齢年金は止めずに表に残すので、税・保険料は自分の老齢年金を受ける前提の近似。
 //   65歳からの自分の老齢厚生年金との調整と同じ形。改訂4）
 // - 寡婦年金と死亡一時金の選択で比べる寡婦年金の総額は、表の外の月（65歳まで）も数える（表の長さで選択を変えない。0003 の追記。改訂5）
+// - 中高齢寡婦加算の40歳の判定は、夫の死亡の月（子があれば最後の子が対象でなくなる月）に40歳に達しているか。これまでは払い始めの月（その翌月）と
+//   比べていて、その翌月に40歳になる妻にも付いていた（改訂6。0167）
 // - 2028年4月からの遺族年金の見直し（有期化・子の加算の見直しなど）は作らない。2028年4月以後の死亡の想定には知らせ（N_REFORM_NOT_REFLECTED）を必ず出す
 //   （制度データの行の扱いは 0007 の追記 2026-10-10: 見直し後の値は別の値IDで持ち、この部品が読む値IDの行は見直し前の値のまま続ける）
 import {
@@ -195,8 +197,11 @@ export default defineComponent<Input, SurvivorPensionOutput>({
 
     const female = me.sex === "female";
     const ageAt = (id: string, years: string) => ageMonth(ctx, m0, years, id);
-    // 中高齢寡婦加算: 遺族基礎年金が終わった月（子が無ければ死亡の月の翌月）に40歳以上
+    // 中高齢寡婦加算: 払い始めは遺族基礎年金が終わった翌月（子が無ければ死亡の月の翌月）。40歳の判定は、夫の死亡の当時（死亡の月）か、
+    // 子があれば40歳に達した当時に遺族基礎年金の対象の子がいたか（最後の子が対象でなくなる月まで）（厚生年金保険法62条1項。改訂6）。
+    // 40歳に達した月がその月と同じなら、日の前後が分からないので達していたとみなす
     const addStart = isSpouse && basicOk && kidsAtDeath ? addMonths(lastKid, 1) : addMonths(death, 1);
+    const addJudged = isSpouse && kidsAtDeath ? lastKid : death;
     // 中高齢者の期間短縮の特例（夫の生年月日で必要な月数。制度データに行の無い生年月日は特例なし）
     let middleOk = false;
     if (!shortTerm && at0.has(P.middleMonths, { member: deceased })) {
@@ -211,7 +216,7 @@ export default defineComponent<Input, SurvivorPensionOutput>({
       }
     }
     const longEmpOk = shortTerm || empMonths >= (at0.paramCount(P.addLongMonths) ?? 240) || middleOk;
-    const addOk = isSpouse && female && employeeOk && longEmpOk && addMonths(ageAt(Y, P.addFrom), 0) <= addStart;
+    const addOk = isSpouse && female && employeeOk && longEmpOk && ageAt(Y, P.addFrom) <= addJudged;
     const addUntil = ageAt(Y, P.addUntil);
     // 経過的寡婦加算（妻の生年月日の率。行の無い生年月日（昭和31年4月2日以後）は無い）
     // 受給権を得たとき65歳以上、または中高齢寡婦加算を受けていた妻（昭和60年改正法附則73条）

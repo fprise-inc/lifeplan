@@ -99,6 +99,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_INHERITANCE_TAX|retirementBenefit.deathAllowance": inherit("死亡退職金"),
   "N_INHERITANCE_TAX|retirementBenefit.guaranteeRemainder": inherit("企業年金の保証期間の残り（ご家族が受け取る分）"),
   "N_INHERITANCE_TAX|account.ideco.deathLumpSum": inherit("iDeCo の死亡一時金"),
+  "N_INHERITANCE_TAX|account.mutualAid.deathLumpSum": inherit("小規模企業共済の死亡の共済金"),
   "N_GIFT_TAX_BY_RECIPIENT|gift.tax": { kind: "missing", text: "贈与税のうち、世帯のお金の流れに入らない贈与の分は、お金の流れに入れていません", card: "inheritance" },
   // ---- 入力が足りない ----
   "N_INPUT_REQUIRED|residence.valuation": { kind: "input", text: "持ち家の時価の元（購入の価格か今の時価）が入っていないので、資産と負債に住まいの価値を入れていません", card: "housing" },
@@ -170,6 +171,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_ASSUMED|employmentInsurance.basicAllowance.rateBreak": { kind: "assumed", text: "雇用保険の給付率の変わり目の賃金日額は、それより前の月にも、制度データにある最初の期間の値を使っています" },
   "N_ASSUMED|pension.survivor.ownPensionBefore65": { kind: "assumed", text: "65歳までの遺族厚生年金と自分の老齢年金は、多い方を受け取るものとして計算しています" },
   "N_ASSUMED|pension.earlyClaim.simultaneous": { kind: "assumed", text: "老齢基礎年金と老齢厚生年金の繰上げは同時にする決まりなので、受け取り始めをそろえて計算しています", card: "pension" },
+  "N_ASSUMED|pension.deferral.beforeSixtySix": { kind: "assumed", text: "繰下げは66歳からなので、66歳になる前の受け取り始めは増額なしで、65歳からの分をさかのぼって受け取るものとして計算しています", card: "pension" },
   "N_ASSUMED|incomeTax.housingLoanCredit.specifiedAcquisition": { kind: "assumed", text: "平成26〜令和3年の入居は、新築は消費税のかかった取得、中古は個人からの取得として、住宅ローン控除の借入限度額を決めています", card: "housing" },
   "N_ASSUMED|educationSupport.highSchool.nationality": { kind: "assumed", text: "高校の就学支援金は、支給の要件（国籍・在留資格）を満たすものとして計算しています" },
   "N_APPROXIMATED|education.nurseryFee.assessedResidentTax": { kind: "assumed", text: "保育料は、住民税の決定額から所得割を推計して計算しています（均等割の分だけ多め）" },

@@ -37,8 +37,8 @@ pub use office::Author;
 pub use secret::{MemorySecretStore, SecretStore};
 pub use store::{
     Clock, CreateOptions, CreateRequest, ForkChoice, ForkInfo, HouseholdEntry, MemberView,
-    NoticeView, OfficeStatus, Opened, PresenceView, RemovedView, RenameOutcome, RequestView, Saved,
-    Status, StatusState, StorageNotice, Store, SystemClock,
+    NoticeView, OfficeStatus, Opened, PresenceView, PreviousGeneration, RemovedView, RenameOutcome,
+    RequestView, Saved, Status, StatusState, StorageNotice, Store, SystemClock,
 };
 
 #[cfg(feature = "os-keyring")]
@@ -167,6 +167,8 @@ impl StoreError {
     pub const OFFICE_VIEW_ONLY: StoreError = StoreError("E_OFFICE_VIEW_ONLY");
     /// 選ぶ分岐が無い
     pub const NO_FORK: StoreError = StoreError("E_STORE_NO_FORK");
+    /// 直前の世代で開き直せない（今のファイルが開ける・直前の世代が無いか開けない。0011 の7）
+    pub const NO_PREVIOUS: StoreError = StoreError("E_STORE_NO_PREVIOUS");
     /// 明細の取り込みの辞書・形の行の形が合わない（0034）
     pub const STATEMENT_DICT: StoreError = StoreError("E_STORE_STATEMENT_DICT");
     /// 事務所の既定値の形が合わない（JSON のオブジェクトでない・大きすぎる。0073）

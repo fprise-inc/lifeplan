@@ -221,6 +221,32 @@ export function acquisitionPartsTotal(p: RealEstateProperty | undefined): number
 }
 /** 建物附属設備の法定耐用年数の既定（エンジンと同じ） */
 const EQUIPMENT_LIFE = 15;
+
+/**
+ * 中古の資産の耐用年数（簡便法。耐用年数省令3条1項2号）。経過年数 elapsed（取得の年−建った年）が法定の年数以上なら法定×0.2、
+ * 途中なら（法定−経過）＋経過×0.2。1年未満の端数は切り捨て、2年未満は2年。計算エンジン（asset.realEstate の usedLife）と同じ
+ */
+export function usedLife(life: number, elapsed: number): number {
+  if (elapsed <= 0) return life;
+  const y = elapsed >= life ? Math.floor(life / 5) : life - elapsed + Math.floor(elapsed / 5);
+  return Math.max(2, y);
+}
+
+/** 建物附属設備の耐用年数を空欄にしたときに計算に使う年数（エンジンと同じ: 法定15年。中古は建った年からの経過年数で簡便法。0164） */
+export function equipmentLifeDefault(p: RealEstateProperty): number {
+  const at = p.acquisition?.at;
+  if (at === undefined) return EQUIPMENT_LIFE;
+  const acqYear = Number(at.slice(0, 4));
+  return usedLife(EQUIPMENT_LIFE, acqYear - (p.builtYear ?? acqYear));
+}
+
+/** 建物附属設備の耐用年数の空欄の読み（簡便法で短くなるときだけ） */
+function equipmentLifeHint(p: RealEstateProperty): string | null {
+  const life = equipmentLifeDefault(p);
+  if (life === EQUIPMENT_LIFE) return null;
+  const at = p.acquisition?.at as string;
+  return `中古の簡便法で${String(life)}年（法定${String(EQUIPMENT_LIFE)}年・取得の時に築${String(Number(at.slice(0, 4)) - (p.builtYear as number))}年）`;
+}
 /** 戸数を標準で聞く種類（一棟） */
 const WHOLE_BUILDING = new Set(["apartment", "mansion"]);
 const TENURES: Option[] = [
@@ -564,8 +590,8 @@ function acquisitionFields(wh: WorkingHousehold, a: Account): FieldDef[] {
     fields.push(
       withAddress(
         isLandOnlyKind(p.kind)
-          ? plain({ key: `${kp}/equipmentLife`, item: "account.property", label: "設備の耐用年数", level: "detail", kind: "int", suffix: "年", min: 2, max: 50, find: findP, path: ["acquisition", "equipmentLife"], optional: true, fallback: EQUIPMENT_LIFE, help: "定額法で減価償却します。設備の種類の法定耐用年数を入れてください（舗装はアスファルト敷き10年・コンクリート敷き15年など。最終の判断は税理士にご確認ください）。入れなければ15年です" })
-          : plain({ key: `${kp}/equipmentLife`, item: "account.property", label: "建物附属設備の耐用年数", level: "detail", kind: "int", suffix: "年", min: 2, max: 50, find: findP, path: ["acquisition", "equipmentLife"], optional: true, fallback: EQUIPMENT_LIFE, help: "定額法で減価償却します。入れなければ法定の15年（中古は建物と同じ経過年数で簡便法に直した年数）。入れたときは、その年数のまま使います" }),
+          ? plain({ key: `${kp}/equipmentLife`, item: "account.property", label: "設備の耐用年数", level: "detail", kind: "int", suffix: "年", min: 2, max: 50, find: findP, path: ["acquisition", "equipmentLife"], optional: true, fallback: equipmentLifeDefault(p), hint: (v) => (v === equipmentLifeDefault(p) ? equipmentLifeHint(p) : null), help: "定額法で減価償却します。設備の種類の法定耐用年数を入れてください（舗装はアスファルト敷き10年・コンクリート敷き15年など。最終の判断は税理士にご確認ください）。入れなければ15年です" })
+          : plain({ key: `${kp}/equipmentLife`, item: "account.property", label: "建物附属設備の耐用年数", level: "detail", kind: "int", suffix: "年", min: 2, max: 50, find: findP, path: ["acquisition", "equipmentLife"], optional: true, fallback: equipmentLifeDefault(p), hint: (v) => (v === equipmentLifeDefault(p) ? equipmentLifeHint(p) : null), help: "定額法で減価償却します。入れなければ法定の15年（中古は建物と同じ経過年数で簡便法に直した年数）。入れたときは、その年数のまま使います" }),
         onAccount(a.id, "account.property", ["acquisition", "equipmentLife"]),
       ),
     );
