@@ -5,16 +5,20 @@
 // 改訂5: 年金から差し引く（特別徴収）かの判定で、表の最後の年の年度の、表の外の翌年2月の年金の支払いを、表の最後の月の支払いと同じ額とみなす（0003 の追記）
 // 改訂6（0165）: 亡くなった月より後に払う分（亡くなった人の分の残り）は、払う月の世帯主（遺族）の名にする（sdk の reassignAfterLeave。
 //   社会保険料控除も遺族に付く）
+// 改訂7（0171）: 万一の想定で亡くなる月の分はかけない（死亡の翌日に資格を失い、保険料はその前の月まで。介護保険法11条。sdk の insuranceEndMonth）。
+//   第1〜5段階（本人が非課税）の「その他の合計所得金額」は、給与所得から10万円を引く（令和6年1月の厚生労働省の事務連絡。sdk の careIncome）
 import {
   ageMonth,
   assessedPremium,
   boxValue,
   bracketFor,
+  careIncome,
   defineComponent,
   fiscalYearEnd,
   fiscalYearOf,
   fiscalYearStart,
   installmentFlows,
+  insuranceEndMonth,
   parseYm,
   PENSION_SPECIAL_MINIMUM,
   pensionSpecial,
@@ -40,14 +44,16 @@ const P = {
   selfExempt: `${PREFIX}.ratio.selfExempt`,
   householdExempt: `${PREFIX}.ratio.householdExempt`,
   fromAge: "socialInsurance.care.secondaryInsuredUntilAge",
+  /** 給与所得・公的年金等の雑所得から引く額（介護保険の所得の指標。0171） */
+  indicatorDeduction: "socialInsurance.care.incomeIndicator.salaryPensionDeduction",
 };
 
 export default defineComponent<{ member: string; fiscalYear: number }, { flows: Flow[] }>({
   id: "socialInsurance.careFirst",
   title: "介護保険料（第1号被保険者）",
   contract: "1.0",
-  revision: 6,
-  requires: { "residentTax.exemption": ">=1 <2", "tax.totalIncome": ">=1 <2", "tax.publicPensionIncome": ">=1 <2", "pension.oldAge": ">=1 <2" },
+  revision: 7,
+  requires: { "contingency.event": ">=1 <2", "residentTax.exemption": ">=1 <2", "tax.totalIncome": ">=1 <2", "tax.publicPensionIncome": ">=1 <2", "pension.oldAge": ">=1 <2" },
   params: [...Object.values(P), PENSION_SPECIAL_MINIMUM],
   reads: [
     "member.outside", "relation.type", "relation.a", "relation.b", "relation.from", "relation.to",
@@ -75,7 +81,8 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     // 年齢の値は、計算基準月より前の年度では計算基準月の値を使う
     const from = ageMonth(ctx, start < ctx.time.base ? ctx.time.base : start, P.fromAge, member);
     const me = ctx.get<MemberInput>("member", member);
-    const leaves = me.leaves === null ? null : ctx.time.resolve(me.leaves);
+    // 世帯から離れる月か、亡くなる月から（改訂7）
+    const leaves = insuranceEndMonth(ctx, me);
     let months = 0;
     for (let m = start; m <= fiscalYearEnd(fy); m = (m + 1) as typeof m) if (m >= from && (leaves === null || m < leaves)) months++;
     if (months === 0) return { flows: [] };
@@ -92,12 +99,15 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     const base = (override?.baseMonthly !== undefined ? boxValue(override.baseMonthly) : null) ?? at.paramYen(P.base) ?? yen(0);
     if (override?.baseMonthly === undefined) ctx.notice("N_DEFAULT_USED", [`${PREFIX}.nationalAverage`]);
     const exempt = (id: string) => ctx.call<ExemptionOutput>("residentTax.exemption", { member: id, fiscalYear: jy }).perCapitaExempt;
-    const total = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year: jy - 1 }).total;
+    const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year: jy - 1 });
+    const total = inc.total;
     let ratio: typeof RATE_ONE;
     if (!exempt(member)) ratio = bracketFor(at.paramBrackets(P.taxable) ?? [], total).rate ?? RATE_ONE;
     else {
+      // 公的年金等の収入金額＋その他の合計所得金額（給与所得から10万円を引く。改訂7）
       const pension = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", { member, year: jy - 1 });
-      const measure = yen(pension.revenue + (total - pension.income));
+      const other = careIncome({ ...inc, publicPension: pension.income }, at.has(P.indicatorDeduction) ? (at.paramYen(P.indicatorDeduction) ?? yen(0)) : yen(0)).other;
+      const measure = yen(pension.revenue + other);
       const dec = parseYm(`${jy - 1}-12`);
       const others = household
         .filter((m) => m.id !== member && parseYm(m.birth.birthYearMonth) <= dec && (m.leaves === null || ctx.time.resolve(m.leaves) > dec));

@@ -4,9 +4,13 @@
 // 休業の月は直前の勤め先の期間を引き継ぐ。FP は期間の employeeInsurance・employmentInsuranceCovered で上書きできる。
 // 役員（executive）は健康保険・厚生年金に入り（会社員と同じ）、雇用保険には入らない（失業・育児休業・高年齢雇用継続・介護休業の給付は出ない）。
 // 計算基準月より前の月は、計算基準月の要件で判定する（過去の要件の値を持たないため）
+// 改訂4（0171）: 万一の想定で亡くなる月は、健康保険・厚生年金に入らない（死亡の翌日に資格を失い、保険料はその前の月まで。健康保険法36条・
+//   厚生年金保険法14条。月の途中で辞めた月と同じ扱い）。雇用保険はその月の給与にかかるので変えない。
+//   約束の版 1.1: 期間に任意継続を書いた月に continuation を添える（家族の扶養の判定で、任意継続の人を扶養する人にする。socialInsurance.healthStatus）
 import {
   addMonths,
   boxValue,
+  deathMonthOf,
   defineComponent,
   EMPLOYEE_PENSION_KINDS,
   EMPLOYEE_TYPES,
@@ -70,9 +74,9 @@ function employmentCovered(ctx: Ctx, at: MonthCtx, p: EmploymentPeriodInput): bo
 export default defineComponent<{ member: string }, { months: EmployeeStatusMonth[] }>({
   id: "socialInsurance.employeeStatus",
   title: "勤め先の保険に入るか（働き方の期間から導く）",
-  contract: "1.0",
-  revision: 3,
-  requires: {},
+  contract: "1.1",
+  revision: 4,
+  requires: { "contingency.event": ">=1 <2" },
   params: [P.ratio, P.hours, P.wage, P.size, P.eiHours],
   reads: [
     "member.birth",
@@ -123,6 +127,9 @@ export default defineComponent<{ member: string }, { months: EmployeeStatusMonth
     };
     // 区間ごとの計算（0006 の追記）: 働き方の期間・計算基準月・要件の値の行が変わらない区間ごとに1回だけ判定し、区間の月に並べる
     const breaks: MonthIndex[] = [base];
+    // 亡くなる月（改訂4）
+    const death = deathMonthOf(ctx, input.member);
+    if (death !== null) breaks.push(death);
     for (const r of periods) {
       breaks.push(r.from);
       if (r.to !== null) breaks.push(r.to, addMonths(r.to, 1));
@@ -152,6 +159,8 @@ export default defineComponent<{ member: string }, { months: EmployeeStatusMonth
       }
       const emp = employerOf(r);
       const leave = r.p.type === "leave" ? r.p.leaveKind : undefined;
+      // 期間に書いた任意継続（亡くなる月からは添えない）
+      const continuation = r.p.healthInsurance?.kind === "continuation" && (death === null || m < death);
       let health = false;
       let pension = false;
       let employment = false;
@@ -161,7 +170,7 @@ export default defineComponent<{ member: string }, { months: EmployeeStatusMonth
         const override = boxValue(ep.employeeInsurance);
         const covered = override ?? (ep.type === "regular" || ep.type === "civilServant" || ep.type === "executive" ? true : shortTimeCovered(ctx, at, ep));
         // 月の途中で辞めると、最後の月は資格を失っている（月末に辞めればその月まで）
-        const lastMonthLost = r === emp && ep.endsOnMonthEnd === false && emp.to !== null && m === emp.to;
+        const lastMonthLost = (r === emp && ep.endsOnMonthEnd === false && emp.to !== null && m === emp.to) || (death !== null && m >= death);
         health = covered && !lastMonthLost && EMPLOYER_HEALTH_KINDS.has(ep.healthInsurance?.kind ?? "");
         pension = covered && !lastMonthLost && EMPLOYEE_PENSION_KINDS.has(ep.pensionCategory ?? "none");
         employment = employmentCovered(ctx, at, ep);
@@ -176,6 +185,7 @@ export default defineComponent<{ member: string }, { months: EmployeeStatusMonth
           health,
           pension,
           employment,
+          ...(continuation ? { continuation: true as const } : {}),
         });
       }
     }

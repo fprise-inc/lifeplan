@@ -1,0 +1,20 @@
+id: socialInsurance.nationalHealth.reduction.earnerPensionRevenueElderly
+title: 国民健康保険の軽減の判定の給与所得者等に数える公的年金等の収入金額の基準（65歳以上。この額を超える人）
+unit: JPY
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 1250000
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/333CO0000000362_20260801_508CO0000000240?response_format=xml", retrievedAt: "2026-11-08", sha256: "41e7dffd51eedd191464031e1e88e71ec62744e32f50ecabdd72ee4d503d0cfa", locator: "国民健康保険法施行令 附則第5条", quote: "「百十万円」とあるのは「百二十五万円」とする"}
+      - {type: "law", lawNumber: "昭和三十三年政令第三百六十二号", egovRevisionId: "333CO0000000362_20260801_508CO0000000240"}
+    recordedIn: "2026.12.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "本則の65歳以上の110万円を、附則（公的年金等所得に係る保険料の減額賦課の特例）で125万円に読み替える（当分の間）。原本（e-Gov法令API の条文の XML）の本文と sha256 を機械で照合した（2026-11-08）。2つ目の読み方（自治体・広域連合の説明）はまだ無いので確認待ち。照合: Claude Opus 5.5"}

@@ -22,11 +22,19 @@
 // 改訂5: 介護を受ける人が亡くなった後（離れた後）は出さない。世帯の外の家族の亡くなる見込み・構成員の離れる月（leaves）の月から、
 //   万一の想定で介護を受ける人が亡くなるときはその月の翌月から（期間・一時費用が残っていても）。今までは期間の終わりまで出していた
 // 改訂6（0164）: 在宅か施設か（place）の省略は在宅の統計の月額にする（前は在宅と施設を合わせた平均。表の行は前から在宅の行で、画面も在宅と見せていた）
+// 改訂7（0171）:
+// - 所得の指標は、給与所得・公的年金等の雑所得から10万円を引く（令和6年1月の厚生労働省の事務連絡「介護保険制度における所得指標の取扱いについて」。
+//   本人の合計所得金額は給与所得と年金の所得の合計から10万円まで、「その他の合計所得金額」は給与所得から10万円まで。sdk の careIncome）
+// - 高額介護サービス費の上限の課税所得は、住民税の課税所得（市町村民税の総所得金額等から所得控除をした後の額。22条の2の2第5項）。前は所得税の
+//   課税所得で、基礎控除の差（令和7・8年の引き上げ）の分だけ低く判定していた。住民税の決定通知書の額を入れた年度（途中の値が無い）は、
+//   所得税の課税所得で近似する。19歳未満の扶養親族の分を引く決まり（同項）は入れない（65歳以上の人の扶養親族に
+//   19歳未満の人がいる形はまれ）
 import {
   addMonths,
   ageMonth,
   boxValue,
   bracketFor,
+  careIncome,
   contingencyRatio,
   defineComponent,
   fiscalYearOf,
@@ -50,6 +58,7 @@ import {
   type MonthIndex,
   type Rate,
   type RelationInput,
+  type ResidentTaxOutput,
   type TotalIncomeOutput,
   type Yen,
 } from "../../sdk/index.ts";
@@ -76,17 +85,19 @@ const P = {
   capExempt: "socialInsurance.care.highCostService.exemptLimit",
   capPersonal: "socialInsurance.care.highCostService.exemptPersonalLimit",
   personalIncome: "socialInsurance.care.highCostService.exemptPersonalIncomeLimit",
+  indicatorDeduction: "socialInsurance.care.incomeIndicator.salaryPensionDeduction",
 };
 
 export default defineComponent<Record<string, never>, FlowsResult>({
   id: "care.expense",
   title: "介護の費用（自己負担割合・高額介護サービス費）",
   contract: "1.0",
-  revision: 6,
+  revision: 7,
   requires: {
     "contingency.event": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
     "incomeTax.annual": ">=1 <2",
+    "residentTax.annual": ">=1 <2",
     "residentTax.exemption": ">=1 <2",
     "pension.oldAge": ">=1 <2",
   },
@@ -151,11 +162,16 @@ export default defineComponent<Record<string, never>, FlowsResult>({
     // 自己負担割合と上限（介護を受ける人×判定の年・年度×世帯の顔ぶれと65歳以上の人）
     const cache = new Map<string, { ratio: Rate; cap: Yen | null }>();
     // 公的年金等の収入金額＋（合計所得金額−公的年金等の雑所得）（その年）
-    const pensionAndOther = (member: string, year: number): number => {
+    // 給与所得・公的年金等の雑所得から引く額（改訂7）
+    const indicatorDeduction = (m: MonthIndex): Yen => {
+      const at = ctx.at(m);
+      return at.has(P.indicatorDeduction) ? (at.paramYen(P.indicatorDeduction) ?? yen(0)) : yen(0);
+    };
+    const pensionAndOther = (member: string, year: number, m: MonthIndex): number => {
       const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year });
       let revenue = 0;
       for (const p of ctx.callMonths<{ ym: string; amount: Yen }>("pension.oldAge", { member }, "payments", monthIndex(year, 1), monthIndex(year, 12))) revenue += p.amount;
-      return revenue + inc.total - (inc.publicPension ?? 0);
+      return revenue + careIncome(inc, indicatorDeduction(m)).other;
     };
     const ruleOf = (member: string, m: MonthIndex): { ratio: Rate; cap: Yen | null } => {
       const y = yearOf(m);
@@ -175,12 +191,13 @@ export default defineComponent<Record<string, never>, FlowsResult>({
       let ratio = at.paramRate(P.r1) ?? RATE_ZERO;
       // 65歳以上（第1号）で住民税が課税される人だけ所得で判定（22条の2第4項2号・第7項2号）
       if (firsts.includes(member) && !exempt(member)) {
-        const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year: incomeYear });
-        const measure = firsts.reduce((sum, id) => sum + pensionAndOther(id, incomeYear), 0);
+        // 本人の合計所得金額（給与所得と年金の所得から10万円を引く。改訂7）
+        const total = careIncome(ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year: incomeYear }), indicatorDeduction(m)).total;
+        const measure = firsts.reduce((sum, id) => sum + pensionAndOther(id, incomeYear, m), 0);
         const couple = firsts.length > 1;
         const v = (id: string) => at.paramYen(id) ?? yen(Number.MAX_SAFE_INTEGER);
-        if (inc.total >= v(P.i3) && measure >= v(couple ? P.c3 : P.s3)) ratio = at.paramRate(P.r3) ?? ratio;
-        else if (inc.total >= v(P.i2) && measure >= v(couple ? P.c2 : P.s2)) ratio = at.paramRate(P.r2) ?? ratio;
+        if (total >= v(P.i3) && measure >= v(couple ? P.c3 : P.s3)) ratio = at.paramRate(P.r3) ?? ratio;
+        else if (total >= v(P.i2) && measure >= v(couple ? P.c2 : P.s2)) ratio = at.paramRate(P.r2) ?? ratio;
       }
       // 高額介護サービス費の上限
       let cap: Yen | null;
@@ -190,13 +207,21 @@ export default defineComponent<Record<string, never>, FlowsResult>({
         // 個人の上限（15,000円）: 本人の年金収入等が基準以下（同条第9項）
         const personal = at.has(P.capPersonal) ? at.paramYen(P.capPersonal) : null;
         const limit = at.has(P.personalIncome) ? at.paramYen(P.personalIncome) : null;
-        if (personal !== null && limit !== null && (cap === null || personal < cap) && pensionAndOther(member, incomeYear) <= limit) cap = personal;
+        if (personal !== null && limit !== null && (cap === null || personal < cap) && pensionAndOther(member, incomeYear, m) <= limit) cap = personal;
       } else {
-        // 世帯の65歳以上の人のいずれかの課税所得（同条第5項・第6項）。所得税の年税額は計算基準年からしか計算しないので、
-        // 計算基準年の前年の所得で判定する月は計算基準年の課税所得で近似する
+        // 世帯の65歳以上の人のいずれかの住民税の課税所得（同条第5項・第6項。改訂7）。その所得の年の翌年度の住民税の課税所得を使う。
+        // 決定通知書の額を入れた年度（途中の値が無い）は、所得税の課税所得で近似する（所得税の年税額は計算基準年からしか計算しないので、
+        // 計算基準年の前年の所得で判定する月は計算基準年の課税所得）
         const table = at.paramBrackets(P.cap);
         const taxYear = Math.max(incomeYear, yearOf(base));
-        const taxable = firsts.reduce((top, id) => Math.max(top, ctx.call<IncomeTaxOutput>("incomeTax.annual", { member: id, year: taxYear }).taxable), 0);
+        const taxableOf = (id: string): number => {
+          if (incomeYear >= yearOf(base) - 1) {
+            const r = ctx.call<ResidentTaxOutput>("residentTax.annual", { member: id, fiscalYear: incomeYear + 1 });
+            if (!r.assessed) return r.taxable;
+          }
+          return ctx.call<IncomeTaxOutput>("incomeTax.annual", { member: id, year: taxYear }).taxable;
+        };
+        const taxable = firsts.reduce((top, id) => Math.max(top, taxableOf(id)), 0);
         cap = table === null ? null : (bracketFor(table, yen(taxable)).amount ?? null);
       }
       const out = { ratio, cap };

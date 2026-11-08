@@ -443,7 +443,7 @@ describe("介護の自己負担割合・高額介護サービス費の判定の�
   type Stub = {
     /** 構成員×年の合計所得金額（公的年金等の雑所得は0とみなし、年金の収入も0にする。年金収入＋その他の合計所得＝合計所得金額） */
     total?: (member: string, year: number) => number;
-    /** 構成員×年の課税所得 */
+    /** 構成員×年の課税所得（所得税と、その翌年度の住民税の課税所得の両方。0171 から高額介護サービス費は住民税の課税所得で判定する） */
     taxable?: (member: string, year: number) => number;
     /** 構成員×年度の住民税の非課税 */
     exempt?: (member: string, fiscalYear: number) => boolean;
@@ -456,6 +456,11 @@ describe("介護の自己負担割合・高額介護サービス費の判定の�
     "incomeTax.annual": (i: unknown) => {
       const { member: m, year } = i as { member: string; year: number };
       return { flows: [], total: 0, taxable: s.taxable?.(m, year) ?? 0, computedTax: 0, reconstructionSurtax: 0, defenseSurtax: 0 };
+    },
+    "residentTax.annual": (i: unknown) => {
+      const { member: m, fiscalYear } = i as { member: string; fiscalYear: number };
+      const pair = { municipal: 0, prefectural: 0 };
+      return { flows: [], total: 0, assessed: false, taxable: s.taxable?.(m, fiscalYear - 1) ?? 0, grossLevy: pair, adjustmentCredit: pair, incomeLevy: pair, perCapita: pair, forestEnvironmentTax: 0 };
     },
     "residentTax.exemption": (i: unknown) => {
       const { member: m, fiscalYear } = i as { member: string; fiscalYear: number };

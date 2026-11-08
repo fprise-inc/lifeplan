@@ -1,0 +1,20 @@
+id: socialInsurance.lateElderly.reduction.earnerPensionRevenueElderly
+title: 後期高齢者医療の軽減の判定の給与所得者等に数える公的年金等の収入金額の基準（65歳以上。この額を超える人）
+unit: JPY
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 1250000
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/419CO0000000318_20261001_508CO0000000274?response_format=xml", retrievedAt: "2026-11-08", sha256: "f611fa60cc026aae772a0d355de661717586d417697a940c6fd57ec3180da973", locator: "高齢者の医療の確保に関する法律施行令 附則第3条", quote: "「百十万円」とあるのは「百二十五万円」と"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20261001_508CO0000000274"}
+    recordedIn: "2026.12.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "本則の65歳以上の110万円を、附則（公的年金等所得に係る保険料の減額賦課の特例）で125万円に読み替える（当分の間）。原本（e-Gov法令API の条文の XML）の本文と sha256 を機械で照合した（2026-11-08）。2つ目の読み方（自治体・広域連合の説明）はまだ無いので確認待ち。照合: Claude Opus 5.5"}

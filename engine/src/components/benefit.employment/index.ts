@@ -12,6 +12,9 @@
 // 日数は月単位の近似で1か月を30日とみなす（PR の提案）。給付金は2か月分ずつ、その2か月の次の月に払う。時短の給付は翌月
 // 改訂5（0169）: 世帯に配偶者の関係が無くても、構成員の欄 maritalStatus が「婚姻している（別居など）」なら配偶者がいるとみなす。
 //   世帯の外の配偶者の育児休業は分からないので、出生後休業支援給付の配偶者の要件を満たさないとして出さない
+// 改訂6（0171）: 出生後休業支援給付の対象期間は、子の出生から8週間（2か月の近似）。産後休業をした人（子の出生の月に自分が産前産後休業）は
+//   16週間（4か月の近似。雇用保険法61条の10。制度データ employmentInsurance.postBirthBenefit.withinMonthsAfterMaternity）。前は母も2か月で、
+//   産後休業に続く母の育児休業に出なかった
 import {
   addMonths,
   addYen,
@@ -44,6 +47,7 @@ const P = {
   postRate: "employmentInsurance.postBirthBenefit.rate",
   postDays: "employmentInsurance.postBirthBenefit.days",
   postWithin: "employmentInsurance.postBirthBenefit.withinMonths",
+  postWithinMaternity: "employmentInsurance.postBirthBenefit.withinMonthsAfterMaternity",
   shortRate: "employmentInsurance.shortHoursBenefit.rate",
   shortLimit: "employmentInsurance.shortHoursBenefit.monthlyLimit",
   shortUntil: "employmentInsurance.shortHoursBenefit.childUntilAge",
@@ -58,7 +62,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
   id: "benefit.employment",
   title: "雇用保険の育児・介護の給付",
   contract: "1.0",
-  revision: 5,
+  revision: 6,
   requires: { "socialInsurance.employeeStatus": ">=1 <2", "income.salary": ">=1 <2" },
   params: Object.values(P),
   reads: [
@@ -153,7 +157,10 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
       const postRate = at.paramRate(P.postRate);
       if (child !== undefined && within !== null && postRate !== null) {
         const birth = parseYm(child.birth.birthYearMonth);
-        if (from >= birth && from < addMonths(birth, within) && spouseCondition(child, within)) {
+        // 子の出生の月に自分が産前産後休業（産後休業をした人）なら16週間（改訂6）
+        const afterMaternity = status.some((s) => s.month === child.birth.birthYearMonth && s.leave === "maternity");
+        const own = afterMaternity && at.has(P.postWithinMaternity) ? (at.paramCount(P.postWithinMaternity) ?? within) : within;
+        if (from >= birth && from < addMonths(birth, own) && spouseCondition(child, within)) {
           const days = at.paramCount(P.postDays) ?? 0;
           pays.push({ m: from, amount: ctx.money.mulRate(ctx.money.mulRatio(daily, days, 1, "conv.exact"), postRate, "conv.benefit.daily"), formula: "benefit.employment.postBirth", object: p.id });
         }

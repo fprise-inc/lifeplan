@@ -6,6 +6,7 @@
 // - employee: 遺族厚生年金（配偶者は夫なら死亡の当時55歳以上。30歳未満で子の無い妻は5年まで）
 // - 改訂2（0170）: 配偶者が死亡の当時55歳未満の夫なら、子が遺族厚生年金の受給権を得る（遺族基礎年金は夫が受け、子の分は止まるので出さない）
 // 寡婦年金（60歳から65歳になるまで）は65歳で消えるので、繰下げの判定には関わらず、ここでは出さない
+// 改訂3（0171）: 短期要件と加入の月数の数え方を pension.survivor の改訂7 と同じにした（sdk の survivorBasis）
 import {
   defineComponent,
   formatYm,
@@ -21,8 +22,8 @@ export default defineComponent<{ member: string }, SurvivorRightOutput>({
   id: "pension.survivorRight",
   title: "遺族年金の受給権",
   contract: "1.0",
-  revision: 2,
-  requires: { "contingency.event": ">=1 <2", "pension.record": ">=1 <2" },
+  revision: 3,
+  requires: { "contingency.event": ">=1 <2", "pension.record": ">=1 <2", "socialInsurance.employeeStatus": ">=1 <2" },
   params: Object.values(SURVIVOR_BASIS_PARAMS),
   reads: ["member.kind", "member.birth", "member.sex", "relation.type", "relation.a", "relation.b", "relation.from", "relation.to", "relation.parent", "relation.child"],
   input: "member.input",

@@ -218,12 +218,13 @@ describe("R1 遺族年金", () => {
     req.input.contingencies = [{ id: uid("r1.cg"), kind: "death", member: W, occurs: { at: "2027-01" } }];
     const out = runEngine(req, realPacks(), { entry: { component: "pension.survivor", input: { member: H } } }).entryOutput as Any;
     const m = out.months.find((x: Any) => x.month === "2027-06");
-    expect(m.employee).toBe(0); // 前は 513,305 円（夫は死亡の当時42歳で遺族厚生年金の遺族でない）
+    expect(m.employee).toBe(0); // 前は 513,305 円（0171 の後なら 513,341 円）（夫は死亡の当時42歳で遺族厚生年金の遺族でない）
     expect(m.basic).toBeGreaterThan(0); // 遺族基礎年金は夫が受ける
     // 遺族厚生年金は子が受け取る（額は同じ）
     const kid = runEngine(req, realPacks(), { entry: { component: "pension.survivor", input: { member: K } } }).entryOutput as Any;
     const k = kid.months.find((x: Any) => x.month === "2027-06");
-    expect(k.employee).toBe(513_305);
+    // 0171 から死亡の月（2027-01）は加入の記録に入らない（平均標準報酬額から外れて 513,305 → 513,341 円。300月のみなし）
+    expect(k.employee).toBe(513_341);
     expect(k.basic).toBe(0);
   });
 });

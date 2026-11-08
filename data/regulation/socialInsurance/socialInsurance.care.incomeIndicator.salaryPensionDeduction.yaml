@@ -1,0 +1,21 @@
+id: socialInsurance.care.incomeIndicator.salaryPensionDeduction
+title: 介護保険の所得の指標で給与所得・公的年金等に係る所得から引く額（自己負担割合・高額介護サービス費・第1〜5段階の保険料）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2021-08-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 100000
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/410CO0000000412_20261001_508CO0000000274?response_format=xml", retrievedAt: "2026-11-08", sha256: "666ede0602c34022f4580976538c0f9ff0bf973c41cb852ff334303f6a5d6ec3", locator: "介護保険法施行令 第22条の2第1項", quote: "同法第二十八条第二項の規定によって計算した金額及び同法第三十五条第二項第一号の規定によって計算した金額の合計額から十万円を控除して得た額"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/410CO0000000412_20261001_508CO0000000274?response_format=xml", retrievedAt: "2026-11-08", sha256: "666ede0602c34022f4580976538c0f9ff0bf973c41cb852ff334303f6a5d6ec3", locator: "介護保険法施行令 第22条の2第4項第1号", quote: "その控除前の金額）から十万円を控除して得た額"}
+      - {type: "law", lawNumber: "平成十年政令第四百十二号", egovRevisionId: "410CO0000000412_20261001_508CO0000000274"}
+    recordedIn: "2026.12.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "合計所得金額の給与所得と公的年金等に係る所得の合計から10万円、「その他の合計所得金額」の給与所得（所得金額調整控除の前）から10万円。第1〜5段階の保険料は同じ扱い（令和6年1月の厚生労働省の事務連絡）だが、その条文（施行令38条）は照合していない。施行日は令和3年8月の近似。原本（e-Gov法令API の条文の XML）の本文と sha256 を機械で照合した（2026-11-08）。2つ目の読み方（自治体・広域連合の説明）はまだ無いので確認待ち。照合: Claude Opus 5.5"}
