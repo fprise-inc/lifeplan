@@ -164,12 +164,12 @@ describe("推定の根拠の頭は「既定の値」（前の「目安のボタ�
   });
 
   it("ほかのローンの種類を変えると、前の文（目安のボタンの値）のままの金利も新しい種類の目安に入れ直す", () => {
-    const wh0 = newOtherLoan(blankHousehold("2026-11", seq()), "cardLoan");
+    const wh0 = newOtherLoan(blankHousehold("2026-11", seq()), "scholarship");
     const d = (wh0.request.input.household.debts ?? []).at(-1) as Debt;
     const a = { target: { object: d.id }, item: "debt.rateSchedule", at: [d.rateSchedule[0]?.id as string, "rate"] };
-    const wh = mutate(wh0, (_h, req) => void putRow(req.input as unknown as Record<string, unknown>, a, { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "目安のボタンの値（カードローン・リボ 年15%。わかれば直してください）" } }));
+    const wh = mutate(wh0, (_h, req) => void putRow(req.input as unknown as Record<string, unknown>, a, { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "目安のボタンの値（今返している奨学金の利率の目安 年0.75%。わかれば直してください）" } }));
     const sub = fieldOf(wh, "housing", new RegExp(`${d.id}.*/subtype$`));
-    const next = sub.set(wh, "scholarship");
+    const next = sub.set(wh, "scholarshipFree");
     const nd = (next.request.input.household.debts ?? []).find((x) => x.id === d.id) as Debt;
     expect(nd.rateSchedule[0]?.rate).not.toBe(d.rateSchedule[0]?.rate);
     expect(rowAt(next.request.input as unknown as Record<string, unknown>, a)?.estimate?.basis).toMatch(/^既定の値（/);
