@@ -12,7 +12,7 @@ import { docRequests, docRequestTitles } from "../input/docRequests.ts";
 import { WebBuilder, type OfficeLook } from "./WebBuilder.tsx";
 import { WebRequests } from "./WebRequests.tsx";
 import { markImported, sentAtText, type HearingTemplate } from "./web.ts";
-import { applyImport, approvalTime, CUSTOMER_NO_PATTERN, defaultSelection, exportSheet, importSheet, randomBytes, sheetFor, SHEET_KINDS, withRequest, type CandidateView, type FieldView, type ImportView, type Issue, type SheetKind } from "./sheet.ts";
+import { applyImport, approvalTime, CUSTOMER_NO_PATTERN, defaultSelection, defaultWorkModes, exportSheet, importSheet, randomBytes, sheetFor, SHEET_KINDS, withRequest, workChangeTexts, type CandidateView, type FieldView, type ImportView, type Issue, type SheetKind, type WorkChangeMode } from "./sheet.ts";
 
 interface Props {
   wh: WorkingHousehold;
@@ -89,6 +89,32 @@ function FieldRow({ f }: { f: FieldView }) {
           ) : null}
         </dd>
       ) : null}
+    </div>
+  );
+}
+
+/** 働き方の種類が変わった候補の、承認の入れ方（今の期間を置きかえる・今の期間を終えて足す） */
+function WorkChoice({ c, mode, onMode }: { c: CandidateView; mode: WorkChangeMode; onMode: (m: WorkChangeMode) => void }) {
+  if (c.work === null) return null;
+  const t = workChangeTexts(c.work);
+  return (
+    <div class="hs-work" data-hearing-work={mode}>
+      <p class="hs-keep">{t.head}</p>
+      {t.split !== null ? (
+        <div class="hs-work-modes" role="radiogroup" aria-label="承認したときの入れ方">
+          <label>
+            <input type="radio" name={`work-${c.id}`} checked={mode === "split"} onChange={() => onMode("split")} data-hearing-work-mode="split" /> {t.split}
+          </label>
+          <label>
+            <input type="radio" name={`work-${c.id}`} checked={mode === "replace"} onChange={() => onMode("replace")} data-hearing-work-mode="replace" /> {t.replace}
+          </label>
+        </div>
+      ) : null}
+      {t.notes.map((n, i) => (
+        <p class="rp-note" key={i}>
+          {n}
+        </p>
+      ))}
     </div>
   );
 }
@@ -207,6 +233,8 @@ function ExportPanel({ wh, sheets, onSave, onClose }: Props & { onClose: () => v
 
 function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt }: { wh: WorkingHousehold; view: ImportView; onSave: (w: WorkingHousehold) => void; onClose: (msg: string | null) => void; heading?: string; sentAt?: string }) {
   const [sel, setSel] = useState<Set<string>>(() => defaultSelection(view));
+  /** 働き方の種類が変わった候補の入れ方（置きかえる・終えて足す。0139 の追記 2026-11-07） */
+  const [modes, setModes] = useState<Map<string, WorkChangeMode>>(() => defaultWorkModes(view));
   const count = (k: CandidateView["kind"]) => view.candidates.filter((c) => c.kind === k).length;
   const toggle = (id: string, on: boolean) =>
     setSel((s) => {
@@ -216,7 +244,7 @@ function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt }: { wh: Worki
       return n;
     });
   const approve = () => {
-    const r = applyImport(wh, view, sel, approvalTime());
+    const r = applyImport(wh, view, sel, approvalTime(), modes);
     onSave(r.wh);
     onClose(`${r.added + r.replaced}件を現状に入れました（新規 ${r.added}件・変更 ${r.replaced}件）${r.skipped.length > 0 ? `。入れなかったもの: ${r.skipped.join("、")}` : ""}`);
   };
@@ -266,14 +294,16 @@ function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt }: { wh: Worki
                     {c.keep}
                   </p>
                 ) : null}
-                {c.caution !== null ? (
+                {c.caution !== null && !(c.work !== null && (modes.get(c.id) ?? c.work.mode) === "split") ? (
                   <p class="hs-keep" data-hearing-caution>
                     {c.caution}
                   </p>
                 ) : null}
+                {c.work !== null ? <WorkChoice c={c} mode={modes.get(c.id) ?? c.work.mode} onMode={(m) => setModes((s) => new Map(s).set(c.id, m))} /> : null}
                 <dl class="hs-fields">
                   {c.fields.map((f, i) => (
-                    <FieldRow key={i} f={f} />
+                    // 「終えて足す」は今の期間を置きかえないので、「今 → 届いた値」は出さない（届いた働き方の期間を新しく足す）
+                    <FieldRow key={i} f={c.work !== null && (modes.get(c.id) ?? c.work.mode) === "split" ? { ...f, diffs: [] } : f} />
                   ))}
                 </dl>
                 {c.note !== null ? <p class="rp-note">{c.note}</p> : null}
