@@ -19,7 +19,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use ai_share::clock::{iso8601, Clock, SystemClock};
 use ai_share::registry::ShareStatus;
@@ -45,17 +45,24 @@ pub const DURATIONS_MIN: [u32; 5] = [15, 60, 120, 240, 480];
 const MAX_DESTINATION_CHARS: usize = 60;
 /// 裏の見回りの間隔（期限切れを閉じる・届いた候補を入れる・記録を世帯ファイルへ書き戻す）
 const TICK: Duration = Duration::from_secs(2);
+/// 同じ中身の読み取りが続いただけ（読まれた記録の回数と最後の日時だけの変化）は、前に書いてからこの間をおいて書く
+/// （読まれるたびに世帯ファイルの世代を進めない。終わるとき・ほかの記録が変わったときはすぐ書く）
+const READ_COUNTS_EVERY: Duration = Duration::from_secs(60);
 
 struct Entry {
     book: HouseholdBook,
     /// 世帯の一覧に出す構成の要約（保存のときに要る）
     summary: String,
+    /// この起動で、記録を世帯ファイルへ最後に書いた時（読まれた回数だけの変化を間引くため）
+    written_at: Option<Instant>,
 }
 
 pub struct AiState {
     registry: Arc<ShareRegistry>,
     /// 開いた世帯ごとの帳面。帳面を変えるときと、世帯ファイルへ書き戻すときは、このロックを持ったまま行う
     books: Mutex<HashMap<String, Entry>>,
+    /// 捨てた帳面（`forget`）。次にその世帯を開いたとき、世帯ファイルに無い AI の候補を引き継ぐためだけに持つ（書き戻さない）
+    parked: Mutex<HashMap<String, HouseholdBook>>,
     endpoint: Mutex<Option<AppEndpoint>>,
     problem: Mutex<Option<String>>,
     runtime_dir: PathBuf,
@@ -81,6 +88,7 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AiState, Box<dyn std::erro
     Ok(AiState {
         registry,
         books: Mutex::new(HashMap::new()),
+        parked: Mutex::new(HashMap::new()),
         endpoint: Mutex::new(None),
         problem: Mutex::new(None),
         runtime_dir,
@@ -117,27 +125,45 @@ impl AiState {
         &self.registry
     }
 
-    /// 世帯を開いた: 帳面を作り（同じ起動で2回目なら、持っている記録を使う）、画面に返す本文からアプリだけが書く区画を外す
+    /// 世帯を開いた: 世帯ファイルの中身で帳面を作り（同じ起動で前に開いた世帯でも作り直す。もう1台の PC が記録した同意・
+    /// 撤回・候補の判断を読むため）、画面に返す本文からアプリだけが書く区画を外す。
+    /// AIに渡した記録は、世帯ファイルの記録の後ろにこの起動の記録を足して合わせる（共有の台帳の `load_records`）。
+    /// 共有中なら、渡す中身と同意を開いた世帯に合わせる（同意が無くなっていれば、その場で閉じる）
     pub fn on_opened(&self, mut o: Opened, summary: String) -> Result<Opened, String> {
-        let (book, screen) =
+        let (mut book, screen) =
             HouseholdBook::from_opened(&o.id, Some(o.customer_no.clone()), o.generation, &o.body)
                 .map_err(str::to_owned)?;
         let mut books = lock(&self.books);
-        match books.get_mut(&o.id) {
-            Some(e) => {
-                e.book.replace_body(&screen).map_err(str::to_owned)?;
-                e.book.generation = o.generation;
-                e.book.customer_no = Some(o.customer_no.clone());
-                e.summary = summary;
+        let earlier = books
+            .remove(&o.id)
+            .map(|e| e.book)
+            .or_else(|| lock(&self.parked).remove(&o.id));
+        if let Some(earlier) = earlier {
+            book.carry_candidates_from(&earlier);
+        }
+        self.registry
+            .load_records(&o.id, book.file_ai_shares.clone());
+        let active = self.registry.active_share_ids(&o.id);
+        match book.source() {
+            Some(src) => {
+                for sid in &active {
+                    self.registry.update_source(sid, src.clone());
+                }
             }
             None => {
-                if !self.registry.has_records(&o.id) {
-                    self.registry
-                        .load_records(&o.id, book.file_ai_shares.clone());
+                for sid in &active {
+                    self.registry.revoke(sid);
                 }
-                books.insert(o.id.clone(), Entry { book, summary });
             }
         }
+        books.insert(
+            o.id.clone(),
+            Entry {
+                book,
+                summary,
+                written_at: None,
+            },
+        );
         o.body = screen;
         Ok(o)
     }
@@ -172,9 +198,13 @@ impl AiState {
         Ok(saved)
     }
 
-    /// 分岐を選んだ後など、世帯ファイルの中身で帳面を作り直すとき: 持っている帳面を捨てる（次の on_opened で作り直す）
+    /// 分岐を選んだ後・世帯を移した後など、世帯ファイルの中身で帳面を作り直すとき: 持っている帳面を捨てる
+    /// （裏の見回りが古い帳面を書き戻さないように。次の on_opened で作り直し、世帯ファイルに無い AI の候補だけ引き継ぐ）
     pub fn forget(&self, id: &str) {
-        lock(&self.books).remove(id);
+        let e = lock(&self.books).remove(id);
+        if let Some(e) = e {
+            lock(&self.parked).insert(id.to_owned(), e.book);
+        }
     }
 
     /// 事務所の作業フォルダ（AIの受け口の場所）。共有フォルダに選ばせない場所の1つ（0023 の8）
@@ -188,13 +218,28 @@ impl AiState {
             self.registry.revoke(&sid);
         }
         lock(&self.books).remove(id);
+        lock(&self.parked).remove(id);
     }
 
     /// 帳面のうち、まだ書いていない記録を世帯ファイルへ書き戻す（ロックを持った呼び出し元から）
     fn persist_locked(&self, store: &Store, books: &mut HashMap<String, Entry>) {
+        self.persist_where(store, books, true);
+    }
+
+    /// 書き戻す。`now` でないとき（裏の見回り）は、読まれた回数だけの変化を間引く。間引いた世帯があれば false
+    fn persist_where(&self, store: &Store, books: &mut HashMap<String, Entry>, now: bool) -> bool {
+        let mut all = true;
         for (id, e) in books.iter_mut() {
             let records = self.registry.records(id);
             if !e.book.is_dirty(&records) {
+                continue;
+            }
+            if !now
+                && e.book.only_read_counts_moved(&records)
+                && e.written_at
+                    .is_some_and(|t| t.elapsed() < READ_COUNTS_EVERY)
+            {
+                all = false;
                 continue;
             }
             let Ok(composed) = e.book.compose(&records) else {
@@ -202,8 +247,10 @@ impl AiState {
             };
             if let Ok(saved) = store.save(id, &composed, &e.summary) {
                 e.book.mark_saved(&records, saved.generation);
+                e.written_at = Some(Instant::now());
             }
         }
+        all
     }
 
     fn persist_all(&self, store: &Store) {
@@ -212,11 +259,11 @@ impl AiState {
     }
 
     /// 裏の見回り（2秒ごと）: 期限切れを閉じ、届いた候補を帳面に入れ、記録を世帯ファイルへ書き戻す
-    fn tick(&self, store: &Store, last_revision: &mut u64) {
+    fn tick(&self, store: &Store, w: &mut Watch) {
         self.registry.sweep_expired();
         let proposals = self.registry.take_proposals();
         let revision = self.registry.revision();
-        if proposals.is_empty() && revision == *last_revision {
+        if proposals.is_empty() && revision == w.revision && !w.waiting {
             return;
         }
         let mut books = lock(&self.books);
@@ -225,8 +272,8 @@ impl AiState {
                 e.book.add_candidate(p);
             }
         }
-        self.persist_locked(store, &mut books);
-        *last_revision = revision;
+        w.waiting = !self.persist_where(store, &mut books, false);
+        w.revision = revision;
     }
 
     /// 受け口を開ける（設定がオンで、まだ開いていないとき）
@@ -262,11 +309,37 @@ impl AiState {
     }
 }
 
+/// 裏の見回りが覚えておくこと
+#[derive(Default)]
+struct Watch {
+    /// 前に見た、記録が変わった回数
+    revision: u64,
+    /// 読まれた回数だけの変化を、まだ書いていない世帯がある（間をおいて書く）
+    waiting: bool,
+}
+
+#[cfg(test)]
+impl AiState {
+    pub(crate) fn for_test(dir: &Path) -> AiState {
+        let registry = Arc::new(ShareRegistry::new());
+        registry.require_consent(true);
+        AiState {
+            registry,
+            books: Mutex::new(HashMap::new()),
+            parked: Mutex::new(HashMap::new()),
+            endpoint: Mutex::new(None),
+            problem: Mutex::new(None),
+            runtime_dir: dir.join("run"),
+            app_version: "0.1.0".into(),
+        }
+    }
+}
+
 /// 裏の見回りを始める（アプリの起動時に1回）
 pub fn start_watch<R: Runtime>(app: &AppHandle<R>) {
     let app = app.clone();
     std::thread::spawn(move || {
-        let mut last = 0u64;
+        let mut last = Watch::default();
         loop {
             std::thread::sleep(TICK);
             let ai = app.state::<AiState>();
@@ -736,5 +809,310 @@ mod tests {
             DURATIONS_MIN.iter().all(|m| *m > 0 && *m <= 8 * 60),
             "最長8時間"
         );
+    }
+
+    // ---------------------------------------------------------------- 同意とAIの記録と、世帯の保存のつなぎ
+    // （もう1台の PC は、同じデータフォルダを別の保存の部品と帳面で開いて代わりにする）
+
+    use household_store::{CreateOptions, CreateRequest, ForkChoice, MemorySecretStore};
+
+    struct Pc {
+        store: Store,
+        ai: AiState,
+    }
+
+    fn root(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "financia-ai-{name}-{}-{}",
+            std::process::id(),
+            SystemClock.now_ms()
+        ))
+    }
+
+    fn pc(root: &Path, secrets: &Arc<MemorySecretStore>) -> Pc {
+        let store = Store::new(
+            root.to_path_buf(),
+            secrets.clone(),
+            household_store::SystemClock,
+            "0.1.0-test",
+        );
+        store.status().unwrap();
+        Pc {
+            store,
+            ai: AiState::for_test(root),
+        }
+    }
+
+    fn model_input() -> serde_json::Value {
+        let s = crate::engine::household("single25").expect("モデル世帯");
+        serde_json::from_str::<serde_json::Value>(s).unwrap()["input"].clone()
+    }
+
+    fn body() -> String {
+        serde_json::json!({ "household": { "request": { "input": model_input() } } }).to_string()
+    }
+
+    fn consent(decision: &str) -> ExternalAiConsentInput {
+        serde_json::from_value(serde_json::json!({
+            "decision": decision, "obtainedOn": "2026-11-01", "method": "paper",
+            "company": "A社", "country": "米国", "noTrainingConfirmed": true, "fpConfirmed": true
+        }))
+        .unwrap()
+    }
+
+    impl Pc {
+        fn open(&self, id: &str) -> Opened {
+            self.ai
+                .on_opened(self.store.open(id).unwrap(), "本人".into())
+                .unwrap()
+        }
+
+        /// ai_consent_record と同じ順
+        fn record(&self, id: &str, decision: &str) {
+            let mut books = lock(&self.ai.books);
+            books
+                .get_mut(id)
+                .unwrap()
+                .book
+                .record_consent(
+                    &consent(decision),
+                    "2026-11-07",
+                    "2026-11-07T00:00:00Z",
+                    None,
+                )
+                .unwrap();
+            if decision != "given" {
+                self.ai.registry.withdraw_consent(id);
+            }
+            self.ai.persist_locked(&self.store, &mut books);
+        }
+
+        fn state(&self, id: &str) -> String {
+            view(&self.ai, &lock(&self.ai.books), id)
+                .unwrap()
+                .consent_state
+        }
+
+        /// ai_share_start と同じ確かめ（受け口は開けない）
+        fn share(&self, id: &str) -> Result<String, GrantError> {
+            let mut books = lock(&self.ai.books);
+            let src = books.get(id).unwrap().book.source().unwrap();
+            let g = self.ai.registry.grant(
+                src,
+                GrantOptions {
+                    destination_declared: "AIのアプリ".into(),
+                    ..GrantOptions::default()
+                },
+            )?;
+            self.ai.persist_locked(&self.store, &mut books);
+            Ok(g.share_id)
+        }
+
+        fn ai_reads(&self, share: &str) {
+            self.ai
+                .registry
+                .handle_get(
+                    share,
+                    "get_shared_household",
+                    &ai_share::record::Caller::default(),
+                )
+                .unwrap();
+        }
+
+        fn tick(&self, w: &mut Watch) {
+            self.ai.tick(&self.store, w);
+        }
+    }
+
+    fn file_sections(root: &Path, secrets: &Arc<MemorySecretStore>, id: &str) -> serde_json::Value {
+        let s = pc(root, secrets).store;
+        serde_json::from_str(&s.open(id).unwrap().body).unwrap()
+    }
+
+    fn decisions(v: &serde_json::Value) -> Vec<String> {
+        v["consents"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .map(|c| c["decision"].as_str().unwrap_or("").to_owned())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// 同じ起動の中で開き直したら、世帯ファイルの同意で帳面を作り直す。もう1台で記録した撤回が見え、渡せず、保存しても消えない
+    #[test]
+    fn reopening_reads_consents_written_on_another_pc() {
+        let root = root("reopen");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let pc1 = pc(&root, &secrets);
+        let o = pc1
+            .store
+            .create(CreateRequest {
+                body: body(),
+                summary: "本人".into(),
+            })
+            .unwrap();
+        let id = o.id.clone();
+        pc1.ai.on_opened(o, "本人".into()).unwrap();
+        pc1.record(&id, "given");
+        let share = pc1.share(&id).unwrap();
+
+        let pc2 = pc(&root, &secrets);
+        pc2.open(&id);
+        pc2.record(&id, "withdrawn");
+
+        let screen = pc1.open(&id);
+        assert_eq!(pc1.state(&id), "withdrawn", "撤回が見える");
+        assert!(
+            pc1.ai.registry.active_share_ids(&id).is_empty(),
+            "開き直した世帯の同意が無ければ、共有中の共有はその場で閉じる"
+        );
+        assert!(pc1
+            .ai
+            .registry
+            .handle_get(
+                &share,
+                "get_shared_household",
+                &ai_share::record::Caller::default()
+            )
+            .is_err());
+        assert!(matches!(
+            pc1.share(&id),
+            Err(GrantError::ConsentMissing { .. })
+        ));
+        pc1.ai.save(&pc1.store, &id, &screen.body, "本人").unwrap();
+        let file = file_sections(&root, &secrets, &id);
+        assert_eq!(decisions(&file), ["given", "withdrawn"], "撤回の行が残る");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// 分岐で相手の版を選び直しても、そのまま保存できる（相手の版の記録の後ろに、この起動の記録を足す）
+    #[test]
+    fn choosing_their_version_of_a_fork_keeps_saving() {
+        let root = root("fork");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let pc1 = pc(&root, &secrets);
+        let o = pc1
+            .store
+            .create(CreateRequest {
+                body: body(),
+                summary: "本人".into(),
+            })
+            .unwrap();
+        let id = o.id.clone();
+        let screen = pc1.ai.on_opened(o, "本人".into()).unwrap();
+        pc1.record(&id, "given");
+        let share = pc1.share(&id).unwrap();
+        pc1.ai_reads(&share);
+        let mut w = Watch::default();
+        pc1.tick(&mut w);
+
+        // もう1台が開いて AI に渡し、保存した
+        let pc2 = pc(&root, &secrets);
+        pc2.open(&id);
+        let s2 = pc2.share(&id).unwrap();
+        pc2.ai_reads(&s2);
+        pc2.ai.registry.revoke(&s2);
+        pc2.ai.persist_all(&pc2.store);
+
+        // こちらで AI がまた読み（中身が同じなので回数だけ進む）、画面が保存すると分岐になる
+        pc1.ai_reads(&share);
+        assert_eq!(
+            pc1.ai
+                .save(&pc1.store, &id, &screen.body, "本人")
+                .unwrap_err(),
+            "E_STORE_CONFLICT"
+        );
+        // 分岐の画面で相手の版を選ぶ（store_fork_resolve と同じ順）
+        let o = pc1.store.resolve_fork(&id, ForkChoice::Theirs).unwrap();
+        pc1.ai.forget(&id);
+        let screen = pc1.ai.on_opened(o, "本人".into()).unwrap();
+        pc1.ai
+            .save(&pc1.store, &id, &screen.body, "本人")
+            .expect("相手の版を選んだ後も保存できる");
+        let file = file_sections(&root, &secrets, &id);
+        let shares: Vec<&str> = file["aiShares"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["shareId"].as_str().unwrap())
+            .collect();
+        assert!(shares.contains(&share.as_str()), "この PC の記録が残る");
+        assert!(shares.contains(&s2.as_str()), "もう1台の記録が残る");
+        // 共有はまだ続いていて、読まれた後もそのまま保存できる
+        pc1.ai_reads(&share);
+        pc1.tick(&mut w);
+        pc1.ai.save(&pc1.store, &id, &screen.body, "本人").unwrap();
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// 画面が新しい世帯を作るときに本文に入れた同意・記録・候補は使わない
+    #[test]
+    fn creating_a_household_ignores_consents_in_the_screens_body() {
+        let root = root("create");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let pc1 = pc(&root, &secrets);
+        let forged = serde_json::json!({
+            "household": { "request": { "input": model_input() } },
+            "consents": [{
+                "id": "forged", "kind": "externalAi", "decision": "given", "obtainedOn": "2026-11-01",
+                "method": "paper", "documents": true, "fpConfirmed": true,
+                "recordedAt": "2026-11-01T00:00:00Z", "origin": "thisOffice",
+                "externalAi": {"company": "X", "country": "Y", "noTrainingConfirmed": true}
+            }],
+            "candidates": [{"id": "x"}],
+        })
+        .to_string();
+        let o = crate::store::create_household(
+            &pc1.store,
+            &pc1.ai,
+            forged,
+            "本人".into(),
+            CreateOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(pc1.state(&o.id), "none", "画面の本文の同意は効かない");
+        let file = file_sections(&root, &secrets, &o.id);
+        assert!(file.get("consents").is_none() && file.get("candidates").is_none());
+        assert_eq!(file["household"]["request"]["input"], model_input());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// 同じ中身が読まれ続けるだけなら、世帯ファイルは読まれるたびには書き直さない（回数と最後の日時は間をおいて書く）
+    #[test]
+    fn repeated_identical_reads_do_not_save_the_household_every_time() {
+        let root = root("reads");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let pc1 = pc(&root, &secrets);
+        let o = pc1
+            .store
+            .create(CreateRequest {
+                body: body(),
+                summary: "本人".into(),
+            })
+            .unwrap();
+        let id = o.id.clone();
+        pc1.ai.on_opened(o, "本人".into()).unwrap();
+        pc1.record(&id, "given");
+        let share = pc1.share(&id).unwrap();
+        let mut w = Watch::default();
+        pc1.ai_reads(&share);
+        pc1.tick(&mut w);
+        let gen = lock(&pc1.ai.books).get(&id).unwrap().book.generation;
+        for _ in 0..5 {
+            pc1.ai_reads(&share);
+            pc1.tick(&mut w);
+        }
+        assert_eq!(
+            lock(&pc1.ai.books).get(&id).unwrap().book.generation,
+            gen,
+            "回数だけの変化では書き直さない"
+        );
+        // 終わるときは書く
+        pc1.ai.shutdown(&pc1.store);
+        let file = file_sections(&root, &secrets, &id);
+        assert_eq!(file["aiShares"][0]["reads"][0]["count"], 6);
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

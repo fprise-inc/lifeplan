@@ -39,3 +39,40 @@ export function parseRef(ref: string | undefined): { sheet: string; col: number;
 
 /** シートの名前を参照の形（'シート'）に */
 export const quoteSheet = (name: string): string => `'${name.replace(/'/g, "''")}'`;
+
+/** 表計算のソフトが見せる数の桁（有効数字 15 桁） */
+const SHOWN_DIGITS = 15;
+
+/**
+ * 表計算のソフトが保存した数のセルの値（2進の浮動小数点を 17 桁で書いたもの。例「6.2500000000000003E-3」「0.10000000000000001」）を、
+ * 画面に見えている精度（有効数字 15 桁）に丸めた 10進の文字（指数なし）にする。shift は 10 の何乗を掛けるか
+ * （パーセントの書式のセルの値を、見えている % の数にするときは 2）。読めない形は null
+ */
+export function shownNumber(text: string, shift = 0): string | null {
+  const m = /^([+-]?)(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d+))?$/.exec(text.trim());
+  if (m === null) return null;
+  const int = m[2] ?? "";
+  const frac = m[3] ?? "";
+  if (int === "" && frac === "") return null;
+  const exp = (m[4] === undefined ? 0 : Number(m[4])) + shift;
+  if (Math.abs(exp) > 400) return null;
+  const all = int + frac;
+  let digits = all.replace(/^0+/, "");
+  if (digits === "") return "0";
+  // 値 = 0.<digits> × 10^point
+  let point = int.length - (all.length - digits.length) + exp;
+  if (digits.length > SHOWN_DIGITS) {
+    const up = Number(digits[SHOWN_DIGITS]) >= 5;
+    let head = digits.slice(0, SHOWN_DIGITS);
+    if (up) {
+      const inc = (BigInt(head) + 1n).toString();
+      if (inc.length > SHOWN_DIGITS) point += 1;
+      head = inc.slice(0, SHOWN_DIGITS);
+    }
+    digits = head;
+  }
+  digits = digits.replace(/0+$/, "");
+  if (digits === "") return "0";
+  const s = point <= 0 ? `0.${"0".repeat(-point)}${digits}` : point >= digits.length ? digits + "0".repeat(point - digits.length) : `${digits.slice(0, point)}.${digits.slice(point)}`;
+  return m[1] === "-" ? `-${s}` : s;
+}

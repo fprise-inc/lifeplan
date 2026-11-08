@@ -22,14 +22,13 @@
 | `insurance.coverages`（主契約と特約の明細） | `["<ID>","amount"]` | 年金の年額 | 円の整数 | 年額 | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | `["<ID>","amount"]` | 死亡保険金・入院日額（1日）・満期金・金額 | 円の整数 | 1回の額・時点の額 | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | `["<ID>","everyYears"]` | 祝金の間隔 | 整数（年）・1〜50 |  | 人の物の欄 |
-| `insurance.coverages`（主契約と特約の明細） | `["<ID>","from"]` | 受け取りの始まり | 年月（YYYY-MM。時点の欄） |  | 人の物の欄 |
+| `insurance.coverages`（主契約と特約の明細） | `["<ID>","from"]` | 保障の始まり・受け取りの始まり | 年月（YYYY-MM。時点の欄） |  | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | `["<ID>","insured"]` | 被保険者 | 人（self・spouse・child1…・holder） |  | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | `["<ID>","maxDays"]` | 入院の1回の限度日数 | 整数（日）・1〜1095 |  | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | `["<ID>","minimumMonths"]` | 最低保証の月数 | 整数（か月）・0〜600 |  | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | `["<ID>","to"]` | 保障の終わり | 年月（YYYY-MM。時点の欄） |  | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | `["<ID>","waitingMonths"]` | 免責の月数 | 整数（か月）・0〜120 |  | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | `["<ID>","years"]` | 年金の年数 | 整数（年）・1〜100 |  | 人の物の欄 |
-| `insurance.coverages`（主契約と特約の明細） | （なし） | 保障の始まり | 年月（YYYY-MM。時点の欄） |  | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | （なし） | 死亡保険金 | 円の整数 | 1回の額・時点の額 | 人の物の欄 |
 | `insurance.coverages`（主契約と特約の明細） | （なし） | 給付の種類 | 選択肢: `death`（死亡保険金）・`incomeProtection`（収入保障（年金月額））・`incapacity`（就業不能）・`highDisability`（高度障害）・`maturity`（満期金）・`annuity`（年金）・`survival`（祝金）・`hospitalDaily`（入院日額）・`surgery`（手術）・`cancerLump`（がん一時金）・`threeMajorLump`（三大疾病一時金（がん・心疾患・脳卒中））・`other`（その他（計算に入りません）） |  | 人の物の欄 |
 | `insurance.deductionCategory`（保険料控除の区分） | `["regime"]` | 新旧の制度 | 選択肢: `new`（新制度（2012年以後の契約））・`old`（旧制度） |  | 人の物の欄 |

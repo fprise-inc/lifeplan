@@ -7,6 +7,7 @@
 //   答えをその番号の行すべてに当てる。行の一部が無くなっていれば照らし合わせられないので読まない
 // - 読むのは、番号の行の「何に使ったか」「どこに入るか」「事業の割合」「メモ」だけ。印が無い・読めない行は迷う行のまま残す
 // - 読んだ印は「決めたことの候補」にするだけ。FP が画面で確かめて承認したものだけを applyDecisions に渡す（候補の流れと同じ）
+import { shownNumber } from "../../../xlsx/src/cells.ts";
 import { Book, problemOf, type FileProblem, type Sheet } from "../../../xlsx/src/read.ts";
 import { META_SHEET, PROPERTY_PREFIX } from "../../../xlsx/src/write.ts";
 import { DEFAULT_LIMITS, type ZipLimits } from "../../../xlsx/src/zip.ts";
@@ -300,7 +301,10 @@ function readMarks(book: Book, sheet: Sheet, r: number, no: number, rows: readon
   const cell = (col: string) => {
     const c = book.cell(sheet, `${col}${r}`);
     if (c.noValue) return { text: null as string | null, formula: true, empty: false };
-    const t = c.raw === null ? null : c.raw.kind === "bool" ? String(c.raw.value) : nfkc(c.raw.text);
+    // 数のセルは見えている数として読む: パーセントの書式のセル（Excel で「60%」と打つと値は 0.6）は 100 倍し、
+    // 2進の浮動小数点の桁（0.59999999999999998 など）は見えている有効数字 15 桁に丸める
+    const shown = c.raw?.kind === "number" ? shownNumber(c.raw.text, c.percent ? 2 : 0) : null;
+    const t = c.raw === null ? null : c.raw.kind === "bool" ? String(c.raw.value) : nfkc(shown ?? c.raw.text);
     return { text: t === "" ? null : t, formula: c.formula, empty: t === null || t === "" };
   };
   const cat = cell(COLS.category);
@@ -354,12 +358,15 @@ function readMarks(book: Book, sheet: Sheet, r: number, no: number, rows: readon
 
 const clip = (s: string) => (s.length > 20 ? `${s.slice(0, 20)}…` : s);
 
-/** 割合の欄（1〜100 の%。「60%」も読む）を割合の文字列（"0.6"）に。読めなければ null */
+/**
+ * 割合の欄（1〜100 の%。「60%」も読む）を割合の文字列（"0.6"）に。読めなければ null。
+ * 1 より小さい数（0.6 など）は、% で打った値が書式を失って割合の数で残った疑いがあるので読まない（1〜100 の決まりの外）
+ */
 export function percentShare(t: string): string | null {
   const s = nfkc(t).replace(/[%％\s]/gu, "");
   if (!/^\d{1,3}(?:\.\d{1,2})?$/u.test(s)) return null;
   const p = Number(s);
-  if (!(p > 0 && p <= 100)) return null;
+  if (!(p >= 1 && p <= 100)) return null;
   const str = p === 100 ? "1" : (Math.round(p * 100) / 10000).toFixed(4).replace(/0+$/u, "").replace(/\.$/u, "");
   return parseShare(str) === null ? null : str;
 }

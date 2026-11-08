@@ -1,6 +1,7 @@
 # 所得税法28条4項・別表第五、租税特別措置法29条の4第2項（令和8年分・令和9年分）
 # 給与等の収入金額が660万円未満のとき、給与所得の金額は表の区分の下限の金額から求める。区分の幅（刻み）を段階表で持つ:
 # 段（upTo まで）ごとの amount が区分の幅（円）。段の下限（前の段の upTo＋1）から amount 円ずつの区分になる。1 は刻みなし（1円ごと）
+# 最初の段（0円から最低保障額＋1,000円未満まで）は1つの区分で、区分の下限0円の給与所得は0円（表の「691,000円未満 0」の行。rev 4〜6）
 id: incomeTax.employmentIncome.tableSteps
 title: 給与所得の表（別表第五・措置法29条の4第2項）の区分の幅
 unit: JPY
@@ -22,7 +23,7 @@ entries:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", retrievedAt: "2026-10-08", sha256: "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", locator: "所得税法 別表第五（190万円以上は4,000円刻みの区分）"}
       - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.18.0"
     approval: {method: "pendingReview", paths: 1, note: "PR #4 で原本から読んだ別表第五の区分（incomeTax.employmentIncome.tableRounding の記録: 令和7年分は190万円以上が4,000円刻み・1,175行）を区分の幅の形にした。原本の表と照らし合わせる前"}
   - rev: 2
     appliesFrom: "2026-01-01"
@@ -42,7 +43,7 @@ entries:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", retrievedAt: "2026-10-08", sha256: "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", locator: "所得税法 別表第五（220万円以上は4,000円刻みの区分）"}
       - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20261201_508AC0000000012"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.18.0"
     approval: {method: "pendingReview", paths: 1, note: "PR #4 で原本から読んだ措置法29条の4第2項の表（219.1万円以上は1,000〜3,000円の刻み。答え合わせ it.salary.2026.2192000）を区分の幅の形にした。69.1万〜219.1万円未満は収入−74万円（1円ごと）。原本の表と照らし合わせる前"}
   - rev: 3
     appliesFrom: "2028-01-01"
@@ -60,5 +61,63 @@ entries:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20280101_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "425e8edd055820cb1f9e96c65204c26728b6a0ddac9c457b90c7e802d2fc728f", locator: "所得税法 別表第五（令和10年1月1日の版。202.6万円から2,000円、202.8万円から4,000円の刻み）"}
       - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20280101_508AC0000000012"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.18.0"
     approval: {method: "pendingReview", paths: 1, note: "PR #4 で原本から読んだ別表第五（令和10年の版。69.1万〜202.6万円未満は収入−69万円、202.6万円から2,000円・4,000円の刻み。4,000円の区分は1,143行。答え合わせ it.salary.2028.2030000）を区分の幅の形にした。原本の表と照らし合わせる前"}
+  - rev: 4
+    appliesFrom: "2025-01-01"
+    appliesTo: "2025-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 650999, amount: 651000}
+      - {upTo: 1899999, amount: 1}
+      - {upTo: 6599999, amount: 4000}
+      - {upTo: null, amount: 1}
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", retrievedAt: "2026-10-08", sha256: "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", locator: "所得税法 別表第五（651,000円未満は0、651,000円から1,900,000円未満は給与等の金額から650,000円を控除した金額、190万円以上は4,000円刻みの区分）", quote: "６５１，０００円未満"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
+    recordedIn: "2026.18.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "rev 1 の訂正。別表第五の最初の行「651,000円未満 0」を、0円から651,000円未満までの1つの区分（幅 651,000円。区分の下限0円で給与所得0円）として足した（給与収入が65万1円〜65万999円のとき給与所得が1〜999円になっていた）。最初の区分と最低保障額の行は原本と照らし合わせた（2026-11-08）。4,000円刻みの区分は原本の表と照らし合わせる前"}
+  - rev: 5
+    appliesFrom: "2026-01-01"
+    appliesTo: "2027-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 740999, amount: 741000}
+      - {upTo: 2190999, amount: 1}
+      - {upTo: 2192999, amount: 2000}
+      - {upTo: 2195999, amount: 3000}
+      - {upTo: 6599999, amount: 4000}
+      - {upTo: null, amount: 1}
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261201_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "44a748db9b74bc69b283f9eedbfc1079a20fb8f74b5902759ee565573fbeebad", locator: "租税特別措置法 第29条の4第2項第1号（69.1万〜74.1万円未満は給与所得なし）・第2号（74.1万〜219.1万円未満は収入−74万円）・第3号〜第5号（219.1万〜220万円）", quote: "その年中の給与等の収入金額が六十九万千円以上七十四万千円未満である場合には、当該給与等に係る給与所得の金額は、ないものとする。"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", retrievedAt: "2026-10-08", sha256: "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", locator: "所得税法 別表第五（220万円以上は4,000円刻みの区分）"}
+      - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20261201_508AC0000000012"}
+    recordedIn: "2026.18.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "rev 2 の訂正。措置法29条の4第2項1号の「69.1万〜74.1万円未満は給与所得なし」を、0円から741,000円未満までの1つの区分（幅 741,000円）として足した（給与収入が74万1円〜74万999円のとき給与所得が1〜999円になっていた）。69.1万円未満は同条1項（控除額は収入金額まで）で0円。1号〜5号は原本と照らし合わせた（2026-11-08）。4,000円刻みの区分は原本の表と照らし合わせる前"}
+  - rev: 6
+    appliesFrom: "2028-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 690999, amount: 691000}
+      - {upTo: 2025999, amount: 1}
+      - {upTo: 2027999, amount: 2000}
+      - {upTo: 6599999, amount: 4000}
+      - {upTo: null, amount: 1}
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20280101_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "425e8edd055820cb1f9e96c65204c26728b6a0ddac9c457b90c7e802d2fc728f", locator: "所得税法 別表第五（令和10年1月1日の版。691,000円未満は0、691,000円から2,026,000円未満は給与等の金額から690,000円を控除した金額、202.6万円から2,000円、202.8万円から4,000円の刻み）", quote: "６９１，０００円未満"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20280101_508AC0000000012"}
+    recordedIn: "2026.18.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "rev 3 の訂正。別表第五（令和10年の版）の最初の行「691,000円未満 0」を、0円から691,000円未満までの1つの区分（幅 691,000円）として足した（給与収入が69万1円〜69万999円のとき給与所得が1〜999円になっていた）。最初の区分と最低保障額の行は原本と照らし合わせた（2026-11-08）。2,000円・4,000円刻みの区分は原本の表と照らし合わせる前"}

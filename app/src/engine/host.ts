@@ -197,6 +197,16 @@ export interface StoredHousehold extends NumberLabel {
   forks: number;
 }
 
+/** 開けなかった世帯の、直前の世代（.prev）の時点（0011 の7） */
+export interface PreviousGeneration {
+  /** 何回目の保存か */
+  generation: number;
+  /** 保存した日時（ISO 8601。本文に記録が無ければ null） */
+  savedAt: string | null;
+  /** 保存した人の表示名（事務所で共有しているとき） */
+  savedBy: string | null;
+}
+
 /** 開いた世帯（本文は JSON の文字列。0011 の2） */
 export interface StoredOpened extends NumberLabel {
   id: string;
@@ -439,6 +449,10 @@ export interface StoreHost {
   /** 新しい世帯（opts.category は区分の記号。無ければ見込み客（区分を使わないときは通し番号だけ）。opts.sample があれば見本として作る。0033） */
   create(body: string, summary: string, opts?: { category?: string; sample?: SampleRequest }): Promise<StoredOpened>;
   open(id: string): Promise<StoredOpened>;
+  /** 開けなかった世帯の、直前の世代の時点（直前の世代で開き直せないときは null。0011 の7） */
+  previousGeneration(id: string): Promise<PreviousGeneration | null>;
+  /** 開けなかった世帯を、直前の世代で開き直す（開けなかったファイルは本体がこの PC の中に別名で残す） */
+  openPrevious(id: string): Promise<StoredOpened>;
   save(id: string, body: string, summary: string): Promise<{ generation: number; savedAt: string }>;
   rename(id: string, customerNo: string): Promise<{ customerNo: string; duplicate: boolean }>;
   /** 完全削除（confirm は FP が打った顧客番号） */
@@ -816,6 +830,8 @@ export function tauriHost(): HostApi {
       list: () => invoke<StoredHousehold[]>("store_list"),
       create: (body, summary, opts) => invoke<StoredOpened>("store_create", { body, summary, category: opts?.category ?? null, sample: opts?.sample ?? null }),
       open: (id) => invoke<StoredOpened>("store_open", { id }),
+      previousGeneration: (id) => invoke<PreviousGeneration | null>("store_previous_generation", { id }),
+      openPrevious: (id) => invoke<StoredOpened>("store_open_previous", { id }),
       save: (id, body, summary) => invoke<{ generation: number; savedAt: string }>("store_save", { id, body, summary }),
       rename: (id, customerNo) => invoke<{ customerNo: string; duplicate: boolean }>("store_rename", { id, customerNo }),
       remove: (id, confirm) => invoke<void>("store_delete", { id, confirm }),
@@ -1036,6 +1052,8 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       list: async () => devJson<StoredHousehold[]>(await devStore("list")),
       create: async (body, summary, opts) => devJson<StoredOpened>(await devStore("create", { body, summary, ...(opts?.category !== undefined ? { category: opts.category } : {}), ...(opts?.sample !== undefined ? { sample: JSON.stringify(opts.sample) } : {}) })),
       open: async (id) => devJson<StoredOpened>(await devStore("open", { id })),
+      previousGeneration: async (id) => devJson<PreviousGeneration | null>(await devStore("previousGeneration", { id })),
+      openPrevious: async (id) => devJson<StoredOpened>(await devStore("openPrevious", { id })),
       save: async (id, body, summary) => devJson<{ generation: number; savedAt: string }>(await devStore("save", { id, body, summary })),
       rename: async (id, customerNo) => devJson<{ customerNo: string; duplicate: boolean }>(await devStore("rename", { id, customerNo })),
       remove: async (id, confirm) => void (await devJson<unknown>(await devStore("delete", { id, confirm }))),

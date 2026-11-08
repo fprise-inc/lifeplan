@@ -24,7 +24,7 @@ import {
   type StatementRow,
 } from "../src/index.ts";
 import { HEADER_ROW } from "../src/sheet/layout.ts";
-import { editXlsx, setCell, text, toSharedStrings, unzip } from "../../xlsx/test/helpers.ts";
+import { editXlsx, setCell, setNumberFormat, text, toSharedStrings, unzip } from "../../xlsx/test/helpers.ts";
 import { BASE_MONTH, buildLog, HOUSEHOLD, SELF, SPOUSE } from "./helpers.ts";
 
 const SHEET = "xl/worksheets/sheet1.xml";
@@ -150,6 +150,20 @@ describe("書き出し", () => {
 });
 
 describe("読み込み", () => {
+  it("事業の割合を Excel で「60%」と打ったセル（値 0.6・パーセントの書式）は 60% と読む。書式の無い 1 より小さい数は読めない値として 100% にし、要確認にする", async () => {
+    const { log, sheet } = await setup();
+    const r1 = await rowOf(sheet.bytes, "架空ブックス");
+    const at = async (v: string, fmt?: number) => {
+      const b = await mark(sheet.bytes, [{ merchant: "架空ブックス", bucket: "事業の経費", share: v }]);
+      const f = fmt === undefined ? b : await editXlsx(b, (files) => setNumberFormat(files, SHEET, `J${r1}`, fmt));
+      return ok(await readMarkSheet(f, { log, rows: classified(log) })).candidates.map((c) => [c.mark.share, c.status]);
+    };
+    expect(await at("0.6", 9)).toEqual([["0.6", "pending"]]);
+    expect(await at("0.59999999999999998", 10)).toEqual([["0.6", "pending"]]);
+    expect(await at("60")).toEqual([["0.6", "pending"]]);
+    expect(await at("0.6")).toEqual([["1", "needsReview"]]);
+  });
+
   it("印はそのまま決めたことの候補になり、印の無い行は迷う行のまま残る。承認すると仕分けに入る", async () => {
     const { log, sheet } = await setup();
     const filled = await mark(sheet.bytes, [
@@ -253,6 +267,7 @@ describe("読み込み", () => {
     expect(percentShare("100")).toBe("1");
     expect(percentShare("12.5")).toBe("0.125");
     expect(percentShare("0")).toBeNull();
+    expect(percentShare("0.6")).toBeNull();
     expect(percentShare("120")).toBeNull();
     expect(percentShare("半分")).toBeNull();
   });

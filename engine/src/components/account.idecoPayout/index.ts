@@ -4,6 +4,7 @@
 //   （10年以上なら60歳、1か月以上なら65歳）。60歳以後に加入したときは加入から5年後。withdrawalLockedUntil があればその翌月より前には受け取らない
 // - 始まり: payout.start（受け取りを始められる月より前ならその月）。75歳までに始める。payout・start が空なら、計算の前に退職の年
 //   （60〜65歳に収める）の一時金を入れる（0026。engine/investment.ts）
+// - 改訂2（0164）: 併用（mixed）の一時金の割合（lumpShare）の省略を半分にする（画面の空欄と同じ。0050）。前は0（全額を年金）だった
 import { addMonths, bracketFor, defineComponent, formatYm, parseYm, yen, type AccountInput, type MonthIndex } from "../../sdk/index.ts";
 
 const P = { earliest: "ideco.payout.earliestAge", byMonths: "ideco.payout.startAgeByMonths", latest: "ideco.payout.latestAge" };
@@ -26,7 +27,7 @@ export default defineComponent<{ member: string }, { accounts: IdecoPayoutPlan[]
   id: "account.idecoPayout",
   title: "iDeCo・企業型DCの受け取りの始まり",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "account.dcList": ">=1 <2" },
   params: Object.values(P),
   reads: ["account.kind", "account.owner", "account.contributions", "account.enrolledSince", "account.withdrawalLockedUntil", "account.payout"],
@@ -71,7 +72,8 @@ export default defineComponent<{ member: string }, { accounts: IdecoPayoutPlan[]
         start: formatYm(start),
         method,
         annuityYears: method === "lumpSum" ? 0 : (a.payout?.annuityYears ?? 10),
-        lumpShare: method === "mixed" ? (a.payout?.lumpShare ?? "0") : null,
+        // 併用の一時金の割合の省略は半分（画面の空欄と同じ。0050・改訂2）
+        lumpShare: method === "mixed" ? (a.payout?.lumpShare ?? "0.5") : null,
         enrolledMonths,
       });
     }

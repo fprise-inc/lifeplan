@@ -10,7 +10,7 @@ import { healthRateEstimate, parseWageCurveId, reemploymentRatio, WAGE_CURVE_SIZ
 import { byId, field, plain, rateBox, removeAction, timepointField, timeView, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef, type Val } from "../form.ts";
 import { boxBasis, estimatedBox, mutate, newId, periodsOf, reemploymentOf, type PostRetirement, type WorkingHousehold } from "../household.ts";
 import { continuationApplies, CONTINUATION_BASIS, CONTINUATION_ITEM, defaultEndsWith, dropClaim, isEstimated, markNewPeriods, putEstimate, unemploymentApplies, unemploymentEstimate, UNEMPLOYMENT_BASIS, UNEMPLOYMENT_ITEM } from "../claims.ts";
-import { ensureRetirement } from "../fill.ts";
+import { adoptBenefits, ensureRetirement } from "../fill.ts";
 import { earners, EMPLOYMENT_TYPES, HEALTH_INSURANCE, KYOKAI_BRANCHES, LEAVE_KINDS, memberLabel, PENSION_CATEGORY, POST_RETIREMENT_TYPES, WORDS } from "../labels.ts";
 import { formatYearMonth } from "../units.ts";
 import { readGroup, readLine } from "../readLines.ts";
@@ -745,7 +745,7 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
       suffix: "歳まで",
       min: 40,
       max: 90,
-      sideEffects: "退職後の生活費の節目と NISA の積立の終わりも、この年齢に合わせます",
+      sideEffects: m.kind === "self" ? "退職後の生活費の節目と NISA の積立の終わりも、この年齢に合わせます" : "NISA の積立の終わりも、この年齢に合わせます",
       help: post?.type != null ? "定年より後の年齢にすると、定年後の働き方で働く期間を足します" : "この年齢になる月の前月まで働きます",
       get: (w) => {
         const v = readLevers(w.request, m.id).retireAge ?? null;
@@ -835,7 +835,7 @@ export function startWork(w: WorkingHousehold, m: Member, type: string): Working
   const base = w.request.input.baseMonth;
   if (type === "contract") {
     const after = startReemployed(w, m);
-    if (after !== null) return after;
+    if (after !== null) return adoptBenefits(after, m.id);
   }
   const start = FROM_CAREER_START.has(type) ? careerStartMonth(m.birth.birthYearMonth) : base;
   const p = convertPeriod({ id: newId(), member: m.id, from: { at: start < base ? start : base }, to: null, type }, type, m, base);
@@ -845,7 +845,8 @@ export function startWork(w: WorkingHousehold, m: Member, type: string): Working
     (hh.employmentPeriods ??= []).push(p);
     if (working) ensureResidentTax(hh, m.id, base, newId);
   });
-  next = markEmployerDefaults(next, p);
+  // 勤め先を外した退職金は、足した期間を勤め先にする（0163）
+  next = adoptBenefits(markEmployerDefaults(next, p), m.id);
   return estimateWorkEnd(next, m.id);
 }
 
@@ -1736,7 +1737,7 @@ function addPeriodAction(wh: WorkingHousehold, m: Member, n: number): ActionDef 
         (hh.employmentPeriods ??= []).push(p);
         ensureResidentTax(hh, m.id, req.input.baseMonth, newId);
       });
-      return markEmployerDefaults(next, p);
+      return adoptBenefits(markEmployerDefaults(next, p), m.id);
     },
   };
 }

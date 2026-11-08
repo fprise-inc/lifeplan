@@ -72,3 +72,27 @@ describe("表の長さで、それより前の年の数字が変わらない", (
     expectSameUpTo(req, endYear, req.input.endYear);
   });
 });
+
+describe("基準の月の年の範囲（表の年と同じ 1900〜2200）", () => {
+  it.each(["1000-01", "1899-12"])("基準の月 %s は、入力の誤りとして基準の月を指して返す（出力の検査の誤りにしない）", (baseMonth) => {
+    const req = modelHousehold("salariedCoupleTwoKids");
+    let err: unknown;
+    try {
+      run({ ...req, input: { ...req.input, baseMonth } });
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toMatchObject({ code: "E_ARGUMENT", ids: ["baseMonth"] });
+  });
+
+  it("1900年の1月は計算できる範囲の内（この試験は年の境目だけを見る）", () => {
+    const req = modelHousehold("salariedCoupleTwoKids");
+    let err: unknown;
+    try {
+      run({ ...req, input: { ...req.input, baseMonth: "1900-01" } });
+    } catch (e) {
+      err = e;
+    }
+    expect((err as { ids?: string[] } | undefined)?.ids ?? []).not.toEqual(["baseMonth"]);
+  });
+});

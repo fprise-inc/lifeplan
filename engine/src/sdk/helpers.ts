@@ -723,6 +723,76 @@ export function outsideIncomeEver(m: MemberInput): boolean {
   return (m.outside?.periods ?? []).some((p) => p.income === true);
 }
 
+/** 月 at に世帯にいるか（生まれた後・加わった後・離れる前。万一の重ねで亡くなった人は、亡くなった月の翌月から離れる） */
+export function presentAt(
+  ctx: Ctx,
+  m: { readonly birth?: { readonly birthYearMonth: string }; readonly joins: unknown; readonly leaves: unknown },
+  at: MonthIndex,
+): boolean {
+  if (m.birth !== undefined && parseYm(m.birth.birthYearMonth) > at) return false;
+  if (m.joins !== null && m.joins !== undefined && ctx.time.resolve(m.joins as never) > at) return false;
+  return m.leaves === null || m.leaves === undefined || ctx.time.resolve(m.leaves as never) > at;
+}
+
+/**
+ * 月 at の世帯主（0165。国民健康保険の納付義務者と、国民健康保険・後期高齢者医療の軽減の判定）: その月に世帯にいる人のうち、本人、
+ * いなければ配偶者、いなければ年長の人（生年月の早い人。同じなら並びの順）。世帯にだれもいなければ undefined。
+ * 本人が亡くなった後（離れた月から）は、残った配偶者などが世帯主になる
+ */
+export function householdHeadAt<M extends { readonly id: string; readonly kind: string; readonly birth?: { readonly birthYearMonth: string }; readonly joins: unknown; readonly leaves: unknown }>(
+  ctx: Ctx,
+  members: readonly M[],
+  at: MonthIndex,
+): M | undefined {
+  const here = members.filter((m) => presentAt(ctx, m, at));
+  const self = here.find((m) => m.kind === "self");
+  if (self !== undefined) return self;
+  const spouse = here.find((m) => m.kind === "spouse");
+  if (spouse !== undefined) return spouse;
+  let best: M | undefined;
+  for (const m of here) {
+    if (best === undefined || (m.birth !== undefined && (best.birth === undefined || parseYm(m.birth.birthYearMonth) < parseYm(best.birth.birthYearMonth)))) best = m;
+  }
+  return best;
+}
+
+/**
+ * 候補（受け取る・払う親など。並びの順）のうち、月 at に世帯にいる最初の人（0165。亡くなった親の名で給付を受け取らない・援助を払わない）。
+ * だれもいなければ最初の候補（候補が無ければ undefined）
+ */
+export function firstPresent<M extends { readonly id: string; readonly birth?: { readonly birthYearMonth: string }; readonly joins: unknown; readonly leaves: unknown }>(
+  ctx: Ctx,
+  members: readonly M[],
+  ids: readonly string[],
+  at: MonthIndex,
+): string | undefined {
+  for (const id of ids) {
+    const m = members.find((x) => x.id === id);
+    if (m !== undefined && presentAt(ctx, m, at)) return id;
+  }
+  return ids[0];
+}
+
+/**
+ * 払う人が離れた（亡くなった）月より後に払うお金の動きを、払う月の世帯主の名にする（0165。亡くなった人は払えない。社会保険料控除は
+ * 払った人に付く〔所得税法74条〕ので、遺族の控除になる）。その月の世帯主がいなければそのまま
+ */
+export function reassignAfterLeave<M extends { readonly id: string; readonly kind: string; readonly birth?: { readonly birthYearMonth: string }; readonly joins: unknown; readonly leaves: unknown }>(
+  ctx: Ctx,
+  members: readonly M[],
+  flows: readonly Flow[],
+): Flow[] {
+  const byId = new Map(members.map((m) => [m.id, m]));
+  return flows.map((f) => {
+    const payer = f.member === undefined ? undefined : byId.get(f.member);
+    if (payer === undefined) return f;
+    const m = parseYm(f.ym);
+    if (payer.leaves === null || payer.leaves === undefined || ctx.time.resolve(payer.leaves as never) > m) return f;
+    const head = householdHeadAt(ctx, members, m);
+    return head === undefined || head.id === payer.id ? f : { ...f, member: head.id };
+  });
+}
+
 /** 世帯の中の構成員（世帯の外の家族を除く。世帯の税・社会保険・給付・遺族の判定の顔ぶれ） */
 export function householdMembers<M extends { readonly outside?: unknown }>(members: readonly M[]): M[] {
   return members.filter((m) => !isOutside(m));
