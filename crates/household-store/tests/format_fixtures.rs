@@ -1048,7 +1048,7 @@ fn every_format_version_has_a_fixture_and_opens() {
                     .unwrap()
                     .iter()
                     .any(|p| p["salary"]["growth"]["rate"].is_string()),
-                "{v}: 給与の伸びの率"
+                "{v}: 給与の増減率"
             );
         }
         // 0.19 から（0042）: 世帯の外の家族のお金（任意）。見本は親の預金・生活費・年金・一時の入金と、預金を変えるプランの差分を持つ
