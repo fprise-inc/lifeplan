@@ -1073,7 +1073,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
         : level === "simple"
         ? [salaryTotalField(wh, m, p, find, prefix)]
         : [
-            // 並びは年収 → 賞与 → 伸び率 → 統計の年齢カーブ（額の2欄を続け、伸び方の欄は後ろ）
+            // 並びは年収 → 賞与 → 増減率 → 統計の年齢カーブ（額の2欄を続け、伸び方の欄は後ろ）
             yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "年収（税込み・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "源泉徴収票の「支払金額」（賞与込み）から、賞与の明細の合計を引いた額" }),
             yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null }),
             growthField(wh, p, find, prefix, "salary", d),
@@ -1599,7 +1599,7 @@ function claimFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
 }
 
 /**
- * この期間の伸び率（年。0040。欄の名前は入力項目をまたぐ言葉の決まりの「伸び率（年）」。0130）: 空欄は前提の賃金上昇率。給与は昇給カーブ（値ID）と率のどちらか一方なので、率を入れると昇給カーブの代わりになる。
+ * この期間の増減率（年。0040。欄の名前は入力項目をまたぐ言葉の決まりの「増減率（年）」（年収は減ることもあるため。0130 の追記 2026-11-08））: 空欄は前提の賃金上昇率。給与は昇給カーブ（値ID）と率のどちらか一方なので、率を入れると昇給カーブの代わりになる。
  * 事業所得も同じ（昇給カーブは無い）
  */
 function growthField(wh: WorkingHousehold, p: EmploymentPeriod, find: Finder, prefix: string, part: "salary" | "business", level: "simple" | "detail"): FieldDef {
@@ -1609,7 +1609,7 @@ function growthField(wh: WorkingHousehold, p: EmploymentPeriod, find: Finder, pr
     ...field({
       key: `${prefix}/${part}Growth`,
       item,
-      label: "伸び率（年）",
+      label: "増減率（年）",
       level,
       kind: "pct",
       ...GROWTH_RANGE,
@@ -1708,7 +1708,7 @@ function curveFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
         kind: "select",
         options: [{ value: "none", label: "使わない" }, ...(employment !== null ? [{ value: "use", label: "統計の年齢カーブで増やす" }] : []), ...other],
         structural: true,
-        help: "使わないときは、前提条件の賃金上昇率（か「伸び率（年）」）で伸ばします。使うと、賃金構造基本統計調査（厚生労働省 令和7年）の年齢ごとの年収の比で、今の年収から毎年の年収を伸ばします（30〜34歳から40〜44歳へ、のように年齢の係数の比を掛けます）。前提条件の賃金上昇率の分も別に伸ばします。「伸び率（年）」を入れていれば、その代わりに使います。表は性別・学歴で分けない全体の表です。60歳以後は伸ばしません（定年後の下がり方は定年後の予定で入れます）",
+        help: "使わないときは、前提条件の賃金上昇率（か「増減率（年）」）で伸ばします。使うと、賃金構造基本統計調査（厚生労働省 令和7年）の年齢ごとの年収の比で、今の年収から毎年の年収を伸ばします（30〜34歳から40〜44歳へ、のように年齢の係数の比を掛けます）。前提条件の賃金上昇率の分も別に伸ばします。「増減率（年）」を入れていれば、その代わりに使います。表は性別・学歴で分けない全体の表です。60歳以後は伸ばしません（定年後の下がり方は定年後の予定で入れます）",
         get: (w) => {
           const x = find(w.request.input.household, w) as EmploymentPeriod | undefined;
           const id = curveOf(x);

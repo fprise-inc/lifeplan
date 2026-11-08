@@ -444,7 +444,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
         level: "simple",
         basis: "monthly",
         // 住み始めが計算の基準の月より前なら、今の家賃（計算エンジンは基準の月より後の更新から変動率を当てる。housing.residence の改訂4）
-        help: "今払っている家賃です。前から住んでいる家は、住み始めたときの額ではなく今の額を入れます（伸び率は、これから来る更新の月から使います）",
+        help: "今払っている家賃です。前から住んでいる家は、住み始めたときの額ではなく今の額を入れます（増減率は、これから来る更新の月から使います）",
         find,
         path: ["rent", "monthly"],
       }),
@@ -452,7 +452,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
         key: `${k}/rentGrowth`,
         item: "residence.rent",
         // 年率。計算エンジンは更新の月に、前の更新から経った年数分をまとめて上げ下げする。計算基準月より前の更新は入れた額に含まれるとみなす（housing.residence の改訂4）
-        label: "家賃の伸び率（年）",
+        label: "家賃の増減率（年）",
         level: "detail",
         kind: "pct",
         ...GROWTH_RANGE,
