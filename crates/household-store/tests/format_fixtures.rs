@@ -424,6 +424,18 @@ fn every_format_version_has_a_fixture_and_opens() {
                     "{v}: 送りの記録と分岐の答えは変換で書き足さない"
                 );
             }
+            // 0.71 から（0190）: 書類の持ち主。変換で書き足さない
+            let docs = w[0]["record"]["selection"]["documents"].as_array().unwrap();
+            if migrate::parse(v).unwrap() >= (0, 71) {
+                assert_eq!(docs[0]["owner"], "self", "{v}: 書類の持ち主");
+                assert_eq!(docs[1]["owner"], "spouse", "{v}: 書類の持ち主");
+                assert_eq!(docs[1]["kind"], "deposits", "{v}: 足した書類の種類");
+            } else {
+                assert!(
+                    docs.iter().all(|d| d.get("owner").is_none()),
+                    "{v}: 書類の持ち主は変換で書き足さない"
+                );
+            }
         } else {
             assert!(
                 web.is_none(),
