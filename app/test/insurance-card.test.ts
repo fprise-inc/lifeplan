@@ -334,6 +334,8 @@ describe("保険の入力項目の区画から移したもの（0055 の追記�
     let wh = action(family(), "ins/add");
     wh = set(wh, "/premium", 3000);
     wh = set(wh, "/main", 10000000);
+    // 亡くなる月（その年の1月）の死亡保障額で見るので、65歳で切れる保険は推移の最後の年（65歳の年）にはまだある。60歳で切れるようにする（0170）
+    wh = set(wh, "/end", { memberAge: { member: self(wh).id, years: 60, months: 0 } });
     const me = self(wh).id;
     const r = preview(protectionRequest(wh, me));
     const list = lapseInsights(r.protection!, me, contractLabels(wh));

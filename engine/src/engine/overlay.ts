@@ -96,6 +96,16 @@ export function applyContingency(input: EngineInput, time: TimeResolver): { inpu
   let benefits = h.retirementBenefits;
 
   if (c.kind === "death") {
+    // 死亡退職金は見込み額を勤続の月数（死亡の月まで÷予定の終わりまで）で按分する（retirement.benefit）。働き方の期間にひもづく退職給付は、
+    // 期間を死亡の月で終える前の勤続期間（予定の終わり）を書いておく（見込み額を入れた物だけ。見込みの計算は死亡の月までの期間で計算する。0170）
+    if (benefits !== undefined) {
+      benefits = benefits.map((b) => {
+        if (b.service !== undefined || b.employment === undefined || b.amount?.value === undefined || b.amount.value === null) return b;
+        const p = periods.find((x) => x.id === b.employment);
+        if (p === undefined || p.member !== c.member || p.to === null) return b;
+        return { ...b, service: { from: p.from, to: p.to } };
+      });
+    }
     // 働き方の期間はその月まで
     periods = periods.flatMap((p) => {
       if (p.member !== c.member) return [p];

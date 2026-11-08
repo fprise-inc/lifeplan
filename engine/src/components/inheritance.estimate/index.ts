@@ -20,6 +20,8 @@
 //   「1億6,000万円か法定相続分の額の多い方」の小さい方）÷課税価格の合計。精算課税で払った贈与税は受け取った相続人の税から引き、引ききれない分は
 //   還付（refund）。納める額は各人の100円未満を切り捨てる
 // - FP が入れた額（overrides）があれば amount はその額（state: confirmed）。目安は消さずに並べる
+// - 改訂2（0170）: 万一の想定の時点は、年金で受け取る死亡保険金（収入保障。相続税の対象）も受け取る総額で数える（いまの時点の死亡保障額と同じ）。
+//   二人とも亡くなった後は、夫婦のどちらかが団信の対象の負債の残高を債務から除く（先に亡くなった人の死亡で消えている）
 // - 入れていない決まり（notIncluded）: 2割加算・小規模宅地等の特例・土地の評価の細部・一次と二次の分け方の比べ・暦年課税の贈与の加算・
 //   相次相続控除・未成年者控除・障害者控除・受け取る側の目安（親の遺産の総額から）。当たりそうなとき（兄弟姉妹が相続人・持ち家がある・数えない
 //   養子がいる・相続人でない人への精算課税の贈与）は cautions に出す
@@ -171,7 +173,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
   id: "inheritance.estimate",
   title: "相続税の目安（基礎控除・法定相続人・非課税・速算表・配偶者の軽減・精算課税の足し戻し）",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {
     "plan.cashflow": ">=1 <2",
     "insurance.policy": ">=1 <2",
@@ -529,12 +531,17 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
             for (const m of mine) share = ctx.rate.add(share, ctx.rate.of(m.share as string));
             amount = ctx.money.mulRate(a.amount, share, "conv.exact");
           } else amount = ctx.money.mulRatio(a.amount, mine.length, payers.length, "conv.exact");
-          // 団信で消える分（亡くなる人が対象で、事由に死亡がある）
+          // 団信で消える分（亡くなる人が対象で、事由に死亡がある。二人とも亡くなった後は、夫婦のどちらかが対象なら先に亡くなった人の分も消えている。0170）
           const cl = d.creditLife;
-          if (cl !== undefined && cl.covered.includes(X) && (cl.events ?? ["death"]).includes("death") && a.row !== "cf.balance.debt.unpaidInterest") {
-            const xs = d.debtors.find((x) => x.member === X)?.share;
-            const ratio = cl.spouseJoint === true ? "1" : (cl.ratio ?? (d.debtors.length > 1 && xs !== undefined ? xs : "1"));
-            amount = yen(Math.max(0, amount - ctx.money.mulRate(a.amount, ctx.rate.of(ratio), "conv.exact")));
+          const deadCovered = cl === undefined ? [] : cl.covered.filter((m) => (point === "bothAfter" ? owners.has(m) : m === X));
+          if (cl !== undefined && deadCovered.length > 0 && (cl.events ?? ["death"]).includes("death") && a.row !== "cf.balance.debt.unpaidInterest") {
+            let ratio = ctx.rate.of("0");
+            for (const m of deadCovered) {
+              const xs = d.debtors.find((x) => x.member === m)?.share;
+              ratio = ctx.rate.add(ratio, ctx.rate.of(cl.spouseJoint === true ? "1" : (cl.ratio ?? (d.debtors.length > 1 && xs !== undefined ? xs : "1"))));
+            }
+            if (ctx.rate.compare(ratio, ctx.rate.of("1")) > 0) ratio = ctx.rate.of("1");
+            amount = yen(Math.max(0, amount - ctx.money.mulRate(a.amount, ratio, "conv.exact")));
           }
           debtTotal += amount;
         }
@@ -544,7 +551,8 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         if (c.insured !== X || !owners.has(c.policyholder) || (point !== "bothAfter" && c.policyholder !== X)) continue;
         const o = policy(c.id);
         if (point === "contingency") {
-          for (const r of o.receipts) if (r.kind === "death" && r.taxClass === "inheritance") insurance += r.amount;
+          // 年金で受け取る死亡保険金（収入保障）も相続税の対象（相続税法3条1項1号）。いまの時点と同じく受け取る総額で数える（0170）
+          for (const r of o.receipts) if ((r.kind === "death" || r.kind === "incomeProtection") && r.taxClass === "inheritance") insurance += r.amount;
         } else insurance += o.years.find((e) => e.year === yearOf(D))?.deathBenefit ?? 0;
       }
       // 死亡退職金

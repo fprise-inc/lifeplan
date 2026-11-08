@@ -501,6 +501,23 @@ describe("休業（決定5）", () => {
     expect(flowsOf(r, (f) => f.formula === "benefit.employment.postBirth" && f.member === F).map((f) => f.amount)).toEqual([58240]);
     expect(flowsOf(r, (f) => f.formula === "benefit.employment.childcareLeave" && f.member === F).map((f) => f.amount)).toEqual([321600]);
   });
+  it("出生後休業支援給付: 配偶者がいない（関係が無い）なら配偶者の育休を要件としない。婚姻している（別居など）なら要件とし、配偶者の育休が分からないので出さない（改訂5。0169）", () => {
+    const alone = (maritalStatus?: string) =>
+      household({
+        baseMonth: "2026-04",
+        endYear: 2028,
+        members: [member("f", "self", "1991-03", { sex: "male", ...(maritalStatus !== undefined ? { maritalStatus } : {}) }), member("c", "child", "2027-04")],
+        periods: [
+          period("f1", { member: "f", from: "2013-04", to: "2027-03", annual: 7200000, std: [600000, 600000] }),
+          { id: uid("f2"), member: uid("f"), from: { at: "2027-04" }, to: { at: "2027-04" }, type: "leave", leaveKind: "childcare", leaveChild: uid("c") },
+          period("f3", { member: "f", from: "2027-05", annual: 7200000, std: [600000, 600000] }),
+        ],
+      });
+    const post = (req: ReturnType<typeof alone>) => flowsOf(run(req), (f) => f.formula === "benefit.employment.postBirth" && f.member === F).map((f) => f.amount);
+    expect(post(alone())).toEqual([58240]);
+    expect(post(alone("divorced"))).toEqual([58240]);
+    expect(post(alone("married"))).toEqual([]);
+  });
   it("介護休業給付金: 通算93日・3回までは対象の家族ごとに数える（母の介護の後の義父の介護も出る。同じ家族の4回目は出ない）", () => {
     const P1 = uid("p1");
     const P2 = uid("p2");

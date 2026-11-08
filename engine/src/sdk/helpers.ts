@@ -565,6 +565,34 @@ export function spousesAt(
 }
 
 /**
+ * 月 m に member が婚姻しているか（配偶者のない者でないか。0156・0169）。tax.survivorStatus の婚姻の状態と同じ順で決める:
+ * 1. 配偶者の関係（法律婚・事実婚）がその月にあれば婚姻している
+ * 2. その月までに終わった法律婚の関係があれば、婚姻していない（離婚・死別。構成員の欄は使わない）
+ * 3. 無ければ構成員の欄 maritalStatus が「婚姻している（別居など）」のときだけ婚姻している（省略は婚姻していない）
+ * 呼ぶ部品は reads に member.maritalStatus・relation.type・relation.a・relation.b・relation.marriage・relation.from・relation.to を書く
+ */
+export function marriedAt(
+  ctx: Ctx,
+  relations: readonly { readonly type: string; readonly a?: string; readonly b?: string; readonly marriage?: string; readonly from?: unknown; readonly to?: unknown }[],
+  member: { readonly id: string; readonly maritalStatus?: string },
+  m: MonthIndex,
+): boolean {
+  if (spousesAt(ctx, relations, member.id, m).length > 0) return true;
+  const ended = relations.some(
+    (r) =>
+      r.type === "spouse" &&
+      r.marriage === "legal" &&
+      (r.a === member.id || r.b === member.id) &&
+      r.to !== null &&
+      r.to !== undefined &&
+      ctx.time.resolve(r.to as never) <= m &&
+      (r.from === null || r.from === undefined || ctx.time.resolve(r.from as never) <= m),
+  );
+  if (ended) return false;
+  return member.maritalStatus === "married";
+}
+
+/**
  * member の子（関係の parentOf があればそれで、無ければ member が本人・配偶者のとき家族の種類が child の構成員）。
  * 構成員と関係は部品が reads に書いて読んだもの（member.kind・relation.type・relation.parent・relation.child が要る）
  */
@@ -754,6 +782,76 @@ export function hasWallet(m: MemberInput): boolean {
 /** 世帯の外の家族が、どこかの期間で収入を世帯に入れるか */
 export function outsideIncomeEver(m: MemberInput): boolean {
   return (m.outside?.periods ?? []).some((p) => p.income === true);
+}
+
+/** 月 at に世帯にいるか（生まれた後・加わった後・離れる前。万一の重ねで亡くなった人は、亡くなった月の翌月から離れる） */
+export function presentAt(
+  ctx: Ctx,
+  m: { readonly birth?: { readonly birthYearMonth: string }; readonly joins: unknown; readonly leaves: unknown },
+  at: MonthIndex,
+): boolean {
+  if (m.birth !== undefined && parseYm(m.birth.birthYearMonth) > at) return false;
+  if (m.joins !== null && m.joins !== undefined && ctx.time.resolve(m.joins as never) > at) return false;
+  return m.leaves === null || m.leaves === undefined || ctx.time.resolve(m.leaves as never) > at;
+}
+
+/**
+ * 月 at の世帯主（0165。国民健康保険の納付義務者と、国民健康保険・後期高齢者医療の軽減の判定）: その月に世帯にいる人のうち、本人、
+ * いなければ配偶者、いなければ年長の人（生年月の早い人。同じなら並びの順）。世帯にだれもいなければ undefined。
+ * 本人が亡くなった後（離れた月から）は、残った配偶者などが世帯主になる
+ */
+export function householdHeadAt<M extends { readonly id: string; readonly kind: string; readonly birth?: { readonly birthYearMonth: string }; readonly joins: unknown; readonly leaves: unknown }>(
+  ctx: Ctx,
+  members: readonly M[],
+  at: MonthIndex,
+): M | undefined {
+  const here = members.filter((m) => presentAt(ctx, m, at));
+  const self = here.find((m) => m.kind === "self");
+  if (self !== undefined) return self;
+  const spouse = here.find((m) => m.kind === "spouse");
+  if (spouse !== undefined) return spouse;
+  let best: M | undefined;
+  for (const m of here) {
+    if (best === undefined || (m.birth !== undefined && (best.birth === undefined || parseYm(m.birth.birthYearMonth) < parseYm(best.birth.birthYearMonth)))) best = m;
+  }
+  return best;
+}
+
+/**
+ * 候補（受け取る・払う親など。並びの順）のうち、月 at に世帯にいる最初の人（0165。亡くなった親の名で給付を受け取らない・援助を払わない）。
+ * だれもいなければ最初の候補（候補が無ければ undefined）
+ */
+export function firstPresent<M extends { readonly id: string; readonly birth?: { readonly birthYearMonth: string }; readonly joins: unknown; readonly leaves: unknown }>(
+  ctx: Ctx,
+  members: readonly M[],
+  ids: readonly string[],
+  at: MonthIndex,
+): string | undefined {
+  for (const id of ids) {
+    const m = members.find((x) => x.id === id);
+    if (m !== undefined && presentAt(ctx, m, at)) return id;
+  }
+  return ids[0];
+}
+
+/**
+ * 払う人が離れた（亡くなった）月より後に払うお金の動きを、払う月の世帯主の名にする（0165。亡くなった人は払えない。社会保険料控除は
+ * 払った人に付く〔所得税法74条〕ので、遺族の控除になる）。その月の世帯主がいなければそのまま
+ */
+export function reassignAfterLeave<M extends { readonly id: string; readonly kind: string; readonly birth?: { readonly birthYearMonth: string }; readonly joins: unknown; readonly leaves: unknown }>(
+  ctx: Ctx,
+  members: readonly M[],
+  flows: readonly Flow[],
+): Flow[] {
+  const byId = new Map(members.map((m) => [m.id, m]));
+  return flows.map((f) => {
+    const payer = f.member === undefined ? undefined : byId.get(f.member);
+    if (payer === undefined) return f;
+    const m = parseYm(f.ym);
+    if (payer.leaves === null || payer.leaves === undefined || ctx.time.resolve(payer.leaves as never) > m) return f;
+    const head = householdHeadAt(ctx, members, m);
+    return head === undefined || head.id === payer.id ? f : { ...f, member: head.id };
+  });
 }
 
 /** 世帯の中の構成員（世帯の外の家族を除く。世帯の税・社会保険・給付・遺族の判定の顔ぶれ） */

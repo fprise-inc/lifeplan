@@ -21,7 +21,8 @@
 // 改訂4: 世帯の外の家族（0035 の4）も、同居していなければ別の世帯で判定する
 // 改訂5: 介護を受ける人が亡くなった後（離れた後）は出さない。世帯の外の家族の亡くなる見込み・構成員の離れる月（leaves）の月から、
 //   万一の想定で介護を受ける人が亡くなるときはその月の翌月から（期間・一時費用が残っていても）。今までは期間の終わりまで出していた
-// 改訂6（0171）:
+// 改訂6（0164）: 在宅か施設か（place）の省略は在宅の統計の月額にする（前は在宅と施設を合わせた平均。表の行は前から在宅の行で、画面も在宅と見せていた）
+// 改訂7（0171）:
 // - 所得の指標は、給与所得・公的年金等の雑所得から10万円を引く（令和6年1月の厚生労働省の事務連絡「介護保険制度における所得指標の取扱いについて」。
 //   本人の合計所得金額は給与所得と年金の所得の合計から10万円まで、「その他の合計所得金額」は給与所得から10万円まで。sdk の careIncome）
 // - 高額介護サービス費の上限の課税所得は、住民税の課税所得（市町村民税の総所得金額等から所得控除をした後の額。22条の2の2第5項）。前は所得税の
@@ -91,7 +92,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   id: "care.expense",
   title: "介護の費用（自己負担割合・高額介護サービス費）",
   contract: "1.0",
-  revision: 6,
+  revision: 7,
   requires: {
     "contingency.event": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -161,7 +162,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
     // 自己負担割合と上限（介護を受ける人×判定の年・年度×世帯の顔ぶれと65歳以上の人）
     const cache = new Map<string, { ratio: Rate; cap: Yen | null }>();
     // 公的年金等の収入金額＋（合計所得金額−公的年金等の雑所得）（その年）
-    // 給与所得・公的年金等の雑所得から引く額（改訂6）
+    // 給与所得・公的年金等の雑所得から引く額（改訂7）
     const indicatorDeduction = (m: MonthIndex): Yen => {
       const at = ctx.at(m);
       return at.has(P.indicatorDeduction) ? (at.paramYen(P.indicatorDeduction) ?? yen(0)) : yen(0);
@@ -190,7 +191,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
       let ratio = at.paramRate(P.r1) ?? RATE_ZERO;
       // 65歳以上（第1号）で住民税が課税される人だけ所得で判定（22条の2第4項2号・第7項2号）
       if (firsts.includes(member) && !exempt(member)) {
-        // 本人の合計所得金額（給与所得と年金の所得から10万円を引く。改訂6）
+        // 本人の合計所得金額（給与所得と年金の所得から10万円を引く。改訂7）
         const total = careIncome(ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year: incomeYear }), indicatorDeduction(m)).total;
         const measure = firsts.reduce((sum, id) => sum + pensionAndOther(id, incomeYear, m), 0);
         const couple = firsts.length > 1;
@@ -208,7 +209,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
         const limit = at.has(P.personalIncome) ? at.paramYen(P.personalIncome) : null;
         if (personal !== null && limit !== null && (cap === null || personal < cap) && pensionAndOther(member, incomeYear, m) <= limit) cap = personal;
       } else {
-        // 世帯の65歳以上の人のいずれかの住民税の課税所得（同条第5項・第6項。改訂6）。その所得の年の翌年度の住民税の課税所得を使う。
+        // 世帯の65歳以上の人のいずれかの住民税の課税所得（同条第5項・第6項。改訂7）。その所得の年の翌年度の住民税の課税所得を使う。
         // 決定通知書の額を入れた年度（途中の値が無い）は、所得税の課税所得で近似する（所得税の年税額は計算基準年からしか計算しないので、
         // 計算基準年の前年の所得で判定する月は計算基準年の課税所得）
         const table = at.paramBrackets(P.cap);
@@ -241,7 +242,8 @@ export default defineComponent<Record<string, never>, FlowsResult>({
         if ((service === null && other === null) || initial === null || c.months === undefined) ctx.notice("N_INPUT_REQUIRED", [c.id, "care.noFill"]);
       } else {
         if (service === null && other === null) {
-          other = at0.paramYen(c.place === "home" ? S.home : c.place === "facility" ? S.facility : S.monthly);
+          // 在宅か施設かの省略は在宅（表の行・画面の既定と同じ。改訂6）
+          other = at0.paramYen(c.place === "facility" ? S.facility : S.home);
           ctx.notice("N_DEFAULT_USED", [c.id, "care.otherMonthly"]);
         }
         if (initial === null) {

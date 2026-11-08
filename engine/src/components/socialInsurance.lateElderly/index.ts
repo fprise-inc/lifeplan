@@ -7,6 +7,9 @@
 // 改訂（0044）: 所得割と軽減の判定の所得に、分離課税の譲渡所得（tax.totalIncome の separate。入るお金の行）も足す
 // 改訂7（0081）: 所得割と軽減の判定の総所得金額等から、青色申告の純損失の繰越控除（tax.lossCarryforward）を引く（国民健康保険と同じ。
 //   土地建物等の譲渡所得は separate として入る）
+// 改訂8（0165）: 軽減の判定の世帯主は、その年度の始まり（計算基準月より前の年度は計算基準月）に判定の世帯にいる人から決める（本人、いなければ
+//   配偶者、いなければ年長の人。sdk の householdHeadAt）。前は本人の構成員の決め打ちで、本人が亡くなった後も亡くなった本人の前の年の所得が
+//   遺族の軽減の判定に入った。亡くなった月より後に払う分（本人の分の残り）は、払う月の世帯主（遺族）の名にする（sdk の reassignAfterLeave）
 // 改訂9（0171）:
 // - 軽減の判定の「給与所得者等の数」は、前の年の給与等の収入が55万円を超える人と、公的年金等の収入が60万円（その年の12月31日に65歳以上は
 //   125万円）を超える人（施行令18条5項1号・附則3条。sdk の isEarner）。前は給与・年金が少しでもある人を数えていた
@@ -24,6 +27,7 @@ import {
   fiscalYearOf,
   fiscalYearStart,
   healthStatusInFiscalYear,
+  householdHeadAt,
   installmentFlows,
   isEarner,
   LATE_ELDERLY_AGE,
@@ -34,6 +38,7 @@ import {
   rate,
   RATE_ONE,
   rateOverride,
+  reassignAfterLeave,
   reductionRatio,
   sameHousehold,
   subYen,
@@ -84,7 +89,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     SPECIAL,
     LATE_ELDERLY_AGE,
   ],
-  reads: ["member.outside", "member.leaves", "relation.type", "relation.a", "relation.b", "relation.from", "relation.to", "member.kind", "premiumAssessment.member", "premiumAssessment.kind", "premiumAssessment.fiscalYear", "premiumAssessment.amount", "premiumRate.kind", "premiumRate.fromFiscalYear", "premiumRate.parts"],
+  reads: ["member.outside", "member.birth", "member.joins", "member.leaves", "relation.type", "relation.a", "relation.b", "relation.from", "relation.to", "member.kind", "premiumAssessment.member", "premiumAssessment.kind", "premiumAssessment.fiscalYear", "premiumAssessment.amount", "premiumRate.kind", "premiumRate.fromFiscalYear", "premiumRate.parts"],
   memberScope: ["premiumAssessment"],
   input: "residentTax.annual.input",
   output: "flows.output",
@@ -104,7 +109,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     const given = assessedPremium(ctx.list<PremiumAssessmentInput>("premiumAssessment"), "lateElderly", member, fy);
     if (given !== undefined) {
       const amount = boxValue((given as PremiumAssessmentInput).amount) ?? yen(0);
-      return { flows: installmentFlows(ctx, fy, special, member, [{ row: "cf.taxSi.health", amount, formula: "socialInsurance.lateElderly.assessed" }]) };
+      return { flows: reassignAfterLeave(ctx, sameHousehold(ctx, ctx.list<MemberInput>("member"), ctx.list<RelationInput>("relation"), member), installmentFlows(ctx, fy, special, member, [{ row: "cf.taxSi.health", amount, formula: "socialInsurance.lateElderly.assessed" }])) };
     }
     const at = ctx.at(fiscalYearStart(jy));
     const override = rateOverride(ctx.list<PremiumRateInput>("premiumRate"), "lateElderly", fy);
@@ -118,10 +123,10 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     const own = totalOf(member);
     const deduction = at.paramYen(`${PREFIX}.incomeDeduction`) ?? yen(0);
     const base = own > deduction ? subYen(own, deduction) : yen(0);
-    // 軽減の判定: 世帯主（本人の構成員）と、その年度に後期高齢者医療に入る構成員の総所得金額等の合計
+    // 軽減の判定: 世帯主（年度の始まりに世帯にいる本人・配偶者など。改訂8）と、その年度に後期高齢者医療に入る構成員の総所得金額等の合計
     // 判定の世帯: 世帯の中の人は世帯の中の人、世帯の外の家族はその人と世帯の外の配偶者（0035 の4）
     const members = sameHousehold(ctx, ctx.list<MemberInput>("member"), ctx.list<RelationInput>("relation"), member);
-    const head = members.find((m) => m.kind === "self")?.id ?? member;
+    const head = householdHeadAt(ctx, members, fiscalYearStart(fy) < ctx.time.base ? ctx.time.base : fiscalYearStart(fy))?.id ?? member;
     const insured = members.filter(
       (m) =>
         m.id === member ||
@@ -172,6 +177,6 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
       const amount = at.has(`${PREFIX}.rounding`) ? at.money.round(prorated, `${PREFIX}.rounding`) : prorated;
       parts.push({ row, amount, formula: `socialInsurance.lateElderly.${part}` });
     }
-    return { flows: installmentFlows(ctx, fy, special, member, parts) };
+    return { flows: reassignAfterLeave(ctx, members, installmentFlows(ctx, fy, special, member, parts)) };
   },
 });

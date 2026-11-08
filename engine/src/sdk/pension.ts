@@ -173,11 +173,18 @@ export interface SurvivorBasis {
   readonly empUntil: MonthIndex | null;
   /** 配偶者が遺族厚生年金の受給権を得るか（夫は死亡の当時55歳以上） */
   readonly spouseEmployeeRight: boolean;
+  /**
+   * 子が受け取る遺族厚生年金のうち、遺族基礎年金は配偶者が受けるので子には出さない（配偶者が遺族厚生年金の受給権の無い夫のとき。
+   * 国民年金法41条2項・厚生年金保険法66条1項。0170）
+   */
+  readonly basicSuspended?: boolean;
 }
 
 /**
  * 遺族年金の受給権の判定（pension.survivor と pension.survivorRight で共通）。Y が受け取る人でなければ null。
  * - 子だけが受け取るのは、死亡の当時に配偶者がいないとき。受け取る子は、受けられる子のうち最も年上の子
+ * - 配偶者が死亡の当時55歳未満の夫（遺族厚生年金の遺族でない。厚生年金保険法59条1項1号）なら、遺族厚生年金は子が受け取る（配偶者に受給権が
+ *   無いので子の分は止まらない。66条1項）。遺族基礎年金は配偶者が受け、子の分は止まる（国民年金法41条2項）。0170
  * - 遺族厚生年金: 短期要件（死亡の当時に厚生年金に入っていた。死亡の月は資格を失うので、前の月まで入り、死亡の月も同じ勤め先の期間にいる。0171）か長期要件（受給資格期間25年以上）。妻は年齢を問わない（死亡の当時30歳未満で子が無ければ5年）。
  *   夫は死亡の当時55歳以上で、60歳から
  * - 遺族基礎年金: 65歳になる前の死亡か、受給資格期間25年以上
@@ -199,10 +206,16 @@ export function survivorBasis(
   const kidsAll = childrenOf(members, relations, deceased).filter((c) => parseYm(c.birth.birthYearMonth) <= addMonths(death, 10));
   const isChild = kidsAll.some((c) => c.id === Y);
   if (!isSpouse && !isChild) return null;
-  const hasSpouse = spousesAt(ctx, relations, deceased, death).length > 0;
-  if (isChild && hasSpouse) return null;
+  const spouseNow = spousesAt(ctx, relations, deceased, death)[0];
   const m0 = death < base ? base : death;
   const at0 = ctx.at(m0);
+  // 配偶者がいるとき、子が受け取るのは、配偶者が遺族厚生年金の受給権の無い夫（死亡の当時55歳未満）のときの遺族厚生年金だけ（0170）
+  let basicSuspended = false;
+  if (isChild && spouseNow !== undefined) {
+    const sm = members.find((m) => m.id === spouseNow);
+    if (sm === undefined || sm.sex === "female" || death >= ageMonth(ctx, m0, P.husbandAge, spouseNow)) return null;
+    basicSuspended = true;
+  }
   const childUntil = new Map(kidsAll.map((c) => [c.id, ageMonth(ctx, m0, P.childAge, c.id)]));
   if (isChild) {
     const eldest = [...kidsAll].filter((c) => (childUntil.get(c.id) as MonthIndex) > death).sort((a, b) => (a.birth.birthYearMonth < b.birth.birthYearMonth ? -1 : 1))[0];
@@ -264,5 +277,6 @@ export function survivorBasis(
     empFrom,
     empUntil,
     spouseEmployeeRight,
+    ...(basicSuspended ? { basicSuspended } : {}),
   };
 }

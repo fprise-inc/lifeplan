@@ -873,6 +873,8 @@ export interface InsurancePolicyYear {
   readonly surrenderValue: Yen;
   readonly paid: Yen;
   readonly others?: readonly { readonly member: string; readonly deathBenefit: Yen }[];
+  /** その年の最初の月（計算基準年は計算基準月）に亡くなったときの死亡保障額（約束の版 1.2。0170）。others は年末の others と同じ形 */
+  readonly start?: { readonly month: string; readonly deathBenefit: Yen; readonly others?: readonly { readonly member: string; readonly deathBenefit: Yen }[] };
 }
 
 /** insurance.policy: 保険契約1件の受け取り・保険年度ごとの値（数表か型から） */

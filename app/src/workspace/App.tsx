@@ -2048,14 +2048,18 @@ export function App() {
   const names = { selected: planLabel(letterOf(work.sel)), base: planLabel(letterOf(work.base)), same: work.sel === work.base };
   const feeShown = opened !== null && shows(settings, "feeLine") && hasAdvisoryFee(opened.wh.request) && work.sel !== CURRENT;
   const provisional = selView?.source !== "canonical" || selView.stale;
+  // 今の入力で計算できなかった（エラーの）プランは、前の計算の残りの結果で「足りる」「準備できています」を出さない（0169）
+  const failedSlots = new Set(slots.filter((id) => views.get(id)?.error != null));
+  const failed = failedSlots.has(work.sel) || failedSlots.has(work.base);
   const model = useMemo(() => {
     if (opened === null || selReq === null || selRes === null || baseRes === null) return null;
     const fee = feeShown ? { on: feeOn, alt: altRes } : undefined;
     const dreams = { raw: rawReqOf(opened, valuesOf(opened.wh, work, work.sel)), withoutDreams: noDreamRes };
-    const m = toPresentation({ base: opened.wh.request, proposal: selReq, current: baseRes, proposed: selRes, targetAge: settings.atAge, selectedYear, provisional, names, dreams, ...(baseReq !== null ? { baseProposal: baseReq } : {}), ...(fee !== undefined ? { fee } : {}), ...(rowNames !== undefined ? { rowNames } : {}) });
+    const m = toPresentation({ base: opened.wh.request, proposal: selReq, current: baseRes, proposed: selRes, targetAge: settings.atAge, selectedYear, provisional, names, dreams, failed, ...(baseReq !== null ? { baseProposal: baseReq } : {}), ...(fee !== undefined ? { fee } : {}), ...(rowNames !== undefined ? { rowNames } : {}) });
+    if (failed) return m;
     const extra = verdictMetrics(settings, { name: names.selected, m: metricsOf(opened.wh.request, selRes.table, settings.atAge) }, names.same ? null : { name: names.base, m: metricsOf(opened.wh.request, baseRes.table, settings.atAge) });
     return extra.length > 0 ? { ...m, result: { ...m.result, sub: [...m.result.sub, ...extra] } } : m;
-  }, [opened, work, rawReqOf, selReq, baseReq, selRes, baseRes, altRes, noDreamRes, feeOn, feeShown, selectedYear, provisional, settings, names.selected, names.base, names.same, rowNames]);
+  }, [opened, work, rawReqOf, selReq, baseReq, selRes, baseRes, altRes, noDreamRes, feeOn, feeShown, selectedYear, provisional, failed, settings, names.selected, names.base, names.same, rowNames]);
   const explain = useMemo(
     () => (explainStep === null || opened === null || selReq === null || selRes === null ? null : explainModel(selReq, selRes, settings.atAge)),
     [explainStep !== null, opened, selReq, selRes, settings.atAge],
@@ -2067,7 +2071,7 @@ export function App() {
     colorMap.current = m;
     return m;
   }, [work.band, letters]);
-  const band = opened === null ? null : bandModel({ req: opened.wh.request, slots, letters, results: new Map(slots.map((id) => [id, resultOf(id)])), modified, base: work.base, selected: work.sel, settings, colors });
+  const band = opened === null ? null : bandModel({ req: opened.wh.request, slots, letters, results: new Map(slots.map((id) => [id, resultOf(id)])), modified, base: work.base, selected: work.sel, settings, colors, failed: failedSlots });
   // 全部のプランを色分けで重ねる表示: 帯の全部のプランの線（プランの名前と色の番号と数字だけ）をグラフの値に足す
   const slotResults = slots.map((id) => resultOf(id));
   // 計算の知らせ（0064）: 帯の全部のプランの結果の知らせを、FP 向けの行にまとめる（結果のタブ）。現状の分は確かめの一覧にも出す
@@ -2904,7 +2908,7 @@ export function App() {
               wh={opened.wh}
               host={host}
               engine={host === null ? null : (cgEngine.current ??= new ContingencyEngine({ host, web: webRef.current.web, packs: webRef.current.packs }))}
-              targetAge={opened.demo?.targetAge ?? 95}
+              targetAge={settings.atAge}
               onEdit={edit}
               ui={cgUi}
               onUi={setCgUi}

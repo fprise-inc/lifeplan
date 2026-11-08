@@ -47,7 +47,7 @@ export default defineComponent<{ member: string }, RecordOutput>({
   id: "pension.record",
   title: "公的年金の加入の記録",
   contract: "1.1",
-  revision: 5,
+  revision: 6,
   requires: { "pension.category": ">=1 <2", "socialInsurance.coverage": ">=1 <2", "socialInsurance.employeeStatus": ">=1 <2", "pension.revision": ">=1 <2" },
   params: [UNTIL60, FROM20, PRE, POST, ROUND, REVAL, MIDDLE_MALE, MIDDLE_FEMALE],
   reads: [
@@ -131,7 +131,7 @@ export default defineComponent<{ member: string }, RecordOutput>({
       let num = 0n;
       const F = fiscalYearOf(asOf ?? base);
       const atK = ctx.at(fiscalYearStart(F));
-      // 再評価率の延ばし方（0006・0007 の追記（2026-10-09））: 記録の年度 F の表が制度データに無いときは、値のある最後の年度 L（F の前の10年度まで探す）の
+      // 再評価率の延ばし方（0006・0007 の追記（2026-10-09））: 記録の年度 F の表が制度データに無いときは、値のある最後の年度 L（F の前へ探す。改訂6: 前は10年度までで、データの最後の年度より10年以上後の計算基準月は延ばせなかった）の
       // 表の各行に、報酬比例の改定の比（pension.revision の employee の F 年度÷L 年度）を掛けて小数3桁に四捨五入する（令和7年度→令和8年度の
       // 表で、直近の3期間を除く全行がこの規則で一致した。PR #9）。L の表の期間より後の月（直近の期間）は、その月の年度 p の改定の比（F÷p。
       // p が F 以後なら1）を小数3桁に四捨五入した率にする。延ばした表を使ったら見出しの notices（N_PARAM_PROJECTED）に出す
@@ -145,7 +145,7 @@ export default defineComponent<{ member: string }, RecordOutput>({
           table = atK.paramPeriods(REVAL, { member });
           return table;
         }
-        for (let y = F - 1; y >= F - 10; y--) {
+        for (let y = F - 1; y > F - 100; y--) {
           const aty = ctx.at(fiscalYearStart(y));
           if (!aty.has(REVAL, { member })) continue;
           const rows = ctx.call<RevisionOutput>("pension.revision", { member }).byFiscalYear;

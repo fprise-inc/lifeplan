@@ -1,4 +1,4 @@
-// 国民健康保険の保険料（年度。世帯主＝本人の構成員が納める）。区分（医療・後期高齢者支援金等・介護（40〜64歳）・子ども・子育て支援金）ごとに
+// 国民健康保険の保険料（年度。世帯主が納める。世帯主は年度の始まりに世帯にいる本人、いなければ配偶者など。改訂11）。区分（医療・後期高齢者支援金等・介護（40〜64歳）・子ども・子育て支援金）ごとに
 // 所得割（総所得金額等−基礎控除）×率＋均等割×人数＋平等割（均等割・平等割は軽減の後）を、賦課限度額まで。加入の月数で按分する。
 // 市町村ごとの値を持たない方針（0007 の6）。全国の目安の料率（公式の統計の全国の平均。制度データ）を既定にし、使ったときは見出しの notices に
 // N_DEFAULT_USED（nationalStandard）を出す。制度データに目安が無い区分があれば、世帯の入力が無いときは計算せず N_INPUT_REQUIRED を出す。
@@ -14,6 +14,11 @@
 // 改訂10（0099）: 子ども・子育て支援金の区分は、その区分が始まった年度（令和8年度。18歳未満の均等割をかけない年齢の値の最初の行）より前の年度には
 //   かけない。計算基準月が令和8年1〜3月の世帯は、令和7年度（前の年の社会保険料控除と、1〜3月の納期）も計算するが、料率の入力に支援金の欄があっても
 //   その年度には当てない（前はその年齢の値が無く E_PARAM_NO_VALUE で止まった）
+// 改訂11（0165）: 世帯主は、その年度の始まり（計算基準月より前の年度は計算基準月）に世帯にいる人から決める（本人、いなければ配偶者、
+//   いなければ年長の人。sdk の householdHeadAt）。前は本人の構成員の決め打ちで、本人が亡くなった後の年度も、亡くなった本人の前の年の
+//   所得が軽減の判定に入り、保険料が亡くなった本人の名で出て遺族の社会保険料控除から落ちた。軽減の判定は世帯主と被保険者の前の年の
+//   所得（国民健康保険法施行令29条の7第5項）で、年度の途中で世帯主が亡くなっても判定は年度の始まりのまま。亡くなった月より後に払う分は、
+//   払う月の世帯主（遺族）の名にする（sdk の reassignAfterLeave）
 // 改訂12（0171）:
 // - 軽減の判定の「給与所得者等の数」は、前の年の給与等の収入が55万円を超える人と、公的年金等の収入が60万円（その年の12月31日に65歳以上は
 //   125万円）を超える人（施行令29条の7第6項1号・附則5条。sdk の isEarner）。前は給与・年金が少しでもある人を数えていた
@@ -37,6 +42,7 @@ import {
   LATE_ELDERLY_AGE,
   fiscalYearOf,
   fiscalYearStart,
+  householdHeadAt,
   householdMembers,
   installmentFlows,
   monthIndex,
@@ -44,6 +50,7 @@ import {
   rate,
   RATE_ONE,
   rateOverride,
+  reassignAfterLeave,
   reductionRatio,
   subYen,
   yen,
@@ -100,6 +107,8 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
   reads: [
     "member.outside",
     "member.kind",
+    "member.birth",
+    "member.joins",
     "member.leaves",
     "member.joins",
     "member.birth",
@@ -129,7 +138,6 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
     const ageAt = start < ctx.time.base ? ctx.time.base : start;
     // 世帯の外の家族は別の世帯（0035 の4）
     const members = householdMembers(ctx.list<MemberInput>("member"));
-    const head = members.find((m) => m.kind === "self")?.id ?? (members[0] as MemberInput).id;
     const insured = members
       .map((m) => ({
         id: m.id,
@@ -140,10 +148,13 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
       }))
       .filter((x) => x.months.length > 0);
     if (insured.length === 0) return { flows: [] };
+    // 世帯主（改訂11）: 年度の始まり（計算基準月より前の年度は計算基準月）に世帯にいる人から。だれもいなければ最初に加入する月
+    const firstInsured = Math.min(...insured.map((x) => Math.min(...x.months))) as typeof ageAt;
+    const head = (householdHeadAt(ctx, members, ageAt) ?? householdHeadAt(ctx, members, firstInsured) ?? (members[0] as MemberInput)).id;
     const given = assessedPremium(ctx.list<PremiumAssessmentInput>("premiumAssessment"), "nationalHealth", head, fy);
     if (given !== undefined) {
       const amount = boxValue((given as PremiumAssessmentInput).amount) ?? yen(0);
-      return { flows: installmentFlows(ctx, fy, false, head, [{ row: "cf.taxSi.health", amount, formula: "socialInsurance.nationalHealth.assessed" }]) };
+      return { flows: reassignAfterLeave(ctx, members, installmentFlows(ctx, fy, false, head, [{ row: "cf.taxSi.health", amount, formula: "socialInsurance.nationalHealth.assessed" }])) };
     }
     const at = ctx.at(valuesAt);
     const override = rateOverride(ctx.list<PremiumRateInput>("premiumRate"), "nationalHealth", fy);
@@ -284,6 +295,6 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
     if (insured.some((x) => x.months.some((m) => m < ctx.time.ageSwitch(x.id, { years: 6 }, "schoolYear")))) {
       ctx.notice("N_NOT_SUPPORTED", [`${PREFIX}.preschoolReduction`, `${PREFIX}.maternityExemption`]);
     }
-    return { flows: installmentFlows(ctx, fy, false, head, parts) };
+    return { flows: reassignAfterLeave(ctx, members, installmentFlows(ctx, fy, false, head, parts)) };
   },
 });
