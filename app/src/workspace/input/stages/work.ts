@@ -1051,7 +1051,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
       fields.push({ ...plain({ key: `${prefix}/corpDbMonthly`, item: "employment.corporatePension", label: "他制度掛金相当額（月額）", level: d, kind: "yen", basis: "monthly", find, path: ["corporatePension", "dbEquivalentMonthly"], optional: true, help: "勤め先から知らされる額。入れなければ、iDeCo の上限を他制度ありの決まりで見ます" }), address: () => ({ target: { object: p.id }, item: "employment.corporatePension", at: ["dbEquivalentMonthly"] }) });
   }
   if (p.type === "selfEmployed")
-    fields.push(yenBox({ key: `${prefix}/business`, item: "employment.business.income", label: "事業所得（年額）", level, basis: "annual", find, path: ["business", "income"], estimate: () => businessEstimate(), help: "確定申告書の所得金額（青色申告特別控除の前）。青色申告決算書の「青色申告特別控除前の所得金額」を写します（決算書が無ければ、申告書第一表の「事業（営業等）」の所得金額に「青色申告特別控除額」を足した額）。青色申告なら、控除は下の「確定申告」で選ぶと計算で引きます" }), growthField(wh, p, find, prefix, "business", d));
+    fields.push(yenBox({ key: `${prefix}/business`, item: "employment.business.income", label: "事業所得（年額）", level, basis: "annual", find, path: ["business", "income"], estimate: () => businessEstimate(), help: "青色申告特別控除を引く前の事業所得の額。青色申告決算書の「青色申告特別控除前の所得金額」を写します（決算書が無ければ、申告書第一表の「事業（営業等）」の所得金額に「青色申告特別控除額」を足した額。申告書の所得金額は控除の後の額なので、そのまま写すと控除を2回引きます）。青色申告なら、控除は下の「確定申告」で選ぶと計算で引きます" }), growthField(wh, p, find, prefix, "business", d));
   if (level === "detail") fields.push(...claimFields(wh, m, p, find, prefix));
   return fields;
 }
@@ -1645,7 +1645,7 @@ function curveFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
         kind: "select",
         options: [{ value: "none", label: "使わない" }, ...(employment !== null ? [{ value: "use", label: "統計の年齢カーブで増やす" }] : []), ...other],
         structural: true,
-        help: "使わないときは、前提条件の賃金上昇率（か「この期間の伸び（年率）」）で伸ばします。使うと、賃金構造基本統計調査（厚生労働省 令和7年）の年齢ごとの年収の比で、今の年収から毎年の年収を伸ばします（30〜34歳から40〜44歳へ、のように年齢の係数の比を掛けます）。前提条件の賃金上昇率の分も別に伸ばします。「この期間の伸び（年率）」を入れていれば、その代わりに使います。表は性別・学歴で分けない全体の表です。60歳以後は伸ばしません（定年後の下がり方は定年後の予定で入れます）",
+        help: "使わないときは、前提条件の賃金上昇率（か「伸び率（年）」）で伸ばします。使うと、賃金構造基本統計調査（厚生労働省 令和7年）の年齢ごとの年収の比で、今の年収から毎年の年収を伸ばします（30〜34歳から40〜44歳へ、のように年齢の係数の比を掛けます）。前提条件の賃金上昇率の分も別に伸ばします。「伸び率（年）」を入れていれば、その代わりに使います。表は性別・学歴で分けない全体の表です。60歳以後は伸ばしません（定年後の下がり方は定年後の予定で入れます）",
         get: (w) => {
           const x = find(w.request.input.household, w) as EmploymentPeriod | undefined;
           const id = curveOf(x);

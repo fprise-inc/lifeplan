@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { rejectReason } from "../src/workspace/input/FieldViews.tsx";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
-import { blankHousehold, followStandards, fromRequest, mutate, standardEndYear, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { blankHousehold, firstTableYear, followStandards, fromRequest, mutate, standardEndYear, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { assumptionRows, setAgreed } from "../src/workspace/input/assumptionList.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { endYearNotice, rateWarning, STANDARD_BASIS, yearRanges } from "../src/workspace/input/stages/assumptions.ts";
@@ -144,9 +144,9 @@ describe("表の最後の年", () => {
     expect(f.set(w2, null).request.input.endYear).toBe(std);
   });
 
-  it("計算基準月の年より前は入れられない（年の欄も年齢の欄も。前にすると計算が止まっていた）", () => {
+  it("表の最初の年より前は入れられない（年の欄も年齢の欄も。計算基準月の年より前にすると計算が止まり、年の途中の計算基準月の年は表が0年。0169）", () => {
     const wh = open("elderCare");
-    const base = Number(wh.request.input.baseMonth.slice(0, 4));
+    const base = firstTableYear(wh.request.input.baseMonth);
     const year = fieldOf(wh, "assume/endYear");
     expect(year.kind === "int" ? year.min : null).toBe(base);
     expect(rejectReason(year, String(base - 1))).not.toBeNull();

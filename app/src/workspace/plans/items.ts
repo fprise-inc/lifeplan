@@ -916,7 +916,8 @@ export function fieldText(f: FieldDef, v: ItemValue): string {
   if (f.kind === "yen") {
     const n = Number(v);
     const per = f.basis === "monthly" ? "月" : f.basis === "annual" ? "年" : "";
-    return `${per}${n % MAN === 0 || Math.abs(n) >= MAN * 10 ? manText(n) : `${group(n)}円`}`;
+    // 10万円以上の端数は、対策の値の文（leverValueText の amountText）と同じく万円の小数1桁（同じ値が「月20.9万円」と「月21万円」に分かれないように。0169）
+    return `${per}${n % MAN === 0 ? manText(n) : Math.abs(n) >= MAN * 10 && Number.isInteger(n) ? amountText(n) : `${group(n)}円`}`;
   }
   if (f.kind === "pct") return `${pctFromRate(String(v))}%`;
   if ((f.kind === "int" || f.kind === "decimal") && f.suffix !== undefined) return `${String(v)}${f.suffix}`;
