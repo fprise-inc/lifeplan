@@ -22,7 +22,7 @@ import type { ZipLimits } from "../../xlsx/src/zip.ts";
 export { HEARING_FORMAT, HEARING_FORMAT_VERSION, requestIdFrom, REQUEST_ID_PATTERN, type Answer, type FilledSheet, type Management, type RawValue } from "./answers.ts";
 export { checkDefinition, type MoneyRangeStep, type SheetDefinition, type SheetItem } from "./definition.ts";
 export { blankAnswers, exportAnswers, type ExportOptions, type ExportResult } from "./export.ts";
-export { approveAll, DEFAULT_ASSUMPTIONS, importAnswers, keyLabel, type Candidate, type ChecklistItem, type ConsentDraft, type FieldRecord, type ImportOptions, type ImportRecord, type ImportResult } from "./import.ts";
+export { approveAll, DEFAULT_ASSUMPTIONS, GATE_KINDS, importAnswers, keyLabel, type Candidate, type ChecklistItem, type ConsentDraft, type FieldRecord, type GateAnswersIn, type GateKind, type ImportOptions, type ImportRecord, type ImportResult } from "./import.ts";
 export type { Issue, IssueCode, IssueLevel } from "./issues.ts";
 export { layoutDigest } from "./layout.ts";
 export { readSheetXlsx, type HearingRequest, type ReadOptions, type ReadResult } from "./xlsx/read.ts";
