@@ -743,7 +743,10 @@ function fundingField(r: Residence, k: string): FieldDef {
       const x = (h.residences ?? []).find((y) => y.id === r.id);
       const v = x === undefined ? null : purchaseFunding(h, x);
       const left = x === undefined ? null : unfundedPurchase(h, x);
-      return { value: v, ...(v === null && left !== null ? { estimated: unfundedPurchaseText(left, x !== undefined && isCustomBuild(x)) } : {}) };
+      if (v !== null || left === null) return { value: v };
+      // 未入力の印と、欄の下の知らせ（印だけでは理由が見えない。通しの入力の確かめ）
+      const text = unfundedPurchaseText(left, x !== undefined && isCustomBuild(x));
+      return { value: v, estimated: text, warn: text.replace(/^未入力（/, "").replace(/）$/, "") };
     },
     set: (w, v) => (v === "cash" ? buyWithCash(w, r.id) : v === "loan" ? buyWithLoan(w, r.id) : w),
   });
