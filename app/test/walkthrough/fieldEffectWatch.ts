@@ -88,7 +88,6 @@ export const NOT_OBSERVED: readonly ShapeRule[] = [
   { shape: "housing:housing/res/*/ownerShare", why: "共有の持ち家の持分は、相続税がかかる世帯の「いま亡くなったら」だけ" },
   { shape: "housing:housing/debt/*/principal", why: "借入額は、入れ方が「今の残高から」のローンでは使わない" },
   { shape: "car:housing/debt/*/principal", why: "借入額は、入れ方が「今の残高から」のローンでは使わない" },
-  { shape: "housing:housing/debt/*/rateType", why: "金利の種類は、金利の見込みが「今の金利のまま」では効かない" },
   { shape: "rental:housing/debt/*/rateType", why: "金利の種類は、金利の見込みが「今の金利のまま」では効かない" },
   { shape: "car:housing/debt/*/rateType", why: "金利の種類は、金利の見込みが「今の金利のまま」では効かない" },
   { shape: "housing:housing/debt/*/refinance/*/rateType", why: "借り換えの新しい金利の種類は、5年ルール・125%ルール・変動金利の上乗せ（ストレステスト）が効くときだけ" },
