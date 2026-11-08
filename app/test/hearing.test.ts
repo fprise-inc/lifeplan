@@ -332,6 +332,9 @@ describe("値の入った世帯に記入済みのシート（Excel）を取り�
     const r = await importSheet(SIMPLE, wh, seq);
     if (!r.ok) throw new Error("取り込めない");
     const v = r.view;
+    // Excel のシートには分岐の答えが無い（人数の違いの知らせは出さない。0139 の追記 2026-11-08）
+    expect(r.view.result.gates).toBeUndefined();
+    expect(v.gates).toEqual([]);
     const sel = defaultSelection(v);
     const loan = v.candidates.find((c) => c.group === "住宅ローン");
     expect(loan?.keep).toContain("今の値の方が詳しいので残します");

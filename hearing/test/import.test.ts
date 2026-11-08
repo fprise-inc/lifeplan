@@ -313,4 +313,17 @@ describe("取り込み: 答えの無い欄の印と、Web の記入の年月（�
     expect(later(web("2027-11"))[0]?.message).toContain("1年を超えて後");
     expect(later(run(a("hs.meta.filledOn", "2026-11"), ...base))[0]?.message).toContain("記入の年月が計算基準月より後");
   });
+
+  it("分岐の答え（Web だけ）は形を確かめて結果に写すだけ。世帯の人や行は変えない。シートに無い問い・範囲の外は捨てる。Excel（省略）は無い", () => {
+    const answers = [...minimal, a("hs.family.child.birthYearMonth", "2015-04", 1)];
+    const plain = importAnswers(def, sheet(...answers), { baseMonth: "2026-10", newId: idSeq("g") });
+    expect(plain.gates).toBeUndefined();
+    const withGates = importAnswers(def, sheet(...answers), { baseMonth: "2026-10", newId: idSeq("g"), gates: { spouse: 0, child: 0, loan: 1, policy: 9, parent: 0, ...({ other: 1 } as object) } });
+    // このシート（簡易版の版1）にはご両親の繰り返しが無いので、その答えは捨てる。保険の件数は繰り返しの数（5）を超えるので捨てる。知らない問いも捨てる
+    expect(withGates.gates).toEqual({ spouse: 0, child: 0, loan: 1 });
+    // 「お子さま 0人」でも、記入のある子の候補を消さない（世帯の候補は分岐の答えの無いときと同じ）
+    expect(withGates.request).toEqual(plain.request);
+    expect(withGates.candidates).toEqual(plain.candidates);
+    expect(importAnswers(def, sheet(...minimal), { baseMonth: "2026-10", newId: idSeq("g"), gates: { child: 5, spouse: 2, parent: -1 } }).gates).toEqual({});
+  });
 });
