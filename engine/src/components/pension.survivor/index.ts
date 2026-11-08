@@ -22,6 +22,8 @@
 //   死亡一時金と寡婦年金の選択は、寡婦年金を選んで増える総額と比べる。妻が繰上げで老齢基礎年金を受け始めると寡婦年金の受給権は消える
 //   （附則9条の2第5項。夫の死亡より前から受けていれば寡婦年金は無い）（改訂3）
 // - 受給権の判定（誰が・いつ・どの遺族年金の受給権を得るか）は SDK の survivorBasis（pension.survivorRight と共通）
+// - 改訂6（0170）: 死亡の当時55歳未満の夫は遺族厚生年金の受給権が無い（遺族基礎年金を受ける間も出さない）。遺族厚生年金は子が受け取る
+//   （配偶者に受給権が無いので止まらない。遺族基礎年金は夫が受け、子の分は止まる）。前は受給権の無い夫に出していた（世帯の合計は同じ）
 // - 65歳になる前は、遺族年金（遺族基礎年金・遺族厚生年金・中高齢寡婦加算・寡婦年金）と自分の老齢年金（特別支給の老齢厚生年金・繰上げの
 //   老齢基礎年金と老齢厚生年金）を同じ月に受けない（一人一年金。国民年金法20条・附則9条の2の4、厚生年金保険法38条・附則17条）。
 //   年額の多い方を選ぶとみなし（知らせ N_ASSUMED）、自分の老齢年金が多ければその月の遺族年金を0に、遺族年金が多ければ自分の老齢年金の額を
@@ -122,7 +124,7 @@ export default defineComponent<Input, SurvivorPensionOutput>({
   id: "pension.survivor",
   title: "遺族年金（遺族基礎年金・遺族厚生年金・中高齢寡婦加算・寡婦年金・死亡一時金）",
   contract: "1.0",
-  revision: 5,
+  revision: 6,
   requires: {
     "contingency.event": ">=1 <2",
     "pension.record": ">=1 <2",
@@ -146,7 +148,9 @@ export default defineComponent<Input, SurvivorPensionOutput>({
     if (d.death >= REFORM_2028) ctx.notice("N_REFORM_NOT_REFLECTED", ["survivorPension.reform2028"]);
     const sb = survivorBasis(ctx, Y, d, members, relations);
     if (sb === null) return empty;
-    const { deceased, death, me, isSpouse, isChild, kidsAll, childUntil, m0, rec, recMonths, empMonths, shortTerm, employeeOk, basicOk, kidsAtDeath, lastKid, empFrom, empUntil } = sb;
+    const { deceased, death, me, isSpouse, isChild, kidsAll, childUntil, m0, rec, recMonths, empMonths, shortTerm, employeeOk, kidsAtDeath, lastKid, empFrom, empUntil, spouseEmployeeRight } = sb;
+    // 子が受け取る遺族厚生年金で、遺族基礎年金は配偶者が受けるとき（配偶者が受給権の無い夫。0170）は、子に遺族基礎年金を出さない
+    const basicOk = sb.basicOk && sb.basicSuspended !== true;
     const at0 = ctx.at(m0);
     const kidsAt = (m: MonthIndex) => kidsAll.filter((c) => parseYm(c.birth.birthYearMonth) <= m && m <= (childUntil.get(c.id) as MonthIndex));
 
@@ -298,7 +302,8 @@ export default defineComponent<Input, SurvivorPensionOutput>({
       }
       let employee = yen(0);
       let transitional = yen(0);
-      if (employeeOk && (isChild ? kids.length > 0 : m >= empFrom || (basic > 0 && !female)) && (empUntil === null || m <= empUntil)) {
+      // 夫は遺族基礎年金を受ける間は60歳前でも受ける（受給権のある夫だけ。死亡の当時55歳未満の夫は受給権が無く、子が受け取る。0170）
+      if (employeeOk && (isChild ? kids.length > 0 : m >= empFrom || (basic > 0 && !female && spouseEmployeeRight)) && (empUntil === null || m <= empUntil)) {
         employee = v.survivorEmp;
         // 経過的寡婦加算（65歳から。遺族基礎年金を受けない月）
         if (twOk && m >= addUntil && basic === 0) {

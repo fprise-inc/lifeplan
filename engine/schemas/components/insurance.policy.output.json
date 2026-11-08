@@ -38,7 +38,18 @@
           "deathBenefit": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
           "surrenderValue": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
           "paid": { "description": "その年の年末までの払込保険料の累計（契約の月から。0054）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-          "others": { "$ref": "#/$defs/others" }
+          "others": { "$ref": "#/$defs/others" },
+          "start": {
+            "description": "その年の最初の月（計算基準年は計算基準月）に亡くなったときの死亡保障額（必要保障額の推移が使う。約束の版 1.2。0170）",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["month", "deathBenefit"],
+            "properties": {
+              "month": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+              "deathBenefit": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "others": { "$ref": "#/$defs/others" }
+            }
+          }
         }
       }
     },

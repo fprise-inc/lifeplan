@@ -23,6 +23,9 @@
 //   省略は返す）なら、収益不動産と同じく住み終わりの月の返済の後に残りを一括で返す（計算式ID debt.schedule.salePayoff）。売却の手取りは housing.valuation
 // - 約束の版 1.3（改訂6）: 借り換えごとの、借り換えの直前の残高と新しいローンの借入額・期間（refinances。任意の欄）を添える
 //   （住宅ローン控除の借り換えの扱い〔新しいローンの年末残高×直前の残高÷新しい借入額・償還期間10年以上〕に使う。tax.housingLoanCredit）
+// - 改訂7（0170）: 万一の想定で、債務者（主たる債務者・連帯債務者）が全員、借入の月より前に亡くなる世帯の負債（住宅購入の予定のローンなど）は
+//   組めないので返済を計算せず、借入の額を借入の月に現金で払う（住宅ローンは住宅の取得の行 cf.expense.housing.purchase、ほかはその負債の行。
+//   計算式ID debt.schedule.cashInstead。知らせ N_ESTIMATED debt.startsAfterDeath）。団信も効かない。前は亡くなった人の名で借りて遺族が返していた
 import {
   addMonths,
   boxValue,
@@ -33,6 +36,7 @@ import {
   yearOf,
   yen,
   type AccountInput,
+  type ContingencyEventOutput,
   type CreditLifeOutput,
   type Ctx,
   type DebtInput,
@@ -105,8 +109,8 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
   id: "debt.schedule",
   title: "負債の返済",
   contract: "1.3",
-  revision: 6,
-  requires: { "debt.creditLifeEvents": ">=1 <2" },
+  revision: 7,
+  requires: { "debt.creditLifeEvents": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [],
   reads: [
     "assumptions.loanRateShifts",
@@ -139,6 +143,25 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
     const prepayRow = d.kind === "mortgage" ? "cf.expense.housing.loan.prepayment" : row;
     const feeRow = d.kind === "mortgage" ? "cf.expense.housing.loan.fees" : row;
     const start = ctx.time.resolve(d.start);
+    // 債務者が全員、借入の月より前に亡くなる（万一の想定）なら、ローンは組めないので借入の額を借入の月に現金で払う（改訂7。0170）
+    if (!("loan" in input)) {
+      const borrowers = d.debtors.filter((x) => x.role !== "guarantor");
+      const dead =
+        borrowers.length > 0 &&
+        borrowers.every((x) => {
+          const ev = ctx.call<ContingencyEventOutput>("contingency.event", { member: x.member }).event;
+          return ev !== null && ev.kind === "death" && parseYm(ev.month) < start;
+        });
+      const given = d.balance === undefined ? null : boxValue(d.balance);
+      if (dead && (given === null || given === undefined)) {
+        const cash: Flow[] = [];
+        if (d.principal > 0 && start >= base && start <= end) {
+          cash.push({ row: d.kind === "mortgage" ? "cf.expense.housing.purchase" : row, ym: formatYm(start), amount: d.principal, accrualYear: yearOf(start), ...(member !== undefined ? { member } : {}), object: d.id, formula: "debt.schedule.cashInstead" });
+        }
+        ctx.notice("N_ESTIMATED", ["debt.startsAfterDeath", d.id]);
+        return { flows: cash, yearEnd: [], firstPayment: formatYm(addMonths(start, 1)), payoff: null };
+      }
+    }
     // ストレステストの変動金利の上乗せ（月の昇順）
     const shifts = (ctx.setting<readonly { from: string; add: string }[]>("loanRateShifts") ?? []).map((x) => ({ m: parseYm(x.from), add: x.add })).sort((a, b) => a.m - b.m);
     const stepsOf = (s: readonly RateStep[], from: MonthIndex): Step[] => {

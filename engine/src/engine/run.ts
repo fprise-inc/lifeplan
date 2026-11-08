@@ -12,14 +12,14 @@ import type { ComponentDefinition } from "../registry/define.ts";
 import { BACKFILLED, collectEffects, invoke, keepLane, newKeyTable, newParamCache, newPartition, nextEpoch, type Partition, type RunState, type Variant } from "../registry/ctx.ts";
 import { ITEMS } from "../registry/items.ts";
 import { Tracer } from "../registry/trace.ts";
-import { decemberOf, formatYm, parseYm, yearOf } from "../time/month.ts";
+import { decemberOf, formatYm, parseYm, yearOf, type MonthIndex } from "../time/month.ts";
 import { TimeResolver } from "../time/timepoint.ts";
 import { tableYear } from "./aggregate.ts";
 import { componentConventions } from "./compatibility.ts";
 import { deepFreeze } from "./freeze.ts";
 import { numTable, type NumTable } from "./numTable.ts";
 import { applyInvestment } from "./investment.ts";
-import { applyContingency, applyStress, applyWorkChanges } from "./overlay.ts";
+import { applyContingency, applyStress, applyWorkChanges, derivedId } from "./overlay.ts";
 import { danglingRefNotices } from "./refs.ts";
 import type { AnnualRow, CalcConventions, DonorInput, EngineInput, EngineRequest, Flow } from "./types.ts";
 
@@ -492,6 +492,50 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   const base = parseYm(input.baseMonth);
   const end = decemberOf(input.endYear);
   if (end < base) throw new EngineError("E_ARGUMENT", ["endYear"]);
+  // 0170: 必要保障額の部品は、構成員がその月に亡くなる想定で世帯の全体を計算し直したお金の動き（ctx.deathScenario）から遺族の収支を組み立てる。
+  // 万一の重ねを同じ入力に当てて根の部品を別に計算する（根拠の記録なし・知らせは捨てる・要求のあいだで使い回さない）。同じ人・同じ月は1回だけ
+  const survivor = input.protection?.survivor;
+  const worlds = new Map<string, readonly Flow[]>();
+  const deathScenario = (member: string, month: MonthIndex): readonly Flow[] => {
+    const key = `${member}|${month}`;
+    const hit = worlds.get(key);
+    if (hit !== undefined) return hit;
+    const { contingencies: _c, protection: _p, inheritanceTax: _i, ...rest } = stressed.input;
+    void _c;
+    void _p;
+    void _i;
+    const death = { id: derivedId(member, 17), kind: "death" as const, member, occurs: { at: formatYm(month) }, ...(survivor !== undefined ? { survivor } : {}) };
+    const wInput = applyWorkChanges(applyContingency({ ...rest, contingencies: [death] }, time).input, time);
+    const wState: RunState = {
+      assembly,
+      store: store as RegulationStore,
+      tracer: new Tracer("none"),
+      traceOn: false,
+      time,
+      input: wInput,
+      conventions: state.conventions,
+      items: ITEMS,
+      projections: new Map(),
+      notices: new Map(),
+      extended: new Map(),
+      checkInternal: state.checkInternal,
+      base,
+      end,
+      keys: newKeyTable(),
+      epoch: nextEpoch(),
+      resolved: [],
+      lane: -1,
+      provenance: new Map(),
+      stack: [],
+      paramCache: state.paramCache,
+      inputs: new Map(),
+    };
+    const wRoot = assembly.impls.get(ROOT_COMPONENT);
+    if (wRoot === undefined) throw new EngineError("E_COMPONENT_UNKNOWN", [ROOT_COMPONENT]);
+    const flows = (invoke(wState, wRoot, {}).output as { flows?: readonly Flow[] }).flows ?? [];
+    worlds.set(key, flows);
+    return flows;
+  };
   const state: RunState = {
     assembly,
     store,
@@ -515,6 +559,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     stack: [],
     paramCache: partition?.params ?? newParamCache(),
     inputs: new Map(),
+    deathScenario,
     ...(sharing ? { partition, depCache: [new Map(), new Map(), new Map()] } : {}),
   };
   const rootId = options.entry?.component ?? ROOT_COMPONENT;

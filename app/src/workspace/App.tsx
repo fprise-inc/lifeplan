@@ -2866,7 +2866,7 @@ export function App() {
               wh={opened.wh}
               host={host}
               engine={host === null ? null : (cgEngine.current ??= new ContingencyEngine({ host, web: webRef.current.web, packs: webRef.current.packs }))}
-              targetAge={opened.demo?.targetAge ?? 95}
+              targetAge={settings.atAge}
               onEdit={edit}
               ui={cgUi}
               onUi={setCgUi}

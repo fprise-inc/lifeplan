@@ -143,6 +143,12 @@ export interface Ctx {
   estimate(id: string): number | string;
   /** 0111 の2回目: エンジンが引く統計の目安（介護・学校の段の費用・平均余命）で、世帯の空欄を埋めるか（事務所の既定値で「推定で埋めない」にした物は false） */
   fillsByEstimate(kind: EngineNoFill): boolean;
+  /**
+   * 0170: 構成員 member がその月に亡くなる想定（万一の重ね）で、世帯の全体を計算し直したお金の動き（根の部品の出力。キャッシュフロー表の材料）。
+   * 必要保障額の推移（差し込み口 slot.protection.method の部品）だけが使える（エンジンが必要保障額を求めるときだけ用意する。ほかでは null）。
+   * 同じ人・同じ月は1回の計算の中で1回だけ求める。世帯の入力の全体に依存するので、この呼び出しを含む部品の結果は要求のあいだで使い回さない
+   */
+  deathScenario(member: string, month: MonthIndex): readonly Flow[] | null;
   at(month: MonthIndex): MonthCtx;
   /**
    * 区間ごとの計算（0006 の追記）: from〜to を、指定した制度の値（params）が同じ行で、breaks・every の変わり目をまたがない区間に分ける。
@@ -439,6 +445,8 @@ export interface RunState {
   readonly lane: number;
   /** 入力への依存の値（鍵 → JSON。1回の計算の中で使い回す） */
   readonly inputs: Map<string, string>;
+  /** 0170: 死亡の想定で全体を計算し直したお金の動き（必要保障額の推移を求めるときだけ。ctx.deathScenario） */
+  readonly deathScenario?: (member: string, month: MonthIndex) => readonly Flow[];
 }
 
 const RATE_API: RateApi = Object.freeze({
@@ -908,11 +916,15 @@ function canonInput(state: RunState, impl: Impl, t: 0 | 1 | 2, name: string, mem
 }
 
 /** 入力への依存の、この要求での値 */
+/** 入力の全体への依存の名前（ctx.deathScenario。0170） */
+const WHOLE_INPUT = "\u0000input";
+
 function inputValue(state: RunState, d: Omit<InputDep, "value">): string {
   const hit = state.inputs.get(d.key);
   if (hit !== undefined) return hit;
   let v: string;
-  if (d.t === 2) {
+  if (d.t === 2 && d.name === WHOLE_INPUT) v = JSON.stringify(state.input);
+  else if (d.t === 2) {
     const series = (state.input.assumptions as Readonly<Record<string, unknown>>)[d.name];
     v = series === undefined ? "-" : JSON.stringify(series);
   } else {
@@ -1501,6 +1513,14 @@ class CtxImpl implements Ctx {
 
   fillsByEstimate(kind: EngineNoFill): boolean {
     return this.#state.store.fillsByEstimate(kind);
+  }
+
+  deathScenario(member: string, month: MonthIndex): readonly Flow[] | null {
+    const f = this.#state.deathScenario;
+    if (f === undefined) return null;
+    // 依存は入力の全体（要求のあいだで、入力がまったく同じときだけ使い回す）
+    this.#inputDep(2, WHOLE_INPUT, null, null);
+    return f(member, month);
   }
 
   at(month: MonthIndex): MonthCtx {
