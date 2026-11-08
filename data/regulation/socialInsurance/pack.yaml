@@ -39,9 +39,14 @@
 #   介護保険料率1.60%（令和6年3月分から。変遷の表だけなので pendingReview）、国民年金保険料の令和5年度16,520円（公表の額と87条3項の式で照合、reviewed）。
 #   施行日が2023年4月より前で値が変わっていない値（標準報酬月額の表・標準賞与額の端数と上限・厚生年金保険料率・資格の年齢など）は、最初の行と同じ値・出典で
 #   2023年4月からの行を足した（子ども・子育て支援金率は、制度が始まる前の「適用されない」の行）
+# 2026.12.0: 国民健康保険・後期高齢者医療の軽減の判定の給与所得者等の範囲（給与等の収入55万円超・公的年金等の収入60万円超、65歳以上は125万円超。
+#   socialInsurance.nationalHealth.reduction.earner*・socialInsurance.lateElderly.reduction.earner*）、介護保険の所得の指標の10万円
+#   （socialInsurance.care.incomeIndicator.salaryPensionDeduction）、出生後休業支援給付の産後休業をした人の対象期間（16週間を4か月。
+#   employmentInsurance.postBirthBenefit.withinMonthsAfterMaternity）を新しいファイルで足した（既存の行は変えていない）。条文は e-Gov の原本と sha256 で
+#   照合したが、2つ目の読み方が無いので原本での確認待ち（pendingReview）
 packId: regulation.socialInsurance
 formatVersion: "0.1"
-version: "2026.11.0"
+version: "2026.12.0"
 features: []
 title: 社会保険（被用者保険・国民年金・国民健康保険・後期高齢者医療・介護保険・休業の給付）
 requires:

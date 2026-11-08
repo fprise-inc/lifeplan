@@ -251,6 +251,8 @@ export interface EmployeeStatusMonth {
   readonly pension: boolean;
   /** 雇用保険の被保険者 */
   readonly employment: boolean;
+  /** その月の期間に任意継続（healthInsurance.kind が continuation）を書いた（約束の版 1.1 の任意の欄。2年の上限は見ない。0171） */
+  readonly continuation?: true;
 }
 
 export interface EmployeeStatusOutput {

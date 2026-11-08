@@ -6,12 +6,15 @@
 // 4か月の保険料が免除され、納めた月として数える（産前産後期間の免除）。
 // 世帯から離れた月（leaves。万一の重ねで亡くなった月の翌月から）は、どの種別でもない（改訂2）
 // 改訂4: 収入の見込みの1年のうち表の外の月は1年前の月とみなす（表の長さで第3号の判定を変えない。0003 の追記）
+// 改訂5（0171）: 万一の想定で亡くなる月から、どの種別でもない（死亡の翌日に資格を失い、保険料はその前の月まで。国民年金法9条1号・11条。
+//   sdk の insuranceEndMonth）。第2号の配偶者が亡くなる月は、配偶者が第2号でない（socialInsurance.employeeStatus）ので、その月から第1号
 import {
   addMonths,
   addYen,
   ageMonth,
   defineComponent,
   formatYm,
+  insuranceEndMonth,
   prospectiveMonths,
   prospectiveYear,
   monthOf,
@@ -45,8 +48,8 @@ export default defineComponent<{ member: string }, { months: CategoryMonth[] }>(
   id: "pension.category",
   title: "国民年金の被保険者の種別",
   contract: "1.0",
-  revision: 4,
-  requires: { "socialInsurance.employeeStatus": ">=1 <2", "income.salary": ">=1 <2", "income.business": ">=1 <2", "benefit.unemployment": ">=1 <2" },
+  revision: 5,
+  requires: { "contingency.event": ">=1 <2", "socialInsurance.employeeStatus": ">=1 <2", "income.salary": ">=1 <2", "income.business": ">=1 <2", "benefit.unemployment": ">=1 <2" },
   params: Object.values(P),
   reads: [
     "member.kind",
@@ -75,7 +78,7 @@ export default defineComponent<{ member: string }, { months: CategoryMonth[] }>(
     const until65 = ageMonth(ctx, at0, P.category2Until, member);
     const members = ctx.list<MemberInput>("member");
     const me = members.find((m) => m.id === member) as MemberInput;
-    const leaves = me.leaves === null ? null : ctx.time.resolve(me.leaves);
+    const leaves = insuranceEndMonth(ctx, me);
     const relations = ctx.list<RelationInput>("relation");
     const spouseAt = (m: MonthIndex): string[] =>
       relations.flatMap((r) => {

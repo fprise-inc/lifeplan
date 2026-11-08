@@ -7,18 +7,28 @@
 // 改訂（0044）: 所得割と軽減の判定の所得に、分離課税の譲渡所得（tax.totalIncome の separate。入るお金の行）も足す
 // 改訂7（0081）: 所得割と軽減の判定の総所得金額等から、青色申告の純損失の繰越控除（tax.lossCarryforward）を引く（国民健康保険と同じ。
 //   土地建物等の譲渡所得は separate として入る）
+// 改訂9（0171）:
+// - 軽減の判定の「給与所得者等の数」は、前の年の給与等の収入が55万円を超える人と、公的年金等の収入が60万円（その年の12月31日に65歳以上は
+//   125万円）を超える人（施行令18条5項1号・附則3条。sdk の isEarner）。前は給与・年金が少しでもある人を数えていた
+// - 資格を取る前の月に被用者保険（勤め先の健康保険・任意継続）の被扶養者だった人（被扶養者であった被保険者）は、所得割をかけず、均等割は
+//   資格を取った月から2年（24か月）は5割より少ない軽減を5割にする（施行令18条1項2号ただし書・8号ただし書・6項）。資格を取る前の月が表の前の人は
+//   分からないので当てない
 import {
+  addMonths,
   addYen,
   ageMonth,
   assessedPremium,
   boxValue,
   defineComponent,
+  EARNER_LIMIT_KEYS,
   fiscalYearOf,
   fiscalYearStart,
   healthStatusInFiscalYear,
   installmentFlows,
+  isEarner,
   LATE_ELDERLY_AGE,
   monthIndex,
+  parseYm,
   PENSION_SPECIAL_MINIMUM,
   pensionSpecial,
   rate,
@@ -29,13 +39,12 @@ import {
   subYen,
   yen,
   type Flow,
+  type HealthStatusMonth,
   type MemberInput,
   type PremiumAssessmentInput,
   type PremiumPart,
   type PremiumRateInput,
-  type PublicPensionIncomeOutput,
   type RelationInput,
-  type SalaryOutput,
   type LossCarryforwardOutput,
   type TotalIncomeOutput,
   type Yen,
@@ -46,7 +55,9 @@ const PARTS: readonly { part: PremiumPart; row: string }[] = [
   { part: "medical", row: "cf.taxSi.health" },
   { part: "childSupport", row: "cf.taxSi.childSupport" },
 ];
-const REDUCTION = ["base", "perEarner", "halfPerInsured", "twentyPerInsured", "ratioSeventy", "ratioHalf", "ratioTwenty", "elderlyPensionDeduction"].map((x) => `${PREFIX}.reduction.${x}`);
+const REDUCTION = ["base", "perEarner", "halfPerInsured", "twentyPerInsured", "ratioSeventy", "ratioHalf", "ratioTwenty", "elderlyPensionDeduction", ...EARNER_LIMIT_KEYS].map((x) => `${PREFIX}.reduction.${x}`);
+/** 被扶養者であった被保険者の均等割の5割の軽減の月数（資格を取った月から2年を経過する月まで。施行令18条6項） */
+const FORMER_DEPENDENT_MONTHS = 24;
 const ELDERLY_AGE = "incomeTax.publicPensionDeduction.elderlyAge";
 const SPECIAL = PENSION_SPECIAL_MINIMUM;
 
@@ -54,7 +65,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
   id: "socialInsurance.lateElderly",
   title: "後期高齢者医療の保険料",
   contract: "1.0",
-  revision: 7,
+  revision: 9,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -84,7 +95,10 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     const jy = Math.max(fy, fiscalYearOf(ctx.time.base));
     // その年度の月だけを読む（ほかの月の状態が変わっても計算し直さない）。表の最後の年の年度は、表の外の翌年1〜3月も数える（改訂6）
     const statusIn = (id: string) => healthStatusInFiscalYear(ctx, id, fy);
-    const months = statusIn(member).filter((x) => x.kind === "lateElderly").length;
+    const lateMonths = statusIn(member)
+      .filter((x) => x.kind === "lateElderly")
+      .map((x) => parseYm(x.month));
+    const months = lateMonths.length;
     if (months === 0) return { flows: [] };
     const special = pensionSpecial(ctx, member, fy, jy);
     const given = assessedPremium(ctx.list<PremiumAssessmentInput>("premiumAssessment"), "lateElderly", member, fy);
@@ -123,10 +137,15 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
       const elderly = ageMonth(ctx, fiscalYearStart(fy), ELDERLY_AGE, id) <= monthIndex(jy - 1, 12);
       const special = elderly ? yen(Math.min(elderlyDeduction, inc.publicPension ?? 0)) : yen(0);
       judged = addYen(judged, yen(inc.total + (inc.separate ?? 0) - carryOf(id) - special));
-      const salary = ctx.callMonths<SalaryOutput["payments"][number]>("income.salary", { member: id }, "payments", monthIndex(jy - 1, 1), monthIndex(jy - 1, 12)).some((p) => p.salary > 0);
-      const pension = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", { member: id, year: jy - 1 }).revenue > 0;
-      if (salary || pension) earners++;
+      // 給与所得者等（改訂9）
+      if (isEarner(ctx, fiscalYearStart(jy), PREFIX, id, jy - 1, elderly)) earners++;
     }
+    // 被扶養者であった被保険者（改訂9）: 資格を取った月（75歳の月）の前の月に被扶養者
+    const joined = ageMonth(ctx, fiscalYearStart(fy) < ctx.time.base ? ctx.time.base : fiscalYearStart(fy), LATE_ELDERLY_AGE, member);
+    const before = ctx.callMonths<HealthStatusMonth>("socialInsurance.healthStatus", { member }, "months", addMonths(joined, -1), addMonths(joined, -1));
+    const formerDependent = before.length > 0 && (before[0] as HealthStatusMonth).kind === "dependent";
+    const halfMonths = formerDependent ? lateMonths.filter((m) => m < addMonths(joined, FORMER_DEPENDENT_MONTHS)).length : 0;
+    const half = at.paramRate(`${PREFIX}.reduction.ratioHalf`);
     const start0 = fiscalYearStart(jy);
     const reductionOf = (part: PremiumPart) =>
       reductionRatio(ctx, start0, PREFIX, judged, earners, insured.length, part === "childSupport" ? `${PREFIX}.childSupport.reductionRatioSeventy` : undefined);
@@ -137,13 +156,19 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
       const incomeRate = ir !== null ? rate(ir) : at.paramRate(`${PREFIX}.${part}.incomeRate`);
       const perCapita = (o?.perCapita !== undefined ? boxValue(o.perCapita) : null) ?? at.paramYen(`${PREFIX}.${part}.perCapita`);
       if (incomeRate === null && perCapita === null) continue;
-      const income = incomeRate === null ? yen(0) : at.money.mulRate(base, incomeRate, "conv.premium.local");
-      const capita = perCapita === null ? yen(0) : at.money.mulRate(perCapita, ctx.rate.sub(RATE_ONE, reductionOf(part)), "conv.premium.local");
+      // 被扶養者であった被保険者は所得割をかけない（改訂9）
+      const income = incomeRate === null || formerDependent ? yen(0) : at.money.mulRate(base, incomeRate, "conv.premium.local");
       const limit = at.paramYen(`${PREFIX}.${part}.limit`);
-      let annual = addYen(income, capita);
-      if (limit !== null && annual > limit) annual = limit;
-      // 区分ごとの年額を月数で按分し、端数処理（100円未満切り捨て）をする
-      const prorated = at.money.mulRatio(annual, months, 12, "conv.premium.local");
+      const annualAt = (reduction: typeof RATE_ONE): Yen => {
+        const capita = perCapita === null ? yen(0) : at.money.mulRate(perCapita, ctx.rate.sub(RATE_ONE, reduction), "conv.premium.local");
+        const annual = addYen(income, capita);
+        return limit !== null && annual > limit ? limit : annual;
+      };
+      const r = reductionOf(part);
+      // 区分ごとの年額を月数で按分し、端数処理（100円未満切り捨て）をする。被扶養者であった被保険者の2年の月は、均等割の軽減を5割より下げない
+      const own = half === null ? months : months - halfMonths;
+      let prorated = at.money.mulRatio(annualAt(r), own, 12, "conv.premium.local");
+      if (halfMonths > 0 && half !== null) prorated = addYen(prorated, at.money.mulRatio(annualAt(ctx.rate.compare(r, half) >= 0 ? r : half), halfMonths, 12, "conv.premium.local"));
       const amount = at.has(`${PREFIX}.rounding`) ? at.money.round(prorated, `${PREFIX}.rounding`) : prorated;
       parts.push({ row, amount, formula: `socialInsurance.lateElderly.${part}` });
     }

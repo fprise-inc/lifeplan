@@ -479,10 +479,71 @@ const addMonthsLocal = (m: MonthIndex, k: number): MonthIndex => (m + k) as Mont
  * （所得税法85条3項ただし書・地方税法314条の2第8項）。呼ぶ部品は requires に contingency.event を書く
  */
 export function deathMonthIn(ctx: Ctx, member: string, year: number): MonthIndex | null {
+  const m = deathMonthOf(ctx, member);
+  return m !== null && yearOf(m) === year ? m : null;
+}
+
+/** 万一の想定（死亡）で亡くなる構成員の死亡の月（亡くならなければ null）。呼ぶ部品は requires に contingency.event を書く */
+export function deathMonthOf(ctx: Ctx, member: string): MonthIndex | null {
   const ev = ctx.call<{ event: { kind: string; month: string } | null }>("contingency.event", { member }).event;
-  if (ev === null || ev.kind !== "death") return null;
-  const m = parseYm(ev.month);
-  return yearOf(m) === year ? m : null;
+  return ev === null || ev.kind !== "death" ? null : parseYm(ev.month);
+}
+
+/**
+ * 社会保険（健康保険・国民健康保険・後期高齢者医療・介護保険・厚生年金・国民年金）の資格が無い最初の月（0171）。世帯から離れる月（leaves）と、
+ * 万一の想定で亡くなる月の早い方。死亡の翌日に資格を失い、保険料は資格を失った日の属する月の前月までなので、亡くなった月の分はかからず、
+ * その月から加入なしとみなす（国民健康保険法8条・高齢者医療確保法53条・介護保険法11条・健康保険法36条・国民年金法9条1号。月末の死亡も
+ * 同じ扱いの近似）。どちらも無ければ null。呼ぶ部品は reads に member.leaves、requires に contingency.event を書く
+ */
+export function insuranceEndMonth(ctx: Ctx, member: { readonly id: string; readonly leaves: unknown }): MonthIndex | null {
+  const leaves = member.leaves === null || member.leaves === undefined ? null : ctx.time.resolve(member.leaves as never);
+  const death = deathMonthOf(ctx, member.id);
+  if (death === null) return leaves;
+  return leaves === null || death < leaves ? death : leaves;
+}
+
+/**
+ * 国民健康保険・後期高齢者医療の軽減の判定の「給与所得者等」（国民健康保険法施行令29条の7第6項1号・附則5条、高齢者医療確保法施行令18条5項1号・
+ * 附則3条。0171）: 前の年（year）の給与等の収入金額（賞与を含む）が基準を超える人、または公的年金等の収入金額が基準（その年の12月31日に
+ * 65歳以上〔elderly〕は別の基準）を超える人。基準の値が無いときは、収入が少しでもあれば数える（前の近似）。
+ * 使う部品は params に EARNER_LIMIT_KEYS の値ID、requires に income.salary・tax.publicPensionIncome を書く
+ */
+export function isEarner(ctx: Ctx, at: MonthIndex, prefix: string, member: string, year: number, elderly: boolean): boolean {
+  const m = ctx.at(at);
+  const limit = (key: string): Yen => {
+    const id = `${prefix}.reduction.${key}`;
+    return m.has(id) ? (m.paramYen(id) ?? yen(0)) : yen(0);
+  };
+  let salary = 0;
+  for (const p of ctx.callMonths<{ readonly ym: string; readonly salary: Yen; readonly bonus: Yen }>("income.salary", { member }, "payments", monthIndex(year, 1), monthIndex(year, 12))) salary += p.salary + p.bonus;
+  if (salary > limit("earnerSalaryRevenue")) return true;
+  const pension = ctx.call<{ revenue: Yen }>("tax.publicPensionIncome", { member, year }).revenue;
+  return pension > limit(elderly ? "earnerPensionRevenueElderly" : "earnerPensionRevenue");
+}
+
+/** 給与所得者等の基準の値の名前（`<prefix>.reduction.<名前>`。isEarner を使う部品は params に書く） */
+export const EARNER_LIMIT_KEYS = ["earnerSalaryRevenue", "earnerPensionRevenue", "earnerPensionRevenueElderly"] as const;
+
+/**
+ * 介護保険の所得の指標（介護保険法施行令22条の2第1項・第4項、22条の2の2。令和6年1月の厚生労働省の事務連絡「介護保険制度における所得指標の
+ * 取扱いについて」。0171）: 自己負担割合・高額介護サービス費・第1〜5段階の保険料では、給与所得と公的年金等に係る雑所得から10万円（deduction）を引く。
+ * 給与所得は、給与と年金の両方がある人の所得金額調整控除（租税特別措置法41条の3の11第2項。tax.totalIncome の adjustment）の前の額で数える。
+ * - total: 合計所得金額のうち、給与所得と公的年金等の雑所得の合計を、そこから10万円を引いた額（0円が下限）に置き換えた額（自己負担割合の本人の判定）
+ * - other: 合計所得金額から公的年金等の雑所得を除いた額（「その他の合計所得金額」）のうち、給与所得を、そこから10万円を引いた額（0円が下限）に
+ *   置き換えた額
+ * 給与所得も公的年金等の雑所得も無ければ、合計所得金額のまま
+ */
+export function careIncome(
+  inc: { readonly total: Yen; readonly employment: Yen; readonly publicPension?: Yen; readonly adjustment?: Yen },
+  deduction: Yen,
+): { total: Yen; other: Yen } {
+  const pension = inc.publicPension ?? 0;
+  const salary = inc.employment + (inc.adjustment ?? 0);
+  const rest = inc.total - inc.employment - pension;
+  return {
+    total: yen(rest + Math.max(0, salary + pension - deduction)),
+    other: yen(rest + Math.max(0, salary - deduction)),
+  };
 }
 
 /** 関係の辺から、月 m に member の配偶者である構成員（from・to は解決した月で比べる） */

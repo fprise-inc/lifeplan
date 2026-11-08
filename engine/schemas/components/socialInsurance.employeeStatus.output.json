@@ -76,6 +76,10 @@
           },
           "employment": {
             "type": "boolean"
+          },
+          "continuation": {
+            "description": "その月の期間に任意継続（healthInsurance.kind が continuation）を書いた（約束の版 1.1 の任意の欄。2年の上限は見ない）",
+            "const": true
           }
         }
       }

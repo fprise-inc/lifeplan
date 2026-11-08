@@ -1,0 +1,20 @@
+id: employmentInsurance.postBirthBenefit.withinMonthsAfterMaternity
+title: 出生後休業支援給付の対象の育児休業（産後休業をした人は子の出生後16週間以内）を月数にした近似
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 4
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/11900000/001599643.pdf", retrievedAt: "2026-10-08", sha256: "d2181f109fef18f3fa4dfd214755a79c4f890a2933bd8bc77d19c295a517cc95", locator: "厚生労働省 リーフレット「出生後休業支援給付」", quote: "父親は子の出生後８週間以内、母親は産後休業後８週間以内に14日以上の育児休業を取得する必要があります"}
+      - {type: "law", lawNumber: "昭和四十九年法律第百十六号", egovRevisionId: "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.12.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "産後休業（出生から8週間）の後の8週間までを、出生から16週間（約3.7か月）として4か月とした近似（エンジンの月単位の扱い。employmentInsurance.postBirthBenefit.withinMonths の2か月と同じ考え）。リーフレットだけで確かめた（条文の対象期間の定義は雇用保険法61条の10）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

@@ -14,13 +14,26 @@
 // 改訂10（0099）: 子ども・子育て支援金の区分は、その区分が始まった年度（令和8年度。18歳未満の均等割をかけない年齢の値の最初の行）より前の年度には
 //   かけない。計算基準月が令和8年1〜3月の世帯は、令和7年度（前の年の社会保険料控除と、1〜3月の納期）も計算するが、料率の入力に支援金の欄があっても
 //   その年度には当てない（前はその年齢の値が無く E_PARAM_NO_VALUE で止まった）
+// 改訂12（0171）:
+// - 軽減の判定の「給与所得者等の数」は、前の年の給与等の収入が55万円を超える人と、公的年金等の収入が60万円（その年の12月31日に65歳以上は
+//   125万円）を超える人（施行令29条の7第6項1号・附則5条。sdk の isEarner）。前は給与・年金が少しでもある人を数えていた
+// - 特定同一世帯所属者（国民健康保険から75歳で後期高齢者医療に移り、そのまま同じ世帯にいる人）を、軽減の判定の所得と人数（5割・2割の基準の
+//   被保険者の数）に入れる（同6項）。平等割は、世帯の国民健康保険の人が1人で特定同一世帯所属者がいる月（特定世帯）は、移った月から5年は2分の1、
+//   その後3年（特定継続世帯）は4分の3（同2項8号・3項7号。子ども・子育て支援金の区分も後期高齢者支援金等の区分と同じに当てる。介護の区分には無い）。
+//   計算基準月より前に移った人は、移る前の月が表の前で分からないので、国民健康保険から移ったとみなす（勤め先の健康保険の期間がその月にあれば除く）
 import {
   addYen,
   ageMonth,
   assessedPremium,
   boxValue,
+  addMonths,
   defineComponent,
+  EARNER_LIMIT_KEYS,
+  EMPLOYEE_TYPES,
+  EMPLOYER_HEALTH_KINDS,
   healthStatusInFiscalYear,
+  insuranceEndMonth,
+  isEarner,
   LATE_ELDERLY_AGE,
   fiscalYearOf,
   fiscalYearStart,
@@ -34,14 +47,15 @@ import {
   reductionRatio,
   subYen,
   yen,
+  type EmploymentPeriodInput,
   type Flow,
+  type HealthStatusMonth,
   type MemberInput,
   type PremiumAssessmentInput,
   type PremiumPart,
   type PremiumRateInput,
-  type PublicPensionIncomeOutput,
+  type MonthIndex,
   type Rate,
-  type SalaryOutput,
   type LossCarryforwardOutput,
   type TotalIncomeOutput,
   type Yen,
@@ -55,7 +69,12 @@ const PARTS: readonly { part: PremiumPart; row: string }[] = [
   { part: "childSupport", row: "cf.taxSi.childSupport" },
 ];
 const KEYS = ["incomeRate", "perCapita", "perHousehold", "limit"] as const;
-const REDUCTION = ["base", "perEarner", "halfPerInsured", "twentyPerInsured", "ratioSeventy", "ratioHalf", "ratioTwenty", "elderlyPensionDeduction"].map((x) => `${PREFIX}.reduction.${x}`);
+const REDUCTION = ["base", "perEarner", "halfPerInsured", "twentyPerInsured", "ratioSeventy", "ratioHalf", "ratioTwenty", "elderlyPensionDeduction", ...EARNER_LIMIT_KEYS].map((x) => `${PREFIX}.reduction.${x}`);
+/** 特定世帯（移った月から5年）・特定継続世帯（その後3年）の月数と、平等割に掛ける割合（施行令29条の7第2項8号・3項7号） */
+const SPECIFIC_MONTHS = 60;
+const SPECIFIC_CONTINUED_MONTHS = 96;
+/** 平等割に特定世帯の割合を掛ける区分（介護の区分には無い） */
+const SPECIFIC_PARTS: ReadonlySet<PremiumPart> = new Set(["medical", "elderlySupport", "childSupport"]);
 const ELDERLY_AGE = "incomeTax.publicPensionDeduction.elderlyAge";
 const AGE = {
   careFrom: "socialInsurance.care.secondaryInsuredFromAge",
@@ -67,13 +86,14 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
   id: "socialInsurance.nationalHealth",
   title: "国民健康保険料",
   contract: "1.0",
-  revision: 10,
+  revision: 12,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
     "tax.lossCarryforward": ">=1 <2",
     "tax.publicPensionIncome": ">=1 <2",
     "income.salary": ">=1 <2",
+    "contingency.event": ">=1 <2",
   },
   params: [
     ELDERLY_AGE,...PARTS.flatMap((p) => KEYS.map((k) => `${PREFIX}.${p.part}.${k}`)), `${PREFIX}.incomeDeduction`, ...REDUCTION, ...Object.values(AGE), LATE_ELDERLY_AGE],
@@ -81,6 +101,14 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
     "member.outside",
     "member.kind",
     "member.leaves",
+    "member.joins",
+    "member.birth",
+    "employment.member",
+    "employment.from",
+    "employment.to",
+    "employment.type",
+    "employment.healthInsurance.kind",
+    "member.support",
     "premiumAssessment.member",
     "premiumAssessment.kind",
     "premiumAssessment.fiscalYear",
@@ -126,7 +154,35 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
       return yen(t.total + (t.separate ?? 0) - carryOf(id));
     };
     const deduction = at.paramYen(`${PREFIX}.incomeDeduction`) ?? yen(0);
-    const judgedIds = new Set([head, ...insured.map((x) => x.id)]);
+    // 特定同一世帯所属者（改訂12）: 国民健康保険から75歳で後期高齢者医療に移り、その年度に同じ世帯にいる人と、移った月。
+    // 別居の親・祖父母（member.support.cohabiting が true でない）は同じ世帯でないとみなす
+    const yearEnd = addMonths(start, 11);
+    const employment = ctx.list<EmploymentPeriodInput>("employment");
+    const fromNational = (id: string, moved: MonthIndex): boolean => {
+      const prev = addMonths(moved, -1);
+      const got = ctx.callMonths<HealthStatusMonth>("socialInsurance.healthStatus", { member: id }, "months", prev, prev);
+      if (got.length > 0) return (got[0] as HealthStatusMonth).kind === "national";
+      // 表の前の月: 勤め先の健康保険の期間（任意継続を含む）がその月に無ければ、国民健康保険だったとみなす
+      return !employment.some(
+        (p) =>
+          p.member === id &&
+          (EMPLOYEE_TYPES.has(p.type) || p.healthInsurance?.kind === "continuation" || EMPLOYER_HEALTH_KINDS.has(p.healthInsurance?.kind ?? "")) &&
+          ctx.time.resolve(p.from) <= prev &&
+          (p.to === null || ctx.time.resolve(p.to) >= prev),
+      );
+    };
+    const specific = members.flatMap((m) => {
+      if ((m.kind === "parent" || m.kind === "grandparent") && m.support?.cohabiting !== true) return [];
+      const moved = ageMonth(ctx, ageAt, LATE_ELDERLY_AGE, m.id);
+      if (moved > yearEnd) return [];
+      const end = insuranceEndMonth(ctx, m);
+      const from = m.joins === null ? null : ctx.time.resolve(m.joins);
+      if ((end !== null && end <= start) || (from !== null && from > yearEnd)) return [];
+      if (!fromNational(m.id, moved)) return [];
+      return [{ id: m.id, moved, end }];
+    });
+    const judgedIds = new Set([head, ...insured.map((x) => x.id), ...specific.map((x) => x.id)]);
+    const persons = new Set([...insured.map((x) => x.id), ...specific.map((x) => x.id)]).size;
     // 軽減の判定: 65歳以上の公的年金の所得からは特別に引く（高齢者特別控除）
     const elderlyDeduction = at.paramYen(`${PREFIX}.reduction.elderlyPensionDeduction`) ?? yen(0);
     let judged = yen(0);
@@ -136,11 +192,23 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
       const elderly = ageMonth(ctx, start, ELDERLY_AGE, id) <= monthIndex(jy - 1, 12);
       const special = elderly ? yen(Math.min(elderlyDeduction, inc.publicPension ?? 0)) : yen(0);
       judged = addYen(judged, yen(inc.total + (inc.separate ?? 0) - carryOf(id) - special));
-      const salary = ctx.callMonths<SalaryOutput["payments"][number]>("income.salary", { member: id }, "payments", monthIndex(jy - 1, 1), monthIndex(jy - 1, 12)).some((p) => p.salary > 0);
-      const pension = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", { member: id, year: jy - 1 }).revenue > 0;
-      if (salary || pension) earners++;
+      // 給与所得者等（改訂12）
+      if (isEarner(ctx, valuesAt, PREFIX, id, jy - 1, elderly)) earners++;
     }
-    const keep = ctx.rate.sub(RATE_ONE, reductionRatio(ctx, valuesAt, PREFIX, judged, earners, insured.length));
+    const keep = ctx.rate.sub(RATE_ONE, reductionRatio(ctx, valuesAt, PREFIX, judged, earners, persons));
+    // 平等割に掛ける月ごとの割合の合計（12分の何か。特定世帯は2分の1、特定継続世帯は4分の3。改訂12）
+    const householdShare = (months: readonly MonthIndex[], part: PremiumPart): { num: number; den: number } => {
+      let num = 0;
+      for (const m of months) {
+        const count = insured.filter((x) => x.months.includes(m)).length;
+        const since = specific
+          .filter((x) => x.moved <= m && (x.end === null || m < x.end))
+          .reduce<number | null>((best, x) => (best === null || m - x.moved < best ? m - x.moved : best), null);
+        if (!SPECIFIC_PARTS.has(part) || count !== 1 || since === null || since >= SPECIFIC_CONTINUED_MONTHS) num += 4;
+        else num += since < SPECIFIC_MONTHS ? 2 : 3;
+      }
+      return { num, den: 48 };
+    };
     const parts: { row: string; amount: Yen; formula: string }[] = [];
     let missing = false;
     let childSupportMissing = false;
@@ -190,7 +258,18 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
         total = addYen(total, annual);
       }
       if (partMonths === 0) continue;
-      if (perHousehold !== null) total = addYen(total, at.money.mulRatio(at.money.mulRate(perHousehold, keep, "conv.premium.local"), partMonths, 12, "conv.premium.local"));
+      if (perHousehold !== null) {
+        // 平等割は、その区分に入る人がいる月（世帯の月）ごとに特定世帯の割合を掛ける（改訂12）
+        const ms = new Set<MonthIndex>();
+        for (const x of insured) {
+          for (const m of x.months) {
+            if (part === "care" && (m < ageMonth(ctx, ageAt, AGE.careFrom, x.id) || m >= ageMonth(ctx, ageAt, AGE.careUntil, x.id))) continue;
+            ms.add(m);
+          }
+        }
+        const share = householdShare([...ms].sort((a, b) => a - b), part);
+        total = addYen(total, at.money.mulRatio(at.money.mulRate(perHousehold, keep, "conv.premium.local"), share.num, share.den, "conv.premium.local"));
+      }
       const limit = at.has(`${PREFIX}.${part}.limit`) ? at.paramYen(`${PREFIX}.${part}.limit`) : null;
       if (limit !== null) {
         const cap = at.money.mulRatio(limit, partMonths, 12, "conv.premium.local");

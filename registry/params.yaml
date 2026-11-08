@@ -1118,6 +1118,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: employmentInsurance.postBirthBenefit.withinMonthsAfterMaternity
+    status: active
+    label: "出生後休業支援給付の対象の育児休業（産後休業をした人は子の出生後16週間以内）を月数にした近似"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: employmentInsurance.shortHoursBenefit.childUntilAge
     status: active
     label: "育児時短就業給付の子の年齢（2歳に達する日の前日の属する月まで）"
@@ -3482,6 +3488,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: socialInsurance.care.incomeIndicator.salaryPensionDeduction
+    status: active
+    label: "介護保険の所得の指標で給与所得・公的年金等に係る所得から引く額（自己負担割合・高額介護サービス費・第1〜5段階の保険料）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: socialInsurance.care.kyokaikenpo.rate
     status: active
     label: "協会けんぽの介護保険料率（全国一律。労使の合計）"
@@ -3752,6 +3764,24 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: socialInsurance.lateElderly.reduction.earnerPensionRevenue
+    status: active
+    label: "後期高齢者医療の軽減の判定の給与所得者等に数える公的年金等の収入金額の基準（65歳未満。この額を超える人）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.reduction.earnerPensionRevenueElderly
+    status: active
+    label: "後期高齢者医療の軽減の判定の給与所得者等に数える公的年金等の収入金額の基準（65歳以上。この額を超える人）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.reduction.earnerSalaryRevenue
+    status: active
+    label: "後期高齢者医療の軽減の判定の給与所得者等に数える給与等の収入金額の基準（この額を超える人）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: socialInsurance.lateElderly.reduction.elderlyPensionDeduction
     status: active
     label: "後期高齢者医療の軽減の判定で65歳以上の公的年金の所得から引く額"
@@ -3905,6 +3935,24 @@ entries:
   - id: socialInsurance.nationalHealth.reduction.base
     status: active
     label: "国民健康保険の均等割（平等割）の軽減の判定の基準額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.reduction.earnerPensionRevenue
+    status: active
+    label: "国民健康保険の軽減の判定の給与所得者等に数える公的年金等の収入金額の基準（65歳未満。この額を超える人）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.reduction.earnerPensionRevenueElderly
+    status: active
+    label: "国民健康保険の軽減の判定の給与所得者等に数える公的年金等の収入金額の基準（65歳以上。この額を超える人）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.reduction.earnerSalaryRevenue
+    status: active
+    label: "国民健康保険の軽減の判定の給与所得者等に数える給与等の収入金額の基準（この額を超える人）"
     since: draft
     aliases: []
     replacedBy: null

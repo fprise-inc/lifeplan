@@ -4,7 +4,7 @@
 import type { MemberInput, PensionRecordInput, RelationInput } from "../engine/types.ts";
 import type { Ctx, MonthCtx } from "../registry/ctx.ts";
 import { addMonths, parseYm, type MonthIndex } from "../time/month.ts";
-import type { ContingencyEvent, ContingencyEventOutput, RecordMonth, RecordOutput } from "./contracts.ts";
+import type { ContingencyEvent, ContingencyEventOutput, EmployeeStatusMonth, RecordMonth, RecordOutput } from "./contracts.ts";
 import { ageMonth, childrenOf, spousesAt } from "./helpers.ts";
 
 /** 特別支給の老齢厚生年金の開始の判定で読む値 */
@@ -134,7 +134,7 @@ export interface SurvivorBasis {
   /** 亡くなった人の記録の後の月のうち、死亡の月まで */
   readonly recMonths: readonly RecordMonth[];
   readonly empMonths: number;
-  /** 短期要件（死亡の月に厚生年金に入っていた） */
+  /** 短期要件（死亡の当時に厚生年金に入っていた。死亡の月は資格を失うので、前の月まで入り、死亡の月も同じ勤め先の期間にいる。0171） */
   readonly shortTerm: boolean;
   /** 受給資格期間25年以上 */
   readonly longOk: boolean;
@@ -156,7 +156,7 @@ export interface SurvivorBasis {
 /**
  * 遺族年金の受給権の判定（pension.survivor と pension.survivorRight で共通）。Y が受け取る人でなければ null。
  * - 子だけが受け取るのは、死亡の当時に配偶者がいないとき。受け取る子は、受けられる子のうち最も年上の子
- * - 遺族厚生年金: 短期要件（死亡の月に厚生年金に入っていた）か長期要件（受給資格期間25年以上）。妻は年齢を問わない（死亡の当時30歳未満で子が無ければ5年）。
+ * - 遺族厚生年金: 短期要件（死亡の当時に厚生年金に入っていた。死亡の月は資格を失うので、前の月まで入り、死亡の月も同じ勤め先の期間にいる。0171）か長期要件（受給資格期間25年以上）。妻は年齢を問わない（死亡の当時30歳未満で子が無ければ5年）。
  *   夫は死亡の当時55歳以上で、60歳から
  * - 遺族基礎年金: 65歳になる前の死亡か、受給資格期間25年以上
  */
@@ -187,11 +187,18 @@ export function survivorBasis(
     if (eldest === undefined || eldest.id !== Y) return null;
   }
   const rec = ctx.call<RecordOutput>("pension.record", { member: deceased });
-  const recMonths = rec.months.filter((x) => parseYm(x.month) <= death);
+  // 加入の月は死亡の月の前の月まで（死亡の翌日に資格を失い、被保険者期間は資格を失った月の前の月まで。0171。万一の重ねでは死亡の月は
+  // もともと加入なし。亡くならない世界で「この月に亡くなったら」を見るときも同じに数える）
+  const recMonths = rec.months.filter((x) => parseYm(x.month) < death);
   const futureCount = rec.months.filter((x) => x.basic || x.employee).length;
   const qualifying = rec.qualifyingMonths - futureCount + recMonths.filter((x) => x.basic || x.employee).length;
   const empMonths = rec.employeeMonths + recMonths.filter((x) => x.employee).length;
-  const shortTerm = recMonths.some((x) => parseYm(x.month) === death && x.employee);
+  // 短期要件（死亡の当時に厚生年金の被保険者）: 死亡の月の記録が厚生年金（亡くならない世界）か、前の月が厚生年金で、死亡の月も同じ勤め先の
+  // 期間にいる（万一の重ねでは死亡の月は資格を失って記録に入らない。socialInsurance.employeeStatus。0171）
+  const employeeAt = (m: MonthIndex) => rec.months.some((x) => parseYm(x.month) === m && x.employee);
+  const status = (m: MonthIndex) => ctx.callMonths<EmployeeStatusMonth>("socialInsurance.employeeStatus", { member: deceased }, "months", m, m)[0];
+  const shortTerm =
+    employeeAt(death) || (employeeAt(addMonths(death, -1)) && (status(death)?.employer ?? null) !== null && status(death)?.employer === status(addMonths(death, -1))?.employer);
   const longOk = qualifying >= (at0.paramCount(P.qual) ?? 300);
   const employeeOk = empMonths > 0 && (shortTerm || longOk);
   const basicOk = longOk || death < ageMonth(ctx, m0, P.start, deceased);
