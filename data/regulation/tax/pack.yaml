@@ -51,14 +51,20 @@
 #   給与所得控除後の給与等の金額（660万円以上）の1円未満の切り捨て（incomeTax.employmentIncome.rounding）を新しいファイルで足した（原本の写しと照らし合わせた。端数の2つ目は条文が無く確認待ち）。
 #   訂正: 給与所得の表の区分の幅（incomeTax.employmentIncome.tableSteps）に、最低保障額＋1,000円未満を0円にする最初の区分を足した行（rev 4〜6）で置き換えた（rev 1〜3 に supersededIn）。
 #   incomeTax.incomeAdjustment.salaryAndPension.limit の出典の位置を、令和8年10月1日の版の条番号（41条の3の11第2項）に直した（値は変えていない）
+# 2026.19.0: 生命保険契約等に基づく年金の税（0179）の値を新しいファイルで足した: 必要経費の割合の端数（incomeTax.privateAnnuity.costRatio.rounding。施行令183条1項4号）、
+#   余命年数表（incomeTax.privateAnnuity.lifeExpectancyYears。施行令の別表。終身年金の支払総額の見込額）、相続等（贈与を含む）で取得した年金の課税割合と
+#   特定期間年数の割合（incomeTax.inheritedAnnuity.*。施行令185条3項4号・5号）、定期金に関する権利の評価の複利年金現価率の端数
+#   （inheritanceTax.annuityRight.presentValueFactor.rounding。相続税法施行規則12条の5）。e-Gov法令API の条文の XML を取得して読み、指紋（sha256）と短い引用を書いた。
+#   原本の写しを非公開のリポジトリにまだ置いていないので、すべて確認待ち（pendingReview）。既存のファイルは変えていない
 packId: regulation.tax
 formatVersion: "0.1"
-version: "2026.18.0"
+version: "2026.19.0"
 features: []
 title: 所得税・住民税
 requires:
   tax.survivorStatus: ">=1 <2"
   insurance.income: ">=1 <2"
+  insurance.policy: ">=1 <2"
   gift.tax: ">=1 <2"
   inheritance.estimate: ">=1 <2"
   tax.employmentIncome: ">=1 <2"

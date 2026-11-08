@@ -1,0 +1,20 @@
+id: incomeTax.privateAnnuity.costRatio.rounding
+title: 生命保険契約等に基づく年金の必要経費の割合の端数（小数点以下2位まで算出し、3位以下を切り上げ。部品は割合の100倍の1未満を切り上げる）
+unit: rounding
+kind: rounding
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2011-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {"mode": "UP", "unit": 1}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20260522_508CO0000000093?response_format=xml", "retrievedAt": "2026-11-08", "sha256": "db79531dcae8a7b3fbd2af27e3062c8309074c7b3d4ce78b213d696d7fec7640", "locator": "所得税法施行令 第183条第1項第4号（令和8年5月22日の版）", "quote": "前二号に規定する割合は、小数点以下二位まで算出し、三位以下を切り上げたところによる。"}
+      - {"type": "law", "lawNumber": "昭和四十年政令第九十六号", "egovRevisionId": "340CO0000000096_20260522_508CO0000000093"}
+    recordedIn: "2026.19.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "所得税法施行令183条1項4号（保険料の総額÷支払総額の割合）と185条1項11号（相続等に係る年金の必要経費の割合。同条2項が準用）を e-Gov法令API の条文で読んだ。割合を百分率にした値の1未満を切り上げるのと同じ。施行日は確かめていない。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}

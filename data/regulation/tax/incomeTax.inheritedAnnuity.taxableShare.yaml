@@ -1,0 +1,33 @@
+id: incomeTax.inheritedAnnuity.taxableShare
+title: 相続等（贈与を含む）で取得した年金の課税割合（相続税評価割合が百分の五十を超えるとき。upTo は相続税評価割合の百分率〔1未満を切り上げた整数〕の上限、rate は課税割合）
+unit: rate
+kind: bracketTable
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2011-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 55, "rate": "0.45"}
+      - {"upTo": 60, "rate": "0.4"}
+      - {"upTo": 65, "rate": "0.35"}
+      - {"upTo": 70, "rate": "0.3"}
+      - {"upTo": 75, "rate": "0.25"}
+      - {"upTo": 80, "rate": "0.2"}
+      - {"upTo": 83, "rate": "0.17"}
+      - {"upTo": 86, "rate": "0.14"}
+      - {"upTo": 89, "rate": "0.11"}
+      - {"upTo": 92, "rate": "0.08"}
+      - {"upTo": 95, "rate": "0.05"}
+      - {"upTo": 98, "rate": "0.02"}
+      - {"upTo": null, "rate": "0"}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20260522_508CO0000000093?response_format=xml", "retrievedAt": "2026-11-08", "sha256": "db79531dcae8a7b3fbd2af27e3062c8309074c7b3d4ce78b213d696d7fec7640", "locator": "所得税法施行令 第185条第3項第4号（令和8年5月22日の版）", "quote": "相続税評価割合が百分の五十を超え百分の五十五以下の場合"}
+      - {"type": "law", "lawNumber": "昭和四十年政令第九十六号", "egovRevisionId": "340CO0000000096_20260522_508CO0000000093"}
+    recordedIn: "2026.19.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "所得税法施行令185条3項4号（課税割合）を e-Gov法令API の条文で読んだ。境目はどれも「を超え…以下」の整数の百分率なので、相続税評価割合の百分率の1未満を切り上げた整数で引ける。施行日は確かめていない。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}

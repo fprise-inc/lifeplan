@@ -151,9 +151,14 @@ const seriesOf = (m: Map<number, number>, years: readonly number[]): Yen[] => ye
 
 const total = (m: Map<number, number>, years: readonly number[]): Yen => years.reduce((s, y) => s + (m.get(y) ?? 0), 0);
 
+/**
+ * 資産が尽きる年: 使えるお金で払えなくなる年（計算エンジンの資金不足の行 cf.balance.shortfall がはじめて出る年。引き出せない器だけが
+ * 残る年も尽きたとみる）か、金融資産がマイナスの年。アプリの workspace/present.ts の depletionYear と同じ（0179）
+ */
 function depletionYear(r: EngineOutput, years: readonly number[]): number | null {
   const fin = financialOf(r);
-  for (const y of years) if ((fin.get(y) ?? 0) < 0) return y;
+  const short = sumByYear(r.table, (c) => c.row === "cf.balance.shortfall");
+  for (const y of years) if ((fin.get(y) ?? 0) < 0 || (short.get(y) ?? 0) > 0) return y;
   return null;
 }
 
