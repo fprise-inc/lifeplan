@@ -55,7 +55,7 @@ describe("修繕・管理の費用の呼び方（建て方ごと）", () => {
     expect(fieldOf(wh, "/maint").label).toBe("修繕・管理の費用（毎月）");
     wh = set(wh, "/style", "condo");
     expect(fieldOf(wh, "/maint").label).toBe("管理費・修繕積立金（毎月）");
-    expect(fieldOf(wh, "/maintGrowth").label).toBe("管理費・修繕積立金の増減率（年）");
+    expect(fieldOf(wh, "/maintGrowth").label).toBe("管理費・修繕積立金の伸び率（年）");
     wh = set(wh, "/style", "house");
     expect(fieldOf(wh, "/maint").label).toBe("修繕の積み立て（毎月）");
   });

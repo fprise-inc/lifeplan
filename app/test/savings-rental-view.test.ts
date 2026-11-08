@@ -341,11 +341,14 @@ describe("収益不動産: 既定の値の推定の印", () => {
     expect(html).toMatch(/\d+(\.\d)?万円/);
   });
 
-  it("伸び方の率の欄は「増減率（年）」（家賃・年額・土地の評価額・貯蓄の不動産の評価額）", () => {
+  it("伸び方の率の欄: 下がることもある家賃・土地の評価額は「増減率（年）」、伸びるのが前提の経費の年額は「伸び率（年）」", () => {
     const sample = open("rentalSample");
     const labels = [...fieldsOf(sample, "rental").values()].map((f) => f.label);
-    expect(labels).toEqual(expect.arrayContaining(["家賃の増減率（年）", "年額の増減率（年）", "土地の評価額の増減率（年）"]));
-    expect(labels.some((l) => /変化率|変動率|伸び率/.test(l))).toBe(false);
+    expect(labels).toEqual(expect.arrayContaining(["家賃の増減率（年）", "年額の伸び率（年）", "土地の評価額の増減率（年）"]));
+    // 欄ごとに正しい方の言葉だけ（前の言い方の変化率・変動率も無い）
+    expect(labels.some((l) => /変化率|変動率/.test(l))).toBe(false);
+    expect(labels.filter((l) => /^(家賃|売上|地代|土地の評価額)の/.test(l) && l.includes("伸び率"))).toEqual([]);
+    expect(labels.filter((l) => l.startsWith("年額の") && l.includes("増減率"))).toEqual([]);
   });
 });
 

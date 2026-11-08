@@ -1082,7 +1082,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   ];
   if (lodging !== undefined)
     expFields.push(withAddress(plain({ key: `${kp}/platformRate`, item: "account.property", label: "仲介サイトの手数料（売上に対する割合）", level: "simple", kind: "pct", find: findP, path: ["lodging", "platformRate"], optional: true, help: "宿泊の予約サイトに払う手数料です（例: 15%）" }), onAccount(a.id, "account.property", ["lodging", "platformRate"])));
-  expFields.push(plain({ key: `${kp}/expGrowth`, item: "account.property", label: "年額の増減率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find: findP, path: ["expenses", "growth"], optional: true, fallback: "0", help: landOnly ? "固定資産税の評価替えによる増減など" : "修繕積立金の値上がりなど" }), ...itemFields);
+  expFields.push(plain({ key: `${kp}/expGrowth`, item: "account.property", label: "年額の伸び率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find: findP, path: ["expenses", "growth"], optional: true, fallback: "0", help: landOnly ? "固定資産税の評価替えによる増減など" : "修繕積立金の値上がりなど" }), ...itemFields);
   groups.push({ key: `${kp}/expenses`, title: "経費", level: "simple", moreLabel: "経費の内訳を入れる", fields: expFields, actions: [] });
   if (p.expenses !== undefined) groups.push(...staged("expenses", "経費の年額", "annual", (x) => expenseItemsTotal(x.property) ?? x.property?.expenses?.annual?.value ?? null, true));
   // 売却・大きな修繕の予定（標準では、このまとまりの「▸」で開く。詳細では、売却と修繕のまとまりをそのまま出す。並びは見出しと同じ売却→大きな修繕）

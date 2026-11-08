@@ -1536,7 +1536,7 @@ function claimFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
 }
 
 /**
- * この期間の増減率（年。0040。欄の名前は入力項目をまたぐ言葉の決まりの「増減率（年）」。0130）: 空欄は前提の賃金上昇率。給与は昇給カーブ（値ID）と率のどちらか一方なので、率を入れると昇給カーブの代わりになる。
+ * この期間の増減率（年。0040。欄の名前は入力項目をまたぐ言葉の決まりの「増減率（年）」（年収は減ることもあるため。0130 の追記 2026-11-08））: 空欄は前提の賃金上昇率。給与は昇給カーブ（値ID）と率のどちらか一方なので、率を入れると昇給カーブの代わりになる。
  * 事業所得も同じ（昇給カーブは無い）
  */
 function growthField(wh: WorkingHousehold, p: EmploymentPeriod, find: Finder, prefix: string, part: "salary" | "business", level: "simple" | "detail"): FieldDef {

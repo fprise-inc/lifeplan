@@ -115,7 +115,7 @@ describe("段の見出し・割合の名前・欄の下の読み", () => {
   });
 });
 
-describe("内訳の平均の行・総額の年額・増減率の名前", () => {
+describe("内訳の平均の行・総額の年額・伸び率の名前", () => {
   it("内訳が推定のまま（平均から作った値）なら平均の行を出さない。FP が直した内訳だけ「同じ人数の世帯の平均 月○万円」を比べとして出す", () => {
     const wh = put(family(), "living", (f) => f.key.endsWith("/mode") && f.item === "livingExpense.mode", "byCategory");
     const cats = allFields(buildStage("living", wh)).filter((f) => /\/cat\/\d+$/.test(f.key));
@@ -133,10 +133,10 @@ describe("内訳の平均の行・総額の年額・増減率の名前", () => {
     expect(f.get(wh).hint).toBe(`年${(Math.round((m * 12) / 1000) / 10).toLocaleString("ja-JP")}万円`);
   });
 
-  it("決まった率の伸び方の率の欄は「増減率（年）」", () => {
+  it("決まった率の伸び方の率の欄は「伸び率（年）」", () => {
     const wh = put(family(), "living", (f) => f.item === "livingExpense.growth" && f.kind === "select", "rate");
     const labels = allFields(buildStage("living", wh)).filter((f) => f.item === "livingExpense.growth").map((f) => f.label);
-    expect(labels).toContain("増減率（年）");
+    expect(labels).toContain("伸び率（年）");
     expect(labels.some((l) => l.includes("変動率"))).toBe(false);
   });
 });

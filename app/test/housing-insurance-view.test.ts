@@ -179,14 +179,14 @@ describe("住宅ローンの欄", () => {
 });
 
 describe("住まいの欄", () => {
-  it("伸び方の率の欄は「増減率（年）」。家賃の統計の目安は欄の下でなく「?」の中", () => {
+  it("伸び方の率の欄は家賃は「増減率（年）」、固定資産税・修繕・管理の費用は「伸び率（年）」。家賃の統計の目安は欄の下でなく「?」の中", () => {
     const rent = action(blankHousehold(BASE), "housing/addRent");
     const g = fieldOf(rent, "/rentGrowth");
     expect(g.label).toBe("家賃の増減率（年）");
     expect(g.get(rent).hint ?? null).toBeNull();
     const own = action(blankHousehold(BASE), "housing/addOwn");
-    expect(fieldOf(own, "/taxGrowth").label).toBe("固定資産税の増減率（年）");
-    expect(fieldOf(own, "/maintGrowth").label).toBe("修繕・管理の費用の増減率（年）");
+    expect(fieldOf(own, "/taxGrowth").label).toBe("固定資産税の伸び率（年）");
+    expect(fieldOf(own, "/maintGrowth").label).toBe("修繕・管理の費用の伸び率（年）");
   });
   it("購入の1件の修繕・管理の費用の「?」は、購入の種類で呼び方が変わると書く（建て方の欄は無い）", () => {
     const wh = action(blankHousehold(BASE), "housing/addPurchase");

@@ -239,7 +239,7 @@ describe("万一のときの扱い（続ける・やめる・割合を変える�
 });
 
 describe("伸び方の言葉", () => {
-  it("選択肢は「物価に合わせる／決まった率で／変えない」、率の欄は「増減率（年）」（値は変えない）", () => {
+  it("選択肢は「物価に合わせる／決まった率で／変えない」、率の欄は「伸び率（年）」（値は変えない）", () => {
     expect(GROWTH_KINDS).toEqual([
       { value: "inflation", label: "物価に合わせる" },
       { value: "rate", label: "決まった率で" },
@@ -247,7 +247,14 @@ describe("伸び方の言葉", () => {
     ]);
     const fs = growthFields("ev/x", "periodicExpense.growth", () => undefined, "x", { kind: "rate", rate: "0.01" });
     expect(fs.map((f) => f.label)).toEqual([WORDS.growth, WORDS.growthRate]);
-    expect(WORDS.growthRate).toBe("増減率（年）");
+    expect(WORDS.growthRate).toBe("伸び率（年）");
+  });
+  it("率の欄の言葉は2つ: 出るお金（伸びるのが前提）は「伸び率（年）」、入るお金（減ることもある）は「増減率（年）」", () => {
+    expect(WORDS.changeRate).toBe("増減率（年）");
+    const inc = growthFields("in/x", "incomeFlow.growth", () => undefined, "x", { kind: "rate", rate: "-0.01" });
+    expect(inc.map((f) => f.label)).toEqual([WORDS.growth, WORDS.changeRate]);
+    const care = growthFields("ev/x", "care.growth", () => undefined, "x", { kind: "rate", rate: "0.01" });
+    expect(care.map((f) => f.label)).toEqual([WORDS.growth, WORDS.growthRate]);
   });
 });
 

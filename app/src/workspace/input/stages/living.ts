@@ -874,7 +874,7 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
   if (l.growth?.kind === "rate")
     main.push(
       withAddress(
-        plain({ key: `${key}/growthRate`, item: "livingExpense.growth", label: "増減率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["growth", "rate"], help: "マイナスも入れられます" }),
+        plain({ key: `${key}/growthRate`, item: "livingExpense.growth", label: "伸び率（年）", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["growth", "rate"], help: "マイナスも入れられます" }),
         addr(l.id, "livingExpense.growth", ["rate"]),
       ),
     );

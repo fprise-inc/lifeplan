@@ -858,7 +858,7 @@ export function growthFields(key: string, item: string, find: Finder, id: string
       }
     : base;
   const out = [withAddress(kindField, address(id, item, ["kind"]))];
-  if (cur?.kind === "rate") out.push(withAddress(plain({ key: `${key}/growthRate`, item, label: WORDS.growthRate, help: "マイナスも入れられます", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["growth", "rate"] }), address(id, item, ["rate"])));
+  if (cur?.kind === "rate") out.push(withAddress(plain({ key: `${key}/growthRate`, item, label: item === "incomeFlow.growth" ? WORDS.changeRate : WORDS.growthRate, help: "マイナスも入れられます", level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["growth", "rate"] }), address(id, item, ["rate"])));
   return out;
 }
 
