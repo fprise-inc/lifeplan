@@ -1,124 +1,106 @@
 //! 外部AIへの提供の同意の見張り（直した不具合が戻らないように）。
 //!
-//! - この版は1世帯につき1社。共有を始めるとき、申告した AI の会社と同意した会社を照らし、合わなければ止める
-//! - 同意の会社を変えるときは、先に撤回を記録する（取り直しで別の会社にしない）
+//! - 同意は「外部の AI サービスに渡すことへの同意」1つ。どの AI の会社かは聞かない・記録しない（0172）。
+//!   前の版で記録した、会社・所在国のある行は、捨てずにそのまま読めて、書き戻しても1文字も変わらない
 //! - 取り方が「ヒアリングシートの同意欄」の同意は、シートの同意欄の文の指紋で、書類を含まない同意として記録する。
 //!   書類を AI に渡す世帯は、今の説明を見せて取り直せる
 
 use ai_share::book::HouseholdBook;
 use ai_share::consent::{
-    explanation_ref, ExternalAiConsentInput, EXTERNAL_AI_EXPLANATION,
-    HEARING_SHEET_EXTERNAL_AI_TEXT,
+    explanation_ref, ConsentRecord, ExternalAiConsentInput, EXTERNAL_AI_EXPLANATION,
+    EXTERNAL_AI_EXPLANATION_V1, HEARING_SHEET_EXTERNAL_AI_TEXT,
 };
 use ai_share::ConsentDecision;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::path::PathBuf;
 
 const HID: &str = "0c6a1f0e-6a4b-4f0e-9d7e-2b4b6d3c9a11";
 const TODAY: &str = "2026-11-08";
 const NOW: &str = "2026-11-08T00:00:00Z";
 
-fn book() -> HouseholdBook {
-    let body = json!({"household": {"request": {"input": {}}}}).to_string();
-    HouseholdBook::from_opened(HID, None, 1, &body).unwrap().0
+fn book_from(body: Value) -> HouseholdBook {
+    HouseholdBook::from_opened(HID, None, 1, &body.to_string())
+        .unwrap()
+        .0
 }
 
-fn input(decision: ConsentDecision, company: &str, method: &str) -> ExternalAiConsentInput {
+fn book() -> HouseholdBook {
+    book_from(json!({"household": {"request": {"input": {}}}}))
+}
+
+fn input(decision: ConsentDecision, method: &str) -> ExternalAiConsentInput {
     ExternalAiConsentInput {
         decision,
         obtained_on: TODAY.into(),
         method: method.into(),
-        company: company.into(),
-        country: "日本".into(),
         no_training_confirmed: true,
         fp_confirmed: true,
     }
 }
 
-fn given(b: &mut HouseholdBook, company: &str, method: &str) -> Result<(), &'static str> {
-    b.record_consent(
-        &input(ConsentDecision::Given, company, method),
-        TODAY,
-        NOW,
-        None,
-    )
-    .map(|_| ())
+fn record(b: &mut HouseholdBook, decision: ConsentDecision, method: &str) -> ConsentRecord {
+    b.record_consent(&input(decision, method), TODAY, NOW, None)
+        .unwrap()
 }
 
 #[test]
-fn a_second_company_is_not_added_and_changing_company_needs_a_withdrawal_first() {
+fn the_consent_does_not_ask_or_record_an_ai_company() {
     let mut b = book();
-    given(&mut b, "架空AI株式会社", "hearingSheet").unwrap();
-    // 書類を含まない同意（シートの同意欄）の取り直しでも、別の会社にはしない
+    // 画面が前の版の形（会社・所在国つき）で送ってきても、会社は記録しない
+    let old_screen: ExternalAiConsentInput = serde_json::from_value(json!({
+        "decision": "given", "obtainedOn": TODAY, "method": "paper",
+        "company": "架空AI株式会社", "country": "日本", "noTrainingConfirmed": true, "fpConfirmed": true
+    }))
+    .unwrap();
+    let r = b.record_consent(&old_screen, TODAY, NOW, None).unwrap();
+    let v = serde_json::to_value(&r).unwrap();
+    assert_eq!(v["externalAi"], json!({"noTrainingConfirmed": true}));
+    assert!(r.documents);
+    // 同意は1つ。今の説明で取った後に、もう1つは記録しない
     assert_eq!(
-        given(&mut b, "別のAI合同会社", "paper"),
-        Err("E_AI_CONSENT_COMPANY_CHANGE")
-    );
-    // 同じ会社なら取り直せる（書き方の違いは同じ会社とみる）
-    given(&mut b, "架空ＡＩ 株式会社", "paper").unwrap();
-    // 今の説明で取った後に、2つ目の会社は足さない
-    assert_eq!(
-        given(&mut b, "別のAI合同会社", "paper"),
+        b.record_consent(&input(ConsentDecision::Given, "paper"), TODAY, NOW, None)
+            .map(|_| ()),
         Err("E_AI_CONSENT_ALREADY")
     );
-    // 撤回してから、新しい会社で同意を記録する
-    b.record_consent(
-        &input(ConsentDecision::Withdrawn, "", "inPerson"),
-        TODAY,
-        NOW,
-        None,
-    )
-    .unwrap();
-    given(&mut b, "別のAI合同会社", "paper").unwrap();
-    assert_eq!(b.check_share_company("別のAI"), Ok(()));
-    assert_eq!(
-        b.check_share_company("架空AI株式会社"),
-        Err("E_AI_COMPANY_MISMATCH")
-    );
+    // 撤回は世帯の同意そのものを撤回する。撤回の後は、また同意を記録できる
+    record(&mut b, ConsentDecision::Withdrawn, "inPerson");
+    assert_eq!(b.consent().unwrap().decision, ConsentDecision::Withdrawn);
+    record(&mut b, ConsentDecision::Given, "paper");
+    assert_eq!(b.consent().unwrap().decision, ConsentDecision::Given);
 }
 
 #[test]
-fn starting_a_share_checks_the_declared_company_against_the_consent() {
-    let mut b = book();
-    // 同意が無ければ、会社を照らす前に止める
-    assert_eq!(b.check_share_company("Example AI"), Err("E_AI_NO_CONSENT"));
-    given(&mut b, "Example AI, L.L.C.", "paper").unwrap();
-    for same in [
-        "Example AI",
-        "exampleai",
-        "ＥｘａｍｐｌｅＡＩ",
-        " Example AI Inc. ",
-        "Example AI Co., Ltd.",
-    ] {
-        assert_eq!(b.check_share_company(same), Ok(()), "{same}");
-    }
-    for other in [
-        "Other AI",
-        "Sample Labs LLC",
-        "エグザンプルAI",
-        "Example AI Japan 合同会社",
-    ] {
-        assert_eq!(
-            b.check_share_company(other),
-            Err("E_AI_COMPANY_MISMATCH"),
-            "{other}"
-        );
-    }
-    assert_eq!(b.check_share_company("  "), Err("E_AI_COMPANY"));
-    assert_eq!(b.check_share_company(&"あ".repeat(61)), Err("E_AI_COMPANY"));
+fn rows_recorded_with_a_company_are_kept_and_read_as_they_are() {
+    let old = json!({
+        "id": "c-old", "kind": "externalAi", "decision": "given", "obtainedOn": "2026-10-19", "method": "paper",
+        "explanationRef": explanation_ref(EXTERNAL_AI_EXPLANATION_V1),
+        "externalAi": {"company": "架空AI株式会社", "country": "日本", "noTrainingConfirmed": true},
+        "scope": "reduced", "fpConfirmed": true, "recordedAt": "2026-10-19T00:00:00Z", "origin": "thisOffice"
+    });
+    let mut b = book_from(json!({
+        "household": {"request": {"input": {}}},
+        "consents": [old.clone()],
+        "consentExplanations": {explanation_ref(EXTERNAL_AI_EXPLANATION_V1): EXTERNAL_AI_EXPLANATION_V1}
+    }));
+    let r = &b.consents[0];
+    let e = r.external_ai.as_ref().unwrap();
+    assert_eq!(e.company.as_deref(), Some("架空AI株式会社"));
+    assert_eq!(e.country.as_deref(), Some("日本"));
+    // 書き戻しても1文字も変わらない（追記だけの確かめが通る）
+    assert_eq!(serde_json::to_value(r).unwrap(), old);
+    // 書類を含まない前の版の同意は、会社を聞かずに今の説明で取り直せる
+    let renewed = record(&mut b, ConsentDecision::Given, "inPerson");
+    assert!(renewed.documents);
+    assert!(renewed.external_ai.as_ref().unwrap().company.is_none());
+    let composed: Value = serde_json::from_str(&b.compose(&[]).unwrap()).unwrap();
+    assert_eq!(composed["consents"][0], old);
+    assert_eq!(composed["consents"].as_array().unwrap().len(), 2);
 }
 
 #[test]
 fn a_hearing_sheet_consent_records_the_sheet_text_and_does_not_cover_documents() {
     let mut b = book();
-    let r = b
-        .record_consent(
-            &input(ConsentDecision::Given, "架空AI株式会社", "hearingSheet"),
-            TODAY,
-            NOW,
-            None,
-        )
-        .unwrap();
+    let r = record(&mut b, ConsentDecision::Given, "hearingSheet");
     assert!(
         !r.documents,
         "シートの同意欄の文は書類に触れないので、書類を含む同意にしない"
@@ -142,18 +124,17 @@ fn a_hearing_sheet_consent_records_the_sheet_text_and_does_not_cover_documents()
 
     // シートの同意欄では取り直せない（今の説明を見せて取り直す）
     assert_eq!(
-        given(&mut b, "架空AI株式会社", "hearingSheet"),
+        b.record_consent(
+            &input(ConsentDecision::Given, "hearingSheet"),
+            TODAY,
+            NOW,
+            None
+        )
+        .map(|_| ()),
         Err("E_AI_CONSENT_ALREADY")
     );
     // 書類を AI に渡す世帯は、今の説明を見せて取り直す
-    let renewed = b
-        .record_consent(
-            &input(ConsentDecision::Given, "架空AI株式会社", "inPerson"),
-            TODAY,
-            NOW,
-            None,
-        )
-        .unwrap();
+    let renewed = record(&mut b, ConsentDecision::Given, "inPerson");
     assert!(renewed.documents);
     assert_eq!(
         renewed.explanation_ref,
@@ -166,14 +147,7 @@ fn a_hearing_sheet_consent_records_the_sheet_text_and_does_not_cover_documents()
 #[test]
 fn a_refusal_on_the_hearing_sheet_points_at_the_sheet_text() {
     let mut b = book();
-    let r = b
-        .record_consent(
-            &input(ConsentDecision::Refused, "", "hearingSheet"),
-            TODAY,
-            NOW,
-            None,
-        )
-        .unwrap();
+    let r = record(&mut b, ConsentDecision::Refused, "hearingSheet");
     assert_eq!(
         r.explanation_ref,
         Some(explanation_ref(HEARING_SHEET_EXTERNAL_AI_TEXT))

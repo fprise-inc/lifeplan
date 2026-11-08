@@ -288,11 +288,6 @@ impl HouseholdBook {
         current_external_ai(&self.consents)
     }
 
-    /// 共有を始めるときに FP が申告した AI の会社を、同意した会社と照らす（この版は1世帯につき1社。0172）
-    pub fn check_share_company(&self, declared: &str) -> Result<(), &'static str> {
-        consent::check_share_company(&self.consents, declared)
-    }
-
     /// 共有の元（復号した後の世帯。AIに渡すのは、ここから縮約の部品が作ったものだけ）。
     /// 画面の側の文章（FPのメモなど）は入れない（この版では縮約版だけを渡すため。0015 の6 の「足せる項目」は使わない）
     pub fn source(&self) -> Option<SharedHouseholdSource> {

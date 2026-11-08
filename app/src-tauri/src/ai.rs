@@ -658,15 +658,13 @@ pub async fn ai_consent_record(
     .await
 }
 
-/// 世帯をAIに渡す（期限つきの共有を作る）。同意が `given` で、AI接続口がオンのときだけ。
-/// `company` は FP が申告した、使う AI の会社。同意した会社と照らし、違えば止める（この版は1世帯につき1社。0172）
+/// 世帯をAIに渡す（期限つきの共有を作る）。同意が `given` で、AI接続口がオンのときだけ
 #[tauri::command]
 pub async fn ai_share_start(
     app: AppHandle,
     id: String,
     minutes: u32,
     destination: String,
-    company: String,
 ) -> Result<HouseholdAiView, String> {
     blocking(app, move |ai, store| {
         if !store.ai_connector_enabled().map_err(code)? {
@@ -691,9 +689,6 @@ pub async fn ai_share_start(
         if !ai.registry.active_share_ids(&id).is_empty() {
             return Err("E_AI_ALREADY_SHARED".into());
         }
-        e.book
-            .check_share_company(&company)
-            .map_err(str::to_owned)?;
         let source = e.book.source().ok_or("E_AI_BODY")?;
         ai.registry
             .grant(

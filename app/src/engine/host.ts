@@ -537,7 +537,8 @@ export interface AiConsentRecord {
   obtainedOn: string;
   method: AiConsentMethod;
   explanationRef?: string;
-  externalAi?: { company: string; country: string; noTrainingConfirmed: boolean };
+  /** 会社・所在国は前の版で記録した行だけが持つ（今は聞かない。0172） */
+  externalAi?: { company?: string; country?: string; noTrainingConfirmed: boolean };
   scope?: string;
   /** 書類の読み取りで書類を AI に渡すことを含む説明（版2〜）で同意した（0157）。無い同意は書類に使わない */
   documents?: boolean;
@@ -647,8 +648,6 @@ export interface AiConsentInput {
   decision: AiConsentDecision;
   obtainedOn: string;
   method: AiConsentMethod;
-  company: string;
-  country: string;
   noTrainingConfirmed: boolean;
   fpConfirmed: boolean;
 }
@@ -661,8 +660,7 @@ export interface AiHost {
   copySetup(client: string): Promise<boolean>;
   household(id: string): Promise<AiHouseholdView>;
   recordConsent(id: string, input: AiConsentInput): Promise<AiHouseholdView>;
-  /** `company` は FP が申告した、使う AI の会社（同意した会社と照らす。この版は1世帯につき1社。0172） */
-  startShare(id: string, minutes: number, destination: string, company: string): Promise<AiHouseholdView>;
+  startShare(id: string, minutes: number, destination: string): Promise<AiHouseholdView>;
   stopShare(id: string): Promise<AiHouseholdView>;
   /** AIの候補についての FP の判断（accept のときは保存したプランの ID） */
   decide(id: string, candidate: string, accept: boolean, plan: string | null): Promise<AiHouseholdView>;
@@ -899,7 +897,7 @@ export function tauriHost(): HostApi {
       copySetup: (client) => invoke<boolean>("ai_setup_copy", { client }),
       household: (id) => invoke<AiHouseholdView>("ai_household", { id }),
       recordConsent: (id, input) => invoke<AiHouseholdView>("ai_consent_record", { id, input }),
-      startShare: (id, minutes, destination, company) => invoke<AiHouseholdView>("ai_share_start", { id, minutes, destination, company }),
+      startShare: (id, minutes, destination) => invoke<AiHouseholdView>("ai_share_start", { id, minutes, destination }),
       stopShare: (id) => invoke<AiHouseholdView>("ai_share_stop", { id }),
       decide: (id, candidate, accept, plan) => invoke<AiHouseholdView>("ai_candidate_decide", { id, candidate, accept, plan }),
       takeDocuments: (id, candidate) => invoke<AiHouseholdView>("ai_documents_taken", { id, candidate }),
@@ -1125,7 +1123,7 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       copySetup: async (client) => devJson<boolean>(await devAi("copySetup", { client })),
       household: async (id) => devJson<AiHouseholdView>(await devAi("household", { id })),
       recordConsent: async (id, input) => devJson<AiHouseholdView>(await devAi("recordConsent", { id, input })),
-      startShare: async (id, minutes, destination, company) => devJson<AiHouseholdView>(await devAi("startShare", { id, minutes, destination, company })),
+      startShare: async (id, minutes, destination) => devJson<AiHouseholdView>(await devAi("startShare", { id, minutes, destination })),
       stopShare: async (id) => devJson<AiHouseholdView>(await devAi("stopShare", { id })),
       decide: async (id, candidate, accept, plan) => devJson<AiHouseholdView>(await devAi("decide", { id, candidate, accept, plan })),
       takeDocuments: async (id, candidate) => devJson<AiHouseholdView>(await devAi("takeDocuments", { id, candidate })),

@@ -13,8 +13,8 @@
 //! 計算に要る項目（縮約版）を渡すことにはそのまま使えるが、書類を AI に渡す操作（貼り付け・接続口の書類の候補）の前に、
 //! 今の版の説明で同意を取り直す（`ConsentRecord::documents`）。
 //!
-//! この版は、外部AIへの提供の同意を1世帯につき1社で持つ（0014 の追記・0172）。2つ目の会社の同意は足さず、会社を変えるときは
-//! 先に撤回を記録する。共有を始めるとき、FP が申告した AI の会社を同意した会社と照らし、合わなければ止める（`check_share_company`）。
+//! 外部AIへの提供の同意は「外部の AI サービスに渡すことへの同意」1つとして扱い、どの AI の会社かは聞かない・記録しない
+//! （利用者の判断 2026-11-08。会社ごとに扱うと管理が複雑になるため。0172）。前の版で記録した行の会社・所在国は、捨てずにそのまま読む。
 //!
 //! 取り方が「ヒアリングシートの同意欄」の同意は、シートの同意欄の文（`HEARING_SHEET_EXTERNAL_AI_TEXT`）の指紋で、
 //! 書類を含まない同意として記録する（シートの文は書類に触れないため。0172）。書類を AI に渡す世帯は、今の説明を見せて取り直す。
@@ -98,14 +98,16 @@ pub enum ConsentOrigin {
     PreviousOffice,
 }
 
-/// 外部AIへの提供の同意の、提供先（0014 の2 の `externalAi`）
+/// 外部AIへの提供の同意の、提供先について FP が確かめたこと（0014 の2 の `externalAi`）
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalAiInfo {
-    /// 提供先のAIの会社（FPの申告）
-    pub company: String,
-    /// 所在国（FPの申告）
-    pub country: String,
+    /// 提供先のAIの会社（FPの申告）。前の版で記録した行だけが持つ。今は聞かない・書かない（0172）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub company: Option<String>,
+    /// 所在国（FPの申告）。前の版で記録した行だけが持つ。今は聞かない・書かない（0172）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
     /// FPが「学習に使われない設定」を確かめたか
     pub no_training_confirmed: bool,
 }
@@ -176,10 +178,6 @@ pub struct ExternalAiConsentInput {
     /// `paper`／`inPerson`／`email`／`hearingSheet`／`other`
     pub method: String,
     #[serde(default)]
-    pub company: String,
-    #[serde(default)]
-    pub country: String,
-    #[serde(default)]
     pub no_training_confirmed: bool,
     #[serde(default)]
     pub fp_confirmed: bool,
@@ -187,9 +185,6 @@ pub struct ExternalAiConsentInput {
 
 /// 渡してよい範囲の名前（この版では縮約版だけ）
 pub const SCOPE_REDUCED: &str = "reduced";
-
-pub const MAX_COMPANY_CHARS: usize = 60;
-pub const MAX_COUNTRY_CHARS: usize = 30;
 
 fn is_false(b: &bool) -> bool {
     !*b
@@ -206,84 +201,6 @@ pub fn current_external_ai(records: &[ConsentRecord]) -> Option<ConsentRef> {
             record_id: r.id.clone(),
             documents: r.decision == ConsentDecision::Given && r.documents,
         })
-}
-
-/// 今の同意（`given`）の提供先の会社（この事務所の最新の行が `given` のときだけ）
-pub fn consented_company(records: &[ConsentRecord]) -> Option<&str> {
-    records
-        .iter()
-        .rev()
-        .find(|r| r.kind == ConsentKind::ExternalAi && r.origin == ConsentOrigin::ThisOffice)
-        .filter(|r| r.decision == ConsentDecision::Given)
-        .and_then(|r| r.external_ai.as_ref())
-        .map(|e| e.company.as_str())
-}
-
-/// 会社の名前を比べる形にする（全角の英数字を半角に・英字を小文字に・空白と記号を外し・会社の種類の言葉を外す）。
-/// 「Example AI, L.L.C.」と「exampleai」、「架空ＡＩ 株式会社」と「架空AI株式会社」を同じとみる。別の言葉（カタカナ書きなど）は同じとみない
-pub fn company_key(name: &str) -> String {
-    let mut s: String = name
-        .chars()
-        .map(|c| match c {
-            '\u{FF01}'..='\u{FF5E}' => char::from_u32(c as u32 - 0xFEE0).unwrap_or(c),
-            _ => c,
-        })
-        .flat_map(char::to_lowercase)
-        .collect();
-    for w in ["株式会社", "合同会社", "有限会社", "(株)", "㈱"] {
-        s = s.replace(w, "");
-    }
-    let mut s: String = s
-        .chars()
-        .filter(|c| {
-            !c.is_whitespace() && !c.is_ascii_punctuation() && !"・（）「」、。".contains(*c)
-        })
-        .collect();
-    // 後ろの会社の種類の言葉（「Co., Ltd.」のように重なるものも）を外す
-    loop {
-        let before = s.len();
-        for w in [
-            "corporation",
-            "limited",
-            "company",
-            "gmbh",
-            "corp",
-            "inc",
-            "llc",
-            "ltd",
-            "pbc",
-            "plc",
-            "co",
-        ] {
-            if s.len() > w.len() && s.ends_with(w) {
-                s.truncate(s.len() - w.len());
-                break;
-            }
-        }
-        if s.len() == before {
-            return s;
-        }
-    }
-}
-
-/// 2つの会社の名前が同じ会社か（`company_key` が同じで、空でない）
-pub fn same_company(a: &str, b: &str) -> bool {
-    let (a, b) = (company_key(a), company_key(b));
-    !a.is_empty() && a == b
-}
-
-/// 共有を始めるときに FP が申告した AI の会社を、同意した会社と照らす（この版は1世帯につき1社。0172）。
-/// 同意が `given` でなければ `E_AI_NO_CONSENT`、申告が空・長すぎれば `E_AI_COMPANY`、違う会社なら `E_AI_COMPANY_MISMATCH`
-pub fn check_share_company(records: &[ConsentRecord], declared: &str) -> Result<(), &'static str> {
-    let consented = consented_company(records).ok_or("E_AI_NO_CONSENT")?;
-    let declared = declared.trim();
-    if declared.is_empty() || declared.chars().count() > MAX_COMPANY_CHARS {
-        return Err("E_AI_COMPANY");
-    }
-    if !same_company(consented, declared) {
-        return Err("E_AI_COMPANY_MISMATCH");
-    }
-    Ok(())
 }
 
 /// `YYYY-MM-DD` として正しいか（暦として成り立つか）
@@ -342,14 +259,6 @@ pub fn new_external_ai_record(
     let current_decision = current.as_ref().map(|c| c.decision);
     let external_ai = match input.decision {
         ConsentDecision::Given => {
-            let company = input.company.trim();
-            let country = input.country.trim();
-            if company.is_empty() || company.chars().count() > MAX_COMPANY_CHARS {
-                return Err("E_AI_CONSENT_COMPANY");
-            }
-            if country.is_empty() || country.chars().count() > MAX_COUNTRY_CHARS {
-                return Err("E_AI_CONSENT_COUNTRY");
-            }
             // 同意がもうあっても、書類を含まない同意（版1の説明・ヒアリングシートの同意欄）なら、今の版の説明で取り直せる（0157・0172）。
             // シートの同意欄では取り直さない（今の説明を見せていないので、書類を含む同意にならない）
             if current.as_ref().is_some_and(|c| {
@@ -359,13 +268,10 @@ pub fn new_external_ai_record(
             }) {
                 return Err("E_AI_CONSENT_ALREADY");
             }
-            // この版は1世帯につき1社。取り直しで別の会社にしない（会社を変えるときは先に撤回を記録する。0172）
-            if consented_company(existing).is_some_and(|c| !same_company(c, company)) {
-                return Err("E_AI_CONSENT_COMPANY_CHANGE");
-            }
+            // どの AI の会社かは聞かない（0172）。FP が確かめた「学習に使われない設定」だけを持つ
             Some(ExternalAiInfo {
-                company: company.to_owned(),
-                country: country.to_owned(),
+                company: None,
+                country: None,
                 no_training_confirmed: input.no_training_confirmed,
             })
         }
@@ -424,8 +330,6 @@ mod tests {
             decision,
             obtained_on: "2026-10-19".into(),
             method: "paper".into(),
-            company: "架空AI株式会社".into(),
-            country: "日本".into(),
             no_training_confirmed: true,
             fp_confirmed: true,
         }
@@ -557,11 +461,13 @@ mod tests {
             new_external_ai_record(&[], &i, "2026-10-19", now),
             Err("E_AI_CONSENT_METHOD")
         );
-        let mut i = input(ConsentDecision::Given);
-        i.company = "  ".into();
+        // どの AI の会社かは聞かない（0172）。記録の行にも会社・所在国を書かない
+        let r =
+            new_external_ai_record(&[], &input(ConsentDecision::Given), "2026-10-19", now).unwrap();
+        let v = serde_json::to_value(&r).unwrap();
         assert_eq!(
-            new_external_ai_record(&[], &i, "2026-10-19", now),
-            Err("E_AI_CONSENT_COMPANY")
+            v["externalAi"],
+            serde_json::json!({"noTrainingConfirmed": true})
         );
     }
 

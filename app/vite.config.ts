@@ -713,14 +713,6 @@ const devAi = {
   documents: [] as { candidateId: string; shareId: string; householdId: string; receivedAt: string; connector: string | null; answer: unknown }[],
 };
 const DEV_AI_SHEET_TEXT = "（任意）担当の FP が、AI を使ってお答えを整理することがあります（お名前は渡しません）。このことに同意します";
-/** 会社の名前を比べる形（本体の company_key を短くしたもの: 全角の英数字を半角に・小文字に・空白と記号と会社の種類の言葉を外す） */
-const devCompanyKey = (s: string): string =>
-  s
-    .replace(/[\uFF01-\uFF5E]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
-    .toLowerCase()
-    .replace(/株式会社|合同会社|有限会社|\(株\)|㈱/g, "")
-    .replace(/[\s\p{P}]/gu, "")
-    .replace(/(corporation|limited|company|gmbh|corp|inc|llc|ltd|pbc|plc|co)+$/, "");
 const DEV_AI_EXPLANATION = "（開発用の見本）ご相談の内容をもとにしたライフプランの計算や見直しの検討に、FPが契約している外部のAIを使うことがあります。\n計算や見直しの検討でAIに渡すのは、計算に必要な項目だけです。お名前・ご住所・FPのメモは渡しません。\n担当のFPは、書類から数字を読み取るときに、AIを使うことがあります。お名前・ご住所・各種の番号は伏せてから渡します。\nこの同意はいつでも撤回でき、撤回した後はAIに渡しません。";
 
 function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: unknown } | { ok: false; code: string } {
@@ -745,7 +737,6 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
   };
   const consentState = (b: ReturnType<typeof book>) => (b.consents.at(-1)?.decision as string | undefined) ?? "none";
   const consentDocuments = (b: ReturnType<typeof book>) => consentState(b) === "given" && b.consents.at(-1)?.documents === true;
-  const consentedCompany = (b: ReturnType<typeof book>) => (consentState(b) === "given" ? ((b.consents.at(-1)?.externalAi as { company?: string } | undefined)?.company ?? null) : null);
   const view = () => {
     const b = book();
     const sh = shareStatus();
@@ -802,10 +793,8 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
       const b = book();
       if (i.fpConfirmed !== true) return { ok: false, code: "E_AI_CONSENT_FP_CONFIRM" };
       if (i.decision === "given" && (consentDocuments(b) || (consentState(b) === "given" && i.method === "hearingSheet"))) return { ok: false, code: "E_AI_CONSENT_ALREADY" };
-      const was = consentedCompany(b);
-      if (i.decision === "given" && was !== null && devCompanyKey(was) !== devCompanyKey(String(i.company))) return { ok: false, code: "E_AI_CONSENT_COMPANY_CHANGE" };
       if (i.decision === "withdrawn" && consentState(b) !== "given") return { ok: false, code: "E_AI_CONSENT_NOT_GIVEN" };
-      b.consents.push({ id: crypto.randomUUID(), kind: "externalAi", decision: i.decision, obtainedOn: i.obtainedOn, method: i.method, explanationRef: i.method === "hearingSheet" ? "sha256:dev-sheet" : "sha256:dev", ...(i.decision === "given" ? { externalAi: { company: i.company, country: i.country, noTrainingConfirmed: i.noTrainingConfirmed }, scope: "reduced", ...(i.method === "hearingSheet" ? {} : { documents: true }) } : {}), fpConfirmed: true, recordedAt: now, origin: "thisOffice" });
+      b.consents.push({ id: crypto.randomUUID(), kind: "externalAi", decision: i.decision, obtainedOn: i.obtainedOn, method: i.method, explanationRef: i.method === "hearingSheet" ? "sha256:dev-sheet" : "sha256:dev", ...(i.decision === "given" ? { externalAi: { noTrainingConfirmed: i.noTrainingConfirmed }, scope: "reduced", ...(i.method === "hearingSheet" ? {} : { documents: true }) } : {}), fpConfirmed: true, recordedAt: now, origin: "thisOffice" });
       if (i.decision !== "given" && active()?.householdId === id) end("consentWithdrawn");
       return { ok: true, value: view() };
     }
@@ -814,9 +803,6 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
       if (!devAi.enabled) return { ok: false, code: "E_AI_OFF" };
       if (consentState(b) !== "given") return { ok: false, code: "E_AI_NO_CONSENT" };
       if (active() !== null) return { ok: false, code: "E_AI_ALREADY_SHARED" };
-      const company = String(a.company ?? "").trim();
-      if (company === "" || company.length > 60) return { ok: false, code: "E_AI_COMPANY" };
-      if (devCompanyKey(company) !== devCompanyKey(consentedCompany(b) ?? "")) return { ok: false, code: "E_AI_COMPANY_MISMATCH" };
       const minutes = Number(a.minutes);
       const shareId = `s-${crypto.randomUUID().slice(0, 8)}`;
       devAi.share = { householdId: id, shareId, alias: "共有中の世帯A", expiresMs: Date.now() + minutes * 60_000 };
