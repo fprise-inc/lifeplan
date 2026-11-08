@@ -94,10 +94,12 @@ describe("R2-007 亡くなった月の保険料（資格を失うのは死亡の
     return req;
   };
   it("2028-10 に亡くなった夫の後期・介護第1号は 4〜9月の6か月分（高齢者医療確保法53条・介護保険法11条）", () => {
-    const alive = run(seniors());
-    const dead = run(withDeath(seniors(), death("d1.c", "d1.h", "2028-10")));
+    // 夫の分の年額（亡くなった後に払う納期の分は遺族の名になることがあるので、夫の部品の出力の合計で比べる）
+    const annual = (r: Req, component: string) =>
+      (entry(r, component, { member: uid("d1.h"), fiscalYear: 2028 }).flows as { amount: number }[]).reduce((s, f) => s + f.amount, 0);
+    const dead = withDeath(seniors(), death("d1.c", "d1.h", "2028-10"));
     for (const p of ["socialInsurance.lateElderly", "socialInsurance.careFirst"]) {
-      expect(Math.abs(fy(dead, p, "d1.h", 2028) - (fy(alive, p, "d1.h", 2028) * 6) / 12)).toBeLessThanOrEqual(100); // 直す前は7か月分
+      expect(Math.abs(annual(dead, p) - (annual(seniors(), p) * 6) / 12)).toBeLessThanOrEqual(100); // 直す前は7か月分
     }
   });
   it("会社員が 2028-10 に亡くなる: 10月分の健康保険料・厚生年金保険料はかからない。扶養の子は10月から国保（健康保険法36条・国民健康保険法7条）", () => {
