@@ -13,6 +13,8 @@ import { isRentalProperty, UNENTERED_RENT } from "./rental.ts";
 import { accountName, UNENTERED_BALANCE, defaultPayoutAge, editPayout, INVEST_KINDS, methodOf, payoutAgeBasis, payoutAgeOf, rateBasisOf, rateOf, reservePreset, setSettlement, settlementOf, setStopAge, stopAgeOf, stopEstimateOf, withdrawableCount } from "../savings/model.ts";
 import { allocationStageGroups, returnStageGroups } from "../staged.ts";
 import { FEE_RANGE, RETURN_RANGE } from "../rateRanges.ts";
+import { addRate, cmpRate, divRate, subRate } from "../../plans/decimal.ts";
+import { pctFromRate } from "../units.ts";
 import { ASSET_SUBTYPES, executiveMembers } from "../officer.ts";
 
 const accounts = (h: Household) => h.accounts;
@@ -514,13 +516,15 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   if (a.kind === "cryptoAsset" && (a.assetMix ?? []).length === 0) return groups;
   (a.assetMix ?? []).forEach((_, j) => {
     const findMix: Finder = (h, w) => (getPath(find(h, w), ["assetMix", String(j)]) as Record<string, unknown> | undefined) ?? undefined;
+    const share = plain({ key: `${k}/mix/${j}/share`, item: "account.assetMix", label: "割合", level: "detail", kind: "pct", find: findMix, path: ["share"] });
     groups.push({
       key: `${k}/mix/${j}`,
       title: `資産の配分 ${j + 1}`,
       level: "detail",
       fields: [
         plain({ key: `${k}/mix/${j}/class`, item: "account.assetMix", label: "資産の種類", level: "detail", kind: "select", options: ASSET_CLASSES, find: findMix, path: ["assetClass"] }),
-        plain({ key: `${k}/mix/${j}/share`, item: "account.assetMix", label: "割合", level: "detail", kind: "pct", find: findMix, path: ["share"] }),
+        // 割合の合計が100%でないときの知らせは、最初の行の割合の欄に1つだけ出す（確かめの一覧にも出る。0177）
+        j === 0 ? withMixTotalNotice(share, find) : share,
       ],
       actions: [
         removeAction(`${k}/mix/${j}/remove`, "外す", "detail", (h, w) => {
@@ -540,6 +544,48 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     actions: [{ key: `${k}/addMixRow`, label: "＋ 資産の配分", level: "detail", run: (w) => mutate(w, (h) => void ((find(h, w) as Account).assetMix ??= []).push({ assetClass: "equity.global", share: (a.assetMix ?? []).length === 0 ? "1" : "0" })) }],
   });
   return groups;
+}
+
+/**
+ * 口座の資産の配分の割合の合計が100%でないときの知らせ（0177）。計算は合計で割って按分する（1行だけならその資産クラスが100%）ので、
+ * 按分した割合を見せ、「合計を100%にする」で同じ割合に書き直せるようにする（押したときだけ直す）
+ */
+function withMixTotalNotice(f: FieldDef, find: Finder): FieldDef {
+  const sharesOf = (w: WorkingHousehold) => ((find(w.request.input.household, w) as Account | undefined)?.assetMix ?? []).map((m) => m.share);
+  return {
+    ...f,
+    get: (w) => {
+      const st = f.get(w);
+      if (st.warn != null) return st;
+      const shares = sharesOf(w);
+      if (shares.length === 0 || !shares.every((x) => /^-?\d+(\.\d+)?$/.test(x))) return st;
+      const total = shares.reduce((t, x) => addRate(t, x), "0");
+      if (cmpRate(total, "1") === 0 || cmpRate(total, "0") <= 0) return st;
+      const mix = (find(w.request.input.household, w) as Account).assetMix ?? [];
+      const label = (c: string) => ASSET_CLASSES.find((o) => o.value === c)?.label ?? c;
+      const norm = mix.map((m) => divRate(m.share, total, 4));
+      const spread = mix.map((m, i) => `${label(m.assetClass)}${pctFromRate(norm[i] as string)}%`).join("・");
+      return {
+        ...st,
+        warn: `資産の配分の割合の合計が${pctFromRate(total)}%です。計算では合計を100%として按分しています（${spread}）。合計が100%になるように直してください`,
+        warnFix: {
+          label: "合計を100%にする",
+          run: (w2) =>
+            mutate(w2, (h) => {
+              const x = find(h, w2) as Account | undefined;
+              if (x?.assetMix === undefined) return;
+              // 按分した割合（小数第4位まで）の端数は最後の行で合わせる
+              let rest = "1";
+              x.assetMix.forEach((m, i) => {
+                const v = i === norm.length - 1 ? rest : (norm[i] as string);
+                rest = subRate(rest, v);
+                m.share = v;
+              });
+            }),
+        },
+      };
+    },
+  };
 }
 
 const DC_KIND = new Set(["ideco", "corporateDc"]);

@@ -16,7 +16,7 @@ import { checkList } from "../src/workspace/input/checkRows.ts";
 import { rejectReason } from "../src/workspace/input/FieldViews.tsx";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
-import { FEE_RANGE, GROWTH_RANGE, outOfRangeText, RETURN_RANGE, SLIDE_RANGE, type PctRange } from "../src/workspace/input/rateRanges.ts";
+import { FEE_RANGE, GROWTH_RANGE, HEALTH_RATE_RANGE, outOfRangeText, RETURN_RANGE, SLIDE_RANGE, STAGE_RATIO_RANGE, type PctRange } from "../src/workspace/input/rateRanges.ts";
 import { buildStage, buildStages } from "../src/workspace/input/stages/index.ts";
 import { OfficeSettingsPanel, pctToRate } from "../src/workspace/office/OfficeSettingsPanel.tsx";
 import { ASSUMPTION_RANGES, DEFAULT_OFFICE_SETTINGS } from "../src/workspace/office/settings.ts";
@@ -86,6 +86,45 @@ function widened(id: string): EngineRequest {
   }
   return req;
 }
+
+describe("範囲の無かった率の欄（健康保険料率・段の割合。0177）", () => {
+  it("マイナスと大きすぎる値は打った時点で止め、範囲の端は受け付ける", () => {
+    const kinds: [string, RegExp, PctRange][] = [
+      ["健康保険料率（本人負担分）", /\/hiRate$/, HEALTH_RATE_RANGE],
+      ["生活費の段の割合", /^living\/.*\/stage\/[^/]+\/ratio$/, STAGE_RATIO_RANGE],
+      ["住まいの段の割合（家賃・修繕や管理の費用・固定資産税）", /^housing\/.*\/stage\/[^/]+\/ratio$/, STAGE_RATIO_RANGE],
+    ];
+    const found = new Map<string, number>();
+    for (const id of IDS) {
+      const wh = fromRequest(widened(id));
+      for (const f of buildStages(wh).flatMap((s) => allFields(s))) {
+        if (f.kind !== "pct") continue;
+        const hit = kinds.find(([, re]) => re.test(f.key));
+        if (hit === undefined) continue;
+        const [name, , range] = hit;
+        found.set(name, (found.get(name) ?? 0) + 1);
+        expect([f.min, f.max], `${id} ${f.key}`).toEqual([range.min, range.max]);
+        expect(rejectReason(f, "-100"), f.key).toBe("0%より小さい値は設定できません。");
+        expect(rejectReason(f, "-5"), f.key).toBe("0%より小さい値は設定できません。");
+        expect(rejectReason(f, "999"), f.key).toBe(`${range.max}%より大きい値は設定できません。`);
+        expect(rejectReason(f, "0"), f.key).toBeNull();
+        expect(rejectReason(f, String(range.max)), f.key).toBeNull();
+      }
+    }
+    expect(kinds.map(([n]) => n).filter((n) => !found.has(n))).toEqual([]);
+  });
+  it("古い世帯に入っていたマイナスの健康保険料率は、値を変えずに知らせ、押すと0%にする", () => {
+    const req = modelHousehold("civilServant");
+    const p = req.input.household.employmentPeriods!.find((e) => e.healthInsurance?.employeeRate !== undefined)!;
+    (p.healthInsurance as unknown as { employeeRate: { value: string } }).employeeRate.value = "-1";
+    const wh = fromRequest(req);
+    const f = buildStages(wh).flatMap((s) => allFields(s)).find((x) => x.key.endsWith("/hiRate"))!;
+    const st = f.get(wh);
+    expect(st.value).toBe("-1");
+    expect(st.warn).toContain("範囲（0%〜10%）の外の値（-100%）");
+    expect(st.warnFix?.label).toBe("0%にする");
+  });
+});
 
 describe("率の欄の範囲（0098）", () => {
   it("利回り・上昇率・変化率の欄は、範囲の外の値（999%・-100% など）を入れられず、欄の下に越えた側の端を出す（「15%より大きい値は設定できません。」）", () => {

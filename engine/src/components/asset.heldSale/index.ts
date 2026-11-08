@@ -70,7 +70,7 @@ export default defineComponent<Record<string, never>, HeldSaleOutput>({
   id: "asset.heldSale",
   title: "貸していない不動産・その他の資産の売却",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: {},
   params: Object.values(P),
   reads: [

@@ -67,6 +67,7 @@
 //   持ち始める月より前の年は、その器の評価額の行を出さない（時価は asOf の時点の額から増減率で動かし続け、持ち始めた年の年末から載せる。受け取るときの
 //   支払いは無い。収益不動産の property.holdFrom と同じ）。持ち始める時点の無い世帯の結果は同じ
 // - 改訂24（0137）: 預金の利回り（assumptions.depositReturn）を読む。預金・外貨預金の資産クラス（cash.deposit・cash.foreign）が前提の資産クラスごとの利回りに無いときの利回り（省略は運用利回りで、前の要求は今までどおり。0137）
+// - 改訂25（0177）: 口座の資産の配分の割合は、合計で割って按分する（合計が100%でないとき・1行だけのとき。利回りと相場の下落の割合。sdk の accountReturnRate・shockShare）
 import {
   accountReturnRate,
   accountMixAt,
@@ -198,7 +199,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
   id: "plan.cashflow",
   title: "キャッシュフロー表",
   contract: "1.8",
-  revision: 24,
+  revision: 25,
   requires: {
     "plan.flows": ">=1 <2",
     "outside.wallet": ">=1 <2",

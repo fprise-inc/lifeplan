@@ -22,6 +22,11 @@ export const SLIDE_RANGE: PctRange = { min: 0, max: 5 };
 /** 運用の費用（信託報酬など）: 年 0%〜5% */
 export const FEE_RANGE: PctRange = { min: 0, max: 5 };
 
+/** 健康保険料率（本人負担分。健康保険組合・共済の料率を入れる欄）: 0%〜10%（料率の上の端は労使合わせて13%で、本人はその半分ほど。介護保険料を含めても10%に届かない。0177） */
+export const HEALTH_RATE_RANGE: PctRange = { min: 0, max: 10 };
+/** 段の「今の額に対する割合」（基本生活費・家賃・修繕や管理の費用・固定資産税の段）: 0%〜500%（マイナスは計算で0%になっていた。0177） */
+export const STAGE_RATIO_RANGE: PctRange = { min: 0, max: 500 };
+
 /** 率（10進の文字列。"0.25" = 25%）がパーセントの範囲に入っているか。読めない率は入っていない扱い */
 export function rateInRange(rate: string, r: { min?: number | undefined; max?: number | undefined }): boolean {
   if (!/^-?\d+(\.\d+)?$/.test(rate)) return false;

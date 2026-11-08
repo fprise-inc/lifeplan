@@ -6,7 +6,7 @@
 // - 配分を持たない器は、預金・外貨預金・不動産はその資産クラス、ほかは運用利回り
 // 配分の入力（account.assetMix）は計算エンジンにもともとある省略できる項目で、入れなければ今の結果は変わらない
 import type { Account, EngineRequest, YearSeries } from "../../engine/types.ts";
-import { addRate, mulRate } from "./decimal.ts";
+import { addRate, cmpRate, divRate, mulRate } from "./decimal.ts";
 
 export interface MixPart {
   assetClass: string;
@@ -56,9 +56,13 @@ export function expectedReturn(req: EngineRequest, account: Pick<Account, "kind"
     return cls === undefined ? (seriesAt(req.input.assumptions?.investmentReturn, year) ?? "0") : classRate(req, cls, year).rate;
   }
   if (mix.length === 1) return classRate(req, (mix[0] as MixPart).assetClass, year).rate;
+  // 割合の合計が100%でなくても、合計で割って按分する（エンジンと同じ。合計が0なら資産の配分が無いのと同じ。0177）
+  let total = "0";
+  for (const m of mix) total = addRate(total, m.share);
+  if (cmpRate(total, "0") <= 0) return expectedReturn(req, { kind: account.kind }, year);
   let r = "0";
   for (const m of mix) r = addRate(r, mulRate(classRate(req, m.assetClass, year).rate, m.share));
-  return r;
+  return cmpRate(total, "1") === 0 ? r : divRate(r, total);
 }
 
 /** 配分を株式・債券・預金・そのほかに分けた割合（百分率の整数。端数は四捨五入） */

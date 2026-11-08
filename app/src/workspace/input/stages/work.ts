@@ -14,7 +14,7 @@ import { adoptBenefits, ensureRetirement } from "../fill.ts";
 import { earners, EMPLOYMENT_TYPES, HEALTH_INSURANCE, KYOKAI_BRANCHES, LEAVE_KINDS, memberLabel, PENSION_CATEGORY, POST_RETIREMENT_TYPES, WORDS } from "../labels.ts";
 import { formatYearMonth } from "../units.ts";
 import { readGroup, readLine } from "../readLines.ts";
-import { GROWTH_RANGE } from "../rateRanges.ts";
+import { GROWTH_RANGE, HEALTH_RATE_RANGE } from "../rateRanges.ts";
 import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 import { executiveMembers } from "../officer.ts";
 import { presetNum, presetText } from "../../../../../hearing/src/presets.ts";
@@ -1036,7 +1036,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
         ? [plain({ key: `${prefix}/branch`, item: "employment.healthInsurance.insurer", label: "協会けんぽの支部", level: d, kind: "select", options: KYOKAI_BRANCHES, find, path: ["healthInsurance", "insurer"], help: "勤め先の所在地の都道府県（保険料率が支部ごとに違います）" })]
         : []),
       ...(p.healthInsurance?.kind === "union" || p.healthInsurance?.kind === "mutualAid"
-        ? [rateBox({ key: `${prefix}/hiRate`, item: "employment.healthInsurance.employeeRate", label: "健康保険料率（本人負担分）", level: d, find, path: ["healthInsurance", "employeeRate"], help: "給与明細の健康保険料 ÷ 標準報酬月額 でも出せます" })]
+        ? [rateBox({ key: `${prefix}/hiRate`, item: "employment.healthInsurance.employeeRate", label: "健康保険料率（本人負担分）", level: d, ...HEALTH_RATE_RANGE, find, path: ["healthInsurance", "employeeRate"], help: "給与明細の健康保険料 ÷ 標準報酬月額 でも出せます" })]
         : []),
       plain({ key: `${prefix}/pc`, item: "employment.pensionCategory", label: "厚生年金", level: d, kind: "select", options: PENSION_CATEGORY, find, path: ["pensionCategory"] }),
       plain({ key: `${prefix}/size`, item: "employment.employer.size", label: "勤め先の従業員数", level: d, kind: "int", suffix: "人", min: 1, find, path: ["employer", "size"], help: "社会保険の適用拡大の判定に使います" }),

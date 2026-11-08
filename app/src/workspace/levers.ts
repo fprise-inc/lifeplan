@@ -242,10 +242,24 @@ export function hasAdvisoryFee(req: EngineRequest): boolean {
   return (req.input.household.advisoryFees ?? []).length > 0;
 }
 
-/** 現状で顧問料を入れているか（現状にも入れる契約が1件でもあるか） */
+/** 顧問料を入れているか（入れる契約が1件でもあるか。持ち帰りのつまみ・提案書の顧問料なしの比べに使う） */
 export function advisoryFeeInCurrent(req: EngineRequest): boolean {
   return (req.input.household.advisoryFees ?? []).some((c) => c.enabled !== false);
 }
+
+/**
+ * 対策「FP顧問料」の今の値（0177）: すべての契約を入れていれば true（入れる）、どれも入れていなければ false（入れない）、
+ * 一部だけ（「現状にも入れる」の契約と提案の側だけの契約がある）なら null（今の契約だけ）。null のときは「入れる」も「入れない」も
+ * 現状と違う値なので、プランの差分になる（提案の側だけの契約をプランに入れられる）
+ */
+export function advisoryFeeState(req: EngineRequest): boolean | null {
+  const list = req.input.household.advisoryFees ?? [];
+  const on = list.filter((c) => c.enabled !== false).length;
+  return on === list.length ? true : on === 0 ? false : null;
+}
+
+/** 対策「FP顧問料」の値の言い方 */
+export const feeStateText = (v: boolean | null): string => (v === true ? "入れる" : v === false ? "入れない" : "今の契約だけ");
 
 /**
  * FP顧問料の ON/OFF を提案の要求に当てる（0008 の追記: 既定では提案の側にだけ入れる。契約の enabled で案ごとに切り替える）。

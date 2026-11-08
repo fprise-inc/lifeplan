@@ -17,7 +17,7 @@ import type { Option } from "../input/form.ts";
 import type { Box, EmploymentPeriod, Household, Member, Timepoint } from "../../engine/types.ts";
 import { buildStages, STAGE_ORDER } from "../input/stages/index.ts";
 import { amountText, pctFromRate, sameRate } from "../input/units.ts";
-import { addMonths, advisoryFeeInCurrent, hasAdvisoryFee, LEVER_KEYS, parseYm, pensionClaimMonth, pensionStarted, readLevers, type LeverKey, type LeverValues } from "../levers.ts";
+import { addMonths, advisoryFeeState, feeStateText, hasAdvisoryFee, LEVER_KEYS, parseYm, pensionClaimMonth, pensionStarted, readLevers, type LeverKey, type LeverValues } from "../levers.ts";
 import { roles } from "../roles.ts";
 import { keyOf, resolveKey, type Reading } from "../store/readings.ts";
 import { bucketShares, expectedReturn, type MixPart } from "./allocation.ts";
@@ -311,9 +311,9 @@ function feeItem(wh: WorkingHousehold): MovableItem[] {
       builtin: true,
       phase: "fee",
       control: { kind: "toggle" },
-      read: (w) => advisoryFeeInCurrent(w.request),
+      read: (w) => advisoryFeeState(w.request),
       apply: (w) => w,
-      text: (v) => (v === true ? "入れる" : "入れない"),
+      text: (v) => feeStateText(typeof v === "boolean" ? v : null),
       same: jsonSame,
     },
   ];
