@@ -29,6 +29,15 @@
 .wb-checks li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
 .wb-checks li small { color: var(--ink-2); }
 .wb-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.wb-tags-row { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: 6px; align-items: baseline; margin-bottom: 6px; }
+.wb-tag-h { color: var(--ink-2); font-size: 0.8rem; }
+.wb-doc select { border: 1.5px solid var(--field); border-radius: 6px; padding: 3px 6px; font: inherit; }
+.wb-doc-covers { grid-column: 1 / -1; color: var(--ink-2); }
+.wb-doc-use { display: inline-flex; gap: 4px; align-items: baseline; color: var(--prop); }
+.wb-help { display: inline-block; position: relative; }
+.wb-help summary { list-style: none; cursor: pointer; border: 1px solid currentColor; border-radius: 50%; width: 1.2em; height: 1.2em; line-height: 1.1em; text-align: center; font-size: 0.75rem; }
+.wb-help summary::-webkit-details-marker { display: none; }
+.wb-help p { position: absolute; z-index: 5; left: 0; top: 1.6em; width: 22em; margin: 0; padding: 6px 8px; background: var(--card); color: var(--ink); border: 1px solid var(--card-line); border-radius: 6px; font-size: 0.8rem; box-shadow: 0 2px 6px rgb(0 0 0 / 12%); }
 .wb-doc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 10px; border: 1px solid var(--card-line); border-left: 4px solid var(--prop); border-radius: 8px; padding: 8px 10px; }
 .wb-doc > input { grid-column: 1 / -1; font-weight: 700; }
 .wb-doc label { display: grid; gap: 2px; font-size: 0.85rem; color: var(--ink-2); }

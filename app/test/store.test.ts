@@ -1289,6 +1289,19 @@ function sample070(): BodyState {
   return { ...s, wh: { ...s.wh, hearing: { ...log, web } as never } };
 }
 
+/**
+ * 0.71 の見本の世帯（0190）: sample070() の Web のヒアリングの依頼の記録の書類に持ち主を（源泉徴収票はご本人）、
+ * 持ち主を選んだ新しい種類の書類（預貯金の残高の分かるもの・配偶者の方）を足したもの
+ */
+function sample071(): BodyState {
+  const s = sample070();
+  const log = s.wh.hearing as unknown as { web: Record<string, unknown>[] } & Record<string, unknown>;
+  const e = log.web[0] as { record: { selection: { documents: Record<string, unknown>[] } & Record<string, unknown> } & Record<string, unknown> };
+  const documents = [{ ...e.record.selection.documents[0], owner: "self" }, { id: "d2", kind: "deposits", title: "預貯金の残高の分かるもの（配偶者の方）", purpose: "いまの預貯金の額を確かめるため", where: "最近の残高の欄", owner: "spouse" }];
+  const web = [{ ...e, record: { ...e.record, selection: { ...e.record.selection, documents } } }];
+  return { ...s, wh: { ...s.wh, hearing: { ...log, web } as never } };
+}
+
 describe("世帯ファイルの本文（0011 の2）", () => {
   it("保存→読み込みで同じ（現状・案・帯の並び・表示の設定・拡張領域）", () => {
     const s = sample();
@@ -1327,7 +1340,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.70");
+    expect(BODY_FORMAT_VERSION).toBe("0.71");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1502,7 +1515,20 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample070())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample071())), null, 2) + "\n");
+  });
+
+  it("0.71 の形（0190）: Web のヒアリングの依頼の記録の書類の持ち主を保存して読み戻す。前の版の記録（欄が無い）は持ち主を選んでいない書類", () => {
+    const s = sample071();
+    const stored = bodyObject(s) as unknown as { hearing: { web: { record: { selection: { documents: { kind: string; owner?: string }[] } } }[] } };
+    expect(stored.hearing.web[0]!.record.selection.documents.map((d) => [d.kind, d.owner])).toEqual([
+      ["withholding", "self"],
+      ["deposits", "spouse"],
+    ]);
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(webLog(back.wh)[0]?.record.selection.documents.map((d) => d.owner)).toEqual(["self", "spouse"]);
+    expect(webLog(sample070().wh)[0]?.record.selection.documents.every((d) => d.owner === undefined)).toBe(true);
   });
 
   it("0.70 の形（0158）: Web のヒアリングの依頼の記録の延長の上限・分岐の答え・書類の送りの記録を保存して読み戻す。前の版の記録（欄が無い）も画面の部品で読める", () => {
