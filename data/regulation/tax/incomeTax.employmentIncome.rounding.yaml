@@ -1,0 +1,22 @@
+# 所得税法別表第五の備考（給与等の金額が660万円以上の居住者の給与所得控除後の給与等の金額の1円未満の端数）
+id: incomeTax.employmentIncome.rounding
+title: 給与所得控除後の給与等の金額（算式で求める660万円以上）の1円未満の端数（切り捨て）
+unit: rounding
+kind: rounding
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2023-01-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "DOWN", unit: 1}
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", retrievedAt: "2026-10-08", sha256: "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", locator: "所得税法 別表第五（備考）", quote: "給与等の金額が６，６００，０００円以上の居住者の給与所得控除後の給与等の金額に１円未満の端数があるときは、これを切り捨てた額をもつてその求める給与所得控除後の給与等の金額とする。"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2025/pdf/nencho_all.pdf", retrievedAt: "2026-10-08", sha256: "4977299123ef22d2775eb9bbbe50a38de81821306fade726560697e568f4e933", locator: "年末調整のしかた（令和7年分）36ページ 給与所得控除後の給与等の金額の注2と例（7,654,321円）", quote: "求めた給与所得控除後の給与等の金額に１円未満の端数があるときは、これを切り捨てた金額によります。"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
+    recordedIn: "2026.18.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-11-08", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "条文（別表第五の備考）と年末調整のしかたが一致。給与所得（収入−給与所得控除額）を1円未満切り捨て（控除額の側は切り上げになる）。660万円未満は表の区分の下限（4,000円などの倍数）で計算するので端数は出ない。令和10年1月1日の版の別表第五にも同じ備考がある。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、その最初の版に同じ文言があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。これまでの仮の規約 conv.tax.fractionalDeduction（控除額を切り捨て。所得が1円多くなっていた）を置き換えた（0002 の追記）"}
