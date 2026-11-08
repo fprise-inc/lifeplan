@@ -32,6 +32,7 @@ export type IssueCode =
   | "H_INVALID_VALUE"
   | "H_STATE_NOT_ALLOWED"
   | "H_VALUE_AND_STATE"
+  | "H_RATE_DOUBT"
   | "H_UNKNOWN_KEY"
   | "H_MISSING"
   | "H_CONTRADICTION"

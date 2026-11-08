@@ -342,6 +342,8 @@ pub fn run() {
             store::store_list,
             store::store_create,
             store::store_open,
+            store::store_previous_generation,
+            store::store_open_previous,
             store::store_save,
             store::store_rename,
             store::store_delete,

@@ -101,10 +101,29 @@ export const STORE_MESSAGES: Record<string, string> = {
   E_STORE_NEEDS_RECOVERY: "復元キーを入れるまで、保存した世帯を開けません",
   E_STORE_KEYCHAIN: "OS の資格情報の保管庫を使えませんでした",
   E_STORE_IO: "ファイルの読み書きに失敗しました",
+  E_STORE_FORMAT_UNKNOWN: "このアプリが知らない形式の版の世帯ファイルです（アプリを更新するか、提供元に問い合わせてください）",
+  E_STORE_UNKNOWN_HOUSEHOLD: "この世帯が見つかりません（削除したか、ほかの PC で移した可能性があります）",
+  E_STORE_BODY: "世帯の中身の形が合わないか、大きすぎます",
+  E_STORE_NO_PREVIOUS: "直前の保存の内容は使えません（今のファイルが開けるか、直前の保存も開けません）",
   ...OFFICE_MESSAGES,
 };
 
-export const storeMessage = (code: string) => STORE_MESSAGES[code] ?? `保存の処理に失敗しました（${code}）`;
+export const storeMessage = (code: string) => STORE_MESSAGES[code] ?? `世帯の処理に失敗しました（${code}）`;
+
+/**
+ * 世帯を開く操作の失敗の文言（開く操作の言葉で出す。0011 の7）。開く操作に限らない符号（復元キー・新しい版・事務所の共有など）は、
+ * ふだんの文言のまま
+ */
+const OPEN_MESSAGES: Record<string, string> = {
+  E_STORE_CORRUPT: STORE_MESSAGES.E_STORE_CORRUPT as string,
+  E_STORE_FORMAT_UNKNOWN: "このアプリが知らない形式の版の世帯ファイルのため、開けませんでした（アプリを更新するか、提供元に問い合わせてください）",
+  E_STORE_BODY: "世帯ファイルの中身を読めなかったため、開けませんでした（壊れているか、書き換えられています）",
+  E_BODY_SHAPE: "世帯ファイルの中身の形が合わないため、開けませんでした（壊れているか、書き換えられています）",
+  E_STORE_UNKNOWN_HOUSEHOLD: "この世帯のファイルが見つからないため、開けませんでした（削除したか、ほかの PC で移した可能性があります）",
+  E_STORE_IO: "世帯ファイルを読めなかったため、開けませんでした（ファイルの読み書きに失敗しました）",
+};
+
+export const openMessage = (code: string) => OPEN_MESSAGES[code] ?? STORE_MESSAGES[code] ?? `世帯を開けませんでした（${code}）`;
 
 /** 見本に登録するときの「中身は架空です」の確認の文 */
 export const FICTIONAL_CONFIRM = "中身は架空です（実在のお客さまの情報を入れていません）";

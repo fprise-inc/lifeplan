@@ -69,4 +69,4 @@ export function preview(req: EngineRequest): { error?: unknown } & Record<string
 }
 
 // .xlsx の書き換え（顧客の手元での編集・別のソフトでの保存し直しを試す）は、表計算のファイルの土台（xlsx/）のテストの部品を使う
-export { bytes, editXlsx, insertRow, rezip, setCell, text, toSharedStrings, unzip } from "../../xlsx/test/helpers.ts";
+export { bytes, editXlsx, insertRow, rezip, setCell, setNumberFormat, text, toSharedStrings, unzip } from "../../xlsx/test/helpers.ts";
