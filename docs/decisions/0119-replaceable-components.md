@@ -45,7 +45,7 @@
 
 | 部品 | 分け方 | 理由 |
 |---|---|---|
-| `incomeTax.annual`・`residentTax.annual`・`residentTax.exemption`・`tax.deductions`・`tax.dependentDeduction`・`tax.spouseDeduction`・`tax.employmentIncome`・`tax.publicPensionIncome`・`tax.retirementIncome`・`tax.realEstateSale`・`tax.lossCarryforward`・`tax.housingLoanCredit`・`tax.housingLoanCreditYears`・`tax.socialInsurancePaid`・`tax.totalIncome`・`tax.incomeOrder`・`tax.incomeWithin`・`tax.survivorStatus`・`insurance.income`・`gift.tax`・`inheritance.estimate` | 法律・制度 | 所得税法・地方税法・租税特別措置法・相続税法で決まる税の計算と、その判定（所得の大小・上限・寡婦とひとり親） |
+| `incomeTax.annual`・`residentTax.annual`・`residentTax.exemption`・`tax.deductions`・`tax.dependentDeduction`・`tax.spouseDeduction`・`tax.employmentIncome`・`tax.publicPensionIncome`・`tax.retirementIncome`・`tax.realEstateSale`・`tax.lossCarryforward`・`tax.housingLoanCredit`・`tax.housingLoanCreditYears`・`tax.socialInsurancePaid`・`tax.totalIncome`・`tax.totalIncomeBase`・`tax.incomeOrder`・`tax.incomeWithin`・`tax.survivorStatus`・`insurance.income`・`gift.tax`・`inheritance.estimate` | 法律・制度 | 所得税法・地方税法・租税特別措置法・相続税法で決まる税の計算と、その判定（所得の大小・上限・寡婦とひとり親） |
 | `asset.realEstate` | 法律・制度 | 家賃・空室は入力と目安だが、主な中身は減価償却と不動産所得（所得税法）の計算。目安の値は事務所の推定の値で変える |
 | `asset.heldSale` | 法律・制度 | 貸していない不動産・その他の資産の売る予定。中身は取得費・所有期間・税の扱い（所得税法・租税特別措置法）の判定（0123） |
 | `socialInsurance.coverage`・`socialInsurance.employeeStatus`・`socialInsurance.healthStatus`・`socialInsurance.health`・`socialInsurance.pension`・`socialInsurance.employment`・`socialInsurance.nationalHealth`・`socialInsurance.nationalPension`・`socialInsurance.continuation`・`socialInsurance.lateElderly`・`socialInsurance.careFirst` | 法律・制度 | 健康保険法・厚生年金保険法・雇用保険法・国民健康保険法・国民年金法・高齢者医療確保法・介護保険法で決まる資格・標準報酬・保険料。これまでテストのために付けていた3つの `replaceable` も外した |

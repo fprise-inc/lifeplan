@@ -1454,6 +1454,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: incomeTax.employmentIncome.rounding
+    status: active
+    label: "給与所得控除後の給与等の金額（算式で求める660万円以上）の1円未満の端数（切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: incomeTax.employmentIncome.tableBelow
     status: active
     label: "別表第五（4,000円単位の表）で給与所得を求める収入金額の上限（未満）"
@@ -1625,6 +1631,36 @@ entries:
   - id: incomeTax.housingLoanCredit.rounding
     status: active
     label: "住宅借入金等特別控除の額の端数（100円未満切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.incomeAdjustment.children.rate
+    status: active
+    label: "所得金額調整控除（子ども・特別障害者等）の率"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.incomeAdjustment.children.revenueCap
+    status: active
+    label: "所得金額調整控除（子ども・特別障害者等）の計算で使う給与等の収入金額の上限"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.incomeAdjustment.children.revenueThreshold
+    status: active
+    label: "所得金額調整控除（子ども・特別障害者等）を受ける給与等の収入金額の下限（この額を超える人）と、収入金額から引く額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.incomeAdjustment.children.rounding
+    status: active
+    label: "所得金額調整控除（子ども・特別障害者等）の控除額の1円未満の端数（切り上げ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.incomeAdjustment.children.youngDependentUntilAge
+    status: active
+    label: "所得金額調整控除（子ども・特別障害者等）の扶養親族の年齢（23歳未満）"
     since: draft
     aliases: []
     replacedBy: null

@@ -4,6 +4,7 @@
 // 持つ月から止まる（厚生年金保険法46条6項。2022年4月から、受け取っていなくても受給権があれば止まる）。受給権は、特別支給の老齢厚生年金の
 // 開始・繰上げの請求・65歳のうち早い月に得る。そのときの月数が240に満たなくても、退職改定（資格を失った月の翌月から）と在職定時改定
 // （65歳から、8月までの加入を10月分から。pension.oldAgeBase と同じ近似で9月から数える）で240に届けば、その月から。受給資格期間を満たさなければ null
+// 改訂3（0167）: 見込額だけの記録でも、特別支給の老齢厚生年金の対象の生年月の人は、その開始の月に受給権を得る（SDK の specialOldAgeStart）
 import {
   addMonths,
   ageMonth,
@@ -33,7 +34,7 @@ export default defineComponent<{ member: string }, { months: number; longFrom: s
   id: "pension.employeeMonths",
   title: "厚生年金の被保険者期間の月数",
   contract: "1.1",
-  revision: 2,
+  revision: 3,
   requires: { "pension.record": ">=1 <2" },
   params: Object.values(P),
   reads: ["pensionRecord.member", "pensionRecord.claim", "member.pensionClaim"],
