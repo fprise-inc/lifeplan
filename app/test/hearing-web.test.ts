@@ -5,8 +5,8 @@ import { handleApi } from "../../hearing/relay/handler.ts";
 import { memoryStore } from "../../hearing/relay/store.ts";
 import { answersOf, draftKey, initialDraft, openRequest, sendDocuments, submitAnswers, unsentFiles, uploadFile, type Draft, type RelayTransport } from "../../hearing/src/web/index.ts";
 import { API_PREFIX } from "../../hearing/src/web/protocol.ts";
-import { applyImport, approvalTime, defaultSelection } from "../src/workspace/hearing/sheet.ts";
-import { accepting, checkAnswered, cleanupOnServer, docRequestStatus, documentFromTemplate, extendState, extendWeb, gateLines, gateNotes, importWeb, invitationText, issueWeb, keepWebLog, markImported, officeFace, previewPacket, readHearingTemplates, receiveWeb, receivedDocuments, removeOnServer, sentAtText, STATUS_TEXT, statusOf, templateSelection, webLog, withCustom, withoutFile } from "../src/workspace/hearing/web.ts";
+import { applyImport, approvalTime, defaultSelection, gateNotices, sheetFor } from "../src/workspace/hearing/sheet.ts";
+import { accepting, checkAnswered, cleanupOnServer, docRequestStatus, documentFromTemplate, extendState, extendWeb, gateLines, gateNotes, importWeb, invitationText, issueWeb, keepWebLog, markImported, officeFace, previewPacket, readHearingTemplates, receiveWeb, receivedDocuments, removeOnServer, sentAtText, STATUS_TEXT, statusOf, templateSelection, webLog, withCustom, withoutFile, type WebTemplateKind } from "../src/workspace/hearing/web.ts";
 import type { DraftAnswer } from "../../hearing/src/web/flow.ts";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
@@ -247,9 +247,9 @@ const num = (text: string) => ({ status: "value" as const, raw: { kind: "number"
 const filled = (): WorkingHousehold => fromRequest(modelHousehold("salariedCoupleTwoKids"));
 
 /** 「初回の前」の URL を発行し、お客さまが答えて送り、FP が受け取ったところまで */
-async function answeredWeb(wh: WorkingHousehold, answers: Record<string, DraftAnswer>, gates: Record<string, number> = { spouse: 1, child: 2 }, submittedAt = new Date("2026-11-06T13:15:00Z")) {
+async function answeredWeb(wh: WorkingHousehold, answers: Record<string, DraftAnswer>, gates: Record<string, number> = { spouse: 1, child: 2 }, submittedAt = new Date("2026-11-06T13:15:00Z"), kind: WebTemplateKind = "first") {
   const { t } = relayFor();
-  const r = await issueWeb(wh, { selection: templateSelection("first", wh), customerNo: "A1", office: OFFICE, pageUrl: "https://relay.test/h/", transport: t, now: NOW });
+  const r = await issueWeb(wh, { selection: templateSelection(kind, wh), customerNo: "A1", office: OFFICE, pageUrl: "https://relay.test/h/", transport: t, now: NOW });
   const o = await openRequest(new URL(r.entry.record.url).hash, t);
   const d0 = initialDraft(o.packet);
   const d: Draft = { ...d0, gates: { ...d0.gates, ...gates }, answers: { [draftKey("hs.consent.purpose")]: v("given"), ...answers } };
@@ -438,6 +438,84 @@ describe("取り込みで今の値を壊さない", () => {
     const view = importWeb(got.wh, got.entry, "0.1.0", seq);
     const out = applyImport(got.wh, view, new Set(view.candidates.map((c) => c.id)), AT_WEB).wh.request.input.household;
     for (const k of kids) expect(out.members.find((m) => m.id === k.id)?.leaves).toEqual(k.leaves);
+  });
+});
+
+// ---- 分岐の答えを取り込みにつなぐ（0139・0158 の追記 2026-11-08） ----
+
+describe("分岐の答え（お子さまの人数など）を取り込みの候補の画面に出す", () => {
+  const texts = (view: ReturnType<typeof importWeb>) => view.gates.map((g) => g.text);
+
+  it("「お子さま いない」と答えても、今の世帯の子2人と教育の行は消さない。候補の画面に要確認の知らせを出す", async () => {
+    const wh = filled();
+    const kids = wh.request.input.household.members.filter((m) => m.kind === "child");
+    expect(kids).toHaveLength(2);
+    const goals = wh.request.input.household.goals ?? [];
+    const got = await answeredWeb(wh, { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1981, 7) }, { spouse: 1, child: 0 });
+    const view = importWeb(got.wh, got.entry, "0.1.0", seq);
+    expect(view.result.gates).toEqual({ spouse: 1, child: 0 });
+    expect(texts(view)).toEqual(["お子さまは0人とのお答え（今の世帯は2人）"]);
+    // 子を消す候補は作らない（子の候補そのものが無い）
+    expect(view.candidates.filter((c) => c.group === "家族").map((c) => c.title)).not.toContain("第1子");
+    // FP が全部にチェックを入れて承認しても、子と教育の行は今のまま
+    const out = applyImport(got.wh, view, new Set(view.candidates.map((c) => c.id)), AT_WEB).wh.request.input.household;
+    expect(out.members.filter((m) => m.kind === "child").map((m) => m.id)).toEqual(kids.map((m) => m.id));
+    expect(out.goals ?? []).toEqual(goals);
+  });
+
+  it("配偶者の方「いらっしゃらない」: 今の配偶者の方は消さずに知らせる。ご両親のことを「答えない」: ご両親の問いはお答えの無い所（今の値のまま）", async () => {
+    const wh = filled();
+    const got = await answeredWeb(wh, { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1981, 7) }, { spouse: 0, child: 2 });
+    const view = importWeb(got.wh, got.entry, "0.1.0", seq);
+    expect(texts(view)).toEqual(["配偶者はいないとのお答え（今の世帯にはいます）"]);
+    const out = applyImport(got.wh, view, new Set(view.candidates.map((c) => c.id)), AT_WEB).wh.request.input.household;
+    expect(out.members.filter((m) => m.kind === "spouse")).toHaveLength(1);
+    expect((out.employmentPeriods ?? []).filter((p) => p.member === out.members.find((m) => m.kind === "spouse")?.id).length).toBeGreaterThan(0);
+
+    // ご両親と仕送りの行がある世帯
+    const pm = fromRequest(modelHousehold("parentMoney"));
+    const before = pm.request.input.household;
+    const parents = before.members.filter((m) => m.kind === "parent");
+    expect(parents.length).toBeGreaterThan(0);
+    const got2 = await answeredWeb(pm, { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1962, 3) }, { spouse: 0, child: 0, parent: 0 });
+    const view2 = importWeb(got2.wh, got2.entry, "0.1.0", seq);
+    expect(texts(view2)).toEqual([`ご両親のことは答えないとのお答え（今の世帯のご両親 ${parents.length}人と、仕送り・援助・介護・受け取る予定の相続の値は今のまま）`]);
+    // ご両親の候補は作らず、承認しても今の値のまま
+    expect(view2.candidates.some((c) => c.group === "家族" && c.title !== "ご本人")).toBe(false);
+    const out2 = applyImport(got2.wh, view2, new Set(view2.candidates.map((c) => c.id)), AT_WEB).wh.request.input.household;
+    expect(out2.members.filter((m) => m.kind === "parent")).toEqual(parents);
+    expect(out2.periodicExpenses ?? []).toEqual(before.periodicExpenses ?? []);
+    expect(out2.incomeFlows ?? []).toEqual(before.incomeFlows ?? []);
+    expect(out2.careExpenses ?? []).toEqual(before.careExpenses ?? []);
+  });
+
+  it("分岐の答えが今の世帯と同じなら何も出さない（子2人の世帯に2人・子のいない世帯に0人・ご両親のいない世帯に「答えない」）", async () => {
+    const same = await answeredWeb(filled(), { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1981, 7) }, { spouse: 1, child: 2, parent: 1 });
+    expect(importWeb(same.wh, same.entry, "0.1.0", seq).gates).toEqual([]);
+    const none = await answeredWeb(blank(), { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1985, 6) }, { spouse: 0, child: 0, parent: 0 });
+    const view = importWeb(none.wh, none.entry, "0.1.0", seq);
+    expect(view.result.gates).toEqual({ spouse: 0, child: 0, parent: 0 });
+    expect(view.gates).toEqual([]);
+  });
+
+  it("詳細の問い: 住宅ローンの本数・保険の件数も今の世帯と照らす。人数の最後の段（4人以上）は今の世帯がそれ以上なら同じとみる", async () => {
+    const wh = filled();
+    const got = await answeredWeb(wh, { [draftKey("hs.family.adult.birthYearMonth", 1)]: ym(1981, 7), [draftKey("hs.housing.type")]: v("own") }, { spouse: 1, child: 2, loan: 0, policy: 0 }, undefined, "detail");
+    const view = importWeb(got.wh, got.entry, "0.1.0", seq);
+    expect(view.result.gates).toMatchObject({ loan: 0, policy: 0 });
+    expect(texts(view)).toEqual(["住宅ローンは0本とのお答え（今の世帯は1本）", "保険は0件とのお答え（今の世帯は1件）"]);
+    const out = applyImport(got.wh, view, new Set(view.candidates.map((c) => c.id)), AT_WEB).wh.request.input.household;
+    expect(out.debts).toHaveLength(1);
+    expect(out.insuranceContracts).toHaveLength(1);
+    // 4人以上
+    const full = sheetFor("detail");
+    const h = wh.request.input.household;
+    const child = h.members.find((m) => m.kind === "child")!;
+    const withKids = (n: number) => ({ ...h, members: [...h.members.filter((m) => m.kind !== "child"), ...Array.from({ length: n }, (_, i) => ({ ...child, id: `kid-${i}` }))] });
+    expect(gateNotices({ child: 4 }, full, withKids(5))).toEqual([]);
+    expect(gateNotices({ child: 4 }, full, withKids(3)).map((g) => g.text)).toEqual(["お子さまは4人以上とのお答え（今の世帯は3人）"]);
+    expect(gateNotices({ spouse: 1 }, full, { ...h, members: h.members.filter((m) => m.kind !== "spouse") }).map((g) => g.text)).toEqual(["配偶者がいるとのお答え（今の世帯にはいません）"]);
+    expect(gateNotices(undefined, full, h)).toEqual([]);
   });
 });
 

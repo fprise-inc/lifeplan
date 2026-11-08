@@ -98,7 +98,7 @@ function describe(id: string, title: string): Omit<EstimateEntry, "id" | "offici
       "housing.statistics.mortgageRate.fixedPeriod10": "住宅ローンの金利（固定期間選択型・当初10年。新しく借りるとき・今返している分）",
       "housing.statistics.mortgageRate.variable": "住宅ローンの金利（変動。新しく借りるとき）",
       "housing.statistics.mortgageRate.current": "今返している住宅ローンの金利（変動）",
-      "housing.statistics.rentGrowth": "家賃の伸び率（年）",
+      "housing.statistics.rentGrowth": "家賃の増減率（年）",
       "loanRates.carLoan": "自動車ローンの金利",
       "loanRates.scholarship": "貸与の奨学金の利率（これから借りる分）",
       "loanRates.scholarship.repaying": "今返している奨学金の利率",
