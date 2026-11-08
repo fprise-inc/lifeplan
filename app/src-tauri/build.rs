@@ -121,6 +121,9 @@ const COMMANDS: &[&str] = &[
     "hearing_web_config",
     "hearing_web_call",
     "hearing_document_save",
+    // 0191: 受け取った書類をまとめて保存する（フォルダは本体の OS のダイアログで選ぶ。パスは受け取らない・返さない）
+    "hearing_documents_folder",
+    "hearing_document_save_into",
 ];
 
 fn list_json(dir: &Path) -> Vec<PathBuf> {

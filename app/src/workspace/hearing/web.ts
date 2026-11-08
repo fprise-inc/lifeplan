@@ -30,6 +30,10 @@ export interface StoredDocumentFile {
   sha256: string;
   /** どの書類の送りで届いたか（0158） */
   batchId?: string;
+  /** FP が初めてアプリの中で見た日時（0191） */
+  viewedAt?: string;
+  /** FP が自分のフォルダに最後に保存した日時（保存先・ファイル名は持たない。0191） */
+  savedAt?: string;
 }
 
 export interface WebReceived {

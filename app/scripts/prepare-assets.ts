@@ -5,7 +5,8 @@
 // 3. 持ち帰り用のレポートの画面の部品を1つの JS・CSS にまとめる（scripts/build-takeaway.ts）
 // 4. 配布元の設定（config/distribution.toml）から、画面が使う値（要望・不具合のフォームの URL のひな形。0087）を src/generated/distribution.ts に写す
 // 5. 画面の定義から、説明の一覧（書き換えられる公式の文。0016 の 2026-11-01・2026-11-02 の追記）を src/generated/texts-catalog.json に作る（本体が埋め込む）
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+// 6. 受け取った書類の PDF を描く pdf.js の文字の形（CMap・標準のフォント）を public/pdfjs/ に写す（画面と同梱。外へ通信しない。0191）
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse as parseToml } from "smol-toml";
 import { parse } from "yaml";
@@ -18,6 +19,20 @@ if (!existsSync(engineJs)) {
 }
 mkdirSync(join(APP_DIR, "public", "engine"), { recursive: true });
 copyFileSync(engineJs, join(APP_DIR, "public", "engine", "engine.js"));
+
+// 6. pdf.js の文字の形（入っていなければ写す。版が変わったら写し直す）。CMap（Adobe の BSD-3-Clause）と標準のフォントのうち Foxit の物（BSD-3-Clause）だけ。
+//    Liberation のフォント（GPL-2.0 と例外）は同梱しない（0021。無ければ pdf.js は OS のフォントで代わりに描く）
+const pdfjsDir = join(APP_DIR, "node_modules", "pdfjs-dist");
+const pdfjsVersion = (JSON.parse(readFileSync(join(pdfjsDir, "package.json"), "utf8")) as { version: string }).version;
+const pdfjsOut = join(APP_DIR, "public", "pdfjs");
+const pdfjsStamp = join(pdfjsOut, "VERSION");
+const pdfjsMark = `${pdfjsVersion} cmaps+foxit`;
+if (!existsSync(pdfjsStamp) || readFileSync(pdfjsStamp, "utf8") !== pdfjsMark) {
+  cpSync(join(pdfjsDir, "cmaps"), join(pdfjsOut, "cmaps"), { recursive: true });
+  cpSync(join(pdfjsDir, "standard_fonts"), join(pdfjsOut, "standard_fonts"), { recursive: true, filter: (src) => !/Liberation/i.test(src) });
+  cpSync(join(pdfjsDir, "LICENSE"), join(pdfjsOut, "LICENSE"));
+  writeFileSync(pdfjsStamp, pdfjsMark);
+}
 
 type Entry = { id: string; label?: string; status?: string };
 const labels = (file: string): Record<string, string> => {
