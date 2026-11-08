@@ -44,6 +44,7 @@ const POLICY: Readonly<Record<string, Allow | Deny>> = {
   "tax.housingLoanCreditYears": "law",
   "tax.socialInsurancePaid": "law",
   "tax.totalIncome": "law",
+  "tax.totalIncomeBase": "law",
   "tax.incomeOrder": "law",
   "tax.incomeWithin": "law",
   "tax.survivorStatus": "law",

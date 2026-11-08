@@ -13,7 +13,7 @@ entries:
     conditions: []
     value: 100000
     sources:
-      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", locator: "租税特別措置法 第41条の3の3第2項", quote: "当該公的年金等に係る雑所得の金額（当該公的年金等に係る雑所得の金額が十万円を超える場合には、十万円）の合計額から十万円を控除した残額"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", locator: "租税特別措置法 第41条の3の11第2項", quote: "当該公的年金等に係る雑所得の金額（当該公的年金等に係る雑所得の金額が十万円を超える場合には、十万円）の合計額から十万円を控除した残額"}
       - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1411.htm", retrievedAt: "2026-10-08", sha256: "67ede54d9ec7de574945e2047364e17448963c024d59c8a593aef7d8793df9b5", locator: "国税庁 タックスアンサー No.1411 所得金額調整控除", quote: "{給与所得控除後の給与等の金額（10万円超の場合は10万円）＋公的年金等に係る雑所得の金額（10万円超の場合は10万円）}－10万円＝控除額"}
       - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20261001_508AC0000000012"}
     recordedIn: "2026.4.0"

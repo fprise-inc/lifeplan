@@ -413,3 +413,4 @@ Mac（Apple M5、WKWebView、Tauri 2.12.1）で確かめた。
   - capabilities に命令を3つ足した（`hearing_web_config`・`hearing_web_call`・`hearing_document_save`）。画面の CSP（connect-src）は変えない。受け付けのサーバーとの通信は本体の `hearing_web_call` だけが行い、通す道は FP の動き（作る・状況・答え・書類・消す）だけ、相手は配布元の設定の `[hearing_web]` の `relay` の https のホストだけ（開発用のビルドだけ、この PC の中の受け付けに差し替えられる）。パスは受け取らない・返さない。
   - 受け取った書類の画像は、今までの決まりどおり `img` の URL にせず、`createImageBitmap` でキャンバスに描く。保存は平文の書き出しの出口（種類 `HearingDocument`）。
   - **お客さまの画面**（`app/src/hearingForm/`）はお客さまのブラウザで開く別のページ。CSP は `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; …; frame-ancestors 'none'`（`blob:` は選んだ写真の縮小の表示だけ）。外のスクリプト・フォントを読まない。lint で、作業の層・本体の命令・エンジン・提示層を読めなくした。下書きをお客さまのブラウザの保存機能に暗号化して置くのは入口（`main.tsx`）だけ（FP のアプリの画面の保存の決まり〔1〕はそのまま。FP のアプリの見本は同じ部品を通信せず・何も残さずに使う）。
+- 2026-11-08（直前の世代で開き直す命令。0166）: capabilities に `store_previous_generation`・`store_open_previous` の2つを足した。どちらも世帯の ID だけを引数に取り、応答にパスを入れない（1）。

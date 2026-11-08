@@ -14,6 +14,8 @@
 //   額は見込み額を勤続の月数（死亡の月まで÷予定の終わりまで）で按分する（公務員の退職手当の見込みは死亡の月までの勤続年数の支給率）。
 //   万一の想定に死亡退職金の額（survivor.deathBenefits.retirementAllowance）を入れたときは、ここでは出さない（contingency.lumpSum が出す）。
 //   受け取り中の年金は死亡の月まで。保証期間の残りは死亡の月の翌月に一時金で遺族へ
+// - 受け取る時期が決まらない（受け取る時期・勤続期間が無く、勤め先の働き方の期間が無いか終わりが無い）一時金・年金は払わず、
+//   知らせ N_INPUT_REQUIRED（retirementBenefit.paidAt）を出す（改訂3。前は黙って払わなかった。0163）
 import {
   addMonths,
   boxValue,
@@ -61,7 +63,7 @@ export default defineComponent<{ member: string }, RetirementBenefitOutput>({
   id: "retirement.benefit",
   title: "退職給付（退職一時金・DB・公務員・国民年金基金・役員退職慰労金）",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: { "contingency.event": ">=1 <2" },
   params: Object.values(P),
   reads: [
@@ -167,6 +169,8 @@ export default defineComponent<{ member: string }, RetirementBenefitOutput>({
         continue;
       }
       const lumpPart = method === "lumpSum" ? total : method === "mixed" ? ctx.money.mulRate(total, ctx.rate.of(b.receipt?.lumpShare ?? "0"), "conv.retirement.annuity") : yen(0);
+      // 受け取る時期が決まらない（勤め先の働き方の期間が無い・終わりが無い。受け取る時期も勤続期間も無い）一時金は、黙って落とさず知らせる（0163）
+      if (lumpPart > 0 && paidAt === null) ctx.notice("N_INPUT_REQUIRED", [b.id, "retirementBenefit.paidAt"]);
       if (lumpPart > 0 && paidAt !== null) {
         push(paidAt, LUMP_ROW[b.kind] ?? "cf.income.lumpSum.retirement", lumpPart, b.id, `retirement.benefit.lumpSum.${b.kind}`);
         receipts.push({
@@ -183,7 +187,10 @@ export default defineComponent<{ member: string }, RetirementBenefitOutput>({
       if (method === "lumpSum") continue;
       // 年金
       const start = b.receipt?.start !== undefined ? ctx.time.resolve(b.receipt.start) : paidAt;
-      if (start === null) continue;
+      if (start === null) {
+        ctx.notice("N_INPUT_REQUIRED", [b.id, "retirementBenefit.paidAt"]);
+        continue;
+      }
       const years = b.receipt?.years ?? null;
       let annual: Yen;
       if (b.receipt?.annualAmount !== undefined) annual = b.receipt.annualAmount;

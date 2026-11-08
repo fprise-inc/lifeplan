@@ -35,9 +35,42 @@ interface Msg {
 const inherit = (what: string): Msg => ({ kind: "missing", text: `${what}は相続税の対象になりますが、相続税はお金の流れに入れていません（受け取る額をそのまま入れています）`, group: "inheritanceTax" });
 
 /**
+ * 指す先の無い欄（外した物を指したままの欄。エンジンの全体の段が出す N_INPUT_REQUIRED の reference.<欄>。0163）: 欄 → 内訳の名前・入るカード。
+ * カードごとに1行にまとめ、欄の名前を内訳にする
+ */
+const REFERENCE_ITEMS: Readonly<Record<string, [string, StageId]>> = {
+  "retirementBenefit.employment": ["退職金の勤め先", "retirement"],
+  "retirementBenefit.member": ["退職金の受け取る人", "retirement"],
+  "employment.retirementBenefit": ["働き方の期間の退職給付", "work"],
+  "debt.debtors": ["ローンの債務者", "housing"],
+  "debt.creditLife": ["団体信用生命保険の対象の人", "housing"],
+  "debt.property": ["借入で取得した不動産", "rental"],
+  "debt.pairWith": ["ペアローンの相手のローン", "housing"],
+  "debt.housing.ownership": ["住宅ローン控除の持分", "housing"],
+  "residence.ownership": ["持ち家の名義と持分", "housing"],
+  "residence.purchase.gifts.recipient": ["住宅資金の援助を受け取る人", "housing"],
+  "insurance.coverages.insured": ["保障の被保険者", "insurance"],
+  "insurance.schedule.coverage": ["年次の数表の保障", "insurance"],
+  "incomeFlow.recipient": ["入るお金の受け取る人", "events"],
+  "incomeFlow.counterparty": ["入るお金の相手", "events"],
+  "periodicExpense.payer": ["出るお金の払う人", "events"],
+  "periodicExpense.counterparty": ["出るお金の相手", "events"],
+  "periodicExpense.object": ["出るお金のつながる物", "savings"],
+  "goal.owner": ["教育・目標の子", "education"],
+  "goal.education.gifts.payer": ["教育の資金の援助を払う人", "education"],
+  "goal.education.loans.borrower": ["教育ローンの借り手", "education"],
+  "car.owner": ["車の持ち主", "car"],
+  "advisoryFee.payer": ["FP顧問料を払う人", "assumptions"],
+  "assumptions.withdrawal.order": ["取り崩しの順序の口座", "savings"],
+};
+const REFERENCE_TEXT = "外した物（人・働き方の期間・口座など）を指したままの欄があります。その欄は指す先が無いものとして計算しています（入力で選び直してください）";
+
+/**
  * 文の表。鍵は「コード|部品|話題」「コード|話題」「コード|部品」の順に引く（話題は ID の最初の、物の ID でも年でもない文字）
  */
 const MESSAGES: Readonly<Record<string, Msg>> = {
+  ...Object.fromEntries(Object.entries(REFERENCE_ITEMS).map(([item, [part, card]]) => [`N_INPUT_REQUIRED|reference.${item}`, { kind: "input", text: REFERENCE_TEXT, card, group: `reference.${card}`, part } satisfies Msg])),
+  "N_INPUT_REQUIRED|retirementBenefit.paidAt": { kind: "input", text: "受け取る時期が決まらない退職金があるので（勤め先の働き方の期間が無いか、終わりが無い）、その退職金を計算に入れていません。勤め先か受け取る時期を入れてください", card: "retirement" },
   // ---- 計算に入れていないもの ----
   "N_NOT_SUPPORTED|transfers": { kind: "missing", text: "口座の間の移し替えは、計算に入れていません（入れた移し替えは、お金の流れと残高に反映されていません）", card: "savings" },
   "N_NOT_SUPPORTED|incomeFlow.inheritanceTax": { kind: "missing", text: "受け取る相続の相続税は、計算に入れていません（受け取る額をそのまま入れています）", card: "inheritance" },
@@ -136,6 +169,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_ASSUMED|employmentInsurance.basicAllowance.rateBreak": { kind: "assumed", text: "雇用保険の給付率の変わり目の賃金日額は、それより前の月にも、制度データにある最初の期間の値を使っています" },
   "N_ASSUMED|pension.survivor.ownPensionBefore65": { kind: "assumed", text: "65歳までの遺族厚生年金と自分の老齢年金は、多い方を受け取るものとして計算しています" },
   "N_ASSUMED|pension.earlyClaim.simultaneous": { kind: "assumed", text: "老齢基礎年金と老齢厚生年金の繰上げは同時にする決まりなので、受け取り始めをそろえて計算しています", card: "pension" },
+  "N_ASSUMED|pension.deferral.beforeSixtySix": { kind: "assumed", text: "繰下げは66歳からなので、66歳になる前の受け取り始めは増額なしで、65歳からの分をさかのぼって受け取るものとして計算しています", card: "pension" },
   "N_ASSUMED|incomeTax.housingLoanCredit.specifiedAcquisition": { kind: "assumed", text: "平成26〜令和3年の入居は、新築は消費税のかかった取得、中古は個人からの取得として、住宅ローン控除の借入限度額を決めています", card: "housing" },
   "N_ASSUMED|educationSupport.highSchool.nationality": { kind: "assumed", text: "高校の就学支援金は、支給の要件（国籍・在留資格）を満たすものとして計算しています" },
   "N_APPROXIMATED|education.nurseryFee.assessedResidentTax": { kind: "assumed", text: "保育料は、住民税の決定額から所得割を推計して計算しています（均等割の分だけ多め）" },
@@ -176,7 +210,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** 知らせ1件を、部品・話題・物の ID・年に分ける */
 export function parseNotice(n: { code: string; ids: readonly string[] }): { component: string | null; topics: string[]; subjects: string[]; years: number[] } {
-  const hasComponent = !NO_COMPONENT_CODES.has(n.code) && !NO_COMPONENT_TOPICS.has(n.ids[0] ?? "") && n.ids.length > 0;
+  const hasComponent = !NO_COMPONENT_CODES.has(n.code) && !NO_COMPONENT_TOPICS.has(n.ids[0] ?? "") && !(n.ids[0] ?? "").startsWith("reference.") && n.ids.length > 0;
   const rest = hasComponent ? n.ids.slice(1) : [...n.ids];
   const topics: string[] = [];
   const subjects: string[] = [];

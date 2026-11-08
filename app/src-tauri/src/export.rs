@@ -187,13 +187,17 @@ fn dev_save_dir() -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
-/// 同じフォルダの一時ファイルに書いてから名前を変える（途中で止まっても、半端なファイルを残さない）
+/// 同じフォルダの一時ファイルに書いてから名前を変える（途中で止まっても、半端なファイルを残さない）。
+/// 書く・名前を変えるのどちらかに失敗したら、一時ファイル（平文の書きかけ）を消す
 fn write_atomically(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let mut tmp = path.as_os_str().to_owned();
     tmp.push(".part");
     let tmp = PathBuf::from(tmp);
-    std::fs::write(&tmp, bytes)?;
-    std::fs::rename(&tmp, path)
+    let r = std::fs::write(&tmp, bytes).and_then(|()| std::fs::rename(&tmp, path));
+    if r.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    r
 }
 
 fn now_secs() -> u64 {
@@ -493,5 +497,21 @@ mod tests {
         assert_eq!(read_limited(&p, 3).unwrap_err(), "E_IMPORT_TOO_LARGE");
         assert_eq!(read_limited(&dir, 100).unwrap_err(), "E_IMPORT_READ");
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// 差し替えに失敗したら、平文の書きかけ（`.part`）を保存先に残さない（0020「平文の出口は1つ」）
+    #[test]
+    fn a_failed_write_leaves_no_plaintext_part_file() {
+        let dir = std::env::temp_dir().join(format!("financia-export-part-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        // 同じ名前のフォルダがあると名前の変更が失敗する（Windows では、ほかのアプリが開いているファイルへの上書きも同じ）
+        let target = dir.join("A0042_全データ.json");
+        std::fs::create_dir_all(&target).unwrap();
+        let r = write_atomically(&target, b"{\"household\":\"plain\"}");
+        let part = dir.join("A0042_全データ.json.part");
+        let left = part.exists();
+        std::fs::remove_dir_all(&dir).ok();
+        assert!(r.is_err());
+        assert!(!left, "平文の .part が残る");
     }
 }

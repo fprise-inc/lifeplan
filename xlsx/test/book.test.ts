@@ -1,7 +1,7 @@
 // 表計算のファイルの土台: 書き出したブックを読み戻す・管理の値の3か所のうち2か所（隠したシート・ユーザー設定のプロパティ）・返ってきたファイルを信用しない読み込み
 import { describe, expect, it } from "vitest";
 import { Book, buildStyles, LIST_SHEET, Lists, listValidation, META_SHEET, metaSheetXml, numberValidation, PROPERTY_PREFIX, SheetBuilder, STYLE, STYLE_COUNT, text, writeBook, type OpenResult } from "../src/index.ts";
-import { bytes, editXlsx, setCell, text as utf8, toSharedStrings, unzip } from "./helpers.ts";
+import { bytes, editXlsx, setCell, setNumberFormat, text as utf8, toSharedStrings, unzip } from "./helpers.ts";
 
 const KEYS = ["format", "requestId"] as const;
 
@@ -56,7 +56,7 @@ describe("書き出したブックを読み戻す", () => {
     const sh = await book.sheet("記入");
     expect(book.text(sh, "A1")).toBe("題名");
     expect(book.cell(sh, "A2").raw).toEqual({ kind: "number", text: "1" });
-    expect(book.cell(sh, "B2")).toEqual({ raw: null, formula: false, noValue: false });
+    expect(book.cell(sh, "B2")).toEqual({ raw: null, formula: false, noValue: false, percent: false });
     expect(book.text(sh, "C2")).toBe("true");
     const files = await unzip(bytes1);
     const styles = utf8(files.get("xl/styles.xml"));
@@ -141,8 +141,42 @@ describe("書き出したブックを読み戻す", () => {
     const { book } = await open(edited);
     const sh = await book.sheet("記入");
     expect(book.text(sh, "A1")).toBe("題名");
-    expect(book.cell(sh, "B2")).toEqual({ raw: { kind: "text", text: "2" }, formula: true, noValue: false });
-    expect(book.cell(sh, "C2")).toEqual({ raw: null, formula: true, noValue: true });
+    expect(book.cell(sh, "B2")).toEqual({ raw: { kind: "text", text: "2" }, formula: true, noValue: false, percent: false });
+    expect(book.cell(sh, "C2")).toEqual({ raw: null, formula: true, noValue: true, percent: false });
+  });
+});
+
+describe("セルの書式（パーセント）", () => {
+  // Excel は、セルに「0.625%」と打つと値を 0.00625 にしてパーセントの書式を付ける。値だけを見ると 100分の1 に読み違える
+  const at = async (fmt: number | string | null, v = "0.00625", t = "") => {
+    const edited = await editXlsx(sample(), (files) => {
+      setCell(files, "xl/worksheets/sheet1.xml", "B2", `<c${t}><v>${v}</v></c>`);
+      if (fmt !== null) setNumberFormat(files, "xl/worksheets/sheet1.xml", "B2", fmt);
+    });
+    const { book } = await open(edited);
+    return book.cell(await book.sheet("記入"), "B2");
+  };
+
+  it("組み込みのパーセントの書式（9「0%」・10「0.00%」）と、「%」を含む書式の数のセルは percent", async () => {
+    for (const f of [9, 10, "0.000%", "#,##0.0%;[Red]-#,##0.0%", "0.0 %"]) {
+      const c = await at(f);
+      expect(c.raw, String(f)).toEqual({ kind: "number", text: "0.00625" });
+      expect(c.percent, String(f)).toBe(true);
+    }
+  });
+
+  it("引用した「%」・逃がした「%」・ほかの書式・書式なし・文字のセルは percent でない", async () => {
+    for (const f of [null, 0, 2, 14, '0.000"%"', "0.0\\%", '"率"0.00', "General"]) expect((await at(f)).percent, String(f)).toBe(false);
+    expect((await at(10, "0.625%", ' t="str"')).percent, "文字のセル").toBe(false);
+  });
+
+  it("書式の表が無い・壊れたブックも、書式なしとして読む", async () => {
+    const edited = await editXlsx(sample(), (files) => {
+      setCell(files, "xl/worksheets/sheet1.xml", "B2", "<c><v>0.5</v></c>");
+      files.delete("xl/styles.xml");
+    });
+    const { book } = await open(edited);
+    expect(book.cell(await book.sheet("記入"), "B2")).toEqual({ raw: { kind: "number", text: "0.5" }, formula: false, noValue: false, percent: false });
   });
 });
 
@@ -183,5 +217,24 @@ describe("返ってきたファイルを信用しない", () => {
     expect(big.ok ? null : big.problem.code).toBe("tooLarge");
     const many = await Book.open(sample(), { maxFileBytes: 1e7, maxEntries: 3, maxEntryBytes: 1e7, maxTotalBytes: 1e8 });
     expect(many.ok ? null : many.problem.code).toBe("tooLarge");
+  });
+});
+
+describe("見えている数への丸め", () => {
+  it("表計算のソフトが 17 桁で保存した数を、見えている有効数字 15 桁の 10進の文字にする。shift で 10 の何乗を掛ける", async () => {
+    const { shownNumber } = await import("../src/index.ts");
+    expect(shownNumber("6.2500000000000003E-3")).toBe("0.00625");
+    expect(shownNumber("6.2500000000000003E-3", 2)).toBe("0.625");
+    expect(shownNumber("0.10000000000000001")).toBe("0.1");
+    expect(shownNumber("0.6", 2)).toBe("60");
+    expect(shownNumber("1.4749999999999999")).toBe("1.475");
+    expect(shownNumber("0.99999999999999989")).toBe("1");
+    expect(shownNumber("-2.5E-2", 2)).toBe("-2.5");
+    expect(shownNumber("1234567")).toBe("1234567");
+    expect(shownNumber("0")).toBe("0");
+    expect(shownNumber("0.000")).toBe("0");
+    expect(shownNumber("12.50")).toBe("12.5");
+    expect(shownNumber("abc")).toBeNull();
+    expect(shownNumber("")).toBeNull();
   });
 });
