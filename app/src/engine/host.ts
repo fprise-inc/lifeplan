@@ -2,6 +2,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { DictionaryEntry, LearnedFormat } from "../../../statement/src/index.ts";
 import { forEngine } from "./moneyRows.ts";
+import { retryTimedOut } from "./retry.ts";
 import { isEngineError, type EngineError, type EngineRequest, type FullResult, type PreviewResult } from "./types.ts";
 import type { OfficeTextEntry, TextOp } from "../workspace/office/customTexts.ts";
 import { API_PREFIX, type RelayRequest, type RelayResponse } from "../../../hearing/src/web/protocol.ts";
@@ -813,7 +814,8 @@ export function tauriHost(): HostApi {
     packs: async () => JSON.stringify(await invoke<unknown[]>("engine_packs")),
     listHouseholds: () => invoke<string[]>("list_households"),
     openHousehold: (id) => invoke<EngineRequest>("open_household", { id }),
-    compute: (slots) => invoke<ComputeResponse>("compute", { slots }),
+    // 時間切れ（パソコンの負荷が高いとき）の枠だけ、待ってからもう一度頼む（0180 の2）
+    compute: retryTimedOut((slots) => invoke<ComputeResponse>("compute", { slots })),
     evidence: (request) => invoke<FullResult | EngineError>("evidence", { request }),
     report: {
       render: (input, addressee, accent) => invoke<RenderInfo>("proposal_render", { input, addressee, accent: accent ?? null }),

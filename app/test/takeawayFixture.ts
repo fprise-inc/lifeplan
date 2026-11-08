@@ -18,13 +18,15 @@ export const NOW = "2026-10-21T10:00:00.000Z";
 /** 目印の文字（FP用のメモ・呼び名・案の注記などに入れ、ファイルのどこにも出ないことを確かめる） */
 export const MARK = "MARK-TAKEAWAY-SECRET";
 
-export function openHousehold(id: string, opts: { marks?: boolean } = {}) {
+export function openHousehold(id: string, opts: { marks?: boolean; edit?: (req: ReturnType<typeof modelHousehold>) => void } = {}) {
   const req = modelHousehold(id);
+  opts.edit?.(req);
   const self = roles(req).find((r) => r.key === "self")!.member;
   const demo = demoHousehold(id) ?? null;
   const re = demo?.reemployment;
   let wh = fromRequest(req, { memo: opts.marks === true ? [`${MARK}-memo`] : [], ...(re !== undefined ? { postRetirement: { [self.id]: { ...re, type: re.type as "contract" } } } : {}) });
-  if (opts.marks === true) wh = { ...wh, labelsByMember: { [self.id]: `${MARK}-label` } };
+  // 呼び名はご本人だけでなく、世帯の全員に付ける（子の呼び名がつまみの補足を通って入った。R6-001）
+  if (opts.marks === true) wh = { ...wh, labelsByMember: Object.fromEntries(req.input.household.members.map((m, i) => [m.id, `${MARK}-label-${i}`])) };
   const cat = buildCatalog(wh, self.id, demo);
   const living = cat.byKey.get("lever:livingMonthly")!.read(wh) as number;
   const b = savePlan(wh, cat, { name: "プランB 生活費を見直してNISA", base: null, values: { "lever:livingMonthly": living - 20000, "lever:nisaMonthly": 30000, ...(cat.byKey.has("lever:fee") ? { "lever:fee": true } : {}) }, now: NOW });
