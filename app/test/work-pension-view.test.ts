@@ -41,7 +41,7 @@ function started(type: "start" | "startSelf" | "start/executive" | "start/civilS
 }
 
 describe("働き方と収入", () => {
-  it("詳細の並びは年収 → 賞与 → 伸び率（年） → 統計の年齢カーブ。伸びの欄の名前は「伸び率（年）」", () => {
+  it("詳細の並びは年収 → 賞与 → 増減率（年） → 統計の年齢カーブ。伸びの欄の名前は「増減率（年）」", () => {
     const { wh, self } = started("start");
     const p = periods(wh, self)[0]!;
     const keys = fieldsOf(wh, "work").filter((f) => f.key.startsWith(`work/period/${p.id}/`)).map((f) => f.key.split("/").at(-1));
@@ -49,7 +49,7 @@ describe("働き方と収入", () => {
     expect(at("annual")).toBeLessThan(at("bonus"));
     expect(at("bonus")).toBeLessThan(at("salaryGrowth"));
     expect(at("salaryGrowth")).toBeLessThan(at("salaryCurve"));
-    expect(fieldOf(wh, "work", `work/period/${p.id}/salaryGrowth`).label).toBe("伸び率（年）");
+    expect(fieldOf(wh, "work", `work/period/${p.id}/salaryGrowth`).label).toBe("増減率（年）");
   });
 
   it("協会けんぽの支部の初めの値（東京支部）は推定の印。選び直すと外れる", () => {

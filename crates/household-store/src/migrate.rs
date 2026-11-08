@@ -65,7 +65,7 @@ pub const CURRENT: &str = "0.70";
 ///   値の状態の欄 `valueStates`（仮の印 `household.assumed` を読み替え表で移す）、プランの差分を当て先の形に（0036）、
 ///   対策に足した項目 `workspace.shownItems` を当て先に。控え・ヒアリング・明細の取り込み・拡張領域は変えない
 /// - 0.18: 段階と例外の年（周期的な支出・家賃・修繕費・固定資産税・住まい以外の不動産の家賃と経費の `stages`・`exceptions`、
-///   器の利回りの `returnStages`・`returnExceptions`、資産配分の `allocation.stages`）と、働き方の期間ごとの伸び（給与の
+///   器の利回りの `returnStages`・`returnExceptions`、資産配分の `allocation.stages`）と、働き方の期間ごとの増減率（給与の
 ///   `salary.growth.rate`・事業所得の `business.growth`）を足した（足すだけの MINOR。0040）。0.17 のアプリは知らない欄を読み落として
 ///   書き戻すので、版を上げて閲覧だけにする
 /// - 0.19: 世帯の外の家族のお金 `members[].wallet`（預金・生活費・年金・一時の入金。0042）を足した（任意。入れていなければ無い。
@@ -816,7 +816,7 @@ fn v0_15_to_0_16(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
-/// 0.17 → 0.18: 足した欄（段階・例外の年・器の利回りの段階・資産配分の段階・期間ごとの伸び）は任意なので足さない。
+/// 0.17 → 0.18: 足した欄（段階・例外の年・器の利回りの段階・資産配分の段階・期間ごとの増減率）は任意なので足さない。
 /// 形式の版だけを書き換える（0040）
 fn v0_17_to_0_18(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;

@@ -102,7 +102,7 @@ describe("統計の年齢カーブを選ぶ", () => {
     expect(() => full(wh.request)).not.toThrow();
   });
 
-  it("「この期間の伸び（年率）」を入れると年齢カーブの代わりになり、「使わない」で前提条件の賃金上昇率に戻る", () => {
+  it("「増減率（年）」を入れると年齢カーブの代わりになり、「使わない」で前提条件の賃金上昇率に戻る", () => {
     let wh = fieldOf(wh0, key(main, "salaryCurve")).set(wh0, "use");
     expect(fieldOf(wh, key(main, "salaryGrowth")).get(wh).hint).toContain("統計の年齢カーブ");
     wh = fieldOf(wh, key(main, "salaryGrowth")).set(wh, "0.02");
