@@ -5,7 +5,7 @@
 // - 承認した値には承認の記録（by: fp・日時・候補）を付ける（0008 の2・5。hearing の approveAll）
 // - 推定・仮の印は、入力の画面と同じ形（値の箱の estimated・WorkingHousehold.assumed）で入れる
 import { carryRows } from "../input/rows.ts";
-import { approveAll, createHearingSheet, exportableSheets, importHearingSheet, keyLabel, latestSheet, requestIdFrom, type Answer, type Candidate, type ChecklistItem, type ConsentDraft, type FieldRecord, type HearingRequest, type ImportRecord, type Issue, type OfficeInfo, type SheetDefinition } from "../../../../hearing/src/index.ts";
+import { approveAll, createHearingSheet, exportableSheets, importHearingSheet, keyLabel, latestSheet, requestIdFrom, type Answer, type Candidate, type ChecklistItem, type ConsentDraft, type FieldRecord, type GateAnswersIn, type GateKind, type HearingRequest, type ImportRecord, type Issue, type OfficeInfo, type SheetDefinition } from "../../../../hearing/src/index.ts";
 import type { EngineRequest as HearingEngineRequest } from "../../../../hearing/src/types.ts";
 import { fillsByEstimate } from "../../../../hearing/src/estimates.ts";
 import { addMonths } from "../../../../hearing/src/months.ts";
@@ -207,6 +207,15 @@ export interface ImportView {
   result: Extract<Awaited<ReturnType<typeof importHearingSheet>>, { ok: true }>;
   /** 候補の物 → 今の世帯の物（変更のとき）。構成員はここで対応づける */
   match: Map<string, string>;
+  /** 分岐の答えが今の世帯と違うときの要確認の知らせ（Web のヒアリングだけ。Excel は空）。世帯の人や行は変えない */
+  gates: GateNotice[];
+}
+
+/** 分岐の答え（お子さまの人数など）が今の世帯と違うときの知らせ（0139 の追記 2026-11-08） */
+export interface GateNotice {
+  gate: GateKind;
+  /** 例: お子さまは0人とのお答え（今の世帯は2人） */
+  text: string;
 }
 
 export type ImportOutcome = { ok: true; view: ImportView } | { ok: false; issues: readonly Issue[] };
@@ -641,6 +650,49 @@ function valueText(v: unknown, path: string, labels: ReadonlyMap<string, string>
   return "（詳しい値）";
 }
 
+/** 今の世帯の、分岐の問いにあたる人数・本数・件数（配偶者の方は 1 か 0。住宅ローンは住まいのもの〔収益不動産のローンは数えない〕） */
+export function gateCounts(h: Household): Record<Exclude<GateKind, "parent">, number> & { parent: number; parentRows: number } {
+  const members = h.members ?? [];
+  return {
+    spouse: members.some((m) => m.kind === "spouse") ? 1 : 0,
+    child: members.filter((m) => m.kind === "child").length,
+    loan: (h.debts ?? []).filter((d) => d.kind === "mortgage" && d.property === undefined).length,
+    policy: (h.insuranceContracts ?? []).length,
+    parent: members.filter((m) => m.kind === "parent").length,
+    // ご両親の区画の問いで入る行（仕送り・援助・介護の費用・受け取る予定の相続）
+    parentRows:
+      (h.periodicExpenses ?? []).filter((x) => x.kind === "allowance").length +
+      (h.incomeFlows ?? []).filter((x) => x.kind === "support" || x.kind === "inheritance").length +
+      (h.careExpenses ?? []).length,
+  };
+}
+
+const GATE_UNIT: Readonly<Record<"child" | "loan" | "policy", { head: string; unit: string }>> = { child: { head: "お子さま", unit: "人" }, loan: { head: "住宅ローン", unit: "本" }, policy: { head: "保険", unit: "件" } };
+
+/**
+ * 分岐の答えを今の世帯と照らした要確認の知らせ（0139 の追記 2026-11-08）。同じなら出さない。人数・本数・件数の最後の段（4人以上など）は、
+ * 今の世帯がそれ以上なら同じとみる。ご両親のことを「答えない」は、今の世帯にご両親か、ご両親の区画の行があるときだけ出す（無ければ何も変わらない）
+ */
+export function gateNotices(gates: GateAnswersIn | undefined, def: SheetDefinition, h: Household): GateNotice[] {
+  if (gates === undefined) return [];
+  const cur = gateCounts(h);
+  const out: GateNotice[] = [];
+  const s = gates.spouse;
+  if (s !== undefined && s !== cur.spouse) out.push({ gate: "spouse", text: s === 0 ? "配偶者はいないとのお答え（今の世帯にはいます）" : "配偶者がいるとのお答え（今の世帯にはいません）" });
+  for (const g of ["child", "loan", "policy"] as const) {
+    const n = gates[g];
+    if (n === undefined || n === cur[g]) continue;
+    const max = def.axes.find((a) => a.id === g)?.count ?? 0;
+    if (n === max && cur[g] >= n) continue;
+    const u = GATE_UNIT[g];
+    out.push({ gate: g, text: `${u.head}は${n}${u.unit}${n === max && max > 2 ? "以上" : ""}とのお答え（今の世帯は${cur[g]}${u.unit}）` });
+  }
+  if (gates.parent === 0 && (cur.parent > 0 || cur.parentRows > 0)) {
+    out.push({ gate: "parent", text: `ご両親のことは答えないとのお答え（${cur.parent > 0 ? `今の世帯のご両親 ${cur.parent}人と、` : "今の世帯の"}仕送り・援助・介護・受け取る予定の相続の値は今のまま）` });
+  }
+  return out;
+}
+
 const PARENT_NEW_NOTE = "亡くなる見込みは、平均余命の推定（仮の値）で入れます（介護・親の項目で親を足したときと同じ）。扶養・親のお金・介護の費用はシートでお聞きしていません。介護・親の項目で入れてください";
 const PARENT_KEEP_NOTE = "亡くなる見込み・扶養・親のお金・介護の費用はシートでお聞きしていないので、今の値のままです";
 
@@ -778,7 +830,8 @@ export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold): Imp
   const quiet = (key: string | undefined, index: number | undefined) => key !== undefined && keptKeys.has(`${key}#${index ?? 0}`) && !filledKeys.has(`${key}#${index ?? 0}`);
   const checklist = r.checklist.filter((x) => !(x.reason === "missing" && quiet(x.key, x.index)));
   const issues = r.issues.filter((x) => !((x.code === "H_MISSING" || x.code === "H_ESTIMATED" || x.code === "H_ASSUMED") && x.level !== "error" && quiet(x.key, x.index)));
-  return { definition: r.definition, candidates, checklist, issues, memo: r.memo, consents: r.consents, pending: r.pending, result: r, match };
+  // 分岐の答え（Web だけ）が今の世帯と違えば知らせる。今の世帯の人・行を消す候補は作らない（FP が入力の画面で直す。0139 の追記 2026-11-08）
+  return { definition: r.definition, candidates, checklist, issues, memo: r.memo, consents: r.consents, pending: r.pending, result: r, match, gates: gateNotices(r.gates, r.definition, cur) };
 }
 
 /**
