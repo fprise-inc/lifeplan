@@ -61,11 +61,11 @@ describe("修繕・管理の費用の呼び方（建て方ごと）", () => {
   });
 });
 
-describe("家賃の伸び率", () => {
-  it("年率（ほかの率の欄と同じ。名前は「伸び率（年）」）。統計の目安（民営家賃の10年の年平均）は欄の下でなく「?」の中。「当てる」は使わない", () => {
+describe("家賃の増減率", () => {
+  it("年率（ほかの率の欄と同じ。名前は「増減率（年）」）。統計の目安（民営家賃の10年の年平均）は欄の下でなく「?」の中。「当てる」は使わない", () => {
     const wh = action(salaried(), "housing/addRent");
     const f = fieldOf(wh, "/rentGrowth");
-    expect(f.label).toBe("家賃の伸び率（年）");
+    expect(f.label).toBe("家賃の増減率（年）");
     expect(f.help).toContain("年あたりの率");
     expect(f.help).not.toContain("当て");
     expect(f.help).toContain("消費者物価指数の民営家賃");

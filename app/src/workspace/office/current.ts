@@ -47,7 +47,7 @@ export function setOfficeNow(n: OfficeNow): void {
 
 /**
  * 前提条件の標準値の系列のうち、前提条件の年ごとの列（assumptions.<名前>。欄のキー assume/<名前>）でない物の置き場所（0073 の追記 2026-11-07）:
- * 貸していない不動産（空き家・土地・別荘）の値動きは、計算が評価額の伸び率の無い貸していない不動産に当てる「資産の種類ごとの利回り」の不動産
+ * 貸していない不動産（空き家・土地・別荘）の値動きは、計算が評価額の増減率の無い貸していない不動産に当てる「資産の種類ごとの利回り」の不動産
  * （assumptions.assetReturns.realEstate。無ければ0%）に写す。欄のキーと仮の印のキーは、その欄（assume/assetReturns/realEstate/default）
  */
 export const NESTED_OFFICE_ASSUMPTIONS: Readonly<Record<string, { path: readonly string[]; key: string }>> = {

@@ -249,6 +249,13 @@ describe("伸び方の言葉", () => {
     expect(fs.map((f) => f.label)).toEqual([WORDS.growth, WORDS.growthRate]);
     expect(WORDS.growthRate).toBe("伸び率（年）");
   });
+  it("率の欄の言葉は2つ: 出るお金（伸びるのが前提）は「伸び率（年）」、入るお金（減ることもある）は「増減率（年）」", () => {
+    expect(WORDS.changeRate).toBe("増減率（年）");
+    const inc = growthFields("in/x", "incomeFlow.growth", () => undefined, "x", { kind: "rate", rate: "-0.01" });
+    expect(inc.map((f) => f.label)).toEqual([WORDS.growth, WORDS.changeRate]);
+    const care = growthFields("ev/x", "care.growth", () => undefined, "x", { kind: "rate", rate: "0.01" });
+    expect(care.map((f) => f.label)).toEqual([WORDS.growth, WORDS.growthRate]);
+  });
 });
 
 describe("名義・人の候補を持てる人に絞る部品", () => {
