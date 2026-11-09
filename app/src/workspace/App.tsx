@@ -69,7 +69,7 @@ import { LeverCard, type FeeToggle, type LeverRow } from "./LeverPanel.tsx";
 import { bandShown, donutPanes, donutShown, donutYear, investChart, investVerdict, stressRequests, STRESS_KEYS, type StressKey } from "./invest/present.ts";
 import { InvestBar, DonutCard } from "./invest/InvestBar.tsx";
 import { DrawdownCalc } from "./invest/DrawdownCalc.tsx";
-import { advisoryFeeInCurrent, feeSummary, hasAdvisoryFee, LEVER_KEYS, type LeverKey } from "./levers.ts";
+import { advisoryFeeState, feeSummary, hasAdvisoryFee, LEVER_KEYS, type LeverKey } from "./levers.ts";
 import { MemoDrawer } from "./MemoDrawer.tsx";
 import { mixFromBuckets } from "./plans/allocation.ts";
 import { addToBand, assignColors, bandModel, cleanBand, CURRENT, hideFromBand, MAX_BAND, planLetters, planLinesModel, removeFromBand, unsavedRemoval, type UnsavedRemoval } from "./plans/band.ts";
@@ -897,12 +897,14 @@ export function App() {
     },
     [rawReqOf],
   );
-  const feeOf = (o: Opened, values: Values) => (typeof values["lever:fee"] === "boolean" ? (values["lever:fee"] as boolean) : advisoryFeeInCurrent(o.wh.request));
+  /** 対策「FP顧問料」の値（true 入れる・false 入れない・null 今の契約だけ。0177） */
+  const feeOf = (o: Opened, values: Values): boolean | null => (typeof values["lever:fee"] === "boolean" ? (values["lever:fee"] as boolean) : advisoryFeeState(o.wh.request));
   const altFor = useCallback(
     (o: Opened, w: Work, s: DisplaySettings): EngineRequest | null => {
       if (!shows(s, "feeLine") || !hasAdvisoryFee(o.wh.request) || w.sel === CURRENT) return null;
       const v = valuesOf(o.wh, w, w.sel);
-      return reqOf(o, { ...v, "lever:fee": !feeOf(o, v) });
+      // 顧問料を入れている案（今の契約だけを含む）は入れない案と、入れない案は入れる案と比べる
+      return reqOf(o, { ...v, "lever:fee": feeOf(o, v) === false });
     },
     [reqOf],
   );
@@ -1665,11 +1667,13 @@ export function App() {
       }),
     [history],
   );
-  const toggleFee = useCallback(() => {
-    const o = openedRef.current;
-    if (o === null) return;
-    setValue("lever:fee", !feeOf(o, valuesOf(o.wh, workRef.current, workRef.current.sel)), "release");
-  }, [setValue]);
+  const setFee = useCallback(
+    (v: boolean | null) => {
+      if (openedRef.current === null) return;
+      setValue("lever:fee", v, "release");
+    },
+    [setValue],
+  );
 
   // ---- 案の操作 ----
   const letters = useMemo(() => (opened === null ? new Map<string, { letter: string; name: string }>() : planLetters(opened.wh.proposals)), [opened]);
@@ -2052,7 +2056,8 @@ export function App() {
   );
   const selReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.sel))), [opened, work, reqOf, rowsView]);
   const baseReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.base))), [opened, work, reqOf, rowsView]);
-  const feeOn = opened !== null && hasAdvisoryFee(opened.wh.request) ? feeOf(opened, selValues) : false;
+  const feeState = opened !== null && hasAdvisoryFee(opened.wh.request) ? feeOf(opened, selValues) : false;
+  const feeOn = feeState !== false;
   const names = { selected: planLabel(letterOf(work.sel)), base: planLabel(letterOf(work.base)), same: work.sel === work.base };
   const feeShown = opened !== null && shows(settings, "feeLine") && hasAdvisoryFee(opened.wh.request) && work.sel !== CURRENT;
   const provisional = selView?.source !== "canonical" || selView.stale;
@@ -2316,7 +2321,7 @@ export function App() {
         });
   const feeToggle: FeeToggle | null =
     opened !== null && hasAdvisoryFee(opened.wh.request) && onTop.has("lever:fee")
-      ? { on: feeOn, inBase: feeOf(opened, baseValues), note: feeSummary(opened.wh.request), onToggle: toggleFee, onRemove: levView?.fixed.has("lever:fee") === true ? null : () => removeItem(opened, "lever:fee") }
+      ? { on: feeState, inBase: feeOf(opened, baseValues), mixed: advisoryFeeState(opened.wh.request) === null, note: feeSummary(opened.wh.request), onSet: setFee, onRemove: levView?.fixed.has("lever:fee") === true ? null : () => removeItem(opened, "lever:fee") }
       : null;
 
   const last = dual.current?.timings.filter((t) => t.kind === "preview").at(-1);

@@ -29,7 +29,9 @@
 //   課税所得で、基礎控除の差（令和7・8年の引き上げ）の分だけ低く判定していた。住民税の決定通知書の額を入れた年度（途中の値が無い）は、
 //   所得税の課税所得で近似する。19歳未満の扶養親族の分を引く決まり（同項）は入れない（65歳以上の人の扶養親族に
 //   19歳未満の人がいる形はまれ）
+// 改訂8（0173）: 払う人が万一の想定で亡くなった月の翌月からは、相続する人（死亡の当時の配偶者。いなければ子を等分）が払う（sdk の inheritFlows）
 import {
+  inheritFlows,
   addMonths,
   ageMonth,
   boxValue,
@@ -92,7 +94,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   id: "care.expense",
   title: "介護の費用（自己負担割合・高額介護サービス費）",
   contract: "1.0",
-  revision: 7,
+  revision: 8,
   requires: {
     "contingency.event": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -291,6 +293,6 @@ export default defineComponent<Record<string, never>, FlowsResult>({
         }
       }
     }
-    return { flows };
+    return { flows: inheritFlows(ctx, flows) };
   },
 });

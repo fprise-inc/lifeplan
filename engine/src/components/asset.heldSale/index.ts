@@ -24,7 +24,9 @@
 // - 改訂2（0123 の追記 2026-11-05）: 持ち始める時点（accounts[].holdFrom）より前の月に売る予定は、売らない（まだ持っていない。評価額も plan.cashflow が
 //   持ち始めた年の年末から載せる）。持ち始める時点の無い世帯の結果は同じ
 // - 改訂3（0137）: 預金の利回り（assumptions.depositReturn）を読む。預金・外貨預金の資産クラス（cash.deposit・cash.foreign）が前提の資産クラスごとの利回りに無いときの利回り（省略は運用利回りで、前の要求は今までどおり。0137）
+// 改訂5（0173）: 売却の手取りのお金の動きは、名義の人が万一の想定で亡くなった月の翌月から、相続する人（死亡の当時の配偶者。いなければ子を等分）の名にする（sdk の inheritFlows。所得は tax.totalIncome・tax.realEstateSale が売る月に持つ人で数える）。出力の owner は入力の名義のまま
 import {
+  inheritFlows,
   accountMixAt,
   accountReturnRate,
   annualReturn,
@@ -70,8 +72,8 @@ export default defineComponent<Record<string, never>, HeldSaleOutput>({
   id: "asset.heldSale",
   title: "貸していない不動産・その他の資産の売却",
   contract: "1.0",
-  revision: 3,
-  requires: {},
+  revision: 5,
+  requires: { "contingency.event": ">=1 <2" },
   params: Object.values(P),
   reads: [
     "account.kind",
@@ -174,6 +176,6 @@ export default defineComponent<Record<string, never>, HeldSaleOutput>({
       }
       sales.push({ ...entry, acquisitionCost, estimated, gain: yen(price - acquisitionCost - costs), term });
     }
-    return { flows, sales };
+    return { flows: inheritFlows(ctx, flows), sales };
   },
 });

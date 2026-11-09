@@ -4,7 +4,7 @@
 // 動かしている間（input）は画面側の先出し、指を離したら（change・pointerup・keyup）正の計算（0005 の5）
 import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
-import type { LeverKey } from "./levers.ts";
+import { feeStateText, type LeverKey } from "./levers.ts";
 import { AmountInput } from "./plans/ItemControls.tsx";
 import type { ChangeRow } from "./plans/plans.ts";
 
@@ -55,12 +55,15 @@ export const tickLeft = (v: number, min: number, max: number): string => {
 
 /** FP顧問料の ON/OFF（選んだ案の側だけ。現状は変えない） */
 export interface FeeToggle {
-  on: boolean;
+  /** true 入れる（すべての契約）・false 入れない・null 今の契約だけ（「現状にも入れる」の契約だけ。0177） */
+  on: boolean | null;
   /** 例: 「単発30万円＋年額12万円（2027年1月から）」 */
   note: string;
-  /** 基準の案に入っているか */
-  inBase: boolean;
-  onToggle: () => void;
+  /** 基準の案の値 */
+  inBase: boolean | null;
+  /** 「現状にも入れる」の契約と提案の側だけの契約の両方がある（「今の契約だけ」の選び方を出す） */
+  mixed?: boolean;
+  onSet: (v: boolean | null) => void;
   /** 外す（最初から出す項目でないとき。最初から出すときは省略か null） */
   onRemove?: (() => void) | null;
 }
@@ -314,19 +317,24 @@ export function LeverCard(p: LeverCardProps) {
           <div class={`lever toggle${p.fee.on !== p.fee.inBase ? " changed" : ""}`} data-lever-row="fee" data-reveal-item>
             <div class="lever-head">
               <span class="lever-label">FP顧問料</span>
-              <span class="lever-val">{p.fee.on ? "入れる" : "入れない"}</span>
+              <span class="lever-val">{feeStateText(p.fee.on)}</span>
             </div>
             <span class="tg" role="group" aria-label="FP顧問料">
-              <button type="button" aria-pressed={!p.fee.on} onClick={() => p.fee !== null && p.fee.on && p.fee.onToggle()} data-fee-toggle="off">
+              <button type="button" aria-pressed={p.fee.on === false} onClick={() => p.fee !== null && p.fee.on !== false && p.fee.onSet(false)} data-fee-toggle="off">
                 入れない
               </button>
-              <button type="button" aria-pressed={p.fee.on} onClick={() => p.fee !== null && !p.fee.on && p.fee.onToggle()} data-fee-toggle="on">
+              {p.fee.mixed === true ? (
+                <button type="button" aria-pressed={p.fee.on === null} onClick={() => p.fee !== null && p.fee.on !== null && p.fee.onSet(null)} title="「現状にも入れる」の契約だけを入れます" data-fee-toggle="current">
+                  今の契約だけ
+                </button>
+              ) : null}
+              <button type="button" aria-pressed={p.fee.on === true} onClick={() => p.fee !== null && p.fee.on !== true && p.fee.onSet(true)} title={p.fee.mixed === true ? "提案の側だけの契約も入れます" : undefined} data-fee-toggle="on">
                 入れる
               </button>
             </span>
             <div class="lever-note">
               <span>{p.fee.note}</span>
-              <span class="base-tag">{baseTag(p.fee.inBase ? "入れる" : "入れない")}</span>
+              <span class="base-tag">{baseTag(feeStateText(p.fee.inBase))}</span>
               {p.fee.onRemove != null ? (
                 <button type="button" class="link-btn" onClick={() => p.fee?.onRemove?.()} title="この項目を対策から外す（入れる・入れないは現状に戻す）" data-lever-remove="fee">
                   外す

@@ -14,7 +14,9 @@
 // 段階と例外の年（改訂2。0040）: 家賃・修繕費は月ごと、固定資産税は年ごとに、元の額の代わりに段の額（割合の段は元の額×割合）を使い、
 // 同じ上昇率をそのまま重ねる（家賃は住み始め〔計算基準月より前に住み始めた賃貸は計算基準月までの最後の更新〕から直近の更新までの経った年数、修繕費・固定資産税は計算基準年からの年数）。例外の年は、その年だけ例外の額
 // （元の額と同じ基準。上昇率は重ねる。0円はその年に払わない）。更新料は更新の前の月の家賃（例外の年は当てない）×月数
+// 改訂7（0173）: 固定資産税・維持費・購入の費用などのお金の動きは、名義の人（持分の最初の人）が万一の想定で亡くなった月の翌月から、相続する人（死亡の当時の配偶者。いなければ子を等分）の名にする（sdk の inheritFlows）
 import {
+  inheritFlows,
   addMonths,
   boxValue,
   defineComponent,
@@ -58,8 +60,8 @@ export default defineComponent<Record<string, never>, ResidenceOutput>({
   id: "housing.residence",
   title: "住まい（家賃・購入・固定資産税・修繕費）",
   contract: "1.0",
-  revision: 6,
-  requires: {},
+  revision: 7,
+  requires: { "contingency.event": ">=1 <2" },
   params: [],
   reads: [
     "residence.kind",
@@ -192,6 +194,6 @@ export default defineComponent<Record<string, never>, ResidenceOutput>({
         }
       }
     }
-    return { flows, properties };
+    return { flows: inheritFlows(ctx, flows), properties };
   },
 });

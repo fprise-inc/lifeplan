@@ -5,7 +5,7 @@ import type { EngineRequest, PreviewResult } from "../src/engine/types.ts";
 import { forEngine } from "../src/engine/moneyRows.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { premiseFor, writePremise } from "../src/workspace/contingency/planPremise.ts";
-import { defaultYear, scenarioRequest, scenarios } from "../src/workspace/contingency/requests.ts";
+import { defaultYear, protectionRequest, scenarioRequest, scenarios } from "../src/workspace/contingency/requests.ts";
 import { fromRequest, standardLeavesPoint } from "../src/workspace/input/household.ts";
 import { CURRENT, planLetters } from "../src/workspace/plans/band.ts";
 import { metricsOf } from "../src/workspace/plans/compare.ts";
@@ -131,6 +131,31 @@ describe("万一の前提を「このプランだけ」に書いた提案", () =
     // 必要保障額の要求と前提の注も、そのプランの前提
     expect((r.plan.requests.protection as EngineRequest).input.protection?.survivor?.livingRatio).toEqual(next.survivor.livingRatio);
     expect(r.input.assumptions.survivor).not.toBeNull();
+  });
+});
+
+describe("万一のタブで逆算の方式を選んだプラン（0168 の未確定・0173）", () => {
+  it("提案書の必要保障額も逆算の方式で計算し、万一のタブでそのプランを見たときと同じ額にする", () => {
+    const o = open("salariedCoupleTwoKids");
+    const shown = premiseFor(o.wh, o.c);
+    const next = { ...shown, protection: { method: "reverse" as const, reverseUntilAge: 90 } };
+    const wh2 = writePremise(o.wh, o.c, shown, next, "plan");
+    const o2 = { ...o, wh: wh2, ctx: { ...o.ctx, wh: wh2 } };
+    const r = report(o2);
+    const pr = (r.plan.requests.protection as EngineRequest).input.protection;
+    expect(pr?.method).toBe("reverse");
+    expect(pr?.reverseUntilAge).toBe(90);
+    // 万一のタブ（そのプランの前提）の必要保障額の要求と同じ額
+    const planReq = r.plan.requests.proposal as EngineRequest;
+    const self = roles(planReq).find((x) => x.key === "self")!.member;
+    const tabWh = { ...wh2, contingency: premiseFor(wh2, o.c), request: planReq };
+    const tab = preview(forEngine(protectionRequest(tabWh, self.id)));
+    const needOf = (res: PreviewResult) => res.protection?.members.find((m) => m.member === self.id)?.years.map((y) => y.need);
+    expect(needOf(r.results.protection!)).toEqual(needOf(tab));
+    expect(r.input.contingency?.protection[0]?.sub.startsWith("逆算方式")).toBe(true);
+    // ほかのプラン（共通の前提）は積み上げのまま
+    const rb = report(o2, { proposal: o.b, compare: [CURRENT, o.b, o.c] });
+    expect((rb.plan.requests.protection as EngineRequest).input.protection?.method).toBe("accumulation");
   });
 });
 

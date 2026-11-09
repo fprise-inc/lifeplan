@@ -1087,9 +1087,15 @@ function contingency(ctx: Ctx): ProposalInput["contingency"] {
         if (short > 0 && (maxShort === null || short > maxShort.amount)) maxShort = { year: y.year, amount: short };
       }
       const horizon = m.years[0]?.horizon;
+      // 逆算の方式（万一のタブでそのプランに選んだ出し方。0168 の追記）: 遺族が目標の年齢になるまで金融資産が尽きない保険金
+      const pp = pr.request.input.protection;
+      const reverse = pp?.method === "reverse";
+      const target = pp?.reverseUntilAge !== undefined ? `${surv?.label ?? "ご家族"}が${pp.reverseUntilAge}歳になる` : `${until}${horizon !== undefined ? `（${horizon}年）` : ""}`;
       protection.push({
         title: `${who.label}が亡くなった場合`,
-        sub: `${until}${horizon !== undefined ? `（${horizon}年）` : ""}までの資金。遺族は${surv?.label ?? "お子さま"}`,
+        sub: reverse
+          ? `逆算方式: ${target}まで金融資産が尽きない保険金。遺族は${surv?.label ?? "お子さま"}`
+          : `${until}${horizon !== undefined ? `（${horizon}年）` : ""}までの資金。遺族は${surv?.label ?? "お子さま"}`,
         years: m.years.map((y) => y.year),
         need: m.years.map((y) => y.need),
         needWithAssets: m.years.map((y) => y.needWithAssets),
@@ -1150,14 +1156,25 @@ function insurance(ctx: Ctx): ProposalInput["insurance"] {
   return { contracts, table, total: { current: total(totalC, ctx.years), proposal: total(totalP, ctx.years) } };
 }
 
-/** FP顧問料の料金の段階の文（例: 「2030年1月から月15,000円、2033年1月から月20,000円」）。段階が無ければ null */
-function stepsText(h: Household, steps: readonly { at: unknown; annual?: number; monthly?: number }[], per: "年" | "月"): string | null {
-  const parts = steps.flatMap((st) => {
-    const at = monthOfTimepoint(h, st.at);
-    const amount = st.annual ?? st.monthly;
-    return at === null || amount === undefined ? [] : [`${monthLabel(at)}から${per}${yenText(amount)}`];
+/**
+ * FP顧問料の料金の段階の文（例: 「2030年1月から月15,000円、2033年1月から月20,000円」）。段階が無ければ null。
+ * 計算（エンジンの expense.advisoryFee）と同じ読み方: 段階ごとに、その段階の払い方で「年」「月」を付ける（年額と月額の両方があれば契約の払い方）。
+ * 始まりより前の段階は始まりの月から、年額で払う契約の年額の段階は段階の月からの最初の払う月（始まりと同じ月）から（0070 の追記 2026-11-08）
+ */
+function stepsText(h: Household, rec: { from?: unknown; annual?: number; monthly?: number; revision?: { steps?: readonly { at: unknown; annual?: number; monthly?: number }[] } }): string | null {
+  const payAnnual = rec.annual !== undefined;
+  const from = monthOfTimepoint(h, rec.from);
+  const parts = (rec.revision?.steps ?? []).flatMap((st) => {
+    let at = monthOfTimepoint(h, st.at);
+    const annual = st.annual !== undefined && (payAnnual || st.monthly === undefined);
+    const amount = annual ? st.annual : st.monthly;
+    if (at === null || amount === undefined) return [];
+    if (from !== null && at < from) at = from;
+    if (from !== null && annual && payAnnual && at.slice(5) !== from.slice(5)) at = `${Number(at.slice(0, 4)) + (at.slice(5) > from.slice(5) ? 1 : 0)}-${from.slice(5)}`;
+    return [{ at, text: `${monthLabel(at)}から${annual ? "年" : "月"}${yenText(amount)}` }];
   });
-  return parts.length > 0 ? parts.join("、") : null;
+  parts.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+  return parts.length > 0 ? parts.map((p) => p.text).join("、") : null;
 }
 
 function advisoryFeeAssumption(ctx: Ctx): ProposalInput["assumptions"]["advisoryFee"] {
@@ -1185,7 +1202,7 @@ function advisoryFeeAssumption(ctx: Ctx): ProposalInput["assumptions"]["advisory
                 from: from !== null ? monthLabel(from) : "契約の時点",
                 to: to !== null ? monthLabel(to) : null,
                 // 改定は料金の段階の額だけを書く（「2030年1月から月15,000円」）。値上げの率は顧客に見せない（計算には入っている）
-                revision: stepsText(h, rec.revision?.steps ?? [], rec.annual !== undefined ? "年" : "月"),
+                revision: stepsText(h, rec),
               },
       };
     });

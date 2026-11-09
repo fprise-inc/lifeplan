@@ -493,13 +493,15 @@ export function yenBox(o: {
 }
 
 /** 値の箱（0008 の2）の率の欄（百分率で見せる） */
-export function rateBox(o: { key: string; item: string; label: string; level: Level; help?: string; find: Finder; path: readonly string[]; optional?: boolean }): FieldDef {
+export function rateBox(o: { key: string; item: string; label: string; level: Level; help?: string; find: Finder; path: readonly string[]; optional?: boolean; min?: number; max?: number }): FieldDef {
   return field({
     key: o.key,
     item: o.item,
     label: o.label,
     level: o.level,
     kind: "pct",
+    ...(o.min !== undefined ? { min: o.min } : {}),
+    ...(o.max !== undefined ? { max: o.max } : {}),
     ...(o.help !== undefined ? { help: o.help } : {}),
     ...(o.optional === true ? { optional: true } : {}),
     get: (wh) => {
