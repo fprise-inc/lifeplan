@@ -9,7 +9,7 @@
 //   - 建物: B×1.4%＋B×都市計画税率。土地（更地）は土地の割合100%
 //   - 建物の古くなった分（2026-11-05 の追記）: 建った年（accounts[].builtYear）を入れた空き家・別荘は、持ち家の推定（0112 の2）と同じく、評価額の建物の
 //     分を新築の評価額とみなし、最初の年（計算の基準の年。持ち始める時点が後ならその年）に効いている評価替えの年の築年数の分だけ下げる
-//     （B×g(評価替えの年−建った年)、g(a)＝max(下限, 1−(1−下限)×a÷下限まで下がる年数)。下限・年数は事務所の推定の値〔構造で木造・非木造〕）。
+//     （B×buildingValueRatio(構造, 建った年, 建った年, 最初の年)。固定資産評価基準の経年減点補正率と再建築費評点補正率。0181）。
 //     建った年が空欄なら下げない（今までどおり）。新築の軽減は入れない。毎年の額は伸ばさない（評価替えの段は入れない）
 //   - 最初の年の評価額（2026-11-06 の追記）: 持ち始める時点が計算の基準の年より後なら、評価額をその年の初め（前の年の年末）の見込みにする
 //     （計算エンジンの年末の評価額と同じ決まり: 計算の基準の月から、年ごとに評価額の増減率〔無ければ前提条件の不動産の利回り、無ければ0〕で動かす。
@@ -24,7 +24,7 @@ import { resolveTimepoint } from "../timepoint.ts";
 import { afterWrite, type FieldDef } from "./form.ts";
 import { mutate, newId, type WorkingHousehold } from "./household.ts";
 import { VALUATION_DEFAULTS } from "./labels.ts";
-import { manOf, pctOf, PROPERTY_TAX_LAW, reassessYear, round100, taxGuide as guide } from "./propertyTax.ts";
+import { buildingValueRatio, keinenRate, manOf, pctOf, PROPERTY_TAX_LAW, reassessYear, round100, taxGuide as guide } from "./propertyTax.ts";
 
 /**
  * 法令で決まる値（事務所で変えられない）: 商業地等（住宅用地でない宅地。別荘の敷地・更地）の固定資産税・都市計画税の課税標準の上限は、
@@ -68,9 +68,9 @@ export function heldEstateTax(o: HeldEstateTaxInputs): { value: number; basis: s
   // 建物の古くなった分（建った年があるときだけ。持ち家の推定と同じ g。2026-11-05 の追記）
   const built = o.kind === "vacantLand" ? undefined : o.builtYear;
   const firstYear = o.firstYear ?? o.valueYear;
-  const floor = guide.buildingFloor;
-  const age = built === undefined ? 0 : Math.max(0, reassessYear(firstYear) - built);
-  const aged = built === undefined ? 1 : Math.max(floor, 1 - ((1 - floor) * age) / guide.years(o.structure ?? "wood"));
+  const structure = o.structure ?? "wood";
+  const age = built === undefined ? 0 : Math.max(1, reassessYear(firstYear) - built);
+  const aged = built === undefined ? 1 : buildingValueRatio(structure, built, built, firstYear);
   const building = o.value * (1 - o.landShare) * guide.buildingRatio * aged;
   const housing = o.kind === "vacantHouse";
   const landTax = housing ? land * law.landFixedShare * law.standardRate + land * law.landCityShare * cp : land * HELD_ESTATE_LAW.nonResidentialCap * (law.standardRate + cp);
@@ -83,7 +83,7 @@ export function heldEstateTax(o: HeldEstateTaxInputs): { value: number; basis: s
       ? []
       : built === undefined
         ? ["建った年が分からないので、建物の古くなった分の下がりは入れていない"]
-        : [`建物は${String(built)}年に建った${STRUCTURE_NAMES[o.structure ?? "wood"] ?? "木造"}で、${String(reassessYear(firstYear))}年度の評価替えの築${String(age)}年の分だけ新築の評価額の${pctOf(aged)}に下げた（下限は${pctOf(floor)}）`]),
+        : [`建物は${String(built)}年に建った${STRUCTURE_NAMES[structure] ?? "木造"}で、${String(reassessYear(firstYear))}年度の評価替えの築${String(age)}年の分だけ新築の評価額の${pctOf(aged)}に下げた（固定資産評価基準の経年減点補正率 ${String(keinenRate(structure, age))}）`]),
     "管理費などは含まない",
   ];
   return { value, basis: `${HELD_ESTATE_TAX_BASIS}（${parts.join("。")}）` };

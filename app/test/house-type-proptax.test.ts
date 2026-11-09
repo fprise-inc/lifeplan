@@ -175,30 +175,30 @@ describe("固定資産税の推定（0112）", () => {
     let wh = action(salaried(), "housing/addPurchase");
     wh = set(wh, "/purchase/type", "newHouse");
     const r = bought(wh);
-    // 土地 4000万×30%×70%＝840万（課税標準 1/6・都市計画 1/3）、建物 4000万×70%×60%＝1680万（軽減で半分）
-    // 28,000 + 1680万×1.4%×1/2 + 1680万×0.3% = 196,000
-    expect(r.propertyTax?.annual).toMatchObject({ value: 196000, state: "estimated", estimate: { method: "derived" } });
+    // 土地 4000万×30%×70%＝840万（課税標準 1/6・都市計画 1/3）、建物 4000万×70%×40%＝1120万（新築の評価額。0181。軽減で半分）
+    // 28,000 + 1120万×1.4%×1/2 + 1120万×0.3% = 140,000
+    expect(r.propertyTax?.annual).toMatchObject({ value: 140000, state: "estimated", estimate: { method: "derived" } });
     expect((r.propertyTax?.annual as { estimate?: { basis?: string } }).estimate?.basis).toContain(PROPERTY_TAX_BASIS);
     const st = stagesOf(r);
     // 割合は小数1桁の％（0.001 刻み）にそろえる
     for (const s of r.propertyTax?.stages ?? []) expect(s.ratio).toMatch(/^\d+(\.\d{1,3})?$/u);
-    // 2030年度の評価替え（築2年）で下がる → 187,000（95.4%）
-    expect(st.get(2030)).toBe(0.954);
-    // 軽減は 2029〜2031 年。2032 年に建物の分が元に戻る → 298,400（152.2%）
-    expect(st.get(2032)).toBe(1.522);
+    // 2030年度の評価替え（築2年。経年減点補正率 0.75÷0.80）で下がる → 133,000（95%）
+    expect(st.get(2030)).toBe(0.95);
+    // 軽減は 2029〜2031 年。2032 年に建物の分が元に戻る → 206,500（147.5%）
+    expect(st.get(2032)).toBe(1.475);
     expect(st.has(2031)).toBe(false);
-    // 2033年度の評価替え（築5年）→ 275,500（140.6%）
-    expect(st.get(2033)).toBe(1.406);
+    // 2033年度の評価替え（築5年。0.65÷0.80）→ 182,700（130.5%）
+    expect(st.get(2033)).toBe(1.305);
     // 根拠の文の割合も同じ値
     const row = (wh.request.input.household.residences ?? []).find((x) => x.id === r.id) as { valueStates?: Record<string, { estimate?: { basis?: string } }> };
-    expect(row.valueStates?.[`residence.propertyTax/stages/${taxStageId(r.id, 2032)}/ratio`]?.estimate?.basis).toContain("152.2%");
+    expect(row.valueStates?.[`residence.propertyTax/stages/${taxStageId(r.id, 2032)}/ratio`]?.estimate?.basis).toContain("147.5%");
     // 段は推定（値の状態の行）
     expect(isAutoTaxStage(wh.request.input.household, r.id, taxStageId(r.id, 2032))).toBe(true);
     // 計算エンジンの固定資産税の行に入る
     const p = preview(wh.request);
-    expect(sum(p, "cf.expense.housing.propertyTax", 2029)).toBe(196000);
+    expect(sum(p, "cf.expense.housing.propertyTax", 2029)).toBe(140000);
     // 年額を4月・7月・12月・翌年2月に分けて払うので、2032年の支出は2032年分の3回と2031年分の1回
-    expect(Math.abs(sum(p, "cf.expense.housing.propertyTax", 2032) - (196000 * 1.522 * 0.75 + 196000 * 0.954 * 0.25))).toBeLessThanOrEqual(4);
+    expect(Math.abs(sum(p, "cf.expense.housing.propertyTax", 2032) - (140000 * 1.475 * 0.75 + 140000 * 0.95 * 0.25))).toBeLessThanOrEqual(4);
   });
 
   it("新築のマンションは軽減が5年、長期優良住宅は戸建て5年・マンション7年（ローンを組まないときは住宅の購入の詳細で選ぶ）", () => {
@@ -222,19 +222,23 @@ describe("固定資産税の推定（0112）", () => {
     expect(reliefEnd(bought(wh))).toBe(2034);
   });
 
-  it("中古: 新築の軽減は当てず（建った年が分からないとき）、建った年を入れると古くなった分から下げる（下限で止まる）", () => {
+  it("中古: 新築の軽減は当てず（建った年が分からないとき）、建った年を入れると古くなった分から下げる（経年減点補正率の下限で止まる）", () => {
     let wh = action(salaried(), "housing/addPurchase");
     wh = set(wh, "/purchase/type", "usedHouse");
     const a = bought(wh).propertyTax!.annual.value!;
-    // 軽減なし: 28,000 + 1680万×1.7% = 313,600
-    expect(a).toBe(313600);
+    // 軽減なし: 28,000 + 1120万×1.7% = 218,400
+    expect(a).toBe(218400);
     expect((bought(wh).propertyTax?.annual as { estimate?: { basis?: string } }).estimate?.basis).toContain("建った年が分からない");
-    wh = set(wh, "/valuation/builtYear", 2000);
+    wh = set(wh, "/valuation/builtYear", 2010);
     const r = bought(wh);
-    // 築28年を超えると下限（木造30年で20%）に近く、2030年度の評価替え（築30年）で下限に止まり、その後は変わらない
+    // 最初の年（2029年）は2027年度の築17年（0.38）。2030年度 築20年（0.31）・2033年度 築23年（0.25）と下がり、2036年度 築26年で下限（0.20）に止まる
     const st = stagesOf(r);
-    expect([...st.keys()]).toEqual([2030]);
+    expect([...st.keys()]).toEqual([2030, 2033, 2036]);
     expect(st.get(2030)).toBeLessThan(1);
+    expect(st.get(2036)).toBeLessThan(st.get(2033)!);
+    // 建った年がすでに下限を過ぎた家（2000年築。2027年度 築27年）は段が付かない
+    wh = set(wh, "/valuation/builtYear", 2000);
+    expect(stagesOf(bought(wh)).size).toBe(0);
   });
 
   it("FP が納税通知書の額を入れたら、その額が優先。推定の段（割合）は入れ直し続け、その額を元に動く", () => {
@@ -288,7 +292,7 @@ describe("固定資産税の推定（0112）", () => {
   it("目安の割合を事務所の推定の値で変えると、推定に効く（法令の値は変えられない）", () => {
     let wh = action(salaried(), "housing/addPurchase");
     wh = set(wh, "/purchase/type", "newHouse");
-    expect(bought(wh).propertyTax?.annual.value).toBe(196000);
+    expect(bought(wh).propertyTax?.annual.value).toBe(140000);
     setOfficeEstimates({ "preset.housing.propertyTax.buildingRatio": { value: "0.5", basis: "事務所の目安" }, "preset.housing.propertyTax.cityPlanningRate": { value: "0.01", basis: "事務所の目安" } });
     wh = set(wh, "/purchase/price", 40000000);
     // 建物 4000万×70%×50%＝1400万。都市計画税は上限 0.3% で止まる: 28,000 + 98,000 + 42,000 = 168,000

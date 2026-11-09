@@ -165,9 +165,9 @@ describe("注文住宅の種類と推定（0115）", () => {
     const box = bought(wh).propertyTax?.annual as { value: number; estimate?: { basis: string } };
     expect(box.estimate?.basis).toContain("注文住宅");
     expect(box.estimate?.basis).toContain("土地の代金1,200万円");
-    // 土地 1,200万円×70%×1/6×1.4% ＋ ×1/3×0.3%、建物 2,800万円×60%×1.4%×1/2 ＋ ×0.3%
+    // 土地 1,200万円×70%×1/6×1.4% ＋ ×1/3×0.3%、建物 2,800万円×40%（新築の評価額。0181）×1.4%×1/2 ＋ ×0.3%
     const L = 12000000 * 0.7;
-    const B = 28000000 * 0.6;
+    const B = 28000000 * 0.4;
     expect(box.value).toBe(Math.round((L / 6 * 0.014 + L / 3 * 0.003 + B * 0.014 * 0.5 + B * 0.003) / 100) * 100);
   });
 
