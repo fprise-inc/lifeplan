@@ -47,6 +47,8 @@ esac
 
 classify() {
   case "$1" in
+    # 対応範囲の一覧（0183）: engine のビルドが確かめて dist/coverage.json にし、AI接続口（host）が埋め込む
+    docs/coverage/*) on[engine]=1; on[host]=1 ;;
     docs/*|LICENSE|.github/workflows/secret-scan.yml|.github/workflows/app-bundle.yml|.gitignore) ;;
     # 速さの前の値（速さの計測は手で起動したときと毎晩だけ）
     engine/bench/*) ;;
@@ -54,9 +56,11 @@ classify() {
     # 読み取り規則・用語辞書の形と公開側の規則（0113。engine の migration:check と単体テストが確かめる）
     migration/*) on[engine]=1 ;;
     app/src-tauri/Cargo.*|app/src-tauri/deny.toml) on[app]=1; on[licenses_rust]=1 ;;
+    # 画面の根拠のパネルの関数（と、それが読む report/src・hearing/src）は、AI接続口の「数字の根拠」の読み方にもまとめて同梱する（0183）
+    app/src/*|app/scripts/*|app/package.json|app/package-lock.json) on[app]=1; on[host]=1 ;;
     app/*) on[app]=1 ;;
-    report/*) on[report]=1; on[app]=1 ;;
-    hearing/*) on[hearing]=1; on[app]=1 ;;
+    report/*) on[report]=1; on[app]=1; on[host]=1 ;;
+    hearing/*) on[hearing]=1; on[app]=1; on[host]=1 ;;
     statement/*) on[statement]=1; on[app]=1 ;;
     xlsx/*) on[xlsx]=1; on[hearing]=1; on[statement]=1; on[app]=1 ;;
     crates/*|Cargo.toml|Cargo.lock|deny.toml) on[host]=1; on[report]=1; on[app]=1; on[licenses_rust]=1 ;;

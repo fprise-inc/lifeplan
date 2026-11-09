@@ -1,0 +1,1474 @@
+[
+  {
+    "name": "年金",
+    "sample": "salariedCoupleTwoKids",
+    "row": "pension:self",
+    "year": 2047,
+    "expected": {
+      "row": {
+        "key": "pension:self",
+        "label": "ご本人の年金",
+        "group": "収入"
+      },
+      "evidence": {
+        "title": "2047年 ご本人の年金",
+        "total": 2723429,
+        "context": "ご本人66歳・配偶者64歳",
+        "breakdown": [
+          {
+            "label": "老齢基礎年金",
+            "amount": 896874
+          },
+          {
+            "label": "老齢厚生年金",
+            "amount": 1826555
+          }
+        ],
+        "formulas": [
+          "老齢基礎年金 ＝ 満額 × 保険料を納めた月数 ÷ 上限の月数 × 受け取り開始の調整（繰上げは減額・繰下げは増額）",
+          "老齢厚生年金 ＝ 平均標準報酬額 × 乗率 × 加入月数 × 受け取り開始の調整"
+        ],
+        "params": [
+          {
+            "label": "支払期ごとの支払額の端数処理（1円未満切り捨て。切り捨てた合計は2月の支払期に加算）",
+            "value": "表",
+            "source": "国民年金法 第18条の2／日本年金機構 年金Q&A（支払額の端数）",
+            "version": "2026.1.0",
+            "appliesFrom": "2015-04-01"
+          },
+          {
+            "label": "高年齢雇用継続基本給付金の支給の終わりの年齢（65歳に達する月まで）",
+            "value": "65",
+            "source": "ハローワーク「高年齢雇用継続給付について」支給期間／雇用保険法 第61条第2項（令和8年5月13日の版）",
+            "version": "2026.9.0",
+            "appliesFrom": "2017-04-01"
+          },
+          {
+            "label": "基本手当の離職の日の年齢の区切り（65歳に達した日以後に離職）",
+            "value": "65",
+            "source": "雇用保険法 第16条第2項・第17条第4項・第23条第1項・第37条の2（令和8年5月13日の版）／ハローワーク「基本手当の所定給付日数」の離職時の年齢の区分",
+            "version": "2026.9.0",
+            "appliesFrom": "2017-04-01"
+          },
+          {
+            "label": "基本手当の離職の日の年齢の区切り（60歳に達した日以後に離職）",
+            "value": "60",
+            "source": "雇用保険法 第16条第2項・第17条第4項・第23条第1項・第37条の2（令和8年5月13日の版）／ハローワーク「基本手当の所定給付日数」の離職時の年齢の区分",
+            "version": "2026.9.0",
+            "appliesFrom": "2017-04-01"
+          },
+          {
+            "label": "高年齢雇用継続基本給付金の支給の始まりの年齢（60歳に達した月から）",
+            "value": "60",
+            "source": "ハローワーク「高年齢雇用継続給付について」支給期間／雇用保険法 第61条第1項（令和8年5月13日の版）",
+            "version": "2026.9.0",
+            "appliesFrom": "2017-04-01"
+          },
+          {
+            "label": "高年齢雇用継続基本給付金の被保険者であった期間の要件（5年以上）",
+            "value": "60月",
+            "source": "ハローワーク「高年齢雇用継続給付について」支給対象者／雇用保険法 第61条第1項（令和8年5月13日の版）",
+            "version": "2026.9.0",
+            "appliesFrom": "2017-04-01"
+          },
+          {
+            "label": "老齢基礎年金・老齢厚生年金の受給を始める年齢（65歳に達した月の翌月から）",
+            "value": "65",
+            "source": "国民年金法 第26条／厚生年金保険法 第42条第1号",
+            "version": "2026.1.0",
+            "appliesFrom": "2004-04-01"
+          },
+          {
+            "label": "老齢年金の受給資格期間（10年）",
+            "value": "120月",
+            "source": "国民年金法 第26条ただし書／厚生年金保険法 第42条第2号",
+            "version": "2026.1.0",
+            "appliesFrom": "2017-08-01"
+          },
+          {
+            "label": "特別支給の老齢厚生年金（報酬比例部分）の支給開始年齢（生年月日・性別。第1号厚生年金の期間）",
+            "value": "該当なし",
+            "source": "日本年金機構「特別支給の老齢厚生年金」／厚生年金保険法 附則第8条の2第1項（男子）",
+            "version": "2026.1.0",
+            "appliesFrom": "2013-04-01"
+          },
+          {
+            "label": "特別支給の老齢厚生年金の厚生年金の加入期間（1年以上）",
+            "value": "12月",
+            "source": "厚生年金保険法 附則第8条第2号／日本年金機構「特別支給の老齢厚生年金」",
+            "version": "2026.1.0",
+            "appliesFrom": "2013-04-01"
+          },
+          {
+            "label": "報酬比例の給付乗率（平成15年4月以後の期間。昭和21年4月2日以後生まれ）",
+            "value": "0.005481",
+            "source": "厚生年金保険法 第43条第1項／日本年金機構「老齢年金ガイド」報酬比例部分（B: 平成15年4月以降の加入期間。平均標準報酬額×5.481/1000×月数）",
+            "version": "2026.1.0",
+            "appliesFrom": "2003-04-01"
+          },
+          {
+            "label": "加給年金額が加算される厚生年金の加入期間（20年）",
+            "value": "240月",
+            "source": "厚生年金保険法 第44条第1項／日本年金機構「加給年金額と振替加算」",
+            "version": "2026.1.0",
+            "appliesFrom": "2004-04-01"
+          },
+          {
+            "label": "配偶者の加給年金額が加算される配偶者の年齢の上限（65歳に達した月まで）",
+            "value": "65",
+            "source": "厚生年金保険法 第44条第1項／日本年金機構「加給年金額と振替加算」加給年金額の表",
+            "version": "2026.1.0",
+            "appliesFrom": "2004-04-01"
+          },
+          {
+            "label": "加給年金額の対象の子の年齢（18歳に達した日以後の最初の3月31日まで）",
+            "value": "18",
+            "source": "厚生年金保険法 第44条第1項／日本年金機構「加給年金額と振替加算」加給年金額の表",
+            "version": "2026.1.0",
+            "appliesFrom": "2004-04-01"
+          },
+          {
+            "label": "年金額（年額）の端数処理（1円未満四捨五入）",
+            "value": "表",
+            "source": "国民年金法 第17条第1項／厚生年金保険法 第35条第1項",
+            "version": "2026.1.0",
+            "appliesFrom": "2015-04-01"
+          },
+          {
+            "label": "定額部分（経過的加算）の上限の月数（昭和21年4月2日以後生まれ）",
+            "value": "480月",
+            "source": "厚生年金保険法 附則（昭和60年法律第34号）第59条第2項第1号／日本年金機構 年金用語集「定額部分」",
+            "version": "2026.1.0",
+            "appliesFrom": "2004-04-01"
+          },
+          {
+            "label": "定額部分（経過的加算）の単価の基準額（平成16年改正法の額）",
+            "value": "1,628",
+            "source": "厚生年金保険法 附則（昭和60年法律第34号）第59条第2項第1号／日本年金機構「年金額の計算に用いる数値（令和7年度）」注3",
+            "version": "2026.1.0",
+            "appliesFrom": "2004-04-01"
+          },
+          {
+            "label": "老齢基礎年金の満額の月数（加入可能年数40年）",
+            "value": "480月",
+            "source": "国民年金法 第27条ただし書／日本年金機構「老齢年金ガイド」老齢基礎年金の計算式",
+            "version": "2026.1.0",
+            "appliesFrom": "2004-04-01"
+          },
+          {
+            "label": "老齢基礎年金の満額の基準額（平成16年改正法の額）",
+            "value": "780,900",
+            "source": "国民年金法 第27条／厚生労働省 年金の講義資料（老齢基礎年金の基本年金額）",
+            "version": "2026.1.0",
+            "appliesFrom": "2004-04-01"
+          },
+          {
+            "label": "満額・加給年金額などの基準額×改定率の端数処理（100円未満四捨五入）",
+            "value": "表",
+            "source": "国民年金法 第27条／厚生年金保険法 第44条第2項",
+            "version": "2026.1.0",
+            "appliesFrom": "2004-04-01"
+          },
+          {
+            "label": "子の加給年金額が加算される厚生年金の加入期間（令和10年3月まで20年、令和10年4月から10年）",
+            "value": "120月",
+            "source": "厚生年金保険法 第44条第1項（令和10年4月1日の版）／衆議院 制定法律「社会経済の変化を踏まえた年金制度の機能強化のための国民年金法等の一部を改正する等の法律」（令和7年法律第74号）厚生年金保険法44条1項の改正規定",
+            "version": "2026.3.0",
+            "appliesFrom": "2028-04-01"
+          },
+          {
+            "label": "加給年金額（配偶者）の基準額（令和10年4月以後に加算された老齢厚生年金。202,200円×改定率）",
+            "value": "202,200",
+            "source": "厚生年金保険法 第44条第2項（令和10年4月1日施行の版）／令和7年法律第74号 附則第12条第4項（e-Gov の厚生年金保険法のデータの改正法の附則）",
+            "version": "2026.10.0",
+            "appliesFrom": "2028-04-01"
+          },
+          {
+            "label": "配偶者の加給年金額の特別加算の基準額（令和10年4月以後に加算された老齢厚生年金。生年月日によらず 149,200円×改定率）",
+            "value": "149,200",
+            "source": "厚生年金保険法 附則（昭和60年法律第34号）第60条第2項（令和10年4月1日施行の版。令和7年法律第74号第7条による改正後）／令和7年法律第74号 附則第12条第4項（e-Gov の厚生年金保険法のデータの改正法の附則）",
+            "version": "2026.10.0",
+            "appliesFrom": "2028-04-01"
+          },
+          {
+            "label": "雇用保険の被保険者になる週の所定労働時間（以上）",
+            "value": "20",
+            "source": "雇用保険法 第6条第1号／厚生労働省「雇用保険制度の概要」",
+            "version": "2026.4.0",
+            "appliesFrom": "2025-04-01"
+          }
+        ],
+        "note": "表は受け取った年・支払った年で集計しています（年金は偶数月に前の2か月分を受け取ります）。"
+      },
+      "ids": {
+        "formulas": [
+          "pension.oldAge.basic.payment",
+          "pension.oldAge.employee.payment"
+        ],
+        "regulation": [
+          "pension.payment.rounding",
+          "employmentInsurance.elderlyContinuation.untilAge",
+          "employmentInsurance.basicAllowance.elderlyAge",
+          "employmentInsurance.basicAllowance.seniorAge",
+          "employmentInsurance.elderlyContinuation.fromAge",
+          "employmentInsurance.elderlyContinuation.requiredMonths",
+          "pension.normalStartAge",
+          "pension.qualifyingMonths",
+          "pension.specialOldAge.startAge",
+          "pension.specialOldAge.requiredMonths",
+          "pension.employee.accrualRate.post2003",
+          "pension.spouseSupplement.requiredMonths",
+          "pension.spouseSupplement.spouseUntilAge",
+          "pension.childSupplement.childUntilAge",
+          "pension.amount.rounding",
+          "pension.employee.flatRate.maxMonths",
+          "pension.employee.flatRate.baseAmount",
+          "pension.basic.maxMonths",
+          "pension.basic.baseAmount",
+          "pension.basic.fullAmount.rounding",
+          "pension.childSupplement.requiredMonths",
+          "pension.spouseSupplement.reform2028.baseAmount",
+          "pension.spouseSupplement.reform2028.specialAddition",
+          "employmentInsurance.coverage.weeklyHours"
+        ]
+      }
+    }
+  },
+  {
+    "name": "税・社会保険料",
+    "sample": "salariedCoupleTwoKids",
+    "row": "taxSi",
+    "year": 2030,
+    "expected": {
+      "row": {
+        "key": "taxSi",
+        "label": "税・社会保険料",
+        "group": "支出"
+      },
+      "evidence": {
+        "title": "2030年 税・社会保険料",
+        "total": 1949346,
+        "context": "ご本人49歳・配偶者47歳・第1子18歳・第2子15歳",
+        "breakdown": [
+          {
+            "label": "介護保険料",
+            "amount": 48600
+          },
+          {
+            "label": "子ども・子育て支援金",
+            "amount": 6900
+          },
+          {
+            "label": "雇用保険料",
+            "amount": 37464
+          },
+          {
+            "label": "健康保険料",
+            "amount": 290100
+          },
+          {
+            "label": "所得税（源泉徴収）",
+            "amount": 330700
+          },
+          {
+            "label": "厚生年金保険料",
+            "amount": 549000
+          },
+          {
+            "label": "住民税（給与から）",
+            "amount": 398100
+          },
+          {
+            "label": "介護保険",
+            "amount": 15164
+          },
+          {
+            "label": "子ども・子育て支援金",
+            "amount": 2152
+          },
+          {
+            "label": "雇用保険",
+            "amount": 9366
+          },
+          {
+            "label": "健康保険料（賞与）",
+            "amount": 90512
+          },
+          {
+            "label": "厚生年金保険料（賞与）",
+            "amount": 171288
+          }
+        ],
+        "formulas": [
+          "介護保険料 ＝ 標準報酬月額 × 保険料率（40〜64歳）",
+          "支援金 ＝ 標準報酬月額 × 支援金率",
+          "雇用保険料 ＝ 賃金 × 保険料率",
+          "健康保険料 ＝ 標準報酬月額 × 保険料率（本人の負担分）",
+          "所得税 ＝（所得 − 所得控除）× 税率 − 税額控除 ＋ 復興特別所得税",
+          "厚生年金保険料 ＝ 標準報酬月額 × 保険料率（本人の負担分）",
+          "住民税 ＝（前年の所得 − 所得控除）× 税率 − 税額控除 ＋ 均等割",
+          "介護保険（式の説明はまだ載せていません）",
+          "子ども・子育て支援金（式の説明はまだ載せていません）",
+          "雇用保険（式の説明はまだ載せていません）",
+          "健康保険料 ＝ 標準賞与額 × 保険料率（本人の負担分）",
+          "厚生年金保険料 ＝ 標準賞与額 × 保険料率（本人の負担分）"
+        ],
+        "params": [
+          {
+            "label": "子ども・子育て支援金率（被用者保険。労使の合計。標準報酬月額・標準賞与額に掛ける）",
+            "value": "該当なし",
+            "source": "令和8年度の料率のページ／令和8年3月分からの保険料額表（東京支部）",
+            "version": "2026.1.0",
+            "appliesFrom": "2025-03-01"
+          },
+          {
+            "label": "協会けんぽの健康保険料率（都道府県支部ごと。労使の合計）",
+            "value": "0.0976",
+            "source": "令和7年度 都道府県単位保険料率の表（埼玉）／令和8年度の表の令和7年度の列（埼玉）",
+            "version": "2026.1.0",
+            "appliesFrom": "2025-03-01"
+          },
+          {
+            "label": "協会けんぽの介護保険料率（全国一律。労使の合計）",
+            "value": "0.0159",
+            "source": "令和7年3月分からの保険料額表（全都道府県分）。各シートの「介護保険第2号被保険者に該当する場合」の率−健康保険料率＝1.59%（47シートすべて）／令和7年度の料率のページ",
+            "version": "2026.1.0",
+            "appliesFrom": "2025-03-01"
+          },
+          {
+            "label": "健康保険料・介護保険料・支援金・厚生年金保険料の被保険者負担分を給与から控除するときの端数（50銭以下切り捨て、50銭超切り上げ）",
+            "value": "表",
+            "source": "日本年金機構 厚生年金保険料額表（令和8年度版）の注／協会けんぽ 保険料額表（東京支部）の注",
+            "version": "2026.1.0",
+            "appliesFrom": "2025-01-01"
+          },
+          {
+            "label": "協会けんぽの健康保険料率（都道府県支部ごと。労使の合計）",
+            "value": "0.0967",
+            "source": "令和8年度 都道府県単位保険料率の表（埼玉）／令和8年3月分からの保険料額表（全都道府県分）シート「埼玉」の健康保険料率 9.67%",
+            "version": "2026.2.0",
+            "appliesFrom": "2026-03-01"
+          },
+          {
+            "label": "協会けんぽの介護保険料率（全国一律。労使の合計）",
+            "value": "0.0162",
+            "source": "令和8年度の料率のページ／令和8年3月分からの保険料額表（全都道府県分）。各シートの介護保険第2号被保険者の率−健康保険料率＝1.62%（47シートすべて）",
+            "version": "2026.2.0",
+            "appliesFrom": "2026-03-01"
+          },
+          {
+            "label": "子ども・子育て支援金率（被用者保険。労使の合計。標準報酬月額・標準賞与額に掛ける）",
+            "value": "0.0023",
+            "source": "令和8年度の料率のページ／令和8年3月分からの保険料額表（全都道府県分）の支援金の率 0.23%（47シートすべて）",
+            "version": "2026.2.0",
+            "appliesFrom": "2026-04-01"
+          },
+          {
+            "label": "厚生年金の資格を失う年齢（70歳に達した日。その月の前月分まで）",
+            "value": "70",
+            "source": "厚生年金保険法 第9条／日本年金機構 70歳到達届の説明",
+            "version": "2026.1.0",
+            "appliesFrom": "2025-01-01"
+          },
+          {
+            "label": "介護保険の第2号被保険者になる年齢（40歳に達した日の属する月から）",
+            "value": "40",
+            "source": "介護保険法 第9条第2号／協会けんぽ茨城支部 介護保険料の徴収",
+            "version": "2026.1.0",
+            "appliesFrom": "2025-01-01"
+          },
+          {
+            "label": "介護保険の第2号被保険者でなくなる年齢（65歳に達した日の属する月から第2号でない）",
+            "value": "65",
+            "source": "介護保険法 第9条第2号／協会けんぽ茨城支部 介護保険料の徴収",
+            "version": "2026.1.0",
+            "appliesFrom": "2025-01-01"
+          },
+          {
+            "label": "標準賞与額（賞与額の1,000円未満の切り捨て）",
+            "value": "表",
+            "source": "健康保険法 第45条第1項（厚生年金保険法24条の4第1項も同じ）／協会けんぽ 保険料額表（東京支部）の注",
+            "version": "2026.1.0",
+            "appliesFrom": "2025-01-01"
+          },
+          {
+            "label": "健康保険（介護保険・支援金も）の標準賞与額の年度の累計の上限",
+            "value": "5,730,000",
+            "source": "健康保険法 第45条第1項／協会けんぽ 保険料額表（東京支部）の注",
+            "version": "2026.1.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "厚生年金の標準賞与額の上限（支給1回。同じ月は合算）",
+            "value": "1,500,000",
+            "source": "厚生年金保険法 第24条の4第1項／厚生年金保険法の標準報酬月額の等級区分の改定等に関する政令 第2条",
+            "version": "2026.1.0",
+            "appliesFrom": "2025-01-01"
+          },
+          {
+            "label": "雇用保険の被保険者になる週の所定労働時間（以上）",
+            "value": "20",
+            "source": "雇用保険法 第6条第1号／厚生労働省「雇用保険制度の概要」",
+            "version": "2026.4.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "雇用保険の被保険者になる週の所定労働時間（以上）",
+            "value": "10",
+            "source": "雇用保険法 第6条第1号（令和10年10月1日の版）／厚生労働省「令和６年雇用保険制度改正（令和10年10月１日施行分）について」",
+            "version": "2026.4.0",
+            "appliesFrom": "2028-10-01"
+          },
+          {
+            "label": "雇用保険料率の被保険者負担分（一般の事業）",
+            "value": "0.0055",
+            "source": "令和7年度 雇用保険料率のご案内（一般の事業・労働者負担）／令和8年度のご案内の（令和７年度）の行",
+            "version": "2026.1.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "雇用保険料の被保険者負担分を賃金から控除するときの端数（50銭以下切り捨て、50銭超切り上げ）",
+            "value": "表",
+            "source": "厚生労働省 雇用保険料の被保険者負担分の端数／厚生労働省 被保険者負担額の端数処理",
+            "version": "2026.1.0",
+            "appliesFrom": "2025-01-01"
+          },
+          {
+            "label": "雇用保険料率の被保険者負担分（一般の事業）",
+            "value": "0.005",
+            "source": "令和8年度 雇用保険料率のご案内（一般の事業・労働者負担）／ハローワーク立川 令和8年度の雇用保険料率",
+            "version": "2026.2.0",
+            "appliesFrom": "2026-04-01"
+          },
+          {
+            "label": "被用者保険に入る労働時間の基準（通常の労働者の週の所定労働時間の4分の3）",
+            "value": "0.75",
+            "source": "健康保険法 第3条第1項第9号／日本年金機構 Q&A（短時間労働者の適用要件）",
+            "version": "2026.4.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "短時間労働者が被用者保険に入る週の所定労働時間（以上）",
+            "value": "20",
+            "source": "健康保険法 第3条第1項第9号イ／厚生労働省「社会保険適用拡大特設サイト」Q&A",
+            "version": "2026.4.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "短時間労働者が被用者保険に入る所定内賃金の月額（以上。令和8年10月に撤廃）",
+            "value": "該当なし",
+            "source": "日本年金機構「2026（令和8）年10月に社会保険の短時間労働者に係る賃金要件が撤廃されました」／厚生労働省「社会保険適用拡大特設サイト」Q&A",
+            "version": "2026.4.0",
+            "appliesFrom": "2026-10-01"
+          },
+          {
+            "label": "短時間労働者が被用者保険に入る勤め先の規模（厚生年金の被保険者数。以上）",
+            "value": "51",
+            "source": "健康保険法 附則（平成24年法律第62号）第46条第12項／日本年金機構「短時間労働者に対する健康保険・厚生年金保険の適用拡大」",
+            "version": "2026.4.0",
+            "appliesFrom": "2024-10-01"
+          },
+          {
+            "label": "短時間労働者が被用者保険に入る勤め先の規模（厚生年金の被保険者数。以上）",
+            "value": "36",
+            "source": "健康保険法 附則（令和7年法律第74号）の表（特定適用事業所となる時期）／厚生労働省「社会保険適用拡大特設サイト」Q&A",
+            "version": "2026.4.0",
+            "appliesFrom": "2027-10-01"
+          },
+          {
+            "label": "短時間労働者が被用者保険に入る勤め先の規模（厚生年金の被保険者数。以上）",
+            "value": "21",
+            "source": "健康保険法 附則（令和7年法律第74号）の表（特定適用事業所となる時期）／厚生労働省「年金制度改正法の概要」適用拡大",
+            "version": "2026.4.0",
+            "appliesFrom": "2029-10-01"
+          }
+        ],
+        "note": "表は受け取った年・支払った年で集計しています（年金は偶数月に前の2か月分を受け取ります）。"
+      },
+      "ids": {
+        "formulas": [
+          "socialInsurance.care.monthly",
+          "socialInsurance.childSupport.monthly",
+          "socialInsurance.employment.monthly",
+          "socialInsurance.health.monthly",
+          "incomeTax.annual.withholding",
+          "socialInsurance.pension.monthly",
+          "residentTax.special.installment",
+          "socialInsurance.care.bonus",
+          "socialInsurance.childSupport.bonus",
+          "socialInsurance.employment.bonus",
+          "socialInsurance.health.bonus",
+          "socialInsurance.pension.bonus"
+        ],
+        "regulation": [
+          "socialInsurance.childSupport.rate",
+          "socialInsurance.health.kyokaikenpo.rate",
+          "socialInsurance.care.kyokaikenpo.rate",
+          "socialInsurance.employeeShare.rounding",
+          "socialInsurance.health.kyokaikenpo.rate",
+          "socialInsurance.care.kyokaikenpo.rate",
+          "socialInsurance.childSupport.rate",
+          "socialInsurance.pension.maxAge",
+          "socialInsurance.care.secondaryInsuredFromAge",
+          "socialInsurance.care.secondaryInsuredUntilAge",
+          "socialInsurance.standardBonus.rounding",
+          "socialInsurance.health.standardBonus.annualLimit",
+          "socialInsurance.pension.standardBonus.monthlyLimit",
+          "employmentInsurance.coverage.weeklyHours",
+          "employmentInsurance.coverage.weeklyHours",
+          "employmentInsurance.employeeRate.general",
+          "employmentInsurance.employeeShare.rounding",
+          "employmentInsurance.employeeRate.general",
+          "socialInsurance.coverage.regularHoursRatio",
+          "socialInsurance.coverage.shortTimeWeeklyHours",
+          "socialInsurance.coverage.shortTimeMonthlyWage",
+          "socialInsurance.coverage.shortTimeEmployerSize",
+          "socialInsurance.coverage.shortTimeEmployerSize",
+          "socialInsurance.coverage.shortTimeEmployerSize"
+        ]
+      }
+    }
+  },
+  {
+    "name": "教育費",
+    "sample": "salariedCoupleTwoKids",
+    "row": "education",
+    "year": 2035,
+    "expected": {
+      "row": {
+        "key": "education",
+        "label": "教育費",
+        "group": "支出"
+      },
+      "evidence": {
+        "title": "2035年 教育費",
+        "total": 1344582,
+        "context": "ご本人54歳・配偶者52歳・第1子23歳・第2子20歳",
+        "breakdown": [
+          {
+            "label": "下宿・仕送り",
+            "amount": 259341
+          },
+          {
+            "label": "学校教育費",
+            "amount": 1085241
+          }
+        ],
+        "formulas": [
+          "下宿・仕送り（式の説明はまだ載せていません）",
+          "学校教育費（式の説明はまだ載せていません）"
+        ],
+        "params": [
+          {
+            "label": "学習費総額の年額（公立中学校。子供の学習費調査）",
+            "value": "542,450",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校教育費",
+            "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "学校外活動費の年額（公立中学校）",
+            "value": "356,018",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校外活動費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+            "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "学校給食費の年額（公立中学校。子供の学習費調査。学習費総額のうち）",
+            "value": "35,671",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校給食費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+            "version": "2026.3.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "学習費総額の年額（公立高等学校（全日制）。子供の学習費調査）",
+            "value": "596,954",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校教育費",
+            "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "学校外活動費の年額（公立高校）",
+            "value": "245,431",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校外活動費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+            "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "私立大学の授業料の平均（文科系。令和7年度入学者）",
+            "value": "850,392",
+            "source": "（資料1）令和7年度私立大学入学者に係る初年度学生納付金平均額の調査結果 Ⅱ 調査結果",
+            "version": "2026.2.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "私立大学の施設設備費の平均（文科系。令和7年度入学者）",
+            "value": "141,892",
+            "source": "（資料1）令和7年度私立大学入学者に係る初年度学生納付金平均額の調査結果 Ⅱ 調査結果",
+            "version": "2026.2.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "私立大学の入学料の平均（文科系。令和7年度入学者）",
+            "value": "219,951",
+            "source": "（資料1）令和7年度私立大学入学者に係る初年度学生納付金平均額の調査結果 Ⅱ 調査結果",
+            "version": "2026.2.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "自宅外通学の仕送りの年額（教育費負担の実態調査）",
+            "value": "958,000",
+            "source": "教育費負担の実態調査結果（日本政策金融公庫、2021年12月20日）／教育費負担の実態調査結果（日本政策金融公庫、2021年12月20日）",
+            "version": "2026.2.0",
+            "appliesFrom": "2021-04-01"
+          },
+          {
+            "label": "自宅外通学を始めるための費用（教育費負担の実態調査）",
+            "value": "387,000",
+            "source": "教育費負担の実態調査結果（日本政策金融公庫、2021年12月20日）／教育費負担の実態調査結果（日本政策金融公庫、2021年12月20日）",
+            "version": "2026.2.0",
+            "appliesFrom": "2021-04-01"
+          },
+          {
+            "label": "学習費総額の年額（公立小学校。子供の学習費調査）",
+            "value": "366,599",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校教育費",
+            "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "学校外活動費の年額（公立小学校）",
+            "value": "256,489",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校外活動費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+            "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "学校給食費の年額（公立小学校。子供の学習費調査。学習費総額のうち）",
+            "value": "35,774",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校給食費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+            "version": "2026.3.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "学校給食費の負担軽減の基準額（公立小学校・完全給食。児童1人の月額。国と都道府県が自治体の食材費を支援）",
+            "value": "5,200",
+            "source": "学校給食費の抜本的な負担軽減（文部科学省）どのくらい負担が軽くなるの？ 基準額／学校給食費の抜本的な負担軽減（文部科学省）どんな取組？",
+            "version": "2026.5.0",
+            "appliesFrom": "2026-04-01"
+          },
+          {
+            "label": "学校給食費の負担軽減の年間の月数（基準額×この月数が1年の支援の上限）",
+            "value": "11",
+            "source": "学校給食費の抜本的な負担軽減（文部科学省）どのくらい負担が軽くなるの？／給食費負担軽減交付金実施要領 3（2）交付金の上限額",
+            "version": "2026.5.0",
+            "appliesFrom": "2026-04-01"
+          },
+          {
+            "label": "学習費総額の年額（私立高等学校（全日制）。子供の学習費調査）",
+            "value": "1,179,261",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校教育費",
+            "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "学校外活動費の年額（私立高校）",
+            "value": "346,611",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校外活動費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+            "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          }
+        ],
+        "note": "表は受け取った年・支払った年で集計しています（年金は偶数月に前の2か月分を受け取ります）。"
+      },
+      "ids": {
+        "formulas": [
+          "education.cost.boarding",
+          "education.cost.tuition"
+        ],
+        "regulation": [
+          "education.statistics.juniorHigh.public.total",
+          "education.statistics.juniorHigh.public.outOfSchool",
+          "education.statistics.juniorHigh.public.schoolLunch",
+          "education.statistics.highSchool.public.total",
+          "education.statistics.highSchool.public.outOfSchool",
+          "education.statistics.university.private.humanities.tuition",
+          "education.statistics.university.private.humanities.facility",
+          "education.statistics.university.private.humanities.admission",
+          "education.statistics.boarding.annual",
+          "education.statistics.boarding.initial",
+          "education.statistics.elementary.public.total",
+          "education.statistics.elementary.public.outOfSchool",
+          "education.statistics.elementary.public.schoolLunch",
+          "educationSupport.schoolLunch.elementary.public.monthly",
+          "educationSupport.schoolLunch.months",
+          "education.statistics.highSchool.private.total",
+          "education.statistics.highSchool.private.outOfSchool"
+        ]
+      }
+    }
+  },
+  {
+    "name": "金融資産",
+    "sample": "salariedCoupleTwoKids",
+    "row": "financial",
+    "year": 2040,
+    "expected": {
+      "row": {
+        "key": "financial",
+        "label": "金融資産残高",
+        "group": "資産・負債"
+      },
+      "evidence": {
+        "title": "2040年 金融資産残高",
+        "total": 23263501,
+        "context": "ご本人59歳・配偶者57歳",
+        "breakdown": [
+          {
+            "label": "年末の金融資産",
+            "amount": 23263501
+          }
+        ],
+        "formulas": [
+          "年末の金融資産 ＝ 年初の残高 ＋ 年間収支 ＋ 運用益"
+        ],
+        "params": [
+          {
+            "label": "NISA の口座を開ける年齢（その年1月1日に達している年齢）",
+            "value": "18",
+            "source": "租税特別措置法 第37条の14第5項第1号（令和4年4月1日の版）／租税特別措置法 第37条の14第5項第1号（令和6年1月1日の版）",
+            "version": "2026.2.0",
+            "appliesFrom": "2024-01-01"
+          },
+          {
+            "label": "NISA のつみたて投資枠の年間投資枠",
+            "value": "1,200,000",
+            "source": "租税特別措置法 第37条の14第5項第6号イ（令和6年1月1日の版）／金融庁 NISAの抜本的拡充・恒久化のイメージ",
+            "version": "2026.2.0",
+            "appliesFrom": "2024-01-01"
+          },
+          {
+            "label": "NISA の非課税保有限度額（総枠。簿価で管理し、売却した翌年に復活）",
+            "value": "18,000,000",
+            "source": "租税特別措置法 第37条の14（令和6年1月1日の版）／租税特別措置法 第37条の14第5項第6号イ（令和8年10月1日の版）",
+            "version": "2026.2.0",
+            "appliesFrom": "2024-01-01"
+          },
+          {
+            "label": "NISA の成長投資枠の年間投資枠",
+            "value": "2,400,000",
+            "source": "租税特別措置法 第37条の14第5項第6号（令和6年1月1日の版）／租税特別措置法 第37条の14第5項第6号（令和8年10月1日の版）",
+            "version": "2026.2.0",
+            "appliesFrom": "2024-01-01"
+          },
+          {
+            "label": "NISA の非課税保有限度額のうち成長投資枠（内数）",
+            "value": "12,000,000",
+            "source": "租税特別措置法 第37条の14（令和6年1月1日の版）／金融庁 NISAの抜本的拡充・恒久化のイメージ",
+            "version": "2026.2.0",
+            "appliesFrom": "2024-01-01"
+          },
+          {
+            "label": "特定暗号資産の譲渡損失を繰り越して、翌年以後の特定暗号資産の譲渡等の所得から控除できる年数（住民税も同じとみなす。2027年までは制度なし）",
+            "value": "3",
+            "source": "令和8年度税制改正の大綱（令和7年12月26日閣議決定）の暗号資産の譲渡等に係る課税／解説: 特定暗号資産の分離課税（大綱の要約）",
+            "version": "2026.17.0",
+            "appliesFrom": "2028-01-01"
+          },
+          {
+            "label": "学習費総額の年額（公立中学校。子供の学習費調査）",
+            "value": "542,450",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校教育費",
+            "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "学校外活動費の年額（公立中学校）",
+            "value": "356,018",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校外活動費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+            "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "学校給食費の年額（公立中学校。子供の学習費調査。学習費総額のうち）",
+            "value": "35,671",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校給食費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+            "version": "2026.3.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "学習費総額の年額（公立高等学校（全日制）。子供の学習費調査）",
+            "value": "596,954",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校教育費",
+            "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "学校外活動費の年額（公立高校）",
+            "value": "245,431",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校外活動費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+            "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "私立大学の授業料の平均（文科系。令和7年度入学者）",
+            "value": "850,392",
+            "source": "（資料1）令和7年度私立大学入学者に係る初年度学生納付金平均額の調査結果 Ⅱ 調査結果",
+            "version": "2026.2.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "私立大学の施設設備費の平均（文科系。令和7年度入学者）",
+            "value": "141,892",
+            "source": "（資料1）令和7年度私立大学入学者に係る初年度学生納付金平均額の調査結果 Ⅱ 調査結果",
+            "version": "2026.2.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "私立大学の入学料の平均（文科系。令和7年度入学者）",
+            "value": "219,951",
+            "source": "（資料1）令和7年度私立大学入学者に係る初年度学生納付金平均額の調査結果 Ⅱ 調査結果",
+            "version": "2026.2.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "自宅外通学の仕送りの年額（教育費負担の実態調査）",
+            "value": "958,000",
+            "source": "教育費負担の実態調査結果（日本政策金融公庫、2021年12月20日）／教育費負担の実態調査結果（日本政策金融公庫、2021年12月20日）",
+            "version": "2026.2.0",
+            "appliesFrom": "2021-04-01"
+          },
+          {
+            "label": "自宅外通学を始めるための費用（教育費負担の実態調査）",
+            "value": "387,000",
+            "source": "教育費負担の実態調査結果（日本政策金融公庫、2021年12月20日）／教育費負担の実態調査結果（日本政策金融公庫、2021年12月20日）",
+            "version": "2026.2.0",
+            "appliesFrom": "2021-04-01"
+          },
+          {
+            "label": "学習費総額の年額（公立小学校。子供の学習費調査）",
+            "value": "366,599",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校教育費",
+            "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "学校外活動費の年額（公立小学校）",
+            "value": "256,489",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校外活動費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+            "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "学校給食費の年額（公立小学校。子供の学習費調査。学習費総額のうち）",
+            "value": "35,774",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校給食費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+            "version": "2026.3.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "学校給食費の負担軽減の基準額（公立小学校・完全給食。児童1人の月額。国と都道府県が自治体の食材費を支援）",
+            "value": "5,200",
+            "source": "学校給食費の抜本的な負担軽減（文部科学省）どのくらい負担が軽くなるの？ 基準額／学校給食費の抜本的な負担軽減（文部科学省）どんな取組？",
+            "version": "2026.5.0",
+            "appliesFrom": "2026-04-01"
+          },
+          {
+            "label": "学校給食費の負担軽減の年間の月数（基準額×この月数が1年の支援の上限）",
+            "value": "11",
+            "source": "学校給食費の抜本的な負担軽減（文部科学省）どのくらい負担が軽くなるの？／給食費負担軽減交付金実施要領 3（2）交付金の上限額",
+            "version": "2026.5.0",
+            "appliesFrom": "2026-04-01"
+          },
+          {
+            "label": "学習費総額の年額（私立高等学校（全日制）。子供の学習費調査）",
+            "value": "1,179,261",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校教育費",
+            "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "学校外活動費の年額（私立高校）",
+            "value": "346,611",
+            "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校外活動費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+            "version": "2026.2.0",
+            "appliesFrom": "2023-04-01"
+          },
+          {
+            "label": "後期高齢者医療に移る年齢（健康保険の資格を失う年齢）",
+            "value": "75",
+            "source": "高齢者の医療の確保に関する法律 第50条第1号／健康保険法 第3条第1項第7号（後期高齢者医療の被保険者は健康保険の被保険者としない）",
+            "version": "2026.3.0",
+            "appliesFrom": "2025-01-01"
+          }
+        ],
+        "note": "表は受け取った年・支払った年で集計しています（年金は偶数月に前の2か月分を受け取ります）。"
+      },
+      "ids": {
+        "formulas": [
+          "plan.cashflow.closing"
+        ],
+        "regulation": [
+          "nisa.eligibleAge",
+          "nisa.annualLimit.tsumitate",
+          "nisa.lifetimeLimit",
+          "nisa.annualLimit.growth",
+          "nisa.lifetimeLimit.growth",
+          "incomeTax.cryptoAsset.lossCarryforwardYears",
+          "education.statistics.juniorHigh.public.total",
+          "education.statistics.juniorHigh.public.outOfSchool",
+          "education.statistics.juniorHigh.public.schoolLunch",
+          "education.statistics.highSchool.public.total",
+          "education.statistics.highSchool.public.outOfSchool",
+          "education.statistics.university.private.humanities.tuition",
+          "education.statistics.university.private.humanities.facility",
+          "education.statistics.university.private.humanities.admission",
+          "education.statistics.boarding.annual",
+          "education.statistics.boarding.initial",
+          "education.statistics.elementary.public.total",
+          "education.statistics.elementary.public.outOfSchool",
+          "education.statistics.elementary.public.schoolLunch",
+          "educationSupport.schoolLunch.elementary.public.monthly",
+          "educationSupport.schoolLunch.months",
+          "education.statistics.highSchool.private.total",
+          "education.statistics.highSchool.private.outOfSchool",
+          "socialInsurance.health.lateElderlyAge"
+        ]
+      }
+    }
+  },
+  {
+    "name": "給付・手当",
+    "sample": "salariedCoupleTwoKids",
+    "row": "benefit",
+    "year": 2027,
+    "expected": {
+      "row": {
+        "key": "benefit",
+        "label": "給付・手当",
+        "group": "収入"
+      },
+      "evidence": {
+        "title": "2027年 給付・手当",
+        "total": 240000,
+        "context": "ご本人46歳・配偶者44歳・第1子15歳・第2子12歳",
+        "breakdown": [
+          {
+            "label": "児童手当",
+            "amount": 240000
+          }
+        ],
+        "formulas": [
+          "児童手当 ＝ 子の年齢と人数による月額 × 月数（支給月にまとめて受け取る）"
+        ],
+        "params": [
+          {
+            "label": "児童手当の3歳未満の額の終わり（この年齢に達した月の翌月から3歳以上の額）",
+            "value": "3",
+            "source": "児童手当法 第6条第2項第5号（令和6年10月1日の版）／児童手当法 第9条第3項（令和6年10月1日の版）",
+            "version": "2026.2.0",
+            "appliesFrom": "2024-10-01"
+          },
+          {
+            "label": "児童手当の対象の終わり（この年齢に達した後の最初の3月31日まで）",
+            "value": "18",
+            "source": "児童手当法 第3条第1項（令和6年10月1日の版）／児童手当制度のご案内（こども家庭庁）",
+            "version": "2026.2.0",
+            "appliesFrom": "2024-10-01"
+          },
+          {
+            "label": "児童手当の第3子の数え方で数える子の年齢（この年齢に達した後の最初の3月31日まで）",
+            "value": "22",
+            "source": "児童手当法 第6条第2項第2号（令和6年10月1日の版）／「第3子以降」のカウント方法について（こども家庭庁）",
+            "version": "2026.2.0",
+            "appliesFrom": "2024-10-01"
+          },
+          {
+            "label": "児童手当の月額（3歳から高校生年代まで。第1子・第2子）",
+            "value": "10,000",
+            "source": "児童手当法 第6条第3項（令和6年10月1日の版）／児童手当法 第6条第3項（令和7年6月1日の版）",
+            "version": "2026.2.0",
+            "appliesFrom": "2024-10-01"
+          }
+        ],
+        "note": "表は受け取った年・支払った年で集計しています（年金は偶数月に前の2か月分を受け取ります）。"
+      },
+      "ids": {
+        "formulas": [
+          "benefit.childAllowance.monthly"
+        ],
+        "regulation": [
+          "childAllowance.lowerAge",
+          "childAllowance.untilAge",
+          "childAllowance.countUntilAge",
+          "childAllowance.monthly.general"
+        ]
+      }
+    }
+  },
+  {
+    "name": "住居費",
+    "sample": "housingPurchase",
+    "row": "housing",
+    "year": 2030,
+    "expected": {
+      "row": {
+        "key": "housing",
+        "label": "住居費（ローン・税・修繕）",
+        "group": "支出"
+      },
+      "evidence": {
+        "title": "2030年 住居費（ローン・税・修繕）",
+        "total": 1637052,
+        "context": "ご本人36歳・配偶者34歳・第1子5歳",
+        "breakdown": [
+          {
+            "label": "住宅ローンの返済",
+            "amount": 1299756
+          },
+          {
+            "label": "修繕費",
+            "amount": 187296
+          },
+          {
+            "label": "固定資産税",
+            "amount": 150000
+          }
+        ],
+        "formulas": [
+          "毎月の返済額 ＝ 元利均等返済（金利の見直し・5年ルール・125%ルールを含む）",
+          "修繕費 ＝ 月額 × 上昇率での延ばし",
+          "固定資産税 ＝ 入力した年額"
+        ],
+        "params": [],
+        "note": "表は受け取った年・支払った年で集計しています（年金は偶数月に前の2か月分を受け取ります）。"
+      },
+      "ids": {
+        "formulas": [
+          "debt.schedule.equalPayment",
+          "housing.residence.maintenance",
+          "housing.residence.propertyTax"
+        ],
+        "regulation": []
+      }
+    }
+  },
+  {
+    "name": "iDeCo の一時金（行ID で選ぶ）",
+    "sample": "idecoPayout",
+    "row": "cf.income.lumpSum.ideco",
+    "year": 2038,
+    "expected": {
+      "row": {
+        "key": "incomeOther",
+        "label": "その他の収入",
+        "group": "収入"
+      },
+      "evidence": {
+        "title": "2038年 その他の収入",
+        "total": 2004592,
+        "context": "ご本人67歳・配偶者65歳",
+        "breakdown": [
+          {
+            "label": "iDeCo（一時金）",
+            "amount": 2004592
+          }
+        ],
+        "formulas": [
+          "iDeCo（一時金）（式の説明はまだ載せていません）"
+        ],
+        "params": [
+          {
+            "label": "iDeCo・企業型DC を受け取れる最も早い年齢（通算加入者等期間が10年以上）",
+            "value": "60",
+            "source": "確定拠出年金法 第33条第1項第1号（平成29年4月1日の版）／同（令和8年4月1日の版）",
+            "version": "2026.2.0",
+            "appliesFrom": "2017-01-01"
+          },
+          {
+            "label": "iDeCo・企業型DC の受け取りを始める年齢の上限",
+            "value": "75",
+            "source": "確定拠出年金法 第34条（令和4年4月1日の版）／2020年の制度改正 受給開始時期の選択肢の拡大（2022年4月1日施行）",
+            "version": "2026.2.0",
+            "appliesFrom": "2022-04-01"
+          },
+          {
+            "label": "通算加入者等期間（月数）ごとの受給開始の年齢（60歳の時点の期間で判定。段の upTo は月数、amount は年齢）",
+            "value": "表（6段）",
+            "source": "確定拠出年金法 第33条第1項（平成29年4月1日の版）／同（令和8年4月1日の版）",
+            "version": "2026.2.0",
+            "appliesFrom": "2017-01-01"
+          },
+          {
+            "label": "iDeCo に加入できる年齢の上限（この年齢に達する前の月まで）",
+            "value": "65",
+            "source": "確定拠出年金法 第62条第1項第4号（令和4年5月1日の版）／iDeCoに加入できる年齢の要件などが拡大されます（2022年5月から）",
+            "version": "2026.2.0",
+            "appliesFrom": "2022-05-01"
+          },
+          {
+            "label": "iDeCo の掛金の最低額（月額）",
+            "value": "5,000",
+            "source": "iDeCo公式 加入資格・掛金／企業型DCの拠出限度額のリーフレット",
+            "version": "2026.2.0",
+            "appliesFrom": "2017-01-01"
+          },
+          {
+            "label": "iDeCo に加入できる年齢の上限（この年齢に達する前の月まで）",
+            "value": "70",
+            "source": "確定拠出年金法 第62条第4項第3号（令和8年12月1日の版）／2025年の制度改正",
+            "version": "2026.2.0",
+            "appliesFrom": "2026-12-01"
+          },
+          {
+            "label": "iDeCo の拠出限度額（60歳以上70歳未満で国民年金の被保険者でない加入者＝第5号。月額）",
+            "value": "62,000",
+            "source": "確定拠出年金法施行令 第36条第7号（令和8年12月1日の版）／2025年の制度改正 iDeCoの加入可能年齢の引き上げ ※1",
+            "version": "2026.2.0",
+            "appliesFrom": "2026-12-01"
+          },
+          {
+            "label": "iDeCo の第5号加入者の経過措置（1 のあいだは、前の加入・運用指図・移換がなくても60〜70歳で加入できる）",
+            "value": "0",
+            "source": "社会経済の変化を踏まえた年金制度の機能強化のための国民年金法等の一部を改正する等の法律（令和7年法律第74号）附則第33条第1項／2025年の制度改正 iDeCoの加入可能年齢の引き上げ（厚生労働省）",
+            "version": "2026.4.0",
+            "appliesFrom": "2029-12-01"
+          },
+          {
+            "label": "iDeCo の拠出限度額（第3号被保険者。月額）",
+            "value": "23,000",
+            "source": "確定拠出年金法施行令 第36条第5号（平成29年1月1日の版）／確定拠出年金法施行令 第36条第6号（令和8年12月1日の版）",
+            "version": "2026.2.0",
+            "appliesFrom": "2017-01-01"
+          },
+          {
+            "label": "国民年金の第1号・第3号被保険者の年齢の終わり（60歳未満）",
+            "value": "60",
+            "source": "国民年金法 第7条第1項第1号／日本年金機構「従業員の配偶者を扶養に入れるときの手続き」",
+            "version": "2026.4.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "国民年金の第1号・第3号被保険者の年齢の始まり（20歳）",
+            "value": "20",
+            "source": "国民年金法 第7条第1項第1号／日本年金機構「従業員の配偶者を扶養に入れるときの手続き」",
+            "version": "2026.4.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "第2号被保険者の年齢の終わり（65歳以上で老齢年金の受給権がある人は第2号でない）",
+            "value": "65",
+            "source": "国民年金法 附則（制定時）第3条",
+            "version": "2026.4.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "後期高齢者医療に移る年齢（健康保険の資格を失う年齢）",
+            "value": "75",
+            "source": "高齢者の医療の確保に関する法律 第50条第1号／健康保険法 第3条第1項第7号（後期高齢者医療の被保険者は健康保険の被保険者としない）",
+            "version": "2026.3.0",
+            "appliesFrom": "2025-01-01"
+          },
+          {
+            "label": "健康保険の被扶養者の年間収入の基準が上がる年齢",
+            "value": "60",
+            "source": "日本年金機構「19歳以上23歳未満の方の被扶養者認定における年間収入要件の取扱いが変わります」／協会けんぽ「被扶養者資格の再確認」",
+            "version": "2026.4.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "被扶養者の基準が150万円になる年齢（19歳以上）",
+            "value": "19",
+            "source": "日本年金機構「19歳以上23歳未満の方の被扶養者認定における年間収入要件の取扱いが変わります」／日本年金機構 Q&A（年齢要件の判定時点）",
+            "version": "2026.4.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "被扶養者の基準が150万円の年齢の終わり（23歳未満）",
+            "value": "23",
+            "source": "日本年金機構「19歳以上23歳未満の方の被扶養者認定における年間収入要件の取扱いが変わります」／日本年金機構 Q&A（年齢要件の判定時点）",
+            "version": "2026.4.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "健康保険の被扶養者・国民年金の第3号被保険者の年間収入の基準（未満）",
+            "value": "1,300,000",
+            "source": "日本年金機構「19歳以上23歳未満の方の被扶養者認定における年間収入要件の取扱いが変わります」／日本年金機構「従業員の配偶者を扶養に入れるときの手続き」",
+            "version": "2026.4.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "健康保険の被扶養者の年間収入の基準（60歳以上。未満）",
+            "value": "1,800,000",
+            "source": "日本年金機構「19歳以上23歳未満の方の被扶養者認定における年間収入要件の取扱いが変わります」／協会けんぽ「被扶養者資格の再確認」",
+            "version": "2026.4.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "支払期ごとの支払額の端数処理（1円未満切り捨て。切り捨てた合計は2月の支払期に加算）",
+            "value": "表",
+            "source": "国民年金法 第18条の2／日本年金機構 年金Q&A（支払額の端数）",
+            "version": "2026.1.0",
+            "appliesFrom": "2015-04-01"
+          },
+          {
+            "label": "雇用保険の被保険者になる週の所定労働時間（以上）",
+            "value": "20",
+            "source": "雇用保険法 第6条第1号／厚生労働省「雇用保険制度の概要」",
+            "version": "2026.4.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "雇用保険の被保険者になる週の所定労働時間（以上）",
+            "value": "10",
+            "source": "雇用保険法 第6条第1号（令和10年10月1日の版）／厚生労働省「令和６年雇用保険制度改正（令和10年10月１日施行分）について」",
+            "version": "2026.4.0",
+            "appliesFrom": "2028-10-01"
+          },
+          {
+            "label": "被用者保険に入る労働時間の基準（通常の労働者の週の所定労働時間の4分の3）",
+            "value": "0.75",
+            "source": "健康保険法 第3条第1項第9号／日本年金機構 Q&A（短時間労働者の適用要件）",
+            "version": "2026.4.0",
+            "appliesFrom": "2025-04-01"
+          },
+          {
+            "label": "高年齢雇用継続基本給付金の支給の終わりの年齢（65歳に達する月まで）",
+            "value": "65",
+            "source": "ハローワーク「高年齢雇用継続給付について」支給期間／雇用保険法 第61条第2項（令和8年5月13日の版）",
+            "version": "2026.9.0",
+            "appliesFrom": "2017-04-01"
+          },
+          {
+            "label": "高年齢雇用継続基本給付金の支給の始まりの年齢（60歳に達した月から）",
+            "value": "60",
+            "source": "ハローワーク「高年齢雇用継続給付について」支給期間／雇用保険法 第61条第1項（令和8年5月13日の版）",
+            "version": "2026.9.0",
+            "appliesFrom": "2017-04-01"
+          }
+        ],
+        "note": "表は受け取った年・支払った年で集計しています（年金は偶数月に前の2か月分を受け取ります）。"
+      },
+      "ids": {
+        "formulas": [
+          "account.ideco.lumpSum"
+        ],
+        "regulation": [
+          "ideco.payout.earliestAge",
+          "ideco.payout.latestAge",
+          "ideco.payout.startAgeByMonths",
+          "ideco.enrollment.untilAge",
+          "ideco.contribution.minimum",
+          "ideco.enrollment.untilAge",
+          "ideco.contributionLimit.category5",
+          "ideco.category5.openEnrollment",
+          "ideco.contributionLimit.category3",
+          "socialInsurance.nationalPension.untilAge",
+          "socialInsurance.nationalPension.fromAge",
+          "socialInsurance.nationalPension.category2UntilAge",
+          "socialInsurance.health.lateElderlyAge",
+          "socialInsurance.dependent.elderlyAge",
+          "socialInsurance.dependent.youngFromAge",
+          "socialInsurance.dependent.youngUntilAge",
+          "socialInsurance.dependent.incomeLimit",
+          "socialInsurance.dependent.incomeLimitElderly",
+          "pension.payment.rounding",
+          "employmentInsurance.coverage.weeklyHours",
+          "employmentInsurance.coverage.weeklyHours",
+          "socialInsurance.coverage.regularHoursRatio",
+          "employmentInsurance.elderlyContinuation.untilAge",
+          "employmentInsurance.elderlyContinuation.fromAge"
+        ]
+      }
+    }
+  },
+  {
+    "name": "プラン（物価の想定を変える）",
+    "sample": "salariedCoupleTwoKids",
+    "changes": [
+      {
+        "op": "replace",
+        "path": "/assumptions/inflation",
+        "value": {
+          "default": "0.02"
+        }
+      }
+    ],
+    "row": "living",
+    "year": 2040,
+    "expected": {
+      "row": {
+        "key": "living",
+        "label": "基本生活費",
+        "group": "支出"
+      },
+      "evidence": {
+        "title": "2040年 基本生活費",
+        "total": 4037598,
+        "context": "ご本人59歳・配偶者57歳",
+        "breakdown": [
+          {
+            "label": "基本生活費（段階）",
+            "amount": 4037598
+          }
+        ],
+        "formulas": [
+          "段階の後の生活費 ＝ 毎月の生活費 × 段階の割合（子の独立・退職・80歳など） × 物価上昇率での延ばし"
+        ],
+        "params": [],
+        "note": "表は受け取った年・支払った年で集計しています（年金は偶数月に前の2か月分を受け取ります）。"
+      },
+      "ids": {
+        "formulas": [
+          "expense.living.stage"
+        ],
+        "regulation": []
+      }
+    }
+  },
+  {
+    "name": "直接使った値だけ",
+    "sample": "salariedCoupleTwoKids",
+    "row": "taxSi",
+    "year": 2030,
+    "depth": 0,
+    "maxParams": 5,
+    "expected": {
+      "row": {
+        "key": "taxSi",
+        "label": "税・社会保険料",
+        "group": "支出"
+      },
+      "evidence": {
+        "title": "2030年 税・社会保険料",
+        "total": 1949346,
+        "context": "ご本人49歳・配偶者47歳・第1子18歳・第2子15歳",
+        "breakdown": [
+          {
+            "label": "介護保険料",
+            "amount": 48600
+          },
+          {
+            "label": "子ども・子育て支援金",
+            "amount": 6900
+          },
+          {
+            "label": "雇用保険料",
+            "amount": 37464
+          },
+          {
+            "label": "健康保険料",
+            "amount": 290100
+          },
+          {
+            "label": "所得税（源泉徴収）",
+            "amount": 330700
+          },
+          {
+            "label": "厚生年金保険料",
+            "amount": 549000
+          },
+          {
+            "label": "住民税（給与から）",
+            "amount": 398100
+          },
+          {
+            "label": "介護保険",
+            "amount": 15164
+          },
+          {
+            "label": "子ども・子育て支援金",
+            "amount": 2152
+          },
+          {
+            "label": "雇用保険",
+            "amount": 9366
+          },
+          {
+            "label": "健康保険料（賞与）",
+            "amount": 90512
+          },
+          {
+            "label": "厚生年金保険料（賞与）",
+            "amount": 171288
+          }
+        ],
+        "formulas": [
+          "介護保険料 ＝ 標準報酬月額 × 保険料率（40〜64歳）",
+          "支援金 ＝ 標準報酬月額 × 支援金率",
+          "雇用保険料 ＝ 賃金 × 保険料率",
+          "健康保険料 ＝ 標準報酬月額 × 保険料率（本人の負担分）",
+          "所得税 ＝（所得 − 所得控除）× 税率 − 税額控除 ＋ 復興特別所得税",
+          "厚生年金保険料 ＝ 標準報酬月額 × 保険料率（本人の負担分）",
+          "住民税 ＝（前年の所得 − 所得控除）× 税率 − 税額控除 ＋ 均等割",
+          "介護保険（式の説明はまだ載せていません）",
+          "子ども・子育て支援金（式の説明はまだ載せていません）",
+          "雇用保険（式の説明はまだ載せていません）",
+          "健康保険料 ＝ 標準賞与額 × 保険料率（本人の負担分）",
+          "厚生年金保険料 ＝ 標準賞与額 × 保険料率（本人の負担分）"
+        ],
+        "params": [
+          {
+            "label": "子ども・子育て支援金率（被用者保険。労使の合計。標準報酬月額・標準賞与額に掛ける）",
+            "value": "該当なし",
+            "source": "令和8年度の料率のページ／令和8年3月分からの保険料額表（東京支部）",
+            "version": "2026.1.0",
+            "appliesFrom": "2025-03-01"
+          },
+          {
+            "label": "協会けんぽの健康保険料率（都道府県支部ごと。労使の合計）",
+            "value": "0.0976",
+            "source": "令和7年度 都道府県単位保険料率の表（埼玉）／令和8年度の表の令和7年度の列（埼玉）",
+            "version": "2026.1.0",
+            "appliesFrom": "2025-03-01"
+          },
+          {
+            "label": "協会けんぽの介護保険料率（全国一律。労使の合計）",
+            "value": "0.0159",
+            "source": "令和7年3月分からの保険料額表（全都道府県分）。各シートの「介護保険第2号被保険者に該当する場合」の率−健康保険料率＝1.59%（47シートすべて）／令和7年度の料率のページ",
+            "version": "2026.1.0",
+            "appliesFrom": "2025-03-01"
+          },
+          {
+            "label": "健康保険料・介護保険料・支援金・厚生年金保険料の被保険者負担分を給与から控除するときの端数（50銭以下切り捨て、50銭超切り上げ）",
+            "value": "表",
+            "source": "日本年金機構 厚生年金保険料額表（令和8年度版）の注／協会けんぽ 保険料額表（東京支部）の注",
+            "version": "2026.1.0",
+            "appliesFrom": "2025-01-01"
+          },
+          {
+            "label": "協会けんぽの健康保険料率（都道府県支部ごと。労使の合計）",
+            "value": "0.0967",
+            "source": "令和8年度 都道府県単位保険料率の表（埼玉）／令和8年3月分からの保険料額表（全都道府県分）シート「埼玉」の健康保険料率 9.67%",
+            "version": "2026.2.0",
+            "appliesFrom": "2026-03-01"
+          }
+        ],
+        "note": "表は受け取った年・支払った年で集計しています（年金は偶数月に前の2か月分を受け取ります）。"
+      },
+      "ids": {
+        "formulas": [
+          "socialInsurance.care.monthly",
+          "socialInsurance.childSupport.monthly",
+          "socialInsurance.employment.monthly",
+          "socialInsurance.health.monthly",
+          "incomeTax.annual.withholding",
+          "socialInsurance.pension.monthly",
+          "residentTax.special.installment",
+          "socialInsurance.care.bonus",
+          "socialInsurance.childSupport.bonus",
+          "socialInsurance.employment.bonus",
+          "socialInsurance.health.bonus",
+          "socialInsurance.pension.bonus"
+        ],
+        "regulation": [
+          "socialInsurance.childSupport.rate",
+          "socialInsurance.health.kyokaikenpo.rate",
+          "socialInsurance.care.kyokaikenpo.rate",
+          "socialInsurance.employeeShare.rounding",
+          "socialInsurance.health.kyokaikenpo.rate"
+        ]
+      }
+    }
+  }
+]

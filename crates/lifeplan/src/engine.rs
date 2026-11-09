@@ -11,6 +11,8 @@ pub mod assets {
 struct Ready {
     bytecode: EngineBytecode,
     preview_options: String,
+    /// 根拠の記録「全部」の計算の options（表示の形にしない。アプリ本体の根拠の計算と同じ）
+    full_options: String,
 }
 
 static PACKS_JSON: OnceLock<String> = OnceLock::new();
@@ -26,9 +28,11 @@ fn init() -> Result<Ready, String> {
     let checked: Value = serde_json::from_str(&digests).map_err(|e| e.to_string())?;
     let preview_options =
         serde_json::json!({ "preview": true, "packsChecked": checked }).to_string();
+    let full_options = serde_json::json!({ "packsChecked": checked }).to_string();
     Ok(Ready {
         bytecode,
         preview_options,
+        full_options,
     })
 }
 
@@ -54,4 +58,29 @@ pub fn run_preview(request: &Value) -> Result<Value, String> {
         Value::Array(mut a) if a.len() == 1 => a.remove(0),
         other => other,
     })
+}
+
+/// 根拠の記録「全部」（要求の trace は full）で計算し、エンジンの出力全体を文字のまま返す（アプリ本体の根拠の計算と同じ上限と options。0006 の7）。
+/// 重いので、呼ぶ側は spawn_blocking の中で。エンジン・ホストのエラーは `{"error": {"code", "ids"}}`
+pub fn run_full(request: &Value) -> Result<String, String> {
+    let ready = READY.get_or_init(init).as_ref().map_err(Clone::clone)?;
+    let run = || -> Result<String, engine_host::HostError> {
+        let sandbox = Sandbox::new(&Limits::FULL_TRACE)?;
+        sandbox.load_engine_bytecode(&ready.bytecode)?;
+        sandbox.run(&request.to_string(), packs_json(), &ready.full_options)
+    };
+    Ok(run().unwrap_or_else(|e| {
+        serde_json::json!({ "error": { "code": e.code(), "ids": [] } }).to_string()
+    }))
+}
+
+/// 「数字の根拠」の読み方（画面の根拠のパネルと同じ関数。app/src/connector/explain.ts。0183）を、計算と同じ固めた新しい実行環境で動かす。
+/// full は run_full の出力、request は計算の要求、args は行・年など。戻り値は読み方の答え（JSON の文字）
+pub fn explain(full: &str, request: &str, args: &str) -> Result<String, String> {
+    let run = || -> Result<String, engine_host::HostError> {
+        let sandbox = Sandbox::new(&Limits::FULL_TRACE)?;
+        sandbox.eval_script(assets::EXPLAIN_JS)?;
+        sandbox.call_function("FinanciaExplain", "explain", (full, request, args))
+    };
+    run().map_err(|e| e.code().to_owned())
 }

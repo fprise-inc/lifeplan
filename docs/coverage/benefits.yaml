@@ -1,0 +1,227 @@
+# 対応範囲の一覧（給付・手当）。形は coverage.schema.json
+area: benefits
+title: 給付・手当
+order: 6
+entries:
+  - id: benefits.childAllowance
+    title: 児童手当
+    status: approximated
+    summary: >-
+      入っています。2024年10月分からの制度で、子ごとに出生の翌月分から18歳到達後の最初の3月分まで、年齢と第何子かで決まる月額を、偶数月に前の2か月分ずつ受け取る形で載せます。
+      所得の制限はありません。
+    how: >-
+      3歳未満（3歳の誕生日の月まで）は3歳未満の月額、それ以後は一般の月額、第3子以降は第3子以降の月額です。支払いは偶数月に前の2か月分（2月に12月・1月分）です。
+      受け取るのは子の最初の親（親子の関係が無ければご本人）で、その親が亡くなった後は残った親です。「子ども・教育」の入力項目で「児童手当を計算する」を
+      外した子は計算しません。離れて暮らす子（世帯の外の子）は数えません。
+    approximation: >-
+      第3子以降の数え方は、22歳到達後の最初の3月31日までの、世帯にいる子を生まれの順に数えます（親が経済的な負担をしているとみなします）。
+    reason: 19〜22歳の子に親が経済的な負担をしているかを聞く欄を持っていないためです。
+    keywords: [児童手当, 子どもの手当, 第3子, 多子加算, 高校生年代, 所得制限の撤廃]
+    items: [goal.education, member.birth]
+    fields:
+      - 「子ども・教育」の入力項目の「児童手当を計算する」
+      - 「家族」の入力項目の子の生年月
+    rules:
+      - 児童手当法
+    regulation:
+      - childAllowance.monthly.under3
+      - childAllowance.monthly.general
+      - childAllowance.monthly.thirdChild
+      - childAllowance.untilAge
+      - childAllowance.countUntilAge
+    rows: [cf.income.benefit.childAllowance]
+    components:
+      benefit.childAllowance: 4
+    related:
+      - benefits.childSupportAllowance
+
+  - id: benefits.childcareLeave
+    title: 育児休業給付（育休・出生後休業支援・時短）
+    status: approximated
+    summary: >-
+      入っています。雇用保険に入る人の育児休業給付金（最初の6か月は67%、その後50%）、出生後休業支援給付（13%の上乗せ）、育児時短就業給付（時短中の給与の10%）を計算します。
+      非課税の収入として載せます。
+    how: >-
+      育児休業給付金は、休業開始時賃金日額（休業の前6か月の給与〔賞与を除く〕÷180。上限・下限あり）×30日×率です。産前産後休業に続く母の育児休業は、
+      産前産後休業の前6か月で計算します。出生後休業支援給付は、子の出生から8週間以内（産後休業をした人は16週間以内）に始まる育児休業で、配偶者も育児休業をとる・
+      雇用保険に入っていない・産後休業中のいずれかのとき、最初の月に賃金日額×28日×13%です。育児時短就業給付は、2歳未満の子のための時短の期間に、
+      時短の前より下がった給与の月に、その月の給与×10%（支給限度額まで）です。給付金は2か月分ずつ次の月に、時短の給付は翌月に受け取ります。
+      会社役員・公務員の期間は出ません。
+    approximation: 日数は暦の日数ではなく、1か月を30日とみなして計算します。
+    reason: 計算を月単位にしているためです。
+    keywords: [育児休業給付金, 育休手当, 出生後休業支援給付, 育児時短就業給付, 手取り10割, 産休・育休]
+    items: [employment.leaveKind, employment.leaveChild, employment.childcareShortHours]
+    fields:
+      - 「働き方と収入」の入力項目の休業の種類（育児休業）
+    rules:
+      - 雇用保険法61条の7
+      - 雇用保険法61条の10
+    regulation:
+      - employmentInsurance.childcareBenefit.rateInitial
+      - employmentInsurance.childcareBenefit.rateLater
+      - employmentInsurance.childcareBenefit.dailyWageMax
+      - employmentInsurance.postBirthBenefit.rate
+      - employmentInsurance.postBirthBenefit.withinMonths
+      - employmentInsurance.shortHoursBenefit.rate
+      - employmentInsurance.shortHoursBenefit.monthlyLimit
+    rows: [cf.income.benefit]
+    components:
+      benefit.employment: 6
+    related:
+      - benefits.healthInsurance
+      - socialInsurance.leaveExemption
+
+  - id: benefits.careLeave
+    title: 介護休業給付金
+    status: approximated
+    summary: 入っています。雇用保険に入る人が介護休業をとった期間に、休業開始時賃金日額×日数×67%を、休業の終わりの翌月に受け取る形で載せます。
+    how: >-
+      休業開始時賃金日額（休業の前6か月の給与÷180。介護休業の上限あり）×休業の日数×67%を、30日あたりの支給の上限額を日数で按分した額までで計算します。
+      対象の家族1人につき通算93日・3回までです。対象の家族は、休業の始まりに続いている介護の費用の、介護を受ける人です（重なる介護が無い休業は1人の家族として数えます）。
+      会社役員・公務員の期間は出ません。
+    approximation: 休業の日数は、休業の月数×30日とみなします。
+    reason: 計算を月単位にしているためです。
+    keywords: [介護休業給付金, 介護休業, 93日, 介護離職, 仕事と介護]
+    items: [employment.leaveKind]
+    fields:
+      - 「働き方と収入」の入力項目の休業の種類（介護休業）
+    rules:
+      - 雇用保険法61条の4
+    regulation:
+      - employmentInsurance.careLeaveBenefit.rate
+      - employmentInsurance.careLeaveBenefit.maxDays
+      - employmentInsurance.careLeaveBenefit.maxTimes
+      - employmentInsurance.careLeaveBenefit.monthlyLimit
+    rows: [cf.income.benefit]
+    components:
+      benefit.employment: 6
+    related:
+      - benefits.childcareLeave
+
+  - id: benefits.healthInsurance
+    title: 出産育児一時金・出産手当金・傷病手当金
+    status: approximated
+    summary: >-
+      入っています。子の出生の月の出産育児一時金と、勤め先の健康保険に入る人の産前産後休業の出産手当金・病気の休業の傷病手当金を、非課税の収入として載せます。
+    how: >-
+      出産育児一時金は、母が健康保険・国民健康保険などに入っていれば、子の出生の月に受け取ります。出産手当金と傷病手当金の日額は、休業の始まりの月以前の12か月の
+      標準報酬月額の平均÷30（10円単位）×2/3です。出産手当金は98日分を休業の終わりの翌月に、傷病手当金は休業の月ごとに（最初の月は待期の3日を除く）翌月に、
+      通算の上限の日数まで受け取ります。休業は働き方の期間を「休業中」にして、休業の種類（産前産後休業・病気の休業）を選びます。
+    approximation: 日数は暦の日数ではなく、1か月を30日とみなして計算します。
+    reason: 計算を月単位にしているためです。
+    keywords: [出産育児一時金, 出産手当金, 傷病手当金, 病気の休業, 産前産後休業, 1年6か月]
+    items: [employment.leaveKind, member.birth]
+    fields:
+      - 「働き方と収入」の入力項目の休業の種類（産前産後休業・病気の休業）
+      - 「家族」の入力項目のこれから生まれる子
+    rules:
+      - 健康保険法99条
+      - 健康保険法101条
+      - 健康保険法102条
+    regulation:
+      - socialInsurance.childbirthLumpSum
+      - socialInsurance.maternityAllowance.days
+      - socialInsurance.sicknessAllowance.maxDays
+      - socialInsurance.sicknessAllowance.waitingDays
+      - socialInsurance.dailyAllowance.numerator
+    rows: [cf.income.benefit]
+    components:
+      benefit.health: 3
+    related:
+      - benefits.childcareLeave
+      - socialInsurance.highCostMedical
+      - socialInsurance.leaveExemption
+
+  - id: benefits.unemployment
+    title: 雇用保険の基本手当（失業給付）
+    status: approximated
+    summary: >-
+      入っています。雇用保険に入る仕事を辞め、次に働くまで働かない月があるとき、「辞めた後に失業給付を受け取る」にすると、基本手当を所定給付日数まで計算します。
+      65歳以上で辞めたときは高年齢求職者給付金（一時金）です。
+    how: >-
+      賃金日額は離職の前6か月の給与（賞与を除く）÷180（上限・下限は離職の日の年齢）、基本手当日額は賃金日額×給付率（80%〜50%。60〜64歳は80%〜45%）です。
+      辞めた月の翌月の初めに求職を申し込み、待期7日と自己都合の給付制限（令和7年4月からは原則1か月）の後から、辞め方・被保険者であった期間・年齢で決まる
+      所定給付日数まで受け取ります。次に働く月と受給期間（1年）で打ち切ります。雇用保険に入っていた期間が足りなければ出ず、知らせを出します。
+      基本手当を受ける間は65歳前の老齢厚生年金（特別支給・繰上げ）を止め、家族の扶養・第3号の判定にも基本手当日額を使います。受け取った月の翌月に載せます。
+    approximation: 日数は1か月を30日とみなして計算します。給付率の変わり目の賃金日額は、制度データの最初の期間の値を前の月にも使います。
+    reason: 計算を月単位にしているためと、過去の期間の変わり目の値を持っていないためです。
+    instead: 「辞めた後に失業給付を受け取る」をおまかせにすると、65歳未満で辞め、次に働くまで3か月以上あれば受け取るとして計算します。
+    keywords: [基本手当, 失業給付, 失業保険, 所定給付日数, 自己都合退職, 会社都合, 高年齢求職者給付金, 給付制限]
+    items: [employment.unemploymentClaim, employment.endsWith]
+    fields:
+      - 「働き方と収入」の入力項目の辞め方
+      - 「働き方と収入」の入力項目の「辞めた後に失業給付を受け取る」
+    rules:
+      - 雇用保険法16条
+      - 雇用保険法22条
+      - 雇用保険法37条の4
+    regulation:
+      - employmentInsurance.basicAllowance.rate.high
+      - employmentInsurance.basicAllowance.rate.low
+      - employmentInsurance.basicAllowance.dailyWageMin
+      - employmentInsurance.basicAllowance.waitingDays
+      - employmentInsurance.basicAllowance.restrictionMonths.voluntary
+      - employmentInsurance.basicAllowance.days.general.under10
+      - employmentInsurance.elderlyJobSeeker.days.from1
+    rows: [cf.income.benefit.unemployment]
+    components:
+      benefit.unemployment: 1
+    related:
+      - benefits.elderlyContinuation
+      - benefits.reemployment
+      - socialInsurance.dependent
+
+  - id: benefits.elderlyContinuation
+    title: 高年齢雇用継続給付
+    status: included
+    summary: >-
+      入っています。60〜64歳で働き続け、給与が60歳のときの75%未満に下がった月に、「60〜64歳で高年齢雇用継続給付を受け取る」にすると、高年齢雇用継続基本給付金を計算します。
+    how: >-
+      被保険者であった期間が5年以上の60〜64歳の月に、給与（賞与を除く）が60歳到達時の賃金月額の75%未満なら、給与×率（60歳に達した日が令和7年4月以後は最大10%、
+      それより前は最大15%。下がり方に応じて減らす率）を、支給限度額・最低限度額の範囲で翌月に受け取ります。受け取る月は、在職老齢年金に加えて老齢厚生年金の一部を止めます。
+      基本手当を受けた後に再就職したときの高年齢再就職給付金は入れていません。
+    keywords: [高年齢雇用継続給付, 高年齢雇用継続基本給付金, 60歳以降の給与, 再雇用, 75%未満, 年金の支給停止]
+    items: [employment.elderlyContinuationClaim]
+    fields:
+      - 「働き方と収入」の入力項目の「60〜64歳で高年齢雇用継続給付を受け取る」
+    rules:
+      - 雇用保険法61条
+    regulation:
+      - employmentInsurance.elderlyContinuation.maxRate
+      - employmentInsurance.elderlyContinuation.thresholdRatio
+      - employmentInsurance.elderlyContinuation.monthlyLimit
+      - employmentInsurance.elderlyContinuation.minimumAmount
+      - employmentInsurance.elderlyContinuation.requiredMonths
+    rows: [cf.income.benefit.unemployment]
+    components:
+      benefit.unemployment: 1
+    related:
+      - benefits.unemployment
+
+  - id: benefits.reemployment
+    title: 再就職手当・高年齢再就職給付金
+    status: notYet
+    summary: まだ入っていません。基本手当を受けている途中で再就職したときの再就職手当と、基本手当を受けた後の高年齢再就職給付金は計算していません。
+    reason: 基本手当は、次に働く月で打ち切る形にしているためです。
+    instead: 受け取る見込みの額を、「家族」の入力項目の入るお金の「手当・給付金」の行に入れると計算に入ります。
+    keywords: [再就職手当, 高年齢再就職給付金, 就業促進手当, 早期の再就職]
+    rules:
+      - 雇用保険法56条の3
+      - 雇用保険法61条の2
+    related:
+      - benefits.unemployment
+
+  - id: benefits.childSupportAllowance
+    title: 児童扶養手当・自治体の手当
+    status: notYet
+    summary: まだ入っていません。児童扶養手当や、ひとり親の手当などの自治体の手当は計算していません（ひとり親控除・寡婦控除は税の計算に入っています）。
+    reason: 所得や世帯の状態で額が細かく変わり、自治体の手当は市区町村ごとに違うためです。
+    instead: 受け取っている額を、「家族」の入力項目の入るお金の「手当・給付金」（ひとり親の世帯では「児童扶養手当など」）の行に入れると計算に入ります。
+    keywords: [児童扶養手当, ひとり親の手当, 自治体の手当, 母子家庭, 父子家庭, 給付金]
+    fields:
+      - 「家族」の入力項目の入るお金の「手当・給付金」
+    rules:
+      - 児童扶養手当法
+    related:
+      - benefits.childAllowance
+      - tax.singleParentDeduction

@@ -79,6 +79,25 @@ export default tseslint.config(
     },
   },
   {
+    // 0183: AI接続口に同梱する「数字の根拠」の読み方は、画面の根拠のパネルの関数（evidence）と表の行の決まり（present）だけを読む。
+    // 画面の部品（preact）・本体の命令・画面の大枠は読み込めない（まとめる道具 scripts/build-explain.ts も、外の部品が入ったら止める）
+    files: ["src/connector/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { regex: "(^|/)workspace/(?!(evidence|present)\\.ts$)", message: "AI接続口の根拠の読み方は、作業の層のうち evidence・present だけを読める（0183）" },
+            { regex: "^preact", message: "AI接続口の根拠の読み方は、画面の部品を読めない（0183）" },
+            { regex: "(^|/)engine/(host|dual)(\\.ts)?$", message: "AI接続口の根拠の読み方は、本体の命令・二本立ての部品を読めない（0183）" },
+            { regex: "(^|/)App(\\.tsx)?$", message: "AI接続口の根拠の読み方は、画面の大枠を読み込めない（0183）" },
+            { regex: "^@tauri-apps/", message: "AI接続口の根拠の読み方は、本体の命令を呼べない（0183）" },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // 0030: 持ち帰り用のレポート（顧客に渡すファイルの中の画面）は、許可した値（takeaway/model.ts）と、計算結果から提示用の値を作る純粋な部品だけを読む。
     // 本体の命令・保存・AI・事務所・世帯ファイルの部品は読み込めない
     files: ["src/takeaway/**/*.ts", "src/takeaway/**/*.tsx"],

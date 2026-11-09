@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://financia.jp/schemas/coverage.json",
+  "title": "対応範囲の一覧（1つの分野の YAML）",
+  "description": "ファイナンシアが何をどう計算しているか（入っている・近似している・まだ入っていない）の、FP に見せてよい一覧。AI接続口の search_coverage・get_coverage が返す。書き方は設計記録 0183",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["area", "title", "entries"],
+  "properties": {
+    "area": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]*$", "description": "分野の鍵（ファイル名と同じ）" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 40, "description": "分野の名前（例: 税〔所得税・住民税〕）" },
+    "order": { "type": "integer", "minimum": 1, "description": "分野の並びの順（小さいほど先）" },
+    "entries": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/entry" } }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "status", "summary", "keywords"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]*(\\.[a-z][A-Za-z0-9]*)+$", "description": "項目の鍵（分野.名前。例 socialInsurance.highCostMedical）。先頭は分野の鍵" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 40, "description": "話題の名前（例: 高額療養費）" },
+        "status": { "enum": ["included", "approximated", "notYet"], "description": "included＝入っている、approximated＝近似している、notYet＝まだ入っていない" },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 300, "description": "一言の答え（「〇〇は入っていますか」への答えの1〜2文）" },
+        "how": { "type": "string", "minLength": 1, "maxLength": 1200, "description": "どう計算するか（included・approximated）" },
+        "approximation": { "type": "string", "minLength": 1, "maxLength": 800, "description": "どう近似しているか（approximated）" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 600, "description": "近似している理由・まだ入れていない理由（approximated・notYet）" },
+        "instead": { "type": "string", "minLength": 1, "maxLength": 600, "description": "代わりにできること（例: 入力の欄に額を入れる。notYet・approximated で書ける）" },
+        "keywords": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 30 }, "description": "探すときの言葉（言い換え・略称も）" },
+        "items": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]*(\\.[a-z][A-Za-z0-9]*)+$" }, "description": "関係する入力項目ID（registry/items.yaml）" },
+        "fields": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 80 }, "description": "関係する画面の入力項目・欄の呼び方（例: 「家族」の入力項目の「障害の区分」）" },
+        "rules": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 80 }, "description": "根拠の制度・法令の名前（例: 健康保険法施行令42条）" },
+        "regulation": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]*(\\.[a-z][A-Za-z0-9]*)+$" }, "description": "使う制度の値ID（registry/params.yaml。get_regulation_value で値と出典を引ける）" },
+        "rows": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^cf(\\.[a-z][A-Za-z0-9]*)+$" }, "description": "金額が入るキャッシュフロー表の行ID（registry/rows.yaml）" },
+        "components": {
+          "type": "object",
+          "description": "この項目の中身を決めている計算の部品と、この項目を書いた（見直した）ときの部品の revision。部品の revision が上がるとテストが落ち、見直しを促す",
+          "propertyNames": { "pattern": "^[a-z][A-Za-z0-9]*(\\.[a-z][A-Za-z0-9]*)+$" },
+          "additionalProperties": { "type": "integer", "minimum": 1 }
+        },
+        "related": { "type": "array", "uniqueItems": true, "items": { "type": "string" }, "description": "関係する項目の鍵" }
+      },
+      "allOf": [
+        { "if": { "properties": { "status": { "const": "included" } } }, "then": { "required": ["how"], "not": { "required": ["approximation"] } } },
+        { "if": { "properties": { "status": { "const": "approximated" } } }, "then": { "required": ["how", "approximation", "reason"] } },
+        { "if": { "properties": { "status": { "const": "notYet" } } }, "then": { "required": ["reason"], "not": { "required": ["approximation"] } } }
+      ]
+    }
+  }
+}

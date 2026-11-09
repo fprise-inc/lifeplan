@@ -3,8 +3,7 @@
 // - 年間収支の赤字の出どころ（行を開くと出る子の行）: 口座から取り崩して払った分（口座ごと）と、残り（決済口座の預金から＝家計の赤字）
 // - 扶養の境目の参考の行: 扶養していると入れた世帯の外の親・祖父母の年金（扶養の判定に使う額）と、税の扶養の境目までの差。
 //   その人の年金は世帯の表に出ない（家計が別）ので、写しの要求（その人の収入を全部の期間で世帯に入れた形）で求める
-import { useEffect, useMemo, useState } from "preact/hooks";
-import type { EngineRequest, Member, PreviewResult, TableCell } from "../engine/types.ts";
+import type { EngineRequest, Member, TableCell } from "../engine/types.ts";
 import type { TableChildRow, TableRowModel } from "../presentation/model.ts";
 import { dependentLimits } from "../../../hearing/src/estimates.ts";
 import { ACCOUNT_KINDS } from "./input/labels.ts";
@@ -168,25 +167,4 @@ export function dependentRefRows(req: EngineRequest, ref: readonly TableCell[], 
     );
   });
   return rows;
-}
-
-/**
- * 写しの要求の結果（扶養の境目の参考の行）。要求が null なら null。計算し直している間は前の結果を見せておく（ちらつかないように）。
- * 計算の道が無ければ null のまま
- */
-export function useRefResult(req: EngineRequest | null, computeOne: ((req: EngineRequest) => Promise<PreviewResult | null>) | undefined): PreviewResult | null {
-  const [res, setRes] = useState<PreviewResult | null>(null);
-  const key = useMemo(() => (req === null ? null : JSON.stringify(req)), [req]);
-  useEffect(() => {
-    if (req === null || computeOne === undefined) return;
-    let alive = true;
-    void computeOne(req).then(
-      (r) => alive && setRes(r),
-      () => alive && setRes(null),
-    );
-    return () => {
-      alive = false;
-    };
-  }, [key, computeOne]);
-  return req === null ? null : res;
 }

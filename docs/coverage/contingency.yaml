@@ -1,0 +1,127 @@
+# 対応範囲の一覧（万一の想定・必要保障額）。形は coverage.schema.json
+area: contingency
+title: 万一の想定・必要保障額
+order: 11
+entries:
+  - id: contingency.scenarios
+    title: 万一の想定（死亡・障害・就業不能・病気）
+    status: included
+    summary: >-
+      入っています。ご本人・配偶者などに、死亡・障害・就業不能の万一が起きる月を入れて、その後のお金の流れを計算し直せます。障害の等級、
+      働けるようになる月、大きな病気の中身（病気の種類・入院の日数・手術の回数）も入れられます。
+    how: >-
+      死亡は、その月の翌月に世帯から離れ、働き方・配偶者の関係・積立がその月で止まります。名義の物は翌月から相続する人（死亡の当時の配偶者、
+      いなければ子を等分）の名にします。障害・就業不能は、その月で働けなくなり、勤め先の健康保険の人は翌月から最長18か月の休業（傷病手当金）を置きます。
+      働けるようになる月があれば元の働き方に戻ります。障害認定日は初診日から1年6か月で、等級の省略は2級です。遺族年金・障害年金・団信・保険金・
+      遺族の生活費は、この想定の月と種類から計算します。
+    keywords: [万一の想定, 死亡, 障害, 就業不能, 病気, がん, 働けなくなったら, もしものとき]
+    items: [contingency.kind, contingency.member, contingency.occurs, contingency.grade, contingency.recovery, contingency.illness, contingencyPremise.illness, contingencyPremise.grade]
+    components:
+      contingency.event: 4
+    related: [pension.survivor, housing.creditLife, insurance.medicalBenefit, contingency.multiple]
+
+  - id: contingency.protectionNeed
+    title: 必要保障額の推移
+    status: included
+    summary: >-
+      入っています。ご本人・配偶者ごとに「この年に亡くなったら」を1年ずつずらして、必要保障額と加入中の死亡保険金を並べます。積み上げ方式と逆算方式を選べます。
+    how: >-
+      積み上げ方式は、死亡の月の翌月から期間の終わり（標準は配偶者の平均余命まで。末子の独立まで・配偶者が決めた年齢までも選べます）の必要な資金
+      （生活費・住居費・教育費・保険料・介護・税と社会保険料・そのほか）から、準備できる資金（遺族年金・遺族の収入・児童手当と教育の公的支援、
+      死亡退職金などの一時金）を引き、整理資金と予備の生活資金を足します。遺族の収支は、その年の1月に亡くなる想定で世帯の全体を計算し直した表から
+      組み立てます。金融資産を含めない額と含めて引いた額を出し、名目の額で割り引きません。逆算方式は、遺族の金融資産を運用利回りで伸ばし、
+      遺族が指定の年齢になるまで残高が負にならない最小の保険金を求めます。団信で消える住宅ローンの返済も添えます。
+    keywords: [必要保障額, 死亡保障, 保障の過不足, 積み上げ方式, 逆算方式, 平均余命, いくら保険が必要]
+    items: [contingencyPremise.protection, contingencyPremise.horizon, contingencyPremise.survivor]
+    fields:
+      - "万一のときのタブの必要保障額の推移"
+    regulation: [lifeTable.lifeExpectancy]
+    components:
+      protection.need: 10
+    related: [contingency.livingAfterDeath, contingency.survivorIncome, contingency.lumpSum, insurance.deathBenefit]
+
+  - id: contingency.livingAfterDeath
+    title: 亡くなった後の生活費・住居費
+    status: included
+    summary: >-
+      入っています。亡くなった月の翌月から、基本生活費に遺族の生活費の割合（省略は末子の独立まで0.7・独立の後0.5、子のいない世帯は0.7）を掛けます。
+      住まいの家賃・固定資産税などはそのまま続き、団信の対象の住宅ローンは残高が消えます。
+    how: >-
+      遺族の生活費の割合は、生活費の段階を当てた後に掛けます（費目別の生活費も同じ割合）。末子の独立は、子の離れる時点があればその月、
+      無ければ独立とみなす年齢（省略は22歳）に達した後の最初の3月31日の翌月です。生活費や車・FP顧問料・周期的な支出に「万一のときの扱い」
+      （続ける・やめる・割合を変える）を入れれば、その扱いにします。住まいの費用は名義の人が亡くなった翌月から相続する人の名で払い続けます。
+    keywords: [遺族の生活費, 生活費の7割, 末子の独立, 住居費, 万一のときの扱い, 団信]
+    items: [contingency.survivor, contingencyPremise.survivor, periodicExpense.onContingency]
+    fields:
+      - "「基本生活費」などの入力項目の「万一のときの扱い」"
+    rows: [cf.expense.living, cf.expense.housing]
+    components:
+      expense.living: 4
+      housing.residence: 7
+      debt.creditLifeEvents: 1
+    related: [housing.creditLife, contingency.protectionNeed]
+
+  - id: contingency.survivorIncome
+    title: 遺族の収入と働き方
+    status: included
+    summary: >-
+      入っています。残された配偶者の働き方（働き方・年収・変える時期・何歳まで）を想定で置き換えられ、その収入と税・社会保険料、遺族年金、
+      児童手当・就学支援金などを遺族の収入として数えます。
+    how: >-
+      遺族の働き方の変化は、その期間の始まりから、その人のそれまでの働き方を置き換えます。必要保障額では、遺族の名の収入と、世帯の名の収入・
+      亡くなった人の名で続く収入（相続した物件の賃料など）を遺族の収入に数えます。子・世帯の外の家族の収入は数えません。
+    keywords: [遺族の収入, 配偶者の働き方, パートに出る, 遺族年金, 母子家庭, 父子家庭]
+    items: [contingencyPremise.work, contingency.survivor]
+    rows: [cf.income.salary, cf.income.pension.survivor]
+    components:
+      protection.need: 10
+      contingency.event: 4
+    related: [pension.survivor, contingency.protectionNeed]
+
+  - id: contingency.lumpSum
+    title: 整理資金・死亡退職金・弔慰金
+    status: included
+    summary: >-
+      入っています。死亡の月の翌月に整理資金（葬儀・お墓など）を払い、勤め先からの死亡退職金・弔慰金を入れたときは同じ月に遺族が受け取ります。
+    how: >-
+      整理資金は支出の「整理資金（葬儀・お墓など）」の行に、死亡退職金は退職一時金の行に、弔慰金はその他の一時金の行に載せます。
+      死亡退職金を入れなければ、退職給付の見込みを勤続の月数で按分した額を使います。死亡退職金は相続税の対象（非課税枠500万円×法定相続人の数）、
+      弔慰金は普通給与の6か月分（業務上の死亡は3年分）までは相続税がかかりません。相続税そのものはお金の流れに入れず、相続税の目安に出します。
+    keywords: [整理資金, 葬儀費用, 死亡退職金, 弔慰金, お墓, 予備資金]
+    items: [contingencyPremise.survivor, contingency.survivor]
+    rows: [cf.expense.lumpSum.funeral, cf.income.lumpSum.retirement, cf.income.lumpSum.other]
+    components:
+      contingency.lumpSum: 1
+    related: [inheritance.estimate, contingency.protectionNeed]
+
+  - id: contingency.medical
+    title: 万一のときの医療費
+    status: approximated
+    summary: >-
+      近似して入っています。障害・就業不能の想定に医療費（1か月の10割の額と月数）を入れると、窓口の負担（70歳未満は3割）を高額療養費の上限で止めた額を
+      支出の「医療費」の行に載せます。
+    how: >-
+      所得の区分は、勤め先の健康保険なら標準報酬月額、国民健康保険なら世帯の基準所得額の合計で決め、多数回該当と年間上限も当てます。
+      医療保険・がん保険の給付は保険の契約から別に受け取ります。
+    approximation: 70歳以上の区分・外来の特例は作らず、70歳未満の区分で計算します。医療費控除は計算しません。
+    reason: 万一の想定の医療費の目安を出すための簡易の計算です。
+    instead: 医療費控除などは、出るお金・入るお金の行で額を入れて足せます。
+    keywords: [医療費, 自己負担, 高額療養費, 入院費, 治療費, 長期療養]
+    items: [contingency.medical, contingencyPremise.medical]
+    rows: [cf.expense.care.medical]
+    components:
+      medical.highCost: 3
+    related: [socialInsurance.highCostMedical, insurance.medicalBenefit]
+
+  - id: contingency.multiple
+    title: 2件の万一を重ねる
+    status: notYet
+    summary: >-
+      まだ入っていません。1つのプランの計算に入れられる万一の想定は1件までで、夫婦が続けて亡くなる・障害の後に亡くなるなど、2件を重ねた計算はできません。
+    reason: 万一の想定を重ねたときの年金・保険・名義の受け継ぎの組み合わせを、まだ計算に入れていないためです。
+    instead: 想定を1件ずつ入れ替えて計算し、結果を比べます。相続税の目安の「二人とも亡くなった後」は、万一の想定とは別に出します。
+    keywords: [万一の重ね, 夫婦とも死亡, 二次相続, 複数の万一]
+    items: [contingency.kind]
+    components:
+      contingency.event: 4
+    related: [contingency.scenarios, inheritance.estimate]

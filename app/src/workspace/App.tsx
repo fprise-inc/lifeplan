@@ -81,7 +81,8 @@ import { DraftsLeaveDialog, type DraftsLeaveChoice } from "./plans/DraftsLeaveDi
 import { overwriteDrafts, unsavedPlanNames } from "./plans/leaveDrafts.ts";
 import { compareTable, metricsOf } from "./plans/compare.ts";
 import { usePlanPensions } from "./input/pensionEstimate.ts";
-import { dependentRefRequest, dependentRefRows, useRefResult } from "./resultRows.ts";
+import { dependentRefRequest, dependentRefRows } from "./resultRows.ts";
+import { useRefResult } from "./useRefResult.ts";
 import { addRate } from "./plans/decimal.ts";
 import { ItemMenu, ItemRow } from "./plans/ItemControls.tsx";
 import { leverView, visibleKeys } from "./plans/leverChoice.ts";

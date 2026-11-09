@@ -10,7 +10,8 @@ AIのアプリ（Claude Code・Claude Desktop・Codex）が `lifeplan mcp` を�
 ## 1. 作る
 
 ```sh
-cd engine && npm ci && npm run build && cd ..   # 計算エンジンと制度データ（engine/dist）
+cd engine && npm ci && npm run build && cd ..   # 計算エンジンと制度データ・対応範囲の一覧（engine/dist）
+cd app && npm ci && npm run build:explain && cd ..   # 数字の根拠の読み方（crates/lifeplan/dist/explain.js。0183）
 cargo build --release -p lifeplan               # → target/release/lifeplan（Windows は lifeplan.exe）
 target/release/lifeplan --version
 ```
@@ -65,8 +66,8 @@ args = ["mcp"]
 
 | 群 | 道具 | 使える条件 |
 |---|---|---|
-| 単体で使える | `list_sample_households`（架空の見本の世帯の一覧）・`get_sample_household`（見本の世帯の計算の入力）・`calculate`（見本の世帯・渡された世帯・AIが組み立てた入力に、プランや想定の変更を当てて計算）・`get_regulation_value`（制度の値を値・適用期間・出典つきで） | いつでも（アプリが起動していなくてよい） |
-| 世帯を扱う | `list_shared_households`・`get_shared_household`・`propose_scenario`（プランの候補を承認待ちで出す）・`propose_inputs`（保険の書類から読んだ値を、現状の入力の候補として承認待ちで出す）、`calculate` の `share_id` | アプリが起動していて、FPが「この世帯をAIに渡す」で渡した世帯が期限内で取り消されていないときだけ |
+| 単体で使える | `list_sample_households`（架空の見本の世帯の一覧）・`get_sample_household`（見本の世帯の計算の入力）・`calculate`（見本の世帯・渡された世帯・AIが組み立てた入力に、プランや想定の変更を当てて計算）・`explain_value`（キャッシュフロー表の1つの数字の根拠。画面の「数字の根拠」と同じ中身に制度の値ID を添える）・`get_regulation_value`（制度の値を値・適用期間・出典つきで）・`search_coverage`・`get_coverage`（何をどう計算しているか〔入っている・近似している・まだ入っていない〕を、同梱した対応範囲の一覧〔`docs/coverage/`〕から探す。0183） | いつでも（アプリが起動していなくてよい） |
+| 世帯を扱う | `list_shared_households`・`get_shared_household`・`propose_scenario`（プランの候補を承認待ちで出す）・`propose_inputs`（保険の書類から読んだ値を、現状の入力の候補として承認待ちで出す）、`calculate`・`explain_value` の `share_id` | アプリが起動していて、FPが「この世帯をAIに渡す」で渡した世帯が期限内で取り消されていないときだけ |
 | 設定の候補を出す | `propose_feature_code`（FPが渡した「機能を有効にするコード」を、アプリの画面に承認待ちの候補として出す。コードは入らない） | アプリが起動していて、AI接続口がオンのときだけ（世帯を渡していなくてよい） |
 
 道具の名前と入出力は試験版です（予告して変えることがあります。0001・0015）。
@@ -76,6 +77,8 @@ args = ["mcp"]
 - 「fprise-lifeplan の見本の世帯の一覧を見せて」
 - 「salariedCoupleTwoKids で、物価上昇率を 1% にしたら老後の金融資産はどう変わる？」
 - 「所得税の基礎控除の今の額と出典は？」
+- 「salariedCoupleTwoKids の2030年の税・社会保険料は、どんな計算で出ている？」（`explain_value`）
+- 「ファイナンシアに高額療養費は入っている？ iDeCo の受け取り方はどう計算している？」（`search_coverage`・`get_coverage`）
 
 ## 6. 世帯を渡すと何が起きるか
 

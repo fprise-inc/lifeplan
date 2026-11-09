@@ -159,7 +159,10 @@ async fn standalone_tools_work_without_the_app() {
         "list_sample_households",
         "get_sample_household",
         "calculate",
+        "explain_value",
         "get_regulation_value",
+        "search_coverage",
+        "get_coverage",
         "list_shared_households",
         "get_shared_household",
         "propose_scenario",
@@ -249,6 +252,10 @@ async fn standalone_tools_work_without_the_app() {
         ("list_shared_households", json!({})),
         ("get_shared_household", json!({ "share_id": "s-1" })),
         ("calculate", json!({ "share_id": "s-1" })),
+        (
+            "explain_value",
+            json!({ "share_id": "s-1", "row": "taxSi", "year": 2030 }),
+        ),
         (
             "propose_scenario",
             json!({ "share_id": "s-1", "title": "t", "changes": [{ "target": "assumptions", "item": "assumptions.inflation", "value": "0.01" }] }),
@@ -991,6 +998,289 @@ async fn propose_inputs_flow() {
     )
     .await;
     ep.shutdown();
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 道具の入力の JSON Schema を見本（tests/fixtures/tools/<道具>.input-schema.json）と比べる（LIFEPLAN_UPDATE_FIXTURES=1 で作り直す）
+fn check_schema_snapshot(tools: &[rmcp::model::Tool], name: &str) {
+    let tool = tools.iter().find(|t| t.name == name).unwrap();
+    let schema = serde_json::to_value(tool.input_schema.as_ref()).unwrap();
+    let snapshot = repo().join(format!(
+        "crates/lifeplan/tests/fixtures/tools/{name}.input-schema.json"
+    ));
+    let pretty = format!("{}\n", serde_json::to_string_pretty(&schema).unwrap());
+    if std::env::var_os("LIFEPLAN_UPDATE_FIXTURES").is_some() {
+        std::fs::create_dir_all(snapshot.parent().unwrap()).unwrap();
+        std::fs::write(&snapshot, &pretty).unwrap();
+    }
+    assert_eq!(
+        std::fs::read_to_string(&snapshot).unwrap_or_default(),
+        pretty,
+        "{name} の入力の形が変わりました。LIFEPLAN_UPDATE_FIXTURES=1 で見本を作り直してください"
+    );
+}
+
+/// 数字の根拠（explain_value。0183）: 見本の世帯で、画面の根拠のパネルの関数（app/test/connector-explain.test.ts が作る見本）と同じ中身を、
+/// quickjs-ng で動かした読み方が返す。行の一覧・行ID での選び方・間違った問い・合計が calculate の表と同じこと
+#[tokio::test(flavor = "multi_thread")]
+async fn explain_value_matches_the_screen() {
+    let dir = temp_dir("explain");
+    let (c, _) = connect(&dir).await;
+    let tools = c.list_all_tools().await.unwrap();
+    check_schema_snapshot(&tools, "explain_value");
+    let d = tools
+        .iter()
+        .find(|t| t.name == "explain_value")
+        .unwrap()
+        .description
+        .as_deref()
+        .unwrap_or("")
+        .to_owned();
+    assert!(
+        d.contains("数字の根拠") && d.contains("推測で答えず"),
+        "{d}"
+    );
+
+    let p = repo().join("crates/lifeplan/tests/fixtures/explain-value/expected.json");
+    let cases: Vec<Value> = serde_json::from_str(&std::fs::read_to_string(p).unwrap()).unwrap();
+    assert!(cases.len() >= 5);
+    for case in &cases {
+        let mut args = json!({
+            "sample_household_id": case["sample"], "row": case["row"], "year": case["year"],
+        });
+        for (from, to) in [
+            ("changes", "changes"),
+            ("member", "member"),
+            ("depth", "depth"),
+            ("maxParams", "max_params"),
+        ] {
+            if let Some(v) = case.get(from) {
+                args[to] = v.clone();
+            }
+        }
+        let got = call_ok(&c, "explain_value", args).await;
+        let name = case["name"].as_str().unwrap();
+        assert_eq!(got["status"], "ok", "{name}: {got}");
+        assert_eq!(got["row"], case["expected"]["row"], "{name}");
+        assert_eq!(
+            got["evidence"], case["expected"]["evidence"],
+            "{name}: 画面の根拠と違います"
+        );
+        assert_eq!(got["ids"], case["expected"]["ids"], "{name}");
+        assert_eq!(got["sampleHouseholdId"], case["sample"]);
+    }
+
+    // 合計は calculate の表のマスの合計と同じ
+    let got = call_ok(
+        &c,
+        "explain_value",
+        json!({ "sample_household_id": "salariedCoupleTwoKids", "row": "taxSi", "year": 2030 }),
+    )
+    .await;
+    let table = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": "salariedCoupleTwoKids", "output": "table", "rows": ["cf.taxSi."], "from_year": 2030, "to_year": 2030 }),
+    )
+    .await;
+    let sum: i64 = table["table"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["amount"].as_i64().unwrap())
+        .sum();
+    assert_eq!(got["evidence"]["total"], sum);
+    // 制度の値ID は get_regulation_value で引ける
+    let id = got["ids"]["regulation"][0].as_str().unwrap().to_owned();
+    let reg = call_ok(
+        &c,
+        "get_regulation_value",
+        json!({ "id": id, "as_of": "2030-06-01" }),
+    )
+    .await;
+    assert!(reg["entries"].is_array());
+
+    // 行を省くと、根拠を出せる行の一覧（合計の行は入らない）
+    let list = call_ok(
+        &c,
+        "explain_value",
+        json!({ "sample_household_id": "single25" }),
+    )
+    .await;
+    assert_eq!(list["status"], "chooseRow");
+    let keys: Vec<&str> = list["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["key"].as_str().unwrap())
+        .collect();
+    assert!(
+        keys.contains(&"taxSi") && !keys.contains(&"incomeTotal"),
+        "{keys:?}"
+    );
+    assert!(list["years"]["from"].is_number());
+
+    // 間違った問い
+    for (args, want) in [
+        (
+            json!({ "sample_household_id": "salariedCoupleTwoKids", "row": "nope", "year": 2030 }),
+            "unknownRow",
+        ),
+        (
+            json!({ "sample_household_id": "salariedCoupleTwoKids", "row": "taxSi", "year": 1990 }),
+            "chooseYear",
+        ),
+        (
+            json!({ "sample_household_id": "salariedCoupleTwoKids", "row": "incomeTotal", "year": 2030 }),
+            "totalRow",
+        ),
+    ] {
+        let (err, msg) = call(&c, "explain_value", args).await;
+        assert!(err && msg.contains(want), "{msg}");
+    }
+    let (err, msg) = call(
+        &c,
+        "explain_value",
+        json!({ "sample_household_id": "salariedCoupleTwoKids", "row": "taxSi", "year": 2030, "depth": 9 }),
+    )
+    .await;
+    assert!(err, "{msg}");
+    let (err, msg) = call(&c, "explain_value", json!({ "row": "taxSi", "year": 2030 })).await;
+    assert!(err && msg.contains("どれか1つ"), "{msg}");
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 渡された世帯の数字の根拠: 見本の世帯と同じ中身で、物の ID（仮名）を返さず、アプリの「AIに渡した記録」に explain_value として残る。取り消した後は使えない
+#[tokio::test(flavor = "multi_thread")]
+async fn explain_value_for_a_shared_household() {
+    let dir = temp_dir("explain-share");
+    let reg = Arc::new(ShareRegistry::new());
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    let (c, _) = connect(&dir).await;
+    let g = reg
+        .grant(source("salariedCoupleTwoKids", true), grant_opts())
+        .unwrap();
+    let ask = json!({ "row": "pension:self", "year": 2047 });
+    let mut shared = ask.clone();
+    shared["share_id"] = json!(g.share_id);
+    let mut sample = ask.clone();
+    sample["sample_household_id"] = json!("salariedCoupleTwoKids");
+    let a = call_ok(&c, "explain_value", shared.clone()).await;
+    let b = call_ok(&c, "explain_value", sample).await;
+    assert_eq!(a["evidence"], b["evidence"]);
+    assert_eq!(a["shareId"], g.share_id.as_str());
+    let text = a.to_string();
+    for secret in [HOUSEHOLD_ID, CUSTOMER_NUMBER, MEMO, "上のお子さん"] {
+        assert!(!text.contains(secret), "{secret} が渡っています");
+    }
+    let view = call_ok(
+        &c,
+        "get_shared_household",
+        json!({ "share_id": g.share_id }),
+    )
+    .await;
+    for m in view["input"]["household"]["members"].as_array().unwrap() {
+        assert!(
+            !text.contains(m["id"].as_str().unwrap()),
+            "物の ID を返しています"
+        );
+    }
+    let rec = reg.records(HOUSEHOLD_ID);
+    assert!(rec[0].reads.iter().any(|r| r.tool == "explain_value"));
+    reg.revoke(&g.share_id);
+    let (err, msg) = call(&c, "explain_value", shared).await;
+    assert!(err && msg.contains("REVOKED"), "{msg}");
+    ep.shutdown();
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 対応範囲の一覧（search_coverage・get_coverage。0183）: アプリが起動していなくても使え、よく聞かれる話題が見つかり、
+/// まだ入っていない物と見つからない物には「要望・不具合を送る」への案内が付く
+#[tokio::test(flavor = "multi_thread")]
+async fn coverage_tools_answer_from_the_bundled_list() {
+    let dir = temp_dir("coverage");
+    let (c, _) = connect(&dir).await;
+    let tools = c.list_all_tools().await.unwrap();
+    check_schema_snapshot(&tools, "search_coverage");
+    check_schema_snapshot(&tools, "get_coverage");
+    let instructions = c
+        .peer_info()
+        .unwrap()
+        .instructions
+        .clone()
+        .unwrap_or_default();
+    assert!(
+        instructions.contains("search_coverage") && instructions.contains("推測で答えず"),
+        "{instructions}"
+    );
+    for (q, id) in [
+        (
+            "高額療養費は入っていますか",
+            "socialInsurance.highCostMedical",
+        ),
+        ("iDeCo の受け取り方と退職所得控除", "investment.idecoPayout"),
+        ("児童手当", "benefits.childAllowance"),
+        ("住宅ローン控除", "tax.housingLoanCredit"),
+        ("遺族年金", "pension.survivor"),
+        ("相続税の目安", "inheritance.estimate"),
+        ("所得金額調整控除", "tax.incomeAdjustment"),
+        ("在職老齢年金", "pension.workingPension"),
+    ] {
+        let v = call_ok(&c, "search_coverage", json!({ "query": q })).await;
+        assert_eq!(v["matches"][0]["id"], id, "{q}: {v}");
+        let e = call_ok(&c, "get_coverage", json!({ "id": id })).await;
+        assert!(e["status"].is_string() && e["summary"].is_string(), "{e}");
+        assert!(e["how"].is_string() || e["reason"].is_string(), "{e}");
+    }
+    // まだ入っていない物: 案内が付く
+    let v = call_ok(
+        &c,
+        "search_coverage",
+        json!({ "query": "医療費控除", "status": "notYet" }),
+    )
+    .await;
+    assert_eq!(v["matches"][0]["status"], "notYet");
+    assert!(v["feedback"]
+        .as_str()
+        .unwrap()
+        .contains("要望・不具合を送る"));
+    let id = v["matches"][0]["id"].as_str().unwrap().to_owned();
+    let e = call_ok(&c, "get_coverage", json!({ "id": id })).await;
+    assert!(e["feedback"]
+        .as_str()
+        .unwrap()
+        .contains("要望・不具合を送る"));
+    // 見つからない物も案内する
+    let v = call_ok(
+        &c,
+        "search_coverage",
+        json!({ "query": "量子コンピュータの保守契約" }),
+    )
+    .await;
+    assert_eq!(v["matches"], json!([]));
+    assert!(v["feedback"]
+        .as_str()
+        .unwrap()
+        .contains("要望・不具合を送る"));
+    // 目次
+    let toc = call_ok(&c, "get_coverage", json!({})).await;
+    assert!(toc["counts"]["all"].as_u64().unwrap() >= 60);
+    assert!(toc["areas"].as_array().unwrap().len() >= 10);
+    // 間違った問い
+    let (err, _) = call(&c, "get_coverage", json!({ "id": "no.such" })).await;
+    assert!(err);
+    let (err, _) = call(
+        &c,
+        "search_coverage",
+        json!({ "query": "x", "status": "maybe" }),
+    )
+    .await;
+    assert!(err);
+    let (err, _) = call(&c, "search_coverage", json!({ "query": "  " })).await;
+    assert!(err);
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);
 }

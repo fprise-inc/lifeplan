@@ -1,0 +1,363 @@
+# 対応範囲の一覧（貯蓄・運用〔NISA・iDeCo など〕）。形は coverage.schema.json
+area: investment
+title: 貯蓄・運用（NISA・iDeCo など）
+order: 14
+entries:
+  - id: investment.nisa
+    title: NISA（つみたて投資枠・成長投資枠・生涯の枠）
+    status: included
+    summary: >-
+      入っています。NISA への積立は、年間投資枠（つみたて投資枠・成長投資枠）と非課税保有限度額（簿価。成長投資枠は内数）の残りで止め、
+      売った簿価の分の枠は翌年に戻します。NISA の運用益と売ったときの利益に税はかかりません。旧NISA・ジュニアNISA・こどもNISA も扱います。
+    how: >-
+      積立はつみたて投資枠から入れ、つみたて投資枠の年間の枠を超えた分は成長投資枠の残りに入れます。それも超えた分は、前提の選び方で名義人の課税口座で
+      続けるか、預金に残します（計算の知らせに出ます）。口座を開けるのは、その年1月1日に18歳以上の年からです。旧NISA・ジュニアNISA は買付の年ごとの
+      内訳で非課税期間を判定し、終わった年の年末に時価で課税口座へ移します（取得価額はその時価）。こどもNISA（2027年から）は子の年間投資枠と
+      非課税保有限度額で止め、成人の年からは成人の NISA として数えます。NISA の枠の残りは表の「NISAの非課税保有限度額の残り」の行に出ます。
+    keywords: [NISA, 新NISA, つみたて投資枠, 成長投資枠, 生涯投資枠, 非課税保有限度額, 旧NISA, ジュニアNISA, こどもNISA, 枠の復活]
+    items: [account.kind, account.contributions, account.frame, account.lots, account.marketValue, account.costBasis, assumptions.investment]
+    fields:
+      - 「貯蓄・運用」の入力項目の「毎月の積立」
+      - 「貯蓄・運用」の入力項目の「＋ 買付の年の内訳」
+    rules:
+      - 租税特別措置法37条の14
+    regulation:
+      - nisa.annualLimit.tsumitate
+      - nisa.annualLimit.growth
+      - nisa.lifetimeLimit
+      - nisa.lifetimeLimit.growth
+      - nisa.eligibleAge
+      - nisa.child.annualLimit
+      - nisa.child.lifetimeLimit
+      - nisa.legacy.generalPeriodYears
+      - nisa.legacy.tsumitatePeriodYears
+      - nisa.junior.untilAge
+    rows:
+      - cf.transfer.nisa.tsumitate
+      - cf.transfer.nisa.growth
+      - cf.transfer.nisa.child
+      - cf.transfer.rollover
+      - cf.balance.account.nisa
+      - cf.balance.account.legacyNisa
+      - cf.balance.account.juniorNisa
+      - cf.balance.account.childNisa
+      - cf.balance.nisaFrame
+    components:
+      plan.cashflow: 27
+      account.contribution: 2
+    related:
+      - investment.taxableAccountTax
+      - investment.withdrawalOrder
+
+  - id: investment.ideco
+    title: iDeCo の掛金と所得控除
+    status: included
+    summary: >-
+      入っています。iDeCo の掛金は、国民年金の区分（第1号〜第3号、70歳未満の第5号）と勤め先の企業年金で決まる拠出限度額で月ごとに止め、
+      本人が払った掛金は小規模企業共済等掛金控除として所得税・住民税から差し引きます。
+    how: >-
+      加入できるのは、国民年金の第1号・第2号・第3号の月で、加入できる年齢の上限の前の月まで（2026年12月から70歳になる前の月まで）です。
+      2026年12月からは、60歳以上で国民年金の被保険者でなく老齢基礎年金を受けていない人も、前に iDeCo の掛金を出していれば加入できます（経過措置の
+      間は前の加入を問いません）。第2号の拠出限度額は、勤め先の企業年金（無し・企業型DCだけ・確定給付型などの他制度あり）で分け、企業型DCの事業主掛金
+      （2024年12月分からは他制度掛金相当額も）と合わせた上限を超える分も出しません。月5,000円に届かない月は出しません。受け取りを始めた月からは
+      掛金を出しません。上限を超えた分を除いたときは計算の知らせに出ます。掛金は口座の間の移動として決済口座から iDeCo の口座へ移ります。
+    keywords: [iDeCo, イデコ, 個人型確定拠出年金, 掛金, 拠出限度額, 小規模企業共済等掛金控除, 所得控除, 節税, 第5号]
+    items: [account.kind, account.contributions, account.enrolledSince, employment.corporatePension]
+    fields:
+      - 「貯蓄・運用」の入力項目の iDeCo の「毎月の積立」
+      - 「働き方と収入」の入力項目の「他制度掛金相当額（月額）」
+    rules:
+      - 確定拠出年金法
+      - 所得税法75条
+    regulation:
+      - ideco.contributionLimit.category1
+      - ideco.contributionLimit.category2.noPlan
+      - ideco.contributionLimit.category2.withDc
+      - ideco.contributionLimit.category2.withDb
+      - ideco.contributionLimit.category2.combined
+      - ideco.contributionLimit.category3
+      - ideco.contributionLimit.category5
+      - ideco.contribution.minimum
+      - ideco.enrollment.untilAge
+      - ideco.category5.openEnrollment
+    rows: [cf.transfer.ideco.ideco, cf.balance.account.ideco]
+    components:
+      ideco.contribution: 2
+      account.dcList: 1
+      pension.category: 7
+    related:
+      - investment.idecoPayout
+      - investment.corporateDc
+
+  - id: investment.corporateDc
+    title: 企業型DC（事業主掛金・マッチング拠出）
+    status: included
+    summary: >-
+      入っています。企業型DCの事業主掛金と加入者掛金（マッチング拠出）を入れ、合計を拠出限度額で止めます。事業主掛金は世帯の支払いにせず、
+      加入者掛金は所得控除になります。受け取りは iDeCo と同じ決まりです。
+    how: >-
+      事業主掛金と加入者掛金の合計を拠出限度額（2024年12月分からは他制度掛金相当額を引いた額）で止め、超えるときは加入者掛金から先に減らします。
+      2026年11月分までは、加入者掛金を事業主掛金の額以下にします。運用益・受け取り・死亡一時金の扱いは iDeCo と同じです。
+    keywords: [企業型DC, 企業型確定拠出年金, DC, 事業主掛金, マッチング拠出, 加入者掛金, 選択制DC]
+    items: [account.kind, account.contributions, employment.corporatePension]
+    fields:
+      - 「貯蓄・運用」の入力項目の企業型DCの「毎月の積立」
+    rules:
+      - 確定拠出年金法
+    regulation:
+      - corporateDc.contributionLimit
+      - corporateDc.contributionLimit.withDb
+      - corporateDc.matching.capToEmployer
+      - ideco.contributionLimit.category2.combinedWithDb
+    rows: [cf.transfer.ideco.matching, cf.transfer.ideco.employer, cf.balance.account.corporateDc]
+    components:
+      ideco.contribution: 2
+      account.ideco: 7
+    related:
+      - investment.ideco
+      - investment.idecoPayout
+
+  - id: investment.idecoPayout
+    title: iDeCo・企業型DCの受け取り方と退職所得控除
+    status: included
+    summary: >-
+      入っています。受け取り方は一時金・年金・併用（一時金の割合）から選べます。一時金は退職所得として、同じ年や前の年のほかの退職金と合わせて
+      退職所得控除（重複する期間の調整を含む）を計算し、年金で受け取る分は公的年金等の雑所得として税を計算します。
+    how: >-
+      受け取りを始められる月は、60歳の時点の通算加入者等期間で決まる年齢（10年以上なら60歳。短いほど遅く、最も遅くて65歳。60歳以後に加入したときは
+      加入から5年後）からで、75歳までに始めます。始まりを空欄にすると退職の年（60〜65歳に収める）を、受け取り方も空欄なら一時金を入れます。
+      一時金は始めの月にその時の残高を、年金は始めの月から毎年1回、その時の残高÷残りの回数を受け取り（受け取りの間も運用益が付く）、併用は一時金の割合
+      （省略は半分）を先に受け取ります。一時金の退職所得控除は、勤続年数の代わりに通算加入者等期間（掛金を払った最後の月まで）で数え、退職一時金・
+      小規模企業共済の共済金と同じ年なら合わせて、前の年に受けた一時金と期間が重なるときは重複する期間の分を引きます。受け取ったお金は預金に入れるか、
+      その年の NISA の枠へ、残りを課税口座へ移して運用を続けるかを選べます。受け取る前に亡くなったときは、その時の残高を死亡一時金として遺族が受け取ります
+      （相続税の対象ですが、相続税はお金の流れに入れていません）。
+    keywords: [iDeCoの受け取り, 一時金, 年金受け取り, 併用, 退職所得控除, 受け取り方, 受給開始, 出口戦略, 5年ルール, 19年ルール]
+    items: [account.payout, account.enrolledSince, account.withdrawalLockedUntil]
+    fields:
+      - 「貯蓄・運用」の入力項目の「受け取り方」
+      - 「貯蓄・運用」の入力項目の「受け取りを始める時期」
+      - 「貯蓄・運用」の入力項目の「受け取ったお金」
+      - 「退職金・企業年金」の入力項目の受け取りの並び
+    rules:
+      - 確定拠出年金法
+      - 所得税法30条
+      - 所得税法31条
+      - 所得税法35条
+    regulation:
+      - ideco.payout.earliestAge
+      - ideco.payout.latestAge
+      - ideco.payout.startAgeByMonths
+    rows:
+      - cf.income.lumpSum.ideco
+      - cf.income.lumpSum.dc
+      - cf.income.corporatePension.ideco
+      - cf.income.corporatePension.dc
+      - cf.taxSi.incomeTax.retirement
+      - cf.taxSi.residentTax.retirement
+    components:
+      account.idecoPayout: 2
+      account.ideco: 7
+      retirement.receipts: 1
+    related:
+      - tax.retirementIncome
+      - tax.publicPensionDeduction
+      - investment.ideco
+      - income.retirementBenefit
+
+  - id: investment.mutualAid
+    title: 小規模企業共済
+    status: approximated
+    summary: >-
+      入っています。掛金（制度の下限・上限で止める）は全額が小規模企業共済等掛金控除になり、共済金は一括（退職所得）・分割（公的年金等の雑所得）・
+      併用で受け取れます。共済金の額は、掛金の累計からの近い値です。
+    how: >-
+      掛金は決済口座から払い、全額を所得控除にします。受け取りの月に、一括はその時の残高を退職所得の一時金（加入の始まりから受け取りの前の月までを
+      勤続期間とみなす）として、分割は10年か15年・年6回で、受け取りの始まりの残高を回数で等分して払います（併用は一括の割合。省略は半分）。
+      亡くなったときは、その時の残高を死亡を事由とする共済金として遺族が一時金で受け取ります（相続税の対象ですが、相続税はお金の流れに入れていません）。
+    approximation: >-
+      共済金の額の表（基本共済金・付加共済金）は持たず、残高は今の時価＋掛金に、資産の配分を入れたときはその利回り（入れなければ0）の運用益を足した額です。
+      分割の間の利息は扱いません。
+    reason: 共済金の額は掛金の月数・受け取りの理由で決まる表によるので、掛金の累計から近い値で見ています。
+    instead: 共済金の見込み額が分かれば、今の残高（時価）か資産の配分の利回りで合わせてください。
+    keywords: [小規模企業共済, 共済金, 掛金, 小規模企業共済等掛金控除, 経営者の退職金, 自営業の退職金, 分割共済金]
+    items: [account.kind, account.contributions, account.payout, account.enrolledSince, account.assetMix]
+    fields:
+      - 「貯蓄・運用」の入力項目の小規模企業共済の「受け取り方」
+    rules:
+      - 小規模企業共済法
+      - 所得税法75条
+    regulation:
+      - smallBusinessMutualAid.contribution.monthlyMax
+      - smallBusinessMutualAid.contribution.monthlyMin
+      - smallBusinessMutualAid.installment.paymentsPerYear
+    rows:
+      - cf.transfer.mutualAid
+      - cf.balance.account.smallBusinessMutualAid
+      - cf.income.lumpSum.smallBusiness
+      - cf.income.corporatePension.smallBusiness
+    components:
+      account.mutualAid: 5
+      retirement.receipts: 1
+    related:
+      - tax.retirementIncome
+      - investment.idecoPayout
+
+  - id: investment.returnSettings
+    title: 運用利回りの決め方（資産配分・口座ごと）
+    status: included
+    summary: >-
+      入っています。運用利回りは、口座ごとに、資産の配分×資産の種類ごとの利回り、または口座に入れた利回りで決め、運用の費用（信託報酬など）を引きます。
+      年ごとに利回りや配分を変える段階と、例外の年も入れられます。
+    how: >-
+      資産の配分を入れない口座は、預金・外貨預金は預金の利回り、ほかは前提の運用利回りです（暗号資産は0）。資産の配分を入れた口座は、資産の種類ごとの
+      利回りを割合で按分します（割合の合計が100%でなくても合計で割ります）。入れ方は「合計」（金融資産をまとめて1つ）・「口座」・「資産配分」
+      （運用する口座に共通の配分と信託報酬）から選べます。資産配分では、年に1回元の割合に戻すか（戻さないときは値上がりで割合がずれる）を選べます。
+      利回りは毎年同じ値の決まった道筋で、相場の上下は計算しません。
+    keywords: [運用利回り, 期待リターン, 資産配分, アセットアロケーション, 信託報酬, 運用の費用, リバランス, 利回りの段階, 預金金利]
+    items:
+      - account.assetMix
+      - account.expectedReturn
+      - account.fee
+      - account.returnStages
+      - account.returnExceptions
+      - assumptions.investmentReturn
+      - assumptions.depositReturn
+      - assumptions.assetReturns
+      - assumptions.investment
+    fields:
+      - 「前提条件」の入力項目の「運用利回り（年）」
+      - 「前提条件」の入力項目の「預金の利回り（年）」
+      - 「前提条件」の入力項目の「資産の種類ごとの利回り」
+      - 「貯蓄・運用」の入力項目の「利回り（年）」
+      - 「貯蓄・運用」の入力項目の「運用の費用（年）」
+      - 「貯蓄・運用」の入力項目の「利回りの変化」
+    rows: [cf.balance.return]
+    components:
+      plan.cashflow: 27
+      account.ideco: 7
+    related:
+      - basics.financialAssets
+      - investment.resultRange
+
+  - id: investment.resultRange
+    title: 結果の幅（モンテカルロ・確率の計算）
+    status: notYet
+    summary: >-
+      まだ入っていません。相場の上下をばらつかせて何通りも計算し、資産が尽きる確率や結果の幅を出す計算（モンテカルロ）はしていません。
+      計算は、毎年決まった利回りで進む1本の道筋です。
+    reason: >-
+      資産の種類ごとの値動きの大きさ（標準偏差）は前提として持てますが、結果の幅の計算の方法をまだ決めていないためです。
+    instead: >-
+      ストレステスト（退職した年に相場が下がる・利回りが低いまま・利回りがずっと低いなど）や、利回りを変えたプランを比べて、
+      悪い場合の見通しを確かめられます。
+    keywords: [モンテカルロ, モンテカルロシミュレーション, 確率, 成功確率, 結果の幅, 値動き, リスク, 標準偏差, ばらつき]
+    items: [assumptions.assetVolatility]
+    related:
+      - basics.stressTest
+      - investment.returnSettings
+
+  - id: investment.withdrawalOrder
+    title: 取り崩しの順番と取り崩しの計画
+    status: included
+    summary: >-
+      入っています。決済口座が足りない年は、決めた順番で口座を取り崩します。「毎月いくら」「毎年の初めの金融資産の〇%」を使う取り崩しの計画も
+      入れられます。
+    how: >-
+      決済口座の年末の残高が「預金に残しておく額」を下回ると、取り崩しの順番（既定は預金・外貨預金・財形・課税口座・暗号資産・持株会・旧NISA・NISA。
+      まとめた金融資産は決済口座の次）で年末に売って補います。課税口座・暗号資産は税を引いた手取りで足りるだけ売ります。iDeCo・企業型DC（受け取りまで）・
+      不動産・その他の資産・引き出せない期間の口座は取り崩しません。取り崩しの計画は、始まりの月から毎月の額か年の初めの金融資産×率を使い、
+      その年の収支の不足より多い分を「取り崩して使うお金」として年間収支から引きます。
+    keywords: [取り崩し, 取り崩しの順番, 定額取り崩し, 定率取り崩し, 4%ルール, 出口戦略, 生活防衛資金, 預金に残す額]
+    items: [assumptions.withdrawal, account.settlement, account.withdrawalLockedUntil, assumptions.investment]
+    fields:
+      - 「貯蓄・運用」の入力項目の「お金の行き先」
+      - 「貯蓄・運用」の入力項目の「預金に残しておく額」
+      - 「貯蓄・運用」の入力項目の「引き出せない期間の終わり」
+    rows: [cf.transfer.withdrawal, cf.expense.living.drawdown, cf.balance.shortfall]
+    components:
+      plan.cashflow: 27
+    related:
+      - basics.shortfall
+      - investment.taxableAccountTax
+
+  - id: investment.taxableAccountTax
+    title: 課税口座（特定口座）の譲渡益・配当の税
+    status: approximated
+    summary: >-
+      課税口座を取り崩すときは、売った額と取得価額の差（譲渡益）に所得税・住民税をかけ、手取りで足りるだけ売ります。源泉徴収ありの特定口座とみなします。
+      配当・分配金は分けず、運用益に含めています。
+    how: >-
+      売った額の取得価額は、取得価額×売る額÷時価で按分します。譲渡益に上場株式等の税率（所得税・復興特別所得税・防衛特別所得税と住民税）を掛け、
+      売った年の税の行に載せます。前提の選び方で、税を毎年の運用益にかける形（その年の運用益から税を引き、取得価額を時価にそろえる）にもできます。
+    approximation: >-
+      配当・分配金を運用益と分けず、既定では売るときにだけ税をかけます（毎年かける形も選べますが、税の行には出しません）。ほかの課税口座・
+      ほかの所得との損益通算と、損失の繰越控除はしません。
+    reason: 口座ごとの配当と値上がりの内訳を持たない作りにしているためです。
+    instead: 今の取得価額を入れると、今までの値上がりの分にも税がかかります（入れなければ時価と同じで、今までの値上がりには税がかかりません）。
+    keywords: [課税口座, 特定口座, 譲渡益課税, 20.315%, 配当課税, 源泉徴収, 株の税金, 投資信託の税金, 取得価額]
+    items: [account.costBasis, account.marketValue, assumptions.investment]
+    fields:
+      - 「貯蓄・運用」の入力項目の「取得価額」
+    rules:
+      - 租税特別措置法37条の11
+    regulation:
+      - incomeTax.listedSecurities.rate
+      - residentTax.listedSecurities.rate
+      - incomeTax.reconstructionSurtax.rate
+      - incomeTax.defenseSurtax.rate
+    rows: [cf.taxSi.incomeTax.capitalGains, cf.taxSi.residentTax.capitalGains, cf.balance.account.taxable, cf.transfer.investment]
+    components:
+      plan.cashflow: 27
+    related:
+      - investment.withdrawalOrder
+      - investment.nisa
+
+  - id: investment.cryptoAsset
+    title: 暗号資産
+    status: approximated
+    summary: >-
+      暗号資産は金融資産の口座の種類として持てます。2028年からの申告分離課税の分は取り崩し、売った利益に税をかけます。2027年までと、雑所得として扱う
+      暗号資産は取り崩さず、評価額だけを持ちます。
+    how: >-
+      残高は金融資産の合計に入り、口座の利回りも資産の配分も無ければ利回りは0です。申告分離課税（2028年から）の暗号資産は、既定の順番では課税口座の次に
+      取り崩し、売った額と取得価額の差に所得税・復興特別所得税・防衛特別所得税と住民税をかけて、手取りで足りるだけ売ります。譲渡損失は名義人ごとに3年
+      繰り越し、同じ年と翌年以後の暗号資産の利益から古い順に引きます（ほかの所得・課税口座とは通算しません）。相場の下落のストレステストの対象です。
+    approximation: >-
+      申告分離課税の税は、翌年の申告ではなく売った年に引きます。雑所得（総合課税）として売るときの税は計算できないので、その暗号資産は取り崩しません。
+    reason: 雑所得の税は、ほかの所得と合わせた税率で決まり、取り崩しの計算の中で出せないためです。
+    keywords: [暗号資産, 仮想通貨, ビットコイン, 申告分離課税, 雑所得, 暗号資産の税金]
+    items: [account.kind, account.cryptoTaxation, account.costBasis, account.marketValue]
+    fields:
+      - 「貯蓄・運用」の入力項目の「売ったときの税」
+    regulation:
+      - incomeTax.cryptoAsset.rate
+      - residentTax.cryptoAsset.rate
+      - incomeTax.cryptoAsset.lossCarryforwardYears
+    rows:
+      - cf.balance.account.cryptoAsset
+      - cf.transfer.savings.cryptoAsset
+      - cf.taxSi.incomeTax.cryptoAsset
+      - cf.taxSi.residentTax.cryptoAsset
+    components:
+      plan.cashflow: 27
+    related:
+      - investment.withdrawalOrder
+
+  - id: investment.foreignCurrency
+    title: 外貨預金
+    status: approximated
+    summary: >-
+      外貨預金は口座の種類として持てます。円の額で持ち、預金の利回り（資産の種類ごとの利回りに外貨預金を入れたときはその利回り）で増やします。
+      為替レートの動きと為替差益の税は計算しません。
+    how: 既定の取り崩しの順番では預金の次に取り崩し、積立は積立預金と同じ行に載せます。残高は金融資産の合計に入ります。
+    approximation: >-
+      為替の動きは、利回りの中で見込むしかありません。取り崩すときの為替差益（雑所得）の税はかけません。
+    reason: 口座の額を円だけで持つ作りにしているためです。
+    instead: 為替の見込みを含めた利回りを、資産の種類ごとの利回りの外貨預金か、その口座の利回りに入れてください。
+    keywords: [外貨預金, 外貨, ドル, 為替, 為替差益, 円安, 外貨建て]
+    items: [account.kind, account.assetMix, account.expectedReturn, assumptions.depositReturn, assumptions.assetReturns]
+    rows: [cf.balance.account.fxDeposit, cf.transfer.savings.deposit]
+    components:
+      plan.cashflow: 27
+    related:
+      - investment.returnSettings

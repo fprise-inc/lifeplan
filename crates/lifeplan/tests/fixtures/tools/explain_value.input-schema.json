@@ -1,0 +1,112 @@
+{
+  "$defs": {
+    "Change": {
+      "properties": {
+        "op": {
+          "description": "`replace`（今の値を置き換える）・`add`（物の項目を足す／配列に足す。末尾は `-`）・`remove`（消す）",
+          "type": "string"
+        },
+        "path": {
+          "description": "計算の入力（`input`）の中の場所（JSON Pointer。例: `/assumptions/inflation`、`/household/members/0/birth/birthYearMonth`）",
+          "type": "string"
+        },
+        "value": {
+          "default": null,
+          "description": "新しい値（`remove` では使わない）"
+        }
+      },
+      "required": [
+        "op",
+        "path"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "changes": {
+      "description": "入力に当てる変更（プラン・万一の想定。calculate の changes と同じ）",
+      "items": {
+        "$ref": "#/$defs/Change"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "depth": {
+      "description": "内側の計算をいくつの段までたどって、使った制度の値を集めるか（0〜3。既定3＝画面と同じ。小さくすると直接使った値だけになる）",
+      "format": "uint8",
+      "maximum": 3,
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "input": {
+      "description": "AIが組み立てた計算の入力（calculate の input と同じ形）"
+    },
+    "max_params": {
+      "description": "使った制度の値を何件まで返すか（1〜24。既定24＝画面と同じ）",
+      "format": "uint8",
+      "maximum": 24,
+      "minimum": 1,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "member": {
+      "description": "row が cf. の行ID のとき、その行の member（calculate の table の member。人ごとの行を選ぶ）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "object": {
+      "description": "row が cf. の行ID のとき、その行の object（calculate の table の object）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "row": {
+      "description": "表の行。画面のキャッシュフロー表の行の鍵（例: taxSi〔税・社会保険料〕、pension:self〔ご本人の年金〕、salary:spouse、education、financial）か、\ncalculate の table の行ID（cf. で始まる。例 cf.taxSi.incomeTax）。省くと、この世帯で根拠を出せる行の一覧を返す",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sample_household_id": {
+      "description": "見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "share_id": {
+      "description": "FPが渡した世帯の共有 ID（list_shared_households）。アプリが起動していて、共有が期限内のときだけ使える",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "stress_test": {
+      "description": "ストレステストの型（calculate の stress_test と同じ）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "year": {
+      "description": "年（表の年）",
+      "format": "int64",
+      "type": [
+        "integer",
+        "null"
+      ]
+    }
+  },
+  "type": "object"
+}

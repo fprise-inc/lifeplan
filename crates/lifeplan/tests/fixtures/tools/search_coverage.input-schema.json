@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "area": {
+      "description": "分野で絞る（get_coverage を id なしで呼ぶと分野の鍵が分かる。例 tax・pension）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "limit": {
+      "description": "返す数（1〜20。既定5）",
+      "format": "uint8",
+      "maximum": 20,
+      "minimum": 1,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "query": {
+      "description": "探す言葉や問い（例: 「高額療養費」「iDeCo の受け取り方」「医療費控除は入っている？」）",
+      "type": "string"
+    },
+    "status": {
+      "description": "状態で絞る: included（入っている）・approximated（近似している）・notYet（まだ入っていない）",
+      "enum": [
+        "included",
+        "approximated",
+        "notYet",
+        null
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "query"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,400 @@
+# 対応範囲の一覧（社会保険〔健康保険・厚生年金・介護・雇用〕）。形は coverage.schema.json
+area: socialInsurance
+title: 社会保険（健康保険・厚生年金・介護・雇用）
+order: 4
+entries:
+  - id: socialInsurance.employeeHealth
+    title: 勤め先の健康保険料（標準報酬・賞与）
+    status: included
+    summary: >-
+      入っています。勤め先の健康保険に入る月は、標準報酬月額（賞与は標準賞与額）に保険料率を掛けた本人負担分を、給与・賞与から引く形で載せます。
+      40〜64歳は介護保険料も足します。
+    how: >-
+      標準報酬月額は、9月〜翌年8月は4〜6月の報酬の平均（定時決定）、年の途中で入った年は入った月の報酬（資格取得時決定）で、等級表に当てます。
+      保険料は翌月の給与から引きます。賞与は標準賞与額（年度の累計に上限）に掛けます。率は、協会けんぽは支部ごとの料率、健康保険組合・共済組合は
+      「健康保険料率（本人負担分）」の欄の率です。健康保険・介護・子ども・子育て支援金を合わせた率で1回だけ端数を処理し、折半した額を本人の負担にします。
+      75歳からは後期高齢者医療に移ります。給与明細・標準報酬決定通知書の標準報酬月額を入れたときは、その額を使います。
+    keywords: [健康保険料, 協会けんぽ, 健康保険組合, 標準報酬月額, 標準賞与額, 社会保険料, 給与天引き]
+    items: [employment.healthInsurance.kind, employment.healthInsurance.insurer, employment.healthInsurance.employeeRate, employment.standardMonthlyRemuneration, employment.salary.annual, employment.salary.bonus]
+    fields:
+      - 「働き方と収入」の入力項目の健康保険
+      - 「働き方と収入」の入力項目の協会けんぽの支部
+      - 「働き方と収入」の入力項目の健康保険料率（本人負担分）
+    rules:
+      - 健康保険法156条
+      - 健康保険法41条
+    regulation:
+      - socialInsurance.health.kyokaikenpo.rate
+      - socialInsurance.health.standardMonthlyRemuneration
+      - socialInsurance.health.standardBonus.annualLimit
+      - socialInsurance.employeeShare.rounding
+    rows: [cf.taxSi.health]
+    components:
+      socialInsurance.health: 4
+      socialInsurance.coverage: 4
+    related:
+      - socialInsurance.employeePension
+      - socialInsurance.careInsurance
+      - socialInsurance.childSupportLevy
+      - tax.socialInsuranceDeduction
+
+  - id: socialInsurance.employeePension
+    title: 厚生年金保険料
+    status: included
+    summary: 入っています。厚生年金に入る月は、標準報酬月額（賞与は標準賞与額）×保険料率÷2を本人負担として、給与・賞与から引く形で載せます。
+    how: >-
+      標準報酬月額の決め方は健康保険と同じです（厚生年金の等級表。賞与は1回の上限あり）。保険料率は制度データの率で、70歳になるまでかけます。
+      70歳以後も勤め先で働く人は、保険料はかけず、在職老齢年金の判定に使う標準報酬月額に当たる額だけを出します。
+    keywords: [厚生年金保険料, 厚生年金, 標準報酬月額, 標準賞与額, 18.3%, 年金保険料]
+    items: [employment.pensionCategory, employment.standardMonthlyRemuneration]
+    fields:
+      - 「働き方と収入」の入力項目の厚生年金
+    rules:
+      - 厚生年金保険法81条
+    regulation:
+      - socialInsurance.pension.rate
+      - socialInsurance.pension.standardMonthlyRemuneration
+      - socialInsurance.pension.standardBonus.monthlyLimit
+      - socialInsurance.pension.maxAge
+    rows: [cf.taxSi.pension]
+    components:
+      socialInsurance.pension: 4
+      socialInsurance.coverage: 4
+    related:
+      - socialInsurance.employeeHealth
+      - socialInsurance.leaveExemption
+
+  - id: socialInsurance.childSupportLevy
+    title: 子ども・子育て支援金
+    status: included
+    summary: 入っています。令和8年4月分から、医療保険の保険料と一緒に払う子ども・子育て支援金を計算します。
+    how: >-
+      勤め先の健康保険は標準報酬月額・標準賞与額×支援金率（労使の合計の率を折半）です。健康保険組合・共済組合で本人負担の率を入れたときはその率です。
+      国民健康保険と後期高齢者医療は、それぞれの保険料と同じ形（所得割・均等割）で支援金の区分を計算し、国民健康保険は18歳未満の均等割をかけません。
+      任意継続の人は全額を本人が払います。
+    keywords: [子ども・子育て支援金, 支援金, 独身税, 令和8年4月]
+    items: [employment.healthInsurance.childSupportEmployeeRate]
+    rules:
+      - 子ども・子育て支援法
+    regulation:
+      - socialInsurance.childSupport.rate
+      - socialInsurance.nationalHealth.childSupport.limit
+      - socialInsurance.lateElderly.childSupport.incomeRate
+    rows: [cf.taxSi.childSupport]
+    components:
+      socialInsurance.health: 4
+      socialInsurance.nationalHealth: 12
+      socialInsurance.lateElderly: 9
+      socialInsurance.continuation: 3
+    related:
+      - socialInsurance.employeeHealth
+      - socialInsurance.nationalHealth
+
+  - id: socialInsurance.careInsurance
+    title: 介護保険料（40〜64歳と65歳以上）
+    status: approximated
+    summary: >-
+      入っています。40〜64歳は医療保険の保険料と一緒に、65歳からは市区町村に払う第1号被保険者の保険料を計算します。65歳以上の保険料は全国平均の基準額で計算します。
+    how: >-
+      40〜64歳は、勤め先の健康保険なら標準報酬月額×介護保険料率（折半）、国民健康保険なら介護分（所得割・均等割・平等割）です。
+      65歳からは、基準額（月額）×12×所得の段階の割合です。段階は、本人が住民税の均等割の課税なら合計所得金額の段階、本人が非課税なら世帯に課税の人がいるかと
+      「公的年金等の収入＋その他の合計所得金額」で決めます（国の標準段階）。年金が年18万円以上なら年金から差し引きます。
+    approximation: 65歳以上の保険料の基準額は、お住まいの市区町村の額ではなく全国平均の基準額を使います。段階も国の標準段階です。
+    reason: 市区町村ごとの値を持たない作りにしているためです。全国平均を使ったときは知らせに出します。
+    keywords: [介護保険料, 第1号被保険者, 第2号被保険者, 65歳以上, 40歳から, 所得段階, 基準額]
+    rules:
+      - 介護保険法129条
+      - 健康保険法156条
+    regulation:
+      - socialInsurance.care.kyokaikenpo.rate
+      - socialInsurance.care.firstInsured.baseMonthly
+      - socialInsurance.care.firstInsured.ratio.taxable
+      - socialInsurance.care.secondaryInsuredFromAge
+      - socialInsurance.specialCollection.minimumPension
+    rows: [cf.taxSi.care]
+    components:
+      socialInsurance.health: 4
+      socialInsurance.nationalHealth: 12
+      socialInsurance.careFirst: 7
+    related:
+      - socialInsurance.employeeHealth
+      - socialInsurance.nationalHealth
+      - tax.residentTaxExemption
+
+  - id: socialInsurance.employmentInsurance
+    title: 雇用保険料
+    status: included
+    summary: 入っています。雇用保険に入る働き方の期間は、支払う賃金（給与・通勤手当・賞与）×本人負担の率を、支払いごとに引く形で載せます。
+    how: >-
+      率は事業の種類（一般・農林水産など・建設）ごとの本人負担の率で、支払いごとに端数を処理します。雇用保険に入るかは、週の所定労働時間（20時間以上。令和10年10月からは10時間以上）で
+      判定します。公務員・会社役員・学生は入らない扱いです。「勤め先の社会保険」の欄などで直接選ぶこともできます。
+    keywords: [雇用保険料, 雇用保険, 失業保険, 通勤手当]
+    items: [employment.employer.industry, employment.salary.commutingMonthly, employment.employmentInsuranceCovered, employment.employer.weeklyHours]
+    fields:
+      - 「働き方と収入」の入力項目の通勤手当（非課税・月額）
+      - 「働き方と収入」の入力項目の週の所定労働時間
+    rules:
+      - 労働保険の保険料の徴収等に関する法律
+    regulation:
+      - employmentInsurance.employeeRate.general
+      - employmentInsurance.employeeRate.agricultureEtc
+      - employmentInsurance.employeeRate.construction
+      - employmentInsurance.coverage.weeklyHours
+    rows: [cf.taxSi.employment]
+    components:
+      socialInsurance.employment: 3
+      socialInsurance.employeeStatus: 4
+    related:
+      - benefits.unemployment
+
+  - id: socialInsurance.nationalHealth
+    title: 国民健康保険料
+    status: approximated
+    summary: >-
+      入っています。国民健康保険に入る月がある年度は、世帯主が納める保険料を、医療分・後期高齢者支援金等分・介護分（40〜64歳）・子ども・子育て支援金分ごとに計算します。
+      料率は全国の目安（公式の統計の全国の平均）です。
+    how: >-
+      区分ごとに、所得割（前の年の総所得金額等−基礎控除）×率＋均等割×人数＋平等割（7割・5割・2割の軽減の後）を賦課限度額まで計算し、加入の月数で按分します。
+      軽減の判定は、世帯主と被保険者の前の年の所得と、給与所得者等の数で行います。75歳で後期高齢者医療に移った人がいる世帯の軽減の判定や
+      平等割の特例も入れています。所得は青色申告の純損失の繰越控除の後の額を使います。
+    approximation: >-
+      お住まいの市区町村の料率ではなく、全国の目安の料率（所得割の率・均等割・平等割・賦課限度額）で計算します。決定通知書の年額や市区町村の料率を
+      使う形も計算にはありますが、画面の入力項目にはまだその欄がありません。
+    reason: 市区町村ごとの値を持たない作りにしているためです。目安の料率を使ったことは、数字の根拠と知らせに出します。
+    keywords: [国民健康保険料, 国保, 国民健康保険税, 所得割, 均等割, 平等割, 7割軽減, 賦課限度額]
+    rules:
+      - 国民健康保険法76条
+      - 国民健康保険法施行令29条の7
+    regulation:
+      - socialInsurance.nationalHealth.medical.incomeRate
+      - socialInsurance.nationalHealth.medical.perCapita
+      - socialInsurance.nationalHealth.medical.perHousehold
+      - socialInsurance.nationalHealth.medical.limit
+      - socialInsurance.nationalHealth.elderlySupport.incomeRate
+      - socialInsurance.nationalHealth.care.incomeRate
+      - socialInsurance.nationalHealth.reduction.base
+    rows: [cf.taxSi.health, cf.taxSi.care, cf.taxSi.childSupport]
+    components:
+      socialInsurance.nationalHealth: 12
+      socialInsurance.healthStatus: 9
+    related:
+      - socialInsurance.nationalHealthReductions
+      - socialInsurance.lateElderly
+      - socialInsurance.continuation
+
+  - id: socialInsurance.nationalHealthReductions
+    title: 国民健康保険料の軽減・免除のうち入っていない物
+    status: notYet
+    summary: >-
+      未就学児の均等割の軽減、産前産後の保険料の免除、倒産・解雇などで辞めた人（非自発的失業者）の軽減は、まだ国民健康保険料に入れていません。
+    reason: >-
+      未就学児の軽減と産前産後の免除は、当てはまりうる年度に知らせを出し、保険料は変えていません。非自発的失業者の軽減は、まだ作っていません。
+      どれも保険料を少なくする方向の制度なので、入れない分だけ保険料は多めに出ます。
+    keywords: [未就学児の均等割軽減, 産前産後の免除, 非自発的失業者の軽減, 国保の減免, 倒産・解雇]
+    rules:
+      - 国民健康保険法施行令29条の7
+    related:
+      - socialInsurance.nationalHealth
+
+  - id: socialInsurance.nationalPension
+    title: 国民年金の保険料
+    status: included
+    summary: 入っています。国民年金の第1号被保険者の月は、全国一律の月額の保険料を、納付期限の翌月に払う形で載せます。
+    how: >-
+      第1号・第2号・第3号の種別は、働き方と配偶者・扶養の状態から月ごとに導きます（20〜59歳）。第1号の月の保険料を払い、産前産後の免除の月（出産の前の月から4か月）と、
+      障害の想定で1・2級の障害基礎年金を受ける月（法定免除）は払いません。制度データに値の無い先の年度は、最後の値に賃金上昇率を掛けて10円単位で延ばします
+      （保険料の改定率の近い値）。免除・猶予・未納の期間は、年金の加入の記録で入れます。
+    keywords: [国民年金保険料, 第1号被保険者, 自営業の年金, 産前産後の免除, 法定免除]
+    rules:
+      - 国民年金法87条
+    regulation:
+      - socialInsurance.nationalPension.premium
+      - socialInsurance.nationalPension.fromAge
+      - socialInsurance.nationalPension.untilAge
+      - socialInsurance.nationalPension.maternityExemption.months
+    rows: [cf.taxSi.pension]
+    components:
+      socialInsurance.nationalPension: 4
+      pension.category: 7
+    related:
+      - socialInsurance.dependent
+      - tax.socialInsuranceDeduction
+
+  - id: socialInsurance.lateElderly
+    title: 後期高齢者医療の保険料
+    status: approximated
+    summary: 入っています。75歳の誕生日の月から、後期高齢者医療の保険料（所得割と均等割。軽減の後）を計算します。料率は全国平均です。
+    how: >-
+      医療と子ども・子育て支援金の区分ごとに、所得割（前の年の総所得金額等−基礎控除）×所得割率＋均等割（7割・5割・2割の軽減の後）を賦課限度額まで計算します。
+      年度の途中で75歳になる年は月数で按分し、年金が年18万円以上なら年金から差し引きます。勤め先の健康保険の被扶養者だった人は、所得割をかけず、
+      資格を取ってから2年は均等割の軽減を5割にします。
+    approximation: お住まいの都道府県の後期高齢者医療広域連合の料率ではなく、全国平均の料率で計算します。
+    reason: 都道府県ごとの値を持たない作りにしているためです。全国平均を使ったことは知らせに出します。
+    keywords: [後期高齢者医療, 75歳, 後期高齢者の保険料, 均等割の軽減, 広域連合]
+    rules:
+      - 高齢者の医療の確保に関する法律104条
+    regulation:
+      - socialInsurance.lateElderly.medical.incomeRate
+      - socialInsurance.lateElderly.medical.perCapita
+      - socialInsurance.lateElderly.medical.limit
+      - socialInsurance.health.lateElderlyAge
+    rows: [cf.taxSi.health, cf.taxSi.childSupport]
+    components:
+      socialInsurance.lateElderly: 9
+    related:
+      - socialInsurance.nationalHealth
+
+  - id: socialInsurance.continuation
+    title: 健康保険の任意継続
+    status: included
+    summary: >-
+      入っています。働き方の期間の健康保険を「任意継続」にすると、退職したときの標準報酬月額×保険料率の全額を、最長2年払う形で計算します（協会けんぽ）。
+    how: >-
+      保険料は、資格を失ったときの標準報酬月額（協会けんぽは全被保険者の平均の額が上限）×（健康保険＋40〜64歳の介護保険＋子ども・子育て支援金の率）で、折半しません。
+      支部は任意継続の期間の支部か、前の勤め先の支部です。始まりから2年を過ぎると、扶養か国民健康保険かを自動で判定します。任意継続の間も、収入の無い家族は被扶養者のままです。
+      前納の割引は入れていません。健康保険組合・共済組合の任意継続は、料率と上限が組合の規約で決まるので計算せず、知らせを出します。
+    keywords: [任意継続, 任意継続被保険者, 退職後の健康保険, 2年, 国保と任意継続の比較]
+    items: [employment.healthInsurance.kind, employment.healthInsurance.insurer]
+    fields:
+      - 「働き方と収入」の入力項目の健康保険（任意継続）
+    rules:
+      - 健康保険法37条
+      - 健康保険法38条
+      - 健康保険法47条
+    regulation:
+      - socialInsurance.health.kyokaikenpo.continuationLimit
+      - socialInsurance.health.continuation.maxMonths
+      - socialInsurance.health.kyokaikenpo.rate
+    rows: [cf.taxSi.health, cf.taxSi.care, cf.taxSi.childSupport]
+    components:
+      socialInsurance.continuation: 3
+      socialInsurance.healthStatus: 9
+    related:
+      - socialInsurance.nationalHealth
+      - socialInsurance.dependent
+
+  - id: socialInsurance.dependent
+    title: 扶養（被扶養者・第3号）と130万円の壁
+    status: included
+    summary: >-
+      入っています。勤め先の健康保険に入らない月は、家族の扶養に入れるかを収入の見込みから月ごとに判定し、外れれば国民健康保険にします。
+      第2号の配偶者に扶養される20〜59歳は国民年金の第3号にします。
+    how: >-
+      その月の収入の状況が続くとしたらの年額（給与・事業・公的年金）が、被扶養者の基準（130万円。60歳以上と障害年金を受ける人は180万円、19〜22歳は150万円。
+      配偶者には19〜22歳の基準を使わない）の未満で、同居なら扶養する人の収入の見込みの2分の1の未満なら扶養です。別居の親・祖父母は仕送りの年額の未満で判定し、
+      扶養していると入れたときだけ候補にします。雇用保険の基本手当を受ける月は、基本手当日額×360が基準以上なら扶養にしません。
+      第3号は、20〜59歳で配偶者が第2号、その月の健康保険がその配偶者の扶養の月です（本人が任意継続の月も、扶養の決まりに当たれば第3号）。
+      働き方の期間の健康保険の欄で扶養・国民健康保険を直接選ぶこともできます。
+    keywords: [扶養, 被扶養者, 第3号被保険者, 130万円の壁, 社会保険の扶養, 扶養から外れる, 150万円]
+    items: [employment.healthInsurance.kind, member.support, member.birth]
+    fields:
+      - 「働き方と収入」の入力項目の健康保険（家族の扶養）
+      - 「介護・親」の入力項目の「扶養している（税・健康保険）」と仕送りの額
+    rules:
+      - 健康保険法3条7項
+      - 昭和52年4月6日 保発第9号・庁保発第9号
+      - 国民年金法7条1項3号
+    regulation:
+      - socialInsurance.dependent.incomeLimit
+      - socialInsurance.dependent.incomeLimitElderly
+      - socialInsurance.dependent.incomeLimitYoung
+    components:
+      socialInsurance.healthStatus: 9
+      pension.category: 7
+    related:
+      - socialInsurance.shortTimeCoverage
+      - tax.spouseDeduction
+      - socialInsurance.nationalPension
+
+  - id: socialInsurance.shortTimeCoverage
+    title: 短時間労働者の社会保険（106万円の壁）
+    status: included
+    summary: >-
+      入っています。パート・契約の人が勤め先の健康保険・厚生年金に入るかを、週の所定労働時間・賃金の月額・勤め先の従業員数・学生かどうかで月ごとに判定します。
+      賃金の要件（月8.8万円）は令和8年10月で無くなる扱いで、勤め先の規模の要件も段階的に下がります。
+    how: >-
+      会社員・公務員・会社役員は入ります。契約・パートは、週の所定労働時間が通常の労働者の4分の3以上なら入り、それ未満なら短時間労働者の要件
+      （週20時間以上・賃金の月額8.8万円以上〔令和8年9月まで〕・勤め先の従業員数51人以上〔令和9年10月から36人、令和11年10月から21人、令和14年10月から11人、
+      令和17年10月から要件なし〕・学生でない）で判定します。要件の値と時期は制度データに持ち、月ごとに当てます。
+      「勤め先の社会保険」の欄で、入っている・入っていないを直接選ぶこともできます。計算の基準の月より前の月は、基準の月の要件で判定します。
+    keywords: [106万円の壁, 適用拡大, 短時間労働者, パートの社会保険, 週20時間, 51人以上, 賃金要件の撤廃]
+    items: [employment.type, employment.employer.size, employment.employer.weeklyHours, employment.employer.fullTimeWeeklyHours, employment.student, employment.employeeInsurance]
+    fields:
+      - 「働き方と収入」の入力項目の勤め先の従業員数
+      - 「働き方と収入」の入力項目の週の所定労働時間
+      - 「働き方と収入」の入力項目の学生
+      - 「働き方と収入」の入力項目の勤め先の社会保険
+    rules:
+      - 健康保険法3条1項9号
+      - 厚生年金保険法12条
+    regulation:
+      - socialInsurance.coverage.regularHoursRatio
+      - socialInsurance.coverage.shortTimeWeeklyHours
+      - socialInsurance.coverage.shortTimeMonthlyWage
+      - socialInsurance.coverage.shortTimeEmployerSize
+    components:
+      socialInsurance.employeeStatus: 4
+    related:
+      - socialInsurance.dependent
+      - socialInsurance.employeeHealth
+
+  - id: socialInsurance.leaveExemption
+    title: 産休・育休中の保険料の免除
+    status: included
+    summary: 入っています。産前産後休業・育児休業の月は、勤め先の健康保険・厚生年金の保険料を免除し、年金の記録には休業の前の標準報酬月額のまま数えます。
+    how: >-
+      働き方の期間を「休業中」にして休業の種類（産前産後休業・育児休業）を選んだ月は、健康保険（介護・子ども・子育て支援金を含む）と厚生年金の保険料をかけません。
+      休業中は直前の勤め先の保険を引き継ぎ、標準報酬月額も休業の前の額のままです。国民年金の第1号の母の産前産後の免除は、国民年金の保険料の項目にあります。
+    keywords: [産休の保険料免除, 育休の保険料免除, 産前産後休業, 育児休業, 社会保険料の免除]
+    items: [employment.leaveKind]
+    fields:
+      - 「働き方と収入」の入力項目の休業の種類
+    rules:
+      - 健康保険法159条
+      - 健康保険法159条の3
+      - 厚生年金保険法81条の2
+    components:
+      socialInsurance.coverage: 4
+    related:
+      - benefits.childcareLeave
+      - socialInsurance.nationalPension
+
+  - id: socialInsurance.highCostMedical
+    title: 高額療養費
+    status: approximated
+    summary: >-
+      入っています。万一の想定（障害・就業不能）の医療費から、窓口の負担（3割）を高額療養費の自己負担の上限で止めた額を支出にします。
+      多数回該当と、令和8年8月からの年間上限も入っています。70歳以上の区分は作っていません。
+    how: >-
+      万一の想定に入れた1か月の医療費（10割）と月数から、窓口の負担を出し、所得の区分の上限（基準の額＋（医療費−基準の医療費）×1%、または定額）で止めます。
+      所得の区分は、勤め先の健康保険なら標準報酬月額、国民健康保険なら同じ世帯の国民健康保険の人の基準所得額（総所得金額等−住民税の基礎控除）の合計
+      （療養の月が8〜12月なら前の年、1〜7月なら前々年）、住民税が非課税なら最も低い区分です。直近12か月に3回以上上限に達していれば、4回目から多数回該当の額です。
+      令和8年8月からは、8月〜翌年7月の負担の合計を年間上限で止め、令和9年8月からの区分の細分化も制度データで当てます。年収約200万円以下の年間上限の
+      さかのぼりの払い戻しは、高額療養費などの医療の給付の行に入れます。
+    approximation: >-
+      70歳以上の区分（外来の特例・2割や1割の負担）は作らず、70歳以後の月も70歳未満の区分と3割の負担で計算します。
+    reason: 70歳以上の高額療養費の区分と負担の割合の判定をまだ作っていないためです。70歳以後の月があるときは知らせを出します。
+    keywords: [高額療養費, 自己負担限度額, 医療費の上限, 多数回該当, 年間上限, 限度額適用認定証]
+    items: [contingency.medical, contingencyPremise.medical]
+    fields:
+      - 万一の想定の医療費（1か月）と医療費の月数
+    rules:
+      - 健康保険法115条
+      - 健康保険法施行令42条
+      - 国民健康保険法施行令29条の3
+    regulation:
+      - socialInsurance.medical.copayRate.under70
+      - socialInsurance.highCostMedical.under70.base
+      - socialInsurance.highCostMedical.under70.threshold
+      - socialInsurance.highCostMedical.under70.multiple
+      - socialInsurance.highCostMedical.under70.annualLimit
+      - socialInsurance.highCostMedical.tierByStandard
+      - socialInsurance.highCostMedical.tierByIncome
+    rows: [cf.expense.care.medical, cf.income.benefit.medical]
+    components:
+      medical.highCost: 3
+    related:
+      - contingency.medical
+      - tax.medicalExpenseDeduction
+      - benefits.healthInsurance
+      - tax.residentTaxExemption
