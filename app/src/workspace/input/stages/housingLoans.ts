@@ -517,6 +517,8 @@ function debtorFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
           label: "ご本人の負担割合（連帯債務）",
           level: "detail",
           kind: "pct",
+          min: 0,
+          max: 100,
           help: "残りが配偶者の負担。住宅ローン控除は負担割合で分けます",
           get: (w) => ({ value: (w.request.input.household.debts ?? []).find((x) => x.id === d.id)?.debtors.find((x) => x.role === "primary")?.share ?? "0.5" }),
           set: (w, v) =>
@@ -635,7 +637,7 @@ export function creditLifeFields(wh: WorkingHousehold, d: Debt, level: "simple" 
   if (events(wh.request.input.household, wh).includes("incapacity"))
     fields.push(plain({ key: `${k}/clMonths`, item: "debt.creditLife", label: "就業不能の特約: 残高が消えるまでの月数", level: "detail", kind: "int", suffix: "か月", min: 0, max: 120, find, path: ["creditLife", "incapacityMonths"], optional: true, fallback: 12 }));
   fields.push(
-    plain({ key: `${k}/clRatio`, item: "debt.creditLife", label: "保障割合", level: "detail", kind: "pct", find, path: ["creditLife", "ratio"], optional: true, fallback: "1", help: "連帯債務などで、残高のうち保障される割合" }),
+    plain({ key: `${k}/clRatio`, item: "debt.creditLife", label: "保障割合", level: "detail", kind: "pct", min: 0, max: 100, find, path: ["creditLife", "ratio"], optional: true, fallback: "1", help: "連帯債務などで、残高のうち保障される割合" }),
     plain({ key: `${k}/clJoint`, item: "debt.creditLife", label: "夫婦連生", help: "どちらかの万一で、残りの全額がなくなります", level: "detail", kind: "bool", find, path: ["creditLife", "spouseJoint"], optional: true, fallback: false }),
   );
   return fields;
@@ -1864,7 +1866,7 @@ export function standardTermMonths(h: Household, memberId: string, start: string
  * 今住んでいる家のローンは「今の残高から」（今の残高 3,000万円の目安。借りた年と借入額は仮）。金利は変動金利の目安（マスタデータ。借りるのが計算の基準の月までなら、
  * 今返している住宅ローンの目安）、期間は35年（80歳まで）の標準の値
  */
-export function newMortgage(wh: WorkingHousehold, pairOf?: string): WorkingHousehold {
+export function newMortgage(wh: WorkingHousehold, pairOf?: string, forResidence?: string): WorkingHousehold {
   const id = newId();
   const rid = newId();
   const base = wh.request.input.baseMonth;
@@ -1877,7 +1879,9 @@ export function newMortgage(wh: WorkingHousehold, pairOf?: string): WorkingHouse
     const partner = pairOf === undefined ? undefined : (hh.debts ?? []).find((x) => x.id === pairOf);
     const debtor = partner !== undefined ? ((partner.debtors[0]?.member === self.id ? spouse?.id : self.id) ?? self.id) : self.id;
     const own = (hh.residences ?? []).find((r) => r.kind === "own");
-    const bought = (hh.residences ?? []).filter((r) => r.kind === "own" && r.purchase !== undefined).at(-1);
+    // 購入の予定とつなぐ（forResidence: その購入の予定。住宅の購入の「どう買うか」で住宅ローンを使うを選んだとき。0175。無ければ最後に足した購入の予定）
+    const purchases = (hh.residences ?? []).filter((r) => r.kind === "own" && r.purchase !== undefined);
+    const bought = forResidence !== undefined ? purchases.find((r) => r.id === forResidence) : purchases.at(-1);
     const partnerStart = partner === undefined ? null : resolveTimepoint(hh, partner.start);
     const start = partnerStart ?? (bought !== undefined ? purchaseMonth(hh, bought) : null) ?? (own?.purchase !== undefined ? resolveTimepoint(hh, own.purchase.at) : null) ?? base;
     linked = partner !== undefined ? entryOf(wh, partner.id) !== "balance" : bought !== undefined;

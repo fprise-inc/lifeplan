@@ -18,6 +18,7 @@ import { COURSE_PRESETS, defaultStages, nurseryFreeMonth, presetOf, STAGE_ORDER 
 import { isHigher, STAGE_START_AGE, stagePeriod, stageYears } from "./educationCost.ts";
 import { amountsUnentered, fillMonths, pensionMembers, statementMonthsMissing, substituteMonths, switchPension } from "./stages/pension.ts";
 import { benefitPeriod } from "./stages/retirement.ts";
+import { estimateWorkEnd } from "./stages/work.ts";
 import { currentPeriodId } from "../store/readings.ts";
 import { missingUnemployment, putEstimate, UNEMPLOYMENT_BASIS, UNEMPLOYMENT_ITEM, unemploymentEstimate } from "./claims.ts";
 import { AUTO_TYPES, autoKindOf, civilEstimate, COMPUTED, finalMonthlyAt, initialBenefit, isAutoBenefit, isUnenteredBox, KIND_SHORT, prevalenceText, reasonAt, rowOfBenefit, type BenefitKind } from "./retirementBenefits.ts";
@@ -256,11 +257,14 @@ export function fillRetirement(wh: WorkingHousehold, memberId: string): WorkingH
   if (m === undefined || p === undefined || !AUTO_TYPES.has(p.type) || (h.retirementBenefits ?? []).some((b) => b.member === memberId)) return wh;
   const est = retirementEstimate(h, m, p, wh.request.input.baseMonth);
   if (est === null) return wh;
-  return mutate(wh, (hh, req) => {
+  const added = mutate(wh, (hh, req) => {
     // 初めの形は仮の ID で作った（値の状態の行の鍵は物の ID を含まないので、ID を付け直すだけでよい）
     (hh.retirementBenefits ??= []).push(structuredClone({ ...est.benefit, id: newId() }));
     putRow(req.input as unknown as Obj, benefitAddress(p.id), undefined);
   });
+  // 勤め先の期間に終わりが無いと、受け取る時期が決まらず計算に入らない（0163）。働く最後の年齢の推定（定年など。0049）で期間の終わりを
+  // 補い、推定の印を付ける（働き方を入れたときと同じ estimateWorkEnd。0175）
+  return p.to === null ? estimateWorkEnd(added, memberId) : added;
 }
 
 /**

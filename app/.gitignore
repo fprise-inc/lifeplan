@@ -1,6 +1,7 @@
 # 作ったもの（npm run prepare-assets・vite build・tauri）
 /dist/
 /public/engine/
+/public/pdfjs/
 /src/generated/
 /src-tauri/target/
 /src-tauri/gen/

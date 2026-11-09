@@ -1,5 +1,6 @@
 // 入力のパネル（作業の層の部品）: カードを押すと画面の中央に開き、背景を暗くする（別の窓は出さない）。
 // 中身は今までの入力の欄（簡易と詳細の切り替えを含む）。値は下書きに入れ、「保存」で世帯に入れる。× と Esc で閉じる（保存していない変更があれば先に知らせる）
+import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { allFields, raiseFields, type Level } from "./form.ts";
 import { DocReadContext, fieldDomId, FieldStateOps, FieldSuggestions, GroupOpen, PinControls, PlanMarksContext, Section, SectionLinks, visible, type GroupOpenState, type PinControl, type PlanMarks, type SectionLink } from "./FieldViews.tsx";
@@ -74,6 +75,8 @@ export interface InputPanelProps {
   plan?: PanelPlan;
   /** まとまりごとの「▸ 詳しく」の開け閉め（入力の画面が持つ。渡さなければパネルの中で覚える。0078 の追記） */
   groupOpen?: GroupOpenState;
+  /** 見出しの下に出す「届いた書類を見る」の入口（Web のヒアリングで受け取った書類。0191） */
+  docs?: ComponentChildren;
 }
 
 export interface PanelPlan {
@@ -112,7 +115,7 @@ function jumpTo(el: HTMLElement): void {
   box.classList.add("jumped");
 }
 
-export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, computeOne, onStatement, onReadDoc, focusKey, focusAt, plan, groupOpen }: InputPanelProps) {
+export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, computeOne, onStatement, onReadDoc, focusKey, focusAt, plan, groupOpen, docs }: InputPanelProps) {
   const [draft, setDraft] = useState<WorkingHousehold>(wh);
   const [dirty, setDirty] = useState(false);
   /** 保存していない変更があるか（描く前にも読めるように。閉じる前に打ちかけの値を決めた直後など） */
@@ -556,6 +559,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
             </div>
           ) : null}
         </div>
+        {docs}
         <div class="ip-body" data-reveal-root>
           {/* 入っていない物（1件を1行。パネルの上の固定の場所でなく本文の頭に置き、欄と一緒に流れる）。入れ始めた項目は赤い帯で知らせ、まだ入れていない項目は
               帯を出さず、推定と「該当なし」の操作だけを控えめに（0045 の追記・0041 の追記 2026-11-06） */}

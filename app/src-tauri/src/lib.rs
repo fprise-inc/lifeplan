@@ -325,6 +325,7 @@ pub fn run() {
     let app = builder
         .manage(ReportState::default())
         .manage(ExportLog::default())
+        .manage(export::ChosenFolder::default())
         .invoke_handler(tauri::generate_handler![
             engine_packs,
             list_households,
@@ -422,7 +423,9 @@ pub fn run() {
             app_close_cancel,
             hearing_web::hearing_web_config,
             hearing_web::hearing_web_call,
-            hearing_web::hearing_document_save
+            hearing_web::hearing_document_save,
+            hearing_web::hearing_documents_folder,
+            hearing_web::hearing_document_save_into
         ])
         .setup(|app| {
             // エンジンのバイトコードを裏で用意する（最初の計算を待たせない）

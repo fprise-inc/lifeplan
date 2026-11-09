@@ -424,6 +424,36 @@ fn every_format_version_has_a_fixture_and_opens() {
                     "{v}: 送りの記録と分岐の答えは変換で書き足さない"
                 );
             }
+            // 0.71 から（0190）: 書類の持ち主。変換で書き足さない
+            let docs = w[0]["record"]["selection"]["documents"].as_array().unwrap();
+            if migrate::parse(v).unwrap() >= (0, 71) {
+                assert_eq!(docs[0]["owner"], "self", "{v}: 書類の持ち主");
+                assert_eq!(docs[1]["owner"], "spouse", "{v}: 書類の持ち主");
+                assert_eq!(docs[1]["kind"], "deposits", "{v}: 足した書類の種類");
+            } else {
+                assert!(
+                    docs.iter().all(|d| d.get("owner").is_none()),
+                    "{v}: 書類の持ち主は変換で書き足さない"
+                );
+            }
+            // 0.72 から（0191）: 受け取った書類のファイルの見た・保存したの日時。変換で書き足さない
+            if migrate::parse(v).unwrap() >= (0, 72) {
+                assert_eq!(
+                    w[0]["files"][0]["savedAt"], "2026-11-08T12:05:00Z",
+                    "{v}: 保存したの日時"
+                );
+                assert_eq!(
+                    w[0]["files"][1]["viewedAt"], "2026-11-08T12:10:00Z",
+                    "{v}: 見たの日時"
+                );
+            } else {
+                assert!(
+                    w[0]["files"].as_array().is_some_and(|f| f
+                        .iter()
+                        .all(|x| x.get("viewedAt").is_none() && x.get("savedAt").is_none())),
+                    "{v}: 見た・保存したの日時は変換で書き足さない"
+                );
+            }
         } else {
             assert!(
                 web.is_none(),

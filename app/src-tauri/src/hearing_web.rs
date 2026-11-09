@@ -227,6 +227,40 @@ pub async fn hearing_document_save(
     export::save(&app, &window, ExportKind::HearingDocument, &name, bytes).await
 }
 
+/// 受け取った書類をまとめて保存するフォルダを、OS のフォルダのダイアログで FP に選ばせる（0191。パスは画面に返さない）
+#[tauri::command]
+pub async fn hearing_documents_folder(
+    app: AppHandle,
+    window: WebviewWindow,
+) -> Result<export::FolderPick, String> {
+    export::pick_folder(&app, &window, "書類を保存するフォルダを選ぶ").await
+}
+
+/// 受け取った書類を1つ、選んだフォルダに書く（hearing_documents_folder の後）。見出し・形の確かめは hearing_document_save と同じ。
+/// 同じ名前のファイルは上書きしない（同じ中身ならそのまま、違えば番号を足す）
+#[tauri::command]
+pub async fn hearing_document_save_into(
+    app: AppHandle,
+    request: Request<'_>,
+) -> Result<SaveOutcome, String> {
+    let InvokeBody::Raw(bytes) = request.body() else {
+        return Err("E_HEARING_DOC_BODY".to_owned());
+    };
+    let Some(ext) = document_ext(bytes) else {
+        return Err("E_HEARING_DOC_BODY".to_owned());
+    };
+    if bytes.len() > DOCUMENT_MAX {
+        return Err("E_HEARING_DOC_BODY".to_owned());
+    }
+    let raw = request
+        .headers()
+        .get("x-file-name")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    let name = document_name(raw, ext);
+    export::save_into(&app, ExportKind::HearingDocument, &name, bytes)
+}
+
 /// 書類の形（見出しのバイト）から拡張子。受け付けない形は None
 pub fn document_ext(b: &[u8]) -> Option<&'static str> {
     if b.starts_with(&[0xff, 0xd8, 0xff]) {

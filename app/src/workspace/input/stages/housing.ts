@@ -332,6 +332,8 @@ function ownershipFields(wh: WorkingHousehold, r: Residence, k: string): FieldDe
         label: "ご本人の持分",
         level: missing.length > 0 ? "simple" : "detail",
         kind: "pct",
+        min: 0,
+        max: 100,
         help: "残りが配偶者の持分",
         get: (w) => ({ value: own(w).find((o) => o.member === self.id)?.share ?? "0.5" }),
         set: (w, v) =>
@@ -601,8 +603,42 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
     if (r.propertyTax !== undefined) groups.push(...staged("propertyTax", "固定資産税", "annual", (x) => x.propertyTax?.annual.value ?? null, true));
   }
   if (buying) groups.push(...customPaymentGroups(wh, r, k), ...giftGroups(wh, r, k));
+  // 住宅ローンを使う購入は、この家の住宅ローンの欄を住宅の購入の中に続けて出す（「住宅ローン」の区画には出さない。0175）
+  if (buying) {
+    const loans = purchaseLoans(h0, r);
+    groups.push(...loans.flatMap((d, j) => loanGroups(wh, d, j, `この家の住宅ローン${loans.length > 1 ? ` ${j + 1}` : ""}`)));
+  }
   if (r.kind === "own") groups.push(...valuationGroups(wh, r, k));
-  return groups;
+  // 現金で買う形の購入は、どの欄・ボタンから合計（物件の価格・土地と建物の代金・購入の種類）が変わっても、頭金を合計についていかせる（0175）
+  return buying ? groups.map((g) => (g.key === k || g.key.startsWith(`${k}/`) ? keepCashGroup(g, r.id) : g)) : groups;
+}
+
+/**
+ * 現金で買う形（purchaseFunding が cash）だった購入で、書き込みの後に住宅ローンがつながらず、頭金が物件の価格（注文住宅は合計）と違えば、
+ * 頭金を合計に合わせる（現金で買うなら合計の全額を払う。合計が変わって「まだ選んでいない」に戻らないように。0175）
+ */
+export function keepCash(before: WorkingHousehold, after: WorkingHousehold, rid: string): WorkingHousehold {
+  if (after === before) return after;
+  const hb = before.request.input.household;
+  const rb = (hb.residences ?? []).find((y) => y.id === rid);
+  if (rb === undefined || purchaseFunding(hb, rb) !== "cash") return after;
+  const ha = after.request.input.household;
+  const ra = (ha.residences ?? []).find((y) => y.id === rid);
+  if (ra?.purchase === undefined || purchaseLoans(ha, ra).length > 0 || ra.purchase.downPayment === ra.purchase.price) return after;
+  return mutate(after, (h) => {
+    const x = (h.residences ?? []).find((y) => y.id === rid);
+    if (x?.purchase !== undefined) x.purchase.downPayment = x.purchase.price;
+  });
+}
+
+function keepCashGroup(g: GroupDef, rid: string): GroupDef {
+  const tidy = (b: WorkingHousehold, a: WorkingHousehold) => keepCash(b, a, rid);
+  return {
+    ...g,
+    fields: g.fields.map((f) => afterWrite(f, tidy)),
+    ...(g.openFields !== undefined ? { openFields: g.openFields.map((f) => afterWrite(f, tidy)) } : {}),
+    actions: g.actions.map((a) => ({ ...a, run: (w: WorkingHousehold) => tidy(w, a.run(w)) })),
+  };
 }
 
 /**
@@ -657,17 +693,93 @@ export function unfundedPurchaseNotice(wh: WorkingHousehold, rid: string): { fie
   const r = (h.residences ?? []).find((y) => y.id === rid);
   const left = r === undefined ? null : unfundedPurchase(h, r);
   if (r === undefined || left === null) return null;
-  const last = (h.residences ?? []).filter((y) => y.kind === "own" && y.purchase !== undefined).at(-1)?.id === rid;
-  return {
-    fieldKey: `housing/res/${rid}/purchase/price`,
-    detail: unfundedPurchaseText(left, isCustomBuild(r)),
-    fix: last ? { label: "＋ 住宅ローンを足す（物件の価格−頭金を借りる）", run: (w) => withProvisionalHousing(newMortgage(w)) } : null,
-  };
+  // 「どう買うか」（現金で買う・住宅ローンを使う）をまだ選んでいない。選ぶのはその欄で（0175。前の「＋ 住宅ローンを足す」のボタンは欄の選び方に替えた）
+  return { fieldKey: fundingKey(rid), detail: unfundedPurchaseText(left, isCustomBuild(r)), fix: null };
 }
 
-/** 購入の予定にローンが無いときの知らせの文 */
+/** 購入の予定にローンが無いときの知らせの文（「どう買うか」の欄の未入力の印の文。0175） */
 export const unfundedPurchaseText = (left: number, custom: boolean): string =>
-  `${custom ? "土地と建物の合計" : "物件の価格"}−頭金（${manOf(left)}）の払い方が入っていません（借入にも預金からの払いにも入らず、計算に入っていません）。住宅ローンで借りるなら「＋ 住宅ローン」で足し、自己資金で払うなら頭金を${custom ? "合計" : "物件の価格"}と同じ額にします`;
+  `未入力（${custom ? "土地と建物の合計" : "物件の価格"}−頭金（${manOf(left)}）の払い方が入っていません。借入にも預金からの払いにも入らず、計算に入っていません。「どう買うか」で、現金で買うか住宅ローンを使うかを選んでください）`;
+
+// ---- どう買うか（現金で買う・住宅ローンを使う。0175） ----
+
+const fundingKey = (rid: string): string => `housing/res/${rid}/purchase/funding`;
+
+/**
+ * 住宅の購入の「どう買うか」（0175）。世帯ファイルには持たず、今の形から読む（形式の版を変えない）:
+ * つながる住宅ローンがあれば住宅ローンを使う、ローンが無く頭金が物件の価格（注文住宅は合計）以上なら現金で買う、どちらでもなければまだ選んでいない（null）
+ */
+export function purchaseFunding(h: Household, r: Residence): "cash" | "loan" | null {
+  if (r.kind !== "own" || r.purchase === undefined) return null;
+  if (purchaseLoans(h, r).length > 0) return "loan";
+  return r.purchase.price - (r.purchase.downPayment ?? 0) <= 0 ? "cash" : null;
+}
+
+const FUNDING_OPTIONS = [
+  { value: "cash", label: "現金で買う（住宅ローンなし）" },
+  { value: "loan", label: "住宅ローンを使う" },
+];
+
+/** 現金で買う: この家の住宅ローン（つながるローン）を外し、頭金を物件の価格と同じにする（物件の価格と諸費用を購入の月に手元のお金から払う） */
+function buyWithCash(wh: WorkingHousehold, rid: string): WorkingHousehold {
+  let entries: string[] = [];
+  const next = mutate(wh, (h) => {
+    const r = (h.residences ?? []).find((y) => y.id === rid);
+    if (r?.purchase === undefined) return;
+    const loans = purchaseLoans(h, r);
+    const gone = new Set(loans.map((d) => d.id));
+    for (const d of loans) dropProvisionalEvent(h, d, wh);
+    h.debts = (h.debts ?? []).filter((d) => !gone.has(d.id));
+    for (const d of h.debts) if (d.pairWith !== undefined && gone.has(d.pairWith)) delete d.pairWith;
+    if (h.debts.length === 0) delete h.debts;
+    entries = [...gone];
+    r.purchase.downPayment = r.purchase.price;
+    // 頭金は推定の目安でなく、現金で払う額（物件の価格に合わせる。推定の行は外す）
+    setState(r as unknown as Obj, "residence.purchase/downPayment", undefined);
+  });
+  return withProvisionalHousing(entries.reduce((w, id) => withEntry(w, id, undefined), next));
+}
+
+/** 住宅ローンを使う: 頭金が物件の価格（現金で買う形）なら目安に戻し、物件の価格−頭金を借りる住宅ローンをこの購入とつないで足す */
+function buyWithLoan(wh: WorkingHousehold, rid: string): WorkingHousehold {
+  const h0 = wh.request.input.household;
+  const r0 = (h0.residences ?? []).find((y) => y.id === rid);
+  if (r0 === undefined || purchaseLoans(h0, r0).length > 0) return wh;
+  const down = mutate(wh, (h) => {
+    const r = (h.residences ?? []).find((y) => y.id === rid);
+    if (r?.purchase === undefined || r.purchase.price - (r.purchase.downPayment ?? 0) > 0) return;
+    setState(r as unknown as Obj, "residence.purchase/downPayment", estRow("derived", downBasis(0)));
+    refreshDownEstimate(r);
+  });
+  return withProvisionalHousing(newMortgage(down, undefined, rid));
+}
+
+/** 「どう買うか」の欄（物件の価格の次。0175） */
+function fundingField(r: Residence, k: string): FieldDef {
+  const custom = isCustomBuild(r);
+  return field({
+    key: `${k}/purchase/funding`,
+    item: "residence.purchase",
+    label: "どう買うか",
+    level: "simple",
+    kind: "select",
+    options: FUNDING_OPTIONS,
+    structural: true,
+    help: `現金で買うなら、${custom ? "土地と建物の合計" : "物件の価格"}と諸費用を購入の月に手元のお金から払います（頭金とローンの欄は出しません）。住宅ローンを使うなら、頭金と、この家の住宅ローンの欄を続けて出します`,
+    sideEffects: "現金で買うにすると、この家の住宅ローンを外します。住宅ローンを使うにすると、物件の価格−頭金を借りる住宅ローンを足します",
+    get: (w) => {
+      const h = w.request.input.household;
+      const x = (h.residences ?? []).find((y) => y.id === r.id);
+      const v = x === undefined ? null : purchaseFunding(h, x);
+      const left = x === undefined ? null : unfundedPurchase(h, x);
+      if (v !== null || left === null) return { value: v };
+      // 未入力の印と、欄の下の知らせ（印だけでは理由が見えない。通しの入力の確かめ）
+      const text = unfundedPurchaseText(left, x !== undefined && isCustomBuild(x));
+      return { value: v, estimated: text, warn: text.replace(/^未入力（/, "").replace(/）$/, "") };
+    },
+    set: (w, v) => (v === "cash" ? buyWithCash(w, r.id) : v === "loan" ? buyWithLoan(w, r.id) : w),
+  });
+}
 
 function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef[] {
   const find = byId(residences, r.id);
@@ -688,7 +800,8 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
     help: custom
       ? "土地の代金と建物の代金（請負の工事の代金）の合計です。土地の代金を入れていなければ、合計に合わせて目安を出し直します"
       : "頭金・諸費用を入れていなければ、価格に合わせて目安を出し直します",
-    // 頭金・諸費用が推定（出どころ auto）なら、価格に合わせて入れ直す（注文住宅の諸費用は土地と建物とつなぎ融資から入れ直す。customBuild.ts）
+    // 頭金・諸費用が推定（出どころ auto）なら、価格に合わせて入れ直す（注文住宅の諸費用は土地と建物とつなぎ融資から入れ直す。customBuild.ts）。
+    // 現金で買う形（0175）の頭金は、住宅の購入の欄すべてを包む keepCash で合わせる
     after: (_h, target, v) => {
       const res = target as unknown as Residence & Obj;
       if (res.purchase === undefined || typeof v !== "number") return;
@@ -700,15 +813,8 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
       }
     },
   });
-  // 購入にローンが無いと、物件の価格−頭金は払いにも借入にも入らない（0161）。物件の価格の欄に知らせる
-  const pricedWarn: FieldDef = {
-    ...price,
-    get: (w) => {
-      const st = price.get(w);
-      const n = unfundedPurchaseNotice(w, r.id);
-      return n === null ? st : { ...st, warn: n.detail, warnFix: n.fix };
-    },
-  };
+  // 購入にローンが無いと、物件の価格−頭金は払いにも借入にも入らない（0161）。知らせは「どう買うか」の欄の未入力の印で出す（0175）
+  const cash = purchaseFunding(wh.request.input.household, r) === "cash";
   const used = purchaseTypeOf(wh, r)?.type.startsWith("used") === true;
   // 長期優良住宅か（固定資産税の新築の軽減の年数。0112）: つながる住宅ローンに控除の条件があれば、控除の住宅の種類で選ぶので出さない
   const h0 = wh.request.input.household;
@@ -717,12 +823,14 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
   return [
     purchaseTypeField(r, k),
     purchaseAtField(wh, r, kp, custom, ageOf),
-    pricedWarn,
+    price,
+    fundingField(r, k),
     ...(custom ? customLandFields(wh, r, k, ageOf) : []),
     // 中古は建物が建った年を標準に出す（評価の建物の目減りと固定資産税の目安に使う。新築は購入の年に完成とみなすので「持ち家の評価」の詳細の欄）
     ...(used ? [builtYearField(wh, r, k)] : []),
-    // 頭金・諸費用は空にできない（計算エンジンの入力で必須。空にすると欄を消して、計算が止まっていた）。無いときは 0 を入れる
-    plain({
+    // 頭金・諸費用は空にできない（計算エンジンの入力で必須。空にすると欄を消して、計算が止まっていた）。無いときは 0 を入れる。
+    // 現金で買う形では頭金の欄を出さない（頭金＝物件の価格。0175）
+    ...(cash ? [] : [plain({
       key: `${kp}/down`,
       item: "residence.purchase",
       label: custom ? "頭金（合計）" : "頭金",
@@ -732,8 +840,8 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
       find,
       path: ["purchase", "downPayment"],
       help: custom ? "自己資金で払う額の合計です。土地の決済・建物の代金の支払い（「詳細」）で払う分の残りを、引き渡しの月に払います。無ければ 0 を入れます" : "頭金が無ければ 0 を入れます",
-    }),
-    ...(custom
+    })]),
+    ...(custom && !cash
       ? [
           {
             ...plain({ key: `${kp}/land/down`, item: "residence.purchase", label: "頭金のうち土地の決済で払う額", level: "detail", kind: "yen", basis: "once", find, path: ["purchase", "land", "downPayment"], optional: true, fallback: 0, help: "入れなければ、頭金のうち土地の代金までを土地の決済で払うとみなします" }),
@@ -1644,10 +1752,10 @@ function mortgageBands(wh: WorkingHousehold, d: Debt, k: string): GroupDef[] {
   return out;
 }
 
-function loanGroups(wh: WorkingHousehold, d: Debt, i: number): GroupDef[] {
+function loanGroups(wh: WorkingHousehold, d: Debt, i: number, name?: string): GroupDef[] {
   const k = `housing/debt/${d.id}`;
   const debtor = d.debtors.find((x) => x.role === "primary") ?? d.debtors[0];
-  const title = d.kind === "mortgage" ? `住宅ローン ${i + 1}（${memberLabel(wh, debtor?.member)}）` : `${loanTitle(d)}（${memberLabel(wh, debtor?.member)}）`;
+  const title = d.kind === "mortgage" ? `${name ?? `住宅ローン ${i + 1}`}（${memberLabel(wh, debtor?.member)}）` : `${loanTitle(d)}（${memberLabel(wh, debtor?.member)}）`;
   // 住まいの住宅ローン（ペアローンの2本目も同じ）は欄が多いので、1件の枠の中を中枠に分ける
   const banded = d.kind === "mortgage" && d.property === undefined;
   const groups: GroupDef[] = [
@@ -1798,7 +1906,9 @@ export function housingStage(wh: WorkingHousehold): StageDef {
       },
     ],
   };
-  const mortgages = (h.debts ?? []).filter((d) => d.kind === "mortgage" && d.property === undefined);
+  // 住宅購入の予定につながる住宅ローンは、住宅の購入の中に出す（0175）。ここはそれ以外（今の家のローンなど）
+  const inPurchase = new Set((h.residences ?? []).filter((r) => r.kind === "own" && r.purchase !== undefined).flatMap((r) => purchaseLoans(h, r).map((d) => d.id)));
+  const mortgages = (h.debts ?? []).filter((d) => d.kind === "mortgage" && d.property === undefined && !inPurchase.has(d.id));
   // 住まい以外の不動産のローン（debt.property）は、その不動産の欄（貯蓄・運用）で入れる
   // 今返している自動車ローンは車のカード（0069。ここは読むだけの1行）
   const others = (h.debts ?? []).filter((d) => d.kind !== "mortgage" && d.kind !== "car" && d.property === undefined && d.inheritedFrom === undefined);
@@ -1806,6 +1916,7 @@ export function housingStage(wh: WorkingHousehold): StageDef {
   const loanSection: SectionDef = {
     key: "housing/loans",
     title: "住宅ローン",
+    ...(inPurchase.size > 0 ? { note: "住宅購入の予定の住宅ローンは、住まいの「住宅の購入」の中に出しています" } : {}),
     level: "simple",
     groups: mortgages.flatMap((d, i) => loanGroups(wh, d, i)),
     actions: [{ key: "housing/addMortgage", label: "＋ 住宅ローン", level: "simple", run: (w) => withProvisionalHousing(newMortgage(w)) }],
