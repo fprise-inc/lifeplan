@@ -20,7 +20,7 @@ import { presetNum, presetText } from "../../../../../hearing/src/presets.ts";
 import { regulationEntries, regulationValue } from "../../../../../hearing/src/statistics.ts";
 import { readGroup, readLine } from "../readLines.ts";
 import { stagedBadge, stagedGroups, type StagedSpec } from "../staged.ts";
-import { addHomeRefinance, at, creditLifeFields, creditLifeGroups, estRow, loanFields, loanMoreActions, loanTitle, LOAN_SUBTYPES, newMortgage, newOtherLoan, rateStepsView, otherLoanHeadFields, withEntry } from "./housingLoans.ts";
+import { addHomeRefinance, at, creditLifeFields, creditLifeGroups, estRow, loanFields, loanMoreActions, loanTitle, LOAN_SUBTYPES, newMortgage, newOtherLoan, rateStepsView, otherLoanHeadFields, withEntry, MISC_SUBTYPES } from "./housingLoans.ts";
 import { GROWTH_RANGE } from "../rateRanges.ts";
 import { hasExecutive } from "../officer.ts";
 import {
@@ -1928,8 +1928,17 @@ export function housingStage(wh: WorkingHousehold): StageDef {
     level: "simple",
     groups: [...[...others, ...inherited].flatMap((d, i) => loanGroups(wh, d, i)), ...educationDebtLines(wh)],
     actions: [
+      // ボタンはカードローン・リボ、奨学金の返済、リフォームローン、そのほかのローン（種類を選んで足す）。0052 の追記 2026-11-08
       // リフォームローンは持ち家（購入の予定を含む）がある世帯だけ
-      ...LOAN_SUBTYPES.filter((s) => s.value !== "policyLoan" && s.value !== "personal" && s.value !== "scholarshipFree" && (s.value !== "companyLoan" || hasExecutive(h)) && (s.value !== "renovation" || (h.residences ?? []).some((r) => r.kind === "own"))).map((s) => ({ key: `housing/add/${s.value}`, label: `＋ ${s.value === "scholarship" ? "奨学金の返済" : s.label}`, level: s.value === "cardLoan" || s.value === "scholarship" || s.value === "companyLoan" ? ("simple" as const) : ("detail" as const), run: (w: WorkingHousehold) => newOtherLoan(w, s.value) })),
+      ...LOAN_SUBTYPES.filter((s) => s.value === "cardLoan" || s.value === "scholarship" || (s.value === "renovation" && (h.residences ?? []).some((r) => r.kind === "own"))).map((s) => ({ key: `housing/add/${s.value}`, label: `＋ ${s.value === "scholarship" ? "奨学金の返済" : s.label}`, level: s.value === "renovation" ? ("detail" as const) : ("simple" as const), run: (w: WorkingHousehold) => newOtherLoan(w, s.value) })),
+      // 会社からの借入金は役員のいる世帯だけ（そのときはボタンを標準に出す。0105）
+      ...MISC_SUBTYPES.filter((v) => v !== "companyLoan" || hasExecutive(h)).map((v) => ({
+        key: `housing/add/${v}`,
+        label: LOAN_SUBTYPES.find((s) => s.value === v)?.label ?? v,
+        level: hasExecutive(h) ? ("simple" as const) : ("detail" as const),
+        choice: { key: "housing/add/misc", label: "＋ そのほかのローン", help: "種類を選んで足します。足した後も「種類」の欄で選び直せます" },
+        run: (w: WorkingHousehold) => newOtherLoan(w, v),
+      })),
     ],
   };
   return { id: "housing", label: "住まい・ローン", lead: "賃貸か持ち家か、購入の予定、住宅ローンとほかのローン。", sections: [resSection, loanSection, otherSection] };
