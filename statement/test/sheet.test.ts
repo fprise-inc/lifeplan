@@ -245,6 +245,24 @@ describe("読み込み", () => {
     expect(codes(r).filter((c) => c === "S_SHEET_VALUE")).toHaveLength(1);
   });
 
+  it("「どこに入るか」が空で事業の割合だけを書いた行は、事業の経費として要確認で読む。事業の経費を選べない方の行・読めない割合は読まずに知らせる", async () => {
+    const { log, sheet } = await setup();
+    const r = ok(await readMarkSheet(await mark(sheet.bytes, [{ merchant: "架空ブックス", share: "60" }]), { log, rows: classified(log) }));
+    const c = r.candidates.find((x) => x.merchant === "架空ブックス");
+    expect([c?.mark.bucket, c?.mark.share, c?.status]).toEqual(["business", "0.6", "needsReview"]);
+    expect(c?.notes.join("")).toContain("事業の割合が書かれているので、事業の経費として読みました");
+    expect(codes(r)).not.toContain("S_SHEET_NO_MARKS");
+    // 会社員の行（事業の経費を選べない）・読めない割合は、候補にせず知らせる
+    const r2 = ok(await readMarkSheet(await mark(sheet.bytes, [{ merchant: "架空の謎の店", share: "60" }]), { log, rows: classified(log) }));
+    expect(r2.candidates).toEqual([]);
+    expect(r2.issues.find((i) => i.code === "S_SHEET_VALUE")?.message).toContain("事業の経費を選べないため、割合は読みませんでした");
+    const r1 = await rowOf(sheet.bytes, "架空ブックス");
+    const f3 = await editXlsx(sheet.bytes, (files) => setCell(files, SHEET, `J${r1}`, str("半分")));
+    const r3 = ok(await readMarkSheet(f3, { log, rows: classified(log) }));
+    expect(r3.candidates).toEqual([]);
+    expect(r3.issues.find((i) => i.code === "S_SHEET_VALUE")?.message).toContain("事業の割合「半分」は読めず");
+  });
+
   it("書き出した後に FP が決めた行は要確認にする", async () => {
     const { log, sheet } = await setup();
     const row = reviewList(classified(log)).find((x) => x.merchant === "架空の謎の店");

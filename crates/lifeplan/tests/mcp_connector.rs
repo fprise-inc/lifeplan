@@ -564,8 +564,6 @@ async fn app_policy_consent_is_required_end_to_end() {
         decision,
         obtained_on: "2026-10-19".into(),
         method: "inPerson".into(),
-        company: "架空AI株式会社".into(),
-        country: "日本".into(),
         no_training_confirmed: true,
         fp_confirmed: true,
     };

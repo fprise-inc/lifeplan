@@ -12,7 +12,7 @@ import { ASSET_CLASSES, WORDS } from "./labels.ts";
 import { formatYen, type YenBasis } from "./units.ts";
 import { rowAt } from "./rows.ts";
 import type { Address, Target } from "../store/readings.ts";
-import { RETURN_RANGE } from "./rateRanges.ts";
+import { RETURN_RANGE, STAGE_RATIO_RANGE } from "./rateRanges.ts";
 
 type Obj = Record<string, unknown>;
 const LEVEL: Level = "detail";
@@ -225,7 +225,7 @@ export function stagedGroups(wh: WorkingHousehold, spec: StagedSpec): GroupDef[]
         address: () => ad([]),
       },
       byRatio
-        ? { ...plain({ key: `${k}/ratio`, item: spec.stages.item, label: `${spec.what}（今の額に対する割合）`, level: LEVEL, kind: "pct", find, path: ["ratio"] }), address: () => ad(["ratio"]) }
+        ? { ...plain({ key: `${k}/ratio`, item: spec.stages.item, label: `${spec.what}（今の額に対する割合）`, level: LEVEL, kind: "pct", ...STAGE_RATIO_RANGE, find, path: ["ratio"] }), address: () => ad(["ratio"]) }
         : { ...yenBox({ key: `${k}/amount`, item: spec.stages.item, label: `${spec.what}（この段から）`, level: LEVEL, basis: spec.basis, find, path: ["amount"], help: "今の価格で入れます（変動率はこの額にもそのまま掛けます）" }), address: () => ad(["amount"]) },
     ];
     if (n < stages.length - 1) fields.push(rampField(`${k}/ramp`, spec.stages.item, find, ad(["rampYears"])));
@@ -334,6 +334,7 @@ function foldedGroup(wh: WorkingHousehold, spec: StagedSpec, autos: readonly Obj
         label: `${when ?? fromNowOn(yearly)}から`,
         level: LEVEL,
         kind: "pct",
+        ...STAGE_RATIO_RANGE,
         find,
         path: ["ratio"],
         help: "今の額に対する割合（推定の変化）。割合を直すと、この段だけ「いつから」「次の段まで何年かけて移すか」も入れられる欄になります",

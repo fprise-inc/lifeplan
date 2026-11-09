@@ -206,7 +206,7 @@ export function shortSources(model: MainChartModel, opt: { explain: boolean; mul
   if (opt.multi !== null && !opt.explain) {
     const styles = planStyles(model.plans ?? []);
     return (model.plans ?? []).flatMap((p) => {
-      const i = p.financial === null ? -1 : firstShort(p.financial.slice(0, p.ends ?? p.financial.length));
+      const i = p.financial === null ? -1 : (p.short ?? firstShort(p.financial.slice(0, p.ends ?? p.financial.length)));
       const y = years[i];
       if (i < 0 || y === undefined || opt.multi?.hidden.includes(p.key) === true) return [];
       return [{ key: `p-${p.key}`, year: y, cross: crossIndex(p.financial ?? [], i), text: shortText(y, ages[i], p.name), color: (styles.get(p.key) as PlanStyle).color }];

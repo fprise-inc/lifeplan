@@ -101,7 +101,8 @@ export function leverItems(ctx: TakeawayContext, requests: readonly EngineReques
     const vals = requests.map((r) => readLevers(r, ctx.catalog.selfId)[k]).filter((v): v is number => typeof v === "number");
     if (vals.length === 0) continue;
     const now = it.read(ctx.wh);
-    const note = k === "pensionAge" ? null : (it.note?.(now) ?? null);
+    // 補足は顧客に渡す文で作る（FP が付けた呼び名を入れない。0030 の2）
+    const note = k === "pensionAge" ? null : (it.note?.(now, { forCustomer: true }) ?? null);
     if (c.kind === "age") {
       // 上の端は載せるプランの値が外にあれば広げ、下の端は広げない（過ぎた年齢を選べないように）
       const { min, max } = ageSliderBounds(c, ...vals);

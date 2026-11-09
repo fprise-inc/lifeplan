@@ -960,7 +960,11 @@ export function PointDefaultsEditor({ choices, value, available, onChange }: { c
 function threeSentence(y: BsYearModel, prev: BsYearModel | null): string {
   const mort = g(y, "mortgage");
   if (prev === null) return `${mort > 0 ? `ローンの残り${mn(mort)}。` : ""}資産のうち換金しにくい資産は${mn(g(y, "illiquid"))}で、すぐ使えるお金は${mn(g(y, "liquid"))}。`;
-  if (y.shortfall > 0) return `金融資産が尽き、資金の不足が${mn(y.shortfall)}。純資産は${mn(y.netWorth)}。`;
+  // 金融資産が残っていても、残りが引き出せない器（60歳前の iDeCo など）・取り崩さない器だけなら資金の不足が出る（結論の「○歳まで持ちます」と同じ判断。0179）
+  if (y.shortfall > 0)
+    return y.financial > 0
+      ? `取り崩せるお金が尽き、資金の不足が${mn(y.shortfall)}（残りの金融資産${mn(y.financial)}は、iDeCo など今は取り崩せないお金です）。純資産は${mn(y.netWorth)}。`
+      : `金融資産が尽き、資金の不足が${mn(y.shortfall)}。純資産は${mn(y.netWorth)}。`;
   const dn = y.netWorth - prev.netWorth;
   if (prev.fact) return `純資産は今より${mn(Math.abs(dn))}${dn >= 0 ? "増え" : "減り"}ます。ローンの残りは${mort > 0 ? mn(mort) : "なし"}。`;
   const df = y.financial - prev.financial;

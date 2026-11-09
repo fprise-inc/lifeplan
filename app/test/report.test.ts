@@ -31,6 +31,11 @@ function open(id: string) {
   wh = b.wh;
   const c = savePlan(wh, cat, { name: "プランC 生活費と配分", base: null, values: { "lever:livingMonthly": living - 20000, [mix.key]: mixFromBuckets(undefined, 80, 10) }, now: NOW });
   wh = c.wh;
+  // FP だけが見る文字（メモの他に、確かめの印・仮の値の理由・内訳を分けた行の名前・案の注記）にも目印を入れる（提案書に入らないこと）
+  const le = wh.request.input.household.livingExpenses?.[0];
+  wh = { ...wh, agreed: { current: { "row-1": { on: "2026-10-01", note: "MEMO-MARK-report-agreed" } } }, assumed: { "living.monthly": "MEMO-MARK-report-assumed" }, recheck: [{ id: "row-1", card: "living", cardLabel: "MEMO-MARK-report-card", label: "MEMO-MARK-report-recheck", on: "2026-10-01" }] };
+  if (le !== undefined) wh = { ...wh, livingParts: { [le.id]: [{ label: "MEMO-MARK-report-part", monthly: 1000 }] } };
+  wh.proposals.forEach((p) => p.diffs.forEach((d) => (d.note = "MEMO-MARK-report-note")));
   const letters = planLetters(wh.proposals);
   const ctx = { wh, catalog: cat, valuesOf: (pid: string) => (pid === CURRENT ? {} : effectiveValues(wh, pid)), letterOf: (pid: string) => letters.get(pid) ?? { letter: "?", name: "" } };
   return { wh, cat, ctx, b: b.id, c: c.id };

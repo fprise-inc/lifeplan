@@ -315,7 +315,8 @@ function specRate(ctx: Ctx, kind: string, spec: ReturnSpec, year: number, driftF
   if (mix.length === 1) return classRate((mix[0] as { assetClass: string }).assetClass, year);
   const setting = INVEST_KINDS.has(kind) ? ctx.setting<{ method?: string; allocation?: { rebalance?: boolean } }>("investment") : undefined;
   const drift = setting?.method === "allocation" && setting.allocation?.rebalance === false;
-  // リバランスしないとき: 重み＝割合×driftFrom の年からの増え方（Π(1＋その年の利回り)）
+  // 重み＝割合（リバランスしないときは×driftFrom の年からの増え方 Π(1＋その年の利回り)）。割合の合計が100%でなくても、合計で割って
+  // 按分する（1行だけなら割合にかかわらずその資産クラス。合計が0なら資産の配分が無いのと同じ。0177）
   const weights = mix.map((m) => {
     let w = ctx.rate.of(m.share);
     if (drift) for (let y = driftFrom; y < year; y++) w = ctx.rate.mul(w, ctx.rate.add(RATE_ONE, classRate(m.assetClass, y)));
@@ -323,11 +324,10 @@ function specRate(ctx: Ctx, kind: string, spec: ReturnSpec, year: number, driftF
   });
   let total = RATE_ZERO;
   for (const w of weights) total = ctx.rate.add(total, w);
+  if (ctx.rate.compare(total, RATE_ZERO) <= 0) return specRate(ctx, kind, { ...spec, assetMix: [] }, year, driftFrom);
   let r = RATE_ZERO;
   mix.forEach((m, i) => {
-    const w = weights[i] as Rate;
-    const share = drift && ctx.rate.compare(total, RATE_ZERO) > 0 ? ctx.rate.div(w, total) : w;
-    r = ctx.rate.add(r, ctx.rate.mul(classRate(m.assetClass, year), share));
+    r = ctx.rate.add(r, ctx.rate.mul(classRate(m.assetClass, year), ctx.rate.div(weights[i] as Rate, total)));
   });
   return r;
 }
@@ -392,9 +392,16 @@ export function shockShare(ctx: Ctx, account: { readonly kind: string; readonly 
   if (classes === undefined) return RATE_ONE;
   const mix = account.assetMix;
   if (mix === undefined || mix.length === 0) return INVEST_KINDS.has(account.kind) ? RATE_ONE : null;
+  // 割合は合計で割って按分する（利回りの資産の配分と同じ。0177）。合計が0なら資産の配分が無いのと同じ
   let s = RATE_ZERO;
-  for (const m of mix) if (classes.includes(m.assetClass)) s = ctx.rate.add(s, ctx.rate.of(m.share));
-  return ctx.rate.compare(s, RATE_ZERO) > 0 ? s : null;
+  let total = RATE_ZERO;
+  for (const m of mix) {
+    total = ctx.rate.add(total, ctx.rate.of(m.share));
+    if (classes.includes(m.assetClass)) s = ctx.rate.add(s, ctx.rate.of(m.share));
+  }
+  if (ctx.rate.compare(total, RATE_ZERO) <= 0) return INVEST_KINDS.has(account.kind) ? RATE_ONE : null;
+  const share = ctx.rate.div(s, total);
+  return ctx.rate.compare(share, RATE_ZERO) > 0 ? share : null;
 }
 
 /**

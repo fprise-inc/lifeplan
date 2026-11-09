@@ -8,7 +8,7 @@
 import type { Answer, RawValue } from "../answers.ts";
 import { axisOf, itemByKey, type Axis, type SheetDefinition, type SheetItem } from "../definition.ts";
 import { canonicalJson } from "../layout.ts";
-import { DOCUMENT_LIMITS, type DocumentMime } from "./documents.ts";
+import { DOCUMENT_LIMITS, DOCUMENT_OWNERS, OWNER_INDEX, templateOf, type DocumentMime, type DocumentOwner } from "./documents.ts";
 import { sha256Hex } from "./e2e.ts";
 
 export const QUESTIONS_FORMAT = "fprise-lifeplan-hearing-web-questions";
@@ -60,6 +60,17 @@ export interface RequestedDocument {
   readonly where: string;
   /** 入力の画面の書類待ち（書類のお願いの1通の鍵。0102 の DocRequest.id）。結びつけないときは省く */
   readonly docRequest?: string;
+  /** 誰の書類か（ご本人・配偶者の方。0190）。人の書類は FP が選ぶ。選ばないときは省く（ご家族まとめての書類） */
+  readonly owner?: DocumentOwner;
+}
+
+/** お客さまに届く問いの中の書類1通（書類で分かる問いを添える。0190） */
+export interface PacketDocument extends RequestedDocument {
+  /**
+   * この書類で分かる問い（項目キー。大人の繰り返しで持ち主の分だけなら「キー#番号」）。お客さまの画面は、この書類が「手元にない」でない間、
+   * この問いを出さない（「手元にない」を選ぶと、書類の画面でかわりに聞く）。選び方から問いを作るときに documentCovers で決める
+   */
+  readonly covers?: readonly string[];
 }
 
 export interface WebSelection {
@@ -118,7 +129,7 @@ export interface QuestionsPacket {
   readonly sections: readonly { readonly id: string; readonly title: string; readonly lead?: string }[];
   readonly items: readonly WebItem[];
   readonly consent: { readonly title: string; readonly lead: string; readonly items: readonly WebItem[] };
-  readonly documents: readonly RequestedDocument[];
+  readonly documents: readonly PacketDocument[];
   readonly years: { readonly from: number; readonly to: number };
 }
 
@@ -224,14 +235,45 @@ export function checkSelection(def: SheetDefinition, s: WebSelection): string[] 
     if (!/^d[0-9]{1,3}$/.test(d.id) || ids.has(d.id)) errs.push(`書類の ID の形が違うか重なっている: ${d.id}`);
     ids.add(d.id);
     if (d.title.trim() === "" || d.title.length > 80 || d.purpose.length > 200 || d.where.length > 200) errs.push(`書類の文が空か長すぎる: ${d.id}`);
+    if (d.owner !== undefined && !DOCUMENT_OWNERS.includes(d.owner)) errs.push(`書類の持ち主が違う: ${d.id}`);
   }
   if (seen.size === 0 && s.documents.length === 0) errs.push("聞く項目も頼む書類もありません");
   return errs;
 }
 
-/** 選び方の指紋（0018 の5 の配置の指紋に当たるもの。元のシート・項目と並び・聞き方・独自の質問のキー・書類の ID と種類。文の言い回しは入れない） */
+/**
+ * 選び方の指紋（0018 の5 の配置の指紋に当たるもの。元のシート・項目と並び・聞き方・独自の質問のキー・書類の ID と種類と持ち主。文の言い回しは入れない）。
+ * 持ち主（0190）は選んだ書類だけ入れる（持ち主の無い書類の指紋は前と同じ）
+ */
 export async function selectionDigest(s: WebSelection): Promise<string> {
-  return sha256Hex(canonicalJson({ web: WEB_FORMAT_VERSION, base: s.base, sections: s.sections, custom: s.custom.map((c) => c.key), documents: s.documents.map((d) => [d.id, d.kind]) }));
+  return sha256Hex(canonicalJson({ web: WEB_FORMAT_VERSION, base: s.base, sections: s.sections, custom: s.custom.map((c) => c.key), documents: s.documents.map((d) => (d.owner === undefined ? [d.id, d.kind] : [d.id, d.kind, d.owner])) }));
+}
+
+/**
+ * その書類で分かる問い（選んだ項目のうち、書類のひな形の covers に載るもの。0190）。範囲の項目は元の金額の項目に付いてくる。
+ * - 大人の繰り返しの項目: 持ち主を選んだ書類はその人の分だけ（「キー#番号」）。選ばない書類は、人の書類（person）なら挙げない（誰の物か分からない）、
+ *   ほか（either）なら全員の分（キーだけ）
+ * - 繰り返さない項目（ご家族の合計など）: 持ち主を選んだ書類は挙げない（1人の書類ではご家族の合計は分からない）
+ * - ほかの繰り返し（住宅ローン・保険）: 全部の分（キーだけ）
+ */
+export function documentCovers(def: SheetDefinition, s: WebSelection, doc: RequestedDocument): string[] {
+  const t = templateOf(doc.kind);
+  if (t === undefined || t.covers.length === 0) return [];
+  const chosen = new Set(s.sections.flatMap((x) => x.items.map((i) => i.key)));
+  const main = new Set(t.covers);
+  const out: string[] = [];
+  for (const it of def.items) {
+    if (!chosen.has(it.key)) continue;
+    if (!main.has(it.key) && !(it.rangeOf !== undefined && main.has(it.rangeOf))) continue;
+    const axis = axisOf(def, it.key);
+    if (axis?.id === "adult") {
+      if (doc.owner !== undefined) out.push(`${it.key}#${OWNER_INDEX[doc.owner]}`);
+      else if (t.whose !== "person") out.push(it.key);
+    } else if (axis === null) {
+      if (doc.owner === undefined) out.push(it.key);
+    } else out.push(it.key);
+  }
+  return out;
 }
 
 /**
@@ -408,7 +450,10 @@ export async function buildPacket(def: SheetDefinition, s: WebSelection, o: Pack
     sections,
     items: out,
     consent: { title: def.intro.consentTitle, lead: def.intro.consentLead, items: consent },
-    documents: s.documents,
+    documents: s.documents.map((d) => {
+      const covers = documentCovers(def, s, d);
+      return covers.length > 0 ? { ...d, covers } : d;
+    }),
     years: def.years,
   };
 }
@@ -417,7 +462,7 @@ export async function buildPacket(def: SheetDefinition, s: WebSelection, o: Pack
 export const WEB_NOTES: readonly string[] = [
   "お名前は書かないでください。お名前がなくても、担当の FP にはどなたのお答えか分かります。",
   "わからないときは「わからない」を、あとで考えたいときは「あとで」を押してください。途中まででも送れます。答えていない所は、面談のときにうかがいます。",
-  "次のことはお聞きしません: 病歴など健康の情報、マイナンバー・基礎年金番号などの番号、口座番号。",
+  "次のことはお聞きしません: 病歴など健康の情報、マイナンバー・基礎年金番号・証券番号・口座番号などの番号。",
   "途中で閉じても、この端末のこのブラウザなら続きから答えられます（端末の中に暗号化して残します）。",
 ];
 

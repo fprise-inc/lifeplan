@@ -128,7 +128,8 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
     // 最後の打ち手は提案と同じ要求（計算し直さない）
     if (i < stepKeys.length - 1) requests[`step${i}`] = applyValues(wh, { ...acc }, cat);
   });
-  const feeOn = values["lever:fee"] === true || (values["lever:fee"] === undefined && (current.input.household.advisoryFees ?? []).some((c) => c.enabled !== false));
+  // 「今の契約だけ」（値が null・入れていない）は、現状の「現状にも入れる」の契約を入れている（0177）
+  const feeOn = values["lever:fee"] === true || (values["lever:fee"] !== false && (current.input.household.advisoryFees ?? []).some((c) => c.enabled !== false));
   if (on.has("changes") && hasAdvisoryFee(current) && feeOn) requests.withoutFee = applyValues(wh, { ...values, "lever:fee": false }, cat);
   // ご家族の夢の要約の1文: 夢を全部外した提案（計算に入れた夢があるときだけ。0103）
   if (on.has("dreams")) {

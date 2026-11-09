@@ -17,7 +17,7 @@ import type { Option } from "../input/form.ts";
 import type { Box, EmploymentPeriod, Household, Member, Timepoint } from "../../engine/types.ts";
 import { buildStages, STAGE_ORDER } from "../input/stages/index.ts";
 import { amountText, pctFromRate, sameRate } from "../input/units.ts";
-import { addMonths, advisoryFeeInCurrent, hasAdvisoryFee, LEVER_KEYS, parseYm, pensionClaimMonth, pensionStarted, readLevers, type LeverKey, type LeverValues } from "../levers.ts";
+import { addMonths, advisoryFeeState, feeStateText, hasAdvisoryFee, LEVER_KEYS, parseYm, pensionClaimMonth, pensionStarted, readLevers, type LeverKey, type LeverValues } from "../levers.ts";
 import { roles } from "../roles.ts";
 import { keyOf, resolveKey, type Reading } from "../store/readings.ts";
 import { bucketShares, expectedReturn, type MixPart } from "./allocation.ts";
@@ -92,8 +92,11 @@ export interface MovableItem {
   apply: (wh: WorkingHousehold, v: ItemValue) => WorkingHousehold;
   text: (v: ItemValue) => string;
   same: (a: ItemValue, b: ItemValue) => boolean;
-  /** スライダーの下の補足 */
-  note?: (v: ItemValue) => string | null;
+  /**
+   * スライダーの下の補足。forCustomer は顧客に渡すファイル（持ち帰り用のレポート）に入れる文: FP が付けた呼び名を使わず続柄だけで書く
+   * （0030 の2「入れないもの」）
+   */
+  note?: (v: ItemValue, o?: { forCustomer?: boolean }) => string | null;
 }
 
 export interface Catalog {
@@ -214,7 +217,7 @@ export const leverValueText = (k: LeverKey, v: number): string =>
 const leverTick = (k: LeverKey, v: number): string => (k === "nisaMonthly" || k === "livingMonthly" ? (v === 0 ? "0" : `${v / 10000}万`) : String(v));
 const pct = (r: string) => `${Math.round(Number(r) * 100)}%`;
 
-function leverNote(k: LeverKey, wh: WorkingHousehold, selfId: string, demo: DemoHousehold | null, v: number | undefined): string | null {
+function leverNote(k: LeverKey, wh: WorkingHousehold, selfId: string, demo: DemoHousehold | null, v: number | undefined, forCustomer = false): string | null {
   const h = wh.request.input.household;
   if (k === "retireAge") {
     const p = wh.postRetirement[selfId];
@@ -243,7 +246,8 @@ function leverNote(k: LeverKey, wh: WorkingHousehold, selfId: string, demo: Demo
   const nameOf = (s: (typeof st)[number]): string => {
     if (s.label !== "childIndependence" || !several || l === undefined) return names[s.label] as string;
     const kids = independenceOf(h, wh.request.input.baseMonth, wh.request.input.endYear, l, s);
-    return kids.length > 0 ? `${kids.map((id) => memberLabel(wh, id)).join("・")}の独立後は` : (names[s.label] as string);
+    // 顧客に渡すファイルには呼び名を入れない（「第2子の独立後は」。0030 の2）
+    return kids.length > 0 ? `${kids.map((id) => memberLabel(wh, id, { nicknames: !forCustomer })).join("・")}の独立後は` : (names[s.label] as string);
   };
   const parts = st.filter((s) => s.ratio !== undefined && names[s.label] !== undefined).map((s) => `${nameOf(s)}${pct(s.ratio as string)}`);
   return parts.length > 0 ? parts.join("、") : null;
@@ -293,7 +297,7 @@ function leverItems(wh: WorkingHousehold, selfId: string, demo: DemoHousehold | 
     apply: (w: WorkingHousehold) => w,
     text: (v: ItemValue) => (typeof v === "number" ? leverValueText(k, v) : "—"),
     same: jsonSame,
-    note: (v: ItemValue) => leverNote(k, wh, selfId, demo, typeof v === "number" ? v : undefined),
+    note: (v: ItemValue, o?: { forCustomer?: boolean }) => leverNote(k, wh, selfId, demo, typeof v === "number" ? v : undefined, o?.forCustomer === true),
   }));
 }
 
@@ -311,9 +315,9 @@ function feeItem(wh: WorkingHousehold): MovableItem[] {
       builtin: true,
       phase: "fee",
       control: { kind: "toggle" },
-      read: (w) => advisoryFeeInCurrent(w.request),
+      read: (w) => advisoryFeeState(w.request),
       apply: (w) => w,
-      text: (v) => (v === true ? "入れる" : "入れない"),
+      text: (v) => feeStateText(typeof v === "boolean" ? v : null),
       same: jsonSame,
     },
   ];

@@ -2,10 +2,11 @@
 // - 単発（oneTime）: 支払う年月に一度だけ
 // - 継続（recurring）: from〜to の間、月額なら毎月、年額なら毎年 from の月に。改定は、段階（steps。その月からの年額・月額）と、
 //   毎年の改定率（rate。from または最後の段階から1年ごとに当てる。円未満切り捨て）
+// 段階は契約の払い方の額を使い、年額の段階は始まりと同じ月（年に1回の払う月）から当てる。始まりと同じ月か前の段階は始まりから（改訂3）
 // 金額は税込。enabled が false の契約は計算に入れない（案ごとの ON/OFF。既定では提案の側にだけ入れる。0008 の追記）。
 // 個人が払う顧問料は所得から差し引かない（知らせ N_NOT_DEDUCTIBLE）。継続の万一のときの扱い（onContingency）は、世帯の万一の想定
 // （contingency.event）の月の翌月から当てる（改訂2）
-// 改訂3（0173）: 払う人が万一の想定で亡くなった月の翌月からは、相続する人（死亡の当時の配偶者。いなければ子を等分）が払う（sdk の inheritFlows）
+// 改訂4（0173）: 払う人が万一の想定で亡くなった月の翌月からは、相続する人（死亡の当時の配偶者。いなければ子を等分）が払う（sdk の inheritFlows）
 import {
   inheritFlows,
   addMonths,
@@ -28,7 +29,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   id: "expense.advisoryFee",
   title: "FP顧問料",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: { "contingency.event": ">=1 <2" },
   params: [],
   reads: ["advisoryFee.payer", "advisoryFee.enabled", "advisoryFee.terms", "member.kind"],
@@ -57,16 +58,29 @@ export default defineComponent<Record<string, never>, FlowsResult>({
       const from = ctx.time.resolve(r.from);
       const to = r.to === undefined || r.to === null ? end : ctx.time.resolve(r.to);
       const rate = r.revision?.rate === undefined ? null : ctx.rate.of(r.revision.rate);
-      const steps = (r.revision?.steps ?? []).map((s) => ({ m: ctx.time.resolve(s.at), annual: s.annual, monthly: s.monthly })).sort((a, b) => a.m - b.m);
+      // 料金の段階（0070 の追記 2026-11-08）: 年額と月額の両方があれば契約の払い方の額だけを使う（片方だけならその額。前の版の世帯）。
+      // 年額で払う契約の年額の段階は、段階の月からの最初の払う月（始まりと同じ月）から当てる（年に2回払わない）。始まりと同じ月か前の段階は始まりから
+      const payAnnual = r.annual !== undefined && r.annual !== null;
+      const steps = (r.revision?.steps ?? [])
+        .map((s) => {
+          const annual = s.annual !== undefined && (payAnnual || s.monthly === undefined) ? s.annual : null;
+          const monthly = annual === null ? (s.monthly ?? null) : null;
+          let m = ctx.time.resolve(s.at);
+          if (m < from) m = from;
+          if (annual !== null && payAnnual) while (monthOf(m) !== monthOf(from)) m = addMonths(m, 1);
+          return { m, annual, monthly };
+        })
+        .sort((a, b) => a.m - b.m);
+      const first = steps.filter((s) => s.m <= from).at(-1);
       // その月の、改定を当てた額（年額か月額）
-      let current = { since: from, annual: r.annual ?? null, monthly: r.monthly ?? null };
+      let current = first !== undefined ? { since: from, annual: first.annual, monthly: first.monthly } : { since: from, annual: r.annual ?? null, monthly: r.monthly ?? null };
       let k = 0;
       let grownAnnual = current.annual === null ? null : yen(current.annual);
       let grownMonthly = current.monthly === null ? null : yen(current.monthly);
       for (let m: MonthIndex = from; m <= to && m <= end; m = addMonths(m, 1)) {
         const step = steps.filter((s) => s.m <= m).at(-1);
         if (step !== undefined && step.m > current.since) {
-          current = { since: step.m, annual: step.annual ?? null, monthly: step.monthly ?? null };
+          current = { since: step.m, annual: step.annual, monthly: step.monthly };
           k = 0;
           grownAnnual = current.annual === null ? null : yen(current.annual);
           grownMonthly = current.monthly === null ? null : yen(current.monthly);

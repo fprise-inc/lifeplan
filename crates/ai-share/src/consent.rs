@@ -12,6 +12,12 @@
 //! 説明文は版2から、書類の読み取りで書類（お名前・番号を伏せたもの）を AI に渡すことを含む（0157）。版1の説明で同意した世帯は、
 //! 計算に要る項目（縮約版）を渡すことにはそのまま使えるが、書類を AI に渡す操作（貼り付け・接続口の書類の候補）の前に、
 //! 今の版の説明で同意を取り直す（`ConsentRecord::documents`）。
+//!
+//! 外部AIへの提供の同意は「外部の AI サービスに渡すことへの同意」1つとして扱い、どの AI の会社かは聞かない・記録しない
+//! （利用者の判断 2026-11-08。会社ごとに扱うと管理が複雑になるため。0172）。前の版で記録した行の会社・所在国は、捨てずにそのまま読む。
+//!
+//! 取り方が「ヒアリングシートの同意欄」の同意は、シートの同意欄の文（`HEARING_SHEET_EXTERNAL_AI_TEXT`）の指紋で、
+//! 書類を含まない同意として記録する（シートの文は書類に触れないため。0172）。書類を AI に渡す世帯は、今の説明を見せて取り直す。
 
 use crate::source::{ConsentDecision, ConsentRef};
 use serde::{Deserialize, Serialize};
@@ -26,6 +32,19 @@ pub const EXTERNAL_AI_EXPLANATION_VERSION: u32 = 2;
 
 /// 版1の説明文（書類の読み取りを含まない）。この文で同意した記録は、書類を AI に渡すことに使わない（0157）
 pub const EXTERNAL_AI_EXPLANATION_V1: &str = "ご相談の内容をもとにしたライフプランの計算や見直しの検討に、FPが契約している外部のAI（生成AIのサービス）を使うことがあります。\nAIに渡すのは、計算に必要な項目（生年月・収入・支出・資産・ローン・保険などの数字）だけです。お名前・ご住所・お電話番号などの、あなたを特定できる情報や、FPのメモは渡しません。\nAIの会社は国外にあることがあります。FPは、渡した情報がAIの学習に使われない設定であることを確かめて使います。\nAIに渡した日時と項目は、この世帯の記録に残ります。この同意はいつでも撤回でき、撤回した後はAIに渡しません（すでに渡した内容は、AIの会社の側に残ることがあります）。";
+
+/// ヒアリングシート（Excel・Web）の外部AIへの提供の同意欄の文（今のシート: 基本の版2・くわしいの版2〜4。0138）。
+/// 取り方が `hearingSheet` の同意は、この文の指紋を持つ（書類の読み取りを含まない。0172）。
+/// 文は `registry/hearing.yaml` の `hs.consent.externalAi` と同じ（テストで確かめる）
+pub const HEARING_SHEET_EXTERNAL_AI_TEXT: &str = "（任意）担当の FP が、AI を使ってお答えを整理することがあります（お名前は渡しません）。このことに同意します";
+
+/// 同意を得るときに見せた文（取り方がヒアリングシートの同意欄ならシートの文、それ以外はアプリの今の説明文）
+pub fn explanation_for(method: ConsentMethod) -> &'static str {
+    match method {
+        ConsentMethod::HearingSheet => HEARING_SHEET_EXTERNAL_AI_TEXT,
+        _ => EXTERNAL_AI_EXPLANATION,
+    }
+}
 
 /// 説明文の指紋（`sha256:` ＋16進）
 pub fn explanation_ref(text: &str) -> String {
@@ -79,14 +98,16 @@ pub enum ConsentOrigin {
     PreviousOffice,
 }
 
-/// 外部AIへの提供の同意の、提供先（0014 の2 の `externalAi`）
+/// 外部AIへの提供の同意の、提供先について FP が確かめたこと（0014 の2 の `externalAi`）
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalAiInfo {
-    /// 提供先のAIの会社（FPの申告）
-    pub company: String,
-    /// 所在国（FPの申告）
-    pub country: String,
+    /// 提供先のAIの会社（FPの申告）。前の版で記録した行だけが持つ。今は聞かない・書かない（0172）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub company: Option<String>,
+    /// 所在国（FPの申告）。前の版で記録した行だけが持つ。今は聞かない・書かない（0172）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
     /// FPが「学習に使われない設定」を確かめたか
     pub no_training_confirmed: bool,
 }
@@ -157,10 +178,6 @@ pub struct ExternalAiConsentInput {
     /// `paper`／`inPerson`／`email`／`hearingSheet`／`other`
     pub method: String,
     #[serde(default)]
-    pub company: String,
-    #[serde(default)]
-    pub country: String,
-    #[serde(default)]
     pub no_training_confirmed: bool,
     #[serde(default)]
     pub fp_confirmed: bool,
@@ -168,9 +185,6 @@ pub struct ExternalAiConsentInput {
 
 /// 渡してよい範囲の名前（この版では縮約版だけ）
 pub const SCOPE_REDUCED: &str = "reduced";
-
-pub const MAX_COMPANY_CHARS: usize = 60;
-pub const MAX_COUNTRY_CHARS: usize = 30;
 
 fn is_false(b: &bool) -> bool {
     !*b
@@ -245,21 +259,19 @@ pub fn new_external_ai_record(
     let current_decision = current.as_ref().map(|c| c.decision);
     let external_ai = match input.decision {
         ConsentDecision::Given => {
-            let company = input.company.trim();
-            let country = input.country.trim();
-            if company.is_empty() || company.chars().count() > MAX_COMPANY_CHARS {
-                return Err("E_AI_CONSENT_COMPANY");
-            }
-            if country.is_empty() || country.chars().count() > MAX_COUNTRY_CHARS {
-                return Err("E_AI_CONSENT_COUNTRY");
-            }
-            // 同意がもうあっても、版1の説明（書類を含まない）の同意なら、今の版の説明で取り直せる（0157）
-            if current.as_ref().is_some_and(|c| c.documents) {
+            // 同意がもうあっても、書類を含まない同意（版1の説明・ヒアリングシートの同意欄）なら、今の版の説明で取り直せる（0157・0172）。
+            // シートの同意欄では取り直さない（今の説明を見せていないので、書類を含む同意にならない）
+            if current.as_ref().is_some_and(|c| {
+                c.documents
+                    || (c.decision == ConsentDecision::Given
+                        && method == ConsentMethod::HearingSheet)
+            }) {
                 return Err("E_AI_CONSENT_ALREADY");
             }
+            // どの AI の会社かは聞かない（0172）。FP が確かめた「学習に使われない設定」だけを持つ
             Some(ExternalAiInfo {
-                company: company.to_owned(),
-                country: country.to_owned(),
+                company: None,
+                country: None,
                 no_training_confirmed: input.no_training_confirmed,
             })
         }
@@ -278,10 +290,12 @@ pub fn new_external_ai_record(
         obtained_on: input.obtained_on.clone(),
         method,
         hearing_ref: None,
-        explanation_ref: Some(explanation_ref(EXTERNAL_AI_EXPLANATION)),
+        explanation_ref: Some(explanation_ref(explanation_for(method))),
         external_ai,
         scope: (input.decision == ConsentDecision::Given).then(|| SCOPE_REDUCED.to_owned()),
-        documents: input.decision == ConsentDecision::Given,
+        // 書類を含むのは、今の説明（版2〜）を見せて取った `given` だけ（シートの同意欄の文は書類に触れない。0172）
+        documents: input.decision == ConsentDecision::Given
+            && method != ConsentMethod::HearingSheet,
         members: None,
         supersedes: None,
         fp_confirmed: true,
@@ -316,8 +330,6 @@ mod tests {
             decision,
             obtained_on: "2026-10-19".into(),
             method: "paper".into(),
-            company: "架空AI株式会社".into(),
-            country: "日本".into(),
             no_training_confirmed: true,
             fp_confirmed: true,
         }
@@ -449,11 +461,13 @@ mod tests {
             new_external_ai_record(&[], &i, "2026-10-19", now),
             Err("E_AI_CONSENT_METHOD")
         );
-        let mut i = input(ConsentDecision::Given);
-        i.company = "  ".into();
+        // どの AI の会社かは聞かない（0172）。記録の行にも会社・所在国を書かない
+        let r =
+            new_external_ai_record(&[], &input(ConsentDecision::Given), "2026-10-19", now).unwrap();
+        let v = serde_json::to_value(&r).unwrap();
         assert_eq!(
-            new_external_ai_record(&[], &i, "2026-10-19", now),
-            Err("E_AI_CONSENT_COMPANY")
+            v["externalAi"],
+            serde_json::json!({"noTrainingConfirmed": true})
         );
     }
 

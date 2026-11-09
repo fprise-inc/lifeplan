@@ -7,7 +7,7 @@
 // 明細のファイルのバイト列はこのパネルの中で読むときだけ持ち、閉じれば捨てる（世帯にも事務所データにも残さない）
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { version as APP_VERSION } from "../../../package.json";
-import { CARD_ISSUERS, COLUMN_ROLES, LIVING_LABELS, markSheetWarnings, ROLE_LABELS, WORK_STYLE_LABELS, type Bucket, type ColumnMapping, type ColumnRole, type Issue, type ReviewItem, type SourceKind, type StatementCandidate, type StatementCategory, type StatementLog } from "../../../../statement/src/index.ts";
+import { CARD_ISSUERS, COLUMN_ROLES, LIVING_LABELS, markSheetWarnings, ROLE_LABELS, sameAsOtherAccount, WORK_STYLE_LABELS, type Bucket, type ColumnMapping, type ColumnRole, type Issue, type ReviewItem, type SourceKind, type StatementCandidate, type StatementCategory, type SameStatement, type StatementLog } from "../../../../statement/src/index.ts";
 import type { SaveOutcome, StatementHost, StatementOfficeData } from "../../engine/host.ts";
 import { approvalTime, randomBytes } from "../hearing/sheet.ts";
 import { newId, type WorkingHousehold } from "../input/household.ts";
@@ -363,6 +363,9 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
   const [busy, setBusy] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  // 同じ明細を別の口座に取り込もうとしている疑い（取り込む前に FP に聞く。0180 の6）。読み直したら消す
+  const [same, setSame] = useState<SameStatement | null>(null);
+  useEffect(() => setSame(null), [reading]);
   const [removing, setRemoving] = useState<string | null>(null);
   /** 取り込んだ明細の期間を直せなかったとき（行の使った日より狭いなど）の知らせ */
   const [periodMsg, setPeriodMsg] = useState<{ id: string; text: string } | null>(null);
@@ -420,8 +423,17 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
       setBusy(false);
     }
   };
-  const take = async () => {
+  const take = async (force = false) => {
     if (reading === null) return;
+    // 別の口座の行とほとんど同じ明細なら、取り込む前に聞く（「別の明細として取り込む」で force。0034 の8 の重ねない決めは変えない）
+    if (!force) {
+      const s = sameAsOtherAccount(log, reading.out.rows, reading.account);
+      if (s !== null) {
+        setSame(s);
+        return;
+      }
+    }
+    setSame(null);
     const at = approvalTime();
     const r = addImport(log, reading.out, { id: newId(), account: reading.account, at, period: reading.period });
     if (!r.ok) {
@@ -531,14 +543,31 @@ function ImportStep({ wh, log, office, host, onLog, onOffice, onNext, onAccounts
             <small>使った日の最初と最後から入れています。12か月分の明細なら、明細の初日・末日に直すと月平均が正しくなります（使った日より狭くはできません）。</small>
           </div>
           {pp !== null ? <p class="fatal">{pp}</p> : null}
-          <div class="rp-actions">
-            <button type="button" class="btn primary" disabled={busy || out.rows.length === 0 || pp !== null} onClick={() => void take()} data-statement-take>
-              取り込む（{out.rows.length}行）
-            </button>
-            <button type="button" class="btn" onClick={() => setReading(null)}>
-              やめる
-            </button>
-          </div>
+          {same !== null ? (
+            <div class="rp-note warn" role="alert" data-statement-same>
+              <p>
+                同じ明細ではありませんか？（「{accLabel(same.account)}」の口座と {same.matched}件が同じです。取り込もうとしている {same.rows}行のうち、使った日・金額・店が同じ行の数）
+              </p>
+              <p>同じ明細を2つの口座に入れると、生活費が2倍近くに数えられます。家族のそれぞれのカードなど、別の明細なら、そのまま取り込めます。</p>
+              <div class="rp-actions">
+                <button type="button" class="btn" disabled={busy} onClick={() => void take(true)} data-statement-same-take>
+                  別の明細として取り込む
+                </button>
+                <button type="button" class="btn primary" onClick={() => setReading(null)} data-statement-same-cancel>
+                  やめる
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div class="rp-actions">
+              <button type="button" class="btn primary" disabled={busy || out.rows.length === 0 || pp !== null} onClick={() => void take()} data-statement-take>
+                取り込む（{out.rows.length}行）
+              </button>
+              <button type="button" class="btn" onClick={() => setReading(null)}>
+                やめる
+              </button>
+            </div>
+          )}
         </section>
       ) : null}
       {log.imports.length > 0 ? (
@@ -1177,7 +1206,11 @@ function ResultStep({ wh, log, an, onApprove }: { wh: WorkingHousehold; log: Sta
                   <i style={{ width: `${Math.round((l.monthly / max) * 100)}%` }} />
                 </span>
                 <span class="v">{yen(l.monthly)}</span>
-                <small>{l.detail.map((d) => `${d.category === "unknown" ? "分からない店" : categoryShort(d.category)} ${d.monthly.toLocaleString("ja-JP")}`).join("・")}</small>
+                <small>
+                  {l.detail.map((d) => `${d.category === "unknown" ? "分からない店" : categoryShort(d.category)} ${d.monthly.toLocaleString("ja-JP")}`).join("・")}
+                  {/* 返品・取り消しが多く月平均が負になった行は 0円で数える（行の額と内訳の和が合わない訳を書く。0180 の4） */}
+                  {l.negative !== undefined ? "（返品・取り消しが多く月平均が負のため、0円で数えています）" : null}
+                </small>
               </li>
             ))}
           </ul>
