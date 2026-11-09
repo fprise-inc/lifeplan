@@ -5,8 +5,12 @@
 //   土地の分は横ばい
 // - 推定のままの値だけ入れ直す（refreshEstimates から）。FP が固定資産税の欄に額（納税通知書の額など）を入れたら、その額を元にし、
 //   推定の段（割合）は入れ直し続ける。FP が直した段・足した段は変えない。FP が外した推定の段は覚えて足し直さない（基本生活費の推定の段と同じ決まり）
-// - 目安の割合（評価額の割合・都市計画税の税率・建物の下限と年数）は事務所の推定の値（hearing/src/presets.ts）。法令で決まる値はここの
-//   PROPERTY_TAX_LAW に置き、事務所で変えられない（docs/estimates-review.md の「一覧に入れていない値」）
+// - 目安の割合（評価額の割合・都市計画税の税率）は事務所の推定の値（hearing/src/presets.ts）。法令で決まる値（税率・特例・軽減と、
+//   固定資産評価基準の経年減点補正率・再建築費評点補正率）はここの PROPERTY_TAX_LAW・KEINEN に置き、事務所で変えられない
+//   （docs/estimates-review.md の「一覧に入れていない値」）
+// - 建物の下がり方（0181）: 固定資産評価基準の家屋の評価（評価額＝再建築費評点数×経年減点補正率）に寄せる。新築の評価額（経過年数1年の
+//   補正率0.80を当てた後）を建物の価格×建物の評価額の割合とし、3年ごとの評価替えの年に、その年の経過年数の補正率に置き換え、
+//   再建築費評点補正率（その評価替えの年の分。分かっている年だけ）を掛ける。上がる年は前の額のまま（在来分の家屋の価額の据え置き）
 import type { AmountStage, Box, Debt, Household, Residence } from "../../engine/types.ts";
 import { derivedId } from "../levers.ts";
 import { resolveTimepoint } from "../timepoint.ts";
@@ -36,6 +40,91 @@ export const PROPERTY_TAX_LAW = {
   reassessEvery: 3,
 } as const;
 
+/** その年に効いている評価替えの年（基準年度） */
+const reassessYear = (y: number): number => PROPERTY_TAX_LAW.reassessFrom + Math.floor((y - PROPERTY_TAX_LAW.reassessFrom) / PROPERTY_TAX_LAW.reassessEvery) * PROPERTY_TAX_LAW.reassessEvery;
+
+/**
+ * 固定資産評価基準（昭和38年自治省告示第158号。令和5年11月15日総務省告示第385号による改正後。令和6基準年度）の経年減点補正率（法令の値。0181）:
+ * - 木造: 別表第9「木造家屋経年減点補正率基準表」1 専用住宅、共同住宅、寄宿舎及び併用住宅用建物 のうち、延べ床面積1.0㎡当たり再建築費評点数
+ *   95,820点以上147,770点未満の区分（築25年で0.20）。新築の木造の戸建ての1㎡あたりの価格（総務省「固定資産の価格等の概要調書」令和6年度
+ *   新増分家屋 木造 戸建形式住宅 87,664円。補正率0.80で割ると約109,600点）が入る区分を当てた（区分は家ごとの評点数で決まり、推定では分からない）
+ * - 非木造: 別表第13「非木造家屋経年減点補正率基準表」2 住宅、アパート用建物。鉄筋コンクリート造（鉄骨鉄筋コンクリート造）60年・
+ *   鉄骨造（骨格材の肉厚4mm超）40年・鉄骨造（3mm超4mm以下）30年で0.20。築3年まで0.80・0.75・0.70、その後は0.20までまっすぐ（小数4桁）。
+ *   重量鉄骨造は4mm超、軽量鉄骨造は3mm超4mm以下とみなす
+ * - 積雪地域・寒冷地域の補正（別表第9の2）は入れない
+ */
+const WOOD_KEINEN = [0.8, 0.75, 0.7, 0.68, 0.65, 0.63, 0.61, 0.59, 0.56, 0.54, 0.52, 0.5, 0.47, 0.45, 0.43, 0.4, 0.38, 0.36, 0.34, 0.31, 0.29, 0.27, 0.25, 0.22, 0.2] as const;
+const NONWOOD_KEINEN_YEARS: Readonly<Record<string, number>> = { rc: 60, steel: 40, lightSteel: 30 };
+export const KEINEN = { floor: 0.2, newRate: 0.8, wood: WOOD_KEINEN, nonWoodYears: NONWOOD_KEINEN_YEARS } as const;
+
+/**
+ * 再建築費評点補正率（固定資産評価基準 第2章第4節の経過措置。法令の値。0181）: 評価替えの年に、在来分の家屋の再建築費評点数に掛ける率。
+ * 確かめた年だけ置く（令和6年度 木造1.11・非木造1.07。令和5年11月15日総務省告示第385号）。ほかの年（前の年と、まだ決まっていない
+ * 2027年度から）は1（掛けない）
+ */
+export const REBUILD_FACTOR: Readonly<Record<number, { wood: number; nonWood: number }>> = { 2024: { wood: 1.11, nonWood: 1.07 } };
+
+/** 建物の構造が木造か（軽量鉄骨造は非木造。固定資産評価基準の区分） */
+const isWood = (structure: string): boolean => structure !== "rc" && structure !== "steel" && structure !== "lightSteel";
+
+/** 経年減点補正率（経過年数。1年未満は1年の値。法令の値） */
+export function keinenRate(structure: string, age: number): number {
+  const a = Math.max(1, Math.floor(age));
+  if (isWood(structure)) return WOOD_KEINEN[Math.min(a, WOOD_KEINEN.length) - 1]!;
+  const n = NONWOOD_KEINEN_YEARS[structure] ?? 60;
+  if (a <= 3) return [0.8, 0.75, 0.7][a - 1]!;
+  if (a >= n) return KEINEN.floor;
+  return Math.round((0.7 - ((0.7 - KEINEN.floor) * (a - 3)) / (n - 3)) * 10000) / 10000;
+}
+
+/** その評価替えの年の再建築費評点補正率（分からない年は1） */
+export const rebuildFactor = (structure: string, year: number): number => {
+  const f = REBUILD_FACTOR[year];
+  return f === undefined ? 1 : isWood(structure) ? f.wood : f.nonWood;
+};
+
+/**
+ * 建物の評価額の、時点の年（refYear）に効いている額に対する、その年（year）に効いている額の比（0181）。
+ * 時点の年に効いている評価替えの年の経過年数の補正率を元に、その後の評価替えの年ごとに、経過年数の補正率×再建築費評点補正率（累積）に置き換え、
+ * 前の額より上がる年は前の額のまま。経過年数は評価替えの年−建った年（1年未満は1年。新築の翌年の最初の評価と同じ0.80）
+ */
+export function buildingValueRatio(structure: string, built: number, refYear: number, year: number): number {
+  const every = PROPERTY_TAX_LAW.reassessEvery;
+  const rRef = reassessYear(refYear);
+  const ageAt = (r: number): number => Math.max(1, r - built);
+  const d0 = keinenRate(structure, ageAt(rRef));
+  let v = d0;
+  let cum = 1;
+  for (let r = rRef + every; r <= reassessYear(year); r += every) {
+    if (r <= built) continue;
+    cum *= rebuildFactor(structure, r);
+    v = Math.min(v, keinenRate(structure, ageAt(r)) * cum);
+  }
+  return v / d0;
+}
+
+/** 時点の年から段の最後の年までに、分かっている再建築費評点補正率が当たるか（根拠の文に書く） */
+export function rebuildFactorNote(structure: string, built: number, refYear: number, lastYear: number): string | null {
+  const every = PROPERTY_TAX_LAW.reassessEvery;
+  const hits: string[] = [];
+  for (let r = reassessYear(refYear) + every; r <= reassessYear(lastYear); r += every) {
+    if (r <= built || REBUILD_FACTOR[r] === undefined) continue;
+    hits.push(`${String(r)}年度${isWood(structure) ? "（木造" : "（非木造"}${String(rebuildFactor(structure, r))}倍）`);
+  }
+  return hits.length === 0 ? null : `再建築費評点補正率を${hits.join("・")}掛け、前の額より上がる年は前の額のまま`;
+}
+
+/** 評価替えの段の理由の文（築年数と経年減点補正率。下限なら止まると書く） */
+export function reassessWhy(structure: string, y: number, built: number): string {
+  const age = Math.max(1, y - built);
+  const k = keinenRate(structure, age);
+  return `${String(y)}年度の評価替えで、建物の評価額が築${String(age)}年の経年減点補正率（${String(k)}）まで下がる${k <= KEINEN.floor ? "（下限で止まる）" : ""}`;
+}
+
+/** 経年減点補正率の表の名前（根拠の文） */
+export const keinenTableName = (structure: string): string =>
+  isWood(structure) ? "木造の住宅・築25年で0.20" : `${structure === "rc" ? "鉄筋コンクリート造" : structure === "steel" ? "鉄骨造（肉厚4mm超）" : "鉄骨造（肉厚3〜4mm）"}の住宅・築${String(NONWOOD_KEINEN_YEARS[structure] ?? 60)}年で0.20`;
+
 /** 推定の根拠の文の頭（この頭の推定を、固定資産税の推定の印として読む） */
 export const PROPERTY_TAX_BASIS = "固定資産税の推定";
 const METHOD = "derived";
@@ -51,12 +140,6 @@ const guide = {
   /** 都市計画税の税率（上限 0.3% を超えない） */
   get cityPlanningRate(): number {
     return Math.min(PROPERTY_TAX_LAW.cityPlanningCap, Math.max(0, presetNum("preset.housing.propertyTax.cityPlanningRate")));
-  },
-  get buildingFloor(): number {
-    return Math.min(1, Math.max(0, presetNum("preset.housing.propertyTax.buildingFloor")));
-  },
-  years(structure: string): number {
-    return Math.max(1, presetNum(structure === "steel" || structure === "rc" ? "preset.housing.propertyTax.buildingYears.nonWood" : "preset.housing.propertyTax.buildingYears.wood"));
   },
 };
 
@@ -97,8 +180,6 @@ export interface PropertyTaxPlan {
 const round100 = (v: number): number => Math.round(v / 100) * 100;
 const pctOf = (r: number): string => `${String(Math.round(r * 100000) / 1000)}%`;
 const manOf = (v: number): string => `${formatYen(Math.round(v / 10000) * 10000, "man")}万円`;
-/** その年に効いている評価替えの年（基準年度） */
-const reassessYear = (y: number): number => PROPERTY_TAX_LAW.reassessFrom + Math.floor((y - PROPERTY_TAX_LAW.reassessFrom) / PROPERTY_TAX_LAW.reassessEvery) * PROPERTY_TAX_LAW.reassessEvery;
 /** 推定で入れる段の割合（今の額に対する割合を小数1桁の％にそろえる。例 0.977＝97.7%。計算もこの値で） */
 const ratioText = (r: number): string => {
   const t = (Math.round(r * 1000) / 1000).toFixed(3).replace(/0+$/u, "").replace(/\.$/u, "");
@@ -118,13 +199,11 @@ export function reliefYears(condo: boolean, longLife: boolean): number {
 /**
  * 推定の計算（純粋な関数）。土地の評価額 L＝価格×土地の割合×土地の評価額の割合、建物の評価額 B＝価格×(1−土地の割合)×建物の評価額の割合。
  * その年の税＝L×1/6×1.4%＋L×1/3×都市計画税率＋B(年)×1.4%×(新築の軽減の間は1/2)＋B(年)×都市計画税率。
- * B(年)＝B×g(その年に効いている評価替えの年−建った年)÷g(最初の年の同じ年数)、g(a)＝max(下限, 1−(1−下限)×a÷下限まで下がる年数)
+ * B(年)＝B×buildingValueRatio(構造, 建った年, 最初の年, 年)（固定資産評価基準の経年減点補正率と再建築費評点補正率。0181）
  */
 export function propertyTaxPlan(o: PropertyTaxInputs): PropertyTaxPlan {
   const law = PROPERTY_TAX_LAW;
   const cp = guide.cityPlanningRate;
-  const floor = guide.buildingFloor;
-  const span = guide.years(o.structure);
   const land0 = o.price * o.landShare * guide.landRatio;
   const building0 = o.price * (1 - o.landShare) * guide.buildingRatio;
   const landTax = land0 * law.landFixedShare * law.standardRate + land0 * law.landCityShare * cp;
@@ -133,10 +212,8 @@ export function propertyTaxPlan(o: PropertyTaxInputs): PropertyTaxPlan {
   const built = o.builtYear ?? o.purchaseYear;
   const relief = o.newBuild || known;
   const years = reliefYears(o.condo, o.longLife);
-  const g = (a: number): number => Math.max(floor, 1 - ((1 - floor) * Math.max(0, a)) / span);
   const firstYear = o.purchaseYear + 1;
-  const g0 = g(reassessYear(firstYear) - built);
-  const buildingIn = (y: number): number => (g0 <= 0 ? building0 : (building0 * g(reassessYear(y) - built)) / g0);
+  const buildingIn = (y: number): number => building0 * buildingValueRatio(o.structure, built, firstYear, y);
   const inRelief = (y: number): boolean => relief && y >= built + 1 && y <= built + years;
   const taxIn = (y: number): number => {
     const b = buildingIn(y);
@@ -147,7 +224,7 @@ export function propertyTaxPlan(o: PropertyTaxInputs): PropertyTaxPlan {
   const parts = [
     `${String(firstYear)}年の額`,
     o.custom === true ? `土地の代金${manOf(o.price * o.landShare)}・建物の代金${manOf(o.price * (1 - o.landShare))}・${kind}` : `物件の価格${manOf(o.price)}・土地の割合${pctOf(o.landShare)}・${kind}`,
-    `評価額は土地が価格の${pctOf(guide.landRatio)}・建物が価格の${pctOf(guide.buildingRatio)}の目安`,
+    `評価額は土地が価格の${pctOf(guide.landRatio)}・建物が価格の${pctOf(guide.buildingRatio)}の目安で、建物は評価替えごとに固定資産評価基準の経年減点補正率（${keinenTableName(o.structure)}）で下げる`,
     `住宅用地の特例${inRelief(firstYear) ? `・新築の軽減（建物の分が半分。${String(years)}年）` : ""}を当て、都市計画税${pctOf(cp)}を含む`,
     ...(!o.newBuild && !known ? ["建った年が分からないので、建物は購入の年に建ったとみなした"] : []),
   ];
@@ -160,10 +237,7 @@ export function propertyTaxPlan(o: PropertyTaxInputs): PropertyTaxPlan {
     if (ratio === prev) continue;
     const why: string[] = [];
     if (inRelief(y - 1) && !inRelief(y)) why.push("新築の軽減が終わり、建物の分が元に戻る");
-    if (reassessYear(y) === y && buildingIn(y) !== buildingIn(y - 1)) {
-      const atFloor = g(y - built) <= floor;
-      why.push(`${String(y)}年度の評価替えで、建物の評価額が築${String(y - built)}年の分だけ下がる${atFloor ? `（下限の${pctOf(floor)}で止まる）` : ""}`);
-    }
+    if (reassessYear(y) === y && buildingIn(y) !== buildingIn(y - 1)) why.push(reassessWhy(o.structure, y, built));
     // 根拠の文に割合を入れる（割合が変わったら文も変わる。値だけ変わって文が同じ行は、編集のときに「FP が直した」とみなして外されるため。rows.ts の dropStaleRows）
     stages.push({ year: y, amount: round100(first * Number(ratio)), ratio, basis: `${PROPERTY_TAX_BASIS}（${why.join("。") || "評価額の見直し"}。固定資産税の欄の額の${ratioPct(ratio)}）` });
     prev = ratio;
