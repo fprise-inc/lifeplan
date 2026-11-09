@@ -220,3 +220,19 @@ export function mergeMeetingSections(theirs: unknown, ours: unknown, newId: () =
   }
   return { section: out.length > 0 ? { version: MEETING_LOG_VERSION, records: out } : null, added };
 }
+
+/** メモか面談の履歴があるか（見本にするときに外す物があるか） */
+export function hasNotes(wh: Pick<WorkingHousehold, "memo" | "meetings">): boolean {
+  return wh.memo.length > 0 || (wh.meetings ?? []).length > 0;
+}
+
+/**
+ * 見本にするとき（0033）に、メモ（行ごとの書いた人を含む）と面談の履歴を外す（0182 の追記）。お客さまの記録を見本の棚に残さず、
+ * 見本から作る顧客・見本の写しにも持ち越さない。ほかの中身はそのまま
+ */
+export function withoutNotes(wh: WorkingHousehold): WorkingHousehold {
+  const { memoBy: _by, meetings: _m, ...rest } = wh;
+  void _by;
+  void _m;
+  return { ...rest, memo: [] };
+}

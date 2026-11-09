@@ -9,7 +9,11 @@ import type { TakeawayData } from "../src/takeaway/model.ts";
 import { applyLevers } from "../src/workspace/levers.ts";
 import { CURRENT } from "../src/workspace/plans/band.ts";
 import { applyValues } from "../src/workspace/plans/plans.ts";
-import { buildPayload, cleanText, dataSetLabel, probeRequests } from "../src/workspace/takeaway/build.ts";
+import { buildPayload, cleanText, dataSetLabel, probeRequests, takeawayMeeting, type TakeawayChoice } from "../src/workspace/takeaway/build.ts";
+import { TakeawayView } from "../src/takeaway/viewer/TakeawayView.tsx";
+import { markedMeetings } from "./meetingsFixture.ts";
+import { h } from "preact";
+import { renderToString } from "preact-render-to-string";
 import { makeTakeawayFile } from "../src/workspace/takeaway/file.ts";
 import { choosePacks } from "../src/workspace/takeaway/packs.ts";
 import { FREE_TEXT, IdMap, sanitizeRequest, SCHOOL_PLACEHOLDER } from "../src/workspace/takeaway/sanitize.ts";
@@ -55,6 +59,12 @@ describe("持ち帰り用のレポート: 見本のファイル", () => {
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, "見本_パスワードなし.html"), plain.f.bytes);
       writeFileSync(join(dir, "見本_パスワードあり.html"), locked.f.bytes);
+      // 最後の面談で決めたこと・次までにやることを載せた見本（0182 の追記）
+      const o = openHousehold("salariedCoupleTwoKids");
+      o.wh.meetings = [{ id: "m-1", on: "2026-11-09", shared: { talked: "教育費の話", decided: "上の子の大学の費用を先に貯める\n月3万円をつみたて NISA へ", todo: "源泉徴収票を次の面談に持ってくる\n勤務先の退職金の規程を確かめる" }, fpOnly: { note: "" } }];
+      const { engine, packs } = realEngine();
+      const withMeeting = await makeTakeawayFile({ payload: buildPayload(o.ctx, choiceFor(o, { meeting: true, addressee: "見本 太郎", office: "見本FP事務所" })), engine, packsJson: packs, password: null, assets: assets() });
+      writeFileSync(join(dir, "見本_面談つき.html"), withMeeting.bytes);
       writeFileSync(join(dir, "sizes.json"), JSON.stringify({ plain: plain.f.sizes, locked: locked.f.sizes, packs: plain.f.packs }, null, 2));
     }
   });
@@ -349,5 +359,68 @@ describe("持ち帰り用のレポート: 外と話さないファイル", () =>
     expect(tail).toContain("preact@");
     expect(tail).toContain("MIT License");
     expect(tail.indexOf("-->")).toBe(tail.length - 4);
+  });
+});
+
+describe("持ち帰り用のレポート: 最後の面談で決めたこと・次までにやること（0182 の追記）", () => {
+  // 最後の面談（いちばん新しい日）にだけ決めたこと・次までにやることを入れ、ほかの欄（話したこと・保険の意向・FP だけの欄）と前の面談には目印を入れる
+  const meetings = (decided: string, todo: string) => {
+    const [old, last] = markedMeetings(`${MARK}-mt`);
+    return [
+      { ...old!, shared: { ...old!.shared, decided: `${MARK}-old-decided`, todo: `${MARK}-old-todo` } },
+      { ...last!, shared: { ...last!.shared, decided, todo } },
+    ];
+  };
+  const withMeetings = (decided: string, todo: string, over: Partial<TakeawayChoice> = { meeting: true }, id = "salariedCoupleTwoKids") => {
+    const o = openHousehold(id, { marks: true });
+    o.wh.meetings = meetings(decided, todo);
+    return buildPayload(o.ctx, choiceFor(o, over));
+  };
+
+  it("最後の面談の、お客さまと見てよい欄の「決めたこと」「次までにやること」だけを行ごとに入れる。話したこと・保険の意向・FP だけの欄・前の面談は入れない", () => {
+    const payload = withMeetings("上の子の大学の費用を先に貯める\n\n  月3万円をつみたて NISA へ  ", "源泉徴収票を持ってくる");
+    expect(payload.meeting).toEqual({ on: "2026-11-09", decided: ["上の子の大学の費用を先に貯める", "月3万円をつみたて NISA へ"], todo: ["源泉徴収票を持ってくる"] });
+    expect(JSON.stringify(payload)).not.toContain(MARK);
+  });
+
+  it("入る文字の欄は、面談の日・決めたこと・次までにやることの3つだけ（0030 の洗い出し）", () => {
+    const paths = new Set<string>();
+    const walk = (n: unknown, path: string) => {
+      if (path === "/plans/*/request") return;
+      if (typeof n === "string") paths.add(path);
+      else if (Array.isArray(n)) n.forEach((x) => walk(x, `${path}/*`));
+      else if (typeof n === "object" && n !== null) for (const [k, v] of Object.entries(n)) walk(v, `${path}/${k}`);
+    };
+    // 上の洗い出しと同じ2つの世帯（FP顧問料・定年の後の働き方の文の欄もそろう）
+    for (const id of ["advisoryFeeProposal", "salariedCoupleTwoKids"]) walk(withMeetings("決めた", "やる", { meeting: true, addressee: "見本 花子", office: "見本FP事務所" }, id), "");
+    expect([...paths].sort()).toEqual([...TAKEAWAY_TEXT_FIELDS, "/meeting/decided/*", "/meeting/on", "/meeting/todo/*"].sort());
+  });
+
+  it("面談が無い・2つとも空・FP が載せないと選んだ・欄の長さと行の数の上限", () => {
+    expect(withMeetings("", "  ").meeting).toBeUndefined();
+    expect(withMeetings("決めた", "やる", { meeting: false }).meeting).toBeUndefined();
+    expect(withMeetings("決めた", "やる", {}).meeting).toBeUndefined();
+    const o = openHousehold("salariedCoupleTwoKids");
+    expect(buildPayload(o.ctx, choiceFor(o, { meeting: true })).meeting).toBeUndefined();
+    expect(takeawayMeeting({})).toBeNull();
+    const long = takeawayMeeting({ meetings: meetings(Array.from({ length: 30 }, (_, i) => `${i}${"あ".repeat(300)}`).join("\n"), "") })!;
+    expect(long.decided).toHaveLength(20);
+    expect(Math.max(...long.decided.map((l) => l.length))).toBeLessThanOrEqual(200);
+    expect(long.todo).toEqual([]);
+  });
+
+  it("レポートの画面に「面談で決めたこと」の欄を出す（決めたこと・次までにやること。無ければ出さない）", () => {
+    const { engine } = realEngine();
+    const payload = withMeetings("上の子の大学の費用を先に貯める", "源泉徴収票を持ってくる");
+    const data: TakeawayData = { payload, packs: [] };
+    const html = renderToString(h(TakeawayView, { data, engine }));
+    expect(html).toContain("data-takeaway-meeting");
+    expect(html).toContain("面談で決めたこと");
+    expect(html).toContain("2026年11月9日の面談");
+    expect(html).toContain("上の子の大学の費用を先に貯める");
+    expect(html).toContain("次までにやること");
+    const { meeting: _m, ...none } = payload;
+    void _m;
+    expect(renderToString(h(TakeawayView, { data: { payload: none, packs: [] }, engine }))).not.toContain("data-takeaway-meeting");
   });
 });

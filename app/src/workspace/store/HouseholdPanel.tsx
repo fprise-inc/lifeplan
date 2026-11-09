@@ -137,6 +137,9 @@ export const defaultCategory = (cats: readonly Category[]): string | undefined =
 /** 初めの「区分を使いますか？」の、あとから変えられることの一文 */
 export const CATEGORY_LATER = "あとから世帯の一覧の下の「区分を設定する」でいつでも変えられます。番号の数字（通し番号）は変わりません。";
 
+/** 見本にするときの一言（0182 の追記）: メモと面談の履歴は外す */
+export const SAMPLE_NOTES_TEXT = "メモと面談の履歴は外します（お客さまの記録を見本に残しません）。";
+
 /** 見本の写しの指定（同じ家族の形・年代。名前に「写し」を付ける） */
 export function copyRequest(item: ShelfItem): SampleRequest | null {
   const p = parseSampleNo(item.no);
@@ -411,6 +414,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
             data-make-sample-form
           >
             <span>見本の棚へ移します。顧客番号（{h.customerNo}）は外れ、見本番号（10〜）が付きます。外れた通し番号は使い回しません。</span>
+            <span class="pl-sub" data-make-sample-notes>{SAMPLE_NOTES_TEXT}</span>
             <SampleFields value={form.value} onChange={(v) => setForm({ ...form, value: v, error: null })} />
             <label class="hh-fictional">
               <input type="checkbox" checked={form.ok} onChange={(e) => setForm({ ...form, ok: (e.currentTarget as HTMLInputElement).checked })} data-fictional-confirm />
@@ -727,7 +731,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
             <button type="button" class="link-btn" onClick={() => setFromSample({ item: s, category: defaultCategory(p.categories) })} data-customer-from-sample={s.no}>
               この見本をもとに顧客を作る
             </button>
-            <button type="button" class="link-btn" onClick={() => p.onCopySample(s)} title="同じ家族の形・年代の次の空き番号（10〜）で、新しい見本を作ります" data-copy-sample={s.no}>
+            <button type="button" class="link-btn" onClick={() => p.onCopySample(s)} title="同じ家族の形・年代の次の空き番号（10〜）で、新しい見本を作ります。メモと面談の履歴は写しません" data-copy-sample={s.no}>
               写して手直しする
             </button>
           </>

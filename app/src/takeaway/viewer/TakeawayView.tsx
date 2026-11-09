@@ -198,6 +198,37 @@ export function TakeawayView({ data, engine, preview = false }: TakeawayViewProp
       </header>
       <p class="tk-lead">グラフの下のつまみを動かすと、その場で計算し直します。このファイルの中だけで計算し、どこにも送りません。</p>
 
+      {p.meeting !== undefined ? (
+        <section class="card tk-meeting" aria-labelledby="tk-mth" data-takeaway-meeting>
+          <div class="card-h">
+            <h2 id="tk-mth">面談で決めたこと</h2>
+            <span class="aside">{dateText(p.meeting.on)}の面談</span>
+          </div>
+          <div class="tk-meeting-grid">
+            {p.meeting.decided.length > 0 ? (
+              <div>
+                <h3>決めたこと</h3>
+                <ul>
+                  {p.meeting.decided.map((l, i) => (
+                    <li key={i}>{l}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {p.meeting.todo.length > 0 ? (
+              <div>
+                <h3>次までにやること</h3>
+                <ul>
+                  {p.meeting.todo.map((l, i) => (
+                    <li key={i}>{l}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
       <section class="band tk-band" aria-label="プラン" data-band>
         <div class="band-cards" role="group" aria-label="グラフに出すプラン">
           {cards.map((c) => (

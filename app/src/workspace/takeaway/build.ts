@@ -1,13 +1,15 @@
 // 持ち帰り用のレポートの中身（TakeawayPayload）を作る（作業の層。0030）。
 // - 許可した項目だけを写す: プランの文字と名前・計算の要求（sanitize.ts で自由記述と識別子を外し、ID を付け替えたもの）・つまみの範囲と補足・
 //   作成日・制度データの版・必須の記載・○歳時点の年齢・載せる画面。宛名と事務所名は FP がこの書き出しのために入れたものだけ
-// - 写さないもの: FP用のメモ・呼び名・控え・ヒアリングの記録・AIの記録・案の差分（作った日時・出どころ・承認・注記）・世帯の内部ID・顧客番号・
+// - 面談の履歴（0182）は、最後の面談の「決めたこと」「次までにやること」だけ（お客さまと一緒に見てよい欄の中のこの2つ。FP が載せると選んだとき）
+// - 写さないもの: FP用のメモ・面談の履歴のほかの欄（話したこと・保険の意向・FP だけの欄）・呼び名・控え・ヒアリングの記録・AIの記録・案の差分（作った日時・出どころ・承認・注記）・世帯の内部ID・顧客番号・
 //   事務所の設定（料金表の写し）・カスタム計算の印・ファイルのパス
 // - 計算の要求は、主画面と同じ当て方（plans.ts の applyValues。保存していない変更を含む今の中身）で作る
 import { forEngine } from "../../engine/moneyRows.ts";
 import type { EngineRequest } from "../../engine/types.ts";
 import type { MoneyThreeSettings } from "../../presentation/model.ts";
-import { TAKEAWAY_FORMAT, TAKEAWAY_LEVER_KEYS, TAKEAWAY_VERSION, type TakeawayLever, type TakeawayLeverKey, type TakeawayPayload } from "../../takeaway/model.ts";
+import { TAKEAWAY_FORMAT, TAKEAWAY_LEVER_KEYS, TAKEAWAY_VERSION, type TakeawayLever, type TakeawayLeverKey, type TakeawayMeeting, type TakeawayPayload } from "../../takeaway/model.ts";
+import { isMeetingDate, latestMeeting } from "../meetings/meetings.ts";
 import { applyTry, type LeverConfig, type TryValues } from "../../takeaway/levers.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { feeSummary, hasAdvisoryFee, readLevers } from "../levers.ts";
@@ -52,6 +54,8 @@ export interface TakeawayChoice {
   names?: OfficeRowNames;
   /** 事務所の基調の色（0121。明るい画面の色。省略はファイナンシアの藍） */
   accent?: string;
+  /** 最後の面談で決めたこと・次までにやることを載せる（0182 の追記。省略は載せない） */
+  meeting?: boolean;
 }
 
 export interface TakeawayContext {
@@ -81,6 +85,28 @@ function clip(t: string, max: number): string {
 export function cleanText(s: string, max: number): string | null {
   const t = clip([...s].map((c) => (c.charCodeAt(0) < 0x20 || c.charCodeAt(0) === 0x7f ? " " : c)).join("").trim(), max);
   return t === "" ? null : t;
+}
+
+/** 1つの欄の行の数と1行の長さの上限 */
+const MEETING_LINES = 20;
+const MEETING_LINE_MAX = 200;
+const lines = (t: string): string[] =>
+  t
+    .split(/\r?\n/u)
+    .map((l) => cleanText(l, MEETING_LINE_MAX))
+    .filter((l): l is string => l !== null)
+    .slice(0, MEETING_LINES);
+
+/**
+ * 持ち帰り用のレポートに載せる面談の中身（0182 の追記）: 最後の面談（いちばん新しい日の記録）の、お客さまと一緒に見てよい欄の
+ * 「決めたこと」「次までにやること」だけ。面談が無い・2つとも空なら null。話したこと・保険の意向・FP だけの欄は読まない
+ */
+export function takeawayMeeting(wh: Pick<WorkingHousehold, "meetings">): TakeawayMeeting | null {
+  const m = latestMeeting(wh.meetings ?? []);
+  if (m === null || !isMeetingDate(m.on)) return null;
+  const decided = lines(m.shared.decided);
+  const todo = lines(m.shared.todo);
+  return decided.length === 0 && todo.length === 0 ? null : { on: m.on, decided, todo };
 }
 
 /** 載せるプランの ID（現状が先頭、帯の並び） */
@@ -140,6 +166,7 @@ export function buildPayload(ctx: TakeawayContext, choice: TakeawayChoice, notic
     return { letter: l.letter, name: (id === CURRENT ? "現状" : cleanText(l.name, 60)) ?? `プラン${l.letter}`, request: sanitizeRequest(raw[i] as EngineRequest, ids) };
   });
   const letter = (id: string) => ctx.letterOf(id).letter;
+  const meeting = choice.meeting === true ? takeawayMeeting(ctx.wh) : null;
   const re = reemploymentFor(ctx.wh, ctx.catalog.selfId);
   const levers: LeverConfig = {
     self: ids.of(ctx.catalog.selfId),
@@ -164,6 +191,7 @@ export function buildPayload(ctx: TakeawayContext, choice: TakeawayChoice, notic
     ...(choice.views.moneyThree ? { moneyThree: { months: choice.moneyThree.months, years: choice.moneyThree.years, wording: choice.moneyThree.wording } } : {}),
     ...(choice.names !== undefined ? { names: takeawayNames(choice.names) } : {}),
     ...(choice.accent !== undefined && /^#[0-9a-f]{6}$/.test(choice.accent) ? { accent: choice.accent } : {}),
+    ...(meeting !== null ? { meeting } : {}),
   };
 }
 
