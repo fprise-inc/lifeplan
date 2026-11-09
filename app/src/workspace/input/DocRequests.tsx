@@ -10,6 +10,7 @@ import type { WorkingHousehold } from "./household.ts";
 import { docRequests, requestMessage, SAFE_SENDING, type DocRequest } from "./docRequests.ts";
 import { docRequestStatus } from "../hearing/web.ts";
 import { readableDoc } from "../documents/start.ts";
+import { useDocView } from "../hearing/ReceivedDocs.tsx";
 
 interface Props {
   wh: WorkingHousehold;
@@ -27,6 +28,8 @@ export function DocRequests({ wh, onOpen, onRead, onClose }: Props) {
   const reqs = useMemo(() => docRequests(wh), [wh]);
   // Web のヒアリングで頼んだ・届いた書類（0125。書類待ちの1通と結びつけたもの）
   const web = useMemo(() => docRequestStatus(wh), [wh]);
+  /** 届いた書類を横に出す口（入力のホームが配る。0191） */
+  const view = useDocView();
   const [name, setName] = useState(remembered.name);
   const [office, setOffice] = useState(remembered.office);
   const [note, setNote] = useState<string | null>(null);
@@ -73,8 +76,13 @@ export function DocRequests({ wh, onOpen, onRead, onClose }: Props) {
               ) : null}
               {web.get(r.id) !== undefined ? (
                 <span class={`dr-web${(web.get(r.id)?.files ?? 0) > 0 ? "" : " wait"}`} data-dr-web={r.id}>
-                  {(web.get(r.id)?.files ?? 0) > 0 ? `Web で届いた（${web.get(r.id)?.files ?? 0}）— 取り込みの「Web の依頼」の書類で開けます` : web.get(r.id)?.answer === "notAvailable" ? "Web で頼んだ: 手元にない" : web.get(r.id)?.answer === "later" ? "Web で頼んだ: あとで送る" : "Web で頼んでいます"}
+                  {(web.get(r.id)?.files ?? 0) > 0 ? `Web で届いた（${web.get(r.id)?.files ?? 0}）` : web.get(r.id)?.answer === "notAvailable" ? "Web で頼んだ: 手元にない" : web.get(r.id)?.answer === "later" ? "Web で頼んだ: あとで送る" : "Web で頼んでいます"}
                 </span>
+              ) : null}
+              {view !== null && view.files.some((f) => f.doc.docRequest === r.id) ? (
+                <button type="button" class="link-btn" onClick={() => view.view(view.files.find((f) => f.doc.docRequest === r.id)?.file.fileId ?? null)} data-dr-view={r.id} title="届いた書類を横に出します。「開く」で欄に移って、見ながら打てます">
+                  届いた書類を見る
+                </button>
               ) : null}
               <ul>
                 {r.values.map((v) => (

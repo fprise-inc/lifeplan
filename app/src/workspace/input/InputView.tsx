@@ -37,6 +37,9 @@ import { countsByCard, diffRows, planIndex, planView, recordPlanEdit } from "../
 import { ItemChooser, type OfficeItems } from "./ItemChooser.tsx";
 import { levelIn } from "./itemChoice.ts";
 import { sortChildrenByBirth } from "./stages/family.ts";
+import { DocLinks, DocViewContext, ReceivedButton, ReceivedDocs, useReceivedDocs, type ReceivedProps } from "../hearing/ReceivedDocs.tsx";
+import { DocViewer } from "../hearing/DocViewer.tsx";
+import { keepWebLog } from "../hearing/web.ts";
 
 interface Props {
   wh: WorkingHousehold;
@@ -84,6 +87,8 @@ interface Props {
   /** 取り込みの中身を開いているか（親が持つ。FP のメニューから開く）。省くとホームの中で持つ */
   importsOpen?: boolean;
   onImportsOpen?: (open: boolean) => void;
+  /** Web のヒアリングで受け取った書類の保存の口と、依頼の記録の書き換え（見た・保存した・消す。0191）。省くと保存のボタンを出さない */
+  received?: ReceivedProps;
 }
 
 /** 進み具合の状態の名前（絞り込みの文） */
@@ -270,7 +275,7 @@ export function ImportMenu({ children, off, initialOpen = false, open: outer, on
   );
 }
 
-export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false, officeItems, findQuery, onReadDoc }: Props) {
+export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false, officeItems, findQuery, onReadDoc, received }: Props) {
   /** 直しているプラン（直せないときは現状） */
   const editing = plans !== undefined && plans.sel !== null && plans.lock === null ? (plans.list.find((x) => x.id === plans.sel) ?? null) : null;
   const pcat = plans?.cat;
@@ -310,6 +315,10 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   /** 書類のお願い（書類待ちの欄から作る送ってほしい書類の一覧。0102） */
   const [docsOpen, setDocsOpen] = useState(initialOpen === "docs");
   const docCount = useMemo(() => (check.counts.unknown > 0 ? docRequests(wh).length : 0), [wh, check.counts.unknown]);
+  /** Web のヒアリングで受け取った書類（一覧・横に出して見る・保存。0191） */
+  const rd = useReceivedDocs(wh, received ?? { update: (f) => onSave(f(wh)) });
+  /** パネルの下書き（開いたときの世帯から作る）を入れるとき、開いている間に変わった Web の依頼の記録（見た・保存した印）を戻さない */
+  const keepWeb = (next: WorkingHousehold): WorkingHousehold => (next.hearing === wh.hearing ? next : keepWebLog(next, wh));
   /**
    * カードごとの入れ方（標準／詳細）。パネルの見出しで切り替えた入れ方は画面の中だけで持ち、保存しない（0077）。
    * 切り替えていないカードは、世帯の選び方の「開いたときの入れ方」（ピンは物が属するカードの入れ方）、無ければ level（初め）
@@ -399,7 +408,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   };
   // 基本生活費のパネル → 明細のパネル → 基本生活費のパネル（承認した値が見えるように、保存した世帯から開き直す）
   const openStatement = (saved?: WorkingHousehold) => {
-    if (saved !== undefined) onSave(saved);
+    if (saved !== undefined) onSave(keepWeb(saved));
     backTo.current = null;
     setOpenId(null);
     setStatementOpen(true);
@@ -407,7 +416,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   // 書類の読み取りへ進む（パネルから: 保存していない変更を保存し、パネルを閉じてから）
   const readDocFromPanel = (start: DocStart, saved?: WorkingHousehold) => {
     if (onReadDoc === undefined) return;
-    if (saved !== undefined) onSave(saved);
+    if (saved !== undefined) onSave(keepWeb(saved));
     backTo.current = null;
     setOpenId(null);
     onReadDoc(start);
@@ -437,7 +446,9 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
     onSave(togglePin(wh, pin.added));
     setToast(`「${pin.label}」のピンを外しました（物は残ります）`);
   };
-  const save = (next: WorkingHousehold, id: string) => {
+  const save = (next0: WorkingHousehold, id: string) => {
+    // パネルを開いている間に付けた受け取った書類の印（見た・保存した）を、パネルの下書きの古い依頼の記録で戻さない
+    const next = keepWeb(next0);
     const label = itemOf(next, id)?.label;
     if (editing !== null && plans !== undefined) plans.onSavePlan(next);
     // 家族は保存のときに子を生年月の順に並べ直す（打っている間は並び替えない。family.ts の panelOrder）
@@ -461,6 +472,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   const importCtl = importsOpen !== undefined ? { open: importsOpen, ...(onImportsOpen !== undefined ? { onOpen: onImportsOpen } : {}) } : { open: homeImports, onOpen: setHomeImports };
 
   return (
+    <DocViewContext.Provider value={rd}>
     <div class="ih">
       {/* 1行目: 見出し・確かめの一覧・進み具合 */}
       <div class="ih-head">
@@ -485,6 +497,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
                 書類のお願い（{docCount}通）
               </button>
             ) : null}
+            <ReceivedButton rd={rd} />
           </div>
         </div>
         <div class="ih-prog" aria-live="polite">
@@ -552,6 +565,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
       </div>
       {editing !== null && pcat !== undefined && diffOpen && plans !== undefined ? <DiffList rows={rows} wh={wh} planId={editing.id} planLabel={plans.list.find((x) => x.id === editing.id)?.label ?? "このプラン"} cat={pcat} onEdit={plans.onSavePlan} onOpen={open} onClose={() => setDiffOpen(false)} /> : null}
       {docsOpen ? <DocRequests wh={wh} onOpen={openField} onClose={() => setDocsOpen(false)} {...(onReadDoc !== undefined && editing === null ? { onRead: (r: DocRequest) => { const st = docStartOf(r); if (st !== null) onReadDoc(st); } } : {})} /> : null}
+      {rd.listOpen ? <ReceivedDocs rd={rd} /> : null}
       {checkOpen ? (
         <CheckList
           wh={wh}
@@ -627,12 +641,15 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
           {...(openId === "living" && statement !== undefined && editing === null ? { onStatement: openStatement } : {})}
           {...(onReadDoc !== undefined && editing === null ? { onReadDoc: readDocFromPanel } : {})}
           {...(editing !== null && pcat !== undefined ? { plan: { id: editing.id, label: editing.label, color: editing.color, cat: pcat } } : {})}
+          docs={<DocLinks rd={rd} card={pins.find((x) => x.id === openId)?.owner ?? openId} />}
         />
       ) : null}
+      {rd.viewing !== null ? <DocViewer rd={rd} beside={openId !== null} /> : null}
       {statement !== undefined && statementOpen ? statement.render(backFromStatement) : null}
       <div class={`toast${toast !== null ? " on" : ""}`} role="status" aria-live="polite">
         {toast ?? ""}
       </div>
     </div>
+    </DocViewContext.Provider>
   );
 }

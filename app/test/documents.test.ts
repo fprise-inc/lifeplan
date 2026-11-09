@@ -430,7 +430,7 @@ describe("読み取りの成績（数だけ）", () => {
 
 describe("世帯ファイルの区画 documents（形式 0.68）", () => {
   it("区画に置いて読み戻す。household の区画には入れない。読んでいない世帯は区画を作らない", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.70");
+    expect(BODY_FORMAT_VERSION).toBe("0.72");
     const wh = open();
     expect(bodyObject(body(wh)).documents).toBeUndefined();
     const r = read(wh, proposal([premium(16200)]));
@@ -485,8 +485,8 @@ describe("取り込みを外した書類の前の記録（0159）", () => {
     dropped: 0,
   });
 
-  it("0.68〜0.70 の見本の世帯ファイルの源泉徴収票の記録は、捨てずに読み、書き戻しても同じ。見るだけで、未決に数えず、承認できない", () => {
-    for (const v of ["0.68", "0.69", "0.70"]) {
+  it("0.68〜0.72 の見本の世帯ファイルの源泉徴収票の記録は、捨てずに読み、書き戻しても同じ。見るだけで、未決に数えず、承認できない", () => {
+    for (const v of ["0.68", "0.69", "0.70", "0.71", "0.72"]) {
       const text = readFileSync(join(FIXTURES, v, "body.json"), "utf8");
       const b = fromBody(text);
       const rd = b.wh.documents!.readings[0]!;

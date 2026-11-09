@@ -712,6 +712,7 @@ const devAi = {
   /** 書類から読んだ値の候補（本体と同じく、メモリの中だけ。画面が受け取ったら takeDocuments で外す） */
   documents: [] as { candidateId: string; shareId: string; householdId: string; receivedAt: string; connector: string | null; answer: unknown }[],
 };
+const DEV_AI_SHEET_TEXT = "（任意）担当の FP が、AI を使ってお答えを整理することがあります（お名前は渡しません）。このことに同意します";
 const DEV_AI_EXPLANATION = "（開発用の見本）ご相談の内容をもとにしたライフプランの計算や見直しの検討に、FPが契約している外部のAIを使うことがあります。\n計算や見直しの検討でAIに渡すのは、計算に必要な項目だけです。お名前・ご住所・FPのメモは渡しません。\n担当のFPは、書類から数字を読み取るときに、AIを使うことがあります。お名前・ご住所・各種の番号は伏せてから渡します。\nこの同意はいつでも撤回でき、撤回した後はAIに渡しません。";
 
 function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: unknown } | { ok: false; code: string } {
@@ -739,7 +740,7 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
   const view = () => {
     const b = book();
     const sh = shareStatus();
-    return { consentState: consentState(b), consentDocuments: consentDocuments(b), consents: b.consents, explanation: DEV_AI_EXPLANATION, explanationRef: "sha256:dev", explanationVersion: 2, share: sh !== null && sh.householdId === id ? sh : null, records: b.records, candidates: b.candidates, documentProposals: devAi.documents.filter((d) => d.householdId === id), allowlistVersion: "reduced@2", fields: ["member.birth", "income.salary.annual", "livingExpense.monthly", "account.marketValue", "assumptions.inflation"], saved: devStore.households.has(id) };
+    return { consentState: consentState(b), consentDocuments: consentDocuments(b), consents: b.consents, explanation: DEV_AI_EXPLANATION, explanationRef: "sha256:dev", explanationVersion: 2, hearingSheetExplanation: DEV_AI_SHEET_TEXT, share: sh !== null && sh.householdId === id ? sh : null, records: b.records, candidates: b.candidates, documentProposals: devAi.documents.filter((d) => d.householdId === id), allowlistVersion: "reduced@2", fields: ["member.birth", "income.salary.annual", "livingExpense.monthly", "account.marketValue", "assumptions.inflation"], saved: devStore.households.has(id) };
   };
   const setup = (title: string, client: string, text: string) => ({ client, title, text });
   switch (op) {
@@ -791,9 +792,9 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
       const i = a.input as Record<string, unknown>;
       const b = book();
       if (i.fpConfirmed !== true) return { ok: false, code: "E_AI_CONSENT_FP_CONFIRM" };
-      if (i.decision === "given" && consentDocuments(b)) return { ok: false, code: "E_AI_CONSENT_ALREADY" };
+      if (i.decision === "given" && (consentDocuments(b) || (consentState(b) === "given" && i.method === "hearingSheet"))) return { ok: false, code: "E_AI_CONSENT_ALREADY" };
       if (i.decision === "withdrawn" && consentState(b) !== "given") return { ok: false, code: "E_AI_CONSENT_NOT_GIVEN" };
-      b.consents.push({ id: crypto.randomUUID(), kind: "externalAi", decision: i.decision, obtainedOn: i.obtainedOn, method: i.method, explanationRef: "sha256:dev", ...(i.decision === "given" ? { externalAi: { company: i.company, country: i.country, noTrainingConfirmed: i.noTrainingConfirmed }, scope: "reduced", documents: true } : {}), fpConfirmed: true, recordedAt: now, origin: "thisOffice" });
+      b.consents.push({ id: crypto.randomUUID(), kind: "externalAi", decision: i.decision, obtainedOn: i.obtainedOn, method: i.method, explanationRef: i.method === "hearingSheet" ? "sha256:dev-sheet" : "sha256:dev", ...(i.decision === "given" ? { externalAi: { noTrainingConfirmed: i.noTrainingConfirmed }, scope: "reduced", ...(i.method === "hearingSheet" ? {} : { documents: true }) } : {}), fpConfirmed: true, recordedAt: now, origin: "thisOffice" });
       if (i.decision !== "given" && active()?.householdId === id) end("consentWithdrawn");
       return { ok: true, value: view() };
     }

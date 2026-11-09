@@ -1,17 +1,19 @@
 // Web のヒアリング（0125）の FP の画面: 聞く項目・並び・確かめてもらう項目・独自の質問・頼む書類を選び、顧客にどう見えるかを見本で見て、
 // URL を発行する（有効期限は30日の決め打ち。延長は依頼の一覧で。0158）・案内文のひな形をコピー。送るのは FP（メールなど）。アプリはメールを送らない
+// - 書類（0190）: 一覧から足す・書類の持ち主（ご本人・配偶者の方）を選ぶ・その他の書類（名前と説明を FP が書く）。頼んだ書類で分かる問いは、
+//   項目の行に「源泉徴収票（ご本人）の数字を使います」と出し、お客さまの画面には出さない（お客さまが「手元にない」を選んだときだけ出す）
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { HearingForm } from "../../hearingForm/Form.tsx";
 import { initialDraft, screenId, screenOf, screens } from "../../../../hearing/src/web/flow.ts";
-import { DOCUMENT_TEMPLATES } from "../../../../hearing/src/web/documents.ts";
+import { DOCUMENT_TEMPLATES, OWNER_LABEL, templateOf, type DocumentOwner } from "../../../../hearing/src/web/documents.ts";
 import { axisOf } from "../../../../hearing/src/definition.ts";
-import { checkSelection, CUSTOM_LABEL_MAX, CUSTOM_MAX, FP_SECTION, selectableItems, type QuestionsPacket, type RequestedDocument, type SelectedSection, type WebSelection } from "../../../../hearing/src/web/packet.ts";
+import { checkSelection, CUSTOM_LABEL_MAX, CUSTOM_MAX, documentCovers, FP_SECTION, selectableItems, type QuestionsPacket, type RequestedDocument, type SelectedSection, type WebSelection } from "../../../../hearing/src/web/packet.ts";
 import { answerText } from "../../../../hearing/src/web/flow.ts";
 import type { HearingWebHost } from "../../engine/host.ts";
 import { docRequests } from "../input/docRequests.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { CUSTOMER_NO_PATTERN } from "./sheet.ts";
-import { documentFromCheck, documentFromTemplate, nextDocId, invitationText, issueWeb, officeFace, prefillOf, previewPacket, sheetOf, templateSelection, TEMPLATE_MAX, WEB_TEMPLATES, withCustom, withoutCustom, type HearingTemplate, type WebLogEntry, type WebTemplateKind } from "./web.ts";
+import { coverageHelp, coverageOf, defaultOwner, documentFromCheck, documentFromTemplate, nextDocId, invitationText, withOwner, issueWeb, officeFace, prefillOf, previewPacket, sheetOf, templateSelection, TEMPLATE_MAX, WEB_TEMPLATES, withCustom, withoutCustom, type CoverageInfo, type HearingTemplate, type WebLogEntry, type WebTemplateKind } from "./web.ts";
 import "../../hearingForm/form.css";
 
 export interface OfficeLook {
@@ -38,6 +40,16 @@ const remembered = { purpose: "ライフプランの作成と、家計・保険�
 
 /** 繰り返しの軸の言葉（項目選びで、誰の・何の問いかを見分ける） */
 const AXIS_HINT: Readonly<Record<string, string>> = { adult: "ご本人・配偶者の方ごと", child: "お子さまごと", parent: "ご両親ごと", loan: "ローンごと", policy: "保険ごと" };
+
+/** 書類の一覧の並び（ひな形の並びのまとまり） */
+const DOC_GROUPS: readonly { title: string; kinds: readonly string[] }[] = [
+  { title: "収入", kinds: ["withholding", "payslip", "bonusSlip", "taxReturn", "companyAccounts", "residentTaxNotice", "retirementRules"] },
+  { title: "年金", kinds: ["pensionNotice", "pensionAmountNotice", "dcNotice"] },
+  { title: "貯蓄・投資", kinds: ["deposits", "securities", "investStatement"] },
+  { title: "保険", kinds: ["insurancePolicy", "insuranceDeduction"] },
+  { title: "住まい・ローン", kinds: ["loanSchedule", "otherLoanSchedule", "propertyTax", "rentalContract"] },
+  { title: "家計・その他", kinds: ["householdBook", "other"] },
+];
 
 const move = <T,>(list: readonly T[], i: number, d: -1 | 1): T[] => {
   const j = i + d;
@@ -67,6 +79,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, persisted,
   const face = officeFace({ name: form.name, color: office.color, purpose: form.purpose, privacyContact: form.privacyContact });
   const okNo = CUSTOMER_NO_PATTERN.test(form.customerNo);
   const checks = useMemo(() => docRequests(wh), [wh]);
+  const coverage = useMemo(() => (def === undefined ? new Map<string, CoverageInfo>() : coverageOf(def, sel)), [def, sel]);
 
   useEffect(() => {
     let live = true;
@@ -226,6 +239,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, persisted,
                       const it = items.get(key);
                       const name = custom?.label ?? it?.label ?? key;
                       const target = screenOf(list, key);
+                      const cov = chosen !== undefined ? coverage.get(key) : undefined;
                       return (
                         <li key={key} class={chosen === undefined ? "off" : ""} data-web-item={key}>
                           <label>
@@ -240,6 +254,15 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, persisted,
                             </select>
                           ) : null}
                           {chosen?.mode === "confirm" ? <small class="wb-pre">今の値: {preText(key) ?? "—"}</small> : null}
+                          {cov !== undefined ? (
+                            <span class="wb-doc-use" data-web-doc-use={key}>
+                              <small>{cov.docs.join("・")}の数字を使います</small>
+                              <details class="wb-help">
+                                <summary aria-label="説明">？</summary>
+                                <p>{coverageHelp(cov)}</p>
+                              </details>
+                            </span>
+                          ) : null}
                           {chosen !== undefined ? (
                             <span class="wb-move">
                               {target !== undefined ? (
@@ -279,7 +302,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, persisted,
 
           <div class="wb-box" data-web-docs>
             <h3>送っていただきたい書類（{sel.documents.length}）</h3>
-            <p class="rp-note">書類ごとに、何のためか・どこを写せばよいかの説明が出ます（直せます）。お客さまには、撮る前に「全体が写るように」「マイナンバー・口座番号などは写さない・隠す」を必ず出します。</p>
+            <p class="rp-note">お客さまの画面では、書類を1通ずつ見せ、何のためか・どこが写っていればよいかの説明（直せます）と、撮る前の注意（番号は隠してよい・全体が入るように）を出します。頼んだ書類で分かる問いは、お客さまの画面に出しません（「手元にない」を選んだときだけ出します）。</p>
             {checks.length > 0 ? (
               <div class="wb-checks">
                 <h4>書類待ちの欄から（{checks.length}通）</h4>
@@ -301,25 +324,49 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, persisted,
             ) : null}
             <div class="wb-catalog">
               <h4>書類の一覧から</h4>
-              <div class="wb-tags">
-                {DOCUMENT_TEMPLATES.map((t) => (
-                  <button type="button" class="btn small" key={t.kind} onClick={() => addDoc(documentFromTemplate(sel, t.kind))} data-web-doc-add={t.kind}>
-                    ＋ {t.title}
-                  </button>
-                ))}
-              </div>
+              {DOC_GROUPS.map((g) => (
+                <div class="wb-tags-row" key={g.title}>
+                  <small class="wb-tag-h">{g.title}</small>
+                  <div class="wb-tags">
+                    {g.kinds.map((k) => DOCUMENT_TEMPLATES.find((t) => t.kind === k)).filter((t) => t !== undefined).map((t) => (
+                      <button type="button" class="btn small" key={t.kind} onClick={() => addDoc(documentFromTemplate(sel, t.kind, defaultOwner(sel, t.kind)))} data-web-doc-add={t.kind}>
+                        ＋ {t.kind === "other" ? "その他の書類" : t.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-            {sel.documents.map((d) => (
+            {sel.documents.map((d) => {
+              const t = templateOf(d.kind);
+              const covers = documentCovers(def, sel, d);
+              const coverNames = [...new Set(covers.map((c) => c.split("#")[0] as string).filter((k) => items.get(k)?.rangeOf === undefined))].map((k) => items.get(k)?.label ?? k);
+              return (
               <div class="wb-doc" key={d.id} data-web-doc={d.id}>
-                <input type="text" value={d.title} maxLength={80} onInput={(e) => setDoc(d.id, { ...d, title: (e.currentTarget as HTMLInputElement).value })} aria-label="書類の見出し" />
+                <input type="text" value={d.title} maxLength={80} placeholder={d.kind === "other" ? "書類の名前（例: 学資保険の証券）" : undefined} onInput={(e) => setDoc(d.id, { ...d, title: (e.currentTarget as HTMLInputElement).value })} aria-label="書類の見出し" />
+                {t !== undefined && t.whose !== "household" ? (
+                  <label>
+                    誰の書類
+                    <select value={d.owner ?? ""} onChange={(e) => setDoc(d.id, withOwner(d, ((e.currentTarget as HTMLSelectElement).value || undefined) as DocumentOwner | undefined))} data-web-doc-owner={d.id}>
+                      {t.whose === "either" ? <option value="">ご家族（まとめて）</option> : d.owner === undefined ? <option value="">選んでください</option> : null}
+                      {(["self", "spouse"] as const).map((o) => (
+                        <option key={o} value={o}>
+                          {OWNER_LABEL[o]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
                 <label>
                   何のため
-                  <input type="text" value={d.purpose} maxLength={200} onInput={(e) => setDoc(d.id, { ...d, purpose: (e.currentTarget as HTMLInputElement).value })} />
+                  <input type="text" value={d.purpose} maxLength={200} placeholder={d.kind === "other" ? "例: 学資保険の満期の額を確かめるため" : undefined} onInput={(e) => setDoc(d.id, { ...d, purpose: (e.currentTarget as HTMLInputElement).value })} />
                 </label>
                 <label>
-                  写す所
-                  <input type="text" value={d.where} maxLength={200} onInput={(e) => setDoc(d.id, { ...d, where: (e.currentTarget as HTMLInputElement).value })} />
+                  どこが写っていればよいか
+                  <input type="text" value={d.where} maxLength={200} placeholder={d.kind === "other" ? "例: 満期の年月と満期保険金の欄" : undefined} onInput={(e) => setDoc(d.id, { ...d, where: (e.currentTarget as HTMLInputElement).value })} />
                 </label>
+                {coverNames.length > 0 ? <small class="wb-doc-covers" data-web-doc-covers={d.id}>この書類の数字を使う問い（お客さまの画面に出しません）: {coverNames.join("・")}</small> : null}
+                {t?.whose === "person" && d.owner === undefined && t.covers.length > 0 ? <small class="wb-doc-covers">誰の書類かを選ぶと、その方の問いをお客さまの画面に出さずに済みます。</small> : null}
                 <span class="wb-move">
                   {d.docRequest !== undefined ? <small>書類待ちと結びつけています</small> : null}
                   <button type="button" class="link-btn" onClick={() => setDoc(d.id, null)}>
@@ -327,7 +374,8 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, persisted,
                   </button>
                 </span>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           <div class="wb-box" data-web-save-template>
