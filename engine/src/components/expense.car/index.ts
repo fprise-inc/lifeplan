@@ -16,7 +16,9 @@
 //   （cf.expense.living.car。式 expense.car.lease）。契約の年数は表示だけ（終わっても同じ月額で続け、精算しない。月額は伸ばさない）。購入・ローン・下取りは無い。
 //   月額に含む物（税・自賠責→自動車税、車検・メンテ→車検、保険→自動車保険。省略は種類の既定）は内訳から数えない（値は世帯に残る）
 // 車を持っている期間は、最初の購入の月（owned なら計算基準月。リースは始まり）から手放す月まで
+// 改訂5（0173）: 購入・ローン・維持費のお金の動きは、名義の人が万一の想定で亡くなった月の翌月から、相続する人（死亡の当時の配偶者。いなければ子を等分）の名にする（sdk の inheritFlows）
 import {
+  inheritFlows,
   addMonths,
   carLeaseIncludes,
   carPurchaseMonths,
@@ -44,7 +46,7 @@ export default defineComponent<{ member: string }, CarOutput>({
   id: "expense.car",
   title: "車（買い替え・ローン・車検・保険・自動車税）",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: { "debt.schedule": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [],
   // 買い替え（car.replace）は買い替え（car.purchase）の中の欄なので、car.purchase を読めば入る（物の中の欄の入力項目ID。0101）
@@ -171,6 +173,6 @@ export default defineComponent<{ member: string }, CarOutput>({
         }
       }
     }
-    return { flows, loans };
+    return { flows: inheritFlows(ctx, flows), loans };
   },
 });

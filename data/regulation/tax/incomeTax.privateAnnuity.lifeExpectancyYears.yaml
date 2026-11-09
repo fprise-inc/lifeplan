@@ -1,0 +1,230 @@
+id: incomeTax.privateAnnuity.lifeExpectancyYears
+title: 年金の支給開始日の年齢ごとの余命年数（所得税法施行令の別表「余命年数表」。upTo は年齢、rate は余命年数。終身年金の支払総額の見込額に使う）
+unit: rate
+kind: bracketTable
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2011-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: [{"key": "sex", "equals": "male"}]
+    value:
+      - {"upTo": 0, "rate": "74"}
+      - {"upTo": 1, "rate": "74"}
+      - {"upTo": 2, "rate": "73"}
+      - {"upTo": 3, "rate": "72"}
+      - {"upTo": 4, "rate": "71"}
+      - {"upTo": 5, "rate": "70"}
+      - {"upTo": 6, "rate": "69"}
+      - {"upTo": 7, "rate": "68"}
+      - {"upTo": 8, "rate": "67"}
+      - {"upTo": 9, "rate": "66"}
+      - {"upTo": 10, "rate": "65"}
+      - {"upTo": 11, "rate": "64"}
+      - {"upTo": 12, "rate": "63"}
+      - {"upTo": 13, "rate": "62"}
+      - {"upTo": 14, "rate": "61"}
+      - {"upTo": 15, "rate": "60"}
+      - {"upTo": 16, "rate": "59"}
+      - {"upTo": 17, "rate": "58"}
+      - {"upTo": 18, "rate": "57"}
+      - {"upTo": 19, "rate": "56"}
+      - {"upTo": 20, "rate": "55"}
+      - {"upTo": 21, "rate": "54"}
+      - {"upTo": 22, "rate": "53"}
+      - {"upTo": 23, "rate": "52"}
+      - {"upTo": 24, "rate": "51"}
+      - {"upTo": 25, "rate": "50"}
+      - {"upTo": 26, "rate": "50"}
+      - {"upTo": 27, "rate": "49"}
+      - {"upTo": 28, "rate": "48"}
+      - {"upTo": 29, "rate": "47"}
+      - {"upTo": 30, "rate": "46"}
+      - {"upTo": 31, "rate": "45"}
+      - {"upTo": 32, "rate": "44"}
+      - {"upTo": 33, "rate": "43"}
+      - {"upTo": 34, "rate": "42"}
+      - {"upTo": 35, "rate": "41"}
+      - {"upTo": 36, "rate": "40"}
+      - {"upTo": 37, "rate": "39"}
+      - {"upTo": 38, "rate": "38"}
+      - {"upTo": 39, "rate": "37"}
+      - {"upTo": 40, "rate": "36"}
+      - {"upTo": 41, "rate": "35"}
+      - {"upTo": 42, "rate": "34"}
+      - {"upTo": 43, "rate": "33"}
+      - {"upTo": 44, "rate": "32"}
+      - {"upTo": 45, "rate": "32"}
+      - {"upTo": 46, "rate": "31"}
+      - {"upTo": 47, "rate": "30"}
+      - {"upTo": 48, "rate": "29"}
+      - {"upTo": 49, "rate": "28"}
+      - {"upTo": 50, "rate": "27"}
+      - {"upTo": 51, "rate": "26"}
+      - {"upTo": 52, "rate": "25"}
+      - {"upTo": 53, "rate": "25"}
+      - {"upTo": 54, "rate": "24"}
+      - {"upTo": 55, "rate": "23"}
+      - {"upTo": 56, "rate": "22"}
+      - {"upTo": 57, "rate": "21"}
+      - {"upTo": 58, "rate": "20"}
+      - {"upTo": 59, "rate": "20"}
+      - {"upTo": 60, "rate": "19"}
+      - {"upTo": 61, "rate": "18"}
+      - {"upTo": 62, "rate": "17"}
+      - {"upTo": 63, "rate": "17"}
+      - {"upTo": 64, "rate": "16"}
+      - {"upTo": 65, "rate": "15"}
+      - {"upTo": 66, "rate": "14"}
+      - {"upTo": 67, "rate": "14"}
+      - {"upTo": 68, "rate": "13"}
+      - {"upTo": 69, "rate": "12"}
+      - {"upTo": 70, "rate": "12"}
+      - {"upTo": 71, "rate": "11"}
+      - {"upTo": 72, "rate": "10"}
+      - {"upTo": 73, "rate": "10"}
+      - {"upTo": 74, "rate": "9"}
+      - {"upTo": 75, "rate": "8"}
+      - {"upTo": 76, "rate": "8"}
+      - {"upTo": 77, "rate": "7"}
+      - {"upTo": 78, "rate": "7"}
+      - {"upTo": 79, "rate": "6"}
+      - {"upTo": 80, "rate": "6"}
+      - {"upTo": 81, "rate": "6"}
+      - {"upTo": 82, "rate": "5"}
+      - {"upTo": 83, "rate": "5"}
+      - {"upTo": 84, "rate": "4"}
+      - {"upTo": 85, "rate": "4"}
+      - {"upTo": 86, "rate": "4"}
+      - {"upTo": 87, "rate": "4"}
+      - {"upTo": 88, "rate": "3"}
+      - {"upTo": 89, "rate": "3"}
+      - {"upTo": 90, "rate": "3"}
+      - {"upTo": 91, "rate": "3"}
+      - {"upTo": 92, "rate": "2"}
+      - {"upTo": 93, "rate": "2"}
+      - {"upTo": 94, "rate": "2"}
+      - {"upTo": 95, "rate": "2"}
+      - {"upTo": 96, "rate": "2"}
+      - {"upTo": null, "rate": "1"}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20260522_508CO0000000093?response_format=xml", "retrievedAt": "2026-11-08", "sha256": "db79531dcae8a7b3fbd2af27e3062c8309074c7b3d4ce78b213d696d7fec7640", "locator": "所得税法施行令 別表 余命年数表（男。令和8年5月22日の版）", "quote": "別表　余命年数表（第八十二条の三、第百八十五条関係）"}
+      - {"type": "law", "lawNumber": "昭和四十年政令第九十六号", "egovRevisionId": "340CO0000000096_20260522_508CO0000000093"}
+    recordedIn: "2026.20.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "所得税法施行令の別表「余命年数表」（82条の3・185条関係）を e-Gov法令API の条文で読んだ（0〜96歳と97歳以上の98行）。183条1項2号イ(2)が82条の3第2項に準じて計算した支払総額の見込額とし、終身の年金はその年額×支給開始日の余命年数。施行日は確かめていない。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}
+  - rev: 2
+    appliesFrom: "2011-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: [{"key": "sex", "equals": "female"}]
+    value:
+      - {"upTo": 0, "rate": "80"}
+      - {"upTo": 1, "rate": "79"}
+      - {"upTo": 2, "rate": "78"}
+      - {"upTo": 3, "rate": "77"}
+      - {"upTo": 4, "rate": "77"}
+      - {"upTo": 5, "rate": "76"}
+      - {"upTo": 6, "rate": "75"}
+      - {"upTo": 7, "rate": "74"}
+      - {"upTo": 8, "rate": "73"}
+      - {"upTo": 9, "rate": "72"}
+      - {"upTo": 10, "rate": "71"}
+      - {"upTo": 11, "rate": "70"}
+      - {"upTo": 12, "rate": "69"}
+      - {"upTo": 13, "rate": "68"}
+      - {"upTo": 14, "rate": "67"}
+      - {"upTo": 15, "rate": "66"}
+      - {"upTo": 16, "rate": "65"}
+      - {"upTo": 17, "rate": "64"}
+      - {"upTo": 18, "rate": "63"}
+      - {"upTo": 19, "rate": "62"}
+      - {"upTo": 20, "rate": "61"}
+      - {"upTo": 21, "rate": "60"}
+      - {"upTo": 22, "rate": "59"}
+      - {"upTo": 23, "rate": "58"}
+      - {"upTo": 24, "rate": "57"}
+      - {"upTo": 25, "rate": "56"}
+      - {"upTo": 26, "rate": "55"}
+      - {"upTo": 27, "rate": "54"}
+      - {"upTo": 28, "rate": "53"}
+      - {"upTo": 29, "rate": "52"}
+      - {"upTo": 30, "rate": "51"}
+      - {"upTo": 31, "rate": "50"}
+      - {"upTo": 32, "rate": "49"}
+      - {"upTo": 33, "rate": "48"}
+      - {"upTo": 34, "rate": "47"}
+      - {"upTo": 35, "rate": "46"}
+      - {"upTo": 36, "rate": "45"}
+      - {"upTo": 37, "rate": "44"}
+      - {"upTo": 38, "rate": "43"}
+      - {"upTo": 39, "rate": "42"}
+      - {"upTo": 40, "rate": "41"}
+      - {"upTo": 41, "rate": "40"}
+      - {"upTo": 42, "rate": "39"}
+      - {"upTo": 43, "rate": "38"}
+      - {"upTo": 44, "rate": "37"}
+      - {"upTo": 45, "rate": "36"}
+      - {"upTo": 46, "rate": "36"}
+      - {"upTo": 47, "rate": "35"}
+      - {"upTo": 48, "rate": "34"}
+      - {"upTo": 49, "rate": "33"}
+      - {"upTo": 50, "rate": "32"}
+      - {"upTo": 51, "rate": "31"}
+      - {"upTo": 52, "rate": "30"}
+      - {"upTo": 53, "rate": "29"}
+      - {"upTo": 54, "rate": "28"}
+      - {"upTo": 55, "rate": "27"}
+      - {"upTo": 56, "rate": "26"}
+      - {"upTo": 57, "rate": "25"}
+      - {"upTo": 58, "rate": "25"}
+      - {"upTo": 59, "rate": "24"}
+      - {"upTo": 60, "rate": "23"}
+      - {"upTo": 61, "rate": "22"}
+      - {"upTo": 62, "rate": "21"}
+      - {"upTo": 63, "rate": "20"}
+      - {"upTo": 64, "rate": "19"}
+      - {"upTo": 65, "rate": "18"}
+      - {"upTo": 66, "rate": "18"}
+      - {"upTo": 67, "rate": "17"}
+      - {"upTo": 68, "rate": "16"}
+      - {"upTo": 69, "rate": "15"}
+      - {"upTo": 70, "rate": "14"}
+      - {"upTo": 71, "rate": "14"}
+      - {"upTo": 72, "rate": "13"}
+      - {"upTo": 73, "rate": "12"}
+      - {"upTo": 74, "rate": "11"}
+      - {"upTo": 75, "rate": "11"}
+      - {"upTo": 76, "rate": "10"}
+      - {"upTo": 77, "rate": "9"}
+      - {"upTo": 78, "rate": "9"}
+      - {"upTo": 79, "rate": "8"}
+      - {"upTo": 80, "rate": "8"}
+      - {"upTo": 81, "rate": "7"}
+      - {"upTo": 82, "rate": "7"}
+      - {"upTo": 83, "rate": "6"}
+      - {"upTo": 84, "rate": "6"}
+      - {"upTo": 85, "rate": "5"}
+      - {"upTo": 86, "rate": "5"}
+      - {"upTo": 87, "rate": "4"}
+      - {"upTo": 88, "rate": "4"}
+      - {"upTo": 89, "rate": "4"}
+      - {"upTo": 90, "rate": "3"}
+      - {"upTo": 91, "rate": "3"}
+      - {"upTo": 92, "rate": "3"}
+      - {"upTo": 93, "rate": "3"}
+      - {"upTo": 94, "rate": "2"}
+      - {"upTo": 95, "rate": "2"}
+      - {"upTo": 96, "rate": "2"}
+      - {"upTo": null, "rate": "1"}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20260522_508CO0000000093?response_format=xml", "retrievedAt": "2026-11-08", "sha256": "db79531dcae8a7b3fbd2af27e3062c8309074c7b3d4ce78b213d696d7fec7640", "locator": "所得税法施行令 別表 余命年数表（女。令和8年5月22日の版）", "quote": "別表　余命年数表（第八十二条の三、第百八十五条関係）"}
+      - {"type": "law", "lawNumber": "昭和四十年政令第九十六号", "egovRevisionId": "340CO0000000096_20260522_508CO0000000093"}
+    recordedIn: "2026.20.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "所得税法施行令の別表「余命年数表」（82条の3・185条関係）を e-Gov法令API の条文で読んだ（0〜96歳と97歳以上の98行）。183条1項2号イ(2)が82条の3第2項に準じて計算した支払総額の見込額とし、終身の年金はその年額×支給開始日の余命年数。施行日は確かめていない。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}

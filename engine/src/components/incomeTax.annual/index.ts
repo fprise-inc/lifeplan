@@ -12,6 +12,8 @@
 // 改訂6（0086）: 確定申告不要制度の「その他の所得」（公的年金等に係る雑所得以外の所得金額）に、給与所得・事業所得のほか、公的年金等以外の
 //   雑所得を足す（前は給与所得と事業所得だけで、副業・売電・個人年金などの雑所得がある年金の人も申告しない扱いになっていた）。
 //   一時所得・不動産所得はまだ足していない（0086 の残り）
+// 改訂7（0173）: 確定申告不要制度の「その他の所得」に、不動産所得・一時所得（総所得金額に入れた額）・総合課税の譲渡所得（同じ）・分離課税の
+//   譲渡所得も足す（所得税法121条3項。0086 の残り。前は家賃のある年金の人も申告しない扱いで、不動産所得の税が0円になっていた）
 import {
   bracketFor,
   defineComponent,
@@ -83,7 +85,7 @@ export default defineComponent<{ member: string; year: number }, IncomeTaxOutput
   id: "incomeTax.annual",
   title: "所得税",
   contract: "1.1",
-  revision: 6,
+  revision: 7,
   requires: {
     "tax.totalIncome": ">=1 <2",
     "tax.lossCarryforward": ">=1 <2",
@@ -183,7 +185,7 @@ export default defineComponent<{ member: string; year: number }, IncomeTaxOutput
     const revenueLimit = at.paramYen(FILING.revenue);
     const otherLimit = at.paramYen(FILING.other);
     // 公的年金等に係る雑所得以外の所得金額（給与・事業・公的年金等以外の雑所得）
-    const nonPension = inc.employment + other + (inc.miscellaneous ?? 0);
+    const nonPension = inc.employment + other + (inc.miscellaneous ?? 0) + (inc.realEstate ?? 0) + (inc.temporary ?? 0) + (inc.transfer?.included ?? 0) + (inc.separate ?? 0);
     const exempt = pensionPays.length > 0 && revenueLimit !== null && otherLimit !== null && pensionRevenue <= revenueLimit && nonPension <= otherLimit;
     if (exempt && settlement > 0) settlement = yen(0);
     if (settlement !== 0) {

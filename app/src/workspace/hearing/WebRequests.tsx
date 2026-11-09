@@ -258,7 +258,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                       {ext.ok && ext.to !== null ? `延長（${day(ext.to)}まで）` : "延長（今日から30日）"}
                     </button>
                     {e.received === undefined ? (
-                      <button type="button" class="btn" onClick={() => void navigator.clipboard?.writeText(invitationText(e, officeName)).then(() => note(id, "案内文を写しました"))}>
+                      <button type="button" class="btn" onClick={() => void navigator.clipboard?.writeText(invitationText(e, officeName, wh)).then(() => note(id, "案内文を写しました"))}>
                         案内文をコピー
                       </button>
                     ) : null}

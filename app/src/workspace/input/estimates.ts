@@ -1,6 +1,7 @@
 // 空欄を補う目安の値（0008 の2 の「推定」。出どころは auto、estimate に統計名と年度を書く）。
 // 目安の数と純粋な計算は、ヒアリングシートの取り込みと同じ hearing/src/estimates.ts（正本は data/ の YAML の写し。0008 の追記 2026-10-26）。
 // ここには世帯（Household）を見て当てる部分と、元の入力が変わったときの入れ直しだけを置く
+import { refreshOwnedHomeAsOf } from "./ownedHomeValue.ts";
 import type { Box, EmploymentPeriod, Household, LivingExpense, Member, YearSeries } from "../../engine/types.ts";
 import { ageAt } from "../levers.ts";
 import { isAutoSmr } from "./smr.ts";
@@ -132,6 +133,8 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
   refreshCustomBuild(h, landShare);
   // 購入の予定の持ち家の固定資産税の推定（推定のままの欄と推定の段だけ。propertyTax.ts。0112）
   refreshPropertyTax(h, last, landShare);
+  // 今住んでいる持ち家の買った年月（評価の時点）を住み始めに合わせる（印のある物だけ。ownedHomeValue.ts。0176）。固定資産税の推定の元なので先に
+  refreshOwnedHomeAsOf(h, baseMonth);
   // 今住んでいる持ち家の固定資産税の推定（推定のままの欄と推定の段だけ。ownedHomeTax.ts。0112 の追記 2026-11-03）
   refreshOwnedHomeTax(h, baseMonth, last, landShare);
   // 貸していない不動産の毎年の費用（固定資産税）の目安（推定のままの行だけ。heldEstateTax.ts。0123）

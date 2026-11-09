@@ -72,6 +72,11 @@ export const CONVENTIONS: Readonly<Record<string, RoundingRule>> = Object.freeze
   "conv.moneyThree.monthly": DOWN1,
   // 段階の額（元の額×段の割合と、段の間を少しずつ移す途中の額＝今の段＋前後の段の差×進んだ年数÷年数の、差に掛けた額。円未満切り捨て。0040）
   "conv.stage.value": DOWN1,
+  // 個人年金などの年金の必要経費（年金の額×割合）・相続等（贈与を含む）で取得した年金の課税部分（一課税単位当たりの金額など）・
+  // 年金を受け取る権利の評価額（1年当たりの平均額×複利年金現価率）。法令に定めの無い1円未満は切り捨て（0179）
+  "conv.insurance.annuity": DOWN1,
+  // 割合の百分率の1未満の切り上げ（相続税評価割合で、境目が整数の百分率の段の表を引く。引く段は割合のままと同じ。0179）
+  "conv.insurance.percentUp": UP1,
   // 役員退職慰労金の見込み額（最終報酬月額×在任年数×功績倍率。円未満切り捨て）
   "conv.retirement.estimate": DOWN1,
 });

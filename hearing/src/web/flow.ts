@@ -665,7 +665,8 @@ export function estimate(p: QuestionsPacket, gates?: GateAnswers): { readonly sc
   const std: Partial<Record<GateId, number>> = { spouse: 1, child: Math.min(2, axisCount(p, "child")), loan: Math.min(1, axisCount(p, "loan")), policy: Math.min(2, axisCount(p, "policy")), parent: 1 };
   const own: Partial<Record<GateId, number>> = {};
   for (const [g, n] of Object.entries(gates ?? {})) if (typeof n === "number") own[g as GateId] = g === "spouse" || g === "parent" ? n : Math.min(n, axisCount(p, g));
-  const d: Draft = { ...base, gates: { ...std, ...own, ...base.gates } };
+  // 前回の値から分かる数（お客さまの画面の初めの答え）が、渡した家族の数より先。ご両親のことを「答えない」（0）は、お客さまがその場で選ぶので渡した方を使う
+  const d: Draft = { ...base, gates: { ...std, ...own, ...base.gates, ...(own.parent === 0 ? { parent: 0 } : {}) } };
   const n = screens(p, d).filter((s) => s.kind === "consent" || s.kind === "gate" || s.kind === "item").length;
   return { screens: n, minutes: Math.max(1, Math.round((n * 15) / 60 + p.documents.length)) };
 }

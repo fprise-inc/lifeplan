@@ -85,8 +85,9 @@ describe("負債の返済（debt.schedule）", () => {
     const p = annuity(30000000, "0.005", 420);
     expect(pays(s, "2027-04")).toBe(p); // 金利が上がっても返済額は同じ
     expect(s.yearEnd.find((y) => y.year === 2027)?.unpaidInterest).toBeGreaterThan(0); // 8% の利息は返済額を超える
-    // 60回目（2031-03）の見直しで、前の返済額の1.25倍が上限
-    expect(pays(s, "2031-03")).toBe(Math.floor((p * 5) / 4));
+    // 最初の返済（2026-04）から61回目（2031-04）の見直しで、前の返済額の1.25倍が上限。60回目（2031-03）までは同じ
+    expect(pays(s, "2031-03")).toBe(p);
+    expect(pays(s, "2031-04")).toBe(Math.floor((p * 5) / 4));
   });
 
   it("ルールの無い変動・固定期間の終わりは、金利が変わった月に返済額を計算し直す", () => {

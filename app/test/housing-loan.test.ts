@@ -218,7 +218,8 @@ describe("持ち家の建った年", () => {
     let wh = action(blankHousehold(BASE), "housing/addOwn");
     wh = fieldOf(wh, "housing", "/valuation/value").set(wh, 30000000);
     expect(fieldOf(wh, "housing", "/valuation/value").get(wh).hint).toBeNull();
-    wh = fieldOf(wh, "housing", "/valuation/asOf").set(wh, "2016-04");
+    // その額の時点は買った年月（住み始め）についてくる（0176）
+    wh = fieldOf(wh, "housing", "/from").set(wh, { at: "2016-04" });
     wh = fieldOf(wh, "housing", "/valuation/builtYear").set(wh, 2016);
     // 土地 900万円を物価上昇率1%で10年、建物 2,100万円は木造22年のうち10年で (1−10/22) → 約1,145万円
     const hint = String(fieldOf(wh, "housing", "/valuation/value").get(wh).hint);

@@ -2,7 +2,8 @@
 // 住民税の住宅借入金等特別税額控除（residentTax.annual。所得税から引ききれなかった分を、上限まで翌年度の住民税から）に渡す。
 // - 対象: 構成員が主債務者・連帯債務者の住宅ローン（debt.housing があり creditDisabled でない）。入居の年から控除期間（新築・既存と住宅の種類で
 //   決まる年数）の間で、その年の12月31日に住んでいる年（housing.residence の住まいの期間）。合計所得金額が上限以下の年
-//   （tax.incomeWithin。上限の判定だけを読む）。返済の期間（最初の返済から返し終えるまで）が10年未満になったら（繰上返済）、その年から受けない
+//   （tax.incomeWithin。上限の判定だけを読む）。償還期間（最初の返済から最後の返済まで）が10年未満のローンは受けず、繰上返済で10年未満に
+//   なったら、その繰上返済をした年から受けない（改訂6）
 // - 額: 年末残高×負担割合（連帯債務の share。主債務者だけなら1）を、取得対価×持分で止め、ローンを合わせて借入限度額で止めて控除率を掛け、
 //   100円未満を切り捨てる。借入限度額・控除率・控除期間は入居の年月で選ぶ（basis anchor moveIn）。子育て世帯・若者夫婦世帯の上乗せは
 //   入居の年の12月31日に40歳未満で配偶者がいる・40歳未満の配偶者がいる・19歳未満の扶養親族がいるか（子の構成員のうち、その年の合計所得金額が
@@ -19,6 +20,10 @@
 // 改訂5: 借り換え（debt.refinance。国税庁 タックスアンサー No.1233・措通41-16）: 借り換えた年からは、新しいローンの年末残高を対象にする。
 //   新しいローンの借入額（費用を含めたらその分を足す）が借り換えの直前の残高より多ければ、年末残高×直前の残高÷新しい借入額にする。
 //   控除の期間は当初の入居の年から（延びない）。新しいローンの償還期間が10年未満なら、借り換えた年から受けない
+// 改訂6（0136 の追記 2026-11-08。措置法通達41-19・国税庁 質疑応答「繰上返済等をした場合の償還期間」）: 繰上返済で償還期間（当初の最初の返済の月
+//   から短くなった後の最後の返済の月まで。debt.schedule の約束の版 1.4 の prepayments）が10年未満になったら、その繰上返済をした年分から受けない
+//   （前は返し終えた年からだけ外していた）。借り換えた後の繰上返済は、新しいローンの最初の返済（借り換えの月）から数える。当初の返済の期間
+//   （repayment.termMonths）が10年未満のローンは、はじめから受けない
 import {
   ageMonth,
   defineComponent,
@@ -70,10 +75,10 @@ export default defineComponent<{ member: string; year: number }, HousingLoanCred
   id: "tax.housingLoanCredit",
   title: "住宅借入金等特別控除",
   contract: "1.1",
-  revision: 5,
+  revision: 6,
   requires: { "debt.schedule": ">=1 <2", "tax.incomeWithin": ">=1 <2" },
   params: [...Object.values(P), ...LIMITS, `${C}.limit.used.other`, ...PERIODS],
-  reads: ["member.outside", "debt.kind", "debt.debtors", "debt.housing", "residence.to", "member.kind", "member.birth", "relation.type", "relation.a", "relation.b"],
+  reads: ["member.outside", "debt.kind", "debt.debtors", "debt.housing", "debt.repayment", "residence.to", "member.kind", "member.birth", "relation.type", "relation.a", "relation.b"],
   input: "tax.memberYear.input",
   output: "tax.housingLoanCredit.output",
   compute(input, ctx) {
@@ -121,9 +126,18 @@ export default defineComponent<{ member: string; year: number }, HousingLoanCred
       const incomeLimit = at.paramYen(P.income, opts);
       if (incomeLimit !== null && !ctx.call<{ within: boolean }>("tax.incomeWithin", { member, year, limit: incomeLimit }).within) continue;
       const rep = ctx.call<DebtScheduleOutput>("debt.schedule", { object: d.id });
-      if (rep.payoff !== null && ctx.time.resolve({ at: rep.payoff }) - ctx.time.resolve({ at: rep.firstPayment }) + 1 < MIN_TERM_MONTHS && yearOf(ctx.time.resolve({ at: rep.payoff })) <= year) continue;
+      const ym = (s: string) => ctx.time.resolve({ at: s });
+      // 償還期間10年: 当初の返済の期間が10年未満なら受けない。繰上返済で10年未満になったら、その繰上返済をした年から受けない（措通41-19）。
+      // 期間は最初の返済の月（借り換えた後の繰上返済は、その前の最後の借り換えの月＝新しいローンの最初の返済）から、繰上返済の後の最後の返済の月まで
+      if (d.repayment.termMonths < MIN_TERM_MONTHS) continue;
+      const shortened = (rep.prepayments ?? []).some((p) => {
+        if (yearOf(ym(p.ym)) > year) return false;
+        const from = (rep.refinances ?? []).filter((x) => ym(x.ym) <= ym(p.ym)).at(-1)?.ym ?? rep.firstPayment;
+        return ym(p.lastPayment) - ym(from) + 1 < MIN_TERM_MONTHS;
+      });
+      if (shortened) continue;
       // 借り換え（その年までの最後の借り換え）: 償還期間10年未満は受けない。新しい借入額が直前の残高より多ければ比で減らす
-      const rf = (rep.refinances ?? []).filter((x) => yearOf(ctx.time.resolve({ at: x.ym })) <= year).at(-1);
+      const rf = (rep.refinances ?? []).filter((x) => yearOf(ym(x.ym)) <= year).at(-1);
       if (rf !== undefined && rf.termMonths < MIN_TERM_MONTHS) continue;
       let balance = rep.yearEnd.find((e) => e.year === year)?.balance ?? yen(0);
       if (rf !== undefined && rf.principal > rf.before) balance = ctx.money.mulRatio(balance, rf.before, rf.principal, "conv.exact");

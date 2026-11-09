@@ -440,13 +440,14 @@ describe("カードの1行の案内・1押し（どの項目も同じ決まり�
     const couple = open("dualNoKids");
     expect(byId(inputItems(couple), "retirement")).toMatchObject({ canFill: true, canNa: true });
     const filled = fillCard(couple, "retirement");
-    // この見本の働き方の期間は終わりが無いので、受け取る時期が決まらず計算に入らない。受け取る時期の欄が未入力の印になる（0163）
-    expect(byId(inputItems(filled), "retirement").status).toBe("missing");
+    // この見本の働き方の期間は終わりが無いので、目安で入れるときに、働く最後の年齢の推定（定年）で期間の終わりを補う（0175。前は受け取る時期が
+    // 決まらず未入力だった。0163）。推定で計算中
+    expect(byId(inputItems(filled), "retirement").status).toBe("est");
     expect(() => preview(filled.request)).not.toThrow();
-    // 働き方の期間に終わりがあれば、推定で計算中
-    const ended: WorkingHousehold = { ...filled, request: structuredClone(filled.request) };
-    for (const p of ended.request.input.household.employmentPeriods ?? []) (p as { to: unknown }).to = { at: "2050-03" };
-    expect(byId(inputItems(ended), "retirement").status).toBe("est");
+    // 補った終わりを外して終わりの無い期間に戻すと、受け取る時期が決まらず未入力の印（0163）
+    const unended: WorkingHousehold = { ...filled, request: structuredClone(filled.request) };
+    unended.request.input.household.employmentPeriods = (unended.request.input.household.employmentPeriods ?? []).filter((p) => p.type === "regular").map((p) => ({ ...p, to: null }));
+    expect(byId(inputItems(unended), "retirement").status).toBe("missing");
   });
 
   it("描画: 進み具合は未入力（0円の所あり）の数を左に強く、続けて15項目中の入力済み・推定で計算中・当てはまらない・まだ入れていない。最初の5枚の案内と印は出さない", () => {

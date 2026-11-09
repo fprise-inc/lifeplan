@@ -59,8 +59,9 @@ describe("未入力の警告の欄は、入るまで標準に出す（共通の�
     expect(up.sections[0]!.groups[0]!.fields.map((x) => x.level)).toEqual(["simple", "detail"]);
   });
 
-  it("持ち家を足しただけ（評価額が未入力）なら、評価額が標準のパネルに出る。入れて開き直すと詳細に戻る", () => {
+  it("今の時価で入れる持ち家で評価額が未入力なら、評価額が標準のパネルに出る。入れて開き直すと詳細に戻る（買った値段で入れる家は、買った値段がもとから標準。0176）", () => {
     let wh = action(blankHousehold(BASE), "housing/addOwn");
+    wh = set(wh, "/valuation/basis", "market");
     const value = fieldOf(wh, "/valuation/value");
     expect(value.level).toBe("detail");
     expect(fieldStatus(value, wh).status).toBe("missing");

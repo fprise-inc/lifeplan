@@ -39,7 +39,7 @@
 | `housing.valuation` | 持ち家の評価額と売却 | 1.1 | `empty.input`・`housing.valuation.output` | 土地・建物の評価の下がり方を事務所の考え方にする |
 | `asset.car` | 車の評価額 | 1.0 | `empty.input`・`asset.car.output` | 車の評価の下がり方を変える |
 | `contingency.lumpSum` | 万一のときの一時のお金 | 1.0 | `empty.input`・`flows.output` | 整理資金の見込み方を変える（相続税は計算しない部品です） |
-| `protection.need` | 必要保障額の推移 | 1.1 | `protection.need.input`・`protection.need.output` | 必要保障額の数え方（遺族の生活費の割合・期間・数える費用）を事務所の考え方にする。遺族年金などは公式の部品を呼べます |
+| `protection.need` | 必要保障額の推移 | 1.2 | `protection.need.input`・`protection.need.output` | 必要保障額の数え方（遺族の生活費の割合・期間・数える費用）を事務所の考え方にする。遺族年金などは公式の部品を呼べます |
 | `retirement.benefit` | 退職給付 | 1.0 | `member.input`・`retirement.benefit.output` | 勤め先の退職金規程を写した計算にする（退職所得の税は公式のまま） |
 | `expense.advisoryFee` | FP顧問料 | 1.0 | `empty.input`・`flows.output` | 料金表の形で入らない料金の決め方（資産の額に応じた料金など） |
 

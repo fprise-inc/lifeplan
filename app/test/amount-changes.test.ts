@@ -167,13 +167,13 @@ describe("足した変化の並びと置き場所", () => {
     expect(growth).toBeGreaterThan(0);
     expect(growth).toBeLessThan(change);
     expect(groupsOf(buildStage("housing", w)).find((g) => g.key === k)?.note).toContain(`${what}の変化 1件`);
-    // 標準で「▸ 続きを見る」を開いたとき: 変動率の欄は開いた中身の中にあるので、変化もその中（変動率の欄の後）に描く
+    // 標準で「▸ 続きを見る」を開いたとき: 今住んでいる持ち家の伸び率の欄は中枠「建て方・名義など」の中にあるので（0176）、変化もその中（伸び率の欄の後）に描く
     const opened = panel(w, "housing", "simple", [k]);
-    const body = opened.indexOf(`<div class="grp-more-body" data-more-of="${k}">`);
+    const band = opened.indexOf(`data-group="${k}/home"`);
     const g2 = opened.indexOf(`id="${fieldDomId(`${k}/maintGrowth`)}"`);
     const c2 = opened.indexOf(`${what}の変化（`);
-    expect(body).toBeGreaterThan(0);
-    expect(body).toBeLessThan(g2);
+    expect(band).toBeGreaterThan(0);
+    expect(band).toBeLessThan(g2);
     expect(g2).toBeLessThan(c2);
   });
 });

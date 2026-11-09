@@ -331,8 +331,8 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
         <button type="button" class="btn" onClick={() => void copy("url", issued.entry.record.url)}>
           URL をコピー
         </button>
-        <textarea readOnly rows={14} value={invitationText(issued.entry, form.name)} aria-label="案内文" data-web-message />
-        <button type="button" class="btn primary" onClick={() => void copy("msg", invitationText(issued.entry, form.name))} data-web-copy-message>
+        <textarea readOnly rows={14} value={invitationText(issued.entry, form.name, wh)} aria-label="案内文" data-web-message />
+        <button type="button" class="btn primary" onClick={() => void copy("msg", invitationText(issued.entry, form.name, wh))} data-web-copy-message>
           案内文をコピー
         </button>
         {copied !== null ? <p class="rp-note">{copied === "url" ? "URL" : "案内文"}を写しました。送る前に送り先を確かめてください。</p> : null}
@@ -767,6 +767,7 @@ export function WebBuilder({ wh, web, office, templates, onTemplates, topics: of
               <p class="rp-note" data-web-estimate>
                 お客さまの画面: 問い {est.std.screens}画面・{est.std.minutes}分ほど（夫婦と子2人で数えた目安。お客さまの最初の画面と案内文にも同じ数が出ます）
                 {est.own !== null && shape !== null ? `。この世帯（${shape}）では ${est.own.screens}画面・${est.own.minutes}分ほど` : ""}
+                {est.withoutParents !== null ? `。ご両親のことを「答えない」を選ぶと ${est.withoutParents.screens}画面` : ""}
               </p>
             ) : null}
             <p class="rp-note" data-web-expiry-note>

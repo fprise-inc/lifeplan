@@ -73,8 +73,16 @@
 // - 改訂9・約束の版 1.5（0137。取得の年月だけの取得）: 取得（acquisition）は取得の年月（at）だけでもよい（price を省略できる）。取得価額（price。
 //   内訳 parts があれば内訳の合計）が無い取得は、減価償却・帳簿価額・売ったときの取得費に使わず（取得の入力が無いときと同じ。知らせ N_INPUT_REQUIRED・
 //   概算取得費）、取得の年月だけを建った年の省略・貸し始めの省略・売ったときの長期と短期の分けに使う。取得価額のある取得は今までと同じ結果
+// - 改訂10・約束の版 1.6（0173。亡くなった人の名義）: 名義の人が万一の想定で亡くなったら、亡くなった月の翌月から相続する人（死亡の当時の配偶者。
+//   いなければ子を等分）の物とみなす。家賃・経費・修繕・売却の手取りのお金の動きは相続する人の名（sdk の inheritFlows）。不動産所得は、
+//   亡くなった年からの年ごとに、名義の人と相続する人の分（holders）に分ける: 家賃と経費は月ごとに、減価償却費・借入の利息（土地の分を含む）は
+//   貸している月数で分け、相続する人の分を人数で等分する。売却の譲渡所得は売る月に持つ人に付く（tax.realEstateSale。取得費と所有期間は
+//   亡くなった人から引き継ぐ。所得税法60条）。名義の人（owner）・評価額・帳簿価額は変えない
 // 計算基準年の2年前から計算する（前の年の所得で決まる住民税・国民健康保険料のため。お金の動きは計算基準月から）
 import {
+  inheritanceOf,
+  inheritFlows,
+  splitEqually,
   addMonths,
   addYen,
   boxValue,
@@ -160,9 +168,9 @@ function monthsIn(y: number, lo: MonthIndex, hi: MonthIndex): number {
 export default defineComponent<Record<string, never>, RealEstateOutput>({
   id: "asset.realEstate",
   title: "住まい以外の不動産（評価額・家賃収入・経費・不動産所得・売却）",
-  contract: "1.5",
-  revision: 9,
-  requires: { "debt.schedule": ">=1 <2" },
+  contract: "1.6",
+  revision: 10,
+  requires: { "debt.schedule": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [HOLDING, ESTIMATED],
   reads: ["account.kind", "account.owner", "account.marketValue", "account.asOf", "account.valueGrowth", "account.property", "debt.property", "debt.principal", "assumptions.inflation", "assumptions.realEstateValuation"],
   input: "empty.input",
@@ -180,6 +188,8 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       const p = a.property;
       if (a.kind !== "realEstate" || p === undefined) continue;
       const owner = a.owner;
+      // 名義の人が亡くなったら、亡くなった月の翌月（inh.from）から相続する人の物（0173）
+      const inh = inheritanceOf(ctx, owner);
       const push = (m: MonthIndex, row: string, amount: Yen, formula: string) => {
         if (amount <= 0 || m < base || m > end) return;
         flows.push({ row, ym: formatYm(m), amount, accrualYear: yearOf(m), member: owner, object: a.id, formula });
@@ -326,6 +336,9 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       const fixedUp = growMemo(expGrowth);
       const rentByYear = new Map<number, Yen>();
       const expByYear = new Map<number, Yen>();
+      // 相続する人の分（亡くなった月の翌月から。0173）
+      const rentAfterByYear = new Map<number, Yen>();
+      const expAfterByYear = new Map<number, Yen>();
       // 分析の数字の材料（表に載る月〔計算基準月から〕の分。改訂6）
       const cash: NonNullable<RealEstateOutput["properties"][number]["cash"]>[number][] = [];
       const lodgingNight = lodging !== undefined && potential0 !== null && lodgingFacts !== null;
@@ -342,6 +355,8 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         const keyParts = keyMoney0 > 0 ? ctx.money.allocate(rentUp(keyMoney0, k), [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "conv.flow.allocate", "last") : null;
         let rentSum = yen(0);
         let expSum = yen(0);
+        let rentAfter = yen(0);
+        let expAfter = yen(0);
         const c = { months: 0, held: 0, gross: yen(0), current: yen(0), rent: yen(0), expenses: yen(0), repairs: yen(0) };
         // 満室のときの月の収入（空室を見込む前。家賃以外の月の収入を含み、礼金・更新料は入れない）
         const grossOf = (m: MonthIndex): Yen => {
@@ -369,6 +384,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
           if (isRented && rentM + keyM > 0) {
             push(m, "cf.income.other.rental", addYen(rentM, keyM), "asset.realEstate.rent");
             rentSum = addYen(rentSum, addYen(rentM, keyM));
+            if (inh !== null && m >= inh.from) rentAfter = addYen(rentAfter, addYen(rentM, keyM));
             if (inTable) {
               c.rent = addYen(c.rent, addYen(rentM, keyM));
               c.current = addYen(c.current, rentM);
@@ -378,6 +394,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
           push(m, "cf.expense.other.realEstate", exp, "asset.realEstate.expenses");
           if (inTable && exp > 0) c.expenses = addYen(c.expenses, exp);
           if (isRented) expSum = addYen(expSum, exp);
+          if (isRented && inh !== null && m >= inh.from) expAfter = addYen(expAfter, exp);
           // 大きな修繕（一時の支出。貸している月なら全額をその年の経費にする）
           const rep = repairs.get(m);
           if (rep !== undefined) {
@@ -385,12 +402,15 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
             if (inTable) c.repairs = addYen(c.repairs, rep);
             if (isRented) {
               expSum = addYen(expSum, rep);
+              if (inh !== null && m >= inh.from) expAfter = addYen(expAfter, rep);
               repairExpensed = true;
             }
           }
         }
         rentByYear.set(y, rentSum);
         expByYear.set(y, expSum);
+        if (rentAfter > 0) rentAfterByYear.set(y, rentAfter);
+        if (expAfter > 0) expAfterByYear.set(y, expAfter);
         if (c.held > 0) cash.push({ year: y, months: c.months, gross: (lodging !== undefined && !lodgingNight) || actualRent ? null : c.gross, ...(actualRent ? { current: c.current } : {}), rent: c.rent, expenses: c.expenses, repairs: c.repairs });
         if (lodging !== undefined && y >= baseYear && rentSum > 10_000_000) ctx.notice("N_NOT_SUPPORTED", [a.id, "realEstate.consumptionTax"]);
       }
@@ -529,15 +549,29 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         }
       }
       const income: RealEstateOutput["properties"][number]["income"][number][] = [];
+      // 亡くなった年からの、名義の人と相続する人の分（0173）
+      const holders: NonNullable<RealEstateOutput["properties"][number]["holders"]>[number][] = [];
       if (r !== undefined) {
         for (let y = yearOf(calcStart); y <= endYear; y++) {
-          if (rented(y) === 0) continue;
+          const months = rented(y);
+          if (months === 0) continue;
           const rent = rentByYear.get(y) ?? yen(0);
           const expenses = expByYear.get(y) ?? yen(0);
           const depreciation = depByYear.get(y) ?? yen(0);
           const interest = intByYear.get(y) ?? yen(0);
           const landInterest = landIntByYear.get(y) ?? yen(0);
-          income.push({ year: y, rent, expenses, depreciation, interest, landInterest, income: yen(rent - expenses - depreciation - interest) });
+          const total = yen(rent - expenses - depreciation - interest);
+          income.push({ year: y, rent, expenses, depreciation, interest, landInterest, income: total });
+          // 相続する人の分: 家賃と経費は月ごと、減価償却費・利息は貸している月数で分ける
+          const after = inh === null || rFrom === null || rTo === null ? 0 : monthsIn(y, maxM(maxM(rFrom, calcStart), inh.from), rTo);
+          if (inh === null || after === 0) continue;
+          const part = (v: Yen): Yen => (after >= months ? v : ctx.money.mulRatio(v, after, months, RENT));
+          const heirIncome = yen((rentAfterByYear.get(y) ?? 0) - (expAfterByYear.get(y) ?? 0) - part(depreciation) - part(interest));
+          const heirLand = part(landInterest);
+          if (after < months) holders.push({ year: y, member: owner, income: yen(total - heirIncome), landInterest: yen(landInterest - heirLand) });
+          const incomes = splitEqually(ctx, heirIncome, inh.heirs.length);
+          const lands = splitEqually(ctx, heirLand, inh.heirs.length);
+          inh.heirs.forEach((h, i) => holders.push({ year: y, member: h, income: incomes[i] as Yen, landInterest: lands[i] as Yen }));
         }
       }
       // 売却の譲渡所得の内訳（0081）
@@ -595,8 +629,8 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
           : years.map((v) => {
               return { ...v, book: yen(Math.max(0, bookBase - accDep(v.year))) };
             });
-      properties.push({ object: a.id, owner, years: booked, income, sale, ...(incomeKind !== "realEstate" ? { incomeKind } : {}), ...(units !== null ? { units } : {}), cash, facts });
+      properties.push({ object: a.id, owner, years: booked, income, ...(holders.length > 0 ? { holders } : {}), sale, ...(incomeKind !== "realEstate" ? { incomeKind } : {}), ...(units !== null ? { units } : {}), cash, facts });
     }
-    return { flows, properties };
+    return { flows: inheritFlows(ctx, flows), properties };
   },
 });

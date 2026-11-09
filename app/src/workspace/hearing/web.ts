@@ -209,11 +209,24 @@ export function householdShape(wh: WorkingHousehold): string | null {
  * お客さまの画面の数と所要時間の目安（0192。お客さまの最初の画面・案内文と同じ数え方 estimate）。std は夫婦と子2人で数えた数（お客さまの
  * 最初の画面に出る数）、own は今の世帯の人数で数えた数（本人だけの新しい世帯は null）。選び方に問題があれば null
  */
-export function estimateOf(wh: WorkingHousehold | null, sel: WebSelection): { std: { screens: number; minutes: number }; own: { screens: number; minutes: number } | null } | null {
+export function estimateOf(wh: WorkingHousehold | null, sel: WebSelection): { std: Count; own: Count | null; withoutParents: Count | null } | null {
   const def = sheetOf(sel);
   if (def === undefined || checkSelection(def, sel).length > 0) return null;
-  const p = packetBody(def, sel, { requestId: "R-COUNT1", expiresAt: "2099-01-01T00:00:00Z", office: { name: "", color: null, purpose: "", privacyContact: "" } });
-  return { std: estimate(p), own: wh === null || householdShape(wh) === null ? null : estimate(p, householdGates(wh)) };
+  // 確かめてもらう項目の前回の値も載せる（お客さまの画面は、前回の値に合わせて問いを飛ばすので、同じ問いで数える）
+  const confirm = sel.sections.some((s) => s.items.some((i) => i.mode === "confirm"));
+  const p = packetBody(def, sel, { requestId: "R-COUNT1", expiresAt: "2099-01-01T00:00:00Z", office: { name: "", color: null, purpose: "", privacyContact: "" }, ...(confirm && wh !== null ? { prefill: prefillOf(wh, def) } : {}) });
+  const gates = wh === null || householdShape(wh) === null ? null : householdGates(wh);
+  const own = gates === null ? null : estimate(p, gates);
+  // ご両親を聞くとき、お客さまが「ご両親のことは答えない」を選んだときの数（答えで変わる幅。0192）
+  const asked = p.items.some((i) => i.axis?.id === "parent");
+  const without = asked ? estimate(p, { ...(gates ?? {}), parent: 0 }) : null;
+  return { std: estimate(p), own, withoutParents: without !== null && without.screens !== (own ?? estimate(p)).screens ? without : null };
+}
+
+/** 画面の数と所要時間 */
+export interface Count {
+  screens: number;
+  minutes: number;
 }
 
 /** 見本の下書き（今の世帯の人数を分岐の答えに入れる。見本でお子さまごと・配偶者の方の問いも開けるように。H-122） */
@@ -420,10 +433,11 @@ export function pageHead(url: string): string | null {
  * お客さまに送る案内文のひな形（FP がメールなどで送る。アプリは送らない）。URL の中の鍵が漏れないよう、送り先を確かめてもらう。
  * 所要時間は問いの数から（お客さまの最初の画面と同じ数え方。0192）。偽の URL への注意・聞かないこと・送れるのは1回だけ、を添える（H-118）
  */
-export function invitationText(e: WebLogEntry, office: string): string {
+export function invitationText(e: WebLogEntry, office: string, wh: WorkingHousehold | null = null): string {
   const end = new Date(e.record.expiresAt).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
   const docs = e.record.selection.documents.length;
-  const est = estimateOf(null, e.record.selection)?.std ?? null;
+  // お客さまの最初の画面と同じ数（見直しは前回の値も載せて数える）
+  const est = estimateOf(wh, e.record.selection)?.std ?? null;
   const head = pageHead(e.record.url);
   return [
     "〇〇様",

@@ -14,10 +14,18 @@ import { makeTakeawayFile } from "../src/workspace/takeaway/file.ts";
 import { choosePacks } from "../src/workspace/takeaway/packs.ts";
 import { FREE_TEXT, IdMap, sanitizeRequest, SCHOOL_PLACEHOLDER } from "../src/workspace/takeaway/sanitize.ts";
 import { ENGINE_DIST, REPO_DIR } from "../scripts/lib.ts";
+import { startLiving } from "../src/workspace/input/livingStages.ts";
 import { modelHousehold, preview, realEngine } from "./helpers.ts";
 import { assets, choiceFor, MARK, openHousehold, payloadFor } from "./takeawayFixture.ts";
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
+/**
+ * 中身の文字の欄（計算の要求の外）。どれも出どころが決まっている: 作成日・制度データの版・必須の記載・帯の文字・プランの名前（FP が付けた名前）・
+ * 宛名と事務所名（書き出すときに入れた物）・つまみの名前と補足（続柄だけ）・FP顧問料の要約（金額と時期だけ）。欄が増えたら、呼び名やメモが
+ * 入らないかを確かめてからここに足す
+ */
+const TAKEAWAY_TEXT_FIELDS = ["/addressee", "/base", "/createdOn", "/dataSet", "/format", "/levers/fee/note", "/levers/items/*/key", "/levers/items/*/kind", "/levers/items/*/label", "/levers/items/*/note", "/levers/items/*/per", "/levers/reemployment/type", "/levers/self", "/moneyThree/wording", "/notices/*", "/office", "/plans/*/letter", "/plans/*/name", "/proposal"].sort();
 
 /** HTML から塊を取り出す */
 function block(html: string, id: string): string {
@@ -111,6 +119,49 @@ describe("持ち帰り用のレポート: 内部情報を入れない", () => {
     const raw = applyValues(o.wh, o.ctx.valuesOf(o.b), o.cat);
     const prop = payload.plans.find((p) => p.letter === payload.proposal)!;
     expect(sums(preview(prop.request).table)).toEqual(sums(preview(raw).table));
+  });
+
+  it("子の独立の節目が2つある生活費: つまみの補足は続柄だけで書き、子の呼び名を入れない（画面の補足は呼び名つきのまま）", () => {
+    // 新しく生活費を入れたときと同じ作り方（子ごとに独立の節目を置く）にし、1つ目の節目（人数の変わり目）を FP が「子の独立」に選び直した
+    const o = openHousehold("salariedCoupleTwoKids", {
+      marks: true,
+      edit: (req) => {
+        const h = req.input.household;
+        h.livingExpenses = [startLiving(h, req.input.baseMonth, req.input.endYear, "11111111-1111-4111-8111-111111111111")];
+        (h.livingExpenses[0]!.stages![0] as { label: string }).label = "childIndependence";
+      },
+    });
+    const payload = buildPayload(o.ctx, choiceFor(o));
+    const note = payload.levers.items.find((x) => x.key === "livingMonthly")?.note ?? "";
+    expect(note).toContain("第2子の独立後は");
+    expect(JSON.stringify(payload)).not.toContain(MARK);
+    // 画面（結果の対策・プランの編集）の補足は、FP が見分けやすいよう呼び名つきのまま
+    const it = o.cat.byKey.get("lever:livingMonthly")!;
+    expect(it.note?.(it.read(o.wh))).toContain(`${MARK}-label-`);
+  });
+
+  it("顧客に渡す文字の欄は決まった物だけ（欄が増えたら止まる）。FP だけが見る文字（呼び名・メモ・確かめの印・仮の値の理由・内訳を分けた行の名前・案の注記）は入らない", () => {
+    const paths = new Set<string>();
+    // 計算の要求（plans[].request）はスキーマの自由記述の欄で見る（上の FREE_TEXT）。それ以外の文字の欄を並べる
+    const walk = (n: unknown, path: string) => {
+      if (path === "/plans/*/request") return;
+      if (typeof n === "string") paths.add(path);
+      else if (Array.isArray(n)) n.forEach((x) => walk(x, `${path}/*`));
+      else if (typeof n === "object" && n !== null) for (const [k, v] of Object.entries(n)) walk(v, `${path}/${k}`);
+    };
+    for (const id of ["advisoryFeeProposal", "salariedCoupleTwoKids"]) {
+      const o = openHousehold(id, { marks: true });
+      const le = o.wh.request.input.household.livingExpenses?.[0];
+      o.wh.agreed = { current: { "row-1": { on: "2026-10-01", note: `${MARK}-agreed` } } };
+      o.wh.assumed = { "living.monthly": `${MARK}-assumed` };
+      o.wh.recheck = [{ id: "row-1", card: "living", cardLabel: `${MARK}-card`, label: `${MARK}-recheck`, on: "2026-10-01" }];
+      if (le !== undefined) o.wh.livingParts = { [le.id]: [{ label: `${MARK}-part`, monthly: 1000 }] };
+      o.wh.proposals.forEach((p) => p.diffs.forEach((d) => (d.note = `${MARK}-note`)));
+      const payload = buildPayload(o.ctx, choiceFor(o, { addressee: "見本 花子", office: "見本FP事務所" }));
+      expect(JSON.stringify(payload), id).not.toContain(MARK);
+      walk(payload, "");
+    }
+    expect([...paths].sort()).toEqual(TAKEAWAY_TEXT_FIELDS);
   });
 
   it("学校コード・保険の商品の参照・習い事の見出し・車の維持費の内訳の行の名前を外す", () => {
