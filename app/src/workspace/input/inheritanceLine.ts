@@ -134,7 +134,8 @@ export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): 
         ...((a.retirement ?? 0) > 0 ? [`死亡退職金 ${man(a.retirement ?? 0)}（非課税 ${man(a.retirementExempt ?? 0)}）`] : []),
         ...((a.other ?? 0) > 0 ? [`その他 ${man(a.other ?? 0)}`] : []),
         ...((a.settlementGifts ?? 0) > 0 ? [`相続時精算課税の贈与 ${man(a.settlementGifts ?? 0)}`] : []),
-        ...((a.debts ?? 0) > 0 ? [`債務 −${man(a.debts ?? 0)}`] : []),
+        // 債務には、亡くなった人がまだ払っていない所得の税（準確定申告・住民税の残りなど）を含む（0039 の追記）
+        ...((a.debts ?? 0) > 0 ? [`債務 −${man(a.debts ?? 0)}${(a.unpaidTaxes ?? 0) > 0 ? `（うち まだ払っていない税 ${man(a.unpaidTaxes ?? 0)}）` : ""}`] : []),
         ...((a.funeral ?? 0) > 0 ? [`葬式の費用 −${man(a.funeral ?? 0)}`] : []),
       ];
       details.push(`財産（${p.valuationYear}年末）: ${parts.join("・")} → 課税価格 ${man(a.taxablePrice ?? 0)}`);

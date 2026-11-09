@@ -93,7 +93,8 @@
                   "retirement": { "description": "死亡退職金（確定拠出年金・小規模企業共済の残高を含む）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "retirementExempt": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "settlementGifts": { "description": "相続時精算課税で贈与した財産（年ごとの基礎控除の後）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-                  "debts": { "description": "債務（団信で消える分を除く）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "debts": { "description": "債務（団信で消える分を除く。亡くなった人がまだ払っていない所得の税を含む）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "unpaidTaxes": { "description": "債務のうち、亡くなった人がまだ払っていない死亡の年までの所得の税（任意。約束の版 1.1）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "funeral": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "taxablePrice": { "description": "課税価格の合計（1,000円未満切り捨て）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
                 }

@@ -22,6 +22,11 @@
 // - FP が入れた額（overrides）があれば amount はその額（state: confirmed）。目安は消さずに並べる
 // - 改訂2（0170）: 万一の想定の時点は、年金で受け取る死亡保険金（収入保障。相続税の対象）も受け取る総額で数える（いまの時点の死亡保障額と同じ）。
 //   二人とも亡くなった後は、夫婦のどちらかが団信の対象の負債の残高を債務から除く（先に亡くなった人の死亡で消えている）
+// - 改訂3・約束の版 1.1（0039 の追記）: 亡くなった人がまだ払っていない、死亡の年までの所得の税（所得税・住民税・事業税。上場株式等と暗号資産の
+//   譲渡益の税を除く。必要保障額で数える物と同じ範囲。0170 の追記）を債務に入れる（相続税法13条1項・14条2項）。内訳の unpaidTaxes（債務の内数）。
+//   準確定申告の還付は、亡くなった人の財産としてその他に入れる。万一の想定の時点はその表（亡くなった月より後に、亡くなった人の名で払う税）、
+//   いまの時点は計算基準月に亡くなる想定の表（ctx.deathScenario。必要保障額の計算基準年と同じ表）。二人とも亡くなった後は入れない（払う月が表の
+//   終わりより後になる）
 // - 入れていない決まり（notIncluded）: 2割加算・小規模宅地等の特例・土地の評価の細部・一次と二次の分け方の比べ・暦年課税の贈与の加算・
 //   相次相続控除・未成年者控除・障害者控除・受け取る側の目安（親の遺産の総額から）。当たりそうなとき（兄弟姉妹が相続人・持ち家がある・数えない
 //   養子がいる・相続人でない人への精算課税の贈与）は cautions に出す
@@ -79,6 +84,11 @@ const P = {
   totalRound: "inheritanceTax.total.rounding",
   taxRound: "inheritanceTax.tax.rounding",
 };
+
+/** 所得の税の行（所得税・住民税・事業税。上場株式等と暗号資産の譲渡益の税は除く。必要保障額の protection.need と同じ範囲。改訂3） */
+const UNPAID_TAX_ROWS = ["cf.taxSi.incomeTax", "cf.taxSi.residentTax", "cf.taxSi.businessTax"];
+const UNPAID_TAX_EXCLUDED: ReadonlySet<string> = new Set(["cf.taxSi.incomeTax.capitalGains", "cf.taxSi.residentTax.capitalGains", "cf.taxSi.incomeTax.cryptoAsset", "cf.taxSi.residentTax.cryptoAsset"]);
+const isUnpaidTaxRow = (row: string): boolean => !UNPAID_TAX_EXCLUDED.has(row) && UNPAID_TAX_ROWS.some((p) => row === p || row.startsWith(`${p}.`));
 
 /** 不動産の評価の割合の推定（土地の路線価は公示価格等の8割程度を目途に定められる。国税庁の路線価等の公表資料。0039） */
 export const REAL_ESTATE_RATIO = "0.8";
@@ -148,7 +158,7 @@ type PointResult = {
   assets: Record<
     "financial" | "realEstateMarket" | "realEstate" | "other" | "insurance" | "insuranceExempt" | "retirement" | "retirementExempt" | "settlementGifts" | "debts" | "funeral" | "taxablePrice",
     Yen
-  >;
+  > & { unpaidTaxes?: Yen };
   heirs: { member: string; relation: Relation; outside: boolean; counted: boolean; share?: string; adopted?: boolean; representing?: string }[];
   heirCount: number;
   heirCountOverridden: boolean;
@@ -172,8 +182,8 @@ type PointResult = {
 export default defineComponent<{ request: Request }, { points: PointResult[]; notIncluded: readonly string[] }>({
   id: "inheritance.estimate",
   title: "相続税の目安（基礎控除・法定相続人・非課税・速算表・配偶者の軽減・精算課税の足し戻し）",
-  contract: "1.0",
-  revision: 2,
+  contract: "1.1",
+  revision: 3,
   requires: {
     "plan.cashflow": ">=1 <2",
     "insurance.policy": ">=1 <2",
@@ -355,7 +365,8 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
     };
 
     // 年末の残高の行（plan.cashflow）
-    const annual = ctx.call<{ annual: readonly AnnualRow[] }>("plan.cashflow", {}).annual;
+    const cashflow = ctx.call<{ annual: readonly AnnualRow[]; flows: readonly Flow[] }>("plan.cashflow", {});
+    const annual = cashflow.annual;
     const rowsOf = (y: number) => annual.filter((a) => a.year === y && a.row.startsWith("cf.balance."));
     const accounts = ctx.list<AccountInput>("account");
     const contracts = ctx.list<InsuranceContractInput>("insurance");
@@ -603,6 +614,17 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
           }
         }
       }
+      // 亡くなった人がまだ払っていない、死亡の年までの所得の税（相続する人が納める。相続税法13条1項・14条2項）と、準確定申告の還付（財産）
+      let unpaidTaxes = 0;
+      if (point !== "bothAfter") {
+        const scene = point === "contingency" ? cashflow.flows : (ctx.deathScenario(X, D) ?? []);
+        for (const f of scene) {
+          if (f.member !== X || !isUnpaidTaxRow(f.row) || parseYm(f.ym) <= D || f.accrualYear > yearOf(D)) continue;
+          if (f.amount > 0) unpaidTaxes += f.amount;
+          else other -= f.amount;
+        }
+      }
+      debtTotal += unpaidTaxes;
       const funeral = req.funeral ?? 0;
 
       // 非課税と課税価格
@@ -623,6 +645,7 @@ export default defineComponent<{ request: Request }, { points: PointResult[]; no
         retirementExempt: yen(retExempt),
         settlementGifts: yen(settlement),
         debts: yen(debtTotal),
+        ...(unpaidTaxes > 0 ? { unpaidTaxes: yen(unpaidTaxes) } : {}),
         funeral: yen(funeral),
         taxablePrice: T,
       };
