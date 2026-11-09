@@ -39,7 +39,8 @@ function home(o: { value?: number; asOf?: string; built?: number; structure?: st
   const id = own(wh).id;
   if (o.style !== undefined) wh = set(wh, `${id}/style`, o.style);
   wh = set(wh, `${id}/valuation/value`, o.value ?? 40000000);
-  if (o.asOf !== undefined) wh = set(wh, `${id}/valuation/asOf`, o.asOf);
+  // 評価の時点は買った年月（住み始め）についてくる（0176）
+  if (o.asOf !== undefined) wh = set(wh, `${id}/from`, { at: o.asOf });
   if (o.built !== undefined) wh = set(wh, `${id}/valuation/builtYear`, o.built);
   if (o.structure !== undefined) wh = set(wh, `${id}/valuation/structure`, o.structure);
   return wh;
@@ -131,8 +132,8 @@ describe("今住んでいる持ち家の固定資産税の推定（0112 の追�
     expect(own(wh).propertyTax?.annual.value).toBe(120000);
     wh = set(wh, `${own(wh).id}/maint`, 20000);
     expect(own(wh).propertyTax?.annual.value).toBe(120000);
-    // 評価の欄を直したら推定に変える
-    wh = set(wh, `${own(wh).id}/valuation/landShare`, "0.4");
+    // 評価の欄を直したら推定に変える（土地の値段。0176）
+    wh = set(wh, `${own(wh).id}/valuation/land`, 12000000);
     expect(basisOf(own(wh)).startsWith(PROPERTY_TAX_BASIS)).toBe(true);
   });
 
@@ -228,7 +229,7 @@ describe("今住んでいる持ち家の固定資産税の推定（0112 の追�
     let wh = action(blankHousehold(BASE), "housing/addPurchase");
     const r = (wh.request.input.household.residences ?? []).find((x) => x.purchase !== undefined)!;
     expect((r.propertyTax?.annual as { estimate?: { basis?: string } }).estimate?.basis).toContain("物件の価格");
-    wh = set(wh, `${r.id}/valuation/landShare`, "0.4");
+    wh = set(wh, `${r.id}/purchase/landPrice`, 16000000);
     const r2 = (wh.request.input.household.residences ?? []).find((x) => x.purchase !== undefined)!;
     expect((r2.propertyTax?.annual as { estimate?: { basis?: string } }).estimate?.basis).toContain("物件の価格");
   });

@@ -29,6 +29,15 @@
 .wb-checks li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
 .wb-checks li small { color: var(--ink-2); }
 .wb-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.wb-tags-row { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: 6px; align-items: baseline; margin-bottom: 6px; }
+.wb-tag-h { color: var(--ink-2); font-size: 0.8rem; }
+.wb-doc select { border: 1.5px solid var(--field); border-radius: 6px; padding: 3px 6px; font: inherit; }
+.wb-doc-covers { grid-column: 1 / -1; color: var(--ink-2); }
+.wb-doc-use { display: inline-flex; gap: 4px; align-items: baseline; color: var(--prop); }
+.wb-help { display: inline-block; position: relative; }
+.wb-help summary { list-style: none; cursor: pointer; border: 1px solid currentColor; border-radius: 50%; width: 1.2em; height: 1.2em; line-height: 1.1em; text-align: center; font-size: 0.75rem; }
+.wb-help summary::-webkit-details-marker { display: none; }
+.wb-help p { position: absolute; z-index: 5; left: 0; top: 1.6em; width: 22em; margin: 0; padding: 6px 8px; background: var(--card); color: var(--ink); border: 1px solid var(--card-line); border-radius: 6px; font-size: 0.8rem; box-shadow: 0 2px 6px rgb(0 0 0 / 12%); }
 .wb-doc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 10px; border: 1px solid var(--card-line); border-left: 4px solid var(--prop); border-radius: 8px; padding: 8px 10px; }
 .wb-doc > input { grid-column: 1 / -1; font-weight: 700; }
 .wb-doc label { display: grid; gap: 2px; font-size: 0.85rem; color: var(--ink-2); }
@@ -49,3 +58,43 @@
 .dr-web { font-size: 0.78rem; font-weight: 700; border-radius: 4px; padding: 0 6px; margin-left: 6px; border: 1.5px solid var(--good); color: var(--good); }
 .dr-web.wait { border-color: var(--prop); color: var(--prop-ink); }
 .wb-axis { font-size: 0.75rem; color: var(--ink-2); border: 1px solid var(--card-line); border-radius: 4px; padding: 0 4px; }
+
+/* 受け取った書類（0191）: 入力のホームの一覧・入力のパネルの「届いた書類」・横に出して見る枠 */
+.rd-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 8px 0; }
+.rd-table th, .rd-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line-2); vertical-align: baseline; }
+.rd-table th { font-size: 0.8rem; color: var(--ink-2); font-weight: 700; }
+.rd-table td small { color: var(--ink-2); }
+.rd-table td.num { text-align: right; white-space: nowrap; }
+.rd-table tr.on td { background: var(--prop-bg); }
+.rd-table .rd-yet { color: var(--ink-2); }
+.rd-table .rd-acts { white-space: nowrap; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.rd-table .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.ip-docs { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; padding: 6px 18px; border-bottom: 1px solid var(--line-2); background: color-mix(in srgb, var(--c) 6%, var(--card)); flex: none; }
+.ip-docs-h { font-size: 0.82rem; font-weight: 700; color: var(--ink-2); }
+.ip-docs .btn.on { border-color: var(--prop); background: var(--prop-bg); font-weight: 700; }
+
+/* 見る枠: 画面の右に固定。開いている間は入力のパネルを左に寄せて並べる（html.doc-side） */
+:root { --dv-w: clamp(340px, 44vw, 780px); }
+.dv { position: fixed; top: 0; right: 0; bottom: 0; width: var(--dv-w); z-index: 60; background: var(--card); border-left: 1px solid var(--line); box-shadow: -10px 0 30px rgba(20, 30, 50, 0.18); display: flex; flex-direction: column; outline: none; }
+.dv-head { display: flex; align-items: center; gap: 6px; padding: 10px 12px 6px; border-bottom: 1px solid var(--line-2); }
+.dv-title { font-size: 0.95rem; white-space: nowrap; }
+.dv-pick { flex: 1; min-width: 0; font-size: 0.86rem; padding: 3px 4px; }
+.dv-close { border: 0; background: none; font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 0 4px; color: var(--ink-2); }
+.dv-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 12px; border-bottom: 1px solid var(--line-2); }
+.dv-tools .btn.on { border-color: var(--prop); background: var(--prop-bg); font-weight: 700; }
+.dv-zoom { min-width: 3.4em; text-align: center; font-variant-numeric: tabular-nums; font-size: 0.86rem; }
+.dv-pages { display: inline-flex; align-items: center; gap: 6px; font-size: 0.86rem; }
+.dv-meta { margin: 0; padding: 4px 12px; font-size: 0.8rem; color: var(--ink-2); }
+.dv-box { flex: 1; overflow: auto; background: color-mix(in srgb, var(--ink) 8%, var(--card)); padding: 12px; cursor: default; touch-action: none; }
+.dv-box.grabbing { cursor: grabbing; }
+.dv-canvas { display: block; margin: 0 auto; background: var(--card); box-shadow: 0 2px 10px rgba(10, 20, 40, 0.18); }
+html.doc-side .ipanel { left: calc((100vw - var(--dv-w)) / 2); width: min(880px, calc(100vw - var(--dv-w) - 32px)); }
+html.doc-side .scrim { right: var(--dv-w); }
+/* 狭い画面: 枠を下半分に、入力のパネルを上半分に */
+@media (max-width: 900px) {
+  .dv { top: auto; left: 0; width: auto; height: 52vh; border-left: 0; border-top: 1px solid var(--line); }
+  html.doc-side .ipanel { left: 50%; width: calc(100vw - 16px); top: 8px; transform: translateX(-50%); max-height: calc(48vh - 16px); }
+  html.doc-side .scrim { right: 0; bottom: 52vh; }
+}
+/* 入力のホームの見出しの「確かめの一覧」「書類のお願い」「受け取った書類」の間 */
+.ih-check { display: inline-flex; flex-wrap: wrap; gap: 6px; }

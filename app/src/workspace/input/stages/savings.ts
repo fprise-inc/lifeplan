@@ -516,7 +516,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   if (a.kind === "cryptoAsset" && (a.assetMix ?? []).length === 0) return groups;
   (a.assetMix ?? []).forEach((_, j) => {
     const findMix: Finder = (h, w) => (getPath(find(h, w), ["assetMix", String(j)]) as Record<string, unknown> | undefined) ?? undefined;
-    const share = plain({ key: `${k}/mix/${j}/share`, item: "account.assetMix", label: "割合", level: "detail", kind: "pct", find: findMix, path: ["share"] });
+    const share = plain({ key: `${k}/mix/${j}/share`, item: "account.assetMix", label: "割合", level: "detail", kind: "pct", min: 0, max: 100, find: findMix, path: ["share"] });
     groups.push({
       key: `${k}/mix/${j}`,
       title: `資産の配分 ${j + 1}`,
@@ -700,7 +700,7 @@ function payoutDetailFields(a: Account, k: string, o: { years: string; share: st
       ),
     );
   if (method === "mixed")
-    out.push(withAddress(plain({ key: `${k}/lumpShare`, item: "account.payout", label: o.share, level: "detail", kind: "pct", find, path: ["payout", "lumpShare"], fallback: "0.5", help: "残りを年金（分割）で受け取ります" }), onAccount(a.id, "account.payout", ["lumpShare"])));
+    out.push(withAddress(plain({ key: `${k}/lumpShare`, item: "account.payout", label: o.share, level: "detail", kind: "pct", min: 0, max: 100, find, path: ["payout", "lumpShare"], fallback: "0.5", help: "残りを年金（分割）で受け取ります" }), onAccount(a.id, "account.payout", ["lumpShare"])));
   return out;
 }
 
@@ -800,7 +800,7 @@ function lotGroups(a: Account, k: string): GroupDef[] {
   groups.push({
     key: `${k}/addLot`,
     level: "detail",
-    note: lots.length === 0 ? "買付の年ごとの内訳が無いときは、全部を残高の時点の年に買ったとみなして、非課税期間の終わりを決めます" : "内訳の時価・取得価額の合計を、口座の残高・取得価額にそろえてください",
+    note: lots.length === 0 ? a.kind === "juniorNisa" ? "買付の年ごとの内訳が無いときは、全部を残高の時点の年（2024年以後なら2023年）に買ったとみなして、非課税期間の終わりを決めます" : "買付の年ごとの内訳が無いときは、全部を残高の時点の年（2024年以後なら2023年）に一般NISA で買ったとみなして、非課税期間の終わりを決めます" : "内訳の時価・取得価額の合計を、口座の残高・取得価額にそろえてください",
     fields: [],
     actions: [
       {

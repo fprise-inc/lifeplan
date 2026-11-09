@@ -67,7 +67,10 @@
 //   持ち始める月より前の年は、その器の評価額の行を出さない（時価は asOf の時点の額から増減率で動かし続け、持ち始めた年の年末から載せる。受け取るときの
 //   支払いは無い。収益不動産の property.holdFrom と同じ）。持ち始める時点の無い世帯の結果は同じ
 // - 改訂24（0137）: 預金の利回り（assumptions.depositReturn）を読む。預金・外貨預金の資産クラス（cash.deposit・cash.foreign）が前提の資産クラスごとの利回りに無いときの利回り（省略は運用利回りで、前の要求は今までどおり。0137）
-// - 改訂25（0177）: 口座の資産の配分の割合は、合計で割って按分する（合計が100%でないとき・1行だけのとき。利回りと相場の下落の割合。sdk の accountReturnRate・shockShare）
+// - 改訂25（0179）: 旧NISA・ジュニアNISA に買付の年の内訳（lots）が無ければ、時価・取得価額の全部を残高の時点の年（2023年で頭を打つ）に
+//   買った一般NISA（ジュニアNISA はジュニア）の内訳1つとみなす（前は非課税期間が終わらなかった）。名義人に課税口座が無いときに作る移し先は、
+//   移す元の器の資産の配分・利回りで増やす（前は前提の運用利回り）
+// - 改訂26（0177）: 口座の資産の配分の割合は、合計で割って按分する（合計が100%でないとき・1行だけのとき。利回りと相場の下落の割合。sdk の accountReturnRate・shockShare）
 import {
   accountReturnRate,
   accountMixAt,
@@ -142,6 +145,8 @@ const C = {
   carry: "incomeTax.cryptoAsset.lossCarryforwardYears",
 };
 
+/** 旧NISA・ジュニアNISA の買付ができた最後の年（2024年からは新しい NISA だけ。画面の「買った年」の欄の上限と同じ） */
+const LEGACY_LAST_YEAR = 2023;
 /** 残高に入れない器（不動産・保険の解約返戻金・その他の資産） */
 const NOT_FINANCIAL: ReadonlySet<string> = new Set(["realEstate", "insurance", "otherAsset"]);
 /** 既定の取り崩しの順序 */
@@ -199,7 +204,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
   id: "plan.cashflow",
   title: "キャッシュフロー表",
   contract: "1.8",
-  revision: 25,
+  revision: 26,
   requires: {
     "plan.flows": ">=1 <2",
     "outside.wallet": ">=1 <2",
@@ -227,6 +232,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     "account.owner",
     "account.marketValue",
     "account.costBasis",
+    "account.asOf",
     "account.cryptoTaxation",
     "account.assetMix",
     "account.settlement",
@@ -297,7 +303,14 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
       if (a.kind === "realEstate" && a.property !== undefined) continue;
       const value = boxValue(a.marketValue) ?? yen(0);
       const cost = a.costBasis === undefined ? value : (boxValue(a.costBasis) ?? value);
-      const lots = a.lots === undefined ? null : a.lots.map((l) => ({ vintage: l.vintageYear, regime: l.regime, cost: l.costBasis, value: l.marketValue }));
+      // 旧NISA・ジュニアNISA に買付の年の内訳が無ければ、全部を残高の時点の年（2023年で頭を打つ）に買った一般NISA（ジュニアNISA はジュニア）の
+      // 内訳1つとみなす（画面の注のとおり。内訳が無いと非課税期間が終わらなかった。0179）
+      const lots =
+        a.lots !== undefined
+          ? a.lots.map((l) => ({ vintage: l.vintageYear, regime: l.regime, cost: l.costBasis, value: l.marketValue }))
+          : a.kind === "legacyNisa" || a.kind === "juniorNisa"
+            ? [{ vintage: Math.min(LEGACY_LAST_YEAR, Number(a.asOf.slice(0, 4))), regime: a.kind === "juniorNisa" ? ("junior" as const) : ("general" as const), cost, value }]
+            : null;
       accs.push({ id: a.id, input: a, kind: a.kind, owner: a.owner, value, cost, growthCost: yen(0), lots, inflow: yen(0), ret: yen(0) });
     }
     let settlement = accs.find((x) => x.input?.settlement === true) ?? accs.find((x) => x.kind === "deposit");
@@ -691,7 +704,8 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
             keep.push(l);
             continue;
           }
-          const t = taxableOf(x.owner, x);
+          // 名義人に課税口座が無ければ、移す元の器の資産の配分・利回りで作る（同じ商品を移すので。0179）
+          const t = taxableOf(x.owner, x, x.input ?? x.like ?? null);
           t.value = addYen(t.value, l.value);
           t.cost = addYen(t.cost, l.value);
           x.value = yen(x.value - l.value);

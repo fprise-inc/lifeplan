@@ -46,6 +46,19 @@
           "termMonths": { "type": "integer", "minimum": 1 }
         }
       }
+    },
+    "prepayments": {
+      "description": "繰上返済ごとの、繰上返済の月と、その後の最後の返済の見込みの月（約束の版 1.4 の任意の欄。住宅ローン控除の償還期間10年の判定に使う）",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ym", "lastPayment"],
+        "properties": {
+          "ym": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "lastPayment": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }
+        }
+      }
     }
   }
 }

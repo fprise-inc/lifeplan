@@ -91,6 +91,35 @@ describe("R2-009 扶養・第3号の見込みは、その月の収入の状況�
     expect(kinds).toEqual(["dependent", "dependent", "national", "national"]);
   });
 
+  it("自分が任意継続に入っている月も、第2号の配偶者に扶養される形なら第3号（健康保険は任意継続のまま。0174 の追記）", () => {
+    // 妻が 2028-03 に辞めて 2028-04 から自分の任意継続（収入0）。夫は会社員
+    const req = household({
+      baseMonth: "2028-01",
+      endYear: 2031,
+      members: [member("c.h", "self", "1978-05", { sex: "male" }), member("c.w", "spouse", "1980-02")],
+      relations: [spouse("c.h", "c.w")],
+      periods: [
+        period("c.ph", { member: "c.h", from: "2000-04", annual: 4800000, std: [410000, 410000] }),
+        period("c.pw", { member: "c.w", from: "2005-04", to: "2028-03", annual: 3600000, std: [300000, 300000] }),
+        { id: uid("c.u"), member: uid("c.w"), from: { at: "2028-04" }, to: null, type: "unemployed", healthInsurance: { kind: "continuation" } },
+      ],
+    });
+    expect(status(req, "c.w", "2028-03", "2028-05")).toEqual(["kyokaikenpo", "continuation", "continuation"]);
+    expect(category(req, "c.w", "2028-03", "2028-05")).toEqual(["2", "3", "3"]); // 直す前は第1号
+    // 国民健康保険と書いた期間は第1号のまま
+    const national = household({
+      baseMonth: "2028-01",
+      endYear: 2031,
+      members: [member("c.h", "self", "1978-05", { sex: "male" }), member("c.w", "spouse", "1980-02")],
+      relations: [spouse("c.h", "c.w")],
+      periods: [
+        period("c.ph", { member: "c.h", from: "2000-04", annual: 4800000, std: [410000, 410000] }),
+        { id: uid("c.u"), member: uid("c.w"), from: { at: "2020-04" }, to: null, type: "unemployed", healthInsurance: { kind: "national" } },
+      ],
+    });
+    expect(category(national, "c.w", "2028-04", "2028-05")).toEqual(["1", "1"]);
+  });
+
   it("基準の未満のパート（年100万円）は、働いていても被扶養者・第3号のまま", () => {
     const req = couple("2028-06", null, { annual: 1000000 });
     expect(status(req, "f.w", "2028-05", "2028-07")).toEqual(rep("dependent", 3));

@@ -7,7 +7,7 @@ import { resolveTimepoint } from "../../timepoint.ts";
 import { businessEstimate, careerStartMonth, ensureResidentTax, residentTaxEstimate, residentTaxYear, salaryAge, salaryEstimate, smrEstimate, smrMonth } from "../estimates.ts";
 import { isAutoSmr } from "../smr.ts";
 import { healthRateEstimate, parseWageCurveId, reemploymentRatio, WAGE_CURVE_SIZES, wageCurveEmployment, wageCurveId, wageCurveRate, wageCurveTable, wageSizeClass, type WageCurveChoice, type WageSize } from "../../../../../hearing/src/estimates.ts";
-import { byId, field, plain, rateBox, removeAction, timepointField, timeView, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef, type Val } from "../form.ts";
+import { afterWrite, byId, field, plain, rateBox, removeAction, timepointField, timeView, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef, type Val } from "../form.ts";
 import { boxBasis, estimatedBox, mutate, newId, periodsOf, reemploymentOf, type PostRetirement, type WorkingHousehold } from "../household.ts";
 import { continuationApplies, CONTINUATION_BASIS, CONTINUATION_ITEM, defaultEndsWith, dropClaim, isEstimated, markNewPeriods, putEstimate, unemploymentApplies, unemploymentEstimate, UNEMPLOYMENT_BASIS, UNEMPLOYMENT_ITEM } from "../claims.ts";
 import { adoptBenefits, ensureRetirement } from "../fill.ts";
@@ -19,6 +19,7 @@ import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 import { executiveMembers } from "../officer.ts";
 import { presetNum, presetText } from "../../../../../hearing/src/presets.ts";
 import { hasBusinessIncome, taxReturnFields } from "../taxReturn.ts";
+import { declaredDependentWarn } from "../dependentLimit.ts";
 
 /** 働き方の期間の時点は年月で持つ（定年・再雇用の見つけ方などが年月で読むため。0038） */
 const PERIOD_MONTH_ONLY = "働き方の期間は年月で持ちます（年齢・「5年後」のように入れても、その年月にします）";
@@ -874,6 +875,66 @@ function startReemployed(w: WorkingHousehold, m: Member): WorkingHousehold | nul
   return estimateWorkEnd(next, m.id);
 }
 
+/**
+ * 休業（育児・介護など）を挟んで続く、同じ種類の働き方の期間（同じ勤め先に戻った期間。0175）。今の期間の終わりの翌月から休業の期間が続き、
+ * その翌月から同じ種類の期間が始まるもの。休業と戻った期間が何度続いても、順にたどる
+ */
+export function afterLeavePeriods(h: Household, periodId: string): EmploymentPeriod[] {
+  const cur = (h.employmentPeriods ?? []).find((p) => p.id === periodId);
+  if (cur === undefined) return [];
+  const mine = (h.employmentPeriods ?? []).filter((p) => p.member === cur.member);
+  const startingAfter = (p: EmploymentPeriod): EmploymentPeriod | undefined => {
+    const end = p.to === null ? null : resolveTimepoint(h, p.to);
+    if (end === null) return undefined;
+    const next = addMonths(end, 1);
+    return mine.find((x) => x.id !== p.id && resolveTimepoint(h, x.from) === next);
+  };
+  const out: EmploymentPeriod[] = [];
+  let at: EmploymentPeriod = cur;
+  for (;;) {
+    let next = startingAfter(at);
+    let leaves = 0;
+    while (next !== undefined && next.type === "leave" && leaves < 10) {
+      leaves++;
+      next = startingAfter(next);
+    }
+    if (next === undefined || leaves === 0 || next.type !== cur.type || out.includes(next)) return out;
+    out.push(next);
+    at = next;
+  }
+}
+
+const salaryValue = (b: Box<number> | undefined): number | null => (b === undefined ? null : (b.value ?? null));
+
+/**
+ * 今の期間の年収（標準の「年収（税込み・賞与込み）」）を直したら、休業を挟んで続く同じ勤め先の期間の年収と賞与も同じ額にする（H3-006 の案 (a)。0175）。
+ * 休業の後の期間を FP が別に直していた（直す前の年収・賞与が今の期間と違う）ときは、一緒に直さない
+ */
+function followAcrossLeave(wh: WorkingHousehold, f: FieldDef, periodId: string): FieldDef {
+  const later = afterLeavePeriods(wh.request.input.household, periodId);
+  if (later.length === 0) return f;
+  const from = later[0]?.from === undefined ? null : resolveTimepoint(wh.request.input.household, later[0].from);
+  const wrapped = afterWrite(f, (before, after) => {
+    const hb = before.request.input.household;
+    const was = (hb.employmentPeriods ?? []).find((p) => p.id === periodId);
+    const same = new Set(
+      afterLeavePeriods(hb, periodId)
+        .filter((p) => salaryValue(p.salary?.annual) === salaryValue(was?.salary?.annual) && salaryValue(p.salary?.bonus) === salaryValue(was?.salary?.bonus))
+        .map((p) => p.id),
+    );
+    if (same.size === 0) return after;
+    return mutate(after, (h) => {
+      const now = (h.employmentPeriods ?? []).find((p) => p.id === periodId);
+      if (now?.salary === undefined) return;
+      for (const p of h.employmentPeriods ?? []) {
+        if (!same.has(p.id)) continue;
+        p.salary = { ...(p.salary ?? {}), annual: structuredClone(now.salary.annual), ...(now.salary.bonus !== undefined ? { bonus: structuredClone(now.salary.bonus) } : {}) } as NonNullable<EmploymentPeriod["salary"]>;
+      }
+    });
+  });
+  return { ...wrapped, sideEffects: `休業の後の同じ勤め先の期間（${from !== null ? `${formatYearMonth(from)}から` : "休業の後"}）も、年収が今と同じなら同じ額にします` };
+}
+
 function nowGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const h = wh.request.input.household;
   const base = wh.request.input.baseMonth;
@@ -897,7 +958,10 @@ function nowGroup(wh: WorkingHousehold, m: Member): GroupDef {
     };
   const find = byId(periods, cur.id);
   // 詳しい欄は、詳細の「働き方 1・2…」のまとまりに出す（同じ期間を2か所に出さない）。このまとまりは標準のときだけ出す
-  const fields = periodFields(wh, m, cur, find, "simple", `work/${m.id}/now`).filter((f) => f.level === "simple");
+  // 標準の年収は、休業を挟んで続く同じ勤め先の期間も一緒に直す（年収が今の期間と同じときだけ。H3-006・0175）
+  const fields = periodFields(wh, m, cur, find, "simple", `work/${m.id}/now`)
+    .filter((f) => f.level === "simple")
+    .map((f) => (f.key === `work/${m.id}/now/total` ? followAcrossLeave(wh, f, cur.id) : f));
   const past = cur.from.at !== undefined && cur.from.at > base;
   // 標準の「▸ 詳しく」: 住民税と、この期間の詳しい欄（詳細の「働き方 1・2…」と同じ欄。期間の始まり・終わりと、年収・賞与の分け方は詳細で直す。0078 の追記）
   const shownItems = new Set(fields.map((f) => f.item));
@@ -1016,7 +1080,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
             growthField(wh, p, find, prefix, "salary", d),
             ...curveFields(wh, m, p, find, prefix),
           ]),
-      plain({
+      dependentWarned(m, find, plain({
         key: `${prefix}/hi`,
         item: "employment.healthInsurance.kind",
         label: "健康保険",
@@ -1031,7 +1095,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
           const branch = (h.employmentPeriods ?? []).map((e) => e.healthInsurance?.insurer).find((x): x is string => typeof x === "string");
           fixHealthInsurance((t as EmploymentPeriod).healthInsurance as { kind: string }, branch);
         },
-      }),
+      })),
       ...(p.healthInsurance?.kind === "kyokaikenpo"
         ? [plain({ key: `${prefix}/branch`, item: "employment.healthInsurance.insurer", label: "協会けんぽの支部", level: d, kind: "select", options: KYOKAI_BRANCHES, find, path: ["healthInsurance", "insurer"], help: "勤め先の所在地の都道府県（保険料率が支部ごとに違います）" })]
         : []),
@@ -1533,6 +1597,20 @@ function claimFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
       }),
     );
   return out;
+}
+
+/** 健康保険の欄に、扶養と書いた期間の給与が扶養の基準を超えるときの知らせを足す（計算は扶養のまま。0174 の追記） */
+function dependentWarned(m: Member, find: Finder, f: FieldDef): FieldDef {
+  return {
+    ...f,
+    get: (w) => {
+      const st = f.get(w);
+      const x = find(w.request.input.household, w) as EmploymentPeriod | undefined;
+      const who = w.request.input.household.members.find((q) => q.id === m.id) ?? m;
+      const warn = x === undefined ? null : declaredDependentWarn(w, who, x);
+      return warn !== null ? { ...st, warn } : st;
+    },
+  };
 }
 
 /**

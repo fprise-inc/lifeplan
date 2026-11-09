@@ -168,7 +168,7 @@ describe("種類で文が変わる所", () => {
   it("住まい: 持ち家・賃貸・家賃なし・住宅の購入で文を変える", () => {
     const wh = open("dualAssetsTwoKids");
     const head = (w: WorkingHousehold) => headsOf(w, "housing").find((g) => g.key.startsWith("housing/res/"));
-    expect(head(wh)?.moreLabel).toBe("評価額・固定資産税などを入れる");
+    expect(head(wh)?.moreLabel).toBe("固定資産税・名義などを入れる");
     const kindField = allFields(buildStage("housing", wh)).find((f) => /^housing\/res\/[^/]+\/kind$/.test(f.key));
     expect(kindField).toBeDefined();
     const rent = kindField!.set(wh, "rent");

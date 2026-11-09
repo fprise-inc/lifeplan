@@ -20,6 +20,8 @@
     "allow-hearing-web-config",
     "allow-hearing-web-call",
     "allow-hearing-document-save",
+    "allow-hearing-documents-folder",
+    "allow-hearing-document-save-into",
     "allow-takeaway-save",
     "allow-store-status",
     "allow-store-list",
