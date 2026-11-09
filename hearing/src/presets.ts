@@ -56,7 +56,7 @@ const APP_PRESETS: readonly PresetDef[] = [
   p("preset.loan.rate.cardLoan", "0.15", "pct", "住まい・ローン", "ほかのローンの金利: カードローン・リボ", "template", NONE, "market"),
   p("preset.loan.rate.renovation", "0.025", "pct", "住まい・ローン", "ほかのローンの金利: リフォームローン", "template", NONE, "market"),
   p("preset.loan.rate.policyLoan", "0.03", "pct", "住まい・ローン", "ほかのローンの金利: 契約者貸付（保険）", "template", NONE, "market"),
-  p("preset.loan.rate.other", "0.03", "pct", "住まい・ローン", "ほかのローンの金利: 上のどれにも当たらないローン", "template", NONE, "market"),
+  p("preset.loan.rate.other", "0.03", "pct", "住まい・ローン", "ほかのローンの金利: その他のローン", "template", NONE, "market"),
   p("preset.rental.loan.principal", 20000000, "yen", "住まい・ローン", "収益不動産のローン: 借入額", "template", NONE, "market"),
   p("preset.rental.loan.rate", "0.02", "pct", "住まい・ローン", "収益不動産のローン: 金利（固定。借り換えで前の金利が無いときも）", "template", NONE, "market"),
   p("preset.rental.loan.termYears", 25, "yearCount", "住まい・ローン", "収益不動産のローン: 返済期間", "template"),

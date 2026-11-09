@@ -368,7 +368,7 @@ export const REPAYMENT_METHODS: Option[] = [
 export const DEBT_KINDS: Option[] = [
   { value: "car", label: "自動車ローン" },
   { value: "scholarship", label: "奨学金" },
-  { value: "other", label: "上のどれにも当たらないローン" },
+  { value: "other", label: "その他のローン" },
 ];
 
 export const INSURANCE_TEMPLATES: Option[] = [

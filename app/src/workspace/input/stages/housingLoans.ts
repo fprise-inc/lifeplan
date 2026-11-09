@@ -1746,7 +1746,7 @@ export const LOAN_SUBTYPES = [
   { value: "renovation", label: "リフォームローン", kind: "other", ...subtypeRate("preset.loan.rate.renovation", "リフォームローン") },
   { value: "policyLoan", label: "契約者貸付（保険）", kind: "other", ...subtypeRate("preset.loan.rate.policyLoan", "契約者貸付") },
   { value: "personal", label: "親・知人からの借入", kind: "other", rate: "0", rateBasis: "親・知人からの借入は利息なし" },
-  { value: "other", label: "上のどれにも当たらないローン", kind: "other", ...subtypeRate("preset.loan.rate.other", "上のどれにも当たらないローン") },
+  { value: "other", label: "その他のローン", kind: "other", ...subtypeRate("preset.loan.rate.other", "その他のローン") },
   // 役員を務める会社からの借入金（0105。役員として働く人がいる世帯だけ選べる。返済はほかのローンと同じくキャッシュフローに入る）
   { value: "companyLoan", label: "会社からの借入金", kind: "other", rate: "0", rateBasis: "会社からの借入の利率は契約で決めた率を入れてください（入れなければ利息なしで計算します）" },
 ] as const;
@@ -1760,7 +1760,7 @@ export const MISC_SUBTYPES = ["policyLoan", "personal", "companyLoan", "other"] 
  * （奨学金の返済は第二種・第一種、そのほかのローンは MISC_SUBTYPES）。カードローン・リボとリフォームローンは1つなので種類の欄を出さない
  */
 const SUBTYPE_GROUPS: readonly (readonly SubtypeDef["value"][])[] = [["cardLoan"], ["scholarship", "scholarshipFree"], ["renovation"], MISC_SUBTYPES];
-/** ローンの今の種類（種類の細目の無い前の世帯は、計算の種類から: 奨学金なら第二種、ほかは上のどれにも当たらないローン） */
+/** ローンの今の種類（種類の細目の無い前の世帯は、計算の種類から: 奨学金なら第二種、ほかはその他のローン） */
 const subtypeOf = (d: Debt): string => d.subtype ?? (d.kind === "scholarship" ? "scholarship" : "other");
 /** 種類の欄の選択肢（今の種類の組。組に無い種類でも、今の種類は必ず入れる） */
 function subtypeOptions(h: Household, d: Debt): SubtypeDef[] {

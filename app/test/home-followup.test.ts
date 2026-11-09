@@ -1,6 +1,6 @@
 // 持ち家の入力項目の続き（0176 の追記・0181）: 標準を「買った年月・買った値段・うち土地の値段」の3欄にし、土地の欄の下に建物の値段と
 // 固定資産税の目安を読みとして出す。固定資産税の目安の建物の下がり方を固定資産評価基準（経年減点補正率・再建築費評点補正率）に寄せる。
-// ほかのローンの「その他のローン」を「上のどれにも当たらないローン」に。直した所が戻ってこないことを確かめる
+// 直した所が戻ってこないことを確かめる
 import { describe, expect, it } from "vitest";
 import type { Residence } from "../src/engine/types.ts";
 import { allFields, type FieldDef, type GroupDef } from "../src/workspace/input/form.ts";
@@ -9,7 +9,6 @@ import { withProvisionalHousing } from "../src/workspace/input/housingCredit.ts"
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
 import { buildingValueRatio, keinenRate, propertyTaxPlan } from "../src/workspace/input/propertyTax.ts";
 import { ownedHomeTaxPlan } from "../src/workspace/input/ownedHomeTax.ts";
-import { LOAN_SUBTYPES } from "../src/workspace/input/stages/housingLoans.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 
 const BASE = "2026-10";
@@ -137,17 +136,5 @@ describe("持ち家（今住んでいる）の標準の3欄と、土地の欄の
     wh = set(wh, "/valuation/building", 25_000_000);
     expect(fieldOf(wh, "/valuation/value").get(wh).value).toBe(40_000_000);
     expect(fieldOf(wh, "/valuation/land").get(wh).value).toBe(15_000_000);
-  });
-});
-
-describe("ほかのローンの「その他のローン」の名前", () => {
-  it("種類の選択肢と物の見出しは「上のどれにも当たらないローン」（世帯ファイルの値は other のまま）", () => {
-    expect(LOAN_SUBTYPES.find((s) => s.value === "other")?.label).toBe("上のどれにも当たらないローン");
-    const wh = action(blankHousehold(BASE), "housing/add/other");
-    const d = (wh.request.input.household.debts ?? [])[0]!;
-    expect(d.subtype).toBe("other");
-    const titles = groups(wh).map((g) => g.title ?? "");
-    expect(titles.some((t) => t.includes("上のどれにも当たらないローン"))).toBe(true);
-    expect(titles.some((t) => t.includes("その他のローン"))).toBe(false);
   });
 });

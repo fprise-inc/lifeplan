@@ -120,7 +120,7 @@ describe("ほかのローンの「＋」のボタンと種類の選択肢", () =
     expect(list.filter((a) => a.choice === undefined).map((a) => a.label)).toEqual(["＋ カードローン・リボ", "＋ 奨学金の返済", "＋ リフォームローン"]);
     const misc = list.filter((a) => a.choice !== undefined);
     expect(new Set(misc.map((a) => a.choice!.label))).toEqual(new Set(["＋ そのほかのローン"]));
-    expect(misc.map((a) => a.label)).toEqual(["契約者貸付（保険）", "親・知人からの借入", "上のどれにも当たらないローン"]);
+    expect(misc.map((a) => a.label)).toEqual(["契約者貸付（保険）", "親・知人からの借入", "その他のローン"]);
   });
 
   it("奨学金の返済で足したローンの種類は、第二種・第一種の2つだけ", () => {
@@ -139,7 +139,7 @@ describe("ほかのローンの「＋」のボタンと種類の選択肢", () =
     const wh = action(salaried(), "housing/add/personal");
     expect(debt(wh)).toMatchObject({ kind: "other", subtype: "personal" });
     const f = fieldOf(wh, `${debt(wh).id}/subtype`);
-    expect(options(f)).toEqual(["契約者貸付（保険）", "親・知人からの借入", "上のどれにも当たらないローン"]);
+    expect(options(f)).toEqual(["契約者貸付（保険）", "親・知人からの借入", "その他のローン"]);
     const next = set(wh, `${debt(wh).id}/subtype`, "policyLoan");
     expect(debt(next).subtype).toBe("policyLoan");
   });
@@ -152,7 +152,7 @@ describe("ほかのローンの「＋」のボタンと種類の選択肢", () =
       delete d.subtype;
     });
     expect(fieldOf(wh, `${id}/subtype`).get(wh).value).toBe("other");
-    expect(options(fieldOf(wh, `${id}/subtype`))).toContain("上のどれにも当たらないローン");
+    expect(options(fieldOf(wh, `${id}/subtype`))).toContain("その他のローン");
     wh = mutate(wh, (h) => {
       const d = h.debts!.find((x) => x.id === id)!;
       d.kind = "scholarship";
