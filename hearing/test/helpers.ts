@@ -13,16 +13,20 @@ export const ENGINE_DIST = join(REPO_DIR, "engine", "dist");
 const sheet = (id: string, version: number): SheetDefinition => OFFICIAL_SHEETS.find((d) => d.sheetId === id && d.version === version) as SheetDefinition;
 /** basic 版1（廃止。書き出さないが、配ったシートを取り込める） */
 export const basic = (): SheetDefinition => sheet("basic", 1);
-/** basic 版2（簡易版。シンプル: 大まかに聞く軽い票） */
-export const simple = (): SheetDefinition => sheet("basic", 2);
+/** basic 版2（廃止。書き出さないが、配ったシートを取り込める） */
+export const simple2 = (): SheetDefinition => sheet("basic", 2);
+/** basic 版3（簡易版の今の版。シンプル: 大まかに聞く軽い票。版2 に持ち家の方の家を買った年月・値段・うち土地の値段を足した。0176） */
+export const simple = (): SheetDefinition => sheet("basic", 3);
 /** full 版1（廃止。basic 版1 と同じ項目。書き出さないが、配ったシートを取り込める） */
 export const full = (): SheetDefinition => sheet("full", 1);
 /** full 版2（廃止。版1 に会社役員の方の会社とのお金の欄を足した。0105。書き出さないが、配ったシートを取り込める） */
 export const full2 = (): SheetDefinition => sheet("full", 2);
 /** full 版3（廃止。版2 にご両親・仕送りと援助・介護・受け取る予定の相続の欄を足した。書き出さないが、配ったシートを取り込める） */
 export const full3 = (): SheetDefinition => sheet("full", 3);
-/** full 版4（詳細版の今の版。版3 に自営業の方の確定申告の仕方を足した。0155） */
+/** full 版4（廃止。版3 に自営業の方の確定申告の仕方を足した。0155。書き出さないが、配ったシートを取り込める） */
 export const full4 = (): SheetDefinition => sheet("full", 4);
+/** full 版5（詳細版の今の版。版4 に持ち家の方の家を買った年月・値段・うち土地の値段を足した。0176） */
+export const full5 = (): SheetDefinition => sheet("full", 5);
 
 export const OFFICE = { name: "【架空】みらいFP事務所", purpose: "ライフプランの作成と、家計・保険・資産運用のご相談のため", privacyContact: "【架空】みらいFP事務所 個人情報の窓口（privacy@example.invalid）" };
 

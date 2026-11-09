@@ -7,7 +7,7 @@ import { importAnswers } from "../src/index.ts";
 import { exportAnswers } from "../src/export.ts";
 import { answersOf, answerText, b64u, buildPacket, checkAnswers, checkDocuments, estimate, extendRequest, extendTarget, gateText, markSent, progress, removeReceived, screenId, sendDocuments, unsentFiles, webPrefill, yearChoices, DOCUMENT_TEMPLATES, draftKey, filledOf, fromB64u, importDefinition, initialDraft, issueRequest, openRequest, receive, relay, removeFile, screens, selectionFromSheet, sniffMime, submitAnswers, uploadFile, utf8, type Draft, type DraftAnswer, type DraftFile, type Opened, type QuestionsPacket, type RelayTransport, type Screen, type WebSelection } from "../src/web/index.ts";
 import { API_PREFIX } from "../src/web/protocol.ts";
-import { full2, full3, full4, idSeq, modelHousehold, simple } from "./helpers.ts";
+import { full2, full3, full5, idSeq, modelHousehold, simple } from "./helpers.ts";
 
 const OFFICE = { name: "【架空】みらいFP事務所", color: "#2f6f5e", purpose: "ライフプランの作成のため", privacyContact: "" };
 
@@ -108,7 +108,7 @@ describe("暗号化して開くまでの一周", () => {
     expect(got!.answers!.gates).toEqual({ spouse: 1, child: 1 });
     expect(got!.answers!.documents[0]).toEqual({ id: "d1", status: "attached" });
     const filled = filledOf(issued.record, got!.answers!, "0.1.0");
-    expect(filled.management).toMatchObject({ sheetId: "basic", sheetVersion: 2, requestId: "R-7K3P9Q", layoutDigest: issued.record.digest });
+    expect(filled.management).toMatchObject({ sheetId: "basic", sheetVersion: 3, requestId: "R-7K3P9Q", layoutDigest: issued.record.digest });
     const r = importAnswers(importDefinition(def, issued.record.selection), filled, { baseMonth: "2026-11", newId: idSeq("web") });
     const members = r.candidates.filter((c) => c.collection === "members");
     expect(members.length).toBe(3);
@@ -442,7 +442,7 @@ describe("問いを飛ばす決まり", () => {
     expect(itemOnly(list).find((s) => s.key === "hs.expense.living")?.fields.map((f) => f.key)).toEqual(["hs.expense.living", "hs.insurance.premiumTotal"]);
   });
 
-  it("シンプルの票: 夫婦と子2人・ご両親は聞かないで、問いの画面は12（同意・ご相談・ご家族の分岐・ご本人・配偶者の方・お子さま・働き方2・お住まい・お金・毎月のお金・これからの予定）", async () => {
+  it("シンプルの票: 夫婦と子2人・持ち家・ご両親は聞かないで、問いの画面は13（同意・ご相談・ご家族の分岐・ご本人・配偶者の方・お子さま・働き方2・お住まい・家を買った年月と値段・お金・毎月のお金・これからの予定）", async () => {
     const p = await packetOf();
     const d = withAnswers(initialDraft(p), { [draftKey("hs.housing.type")]: v("own") }, { spouse: 1, child: 2, parent: 0 });
     const list = screens(p, d);
@@ -458,17 +458,18 @@ describe("問いを飛ばす決まり", () => {
       "item:hs.work.type#1",
       "item:hs.work.type#2",
       "item:hs.housing.type#0",
+      "item:hs.housing.purchaseMonth#0",
       "item:hs.assets.depositTotal#0",
       "item:hs.expense.living#0",
       "gate:parent",
       "item:hs.plan.events#0",
     ]);
-    expect(questions.filter((s) => s.kind !== "gate" || !s.gates.includes("parent"))).toHaveLength(12);
+    expect(questions.filter((s) => s.kind !== "gate" || !s.gates.includes("parent"))).toHaveLength(13);
     expect(answersOf(p, withAnswers(d, { [draftKey("hs.family.parent.alive", 1)]: v("alive") }), new Date()).answers.some((a) => a.key.startsWith("hs.family.parent"))).toBe(false);
     // 最初の画面の目安（ご両親も聞く前提で数える。1画面15秒）
     const e = estimate(p);
-    expect(e.screens).toBe(17);
-    expect(e.minutes).toBe(4);
+    expect(e.screens).toBe(18);
+    expect(e.minutes).toBe(5);
   });
 
   it("ご両親は1人1画面（ご健在か・お年・同居）。最初に「うかがってよいですか」", async () => {
@@ -513,7 +514,7 @@ describe("問いを飛ばす決まり", () => {
   });
 
   it("詳細の票: 自営業なら事業の所得と確定申告の仕方を聞き給与を聞かない。会社役員だけ会社とのお金を聞く。ローン・保険は本数で繰り返す", async () => {
-    const p = await packetOf(full4());
+    const p = await packetOf(full5());
     const d = withAnswers(initialDraft(p), { [draftKey("hs.work.type", 1)]: v("selfEmployed"), [draftKey("hs.work.type", 2)]: v("executive"), [draftKey("hs.housing.type")]: v("own") }, { spouse: 1, child: 0, loan: 1, policy: 2 });
     const keys = itemScreens(screens(p, d));
     expect(keys).toContain("hs.income.business#1");
@@ -532,7 +533,7 @@ describe("問いを飛ばす決まり", () => {
   });
 
   it("詳細の票（版4）のご両親: 1人に2画面（暮らしと介護・お金）、亡くなった方・答えない方には聞かない。相続の時期と額は「ある」のときだけ", async () => {
-    const p = await packetOf(full4());
+    const p = await packetOf(full5());
     const base = withAnswers(initialDraft(p), {}, { spouse: 1, child: 0, loan: 0, policy: 0, parent: 1 });
     const parentScreens = (d: Draft) => screens(p, d).filter((s): s is Extract<Screen, { kind: "item" }> => s.kind === "item" && s.section === "parents");
     const shape = (d: Draft) => parentScreens(d).map((s) => s.fields.map((f) => draftKey(f.key, f.index)).join(","));
@@ -570,7 +571,7 @@ describe("問いを飛ばす決まり", () => {
   });
 
   it("見直し: 確かめてもらう項目は前回の値から始め、分岐の答えも前回の値から決める", async () => {
-    const def = full4();
+    const def = full5();
     const req = modelHousehold("dualHighTwoKids");
     const prefill = exportAnswers(def, req).answers;
     const sel = selectionFromSheet(def, () => "confirm");
@@ -586,7 +587,7 @@ describe("問いを飛ばす決まり", () => {
 
 describe("見直し: 前回の値で問いを飛ばす（見本の世帯 会社員の夫婦と子2人・持ち家・住宅ローン・配偶者の方はパート）", () => {
   async function reviewPacket(): Promise<QuestionsPacket> {
-    const def = full4();
+    const def = full5();
     const prefill = exportAnswers(def, modelHousehold("salariedCoupleTwoKids")).answers;
     return buildPacket(def, selectionFromSheet(def, () => "confirm"), { requestId: "R-7K3P9Q", expiresAt: "2026-12-05T09:00:00Z", office: OFFICE, prefill });
   }
@@ -733,7 +734,7 @@ describe("お客さまの画面の言葉と入れやすさ", () => {
     const label = p.consent.items.find((i) => i.key === "hs.consent.externalAi")?.label ?? "";
     expect(label).toContain("担当の FP が、AI を使ってお答えを整理することがあります（お名前は渡しません）");
     expect(label).not.toContain("外部のAIサービス");
-    for (const def of [simple(), full2(), full3(), full4()]) expect(def.items.find((i) => i.key === "hs.consent.externalAi")?.label).toBe(label);
+    for (const def of [simple(), full2(), full3(), full5()]) expect(def.items.find((i) => i.key === "hs.consent.externalAi")?.label).toBe(label);
   });
 });
 

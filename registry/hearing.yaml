@@ -266,6 +266,30 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: hs.housing.purchaseLand
+    status: active
+    label: "持ち家の方: そのうち土地の値段（分からなければ空欄）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.housing.purchaseMonth
+    status: active
+    label: "持ち家の方: 家を買った年月"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.housing.purchasePrice
+    status: active
+    label: "持ち家の方: 家を買ったときの値段（土地と建物の合計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.housing.purchasePriceRange
+    status: active
+    label: "買ったときの値段のだいたいの範囲"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: hs.housing.rent
     status: active
     label: "家賃（管理費・共益費を含む）"

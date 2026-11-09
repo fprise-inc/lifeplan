@@ -18,6 +18,7 @@ import { withDeathEstimate } from "../input/stages/care.ts";
 import { withWorkEndEstimates } from "../input/stages/work.ts";
 import { BLUE_DEDUCTIONS, TAX_RETURN_METHODS } from "../input/taxReturn.ts";
 import { withEntry } from "../input/stages/housingLoans.ts";
+import { afterOwnedHomeImport, purchasedHomes } from "./ownedHome.ts";
 import { roles } from "../roles.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import type { WebLogEntry } from "./web.ts";
@@ -575,6 +576,10 @@ const PATH_LABELS: Readonly<Record<string, string>> = {
   "employment.to /to/at": "仕事を終える年月",
   "employment.to /to": "仕事を終える年月",
   "residence.from /from/at": "住み始めた年月",
+  // 今住んでいる持ち家の買った値段（0176 の追記 2026-11-09）: 入力の画面の標準の欄と同じ名前
+  "residence.valuation /valuation/value": "買った値段（土地と建物の合計）",
+  "residence.valuation /valuation/asOf": "買った年月（評価の時点）",
+  "residence.valuation /valuation/landShare": "土地の割合（うち土地の値段÷合計）",
   "pensionRecord.amounts /amounts/basic": "老齢基礎年金の額",
   "pensionRecord.amounts /amounts/employee": "老齢厚生年金の額",
   "pensionRecord.months /months/basic": "年金の加入期間（合計）",
@@ -641,6 +646,8 @@ function valueText(v: unknown, path: string, labels: ReadonlyMap<string, string>
     if (path === "/pensionCategory") return PENSION_CATEGORY.find((o) => o.value === v)?.label ?? v;
     if (path === "/type" && !choices.has(v)) return EMPLOYMENT_TYPES.find((o) => o.value === v)?.label ?? v;
     const numeric = /^-?\d+(\.\d+)?$/.test(v);
+    // 持ち家の土地の割合（土地÷合計。12桁の小数。0176）は % で（小数第1位まで）
+    if (path === "/valuation/landShare" && numeric) return `${String(Math.round(Number(v) * 1000) / 10)}%`;
     if (/rate/i.test(path) && numeric) return `${String(Math.round(Number(v) * 1e6) / 1e4)}%`;
     if (/hours/i.test(path) && numeric) return `${v}時間`;
     return labels.get(v) ?? choices.get(v) ?? WORDS[v] ?? v;
@@ -1074,6 +1081,8 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
     const id = ids.get(c.target.object) ?? c.target.object;
     if ((filled.request.input.household.debts ?? []).some((d) => d.id === id)) filled = withEntry(filled, id, r.loanEntry[c.target.object]);
   }
+  // 答えた持ち家の買った値段は、入力の画面で書いたときと同じく、時点を住み始めにそろえて固定資産税の目安を入れる（0176 の追記 2026-11-09）
+  filled = afterOwnedHomeImport(filled, wh.request.input.household, purchasedHomes(chosen, ids));
   return { wh: filled, added, replaced, skipped };
 }
 

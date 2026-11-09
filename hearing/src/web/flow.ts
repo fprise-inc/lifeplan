@@ -200,6 +200,10 @@ const SHOW: Readonly<Record<string, Cond>> = {
   "hs.pension.amount.employee": NOTICE,
   "hs.housing.rent": home(RENT),
   "hs.housing.rentRange": home(RENT),
+  "hs.housing.purchaseMonth": home(OWN),
+  "hs.housing.purchasePrice": home(OWN),
+  "hs.housing.purchasePriceRange": home(OWN),
+  "hs.housing.purchaseLand": home(OWN),
   "hs.housing.propertyTax": home(OWN),
   "hs.housing.maintenance": home(OWN),
   "hs.loan.monthlyTotal": home(OWN),
@@ -225,6 +229,7 @@ const GROUPS: Readonly<Record<string, readonly string[]>> = {
   "hs.family.child.birthYearMonth": ["hs.family.child.sex"],
   "hs.work.type": ["hs.income.annual"],
   "hs.income.business": ["hs.income.taxReturn"],
+  "hs.housing.purchaseMonth": ["hs.housing.purchasePrice", "hs.housing.purchaseLand"],
   "hs.housing.type": ["hs.housing.rent", "hs.loan.monthlyTotal", "hs.loan.balanceTotal"],
   "hs.assets.depositTotal": ["hs.assets.investTotal"],
   "hs.expense.living": ["hs.insurance.premiumTotal"],
@@ -277,6 +282,8 @@ export function itemShown(p: QuestionsPacket, d: Draft, item: WebItem, n: number
   if (item.key === "hs.family.spouse.marriage") return d.gates.spouse === 1;
   // 受け取る予定の相続・贈与は、ご両親のことを「答えない」と言った方には聞かない（ご両親の区画の問い。分岐の問いを聞いていなければ聞く）
   if (item.key.startsWith("hs.inherit.") && d.gates.parent === 0) return false;
+  // 持ち家の方には、住み始めた年月の代わりに家を買った年月を聞く（同じ依頼に家を買った年月の問いがあるとき。0176 の追記 2026-11-09）
+  if (item.key === "hs.housing.since" && valueOf(d, "hs.housing.type", undefined) === "own" && p.items.some((i) => i.key === "hs.housing.purchaseMonth")) return false;
   const c = SHOW[item.key];
   return c === undefined || c(d, n);
 }

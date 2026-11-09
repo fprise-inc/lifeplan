@@ -4,7 +4,7 @@
 // - 不足（計算に要る欄が空）・矛盾・読めない値を知らせ、面談のチェックリストに載せる（「わからない」も載せる。0018 の6）
 // - 空欄・「わからない」を目安で補った欄には、入力の画面の「推定あり」（0008 の 2026-10-11 の追記の2）と同じ印を付ける:
 //   値の箱を持つ欄は state: estimated（わからないは unknown＋substitute）、値の箱を持たない欄は assumed（欄のキー → 理由）
-import full4 from "../sheets/full/4.json" with { type: "json" };
+import full5 from "../sheets/full/5.json" with { type: "json" };
 import { answerKey, type Answer, type FilledSheet } from "./answers.ts";
 import { axisOf, itemByKey, type SheetDefinition, type SheetItem } from "./definition.ts";
 import { bonusShareEstimate, businessEstimate, careerStartMonth, fillsByEstimate, HEARING_UNKNOWN_BASIS, NOT_FILLED_BASIS, healthRateEstimate, livingEstimate, residentTaxEstimate, residentTaxYear, retirementLumpSumEstimate, salaryEstimate, type Estimate } from "./estimates.ts";
@@ -12,6 +12,7 @@ import { currentMortgageRateEstimate, pctText, provisionalNewType } from "./hous
 import { issue, type Issue } from "./issues.ts";
 import { presetNum } from "./presets.ts";
 import { monthsFromPayment, principalFromPayment, standardTermMonths } from "./loan.ts";
+import { shareOfLand } from "./ownedHome.ts";
 import { addMonths, ageAt, reachedMonth, ymIndex } from "./months.ts";
 import type {
   Account,
@@ -185,7 +186,7 @@ const SALARIED = new Set(["regular", "contract", "partTime", "civilServant", "ex
 const MAIN_JOB = new Set(["regular", "contract", "civilServant", "executive"]);
 
 /** シートの外の項目キーの表示名（簡易版のシートで聞かない欄を補ったときの知らせ・面談のチェックリストに使う。詳細版の今の版の言葉） */
-const FALLBACK = full4 as unknown as SheetDefinition;
+const FALLBACK = full5 as unknown as SheetDefinition;
 const FALLBACK_ITEMS = itemByKey(FALLBACK);
 
 /** 項目キーの表示名（シート定義に無い項目は詳細版の言葉。どちらにも無ければキーのまま） */
@@ -1278,17 +1279,29 @@ function importHousing(c: Ctx, h: Household, adults: Adults, asOf: string, baseM
     const t = type.value;
     if (t === "own" && rent.status === "value" && rent.value > 0) c.contradiction("hs.housing.rent", undefined, "持ち家ですが、家賃の記入があります（取り込みませんでした）");
     if ((t === "rent" || t === "company" || t === "family") && hasLoan) c.contradiction("hs.housing.type", undefined, "住宅ローンの記入がありますが、お住まいが持ち家ではありません");
+    // 持ち家でない方の、家を買った年月・値段の記入は取り込まない（持ち家の方の問い。0176 の追記 2026-11-09）
+    if (t !== "own" && PURCHASE_KEYS.some((k) => c.get(k).status === "value")) c.contradiction(PURCHASE_KEYS.find((k) => c.get(k).status === "value") as string, undefined, "持ち家ではありませんが、家を買った年月・値段の記入があります（取り込みませんでした）");
     if (t !== "family") {
       const id = c.newId();
       c.field(id, "hs.housing.type", undefined, "residence.kind", "/kind", "confirmed");
       const since = c.get<string>("hs.housing.since");
+      // 持ち家の方は、家を買った年月を住み始めにする（入力の画面の「買った年月（住み始め）」。0176）。無ければ住み始めた年月
+      const bought = t === "own" ? c.get<string>(BOUGHT) : ({ status: "blank" } as const);
       let from: string;
-      if (since.status === "value") {
+      let fromKey = "hs.housing.since";
+      if (bought.status === "value") {
+        from = bought.value;
+        fromKey = BOUGHT;
+        c.field(id, BOUGHT, undefined, "residence.from", "/from/at", "confirmed");
+        if (since.status === "value" && since.value !== bought.value)
+          c.issues.push(issue("info", "H_IGNORED", `${c.label("hs.housing.since")}: 家を買った年月（${ymText(bought.value)}）と違うため、家を買った年月を住み始めにしました`, { key: "hs.housing.since" }));
+      } else if (since.status === "value") {
         from = since.value;
         c.field(id, "hs.housing.since", undefined, "residence.from", "/from/at", "confirmed");
       } else {
         from = baseMonth;
-        c.assume(`housing/res/${id}/from`, "仮の値（計算基準月から）", { objectId: id, key: "hs.housing.since", item: "residence.from", path: "/from/at" });
+        if (t === "own" && c.has(BOUGHT)) fromKey = BOUGHT;
+        c.assume(`housing/res/${id}/from`, "仮の値（計算基準月から）", { objectId: id, key: fromKey, item: "residence.from", path: "/from/at" });
       }
       const r: Residence = { id, kind: t === "own" ? "own" : "rent", from: { at: from }, to: null };
       let ok = true;
@@ -1297,7 +1310,8 @@ function importHousing(c: Ctx, h: Household, adults: Adults, asOf: string, baseM
         if (tax !== null) r.propertyTax = { annual: tax };
         const mt = c.moneyBox(id, "hs.housing.maintenance", undefined, "residence.maintenance", "/maintenance/monthly", null);
         if (mt !== null) r.maintenance = { monthly: mt };
-        if (c.get("hs.housing.propertyTax").status === "blank") c.check("hs.housing.propertyTax", undefined, "missing", "固定資産税が未記入");
+        const priced = ownedValuation(c, r, from, fromKey, baseMonth);
+        if (c.get("hs.housing.propertyTax").status === "blank") c.check("hs.housing.propertyTax", undefined, "missing", priced ? "固定資産税が未記入（買った値段から目安を出します）" : "固定資産税が未記入");
       } else {
         const b = c.moneyBox(id, "hs.housing.rent", undefined, "residence.rent", "/rent/monthly", null);
         if (b === null || b.state === "notApplicable") {
@@ -1315,6 +1329,48 @@ function importHousing(c: Ctx, h: Household, adults: Adults, asOf: string, baseM
 
   for (let n = 1; n <= (loanAxis?.count ?? 0); n++) importLoan(c, h, adults, n, asOf, baseMonth, ownId);
   importSimpleLoan(c, h, adults, asOf);
+}
+
+const BOUGHT = "hs.housing.purchaseMonth";
+const PRICE = "hs.housing.purchasePrice";
+const LAND = "hs.housing.purchaseLand";
+/** 持ち家の方に聞く、家を買った年月・値段（シンプルの版3・詳細の版5 から。0176 の追記 2026-11-09） */
+const PURCHASE_KEYS = [BOUGHT, PRICE, LAND];
+const manText = (yen: number): string => `${(yen / 10000).toLocaleString("ja-JP", { maximumFractionDigits: 4 })}万円`;
+
+/**
+ * 今住んでいる持ち家の買った値段（0176 の追記 2026-11-09）: 入力の画面の標準の3欄（買った年月〔住み始め〕・買った値段・うち土地の値段）と同じ所に入れる。
+ * - 買った値段 → valuation.value（範囲の答えは推定・確かさ概算）、その額の時点 → valuation.asOf（住み始め。計算基準月より後なら計算基準月）。
+ *   評価の入れ方（valuation.basis: purchase）と住み始めについてくる印は、アプリが承認のときに入力の画面と同じ決まりで付ける
+ *   （app/src/workspace/hearing/ownedHome.ts。入れ方を書いていない前の版の世帯の評価に、前回の値のまま答えた差が出ないように、ここでは書かない）
+ * - うち土地の値段 → valuation.landShare（土地÷合計。入力の画面と同じ12桁の切り上げ）。空欄・わからない・該当なしなら書かず、前提条件の土地の割合で分ける。
+ *   答えの無い欄にするので、今の世帯の土地の割合は残る（買った値段だけ答え直したときは、入力の画面で合計を直したときと同じく、同じ割合のまま）
+ * - 買った値段が空欄・わからない・該当なしなら評価を書かない（今の世帯の評価はそのまま）。買った値段を取り込んだら true
+ */
+function ownedValuation(c: Ctx, r: Residence, from: string, fromKey: string, baseMonth: string): boolean {
+  if (!c.has(PRICE)) return false;
+  const price = c.get<number>(PRICE);
+  const land = c.get<number>(LAND);
+  if (price.status !== "value" || !(price.value > 0)) {
+    if (land.status === "value") c.missing(PRICE, undefined, "土地の値段はありますが、買った値段（土地と建物の合計）がありません（土地の値段は取り込みませんでした）");
+    else if (price.status === "blank") c.check(PRICE, undefined, "missing", "買った値段が未記入（今の家の評価額を推計できません）");
+    return false;
+  }
+  const id = r.id;
+  const v: NonNullable<Residence["valuation"]> = { value: c.box(PRICE, undefined, price.value), asOf: ymIndex(from) > ymIndex(baseMonth) ? baseMonth : from };
+  c.field(id, PRICE, undefined, "residence.valuation", "/valuation/value", "confirmed");
+  // その額の時点は住み始めと同じ答えから（買った年月が無ければ、住み始めと同じく仮の値。答えが無ければ今の世帯の時点を残す）
+  c.field(id, fromKey, undefined, "residence.valuation", "/valuation/asOf", c.get(fromKey).status === "value" ? "confirmed" : "assumed");
+  if (land.status === "value") {
+    if (land.value > price.value) c.contradiction(LAND, undefined, `土地の値段（${manText(land.value)}）が買った値段（${manText(price.value)}）より大きいため、土地の値段は取り込みませんでした（合計の目安の割合で分けます）`);
+    else {
+      v.landShare = shareOfLand(land.value, price.value);
+      // 合計が範囲の答えなら、割合も範囲の真ん中から出した推定
+      c.field(id, LAND, undefined, "residence.valuation", "/valuation/landShare", c.rangeOf(PRICE) !== null ? "estimated" : "confirmed");
+    }
+  } else c.field(id, LAND, undefined, "residence.valuation", "/valuation/landShare", "estimated", undefined, "notAsked");
+  r.valuation = v;
+  return true;
 }
 
 /** 簡易版の住宅ローンに仮に置く金利（今返している住宅ローンの目安。入力の画面の今の残高から入れる住宅ローンの標準の値と同じ。housingEstimates.ts） */

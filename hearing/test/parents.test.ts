@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { approveAll, createHearingSheet, exportAnswers, importAnswers, importHearingSheet, type Answer, type FilledSheet } from "../src/index.ts";
 import { itemByKey } from "../src/definition.ts";
 import { formatValue } from "../src/values.ts";
-import { engineAvailable, full2, full3, full4, HEARING_DIR, idSeq, OFFICE, preview, simple } from "./helpers.ts";
+import { engineAvailable, full2, full3, full5, HEARING_DIR, idSeq, OFFICE, preview, simple } from "./helpers.ts";
 import { sampleBytes, type SampleFile } from "./sample.ts";
 
 const def = full3();
@@ -126,10 +126,10 @@ describe("見本のシート full-3", () => {
       const out = preview(approveAll(r, "2026-11-07T10:00:00+09:00"));
       expect(out.error, JSON.stringify(out.error)).toBeUndefined();
     }
-    const s = await createHearingSheet({ definition: full4(), household: { request: r.request, assumed: r.assumed }, requestId: "R-7K3P9Q", customerNo: "A0042", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-11-07" });
+    const s = await createHearingSheet({ definition: full5(), household: { request: r.request, assumed: r.assumed }, requestId: "R-7K3P9Q", customerNo: "A0042", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-11-07" });
     const back = await importHearingSheet(s.bytes, { baseMonth: "2026-10", requests: [s.request], newId: idSeq("again") });
     if (!back.ok) throw new Error(JSON.stringify(back.issues));
-    expect(exportAnswers(full4(), back.request, { assumed: back.assumed }).answers).toEqual(s.filled.answers);
+    expect(exportAnswers(full5(), back.request, { assumed: back.assumed }).answers).toEqual(s.filled.answers);
     const pick = (list: readonly Answer[]) => list.filter((x) => (x.key.startsWith("hs.family.parent.") || x.key.startsWith("hs.inherit.")) && x.status === "value").map((x) => `${x.key}#${x.index ?? 0}`);
     expect(pick(s.filled.answers)).toContain("hs.family.parent.careMonthly#2");
     expect(pick(s.filled.answers)).toContain("hs.inherit.amount#0");

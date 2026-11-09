@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { approveAll, createHearingSheet, exportAnswers, importAnswers, importHearingSheet, type Answer, type FilledSheet } from "../src/index.ts";
 import { itemByKey } from "../src/definition.ts";
 import { formatValue } from "../src/values.ts";
-import { engineAvailable, full3, full4, HEARING_DIR, idSeq, OFFICE, preview } from "./helpers.ts";
+import { engineAvailable, full3, full4, full5, HEARING_DIR, idSeq, OFFICE, preview } from "./helpers.ts";
 import { sampleBytes, type SampleFile } from "./sample.ts";
 
 const def = full4();
@@ -33,7 +33,8 @@ describe("詳細版 full 版4 のシート定義", () => {
     expect(items.get(KEY)).toMatchObject({ type: "choice", addedIn: 4, retiredIn: null, inputItems: ["member.taxReturn"] });
     expect(items.get(KEY)?.choices?.map((c) => c.value)).toEqual(["blueElectronic", "blueDoubleEntry", "blueSimple", "white"]);
     expect(full3().status).toBe("retired");
-    expect(def.status).toBe("draft");
+    // 版4 も、持ち家の方の家を買った年月・値段を足した版5 で廃止（0176 の追記 2026-11-09）
+    expect(def.status).toBe("retired");
     const work = def.sections.find((s) => s.id === "work")!.groups[0]!.items;
     expect(work.indexOf(KEY)).toBe(work.indexOf("hs.income.business") + 1);
   });
@@ -96,10 +97,11 @@ describe("見本のシート full-4", () => {
       const out = preview(approveAll(r, "2026-11-07T10:00:00+09:00"));
       expect(out.error, JSON.stringify(out.error)).toBeUndefined();
     }
-    const s = await createHearingSheet({ definition: def, household: { request: r.request, assumed: r.assumed }, requestId: "R-7K3P9Q", customerNo: "A0042", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-11-07" });
+    // 前回の値の記入は、書き出せる今の版（版5）で
+    const s = await createHearingSheet({ definition: full5(), household: { request: r.request, assumed: r.assumed }, requestId: "R-7K3P9Q", customerNo: "A0042", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-11-07" });
     const back = await importHearingSheet(s.bytes, { baseMonth: "2026-10", requests: [s.request], newId: idSeq("again") });
     if (!back.ok) throw new Error(JSON.stringify(back.issues));
-    expect(exportAnswers(def, back.request, { assumed: back.assumed }).answers).toEqual(s.filled.answers);
+    expect(exportAnswers(full5(), back.request, { assumed: back.assumed }).answers).toEqual(s.filled.answers);
     expect(s.filled.answers.find((x) => x.key === KEY && x.index === 2)).toMatchObject({ status: "value" });
   });
 });

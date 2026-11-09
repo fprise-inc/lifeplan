@@ -18,7 +18,7 @@ const VARIABLE_RATE = currentMortgageRateEstimate().rate;
 const def = simple();
 const items = itemByKey(def);
 const item = (k: string) => items.get(k) as NonNullable<ReturnType<typeof items.get>>;
-const M = { format: "fprise-lifeplan-hearing" as const, formatVersion: "0.1", sheetId: "basic", sheetVersion: 2, requestId: "R-ABCDEF", customerNo: "", layoutDigest: "0".repeat(64), appVersion: "0.1.0", exportedOn: "2026-10-27" };
+const M = { format: "fprise-lifeplan-hearing" as const, formatVersion: "0.1", sheetId: "basic", sheetVersion: 3, requestId: "R-ABCDEF", customerNo: "", layoutDigest: "0".repeat(64), appVersion: "0.1.0", exportedOn: "2026-10-27" };
 
 function a(key: string, value: string | number | "unknown" | "notApplicable", index?: number): Answer {
   const at = { key, ...(index !== undefined ? { index } : {}) };
@@ -31,10 +31,10 @@ const run = (...answers: Answer[]) => importAnswers(def, sheet(...answers), { ba
 const base = [a("hs.meta.filledOn", "2026-10"), a("hs.family.adult.birthYearMonth", "1986-05", 1), a("hs.family.adult.sex", "male", 1), a("hs.family.adult.birthYearMonth", "notApplicable", 2), a("hs.housing.type", "family")];
 
 describe("簡易版のシート定義", () => {
-  it("書き出せるのは簡易版（basic 版2）と詳細版（full 版4）。basic 版1・full 版1〜3 は廃止（書き出さないが取り込める）", () => {
-    expect(exportableSheets().map((d) => `${d.sheetId}-${d.version}`).sort()).toEqual(["basic-2", "full-4"]);
-    expect(latestSheet("basic")?.version).toBe(2);
-    expect(latestSheet("full")?.version).toBe(4);
+  it("書き出せるのは簡易版（basic 版3）と詳細版（full 版5）。basic 版1〜2・full 版1〜4 は廃止（書き出さないが取り込める）", () => {
+    expect(exportableSheets().map((d) => `${d.sheetId}-${d.version}`).sort()).toEqual(["basic-3", "full-5"]);
+    expect(latestSheet("basic")?.version).toBe(3);
+    expect(latestSheet("full")?.version).toBe(5);
     expect(basic().status).toBe("retired");
     expect(full().status).toBe("retired");
     expect(OFFICIAL_SHEETS.some((d) => d.sheetId === "basic" && d.version === 1)).toBe(true);

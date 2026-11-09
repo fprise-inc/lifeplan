@@ -16,7 +16,7 @@ import { FILLED_ON } from "../../hearing/src/web/packet.ts";
 import { API_PREFIX } from "../../hearing/src/web/protocol.ts";
 import { applyImport, approvalTime, defaultSelection, type ImportView } from "../src/workspace/hearing/sheet.ts";
 import { answeredScreens, cleanupOnServer, documentFromTemplate, estimateOf, importWeb, issueWeb, markImported, officeFace, receiveWeb, receivedDocuments, templateSelection, webLog, type WebLogEntry, type WebTaken, type WebTemplateKind } from "../src/workspace/hearing/web.ts";
-import { fromRequest, withElementIds, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { blankHousehold, fromRequest, withElementIds, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { bodyOf, EMPTY_CARRY, fromBody } from "../src/workspace/store/body.ts";
@@ -584,5 +584,53 @@ describe("通しの点検: 分岐の答え（お子さまの人数・配偶者�
     expect(x.view.gates.map((g) => g.text)).toEqual(["配偶者はいないとのお答え（今の世帯にはいます）"]);
     const spouse = x.before.request.input.household.members.find((m) => m.kind === "spouse");
     expect(x.after.request.input.household.members.find((m) => m.id === spouse?.id)).toEqual(spouse);
+  });
+});
+
+// ---- 6. 持ち家の買った年月・値段・うち土地の値段（0176 の追記 2026-11-09） ----
+
+describe("通しの点検: 持ち家の買った年月・買った値段・うち土地の値段", () => {
+  const own = (wh: WorkingHousehold) => (wh.request.input.household.residences ?? []).find((r) => r.kind === "own" && r.purchase === undefined);
+  const PURCHASE = [k("hs.housing.purchaseMonth"), k("hs.housing.purchasePrice"), k("hs.housing.purchaseLand")];
+
+  it("空の世帯にシンプルの票: 持ち家と答えた方に1画面で聞き、取り込むと入力の画面の標準の欄（住み始め・買った値段・土地の割合）に入る。固定資産税は買った値段からの推定", async () => {
+    const wh = withRefreshedEstimates(blankHousehold("2026-10", seq));
+    const x = await round(wh, templateSelection(SIMPLE, wh), {
+      gates: { spouse: 0, child: 0, parent: 0 },
+      answers: { [k("hs.family.adult.birthYearMonth", 1)]: ym(1980, 5), [k("hs.housing.type")]: v("own"), [k("hs.housing.purchaseMonth")]: ym(2015, 4), [k("hs.housing.purchasePrice")]: num("4000"), [k("hs.housing.purchaseLand")]: num("1500") },
+    });
+    checkEveryTime(x);
+    const screen = x.w.final.find((s) => screenId(s) === "item:hs.housing.purchaseMonth#0");
+    expect(screen === undefined ? [] : screenFields(screen).map((f) => k(f.key, f.index))).toEqual(PURCHASE);
+    const r = own(x.after);
+    expect(r?.from).toEqual({ at: "2015-04" });
+    expect(r?.valuation).toMatchObject({ value: { value: 40_000_000 }, asOf: "2015-04", basis: "purchase", landShare: "0.375" });
+    expect(r?.propertyTax?.annual).toMatchObject({ state: "estimated" });
+    expect((r?.propertyTax?.annual as { estimate?: { basis?: string } } | undefined)?.estimate?.basis ?? "").toContain("固定資産税の推定");
+  });
+
+  it("値の入った世帯にシンプルの票: 買った値段だけ答え直す（土地は空のまま）と、評価額と時点が変わり、今の土地の割合は残る", async () => {
+    const x = await round(filled(), templateSelection(SIMPLE, filled()), { gates: { spouse: 1, child: 2, parent: 0 }, answers: { ...SIMPLE_ANSWERS, [k("hs.housing.purchaseMonth")]: ym(2016, 4), [k("hs.housing.purchasePrice")]: num("4000") } });
+    checkEveryTime(x);
+    const r0 = own(x.before);
+    const r = own(x.after);
+    expect(r?.valuation?.value?.value).toBe(40_000_000);
+    expect(r?.valuation?.asOf).toBe("2016-04");
+    expect(r?.valuation?.landShare).toBe(r0?.valuation?.landShare);
+    // 入れ方を書いていない前の版の世帯には書き足さない
+    expect(r?.valuation?.basis).toBe(r0?.valuation?.basis);
+  });
+
+  it("見直しの票: 前回の買った年月・値段・うち土地の値段を見せて確かめ（住み始めた年月は聞かない）、そのまま送ると評価は変わらない", async () => {
+    const x = await round(filled(), templateSelection(REVIEW, filled()), { gates: { parent: 0 } });
+    checkEveryTime(x);
+    const keys = shownKeys(x.w.final);
+    for (const key of PURCHASE) expect(keys).toContain(key);
+    expect(keys).not.toContain(k("hs.housing.since"));
+    const sent = new Map((x.entry.received?.answers ?? []).map((a) => [k(a.key, a.index), a]));
+    expect(sent.get(k("hs.housing.purchasePrice"))?.raw).toMatchObject({ text: "3800" });
+    expect(sent.get(k("hs.housing.purchaseLand"))?.raw).toMatchObject({ text: "1330" });
+    const v0 = own(x.before)?.valuation;
+    expect(own(x.after)?.valuation).toMatchObject({ value: { value: v0?.value?.value }, asOf: v0?.asOf, landShare: v0?.landShare });
   });
 });
