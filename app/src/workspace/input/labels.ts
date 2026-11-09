@@ -19,23 +19,26 @@ function elderLabel(wh: WorkingHousehold, m: Member): string | undefined {
   return `${inLaw ? "義" : ""}${m.sex === "male" ? "父" : "母"}`;
 }
 
-/** 構成員の呼び方: 続柄（ご本人・配偶者・第1子…）と、FP が付けた呼び名（任意） */
-export function memberLabels(wh: WorkingHousehold): Map<string, string> {
+/**
+ * 構成員の呼び方: 続柄（ご本人・配偶者・第1子…）と、FP が付けた呼び名（任意）。
+ * nicknames を false にすると続柄だけ（顧客に渡すファイル〔持ち帰り用のレポート〕の文。呼び名は入れない。0030 の2）
+ */
+export function memberLabels(wh: WorkingHousehold, o: { nicknames?: boolean } = {}): Map<string, string> {
   const out = new Map<string, string>();
   const h = wh.request.input.household;
   const rs = roles(wh.request);
   for (const r of rs) {
     const base = elderLabel(wh, r.member) ?? KIND_LABEL[r.member.kind] ?? r.label;
-    const nick = wh.labelsByMember[r.member.id];
+    const nick = o.nicknames === false ? undefined : wh.labelsByMember[r.member.id];
     out.set(r.member.id, nick !== undefined && nick !== "" ? `${base}（${nick}）` : base);
   }
   for (const m of h.members) if (!out.has(m.id)) out.set(m.id, elderLabel(wh, m) ?? KIND_LABEL[m.kind] ?? "ご家族");
   return out;
 }
 
-export function memberLabel(wh: WorkingHousehold, id: string | undefined): string {
+export function memberLabel(wh: WorkingHousehold, id: string | undefined, o: { nicknames?: boolean } = {}): string {
   if (id === undefined) return "（未選択）";
-  return memberLabels(wh).get(id) ?? "（いない家族）";
+  return memberLabels(wh, o).get(id) ?? "（いない家族）";
 }
 
 export function memberOptions(wh: WorkingHousehold, filter: (m: Member) => boolean = () => true): Option[] {
