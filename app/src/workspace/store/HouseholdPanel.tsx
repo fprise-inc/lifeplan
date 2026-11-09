@@ -140,6 +140,9 @@ export const CATEGORY_LATER = "あとから世帯の一覧の下の「区分を�
 /** 見本にするときの一言（0182 の追記）: メモと面談の履歴は外す */
 export const SAMPLE_NOTES_TEXT = "メモと面談の履歴は外します（お客さまの記録を見本に残しません）。";
 
+/** アプリに入っている見本から顧客を作るときの一言（0182 の追記）: 見本のメモ（例の文）は写さない */
+export const APP_SAMPLE_MEMO_TEXT = "見本のメモ（例の文）は写しません";
+
 /** 見本の写しの指定（同じ家族の形・年代。名前に「写し」を付ける） */
 export function copyRequest(item: ShelfItem): SampleRequest | null {
   const p = parseSampleNo(item.no);
@@ -689,7 +692,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
           <button type="button" class="link-btn" onClick={() => setFromSample(null)}>
             キャンセル
           </button>
-          <span class="pl-sub">新しい顧客番号を付けた世帯を作ります。見本は変わりません</span>
+          <span class="pl-sub">新しい顧客番号を付けた世帯を作ります。見本は変わりません{s.kind === "app" ? `。${APP_SAMPLE_MEMO_TEXT}` : ""}</span>
         </form>
       );
     if (sampleDelete?.id === s.id)
