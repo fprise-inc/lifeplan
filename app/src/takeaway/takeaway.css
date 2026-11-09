@@ -13,6 +13,10 @@
 .tk-meta dt { color: var(--ink-2); }
 .tk-meta dd { margin: 0; font-weight: 700; }
 .tk-lead { margin: 0; color: var(--ink-2); font-size: 0.92rem; }
+/* 面談で決めたこと・次までにやること（0182 の追記）: 最後の面談の記録から2つだけ。狭い画面では上下 */
+.tk-meeting-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 8px 24px; margin-top: 6px; }
+.tk-meeting h3 { font-size: 0.92rem; margin: 0 0 4px; color: var(--ink-2); }
+.tk-meeting ul { margin: 0; padding-left: 1.2em; display: grid; gap: 3px; font-size: 0.95rem; overflow-wrap: anywhere; }
 .tk-hint { margin: 6px 0 0; color: var(--ink-2); font-size: 0.82rem; }
 .tk-band .band-cards { flex: 1 1 auto; }
 .tk-band .p-top { flex-wrap: wrap; row-gap: 3px; }

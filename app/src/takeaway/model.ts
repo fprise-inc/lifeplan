@@ -49,6 +49,17 @@ export interface TakeawayPlan {
   request: EngineRequest;
 }
 
+/**
+ * 最後の面談で決めたこと・次までにやること（0182 の追記。面談の履歴のお客さまと一緒に見てよい欄のうち、この2つだけ）。
+ * 話したこと・保険の意向・FP だけの欄は入れない。欄の文は行ごとに分け、1行ずつ長さを抑える
+ */
+export interface TakeawayMeeting {
+  /** 面談の日（YYYY-MM-DD） */
+  on: string;
+  decided: string[];
+  todo: string[];
+}
+
 export interface TakeawayPayload {
   format: typeof TAKEAWAY_FORMAT;
   version: typeof TAKEAWAY_VERSION;
@@ -95,6 +106,11 @@ export interface TakeawayPayload {
    * （無ければファイナンシアの藍。版は 1 のまま）。画面の部品が見出しの線・選んだプランの線などの色に使う
    */
   accent?: string;
+  /**
+   * 最後の面談で決めたこと・次までにやること（0182 の追記）。後から足した任意の欄（無ければ載せない。版は 1 のまま）。
+   * 面談が無い・2つとも空なら持たない
+   */
+  meeting?: TakeawayMeeting;
 }
 
 /** ファイルの中のデータ（パスワードを付けたときは、これを丸ごと暗号化する） */

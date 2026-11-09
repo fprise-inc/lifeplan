@@ -73,7 +73,7 @@ import { DrawdownCalc } from "./invest/DrawdownCalc.tsx";
 import { advisoryFeeState, feeSummary, hasAdvisoryFee, LEVER_KEYS, type LeverKey } from "./levers.ts";
 import { MemoDrawer } from "./MemoDrawer.tsx";
 import { MeetingTools } from "./meetings/MeetingTools.tsx";
-import { latestMeeting, meetingDateText, withMeetings, type Meeting } from "./meetings/meetings.ts";
+import { latestMeeting, meetingDateText, withMeetings, withoutNotes, type Meeting } from "./meetings/meetings.ts";
 import { mixFromBuckets } from "./plans/allocation.ts";
 import { addToBand, assignColors, bandModel, cleanBand, CURRENT, hideFromBand, MAX_BAND, planLetters, planLinesModel, removeFromBand, unsavedRemoval, type UnsavedRemoval } from "./plans/band.ts";
 import { BandDropDialog, type BandDropChoice } from "./plans/BandDropDialog.tsx";
@@ -97,7 +97,8 @@ import { Autosaver, saveBeforeLeave, type SaveState } from "./store/autosave.ts"
 import { LeaveDialog, type LeaveDialogChoice } from "./store/LeaveDialog.tsx";
 import { bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "./store/body.ts";
 import { ForkPanel, type ForkChoiceUi } from "./store/ForkPanel.tsx";
-import { HouseholdPanel, storeMessage, openMessage, copyRequest, defaultCategory } from "./store/HouseholdPanel.tsx";
+import { dropNotesOnPersist, stripNotesBeforeSample } from "./store/sampleNotes.ts";
+import { HouseholdPanel, storeMessage, openMessage, copyRequest, defaultCategory, APP_SAMPLE_MEMO_TEXT } from "./store/HouseholdPanel.tsx";
 import { PreviousPanel, offersPrevious } from "./store/PreviousPanel.tsx";
 import { editorsOf, mergeForkBodies, presenceText } from "./store/office.ts";
 import { guessShape, sampleNoText, shelfItems, type Category, type CategoryEdit, type CategorySettings, type SampleInfo, type SampleRequest, type ShelfItem } from "./store/numbering.ts";
@@ -1279,9 +1280,13 @@ export function App() {
    */
   const persistCurrent = useCallback(
     async (category?: string, sample?: SampleRequest) => {
-      const o = openedRef.current;
-      if (host === null || o === null) return;
+      const o0 = openedRef.current;
+      if (host === null || o0 === null) return;
       await autosaver.current?.flush();
+      // 見本として作るとき・アプリに入っている見本の世帯から顧客を作るときは、メモ（見本のメモは例の文）と面談の履歴を写さない
+      // （0182 の追記）。画面の中身は、作った世帯に切り替えた後で外す（先に外すと、元の世帯の自動保存に外した中身が入る）
+      const stripped = dropNotesOnPersist({ toSample: sample !== undefined, stored: storedRef.current !== null, appSample: o0.demo !== null }, o0.wh);
+      const o: Opened = stripped ? { ...o0, wh: withoutNotes(o0.wh) } : o0;
       const body = bodyFor(o, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, EMPTY_CARRY);
       if (storedRef.current !== null) void host.store.leave().catch(() => undefined);
       const r = await host.store.create(body, summaryOf(o.wh.request), { ...(category !== undefined ? { category } : {}), ...(sample !== undefined ? { sample } : {}) });
@@ -1291,13 +1296,17 @@ export function App() {
       setPresence(null);
       pausedBody.current = null;
       setSampleMode(r.sample !== undefined ? "edit" : null);
+      if (stripped) {
+        openedRef.current = o;
+        setOpened(o);
+      }
       savedBodies.current.set(r.id, body);
       // 元に戻すの履歴は、作った世帯の履歴として続ける（開き直したときに続きから使う。0097）
       history.rename(`stored:${r.id}`);
       autosaver.current?.reset(body, nowIso());
       setStoredList(await host.store.list());
       void host.store.listSamples().then(setStoredSamples, () => undefined);
-      say(r.sample !== undefined ? `見本 ${r.customerNo} を作りました。手直しは自動で保存します` : `世帯 ${r.customerNo} として保存しました。これからは自動で保存します`);
+      say(r.sample !== undefined ? `見本 ${r.customerNo} を作りました${stripped ? "（メモと面談の履歴は写していません）" : ""}。手直しは自動で保存します` : `世帯 ${r.customerNo} として保存しました${stripped ? "（見本のメモは写していません）" : ""}。これからは自動で保存します`);
     },
     [host, say, history],
   );
@@ -2575,6 +2584,27 @@ export function App() {
     if (tab !== "input") setTab("input");
     window.scrollTo({ top: 0 });
   };
+  /**
+   * 見本にする世帯（0033）から、メモと面談の履歴を外して世帯ファイルに書く（0182 の追記）。開いていない世帯は先に開く。
+   * 外す物が無ければ何もしない。書けなかったら、見本にしない理由の文を返す（書けたら null）
+   */
+  const stripNotesForSample = (id: string): Promise<string | null> =>
+    stripNotesBeforeSample({
+      isOpen: () => storedRef.current?.id === id && openedRef.current !== null,
+      open: () => openStored(id),
+      current: () => openedRef.current?.wh ?? null,
+      // 読むだけで開いている・ほかのメンバーが開いていて自動保存を止めているときは、外して書けない
+      writable: () => storedRef.current !== null && !storedRef.current.readOnly && pausedBody.current === null,
+      put: (wh) => {
+        const o = openedRef.current;
+        if (o === null) return;
+        const n: Opened = { ...o, wh };
+        openedRef.current = n;
+        setOpened(n);
+      },
+      save: saveNow,
+      message: (e) => storeMessage(codeOf(e)),
+    });
   const save = saveText(savingStored, saveState, storeMessage, presence !== null);
   /** 見本の世帯か（保存していない見本・保存した見本の棚の世帯）。架空の書類の見本はここでだけ読む（0148） */
   const sampleHousehold = opened !== null && ((storedInfo === null && opened.demo !== null) || storedInfo?.sample !== undefined);
@@ -2680,7 +2710,7 @@ export function App() {
             </span>
             {storeStatus?.state === "ready" && storeUnavailable === null ? (
               <>
-                <button type="button" class="btn" onClick={() => void guard(() => persistCurrent(defaultCategory(categories)))} data-band-customer>
+                <button type="button" class="btn" onClick={() => void guard(() => persistCurrent(defaultCategory(categories)))} {...(sampleItem.kind === "app" ? { title: APP_SAMPLE_MEMO_TEXT } : {})} data-band-customer>
                   この見本をもとに顧客を作る
                 </button>
                 {sampleMode !== "edit" ? (
@@ -2736,6 +2766,9 @@ export function App() {
               onSetCategory={(id, code) => numberOp(id, () => host.store.setCategory(id, code), (no) => `区分を変えました（${no}）`)}
               onAssignSerial={(id) => numberOp(id, () => host.store.assignSerial(id), (no) => `通し番号を付けました（${no}）`)}
               onMakeSample={async (id, req) => {
+                // 見本にする前に、メモと面談の履歴を外して保存する（0182 の追記）。開いていない世帯は開いてから外す
+                const strip = await stripNotesForSample(id);
+                if (strip !== null) return strip;
                 const err = await numberOp(id, () => host.store.makeSample(id, req), (no) => `見本 ${no} として見本の棚へ移しました`);
                 // 開いている世帯を見本にしたときは、見本として開き直す（動かしても保存しない）
                 if (err === null && storedRef.current?.id === id) await openStored(id).catch(() => undefined);
