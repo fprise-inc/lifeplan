@@ -15,7 +15,7 @@ type Point = {
   assets: Record<
     "financial" | "realEstateMarket" | "realEstate" | "other" | "insurance" | "insuranceExempt" | "retirement" | "retirementExempt" | "settlementGifts" | "debts" | "funeral" | "taxablePrice",
     number
-  >;
+  > & { unpaidTaxes?: number };
   heirs: { member: string; relation: string; outside: boolean; counted: boolean; share?: string; adopted?: boolean; representing?: string }[];
   heirCount: number;
   heirCountOverridden: boolean;
@@ -435,5 +435,43 @@ describe("不動産を持ち始める時点（asset.realEstate の holdFrom）",
     const ps = points(req("2029-04"));
     expect(ps.find((p) => p.point === "now" && p.decedent === H)?.assets.realEstateMarket).toBe(0);
     expect(ps.find((p) => p.point === "bothAfter")?.assets.realEstateMarket).toBe(20_000_000);
+  });
+});
+
+describe("相続税の目安: 亡くなった人がまだ払っていない所得の税を債務に入れる（相続税法13条・14条2項。0039 の追記）", () => {
+  const selfOf = (r: Req) => (r.input.household.members as unknown as { id: string; kind: string }[]).find((m) => m.kind === "self")?.id as string;
+  const model = (name: string, death?: string): Req =>
+    edit(modelHousehold(name), (h, input) => {
+      delete input.protection;
+      if (death === undefined) delete input.contingencies;
+      else input.contingencies = [{ id: uid(`unpaid-${name}`), kind: "death", member: (h.members as { id: string; kind: string }[]).find((m) => m.kind === "self")?.id, occurs: { at: death } }];
+    });
+
+  it("万一の想定（rentalSample の本人が 2042-01 に亡くなる）: 2041年の物件の売却の譲渡所得の税・所得税の確定申告・住民税（5,866,317円）を債務に入れる", () => {
+    const p = points(model("rentalSample", "2042-01"))[0] as Point;
+    expect(p.point).toBe("contingency");
+    // 譲渡所得の所得税 3,765,100円・住民税 1,229,200円、所得税の確定申告 300,017円、住民税 572,000円（必要保障額で数える物と同じ）
+    expect(p.assets.unpaidTaxes).toBe(5_866_317);
+    // 前は債務 0円・課税価格 149,463,000円・納める額 9,119,300円
+    expect(p.assets.debts).toBe(5_866_317);
+    expect(p.assets.taxablePrice).toBeGreaterThanOrEqual(149_463_000 - 5_867_000);
+    expect(p.assets.taxablePrice).toBeLessThanOrEqual(149_463_000 - 5_865_000);
+    expect(p.payable).toBeLessThan(9_119_300);
+  });
+
+  it("いま亡くなったら（salariedCoupleTwoKids の本人。計算基準月 2026-10）: 前の年の所得の住民税の残りを債務に、準確定申告の還付をその他の財産に入れる", () => {
+    const r = model("salariedCoupleTwoKids");
+    const p = nowOf(r, selfOf(r));
+    // 必要保障額の計算基準年と同じ: 住民税の残り（普通徴収に切り替わる）221,200円、準確定申告の還付 92,033円
+    expect(p.assets.unpaidTaxes).toBe(221_200);
+    // 前は債務 22,189,745円・その他 0円
+    expect(p.assets.debts).toBe(22_189_745 + 221_200);
+    expect(p.assets.other).toBe(92_033);
+  });
+
+  it("二人とも亡くなった後は入れない（表の終わりより後に払う税は表に無い）", () => {
+    const p = points(model("rentalSample")).find((x) => x.point === "bothAfter") as Point;
+    expect(p.assets.unpaidTaxes ?? 0).toBe(0);
+    expect(p.assets.debts).toBe(0);
   });
 });
