@@ -87,8 +87,6 @@ fn consent(decision: ConsentDecision) -> ExternalAiConsentInput {
         decision,
         obtained_on: TODAY.into(),
         method: "paper".into(),
-        company: "架空AI株式会社".into(),
-        country: "日本".into(),
         no_training_confirmed: true,
         fp_confirmed: true,
     }

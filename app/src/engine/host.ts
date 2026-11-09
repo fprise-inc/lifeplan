@@ -552,7 +552,8 @@ export interface AiConsentRecord {
   obtainedOn: string;
   method: AiConsentMethod;
   explanationRef?: string;
-  externalAi?: { company: string; country: string; noTrainingConfirmed: boolean };
+  /** 会社・所在国は前の版で記録した行だけが持つ（今は聞かない。0172） */
+  externalAi?: { company?: string; country?: string; noTrainingConfirmed: boolean };
   scope?: string;
   /** 書類の読み取りで書類を AI に渡すことを含む説明（版2〜）で同意した（0157）。無い同意は書類に使わない */
   documents?: boolean;
@@ -646,6 +647,8 @@ export interface AiHouseholdView {
   explanationRef: string;
   /** 説明文の版（0157） */
   explanationVersion?: number;
+  /** ヒアリングシートの同意欄の文（取り方が「ヒアリングシートの同意欄」の同意はこの文で記録し、書類を含まない。0172） */
+  hearingSheetExplanation?: string;
   share: AiShareStatus | null;
   records: AiShareRecord[];
   candidates: AiCandidate[];
@@ -660,8 +663,6 @@ export interface AiConsentInput {
   decision: AiConsentDecision;
   obtainedOn: string;
   method: AiConsentMethod;
-  company: string;
-  country: string;
   noTrainingConfirmed: boolean;
   fpConfirmed: boolean;
 }
