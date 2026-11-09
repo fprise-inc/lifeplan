@@ -148,6 +148,22 @@ describe("修学支援の家計急変（生計維持者が亡くなった後に�
   });
 });
 
+describe("必要保障額の近似: 亡くなる人の物件を売った後の年（0170 の2・0173）", () => {
+  it("亡くなる人の物件を売った年の後は、その年の表を求め直す（rentalSample の本人。2041-10 に売る物件の譲渡所得の税）", () => {
+    const req = model("rentalSample");
+    const self = memberOf(req, "self") as string;
+    const all = protection(req, self);
+    for (const year of [2041, 2042, 2043]) {
+      const a = all.find((y) => y.year === year) as ProtYear;
+      const e = protection(req, self, year)[0] as ProtYear;
+      // 前は 2042年が約553万円多かった（最初の年の表では配偶者が相続した物件を売り、2042〜43年の譲渡所得の税を配偶者の税に数えた。
+      // 2042年に亡くなる想定では、売ったのは亡くなった本人で、死亡の年までの所得の税として数えない）
+      expect(Math.abs(a.need - e.need)).toBeLessThan(300_000);
+    }
+    expect((all.find((y) => y.year === 2042) as ProtYear).need).toBe((protection(req, self, 2042)[0] as ProtYear).need);
+  });
+});
+
 describe("必要保障額: 小規模企業共済の死亡一時金と、亡くなった人の車（0170 の未確定・0173）", () => {
   it("executiveOwner の本人の必要保障額は、共済の死亡を事由とする共済金（亡くなる年の前の年末の残高）を準備できる資金に数える", () => {
     const req = model("executiveOwner");
