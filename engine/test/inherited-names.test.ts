@@ -109,7 +109,7 @@ describe("H1-004 全モデル世帯で、亡くなった人の名のお金の動
 });
 
 /** 必要保障額（本人が亡くなる）。year を渡すとその年だけ（その年に亡くなる想定の表から組み立てる） */
-type ProtYear = { year: number; need: number; breakdown: { resources: { publicSupport: number }; expenses: { other: number }; lumpResources: { dcLump: number; mutualAidLump?: number } } };
+type ProtYear = { year: number; need: number; breakdown: { resources: { publicSupport: number }; expenses: { other: number; housing: number }; lumpResources: { dcLump: number; mutualAidLump?: number } } };
 function protection(req: Req, who: string, year?: number): ProtYear[] {
   const q = clone(req) as Req & { input: { protection?: unknown; inheritanceTax?: unknown } };
   delete q.input.contingencies;
@@ -160,21 +160,83 @@ describe("必要保障額: 小規模企業共済の死亡一時金と、亡く�
     expect(ys[0]?.breakdown.lumpResources.mutualAidLump).toBe(2_400_000);
   });
 
-  it("亡くなった人の車（万一のときの扱いなし）の維持費は、場面の表のとおりに必要な資金のそのほかに入る", () => {
+  it("亡くなった人の車（万一のときの扱いなし）は手放す（利用者の判断 2026-11-09）ので、必要な資金のそのほかは「止める」と同じ", () => {
     const req = model("unexplainedSpending");
     const self = memberOf(req, "self") as string;
-    const y = protection(req, self, 2028)[0] as ProtYear;
-    const noCar = clone(req) as unknown as { input: { household: { cars?: { owner: string }[] } } };
-    noCar.input.household.cars = (noCar.input.household.cars ?? []).filter((c) => c.owner !== self);
-    const n = protection(noCar as unknown as Req, self, 2028)[0] as ProtYear;
+    const withOn = (on?: unknown) => {
+      const q = clone(req) as unknown as { input: { household: { cars?: { owner: string; onContingency?: unknown }[] } } };
+      for (const c of q.input.household.cars ?? []) if (c.owner === self && on !== undefined) c.onContingency = on;
+      return q as unknown as Req;
+    };
+    const other = (q: Req) => (protection(q, self, 2028)[0] as ProtYear).breakdown.expenses.other;
     const r = (() => {
       const q = clone(req);
       kill(q, self, "2028-01");
       return run(q);
     })();
-    const car = flowsOf(r).filter((f) => f.formula.startsWith("expense.car.") && f.row.startsWith("cf.expense.") && !f.row.startsWith("cf.expense.debt") && ym(f.ym) > ym("2028-01")).reduce((s, f) => s + f.amount, 0);
-    expect(car).toBeGreaterThan(0);
-    // 前は数えなかった（車を外したときと同じ額）
-    expect(y.breakdown.expenses.other - n.breakdown.expenses.other).toBeGreaterThan(0);
+    // 前は相続する人が持ち続け、2029-04 の買い替えと維持費が続いた（場面の表の車のお金は約439万円〔ローンの返済を含む〕）
+    const car = flowsOf(r).filter((f) => f.formula.startsWith("expense.car.") && ym(f.ym) > ym("2028-01")).reduce((s, f) => s + f.amount, 0);
+    expect(car).toBe(0);
+    expect(other(req)).toBe(other(withOn({ mode: "stop" })));
+    // 「続ける」を入れれば前の既定のとおり数える
+    expect(other(withOn({ mode: "continue" }))).toBeGreaterThan(other(req));
+  });
+});
+
+describe("亡くなった人の車（万一のときの扱いなし）は手放す（利用者の判断 2026-11-09。0173 の追記）", () => {
+  type CarX = { id: string; owner: string; onContingency?: unknown };
+  const carsOf = (req: Req) => (req.input.household as unknown as { cars: CarX[] }).cars;
+  const scenario = (edit?: (req: Req) => void, kind: "death" | "disability" = "death") => {
+    const req = model("dualAssetsTwoKids");
+    const self = memberOf(req, "self") as string;
+    edit?.(req);
+    req.input.contingencies = [{ id: uid(`car-${kind}`), kind, member: self, occurs: { at: "2033-06" }, ...(kind === "disability" ? { grade: 2 } : {}) }];
+    return { req, self, sp: memberOf(req, "spouse") as string, r: run(req) };
+  };
+  const after = (r: EngineResult, car: string, pred: (f: FlowX) => boolean = () => true) => flowsOf(r).filter((f) => f.object === car && ym(f.ym) > ym("2033-06") && pred(f));
+  const isLoan = (f: FlowX) => f.row.startsWith("cf.expense.debt");
+
+  it("dualAssetsTwoKids で本人が 2033-06 に亡くなったら、本人の車の買い替え・維持費は止まり、2032-04 に組んだローンの返済は配偶者が続ける", () => {
+    const { req, sp, r } = scenario();
+    const [mine, theirs] = carsOf(req) as [CarX, CarX];
+    // 前は配偶者が持ち続け、2040-04 からの買い替え・車検・保険・自動車税が続いた
+    expect(after(r, mine.id, (f) => !isLoan(f))).toEqual([]);
+    const loan = after(r, mine.id, isLoan);
+    expect(loan.length).toBeGreaterThan(0);
+    expect(loan.every((f) => f.member === sp)).toBe(true);
+    // 亡くなる前に組んだローン（2032-04 から60回）だけ。前は 2040-04 の買い替えのローンも続いた
+    expect(loan.map((f) => f.ym).sort().at(-1)).toBe("2037-04");
+    // 配偶者の車は今までどおり（2038-04 の買い替え）
+    expect(after(r, theirs.id, (f) => f.formula === "expense.car.purchase").length).toBeGreaterThan(0);
+    // 手放した車は、亡くなった年の年末から評価額を持たない（手放す時期と同じ。売却の手取りは入れない）
+    const bal = (r.annual as unknown as (Cell & { object?: string })[]).filter((c) => c.row === "cf.balance.account.car" && c.object === mine.id && c.amount !== 0);
+    expect(bal.map((c) => c.year).every((y) => y < 2033)).toBe(true);
+    expect(bal.some((c) => c.year === 2032)).toBe(true);
+  });
+
+  it("「続ける」を入れた車は、相続する人が持ち続ける（前の既定のまま）", () => {
+    const { sp, r, req } = scenario((q) => ((carsOf(q)[0] as CarX).onContingency = { mode: "continue" }));
+    const mine = carsOf(req)[0] as CarX;
+    const buys = after(r, mine.id, (f) => f.formula === "expense.car.purchase");
+    expect(buys.length).toBeGreaterThan(0);
+    expect(buys.every((f) => f.member === sp)).toBe(true);
+    expect((r.annual as unknown as (Cell & { object?: string })[]).some((c) => c.row === "cf.balance.account.car" && c.object === mine.id && c.year === 2045 && c.amount > 0)).toBe(true);
+  });
+
+  it("必要保障額の近似（後の年に最初の年の表を使う）でも、亡くなる前に組んだ自動車ローンの返済を住居費に数える（前は 2041年に約152万円抜けた）", () => {
+    const req = model("dualAssetsTwoKids");
+    const self = memberOf(req, "self") as string;
+    const all = protection(req, self);
+    for (const year of [2033, 2035, 2037, 2041, 2043]) {
+      const a = all.find((y) => y.year === year) as ProtYear;
+      const e = protection(req, self, year)[0] as ProtYear;
+      expect(a.breakdown.expenses.housing).toBe(e.breakdown.expenses.housing);
+    }
+  });
+
+  it("名義の人の障害（死亡でない万一）では、車は今までどおり続く", () => {
+    const { r, req } = scenario(undefined, "disability");
+    const mine = carsOf(req)[0] as CarX;
+    expect(after(r, mine.id, (f) => f.formula === "expense.car.purchase").length).toBeGreaterThan(0);
   });
 });

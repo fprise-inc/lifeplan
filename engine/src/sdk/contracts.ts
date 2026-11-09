@@ -770,7 +770,8 @@ export interface EducationCostOutput {
 /** expense.car: 車のお金の動きと、自動車ローンの年末残高 */
 export interface CarOutput {
   readonly flows: readonly Flow[];
-  readonly loans: readonly { readonly object: string; readonly yearEnd: DebtScheduleOutput["yearEnd"] }[];
+  /** start は借りた月（購入の月。約束の版 1.1 の任意の欄。必要保障額の場面の表の分け方に使う。0173 の追記） */
+  readonly loans: readonly { readonly object: string; readonly start?: string; readonly yearEnd: DebtScheduleOutput["yearEnd"] }[];
 }
 
 /** expense.reconcile: 現状の検算 */

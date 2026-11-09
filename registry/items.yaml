@@ -471,7 +471,7 @@ entries:
     path: [loan]
   - id: car.onContingency
     status: active
-    label: "万一のときの扱い（万一の月の翌月からの買い替え・維持費が対象。組んだローンの返済は続く）"
+    label: "万一のときの扱い（万一の月の翌月からの買い替え・維持費が対象。組んだローンの返済は続く。省略は、名義の人が亡くなったら手放し、ほかの万一では続ける）"
     since: draft
     aliases: []
     replacedBy: null
