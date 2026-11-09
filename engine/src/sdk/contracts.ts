@@ -448,6 +448,11 @@ export interface DebtScheduleOutput {
   readonly interest?: readonly { readonly year: number; readonly amount: Yen }[];
   /** 借り換えごとの、借り換えの直前の残高（before）と新しいローンの借入額（principal。費用を含めたらその分を足す）・期間（約束の版 1.3 の任意の欄） */
   readonly refinances?: readonly { readonly ym: string; readonly before: Yen; readonly principal: Yen; readonly termMonths: number }[];
+  /**
+   * 繰上返済ごとの、繰上返済の月（ym）と、その後の最後の返済の見込みの月（lastPayment。その月に返し終えたら ym と同じ）
+   * （約束の版 1.4 の任意の欄。住宅ローン控除の償還期間10年の判定に使う。tax.housingLoanCredit）
+   */
+  readonly prepayments?: readonly { readonly ym: string; readonly lastPayment: string }[];
 }
 
 /** housing.residence: 住まいのお金の動きと、購入した持ち家（不動産の残高の計算に使う） */
