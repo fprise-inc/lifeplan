@@ -17,6 +17,11 @@
 //   月額に含む物（税・自賠責→自動車税、車検・メンテ→車検、保険→自動車保険。省略は種類の既定）は内訳から数えない（値は世帯に残る）
 // 車を持っている期間は、最初の購入の月（owned なら計算基準月。リースは始まり）から手放す月まで
 // 改訂5（0173）: 購入・ローン・維持費のお金の動きは、名義の人が万一の想定で亡くなった月の翌月から、相続する人（死亡の当時の配偶者。いなければ子を等分）の名にする（sdk の inheritFlows）
+// 改訂6（0173 の追記・利用者の判断 2026-11-09）: 万一のときの扱いを入れていない車は、名義の人が万一の想定で亡くなったら手放すとみなす（亡くなった月の
+//   翌月から「止める」と同じ。買い替え・維持費・リースの月額を止め、その後の購入でローンを組まない）。亡くなる前に組んだ自動車ローンの返済は、相続する人が
+//   続ける（団信が無い）。売却の手取りは入れない（手放す時期 until と同じ）。名義の人以外の万一・障害・就業不能では今までどおり続く。
+//   扱いを入れた車（「続ける」を含む）は、その扱いのとおり
+//   約束の版 1.1: ローンごとに借りた月（start）を出す（必要保障額が、亡くなる年までに組んだローンで場面の表を分ける）
 import {
   inheritFlows,
   addMonths,
@@ -41,12 +46,14 @@ import {
   type Yen,
 } from "../../sdk/index.ts";
 
+/** 名義の人が亡くなった車の既定の扱い（手放す＝亡くなった月の翌月から止める。改訂6） */
+const DISPOSE = { mode: "stop" } as const;
 
 export default defineComponent<{ member: string }, CarOutput>({
   id: "expense.car",
   title: "車（買い替え・ローン・車検・保険・自動車税）",
-  contract: "1.0",
-  revision: 5,
+  contract: "1.1",
+  revision: 6,
   requires: { "debt.schedule": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [],
   // 買い替え（car.replace）は買い替え（car.purchase）の中の欄なので、car.purchase を読めば入る（物の中の欄の入力項目ID。0101）
@@ -58,7 +65,7 @@ export default defineComponent<{ member: string }, CarOutput>({
     const { base, end } = ctx.time;
     const member = input.member;
     const flows: Flow[] = [];
-    const loans: { object: string; yearEnd: DebtScheduleOutput["yearEnd"] }[] = [];
+    const loans: { object: string; start: string; yearEnd: DebtScheduleOutput["yearEnd"] }[] = [];
     const cars = ctx.list<CarInput>("car");
     let ev: ContingencyEvent | null = null;
     if (cars.some((c) => c.onContingency !== undefined)) {
@@ -67,6 +74,9 @@ export default defineComponent<{ member: string }, CarOutput>({
         if (ev !== null) break;
       }
     }
+    // 名義の人の死亡（扱いを入れていない車は、亡くなった月の翌月から手放す。改訂6）
+    const own = cars.some((c) => c.onContingency === undefined) ? ctx.call<ContingencyEventOutput>("contingency.event", { member }).event : null;
+    const ownDeath = own !== null && own.kind === "death" ? own : null;
     for (const c of cars) {
       const p = c.purchase;
       const lease = c.lease;
@@ -93,7 +103,7 @@ export default defineComponent<{ member: string }, CarOutput>({
         ...(detail ? (c.upkeepOther ?? []).map((o) => ({ formula: "expense.car.other", key: `other:${o.id}`, byYear: g(o.annual) })) : []),
       ];
       // 万一の後の割合（null はそのまま）
-      const ratioAt = (m: MonthIndex) => contingencyRatio(ctx, c.onContingency, ev, m);
+      const ratioAt = c.onContingency === undefined && ownDeath !== null ? (m: MonthIndex) => contingencyRatio(ctx, DISPOSE, ownDeath, m) : (m: MonthIndex) => contingencyRatio(ctx, c.onContingency, ev, m);
       const push = (m: MonthIndex, row: string, amount0: Yen, formula: string) => {
         const r = ratioAt(m);
         const amount = r === null ? amount0 : ctx.money.mulRate(amount0, r, "conv.expense.share");
@@ -129,7 +139,7 @@ export default defineComponent<{ member: string }, CarOutput>({
               },
             });
             for (const f of out.flows) flows.push(f);
-            loans.push({ object: c.id, yearEnd: out.yearEnd });
+            loans.push({ object: c.id, start: formatYm(m), yearEnd: out.yearEnd });
           }
           const cash = yen(net - borrowed);
           if (cash > 0 && m >= base && m <= end) flows.push({ row: "cf.expense.lumpSum.car", ym: formatYm(m), amount: cash, accrualYear: yearOf(m), member, object: c.id, formula: "expense.car.purchase" });

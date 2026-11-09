@@ -199,3 +199,24 @@ describe("今返している自動車ローン・一生の費用・カードの�
     expect(mutate(wh0, () => undefined).request.input.household.cars).toBeUndefined();
   });
 });
+
+describe("万一のときの扱いの省略（名義の人が亡くなったら手放す。利用者の判断 2026-11-09）", () => {
+  it("選択肢は「既定（名義の人が亡くなったら手放す）／続ける／やめる／割合を変える」。省略は既定と読み、横に読みを出す。説明の「?」にも省略のときを書く", () => {
+    const wh = addCar(open("salariedCoupleTwoKids"), ids());
+    const on = fieldOf(wh, "/on/mode");
+    expect(on.kind === "select" ? on.options.map((o) => o.label) : []).toEqual(["既定（名義の人が亡くなったら手放す）", "続ける", "やめる", "割合を変える"]);
+    expect(on.get(wh)).toMatchObject({ value: "", hint: "名義の人が亡くなったら、翌月から買い替え・維持費を止めます" });
+    expect(on.help).toContain("名義の人が亡くなったら手放し");
+    expect(on.help).toContain("亡くなった後も家族が乗り続けるなら「続ける」");
+  });
+
+  it("「続ける」は continue を書き（既定と分ける）、既定に戻すと省略にする", () => {
+    let wh = addCar(open("salariedCoupleTwoKids"), ids());
+    wh = fieldOf(wh, "/on/mode").set(wh, "continue");
+    expect(car0(wh).onContingency).toEqual({ mode: "continue" });
+    expect(fieldOf(wh, "/on/mode").get(wh)).toMatchObject({ value: "continue", hint: null });
+    expect(allFields(buildStage("car", wh)).some((f) => f.key.endsWith("/on/kinds"))).toBe(false);
+    wh = fieldOf(wh, "/on/mode").set(wh, "");
+    expect(car0(wh).onContingency).toBeUndefined();
+  });
+});
