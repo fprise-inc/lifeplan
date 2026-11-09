@@ -41,6 +41,7 @@ export const RECORD_ONLY: readonly ShapeRule[] = [
   { shape: "rental:sav/*/property/equity", why: "自己資金（収益不動産のタブの分析の数字だけ。キャッシュフロー表には使わない）" },
   { shape: "rental:sav/*/property/share", why: "持分（計算にはまだ使わない＝全部を名義の人の分として扱う、と決めてある）" },
   { shape: "savings:sav/*/subtype", why: "その他の資産の中身（表示用）" },
+  { shape: "housing:housing/debt/*/subtype", why: "ほかのローンの種類（表示と、欄の既定・完済の推定の言い方に使う。計算エンジンは読まない）" },
   { shape: "savings:sav/*/asOf", why: "残高の時点（記録だけ。残高は計算の基準の月の前の月末の値として扱う）" },
   { shape: "inheritance:inherit/legacy/amount", why: "遺したい額（表の最後の年の金融資産と比べて見せるだけ）" },
   { shape: "work:work/*/officer/guarantee", why: "会社の借入の連帯保証の額（資産と負債のタブで図の外に見せるだけ）" },

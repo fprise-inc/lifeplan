@@ -118,6 +118,8 @@ const CASHFLOWS: { id: CashflowLayout; label: string; note: string }[] = [
 
 /** 作れなかったときの文。直し方が決まっているものは案内を出し、ほかは符号をそのまま出す */
 export function reportErrorText(code: string): string {
+  // 時間切れ: 本体は時間切れの計算だけを2回まで頼み直している（0180 の2）。それでも終わらなかったときの文。「作り直す」を押せばよい
+  if (code === "E_HOST_TIMEOUT") return "作れませんでした。計算に時間がかかりすぎて、途中で止まりました。入力のせいではなく、パソコンの負荷が高いときに起きます。ほかのアプリを閉じるか、少し待ってから、「作り直す」を押してください（E_HOST_TIMEOUT）";
   if (code === E_REPORT_NO_YEARS) return "作れませんでした（表に載る年がありません。表は計算基準月の翌年から載せます。入力の「表の最後の年」を計算基準の年より後にしてください）";
   return `作れませんでした（${code}）`;
 }

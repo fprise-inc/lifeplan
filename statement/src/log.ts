@@ -200,6 +200,43 @@ export function createImport(log: StatementLog, out: Extract<ReadOutcome, { ok: 
   return { id: o.id, kind: "statement", at: o.at, account: o.account, file: out.file, reader: out.reader, format: { fingerprint: out.fingerprint, mapping: out.mapping, source: out.mappingSource }, period, rows: fixed, include: true };
 }
 
+// ---- 同じ明細を別の口座に取り込もうとしていないか（0180 の6） ----
+
+/** 知らせる一致の割合: 取り込もうとしている行のうち、別の口座の行と使った日・金額・店が同じ行がこの割合以上（8割） */
+export const SAME_STATEMENT_RATIO = 0.8;
+/** 知らせる一致の行の数の下限（2行ほどの短い明細の偶然の一致では知らせない） */
+export const SAME_STATEMENT_MIN_ROWS = 3;
+
+export interface SameStatement {
+  /** 一致した別の口座の ID */
+  readonly account: string;
+  /** 一致した行の数・取り込もうとしている行の数 */
+  readonly matched: number;
+  readonly rows: number;
+}
+
+/**
+ * 取り込もうとしている明細の行が、すでにある別の口座の行とほとんど同じか（同じ明細を別の口座として取り込もうとしている疑い）。
+ * 使った日・金額・店の鍵（摘要を整えたもの）が同じ行を、1行ずつ対にして数える（同じ行を2回数えない）。一致が一番多い口座を返す。
+ * 数えるのは FP が外していない取り込みだけ。知らせるだけで、0034 の8 の「別の口座の同じ行は重ねない」は変えない
+ */
+export function sameAsOtherAccount(log: StatementLog, rows: readonly Pick<ReadRow, "date" | "merchant" | "amount">[], account: string): SameStatement | null {
+  if (rows.length === 0) return null;
+  const keyOf = (r: { date: string; merchant: string; amount: number }) => `${r.date}|${merchantKey(cut(r.merchant, MAX_MERCHANT))}|${r.amount}`;
+  const wanted = new Map<string, number>();
+  for (const r of rows) wanted.set(keyOf(r), (wanted.get(keyOf(r)) ?? 0) + 1);
+  let best: SameStatement | null = null;
+  for (const a of log.accounts) {
+    if (a.id === account) continue;
+    const have = new Map<string, number>();
+    for (const i of log.imports) if (i.include && i.account === a.id) for (const r of i.rows) have.set(keyOf(r), (have.get(keyOf(r)) ?? 0) + 1);
+    let matched = 0;
+    for (const [k, n] of wanted) matched += Math.min(n, have.get(k) ?? 0);
+    if (matched >= SAME_STATEMENT_MIN_ROWS && matched >= rows.length * SAME_STATEMENT_RATIO && (best === null || matched > best.matched)) best = { account: a.id, matched, rows: rows.length };
+  }
+  return best;
+}
+
 // ---- 読み込み（世帯ファイルの本文の区画を信用しない形で読む） ----
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
