@@ -10,6 +10,7 @@ import { snapshotDateText, TRIGGER_TEXT, type Snapshot } from "../snapshots/snap
 import { withoutRemovedAssumptions } from "../surplus.ts";
 import { householdContents, inputChanges, nextYearEvents, pastPlans, resultFigures, type ResultFigures } from "./fpTools.ts";
 import { consultNotes, gateNotes } from "../hearing/web.ts";
+import { latestMeeting, meetingDateText, type Meeting } from "../meetings/meetings.ts";
 
 export interface FpToolsProps {
   wh: WorkingHousehold;
@@ -29,6 +30,8 @@ export interface FpToolsProps {
   onTool?: (t: FpTool | null) => void;
   /** 道具の名前の並びを描く。既定は描く（入力のホームでは描かず、上の帯の FP のメニューから開く） */
   bar?: boolean;
+  /** 面談の履歴の記録を開く（前回から変わったことの「前回の面談の記録」。0182） */
+  onMeeting?: ((id: string) => void) | undefined;
 }
 
 export type FpTool = "contents" | "year" | "review";
@@ -44,7 +47,7 @@ export function reviewTiming(list: readonly Snapshot[]): { last: string; next: s
   return { last: ym, next: addMonths(ym, 12) };
 }
 
-export function FpTools({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge = 90, tool: outer, onTool, bar = true }: FpToolsProps) {
+export function FpTools({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge = 90, tool: outer, onTool, bar = true, onMeeting }: FpToolsProps) {
   const [inner, setInner] = useState<Tool | null>(null);
   const tool = outer !== undefined ? outer : inner;
   const setTool = (t: Tool | null) => (onTool !== undefined ? onTool(t) : setInner(t));
@@ -74,7 +77,7 @@ export function FpTools({ wh, result, computeOne, onOpen, onSnapshot, onBalance,
     ) : null}
       {tool === "contents" ? <Contents wh={wh} onOpen={onOpen} onClose={() => setTool(null)} /> : null}
       {tool === "year" ? <NextYear wh={wh} result={result} onOpen={onOpen} onClose={() => setTool(null)} /> : null}
-      {tool === "review" ? <Review wh={wh} result={result} computeOne={computeOne} onOpen={onOpen} onSnapshot={onSnapshot} onBalance={onBalance} atAge={atAge} onClose={() => setTool(null)} /> : null}
+      {tool === "review" ? <Review wh={wh} result={result} computeOne={computeOne} onOpen={onOpen} onSnapshot={onSnapshot} onBalance={onBalance} atAge={atAge} onMeeting={onMeeting} onClose={() => setTool(null)} /> : null}
     </>
   );
 }
@@ -150,17 +153,15 @@ function figuresText(f: ResultFigures | null): string {
   return f.atAge === null ? d : `${d}・${f.atAge.age}歳の金融資産 ${man(f.atAge.amount)}万円`;
 }
 
-function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, onClose }: { wh: WorkingHousehold; result: PreviewResult | null; computeOne?: ((req: EngineRequest) => Promise<PreviewResult | null>) | undefined; onOpen: (card: string) => void; onSnapshot?: ((memo: string) => Promise<void>) | undefined; onBalance?: (() => void) | undefined; atAge: number; onClose: () => void }) {
-  const snaps = useMemo(() => newest(wh.snapshots ?? []), [wh.snapshots]);
-  const [sel, setSel] = useState<string>(snaps[0]?.id ?? "");
-  const [taken, setTaken] = useState(false);
-  // 選んでいない（控えを今作った）ときは、いちばん新しい控え
-  const snap = snaps.find((s) => s.id === sel) ?? snaps[0] ?? null;
-  const past = useMemo(() => pastPlans(wh), [wh]);
-  const changes = useMemo(() => (snap === null ? [] : inputChanges(snap.inputs.request, wh)), [snap, wh]);
+/**
+ * 控えの時点と今の見込み・入力の違い（前回から変わったことの「前回との違い」と、面談の履歴の1件を開いたときに使う。0074・0182）。
+ * 控えの要求を今の計算エンジンで計算し直して並べる（読むだけ）
+ */
+export function SnapshotCompare({ wh, snap, result, computeOne, onOpen, onBalance, atAge }: { wh: WorkingHousehold; snap: Snapshot; result: PreviewResult | null; computeOne?: ((req: EngineRequest) => Promise<PreviewResult | null>) | undefined; onOpen: (card: string) => void; onBalance?: (() => void) | undefined; atAge: number }) {
+  const changes = useMemo(() => inputChanges(snap.inputs.request, wh), [snap, wh]);
   const [prevRes, setPrevRes] = useState<{ id: string; r: PreviewResult | null } | null>(null);
   useEffect(() => {
-    if (snap === null || computeOne === undefined) return;
+    if (computeOne === undefined) return;
     let alive = true;
     void computeOne(withoutRemovedAssumptions(snap.inputs.request)).then(
       (r) => alive && setPrevRes({ id: snap.id, r }),
@@ -170,8 +171,63 @@ function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, 
       alive = false;
     };
   }, [snap, computeOne]);
-  const before = snap !== null && prevRes?.id === snap.id && prevRes.r !== null ? resultFigures(withoutRemovedAssumptions(snap.inputs.request), prevRes.r, atAge) : null;
+  const before = prevRes?.id === snap.id && prevRes.r !== null ? resultFigures(withoutRemovedAssumptions(snap.inputs.request), prevRes.r, atAge) : null;
   const now = result !== null ? resultFigures(wh.request, result, atAge) : null;
+  return (
+    <>
+      <table class="fp-figs" data-fp-review-figures>
+        <tbody>
+          <tr>
+            <th>控えの時点の見込み</th>
+            <td>{prevRes?.id === snap.id && prevRes.r === null ? "今の計算エンジンでは計算できませんでした" : figuresText(before)}</td>
+          </tr>
+          <tr>
+            <th>今の見込み</th>
+            <td>{figuresText(now)}</td>
+          </tr>
+        </tbody>
+      </table>
+      {onBalance !== undefined ? (
+        <button type="button" class="link-btn" onClick={onBalance}>
+          見込んでいた今の純資産と今の実際を比べる（資産と負債のタブ）
+        </button>
+      ) : null}
+      <p class="fp-sub">入力の違い（{changes.length}件）</p>
+      {changes.length === 0 ? <p class="in-note">控えの時点から入力は変わっていません。</p> : null}
+      <ul class="fp-list fp-changes">
+        {changes.map((c) => (
+          <li key={c.key} data-fp-change>
+            <span class="fp-when">{c.cardLabel}</span>
+            <span>{c.label}</span>
+            <span class="fp-v">
+              {c.before} → <b>{c.after}</b>
+            </span>
+            {c.card !== null ? (
+              <button type="button" class="link-btn" onClick={() => onOpen(c.card as string)}>
+                開く
+              </button>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+/** 前回から変わったことから開く面談の記録: 比べる控えをつないだ記録があればそれ、無ければいちばん新しい記録（0182） */
+export function meetingForReview(list: readonly Meeting[], snapId: string | null): Meeting | null {
+  const linked = snapId === null ? undefined : [...list].reverse().find((m) => m.snapshot === snapId);
+  return linked ?? latestMeeting(list);
+}
+
+function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, onMeeting, onClose }: { wh: WorkingHousehold; result: PreviewResult | null; computeOne?: ((req: EngineRequest) => Promise<PreviewResult | null>) | undefined; onOpen: (card: string) => void; onSnapshot?: ((memo: string) => Promise<void>) | undefined; onBalance?: (() => void) | undefined; atAge: number; onMeeting?: ((id: string) => void) | undefined; onClose: () => void }) {
+  const snaps = useMemo(() => newest(wh.snapshots ?? []), [wh.snapshots]);
+  const [sel, setSel] = useState<string>(snaps[0]?.id ?? "");
+  const [taken, setTaken] = useState(false);
+  // 選んでいない（控えを今作った）ときは、いちばん新しい控え
+  const snap = snaps.find((s) => s.id === sel) ?? snaps[0] ?? null;
+  const past = useMemo(() => pastPlans(wh), [wh]);
+  const meeting = meetingForReview(wh.meetings ?? [], snap?.id ?? null);
   return (
     <section class="card fp-panel" aria-label="前回から変わったこと" data-fp-review>
       <Head title="前回から変わったこと" note="控えを取り、過ぎた予定・ヒアリングシート・前回の控えとの違いを確かめて、見直しの面談に進みます" onClose={onClose} />
@@ -220,13 +276,20 @@ function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, 
         </li>
         <li data-fp-review-diff>
           <b>前回との違い</b>
-          {snaps.length === 0 ? (
+          {meeting !== null && onMeeting !== undefined ? (
+            <p class="fp-meeting-link">
+              <button type="button" class="link-btn" onClick={() => onMeeting(meeting.id)} data-fp-review-meeting={meeting.id}>
+                {snap !== null && meeting.snapshot === snap.id ? "この控えの面談の記録を開く" : "前回の面談の記録を開く"}（{meetingDateText(meeting.on)}）
+              </button>
+            </p>
+          ) : null}
+          {snaps.length === 0 || snap === null ? (
             <p class="in-note">控えがまだありません。面談の区切りで「この時点を残す」を押すと、次の面談で比べられます。</p>
           ) : (
             <>
               <label class="fp-sel">
                 比べる控え
-                <select value={snap?.id ?? ""} onChange={(e) => setSel((e.currentTarget as HTMLSelectElement).value)} data-fp-review-select>
+                <select value={snap.id} onChange={(e) => setSel((e.currentTarget as HTMLSelectElement).value)} data-fp-review-select>
                   {snaps.map((s) => (
                     <option key={s.id} value={s.id}>
                       {snapshotDateText(s.createdAt)}（{TRIGGER_TEXT[s.trigger]}
@@ -235,41 +298,7 @@ function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, 
                   ))}
                 </select>
               </label>
-              <table class="fp-figs" data-fp-review-figures>
-                <tbody>
-                  <tr>
-                    <th>控えの時点の見込み</th>
-                    <td>{snap !== null && prevRes?.id === snap.id && prevRes.r === null ? "今の計算エンジンでは計算できませんでした" : figuresText(before)}</td>
-                  </tr>
-                  <tr>
-                    <th>今の見込み</th>
-                    <td>{figuresText(now)}</td>
-                  </tr>
-                </tbody>
-              </table>
-              {onBalance !== undefined ? (
-                <button type="button" class="link-btn" onClick={onBalance}>
-                  見込んでいた今の純資産と今の実際を比べる（資産と負債のタブ）
-                </button>
-              ) : null}
-              <p class="fp-sub">入力の違い（{changes.length}件）</p>
-              {changes.length === 0 ? <p class="in-note">控えの時点から入力は変わっていません。</p> : null}
-              <ul class="fp-list fp-changes">
-                {changes.map((c) => (
-                  <li key={c.key} data-fp-change>
-                    <span class="fp-when">{c.cardLabel}</span>
-                    <span>{c.label}</span>
-                    <span class="fp-v">
-                      {c.before} → <b>{c.after}</b>
-                    </span>
-                    {c.card !== null ? (
-                      <button type="button" class="link-btn" onClick={() => onOpen(c.card as string)}>
-                        開く
-                      </button>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
+              <SnapshotCompare wh={wh} snap={snap} result={result} computeOne={computeOne} onOpen={onOpen} onBalance={onBalance} atAge={atAge} />
             </>
           )}
         </li>

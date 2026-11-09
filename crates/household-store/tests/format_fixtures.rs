@@ -188,6 +188,40 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(marital.is_none(), "{v}: 婚姻の状態は変換で書き足さない");
         }
+        // 0.74 から: 面談の履歴（区画 meetings。0182）。変換で中身を変えない。前の版の見本には区画が無い（変換で書き足さない）。
+        // お客さまと見てよい欄・FP だけの欄・保険の意向（両方の置き方）・つないだ控え・書いた人を持つ
+        let meetings = now.get("meetings");
+        if migrate::parse(v).unwrap() >= (0, 74) {
+            let m = meetings.expect("0.74 からの見本には面談の履歴がある");
+            assert_eq!(
+                m, &expected["meetings"],
+                "{v}: 面談の履歴の中身は変換で変えない"
+            );
+            let r = m["records"].as_array().unwrap();
+            assert_eq!(r.len(), 2, "{v}: 面談の記録の数");
+            assert!(
+                r[0]["shared"]["insurance"]["initial"].is_string(),
+                "{v}: お客さまと見てよい欄の保険の意向"
+            );
+            assert!(
+                r[1]["fpOnly"]["insurance"]["initial"].is_string(),
+                "{v}: FP だけの欄の保険の意向"
+            );
+            assert!(r[0]["by"].is_string(), "{v}: 書いた人");
+            let snap = r[0]["snapshot"].as_str().unwrap();
+            assert!(
+                now["snapshots"]
+                    .as_array()
+                    .is_some_and(|l| l.iter().any(|s| s["id"] == snap)),
+                "{v}: つないだ控えが本文の控えにある"
+            );
+            assert!(
+                now["household"].get("meetings").is_none(),
+                "{v}: household の区画には置かない"
+            );
+        } else {
+            assert!(meetings.is_none(), "{v}: 面談の履歴は変換で書き足さない");
+        }
         // 0.68 から: 書類の読み取りの記録（区画 documents。0148）。変換で中身を変えない。承認した値は承認の記録と確かさ「書類で確認」を持つ
         let documents = now
             .get("documents")

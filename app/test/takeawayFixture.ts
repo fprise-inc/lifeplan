@@ -12,6 +12,7 @@ import type { TakeawayAssets } from "../src/workspace/takeaway/file.ts";
 import { ENGINE_DIST } from "../scripts/lib.ts";
 import { TAKEAWAY_OUT } from "../scripts/build-takeaway.ts";
 import { modelHousehold } from "./helpers.ts";
+import { markedMeetings } from "./meetingsFixture.ts";
 
 export const NOW = "2026-10-21T10:00:00.000Z";
 
@@ -27,6 +28,8 @@ export function openHousehold(id: string, opts: { marks?: boolean; edit?: (req: 
   let wh = fromRequest(req, { memo: opts.marks === true ? [`${MARK}-memo`] : [], ...(re !== undefined ? { postRetirement: { [self.id]: { ...re, type: re.type as "contract" } } } : {}) });
   // 呼び名はご本人だけでなく、世帯の全員に付ける（子の呼び名がつまみの補足を通って入った。R6-001）
   if (opts.marks === true) wh = { ...wh, labelsByMember: Object.fromEntries(req.input.household.members.map((m, i) => [m.id, `${MARK}-label-${i}`])) };
+  // 面談の履歴（0182）: お客さまと見てよい欄も FP だけの欄も、持ち帰り用のレポートには入れない（入れるかは後で決める）
+  if (opts.marks === true) wh = { ...wh, meetings: markedMeetings(`${MARK}-meeting`) };
   const cat = buildCatalog(wh, self.id, demo);
   const living = cat.byKey.get("lever:livingMonthly")!.read(wh) as number;
   const b = savePlan(wh, cat, { name: "プランB 生活費を見直してNISA", base: null, values: { "lever:livingMonthly": living - 20000, "lever:nisaMonthly": 30000, ...(cat.byKey.has("lever:fee") ? { "lever:fee": true } : {}) }, now: NOW });

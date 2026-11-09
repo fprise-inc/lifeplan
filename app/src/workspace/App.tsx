@@ -72,6 +72,8 @@ import { InvestBar, DonutCard } from "./invest/InvestBar.tsx";
 import { DrawdownCalc } from "./invest/DrawdownCalc.tsx";
 import { advisoryFeeState, feeSummary, hasAdvisoryFee, LEVER_KEYS, type LeverKey } from "./levers.ts";
 import { MemoDrawer } from "./MemoDrawer.tsx";
+import { MeetingTools } from "./meetings/MeetingTools.tsx";
+import { latestMeeting, meetingDateText, withMeetings, type Meeting } from "./meetings/meetings.ts";
 import { mixFromBuckets } from "./plans/allocation.ts";
 import { addToBand, assignColors, bandModel, cleanBand, CURRENT, hideFromBand, MAX_BAND, planLetters, planLinesModel, removeFromBand, unsavedRemoval, type UnsavedRemoval } from "./plans/band.ts";
 import { BandDropDialog, type BandDropChoice } from "./plans/BandDropDialog.tsx";
@@ -136,7 +138,7 @@ const FEATURE_POLL_MS = 60_000;
 
 type Tab = "input" | "main" | "balance" | "rental" | "contingency" | "report";
 /** FP のメニューから開く、入力のホームの中身 */
-type FpOpen = null | "snapTake" | "snapList" | "contents" | "year" | "review" | "imports";
+type FpOpen = null | "snapTake" | "snapList" | "contents" | "year" | "review" | "imports" | "meetings";
 export const TABS: { id: Tab; label: string }[] = [
   { id: "input", label: "入力" },
   { id: "main", label: "結果" },
@@ -162,7 +164,7 @@ function safeDecode(v: string): string {
   }
 }
 
-/** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#snapshots（入力のホームで控えの一覧を開く）・#fpmenu（上の帯の FP のメニューを開く）・#choose（入力のホームの「入力項目を選ぶ」を開く）・#officedefaults（事務所の既定値のパネルを開く）・#premisemenu（万一のときの画面の想定の前提で「＋ 動かす項目を追加」の一覧を開く）・#notices（結果のタブの計算の知らせを開く）・#report=takeaway（提案書のタブを持ち帰り用のレポートで開く）・#cgplan=B（万一のときの画面で見るプランの帯の文字）・#find=留学（入力のホームの「探して開く」にこの言葉を入れて開く）・#chart=flows・#explain=2・
+/** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#snapshots（入力のホームで控えの一覧を開く）・#meetings（入力のホームで面談の履歴を開く）・#fpmenu（上の帯の FP のメニューを開く）・#choose（入力のホームの「入力項目を選ぶ」を開く）・#officedefaults（事務所の既定値のパネルを開く）・#premisemenu（万一のときの画面の想定の前提で「＋ 動かす項目を追加」の一覧を開く）・#notices（結果のタブの計算の知らせを開く）・#report=takeaway（提案書のタブを持ち帰り用のレポートで開く）・#cgplan=B（万一のときの画面で見るプランの帯の文字）・#find=留学（入力のホームの「探して開く」にこの言葉を入れて開く）・#chart=flows・#explain=2・
  * #items=loan,rate,shift,mix,surplus（開発用のサーバーだけ: 動かす項目を足す）・#seed=plans（開発用のサーバーだけ: 見本の案を5つ）・#seedopen・#addmenu・#save・#selfcheck=plans・
  * #sel=C・#base=B（帯の案の文字）・#diff（表に差を表示）・#settings（表示の設定を開く）・#metrics=assetsAtAge,takeHome・#age=90・#compare（比較の表を開く）・#list（案の一覧を開く）・#scroll=table・#layout=side（グラフを左右に並べる）・
  * #tab=rental（収益不動産のタブ。物件の無い世帯では結果のタブ）・#rental=total|2（見るもの: 全体か物件の番号）・#rentalyear=2034（指標の年）） */
@@ -184,6 +186,8 @@ export function parseHash(hash: string): {
   memo?: boolean;
   /** #snapshots: 入力のホームで控えの一覧を開いて開く */
   snapshots?: boolean;
+  /** #meetings: 入力のホームで面談の履歴を開いて開く（0182） */
+  meetings?: boolean;
   /** #fpmenu: 上の帯の FP のメニューを開いて開く（画面の確かめ用） */
   fpMenu?: boolean;
   /** #choose: 入力のホームの「入力項目を選ぶ」を開いて開く（画面の確かめ用） */
@@ -272,6 +276,7 @@ export function parseHash(hash: string): {
     if (k === "big") out.big = true;
     else if (k === "memo") out.memo = true;
     else if (k === "snapshots") out.snapshots = true;
+    else if (k === "meetings") out.meetings = true;
     else if (k === "fpmenu") out.fpMenu = true;
     else if (k === "choose") out.choose = true;
     else if (k === "officedefaults") out.officeDefaults = true;
@@ -480,7 +485,9 @@ export function App() {
   const level: Level = initial.level ?? "simple";
   const [memoOpen, setMemoOpen] = useState(initial.memo === true);
   /** FP のメニュー（上の帯）から開いた、入力のホームの中身（控え・面談の準備・取り込む）。1つずつ開く */
-  const [fpOpen, setFpOpen] = useState<FpOpen>(initial.snapshots === true ? "snapList" : null);
+  const [fpOpen, setFpOpen] = useState<FpOpen>(initial.snapshots === true ? "snapList" : initial.meetings === true ? "meetings" : null);
+  /** 面談の履歴で開く記録（前回から変わったことから。n は押した回数。0182） */
+  const [meetingFocus, setMeetingFocus] = useState<{ id: string; n: number } | null>(null);
   // 世帯の保存（0011・0013）
   const [storeStatus, setStoreStatus] = useState<StoreStatus | null>(null);
   const [storeUnavailable, setStoreUnavailable] = useState<string | null>(null);
@@ -1557,17 +1564,39 @@ export function App() {
       }),
     [history],
   );
-  /** 控えを作る（その時点の現状・プラン・保存していないプランの変更の写し。0009 の2） */
-  const takeSnapshot = useCallback(
-    async (draft: SnapshotDraft) => {
+  /** 控えを作る（その時点の現状・プラン・保存していないプランの変更の写し。0009 の2）。作った控えの ID を返す（作らなかったら null） */
+  const takeSnapshotId = useCallback(
+    async (draft: SnapshotDraft): Promise<string | null> => {
       const o = openedRef.current;
-      if (o === null) return;
+      if (o === null) return null;
       const s = await makeSnapshot({ wh: o.wh, drafts: workRef.current.drafts, draft, appVersion: APP_VERSION });
       // 指紋を作っている間に別の世帯を開いたときは、残さない
-      if (openedRef.current?.selfId !== o.selfId) return;
+      if (openedRef.current?.selfId !== o.selfId) return null;
       putSnapshots((l) => [...l, s]);
+      return s.id;
     },
     [putSnapshots],
+  );
+  const takeSnapshot = useCallback(
+    async (draft: SnapshotDraft): Promise<void> => {
+      await takeSnapshotId(draft);
+    },
+    [takeSnapshotId],
+  );
+  /**
+   * 面談の履歴を入れる（0182。計算の要求の外なので計算し直さない。元に戻す・やり直すの履歴には積む〔メモと同じ〕。保存した世帯なら
+   * 自動保存で世帯ファイルの区画 meetings に書く）
+   */
+  const putMeetings = useCallback(
+    (list: Meeting[]) =>
+      history.track(() => {
+        const o = openedRef.current;
+        if (o === null) return;
+        const n: Opened = { ...o, wh: withMeetings(o.wh, list) };
+        openedRef.current = n;
+        setOpened(n);
+      }),
+    [history],
   );
 
   /** 案の一覧だけを変えた（名前・印・保存・外す）。現状は同じ */
@@ -2418,6 +2447,9 @@ export function App() {
   /** 保存している（見本を保存しないで開いているときは、保存していない扱い） */
   const savingStored = storedInfo !== null && sampleMode !== "view";
   const drawer = memoOpen || evidence !== null;
+  // 事務所で共有しているときの自分と、メンバーの表示名（メモの行・面談の記録の書いた人。0023 の6・0182）
+  const officeMe = storedInfo !== null && officeStatus?.state === "member" ? (officeStatus.members.find((m) => m.isMe)?.memberId ?? null) : null;
+  const officeNamesOfMembers = { ...fileEditors, ...Object.fromEntries((officeStatus?.members ?? []).map((m) => [m.memberId, m.name])) };
   const ageMark = opened === null ? null : ageMarkOf(settings, opened.wh.request);
   // 上の帯の札と通知（ふだんは出さない。header/status.ts）
   const barIn: BarInputs = {
@@ -2527,7 +2559,12 @@ export function App() {
   const inputPlanSel = opened !== null && inputPlanOn && work.sel !== CURRENT && opened.wh.proposals.some((p) => p.id === work.sel) ? work.sel : null;
   // FP のメニューで押した物: 入力のホームの中身は、入力のタブに切り替えてホームの上部に開く（パネルの入力は閉じる）。事務所の設定・AI は中央のパネル
   const pickFpMenu = (a: FpMenuAction) => {
-    const home: Partial<Record<FpMenuAction, FpOpen>> = { snapTake: "snapTake", snapList: "snapList", contents: "contents", year: "year", review: "review", hearing: "imports" };
+    const home: Partial<Record<FpMenuAction, FpOpen>> = { snapTake: "snapTake", snapList: "snapList", contents: "contents", year: "year", review: "review", hearing: "imports", meetings: "meetings" };
+    // メモは右の端の引き出し（前は上の帯のボタン。根拠の引き出しとは同時に出さない）
+    if (a === "memo") {
+      setEvidence(null);
+      return setMemoOpen(true);
+    }
     if (a === "ai" && inputPlanSel === null) return openAiShare();
     if (a === "storage") return openStorage();
     if (a === "office") return openOffice();
@@ -2590,20 +2627,9 @@ export function App() {
           opened !== null ? (
             <>
               <UndoButtons />
-              <button
-                type="button"
-                class="memo-btn"
-                aria-expanded={memoOpen}
-                onClick={() => {
-                  setEvidence(null);
-                  setMemoOpen(!memoOpen);
-                }}
-                data-memo-toggle
-              >
-                メモ{opened.wh.memo.length > 0 ? <span class="memo-n">{opened.wh.memo.length}</span> : null}
-              </button>
               <FpMenu
                 groups={fpMenuGroups({
+                  notes: { memo: opened.wh.memo.length, meetings: (opened.wh.meetings ?? []).length, last: ((m) => (m === null ? null : meetingDateText(m.on)))(latestMeeting(opened.wh.meetings ?? [])) },
                   snapshots: (opened.wh.snapshots ?? []).length,
                   review: ((t) => (t === null ? null : { last: formatYearMonth(t.last), next: formatYearMonth(t.next) }))(reviewTiming(opened.wh.snapshots ?? [])),
                   imports: host !== null ? { ai: storedInfo !== null, hearing: ((p) => (p.arrived > 0 ? `回答が届いています ${p.arrived}件` : p.toImport > 0 ? `取り込み待ち ${p.toImport}件` : null))(pendingCount(opened.wh)) } : null,
@@ -2888,7 +2914,27 @@ export function App() {
                     bar={false}
                     tool={fpOpen === "contents" || fpOpen === "year" || fpOpen === "review" ? fpOpen : null}
                     onTool={(t) => setFpOpen(t)}
+                    onMeeting={(id) => {
+                      setMeetingFocus((f) => ({ id, n: (f?.n ?? 0) + 1 }));
+                      setFpOpen("meetings");
+                    }}
                   />
+                  {fpOpen === "meetings" ? (
+                    <MeetingTools
+                      wh={opened.wh}
+                      onSave={putMeetings}
+                      onSnapshot={(memo) => takeSnapshotId({ trigger: "manual", memo, plan: { id: CURRENT, letter: letterOf(CURRENT), name: "現状" } })}
+                      onClose={() => setFpOpen(null)}
+                      result={resultOf(CURRENT)}
+                      computeOne={computeOne}
+                      onOpen={openCard}
+                      atAge={settings.atAge}
+                      me={officeMe}
+                      names={officeNamesOfMembers}
+                      stored={storedInfo !== null}
+                      focus={meetingFocus}
+                    />
+                  ) : null}
                 </>
               }
               hearingNote={((p) => (host?.hearingWeb === undefined || (p.arrived === 0 && p.toImport === 0) ? null : { text: p.arrived > 0 ? `URL で聞いた回答が届いています（${p.arrived}件）` : `受け取った回答の取り込みがまだです（${p.toImport}件）`, onOpen: () => setFpOpen("imports") }))(pendingCount(opened.wh))}
@@ -3291,8 +3337,8 @@ export function App() {
           wh={opened.wh}
           onEdit={edit}
           onClose={() => setMemoOpen(false)}
-          me={storedInfo !== null && officeStatus?.state === "member" ? (officeStatus.members.find((m) => m.isMe)?.memberId ?? null) : null}
-          names={{ ...fileEditors, ...Object.fromEntries((officeStatus?.members ?? []).map((m) => [m.memberId, m.name])) }}
+          me={officeMe}
+          names={officeNamesOfMembers}
         />
       ) : null}
       {evidence !== null ? <EvidencePanel state={evidence} onClose={() => setEvidence(null)} /> : null}

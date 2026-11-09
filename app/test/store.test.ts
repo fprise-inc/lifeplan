@@ -1328,6 +1328,32 @@ function sample073(): BodyState {
   return { ...s, wh: { ...s.wh, hearing: { ...log, web } as never } };
 }
 
+/**
+ * 0.74 の見本の世帯（0182）: sample073() に面談の履歴を足す（1件目はお客さまと見てよい欄に保険の意向・控えをつなぐ・書いた人と直した人、
+ * 2件目は保険の意向を FP だけの欄に置く）。中身は架空
+ */
+function sample074(): BodyState {
+  const s = sample073();
+  const meetings = [
+    {
+      id: "00000000-0000-4000-8000-0000000000e1",
+      on: "2026-10-19",
+      shared: { talked: "教育費と住宅ローンの繰上げ返済の順番", decided: "上の子の大学の費用を先に貯める", todo: "源泉徴収票を次の面談に持ってくる", insurance: { initial: "子が独立するまでの死亡保障を厚くしたい", final: "収入保障保険で月15万円を60歳まで", reason: "" } },
+      fpOnly: { note: "ご主人は保険料の負担を気にしている（架空）" },
+      snapshot: "00000000-0000-4000-8000-0000000000c1",
+      by: "00000000-0000-4000-8000-0000000000a1",
+      editedBy: "00000000-0000-4000-8000-0000000000b2",
+    },
+    {
+      id: "00000000-0000-4000-8000-0000000000e2",
+      on: "2026-11-09",
+      shared: { talked: "転職の予定と働き方の変化", decided: "", todo: "" },
+      fpOnly: { note: "次回は医療保障の見直しから", insurance: { initial: "医療保険は今のままでよい", final: "", reason: "" } },
+    },
+  ];
+  return { ...s, wh: { ...s.wh, meetings } };
+}
+
 describe("世帯ファイルの本文（0011 の2）", () => {
   it("保存→読み込みで同じ（現状・案・帯の並び・表示の設定・拡張領域）", () => {
     const s = sample();
@@ -1366,7 +1392,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.73");
+    expect(BODY_FORMAT_VERSION).toBe("0.74");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1541,7 +1567,21 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample073())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample074())), null, 2) + "\n");
+  });
+
+  it("0.74 の形（0182）: 面談の履歴を区画 meetings に保存して読み戻す（お客さまと見てよい欄・FP だけの欄・保険の意向・つないだ控え・書いた人）。前の版の世帯は区画が無い", async () => {
+    const s = await withSnapshot(sample074());
+    const stored = bodyObject(s) as unknown as { meetings: { version: number; records: { id: string; snapshot?: string; fpOnly: { insurance?: unknown } }[] }; household: Record<string, unknown> };
+    expect(stored.meetings.version).toBe(1);
+    expect(stored.meetings.records.map((m) => m.id)).toEqual(["00000000-0000-4000-8000-0000000000e1", "00000000-0000-4000-8000-0000000000e2"]);
+    expect(stored.meetings.records[0]!.snapshot).toBe(s.wh.snapshots![0]!.id);
+    expect(stored.meetings.records[1]!.fpOnly.insurance).toBeDefined();
+    expect(stored.household.meetings).toBeUndefined();
+    const back = fromBody(JSON.stringify(stored));
+    expect(back.wh.meetings).toEqual(s.wh.meetings);
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(JSON.stringify(bodyObject(sample073()))).not.toContain('"meetings"');
   });
 
   it("0.73 の形（0192）: 選び方の話題・ひな形の名前・独自の質問の答えの形と、受け取った答えの選んだ話題を保存して読み戻す。前の版の記録（欄が無い）は話題なし・自由記述", () => {

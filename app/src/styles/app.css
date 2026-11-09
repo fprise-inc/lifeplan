@@ -1684,6 +1684,28 @@ p.os-code-expired .link-btn { margin-left: 6px; }
 .fp-figs { font-size: 0.86rem; margin: 4px 0; border-collapse: collapse; }
 .fp-figs th { text-align: left; padding: 2px 10px 2px 0; color: var(--ink-2); font-weight: 400; }
 .fp-sub { margin: 8px 0 2px; font-weight: 700; }
+/* 面談の履歴（0182）: 一覧・1件を開く（記録とその日の控えを左右に並べる。狭い画面では上下）・足す／直す。FP だけの欄はメモと同じ色で見分ける */
+.mt-panel .card-h { flex-wrap: wrap; }
+.mt-hide { display: inline-flex; gap: 6px; align-items: center; font-size: 0.86rem; margin-left: auto; }
+.mt-list .mt-gist { flex: 1 1 16em; min-width: 0; }
+.fp-meeting-link { margin: 4px 0; }
+.mt-open { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 20px; align-items: start; }
+@media (max-width: 860px) { .mt-open { grid-template-columns: minmax(0, 1fr); } }
+.mt-open h3 { font-size: 0.95rem; margin: 0 0 6px; }
+.mt-group { border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 12px 8px; margin: 0 0 10px; display: grid; gap: 6px; min-width: 0; }
+.mt-group legend, .mt-group-h { font-weight: 700; font-size: 0.86rem; color: var(--ink-2); margin: 0; padding: 0 4px; }
+.mt-fp { border: 1.5px solid var(--memo-line); background: var(--memo-bg); }
+.mt-read { display: grid; gap: 1px; font-size: 0.88rem; }
+.mt-label { font-size: 0.8rem; color: var(--ink-2); font-weight: 700; }
+.mt-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mt-snap-when { margin: 0 0 4px; font-size: 0.86rem; color: var(--ink-2); }
+.mt-intent { display: grid; gap: 4px; padding-top: 4px; border-top: 1px dashed var(--line-2); }
+.mt-form { display: grid; gap: 8px; }
+.mt-date, .mt-snap-pick { display: inline-flex; gap: 8px; align-items: center; font-size: 0.88rem; font-weight: 700; color: var(--ink-2); flex-wrap: wrap; }
+.mt-date input, .mt-snap-pick select { font: inherit; font-weight: 400; color: var(--ink); }
+.mt-area { display: grid; gap: 2px; font-size: 0.86rem; font-weight: 700; color: var(--ink-2); }
+.mt-area textarea { width: 100%; box-sizing: border-box; border: 1.5px solid var(--field); border-radius: 6px; padding: 6px 8px; font: inherit; font-weight: 400; color: var(--ink); background: var(--card); resize: vertical; }
+.mt-check { display: inline-flex; gap: 6px; align-items: center; font-size: 0.86rem; }
 .fp-insights { margin-top: 10px; }
 .fp-insights h3 { font-size: 0.92rem; margin: 0 0 4px; }
 .fp-insights ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }

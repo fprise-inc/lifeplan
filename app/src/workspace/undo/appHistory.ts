@@ -1,4 +1,4 @@
-// 画面の大枠の履歴: 世帯データ（現状・案・メモ・万一の想定の前提）・保存していない対策の変更・表示の設定を1つの状態として積む。
+// 画面の大枠の履歴: 世帯データ（現状・案・メモ・面談の履歴・万一の想定の前提）・保存していない対策の変更・表示の設定を1つの状態として積む。
 // 世帯・案・表示の設定を変える setter を track で包むだけで、その変更が履歴に入る（包んだ setter の中で別の包んだ setter を呼んでも1件）。
 // 選んだ案・基準の案だけを替えたときは中身が変わらないので積まない（戻すときは、その操作をしたときの選び方に戻る）。
 // 提案書の宛名など保存しない値は、この状態に入れないので履歴にも残らない
@@ -39,6 +39,8 @@ export function describeSnap(a: AppSnap, b: AppSnap, hint: Hint): string {
       ? "入力"
       : !deepEqual(a.wh.memo, b.wh.memo)
         ? "メモ"
+        : !deepEqual(a.wh.meetings, b.wh.meetings)
+          ? "面談の履歴"
         : !deepEqual(a.wh.contingency, b.wh.contingency)
           ? "万一のときの前提"
           : !deepEqual(a.wh.extValues, b.wh.extValues)

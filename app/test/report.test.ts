@@ -13,6 +13,7 @@ import { DEFAULT_CHAPTERS, isInvestmentKey, planReport, reportInput, type Report
 import { roles } from "../src/workspace/roles.ts";
 import { bsPlan, DEFAULT_BS_POINTS } from "../src/workspace/balanceTab.ts";
 import { bsPointsText, reportErrorText } from "../src/workspace/report/ReportTab.tsx";
+import { markedMeetings } from "./meetingsFixture.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const NOW = "2026-10-18T10:00:00.000Z";
@@ -36,6 +37,8 @@ function open(id: string) {
   wh = { ...wh, agreed: { current: { "row-1": { on: "2026-10-01", note: "MEMO-MARK-report-agreed" } } }, assumed: { "living.monthly": "MEMO-MARK-report-assumed" }, recheck: [{ id: "row-1", card: "living", cardLabel: "MEMO-MARK-report-card", label: "MEMO-MARK-report-recheck", on: "2026-10-01" }] };
   if (le !== undefined) wh = { ...wh, livingParts: { [le.id]: [{ label: "MEMO-MARK-report-part", monthly: 1000 }] } };
   wh.proposals.forEach((p) => p.diffs.forEach((d) => (d.note = "MEMO-MARK-report-note")));
+  // 面談の履歴（0182）: お客さまと見てよい欄も FP だけの欄も、提案書には入れない（入れるかは後で決める）
+  wh = { ...wh, meetings: markedMeetings("MEMO-MARK-report-meeting") };
   const letters = planLetters(wh.proposals);
   const ctx = { wh, catalog: cat, valuesOf: (pid: string) => (pid === CURRENT ? {} : effectiveValues(wh, pid)), letterOf: (pid: string) => letters.get(pid) ?? { letter: "?", name: "" } };
   return { wh, cat, ctx, b: b.id, c: c.id };
