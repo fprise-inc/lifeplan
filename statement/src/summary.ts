@@ -5,7 +5,7 @@
 // - 12か月に満たないときも同じ出し方（季節の補正はしない）で、注意を出す: 3か月未満は候補を「要確認」にする、
 //   水道・光熱などの季節で変わる項目は偏ると知らせる。年1回の支払いは月平均に入れず、一時的支出（年額・時期）として別に出す
 import type { ClassifiedRow } from "./classify/classify.ts";
-import { categoryInfo, LIVING_ORDER, UNKNOWN_LIVING, type CurrentLivingCategory, type StatementCategory } from "./classify/categories.ts";
+import { categoryInfo, LIVING_LABELS, LIVING_ORDER, UNKNOWN_LIVING, type CurrentLivingCategory, type StatementCategory } from "./classify/categories.ts";
 import { issue, type Issue } from "./issues.ts";
 import type { StatementLog } from "./log.ts";
 import { displayMerchant } from "./merchant.ts";
@@ -55,6 +55,11 @@ export interface LivingLine {
   readonly monthly: number;
   /** 内訳（仕分けの項目ごとの月平均） */
   readonly detail: readonly { readonly category: StatementCategory | "unknown"; readonly monthly: number }[];
+  /**
+   * 内訳の和が負（期間の前に買った物の返品・取り消しが多い月）で、monthly を 0 にしたときの内訳の和（負の数）。画面と候補の説明に使う
+   * （候補はこの内訳を今の値のまま残す。0180 の4）
+   */
+  readonly negative?: number;
 }
 
 export interface OneOffItem {
@@ -79,8 +84,13 @@ export interface StatementSummary {
   /** 全体の期間（どれかの口座の期間の最初と最後） */
   readonly from: string | null;
   readonly to: string | null;
-  /** 一番長い口座の期間の日数（候補の注意に使う） */
+  /** 一番長い口座の期間の日数 */
   readonly days: number;
+  /**
+   * 期間が3か月（MIN_DAYS_FOR_CANDIDATE）に満たない口座で、家計に入る行があるもの（ほかの口座が長くても、この口座の月平均は短い期間で
+   * 割った値なので、候補を要確認にする。0180 の3）。全部の口座が短いとき（days が短い）は入れない（全体の注意で知らせる）
+   */
+  readonly shortAccounts: readonly { readonly account: string; readonly label: string; readonly days: number }[];
   readonly months: string;
   readonly living: readonly LivingLine[];
   readonly livingTotal: number;
@@ -140,7 +150,7 @@ export function summarize(log: StatementLog, rows: readonly ClassifiedRow[]): St
       if (liv === lc && v !== 0) detail.push({ category: k as StatementCategory | "unknown", monthly: v });
     }
     const monthly = detail.reduce((n, x) => n + x.monthly, 0);
-    if (detail.length > 0) living.push({ category: lc, monthly: Math.max(0, monthly), detail });
+    if (detail.length > 0) living.push({ category: lc, monthly: Math.max(0, monthly), detail, ...(monthly < 0 ? { negative: monthly } : {}) });
   }
   const reference = { housing: 0, education: 0, insurance: 0, car: 0, tax: 0 };
   for (const [k, v] of monthlyBy) {
@@ -180,10 +190,19 @@ export function summarize(log: StatementLog, rows: readonly ClassifiedRow[]): St
   });
   oneOffs.sort((a, b) => b.perYear - a.perYear);
 
+  // 期間の短い口座（ほかの口座が長くても、口座ごとに見る。0180 の3）
+  const labelOf = new Map(log.accounts.map((a) => [a.id, a.label]));
+  const shortAccounts =
+    days >= MIN_DAYS_FOR_CANDIDATE ? coverage.filter((c) => c.days < MIN_DAYS_FOR_CANDIDATE && totals.has(c.account)).map((c) => ({ account: c.account, label: labelOf.get(c.account) ?? "", days: c.days })) : [];
+
   const notices: Issue[] = [];
   if (days === 0) notices.push(issue("error", "S_NO_PERIOD", "仕分けに使う明細がありません"));
   else if (days < MIN_DAYS_FOR_CANDIDATE) notices.push(issue("warning", "S_VERY_SHORT_PERIOD", `取り込んだ期間が ${monthsText(days)} か月しかありません。月平均は参考にとどめ、3か月以上の明細を足してください（候補は要確認にします）`));
   else if (days < FULL_YEAR_DAYS) notices.push(issue("warning", "S_SHORT_PERIOD", `取り込んだ期間が ${monthsText(days)} か月で、12か月に足りません。月平均はこの期間で割った値です（季節の補正はしていません）。年1回の支払いは見つけきれないことがあります`));
+  if (shortAccounts.length > 0) {
+    const list = shortAccounts.map((a) => `「${a.label}」${monthsText(a.days)}か月`).join("・");
+    notices.push(issue("warning", "S_VERY_SHORT_ACCOUNT", `期間が3か月に満たない口座があります（${list}）。この口座の月平均は短い期間で割った値で、偏りやすいため、参考にとどめてください。3か月以上の明細を足すとよくなります（候補は要確認にします）`));
+  }
   if (days > 0 && days < FULL_YEAR_DAYS && living.some((l) => l.detail.some((d) => d.category !== "unknown" && categoryInfo(d.category).seasonal === true))) {
     notices.push(issue("info", "S_SEASONAL", "水道・光熱は季節で変わるため、12か月に満たない期間の月平均は偏ることがあります"));
   }
@@ -203,12 +222,17 @@ export function summarize(log: StatementLog, rows: readonly ClassifiedRow[]): St
     const refunds = durables.length - durableBuys;
     notices.push(issue("info", "S_DURABLE", `家電・家具の店の3万円以上の買い物 ${durableBuys} 件（${refunds > 0 ? `返品 ${refunds} 件を差し引いた` : ""}合計 ${total.toLocaleString("ja-JP")}円）は、月平均の日用品から外し、「家電・家具の買い替え」の候補にしました（3万円未満は日用品のまま）`));
   }
+  const negatives = living.filter((l) => l.negative !== undefined);
+  if (negatives.length > 0) {
+    const list = negatives.map((l) => `${LIVING_LABELS[l.category]} 月${(l.negative as number).toLocaleString("ja-JP")}円`).join("・");
+    notices.push(issue("info", "S_NEGATIVE_LIVING", `返品・取り消しが多く、月平均が負になった内訳があります（${list}）。明細の期間の前に買った物の返品のときに起きます。0円として数え、候補ではこの内訳の今の値を残します`));
+  }
   const dups = rows.filter((r) => r.flags.includes("duplicate")).length;
   if (dups > 0) notices.push(issue("info", "S_DUPLICATE_ROWS", `別の明細と同じ行が ${dups} 件あり、二重に数えていません（分割の2回目以降・期間の重なった明細）`));
 
   const livingTotal = living.reduce((n, l) => n + l.monthly, 0);
   const unknownMonthly = monthlyBy.get("unknown") ?? 0;
-  return { coverage, from: all.from, to: all.to, days, months: monthsText(days), living, livingTotal, unknownMonthly, reference, outside, oneOffs, review: rows.filter((r) => r.review).length, notices };
+  return { coverage, from: all.from, to: all.to, days, shortAccounts, months: monthsText(days), living, livingTotal, unknownMonthly, reference, outside, oneOffs, review: rows.filter((r) => r.review).length, notices };
 }
 
 /** 払う月ごとの金額（分割は回数で分け、端数は1回目に。リボは払う月が分からないので外し、件数を返す） */

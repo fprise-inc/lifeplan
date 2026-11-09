@@ -12,7 +12,7 @@ import { preview } from "../helpers.ts";
 import { subjectOf, watch } from "../watch/rules.ts";
 import { browserPath, start, type Session } from "./browser.ts";
 import { WALKTHROUGH } from "./fieldEffect.ts";
-import { household1, household2, household3, household4, openSample, walkPanels, type Notes } from "./households.ts";
+import { household1, household2, household3, household4, household5, openSample, walkPanels, type Notes } from "./households.ts";
 
 const SHOTS = process.env.WALKTHROUGH_SHOTS;
 const RUN = WALKTHROUGH && browserPath() !== null;
@@ -146,7 +146,7 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
       expect(h().residences!.find((r) => r.kind === "own")!.from).toEqual({ at: "2023-04" });
       expect(h().events?.find((e) => e.id === loan.housing?.moveIn)?.at).toEqual({ at: "2023-04" });
     });
-    it("持ち家を標準の欄だけで入れても、持ち家の価値が資産に入り、純資産がマイナスにならない（評価額は未入力の警告なので標準に出る）", () => {
+    it("持ち家を標準の欄だけで入れても、持ち家の価値が資産に入り、純資産がマイナスにならない（買った値段から評価額を推計する。0176）", () => {
       expect(sum(d.table, "cf.balance.account.realEstate", yearOf(d.wh.request))).toBeGreaterThan(0);
       expect(d.bs).not.toContain("純資産がマイナスに");
     });
@@ -304,6 +304,39 @@ describe.skipIf(!RUN)("通しの入力（画面のキー入力で世帯を入れ
     it("結果の表で、買う前の年（2030年）に住宅ローンの返済が無く、家賃を払う", () => {
       expect(sum(d.table, "cf.expense.housing.loan", 2030)).toBe(0);
       expect(sum(d.table, "cf.expense.housing.rent", 2030)).toBeGreaterThan(0);
+    });
+    panelChecks(() => d);
+    watchChecks(() => d, []);
+  });
+
+  describe("世帯5: 住宅の購入の「どう買うか」（まだ選んでいない → 現金で買う → 住宅ローンを使う。0175）", () => {
+    let d: Done;
+    beforeAll(async () => {
+      d = await finish("世帯5", await household5(s.page));
+    }, 600_000);
+    const h = () => d.wh.request.input.household;
+    it("足した直後はまだ選んでいない: 「どう買うか」が空で、払い方が入っていないと知らせる（黙って現金とみなさない）", () => {
+      expect(d.notes.seen.fundingUnselected).toBe("");
+      expect(d.notes.seen.unselectedPanel).toContain("払い方が入っていません");
+    });
+    it("現金で買う: 頭金の欄が消え、保存した世帯は頭金＝物件の価格で住宅ローンが無い。結果の表で購入の年に物件の価格を払う", () => {
+      expect(d.notes.seen.downAfterCash).toBe("（欄なし）");
+      expect(d.notes.seen.cashPanel).not.toContain("払い方が入っていません");
+      const cash = fromBody(d.notes.seen.cashBody!).wh;
+      const r = cash.request.input.household.residences!.find((x) => x.purchase !== undefined)!;
+      expect(r.purchase!.downPayment).toBe(r.purchase!.price);
+      expect((cash.request.input.household.debts ?? []).filter((x) => x.kind === "mortgage")).toEqual([]);
+      const y = Number((r.purchase!.at as { at: string }).at.slice(0, 4));
+      const t = preview(forEngine(cash.request)).table;
+      expect(sum(t, "cf.expense.housing.purchase.downPayment", y)).toBe(r.purchase!.price);
+    });
+    it("住宅ローンを使う: 同じパネルに借入額の欄が続けて出て、保存した世帯の住宅ローンは物件の価格−頭金を借りる", () => {
+      expect(d.notes.seen.principalAfterLoan).not.toBe("（欄なし）");
+      const r = h().residences!.find((x) => x.purchase !== undefined)!;
+      const loans = (h().debts ?? []).filter((x) => x.kind === "mortgage");
+      expect(loans).toHaveLength(1);
+      expect(loans[0]!.principal).toBe(r.purchase!.price - (r.purchase!.downPayment ?? 0));
+      expect(d.notes.seen.loanPanel).not.toContain("払い方が入っていません");
     });
     panelChecks(() => d);
     watchChecks(() => d, []);

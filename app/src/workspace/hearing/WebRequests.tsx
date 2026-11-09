@@ -1,11 +1,14 @@
 // Web のヒアリング（0125・0158）の依頼の一覧: 発行済み・回答あり・受け取り済み・取り込み済み・期限切れ。答えと書類を受け取って開き（受け取った分は
 // サーバーから消す）、取り込みの画面で候補として承認する。書類は答えと別に、期限まで何回でも届く（受け取るたびに送りごとの記録を残す）。
 // 期限の延長（押した日から30日・発行した日から90日まで）。受け取った書類は、その世帯の書類として開く・保存する・消す。
-// - 書類の画像は img の URL にしない（0016）。バイトを createImageBitmap で絵にしてキャンバスに描く。PDF は保存して開く
+// - 「開く」は入力のホームの見る枠（DocViewer.tsx。写真も PDF も。拡大・回転・ページ送り）に出す。見る枠の無い所（入力のホームの外）では、
+//   写真をこの中に描く（img の URL にしない。0016。バイトを createImageBitmap で絵にしてキャンバスに描く）
+// - 保存は受け取った書類の一覧と同じ名前・同じ印（0191）
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { HearingWebHost } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import type { ImportView } from "./sheet.ts";
+import { useDocView } from "./ReceivedDocs.tsx";
 import { accepting, checkAnswered, cleanupOnServer, documentFileName, extendState, extendWeb, fileBytes, gateLines, importWeb, invitationText, limitOf, receiveWeb, removeOnServer, sentAtText, STATUS_TEXT, statusOf, webLog, withoutFile, withWebEntry, type StoredDocumentFile, type WebLogEntry } from "./web.ts";
 
 interface Props {
@@ -60,6 +63,8 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
   const [open, setOpen] = useState<string | null>(null);
   const [view, setView] = useState<string | null>(null);
   const [closing, setClosing] = useState<string | null>(null);
+  /** 入力のホームの見る枠と、受け取った書類の一覧の保存（あれば使う。0191） */
+  const rd = useDocView();
   if (list.length === 0) return null;
   const now = new Date();
   const note = (id: string, m: string) => setMsg((x) => ({ ...x, [id]: m }));
@@ -134,6 +139,10 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
       note(e.record.requestId, e.received === undefined ? "取り消しました（サーバーから消しました。URL はもう開けません）" : "受け付けを終えました（サーバーから消しました。URL はもう開けず、書類も届きません）");
     });
   const save = async (e: WebLogEntry, f: StoredDocumentFile, title: string, n: number) => {
+    const r = rd?.files.find((x) => x.file.fileId === f.fileId);
+    if (rd !== null && r !== undefined && rd.canSave) {
+      return note(e.record.requestId, await rd.save([r]));
+    }
     const out = await web.saveDocument(fileBytes(f), { fileName: documentFileName(e.record.customerNo, title, f, n) });
     note(e.record.requestId, out.saved ? `「${out.fileName ?? ""}」を保存しました。${out.syncFolder ? "同期フォルダの中です。" : ""}写し終えたら消してください` : "保存しませんでした");
   };
@@ -268,7 +277,13 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                               <span>
                                 {f.mime === "application/pdf" ? "PDF" : "写真"} {n + 1}（{Math.ceil(f.bytes / 1024)}KB{b !== undefined ? `・${dayTime(b.receivedAt)} に受け取り` : ""}）
                               </span>
-                              {f.mime !== "application/pdf" ? (
+                              {f.viewedAt !== undefined ? <small data-web-doc-viewed>見た</small> : null}
+                              {f.savedAt !== undefined ? <small data-web-doc-saved>保存した</small> : null}
+                              {rd !== null ? (
+                                <button type="button" class="link-btn" onClick={() => rd.view(rd.viewing === f.fileId ? null : f.fileId)} data-web-doc-view>
+                                  {rd.viewing === f.fileId ? "閉じる" : "開く"}
+                                </button>
+                              ) : f.mime !== "application/pdf" ? (
                                 <button type="button" class="link-btn" onClick={() => setView(view === f.fileId ? null : f.fileId)}>
                                   {view === f.fileId ? "閉じる" : "開く"}
                                 </button>
@@ -286,7 +301,7 @@ export function WebRequests({ wh, web, officeName, appVersion, onSave, saveNow, 
                       </div>
                     );
                   })}
-                  <p class="rp-note">書類はこの世帯のファイルの中に暗号化して置いています（ほかの世帯からは見えません）。数字を写し終えたら「消す」を押してください。保存したファイルは暗号化されないので、写し終えたら消してください。</p>
+                  <p class="rp-note">書類はこの世帯のファイルの中に暗号化して置いています（ほかの世帯からは見えません）。入力のホームの「受け取った書類」で、全部の書類の一覧・横に出して見る・まとめて自分のフォルダに保存ができます。保存したファイルは暗号化されません。</p>
                 </div>
               ) : null}
             </li>

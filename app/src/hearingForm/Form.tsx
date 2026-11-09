@@ -8,9 +8,9 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import { MONTH_LABELS, yearLabel } from "../../../hearing/src/definition.ts";
-import { DOCUMENT_LIMITS, PHOTO_TIPS } from "../../../hearing/src/web/documents.ts";
-import { answerText, draftKey, estimate, fieldAnswered, fieldKeys, gateAnswerText, gateText, indexLabel, initialDraft, markSent, MONTH_UNKNOWN, normNumber, progress, screenId, screens, START_SECTION, START_TITLE, unsentFiles, yearChoices, type Draft, type DraftAnswer, type DraftDocument, type DraftFile, type Screen, type ScreenField } from "../../../hearing/src/web/flow.ts";
-import type { GateId, QuestionsPacket, WebItem } from "../../../hearing/src/web/packet.ts";
+import { DOCUMENT_LIMITS, hideTip, PHOTO_TIPS } from "../../../hearing/src/web/documents.ts";
+import { answerText, coverLine, coverSummary, customerDocTitle, docShown, DOCS_SECTION, DOCS_TITLE, draftKey, estimate, fieldAnswered, fieldKeys, gateAnswerText, gateText, indexLabel, initialDraft, insteadLine, markSent, MONTH_UNKNOWN, normNumber, progress, screenFields, screenGates, screenId, screens, START_SECTION, START_TITLE, unsentFiles, yearChoices, type Draft, type DraftAnswer, type DraftDocument, type DraftFile, type Screen, type ScreenField } from "../../../hearing/src/web/flow.ts";
+import type { GateId, PacketDocument, QuestionsPacket, WebItem } from "../../../hearing/src/web/packet.ts";
 import { prepareFile } from "./photo.ts";
 
 export interface FormProps {
@@ -252,35 +252,51 @@ function fileLabel(f: DraftFile): string {
   return f.label;
 }
 
-/** 書類の画面（書類ごとに、撮る・ファイルを選ぶ・手元にない・あとで送る） */
-function Documents({ p, d, mode, setDoc, upload, removeFile, thumbs, after = false }: { p: QuestionsPacket; d: Pick<Draft, "documents">; mode: FormProps["mode"]; setDoc: (id: string, x: DraftDocument) => void; upload: FormProps["upload"]; removeFile: FormProps["removeFile"]; thumbs: Map<string, string>; after?: boolean }) {
-  const [busy, setBusy] = useState<string | null>(null);
-  const [err, setErr] = useState<Record<string, string>>({});
-  const [tips, setTips] = useState(true);
+/** 撮る前の注意（その書類で隠してよい番号と、撮り方。0190） */
+function PhotoTips({ kind, open }: { kind: string | null; open: boolean }) {
+  return (
+    <details class="hf-tips" open={open}>
+      <summary>撮る前に</summary>
+      <ul>
+        {[hideTip(kind), ...PHOTO_TIPS].map((t) => (
+          <li key={t}>{t}</li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+/**
+ * 書類1通（撮る・ファイルを選ぶ・手元にない・あとで送る）。screen は1通1画面の書類の画面（見出しは大きく、撮る前の注意を開いて出す）、
+ * list は答えを送った後の「書類を送る」の一覧（撮る前の注意は一覧の上に1回）
+ */
+function DocCard({ p, doc, d, mode, setDoc, upload, removeFile, thumbs, after = false, level }: { p: QuestionsPacket; doc: PacketDocument; d: Pick<Draft, "documents">; mode: FormProps["mode"]; setDoc: (id: string, x: DraftDocument) => void; upload: FormProps["upload"]; removeFile: FormProps["removeFile"]; thumbs: Map<string, string>; after?: boolean; level: "screen" | "list" }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
   const total = Object.values(d.documents).reduce((s, x) => s + x.files.reduce((t, f) => t + f.bytes, 0), 0);
   const count = Object.values(d.documents).reduce((s, x) => s + x.files.length, 0);
-  const attach = async (id: string, files: FileList | null) => {
+  const x = d.documents[doc.id] ?? { status: "blank", files: [] };
+  const attach = async (files: FileList | null) => {
     if (files === null || files.length === 0) return;
-    const cur = d.documents[id] ?? { status: "blank", files: [] };
-    let list = [...cur.files];
-    setErr((e) => ({ ...e, [id]: "" }));
+    let list = [...x.files];
+    setErr("");
     for (const f of Array.from(files)) {
       if (list.length >= DOCUMENT_LIMITS.filesPerDocument) {
-        setErr((e) => ({ ...e, [id]: `1つの書類に付けられるのは${DOCUMENT_LIMITS.filesPerDocument}枚までです` }));
+        setErr(`1つの書類に付けられるのは${DOCUMENT_LIMITS.filesPerDocument}枚までです`);
         break;
       }
-      if (count + list.length - cur.files.length >= DOCUMENT_LIMITS.files) {
-        setErr((e) => ({ ...e, [id]: `送れるファイルは全部で${DOCUMENT_LIMITS.files}までです` }));
+      if (count + list.length - x.files.length >= DOCUMENT_LIMITS.files) {
+        setErr(`送れるファイルは全部で${DOCUMENT_LIMITS.files}までです`);
         break;
       }
-      setBusy(id);
+      setBusy(true);
       const prep = await prepareFile(f);
       if (!prep.ok) {
-        setErr((e) => ({ ...e, [id]: prep.reason }));
+        setErr(prep.reason);
         continue;
       }
       if (total + prep.bytes.length > DOCUMENT_LIMITS.totalBytes) {
-        setErr((e) => ({ ...e, [id]: "送るファイルが合わせて大きすぎます（40MB まで）" }));
+        setErr("送るファイルが合わせて大きすぎます（40MB まで）");
         break;
       }
       try {
@@ -289,94 +305,129 @@ function Documents({ p, d, mode, setDoc, upload, removeFile, thumbs, after = fal
         const label = prep.mime === "application/pdf" ? `PDF ${n}` : `写真 ${n}`;
         if (prep.mime !== "application/pdf" && typeof URL.createObjectURL === "function" && mode === "live") thumbs.set(up.fileId, URL.createObjectURL(new Blob([prep.bytes], { type: prep.mime })));
         list = [...list, { fileId: up.fileId, mime: prep.mime, bytes: prep.bytes.length, sha256: up.sha256, label }];
-        setDoc(id, { status: "attached", files: list });
+        setDoc(doc.id, { status: "attached", files: list });
       } catch (e) {
-        setErr((x) => ({ ...x, [id]: errorText(e instanceof Error ? e.message : String(e)) }));
+        setErr(errorText(e instanceof Error ? e.message : String(e)));
       }
     }
-    setBusy(null);
+    setBusy(false);
   };
-  const drop = async (id: string, f: DraftFile) => {
-    const cur = d.documents[id] ?? { status: "blank", files: [] };
+  const drop = async (f: DraftFile) => {
     try {
       if (removeFile !== undefined) await removeFile(f.fileId);
     } catch {
       // 外せなくても、答えの一覧に載せなければ FP は受け取らない（受け取った後にまとめて消える）
     }
-    const files = cur.files.filter((x) => x.fileId !== f.fileId);
-    setDoc(id, { status: files.length > 0 ? "attached" : "blank", files });
+    const files = x.files.filter((y) => y.fileId !== f.fileId);
+    setDoc(doc.id, { status: files.length > 0 ? "attached" : "blank", files });
   };
+  const unsent = x.files.filter((f) => f.sentAt === undefined).length;
+  const chip = x.status === "attached" ? (unsent === 0 ? `送りました（${x.files.length}）` : `付けました（${x.files.length}）`) : x.status === "notAvailable" ? "手元にない" : x.status === "later" ? "あとで送る" : "まだ";
+  const uses = coverLine(doc);
+  const Title = level === "screen" ? "h2" : "h3";
   return (
-    <div class="hf-docs">
-      <p class="hf-lead">お手元にあれば、写真か PDF で送ってください。書類はこの端末の中で暗号化して送り、担当の FP だけが開けます。</p>
-      <details class="hf-tips" open={tips} onToggle={(e) => setTips((e.currentTarget as HTMLDetailsElement).open)}>
-        <summary>撮る前に（大事なこと）</summary>
-        <ul>
-          {PHOTO_TIPS.map((t) => (
-            <li key={t}>{t}</li>
+    <section class={`hf-doc s-${x.status}${level === "screen" ? " hf-doc-one" : ""}`} data-hf-doc={doc.id} data-hf-doc-files={x.files.length}>
+      <div class="hf-doc-h">
+        <Title class={level === "screen" ? "hf-q" : undefined}>{customerDocTitle(doc)}</Title>
+        <span class={`hf-chip c-${x.status}`}>{chip}</span>
+      </div>
+      {doc.purpose !== "" ? <p class="hf-why">{doc.purpose}</p> : null}
+      {uses !== null ? (
+        <p class="hf-uses" data-hf-uses>
+          {uses}
+        </p>
+      ) : null}
+      {doc.where !== "" ? (
+        <p class="hf-where">
+          <b>どこが写っていればよいか</b>
+          {doc.where}
+        </p>
+      ) : null}
+      {level === "screen" ? <PhotoTips kind={doc.kind} open /> : null}
+      {x.files.length > 0 ? (
+        <ul class="hf-files">
+          {x.files.map((f) => (
+            <li key={f.fileId}>
+              {thumbs.has(f.fileId) ? <img src={thumbs.get(f.fileId)} alt="" /> : <span class="hf-file-ic" aria-hidden="true">{f.mime === "application/pdf" ? "PDF" : "写"}</span>}
+              <span>{fileLabel(f)}</span>
+              {f.sentAt !== undefined ? (
+                <span class="hf-sent-mark">送りました</span>
+              ) : (
+                <button type="button" class="hf-link" onClick={() => void drop(f)}>
+                  外す
+                </button>
+              )}
+            </li>
           ))}
         </ul>
-      </details>
-      {p.documents.map((doc) => {
-        const x = d.documents[doc.id] ?? { status: "blank", files: [] };
-        const unsent = x.files.filter((f) => f.sentAt === undefined).length;
-        const chip = x.status === "attached" ? (unsent === 0 ? `送りました（${x.files.length}）` : `付けました（${x.files.length}）`) : x.status === "notAvailable" ? "手元にない" : x.status === "later" ? "あとで送る" : "まだ";
-        return (
-          <section class={`hf-doc s-${x.status}`} key={doc.id} data-hf-doc={doc.id} data-hf-doc-files={x.files.length}>
-            <div class="hf-doc-h">
-              <h3>{doc.title}</h3>
-              <span class={`hf-chip c-${x.status}`}>{chip}</span>
-            </div>
-            {doc.purpose !== "" ? <p class="hf-why">{doc.purpose}</p> : null}
-            {doc.where !== "" ? <p class="hf-where">写す所: {doc.where}</p> : null}
-            {x.files.length > 0 ? (
-              <ul class="hf-files">
-                {x.files.map((f) => (
-                  <li key={f.fileId}>
-                    {thumbs.has(f.fileId) ? <img src={thumbs.get(f.fileId)} alt="" /> : <span class="hf-file-ic" aria-hidden="true">{f.mime === "application/pdf" ? "PDF" : "写"}</span>}
-                    <span>{fileLabel(f)}</span>
-                    {f.sentAt !== undefined ? (
-                      <span class="hf-sent-mark">送りました</span>
-                    ) : (
-                      <button type="button" class="hf-link" onClick={() => void drop(doc.id, f)}>
-                        外す
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            <div class="hf-doc-actions">
-              <label class={`hf-btn${busy === doc.id ? " busy" : ""}`}>
-                <input type="file" accept="image/*" capture="environment" disabled={busy !== null} onChange={(e) => void attach(doc.id, (e.currentTarget as HTMLInputElement).files).then(() => ((e.target as HTMLInputElement).value = ""))} />
-                撮る
-              </label>
-              <label class="hf-btn">
-                <input type="file" accept="image/jpeg,image/png,image/heic,image/heif,application/pdf" multiple disabled={busy !== null} onChange={(e) => void attach(doc.id, (e.currentTarget as HTMLInputElement).files).then(() => ((e.target as HTMLInputElement).value = ""))} />
-                ファイルを選ぶ
-              </label>
-              {after ? null : (
-                <>
-                  <button type="button" class={`hf-state${x.status === "notAvailable" ? " on" : ""}`} aria-pressed={x.status === "notAvailable"} onClick={() => setDoc(doc.id, { status: x.status === "notAvailable" ? "blank" : "notAvailable", files: x.files })}>
-                    手元にない
-                  </button>
-                  <button type="button" class={`hf-state${x.status === "later" ? " on" : ""}`} aria-pressed={x.status === "later"} onClick={() => setDoc(doc.id, { status: x.status === "later" ? "blank" : "later", files: x.files })}>
-                    あとで送る
-                  </button>
-                </>
-              )}
-            </div>
-            {busy === doc.id ? <p class="hf-note">暗号化して送っています…</p> : null}
-            {err[doc.id] !== undefined && err[doc.id] !== "" ? <p class="hf-err">{err[doc.id]}</p> : null}
-            {mode === "preview" ? <p class="hf-note">（見本では、選んだファイルは送られません）</p> : null}
-          </section>
-        );
-      })}
+      ) : null}
+      <div class="hf-doc-actions">
+        <label class={`hf-btn${busy ? " busy" : ""}`}>
+          <input type="file" accept="image/*" capture="environment" disabled={busy} onChange={(e) => void attach((e.currentTarget as HTMLInputElement).files).then(() => ((e.target as HTMLInputElement).value = ""))} />
+          撮る
+        </label>
+        <label class="hf-btn">
+          <input type="file" accept="image/jpeg,image/png,image/heic,image/heif,application/pdf" multiple disabled={busy} onChange={(e) => void attach((e.currentTarget as HTMLInputElement).files).then(() => ((e.target as HTMLInputElement).value = ""))} />
+          ファイルを選ぶ
+        </label>
+        {after ? null : (
+          <>
+            <button type="button" class={`hf-state${x.status === "notAvailable" ? " on" : ""}`} aria-pressed={x.status === "notAvailable"} onClick={() => setDoc(doc.id, { status: x.status === "notAvailable" ? "blank" : "notAvailable", files: x.files })} data-hf-doc-none>
+              手元にない
+            </button>
+            <button type="button" class={`hf-state${x.status === "later" ? " on" : ""}`} aria-pressed={x.status === "later"} onClick={() => setDoc(doc.id, { status: x.status === "later" ? "blank" : "later", files: x.files })} data-hf-doc-later>
+              あとで送る
+            </button>
+          </>
+        )}
+      </div>
+      {busy ? <p class="hf-note">暗号化して送っています…</p> : null}
+      {err !== "" ? <p class="hf-err">{err}</p> : null}
+      {x.status === "later" && !after ? <p class="hf-note">用意できたら、お答えを送った後でも、期限（{dateText(p.expiresAt)}）までにこのページから送れます。</p> : null}
+      {mode === "preview" ? <p class="hf-note">（見本では、選んだファイルは送られません）</p> : null}
+    </section>
+  );
+}
+
+/** 答えを送った後の「書類を送る」の一覧（撮る前の注意は上に1回） */
+function Documents({ p, d, mode, setDoc, upload, removeFile, thumbs }: { p: QuestionsPacket; d: Pick<Draft, "documents" | "gates">; mode: FormProps["mode"]; setDoc: (id: string, x: DraftDocument) => void; upload: FormProps["upload"]; removeFile: FormProps["removeFile"]; thumbs: Map<string, string> }) {
+  return (
+    <div class="hf-docs">
+      <p class="hf-lead">写真か PDF で送ってください。書類はこの端末の中で暗号化して送り、担当の FP だけが開けます。</p>
+      <PhotoTips kind={null} open={false} />
+      {p.documents
+        .filter((doc) => docShown(d, doc))
+        .map((doc) => (
+          <DocCard key={doc.id} p={p} doc={doc} d={d} mode={mode} thumbs={thumbs} upload={upload} removeFile={removeFile} setDoc={setDoc} after level="list" />
+        ))}
     </div>
   );
 }
 
-const secTitle = (p: QuestionsPacket, id: string) => (id === START_SECTION ? START_TITLE : (p.sections.find((s) => s.id === id)?.title ?? ""));
+/** 分岐の問い（分岐の画面と、「手元にない」にした書類の画面） */
+function GateQuestions({ p, d, gates, onPick, first }: { p: QuestionsPacket; d: Draft; gates: readonly GateId[]; onPick: (g: GateId, v: number) => void; first: boolean }) {
+  return (
+    <>
+      {gates.map((g, i) => {
+        const t = gateText(p, g);
+        const val = d.gates[g];
+        const top = first && i === 0;
+        const H = top ? "h2" : "h3";
+        return (
+          <div class={`hf-field${top ? "" : " more"}`} key={g} data-hf-gate={g}>
+            <H class={top ? "hf-q" : "hf-q2"}>{t.label}</H>
+            <p class="hf-lead">{t.lead}</p>
+            <div class={`hf-gate-opts n${Math.min(3, t.options.length)}`}>
+              <Choices compact name={t.label} options={t.options} value={val === undefined ? null : String(val)} onPick={(v) => onPick(g, Number(v))} />
+            </div>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+const secTitle = (p: QuestionsPacket, id: string) => (id === START_SECTION ? START_TITLE : id === DOCS_SECTION ? "書類のかわりにうかがったこと" : (p.sections.find((s) => s.id === id)?.title ?? ""));
 
 type Row = { readonly i: number; readonly section: string; readonly gate: GateId } | { readonly i: number; readonly section: string; readonly f: ScreenField };
 
@@ -384,7 +435,8 @@ type Row = { readonly i: number; readonly section: string; readonly gate: GateId
 function rowsOf(list: readonly Screen[]): { section: string; rows: Row[] }[] {
   const out: { section: string; rows: Row[] }[] = [];
   list.forEach((s, i) => {
-    const rows: Row[] = s.kind === "gate" ? s.gates.map((gate) => ({ i, section: s.section, gate })) : s.kind === "item" ? s.fields.map((f) => ({ i, section: s.section, f })) : [];
+    const section = s.kind === "gate" || s.kind === "item" || s.kind === "document" ? s.section : "";
+    const rows: Row[] = [...screenGates(s).map((gate) => ({ i, section, gate })), ...screenFields(s).map((f) => ({ i, section, f }))];
     for (const r of rows) {
       const last = out[out.length - 1];
       if (last !== undefined && last.section === r.section) last.rows.push(r);
@@ -450,22 +502,23 @@ function AnswerList({ p, list, d, itemOf, onFix }: { p: QuestionsPacket; list: r
   );
 }
 
-function DocumentList({ p, d, onFix }: { p: QuestionsPacket; d: Draft; onFix?: () => void }) {
-  if (p.documents.length === 0) return null;
+function DocumentList({ p, d, onFix }: { p: QuestionsPacket; d: Draft; onFix?: (id: string) => void }) {
+  const docs = p.documents.filter((x) => docShown(d, x));
+  if (docs.length === 0) return null;
   return (
     <section class="hf-rv-sec">
-      <h3>書類</h3>
+      <h3>{DOCS_TITLE}</h3>
       <dl>
-        {p.documents.map((x) => {
+        {docs.map((x) => {
           const v = d.documents[x.id];
           const t = v === undefined || v.status === "blank" ? "（まだ）" : v.status === "attached" ? `付けました（${v.files.map((f) => f.label).join("・")}）` : v.status === "notAvailable" ? "手元にない" : "あとで送る";
           return (
             <div class={`hf-rv${v === undefined || v.status === "blank" ? " todo" : ""}`} key={x.id}>
-              <dt>{x.title}</dt>
+              <dt>{customerDocTitle(x)}</dt>
               <dd>
                 {t}
                 {onFix !== undefined ? (
-                  <button type="button" class="hf-link" onClick={onFix}>
+                  <button type="button" class="hf-link" onClick={() => onFix(x.id)}>
                     直す
                   </button>
                 ) : null}
@@ -610,7 +663,10 @@ function MoreDocuments({ props, answeredAt, initial, thumbs }: { props: FormProp
     }
   };
   const style = p.office.color !== null ? ({ "--hf-accent": p.office.color } as Record<string, string>) : undefined;
-  const title = (id: string) => p.documents.find((x) => x.id === id)?.title ?? id;
+  const title = (id: string) => {
+    const x = p.documents.find((y) => y.id === id);
+    return x === undefined ? id : customerDocTitle(x);
+  };
   return (
     <div class={`hf${mode === "preview" ? " preview" : ""}`} style={style} data-hf-screen="more">
       <Office p={p} />
@@ -621,7 +677,7 @@ function MoreDocuments({ props, answeredAt, initial, thumbs }: { props: FormProp
           {answeredAt !== null ? `お答えは${new Date(answeredAt).toLocaleDateString("ja-JP", { month: "long", day: "numeric" })}に送っていただいています。` : "お答えは送っていただいています。"}
           ありがとうございました。書類は、回答の期限（{dateText(p.expiresAt)}）まで、このページから何回でも送れます。
         </p>
-        <Documents p={p} d={m} mode={mode} thumbs={thumbs} upload={props.upload} removeFile={props.removeFile} after setDoc={(id, x) => setM((cur) => ({ ...cur, documents: { ...cur.documents, [id]: x } }))} />
+        <Documents p={p} d={{ documents: m.documents, gates: {} }} mode={mode} thumbs={thumbs} upload={props.upload} removeFile={props.removeFile} setDoc={(id, x) => setM((cur) => ({ ...cur, documents: { ...cur.documents, [id]: x } }))} />
         {err !== null ? (
           <p class="hf-err" role="alert">
             {err}
@@ -702,6 +758,7 @@ export function HearingForm(props: FormProps): JSX.Element {
     if (typeof window !== "undefined" && typeof window.print === "function") window.print();
   }, [printing]);
   const update = (f: (cur: Draft) => Draft) => setD(f);
+  const pickGate = (g: GateId, v: number) => update((cur) => ({ ...cur, gates: { ...cur.gates, [g]: v } }));
   const setAnswer = (key: string, index: number | undefined, a: DraftAnswer | undefined) => {
     setProblem(null);
     update((cur) => {
@@ -726,23 +783,23 @@ export function HearingForm(props: FormProps): JSX.Element {
   };
   /** 答えの無い問いに「あとで」を付ける（答えのある欄はそのまま） */
   const markLater = () => {
-    if (screen.kind !== "item") return;
-    const fields = screen.fields;
+    const fields = screenFields(screen);
+    if (fields.length === 0) return;
     update((cur) => {
       const answers = { ...cur.answers };
       for (const f of fields) if (!fieldAnswered(cur, f) && answers[draftKey(f.key, f.index)] === undefined) answers[draftKey(f.key, f.index)] = { status: "later" };
       return { ...cur, answers };
     });
   };
-  const pendingAt = list.findIndex((x) => (x.kind === "item" && x.fields.some((f) => !fieldAnswered(d, f))) || (x.kind === "gate" && x.gates.some((g) => d.gates[g] === undefined)));
+  const pendingAt = list.findIndex((x) => screenFields(x).some((f) => !fieldAnswered(d, f)) || screenGates(x).some((g) => d.gates[g] === undefined));
   const next = () => {
-    if (screen.kind === "item") {
+    if (screen.kind === "item" || screen.kind === "document") {
       for (const f of screen.fields) {
         const ageAnswered = f.alt.includes(AGE_KEY) && d.answers[draftKey(AGE_KEY, f.index)] !== undefined && d.answers[draftKey(AGE_KEY, f.index)]?.status !== "later";
         for (const k of fieldKeys(f)) {
           const it = itemOf.get(k);
           const msg = it === undefined ? null : inputProblem(it, d.answers[draftKey(k, f.index)], ageAnswered);
-          if (msg !== null) return setProblem(screen.fields.length > 1 ? `${(itemOf.get(f.key) as WebItem).label}: ${msg}` : msg);
+          if (msg !== null) return setProblem(screen.fields.length > 1 || screen.kind === "document" ? `${(itemOf.get(f.key) as WebItem).label}: ${msg}` : msg);
         }
       }
       // 空のまま「次へ」は「あとで」と同じ（確かめの画面で「まだの問い」に出る。続きからは飛ばす）
@@ -888,6 +945,7 @@ export function HearingForm(props: FormProps): JSX.Element {
   let showLater = false;
   if (screen.kind === "intro") {
     nextLabel = d.started ? "続きから" : "はじめる";
+    const summary = coverSummary(p, d);
     body = (
       <div class="hf-intro">
         <h1>{officeName(p)}からのご質問です</h1>
@@ -901,6 +959,7 @@ export function HearingForm(props: FormProps): JSX.Element {
           <li>
             回答の期限: <b>{dateText(p.expiresAt)}</b>まで
           </li>
+          {summary !== null ? <li data-hf-cover-summary>{summary}</li> : null}
         </ul>
         <ul class="hf-notes">
           {p.notes.map((n) => (
@@ -929,20 +988,7 @@ export function HearingForm(props: FormProps): JSX.Element {
     body = (
       <div>
         <p class="hf-sec">{secTitle(p, screen.section)}</p>
-        {screen.gates.map((g, i) => {
-          const t = gateText(p, g);
-          const val = d.gates[g];
-          const H = i === 0 ? "h2" : "h3";
-          return (
-            <div class={`hf-field${i === 0 ? "" : " more"}`} key={g} data-hf-gate={g}>
-              <H class={i === 0 ? "hf-q" : "hf-q2"}>{t.label}</H>
-              <p class="hf-lead">{t.lead}</p>
-              <div class={`hf-gate-opts n${Math.min(3, t.options.length)}`}>
-                <Choices compact name={t.label} options={t.options} value={val === undefined ? null : String(val)} onPick={(v) => update((cur) => ({ ...cur, gates: { ...cur.gates, [g]: Number(v) } }))} />
-              </div>
-            </div>
-          );
-        })}
+        <GateQuestions p={p} d={d} gates={screen.gates} onPick={pickGate} first />
       </div>
     );
   } else if (screen.kind === "item") {
@@ -966,11 +1012,31 @@ export function HearingForm(props: FormProps): JSX.Element {
         ) : null}
       </div>
     );
-  } else if (screen.kind === "documents") {
+  } else if (screen.kind === "document") {
+    // 書類は1通1画面（0190）。「手元にない」なら、その書類で分かるはずだった問いをこの画面で聞く
+    const doc = p.documents.find((x) => x.id === screen.id) as PacketDocument;
+    const docs = list.filter((x) => x.kind === "document");
+    const none = (d.documents[doc.id]?.status ?? "blank") === "notAvailable";
     body = (
       <div>
-        <h2 class="hf-q">送っていただきたい書類</h2>
-        <Documents p={p} d={d} mode={mode} thumbs={thumbs} upload={props.upload} removeFile={props.removeFile} setDoc={(id, x) => update((cur) => ({ ...cur, documents: { ...cur.documents, [id]: x } }))} />
+        <p class="hf-sec">
+          送っていただきたい書類{docs.length > 1 ? `（${docs.indexOf(screen) + 1}/${docs.length}）` : ""}
+        </p>
+        <DocCard p={p} doc={doc} d={d} mode={mode} thumbs={thumbs} upload={props.upload} removeFile={props.removeFile} setDoc={(id, x) => update((cur) => ({ ...cur, documents: { ...cur.documents, [id]: x } }))} level="screen" />
+        {none ? (
+          <div class="hf-instead" data-hf-instead>
+            <p class="hf-pre">{insteadLine(doc, screen, p)}</p>
+            <GateQuestions p={p} d={d} gates={screen.gates} onPick={pickGate} first={false} />
+            {screen.fields.map((f) => (
+              <Question key={`${screenId(screen)}:${draftKey(f.key, f.index)}`} p={p} d={d} f={f} itemOf={itemOf} setAnswer={setAnswer} first={false} showHead now={now} mode={mode} />
+            ))}
+            {problem !== null ? (
+              <p class="hf-err" role="alert">
+                {problem}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         {unsentFiles(d).length > 0 ? (
           <div class="hf-pre" data-hf-early>
             <p>付けた書類は、最後にお答えと一緒に送ります。お答えの前に、書類だけ先に送ることもできます。</p>
@@ -984,14 +1050,14 @@ export function HearingForm(props: FormProps): JSX.Element {
             {earlyErr}
           </p>
         ) : null}
-        <p class="hf-note">書類は、お答えを送った後でも、期限までに同じリンクから送れます。</p>
+        {docs.indexOf(screen) === docs.length - 1 ? <p class="hf-note">書類は、お答えを送った後でも、期限までに同じリンクから送れます。</p> : null}
       </div>
     );
   } else {
     // 確かめの画面
     nextLabel = sending ? "送っています…" : "この内容で送る";
-    const pending = list.reduce((n, s) => n + (s.kind === "item" ? s.fields.filter((f) => !fieldAnswered(d, f)).length : 0), 0);
-    const docsPending = p.documents.filter((x) => (d.documents[x.id]?.status ?? "blank") === "blank").length;
+    const pending = list.reduce((n, s) => n + screenFields(s).filter((f) => !fieldAnswered(d, f)).length, 0);
+    const docsPending = p.documents.filter((x) => docShown(d, x) && (d.documents[x.id]?.status ?? "blank") === "blank").length;
     body = (
       <div class="hf-review">
         <h2 class="hf-q">お答えの確かめ</h2>
@@ -1009,7 +1075,7 @@ export function HearingForm(props: FormProps): JSX.Element {
           </div>
         ) : null}
         <AnswerList p={p} list={list} d={d} itemOf={itemOf} onFix={(i) => (setBack(true), go(i))} />
-        <DocumentList p={p} d={d} onFix={() => (setBack(true), go(list.findIndex((s) => s.kind === "documents")))} />
+        <DocumentList p={p} d={d} onFix={(id) => (setBack(true), go(list.findIndex((s) => s.kind === "document" && s.id === id)))} />
         {sendErr !== null ? (
           <p class="hf-err" role="alert">
             {sendErr}
