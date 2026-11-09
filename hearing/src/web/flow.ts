@@ -1,5 +1,5 @@
 // Web のヒアリング（0125・0138）のお客さまの画面の流れ: 1画面に小さなまとまり（人ごと・お住まい・お金）を並べ、答えに合わせて問いを飛ばす。
-// - 手軽さが主軸（通常の票が主）: 人ごとに「生年月・年齢・性別」「働き方・年収」、お住まいは「住まいの形・家賃かローン」、お金は「預貯金・投資」を同じ画面に。
+// - 手軽さが主軸（シンプルの票が主）: 人ごとに「生年月・年齢・性別」「働き方・年収」、お住まいは「住まいの形・家賃かローン」、お金は「預貯金・投資」を同じ画面に。
 //   詳細の票の自営業の方は「事業の所得・確定申告の仕方」を同じ画面に。ご両親は1人1画面（ご健在か・お年・同居。詳細の票は介護が始まっているかも。お金〔仕送り・援助・介護の費用〕はもう1画面）、
 //   受け取る予定の相続・贈与は時期・額と1画面、お子さまの生年月は全員を1画面に。まとめ方は GROUPS・ACROSS の表（詳細の票にも同じ表が効く）
 // - 分岐の問い（配偶者の方がいるか・お子さまの人数・住宅ローンの本数・保険の件数・ご両親のことを聞いてよいか）は答えの一覧に入れず、決まった答えに写す
@@ -12,11 +12,12 @@
 // - 書類（0190）: 1通1画面。頼んだ書類で分かる問い（PacketDocument.covers）は問いの画面に出さない。お客さまがその書類を「手元にない」にしたときだけ、
 //   その書類の画面で聞く（分岐の問いが要れば一緒に）。「あとで送る」「まだ」のときは聞かない（FP に書類の状態が届く）。
 //   配偶者の方の書類は、配偶者の方が「いらっしゃらない」なら出さない
+// - ご相談したいこと（0192）: FP が話題を用意したら、話題をいくつでも選べ、自由記述も同じ画面で書ける。選んだ話題は答えの topics で届く
 import type { Answer, RawValue } from "../answers.ts";
 import { yearLabel } from "../definition.ts";
 import { OWNER_CUSTOMER, OWNER_LABEL, templateOf } from "./documents.ts";
 import type { DocumentAnswer, DocumentFile, DocumentFiles, GateAnswers, GateId, PacketDocument, QuestionsPacket, RequestedDocument, WebItem } from "./packet.ts";
-import { ANSWERS_FORMAT, DOCUMENTS_FORMAT, FILLED_ON, WEB_FORMAT_VERSION, type AnswersPacket, type DocumentsPacket } from "./packet.ts";
+import { ANSWERS_FORMAT, CONSULT_KEY, DOCUMENTS_FORMAT, FILLED_ON, WEB_FORMAT_VERSION, type AnswersPacket, type DocumentsPacket } from "./packet.ts";
 
 /** 下書きの1つの答え（later は「あとで」。送るときは未回答） */
 export interface DraftAnswer {
@@ -48,6 +49,8 @@ export interface Draft {
   readonly documents: Readonly<Record<string, DraftDocument>>;
   /** 最初の画面の「はじめる」を押したか */
   readonly started: boolean;
+  /** ご相談したいことで選んだ話題（0192。選んでいなければ省く） */
+  readonly topics?: readonly string[];
 }
 
 export const draftKey = (key: string, index?: number): string => `${key}#${String(index ?? 0)}`;
@@ -80,7 +83,7 @@ export const DOCS_TITLE = "書類";
 export const START_SECTION = "@start";
 export const START_TITLE = "はじめに";
 /** 同意の直後に出す問い */
-const FIRST_KEYS = ["hs.consult.topics"];
+const FIRST_KEYS = [CONSULT_KEY];
 
 export const screenId = (s: Screen): string => (s.kind === "item" ? `item:${draftKey(s.key, s.index)}` : s.kind === "gate" ? `gate:${s.gates.join("+")}` : s.kind === "document" ? `doc:${s.id}` : s.kind);
 
@@ -461,8 +464,9 @@ export function screenOf(list: readonly Screen[], key: string): Screen | undefin
   return list.find((s) => s.kind === "item" && s.fields.some((f) => fieldKeys(f).includes(key))) ?? list.find((s) => s.kind === "document" && s.covers.includes(key));
 }
 
-/** 問いに答えたか（答えの欄か、別の答え方のどれかに「あとで」でない答えがある） */
+/** 問いに答えたか（答えの欄か、別の答え方のどれかに「あとで」でない答えがある。ご相談したいことは話題を選んでいれば答えた） */
 export function fieldAnswered(d: Draft, f: ScreenField): boolean {
+  if (f.key === CONSULT_KEY && (d.topics ?? []).length > 0) return true;
   return fieldKeys(f).some((k) => {
     const a = d.answers[draftKey(k, f.index)];
     return a !== undefined && a.status !== "later";
@@ -521,7 +525,10 @@ export function answersOf(p: QuestionsPacket, d: Draft, submittedAt: Date): Answ
     const status = x === undefined ? "blank" : x.status === "attached" && x.files.length === 0 ? "blank" : x.status;
     return { id: doc.id, status };
   });
-  return { format: ANSWERS_FORMAT, version: WEB_FORMAT_VERSION, requestId: p.requestId, submittedAt: submittedAt.toISOString(), answers: out, gates: gateAnswersOf(p, d), documents };
+  // ご相談したいことの話題（問いに載る言葉だけ・問いの並びで。ご相談したいことの画面が出ているときだけ）
+  const consult = p.items.find((i) => i.key === CONSULT_KEY);
+  const picked = consult?.topics === undefined || !screens(p, d).some((s) => screenFields(s).some((f) => f.key === CONSULT_KEY)) ? [] : consult.topics.filter((t) => (d.topics ?? []).includes(t));
+  return { format: ANSWERS_FORMAT, version: WEB_FORMAT_VERSION, requestId: p.requestId, submittedAt: submittedAt.toISOString(), answers: out, gates: gateAnswersOf(p, d), documents, ...(picked.length > 0 ? { topics: picked } : {}) };
 }
 
 /** 送る分岐の答え: 今の答えで出る分岐の問いのうち、答えたものだけ（人数を「0」と答えたことも FP に届ける。0158） */
@@ -648,10 +655,18 @@ export function progress(p: QuestionsPacket, list: readonly Screen[], at: number
   return { stages, current, pct };
 }
 
-/** 問いの画面の数と所要時間の目安（夫婦と子2人の世帯で数える。前の答えが無い問いは出す。1画面15秒・書類1通1分ほど） */
-export function estimate(p: QuestionsPacket): { readonly screens: number; readonly minutes: number } {
+/**
+ * 問いの画面の数と所要時間の目安（前の答えが無い問いは出す。1画面15秒・書類1通1分ほど）。お客さまの最初の画面・FP の画面の発行のボタン・
+ * 案内文の所要時間は、どれもこの数（0192。数え方を1つにする）。家族の数は、渡さなければ夫婦と子2人（住宅ローン1本・保険2件・ご両親を答える）で数える。
+ * FP の画面は、開いている世帯の人数（gates）でも数えて添える
+ */
+export function estimate(p: QuestionsPacket, gates?: GateAnswers): { readonly screens: number; readonly minutes: number } {
   const base = initialDraft(p);
-  const d: Draft = { ...base, gates: { spouse: 1, child: Math.min(2, axisCount(p, "child")), loan: Math.min(1, axisCount(p, "loan")), policy: Math.min(2, axisCount(p, "policy")), parent: 1, ...base.gates } };
+  const std: Partial<Record<GateId, number>> = { spouse: 1, child: Math.min(2, axisCount(p, "child")), loan: Math.min(1, axisCount(p, "loan")), policy: Math.min(2, axisCount(p, "policy")), parent: 1 };
+  const own: Partial<Record<GateId, number>> = {};
+  for (const [g, n] of Object.entries(gates ?? {})) if (typeof n === "number") own[g as GateId] = g === "spouse" || g === "parent" ? n : Math.min(n, axisCount(p, g));
+  // 前回の値から分かる数（お客さまの画面の初めの答え）が、渡した家族の数より先。ご両親のことを「答えない」（0）は、お客さまがその場で選ぶので渡した方を使う
+  const d: Draft = { ...base, gates: { ...std, ...own, ...base.gates, ...(own.parent === 0 ? { parent: 0 } : {}) } };
   const n = screens(p, d).filter((s) => s.kind === "consent" || s.kind === "gate" || s.kind === "item").length;
   return { screens: n, minutes: Math.max(1, Math.round((n * 15) / 60 + p.documents.length)) };
 }
@@ -661,5 +676,6 @@ export function readDraft(v: unknown): Draft | null {
   if (typeof v !== "object" || v === null) return null;
   const o = v as Record<string, unknown>;
   if (o.v !== 1 || typeof o.gates !== "object" || o.gates === null || typeof o.answers !== "object" || o.answers === null || typeof o.documents !== "object" || o.documents === null) return null;
-  return { v: 1, gates: o.gates as Draft["gates"], answers: o.answers as Draft["answers"], documents: o.documents as Draft["documents"], started: o.started === true };
+  const topics = Array.isArray(o.topics) ? o.topics.filter((t): t is string => typeof t === "string").slice(0, 40) : [];
+  return { v: 1, gates: o.gates as Draft["gates"], answers: o.answers as Draft["answers"], documents: o.documents as Draft["documents"], started: o.started === true, ...(topics.length > 0 ? { topics } : {}) };
 }

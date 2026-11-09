@@ -1,13 +1,13 @@
 // 7. 住まい・ローン（0052）: 住まい（賃貸・持ち家・家賃なし。住み始めと住み終わりは時点の部品）、持ち家の建て方・税・修繕・名義、
 // 購入の予定と住宅資金の援助、住み終わりの後（そのまま持つ・売る）と譲渡所得の税の額（0053）、持ち家の評価、相続する家への切り替え、
 // 住宅ローンとほかのローン（housingLoans.ts）。お金の行（補助金・売電・修繕）は moneyRows.ts の区画を後ろに置く（stages/index.ts）
-import type { Debt, Household, Residence, YearSeries } from "../../../engine/types.ts";
+import type { Box, Debt, Household, Residence, YearSeries } from "../../../engine/types.ts";
 import { addMonths } from "../../levers.ts";
 import { afterWrite, byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { confirmedBox, mutate, newId, presetBasis, standardBox, wrapBasis, type WorkingHousehold } from "../household.ts";
 import { rentBasis, rentStandard } from "../fill.ts";
 import { debtorsWithoutShare, dropProvisionalEvent, PRINCIPAL_ESTIMATE, principalKey, purchaseMonth, sharesByLoans, withProvisionalHousing } from "../housingCredit.ts";
-import { applyPropertyTaxEstimate, hasAutoTaxStages, isAutoTax as isAutoBox, purchaseLoans, rememberDroppedTaxStage } from "../propertyTax.ts";
+import { applyPropertyTaxEstimate, hasAutoTaxStages, isAutoTax as isAutoBox, pctOf, purchaseLoans, rememberDroppedTaxStage, taxGuide } from "../propertyTax.ts";
 import { buildingPriceOf, CUSTOM_KEYS, customBuildNotes, isCustomBuild, landLoansOf, landMonthOf, startCustomBuild, stopCustomBuild } from "../customBuild.ts";
 import { applyOwnedHomeTax, ownedHomeTaxEstimate, startsOwnedHomeTax } from "../ownedHomeTax.ts";
 import { AS_OF_FOLLOWS, clearLand, clearPurchaseBasis, landOfShare, shareOfLand, dropAsOfFollow, followFromMonth, isCurrentOwned, landAmount, landEntered, markPurchaseBasis, ownedValueMode, putLand, totalOf } from "../ownedHomeValue.ts";
@@ -550,8 +550,8 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
     );
   } else if (r.kind === "own") {
     fields.push(
-      // 今住んでいる持ち家は、買った値段（合計・うち土地・うち建物）を標準に出す（評価額は推計。0176）
-      ...(byPrice ? ownedPriceFields(wh, r, k) : []),
+      // 今住んでいる持ち家は、買った値段（合計・うち土地）を標準に出す（評価額は推計。0176）。うち建物の値段は中枠「持ち家の評価」（0176 の追記 2026-11-09）
+      ...(byPrice ? ownedPriceFields(wh, r, k).filter((f) => !f.key.endsWith("/valuation/building")) : []),
       // 購入の予定の持ち家は、建て方を購入の種類で決める（欄を重ねない。0052 の追記 2026-11-03）
       ...(buying ? [] : [startsOwnedHomeTax(styleField(r, k), r.id)]),
       yenBox({
@@ -664,7 +664,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
         key: `${k}/taxes`,
         title: "固定資産税・都市計画税",
         summary: "納税通知書の額。入れなければ持ち家の評価の元から目安（推定）",
-        note: "毎年の固定資産税と都市計画税の合計です。納税通知書の額が分かれば入れます。入れなければ、買った値段（土地と建物）・買った年月・建物の構造・建った年から、固定資産税の評価額の目安（土地は価格の7割・建物は価格の6割）に住宅用地の特例・新築の軽減・税率を当てた目安を出し、3年ごとの評価替えで建物の分が下がる段も入れます",
+        note: `毎年の固定資産税と都市計画税の合計です。納税通知書の額が分かれば入れます。入れなければ、買った値段（土地と建物）・買った年月・建物の構造・建った年から、固定資産税の評価額の目安（土地は価格の${pctOf(taxGuide.landRatio)}・建物は新築のとき価格の${pctOf(taxGuide.buildingRatio)}で、固定資産評価基準の経年減点補正率で下げる）に住宅用地の特例・新築の軽減・税率を当てた目安を出し、3年ごとの評価替えで建物の分が下がる段も入れます`,
         level: "detail",
         band: true,
         fields: taxFields,
@@ -1547,7 +1547,24 @@ export const MARKET_VALUE_HELP =
   "・土地: 前提条件の「土地の上昇率（年）」で毎年増減します（入れていなければ物価上昇率）\n" +
   "例: 2016年に建った木造の家を、今の時価3,500万円（土地の割合50%）で入れると、建物1,750万円は毎年約146万円ずつ下がり、2034年（築18年）に約640万円で止まります。土地1,750万円は、増減が年1%なら10年後に約1,930万円です";
 
-/** 今住んでいる持ち家の買った値段の欄（合計・うち土地・うち建物。標準。0176）。どちらの組み合わせ（合計と土地・土地と建物・合計と建物）でも入れられる */
+/** 万円の読み（1万円単位に丸める） */
+const manText = (v: number): string => formatYen(Math.round(v / 10000) * 10000, "man");
+
+/**
+ * 固定資産税の1行（標準の土地の欄の下。0176 の追記 2026-11-09）: 推定のまま（目安のボタンの値・買った値段からの推定）なら「固定資産税の目安（推定） 年 約…万円」
+ * （千円単位）、FP が入れた額ならその額（推定の印なし）。「わからない」は代わりの値。欄が無い・空・該当なしなら出さない
+ */
+export function propertyTaxLine(r: Residence): string | null {
+  const b = r.propertyTax?.annual as (Box<number> & { substitute?: Box<number> }) | undefined;
+  if (b === undefined || b.state === "notApplicable") return null;
+  const box = b.state === "unknown" ? b.substitute : b;
+  const v = box?.value;
+  if (box === undefined || typeof v !== "number") return null;
+  if (box.state === "estimated" || b.state === "unknown") return `固定資産税の目安（推定） 年 約${formatYen(Math.round(v / 1000) * 1000, "man")}万円`;
+  return `固定資産税 年 ${formatYen(v, "man")}万円`;
+}
+
+/** 今住んでいる持ち家の買った値段の欄（合計・うち土地を標準に、うち建物を中枠「持ち家の評価」に。0176）。どちらの組み合わせ（合計と土地・土地と建物・合計と建物）でも入れられる */
 function ownedPriceFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef[] {
   const find = byId(residences, r.id);
   const kv = `${k}/valuation`;
@@ -1598,13 +1615,23 @@ function ownedPriceFields(wh: WorkingHousehold, r: Residence, k: string): FieldD
     kind: "yen",
     basis: "once",
     optional: true,
-    help: "買った値段のうちの土地の分です（売買契約書・重要事項説明書の内訳など）。建物の値段が分かるなら、建物の値段を入れても構いません（合計−建物を土地とします）。分からなければ空欄のまま、合計の目安の割合で分けます",
+    help: "買った値段のうちの土地の分です（売買契約書・重要事項説明書の内訳など）。土地と建物の値段で分かるなら、「固定資産税・名義などを入れる」で開く「うち建物の値段」でも入れられます（合計は土地＋建物）。分からなければ空欄のまま、合計の目安の割合で分けます",
+    // 欄の下に、建物の値段（合計−土地。空欄なら目安の割合で分けた額）と固定資産税の目安を読みとして出す（0176 の追記 2026-11-09）
     get: (w) => {
       const x = cur(w);
       if (x === undefined) return { value: null };
-      if (landEntered(x)) return { value: landAmount(x, shareSetting(w)) };
-      const est = landAmount(x, shareSetting(w));
-      return { value: null, hint: est === null ? null : `空欄なら合計の${pctOfShare(w)}（約${formatYen(Math.round(est / 10000) * 10000, "man")}万円）で計算します` };
+      const t = totalOf(x);
+      const l = landAmount(x, shareSetting(w));
+      const entered = landEntered(x);
+      const lines: string[] = [];
+      if (t !== null && l !== null) {
+        const b = t - l;
+        const building = b <= 0 ? "建物の値段 0円" : `建物の値段 約${manText(b)}万円`;
+        lines.push(entered ? `${building}（合計−土地）` : `空欄なら合計の${pctOfShare(w)}（約${manText(l)}万円）で計算します。${building}`);
+      }
+      const tax = propertyTaxLine(x);
+      if (tax !== null) lines.push(tax);
+      return { value: entered ? l : null, hint: lines.length === 0 ? null : lines.join("\n") };
     },
     set: (w, v) =>
       mutate(w, (h, req) => {
@@ -1628,11 +1655,11 @@ function ownedPriceFields(wh: WorkingHousehold, r: Residence, k: string): FieldD
     key: `${kv}/building`,
     item: "residence.valuation",
     label: "うち建物の値段",
-    level: "simple",
+    level: "detail",
     kind: "yen",
     basis: "once",
     optional: true,
-    help: "買った値段のうちの建物の分です（消費税を含む）。土地の値段を入れていれば合計を土地＋建物に、入れていなければ合計−建物を土地とします",
+    help: "買った値段のうちの建物の分です（消費税を含む）。土地と建物の値段で入れるときに使います: 土地の値段を入れていれば合計を土地＋建物に、入れていなければ合計−建物を土地とします。標準では、土地の欄の下に合計−土地の額を出しています",
     get: (w) => {
       const x = cur(w);
       const t = x === undefined ? null : totalOf(x);
@@ -1688,6 +1715,8 @@ function ownedValuationGroup(wh: WorkingHousehold, r: Residence, k: string): Gro
   const est = valuationHint(wh, r);
   const fields: FieldDef[] = [
     valueBasisField(wh, r, kv),
+    // 土地と建物の値段で入れたい人の欄（標準は合計とうち土地。0176 の追記 2026-11-09）
+    ...(market ? [] : ownedPriceFields(wh, r, k).filter((f) => f.key.endsWith("/valuation/building"))),
     ...(market
       ? [
           yenBox({ key: `${kv}/value`, item: "residence.valuation", label: "評価額", level: "detail", basis: "once", find, path: ["valuation", "value"], help: MARKET_VALUE_HELP, hint: (w) => valuationHint(w, r) }),

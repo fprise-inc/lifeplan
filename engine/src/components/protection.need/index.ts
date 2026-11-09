@@ -37,7 +37,11 @@
 //     相続する人が持ち続ける。0173）
 //   - 配偶者がいない（遺族が子）ときは、亡くなった人の器（不動産など）から相続した子の名で入る収入（家賃・売却の代金など）も遺族の収入に数える
 //     （子の税は前と同じく数えない近似）
-// - 改訂8（0170 の追記）: 亡くなる人の器の物（収益不動産・貸していない不動産など）を売った後に亡くなる年は、その年の表を求め直す（前は最初の年の
+// - 改訂8（0173 の追記・利用者の判断 2026-11-09）: 亡くなった人の車で万一のときの扱いを入れていない物は、場面の計算で手放す（expense.car 改訂6。
+//   買い替え・維持費が止まり、亡くなる前に組んだ自動車ローンの返済だけ遺族が続ける）。最初の年の表を後の年に使うと、その間に組んだローンの返済が
+//   抜けるので、亡くなった後の買い替えが変わる車（扱いを入れていない亡くなる人の車と、死亡で「止める」「割合を変える」を入れた車）のローンを
+//   亡くなる月までにいくつ組んだかでも表を分ける（その年にもう1回計算する）
+// - 改訂9（0170 の追記）: 亡くなる人の器の物（収益不動産・貸していない不動産など）を売った後に亡くなる年は、その年の表を求め直す（前は最初の年の
 //   表のまま。売った年の翌年に亡くなる年で、相続する人が売った想定の譲渡所得の税を遺族の税に数え、その年に亡くなる想定の額より多く出た）
 import {
   addMonths,
@@ -51,6 +55,8 @@ import {
   yen,
   type AccountInput,
   type AnnualRow,
+  type CarInput,
+  type CarOutput,
   type DebtInput,
   type Flow,
   type FlowsResult,
@@ -117,7 +123,7 @@ const DEATH_FORMULAS: ReadonlySet<string> = new Set([
   "insurance.policy.death",
   "insurance.policy.incomeProtection",
 ]);
-/** 物件・貸していない不動産などの売却の代金（亡くなる人の器の物を売った月で、場面の表を求め直す。改訂8） */
+/** 物件・貸していない不動産などの売却の代金（亡くなる人の器の物を売った月で、場面の表を求め直す。改訂9） */
 const SALE_FORMULAS: ReadonlySet<string> = new Set(["asset.realEstate.sale", "asset.heldSale.sale"]);
 const SKIP_ROWS: ReadonlySet<string> = new Set([
   // 保険の受け取り（加入中の死亡保険金として並べる）・整理資金（要求の値）
@@ -155,9 +161,10 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
   id: "protection.need",
   title: "必要保障額の推移（積み上げ方式・逆算方式）",
   contract: "1.2",
-  revision: 8,
+  revision: 9,
   requires: {
     "plan.cashflow": ">=1 <2",
+    "expense.car": ">=1 <2",
     "debt.schedule": ">=1 <2",
     "insurance.policy": ">=1 <2",
     "pension.survivor": ">=1 <2",
@@ -179,6 +186,8 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
     "relation.to",
     "relation.parent",
     "relation.child",
+    "car.owner",
+    "car.onContingency",
     "debt.debtors",
     "debt.creditLife",
     "debt.start",
@@ -309,6 +318,28 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
     };
     const ageMonthOf = (z: string, years: number) => addMonths(parseYm((members.find((x) => x.id === z) as MemberInput).birth.birthYearMonth), years * 12);
 
+    // 亡くなった後の買い替えが変わる車の自動車ローンを借りた月（亡くなる人ごと。改訂8）
+    const cars = ctx.list<Pick<CarInput, "id" | "owner" | "onContingency">>("car");
+    const carLoans = new Map<string, Map<string, MonthIndex[]>>();
+    const loanStartsOf = (owner: string): Map<string, MonthIndex[]> => {
+      let m = carLoans.get(owner);
+      if (m === undefined) {
+        m = new Map();
+        for (const l of ctx.call<CarOutput>("expense.car", { member: owner }).loans) if (l.start !== undefined) m.set(l.object, [...(m.get(l.object) ?? []), parseYm(l.start)]);
+        carLoans.set(owner, m);
+      }
+      return m;
+    };
+    const changedLoans = (X: string): MonthIndex[] => {
+      const out: MonthIndex[] = [];
+      for (const c of cars) {
+        const on = c.onContingency;
+        const changes = on === undefined ? c.owner === X : on.mode !== "continue" && (on.kinds ?? ["death"]).includes("death");
+        if (changes) out.push(...(loanStartsOf(c.owner).get(c.id) ?? []));
+      }
+      return out;
+    };
+
     const targets = req.members ?? members.filter((m) => m.kind === "self" || m.kind === "spouse").map((m) => m.id);
     const out: { member: string; survivor?: string; years: Year[] }[] = [];
     for (const X of targets) {
@@ -319,6 +350,7 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
       const to = Math.min(req.toYear ?? yearOf(ageMonthOf(X, startAge)), endYear);
       const years: Year[] = [];
       let survivorId: string | undefined;
+      const xLoans = changedLoans(X);
       for (let y = from; y <= to; y++) {
         const D = (y === baseYear ? base : monthIndex(y, 1)) as MonthIndex;
         const xLeaves = xm.leaves === null ? null : ctx.time.resolve(xm.leaves);
@@ -355,17 +387,19 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
         // 逆算方式で目標の年齢が期間の終わりより後なら、その年齢まで年ごとの収支を作る（改訂6）
         const until = method === "reverse" && req.reverseUntilAge !== undefined ? ageMonthOf(Z, req.reverseUntilAge) : H;
         const last = (until > H ? (until > end ? end : until) : H) as MonthIndex;
-        // 場面の表: 遺族（配偶者）が同じで、亡くなる人の器の物（物件など）を売った数が同じ間は、最初に亡くなる年の表を使う（改訂8）。
+        // 場面の表: 遺族（配偶者）と、亡くなる月までに組んだ（亡くなった後の買い替えが変わる車の）自動車ローンの数（改訂8）と、
+        // 亡くなる人の器の物（物件など）を売った数（改訂9）が同じ間は、最初に亡くなる年の表を使う。
         // 売った後に亡くなる年は、その年の表を求め直す（最初の年の表では相続する人が売り、売った年の翌年からの譲渡所得の税が遺族の税に入る。
         // その年に亡くなる想定では、売ったのは亡くなる人で、死亡の年までの所得の税として数えない）
-        const sold = (list: readonly MonthIndex[]) => list.filter((m) => m <= D).length;
+        const upTo = (list: readonly MonthIndex[]) => list.filter((m) => m <= D).length;
+        const keyOf = (sales: readonly MonthIndex[]) => `${X}|${spouse ?? ""}|${upTo(xLoans)}|${upTo(sales)}`;
         const known = salesOf.get(X);
-        let w = known === undefined ? undefined : worlds.get(`${X}|${spouse ?? ""}|${sold(known)}`);
+        let w = known === undefined ? undefined : worlds.get(keyOf(known));
         if (w === undefined) {
           w = worldOf(X, D, spouse);
           const list = known ?? w.sales;
           salesOf.set(X, list);
-          worlds.set(`${X}|${spouse ?? ""}|${sold(list)}`, w);
+          worlds.set(keyOf(list), w);
         }
         const world = w;
         const deathYear = yearOf(D);

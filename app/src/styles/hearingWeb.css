@@ -98,3 +98,35 @@ html.doc-side .scrim { right: var(--dv-w); }
 }
 /* 入力のホームの見出しの「確かめの一覧」「書類のお願い」「受け取った書類」の間 */
 .ih-check { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+
+/* 0192: FP の画面のまとまり（ひな形・聞く／聞かないの要約・範囲でも答えられる・独自の質問を直す・ご相談の話題・押せないボタン・送られた内容） */
+.wb .btn:disabled, .wr .btn:disabled, .hs-panel .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.wb .btn.primary:disabled { background: var(--base-bg); border-color: var(--line); color: var(--ink-2); }
+.wb-customs { display: grid; gap: 2px; border-top: 1px dashed var(--card-line); padding-top: 6px; }
+.wb-summary { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; font-size: 0.88rem; }
+.wb-summary b { color: var(--ink-2); font-weight: 700; margin-right: 2px; }
+.wb-sec-names { color: var(--ink-2); max-width: 22em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-range { font-size: 0.8rem; color: var(--ink-2); }
+.wb-custom select, .wb-custom-edit select { font: inherit; border: 1.5px solid var(--field); border-radius: 6px; padding: 3px 6px; }
+.wb-custom-edit { flex-basis: 100%; grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) auto; background: var(--base-bg); border-radius: 6px; padding: 6px; }
+.wb-custom-edit input { border: 1.5px solid var(--field); border-radius: 6px; padding: 4px 8px; font: inherit; }
+.wb-choices { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.wb-choice { display: inline-flex; gap: 4px; align-items: center; }
+.wb-choice input { width: 12em; border: 1.5px solid var(--field); border-radius: 6px; padding: 3px 6px; font: inherit; }
+.wb-topics { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(17em, 1fr)); gap: 4px 12px; }
+.wb-topics li { display: flex; gap: 4px; align-items: center; }
+.wb-topics input, .wb-topic-add input { flex: 1; min-width: 0; border: 1.5px solid var(--field); border-radius: 6px; padding: 3px 8px; font: inherit; }
+.wb-topic-add { display: flex; gap: 6px; }
+.wr-what { margin: 0; }
+.wr-answers { display: grid; gap: 6px; border-top: 1px dashed var(--card-line); padding-top: 6px; }
+.wr-answers-list.hf { min-height: 0; max-width: 640px; background: var(--card); border: 1px solid var(--card-line); border-radius: 8px; }
+.hh-hearing { margin-left: 6px; border-color: var(--good); color: var(--good); }
+.ih-hearing-note { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; margin: 6px 0 0; padding: 6px 10px; border-radius: 8px; background: var(--good-bg); font-size: 0.9rem; }
+/* 送られた内容の印刷: その一覧だけを刷る */
+@media print {
+  body.printing-answers * { visibility: hidden; }
+  body.printing-answers .wr-answers, body.printing-answers .wr-answers * { visibility: visible; }
+  body.printing-answers .wr-answers { position: absolute; left: 0; top: 0; width: 100%; }
+  body.printing-answers .wr-answers .link-btn { display: none; }
+}
+.hs-kind.answered { border-color: var(--good); color: var(--good); }

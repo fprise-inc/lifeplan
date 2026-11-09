@@ -295,7 +295,7 @@ describe("貸していない不動産", () => {
     expect(Math.min(...paid)).toBe(2031);
   });
 
-  it("空き家・別荘の固定資産税の目安は、建った年を入れると建物を古くなった分だけ下げる（下限20%）", () => {
+  it("空き家・別荘の固定資産税の目安は、建った年を入れると建物を古くなった分だけ下げる（経年減点補正率の下限0.20）", () => {
     const h = held("vacantHouse");
     const id = h.id;
     let wh = h.wh;
@@ -303,13 +303,13 @@ describe("貸していない不動産", () => {
     expect(fresh).toBe(heldEstateTax({ value: 10_000_000, valueYear: 2026, kind: "vacantHouse", landShare: 0.3 }).value);
     wh = set(wh, `sav/${id}/builtYear`, 1980, "savings");
     const old = cost(wh, id)!.amount;
-    // 築40年を超えた木造は下限（新築の評価額の20%）
+    // 築25年を超えた木造は経年減点補正率の下限0.20（新築の0.80の25%。2024年度の再建築費評点補正率1.11を掛けても下限の前の額より上がるので据え置き。0181）
     expect(old.value).toBe(heldEstateTax({ value: 10_000_000, valueYear: 2026, kind: "vacantHouse", landShare: 0.3, builtYear: 1980, firstYear: 2026 }).value);
     expect(old.value as number).toBeLessThan(fresh);
-    expect((old as { estimate?: { basis?: string } }).estimate?.basis).toContain("新築の評価額の20%に下げた");
-    // 式: 土地 L＝1,000万円×30%×70%、建物 B＝1,000万円×70%×60%×20%
+    expect((old as { estimate?: { basis?: string } }).estimate?.basis).toContain("新築の評価額の25%に下げた（固定資産評価基準の経年減点補正率 0.2）");
+    // 式: 土地 L＝1,000万円×30%×70%、建物 B＝1,000万円×70%×40%×25%
     const L = 10_000_000 * 0.3 * 0.7;
-    const B = 10_000_000 * 0.7 * 0.6 * 0.2;
+    const B = 10_000_000 * 0.7 * 0.4 * 0.25;
     expect(old.value).toBe(Math.round((L / 6 * 0.014 + (L / 3) * 0.003 + B * 0.017) / 100) * 100);
     // 土地（更地）には建物の欄を出さない
     const land = held("vacantLand");

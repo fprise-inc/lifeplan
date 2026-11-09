@@ -31,7 +31,7 @@ function relayFor() {
 }
 
 /** 簡易の票に源泉徴収票（ご本人）とねんきん定期便（ご本人）、詳細の票なら年金の問いも */
-function selection(kind: "first" | "detail" = "first") {
+function selection(kind: "simple" | "detail" = "simple") {
   const wh = blank();
   const s0 = templateSelection(kind, wh);
   const d1 = documentFromTemplate(s0, "withholding", defaultOwner(s0, "withholding"));
@@ -41,7 +41,7 @@ function selection(kind: "first" | "detail" = "first") {
 
 describe("FP の画面: 書類の持ち主と、書類で分かる問いの言い方", () => {
   it("人の書類はご本人から（同じ書類をもう一度足すと配偶者の方）。持ち主を変えると見出しの括弧も変わる", () => {
-    const s0 = templateSelection("first", blank());
+    const s0 = templateSelection("simple", blank());
     expect(defaultOwner(s0, "withholding")).toBe("self");
     expect(defaultOwner(s0, "deposits")).toBeUndefined();
     expect(defaultOwner(s0, "insurancePolicy")).toBeUndefined();

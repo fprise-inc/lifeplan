@@ -5,6 +5,8 @@
 // - 答えの受け皿は Excel と同じ（filled-sheet の回答の一覧 Answer[]。依頼番号）。記入の年月（hs.meta.filledOn）は送った月をページが入れる
 // - 0.2（0158）: 分岐の問いの答え（配偶者の方がいるか・お子さまの人数など。gates）を答えに足した。書類は答えと別の「書類の送り」
 //   （DocumentsPacket。何回でも）で届き、答えには書類ごとの状態（付けた・手元にない・あとで送る・まだ）だけを入れる
+// - 0.2 のまま足した任意の欄（0192）: ご相談したいことの話題（選び方・問い・答えの topics）、独自の質問の答えの形（はい・いいえ／選択肢）、
+//   ひな形の名前（選び方の name。FP の画面だけ）。どれも省けば前と同じ。知らない欄は読む側が無視する
 import type { Answer, RawValue } from "../answers.ts";
 import { axisOf, itemByKey, type Axis, type SheetDefinition, type SheetItem } from "../definition.ts";
 import { canonicalJson } from "../layout.ts";
@@ -23,6 +25,15 @@ export const CUSTOM_MAX = 10;
 export const CUSTOM_LABEL_MAX = 120;
 export const CUSTOM_HELP_MAX = 300;
 export const CUSTOM_ANSWER_MAX = 1000;
+/** 独自の質問の選択肢（答えの形が choice のとき）の数と1つの長さ */
+export const CUSTOM_CHOICES_MAX = 8;
+export const CUSTOM_CHOICE_LABEL_MAX = 40;
+/** ご相談したいこと（話題を選べる項目。0192） */
+export const CONSULT_KEY = "hs.consult.topics";
+/** ご相談したいことの既定の話題（事務所の既定値・依頼ごとに、足す・外す・言い換えるができる） */
+export const DEFAULT_TOPICS: readonly string[] = ["毎月のやりくり", "教育費", "住まい・住宅ローン", "老後のお金・年金", "保険の見直し", "資産運用・NISA・iDeCo", "税金・確定申告", "親のこと", "働き方の変化"];
+export const TOPICS_MAX = 20;
+export const TOPIC_LABEL_MAX = 30;
 /** 文の答え（自由記述）の上限 */
 export const TEXT_ANSWER_MAX = 2000;
 
@@ -40,10 +51,17 @@ export interface SelectedSection {
   readonly items: readonly SelectedItem[];
 }
 
+/** 独自の質問の答えの形（省略は自由記述。0192） */
+export type CustomAnswer = "text" | "yesNo" | "choice";
+
 export interface CustomQuestion {
   readonly key: string;
   readonly label: string;
   readonly help?: string;
+  /** 答えの形（省略は text）。答えはどれも FP 用のメモに入る */
+  readonly answer?: CustomAnswer;
+  /** 選択肢（answer が choice のとき。2〜8つ） */
+  readonly choices?: readonly string[];
 }
 
 /** 頼む書類1通 */
@@ -78,6 +96,10 @@ export interface WebSelection {
   readonly sections: readonly SelectedSection[];
   readonly custom: readonly CustomQuestion[];
   readonly documents: readonly RequestedDocument[];
+  /** ご相談したいことの話題（お客さまが選ぶ。省略・空は自由記述だけ。0192） */
+  readonly topics?: readonly string[];
+  /** どのひな形から作ったか（シンプル・詳細・見直し・カスタムの名前。FP の画面の依頼の一覧に出すだけ。問い・指紋に入れない） */
+  readonly name?: string;
 }
 
 export const FP_SECTION = { id: "fp", title: "担当の FP からの質問" } as const;
@@ -105,6 +127,8 @@ export interface WebItem {
   readonly confirm?: boolean;
   /** 「該当なし」のボタンの言葉（省略は「当てはまらない」。null は出さない: 分岐の問いで決まる欄） */
   readonly naLabel?: string | null;
+  /** ご相談したいことの選べる話題（この項目だけ。いくつでも選べ、答えの topics で届く。0192） */
+  readonly topics?: readonly string[];
 }
 
 export interface OfficeFace {
@@ -170,6 +194,8 @@ export interface AnswersPacket {
   /** 分岐の問いの答え（0.2） */
   readonly gates: GateAnswers;
   readonly documents: readonly DocumentAnswer[];
+  /** ご相談したいことで選んだ話題（問いの topics の言葉のまま。選ばなければ省く。0192） */
+  readonly topics?: readonly string[];
 }
 
 /** お客さまから届く書類の送り状（暗号化する前の中身。答えと別に、期限まで何回でも。0158） */
@@ -227,6 +253,11 @@ export function checkSelection(def: SheetDefinition, s: WebSelection): string[] 
     if (!/^ext\.office\.q[a-z0-9]{4,12}$/.test(c.key)) errs.push(`独自の質問のキーの形が違う: ${c.key}`);
     if (c.label.trim() === "" || c.label.length > CUSTOM_LABEL_MAX) errs.push(`独自の質問の文が空か長すぎる: ${c.key}`);
     if ((c.help ?? "").length > CUSTOM_HELP_MAX) errs.push(`独自の質問の説明が長すぎる: ${c.key}`);
+    if (c.answer !== undefined && !["text", "yesNo", "choice"].includes(c.answer)) errs.push(`独自の質問の答えの形が違う: ${c.key}`);
+    if (c.answer === "choice") {
+      const ch = (c.choices ?? []).map((x) => x.trim());
+      if (ch.length < 2 || ch.length > CUSTOM_CHOICES_MAX || ch.some((x) => x === "" || x.length > CUSTOM_CHOICE_LABEL_MAX) || new Set(ch).size !== ch.length) errs.push(`独自の質問の選択肢は2〜${CUSTOM_CHOICES_MAX}つ（空・重なり・長すぎは不可）: ${c.key}`);
+    }
     if (!seen.has(c.key)) errs.push(`独自の質問が並びに無い: ${c.key}`);
   }
   if (s.documents.length > DOCUMENT_LIMITS.documents) errs.push(`書類は${DOCUMENT_LIMITS.documents}通まで`);
@@ -237,6 +268,9 @@ export function checkSelection(def: SheetDefinition, s: WebSelection): string[] 
     if (d.title.trim() === "" || d.title.length > 80 || d.purpose.length > 200 || d.where.length > 200) errs.push(`書類の文が空か長すぎる: ${d.id}`);
     if (d.owner !== undefined && !DOCUMENT_OWNERS.includes(d.owner)) errs.push(`書類の持ち主が違う: ${d.id}`);
   }
+  const topics = s.topics ?? [];
+  if (topics.length > TOPICS_MAX) errs.push(`ご相談したいことの話題は${TOPICS_MAX}まで`);
+  if (topics.some((t) => t.trim() === "" || t !== t.trim() || t.length > TOPIC_LABEL_MAX) || new Set(topics).size !== topics.length) errs.push(`ご相談したいことの話題が空か長すぎるか重なっている（${TOPIC_LABEL_MAX}字まで）`);
   if (seen.size === 0 && s.documents.length === 0) errs.push("聞く項目も頼む書類もありません");
   return errs;
 }
@@ -246,7 +280,8 @@ export function checkSelection(def: SheetDefinition, s: WebSelection): string[] 
  * 持ち主（0190）は選んだ書類だけ入れる（持ち主の無い書類の指紋は前と同じ）
  */
 export async function selectionDigest(s: WebSelection): Promise<string> {
-  return sha256Hex(canonicalJson({ web: WEB_FORMAT_VERSION, base: s.base, sections: s.sections, custom: s.custom.map((c) => c.key), documents: s.documents.map((d) => (d.owner === undefined ? [d.id, d.kind] : [d.id, d.kind, d.owner])) }));
+  // 独自の質問の答えの形（0192）は、自由記述でないときだけ入れる（自由記述の指紋は前と同じ）。話題・ひな形の名前は言い回しなので入れない
+  return sha256Hex(canonicalJson({ web: WEB_FORMAT_VERSION, base: s.base, sections: s.sections, custom: s.custom.map((c) => (c.answer === undefined || c.answer === "text" ? c.key : [c.key, c.answer])), documents: s.documents.map((d) => (d.owner === undefined ? [d.id, d.kind] : [d.id, d.kind, d.owner])) }));
 }
 
 /**
@@ -402,21 +437,44 @@ export interface PacketOptions {
   readonly prefill?: readonly Answer[];
 }
 
+/** 独自の質問の選択肢（はい・いいえ／FP が書いた選択肢。値も言葉にして、FP 用のメモにそのまま入るように）。自由記述は undefined */
+export function customChoices(c: CustomQuestion): { value: string; label: string }[] | undefined {
+  if (c.answer === "yesNo") return [{ value: "はい", label: "はい" }, { value: "いいえ", label: "いいえ" }];
+  if (c.answer === "choice") return (c.choices ?? []).map((x) => ({ value: x.trim(), label: x.trim() }));
+  return undefined;
+}
+
+/** ご相談したいことの話題を選べるときの問いの言葉（0192） */
+export const CONSULT_TOPICS_LABEL = "ご相談したいことは何ですか（いくつでも選べます）";
+
 /** 選び方から問いを作る（選び方は checkSelection で確かめてから） */
 export async function buildPacket(def: SheetDefinition, s: WebSelection, o: PacketOptions): Promise<QuestionsPacket> {
+  const body = packetBody(def, s, o);
+  return { ...body, digest: await selectionDigest(s) };
+}
+
+/**
+ * 選び方から問いの中身を作る（指紋は空の文字。同期で作れるので、FP の画面の数え方〔問いの画面の数・所要時間〕に使う）。
+ * 選び方は checkSelection で確かめてから
+ */
+export function packetBody(def: SheetDefinition, s: WebSelection, o: PacketOptions): QuestionsPacket {
   const errs = checkSelection(def, s);
   if (errs.length > 0) throw new Error(`E_WEB_SELECTION: ${errs.join("・")}`);
   const items = itemByKey(def);
   const custom = new Map(s.custom.map((c) => [c.key, c]));
+  const topics = (s.topics ?? []).filter((t) => t.trim() !== "");
   const out: WebItem[] = [];
   for (const sec of s.sections) {
     for (const it of sec.items) {
       const c = custom.get(it.key);
       if (c !== undefined) {
-        out.push({ key: c.key, label: c.label, type: "text", maxLength: CUSTOM_ANSWER_MAX, states: [], section: sec.id, ...(c.help !== undefined && c.help !== "" ? { guide: c.help } : {}) });
+        const choices = customChoices(c);
+        out.push({ key: c.key, label: c.label, ...(choices !== undefined ? { type: "choice" as const, choices } : { type: "text" as const, maxLength: CUSTOM_ANSWER_MAX }), states: [], section: sec.id, ...(c.help !== undefined && c.help !== "" ? { guide: c.help } : {}) });
         continue;
       }
-      const base = webItem(def, items.get(it.key) as SheetItem, sec.id);
+      const plain = webItem(def, items.get(it.key) as SheetItem, sec.id);
+      // ご相談したいこと: 話題を選べるなら、話題（いくつでも）と自由記述（任意）を同じ画面で聞く（0192）
+      const base = it.key === CONSULT_KEY && topics.length > 0 ? { ...plain, label: CONSULT_TOPICS_LABEL, topics } : plain;
       if (it.mode !== "confirm") {
         out.push(base);
         continue;
@@ -442,7 +500,7 @@ export async function buildPacket(def: SheetDefinition, s: WebSelection, o: Pack
     version: WEB_FORMAT_VERSION,
     requestId: o.requestId,
     sheet: { id: def.sheetId, version: def.version },
-    digest: await selectionDigest(s),
+    digest: "",
     expiresAt: o.expiresAt,
     office: o.office,
     title: def.intro.title,
@@ -477,7 +535,10 @@ export function importDefinition(def: SheetDefinition, s: WebSelection): SheetDe
   // 範囲の答えの元の金額の項目（範囲だけを選んだとき、取り込みが範囲を金額に読むために要る。答えは来ないので空欄のまま）
   for (const i of def.items) if (keep.has(i.key) && i.rangeOf !== undefined) keep.add(i.rangeOf);
   const items: SheetItem[] = def.items.filter((i) => keep.has(i.key));
-  for (const c of s.custom) items.push({ key: c.key, label: c.label, type: "text", maxLength: CUSTOM_ANSWER_MAX, states: [], inputItems: [], destination: "memo", addedIn: def.version, retiredIn: null });
+  for (const c of s.custom) {
+    const choices = customChoices(c);
+    items.push({ key: c.key, label: c.label, ...(choices !== undefined ? { type: "choice" as const, choices } : { type: "text" as const, maxLength: CUSTOM_ANSWER_MAX }), states: [], inputItems: [], destination: "memo", addedIn: def.version, retiredIn: null });
+  }
   const sections = def.sections.map((sec) => ({ ...sec, groups: sec.groups.map((g) => ({ ...g, items: g.items.filter((k) => keep.has(k)) })).filter((g) => g.items.length > 0) })).filter((sec) => sec.groups.length > 0);
   if (s.custom.length > 0) sections.push({ id: FP_SECTION.id, title: FP_SECTION.title, groups: [{ id: "fp", items: s.custom.map((c) => c.key) }] });
   const rows = def.layout.rows.filter((r) => r.kind !== "item" || keep.has(r.key));
@@ -500,6 +561,8 @@ export interface CheckedAnswers {
   readonly documents: DocumentAnswer[];
   /** 分岐の問いの答え（選んだ項目に関わる問いだけ） */
   readonly gates: GateAnswers;
+  /** ご相談したいことで選んだ話題（選び方の話題に載るものだけ。並びは選び方の順。0192） */
+  readonly topics: string[];
   readonly submittedAt: string;
   /** 捨てた答え（形が違う・選んでいない項目・範囲の外など）の数 */
   readonly dropped: number;
@@ -564,6 +627,19 @@ export function checkAnswers(json: unknown, def: SheetDefinition, s: WebSelectio
     }
     gates[g as GateId] = n;
   }
+  // ご相談したいことの話題: ご相談したいことを聞いたときだけ・選び方の話題に載る言葉だけ（言い換えた話題は言い換えた言葉で届く。0192）
+  let topics: string[] = [];
+  if (json.topics !== undefined) {
+    const asked = s.sections.some((x) => x.items.some((i) => i.key === CONSULT_KEY));
+    const known = s.topics ?? [];
+    const list = Array.isArray(json.topics) && json.topics.length <= TOPICS_MAX ? (json.topics as unknown[]) : null;
+    if (list === null) dropped++;
+    else {
+      const ok = new Set(list.filter((t): t is string => typeof t === "string" && asked && known.includes(t)));
+      dropped += list.length - ok.size;
+      topics = known.filter((t) => ok.has(t));
+    }
+  }
   const docIds = new Set(s.documents.map((d) => d.id));
   const documents: DocumentAnswer[] = [];
   for (const d of json.documents as unknown[]) {
@@ -573,7 +649,7 @@ export function checkAnswers(json: unknown, def: SheetDefinition, s: WebSelectio
     }
     documents.push({ id: d.id, status: d.status as DocumentAnswer["status"] });
   }
-  return { answers, documents, gates, submittedAt: json.submittedAt.slice(0, 40), dropped };
+  return { answers, documents, gates, topics, submittedAt: json.submittedAt.slice(0, 40), dropped };
 }
 
 export interface CheckedDocuments {

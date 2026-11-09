@@ -56,15 +56,16 @@ describe("土地の値段と割合の読み替え（計算エンジンの切り�
 });
 
 describe("持ち家（今住んでいる）の標準の欄", () => {
-  it("標準では評価額を聞かず、買った年月（住み始め）・買った値段（合計）・うち土地・うち建物を出す", () => {
+  it("標準では評価額を聞かず、買った年月（住み始め）・買った値段（合計）・うち土地を出す（うち建物は中枠「持ち家の評価」。0176 の追記 2026-11-09）", () => {
     const wh = fresh();
     expect(fieldOf(wh, "/from").label).toBe("買った年月（住み始め）");
     expect(fieldOf(wh, "/from").level).toBe("simple");
     expect(fieldOf(wh, "/valuation/value").label).toBe("買った値段（土地と建物の合計）");
     expect(fieldOf(wh, "/valuation/value").level).toBe("simple");
     expect(fieldOf(wh, "/valuation/land").level).toBe("simple");
-    expect(fieldOf(wh, "/valuation/building").level).toBe("simple");
+    expect(fieldOf(wh, "/valuation/building").level).toBe("detail");
     const html = panel(wh, "simple");
+    expect(html).not.toContain(`id="${fieldDomId(fieldOf(wh, "/valuation/building").key)}"`);
     expect(html).not.toContain(">評価額<");
     expect(html).not.toContain("評価の入れ方");
     expect(html).not.toContain("土地の割合");
@@ -193,7 +194,7 @@ describe("「固定資産税・名義などを入れる」で開く欄", () => {
     const val = gs.find((g) => g.title === "持ち家の評価")!;
     expect(val.band).toBe(true);
     expect(val.summary).toContain("推計");
-    expect(val.fields.map((f) => f.label)).toEqual(["評価の入れ方", "建物の構造", "建物が建った年"]);
+    expect(val.fields.map((f) => f.label)).toEqual(["評価の入れ方", "うち建物の値段", "建物の構造", "建物が建った年"]);
     expect(maybeField(wh, "/valuation/landShare")).toBeUndefined();
     expect(maybeField(wh, "/valuation/asOf")).toBeUndefined();
   });

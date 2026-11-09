@@ -13,7 +13,7 @@ export const ENGINE_DIST = join(REPO_DIR, "engine", "dist");
 const sheet = (id: string, version: number): SheetDefinition => OFFICIAL_SHEETS.find((d) => d.sheetId === id && d.version === version) as SheetDefinition;
 /** basic 版1（廃止。書き出さないが、配ったシートを取り込める） */
 export const basic = (): SheetDefinition => sheet("basic", 1);
-/** basic 版2（簡易版。初回の前の軽い票） */
+/** basic 版2（簡易版。シンプル: 大まかに聞く軽い票） */
 export const simple = (): SheetDefinition => sheet("basic", 2);
 /** full 版1（廃止。basic 版1 と同じ項目。書き出さないが、配ったシートを取り込める） */
 export const full = (): SheetDefinition => sheet("full", 1);
