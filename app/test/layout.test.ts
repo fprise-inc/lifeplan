@@ -20,6 +20,7 @@ import { roles } from "../src/workspace/roles.ts";
 import { ageMarkOf, cardMetrics, DEFAULT_DISPLAY_SETTINGS, toggleMetric, verdictMetrics } from "../src/workspace/settings.ts";
 import { metricsOf } from "../src/workspace/plans/compare.ts";
 import { modelHousehold, preview } from "./helpers.ts";
+import { markedMeetings } from "./meetingsFixture.ts";
 
 const NOW = "2026-10-17T10:00:00.000Z";
 const MARK = "MEMO-MARK-layout";
@@ -29,7 +30,8 @@ function openDemo(): { wh: WorkingHousehold; cat: Catalog } {
   const self = roles(req).find((r) => r.key === "self")!.member;
   const demo = demoHousehold("salariedCoupleTwoKids")!;
   const re = demo.reemployment!;
-  const wh = fromRequest(req, { memo: [MARK], postRetirement: { [self.id]: { ...re, type: re.type as "contract" } } });
+  // 面談の履歴（0182）にも目印を入れる（提示層の部品には出ない）
+  const wh = { ...fromRequest(req, { memo: [MARK], postRetirement: { [self.id]: { ...re, type: re.type as "contract" } } }), meetings: markedMeetings(MARK) };
   return { wh, cat: buildCatalog(wh, self.id, demo) };
 }
 

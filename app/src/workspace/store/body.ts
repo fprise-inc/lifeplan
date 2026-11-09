@@ -116,6 +116,7 @@
 //   （前の版の記録は欄が無い＝延長の上限は発行の日時から90日・分岐の答えは無し。受け取った答えの書類の欄は状態だけを使う）
 //   0.73 から: Web のヒアリングの依頼の記録 hearing.web の1件の選び方 record.selection に、ご相談したいことの話題 topics・ひな形の名前 name と、
 //   独自の質問 custom[] の答えの形 answer（text・yesNo・choice）・choices を、受け取った答え received に選んだ話題 topics を足した（どれも任意。0192）
+//   0.74 から: 本文の区画 meetings（面談の履歴。0182。下の meetings を見る）。足すだけ。本体の変換の段は版だけを書き換える
 //   0.72 から: Web のヒアリングの依頼の記録 hearing.web の1件の受け取った書類のファイル files[] に、見た日時 viewedAt・自分のフォルダに保存した
 //   日時 savedAt（0191）。足すだけ。本体の変換の段は版だけを書き換える（前の版の記録は欄が無い＝まだ見ていない・まだ保存していない）
 //   0.71 から: Web のヒアリングの依頼の記録の選び方の書類 record.selection.documents[] に、書類の持ち主 owner（self・spouse。省略は選んでいない。
@@ -148,6 +149,10 @@
 // - documents: 書類の読み取りの記録（0148。0.68 から。読んでいない世帯は区画を作らない）。書類1通ごとに、読んだ値の候補（当て先・値・
 //   元の場所〔伏せ字の後の文字〕・確からしさ・承認・直した・入れないの結果）・新しい物の候補・照合だけの値・番号を消した数。元のファイル・
 //   ファイル名・個人番号などの番号・名前は持たない。読むときは documents/log.ts の readDocumentLog で形を確かめ、番号を消し直す
+// - meetings: 面談の履歴（0182。0.74 から。記録の無い世帯は区画を作らない）。面談1回ずつに、日・お客さまと一緒に見てよい欄 shared
+//   （話したこと・決めたこと・次までにやること・既定では保険の意向）・FP だけが見る欄 fpOnly（FP のメモ・FP だけにした保険の意向）・
+//   つないだ控えの ID・書いた人と直した人（事務所のメンバーの内部ID）。名前・連絡先は持たない。読むときは meetings/meetings.ts の
+//   readMeetings で形を確かめる（形の合わない記録は捨てる）
 // - extDefinitions / ext: 拡張領域（0011 の4。読んだものをそのまま書き戻し、失わない）
 //   公式の項目 ext.official.livingParts: 基本生活費の内訳を分けた行の額（0109。input/livingParts.ts。作業中の世帯の livingParts と行き来する。
 //   形式の版は上げない。知らないアプリも拡張領域のまま書き戻す）
@@ -178,12 +183,13 @@ import type { ExtValue } from "../../../../report/src/index.ts";
 import { readLog, type StatementLog } from "../../../../statement/src/index.ts";
 import { hasMigrations, readMigrationLog, withoutOrphanCompatibility, type MigrationLog } from "./migrations.ts";
 import { hasDocuments, readDocumentLog } from "../documents/log.ts";
+import { meetingSection, readMeetings, type MeetingLog } from "../meetings/meetings.ts";
 import type { DocumentLog } from "../documents/types.ts";
 import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.73";
+export const BODY_FORMAT_VERSION = "0.74";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
@@ -204,7 +210,7 @@ export interface SavedWorkspace {
 
 export interface HouseholdBody {
   meta?: Record<string, unknown>;
-  household: Omit<WorkingHousehold, "proposals" | "hearing" | "snapshots" | "statements" | "migrations" | "documents">;
+  household: Omit<WorkingHousehold, "proposals" | "hearing" | "snapshots" | "statements" | "migrations" | "documents" | "meetings">;
   proposals: StoredProposal[];
   hearing: HearingLog | null;
   /** 控え（0.3 から。無ければ区画ごと省く） */
@@ -215,6 +221,8 @@ export interface HouseholdBody {
   migrations?: MigrationLog;
   /** 書類の読み取りの記録（0.68 から。読んでいなければ区画ごと省く。0148） */
   documents?: DocumentLog;
+  /** 面談の履歴（0.74 から。記録が無ければ区画ごと省く。0182） */
+  meetings?: MeetingLog;
   workspace: SavedWorkspace;
   display: StoredDisplay;
   extDefinitions: Record<string, unknown>;
@@ -233,7 +241,8 @@ export interface BodyState {
 export const EMPTY_CARRY: BodyState["carry"] = { extDefinitions: {}, ext: {} };
 
 export function bodyObject(s: BodyState): HouseholdBody {
-  const { proposals, hearing, snapshots, statements, migrations, documents, livingParts: _parts, extValues, ...household } = s.wh;
+  const { proposals, hearing, snapshots, statements, migrations, documents, meetings, livingParts: _parts, extValues, ...household } = s.wh;
+  const meetingLog = meetingSection(meetings);
   void _parts;
   // 内訳を分けた行の額は拡張領域に（0109。合計が今の額と同じ物だけ）
   const extra = extWithExtensions(extWithParts(s.carry, partsToSave(s.wh)), extValues);
@@ -245,6 +254,7 @@ export function bodyObject(s: BodyState): HouseholdBody {
     ...(statements !== undefined && hasStatements(statements) ? { statements } : {}),
     ...(migrations !== undefined && hasMigrations(migrations) ? { migrations } : {}),
     ...(documents !== undefined && hasDocuments(documents) ? { documents } : {}),
+    ...(meetingLog !== null ? { meetings: meetingLog } : {}),
     workspace: s.workspace,
     display: s.display,
     extDefinitions: extra.extDefinitions,
@@ -293,8 +303,9 @@ export function fromBody(json: string): BodyState {
   if (!isObj(raw) || !isObj(raw.household) || !isObj(raw.household.request)) throw new Error("E_BODY_SHAPE");
   const b = fromStoredBody(raw);
   if (!isObj(b.household) || !isObj(b.household.request)) throw new Error("E_BODY_SHAPE");
-  const { snapshots: _inHousehold, statements: _st, migrations: _mg, documents: _dc, ...h } = b.household as unknown as Partial<WorkingHousehold> & { request: EngineRequest };
+  const { snapshots: _inHousehold, statements: _st, migrations: _mg, documents: _dc, meetings: _mt, ...h } = b.household as unknown as Partial<WorkingHousehold> & { request: EngineRequest };
   void _inHousehold;
+  void _mt;
   void _st;
   void _mg;
   void _dc;
@@ -346,6 +357,9 @@ export function fromBody(json: string): BodyState {
     const documents = readDocumentLog(b.documents);
     if (hasDocuments(documents)) wh.documents = documents;
   }
+  // 面談の履歴（0.74 から。0182）: 形の合わない記録は捨てる。空なら欄を持たない
+  const meetings = readMeetings(b.meetings);
+  if (meetings.length > 0) wh.meetings = meetings;
   const fixed = withoutOrphanCompatibility(wh);
   if (fixed !== wh) {
     wh.request = fixed.request;

@@ -10,6 +10,7 @@ import type { Proposal } from "../plans/plans.ts";
 import type { HearingLog } from "../hearing/sheet.ts";
 import type { StatementLog } from "../../../../statement/src/index.ts";
 import type { Snapshot } from "../snapshots/snapshots.ts";
+import type { Meeting } from "../meetings/meetings.ts";
 import type { MigrationLog } from "../store/migrations.ts";
 import type { DocumentLog } from "../documents/types.ts";
 import type { RecheckMark } from "./recheck.ts";
@@ -145,6 +146,12 @@ export interface WorkingHousehold {
    * 世帯ファイルでは本文の区画 documents に置く（形式の版 0.68 から）。元のファイル・個人番号などの番号は持たない。元に戻す・やり直すの対象にしない
    */
   documents?: DocumentLog;
+  /**
+   * 面談の履歴（0182。面談1回ずつの記録: 日・お客さまと見てよい欄・FP だけの欄・保険の意向・つないだ控え・書いた人）。
+   * 世帯ファイルでは本文の区画 meetings に置く（形式の版 0.74 から。household の区画には入れない）。FP だけの欄はメモと同じく、
+   * 提示層・持ち帰り・提案書・AI に渡さない。元に戻す・やり直すの対象にする（メモと同じ）。記録が無ければ欄を持たない
+   */
+  meetings?: Meeting[];
 }
 
 /** ローンの入れ方の区分（0052） */

@@ -1,6 +1,7 @@
 // 事務所での共有（0023）の画面の側の小さな部品: 文言・指紋の入力の形・開いている人の文・メモの書いた人・分岐の「両方を残す」。
 // 鍵・共有フォルダの場所は本体だけが持ち、画面には来ない
 import type { PresenceView } from "../../engine/host.ts";
+import { mergeMeetingSections } from "../meetings/meetings.ts";
 
 export const OFFICE_MESSAGES: Record<string, string> = {
   E_OFFICE_FINGERPRINT: "指紋が違います。申請した人の画面に出ている16文字を、もう一度読み上げてもらってください",
@@ -97,7 +98,8 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object
 /**
  * 分岐の「両方を残す」（0023 の7）: 相手の内容を土台に、こちらにだけあるプランを足す。同じ ID で中身が違うプランは、
  * 別の ID の写しにして「（こちらの分岐）」を付けて足す。足したプランの土台が写しにしたプランなら、土台も写しに向け直す
- * （こちらで作ったときの土台の中身のまま。相手の同じ ID のプランを土台にしない）。現状（入力）は相手のまま（混ぜない）。足したプランの数も返す
+ * （こちらで作ったときの土台の中身のまま。相手の同じ ID のプランを土台にしない）。現状（入力）は相手のまま（混ぜない）。足したプランの数も返す。
+ * 控えと面談の履歴（0182）は両方の分岐の分を残す
  */
 export function mergeForkBodies(theirsJson: string, oursJson: string, newId: () => string): { body: string; added: number } {
   const theirs = JSON.parse(theirsJson) as Record<string, unknown>;
@@ -136,6 +138,10 @@ export function mergeForkBodies(theirsJson: string, oursJson: string, newId: () 
   const seen = new Set(ts.map((x) => x.id));
   const snaps = [...ts, ...os.filter((x) => !seen.has(x.id))];
   if (snaps.length > 0) merged.snapshots = snaps;
+  // 面談の履歴（0182）も両方の分岐の記録を残す（同じ記録を両方で直していたら、こちらの分を写しにして足す）
+  const meetings = mergeMeetingSections(theirs.meetings, ours.meetings, newId).section;
+  if (meetings !== null) merged.meetings = meetings;
+  else delete merged.meetings;
   return { body: JSON.stringify(merged), added };
 }
 
