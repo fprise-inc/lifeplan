@@ -93,10 +93,12 @@ export function currentOutlook(entries: readonly OutlookEntry[]): (m: MonthIndex
  * 月ごとの健康保険の種類（0008 の4: 導く）。決まりは socialInsurance.healthStatus の頭の書き方のとおり。
  * withPensions が false なら、収入の見込みに公的年金（老齢・遺族・障害）を入れず、障害年金を受ける人の基準も使わない
  * （pension.category が使う。年金の額は加入の記録から出し、加入の記録は国民年金の種別から出すので、種別の部品は年金の部品を呼べない）。
+ * judgeContinuation が true なら、本人の期間に任意継続と書いた月も、上の扶養の決まりで判定する（pension.category の第3号の判定。
+ * 自分の健康保険が任意継続でも、第2号の被扶養配偶者なら第3号。0174 の追記）。
  * 呼ぶ部品は requires に contingency.event・socialInsurance.employeeStatus・income.salary・income.business・benefit.unemployment
  * （withPensions なら pension.oldAge・pension.survivor・pension.disability も）、params に HEALTH_STATUS_PARAMS、reads に HEALTH_STATUS_READS を書く
  */
-export function deriveHealthStatus(ctx: Ctx, member: string, withPensions: boolean): HealthStatusMonth[] {
+export function deriveHealthStatus(ctx: Ctx, member: string, withPensions: boolean, judgeContinuation = false): HealthStatusMonth[] {
   const P = HEALTH_STATUS_PARAMS;
   const { base } = ctx.time;
   const own = ctx.call<EmployeeStatusOutput>("socialInsurance.employeeStatus", { member }).months;
@@ -222,8 +224,8 @@ export function deriveHealthStatus(ctx: Ctx, member: string, withPensions: boole
       continuationLast = m;
       const at = ctx.at(m);
       const max = at.has(P.continuationMonths) ? at.paramCount(P.continuationMonths) : null;
-      // 2年を過ぎた月は任意継続でなくなり、下の決まりで導く
-      if (max === null || m - continuationFrom < max) {
+      // 2年を過ぎた月は任意継続でなくなり、下の決まりで導く（judgeContinuation なら2年の中の月も）
+      if (!judgeContinuation && (max === null || m - continuationFrom < max)) {
         months.push({ month: s.month, kind: "continuation" });
         continue;
       }

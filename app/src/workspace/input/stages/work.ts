@@ -19,6 +19,7 @@ import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 import { executiveMembers } from "../officer.ts";
 import { presetNum, presetText } from "../../../../../hearing/src/presets.ts";
 import { hasBusinessIncome, taxReturnFields } from "../taxReturn.ts";
+import { declaredDependentWarn } from "../dependentLimit.ts";
 
 /** 働き方の期間の時点は年月で持つ（定年・再雇用の見つけ方などが年月で読むため。0038） */
 const PERIOD_MONTH_ONLY = "働き方の期間は年月で持ちます（年齢・「5年後」のように入れても、その年月にします）";
@@ -1079,7 +1080,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
             growthField(wh, p, find, prefix, "salary", d),
             ...curveFields(wh, m, p, find, prefix),
           ]),
-      plain({
+      dependentWarned(m, find, plain({
         key: `${prefix}/hi`,
         item: "employment.healthInsurance.kind",
         label: "健康保険",
@@ -1094,7 +1095,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
           const branch = (h.employmentPeriods ?? []).map((e) => e.healthInsurance?.insurer).find((x): x is string => typeof x === "string");
           fixHealthInsurance((t as EmploymentPeriod).healthInsurance as { kind: string }, branch);
         },
-      }),
+      })),
       ...(p.healthInsurance?.kind === "kyokaikenpo"
         ? [plain({ key: `${prefix}/branch`, item: "employment.healthInsurance.insurer", label: "協会けんぽの支部", level: d, kind: "select", options: KYOKAI_BRANCHES, find, path: ["healthInsurance", "insurer"], help: "勤め先の所在地の都道府県（保険料率が支部ごとに違います）" })]
         : []),
@@ -1596,6 +1597,20 @@ function claimFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
       }),
     );
   return out;
+}
+
+/** 健康保険の欄に、扶養と書いた期間の給与が扶養の基準を超えるときの知らせを足す（計算は扶養のまま。0174 の追記） */
+function dependentWarned(m: Member, find: Finder, f: FieldDef): FieldDef {
+  return {
+    ...f,
+    get: (w) => {
+      const st = f.get(w);
+      const x = find(w.request.input.household, w) as EmploymentPeriod | undefined;
+      const who = w.request.input.household.members.find((q) => q.id === m.id) ?? m;
+      const warn = x === undefined ? null : declaredDependentWarn(w, who, x);
+      return warn !== null ? { ...st, warn } : st;
+    },
+  };
 }
 
 /**
