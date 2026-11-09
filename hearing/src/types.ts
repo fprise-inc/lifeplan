@@ -111,6 +111,11 @@ export interface Residence {
   rent?: { monthly: ValueBox<number> };
   propertyTax?: { annual: ValueBox<number> };
   maintenance?: { monthly: ValueBox<number> };
+  /**
+   * 持ち家の評価（housing.valuation。0176）。今住んでいる持ち家を買った値段から推計するときは、買った値段（合計）を value、買った年月（住み始め）を
+   * asOf、土地÷合計を landShare（土地の値段が空欄なら書かない＝前提条件の土地の割合）に書く。取り込みの部品は basis を書かない（アプリが承認のときに書く）
+   */
+  valuation?: { value?: ValueBox<number>; asOf?: string; landShare?: string; basis?: "market" | "purchase" };
 }
 
 export interface Coverage {

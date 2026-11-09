@@ -2,9 +2,9 @@
 // 取り込んだ世帯は、本物の計算エンジンでそのまま計算できる
 import { describe, expect, it } from "vitest";
 import { approveAll, createHearingSheet, exportAnswers, importHearingSheet } from "../src/index.ts";
-import { full4, engineAvailable, idSeq, modelHousehold, modelNames, OFFICE, preview } from "./helpers.ts";
+import { full5, engineAvailable, idSeq, modelHousehold, modelNames, OFFICE, preview } from "./helpers.ts";
 
-const def = full4();
+const def = full5();
 
 describe.each(modelNames())("モデル世帯 %s", (name) => {
   it("書き出し → 取り込み → 書き出しで、同じ回答になる", async () => {

@@ -50,8 +50,10 @@ describe("Excel: 値の入った世帯に取り込んでも、シートで聞か
     expect(lostFields(src, applyImport(src, r.view, sel, AT).wh)).toEqual([]);
     const all = applyImport(src, r.view, new Set(r.view.candidates.map((c) => c.id)), AT).wh;
     expect(lostFields(src, all)).toEqual([]);
-    // 住まいの入居のイベントへのつながり・評価・持ち分・固定資産税と管理費の上がり方は今のまま（選んだ候補の額には承認の記録が付く）
-    const keep = (h: WorkingHousehold) => (h.request.input.household.residences ?? []).map((x) => { const o = x as unknown as Obj; return [o.from, o.valuation, o.ownership, (o.propertyTax as Obj | undefined)?.growth, (o.maintenance as Obj | undefined)?.growth]; });
+    // 住まいの入居のイベントへのつながり・評価・持ち分・固定資産税と管理費の上がり方は今のまま（選んだ候補の額には承認の記録が付く。
+    // 評価の買った値段も、前回の値のまま答えた額で承認の記録が付く。0176 の追記 2026-11-09）
+    const valuation = (o: Obj) => ({ ...(o.valuation as Obj), value: ((o.valuation as Obj).value as Obj | undefined)?.value });
+    const keep = (h: WorkingHousehold) => (h.request.input.household.residences ?? []).map((x) => { const o = x as unknown as Obj; return [o.from, valuation(o), o.ownership, (o.propertyTax as Obj | undefined)?.growth, (o.maintenance as Obj | undefined)?.growth]; });
     expect(keep(all)).toEqual(keep(src));
   });
 

@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { answersOf, baseDocTitle, buildPacket, checkSelection, coverLine, coverSummary, customerDocTitle, documentCovers, DOCUMENT_TEMPLATES, draftKey, estimate, gateAnswersOf, hideTip, HIDE_NUMBERS, initialDraft, insteadLine, screenOf, screens, selectionDigest, selectionFromSheet, WEB_NOTES, type Draft, type DraftAnswer, type QuestionsPacket, type RequestedDocument, type Screen, type WebSelection } from "../src/web/index.ts";
 import type { SheetDefinition } from "../src/definition.ts";
-import { full4, simple } from "./helpers.ts";
+import { full5, simple } from "./helpers.ts";
 
 const OFFICE = { name: "【架空】みらいFP事務所", color: null, purpose: "ライフプランの作成のため", privacyContact: "" };
 const v = (text: string, kind: "text" | "number" = "text"): DraftAnswer => ({ status: "value", raw: { kind, text } });
@@ -37,7 +37,7 @@ describe("書類と問いの対応（documentCovers）", () => {
   });
 
   it("詳細の票: 源泉徴収票は給与の年収・ねんきん定期便は年金の6問・返済予定表はローンの6問（全部のローン）・保険証券は保険の9問（全部の保険）", () => {
-    const def = full4();
+    const def = full5();
     const s = selectionFromSheet(def);
     expect(documentCovers(def, s, doc("d1", "withholding", "self"))).toEqual(["hs.income.salary#1"]);
     expect(documentCovers(def, s, doc("d1", "pensionNotice", "self"))).toEqual(["hs.pension.notice.type#1", "hs.pension.notice.asOf#1", "hs.pension.months.total#1", "hs.pension.months.employee#1", "hs.pension.amount.basic#1", "hs.pension.amount.employee#1"]);
@@ -105,7 +105,7 @@ describe("頼んだ書類で分かる問いは、お客さまの画面に出さ�
   });
 
   it("詳細の票: 保険証券を頼むと、保険の件数も保険の問いも出さない。「手元にない」なら書類の画面で件数を聞き、件数の分だけ聞く", async () => {
-    const def = full4();
+    const def = full5();
     const p = await pack(def, [doc("d1", "insurancePolicy")]);
     const d = family(p);
     const list = screens(p, d);
@@ -135,10 +135,10 @@ describe("頼んだ書類で分かる問いは、お客さまの画面に出さ�
     expect(screenOf(screens(p, initialDraft(p)), "hs.income.annual")?.kind).toBe("document");
     // 配偶者の方がいれば、配偶者の方の年収は問いの画面にあるので、そちらが先
     expect(screenOf(screens(p, family(p)), "hs.income.annual")?.kind).toBe("item");
-    const q = await pack(full4(), [doc("d1", "pensionNotice")]);
+    const q = await pack(full5(), [doc("d1", "pensionNotice")]);
     // 持ち主を選ばない人の書類は、問いを出さないことにしない
     expect(screenOf(screens(q, initialDraft(q)), "hs.pension.months.total")?.kind).toBe("item");
-    const r = await pack(full4(), [doc("d1", "insurancePolicy")]);
+    const r = await pack(full5(), [doc("d1", "insurancePolicy")]);
     expect(screenOf(screens(r, initialDraft(r)), "hs.insurance.premium")?.kind).toBe("document");
   });
 });
@@ -156,7 +156,7 @@ describe("画面の数と問いの数（夫婦と子2人・会社員の夫婦・
   });
 
   it("詳細の票で源泉徴収票（ご本人）・ねんきん定期便（ご本人）・保険証券・返済予定表を頼むと、問いの画面が大きく減る", async () => {
-    const def = full4();
+    const def = full5();
     const none = await pack(def, []);
     const four = await pack(def, [doc("d1", "withholding", "self"), doc("d2", "pensionNotice", "self"), doc("d3", "insurancePolicy"), doc("d4", "loanSchedule")]);
     const a = count(screens(none, family(none)));
@@ -169,7 +169,7 @@ describe("画面の数と問いの数（夫婦と子2人・会社員の夫婦・
 
 describe("お客さまの画面の言葉", () => {
   it("最初の画面の一言・書類の画面の一言・見出しの持ち主", async () => {
-    const p = await pack(full4(), [doc("d1", "withholding", "self"), doc("d2", "pensionNotice", "self"), doc("d3", "payslip", "self")]);
+    const p = await pack(full5(), [doc("d1", "withholding", "self"), doc("d2", "pensionNotice", "self"), doc("d3", "payslip", "self")]);
     expect(coverSummary(p, initialDraft(p))).toBe("お給料と年金の額は、お送りいただく源泉徴収票・ねんきん定期便の数字を使います。そのぶん、お答えいただく問いが少なくなっています。");
     expect(coverLine(p.documents[0]!)).toBe("お給料の額は、この書類の数字を使います。");
     expect(coverLine(p.documents[2]!)).toBeNull();
@@ -177,7 +177,7 @@ describe("お客さまの画面の言葉", () => {
     expect(baseDocTitle(p.documents[0]!)).toBe("源泉徴収票");
     expect(customerDocTitle({ title: "源泉徴収票（配偶者の方）", owner: "spouse" })).toBe("配偶者の方の源泉徴収票");
     expect(customerDocTitle({ title: "保険証券（加入している保険のすべて）" })).toBe("保険証券（加入している保険のすべて）");
-    const q = await pack(full4(), [doc("d1", "payslip", "self")]);
+    const q = await pack(full5(), [doc("d1", "payslip", "self")]);
     expect(coverSummary(q, initialDraft(q))).toBeNull();
     // 「聞きません」とは言わない
     expect(coverSummary(p, initialDraft(p))).not.toContain("聞きません");

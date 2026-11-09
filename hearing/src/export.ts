@@ -7,9 +7,10 @@ import { HEARING_FORMAT, HEARING_FORMAT_VERSION, type Answer, type FilledSheet, 
 import { itemByKey, type SheetDefinition } from "./definition.ts";
 import { DEATH_TEMPLATES, DERIVED_TERM } from "./import.ts";
 import { paymentFromBalance } from "./loan.ts";
+import { landOfShare } from "./ownedHome.ts";
 import { issue, type Issue } from "./issues.ts";
 import { addMonths, ageAt, resolveAt, ymIndex } from "./months.ts";
-import type { Account, EducationStage, EmploymentPeriod, EngineRequest, Household, Member, ValueBox } from "./types.ts";
+import type { Account, EducationStage, EmploymentPeriod, EngineRequest, Household, Member, Residence, ValueBox } from "./types.ts";
 import { formatValue } from "./values.ts";
 
 export interface ExportResult {
@@ -27,6 +28,15 @@ function boxVal(b: ValueBox<number> | undefined): Val {
   if (b.state === "unknown") return { status: "unknown" };
   if (b.state === "notApplicable") return { status: "notApplicable" };
   return BLANK;
+}
+
+/**
+ * 持ち家の評価を買った値段で入れたか（入力の画面の ownedValueMode と同じ読み方。0176 の3）: 入れ方を書いてあればそれ、無ければ評価額の時点が
+ * 計算基準月より前なら買った値段（時点が今か空なら今の時価）
+ */
+function valuedByPurchase(val: NonNullable<Residence["valuation"]>, base: string): boolean {
+  if (val.basis !== undefined) return val.basis === "purchase";
+  return val.asOf !== undefined && ymIndex(val.asOf) < ymIndex(base);
 }
 
 /** その月に効いている期間か */
@@ -206,11 +216,26 @@ export function exportAnswers(def: SheetDefinition, request: EngineRequest, opti
     put("hs.housing.type", undefined, v(res.kind));
     const from = resolveAt(res.from, h);
     if (from !== null && known(`housing/res/${res.id}/from`)) put("hs.housing.since", undefined, v(from));
-    if (res.kind === "rent") put("hs.housing.rent", undefined, boxVal(res.rent?.monthly));
-    else {
+    if (res.kind === "rent") {
+      put("hs.housing.rent", undefined, boxVal(res.rent?.monthly));
+      for (const k of ["hs.housing.purchaseMonth", "hs.housing.purchasePrice", "hs.housing.purchaseLand"]) if (items.has(k)) put(k, undefined, { status: "notApplicable" });
+    } else {
       put("hs.housing.rent", undefined, { status: "notApplicable" });
       put("hs.housing.propertyTax", undefined, boxVal(res.propertyTax?.annual));
       put("hs.housing.maintenance", undefined, boxVal(res.maintenance?.monthly));
+      // 家を買った年月・値段（詳細の版5 から。0176 の追記 2026-11-09）: 買った年月は住み始め。買った値段で入れた家だけ、値段とうち土地の値段を書く
+      // （今の時価で入れた評価額は買った値段ではないので書かない。土地の値段は FP が入れた割合のときだけ。推定の値は書かない）
+      if (items.has("hs.housing.purchaseMonth") && from !== null && known(`housing/res/${res.id}/from`)) put("hs.housing.purchaseMonth", undefined, v(from));
+      const val = res.valuation;
+      if (items.has("hs.housing.purchasePrice") && val?.value !== undefined && valuedByPurchase(val, base)) {
+        const price = boxVal(val.value);
+        put("hs.housing.purchasePrice", undefined, price);
+        const share = val.landShare;
+        const rows = (res as { valueStates?: Record<string, { state?: string; origin?: { kind?: string } }> }).valueStates ?? {};
+        const landRow = rows["residence.valuation/landShare"];
+        const landEstimated = landRow?.state === "estimated" && landRow.origin?.kind === "auto";
+        if (items.has("hs.housing.purchaseLand") && price.status === "value" && share !== undefined && !landEstimated) put("hs.housing.purchaseLand", undefined, v(landOfShare(price.value as number, share)));
+      }
     }
   }
   const loans = (h.debts ?? []).filter((d) => {
