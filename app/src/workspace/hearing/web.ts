@@ -6,13 +6,14 @@
 // - 書類は答えと別に、期限まで何回でも届く（0158）。受け取るたびに、何をいつ受け取ったかを送りごとに残す
 // - 期限は30日の決め打ち。延長は押した日から30日（作った日から90日まで）
 import { importAnswers, OFFICIAL_SHEETS, requestIdFrom, type SheetDefinition } from "../../../../hearing/src/index.ts";
+import { axisOf } from "../../../../hearing/src/definition.ts";
 import { exportAnswers } from "../../../../hearing/src/export.ts";
 import type { EngineRequest as HearingEngineRequest } from "../../../../hearing/src/types.ts";
 import { b64u, fromB64u } from "../../../../hearing/src/web/b64.ts";
-import { DOCUMENT_TEMPLATES, docForCheck, MIME_EXT, type DocumentMime } from "../../../../hearing/src/web/documents.ts";
+import { DOCUMENT_TEMPLATES, docForCheck, HIDE_NUMBERS, MIME_EXT, OWNER_LABEL, templateOf, type DocumentMime, type DocumentOwner } from "../../../../hearing/src/web/documents.ts";
 import { extendRequest, extendTarget, filledOf, issueRequest, receive, removeReceived, type WebRequestRecord } from "../../../../hearing/src/web/fp.ts";
 import { gateOptions } from "../../../../hearing/src/web/flow.ts";
-import { buildPacket, CUSTOM_PREFIX, FP_SECTION, GATE_IDS, importDefinition, selectionFromSheet, type DocumentAnswer, type GateAnswers, type GateId, type OfficeFace, type QuestionsPacket, type RequestedDocument, type WebSelection } from "../../../../hearing/src/web/packet.ts";
+import { buildPacket, CUSTOM_PREFIX, documentCovers, FP_SECTION, GATE_IDS, importDefinition, selectionFromSheet, type DocumentAnswer, type GateAnswers, type GateId, type OfficeFace, type QuestionsPacket, type RequestedDocument, type WebSelection } from "../../../../hearing/src/web/packet.ts";
 import { relay, RELAY_LIMITS, type RelayTransport } from "../../../../hearing/src/web/protocol.ts";
 import type { Answer } from "../../../../hearing/src/answers.ts";
 import type { DocRequest } from "../input/docRequests.ts";
@@ -30,6 +31,10 @@ export interface StoredDocumentFile {
   sha256: string;
   /** どの書類の送りで届いたか（0158） */
   batchId?: string;
+  /** FP が初めてアプリの中で見た日時（0191） */
+  viewedAt?: string;
+  /** FP が自分のフォルダに最後に保存した日時（保存先・ファイル名は持たない。0191） */
+  savedAt?: string;
 }
 
 export interface WebReceived {
@@ -177,18 +182,72 @@ export function nextDocId(sel: WebSelection): string {
   return `d${n}`;
 }
 
-/** 公式の書類のひな形から頼む書類を作る */
-export function documentFromTemplate(sel: WebSelection, kind: string, whose?: string): RequestedDocument {
-  const t = DOCUMENT_TEMPLATES.find((x) => x.kind === kind);
-  return { id: nextDocId(sel), kind, title: whose !== undefined && whose !== "" ? `${t?.title ?? kind}（${whose}）` : (t?.title ?? kind), purpose: t?.purpose ?? "", where: t?.where ?? "" };
+/** 持ち主の言葉（「ご本人」「配偶者」「配偶者の方」、または self・spouse）→ 持ち主（0190）。分からなければ undefined */
+export function ownerFrom(whose: string | null | undefined): DocumentOwner | undefined {
+  if (whose === "self" || whose === "ご本人") return "self";
+  if (whose === "spouse" || whose === "配偶者" || whose === "配偶者の方") return "spouse";
+  return undefined;
 }
 
-/** 書類待ちの1通（0102）から頼む書類を作る（書類待ちと結びつける） */
+/** 書類の持ち主を変える（見出しの括弧「（ご本人）」も付け替える。FP の画面・受け取った書類の一覧で、どなたの書類か分かるように） */
+export function withOwner(doc: RequestedDocument, owner: DocumentOwner | undefined): RequestedDocument {
+  const tags = Object.values(OWNER_LABEL).map((l) => `（${l}）`);
+  const tag = tags.find((x) => doc.title.endsWith(x));
+  const base = tag === undefined ? doc.title : doc.title.slice(0, -tag.length);
+  const { owner: _o, ...rest } = doc;
+  void _o;
+  return owner === undefined ? { ...rest, title: base } : { ...rest, title: base === "" ? base : `${base}（${OWNER_LABEL[owner]}）`, owner };
+}
+
+/** 一覧から足すときの持ち主の初めの値: 人の書類はご本人（同じ書類をもうご本人の分で頼んでいれば配偶者の方）。ほかは選ばない */
+export function defaultOwner(sel: WebSelection, kind: string): DocumentOwner | undefined {
+  if (templateOf(kind)?.whose !== "person") return undefined;
+  return sel.documents.some((d) => d.kind === kind && d.owner === "self") && !sel.documents.some((d) => d.kind === kind && d.owner === "spouse") ? "spouse" : "self";
+}
+
+/** 公式の書類のひな形から頼む書類を作る（owner は持ち主。「ご本人」などの言葉でもよい） */
+export function documentFromTemplate(sel: WebSelection, kind: string, owner?: string): RequestedDocument {
+  const t = DOCUMENT_TEMPLATES.find((x) => x.kind === kind);
+  return withOwner({ id: nextDocId(sel), kind, title: t?.title ?? kind, purpose: t?.purpose ?? "", where: t?.where ?? "" }, ownerFrom(owner));
+}
+
+/** 書類待ちの1通（0102）から頼む書類を作る（書類待ちと結びつける。人の書類は持ち主も入れる） */
 export function documentFromCheck(sel: WebSelection, r: DocRequest): RequestedDocument {
   const kind = docForCheck(r.doc);
-  const t = kind === null ? undefined : DOCUMENT_TEMPLATES.find((x) => x.kind === kind);
+  const t = templateOf(kind);
   const fields = [...new Set(r.values.map((v) => v.field))];
-  return { id: nextDocId(sel), kind, title: r.title, purpose: t?.purpose ?? "数字を確かめるため", where: fields.length > 0 ? `${fields.join("・")}の欄が写るように` : (t?.where ?? ""), docRequest: r.id };
+  const doc: RequestedDocument = { id: nextDocId(sel), kind, title: r.title, purpose: t?.purpose ?? "数字を確かめるため", where: fields.length > 0 ? `${fields.join("・")}の欄` : (t?.where ?? ""), docRequest: r.id };
+  const owner = t?.whose === "person" ? ownerFrom(r.whose) : undefined;
+  return owner === undefined ? doc : withOwner({ ...doc, title: r.doc }, owner);
+}
+
+/** 頼んだ書類で分かる問いの1項目（どの書類で・誰の分か。全員の分なら who は null） */
+export interface CoverageInfo {
+  docs: string[];
+  who: string[] | null;
+}
+
+/** 頼んだ書類で分かる問い（項目キー → どの書類で・誰の分か。0190） */
+export function coverageOf(def: SheetDefinition, sel: WebSelection): Map<string, CoverageInfo> {
+  const out = new Map<string, CoverageInfo>();
+  for (const d of sel.documents) {
+    for (const c of documentCovers(def, sel, d)) {
+      const [key, n] = c.split("#") as [string, string | undefined];
+      const cur: CoverageInfo = out.get(key) ?? { docs: [], who: [] };
+      if (!cur.docs.includes(d.title)) cur.docs.push(d.title);
+      // 誰の分か（大人の繰り返しの番号）。全員の分の書類があれば null
+      const who = n === undefined ? null : (axisOf(def, key)?.labels[Number(n) - 1] ?? `${n}番目`);
+      cur.who = cur.who === null || who === null ? null : cur.who.includes(who) ? cur.who : [...cur.who, who];
+      out.set(key, cur);
+    }
+  }
+  return out;
+}
+
+/** 項目の行の「？」の説明 */
+export function coverageHelp(c: CoverageInfo): string {
+  const scope = c.who === null ? "" : `（${c.who.join("・")}の分）`;
+  return `${c.docs.join("・")}を頼んでいるので、お客さまの画面にはこの問い${scope}を出しません。お客さまが「手元にない」を選んだときだけ、この問いを出します。`;
 }
 
 // ---- 事務所の見た目 → お客さまのページ ----
@@ -250,7 +309,7 @@ export function invitationText(e: WebLogEntry, office: string): string {
     "",
     `・お答えの期限: ${end}まで`,
     "・お名前やマイナンバーなどの番号はお聞きしません。",
-    ...(docs > 0 ? ["・書類の写真をお願いする所があります。マイナンバー・口座番号などは隠してお撮りください。", "・書類は、お答えを送った後でも、期限までに同じリンクから何回でも送れます。"] : []),
+    ...(docs > 0 ? [`・書類の写真をお願いする所があります。${HIDE_NUMBERS}`, "・書類は、お答えを送った後でも、期限までに同じリンクから何回でも送れます。"] : []),
     "・お答えと書類は、お使いの端末の中で暗号化して送られ、担当の FP だけが開けます。",
     "・このリンクはご本人さま専用です。ほかの方に転送しないでください。",
     "",

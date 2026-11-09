@@ -860,12 +860,18 @@ export interface InsuranceReceipt {
   readonly coverage: string | null;
   /** 受け取る構成員（構成員でない受取人は null） */
   readonly member: string | null;
-  /** medical: 医療・がんの給付（入院日額・手術・がん一時金・三大疾病一時金。0054） */
-  readonly kind: "death" | "incomeProtection" | "incapacity" | "highDisability" | "maturity" | "surrender" | "annuity" | "survival" | "medical";
+  /**
+   * medical: 医療・がんの給付（入院日額・手術・がん一時金・三大疾病一時金。0054）。annuityRight: 受取人が契約者でない年金の、年金を受け取る
+   * 権利（定期金に関する権利）の贈与（支払が始まる月。額は評価額。お金の動きは無く、贈与税だけ。約束の版 1.3。0179）
+   */
+  readonly kind: "death" | "incomeProtection" | "incapacity" | "highDisability" | "maturity" | "surrender" | "annuity" | "survival" | "medical" | "annuityRight";
   readonly amount: Yen;
   /** 課税の区分: inheritance 相続税の対象（みなし相続財産）・temporary 一時所得・miscellaneous 雑所得（年金）・gift 贈与税・none 非課税 */
   readonly taxClass: "inheritance" | "temporary" | "miscellaneous" | "gift" | "none";
-  /** 一時所得・雑所得の必要経費（払込保険料のうちこの受け取りに当たる額） */
+  /**
+   * 一時所得・雑所得の必要経費（払込保険料のうちこの受け取りに当たる額）。相続等（贈与を含む）で取得した年金の雑所得は、総収入金額に入れない部分
+   * （施行令185条2項の課税部分の残り）も含む（約束の版 1.3。0179）
+   */
   readonly cost: Yen;
   /** 贈与税のとき: 贈与者（契約者）の構成員 */
   readonly giver?: string;

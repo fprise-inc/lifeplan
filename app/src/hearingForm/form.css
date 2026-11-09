@@ -404,6 +404,33 @@
 .hf-where {
   color: var(--hf-sub);
 }
+.hf-where b {
+  display: block;
+  color: var(--hf-ink);
+  font-size: 15px;
+}
+/* 1通1画面の書類（0190） */
+.hf-doc-one {
+  padding: 4px 0 0;
+  background: transparent;
+  border: none;
+}
+.hf-doc-one .hf-doc-h h2 {
+  margin: 0;
+}
+.hf-doc-one .hf-tips {
+  margin: 10px 0;
+}
+.hf-uses {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--hf-soft);
+  font-size: 16px;
+}
+.hf-instead {
+  margin-top: 14px;
+}
 .hf-doc-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -13,8 +13,9 @@
 //! 画面に返す本文からは、これらの区画を外す（画面は `view` で見る）。
 
 use crate::consent::{
-    self, current_external_ai, explanation_ref, verify_consents_append_only, Author, ConsentRecord,
-    ExternalAiConsentInput, EXTERNAL_AI_EXPLANATION, EXTERNAL_AI_EXPLANATION_VERSION,
+    self, current_external_ai, explanation_for, explanation_ref, verify_consents_append_only,
+    Author, ConsentRecord, ExternalAiConsentInput, EXTERNAL_AI_EXPLANATION,
+    EXTERNAL_AI_EXPLANATION_VERSION, HEARING_SHEET_EXTERNAL_AI_TEXT,
 };
 use crate::documents::PendingDocumentProposal;
 use crate::proposal::{PendingProposal, ProposalOrigin, ProposedDiff};
@@ -120,6 +121,8 @@ pub struct HouseholdAiView {
     pub explanation: String,
     pub explanation_ref: String,
     pub explanation_version: u32,
+    /// ヒアリングシートの同意欄の文（取り方が「ヒアリングシートの同意欄」の同意は、この文で記録する。書類を含まない。0172）
+    pub hearing_sheet_explanation: String,
     /// 共有中なら、その共有（期限内のもの）
     pub share: Option<ShareStatus>,
     /// AIに渡した記録（新しい順ではなく、記録の順。呼び出し元の実行ファイルはファイル名だけ）
@@ -318,9 +321,11 @@ impl HouseholdBook {
     ) -> Result<ConsentRecord, &'static str> {
         let mut r = consent::new_external_ai_record(&self.consents, input, today, now)?;
         r.recorded_by = author;
+        // 見せた文（シートの同意欄の文か、アプリの今の説明文）を1回だけ写す（0014 の4・0172）
+        let shown = explanation_for(r.method);
         self.explanations
-            .entry(explanation_ref(EXTERNAL_AI_EXPLANATION))
-            .or_insert_with(|| EXTERNAL_AI_EXPLANATION.to_owned());
+            .entry(explanation_ref(shown))
+            .or_insert_with(|| shown.to_owned());
         self.consents.push(r.clone());
         Ok(r)
     }
@@ -399,6 +404,7 @@ impl HouseholdBook {
             explanation: EXTERNAL_AI_EXPLANATION.into(),
             explanation_ref: explanation_ref(EXTERNAL_AI_EXPLANATION),
             explanation_version: EXTERNAL_AI_EXPLANATION_VERSION,
+            hearing_sheet_explanation: HEARING_SHEET_EXTERNAL_AI_TEXT.into(),
             share,
             records: for_screen(records),
             candidates: self.candidates.clone(),

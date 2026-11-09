@@ -1670,6 +1670,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: incomeTax.inheritedAnnuity.specifiedPeriodShare
+    status: active
+    label: "相続等（贈与を含む）で取得した年金の特定期間年数の割合（相続税評価割合が百分の五十以下のとき。upTo は相続税評価割合の百分率〔1未満を切り上げた整数〕の上限、rate は残存期間年数・余命年数に掛ける割合。最後の段は百分の四十を超え百分の五十以下）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.inheritedAnnuity.taxableShare
+    status: active
+    label: "相続等（贈与を含む）で取得した年金の課税割合（相続税評価割合が百分の五十を超えるとき。upTo は相続税評価割合の百分率〔1未満を切り上げた整数〕の上限、rate は課税割合）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: incomeTax.insuranceDeduction.rounding
     status: active
     label: "生命保険料控除・地震保険料控除の1円未満の端数（切り上げ）"
@@ -1769,6 +1781,18 @@ entries:
   - id: incomeTax.pensionFilingExemption.revenueLimit
     status: active
     label: "確定申告不要制度の公的年金等の収入金額（以下）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.privateAnnuity.costRatio.rounding
+    status: active
+    label: "生命保険契約等に基づく年金の必要経費の割合の端数（小数点以下2位まで算出し、3位以下を切り上げ。部品は割合の100倍の1未満を切り上げる）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.privateAnnuity.lifeExpectancyYears
+    status: active
+    label: "年金の支給開始日の年齢ごとの余命年数（所得税法施行令の別表「余命年数表」。upTo は年齢、rate は余命年数。終身年金の支払総額の見込額に使う）"
     since: draft
     aliases: []
     replacedBy: null
@@ -2075,6 +2099,12 @@ entries:
   - id: inheritanceTax.adoptedChildren.withoutNatural
     status: active
     label: "法定相続人の数に入れる養子の数（実子がいないとき。2人）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.annuityRight.presentValueFactor.rounding
+    status: active
+    label: "定期金に関する権利の評価の複利年金現価率の端数（小数点以下3位未満を四捨五入。部品は率の1,000倍の1未満を四捨五入する）"
     since: draft
     aliases: []
     replacedBy: null

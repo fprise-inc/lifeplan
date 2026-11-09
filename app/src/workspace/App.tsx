@@ -10,7 +10,7 @@ import { RowsViewBar } from "./RowsViewBar.tsx";
 import { viewRows } from "./rowsView.ts";
 import { CalcNotices } from "./CalcNotices.tsx";
 import { noticeRows } from "./engineNotices.ts";
-import { engineErrorText } from "./engineErrors.ts";
+import { engineErrorText, HOST_BUSY_TEXT, isHostBusy } from "./engineErrors.ts";
 import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
 import { multiOn, type ChartLayout, type ChartMode } from "../presentation/MainChart.tsx";
@@ -1495,6 +1495,14 @@ export function App() {
     openedRef.current = n;
     setOpened(n);
   }, []);
+  /** Web のヒアリングで受け取った書類の印（見た・保存した）と消すことを入れる（元に戻す・やり直すの対象にしない。依頼の記録と同じ。0191） */
+  const putWeb = useCallback((f: (wh: WorkingHousehold) => WorkingHousehold) => {
+    const o = openedRef.current;
+    if (o === null) return;
+    const n: Opened = { ...o, wh: f(o.wh) };
+    openedRef.current = n;
+    setOpened(n);
+  }, []);
   /** 書類の読み取りの記録を変える（元に戻す・やり直すの対象にしない。明細の取り込みの記録と同じ。0148） */
   const putDocuments = useCallback((log: WorkingHousehold["documents"]) => {
     const o = openedRef.current;
@@ -2315,6 +2323,7 @@ export function App() {
   const lastCanon = dual.current?.timings.filter((t) => t.kind === "canonical").at(-1);
   const errView = selView?.error != null ? selView : (views.get(work.base) ?? null);
   const error = errView?.error != null ? engineErrorText(errView.error, errView.errorIds, opened?.wh.request.input.baseMonth ?? null) : null;
+  const busyError = isHostBusy(errView?.error);
 
   // 対策の「変えたこと」と保存の名前の例
   const planInfo = useMemo(() => {
@@ -2755,13 +2764,23 @@ export function App() {
           </HouseholdDrop>
         ) : null}
         {fatal !== null ? <p class="fatal">起動できませんでした（{fatal}）</p> : null}
-        {error !== null && tab !== "input" ? <p class="fatal">計算できませんでした{error}</p> : null}
+        {busyError ? (
+          // 時間切れ（パソコンの負荷が高いとき）: 入力のせいではないので「今の入力では」と書かず、もう一度計算するボタンを出す（0180 の2）
+          <p class="fatal" data-host-busy>
+            {HOST_BUSY_TEXT}{" "}
+            <button type="button" class="btn" onClick={() => void dual.current?.release()}>
+              もう一度計算する
+            </button>
+          </p>
+        ) : null}
+        {error !== null && !busyError && tab !== "input" ? <p class="fatal">計算できませんでした{error}</p> : null}
         {tab === "input" && opened !== null ? (
           <>
-            {error !== null ? <p class="fatal">今の入力では計算できませんでした{error}</p> : null}
+            {error !== null && !busyError ? <p class="fatal">今の入力では計算できませんでした{error}</p> : null}
             <InputView
               onReadDoc={setDocStart}
               key={cardOpen?.n ?? 0}
+              received={{ update: putWeb, ...(host?.hearingWeb !== undefined ? { host: host.hearingWeb } : {}) }}
               wh={opened.wh}
               onSave={edit}
               calcNotices={currentNotices}

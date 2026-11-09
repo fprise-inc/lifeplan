@@ -4,6 +4,7 @@
 // ② 自営業のひとり親（42歳・女性。青色申告で65万円の控除）と子1人（15歳）、賃貸、国民年金・国保。詳しく（詳細も使う）
 // ③ 60代の夫婦（63歳・60歳）、再雇用・企業年金、持ち家は完済、区分マンション1室を貸す、母の介護と相続の見込み。詳しく
 // ④ 賃貸から住宅を買う予定の人（40歳）。購入の時期を画面で直して、前の賃貸の住み終わり・住宅ローンの借入の年月・控除の入居がついてくるか（標準の欄だけ）
+// ⑤ 賃貸から住宅を買う予定の人（40歳）。「どう買うか」をまだ選んでいない → 現金で買う → 住宅ローンを使う、と選び直す（0175。標準の欄だけ）
 import type { Page } from "./browser.ts";
 
 export interface Notes {
@@ -121,8 +122,9 @@ export async function household1(p: Page): Promise<Notes> {
 
   await open(p, n, "住まい・ローン");
   await p.click("＋ 持ち家（今住んでいる）", { within: "panel" });
-  // 評価額は未入力の警告なので、入るまで標準に出る（入れないと今の家が資産に入らない）
-  await p.type("評価額", "3500");
+  // 今住んでいる持ち家は、標準で買った値段（合計・うち土地）を入れ、評価額は推計（0176）。買った年月は住宅ローンの借りた年月から入る
+  await p.type("買った値段（土地と建物の合計）", "3500");
+  await p.type("うち土地の値段", "1200");
   await p.click("＋ 住宅ローン", { within: "panel", exact: true });
   await p.type("今の残高", "2800");
   // 毎月の返済額は円の欄（返済予定表の数字をそのまま打つ。「9万」も9万円）
@@ -286,6 +288,8 @@ export async function household3(p: Page): Promise<Notes> {
 
   await open(p, n, "住まい・ローン", "詳細");
   await p.click("＋ 持ち家（今住んでいる）", { within: "panel" });
+  // 今の時価で入れる（評価の入れ方を選ぶと評価額の欄が出る。0176）
+  await p.choose("評価の入れ方", "今の時価で");
   await p.type("評価額", "3000");
   await p.type("建物が建った年", "1995");
   await p.type("住み始め", "1995-10");
@@ -380,6 +384,37 @@ export async function household4(p: Page): Promise<Notes> {
   n.seen.gapPanel = await p.panelText();
   await p.click("購入の時期に合わせる", { within: "panel", exact: true });
   n.seen.loanStartAfterFix = await fieldValue(p, "借入の年月");
+  await save(p, n, "住まい・ローン");
+  return n;
+}
+
+/**
+ * ⑤ 住宅の購入の「どう買うか」（0175）: 足した直後はまだ選んでいない（未入力の印と「払い方が入っていません」）。現金で買うを選ぶと頭金の欄が消え、
+ * 保存した世帯は頭金＝物件の価格でローンが無い。住宅ローンを使うに選び直すと、同じ住宅の購入の中に住宅ローンの欄（借入額）が続けて出る
+ */
+export async function household5(p: Page): Promise<Notes> {
+  const n = newNotes();
+  await newHousehold(p);
+  await open(p, n, "家族");
+  await p.type("生年月", "1986-05");
+  await save(p, n, "家族");
+
+  await open(p, n, "住まい・ローン");
+  await p.click("＋ 賃貸", { within: "panel", exact: true });
+  await p.type("家賃（管理費込み）", "10");
+  await p.click("＋ 住宅購入の予定", { within: "panel", exact: true });
+  n.seen.unselectedPanel = await p.panelText();
+  n.seen.fundingUnselected = await fieldValue(p, "どう買うか");
+  await p.choose("どう買うか", "現金で買う（住宅ローンなし）");
+  n.seen.cashPanel = await p.panelText();
+  n.seen.downAfterCash = await fieldValue(p, "頭金");
+  await save(p, n, "住まい・ローン");
+  n.seen.cashBody = await p.savedBody();
+
+  await open(p, n, "住まい・ローン");
+  await p.choose("どう買うか", "住宅ローンを使う");
+  n.seen.loanPanel = await p.panelText();
+  n.seen.principalAfterLoan = await fieldValue(p, "借入額");
   await save(p, n, "住まい・ローン");
   return n;
 }

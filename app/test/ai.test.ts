@@ -11,7 +11,7 @@ import { AiCandidates } from "../src/workspace/ai/AiCandidates.tsx";
 import { AiConnectorPanel } from "../src/workspace/ai/AiConnectorPanel.tsx";
 import { AiShareBand } from "../src/workspace/ai/AiShareBand.tsx";
 import { AiRecords, AiSharePanel } from "../src/workspace/ai/AiSharePanel.tsx";
-import { acceptCandidate, candidateRows, candidateValues, remainingText, shareState } from "../src/workspace/ai/model.ts";
+import { acceptCandidate, candidateRows, candidateValues, consentCoversDocuments, consentMethods, remainingText, shareState } from "../src/workspace/ai/model.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { fromRequest } from "../src/workspace/input/household.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
@@ -127,6 +127,42 @@ describe("AI接続口の状態（既定はオフ・同意が無ければ渡さ�
     expect(renewed).not.toContain("data-ai-consent-renew");
     expect(renewed).not.toContain("data-ai-share-no-documents");
     expect(renewed).toContain("書類の読み取りを含む");
+  });
+
+  it("同意は外部の AI サービスに渡すことへの同意1つ: どの AI の会社かは聞かない。前の版の記録の会社はそのまま出す（0172）", () => {
+    const panel = (v: AiHouseholdView) => renderToString(h(AiSharePanel, { ai: host, householdId: "h", customerNo: "A0001", status: status({ enabled: true }), view: v, onView: () => undefined, onOpenConnector: () => undefined, onClose: () => undefined }));
+    const none = panel(view());
+    expect(none).toContain("data-ai-consent-form");
+    expect(none).not.toContain("data-ai-company");
+    expect(none).not.toContain("data-ai-country");
+    expect(none).not.toContain("提供先のAIの会社");
+    const c = { id: "c-1", kind: "externalAi" as const, decision: "given" as const, obtainedOn: "2026-11-08", method: "paper" as const, externalAi: { noTrainingConfirmed: true }, scope: "reduced", documents: true, fpConfirmed: true, recordedAt: NOW, origin: "thisOffice" as const };
+    const given = panel(view({ consentState: "given", consentDocuments: true, consents: [c] }));
+    expect(given).toContain("data-ai-share-start");
+    expect(given).not.toContain("data-ai-share-company");
+    expect(given).not.toContain("同意した会社");
+    expect(given).not.toContain("提供先");
+    // 記録の一覧: 会社を持たない行だけなら提供先の列を出さない。前の版の会社のある行は、そのまま出す
+    expect(renderToString(h(AiRecords, { view: view({ consents: [c] }) }))).not.toContain("提供先");
+    const old = { ...c, id: "c-old", documents: undefined, externalAi: { company: "架空AI株式会社", country: "日本", noTrainingConfirmed: true } };
+    const records = renderToString(h(AiRecords, { view: view({ consents: [old, c] }) }));
+    expect(records).toContain("提供先（前の記録）");
+    expect(records).toContain("架空AI株式会社（日本）");
+  });
+
+  it("ヒアリングシートの同意欄で取った同意は書類を含まない。今の説明で取り直す欄を出し、取り直しではシートの同意欄を選ばせない（0172）", () => {
+    expect(consentCoversDocuments("hearingSheet")).toBe(false);
+    expect(consentCoversDocuments("paper")).toBe(true);
+    expect(consentMethods(false).map((m) => m.value)).toContain("hearingSheet");
+    expect(consentMethods(true).map((m) => m.value)).not.toContain("hearingSheet");
+    const sheet = { id: "c-sheet", kind: "externalAi" as const, decision: "given" as const, obtainedOn: "2026-11-08", method: "hearingSheet" as const, externalAi: { company: "架空AI株式会社", country: "日本", noTrainingConfirmed: true }, scope: "reduced", fpConfirmed: true, recordedAt: NOW, origin: "thisOffice" as const };
+    const html = renderToString(h(AiSharePanel, { ai: host, householdId: "h", customerNo: "A0001", status: status({ enabled: true }), view: view({ consentState: "given", consentDocuments: false, explanationVersion: 2, hearingSheetExplanation: "（任意）シートの文（架空）", consents: [sheet] }), onView: () => undefined, onOpenConnector: () => undefined, onClose: () => undefined }));
+    expect(html).toContain("data-ai-consent-renew");
+    expect(html).toContain("ヒアリングシートの同意欄でいただいたもの");
+    expect(html).toContain("シートの同意欄の文（書類を含まない）");
+    expect(html).toContain("今の説明で同意を記録し直す");
+    expect(html).not.toContain('value="hearingSheet"');
+    expect(html).toContain("data-ai-share-no-documents");
   });
 
   it("共有中の帯は、共有が無ければ出さない。入力の画面のほかでは顧客番号を出さない", () => {

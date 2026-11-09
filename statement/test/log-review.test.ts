@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addRule, applyDecisions, classify, createImport, DecisionError, emptyLog, forgetEntry, learnFromDecisions, merchantKey, readLog, readStatement, reviewList, unknownMerchants, type StatementLog } from "../src/index.ts";
+import { addRule, applyDecisions, classify, createImport, DecisionError, emptyLog, forgetEntry, learnFromDecisions, merchantKey, readLog, readStatement, reviewList, sameAsOtherAccount, unknownMerchants, type StatementLog } from "../src/index.ts";
 import { BASE_MONTH, buildLog, HOUSEHOLD, read, SELF, SPOUSE } from "./helpers.ts";
 
 const classified = (log: StatementLog) => classify({ log, household: HOUSEHOLD, baseMonth: BASE_MONTH, office: [] });
@@ -152,5 +152,54 @@ describe("迷う行の一覧と、FP が決めたこと", () => {
 
   it("世帯の決まりの割合が読めなければ止める", () => {
     expect(() => addRule(emptyLog(), { id: "r", match: { category: "communication" }, bucket: "business", share: "abc", at: "x" })).toThrow(DecisionError);
+  });
+});
+
+describe("同じ明細を別の口座に取り込もうとしたときの知らせ（0180 の6）", () => {
+  type R = { date: string; merchant: string; amount: number };
+  const months = (n: number, day: string, merchant: string, amount: number): R[] => Array.from({ length: n }, (_, i) => ({ date: `2026-${String(i + 1).padStart(2, "0")}-${day}`, merchant, amount }));
+  const logWith = (rows: R[], include = true): StatementLog => ({
+    ...emptyLog(),
+    accounts: [
+      { id: "a", kind: "card", label: "ご本人のカード", owner: SELF },
+      { id: "b", kind: "card", label: "配偶者のカード", owner: SPOUSE },
+    ],
+    imports: [
+      {
+        id: "imp-a",
+        kind: "statement",
+        at: "2026-10-20T10:00:00+09:00",
+        account: "a",
+        file: { sha256: "sha256:a", bytes: 1 },
+        reader: { id: "csv", version: 1 },
+        format: { fingerprint: "sha256:f", mapping: { headerRow: 0, columns: { date: 0, merchant: 1, amount: 2 }, sign: "expensePositive" }, source: "fp" },
+        period: { from: "2026-01-01", to: "2026-06-30" },
+        rows: rows.map((r, i) => ({ line: i + 1, id: `r${i + 1}`, key: merchantKey(r.merchant), ...r })),
+        include,
+      },
+    ],
+  });
+  const base = [...months(6, "05", "ひかりスーパー みなみ店", 30000), ...months(6, "20", "XYZ携帯", 8800)];
+
+  it("使った日・金額・店がほとんど（8割以上・3行以上）同じなら、どの口座と何件同じかを返す（店の名前の書き方の揺れは店の鍵でそろえる）", () => {
+    const log = logWith(base);
+    expect(sameAsOtherAccount(log, base, "b")).toEqual({ account: "a", matched: 12, rows: 12 });
+    // 保存し直して店の名前の空白が変わった・1行だけ違う
+    const resaved = base.map((r, i) => (i === 0 ? { ...r, amount: 31000 } : { ...r, merchant: r.merchant.replace(" ", "　") }));
+    expect(sameAsOtherAccount(log, resaved, "b")).toEqual({ account: "a", matched: 11, rows: 12 });
+    // 長い明細の一部（同じカードの1か月分）でも知らせる
+    expect(sameAsOtherAccount(log, base.filter((r) => r.date.startsWith("2026-0") && Number(r.date.slice(5, 7)) <= 2), "b")).toEqual({ account: "a", matched: 4, rows: 4 });
+  });
+
+  it("同じ口座・家族のカードで同じ店の行が少し重なるだけ・2行以下・外した取り込みは知らせない", () => {
+    const log = logWith(base);
+    expect(sameAsOtherAccount(log, base, "a")).toBeNull();
+    // 配偶者のカード: 同じ日に同じ店で同じ額が2回あるだけ（残りは違う）
+    const spouse = [...base.slice(0, 2), ...months(6, "12", "架空ドラッグ", 2000), ...months(4, "25", "架空書店", 1500)];
+    expect(sameAsOtherAccount(log, spouse, "b")).toBeNull();
+    expect(sameAsOtherAccount(log, base.slice(0, 2), "b")).toBeNull();
+    // 同じ行は1回だけ数える（取り込もうとしている明細に同じ行が2つあっても、ある口座の1行とだけ対にする）
+    expect(sameAsOtherAccount(log, [base[0]!, base[0]!, base[0]!, base[1]!], "b")).toBeNull();
+    expect(sameAsOtherAccount(logWith(base, false), base, "b")).toBeNull();
   });
 });

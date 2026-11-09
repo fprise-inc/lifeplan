@@ -344,7 +344,7 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
         benefitAt(b.id, "retirementBenefit.receipt", ["method"]),
       ),
     );
-    if (method === "mixed") fields.push(withAddress(plain({ key: `${prefix}/lumpShare`, item: "retirementBenefit.receipt", label: "一時金で受け取る割合", level: "simple", kind: "pct", find, path: ["receipt", "lumpShare"] }), lumpShareAt(b.id)));
+    if (method === "mixed") fields.push(withAddress(plain({ key: `${prefix}/lumpShare`, item: "retirementBenefit.receipt", label: "一時金で受け取る割合", level: "simple", kind: "pct", min: 0, max: 100, find, path: ["receipt", "lumpShare"] }), lumpShareAt(b.id)));
   }
   // 年金の年額（年金で受けるとき。国民年金基金・年金払い退職給付は必ず。目安が無いので、入れるまでは未入力の警告）
   if (method !== "lumpSum") {

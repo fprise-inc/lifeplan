@@ -87,9 +87,12 @@ export function buildCandidates(summary: StatementSummary, household: CandidateH
   const out: StatementCandidate[] = [];
   if (summary.days <= 0 || summary.from === null || summary.to === null) return out;
   const basis = `明細の取り込み（${summary.from}〜${summary.to}、${summary.months}か月）の使った日での月平均`;
-  const short = summary.days < MIN_DAYS_FOR_CANDIDATE;
+  // 期間の短さは口座ごとに見る（12か月のカードと25日のカードを混ぜたときも、短いカードの分は参考の値。0180 の3）
+  const shortAccounts = summary.shortAccounts;
+  const short = summary.days < MIN_DAYS_FOR_CANDIDATE || shortAccounts.length > 0;
   const notes: string[] = [];
-  if (short) notes.push(`期間が ${monthsText(summary.days)} か月と短いため、参考の値です`);
+  if (summary.days < MIN_DAYS_FOR_CANDIDATE) notes.push(`期間が ${monthsText(summary.days)} か月と短いため、参考の値です`);
+  else if (shortAccounts.length > 0) notes.push(`期間が3か月に満たない口座（${shortAccounts.map((a) => `「${a.label}」${monthsText(a.days)}か月`).join("・")}）があるため、参考の値です`);
   if (summary.review > 0) notes.push(`迷う行が ${summary.review} 行残っています`);
   const status: StatementCandidate["status"] = short || summary.review > 0 ? "needsReview" : "pending";
   const base = { enabled: true as const, origin: { kind: "import" as const, ref: o.ref }, source: "import" as const, sourceRef: o.ref };
@@ -109,8 +112,13 @@ export function buildCandidates(summary: StatementSummary, household: CandidateH
       const replaced = (c: LivingCategory) => has(c) || (c in LEGACY_LIVING_SPLIT && LEGACY_LIVING_SPLIT[c as LegacyLivingCategory].some(has));
       const kept = (cur.categories ?? []).filter((c) => !replaced(c.category));
       const legacy = (cur.categories ?? []).filter((c) => !has(c.category) && replaced(c.category));
+      // 明細に出てきたが、返品・取り消しが多く月平均が0円以下になった内訳は、「明細に出てこない」と分けて書く（どちらも今の値を残す。0180 の4）
+      const zeroed = new Set<LivingCategory>(summary.living.filter((l) => l.monthly <= 0).map((l) => l.category));
+      const absent = kept.filter((k) => !zeroed.has(k.category));
+      const refunded = kept.filter((k) => zeroed.has(k.category));
       const notesHere = [
-        ...(kept.length > 0 ? [`明細に出てこない内訳（${kept.map((k) => LIVING_LABELS[k.category]).join("・")}）は今の値を残します`] : []),
+        ...(absent.length > 0 ? [`明細に出てこない内訳（${absent.map((k) => LIVING_LABELS[k.category]).join("・")}）は今の値を残します`] : []),
+        ...(refunded.length > 0 ? [`返品・取り消しが多く月平均が0円以下になった内訳（${refunded.map((k) => LIVING_LABELS[k.category]).join("・")}）は今の値を残します`] : []),
         ...legacy.map((k) => `前の分け方の${LIVING_LABELS[k.category]}は、明細の${LEGACY_LIVING_SPLIT[k.category as LegacyLivingCategory].filter(has).map((c) => LIVING_LABELS[c]).join("・")}で置き換えます`),
       ];
       out.push({ ...base, id: o.newId(), target: { object: cur.id }, collection: "livingExpenses", item: "livingExpense.categories", op: "set", value: [...cats, ...kept], before: cur.categories ?? null, status, title: "基本生活費の内訳", note: [note, ...notesHere].join("。") });
