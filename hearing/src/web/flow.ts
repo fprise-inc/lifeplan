@@ -9,9 +9,13 @@
 // - 金額の項目と、その「だいたいの範囲」は同じ欄の別の答え方（alt）。生年月と年齢（簡易の票）も同じ
 // - 「ご相談したいこと・気になっていること」は同意の直後に出す（答える気持ちが続くように）
 // - 見えなくなった問いの答えは、送るときに捨てる（下書きには残すので、戻って答えを変えれば元に戻る）
+// - 書類（0190）: 1通1画面。頼んだ書類で分かる問い（PacketDocument.covers）は問いの画面に出さない。お客さまがその書類を「手元にない」にしたときだけ、
+//   その書類の画面で聞く（分岐の問いが要れば一緒に）。「あとで送る」「まだ」のときは聞かない（FP に書類の状態が届く）。
+//   配偶者の方の書類は、配偶者の方が「いらっしゃらない」なら出さない
 import type { Answer, RawValue } from "../answers.ts";
 import { yearLabel } from "../definition.ts";
-import type { DocumentAnswer, DocumentFile, DocumentFiles, GateAnswers, GateId, QuestionsPacket, WebItem } from "./packet.ts";
+import { OWNER_CUSTOMER, OWNER_LABEL, templateOf } from "./documents.ts";
+import type { DocumentAnswer, DocumentFile, DocumentFiles, GateAnswers, GateId, PacketDocument, QuestionsPacket, RequestedDocument, WebItem } from "./packet.ts";
 import { ANSWERS_FORMAT, DOCUMENTS_FORMAT, FILLED_ON, WEB_FORMAT_VERSION, type AnswersPacket, type DocumentsPacket } from "./packet.ts";
 
 /** 下書きの1つの答え（later は「あとで」。送るときは未回答） */
@@ -61,8 +65,16 @@ export type Screen =
   | { readonly kind: "gate"; readonly gates: readonly GateId[]; readonly section: string }
   /** key・index は画面の最初の問い（画面の名前に使う） */
   | { readonly kind: "item"; readonly key: string; readonly index?: number; readonly section: string; readonly fields: readonly ScreenField[] }
-  | { readonly kind: "documents" }
+  /**
+   * 書類1通の画面（0190）。covers はその書類で分かる問いの項目キー。「手元にない」にした書類は、かわりに聞く問い（fields）と、
+   * それに要る分岐の問い（gates。まだ聞いていないもの）を持つ
+   */
+  | { readonly kind: "document"; readonly id: string; readonly section: typeof DOCS_SECTION; readonly gates: readonly GateId[]; readonly fields: readonly ScreenField[]; readonly covers: readonly string[] }
   | { readonly kind: "review" };
+
+/** 書類の画面の区画（進み具合の段と、確かめの画面の見出し） */
+export const DOCS_SECTION = "@documents";
+export const DOCS_TITLE = "書類";
 
 /** 同意の直後に出す問いの区画（「はじめに」） */
 export const START_SECTION = "@start";
@@ -70,7 +82,12 @@ export const START_TITLE = "はじめに";
 /** 同意の直後に出す問い */
 const FIRST_KEYS = ["hs.consult.topics"];
 
-export const screenId = (s: Screen): string => (s.kind === "item" ? `item:${draftKey(s.key, s.index)}` : s.kind === "gate" ? `gate:${s.gates.join("+")}` : s.kind);
+export const screenId = (s: Screen): string => (s.kind === "item" ? `item:${draftKey(s.key, s.index)}` : s.kind === "gate" ? `gate:${s.gates.join("+")}` : s.kind === "document" ? `doc:${s.id}` : s.kind);
+
+/** 画面の中の問い（問いの画面と書類の画面） */
+export const screenFields = (s: Screen): readonly ScreenField[] => (s.kind === "item" || s.kind === "document" ? s.fields : []);
+/** 画面の中の分岐の問い（分岐の画面と書類の画面） */
+export const screenGates = (s: Screen): readonly GateId[] => (s.kind === "gate" || s.kind === "document" ? s.gates : []);
 
 /** 画面のすべての欄の項目キー（答えの欄と、別の答え方の欄） */
 export const fieldKeys = (f: ScreenField): string[] => [f.key, ...f.alt];
@@ -261,6 +278,73 @@ export function itemShown(p: QuestionsPacket, d: Draft, item: WebItem, n: number
   return c === undefined || c(d, n);
 }
 
+// ---- 書類で分かる問い（0190） ----
+
+const docStatus = (d: Pick<Draft, "documents">, id: string): DocumentAnswer["status"] => d.documents[id]?.status ?? "blank";
+const coverHit = (doc: PacketDocument, key: string, n: number | undefined): boolean => (doc.covers ?? []).some((c) => c === key || (n !== undefined && c === `${key}#${n}`));
+const coverKeys = (doc: PacketDocument): string[] => [...new Set((doc.covers ?? []).map((c) => c.split("#")[0] as string))];
+
+/** その書類をお客さまの画面に出すか（配偶者の方の書類は、配偶者の方が「いらっしゃらない」なら出さない） */
+export function docShown(d: Pick<Draft, "gates">, doc: RequestedDocument): boolean {
+  return !(doc.owner === "spouse" && d.gates.spouse === 0);
+}
+
+/** 書類で分かるので、問いの画面に出さない問いか（その問いを挙げた書類を頼んでいる。「手元にない」なら書類の画面で聞く） */
+export function coveredByDocument(p: QuestionsPacket, d: Pick<Draft, "gates">, key: string, n: number | undefined): boolean {
+  return p.documents.some((doc) => docShown(d, doc) && coverHit(doc, key, n));
+}
+
+/** 書類で分かる問いのうち、ほかの書類がまだ分かるかもしれないもの（その問いを挙げた書類のどれかが「手元にない」でない） */
+function knownByDocument(p: QuestionsPacket, d: Pick<Draft, "gates" | "documents">, key: string, n: number | undefined): boolean {
+  return p.documents.some((doc) => docShown(d, doc) && coverHit(doc, key, n) && docStatus(d, doc.id) !== "notAvailable");
+}
+
+/** お客さまの画面の書類の見出し（持ち主があれば「ご本人さまの源泉徴収票」。FP の見出しの「（ご本人）」は外す） */
+export function customerDocTitle(doc: Pick<RequestedDocument, "title" | "owner">): string {
+  if (doc.owner === undefined) return doc.title;
+  return `${OWNER_CUSTOMER[doc.owner]}の${baseDocTitle(doc)}`;
+}
+
+/** 持ち主の括弧（「（ご本人）」）を外した見出し */
+export function baseDocTitle(doc: Pick<RequestedDocument, "title" | "owner">): string {
+  if (doc.owner === undefined) return doc.title;
+  const tag = `（${OWNER_LABEL[doc.owner]}）`;
+  return doc.title.endsWith(tag) ? doc.title.slice(0, -tag.length) : doc.title;
+}
+
+const topicOf = (doc: PacketDocument) => ((doc.covers ?? []).length > 0 ? templateOf(doc.kind)?.topic : undefined);
+
+/** 最初の画面の一言（「お給料と年金の額は、お送りいただく源泉徴収票・ねんきん定期便の数字を使います。…」）。書類で分かる問いが無ければ null */
+export function coverSummary(p: QuestionsPacket, d: Pick<Draft, "gates">): string | null {
+  const docs = p.documents.filter((x) => docShown(d, x) && topicOf(x) !== undefined);
+  if (docs.length === 0) return null;
+  const by = new Map<string, string[]>();
+  for (const x of docs) {
+    const t = topicOf(x) as { noun: string; aspect: string };
+    const list = by.get(t.aspect) ?? [];
+    if (!list.includes(t.noun)) list.push(t.noun);
+    by.set(t.aspect, list);
+  }
+  const what = [...by.entries()].map(([aspect, nouns]) => `${nouns.join("と")}の${aspect}`).join("、");
+  const titles = [...new Set(docs.map((x) => baseDocTitle(x)))].join("・");
+  return `${what}は、お送りいただく${titles}の数字を使います。そのぶん、お答えいただく問いが少なくなっています。`;
+}
+
+/** 書類の画面の一言（「お給料の額は、この書類の数字を使います。」）。書類で分かる問いが無ければ null */
+export function coverLine(doc: PacketDocument): string | null {
+  const t = topicOf(doc);
+  return t === undefined ? null : `${t.noun}の${t.aspect}は、この書類の数字を使います。`;
+}
+
+/** 「手元にない」を選んだときの一言（「大丈夫です。かわりに、お給料のだいたいの額をうかがいます（1問）。」） */
+export function insteadLine(doc: PacketDocument, s: Extract<Screen, { kind: "document" }>, p: QuestionsPacket): string {
+  const t = topicOf(doc);
+  const n = s.fields.length + s.gates.length;
+  if (t === undefined || n === 0) return "大丈夫です。担当の FP にお伝えします。";
+  const range = s.fields.some((f) => f.alt.some((k) => p.items.find((i) => i.key === k)?.type === "moneyRange"));
+  return `大丈夫です。かわりに、${t.noun}の${range ? "だいたいの" : ""}${t.aspect}をうかがいます（${n}問）。`;
+}
+
 /** その項目のために要る分岐の問い（並びの順） */
 function gatesOf(item: WebItem): GateId[] {
   const a = item.axis?.id;
@@ -281,7 +365,7 @@ export function screens(p: QuestionsPacket, d: Draft): Screen[] {
   const field = (it: WebItem, n: number | undefined): ScreenField => ({ key: it.key, ...(n !== undefined ? { index: n } : {}), alt: (alts.get(it.key) ?? []).filter((k) => itemShown(p, d, byKey.get(k) as WebItem, n)) });
   const fieldsAt = (it: WebItem, n: number | undefined): ScreenField[] => {
     const subs = (GROUPS[it.key] ?? []).filter((k) => follow.get(k) === it.key).map((k) => byKey.get(k) as WebItem);
-    return [field(it, n), ...subs.filter((s) => itemShown(p, d, s, n)).map((s) => field(s, n))];
+    return [it, ...subs.filter((s) => itemShown(p, d, s, n))].filter((x) => !coveredByDocument(p, d, x.key, n)).map((x) => field(x, n));
   };
   const push = (section: string, fields: ScreenField[]) => {
     const f = fields[0];
@@ -294,18 +378,13 @@ export function screens(p: QuestionsPacket, d: Draft): Screen[] {
   }
   const asked = new Set<GateId>();
   const gateOn = (g: GateId) => !(g === "loan" && !OWN(d, undefined)) && (g === "spouse" || g === "parent" || axisCount(p, g) > 0);
+  // 書類で分かる問い（0190）: 全員の分が書類で分かる項目（と、続けて出す項目）しか無いまとまりは、分岐の問いごと出さない
+  const covered = (key: string, n: number | undefined) => coveredByDocument(p, d, key, n);
+  const fullyCovered = (it: WebItem) => (it.axis === undefined ? covered(it.key, undefined) : Array.from({ length: it.axis.labels.length }, (_, i) => i + 1).every((n) => covered(it.key, n)));
+  const needed = (it: WebItem) => !fullyCovered(it) || (GROUPS[it.key] ?? []).some((k) => follow.get(k) === it.key && !fullyCovered(byKey.get(k) as WebItem));
   for (const sec of p.sections) {
     const items = p.items.filter((i) => i.section === sec.id && !altKeys.has(i.key) && !follow.has(i.key) && !FIRST_KEYS.includes(i.key));
-    // 同じ軸の項目は、番号ごと（人ごと・物ごと）にまとめて聞く（区画の中で軸の項目が並ぶ順を保つ）
-    const runs: WebItem[][] = [];
-    let k = 0;
-    while (k < items.length) {
-      const first = items[k] as WebItem;
-      let end = k + 1;
-      if (first.axis !== undefined) while (end < items.length && items[end]?.axis?.id === first.axis.id) end++;
-      runs.push(items.slice(k, end));
-      k = end;
-    }
+    const runs = splitRuns(items).filter((run) => run.some(needed));
     for (let r = 0; r < runs.length; r++) {
       const run = runs[r] as WebItem[];
       // この区画でまだ聞いていない分岐の問いを、最初に要る所でまとめて1画面に
@@ -319,9 +398,9 @@ export function screens(p: QuestionsPacket, d: Draft): Screen[] {
       const axis = run[0]?.axis;
       const count = axis === undefined ? 1 : axis.labels.length;
       const only = run.length === 1 ? (run[0] as WebItem) : null;
-      if (only !== null && axis !== undefined && ACROSS.has(only.key) && fieldsAt(only, 1).length === 1) {
+      if (only !== null && axis !== undefined && ACROSS.has(only.key) && (GROUPS[only.key] ?? []).every((k) => follow.get(k) !== only.key)) {
         const fields: ScreenField[] = [];
-        for (let n = 1; n <= count; n++) if (itemShown(p, d, only, n)) fields.push(field(only, n));
+        for (let n = 1; n <= count; n++) if (itemShown(p, d, only, n) && !covered(only.key, n)) fields.push(field(only, n));
         push(sec.id, fields);
         continue;
       }
@@ -331,14 +410,55 @@ export function screens(p: QuestionsPacket, d: Draft): Screen[] {
       }
     }
   }
-  if (p.documents.length > 0) out.push({ kind: "documents" });
+  // 書類は1通1画面。「手元にない」にした書類は、その書類で分かるはずだった問いをその画面で聞く（ほかの書類で分かるもの・ほかの書類の画面で聞くものは除く）
+  const placed = new Set<string>();
+  for (const doc of p.documents) {
+    if (!docShown(d, doc)) continue;
+    const covers = coverKeys(doc);
+    if (docStatus(d, doc.id) !== "notAvailable" || covers.length === 0) {
+      out.push({ kind: "document", id: doc.id, section: DOCS_SECTION, gates: [], fields: [], covers });
+      continue;
+    }
+    const its = p.items.filter((i) => !altKeys.has(i.key) && covers.includes(i.key));
+    const gates = [...new Set(its.flatMap((i) => gatesOf(i)))].filter((g) => !asked.has(g) && gateOn(g));
+    for (const g of gates) asked.add(g);
+    const fields: ScreenField[] = [];
+    for (const run of splitRuns(its)) {
+      const axis = run[0]?.axis;
+      for (let n = 1; n <= (axis === undefined ? 1 : axis.labels.length); n++) {
+        const index = axis === undefined ? undefined : n;
+        for (const it of run) {
+          const tag = draftKey(it.key, index);
+          if (placed.has(tag) || !coverHit(doc, it.key, index) || knownByDocument(p, d, it.key, index) || !itemShown(p, d, it, index)) continue;
+          placed.add(tag);
+          fields.push(field(it, index));
+        }
+      }
+    }
+    out.push({ kind: "document", id: doc.id, section: DOCS_SECTION, gates, fields, covers });
+  }
   out.push({ kind: "review" });
   return out;
 }
 
+/** 同じ軸の項目は、番号ごと（人ごと・物ごと）にまとめて聞く（区画の中で軸の項目が並ぶ順を保つ） */
+function splitRuns(items: readonly WebItem[]): WebItem[][] {
+  const runs: WebItem[][] = [];
+  let k = 0;
+  while (k < items.length) {
+    const first = items[k] as WebItem;
+    let end = k + 1;
+    if (first.axis !== undefined) while (end < items.length && items[end]?.axis?.id === first.axis.id) end++;
+    runs.push(items.slice(k, end));
+    k = end;
+  }
+  return runs;
+}
+
 /** その項目を含む画面（FP のアプリの見本の「この問いを見る」） */
 export function screenOf(list: readonly Screen[], key: string): Screen | undefined {
-  return list.find((s) => s.kind === "item" && s.fields.some((f) => fieldKeys(f).includes(key)));
+  // 書類で分かる問いは、その書類の画面（0190）
+  return list.find((s) => s.kind === "item" && s.fields.some((f) => fieldKeys(f).includes(key))) ?? list.find((s) => s.kind === "document" && s.covers.includes(key));
 }
 
 /** 問いに答えたか（答えの欄か、別の答え方のどれかに「あとで」でない答えがある） */
@@ -385,10 +505,7 @@ export function answersOf(p: QuestionsPacket, d: Draft, submittedAt: Date): Answ
     out.push({ key, ...(index !== undefined ? { index } : {}), status: a.status, ...(a.status === "value" && a.raw !== undefined ? { raw: a.raw } : {}), ...(a.status === "value" && a.raw2 !== undefined ? { raw2: a.raw2 } : {}) });
   };
   for (const c of p.consent.items) put(c.key, undefined, d.answers[draftKey(c.key)]);
-  for (const s of screens(p, d)) {
-    if (s.kind !== "item") continue;
-    for (const f of s.fields) for (const key of fieldKeys(f)) put(key, f.index, d.answers[draftKey(key, f.index)]);
-  }
+  for (const s of screens(p, d)) for (const f of screenFields(s)) for (const key of fieldKeys(f)) put(key, f.index, d.answers[draftKey(key, f.index)]);
   // 配偶者の方がいない: 配偶者の方の欄を「該当なし」に（取り込みは生年月の「該当なし」で配偶者の方を作らない）
   if (d.gates.spouse === 0) {
     for (const key of ["hs.family.adult.birthYearMonth", "hs.family.adult.age"]) {
@@ -409,7 +526,7 @@ export function answersOf(p: QuestionsPacket, d: Draft, submittedAt: Date): Answ
 
 /** 送る分岐の答え: 今の答えで出る分岐の問いのうち、答えたものだけ（人数を「0」と答えたことも FP に届ける。0158） */
 export function gateAnswersOf(p: QuestionsPacket, d: Draft): GateAnswers {
-  const asked = new Set(screens(p, d).flatMap((s) => (s.kind === "gate" ? s.gates : [])));
+  const asked = new Set(screens(p, d).flatMap((s) => screenGates(s)));
   const out: Partial<Record<GateId, number>> = {};
   for (const g of asked) {
     const v = d.gates[g];
@@ -513,13 +630,13 @@ export interface Progress {
   readonly pct: number;
 }
 
-const stageOf = (s: Screen): string | null => (s.kind === "intro" ? null : s.kind === "consent" ? START_SECTION : s.kind === "item" || s.kind === "gate" ? s.section : s.kind);
+const stageOf = (s: Screen): string | null => (s.kind === "intro" ? null : s.kind === "consent" ? START_SECTION : s.kind === "item" || s.kind === "gate" ? s.section : s.kind === "document" ? "documents" : s.kind);
 
 export function progress(p: QuestionsPacket, list: readonly Screen[], at: number): Progress {
   const stages: { id: string; title: string }[] = [];
   if (p.consent.items.length > 0 || p.items.some((i) => FIRST_KEYS.includes(i.key))) stages.push({ id: START_SECTION, title: START_TITLE });
   for (const s of p.sections) if (p.items.some((i) => i.section === s.id && !FIRST_KEYS.includes(i.key))) stages.push({ id: s.id, title: s.title });
-  if (p.documents.length > 0) stages.push({ id: "documents", title: "書類" });
+  if (p.documents.length > 0) stages.push({ id: "documents", title: DOCS_TITLE });
   stages.push({ id: "review", title: "確かめ" });
   const here = list[at];
   const id = here === undefined ? null : stageOf(here);
