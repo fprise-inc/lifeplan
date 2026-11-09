@@ -26,6 +26,12 @@
 // - 改訂7（0170）: 万一の想定で、債務者（主たる債務者・連帯債務者）が全員、借入の月より前に亡くなる世帯の負債（住宅購入の予定のローンなど）は
 //   組めないので返済を計算せず、借入の額を借入の月に現金で払う（住宅ローンは住宅の取得の行 cf.expense.housing.purchase、ほかはその負債の行。
 //   計算式ID debt.schedule.cashInstead。知らせ N_ESTIMATED debt.startsAfterDeath）。団信も効かない。前は亡くなった人の名で借りて遺族が返していた
+// - 改訂8（0136・0008 の追記 2026-11-08）:
+//   - 5年ルールの見直しは、借入の時から変動のローン（今の残高から入れたローンも）も最初の返済から61回目（前は60回目で1か月早かった）。
+//     途中から変動になったローン・借り換えたローンと同じ数え方
+//   - 繰上返済の額は、まず未払利息に充て、残りを元金に充てる（前は元金だけに充て、元金を全部返すと未払利息が消えて完済の月が付かなかった）
+//   - 約束の版 1.4: 繰上返済ごとの、その後の最後の返済の見込みの月（prepayments。任意の欄）を添える（住宅ローン控除の償還期間10年の判定。
+//     tax.housingLoanCredit）
 import {
   addMonths,
   boxValue,
@@ -108,8 +114,8 @@ function homeSaleMonth(ctx: Ctx, d: DebtInput, start: MonthIndex): MonthIndex | 
 export default defineComponent<{ object: string } | { loan: DebtInput }, DebtScheduleOutput>({
   id: "debt.schedule",
   title: "負債の返済",
-  contract: "1.3",
-  revision: 7,
+  contract: "1.4",
+  revision: 8,
   requires: { "debt.creditLifeEvents": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [],
   reads: [
@@ -229,7 +235,8 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
       return c;
     };
     let step = stepAt(addMonths(cur, 1));
-    let variableFrom: MonthIndex = step.type === "variable" ? (step.from > start ? step.from : start) : addMonths(cur, 1);
+    // 5年ルールの数え始め（変動の最初の返済の月。そこから60か月後＝61回目に見直す）。借入の時から変動なら最初の返済の月（借入の翌月）
+    let variableFrom: MonthIndex = step.type === "variable" ? (step.from > start ? step.from : addMonths(start, 1)) : addMonths(cur, 1);
     let principalPart = yen(0);
     let payment = yen(0);
     let bonusPayment = yen(0);
@@ -258,6 +265,8 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
     const propSale = d.property === undefined ? undefined : ctx.list<AccountInput>("account").find((a) => a.id === d.property)?.property?.sale;
     const payoffAt: MonthIndex | null = propSale !== undefined && propSale.repayLoan !== false ? ctx.time.resolve(propSale.at) : homeSaleMonth(ctx, d, start);
     const refinanced: { ym: string; before: Yen; principal: Yen; termMonths: number }[] = [];
+    // 繰上返済ごとの、その後の最後の返済の見込みの月（約束の版 1.4）
+    const prepaid: { ym: string; lastPayment: string }[] = [];
     for (let m = addMonths(cur, 1); m <= end && n > 0; m = addMonths(m, 1)) {
       // 借り換え: その月から新しいローン
       const rf = refinances.find((x) => x.m === m);
@@ -336,12 +345,17 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
       // 繰上返済（その月の返済の後）
       for (const p of prepayments) {
         if (p.m !== m || main <= 0) continue;
-        const amount = p.amount < main ? p.amount : main;
+        // まず未払利息に充て、残りを元金に充てる（元金を全部返すなら未払利息も一緒に払う）
+        const toUnpaid = p.amount < unpaid ? yen(p.amount) : unpaid;
+        unpaid = yen(unpaid - toUnpaid);
+        const rest = p.amount - toUnpaid;
+        const amount = rest < main ? yen(rest) : main;
         main = yen(main - amount);
-        emit(m, prepayRow, amount, `debt.schedule.prepayment.${p.mode}`);
+        emit(m, prepayRow, yen(toUnpaid + amount), `debt.schedule.prepayment.${p.mode}`);
         emit(m, feeRow, yen(p.fee ?? 0), "debt.schedule.prepaymentFee");
         if (main <= 0) {
           n = bonus > 0 ? n : 0;
+          prepaid.push({ ym: formatYm(m), lastPayment: formatYm(addMonths(m, n)) });
           continue;
         }
         if (method === "equalPayment") {
@@ -363,6 +377,7 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
           n = ctx.money.divInt(main, principalPart > 0 ? principalPart : 1, "conv.loan.term") as number;
         }
         if (bonus > 0) bonusPayment = annuity(ctx, bonus, step.num, step.den * 2n, bonusLeft(addMonths(m, 1), n));
+        prepaid.push({ ym: formatYm(m), lastPayment: formatYm(addMonths(m, n)) });
       }
       // 団信: その月の返済の後に、残高をその割合だけ減らし、残りの回数で返済額を計算し直す
       for (const c of credit) {
@@ -393,6 +408,6 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
       }
     }
     const interest = [...interestByYear.entries()].sort((a, b) => a[0] - b[0]).map(([year, amount]) => ({ year, amount }));
-    return { flows, yearEnd, firstPayment: formatYm(addMonths(start, 1)), payoff: payoff === null ? null : formatYm(payoff), ...(interest.length > 0 ? { interest } : {}), ...(refinanced.length > 0 ? { refinances: refinanced } : {}) };
+    return { flows, yearEnd, firstPayment: formatYm(addMonths(start, 1)), payoff: payoff === null ? null : formatYm(payoff), ...(interest.length > 0 ? { interest } : {}), ...(refinanced.length > 0 ? { refinances: refinanced } : {}), ...(prepaid.length > 0 ? { prepayments: prepaid } : {}) };
   },
 });
