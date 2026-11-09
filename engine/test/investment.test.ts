@@ -249,6 +249,33 @@ describe("相場が下がった場合・利回りの書き換え（0026）", () 
     expect(cells(r, "cf.balance.account.taxable", 2030)).toBe(8200000);
   });
 
+  it("割合の合計が100%でなくても、合計で割って按分する（利回り・下落の割合とも。1行だけならその資産クラスが100%。0177）", () => {
+    const withMix = (mix: Obj[], drop = false) =>
+      full(
+        mk([dep(5000000), { ...mixed, assetMix: mix }], (_h, input) => {
+          (input.assumptions as Obj).assetReturns = { "equity.global": { default: "0.05" }, "bond.global": { default: "0.01" } };
+          if (drop) input.stressTest = { template: "marketDropAtRetirement", params: { year: 2030, drop: "0.3", assetClasses: ["equity.global"] } };
+        }),
+      );
+    const bal = (r: ReturnType<typeof full>) => cells(r, "cf.balance.account.taxable", 2040);
+    const eq = (s: string) => ({ assetClass: "equity.global", share: s });
+    const bd = (s: string) => ({ assetClass: "bond.global", share: s });
+    // 合計120%（90%・30%）は 75%・25% と同じ
+    expect(bal(withMix([eq("0.9"), bd("0.3")]))).toBe(bal(withMix([eq("0.75"), bd("0.25")])));
+    // 合計50%（40%・10%）は 80%・20% と同じ
+    expect(bal(withMix([eq("0.4"), bd("0.1")]))).toBe(bal(withMix([eq("0.8"), bd("0.2")])));
+    // 1行だけ50%は100%と同じ。0%の行を足しても同じ
+    expect(bal(withMix([eq("0.5")]))).toBe(bal(withMix([eq("1")])));
+    expect(bal(withMix([eq("0.5"), bd("0")]))).toBe(bal(withMix([eq("1")])));
+    // 合計0%は資産の配分が無いのと同じ（運用利回り）
+    const none = { ...mixed } as Obj;
+    delete none.assetMix;
+    expect(bal(withMix([eq("0"), bd("0")]))).toBe(bal(full(mk([dep(5000000), none], (_h, input) => ((input.assumptions as Obj).assetReturns = { "equity.global": { default: "0.05" }, "bond.global": { default: "0.01" } })))));
+    // 下落の割合も按分（1行50%の株は、株100%と同じだけ下がる）
+    expect(cells(withMix([eq("0.5")], true), "cf.balance.account.taxable", 2030)).toBe(cells(withMix([eq("1")], true), "cf.balance.account.taxable", 2030));
+    expect(cells(withMix([eq("0.9"), bd("0.3")], true), "cf.balance.account.taxable", 2030)).toBe(cells(withMix([eq("0.75"), bd("0.25")], true), "cf.balance.account.taxable", 2030));
+  });
+
   it("10年間利回りが低いまま（退職の年から）・ずっと1%低い", () => {
     const tx = { ...mixed, assetMix: undefined, expectedReturn: "0.04" };
     delete (tx as Obj).assetMix;

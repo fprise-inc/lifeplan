@@ -165,7 +165,9 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
           } else if (v === "annual" && x.annual === undefined) {
             x.annual = (x.monthly ?? 0) * 12;
             delete x.monthly;
-          }
+          } else return;
+          // 料金の段階も同じ払い方に直す（月額×12・年額÷12。段階は年額か月額のどちらか1つ。0070 の追記 2026-11-08）
+          for (const st of x.revision?.steps ?? []) toBasis(st, v === "monthly" ? "monthly" : "annual");
         }),
     }),
     monthly
@@ -254,6 +256,8 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
   // 料金の段階（その月からの年額・月額。0070。計算は今ある）
   (r.revision?.steps ?? []).forEach((st, i) => {
     const sid = typeof st.id === "string" ? st.id : String(i);
+    // 段階の額の欄は、段階が持っている払い方で出す（前の版で払い方だけを変えた段階は、段階の払い方のまま。計算も同じ。0070 の追記 2026-11-08）
+    const stepMonthly = stepBasis(st, monthly) === "monthly";
     const findStep: Finder = (h, w) => (((getPath(find(h, w), ["terms", "recurring", "revision", "steps"]) as Record<string, unknown>[] | undefined) ?? []).find((x, j) => (typeof x.id === "string" ? x.id === sid : String(j) === sid)) ?? undefined);
     groups.push({
       key: `${k}/rec/step/${sid}`,
@@ -262,9 +266,10 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
       level: "detail",
       fields: [
         timepointField({ key: `${k}/rec/step/${sid}/at`, item: "advisoryFee.terms", label: "いつから", level: "detail", find: findStep, path: ["at"] }),
-        monthly
-          ? plain({ key: `${k}/rec/step/${sid}/monthly`, item: "advisoryFee.terms", label: "その月からの額（月額・税込）", level: "detail", kind: "yen", basis: "monthly", find: findStep, path: ["monthly"] })
-          : plain({ key: `${k}/rec/step/${sid}/annual`, item: "advisoryFee.terms", label: "その月からの額（年額・税込）", level: "detail", kind: "yen", basis: "annual", find: findStep, path: ["annual"] }),
+        // 書いたら、もう片方の払い方の額を外す（段階に年額と月額の両方を持たない）
+        stepMonthly
+          ? plain({ key: `${k}/rec/step/${sid}/monthly`, item: "advisoryFee.terms", label: "その月からの額（月額・税込）", level: "detail", kind: "yen", basis: "monthly", find: findStep, path: ["monthly"], after: (_h, t) => void delete t.annual })
+          : plain({ key: `${k}/rec/step/${sid}/annual`, item: "advisoryFee.terms", label: "その月からの額（年額・税込）", level: "detail", kind: "yen", basis: "annual", find: findStep, path: ["annual"], after: (_h, t) => void delete t.monthly }),
       ],
       actions: [
         {
@@ -284,6 +289,28 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
     });
   });
   return groups;
+}
+
+type Step = NonNullable<NonNullable<Recurring["revision"]>["steps"]>[number];
+
+/** 料金の段階の払い方（両方の額があれば契約の払い方。エンジンの expense.advisoryFee と同じ読み方） */
+export function stepBasis(st: Step, contractMonthly: boolean): "monthly" | "annual" {
+  if (st.annual !== undefined && st.monthly !== undefined) return contractMonthly ? "monthly" : "annual";
+  return st.annual !== undefined ? "annual" : st.monthly !== undefined ? "monthly" : contractMonthly ? "monthly" : "annual";
+}
+
+/** 料金の段階の額を、その払い方の1つの額にする（月額×12・年額÷12） */
+function toBasis(st: Step, to: "monthly" | "annual"): void {
+  const from = stepBasis(st, to === "annual");
+  if (to === "annual") {
+    const a = from === "annual" ? st.annual : st.monthly === undefined ? undefined : st.monthly * 12;
+    delete st.monthly;
+    if (a !== undefined) st.annual = a;
+  } else {
+    const m = from === "monthly" ? st.monthly : st.annual === undefined ? undefined : Math.round(st.annual / 12);
+    delete st.annual;
+    if (m !== undefined) st.monthly = m;
+  }
 }
 
 /** 継続の顧問料を料金表から作る（始まりの月・1回の額・払い方・料金の段階〔○年目から〕・万一のときの扱い） */

@@ -48,7 +48,7 @@ export default defineComponent<{ member: string }, MutualAidOutput>({
   id: "account.mutualAid",
   title: "小規模企業共済の残高と受け取り",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: { "contingency.event": ">=1 <2" },
   params: Object.values(P),
   reads: [

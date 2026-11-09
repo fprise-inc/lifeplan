@@ -70,6 +70,7 @@
 // - 改訂25（0179）: 旧NISA・ジュニアNISA に買付の年の内訳（lots）が無ければ、時価・取得価額の全部を残高の時点の年（2023年で頭を打つ）に
 //   買った一般NISA（ジュニアNISA はジュニア）の内訳1つとみなす（前は非課税期間が終わらなかった）。名義人に課税口座が無いときに作る移し先は、
 //   移す元の器の資産の配分・利回りで増やす（前は前提の運用利回り）
+// - 改訂26（0177）: 口座の資産の配分の割合は、合計で割って按分する（合計が100%でないとき・1行だけのとき。利回りと相場の下落の割合。sdk の accountReturnRate・shockShare）
 import {
   accountReturnRate,
   accountMixAt,
@@ -203,7 +204,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
   id: "plan.cashflow",
   title: "キャッシュフロー表",
   contract: "1.8",
-  revision: 25,
+  revision: 26,
   requires: {
     "plan.flows": ">=1 <2",
     "outside.wallet": ">=1 <2",

@@ -21,6 +21,7 @@ import { pctText } from "./decimal.ts";
 import { addAt, addressOf, boxAt, collectionOf, indexOfObject, isLever, isSharedDiff, placeExists, removeAt, removedNow, sameJson, writeAt, type DiffBox, type PlanDiff } from "./diffs.ts";
 import { catalogKeysOf, reemploymentFor, type Catalog, type ItemValue, type MovableItem, type RateShift } from "./items.ts";
 import { COLLECTION_LABELS, diffRows, type DiffRow } from "./planEdit.ts";
+import { stackDiffs } from "./stack.ts";
 
 export type { DiffOrigin, PlanDiff } from "./diffs.ts";
 
@@ -230,10 +231,13 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
     const ok = live.filter((d) => d.unresolved !== true);
     /** 置き換えの組の、外した物のあった所（足す物を同じ所に入れる。並びの順を変えない） */
     const slots = new Map<string, number>();
+    /** 外す物がまだ無い外す（組でないもの）: 同じプランで足す物の中にあれば、足したあとで外す（土台の差分を写して重ねたプラン。stack.ts） */
+    const later: PlanDiff[] = [];
     for (const d of ok.filter((x) => x.op === "remove")) {
       const cur = removedNow(input, d);
       if (cur === undefined) {
-        reviews.set(d.id, review("gone"));
+        if (d.pair == null) later.push(d);
+        else reviews.set(d.id, review("gone"));
         continue;
       }
       const base = removedNow(now, d);
@@ -246,6 +250,14 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
     for (const d of ok.filter((x) => x.op === "add")) {
       const r = addAt(input, d, d.pair != null ? slots.get(d.pair) : undefined);
       reviews.set(d.id, r === "ok" ? review("ok") : r === "exists" ? review("exists") : r === "noOwner" ? review("noOwner") : review("missing", "足す先がありません"));
+    }
+    for (const d of later) {
+      if (removedNow(input, d) === undefined) {
+        reviews.set(d.id, review("gone"));
+        continue;
+      }
+      reviews.set(d.id, review("ok"));
+      removeAt(input, d);
     }
     for (const d of ok.filter((x) => x.op === "set")) {
       const k = diffKey(d, wh);
@@ -436,7 +448,13 @@ export function savePlan(wh: WorkingHousehold, cat: Catalog, input: SaveInput): 
   // 値の元のプラン（@plan）のキーに戻せない差分のうち、土台から来ないものを写す（写さないと、足す・外すの差分が落ちる）
   const src = input.values[PLAN_SLOT];
   const inBase = new Set(chainOf(wh.proposals, input.base).map((p) => p.id));
-  const carried = typeof src === "string" && !inBase.has(src) ? copyWithNewIds(chainOf(wh.proposals, src).filter((p) => !inBase.has(p.id)).flatMap((p) => p.diffs.filter((d) => d.enabled && diffKey(d, wh) === null))) : [];
+  // プランをまたいで写す差分は、土台から順に重ね、土台で足した物を上のプランで外した組を打ち消す（1つのプランの中は 外す → 足す の順に当てるため。stack.ts）
+  const carried =
+    typeof src === "string" && !inBase.has(src)
+      ? chainOf(wh.proposals, src)
+          .filter((p) => !inBase.has(p.id))
+          .reduce<PlanDiff[]>((acc, p) => stackDiffs(acc, copyWithNewIds(p.diffs.filter((d) => d.enabled && diffKey(d, wh) === null))), [])
+      : [];
   const p: Proposal = { id, name: input.name.trim() || "名前のないプラン", createdAt: input.now, updatedAt: input.now, base: input.base, tags: input.tags ?? [], diffs: [...carried, ...ownDiffs(input.values, baseValues, wh, cat, [])] };
   return { wh: { ...wh, proposals: [...wh.proposals, p] }, id };
 }
@@ -475,7 +493,8 @@ export function deletePlan(wh: WorkingHousehold, id: string): WorkingHousehold {
       const own = new Set(p.diffs.filter((d) => d.enabled).map((d) => rowKeyOf(d, wh)));
       // 写す差分は新しい ID にする（置き換えの組・連鎖の ID も付け直す）
       const copied = copyWithNewIds(gone.diffs.filter((d) => !own.has(rowKeyOf(d, wh))));
-      return { ...p, base: gone.base, diffs: [...copied, ...p.diffs] };
+      // 土台で足した物を自分で外している組は打ち消す（そのまま並べると、外すが先に空振りして足すが物を戻す。stack.ts）
+      return { ...p, base: gone.base, diffs: stackDiffs(copied, p.diffs) };
     });
   return { ...wh, proposals };
 }
@@ -706,7 +725,7 @@ function phrase(it: MovableItem, v: ItemValue, now: ItemValue): string {
   }
   if (it.key === "lever:retireAge" && typeof v === "number") return `${v}歳まで働く`;
   if (it.key === "lever:pensionAge" && typeof v === "number") return `年金を${v}歳から`;
-  if (it.key === "lever:fee") return v === true ? "FP顧問料を入れる" : "FP顧問料を入れない";
+  if (it.key === "lever:fee") return v === true ? "FP顧問料を入れる" : v === false ? "FP顧問料を入れない" : "FP顧問料は今の契約だけ";
   if (it.control.kind === "rate" && typeof v === "string") return `金利${pctText(v)}`;
   if (it.control.kind === "shift") {
     const s = v as RateShift | null;

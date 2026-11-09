@@ -33,6 +33,17 @@ export function mulRate(a: string, b: string): string {
   return toText(x.n * y.n, x.d + y.d);
 }
 
+/** a ÷ b（小数第 digits 位まで。切り捨て。b が 0 なら E_DECIMAL） */
+export function divRate(a: string, b: string, digits = 10): string {
+  const x = scaled(a);
+  const y = scaled(b);
+  if (y.n === 0n) throw new Error("E_DECIMAL");
+  // (x.n / 10^x.d) ÷ (y.n / 10^y.d) を 10^digits 倍した整数
+  const num = x.n * 10n ** BigInt(digits + y.d);
+  const den = y.n * 10n ** BigInt(x.d);
+  return toText(num / den, digits).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+}
+
 /** a と b の比べ方（a<b: -1, 同じ: 0, a>b: 1） */
 export function cmpRate(a: string, b: string): number {
   const s = subRate(a, b);

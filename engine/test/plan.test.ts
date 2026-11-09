@@ -184,6 +184,24 @@ describe("FP顧問料（expense.advisoryFee）と要約", () => {
     const on = full(fee());
     expect(cells(on, "cf.taxSi", 2028)).toBe(cells(off, "cf.taxSi", 2028));
   });
+  // 料金の段階（0070 の追記 2026-11-08）: 年額の払う月は始まりの月のまま・始まりと同じ月（か前）の段階は始まりから・段階は契約の払い方の額を使う
+  const stepped = (recurring: Obj) => fee({ terms: { recurring: { from: at("2027-01"), ...recurring } } });
+  it("年額の契約で段階の月を払う月からずらしても、その年に年額を2回払わない（次の払う月から段階の額）", () => {
+    const r = full(stepped({ annual: 120000, revision: { steps: [{ at: at("2029-07"), annual: 150000 }] } }));
+    expect([2028, 2029, 2030, 2031].map((y) => cells(r, "cf.expense.advisoryFee", y))).toEqual([120000, 120000, 150000, 150000]);
+  });
+  it("段階を始まりと同じ月（か前）にすると、始まりから段階の額", () => {
+    const same = full(stepped({ annual: 120000, revision: { steps: [{ at: at("2027-01"), annual: 200000 }] } }));
+    expect(cells(same, "cf.expense.advisoryFee", 2027)).toBe(200000);
+    const before = full(stepped({ monthly: 10000, revision: { steps: [{ at: at("2026-06"), monthly: 12000 }, { at: at("2029-01"), monthly: 15000 }] } }));
+    expect([2027, 2028, 2029].map((y) => cells(before, "cf.expense.advisoryFee", y))).toEqual([144000, 144000, 180000]);
+  });
+  it("段階に年額と月額の両方があれば、契約の払い方の額だけを使う（二重に数えない）", () => {
+    const m = full(stepped({ monthly: 10000, revision: { steps: [{ at: at("2029-01"), annual: 150000, monthly: 12500 }] } }));
+    expect(cells(m, "cf.expense.advisoryFee", 2029)).toBe(150000);
+    const a = full(stepped({ annual: 120000, revision: { steps: [{ at: at("2029-01"), annual: 180000, monthly: 15000 }] } }));
+    expect(cells(a, "cf.expense.advisoryFee", 2029)).toBe(180000);
+  });
 });
 
 describe("現状の検算（expense.reconcile）", () => {
