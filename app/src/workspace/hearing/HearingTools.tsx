@@ -1,9 +1,11 @@
 // 入力のホームの「ヒアリングシートを書き出す」「記入済みのシートを取り込む」（作業の層。0018）。
-// - 書き出し: シートの種類（通常〔初回の前。既定〕・詳細・見直し〔詳細に前回の値つき〕）を選び、.xlsx を作って本体の平文の書き出しの出口
+// - 書き出し: シートの種類（シンプル〔既定〕・詳細・見直し〔詳細に前回の値つき〕。0192 で「通常」から改めた）を選び、.xlsx を作って本体の平文の書き出しの出口
 //   （OS の保存のダイアログ）で保存する。見直し（前回の値を記入する）を選ぶたびに警告する（0018 の9）
 // - 取り込み: 本体の開くダイアログで選んだ .xlsx を hearing/ の部品で読み（返ってきたファイルは信用しない。0018 の6）、
 //   候補（新規・変更・同じ・要確認・矛盾）をこのパネルで確かめ、承認したものだけを現状に入れる（0008 の5）
-import { useMemo, useState } from "preact/hooks";
+// - 0192: 入口を「聞く（Excel を書き出す・URL で聞く）」と「取り込む（記入済みの Excel・URL の答え）」の2段に分けた。顧客番号は開いている世帯の番号。
+//   取り込みの画面は、頼んだ書類で分かる問いのお答えなしを「書類を待っています」と言い分け、入れる値が無くても取り込み済みにできる
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { version as APP_VERSION } from "../../../package.json";
 import type { HearingWebHost, SaveOutcome, SheetHost } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
@@ -11,13 +13,15 @@ import { today } from "../report/assemble.ts";
 import { docRequests, docRequestTitles } from "../input/docRequests.ts";
 import { WebBuilder, type OfficeLook } from "./WebBuilder.tsx";
 import { WebRequests } from "./WebRequests.tsx";
-import { markImported, sentAtText, type HearingTemplate } from "./web.ts";
+import { markImported, onArrivals, pendingCount, sentAtText, type HearingTemplate } from "./web.ts";
 import { applyImport, approvalTime, CUSTOMER_NO_PATTERN, defaultSelection, defaultWorkModes, exportSheet, importSheet, randomBytes, sheetFor, SHEET_KINDS, withRequest, workChangeTexts, type CandidateView, type FieldView, type ImportView, type Issue, type SheetKind, type WorkChangeMode } from "./sheet.ts";
 
 interface Props {
   wh: WorkingHousehold;
   sheets: SheetHost;
   onSave: (next: WorkingHousehold) => void;
+  /** 開いている世帯の顧客番号（書き出し・URL の発行の初めの値。保存していない世帯は null。0192） */
+  customerNo?: string | null;
 }
 
 /** Web のヒアリング（0125）に要るもの（本体に受け付けの命令が無い画面では渡さない） */
@@ -28,12 +32,15 @@ export interface WebProps {
   onTemplates: (list: HearingTemplate[]) => Promise<void>;
   persisted: boolean;
   saveNow: () => Promise<boolean>;
+  /** ご相談したいことの話題の事務所の既定値と保存（0192） */
+  topics?: readonly string[] | null;
+  onTopics?: (list: string[] | null) => Promise<void>;
 }
 
 const KIND_TEXT: Record<CandidateView["kind"], string> = { new: "新規", changed: "変更", same: "同じ", noAnswer: "お答えなし" };
 
-/** 事務所の表示（シートの1枚目。設定の保存は後の回なので、アプリを開いている間だけ覚える） */
-const office = { name: "", purpose: "ライフプランの作成と、家計・保険・資産運用のご相談のため", privacyContact: "", customerNo: "A0001" };
+/** 事務所の表示（シートの1枚目。設定の保存は後の回なので、アプリを開いている間だけ覚える。顧客番号は世帯ごと） */
+const office = { name: "", purpose: "ライフプランの作成と、家計・保険・資産運用のご相談のため", privacyContact: "" };
 
 function Mark({ f }: { f: FieldView }) {
   // 入力の画面と同じ印: 推定（目安で補った・シートの「わからない」を推定にした）・推定（範囲の真ん中）・書類待ち（書類で確かめる欄の「わからない」。
@@ -82,7 +89,7 @@ function FieldRow({ f }: { f: FieldView }) {
               {f.diffs.map((d, i) => (
                 <li key={i} class={d.kept ? "kept" : d.rough ? "rough" : ""} data-hearing-diff={d.kept ? "kept" : d.rough ? "rough" : "changed"}>
                   <span class="hs-diff-l">{d.label}</span> 今 <b>{d.current}</b>
-                  {d.kept ? <> （お答えが無いので今の値のまま）</> : <> → 届いた値 <b>{d.next}</b></>}
+                  {d.kept ? d.waiting !== null ? <> （{d.waiting}。今の値のまま）</> : <> （お答えが無いので今の値のまま）</> : <> → 届いた値 <b>{d.next}</b></>}
                 </li>
               ))}
             </ul>
@@ -133,10 +140,10 @@ function IssueList({ issues }: { issues: readonly Issue[] }) {
   );
 }
 
-function ExportPanel({ wh, sheets, onSave, onClose }: Props & { onClose: () => void }) {
+function ExportPanel({ wh, sheets, onSave, onClose, customerNo = null }: Props & { onClose: () => void }) {
   const [kind, setKind] = useState<SheetKind>("simple");
   const prefill = kind === "review";
-  const [form, setForm] = useState({ ...office });
+  const [form, setForm] = useState({ ...office, customerNo: customerNo ?? "" });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<SaveOutcome | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -148,7 +155,7 @@ function ExportPanel({ wh, sheets, onSave, onClose }: Props & { onClose: () => v
   const go = async () => {
     setBusy(true);
     setErr(null);
-    Object.assign(office, form);
+    Object.assign(office, { name: form.name, purpose: form.purpose, privacyContact: form.privacyContact });
     try {
       const on = today();
       const r = await exportSheet(wh, { definition: sheetFor(kind), prefill, customerNo: form.customerNo, office: { name: form.name, purpose: form.purpose, privacyContact: form.privacyContact }, appVersion: APP_VERSION, exportedOn: on, random: randomBytes(), ...(withDocs && docs.length > 0 ? { requestedDocuments: docs } : {}) });
@@ -246,10 +253,14 @@ function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt }: { wh: Worki
   const approve = () => {
     const r = applyImport(wh, view, sel, approvalTime(), modes);
     onSave(r.wh);
-    onClose(`${r.added + r.replaced}件を現状に入れました（新規 ${r.added}件・変更 ${r.replaced}件）${r.skipped.length > 0 ? `。入れなかったもの: ${r.skipped.join("、")}` : ""}`);
+    onClose(r.added + r.replaced === 0 && sel.size === 0 ? "取り込み済みにしました（入れた値はありません）" : `${r.added + r.replaced}件を現状に入れました（新規 ${r.added}件・変更 ${r.replaced}件）${r.skipped.length > 0 ? `。入れなかったもの: ${r.skipped.join("、")}` : ""}`);
   };
   const shown = view.candidates.filter((c) => c.kind !== "noAnswer");
-  const kept = view.candidates.filter((c) => c.kind === "noAnswer");
+  // お答えなしの物のうち、頼んだ書類で分かる問いだけのものは「書類を待っています」と言い分ける（0192）
+  const waiting = view.candidates.filter((c) => c.kind === "noAnswer" && c.waiting !== null);
+  const kept = view.candidates.filter((c) => c.kind === "noAnswer" && c.waiting === null);
+  /** 頼んだ書類で分かる問いの欄（お答えが無く、書類を待っている欄）の数 */
+  const waitingFields = view.candidates.flatMap((c) => c.fields.flatMap((f) => f.diffs.filter((d) => d.kept && d.waiting !== null))).length;
   const groups = [...new Set(shown.map((c) => c.group))];
   return (
     <section class="card hs-panel hs-review" aria-label="取り込みの確認" data-hearing-review>
@@ -258,6 +269,7 @@ function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt }: { wh: Worki
         <span class="aside">
           新規 {count("new")}・変更 {count("changed")}・同じ {count("same")}
           {kept.length > 0 ? `・お答えなし ${kept.length}` : ""}
+          {waitingFields > 0 ? `・書類待ちの欄 ${waitingFields}` : ""}
           {shown.some((c) => c.review) ? `・要確認 ${shown.filter((c) => c.review).length}` : ""}
           {shown.some((c) => c.contradictions.length > 0) ? `・矛盾 ${shown.filter((c) => c.contradictions.length > 0).length}` : ""}
           {view.gates.length > 0 ? `・分岐の答えの違い ${view.gates.length}` : ""}
@@ -325,6 +337,19 @@ function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt }: { wh: Worki
             ))}
         </div>
       ))}
+      {waiting.length > 0 ? (
+        <div class="hs-group" data-hearing-waiting>
+          <h3>書類を待っています（今の値のまま。{waiting.length}）</h3>
+          <p class="rp-note">頼んだ書類の数字を使う問いなので、お客さまの画面には出していません。書類が届いたら、書類を見て入力の画面で入れてください。</p>
+          <ul class="hs-list">
+            {waiting.map((c) => (
+              <li key={c.id} data-hearing-waiting-item>
+                {c.title}: {c.waiting}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {kept.length > 0 ? (
         <div class="hs-group" data-hearing-kept>
           <h3>お答えがありません（今の値のまま。{kept.length}）</h3>
@@ -332,7 +357,7 @@ function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt }: { wh: Worki
           <ul class="hs-list">
             {kept.map((c) => (
               <li key={c.id} data-hearing-kept-item>
-                {c.title}: {[...new Set(c.fields.flatMap((f) => f.diffs.filter((d) => d.kept).map((d) => `${d.label}（今 ${d.current}）`)))].join("、")}
+                {c.title}: {[...new Set(c.fields.flatMap((f) => f.diffs.filter((d) => d.kept).map((d) => `${d.label}（今 ${d.current}${d.waiting !== null ? `。${d.waiting}` : ""}）`)))].join("、")}
               </li>
             ))}
           </ul>
@@ -363,9 +388,15 @@ function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt }: { wh: Worki
       {view.consents.length > 0 ? (
         <p class="rp-note">同意の欄: {view.consents.map((c) => `${c.kind === "purpose" ? "利用目的" : c.kind === "familyInfo" ? "家族の情報" : "外部AIへの提供"}は${c.decision === "given" ? "同意あり" : "同意なし"}`).join("・")}（承認すると同意の記録の下書きに入ります）</p>
       ) : null}
+      {shown.length === 0 ? (
+        <p class="rp-note" data-hearing-nothing>
+          入れる値はありません（どれもお答えが無いか、今の値と同じです）。「取り込み済みにする」で、メモ・同意の記録と、取り込んだことだけを残します。
+        </p>
+      ) : null}
       <div class="rp-actions">
-        <button type="button" class="btn primary" disabled={sel.size === 0} onClick={approve} data-hearing-approve>
-          承認して現状に入れる（{sel.size}件）
+        {/* 全部お答えなし・同じのときも、取り込み済みにできる（0件の承認。0192） */}
+        <button type="button" class="btn primary" disabled={sel.size === 0 && shown.length > 0} onClick={approve} data-hearing-approve>
+          {sel.size === 0 ? "取り込み済みにする（入れる値はありません）" : `承認して現状に入れる（${sel.size}件）`}
         </button>
         <button type="button" class="btn" onClick={() => onClose(null)}>
           キャンセル
@@ -376,7 +407,11 @@ function ReviewPanel({ wh, view, onSave, onClose, heading, sentAt }: { wh: Worki
 }
 
 /** 入力のホームの上部（進み具合の近く）に置くボタンと、開いたパネル */
-export function HearingTools({ wh, sheets, onSave, webProps }: Props & { webProps?: WebProps }) {
+export function HearingTools({ wh, sheets, onSave, webProps, customerNo = null }: Props & { webProps?: WebProps }) {
+  // 届いた知らせ（アプリを開いている間に確かめた結果。0192）が変わったら描き直す
+  const [, setTick] = useState(0);
+  useEffect(() => onArrivals(() => setTick((n) => n + 1)), []);
+  const pend = pendingCount(wh);
   const [mode, setMode] = useState<null | "export" | "busy" | "web">(null);
   const [view, setView] = useState<ImportView | null>(null);
   /** Web の依頼から取り込んでいるとき、その依頼番号と、お客さまが送った日時（承認したら取り込み済みの印を付ける） */
@@ -404,18 +439,27 @@ export function HearingTools({ wh, sheets, onSave, webProps }: Props & { webProp
   };
   return (
     <>
-      <div class="hs-tools" role="group" aria-label="ヒアリングシート">
-        <span class="hs-tools-h">ヒアリングシート</span>
+      <div class="hs-tools" role="group" aria-label="ヒアリングで聞く" data-hearing-ask>
+        <span class="hs-tools-h">ヒアリングで聞く</span>
         <button type="button" class="btn" onClick={() => setMode(mode === "export" ? null : "export")} aria-expanded={mode === "export"} data-hearing-export>
-          書き出す
-        </button>
-        <button type="button" class="btn" disabled={mode === "busy"} onClick={() => void pick()} data-hearing-import>
-          {mode === "busy" ? "読んでいます…" : "記入済みのシートを取り込む"}
+          Excel を書き出す
         </button>
         {webProps !== undefined ? (
           <button type="button" class="btn" onClick={() => setMode(mode === "web" ? null : "web")} aria-expanded={mode === "web"} data-hearing-web>
-            Web で聞く（URL）
+            URL で聞く
           </button>
+        ) : null}
+      </div>
+      <div class="hs-tools" role="group" aria-label="ヒアリングを取り込む" data-hearing-take>
+        <span class="hs-tools-h">ヒアリングを取り込む</span>
+        <button type="button" class="btn" disabled={mode === "busy"} onClick={() => void pick()} data-hearing-import>
+          {mode === "busy" ? "読んでいます…" : "記入済みの Excel を取り込む"}
+        </button>
+        {webProps !== undefined ? (
+          <span class="rp-note" data-hearing-web-pending>
+            URL の答えは、下の「URL の依頼」から受け取って取り込みます
+            {pend.arrived > 0 ? <b class="hs-kind answered">（届いています {pend.arrived}件）</b> : pend.toImport > 0 ? <b class="hs-kind review">（取り込み待ち {pend.toImport}件）</b> : null}
+          </span>
         ) : null}
       </div>
       {msg !== null ? (
@@ -423,8 +467,23 @@ export function HearingTools({ wh, sheets, onSave, webProps }: Props & { webProp
           {msg}
         </p>
       ) : null}
-      {mode === "export" ? <ExportPanel wh={wh} sheets={sheets} onSave={onSave} onClose={() => setMode(null)} /> : null}
-      {mode === "web" && webProps !== undefined ? <WebBuilder wh={wh} web={webProps.web} office={webProps.office} templates={webProps.templates} onTemplates={webProps.onTemplates} persisted={webProps.persisted} onSave={onSave} saveNow={webProps.saveNow} onClose={() => setMode(null)} /> : null}
+      {mode === "export" ? <ExportPanel wh={wh} sheets={sheets} onSave={onSave} customerNo={customerNo} onClose={() => setMode(null)} /> : null}
+      {mode === "web" && webProps !== undefined ? (
+        <WebBuilder
+          wh={wh}
+          web={webProps.web}
+          office={webProps.office}
+          templates={webProps.templates}
+          onTemplates={webProps.onTemplates}
+          {...(webProps.topics !== undefined ? { topics: webProps.topics } : {})}
+          {...(webProps.onTopics !== undefined ? { onTopics: webProps.onTopics } : {})}
+          customerNo={customerNo}
+          persisted={webProps.persisted}
+          onSave={onSave}
+          saveNow={webProps.saveNow}
+          onClose={() => setMode(null)}
+        />
+      ) : null}
       {webProps !== undefined && view === null ? (
         <WebRequests
           wh={wh}

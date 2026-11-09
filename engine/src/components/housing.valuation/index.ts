@@ -19,7 +19,9 @@
 // - 注文住宅（改訂3。0115）: 購入に土地（purchase.land）があれば、土地の決済の月から持ち、引き渡し（購入の月）の年より前の年末は土地だけを出す。
 //   評価の基にする額が購入の価格なら、土地は土地の代金（割合で分けない。土地の割合の知らせも出さない）、建物は残り
 // 目安の根拠は設計記録 0025 に書く。土地と建物に分ける計算は、住まい以外の不動産（asset.realEstate）と共通の sdk の landBuildingValuer
+// 改訂4（0173）: 売却の手取りなどのお金の動きは、名義の人が万一の想定で亡くなった月の翌月から、相続する人（死亡の当時の配偶者。いなければ子を等分）の名にする（sdk の inheritFlows）
 import {
+  inheritFlows,
   addYen,
   boxValue,
   defineComponent,
@@ -45,8 +47,8 @@ export default defineComponent<Record<string, never>, HousingValuationOutput>({
   id: "housing.valuation",
   title: "持ち家の評価額と売却",
   contract: "1.1",
-  revision: 3,
-  requires: {},
+  revision: 4,
+  requires: { "contingency.event": ">=1 <2" },
   params: [],
   reads: [
     "residence.kind",
@@ -138,6 +140,6 @@ export default defineComponent<Record<string, never>, HousingValuationOutput>({
       } else if (to !== null && to < end && h.sale === undefined) ctx.notice("N_NOT_SUPPORTED", ["residence.sale"]);
       properties.push({ object: h.id, owner, years, sale });
     }
-    return { flows, properties };
+    return { flows: inheritFlows(ctx, flows), properties };
   },
 });

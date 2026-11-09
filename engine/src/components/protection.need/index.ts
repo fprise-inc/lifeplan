@@ -19,7 +19,8 @@
 //   - 現状の検算の差（使途不明金。expense.reconcile）は万一なしの計算の額（今の世帯の検算で、亡くなる年で変わらない）
 //   - 数えない行: 子・世帯の外の家族の収入と税、取り崩して使うお金・ゆとりの支出・上場株式等と暗号資産の譲渡益の税・相続税（資産の残り方で
 //     変わる）、死亡で受け取る一時金と保険（年ごとに別に求める）・整理資金（要求の値）
-//   - 亡くなった人の車（改訂2）: 万一のときの扱い（onContingency。死亡に当てるもの）を入れていない車は数えない（入れた車と遺族の車は、場面の計算が割合を当てる）
+//   - 亡くなった人の車（改訂2）: 万一のときの扱い（onContingency。死亡に当てるもの）を入れていない車は数えない（入れた車と遺族の車は、場面の計算が割合を当てる）。
+//     改訂7 からは場面の表のとおりに数える（下）
 // - 逆算方式: 遺族の年ごとの収支で金融資産を前提の運用利回りで伸ばし、遺族（配偶者）が指定の年齢（省略は期間の終わり）になるまで残高が負に
 //   ならない最小の保険金（死亡の月に受け取る）を求める（金融資産を含まない額と含む額）。指定の年齢が期間の終わりより後なら、その年齢まで見る（改訂6）
 // - 遺族年金の2028年4月の見直しは作らない（pension.survivor の知らせ）
@@ -29,6 +30,17 @@
 //   返済の額（万一なしの返済のうち、亡くなる月より前に借りた団信の対象の負債の分）も添える。加入中の死亡保険金は契約ごとの内訳（coverageBy）も出し、
 //   家族特約など契約の被保険者でない人が被保険者の保障（insurance.policy の others）も、その人の死亡保障に数える
 // - 死亡退職金（改訂6）: 見込み額を勤続の月数（死亡の月まで÷予定の終わりまで）で按分する。勤続の始まりより前に亡くなるなら0
+// - 改訂7・約束の版 1.2（0173）:
+//   - 小規模企業共済の死亡を事由とする共済金（亡くなる年の前の年末の残高。計算基準年は計算基準月の前の残高）を準備できる資金（一時の分）に数え、
+//     内訳の lumpResources.mutualAidLump に出す。確定拠出年金の死亡一時金も、計算基準年は計算基準月の前の残高にした（前は0円）
+//   - 亡くなった人の車も、場面の表のとおりに数える（前は「万一のときの扱い」を入れていない車を数えなかった。場面の計算は、亡くなった人の名義の物を
+//     相続する人が持ち続ける。0173）
+//   - 配偶者がいない（遺族が子）ときは、亡くなった人の器（不動産など）から相続した子の名で入る収入（家賃・売却の代金など）も遺族の収入に数える
+//     （子の税は前と同じく数えない近似）
+// - 改訂8（0173 の追記・利用者の判断 2026-11-09）: 亡くなった人の車で万一のときの扱いを入れていない物は、場面の計算で手放す（expense.car 改訂6。
+//   買い替え・維持費が止まり、亡くなる前に組んだ自動車ローンの返済だけ遺族が続ける）。最初の年の表を後の年に使うと、その間に組んだローンの返済が
+//   抜けるので、亡くなった後の買い替えが変わる車（扱いを入れていない亡くなる人の車と、死亡で「止める」「割合を変える」を入れた車）のローンを
+//   亡くなる月までにいくつ組んだかでも表を分ける（その年にもう1回計算する）
 import {
   addMonths,
   childrenOf,
@@ -42,6 +54,7 @@ import {
   type AccountInput,
   type AnnualRow,
   type CarInput,
+  type CarOutput,
   type DebtInput,
   type Flow,
   type FlowsResult,
@@ -50,6 +63,7 @@ import {
   type InsurancePolicyOutput,
   type MemberInput,
   type MonthIndex,
+  type MutualAidOutput,
   type ProtectionRequest,
   type Rate,
   type RelationInput,
@@ -66,7 +80,7 @@ type Breakdown = {
   expenses: { living: Yen; housing: Yen; education: Yen; premiums: Yen; care: Yen; taxSi: Yen; other: Yen };
   lump: { funeral: Yen; reserve: Yen };
   resources: { survivorPension: Yen; survivorIncome: Yen; publicSupport: Yen };
-  lumpResources: { retirementAllowance: Yen; dcLump: Yen; condolence: Yen };
+  lumpResources: { retirementAllowance: Yen; dcLump: Yen; condolence: Yen; mutualAidLump?: Yen };
   creditLife: Yen;
 };
 
@@ -84,6 +98,15 @@ type Year = {
   lumpSum: Yen;
   assets: Yen;
 };
+
+/** 亡くなる年 y の前の年末の器の残高（計算基準年は、その年の初めの残高＝年末−掛金−運用益＋受け取り。改訂7） */
+function balanceBefore(years: readonly { readonly year: number; readonly contributions: Yen; readonly payout: Yen; readonly returns: Yen; readonly closing: Yen }[], y: number): number {
+  const prev = years.find((e) => e.year === y - 1);
+  if (prev !== undefined) return prev.closing;
+  const cur = years.find((e) => e.year === y);
+  if (cur === undefined || years.some((e) => e.year < y)) return 0;
+  return Math.max(0, cur.closing - cur.contributions - cur.returns + cur.payout);
+}
 
 /** 場面の表の行の区画（必要な資金・準備できる資金） */
 const SECTIONS = ["living", "housing", "education", "premiums", "care", "taxSi", "other", "survivorIncome", "publicSupport"] as const;
@@ -133,15 +156,17 @@ function expenseSection(f: Flow): Section | null {
 export default defineComponent<{ request: ProtectionRequest }, { method: "accumulation" | "reverse"; members: { member: string; survivor?: string; years: Year[] }[] }>({
   id: "protection.need",
   title: "必要保障額の推移（積み上げ方式・逆算方式）",
-  contract: "1.1",
-  revision: 6,
+  contract: "1.2",
+  revision: 8,
   requires: {
     "plan.cashflow": ">=1 <2",
+    "expense.car": ">=1 <2",
     "debt.schedule": ">=1 <2",
     "insurance.policy": ">=1 <2",
     "pension.survivor": ">=1 <2",
     "retirement.receipts": ">=1 <2",
     "account.ideco": ">=1 <2",
+    "account.mutualAid": ">=1 <2",
     "expense.reconcile": ">=1 <2",
   },
   params: [LIFE, START],
@@ -164,6 +189,7 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
     "debt.start",
     "insurance.insured",
     "account.kind",
+    "account.owner",
     "account.marketValue",
     "assumptions.investmentReturn",
   ],
@@ -197,21 +223,18 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
       return j < i ? 0 : (p[j + 1] as number) - (p[i] as number);
     };
     const kindOf = new Map(members.map((m) => [m.id, m.kind]));
-    // 亡くなった人の車のうち、万一のときの扱い（死亡に当てるもの）を入れていない車（数えない。改訂2）
-    const cars = ctx.list<Pick<CarInput, "id" | "owner" | "onContingency">>("car");
-    const plainCarsOf = (X: string): ReadonlySet<string> =>
-      new Set(cars.filter((c) => c.owner === X && !(c.onContingency !== undefined && (c.onContingency.kinds ?? ["death"]).includes("death"))).map((c) => c.id));
+    // 亡くなる人の器（相続した子の名で入る収入を遺族の収入に数える。改訂7）
+    const accountsOf = (X: string): ReadonlySet<string> => new Set(ctx.list<Pick<AccountInput, "id" | "owner">>("account").filter((a) => a.owner === X).map((a) => a.id));
     // 場面の表（死亡の想定で全体を計算し直した表）を区画ごとの累積にする。遺族（配偶者）ごと
     type World = { sections: Record<Section, number[]>; lateTaxes: { m: MonthIndex; accrual: number; amount: number }[] };
     const worldOf = (X: string, D: MonthIndex, spouse: string | undefined): World => {
       // エンジンは必要保障額を求めるとき、いつも用意する（null は部品を単独で動かしたときだけ）
       const flows = ctx.deathScenario(X, D) ?? [];
-      const plain = plainCarsOf(X);
+      const own = accountsOf(X);
       const pick = new Map<Section, Flow[]>(SECTIONS.map((k) => [k, []]));
       const lateTaxes: World["lateTaxes"] = [];
       for (const f of flows) {
         if (SKIP_ROWS.has(f.row) || DEATH_FORMULAS.has(f.formula) || f.formula.startsWith("pension.survivor") || f.formula.startsWith("contingency.lumpSum") || f.formula.startsWith("expense.reconcile.")) continue;
-        if (f.object !== undefined && plain.has(f.object)) continue;
         const who = f.member;
         let k: Section | null = null;
         if (f.row.startsWith("cf.expense")) k = expenseSection(f);
@@ -219,6 +242,8 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
           if (PUBLIC_SUPPORT.has(f.row)) k = "publicSupport";
           // 遺族（配偶者）・世帯の名の収入と、亡くなった人の名で続く収入（相続した物件の賃料・売却など）
           else if (who === undefined || who === X || (spouse !== undefined && who === spouse)) k = "survivorIncome";
+          // 配偶者がいなければ、亡くなる人の器から相続した子の名で入る収入
+          else if (spouse === undefined && f.object !== undefined && own.has(f.object)) k = "survivorIncome";
         } else if (f.row.startsWith("cf.taxSi")) {
           if (isHouseholdHealth(f.formula) && kindOf.get(who ?? "") !== "child") k = "taxSi";
           else if (spouse !== undefined && who === spouse) k = "taxSi";
@@ -285,6 +310,28 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
     };
     const ageMonthOf = (z: string, years: number) => addMonths(parseYm((members.find((x) => x.id === z) as MemberInput).birth.birthYearMonth), years * 12);
 
+    // 亡くなった後の買い替えが変わる車の自動車ローンを借りた月（亡くなる人ごと。改訂8）
+    const cars = ctx.list<Pick<CarInput, "id" | "owner" | "onContingency">>("car");
+    const carLoans = new Map<string, Map<string, MonthIndex[]>>();
+    const loanStartsOf = (owner: string): Map<string, MonthIndex[]> => {
+      let m = carLoans.get(owner);
+      if (m === undefined) {
+        m = new Map();
+        for (const l of ctx.call<CarOutput>("expense.car", { member: owner }).loans) if (l.start !== undefined) m.set(l.object, [...(m.get(l.object) ?? []), parseYm(l.start)]);
+        carLoans.set(owner, m);
+      }
+      return m;
+    };
+    const changedLoans = (X: string): MonthIndex[] => {
+      const out: MonthIndex[] = [];
+      for (const c of cars) {
+        const on = c.onContingency;
+        const changes = on === undefined ? c.owner === X : on.mode !== "continue" && (on.kinds ?? ["death"]).includes("death");
+        if (changes) out.push(...(loanStartsOf(c.owner).get(c.id) ?? []));
+      }
+      return out;
+    };
+
     const targets = req.members ?? members.filter((m) => m.kind === "self" || m.kind === "spouse").map((m) => m.id);
     const out: { member: string; survivor?: string; years: Year[] }[] = [];
     for (const X of targets) {
@@ -295,6 +342,7 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
       const to = Math.min(req.toYear ?? yearOf(ageMonthOf(X, startAge)), endYear);
       const years: Year[] = [];
       let survivorId: string | undefined;
+      const xLoans = changedLoans(X);
       for (let y = from; y <= to; y++) {
         const D = (y === baseYear ? base : monthIndex(y, 1)) as MonthIndex;
         const xLeaves = xm.leaves === null ? null : ctx.time.resolve(xm.leaves);
@@ -331,8 +379,8 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
         // 逆算方式で目標の年齢が期間の終わりより後なら、その年齢まで年ごとの収支を作る（改訂6）
         const until = method === "reverse" && req.reverseUntilAge !== undefined ? ageMonthOf(Z, req.reverseUntilAge) : H;
         const last = (until > H ? (until > end ? end : until) : H) as MonthIndex;
-        // 場面の表: 遺族（配偶者）が同じ間は、最初に亡くなる年の表を使う
-        const wKey = `${X}|${spouse ?? ""}`;
+        // 場面の表: 遺族（配偶者）と、亡くなる月までに組んだ（亡くなった後の買い替えが変わる車の）自動車ローンの数が同じ間は、最初に亡くなる年の表を使う
+        const wKey = `${X}|${spouse ?? ""}|${xLoans.filter((s0) => s0 <= D).length}`;
         let w = worlds.get(wKey);
         if (w === undefined) {
           w = worldOf(X, D, spouse);
@@ -402,12 +450,12 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
           }
         }
         let dcLump = 0;
-        for (const acc of ctx.call<IdecoAccountOutput>("account.ideco", { member: X }).accounts) {
-          const prev = acc.years.find((e) => e.year === y - 1);
-          if (prev !== undefined) dcLump += prev.closing;
-        }
+        for (const acc of ctx.call<IdecoAccountOutput>("account.ideco", { member: X }).accounts) dcLump += balanceBefore(acc.years, y);
+        // 小規模企業共済の死亡を事由とする共済金（改訂7）
+        let mutualAidLump = 0;
+        for (const acc of ctx.call<MutualAidOutput>("account.mutualAid", { member: X }).accounts) mutualAidLump += balanceBefore(acc.years, y);
         const condolence = given?.condolence ?? 0;
-        const lumpRes = retirementAllowance + dcLump + condolence;
+        const lumpRes = retirementAllowance + dcLump + mutualAidLump + condolence;
         // 予備の生活資金: 遺族の生活費（場面の表の、死亡の月の翌月の基本生活費。万一のときの扱いの割合を当てた後）の n か月分
         const reserveMonthly = yen(sum(world.sections.living, A, A));
         const funeral = req.survivor?.funeral ?? 0;
@@ -463,7 +511,7 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
           expenses: { living: yen(part.living), housing: yen(part.housing), education: yen(part.education), premiums: yen(part.premiums), care: yen(part.care), taxSi: yen(part.taxSi), other: yen(part.other) },
           lump: { funeral: yen(funeral), reserve: yen(reserve) },
           resources: { survivorPension: yen(part.survivorPension), survivorIncome: yen(part.survivorIncome), publicSupport: yen(part.publicSupport) },
-          lumpResources: { retirementAllowance: yen(retirementAllowance), dcLump: yen(dcLump), condolence: yen(condolence) },
+          lumpResources: { retirementAllowance: yen(retirementAllowance), dcLump: yen(dcLump), condolence: yen(condolence), ...(mutualAidLump > 0 ? { mutualAidLump: yen(mutualAidLump) } : {}) },
           creditLife: yen(part.creditLife),
         };
         years.push({

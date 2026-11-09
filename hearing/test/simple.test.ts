@@ -1,4 +1,4 @@
-// 簡易版（basic 版2。初回の前の軽い票）: 金額の範囲の答え → 推定（範囲の真ん中・確かさ「概算」）、年齢 → 仮の生年月、
+// 簡易版（basic 版2。シンプル: 大まかに聞く軽い票）: 金額の範囲の答え → 推定（範囲の真ん中・確かさ「概算」）、年齢 → 仮の生年月、
 // ご家族の合計・住宅ローンの残高と返済額・ご両親の読み替え、計算に入れる先の無い保険料の合計はメモ、見本の往復、古い basic 版1 の読み込み
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -232,7 +232,7 @@ describe("合計の欄・住宅ローン・ご両親・メモ", () => {
   });
 });
 
-describe("見本のシート basic-2（通常版）", () => {
+describe("見本のシート basic-2（シンプル）", () => {
   const NAME = "basic-2-sample";
   const json = JSON.parse(readFileSync(join(HEARING_DIR, "samples", `${NAME}.json`), "utf8")) as SampleFile;
   const xlsx = new Uint8Array(readFileSync(join(HEARING_DIR, "samples", `${NAME}.xlsx`)));

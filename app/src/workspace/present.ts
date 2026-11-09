@@ -72,10 +72,18 @@ const endsOf = <K extends string>(key: K, table: readonly TableCell[], years: re
   return own.length < years.length ? ({ [key]: own.length } as Partial<Record<K, number>>) : {};
 };
 
-/** 資産が尽きる年（金融資産がはじめてマイナスになる年）。尽きなければ null */
+/** 計算エンジンの資金不足の行（預金と、取り崩しの順で取り崩せる器で払えなかった額。0179） */
+export const SHORTFALL_ROW = "cf.balance.shortfall";
+
+/**
+ * 資産が尽きる年: 使えるお金で払えなくなる年（計算エンジンの資金不足の行がはじめて出る年）。金融資産の合計がまだ正でも、残りが
+ * 引き出せない器（60歳前の iDeCo など）・取り崩さない器だけなら尽きたとみる（バランスシートの「資金の不足」と同じ判断。0179）。
+ * 金融資産がマイナスの年も尽きたとみる。尽きなければ null
+ */
 export function depletionYear(table: readonly TableCell[], years: readonly number[]): number | null {
   const fin = financialOf(table);
-  for (const y of years) if ((fin.get(y) ?? 0) < 0) return y;
+  const short = sumByYear(table, (c) => c.row === SHORTFALL_ROW);
+  for (const y of years) if ((fin.get(y) ?? 0) < 0 || (short.get(y) ?? 0) > 0) return y;
   return null;
 }
 

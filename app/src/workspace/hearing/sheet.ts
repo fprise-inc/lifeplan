@@ -68,13 +68,13 @@ export interface ExportOutput {
 export const CUSTOMER_NO_PATTERN = /^[A-Za-z0-9_-]{1,16}$/;
 
 /**
- * 書き出すシートの種類: 通常（初回の前の軽い票。basic）・詳細（full）・見直し（詳細のシートに前回の値を記入する。0018 の9）。
- * 既定は通常
+ * 書き出すシートの種類: シンプル（大まかに聞く軽い票。basic）・詳細（full）・見直し（詳細のシートに前回の値を記入する。0018 の9）。
+ * 既定はシンプル（Web のヒアリングのひな形の名前とそろえた。0192）
  */
 export type SheetKind = "simple" | "detail" | "review";
 
 export const SHEET_KINDS: readonly { value: SheetKind; label: string; note: string }[] = [
-  { value: "simple", label: "通常（初回の前）", note: "ご家族・収入・住まい・貯蓄・生活費などを大まかに。金額は範囲でも答えられます（1〜2ページ）" },
+  { value: "simple", label: "シンプル", note: "ご家族・収入・住まい・貯蓄・生活費などを大まかに。金額は範囲でも答えられます（1〜2ページ）" },
   { value: "detail", label: "詳細", note: "源泉徴収票・ねんきん定期便・返済予定表・保険証券を見ながら書く票" },
   { value: "review", label: "見直し（前回の値つき）", note: "詳細の票に、今の入力の値を記入して書き出します（見直しの面談用）" },
 ];
@@ -132,6 +132,8 @@ export interface FieldDiff {
   kept: boolean;
   /** 今の値が確定で、届いた値が範囲・推定・仮の値（今の値の方が詳しい） */
   rough: boolean;
+  /** お答えが無いのは、頼んだ書類で分かる問いだから（「源泉徴収票（ご本人）を待っています」。0192）。それ以外は null */
+  waiting: string | null;
 }
 
 export interface FieldView {
@@ -169,6 +171,8 @@ export interface CandidateView {
   caution: string | null;
   /** 働き方の種類が変わった（今の期間と届いた働き方の種類が違う）ときの、承認の入れ方。それ以外は null */
   work: WorkChange | null;
+  /** お答えなしの物で、お答えの無い欄がどれも頼んだ書類で分かる問いのとき、その言葉（「源泉徴収票（ご本人）を待っています」。0192）。それ以外は null */
+  waiting: string | null;
 }
 
 /**
@@ -827,8 +831,12 @@ export async function importSheet(bytes: Uint8Array, wh: WorkingHousehold, newId
   return { ok: true, view: viewOfResult(r, wh) };
 }
 
-/** 取り込みの結果（Excel・Web のどちらでも同じ受け皿の結果）を、今の世帯と照らした一覧にする（現状は変えない） */
-export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold): ImportView {
+/**
+ * 取り込みの結果（Excel・Web のどちらでも同じ受け皿の結果）を、今の世帯と照らした一覧にする（現状は変えない）。
+ * waiting は Web のヒアリングで頼んだ書類で分かる問い（項目キーか「キー#番号」→ 言葉）。お答えの無い欄を「書類を待っています」と言い分ける（0192）
+ */
+export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold, waiting: ReadonlyMap<string, string> = new Map()): ImportView {
+  const waitingOf = (key: string, index: number | undefined): string | null => waiting.get(`${key}#${index ?? 0}`) ?? waiting.get(key) ?? null;
   const imp = r.request as unknown as EngineRequest;
   const cur = wh.request.input.household;
   const members = memberMatch(cur, imp.input.household, r.candidates);
@@ -909,7 +917,7 @@ export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold): Imp
         if (isRough && !rough.includes(label)) rough.push(label);
         if (!kept && (f.state === "confirmed" || f.state === "notApplicable")) firmChanges++;
         const choices = choicesOf(f.key);
-        diffs.set(row, [...(diffs.get(row) ?? []), { label, current: valueText(cur, f.path, names, choices), next: kept ? valueText(cur, f.path, names, choices) : valueText(next, f.path, names, choices), kept, rough: isRough }]);
+        diffs.set(row, [...(diffs.get(row) ?? []), { label, current: valueText(cur, f.path, names, choices), next: kept ? valueText(cur, f.path, names, choices) : valueText(next, f.path, names, choices), kept, rough: isRough, waiting: kept ? waitingOf(f.key, f.index) : null }]);
       }
     }
     const filled = c.fields.filter((f) => f.noAnswer === true && (found === undefined || !keepable(found, f.path))).map((f) => `${f.key}#${f.index ?? 0}`);
@@ -948,16 +956,25 @@ export function viewOfResult(r: ImportView["result"], wh: WorkingHousehold): Imp
     const salaryChanged = c.fields.some((f) => f.path === "/salary/annual" && (diffs.get(`${f.key}#${f.index ?? 0}`) ?? []).some((d) => !d.kept));
     const salaryNote = kind === "changed" && c.collection === "employmentPeriods" && work === null && found?.standardMonthlyRemuneration !== undefined && salaryChanged ? SALARY_KEEP_NOTE : null;
     const note = parent ? (found === undefined ? PARENT_NEW_NOTE : PARENT_KEEP_NOTE) : [c.note, salaryNote].filter((x): x is string => x !== null).join("。") || null;
-    return { id: c.id, group: groupOf(c), title: titleOf(c, imp, slots), kind, review: c.status === "needsReview", contradictions: cons, fields, changedFields, note, keep, caution, work };
+    // お答えなしの物の、お答えの無い欄がどれも頼んだ書類で分かる問いなら「書類を待っています」と言い分ける
+    const keptDiffs = [...diffs.values()].flat().filter((d) => d.kept);
+    const waits = keptDiffs.length > 0 && keptDiffs.every((d) => d.waiting !== null) ? [...new Set(keptDiffs.map((d) => d.waiting as string))] : [];
+    return { id: c.id, group: groupOf(c), title: titleOf(c, imp, slots), kind, review: c.status === "needsReview", contradictions: cons, fields, changedFields, note, keep, caution, work, waiting: kind === "noAnswer" && waits.length > 0 ? waits.join("・") : null };
   });
   // お答えの無い新しい行（上の quietNew）: 同じ人を指す新しい行（答えのある働き方など）がほかに無ければ、作らない（お答えなし）
   const newRefs = new Set(candidates.flatMap((x) => (x.kind === "new" && side.get(x.id)?.quietNew !== true ? (side.get(x.id)?.refs ?? []) : [])));
   for (const x of candidates) {
     const s = side.get(x.id);
     if (s?.quietNew === true && x.kind === "new" && !s.refs.some((id) => newRefs.has(id))) {
+      const records = r.candidates.find((y) => y.id === x.id)?.fields ?? [];
+      // 頼んだ書類で分かる問い（住民税の決定通知書など）なら「書類を待っています」と言い分ける（0192 と同じ）
+      const waits = records.map((f) => waitingOf(f.key, f.index));
+      const waiting = waits.length > 0 && waits.every((w) => w !== null) ? [...new Set(waits as string[])].join("・") : null;
+      const none = valueText(undefined, "", names, new Map());
       x.kind = "noAnswer";
-      x.fields = x.fields.map((f) => ({ ...f, diffs: f.noAnswer ? [{ label: f.label, current: valueText(undefined, "", names, new Map()), next: valueText(undefined, "", names, new Map()), kept: true, rough: false }] : [] }));
-      for (const f of r.candidates.find((y) => y.id === x.id)?.fields ?? []) keptKeys.add(`${f.key}#${f.index ?? 0}`);
+      x.fields = x.fields.map((f) => ({ ...f, diffs: f.noAnswer ? [{ label: f.label, current: none, next: none, kept: true, rough: false, waiting }] : [] }));
+      x.waiting = waiting;
+      for (const f of records) keptKeys.add(`${f.key}#${f.index ?? 0}`);
     } else for (const key of s?.filled ?? []) filledKeys.add(key);
   }
   // 今の値を残した項目の「記入がありません（0円として計算します）」などの知らせは、残した値と合わないので出さない

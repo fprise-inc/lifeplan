@@ -10,7 +10,7 @@ import { RowsViewBar } from "./RowsViewBar.tsx";
 import { viewRows } from "./rowsView.ts";
 import { CalcNotices } from "./CalcNotices.tsx";
 import { noticeRows } from "./engineNotices.ts";
-import { engineErrorText } from "./engineErrors.ts";
+import { engineErrorText, HOST_BUSY_TEXT, isHostBusy } from "./engineErrors.ts";
 import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
 import { multiOn, type ChartLayout, type ChartMode } from "../presentation/MainChart.tsx";
@@ -37,6 +37,7 @@ import { seedDemo } from "./demoSeed.ts";
 import { ContingencyEngine } from "./contingency/engine.ts";
 import { ContingencyTab, type ContingencyUi } from "./contingency/ContingencyTab.tsx";
 import { HearingTools } from "./hearing/HearingTools.tsx";
+import { ARRIVAL_INTERVAL_MS, checkArrivals, listSummary, onArrivals, pendingCount, pendingMark } from "./hearing/web.ts";
 import { ReportTab } from "./report/ReportTab.tsx";
 import { runWireCheck } from "./report/wirecheck.ts";
 import { DisplaySettingsPanel } from "./DisplaySettingsPanel.tsx";
@@ -49,7 +50,7 @@ import { settleBeforeLeave, settleInput } from "./input/pendingInput.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
 import { withOfficeSources } from "./input/officeSource.ts";
 import { applyLook, brandOf, EMPTY_BRANDING, readBranding, resolveMode, setBrandingNow, usesStandardColor, type Appearance, type OfficeBranding } from "./office/branding.ts";
-import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart, publishOfficeSettings, readOfficeSettings, withEstimates, withHearingTemplates, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
+import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, loadOfficeStart, publishOfficeSettings, readOfficeSettings, withEstimates, withHearingTemplates, withHearingTopics, withOfficeItems, type OfficeSettings } from "./office/settings.ts";
 import { checkBase } from "../presentation/theme.ts";
 import { keepWebLog } from "./hearing/web.ts";
 import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
@@ -69,7 +70,7 @@ import { LeverCard, type FeeToggle, type LeverRow } from "./LeverPanel.tsx";
 import { bandShown, donutPanes, donutShown, donutYear, investChart, investVerdict, stressRequests, STRESS_KEYS, type StressKey } from "./invest/present.ts";
 import { InvestBar, DonutCard } from "./invest/InvestBar.tsx";
 import { DrawdownCalc } from "./invest/DrawdownCalc.tsx";
-import { advisoryFeeInCurrent, feeSummary, hasAdvisoryFee, LEVER_KEYS, type LeverKey } from "./levers.ts";
+import { advisoryFeeState, feeSummary, hasAdvisoryFee, LEVER_KEYS, type LeverKey } from "./levers.ts";
 import { MemoDrawer } from "./MemoDrawer.tsx";
 import { mixFromBuckets } from "./plans/allocation.ts";
 import { addToBand, assignColors, bandModel, cleanBand, CURRENT, hideFromBand, MAX_BAND, planLetters, planLinesModel, removeFromBand, unsavedRemoval, type UnsavedRemoval } from "./plans/band.ts";
@@ -683,6 +684,22 @@ export function App() {
 
   // 文字を大きくする: html の class の切り替えは上の帯（TopBar）が行う（切り替えた直後に帯の詰め方を測り直すため）
 
+  // Web のヒアリングの届いた知らせ（0192。H-110）: 保存した世帯を開いている間、受け付けている依頼を開いたときと決まった間隔で確かめる。
+  // 結果はアプリを開いている間だけ覚え（世帯ファイルに置かない）、FP のメニュー・入力のホーム・世帯の一覧の開いている行に出す
+  const hearingWebHost = host?.hearingWeb;
+  const openedId = storedInfo !== null && storedInfo.sample === undefined ? storedInfo.id : null;
+  useEffect(() => {
+    if (hearingWebHost === undefined || openedId === null) return;
+    const run = () => {
+      const o = openedRef.current;
+      if (o !== null && storedRef.current?.id === openedId) void checkArrivals(o.wh, hearingWebHost.call).catch(() => undefined);
+    };
+    run();
+    const t = setInterval(run, ARRIVAL_INTERVAL_MS);
+    return () => clearInterval(t);
+  }, [hearingWebHost, openedId]);
+  useEffect(() => onArrivals(() => setTick((n) => n + 1)), []);
+
   // 起動: 本体（Tauri）か、開発用のサーバー（ブラウザでの確認）か
   useEffect(() => {
     void (async () => {
@@ -730,7 +747,7 @@ export function App() {
           const sr = storedRef.current;
           const o = openedRef.current;
           if (sr === null || o === null) throw "E_STORE_NOT_OPEN";
-          const at = (await h.store.save(sr.id, body, summaryOf(o.wh.request))).savedAt;
+          const at = (await h.store.save(sr.id, body, listSummary(summaryOf(o.wh.request), o.wh))).savedAt;
           savedBodies.current.set(sr.id, body);
           return at;
         }, setSaveState);
@@ -897,12 +914,14 @@ export function App() {
     },
     [rawReqOf],
   );
-  const feeOf = (o: Opened, values: Values) => (typeof values["lever:fee"] === "boolean" ? (values["lever:fee"] as boolean) : advisoryFeeInCurrent(o.wh.request));
+  /** 対策「FP顧問料」の値（true 入れる・false 入れない・null 今の契約だけ。0177） */
+  const feeOf = (o: Opened, values: Values): boolean | null => (typeof values["lever:fee"] === "boolean" ? (values["lever:fee"] as boolean) : advisoryFeeState(o.wh.request));
   const altFor = useCallback(
     (o: Opened, w: Work, s: DisplaySettings): EngineRequest | null => {
       if (!shows(s, "feeLine") || !hasAdvisoryFee(o.wh.request) || w.sel === CURRENT) return null;
       const v = valuesOf(o.wh, w, w.sel);
-      return reqOf(o, { ...v, "lever:fee": !feeOf(o, v) });
+      // 顧問料を入れている案（今の契約だけを含む）は入れない案と、入れない案は入れる案と比べる
+      return reqOf(o, { ...v, "lever:fee": feeOf(o, v) === false });
     },
     [reqOf],
   );
@@ -1665,11 +1684,13 @@ export function App() {
       }),
     [history],
   );
-  const toggleFee = useCallback(() => {
-    const o = openedRef.current;
-    if (o === null) return;
-    setValue("lever:fee", !feeOf(o, valuesOf(o.wh, workRef.current, workRef.current.sel)), "release");
-  }, [setValue]);
+  const setFee = useCallback(
+    (v: boolean | null) => {
+      if (openedRef.current === null) return;
+      setValue("lever:fee", v, "release");
+    },
+    [setValue],
+  );
 
   // ---- 案の操作 ----
   const letters = useMemo(() => (opened === null ? new Map<string, { letter: string; name: string }>() : planLetters(opened.wh.proposals)), [opened]);
@@ -2052,7 +2073,8 @@ export function App() {
   );
   const selReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.sel))), [opened, work, reqOf, rowsView]);
   const baseReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.base))), [opened, work, reqOf, rowsView]);
-  const feeOn = opened !== null && hasAdvisoryFee(opened.wh.request) ? feeOf(opened, selValues) : false;
+  const feeState = opened !== null && hasAdvisoryFee(opened.wh.request) ? feeOf(opened, selValues) : false;
+  const feeOn = feeState !== false;
   const names = { selected: planLabel(letterOf(work.sel)), base: planLabel(letterOf(work.base)), same: work.sel === work.base };
   const feeShown = opened !== null && shows(settings, "feeLine") && hasAdvisoryFee(opened.wh.request) && work.sel !== CURRENT;
   const provisional = selView?.source !== "canonical" || selView.stale;
@@ -2316,13 +2338,14 @@ export function App() {
         });
   const feeToggle: FeeToggle | null =
     opened !== null && hasAdvisoryFee(opened.wh.request) && onTop.has("lever:fee")
-      ? { on: feeOn, inBase: feeOf(opened, baseValues), note: feeSummary(opened.wh.request), onToggle: toggleFee, onRemove: levView?.fixed.has("lever:fee") === true ? null : () => removeItem(opened, "lever:fee") }
+      ? { on: feeState, inBase: feeOf(opened, baseValues), mixed: advisoryFeeState(opened.wh.request) === null, note: feeSummary(opened.wh.request), onSet: setFee, onRemove: levView?.fixed.has("lever:fee") === true ? null : () => removeItem(opened, "lever:fee") }
       : null;
 
   const last = dual.current?.timings.filter((t) => t.kind === "preview").at(-1);
   const lastCanon = dual.current?.timings.filter((t) => t.kind === "canonical").at(-1);
   const errView = selView?.error != null ? selView : (views.get(work.base) ?? null);
   const error = errView?.error != null ? engineErrorText(errView.error, errView.errorIds, opened?.wh.request.input.baseMonth ?? null) : null;
+  const busyError = isHostBusy(errView?.error);
 
   // 対策の「変えたこと」と保存の名前の例
   const planInfo = useMemo(() => {
@@ -2583,7 +2606,7 @@ export function App() {
                 groups={fpMenuGroups({
                   snapshots: (opened.wh.snapshots ?? []).length,
                   review: ((t) => (t === null ? null : { last: formatYearMonth(t.last), next: formatYearMonth(t.next) }))(reviewTiming(opened.wh.snapshots ?? [])),
-                  imports: host !== null ? { ai: storedInfo !== null } : null,
+                  imports: host !== null ? { ai: storedInfo !== null, hearing: ((p) => (p.arrived > 0 ? `回答が届いています ${p.arrived}件` : p.toImport > 0 ? `取り込み待ち ${p.toImport}件` : null))(pendingCount(opened.wh)) } : null,
                   office: host !== null ? { storage: storageText(officeStatus?.state, officeStatus?.usage === "personal"), share: officeShareText(officeStatus?.state, officeStatus?.usage === "personal") } : null,
                 })}
                 onPick={pickFpMenu}
@@ -2651,6 +2674,7 @@ export function App() {
         {host !== null ? (
           <HouseholdDrop open={hhOpen} onClose={closeHousehold}>
             <HouseholdPanel
+              currentMark={opened !== null ? pendingMark(opened.wh) : null}
               now={
                 opened !== null ? (
                   <HouseholdNow
@@ -2763,10 +2787,19 @@ export function App() {
           </HouseholdDrop>
         ) : null}
         {fatal !== null ? <p class="fatal">起動できませんでした（{fatal}）</p> : null}
-        {error !== null && tab !== "input" ? <p class="fatal">計算できませんでした{error}</p> : null}
+        {busyError ? (
+          // 時間切れ（パソコンの負荷が高いとき）: 入力のせいではないので「今の入力では」と書かず、もう一度計算するボタンを出す（0180 の2）
+          <p class="fatal" data-host-busy>
+            {HOST_BUSY_TEXT}{" "}
+            <button type="button" class="btn" onClick={() => void dual.current?.release()}>
+              もう一度計算する
+            </button>
+          </p>
+        ) : null}
+        {error !== null && !busyError && tab !== "input" ? <p class="fatal">計算できませんでした{error}</p> : null}
         {tab === "input" && opened !== null ? (
           <>
-            {error !== null ? <p class="fatal">今の入力では計算できませんでした{error}</p> : null}
+            {error !== null && !busyError ? <p class="fatal">今の入力では計算できませんでした{error}</p> : null}
             <InputView
               onReadDoc={setDocStart}
               key={cardOpen?.n ?? 0}
@@ -2858,6 +2891,7 @@ export function App() {
                   />
                 </>
               }
+              hearingNote={((p) => (host?.hearingWeb === undefined || (p.arrived === 0 && p.toImport === 0) ? null : { text: p.arrived > 0 ? `URL で聞いた回答が届いています（${p.arrived}件）` : `受け取った回答の取り込みがまだです（${p.toImport}件）`, onOpen: () => setFpOpen("imports") }))(pendingCount(opened.wh))}
               importsOpen={fpOpen === "imports"}
               onImportsOpen={(o) => setFpOpen(o ? "imports" : null)}
               {...(host !== null
@@ -2868,6 +2902,7 @@ export function App() {
                           wh={opened.wh}
                           sheets={host.sheets}
                           onSave={edit}
+                          customerNo={storedInfo !== null && storedInfo.sample === undefined ? storedInfo.customerNo : null}
                           {...(host.hearingWeb !== undefined
                             ? {
                                 webProps: {
@@ -2881,6 +2916,12 @@ export function App() {
                                   },
                                   persisted: storedInfo !== null && !storedInfo.readOnly,
                                   saveNow,
+                                  topics: officeSettings.hearingTopics ?? null,
+                                  onTopics: async (list) => {
+                                    const next = withHearingTopics(officeSettingsRef.current, list);
+                                    await host.office.putDefaults(next as unknown as Record<string, unknown>);
+                                    putOfficeSettings(next);
+                                  },
                                 },
                               }
                             : {})}

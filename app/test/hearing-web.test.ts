@@ -12,6 +12,16 @@ import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/works
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
 import { readOfficeSettings, withHearingTemplates, DEFAULT_OFFICE_SETTINGS } from "../src/workspace/office/settings.ts";
 import { modelHousehold } from "./helpers.ts";
+import { selectionFromSheet, type WebSelection } from "../../hearing/src/web/packet.ts";
+
+/** シンプルにご両親を足した選び方（シンプルはご両親を既定で外す。FP が足せば聞ける。0192） */
+function withParents(sel: WebSelection): WebSelection {
+  const parents = selectionFromSheet(sheetFor("simple")).sections.find((s) => s.id === "parents")!;
+  const i = sel.sections.findIndex((s) => s.id === "other");
+  const sections = [...sel.sections];
+  sections.splice(i < 0 ? sections.length : i, 0, parents);
+  return { ...sel, sections };
+}
 
 const OFFICE = officeFace({ name: "【架空】みらいFP事務所", color: "#2f6f5e", purpose: "ライフプランの作成のため", privacyContact: "" });
 const NOW = new Date("2026-11-05T09:00:00Z");
@@ -58,7 +68,7 @@ async function customerMore(o: Awaited<ReturnType<typeof openRequest>>, t: Relay
 describe("Web のヒアリング（FP の側）", () => {
   it("発行した依頼の記録は世帯に入り、受け取ると答えと書類が世帯に入る。消すとサーバーから消え、取り込みは承認したものだけ現状に入る", async () => {
     const { t, store } = relayFor();
-    const sel0 = withCustom(templateSelection("first", blank()), "ご相談のきっかけは", "");
+    const sel0 = withCustom(templateSelection("simple", blank()), "ご相談のきっかけは", "");
     const sel = { ...sel0, documents: [documentFromTemplate(sel0, "withholding", "ご本人")] };
     const r = await issueWeb(blank(), { selection: sel, customerNo: "A0042", office: OFFICE, pageUrl: "https://relay.test/h/", transport: t, now: NOW, random: new Uint8Array([1, 2, 3, 4, 5, 6]) });
     let wh = r.wh;
@@ -110,7 +120,7 @@ describe("Web のヒアリング（FP の側）", () => {
 
   it("答えの後に届いた書類を、何回分でも受け取れる。送りごとに何をいつ受け取ったかが残る。取り込み済みでも受け取れる", async () => {
     const { t, store } = relayFor();
-    const sel0 = templateSelection("first", blank());
+    const sel0 = templateSelection("simple", blank());
     const sel = { ...sel0, documents: [documentFromTemplate(sel0, "withholding", "ご本人")] };
     const r = await issueWeb(blank(), { selection: sel, customerNo: "A0042", office: OFFICE, pageUrl: "https://relay.test/h/", transport: t, now: NOW });
     const o = await customerAnswers(r.entry.record.url, t, false);
@@ -149,7 +159,7 @@ describe("Web のヒアリング（FP の側）", () => {
 
   it("延長: 押した日から30日（発行した日から90日まで）。上限では押せず、理由が分かる。お客さまの画面の期限も延びる", async () => {
     const { t, clock } = relayFor();
-    const r = await issueWeb(blank(), { selection: templateSelection("first", blank()), customerNo: "A1", office: OFFICE, pageUrl: "https://relay.test/h/", transport: t, now: NOW });
+    const r = await issueWeb(blank(), { selection: templateSelection("simple", blank()), customerNo: "A1", office: OFFICE, pageUrl: "https://relay.test/h/", transport: t, now: NOW });
     let wh = r.wh;
     let e = r.entry;
     // 作った日に押しても延びない（目安は null。押すと今の期限のまま）
@@ -180,7 +190,7 @@ describe("Web のヒアリング（FP の側）", () => {
   it("分岐の答え（お子さま0人など）が届き、依頼の行と面談の準備で、今の世帯との違いが分かる", async () => {
     const { t } = relayFor();
     const base = fromRequest(modelHousehold("salariedCoupleTwoKids"));
-    const r = await issueWeb(base, { selection: templateSelection("first", base), customerNo: "A1", office: OFFICE, pageUrl: "https://relay.test/h/", transport: t, now: NOW });
+    const r = await issueWeb(base, { selection: withParents(templateSelection("simple", base)), customerNo: "A1", office: OFFICE, pageUrl: "https://relay.test/h/", transport: t, now: NOW });
     const o = await openRequest(new URL(r.entry.record.url).hash, t);
     const d: Draft = { ...initialDraft(o.packet), gates: { spouse: 1, child: 0, parent: 0 }, answers: { [draftKey("hs.consent.purpose")]: v("given") } };
     await submitAnswers(o, answersOf(o.packet, d, NOW), t);
@@ -200,7 +210,7 @@ describe("Web のヒアリング（FP の側）", () => {
   it("元に戻す・やり直すで、依頼の記録（鍵・受け取った答え）を前の状態に戻さない", async () => {
     const { t } = relayFor();
     const before = blank();
-    const r = await issueWeb(before, { selection: templateSelection("first", before), customerNo: "A1", office: OFFICE, pageUrl: "https://relay.test/h/", transport: t, now: NOW });
+    const r = await issueWeb(before, { selection: templateSelection("simple", before), customerNo: "A1", office: OFFICE, pageUrl: "https://relay.test/h/", transport: t, now: NOW });
     const restored = keepWebLog(before, r.wh);
     expect(webLog(restored)).toHaveLength(1);
     expect(keepWebLog(r.wh, before).hearing?.web).toBeUndefined();
@@ -220,7 +230,7 @@ describe("Web のヒアリング（FP の側）", () => {
 
   it("書類待ちの1通と結びつけた書類は、頼んだ・届いたが書類のお願いの一覧で分かる", async () => {
     const { t } = relayFor();
-    const sel0 = templateSelection("first", blank());
+    const sel0 = templateSelection("simple", blank());
     const doc = { ...documentFromTemplate(sel0, "pensionNotice", "ご本人"), docRequest: "ねんきん定期便|m1" };
     const r = await issueWeb(blank(), { selection: { ...sel0, documents: [doc] }, customerNo: "A1", office: OFFICE, pageUrl: "https://relay.test/h/", transport: t, now: NOW });
     expect(docRequestStatus(r.wh, NOW).get("ねんきん定期便|m1")).toEqual({ requested: true, files: 0, answer: null });
@@ -239,17 +249,19 @@ describe("Web のヒアリング（FP の側）", () => {
   });
 });
 
-// ---- 取り込みで今の値を壊さない（値の入った世帯に「初回の前」で聞いて取り込む） ----
+// ---- 取り込みで今の値を壊さない（値の入った世帯に「シンプル」で聞いて取り込む） ----
 
 const num = (text: string) => ({ status: "value" as const, raw: { kind: "number" as const, text } });
 
 /** 値の入った世帯（夫婦と子2人。預貯金 800万円・住宅ローン 残高 2,240万円・生活費 月30万円） */
 const filled = (): WorkingHousehold => fromRequest(modelHousehold("salariedCoupleTwoKids"));
 
-/** 「初回の前」の URL を発行し、お客さまが答えて送り、FP が受け取ったところまで */
-async function answeredWeb(wh: WorkingHousehold, answers: Record<string, DraftAnswer>, gates: Record<string, number> = { spouse: 1, child: 2 }, submittedAt = new Date("2026-11-06T13:15:00Z"), kind: WebTemplateKind = "first") {
+/** 「シンプル」の URL を発行し、お客さまが答えて送り、FP が受け取ったところまで */
+async function answeredWeb(wh: WorkingHousehold, answers: Record<string, DraftAnswer>, gates: Record<string, number> = { spouse: 1, child: 2 }, submittedAt = new Date("2026-11-06T13:15:00Z"), kind: WebTemplateKind = "simple") {
   const { t } = relayFor();
-  const r = await issueWeb(wh, { selection: templateSelection(kind, wh), customerNo: "A1", office: OFFICE, pageUrl: "https://relay.test/h/", transport: t, now: NOW });
+  // シンプルはご両親を既定で外すので、ご両親の取り込みを確かめるため足す（FP が足したときと同じ）
+  const sel = kind === "simple" ? withParents(templateSelection(kind, wh)) : templateSelection(kind, wh);
+  const r = await issueWeb(wh, { selection: sel, customerNo: "A1", office: OFFICE, pageUrl: "https://relay.test/h/", transport: t, now: NOW });
   const o = await openRequest(new URL(r.entry.record.url).hash, t);
   const d0 = initialDraft(o.packet);
   const d: Draft = { ...d0, gates: { ...d0.gates, ...gates }, answers: { [draftKey("hs.consent.purpose")]: v("given"), ...answers } };

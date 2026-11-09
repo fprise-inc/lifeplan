@@ -21,7 +21,7 @@ const file = (docId: string, fileId: string, mime: StoredDocumentFile["mime"], b
 /** 依頼の記録を1件（書類3通: 源泉徴収票〔ご本人〕・ねんきん定期便〔書類待ちの1通と結びつく〕・独自の書類）。受け取りは2回 */
 function household(): { wh: WorkingHousehold; docs: RequestedDocument[] } {
   const base = blank();
-  const sel0 = templateSelection("first", base);
+  const sel0 = templateSelection("simple", base);
   const d1 = documentFromTemplate(sel0, "withholding", "ご本人");
   const sel1: WebSelection = { ...sel0, documents: [d1] };
   const pending: DocRequest = { id: "ねんきん定期便|m1", doc: "ねんきん定期便", whose: "ご本人", title: "ねんきん定期便（ご本人）", values: [], holder: "m1", object: null };
@@ -62,7 +62,7 @@ describe("受け取った書類（0191）", () => {
   });
 
   it("書類の名前はひな形の定義から引き、見出しの括弧を持ち主とみる。ひな形の名前の中の括弧は持ち主にしない", () => {
-    const sel = templateSelection("first", blank());
+    const sel = templateSelection("simple", blank());
     for (const t of DOCUMENT_TEMPLATES) {
       const d = documentFromTemplate(sel, t.kind, "配偶者");
       expect(docNameParts(d)).toEqual({ name: t.title, whose: d.owner !== undefined ? OWNER_LABEL[d.owner] : null });

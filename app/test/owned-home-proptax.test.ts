@@ -39,18 +39,33 @@ function home(o: { value?: number; asOf?: string; built?: number; structure?: st
   const id = own(wh).id;
   if (o.style !== undefined) wh = set(wh, `${id}/style`, o.style);
   wh = set(wh, `${id}/valuation/value`, o.value ?? 40000000);
-  if (o.asOf !== undefined) wh = set(wh, `${id}/valuation/asOf`, o.asOf);
+  // 評価の時点は買った年月（住み始め）についてくる（0176）
+  if (o.asOf !== undefined) wh = set(wh, `${id}/from`, { at: o.asOf });
   if (o.built !== undefined) wh = set(wh, `${id}/valuation/builtYear`, o.built);
   if (o.structure !== undefined) wh = set(wh, `${id}/valuation/structure`, o.structure);
   return wh;
 }
 
-/** 別に書いた式（0112 の2。土地は時点の価格のまま、建物は評価替えごとに下げる。木造30年で下限20%） */
+/** 固定資産評価基準 別表第9（木造の専用住宅。95,820〜147,770点の区分）の経年減点補正率（築1〜25年） */
+const WOOD = [0.8, 0.75, 0.7, 0.68, 0.65, 0.63, 0.61, 0.59, 0.56, 0.54, 0.52, 0.5, 0.47, 0.45, 0.43, 0.4, 0.38, 0.36, 0.34, 0.31, 0.29, 0.27, 0.25, 0.22, 0.2];
+const reassess = (x: number) => 2024 + Math.floor((x - 2024) / 3) * 3;
+/** 時点の年に効いている評価替えの年の建物の評価額に対する、その年の比（2024年度は再建築費評点補正率1.11。上がる年は据え置き） */
+function aging(built: number, refYear: number, y: number): number {
+  const k = (a: number) => WOOD[Math.min(Math.max(1, a), 25) - 1]!;
+  const d0 = k(reassess(refYear) - built);
+  let v = d0;
+  let cum = 1;
+  for (let r = reassess(refYear) + 3; r <= reassess(y); r += 3) {
+    if (r <= built) continue;
+    if (r === 2024) cum *= 1.11;
+    v = Math.min(v, k(r - built) * cum);
+  }
+  return v / d0;
+}
+/** 別に書いた式（0112 の2・0181。土地は時点の価格のまま、建物は新築の評価額＝価格の40%から経年減点補正率で下げる） */
 function expected(value: number, valueYear: number, built: number, y: number, relief = false): number {
-  const reassess = (x: number) => 2024 + Math.floor((x - 2024) / 3) * 3;
-  const g = (a: number) => Math.max(0.2, 1 - (0.8 * Math.max(0, a)) / 30);
   const land = value * 0.3 * 0.7;
-  const b = (value * 0.7 * 0.6 * g(reassess(y) - built)) / g(reassess(valueYear) - built);
+  const b = value * 0.7 * 0.4 * aging(built, valueYear, y);
   return Math.round((land / 6 * 0.014 + (land / 3) * 0.003 + b * 0.014 * (relief ? 0.5 : 1) + b * 0.003) / 100) * 100;
 }
 
@@ -78,8 +93,8 @@ describe("今住んでいる持ち家の固定資産税の推定（0112 の追�
     expect(basisOf(r)).toContain("2010年に建った（築16年）");
     expect(basisOf(r)).toContain("土地は2010年の価格のまま");
     const st = stagesOf(r);
-    // 評価替えの年（2027年から3年ごと）に下がり、木造は築30年を超えると下限で止まる
-    expect([...st.keys()]).toEqual([2027, 2030, 2033, 2036, 2039, 2042]);
+    // 評価替えの年（2027年から3年ごと）に下がり、木造は築25年（2036年度は築26年）で下限で止まる
+    expect([...st.keys()]).toEqual([2027, 2030, 2033, 2036]);
     for (const [y, ratio] of st) expect(ratio).toBeCloseTo(expected(40000000, 2010, 2010, y) / first, 3);
     const last = (r.propertyTax?.stages ?? []).at(-1)!;
     expect(isAutoTaxStage(wh.request.input.household, r.id, last.id!)).toBe(true);
@@ -94,7 +109,7 @@ describe("今住んでいる持ち家の固定資産税の推定（0112 の追�
     // 年4回の納付のうち、年の初めの1回は前の年度の額（購入の予定の推定と同じ）
     const st = stagesOf(r);
     expect(Math.abs(sum(p, "cf.expense.housing.propertyTax", 2027) - first * (0.25 + 0.75 * st.get(2027)!))).toBeLessThanOrEqual(4);
-    expect(Math.abs(sum(p, "cf.expense.housing.propertyTax", 2045) - first * st.get(2042)!)).toBeLessThanOrEqual(4);
+    expect(Math.abs(sum(p, "cf.expense.housing.propertyTax", 2045) - first * st.get(2036)!)).toBeLessThanOrEqual(4);
   });
 
   it("新築の軽減の間（建った年の翌年から戸建て3年）は建物の分が半分で、終わる年に上がる", () => {
@@ -131,8 +146,8 @@ describe("今住んでいる持ち家の固定資産税の推定（0112 の追�
     expect(own(wh).propertyTax?.annual.value).toBe(120000);
     wh = set(wh, `${own(wh).id}/maint`, 20000);
     expect(own(wh).propertyTax?.annual.value).toBe(120000);
-    // 評価の欄を直したら推定に変える
-    wh = set(wh, `${own(wh).id}/valuation/landShare`, "0.4");
+    // 評価の欄を直したら推定に変える（土地の値段。0176）
+    wh = set(wh, `${own(wh).id}/valuation/land`, 12000000);
     expect(basisOf(own(wh)).startsWith(PROPERTY_TAX_BASIS)).toBe(true);
   });
 
@@ -212,8 +227,8 @@ describe("今住んでいる持ち家の固定資産税の推定（0112 の追�
   it("目安の割合は事務所の推定の値で変えられる", () => {
     setOfficeEstimates({ "preset.housing.propertyTax.cityPlanningRate": { value: "0", basis: "事務所の目安" } });
     const wh = home({ value: 40000000, asOf: "2010-04", built: 2010 });
-    // 都市計画税がかからない所: 土地 840万×1/6×1.4%＝19,600、建物 1680万×(1−0.8×14/30)×1.4%
-    const b = 16800000 * (1 - (0.8 * 14) / 30);
+    // 都市計画税がかからない所: 土地 840万×1/6×1.4%＝19,600、建物 1120万×（2010年築の2024年度の比）×1.4%
+    const b = 11200000 * aging(2010, 2010, 2026);
     expect(own(wh).propertyTax?.annual.value).toBe(Math.round((19600 + b * 0.014) / 100) * 100);
     expect(basisOf(own(wh))).toContain("都市計画税0%");
   });
@@ -228,7 +243,7 @@ describe("今住んでいる持ち家の固定資産税の推定（0112 の追�
     let wh = action(blankHousehold(BASE), "housing/addPurchase");
     const r = (wh.request.input.household.residences ?? []).find((x) => x.purchase !== undefined)!;
     expect((r.propertyTax?.annual as { estimate?: { basis?: string } }).estimate?.basis).toContain("物件の価格");
-    wh = set(wh, `${r.id}/valuation/landShare`, "0.4");
+    wh = set(wh, `${r.id}/purchase/landPrice`, 16000000);
     const r2 = (wh.request.input.household.residences ?? []).find((x) => x.purchase !== undefined)!;
     expect((r2.propertyTax?.annual as { estimate?: { basis?: string } }).estimate?.basis).toContain("物件の価格");
   });

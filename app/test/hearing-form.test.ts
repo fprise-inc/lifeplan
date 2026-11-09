@@ -15,7 +15,7 @@ const wh = withRefreshedEstimates(blankHousehold("2026-11", () => `00000000-0000
 const office = officeFace({ name: "【架空】みらいFP事務所", color: "#2f6f5e", purpose: "ライフプランの作成のため", privacyContact: "【架空】窓口" });
 
 async function packet() {
-  const sel0 = templateSelection("first", wh);
+  const sel0 = templateSelection("simple", wh);
   return previewPacket(wh, { ...sel0, documents: [documentFromTemplate(sel0, "withholding")] }, office, NOW);
 }
 

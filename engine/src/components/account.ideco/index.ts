@@ -47,7 +47,7 @@ export default defineComponent<{ member: string }, IdecoAccountOutput>({
   id: "account.ideco",
   title: "iDeCo・企業型DCの残高と受け取り",
   contract: "1.0",
-  revision: 6,
+  revision: 7,
   requires: { "account.idecoPayout": ">=1 <2", "ideco.contribution": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [],
   reads: [

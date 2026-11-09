@@ -48,6 +48,21 @@
               }
             }
           },
+          "holders": {
+            "description": "1.6: 名義の人が亡くなったとき、亡くなった年からの年ごとの不動産所得と土地の分の利息を、持つ人（名義の人と相続する人。等分）に分けたもの（0173）",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["year", "member", "income", "landInterest"],
+              "properties": {
+                "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+                "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+                "income": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+                "landInterest": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+              }
+            }
+          },
           "sale": {
             "oneOf": [
               { "type": "null" },

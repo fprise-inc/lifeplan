@@ -448,6 +448,11 @@ export interface DebtScheduleOutput {
   readonly interest?: readonly { readonly year: number; readonly amount: Yen }[];
   /** 借り換えごとの、借り換えの直前の残高（before）と新しいローンの借入額（principal。費用を含めたらその分を足す）・期間（約束の版 1.3 の任意の欄） */
   readonly refinances?: readonly { readonly ym: string; readonly before: Yen; readonly principal: Yen; readonly termMonths: number }[];
+  /**
+   * 繰上返済ごとの、繰上返済の月（ym）と、その後の最後の返済の見込みの月（lastPayment。その月に返し終えたら ym と同じ）
+   * （約束の版 1.4 の任意の欄。住宅ローン控除の償還期間10年の判定に使う。tax.housingLoanCredit）
+   */
+  readonly prepayments?: readonly { readonly ym: string; readonly lastPayment: string }[];
 }
 
 /** housing.residence: 住まいのお金の動きと、購入した持ち家（不動産の残高の計算に使う） */
@@ -494,6 +499,12 @@ export interface RealEstateOutput {
       readonly landInterest: Yen;
       readonly income: Yen;
     }[];
+    /**
+     * 約束の版 1.6（0173）: 名義の人が万一の想定で亡くなったとき、亡くなった年からの年ごとの不動産所得（income）と土地の分の利息（landInterest）を、
+     * 持つ人（亡くなった年は名義の人と相続する人。翌年からは相続する人。等分）に分けたもの。この欄がある年は、その年の不動産所得をこの分け方で
+     * 数える（sdk の propertyIncomeOf）
+     */
+    readonly holders?: readonly { readonly year: number; readonly member: string; readonly income: Yen; readonly landInterest: Yen }[];
     /**
      * 約束の版 1.1（0081）: 譲渡所得の内訳（任意の欄）。acquisitionCost は取得費（取得価額＋取得時の諸費用−建物と建物附属設備の償却の累計。
      * 概算取得費〔売却価格の5%〕のほうが大きければそれ）、estimated は概算取得費を使ったか、gain は売却価格−（取得費＋売却の費用）、term は長期・短期
@@ -759,7 +770,8 @@ export interface EducationCostOutput {
 /** expense.car: 車のお金の動きと、自動車ローンの年末残高 */
 export interface CarOutput {
   readonly flows: readonly Flow[];
-  readonly loans: readonly { readonly object: string; readonly yearEnd: DebtScheduleOutput["yearEnd"] }[];
+  /** start は借りた月（購入の月。約束の版 1.1 の任意の欄。必要保障額の場面の表の分け方に使う。0173 の追記） */
+  readonly loans: readonly { readonly object: string; readonly start?: string; readonly yearEnd: DebtScheduleOutput["yearEnd"] }[];
 }
 
 /** expense.reconcile: 現状の検算 */
@@ -791,6 +803,8 @@ export interface ContingencyEvent {
   readonly medical?: { readonly monthly: Yen; readonly months: number; readonly from?: unknown };
   /** 病気の想定（0054） */
   readonly illness?: { readonly disease: "cancer" | "heartStroke" | "other"; readonly hospitalDays?: number; readonly surgeries?: number };
+  /** 死亡のとき、亡くなった人の名義の物を受け継ぐ人（死亡の当時の配偶者。いなければ子を等分。亡くなった月の翌月から。0173） */
+  readonly heirs?: readonly string[];
 }
 
 export interface ContingencyEventOutput {
@@ -855,12 +869,18 @@ export interface InsuranceReceipt {
   readonly coverage: string | null;
   /** 受け取る構成員（構成員でない受取人は null） */
   readonly member: string | null;
-  /** medical: 医療・がんの給付（入院日額・手術・がん一時金・三大疾病一時金。0054） */
-  readonly kind: "death" | "incomeProtection" | "incapacity" | "highDisability" | "maturity" | "surrender" | "annuity" | "survival" | "medical";
+  /**
+   * medical: 医療・がんの給付（入院日額・手術・がん一時金・三大疾病一時金。0054）。annuityRight: 受取人が契約者でない年金の、年金を受け取る
+   * 権利（定期金に関する権利）の贈与（支払が始まる月。額は評価額。お金の動きは無く、贈与税だけ。約束の版 1.3。0179）
+   */
+  readonly kind: "death" | "incomeProtection" | "incapacity" | "highDisability" | "maturity" | "surrender" | "annuity" | "survival" | "medical" | "annuityRight";
   readonly amount: Yen;
   /** 課税の区分: inheritance 相続税の対象（みなし相続財産）・temporary 一時所得・miscellaneous 雑所得（年金）・gift 贈与税・none 非課税 */
   readonly taxClass: "inheritance" | "temporary" | "miscellaneous" | "gift" | "none";
-  /** 一時所得・雑所得の必要経費（払込保険料のうちこの受け取りに当たる額） */
+  /**
+   * 一時所得・雑所得の必要経費（払込保険料のうちこの受け取りに当たる額）。相続等（贈与を含む）で取得した年金の雑所得は、総収入金額に入れない部分
+   * （施行令185条2項の課税部分の残り）も含む（約束の版 1.3。0179）
+   */
   readonly cost: Yen;
   /** 贈与税のとき: 贈与者（契約者）の構成員 */
   readonly giver?: string;

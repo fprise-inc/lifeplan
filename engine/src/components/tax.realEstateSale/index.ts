@@ -11,8 +11,13 @@
 //   特別控除・買換え・取得費加算などの特例、ほかの所得と合わせた申告での端数の処理、給与からの特別徴収は扱わない
 // - 改訂2（0123）: 貸していない不動産の売る予定（asset.heldSale の土地建物等の分離課税の売却）の譲渡所得も、同じ名義の人×年に足す
 //   （知らせは N_ASSUMED heldAsset.saleTaxSimplified）。売る予定の無い世帯の結果は同じ
+// - 改訂3（0173。亡くなった人の名義）: 名義の人が万一の想定で亡くなった後に売るなら、譲渡所得は売る月に持つ人（相続する人。等分）に付く
+//   （取得費と所有期間は亡くなった人から引き継ぐ。所得税法60条）
 import {
   defineComponent,
+  holdersAt,
+  parseYm,
+  splitEqually,
   formatYm,
   monthIndex,
   yen,
@@ -42,8 +47,8 @@ export default defineComponent<Record<string, never>, RealEstateSaleTaxOutput>({
   id: "tax.realEstateSale",
   title: "住まい以外の不動産の譲渡所得の税（分離課税）",
   contract: "1.0",
-  revision: 2,
-  requires: { "asset.realEstate": ">=1 <2", "asset.heldSale": ">=1 <2" },
+  revision: 3,
+  requires: { "asset.realEstate": ">=1 <2", "asset.heldSale": ">=1 <2", "contingency.event": ">=1 <2" },
   params: Object.values(P),
   reads: [],
   input: "empty.input",
@@ -53,12 +58,18 @@ export default defineComponent<Record<string, never>, RealEstateSaleTaxOutput>({
     const add = (owner: string, object: string, s: { ym: string; gain?: Yen; term?: "long" | "short" }, held: boolean) => {
       if (s.gain === undefined || s.term === undefined) return;
       const year = Number(s.ym.slice(0, 4));
-      const k = `${owner}|${year}`;
-      const x = sums.get(k) ?? { member: owner, year, short: 0, long: 0, objects: [], held: [] };
-      if (s.term === "long") x.long += s.gain;
-      else x.short += s.gain;
-      (held ? x.held : x.objects).push(object);
-      sums.set(k, x);
+      // 売る月に持つ人（名義の人が亡くなった後は相続する人。等分）
+      const holders = holdersAt(ctx, owner, parseYm(s.ym));
+      const gains = splitEqually(ctx, s.gain, holders.length);
+      holders.forEach((member, i) => {
+        const gain = gains[i] as Yen;
+        const k = `${member}|${year}`;
+        const x = sums.get(k) ?? { member, year, short: 0, long: 0, objects: [], held: [] };
+        if (s.term === "long") x.long += gain;
+        else x.short += gain;
+        (held ? x.held : x.objects).push(object);
+        sums.set(k, x);
+      });
     };
     for (const p of ctx.call<RealEstateOutput>("asset.realEstate", {}).properties) if (p.sale !== null) add(p.owner, p.object, p.sale, false);
     // 貸していない不動産の売る予定（0123）

@@ -34,7 +34,13 @@
               }
             },
             "medical": { "$ref": "urn:financia:schema:engine.input#/$defs/contingency/properties/medical" },
-            "illness": { "$ref": "urn:financia:schema:engine.input#/$defs/contingency/properties/illness" }
+            "illness": { "$ref": "urn:financia:schema:engine.input#/$defs/contingency/properties/illness" },
+            "heirs": {
+              "description": "死亡のとき、亡くなった人の名義の物を受け継ぐ人（死亡の当時の配偶者。いなければ子を等分。亡くなった月の翌月から）",
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "urn:financia:schema:common#/$defs/uuid" }
+            }
           }
         }
       ]

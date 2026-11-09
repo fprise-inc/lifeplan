@@ -1,15 +1,16 @@
 // 7. 住まい・ローン（0052）: 住まい（賃貸・持ち家・家賃なし。住み始めと住み終わりは時点の部品）、持ち家の建て方・税・修繕・名義、
 // 購入の予定と住宅資金の援助、住み終わりの後（そのまま持つ・売る）と譲渡所得の税の額（0053）、持ち家の評価、相続する家への切り替え、
 // 住宅ローンとほかのローン（housingLoans.ts）。お金の行（補助金・売電・修繕）は moneyRows.ts の区画を後ろに置く（stages/index.ts）
-import type { Debt, Household, Residence, YearSeries } from "../../../engine/types.ts";
+import type { Box, Debt, Household, Residence, YearSeries } from "../../../engine/types.ts";
 import { addMonths } from "../../levers.ts";
 import { afterWrite, byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
-import { mutate, newId, presetBasis, standardBox, wrapBasis, type WorkingHousehold } from "../household.ts";
+import { confirmedBox, mutate, newId, presetBasis, standardBox, wrapBasis, type WorkingHousehold } from "../household.ts";
 import { rentBasis, rentStandard } from "../fill.ts";
 import { debtorsWithoutShare, dropProvisionalEvent, PRINCIPAL_ESTIMATE, principalKey, purchaseMonth, sharesByLoans, withProvisionalHousing } from "../housingCredit.ts";
-import { applyPropertyTaxEstimate, hasAutoTaxStages, isAutoTax as isAutoBox, purchaseLoans, rememberDroppedTaxStage } from "../propertyTax.ts";
+import { applyPropertyTaxEstimate, hasAutoTaxStages, isAutoTax as isAutoBox, pctOf, purchaseLoans, rememberDroppedTaxStage, taxGuide } from "../propertyTax.ts";
 import { buildingPriceOf, CUSTOM_KEYS, customBuildNotes, isCustomBuild, landLoansOf, landMonthOf, startCustomBuild, stopCustomBuild } from "../customBuild.ts";
-import { ownedHomeTaxEstimate, startsOwnedHomeTax } from "../ownedHomeTax.ts";
+import { applyOwnedHomeTax, ownedHomeTaxEstimate, startsOwnedHomeTax } from "../ownedHomeTax.ts";
+import { AS_OF_FOLLOWS, clearLand, clearPurchaseBasis, landOfShare, shareOfLand, dropAsOfFollow, followFromMonth, isCurrentOwned, landAmount, landEntered, markPurchaseBasis, ownedValueMode, putLand, totalOf } from "../ownedHomeValue.ts";
 import { BUILDING_STRUCTURES, donorCandidates, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS, TAX_METHODS, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
 import type { StateRow } from "../rows.ts";
 import { formatYearMonth, formatYen } from "../units.ts";
@@ -20,7 +21,7 @@ import { presetNum, presetText } from "../../../../../hearing/src/presets.ts";
 import { regulationEntries, regulationValue } from "../../../../../hearing/src/statistics.ts";
 import { readGroup, readLine } from "../readLines.ts";
 import { stagedBadge, stagedGroups, type StagedSpec } from "../staged.ts";
-import { addHomeRefinance, at, creditLifeFields, creditLifeGroups, estRow, loanFields, loanMoreActions, loanTitle, LOAN_SUBTYPES, newMortgage, newOtherLoan, rateStepsView, otherLoanHeadFields, withEntry } from "./housingLoans.ts";
+import { addHomeRefinance, at, creditLifeFields, creditLifeGroups, estRow, loanFields, loanMoreActions, loanTitle, LOAN_SUBTYPES, newMortgage, newOtherLoan, rateStepsView, otherLoanHeadFields, withEntry, MISC_SUBTYPES } from "./housingLoans.ts";
 import { GROWTH_RANGE } from "../rateRanges.ts";
 import { hasExecutive } from "../officer.ts";
 import {
@@ -332,6 +333,8 @@ function ownershipFields(wh: WorkingHousehold, r: Residence, k: string): FieldDe
         label: "ご本人の持分",
         level: missing.length > 0 ? "simple" : "detail",
         kind: "pct",
+        min: 0,
+        max: 100,
         help: "残りが配偶者の持分",
         get: (w) => ({ value: own(w).find((o) => o.member === self.id)?.share ?? "0.5" }),
         set: (w, v) =>
@@ -413,7 +416,40 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
     return { ...g, time: { ...time, setWhen } };
   };
   // 購入の1件は住み始めを出さない（購入の時期〔注文住宅は建物の引き渡しの時期〕に住み始める。ずれていれば購入の時期の欄に知らせ。0052 の追記 2026-11-07）
-  if (!buying) fields.push(marked(timepointField({ key: `${k}/from`, item: "residence.from", label: "住み始め", level: showPeriod ? "simple" : "detail", find, path: ["from"], mode: "ym", anchor: "moveIn", ...ageOf })));
+  // 今住んでいる持ち家を買った値段から推計するときは、住み始めを「買った年月（住み始め）」として標準に出す（評価の時点がついてくる。0176）
+  const base = wh.request.input.baseMonth;
+  const ownNow = r.kind === "own" && !buying && isCurrentOwned(h0, r, base);
+  const byPrice = ownNow && ownedValueMode(r, base) === "purchase";
+  if (!buying) {
+    const fromField = marked(
+      timepointField({
+        key: `${k}/from`,
+        item: "residence.from",
+        label: byPrice ? "買った年月（住み始め）" : "住み始め",
+        level: showPeriod || byPrice ? "simple" : "detail",
+        find,
+        path: ["from"],
+        mode: "ym",
+        anchor: "moveIn",
+        ...ageOf,
+        ...(byPrice ? { help: "家を買って住み始めた年月です。買った値段をこの時点の額として、今と先の年の評価額（土地は上昇率で動かし、建物は古くなった分を減らす）と固定資産税の目安を出します" } : {}),
+      }),
+    );
+    fields.push(
+      ownNow
+        ? afterWrite(fromField, (w0, w1) => {
+            const x0 = find(w0.request.input.household, w0) as Residence | undefined;
+            const old = x0 === undefined ? null : resolveTimepoint(w0.request.input.household, x0.from);
+            return mutate(w1, (h, req) => {
+              followFromMonth(h, r.id, old, req.input.baseMonth);
+              // 買った年月は固定資産税の目安の元（未入力か推定のままの欄に推定を入れる。0112 の追記）
+              const x = (h.residences ?? []).find((y) => y.id === r.id);
+              if (x?.valuation?.value !== undefined) applyOwnedHomeTax(h, x, req.input.baseMonth, req.input.endYear, req.input.assumptions?.realEstateValuation?.landShare, true);
+            });
+          })
+        : fromField,
+    );
+  }
   const toField = marked(timepointField({ key: `${k}/to`, item: "residence.to", label: "住み終わり", level: showPeriod ? "simple" : "detail", find, path: ["to"], startPath: ["from"], optional: true, nullText: "最後まで住む", ...ageOf }));
   // 住み終わりを直したら、空き家として持ち続ける不動産の持ち始めも住み終わりの翌月に合わせる
   // （画面の時点の欄は time.setWhen で書くので、afterWrite で set と両方を包む）
@@ -433,6 +469,51 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
         });
     }),
   );
+  // 固定資産税・都市計画税の欄（額と伸び率）
+  const taxFields: FieldDef[] =
+    r.kind !== "own"
+      ? []
+      : [
+          yenBox({
+            key: `${k}/tax`,
+            item: "residence.propertyTax",
+            label: "固定資産税・都市計画税",
+            level: "detail",
+            basis: "annual",
+            find,
+            path: ["propertyTax", "annual"],
+            // 今住んでいる持ち家は、空にしたら持ち家の評価の欄からの推定（評価額が無ければ目安のボタンの値。0112 の追記 2026-11-03）
+            ...(buying
+              ? {}
+              : {
+                  estimate: (_h: Household, w: WorkingHousehold) => ownedHomeTaxEstimate(w, r.id) ?? { value: presetNum("preset.housing.propertyTax"), basis: TAX_PRESET().estimate.basis },
+                  help: "納税通知書の額（固定資産税と都市計画税の合計）を入れます。入れなければ、持ち家の評価の元（買った値段と買った年月・土地の値段・建物の構造・建った年。今の時価で入れた家は評価額）から、住宅用地の特例・新築の軽減・税率（固定資産税1.4%・都市計画税0.3%）を当てた目安を出します（推定）。評価替え（3年ごと）で建物の分が下がる段も入れます",
+                }),
+          }),
+          {
+            ...plain({
+              key: `${k}/taxGrowth`,
+              item: "residence.propertyTax",
+              label: "固定資産税の伸び率（年）",
+              level: "detail",
+              kind: "pct",
+              ...GROWTH_RANGE,
+              find,
+              path: ["propertyTax", "growth"],
+              optional: true,
+              fallback: "0",
+              // 推定の段（新築の軽減の終わり・評価替え）があるときは、段と率の関係を書く。計算は段の額に、計算の基準の年からの年数分この率を掛ける（housing.residence）
+              help: hasAutoTaxStages(h0, r)
+                ? "固定資産税の推定の段（新築の軽減の終わり・評価替え）で額を動かしています。伸び率を入れると、段の額にさらに毎年この率を掛けます（評価替えの下がり方は段に入っているので、ふつうは入れません）"
+                : "入れなければ変えません。建物の評価が下がる分は、「＋ 固定資産税の変化」で入れられます",
+              hint: (_v, w) => {
+                const x = find(w.request.input.household, w) as Residence | undefined;
+                return x !== undefined && x.propertyTax?.growth === undefined && hasAutoTaxStages(w.request.input.household, x) ? "下の推定の段で動かしています（伸び率は入れなくて構いません）" : null;
+              },
+            }),
+            address: () => at(r.id, "residence.propertyTax", ["growth"]),
+          },
+        ];
   if (r.kind === "rent" && !free) {
     fields.push(
       yenBox({
@@ -469,47 +550,10 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
     );
   } else if (r.kind === "own") {
     fields.push(
+      // 今住んでいる持ち家は、買った値段（合計・うち土地）を標準に出す（評価額は推計。0176）。うち建物の値段は中枠「持ち家の評価」（0176 の追記 2026-11-09）
+      ...(byPrice ? ownedPriceFields(wh, r, k).filter((f) => !f.key.endsWith("/valuation/building")) : []),
       // 購入の予定の持ち家は、建て方を購入の種類で決める（欄を重ねない。0052 の追記 2026-11-03）
       ...(buying ? [] : [startsOwnedHomeTax(styleField(r, k), r.id)]),
-      yenBox({
-        key: `${k}/tax`,
-        item: "residence.propertyTax",
-        label: "固定資産税・都市計画税",
-        level: "detail",
-        basis: "annual",
-        find,
-        path: ["propertyTax", "annual"],
-        // 今住んでいる持ち家は、空にしたら持ち家の評価の欄からの推定（評価額が無ければ目安のボタンの値。0112 の追記 2026-11-03）
-        ...(buying
-          ? {}
-          : {
-              estimate: (_h: Household, w: WorkingHousehold) => ownedHomeTaxEstimate(w, r.id) ?? { value: presetNum("preset.housing.propertyTax"), basis: TAX_PRESET().estimate.basis },
-              help: "納税通知書の額（固定資産税と都市計画税の合計）を入れます。空にすると、持ち家の評価の欄（評価額・時点・構造・建った年・土地の割合）から目安を出します",
-            }),
-      }),
-      {
-        ...plain({
-          key: `${k}/taxGrowth`,
-          item: "residence.propertyTax",
-          label: "固定資産税の伸び率（年）",
-          level: "detail",
-          kind: "pct",
-          ...GROWTH_RANGE,
-          find,
-          path: ["propertyTax", "growth"],
-          optional: true,
-          fallback: "0",
-          // 推定の段（新築の軽減の終わり・評価替え）があるときは、段と率の関係を書く。計算は段の額に、計算の基準の年からの年数分この率を掛ける（housing.residence）
-          help: hasAutoTaxStages(h0, r)
-            ? "固定資産税の推定の段（新築の軽減の終わり・評価替え）で額を動かしています。伸び率を入れると、段の額にさらに毎年この率を掛けます（評価替えの下がり方は段に入っているので、ふつうは入れません）"
-            : "入れなければ変えません。建物の評価が下がる分は、「＋ 固定資産税の変化」で入れられます",
-          hint: (_v, w) => {
-            const x = find(w.request.input.household, w) as Residence | undefined;
-            return x !== undefined && x.propertyTax?.growth === undefined && hasAutoTaxStages(w.request.input.household, x) ? "下の推定の段で動かしています（伸び率は入れなくて構いません）" : null;
-          },
-        }),
-        address: () => at(r.id, "residence.propertyTax", ["growth"]),
-      },
       yenBox({
         key: `${k}/maint`,
         item: "residence.maintenance",
@@ -531,6 +575,8 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
       plain({ key: `${k}/maintGrowth`, item: "residence.maintenance", label: ml.growth, level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["maintenance", "growth"], optional: true, help: "入れなければ変えません。外壁・屋根などの大きな修繕は、下の「出るお金」の修繕・リフォームの行で入れます" }),
       ...ownershipFields(wh, r, k),
     );
+    // 固定資産税の欄: 今住んでいる持ち家は「固定資産税・都市計画税」の中枠に分ける（詳細の欄が多く、何の欄か分かりにくかった。0176）。購入の予定は今のまま
+    if (!ownNow) fields.splice(fields.findIndex((f) => f.key === `${k}/maint`), 0, ...taxFields);
   }
   // 家賃・修繕費・固定資産税の段階と例外の年（0040。詳細）
   const staged = (part: "rent" | "maintenance" | "propertyTax", what: string, basis: StagedSpec["basis"], value: (x: Residence) => number | null, yearly = false): GroupDef[] =>
@@ -552,7 +598,8 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
       ...(part === "propertyTax" ? { onRemoveStage: (h: Household, sid: string) => rememberDroppedTaxStage(h, r.id, sid), autoWhat: r.purchase?.newBuild === false ? "3年ごとの評価替え" : "新築の軽減の終わり・3年ごとの評価替え" } : {}),
       flow: "out",
       // 額の変化は、その額の欄（と変動率の欄）のすぐ後に並べる
-      place: { group: k, after: `${k}/${part === "rent" ? "rentGrowth" : part === "maintenance" ? "maintGrowth" : "taxGrowth"}` },
+      // 今住んでいる持ち家の固定資産税の変化は「固定資産税・都市計画税」の中枠の中に（0176）
+      place: { group: ownNow && part === "propertyTax" ? `${k}/taxes` : ownNow && part === "maintenance" ? `${k}/home` : k, after: `${k}/${part === "rent" ? "rentGrowth" : part === "maintenance" ? "maintGrowth" : "taxGrowth"}` },
     });
   const stagedParts = r.kind === "rent" ? (r.rent !== undefined && !free ? [["rent", "家賃"]] : []) : [...(r.maintenance !== undefined ? [["maintenance", ml.what]] : []), ...(r.propertyTax !== undefined ? [["propertyTax", "固定資産税"]] : [])];
   const badges = stagedParts.map(([part, what]) => {
@@ -579,6 +626,9 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
     actions.unshift({ key: `${k}/shareByLoans`, label: "借入の割合で持分を分ける", help: "この家の住宅ローンの借入額（連帯債務は負担の割合）の比で、家の名義と持分を夫婦の共有にします。頭金の割合も入れるなら「名義と持分」のご本人の持分を直してください", level: "simple", run: (w) => setOwnershipByLoans(w, r.id) });
   // 購入の予定の持ち家は「住宅の購入」の1件（購入の欄を頭に、住まいの欄をその後に。別の住まいを足したように見せない）
   if (buying) fields.unshift(...purchaseFields(wh, r, k));
+  // 今住んでいる持ち家の詳細の欄（建て方・住み終わり・修繕の伸び率・名義）は中枠「建て方・名義など」に分ける（開いた欄が中枠ごとに並ぶ。0176）
+  const homeDetail = ownNow ? fields.filter((f) => f.level !== "simple") : [];
+  if (ownNow) fields.splice(0, fields.length, ...fields.filter((f) => f.level === "simple"));
   const groups: GroupDef[] = [
     {
       key: k,
@@ -590,7 +640,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
           : {}),
       level: "simple",
       // 「▸ 続きを見る」の文（0078 の追記 2026-11-01）: 住まいの種類で開く欄が違う
-      moreLabel: buying ? "名義・固定資産税などを入れる" : free ? "住む期間を入れる" : r.kind === "rent" ? "更新料・家賃の変化を入れる" : "評価額・固定資産税などを入れる",
+      moreLabel: buying ? "名義・固定資産税などを入れる" : free ? "住む期間を入れる" : r.kind === "rent" ? "更新料・家賃の変化を入れる" : ownNow ? "固定資産税・名義などを入れる" : "評価額・固定資産税などを入れる",
       fields,
       actions,
     },
@@ -598,11 +648,67 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
   if (r.kind === "rent" && r.rent !== undefined && !free) groups.push(...staged("rent", "家賃", "monthly", (x) => x.rent?.monthly.value ?? null));
   if (r.kind === "own") {
     if (r.maintenance !== undefined) groups.push(...staged("maintenance", ml.what, "monthly", (x) => x.maintenance?.monthly.value ?? null));
+    // 今住んでいる持ち家の固定資産税は中枠に分ける（何のための欄か分かる見出しと1行の説明。0176）
+    if (ownNow && homeDetail.length > 0)
+      groups.push({
+        key: `${k}/home`,
+        title: "建て方・名義など",
+        summary: "マンションか戸建て・住み終わり・修繕の費用の変わり方・家の名義と持分",
+        level: "detail",
+        band: true,
+        fields: homeDetail,
+        actions: [],
+      });
+    if (ownNow)
+      groups.push({
+        key: `${k}/taxes`,
+        title: "固定資産税・都市計画税",
+        summary: "納税通知書の額。入れなければ持ち家の評価の元から目安（推定）",
+        note: `毎年の固定資産税と都市計画税の合計です。納税通知書の額が分かれば入れます。入れなければ、買った値段（土地と建物）・買った年月・建物の構造・建った年から、固定資産税の評価額の目安（土地は価格の${pctOf(taxGuide.landRatio)}・建物は新築のとき価格の${pctOf(taxGuide.buildingRatio)}で、固定資産評価基準の経年減点補正率で下げる）に住宅用地の特例・新築の軽減・税率を当てた目安を出し、3年ごとの評価替えで建物の分が下がる段も入れます`,
+        level: "detail",
+        band: true,
+        fields: taxFields,
+        actions: [],
+      });
     if (r.propertyTax !== undefined) groups.push(...staged("propertyTax", "固定資産税", "annual", (x) => x.propertyTax?.annual.value ?? null, true));
   }
   if (buying) groups.push(...customPaymentGroups(wh, r, k), ...giftGroups(wh, r, k));
+  // 住宅ローンを使う購入は、この家の住宅ローンの欄を住宅の購入の中に続けて出す（「住宅ローン」の区画には出さない。0175）
+  if (buying) {
+    const loans = purchaseLoans(h0, r);
+    groups.push(...loans.flatMap((d, j) => loanGroups(wh, d, j, `この家の住宅ローン${loans.length > 1 ? ` ${j + 1}` : ""}`)));
+  }
   if (r.kind === "own") groups.push(...valuationGroups(wh, r, k));
-  return groups;
+  // 現金で買う形の購入は、どの欄・ボタンから合計（物件の価格・土地と建物の代金・購入の種類）が変わっても、頭金を合計についていかせる（0175）
+  return buying ? groups.map((g) => (g.key === k || g.key.startsWith(`${k}/`) ? keepCashGroup(g, r.id) : g)) : groups;
+}
+
+/**
+ * 現金で買う形（purchaseFunding が cash）だった購入で、書き込みの後に住宅ローンがつながらず、頭金が物件の価格（注文住宅は合計）と違えば、
+ * 頭金を合計に合わせる（現金で買うなら合計の全額を払う。合計が変わって「まだ選んでいない」に戻らないように。0175）
+ */
+export function keepCash(before: WorkingHousehold, after: WorkingHousehold, rid: string): WorkingHousehold {
+  if (after === before) return after;
+  const hb = before.request.input.household;
+  const rb = (hb.residences ?? []).find((y) => y.id === rid);
+  if (rb === undefined || purchaseFunding(hb, rb) !== "cash") return after;
+  const ha = after.request.input.household;
+  const ra = (ha.residences ?? []).find((y) => y.id === rid);
+  if (ra?.purchase === undefined || purchaseLoans(ha, ra).length > 0 || ra.purchase.downPayment === ra.purchase.price) return after;
+  return mutate(after, (h) => {
+    const x = (h.residences ?? []).find((y) => y.id === rid);
+    if (x?.purchase !== undefined) x.purchase.downPayment = x.purchase.price;
+  });
+}
+
+function keepCashGroup(g: GroupDef, rid: string): GroupDef {
+  const tidy = (b: WorkingHousehold, a: WorkingHousehold) => keepCash(b, a, rid);
+  return {
+    ...g,
+    fields: g.fields.map((f) => afterWrite(f, tidy)),
+    ...(g.openFields !== undefined ? { openFields: g.openFields.map((f) => afterWrite(f, tidy)) } : {}),
+    actions: g.actions.map((a) => ({ ...a, run: (w: WorkingHousehold) => tidy(w, a.run(w)) })),
+  };
 }
 
 /**
@@ -657,17 +763,93 @@ export function unfundedPurchaseNotice(wh: WorkingHousehold, rid: string): { fie
   const r = (h.residences ?? []).find((y) => y.id === rid);
   const left = r === undefined ? null : unfundedPurchase(h, r);
   if (r === undefined || left === null) return null;
-  const last = (h.residences ?? []).filter((y) => y.kind === "own" && y.purchase !== undefined).at(-1)?.id === rid;
-  return {
-    fieldKey: `housing/res/${rid}/purchase/price`,
-    detail: unfundedPurchaseText(left, isCustomBuild(r)),
-    fix: last ? { label: "＋ 住宅ローンを足す（物件の価格−頭金を借りる）", run: (w) => withProvisionalHousing(newMortgage(w)) } : null,
-  };
+  // 「どう買うか」（現金で買う・住宅ローンを使う）をまだ選んでいない。選ぶのはその欄で（0175。前の「＋ 住宅ローンを足す」のボタンは欄の選び方に替えた）
+  return { fieldKey: fundingKey(rid), detail: unfundedPurchaseText(left, isCustomBuild(r)), fix: null };
 }
 
-/** 購入の予定にローンが無いときの知らせの文 */
+/** 購入の予定にローンが無いときの知らせの文（「どう買うか」の欄の未入力の印の文。0175） */
 export const unfundedPurchaseText = (left: number, custom: boolean): string =>
-  `${custom ? "土地と建物の合計" : "物件の価格"}−頭金（${manOf(left)}）の払い方が入っていません（借入にも預金からの払いにも入らず、計算に入っていません）。住宅ローンで借りるなら「＋ 住宅ローン」で足し、自己資金で払うなら頭金を${custom ? "合計" : "物件の価格"}と同じ額にします`;
+  `未入力（${custom ? "土地と建物の合計" : "物件の価格"}−頭金（${manOf(left)}）の払い方が入っていません。借入にも預金からの払いにも入らず、計算に入っていません。「どう買うか」で、現金で買うか住宅ローンを使うかを選んでください）`;
+
+// ---- どう買うか（現金で買う・住宅ローンを使う。0175） ----
+
+const fundingKey = (rid: string): string => `housing/res/${rid}/purchase/funding`;
+
+/**
+ * 住宅の購入の「どう買うか」（0175）。世帯ファイルには持たず、今の形から読む（形式の版を変えない）:
+ * つながる住宅ローンがあれば住宅ローンを使う、ローンが無く頭金が物件の価格（注文住宅は合計）以上なら現金で買う、どちらでもなければまだ選んでいない（null）
+ */
+export function purchaseFunding(h: Household, r: Residence): "cash" | "loan" | null {
+  if (r.kind !== "own" || r.purchase === undefined) return null;
+  if (purchaseLoans(h, r).length > 0) return "loan";
+  return r.purchase.price - (r.purchase.downPayment ?? 0) <= 0 ? "cash" : null;
+}
+
+const FUNDING_OPTIONS = [
+  { value: "cash", label: "現金で買う（住宅ローンなし）" },
+  { value: "loan", label: "住宅ローンを使う" },
+];
+
+/** 現金で買う: この家の住宅ローン（つながるローン）を外し、頭金を物件の価格と同じにする（物件の価格と諸費用を購入の月に手元のお金から払う） */
+function buyWithCash(wh: WorkingHousehold, rid: string): WorkingHousehold {
+  let entries: string[] = [];
+  const next = mutate(wh, (h) => {
+    const r = (h.residences ?? []).find((y) => y.id === rid);
+    if (r?.purchase === undefined) return;
+    const loans = purchaseLoans(h, r);
+    const gone = new Set(loans.map((d) => d.id));
+    for (const d of loans) dropProvisionalEvent(h, d, wh);
+    h.debts = (h.debts ?? []).filter((d) => !gone.has(d.id));
+    for (const d of h.debts) if (d.pairWith !== undefined && gone.has(d.pairWith)) delete d.pairWith;
+    if (h.debts.length === 0) delete h.debts;
+    entries = [...gone];
+    r.purchase.downPayment = r.purchase.price;
+    // 頭金は推定の目安でなく、現金で払う額（物件の価格に合わせる。推定の行は外す）
+    setState(r as unknown as Obj, "residence.purchase/downPayment", undefined);
+  });
+  return withProvisionalHousing(entries.reduce((w, id) => withEntry(w, id, undefined), next));
+}
+
+/** 住宅ローンを使う: 頭金が物件の価格（現金で買う形）なら目安に戻し、物件の価格−頭金を借りる住宅ローンをこの購入とつないで足す */
+function buyWithLoan(wh: WorkingHousehold, rid: string): WorkingHousehold {
+  const h0 = wh.request.input.household;
+  const r0 = (h0.residences ?? []).find((y) => y.id === rid);
+  if (r0 === undefined || purchaseLoans(h0, r0).length > 0) return wh;
+  const down = mutate(wh, (h) => {
+    const r = (h.residences ?? []).find((y) => y.id === rid);
+    if (r?.purchase === undefined || r.purchase.price - (r.purchase.downPayment ?? 0) > 0) return;
+    setState(r as unknown as Obj, "residence.purchase/downPayment", estRow("derived", downBasis(0)));
+    refreshDownEstimate(r);
+  });
+  return withProvisionalHousing(newMortgage(down, undefined, rid));
+}
+
+/** 「どう買うか」の欄（物件の価格の次。0175） */
+function fundingField(r: Residence, k: string): FieldDef {
+  const custom = isCustomBuild(r);
+  return field({
+    key: `${k}/purchase/funding`,
+    item: "residence.purchase",
+    label: "どう買うか",
+    level: "simple",
+    kind: "select",
+    options: FUNDING_OPTIONS,
+    structural: true,
+    help: `現金で買うなら、${custom ? "土地と建物の合計" : "物件の価格"}と諸費用を購入の月に手元のお金から払います（頭金とローンの欄は出しません）。住宅ローンを使うなら、頭金と、この家の住宅ローンの欄を続けて出します`,
+    sideEffects: "現金で買うにすると、この家の住宅ローンを外します。住宅ローンを使うにすると、物件の価格−頭金を借りる住宅ローンを足します",
+    get: (w) => {
+      const h = w.request.input.household;
+      const x = (h.residences ?? []).find((y) => y.id === r.id);
+      const v = x === undefined ? null : purchaseFunding(h, x);
+      const left = x === undefined ? null : unfundedPurchase(h, x);
+      if (v !== null || left === null) return { value: v };
+      // 未入力の印と、欄の下の知らせ（印だけでは理由が見えない。通しの入力の確かめ）
+      const text = unfundedPurchaseText(left, x !== undefined && isCustomBuild(x));
+      return { value: v, estimated: text, warn: text.replace(/^未入力（/, "").replace(/）$/, "") };
+    },
+    set: (w, v) => (v === "cash" ? buyWithCash(w, r.id) : v === "loan" ? buyWithLoan(w, r.id) : w),
+  });
+}
 
 function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef[] {
   const find = byId(residences, r.id);
@@ -688,7 +870,8 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
     help: custom
       ? "土地の代金と建物の代金（請負の工事の代金）の合計です。土地の代金を入れていなければ、合計に合わせて目安を出し直します"
       : "頭金・諸費用を入れていなければ、価格に合わせて目安を出し直します",
-    // 頭金・諸費用が推定（出どころ auto）なら、価格に合わせて入れ直す（注文住宅の諸費用は土地と建物とつなぎ融資から入れ直す。customBuild.ts）
+    // 頭金・諸費用が推定（出どころ auto）なら、価格に合わせて入れ直す（注文住宅の諸費用は土地と建物とつなぎ融資から入れ直す。customBuild.ts）。
+    // 現金で買う形（0175）の頭金は、住宅の購入の欄すべてを包む keepCash で合わせる
     after: (_h, target, v) => {
       const res = target as unknown as Residence & Obj;
       if (res.purchase === undefined || typeof v !== "number") return;
@@ -700,15 +883,8 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
       }
     },
   });
-  // 購入にローンが無いと、物件の価格−頭金は払いにも借入にも入らない（0161）。物件の価格の欄に知らせる
-  const pricedWarn: FieldDef = {
-    ...price,
-    get: (w) => {
-      const st = price.get(w);
-      const n = unfundedPurchaseNotice(w, r.id);
-      return n === null ? st : { ...st, warn: n.detail, warnFix: n.fix };
-    },
-  };
+  // 購入にローンが無いと、物件の価格−頭金は払いにも借入にも入らない（0161）。知らせは「どう買うか」の欄の未入力の印で出す（0175）
+  const cash = purchaseFunding(wh.request.input.household, r) === "cash";
   const used = purchaseTypeOf(wh, r)?.type.startsWith("used") === true;
   // 長期優良住宅か（固定資産税の新築の軽減の年数。0112）: つながる住宅ローンに控除の条件があれば、控除の住宅の種類で選ぶので出さない
   const h0 = wh.request.input.household;
@@ -717,12 +893,14 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
   return [
     purchaseTypeField(r, k),
     purchaseAtField(wh, r, kp, custom, ageOf),
-    pricedWarn,
+    price,
+    fundingField(r, k),
     ...(custom ? customLandFields(wh, r, k, ageOf) : []),
     // 中古は建物が建った年を標準に出す（評価の建物の目減りと固定資産税の目安に使う。新築は購入の年に完成とみなすので「持ち家の評価」の詳細の欄）
     ...(used ? [builtYearField(wh, r, k)] : []),
-    // 頭金・諸費用は空にできない（計算エンジンの入力で必須。空にすると欄を消して、計算が止まっていた）。無いときは 0 を入れる
-    plain({
+    // 頭金・諸費用は空にできない（計算エンジンの入力で必須。空にすると欄を消して、計算が止まっていた）。無いときは 0 を入れる。
+    // 現金で買う形では頭金の欄を出さない（頭金＝物件の価格。0175）
+    ...(cash ? [] : [plain({
       key: `${kp}/down`,
       item: "residence.purchase",
       label: custom ? "頭金（合計）" : "頭金",
@@ -732,8 +910,8 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
       find,
       path: ["purchase", "downPayment"],
       help: custom ? "自己資金で払う額の合計です。土地の決済・建物の代金の支払い（「詳細」）で払う分の残りを、引き渡しの月に払います。無ければ 0 を入れます" : "頭金が無ければ 0 を入れます",
-    }),
-    ...(custom
+    })]),
+    ...(custom && !cash
       ? [
           {
             ...plain({ key: `${kp}/land/down`, item: "residence.purchase", label: "頭金のうち土地の決済で払う額", level: "detail", kind: "yen", basis: "once", find, path: ["purchase", "land", "downPayment"], optional: true, fallback: 0, help: "入れなければ、頭金のうち土地の代金までを土地の決済で払うとみなします" }),
@@ -764,6 +942,8 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
           },
         ]
       : []),
+    // 土地をいくらで買うか（割合でなく金額で。詳細。注文住宅は「土地の代金」の欄。0176）
+    ...(custom ? [] : [purchaseLandField(wh, r, k)]),
     ...(viaCredit
       ? []
       : [
@@ -781,6 +961,50 @@ function purchaseFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef
           }),
         ]),
   ];
+}
+
+/** 購入の予定の「うち土地の値段」（詳細。世帯ファイルには土地の割合＝土地÷物件の価格で書く。0176） */
+function purchaseLandField(wh: WorkingHousehold, r: Residence, k: string): FieldDef {
+  const find = byId(residences, r.id);
+  const shareSetting = (w: WorkingHousehold): string => w.request.input.assumptions?.realEstateValuation?.landShare ?? VALUATION_DEFAULTS.landShare;
+  return {
+    ...field({
+      key: `${k}/purchase/landPrice`,
+      item: "residence.valuation",
+      label: "うち土地の値段",
+      level: "detail",
+      kind: "yen",
+      basis: "once",
+      optional: true,
+      help: "物件の価格のうち、土地をいくらで買うかです（売買契約書・重要事項説明書の内訳など）。土地は前提条件の上昇率で動かし、建物（残り）は耐用年数で古くなった分を減らします。固定資産税の目安にも使います。分からなければ空欄のまま、目安の割合で分けます",
+      get: (w) => {
+        const x = find(w.request.input.household, w) as Residence | undefined;
+        const price = x?.purchase?.price;
+        if (x === undefined || price === undefined) return { value: null };
+        if (x.valuation?.landShare !== undefined) return { value: landOfShare(price, x.valuation.landShare) };
+        const est = landOfShare(price, shareSetting(w));
+        return { value: null, hint: `空欄なら物件の価格の${String(Math.round(Number(shareSetting(w)) * 100))}%（約${formatYen(Math.round(est / 10000) * 10000, "man")}万円）で計算します` };
+      },
+      set: (w, v) =>
+        mutate(w, (h, req) => {
+          const x = (h.residences ?? []).find((y) => y.id === r.id);
+          if (x?.purchase === undefined) return;
+          if (v === null || v === "") {
+            if (x.valuation !== undefined) {
+              const { landShare: _drop, ...rest } = x.valuation;
+              void _drop;
+              if (Object.keys(rest).length === 0) delete x.valuation;
+              else x.valuation = rest;
+            }
+          } else if (typeof v === "number" && x.purchase.price > 0) {
+            x.valuation = { ...(x.valuation ?? {}), landShare: shareOfLand(Math.min(Math.max(0, v), x.purchase.price), x.purchase.price) };
+          } else return;
+          // 推定のままの固定資産税は、土地の値段に合わせて入れ直す（0112）
+          applyPropertyTaxEstimate(h, x, req.input.endYear, req.input.assumptions?.realEstateValuation?.landShare);
+        }),
+    }),
+    address: () => at(r.id, "residence.valuation", ["landShare"]),
+  };
 }
 
 /**
@@ -1184,7 +1408,11 @@ export function valuationHint(wh: WorkingHousehold, r: Residence): string | null
   if (r.purchase !== undefined || value == null || v?.asOf === undefined) return null;
   const base = wh.request.input.baseMonth;
   const baseYear = Number(base.slice(0, 4));
-  const y0 = Number(v.asOf.slice(0, 4));
+  // 買った年月が住み始めについてくる家は、今の住み始めで読む（入力のパネルで住み始めを直した直後も合うように。0176）
+  const followed = stateOf(r as unknown as Obj, "residence.valuation/asOf")?.estimate?.basis === AS_OF_FOLLOWS;
+  const from = followed ? resolveTimepoint(wh.request.input.household, r.from) : null;
+  const asOf = from !== null && from < base ? from : v.asOf;
+  const y0 = Number(asOf.slice(0, 4));
   if (y0 >= baseYear) return null;
   const a = wh.request.input.assumptions;
   const setting = a?.realEstateValuation;
@@ -1199,7 +1427,7 @@ export function valuationHint(wh: WorkingHousehold, r: Residence): string | null
   const f = (age: number) => (age <= 0 ? 1 : Math.max(floor, 1 - age / life));
   const f0 = f(y0 - built);
   const building = f0 === 0 || f(baseYear - built) === f0 ? building0 : Math.floor((building0 * f(baseYear - built)) / f0);
-  return `${baseYear}年の評価額の目安: 約${formatYen(Math.round((land + building) / 10000) * 10000, "man")}万円（土地 ${formatYen(Math.round(land / 10000) * 10000, "man")}万円・建物 ${formatYen(Math.round(building / 10000) * 10000, "man")}万円）`;
+  return `${baseYear}年の評価額の目安（推定）: 約${formatYen(Math.round((land + building) / 10000) * 10000, "man")}万円（土地 ${formatYen(Math.round(land / 10000) * 10000, "man")}万円・建物 ${formatYen(Math.round(building / 10000) * 10000, "man")}万円）`;
 }
 
 // 「売らない」は計算の扱いのまま書く（住み終わりの年で資産・固定資産税・修繕費から外れる。持ち続けるなら空き家の不動産を作る。0052 の追記 2026-11-07）
@@ -1224,11 +1452,14 @@ const AFTER_CHOICES = [
 ];
 /** 評価の基にする額の入れ方（今の時価で／買った値段で。0025 の追記 2026-11-07） */
 const VALUE_BASES = [
-  { value: "market", label: "今の時価で" },
   { value: "purchase", label: "買った値段で" },
+  { value: "market", label: "今の時価で" },
 ];
-/** 評価の入れ方（入れていなければ、その額の時点が計算の基準の月より前なら買った値段、そうでなければ今の時価） */
-const valueBasisOf = (r: Residence, base: string): "market" | "purchase" => r.valuation?.basis ?? (r.valuation?.asOf !== undefined && r.valuation.asOf < base ? "purchase" : "market");
+/**
+ * 評価の入れ方（入れていなければ、評価額が無いか、その額の時点が計算の基準の月より前なら買った値段、評価額があって時点が今なら今の時価。
+ * 評価額の無い家は、標準の「買った値段」で入れる。0176）
+ */
+const valueBasisOf = ownedValueMode;
 
 /** 土地の割合の推定の根拠の頭（今の時価で入れた家の、建った年からの目安） */
 const LAND_SHARE_BY_AGE = "建った年からの目安";
@@ -1279,7 +1510,7 @@ function valueBasisField(wh: WorkingHousehold, r: Residence, kv: string): FieldD
       kind: "select",
       options: VALUE_BASES,
       structural: true,
-      help: "今の時価（査定・売り出しの値段）か、買ったときの値段で入れます。今の時価なら、その額の時点は今月で、建物は建った年から古くなった値として読みます",
+      help: "ふつうは「買った値段で」のまま、標準の買った値段と買った年月から今と先の年の評価額を推計します（土地は上昇率で動かし、建物は古くなった分を減らす）。査定などで今の時価が分かるときは「今の時価で」にして評価額を入れます",
       get: (w) => {
         const x = find(w.request.input.household, w) as Residence | undefined;
         const b = x === undefined ? null : valueBasisOf(x, w.request.input.baseMonth);
@@ -1291,9 +1522,12 @@ function valueBasisField(wh: WorkingHousehold, r: Residence, kv: string): FieldD
         return mutate(w, (h, req) => {
           const x = find(h, w) as Residence | undefined;
           if (x === undefined) return;
-          const from = resolveTimepoint(h, x.from);
-          const asOf = v === "market" ? req.input.baseMonth : from !== null && from < req.input.baseMonth ? from : (x.valuation?.asOf ?? req.input.baseMonth);
-          x.valuation = { ...(x.valuation ?? {}), basis: v, asOf };
+          // 買った値段: その額の時点を買った年月（住み始め）にし、住み始めについてくる印を付ける。今の時価: 時点は今月（0176）
+          if (v === "purchase") markPurchaseBasis(h, x, req.input.baseMonth);
+          else {
+            x.valuation = { ...(x.valuation ?? {}), basis: v, asOf: req.input.baseMonth };
+            dropAsOfFollow(x);
+          }
           refreshLandShare({ ...w, request: req }, h, x.id);
         });
       },
@@ -1306,6 +1540,229 @@ function valueBasisField(wh: WorkingHousehold, r: Residence, kv: string): FieldD
  * 持ち家の評価（資産と負債の推移・提案書のバランスシート・相続税の目安に使う）と、住み終わりの後（そのまま持つ・売る）。
  * 購入の予定がある持ち家は物件の価格から、今住んでいる持ち家は評価額（または購入の価格と時点）から評価する。評価額が無い今の持ち家は未入力の警告
  */
+/** 今の時価で入れた評価額の「?」: 先の年でどう変わるか（建物・土地）と数字の例（0176。利用者の判断 2026-11-08） */
+export const MARKET_VALUE_HELP =
+  "今売るといくらかの見込み（査定・近くの売り出しの値段など）を、土地と建物の合計で入れます。先の年は、土地と建物に分けて動かします。\n" +
+  "・建物: 建物が建った年から、構造の耐用年数（木造22年・軽量鉄骨19年・重量鉄骨34年・鉄筋コンクリート47年）で毎年同じ額ずつ下げ、新築のときの値の20%で止めます。今の額は、建った年から今までに下がった後の値として読みます\n" +
+  "・土地: 前提条件の「土地の上昇率（年）」で毎年増減します（入れていなければ物価上昇率）\n" +
+  "例: 2016年に建った木造の家を、今の時価3,500万円（土地の割合50%）で入れると、建物1,750万円は毎年約146万円ずつ下がり、2034年（築18年）に約640万円で止まります。土地1,750万円は、増減が年1%なら10年後に約1,930万円です";
+
+/** 万円の読み（1万円単位に丸める） */
+const manText = (v: number): string => formatYen(Math.round(v / 10000) * 10000, "man");
+
+/**
+ * 固定資産税の1行（標準の土地の欄の下。0176 の追記 2026-11-09）: 推定のまま（目安のボタンの値・買った値段からの推定）なら「固定資産税の目安（推定） 年 約…万円」
+ * （千円単位）、FP が入れた額ならその額（推定の印なし）。「わからない」は代わりの値。欄が無い・空・該当なしなら出さない
+ */
+export function propertyTaxLine(r: Residence): string | null {
+  const b = r.propertyTax?.annual as (Box<number> & { substitute?: Box<number> }) | undefined;
+  if (b === undefined || b.state === "notApplicable") return null;
+  const box = b.state === "unknown" ? b.substitute : b;
+  const v = box?.value;
+  if (box === undefined || typeof v !== "number") return null;
+  if (box.state === "estimated" || b.state === "unknown") return `固定資産税の目安（推定） 年 約${formatYen(Math.round(v / 1000) * 1000, "man")}万円`;
+  return `固定資産税 年 ${formatYen(v, "man")}万円`;
+}
+
+/** 今住んでいる持ち家の買った値段の欄（合計・うち土地を標準に、うち建物を中枠「持ち家の評価」に。0176）。どちらの組み合わせ（合計と土地・土地と建物・合計と建物）でも入れられる */
+function ownedPriceFields(wh: WorkingHousehold, r: Residence, k: string): FieldDef[] {
+  const find = byId(residences, r.id);
+  const kv = `${k}/valuation`;
+  const shareSetting = (w: WorkingHousehold): string => w.request.input.assumptions?.realEstateValuation?.landShare ?? VALUATION_DEFAULTS.landShare;
+  const cur = (w: WorkingHousehold): Residence | undefined => find(w.request.input.household, w) as Residence | undefined;
+  const pctOfShare = (w: WorkingHousehold) => `${String(Math.round(Number(shareSetting(w)) * 100))}%`;
+  const afterPrice = (f: FieldDef): FieldDef => startsOwnedHomeTax(f, r.id);
+  // 合計: 書いたら評価の入れ方を買った値段に。FP が入れた土地の値段はそのまま（割合を入れ直す）
+  const total = afterWrite(
+    yenBox({
+      key: `${kv}/value`,
+      item: "residence.valuation",
+      label: "買った値段（土地と建物の合計）",
+      level: "simple",
+      basis: "once",
+      find,
+      path: ["valuation", "value"],
+      help: "家を買ったときの値段（土地と建物の合計。諸費用は入れません）。買った年月の額として、今と先の年の評価額を推計します: 土地は前提条件の上昇率（入れていなければ物価上昇率）で動かし、建物は構造の耐用年数で古くなった分を減らします（住宅の購入の予定と同じ推計）。固定資産税の目安にも使います",
+      hint: (w) => {
+        const x = cur(w);
+        return x === undefined ? null : valuationHint(w, x);
+      },
+    }),
+    (w0, w1) => {
+      // 合計を直したときは、土地と建物を同じ割合のままにする。片方だけ入れていた（土地から・建物から入れて合計がその額の）ときは、入れた額のまま
+      const x0 = cur(w0);
+      const t0 = x0 === undefined ? null : totalOf(x0);
+      const s0 = x0?.valuation?.landShare;
+      const keepLand = t0 !== null && s0 === "1" ? t0 : null;
+      const keepBuilding = t0 !== null && s0 === "0" ? t0 : null;
+      return mutate(w1, (h, req) => {
+        const x = (h.residences ?? []).find((y) => y.id === r.id);
+        if (x === undefined) return;
+        const t = totalOf(x);
+        // 空にした: 足した入れ方と時点（印のある物）も外す
+        if (x.valuation?.value === undefined) return clearPurchaseBasis(x);
+        markPurchaseBasis(h, x, req.input.baseMonth);
+        if (t !== null && keepLand !== null) putLand(x, keepLand);
+        if (t !== null && keepBuilding !== null) putLand(x, Math.max(0, t - keepBuilding));
+      });
+    },
+  );
+  const land = field({
+    key: `${kv}/land`,
+    item: "residence.valuation",
+    label: "うち土地の値段",
+    level: "simple",
+    kind: "yen",
+    basis: "once",
+    optional: true,
+    help: "買った値段のうちの土地の分です（売買契約書・重要事項説明書の内訳など）。土地と建物の値段で分かるなら、「固定資産税・名義などを入れる」で開く「うち建物の値段」でも入れられます（合計は土地＋建物）。分からなければ空欄のまま、合計の目安の割合で分けます",
+    // 欄の下に、建物の値段（合計−土地。空欄なら目安の割合で分けた額）と固定資産税の目安を読みとして出す（0176 の追記 2026-11-09）
+    get: (w) => {
+      const x = cur(w);
+      if (x === undefined) return { value: null };
+      const t = totalOf(x);
+      const l = landAmount(x, shareSetting(w));
+      const entered = landEntered(x);
+      const lines: string[] = [];
+      if (t !== null && l !== null) {
+        const b = t - l;
+        const building = b <= 0 ? "建物の値段 0円" : `建物の値段 約${manText(b)}万円`;
+        lines.push(entered ? `${building}（合計−土地）` : `空欄なら合計の${pctOfShare(w)}（約${manText(l)}万円）で計算します。${building}`);
+      }
+      const tax = propertyTaxLine(x);
+      if (tax !== null) lines.push(tax);
+      return { value: entered ? l : null, hint: lines.length === 0 ? null : lines.join("\n") };
+    },
+    set: (w, v) =>
+      mutate(w, (h, req) => {
+        const x = (h.residences ?? []).find((y) => y.id === r.id);
+        if (x === undefined) return;
+        // 空にする: 土地だけを入れていた（合計＝土地）なら合計も外す（入れる前の形に戻す）。ほかは目安の割合に戻す
+        if (v === null || v === "") return x.valuation?.landShare === "1" ? dropTotal(x) : clearLand(x);
+        if (typeof v !== "number") return;
+        const t = totalOf(x);
+        const was = landEntered(x) ? landAmount(x, shareSetting(w)) : null;
+        // 合計がまだ無い（土地から入れる）・土地が0（建物から入れた）・合計より大きい: 建物をそのままにして合計を土地＋建物にする
+        if (t === null || was === 0 || v > t) {
+          const building = t === null ? 0 : t - (was ?? landOfDefault(t, shareSetting(w)));
+          x.valuation = { ...(x.valuation ?? {}), value: confirmedBox(v + Math.max(0, building)) };
+        }
+        markPurchaseBasis(h, x, req.input.baseMonth);
+        putLand(x, v);
+      }),
+  });
+  const building = field({
+    key: `${kv}/building`,
+    item: "residence.valuation",
+    label: "うち建物の値段",
+    level: "detail",
+    kind: "yen",
+    basis: "once",
+    optional: true,
+    help: "買った値段のうちの建物の分です（消費税を含む）。土地と建物の値段で入れるときに使います: 土地の値段を入れていれば合計を土地＋建物に、入れていなければ合計−建物を土地とします。標準では、土地の欄の下に合計−土地の額を出しています",
+    get: (w) => {
+      const x = cur(w);
+      const t = x === undefined ? null : totalOf(x);
+      if (x === undefined || t === null) return { value: null };
+      const l = landAmount(x, shareSetting(w)) ?? 0;
+      return landEntered(x) ? { value: t - l } : { value: null, hint: `空欄なら合計の残り（約${formatYen(Math.round((t - l) / 10000) * 10000, "man")}万円）で計算します` };
+    },
+    set: (w, v) =>
+      mutate(w, (h, req) => {
+        const x = (h.residences ?? []).find((y) => y.id === r.id);
+        if (x === undefined) return;
+        // 空にする: 建物だけを入れていた（土地が0）なら合計も外す。ほかは目安の割合に戻す
+        if (v === null || v === "") return x.valuation?.landShare === "0" ? dropTotal(x) : clearLand(x);
+        if (typeof v !== "number") return;
+        const b = Math.max(0, v);
+        const t = totalOf(x);
+        if (landEntered(x) && t !== null) {
+          const l = landAmount(x, shareSetting(w)) ?? 0;
+          x.valuation = { ...(x.valuation ?? {}), value: confirmedBox(l + b) };
+          markPurchaseBasis(h, x, req.input.baseMonth);
+          putLand(x, l);
+          return;
+        }
+        // 土地を入れていない: 合計があれば合計−建物を土地に。合計も無ければ、合計を建物の値段にして土地を0に（後から土地を入れると足す）
+        if (t === null || b > t) x.valuation = { ...(x.valuation ?? {}), value: confirmedBox(b) };
+        markPurchaseBasis(h, x, req.input.baseMonth);
+        putLand(x, Math.max(0, (totalOf(x) ?? b) - b));
+      }),
+  });
+  return [total, land, building].map((f) => ({ ...afterPrice(f), address: () => at(r.id, "residence.valuation", f === total ? ["value"] : ["landShare"]) }));
+}
+
+/** 片方だけで入れた買った値段を外す（合計・土地の割合・足した入れ方と時点） */
+function dropTotal(x: Residence): void {
+  if (x.valuation === undefined) return;
+  const { value: _v, ...rest } = x.valuation;
+  void _v;
+  x.valuation = rest;
+  clearLand(x);
+  if (x.valuation !== undefined) clearPurchaseBasis(x);
+}
+
+/** 合計×目安の割合の土地（土地の値段を入れていないとき） */
+const landOfDefault = (t: number, share: string): number => Math.floor(t * Number(share));
+
+/** 今住んでいる持ち家の「持ち家の評価」の中枠（詳細。評価の入れ方・今の時価・建物の構造・建った年。0176） */
+function ownedValuationGroup(wh: WorkingHousehold, r: Residence, k: string): GroupDef {
+  const find = byId(residences, r.id);
+  const kv = `${k}/valuation`;
+  const base = wh.request.input.baseMonth;
+  const setting = wh.request.input.assumptions?.realEstateValuation;
+  const market = valueBasisOf(r, base) === "market";
+  const est = valuationHint(wh, r);
+  const fields: FieldDef[] = [
+    valueBasisField(wh, r, kv),
+    // 土地と建物の値段で入れたい人の欄（標準は合計とうち土地。0176 の追記 2026-11-09）
+    ...(market ? [] : ownedPriceFields(wh, r, k).filter((f) => f.key.endsWith("/valuation/building"))),
+    ...(market
+      ? [
+          yenBox({ key: `${kv}/value`, item: "residence.valuation", label: "評価額", level: "detail", basis: "once", find, path: ["valuation", "value"], help: MARKET_VALUE_HELP, hint: (w) => valuationHint(w, r) }),
+          // その額の時点は今月（今の時価にしたときに入れる）。前の版で別の月の家だけ出す
+          ...(r.valuation?.asOf !== undefined && r.valuation.asOf !== base
+            ? [plain({ key: `${kv}/asOf`, item: "residence.valuation", label: "その額の時点", level: "detail", kind: "ym", find, path: ["valuation", "asOf"], optional: true, fallback: base, help: "評価額がいつの時点の額かです。今の時価なら今月にします" })]
+            : []),
+        ]
+      : []),
+    {
+      ...plain({ key: `${kv}/structure`, item: "residence.valuation", label: "建物の構造", level: "detail", kind: "select", options: BUILDING_STRUCTURES, find, path: ["valuation", "structure"], optional: true, fallback: "wood", help: "建物を耐用年数（木造22年・軽量鉄骨19年・重量鉄骨34年・鉄筋コンクリート47年）で減らします。建て方から目安を出します" }),
+      address: () => at(r.id, "residence.valuation", ["structure"]),
+    },
+    builtYearField(wh, r, k),
+    // 今の時価は土地の値段が分からないことが多いので、割合（建った年からの目安）で分ける
+    ...(market
+      ? [
+          plain({
+            key: `${kv}/landShare`,
+            item: "residence.valuation",
+            label: "土地の割合",
+            level: "detail",
+            kind: "pct",
+            min: 0,
+            max: 100,
+            find,
+            path: ["valuation", "landShare"],
+            optional: true,
+            fallback: setting?.landShare ?? VALUATION_DEFAULTS.landShare,
+            help: "今の時価のうちの土地の割合です。入れなければ、建った年からの目安（建物が古くなった分だけ土地の割合が大きくなる）で分けます",
+          }),
+        ]
+      : []),
+  ].map((f) => startsOwnedHomeTax(followsLandShare(f, r.id), r.id));
+  return {
+    key: kv,
+    title: "持ち家の評価",
+    summary: market ? "資産・相続税の目安に使う家の値段（今の時価で入れる）" : `資産・相続税の目安に使う家の値段。標準の買った値段から推計${est !== null ? `（${est.replace(/^(\d+年)の評価額の目安（推定）: (約[^（]+)（.*$/u, "$1 $2")}・推定）` : ""}`,
+    note: "資産と負債の推移・提案書のバランスシート・相続税の目安に入る家の値段です。ふつうは標準の「買った値段」と「買った年月（住み始め）」から推計します（推定。土地は上昇率で動かし、建物は古くなった分を減らす）。査定などで今の時価が分かるときは、評価の入れ方を「今の時価で」にして評価額を入れます",
+    level: "detail",
+    band: true,
+    fields,
+    actions: [],
+  };
+}
+
 function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDef[] {
   const find = byId(residences, r.id);
   const kv = `${k}/valuation`;
@@ -1315,7 +1772,11 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
   // 評価の時点の省略はエンジンと同じ（購入の時点が空なら住み始め。0164）
   const asOf = r.valuation?.asOf ?? (r.purchase !== undefined ? resolveTimepoint(wh.request.input.household, r.purchase.at ?? r.from) : null) ?? base;
   const inherited = isInheritedHome(wh, r);
-  const groups: GroupDef[] = [
+  // 今住んでいる持ち家は、評価の入れ方・今の時価・建物の構造・建った年の中枠（買った値段は住まいの標準の欄。0176）
+  const ownNow = !bought && !inherited && isCurrentOwned(wh.request.input.household, r, base);
+  const groups: GroupDef[] = ownNow
+    ? [ownedValuationGroup(wh, r, k)]
+    : [
     {
       key: kv,
       title: "持ち家の評価",
@@ -1336,7 +1797,7 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
           // 今の持ち家で評価額が無ければ未入力の警告（購入の予定は物件の価格を使うので空欄でよい）
           optional: bought,
           help: bought
-            ? "入れなければ、物件の価格を購入の月の評価額にし、土地の割合で土地と建物に分けて、建物は構造の耐用年数で毎年減らします（土地は前提条件の上昇率で動きます）。新築の値段の上乗せ分などで買った直後の売値が下がると見込むなら、その額を入れます"
+            ? "入れなければ、物件の価格を購入の月の評価額にし、土地と建物に分けて（土地は住宅の購入の「うち土地の値段」。空欄なら目安の割合）、建物は構造の耐用年数で毎年減らします（土地は前提条件の上昇率で動きます）。新築の値段の上乗せ分などで買った直後の売値が下がると見込むなら、その額を入れます"
             : inherited
               ? "相続する家の、相続の時点の見込みの額（土地と建物の合計）です。相続税の目安・資産と負債の推移・固定資産税の目安に使います"
               : valueBasisOf(r, base) === "market"
@@ -1365,8 +1826,9 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
         },
         // 建物が建った年（中古の購入の予定は住宅の購入の頭に出すので、ここには出さない）
         ...(bought && purchaseTypeOf(wh, r)?.type.startsWith("used") === true ? [] : [builtYearField(wh, r, k)]),
-        // 注文住宅は土地の代金で土地と建物を分ける（土地の割合の欄は出さない。0115。評価の基にする額を入れたときは割合で分けるので出す）
-        ...(isCustomBuild(r) && r.valuation?.value === undefined
+        // 注文住宅は土地の代金で土地と建物を分ける（土地の割合の欄は出さない。0115。評価の基にする額を入れたときは割合で分けるので出す）。
+        // ほかの購入の予定は、住宅の購入の「うち土地の値段」で入れる（割合の欄は出さない。0176）
+        ...((isCustomBuild(r) && r.valuation?.value === undefined) || (bought && !isCustomBuild(r))
           ? []
           : [
               plain({
@@ -1389,7 +1851,7 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
       ].map((f) => (bought ? f : startsOwnedHomeTax(followsLandShare(f, r.id), r.id))),
       actions: [],
     },
-  ];
+      ];
   if (r.to !== null) {
     const ks = `${k}/sale`;
     // 売る月に残る住宅ローンの残高の目安（売る予定のときだけ）
@@ -1644,10 +2106,10 @@ function mortgageBands(wh: WorkingHousehold, d: Debt, k: string): GroupDef[] {
   return out;
 }
 
-function loanGroups(wh: WorkingHousehold, d: Debt, i: number): GroupDef[] {
+function loanGroups(wh: WorkingHousehold, d: Debt, i: number, name?: string): GroupDef[] {
   const k = `housing/debt/${d.id}`;
   const debtor = d.debtors.find((x) => x.role === "primary") ?? d.debtors[0];
-  const title = d.kind === "mortgage" ? `住宅ローン ${i + 1}（${memberLabel(wh, debtor?.member)}）` : `${loanTitle(d)}（${memberLabel(wh, debtor?.member)}）`;
+  const title = d.kind === "mortgage" ? `${name ?? `住宅ローン ${i + 1}`}（${memberLabel(wh, debtor?.member)}）` : `${loanTitle(d)}（${memberLabel(wh, debtor?.member)}）`;
   // 住まいの住宅ローン（ペアローンの2本目も同じ）は欄が多いので、1件の枠の中を中枠に分ける
   const banded = d.kind === "mortgage" && d.property === undefined;
   const groups: GroupDef[] = [
@@ -1798,7 +2260,9 @@ export function housingStage(wh: WorkingHousehold): StageDef {
       },
     ],
   };
-  const mortgages = (h.debts ?? []).filter((d) => d.kind === "mortgage" && d.property === undefined);
+  // 住宅購入の予定につながる住宅ローンは、住宅の購入の中に出す（0175）。ここはそれ以外（今の家のローンなど）
+  const inPurchase = new Set((h.residences ?? []).filter((r) => r.kind === "own" && r.purchase !== undefined).flatMap((r) => purchaseLoans(h, r).map((d) => d.id)));
+  const mortgages = (h.debts ?? []).filter((d) => d.kind === "mortgage" && d.property === undefined && !inPurchase.has(d.id));
   // 住まい以外の不動産のローン（debt.property）は、その不動産の欄（貯蓄・運用）で入れる
   // 今返している自動車ローンは車のカード（0069。ここは読むだけの1行）
   const others = (h.debts ?? []).filter((d) => d.kind !== "mortgage" && d.kind !== "car" && d.property === undefined && d.inheritedFrom === undefined);
@@ -1806,6 +2270,7 @@ export function housingStage(wh: WorkingHousehold): StageDef {
   const loanSection: SectionDef = {
     key: "housing/loans",
     title: "住宅ローン",
+    ...(inPurchase.size > 0 ? { note: "住宅購入の予定の住宅ローンは、住まいの「住宅の購入」の中に出しています" } : {}),
     level: "simple",
     groups: mortgages.flatMap((d, i) => loanGroups(wh, d, i)),
     actions: [{ key: "housing/addMortgage", label: "＋ 住宅ローン", level: "simple", run: (w) => withProvisionalHousing(newMortgage(w)) }],
@@ -1817,8 +2282,17 @@ export function housingStage(wh: WorkingHousehold): StageDef {
     level: "simple",
     groups: [...[...others, ...inherited].flatMap((d, i) => loanGroups(wh, d, i)), ...educationDebtLines(wh)],
     actions: [
+      // ボタンはカードローン・リボ、奨学金の返済、リフォームローン、そのほかのローン（種類を選んで足す）。0052 の追記 2026-11-08
       // リフォームローンは持ち家（購入の予定を含む）がある世帯だけ
-      ...LOAN_SUBTYPES.filter((s) => s.value !== "policyLoan" && s.value !== "personal" && s.value !== "scholarshipFree" && (s.value !== "companyLoan" || hasExecutive(h)) && (s.value !== "renovation" || (h.residences ?? []).some((r) => r.kind === "own"))).map((s) => ({ key: `housing/add/${s.value}`, label: `＋ ${s.value === "scholarship" ? "奨学金の返済" : s.label}`, level: s.value === "cardLoan" || s.value === "scholarship" || s.value === "companyLoan" ? ("simple" as const) : ("detail" as const), run: (w: WorkingHousehold) => newOtherLoan(w, s.value) })),
+      ...LOAN_SUBTYPES.filter((s) => s.value === "cardLoan" || s.value === "scholarship" || (s.value === "renovation" && (h.residences ?? []).some((r) => r.kind === "own"))).map((s) => ({ key: `housing/add/${s.value}`, label: `＋ ${s.value === "scholarship" ? "奨学金の返済" : s.label}`, level: s.value === "renovation" ? ("detail" as const) : ("simple" as const), run: (w: WorkingHousehold) => newOtherLoan(w, s.value) })),
+      // 会社からの借入金は役員のいる世帯だけ（そのときはボタンを標準に出す。0105）
+      ...MISC_SUBTYPES.filter((v) => v !== "companyLoan" || hasExecutive(h)).map((v) => ({
+        key: `housing/add/${v}`,
+        label: LOAN_SUBTYPES.find((s) => s.value === v)?.label ?? v,
+        level: hasExecutive(h) ? ("simple" as const) : ("detail" as const),
+        choice: { key: "housing/add/misc", label: "＋ そのほかのローン", help: "種類を選んで足します。足した後も「種類」の欄で選び直せます" },
+        run: (w: WorkingHousehold) => newOtherLoan(w, v),
+      })),
     ],
   };
   return { id: "housing", label: "住まい・ローン", lead: "賃貸か持ち家か、購入の予定、住宅ローンとほかのローン。", sections: [resSection, loanSection, otherSection] };

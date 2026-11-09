@@ -167,7 +167,14 @@ export function planLinesModel(input: Omit<BandInput, "modified" | "settings">):
     const net = sumByYear(r.table, (c) => c.row === "cf.net");
     // プランで表の最後の年を短くしたプランは、その後の年を値の無い年にする（線をそこで終える。0 円の線を描かない）
     const own = yearsWithin(r.table, years);
-    return { ...line, financial: years.map((y) => fin.get(y) ?? 0), net: years.map((y) => net.get(y) ?? 0), ...(own.length < years.length ? { ends: own.length } : {}) };
+    const dep = depletionYear(r.table, own);
+    return {
+      ...line,
+      financial: years.map((y) => fin.get(y) ?? 0),
+      net: years.map((y) => net.get(y) ?? 0),
+      ...(own.length < years.length ? { ends: own.length } : {}),
+      short: dep === null ? -1 : years.indexOf(dep),
+    };
   });
 }
 

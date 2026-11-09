@@ -670,7 +670,19 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
   if (!keepCurrent) fields.push(untilField(c, k, car, owner, false));
   fields.push(plain({ key: `${k}/growth`, item: "car.growth", label: lease ? "維持費の伸び方" : "価格・維持費の伸び方", level: "detail", kind: "select", options: GROWTH_KINDS, find, path: ["growth", "kind"], fallback: "inflation", optional: true, after: (_h, t, v) => fixGrowth(t, v), ...(lease ? { help: "リース・長期レンタルの月額は伸ばしません（契約の額のまま）" } : {}) }));
   if (c.growth?.kind === "rate") fields.push(plain({ key: `${k}/growthRate`, item: "car.growth", label: WORDS.growthRate, level: "detail", kind: "pct", ...GROWTH_RANGE, find, path: ["growth", "rate"] }));
-  fields.push(...onContingencyFields({ key: `${k}/on`, item: "car.onContingency", find, path: ["onContingency"], level: "detail", help: lease ? "名義の人などの万一の月の翌月から、リースの月額と維持費をこの扱いにします" : "名義の人などの万一の月の翌月から、買い替えと維持費をこの扱いにします。組んだローンの返済は続きます" }));
+  // 省略は、名義の人が亡くなったら手放す（ほかの人の万一・障害・就業不能では続ける。0173 の追記）
+  const costs = lease ? "リースの月額・維持費" : "買い替え・維持費";
+  fields.push(
+    ...onContingencyFields({
+      key: `${k}/on`,
+      item: "car.onContingency",
+      find,
+      path: ["onContingency"],
+      level: "detail",
+      help: `名義の人などの万一の月の翌月から、${costs}をこの扱いにします。${lease ? "" : "組んだローンの返済は続きます（名義の人が亡くなったら相続する人が返します）。"}既定（空）は、名義の人が亡くなったら手放し（${costs}を止めます。売った代金は入れません）、ほかの人の万一や障害・就業不能では続けます。亡くなった後も家族が乗り続けるなら「続ける」を選びます`,
+      blank: { label: "既定（名義の人が亡くなったら手放す）", hint: `名義の人が亡くなったら、翌月から${costs}を止めます` },
+    }),
+  );
   fields.push(...onContingencyDetailFields({ key: `${k}/on`, item: "car.onContingency", find, path: ["onContingency"], on: c.onContingency, level: "detail" }));
   // 見出しの一生の費用（今の値段で）
   const life = lifetimeCost(h0, c, base, wh.request.input.endYear);
@@ -888,6 +900,9 @@ function payFields(c: Car, k: string, car: (h: Household, w: WorkingHousehold) =
           // ローンの条件（頭金・年数・金利）は目安で十分なので詳細。標準はローンかどうかの選び方だけ（0078）
           level: "detail",
           kind: "pct",
+          // 0〜100%（0175。ほかの割合の欄と同じく、範囲の外は打った時点で止める）
+          min: 0,
+          max: 100,
           optional: true,
           help: "残りをローンで借ります。買い替えのたびに同じ割合で借ります",
           get: (w) => {

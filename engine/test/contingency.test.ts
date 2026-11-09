@@ -667,7 +667,7 @@ describe("必要保障額の推移と車の万一のときの扱い（protection
     expect(cont).toEqual(keep);
     expect(stop.every((v, i) => v < (keep[i] ?? 0))).toBe(true);
   });
-  it("亡くなった人の車は、入れていなければ数えず、「続ける」なら遺族の支出に足す", () => {
+  it("亡くなった人の車は、場面の表のとおりに数える（0173）: 入れていなければ手放す（利用者の判断 2026-11-09。「止める」と同じ）、「続ける」なら相続する人が持ち続けて遺族の支出に足す", () => {
     const none = need(edit(withCar(H), (h) => delete h.cars));
     expect(need(withCar(H))).toEqual(none);
     expect(need(withCar(H, { mode: "stop" }))).toEqual(none);

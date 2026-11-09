@@ -442,7 +442,7 @@ describe("問いを飛ばす決まり", () => {
     expect(itemOnly(list).find((s) => s.key === "hs.expense.living")?.fields.map((f) => f.key)).toEqual(["hs.expense.living", "hs.insurance.premiumTotal"]);
   });
 
-  it("通常の票: 夫婦と子2人・ご両親は聞かないで、問いの画面は12（同意・ご相談・ご家族の分岐・ご本人・配偶者の方・お子さま・働き方2・お住まい・お金・毎月のお金・これからの予定）", async () => {
+  it("シンプルの票: 夫婦と子2人・ご両親は聞かないで、問いの画面は12（同意・ご相談・ご家族の分岐・ご本人・配偶者の方・お子さま・働き方2・お住まい・お金・毎月のお金・これからの予定）", async () => {
     const p = await packetOf();
     const d = withAnswers(initialDraft(p), { [draftKey("hs.housing.type")]: v("own") }, { spouse: 1, child: 2, parent: 0 });
     const list = screens(p, d);

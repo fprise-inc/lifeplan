@@ -9,10 +9,13 @@
 // 改訂5（0171）: 万一の想定で亡くなる月から、どの種別でもない（死亡の翌日に資格を失い、保険料はその前の月まで。国民年金法9条1号・11条。
 //   sdk の insuranceEndMonth）。第2号の配偶者が亡くなる月は、配偶者が第2号でない（socialInsurance.employeeStatus）ので、その月から第1号
 // 改訂6（0174）: 第3号は、その月の健康保険の種類が第2号の配偶者の扶養（dependent）の月だけにした（socialInsurance.healthStatus と同じ決まりを
-//   sdk の deriveHealthStatus で導く。国民健康保険・任意継続と書いた期間や、扶養の判定に通らない月は第1号。扶養と書いた期間は、配偶者が第2号なら第3号）。収入の見込みは、その月の収入の状況が
+//   sdk の deriveHealthStatus で導く。国民健康保険と書いた期間や、扶養の判定に通らない月は第1号〔任意継続と書いた期間は改訂7〕。扶養と書いた期間は、配偶者が第2号なら第3号）。収入の見込みは、その月の収入の状況が
 //   続くとしたらの年額（健康保険と同じ。働き始めた月から第1号、辞めた翌月から第3号）。ただし公的年金（遺族年金・障害年金）は見込みに入れず、
 //   障害年金を受ける人の基準も使わない（年金の額は加入の記録から出し、加入の記録はこの部品から出すので、年金の部品を呼べない）。
 //   扶養する配偶者の見込みにも年金を入れない（60〜64歳の特別支給・繰上げの老齢年金を受ける第2号の配偶者）。この2つでは健康保険の種類と食い違うことがある
+// 改訂7（0174 の追記）: 本人が任意継続（期間に healthInsurance.kind: continuation）に入っている月も、扶養の決まり（収入の見込み・2分の1）で判定し、
+//   第2号の配偶者に扶養される形なら第3号にする（第3号の要件は第2号の被扶養配偶者で、自分の健康保険の種類は要件でない。国民年金法7条1項3号）。
+//   健康保険の種類は任意継続のまま。国民健康保険と書いた月は今までどおり第1号
 import {
   addMonths,
   ageMonth,
@@ -43,7 +46,7 @@ export default defineComponent<{ member: string }, { months: CategoryMonth[] }>(
   id: "pension.category",
   title: "国民年金の被保険者の種別",
   contract: "1.0",
-  revision: 6,
+  revision: 7,
   requires: { "contingency.event": ">=1 <2", "socialInsurance.employeeStatus": ">=1 <2", "income.salary": ">=1 <2", "income.business": ">=1 <2", "benefit.unemployment": ">=1 <2" },
   params: [...Object.values(P), ...Object.values(HEALTH_STATUS_PARAMS)],
   reads: [
@@ -92,7 +95,8 @@ export default defineComponent<{ member: string }, { months: CategoryMonth[] }>(
     };
     // 健康保険の種類（socialInsurance.healthStatus と同じ決まり。年金の収入は入れない。改訂6）
     let health: Map<string, HealthStatusMonth> | null = null;
-    const healthAt = (ym: string) => (health ??= new Map(deriveHealthStatus(ctx, member, false).map((x) => [x.month, x]))).get(ym);
+    // 本人が任意継続に入っている月も、扶養の決まりで判定する（任意継続でも第2号の被扶養配偶者なら第3号。改訂7）
+    const healthAt = (ym: string) => (health ??= new Map(deriveHealthStatus(ctx, member, false, true).map((x) => [x.month, x]))).get(ym);
     // 第1号の母の産前産後の免除: 子の出生の月の前の月から
     const exemptMonths = new Set<string>();
     if (me.sex === "female") {

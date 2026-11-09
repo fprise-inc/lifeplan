@@ -37,8 +37,19 @@
 //   通算しない（貴金属・美術品・会員権などの生活に通常必要でない資産の損失。69条2項。事業用の資産の損失も同じに扱う近似。知らせ
 //   N_LIMIT_APPLIED heldAsset.transferLoss）
 // - その他の資産を売った雑所得（asset.heldSale の miscellaneous。FP が雑所得を選んだ物）は、公的年金等以外の雑所得に赤字も含めて足す
+// 改訂2（0028 の追記 2026-11-08。所得税法69条・同法施行令198条・22条2項2号）: 損失のある人だけ結果が変わる
+// - 損益通算は、2分の1にする前の所得の金額どうしで行う。経常所得（給与・公的年金等・事業・不動産・雑）の合計が赤字なら、その損失を
+//   総合短期の譲渡所得 → 総合長期の譲渡所得 → 一時所得（どれも特別控除の後・2分の1の前）の順に引き、残った長期と一時に2分の1を掛ける。
+//   引ききれない損失が純損失（netLoss）。前は2分の1にした後の額と足していたので、総所得金額が小さく、純損失が大きく出た
+//   （青色申告では無い損失を繰り越していた）。temporary・transfer.included は通算の後に総所得金額に入れた額。退職所得からは引かない（0028 の未確定）
+// 改訂3（0173。亡くなった人の名義）: 名義の人が万一の想定で亡くなった後は、不動産所得・民泊と宿の所得を持つ人（asset.realEstate の holders。
+//   sdk の propertyIncomeOf）で、その他の資産の売却の所得を売る月に持つ人（相続する人。等分。sdk の holdersAt）で数える
 import {
   defineComponent,
+  holdersAt,
+  parseYm,
+  propertyIncomeOf,
+  splitEqually,
   monthIndex,
   yen,
   type BusinessOutput,
@@ -67,7 +78,7 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
   id: "tax.totalIncomeBase",
   title: "合計所得金額（所得金額調整控除の子ども・特別障害者等の分を引く前）",
   contract: "1.0",
-  revision: 1,
+  revision: 3,
   requires: {
     "tax.employmentIncome": ">=1 <2",
     "tax.publicPensionIncome": ">=1 <2",
@@ -78,6 +89,7 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
     "income.flows": ">=1 <2",
     "tax.realEstateSale": ">=1 <2",
     "asset.heldSale": ">=1 <2",
+    "contingency.event": ">=1 <2",
   },
   params: [ADJUST, ...Object.values(TEMP), ...Object.values(TRANSFER), ...Object.values(BLUE)],
   reads: ["member.taxReturn"],
@@ -105,28 +117,44 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
     const ins = ctx.call<InsuranceIncomeOutput>("insurance.income", input);
     // 一時所得: 入るお金の行の一時所得があれば、保険の一時所得と合わせて特別控除を引き、2分の1を入れる
     let temporary = ins.temporaryIncluded;
+    // 一時所得の金額（特別控除の後・2分の1の前。損益通算に使う）
+    let temporaryBefore: number = ins.temporary;
     if (flowRow !== undefined && flowRow.temporary > 0) {
       const at = ctx.at(monthIndex(input.year, 1));
       const gross = (ins.temporaryGross ?? 0) + flowRow.temporary;
       const special = at.paramYen(TEMP.special) ?? yen(0);
       const t = yen(gross > special ? gross - special : 0);
+      temporaryBefore = t;
       temporary = at.money.mulRate(t, at.paramRate(TEMP.ratio) ?? ctx.rate.of("1"), "conv.tax.exact");
     }
+    const halfOf = (v: number, ratioId: string): Yen => {
+      if (v <= 0) return yen(0);
+      const at = ctx.at(monthIndex(input.year, 1));
+      return at.money.mulRate(yen(v), at.paramRate(ratioId) ?? ctx.rate.of("1"), "conv.tax.exact");
+    };
     // その他の資産の売る予定（0123）: 総合課税の譲渡所得（短期・長期）と雑所得
     let transferShort = 0;
     let transferLong = 0;
     let heldMisc = 0;
     let heldTransfer = false;
     for (const x of ctx.call<HeldSaleOutput>("asset.heldSale", {}).sales) {
-      if (x.owner !== input.member || Number(x.ym.slice(0, 4)) !== input.year || x.gain === undefined) continue;
-      if (x.taxation === "miscellaneous") heldMisc += x.gain;
+      if (Number(x.ym.slice(0, 4)) !== input.year || x.gain === undefined) continue;
+      // 売る月に持つ人（名義の人が亡くなった後は相続する人。等分）
+      const holders = holdersAt(ctx, x.owner, parseYm(x.ym));
+      const k = holders.indexOf(input.member);
+      if (k < 0) continue;
+      const gain = splitEqually(ctx, x.gain, holders.length)[k] as Yen;
+      if (x.taxation === "miscellaneous") heldMisc += gain;
       else if (x.taxation === "transfer") {
         heldTransfer = true;
-        if (x.term === "short") transferShort += x.gain;
-        else transferLong += x.gain;
+        if (x.term === "short") transferShort += gain;
+        else transferLong += gain;
       }
     }
     let transfer: { short: Yen; long: Yen; included: Yen } | null = null;
+    // 総合課税の譲渡所得の金額（特別控除の後。長期は2分の1の前。損益通算に使う）
+    let transferShortAfter = 0;
+    let transferLongAfter = 0;
     if (heldTransfer) {
       // 短期と長期の間で損失を引き、引ききれない損失は捨てる（ほかの所得と通算しない）
       if (transferShort < 0 && transferLong > 0) {
@@ -148,6 +176,8 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
       short -= fromShort;
       left -= fromShort;
       long -= Math.min(left, long);
+      transferShortAfter = short;
+      transferLongAfter = long;
       const included = yen(short + (long > 0 ? at.money.mulRate(yen(long), ratio ?? ctx.rate.of("1"), "conv.tax.exact") : 0));
       transfer = { short: yen(Math.max(0, transferShort)), long: yen(Math.max(0, transferLong)), included };
     }
@@ -166,8 +196,8 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
     let rooms = 0;
     let houses = 0;
     for (const prop of ctx.call<RealEstateOutput>("asset.realEstate", {}).properties) {
-      if (prop.owner !== input.member) continue;
-      const e = prop.income.find((x) => x.year === input.year);
+      // その年に持つ人の分（名義の人が亡くなった後は相続する人。0173）
+      const e = propertyIncomeOf(prop, input.member, input.year);
       if (e === undefined) continue;
       if (prop.incomeKind === "miscellaneous") lodgingMisc = (lodgingMisc ?? 0) + e.income;
       else if (prop.incomeKind === "business") lodgingBusiness = (lodgingBusiness ?? 0) + e.income;
@@ -225,7 +255,22 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
       miscellaneousLoss = -miscNet - used;
       if (miscellaneousLoss > 0) ctx.notice("N_LIMIT_APPLIED", [input.member, "income.miscellaneousLoss"]);
     }
-    const before = employment + pensionPart + biz + (realEstate ?? 0) + temporary + miscellaneous + (transfer?.included ?? 0);
+    // 経常所得（給与・公的年金等・事業・不動産・雑）
+    const ordinary = employment + pensionPart + biz + (realEstate ?? 0) + miscellaneous;
+    let before = ordinary + temporary + (transfer?.included ?? 0);
+    if (ordinary < 0) {
+      // 損益通算（施行令198条）: 経常所得の損失を、総合短期 → 総合長期の譲渡所得 → 一時所得の順に、2分の1にする前の額から引く
+      let loss = -ordinary;
+      const fromShort = Math.min(loss, transferShortAfter);
+      loss -= fromShort;
+      const fromLong = Math.min(loss, transferLongAfter);
+      loss -= fromLong;
+      const fromTemp = Math.min(loss, temporaryBefore);
+      loss -= fromTemp;
+      temporary = halfOf(temporaryBefore - fromTemp, TEMP.ratio);
+      if (transfer !== null) transfer = { ...transfer, included: yen(transferShortAfter - fromShort + halfOf(transferLongAfter - fromLong, TRANSFER.ratio)) };
+      before = loss > 0 ? -loss : temporary + (transfer?.included ?? 0);
+    }
     const total: Yen = yen(Math.max(0, before));
     const netLoss = before < 0 ? yen(-before) : null;
     const retirement = ctx.call<RetirementIncomeOutput>("tax.retirementIncome", { member: input.member, year: input.year }).income;

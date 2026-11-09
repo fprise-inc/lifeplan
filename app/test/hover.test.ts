@@ -319,7 +319,7 @@ describe("主画面の点線の枠は、薄いグレーの実線にする", () =
   const band = bandModel({ req: wh.request, slots: [CURRENT, ...ids], letters: planLetters(wh.proposals), results: new Map([[CURRENT, rA], [ids[0]!, rB]]), modified: new Set([ids[0]!]), base: CURRENT, selected: ids[0]!, settings: DEFAULT_DISPLAY_SETTINGS, colors: new Map() });
   const rows: LeverRow[] = [{ key: "nisaMonthly", label: "NISA", slider: { kind: "amount", min: 0, max: 50_000, step: 10_000, value: 30_000, base: 10_000, per: "月", tick: String }, valueText: "月3万円", baseText: "月1万円", note: "注" }];
   const lever = (locked: string | null) =>
-    h(LeverCard, { selected: "プランB", baseLetter: "A", locked, modified: true, levers: rows, fee: { on: true, inBase: false, note: "単発", onToggle: noop }, onSlide: noop, onRelease: noop, onReset: noop, onOverwrite: noop, onSaveNew: noop, suggested: "", changes: [{ key: "k", label: "生活費", from: "月30万円", to: "月28万円", state: "ok", inherited: true, reviewNote: null }], onAck: null, onDrop: null, initialSave: true }, h("div", { class: "add-row" }, h("button", { type: "button", class: "add-item-btn" }, "＋ 動かす項目を追加")));
+    h(LeverCard, { selected: "プランB", baseLetter: "A", locked, modified: true, levers: rows, fee: { on: true, inBase: false, note: "単発", onSet: noop }, onSlide: noop, onRelease: noop, onReset: noop, onOverwrite: noop, onSaveNew: noop, suggested: "", changes: [{ key: "k", label: "生活費", from: "月30万円", to: "月28万円", state: "ok", inherited: true, reviewNote: null }], onAck: null, onDrop: null, initialSave: true }, h("div", { class: "add-row" }, h("button", { type: "button", class: "add-item-btn" }, "＋ 動かす項目を追加")));
   const added = demo.cat.items.filter((x) => !x.builtin && x.control.kind !== "field").slice(0, 4);
   const html = renderToString(
     h(

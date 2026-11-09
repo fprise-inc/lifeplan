@@ -15,7 +15,7 @@ import { answersOf, draftKey, fieldAnswered, fieldKeys, initialDraft, markSent, 
 import { FILLED_ON } from "../../hearing/src/web/packet.ts";
 import { API_PREFIX } from "../../hearing/src/web/protocol.ts";
 import { applyImport, approvalTime, defaultSelection, type ImportView } from "../src/workspace/hearing/sheet.ts";
-import { cleanupOnServer, documentFromTemplate, importWeb, issueWeb, markImported, officeFace, previewPacket, receiveWeb, receivedDocuments, templateSelection, webLog, type WebLogEntry, type WebTaken, type WebTemplateKind } from "../src/workspace/hearing/web.ts";
+import { answeredScreens, cleanupOnServer, documentFromTemplate, estimateOf, importWeb, issueWeb, markImported, officeFace, receiveWeb, receivedDocuments, templateSelection, webLog, type WebLogEntry, type WebTaken, type WebTemplateKind } from "../src/workspace/hearing/web.ts";
 import { fromRequest, withElementIds, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
@@ -35,7 +35,7 @@ const filled = (): WorkingHousehold => fromRequest(modelHousehold("salariedCoupl
 // ---- ひな形（名前が変わったら、ここだけ合わせる） ----
 
 /** 簡易の票（シンプル） */
-const SIMPLE: WebTemplateKind = "first";
+const SIMPLE: WebTemplateKind = "simple";
 const REVIEW: WebTemplateKind = "review";
 
 // ---- 答えの形 ----
@@ -144,15 +144,20 @@ async function sendLater(w: Walked, t: RelayTransport, docId: string, seed: numb
 
 // ---- 数 ----
 
-/** 問いの画面の数（FP の画面の「問い N」と同じ単位: 問いの画面だけ。分岐の問い・同意・書類・確かめは入れない） */
-const itemCount = (list: readonly Screen[]) => list.filter((x) => x.kind === "item").length;
+/** お客さまの画面の数（FP の画面・お客さまの最初の画面・案内文と同じ単位〔0192〕: 同意・分岐の問い・問いの画面。書類・確かめは入れない） */
+const answerScreens = (list: readonly Screen[]) => list.filter((x) => x.kind === "consent" || x.kind === "gate" || x.kind === "item");
 /** 問いの画面に出た問い（draftKey。別の答え方の欄〔範囲・年齢〕も入れる） */
 const shownKeys = (list: readonly Screen[]) => list.flatMap((x) => screenFields(x).flatMap((f) => fieldKeys(f).map((key) => k(key, f.index))));
 
-/** FP の画面（WebBuilder.tsx）の「URL を発行する（問い N）」と同じ数え方 */
-async function fpQuestionCount(wh: WorkingHousehold, sel: WebSelection): Promise<number> {
-  const p = await previewPacket(wh, sel, OFFICE, NOW);
-  return screens(p, initialDraft(p)).filter((x) => x.kind === "item").length;
+/**
+ * FP の画面（WebBuilder.tsx の「お客さまの画面: 問い N画面」。0192 の4）と同じ数え方: 開いている世帯の人数で数えた数（本人だけの世帯は夫婦と子2人）と、
+ * ご両親を聞く票で、お客さまが「ご両親のことは答えない」を選んだときの数
+ */
+function fpQuestionCount(wh: WorkingHousehold, sel: WebSelection): { screens: number; withoutParents: number } {
+  const e = estimateOf(wh, sel);
+  if (e === null) throw new Error("数えられない選び方");
+  const n = (e.own ?? e.std).screens;
+  return { screens: n, withoutParents: e.withoutParents?.screens ?? n };
 }
 
 /** お客さまが答えた問い（送る答えに入るはずのもの: 出ている問いの、「あとで」でない答え。月の無い生年月は送らない） */
@@ -341,19 +346,17 @@ describe("通しの点検: 値の入った世帯に、シンプルの票を送�
     expect(estimate(w.o.packet).screens).toBe(w.final.filter((x) => x.kind === "consent" || x.kind === "gate" || x.kind === "item").length);
   });
 
-  it.fails("直す待ち（FP の画面）: FP の画面の「問い N」が、開いている世帯の人数（夫婦と子2人）でお客さまが答える問いの画面の数と同じ", async () => {
+  it("FP の画面の「問い N画面」が、開いている世帯の人数（夫婦と子2人）でお客さまが答える画面の数と同じ（0192 で直した）", async () => {
     const x = await go();
-    // 今は、FP の画面は配偶者の方・お子さまのいない下書きで数える（夫婦と子2人の世帯で 9、お客さまは 10 画面）
-    expect(await fpQuestionCount(x.before, templateSelection(SIMPLE, x.before))).toBe(itemCount(x.w.final));
+    expect(fpQuestionCount(x.before, templateSelection(SIMPLE, x.before)).screens).toBe(answerScreens(x.w.final).length);
   });
 
-  it.fails("直す待ち（FP の画面）: 依頼の一覧の「答え N」が、お客さまが答えた問いの数と同じ（記入の年月・同意・ページが入れる「該当なし」を数えない）", async () => {
+  it("依頼の一覧の受け取った答えの数（「問いの画面 N のうち M 画面に答えあり」）が、お客さまが通った画面・答えた画面と同じ（記入の年月・同意・ページが入れる「該当なし」を答えの数に数えない。0192 で直した）", async () => {
     const x = await go();
-    const p = x.w.o.packet;
-    const answered = x.w.final.flatMap((s) => screenFields(s)).filter((f) => fieldAnswered(x.w.d, f)).length;
-    // WebRequests.tsx の受け取りの知らせ「答え N」と同じ数え方
-    expect(x.entry.received?.answers.length).toBe(answered);
-    expect(answered).toBe(answeredKeys(p, x.w).length - 1 - p.consent.items.length);
+    const final = answerScreens(x.w.final);
+    const answered = final.filter((s) => (s.kind === "consent" ? x.w.o.packet.consent.items.some((c) => x.w.d.answers[k(c.key)] !== undefined) : screenGates(s).some((g) => x.w.d.gates[g] !== undefined) || screenFields(s).some((f) => fieldAnswered(x.w.d, f)))).length;
+    // WebRequests.tsx の受け取りの知らせと依頼の行と同じ数え方（answeredScreens）
+    expect(answeredScreens(x.entry)).toEqual({ answered, total: final.length });
   });
 
   it("年収を答えた働き方の候補を承認しても、シートで聞かない欄（標準報酬月額・企業年金・失業給付）は消えない（0139 の追記 2026-11-09）", async () => {
@@ -400,16 +403,17 @@ describe("通しの点検: 見直しの票（前回の値が入る）", () => {
     expect(x.after.request.input.household.debts).toEqual(x.before.request.input.household.debts);
   });
 
-  it("FP の画面の「問い N」は、前回の値の分かる見直しなら、同じ家族（ご両親4人がご健在と答える）でお客さまが答える問いの画面の数と同じ", async () => {
+  it("FP の画面の「問い N画面」は、前回の値の分かる見直しなら、同じ家族（ご両親4人がご健在と答える）でお客さまが答える画面の数と同じ", async () => {
     const alive = Object.fromEntries([1, 2, 3, 4].map((i) => [k("hs.family.parent.alive", i), v("alive")]));
     const x = await round(filled(), sel(), { gates: { parent: 1 }, answers: alive });
-    expect(await fpQuestionCount(x.before, sel())).toBe(itemCount(x.w.final));
+    expect(fpQuestionCount(x.before, sel()).screens).toBe(answerScreens(x.w.final).length);
   });
 
-  it.fails("直す待ち（FP の画面）: 見直しで、ご両親のことを「答えない」と答えた方の問いの画面の数と、FP の画面の「問い N」が同じ（FP の数は、答えで変わる幅が分かる言い方にする）", async () => {
-    // 今は、FP の画面はご両親4人の問いを数える（98）。お客さまが「答えない」を選ぶと 89 画面
+  it("見直しで、ご両親のことを「答えない」と答えた方の画面の数と、FP の画面の「ご両親のことを『答えない』を選ぶと N画面」が同じ（答えで変わる幅を出す。0192 で直した）", async () => {
     const x = await asIs();
-    expect(await fpQuestionCount(x.before, sel())).toBe(itemCount(x.w.final));
+    const c = fpQuestionCount(x.before, sel());
+    expect(c.withoutParents).toBe(answerScreens(x.w.final).length);
+    expect(c.withoutParents).toBeLessThan(c.screens);
   });
 
   it("前回の値のまま送ると、変更の候補が出ない（既定でチェックの付く物が無い。0139 の追記 2026-11-09）", async () => {
@@ -640,6 +644,40 @@ describe("通しの点検: 承認しても、答えた欄だけが変わる（�
   });
 });
 
+describe("通しの点検: 持ち家の評価と持ち分（買った値段から推計する家。0176・0181）は、住まいの答えを取り込んでも今のまま", () => {
+  /** 買った値段で評価する持ち家（その額の時点は住み始めについてくる印・土地の値段は FP が入れた割合）を、夫婦の持ち分 1/2 ずつで持つ世帯 */
+  const owned = (): WorkingHousehold => {
+    const wh = filled();
+    const h = wh.request.input.household;
+    const [self, spouse] = [h.members.find((m) => m.kind === "self")?.id, h.members.find((m) => m.kind === "spouse")?.id];
+    const r = (h.residences ?? [])[0] as unknown as Record<string, unknown>;
+    r.valuation = { value: { value: 42000000, state: "confirmed", origin: { kind: "manual" } }, asOf: "2016-04", basis: "purchase", landShare: "0.4", structure: "wood", builtYear: 2016 };
+    r.ownership = [{ member: self, share: "0.5" }, { member: spouse, share: "0.5" }];
+    r.valueStates = { "residence.valuation/asOf": { state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis: "住み始めと同じ（買った年月）" } } };
+    return wh;
+  };
+  const home = (wh: WorkingHousehold) => (wh.request.input.household.residences ?? [])[0] as unknown as Record<string, unknown>;
+
+  it("見直しで固定資産税を答え直すと、固定資産税だけが変わり、評価（買った値段・時点の印・土地の割合・構造）・持ち分・入居のイベントは今のまま", async () => {
+    const x = await round(owned(), templateSelection(REVIEW, owned()), { gates: { parent: 0 }, answers: { [k("hs.housing.propertyTax")]: num("162000") } });
+    checkEveryTime(x);
+    expect(lostFields(x.before, x.after)).toEqual([]);
+    const [a, b] = [home(x.before), home(x.after)];
+    expect((b.propertyTax as { annual: { value: number } }).annual.value).toBe(162000);
+    for (const key of ["valuation", "ownership", "valueStates", "from"]) expect(b[key]).toEqual(a[key]);
+    // 前回の値のまま確かめた管理費は同じ額（記入どおりの答えなので承認の記録が付く）。上がり方はシートで聞かないので今のまま
+    const part = (o: Record<string, unknown>, key: string) => o[key] as { growth: unknown; monthly?: { value: number } };
+    expect(part(b, "maintenance").monthly?.value).toBe(part(a, "maintenance").monthly?.value);
+    for (const key of ["propertyTax", "maintenance"]) expect(part(b, key).growth).toEqual(part(a, key).growth);
+  });
+
+  it("シンプルの票で持ち家と答えても（住み始めはお答えなし）、住まいは今のまま", async () => {
+    const x = await round(owned(), templateSelection(SIMPLE, owned()), { gates: { spouse: 1, child: 2, parent: 0 }, answers: SIMPLE_ANSWERS });
+    checkEveryTime(x);
+    expect(home(x.after)).toEqual(home(x.before));
+  });
+});
+
 describe("通しの点検: お答えの無い新しい行・お子さまの当て方", () => {
   const taxes = (wh: WorkingHousehold) => (wh.request.input.household.residentTaxAssessments ?? []) as { id: string; member: string }[];
   it("答えていない配偶者の方の住民税は、全部にチェックを入れて承認しても入らない（お答えなし: 今は入れていない）", async () => {
@@ -651,7 +689,7 @@ describe("通しの点検: お答えの無い新しい行・お子さまの当�
     const view = importWeb(got!.wh, got!.entry, "0.1.0", seq);
     const tax = view.candidates.find((c) => c.title === "配偶者の住民税");
     expect(tax?.kind).toBe("noAnswer");
-    expect(tax?.fields.flatMap((f) => f.diffs)).toEqual([{ label: "住民税の年税額", current: "入れていない", next: "入れていない", kept: true, rough: false }]);
+    expect(tax?.fields.flatMap((f) => f.diffs)).toEqual([{ label: "住民税の年税額", current: "入れていない", next: "入れていない", kept: true, rough: false, waiting: null }]);
     const after = applyImport(got!.wh, view, new Set(view.candidates.map((c) => c.id)), AT).wh;
     const spouse = wh.request.input.household.members.find((m) => m.kind === "spouse")?.id;
     expect(taxes(after).filter((a) => a.member === spouse)).toEqual([]);

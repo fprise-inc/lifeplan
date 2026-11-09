@@ -114,6 +114,8 @@
 //   0.70 から: Web のヒアリングの依頼の記録 hearing.web の1件に、延長の上限 record.limitAt・分岐の問いの答え received.gates・受け取った書類の
 //   送りの記録 batches・ファイルの送りの番号 files[].batchId・受け付けを終えた日時 closedAt（0158）。足すだけ。本体の変換の段は版だけを書き換える
 //   （前の版の記録は欄が無い＝延長の上限は発行の日時から90日・分岐の答えは無し。受け取った答えの書類の欄は状態だけを使う）
+//   0.73 から: Web のヒアリングの依頼の記録 hearing.web の1件の選び方 record.selection に、ご相談したいことの話題 topics・ひな形の名前 name と、
+//   独自の質問 custom[] の答えの形 answer（text・yesNo・choice）・choices を、受け取った答え received に選んだ話題 topics を足した（どれも任意。0192）
 //   0.72 から: Web のヒアリングの依頼の記録 hearing.web の1件の受け取った書類のファイル files[] に、見た日時 viewedAt・自分のフォルダに保存した
 //   日時 savedAt（0191）。足すだけ。本体の変換の段は版だけを書き換える（前の版の記録は欄が無い＝まだ見ていない・まだ保存していない）
 //   0.71 から: Web のヒアリングの依頼の記録の選び方の書類 record.selection.documents[] に、書類の持ち主 owner（self・spouse。省略は選んでいない。
@@ -181,7 +183,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.72";
+export const BODY_FORMAT_VERSION = "0.73";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 

@@ -234,10 +234,11 @@ describe("色の番号はプランの内部 ID ごとに固定（assignColors）
 });
 
 describe("全部のプランの線の値（作業の層）", () => {
-  it("帯の順に、プランの名前と色の番号と、金融資産・年間収支の数字だけ。計算中のプランは null", () => {
+  it("帯の順に、プランの名前と色の番号と、金融資産・年間収支の数字と資産が尽きる年の番号（0179）だけ。計算中のプランは null", () => {
     const ls = lines(["c"]);
     expect(ls.map((l) => l.key)).toEqual(["A", "B", "C", "D"]);
-    for (const l of ls) expect(Object.keys(l).sort()).toEqual(["base", "colorIndex", "financial", "key", "name", "net", "selected", "title"]);
+    for (const l of ls) expect(Object.keys(l).filter((k) => k !== "short").sort()).toEqual(["base", "colorIndex", "financial", "key", "name", "net", "selected", "title"]);
+    for (const l of ls) expect(l.financial === null ? l.short : typeof l.short).toBe(l.financial === null ? undefined : "number");
     expect(ls[0]).toMatchObject({ name: "プランA", title: "現状", base: true, selected: false, colorIndex: 0 });
     expect(ls[1]).toMatchObject({ name: "プランB", base: false, selected: true, colorIndex: 1 });
     const n = displayYears(wh.request).length;

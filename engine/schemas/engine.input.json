@@ -2302,7 +2302,7 @@
           "enum": ["total", "detail"]
         },
         "growth": { "title": "価格・維持費の伸び方（省略は前提の物価上昇率）", "x-item": "car.growth", "$ref": "#/$defs/growth" },
-        "onContingency": { "title": "万一のときの扱い（万一の月の翌月からの買い替え・維持費が対象。組んだローンの返済は続く）", "x-item": "car.onContingency", "$ref": "#/$defs/onContingency" }
+        "onContingency": { "title": "万一のときの扱い（万一の月の翌月からの買い替え・維持費が対象。組んだローンの返済は続く。省略は、名義の人が亡くなったら手放し、ほかの万一では続ける）", "x-item": "car.onContingency", "$ref": "#/$defs/onContingency" }
       }
     },
     "advisoryFeeTerms": {

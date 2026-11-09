@@ -52,21 +52,21 @@ function representative(): WorkingHousehold {
 }
 
 describe("最初の5枚の標準の欄の数", () => {
-  it("代表の世帯で、家族7（配偶者の続柄は選ばない）・働き方と収入10・基本生活費4・住まい10〜11・貯蓄8（今の残高から入れたローンで合計39。住宅ローンの名義と、今の残高からの借りた年月も標準。黒字の上限は標準。配偶者の性別は詳細。住宅ローンは金利の種類も標準）", () => {
+  it("代表の世帯で、家族7（配偶者の続柄は選ばない）・働き方と収入10・基本生活費4・住まい13〜14・貯蓄8（今の残高から入れたローンで合計42。今住んでいる持ち家の買った年月と買った値段〔合計・土地〕も標準。建物の値段は詳細（0176 の追記 2026-11-09）。住宅ローンの名義と、今の残高からの借りた年月も標準。黒字の上限は標準。配偶者の性別は詳細。住宅ローンは金利の種類も標準）", () => {
     let wh = representative();
     const count = (w: WorkingHousehold) => (["family", "work", "living", "housing", "savings"] as const).map((s) => simpleFields(w, s).length);
     // 見本の住宅ローンは型どおりでない金利の段（2段）を持つので「金利の段階で入れる」になり、標準でも段の欄（2段×3欄）が開く（0052 の追記 2026-11-02）
     // 配偶者のいる世帯の住宅ローンは、ローンの名義も標準（ペアローンの入口と並べる。2026-11-07）
-    expect(count(wh)).toEqual([7, 10, 4, 17, 8]);
+    expect(count(wh)).toEqual([7, 10, 4, 20, 8]);
     // 金利の段の無いローン（今の金利のまま）で数える
     wh = mutate(wh, (h) => {
       for (const d of h.debts ?? []) d.rateSchedule = d.rateSchedule.slice(0, 1);
     });
-    expect(count(wh)).toEqual([7, 10, 4, 11, 8]);
+    expect(count(wh)).toEqual([7, 10, 4, 14, 8]);
     for (const d of wh.request.input.household.debts ?? []) wh = switchEntry(wh, d.id, "balance");
     // 今の残高から入れる住宅ローンは、借りた年月（入居の年月）も標準（入れないと住宅ローン控除を計算しない。2026-11-07）
-    expect(count(wh)).toEqual([7, 10, 4, 10, 8]);
-    expect(count(wh).reduce((a, b) => a + b, 0)).toBe(39);
+    expect(count(wh)).toEqual([7, 10, 4, 13, 8]);
+    expect(count(wh).reduce((a, b) => a + b, 0)).toBe(42);
   });
 });
 
@@ -266,10 +266,16 @@ describe("住まい・ローン", () => {
     const wh = open("salariedCoupleTwoKids");
     const fs = fieldsOf(wh, "housing");
     expect(fs.filter((f) => f.key.endsWith("/debtors")).every((f) => f.level === "simple")).toBe(true);
-    for (const tail of ["/style", "/tax", "/valuation/value", "/valuation/builtYear", "/creditLife", "/credit/moveIn"]) {
+    for (const tail of ["/style", "/tax", "/valuation/basis", "/valuation/building", "/valuation/structure", "/valuation/builtYear", "/creditLife", "/credit/moveIn"]) {
       const hit = fs.filter((f) => f.key.endsWith(tail));
       expect(hit.length, tail).toBeGreaterThan(0);
       expect(hit.every((f) => f.level === "detail"), tail).toBe(true);
+    }
+    // 今住んでいる持ち家は、買った年月（住み始め）と買った値段（合計・うち土地）が標準。評価額は推計（0176）。うち建物は詳細（0176 の追記 2026-11-09）
+    for (const tail of ["/from", "/valuation/value", "/valuation/land"]) {
+      const hit = fs.filter((f) => /^housing\/res\//u.test(f.key) && f.key.endsWith(tail));
+      expect(hit.length, tail).toBeGreaterThan(0);
+      expect(hit.every((f) => f.level === "simple"), tail).toBe(true);
     }
   });
 

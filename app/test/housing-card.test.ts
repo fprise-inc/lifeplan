@@ -402,12 +402,15 @@ describe("ほかのローン", () => {
   });
 
   it("種類を変えると、金利が目安のままなら新しい種類の目安に（入れた金利は変えない）", () => {
-    let wh = action(salaried(), "housing/add/cardLoan");
+    // 種類の欄は「＋」のボタンの組の中だけ（0052 の追記 2026-11-08）: 奨学金の返済は第二種・第一種
+    let wh = action(salaried(), "housing/add/scholarship");
     const id = debtsOf(wh)[0]!.id;
+    wh = set(wh, `${id}/subtype`, "scholarshipFree");
+    expect(debtsOf(wh)[0]).toMatchObject({ kind: "scholarship", subtype: "scholarshipFree", rateSchedule: [{ rate: "0" }] });
     wh = set(wh, `${id}/subtype`, "scholarship");
     expect(debtsOf(wh)[0]).toMatchObject({ kind: "scholarship", subtype: "scholarship", rateSchedule: [{ rate: repayingScholarshipRateEstimate().rate }] });
     wh = set(wh, `${id}/rate`, "0.01");
-    wh = set(wh, `${id}/subtype`, "renovation");
+    wh = set(wh, `${id}/subtype`, "scholarshipFree");
     expect(debtsOf(wh)[0]!.rateSchedule[0]!.rate).toBe("0.01");
   });
 });

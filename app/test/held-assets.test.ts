@@ -36,8 +36,8 @@ describe("貸していない不動産の毎年の費用（0123）", () => {
     expect(row).toMatchObject({ kind: "assetCost", object: a.id, row: "cf.expense.other.realEstate", everyYears: 1, growth: { kind: "none" } });
     expect(row.amount.state).toBe("estimated");
     expect(basisOf(row.amount).startsWith(HELD_ESTATE_TAX_BASIS)).toBe(true);
-    // 別荘: 土地 2,000万×30%×70%×70%×(1.4%＋0.3%)＋建物 2,000万×70%×60%×1.7%
-    expect(row.amount.value).toBe(Math.round((20_000_000 * 0.3 * 0.7 * 0.7 * 0.017 + 20_000_000 * 0.7 * 0.6 * 0.017) / 100) * 100);
+    // 別荘: 土地 2,000万×30%×70%×70%×(1.4%＋0.3%)＋建物 2,000万×70%×40%×1.7%（建物の評価額の割合は0181で40%）
+    expect(row.amount.value).toBe(Math.round((20_000_000 * 0.3 * 0.7 * 0.7 * 0.017 + 20_000_000 * 0.7 * 0.4 * 0.017) / 100) * 100);
     // 評価額を直すと入れ直す
     wh = fieldOf(wh, `sav/${a.id}/value`).set(wh, 10_000_000);
     expect(costOf(wh, a.id)!.amount.value).toBe(heldEstateTax({ value: 10_000_000, valueYear: Number(wh.request.input.baseMonth.slice(0, 4)), kind: "villa", landShare: 0.3 }).value);
@@ -59,7 +59,7 @@ describe("貸していない不動産の毎年の費用（0123）", () => {
   it("空き家は住宅用地の特例を当て、更地は課税標準70%（建物なし）", () => {
     const y = 2026;
     const house = heldEstateTax({ value: 10_000_000, valueYear: y, kind: "vacantHouse", landShare: 0.3 });
-    expect(house.value).toBe(Math.round((3_000_000 * 0.7 * (0.014 / 6 + 0.003 / 3) + 7_000_000 * 0.6 * 0.017) / 100) * 100);
+    expect(house.value).toBe(Math.round((3_000_000 * 0.7 * (0.014 / 6 + 0.003 / 3) + 7_000_000 * 0.4 * 0.017) / 100) * 100);
     expect(house.basis).toContain("住宅用地の特例を当て");
     const land = heldEstateTax({ value: 10_000_000, valueYear: y, kind: "vacantLand", landShare: 1 });
     expect(land.value).toBe(Math.round((10_000_000 * 0.7 * 0.7 * 0.017) / 100) * 100);

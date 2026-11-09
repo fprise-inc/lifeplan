@@ -87,6 +87,8 @@ interface Props {
   /** 取り込みの中身を開いているか（親が持つ。FP のメニューから開く）。省くとホームの中で持つ */
   importsOpen?: boolean;
   onImportsOpen?: (open: boolean) => void;
+  /** Web のヒアリングの届いた知らせ（「回答が届いています 1件」。0192）。押すとヒアリング・取り込むを開く */
+  hearingNote?: { text: string; onOpen: () => void } | null;
   /** Web のヒアリングで受け取った書類の保存の口と、依頼の記録の書き換え（見た・保存した・消す。0191）。省くと保存のボタンを出さない */
   received?: ReceivedProps;
 }
@@ -251,7 +253,7 @@ export function ImportMenu({ children, off, initialOpen = false, open: outer, on
         <div class="ih-imports-list" data-imports-list {...(!button && off !== undefined ? { "data-current-only": true } : {})}>
           {!button ? (
             <div class="ih-imports-h">
-              <b>取り込む</b>
+              <b>ヒアリング・取り込む</b>
               <button type="button" class="btn small" onClick={() => setOpen(false)} data-imports-close>
                 閉じる
               </button>
@@ -275,7 +277,7 @@ export function ImportMenu({ children, off, initialOpen = false, open: outer, on
   );
 }
 
-export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false, officeItems, findQuery, onReadDoc, received }: Props) {
+export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false, officeItems, findQuery, onReadDoc, received, hearingNote = null }: Props) {
   /** 直しているプラン（直せないときは現状） */
   const editing = plans !== undefined && plans.sel !== null && plans.lock === null ? (plans.list.find((x) => x.id === plans.sel) ?? null) : null;
   const pcat = plans?.cat;
@@ -554,6 +556,14 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
         {/* 右端: 入力項目を選ぶ（この世帯で出す入力項目と、開いたときの入れ方。選び方は世帯全体の物なので、プランの編集中も現状の世帯に入れる） */}
         <ItemChooser wh={wh} items={allItems} onChange={onSave} onLevel={forgetLevel} initialOpen={chooseOpen} {...(officeItems !== undefined ? { office: officeItems } : {})} />
       </div>
+      {hearingNote !== null ? (
+        <p class="ih-hearing-note" role="status" data-hearing-note>
+          <span class="hs-kind answered">ヒアリング</span> {hearingNote.text}
+          <button type="button" class="link-btn" onClick={hearingNote.onOpen} data-hearing-note-open>
+            開く
+          </button>
+        </p>
+      ) : null}
       {/* FP のメニューから開いた中身（控え・面談の準備・取り込む）の置き場。余白はこの箱が持つ（パネルごとに足さない。0077 の追記） */}
       <div class="ih-opened" data-home-opened>
         {tools}

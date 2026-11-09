@@ -23,7 +23,7 @@ import { putRow } from "../rows.ts";
 import type { Address } from "../../store/readings.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./onContingency.ts";
 import { surplusSection } from "./surplusSaving.ts";
-import { GROWTH_RANGE } from "../rateRanges.ts";
+import { GROWTH_RANGE, STAGE_RATIO_RANGE } from "../rateRanges.ts";
 import { apportion, hasShares, livingLayoutNow, partShares, rowLabel, rowMembers, STANDARD_LIVING_NAMES, type LivingLayout, type LivingRow } from "../../office/livingLayout.ts";
 import { partsOf, withParts, type LivingPart } from "../livingParts.ts";
 
@@ -695,6 +695,7 @@ function stageGroups(wh: WorkingHousehold, l: LivingExpense, find: Finder): Grou
                 label: retiredStd ? "退職後の生活費（今の額に対する割合）" : "今の額に対する割合",
                 level: valueLevel,
                 kind: "pct",
+                ...STAGE_RATIO_RANGE,
                 find: findStage,
                 path: ["ratio"],
                 hint: (v) => (base > 0 && v !== null ? [`＝${amountText(Math.round(base * Number(v)), "month")}（今の値段）`, ...(retiredStd ? retiredHint(Number(v)) : [])].join("。") : null),

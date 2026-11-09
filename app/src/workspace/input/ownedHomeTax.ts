@@ -3,7 +3,8 @@
 // 「固定資産税の変化」の段を推定で入れる。式・目安の値・法令の値・段の置き方は購入の予定の推定（propertyTax.ts）と同じ。違いは次のとおり
 // - 最初の年は計算の基準の年（欄の額はその年の額。計算エンジンは計算の基準の年から欄の額を払う）。これから持ち始める家（この家を相続する。
 //   住み始めが計算の基準の年より後）は、持ち始めの年（計算エンジンが払い始める年）の額にし、段もその次の年から置く（2026-11-05 の追記）
-// - 評価額は「その額の時点」の値（多くは購入の価格と購入の年月）。建物はその時点の評価額から、評価替えごとに築年数の分だけ下げる。土地はその時点の価格のまま
+// - 評価額は「その額の時点」の値（多くは購入の価格と購入の年月）。建物はその時点の評価額から、評価替えごとに固定資産評価基準の経年減点補正率と
+//   再建築費評点補正率で動かす（0181。propertyTax.ts の buildingValueRatio）。土地はその時点の価格のまま
 // - 建った年が空欄なら、その額の時点の年に建ったとみなす（持ち家の評価と同じ）。そのときは新築の軽減を当てない（分からない軽減で税を少なく見せない）。
 //   相続する家は、建った年の推定（相続する家の築年数の目安。stages/housing.ts の inheritHome）を入れるので、多くは空欄にならない
 // - 入れる時: 持ち家の評価の欄を直したとき（FP が推定の元を入れたとき）と、固定資産税の欄を空にしたとき（「推定に戻す」「わからない」の代わりの値）。
@@ -16,16 +17,20 @@ import { resolveTimepoint } from "../timepoint.ts";
 import { putRow, rowAt, type StateRow } from "./rows.ts";
 import { presetNum, presetText } from "../../../../hearing/src/presets.ts";
 import {
+  buildingValueRatio,
   isAutoTax,
   isAutoTaxStage,
   isEstimatedTax,
+  keinenTableName,
   manOf,
   pctOf,
   PROPERTY_TAX_BASIS,
   PROPERTY_TAX_LAW,
   ratioPct,
   ratioText,
+  reassessWhy,
   reassessYear,
+  rebuildFactorNote,
   reliefYears,
   round100,
   taxGuide as guide,
@@ -61,13 +66,11 @@ export interface OwnedHomeTaxInputs {
 
 /**
  * 推定の計算（純粋な関数）。L＝評価額×土地の割合×土地の評価額の割合、B＝評価額×(1−土地の割合)×建物の評価額の割合（その額の時点の評価額）。
- * B(年)＝B×g(その年に効いている評価替えの年−建った年)÷g(その額の時点に効いている評価替えの年−建った年)。税の式・g は購入の予定と同じ（0112 の2）
+ * B(年)＝B×buildingValueRatio(構造, 建った年, その額の時点の年, 年)。税の式・建物の下がり方は購入の予定と同じ（0112 の2・0181）
  */
 export function ownedHomeTaxPlan(o: OwnedHomeTaxInputs): PropertyTaxPlan {
   const law = PROPERTY_TAX_LAW;
   const cp = guide.cityPlanningRate;
-  const floor = guide.buildingFloor;
-  const span = guide.years(o.structure);
   const share = Number(o.landShare);
   const land0 = o.value * share * guide.landRatio;
   const building0 = o.value * (1 - share) * guide.buildingRatio;
@@ -75,9 +78,7 @@ export function ownedHomeTaxPlan(o: OwnedHomeTaxInputs): PropertyTaxPlan {
   const known = o.builtYear !== undefined;
   const built = o.builtYear ?? o.valueYear;
   const years = reliefYears(o.condo, o.longLife);
-  const g = (a: number): number => Math.max(floor, 1 - ((1 - floor) * Math.max(0, a)) / span);
-  const gRef = g(reassessYear(o.valueYear) - built);
-  const buildingIn = (y: number): number => (gRef <= 0 ? building0 : (building0 * g(reassessYear(y) - built)) / gRef);
+  const buildingIn = (y: number): number => building0 * buildingValueRatio(o.structure, built, o.valueYear, y);
   // 新築の軽減は建った年が分かるときだけ（建った年の翌年から）
   const inRelief = (y: number): boolean => known && y >= built + 1 && y <= built + years;
   const taxIn = (y: number): number => {
@@ -91,7 +92,10 @@ export function ownedHomeTaxPlan(o: OwnedHomeTaxInputs): PropertyTaxPlan {
   const parts = [
     `${String(firstYear)}年の額${firstYear > o.baseYear ? `（${String(firstYear)}年から持つ）` : ""}`,
     `評価額${manOf(o.value)}（${String(o.valueYear)}年）・土地の割合${pctOf(share)}・${kind}・${known ? `${String(built)}年に建った（築${String(Math.max(0, age))}年${o.builtEstimated === true ? "。推定" : ""}）` : "建った年は空欄"}`,
-    `評価額は土地が価格の${pctOf(guide.landRatio)}・建物が価格の${pctOf(guide.buildingRatio)}の目安で、建物は評価替えごとに古くなった分だけ下げた（下限は${pctOf(floor)}）。土地は${String(o.valueYear)}年の価格のまま`,
+    `評価額は土地が価格の${pctOf(guide.landRatio)}・建物が価格の${pctOf(guide.buildingRatio)}の目安で、建物は評価替えごとに固定資産評価基準の経年減点補正率（${keinenTableName(o.structure)}）で下げた${(() => {
+      const note = rebuildFactorNote(o.structure, built, o.valueYear, firstYear);
+      return note === null ? "" : `（${note}）`;
+    })()}。土地は${String(o.valueYear)}年の価格のまま`,
     `住宅用地の特例${inRelief(firstYear) ? `・新築の軽減（建物の分が半分。${String(built + years)}年まで）` : ""}を当て、都市計画税${pctOf(cp)}を含む`,
     ...(!known ? [`建った年が分からないので、${String(built)}年に建ったとみなし、新築の軽減は当てない`] : []),
   ];
@@ -103,10 +107,7 @@ export function ownedHomeTaxPlan(o: OwnedHomeTaxInputs): PropertyTaxPlan {
     if (ratio === prev) continue;
     const why: string[] = [];
     if (inRelief(y - 1) && !inRelief(y)) why.push("新築の軽減が終わり、建物の分が元に戻る");
-    if (reassessYear(y) === y && buildingIn(y) !== buildingIn(y - 1)) {
-      const atFloor = g(y - built) <= floor;
-      why.push(`${String(y)}年度の評価替えで、建物の評価額が築${String(y - built)}年の分だけ下がる${atFloor ? `（下限の${pctOf(floor)}で止まる）` : ""}`);
-    }
+    if (reassessYear(y) === y && buildingIn(y) !== buildingIn(y - 1)) why.push(reassessWhy(o.structure, y, built));
     // 根拠の文に割合を入れる（購入の予定の推定と同じ。値だけ変わって文が同じ行は、編集のときに FP が直したとみなされるため）
     stages.push({ year: y, amount: round100(first * Number(ratio)), ratio, basis: `${PROPERTY_TAX_BASIS}（${why.join("。") || "評価額の見直し"}。固定資産税の欄の額の${ratioPct(ratio)}）` });
     prev = ratio;

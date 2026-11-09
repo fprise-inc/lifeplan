@@ -1,5 +1,5 @@
 {
-  "$comment": "【架空の記入例】ヒアリングシート basic 版2（通常版・初回の前の軽い票）の見本（実在の人物・世帯ではありません）。値は取り込んだ後の形（金額は円、年月は YYYY-MM、選択肢は value、範囲の答えは「下-上」の円）。scripts/sample.ts が basic-2-sample.xlsx を作る（0018 の7: 各版の見本をリポジトリに永久に残す）",
+  "$comment": "【架空の記入例】ヒアリングシート basic 版2（シンプル・大まかに聞く軽い票）の見本（実在の人物・世帯ではありません）。値は取り込んだ後の形（金額は円、年月は YYYY-MM、選択肢は value、範囲の答えは「下-上」の円）。scripts/sample.ts が basic-2-sample.xlsx を作る（0018 の7: 各版の見本をリポジトリに永久に残す）",
   "management": {
     "requestId": "R-4TQ8XN",
     "customerNo": "A0043",
