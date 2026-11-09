@@ -282,7 +282,12 @@ describe("必要保障額の区画が、同じ月の死亡の想定の表と合�
       const skip = new Set(["cf.taxSi.incomeTax.capitalGains", "cf.taxSi.residentTax.capitalGains", "cf.taxSi.incomeTax.cryptoAsset", "cf.taxSi.residentTax.cryptoAsset", "cf.taxSi.inheritanceTax"]);
       const health = (f: Any) => String(f.formula).startsWith("socialInsurance.nationalHealth.") || String(f.formula).startsWith("socialInsurance.continuation.");
       const tax = s((f) => f.row.startsWith("cf.taxSi") && !skip.has(f.row) && ((health(f) && kind(f.member) !== "child") || f.member === W || (f.member === X && f.accrualYear > 2027)));
-      expect(b.expenses.taxSi).toBe(tax);
+      // 亡くなった人がまだ払っていない前の年（2026年）の所得の税（所得税・住民税・事業税）は、万一なしの計算の額で数える（0170 の追記）
+      const plain = clone(req);
+      delete plain.input.contingencies;
+      const unpaid = sumFlows(run(plain), w, (f) => f.member === X && !skip.has(f.row) && /^cf\.taxSi\.(incomeTax|residentTax|businessTax)(\.|$)/.test(f.row) && f.accrualYear === 2026);
+      expect(unpaid).toBeGreaterThan(0);
+      expect(b.expenses.taxSi).toBe(tax + unpaid);
     });
   }
 });
