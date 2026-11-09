@@ -1,13 +1,14 @@
 // 世帯の「AIとの共有」（中央のパネル。0014・0015）:
 // - 状態のカード（共有しない／同意あり／共有中）
 // - 外部AIへの提供の同意を記録する（範囲・同意の取り方・日付・FP の確認）。撤回もここで記録する（撤回すると共有はすぐに止まる）
-// - 前の版の説明（書類を含まない）で同意した世帯は、今の説明で同意を記録し直せる（0157。計算の項目はそのまま渡せる）
+// - 前の版の説明・ヒアリングシートの同意欄（書類を含まない）で同意した世帯は、今の説明で同意を記録し直せる（0157・0172。計算の項目はそのまま渡せる）
+// - 同意は「外部の AI サービスに渡すことへの同意」1つ。どの AI の会社かは聞かない（0172。前の版の記録の会社はそのまま出す）
 // - 世帯をAIに渡す（申告した接続先・期限）・取り消す
 // - 記録: 同意の記録・AIに渡した記録（いつ・どの接続から・何を・何回）・AIからの候補
 // 記録を書くのは本体。画面は入力を送り、本体が返した記録を見せるだけ
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { AiConsentDecision, AiConsentMethod, AiHost, AiHouseholdView, AiStatus } from "../../engine/host.ts";
-import { aiMessage, codeOf, DECISION_LABELS, dateTimeText, durationText, END_REASONS, itemName, METHODS, methodLabel, readCount, remainingText, shareState, SHARE_STATE_TEXT, todayText } from "./model.ts";
+import { aiMessage, codeOf, consentCoversDocuments, consentMethods, DECISION_LABELS, dateTimeText, durationText, END_REASONS, itemName, METHODS, methodLabel, readCount, remainingText, shareState, SHARE_STATE_TEXT, todayText } from "./model.ts";
 
 export type AiPanelTab = "consent" | "records";
 
@@ -24,21 +25,24 @@ export interface AiSharePanelProps {
 }
 
 interface ConsentForm {
-  company: string;
-  country: string;
   noTraining: boolean;
   method: AiConsentMethod;
   date: string;
   confirmed: boolean;
 }
 
-/** 前の版の説明で同意した世帯を渡すときの注意（0157） */
-const NO_DOCUMENTS_NOTE = "この世帯の同意は前の版の説明で、書類を AI に渡すことは含みません。同意を記録し直すまで、書類は AI に渡さないでください（AI から書類の候補が届いても受け取りません）。";
+/** 書類を含まない同意（前の版の説明・ヒアリングシートの同意欄）の世帯を渡すときの注意（0157・0172） */
+const NO_DOCUMENTS_NOTE = "この世帯の同意は、書類を AI に渡すことを含みません。同意を記録し直すまで、書類は AI に渡さないでください（AI から書類の候補が届いても受け取りません）。";
 
 /** 同意の記録が書類の読み取りを含むか（`given` の行だけに付ける言葉） */
-const documentsLabel = (documents: boolean | undefined): string => (documents === true ? "・書類の読み取りを含む" : "・前の版の説明（書類を含まない）");
+const documentsLabel = (documents: boolean | undefined, method: AiConsentMethod): string =>
+  documents === true ? "・書類の読み取りを含む" : method === "hearingSheet" ? "・シートの同意欄の文（書類を含まない）" : "・前の版の説明（書類を含まない）";
 
-const emptyForm = (): ConsentForm => ({ company: "", country: "", noTraining: false, method: "paper", date: todayText(), confirmed: false });
+/** 前の版で記録した行の提供先（会社・所在国。今は聞かない。0172） */
+const providerText = (e: { company?: string; country?: string } | undefined): string | null =>
+  e?.company !== undefined ? `${e.company}${e.country !== undefined ? `（${e.country}）` : ""}` : null;
+
+const emptyForm = (): ConsentForm => ({ noTraining: false, method: "paper", date: todayText(), confirmed: false });
 
 export function AiSharePanel(p: AiSharePanelProps) {
   const [tab, setTab] = useState<AiPanelTab>(p.initialTab ?? "consent");
@@ -75,7 +79,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
 
   const record = async (decision: AiConsentDecision) => {
     const done = await run(
-      () => p.ai.recordConsent(p.householdId, { decision, obtainedOn: form.date, method: form.method, company: form.company, country: form.country, noTrainingConfirmed: form.noTraining, fpConfirmed: form.confirmed }),
+      () => p.ai.recordConsent(p.householdId, { decision, obtainedOn: form.date, method: renew && form.method === "hearingSheet" ? "paper" : form.method, noTrainingConfirmed: form.noTraining, fpConfirmed: form.confirmed }),
       decision === "given" ? "同意を記録しました" : "同意しなかったことを記録しました",
     );
     if (done) setForm(emptyForm());
@@ -86,8 +90,10 @@ export function AiSharePanel(p: AiSharePanelProps) {
   const text = SHARE_STATE_TEXT[state];
   const latest = v?.consents.filter((c) => c.kind === "externalAi" && c.origin === "thisOffice").at(-1);
   const enabled = p.status?.enabled === true;
-  // 前の版の説明（書類を含まない）で同意した世帯: 計算の項目は渡せるが、書類を AI に渡す前に取り直す（0157）
+  // 書類を含まない同意（前の版の説明・ヒアリングシートの同意欄）の世帯: 計算の項目は渡せるが、書類を AI に渡す前に取り直す（0157・0172）
   const renew = v !== null && v.consentState === "given" && v.consentDocuments !== true;
+  // ヒアリングシートの同意欄で記録する（シートの文で、書類を含まない。取り直しでは選べない。0172）
+  const sheet = !renew && form.method === "hearingSheet";
   return (
     <>
       <div class="scrim" aria-hidden="true" onClick={p.onClose} />
@@ -118,15 +124,15 @@ export function AiSharePanel(p: AiSharePanelProps) {
             {latest !== undefined ? (
               <p class="ai-latest" data-ai-consent-latest={latest.decision}>
                 いまの記録: <b>{DECISION_LABELS[latest.decision]}</b>（{latest.obtainedOn}・{methodLabel(latest.method)}
-                {latest.externalAi !== undefined ? `・提供先 ${latest.externalAi.company}（${latest.externalAi.country}）` : ""}
-                {latest.decision === "given" ? documentsLabel(latest.documents) : ""}）
+                {providerText(latest.externalAi) !== null ? `・提供先 ${providerText(latest.externalAi)}` : ""}
+                {latest.decision === "given" ? documentsLabel(latest.documents, latest.method) : ""}）
               </p>
             ) : (
               <p class="in-note">まだ記録がありません。同意が無い世帯は、AIに渡せません（既定は「渡さない」）。</p>
             )}
             {renew ? (
               <p class="hh-warn" data-ai-consent-renew>
-                この世帯の同意は前の版の説明でいただいたもので、書類の読み取りで書類を AI に渡すことは含まれていません。計算に要る項目を AI に渡すことは、このまま続けられます。書類を AI に渡す前に、お客さまに今の説明を見せて、同意を記録し直してください。今の説明に同意いただけないときは、記録しなくてかまいません（書類は AI に渡さず、手で入れてください）。
+                この世帯の同意は{latest?.method === "hearingSheet" ? "ヒアリングシートの同意欄" : "前の版の説明"}でいただいたもので、書類の読み取りで書類を AI に渡すことは含まれていません。計算に要る項目を AI に渡すことは、このまま続けられます。書類を AI に渡す前に、お客さまに今の説明を見せて、同意を記録し直してください。今の説明に同意いただけないときは、記録しなくてかまいません（書類は AI に渡さず、手で入れてください）。
               </p>
             ) : null}
             {v.consentState !== "given" || renew ? (
@@ -138,25 +144,23 @@ export function AiSharePanel(p: AiSharePanelProps) {
                 }}
                 data-ai-consent-form
               >
-                <p class="in-note">顧客に次の説明{v.explanationVersion !== undefined ? `（版${v.explanationVersion}）` : ""}を見せて（読み上げて）、同意をいただいてから記録してください。</p>
-                <blockquote class="ai-explain" data-ai-explanation>
-                  {v.explanation.split("\n").map((l) => (
+                {sheet ? (
+                  <p class="in-note" data-ai-sheet-note>
+                    ヒアリングシートの同意欄の次の文で記録します。この文は書類の読み取りに触れていないので、書類を AI に渡すことを含まない同意になります。書類を AI に渡す世帯は、記録した後に、今の説明を見せて記録し直してください。
+                  </p>
+                ) : (
+                  <p class="in-note">顧客に次の説明{v.explanationVersion !== undefined ? `（版${v.explanationVersion}）` : ""}を見せて（読み上げて）、同意をいただいてから記録してください。</p>
+                )}
+                <blockquote class="ai-explain" data-ai-explanation={sheet ? "hearingSheet" : "app"}>
+                  {(sheet ? (v.hearingSheetExplanation ?? "") : v.explanation).split("\n").map((l) => (
                     <p key={l}>{l}</p>
                   ))}
                 </blockquote>
                 <div class="ai-grid">
                   <label>
-                    提供先のAIの会社
-                    <input value={form.company} maxLength={60} onInput={(e) => setForm({ ...form, company: (e.currentTarget as HTMLInputElement).value })} data-ai-company />
-                  </label>
-                  <label>
-                    所在国
-                    <input value={form.country} maxLength={30} onInput={(e) => setForm({ ...form, country: (e.currentTarget as HTMLInputElement).value })} data-ai-country />
-                  </label>
-                  <label>
                     同意の取り方
-                    <select value={form.method} onChange={(e) => setForm({ ...form, method: (e.currentTarget as HTMLSelectElement).value as AiConsentMethod })} data-ai-method>
-                      {METHODS.map((m) => (
+                    <select value={sheet || consentMethods(renew).some((m) => m.value === form.method) ? form.method : "paper"} onChange={(e) => setForm({ ...form, method: (e.currentTarget as HTMLSelectElement).value as AiConsentMethod })} data-ai-method>
+                      {consentMethods(renew).map((m) => (
                         <option key={m.value} value={m.value}>
                           {m.label}
                         </option>
@@ -179,19 +183,20 @@ export function AiSharePanel(p: AiSharePanelProps) {
                   </details>
                   <p class="in-note">お名前・ご住所・お電話番号は持っていません。顧客番号・FPのメモ・相談内容の文章・呼び名・ほかの世帯は渡しません。</p>
                   <label>
-                    <input type="checkbox" checked disabled data-ai-scope-documents /> 書類の読み取り: 担当のFPが、お名前・ご住所・番号を伏せた書類を、読み取りのために AI に渡すことがあります（説明の3段落目）
+                    <input type="checkbox" checked={consentCoversDocuments(sheet ? "hearingSheet" : "paper")} disabled data-ai-scope-documents /> 書類の読み取り: 担当のFPが、お名前・ご住所・番号を伏せた書類を、読み取りのために AI に渡すことがあります
+                    {sheet ? "（ヒアリングシートの同意欄では含みません）" : "（説明の3段落目）"}
                   </label>
                 </fieldset>
                 <label class="ai-check">
                   <input type="checkbox" checked={form.noTraining} onChange={(e) => setForm({ ...form, noTraining: (e.currentTarget as HTMLInputElement).checked })} data-ai-no-training />
-                  提供先で、渡した情報がAIの学習に使われない設定であることを確かめました
+                  使う AI サービスで、渡した情報がAIの学習に使われない設定であることを確かめました
                 </label>
                 <label class="ai-check">
                   <input type="checkbox" checked={form.confirmed} onChange={(e) => setForm({ ...form, confirmed: (e.currentTarget as HTMLInputElement).checked })} data-ai-confirm />
-                  上の説明を顧客に見せて、同意をいただいたことを確かめました（FPの確認）
+                  {sheet ? "顧客がヒアリングシートの同意欄で、上の文に同意していることを確かめました（FPの確認）" : "上の説明を顧客に見せて、同意をいただいたことを確かめました（FPの確認）"}
                 </label>
                 <div class="ai-actions">
-                  <button type="submit" class="btn primary" disabled={busy || !form.confirmed || form.company.trim() === "" || form.country.trim() === ""} data-ai-record-given>
+                  <button type="submit" class="btn primary" disabled={busy || !form.confirmed} data-ai-record-given>
                     {renew ? "今の説明で同意を記録し直す" : "同意を記録する"}
                   </button>
                   {!renew ? (
@@ -211,7 +216,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
                 class="ai-form ai-withdraw"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  void run(() => p.ai.recordConsent(p.householdId, { decision: "withdrawn", obtainedOn: withdraw.date, method: withdraw.method, company: "", country: "", noTrainingConfirmed: false, fpConfirmed: withdraw.confirmed }), "撤回を記録しました。この世帯の共有は止めました").then((ok) => ok && setWithdraw(null));
+                  void run(() => p.ai.recordConsent(p.householdId, { decision: "withdrawn", obtainedOn: withdraw.date, method: withdraw.method, noTrainingConfirmed: false, fpConfirmed: withdraw.confirmed }), "撤回を記録しました。この世帯の共有は止めました").then((ok) => ok && setWithdraw(null));
                 }}
               >
                 <p>撤回を記録すると、この世帯の共有をすぐに止め、これからはAIに渡せません。すでに渡した内容は、AIの会社の側に残ることがあります。</p>
@@ -321,6 +326,8 @@ export function AiSharePanel(p: AiSharePanelProps) {
 /** 共有の記録（同意の記録・AIに渡した記録・AIからの候補） */
 export function AiRecords({ view }: { view: AiHouseholdView }) {
   const records = [...view.records].reverse();
+  // 提供先の会社は、前の版で記録した行だけが持つ（今は聞かない。0172）。そういう行があるときだけ列を出す
+  const withProvider = view.consents.some((c) => providerText(c.externalAi) !== null);
   return (
     <div class="ai-records" data-ai-records>
       <p class="in-note">接続先は FP の申告、呼び出し元は観測できた範囲の参考情報で、どちらも認証ではありません。記録は追記だけで、書き換え・削除はできません（世帯の完全削除のときだけ消えます）。</p>
@@ -415,7 +422,7 @@ export function AiRecords({ view }: { view: AiHouseholdView }) {
               <th>判断</th>
               <th>日付</th>
               <th>取り方</th>
-              <th>提供先</th>
+              {withProvider ? <th>提供先（前の記録）</th> : null}
               <th>学習に使われない設定</th>
             </tr>
           </thead>
@@ -425,12 +432,12 @@ export function AiRecords({ view }: { view: AiHouseholdView }) {
                 <td class="num">{dateTimeText(c.recordedAt)}</td>
                 <td>
                   {DECISION_LABELS[c.decision]}
-                  {c.decision === "given" ? `（${documentsLabel(c.documents).slice(1)}）` : ""}
+                  {c.decision === "given" ? `（${documentsLabel(c.documents, c.method).slice(1)}）` : ""}
                   {c.origin === "previousOffice" ? "（引き継ぎ）" : ""}
                 </td>
                 <td class="num">{c.obtainedOn}</td>
                 <td>{methodLabel(c.method)}</td>
-                <td>{c.externalAi !== undefined ? `${c.externalAi.company}（${c.externalAi.country}）` : "—"}</td>
+                {withProvider ? <td>{providerText(c.externalAi) ?? "—"}</td> : null}
                 <td>{c.externalAi !== undefined ? (c.externalAi.noTrainingConfirmed ? "確かめた" : "確かめていない") : "—"}</td>
               </tr>
             ))}

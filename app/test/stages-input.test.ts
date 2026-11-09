@@ -1,5 +1,5 @@
 // 段階と例外の年・働き方の期間ごとの伸びの欄（0040。形式 0.18）: カードの中で段・例外の年を足す・直す・外す、時点の部品で「いつから」を入れる、
-// 少しずつ移す段、器の利回りと資産配分の段階、給与・事業所得の伸びの率。書いた形がエンジンでそのまま計算でき、当て先（0036 の2）が付くこと
+// 少しずつ移す段、器の利回りと資産配分の段階、給与・事業所得の増減率。書いた形がエンジンでそのまま計算でき、当て先（0036 の2）が付くこと
 import { describe, expect, it } from "vitest";
 import type { Account, EngineRequest } from "../src/engine/types.ts";
 import { allFields, type ActionDef, type FieldDef, type StageDef } from "../src/workspace/input/form.ts";
@@ -190,7 +190,7 @@ describe("働き方の期間ごとの伸び（年率）", () => {
     expect(wh.request.input.household.employmentPeriods!.find((x) => x.id === p.id)!.salary!.growth).toBeUndefined();
   });
 
-  it("事業所得の伸び（空欄は前提の賃金上昇率）", () => {
+  it("事業所得の増減率（空欄は前提の賃金上昇率）", () => {
     let wh = open("selfEmployed");
     const p = wh.request.input.household.employmentPeriods!.find((x) => x.type === "selfEmployed")!;
     const f = fieldOf(wh, "work", (x) => x.key.endsWith("/businessGrowth") && (fieldAddress(x, wh)?.target as { object?: string } | undefined)?.object === p.id);

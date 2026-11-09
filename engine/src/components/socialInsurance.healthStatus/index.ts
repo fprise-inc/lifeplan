@@ -1,8 +1,8 @@
 // 月ごとの健康保険の種類（0008 の4: 導く）。75歳（誕生日の月）からは後期高齢者医療。勤め先の健康保険に入る月はその保険。
 // そうでない月は、世帯の構成員のうち勤め先の健康保険に入る人（本人・配偶者を先に）がいて、次を満たせば家族の扶養、それ以外は国民健康保険
 // （収入がある者についての被扶養者の認定。昭和52年4月6日 保発第9号・庁保発第9号）:
-// - その月からの1年の収入の見込み（給与・事業・公的年金。遺族年金・障害年金を含む）が被扶養者の基準の未満（60歳以上と、障害年金を受ける人は
-//   別の基準。19〜22歳は別の基準だが、扶養する人の配偶者には使わない）
+// - 収入の見込み（給与・事業・公的年金。遺族年金・障害年金を含む）が被扶養者の基準の未満（60歳以上と、障害年金を受ける人は
+//   別の基準。19〜22歳は別の基準だが、扶養する人の配偶者には使わない）。見込みは、その月の収入の状況が続くとしたらの年額（改訂9）
 // - 同居なら、扶養する人の収入の見込みの2分の1の未満。別居（親・祖父母で member.support.cohabiting が false）なら、仕送りの年額
 //   （support.allowance の12か月分。入力が無いときは確かめない）の未満
 // - 親・祖父母は、扶養していること（member.support.dependent）を入れたときだけ
@@ -22,56 +22,19 @@
 //   亡くなった月から国民健康保険（その月の勤め先の健康保険・任意継続に扶養する人が入らないので）
 // - 収入の見込み（その月からの12か月）は、その月より後に世帯の人が亡くなる月から先を、その1年前の月とみなす（その月にはまだ分からない死亡で
 //   出る遺族年金・止まる給与を、亡くなる前の扶養の判定に入れない。表の外の月と同じ扱い）
-import {
-  addMonths,
-  addYen,
-  allowanceRowsAnnual,
-  ageMonth,
-  deathMonthOf,
-  defineComponent,
-  EMPLOYER_HEALTH_KINDS,
-  insuranceEndMonth,
-  isOutside,
-  OUTSIDE_CHILD_SUPPORT_READS,
-  monthOf,
-  prospectiveMonths,
-  prospectiveYear,
-  parseYm,
-  yearOf,
-  yen,
-  type BusinessOutput,
-  type DisabilityPensionOutput,
-  type EmployeeStatusOutput,
-  type EmploymentPeriodInput,
-  type HealthStatusMonth,
-  type MemberInput,
-  type MonthIndex,
-  type PensionOutput,
-  type SalaryOutput,
-  type SurvivorPensionOutput,
-  type UnemploymentOutput,
-  type Yen,
-} from "../../sdk/index.ts";
-
-const P = {
-  lateElderly: "socialInsurance.health.lateElderlyAge",
-  limit: "socialInsurance.dependent.incomeLimit",
-  limitElderly: "socialInsurance.dependent.incomeLimitElderly",
-  elderlyAge: "socialInsurance.dependent.elderlyAge",
-  limitYoung: "socialInsurance.dependent.incomeLimitYoung",
-  youngFrom: "socialInsurance.dependent.youngFromAge",
-  youngUntil: "socialInsurance.dependent.youngUntilAge",
-  continuationMonths: "socialInsurance.health.continuation.maxMonths",
-};
-
-/** 雇用保険の給付の日額を年額に直す日数（被扶養者の認定で日額×360 と基準を比べる） */
-const DAYS_PER_YEAR = 360;
+// 改訂9（0174）: 収入の見込みを「その月からの1年に払われる額」から「その月の収入の状況が続くとしたらの年額」に改めた（0008 の追記 2026-10-25 の1 を
+//   改めた。収入がある者についての被扶養者の認定の「今後1年間の収入の見込み」を、実際の認定と同じく今の収入の状況で見る）。給与・事業所得は、
+//   その月に続いている働き方の期間ごとに、その月からの12か月（期間の最後の月より後の月は1年前の月とみなす）の額。公的年金はその月の年額。
+//   まだ始まっていない仕事・年金は見込みに入れず（働き始めた月・受け始めた月から外れる）、終わった仕事は入れない（辞めた翌月から扶養に入る）。
+//   障害年金を受ける人の基準は、その月に障害年金を受ける人に使う。改訂6（表の外の月）と改訂8 の見込みの決まり（亡くなった後の月を入れない）は、
+//   先の月を数えないので要らなくなった。決まりは pension.category と共通（sdk の deriveHealthStatus）
+import { defineComponent, deriveHealthStatus, HEALTH_STATUS_PARAMS, HEALTH_STATUS_READS, type HealthStatusMonth } from "../../sdk/index.ts";
 
 export default defineComponent<{ member: string }, { months: HealthStatusMonth[] }>({
   id: "socialInsurance.healthStatus",
   title: "健康保険の種類（導く）",
   contract: "1.0",
-  revision: 8,
+  revision: 9,
   requires: {
     "contingency.event": ">=1 <2",
     "socialInsurance.employeeStatus": ">=1 <2",
@@ -82,170 +45,12 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
     "pension.disability": ">=1 <2",
     "benefit.unemployment": ">=1 <2",
   },
-  params: Object.values(P),
-  reads: ["member.outside", "member.kind", "member.birth", "member.joins", "member.leaves", "member.support", "employment.healthInsurance.kind", "employment.type", ...OUTSIDE_CHILD_SUPPORT_READS, "periodicExpense.everyYears"],
+  params: Object.values(HEALTH_STATUS_PARAMS),
+  reads: [...HEALTH_STATUS_READS],
   memberScope: ["employment"],
   input: "member.input",
   output: "socialInsurance.healthStatus.output",
   compute(input, ctx) {
-    const member = input.member;
-    const { base, end } = ctx.time;
-    const own = ctx.call<EmployeeStatusOutput>("socialInsurance.employeeStatus", { member }).months;
-    if (own.length === 0) return { months: [] };
-    const first = parseYm((own[0] as { month: string }).month);
-    const at0 = first < base ? base : first;
-    const late = ageMonth(ctx, at0, P.lateElderly, member);
-    const elderly = ageMonth(ctx, at0, P.elderlyAge, member);
-    const youngFrom = ageMonth(ctx, at0, P.youngFrom, member);
-    const youngUntil = ageMonth(ctx, at0, P.youngUntil, member);
-    const periods = ctx.list<EmploymentPeriodInput>("employment");
-    // 生まれる前・世帯にいない月は、どの保険にも入らない（none）
-    const me = ctx.get<MemberInput>("member", member);
-    const born = parseYm(me.birth.birthYearMonth);
-    const joins = me.joins === null ? null : ctx.time.resolve(me.joins);
-    // 世帯から離れる月か、亡くなる月から（改訂8）
-    const leaves = insuranceEndMonth(ctx, me);
-    const absent = (m: MonthIndex) => m < born || (joins !== null && m < joins) || (leaves !== null && m >= leaves);
-    const isCouple = (k: MemberInput["kind"]) => k === "self" || k === "spouse";
-    // 親・祖父母は、扶養していると入れたときだけ扶養の候補にする（生計維持の関係は入力でしか分からない）
-    // 世帯の外の家族（0035 の4）も、扶養していると入れたときだけ。同居は入れたときだけ（家計が別の家族は別居が既定）
-    const elder = me.kind === "parent" || me.kind === "grandparent" || isOutside(me);
-    const canBeDependent = !elder || me.support?.dependent === true;
-    const cohabiting = isOutside(me) ? me.support?.cohabiting === true : !elder || me.support?.cohabiting !== false;
-    const allowanceField = me.support?.allowance !== undefined ? ctx.money.mulRatio(me.support.allowance, 12, 1, "conv.exact") : null;
-    // 仕送りの年額（その月を含む仕送りの行があれば行の額、無ければ人の欄。別居の親・祖父母だけ。改訂7）
-    const allowanceAt = (m: MonthIndex): Yen | null => (elder && !cohabiting ? (allowanceRowsAnnual(ctx, member, m) ?? allowanceField) : null);
-    const allMembers = ctx.list<MemberInput>("member");
-    // 任意継続の月（期間に任意継続を書いた月の続きの始まりから2年まで。健康保険法38条1号）
-    // 扶養する人の働き方の期間は読めない（memberScope）ので、socialInsurance.employeeStatus の continuation（約束の版 1.1）で知る（欄が無い差し替えの部品なら、任意継続の人は扶養する人にならない）
-    const continuationMonths = (st: readonly EmployeeStatusOutput["months"][number][]): Set<string> => {
-      const out = new Set<string>();
-      let from: MonthIndex | null = null;
-      let lastM: MonthIndex | null = null;
-      for (const x of st) {
-        if (x.health || x.continuation !== true) continue;
-        const m = parseYm(x.month);
-        if (from === null || lastM === null || addMonths(lastM, 1) !== m) from = m;
-        lastM = m;
-        const at = ctx.at(m);
-        const max = at.has(P.continuationMonths) ? at.paramCount(P.continuationMonths) : null;
-        if (max === null || m - from < max) out.add(x.month);
-      }
-      return out;
-    };
-    const supporters = allMembers
-      .filter((m) => m.id !== member)
-      .sort((a, b) => Number(isCouple(b.kind)) - Number(isCouple(a.kind)))
-      .map((m) => {
-        const lateS = ageMonth(ctx, at0, P.lateElderly, m.id);
-        const st = ctx.call<EmployeeStatusOutput>("socialInsurance.employeeStatus", { member: m.id }).months;
-        // 勤め先の健康保険か任意継続に入る月（後期高齢者医療の前・世帯から離れる前・亡くなる前。改訂8）
-        const endS = insuranceEndMonth(ctx, m);
-        const cont = continuationMonths(st);
-        const insured = new Set(st.filter((x) => (x.health || cont.has(x.month)) && parseYm(x.month) < lateS && (endS === null || parseYm(x.month) < endS)).map((x) => x.month));
-        // 世帯の外の家族で、勤め先の健康保険に入っている（outside.employeeInsurance）人は、後期高齢者医療の前の月はいつも扶養する人になれる
-        // （0035 の4。世帯の人はその人と別居とみなし、収入の2分の1の決まりは見ない）
-        const outsideInsured = isOutside(m) && m.outside?.employeeInsurance === true;
-        if (outsideInsured) for (const s of own) if (parseYm(s.month) < lateS) insured.add(s.month);
-        return { id: m.id, spouse: isCouple(m.kind) && isCouple(me.kind), apart: isOutside(m) && !isOutside(me), insured };
-      });
-    // 世帯の人の亡くなる月（改訂8。その月より前の見込みには、亡くなった後の月を入れない）
-    const deaths = allMembers.map((m) => deathMonthOf(ctx, m.id)).filter((d): d is MonthIndex => d !== null);
-    const horizon = (m: MonthIndex): MonthIndex => deaths.reduce((h, d) => (d > m && addMonths(d, -1) < h ? addMonths(d, -1) : h), end);
-    // 収入の見込み（その月から12か月）: 給与（賞与・通勤手当を含む）・事業所得（年額の12分の1ずつ）・公的年金（遺族年金・障害年金を含む）の支払い
-    const incomes = new Map<string, { prospective: (m: MonthIndex) => Yen; disabled: (m: MonthIndex) => boolean }>();
-    const incomeOf = (id: string) => {
-      const hit = incomes.get(id);
-      if (hit !== undefined) return hit;
-      const cash = new Map<string, Yen>();
-      const put = (ym: string, a: Yen) => cash.set(ym, addYen(cash.get(ym) ?? yen(0), a));
-      for (const p of ctx.call<SalaryOutput>("income.salary", { member: id }).payments) put(p.ym, addYen(addYen(p.salary, p.bonus), p.commuting));
-      for (const p of ctx.call<PensionOutput>("pension.oldAge", { member: id }).payments) put(p.ym, p.amount);
-      for (const f of ctx.call<SurvivorPensionOutput>("pension.survivor", { member: id }).flows) if (f.row === "cf.income.pension.survivor") put(f.ym, f.amount);
-      const disability = new Set<string>();
-      for (const f of ctx.call<DisabilityPensionOutput>("pension.disability", { member: id }).flows) {
-        put(f.ym, f.amount);
-        if (f.amount > 0) disability.add(f.ym);
-      }
-      const business = new Map(ctx.call<BusinessOutput>("income.business", { member: id }).byYear.map((b) => [b.year, b.income]));
-      // その月からの12か月。表の外の月は1年前の月とみなす（改訂6）。その月より後に世帯の人が亡くなるときは、亡くなる月から先も1年前の月とみなす（改訂8）
-      const window = (m: MonthIndex) => prospectiveMonths(m, horizon(m));
-      const out = {
-        prospective: (m: MonthIndex): Yen => {
-          let s = yen(0);
-          for (const ym of window(m)) s = addYen(s, cash.get(ym) ?? yen(0));
-          const k0 = 13 - monthOf(m);
-          s = addYen(s, ctx.money.mulRatio(business.get(yearOf(m)) ?? yen(0), k0, 12, "conv.salary.monthly"));
-          return addYen(s, ctx.money.mulRatio(business.get(prospectiveYear(yearOf(m) + 1, horizon(m))) ?? yen(0), 12 - k0, 12, "conv.salary.monthly"));
-        },
-        // 障害年金を受ける（障害厚生年金を受けられる程度の障害がある）とみなす月: その月からの1年に障害年金の支払いがある
-        disabled: (m: MonthIndex): boolean => window(m).some((ym) => disability.has(ym)),
-      };
-      incomes.set(id, out);
-      return out;
-    };
-    const mine = incomeOf(member);
-    // 基本手当を受ける月の日額
-    const allowanceDaily = new Map(ctx.call<UnemploymentOutput>("benefit.unemployment", { member }).receipts.map((x) => [x.month, x.daily]));
-    const months: HealthStatusMonth[] = [];
-    // 任意継続を入れた月の続きの始まりの月と、最後に任意継続を入れた月
-    let continuationFrom: MonthIndex | null = null;
-    let continuationLast: MonthIndex | null = null;
-    for (const s of own) {
-      const m = parseYm(s.month);
-      if (absent(m)) {
-        months.push({ month: s.month, kind: "none" });
-        continue;
-      }
-      if (m >= late) {
-        months.push({ month: s.month, kind: "lateElderly" });
-        continue;
-      }
-      if (s.health) {
-        const emp = periods.find((p) => p.id === s.employer);
-        months.push({ month: s.month, kind: (emp?.healthInsurance?.kind ?? "kyokaikenpo") as HealthStatusMonth["kind"] });
-        continue;
-      }
-      // 期間に書いた勤め先以外の健康保険は、FP の上書き
-      const explicit = periods.find((p) => p.id === s.period)?.healthInsurance?.kind;
-      if (explicit === "continuation") {
-        if (continuationFrom === null || continuationLast === null || addMonths(continuationLast, 1) !== m) continuationFrom = m;
-        continuationLast = m;
-        const at = ctx.at(m);
-        const max = at.has(P.continuationMonths) ? at.paramCount(P.continuationMonths) : null;
-        // 2年を過ぎた月は任意継続でなくなり、下の決まりで導く
-        if (max === null || m - continuationFrom < max) {
-          months.push({ month: s.month, kind: "continuation" });
-          continue;
-        }
-      } else if (explicit !== undefined && !EMPLOYER_HEALTH_KINDS.has(explicit)) {
-        months.push({ month: s.month, kind: explicit as HealthStatusMonth["kind"] });
-        continue;
-      }
-      const supporter = canBeDependent
-        ? supporters.find((x) => {
-            if (!x.insured.has(s.month)) return false;
-            const at = ctx.at(m < base ? base : m);
-            const income = mine.prospective(m);
-            const young = !x.spouse && m >= youngFrom && m < youngUntil ? at.paramYen(P.limitYoung) : null;
-            const limit = m >= elderly || mine.disabled(m) ? at.paramYen(P.limitElderly) : (young ?? at.paramYen(P.limit));
-            if (limit !== null && income >= limit) return false;
-            const daily = allowanceDaily.get(s.month);
-            if (daily !== undefined && limit !== null && ctx.money.mulRatio(daily, DAYS_PER_YEAR, 1, "conv.exact") >= limit) return false;
-            // 同居なら扶養する人の収入の2分の1の未満、別居なら仕送りの額の未満（世帯の外の家族の扶養に入る世帯の人は別居）
-            if (x.apart) return true;
-            // 収入の見込みが0なら、扶養する人の収入が0でも満たす（改訂8）
-            if (cohabiting) return income === 0 || ctx.money.mulRatio(income, 2, 1, "conv.exact") < incomeOf(x.id).prospective(m);
-            const allowance = allowanceAt(m);
-            return allowance === null || income < allowance;
-          })
-        : undefined;
-      if (supporter !== undefined) {
-        months.push({ month: s.month, kind: "dependent", supporter: supporter.id });
-        continue;
-      }
-      months.push({ month: s.month, kind: "national" });
-    }
-    return { months };
+    return { months: deriveHealthStatus(ctx, input.member, true) };
   },
 });
