@@ -18,13 +18,17 @@ describe("FP のメニューの中身", () => {
     const full = fpMenuGroups({ snapshots: 2, review: { last: "2026年10月", next: "2027年10月" }, imports: { ai: true }, office: { storage: "このPCの中", share: "オフ（既定）" } });
     expect(full.map((g) => g.id)).toEqual(["snapshots", "tools", "imports", "office", "feedback"]);
     // 見出しは「面談の準備」（前の名前は「FPの道具」。識別子の tools はそのまま）
-    expect(full.map((g) => g.label)).toEqual(["控え", "面談の準備", "取り込む", "事務所の設定", "ファイナンシアへ"]);
+    expect(full.map((g) => g.label)).toEqual(["控え", "面談の準備", "ヒアリング・取り込む", "事務所の設定", "ファイナンシアへ"]);
     expect(full[0]!.items.map((i) => i.label)).toEqual(["この時点を残す", "控えの一覧（2件）"]);
     expect(full[1]!.items.map((i) => i.action)).toEqual(["contents", "year", "review"]);
     // 前の名前は「見直し」（何を見直すのか分からないため改めた。識別子の review はそのまま。0074 の追記）
     expect(full[1]!.items.map((i) => i.label)).toEqual(["世帯の中身の一覧", "次の1年に起きること", "前回から変わったこと"]);
     expect(full[1]!.items[2]!.note).toContain("2027年10月");
     expect(full[2]!.items.map((i) => i.action)).toEqual(["hearing", "ai"]);
+    // ヒアリングは聞く（Excel・URL）と取り込むの入口。Web のヒアリングの届いた知らせを右に添える（0192）
+    expect(full[2]!.items[0]!.label).toBe("ヒアリング（Excel・URL で聞く・取り込む）");
+    expect(full[2]!.items[0]!.note).toBeUndefined();
+    expect(fpMenuGroups({ snapshots: 0, review: null, imports: { ai: true, hearing: "回答が届いています 1件" }, office: null })[2]!.items[0]!.note).toBe("回答が届いています 1件");
     expect(full[3]!.items.map((i) => [i.action, i.note])).toEqual([
       ["storage", "このPCの中"],
       ["office", "オフ（既定）"],

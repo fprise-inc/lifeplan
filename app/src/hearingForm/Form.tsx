@@ -477,7 +477,10 @@ function AnswerList({ p, list, d, itemOf, onFix }: { p: QuestionsPacket; list: r
               const mainShown = main !== undefined && main.status !== "later";
               // 別の答え方（範囲・年齢）は、答えの欄が空か「わからない」か、生年月の月がわからないときに添える
               const withSubs = subs.length > 0 && mainShown && (main.status !== "value" || raw2Text(main) === MONTH_UNKNOWN);
-              const shown = !mainShown && subs.length > 0 ? subs.map((x) => answerText(x.it, x.a)).join("・") : !mainShown ? "（まだ）" : answerText(it, main) + (withSubs ? `（${subs.map((x) => answerText(x.it, x.a)).join("・")}）` : "");
+              const base = !mainShown && subs.length > 0 ? subs.map((x) => answerText(x.it, x.a)).join("・") : !mainShown ? "（まだ）" : answerText(it, main) + (withSubs ? `（${subs.map((x) => answerText(x.it, x.a)).join("・")}）` : "");
+              // ご相談したいこと: 選んだ話題と、書いた文（0192）
+              const picked = it.topics === undefined ? [] : it.topics.filter((t) => (d.topics ?? []).includes(t));
+              const shown = picked.length === 0 ? base : `${picked.join("、")}${mainShown ? `（${answerText(it, main)}）` : ""}`;
               return (
                 <div key={draftKey(r.f.key, r.f.index)} class={`hf-rv${fieldAnswered(d, r.f) ? "" : " todo"}`}>
                   <dt>
@@ -531,6 +534,18 @@ function DocumentList({ p, d, onFix }: { p: QuestionsPacket; d: Draft; onFix?: (
   );
 }
 
+/** 送った内容の一覧（見るだけ）。FP のアプリの依頼の一覧の「お答えを見る」でも、お客さまの送った後の画面と同じ並び・同じ言葉で出す（0192） */
+export function SentAnswers({ packet, draft }: { packet: QuestionsPacket; draft: Draft }) {
+  const list = useMemo(() => screens(packet, draft), [packet, draft]);
+  const itemOf = useMemo(() => new Map(packet.items.map((i) => [i.key, i])), [packet]);
+  return (
+    <div class="hf-review hf-sent-list" data-hf-sent-list>
+      <AnswerList p={packet} list={list} d={draft} itemOf={itemOf} />
+      <DocumentList p={packet} d={draft} />
+    </div>
+  );
+}
+
 /** この端末の入力を消す（押し間違えないように、2回目で消す） */
 function ClearDraft({ onClear }: { onClear: () => void }) {
   const [ask, setAsk] = useState(false);
@@ -556,7 +571,24 @@ function ClearDraft({ onClear }: { onClear: () => void }) {
 }
 
 /** 画面の中の1つの問い（答えの欄・別の答え方・わからない など） */
-function Question({ p, d, f, itemOf, setAnswer, first, showHead, now, mode }: { p: QuestionsPacket; d: Draft; f: ScreenField; itemOf: Map<string, WebItem>; setAnswer: (key: string, index: number | undefined, a: DraftAnswer | undefined) => void; first: boolean; showHead: boolean; now: Date; mode: FormProps["mode"] }) {
+/** ご相談したいことの話題（いくつでも選べる。0192） */
+function Topics({ item, picked, onChange }: { item: WebItem; picked: readonly string[]; onChange: (t: string[]) => void }) {
+  const list = item.topics ?? [];
+  return (
+    <div class="hf-choices hf-compact hf-multi" role="group" aria-label={item.label} data-hf-topics>
+      {list.map((t) => {
+        const on = picked.includes(t);
+        return (
+          <button type="button" key={t} class={`hf-choice${on ? " on" : ""}`} aria-pressed={on} onClick={() => onChange(on ? picked.filter((x) => x !== t) : list.filter((x) => x === t || picked.includes(x)))} data-hf-topic={t}>
+            {t}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function Question({ p, d, f, itemOf, setAnswer, setTopics, first, showHead, now, mode }: { p: QuestionsPacket; d: Draft; f: ScreenField; itemOf: Map<string, WebItem>; setAnswer: (key: string, index: number | undefined, a: DraftAnswer | undefined) => void; setTopics: (t: string[]) => void; first: boolean; showHead: boolean; now: Date; mode: FormProps["mode"] }) {
   const it = itemOf.get(f.key) as WebItem;
   const a = d.answers[draftKey(f.key, f.index)];
   const head = indexLabel(it, f.index);
@@ -593,6 +625,12 @@ function Question({ p, d, f, itemOf, setAnswer, first, showHead, now, mode }: { 
               くわしい額を入れる
             </button>
           )}
+        </>
+      ) : it.topics !== undefined ? (
+        <>
+          <Topics item={it} picked={d.topics ?? []} onChange={setTopics} />
+          <p class="hf-also-h">ほかにあれば、自由にお書きください（任意）</p>
+          <Field item={it} a={a?.status === "value" ? a : undefined} onChange={setMain} years={p.years} autoFocus={false} now={now} monthUnknown={false} />
         </>
       ) : (
         <>
@@ -766,6 +804,14 @@ export function HearingForm(props: FormProps): JSX.Element {
       if (a === undefined) delete answers[draftKey(key, index)];
       else answers[draftKey(key, index)] = a;
       return { ...cur, answers };
+    });
+  };
+  const setTopics = (t: string[]) => {
+    setProblem(null);
+    update((cur) => {
+      const { topics: _t, ...rest } = cur;
+      void _t;
+      return t.length > 0 ? { ...rest, topics: t } : rest;
     });
   };
   const go = (n: number) => {
@@ -1003,7 +1049,7 @@ export function HearingForm(props: FormProps): JSX.Element {
           {head !== null ? <b class="hf-who">{head}</b> : null}
         </p>
         {screen.fields.map((f, i) => (
-          <Question key={`${screenId(screen)}:${draftKey(f.key, f.index)}`} p={p} d={d} f={f} itemOf={itemOf} setAnswer={setAnswer} first={i === 0} showHead={!sameIndex} now={now} mode={mode} />
+          <Question key={`${screenId(screen)}:${draftKey(f.key, f.index)}`} p={p} d={d} f={f} itemOf={itemOf} setAnswer={setAnswer} setTopics={setTopics} first={i === 0} showHead={!sameIndex} now={now} mode={mode} />
         ))}
         {problem !== null ? (
           <p class="hf-err" role="alert">
@@ -1028,7 +1074,7 @@ export function HearingForm(props: FormProps): JSX.Element {
             <p class="hf-pre">{insteadLine(doc, screen, p)}</p>
             <GateQuestions p={p} d={d} gates={screen.gates} onPick={pickGate} first={false} />
             {screen.fields.map((f) => (
-              <Question key={`${screenId(screen)}:${draftKey(f.key, f.index)}`} p={p} d={d} f={f} itemOf={itemOf} setAnswer={setAnswer} first={false} showHead now={now} mode={mode} />
+              <Question key={`${screenId(screen)}:${draftKey(f.key, f.index)}`} p={p} d={d} f={f} itemOf={itemOf} setAnswer={setAnswer} setTopics={setTopics} first={false} showHead now={now} mode={mode} />
             ))}
             {problem !== null ? (
               <p class="hf-err" role="alert">

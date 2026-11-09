@@ -17,7 +17,7 @@ import { modelHousehold, preview } from "./helpers.ts";
 const OFFICE = { name: "【架空】みらいFP事務所", purpose: "ライフプランの作成のため", privacyContact: "【架空】個人情報の窓口" };
 /** 配った basic 版1（廃止。書き出さないが取り込める）の見本 */
 const SAMPLE = new Uint8Array(readFileSync(join(REPO_DIR, "hearing", "samples", "basic-1-sample.xlsx")));
-/** 簡易版（basic 版2。初回の前の軽い票）の見本 */
+/** シンプルの票（basic 版2。大まかに聞く軽い票）の見本 */
 const SIMPLE = new Uint8Array(readFileSync(join(REPO_DIR, "hearing", "samples", "basic-2-sample.xlsx")));
 /** 詳細版（full 版2）の見本（ご本人は会社役員で、会社とのお金の欄を記入。0105） */
 const FULL2 = new Uint8Array(readFileSync(join(REPO_DIR, "hearing", "samples", "full-2-sample.xlsx")));

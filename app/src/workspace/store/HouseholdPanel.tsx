@@ -2,6 +2,7 @@
 // 見本の棚（アプリに入っている見本と、自分で作った見本。顧客番号を持たず、顧客の一覧には混ぜない。0033）。
 // 一覧に出すのは表示用の顧客番号（区分の記号＋通し番号。区分を使わないときは通し番号だけ）と構成の要約（続柄と人数）だけ。氏名は持たない（0012）。
 // 区分を使うかは、初めて世帯の一覧を使うときに1回だけ聞く（区分の設定がまだ一度も決まっていないとき。0033 の追記）
+import { splitSummary } from "../hearing/web.ts";
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { PopIcon } from "../../presentation/icons.tsx";
@@ -24,6 +25,8 @@ export interface HouseholdPanelProps {
   list: StoredHousehold[];
   /** 開いている保存した世帯（見本を開いているときは見本の世帯） */
   currentId: string | null;
+  /** 開いている世帯の Web のヒアリングの印（「回答が届いています」など。無ければ null。渡さなければ保存したときの印。0192） */
+  currentMark?: string | null;
   /** 区分の一覧（空は区分を使わない） */
   categories: Category[];
   /** 区分を使うかを決めたか（false なら「区分を使いますか？」を1回だけ聞く。省略は決めたもの） */
@@ -564,7 +567,19 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                         ) : null}
                       </td>
                       {useCats ? <td data-household-category={h.category ?? ""}>{categoryText(p.categories, h.category)}</td> : null}
-                      <td>{h.summary || "—"}</td>
+                      <td>
+                        {((x) => (
+                          <>
+                            {x.family || "—"}
+                            {/* Web のヒアリングの印（保存したときの印。開いている世帯は今の印。0192） */}
+                            {(h.id === p.currentId && p.currentMark !== undefined ? p.currentMark : x.mark) !== null ? (
+                              <span class="pl-tag hh-hearing" data-household-hearing>
+                                {h.id === p.currentId && p.currentMark !== undefined ? p.currentMark : x.mark}
+                              </span>
+                            ) : null}
+                          </>
+                        ))(splitSummary(h.summary))}
+                      </td>
                       <td class="num">{shortDate(h.updatedAt)}</td>
                       {shared ? <td data-household-editor>{h.updatedBy ?? "—"}</td> : null}
                       {shared ? (

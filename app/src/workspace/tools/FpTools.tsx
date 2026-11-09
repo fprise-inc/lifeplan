@@ -9,7 +9,7 @@ import { man } from "../../presentation/format.ts";
 import { snapshotDateText, TRIGGER_TEXT, type Snapshot } from "../snapshots/snapshots.ts";
 import { withoutRemovedAssumptions } from "../surplus.ts";
 import { householdContents, inputChanges, nextYearEvents, pastPlans, resultFigures, type ResultFigures } from "./fpTools.ts";
-import { gateNotes } from "../hearing/web.ts";
+import { consultNotes, gateNotes } from "../hearing/web.ts";
 
 export interface FpToolsProps {
   wh: WorkingHousehold;
@@ -215,7 +215,7 @@ function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, 
           )}
         </li>
         <li>
-          <b>ヒアリングシートの見直し</b>（「取り込む」のヒアリングシートで「見直し（前回の値つき）」を書き出し、記入されたシートを取り込みます。確かめの一覧で「次回確かめる」の印を付けた所は、印の行を写して面談に使えます）
+          <b>ヒアリングシートの見直し</b>（「ヒアリング・取り込む」で「見直し」の Excel を書き出すか URL で聞き、届いた答えを取り込みます。確かめの一覧で「次回確かめる」の印を付けた所は、印の行を写して面談に使えます）
           <GateNotes wh={wh} />
         </li>
         <li data-fp-review-diff>
@@ -281,26 +281,53 @@ function Review({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge, 
 /** Web のヒアリングで届いた分岐の答え（お子さまの人数など）と、今の世帯との違い（0158。面談で確かめる。読むだけ） */
 function GateNotes({ wh }: { wh: WorkingHousehold }) {
   const g = useMemo(() => gateNotes(wh), [wh]);
-  if (g === null) return null;
+  const c = useMemo(() => consultNotes(wh), [wh]);
+  // ご相談したいこと（選んだ話題と書いた文。0192）は、分岐の答えが無くても出す
+  const consult =
+    c === null ? null : (
+      <div class="fp-gates" data-fp-consult>
+        <p class="fp-sub">
+          Web のヒアリングで届いたご相談したいこと（{c.requestId}・{new Date(c.receivedAt).toLocaleDateString("ja-JP")} に受け取り）
+        </p>
+        <ul class="fp-list">
+          {c.topics.length > 0 ? (
+            <li data-fp-consult-topics>
+              <span class="fp-when">選んだ話題</span>
+              <span>{c.topics.join("、")}</span>
+            </li>
+          ) : null}
+          {c.text !== null ? (
+            <li data-fp-consult-text>
+              <span class="fp-when">書いたこと</span>
+              <span>{c.text}</span>
+            </li>
+          ) : null}
+        </ul>
+      </div>
+    );
+  if (g === null) return consult;
   const diff = g.lines.filter((l) => l.now !== null).length;
   return (
-    <div class="fp-gates" data-fp-gates>
-      <p class="fp-sub">
-        Web のヒアリングで届いた人数など（{g.requestId}・{new Date(g.receivedAt).toLocaleDateString("ja-JP")} に受け取り）{diff > 0 ? `。今の世帯と違うもの ${diff}件は面談で確かめてください` : ""}
-      </p>
-      <ul class="fp-list">
-        {g.lines.map((l) => (
-          <li key={l.label} data-fp-gate>
-            <span class="fp-when">{l.label}</span>
-            <span>{l.text}とのお答え</span>
-            {l.now !== null ? (
-              <span class="fp-v">
-                今の世帯は <b>{l.now}</b>
-              </span>
-            ) : null}
-          </li>
-        ))}
-      </ul>
-    </div>
+    <>
+      {consult}
+      <div class="fp-gates" data-fp-gates>
+        <p class="fp-sub">
+          Web のヒアリングで届いた人数など（{g.requestId}・{new Date(g.receivedAt).toLocaleDateString("ja-JP")} に受け取り）{diff > 0 ? `。今の世帯と違うもの ${diff}件は面談で確かめてください` : ""}
+        </p>
+        <ul class="fp-list">
+          {g.lines.map((l) => (
+            <li key={l.label} data-fp-gate>
+              <span class="fp-when">{l.label}</span>
+              <span>{l.text}とのお答え</span>
+              {l.now !== null ? (
+                <span class="fp-v">
+                  今の世帯は <b>{l.now}</b>
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </>
   );
 }

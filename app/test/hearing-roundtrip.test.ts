@@ -15,7 +15,7 @@ import { answersOf, draftKey, fieldAnswered, fieldKeys, initialDraft, markSent, 
 import { FILLED_ON } from "../../hearing/src/web/packet.ts";
 import { API_PREFIX } from "../../hearing/src/web/protocol.ts";
 import { applyImport, approvalTime, defaultSelection, type ImportView } from "../src/workspace/hearing/sheet.ts";
-import { cleanupOnServer, documentFromTemplate, importWeb, issueWeb, markImported, officeFace, previewPacket, receiveWeb, receivedDocuments, templateSelection, webLog, type WebLogEntry, type WebTaken, type WebTemplateKind } from "../src/workspace/hearing/web.ts";
+import { answeredScreens, cleanupOnServer, documentFromTemplate, estimateOf, importWeb, issueWeb, markImported, officeFace, receiveWeb, receivedDocuments, templateSelection, webLog, type WebLogEntry, type WebTaken, type WebTemplateKind } from "../src/workspace/hearing/web.ts";
 import { fromRequest, withElementIds, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
@@ -35,7 +35,7 @@ const filled = (): WorkingHousehold => fromRequest(modelHousehold("salariedCoupl
 // ---- ひな形（名前が変わったら、ここだけ合わせる） ----
 
 /** 簡易の票（シンプル） */
-const SIMPLE: WebTemplateKind = "first";
+const SIMPLE: WebTemplateKind = "simple";
 const REVIEW: WebTemplateKind = "review";
 
 // ---- 答えの形 ----
@@ -144,15 +144,20 @@ async function sendLater(w: Walked, t: RelayTransport, docId: string, seed: numb
 
 // ---- 数 ----
 
-/** 問いの画面の数（FP の画面の「問い N」と同じ単位: 問いの画面だけ。分岐の問い・同意・書類・確かめは入れない） */
-const itemCount = (list: readonly Screen[]) => list.filter((x) => x.kind === "item").length;
+/** お客さまの画面の数（FP の画面・お客さまの最初の画面・案内文と同じ単位〔0192〕: 同意・分岐の問い・問いの画面。書類・確かめは入れない） */
+const answerScreens = (list: readonly Screen[]) => list.filter((x) => x.kind === "consent" || x.kind === "gate" || x.kind === "item");
 /** 問いの画面に出た問い（draftKey。別の答え方の欄〔範囲・年齢〕も入れる） */
 const shownKeys = (list: readonly Screen[]) => list.flatMap((x) => screenFields(x).flatMap((f) => fieldKeys(f).map((key) => k(key, f.index))));
 
-/** FP の画面（WebBuilder.tsx）の「URL を発行する（問い N）」と同じ数え方 */
-async function fpQuestionCount(wh: WorkingHousehold, sel: WebSelection): Promise<number> {
-  const p = await previewPacket(wh, sel, OFFICE, NOW);
-  return screens(p, initialDraft(p)).filter((x) => x.kind === "item").length;
+/**
+ * FP の画面（WebBuilder.tsx の「お客さまの画面: 問い N画面」。0192 の4）と同じ数え方: 開いている世帯の人数で数えた数（本人だけの世帯は夫婦と子2人）と、
+ * ご両親を聞く票で、お客さまが「ご両親のことは答えない」を選んだときの数
+ */
+function fpQuestionCount(wh: WorkingHousehold, sel: WebSelection): { screens: number; withoutParents: number } {
+  const e = estimateOf(wh, sel);
+  if (e === null) throw new Error("数えられない選び方");
+  const n = (e.own ?? e.std).screens;
+  return { screens: n, withoutParents: e.withoutParents?.screens ?? n };
 }
 
 /** お客さまが答えた問い（送る答えに入るはずのもの: 出ている問いの、「あとで」でない答え。月の無い生年月は送らない） */
@@ -341,19 +346,17 @@ describe("通しの点検: 値の入った世帯に、シンプルの票を送�
     expect(estimate(w.o.packet).screens).toBe(w.final.filter((x) => x.kind === "consent" || x.kind === "gate" || x.kind === "item").length);
   });
 
-  it.fails("直す待ち（FP の画面）: FP の画面の「問い N」が、開いている世帯の人数（夫婦と子2人）でお客さまが答える問いの画面の数と同じ", async () => {
+  it("FP の画面の「問い N画面」が、開いている世帯の人数（夫婦と子2人）でお客さまが答える画面の数と同じ（0192 で直した）", async () => {
     const x = await go();
-    // 今は、FP の画面は配偶者の方・お子さまのいない下書きで数える（夫婦と子2人の世帯で 9、お客さまは 10 画面）
-    expect(await fpQuestionCount(x.before, templateSelection(SIMPLE, x.before))).toBe(itemCount(x.w.final));
+    expect(fpQuestionCount(x.before, templateSelection(SIMPLE, x.before)).screens).toBe(answerScreens(x.w.final).length);
   });
 
-  it.fails("直す待ち（FP の画面）: 依頼の一覧の「答え N」が、お客さまが答えた問いの数と同じ（記入の年月・同意・ページが入れる「該当なし」を数えない）", async () => {
+  it("依頼の一覧の受け取った答えの数（「問いの画面 N のうち M 画面に答えあり」）が、お客さまが通った画面・答えた画面と同じ（記入の年月・同意・ページが入れる「該当なし」を答えの数に数えない。0192 で直した）", async () => {
     const x = await go();
-    const p = x.w.o.packet;
-    const answered = x.w.final.flatMap((s) => screenFields(s)).filter((f) => fieldAnswered(x.w.d, f)).length;
-    // WebRequests.tsx の受け取りの知らせ「答え N」と同じ数え方
-    expect(x.entry.received?.answers.length).toBe(answered);
-    expect(answered).toBe(answeredKeys(p, x.w).length - 1 - p.consent.items.length);
+    const final = answerScreens(x.w.final);
+    const answered = final.filter((s) => (s.kind === "consent" ? x.w.o.packet.consent.items.some((c) => x.w.d.answers[k(c.key)] !== undefined) : screenGates(s).some((g) => x.w.d.gates[g] !== undefined) || screenFields(s).some((f) => fieldAnswered(x.w.d, f)))).length;
+    // WebRequests.tsx の受け取りの知らせと依頼の行と同じ数え方（answeredScreens）
+    expect(answeredScreens(x.entry)).toEqual({ answered, total: final.length });
   });
 
   it.fails("直す待ち（取り込み・0139）: 年収を答えた働き方の候補を承認しても、シートで聞かない欄（標準報酬月額・企業年金・失業給付）は消えない", async () => {
@@ -400,16 +403,17 @@ describe("通しの点検: 見直しの票（前回の値が入る）", () => {
     expect(x.after.request.input.household.debts).toEqual(x.before.request.input.household.debts);
   });
 
-  it("FP の画面の「問い N」は、前回の値の分かる見直しなら、同じ家族（ご両親4人がご健在と答える）でお客さまが答える問いの画面の数と同じ", async () => {
+  it("FP の画面の「問い N画面」は、前回の値の分かる見直しなら、同じ家族（ご両親4人がご健在と答える）でお客さまが答える画面の数と同じ", async () => {
     const alive = Object.fromEntries([1, 2, 3, 4].map((i) => [k("hs.family.parent.alive", i), v("alive")]));
     const x = await round(filled(), sel(), { gates: { parent: 1 }, answers: alive });
-    expect(await fpQuestionCount(x.before, sel())).toBe(itemCount(x.w.final));
+    expect(fpQuestionCount(x.before, sel()).screens).toBe(answerScreens(x.w.final).length);
   });
 
-  it.fails("直す待ち（FP の画面）: 見直しで、ご両親のことを「答えない」と答えた方の問いの画面の数と、FP の画面の「問い N」が同じ（FP の数は、答えで変わる幅が分かる言い方にする）", async () => {
-    // 今は、FP の画面はご両親4人の問いを数える（98）。お客さまが「答えない」を選ぶと 89 画面
+  it("見直しで、ご両親のことを「答えない」と答えた方の画面の数と、FP の画面の「ご両親のことを『答えない』を選ぶと N画面」が同じ（答えで変わる幅を出す。0192 で直した）", async () => {
     const x = await asIs();
-    expect(await fpQuestionCount(x.before, sel())).toBe(itemCount(x.w.final));
+    const c = fpQuestionCount(x.before, sel());
+    expect(c.withoutParents).toBe(answerScreens(x.w.final).length);
+    expect(c.withoutParents).toBeLessThan(c.screens);
   });
 
   it.fails("直す待ち（取り込み・0139）: 前回の値のまま送ると、変更の候補が出ない（既定でチェックの付く物が無い）", async () => {
