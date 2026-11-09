@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.72";
+pub const CURRENT: &str = "0.73";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -252,13 +252,17 @@ pub const CURRENT: &str = "0.72";
 ///   アプリの中で見た日時）・`savedAt`（FP が自分のフォルダに最後に保存した日時。保存先・ファイル名は持たない）を足した（0191。足すだけの MINOR）。
 ///   前の版のアプリは印を知らずに書き戻すので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の記録は欄が無い＝まだ見ていない・
 ///   まだ保存していない）。0.71 の段の後に積む
+/// - 0.73: Web のヒアリングの依頼の記録 `hearing.web` の1件の選び方 `record.selection` に、任意の欄 `topics`（ご相談したいことの話題）・
+///   `name`（ひな形の名前）と、独自の質問 `custom[]` の任意の欄 `answer`（答えの形 `text`・`yesNo`・`choice`）・`choices` を、受け取った答え
+///   `received` に任意の欄 `topics`（選んだ話題）を足した（0192。足すだけの MINOR）。前の版のアプリは答えの形を知らずに選ぶ答えを自由記述として
+///   読むので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の記録は欄が無い＝話題なし・自由記述の質問）。0.72 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
-    "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72",
+    "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72", "0.73",
 ];
 
 /// 1段分の変換
@@ -624,6 +628,11 @@ pub const STEPS: &[Step] = &[
         from: "0.71",
         to: "0.72",
         apply: v0_71_to_0_72,
+    },
+    Step {
+        from: "0.72",
+        to: "0.73",
+        apply: v0_72_to_0_73,
     },
 ];
 
@@ -2369,6 +2378,16 @@ fn v0_71_to_0_72(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.72 → 0.73: Web のヒアリングの選び方の話題・ひな形の名前・独自の質問の答えの形と、受け取った答えの選んだ話題（0192）は任意の欄なので、
+/// 形式の版だけを書き換える（前の版の記録は欄が無い＝話題なし・自由記述の質問）
+fn v0_72_to_0_73(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.73".into());
+    }
+    Ok(body)
+}
+
 /// 預金の利回りの既定の値（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ。0137）
 const DEPOSIT_RETURN_DEFAULT: &str = "0.001";
 
@@ -3348,7 +3367,8 @@ mod tests {
         assert_eq!(access("0.70").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.71").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.72").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.73").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.73").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.74").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3796,6 +3816,22 @@ mod tests {
             "proposals": []
         });
         let u = upgrade("0.70", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+        assert_eq!(u["hearing"], b["hearing"]);
+        assert_eq!(u["proposals"], b["proposals"]);
+    }
+
+    #[test]
+    fn v0_72_to_0_73_only_bumps_version() {
+        // Web のヒアリングの話題・ひな形の名前・独自の質問の答えの形は足さない。ほかの欄に触れない
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.72"},
+            "household": {"request": {"input": {"household": {"members": [{"id": "m1", "kind": "self"}]}}}},
+            "hearing": {"requests": [], "imports": [], "consents": [], "web": [{"record": {"kind": "web", "requestId": "R-7K3P9Q", "selection": {"custom": [{"key": "ext.office.qabcd2345", "label": "ご相談のきっかけ"}]}}, "state": "received", "received": {"answers": [], "documents": [], "gates": {}, "dropped": 0}}]},
+            "proposals": []
+        });
+        let u = upgrade("0.72", b.clone()).unwrap();
         assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
         assert_eq!(u["hearing"], b["hearing"]);

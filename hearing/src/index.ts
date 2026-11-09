@@ -37,7 +37,7 @@ export function exportableSheets(): SheetDefinition[] {
   return OFFICIAL_SHEETS.filter((d) => d.status !== "retired");
 }
 
-/** シートID の書き出せる最新の版（basic＝初回の前の簡易版・full＝詳細版。見直しは詳細版に前回の値を記入する） */
+/** シートID の書き出せる最新の版（basic＝シンプル〔簡易版〕・full＝詳細版。見直しは詳細版に前回の値を記入する） */
 export function latestSheet(sheetId: string): SheetDefinition | undefined {
   return exportableSheets()
     .filter((d) => d.sheetId === sheetId)
@@ -73,7 +73,7 @@ export async function createHearingSheet(o: CreateSheetOptions): Promise<CreateS
   const problems = checkDefinition(o.definition);
   if (problems.length > 0) throw new Error(`シート定義に問題があります: ${problems.join("・")}`);
   if (o.definition.status === "retired") throw new Error("廃止したシートは書き出しません");
-  // 前回の値を記入する（見直し）のは詳細版だけ。簡易版は初回の前の軽い票で、前回の値の欄の形（範囲・合計）が違う
+  // 前回の値を記入する（見直し）のは詳細版だけ。簡易版（シンプル）は大まかに聞く軽い票で、前回の値の欄の形（範囲・合計）が違う
   if (o.household != null && o.definition.sheetId !== "full") throw new Error("前回の値を記入して書き出せるのは詳細版のシートだけです");
   const digest = await layoutDigest(o.definition);
   const m = management(o.definition, { requestId: o.requestId, customerNo: o.customerNo, layoutDigest: digest, appVersion: o.appVersion, exportedOn: o.exportedOn });

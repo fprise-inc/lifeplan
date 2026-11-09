@@ -1315,6 +1315,19 @@ function sample072(): BodyState {
   return { ...s, wh: { ...s.wh, hearing: { ...log, web: [{ ...e, files }] } as never } };
 }
 
+/**
+ * 0.73 の見本の世帯（0192）: sample072() の選び方に、ご相談したいことの話題・ひな形の名前・独自の質問の答えの形（はい・いいえ）を、
+ * 受け取った答えに選んだ話題を足す
+ */
+function sample073(): BodyState {
+  const s = sample072();
+  const log = s.wh.hearing as unknown as { web: (Record<string, unknown> & { record: { selection: { custom: Record<string, unknown>[] } & Record<string, unknown> } & Record<string, unknown>; received: Record<string, unknown> })[] } & Record<string, unknown>;
+  const e = log.web[0]!;
+  const selection = { ...e.record.selection, custom: [{ ...e.record.selection.custom[0], answer: "yesNo" }], topics: ["教育費", "老後のお金・年金"], name: "シンプル" };
+  const web = [{ ...e, record: { ...e.record, selection }, received: { ...e.received, topics: ["教育費"] } }];
+  return { ...s, wh: { ...s.wh, hearing: { ...log, web } as never } };
+}
+
 describe("世帯ファイルの本文（0011 の2）", () => {
   it("保存→読み込みで同じ（現状・案・帯の並び・表示の設定・拡張領域）", () => {
     const s = sample();
@@ -1353,7 +1366,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.72");
+    expect(BODY_FORMAT_VERSION).toBe("0.73");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1528,7 +1541,22 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample072())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample073())), null, 2) + "\n");
+  });
+
+  it("0.73 の形（0192）: 選び方の話題・ひな形の名前・独自の質問の答えの形と、受け取った答えの選んだ話題を保存して読み戻す。前の版の記録（欄が無い）は話題なし・自由記述", () => {
+    const s = sample073();
+    const stored = bodyObject(s) as unknown as { hearing: { web: { record: { selection: { topics?: string[]; name?: string; custom: { answer?: string }[] } }; received: { topics?: string[] } }[] } };
+    const w = stored.hearing.web[0]!;
+    expect(w.record.selection.topics).toEqual(["教育費", "老後のお金・年金"]);
+    expect(w.record.selection.name).toBe("シンプル");
+    expect(w.record.selection.custom[0]?.answer).toBe("yesNo");
+    expect(w.received.topics).toEqual(["教育費"]);
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(webLog(back.wh)[0]?.received?.topics).toEqual(["教育費"]);
+    // 前の版（0.72）の記録: 欄が無い（書き足さない）
+    expect(JSON.stringify(bodyObject(sample072()))).not.toMatch(/"topics"|"answer":"yesNo"/);
   });
 
   it("0.72 の形（0191）: 受け取った書類のファイルの見た・保存したの日時を保存して読み戻す。前の版の記録（欄が無い）は、まだ見ていない・まだ保存していない", () => {

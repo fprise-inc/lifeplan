@@ -454,6 +454,27 @@ fn every_format_version_has_a_fixture_and_opens() {
                     "{v}: 見た・保存したの日時は変換で書き足さない"
                 );
             }
+            // 0.73 から（0192）: ご相談したいことの話題・ひな形の名前・独自の質問の答えの形・選んだ話題。変換で書き足さない
+            let sel = &w[0]["record"]["selection"];
+            if migrate::parse(v).unwrap() >= (0, 73) {
+                assert_eq!(
+                    sel["topics"][1], "老後のお金・年金",
+                    "{v}: ご相談したいことの話題"
+                );
+                assert_eq!(sel["name"], "シンプル", "{v}: ひな形の名前");
+                assert_eq!(
+                    sel["custom"][0]["answer"], "yesNo",
+                    "{v}: 独自の質問の答えの形"
+                );
+                assert_eq!(w[0]["received"]["topics"][0], "教育費", "{v}: 選んだ話題");
+            } else {
+                assert!(
+                    sel.get("topics").is_none()
+                        && sel.get("name").is_none()
+                        && w[0]["received"].get("topics").is_none(),
+                    "{v}: 話題・ひな形の名前は変換で書き足さない"
+                );
+            }
         } else {
             assert!(
                 web.is_none(),
