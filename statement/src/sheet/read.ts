@@ -339,6 +339,17 @@ function readMarks(book: Book, sheet: Sheet, r: number, no: number, rows: readon
       notes.push(`「${SHEET_BUCKET_LABELS[b]}」は、お使いになった方の働き方では選べないため入れません`);
     } else bucket = b;
   }
+  // 「どこに入るか」が空で事業の割合だけが書かれた行は、事業の経費として要確認で読む（黙って捨てない。0180 の5）。事業の経費を選べない方の行・
+  // 読めない割合は読まずに知らせる
+  if (buc.text === null && sha.text !== null) {
+    const p = percentShare(sha.text);
+    if (p === null) issues.push(issue("warning", "S_SHEET_VALUE", `${no}番の行の事業の割合「${clip(sha.text)}」は読めず、「どこに入るか」も空なので、割合は読みませんでした`));
+    else if (!allowed.includes("business")) issues.push(issue("warning", "S_SHEET_VALUE", `${no}番の行に事業の割合が書かれていますが、お使いになった方の働き方では事業の経費を選べないため、割合は読みませんでした`));
+    else {
+      bucket = "business";
+      notes.push("「どこに入るか」が空でした。事業の割合が書かれているので、事業の経費として読みました");
+    }
+  }
   let share: string | undefined;
   if (bucket === "business") {
     const p = sha.text === null ? null : percentShare(sha.text);

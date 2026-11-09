@@ -4,6 +4,7 @@
 // ② 自営業のひとり親（42歳・女性。青色申告で65万円の控除）と子1人（15歳）、賃貸、国民年金・国保。詳しく（詳細も使う）
 // ③ 60代の夫婦（63歳・60歳）、再雇用・企業年金、持ち家は完済、区分マンション1室を貸す、母の介護と相続の見込み。詳しく
 // ④ 賃貸から住宅を買う予定の人（40歳）。購入の時期を画面で直して、前の賃貸の住み終わり・住宅ローンの借入の年月・控除の入居がついてくるか（標準の欄だけ）
+// ⑤ 賃貸から住宅を買う予定の人（40歳）。「どう買うか」をまだ選んでいない → 現金で買う → 住宅ローンを使う、と選び直す（0175。標準の欄だけ）
 import type { Page } from "./browser.ts";
 
 export interface Notes {
@@ -383,6 +384,37 @@ export async function household4(p: Page): Promise<Notes> {
   n.seen.gapPanel = await p.panelText();
   await p.click("購入の時期に合わせる", { within: "panel", exact: true });
   n.seen.loanStartAfterFix = await fieldValue(p, "借入の年月");
+  await save(p, n, "住まい・ローン");
+  return n;
+}
+
+/**
+ * ⑤ 住宅の購入の「どう買うか」（0175）: 足した直後はまだ選んでいない（未入力の印と「払い方が入っていません」）。現金で買うを選ぶと頭金の欄が消え、
+ * 保存した世帯は頭金＝物件の価格でローンが無い。住宅ローンを使うに選び直すと、同じ住宅の購入の中に住宅ローンの欄（借入額）が続けて出る
+ */
+export async function household5(p: Page): Promise<Notes> {
+  const n = newNotes();
+  await newHousehold(p);
+  await open(p, n, "家族");
+  await p.type("生年月", "1986-05");
+  await save(p, n, "家族");
+
+  await open(p, n, "住まい・ローン");
+  await p.click("＋ 賃貸", { within: "panel", exact: true });
+  await p.type("家賃（管理費込み）", "10");
+  await p.click("＋ 住宅購入の予定", { within: "panel", exact: true });
+  n.seen.unselectedPanel = await p.panelText();
+  n.seen.fundingUnselected = await fieldValue(p, "どう買うか");
+  await p.choose("どう買うか", "現金で買う（住宅ローンなし）");
+  n.seen.cashPanel = await p.panelText();
+  n.seen.downAfterCash = await fieldValue(p, "頭金");
+  await save(p, n, "住まい・ローン");
+  n.seen.cashBody = await p.savedBody();
+
+  await open(p, n, "住まい・ローン");
+  await p.choose("どう買うか", "住宅ローンを使う");
+  n.seen.loanPanel = await p.panelText();
+  n.seen.principalAfterLoan = await fieldValue(p, "借入額");
   await save(p, n, "住まい・ローン");
   return n;
 }

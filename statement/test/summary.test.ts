@@ -65,6 +65,51 @@ describe("月平均の出し方", () => {
     expect(s.notices.filter((n) => n.code === "S_SHORT_PERIOD" || n.code === "S_VERY_SHORT_PERIOD")).toEqual([]);
   });
 
+  it("期間の短さは口座ごとに見る: 12か月の口座に25日の口座を混ぜると、短い口座の名前を出して強い注意にし、候補を要確認にする", () => {
+    const log = synth([
+      { id: "a", kind: "card", label: "ご本人のカード", owner: SELF, period: YEAR, rows: monthly(10, "ひかりスーパー みなみ店", 20000) },
+      { id: "b", kind: "card", label: "配偶者のカード", owner: SPOUSE, period: { from: "2026-09-01", to: "2026-09-25" }, rows: [{ date: "2026-09-01", merchant: "ひかりスーパー みなみ店", amount: 40000 }, { date: "2026-09-25", merchant: "ひかりスーパー みなみ店", amount: 40000 }] },
+    ]);
+    const s = summaryOf(log);
+    expect(s.days).toBe(365);
+    expect(s.shortAccounts).toEqual([{ account: "b", label: "配偶者のカード", days: 25 }]);
+    const n = s.notices.find((x) => x.code === "S_VERY_SHORT_ACCOUNT");
+    expect(n?.level).toBe("warning");
+    expect(n?.message).toContain("「配偶者のカード」0.8か月");
+    // 全体の短い期間の注意は出さない（一番長い口座は12か月）
+    expect(s.notices.some((x) => x.code === "S_VERY_SHORT_PERIOD" || x.code === "S_SHORT_PERIOD")).toBe(false);
+    const c = buildCandidates(s, {}, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids("c") }).find((x) => x.collection === "livingExpenses");
+    expect(c?.status).toBe("needsReview");
+    expect(c?.note).toContain("期間が3か月に満たない口座（「配偶者のカード」0.8か月）があるため、参考の値です");
+    // 3か月以上（91日）の口座なら知らせない（前のテストと同じ）。全部の口座が短いときは全体の注意だけ
+    const allShort = summaryOf(synth([{ id: "b", kind: "card", label: "配偶者のカード", owner: SPOUSE, period: { from: "2026-09-01", to: "2026-09-25" }, rows: [{ date: "2026-09-01", merchant: "ひかりスーパー みなみ店", amount: 40000 }] }]));
+    expect(allShort.shortAccounts).toEqual([]);
+    expect(allShort.notices.map((x) => x.code)).toContain("S_VERY_SHORT_PERIOD");
+    expect(allShort.notices.map((x) => x.code)).not.toContain("S_VERY_SHORT_ACCOUNT");
+  });
+
+  it("返品で内訳の月平均が負になった行は 0円にし、負の額を持って知らせる。候補は「明細に出てこない」と分けて、今の値を残すと書く", () => {
+    const [clothing] = BUILTIN.filter(([, c, m]) => c === "clothing" && m === undefined).map(([p]) => p) as [string];
+    const q = { from: "2026-01-01", to: "2026-03-31" };
+    const rows: RowIn[] = [];
+    for (const m of ["01", "02", "03"]) rows.push({ date: `2026-${m}-05`, merchant: "ひかりスーパー みなみ店", amount: 30000 }, { date: `2026-${m}-20`, merchant: `${clothing} 店`, amount: 5000 });
+    // 期間の前に買った物の返品
+    rows.push({ date: "2026-01-10", merchant: `${clothing} 店`, amount: -40000 });
+    const s = summaryOf(synth([{ id: "a", kind: "card", label: "A", owner: SELF, period: q, rows }]));
+    const cl = s.living.find((l) => l.category === "clothing");
+    expect(cl?.monthly).toBe(0);
+    expect(cl?.negative).toBe(monthlyAverage(-25000, 90));
+    expect(cl?.detail.reduce((n, d) => n + d.monthly, 0)).toBe(cl?.negative);
+    expect(s.notices.find((x) => x.code === "S_NEGATIVE_LIVING")?.message).toContain(`被服・美容 月${monthlyAverage(-25000, 90).toLocaleString("ja-JP")}円`);
+    const box = (v: number) => ({ value: v, state: "confirmed" as const, origin: { kind: "manual" } });
+    const byCat: CandidateHousehold = { livingExpenses: [{ id: "le1", mode: "byCategory", categories: [{ category: "food", monthly: box(50000) }, { category: "clothing", monthly: box(12000) }, { category: "allowance", monthly: box(20000) }] }] };
+    const c = buildCandidates(s, byCat, { ref: "stmt-1", baseMonth: BASE_MONTH, newId: ids() })[0];
+    expect((c?.value as { category: string }[]).map((x) => x.category)).toEqual(["food", "clothing", "allowance"]);
+    expect(c?.note).toContain("返品・取り消しが多く月平均が0円以下になった内訳（被服・美容）は今の値を残します");
+    expect(c?.note).toContain("明細に出てこない内訳（仕送り");
+    expect(c?.note).not.toMatch(/明細に出てこない内訳（[^）]*被服/u);
+  });
+
   it("基本生活費の内訳にまとめ、住居・教育・保険・車・税は参考の値に、分からない店は「その他」に入れて別にも出す", () => {
     const log = synth([
       {

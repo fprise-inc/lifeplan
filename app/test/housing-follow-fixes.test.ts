@@ -177,27 +177,28 @@ describe("今の残高だけを入れたローン（H6-003）", () => {
   });
 });
 
-describe("住宅購入の予定に住宅ローンが無い（H6-005）", () => {
-  it("物件の価格−頭金の払い方が入っていないと、物件の価格の欄と確かめの一覧に知らせる。ローンを足すと消える", () => {
+describe("住宅購入の予定に住宅ローンが無い（H6-005。0175 で「どう買うか」の欄に改めた）", () => {
+  it("物件の価格−頭金の払い方が入っていないと、「どう買うか」の欄の未入力の印と確かめの一覧に知らせる。住宅ローンを使うを選ぶと消える", () => {
     let wh = action(salaried(), "housing/addPurchase");
     const bought = residences(wh).find((r) => r.purchase !== undefined)!;
-    const price = fieldOf(wh, `housing/res/${bought.id}/purchase/price`);
-    const st = price.get(wh);
-    expect(st.warn).toMatch(/払い方が入っていません/);
-    expect(st.warnFix?.label).toMatch(/住宅ローン/);
-    expect(checkList(wh).some((r) => r.kind === "notice" && r.fieldKey === price.key && /払い方が入っていません/.test(r.detail ?? ""))).toBe(true);
-    // 知らせのボタンで住宅ローン（物件の価格−頭金）を足す
-    wh = panel(wh, st.warnFix!.run(wh));
+    const funding = fieldOf(wh, `housing/res/${bought.id}/purchase/funding`);
+    expect(fieldStatus(funding, wh).status).toBe("missing");
+    expect(fieldStatus(funding, wh).basis).toMatch(/払い方が入っていません/);
+    expect(fieldOf(wh, `housing/res/${bought.id}/purchase/price`).get(wh).warn ?? null).toBeNull();
+    expect(checkList(wh).some((r) => r.fieldKey === funding.key && /払い方が入っていません/.test(r.detail ?? ""))).toBe(true);
+    // 住宅ローンを使う: 住宅ローン（物件の価格−頭金）を足す
+    wh = set(wh, `housing/res/${bought.id}/purchase/funding`, "loan");
     const d = mortgage(wh);
     expect(d.principal).toBe(bought.purchase!.price - (bought.purchase!.downPayment ?? 0));
-    expect(fieldOf(wh, `housing/res/${bought.id}/purchase/price`).get(wh).warn ?? null).toBeNull();
+    expect(fieldStatus(fieldOf(wh, `housing/res/${bought.id}/purchase/funding`), wh).status).not.toBe("missing");
   });
 
-  it("頭金を物件の価格にした（自己資金で払う）なら知らせない", () => {
+  it("頭金を物件の価格にした（自己資金で払う）なら、現金で買う形として知らせない", () => {
     let wh = action(salaried(), "housing/addPurchase");
     const bought = residences(wh).find((r) => r.purchase !== undefined)!;
     wh = set(wh, `housing/res/${bought.id}/purchase/down`, bought.purchase!.price);
-    expect(fieldOf(wh, `housing/res/${bought.id}/purchase/price`).get(wh).warn ?? null).toBeNull();
+    expect(fieldOf(wh, `housing/res/${bought.id}/purchase/funding`).get(wh).value).toBe("cash");
+    expect(checkList(wh).some((r) => /払い方が入っていません/.test(r.detail ?? ""))).toBe(false);
   });
 });
 

@@ -27,6 +27,7 @@
   "dependencies": {
     "@fontsource/biz-udpgothic": "5.3.0",
     "@tauri-apps/api": "2.12.1",
+    "pdfjs-dist": "6.4.299",
     "preact": "10.29.8"
   },
   "devDependencies": {

@@ -5,7 +5,7 @@
 // ここは世帯を変えない純粋な関数だけを持つ（欄の読み書きは form.ts の timepointField、出来事の一覧と作り方は namedEvents.ts）
 import type { Household, Timepoint } from "../../engine/types.ts";
 import { ageSwitchMonth, monthIndex, monthText, resolveTimepoint, shiftMonth, type AgeSwitch } from "../timepoint.ts";
-import { formatYearMonth, parseWareki, ymWithEra } from "./units.ts";
+import { eraYear, formatYearMonth, parseWareki, ymWithEra } from "./units.ts";
 
 /** 入れ方 */
 export type WhenMode = "ym" | "age" | "event" | "now";
@@ -537,6 +537,21 @@ export function showWhen(tp: Timepoint | null | undefined, ctx: WhenCtx): string
 export function readYearMonth(ym: string, baseMonth: string): string {
   const d = monthIndex(ym) - monthIndex(baseMonth);
   return d > 0 ? `今から${span(d)}後（${ymWithEra(ym)}）` : ymWithEra(ym);
+}
+
+/** 今から ym までの長さ（「6年7か月」。今月より前・今月は null） */
+export function spanFromNow(ym: string, baseMonth: string): string | null {
+  const d = monthIndex(ym) - monthIndex(baseMonth);
+  return d > 0 ? span(d) : null;
+}
+
+/**
+ * 完済の年月の欄の読み（欄ごとの読み。0052 の追記 2026-11-08）: 「あと5年で完済（令和13年）」。欄に「2031-10」と出ているので、年月の言い直しはせず、
+ * 残りの期間と和暦の年だけを添える。今月より前・今月は年月だけの欄の読みのまま
+ */
+export function readPayoff(ym: string, baseMonth: string): string {
+  const s = spanFromNow(ym, baseMonth);
+  return s === null ? readYearMonth(ym, baseMonth) : `あと${s}で完済（${eraYear(ym)}）`;
 }
 
 /** 欄の下に出す読み替えた形（例: 「ご本人が60歳になる月（2046年4月）」「入居から10年後（2038年4月）」） */
