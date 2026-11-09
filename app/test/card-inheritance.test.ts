@@ -181,6 +181,13 @@ describe("相続・贈与のカード: 相続税の目安（区画D）", () => {
     expect(inheritanceView(wh, null).points).toEqual([]);
   });
 
+  it("債務の内訳に、亡くなった人がまだ払っていない税を添える（salariedCoupleTwoKids のいま本人が亡くなったら。0039 の追記）", () => {
+    const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"));
+    const view = inheritanceView(wh, estimate(wh));
+    const p = view.points.find((x) => x.title === "いまご本人が亡くなったら");
+    expect(p?.details[0]).toContain("（うち まだ払っていない税 22.1万円）");
+  });
+
   it("万一のタブの死亡の想定の要求も、世帯の設定（FP が入れた額など）を使う", () => {
     const wh0 = fromRequest(modelHousehold("housingPurchase"));
     const self = wh0.request.input.household.members.find((m) => m.kind === "self")!;
