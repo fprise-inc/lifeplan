@@ -16,3 +16,4 @@
 
 第三者の依存のライセンスは、CI で検査する（npm は `engine/scripts/check-licenses.ts`・`app/scripts/check-licenses.ts`、Rust は `deny.toml`・`app/src-tauri/deny.toml` と cargo-deny）。
 アプリの画面に同梱するフォント（BIZ UDPGothic）は SIL OFL 1.1（npm の `@fontsource/biz-udpgothic` から。0021 の表の「同梱フォント」）。
+受け取った書類の PDF を描く pdf.js（npm の `pdfjs-dist`）は Apache-2.0。画面に同梱する文字の形は CMap（Adobe の BSD-3-Clause）と標準のフォントのうち Foxit の物（BSD-3-Clause）だけで、Liberation のフォント（GPL-2.0 と例外）は同梱しない（0021 の追記・0191）。

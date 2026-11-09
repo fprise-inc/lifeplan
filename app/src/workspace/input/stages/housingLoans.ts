@@ -13,7 +13,7 @@ import { DEBT_KINDS, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS }
 import { fittedRateText, monthlyPayment, monthsBetween, monthsFromPayment, principalFromPayment, rateText } from "../loanMath.ts";
 import { putRow, rowAt, type StateRow } from "../rows.ts";
 import { formatYearMonth, formatYen } from "../units.ts";
-import { readYearMonth } from "../when.ts";
+import { readPayoff, readYearMonth, spanFromNow } from "../when.ts";
 import { CHECK_DOCUMENTS } from "../checkDocuments.ts";
 import { currentMortgageRateEstimate, mortgageRateEstimate, pctText, RATE_ESTIMATE_HEADS, type MortgageRateType } from "../../../../../hearing/src/housingEstimates.ts";
 import { standardTermMonths as termOfMember } from "../../../../../hearing/src/loan.ts";
@@ -53,9 +53,25 @@ const rowOf = (wh: WorkingHousehold, a: Address | null): StateRow | undefined =>
 const isEstimate = (r: StateRow | undefined, head?: string): boolean => r?.state === "estimated" && r.origin.kind === "auto" && (head === undefined || (r.estimate?.basis ?? "").startsWith(head));
 
 export const SOLVED = "逆算";
+/** ほかのローンの返済期間が、返済額の無い間の仮の5年か（今の版と前の版の行） */
+const isTentativeTerm = (r: StateRow | undefined): boolean => isEstimate(r, "未入力") || isEstimate(r, TENTATIVE_TERM_HEAD);
+/** 仮の5年の行に持っている、今の残高より先に入れた毎月の返済額（無ければ null） */
+function pendingPayment(r: StateRow | undefined): number | null {
+  if (!isTentativeTerm(r)) return null;
+  const m = /毎月の返済額 ([0-9,]+)円/.exec(r?.estimate?.basis ?? "");
+  return m === null ? null : Number((m[1] ?? "").replace(/,/g, ""));
+}
 /** 過去の年月を入れる欄（借入の年月・残高の時点）の入力例 */
 const PAST_EXAMPLE = "例: 2018-04";
 const UNENTERED_PAYMENT = "未入力（毎月の返済額を入れてください。今は5年で返すとみなしています）";
+/**
+ * ほかのローンで毎月の返済額がまだ無いときの返済期間（完済の年月）の推定の行（0052 の追記 2026-11-08）。完済の年月の欄は推定（「この値にする」で確定できる）、
+ * 毎月の返済額の欄は未入力のまま。前の版の行「未入力（…5年で返すとみなしています）」も同じに読む（isTentativeTerm）
+ */
+const TENTATIVE_TERM_HEAD = "既定の値（返済期間が分からないので仮に";
+const TENTATIVE_TERM = `${TENTATIVE_TERM_HEAD}5年で返すとみなしています。毎月の返済額を入れると、完済の年月を逆算します）`;
+/** 今の残高より先に入れた毎月の返済額を持つ、仮の5年の行（残高を入れたときに、この返済額から完済の年月を逆算する） */
+const pendingTermRow = (pay: number): StateRow => estRow("standard", `${TENTATIVE_TERM_HEAD}5年で返すとみなしています。入れた毎月の返済額 ${formatYen(pay, "yen")}円から、今の残高を入れると完済の年月を逆算します）`);
 export const TENTATIVE = "仮（残高の時点から借りたとみなす。契約書の値があれば入れてください）";
 /** 借入額の仮の行（値を根拠の文に入れる: 残高に合わせて直したときに、古い行として外れないように） */
 const tentativePrincipal = (v: number): StateRow => estRow("standard", `仮（残高の時点から借りたとみなす。${formatYen(v, "yen")}円。契約書の値があれば入れてください）`);
@@ -224,6 +240,9 @@ export function followLoan(before: WorkingHousehold, after: WorkingHousehold, id
       putRow(inputOf(req), at(id, "debt.rateSchedule", [rateId(d), "rate"]), estRow("derived", `${SOLVED}（残高・毎月の返済額 ${formatYen(pay0, "yen")}円・完済の年から。年${pct(r)}）`));
     });
   }
+  // 今の残高より先に入れた返済額があれば、残高・金利を直したときにその返済額から完済の年を解く（解けなければ仮の5年のまま。0052 の追記 2026-11-08）
+  const pending = mortgage ? null : pendingPayment(rowOf(w, addrTerm(id)));
+  if (pending !== null && (changed === "balance" || changed === "rate" || changed === "method")) return editDebt(w, id, (d, req) => solveMonths(d, req, pending));
   if (!mortgage && (changed === "balance" || changed === "rate" || changed === "method") && isEstimate(rowOf(w, addrTerm(id)), SOLVED)) {
     return editDebt(w, id, (d, req) => solveMonths(d, req, pay0));
   }
@@ -290,7 +309,8 @@ function paymentField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" 
       if (fittedRateText(n.balance, v, n.months, x.repayment.method, bonusOf(x)) !== null || n.from === null) return null;
       return `この返済額（${formatYen(v, "yen")}円）では、今の残高（${formatYen(n.balance, "yen")}円）を完済の年月（${formatYearMonth(addMonths(resolveTimepoint(h, x.start) ?? n.from, x.repayment.termMonths))}）までに返せません（金利がマイナスになります）。返済額か完済の年月を直してください`;
     }
-    if (monthsFromPayment(n.balance, v, n.rate, x.repayment.method, bonusOf(x)) !== null) return null;
+    // 今の残高がまだ0円なら断らずに持ち、残高を入れたときに逆算する（0052 の追記 2026-11-08）
+    if (n.balance <= 0 || monthsFromPayment(n.balance, v, n.rate, x.repayment.method, bonusOf(x)) !== null) return null;
     return `この返済額（${formatYen(v, "yen")}円）では、今の残高（${formatYen(n.balance, "yen")}円）の利息にも足りず、返し終わりません。返済額か金利を直してください`;
   };
   return field({
@@ -315,9 +335,15 @@ function paymentField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" 
       const x = find(w);
       if (x === undefined) return { value: null };
       const h = w.request.input.household;
+      // 今の残高より先に入れた返済額（残高を入れても解けないときは理由を出す）
+      const pending = mode === "balance" && !mortgage ? pendingPayment(rowOf(w, addrTerm(x.id))) : null;
+      if (pending !== null) {
+        const why = refuse(w, pending);
+        return { value: pending, ...(why !== null ? { warn: why } : {}) };
+      }
       if (mode === "balance" && x.balance?.value == null && x.balance?.state !== "unknown") return { value: null, estimated: null };
       const v = paymentOf(h, x);
-      if (mode === "balance" && !mortgage && isEstimate(rowOf(w, addrTerm(x.id)), "未入力")) return { value: v, estimated: UNENTERED_PAYMENT };
+      if (mode === "balance" && !mortgage && isTentativeTerm(rowOf(w, addrTerm(x.id)))) return { value: v, estimated: UNENTERED_PAYMENT };
       if (mode === "balance" && mortgage && isEstimate(rowOf(w, addrRate(x))) && !isEstimate(rowOf(w, addrRate(x)), SOLVED))
         return { value: v, estimated: "目安の金利・返済期間から計算した額（毎月の返済額を入れると、金利を逆算します）" };
       // 入れた返済額から金利を逆算した後に、完済の年月・残高を直して、その返済額では返せなくなった（金利を解けず、返済額を前の金利から計算し直している。0161）
@@ -347,7 +373,8 @@ function paymentField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" 
           if (r === null || x.rateSchedule[0] === undefined) return;
           putNowRate(req.input.household, x, n.from, r);
           putRow(inputOf(req), at(x.id, "debt.rateSchedule", [rateId(x), "rate"]), estRow("derived", `${SOLVED}（残高・毎月の返済額 ${formatYen(pay, "yen")}円・完済の年から。年${pct(r)}）`));
-        } else solveMonths(x, req, pay);
+        } else if (loanNow(req.input.household, x).balance <= 0) putRow(inputOf(req), addrTerm(x.id), pendingTermRow(pay));
+        else solveMonths(x, req, pay);
       });
     },
   });
@@ -358,6 +385,24 @@ export const START_UNENTERED_CREDIT = "未入力: 借りた年月を入れるま
 
 /** 今の残高から入れた住宅ローンで、完済の年月が推定のままのときの、完済の年月の欄の下の1行（逆算の金利の代わり） */
 export const PAYOFF_FOR_RATE = "完済の年月を入れると、毎月の返済額から金利を逆算します";
+
+/**
+ * 完済の年月の欄の下の1行（0052 の追記 2026-11-08）。欄に「2031-10」と出ているので、同じ年月を言い直さず、どう決まった年月かを書く:
+ * ほかのローンの仮の5年は「返済期間が分からないので仮に5年（…）」、返済額から逆算した年月は「毎月の返済額 1万円と金利から逆算（あと6年7か月で完済）」、
+ * ほか（入れた年月・住宅ローンの既定の期間）は「あと5年で完済（令和13年）」
+ */
+function payoffReading(w: WorkingHousehold, x: Debt, ym: string): string {
+  const base = w.request.input.baseMonth;
+  const left = spanFromNow(ym, base);
+  const row = rowOf(w, addrTerm(x.id));
+  if (x.kind !== "mortgage" && isTentativeTerm(row) && left !== null)
+    return `返済期間が分からないので仮に${left}（${pendingPayment(row) !== null ? "今の残高を入れると、毎月の返済額から逆算します" : "毎月の返済額を入れると逆算します"}）`;
+  if (x.kind !== "mortgage" && isEstimate(row, SOLVED)) {
+    const pay = solvedPayment(row);
+    return `毎月の返済額${pay !== null ? ` ${formatYen(pay, "yen")}円` : ""}と金利から逆算${left !== null ? `（あと${left}で完済）` : ""}`;
+  }
+  return readPayoff(ym, base);
+}
 
 /** 完済の年月（区分「今の残高から」。借入の年月＋返済期間） */
 function payoffField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" | "detail"): FieldDef {
@@ -370,7 +415,10 @@ function payoffField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" |
       level,
       kind: "ym",
       sideEffects: "返済期間を直し、返済額を入れていれば金利を逆算し直します",
-      help: d.kind === "mortgage" ? "返済予定表の最後の返済の年月" : "空欄にせず、わかれば入れてください。わからなければ毎月の返済額から逆算した年月のままにします",
+      help:
+        d.kind === "mortgage"
+          ? "返済予定表の最後の返済の年月"
+          : "わかれば入れてください。わからなければ、毎月の返済額と金利から逆算した年月のままにします（返済額も入れていなければ、仮に5年で返すとみなします）",
       get: (w) => {
         const x = find(w);
         const s = x === undefined ? null : resolveTimepoint(w.request.input.household, x.start);
@@ -380,7 +428,7 @@ function payoffField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" |
         // 完済の年月が推定（既定の返済期間）のままなら、推定の完済から逆算した金利は当てにならないので出さず、入れ方を書く（段4の確かめ）
         const solvedRate = x.kind === "mortgage" && entryOf(w, x.id) === "balance" && isEstimate(rowOf(w, addrRate(x)), SOLVED);
         const solved = !solvedRate ? null : isEstimate(rowOf(w, addrTerm(x.id))) ? PAYOFF_FOR_RATE : `＝金利 年${(Math.round(Number(nowRate(w.request.input.household, x, w.request.input.baseMonth)) * 10000) / 100).toLocaleString("ja-JP", { maximumFractionDigits: 2 })}%（逆算）`;
-        return { value: ym, hint: [readYearMonth(ym, w.request.input.baseMonth), solved].filter((t) => t !== null).join(" ") };
+        return { value: ym, hint: [payoffReading(w, x, ym), solved].filter((t) => t !== null).join(" ") };
       },
       set: (w, v) => {
         if (typeof v !== "string") return w;
@@ -469,6 +517,8 @@ function debtorFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
           label: "ご本人の負担割合（連帯債務）",
           level: "detail",
           kind: "pct",
+          min: 0,
+          max: 100,
           help: "残りが配偶者の負担。住宅ローン控除は負担割合で分けます",
           get: (w) => ({ value: (w.request.input.household.debts ?? []).find((x) => x.id === d.id)?.debtors.find((x) => x.role === "primary")?.share ?? "0.5" }),
           set: (w, v) =>
@@ -587,7 +637,7 @@ export function creditLifeFields(wh: WorkingHousehold, d: Debt, level: "simple" 
   if (events(wh.request.input.household, wh).includes("incapacity"))
     fields.push(plain({ key: `${k}/clMonths`, item: "debt.creditLife", label: "就業不能の特約: 残高が消えるまでの月数", level: "detail", kind: "int", suffix: "か月", min: 0, max: 120, find, path: ["creditLife", "incapacityMonths"], optional: true, fallback: 12 }));
   fields.push(
-    plain({ key: `${k}/clRatio`, item: "debt.creditLife", label: "保障割合", level: "detail", kind: "pct", find, path: ["creditLife", "ratio"], optional: true, fallback: "1", help: "連帯債務などで、残高のうち保障される割合" }),
+    plain({ key: `${k}/clRatio`, item: "debt.creditLife", label: "保障割合", level: "detail", kind: "pct", min: 0, max: 100, find, path: ["creditLife", "ratio"], optional: true, fallback: "1", help: "連帯債務などで、残高のうち保障される割合" }),
     plain({ key: `${k}/clJoint`, item: "debt.creditLife", label: "夫婦連生", help: "どちらかの万一で、残りの全額がなくなります", level: "detail", kind: "bool", find, path: ["creditLife", "spouseJoint"], optional: true, fallback: false }),
   );
   return fields;
@@ -1703,6 +1753,25 @@ export const LOAN_SUBTYPES = [
 type SubtypeDef = (typeof LOAN_SUBTYPES)[number];
 const subtypeDef = (v: string | undefined): SubtypeDef | undefined => LOAN_SUBTYPES.find((s) => s.value === v);
 
+/** 「＋ そのほかのローン」で選ぶ種類（並びはボタンの選択肢と種類の欄の順。会社からの借入金は役員のいる世帯だけ） */
+export const MISC_SUBTYPES = ["policyLoan", "personal", "companyLoan", "other"] as const satisfies readonly SubtypeDef["value"][];
+/**
+ * 種類の組（ほかのローンの「＋」のボタンごと。0052 の追記 2026-11-08）。種類の欄は、ローンの今の種類の組の中だけを選択肢にする
+ * （奨学金の返済は第二種・第一種、そのほかのローンは MISC_SUBTYPES）。カードローン・リボとリフォームローンは1つなので種類の欄を出さない
+ */
+const SUBTYPE_GROUPS: readonly (readonly SubtypeDef["value"][])[] = [["cardLoan"], ["scholarship", "scholarshipFree"], ["renovation"], MISC_SUBTYPES];
+/** ローンの今の種類（種類の細目の無い前の世帯は、計算の種類から: 奨学金なら第二種、ほかはその他のローン） */
+const subtypeOf = (d: Debt): string => d.subtype ?? (d.kind === "scholarship" ? "scholarship" : "other");
+/** 種類の欄の選択肢（今の種類の組。組に無い種類でも、今の種類は必ず入れる） */
+function subtypeOptions(h: Household, d: Debt): SubtypeDef[] {
+  const cur = subtypeOf(d);
+  const group = SUBTYPE_GROUPS.find((g) => g.includes(cur as SubtypeDef["value"])) ?? [cur];
+  return group.flatMap((v) => {
+    const s = subtypeDef(v);
+    return s !== undefined && (v !== "companyLoan" || cur === "companyLoan" || hasExecutive(h)) ? [s] : [];
+  });
+}
+
 /** ローンの名前（名前 → 種類の細目 → 計算の種類） */
 export function loanTitle(d: Debt): string {
   if (typeof d.label === "string" && d.label !== "") return d.label;
@@ -1715,8 +1784,9 @@ export function loanTitle(d: Debt): string {
 export function otherLoanHeadFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
   if (d.kind === "car" || d.kind === "mortgage") return [];
   const find = byId(debts, d.id);
+  const subtypes = subtypeOptions(wh.request.input.household, d);
   return [
-    withAddress(
+    ...(subtypes.length <= 1 ? [] : [withAddress(
       field({
         key: `${k}/subtype`,
         item: "debt.subtype",
@@ -1724,9 +1794,12 @@ export function otherLoanHeadFields(wh: WorkingHousehold, d: Debt, k: string): F
         level: "simple",
         kind: "select",
         structural: true,
-        options: LOAN_SUBTYPES.filter((s) => s.value !== "companyLoan" || d.subtype === "companyLoan" || hasExecutive(wh.request.input.household)).map((s) => ({ value: s.value, label: s.label })),
+        options: subtypes.map((s) => ({ value: s.value, label: s.label })),
         help: "種類で金利の目安が決まります（金利を入れていれば変えません）",
-        get: (w) => ({ value: (find(w.request.input.household, w) as Debt | undefined)?.subtype ?? (d.kind === "scholarship" ? "scholarship" : "other") }),
+        get: (w) => {
+          const x = find(w.request.input.household, w) as Debt | undefined;
+          return { value: x === undefined ? null : subtypeOf(x) };
+        },
         set: (w, v) =>
           editDebt(w, d.id, (x, req) => {
             const sub = subtypeDef(String(v));
@@ -1744,7 +1817,7 @@ export function otherLoanHeadFields(wh: WorkingHousehold, d: Debt, k: string): F
           }),
       }),
       () => at(d.id, "debt.subtype"),
-    ),
+    )]),
     withAddress(plain({ key: `${k}/label`, item: "debt.label", label: "名前", level: "detail", kind: "text", find, path: ["label"], optional: true }), () => at(d.id, "debt.label")),
   ];
 }
@@ -1776,7 +1849,7 @@ export function newOtherLoan(wh: WorkingHousehold, subtype: SubtypeDef["value"])
     putRow(input, addrPrincipal(id), tentativePrincipal(0));
     putRow(input, addrStart(id), estRow("standard", TENTATIVE));
     putRow(input, at(id, "debt.rateSchedule", [rid, "rate"]), estRow("standard", wrapBasis(sub.rateBasis, (b) => `既定の値（${b}。わかれば直してください）`)));
-    putRow(input, addrTerm(id), estRow("standard", UNENTERED_PAYMENT));
+    putRow(input, addrTerm(id), estRow("standard", TENTATIVE_TERM));
   });
   return withEntry(next, id, "balance");
 }
@@ -1793,7 +1866,7 @@ export function standardTermMonths(h: Household, memberId: string, start: string
  * 今住んでいる家のローンは「今の残高から」（今の残高 3,000万円の目安。借りた年と借入額は仮）。金利は変動金利の目安（マスタデータ。借りるのが計算の基準の月までなら、
  * 今返している住宅ローンの目安）、期間は35年（80歳まで）の標準の値
  */
-export function newMortgage(wh: WorkingHousehold, pairOf?: string): WorkingHousehold {
+export function newMortgage(wh: WorkingHousehold, pairOf?: string, forResidence?: string): WorkingHousehold {
   const id = newId();
   const rid = newId();
   const base = wh.request.input.baseMonth;
@@ -1806,7 +1879,9 @@ export function newMortgage(wh: WorkingHousehold, pairOf?: string): WorkingHouse
     const partner = pairOf === undefined ? undefined : (hh.debts ?? []).find((x) => x.id === pairOf);
     const debtor = partner !== undefined ? ((partner.debtors[0]?.member === self.id ? spouse?.id : self.id) ?? self.id) : self.id;
     const own = (hh.residences ?? []).find((r) => r.kind === "own");
-    const bought = (hh.residences ?? []).filter((r) => r.kind === "own" && r.purchase !== undefined).at(-1);
+    // 購入の予定とつなぐ（forResidence: その購入の予定。住宅の購入の「どう買うか」で住宅ローンを使うを選んだとき。0175。無ければ最後に足した購入の予定）
+    const purchases = (hh.residences ?? []).filter((r) => r.kind === "own" && r.purchase !== undefined);
+    const bought = forResidence !== undefined ? purchases.find((r) => r.id === forResidence) : purchases.at(-1);
     const partnerStart = partner === undefined ? null : resolveTimepoint(hh, partner.start);
     const start = partnerStart ?? (bought !== undefined ? purchaseMonth(hh, bought) : null) ?? (own?.purchase !== undefined ? resolveTimepoint(hh, own.purchase.at) : null) ?? base;
     linked = partner !== undefined ? entryOf(wh, partner.id) !== "balance" : bought !== undefined;

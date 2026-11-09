@@ -248,6 +248,105 @@ pub async fn save_with<R: Runtime>(
     write_checked(app, kind, &target, bytes, password)
 }
 
+/// まとめて保存する先のフォルダ（FP が OS のダイアログで選んだもの。0191）。パスは画面に返さず、アプリを開いている間だけ覚える
+#[derive(Default)]
+pub struct ChosenFolder(pub Mutex<Option<PathBuf>>);
+
+/// フォルダを選ぶ結果（パスは返さない）
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FolderPick {
+    pub picked: bool,
+    pub sync_folder: bool,
+}
+
+/// まとめて保存するフォルダを、OS のフォルダのダイアログで FP に選ばせて覚える（保存してはいけない場所は断る）。
+/// 開発のときだけ: 環境変数 FINANCIA_DEV_SAVE_DIR があれば、ダイアログを出さずにそのフォルダにする
+pub async fn pick_folder<R: Runtime>(
+    app: &AppHandle<R>,
+    window: &WebviewWindow<R>,
+    title: &str,
+) -> Result<FolderPick, String> {
+    let dir = match dev_save_dir() {
+        Some(d) => d,
+        None => {
+            let mut dialog = rfd::AsyncFileDialog::new()
+                .set_title(title)
+                .set_parent(window);
+            if let Some(d) = default_dir(app) {
+                dialog = dialog.set_directory(d);
+            }
+            match dialog.pick_folder().await {
+                Some(h) => h.path().to_path_buf(),
+                None => {
+                    return Ok(FolderPick {
+                        picked: false,
+                        sync_folder: false,
+                    })
+                }
+            }
+        }
+    };
+    if let Some(code) = forbidden_of(app).reason(&dir.join("x")) {
+        return Err(code.to_owned());
+    }
+    let sync_folder = is_sync_folder(&dir);
+    if let Some(c) = app.try_state::<ChosenFolder>() {
+        if let Ok(mut g) = c.0.lock() {
+            *g = Some(dir);
+        }
+    }
+    Ok(FolderPick {
+        picked: true,
+        sync_folder,
+    })
+}
+
+/// 選んだフォルダの中の、書いてよい名前（同じ名前で同じ中身のファイルがあれば Ok(None)〔書かない〕、中身が違えば番号を足す）
+pub fn unique_target(dir: &Path, name: &str, bytes: &[u8]) -> Result<Option<PathBuf>, String> {
+    let (stem, ext) = match name.rsplit_once('.') {
+        Some((a, e)) if !a.is_empty() => (a.to_owned(), format!(".{e}")),
+        _ => (name.to_owned(), String::new()),
+    };
+    for n in 1..100 {
+        let candidate = if n == 1 {
+            name.to_owned()
+        } else {
+            format!("{stem}_{n}{ext}")
+        };
+        let path = dir.join(&candidate);
+        match std::fs::read(&path) {
+            Ok(existing) if existing == bytes => return Ok(None),
+            Ok(_) => continue,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Some(path)),
+            Err(_) => continue,
+        }
+    }
+    Err("E_EXPORT_NAME".to_owned())
+}
+
+/// 選んだフォルダに1つ書く（pick_folder の後。上書きしない。同じ中身ならそのまま）
+pub fn save_into<R: Runtime>(
+    app: &AppHandle<R>,
+    kind: ExportKind,
+    name: &str,
+    bytes: &[u8],
+) -> Result<SaveOutcome, String> {
+    let dir = app
+        .try_state::<ChosenFolder>()
+        .and_then(|c| c.0.lock().ok().and_then(|g| g.clone()))
+        .ok_or_else(|| "E_EXPORT_NO_FOLDER".to_owned())?;
+    match unique_target(&dir, name, bytes)? {
+        Some(target) => write_checked(app, kind, &target, bytes, false),
+        None => Ok(SaveOutcome {
+            saved: true,
+            file_name: Some(name.to_owned()),
+            sync_folder: is_sync_folder(&dir),
+            digest: Some(format!("sha256:{:x}", Sha256::digest(bytes))),
+        }),
+    }
+}
+
 fn write_checked<R: Runtime>(
     app: &AppHandle<R>,
     kind: ExportKind,
@@ -421,6 +520,33 @@ fn read_limited(path: &Path, max_bytes: u64) -> Result<Vec<u8>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn saving_into_a_folder_never_overwrites() {
+        let dir = std::env::temp_dir().join(format!("financia-export-into-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let name = "A0042_源泉徴収票_ご本人_20261108.jpg";
+        // まだ無い名前はそのまま
+        assert_eq!(
+            unique_target(&dir, name, b"one").unwrap(),
+            Some(dir.join(name))
+        );
+        std::fs::write(dir.join(name), b"one").unwrap();
+        // 同じ中身ならもう書かない
+        assert_eq!(unique_target(&dir, name, b"one").unwrap(), None);
+        // 中身が違えば番号を足す（上書きしない）
+        assert_eq!(
+            unique_target(&dir, name, b"two").unwrap(),
+            Some(dir.join("A0042_源泉徴収票_ご本人_20261108_2.jpg"))
+        );
+        std::fs::write(dir.join("A0042_源泉徴収票_ご本人_20261108_2.jpg"), b"two").unwrap();
+        assert_eq!(unique_target(&dir, name, b"two").unwrap(), None);
+        assert_eq!(
+            unique_target(&dir, name, b"three").unwrap(),
+            Some(dir.join("A0042_源泉徴収票_ご本人_20261108_3.jpg"))
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn forbidden_dirs_stop_the_export() {

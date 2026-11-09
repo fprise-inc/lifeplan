@@ -888,6 +888,9 @@ function payFields(c: Car, k: string, car: (h: Household, w: WorkingHousehold) =
           // ローンの条件（頭金・年数・金利）は目安で十分なので詳細。標準はローンかどうかの選び方だけ（0078）
           level: "detail",
           kind: "pct",
+          // 0〜100%（0175。ほかの割合の欄と同じく、範囲の外は打った時点で止める）
+          min: 0,
+          max: 100,
           optional: true,
           help: "残りをローンで借ります。買い替えのたびに同じ割合で借ります",
           get: (w) => {

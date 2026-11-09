@@ -65,7 +65,7 @@ describe("お客さまの画面", () => {
 
   it("書類の画面: 撮る前の注意（マイナンバーを隠す）・撮る・ファイルを選ぶ・手元にない・あとで送る・説明", async () => {
     const p = await packet();
-    const html = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: initialDraft(p), startAt: "documents" }));
+    const html = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: initialDraft(p), startAt: `doc:${p.documents[0]!.id}` }));
     for (const t of ["送っていただきたい書類", "撮る前に", "マイナンバー（個人番号）", "撮る", "ファイルを選ぶ", "手元にない", "あとで送る", DOCUMENT_TEMPLATES[0]!.purpose]) expect(html).toContain(t);
     expect(html).toContain('accept="image/jpeg,image/png,image/heic,image/heif,application/pdf"');
     expect(html).not.toContain("svg+xml");
@@ -89,9 +89,9 @@ describe("お客さまの画面", () => {
     const p = await packet();
     const id = p.documents[0]!.id;
     const f = { fileId: "AAAAAAAAAAAAAAAA", mime: "image/jpeg" as const, bytes: 10, sha256: "a".repeat(64), label: "写真 1" };
-    const a = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: { ...initialDraft(p), documents: { [id]: { status: "attached", files: [f] } } }, startAt: "documents" }));
+    const a = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: { ...initialDraft(p), documents: { [id]: { status: "attached", files: [f] } } }, startAt: `doc:${p.documents[0]!.id}` }));
     for (const t of ["書類だけ先に送る", "付けました（1）", "外す", "お答えを送った後でも、期限までに同じリンクから送れます"]) expect(a).toContain(t);
-    const b = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: { ...initialDraft(p), documents: { [id]: { status: "attached", files: [{ ...f, sentAt: "2026-11-05T09:00:00Z" }] } } }, startAt: "documents" }));
+    const b = renderToString(h(HearingForm, { packet: p, mode: "preview", initial: { ...initialDraft(p), documents: { [id]: { status: "attached", files: [{ ...f, sentAt: "2026-11-05T09:00:00Z" }] } } }, startAt: `doc:${p.documents[0]!.id}` }));
     for (const t of ["送りました（1）", "送りました"]) expect(b).toContain(t);
     expect(b).not.toContain("書類だけ先に送る");
     expect(b).not.toContain(">外す<");
