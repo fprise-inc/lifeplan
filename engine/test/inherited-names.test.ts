@@ -234,6 +234,19 @@ describe("亡くなった人の車（万一のときの扱いなし）は手放�
     }
   });
 
+  it("「やめる」を入れた車も、万一の月より後の年末に評価額を持たない（利用者の判断 2026-11-09。配偶者の車でも、本人の死亡で止める）", () => {
+    const { r, req } = scenario((q) => {
+      for (const c of carsOf(q)) c.onContingency = { mode: "stop" };
+    });
+    const balOf = (car: string) => (r.annual as unknown as (Cell & { object?: string })[]).filter((c) => c.row === "cf.balance.account.car" && c.object === car && c.amount !== 0).map((c) => c.year);
+    for (const c of carsOf(req)) {
+      // 前は万一の後も買い替えたとして 2077年まで評価額が出た
+      expect(balOf(c.id).every((y) => y < 2033)).toBe(true);
+      expect(balOf(c.id)).toContain(2032);
+      expect(after(r, c.id, (f) => !isLoan(f))).toEqual([]);
+    }
+  });
+
   it("名義の人の障害（死亡でない万一）では、車は今までどおり続く", () => {
     const { r, req } = scenario(undefined, "disability");
     const mine = carsOf(req)[0] as CarX;
