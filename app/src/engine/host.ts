@@ -5,6 +5,7 @@ import { forEngine } from "./moneyRows.ts";
 import { isEngineError, type EngineError, type EngineRequest, type FullResult, type PreviewResult } from "./types.ts";
 import type { OfficeTextEntry, TextOp } from "../workspace/office/customTexts.ts";
 import { API_PREFIX, type RelayRequest, type RelayResponse } from "../../../hearing/src/web/protocol.ts";
+import { browserSaveAll, browserSaveOne } from "./browserSave.ts";
 
 /** 画面側のエンジンのセッション（engine/src/engine/run.ts の Session。JSON の文字列で受け渡す） */
 export interface WebSession {
@@ -91,6 +92,20 @@ export interface HearingWebHost {
   config(): Promise<{ pageUrl: string; dev: boolean }>;
   call(r: RelayRequest): Promise<RelayResponse>;
   saveDocument(bytes: Uint8Array, meta: { fileName: string }): Promise<SaveOutcome>;
+  /**
+   * 受け取った書類をまとめて、FP が選んだフォルダに保存する（0191）。フォルダは1回だけ選ぶ。同じ名前で中身の違うファイルがあれば番号を足し、
+   * 同じ中身ならそのまま（書き直さない）。デスクトップのアプリは本体の平文の書き出しの出口、ブラウザはブラウザの保存の仕組み
+   */
+  saveDocuments(files: readonly { bytes: Uint8Array; fileName: string }[]): Promise<FolderSaveOutcome>;
+}
+
+/** まとめて保存した結果（フォルダを選ばなかったときは picked: false）。via はフォルダに書いたか、ブラウザのダウンロードにしたか */
+export interface FolderSaveOutcome {
+  picked: boolean;
+  saved: { index: number; fileName: string }[];
+  failed: number;
+  syncFolder: boolean;
+  via: "folder" | "downloads";
 }
 
 /** 事務所で覚えた明細の辞書と形（0034。本体の household-store の StatementOffice。店の鍵と項目・列の対応付けだけで、金額・日付は持たない） */
@@ -919,6 +934,23 @@ export function tauriHost(): HostApi {
       config: () => invoke<{ pageUrl: string; dev: boolean }>("hearing_web_config"),
       call: (r) => invoke<RelayResponse>("hearing_web_call", { method: r.method, path: r.path, token: r.token ?? null, body: r.body ?? null }),
       saveDocument: (bytes, m) => invoke<SaveOutcome>("hearing_document_save", bytes, { headers: { "x-file-name": encodeURIComponent(m.fileName) } }),
+      // フォルダを本体の OS のダイアログで選び（パスは画面に来ない）、1つずつそのフォルダに書く
+      saveDocuments: async (files) => {
+        const pick = await invoke<{ picked: boolean; syncFolder: boolean }>("hearing_documents_folder");
+        if (!pick.picked) return { picked: false, saved: [], failed: 0, syncFolder: false, via: "folder" };
+        const saved: { index: number; fileName: string }[] = [];
+        let failed = 0;
+        for (const [index, f] of files.entries()) {
+          try {
+            const out = await invoke<SaveOutcome>("hearing_document_save_into", f.bytes, { headers: { "x-file-name": encodeURIComponent(f.fileName) } });
+            if (out.saved) saved.push({ index, fileName: out.fileName ?? f.fileName });
+            else failed++;
+          } catch {
+            failed++;
+          }
+        }
+        return { picked: true, saved, failed, syncFolder: pick.syncFolder, via: "folder" };
+      },
     },
     sheets: {
       save: (bytes, m) => invoke<SaveOutcome>("hearing_save", bytes, { headers: { "x-customer-no": m.customerNo, "x-exported-on": m.exportedOn, "x-prefilled": m.prefilled ? "1" : "0" } }),
@@ -1160,7 +1192,9 @@ export function devBrowserHost(engine: WebEngine): HostApi {
         const res = await fetch(`${API_PREFIX}${r.path}`, { method: r.method, headers, ...(r.body !== undefined ? { body: r.body } : {}), cache: "no-store" });
         return { status: res.status, body: await res.text() };
       },
-      saveDocument: async (bytes, m) => devJson<SaveOutcome>(await fetch(`/__dev/hearing/docsave?name=${encodeURIComponent(m.fileName)}`, { method: "POST", body: bytes as Uint8Array<ArrayBuffer> })),
+      // 受け取った書類の保存は、ブラウザの保存の仕組み（フォルダを選べるブラウザはフォルダに、選べなければダウンロード。0191）
+      saveDocument: (bytes, m) => browserSaveOne(bytes, m.fileName),
+      saveDocuments: (files) => browserSaveAll(files),
     },
     sheets: {
       save: async (bytes, m) =>

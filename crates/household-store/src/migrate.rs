@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.71";
+pub const CURRENT: &str = "0.72";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -248,13 +248,17 @@ pub const CURRENT: &str = "0.71";
 ///   （`self`・`spouse`。省略は持ち主を選んでいない書類）を足した（0190。足すだけの MINOR）。書類の種類 `kind` に新しい値が増えた（形は同じ文字）。
 ///   前の版のアプリは持ち主を知らずに書類を読むので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の記録は欄が無い＝持ち主を
 ///   選んでいない書類）。0.70 の段の後に積む
+/// - 0.72: Web のヒアリングの依頼の記録 `hearing.web` の1件の受け取った書類のファイル `files[]` に、任意の欄 `viewedAt`（FP が初めて
+///   アプリの中で見た日時）・`savedAt`（FP が自分のフォルダに最後に保存した日時。保存先・ファイル名は持たない）を足した（0191。足すだけの MINOR）。
+///   前の版のアプリは印を知らずに書き戻すので、版を上げて閲覧だけにする。変換の段は形式の版だけを書き換える（前の版の記録は欄が無い＝まだ見ていない・
+///   まだ保存していない）。0.71 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
-    "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71",
+    "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72",
 ];
 
 /// 1段分の変換
@@ -615,6 +619,11 @@ pub const STEPS: &[Step] = &[
         from: "0.70",
         to: "0.71",
         apply: v0_70_to_0_71,
+    },
+    Step {
+        from: "0.71",
+        to: "0.72",
+        apply: v0_71_to_0_72,
     },
 ];
 
@@ -2350,6 +2359,16 @@ fn v0_70_to_0_71(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.71 → 0.72: Web のヒアリングで受け取った書類のファイルの見た・保存したの日時（0191）は任意の欄なので、形式の版だけを書き換える
+/// （前の版の記録は欄が無い＝まだ見ていない・まだ保存していない）
+fn v0_71_to_0_72(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.72".into());
+    }
+    Ok(body)
+}
+
 /// 預金の利回りの既定の値（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ。0137）
 const DEPOSIT_RETURN_DEFAULT: &str = "0.001";
 
@@ -3328,7 +3347,8 @@ mod tests {
         assert_eq!(access("0.69").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.70").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.71").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.72").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.72").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.73").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3341,7 +3361,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.72", b.clone()).unwrap(),
+            upgrade("0.73", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -3776,6 +3796,22 @@ mod tests {
             "proposals": []
         });
         let u = upgrade("0.70", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+        assert_eq!(u["hearing"], b["hearing"]);
+        assert_eq!(u["proposals"], b["proposals"]);
+    }
+
+    #[test]
+    fn v0_71_to_0_72_only_bumps_version() {
+        // 受け取った書類のファイルの見た・保存したの日時は足さない。ほかの欄に触れない
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.71"},
+            "household": {"request": {"input": {"household": {"members": [{"id": "m1", "kind": "self"}]}}}},
+            "hearing": {"requests": [], "imports": [], "consents": [], "web": [{"record": {"kind": "web", "requestId": "R-7K3P9Q"}, "state": "received", "files": [{"docId": "d1", "fileId": "GGGG", "mime": "image/jpeg", "data": "_9j_4A", "bytes": 4, "sha256": "1", "batchId": "GGGG"}]}]},
+            "proposals": []
+        });
+        let u = upgrade("0.71", b.clone()).unwrap();
         assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
         assert_eq!(u["hearing"], b["hearing"]);

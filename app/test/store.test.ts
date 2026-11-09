@@ -39,6 +39,7 @@ import { premiseFor } from "../src/workspace/contingency/planPremise.ts";
 import { smrEstimate, smrMonth } from "../src/workspace/input/estimates.ts";
 import { barNotices, householdNoticeText, type BarInputs } from "../src/workspace/header/status.ts";
 import { gateLines, limitOf, webLog } from "../src/workspace/hearing/web.ts";
+import { receivedFiles, receivedSummary } from "../src/workspace/hearing/receivedDocs.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 import { readDocumentLog, withDocumentLog } from "../src/workspace/documents/log.ts";
 
@@ -1302,6 +1303,18 @@ function sample071(): BodyState {
   return { ...s, wh: { ...s.wh, hearing: { ...log, web } as never } };
 }
 
+/** 0.72 の見本の世帯（0191）: sample071() の受け取った書類のファイルに、見た・保存したの日時を足す（1つ目は見て保存した・2つ目は見ただけ） */
+function sample072(): BodyState {
+  const s = sample071();
+  const log = s.wh.hearing as unknown as { web: (Record<string, unknown> & { files: Record<string, unknown>[] })[] } & Record<string, unknown>;
+  const e = log.web[0]!;
+  const files = [
+    { ...e.files[0], viewedAt: "2026-11-08T12:00:00Z", savedAt: "2026-11-08T12:05:00Z" },
+    { ...e.files[1], viewedAt: "2026-11-08T12:10:00Z" },
+  ];
+  return { ...s, wh: { ...s.wh, hearing: { ...log, web: [{ ...e, files }] } as never } };
+}
+
 describe("世帯ファイルの本文（0011 の2）", () => {
   it("保存→読み込みで同じ（現状・案・帯の並び・表示の設定・拡張領域）", () => {
     const s = sample();
@@ -1340,7 +1353,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.71");
+    expect(BODY_FORMAT_VERSION).toBe("0.72");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -1515,7 +1528,23 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample071())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample072())), null, 2) + "\n");
+  });
+
+  it("0.72 の形（0191）: 受け取った書類のファイルの見た・保存したの日時を保存して読み戻す。前の版の記録（欄が無い）は、まだ見ていない・まだ保存していない", () => {
+    const s = sample072();
+    const stored = bodyObject(s) as unknown as { hearing: { web: { files: { viewedAt?: string; savedAt?: string }[] }[] } };
+    expect(stored.hearing.web[0]!.files.map((f) => [f.viewedAt, f.savedAt])).toEqual([
+      ["2026-11-08T12:00:00Z", "2026-11-08T12:05:00Z"],
+      ["2026-11-08T12:10:00Z", undefined],
+    ]);
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(receivedSummary(receivedFiles(back.wh))).toMatchObject({ files: 2, unseen: 0, unsaved: 1 });
+    // 前の版（0.71）の記録: 欄が無い＝まだ見ていない・まだ保存していない（欄を書き足さない）
+    const old = sample071();
+    expect(receivedSummary(receivedFiles(old.wh))).toMatchObject({ files: 2, unseen: 2, unsaved: 2 });
+    expect(JSON.stringify(bodyObject(old))).not.toMatch(/viewedAt|savedAt/);
   });
 
   it("0.71 の形（0190）: Web のヒアリングの依頼の記録の書類の持ち主を保存して読み戻す。前の版の記録（欄が無い）は持ち主を選んでいない書類", () => {

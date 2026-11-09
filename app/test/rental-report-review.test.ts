@@ -79,7 +79,7 @@ describe("見本の一覧の「収益不動産を持つ会社員の夫婦と子1
 
 describe("世帯ファイルの形式の今の版で開ける", () => {
   it("見本を開いて世帯ファイルの本文にし、読み戻すと同じ（今の版。変換の段を通らずに読める）", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.71");
+    expect(BODY_FORMAT_VERSION).toBe("0.72");
     const wh = fromRequest(req);
     const text = bodyOf({ wh, workspace: { template: ID, band: [], base: CURRENT, selected: CURRENT, shownItems: [] }, display: { result: DEFAULT_DISPLAY_SETTINGS, balance: DEFAULT_BALANCE_SETTINGS }, carry: EMPTY_CARRY });
     const back = fromBody(text);

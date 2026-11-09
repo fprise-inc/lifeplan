@@ -1495,6 +1495,14 @@ export function App() {
     openedRef.current = n;
     setOpened(n);
   }, []);
+  /** Web のヒアリングで受け取った書類の印（見た・保存した）と消すことを入れる（元に戻す・やり直すの対象にしない。依頼の記録と同じ。0191） */
+  const putWeb = useCallback((f: (wh: WorkingHousehold) => WorkingHousehold) => {
+    const o = openedRef.current;
+    if (o === null) return;
+    const n: Opened = { ...o, wh: f(o.wh) };
+    openedRef.current = n;
+    setOpened(n);
+  }, []);
   /** 書類の読み取りの記録を変える（元に戻す・やり直すの対象にしない。明細の取り込みの記録と同じ。0148） */
   const putDocuments = useCallback((log: WorkingHousehold["documents"]) => {
     const o = openedRef.current;
@@ -2762,6 +2770,7 @@ export function App() {
             <InputView
               onReadDoc={setDocStart}
               key={cardOpen?.n ?? 0}
+              received={{ update: putWeb, ...(host?.hearingWeb !== undefined ? { host: host.hearingWeb } : {}) }}
               wh={opened.wh}
               onSave={edit}
               calcNotices={currentNotices}
