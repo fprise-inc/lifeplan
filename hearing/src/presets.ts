@@ -37,11 +37,9 @@ const APP_PRESETS: readonly PresetDef[] = [
   // 固定資産税・都市計画税の推定（購入の予定の持ち家。0112）。税率の標準・都市計画税の上限・住宅用地の特例・新築の軽減の年数と割合は法令の値で、
   // ここに置かない（app/src/workspace/input/propertyTax.ts。事務所で変えられない）
   p("preset.housing.propertyTax.landRatio", "0.7", "pct", "住まい・ローン", "固定資産税の推定: 土地の評価額の割合（土地の価格に対する）", "fill", "出典なし（土地の評価額は公示価格の7割程度が目安）"),
-  p("preset.housing.propertyTax.buildingRatio", "0.6", "pct", "住まい・ローン", "固定資産税の推定: 建物の評価額の割合（建物の価格に対する）", "fill", "出典なし（建物の評価額は建築の価格の5〜7割が目安）"),
+  // 新築の評価額（経過年数1年の経年減点補正率0.80を当てた後）の、建物の価格に対する割合。0.6 → 0.4（0181。docs/estimates-review.md の出典の欄）
+  p("preset.housing.propertyTax.buildingRatio", "0.4", "pct", "住まい・ローン", "固定資産税の推定: 建物の評価額の割合（新築の評価額。建物の価格に対する）", "fill", "出典なし（新築の木造の戸建ての評価額は1㎡あたり約8.8万円〔固定資産の価格等の概要調書 令和6年度〕。建物の価格が1㎡あたり20〜25万円なら3.5〜4.4割）", "guide", 2),
   p("preset.housing.propertyTax.cityPlanningRate", "0.003", "pct", "住まい・ローン", "固定資産税の推定: 都市計画税の税率（上限0.3%。かからない所は0）", "fill", "出典なし（多くの市区町村が上限の0.3%）"),
-  p("preset.housing.propertyTax.buildingFloor", "0.2", "pct", "住まい・ローン", "固定資産税の推定: 建物の評価額の下限（最初の評価額に対する割合）", "fill", "出典なし（古い建物の評価額の下がり方の目安）"),
-  p("preset.housing.propertyTax.buildingYears.wood", 30, "yearCount", "住まい・ローン", "固定資産税の推定: 建物の評価額が下限まで下がる年数（木造・軽量鉄骨造）", "fill", "出典なし（3年ごとの評価替えで古くなった分を下げる目安）"),
-  p("preset.housing.propertyTax.buildingYears.nonWood", 60, "yearCount", "住まい・ローン", "固定資産税の推定: 建物の評価額が下限まで下がる年数（重量鉄骨造・鉄筋コンクリート造）", "fill", "出典なし（3年ごとの評価替えで古くなった分を下げる目安）"),
   p("preset.housing.inheritedHomeAge", 30, "yearCount", "住まい・ローン", "相続する家の築年数の目安（計算の基準の年の。建った年が分からないとき）", "fill", "出典なし（親の世代が30〜40代で建てた家を、いま住んでいる親から相続する目安）"),
   p("preset.housing.repair.amount", 1000000, "yen", "住まい・ローン", "修繕・リフォームの行: 1回の額", "template"),
   p("preset.housing.repair.everyYears", 10, "yearCount", "住まい・ローン", "修繕・リフォームの行: 間隔", "template"),
@@ -58,7 +56,7 @@ const APP_PRESETS: readonly PresetDef[] = [
   p("preset.loan.rate.cardLoan", "0.15", "pct", "住まい・ローン", "ほかのローンの金利: カードローン・リボ", "template", NONE, "market"),
   p("preset.loan.rate.renovation", "0.025", "pct", "住まい・ローン", "ほかのローンの金利: リフォームローン", "template", NONE, "market"),
   p("preset.loan.rate.policyLoan", "0.03", "pct", "住まい・ローン", "ほかのローンの金利: 契約者貸付（保険）", "template", NONE, "market"),
-  p("preset.loan.rate.other", "0.03", "pct", "住まい・ローン", "ほかのローンの金利: その他のローン", "template", NONE, "market"),
+  p("preset.loan.rate.other", "0.03", "pct", "住まい・ローン", "ほかのローンの金利: 上のどれにも当たらないローン", "template", NONE, "market"),
   p("preset.rental.loan.principal", 20000000, "yen", "住まい・ローン", "収益不動産のローン: 借入額", "template", NONE, "market"),
   p("preset.rental.loan.rate", "0.02", "pct", "住まい・ローン", "収益不動産のローン: 金利（固定。借り換えで前の金利が無いときも）", "template", NONE, "market"),
   p("preset.rental.loan.termYears", 25, "yearCount", "住まい・ローン", "収益不動産のローン: 返済期間", "template"),

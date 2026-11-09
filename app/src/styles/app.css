@@ -438,7 +438,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .units { display: inline-flex; gap: 4px; }
 .unit-btn { border: 1.5px solid var(--ink-2); background: var(--card); border-radius: 5px; padding: 2px 7px; font-size: 0.82rem; font-weight: 700; cursor: pointer; }
 .suffix { font-size: 0.88rem; font-weight: 700; }
-.fld-hint { font-size: 0.82rem; color: var(--ink-2); }
+.fld-hint { font-size: 0.82rem; color: var(--ink-2); white-space: pre-line; }
 .fld-help { font-size: 0.78rem; color: var(--ink-2); margin-top: 2px; }
 /* 欄の横の提案（控えから見た実際の割合など。0031） */
 .fld-suggest { font-size: 0.82rem; margin-top: 4px; padding: 4px 8px; border-radius: 6px; background: var(--wash, #eef5f3); color: var(--tx-teal, #2f5f59); display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; }
