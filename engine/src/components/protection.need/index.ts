@@ -15,7 +15,7 @@
 //   - 準備できる資金: 遺族年金（年ごとに pension.survivor）・遺族の収入（遺族〔配偶者〕の収入と、世帯の名の収入・亡くなった人の名で続く収入
 //     〔賃料・不動産の売却など〕）・公的な支援（児童手当・就学支援金と修学支援・奨学金の受け取り）
 //   - 税と社会保険料は、遺族の名の物と、世帯の国保（国民健康保険・任意継続）と、亡くなった人の名で死亡の年の後に帰属する物（相続した物件の
-//     賃料の所得税など）。亡くなった人の死亡の年までの所得の税（準確定申告・翌年の住民税）は数えない
+//     賃料の所得税など）。亡くなった人の死亡の年までの所得の税（準確定申告・翌年の住民税）は、改訂10 から、まだ払っていない分を遺族が払う債務として数える（下）
 //   - 現状の検算の差（使途不明金。expense.reconcile）は万一なしの計算の額（今の世帯の検算で、亡くなる年で変わらない）
 //   - 数えない行: 子・世帯の外の家族の収入と税、取り崩して使うお金・ゆとりの支出・上場株式等と暗号資産の譲渡益の税・相続税（資産の残り方で
 //     変わる）、死亡で受け取る一時金と保険（年ごとに別に求める）・整理資金（要求の値）
@@ -41,6 +41,13 @@
 //   買い替え・維持費が止まり、亡くなる前に組んだ自動車ローンの返済だけ遺族が続ける）。最初の年の表を後の年に使うと、その間に組んだローンの返済が
 //   抜けるので、亡くなった後の買い替えが変わる車（扱いを入れていない亡くなる人の車と、死亡で「止める」「割合を変える」を入れた車）のローンを
 //   亡くなる月までにいくつ組んだかでも表を分ける（その年にもう1回計算する）
+// - 改訂10（0170 の追記）: 亡くなった人がまだ払っていない、死亡の年までの所得の税（所得税・住民税・事業税。上場株式等と暗号資産の譲渡益の税を除く）を、
+//   相続する人が払う債務として税と社会保険料に数える（国税通則法5条・地方税法9条の納税義務の承継）。前は数えなかった。
+//   - 計算基準年に亡くなる年: 場面の表（計算基準月に亡くなる想定）で、亡くなった人の名で亡くなった月より後に払う、死亡の年までに帰属する税
+//     （準確定申告〔還付ならマイナス〕・前の年の所得の住民税の残りなど）
+//   - 後の年（1月に亡くなる）: 万一なしの計算で、亡くなった人の名で亡くなった月より後に払う、前の年に帰属する税（前の年の所得の確定申告・
+//     譲渡所得の税と、その年度の住民税。1月1日に生きているので課される。地方税法39条・318条）。どちらの出し方でも同じ額。その年度より前の
+//     住民税の残りは亡くなった月に一括で徴収される・最後の納期が亡くなった月なので数えず、亡くなった年（1か月分）の所得の準確定申告は数えない近似
 // - 改訂9（0170 の追記）: 亡くなる人の器の物（収益不動産・貸していない不動産など）を売った後に亡くなる年は、その年の表を求め直す（前は最初の年の
 //   表のまま。売った年の翌年に亡くなる年で、相続する人が売った想定の譲渡所得の税を遺族の税に数え、その年に亡くなる想定の額より多く出た）
 import {
@@ -140,6 +147,9 @@ const SKIP_ROWS: ReadonlySet<string> = new Set([
   "cf.taxSi.inheritanceTax",
 ]);
 const PUBLIC_SUPPORT: ReadonlySet<string> = new Set(["cf.income.benefit.childAllowance", "cf.income.benefit.education", "cf.income.other.scholarship"]);
+/** 所得の税の行（所得税・住民税・事業税。上場株式等と暗号資産の譲渡益の税は、資産の残り方で変わるので除く。改訂10） */
+const INCOME_TAX_ROWS = ["cf.taxSi.incomeTax", "cf.taxSi.residentTax", "cf.taxSi.businessTax"];
+const isIncomeTaxRow = (row: string): boolean => !SKIP_ROWS.has(row) && INCOME_TAX_ROWS.some((p) => row === p || row.startsWith(`${p}.`));
 /** 世帯の国保（世帯主の名で出る） */
 const isHouseholdHealth = (formula: string): boolean => formula.startsWith("socialInsurance.nationalHealth.") || formula.startsWith("socialInsurance.continuation.");
 
@@ -161,7 +171,7 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
   id: "protection.need",
   title: "必要保障額の推移（積み上げ方式・逆算方式）",
   contract: "1.2",
-  revision: 9,
+  revision: 10,
   requires: {
     "plan.cashflow": ">=1 <2",
     "expense.car": ">=1 <2",
@@ -230,7 +240,7 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
     // 亡くなる人の器（相続した子の名で入る収入を遺族の収入に数える。改訂7）
     const accountsOf = (X: string): ReadonlySet<string> => new Set(ctx.list<Pick<AccountInput, "id" | "owner">>("account").filter((a) => a.owner === X).map((a) => a.id));
     // 場面の表（死亡の想定で全体を計算し直した表）を区画ごとの累積にする。遺族（配偶者）ごと
-    type World = { sections: Record<Section, number[]>; lateTaxes: { m: MonthIndex; accrual: number; amount: number }[]; sales: MonthIndex[] };
+    type World = { sections: Record<Section, number[]>; lateTaxes: { m: MonthIndex; accrual: number; amount: number; row: string }[]; sales: MonthIndex[] };
     const worldOf = (X: string, D: MonthIndex, spouse: string | undefined): World => {
       // エンジンは必要保障額を求めるとき、いつも用意する（null は部品を単独で動かしたときだけ）
       const flows = ctx.deathScenario(X, D) ?? [];
@@ -253,7 +263,7 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
         } else if (f.row.startsWith("cf.taxSi")) {
           if (isHouseholdHealth(f.formula) && kindOf.get(who ?? "") !== "child") k = "taxSi";
           else if (spouse !== undefined && who === spouse) k = "taxSi";
-          else if (who === X) lateTaxes.push({ m: parseYm(f.ym), accrual: f.accrualYear, amount: f.amount });
+          else if (who === X) lateTaxes.push({ m: parseYm(f.ym), accrual: f.accrualYear, amount: f.amount, row: f.row });
         }
         if (k !== null) (pick.get(k) as Flow[]).push(f);
       }
@@ -275,7 +285,16 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
     const contracts = ctx.list<Pick<InsuranceContractInput, "id" | "insured">>("insurance");
     const policies = contracts.map((c) => ({ id: c.id, insured: c.insured, years: ctx.call<InsurancePolicyOutput>("insurance.policy", { object: c.id }).years }));
     // 金融資産（年末）
-    const annual = ctx.call<{ annual: readonly AnnualRow[] }>("plan.cashflow", {}).annual;
+    const cashflow = ctx.call<{ annual: readonly AnnualRow[]; flows: readonly Flow[] }>("plan.cashflow", {});
+    const annual = cashflow.annual;
+    // 万一なしの計算の、亡くなる人の名の所得の税（まだ払っていない税を、計算基準年より後に亡くなる年に数える。改訂10）
+    const plainTaxes = new Map<string, { m: MonthIndex; accrual: number; amount: number }[]>();
+    for (const f of cashflow.flows) {
+      if (f.member === undefined || !isIncomeTaxRow(f.row)) continue;
+      const list = plainTaxes.get(f.member) ?? [];
+      list.push({ m: parseYm(f.ym), accrual: f.accrualYear, amount: f.amount });
+      plainTaxes.set(f.member, list);
+    }
     const financial = new Map(annual.filter((a) => a.row === "cf.balance.financial").map((a) => [a.year, a.amount]));
     let initial = 0;
     for (const a of ctx.list<Pick<AccountInput, "kind" | "marketValue">>("account")) if (!NOT_FINANCIAL.has(a.kind)) initial += a.marketValue.value ?? 0;
@@ -403,6 +422,12 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
         }
         const world = w;
         const deathYear = yearOf(D);
+        // 亡くなった人がまだ払っていない、死亡の年までの所得の税（相続する人が払う債務。改訂10）。計算基準年は場面の表（計算基準月に亡くなる想定。
+        // 最初の年なのでいつもその年の表）から、後の年は万一なしの計算の前の年に帰属する税から（どちらの出し方でも同じ額になる）
+        const unpaid =
+          y === baseYear
+            ? world.lateTaxes.filter((x) => x.accrual <= deathYear && isIncomeTaxRow(x.row))
+            : (plainTaxes.get(X) ?? []).filter((x) => x.accrual === deathYear - 1 && x.m > D);
         // 年ごとの必要な資金と準備できる資金（死亡の月の翌月から last まで。内訳と合計は H まで）
         const sp = [...ctx.call<SurvivorPensionOutput>("pension.survivor", { member: Z, death: { member: X, month: formatYm(D) } }).flows];
         // 配偶者が遺族厚生年金の受給権の無い夫（死亡の当時55歳未満）なら、遺族厚生年金は子が受け取る（pension.survivor 改訂6）
@@ -417,6 +442,8 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
           let taxSi = v("taxSi");
           // 亡くなった人の名で、死亡の年の後に帰属する税（相続した物件の賃料の所得税など）
           for (const x of world.lateTaxes) if (x.accrual > deathYear && x.m >= a && x.m <= b) taxSi += x.amount;
+          // 亡くなった人がまだ払っていない、死亡の年までの所得の税
+          for (const x of unpaid) if (x.m >= a && x.m <= b) taxSi += x.amount;
           let pension = 0;
           for (const f of sp) {
             const m = parseYm(f.ym);
