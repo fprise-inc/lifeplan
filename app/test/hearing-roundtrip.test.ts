@@ -359,7 +359,7 @@ describe("通しの点検: 値の入った世帯に、シンプルの票を送�
     expect(answeredScreens(x.entry)).toEqual({ answered, total: final.length });
   });
 
-  it.fails("直す待ち（取り込み・0139）: 年収を答えた働き方の候補を承認しても、シートで聞かない欄（標準報酬月額・企業年金・失業給付）は消えない", async () => {
+  it("年収を答えた働き方の候補を承認しても、シートで聞かない欄（標準報酬月額・企業年金・失業給付）は消えない（0139 の追記 2026-11-09）", async () => {
     const x = await go();
     expect(lostFields(x.before, x.after)).toEqual([]);
   });
@@ -416,21 +416,21 @@ describe("通しの点検: 見直しの票（前回の値が入る）", () => {
     expect(c.withoutParents).toBeLessThan(c.screens);
   });
 
-  it.fails("直す待ち（取り込み・0139）: 前回の値のまま送ると、変更の候補が出ない（既定でチェックの付く物が無い）", async () => {
+  it("前回の値のまま送ると、変更の候補が出ない（既定でチェックの付く物が無い。0139 の追記 2026-11-09）", async () => {
     const x = await asIs();
     const sel = defaultSelection(x.view);
     expect(x.view.candidates.filter((c) => sel.has(c.id)).map((c) => `${c.kind}: ${c.title}`)).toEqual([]);
   });
 
-  it.fails("直す待ち（取り込み・0139・要確認）: 答えていない配偶者の方の住民税から、新しい行（推定の0円）を既定で入れない", async () => {
-    // 今は、空のまま「次へ」にした配偶者の方の住民税が「新規」の候補（推定 0円）になり、既定でチェックが付く。パートの年収でも0円になる
+  it("答えていない配偶者の方の住民税から、新しい行（推定の0円）を入れない（お答えなし。0139 の追記 2026-11-09）", async () => {
+    // 前は、空のまま「次へ」にした配偶者の方の住民税が「新規」の候補（推定 0円）になり、既定でチェックが付いた
     const x = await asIs();
     expect((x.entry.received?.answers ?? []).filter((a) => a.key === "hs.income.residentTax" && a.index === 2)).toEqual([]);
     const sel = defaultSelection(x.view);
     expect(x.view.candidates.filter((c) => c.kind === "new" && sel.has(c.id)).map((c) => c.title)).toEqual([]);
   });
 
-  it.fails("直す待ち（取り込み・0139）: 前回の値のまま送って既定のまま承認しても、今の世帯の欄は消えない（住まいの評価と持ち分・教育の塾と受験・取得価額・生活費の段階など）", async () => {
+  it("前回の値のまま送って既定のまま承認しても、今の世帯の欄は消えない（住まいの評価と持ち分・教育の塾と受験・取得価額・生活費の段階など。0139 の追記 2026-11-09）", async () => {
     const x = await asIs();
     expect(lostFields(x.before, x.after)).toEqual([]);
   });
@@ -561,8 +561,8 @@ describe("通しの点検: 分岐の答え（お子さまの人数・配偶者�
     expect(kids.map((m) => m.birth.birthYearMonth)).toEqual(["2012-05", "2015-08", "2027-03"]);
   });
 
-  it.fails("直す待ち（取り込み）: お子さま3人と答え、3人目（出産の予定）の生年月だけを答えても、今の第1子の生年月は書き換わらない", async () => {
-    // 今は、答えのあるお子さまだけを生まれの順に今の子へ当てるので、3人目の答えが第1子に当たり、第1子の生年月が 2027年3月（まだいない家族）になる（既定でチェックが付く）
+  it("お子さま3人と答え、3人目（出産の予定）の生年月だけを答えても、今の第1子の生年月は書き換わらない（問いの順で当てる。0139 の追記 2026-11-09）", async () => {
+    // 前は、答えのあるお子さまだけを生まれの順に今の子へ当てたので、3人目の答えが第1子に当たり、第1子の生年月が 2027年3月（まだいない家族）になった
     const x = await go({ spouse: 1, child: 3 }, { [k("hs.family.child.birthYearMonth", 3)]: ym(2027, 3) });
     const before = x.before.request.input.household.members.filter((m) => m.kind === "child").map((m) => [m.id, m.birth.birthYearMonth]);
     const after = x.after.request.input.household.members.filter((m) => m.kind === "child").map((m) => [m.id, m.birth.birthYearMonth]);
@@ -584,5 +584,141 @@ describe("通しの点検: 分岐の答え（お子さまの人数・配偶者�
     expect(x.view.gates.map((g) => g.text)).toEqual(["配偶者はいないとのお答え（今の世帯にはいます）"]);
     const spouse = x.before.request.input.household.members.find((m) => m.kind === "spouse");
     expect(x.after.request.input.household.members.find((m) => m.id === spouse?.id)).toEqual(spouse);
+  });
+});
+
+// ---- 6. 取り込みで今の値を壊さない（記録のある欄だけを重ねる・お答えの無い新しい行・お子さまの当て方。0139 の追記 2026-11-09） ----
+
+describe("通しの点検: 承認しても、答えた欄だけが変わる（記録のある欄だけを今の行に重ねる）", () => {
+  const self = (wh: WorkingHousehold) => wh.request.input.household.members.find((m) => m.kind === "self")?.id as string;
+  const selfWork = (wh: WorkingHousehold) => (wh.request.input.household.employmentPeriods ?? []).find((p) => p.member === self(wh)) as unknown as Record<string, unknown>;
+
+  it("シンプルの票で年収を答えると、給与は届いた値になり、標準報酬月額・企業年金・失業給付は今の値のまま。候補に、聞かない欄は今のままと添える", async () => {
+    const x = await round(filled(), templateSelection(SIMPLE, filled()), { gates: { spouse: 1, child: 2, parent: 0 }, answers: SIMPLE_ANSWERS });
+    const before = selfWork(x.before);
+    const after = selfWork(x.after);
+    expect((after.salary as { annual: { value: number } }).annual.value).not.toBe((before.salary as { annual: { value: number } }).annual.value);
+    for (const key of ["standardMonthlyRemuneration", "corporatePension", "unemploymentClaim", "healthInsurance", "employer", "from", "to"]) expect(after[key]).toEqual(before[key]);
+    const c = x.view.candidates.find((y) => y.title === "ご本人の仕事と収入");
+    expect(c?.kind).toBe("changed");
+    expect(c?.note).toContain("標準報酬月額・企業年金など、シートでお聞きしていない欄は今の値のまま");
+  });
+
+  it("見直しで進路の答えを変えると、同じ学校の要素の ID と受験の費用・塾は今のまま。違う学校にすると、前の学校の受験の費用は持ち越さない", async () => {
+    const goal = (wh: WorkingHousehold, i: number) => (wh.request.input.household.goals ?? []).find((g) => g.owner === wh.request.input.household.members.filter((m) => m.kind === "child")[i]?.id) as unknown as { education: { stages: Record<string, unknown>[]; lessons?: unknown[] } };
+    const x = await round(filled(), templateSelection(REVIEW, filled()), { gates: { parent: 0 }, answers: { [k("hs.education.after", 1)]: v("privateScience"), [k("hs.education.living", 1)]: v("home"), [k("hs.education.after", 2)]: v("vocational") } });
+    checkEveryTime(x);
+    const a0 = goal(x.before, 0).education;
+    const a1 = goal(x.after, 0).education;
+    expect(a1.stages[2]).toEqual({ ...a0.stages[2], field: "science", living: "home" });
+    expect(a1.lessons).toEqual(a0.lessons);
+    const b1 = goal(x.after, 1).education;
+    expect(b1.stages.map((s) => s.stage)).toEqual(["elementary", "juniorHigh", "highSchool", "vocational"]);
+    expect(b1.stages[3]?.exam).toBeUndefined();
+    expect(b1.stages.slice(0, 3)).toEqual(goal(x.before, 1).education.stages.slice(0, 3));
+  });
+
+  it("聞かない欄の仮の印は残し、答えた欄の仮の印だけを外す", async () => {
+    const wh = filled();
+    const period = selfWork(wh).id as string;
+    const deposit = (wh.request.input.household.accounts ?? []).find((a) => a.kind === "deposit")?.id as string;
+    // 勤務先の従業員数（見直しで答える）・預貯金の利回り（シートで聞かない）に仮の印がある世帯
+    const marked: WorkingHousehold = { ...wh, assumed: { ...wh.assumed, [`work/period/${period}/size`]: "仮の値（FP）", [`sav/${deposit}/rate`]: "仮の値（FP）" } };
+    const x = await round(marked, templateSelection(REVIEW, marked), { gates: { parent: 0 }, answers: { [k("hs.work.employerSize", 1)]: num("500"), [k("hs.assets.deposit", 1)]: num("900") } });
+    expect(x.after.assumed[`work/period/${period}/size`]).toBeUndefined();
+    expect(x.after.assumed[`sav/${deposit}/rate`]).toBe("仮の値（FP）");
+    expect(lostFields(x.before, x.after)).toEqual([]);
+  });
+
+  it("FP が全部にチェックを入れて承認しても、今の世帯の欄は消えない（住宅ローン控除の条件の取得価額・持ち分も残る）", async () => {
+    const wh = filled();
+    const relay = relayFor();
+    const r = await issueWeb(wh, { selection: templateSelection(REVIEW, wh), customerNo: "A1", office: OFFICE, pageUrl: "https://relay.test/h/", transport: relay.t, now: NOW });
+    await walk(r.entry.record.url, relay.t, { gates: { parent: 0 } });
+    const got = await receiveWeb(r.wh, r.entry, relay.t, NOW);
+    const view = importWeb(got!.wh, got!.entry, "0.1.0", seq);
+    const after = applyImport(got!.wh, view, new Set(view.candidates.map((c) => c.id)), AT).wh;
+    expect(lostFields(wh, after)).toEqual([]);
+    const housing = (h: WorkingHousehold) => (h.request.input.household.debts ?? [])[0]?.housing;
+    expect(housing(after)).toMatchObject({ acquisitionCost: housing(wh)?.acquisitionCost, ownership: housing(wh)?.ownership });
+  });
+});
+
+describe("通しの点検: 持ち家の評価と持ち分（買った値段から推計する家。0176・0181）は、住まいの答えを取り込んでも今のまま", () => {
+  /** 買った値段で評価する持ち家（その額の時点は住み始めについてくる印・土地の値段は FP が入れた割合）を、夫婦の持ち分 1/2 ずつで持つ世帯 */
+  const owned = (): WorkingHousehold => {
+    const wh = filled();
+    const h = wh.request.input.household;
+    const [self, spouse] = [h.members.find((m) => m.kind === "self")?.id, h.members.find((m) => m.kind === "spouse")?.id];
+    const r = (h.residences ?? [])[0] as unknown as Record<string, unknown>;
+    r.valuation = { value: { value: 42000000, state: "confirmed", origin: { kind: "manual" } }, asOf: "2016-04", basis: "purchase", landShare: "0.4", structure: "wood", builtYear: 2016 };
+    r.ownership = [{ member: self, share: "0.5" }, { member: spouse, share: "0.5" }];
+    r.valueStates = { "residence.valuation/asOf": { state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis: "住み始めと同じ（買った年月）" } } };
+    return wh;
+  };
+  const home = (wh: WorkingHousehold) => (wh.request.input.household.residences ?? [])[0] as unknown as Record<string, unknown>;
+
+  it("見直しで固定資産税を答え直すと、固定資産税だけが変わり、評価（買った値段・時点の印・土地の割合・構造）・持ち分・入居のイベントは今のまま", async () => {
+    const x = await round(owned(), templateSelection(REVIEW, owned()), { gates: { parent: 0 }, answers: { [k("hs.housing.propertyTax")]: num("162000") } });
+    checkEveryTime(x);
+    expect(lostFields(x.before, x.after)).toEqual([]);
+    const [a, b] = [home(x.before), home(x.after)];
+    expect((b.propertyTax as { annual: { value: number } }).annual.value).toBe(162000);
+    for (const key of ["valuation", "ownership", "valueStates", "from"]) expect(b[key]).toEqual(a[key]);
+    // 前回の値のまま確かめた管理費は同じ額（記入どおりの答えなので承認の記録が付く）。上がり方はシートで聞かないので今のまま
+    const part = (o: Record<string, unknown>, key: string) => o[key] as { growth: unknown; monthly?: { value: number } };
+    expect(part(b, "maintenance").monthly?.value).toBe(part(a, "maintenance").monthly?.value);
+    for (const key of ["propertyTax", "maintenance"]) expect(part(b, key).growth).toEqual(part(a, key).growth);
+  });
+
+  it("シンプルの票で持ち家と答えても（住み始めはお答えなし）、住まいは今のまま", async () => {
+    const x = await round(owned(), templateSelection(SIMPLE, owned()), { gates: { spouse: 1, child: 2, parent: 0 }, answers: SIMPLE_ANSWERS });
+    checkEveryTime(x);
+    expect(home(x.after)).toEqual(home(x.before));
+  });
+});
+
+describe("通しの点検: お答えの無い新しい行・お子さまの当て方", () => {
+  const taxes = (wh: WorkingHousehold) => (wh.request.input.household.residentTaxAssessments ?? []) as { id: string; member: string }[];
+  it("答えていない配偶者の方の住民税は、全部にチェックを入れて承認しても入らない（お答えなし: 今は入れていない）", async () => {
+    const wh = filled();
+    const relay = relayFor();
+    const r = await issueWeb(wh, { selection: templateSelection(REVIEW, wh), customerNo: "A1", office: OFFICE, pageUrl: "https://relay.test/h/", transport: relay.t, now: NOW });
+    await walk(r.entry.record.url, relay.t, { gates: { parent: 0 } });
+    const got = await receiveWeb(r.wh, r.entry, relay.t, NOW);
+    const view = importWeb(got!.wh, got!.entry, "0.1.0", seq);
+    const tax = view.candidates.find((c) => c.title === "配偶者の住民税");
+    expect(tax?.kind).toBe("noAnswer");
+    expect(tax?.fields.flatMap((f) => f.diffs)).toEqual([{ label: "住民税の年税額", current: "入れていない", next: "入れていない", kept: true, rough: false, waiting: null }]);
+    const after = applyImport(got!.wh, view, new Set(view.candidates.map((c) => c.id)), AT).wh;
+    const spouse = wh.request.input.household.members.find((m) => m.kind === "spouse")?.id;
+    expect(taxes(after).filter((a) => a.member === spouse)).toEqual([]);
+    expect(taxes(after).map((a) => a.id)).toEqual(taxes(wh).map((a) => a.id));
+  });
+
+  it("今いる配偶者の方の働き方が新しく入るときは、答えの無い住民税の推定も一緒に入る（新しい働き方の計算に要る）", async () => {
+    const base = filled();
+    const spouse = base.request.input.household.members.find((m) => m.kind === "spouse")?.id;
+    const wh: WorkingHousehold = { ...base, request: { ...base.request, input: { ...base.request.input, household: { ...base.request.input.household, employmentPeriods: (base.request.input.household.employmentPeriods ?? []).filter((p) => p.member !== spouse) } } } };
+    const x = await round(wh, templateSelection(REVIEW, wh), { gates: { parent: 0 }, answers: { [k("hs.work.type", 2)]: v("partTime"), [k("hs.work.since", 2)]: ym(2020, 4), [k("hs.income.salary", 2)]: num("180") } });
+    const kinds = x.view.candidates.filter((c) => c.title.startsWith("配偶者の")).map((c) => `${c.kind}: ${c.title}`);
+    expect(kinds).toContain("new: 配偶者の仕事と収入");
+    expect(kinds).toContain("new: 配偶者の住民税");
+    expect(taxes(x.after).filter((a) => a.member === spouse)).toHaveLength(1);
+  });
+
+  it("お子さま3人と答え、3人目だけ生年月を答えると、3人目は新しいお子さまの候補で、今の2人の候補は無い", async () => {
+    const x = await round(filled(), templateSelection(SIMPLE, filled()), { gates: { parent: 0, spouse: 1, child: 3 }, answers: { [k("hs.family.adult.birthYearMonth", 1)]: ym(1981, 7), [k("hs.family.child.birthYearMonth", 3)]: ym(2027, 3) } });
+    checkEveryTime(x);
+    expect(x.view.candidates.filter((c) => c.group === "家族" && c.title.endsWith("子")).map((c) => `${c.kind}: ${c.title}`)).toEqual(["new: 第3子"]);
+    expect(x.after.request.input.household.members.filter((m) => m.kind === "child").map((m) => m.birth.birthYearMonth)).toEqual(["2012-05", "2015-08", "2027-03"]);
+  });
+
+  it("2人目だけ生年月を答え直すと、今の第2子に当たる（第1子は変わらない）", async () => {
+    const x = await round(filled(), templateSelection(SIMPLE, filled()), { gates: { parent: 0, spouse: 1, child: 2 }, answers: { [k("hs.family.adult.birthYearMonth", 1)]: ym(1981, 7), [k("hs.family.child.birthYearMonth", 2)]: ym(2015, 9) } });
+    checkEveryTime(x);
+    const kids = (wh: WorkingHousehold) => wh.request.input.household.members.filter((m) => m.kind === "child").map((m) => [m.id, m.birth.birthYearMonth, m.leaves]);
+    const before = kids(x.before);
+    expect(kids(x.after)).toEqual([before[0], [before[1]?.[0], "2015-09", before[1]?.[2]]]);
   });
 });
