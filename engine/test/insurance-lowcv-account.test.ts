@@ -131,11 +131,11 @@ describe("アカウント型（積立金の直線・払込の後の扱い・途�
     expect(year(out, 2041).premium).toBe(0);
   });
 
-  it("年金で受け取る: 払込の終わりの月から毎年、年数の間（雑所得。必要経費は払込保険料×年金額÷年金の総額）。積立金は受け取った回数の分だけ減る", () => {
+  it("年金で受け取る: 払込の終わりの月から毎年、年数の間（雑所得。必要経費は年金額×割合〔払込保険料÷年金の総額を小数点以下2位まで切り上げ。0179〕）。積立金は受け取った回数の分だけ減る", () => {
     const out = policy(acct({ value: 3000000, after: "annuity", annual: 330000, years: 10 }));
     const ann = out.receipts.filter((x) => x.kind === "annuity");
     expect(ann.map((x) => x.ym)).toEqual(["2040-04", "2041-04", "2042-04", "2043-04", "2044-04", "2045-04", "2046-04", "2047-04", "2048-04", "2049-04"]);
-    expect(ann.every((x) => x.amount === 330000 && x.taxClass === "miscellaneous" && x.member === H && x.cost === (4800000 * 330000) / 3300000)).toBe(true);
+    expect(ann.every((x) => x.amount === 330000 && x.taxClass === "miscellaneous" && x.member === H && x.cost === (330000 * 146) / 100)).toBe(true); // 割合 4,800,000÷3,300,000＝1.4545… → 1.46
     // 2045年末の値は25保険年度の終わり（2045年3月）の時点で、それまでに5回受け取った
     expect(year(out, 2045).surrenderValue).toBe((3000000 * 5) / 10);
     expect(year(out, 2050).surrenderValue).toBe(0);

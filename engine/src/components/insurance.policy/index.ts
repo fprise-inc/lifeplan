@@ -11,7 +11,7 @@
 //   保障の始まり（省略は契約からn年）からn年ごと、年金（annuity）は始まりから毎年、解約（surrender）は解約の月にその時の解約返戻金
 // - 税の区分（契約者・被保険者・受取人の関係）: 死亡保険金は 契約者＝被保険者 なら相続税の対象（みなし相続財産。額は計算せず知らせ
 //   N_INHERITANCE_TAX）、契約者＝受取人 なら一時所得（収入保障の月額は雑所得）、それ以外は贈与税。満期金・祝金・解約返戻金は
-//   受取人＝契約者 なら一時所得、それ以外は贈与税。年金は 受取人＝契約者 なら雑所得（必要経費は払込保険料×年金額÷年金の総額）、それ以外は贈与税。
+//   受取人＝契約者 なら一時所得、それ以外は贈与税。年金は 受取人＝契約者 なら雑所得、それ以外は始まる月に権利の贈与と雑所得（改訂6）。
 //   高度障害・就業不能の給付は非課税。一時所得の必要経費は、その時までの払込保険料のうち前の受け取りに使っていない分
 // - 医療・がんの給付（改訂2。0054）: 被保険者の病気の想定（就業不能・障害の想定の illness）があれば、起きる月の翌月に1回だけ受け取る
 //   （非課税）: 入院日額×min(入院の日数, 1回の限度日数〔maxDays。省略は60日〕)、手術×手術の回数、がん一時金（がんのとき）、
@@ -38,9 +38,20 @@
 //   保障の明細のとおり（定期保険と同じ）。利率の変動は計算しない（設計書の数字を入れ直す）。払込の終わりが無ければ積立金は0とし、入力を求める
 // - 改訂5・約束の版 1.2（0170）: 年ごとの値に、その年の最初の月（計算基準年は計算基準月）に亡くなったときの死亡保障額（start）を添える
 //   （必要保障額の推移の「その年の1月に亡くなったら」。年末の額 deathBenefit は年の途中で終わる定期保険が0・収入保障の残りが11か月少ない）
+// - 改訂6・約束の版 1.3（0179）: 年金の税を施行令のとおりにした。
+//   ・必要経費＝年金の額×割合（保険料の総額÷支払総額。小数点以下2位まで、3位以下を切り上げ。施行令183条1項4号）。年金の年数が空なら保障の終わり
+//     までの回数で支払総額を出し、終わりも無い終身年金は年額×受取人の支給開始日の余命年数（施行令の別表）を支払総額の見込額にする（前は必要経費0）
+//   ・受取人が契約者でない年金（個人年金・アカウント型の年金・契約者でも亡くなった人でもない人が受け取る収入保障の月額）は、支払が始まる月に
+//     年金を受け取る権利（定期金に関する権利）を1回贈与されたとみなし（相続税法6条3項・5条）、その評価額（相続税法24条: 1年当たりの平均額×
+//     予定利率〔目安 preset.insurance.annuityAssumedRate〕の複利年金現価率。数表の解約返戻金があれば多い方）を受け取り annuityRight（贈与税。
+//     お金の動きは無い）に出す。毎回の年金は雑所得で、総収入金額に入れるのは施行令185条2項の課税部分だけ（初年は0、2年目から階段状に増える）。
+//     総収入金額に入れない部分と、課税部分の必要経費を cost に入れる（前は毎回の年金を1回ずつの贈与にしていた）
+//   ・変額・外貨建の積立金（前の入れ方）に、計算基準年の2年前より前の払込保険料も足す（前は数えなかった）。払込保険料の累計（paid・必要経費の基）も、
+//     その時より前の月の分を数える（前は0）
 // - 改訂4（0137）: 預金の利回り（assumptions.depositReturn）を読む。預金・外貨預金の資産クラス（cash.deposit・cash.foreign）が前提の資産クラスごとの利回りに無いときの利回り（省略は運用利回りで、前の要求は今までどおり。0137）
 import {
   addMonths,
+  bracketFor,
   addYen,
   defineComponent,
   formatYm,
@@ -59,6 +70,7 @@ import {
   type InsurancePolicyYear,
   type InsuranceReceipt,
   type MemberInput,
+  type MonthCtx,
   type MonthIndex,
   type PaymentsOutput,
   type RelationInput,
@@ -82,7 +94,23 @@ const KNOWN: ReadonlySet<string> = new Set([
 const MEDICAL: ReadonlySet<string> = new Set(["hospitalDaily", "surgery", "cancerLump", "threeMajorLump"]);
 /** 入院の1回の限度日数の既定の値ID（0054。sdk/estimates.ts の目安。ctx.estimate で引く） */
 const DEFAULT_MAX_DAYS = "preset.insurance.hospitalMaxDays";
-const ROW: Readonly<Record<InsuranceReceipt["kind"], string>> = {
+/** 年金の税の制度の値（0179） */
+const P = {
+  costRound: "incomeTax.privateAnnuity.costRatio.rounding",
+  lifeYears: "incomeTax.privateAnnuity.lifeExpectancyYears",
+  taxableShare: "incomeTax.inheritedAnnuity.taxableShare",
+  specifiedShare: "incomeTax.inheritedAnnuity.specifiedPeriodShare",
+  pvRound: "inheritanceTax.annuityRight.presentValueFactor.rounding",
+};
+/** 年金を受け取る権利の評価の予定利率の目安の値ID（0179。sdk/estimates.ts。ctx.estimate で引く） */
+const ASSUMED_RATE = "preset.insurance.annuityAssumedRate";
+/** 年金の必要経費・課税部分・権利の評価額の1円未満（法令に定めの無い端数） */
+const CONV = "conv.insurance.annuity";
+/** 割合の百分率の1未満の切り上げ（段の境目が整数の百分率の表を引く） */
+const PCT_UP = "conv.insurance.percentUp";
+/** 年金の1回 */
+type Pay = { readonly m: MonthIndex; readonly amount: Yen };
+const ROW: Readonly<Record<Exclude<InsuranceReceipt["kind"], "annuityRight">, string>> = {
   death: "cf.income.lumpSum.insurance",
   highDisability: "cf.income.lumpSum.insurance",
   incomeProtection: "cf.income.other.insuranceBenefit",
@@ -97,10 +125,10 @@ const ROW: Readonly<Record<InsuranceReceipt["kind"], string>> = {
 export default defineComponent<{ object: string }, InsurancePolicyOutput>({
   id: "insurance.policy",
   title: "保険契約（保険年度ごとの値と受け取り）",
-  contract: "1.2",
-  revision: 5,
+  contract: "1.3",
+  revision: 6,
   requires: { "insurance.term": ">=1 <2", "insurance.premiumPayment": ">=1 <2", "contingency.event": ">=1 <2" },
-  params: [],
+  params: Object.values(P),
   reads: [
     "insurance.template",
     "insurance.policyholder",
@@ -114,6 +142,7 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
     "insurance.schedule",
     "insurance.simple",
     "member.kind",
+    "member.birth",
     "relation.type",
     "relation.a",
     "relation.b",
@@ -142,9 +171,10 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
     // insurance.premiumPayment は計算基準年の2年前の1月からの支払いだけを出すので、それより前の払込（契約の月から）は、
     // 契約の保険料（更新・数表の年額を含む）から数える（解約返戻金・一時所得の必要経費の基の払込保険料の累計）
     const windowStart = monthIndex(yearOf(base) - 2, 1);
-    let prior = 0;
+    // それより前の払込（月ごと。変額・外貨建の積立金も、これを保険年度ごとに足して伸ばす。0179）
+    const priorPays: { m: MonthIndex; amount: number }[] = [];
     if (start < windowStart) {
-      if (c.premium.frequency === "single") prior = c.premium.amount;
+      if (c.premium.frequency === "single") priorPays.push({ m: start, amount: c.premium.amount });
       else {
         const payEnd = c.premium.payUntil === null ? windowStart : Math.min(windowStart, ctx.time.resolve(c.premium.payUntil));
         const renewals = (c.renewals ?? []).map((r) => ({ m: ctx.time.resolve(r.at), premium: r.premium })).sort((a, b) => a.m - b.m);
@@ -156,13 +186,14 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
           let a: number = c.premium.amount;
           for (const r of renewals) if (r.m <= m) a = r.premium;
           if (annual !== null) a = c.premium.frequency === "monthly" ? ctx.money.allocate(yen(annual), [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "conv.expense.share", "first")[(m - start) % 12] ?? 0 : annual;
-          prior += a;
+          priorPays.push({ m, amount: a });
         }
       }
     }
+    const prior = priorPays.reduce((s, p) => s + p.amount, 0);
     const paidUpTo = (m: MonthIndex): Yen => {
       let s = m >= windowStart ? prior : 0;
-      if (m < windowStart) return yen(0);
+      if (m < windowStart) for (const p of priorPays) if (p.m <= m) s += p.amount;
       for (const p of pays) if (p.m <= m) s += p.amount;
       return yen(s);
     };
@@ -207,6 +238,7 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
         const a = addMonths(start, 12 * (py - 1));
         const b = addMonths(start, 12 * py - 1);
         let prem = 0;
+        for (const p of priorPays) if (p.m >= a && p.m <= b) prem += p.amount;
         for (const p of pays) if (p.m >= a && p.m <= b) prem += p.amount;
         const into = yen(prem - ctx.money.mulRate(yen(prem), load, "conv.investment.return"));
         const y = yearOf(b);
@@ -332,6 +364,118 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
         ...(taxClass === "gift" ? { giver: c.policyholder } : {}),
       });
     };
+
+    // ---- 年金の税（0179） ----
+    const atOf = (m: MonthIndex): MonthCtx => ctx.at(m < base ? base : m);
+    // 支給開始日の余命年数（施行令の別表。受取人の性別・満年齢）。表が無ければ null
+    const lifeYearsOf = (who: string | null, from: MonthIndex): number | null => {
+      if (who === null) return null;
+      const mem = members.find((x) => x.id === who);
+      if (mem === undefined) return null;
+      const at = atOf(from);
+      if (!at.has(P.lifeYears, { member: who })) return null;
+      const table = at.paramBrackets(P.lifeYears, { member: who });
+      if (table === null || table.length === 0) return null;
+      const age = Math.max(0, Math.floor((from - parseYm(mem.birth.birthYearMonth)) / 12));
+      const r = bracketFor(table, yen(age)).rate;
+      if (r === undefined) return null;
+      const f = ctx.rate.fraction(r);
+      return Number(f.num / f.den);
+    };
+    // 必要経費の割合の百分率（保険料の総額÷支払総額。小数点以下2位まで、3位以下を切り上げ。施行令183条1項4号・185条1項11号）。
+    // 端数の値が無いデータの組では null（割合をそのまま使う）
+    const costPct = (paid: number, total: number, at: MonthCtx): number | null => (total > 0 && at.has(P.costRound) ? at.money.mulRatio(yen(100), paid, total, P.costRound) : null);
+    const costOf = (amount: Yen, paid: number, total: number, pct: number | null): Yen =>
+      total <= 0 ? yen(0) : pct === null ? ctx.money.mulRatio(paid as Yen, amount, total, "conv.exact") : ctx.money.mulRatio(amount, pct, 100, CONV);
+    // 支払総額（確定年金は回の額の合計、終身年金は年額×余命年数）
+    const totalOf = (list: readonly Pay[], perYear: number, life: number | null): number =>
+      life === null ? list.reduce((t, p) => t + p.amount, 0) : ctx.money.mulRatio((list[0]?.amount ?? 0) as Yen, perYear * life, 1, "conv.exact");
+    // 残存期間年数（1年未満は切り上げ）。終身年金は余命年数
+    const yearsOf = (list: readonly Pay[], perYear: number, life: number | null): number => life ?? Math.ceil(list.length / perYear);
+    // 年金を受け取る権利（定期金に関する権利）の評価額（相続税法24条1項1号・3号）: 1年当たりの平均額×予定利率の複利年金現価率
+    // （小数点以下3位未満を四捨五入。相続税法施行規則12条の5）と、数表の解約返戻金の多い方
+    const rightValue = (list: readonly Pay[], perYear: number, life: number | null, at: MonthCtx, surrender: Yen | null): Yen => {
+      const n = yearsOf(list, perYear, life);
+      const total = totalOf(list, perYear, life);
+      if (n <= 0 || total <= 0) return surrender ?? yen(0);
+      const avg = ctx.money.divInt(yen(total), n, CONV);
+      const r = ctx.rate.of(String(ctx.estimate(ASSUMED_RATE)));
+      let v: Yen;
+      if (ctx.rate.compare(r, RATE_ZERO) <= 0 || !at.has(P.pvRound)) v = ctx.money.mulRatio(avg, n, 1, "conv.exact");
+      else {
+        const one = ctx.rate.of("1");
+        const factor = ctx.rate.div(ctx.rate.sub(one, ctx.rate.div(one, ctx.rate.pow(ctx.rate.add(one, r), n))), r);
+        const f = ctx.rate.fraction(factor);
+        const permille = at.money.mulRatio(yen(1000), Number(f.num), Number(f.den), P.pvRound);
+        v = ctx.money.mulRatio(avg, permille, 1000, CONV);
+      }
+      return surrender !== null && surrender > v ? surrender : v;
+    };
+    // 相続等（贈与を含む）で取得した年金の各回の cost（総収入金額に入れない部分＋課税部分の必要経費。施行令185条2項・1項8号）。
+    // 相続税評価割合（評価額÷支払総額）が百分の五十を超えれば 一課税単位×経過年数、以下なら 一単位×経過年数（特定期間の後は 一単位×特定期間年数−1円）。
+    // 年金の回の額にかかる月数（12÷1年の回数）で月割りし、年金の額以上なら、単位の整数倍のうち年金の額に満たない最も多い額（同6号）
+    const inheritedCosts = (list: readonly Pay[], perYear: number, life: number | null, value: Yen, paid: number, ratioTotal: number, at: MonthCtx): Yen[] => {
+      const n = yearsOf(list, perYear, life);
+      const total = totalOf(list, perYear, life);
+      if (total <= 0 || n <= 0 || !at.has(P.taxableShare) || !at.has(P.specifiedShare)) return list.map((p) => p.amount);
+      const first = list[0]?.m ?? (0 as MonthIndex);
+      const share = at.money.mulRatio(yen(100), value, total, PCT_UP);
+      const months = 12 / perYear;
+      let unitOf: (k: number) => Yen;
+      let unit: Yen;
+      if (share > 50) {
+        const t = bracketFor(at.paramBrackets(P.taxableShare) ?? [], yen(share)).rate ?? RATE_ZERO;
+        const units = (n * (n - 1)) / 2;
+        unit = units > 0 ? ctx.money.divInt(ctx.money.mulRate(yen(total), t, CONV), units, CONV) : yen(0);
+        unitOf = (k) => ctx.money.mulRatio(unit, life !== null && k > life ? life - 1 : k, 1, "conv.exact");
+      } else {
+        const q = ctx.rate.fraction(bracketFor(at.paramBrackets(P.specifiedShare) ?? [], yen(share)).rate ?? ctx.rate.of("1"));
+        const sy = Number((BigInt(n) * q.num + q.den - 1n) / q.den) - 1;
+        unit = sy > 0 ? ctx.money.divInt(yen(total), sy * n, CONV) : yen(0);
+        unitOf = (k) => (sy <= 0 ? yen(0) : k <= sy ? ctx.money.mulRatio(unit, k, 1, "conv.exact") : yen(Math.max(0, ctx.money.mulRatio(unit, sy, 1, "conv.exact") - 1)));
+      }
+      const pct = costPct(paid, ratioTotal, at);
+      return list.map((p) => {
+        const k = Math.floor((p.m - first) / 12);
+        let part = ctx.money.mulRatio(unitOf(k), months, 12, CONV);
+        if (part >= p.amount) {
+          const step = ctx.money.mulRatio(unit, months, 12, CONV);
+          part = step <= 0 ? yen(0) : ctx.money.mulRatio(step, ctx.money.mulRatio(yen(1), p.amount, step, PCT_UP) - 1, 1, "conv.exact");
+        }
+        return yen(p.amount - part + costOf(part, paid, ratioTotal, pct));
+      });
+    };
+    // 年金を出す（own: 受取人が契約者なら雑所得で施行令183条、ほかは権利の贈与と施行令185条2項）。list は全部の回（計算の範囲の外も）、
+    // emit は受け取りに出す回（解約・計算の範囲で切った回）
+    const annuityReceipts = (
+      kind: "annuity" | "incomeProtection",
+      list: readonly Pay[],
+      emit: (p: Pay) => boolean,
+      perYear: number,
+      life: number | null,
+      to: string | null,
+      own: boolean,
+      paid: number,
+      ratioTotal: number,
+      coverage: string | null,
+      surrender: Yen | null,
+    ) => {
+      const first = list[0];
+      if (first === undefined) return;
+      const at = atOf(first.m);
+      let costs: Yen[];
+      if (own) {
+        const pct = costPct(paid, ratioTotal, at);
+        costs = list.map((p) => costOf(p.amount, paid, ratioTotal, pct));
+      } else {
+        const value = rightValue(list, perYear, life, at, surrender);
+        if (first.m <= end) add(first.m, "annuityRight", value, to, "gift", coverage, yen(0));
+        costs = inheritedCosts(list, perYear, life, value, paid, ratioTotal, at);
+      }
+      list.forEach((p, i) => {
+        if (emit(p)) add(p.m, kind, p.amount, to, "miscellaneous", coverage, costs[i] ?? yen(0));
+      });
+    };
     // 保障の被保険者ごと（契約の被保険者と、保障の行の被保険者。0054）の万一の想定
     const people = [...new Set([c.insured, ...coverages.map(covInsured)])];
     const deathMonth = new Map<string, MonthIndex>();
@@ -366,16 +510,21 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
           if (x.benefit !== "incomeProtection" || covInsured(x) !== P || !covActive(x, D)) continue;
           const to = covTo(x);
           const last = Math.max(to === null ? D : to, D + (x.minimumMonths ?? 0));
-          const n = last - D;
           const totalPaid = paidUpTo(D);
-          for (let m = pay; m <= last && m <= end; m = addMonths(m, 1)) {
-            split(x.amount).forEach((a, i) => {
-              const who = heirs[i]?.member ?? null;
-              const cls0 = deathClass(P, who);
-              const cls = cls0 === "temporary" ? "miscellaneous" : cls0;
-              add(m, "incomeProtection", a, who, cls, x.id, cls === "miscellaneous" && n > 0 ? ctx.money.mulRatio(totalPaid, 1, n * heirs.length, "conv.exact") : yen(0));
-            });
-          }
+          // 受取人ごとの全部の回（計算の範囲の外も）。契約者が受け取るなら雑所得（施行令183条）、契約者でも亡くなった人でもない人なら
+          // 年金を受け取る権利の贈与と施行令185条2項（0179）。亡くなった人が契約者なら相続税の対象（毎月の年金の雑所得は計算しない）
+          const byHeir: Pay[][] = heirs.map(() => []);
+          for (let m = pay; m <= last; m = addMonths(m, 1)) split(x.amount).forEach((a, i) => byHeir[i]?.push({ m, amount: a }));
+          const all = byHeir.reduce((t, l) => t + l.reduce((u, p) => u + p.amount, 0), 0);
+          byHeir.forEach((list, i) => {
+            const who = heirs[i]?.member ?? null;
+            const cls0 = deathClass(P, who);
+            if (cls0 === "inheritance") {
+              for (const p of list) if (p.m <= end) add(p.m, "incomeProtection", p.amount, who, "inheritance", x.id);
+              return;
+            }
+            annuityReceipts("incomeProtection", list, (p) => p.m <= end, 12, null, who, cls0 === "temporary", totalPaid, all, x.id, null);
+          });
         }
         if (lump > 0 && c.policyholder === P) ctx.notice("N_INHERITANCE_TAX", ["insurance.deathBenefit", c.id]);
         continue;
@@ -430,30 +579,32 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
       if (x.benefit === "annuity") {
         const from = covFrom(x);
         const years = x.years ?? null;
-        const expected = years === null ? null : ctx.money.mulRatio(x.amount, years, 1, "conv.exact");
-        const totalPaid = paidUpTo(from);
+        // 回（年数があればその回数、無ければ保障の終わりまで〔画面の「入れなければ保障の終わりまで」〕、終わりも無ければ終身で計算の範囲まで）
+        const life = years === null && to === null ? lifeYearsOf(annuitant, from) : null;
+        const list: Pay[] = [];
         for (let k = 0; years === null || k < years; k++) {
           const m = addMonths(from, 12 * k);
-          if (m > end || (to !== null && m > to)) break;
-          if (endsAt !== null && m >= endsAt && term.cause !== "maturity") break;
-          const amount = sched(policyYear(m), "annuity") ?? x.amount;
-          const cls = annuitant === c.policyholder ? "miscellaneous" : "gift";
-          const cost = cls === "miscellaneous" && expected !== null && expected > 0 ? ctx.money.mulRatio(totalPaid, amount, expected, "conv.exact") : yen(0);
-          add(m, "annuity", amount, annuitant, cls, x.id, cost);
+          if ((to !== null && m > to) || (years === null && to === null && m > end)) break;
+          list.push({ m, amount: sched(policyYear(m), "annuity") ?? x.amount });
+        }
+        // 終身で余命年数の表が無ければ、支払総額が分からないので必要経費は0（前と同じ）
+        const lifeless = years === null && to === null && life === null;
+        const live = (p: Pay) => p.m <= end && !(endsAt !== null && p.m >= endsAt && term.cause !== "maturity");
+        if (lifeless) {
+          for (const p of list) if (live(p)) add(p.m, "annuity", p.amount, annuitant, annuitant === c.policyholder ? "miscellaneous" : "gift", x.id, yen(0));
+        } else {
+          const ratioTotal = totalOf(list, 1, life);
+          annuityReceipts("annuity", list, live, 1, life, annuitant, annuitant === c.policyholder, paidUpTo(from), ratioTotal, x.id, sched(policyYear(from), "surrenderValue"));
         }
       }
     }
     // アカウント型の年金（払込の終わりの月から毎年。個人年金と同じ税）
     if (account?.after === "annuity" && payEndM !== null && payMonths !== null && payMonths > 0) {
       const annual = yen(account.annual ?? 0);
-      const expected = ctx.money.mulRatio(annual, annuityYears, 1, "conv.exact");
-      const totalPaid = paidUpTo(payEndM);
-      const cls = annuitant === c.policyholder ? "miscellaneous" : "gift";
-      for (let k = 0; k < annuityYears; k++) {
-        const m = addMonths(payEndM, 12 * k);
-        if (m > end || (endsAt !== null && m >= endsAt)) break;
-        add(m, "annuity", annual, annuitant, cls, null, cls === "miscellaneous" && expected > 0 ? ctx.money.mulRatio(totalPaid, annual, expected, "conv.exact") : yen(0));
-      }
+      const list: Pay[] = [];
+      for (let k = 0; k < annuityYears; k++) list.push({ m: addMonths(payEndM, 12 * k), amount: annual });
+      const ratioTotal = totalOf(list, 1, null);
+      annuityReceipts("annuity", list, (p) => p.m <= end && !(endsAt !== null && p.m >= endsAt), 1, null, annuitant, annuitant === c.policyholder, paidUpTo(payEndM), ratioTotal, null, null);
     }
     // 解約（アカウント型の払込の後は、その時の積立金。払込の終わりの月は value）
     const surrenderValueAt = (m: MonthIndex): Yen => {
@@ -466,7 +617,8 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
     const flows: Flow[] = [];
     for (const r of receipts) {
       const m = parseYm(r.ym);
-      if (r.member === null || m < base || m > end) continue;
+      // 年金を受け取る権利の贈与（annuityRight）はお金の動きが無い（贈与税だけ。0179）
+      if (r.member === null || m < base || m > end || r.kind === "annuityRight") continue;
       flows.push({ row: ROW[r.kind], ym: r.ym, amount: r.amount, accrualYear: yearOf(m), member: r.member, object: c.id, formula: `insurance.policy.${r.kind}` });
     }
     const years: InsurancePolicyYear[] = [];

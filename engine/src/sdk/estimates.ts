@@ -42,6 +42,8 @@ export const ENGINE_PRESETS: readonly PresetDef[] = [
   { id: "preset.survivor.livingRatio.noChildren", value: "0.7", unit: "pct", group: "万一・保険", name: "遺族の生活費の割合（子のいない世帯）", source: "出典なし（よく使われる目安。出典の確かめ前）", kind: "guide", use: "engine", rev: 1 },
   // 医療保険の入院の1回の限度日数（insurance.policy。保険の限度日数が空欄のとき。画面の保険の種類のひな形も同じ値）
   { id: "preset.insurance.hospitalMaxDays", value: 60, unit: "days", group: "万一・保険", name: "医療保険の入院の1回の限度日数", source: "ひな形（よくある医療保険の型）", kind: "guide", use: "engine", rev: 1 },
+  // 年金を受け取る権利（定期金に関する権利）の評価の予定利率（insurance.policy。契約者と受取人が違う年金の贈与税。相続税法24条の複利年金現価率。0179）
+  { id: "preset.insurance.annuityAssumedRate", value: "0.0025", unit: "pct", group: "万一・保険", name: "年金を受け取る権利の評価の予定利率", source: "出典なし（近年の個人年金保険の予定利率の目安。契約の予定利率が分かれば事務所の値で置き換える）", kind: "guide", use: "engine", rev: 1 },
   // 持ち家・不動産の評価（housing.valuation・asset.realEstate。0025 の2。土地と建物の割合などが空欄のとき。画面の欄の既定も同じ値）
   { id: "preset.realEstate.landShare", value: "0.3", unit: "pct", group: "住まい・ローン", name: "持ち家・不動産の評価: 土地の割合", source: "住宅金融支援機構「フラット35利用者調査」2025年度の土地付注文住宅（全国）の、建設費と土地取得費の合計に占める土地取得費の割合（29.7%。首都圏は40.4%）", kind: "guide", use: "engine", rev: 1 },
   { id: "preset.realEstate.residualFloor", value: "0.2", unit: "pct", group: "住まい・ローン", name: "持ち家・不動産の評価: 建物の残りの価値の下限", source: "よくある目安（固定資産評価の下限）", kind: "guide", use: "engine", rev: 1 },

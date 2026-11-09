@@ -452,6 +452,8 @@ export interface PlanLineModel {
    * その後の年は値の無い年で、線をそこで終える（0 円として描かない）。省略は最後の年まで値がある
    */
   ends?: number;
+  /** 資産が尽きる年の番号（使えるお金で払えなくなる年。workspace/present.ts の depletionYear。-1 は尽きない）。省略は金融資産がはじめてマイナスになる年（0179） */
+  short?: number;
 }
 
 export interface PlanBandModel {
