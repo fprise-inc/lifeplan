@@ -109,7 +109,7 @@ describe("H1-004 全モデル世帯で、亡くなった人の名のお金の動
 });
 
 /** 必要保障額（本人が亡くなる）。year を渡すとその年だけ（その年に亡くなる想定の表から組み立てる） */
-type ProtYear = { year: number; need: number; breakdown: { resources: { publicSupport: number }; expenses: { other: number; housing: number }; lumpResources: { dcLump: number; mutualAidLump?: number } } };
+type ProtYear = { year: number; need: number; breakdown: { resources: { publicSupport: number }; expenses: { other: number; housing: number; taxSi: number }; lumpResources: { dcLump: number; mutualAidLump?: number } } };
 function protection(req: Req, who: string, year?: number): ProtYear[] {
   const q = clone(req) as Req & { input: { protection?: unknown; inheritanceTax?: unknown } };
   delete q.input.contingencies;
@@ -157,10 +157,78 @@ describe("必要保障額の近似: 亡くなる人の物件を売った後の�
       const a = all.find((y) => y.year === year) as ProtYear;
       const e = protection(req, self, year)[0] as ProtYear;
       // 前は 2042年が約553万円多かった（最初の年の表では配偶者が相続した物件を売り、2042〜43年の譲渡所得の税を配偶者の税に数えた。
-      // 2042年に亡くなる想定では、売ったのは亡くなった本人で、死亡の年までの所得の税として数えない）
+      // 2042年に亡くなる想定では、売ったのは亡くなった本人で、その税は亡くなった人がまだ払っていない税として数える。下）
       expect(Math.abs(a.need - e.need)).toBeLessThan(300_000);
     }
     expect((all.find((y) => y.year === 2042) as ProtYear).need).toBe((protection(req, self, 2042)[0] as ProtYear).need);
+  });
+});
+
+describe("必要保障額: 亡くなった人がまだ払っていない税（遺族が払う債務。0170 の追記）", () => {
+  /** 亡くなる想定の表で、亡くなった人の名で亡くなった月より後に払う、死亡の年までの所得の税（所得税・住民税・事業税） */
+  const unpaidIn = (req: Req, who: string, at: string) => {
+    const q = clone(req);
+    kill(q, who, at);
+    const skip = ["cf.taxSi.incomeTax.capitalGains", "cf.taxSi.residentTax.capitalGains", "cf.taxSi.incomeTax.cryptoAsset", "cf.taxSi.residentTax.cryptoAsset"];
+    const isTax = (row: string) => !skip.includes(row) && ["cf.taxSi.incomeTax", "cf.taxSi.residentTax", "cf.taxSi.businessTax"].some((p) => row === p || row.startsWith(`${p}.`));
+    return flowsOf(run(q))
+      .filter((f) => f.member === who && isTax(f.row) && ym(f.ym) > ym(at) && (f.accrualYear ?? 0) <= Number(at.slice(0, 4)))
+      .reduce((s, f) => s + f.amount, 0);
+  };
+
+  it("rentalSample の本人が 2042年に亡くなる額は、2041年の物件の売却の譲渡所得の税と 2041年の所得の住民税を必要な資金（税と社会保険料）に数える", () => {
+    const req = model("rentalSample");
+    const self = memberOf(req, "self") as string;
+    const unpaid = unpaidIn(req, self, "2042-01");
+    // 譲渡所得の所得税 3,765,100円・住民税 1,229,200円、所得税の確定申告 300,017円、住民税 572,000円
+    expect(unpaid).toBe(5_866_317);
+    const all = protection(req, self);
+    const a = all.find((y) => y.year === 2042) as ProtYear;
+    const e = protection(req, self, 2042)[0] as ProtYear;
+    // 前は遺族の税だけ（4,896,601円）
+    expect(e.breakdown.expenses.taxSi).toBe(4_896_601 + unpaid);
+    // 後の年に最初の年の表を使う額と、その年に亡くなる想定の額が同じ
+    expect(a.breakdown.expenses.taxSi).toBe(e.breakdown.expenses.taxSi);
+    expect(a.need).toBe(e.need);
+  });
+
+  it("計算基準年に亡くなる額は、場面の表の準確定申告（還付）と残りの住民税を数える（salariedCoupleTwoKids の本人）", () => {
+    const req = model("salariedCoupleTwoKids");
+    const self = memberOf(req, "self") as string;
+    // 計算基準月（2026-10）に亡くなる想定
+    const unpaid = unpaidIn(req, self, req.input.baseMonth);
+    // 2025年の所得の住民税の残り（普通徴収に切り替わる）221,200円、2026年の所得の準確定申告の還付 −92,033円
+    expect(unpaid).toBe(129_167);
+    const y = protection(req, self)[0] as ProtYear;
+    expect(y.year).toBe(2026);
+    // 前は 6,044,706円
+    expect(y.breakdown.expenses.taxSi).toBe(6_044_706 + unpaid);
+  });
+
+  it("後の年は、万一なしの計算の前の年の所得の税で数える（その年に亡くなる想定の表の額と数千円の違い。salariedCoupleTwoKids・sampleSelfEmployedFamily の本人）", () => {
+    for (const name of ["salariedCoupleTwoKids", "sampleSelfEmployedFamily"]) {
+      const req = model(name);
+      const self = memberOf(req, "self") as string;
+      const plain = clone(req);
+      delete plain.input.contingencies;
+      const noDeath = flowsOf(run(plain));
+      const all = protection(req, self);
+      for (const year of [2031, 2035]) {
+        const at = `${year}-01`;
+        const exact = unpaidIn(req, self, at);
+        expect(exact).toBeGreaterThan(0);
+        const skip = ["cf.taxSi.incomeTax.capitalGains", "cf.taxSi.residentTax.capitalGains", "cf.taxSi.incomeTax.cryptoAsset", "cf.taxSi.residentTax.cryptoAsset"];
+        const fromPlan = noDeath
+          .filter((f) => f.member === self && !skip.includes(f.row) && /^cf\.taxSi\.(incomeTax|residentTax|businessTax)(\.|$)/.test(f.row) && ym(f.ym) > ym(at) && f.accrualYear === year - 1)
+          .reduce((s, f) => s + f.amount, 0);
+        expect(Math.abs(fromPlan - exact)).toBeLessThan(10_000);
+        // 後の年に最初の年の表を使う額と、その年に亡くなる想定の額は、前と同じく遺族の税の近似のずれだけ（まだ払っていない税はどちらも万一なしの
+        // 計算から同じ額。前の年の所得で決まる遺族の住民税などで、sampleSelfEmployedFamily は約20万円）
+        const a = all.find((y) => y.year === year) as ProtYear;
+        const e = protection(req, self, year)[0] as ProtYear;
+        expect(Math.abs(a.need - e.need)).toBeLessThan(300_000);
+      }
+    }
   });
 });
 
