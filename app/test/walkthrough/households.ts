@@ -122,8 +122,9 @@ export async function household1(p: Page): Promise<Notes> {
 
   await open(p, n, "住まい・ローン");
   await p.click("＋ 持ち家（今住んでいる）", { within: "panel" });
-  // 評価額は未入力の警告なので、入るまで標準に出る（入れないと今の家が資産に入らない）
-  await p.type("評価額", "3500");
+  // 今住んでいる持ち家は、標準で買った値段（合計・うち土地）を入れ、評価額は推計（0176）。買った年月は住宅ローンの借りた年月から入る
+  await p.type("買った値段（土地と建物の合計）", "3500");
+  await p.type("うち土地の値段", "1200");
   await p.click("＋ 住宅ローン", { within: "panel", exact: true });
   await p.type("今の残高", "2800");
   // 毎月の返済額は円の欄（返済予定表の数字をそのまま打つ。「9万」も9万円）
@@ -287,6 +288,8 @@ export async function household3(p: Page): Promise<Notes> {
 
   await open(p, n, "住まい・ローン", "詳細");
   await p.click("＋ 持ち家（今住んでいる）", { within: "panel" });
+  // 今の時価で入れる（評価の入れ方を選ぶと評価額の欄が出る。0176）
+  await p.choose("評価の入れ方", "今の時価で");
   await p.type("評価額", "3000");
   await p.type("建物が建った年", "1995");
   await p.type("住み始め", "1995-10");

@@ -74,8 +74,9 @@ describe("言い換えと欄の名前で当たる", () => {
     const sch = top(wh, "奨学金");
     expect(sch).toMatchObject({ card: "education", level: "detail", where: "第1子" });
     const tax = top(wh, "固定資産税");
-    expect(tax).toMatchObject({ card: "housing", label: "固定資産税・都市計画税", target: { kind: "field" }, level: "detail" });
-    expect(tax.target.key).toMatch(/^housing\/res\/.+\/tax$/);
+    // 今住んでいる持ち家は「固定資産税・都市計画税」の中枠（0176）に当たる
+    expect(tax).toMatchObject({ card: "housing", label: "固定資産税・都市計画税", level: "detail" });
+    expect(tax.target.key).toMatch(/^housing\/res\/.+\/taxe?s?$/);
   });
 
   it("よく打つ言葉は読み（ひらがな）でも当たる（かな漢字の変換の前に打っている間も。読みの始まりまでも）", () => {
