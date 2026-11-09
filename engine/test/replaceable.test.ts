@@ -146,7 +146,7 @@ describe("差し替えを許す公式部品の一覧（0119 の1）", () => {
       "expense.advisoryFee": "1.0 empty.input flows.output",
       "expense.living": "1.0 empty.input flows.output",
       "housing.valuation": "1.1 empty.input housing.valuation.output",
-      "protection.need": "1.1 protection.need.input protection.need.output",
+      "protection.need": "1.2 protection.need.input protection.need.output",
       "retirement.benefit": "1.0 member.input retirement.benefit.output",
     });
   });

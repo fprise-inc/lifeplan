@@ -42,8 +42,14 @@
 //   総合短期の譲渡所得 → 総合長期の譲渡所得 → 一時所得（どれも特別控除の後・2分の1の前）の順に引き、残った長期と一時に2分の1を掛ける。
 //   引ききれない損失が純損失（netLoss）。前は2分の1にした後の額と足していたので、総所得金額が小さく、純損失が大きく出た
 //   （青色申告では無い損失を繰り越していた）。temporary・transfer.included は通算の後に総所得金額に入れた額。退職所得からは引かない（0028 の未確定）
+// 改訂3（0173。亡くなった人の名義）: 名義の人が万一の想定で亡くなった後は、不動産所得・民泊と宿の所得を持つ人（asset.realEstate の holders。
+//   sdk の propertyIncomeOf）で、その他の資産の売却の所得を売る月に持つ人（相続する人。等分。sdk の holdersAt）で数える
 import {
   defineComponent,
+  holdersAt,
+  parseYm,
+  propertyIncomeOf,
+  splitEqually,
   monthIndex,
   yen,
   type BusinessOutput,
@@ -72,7 +78,7 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
   id: "tax.totalIncomeBase",
   title: "合計所得金額（所得金額調整控除の子ども・特別障害者等の分を引く前）",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: {
     "tax.employmentIncome": ">=1 <2",
     "tax.publicPensionIncome": ">=1 <2",
@@ -83,6 +89,7 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
     "income.flows": ">=1 <2",
     "tax.realEstateSale": ">=1 <2",
     "asset.heldSale": ">=1 <2",
+    "contingency.event": ">=1 <2",
   },
   params: [ADJUST, ...Object.values(TEMP), ...Object.values(TRANSFER), ...Object.values(BLUE)],
   reads: ["member.taxReturn"],
@@ -131,12 +138,17 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
     let heldMisc = 0;
     let heldTransfer = false;
     for (const x of ctx.call<HeldSaleOutput>("asset.heldSale", {}).sales) {
-      if (x.owner !== input.member || Number(x.ym.slice(0, 4)) !== input.year || x.gain === undefined) continue;
-      if (x.taxation === "miscellaneous") heldMisc += x.gain;
+      if (Number(x.ym.slice(0, 4)) !== input.year || x.gain === undefined) continue;
+      // 売る月に持つ人（名義の人が亡くなった後は相続する人。等分）
+      const holders = holdersAt(ctx, x.owner, parseYm(x.ym));
+      const k = holders.indexOf(input.member);
+      if (k < 0) continue;
+      const gain = splitEqually(ctx, x.gain, holders.length)[k] as Yen;
+      if (x.taxation === "miscellaneous") heldMisc += gain;
       else if (x.taxation === "transfer") {
         heldTransfer = true;
-        if (x.term === "short") transferShort += x.gain;
-        else transferLong += x.gain;
+        if (x.term === "short") transferShort += gain;
+        else transferLong += gain;
       }
     }
     let transfer: { short: Yen; long: Yen; included: Yen } | null = null;
@@ -184,8 +196,8 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
     let rooms = 0;
     let houses = 0;
     for (const prop of ctx.call<RealEstateOutput>("asset.realEstate", {}).properties) {
-      if (prop.owner !== input.member) continue;
-      const e = prop.income.find((x) => x.year === input.year);
+      // その年に持つ人の分（名義の人が亡くなった後は相続する人。0173）
+      const e = propertyIncomeOf(prop, input.member, input.year);
       if (e === undefined) continue;
       if (prop.incomeKind === "miscellaneous") lodgingMisc = (lodgingMisc ?? 0) + e.income;
       else if (prop.incomeKind === "business") lodgingBusiness = (lodgingBusiness ?? 0) + e.income;

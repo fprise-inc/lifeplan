@@ -148,7 +148,9 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
   if (on.has("contingency") && grown.length > 0 && deaths.length > 0) {
     const p = baseRequest(proposal);
     const s = survivorOf(premise.survivor);
-    p.input.protection = { members: grown, method: "accumulation", ...(s !== undefined ? { survivor: s } : {}), ...(premise.horizon !== undefined ? { horizon: { ...premise.horizon } } : {}) };
+    // 出し方も、そのプランの前提（万一のタブで逆算の方式を選んだプランは逆算の方式。0168 の追記）
+    const how = premise.protection?.method === "reverse" ? { method: "reverse" as const, ...(premise.protection.reverseUntilAge !== undefined ? { reverseUntilAge: premise.protection.reverseUntilAge } : {}) } : { method: "accumulation" as const };
+    p.input.protection = { members: grown, ...how, ...(s !== undefined ? { survivor: s } : {}), ...(premise.horizon !== undefined ? { horizon: { ...premise.horizon } } : {}) };
     requests.protection = p;
   }
 
