@@ -49,12 +49,12 @@ describe("詳細版 full 版3 のシート定義", () => {
 });
 
 describe("ご両親のお金と介護の取り込み", () => {
-  it("仕送りは相手をその親にした仕送りの行（毎月）、援助は援助・仕送りを受ける行（毎月）。どちらも今の月から", () => {
+  it("仕送りは相手をその親にした仕送りの行（毎月）、援助は援助・仕送りを受ける行（毎月）。どちらも今の月から、伸び方は「変えない」", () => {
     const r = run(...base, ...mother, a("hs.family.parent.allowance", 30000, 2), a("hs.family.parent.support", 20000, 2));
     const h = r.request.input.household;
     const p = h.members.find((m) => m.kind === "parent")!;
-    expect(h.periodicExpenses).toEqual([{ id: expect.any(String), label: "仕送り", kind: "allowance", row: "cf.expense.other", from: { at: "2026-10" }, to: null, everyYears: 1, monthly: true, amount: { value: 30000, state: "confirmed", origin: { kind: "hearing", ref: "R-ABCDEF" } }, counterparty: p.id }]);
-    expect(h.incomeFlows).toEqual([{ id: expect.any(String), label: "援助・仕送りを受ける", kind: "support", from: { at: "2026-10" }, to: null, everyYears: 1, monthly: true, amount: { value: 20000, state: "confirmed", origin: { kind: "hearing", ref: "R-ABCDEF" } }, counterparty: p.id }]);
+    expect(h.periodicExpenses).toEqual([{ id: expect.any(String), label: "仕送り", kind: "allowance", row: "cf.expense.other", from: { at: "2026-10" }, to: null, everyYears: 1, monthly: true, amount: { value: 30000, state: "confirmed", origin: { kind: "hearing", ref: "R-ABCDEF" } }, counterparty: p.id, growth: { kind: "none" } }]);
+    expect(h.incomeFlows).toEqual([{ id: expect.any(String), label: "援助・仕送りを受ける", kind: "support", from: { at: "2026-10" }, to: null, everyYears: 1, monthly: true, amount: { value: 20000, state: "confirmed", origin: { kind: "hearing", ref: "R-ABCDEF" } }, counterparty: p.id, growth: { kind: "none" } }]);
     expect(r.candidates.filter((c) => c.collection === "periodicExpenses" || c.collection === "incomeFlows")).toHaveLength(2);
   });
 

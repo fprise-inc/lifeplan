@@ -128,11 +128,11 @@ const OUTSIDE_NOTE = "世帯の外の家族（家計が別）です。年金・�
 /** 仕送りの額の欄の説明（扶養の判定にだけ使う） */
 const ALLOWANCE_HELP = "健康保険の扶養の判定（別居の親・祖父母）にだけ使い、支出には入りません。仕送りの支出は「親への仕送り」の行で入れてください（行と両方に入れても二重にはなりません）";
 
-/** 仕送りの額の欄の値で、この人を相手にした仕送りの出るお金の行（毎月）を作る（額は欄から写した推定） */
+/** 仕送りの額の欄の値で、この人を相手にした仕送りの出るお金の行（毎月）を作る（額は欄から写した推定。伸び方は仕送りの既定の「変えない」。0044 の追記 2026-11-10） */
 function allowanceRow(wh: WorkingHousehold, member: string, monthly: number): WorkingHousehold {
   return mutate(wh, (h) => {
     const at = wh.request.input.baseMonth;
-    (h.periodicExpenses ??= []).push({ id: newId(), label: "仕送り", kind: "allowance", counterparty: member, row: "cf.expense.other", from: { at }, to: null, everyYears: 1, monthly: true, amount: standardBox(monthly, "仕送りの額（扶養の判定に使う）の欄から") });
+    (h.periodicExpenses ??= []).push({ id: newId(), label: "仕送り", kind: "allowance", counterparty: member, row: "cf.expense.other", from: { at }, to: null, everyYears: 1, monthly: true, amount: standardBox(monthly, "仕送りの額（扶養の判定に使う）の欄から"), growth: { kind: "none" } });
   });
 }
 
