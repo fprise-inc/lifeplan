@@ -128,7 +128,7 @@ import { installUndo, undoController } from "./undo/controller.ts";
 import { UndoButtons } from "./undo/UndoButtons.tsx";
 import { HouseholdDrop } from "./header/HouseholdDrop.tsx";
 import { BasisLine, HouseholdNow } from "./header/HouseholdNow.tsx";
-import { barAlerts, barNotices, saveText, type AlertKind, type BarInputs, type NoticeTarget } from "./header/status.ts";
+import { barAlerts, barNotices, saveText, unsavedNewHousehold, type AlertKind, type BarInputs, type NoticeTarget } from "./header/status.ts";
 import { FEEDBACK_FORM } from "../generated/distribution.ts";
 import { EMPTY_LOCAL, feedKey, householdKey, localDate, markRead, parseFeed, readLocal, visibleFeed, type CenterItem, type LocalState } from "./notices/center.ts";
 import { FeedbackPanel } from "./notices/FeedbackPanel.tsx";
@@ -2463,6 +2463,8 @@ export function App() {
   const savingStored = storedInfo !== null && sampleMode !== "view";
   /** 見本を開いていて、動かしても保存しない（見本の帯の文と、入力のパネルの「保存」の後の知らせで同じ条件） */
   const sampleView = sampleNotSaving(sampleItem, sampleMode);
+  /** まだ世帯として保存していない新しい世帯（世帯の選択のメニューの「この世帯を保存して使う」と、入力のパネルの「保存」の後の知らせで同じ条件） */
+  const unsavedNew = unsavedNewHousehold({ opened: opened !== null, stored: storedInfo !== null, sample: opened?.demo != null });
   const drawer = memoOpen || evidence !== null;
   // 事務所で共有しているときの自分と、メンバーの表示名（メモの行・面談の記録の書いた人。0023 の6・0182）
   const officeMe = storedInfo !== null && officeStatus?.state === "member" ? (officeStatus.members.find((m) => m.isMe)?.memberId ?? null) : null;
@@ -2763,7 +2765,7 @@ export function App() {
               shelf={shelf}
               currentSample={currentSample}
               currentShape={opened !== null ? guessShape(opened.wh.request) : null}
-              unsavedTitle={opened !== null && storedInfo === null && opened.demo === null ? "新しい世帯" : null}
+              unsavedTitle={unsavedNew ? "新しい世帯" : null}
               initialTab={hhTab}
               onOpen={(id) => void guard(() => openStored(id), openMessage)}
               onCreate={(category) =>
@@ -2879,6 +2881,7 @@ export function App() {
               paused={presence !== null && storedInfo !== null}
               viewOnly={viewOnly}
               sample={sampleView}
+              unsaved={unsavedNew}
               calcNotices={currentNotices}
               layout={layoutOf(officeSettings)}
               plans={{

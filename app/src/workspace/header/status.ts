@@ -229,6 +229,15 @@ export function barNotices(i: BarInputs): NoticeSpec[] {
   return out;
 }
 
+/**
+ * まだ世帯として保存していない新しい世帯を開いている（保存した世帯でも見本でもない）。
+ * 世帯の選択のメニューの「いま開いている「新しい世帯」は保存していません。」と「この世帯を保存して使う」を出す条件と、
+ * 入力のパネルの「保存」の後の知らせ（まだ世帯を保存していない）で同じ条件
+ */
+export function unsavedNewHousehold(i: { opened: boolean; stored: boolean; sample: boolean }): boolean {
+  return i.opened && !i.stored && !i.sample;
+}
+
 /** 世帯の選択のメニューに出す保存の状態の文 */
 export function saveText(stored: boolean, st: SaveState, message: (code: string) => string, paused = false): { text: string; cls: string } {
   if (!stored) return { text: "保存していません（見本・新しい世帯は、「この世帯を保存」で保存できます）", cls: "unsaved" };
