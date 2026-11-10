@@ -351,6 +351,11 @@ html.big .lever input[type="range"] { height: 36px; }
 /* 見出しの横の要約（入れた結果の額など。GroupDef・SectionDef の summary） */
 .in-section h3 .in-sum, .in-group-h h4 .in-sum { margin-left: 10px; font-size: 0.82rem; font-weight: 400; color: var(--ink-2); }
 .in-group-help { margin: 0 0 4px; }
+/* ふだんは閉じておくまとまり（FoldedGroup.tsx）: 説明の段落と「＋ 〇〇を入れる」だけ */
+.in-folded .in-note { margin: 0 0 6px; line-height: 1.6; }
+.in-folded > .in-actions { margin-top: 8px; }
+.in-folded .in-folded-list { padding-left: 1.3em; }
+.in-folded .in-folded-list li + li { margin-top: 2px; }
 .ip-head h2 .help-btn { font-size: 0.78rem; }
 .fld-c { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .fld-c input[type="text"], .fld-c select { border: 1.5px solid var(--line); border-radius: 6px; padding: 5px 8px; background: var(--card); min-width: 0; }

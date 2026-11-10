@@ -5,8 +5,10 @@
 //   子ども・教育／住まい・ローンのカードで入れ、ここには読むだけで並べる。あげる贈与の相手の孫（世帯の外の家族）はこのカードに置く（呼び名・生年月・外す）
 // - 親・祖父母（相続の相手・贈与する人）: 物と欄は介護・親の項目の世帯の外の家族の区画。ここは人ごとに「使っているところ」の1行と「外す」、「＋ 足す」
 // - 区画C 遺したい額（表示だけ。表の最後の年の金融資産と比べる。input.legacy）
-// - 区画D 相続税の目安: 結果は計算の結果から読む（inheritanceLine.ts。表示だけで、お金の流れには入れない）。ここは目安の設定の欄
-//   （不動産の評価の割合・名義の無い財産の分け方・葬式の費用・養子・法定相続人の数を直す口・FP が入れた額。input.inheritanceTax。0039・0060）
+// - 区画D 相続税の目安: 結果は計算の結果から読む（inheritanceLine.ts。表示だけで、お金の流れには入れない）。ここは目安の計算の前提の欄
+//   （不動産の評価の割合・名義の無い財産の分け方・葬式の費用・養子・法定相続人の数を直す口。input.inheritanceTax。0039・0060）
+// - 区画E 税理士などが出した相続税の額（目安の代わりに出す額。input.inheritanceTax.overrides）。使う世帯が少ないので、ふだんは閉じておき、
+//   説明と「＋ 税理士などが出した額を入れる」だけを出す。額が入っている世帯では初めから開く（0039 の追記 2026-11-10）
 import type { Household, InheritanceTaxRequest, Member, Timepoint } from "../../../engine/types.ts";
 import { afterWrite, field, removeAction, resolveTimepoint, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, type WorkingHousehold } from "../household.ts";
@@ -21,6 +23,7 @@ import { outsideGroup, outsideMembers, parentAddActions } from "./care.ts";
 import { hasBirth } from "../fill.ts";
 import { ageAt } from "../../levers.ts";
 import { putRow } from "../rows.ts";
+import { scenarios } from "../../contingency/requests.ts";
 
 const purposeText = (p: string) => GIFT_PURPOSES.find((o) => o.value === p)?.label ?? "援助";
 const whenText = (h: Household, at: Parameters<typeof resolveTimepoint>[1]) => {
@@ -312,7 +315,7 @@ function withIncludeAction(wh: WorkingHousehold, g: GroupDef): GroupDef {
 const INCLUDE_FIELD = /^(in|inherit\/debt)\/[^/]+\/includeInBase$/;
 const withoutIncludeField = (g: GroupDef): GroupDef => (g.fields.some((f) => INCLUDE_FIELD.test(f.key)) ? { ...g, fields: g.fields.filter((f) => !INCLUDE_FIELD.test(f.key)) } : g);
 
-// ---- 区画C 遺したい額・区画D 相続税の目安の設定 ----
+// ---- 区画C 遺したい額・区画D 相続税の目安の設定・区画E 税理士などが出した相続税の額 ----
 
 type Obj = Record<string, unknown>;
 const inputObj = (wh: WorkingHousehold): Obj => wh.request.input as unknown as Obj;
@@ -409,7 +412,7 @@ function taxSettingFields(wh: WorkingHousehold): FieldDef[] {
         address: onInput("plan.inheritanceTax", ["adopted"]),
       }),
     );
-  // 法定相続人の数を直す口（亡くなる人ごと）・FP が入れた額（時点ごと）
+  // 法定相続人の数を直す口（亡くなる人ごと）
   for (const m of couple)
     fields.push(
       taxField({
@@ -422,25 +425,81 @@ function taxSettingFields(wh: WorkingHousehold): FieldDef[] {
         set: (t, v) => (t.heirCounts = [...(t.heirCounts ?? []).filter((x) => x.decedent !== m.id), ...(v === null ? [] : [{ decedent: m.id, count: Math.max(0, Math.round(Number(v))) }])]),
       }),
     );
-  const points: { point: "now" | "bothAfter" | "contingency"; decedent?: string; label: string }[] = [
+  return fields;
+}
+
+// ---- 区画E 税理士などが出した相続税の額（ふだんは閉じておく） ----
+
+/** 区画とまとまりのキー（欄のキーは前のまま inherit/tax/override/…） */
+export const TAX_OVERRIDE_GROUP = "inherit/tax/override";
+/** 区画の名前 */
+export const TAX_OVERRIDE_TITLE = "税理士などが出した相続税の額";
+/** 閉じている間の開くボタン（ほかの「＋ 〇〇を入れる」と同じ形） */
+export const TAX_OVERRIDE_OPEN = "＋ 税理士などが出した額を入れる";
+/** 各欄の説明（5つの欄で同じ文。説明の一覧の id が同じ field:plan.inheritanceTax/overrides のため） */
+const OVERRIDE_HELP =
+  "入れると、ソフトの目安の代わりにこの額を出します。いま亡くなったら・二人とも亡くなった後の額は、この入力項目の下の「相続税の目安」に、万一のタブの死亡の想定の額は、そのタブの相続税の欄に「相続税: ○万円（FP が入れた額）」と出ます。ソフトの目安と内訳は、この入力項目の下の「相続税の目安」の「内訳」に残ります。キャッシュフロー表・金融資産の推移・必要保障額は変わりません（相続税はお金の流れに入れていないため）。消せば目安に戻ります";
+
+/** 万一のタブに死亡の想定がある人（遺族〔配偶者・子〕がいる大人。contingency/requests.ts の scenarios と同じ） */
+const deathScenarioMembers = (wh: WorkingHousehold): Set<string> => new Set(scenarios(wh).filter((s) => s.kind === "death").map((s) => s.member));
+
+/**
+ * 税理士などが出した額の欄（時点・亡くなる人ごと）。万一のタブの死亡の想定の欄は、その想定があるときだけ出す。想定が無くなった（遺族がいなくなった）のに
+ * 額が残っている世帯では、欄を出したままにして、使っていないことを知らせ、消せるようにする（黙って消さない）
+ */
+function overrideFields(wh: WorkingHousehold): FieldDef[] {
+  const h = wh.request.input.household;
+  const couple = adults(h);
+  const deaths = deathScenarioMembers(wh);
+  const stored = taxOf(wh).overrides ?? [];
+  const has = (point: string, decedent: string | undefined) => stored.some((x) => x.point === point && x.decedent === decedent);
+  const points: { point: "now" | "bothAfter" | "contingency"; decedent?: string; label: string; orphan?: boolean }[] = [
     ...couple.map((m) => ({ point: "now" as const, decedent: m.id, label: `いま${memberLabel(wh, m.id)}が亡くなったら` })),
     ...(couple.length > 0 ? [{ point: "bothAfter" as const, label: couple.length === 2 ? "二人とも亡くなった後" : "表の最後の年" }] : []),
-    ...couple.map((m) => ({ point: "contingency" as const, decedent: m.id, label: `万一のタブの${memberLabel(wh, m.id)}の死亡の想定` })),
+    ...couple
+      .filter((m) => deaths.has(m.id) || has("contingency", m.id))
+      .map((m) => ({ point: "contingency" as const, decedent: m.id, label: `万一のタブの${memberLabel(wh, m.id)}の死亡の想定`, orphan: !deaths.has(m.id) })),
   ];
-  for (const p of points)
-    fields.push(
-      taxField({
-        key: `inherit/tax/override/${p.point}${p.decedent !== undefined ? `/${p.decedent}` : ""}`,
-        label: `税理士などの出した額（${p.label}）`,
-        kind: "yen",
-        at: ["overrides"],
-        help: "入れると、目安の代わりにこの額を使います（目安と内訳は横に残ります）。消せば目安に戻ります",
-        get: (t) => t.overrides?.find((x) => x.point === p.point && x.decedent === p.decedent)?.amount ?? null,
-        set: (t, v) =>
-          (t.overrides = [...(t.overrides ?? []).filter((x) => !(x.point === p.point && x.decedent === p.decedent)), ...(v === null ? [] : [{ point: p.point, ...(p.decedent !== undefined ? { decedent: p.decedent } : {}), amount: Math.max(0, Math.round(Number(v))) }])]),
-      }),
-    );
-  return fields;
+  return points.map((p) => {
+    const set = (t: InheritanceTaxRequest, v: number | string | null) =>
+      (t.overrides = [...(t.overrides ?? []).filter((x) => !(x.point === p.point && x.decedent === p.decedent)), ...(v === null ? [] : [{ point: p.point, ...(p.decedent !== undefined ? { decedent: p.decedent } : {}), amount: Math.max(0, Math.round(Number(v))) }])]);
+    const f = taxField({
+      key: `inherit/tax/override/${p.point}${p.decedent !== undefined ? `/${p.decedent}` : ""}`,
+      label: `税理士などが出した額（${p.label}）`,
+      kind: "yen",
+      at: ["overrides"],
+      help: OVERRIDE_HELP,
+      get: (t) => t.overrides?.find((x) => x.point === p.point && x.decedent === p.decedent)?.amount ?? null,
+      set,
+    });
+    if (p.orphan !== true) return f;
+    // 想定が無い（遺族がいない）のに額が残っている: 使っていないことを知らせ、消す1押しを添える
+    const warn = `万一のタブに、${memberLabel(wh, p.decedent)}の死亡の想定が今はありません（遺族〔配偶者・子〕がいないため）。この額は使っていないので、消してください`;
+    return { ...f, get: (w: WorkingHousehold) => ({ ...f.get(w), warn, warnFix: { label: "この額を消す", run: (x: WorkingHousehold) => f.set(x, null) } }) };
+  });
+}
+
+/** 閉じている間に出す説明（1つが1段落。「・」で始まる物は続けて箇条書き）。万一のタブの死亡の想定が無い世帯では、万一のタブのことは書かない */
+export function overrideLead(wh: WorkingHousehold, fields: readonly FieldDef[]): string[] {
+  const couple = adults(wh.request.input.household);
+  const who = couple[0] !== undefined ? memberLabel(wh, couple[0].id) : "ご本人";
+  const contingency = fields.some((f) => f.key.startsWith("inherit/tax/override/contingency/"));
+  return [
+    "税理士などから相続税の額の試算をもらっているときは、ここに入れてください。入れなければ、ソフトの目安のままです。",
+    "入れた額は、ソフトの目安の代わりに次の所に出ます。",
+    `・いま亡くなったら・${couple.length === 2 ? "二人とも亡くなった後" : "表の最後の年"}: この入力項目の下の「相続税の目安」に「いま${who}が亡くなったら: 1,000万円（FP が入れた額）」のように出ます。ソフトの目安と内訳は「内訳」に残ります`,
+    ...(contingency ? ["・万一のときのタブの死亡の想定: そのタブの相続税の欄に「相続税: 1,000万円（FP が入れた額）」と出ます"] : []),
+    "キャッシュフロー表・金融資産の推移は変わりません（相続税はお金の流れに入れていないため）。",
+  ];
+}
+
+/** 税理士などが出した額のまとまり: ふだんは閉じておき、どれかの欄に額が入っている世帯では初めから開く（入れた額を隠さない） */
+function overrideGroup(wh: WorkingHousehold): GroupDef | null {
+  const fields = overrideFields(wh);
+  if (fields.length === 0) return null;
+  const lead = overrideLead(wh, fields);
+  const startOpen = fields.some((f) => f.get(wh).value !== null);
+  return { key: TAX_OVERRIDE_GROUP, level: "detail", note: lead.join("\n"), fields, actions: [], folded: { name: TAX_OVERRIDE_TITLE, lead, open: TAX_OVERRIDE_OPEN, startOpen } };
 }
 
 /** 遺したい額の欄（表示だけ。表の最後の年の金融資産と比べる） */
@@ -484,6 +543,7 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
     note: "孫などへの贈与。贈与税は受け取る人が払うので、世帯からは出さず、結果の要約に出します",
   });
   const moneyIn = money.find((x) => x.key.endsWith("/in"));
+  const override = overrideGroup(wh);
   const moneyOut = money.find((x) => x.key.endsWith("/out"));
   const sections: SectionDef[] = [
     {
@@ -535,11 +595,12 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
     {
       key: "inherit/tax",
       title: "相続税の目安の設定",
-      note: "相続税の目安（いま亡くなったら・二人とも亡くなった後・万一の死亡の想定）は表示だけで、お金の流れには入れません。路線価・税理士の試算などで分かる値があれば、ここで直します",
+      note: "相続税の目安（いま亡くなったら・二人とも亡くなった後・万一の死亡の想定）の計算の前提です。目安は表示だけで、お金の流れには入れません。路線価などで分かる値があれば、ここで直します。税理士などが出した相続税の額は、下の「税理士などが出した相続税の額」に入れます",
       level: "detail",
       groups: [{ key: "inherit/tax", level: "detail", fields: taxSettingFields(wh), actions: [] }],
       actions: [],
     },
+    ...(override !== null ? [{ key: TAX_OVERRIDE_GROUP, title: TAX_OVERRIDE_TITLE, level: "detail" as const, groups: [override], actions: [] }] : []),
   ];
   return { id: "inheritance", label: "相続・贈与", lead: "世代をまたぐお金（受け取る予定の相続・贈与、あげる贈与、遺したい額）と、相続税の目安。", sections };
 }
