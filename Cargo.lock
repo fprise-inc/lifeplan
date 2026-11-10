@@ -1915,6 +1915,7 @@ dependencies = [
  "ai-ipc",
  "ai-share",
  "engine-host",
+ "regex",
  "rmcp",
  "serde",
  "serde_json",
