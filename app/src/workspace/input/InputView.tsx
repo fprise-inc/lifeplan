@@ -333,7 +333,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   const inheritance = useInheritanceEstimate(shown, true, computeOne);
   const pensionEst = usePensionEstimate(shown, true, computeOne);
   /** 全部の入力項目（非表示の物も。「入力項目を選ぶ」の一覧） */
-  const allItems = useMemo(() => inputItems(shown, { layout, inheritanceTax: inheritanceTaxNote(inheritance), pension: pensionEstimateSummary(shown, pensionEst.std) }), [shown, layout, inheritance, pensionEst]);
+  const allItems = useMemo(() => inputItems(shown, { layout, inheritanceTax: inheritanceTaxNote(inheritance, shown.request.input.household), pension: pensionEstimateSummary(shown, pensionEst.std) }), [shown, layout, inheritance, pensionEst]);
   /** ホームに出す入力項目（非表示にしてあり値の入っていない物を除く。プランで直した所のある項目は出す） */
   const items = useMemo(() => shownItems(allItems.map((i) => (i.hidden && (counts.get(i.id) ?? 0) > 0 ? { ...i, hidden: false } : i))), [allItems, counts]);
   const pins = useMemo(() => pinItems(shown, editing !== null ? wh : undefined), [shown, editing, wh]);

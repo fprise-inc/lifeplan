@@ -1595,13 +1595,40 @@ export function addInheritedDebt(wh: WorkingHousehold, id: string = newId()): Wo
   });
 }
 
-/** 世帯の外の孫を足す（あげる贈与の相手。生年月は仮の値） */
+/** 足す孫の仮の生年が、親（子）の何歳のときか（第1子を産む年齢の平均がおよそ30歳のため） */
+export const GRANDCHILD_PARENT_AGE = 30;
+/** 2人目からの孫は、前に足した孫の何年後に生まれたとするか */
+export const GRANDCHILD_GAP_YEARS = 2;
+
+/**
+ * 足す孫の仮の生年: 前に足した孫がいれば、いちばん年下の孫の2年後。いなければ、いちばん年上の子（世帯の中・外）が30歳のとき。
+ * 子がいなければご本人が60歳のとき。どれも計算の基準の年より後にはしない（あげる贈与の相手なので、もう生まれている孫にする）
+ */
+export function grandchildBirthYear(h: Household, baseYear: number): number {
+  // fill.ts の hasBirth と同じ（fill.ts を読むと読み込みの輪ができるので、ここで見る）
+  const hasBirth = (m: Member) => (m.birth as Member["birth"] | undefined)?.birthYearMonth !== undefined;
+  const year = (m: Member) => Number(m.birth.birthYearMonth.slice(0, 4));
+  const grandchildren = h.members.filter((m) => m.kind === "grandchild" && m.outside !== undefined && hasBirth(m)).map(year);
+  const children = h.members.filter((m) => m.kind === "child" && hasBirth(m)).map(year);
+  const self = h.members.find((m) => m.kind === "self");
+  const guess =
+    grandchildren.length > 0
+      ? Math.max(...grandchildren) + GRANDCHILD_GAP_YEARS
+      : children.length > 0
+        ? Math.min(...children) + GRANDCHILD_PARENT_AGE
+        : self !== undefined && hasBirth(self)
+          ? year(self) + 60
+          : baseYear;
+  return Math.min(baseYear, guess);
+}
+
+/** 世帯の外の孫を足す（あげる贈与の相手。生年月は仮の値〔grandchildBirthYear〕） */
 export function addOutsideGrandchild(wh: WorkingHousehold, id: string = newId()): WorkingHousehold {
   const base = wh.request.input.baseMonth;
   const next = mutate(wh, (h) => {
     const self = h.members.find((m) => m.kind === "self");
     if (self === undefined) return;
-    const year = Math.min(Number(base.slice(0, 4)), Number(self.birth.birthYearMonth.slice(0, 4)) + 60);
+    const year = grandchildBirthYear(h, Number(base.slice(0, 4)));
     h.members.push({ id, kind: "grandchild", birth: { birthYearMonth: `${year}-04`, bornOnFirst: false }, sex: "female", joins: null, leaves: null, expected: false, outside: { of: self.id, periods: [] } } as Member);
   });
   return { ...next, assumed: { ...next.assumed, [`family/${id}/birth`]: "仮の値" } };
