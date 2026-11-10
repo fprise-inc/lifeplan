@@ -47,13 +47,22 @@ import { okToast, toastClass, toastMs, warnToast, type Toast } from "../toast.ts
  * paused: ほかの人が開いていて自動保存を止めている間（0023 の7。「編集を始める」まで）
  * viewOnly: 閲覧だけで開いている（新しい版のアプリで保存された世帯・事務所で閲覧だけの役割。上の帯の「閲覧だけ」の札と同じ条件）
  * sample: 見本を開いていて、動かしても保存しない（見本の帯の「動かしても見本は変わりません」と同じ条件。0033）
+ * unsaved: まだ世帯として保存していない新しい世帯（世帯の選択のメニューの「この世帯を保存して使う」と同じ条件。header/status.ts の unsavedNewHousehold）
  */
-export type PanelSaveBlock = "paused" | "viewOnly" | "sample" | null;
+export type PanelSaveBlock = "paused" | "viewOnly" | "sample" | "unsaved" | null;
+
+/**
+ * どの「保存しない」に当たるか。重なるときは、止めている間 → 閲覧だけ → 見本 → 保存していない新しい世帯 の順
+ * （止めている間と閲覧だけは保存した世帯、見本は見本、新しい世帯は保存した世帯でも見本でもないときなので、ふつうは重ならない）
+ */
+export function panelSaveBlock(s: { paused: boolean; viewOnly: boolean; sample: boolean; unsaved: boolean }): PanelSaveBlock {
+  return s.paused ? "paused" : s.viewOnly ? "viewOnly" : s.sample ? "sample" : s.unsaved ? "unsaved" : null;
+}
 
 /**
  * 入力のパネルで「保存」した後の知らせ。plan は編集の対象のプランの呼び名（現状なら null）。
  * 保存しないとき（block）は、パネルの中身は画面の世帯に入るが世帯ファイルには保存しないので、
- * 「保存しました」と言わず、注意の知らせ（✓ を付けない）にする。止めている間は「編集を始める」で保存することを、閲覧だけなら保存しないことを、見本なら「この見本をもとに顧客を作る」で保存できることを伝える
+ * 「保存しました」と言わず、注意の知らせ（✓ を付けない）にする。止めている間は「編集を始める」で保存することを、閲覧だけなら保存しないことを、見本なら「この見本をもとに顧客を作る」で、保存していない新しい世帯なら左上の世帯の選択の「この世帯を保存して使う」で保存できることを伝える
  */
 export function panelSavedToast(label: string | undefined, plan: string | null, block: PanelSaveBlock): Toast {
   const what = label !== undefined ? `「${label}」を` : "";
@@ -61,6 +70,7 @@ export function panelSavedToast(label: string | undefined, plan: string | null, 
   if (block === "paused") return warnToast(`${fixed}ほかの人が開いているため、まだ保存していません（「編集を始める」を押すと保存します）`);
   if (block === "viewOnly") return warnToast(`${fixed}閲覧だけで開いているため、保存しません`);
   if (block === "sample") return warnToast(`${fixed}見本のため保存しません（「この見本をもとに顧客を作る」で保存できます）`);
+  if (block === "unsaved") return warnToast(`${fixed}まだ世帯を保存していません（左上の「新しい世帯」を押し、「この世帯を保存して使う」で保存できます）`);
   return okToast(plan !== null ? `「${label ?? ""}」を${plan}に保存しました` : label !== undefined ? `「${label}」を保存しました` : "保存しました");
 }
 
@@ -118,6 +128,8 @@ interface Props {
   viewOnly?: boolean;
   /** 見本を開いていて、動かしても保存しない（見本の帯と同じ条件）。パネルの「保存」の後に「保存しました」と言わない */
   sample?: boolean;
+  /** まだ世帯として保存していない新しい世帯（世帯の選択のメニューの「この世帯を保存して使う」と同じ条件）。パネルの「保存」の後に「保存しました」と言わない */
+  unsaved?: boolean;
   /** Web のヒアリングで受け取った書類の保存の口と、依頼の記録の書き換え（見た・保存した・消す。0191）。省くと保存のボタンを出さない */
   received?: ReceivedProps;
 }
@@ -306,7 +318,7 @@ export function ImportMenu({ children, off, initialOpen = false, open: outer, on
   );
 }
 
-export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false, officeItems, findQuery, onReadDoc, received, hearingNote = null, paused = false, viewOnly = false, sample = false }: Props) {
+export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false, officeItems, findQuery, onReadDoc, received, hearingNote = null, paused = false, viewOnly = false, sample = false, unsaved = false }: Props) {
   /** 直しているプラン（直せないときは現状） */
   const editing = plans !== undefined && plans.sel !== null && plans.lock === null ? (plans.list.find((x) => x.id === plans.sel) ?? null) : null;
   const pcat = plans?.cat;
@@ -489,7 +501,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
     setOpenId(null);
     setFocusAt(null);
     setFlashId(id);
-    setToast(panelSavedToast(label, editing?.label ?? null, paused ? "paused" : viewOnly ? "viewOnly" : sample ? "sample" : null));
+    setToast(panelSavedToast(label, editing?.label ?? null, panelSaveBlock({ paused, viewOnly, sample, unsaved })));
   };
 
   const importOff =

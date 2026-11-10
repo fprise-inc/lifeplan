@@ -295,15 +295,19 @@ describe("相続・贈与の入力項目の1回の行も、入れた額のまま
     }
   });
 
-  it("時期を年ごとにすると物価に戻し（欄は「伸び方」）、1回に戻すと「その時の額」を書く", () => {
-    const inc = addIncome(bareInherit(), "giftReceived", ID);
+  it("時期を年ごとにすると物価に戻し（欄は「伸び方」）、1回に戻すと「その時の額」を書く。額を変えない種類（贈与）は年ごとでも「変えない」（0044 の追記 2026-11-10）", () => {
+    const inc = addIncome(bareInherit(), "inheritance", ID);
     const rep = inField(inc, `in/${ID}/cadence`).set(inc, "repeat");
     expect(incomeOf(rep).growth).toBeUndefined();
     expect(inField(rep, `in/${ID}/growth`).label).toBe("伸び方");
     expect(incomeOf(inField(rep, `in/${ID}/cadence`).set(rep, "once")).growth).toEqual({ kind: "none" });
+    const received = addIncome(bareInherit(), "giftReceived", ID);
+    const yearly = inField(received, `in/${ID}/cadence`).set(received, "repeat");
+    expect(incomeOf(yearly).growth).toEqual({ kind: "none" });
+    expect(inField(yearly, `in/${ID}/growth`).label).toBe("伸び方");
     const gift = addExpense(bareInherit(), "gift", ID);
     const grep = inField(gift, `ev/${ID}/cadence`).set(gift, "repeat");
-    expect(expenseOf(grep).growth).toBeUndefined();
+    expect(expenseOf(grep).growth).toEqual({ kind: "none" });
     expect(expenseOf(inField(grep, `ev/${ID}/cadence`).set(grep, "once")).growth).toEqual({ kind: "none" });
   });
 
