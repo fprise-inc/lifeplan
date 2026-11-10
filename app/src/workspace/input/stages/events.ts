@@ -40,28 +40,52 @@ const outsideCared = (h: Household, id: string): boolean => {
 };
 
 /**
- * 介護の費用の払う人の選択肢（値の形は今のまま: 空は介護を受ける人、ほかは構成員の ID）: 世帯の外の家族の介護は「介護を受ける人のお金から
- * （足りない分は世帯）／世帯（ご本人）／配偶者」、世帯の人の介護は「介護を受ける人／世帯（ご本人）か配偶者のうち介護を受ける人でない方」。
- * 前に選んだ人（子など）が候補に無ければ、添え書きを付けて残す
+ * 介護を受ける人のお金を見ているか（エンジンの outside.wallet と同じ決まり〔sdk の hasWallet〕: 世帯の外の家族で、預金の欄があるときだけ）。
+ * 年金の欄だけ（人の詳細の「この人の年金（年額）」）では見ない
+ */
+function walletWatched(h: Household, id: string): boolean {
+  const m = h.members.find((x) => x.id === id);
+  return m !== undefined && m.outside !== undefined && m.wallet?.balance !== undefined;
+}
+
+/**
+ * 介護の費用の払う人の選択肢（値の形は今のまま: 空は介護を受ける人の名、ほかは構成員の ID）。
+ * 世帯の外の家族の介護は、その人のお金を見ていなければ「世帯が払う／世帯が払う（ご本人の支出にする）／世帯が払う（配偶者の支出にする）」、
+ * 見ていれば「まず父のお金から（尽きたら世帯）／まず父のお金から（尽きたらご本人の支出）／…（尽きたら配偶者の支出）」（どれもお金の出方は同じ。
+ * 空は表の名義を介護を受ける人のまま、ご本人・配偶者を選ぶとその人の支出として載せ、万一のときの扱いもその人で見る〔care.expense〕）。
+ * 世帯の人の介護は「介護を受ける人／世帯（ご本人）か配偶者のうち介護を受ける人でない方」。前に選んだ人（子など）が候補に無ければ、添え書きを付けて残す
  */
 export function carePayerOptions(wh: WorkingHousehold, c: CareExpense): Option[] {
   const h = wh.request.input.household;
   const self = h.members.find((m) => m.kind === "self");
   const spouse = h.members.find((m) => m.kind === "spouse" && m.expected !== true);
-  const out: Option[] = outsideCared(h, c.member) ? [{ value: "", label: "介護を受ける人のお金から（足りない分は世帯）" }] : [{ value: "", label: `介護を受ける人（${memberLabel(wh, c.member)}）` }];
-  if (self !== undefined && self.id !== c.member) out.push({ value: self.id, label: "世帯（ご本人）" });
-  if (spouse !== undefined && spouse.id !== c.member) out.push({ value: spouse.id, label: "配偶者" });
+  const outside = outsideCared(h, c.member);
+  const watched = walletWatched(h, c.member);
+  const of = (who: "世帯" | "ご本人の支出" | "配偶者の支出") =>
+    watched ? `まず${memberLabel(wh, c.member)}のお金から（尽きたら${who}）` : who === "世帯" ? "世帯が払う" : `世帯が払う（${who}にする）`;
+  const out: Option[] = outside ? [{ value: "", label: of("世帯") }] : [{ value: "", label: `介護を受ける人（${memberLabel(wh, c.member)}）` }];
+  if (self !== undefined && self.id !== c.member) out.push({ value: self.id, label: outside ? of("ご本人の支出") : "世帯（ご本人）" });
+  if (spouse !== undefined && spouse.id !== c.member) out.push({ value: spouse.id, label: outside ? of("配偶者の支出") : "配偶者" });
   if (c.payer !== undefined && c.payer !== "" && !out.some((o) => o.value === c.payer) && h.members.some((m) => m.id === c.payer)) out.push({ value: c.payer, label: `${memberLabel(wh, c.payer)}（前に選んだ人）` });
   return out;
 }
 
-/** 介護の費用の見出しの下の1行: 誰が払うか（親のお金を入れたかで変わる。0042） */
+/** 介護の費用の払う人の「?」: 世帯の外の家族の介護は、その人のお金を見ているかで変わる（選択肢・見出しの1行と同じ決まり） */
+export function carePayerHelp(wh: WorkingHousehold, c: CareExpense): string {
+  const h = wh.request.input.household;
+  const spend = "ご本人・配偶者を選ぶと、表ではその人の支出として載せ、万一のときの扱いもその人の万一で見ます";
+  if (!outsideCared(h, c.member)) return "世帯の中では、ここで選んだ人の支出にします";
+  const who = memberLabel(wh, c.member);
+  if (walletWatched(h, c.member)) return `まず${who}のお金（介護・親の入力項目の詳細、区画「親のお金が持つか」の預金・生活費と、${who}の「この人の年金（年額）」）から払い、尽きた月から世帯が払います。${spend}`;
+  return `今は${who}のお金を見ていないので、介護の費用は全部世帯が払います。${who}のお金（預金・年金）を入れると、まず${who}のお金から払い、尽きた月から世帯が払う計算にできます（介護・親の入力項目の詳細、区画「親のお金が持つか」の「＋ ${who}のお金が持つかを見る」で預金の残高を入れます。年金は${who}の「この人の年金（年額）」で入れられます）。${spend}`;
+}
+
+/** 介護の費用の見出しの下の1行: 誰が払うか（親のお金を見ているかで変わる。0042。選択肢・「?」と同じ決まり） */
 export function carePayerLine(wh: WorkingHousehold, c: CareExpense): string {
   const h = wh.request.input.household;
   if (!outsideCared(h, c.member)) return "この費用は世帯が払います";
   const who = memberLabel(wh, c.member);
-  const wallet = h.members.find((m) => m.id === c.member)?.wallet;
-  return wallet !== undefined ? `この費用は、まず${who}のお金から払い、尽きた月から世帯が払います` : `この費用は世帯が払います。${who}のお金を入れると、まず${who}のお金から払います`;
+  return walletWatched(h, c.member) ? `この費用は、まず${who}のお金から払い、尽きた月から世帯が払います` : `この費用は世帯が払います。${who}のお金を入れると、まず${who}のお金から払います`;
 }
 
 /** 空欄のとき、エンジンが使う統計の平均を推定として見せる（印「推定」・根拠・「この値にする」で書ける。0041） */
@@ -170,7 +194,7 @@ export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
       `推定（${basis}）`,
       (v) => `${manYen(v)}（推定）`,
     ),
-    plain({ key: `${k}/payer`, item: "care.payer", label: "払う人", level: "detail", kind: "select", options: carePayerOptions(wh, c), find, path: ["payer"], optional: true, fallback: "", help: "介護を受ける人が世帯の外の家族で、その人のお金を見ているときは、まずその人のお金から払い、尽きた月から世帯が払います（世帯の中ではここで選んだ人の支出にします）" }),
+    plain({ key: `${k}/payer`, item: "care.payer", label: "払う人", level: "detail", kind: "select", options: carePayerOptions(wh, c), find, path: ["payer"], optional: true, fallback: "", help: carePayerHelp(wh, c) }),
     ...growthFields(k, "care.growth", find, c.id, c.growth),
     ...onContingencyFields({ key: `${k}/on`, item: "care.onContingency", find, path: ["onContingency"], level: "detail", help: "払う人の万一（死亡など）が起きた月の翌月から、この扱いにします" }).map((x) => ({ ...x, address: () => ({ target: { object: c.id }, item: "care.onContingency", at: [] }) })),
     ...onContingencyDetailFields({ key: `${k}/on`, item: "care.onContingency", find, path: ["onContingency"], on: c.onContingency, level: "detail" }).map((x) => ({ ...x, address: () => ({ target: { object: c.id }, item: "care.onContingency", at: [] }) })),
