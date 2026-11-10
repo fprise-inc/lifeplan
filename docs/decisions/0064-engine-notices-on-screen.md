@@ -23,7 +23,7 @@
 | 入力が足りないため、計算できていない所 | 入れれば計算に入る所 | `N_INPUT_REQUIRED`、持ち家の住み終わりに売るかが無い |
 | 計算に入れていないもの | まだ計算しない制度・お金の流れに入れない税 | `N_NOT_SUPPORTED`、`N_INHERITANCE_TAX`、`N_GIFT_TAX_BY_RECIPIENT` |
 | 制度の決まり・前提の外で変えた所 | 上限・受給資格・打ち切り・見直し前の制度 | `N_LIMIT_APPLIED`、`N_NOT_ENTITLED`、`N_NOT_ELIGIBLE`、`N_PROTECTION_TRUNCATED`、`N_REFORM_NOT_REFLECTED`、`N_RECONCILE_SURPLUS`、`N_NOT_DEDUCTIBLE` |
-| 仮の値・推定で計算した所 | 既定の値・推定・近い値・前提を置いた所 | `N_DEFAULT_USED`、`N_ESTIMATED`、`N_ASSUMED`、`N_APPROXIMATED`（住民税の標準の税率の知らせもここ） |
+| 仮の値・推定で計算した所 | 既定の値・推定・近い値・前提を置いた所 | `N_DEFAULT_USED`、`N_ESTIMATED`、`N_ASSUMED`、`N_APPROXIMATED`（住民税の標準の税率と、70歳以上の高額療養費を70歳未満の区分で計算した知らせもここ） |
 | 制度データの確認待ち・先の年の値 | 制度データに無い値・先の年に延ばした値・架空のデータ | `N_PARAM_MISSING`、`N_PARAM_PROJECTED`、`N_PARAM_EXTENDED`、`N_PARAM_RECORDED_LATER`、`N_FICTIONAL_DATA` |
 
 ### 3. まとめ方
