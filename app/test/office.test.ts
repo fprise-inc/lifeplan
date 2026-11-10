@@ -3,7 +3,10 @@
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
-import { panelSavedText } from "../src/workspace/input/InputView.tsx";
+import { readFileSync } from "node:fs";
+import { panelSavedToast } from "../src/workspace/input/InputView.tsx";
+import { okToast, toastClass, toastMs } from "../src/workspace/toast.ts";
+import { barAlerts, type BarInputs } from "../src/workspace/header/status.ts";
 import type { ForkInfo, OfficeHost, OfficeStatus, StoredHousehold } from "../src/engine/host.ts";
 import { ForkPanel } from "../src/workspace/store/ForkPanel.tsx";
 import { HouseholdPanel } from "../src/workspace/store/HouseholdPanel.tsx";
@@ -317,19 +320,52 @@ describe("分岐を選ぶ画面", () => {
   });
 });
 
-describe("ほかの人が開いていて自動保存を止めている間の、入力のパネルの「保存」の知らせ（0023 の7）", () => {
-  it("止めている間は「保存しました」と言わず、まだ保存していないことと「編集を始める」を伝える。止めていなければ今までどおり", () => {
+describe("入力のパネルの「保存」の知らせ（保存を止めている間・閲覧だけ・ふつう。0023 の7 と追記）", () => {
+  it("止めている間は「保存しました」と言わず、まだ保存していないことと「編集を始める」を伝える注意の知らせにする", () => {
     for (const plan of [null, "プランB"]) {
-      const paused = panelSavedText("働き方と収入", plan, true);
-      expect(paused).not.toContain("保存しました");
-      expect(paused).toContain("まだ保存していません");
-      expect(paused).toContain("「編集を始める」");
-      expect(paused).toContain("「働き方と収入」を");
-      if (plan !== null) expect(paused).toContain("プランBで直しました");
+      const paused = panelSavedToast("働き方と収入", plan, "paused");
+      expect(paused.tone).toBe("warn");
+      expect(paused.text).not.toContain("保存しました");
+      expect(paused.text).toContain("まだ保存していません");
+      expect(paused.text).toContain("「編集を始める」");
+      expect(paused.text).toContain("「働き方と収入」を");
+      if (plan !== null) expect(paused.text).toContain("プランBで直しました");
     }
-    expect(panelSavedText(undefined, null, true)).not.toContain("保存しました");
-    expect(panelSavedText("働き方と収入", null, false)).toBe("「働き方と収入」を保存しました");
-    expect(panelSavedText("働き方と収入", "プランB", false)).toBe("「働き方と収入」をプランBに保存しました");
-    expect(panelSavedText(undefined, null, false)).toBe("保存しました");
+    expect(panelSavedToast(undefined, null, "paused").text).not.toContain("保存しました");
+  });
+  it("閲覧だけのときは「保存しました」と言わず、保存しないことを伝える注意の知らせにする", () => {
+    expect(panelSavedToast("働き方と収入", null, "viewOnly")).toEqual({ tone: "warn", text: "「働き方と収入」を直しました。閲覧だけで開いているため、保存しません" });
+    expect(panelSavedToast("働き方と収入", "プランB", "viewOnly")).toEqual({ tone: "warn", text: "「働き方と収入」をプランBで直しました。閲覧だけで開いているため、保存しません" });
+    expect(panelSavedToast(undefined, null, "viewOnly").text).not.toContain("保存しました");
+  });
+  it("ふつうは今までどおりの文で、したことの知らせ（✓ を付ける）", () => {
+    expect(panelSavedToast("働き方と収入", null, null)).toEqual(okToast("「働き方と収入」を保存しました"));
+    expect(panelSavedToast("働き方と収入", "プランB", null)).toEqual(okToast("「働き方と収入」をプランBに保存しました"));
+    expect(panelSavedToast(undefined, null, null)).toEqual(okToast("保存しました"));
+  });
+  it("注意の知らせには ✓ を付けず注意の色の class にし、長めに出す。ふつうの知らせは今までどおり", () => {
+    const warn = panelSavedToast("働き方と収入", null, "viewOnly");
+    const ok = panelSavedToast("働き方と収入", null, null);
+    expect(toastClass(warn)).toBe("toast on warn");
+    expect(toastClass(ok)).toBe("toast on");
+    expect(toastClass(null)).toBe("toast");
+    expect(toastMs(warn)).toBe(6000);
+    expect(toastMs(ok)).toBe(2600);
+    // ✓ は .warn でない知らせだけに付く（app.css）
+    const css = readFileSync(new URL("../src/styles/app.css", import.meta.url), "utf8");
+    expect(css).toContain('.toast.on:not(.warn)::before { content: "✓ "; }');
+    expect(css).not.toMatch(/\.toast\.on::before/);
+    expect(css).toMatch(/\.toast\.warn \{[^}]*var\(--est-bg\)[^}]*var\(--est-ink\)/);
+  });
+  it("閲覧だけかどうかは、上の帯の「閲覧だけ」の札と同じ条件（保存した世帯で、保存の状態が閲覧だけの失敗。止めている間は止めている札）", () => {
+    const base: BarInputs = { opened: true, stored: true, save: { kind: "idle" }, paused: false, aiSharing: false, storage: [], showing: { recovery: false, office: false, storage: false }, presence: null, message: (c) => c };
+    const readOnly = (i: BarInputs) => barAlerts(i).some((a) => a.kind === "readOnly");
+    for (const code of ["E_STORE_READ_ONLY", "E_OFFICE_VIEW_ONLY"]) {
+      expect(readOnly({ ...base, save: { kind: "error", code } })).toBe(true);
+      expect(readOnly({ ...base, stored: false, save: { kind: "error", code } })).toBe(false);
+      expect(readOnly({ ...base, paused: true, save: { kind: "error", code } })).toBe(false);
+    }
+    expect(readOnly({ ...base, save: { kind: "error", code: "E_STORE_CONFLICT" } })).toBe(false);
+    expect(readOnly(base)).toBe(false);
   });
 });

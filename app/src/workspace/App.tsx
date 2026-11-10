@@ -2511,6 +2511,9 @@ export function App() {
     void host?.office.status().then(setOfficeStatus, () => undefined);
     setOfficeOpen(true);
   };
+  const barAlertList = barAlerts(barIn);
+  /** 閲覧だけで開いている（上の帯の「閲覧だけ」の札と同じ条件。入力のパネルの「保存」の後に「保存しました」と言わない） */
+  const viewOnly = barAlertList.some((a) => a.kind === "readOnly");
   const alertActions: Record<AlertKind, () => void> = { saveError: showHousehold, readOnly: showHousehold, paused: toPresence, aiSharing: openAiShare };
   const openStorage = () => {
     void host?.office.status().then(setOfficeStatus, () => undefined);
@@ -2657,7 +2660,7 @@ export function App() {
               }
             : null
         }
-        alerts={[...barAlerts(barIn).map((a) => ({ id: a.kind, text: a.text, short: a.short, title: a.title, tone: a.tone, onClick: alertActions[a.kind] })), ...criticalAlerts]}
+        alerts={[...barAlertList.map((a) => ({ id: a.kind, text: a.text, short: a.short, title: a.title, tone: a.tone, onClick: alertActions[a.kind] })), ...criticalAlerts]}
         notices={{ items: centerItems, onRead: readNotices, onFeedback: () => setFeedbackOpen(true), focus: noticeFocus }}
         tools={
           opened !== null ? (
@@ -2872,6 +2875,7 @@ export function App() {
               wh={opened.wh}
               onSave={edit}
               paused={presence !== null && storedInfo !== null}
+              viewOnly={viewOnly}
               calcNotices={currentNotices}
               layout={layoutOf(officeSettings)}
               plans={{
