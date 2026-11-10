@@ -79,13 +79,93 @@ describe("相続・贈与のカード: 受け取る予定（区画A）", () => {
     expect(w.proposals[0]!.diffs.map((d) => [d.op, d.item])).toEqual([["set", "incomeFlow.includeInBase"]]);
   });
 
-  it("贈与する人は読むだけの1行（物と欄は介護・親のカードの世帯の外の家族）。「＋ 足す」はこのカードに残る", () => {
+  it("贈与する人は読むだけの1行と「外す」（物と欄は介護・親のカードの世帯の外の家族）。「＋ 足す」はこのカードに残る", () => {
     const w0 = blankHousehold(BASE, seq());
     const wh = actionOf(w0, "family/add/donor-parent").run(w0);
     const d = wh.request.input.household.donors![0]!;
     const sec = stage(wh).sections.find((s) => s.key === "family/donors")!;
     expect(sec.groups.flatMap((g) => g.fields).every((f) => f.readOnly !== undefined)).toBe(true);
     expect(buildStage("care", wh).sections.find((s) => s.key === "care/outside")!.groups.some((g) => g.key === `family/donor/${d.id}`)).toBe(true);
+  });
+});
+
+describe("相続・贈与のカード: 足した人をその場で見せる（親・祖父母と、あげる贈与の相手の孫）", () => {
+  const section = (wh: WorkingHousehold, key: string) => stage(wh).sections.find((s) => s.key === key)!;
+  const value = (wh: WorkingHousehold, f: FieldDef) => f.get(wh).value;
+
+  it("「＋ ご本人の親を足す」の「父」: 区画に父の行（使っているところ・外す）が出る。相手に選ぶと使っているところに出て、外すと介護・親からも消える", () => {
+    const w0 = blankHousehold(BASE, seq());
+    const wh = actionOf(w0, "inherit/add/selfFather").run(w0);
+    const father = wh.request.input.household.members.find((m) => m.kind === "parent")!;
+    const g = section(wh, "family/donors").groups.find((x) => x.key === `inherit/person/${father.id}`)!;
+    expect(g.title).toBe("父（70歳・生年月は仮の値）");
+    expect(g.fields.map((f) => [f.label, value(wh, f)])).toEqual([["使っているところ", "まだ選ばれていません"]]);
+    expect(g.fields.every((f) => f.readOnly !== undefined)).toBe(true);
+    // 受け取る相続の行を足すと、相手は父（使っているところに出る）
+    const withRow = actionOf(wh, "money/inherit/in/add/inheritance").run(wh);
+    const g2 = section(withRow, "family/donors").groups.find((x) => x.key === `inherit/person/${father.id}`)!;
+    expect(value(withRow, g2.fields[0]!)).toBe("受け取る相続・贈与の相手 1件");
+    // 外す: 世帯から消え（介護・親にも出ない）、行の相手は空になる
+    const removed = actionOf(withRow, `inherit/person/${father.id}/remove`).run(withRow);
+    const h = removed.request.input.household;
+    expect(h.members.some((m) => m.id === father.id)).toBe(false);
+    expect(h.incomeFlows![0]!.counterparty).toBeUndefined();
+    expect(section(removed, "family/donors").groups).toEqual([]);
+    expect(buildStage("care", removed).sections.find((s) => s.key === "care/outside")!.groups.some((x) => x.key === `family/${father.id}`)).toBe(false);
+    expect(() => preview(forEngine(removed.request))).not.toThrow();
+  });
+
+  it("「＋ 生年月を入れない贈与する人（祖父母）」を2回押すと2行（同じ呼び方は番号で見分ける）。行ごとに外せる", () => {
+    const w0 = blankHousehold(BASE, seq());
+    const w1 = actionOf(w0, "family/add/donor-grandparent").run(w0);
+    const wh = actionOf(w1, "family/add/donor-grandparent").run(w1);
+    const [a, b] = wh.request.input.household.donors!;
+    const groups = section(wh, "family/donors").groups;
+    expect(groups.map((g) => g.title)).toEqual(["ご本人の祖父母 1（生年月なし）", "ご本人の祖父母 2（生年月なし）"]);
+    expect(groups.map((g) => value(wh, g.fields[0]!))).toEqual(["まだ選ばれていません", "まだ選ばれていません"]);
+    // 介護・親の贈与する人のまとまりも同じ見出し
+    const care = buildStage("care", wh).sections.find((x) => x.key === "care/outside")!.groups;
+    expect(care.find((g) => g.key === `family/donor/${b!.id}`)!.title).toBe("ご本人の祖父母 2（生年月なし）");
+    const left = actionOf(wh, `inherit/donor/${b!.id}/remove`).run(wh);
+    expect(left.request.input.household.donors!.map((d) => d.id)).toEqual([a!.id]);
+    expect(section(left, "family/donors").groups.map((g) => g.title)).toEqual(["ご本人の祖父母（生年月なし）"]);
+    const none = actionOf(left, `inherit/donor/${a!.id}/remove`).run(left);
+    expect(none.request.input.household.donors).toBeUndefined();
+  });
+
+  it("「＋ 孫を足す」: あげる贈与の区画に孫のまとまり（呼び名・生年月〔仮の値〕・外す）が出る。押した数だけ並び、呼び名で相手を見分けられ、外せる", () => {
+    const w0 = addMember(blankHousehold(BASE, seq()), "child");
+    const w1 = actionOf(w0, "money/inherit/addGrandchild").run(w0);
+    const wh = actionOf(w1, "money/inherit/addGrandchild").run(w1);
+    const kids = wh.request.input.household.members.filter((m) => m.kind === "grandchild");
+    expect(kids).toHaveLength(2);
+    const give = section(wh, "inherit/give");
+    const groups = give.groups.filter((g) => kids.some((m) => g.key === `family/${m.id}`));
+    expect(groups).toHaveLength(2);
+    const [g] = groups;
+    const k = `family/${kids[0]!.id}`;
+    expect(g!.fields.filter((f) => f.level === "simple").map((f) => f.key)).toEqual([`${k}/nickname`, `${k}/birth`]);
+    expect(fieldStatus(fieldOf(wh, `${k}/birth`), wh).status).toBe("estimated");
+    expect(wh.assumed[`${k}/birth`]).toBe("仮の値");
+    expect(g!.actions.map((a) => a.key)).toEqual([`${k}/remove`, `inherit/grandchild/${kids[0]!.id}/gift`]);
+    // 介護・親には欄を出さない（読むだけの1行）
+    expect(allFields(buildStage("care", wh)).some((f) => f.key === `${k}/birth`)).toBe(false);
+    // 呼び名を付けると、あげる贈与の相手の選択肢で見分けられる
+    const named = fieldOf(wh, `${k}/nickname`).set(wh, "長男の子");
+    expect(section(named, "inherit/give").groups.find((x) => x.key === k)!.title).toBe("孫（長男の子）（0歳・生年月は仮の値）");
+    // 「＋ この孫へのあげる贈与」: 相手はこの孫（既定の相手の推定の印は付けない）
+    const gifted = actionOf(named, `inherit/grandchild/${kids[0]!.id}/gift`).run(named);
+    const row = gifted.request.input.household.periodicExpenses!.find((p) => p.kind === "gift")!;
+    expect(row.counterparty).toBe(kids[0]!.id);
+    const cp = fieldOf(gifted, `ev/${row.id}/counterparty`);
+    expect(cp.kind === "select" ? cp.options.find((o) => o.value === kids[0]!.id)?.label : null).toBe("孫（長男の子）");
+    expect(fieldStatus(cp, gifted).status).not.toBe("estimated");
+    expect(section(gifted, "inherit/give").groups.find((x) => x.key === k)!.note).toContain("あげる贈与 1 件の相手です");
+    // 外す: 孫が世帯から消え、あげる贈与の行の相手は空になる
+    const removed = actionOf(gifted, `${k}/remove`).run(gifted);
+    expect(removed.request.input.household.members.some((m) => m.id === kids[0]!.id)).toBe(false);
+    expect(removed.request.input.household.periodicExpenses!.find((p) => p.id === row.id)!.counterparty).toBeUndefined();
+    expect(section(removed, "inherit/give").groups.filter((x) => x.key.startsWith("family/"))).toHaveLength(1);
   });
 });
 
