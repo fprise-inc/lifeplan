@@ -96,6 +96,7 @@ async fn endpoint_follows_the_rules() {
         Request::GetShare {
             share_id: "s-x".into(),
             tool: "get_shared_household".into(),
+            for_calc: false,
         },
     )
     .await
@@ -127,6 +128,7 @@ async fn endpoint_follows_the_rules() {
         Request::GetShare {
             share_id: g.share_id.clone(),
             tool: "get_shared_household".into(),
+            for_calc: false,
         },
     )
     .await

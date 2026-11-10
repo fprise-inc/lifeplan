@@ -1,4 +1,5 @@
-// AI接続口（crates/lifeplan）に同梱する「数字の根拠」の読み方（src/connector/explain.ts。0183）を、1つの JS（crates/lifeplan/dist/explain.js）にまとめる。
+// AI接続口（crates/lifeplan）に同梱する「数字の根拠」の読み方（src/connector/explain.ts。0183）と計算の前の処理（src/connector/prepare.ts。0184）を、
+// 1つの JS（crates/lifeplan/dist/explain.js）にまとめる。
 // - 接続口はこれを計算と同じ固めた実行環境（quickjs-ng）で動かす。画面の根拠のパネルと同じ関数なので、根拠の文が画面とずれない
 // - 外の部品（npm のパッケージ）を1つも入れない（入ったら止める）。動的な import をしない（1つの iife）
 // - 中身が変わっていなければ作り直さない（src/・report/src/・hearing/src/ の指紋で見る）

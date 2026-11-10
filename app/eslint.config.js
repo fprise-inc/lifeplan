@@ -80,6 +80,7 @@ export default tseslint.config(
   },
   {
     // 0183: AI接続口に同梱する「数字の根拠」の読み方は、画面の根拠のパネルの関数（evidence）と表の行の決まり（present）だけを読む。
+    // 0184: 計算の前の処理（prepare）は、エンジンへ渡す前の処理（engine/moneyRows）と事務所の推定の値の読み方（office/estimates）を読む。
     // 画面の部品（preact）・本体の命令・画面の大枠は読み込めない（まとめる道具 scripts/build-explain.ts も、外の部品が入ったら止める）
     files: ["src/connector/**/*.ts"],
     rules: {
@@ -87,7 +88,7 @@ export default tseslint.config(
         "error",
         {
           patterns: [
-            { regex: "(^|/)workspace/(?!(evidence|present)\\.ts$)", message: "AI接続口の根拠の読み方は、作業の層のうち evidence・present だけを読める（0183）" },
+            { regex: "(^|/)workspace/(?!(evidence|present|office/estimates)\\.ts$)", message: "AI接続口の根拠の読み方と計算の前の処理は、作業の層のうち evidence・present・office/estimates だけを読める（0183・0184）" },
             { regex: "^preact", message: "AI接続口の根拠の読み方は、画面の部品を読めない（0183）" },
             { regex: "(^|/)engine/(host|dual)(\\.ts)?$", message: "AI接続口の根拠の読み方は、本体の命令・二本立ての部品を読めない（0183）" },
             { regex: "(^|/)App(\\.tsx)?$", message: "AI接続口の根拠の読み方は、画面の大枠を読み込めない（0183）" },

@@ -26,8 +26,15 @@ pub enum Request {
     },
     /// いまAIに渡されている世帯の一覧（中身は含まない）
     ListShares,
-    /// 渡された世帯（縮約版が既定）。`tool` は読んだ道具の名前（AIに渡した記録の `reads` に残す。0014 の3）
-    GetShare { share_id: String, tool: String },
+    /// 渡された世帯（縮約版が既定）。`tool` は読んだ道具の名前（AIに渡した記録の `reads` に残す。0014 の3）。
+    /// `for_calc` は計算に使う読み取り（calculate・explain_value）: 返事に、画面が計算の前に足す事務所の推定の値
+    /// （事務所データの `defaults.estimates`）を `officeEstimates` として添える。接続口は計算にだけ使い、AIには見せない（0184）
+    GetShare {
+        share_id: String,
+        tool: String,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        for_calc: bool,
+    },
     /// AIのプランの候補を「AIからの候補」に承認待ちで入れる（世帯は変えない。0015 の7）
     Propose { share_id: String, proposal: Value },
     /// 書類から読んだ値の候補（答えの形 `document-candidates@1`）を承認待ちに入れる（世帯は変えない。0151）
@@ -127,6 +134,7 @@ mod tests {
             request: Request::GetShare {
                 share_id: "s-1".into(),
                 tool: "get_shared_household".into(),
+                for_calc: false,
             },
         };
         let s = serde_json::to_string(&e).unwrap();
@@ -135,7 +143,24 @@ mod tests {
             r#"{"id":3,"op":"getShare","shareId":"s-1","tool":"get_shared_household"}"#
         );
         let back: Envelope = serde_json::from_str(&s).unwrap();
-        assert!(matches!(back.request, Request::GetShare { .. }));
+        assert!(matches!(
+            back.request,
+            Request::GetShare {
+                for_calc: false,
+                ..
+            }
+        ));
+        // 計算に使う読み取り（0184）
+        let c = serde_json::to_string(&Request::GetShare {
+            share_id: "s-1".into(),
+            tool: "calculate".into(),
+            for_calc: true,
+        })
+        .unwrap();
+        assert_eq!(
+            c,
+            r#"{"op":"getShare","shareId":"s-1","tool":"calculate","forCalc":true}"#
+        );
     }
 
     #[test]

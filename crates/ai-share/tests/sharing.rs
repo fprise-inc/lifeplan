@@ -539,3 +539,67 @@ fn propose(
         .map(|s| serde_json::from_str(&s).unwrap())
         .map_err(|(c, _)| c.as_str().to_owned())
 }
+
+/// 計算に使う読み取り（0184）: 同じ返事に、そのときの事務所の推定の値（読む所が無ければ null）を添える。
+/// 記録はふつうの読み取りと同じ（道具の名前で残り、渡した項目と中身の指紋は事務所の値によらない）。共有が使えなければ読む所を呼ばない
+#[test]
+fn calc_reads_carry_the_office_estimates_and_record_the_same() {
+    let (reg, _clock) = registry();
+    let g = reg.grant(source("parentCare"), opts()).unwrap();
+    let caller = Caller::default();
+    let plain: Value = serde_json::from_str(
+        &reg.handle_get_for_calc(&g.share_id, "calculate", &caller)
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        plain["officeEstimates"],
+        Value::Null,
+        "読む所が無ければ null"
+    );
+
+    let asked = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let seen = asked.clone();
+    let office = json!({ "values": {}, "noFill": ["engine.care"] });
+    let given = office.clone();
+    reg.set_office_estimates(Some(Arc::new(move || {
+        seen.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Some(given.clone())
+    })));
+    let calc: Value = serde_json::from_str(
+        &reg.handle_get_for_calc(&g.share_id, "explain_value", &caller)
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(calc["officeEstimates"], office);
+    let view = get(&reg, &g.share_id, &caller).unwrap();
+    assert!(
+        view.get("officeEstimates").is_none(),
+        "ふつうの読み取りには添えない"
+    );
+    let mut without = calc.clone();
+    without.as_object_mut().unwrap().remove("officeEstimates");
+    assert_eq!(without, view, "ほかの中身は同じ");
+
+    let rec = reg.records(HOUSEHOLD_ID);
+    let tools: Vec<&str> = rec[0].reads.iter().map(|r| r.tool.as_str()).collect();
+    assert_eq!(
+        tools,
+        ["calculate", "explain_value", "get_shared_household"]
+    );
+    for r in &rec[0].reads {
+        assert_eq!(r.fields, rec[0].reads[0].fields);
+        assert_eq!(r.digest, rec[0].reads[0].digest);
+    }
+
+    assert!(reg.revoke(&g.share_id));
+    let before = asked.load(std::sync::atomic::Ordering::SeqCst);
+    assert!(reg
+        .handle_get_for_calc(&g.share_id, "calculate", &caller)
+        .is_err());
+    assert_eq!(
+        asked.load(std::sync::atomic::Ordering::SeqCst),
+        before,
+        "取り消した共有では事務所の値を読まない"
+    );
+}
