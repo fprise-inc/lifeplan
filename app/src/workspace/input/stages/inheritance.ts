@@ -2,24 +2,27 @@
 // - 区画A 受け取る予定の相続・贈与（入るお金の行と、相続で受け継ぐ借金）: moneyRows.ts の区画「inherit」。見込み（確実・当てにしない）は簡易。
 //   「当てにしない」の行は基本の計算に入れない（0044 の5）。行に「この行を計算に入れる」の1押し。相続の受け取る時期は、相手の亡くなる見込みの10か月後を推定で
 // - 区画B あげる贈与（出るお金の行）。今ある援助の物（子への援助 goals.education.gifts・住宅資金の援助 residences.purchase.gifts）は物の形を変えず、
-//   子ども・教育／住まい・ローンのカードで入れ、ここには読むだけで並べる
-// - 贈与する人（親・祖父母。生年月を持たない世帯の外の家族）: 物と欄は介護・親の項目の世帯の外の家族の区画。ここは読むだけの1行と「＋ 足す」
+//   子ども・教育／住まい・ローンのカードで入れ、ここには読むだけで並べる。あげる贈与の相手の孫（世帯の外の家族）はこのカードに置く（呼び名・生年月・外す）
+// - 親・祖父母（相続の相手・贈与する人）: 物と欄は介護・親の項目の世帯の外の家族の区画。ここは人ごとに「使っているところ」の1行と「外す」、「＋ 足す」
 // - 区画C 遺したい額（表示だけ。表の最後の年の金融資産と比べる。input.legacy）
 // - 区画D 相続税の目安: 結果は計算の結果から読む（inheritanceLine.ts。表示だけで、お金の流れには入れない）。ここは目安の計算の前提の欄
 //   （不動産の評価の割合・名義の無い財産の分け方・葬式の費用・養子・法定相続人の数を直す口。input.inheritanceTax。0039・0060）
 // - 区画E 税理士などが出した相続税の額（目安の代わりに出す額。input.inheritanceTax.overrides）。使う世帯が少ないので、ふだんは閉じておき、
 //   説明と「＋ 税理士などが出した額を入れる」だけを出す。額が入っている世帯では初めから開く（0039 の追記 2026-11-10）
 import type { Household, InheritanceTaxRequest, Member, Timepoint } from "../../../engine/types.ts";
-import { afterWrite, field, resolveTimepoint, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
-import { mutate, type WorkingHousehold } from "../household.ts";
+import { afterWrite, field, removeAction, resolveTimepoint, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { mutate, newId, type WorkingHousehold } from "../household.ts";
 import { donorLabel, donorUses, GIFT_PURPOSES, memberLabel } from "../labels.ts";
 import { manYen, readGroup, readLine } from "../readLines.ts";
 import type { Address } from "../../store/readings.ts";
 import { formatYearMonth } from "../units.ts";
-import { addInheritedDebt, addOutsideGrandchild, inheritedDebtGroups, moneySections } from "../moneyRows.ts";
+import { addExpense, addInheritedDebt, addOutsideGrandchild, inheritedDebtGroups, moneySections } from "../moneyRows.ts";
 import { NONE_CLAIMED } from "./events.ts";
-import { addDonorActions } from "./family.ts";
-import { parentAddActions } from "./care.ts";
+import { addDonorActions, removeDonorIn, removeMember } from "./family.ts";
+import { outsideGroup, outsideMembers, parentAddActions } from "./care.ts";
+import { hasBirth } from "../fill.ts";
+import { ageAt } from "../../levers.ts";
+import { putRow } from "../rows.ts";
 import { scenarios } from "../../contingency/requests.ts";
 
 const purposeText = (p: string) => GIFT_PURPOSES.find((o) => o.value === p)?.label ?? "援助";
@@ -49,16 +52,134 @@ export function giftLines(wh: WorkingHousehold): { receive: FieldDef[]; give: Fi
   return { receive, give };
 }
 
-/**
- * 贈与する人（物と欄は介護・親の項目の世帯の外の家族。ここは読むだけの1行）: 援助で選ばれている介護・親の親・祖父母と、
- * 生年月を入れない贈与する人（donors。選ばれていなくても並べる）
- */
-export function donorLines(wh: WorkingHousehold): FieldDef[] {
-  const h = wh.request.input.household;
-  const usedText = (n: number) => (n > 0 ? `援助 ${String(n)} 件で選ばれています` : "まだ援助で選ばれていません");
-  const elders = h.members.filter((m) => m.outside !== undefined && donorUses(h, m.id) > 0).map((m) => readLine(`inherit/donor/${m.id}`, `贈与する人（${memberLabel(wh, m.id)}）`, usedText(donorUses(h, m.id)), "介護・親"));
-  return [...elders, ...(h.donors ?? []).map((d) => readLine(`inherit/donor/${d.id}`, `生年月を入れない贈与する人（${donorLabel(wh, d)}）`, usedText(donorUses(h, d.id)), "介護・親"))];
+// ---- 人の並び（親・祖父母と、あげる贈与の相手の孫）: 足した人をその場で見せる ----
+
+/** 親・祖父母の行の「使っているところ」の「?」 */
+const PERSON_USE_HELP =
+  "受け取る相続・贈与の行の「相手（誰から）」、相続で受け継ぐ借金の「元の借り手」、住宅資金・教育資金の援助の「贈与する人」に選ぶと、相続・贈与の計算に使います。どこにも選ばれていないうちは、相続・贈与の計算には使いません";
+
+/** この人（世帯の外の家族か、生年月を入れない贈与する人）を相手・贈与する人に選んでいる物の言葉（「受け取る相続・贈与の相手 1件」など） */
+export function personUses(h: Household, id: string): string[] {
+  const n = (k: number, text: string): string[] => (k > 0 ? [`${text} ${String(k)}件`] : []);
+  const flows = h.incomeFlows ?? [];
+  const inherit = (k: string) => k === "inheritance" || k === "giftReceived";
+  return [
+    ...n(flows.filter((f) => f.counterparty === id && inherit(f.kind)).length, "受け取る相続・贈与の相手"),
+    ...n((h.debts ?? []).filter((d) => d.inheritedFrom === id).length, "受け継ぐ借金の元の借り手"),
+    ...n(donorUses(h, id), "援助の贈与する人"),
+    ...n(flows.filter((f) => f.counterparty === id && !inherit(f.kind)).length + (h.periodicExpenses ?? []).filter((p) => p.counterparty === id).length, "援助・仕送りの行の相手"),
+  ];
 }
+
+/** 「使っているところ」の1行（見せるだけ。何に選ばれているか。選ばれていなければ、選ぶまで計算に使わないこと） */
+function useLine(key: string, h: Household, id: string, help: string): FieldDef {
+  const uses = personUses(h, id);
+  const value = uses.length > 0 ? uses.join("・") : "まだ選ばれていません";
+  return field({ key: `ro/${key}`, item: null, label: "使っているところ", level: "simple", kind: "text", readOnly: help, get: () => ({ value }), set: (w) => w });
+}
+
+/** 年齢の言葉（これから生まれる人はマイナスの年齢にしない）と、生年月が仮の値かの添え書き */
+function ageText(wh: WorkingHousehold, m: Member): string {
+  const parts: string[] = [];
+  if (hasBirth(m)) {
+    const age = ageAt(m, wh.request.input.baseMonth);
+    parts.push(age < 0 ? "これから生まれる" : `${String(age)}歳`);
+    if (wh.assumed[`family/${m.id}/birth`] !== undefined) parts.push("生年月は仮の値");
+  }
+  return parts.length > 0 ? `（${parts.join("・")}）` : "";
+}
+
+/**
+ * 区画「親・祖父母（相続の相手・贈与する人）」に並べる人: 介護・親の親・祖父母（世帯の外の家族。ここの「＋ ご本人の親を足す」で足した人も）と、
+ * 前に援助で選んだほかの世帯の外の家族、生年月を入れない贈与する人。物と欄は介護・親の項目のまま（1つの物は1つの入力項目。0045）で、
+ * ここは人ごとに「使っているところ」の1行と「外す」（足した人がその場で見え、要らなければここで外せるように）
+ */
+export function personGroups(wh: WorkingHousehold): GroupDef[] {
+  const h = wh.request.input.household;
+  const elder = (m: Member) => m.kind === "parent" || m.kind === "grandparent";
+  const people = outsideMembers(wh).filter((m) => elder(m) || (m.kind !== "grandchild" && donorUses(h, m.id) > 0));
+  const members = people.map(
+    (m): GroupDef => ({
+      key: `inherit/person/${m.id}`,
+      title: `${memberLabel(wh, m.id)}${ageText(wh, m)}`,
+      level: "simple",
+      note: "生年月・亡くなる見込み・扶養などは「介護・親」の項目で直します（同じ人です）",
+      fields: [useLine(`inherit/person/${m.id}/uses`, h, m.id, `${PERSON_USE_HELP}（介護の費用・相続人の数え方などには、選ばなくても使います）`)],
+      actions: [{ key: `inherit/person/${m.id}/remove`, label: "外す", help: "この人を外します。介護・親の項目からも消え、相手・贈与する人に選んでいた行は相手なしになります", level: "simple", danger: true, run: (w) => removeMember(w, m.id) }],
+    }),
+  );
+  const titles = donorTitles(wh);
+  const donorRows = (h.donors ?? []).map((d): GroupDef => {
+    return {
+      key: `inherit/donor/${d.id}`,
+      title: titles.get(d.id) ?? "贈与する人（生年月なし）",
+      level: "simple",
+      note: "生年月を入れずに置いた贈与する人です。援助の「贈与する人」と、受け取る贈与の「相手」に選べます。続柄・誰の親か祖父母かは「介護・親」の項目で直します",
+      fields: [useLine(`inherit/donor/${d.id}/uses`, h, d.id, PERSON_USE_HELP)],
+      actions: [{ ...removeAction(`inherit/donor/${d.id}/remove`, "外す", "simple", (hh) => removeDonorIn(hh, d.id)), help: "この贈与する人を外します。介護・親の項目からも消え、援助の贈与する人・相手に選んでいた行は選ばない形になります" }],
+    };
+  });
+  return [...members, ...donorRows];
+}
+
+/**
+ * 生年月を入れない贈与する人の見出し（「ご本人の祖父母（生年月なし）」。同じ呼び方の人が2人以上なら、足した順に「… 1」「… 2」）。
+ * 相続・贈与と介護・親で同じ見出しにする
+ */
+export function donorTitles(wh: WorkingHousehold): Map<string, string> {
+  const donors = wh.request.input.household.donors ?? [];
+  const label = (d: (typeof donors)[number]) => donorLabel(wh, d);
+  return new Map(
+    donors.map((d) => {
+      const same = donors.filter((x) => label(x) === label(d));
+      const no = same.length > 1 ? ` ${String(same.indexOf(d) + 1)}` : "";
+      return [d.id, `${label(d)}${no}（生年月なし）`];
+    }),
+  );
+}
+
+/** この孫を相手にしたあげる贈与の行を足す（相手は押した孫。選んだ相手なので、既定の相手の推定の印は付けない） */
+export function addGiftTo(wh: WorkingHousehold, member: string, id: string = newId()): WorkingHousehold {
+  return mutate(addExpense(wh, "gift", id), (h, req) => {
+    const p = (h.periodicExpenses ?? []).find((x) => x.id === id);
+    if (p === undefined) return;
+    p.counterparty = member;
+    putRow(req.input as unknown as Record<string, unknown>, { target: { object: id }, item: "periodicExpense.counterparty", at: [] }, undefined);
+  });
+}
+
+/**
+ * あげる贈与の相手の孫（世帯の外の家族）のまとまり。孫は、あげる贈与の相手としてだけ使うので、この入力項目に置く（介護・親には読むだけの1行）。
+ * 欄は呼び名（相手の選択肢で見分ける）・生年月（贈与税の特例の税率・相続時精算課税は18歳以上）と、詳細の続柄・性別。
+ * 前に介護・親で同居・家計を1つにする期間を入れた孫は、その欄も残す（値を見えなくしない）
+ */
+export function grandchildGroup(wh: WorkingHousehold, m: Member): GroupDef {
+  const h = wh.request.input.household;
+  const g = outsideGroup(wh, m);
+  const k = `family/${m.id}`;
+  const keepAll = m.support?.cohabiting === true || (m.outside?.periods.length ?? 0) > 0;
+  const pick = new Set([`${k}/nickname`, `${k}/kind`, `${k}/birth`, `${k}/sex`]);
+  const fields = (keepAll ? g.fields : g.fields.filter((f) => pick.has(f.key))).map((f): FieldDef => (f.key === `${k}/nickname` ? { ...f, level: "simple" } : f));
+  const drop = new Set([`${k}/care/estimate`, `${k}/leaves/estimate`]);
+  const actions = (keepAll ? g.actions : g.actions.filter((a) => a.key === `${k}/remove`)).filter((a) => !drop.has(a.key));
+  const gifts = (h.periodicExpenses ?? []).filter((p) => p.kind === "gift" && p.counterparty === m.id).length;
+  const note = [
+    "あげる贈与の相手にする孫（世帯の外の家族）です。生年月は贈与税の計算（特例の税率・相続時精算課税は18歳以上）に使います。呼び名を付けると、あげる贈与の「相手（誰へ）」で見分けられます",
+    gifts > 0 ? `あげる贈与 ${String(gifts)} 件の相手です` : "まだあげる贈与の相手に選ばれていません。「＋ この孫へのあげる贈与」で行を足せます",
+  ].join("。");
+  return {
+    key: k,
+    title: `${memberLabel(wh, m.id)}${ageText(wh, m)}`,
+    level: "simple",
+    moreLabel: keepAll ? "続柄・性別・同居などを入れる" : "続柄・性別を入れる",
+    note,
+    fields,
+    actions: [...actions, { key: `inherit/grandchild/${m.id}/gift`, label: "＋ この孫へのあげる贈与", help: "この孫を相手にした、あげる贈与の行を足します（額は暦年贈与の基礎控除の額の推定）", level: "simple", run: (w) => addGiftTo(w, m.id) }],
+  };
+}
+
+/** あげる贈与の相手の孫（世帯の外の家族。足した順） */
+export const outsideGrandchildren = (h: Household): Member[] => h.members.filter((m) => m.kind === "grandchild" && m.outside !== undefined);
 
 // ---- 区画A 受け取る予定 ----
 
@@ -441,15 +562,22 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
       title: moneyOut?.title ?? "あげる贈与",
       ...(moneyOut?.note !== undefined ? { note: moneyOut.note } : {}),
       level: "simple",
-      groups: [...(moneyOut?.groups ?? []), ...groupsOf(readGroup("inherit/give", undefined, lines.give))],
-      actions: [...(moneyOut?.actions ?? []), { key: "money/inherit/addGrandchild", label: "＋ 孫を足す", help: "世帯の外の家族として足します", level: "detail", run: (w: WorkingHousehold) => addOutsideGrandchild(w) }],
+      // 足した孫は、あげる贈与の行の後ろに並べる（「＋ 孫を足す」を押すと、その場に出て呼び名の欄に移る）
+      groups: [...(moneyOut?.groups ?? []), ...groupsOf(readGroup("inherit/give", undefined, lines.give)), ...outsideGrandchildren(wh.request.input.household).map((m) => grandchildGroup(wh, m))],
+      actions: [...(moneyOut?.actions ?? []), { key: "money/inherit/addGrandchild", label: "＋ 孫を足す", help: "あげる贈与の相手にする孫を、世帯の外の家族（家計が別）として足します。足した孫はこの区画に並び、呼び名と生年月を入れます", level: "detail", run: (w: WorkingHousehold) => addOutsideGrandchild(w) }],
     },
     {
       key: "family/donors",
       title: "親・祖父母（相続の相手・贈与する人）",
-      note: "「＋ 親を足す」で足した親は、介護・親の項目の世帯の外の家族に並び（亡くなる見込みは平均余命の推定）、受け取る相続の相手にも、住宅資金・教育資金などの援助の贈与する人にも選べます。介護・親の項目で足した親・祖父母も同じです。生年月を入れずに贈与する人だけを置くときは「詳細」の「＋ 生年月を入れない贈与する人（親）」で足します。同じ人からの贈与は、贈与税の基礎控除・相続時精算課税の特別控除を合わせて数えます",
+      note: [
+        "相続で財産を受け取る相手や、住宅資金・教育資金を援助してくれる人（親・祖父母）です。ここで足した人も、介護・親の項目で足した人も、ここに並びます。",
+        "・「＋ ご本人の親を足す」などで足した親は、亡くなる見込みを平均余命で推定します。生年月・亡くなる見込みは「介護・親」の項目で直します（同じ人です）",
+        "・並んだ人は、受け取る相続・贈与の行の「相手（誰から）」や、援助の「贈与する人」に選んで使います。行ごとの「使っているところ」に、何に選ばれているかが出ます",
+        "・生年月が分からず、贈与する人としてだけ置くときは、「詳細」の「＋ 生年月を入れない贈与する人」で足します（祖父母が何人もいれば、その数だけ足せます）",
+        "・同じ人からの贈与は、贈与税の基礎控除・相続時精算課税の特別控除を合わせて数えます",
+      ].join("\n"),
       level: "simple",
-      groups: groupsOf(readGroup("inherit/donors", undefined, donorLines(wh))),
+      groups: personGroups(wh),
       // 標準は介護・親の家族として足す「＋ 親を足す」（父・母・父母から選ぶ）だけ。生年月を入れない贈与する人は詳細（同じ親が2人並ぶのを防ぐ）
       actions: [
         ...parentAddActions(wh, "inherit"),
