@@ -41,6 +41,17 @@ import { DocLinks, DocViewContext, ReceivedButton, ReceivedDocs, useReceivedDocs
 import { DocViewer } from "../hearing/DocViewer.tsx";
 import { keepWebLog } from "../hearing/web.ts";
 
+/**
+ * 入力のパネルで「保存」した後の知らせ。plan は編集の対象のプランの呼び名（現状なら null）。
+ * ほかの人が開いていて自動保存を止めている間（0023 の7）は、パネルの中身は画面の世帯に入るが世帯ファイルには保存しないので、
+ * 「保存しました」と言わず、まだ保存していないことと「編集を始める」で保存することを伝える
+ */
+export function panelSavedText(label: string | undefined, plan: string | null, paused: boolean): string {
+  const what = label !== undefined ? `「${label}」を` : "";
+  if (paused) return `${what}${plan !== null ? `${plan}で` : ""}直しました。ほかの人が開いているため、まだ保存していません（「編集を始める」を押すと保存します）`;
+  return plan !== null ? `「${label ?? ""}」を${plan}に保存しました` : label !== undefined ? `「${label}」を保存しました` : "保存しました";
+}
+
 interface Props {
   wh: WorkingHousehold;
   /** パネルで「保存」した世帯（親が計算し直す） */
@@ -89,6 +100,8 @@ interface Props {
   onImportsOpen?: (open: boolean) => void;
   /** Web のヒアリングの届いた知らせ（「回答が届いています 1件」。0192）。押すとヒアリング・取り込むを開く */
   hearingNote?: { text: string; onOpen: () => void } | null;
+  /** ほかの人が開いていて、自動保存を止めている（「編集を始める」まで世帯に保存しない。0023 の7）。パネルの「保存」の後に「保存しました」と言わない */
+  paused?: boolean;
   /** Web のヒアリングで受け取った書類の保存の口と、依頼の記録の書き換え（見た・保存した・消す。0191）。省くと保存のボタンを出さない */
   received?: ReceivedProps;
 }
@@ -277,7 +290,7 @@ export function ImportMenu({ children, off, initialOpen = false, open: outer, on
   );
 }
 
-export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false, officeItems, findQuery, onReadDoc, received, hearingNote = null }: Props) {
+export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false, officeItems, findQuery, onReadDoc, received, hearingNote = null, paused = false }: Props) {
   /** 直しているプラン（直せないときは現状） */
   const editing = plans !== undefined && plans.sel !== null && plans.lock === null ? (plans.list.find((x) => x.id === plans.sel) ?? null) : null;
   const pcat = plans?.cat;
@@ -367,7 +380,8 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   }, [flashId]);
   useEffect(() => {
     if (toast === null) return;
-    const t = setTimeout(() => setToast(null), 2600);
+    // 自動保存を止めている間の知らせ（panelSavedText）は長いので、少し長く出す
+    const t = setTimeout(() => setToast(null), toast.includes("編集を始める") ? 6000 : 2600);
     return () => clearTimeout(t);
   }, [toast]);
 
@@ -459,7 +473,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
     setOpenId(null);
     setFocusAt(null);
     setFlashId(id);
-    setToast(editing !== null ? `「${label ?? ""}」を${editing.label}に保存しました` : label !== undefined ? `「${label}」を保存しました` : "保存しました");
+    setToast(panelSavedText(label, editing?.label ?? null, paused));
   };
 
   const importOff =

@@ -2,16 +2,17 @@
 // 顧客に見せる提示の層（src/presentation/）には出さない（0016 の2）。顧客と一緒に見ることのある画面（入力の画面のほか）では、
 // どの世帯かが分かる顧客番号・仮名を出さず、件数と残り時間だけを出す（0015 の8）。
 // 開いている世帯を渡していて、まだ保存していない入力の変更があるときだけ「保存するとAIにも反映されます」を添える
-// （AIに渡すのは保存した世帯。0184 の追記。出すかは model.ts の unsavedForAi）
+// （AIに渡すのは保存した世帯。0184 の追記。出すかは model.ts の unsavedForAi）。ほかの人が開いていて自動保存を止めている間（0023 の7）は、
+// 保存するには「編集を始める」が要るので「編集を始めて保存するとAIにも反映されます」にする
 import type { AiShareStatus } from "../../engine/host.ts";
 import { PopIcon } from "../../presentation/icons.tsx";
 import { remainingText } from "./model.ts";
 
-export function AiShareBand({ shares, detailed, unsaved = false, onStop, onOpen }: { shares: readonly AiShareStatus[]; detailed: boolean; unsaved?: boolean; onStop: (householdId: string) => void; onOpen: () => void }) {
+export function AiShareBand({ shares, detailed, unsaved = false, paused = false, onStop, onOpen }: { shares: readonly AiShareStatus[]; detailed: boolean; unsaved?: boolean; paused?: boolean; onStop: (householdId: string) => void; onOpen: () => void }) {
   if (shares.length === 0) return null;
   const note = unsaved ? (
     <span class="ai-band-note" title="AIに渡しているのは保存した世帯です。いまの入力の変更は、保存するまでAIの計算に入りません" data-ai-band-unsaved>
-      保存するとAIにも反映されます
+      {paused ? "編集を始めて保存するとAIにも反映されます" : "保存するとAIにも反映されます"}
     </span>
   ) : null;
   if (!detailed)

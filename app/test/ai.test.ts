@@ -196,6 +196,10 @@ describe("AI接続口の状態（既定はオフ・同意が無ければ渡さ�
       }
       // 共有が無ければ、保存していない変更があっても帯ごと出さない
       expect(renderToString(h(AiShareBand, { ...base, shares: [], unsaved: true }))).toBe("");
+      // ほかの人が開いていて自動保存を止めている間は、保存するのに「編集を始める」が要るので、そう書く（0023 の7）
+      const paused = renderToString(h(AiShareBand, { ...base, unsaved: true, paused: true }));
+      expect(paused).toContain("編集を始めて保存するとAIにも反映されます");
+      expect(renderToString(h(AiShareBand, { ...base, unsaved: false, paused: true }))).not.toContain("反映されます");
     }
   });
 

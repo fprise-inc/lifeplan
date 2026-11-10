@@ -2681,7 +2681,7 @@ export function App() {
         onBig={setBig}
         brand={brandOf(look)}
       />
-      <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} unsaved={aiUnsaved} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
+      <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} unsaved={aiUnsaved} paused={presence !== null && storedInfo !== null} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
       <AiCodeCandidateBand count={officeSettingsOpen ? 0 : (ai.status?.featureCodeCandidates ?? 0)} onOpen={() => setOfficeSettingsOpen(true)} />
       {opened !== null && !docsOpen ? (
         <AiDocumentBand
@@ -2871,6 +2871,7 @@ export function App() {
               received={{ update: putWeb, ...(host?.hearingWeb !== undefined ? { host: host.hearingWeb } : {}) }}
               wh={opened.wh}
               onSave={edit}
+              paused={presence !== null && storedInfo !== null}
               calcNotices={currentNotices}
               layout={layoutOf(officeSettings)}
               plans={{
