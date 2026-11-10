@@ -82,7 +82,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_NOT_SUPPORTED|residence.sale": { kind: "input", text: "住み終わった持ち家は、売らないので住み終わりの年で計算から外しています（資産・固定資産税・修繕費）。持ち続けるなら、住まいの「空き家として持ち続ける」で貯蓄・運用に貸していない不動産を作ります", card: "housing" },
   "N_NOT_SUPPORTED|education.cost|giftTax": { kind: "missing", text: "教育の資金の贈与（祖父母からなど）の贈与税は、計算に入れていません", card: "education" },
   "N_NOT_SUPPORTED|giftTax": { kind: "missing", text: "贈与税は、計算に入れていません" },
-  "N_NOT_SUPPORTED|giftTax.settlement.inheritanceAddBack": { kind: "missing", text: "相続時精算課税を選んだ贈与の、相続のときの加算（相続税の計算）は入れていません", card: "inheritance" },
+  "N_NOT_SUPPORTED|giftTax.settlement.inheritanceAddBack": { kind: "missing", text: "相続時精算課税を選んだ贈与は、相続税の目安（万一のときのタブ）でだけ、贈与した世帯の人が亡くなったときの財産に足し、払った贈与税を引いています。相続税はお金の流れに入れていないので、この精算もお金の流れには入りません。世帯の外の人（祖父母など）からの贈与は、その人の相続を計算しないので足していません", card: "inheritance" },
   "N_NOT_SUPPORTED|debt.creditLife.illness": { kind: "missing", text: "団体信用生命保険のがん・3大疾病・8大疾病の保障は、計算に入れていません（死亡・高度障害の保障だけを入れています）", card: "housing" },
   "N_NOT_SUPPORTED|insurance.template": { kind: "missing", text: "まだ計算できない種類の保険の契約があり、その保険料と保障は計算に入れていません", card: "insurance" },
   "N_NOT_SUPPORTED|insurance.medicalBenefit": { kind: "missing", text: "医療保障（入院・手術・がんの給付など）は、病気の想定の中身（病名・入院の日数など）が入っていないので、計算に入れていません", card: "insurance" },
@@ -91,7 +91,8 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_NOT_SUPPORTED|educationSupport.higher.juniorCollegeVocational": { kind: "missing", text: "短大・専門学校の修学支援（授業料の減免・給付型奨学金）は、まだ計算していません" },
   "N_NOT_SUPPORTED|educationSupport.higher.kosenUpper": { kind: "missing", text: "高専の4・5年の修学支援（授業料の減免・給付型奨学金）は、まだ計算していません" },
   "N_NOT_SUPPORTED|socialInsurance.nationalHealth.preschoolReduction": { kind: "missing", text: "国民健康保険の未就学児の均等割の軽減と、産前産後の保険料の免除は、計算に入れていません" },
-  "N_NOT_SUPPORTED|highCostMedical.over70": { kind: "missing", text: "70歳以上の高額療養費（自己負担の上限）は、まだ計算していません（70歳以後の医療費は上限なしで数えています）" },
+  // 部品は 70歳以上の区分を作らず、70歳未満の区分と3割の負担で上限をかける（近い値）ので、計算に入れていないものでなく仮の値・推定に入れる
+  "N_NOT_SUPPORTED|highCostMedical.over70": { kind: "assumed", text: "70歳以上の高額療養費は、70歳以上の区分（外来の特例・2割や1割の負担）を作らず、70歳未満の区分と3割の負担で上限をかけて計算しています（近い値。自己負担は多めに出ることがあります）" },
   "N_NOT_SUPPORTED|incomeTax.housingLoanCredit.period.specialSpecified": { kind: "missing", text: "消費税10%で取得した住宅（令和元年10月〜令和3年の入居）の11〜13年目の住宅ローン控除は、建物の価格が要るので計算に入れていません", card: "housing" },
   "N_NOT_SUPPORTED|residentTax.designatedCityAllocation": { kind: "assumed", text: "住民税は標準の税率で計算しています（政令指定都市の税率の配分と、市区町村の超過課税は入れていません）" },
   "N_INHERITANCE_TAX|contingency.inheritance": { kind: "missing", text: "亡くなる想定の相続税は、お金の流れに入れていません（目安は万一のときのタブに出します）" },
