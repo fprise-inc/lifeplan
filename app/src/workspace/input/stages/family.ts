@@ -816,15 +816,20 @@ export function donorGroups(wh: WorkingHousehold): GroupDef[] {
         }),
       ],
       actions: [
-        removeAction(`family/donor/${d.id}/remove`, "外す", "simple", (h) => {
-          h.donors = (h.donors ?? []).filter((x) => x.id !== d.id);
-          for (const r of h.residences ?? []) for (const g of r.purchase?.gifts ?? []) if (g.donor === d.id) delete g.donor;
-          for (const goal of h.goals ?? []) for (const g of goal.education?.gifts ?? []) if (g.donor === d.id) delete g.donor;
-          if (h.donors.length === 0) delete h.donors;
-        }),
+        removeAction(`family/donor/${d.id}/remove`, "外す", "simple", (h) => removeDonorIn(h, d.id)),
       ],
     };
   });
+}
+
+/** 生年月を入れない贈与する人を外す（援助の贈与する人・お金の行の相手に選んでいたら空にする。介護・親と相続・贈与の「外す」で同じ） */
+export function removeDonorIn(h: Household, id: string): void {
+  h.donors = (h.donors ?? []).filter((x) => x.id !== id);
+  for (const r of h.residences ?? []) for (const g of r.purchase?.gifts ?? []) if (g.donor === id) delete g.donor;
+  for (const goal of h.goals ?? []) for (const g of goal.education?.gifts ?? []) if (g.donor === id) delete g.donor;
+  // お金の行の相手がこの人なら、相手を空にする（世帯の外の家族を外すとき〔removeMember〕と同じ）
+  for (const r of [...(h.incomeFlows ?? []), ...(h.periodicExpenses ?? [])]) if (r.counterparty === id) delete r.counterparty;
+  if (h.donors.length === 0) delete h.donors;
 }
 
 function usesOfDonor(h: Household, id: string): number {

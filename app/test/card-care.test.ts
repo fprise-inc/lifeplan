@@ -49,11 +49,13 @@ describe("介護・親のカード: 世帯の外の家族（区画A）", () => {
     });
     const wh = addOutside(w0, "grandchild", { id });
     const g = wh.request.input.household.members.find((m) => m.kind === "grandchild")!;
-    const f = fieldOf(wh, `family/${g.id}/birth`);
-    const w2 = f.set(wh, "2028-10");
-    expect(fieldOf(w2, `family/${g.id}/birth`).get(w2).hint).toBe("今から2年後・ご本人68歳（令和10年10月）");
-    const w3 = fieldOf(w2, `family/${g.id}/birth`).set(w2, "2020-04");
-    expect(fieldOf(w3, `family/${g.id}/birth`).get(w3).hint).toBe("6歳（令和2年4月）");
+    // 孫（あげる贈与の相手）の欄は相続・贈与のカードに置く（介護・親には読むだけの1行）
+    const birthOf = (w: WorkingHousehold) => allFields(buildStage("inheritance", w)).find((x) => x.key === `family/${g.id}/birth`)!;
+    expect(allFields(stage(wh)).some((x) => x.key === `family/${g.id}/birth`)).toBe(false);
+    const w2 = birthOf(wh).set(wh, "2028-10");
+    expect(birthOf(w2).get(w2).hint).toBe("今から2年後・ご本人68歳（令和10年10月）");
+    const w3 = birthOf(w2).set(w2, "2020-04");
+    expect(birthOf(w3).get(w3).hint).toBe("6歳（令和2年4月）");
   });
 
   it("「＋ 父を足す」: 世帯の外の家族で、親のお金の欄は作らず、亡くなる見込みは平均余命の推定（年齢の時点・仮の印）", () => {
@@ -151,7 +153,13 @@ describe("介護・親のカード: 世帯の外の家族（区画A）", () => {
     const child = out.find((m) => m.kind === "child")!;
     expect(wh.request.input.household.relations).toContainEqual({ type: "parentOf", parent: wh.request.input.household.members[0]!.id, child: child.id });
     expect(memberLabel(wh, out[0]!.id)).toBe("兄弟姉妹");
-    expect(stage(wh).sections.find((s) => s.key === "care/outside")!.groups).toHaveLength(3);
+    // 孫は相続・贈与のカード（あげる贈与）に置き、ここは読むだけの1行。介護・親に「＋ 孫を足す」は置かない
+    const groups = stage(wh).sections.find((s) => s.key === "care/outside")!.groups;
+    expect(groups.map((g) => g.key).slice(0, 2).sort()).toEqual([`family/${out[0]!.id}`, `family/${out[1]!.id}`].sort());
+    expect(groups.map((g) => g.key)).toHaveLength(3);
+    expect(groups.at(-1)!.key).toBe("ro/care/grandchildren");
+    expect(groups.at(-1)!.fields.map((f) => [f.label, f.get(wh).value])).toEqual([["孫", "あげる贈与の相手"]]);
+    expect(() => actionOf(wh, "care/add/grandchild")).toThrow();
   });
 
   it("扶養の境目の1行: 税は年金だけなら合計所得の上限＋公的年金等控除の最低額まで、健康保険は60歳以上180万円未満、75歳からは入れない", () => {

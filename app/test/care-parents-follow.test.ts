@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import type { CareExpense } from "../src/engine/types.ts";
 import { careEstimate } from "../../hearing/src/estimates.ts";
 import { allFields, resolveTimepoint, type FieldDef, type StageDef } from "../src/workspace/input/form.ts";
-import { fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { confirmedBox, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { donorOptions } from "../src/workspace/input/labels.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { addOutside, withDeathEstimate } from "../src/workspace/input/stages/care.ts";
@@ -121,7 +121,9 @@ describe("介護・親の親・祖父母を、住宅資金・教育資金の援�
     const g = stage("care", wh).sections.find((s) => s.key === "care/outside")!.groups.find((x) => x.key === `family/${father.id}`)!;
     expect(g.note).toContain("贈与する人に選ばれています");
     // 相続・贈与の贈与する人の区画にも並ぶ
-    expect(allFields(stage("inheritance", wh)).some((f) => f.label === "贈与する人（父）")).toBe(true);
+    const row = stage("inheritance", wh).sections.find((s) => s.key === "family/donors")!.groups.find((x) => x.key === `inherit/person/${father.id}`)!;
+    expect(row.title?.startsWith("父（")).toBe(true);
+    expect(row.fields.map((f) => f.get(wh).value)).toEqual(["援助の贈与する人 1件"]);
     const gone = removeMember(wh, father.id);
     expect((hh(gone).goals ?? []).find((g) => g.id === goal.id)!.education!.gifts![0]!.donor).toBeUndefined();
   });
@@ -138,18 +140,39 @@ describe("介護の物の欄", () => {
     return f.kind === "select" ? f.options.map((o) => o.label) : [];
   };
 
-  it("払う人の選択肢: 親の介護は「介護を受ける人のお金から（足りない分は世帯）／世帯（ご本人）」、ご本人の介護は「介護を受ける人（ご本人）」", () => {
+  const withBalance = (wh: WorkingHousehold, c: CareExpense) => mutate(wh, (h) => void (h.members.find((m) => m.id === c.member)!.wallet = { balance: confirmedBox(5_000_000) }));
+  const helpOf = (wh: WorkingHousehold, c: CareExpense) => fieldOf("care", wh, `ev/care/${c.id}/payer`).help ?? "";
+
+  it("払う人の選択肢: 親のお金を見ていない親の介護は「世帯が払う」、見ていれば「まず母のお金から（尽きたら世帯）」。ご本人の介護は「介護を受ける人（ご本人）」", () => {
     const { wh, parentCare, selfCare } = carePair();
-    expect(optionsOf(wh, parentCare)).toEqual(["介護を受ける人のお金から（足りない分は世帯）", "世帯（ご本人）"]);
+    expect(optionsOf(wh, parentCare)).toEqual(["世帯が払う", "世帯が払う（ご本人の支出にする）"]);
+    expect(optionsOf(withBalance(wh, parentCare), parentCare)).toEqual(["まず母のお金から（尽きたら世帯）", "まず母のお金から（尽きたらご本人の支出）"]);
+    // 年金の欄だけ（預金の欄が無い）では親のお金を見ない（エンジンの outside.wallet と同じ）
+    const pensionOnly = mutate(wh, (h) => void (h.members.find((m) => m.id === parentCare.member)!.wallet = { pension: confirmedBox(1_200_000) }));
+    expect(optionsOf(pensionOnly, parentCare)[0]).toBe("世帯が払う");
     expect(optionsOf(wh, selfCare)).toEqual(["介護を受ける人（ご本人）"]);
+    expect(optionsOf(withBalance(wh, parentCare), selfCare)).toEqual(["介護を受ける人（ご本人）"]);
   });
 
-  it("見出しの下に誰が払うかの1行（親のお金を入れたかで変わる）", () => {
+  it("払う人の「?」: 親のお金を見ていなければ、入れる場所と入れたときの計算を書く。見ていれば、まず親のお金から払うと書く", () => {
+    const { wh, parentCare, selfCare } = carePair();
+    expect(helpOf(wh, parentCare)).toContain("今は母のお金を見ていないので、介護の費用は全部世帯が払います");
+    expect(helpOf(wh, parentCare)).toContain("母のお金（預金・年金）を入れると、まず母のお金から払い、尽きた月から世帯が払う計算にできます");
+    expect(helpOf(wh, parentCare)).toContain("区画「親のお金が持つか」の「＋ 母のお金が持つかを見る」");
+    expect(helpOf(withBalance(wh, parentCare), parentCare)).toContain("まず母のお金");
+    expect(helpOf(withBalance(wh, parentCare), parentCare)).toContain("尽きた月から世帯が払います");
+    expect(helpOf(withBalance(wh, parentCare), parentCare)).not.toContain("見ていない");
+    expect(helpOf(wh, selfCare)).toBe("世帯の中では、ここで選んだ人の支出にします");
+  });
+
+  it("見出しの下に誰が払うかの1行（親のお金を見ているかで変わる。選択肢と同じ決まり）", () => {
     const { wh, parentCare } = carePair();
     const note = (w: WorkingHousehold) => stage("care", w).sections.find((s) => s.key === "care/costs")!.groups.find((g) => g.key === `ev/care/${parentCare.id}`)!.note ?? "";
     expect(note(wh)).toContain("この費用は世帯が払います。母のお金を入れると、まず母のお金から払います");
-    const withWallet = mutate(wh, (h) => void (h.members.find((m) => m.id === parentCare.member)!.wallet = {}));
-    expect(note(withWallet)).toContain("まず母のお金から払い、尽きた月から世帯が払います");
+    // 空のお金の欄（預金の欄が無い）では、エンジンは親のお金を見ないので世帯が払う
+    const empty = mutate(wh, (h) => void (h.members.find((m) => m.id === parentCare.member)!.wallet = {}));
+    expect(note(empty)).toContain("この費用は世帯が払います");
+    expect(note(withBalance(wh, parentCare))).toContain("まず母のお金から払い、尽きた月から世帯が払います");
   });
 
   it("介護保険のサービスの額（10割）が入っていれば、月々の費用は「介護保険の対象外の費用」", () => {
