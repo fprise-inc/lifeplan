@@ -371,8 +371,12 @@ function counterpartyOptions(wh: WorkingHousehold, card?: MoneyCard): Option[] {
 
 /** 相手に世帯の外の家族を選んだときの計算（亡くなる見込みの月から止める・その人のお金から出す。0044 の追記） */
 const PARTY_OUTSIDE = "世帯の外の家族で亡くなる見込みのある人を選ぶと、その月から受け取りません。その人のお金（「親のお金が持つか」）を入れていれば、その残高から出したお金として減らします";
-/** 相手に選べる人を足す場所 */
-const PARTY_WHERE_INHERIT = "選べる人は、区画「親・祖父母（相続の相手・贈与する人）」の「＋ 親を足す」か、介護・親の項目の「世帯の外の家族」で足します";
+/** 出るお金の行で相手に世帯の外の家族を選んだときの計算（亡くなる見込みの月から止める・その人のお金に入れる） */
+const PARTY_OUTSIDE_OUT = "世帯の外の家族で亡くなる見込みのある人を選ぶと、その月から払いません。その人のお金（「親のお金が持つか」）を入れていれば、その残高に入れます";
+/**
+ * 相手に選べる人を足す場所。相続・贈与の入力項目では、すぐ下の区画「親・祖父母（相続の相手・贈与する人）」と受け取る区画の説明に
+ * 同じことが書いてあるので、欄の説明では言わない
+ */
 const PARTY_WHERE = "選べる人は、介護・親の項目の「世帯の外の家族」で足します";
 
 /**
@@ -382,14 +386,30 @@ const PARTY_WHERE = "選べる人は、介護・親の項目の「世帯の外�
  */
 export function incomePartyHelp(f: Pick<IncomeFlow, "kind" | "taxTreatment">, card: MoneyCard): string {
   const tax = incomeTreatment(f);
-  const where = card === "inherit" ? PARTY_WHERE_INHERIT : PARTY_WHERE;
+  const where = card === "inherit" ? "" : `。${PARTY_WHERE}`;
   if (tax === "gift")
-    return `誰からの贈与かを選びます。「なし」でも計算できます。受け取る人の親・祖父母を選ぶと、その年の1月1日に18歳以上なら特例税率で贈与税を計算します（「なし」や配偶者の親などは一般税率。親・祖父母からの贈与は、選ぶと贈与税が少なく出ることがあります）。相続時精算課税は、同じ人からの贈与を合わせて特別控除（累計2,500万円）を数えます（「なし」はこの行だけで数えます）。世帯の外の家族で亡くなる見込みのある人を選ぶと、その月から受け取りません。${where}`;
+    return `誰からの贈与かを選びます。「なし」でも計算できます。受け取る人の親・祖父母を選ぶと、その年の1月1日に18歳以上なら特例税率で贈与税を計算します（「なし」や配偶者の親などは一般税率。親・祖父母からの贈与は、選ぶと贈与税が少なく出ることがあります）。相続時精算課税は、同じ人からの贈与を合わせて特別控除（累計2,500万円）を数えます（「なし」はこの行だけで数えます）。世帯の外の家族で亡くなる見込みのある人を選ぶと、その月から受け取りません${where}`;
   if (tax === "inheritance" || f.kind === "inheritance")
-    return `誰からの相続かを選びます。「なし」でも計算できます（受け取る相続に税はかけないので、相手は税に効きません。亡くなった後に受け取るお金なので、相手の亡くなる見込みで止めることもしません）。受け取る時期が推定（相手の亡くなる見込みの10か月後）のままなら、相手を選び直すと、その人の亡くなる見込みに合わせて動きます。${where}`;
+    return `誰からの相続かを選びます。「なし」でも計算できます（受け取る相続に税はかけないので、相手は税に効きません。亡くなった後に受け取るお金なので、相手の亡くなる見込みで止めることもしません）。受け取る時期が推定（相手の亡くなる見込みの10か月後）のままなら、相手を選び直すと、その人の亡くなる見込みに合わせて動きます${where}`;
   if (card === "family")
     return `誰からのお金かを選びます（財産分与なら前の配偶者、家計に入れるお金なら同居の家族など）。「なし」でも計算できます。世帯の中の人を選んでも計算は変わりません（誰からかの記録です）。${PARTY_OUTSIDE}`;
-  return `誰からのお金かを選びます。「なし」でも計算できます。${PARTY_OUTSIDE}。${where}`;
+  return `誰からのお金かを選びます。「なし」でも計算できます。${PARTY_OUTSIDE}${where}`;
+}
+
+/** あげる贈与の「相手（誰へ）」の説明 */
+const GIFT_TO_HELP = "贈与を受け取る人です。贈与税は受け取る人の生年月で計算し、結果の要約（贈与の一覧）に出します。いない孫・離れて暮らす子は相続・贈与の入力項目で足せます";
+
+/**
+ * 出るお金の行の「相手（誰へ）」の説明（0044 の追記）: 世帯の外の家族を選ぶと亡くなる見込みの月から払わず（expense.periodic）、その人のお金を
+ * 入れていればその残高に入る（outside.wallet）。仕送りは、別居の親・祖父母なら健康保険の扶養の判定の仕送りの額に、扶養にしている離れて暮らす子なら
+ * 生計を一にする判定（行のある間だけ扶養親族）に使う。家族の入力項目は世帯の中の人（前の配偶者など）も相手になるが、計算は変わらない
+ */
+export function expensePartyHelp(p: Pick<PeriodicExpense, "kind">, card: MoneyCard): string {
+  if (p.kind === "gift") return GIFT_TO_HELP;
+  const inside = card === "family" ? "世帯の中の人を選んでも計算は変わりません（誰へかの記録です）。" : "";
+  if (p.kind === "allowance")
+    return `誰への仕送りかを選びます。「なし」でも計算できます。${inside}${PARTY_OUTSIDE_OUT}。別居の親・祖父母への仕送りは健康保険の扶養の判定の仕送りの額に、扶養にしている離れて暮らす子への仕送りは、行のある間だけ扶養親族にする判定に使います。${PARTY_WHERE}`;
+  return `誰へのお金かを選びます。「なし」でも計算できます。${inside}${PARTY_OUTSIDE_OUT}。${PARTY_WHERE}`;
 }
 
 /** 受け取る贈与の行で相手が「なし」のときの添え書き（気づかないと贈与税が多めに出る） */
@@ -1186,7 +1206,7 @@ export function expenseHeadFields(wh: WorkingHousehold, p: PeriodicExpense, card
     if (dependent !== null) fields.push(dependent);
   } else if ((card === "inherit" || card === "family") && expenseHasParty(p)) {
     const options = p.kind === "gift" ? giftRecipientOptions(wh, p.counterparty) : counterpartyOptions(wh, card);
-    fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "periodicExpense.counterparty", label: "相手（誰へ）", level: "simple", kind: "select", options, find, path: ["counterparty"], optional: true, fallback: "", ...(p.kind === "gift" ? { help: "贈与を受け取る人です。贈与税は受け取る人の生年月で計算し、結果の要約（贈与の一覧）に出します。いない孫・離れて暮らす子は相続・贈与の入力項目で足せます" } : {}) }), address(p.id, "periodicExpense.counterparty")));
+    fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "periodicExpense.counterparty", label: "相手（誰へ）", level: "simple", kind: "select", options, find, path: ["counterparty"], optional: true, fallback: "", help: expensePartyHelp(p, card) }), address(p.id, "periodicExpense.counterparty")));
   }
   return fields;
 }
@@ -1223,7 +1243,7 @@ export function expenseDetailGroups(wh: WorkingHousehold, p: PeriodicExpense, ca
     withAddress(plain({ key: `${k}/payer`, item: "periodicExpense.payer", label: "払う人", level: "detail", kind: "select", options: insiderOptions(wh), find, path: ["payer"], optional: true, fallback: "", help: "払う人を選ぶと、万一のときの扱いをその人に起きたときだけにします（お金は世帯で1つの財布として計算します）" }), address(p.id, "periodicExpense.payer")),
   ];
   const party = card !== "inherit" && card !== "family" && expenseHasParty(p);
-  if (party) fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "periodicExpense.counterparty", label: "相手（誰へ）", level: "detail", kind: "select", options: p.kind === "gift" ? giftRecipientOptions(wh, p.counterparty) : counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "" }), address(p.id, "periodicExpense.counterparty")));
+  if (party) fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "periodicExpense.counterparty", label: "相手（誰へ）", level: "detail", kind: "select", options: p.kind === "gift" ? giftRecipientOptions(wh, p.counterparty) : counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "", help: expensePartyHelp(p, card) }), address(p.id, "periodicExpense.counterparty")));
   const onceAmount = onceAsEntered(card) && cadenceOf(wh.request.input.household, p) === "once";
   fields.push(...growthFields(k, "periodicExpense.growth", find, p.id, p.growth, { onceAmount }));
   fields.push(...onContingencyFields({ key: `${k}/on`, item: "periodicExpense.onContingency", find, path: ["onContingency"], level: "detail" }).map((x) => withAddress(x, address(p.id, "periodicExpense.onContingency"))));

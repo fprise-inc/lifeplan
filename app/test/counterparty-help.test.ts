@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { IncomeFlow } from "../src/engine/types.ts";
 import { allFields, type FieldDef, type StageId } from "../src/workspace/input/form.ts";
 import { fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
-import { addIncome, incomePartyHelp, type MoneyCard } from "../src/workspace/input/moneyRows.ts";
+import { addExpense, addIncome, expenseCard, expensePartyHelp, incomePartyHelp, type MoneyCard } from "../src/workspace/input/moneyRows.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { modelHousehold } from "./helpers.ts";
 
@@ -21,7 +21,7 @@ const withDonor = (w: WorkingHousehold): WorkingHousehold =>
   });
 
 describe("相続・贈与の入力項目の「相手（誰から）」に説明が付く", () => {
-  it("贈与を受ける行: 特例税率・一般税率・相続時精算課税の特別控除と、足す場所を言う", () => {
+  it("贈与を受ける行: 特例税率・一般税率・相続時精算課税の特別控除を言う（足す場所は区画の説明に任せる）", () => {
     const w = addIncome(wh0(), "giftReceived");
     const f = fieldOf(w, "inherit", `in/${lastIncome(w).id}/counterparty`);
     expect(f?.level).toBe("simple");
@@ -29,7 +29,8 @@ describe("相続・贈与の入力項目の「相手（誰から）」に説明�
     expect(f?.help).toContain("特例税率");
     expect(f?.help).toContain("一般税率");
     expect(f?.help).toContain("特別控除");
-    expect(f?.help).toContain("「親・祖父母（相続の相手・贈与する人）」の「＋ 親を足す」");
+    // 足す場所は、すぐ下の区画「親・祖父母（相続の相手・贈与する人）」に書いてあるので欄の説明では言わない
+    expect(f?.help).not.toContain("足します");
   });
 
   it("相続・遺贈の行: 税に効かないことと、受け取る時期の推定に使うことを言う（贈与税の話はしない）", () => {
@@ -53,6 +54,25 @@ describe("相続・贈与の入力項目の「相手（誰から）」に説明�
     const f = fieldOf(w, "care", `in/${lastIncome(w).id}/counterparty`);
     expect(f?.level).toBe("detail");
     expect(f?.help).toBe(incomePartyHelp({ kind: "support" }, "care"));
+  });
+});
+
+describe("出るお金の行の「相手（誰へ）」にも説明が付く", () => {
+  it("仕送り: 亡くなる見込みで止まる・その人のお金に入る・扶養の判定に使う", () => {
+    const w = addExpense(wh0(), "allowance");
+    const p = (w.request.input.household.periodicExpenses ?? []).at(-1)!;
+    const card = expenseCard(w.request.input.household, p);
+    const help = fieldOf(w, card, `ev/${p.id}/counterparty`)?.help ?? "";
+    expect(help).toContain("誰への仕送りか");
+    expect(help).toContain("その月から払いません");
+    expect(help).toContain("その残高に入れます");
+    expect(help).toContain("扶養");
+  });
+
+  it("家族の入力項目では、世帯の中の人は記録と言う。あげる贈与は今までの説明のまま", () => {
+    expect(expensePartyHelp({ kind: "allowance" }, "family")).toContain("世帯の中の人を選んでも計算は変わりません");
+    expect(expensePartyHelp({ kind: "other" }, "events")).toContain("誰へのお金か");
+    expect(expensePartyHelp({ kind: "gift" }, "inherit")).toContain("贈与を受け取る人です");
   });
 });
 
