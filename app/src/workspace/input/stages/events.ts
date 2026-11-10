@@ -13,7 +13,7 @@ import { CARE_PLACE, memberLabel, memberOptions } from "../labels.ts";
 import { addExpense, addIncome, applyOnceGrowth, cadenceOf, expenseCard, growthFields, growthLabel, incomeCard, moneySections, OUT_ROWS, OUT_ROWS_BY_KIND, periodicGroup, periodicGroups } from "../moneyRows.ts";
 import { isDream } from "../../../engine/moneyRows.ts";
 import { addDream, DREAM_TEMPLATES, dreamOfTemplate, dreamRows, moveDream, toDream, type DreamTemplate } from "../dreams.ts";
-import { deathEstimate, hasBirth } from "../fill.ts";
+import { careStartKey, careStartShort, deathEstimate, hasBirth } from "../fill.ts";
 import { manYen, readGroup, readLine } from "../readLines.ts";
 import { formatYearMonth } from "../units.ts";
 import { overlapYears, scheduleItems, yearLabel } from "../schedule.ts";
@@ -186,7 +186,7 @@ export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
   );
   const fields: FieldDef[] = [
     plain({ key: `${k}/member`, item: "care.member", label: "介護を受ける人", level: "simple", kind: "select", options: memberOptions(wh), find, path: ["member"] }),
-    timepointField({ key: `${k}/from`, item: "care.from", label: "始まり", level: "detail", find, path: ["from"], ageOf: (h) => h.members.find((m) => m.id === (h.careExpenses ?? []).find((x) => x.id === c.id)?.member), anchor: "careStart" }),
+    careStartField(timepointField({ key: `${k}/from`, item: "care.from", label: "始まり", level: "detail", find, path: ["from"], ageOf: (h) => h.members.find((m) => m.id === (h.careExpenses ?? []).find((x) => x.id === c.id)?.member), anchor: "careStart" })),
     withDeathCut(
       careEstimateField(
         plain({ key: `${k}/months`, item: "care.months", label: "期間", level: "detail", kind: "int", suffix: "か月", min: 1, max: 600, find, path: ["months"], optional: true, help: "介護を受ける人の亡くなる見込みが期間の途中なら、その月からは費用を出しません" }),
@@ -218,7 +218,38 @@ export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
     note: "入れていない額は、統計の平均（生命保険文化センターの調査など）で推定します",
     level: "simple",
     fields: fields.map((f) => (f.address !== undefined || f.item === null ? f : { ...f, address: () => ({ target: { object: c.id }, item: f.item as string, at: [] }) })),
-    actions: [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.careExpenses = (h.careExpenses ?? []).filter((x) => x.id !== c.id)))],
+    actions: [withoutStartMark(removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.careExpenses = (h.careExpenses ?? []).filter((x) => x.id !== c.id))), c.id)],
+  };
+}
+
+/** 介護の物を外す操作の後に、その物の始まりの推定の印も外す（外した物の印を世帯ファイルに残さない） */
+function withoutStartMark(a: ActionDef, careId: string): ActionDef {
+  return {
+    ...a,
+    run: (w) => {
+      const next = a.run(w);
+      const key = careStartKey(careId);
+      if (next.assumed[key] === undefined) return next;
+      const { [key]: _gone, ...assumed } = next.assumed;
+      void _gone;
+      return { ...next, assumed };
+    },
+  };
+}
+
+/**
+ * 介護の始まりの欄: 推定で置いた始まり（介護の目安の物・「＋ 次の段階を足す」の仮の印）は、欄の中の灰色の推定の時点・「推定」の印に、
+ * 欄の横の根拠の短い文（「亡くなる見込みから統計の平均の期間を逆算」など。fill.ts の careStartShort）を添える。FP が直したら印を外す（0041 の追記 2026-11-11）
+ */
+function careStartField(f: FieldDef): FieldDef {
+  const g = clearsAssumed(f);
+  return {
+    ...g,
+    get: (wh) => {
+      const st = g.get(wh);
+      const short = careStartShort(wh.assumed[f.key]);
+      return short === null ? st : { ...st, blankHint: short };
+    },
   };
 }
 
