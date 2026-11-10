@@ -7,7 +7,9 @@ import { ITEM_LABELS } from "../../generated/labels.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import type { Catalog, DiffTarget, ItemValue, MovableItem } from "../plans/items.ts";
 import { savePlan, suggestName, type Values } from "../plans/plans.ts";
+import { fromBody } from "../store/body.ts";
 import { currentPeriodId, resolveKey } from "../store/readings.ts";
+import { sameJson } from "../undo/reopen.ts";
 import { rangeText, rateInRange, type PctRange } from "../input/rateRanges.ts";
 
 /** 本体の失敗の符号 → FP に見せる文 */
@@ -114,6 +116,27 @@ export const SHARE_STATE_TEXT: Record<ShareState, { short: string; long: string 
   given: { short: "AI: 同意あり・共有していない", long: "同意があります。いまはAIに渡していません" },
   sharing: { short: "AI: 共有中", long: "この世帯をAIに渡しています（縮約版。期限つき）" },
 };
+
+/**
+ * 保存した本文から、AIに渡る現状の入力（世帯の request.input）を画面の形で取り出す（0184 の追記）。
+ * 本体は保存した世帯の現状の入力を渡すので、これと画面の今の入力が違えば、画面と接続口の数字が違う。読めない本文は undefined
+ */
+export function savedInputOf(body: string | undefined): unknown {
+  if (body === undefined) return undefined;
+  try {
+    return fromBody(body).wh.request.input;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * 共有中の帯に「保存するとAIにも反映されます」を出すか（0184 の追記）: この世帯をAIに渡していて、画面の現状の入力が保存した入力と中身で違うときだけ。
+ * 自動保存を待っている間・ほかの人が開いていて保存を止めている間・保存に失敗した後のどれも同じ。プランの保存していない変更（結果のタブ）・表示の設定は、AIに渡らないので見ない
+ */
+export function unsavedForAi(sharing: boolean, savedInput: unknown, input: unknown): boolean {
+  return sharing && savedInput !== undefined && input !== undefined && !sameJson(savedInput, input);
+}
 
 /** 記録の読まれた回数の合計 */
 export const readCount = (r: AiShareRecord): number => r.reads.reduce((n, x) => n + x.count, 0);

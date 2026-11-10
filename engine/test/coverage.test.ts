@@ -1,7 +1,10 @@
 // 対応範囲の一覧（docs/coverage。0183）: 形と参照が正しく、書いたときの部品の revision が今の部品と同じこと（部品を直したら一覧を見直す）
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { OFFICIAL_DEFINITIONS } from "../src/components/index.ts";
-import { componentRefs, loadCoverage } from "../scripts/coverage.ts";
+import { componentRefs, COVERAGE_DIR, CoverageError, loadCoverage, SUMMARY_OPENING } from "../scripts/coverage.ts";
 
 const list = loadCoverage();
 const entries = list.areas.flatMap((a) => a.entries);
@@ -33,5 +36,25 @@ describe("対応範囲の一覧（0183）", () => {
 
   it("3つの状態がそろっていて、まだ入っていない物も書いてある", () => {
     for (const s of ["included", "approximated", "notYet"]) expect(entries.some((e) => e.status === s)).toBe(true);
+  });
+
+  it("要約の書き出しは状態ごとにそろえる（included は「入っています。」・approximated は「近似して入っています。」・notYet は「まだ入っていません。」）", () => {
+    expect(SUMMARY_OPENING).toEqual({ included: "入っています。", approximated: "近似して入っています。", notYet: "まだ入っていません。" });
+    const off = entries.filter((e) => !e.summary.startsWith(SUMMARY_OPENING[e.status])).map((e) => `${e.id}（${e.status}）`);
+    expect(off).toEqual([]);
+    // 近似の物を「入っています。」で書き出すと、一覧を読むときに止める
+    const dir = mkdtempSync(join(tmpdir(), "coverage-"));
+    try {
+      cpSync(COVERAGE_DIR, dir, { recursive: true });
+      const approx = entries.find((e) => e.status === "approximated")!;
+      const file = join(dir, `${approx.id.split(".")[0]}.yaml`);
+      const text = readFileSync(file, "utf8");
+      const head = text.indexOf("近似して入っています。", text.indexOf(`- id: ${approx.id}\n`));
+      writeFileSync(file, text.slice(0, head) + text.slice(head + "近似して".length));
+      expect(() => loadCoverage(dir)).toThrow(CoverageError);
+      expect(() => loadCoverage(dir)).toThrow(`${approx.id}: 状態が approximated の要約（summary）は「近似して入っています。」で始める`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
