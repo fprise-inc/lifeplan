@@ -319,7 +319,7 @@ function saleGroup(wh: WorkingHousehold, a: Account): GroupDef {
           path: ["sale", "taxation"],
           optional: true,
           fallback: a.subtype === "securityDeposit" ? "nonTaxable" : "transfer",
-          help: "入れなければ中身から決めます（敷金・保証金は非課税、ほかは譲渡所得）。家具・衣服など生活に使う物や、1個（1組）30万円以下の貴金属・美術品は非課税を選びます。金地金・会員権は値段によらず譲渡所得です",
+          help: "最初は中身から決めた方になっています（敷金・保証金は「非課税」、ほかは「譲渡所得（総合課税）」）。家具・衣服など生活に使う物や、1個（1組）30万円以下の貴金属・美術品は非課税を選びます。金地金・会員権は値段によらず譲渡所得です",
         }),
       );
     const taxed = estate || (a.sale.taxation ?? (a.subtype === "securityDeposit" ? "nonTaxable" : "transfer")) !== "nonTaxable";
@@ -730,7 +730,7 @@ function mutualAidFields(wh: WorkingHousehold, a: Account, k: string): FieldDef[
       optional: true,
       structural: true,
       blankMeans: "受け取らない（残高のまま持つ）",
-      help: "廃業・退職などで受け取るときに選び、受け取りを始める時期を入れます。入れなければ、受け取らずに残高のまま持ちます（資産には入ります）",
+      help: "廃業・退職などで受け取るときに受け取り方を選び、受け取りを始める時期を入れます。「受け取らない（残高のまま持つ）」のときは、受け取らずに残高のまま持ちます（資産には入ります）",
       get: (w) => ({ value: acc(w)?.payout?.method ?? "", implicit: acc(w)?.payout === undefined }),
       set: (w, v) =>
         mutate(w, (h) => {
@@ -992,7 +992,7 @@ export function flowSection(wh: WorkingHousehold): SectionDef {
         level: "detail",
         kind: "select",
         options: deposits.map((a, i) => ({ value: a.id, label: `${accountName(a, own(a.id))}${deposits.filter((x) => x.owner === a.owner).length > 1 ? ` ${i + 1}` : ""}` })),
-        help: "給与・年金が入り、生活費・ローンを払う預金。ここが足りなくなると、下の順番でほかの口座から取り崩します。入れなければ最初の預金",
+        help: "給与・年金が入り、生活費・ローンを払う預金。ここが足りなくなると、下の順番でほかの口座から取り崩します。最初は一覧の最初の預金になっています",
         get: (w) => {
           const st = settlementOf(w.request.input.household);
           return { value: st?.id ?? null, ...(st?.settlement !== true ? { implicit: true } : {}) };
