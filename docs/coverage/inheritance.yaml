@@ -1,0 +1,209 @@
+# 対応範囲の一覧（相続・贈与）。形は coverage.schema.json
+area: inheritance
+title: 相続・贈与
+order: 13
+entries:
+  - id: inheritance.estimate
+    title: 相続税の目安
+    status: approximated
+    summary: >-
+      近似して入っています。「いまご本人・配偶者が亡くなったら」と「二人とも亡くなった後」（万一の想定があればその時点）の相続税の目安を、
+      基礎控除・法定相続分・速算表・配偶者の税額軽減・生命保険金と死亡退職金の非課税枠・債務と葬式の費用から出します。表示だけで、お金の流れには入れません。
+    how: >-
+      財産は亡くなる人の名義の分で、金融資産＋不動産（年末の評価額×評価の割合。省略は時価の80%）＋車・その他の資産＋保険の契約の権利（亡くなる人が
+      被保険者でない契約の解約返戻金）＋死亡保険金（亡くなる人が契約者で被保険者の契約）＋死亡退職金＋相続時精算課税で贈与した財産です。
+      ここから債務（ローンの残高のうち亡くなる人の分。団信で消える分を除き、まだ払っていない死亡の年までの所得の税を含む）と葬式の費用を引きます。
+      名義の無い財産は省略で夫婦なら半分。課税価格の合計−基礎控除（3,000万円＋600万円×法定相続人の数）を法定相続分で分けて速算表を当て、
+      法定相続分どおりに分けたとして各人の税を出し、配偶者の軽減と精算課税で払った贈与税を引きます。FP が入れた額があれば、目安と並べてその額を使います。
+    approximation: >-
+      不動産は時価の割合で評価し、路線価・倍率などの土地の評価の細部は見ません。分け方は法定相続分どおりとみなします。小規模宅地等の特例・
+      2割加算・暦年課税の贈与の加算などは含めません（当たりそうなときは注意を出します）。
+    reason: 遺産の分け方や土地の評価は、実際の相続の手続きの中で決まるためです。
+    instead: 不動産の評価の割合・名義の無い財産の分け方・葬式の費用・法定相続人の数を直すか、FP が試算した相続税の額を入れます。
+    keywords: [相続税, 相続税の目安, 相続税の試算, 基礎控除, 二次相続, 相続税の総額, 法定相続分, 葬式費用, 債務控除]
+    items: [plan.inheritanceTax]
+    fields:
+      - "「相続・贈与」の入力項目の「不動産の評価の割合」"
+      - "「相続・贈与」の入力項目の「葬式の費用」"
+      - "万一のときのタブの相続税の目安"
+    rules:
+      - 相続税法15条（遺産に係る基礎控除）
+      - 相続税法16条（相続税の総額）
+      - 相続税法13条1項（債務控除）
+    regulation:
+      - inheritanceTax.basicDeduction.base
+      - inheritanceTax.basicDeduction.perHeir
+      - inheritanceTax.rateTable
+      - inheritanceTax.taxable.rounding
+      - inheritanceTax.total.rounding
+      - inheritanceTax.tax.rounding
+    components:
+      inheritance.estimate: 3
+      gift.tax: 3
+    related: [inheritance.heirs, inheritance.insuranceExemption, inheritance.spouseReduction, inheritance.smallLand, inheritance.otherRules]
+
+  - id: inheritance.heirs
+    title: 法定相続人の数え方
+    status: included
+    summary: >-
+      入っています。配偶者（法律婚だけ）と、第1順位の子（世帯の外の子も。先に亡くなった子の子は代襲）、子がいなければ親・祖父母、それもいなければ
+      兄弟姉妹を、家族の入力から数えます。養子は実子がいれば1人・いなければ2人まで数えます。
+    how: >-
+      世帯の外の家族（親・兄弟姉妹・離れて暮らす子など）と贈与する人も数えます。亡くなる見込みがその月以前の人と、まだ生まれていない子は数えません。
+      数は直せます（代襲・放棄など。直したときは配偶者のほかを同じ順位で等分とみなします）。事実婚の相手は相続人に入れません。
+    keywords: [法定相続人, 相続人の数, 代襲相続, 養子, 兄弟姉妹, 相続順位]
+    items: [plan.inheritanceTax, member.kind, member.outside, member.leaves, donor.relative, donor.leaves]
+    regulation: [inheritanceTax.adoptedChildren.withNatural, inheritanceTax.adoptedChildren.withoutNatural]
+    components:
+      inheritance.estimate: 3
+    related: [inheritance.estimate]
+
+  - id: inheritance.insuranceExemption
+    title: 生命保険金・死亡退職金の非課税枠
+    status: included
+    summary: >-
+      入っています。相続税の目安で、死亡保険金と死亡退職金のそれぞれから500万円×法定相続人の数を非課税として引きます。
+    how: >-
+      死亡保険金は、亡くなる人が契約者で被保険者の契約（年金で受け取る収入保障は受け取る総額）を数えます。死亡退職金は、退職給付の見込みを勤続の
+      月数で按分した額（確定拠出年金・小規模企業共済の残高を含む）です。
+    keywords: [生命保険の非課税枠, 500万円×法定相続人, 死亡保険金の非課税, 死亡退職金の非課税, みなし相続財産]
+    items: [plan.inheritanceTax, insurance.policyholder, insurance.insured]
+    regulation: [inheritanceTax.lifeInsurance.exemptionPerHeir, inheritanceTax.retirementAllowance.exemptionPerHeir]
+    components:
+      inheritance.estimate: 3
+    related: [insurance.benefitTax, inheritance.estimate]
+
+  - id: inheritance.spouseReduction
+    title: 配偶者の税額軽減
+    status: included
+    summary: >-
+      入っています。配偶者の税から、配偶者の税×（配偶者の取得額と「1億6,000万円か法定相続分の額の多い方」の小さい方）÷課税価格の合計を引きます。
+    how: 目安では配偶者の取得額を法定相続分どおりとします。各人の納める額は100円未満を切り捨てます。
+    keywords: [配偶者の税額軽減, 配偶者控除（相続）, 1億6000万円, 配偶者の相続]
+    items: [plan.inheritanceTax]
+    rules:
+      - 相続税法19条の2
+    regulation: [inheritanceTax.spouseReduction.floor]
+    components:
+      inheritance.estimate: 3
+    related: [inheritance.estimate]
+
+  - id: inheritance.smallLand
+    title: 小規模宅地等の特例
+    status: notYet
+    summary: >-
+      まだ入っていません。相続税の目安に、小規模宅地等の特例（自宅の土地の評価の減額など）は含めていません。持ち家があるときは注意を出します。
+    reason: 特例の要件（取得する人・居住や事業の継続など）は、遺産の分け方と相続の後の使い方で決まるためです。
+    instead: 不動産の評価の割合を下げるか、特例を当てて試算した相続税の額を FP が入れた額として入れます。
+    keywords: [小規模宅地等の特例, 特定居住用宅地, 80%減額, 自宅の土地, 330㎡]
+    items: [plan.inheritanceTax]
+    rules:
+      - 租税特別措置法69条の4
+    components:
+      inheritance.estimate: 3
+    related: [inheritance.estimate]
+
+  - id: inheritance.otherRules
+    title: 生前贈与の加算・2割加算などの決まり
+    status: notYet
+    summary: >-
+      まだ入っていません。相続税の目安には、暦年課税の贈与の加算、2割加算、相次相続控除、未成年者控除、障害者控除、一次と二次の相続の分け方の比べは含めていません。
+    reason: どれも遺産の分け方・受け取る人ごとの事情で決まり、目安の段階では入れていないためです。兄弟姉妹が相続人のときは注意を出します。
+    instead: これらを当てて試算した相続税の額を、FP が入れた額として入れます。
+    keywords: [生前贈与加算, 2割加算, 相次相続控除, 未成年者控除, 障害者控除, 一次相続と二次相続]
+    items: [plan.inheritanceTax]
+    components:
+      inheritance.estimate: 3
+    related: [inheritance.estimate, inheritance.giftTax]
+
+  - id: inheritance.received
+    title: 受け取る相続
+    status: approximated
+    summary: >-
+      近似して入っています。親などから受け取る予定の相続を、入るお金の行（額・時期・見込み）で入れます。受け取る側の相続税は計算せず、入れた額をそのまま受け取ります。
+    how: >-
+      相続の行は所得税・住民税をかけず、一時金の「相続」の行に載せます。受け取る時期の推定は相手の亡くなる見込みの10か月後です。見込みが
+      「当てにしない」の行は基本の計算に入れません。不動産で受け取るときは、持ち始める時点を入れた不動産として足せます。相続で受け継ぐ借金も入れられます。
+    approximation: 受け取る側の相続税は引きません。
+    reason: 受け取る側の相続税は、親の遺産の総額と相続人の数で決まり、世帯の入力だけでは決まらないためです。
+    instead: 受け取る側の相続税の見込みは、出るお金の行に額を入れて差し引きます。
+    keywords: [相続の受け取り, 親の遺産, 遺産相続, 相続財産, 相続で受け継ぐ借金, 不動産の相続]
+    items: [incomeFlow.kind, incomeFlow.amount, incomeFlow.counterparty, incomeFlow.likelihood, incomeFlow.includeInBase, debt.inheritedFrom, account.holdFrom]
+    fields:
+      - "「相続・贈与」の入力項目の受け取る予定の相続・贈与"
+    rows: [cf.income.lumpSum.inheritance]
+    components:
+      income.flows: 3
+    related: [inheritance.giftTax]
+
+  - id: inheritance.giftTax
+    title: 贈与税（暦年課税）と住宅取得等資金の非課税
+    status: included
+    summary: >-
+      入っています。受け取る人×年に、贈与の合計から基礎控除（110万円）を引き、直系尊属から18歳以上への贈与は特例税率、それ以外は一般税率で贈与税を出します。
+      住宅取得等資金の非課税も当てます。
+    how: >-
+      親・祖父母からの住宅資金の援助、子への援助（結婚・住宅資金）、保険の受け取りのうち贈与税の区分のもの、贈与税で見る入るお金の行、あげる贈与の行を
+      集めます。住宅取得等資金の非課税は、受け取る人がその年の1月1日に18歳以上で合計所得金額が上限以下のとき、住宅の種類ごとの上限まで1回分です。
+      両方の税率があるときは按分して合計します。世帯の外から受け取る贈与の税は翌年3月に「贈与税」の行に載せ、世帯から出すあげる贈与の税は受け取る人が
+      払うので、要約にだけ出します。生活費・教育費をその都度払う贈与は非課税として集めません。
+    keywords: [贈与税, 暦年贈与, 110万円, 特例税率, 住宅取得等資金の非課税, 生前贈与, 孫への贈与]
+    items: [residence.purchase, goal.education, periodicExpense.gift, incomeFlow.giftMethod, donor.kind]
+    fields:
+      - "「住まい・ローン」の入力項目の「贈与税の課税方法」"
+      - "「子ども・教育」の入力項目の「贈与税の課税方法」"
+    rules:
+      - 租税特別措置法70条の2の4（暦年課税の基礎控除）
+      - 租税特別措置法70条の2の5（特例税率）
+      - 租税特別措置法70条の2（住宅取得等資金の非課税）
+      - 相続税法21条の7（一般税率）
+    regulation:
+      - giftTax.basicDeduction
+      - giftTax.rateTable.general
+      - giftTax.rateTable.special
+      - giftTax.housingFunds.exemption.energySaving
+      - giftTax.housingFunds.exemption.other
+      - giftTax.housingFunds.incomeLimit
+      - giftTax.special.recipientMinAge
+    rows: [cf.taxSi.giftTax, cf.income.lumpSum.gift, cf.expense.lumpSum.gift]
+    components:
+      gift.received: 5
+      gift.tax: 3
+    related: [inheritance.settlement, housing.purchase]
+
+  - id: inheritance.settlement
+    title: 相続時精算課税
+    status: approximated
+    summary: >-
+      近似して入っています。贈与者ごとに、その年の基礎控除（110万円）と特別控除（累計2,500万円）を引いた残り×20%の贈与税を出し、
+      相続税の目安では、贈与者が亡くなったときに精算課税の贈与を課税価格に足し、払った贈与税を引きます。
+    how: >-
+      基礎控除は精算課税の贈与の額の割合で分けます。一度選ぶと撤回できないので、同じ贈与者からその後に受ける贈与は、暦年課税と書いてあっても
+      精算課税で計算します（知らせが出ます）。精算課税で払った贈与税が相続税より多い分は還付として出します。
+    approximation: >-
+      贈与者の年齢（60歳以上）の要件は確かめません。相続税はお金の流れに入れないので、相続のときの精算はキャッシュフロー表には出ません。
+    reason: 年齢の要件は入力のときに FP が確かめる前提で、相続税は表示だけの目安にしているためです。
+    keywords: [相続時精算課税, "2,500万円特別控除", 精算課税の基礎控除, 生前贈与, 20%]
+    items: [incomeFlow.giftMethod, residence.purchase, goal.education, donor.kind]
+    rules:
+      - 相続税法21条の12（特別控除）
+      - 相続税法21条の13（税率）
+    regulation: [giftTax.settlement.basicDeduction, giftTax.settlement.specialDeduction, giftTax.settlement.rate]
+    rows: [cf.taxSi.giftTax]
+    components:
+      gift.tax: 3
+      inheritance.estimate: 3
+    related: [inheritance.giftTax, inheritance.estimate]
+
+  - id: inheritance.legacy
+    title: 遺したい額
+    status: included
+    summary: >-
+      入っています。遺したい額を入れると、表の最後の年の金融資産と比べて見せます（表示だけで、計算には使いません）。
+    how: 入れた額と、表の最後の年の年末の金融資産の合計を並べます。取り崩しや支出を遺したい額に合わせて変えることはしません。
+    keywords: [遺したい額, 遺産, 子に残す, 残す資産, 相続対策]
+    items: [plan.legacy]
+    fields:
+      - "「相続・贈与」の入力項目の遺したい額"
+    rows: [cf.balance.financial]
+    related: [inheritance.estimate]

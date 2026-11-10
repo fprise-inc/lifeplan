@@ -1,0 +1,223 @@
+# 対応範囲の一覧（住まい・住宅ローン）。形は coverage.schema.json
+area: housing
+title: 住まい・住宅ローン
+order: 8
+entries:
+  - id: housing.mortgageRepayment
+    title: 住宅ローンの返済（元利均等・元金均等）
+    status: included
+    summary: >-
+      入っています。元利均等返済と元金均等返済を月ごとに計算し、ボーナス返済・ペアローン・連帯債務の負担割合も扱います。
+      今返しているローンは今の残高から計算できます。
+    how: >-
+      元利均等は 返済額＝残高×月利×(1＋月利)^n÷((1＋月利)^n−1)（月利＝年利÷12）、元金均等は 元金＝残高÷回数 に毎月の残高の利息を足します。
+      最初の返済は借入の月の翌月です。ボーナス返済は借入額のその割合を、ボーナスの月（既定は6月・12月）の年2回の元利均等で返します。
+      既に借りているローンは、残高の時点の返済の後の残高から計算します。ペアローンは2本のローンとして持ちます。返済は月ごとに計算して年に集計し、
+      年末の残高を負債に載せます。借りる人が全員、借入の月より前に万一の想定で亡くなる予定のローンは組めないので、借入の額を借入の月に現金で払います。
+    keywords: [住宅ローン, 元利均等, 元金均等, ボーナス返済, ペアローン, 連帯債務, 毎月の返済額, ローン残高]
+    items: [debt.principal, debt.start, debt.repayment, debt.balance, debt.balanceAsOf, debt.debtors, debt.pairWith, debt.kind]
+    fields:
+      - "「住まい・ローン」の入力項目の「＋ 住宅ローン」"
+      - "「住まい・ローン」の入力項目の「返済方法」"
+      - "「住まい・ローン」の入力項目の「ボーナス返済の割合」"
+      - "「住まい・ローン」の入力項目の「今の残高」"
+    rows: [cf.expense.housing.loan, cf.balance.debt.mortgage]
+    components:
+      debt.schedule: 9
+    related: [housing.variableRate, housing.prepayment, housing.creditLife, tax.housingLoanCredit]
+
+  - id: housing.variableRate
+    title: 変動金利と金利の上昇
+    status: included
+    summary: >-
+      入っています。金利の段階（固定・変動・固定期間選択）で金利の変わり方を入れられ、変動金利は5年ルール・125%ルールと未払利息も計算します。
+      金利が上がる見込みの型と、変動金利の上乗せのストレステストもあります。
+    how: >-
+      その月の金利は金利の段階のうち始まりがその月以前の最後の段です。固定・期間選択の段が変わるとその月から返済額を計算し直します。
+      変動金利で5年ルールがあれば、返済額は最初の返済から61回目ごとにだけ見直し、125%ルールがあれば前の返済額の1.25倍を上限にします。
+      利息が返済額を超えた分は未払利息として持ち越し、最後の回に残高と一緒に払います。画面の「金利の見込み（変動金利）」で「10年で○%上がる」を
+      選ぶと、今（これから借りるなら借入の月）から5年ごとに金利の段を置きます。ストレステストの「変動金利が上がる」は、指定の月から変動の段の
+      金利に上乗せを足します。金利の欄を入れないときの目安は、公表されている金利の平均・調査の中央値です。
+    keywords: [変動金利, 金利上昇, 5年ルール, 125%ルール, 未払利息, 固定期間選択型, 全期間固定, 金利の見込み, ストレステスト]
+    items: [debt.rateSchedule, debt.product, assumptions.loanRateShifts]
+    fields:
+      - "「住まい・ローン」の入力項目の「金利の種類」"
+      - "「住まい・ローン」の入力項目の「金利の見込み（変動金利）」"
+      - "「住まい・ローン」の入力項目の「5年ルール・125%ルール」"
+      - "「住まい・ローン」の入力項目の「＋ 金利の段階」"
+    regulation:
+      - housing.statistics.mortgageRate.variable
+      - housing.statistics.mortgageRate.current
+      - housing.statistics.mortgageRate.fixed
+      - housing.statistics.mortgageRate.fixedPeriod10
+    rows: [cf.expense.housing.loan, cf.balance.debt.mortgage, cf.balance.debt.unpaidInterest]
+    components:
+      debt.schedule: 9
+    related: [housing.mortgageRepayment]
+
+  - id: housing.prepayment
+    title: 繰上返済と借り換え
+    status: included
+    summary: >-
+      入っています。繰上返済は期間短縮型・返済額軽減型を選べ、手数料も払います。借り換えは、その月の残高を新しい金利・期間のローンで返し、
+      諸費用を払う（または新しいローンに含める）計算です。
+    how: >-
+      繰上返済はその月の返済の後に、まず未払利息に、残りを元金に充てます。期間短縮型は返済額を変えずに回数を減らし、返済額軽減型は回数を変えずに
+      返済額を計算し直します。借り換えは、その月から残高（未払利息を含む）を新しい金利の段階・期間・返済の方法で返します。
+      住まいを売るときに「売ったときにローンを返す」なら、住み終わりの月の返済の後に残りを一括で返します。
+    keywords: [繰上返済, 期間短縮型, 返済額軽減型, 借り換え, 一括返済, 完済, 手数料]
+    items: [debt.prepayments, debt.refinance]
+    fields:
+      - "「住まい・ローン」の入力項目の「＋ 繰上返済」"
+      - "「住まい・ローン」の入力項目の「＋ 借り換え」"
+      - "「住まい・ローン」の入力項目の「借り換えの費用」"
+    rows: [cf.expense.housing.loan.prepayment, cf.expense.housing.loan.fees]
+    components:
+      debt.schedule: 9
+    related: [housing.mortgageRepayment, housing.saleAndMove]
+
+  - id: housing.creditLife
+    title: 団体信用生命保険（万一のときの残高）
+    status: included
+    summary: >-
+      入っています。万一の想定で、死亡・高度障害（障害1級）・就業不能（働けない状態が既定で12か月続いたとき）にローンの残高が消えます。
+      がん・3大疾病・8大疾病の保障はまだ計算しません。
+    how: >-
+      団信の対象のローンで、事由の月の返済の後に残高（ボーナス返済の分・未払利息を含む）を割合だけ減らし、残りの回数で返済額を計算し直します。
+      割合は、夫婦連生ならどちらの事由でも全額、そうでなければ保障割合か連帯債務の負担割合（どちらも無ければ全額）です。ペアローンは2本の
+      ローンなので、亡くなった人のローンだけが消えます。就業不能は、働けるようになる月が続く月数より前なら消えません。
+    keywords: [団信, 団体信用生命保険, 夫婦連生団信, 就業不能, 高度障害, がん団信, 住宅ローンの残高]
+    items: [debt.creditLife, debt.debtors, contingency.kind, contingency.grade]
+    fields:
+      - "「住まい・ローン」の入力項目の「夫婦連生」"
+      - "「住まい・ローン」の入力項目の「保障割合」"
+      - "「住まい・ローン」の入力項目の「就業不能の特約」"
+    rows: [cf.expense.housing.loan, cf.balance.debt.mortgage]
+    components:
+      debt.creditLifeEvents: 1
+      debt.schedule: 9
+    related: [contingency.livingAfterDeath]
+
+  - id: housing.propertyTax
+    title: 固定資産税・都市計画税と修繕費・管理費
+    status: approximated
+    summary: >-
+      近似して入っています。持ち家の期間に、入れた固定資産税・都市計画税の年額を4・7・12・2月の4回に分けて払い、修繕費・管理費を毎月払います。
+      固定資産税の欄が空なら、物件の価格・土地の割合・構造・新築か中古かから、住宅用地の特例と新築の減額を当てた目安を入れます。
+    how: >-
+      固定資産税の年額は上昇率で伸ばし、その年の4月・7月・12月と翌年2月に分けて払います。目安は、土地と建物の評価額（価格に目安の割合を
+      掛けた額）に、小規模住宅用地の特例（固定資産税6分の1・都市計画税3分の1）、新築住宅の減額（建物の半分。戸建て3年・マンション5年、
+      認定長期優良住宅は5年・7年）、標準税率1.4%と都市計画税の税率（目安0.3%）を当てます。3年ごとの評価替えで、建物の分は固定資産評価基準の
+      経年減点補正率で下げ、新築の減額が終わる年に上がる段を置きます。修繕費・管理費は月額に上昇率を当てます（目安の額もあります）。
+    approximation: >-
+      床面積は住宅用地の特例の200㎡・新築の減額の120㎡の内とみなし、負担調整は無し（本則の額）、税率は標準税率とみなします。
+      評価額は価格に目安の割合を掛けた額です。地域ごとの値は持ちません。
+    reason: 実際の評価額・床面積・地域の税率は家ごとに違い、納税通知書が無いときにも目安を出すためです。
+    instead: 納税通知書の額を固定資産税の欄に入れると、その額で計算します（変化の段は推定のまま入れ直します）。
+    keywords: [固定資産税, 都市計画税, 住宅用地の特例, 新築の減額, 評価替え, 修繕積立金, 管理費, 修繕費]
+    items: [residence.propertyTax, residence.maintenance, residence.style]
+    fields:
+      - "「住まい・ローン」の入力項目の「建物の構造」"
+      - "「住まい・ローン」の入力項目の「長期優良住宅（認定）」"
+      - "「住まい・ローン」の入力項目の「購入の種類」"
+    rules:
+      - 地方税法350条（固定資産税の標準税率）
+      - 地方税法349条の3の2（住宅用地の特例）
+      - 地方税法附則15条の6・15条の7（新築住宅の減額）
+      - 固定資産評価基準（経年減点補正率）
+    rows: [cf.expense.housing.propertyTax, cf.expense.housing.maintenance]
+    components:
+      housing.residence: 7
+    related: [housing.purchase]
+
+  - id: housing.rent
+    title: 賃貸の家賃と更新料
+    status: included
+    summary: >-
+      入っています。住まいの期間の毎月の家賃と、更新の月（既定は24か月ごと）の更新料（家賃の○か月分）を払います。家賃の増減率は更新の月に当てます。
+    how: >-
+      家賃は毎月払い、更新の月に住み始めから経った年数（1年未満は切り捨て）のうち前の更新から増えた年数の分だけ増減率を重ねます。
+      計算基準月より前に住み始めた賃貸は、入れた家賃を今の家賃とみなし、計算基準月より後の更新からだけ上げ下げします。更新料は更新の前の月の
+      家賃×月数です。家賃の段階・例外の年も入れられます。増減率の目安は消費者物価指数の民営家賃の年平均の変化です。
+    keywords: [家賃, 賃貸, 更新料, 家賃の値上がり, 社宅, 住居費]
+    items: [residence.rent, residence.kind, residence.from, residence.to]
+    fields:
+      - "「住まい・ローン」の入力項目の「＋ 賃貸」"
+      - "「住まい・ローン」の入力項目の「家賃（管理費込み）」"
+      - "「住まい・ローン」の入力項目の「家賃の増減率（年）」"
+      - "「住まい・ローン」の入力項目の「更新の間隔」"
+    regulation: [housing.statistics.rentGrowth]
+    rows: [cf.expense.housing.rent, cf.expense.housing.rent.renewal]
+    components:
+      housing.residence: 7
+    related: [housing.saleAndMove]
+
+  - id: housing.purchase
+    title: 住宅の購入（頭金・諸費用・親からの援助）
+    status: included
+    summary: >-
+      入っています。購入の月に頭金と諸費用を払い、残りを住宅ローンで借ります。注文住宅は土地の決済と建物の代金の支払いを、それぞれの月に払います。
+      親・祖父母からの資金援助は受け取る人の一時金の収入にし、贈与税（住宅取得等資金の非課税を含む）も計算します。
+    how: >-
+      購入の月（省略は住み始め）に頭金と諸費用を払います。注文住宅は、頭金・諸費用のうち土地の決済の分と、引き渡しの前の契約金・着工金・中間金を
+      それぞれの月に払い、残りを引き渡しの月に払います。親・祖父母からの資金援助は、受け取る構成員の一時金の収入（贈与）にし、贈与税は贈与の
+      計算で住宅取得等資金の非課税を当てて出します。名義の人が万一の想定で亡くなったら、翌月から固定資産税などは相続する人の名で払います。
+    keywords: [住宅購入, マイホーム, 頭金, 諸費用, 注文住宅, 中間金, 住宅資金の援助, 住宅取得等資金]
+    items: [residence.purchase, residence.ownership, residence.kind]
+    fields:
+      - "「住まい・ローン」の入力項目の「＋ 住宅購入の予定」"
+      - "「住まい・ローン」の入力項目の「頭金から払う額」"
+      - "「住まい・ローン」の入力項目の「援助の額」"
+      - "「住まい・ローン」の入力項目の「名義と持分」"
+    rows: [cf.expense.housing.purchase, cf.expense.housing.purchase.downPayment, cf.expense.housing.purchase.costs, cf.income.lumpSum.gift]
+    components:
+      housing.residence: 7
+      gift.received: 5
+      gift.tax: 3
+    related: [housing.mortgageRepayment, inheritance.giftTax, tax.housingLoanCredit]
+
+  - id: housing.saleAndMove
+    title: 住まいの評価額・売却・住み替え
+    status: approximated
+    summary: >-
+      近似して入っています。持ち家の評価額を年末ごとに土地と建物に分けて資産に載せ、住み終わりの月に売れば手取りを現金にします。
+      賃貸から持ち家、持ち家から別の家など、住まいを期間で並べて住み替えを表せます。
+    how: >-
+      評価の基は、入れた時価か購入の価格です。土地は基の額×土地の割合（省略は目安0.3）で、毎年の上昇率（省略は物価上昇率）を当てます。
+      建物は構造の耐用年数（目安 木造22・軽量鉄骨19・重量鉄骨34・鉄筋コンクリート47年）で定額で減らし、残りの価値の下限（目安0.2）より
+      下げません。売るときは、売却価格（省略はその年の評価額）から売却の費用（目安は売却価格の4%）を引いた手取りを名義の人の一時金の収入にし、
+      「売ったときにローンを返す」なら残りを一括で返します。売らない住み終わりは、住み終わりの年で計算から外します（空き家として持ち続けることもできます）。
+    approximation: >-
+      評価額は、土地は上昇率、建物は耐用年数での定額の減り方という目安で、相場や路線価から出す額ではありません。
+    reason: 将来の相場は分からないため、土地と建物の値動きを前提の率で表す形にしています。
+    instead: 時価の欄・土地の割合・耐用年数・売却価格を入れると、その値で計算します。
+    keywords: [住まいの評価額, 時価, 売却, 住み替え, 自宅を売る, 空き家, 資産価値, 建物の減価]
+    items: [residence.valuation, residence.sale, residence.to, residence.from, assumptions.realEstateValuation]
+    fields:
+      - "「住まい・ローン」の入力項目の「評価額」"
+      - "「住まい・ローン」の入力項目の「土地の割合」"
+      - "「住まい・ローン」の入力項目の「住み終わりの月に売る」"
+      - "「住まい・ローン」の入力項目の「売却価格」"
+    rows: [cf.balance.account.realEstate, cf.income.lumpSum.realEstateSale, cf.expense.housing.loan.prepayment]
+    components:
+      housing.valuation: 4
+      debt.schedule: 9
+    related: [housing.saleTax, housing.prepayment]
+
+  - id: housing.saleTax
+    title: 住まいの売却の譲渡所得の税（3,000万円の特別控除）
+    status: notYet
+    summary: >-
+      まだ入っていません。自宅を売ったときの譲渡所得の税（長期・短期の税率、居住用財産の3,000万円の特別控除、取得費と建物の減価）は自動で計算しません。
+    reason: 自宅の特例の当てはめ（住まなくなってからの期間・買換えの特例との選択など）を、まだ入力と計算に入れていないためです。
+    instead: >-
+      住まいの売却の欄に税の額（所得税・住民税の合計）を入れると、売った月に払い、所得税と住民税の行に分けて載せます。
+      額を入れないときは税0円のまま知らせが出ます。
+    keywords: [3000万円特別控除, "3,000万円控除", 居住用財産, 譲渡所得, 自宅の売却の税, 買換え特例]
+    items: [residence.sale]
+    rules:
+      - 租税特別措置法35条（居住用財産の譲渡所得の特別控除）
+    rows: [cf.taxSi.incomeTax.realEstateSale, cf.taxSi.residentTax.realEstateSale]
+    components:
+      housing.valuation: 4
+    related: [housing.saleAndMove]

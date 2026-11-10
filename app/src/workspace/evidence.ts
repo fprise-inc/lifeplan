@@ -92,6 +92,31 @@ function breakdownLabel(formula: string, row: string, property: string | null): 
 
 /** names は表の行の事務所の名前（根拠の見出しの行の名前。表と同じ名前にする） */
 export function buildEvidence(full: FullResult, req: EngineRequest, rowKey: string, year: number, names?: OfficeRowNames): EvidenceView | null {
+  return evidenceDetail(full, req, rowKey, year, names)?.view ?? null;
+}
+
+/** 根拠の集め方の細かさ（画面は既定のまま。AI接続口は小さくできる。0183） */
+export interface EvidenceOptions {
+  /** 内側の呼び出しを何段までたどって制度の値を集めるか（0〜3。既定3） */
+  depth?: number;
+  /** 使った制度の値を何件まで出すか（1〜24。既定24） */
+  maxParams?: number;
+}
+
+/**
+ * 根拠の表示の中身（view。画面の根拠のパネルと同じ）と、その元の ID（計算式ID・制度の値ID。view と同じ並び）。
+ * ID は AI接続口が「制度の値を引く」道具につなぐためだけに返す（提示層には渡さない）。世帯の物の ID は含めない
+ */
+export function evidenceDetail(
+  full: FullResult,
+  req: EngineRequest,
+  rowKey: string,
+  year: number,
+  names?: OfficeRowNames,
+  opts: EvidenceOptions = {},
+): { view: EvidenceView; formulaIds: string[]; paramIds: string[] } | null {
+  const depth = opts.depth ?? 3;
+  const maxParams = Math.min(opts.maxParams ?? MAX_PARAMS, MAX_PARAMS);
   const def = rowDefs(req, names).find((d) => d.key === rowKey);
   if (def === undefined) return null;
   const byAccrual = full.header.calcConventions?.aggregation === "accrual";
@@ -121,13 +146,13 @@ export function buildEvidence(full: FullResult, req: EngineRequest, rowKey: stri
   });
   if (breakdown.size === 0) return null;
   const params = new Map<string, Extract<TraceNode, { type: "param" }>>();
-  for (const c of calls) for (const p of collectParams(full.trace.nodes, c)) if (!params.has(p.ref) && params.size < MAX_PARAMS) params.set(p.ref, p);
+  for (const c of calls) for (const p of collectParams(full.trace.nodes, c, depth)) if (!params.has(p.ref) && params.size < maxParams) params.set(p.ref, p);
   const rs = roles(req);
   const context = rs
     .filter((r) => presentInYear(r, year))
     .map((r) => `${r.label}${ageInYear(r.member, year)}歳`)
     .join("・");
-  return {
+  const view: EvidenceView = {
     title: `${year}年 ${def.label}`,
     total,
     context,
@@ -143,4 +168,5 @@ export function buildEvidence(full: FullResult, req: EngineRequest, rowKey: stri
     // ゆとりの支出は、何を差し引いたかの一言（0031）
     note: (rowKey === "surplusSpend" ? surplusEvidenceNote(req, full.table, year) : null) ?? (byAccrual ? null : "表は受け取った年・支払った年で集計しています（年金は偶数月に前の2か月分を受け取ります）。"),
   };
+  return { view, formulaIds: [...new Map([...breakdown.values()].map((b) => [b.formula, b.row])).keys()], paramIds: [...params.values()].map((p) => p.id) };
 }

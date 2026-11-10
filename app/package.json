@@ -12,6 +12,7 @@
     "prepare-assets": "node --disable-warning=ExperimentalWarning scripts/prepare-assets.ts",
     "dev": "npm run prepare-assets && vite",
     "build": "npm run prepare-assets && vite build",
+    "build:explain": "npm run prepare-assets && node --disable-warning=ExperimentalWarning scripts/build-explain.ts --force",
     "build:hearing-form": "node --disable-warning=ExperimentalWarning scripts/build-hearing-form.ts",
     "typecheck": "npm run prepare-assets && tsc -p tsconfig.json && tsc -p tsconfig.tools.json",
     "lint": "npm run prepare-assets && eslint .",

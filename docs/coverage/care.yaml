@@ -1,0 +1,122 @@
+# 対応範囲の一覧（介護・親）。形は coverage.schema.json
+area: care
+title: 介護・親
+order: 12
+entries:
+  - id: care.cost
+    title: 介護の費用（統計の平均・在宅と施設・期間）
+    status: included
+    summary: >-
+      入っています。介護を受ける人（親・ご本人・配偶者）ごとに、月々の費用×期間＋一時費用（住宅の改修・介護用品など）を計算します。
+      額や期間を入れなければ、統計の平均（在宅・施設の月額、期間、一時費用）を使います。在宅から施設へなど段階も足せます。
+    how: >-
+      額は計算基準年の価格で、伸び方（省略は物価上昇率）で伸ばします。払う人（省略は介護を受ける人）の行に載せ、払う人の万一のときの扱いを当てます。
+      払う人が万一の想定で亡くなったら、翌月から相続する人が払います。介護を受ける人が亡くなった後（亡くなる見込み・世帯から離れる月・万一の想定）は、
+      期間が残っていても出しません。事務所の設定で「推定で埋めない」にしたときは、入っていない所を0円にして知らせます。
+    keywords: [介護費用, 介護の期間, 在宅介護, 施設介護, 老人ホーム, 一時費用, リフォーム, 親の介護]
+    items: [care.member, care.from, care.months, care.place, care.otherMonthly, care.initial, care.growth, care.payer, care.onContingency]
+    fields:
+      - "「介護・親」の入力項目の「＋ 介護の費用」"
+      - "「介護・親」の入力項目の「在宅か施設か」"
+      - "「介護・親」の入力項目の「期間」"
+      - "「介護・親」の入力項目の「一時費用」"
+      - "「介護・親」の入力項目の「払う人」"
+    regulation: [care.statistics.monthlyHome, care.statistics.monthlyFacility, care.statistics.months, care.statistics.initial]
+    rows: [cf.expense.care.nursing, cf.expense.care.facility]
+    components:
+      care.expense: 8
+    related: [care.copay, care.parentWallet]
+
+  - id: care.copay
+    title: 介護保険の自己負担（1〜3割・高額介護サービス費）
+    status: approximated
+    summary: >-
+      近似して入っています。介護保険のサービスの額（10割）を入れると、自己負担割合（65歳以上は所得で1〜3割、65歳未満は1割）を掛け、
+      高額介護サービス費の上限（月額）で止めます。保険の対象外の費用（食費・居住費など）はそのまま足します。
+    how: >-
+      2割・3割の判定は、本人の合計所得金額（160万円・220万円以上）と、世帯の65歳以上の人の「年金収入＋その他の合計所得金額」の合計
+      （単身は280万円・340万円、2人以上は346万円・463万円以上）で行います。所得はサービスの月の前年（1〜7月は前々年）、住民税の非課税は
+      その年度（4〜7月は前年度）で見ます。高額介護サービス費は、世帯の全員が住民税非課税なら24,600円（年金収入等が基準以下なら個人15,000円）、
+      そうでなければ課税所得で44,400円・93,000円・140,100円です。同居していない親は別の世帯とみなします。
+    approximation: >-
+      介護を受ける人ごとに判定し、同じ世帯の2人が同じ月に介護を受けるときの合算はしません。統計の平均の月額を使うときは、自己負担の総額なので
+      割合・上限は掛けません。
+    reason: 世帯の合算は同じ月のサービスの組み合わせで変わるため、1人ずつの目安にしています。
+    keywords: [介護保険, 自己負担割合, 2割負担, 3割負担, 高額介護サービス費, 介護サービス]
+    items: [care.serviceMonthly, care.otherMonthly, member.support]
+    fields:
+      - "「介護・親」の入力項目の「介護保険のサービスの額（1割負担の前・月額）」"
+      - "「介護・親」の入力項目の「介護保険の対象外の費用（食費・居住費など・月額）」"
+    rules:
+      - 介護保険法施行令22条の2（利用者負担の割合）
+      - 介護保険法施行令22条の2の2（高額介護サービス費）
+    regulation:
+      - socialInsurance.care.copay.ratio1
+      - socialInsurance.care.copay.ratio2
+      - socialInsurance.care.copay.ratio3
+      - socialInsurance.care.copay.twoTenths.incomeFrom
+      - socialInsurance.care.copay.threeTenths.incomeFrom
+      - socialInsurance.care.highCostService.limit
+      - socialInsurance.care.highCostService.exemptLimit
+    rows: [cf.expense.care.nursing, cf.expense.care.facility]
+    components:
+      care.expense: 8
+    related: [care.cost, care.supplementaryBenefit]
+
+  - id: care.parentMoney
+    title: 親への仕送り・親からの援助
+    status: included
+    summary: >-
+      入っています。親への仕送り・親からの援助を、相手を親にしたお金の行（毎月など）で入れます。相手が亡くなる見込みの月で行を止めます。
+      別居の親の健康保険の扶養の判定にも、仕送りの行の額を使います。
+    how: >-
+      仕送りは出るお金の行、援助は入るお金の行に、額・始まり・終わり・伸び方を入れます。相手（世帯の外の家族）が亡くなる見込みの月で止めます。
+      親のお金（簡易の家計）を入れた人なら、仕送りはその人のお金に入り、援助はその人のお金から出ます（世帯の側は行のまま）。
+      扶養の判定だけに使う「仕送りの額（月額）」の欄もあり、その欄は支出には入りません。
+    keywords: [仕送り, 親への仕送り, 親からの援助, 扶養, 別居の親, 世帯の外の家族]
+    items: [periodicExpense.counterparty, periodicExpense.kind, incomeFlow.counterparty, member.outside, member.support, member.leaves]
+    fields:
+      - "「介護・親」の入力項目の「＋ 仕送り（毎月）」"
+      - "「介護・親」の入力項目の「仕送りの額（月額）」"
+      - "「介護・親」の入力項目の「亡くなる見込み」"
+    components:
+      expense.periodic: 7
+      income.flows: 3
+    related: [care.parentWallet]
+
+  - id: care.parentWallet
+    title: 親のお金（世帯の外の家族の簡易の家計）
+    status: approximated
+    summary: >-
+      近似して入っています。親など世帯の外の家族に、預金・生活費・年金・一時の入金を入れると、月ごとに残高を積み、その人の介護の費用をまずこのお金から払い、
+      尽きた月から世帯が払います。
+    how: >-
+      残高＝預金＋その人の年金・給付などの収入−その人の税・社会保険料＋一時の入金−生活費（月額を物価上昇率で伸ばす）−その人が介護を受ける費用。
+      年金は入れた年額（額面）があれば推計の公的年金の代わりに毎月12分の1を入れます。払いきれない介護の費用は世帯が払い、残高は0円にします。
+      家計を1つにする期間は、同じお金を両方の家計に入れません。計算は亡くなる見込みの前の月までです。
+    approximation: >-
+      入れた年金は計算基準年の額のままで、税・社会保険料は推計の年金から出した目安です。尽きた後の生活費の不足は数えません。
+    reason: 親の家計は細かい情報が無いことが多く、介護の費用を誰が払うかを見るための簡易の家計にしています。
+    keywords: [親のお金, 親の資産, 親の年金, 介護費用は誰が払う, 世帯の外の家族, 親の預金]
+    items: [member.wallet, member.outside, member.leaves]
+    fields:
+      - "「介護・親」の入力項目の「預金など（今の残高）」"
+      - "「介護・親」の入力項目の「この人の生活費（月額）」"
+      - "「介護・親」の入力項目の「この人の年金（年額）」"
+    components:
+      outside.wallet: 2
+      care.expense: 8
+    related: [care.cost, care.parentMoney]
+
+  - id: care.supplementaryBenefit
+    title: 施設の食費・居住費の負担軽減（補足給付）
+    status: notYet
+    summary: >-
+      まだ入っていません。介護保険施設などの食費・居住費の負担限度額（補足給付）による軽減は計算しません。
+    reason: 負担限度額の段階の判定を、まだ計算に入れていないためです。
+    instead: 「介護保険の対象外の費用（食費・居住費など・月額）」に、軽減の後の額を入れます。
+    keywords: [補足給付, 特定入所者介護サービス費, 負担限度額, 食費, 居住費]
+    items: [care.otherMonthly]
+    components:
+      care.expense: 8
+    related: [care.copay]

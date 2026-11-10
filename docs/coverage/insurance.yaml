@@ -1,0 +1,186 @@
+# 対応範囲の一覧（保険）。形は coverage.schema.json
+area: insurance
+title: 保険
+order: 10
+entries:
+  - id: insurance.premium
+    title: 保険料の払い込み
+    status: included
+    summary: >-
+      入っています。契約の月から払込の終わりの前の月まで、月払い・年払い・一時払いの保険料を払います。更新の月から更新後の保険料にでき、
+      解約・被保険者の死亡・満期・払込免除の月からは払いません。
+    how: >-
+      保険料は契約の保険料（年次の数表があれば保険年度ごとの年額。月払いは12か月に分ける）を、保険の種類ごとの支出の行（生命保険・医療保険と
+      がん保険・貯蓄型の保険・損害保険）に載せます。一時払いは契約の月に1回。保険料控除の基にする支払いも同じ額から出します。
+      計算できる種類は、定期・終身・収入保障・医療・がん・学資・個人年金・外貨建て・変額・損害保険です。
+    keywords: [保険料, 生命保険料, 払込期間, 更新, 一時払い, 年払い, 損害保険, 火災保険]
+    items: [insurance.premium, insurance.renewals, insurance.contractDate, insurance.template, insurance.schedule]
+    fields:
+      - "「保険」の入力項目の「種類」"
+      - "「保険」の入力項目の「払い方」"
+      - "「保険」の入力項目の「＋ 更新」"
+    rows: [cf.expense.insurance.life, cf.expense.insurance.medical, cf.expense.insurance.savings, cf.expense.insurance.nonLife]
+    components:
+      insurance.premiumPayment: 2
+      insurance.term: 2
+    related: [insurance.waiver]
+
+  - id: insurance.deathBenefit
+    title: 死亡保険金
+    status: included
+    summary: >-
+      入っています。万一の想定で被保険者が亡くなったら、死亡保険金を受取人の割合で、支払月の翌月に受け取ります。年ごとの死亡保障額も出し、
+      必要保障額の推移と並べます。
+    how: >-
+      死亡保険金は保障の明細の額（年次の数表に死亡保障の行があればその額。逓減定期の減り方なども表せます。変額は積立金と多い方）です。
+      保障の行ごとに被保険者を分けられ、家族特約のように契約の被保険者でない人の保障は、その人の万一で受け取ります。年ごとに年末と、その年の
+      最初の月に亡くなったときの死亡保障額を出します。高度障害（障害1級の想定）の給付も受け取ります（非課税）。
+    keywords: [死亡保険金, 死亡保障, 定期保険, 終身保険, 家族特約, 高度障害, 逓減定期, 受取人]
+    items: [insurance.coverages, insurance.beneficiaries, insurance.insured, insurance.policyholder, contingency.kind]
+    fields:
+      - "「保険」の入力項目の「受取人（死亡保険金）」"
+      - "「保険」の入力項目の「＋ 保障」"
+      - "「保険」の入力項目の「保障の終わり」"
+    rows: [cf.income.lumpSum.insurance]
+    components:
+      insurance.policy: 6
+      insurance.term: 2
+    related: [insurance.benefitTax, contingency.protectionNeed]
+
+  - id: insurance.medicalBenefit
+    title: 医療保険・がん保険の給付
+    status: approximated
+    summary: >-
+      近似して入っています。万一の想定（就業不能・障害）に病気の想定（病気の種類・入院の日数・手術の回数）を入れると、起きる月の翌月に1回だけ、
+      入院日額×日数（1回の限度日数まで）・手術・がん一時金・三大疾病一時金を受け取ります（非課税）。
+    how: >-
+      入院給付＝入院日額×min(入院の日数, 1回の限度日数〔省略は60日〕)、手術給付＝1回の額×手術の回数、がん一時金はがんのとき、
+      三大疾病一時金はがん・心疾患・脳卒中のときに受け取ります。病気の想定が無ければ受け取りは計算せず、知らせが出ます。
+    approximation: 給付は1回だけで、2回目以降のがん一時金・通算の限度日数・先進医療などの細かい条件は計算しません。
+    reason: 病気の経過は想定ごとに大きく違うため、1回の入院・手術の分を目安として出す形にしています。
+    instead: 2回目以降の給付などは、入るお金の行に額を入れて足せます。
+    keywords: [医療保険, がん保険, 入院給付金, 手術給付金, がん一時金, 三大疾病, 先進医療]
+    items: [insurance.coverages, contingency.illness]
+    fields:
+      - "「保険」の入力項目の「給付の種類」"
+    rows: [cf.income.lumpSum.insurance]
+    components:
+      insurance.policy: 6
+    related: [contingency.scenarios, contingency.medical]
+
+  - id: insurance.incomeProtection
+    title: 収入保障保険・就業不能保険
+    status: included
+    summary: >-
+      入っています。収入保障保険は、被保険者が亡くなったら月額を保障の終わり（最低保証の月数に満たなければそこ）まで毎月受け取ります。
+      就業不能の給付は、免責の月数の後、働けるようになる月の前まで、保障の終わりまで毎月受け取ります。
+    how: >-
+      収入保障の月額は、受取人＝契約者なら雑所得として所得税・住民税の計算に入れます。契約者と被保険者が同じなら相続税の対象で、
+      相続税の目安では受け取る総額で数えます。就業不能の給付は障害・就業不能の想定で受け取り、非課税です。どちらも収入の
+      「保険の給付（収入保障・就業不能の月額）」の行に載せます。
+    keywords: [収入保障保険, 就業不能保険, 所得補償, 年金で受け取る死亡保障, 免責期間, 最低保証]
+    items: [insurance.coverages, insurance.template, contingency.recovery]
+    rows: [cf.income.other.insuranceBenefit]
+    components:
+      insurance.policy: 6
+      insurance.income: 3
+    related: [insurance.benefitTax, contingency.protectionNeed]
+
+  - id: insurance.privateAnnuity
+    title: 個人年金保険
+    status: included
+    summary: >-
+      入っています。年金の始まりから毎年、年金を受け取ります。受取人＝契約者なら雑所得（必要経費は施行令のとおりの割合）、受取人が契約者でなければ、
+      始まる月に年金を受け取る権利の贈与とし、毎回の年金は課税部分だけを雑所得にします。
+    how: >-
+      必要経費＝年金の額×（保険料の総額÷支払総額。小数点以下2位まで、3位以下を切り上げ）。終身年金の支払総額は年額×余命年数の見込みです。
+      受取人が契約者でない年金は、年金を受け取る権利（定期金に関する権利）を1年当たりの平均額×予定利率の複利年金現価率（解約返戻金があれば
+      多い方）で評価して贈与税の対象とし、毎回の年金は課税部分（初年は0、2年目から階段状に増える）だけを総収入金額に入れます。
+      雑所得が赤字の年（元本割れなど）は、その赤字をほかの公的年金等以外の雑所得と差し引きます。
+    keywords: [個人年金保険, 年金保険, 雑所得, 必要経費, 定期金に関する権利, 終身年金, 確定年金]
+    items: [insurance.coverages, insurance.annuitant, insurance.policyholder]
+    fields:
+      - "「保険」の入力項目の「年金の年数」"
+    rules:
+      - 所得税法施行令183条1項
+      - 所得税法施行令185条
+      - 相続税法24条（定期金に関する権利の評価）
+    rows: [cf.income.corporatePension.privateAnnuity]
+    components:
+      insurance.policy: 6
+      insurance.income: 3
+    related: [insurance.benefitTax]
+
+  - id: insurance.waiver
+    title: 保険料の払込免除
+    status: approximated
+    summary: >-
+      近似して入っています。払込免除のある契約は、被保険者の障害・就業不能の想定の月の翌月から払込が止まり、保障は続きます。
+    how: 払込免除の印を付けた契約で、万一の想定（障害・就業不能）の月の翌月から保険料を払いません。保障と給付はそのまま続きます。
+    approximation: 免除になる条件は、障害・就業不能の想定に当たったときだけとみなします。がんの診断・三大疾病など契約ごとの細かい条件は見ません。
+    reason: 免除の条件は契約ごとに違い、万一の想定の種類（死亡・障害・就業不能）に合わせて判定する形にしています。
+    keywords: [払込免除, 保険料払込免除特約, 三大疾病払込免除, 就業不能]
+    items: [insurance.waiver, contingency.kind]
+    fields:
+      - "「保険」の入力項目の「払込免除」"
+    rows: [cf.expense.insurance]
+    components:
+      insurance.term: 2
+      insurance.premiumPayment: 2
+    related: [insurance.premium, contingency.scenarios]
+
+  - id: insurance.surrenderValue
+    title: 解約返戻金・満期金・祝金
+    status: approximated
+    summary: >-
+      近似して入っています。解約返戻金は年次の数表があればその額、無ければ返戻率から目安を出し、資産（保険）に載せます。解約の月に解約返戻金を、
+      満期の翌月に満期金を、祝金はn年ごとに受け取ります。
+    how: >-
+      終身・学資・個人年金の解約返戻金＝払込保険料の累計×返戻率×min(1, 経過の月数÷払込の月数)（払込の後は払込の終わりの値のまま）。
+      低解約返戻金型は払込中の率と年齢ごとの率の点をまっすぐつなぎます。アカウント型は積立金を払込の終わりの額までまっすぐ増やし、払込の後は
+      終身保険に移す・年金で受け取る・解約して受け取るを選べます。変額・外貨建は、保険料のうち積立に回る分を前提の利回りで伸ばします。
+      定期・収入保障・医療・がんは解約返戻金なしです。
+    approximation: >-
+      数表が無い契約は、返戻率と払込の期間からの直線などの目安です。変額・外貨建の積立金は、為替も含めて前提の利回りで伸ばします。利率の変動は計算しません。
+    reason: 設計書の解約返戻金の表をすべて写さなくても、資産の見込みを出せるようにしています。
+    instead: 設計書の解約返戻金を年次の数表に写すと、その額で計算します。返戻率が無い貯蓄型は0円になり、入力を求める知らせが出ます。
+    keywords: [解約返戻金, 返戻率, 満期金, 祝金, 学資保険, 低解約返戻金型, 変額保険, 外貨建て保険]
+    items: [insurance.surrender, insurance.simple, insurance.schedule, insurance.template]
+    fields:
+      - "「保険」の入力項目の「解約の月」"
+      - "「保険」の入力項目の「払込中の解約返戻率」"
+      - "「保険」の入力項目の「＋ 年齢ごとの返戻率」"
+      - "「保険」の入力項目の「払込が終わった後」"
+    rows: [cf.balance.account.insurance, cf.income.lumpSum.surrender, cf.income.lumpSum.maturity]
+    components:
+      insurance.policy: 6
+      insurance.term: 2
+    related: [insurance.benefitTax]
+
+  - id: insurance.benefitTax
+    title: 保険金の税（相続税・所得税・贈与税の区分）
+    status: included
+    summary: >-
+      入っています。契約者・被保険者・受取人の関係で、死亡保険金・満期金・解約返戻金・年金の税の区分を決めます。一時所得・雑所得は所得税・住民税に
+      入れ、贈与税の区分は贈与税を計算し、相続税の区分は相続税の目安に入れます。
+    how: >-
+      死亡保険金は、契約者＝被保険者なら相続税の対象（みなし相続財産。お金の流れには相続税を入れず、相続税の目安で非課税枠500万円×法定相続人の数を
+      引いて数えます）、契約者＝受取人なら一時所得（収入保障の月額は雑所得）、それ以外は贈与税。満期金・祝金・解約返戻金は受取人＝契約者なら一時所得、
+      それ以外は贈与税です。一時所得は（収入−払込保険料のうち使っていない分）の合計から特別控除（50万円まで）を引き、その2分の1を総所得金額に入れます。
+      高度障害・就業不能・医療の給付は非課税です。
+    keywords: [保険金の税金, みなし相続財産, 一時所得, 贈与税, 契約者と受取人, 満期金の税, 生命保険の非課税枠]
+    items: [insurance.policyholder, insurance.insured, insurance.beneficiaries, insurance.annuitant]
+    fields:
+      - "「保険」の入力項目の「契約者」"
+      - "「保険」の入力項目の「被保険者」"
+      - "「保険」の入力項目の「死亡保険金にかかる税」"
+    rules:
+      - 相続税法3条1項1号（みなし相続財産）
+      - 相続税法5条・6条3項（保険金・年金の受給権の贈与）
+    rows: [cf.taxSi.incomeTax, cf.taxSi.residentTax, cf.taxSi.giftTax]
+    components:
+      insurance.policy: 6
+      insurance.income: 3
+      gift.received: 5
+      gift.tax: 3
+    related: [inheritance.insuranceExemption, insurance.deathBenefit]

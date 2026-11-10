@@ -1,0 +1,367 @@
+# 対応範囲の一覧（収入と支出〔給与・退職金・生活費〕）。形は coverage.schema.json
+area: income
+title: 収入と支出（給与・退職金・生活費）
+order: 2
+entries:
+  - id: income.salary
+    title: 給与・賞与と昇給（賃金カーブ）
+    status: included
+    summary: >-
+      入っています。働き方の期間ごとに年収（賞与を除く）と賞与を入れ、毎年、賃金上昇率で伸ばします。統計の年齢カーブや、期間ごとの増減率でも
+      伸ばせます。会社役員の役員報酬も同じ形で入ります。
+    how: >-
+      給与は年収（賞与を除く。期間の最初の年の額）÷12を毎月、賞与は年間の合計を支給月（省略は6月・12月）に分けて載せます。翌年からは
+      前提の賃金上昇率で暦年ごとに伸ばします。期間に「統計の年齢カーブで増やす」を選ぶと、その年の12月31日の年齢の係数と前の年の係数の比も
+      掛けます（賃金構造基本統計調査の男女計・学歴計の年齢カーブ。企業規模を選べます）。期間に増減率を入れると、賃金上昇率の代わりにその率で
+      伸ばします（マイナスも入れられます）。役員報酬は年額を12か月に等分し、役員の賞与は届け出た支給月と額で入れます（会社の側の法人税や
+      会社負担の保険料は計算しません）。年収が分からないときは、働き方・年齢・勤め先の規模ごとの統計（賃金構造基本統計調査の男女計）からの
+      推定を入れられます（推定の印が付きます）。
+    keywords: [給与, 年収, 賞与, ボーナス, 昇給, 賃金カーブ, 昇給カーブ, 役員報酬, 給料, 収入の伸び]
+    items:
+      - employment.salary.annual
+      - employment.salary.bonus
+      - employment.salary.bonusMonths
+      - employment.salary.growth
+      - employment.type
+      - assumptions.wageGrowth
+    fields:
+      - 「働き方と収入」の入力項目の「年収（税込み・賞与を除く）」
+      - 「働き方と収入」の入力項目の「賞与（年間の合計）」
+      - 「働き方と収入」の入力項目の「統計の年齢カーブで増やす」
+      - 「働き方と収入」の入力項目の「増減率（年）」
+      - 「働き方と収入」の入力項目の「役員報酬（月額）」
+    regulation: [wageStats.default]
+    rows: [cf.income.salary, cf.income.salary.executive]
+    components:
+      income.salary: 8
+    related:
+      - income.retirementAge
+      - basics.growthRates
+
+  - id: income.retirementAge
+    title: 定年と定年後の再雇用
+    status: included
+    summary: >-
+      入っています。働き方の期間の終わりを定年にでき、定年後の働き方（再雇用など）の期間を続けて入れられます。新しく入れた正社員・公務員には、
+      定年と65歳までの再雇用を推定で入れます。
+    how: >-
+      働き方は期間の並びで持ち、期間の終わり方（定年・自己都合・会社都合・契約満了など）と、その後の期間を入れます。新しく入れた正社員には定年60歳
+      （公務員は生まれた年度の定年）を、定年が65歳より前なら65歳まで契約社員・嘱託で再雇用する期間を推定で入れます。再雇用の年収の推定は、
+      定年前の年収×（60〜64歳の平均÷55〜59歳の平均。同じ働き方の男女計の統計の年齢階級の表）です。どれも推定の印が付き、FP が直すと外れます。
+      再雇用の期間の健康保険・厚生年金・雇用保険・在職老齢年金は、その期間の働き方と年収で計算します。
+    keywords: [定年, 再雇用, 嘱託, 継続雇用, 定年後, 60歳, 65歳, 働く最後, 退職の年齢]
+    items: [employment.endsWith, employment.to, employment.type, employment.salary.annual]
+    fields:
+      - 「働き方と収入」の入力項目の「定年後の予定を入れる」
+      - 「働き方と収入」の入力項目の「定年後の働き方」
+      - 「働き方と収入」の入力項目の「働く最後の年齢」
+    rules:
+      - 高年齢者等の雇用の安定等に関する法律
+    rows: [cf.income.salary]
+    components:
+      income.salary: 8
+    related:
+      - income.salary
+      - pension.workingPension
+
+  - id: income.retirementBenefit
+    title: 退職一時金・企業年金
+    status: approximated
+    summary: >-
+      入っています。退職一時金・確定給付企業年金（DB）・公務員の退職手当と年金払い退職給付・国民年金基金・役員退職慰労金を、人ごとに入れられます。
+      見込み額が空欄のときは統計などからの目安で計算します。
+    how: >-
+      支給の月は、省略すると勤続期間の終わりの翌月です。受け取り方は一時金・年金・併用（一時金の割合）を選べます。年金で受け取る分は、年額を入れるか、
+      省略すると（一時金の額×年金の割合）を予定利率で年数分の年金に直した額（元利均等）を、1年に入れた回数（省略は6回）に分けて払います。
+      一時金は退職所得として、ほかの退職金や iDeCo の一時金と合わせて退職所得控除を計算し、年金は公的年金等の雑所得になります。
+      国民年金基金の掛金は社会保険料控除になります。万一の想定で受け取る前に亡くなるときは、勤続の月数で按分した額を死亡退職金として遺族が受け取ります
+      （相続税の対象ですが、相続税はお金の流れに入れていません）。
+    approximation: >-
+      見込み額を空欄にした会社員の退職一時金は、統計の目安を入れます（勤続20年以上かつ45歳以上は就労条件総合調査の退職事由・勤続年数ごとの平均、
+      それより短い・若い人は東京都の中小企業のモデル退職金）。公務員の退職手当は俸給月額×支給率（勤続年数・退職の理由）で、調整額は含めません。
+      役員退職慰労金は最終報酬月額×在任年数×功績倍率（目安は1）です。会社の退職金規程どおりの計算はまだできません。
+    reason: >-
+      退職金は勤め先の制度で大きく違い、制度の無い勤め先もあるためです。目安は推定の印を付けて出すので、勤め先の資料で額を確かめて入れてください。
+    instead: 勤め先の退職金規程や資料の見込み額を「見込み額」の欄に入れると、その額で計算します。
+    keywords: [退職金, 退職一時金, 企業年金, 確定給付企業年金, DB, 退職手当, 役員退職慰労金, 国民年金基金, 年金払い退職給付, 死亡退職金]
+    items:
+      - retirementBenefit.kind
+      - retirementBenefit.amount
+      - retirementBenefit.receipt
+      - retirementBenefit.paidAt
+      - retirementBenefit.service
+      - retirementBenefit.estimate
+      - retirementBenefit.contributions
+    fields:
+      - 「退職金・企業年金」の入力項目の「種類」
+      - 「退職金・企業年金」の入力項目の「受け取り方」
+      - 「退職金・企業年金」の入力項目の「一時金で受け取る割合」
+      - 「退職金・企業年金」の入力項目の「予定利率」
+      - 「退職金・企業年金」の入力項目の「功績倍率」
+    rules:
+      - 確定給付企業年金法
+      - 国家公務員退職手当法
+    regulation:
+      - retirementBenefit.mandatory.all.byService
+      - retirementBenefit.smallFirm.company.all
+      - civilServant.retirementAllowance.rate.retirementAge
+      - civilServant.retirementAllowance.rate.voluntary
+    rows:
+      - cf.income.lumpSum.retirement
+      - cf.income.lumpSum.db
+      - cf.income.corporatePension.db
+      - cf.income.corporatePension.publicServant
+      - cf.income.corporatePension.nationalPensionFund
+      - cf.taxSi.pension.fund
+    components:
+      retirement.benefit: 4
+      retirement.receipts: 1
+    related:
+      - tax.retirementIncome
+      - tax.publicPensionDeduction
+      - investment.idecoPayout
+
+  - id: income.business
+    title: 事業所得（自営業）
+    status: included
+    summary: >-
+      入っています。自営業の働き方の期間に事業所得の年額を入れ、12か月に分けて載せます。翌年からは賃金上昇率（増減率を入れたときはその率）で伸ばします。
+    how: >-
+      入れる額は期間の最初の年（計算の基準の年より前の期間なら、計算の基準の年）の事業所得の年額です。毎年、賃金上昇率で伸ばし、期間に増減率を
+      入れたときはその率で伸ばします（マイナスも入れられます）。所得税・住民税・国民健康保険料は、この所得から計算します。
+      自営業の働く最後の年齢の推定は70歳です（入れないと表の最後まで事業所得が入るため）。
+    keywords: [事業所得, 自営業, 個人事業主, フリーランス, 売上, 所得, 開業]
+    items: [employment.business.income, employment.business.growth, employment.type]
+    fields:
+      - 「働き方と収入」の入力項目の「事業所得（年額）」
+      - 「働き方と収入」の入力項目の「増減率（年）」
+    rows: [cf.income.business]
+    components:
+      income.business: 4
+    related:
+      - income.sideIncome
+      - basics.growthRates
+
+  - id: income.sideIncome
+    title: 副業・その他の収入
+    status: included
+    summary: >-
+      入っています。副業・売電・祝い金・一時の給付金・援助などを「入るお金の行」で入れられます。種類ごとに課税の扱い（非課税・一時所得・雑所得・
+      事業所得・給与など）が決まり、税の計算に入ります。
+    how: >-
+      行ごとに名前・種類・額（1回の額か月額。今の値段で入れ、伸び方で伸ばす）・時期（1回・何年ごと・毎月）・受け取る人を入れます。副業は既定で雑所得
+      （業務）で、事業所得も選べます。必要経費・取得費を入れると差し引いた所得で計算します。雑所得の赤字はほかの雑所得と公的年金からだけ引き、
+      給与などほかの所得からは引きません。事業所得の赤字はほかの所得と通算します。事業・出資持分の売却は分離課税の譲渡所得として、
+      その年の譲渡所得の税を翌年3月（所得税）と翌年度（住民税）に載せます。
+    keywords: [副業, 雑所得, 一時所得, 副収入, 売電, 祝い金, 仕送りを受ける, 入るお金, その他の収入, 臨時収入]
+    items:
+      - incomeFlow.kind
+      - incomeFlow.amount
+      - incomeFlow.taxTreatment
+      - incomeFlow.cost
+      - incomeFlow.from
+      - incomeFlow.everyYears
+      - incomeFlow.recipient
+    fields:
+      - 入るお金の行の「副業・雑所得」
+      - 「ライフイベント」の入力項目の「入るお金にする」
+    rows:
+      - cf.income.other.sideJob
+      - cf.income.other.miscellaneous
+      - cf.income.other
+      - cf.income.lumpSum.other
+      - cf.taxSi.incomeTax.capitalGains
+      - cf.taxSi.residentTax.capitalGains
+    components:
+      income.flows: 3
+    related:
+      - income.business
+
+  - id: income.livingExpense
+    title: 基本生活費（統計の目安と段階）
+    status: included
+    summary: >-
+      入っています。毎月の生活費を総額か内訳（10費目）で入れ、物価上昇率で伸ばします。子の独立・退職後・70歳・80歳などの段階で額を変えられます。
+      空欄のときは家計調査の世帯人数ごとの目安を推定で入れます。
+    how: >-
+      額は今の値段の月額で、年ごとに伸び方（省略は物価上昇率）で伸ばし、年額を12か月に分けて毎月払います。基本生活費には住居費・教育費・保険料・
+      車の費用・税と社会保険料を含めません（それぞれ別の項目で入れます）。段階は、その月から最初の額に対する割合か月額に変え、後の段階が前の段階に
+      勝ちます。目安は、2人以上の世帯は家計調査（総務省。二人以上の世帯の世帯人員別）の消費支出から住居・教育・自動車等関係費・家庭用耐久財・
+      仕送り金を除いた額、1人の世帯は仮の値です。段階の推定の割合（例: 退職の後80%・70歳から75%・80歳から70%）も目安で、FP が直せます。
+      万一の想定で亡くなる人がいるときは、遺族の生活費の割合を掛けます。
+    keywords: [生活費, 基本生活費, 家計, 消費支出, 家計調査, 生活費の段階, 老後の生活費, 内訳, 費目]
+    items:
+      - livingExpense.monthly
+      - livingExpense.mode
+      - livingExpense.categories
+      - livingExpense.stages
+      - livingExpense.growth
+    fields:
+      - 「基本生活費」の入力項目の「基本生活費（月額）」
+      - 「基本生活費」の入力項目の「入れ方」
+      - 「基本生活費」の入力項目の「段階を足す」
+    regulation: [living.statistics.basicMonthly]
+    rows: [cf.expense.living]
+    components:
+      expense.living: 4
+    related:
+      - income.surplusSpending
+      - income.reconcile
+      - basics.growthRates
+
+  - id: income.surplusSpending
+    title: ゆとりの支出（黒字のうち貯まらない分）
+    status: included
+    summary: >-
+      入っています。「毎年の黒字のうち、貯金に回る割合」を入れると、黒字の年だけ、貯まらない分を「ゆとりの支出」として年間収支から引きます。
+    how: >-
+      ゆとりの支出＝黒字（年間収支−退職金などの一時金の収入）−貯まる額（黒字×貯金に回る割合。上限を入れたときは上限まで）です。黒字の年だけで、
+      赤字の年は引きません。割合はずっと同じ・子育て中と子の独立後・退職の前後で分ける目安から選ぶか、ご本人の年齢ごとに組めます。
+      取り崩しの計画がある年（始まりの年から）は、二重に引かないよう差し引きません。
+    keywords: [ゆとりの支出, 黒字, 貯蓄率, 貯金に回る割合, 使ってしまうお金, 浪費, 貯まらない]
+    items: [assumptions.surplusSaving]
+    fields:
+      - 「基本生活費」の入力項目の「毎年の黒字のうち、貯金に回る割合」
+      - 「基本生活費」の入力項目の「貯金に回る額の上限（年）」
+    rows: [cf.expense.living.surplus]
+    components:
+      plan.cashflow: 27
+    related:
+      - income.livingExpense
+      - investment.withdrawalOrder
+
+  - id: income.lifeEvents
+    title: 一時的な支出・何年かごとの支出・夢
+    status: included
+    summary: >-
+      入っています。結婚・子の成人式・法事・お墓・家電の買い替え・旅行などを「出るお金の行」で、1回・何年かごと・毎月の支出として入れられます。
+      夢プランは順位を付け、計算に入れるかを選べます。
+    how: >-
+      最初の支払いの月から何年かごと（同じ月）に、1回の額（今の値段）を伸び方（省略は物価上昇率）で伸ばして、終わりの月まで払います。段階で
+      額を変える・例外の年だけ別の額や0円にすることもできます。万一のときの扱い（続ける・止める・割合）は、万一の想定の月の翌月から当てます。
+      夢プランは計算に入れないものを外して計算します。
+    keywords: [ライフイベント, 一時的支出, 夢, 旅行, 結婚費用, 家電の買い替え, 何年かごと, 予備費, 出るお金]
+    items:
+      - periodicExpense.amount
+      - periodicExpense.everyYears
+      - periodicExpense.from
+      - periodicExpense.to
+      - periodicExpense.kind
+      - periodicExpense.dream
+      - periodicExpense.stages
+      - periodicExpense.exceptions
+      - periodicExpense.onContingency
+    fields:
+      - 「ライフイベント」の入力項目の「夢プラン」
+      - 「ライフイベント」の入力項目の「出るお金」
+      - 「基本生活費」の入力項目の年払い・数年おきの暮らしの支出
+    rows:
+      - cf.expense.lumpSum.wedding
+      - cf.expense.lumpSum.other
+      - cf.expense.lumpSum.funeral
+      - cf.expense.lumpSum.gift
+    components:
+      expense.periodic: 7
+    related:
+      - income.livingExpense
+
+  - id: income.car
+    title: 車の費用（買い替え・ローン・維持費・リース）
+    status: included
+    summary: >-
+      入っています。車ごとに、買い替えの周期・車両の価格・下取り・自動車ローン・車検・自動車保険・自動車税・駐車場・燃料などを入れ、
+      手放す時期まで計算します。リース・長期レンタルの月額も入れられます。車の評価額は資産の表に載せます。
+    how: >-
+      買い替えは最初の購入の月から周期ごとに（手放す月には買わない）、車両の価格（今の値段で入れ、伸び方で伸ばす）から2回目からの下取りを引き、
+      ローンで借りる分を除いた額を購入の月に払います。自動車ローンは購入のたびに固定金利で返済を計算します。車検は購入から3年後、その後2年ごと
+      （変えられます）、自動車保険は毎年の購入の月、自動車税は毎年5月、維持費・駐車場・燃料は年額の12分の1を毎月です。維持費は合計か内訳の
+      どちらかで数えます。評価額は、買った月の価格から次の買い替えの月の下取りの額まで定額で下がるとみなします（金融資産の合計には入れません）。
+      万一のときの扱いを入れていない車は、名義の人が亡くなったら手放すとみなし、それまでのローンの返済は相続する人が続けます。
+    keywords: [車, 自動車, 買い替え, 車検, 自動車税, 自動車保険, カーローン, リース, 維持費, 車の評価額]
+    items:
+      - car.purchase
+      - car.replace
+      - car.loan
+      - car.inspection
+      - car.insurance
+      - car.tax
+      - car.upkeep
+      - car.upkeepMode
+      - car.lease
+      - car.until
+      - car.onContingency
+    fields:
+      - 「車」の入力項目の「買い替えの周期」
+      - 「車」の入力項目の「車両の価格」
+      - 「車」の入力項目の「下取り」
+      - 「車」の入力項目の「維持費の入れ方」
+      - 「車」の入力項目の「手放す時期」
+    rows:
+      - cf.expense.lumpSum.car
+      - cf.expense.living.car
+      - cf.expense.insurance.nonLife
+      - cf.expense.debt.car
+      - cf.balance.account.car
+    components:
+      expense.car: 6
+      asset.car: 4
+    related:
+      - income.carSale
+
+  - id: income.carSale
+    title: 車を手放すときの売却額
+    status: notYet
+    summary: >-
+      まだ入っていません。車を手放す時期（最後の車）に売ったときの代金は、計算に入れていません。買い替えのときの下取りは入っています。
+    reason: >-
+      手放すときの評価額の下げ方と合わせて決めるため、まだ作っていません。残価設定ローンや、リースの途中解約・精算もまだ計算しません。
+    instead: 売る見込みの額を、「ライフイベント」の入力項目の入るお金の行（その他の入金）で、手放す月に入れてください。
+    keywords: [車の売却, 車を売る, 手放す, 売却額, 下取り, 残価設定ローン]
+    items: [car.until, incomeFlow.kind, incomeFlow.amount]
+    fields:
+      - 「車」の入力項目の「手放す時期」
+    components:
+      asset.car: 4
+    related:
+      - income.car
+
+  - id: income.advisoryFee
+    title: FP顧問料
+    status: included
+    summary: >-
+      入っています。FP顧問料の契約ごとに、単発の料金（相談料・プラン作成料）と継続の顧問料（月額か年額・始まりと終わり・料金の段階）を入れ、
+      基本生活費とは別の行に載せます。既定では提案の側のプランにだけ入れます。
+    how: >-
+      単発は払う年月に一度、継続は始まりから終わりまで、月額なら毎月、年額なら毎年始まりの月に払います。料金の段階（その月からの額）と値上げの率
+      （1年ごと）で額を変えられます。金額は税込みです。契約ごとに、その案で計算に入れるかを選べます（現状にも入れることもできます）。
+      個人が払う顧問料は所得税・住民税の控除にしていません（家計の支出として数えます）。払う人が万一の想定で亡くなった月の翌月からは、
+      相続する人が払う形にします。
+    keywords: [FP顧問料, 顧問料, 相談料, プラン作成料, 継続の顧問料, FPへの報酬, 料金]
+    items: [advisoryFee.terms, advisoryFee.payer, advisoryFee.enabled]
+    fields:
+      - 「前提条件」の入力項目の「FP顧問料」
+      - 「前提条件」の入力項目の「現状にも入れる」
+    rows: [cf.expense.advisoryFee]
+    components:
+      expense.advisoryFee: 4
+
+  - id: income.reconcile
+    title: 実際の貯蓄額との答え合わせ（使途不明金）
+    status: included
+    summary: >-
+      入っています。実際の年間の貯蓄額を入れると、計算上の貯蓄額（その年の年間収支）との差を使途不明金として出し、将来の年にも見込みます。
+    how: >-
+      比べるのは12か月そろった年です（計算の基準の年の途中から始まるときは翌年）。差は、確かめる年から「差を見込む終わり」まで、物価上昇率で
+      伸ばして毎月載せます。扱いは「生活費に足す」か「使途不明金として残す」を選べます。実際のほうが計算より多く貯まっている（差が0以下）ときは載せず、
+      計算の知らせに出します。
+    keywords: [使途不明金, 答え合わせ, 検算, 実際の貯蓄額, 家計の差, 貯蓄額]
+    items: [savingsCheck.actualSavings, savingsCheck.year, savingsCheck.treatment, savingsCheck.until]
+    fields:
+      - 「基本生活費」の入力項目の「実際の年間の貯蓄額」
+      - 「基本生活費」の入力項目の「確かめる年」
+      - 「基本生活費」の入力項目の「計算との差の扱い」
+    rows: [cf.expense.other.unexplained, cf.expense.living]
+    components:
+      expense.reconcile: 1
+    related:
+      - income.livingExpense

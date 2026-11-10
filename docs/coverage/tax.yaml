@@ -1,0 +1,499 @@
+# 対応範囲の一覧（税〔所得税・住民税〕）。形は coverage.schema.json
+area: tax
+title: 税（所得税・住民税）
+order: 3
+entries:
+  - id: tax.incomeTaxFlow
+    title: 所得税の計算の流れ
+    status: included
+    summary: >-
+      入っています。構成員ごと・年ごとに、合計所得金額から所得控除を引いた課税所得に税率を掛け、税額控除を引いて復興特別所得税（令和9年からは防衛特別所得税も）を足した年税額を、
+      払う月に分けてキャッシュフロー表に載せます。
+    how: >-
+      合計所得金額（給与所得・公的年金等に係る雑所得・事業所得・不動産所得・雑所得・一時所得・総合課税の譲渡所得を損益通算した額）から所得控除の合計を引いた課税所得
+      （1,000円未満切り捨て）に、速算表の税率を掛けて控除額を引き（算出税額）、住宅ローン控除などの税額控除を引いた基準所得税額に、復興特別所得税
+      （令和8年分までは2.1%、令和9年分からは1.1%）と防衛特別所得税（令和9年分から1%）を足して100円未満を切り捨てます。
+      払う月は、給与だけで12月に給与を受ける年は年末調整として給与の月に分け、それ以外の年（年の途中で辞めた年・年金や事業の所得がある年）は
+      源泉徴収とみなす額を支払いの月に載せ、年税額との差を翌年3月の確定申告で精算します（還付はマイナスの額）。公的年金等の収入が400万円以下で
+      その他の所得が20万円以下の年は、確定申告不要制度に当たるとして追加の納付をしません。所得控除は、基礎控除・配偶者控除・配偶者特別控除・扶養控除・
+      特定親族特別控除・社会保険料控除・生命保険料控除・地震保険料控除・小規模企業共済等掛金控除（iDeCo・企業型DCの加入者掛金・小規模企業共済の掛金）・
+      寡婦控除・ひとり親控除です。
+    keywords: [所得税, 年税額, 課税所得, 税率, 年末調整, 確定申告, 源泉徴収, 還付, 復興特別所得税, 防衛特別所得税]
+    fields:
+      - 「働き方と収入」の入力項目の年収と賞与
+    rules:
+      - 所得税法89条
+      - 所得税法121条
+      - 東日本大震災からの復興のための施策を実施するために必要な財源の確保に関する特別措置法
+    regulation:
+      - incomeTax.taxRateTable
+      - incomeTax.reconstructionSurtax.rate
+      - incomeTax.defenseSurtax.rate
+      - incomeTax.pensionFilingExemption.revenueLimit
+      - incomeTax.pensionFilingExemption.otherIncomeLimit
+    rows: [cf.taxSi.incomeTax]
+    components:
+      incomeTax.annual: 7
+      tax.totalIncome: 10
+      tax.totalIncomeBase: 3
+      tax.deductions: 8
+    related:
+      - tax.residentTax
+      - tax.employmentIncomeDeduction
+      - tax.basicDeduction
+      - tax.housingLoanCredit
+
+  - id: tax.residentTax
+    title: 住民税（所得割・均等割）と森林環境税
+    status: approximated
+    summary: >-
+      入っています。前の年の所得から所得割と均等割を計算し、森林環境税（年1,000円）を足して、6月から翌年5月に払う形で載せます。税率は全国一律の標準税率で、
+      市区町村の超過課税などは入れていません。
+    how: >-
+      所得割は、前の年の総所得金額等から住民税の所得控除を引いた課税所得に、市町村民税・道府県民税の標準税率（合わせて10%）を掛け、調整控除と
+      住宅ローン控除の住民税の分（所得税から引ききれなかった額を、上限まで）を引いて、それぞれ100円未満を切り捨てます。均等割は標準税率の額です。
+      給与を受ける人は給与からの特別徴収（6月〜翌年5月の12回）、それ以外は普通徴収（6月・8月・10月・翌年1月の4回）です。翌年1〜4月に辞めた人は残りを
+      最後の給与でまとめて引き、6〜12月に辞めた人は残りを普通徴収の納期に分けます。65歳以上で年金が年18万円以上の人は、年金に係る分を年金から
+      差し引きます（仮徴収・本徴収）。住民税の決定通知書の額を入れたときは、その年度はその額を使います。
+    approximation: >-
+      税率は全国一律の標準税率で計算し、政令指定都市の市町村民税と道府県民税の配分の違いや、市区町村の超過課税は入れていません。
+    reason: 市区町村ごとの税率を持たない作りにしているためです。差は多くの市区町村で小さく、標準税率で将来の見通しを立てます。
+    instead: 今年度の住民税は「働き方と収入」の入力項目の住民税の年税額の欄に決定通知書の額を入れると、その額で計算します。
+    keywords: [住民税, 所得割, 均等割, 森林環境税, 特別徴収, 普通徴収, 調整控除, 決定通知書, 年金からの天引き]
+    items: [residentTaxAssessment.amount]
+    fields:
+      - 「働き方と収入」の入力項目の住民税（今年度の年税額）
+    rules:
+      - 地方税法314条の3
+      - 地方税法321条の5
+      - 森林環境税及び森林環境譲与税に関する法律
+    regulation:
+      - residentTax.incomeLevy.municipalRate
+      - residentTax.incomeLevy.prefecturalRate
+      - residentTax.perCapita.municipal
+      - residentTax.perCapita.prefectural
+      - forestEnvironmentTax.amount
+      - residentTax.adjustmentCredit.threshold
+    rows: [cf.taxSi.residentTax]
+    components:
+      residentTax.annual: 10
+      tax.deductions: 8
+    related:
+      - tax.incomeTaxFlow
+      - tax.residentTaxExemption
+      - tax.housingLoanCredit
+
+  - id: tax.employmentIncomeDeduction
+    title: 給与所得控除
+    status: included
+    summary: 入っています。給与収入から給与所得控除額を引いて給与所得を出します。所得税と住民税で同じ年分の給与所得を使います。
+    how: >-
+      給与収入（年収と賞与の合計）に、その年分の給与所得控除の表（収入×率＋額。最低保障額あり）を当てて給与所得を出します。
+      給与収入が660万円未満のときは、所得税法の別表第五のとおり、区分の下限に収入を切り下げてから計算します（令和8年分・令和9年分の特例の表を含む）。
+      年収と賞与は、毎年の昇給率で延ばした額です。
+    keywords: [給与所得控除, 給与所得, 年収, 給与収入, 別表第五, 最低保障額]
+    items: [employment.salary.annual, employment.salary.bonus]
+    fields:
+      - 「働き方と収入」の入力項目の年収（税込み・賞与を除く）
+      - 「働き方と収入」の入力項目の賞与（年間の合計）
+    rules:
+      - 所得税法28条
+      - 所得税法別表第五
+    regulation:
+      - incomeTax.employmentIncomeDeduction
+      - incomeTax.employmentIncome.tableSteps
+    components:
+      tax.employmentIncome: 6
+    related:
+      - tax.incomeAdjustment
+      - tax.incomeTaxFlow
+
+  - id: tax.incomeAdjustment
+    title: 所得金額調整控除
+    status: included
+    summary: >-
+      入っています。給与収入が850万円を超え23歳未満の扶養親族がいる人の分と、給与と公的年金等の両方がある人の分を、給与所得から引きます。
+      特別障害者がいる場合の分は判定していません。
+    how: >-
+      子ども等の分は、その年の給与収入が850万円を超え、23歳未満の扶養親族（合計所得金額が扶養親族の上限以下の子・扶養している親など）がいる人に、
+      （給与収入〔1,000万円が上限〕−850万円）×10%（1円未満切り上げ）を給与所得から引きます。扶養控除と違い、同じ子について夫婦の両方が受けられます。
+      給与と公的年金等の両方がある分は、給与所得（10万円まで）＋公的年金等に係る雑所得（10万円まで）−10万円を、さらに給与所得から引きます。
+      判定はその年の12月31日（その年に亡くなった人は死亡の時）の現況です。本人・特別障害者の同一生計配偶者・扶養親族が特別障害者である場合の分は、
+      家族の入力項目に障害の区分の欄が無いので判定していません。
+    keywords: [所得金額調整控除, 850万円, 23歳未満, 子育て, 給与と年金, 給与所得]
+    items: [employment.salary.annual, employment.salary.bonus, member.birth]
+    fields:
+      - 「働き方と収入」の入力項目の年収と賞与
+      - 「家族」の入力項目の生年月
+    rules:
+      - 租税特別措置法41条の3の11
+    regulation:
+      - incomeTax.incomeAdjustment.children.revenueThreshold
+      - incomeTax.incomeAdjustment.children.revenueCap
+      - incomeTax.incomeAdjustment.children.rate
+      - incomeTax.incomeAdjustment.salaryAndPension.limit
+    components:
+      tax.totalIncome: 10
+      tax.totalIncomeBase: 3
+    related:
+      - tax.employmentIncomeDeduction
+      - tax.disabilityDeduction
+
+  - id: tax.basicDeduction
+    title: 基礎控除
+    status: included
+    summary: 入っています。所得税・住民税とも、本人の合計所得金額の段階に応じた額を引きます。
+    how: >-
+      その年の合計所得金額（所得税は分離課税の退職所得・譲渡所得を含む）を基礎控除の段階の表に当てます。所得税は令和8年分・令和9年分の上乗せの段を含む
+      その年分の表、住民税は翌年度の表を使います。
+    keywords: [基礎控除, 合計所得金額, 2400万円, 所得控除]
+    rules:
+      - 所得税法86条
+      - 地方税法314条の2
+    regulation:
+      - incomeTax.basicDeduction
+      - residentTax.basicDeduction
+    components:
+      tax.deductions: 8
+    related:
+      - tax.incomeTaxFlow
+
+  - id: tax.spouseDeduction
+    title: 配偶者控除・配偶者特別控除
+    status: included
+    summary: >-
+      入っています。法律婚の配偶者について、本人と配偶者の合計所得金額から、所得税・住民税の配偶者控除・配偶者特別控除を計算します。
+      夫婦のうち所得の多い方だけが受けます。
+    how: >-
+      その年の12月31日の現況で判定します。本人の合計所得金額の段と、配偶者の合計所得金額（給与・年金などの所得の合計）で、配偶者控除（70歳以上は老人控除対象配偶者）
+      か配偶者特別控除の額を表から引きます。夫婦の両方が受けることはないので、所得の多い方が受けます。
+      その年の途中に万一の想定で配偶者が亡くなったときは、死亡の時の現況で判定し、その年は控除を受けます（翌年からは受けません）。事実婚の配偶者は対象外です。
+    keywords: [配偶者控除, 配偶者特別控除, 103万円の壁, 150万円の壁, 老人控除対象配偶者, 扶養]
+    items: [relation.marriage, member.birth]
+    fields:
+      - 「家族」の入力項目の関係の形（法律婚・事実婚）
+    rules:
+      - 所得税法83条
+      - 所得税法83条の2
+    regulation:
+      - incomeTax.spouseDeduction.general
+      - incomeTax.spouseDeduction.elderly
+      - incomeTax.spouseSpecialDeduction.tier1
+      - residentTax.spouseDeduction.general
+      - residentTax.spouseSpecialDeduction.tier1
+    components:
+      tax.spouseDeduction: 5
+      tax.deductions: 8
+    related:
+      - tax.dependentDeduction
+      - socialInsurance.dependent
+
+  - id: tax.dependentDeduction
+    title: 扶養控除・特定親族特別控除
+    status: included
+    summary: >-
+      入っています。16歳以上の子と、扶養していると入れた親・祖父母について、年齢の区分（一般・特定扶養親族・老人扶養親族）に応じた扶養控除を計算します。
+      19〜22歳の子の所得が扶養の上限を超えたときの特定親族特別控除も入っています。
+    how: >-
+      その年の12月31日の現況（その年に亡くなった親族は死亡の時）で、合計所得金額が扶養親族の上限以下の子と、扶養していると入れた親・祖父母を扶養親族にします。
+      年齢で一般・特定扶養親族（19〜22歳）・老人扶養親族（70歳以上。同居かどうかで額が変わる）に分け、16歳未満は控除しません。
+      夫婦のうち所得の多い方が受けます。離れて暮らす子は、扶養していると入れ、仕送り・養育費の行がその年にあるときだけ数えます。
+      19〜22歳で所得が扶養親族の上限を超える子は、所得の段階に応じた特定親族特別控除にします。
+    keywords: [扶養控除, 特定扶養親族, 老人扶養親族, 特定親族特別控除, 大学生の子, 親の扶養]
+    items: [member.birth, member.support, member.outside]
+    fields:
+      - 「家族」の入力項目の生年月
+      - 「介護・親」の入力項目の「扶養している（税・健康保険）」
+    rules:
+      - 所得税法84条
+    regulation:
+      - incomeTax.dependentDeduction.general
+      - incomeTax.dependentDeduction.specified
+      - incomeTax.dependentDeduction.elderly
+      - incomeTax.dependentDeduction.elderlyCohabiting
+      - incomeTax.dependentIncomeLimit
+      - incomeTax.specifiedRelativeDeduction
+      - residentTax.dependentDeduction.general
+    components:
+      tax.dependentDeduction: 7
+      tax.deductions: 8
+    related:
+      - tax.spouseDeduction
+
+  - id: tax.singleParentDeduction
+    title: ひとり親控除・寡婦控除
+    status: included
+    summary: 入っています。婚姻の状態と、生計を一にする子・本人の所得から、ひとり親控除と寡婦控除を判定します。万一の想定で配偶者が亡くなった後も自動で切り替わります。
+    how: >-
+      その年の12月31日の現況で判定します。婚姻していない（未婚・離婚・死別）人で、総所得金額等が上限以下の子が世帯にいて、本人の合計所得金額が上限以下なら
+      ひとり親控除です。ひとり親でない女性で、死別した人か、離婚して扶養親族がいる人は、本人の合計所得金額が上限以下なら寡婦控除です。
+      婚姻の状態は、世帯の法律婚の関係の終わり方（万一の想定の死亡は死別）か、家族の入力項目の婚姻の状態の欄で決めます。
+      住民税の調整控除の人的控除額の差も、寡婦・ひとり親（母・父）で分けて入れています。
+    keywords: [ひとり親控除, 寡婦控除, シングルマザー, シングルファザー, 死別, 離婚]
+    items: [member.maritalStatus, relation.marriage]
+    fields:
+      - 「家族」の入力項目の婚姻の状態
+    rules:
+      - 所得税法80条
+      - 所得税法81条
+    regulation:
+      - incomeTax.singleParentDeduction
+      - incomeTax.singleParentDeduction.incomeLimit
+      - incomeTax.widowDeduction
+      - incomeTax.widowDeduction.incomeLimit
+      - residentTax.singleParentDeduction
+      - residentTax.widowDeduction
+    components:
+      tax.survivorStatus: 4
+      tax.deductions: 8
+    related:
+      - tax.residentTaxExemption
+      - benefits.childSupportAllowance
+
+  - id: tax.socialInsuranceDeduction
+    title: 社会保険料控除
+    status: included
+    summary: 入っています。その年に本人が払った社会保険料を、計算した保険料から集めて全額を所得控除にします（所得税・住民税とも）。
+    how: >-
+      給与から引かれた健康保険・介護保険・子ども・子育て支援金・厚生年金・雇用保険の保険料、国民年金の保険料、後期高齢者医療と65歳以上の介護保険の保険料、
+      世帯主として払う国民健康保険料、健康保険の任意継続の保険料、国民年金基金の掛金を、払った年・払った人で集めます。
+    keywords: [社会保険料控除, 健康保険料, 厚生年金保険料, 国民年金保険料, 国民健康保険料, 介護保険料]
+    rules:
+      - 所得税法74条
+    components:
+      tax.socialInsurancePaid: 4
+      tax.deductions: 8
+    related:
+      - socialInsurance.employeeHealth
+      - socialInsurance.nationalHealth
+      - socialInsurance.nationalPension
+
+  - id: tax.insuranceDeduction
+    title: 生命保険料控除・地震保険料控除
+    status: included
+    summary: >-
+      入っています。契約者がご本人の保険の、その年に払った保険料から、新契約・旧契約の区分と一般・介護医療・個人年金の区分ごとに生命保険料控除を、
+      地震保険・旧長期損害保険の保険料から地震保険料控除を計算します。
+    how: >-
+      保険の入力項目の保険料控除の区分（一般・介護医療・個人年金・地震・旧長期損害）と新旧（契約年月から）ごとに、その年に払った保険料を集め、
+      控除の式（払った額×率＋額）と上限を当てます。新旧の両方があるときは、合わせた額（上限あり）と旧契約だけの額の多い方です。
+      令和8年分からの特例として、23歳未満の扶養親族がいる人は、所得税の新契約の一般生命保険料の控除の上限が上がる扱いも入れています。
+      住民税は住民税の控除の表です。
+    keywords: [生命保険料控除, 地震保険料控除, 介護医療保険料控除, 個人年金保険料控除, 新契約, 旧契約]
+    items: [insurance.deductionCategory, insurance.policyholder, insurance.premium, insurance.contractDate]
+    fields:
+      - 「保険」の入力項目の保険料控除の区分
+    rules:
+      - 所得税法76条
+      - 所得税法77条
+    regulation:
+      - incomeTax.lifeInsuranceDeduction.new
+      - incomeTax.lifeInsuranceDeduction.old
+      - incomeTax.lifeInsuranceDeduction.newGeneralWithYoungDependent
+      - incomeTax.earthquakeDeduction.earthquake
+      - residentTax.lifeInsuranceDeduction.new
+      - residentTax.earthquakeDeduction.earthquake
+    components:
+      tax.deductions: 8
+    related:
+      - tax.incomeTaxFlow
+
+  - id: tax.housingLoanCredit
+    title: 住宅ローン控除
+    status: approximated
+    summary: >-
+      入っています。住宅ローンの年末残高に控除率を掛けた額を所得税から引き、引ききれない分を上限まで翌年度の住民税から引きます。
+      借入限度額・控除率・控除期間は入居の年月と住宅の種類で選びます。
+    how: >-
+      ご本人・配偶者が主債務者か連帯債務者の住宅ローンで、入居の年から控除期間の間、その年の12月31日に住んでいて、合計所得金額が上限以下の年に受けます。
+      額は、年末残高×負担割合を取得対価×持分で止め、ローンを合わせて借入限度額で止めて控除率を掛けた額（100円未満切り捨て）です。
+      子育て世帯・若者夫婦世帯の上乗せは、入居の年の12月31日に40歳未満で配偶者がいるか、40歳未満の配偶者がいるか、19歳未満の扶養親族がいるかで判定します。
+      入居の年は翌年3月の確定申告で還付を受け、2年目からは年末調整で受けます。所得税から引ききれない額は、所得税の課税総所得金額等×率と上限額まで
+      翌年度の住民税から引きます。借り換えた後は新しいローンの残高で数え、償還期間が10年未満のローンや、繰上返済で償還期間が10年未満になった年からは受けません。
+    approximation: >-
+      平成26〜令和3年の入居は、新築・買取再販を消費税のかかった取得（特定取得）、中古を個人からの取得とみなして借入限度額を決めます。
+      消費税10%で取得した住宅の13年の特例の11〜13年目は、建物の取得対価が要るので計算しません。
+    reason: 取得のときの消費税の扱いと建物だけの価格を聞く欄を持っていないためです。どちらも知らせに出します。
+    keywords: [住宅ローン控除, 住宅借入金等特別控除, 住宅ローン減税, 年末残高, 借入限度額, 子育て世帯, 連帯債務, 借り換え]
+    items: [debt.housing, debt.debtors, debt.balance, debt.refinance, debt.prepayments]
+    fields:
+      - 「住まい・ローン」の入力項目の住宅ローン控除
+      - 「住まい・ローン」の入力項目の入居の年月（控除）・住宅の種類（控除）・取得対価（控除）
+    rules:
+      - 租税特別措置法41条
+      - 地方税法附則5条の4
+    regulation:
+      - incomeTax.housingLoanCredit.rate
+      - incomeTax.housingLoanCredit.incomeLimit
+      - incomeTax.housingLoanCredit.limit.new.certified
+      - incomeTax.housingLoanCredit.period.new
+      - residentTax.housingLoanCredit.rate
+      - residentTax.housingLoanCredit.limit
+    rows: [cf.taxSi.incomeTax, cf.taxSi.residentTax]
+    components:
+      tax.housingLoanCredit: 6
+      tax.housingLoanCreditYears: 2
+      incomeTax.annual: 7
+      residentTax.annual: 10
+    related:
+      - tax.incomeTaxFlow
+      - tax.residentTax
+
+  - id: tax.publicPensionDeduction
+    title: 公的年金等控除
+    status: included
+    summary: 入っています。公的年金や、iDeCo・企業年金を年金で受け取った額などを公的年金等の収入とし、公的年金等控除を引いて雑所得にします。
+    how: >-
+      公的年金等の収入は、老齢の公的年金、iDeCo・企業型DCの年金、確定給付企業年金・年金払い退職給付・国民年金基金の年金、
+      小規模企業共済の分割共済金です。控除額は、その年の12月31日の年齢（65歳未満・以上）と、公的年金等以外の合計所得金額（1,000万円以下・2,000万円以下・超）の
+      表（収入×率＋額）で決めます。令和9年分からは、給与所得控除額と公的年金等控除額の合計が上限を超える分を公的年金等控除額から除きます。
+      確定申告不要制度（公的年金等の収入400万円以下・その他の所得20万円以下）も入っています。
+    keywords: [公的年金等控除, 年金の税金, 雑所得, 確定申告不要, 65歳以上, 年金と給与]
+    rules:
+      - 所得税法35条
+    regulation:
+      - incomeTax.publicPensionDeduction.under65.tier1
+      - incomeTax.publicPensionDeduction.over65.tier1
+      - incomeTax.publicPensionDeduction.combinedLimit
+      - incomeTax.pensionFilingExemption.revenueLimit
+    components:
+      tax.publicPensionIncome: 4
+      incomeTax.annual: 7
+    related:
+      - tax.incomeTaxFlow
+      - tax.incomeAdjustment
+
+  - id: tax.retirementIncome
+    title: 退職所得控除と退職所得の税
+    status: included
+    summary: >-
+      入っています。退職金やiDeCo・企業型DCの一時金、小規模企業共済の共済金を受け取る年に、勤続年数から退職所得控除を出し、分離課税で所得税と住民税を計算します。
+    how: >-
+      その年に受け取る一時金を合わせ、勤続期間（重なりは1回）の年数（1年未満切り上げ）から退職所得控除額（20年以下は40万円×年数、20年超は800万円＋70万円×
+      （年数−20）。最低80万円。障害者になったことによる退職は100万円を足す）を出します。前の年に受けた一時金と期間が重なるときは、退職手当等は前年以前4年内
+      （確定拠出年金の一時金の後は9年内）、確定拠出年金の一時金は前年以前19年内の重なる分の控除額を引きます。退職所得は（収入−控除）×1/2で、
+      役員等の勤続5年以下は1/2にせず、役員以外の勤続5年以下は控除の後の300万円を超える部分を1/2にしません。課税退職所得金額に所得税の税率と付加税、
+      住民税の所得割の率を掛け、受け取る月に源泉徴収・特別徴収します（退職所得の受給に関する申告書を出したものとします）。
+      役員の期間と一般の期間の一時金を同じ年に受けるときは、控除額を分ける近い値で計算し、知らせを出します。
+    keywords: [退職所得控除, 退職所得, 退職金の税金, 勤続年数, 一時金, 5年ルール, 19年ルール, 分離課税]
+    items: [retirementBenefit.amount, retirementBenefit.service, retirementBenefit.officerService, retirementBenefit.disability, retirementBenefit.paidAt]
+    fields:
+      - 「退職金・企業年金」の入力項目の退職金
+      - 「退職金・企業年金」の入力項目の障害者になったことによる退職
+    rules:
+      - 所得税法30条
+      - 所得税法施行令70条
+    regulation:
+      - incomeTax.retirementIncome.deduction.perYearFirst
+      - incomeTax.retirementIncome.deduction.perYearAfter
+      - incomeTax.retirementIncome.deduction.minimum
+      - incomeTax.retirementIncome.overlap.lookbackYears
+      - incomeTax.retirementIncome.overlap.lookbackYearsForDc
+      - incomeTax.retirementIncome.shortTerm.halfLimit
+    rows: [cf.taxSi.incomeTax.retirement, cf.taxSi.residentTax.retirement]
+    components:
+      tax.retirementIncome: 2
+    related:
+      - income.retirementBenefit
+      - investment.idecoPayout
+
+  - id: tax.residentTaxExemption
+    title: 住民税の非課税
+    status: approximated
+    summary: >-
+      入っています。前の年の所得が非課税限度額以下なら、均等割・所得割をかけません。寡婦・ひとり親で前の年の合計所得金額が135万円以下の人も非課税にします。
+      限度額は1級地の値で判定します。
+    how: >-
+      均等割は合計所得金額が「基本額×人数＋加算＋（扶養があれば）扶養の加算」以下なら、所得割は総所得金額等が同じ形の額以下なら非課税です。
+      人数は本人・同一生計配偶者・扶養親族（16歳未満を含む）です。寡婦・ひとり親で前の年の合計所得金額が135万円以下の人は、均等割・所得割とも非課税です。
+      非課税の判定は、保育料・高額療養費の区分・65歳以上の介護保険料の段階などの判定にも使います。
+    approximation: 非課税限度額は生活保護の級地で市区町村ごとに違いますが、1級地（大都市）の値で判定します。
+    reason: >-
+      市区町村ごとの値を持たない作りにしているためです。1級地の基準は級地の中で最も高いので、それを超えればどの級地でも課税です。
+      級地で結果が変わりうるときだけ知らせを出します。
+    keywords: [住民税非課税, 非課税世帯, 非課税限度額, 均等割, 級地, 135万円]
+    items: [member.maritalStatus]
+    rules:
+      - 地方税法295条
+      - 地方税法24条の5
+    regulation:
+      - residentTax.exemption.perCapita.perPerson
+      - residentTax.exemption.perCapita.addition
+      - residentTax.exemption.incomeLevy.perPerson
+      - residentTax.exemption.personal.incomeLimit
+    components:
+      residentTax.exemption: 6
+    related:
+      - tax.residentTax
+      - tax.singleParentDeduction
+      - socialInsurance.highCostMedical
+
+  - id: tax.blueReturn
+    title: 青色申告（特別控除・純損失の繰越）
+    status: included
+    summary: >-
+      入っています。事業所得や不動産所得のある人は、申告の仕方（青色・白色）を入れると、青色申告特別控除（65万円・55万円・10万円）と、
+      引ききれない損失（純損失）の翌年以後3年の繰越控除を計算します。入れないときは白色（控除なし）とみなします。
+    how: >-
+      青色申告特別控除の55万円・65万円は、事業所得があるか不動産所得が事業的規模（室数＋棟数×2が10以上。5棟10室の目安）のときだけで、当たらなければ10万円で
+      計算し知らせます。控除の上限は不動産所得と事業所得の黒字の合計で、不動産所得・事業所得の順に引きます。
+      損益通算をしても引ききれない損失は、青色の人だけ翌年以後3年、古い年の分から総所得金額から引きます（所得税・住民税・国民健康保険料・後期高齢者医療の保険料の
+      所得割の基）。白色の人の引ききれない損失は捨てます。毎年青色申告を続けるものとします。
+    keywords: [青色申告, 青色申告特別控除, 65万円控除, 白色申告, 純損失の繰越, 損失の繰越控除, 個人事業主, 確定申告]
+    items: [member.taxReturn]
+    fields:
+      - 「働き方と収入」の入力項目の申告の仕方と青色申告特別控除
+      - 「収益不動産」の入力項目の申告の仕方と青色申告特別控除
+    rules:
+      - 租税特別措置法25条の2
+      - 所得税法70条
+      - 地方税法313条8項
+    regulation:
+      - incomeTax.blueReturnDeduction.electronic
+      - incomeTax.blueReturnDeduction.doubleEntry
+      - incomeTax.blueReturnDeduction.simple
+      - incomeTax.netLoss.carryforwardYears
+    components:
+      tax.totalIncomeBase: 3
+      tax.lossCarryforward: 1
+      residentTax.annual: 10
+    related:
+      - tax.incomeTaxFlow
+      - income.business
+      - realEstate.income
+
+  - id: tax.medicalExpenseDeduction
+    title: 医療費控除
+    status: notYet
+    summary: まだ入っていません。医療費控除（セルフメディケーション税制を含む）は所得控除に入れていません。
+    reason: >-
+      計算する医療費は万一の想定の医療費だけで、世帯の毎年の医療費を持っていないためです。万一の想定の医療費は、高額療養費の上限で止めた自己負担を支出にしています。
+    keywords: [医療費控除, セルフメディケーション税制, 10万円, 医療費の還付]
+    rules:
+      - 所得税法73条
+    related:
+      - socialInsurance.highCostMedical
+
+  - id: tax.donationDeduction
+    title: ふるさと納税・寄附金控除
+    status: notYet
+    summary: まだ入っていません。ふるさと納税などの寄附金控除（所得税）と寄附金税額控除（住民税）は計算に入れていません。
+    reason: 寄附金控除の計算を作っていないためです。ふるさと納税は自己負担の2,000円を除いて税が減る仕組みなので、入れなくても手取りの見通しの差は小さくなります。
+    keywords: [ふるさと納税, 寄附金控除, 寄付金控除, 寄附金税額控除, ワンストップ特例]
+    rules:
+      - 所得税法78条
+      - 地方税法314条の7
+
+  - id: tax.disabilityDeduction
+    title: 障害者控除
+    status: notYet
+    summary: まだ入っていません。障害者控除・特別障害者控除と、特別障害者がいる場合の所得金額調整控除は計算に入れていません。
+    reason: >-
+      家族の入力項目に障害の区分の欄が無いためです。住民税の非課税のうち障害者の分（前の年の合計所得金額135万円以下）も同じ理由で判定していません。
+      万一の想定の障害で受ける障害年金は計算します。
+    keywords: [障害者控除, 特別障害者控除, 同居特別障害者, 障害者手帳]
+    rules:
+      - 所得税法79条
+    related:
+      - tax.incomeAdjustment
+      - tax.residentTaxExemption

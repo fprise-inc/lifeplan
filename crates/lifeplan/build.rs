@@ -1,4 +1,5 @@
-// ビルドの時に、計算エンジンのまとめた JS・制度データのパック・架空のモデル世帯（と、その説明）を埋め込む一覧を作る（アプリ本体の build.rs と同じもの）
+// ビルドの時に、計算エンジンのまとめた JS・制度データのパック・架空のモデル世帯（と、その説明）を埋め込む一覧を作る（アプリ本体の build.rs と同じもの）。
+// AI接続口だけのものとして、「数字の根拠」の読み方（画面と同じ関数をまとめた JS。dist/explain.js）と対応範囲の一覧（engine/dist/coverage.json）も埋め込む（0183）
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -36,6 +37,20 @@ fn main() {
             "計算エンジンのまとめた JS（engine/dist/engine.js）と制度データ（engine/dist/regulation/）がありません。先に engine/ で `npm ci && npm run build` を流してください"
         );
     }
+    let explain_js = manifest_dir.join("dist/explain.js");
+    let coverage = repo.join("engine/dist/coverage.json");
+    if !explain_js.exists() {
+        panic!(
+            "AI接続口の「数字の根拠」の読み方（crates/lifeplan/dist/explain.js）がありません。先に app/ で `npm ci && npm run build:explain` を流してください"
+        );
+    }
+    if !coverage.exists() {
+        panic!(
+            "対応範囲の一覧（engine/dist/coverage.json）がありません。先に engine/ で `npm run build` を流してください"
+        );
+    }
+    println!("cargo:rerun-if-changed={}", explain_js.display());
+    println!("cargo:rerun-if-changed={}", coverage.display());
     println!("cargo:rerun-if-changed={}", engine_js.display());
     println!("cargo:rerun-if-changed={}", regulation.display());
     println!("cargo:rerun-if-changed={}", households.display());
@@ -48,6 +63,13 @@ fn main() {
         out,
         "/// 計算エンジンのまとめた JS（engine/dist/engine.js）\npub const ENGINE_JS: &str = include_str!({:?});",
         engine_js.display().to_string()
+    )
+    .unwrap();
+    writeln!(
+        out,
+        "/// 「数字の根拠」の読み方（app/src/connector/explain.ts をまとめた JS。0183）\npub const EXPLAIN_JS: &str = include_str!({:?});\n/// 対応範囲の一覧（docs/coverage を確かめて1つにした JSON。0183）\npub const COVERAGE_JSON: &str = include_str!({:?});",
+        explain_js.display().to_string(),
+        coverage.display().to_string()
     )
     .unwrap();
     out.push_str("/// 制度データ・マスタのパック（engine/dist/regulation/*.json。名前の順）\npub const PACKS: &[&str] = &[\n");

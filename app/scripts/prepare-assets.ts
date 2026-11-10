@@ -6,6 +6,7 @@
 // 4. 配布元の設定（config/distribution.toml）から、画面が使う値（要望・不具合のフォームの URL のひな形。0087）を src/generated/distribution.ts に写す
 // 5. 画面の定義から、説明の一覧（書き換えられる公式の文。0016 の 2026-11-01・2026-11-02 の追記）を src/generated/texts-catalog.json に作る（本体が埋め込む）
 // 6. 受け取った書類の PDF を描く pdf.js の文字の形（CMap・標準のフォント）を public/pdfjs/ に写す（画面と同梱。外へ通信しない。0191）
+// 7. AI接続口に同梱する「数字の根拠」の読み方（src/connector/explain.ts）を crates/lifeplan/dist/explain.js にまとめる（scripts/build-explain.ts。0183）
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse as parseToml } from "smol-toml";
@@ -136,6 +137,9 @@ if (!existsSync(distTarget) || readFileSync(distTarget, "utf8") !== distText) wr
 
 // 3. 持ち帰り用のレポート（0030）の画面の部品（public/takeaway/viewer.js・viewer.css）。中身が変わっていなければ作り直さない
 await (await import("./build-takeaway.ts")).buildTakeaway();
+
+// 7. AI接続口の「数字の根拠」の読み方（生成した名前の表を使うので、書いた後に作る）。中身が変わっていなければ作り直さない
+await (await import("./build-explain.ts")).buildExplain();
 
 // 5. 説明の一覧（画面の定義を読むので、生成した名前の表を書いた後に読み込む）
 (await import("./textsCatalog.ts")).writeTextsCatalog();

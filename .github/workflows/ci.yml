@@ -345,9 +345,37 @@ jobs:
       - name: ライセンスの検査（npm）
         run: npm run check:licenses
 
+  # AI接続口（crates/lifeplan）に同梱する「数字の根拠」の読み方（app/src/connector/explain.ts をまとめた JS。0183）。接続口をビルドするジョブ（host・bench）が使う
+  ai-explain:
+    needs: [engine, changes]
+    if: needs.changes.outputs.host == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: engine-dist
+          path: engine/dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - name: 数字の根拠の読み方をまとめる（外の部品が入ったら止める）
+        run: npm run build:explain
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-explain
+          path: crates/lifeplan/dist/explain.js
+          if-no-files-found: error
+
   # Rust のホスト（quickjs-ng）のテストと、Node との一致テスト。Windows・macOS・Linux それぞれでビルドする（0005 の6）
   host:
-    needs: [engine, changes]
+    needs: [engine, ai-explain, changes]
     if: needs.changes.outputs.host == 'true'
     strategy:
       fail-fast: false
@@ -361,6 +389,10 @@ jobs:
         with:
           name: engine-dist
           path: engine/dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: ai-explain
+          path: crates/lifeplan/dist
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -393,7 +425,7 @@ jobs:
   # 前の値は直近の毎晩の計測（このジョブの成果物。最大5晩）の中央値（晩が3つに満たなければ engine/bench/baseline.json）。
   # 呼び出しの回数・命令の数は +5% で警告・+10% で失敗。時間は bench-time で両方の OS をそろえて決める。macOS の実行環境は Apple シリコン
   bench:
-    needs: [engine, changes]
+    needs: [engine, ai-explain, changes]
     if: needs.changes.outputs.heavy == 'true'
     permissions:
       contents: read
@@ -409,6 +441,10 @@ jobs:
         with:
           name: engine-dist
           path: engine/dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: ai-explain
+          path: crates/lifeplan/dist
       - uses: actions/setup-node@v4
         with:
           node-version: 22

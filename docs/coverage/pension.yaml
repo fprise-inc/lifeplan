@@ -1,0 +1,434 @@
+# 対応範囲の一覧（公的年金）。形は coverage.schema.json
+area: pension
+title: 公的年金
+order: 5
+entries:
+  - id: pension.oldAgeBasic
+    title: 老齢基礎年金
+    status: included
+    summary: >-
+      入っています。加入の記録の納付月数（免除の月は割合で数える）から、満額×納付月数÷480で計算し、年度ごとの改定率で額を動かします。
+      受給資格期間（10年）に足りないときは0円にして知らせます。
+    how: >-
+      満額は基準額×その年度の改定率（100円単位）で、保険料を納めた月数（全額・4分の3・半額・4分の1免除の月は法定の割合で数える）÷480を掛けます。
+      ねんきん定期便などで額を入れたときは、その額×（その年度の改定率÷記録の年度の改定率）です。繰上げ・繰下げの減額・増額をした後に、
+      振替加算を足します。支払いは偶数月に前の2か月分で、各支払いの1円未満を切り捨てます。
+    keywords: [老齢基礎年金, 国民年金, 基礎年金, 満額, 納付月数, 480月, 受給資格期間, 10年, 免除]
+    items: [pensionRecord.kind, pensionRecord.months, pensionRecord.amounts, pensionRecord.history]
+    fields:
+      - 「年金」の入力項目の「年金の入れ方」
+      - 「年金」の入力項目の「書類の種類」
+    rules:
+      - 国民年金法27条
+      - 国民年金法26条
+    regulation:
+      - pension.basic.baseAmount
+      - pension.basic.maxMonths
+      - pension.basic.fullAmount.rounding
+      - pension.qualifyingMonths
+      - pension.revisionRate
+      - pension.payment.rounding
+    rows: [cf.income.pension]
+    components:
+      pension.oldAgeBase: 6
+      pension.oldAge: 8
+      pension.revision: 3
+    related:
+      - pension.oldAgeEmployee
+      - pension.claimTiming
+      - pension.record
+
+  - id: pension.oldAgeEmployee
+    title: 老齢厚生年金（特別支給を含む）
+    status: included
+    summary: >-
+      入っています。報酬比例の部分（平均標準報酬額×乗率×加入月数）と経過的加算を計算し、対象の生年月日の人には65歳前の特別支給の老齢厚生年金も
+      出します。記録の後に厚生年金に入る月は、働き方の期間の報酬から足していきます。
+    how: >-
+      報酬比例の部分は、2003年3月までと4月からで別の乗率を使い、加入の記録の報酬を再評価した額に乗率と月数を掛けます。記録の後の報酬は、改定率で
+      記録の年度の水準に直して足します。経過的加算は定額部分から基礎年金の相当額を引いた額です。65歳からは在職定時改定（毎年8月までの加入を
+      10月分から）、辞めたときは退職改定（資格を失った月の翌月から）で、記録の後の加入を額に入れます。特別支給の老齢厚生年金は、生年月日と性別で
+      決まる開始の年齢から、厚生年金の加入が1年以上の人に出します（見込額だけの記録でも生年月日から計算します）。雇用保険の基本手当を受ける月は
+      65歳前の老齢厚生年金を止め、高年齢雇用継続給付を受ける月は決まった額を止めます。
+    keywords: [老齢厚生年金, 厚生年金, 報酬比例, 経過的加算, 特別支給の老齢厚生年金, 平均標準報酬額, 在職定時改定, 退職改定, 加入月数]
+    items: [pensionRecord.amounts, pensionRecord.months, pensionRecord.history, employment.salary.annual, employment.pensionCategory]
+    fields:
+      - 「年金」の入力項目の「平均標準報酬額（月額・今の水準）」
+      - 「年金」の入力項目の「経過的加算」
+    rules:
+      - 厚生年金保険法43条
+      - 厚生年金保険法附則8条
+    regulation:
+      - pension.employee.accrualRate.pre2003
+      - pension.employee.accrualRate.post2003
+      - pension.employee.flatRate.baseAmount
+      - pension.employee.flatRate.maxMonths
+      - pension.specialOldAge.startAge
+      - pension.specialOldAge.requiredMonths
+      - pension.revaluationRate
+      - pension.employee.revisionFactor
+    rows: [cf.income.pension]
+    components:
+      pension.oldAgeBase: 6
+      pension.oldAge: 8
+      pension.record: 6
+    related:
+      - pension.workingPension
+      - pension.claimTiming
+      - pension.supplements
+
+  - id: pension.claimTiming
+    title: 繰上げ・繰下げ
+    status: included
+    summary: >-
+      入っています。老齢基礎年金と老齢厚生年金の受け取り開始を、別々に月単位で入れられます。減額率・増額率は生年月日で決まる率を使います。
+    how: >-
+      繰上げは早めた月数×減額率、繰下げは遅らせた月数×増額率（上限の月数まで）で額を変えます。加給年金と振替加算は増額しません。繰上げは基礎と厚生を
+      同時に請求する決まりなので、片方だけ早めた入力は早い方の月にそろえて計算し、知らせます。66歳になる前の受け取り始めは繰下げにならないので、
+      増額なしで65歳からの分を受け取るとして計算します。繰下げの待機中に在職老齢年金で止まるはずの額は、増額の対象から除きます。66歳になる前に
+      遺族年金の受給権を得ると繰り下げられず、66歳の後に得るとその時に繰下げの申出があったとみなします。
+    keywords: [繰上げ, 繰下げ, 受給開始, 減額率, 増額率, 75歳, 60歳, 受け取り開始, 年金の受け取り時期]
+    items: [pensionRecord.claim, member.pensionClaim]
+    fields:
+      - 「年金」の入力項目の「受け取り開始」
+    rules:
+      - 国民年金法28条
+      - 国民年金法附則9条の2
+      - 厚生年金保険法44条の3
+    regulation:
+      - pension.earlyClaim.reductionRate
+      - pension.earlyClaim.maxMonths
+      - pension.deferral.increaseRate
+      - pension.deferral.maxMonths
+      - pension.normalStartAge
+    rows: [cf.income.pension]
+    components:
+      pension.oldAgeBase: 6
+      pension.survivorRight: 3
+    related:
+      - pension.oldAgeBasic
+      - pension.oldAgeEmployee
+      - pension.survivor
+
+  - id: pension.workingPension
+    title: 在職老齢年金
+    status: included
+    summary: >-
+      入っています。厚生年金に入って働く月（70歳以上で働く月も）は、（基本月額＋総報酬月額相当額−支給停止調整額）÷2を、老齢厚生年金から止めます。
+      全部止まる月は加給年金も止めます。
+    how: >-
+      基本月額は老齢厚生年金の報酬比例の部分（繰上げの減額の後、繰下げの増額の前）、総報酬月額相当額はその月の標準報酬月額と、その月までの1年の
+      標準賞与額の合計÷12です。働き方の期間の給与・賞与から標準報酬月額・標準賞与額を出して使います。支給停止調整額は年度ごとの制度の値で、
+      制度データの後の年度は、値のある最後の年度の額に賃金上昇率（前提）を掛けて1万円単位に四捨五入します。老齢基礎年金は止めません。
+    keywords: [在職老齢年金, 在老, 支給停止, 働きながら年金, 支給停止調整額, 総報酬月額相当額, 基本月額, 在職停止]
+    items: [employment.salary.annual, employment.salary.bonus, employment.standardMonthlyRemuneration, assumptions.wageGrowth]
+    fields:
+      - 「働き方と収入」の入力項目の年収と賞与
+    rules:
+      - 厚生年金保険法46条
+    regulation:
+      - pension.workingAdjustment.threshold
+      - pension.workingAdjustment.threshold.rounding
+    rows: [cf.income.pension]
+    components:
+      pension.oldAgeBase: 6
+      pension.oldAge: 8
+    related:
+      - pension.oldAgeEmployee
+      - income.retirementAge
+      - pension.claimTiming
+
+  - id: pension.supplements
+    title: 加給年金・振替加算
+    status: included
+    summary: >-
+      入っています。厚生年金の加入が240月以上の人に、65歳未満の配偶者と子（18歳に達した後の最初の3月31日まで）の加給年金を足し、配偶者が65歳に
+      なったら、配偶者の老齢基礎年金に生年月日で決まる振替加算を足します。
+    how: >-
+      配偶者の加給年金は、配偶者が厚生年金240月以上の老齢厚生年金の受給権を持つ月（受け取っていなくても）と、配偶者が障害年金を受ける月は止めます。
+      令和10年4月以後に要件を満たした人の配偶者の加給年金と特別加算は、改正後の額です（それより前に加算された人は従前の額）。加給年金の額には、
+      受給者の年齢によらず新しく受け取り始める人の改定率を掛けます。振替加算は基準額×改定率×生年月日ごとの率です。どちらも繰上げ・繰下げで増減しません。
+    keywords: [加給年金, 振替加算, 配偶者加給, 特別加算, 年下の配偶者, 子の加算, 240月, 家族手当]
+    items: [pensionRecord.months, member.birth]
+    rules:
+      - 厚生年金保険法44条
+      - 厚生年金保険法46条6項
+      - 国民年金法等の一部を改正する法律（昭和60年法律第34号）附則14条
+    regulation:
+      - pension.spouseSupplement.baseAmount
+      - pension.spouseSupplement.specialAddition
+      - pension.spouseSupplement.requiredMonths
+      - pension.spouseSupplement.spouseUntilAge
+      - pension.spouseSupplement.reform2028.baseAmount
+      - pension.spouseSupplement.reform2028.specialAddition
+      - pension.childSupplement.firstTwoBaseAmount
+      - pension.childSupplement.thirdBaseAmount
+      - pension.transferAddition.baseAmount
+      - pension.transferAddition.coefficient
+    rows: [cf.income.pension]
+    components:
+      pension.oldAgeBase: 6
+      pension.employeeMonths: 3
+      pension.oldAge: 8
+    related:
+      - pension.oldAgeEmployee
+      - pension.workingPension
+
+  - id: pension.survivor
+    title: 遺族年金（遺族基礎年金・遺族厚生年金）
+    status: approximated
+    summary: >-
+      入っています。万一の想定で配偶者・親が亡くなったとき、亡くなった人の加入の記録から遺族基礎年金・遺族厚生年金・中高齢寡婦加算・経過的寡婦加算・
+      寡婦年金・死亡一時金を計算します。保険料の納付要件は満たすとみなし、2028年4月からの見直しは入れていません。
+    how: >-
+      遺族基礎年金は、子のある配偶者か子に、基本額×改定率＋子の加算（2人目まで・3人目から）です。遺族厚生年金は、死亡の月の前の月までの記録の報酬比例の額×3/4で、
+      短期要件（亡くなったとき厚生年金に入っていた）は300月に満たなければ300月とみなし、長期要件は実際の月数です。妻は年齢を問わず（死亡の当時30歳未満で
+      子が無ければ5年）、夫は死亡の当時55歳以上で60歳から（遺族基礎年金を受ける間は60歳前でも）受けます。死亡の当時55歳未満の夫には遺族厚生年金の受給権が無く、子が受けます。
+      配偶者が65歳になった後は、自分の老齢厚生年金を先に受け、遺族厚生年金はそれを超える分だけです。中高齢寡婦加算（40〜65歳の妻）・経過的寡婦加算・
+      寡婦年金（第1号の期間の夫）・死亡一時金（寡婦年金と両方なら総額の多い方）も計算します。65歳になる前に自分の老齢年金と両方受けられる月は、多い方を選ぶとします。
+    approximation: >-
+      保険料の納付要件は満たすとみなします。2028年4月からの遺族年金の見直し（遺族厚生年金の有期化・子の加算の見直しなど）は入れず、見直し前の制度で計算し、
+      2028年4月以後に亡くなる想定では知らせを出します。寡婦年金・死亡一時金で要る国民年金の第1号の納付月数が記録に無いときは、厚生年金の月を除いた
+      20〜59歳の月を納めた月とみなします。65歳前に自分の老齢年金と選ぶときは、自分の老齢年金を止めずに表に残すので、税・保険料はその前提の近い値です。
+    reason: >-
+      見直しの後の細かい決まり（経過措置・所得の要件など）を確かめてから入れるためです。納付要件は、記録から未納の期間を正しく判定できないためです。
+    instead: >-
+      今受け取っている遺族年金は、「年金」の入力項目の「受け取っている遺族年金・障害年金」で年額を入れられます。
+    keywords: [遺族年金, 遺族基礎年金, 遺族厚生年金, 中高齢寡婦加算, 寡婦年金, 死亡一時金, 経過的寡婦加算, 遺族, 死亡, 万一]
+    items: [contingency.kind, contingency.member, contingency.occurs, contingency.survivor, pensionRecord.history, incomeFlow.pensionType]
+    fields:
+      - 「万一の想定」の死亡の想定
+      - 「年金」の入力項目の「受け取っている遺族年金・障害年金」
+    rules:
+      - 国民年金法37条
+      - 国民年金法49条
+      - 国民年金法52条の2
+      - 厚生年金保険法58条
+      - 国民年金法20条
+      - 厚生年金保険法38条
+    regulation:
+      - pension.basic.baseAmount
+      - pension.childSupplement.firstTwoBaseAmount
+      - pension.childSupplement.thirdBaseAmount
+      - pension.survivor.employee.ratio
+      - pension.survivor.employee.deemedMonths
+      - pension.survivor.husbandMinAge
+      - pension.survivor.youngWidowMonths
+      - pension.survivor.widowAddition.ratio
+      - pension.widowPension.ratio
+      - pension.deathLumpSum
+    rows: [cf.income.pension.survivor, cf.income.lumpSum.other]
+    components:
+      pension.survivor: 7
+      pension.survivorRight: 3
+    related:
+      - pension.disability
+      - pension.claimTiming
+
+  - id: pension.disability
+    title: 障害年金（障害基礎年金・障害厚生年金）
+    status: approximated
+    summary: >-
+      入っています。万一の想定の「障害」で、FP が選んだ等級（1〜3級）の障害年金を、障害認定日（初診日から1年6か月）の翌月から計算します。
+      65歳からは、障害年金と老齢年金の組み合わせのうち手取りが多いものを月ごとに選びます。
+    how: >-
+      障害基礎年金（1・2級）は、2級が基本額×改定率、1級はその1.25倍で、子の加算を足します。障害厚生年金（初診日に厚生年金に入っていたとき。1〜3級）は、
+      障害認定日の月までの記録の報酬比例の額（300月に満たなければ300月とみなす）で、1級は1.25倍、1・2級は配偶者の加給年金額（配偶者が65歳になるまで）を足し、
+      3級は最低保障の額があります。初診日に厚生年金に入っていない人は障害基礎年金だけです。65歳からは、障害基礎＋障害厚生・老齢基礎＋老齢厚生・障害基礎＋
+      老齢厚生のうち手取りの多い組み合わせを選びます（FP が選び直すこともできます）。働けるようになる月を入れたときは、その前の月までです。
+      繰上げで老齢年金を受け始めた後に初診日がある障害で、初診日に厚生年金に入っていない人は受けられません。
+    approximation: >-
+      等級は FP が選ぶ「該当した場合」の仮定で、保険料の納付要件は満たすとみなします。障害認定日の障害だけを扱い、事後重症は扱いません。組み合わせを選ぶ
+      ときの手取りは、その年金だけを収入とした所得税・住民税の見積もり（ほかの所得・社会保険料を入れない）で比べます。子の加算と子の加給年金の調整は扱いません。
+    reason: 障害の状態や認定は個別に決まるため、FP が等級を仮定して「該当した場合」の見通しを出す作りにしています。
+    instead: >-
+      今受け取っている障害年金は、「年金」の入力項目の「受け取っている遺族年金・障害年金」で年額を入れられます。
+    keywords: [障害年金, 障害基礎年金, 障害厚生年金, 障害等級, 障害認定日, 初診日, 1級, 2級, 3級, 障害]
+    items: [contingency.kind, contingency.grade, contingency.occurs, contingency.recovery, contingency.oldAgeChoice]
+    fields:
+      - 「万一の想定」の障害の想定
+      - 「年金」の入力項目の「受け取っている遺族年金・障害年金」
+    rules:
+      - 国民年金法30条
+      - 国民年金法33条
+      - 厚生年金保険法47条
+      - 厚生年金保険法50条
+      - 厚生年金保険法50条の2
+    regulation:
+      - pension.basic.baseAmount
+      - pension.disability.basicGrade1Ratio
+      - pension.disability.employeeGrade1Ratio
+      - pension.disability.grade3MinimumRatio
+      - pension.disability.deemedMonths
+      - pension.disability.spouseSupplement.baseAmount
+      - pension.childSupplement.firstTwoBaseAmount
+    rows: [cf.income.pension.disability]
+    components:
+      pension.disability: 5
+      pension.oldAge: 8
+    related:
+      - pension.survivor
+      - pension.oldAgeBasic
+
+  - id: pension.supplementaryBenefit
+    title: 年金生活者支援給付金
+    status: included
+    summary: >-
+      老齢の年金生活者支援給付金は入っています。65歳以上で老齢基礎年金を受け、世帯全員が住民税非課税で、所得が基準以下の年に計算します。
+      障害・遺族の年金生活者支援給付金は計算していません。
+    how: >-
+      給付の額は給付基準額×保険料納付済の月数÷480で、加入の記録に第1号の内訳（免除の月）があるときは免除期間の分も足します。所得が基準額を超え
+      補足的所得基準額以下なら、補足的老齢年金生活者支援給付金（調整した額）です。10月から翌年9月までを、前の年の所得とその年度の住民税で判定し、
+      年金と同じ偶数月に払います（非課税）。補足的所得基準額が制度データに無い年は、その給付を計算せず知らせます。
+    keywords: [年金生活者支援給付金, 支援給付金, 低所得の年金, 補足的老齢年金生活者支援給付金, 住民税非課税]
+    rules:
+      - 年金生活者支援給付金の支給に関する法律
+    regulation:
+      - pension.supplementaryBenefit.baseMonthly
+      - pension.supplementaryBenefit.incomeLimit
+      - pension.supplementaryBenefit.supplementaryIncomeLimit
+    rows: [cf.income.benefit]
+    components:
+      pension.supplementaryBenefit: 7
+    related:
+      - pension.oldAgeBasic
+
+  - id: pension.revision
+    title: 年金額の改定（マクロ経済スライド）
+    status: approximated
+    summary: >-
+      制度データにある年度は国の改定率を使い、その後の年度は前提の物価上昇率・賃金上昇率とマクロ経済スライドの調整率から改定率を計算して、
+      将来の年金額を動かします。
+    how: >-
+      年度ごとに、68歳に達した年度からは物価（賃金が物価より低いときは賃金）、それより前は賃金の伸びで改定し、マクロ経済スライドの調整率を引きます。
+      名目で下がらないようにし、引ききれない調整は翌年度以後に繰り越します。基礎年金と厚生年金（報酬比例）の調整率は別に入れられます（入れなければ同じ）。
+    approximation: >-
+      先の年度の改定は、前の年の物価上昇率と賃金上昇率（前提）で計算し、法令の名目手取り賃金変動率（過去3年度の実質賃金の平均など）の代わりにしています。
+      スライドの調整率と、調整が終わる時期は前提として入れた値のままです。延ばした年度は計算の知らせに出ます。
+    reason: 将来の物価・賃金・被保険者数は分からないので、FP が入れた経済の前提から年金額の伸びを見るためです。
+    keywords: [マクロ経済スライド, 年金額の改定, 改定率, 年金の伸び, 物価スライド, 賃金スライド, 年金の目減り, 調整率]
+    items: [assumptions.inflation, assumptions.wageGrowth, assumptions.pensionMacroSlide, assumptions.pensionMacroSlideEmployee]
+    fields:
+      - 「前提条件」の入力項目の「年金の調整率（基礎年金・年）」
+      - 「前提条件」の入力項目の「年金の調整率（厚生年金・年）」
+    rules:
+      - 国民年金法27条の2
+      - 国民年金法27条の4
+    regulation:
+      - pension.revisionRate
+      - pension.employee.revisionFactor
+      - pension.revision.existingFromAge
+    components:
+      pension.revision: 3
+    related:
+      - basics.growthRates
+      - basics.regulationTiming
+
+  - id: pension.record
+    title: 加入の記録（ねんきん定期便の値の入れ方）
+    status: approximated
+    summary: >-
+      ねんきん定期便（50歳未満・50歳以上）・年金額改定通知書（受け取り中）・見込額・加入歴のどれかで加入の記録を入れられます。記録を入れないときは、
+      働き方の入力から加入の記録を推計します。
+    how: >-
+      50歳未満の定期便は加入月数と老齢厚生年金の額（これまでの加入の実績）、50歳以上の定期便は60歳まで今の条件で続けたときの見込額、改定通知書は
+      今受け取っている年金額を入れます。加入歴の入れ方では、期間ごとの種別と報酬から計算します。記録の時点の後は、働き方の期間から国民年金の種別と
+      厚生年金の標準報酬を足していきます。
+    approximation: >-
+      記録を入れないときは、働き方の期間から加入歴を推計し、計算の基準の年の前の年の11月より前の標準報酬は、その勤め先の期間の給与の入力（今の賃金の水準）
+      から近い値にします。推計で計算したことは計算の知らせに出ます。
+    reason: 記録が手元に無くても見通しを出せるようにするためです。定期便の値を入れると、記録どおりの額になります。
+    instead: ねんきん定期便や年金額改定通知書の値を「年金」の入力項目に入れると、推計の代わりにその値で計算します。
+    keywords: [ねんきん定期便, 加入記録, 加入歴, 年金額改定通知書, 見込額, 年金記録, 50歳以上, 50歳未満, 推計]
+    items: [pensionRecord.kind, pensionRecord.asOf, pensionRecord.months, pensionRecord.amounts, pensionRecord.history, pensionRecord.member]
+    fields:
+      - 「年金」の入力項目の「年金の入れ方」
+      - 「年金」の入力項目の「書類の種類」
+      - 「年金」の入力項目の「受給資格期間の月数」
+      - 「年金」の入力項目の「＋ 加入歴の行を足す」
+    regulation: [pension.revaluationRate]
+    components:
+      pension.record: 6
+    related:
+      - pension.oldAgeBasic
+      - pension.oldAgeEmployee
+      - pension.category
+
+  - id: pension.category
+    title: 国民年金の第1号・第2号・第3号の区分
+    status: approximated
+    summary: >-
+      区分は入力させず、働き方の期間と健康保険の扶養から月ごとに決めています。第2号は厚生年金に入る月、第3号は20〜59歳で第2号の配偶者に扶養される月、
+      それ以外の20〜59歳の月は第1号です。
+    how: >-
+      65歳に達した後は第2号にしません。第3号は、その月の健康保険の種類が第2号の配偶者の扶養の月だけで、収入の見込み（その月の収入の状況が1年続くと
+      したときの年額）で判定します。雇用保険の基本手当を受ける月は、基本手当日額×360が基準以上なら第3号にしません。第1号の母は、出産の前の月から
+      4か月が産前産後の免除で、納めた月として数えます。万一の想定で亡くなる月からはどの区分でもなく、第2号の配偶者が亡くなった月からは第1号になります。
+    approximation: >-
+      第1号の保険料は納めたとみなします（免除・未納は加入の記録で入れます）。第3号の判定の収入の見込みには、遺族年金・障害年金と、扶養する配偶者の
+      60〜64歳の老齢年金を入れないので、健康保険の扶養の判定と食い違うことがあります。
+    reason: 年金の額は加入の記録から出し、加入の記録はこの区分から出すため、年金の額を区分の判定に使えない作りだからです。
+    instead: 免除・猶予の月は「年金」の入力項目の「＋ 免除・猶予の月を入れる」で入れられます。
+    keywords: [第1号被保険者, 第2号被保険者, 第3号被保険者, 国民年金の種別, 扶養, 3号, 専業主婦, 被保険者の区分]
+    items: [employment.type, employment.pensionCategory, employment.healthInsurance.kind]
+    fields:
+      - 「年金」の入力項目の「＋ 免除・猶予の月を入れる」
+    rules:
+      - 国民年金法7条
+      - 国民年金法88条の2
+    regulation:
+      - socialInsurance.nationalPension.fromAge
+      - socialInsurance.nationalPension.untilAge
+      - socialInsurance.nationalPension.category2UntilAge
+      - socialInsurance.nationalPension.maternityExemption.months
+    components:
+      pension.category: 7
+    related:
+      - pension.record
+
+  - id: pension.foreignPension
+    title: 外国の年金
+    status: approximated
+    summary: >-
+      外国の年金は、受け取る額（円）を「年金」の入力項目の入るお金の行で入れると、公的年金の行に載り、公的年金等以外の雑所得として税を計算します。
+    how: 行ごとに受け取る人・年額・始まりと終わり・伸び方を入れ、受け取る月のお金の動きにします。
+    approximation: >-
+      税の計算では、公的年金等控除を当てず、公的年金等以外の雑所得として扱います。為替の動きは計算しません（入れた円の額を伸び方で伸ばします）。
+    reason: 外国の年金を公的年金等の雑所得として扱うかを、まだ決めていないためです。
+    instead: 行の課税の扱いは変えられます。
+    keywords: [外国の年金, 海外の年金, 外国年金, 社会保障協定, 海外勤務]
+    items: [incomeFlow.kind, incomeFlow.amount, incomeFlow.taxTreatment, incomeFlow.recipient]
+    fields:
+      - 「年金」の入力項目の入るお金の行の「外国の年金」
+    rows: [cf.income.pension]
+    components:
+      income.flows: 3
+    related:
+      - tax.publicPensionDeduction
+
+  - id: pension.additionalPension
+    title: 付加年金・付加保険料
+    status: notYet
+    summary: まだ入っていません。第1号の付加保険料と、老齢基礎年金に足す付加年金は計算していません。
+    reason: 付加保険料と付加年金の計算を、まだ作っていないためです。
+    instead: >-
+      付加年金の見込みの年額を「年金」の入力項目の入るお金の行で、付加保険料（月額）を出るお金の行で入れると、お金の流れには入ります
+      （税の扱いは行の課税の扱いで選びます）。
+    keywords: [付加年金, 付加保険料, 400円, 200円, 国民年金の上乗せ, 第1号]
+    items: [incomeFlow.amount, periodicExpense.amount]
+    related:
+      - pension.oldAgeBasic
+
+  - id: pension.pensionSplit
+    title: 離婚時の年金分割
+    status: notYet
+    summary: まだ入っていません。離婚のときの厚生年金の分割（合意分割・3号分割）は計算していません。
+    reason: 離婚の予定を入れたときの年金の分け方の計算を、まだ作っていないためです。
+    instead: >-
+      年金事務所の情報提供などで分割の後の見込額が分かれば、「年金」の入力項目で書類の種類を見込額にして、その額を入れてください。
+    keywords: [年金分割, 離婚, 合意分割, 3号分割, 離婚時の年金]
+    items: [pensionRecord.kind, pensionRecord.amounts]
+    fields:
+      - 「年金」の入力項目の「書類の種類」
+    related:
+      - pension.record

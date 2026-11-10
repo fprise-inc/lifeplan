@@ -1,0 +1,238 @@
+# 対応範囲の一覧（子ども・教育）。形は coverage.schema.json
+area: education
+title: 子ども・教育
+order: 7
+entries:
+  - id: education.schoolCost
+    title: 学校の費用と学校外活動費（幼稚園〜高校）
+    status: included
+    summary: >-
+      入っています。子ごとの進路（学校の種類・公立か私立か）から、幼稚園・小学校・中学校・高校の学校の費用と学校外活動費（塾・習い事など）を
+      統計の平均で計算します。学校が決まっていれば学費の表、年額を入れればその額で計算します。
+    how: >-
+      学年は4月2日区切りで、幼稚園3歳・小学校6歳・中学校12歳・高校15歳の学年の4月から在学年数（省略は幼3・小6・中3・高3）の間かかります。
+      統計の平均（文部科学省「子供の学習費調査」）では、学校の費用＝学習費総額−学校外活動費を年度の12か月に分けて毎月払います。
+      学校外活動費は統計の平均・月額・無しから選べ、塾・習い事は月額の行で足せます（行で入れるときは統計の学校外活動費を数えず、二重にしません）。
+      部活動などの費用を年額で入れた段は、統計の教科外活動費をその額に入れ替えます。受験・併願の費用は入学の前の1月・2月に払います。
+      浪人の年数・在学年数も直せます。額は計算基準年の値を教育費の上昇率（省略は物価上昇率）で伸ばします。
+    keywords: [教育費, 学費, 学習費, 子供の学習費調査, 私立と公立, 塾, 習い事, 部活動, 学校外活動費, 受験料]
+    items: [goal.education, assumptions.educationInflation]
+    fields:
+      - "「子ども・教育」の入力項目の「進路の型」"
+      - "「子ども・教育」の入力項目の「公立・私立」"
+      - "「子ども・教育」の入力項目の「学校外の費用（月額）」"
+      - "「子ども・教育」の入力項目の「うち部活動など（年額）」"
+      - "「子ども・教育」の入力項目の「受験・併願の費用」"
+    regulation:
+      - education.statistics.elementary.public.total
+      - education.statistics.elementary.public.outOfSchool
+      - education.statistics.elementary.public.extracurricular
+      - education.statistics.kindergarten.private.total
+      - education.statistics.kindergarten.private.outOfSchool
+    rows: [cf.expense.education.school, cf.expense.education.outOfSchool, cf.expense.education.exam]
+    components:
+      education.cost: 10
+    related: [education.university, education.schoolLunch]
+
+  - id: education.university
+    title: 大学・短大・専門学校・大学院の学費
+    status: included
+    summary: >-
+      入っています。大学は国立・公立・私立と、私立は系統（文系・理系・医歯系）ごとの統計の平均で、授業料・施設設備費・入学金を計算します。
+      大学院・高専も入ります。専門学校・公立の短大は統計が無いので、年額を入れるまで0円です。
+    how: >-
+      大学・短大・専門学校は18歳（＋浪人の年数）の学年の4月から在学年数（省略は大学4年・医歯系6年・短大2年・専門学校2年）。
+      授業料＋施設設備費を4月と10月に半分ずつ、入学金を入学の前の2月（国公立は3月）に払います。国立は授業料・入学料の標準額、
+      公立・私立は平均の額です。大学院（修士2年・博士3年・専門職2年、法科大学院3年）は前の段を出た翌月の4月から、国立は標準額、
+      公立は大学院の平均、私立は課程ごとの平均。高専は15歳の学年から5年（国立は国の額、公立・私立は年額を入れる）。学校が決まっていれば、学費の表の
+      入学年度・年次・費目・支払月のとおりに払います（入学年度の行が無ければ近い年度の額に教育費の上昇率を当てて推計）。
+    keywords: [大学の学費, 授業料, 入学金, 国立大学, 私立大学, 医学部, 理系, 文系, 大学院, 専門学校]
+    items: [goal.education, assumptions.educationInflation]
+    fields:
+      - "「子ども・教育」の入力項目の「高校のあとの進路」"
+      - "「子ども・教育」の入力項目の「系統」"
+      - "「子ども・教育」の入力項目の「浪人の年数」"
+      - "「子ども・教育」の入力項目の「入学金」"
+    regulation:
+      - education.statistics.university.national.tuition
+      - education.statistics.university.national.admission
+      - education.statistics.university.public.tuition
+      - education.statistics.university.public.admission
+      - education.statistics.university.private.all.tuition
+      - education.statistics.university.private.all.facility
+      - education.statistics.university.private.all.admission
+    rows: [cf.expense.education.school, cf.expense.education.entrance]
+    components:
+      education.cost: 10
+    related: [education.boardingAbroad, education.higherSupport, education.scholarshipLoan]
+
+  - id: education.boardingAbroad
+    title: 自宅外の通学と留学
+    status: included
+    summary: >-
+      入っています。自宅外から通う段は仕送り（月額。省略は統計の年額の12分の1）と始めるための費用を、留学は1回ずつの額を計算します。
+    how: >-
+      自宅外の段は、仕送りを在学中毎月、初期費用（省略は統計の値）を入学の前の3月に払います。留学は在学中の段のその学年の4月
+      （短期はその年の8月）に1回の額（今の値段）を教育費の上昇率で伸ばして払います。休学して1年の留学は、その段の在学が1年延び、
+      その年は学費・学校の費用・仕送りがかからず、後の学年と段が1年ずつうしろにずれます。万一のときの扱いを「やめる」にした留学は、
+      万一の想定の月の翌月より後は払いません。
+    keywords: [仕送り, 下宿, 一人暮らし, 自宅外通学, 留学, 短期留学, 休学, 初期費用]
+    items: [goal.education]
+    fields:
+      - "「子ども・教育」の入力項目の「通い方」"
+      - "「子ども・教育」の入力項目の「自宅外の仕送り（月額）」"
+      - "「子ども・教育」の入力項目の「自宅外の初期費用」"
+      - "「子ども・教育」の入力項目の「＋ 留学」"
+    regulation: [education.statistics.boarding.annual, education.statistics.boarding.initial]
+    rows: [cf.expense.education.boarding, cf.expense.education]
+    components:
+      education.cost: 10
+    related: [education.university]
+
+  - id: education.nurseryFee
+    title: 保育料
+    status: approximated
+    summary: >-
+      近似して入っています。月額を入れればその額、入れなければ世帯の住民税から国の基準の上限を引き、多子・ひとり親の軽減と自治体の水準の割合
+      （省略は0.8）を当てた目安で計算します。3歳になった後の4月からは無償化で0円です。
+    how: >-
+      0〜2歳の保育所などの段で計算します。自動の計算は、父母の市町村民税の所得割の合計の段階で国の基準の上限（保育標準時間・短時間）を引き、
+      4〜8月分は前年度・9〜3月分はその年度の住民税で判定します。父母がみな住民税非課税の年度は0円。多子の軽減は、就学前で通っている子の
+      年長の順で2番目は半額・3番目以降は0円（所得が低い世帯は年齢と通っているかを問わず数えます）。ひとり親世帯等の軽減も当てます。
+      通い始めの省略は、その子の育児休業の終わりの翌月です。保育料とは別にかかるお金（教材・行事など）は、入れた年額か統計の目安を毎月に分けて足します。
+    approximation: >-
+      国の基準の上限に、自治体の水準として「国の基準に対する割合」を掛けた額です。実際の保育料は自治体ごとの表で決まります。
+      公定価格が上限より低い場合や、自治体の独自の軽減（第1子からの無償化など）は扱いません。住民税の決定額だけを入れた年度は、
+      決定額から所得割を推計します（均等割の分だけ多め）。
+    reason: 自治体ごとの保育料の表は数が多く、国の基準と割合で目安を出す形にしています。
+    instead: 月額の欄に自治体の保育料の額を入れるか（0なら保育料なし）、割合を変えて合わせます。
+    keywords: [保育料, 保育園, 認定こども園, 0歳児, 無償化, 多子軽減, 第2子, ひとり親, 待機]
+    items: [goal.education]
+    fields:
+      - "「子ども・教育」の入力項目の「保育園（2歳まで）に通う」"
+      - "「子ども・教育」の入力項目の「保育料（月額）」"
+      - "「子ども・教育」の入力項目の「保育の時間」"
+    rules:
+      - 子ども・子育て支援法施行令4条
+      - 子ども・子育て支援法施行令13条・14条
+    regulation:
+      - educationSupport.nursery.fee.standard
+      - educationSupport.nursery.fee.short
+      - educationSupport.nursery.multiChild.secondRatio
+      - educationSupport.nursery.multiChild.lowIncomeLimit
+      - educationSupport.nursery.fee.specified.limit
+      - educationSupport.nursery.fee.specified.amount
+      - education.statistics.nursery.extra
+    rows: [cf.expense.education.nursery, cf.expense.education.school]
+    components:
+      education.nurseryFee: 5
+
+  - id: education.highSchoolSupport
+    title: 高等学校等就学支援金
+    status: included
+    summary: >-
+      入っています。高校の在学の年度ごとに、公立・私立の上限と授業料の小さい方を、学校が授業料から差し引く形の収入として載せます
+      （2026年度からは所得の制限なし）。
+    how: >-
+      支給額を年度の12か月に分けて、親（受け取る月に世帯にいる最初の親）の収入「就学支援金・修学支援」の行に載せます。高専の1〜3年も
+      対象です（国公立は高専の額、私立は私立の額）。インターナショナルスクールの段と、対象外にした子（国籍・在留資格の要件）には出しません。
+      支援の額は名目額で、教育費の上昇率を当てません。
+    keywords: [就学支援金, 高校無償化, 私立高校の支援, 授業料の支援, 高等学校等就学支援金]
+    items: [goal.education]
+    fields:
+      - "「子ども・教育」の入力項目の「高校の就学支援金」"
+    rules:
+      - 高等学校等就学支援金の支給に関する法律施行令2条
+    regulation:
+      - educationSupport.highSchool.publicAnnual
+      - educationSupport.highSchool.privateAnnual
+      - educationSupport.highSchool.kosenPublicAnnual
+    rows: [cf.income.benefit.education]
+    components:
+      education.support: 8
+    related: [education.higherSupport]
+
+  - id: education.higherSupport
+    title: 大学の修学支援（授業料の減免・給付型奨学金）
+    status: approximated
+    summary: >-
+      近似して入っています。大学は、親の住民税から支給額算定基準額を出して第I〜第IV区分を決め、授業料・入学金の減免と給付型奨学金を計算します。
+      多子世帯（扶養する子が3人以上）は所得によらず上限まで減免します。短大・専門学校と高専の4・5年はまだ計算しません。
+    how: >-
+      支給額算定基準額＝親ごとの（住民税の課税標準額×6%−市町村民税の調整控除の額）の合計で区分を決め、4〜9月は前年度・10〜3月はその年度の
+      住民税で判定します。減免は上限（国公立・私立）と実際の額の小さい方×区分の割合（第I区分は全額・II 3分の2・III 3分の1・IV 4分の1）。
+      給付型奨学金は第I〜第III区分（第IV区分は多子世帯だけ）に、国公立・私立×自宅・自宅外の月額を毎月。多子世帯は住民税の扶養で数えます。
+      万一の想定で親が亡くなったら、翌月から残った親の住民税で判定し直します（家計急変）。
+    approximation: >-
+      資産の要件は見ません。家計急変は死亡だけを扱い、急変の後の見込みの所得ではなく残った親の判定の年度の住民税で判定します。
+      住民税の決定額だけを入れた年度は、決定額から所得割を推計します。
+    reason: 資産の額は入力の時点の値しか無く、急変の後の所得の見込みも計算の上で決まらないため、住民税で判定する形にしています。
+    instead: 短大・専門学校の支援は、子の「給付型の奨学金・学費の助成」の行に額を入れて足せます。
+    keywords: [修学支援新制度, 給付型奨学金, 授業料減免, 多子世帯, 大学無償化, 第I区分, 家計急変]
+    items: [goal.education]
+    rules:
+      - 大学等における修学の支援に関する法律施行令2条
+      - 大学等における修学の支援に関する法律施行規則10条
+    regulation:
+      - educationSupport.higher.calcRate
+      - educationSupport.higher.categories
+      - educationSupport.higher.waiverRatio
+      - educationSupport.higher.waiver.national.tuition
+      - educationSupport.higher.waiver.private.tuition
+      - educationSupport.higher.grant.public.home
+      - educationSupport.higher.grant.private.away
+      - educationSupport.higher.multiChild.minChildren
+    rows: [cf.income.benefit.education]
+    components:
+      education.support: 8
+    related: [education.highSchoolSupport, education.university]
+
+  - id: education.scholarshipLoan
+    title: 貸与の奨学金・教育ローン
+    status: included
+    summary: >-
+      入っています。貸与の奨学金は在学中に受け取り、返済を負債として計算します。返すのが子なら世帯の収支に入れず、子が返す額だけを出します。
+      教育ローンは借りる月に受け取り、翌月から返します。
+    how: >-
+      奨学金は受け取りの期間に毎月受け取り（収入の「奨学金の貸与・教育ローンの借入」の行）、受け取った額の合計を、返し始め
+      （既定は受け取りの終わりの7か月後）から固定の利率・返す月数の元利均等で返します。返す人が「子」（省略も子）なら、返済は世帯のお金の動きにも負債にも入れず、子が返す月額・
+      期間・合計を出します。「世帯で返す」なら返済を支出の「奨学金」の行と負債の残高に入れます。給付型の奨学金・学費の助成は、返さない
+      受け取りとして額を入れます。
+    keywords: [奨学金, 日本学生支援機構, 第一種, 第二種, 奨学金の返済, 教育ローン, 国の教育ローン, 給付型]
+    items: [goal.education]
+    fields:
+      - "「子ども・教育」の入力項目の「＋ 貸与の奨学金」"
+      - "「子ども・教育」の入力項目の「返す人」"
+      - "「子ども・教育」の入力項目の「＋ 教育ローン」"
+    regulation: [loanRates.scholarship]
+    rows: [cf.income.other.scholarship, cf.expense.debt.scholarship, cf.balance.debt.other]
+    components:
+      education.cost: 10
+      debt.schedule: 9
+    related: [education.university]
+
+  - id: education.schoolLunch
+    title: 学校給食費の負担軽減
+    status: included
+    summary: >-
+      入っています。公立小学校は、令和8年度からの学校給食費の負担軽減の年度に、統計の給食費と基準額×月数の小さい方を学校の費用から引きます。
+      自治体が無償化していれば、公立の小学校・中学校の給食費の全額を引けます。
+    how: >-
+      統計の学校給食費（教育費の上昇率で伸ばした額）と、基準額×年間の月数（名目額）の小さい方を引き、基準額を超える分は保護者の負担として
+      残します。給食費の選び方を「自治体が無償化（全額を引く）」にした段は、公立の小学校・中学校の全年度で統計の給食費の全額を引き、
+      「全額を払う」なら引きません。中学校の既定は「制度どおり（全額を払う）」です。
+      学校の年額を直接入れた段・学費の表の段は引きません。
+    keywords: [給食費, 給食無償化, 学校給食, 負担軽減, 小学校]
+    items: [goal.education]
+    fields:
+      - "「子ども・教育」の入力項目の「給食費」"
+    rules:
+      - 学校給食費の負担軽減（令和8年度から）
+    regulation:
+      - educationSupport.schoolLunch.elementary.public.monthly
+      - educationSupport.schoolLunch.months
+      - education.statistics.elementary.public.schoolLunch
+    rows: [cf.expense.education.school]
+    components:
+      education.cost: 10
+    related: [education.schoolCost]

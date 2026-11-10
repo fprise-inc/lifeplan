@@ -215,6 +215,24 @@ impl Sandbox {
         self.call("runBatch", requests, packs, options)
     }
 
+    /// グローバルの物 `object` の関数 `name` を、3つの文字の引数で呼び、文字で受け取る。エンジンではない、eval_script で読み込んだ
+    /// 計算でない JS（AI接続口の「数字の根拠」の読み方など。0183）を、同じ固めた実行環境で呼ぶのに使う
+    pub fn call_function(
+        &self,
+        object: &str,
+        name: &str,
+        args: (&str, &str, &str),
+    ) -> Result<String, HostError> {
+        self.context.with(|ctx| {
+            let call = || -> rquickjs::Result<String> {
+                let obj: Object = ctx.globals().get(object)?;
+                let f: Function = obj.get(name)?;
+                f.call(args)
+            };
+            call().catch(&ctx).map_err(|e| self.classify(e))
+        })
+    }
+
     fn call(&self, name: &str, a: &str, packs: &str, options: &str) -> Result<String, HostError> {
         self.context.with(|ctx| {
             let call = || -> rquickjs::Result<String> {
