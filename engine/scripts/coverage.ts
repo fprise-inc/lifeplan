@@ -4,6 +4,7 @@
 //   関係する項目の鍵が、どれも今あること
 // - 部品の revision との照合（ずれたら見直しを促す）は、エンジンの部品を読むテスト（test/coverage.test.ts）で行う（ビルドは止めない）
 // - 公開する一覧なので、社内の判断の経緯の番号・言葉が紛れ込んでいないことも確かめる
+// - 要約（summary）の書き出しは状態ごとに決めた一言にする（AI が近似の物を「入っています」とだけ伝えないように）
 import { readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
@@ -57,6 +58,13 @@ const FORBIDDEN: readonly { re: RegExp; why: string }[] = [
   { re: /TODO|FIXME/, why: "作業の印" },
 ];
 
+/** 状態ごとの要約（summary）の書き出し。AI が要約の頭だけを伝えても、近似かどうかが落ちないようにそろえる */
+export const SUMMARY_OPENING: Record<CoverageStatus, string> = {
+  included: "入っています。",
+  approximated: "近似して入っています。",
+  notYet: "まだ入っていません。",
+};
+
 function registryLabels(file: string): Map<string, string> {
   const doc = parse(readFileSync(join(REPO_DIR, "registry", file), "utf8")) as { entries: { id: string; status?: string; label?: string }[] };
   return new Map(doc.entries.filter((e) => e.status !== "removed").map((e) => [e.id, e.label ?? ""]));
@@ -108,6 +116,7 @@ export function loadCoverage(dir: string = COVERAGE_DIR): CoverageList {
       for (const id of e.rows ?? []) if (!rows.has(id)) errors.push(`${at}: 表の行ID ${id} が登録簿（registry/rows.yaml）にありません`);
       for (const id of Object.keys(e.components ?? {})) if (!components.has(id)) errors.push(`${at}: 計算の部品 ${id} が登録簿（registry/components.yaml）にありません`);
       for (const id of e.related ?? []) if (!all.has(id)) errors.push(`${at}: 関係する項目 ${id} が一覧にありません`);
+      if (!e.summary.startsWith(SUMMARY_OPENING[e.status])) errors.push(`${at}: 状態が ${e.status} の要約（summary）は「${SUMMARY_OPENING[e.status]}」で始める（「${e.summary.slice(0, 20)}…」）`);
       for (const t of texts(e)) for (const f of FORBIDDEN) if (f.re.test(t)) errors.push(`${at}: 公開する一覧に${f.why}を書かない（「${t.slice(0, 40)}…」）`);
     }
   if (errors.length > 0) throw new CoverageError(`対応範囲の一覧（docs/coverage）に間違いがあります:\n${errors.join("\n")}`);

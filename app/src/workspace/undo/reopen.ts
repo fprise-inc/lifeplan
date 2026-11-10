@@ -23,7 +23,7 @@ export function reopenHistory(last: string | undefined, loaded: string): "contin
 }
 
 /** JSON の値が同じか: 欄の並びは見ない・値の無い欄は無いのと同じ・数は書き方の違い（読み直したときの最後の桁）を許す */
-function sameJson(a: unknown, b: unknown): boolean {
+export function sameJson(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (typeof a === "number" && typeof b === "number") return Math.abs(a - b) <= 1e-12 * Math.max(1, Math.abs(a), Math.abs(b));
   if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;

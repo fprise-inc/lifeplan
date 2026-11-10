@@ -3,6 +3,7 @@
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
+import { panelSavedText } from "../src/workspace/input/InputView.tsx";
 import type { ForkInfo, OfficeHost, OfficeStatus, StoredHousehold } from "../src/engine/host.ts";
 import { ForkPanel } from "../src/workspace/store/ForkPanel.tsx";
 import { HouseholdPanel } from "../src/workspace/store/HouseholdPanel.tsx";
@@ -313,5 +314,22 @@ describe("分岐を選ぶ画面", () => {
     const html = renderToString(h(ForkPanel, { customerNo: "A0001", info: { ...info, savedConflict: false, syncCopies: 2 }, busy: false, error: null, onChoose: () => undefined, onSyncCopies: () => undefined, onClose: () => undefined }));
     expect(html).toContain('data-fork-sync="adopt"');
     expect(html).not.toContain("data-fork-choice");
+  });
+});
+
+describe("ほかの人が開いていて自動保存を止めている間の、入力のパネルの「保存」の知らせ（0023 の7）", () => {
+  it("止めている間は「保存しました」と言わず、まだ保存していないことと「編集を始める」を伝える。止めていなければ今までどおり", () => {
+    for (const plan of [null, "プランB"]) {
+      const paused = panelSavedText("働き方と収入", plan, true);
+      expect(paused).not.toContain("保存しました");
+      expect(paused).toContain("まだ保存していません");
+      expect(paused).toContain("「編集を始める」");
+      expect(paused).toContain("「働き方と収入」を");
+      if (plan !== null) expect(paused).toContain("プランBで直しました");
+    }
+    expect(panelSavedText(undefined, null, true)).not.toContain("保存しました");
+    expect(panelSavedText("働き方と収入", null, false)).toBe("「働き方と収入」を保存しました");
+    expect(panelSavedText("働き方と収入", "プランB", false)).toBe("「働き方と収入」をプランBに保存しました");
+    expect(panelSavedText(undefined, null, false)).toBe("保存しました");
   });
 });

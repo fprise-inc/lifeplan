@@ -7,6 +7,7 @@
 .ai-band { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 7px 20px; background: var(--est-bg); border-bottom: 2px solid var(--est-band); color: var(--est-ink); font-size: 0.9rem; }
 .ai-band-item { display: inline-flex; align-items: center; gap: 8px; }
 .ai-band .btn { padding: 2px 10px; font-size: 0.82rem; }
+.ai-band-note { font-weight: 700; }
 
 /* 中央のパネル */
 .ai-panel { width: min(860px, calc(100vw - 32px)); }

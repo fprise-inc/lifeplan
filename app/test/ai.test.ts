@@ -11,11 +11,13 @@ import { AiCandidates } from "../src/workspace/ai/AiCandidates.tsx";
 import { AiConnectorPanel } from "../src/workspace/ai/AiConnectorPanel.tsx";
 import { AiShareBand } from "../src/workspace/ai/AiShareBand.tsx";
 import { AiRecords, AiSharePanel } from "../src/workspace/ai/AiSharePanel.tsx";
-import { acceptCandidate, candidateRows, candidateValues, consentCoversDocuments, consentMethods, remainingText, shareState } from "../src/workspace/ai/model.ts";
+import { acceptCandidate, candidateRows, candidateValues, consentCoversDocuments, consentMethods, remainingText, savedInputOf, shareState, unsavedForAi } from "../src/workspace/ai/model.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { fromRequest } from "../src/workspace/input/household.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { roles } from "../src/workspace/roles.ts";
+import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
+import { bodyOf, EMPTY_CARRY } from "../src/workspace/store/body.ts";
 import { modelHousehold } from "./helpers.ts";
 
 const NOW = "2026-10-19T01:00:00.000Z";
@@ -178,6 +180,51 @@ describe("AI接続口の状態（既定はオフ・同意が無ければ渡さ�
     expect(brief).not.toContain("共有中の世帯A");
     // 「AI接続口の設定」はパネルを開くので、小窓が開く印を付ける
     for (const x of [html, brief]) expect(x.slice(x.indexOf("data-ai-band-open"))).toMatch(/^[^<]*AI接続口の設定<svg [^>]*data-pop-icon/);
+  });
+
+  it("保存していない入力の変更があるときだけ、共有中の帯に「保存するとAIにも反映されます」を出す（0184 の追記）", () => {
+    const shares = [{ shareId: "s", alias: "共有中の世帯A", householdId: "h", customerNumber: "A0001", expiresInSec: 600 }];
+    for (const detailed of [true, false]) {
+      const base = { shares, detailed, onStop: () => undefined, onOpen: () => undefined };
+      const on = renderToString(h(AiShareBand, { ...base, unsaved: true }));
+      expect(on).toContain("data-ai-band-unsaved");
+      expect(on).toContain("保存するとAIにも反映されます");
+      for (const off of [renderToString(h(AiShareBand, { ...base, unsaved: false })), renderToString(h(AiShareBand, base))]) {
+        expect(off).toContain("AIに渡しています");
+        expect(off).not.toContain("data-ai-band-unsaved");
+        expect(off).not.toContain("反映されます");
+      }
+      // 共有が無ければ、保存していない変更があっても帯ごと出さない
+      expect(renderToString(h(AiShareBand, { ...base, shares: [], unsaved: true }))).toBe("");
+      // ほかの人が開いていて自動保存を止めている間は、保存するのに「編集を始める」が要るので、そう書く（0023 の7）
+      const paused = renderToString(h(AiShareBand, { ...base, unsaved: true, paused: true }));
+      expect(paused).toContain("編集を始めて保存するとAIにも反映されます");
+      expect(renderToString(h(AiShareBand, { ...base, unsaved: false, paused: true }))).not.toContain("反映されます");
+    }
+  });
+
+  it("出すかは、AIに渡している世帯の保存した現状の入力と、画面の現状の入力を中身で比べて決める（0184 の追記）", () => {
+    const { wh } = open();
+    const body = (w: typeof wh) => bodyOf({ wh: w, workspace: { template: null, band: [], base: "current", selected: "current", shownItems: [] }, display: { result: DEFAULT_DISPLAY_SETTINGS, balance: DEFAULT_BALANCE_SETTINGS }, carry: EMPTY_CARRY });
+    const saved = savedInputOf(body(wh));
+    expect(saved).toBeDefined();
+    // 保存したまま: 出さない（欄の並びが変わっても同じ中身なら出さない。本体は読み直して欄の並びを変えて書く）
+    expect(unsavedForAi(true, saved, wh.request.input)).toBe(false);
+    expect(unsavedForAi(true, saved, Object.fromEntries(Object.entries(wh.request.input).reverse()))).toBe(false);
+    // 現状の入力を直してまだ保存していない: 出す
+    const edited = { ...wh.request.input, endYear: wh.request.input.endYear + 1 };
+    expect(unsavedForAi(true, saved, edited)).toBe(true);
+    // 共有していない: 出さない
+    expect(unsavedForAi(false, saved, edited)).toBe(false);
+    // 保存すれば（保存した本文が今の入力になれば）出さない
+    expect(unsavedForAi(true, savedInputOf(body({ ...wh, request: { ...wh.request, input: edited } })), edited)).toBe(false);
+    // プランの保存していない変更・表示の設定は世帯の現状の入力に入らない（AIに渡らない）ので、本文が違っても出さない
+    const otherDisplay = bodyOf({ wh, workspace: { template: null, band: [], base: "current", selected: "current", shownItems: ["x"] }, display: { result: { ...DEFAULT_DISPLAY_SETTINGS, atAge: 80 }, balance: DEFAULT_BALANCE_SETTINGS }, carry: EMPTY_CARRY });
+    expect(unsavedForAi(true, savedInputOf(otherDisplay), wh.request.input)).toBe(false);
+    // 保存した本文が分からない・読めない: 出さない
+    expect(savedInputOf(undefined)).toBeUndefined();
+    expect(savedInputOf("{")).toBeUndefined();
+    expect(unsavedForAi(true, undefined, edited)).toBe(false);
   });
 });
 

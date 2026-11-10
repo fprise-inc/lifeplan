@@ -30,7 +30,7 @@ import { AiConnectorPanel } from "./ai/AiConnectorPanel.tsx";
 import { AiShareBand } from "./ai/AiShareBand.tsx";
 import { AiCodeCandidateBand } from "./ai/AiCodeCandidateBand.tsx";
 import { AiSharePanel } from "./ai/AiSharePanel.tsx";
-import { acceptCandidate as acceptAiCandidate, aiMessage, candidatePlanName, candidateRows, candidateValues, shareState, SHARE_STATE_TEXT } from "./ai/model.ts";
+import { acceptCandidate as acceptAiCandidate, aiMessage, candidatePlanName, candidateRows, candidateValues, savedInputOf, shareState, SHARE_STATE_TEXT, unsavedForAi } from "./ai/model.ts";
 import { AI_POLL_MS, useAi } from "./ai/useAi.ts";
 import { DEMO_HOUSEHOLDS, demoHousehold, type DemoHousehold } from "./catalog.ts";
 import { seedDemo } from "./demoSeed.ts";
@@ -1894,6 +1894,11 @@ export function App() {
     [host, ai, say],
   );
   const aiShare = shareState(ai.status, storedInfo !== null ? ai.view : null);
+  // この世帯をAIに渡していて、画面の現状の入力が保存した（AIに渡っている）入力と違うか（共有中の帯の一言。0184 の追記）。
+  // 保存した本文は、保存した・開いたときに覚えている（savedBodies。保存の後は保存の状態が変わるので描き直る）
+  const savedForAi = aiShare === "sharing" && storedInfo !== null ? savedBodies.current.get(storedInfo.id) : undefined;
+  const savedInputForAi = useMemo(() => savedInputOf(savedForAi), [savedForAi]);
+  const aiUnsaved = useMemo(() => unsavedForAi(aiShare === "sharing", savedInputForAi, opened?.wh.request.input), [aiShare, savedInputForAi, opened?.wh.request.input]);
 
   /** ＋ この案を元に作る: 選んでいる案（保存していない変更を含む）を写して新しい案を作り、そのまま選ぶ */
   const duplicate = useCallback(() => {
@@ -2676,7 +2681,7 @@ export function App() {
         onBig={setBig}
         brand={brandOf(look)}
       />
-      <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
+      <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} unsaved={aiUnsaved} paused={presence !== null && storedInfo !== null} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
       <AiCodeCandidateBand count={officeSettingsOpen ? 0 : (ai.status?.featureCodeCandidates ?? 0)} onOpen={() => setOfficeSettingsOpen(true)} />
       {opened !== null && !docsOpen ? (
         <AiDocumentBand
@@ -2866,6 +2871,7 @@ export function App() {
               received={{ update: putWeb, ...(host?.hearingWeb !== undefined ? { host: host.hearingWeb } : {}) }}
               wh={opened.wh}
               onSave={edit}
+              paused={presence !== null && storedInfo !== null}
               calcNotices={currentNotices}
               layout={layoutOf(officeSettings)}
               plans={{
