@@ -111,10 +111,11 @@ describe("プルダウンの説明は画面に出る選択肢の名前で言う"
     expect(help).not.toContain("選ばない");
   });
 
-  it("伸び方: 既定の「物価に合わせる」", () => {
+  it("伸び方: 選択肢の名前で、物価に合わせる行にも変えない行にも合う言い方", () => {
     const w = addIncome(wh0(), "support");
     const help = fieldOf(w, "care", `in/${lastIncome(w).id}/growth`)?.help ?? "";
-    expect(help).toContain("「物価に合わせる」のときは");
+    expect(help).toContain("「物価に合わせる」は");
+    expect(help).toContain("「変えない」は入れた額のまま");
     expect(help).not.toContain("選ばない");
   });
 });
