@@ -19,7 +19,6 @@ import { full, modelHousehold, preview } from "./helpers.ts";
 
 const REPO = join(import.meta.dirname, "..", "..");
 const FIXTURE = join(REPO, "crates", "lifeplan", "tests", "fixtures", "plan", "expected.json");
-const EVERY = join(REPO, "crates", "lifeplan", "tests", "fixtures", "plan", "every-item.json");
 const ALLOWLIST = (JSON.parse(readFileSync(join(REPO, "crates", "ai-share", "data", "reduced-allowlist.json"), "utf8")) as { items: string[] }).items;
 
 interface Listed {
@@ -73,36 +72,6 @@ function both(id: string, moves: Record<string, (now: ItemValue) => ItemValue>) 
     changes.push({ target: l!.target, item: l!.item, value: v });
   }
   return { s, changes, screenRequest: applyValues(s.wh, values, s.cat) };
-}
-
-/** 文字の指紋（FNV-1a 32bit。UTF-8 のバイト列）。接続口のテストが同じ計算で、quickjs-ng の答えと比べる */
-function fnv(text: string): string {
-  let h = 0x811c9dc5;
-  for (const b of new TextEncoder().encode(text)) {
-    h ^= b;
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return h.toString(16).padStart(8, "0");
-}
-
-/**
- * 一覧の項目の今の値から、動かした値を1つ作る（接続口のテストの bump と同じ決まり）。年齢は1歳上（上の端なら下）、金額は1万円足す、
- * 整数は1足す、率は桁を1つ足す（"0.02" → "0.021"。小数点が無ければ ".5"）、入れる・入れないは逆、働き方は年収に10万円足す、
- * 金利の上昇は幅 "0.005"。配分は作らない
- */
-function bump(it: Listed): unknown {
-  const v = it.value as unknown;
-  if (it.kind === "age" && typeof v === "number") return v + 1 <= (it.max ?? v + 1) ? v + 1 : v - 1;
-  if (it.kind === "amount" && typeof v === "number") return v + 10000;
-  if (it.kind === "int" && typeof v === "number") return it.max !== undefined && v + 1 > it.max ? v - 1 : v + 1;
-  if ((it.kind === "rate" || it.kind === "decimal") && typeof v === "string") return v.includes(".") ? `${v}1` : `${v}.5`;
-  if (it.kind === "toggle" && typeof v === "boolean") return !v;
-  if (it.kind === "work" && typeof v === "object" && v !== null && "annual" in v) {
-    const w = v as { type: string; annual: number };
-    return { type: w.type, annual: w.annual + 100000 };
-  }
-  if (it.kind === "rateShift" && typeof v === "object" && v !== null && "from" in v) return { add: "0.005", from: (v as { from: string }).from };
-  return undefined;
 }
 
 /** 接続口の calculate の summary の years と同じ物（年ごとの年間収支と金融資産） */
@@ -226,33 +195,6 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
     );
     expect(rows.map((r) => r.key)).toEqual(["lever:retireAge", null, "lever:pensionAge"]);
     expect(rows[1]!.reason).toContain("範囲");
-  });
-
-  it("どの見本の世帯のどの項目を動かしても、接続口のテストが quickjs-ng で同じ答えを作れるように、答えの指紋を見本に書く", () => {
-    const dir = join(REPO, "data", "modelHouseholds");
-    const ids = readdirSync(dir).filter((f) => f.endsWith(".json")).map((f) => f.slice(0, -5)).sort();
-    const households: Record<string, { list: string; applied: string[] }> = {};
-    let n = 0;
-    for (const id of ids) {
-      const req = modelHousehold(id);
-      const listText = listPlanItems(JSON.stringify(req), JSON.stringify({ sampleId: id, fields: true }), "null");
-      const applied: string[] = [];
-      for (const it of (JSON.parse(listText) as { items: Listed[] }).items) {
-        const value = bump(it);
-        if (value === undefined) continue;
-        const out = applyPlan(JSON.stringify(req), JSON.stringify([{ target: it.target, item: it.item, value }]), JSON.stringify({ args: { sampleId: id }, office: null }));
-        applied.push(fnv(out));
-        n += 1;
-      }
-      households[id] = { list: fnv(listText), applied };
-    }
-    expect(n).toBeGreaterThan(1000);
-    const text = `${JSON.stringify({ note: "app/test/connector-plan.test.ts が作る。答えの指紋（FNV-1a 32bit）", households })}\n`;
-    if (process.env.LIFEPLAN_UPDATE_FIXTURES !== undefined) {
-      mkdirSync(dirname(EVERY), { recursive: true });
-      writeFileSync(EVERY, text);
-    }
-    expect(readFileSync(EVERY, "utf8"), "プランの動かす項目の答えが変わりました。LIFEPLAN_UPDATE_FIXTURES=1 で見本を作り直し、接続口のテスト（cargo test -p lifeplan）も流してください").toBe(text);
   });
 
   it("接続口のテストの見本（変更と画面の数字・根拠）が今の答えと同じ", () => {

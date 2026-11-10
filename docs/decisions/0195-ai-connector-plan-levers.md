@@ -60,12 +60,12 @@
   - 見本の世帯 54 件のどれでも、一覧の項目を今の値のまま当てはめると同じ項目に当たり「今と同じ値」で要求が変わらないこと、入力項目が縮約版で AI に渡る項目（許可リスト）であること。
   - 決まった変更（働く最後の年齢・年金の受け取り開始と生活費と NISA・配偶者の働き方と繰上返済と金利の上昇・入力の欄から作った項目・FP顧問料・定年後の働き方のある見本の働く最後の年齢）で、`applyPlan` の要求が、画面でつまみを動かしたとき（結果のタブの動かした値 → `applyValues`）と同じこと。働く最後の年齢で、生活費の段階と積立の終わりも動くこと。
   - 当てはまらない変更（範囲の外・値の形・知らない対象・動かせない入力項目）で何も当てないこと、画面の「AIからの候補」も対策の固定の項目に当たり範囲の外を取り込まないこと。
-  - 見本: 決まった変更の画面の数字（年ごとの年間収支・金融資産と合計）と根拠（1つのマス）を `crates/lifeplan/tests/fixtures/plan/expected.json` に、見本の世帯 54 件の全部の項目を1つずつ動かした答え（約 2,000 件）の指紋を `every-item.json` に書く（`LIFEPLAN_UPDATE_FIXTURES=1` で作り直す）。
+  - 見本: 決まった変更の画面の数字（年ごとの年間収支・金融資産と合計）と根拠（1つのマス）を `crates/lifeplan/tests/fixtures/plan/expected.json` に書く（`LIFEPLAN_UPDATE_FIXTURES=1` で作り直す）。
 - 組み込みの代わり（`app/test/connector-plan-intro.test.ts`）: Node の組み込み（Intl を含む）と同じ答えを返すこと。
 - 接続口の側（`crates/lifeplan/tests/mcp_connector.rs`）:
   - `plan_changes_match_the_screen`: 本物の接続口に MCP で `calculate`・`explain_value` を `plan_changes` つきで呼び、見本の画面の数字・根拠と同じこと。一覧の対象・入力項目ID、範囲の外の理由、JSON Pointer の `changes` が今までどおり動き一緒にも使えること。
   - `plan_items_for_a_shared_household`: 渡された世帯の一覧の対象が共有の仮の ID で、その書き方の計算が同じ入力と同じ数字、`propose_scenario` に渡すと元の ID に戻ること、記録に `list_plan_items` が残ること、取り消した共有では使えないこと。
-  - `every_plan_item_matches_node`: 同梱した `plan.js` を接続口と同じ固めた実行環境で動かし、54 件の全部の項目の一覧と当てた答えが Node の指紋と1文字も違わないこと。
+  - `every_plan_item_matches_node`: 同梱した `plan.js` を接続口と同じ固めた実行環境（quickjs-ng）で動かし、見本の世帯 54 件の一覧と、全部の項目を1つずつ動かして当てた答え（約 1,400 件）が、同じ JS を Node で動かした答えと1文字も違わないこと（並べ替え・正規表現・数の文字などの実行環境の違いで答えが変わらない）。見本のファイルを持たないので、画面の欄の名前を直しても作り直しは要らない。Node が要る（CI の host にもある）。
 - 道具の入力の形の見本（`fixtures/tools/list_plan_items.input-schema.json`・`explain_value.input-schema.json`）。
 
 ### 7. ビルドと CI
@@ -88,7 +88,7 @@
 
 ## 影響
 
-- 新しいファイル: `app/src/connector/plan.ts`・`app/src/workspace/plans/candidates.ts`・`crates/lifeplan/src/plan.rs`・`app/test/connector-plan.test.ts`・`app/test/connector-plan-intro.test.ts`・`crates/lifeplan/tests/fixtures/plan/{expected.json,every-item.json}`・`crates/lifeplan/tests/fixtures/tools/list_plan_items.input-schema.json`。
+- 新しいファイル: `app/src/connector/plan.ts`・`app/src/workspace/plans/candidates.ts`・`crates/lifeplan/src/plan.rs`・`app/test/connector-plan.test.ts`・`app/test/connector-plan-intro.test.ts`・`crates/lifeplan/tests/fixtures/plan/expected.json`・`crates/lifeplan/tests/fixtures/tools/list_plan_items.input-schema.json`。
 - 直したファイル: `app/src/workspace/ai/model.ts`（候補の当てはめを移した）・`app/scripts/build-explain.ts`・`app/eslint.config.js`・`crates/lifeplan/{build.rs,src/engine.rs,src/server.rs,src/main.rs}`・`.github/workflows/ci.yml`・テスト・`docs/ai-connector.md`。
 - 画面の「AIからの候補」: 対策の固定の項目の候補をプランにできるようになった。同じ入力項目ID・向き先の入力の欄（本人の今の勤め先の終わりの年齢など）を指していた候補は、対策の項目に当たるようになった（候補は承認待ちのメモリの中だけで、世帯ファイルには入っていない）。
 - 計算の結果・エンジン・制度データ・世帯ファイルの形式・縮約版の許可リスト・AIに渡した記録の形・`propose_scenario` の取り決めは変えない。部品の `revision` も上げない。`plan_changes` を使わない計算の答えは今までと同じ。

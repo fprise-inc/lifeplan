@@ -1626,17 +1626,8 @@ async fn plan_items_for_a_shared_household() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// 文字の指紋（FNV-1a 32bit。UTF-8 のバイト列）。app/test/connector-plan.test.ts と同じ
-fn fnv(text: &str) -> String {
-    let mut h: u32 = 0x811c_9dc5;
-    for b in text.as_bytes() {
-        h ^= u32::from(*b);
-        h = h.wrapping_mul(0x0100_0193);
-    }
-    format!("{h:08x}")
-}
-
-/// 一覧の項目の今の値から、動かした値を1つ作る（app/test/connector-plan.test.ts の bump と同じ決まり）
+/// 一覧の項目の今の値から、動かした値を1つ作る: 年齢は1歳上（上の端なら下）、金額は1万円足す、整数は1足す（上の端なら引く）、率は桁を1つ足す
+/// （"0.02" → "0.021"。小数点が無ければ ".5"）、入れる・入れないは逆、働き方は年収に10万円足す、金利の上昇は幅 "0.005"。配分は作らない
 fn bump(it: &Value) -> Option<Value> {
     let v = &it["value"];
     match it["kind"].as_str()? {
@@ -1670,40 +1661,45 @@ fn bump(it: &Value) -> Option<Value> {
     }
 }
 
+/// Node で同じ JS を動かす小さな道具（標準入力の [[関数の名前, 引数1, 引数2, 引数3], …] を呼び、答えの並びを JSON で返す）
+const NODE_PLAN: &str = r#"
+const fs = require("node:fs");
+const vm = require("node:vm");
+const ctx = {};
+vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(process.argv[1], "utf8"), ctx);
+const calls = JSON.parse(fs.readFileSync(0, "utf8"));
+process.stdout.write(JSON.stringify(calls.map(([f, a, b, c]) => ctx.FinanciaPlan[f](a, b, c))));
+"#;
+
 /// プランの動かす項目（0195）を、どの見本の世帯のどの項目でも: 同梱した JS（crates/lifeplan/dist/plan.js）を接続口と同じ固めた実行環境
-/// （quickjs-ng。画面の部品が使う組み込みの代わりを JS の頭に置く）で動かした一覧と当てた答えが、Node で動かした画面の関数の答え
-/// （app/test/connector-plan.test.ts が書く指紋）と1文字も違わない
+/// （quickjs-ng。画面の部品が使う組み込みの代わりを JS の頭に置く）で動かした一覧と、全部の項目を1つずつ動かして当てた答えが、
+/// 同じ JS を Node（V8）で動かした答えと1文字も違わない（並べ替え・正規表現・数の文字などの実行環境の違いで答えが変わらない）。
+/// 画面の関数そのもの（TypeScript）と同じ答えになることは app/test/connector-plan.test.ts が、組み込みの代わりが Node の組み込みと同じ答えに
+/// なることは app/test/connector-plan-intro.test.ts が確かめる。Node が要る（CI の host にもある）
 #[test]
 fn every_plan_item_matches_node() {
     use engine_host::{Limits, Sandbox};
-    let fx: Value = serde_json::from_str(
-        &std::fs::read_to_string(
-            repo().join("crates/lifeplan/tests/fixtures/plan/every-item.json"),
-        )
-        .unwrap(),
-    )
-    .unwrap();
-    let js = std::fs::read_to_string(repo().join("crates/lifeplan/dist/plan.js")).unwrap();
-    let households = fx["households"].as_object().unwrap();
-    assert_eq!(households.len(), model_ids().len());
-    for (id, want) in households {
+    use std::io::Write as _;
+    let plan_js = repo().join("crates/lifeplan/dist/plan.js");
+    let js = std::fs::read_to_string(&plan_js).unwrap();
+    let mut calls: Vec<Value> = Vec::new();
+    let mut got: Vec<String> = Vec::new();
+    for id in model_ids() {
+        // ファイルの文字のまま渡す（JS が読むと、どちらの実行環境でも同じ並びの物になる）
         let req = std::fs::read_to_string(repo().join(format!("data/modelHouseholds/{id}.json")))
             .unwrap();
-        // ファイルの文字のまま渡す（JS が読むと、Node で読んだときと同じ並びの物になる。serde_json は鍵を並べ替える）
         let sb = Sandbox::new(&Limits::DEFAULT).unwrap();
         sb.eval_script(&js).unwrap();
         let args = json!({ "sampleId": id, "fields": true }).to_string();
         let list = sb
             .call_function("FinanciaPlan", "listPlanItems", (&req, &args, "null"))
             .unwrap();
-        assert_eq!(
-            fnv(&list),
-            want["list"],
-            "{id}: 動かせる項目の一覧が Node と違います: {list}"
-        );
+        calls.push(json!(["listPlanItems", req, args, "null"]));
+        got.push(list.clone());
         let list: Value = serde_json::from_str(&list).unwrap();
+        assert_eq!(list["status"], "ok", "{id}");
         let ctx = json!({ "args": { "sampleId": id }, "office": null }).to_string();
-        let mut got = Vec::new();
         for it in list["items"].as_array().unwrap() {
             let Some(value) = bump(it) else { continue };
             let changes =
@@ -1711,12 +1707,34 @@ fn every_plan_item_matches_node() {
             let out = sb
                 .call_function("FinanciaPlan", "applyPlan", (&req, &changes, &ctx))
                 .unwrap_or_else(|e| panic!("{id} {}: {e:?}", it["label"]));
-            got.push(Value::String(fnv(&out)));
+            calls.push(json!(["applyPlan", req, changes, ctx]));
+            got.push(out);
         }
+    }
+    assert!(got.len() > 1000, "{}", got.len());
+    let mut node = std::process::Command::new("node")
+        .arg("-e")
+        .arg(NODE_PLAN)
+        .arg(&plan_js)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("Node が要ります（node を PATH に置いてください）");
+    let input = serde_json::to_vec(&calls).unwrap();
+    let mut stdin = node.stdin.take().unwrap();
+    let writer = std::thread::spawn(move || stdin.write_all(&input));
+    let out = node.wait_with_output().unwrap();
+    writer.join().unwrap().unwrap();
+    assert!(out.status.success(), "Node で動かせませんでした");
+    let want: Vec<String> = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(want.len(), got.len());
+    for (i, (g, w)) in got.iter().zip(&want).enumerate() {
         assert_eq!(
-            Value::Array(got),
-            want["applied"],
-            "{id}: プランを当てた答えが Node と違います"
+            g,
+            w,
+            "{}件目（{}）: quickjs-ng と Node で答えが違います",
+            i + 1,
+            calls[i][0]
         );
     }
 }
