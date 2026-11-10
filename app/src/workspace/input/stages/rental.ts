@@ -819,7 +819,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       plain({ key: `${kp}/structure`, item: "account.property", label: "建物の構造", level: "simple", kind: "select", options: BUILDING_STRUCTURES, find: findP, path: ["structure"], optional: true, fallback: "wood", help: "評価額の建物の部分を耐用年数（木造22年・軽量鉄骨19年・重量鉄骨34年・鉄筋コンクリート47年）で減らします。減価償却の耐用年数にも使います" }),
       onAccount(a.id, "account.property", ["structure"]),
     ),
-    presetBasis("入れなければ木造で計算します"),
+    presetBasis("既定の「木造」で計算します（構造が分かれば選び直します）"),
     a.id,
     ["structure"],
   );
@@ -1218,7 +1218,7 @@ function lodgingSalesFields(wh: WorkingHousehold, a: Account): FieldDef[] {
       options: LODGING_INCOME_KINDS,
       optional: true,
       fallback: l.business === "inn" ? "business" : "miscellaneous",
-      help: `入れなければ営業の形から、住宅宿泊事業・特区民泊は雑所得、旅館業は事業所得とします（国税庁の住宅宿泊事業の所得の扱い）。雑所得の赤字は給与などほかの所得から引けません。事業所得の赤字は引け、青色申告特別控除も使えます。賃貸の合間に一時的に貸すときは不動産所得にできます。${LODGING_NOTE}`,
+      help: `最初は営業の形から、住宅宿泊事業・特区民泊は「雑所得」、旅館業は「事業所得」になっています（国税庁の住宅宿泊事業の所得の扱い）。雑所得の赤字は給与などほかの所得から引けません。事業所得の赤字は引け、青色申告特別控除も使えます。賃貸の合間に一時的に貸すときは不動産所得にできます。${LODGING_NOTE}`,
     }),
   ];
   if (l.salesBy === "night") {
