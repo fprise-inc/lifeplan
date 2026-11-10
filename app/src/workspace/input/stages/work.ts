@@ -1244,7 +1244,7 @@ function smrField(wh: WorkingHousehold, find: Finder, prefix: string, kind: SmrK
           return { value, estimated: boxBasis(b) ?? (b.state === "unknown" ? "書類待ち（代わりの値）" : null) };
         }
         const v = blank(x);
-        return v === null ? { value: null } : { value: null, estimated: SMR_BLANK_BASIS, hint: `今の年収なら月 ${v.toLocaleString("ja-JP")}円（推定）` };
+        return v === null ? { value: null } : { value: null, estimated: SMR_BLANK_BASIS, hint: `今の年収なら月 ${v.toLocaleString("ja-JP")}円（推定）`, blankHint: "今の年収から等級表で（毎年9月に決め直す）" };
       },
       set: (w, v) => put(w, v === null ? undefined : { value: Number(v), state: "confirmed", origin: { kind: "manual" } }),
       // 空欄のときだけ、目安を「この値にする」で書ける。「書類で確かめる」は出さない（分からなければ空欄のまま給与から計算するのが正しい。代わりの値を

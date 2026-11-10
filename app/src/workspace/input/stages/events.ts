@@ -64,16 +64,22 @@ export function carePayerLine(wh: WorkingHousehold, c: CareExpense): string {
   return wallet !== undefined ? `この費用は、まず${who}のお金から払い、尽きた月から世帯が払います` : `この費用は世帯が払います。${who}のお金を入れると、まず${who}のお金から払います`;
 }
 
-/** 空欄のとき、エンジンが使う統計の平均を推定として見せる（印「推定」・根拠・「この値にする」で書ける。0041） */
-function careEstimateField(f: FieldDef, value: (wh: WorkingHousehold) => number | null, basis: string, hint: (v: number) => string): FieldDef {
-  const est = (wh: WorkingHousehold): number | null => (fillsByEstimate("care") ? value(wh) : null);
+/**
+ * 空欄のとき、エンジンが使う統計の平均を推定として見せる（欄の中に灰色の値・印「推定」・根拠・「この値にする」で書ける。0041）。
+ * 欄の横は根拠の短い文（short。灰色の値を見せられないときは hint の「月5.2万円（推定）」）。入れた値は「推定に戻す」で空欄（推定）に戻せる
+ * （推定で埋めない事務所では、空欄は0円・0か月なので出さない）
+ */
+function careEstimateField(f: FieldDef, value: (wh: WorkingHousehold) => number | null, basis: string, short: string, hint: (v: number) => string): FieldDef {
+  const fills = fillsByEstimate("care");
+  const est = (wh: WorkingHousehold): number | null => (fills ? value(wh) : null);
   return {
     ...f,
+    ...(fills ? { blankIsEstimate: true } : {}),
     get: (wh) => {
       const st = f.get(wh);
       if (st.value !== null) return st;
       const v = est(wh);
-      return v === null ? st : { ...st, estimated: basis, hint: hint(v) };
+      return v === null ? st : { ...st, estimated: basis, hint: hint(v), blankHint: short };
     },
     blankEstimate: (wh) => (f.get(wh).value === null ? est(wh) : null),
   };
@@ -105,7 +111,8 @@ function withDeathCut(f: FieldDef, careId: string): FieldDef {
       const cut = c === undefined ? null : careDeathCut(wh, c);
       if (cut === null) return st;
       const line = cut.months > 0 ? `亡くなる見込みで止まり、${formatYearMonth(cut.last)}まで（費用は${cut.months}か月分）` : "亡くなる見込みの後に始まるため、費用は出ません";
-      return { ...st, hint: st.hint != null ? `${st.hint}。${line}` : line };
+      const join = (x: string | null | undefined) => (x != null && x !== "" ? `${x}。${line}` : line);
+      return { ...st, hint: join(st.hint), ...(st.blankHint !== undefined ? { blankHint: join(st.blankHint) } : {}) };
     },
   };
 }
@@ -125,7 +132,10 @@ export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
     const x = cur(w);
     return x === undefined ? null : careEstimate(x.place === "facility" ? "facility" : "home");
   };
-  const basis = careEstimate(c.place === "facility" ? "facility" : "home")?.basis ?? "統計の平均";
+  const stat = careEstimate(c.place === "facility" ? "facility" : "home");
+  const basis = stat?.basis ?? "統計の平均";
+  // 欄の中に灰色の推定の値を見せたときの、欄の横の根拠の短い文（全部の根拠は「推定」の印を押すと開く）
+  const short = stat?.office === true ? "事務所の推定の値" : "統計の平均（生命保険文化センターの調査）";
   // 介護保険のサービスの額（10割）を入れたら、月々の費用は保険の対象外の分（食費・居住費など）として足す（care.expense。合計ではない）
   const service = c.serviceMonthly?.value !== undefined && c.serviceMonthly.value !== null;
   const other = careEstimateField(
@@ -147,6 +157,7 @@ export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
       return x?.serviceMonthly?.value !== undefined && x.serviceMonthly.value !== null ? null : (statOf(w)?.monthly ?? null);
     },
     `推定（${basis}）`,
+    short,
     (v) => `月${manYen(v)}（推定）`,
   );
   const fields: FieldDef[] = [
@@ -157,6 +168,7 @@ export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
         plain({ key: `${k}/months`, item: "care.months", label: "期間", level: "detail", kind: "int", suffix: "か月", min: 1, max: 600, find, path: ["months"], optional: true, help: "介護を受ける人の亡くなる見込みが期間の途中なら、その月からは費用を出しません" }),
         (w) => statOf(w)?.months ?? null,
         `推定（${basis}）`,
+        short,
         (v) => `${String(v)}か月（推定）`,
       ),
       c.id,
@@ -168,6 +180,7 @@ export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
       yenBox({ key: `${k}/initial`, item: "care.initial", label: "一時費用", level: "detail", basis: "once", find, path: ["initial"], optional: true, help: "住宅の改修・入居金など。推定は統計の平均（一時費用の平均）です" }),
       (w) => statOf(w)?.initial ?? null,
       `推定（${basis}）`,
+      short,
       (v) => `${manYen(v)}（推定）`,
     ),
     plain({ key: `${k}/payer`, item: "care.payer", label: "払う人", level: "detail", kind: "select", options: carePayerOptions(wh, c), find, path: ["payer"], optional: true, fallback: "", help: "介護を受ける人が世帯の外の家族で、その人のお金を見ているときは、まずその人のお金から払い、尽きた月から世帯が払います（世帯の中ではここで選んだ人の支出にします）" }),

@@ -502,16 +502,19 @@ function careTitle(wh: WorkingHousehold, c: CareExpense): string {
   return `${memberLabel(wh, c.member)}の介護`;
 }
 
-/** 介護の物の見出しの下の1行（「在宅・2031年4月から55か月・月5.2万円（推定）」）。入れていない月額・期間は統計の平均の推定 */
+/**
+ * 介護の物の見出しの下の1行（「在宅・2031年4月から55か月（推定）・月5.2万円（推定）」）。入れていない月額・期間は統計の平均の推定で、
+ * 推定の物のすぐ後ろに「（推定）」（期間と月額のどちらが推定か分かるように。0041 の追記 2026-11-10）
+ */
 export function careSpan(wh: WorkingHousehold, c: CareExpense): string {
   const h = wh.request.input.household;
   const from = resolveTimepoint(h, c.from);
   const est = careEstimate(placeOf(c));
   const months = c.months ?? est?.months;
+  const monthsEst = c.months === undefined && est !== null ? "（推定）" : "";
   const monthly = c.otherMonthly?.value ?? null;
-  const money = monthly !== null ? `月${manYen(monthly)}` : est !== null ? `月${manYen(est.monthly)}` : "";
-  // 月額・期間のどちらかが入っていなければ、行の最後に1回「（推定）」
-  const estimated = (monthly === null && c.serviceMonthly === undefined && est !== null) || (c.months === undefined && est !== null);
+  const moneyEst = monthly === null && c.serviceMonthly === undefined && est !== null;
+  const money = monthly !== null ? `月${manYen(monthly)}` : est !== null ? `月${manYen(est.monthly)}${moneyEst ? "（推定）" : ""}` : "";
   // 介護を受ける人の亡くなる見込みが期間の途中なら、その前の月まで（care.expense はその月から出さない）
   const gone = resolveTimepoint(h, h.members.find((m) => m.id === c.member)?.leaves ?? null);
   const last = from !== null && months !== undefined ? addMonths(from, months - 1) : null;
@@ -521,9 +524,8 @@ export function careSpan(wh: WorkingHousehold, c: CareExpense): string {
       ? gone > from
         ? `${start}${formatYearMonth(addMonths(gone, -1))}まで（亡くなる見込みまで）`
         : "亡くなる見込みの後のため0円"
-      : `${start}${months !== undefined ? `${String(months)}か月` : ""}`;
-  const line = [c.place === "facility" ? "施設" : "在宅", span, money].filter((x) => x !== "").join("・");
-  return estimated ? `${line}（推定）` : line;
+      : `${start}${months !== undefined ? `${String(months)}か月${monthsEst}` : ""}`;
+  return [c.place === "facility" ? "施設" : "在宅", span, money].filter((x) => x !== "").join("・");
 }
 
 function shiftAge(t: Timepoint, months: number): Timepoint {
