@@ -604,14 +604,15 @@ export function lifeExpectancy(age: number, sex: string | undefined): Estimate |
 }
 
 /** 介護の費用の統計の目安（期間・月額・一時費用）。生命保険文化センター「生命保険に関する全国実態調査」 */
-export function careEstimate(place: "home" | "facility"): { months: number; monthly: number; initial: number; basis: string } | null {
+export function careEstimate(place: "home" | "facility"): { months: number; monthly: number; initial: number; basis: string; office: boolean } | null {
   const months = masterAmount("care.statistics.months");
   const monthly = masterAmount(place === "facility" ? "care.statistics.monthlyFacility" : "care.statistics.monthlyHome");
   const initial = masterAmount("care.statistics.initial");
   if (months === null || monthly === null || initial === null) return null;
   const ids = ["care.statistics.months", place === "facility" ? "care.statistics.monthlyFacility" : "care.statistics.monthlyHome", "care.statistics.initial"];
   const pending = ids.some((id) => pendingOf(id) !== "") ? PENDING : "";
-  return { months, monthly, initial, basis: officeBasisOf(...ids) ?? `生命保険文化センター「生命保険に関する全国実態調査」2024年度の平均（${place === "facility" ? "施設" : "在宅"}）${pending}` };
+  const office = officeBasisOf(...ids);
+  return { months, monthly, initial, office: office !== null, basis: office ?? `生命保険文化センター「生命保険に関する全国実態調査」2024年度の平均（${place === "facility" ? "施設" : "在宅"}）${pending}` };
 }
 
 /** 親の扶養の境目（目安）。age はその年の年齢、date はその日（制度の値を選ぶ） */

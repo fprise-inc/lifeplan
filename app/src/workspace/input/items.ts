@@ -339,10 +339,15 @@ function careMonthly(c: CareExpense): number {
   return Math.round((service ?? 0) * CARE_SERVICE_COPAY_FOR_SUMMARY) + (other ?? 0);
 }
 
-/** 介護の費用1件の総額（名目）。期間を入れていなければ null（要約は月の額にする）。はじめの費用が空なら、計算と同じ統計の平均の推定 */
+/**
+ * 介護の費用1件の総額（名目）。期間・はじめの費用が空なら、計算と同じ統計の平均の推定（期間の推定が無ければ null。要約は月の額にする。
+ * 前は期間が空なら null だった。介護の目安の物の期間を空欄＝推定にしたので、推定の期間で数える。0041 の追記 2026-11-10）
+ */
 function careTotal(c: CareExpense): number | null {
-  if (c.months === undefined) return null;
-  return careMonthly(c) * c.months + (c.initial?.value ?? careEstimate(c.place === "facility" ? "facility" : "home")?.initial ?? 0);
+  const est = careEstimate(c.place === "facility" ? "facility" : "home");
+  const months = c.months ?? est?.months;
+  if (months === undefined) return null;
+  return careMonthly(c) * months + (c.initial?.value ?? est?.initial ?? 0);
 }
 
 /**

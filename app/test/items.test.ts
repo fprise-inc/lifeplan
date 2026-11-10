@@ -748,10 +748,11 @@ describe("要約の数字1つ", () => {
     expect(sumText(byId(inputItems(open("unexplainedSpending")), "car"))).toBe("1台・維持費 年18.6万円");
     const care = inputItems(open("parentCare"));
     expect(sumText(byId(care, "family"))).toBe("1人（＋親1）");
-    // 介護の費用の額（期間を入れていない介護があるときは月の額）と介護を受ける人・親の人数（0041 の追記 2026-11-06）
+    // 介護の費用の総額と介護を受ける人・親の人数（0041 の追記 2026-11-06）
     // 介護保険のサービスの額（10割の25万円）は1割負担として、月々の費用11万円と足す。額の入っていないご本人の介護は統計の平均の推定（在宅 月5.2万円）（0143。
-    // 前はサービスの額を10割のまま足し、空の介護は0円で数えていた）
-    expect(sumText(byId(care, "care"))).toBe("介護 月18.7万円（母・ご本人）・親 1人");
+    // 前はサービスの額を10割のまま足し、空の介護は0円で数えていた）。期間を入れていない介護は統計の平均の期間で数える（前は総額の代わりに月の額。
+    // 介護の目安の物の期間を空欄＝推定にしたため。0041 の追記 2026-11-10）
+    expect(sumText(byId(care, "care"))).toBe("介護 約1,173万円（母・ご本人）・親 1人");
     expect(sumText(byId(inputItems(open("housingGiftFromParents")), "inheritance"))).toBe("2件の援助");
     // 相続税の目安は要約にしない。入れた中身があるときだけ、下の小さな1行にする（0060 の 2026-10-29 の追記）
     const gift = byId(inputItems(open("housingGiftFromParents"), { inheritanceTax: "相続税: かからない見込み" }), "inheritance");

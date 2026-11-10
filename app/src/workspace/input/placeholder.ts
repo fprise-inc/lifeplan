@@ -56,3 +56,21 @@ export function fittingPlaceholder(cls: string, ...candidates: readonly (string 
 export function blankLineFor(cls: string, blankMeans: string): string | null {
   return fitsIn(cls, `空欄＝${blankMeans}`) ? null : `空欄なら: ${blankMeans}`;
 }
+
+/** 推定の根拠の短い文を、そのまま欄の横に出せる長さ（em） */
+const SHORT_BASIS_ROOM = 12;
+
+/**
+ * 空欄の推定の値を欄の中に灰色で見せるときの、欄の横の根拠の短い文（0041 の追記 2026-11-10）。全部の根拠は「推定」の印を押すと開く。
+ * - 調査の名前（「…」）のある根拠は「統計の平均（○○の調査）」（○○は調査をした所。例: 生命保険文化センター・文部科学省）
+ * - 「統計の平均」で始まる根拠は「統計の平均」
+ * - 短い根拠（12em まで。「退職の年（60歳）」など）はそのまま
+ * - ほかは出さない（null）
+ */
+export function shortBasis(basis: string | null | undefined): string | null {
+  if (basis === null || basis === undefined || basis === "") return null;
+  const org = /([^\s「」（）()。、，,:：]+)「[^」]*」/.exec(basis)?.[1];
+  if (org !== undefined) return `統計の平均（${org}の調査）`;
+  if (basis.startsWith("統計の平均")) return "統計の平均";
+  return textEm(basis) <= SHORT_BASIS_ROOM ? basis : null;
+}
