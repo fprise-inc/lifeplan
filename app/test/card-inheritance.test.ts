@@ -10,7 +10,7 @@ import { CAUTION_TEXT, inheritanceRequest, inheritanceView, legacyLine, NOT_INCL
 import { addMember } from "../src/workspace/input/stages/family.ts";
 import { addOutside } from "../src/workspace/input/stages/care.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
-import { INHERIT_AFTER_MONTHS } from "../src/workspace/input/stages/inheritance.ts";
+import { INHERIT_AFTER_MONTHS, INHERIT_PENDING_BASIS } from "../src/workspace/input/stages/inheritance.ts";
 import { fieldAddress, fieldStatus } from "../src/workspace/input/valueState.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { planView, recordPlanEdit } from "../src/workspace/plans/planEdit.ts";
@@ -53,6 +53,44 @@ describe("相続・贈与のカード: 受け取る予定（区画A）", () => {
     expect(fieldStatus(fieldOf(wh, `in/${f.id}/amount`), wh).status).toBe("missing");
     // 見込みは簡易（札）
     expect(fieldOf(wh, `in/${f.id}/likelihood`).level).toBe("simple");
+  });
+
+  it("相手が「なし」のまま足した相続の行も、後から相手を選ぶと、受け取る時期を相手の亡くなる見込みの10か月後で入れる", () => {
+    const w0 = blankHousehold(BASE, seq());
+    const w1 = actionOf(w0, "money/inherit/in/add/inheritance").run(w0);
+    const id = w1.request.input.household.incomeFlows![0]!.id;
+    expect(w1.request.input.household.incomeFlows![0]!.counterparty).toBeUndefined();
+    expect(w1.assumed[`in/${id}/from`]).toBe(INHERIT_PENDING_BASIS);
+    const w2 = addOutside(w1, "parent");
+    const parent = w2.request.input.household.members.find((m) => m.kind === "parent")!;
+    const wh = fieldOf(w2, `in/${id}/counterparty`).set(w2, parent.id);
+    const h = wh.request.input.household;
+    const f = h.incomeFlows![0]!;
+    const death = resolveTimepoint(h, parent.leaves!)!;
+    const at = resolveTimepoint(h, f.from)!;
+    expect((Number(at.slice(0, 4)) - Number(death.slice(0, 4))) * 12 + (Number(at.slice(5)) - Number(death.slice(5)))).toBe(INHERIT_AFTER_MONTHS);
+    expect(f.to).toEqual(f.from);
+    expect(fieldStatus(fieldOf(wh, `in/${id}/from`), wh).status).toBe("estimated");
+  });
+
+  it("相手が「なし」のまま足した相続の行でも、FP が時期を入れた後に相手を選んだら時期は動かさない", () => {
+    const w0 = blankHousehold(BASE, seq());
+    const w1 = actionOf(w0, "money/inherit/in/add/inheritance").run(w0);
+    const id = w1.request.input.household.incomeFlows![0]!.id;
+    const fixed = fieldOf(w1, `in/${id}/from`).set(w1, "2040-01");
+    expect(fixed.assumed[`in/${id}/from`]).toBeUndefined();
+    const w2 = addOutside(fixed, "parent");
+    const parent = w2.request.input.household.members.find((m) => m.kind === "parent")!;
+    const wh = fieldOf(w2, `in/${id}/counterparty`).set(w2, parent.id);
+    const f = wh.request.input.household.incomeFlows![0]!;
+    expect(f.counterparty).toBe(parent.id);
+    expect(f.from).toEqual(fixed.request.input.household.incomeFlows![0]!.from);
+  });
+
+  it("贈与を受ける行は相手が「なし」でも時期に仮の印を付けない（相手の亡くなる見込みで時期を決めない）", () => {
+    const w0 = blankHousehold(BASE, seq());
+    const wh = actionOf(w0, "money/inherit/in/add/giftReceived").run(w0);
+    expect(wh.assumed[`in/${wh.request.input.household.incomeFlows![0]!.id}/from`]).toBeUndefined();
   });
 
   it("「不確か」の行は基本の計算に入れず、「この行を計算に入れる」の1押しで入れる（プランでは差分になる）", () => {
