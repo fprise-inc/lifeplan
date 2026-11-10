@@ -1152,6 +1152,227 @@ async fn explain_value_matches_the_screen() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// 計算の答えの主な数字と年齢（0194）: 見本の世帯で、画面の「プランを比べる」の数え方と表の年齢の行の関数（app/test/connector-summary.test.ts が作る見本）と
+/// 同じ keyFigures・members・年ごとの ages を、quickjs-ng で動かした接続口が返す。答えの大きさの選択（every_years・fields・omit）と、
+/// 落ちていた必要保障額・相続税の目安。今までの項目は変わらない
+#[tokio::test(flavor = "multi_thread")]
+async fn calculate_key_figures_match_the_screen() {
+    let dir = temp_dir("calc-summary");
+    let (c, _) = connect(&dir).await;
+    let p = repo().join("crates/lifeplan/tests/fixtures/calc-summary/expected.json");
+    let cases: Vec<Value> = serde_json::from_str(&std::fs::read_to_string(p).unwrap()).unwrap();
+    assert!(cases.len() >= 5);
+    for case in &cases {
+        let name = case["name"].as_str().unwrap();
+        let mut args = json!({ "sample_household_id": case["sample"] });
+        if let Some(v) = case.get("changes") {
+            args["changes"] = v.clone();
+        }
+        if let Some(v) = case.get("atAges") {
+            args["at_ages"] = v.clone();
+        }
+        let got = call_ok(&c, "calculate", args.clone()).await;
+        let want = &case["expected"];
+        assert_eq!(
+            got["keyFigures"], want["keyFigures"],
+            "{name}: 画面の主な数字と違います"
+        );
+        assert_eq!(got["members"], want["members"], "{name}");
+        let years = got["years"].as_array().unwrap();
+        assert!(!years.is_empty());
+        for y in years {
+            let year = y["year"].as_i64().unwrap().to_string();
+            assert_eq!(
+                y["ages"], want["ages"][&year],
+                "{name} {year}: 画面の表の年齢と違います"
+            );
+        }
+        // table の形でも同じ年齢と主な数字
+        args["output"] = json!("table");
+        args["rows"] = json!(["cf.balance.financial"]);
+        let t = call_ok(&c, "calculate", args).await;
+        assert_eq!(t["keyFigures"], want["keyFigures"], "{name}");
+        for a in t["ages"].as_array().unwrap() {
+            let year = a["year"].as_i64().unwrap().to_string();
+            let mut a = a.clone();
+            a.as_object_mut().unwrap().remove("year");
+            assert_eq!(a, want["ages"][&year], "{name} {year}");
+        }
+    }
+
+    // 今までの項目は変わらない（足すだけ）。主な数字だけにすると1KB 足らず
+    let id = "salariedCoupleTwoKids";
+    let full = call_ok(&c, "calculate", json!({ "sample_household_id": id })).await;
+    for k in [
+        "baseMonth",
+        "endYear",
+        "packs",
+        "notices",
+        "totals",
+        "unit",
+        "moreInSummary",
+    ] {
+        assert!(full.get(k).is_some(), "{k}");
+    }
+    for k in [
+        "income",
+        "taxSi",
+        "expense",
+        "net",
+        "financialAssets",
+        "debt",
+        "shortfall",
+    ] {
+        assert!(full["years"][0].get(k).is_some(), "{k}");
+    }
+    let (err, small) = call(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": id, "omit": ["years", "notices", "packs", "ages", "totals"], "at_ages": [65, 90] }),
+    )
+    .await;
+    assert!(!err, "{small}");
+    assert!(small.len() < 1024, "{} バイト", small.len());
+    let small: Value = serde_json::from_str(&small).unwrap();
+    let keys: Vec<&String> = small.as_object().unwrap().keys().collect();
+    assert_eq!(
+        keys,
+        [
+            "baseMonth",
+            "endYear",
+            "keyFigures",
+            "moreInSummary",
+            "sampleHouseholdId",
+            "unit"
+        ]
+    );
+    assert_eq!(small["keyFigures"]["assetsAtAge"][1]["age"], 90);
+
+    // 何年おき・どの数字だけ
+    let five = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": id, "every_years": 5, "fields": ["financialAssets"], "from_year": 2030, "to_year": 2052 }),
+    )
+    .await;
+    let ys: Vec<i64> = five["years"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|y| y["year"].as_i64().unwrap())
+        .collect();
+    assert_eq!(ys, [2030, 2035, 2040, 2045, 2050, 2052]);
+    for y in five["years"].as_array().unwrap() {
+        let mut k: Vec<&String> = y.as_object().unwrap().keys().collect();
+        k.sort();
+        assert_eq!(k, ["ages", "financialAssets", "year"]);
+        let same = full["years"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|x| x["year"] == y["year"])
+            .unwrap();
+        assert_eq!(y["financialAssets"], same["financialAssets"]);
+    }
+    // table: 保険の年ごとの要約を省ける
+    let t = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": id, "output": "table", "rows": ["cf.balance.financial"], "omit": ["insurance"] }),
+    )
+    .await;
+    assert!(t["summary"].get("insurance").is_none() && t["summary"]["totals"].is_object());
+
+    // 必要保障額（入力の protection）: 人に年齢の鍵を添えて返す。内訳だけ・全部を省ける
+    let pn = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": "protectionNeed", "omit": ["years"] }),
+    )
+    .await;
+    let members = pn["protection"]["members"].as_array().unwrap();
+    assert_eq!(members.len(), 2);
+    assert_eq!(members[0]["who"], "self");
+    assert!(members[0]["years"][0]["need"].is_number());
+    assert!(members[0]["years"][0]["breakdown"].is_object());
+    let brief = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": "protectionNeed", "omit": ["years", "protectionDetail"], "every_years": 5 }),
+    )
+    .await;
+    let y0 = &brief["protection"]["members"][0]["years"][0];
+    assert!(y0.get("breakdown").is_none() && y0["need"] == members[0]["years"][0]["need"]);
+    let none = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": "protectionNeed", "omit": ["protection"] }),
+    )
+    .await;
+    assert!(none.get("protection").is_none());
+
+    // 相続税の目安（入力の inheritanceTax に時点を入れたとき）
+    let tax = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": id, "omit": ["years"], "changes": [{ "op": "add", "path": "/inheritanceTax", "value": { "points": ["now"] } }] }),
+    )
+    .await;
+    let pt = &tax["inheritanceTax"]["points"][0];
+    assert_eq!(pt["point"], "now");
+    assert_eq!(pt["decedentWho"], "self");
+    assert!(pt["totalTax"].is_number());
+    assert!(full.get("inheritanceTax").is_none() && full.get("protection").is_none());
+
+    // 選べない値
+    for (args, want) in [
+        (json!({ "every_years": 0 }), "every_years"),
+        (json!({ "fields": ["nope"] }), "financialAssets"),
+        (json!({ "omit": ["nope"] }), "keyFigures"),
+        (json!({ "at_ages": [60, 65, 70, 75, 80, 85] }), "at_ages"),
+    ] {
+        let mut a = args;
+        a["sample_household_id"] = json!(id);
+        let (err, msg) = call(&c, "calculate", a).await;
+        assert!(err && msg.contains(want), "{msg}");
+    }
+
+    // 数字の根拠も、出典の文・制度の値・読み方の案内を省いて小さくできる（残りの中身は同じ）
+    let ask = json!({ "sample_household_id": id, "row": "taxSi", "year": 2030 });
+    let whole = call_ok(&c, "explain_value", ask.clone()).await;
+    let mut a = ask.clone();
+    a["omit"] = json!(["sources", "message"]);
+    let (_, text) = call(&c, "explain_value", a).await;
+    let no_src: Value = serde_json::from_str(&text).unwrap();
+    assert!(no_src.get("message").is_none());
+    let ps = no_src["evidence"]["params"].as_array().unwrap();
+    assert_eq!(
+        ps.len(),
+        whole["evidence"]["params"].as_array().unwrap().len()
+    );
+    assert!(ps
+        .iter()
+        .all(|p| p.get("source").is_none() && p.get("value").is_some()));
+    assert_eq!(
+        no_src["evidence"]["breakdown"],
+        whole["evidence"]["breakdown"]
+    );
+    assert_eq!(no_src["ids"], whole["ids"]);
+    let mut a = ask.clone();
+    a["omit"] = json!(["params"]);
+    let no_params = call_ok(&c, "explain_value", a).await;
+    assert!(no_params["evidence"].get("params").is_none());
+    assert!(no_params["ids"].get("regulation").is_none());
+    assert_eq!(no_params["ids"]["formulas"], whole["ids"]["formulas"]);
+    assert!(no_params.to_string().len() * 3 < whole.to_string().len());
+    let mut a = ask;
+    a["omit"] = json!(["nope"]);
+    let (err, msg) = call(&c, "explain_value", a).await;
+    assert!(err && msg.contains("sources"), "{msg}");
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// 渡された世帯の数字の根拠: 見本の世帯と同じ中身で、物の ID（仮名）を返さず、アプリの「AIに渡した記録」に explain_value として残る。取り消した後は使えない
 #[tokio::test(flavor = "multi_thread")]
 async fn explain_value_for_a_shared_household() {

@@ -6,6 +6,7 @@
 //!
 //! 標準出力は MCP 専用。ログは標準エラー出力だけに出す。
 
+mod answer;
 mod calc;
 mod coverage;
 mod engine;
