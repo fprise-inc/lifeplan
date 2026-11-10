@@ -34,6 +34,17 @@ export interface Applied {
 export function prepare(reqJson: string, officeJson: string): string {
   const req = JSON.parse(reqJson) as EngineRequest;
   publishOfficeEstimates(readOfficeEstimates(JSON.parse(officeJson) as unknown));
+  try {
+    return JSON.stringify(preparedOf(req));
+  } catch {
+    // 形の違う入力（AI が組み立てた入力の誤りなど。画面の要求には無い）: 何も当てずに返し、エンジンの確かめに誤りの場所を答えさせる
+    return JSON.stringify({ request: req, applied: NOTHING });
+  }
+}
+
+const NOTHING: Applied = { excludedIncomes: [], excludedDebts: [], offDreams: [], officeEstimateValues: [], officeNoFill: [] };
+
+function preparedOf(req: EngineRequest): { request: EngineRequest; applied: Applied } {
   const out = forEngine(req);
   const h = req.input.household;
   const base = excludedFromBase(h);
@@ -45,5 +56,5 @@ export function prepare(reqJson: string, officeJson: string): string {
     officeEstimateValues: had.estimateValues === undefined && out.input.estimateValues !== undefined ? Object.keys(out.input.estimateValues).sort() : [],
     officeNoFill: had.estimateNoFill === undefined && out.input.estimateNoFill !== undefined ? [...out.input.estimateNoFill] : [],
   };
-  return JSON.stringify({ request: out, applied });
+  return { request: out, applied };
 }

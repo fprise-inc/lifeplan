@@ -105,6 +105,15 @@ describe("AI接続口の計算の前の処理（0184）", () => {
     expect(got.applied.officeNoFill).toEqual(["education"]);
   });
 
+  it("形の違う入力には何も当てずに返す（エンジンの確かめに誤りを答えさせる）", () => {
+    for (const input of [{}, { household: "x" }, { household: { members: [], incomeFlows: "x" } }]) {
+      const req = { trace: "none", input } as unknown as EngineRequest;
+      const got = prepared(req, null);
+      expect(got.request).toEqual(req);
+      expect(Object.values(got.applied).every((l) => l.length === 0)).toBe(true);
+    }
+  });
+
   it("どのモデル世帯（見本の世帯）にも、当てても要求は変わらない（見本に事務所の値は無く、計算に入れない物も無い）", () => {
     const dir = join(REPO, "data", "modelHouseholds");
     const ids = readdirSync(dir).filter((f) => f.endsWith(".json")).map((f) => f.slice(0, -5));

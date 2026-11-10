@@ -1323,6 +1323,12 @@ async fn calculation_matches_the_screen_after_preparation() {
         assert_eq!(r.digest, reads[0].digest);
     }
 
+    // 形の違う入力は、今までどおりエンジンの誤りとして答える（計算の前の処理で止めない）
+    for bad in [json!({}), json!({ "household": "x" })] {
+        let (err, msg) = call(&c, "calculate", json!({ "input": bad })).await;
+        assert!(err && msg.contains("計算できませんでした"), "{msg}");
+    }
+
     // アプリ本体が事務所の値を添えないとき（読む所が無い）は、事務所の値の無い画面と同じ
     reg.set_office_estimates(None);
     let plain = call_ok(&c, "calculate", json!({ "share_id": g.share_id })).await;
