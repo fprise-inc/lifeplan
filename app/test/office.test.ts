@@ -4,9 +4,9 @@ import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { panelSavedToast } from "../src/workspace/input/InputView.tsx";
+import { panelSaveBlock, panelSavedToast } from "../src/workspace/input/InputView.tsx";
 import { okToast, toastClass, toastMs } from "../src/workspace/toast.ts";
-import { barAlerts, type BarInputs } from "../src/workspace/header/status.ts";
+import { barAlerts, unsavedNewHousehold, type BarInputs } from "../src/workspace/header/status.ts";
 import { sampleNotSaving, type ShelfItem } from "../src/workspace/store/numbering.ts";
 import type { ForkInfo, OfficeHost, OfficeStatus, StoredHousehold } from "../src/engine/host.ts";
 import { ForkPanel } from "../src/workspace/store/ForkPanel.tsx";
@@ -321,7 +321,7 @@ describe("分岐を選ぶ画面", () => {
   });
 });
 
-describe("入力のパネルの「保存」の知らせ（保存を止めている間・閲覧だけ・見本・ふつう。0023 の7 と追記・0033 の追記）", () => {
+describe("入力のパネルの「保存」の知らせ（保存を止めている間・閲覧だけ・見本・保存していない新しい世帯・ふつう。0023 の7 と追記・0033 の追記）", () => {
   it("止めている間は「保存しました」と言わず、まだ保存していないことと「編集を始める」を伝える注意の知らせにする", () => {
     for (const plan of [null, "プランB"]) {
       const paused = panelSavedToast("働き方と収入", plan, "paused");
@@ -342,6 +342,33 @@ describe("入力のパネルの「保存」の知らせ（保存を止めてい�
     // ボタンの名前は見本の帯のボタンと同じ
     const app = readFileSync(new URL("../src/workspace/App.tsx", import.meta.url), "utf8");
     expect(app).toMatch(/data-band-customer>\s*この見本をもとに顧客を作る\s*</);
+  });
+  it("まだ世帯として保存していない新しい世帯では「保存しました」と言わず、世帯の選択から保存できることを伝える注意の知らせにする", () => {
+    const t = "「働き方と収入」を直しました。まだ世帯を保存していません（左上の「新しい世帯」を押し、「この世帯を保存して使う」で保存できます）";
+    expect(panelSavedToast("働き方と収入", null, "unsaved")).toEqual({ tone: "warn", text: t });
+    expect(panelSavedToast("働き方と収入", "プランB", "unsaved").text).toBe(t.replace("を直しました", "をプランBで直しました"));
+    expect(panelSavedToast(undefined, null, "unsaved").text).not.toContain("保存しました");
+    expect(toastClass(panelSavedToast("働き方と収入", null, "unsaved"))).toBe("toast on warn");
+    // ボタンの名前は世帯の選択のメニューのボタンと同じ、左上の名前は上の帯の世帯の選択と同じ
+    const panel = readFileSync(new URL("../src/workspace/store/HouseholdPanel.tsx", import.meta.url), "utf8");
+    expect(panel).toMatch(/data-save-current>\s*この世帯を保存して使う\s*</);
+    const app = readFileSync(new URL("../src/workspace/App.tsx", import.meta.url), "utf8");
+    expect(app).toContain('unsavedTitle={unsavedNew ? "新しい世帯" : null}');
+    expect(app).toContain(': opened?.demo != null ? `見本 ${opened.demo.sampleNo}` : "新しい世帯",');
+  });
+  it("保存していない新しい世帯かどうかは、世帯の選択のメニューの「この世帯を保存して使う」と同じ条件（開いていて、保存した世帯でも見本でもない）", () => {
+    expect(unsavedNewHousehold({ opened: true, stored: false, sample: false })).toBe(true);
+    expect(unsavedNewHousehold({ opened: true, stored: true, sample: false })).toBe(false);
+    expect(unsavedNewHousehold({ opened: true, stored: false, sample: true })).toBe(false);
+    expect(unsavedNewHousehold({ opened: false, stored: false, sample: false })).toBe(false);
+  });
+  it("保存しない理由が重なるときは、止めている間 → 閲覧だけ → 見本 → 保存していない新しい世帯 の順。どれでもなければ保存する", () => {
+    const none = { paused: false, viewOnly: false, sample: false, unsaved: false };
+    expect(panelSaveBlock(none)).toBe(null);
+    expect(panelSaveBlock({ paused: true, viewOnly: true, sample: true, unsaved: true })).toBe("paused");
+    expect(panelSaveBlock({ ...none, viewOnly: true, sample: true, unsaved: true })).toBe("viewOnly");
+    expect(panelSaveBlock({ ...none, sample: true, unsaved: true })).toBe("sample");
+    expect(panelSaveBlock({ ...none, unsaved: true })).toBe("unsaved");
   });
   it("見本かどうかは、見本の帯の「動かしても見本は変わりません」と同じ条件（見本を開いていて、「この見本を直す」で直していない）", () => {
     const app: ShelfItem = { kind: "app", id: "m", no: "3-4-01", name: "見本", traits: [] };

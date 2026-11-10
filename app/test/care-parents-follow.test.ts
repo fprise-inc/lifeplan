@@ -121,7 +121,9 @@ describe("介護・親の親・祖父母を、住宅資金・教育資金の援�
     const g = stage("care", wh).sections.find((s) => s.key === "care/outside")!.groups.find((x) => x.key === `family/${father.id}`)!;
     expect(g.note).toContain("贈与する人に選ばれています");
     // 相続・贈与の贈与する人の区画にも並ぶ
-    expect(allFields(stage("inheritance", wh)).some((f) => f.label === "贈与する人（父）")).toBe(true);
+    const row = stage("inheritance", wh).sections.find((s) => s.key === "family/donors")!.groups.find((x) => x.key === `inherit/person/${father.id}`)!;
+    expect(row.title?.startsWith("父（")).toBe(true);
+    expect(row.fields.map((f) => f.get(wh).value)).toEqual(["援助の贈与する人 1件"]);
     const gone = removeMember(wh, father.id);
     expect((hh(gone).goals ?? []).find((g) => g.id === goal.id)!.education!.gifts![0]!.donor).toBeUndefined();
   });

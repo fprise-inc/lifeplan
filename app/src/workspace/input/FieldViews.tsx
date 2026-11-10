@@ -8,6 +8,7 @@ import { Help, HelpOf } from "../../presentation/Help.tsx";
 import { PopIcon } from "../../presentation/icons.tsx";
 import { FieldIcon } from "./fieldIcons.tsx";
 import { InfoNote } from "./InfoNote.tsx";
+import { FoldClose, FoldedGroup, useFold } from "./FoldedGroup.tsx";
 import { blankLineFor, fittingPlaceholder, textEm } from "./placeholder.ts";
 import { enterInput, noteRejected, type Settled } from "./pendingInput.ts";
 import type { Timepoint } from "../../engine/types.ts";
@@ -588,6 +589,9 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
   // 事務所の欄の見せ方（カスタム層の隠す・並べ替え。見せ方だけで、世帯の値と計算は変えない。値の入った欄は隠さない）
   const layout = useContext(OfficeFieldsContext);
   const arrange = (fs: readonly FieldDef[]) => arrangeFields(fs, (f) => fieldTextId(f, wh), (f) => hasFieldValue(f, wh), layout);
+  // ふだんは閉じておくまとまり（folded。FoldedGroup.tsx）: 閉じている間は説明と開くボタンだけ
+  const fold = useFold(group, useGroupOpen());
+  if (fold?.open === false) return <FoldedGroup group={group} onOpen={fold.toggle} nested={nested} />;
   // 説明の欄（値ではなく説明の文）は、幅いっぱいの説明として描く（readLines.ts の infoNote）
   if (group.info !== undefined) return <InfoNote title={group.info.title} text={group.info.text} fold={group.info.fold} groupKey={group.key} />;
   // 詳細の欄が見えているとき（詳細、または標準で「▸ 詳しく」を開いたとき）は、標準だけの欄（simpleOnly）を出さない（代わりに詳細の欄を出す）
@@ -644,6 +648,7 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
       {group.band === true ? sub : null}
       {actions.some((a) => a.danger !== true) ? <Actions actions={actions.filter((a) => a.danger !== true)} wh={wh} onEdit={onEdit} /> : null}
       {moreLast && group.band !== true ? sub : null}
+      {fold?.closable === true ? <FoldClose groupKey={group.key} label={group.title ?? group.folded?.name ?? "この欄"} onClose={fold.toggle} /> : null}
       {more !== undefined ? <MoreToggle groupKey={group.key} open={more.open} toggle={more.toggle} label={group.title ?? "この欄"} text={group.moreLabel} swapNotes={swapNotesOf(group, more.open)} /> : null}
       {more?.open === true && (extraFields.length > 0 || extraActions.length > 0) ? (
         <div class="grp-more-body" data-more-of={group.key}>
