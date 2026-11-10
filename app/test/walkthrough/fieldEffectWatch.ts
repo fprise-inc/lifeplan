@@ -120,6 +120,9 @@ export const NOT_OBSERVED: readonly ShapeRule[] = [
   { shape: "rental:sav/*/property/units", why: "戸数は、事業的規模の目安（青色申告特別控除の上限）だけ" },
   { shape: "care:family/*/birth", why: "世帯の外の家族の生年月は、亡くなる見込み・介護の時期を年齢の形で持つときだけ" },
   { shape: "care:family/*/sex", why: "世帯の外の家族の性別は、亡くなる見込みの推定（推定のままのとき）だけ" },
+  { shape: "inheritance:family/*/birth", why: "あげる贈与の相手の孫の生年月は、贈与税がかかる額のときの特例の税率（18歳以上）と相続時精算課税だけに効く。見本の贈与は年50万円で基礎控除の中" },
+  { shape: "inheritance:family/*/kind", why: "あげる贈与の相手の孫の続柄は、贈与税がかかる額のときの特例の税率（直系尊属から）だけに効く。見本の贈与は基礎控除の中" },
+  { shape: "inheritance:family/*/sex", why: "孫の性別は呼び方だけ（孫は亡くなる見込みの推定を入れない）" },
   { shape: "care:family/*/allowance", why: "仕送りの欄は支出に入らない（扶養の判定だけ）" },
   { shape: "care:ev/care/*/on/mode", why: "介護の万一のときの扱いは、介護を払っている間にご本人が亡くなる想定だけ" },
 ];
