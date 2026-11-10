@@ -1,0 +1,157 @@
+// AI接続口（crates/lifeplan）に同梱する「プランの動かす項目」（0195）。画面の結果のタブのプランと同じ関数で:
+// - listPlanItems: この世帯で動かせる項目（働く最後の年齢・年金の受け取り開始・NISA・生活費・配偶者の働き方と年収・繰上返済・金利の上昇・
+//   資産運用の配分・入力の数の欄など）を、今の値・動かせる範囲・プランの候補の書き方（対象・入力項目ID）で返す
+// - applyPlan: プランの候補と同じ書き方（対象・入力項目ID・値。propose_scenario の changes）を、画面の「AIからの候補」と同じ当てはめ
+//   （workspace/plans/candidates.ts）で動かす項目の値にし、画面のプランと同じ関数（plans.ts の applyValues）で計算の要求に当てる。
+//   関係する欄も画面と同じく一緒に動く（働く最後の年齢なら、生活費の退職の段階・積立の終わり・定年後の働き方も）
+// - 画面の状態（帯・選んだプラン・保存していない変更・小窓）には依らない。世帯の要求から画面と同じく作業中の世帯（fromRequest）と
+//   動かす項目の一覧（buildCatalog）を作るだけ。見本の世帯では、画面と同じく見本の目盛りと定年後の働き方を使う
+// - 事務所の推定の値は、計算の前の処理（prepare.ts）と同じく、渡された世帯のときだけモジュールの中に入れてから当てる（画面が事務所データを
+//   読んでから動かす項目を作るのと同じ。働き方を選び直したときの年収の目安などが読む）。呼び出しをまたいで残らない
+// - 画面の部品（preact）・本体の命令・保存の部品は読まない（lint とまとめる道具が止める）。世帯の物の ID は、AI に渡した世帯の ID
+//   （渡された世帯では共有の仮の ID）のまま返す
+import type { EngineRequest } from "../engine/types.ts";
+import { demoHousehold } from "../workspace/catalog.ts";
+import { fromRequest, type WorkingHousehold } from "../workspace/input/household.ts";
+import { publishOfficeEstimates, readOfficeEstimates } from "../workspace/office/estimates.ts";
+import { candidateRows, candidateTargetOf, candidateValues, type CandidateRow, type ProposedChange } from "../workspace/plans/candidates.ts";
+import { buildCatalog, type Catalog, type ItemValue, type MovableItem } from "../workspace/plans/items.ts";
+import { applyValues } from "../workspace/plans/plans.ts";
+import { roles } from "../workspace/roles.ts";
+
+/** 接続口から渡す引数（JSON の文字） */
+export interface PlanArgs {
+  /** 見本の世帯の ID（見本の目盛り・定年後の働き方を画面と同じに使う。見本でなければ省く） */
+  sampleId?: string;
+  /** 一覧を絞る: 項目のまとまり（group）の名前 */
+  group?: string;
+  /** 一覧を絞る: 入力の数の欄から作った項目（fields）も入れるか（既定は入れない。対策・資産運用・貯まり方・よく使う項目だけ） */
+  fields?: boolean;
+}
+
+/** プランの候補の書き方の1件（propose_scenario の changes の1件と同じ） */
+export interface PlanChange {
+  target: string;
+  item: string;
+  value: unknown;
+}
+
+interface Opened {
+  wh: WorkingHousehold;
+  cat: Catalog;
+}
+
+/** 世帯の要求から、画面と同じく作業中の世帯と動かす項目の一覧を作る（本人がいなければ null。形の違う入力は "badInput"） */
+function open(req: EngineRequest, a: PlanArgs): Opened | null | "badInput" {
+  try {
+    return opened(req, a);
+  } catch {
+    // 形の違う入力（AI が組み立てた入力の誤りなど。画面の世帯には無い）
+    return "badInput";
+  }
+}
+
+function opened(req: EngineRequest, a: PlanArgs): Opened | null {
+  const self = roles(req).find((r) => r.key === "self");
+  if (self === undefined) return null;
+  const demo = a.sampleId === undefined ? null : (demoHousehold(a.sampleId) ?? null);
+  const re = demo?.reemployment;
+  const wh = fromRequest(req, re !== undefined ? { postRetirement: { [self.member.id]: { ...re, type: re.type as "contract" } } } : {});
+  return { wh, cat: buildCatalog(wh, self.member.id, demo) };
+}
+
+/** 項目の値の入れ方と動かせる範囲（AI に見せる形。画面のスライダー・欄と同じ範囲） */
+function controlOf(it: MovableItem, now: ItemValue): Record<string, unknown> {
+  const c = it.control;
+  switch (c.kind) {
+    case "age":
+      // 上の端は、今の値が外にあれば広げる（画面のスライダーと同じ）
+      return { kind: "age", unit: "歳（整数）", min: c.min, max: typeof now === "number" ? Math.max(c.max, now) : c.max };
+    case "range":
+      return { kind: "amount", unit: `円（${c.per === "月" ? "月額" : c.per === "年" ? "年額" : "額"}・整数）`, min: 0, slider: { min: c.min, max: c.max, step: c.step } };
+    case "rate":
+      return { kind: "rate", unit: "率（10進の文字列。\"0.02\" は 2%）", slider: { min: c.min, max: c.max, step: c.step }, ...(c.limit !== undefined ? { limitPercent: c.limit } : {}) };
+    case "toggle":
+      return { kind: "toggle", unit: "true（入れる）か false（入れない）" };
+    case "mix":
+      return { kind: "mix", unit: "配分の並び [{assetClass, share}]（share は10進の文字列の割合。合計 1）", accountKind: c.accountKind };
+    case "shift":
+      return { kind: "rateShift", unit: "{add: 上乗せの幅（10進の文字列）, from: 始まりの月 YYYY-MM}", years: c.years };
+    case "work":
+      return { kind: "work", unit: "{type: 働き方, annual: 1年の収入（円の整数。給与は賞与込みの年収・自営業は事業所得）}", options: c.options.map((o) => ({ value: o.value, label: o.label })), max: c.max };
+    case "field": {
+      const f = c.field;
+      if (f.kind === "yen") return { kind: "amount", unit: `円（${f.basis === "monthly" ? "月額" : f.basis === "annual" ? "年額" : "1回の額"}・整数）`, ...(c.slider !== undefined ? { slider: { min: c.slider.min, max: c.slider.max, step: c.slider.step } } : {}) };
+      if (f.kind === "int") return { kind: "int", unit: f.suffix !== undefined ? `整数（${f.suffix}）` : "整数", ...(f.min !== undefined ? { min: f.min } : {}), ...(f.max !== undefined ? { max: f.max } : {}) };
+      if (f.kind === "pct") return { kind: "rate", unit: "率（10進の文字列。\"0.02\" は 2%）", ...(f.min !== undefined || f.max !== undefined ? { limitPercent: { ...(f.min !== undefined ? { min: f.min } : {}), ...(f.max !== undefined ? { max: f.max } : {}) } } : {}) };
+      return { kind: "decimal", unit: f.kind === "decimal" && f.suffix !== undefined ? `10進の文字列（${f.suffix}）` : "10進の文字列" };
+    }
+  }
+}
+
+const fromFields = (it: MovableItem): boolean => it.key.startsWith("field:");
+
+/**
+ * この世帯で動かせる項目の一覧。reqJson は計算の要求（input を持つ）、argsJson は PlanArgs、officeJson は事務所データの defaults.estimates
+ * （無ければ null）。戻り値は JSON の文字 { status: "ok", items, groups, ... } か { status: "noSelf" } か { status: "badInput" }
+ */
+export function listPlanItems(reqJson: string, argsJson: string, officeJson: string): string {
+  const req = JSON.parse(reqJson) as EngineRequest;
+  const a = JSON.parse(argsJson) as PlanArgs;
+  publishOfficeEstimates(readOfficeEstimates(JSON.parse(officeJson) as unknown));
+  const o = open(req, a);
+  if (o === null) return JSON.stringify({ status: "noSelf" });
+  if (o === "badInput") return JSON.stringify({ status: "badInput" });
+  const all = o.cat.items.map((it) => ({ it, target: candidateTargetOf(it, o.wh, o.cat) }));
+  const usable = all.filter((x) => x.target !== null);
+  const groups = [...new Set(usable.map((x) => x.it.group))].map((g) => ({ group: g, count: usable.filter((x) => x.it.group === g).length, fromFields: usable.some((x) => x.it.group === g && fromFields(x.it)) }));
+  const shown = usable.filter((x) => (a.group !== undefined ? x.it.group === a.group : a.fields === true || !fromFields(x.it)));
+  const items = shown.map(({ it, target }) => {
+    const now = it.read(o.wh);
+    const note = it.note?.(now) ?? null;
+    return {
+      target,
+      item: it.item,
+      label: it.label,
+      group: it.group,
+      value: now,
+      valueText: it.text(now),
+      ...controlOf(it, now),
+      ...(note !== null ? { note } : {}),
+      // プランの候補（propose_scenario）で前提（assumptions）を対象にできるのは、前提条件の入力項目（assumptions.〜）だけ
+      proposable: target !== "assumptions" || it.item.startsWith("assumptions."),
+    };
+  });
+  return JSON.stringify({ status: "ok", count: items.length, total: usable.length, groups, items, unlisted: all.length - usable.length });
+}
+
+/** 当てはめの結果の1件（AI に返す形） */
+function rowOut(c: PlanChange, r: CandidateRow): Record<string, unknown> {
+  return { target: c.target, item: c.item, label: r.label, from: r.from, to: r.to, status: r.key === null ? "rejected" : r.reason === null ? "applied" : "same", ...(r.reason !== null ? { reason: r.reason } : {}) };
+}
+
+/**
+ * プランの候補と同じ書き方の変更を、画面のプランと同じ関数で計算の要求に当てる。reqJson は計算の要求（trace と input）、changesJson は
+ * PlanChange の並び、argsJson は PlanArgs と officeJson（事務所データの defaults.estimates か null）を { args, office } にまとめた物。
+ * 戻り値は JSON の文字 { status: "ok", request, changes } か { status: "rejected", changes }（当てはまらない変更が1つでもあれば何も当てない）か
+ * { status: "noSelf" }（本人がいない）か { status: "badInput" }（画面の部品が読めない形の入力）
+ */
+export function applyPlan(reqJson: string, changesJson: string, ctxJson: string): string {
+  const req = JSON.parse(reqJson) as EngineRequest;
+  const changes = JSON.parse(changesJson) as PlanChange[];
+  const ctx = JSON.parse(ctxJson) as { args?: PlanArgs; office?: unknown };
+  publishOfficeEstimates(readOfficeEstimates(ctx.office ?? null));
+  const o = open(req, ctx.args ?? {});
+  if (o === null) return JSON.stringify({ status: "noSelf" });
+  if (o === "badInput") return JSON.stringify({ status: "badInput" });
+  const diffs: ProposedChange[] = changes.map((c, i) => ({ id: `c${i + 1}`, target: c.target === "assumptions" ? { plan: "assumptions" } : { object: c.target }, item: c.item, value: c.value, note: null }));
+  const rows = candidateRows({ diffs }, o.wh, o.cat);
+  const out = changes.map((c, i) => rowOut(c, rows[i] as CandidateRow));
+  if (rows.some((r) => r.key === null)) return JSON.stringify({ status: "rejected", changes: out });
+  // 同じ項目を2回動かす変更は、後の値が勝つ（画面で同じつまみを2回動かしたのと同じ）
+  const values = candidateValues(rows);
+  if (Object.keys(values).length === 0) return JSON.stringify({ status: "ok", request: req, changes: out });
+  const applied = applyValues(o.wh, values, o.cat);
+  return JSON.stringify({ status: "ok", request: { ...req, input: applied.input }, changes: out });
+}
+

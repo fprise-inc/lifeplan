@@ -9,6 +9,7 @@
 mod calc;
 mod coverage;
 mod engine;
+mod plan;
 mod regulation;
 mod samples;
 mod server;
