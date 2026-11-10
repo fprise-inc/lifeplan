@@ -1,5 +1,5 @@
 // 12. 介護・親: 親の世代と介護を1枚に集める。
-// - 区画A 世帯の外の家族（親〔両家〕・祖父母・兄弟姉妹・離れて暮らす子・孫など。続柄・誰の家族か・生年月・同居・家計を1つにする期間・扶養と
+// - 区画A 世帯の外の家族（親〔両家〕・祖父母・兄弟姉妹・離れて暮らす子など。孫〔あげる贈与の相手〕は相続・贈与のカードに置き、ここは読むだけの1行。続柄・誰の家族か・生年月・同居・家計を1つにする期間・扶養と
 //   扶養の境目の1行・亡くなる見込み・勤め先の健康保険・「介護の目安を入れる（この人）」）と、生年月を持たない贈与する人（相続・贈与のカードで選ぶ）
 // - 区画B 介護の費用（親・本人・配偶者。今まではライフイベントと「＋ 項目を追加」の2か所だった）。本人・配偶者の介護は自動で入れず、
 //   未入力の警告と「目安で入れる（本人・配偶者）」の1押し（事務所の設定で「最初から入れる」に変えられる形。CareDefaults）
@@ -21,7 +21,7 @@ import { formatYearMonth, wareki } from "../units.ts";
 import { addExpense, moneySections } from "../moneyRows.ts";
 import { careGroup, carePayerLine, NONE_CLAIMED } from "./events.ts";
 import { addMember, donorGroups, expectedBirthHint, outsidePerson, removeMember } from "./family.ts";
-import { afterWrite, followInheritTiming } from "./inheritance.ts";
+import { afterWrite, donorTitles, followInheritTiming } from "./inheritance.ts";
 
 const members = (h: Household) => h.members;
 
@@ -128,11 +128,11 @@ const OUTSIDE_NOTE = "世帯の外の家族（家計が別）です。年金・�
 /** 仕送りの額の欄の説明（扶養の判定にだけ使う） */
 const ALLOWANCE_HELP = "健康保険の扶養の判定（別居の親・祖父母）にだけ使い、支出には入りません。仕送りの支出は「親への仕送り」の行で入れてください（行と両方に入れても二重にはなりません）";
 
-/** 仕送りの額の欄の値で、この人を相手にした仕送りの出るお金の行（毎月）を作る（額は欄から写した推定） */
+/** 仕送りの額の欄の値で、この人を相手にした仕送りの出るお金の行（毎月）を作る（額は欄から写した推定。伸び方は仕送りの既定の「変えない」。0044 の追記 2026-11-10） */
 function allowanceRow(wh: WorkingHousehold, member: string, monthly: number): WorkingHousehold {
   return mutate(wh, (h) => {
     const at = wh.request.input.baseMonth;
-    (h.periodicExpenses ??= []).push({ id: newId(), label: "仕送り", kind: "allowance", counterparty: member, row: "cf.expense.other", from: { at }, to: null, everyYears: 1, monthly: true, amount: standardBox(monthly, "仕送りの額（扶養の判定に使う）の欄から") });
+    (h.periodicExpenses ??= []).push({ id: newId(), label: "仕送り", kind: "allowance", counterparty: member, row: "cf.expense.other", from: { at }, to: null, everyYears: 1, monthly: true, amount: standardBox(monthly, "仕送りの額（扶養の判定に使う）の欄から"), growth: { kind: "none" } });
   });
 }
 
@@ -486,7 +486,7 @@ const addOutsideActions = (wh: WorkingHousehold): ActionDef[] => {
     { key: "family/add/grandparent", label: "＋ 祖父母を足す", level: "detail", run: (w) => addOutside(w, "grandparent") },
     { key: "care/add/sibling", label: "＋ 兄弟姉妹を足す", level: "detail", run: (w) => addOutside(w, "sibling") },
     { key: "care/add/child", label: "＋ 離れて暮らす子・前の結婚の子を足す", level: "detail", run: (w) => addOutside(w, "child") },
-    { key: "care/add/grandchild", label: "＋ 孫を足す", level: "detail", run: (w) => addOutside(w, "grandchild") },
+    // 孫は、あげる贈与の相手として相続・贈与の項目の「＋ 孫を足す」で足す（足した孫はそこに並ぶ。ここに足すボタンを置くと、相続・贈与の側から見えない孫が増えた）
   ];
 };
 
@@ -655,6 +655,10 @@ function donorKindText(wh: WorkingHousehold, groupKey: string): string {
   return DONOR_KINDS.find((o) => o.value === d?.kind)?.label ?? "親族";
 }
 
+/** 相続・贈与の項目（あげる贈与）に置く孫（世帯の外の家族の孫。介護・親には読むだけの1行） */
+const inheritanceGrandchild = (m: Member): boolean => m.kind === "grandchild" && m.outside !== undefined;
+const groupsOf = (g: GroupDef | null): GroupDef[] => (g !== null ? [g] : []);
+
 export function careStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;
   const outside = outsideMembers(wh);
@@ -667,9 +671,14 @@ export function careStage(wh: WorkingHousehold): StageDef {
     {
       key: "care/outside",
       title: "世帯の外の家族",
-      note: "親（両家）・祖父母・兄弟姉妹・離れて暮らす子など、家計が別の家族です。年金などの収入は世帯に入れません。続柄・呼び名・家計を1つにする期間・扶養・この人の年金・亡くなる見込みは「詳細」（人ごとの「▸ 扶養・仕送りなどを入れる」）で入れます。相続・贈与の入力項目で足した、贈与する人もここに並びます",
+      note: "親（両家）・祖父母・兄弟姉妹・離れて暮らす子など、家計が別の家族です。年金などの収入は世帯に入れません。続柄・呼び名・家計を1つにする期間・扶養・この人の年金・亡くなる見込みは「詳細」（人ごとの「▸ 扶養・仕送りなどを入れる」）で入れます。相続・贈与の入力項目で足した親・祖父母と、贈与する人もここに並びます。孫（あげる贈与の相手）は、相続・贈与の入力項目の「あげる贈与」で入れます",
       level: "simple",
-      groups: [...outside.map((m) => outsideGroup(wh, m)), ...donorGroups(wh).map((g) => ({ ...g, title: `${g.title ?? "贈与する人"}（${donorKindText(wh, g.key)}・生年月なし）` }))],
+      groups: [
+        ...outside.filter((m) => !inheritanceGrandchild(m)).map((m) => outsideGroup(wh, m)),
+        // 見出しは相続・贈与の区画と同じ（「ご本人の祖父母（生年月なし）」）
+        ...donorGroups(wh).map((g) => ({ ...g, title: donorTitles(wh).get(g.key.split("/").at(-1) ?? "") ?? `${g.title ?? "贈与する人"}（${donorKindText(wh, g.key)}・生年月なし）` })),
+        ...groupsOf(readGroup("care/grandchildren", undefined, outside.filter(inheritanceGrandchild).map((m) => readLine(`care/grandchild/${m.id}`, memberLabel(wh, m.id), "あげる贈与の相手", "相続・贈与")))),
+      ],
       actions: addOutsideActions(wh),
     },
     {
