@@ -73,9 +73,25 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|p| p.into_inner())
 }
 
+/// 画面が計算の前に足す事務所の推定の値の元（事務所データの `defaults.estimates`。無ければ None）。AI接続口の計算に添える（0184）。
+/// 読み方（使える値の確かめ・エンジンへ渡す形）は画面と接続口が同じ関数（app/src/workspace/office/estimates.ts）で行うので、ここでは切り出すだけ
+pub(crate) fn office_estimates_of(store: &Store) -> Option<serde_json::Value> {
+    store
+        .office_defaults()
+        .ok()?
+        .get("estimates")
+        .filter(|v| v.is_object())
+        .cloned()
+}
+
 pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<AiState, Box<dyn std::error::Error>> {
     let registry = Arc::new(ShareRegistry::new());
     registry.require_consent(true);
+    // AI接続口の計算（calculate・explain_value の share_id）に、その時の事務所の推定の値を添える（0184）
+    let handle = app.clone();
+    registry.set_office_estimates(Some(Arc::new(move || {
+        office_estimates_of(&handle.try_state::<StoreState>()?.store)
+    })));
     // 開発のときだけ（debug のビルド）: 製品と別の作業フォルダを使う（手元で動かしている製品・他の作業ツリーとぶつからないように）
     let runtime_dir = if cfg!(debug_assertions) {
         std::env::var_os("FINANCIA_DEV_RUNTIME_DIR")
@@ -938,6 +954,29 @@ mod tests {
                     .collect()
             })
             .unwrap_or_default()
+    }
+
+    /// AI接続口の計算に添える事務所の推定の値は、事務所データの defaults.estimates だけ（ほかの既定値は添えない。0184）
+    #[test]
+    fn office_estimates_are_cut_from_the_office_defaults() {
+        let root = root("office-estimates");
+        let secrets = Arc::new(MemorySecretStore::default());
+        let p = pc(&root, &secrets);
+        assert_eq!(
+            office_estimates_of(&p.store),
+            None,
+            "事務所の既定値が無ければ添えない"
+        );
+        let est = serde_json::json!({ "values": {}, "noFill": ["engine.care"] });
+        p.store
+            .set_office_defaults(serde_json::json!({ "estimates": est, "endAge": 95 }))
+            .unwrap();
+        assert_eq!(office_estimates_of(&p.store), Some(est));
+        p.store
+            .set_office_defaults(serde_json::json!({ "endAge": 95 }))
+            .unwrap();
+        assert_eq!(office_estimates_of(&p.store), None);
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     /// 同じ起動の中で開き直したら、世帯ファイルの同意で帳面を作り直す。もう1台で記録した撤回が見え、渡せず、保存しても消えない

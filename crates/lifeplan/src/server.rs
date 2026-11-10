@@ -10,6 +10,8 @@
 //!   （機能を有効にするコードを、アプリの画面に承認待ちで出すだけ。FPが画面で押したときだけ入る）
 //!
 //! 世帯を扱う道具は、必ずアプリ本体に頼む（許可の判定・復号・縮約・包み方・記録はアプリ本体だけ）。接続口は世帯の中身を加工しない。
+//! 計算する道具（calculate・explain_value）は、計算の要求にだけ、画面がエンジンへ渡す前に当てる処理を画面と同じ関数で当てる
+//! （計算に入れない物を外す・渡された世帯では事務所の推定の値を足す。engine::prepare。0184）。get_shared_household の答えは変えない。
 //! ログは標準エラー出力だけに出し、中身は道具の名前・時間・結果のコードに留める（顧客データを書かない）。
 
 use crate::calc::{self, Change, OutputMode, TableFilter, STRESS_TESTS};
@@ -27,6 +29,7 @@ use std::time::Instant;
 
 pub const INSTRUCTIONS: &str = "ファイナンシア（FP向けのライフプランソフト）の AI接続口です。
 - 計算（calculate）・数字の根拠（explain_value）・制度の値（get_regulation_value）・見本の世帯（list_sample_households・get_sample_household）・対応範囲の一覧（search_coverage・get_coverage）は、アプリが起動していなくても使えます。見本の世帯はすべて架空で、実在の顧客ではありません。
+- calculate・explain_value は、アプリの画面と同じく、計算の前に「計算に入れない」物（見込みが「当てにしない」の受け取る相続・遺贈・贈与と、相続で受け継ぐ借金。「計算に入れない」を選んだ夢）を外し、FPが渡した世帯（share_id）では、FPの事務所が既定値の画面で変えた推定の値も当ててから計算します。当てた物は答えの preparation に出ます。世帯の入力にあるのに表に出ない物があっても、計算の誤りではありません。FPがアプリで「確実な分だけ」などの結果の見方を選んでいるとき、FPがまだ保存していない変更があるときは、アプリの画面の数字と違うことがあります（渡されるのは保存した世帯で、見方は当てません）。
 - FP に「この数字はどんな計算？」と聞かれたら、推測で答えず、explain_value でその数字（キャッシュフロー表の行と年）の根拠を取り出して答えてください。アプリの画面で表の数字を押すと出る「数字の根拠」（内訳・式・使った制度の値と出典）と同じ中身です。制度の値をもっと詳しく見るときは、返ってきた制度の値ID を get_regulation_value に渡します。
 - FP に「〇〇は入っている？」「〇〇はどう計算している？」と聞かれたら、推測で答えず、まず search_coverage で対応範囲の一覧を探し、get_coverage で項目の中身を読んでから答えてください。答えは「入っている（どう計算するか）」「近似している（どう近似するか・理由）」「まだ入っていない」のどれかです。一覧に無い話題は、入っていると推測せず「一覧に見当たらない」と伝えてください。まだ入っていない物は、返ってきた案内のとおり、FP がアプリの「要望・不具合を送る」から送れることを伝えてください（この接続口からは送りません）。
 - 顧客の世帯（list_shared_households・get_shared_household、calculate の share_id）は、アプリが起動していて、FPが顧客から外部AIへの提供の同意を得て記録し、アプリで「この世帯をAIに渡す」と操作したときだけ読めます。共有は期限つき（既定60分）で、FPはいつでも取り消せます。渡されるのは計算に要る項目だけの縮約版が既定で、物の ID は共有ごとの仮の ID です。読むたびに、アプリの「AIに渡した記録」に残ります。
@@ -383,14 +386,16 @@ async fn ask_app(ctx: &RequestContext<RoleServer>, req: Request) -> Result<Strin
 }
 
 /// 計算する世帯の入力を選ぶ（見本の世帯・渡された世帯・AIが組み立てた入力のどれか1つ）。渡された世帯はアプリ本体に頼み、
-/// 読んだ道具の名前（tool）で「AIに渡した記録」に残る。Err は道具の答え（失敗）と記録の結果のコード
+/// 読んだ道具の名前（tool）で「AIに渡した記録」に残る。Err は道具の答え（失敗）と記録の結果のコード。
+/// 戻り値の2つ目は、画面が計算の前に足す事務所の推定の値（事務所データの defaults.estimates。渡された世帯のときだけアプリ本体が添える。
+/// 無ければ null。0184）。AIには見せず、計算の前の処理（engine::prepare）にだけ渡す
 async fn base_input(
     ctx: &RequestContext<RoleServer>,
     tool: &str,
     sample: Option<&String>,
     share: Option<&String>,
     input: Option<&Value>,
-) -> Result<Value, (String, String)> {
+) -> Result<(Value, Value), (String, String)> {
     let chosen = [sample.is_some(), share.is_some(), input.is_some()]
         .iter()
         .filter(|x| **x)
@@ -401,6 +406,7 @@ async fn base_input(
             "INVALID".into(),
         ));
     }
+    let mut office = Value::Null;
     let base = if let Some(id) = sample {
         samples::input(id).ok_or_else(|| {
             (
@@ -414,10 +420,14 @@ async fn base_input(
         let req = Request::GetShare {
             share_id: share_id.clone(),
             tool: tool.to_owned(),
+            for_calc: true,
         };
         match ask_app(ctx, req).await {
             Ok(payload) => match serde_json::from_str::<Value>(&payload) {
-                Ok(v) => v["input"].clone(),
+                Ok(mut v) => {
+                    office = v["officeEstimates"].take();
+                    v["input"].take()
+                }
                 Err(_) => {
                     return Err((
                         "アプリの返事の形が違います。".to_owned(),
@@ -436,8 +446,74 @@ async fn base_input(
             "INVALID".into(),
         ));
     }
-    Ok(base)
+    Ok((base, office))
 }
+
+/// 計算の前の処理（画面がエンジンへ渡す前に当てる処理と同じ関数。0184）を当てた要求と、当てた処理
+struct Prepared {
+    request: Value,
+    applied: Value,
+}
+
+/// 計算の要求に、画面と同じ計算の前の処理を当てる（重いので、呼ぶ側は spawn_blocking の中で）
+fn prepare(request: &Value, office: &Value) -> Result<Prepared, String> {
+    let out = engine::prepare(&request.to_string(), &office.to_string())?;
+    let mut v: Value = serde_json::from_str(&out).map_err(|e| e.to_string())?;
+    Ok(Prepared {
+        request: v["request"].take(),
+        applied: v["applied"].take(),
+    })
+}
+
+/// 答えに添える「画面と同じ計算の前の処理を当てた」印（何も当てていなければ None）。with_ids が false なら、世帯の物は数だけにする
+/// （数字の根拠は世帯の物の ID を返さない。0183）
+fn preparation(applied: &Value, with_ids: bool) -> Option<Value> {
+    let list = |k: &str| applied[k].as_array().cloned().unwrap_or_default();
+    let objects = |k: &str| {
+        let l = list(k);
+        if with_ids {
+            json!(l)
+        } else {
+            json!(l.len())
+        }
+    };
+    let (incomes, debts, dreams) = (
+        list("excludedIncomes"),
+        list("excludedDebts"),
+        list("offDreams"),
+    );
+    let (values, no_fill) = (list("officeEstimateValues"), list("officeNoFill"));
+    if incomes.is_empty()
+        && debts.is_empty()
+        && dreams.is_empty()
+        && values.is_empty()
+        && no_fill.is_empty()
+    {
+        return None;
+    }
+    let mut p = serde_json::Map::new();
+    p.insert("note".into(), json!(PREPARATION_NOTE));
+    if !(incomes.is_empty() && debts.is_empty() && dreams.is_empty()) {
+        p.insert(
+            "notInCalculation".into(),
+            json!({
+                "incomeFlows": objects("excludedIncomes"),
+                "inheritedDebts": objects("excludedDebts"),
+                "dreams": objects("offDreams"),
+            }),
+        );
+    }
+    if !(values.is_empty() && no_fill.is_empty()) {
+        p.insert(
+            "officeEstimates".into(),
+            json!({ "values": values, "noFill": no_fill }),
+        );
+    }
+    Some(Value::Object(p))
+}
+
+/// 計算の前の処理の印の説明
+const PREPARATION_NOTE: &str = "アプリの画面と同じく、計算の前に次を当てました（世帯のデータは変えていません）。notInCalculation は計算に入れない物（見込みが「当てにしない」の受け取る相続・遺贈・贈与と、相続で受け継ぐ借金。「計算に入れない」を選んだ夢）で、表の数字に入っていません。officeEstimates は、FPの事務所が既定値の画面で変えた推定の値（values は値ID）と推定で埋めない目安（noFill）です。";
 
 /// 変更とストレステストを当てる
 fn with_changes(
@@ -518,7 +594,7 @@ impl LifeplanMcp {
     }
 
     #[tool(
-        description = "ライフプランを計算する（ファイナンシアの計算エンジン）。見本の世帯（sample_household_id）、FPが渡した世帯（share_id。アプリが起動していて共有が期限内のときだけ）、AIが組み立てた入力（input）のどれか1つに、changes（プラン・想定の変更）や stress_test を当てて計算し、年ごとの収入・税と社会保険料・支出・収支・金融資産・負債（summary）か、キャッシュフロー表の行（table）を返す。世帯のデータそのものは変えない。",
+        description = "ライフプランを計算する（ファイナンシアの計算エンジン）。見本の世帯（sample_household_id）、FPが渡した世帯（share_id。アプリが起動していて共有が期限内のときだけ）、AIが組み立てた入力（input）のどれか1つに、changes（プラン・想定の変更）や stress_test を当てて計算し、年ごとの収入・税と社会保険料・支出・収支・金融資産・負債（summary）か、キャッシュフロー表の行（table）を返す。アプリの画面と同じ計算の前の処理（計算に入れない物を外す。渡された世帯ではFPの事務所の推定の値も当てる）を当て、当てた物を preparation に出す。世帯のデータそのものは変えない。",
         annotations(
             title = "計算",
             read_only_hint = true,
@@ -533,7 +609,7 @@ impl LifeplanMcp {
         ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, ErrorData> {
         let t = Instant::now();
-        let base = match base_input(
+        let (base, office) = match base_input(
             &ctx,
             "calculate",
             a.sample_household_id.as_ref(),
@@ -566,7 +642,12 @@ impl LifeplanMcp {
             }
         };
         let request = json!({ "trace": "none", "input": input });
-        let out = match tokio::task::spawn_blocking(move || engine::run_preview(&request)).await {
+        let run = tokio::task::spawn_blocking(move || -> Result<(Value, Value), String> {
+            let p = prepare(&request, &office)?;
+            Ok((engine::run_preview(&p.request)?, p.applied))
+        })
+        .await;
+        let (out, applied) = match run {
             Ok(Ok(v)) => v,
             _ => {
                 log("calculate", t, "E_HOST");
@@ -587,6 +668,9 @@ impl LifeplanMcp {
             to_year: a.to_year,
         };
         let mut shaped = calc::shape(&out, mode, &filter);
+        if let Some(p) = preparation(&applied, true) {
+            shaped["preparation"] = p;
+        }
         if let Some(id) = &a.share_id {
             shaped["shareId"] = json!(id);
         }
@@ -598,7 +682,7 @@ impl LifeplanMcp {
     }
 
     #[tool(
-        description = "キャッシュフロー表の1つの数字（行と年）が、どんな計算で出たかの根拠を返す。アプリの画面で表の数字を押すと右に出る「数字の根拠」と同じ中身（合計・計算式ごとの内訳・式の説明・使った制度の値と出典と制度データの版・その年の家族の年齢・注記）に、制度の値ID（get_regulation_value に渡せる）を添える。FP に「この数字はどう計算したの？」と聞かれたら、推測で答えずにこれを使う。世帯は calculate と同じく見本の世帯（sample_household_id）・FPが渡した世帯（share_id。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る）・AIが組み立てた入力（input）のどれか1つで、changes（プラン・万一の想定）・stress_test も当てられる。row は画面の表の行の鍵（例 taxSi・pension:self・education・financial）か、calculate の table の行ID（cf. で始まる）。row を省くと根拠を出せる行の一覧を返す。合計の行（収入合計・支出合計・年間収支）は内訳の行ごとに聞く。世帯のデータそのものは変えない。",
+        description = "キャッシュフロー表の1つの数字（行と年）が、どんな計算で出たかの根拠を返す。アプリの画面で表の数字を押すと右に出る「数字の根拠」と同じ中身（合計・計算式ごとの内訳・式の説明・使った制度の値と出典と制度データの版・その年の家族の年齢・注記）に、制度の値ID（get_regulation_value に渡せる）を添える。FP に「この数字はどう計算したの？」と聞かれたら、推測で答えずにこれを使う。世帯は calculate と同じく見本の世帯（sample_household_id）・FPが渡した世帯（share_id。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る）・AIが組み立てた入力（input）のどれか1つで、changes（プラン・万一の想定）・stress_test も当てられる。row は画面の表の行の鍵（例 taxSi・pension:self・education・financial）か、calculate の table の行ID（cf. で始まる）。row を省くと根拠を出せる行の一覧を返す。合計の行（収入合計・支出合計・年間収支）は内訳の行ごとに聞く。計算は calculate と同じく画面と同じ計算の前の処理を当てる（当てた物は preparation。世帯の物は数だけ）。世帯のデータそのものは変えない。",
         annotations(
             title = "数字の根拠",
             read_only_hint = true,
@@ -614,7 +698,7 @@ impl LifeplanMcp {
     ) -> Result<CallToolResult, ErrorData> {
         let t = Instant::now();
         let tool = "explain_value";
-        let base = match base_input(
+        let (base, office) = match base_input(
             &ctx,
             tool,
             a.sample_household_id.as_ref(),
@@ -655,16 +739,19 @@ impl LifeplanMcp {
             }
         }
         let args = Value::Object(args).to_string();
-        let answer =
-            tokio::task::spawn_blocking(move || -> Result<Result<String, String>, String> {
-                let full = engine::run_full(&request)?;
+        // 計算は画面と同じ計算の前の処理を当てた要求で、根拠の読み方には画面の根拠のパネルと同じく処理の前の要求を渡す（0184）
+        let answer = tokio::task::spawn_blocking(
+            move || -> Result<Result<(String, Value), String>, String> {
+                let p = prepare(&request, &office)?;
+                let full = engine::run_full(&p.request)?;
                 if full.trim_start().starts_with("{\"error\"") {
                     return Ok(Err(full));
                 }
-                engine::explain(&full, &request.to_string(), &args).map(Ok)
-            })
-            .await;
-        let answer = match answer {
+                engine::explain(&full, &request.to_string(), &args).map(|v| Ok((v, p.applied)))
+            },
+        )
+        .await;
+        let (answer, applied) = match answer {
             Ok(Ok(Ok(v))) => v,
             Ok(Ok(Err(engine_error))) => {
                 let err: Value = serde_json::from_str(&engine_error).unwrap_or(Value::Null);
@@ -690,6 +777,9 @@ impl LifeplanMcp {
                 return Ok(fail("根拠の読み方の答えの形が違います。"));
             }
         };
+        if let Some(p) = preparation(&applied, false) {
+            v["preparation"] = p;
+        }
         if let Some(id) = &a.share_id {
             v["shareId"] = json!(id);
         }
@@ -905,6 +995,7 @@ impl LifeplanMcp {
         let req = Request::GetShare {
             share_id: a.share_id,
             tool: "get_shared_household".to_owned(),
+            for_calc: false,
         };
         match ask_app(&ctx, req).await {
             // アプリ本体が縮約・包んだものを、中身を変えずに渡す

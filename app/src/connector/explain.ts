@@ -4,9 +4,13 @@
 //   画面と接続口で根拠の文がずれないように、根拠の組み立ては画面の関数をそのまま使い、ここでは行の選び方と返す形だけを決める
 // - 画面の部品（preact）・本体の命令・保存の部品は読まない（lint とまとめる道具が止める）
 // - 返すのは根拠の表示の中身（画面と同じ）と、計算式ID・制度の値ID だけ。世帯の物の ID は返さない（行を選ぶときに受け取るだけ）
+// - 同じ1つの JS に、計算の前の処理（prepare.ts。画面がエンジンへ渡す前に当てる処理。0184）も入れる。接続口は計算の前に prepare を、
+//   根拠を読むときは画面と同じく処理の前の要求で explain を呼ぶ
 import type { EngineRequest, FullResult, TableCell } from "../engine/types.ts";
 import { evidenceDetail } from "../workspace/evidence.ts";
 import { displayYears, rowDefs, type RowDef } from "../workspace/present.ts";
+
+export { prepare } from "./prepare.ts";
 
 export interface ExplainArgs {
   /** 表の行の鍵（画面の行。例 taxSi・pension:self）か、キャッシュフロー表の行ID（cf. で始まる。calculate の table の row） */

@@ -125,7 +125,11 @@ struct State {
 pub struct ShareRegistry {
     state: Mutex<State>,
     clock: Arc<dyn Clock>,
+    office: Mutex<Option<OfficeEstimatesSource>>,
 }
+
+/// 事務所の推定の値（事務所データの `defaults.estimates`。無ければ None）を読む所。アプリ本体が入れる（0184）
+pub type OfficeEstimatesSource = Arc<dyn Fn() -> Option<Value> + Send + Sync>;
 
 /// 接続口からの依頼の失敗（コードと、FPに見せてよい説明）
 pub type Refusal = (ErrorCode, String);
@@ -145,6 +149,7 @@ impl ShareRegistry {
         ShareRegistry {
             state: Mutex::new(State::default()),
             clock,
+            office: Mutex::new(None),
         }
     }
 
@@ -160,6 +165,12 @@ impl ShareRegistry {
     /// 0014 の6 は「同意が無くても警告して FP の判断で続けられる」だが、アプリでは最も保守的な側を選んだ
     pub fn require_consent(&self, on: bool) {
         self.lock().require_consent = on;
+    }
+
+    /// 事務所の推定の値を読む所を入れる（アプリ本体が起動したときに入れる。0184）。計算に使う読み取り（`handle_get_for_calc`）の
+    /// 返事に、そのときの値を添える（共有した後に事務所の値を変えても、次の計算から今の値になる。画面と同じ）
+    pub fn set_office_estimates(&self, source: Option<OfficeEstimatesSource>) {
+        *self.office.lock().unwrap_or_else(|p| p.into_inner()) = source;
     }
 
     /// 記録が変わった回数（世帯ファイルへ書き戻すかどうかの判定に使う）
@@ -640,6 +651,32 @@ impl ShareRegistry {
         tool: &str,
         caller: &Caller,
     ) -> Result<String, Refusal> {
+        self.get_payload(share_id, tool, caller)
+            .map(|v| v.to_string())
+    }
+
+    /// 計算に使う読み取り（calculate・explain_value。0184）: `handle_get` と同じ返事・同じ記録に、画面が計算の前に足す事務所の推定の値
+    /// （事務所データの `defaults.estimates`。無ければ null）を `officeEstimates` として添える。世帯の中身ではないので、
+    /// AIに渡した記録の項目と中身の指紋には入れない（接続口は計算にだけ使い、AIの答えには値ID の一覧だけを出す）
+    pub fn handle_get_for_calc(
+        &self,
+        share_id: &str,
+        tool: &str,
+        caller: &Caller,
+    ) -> Result<String, Refusal> {
+        let mut payload = self.get_payload(share_id, tool, caller)?;
+        // 共有の台帳のロックを放してから読む（事務所の値を読む所は、アプリ本体の保存の部品のロックを取る）
+        let source = self
+            .office
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone();
+        let office = source.and_then(|f| f()).unwrap_or(Value::Null);
+        payload["officeEstimates"] = office;
+        Ok(payload.to_string())
+    }
+
+    fn get_payload(&self, share_id: &str, tool: &str, caller: &Caller) -> Result<Value, Refusal> {
         let now = self.now();
         let mut st = self.lock();
         usable(&mut st, share_id, now)?;
@@ -656,8 +693,7 @@ impl ShareRegistry {
             "fields": reduced.fields,
             "input": reduced.input,
             "texts": reduced.texts,
-        })
-        .to_string();
+        });
         let digest = content_digest(share.scope.name(), &reduced, &share.pseudonyms);
         let household_id = share.source.household_id.clone();
         let index = share.record_index;

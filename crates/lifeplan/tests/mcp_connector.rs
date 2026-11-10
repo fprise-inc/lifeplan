@@ -1197,6 +1197,141 @@ async fn explain_value_for_a_shared_household() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// 計算の前の処理（0184）: 前処理が効く世帯（当てにしない受け取る相続・相続で受け継ぐ借金・「計算に入れない」夢と、事務所の推定の値）を
+/// 渡された世帯として計算させると、画面の数字と根拠（app/test/connector-prepare.test.ts が画面の関数で作る見本）と同じ。
+/// AIが組み立てた入力では、事務所の値の無い画面と同じ。事務所の値と根拠の文は AI に見せず、AIに渡した記録は今までと同じ
+#[tokio::test(flavor = "multi_thread")]
+async fn calculation_matches_the_screen_after_preparation() {
+    let p = repo().join("crates/lifeplan/tests/fixtures/prepare/expected.json");
+    let fx: Value = serde_json::from_str(&std::fs::read_to_string(p).unwrap()).unwrap();
+    let dir = temp_dir("prepare");
+    let reg = Arc::new(ShareRegistry::new());
+    let office = fx["officeEstimates"].clone();
+    reg.set_office_estimates(Some(Arc::new(move || Some(office.clone()))));
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    let (c, _) = connect(&dir).await;
+    let mut src = source("parentCare", false);
+    src.input = fx["input"].clone();
+    let g = reg.grant(src, grant_opts()).unwrap();
+
+    // 年ごとの年間収支・金融資産と合計が、画面と同じ
+    let same_as = |got: &Value, screen: &Value, what: &str| {
+        let years: Vec<Value> = got["years"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|y| json!({ "year": y["year"], "net": y["net"], "financialAssets": y["financialAssets"] }))
+            .collect();
+        assert_eq!(
+            Value::Array(years),
+            screen["years"],
+            "{what}: 画面の数字と違います"
+        );
+        assert_eq!(got["totals"], screen["totals"], "{what}");
+    };
+    let shared = call_ok(&c, "calculate", json!({ "share_id": g.share_id })).await;
+    same_as(&shared, &fx["screen"], "渡された世帯");
+    let prep = &shared["preparation"];
+    assert!(prep["note"]
+        .as_str()
+        .unwrap()
+        .contains("アプリの画面と同じ"));
+    for k in ["incomeFlows", "inheritedDebts", "dreams"] {
+        assert_eq!(
+            prep["notInCalculation"][k].as_array().map(Vec::len),
+            Some(1),
+            "{k}: {prep}"
+        );
+    }
+    assert_eq!(
+        prep["officeEstimates"],
+        json!({ "values": ["care.statistics.monthlyHome", "care.statistics.months"], "noFill": ["education"] })
+    );
+    // 世帯の物の ID は共有の仮の ID（元の ID は出さない）
+    let original = fx["input"]["household"]["incomeFlows"][0]["id"]
+        .as_str()
+        .unwrap();
+    assert!(!shared.to_string().contains(original));
+
+    // 数字の根拠も画面と同じ（世帯の物は数だけ）
+    for e in fx["evidence"].as_array().unwrap() {
+        let got = call_ok(
+            &c,
+            "explain_value",
+            json!({ "share_id": g.share_id, "row": e["row"], "year": e["year"] }),
+        )
+        .await;
+        assert_eq!(got["status"], "ok", "{got}");
+        assert_eq!(
+            got["evidence"], e["evidence"],
+            "{} {}: 画面の根拠と違います",
+            e["row"], e["year"]
+        );
+        assert_eq!(got["preparation"]["notInCalculation"]["incomeFlows"], 1);
+        assert!(!got.to_string().contains(original));
+    }
+
+    // AIが組み立てた入力（同じ世帯）: 計算に入れない物は外し、事務所の値は無い（画面で事務所の値が無いときと同じ）
+    let alone = call_ok(&c, "calculate", json!({ "input": fx["input"] })).await;
+    same_as(&alone, &fx["screenWithoutOffice"], "AIが組み立てた入力");
+    assert_eq!(
+        alone["preparation"]["notInCalculation"]["incomeFlows"],
+        json!([original])
+    );
+    assert!(alone["preparation"].get("officeEstimates").is_none());
+
+    // 事務所の値（と FP の根拠の文）は AI に見せない
+    let (err, view) = call(
+        &c,
+        "get_shared_household",
+        json!({ "share_id": g.share_id }),
+    )
+    .await;
+    assert!(!err, "{view}");
+    for (text, what) in [
+        (&view, "get_shared_household"),
+        (&shared.to_string(), "calculate"),
+    ] {
+        assert!(
+            !text.contains("当事務所のお客さまの平均"),
+            "{what}: 根拠の文が渡っています"
+        );
+        assert!(
+            !text.contains("officialRev"),
+            "{what}: 事務所データが渡っています"
+        );
+    }
+    assert!(serde_json::from_str::<Value>(&view)
+        .unwrap()
+        .get("officeEstimates")
+        .is_none());
+
+    // AIに渡した記録: 読んだ道具ごとに残り、渡した項目と中身の指紋は道具によらず同じ（事務所の値は記録の中身に入れない）
+    let rec = reg.records(HOUSEHOLD_ID);
+    let reads = &rec[0].reads;
+    let tools: Vec<&str> = reads.iter().map(|r| r.tool.as_str()).collect();
+    assert_eq!(
+        tools,
+        ["calculate", "explain_value", "get_shared_household"]
+    );
+    assert_eq!(
+        reads[1].count,
+        fx["evidence"].as_array().unwrap().len() as u64
+    );
+    for r in reads {
+        assert_eq!(r.fields, reads[0].fields);
+        assert_eq!(r.digest, reads[0].digest);
+    }
+
+    // アプリ本体が事務所の値を添えないとき（読む所が無い）は、事務所の値の無い画面と同じ
+    reg.set_office_estimates(None);
+    let plain = call_ok(&c, "calculate", json!({ "share_id": g.share_id })).await;
+    same_as(&plain, &fx["screenWithoutOffice"], "事務所の値なし");
+    ep.shutdown();
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// 対応範囲の一覧（search_coverage・get_coverage。0183）: アプリが起動していなくても使え、よく聞かれる話題が見つかり、
 /// まだ入っていない物と見つからない物には「要望・不具合を送る」への案内が付く
 #[tokio::test(flavor = "multi_thread")]

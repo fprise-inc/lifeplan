@@ -167,7 +167,17 @@ async fn serve(
         let result = match &env.request {
             Request::Hello { .. } => Err((ErrorCode::Invalid, "すでに名乗っています。".to_owned())),
             Request::ListShares => registry.handle_list(),
-            Request::GetShare { share_id, tool } => registry.handle_get(share_id, tool, &caller),
+            Request::GetShare {
+                share_id,
+                tool,
+                for_calc,
+            } => {
+                if *for_calc {
+                    registry.handle_get_for_calc(share_id, tool, &caller)
+                } else {
+                    registry.handle_get(share_id, tool, &caller)
+                }
+            }
             Request::Propose { share_id, proposal } => {
                 registry.handle_propose(share_id, proposal, &caller)
             }

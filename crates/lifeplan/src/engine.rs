@@ -75,12 +75,24 @@ pub fn run_full(request: &Value) -> Result<String, String> {
 }
 
 /// 「数字の根拠」の読み方（画面の根拠のパネルと同じ関数。app/src/connector/explain.ts。0183）を、計算と同じ固めた新しい実行環境で動かす。
+/// request は計算の前の処理（prepare）を当てる前の要求（画面の根拠のパネルと同じ）
 /// full は run_full の出力、request は計算の要求、args は行・年など。戻り値は読み方の答え（JSON の文字）
 pub fn explain(full: &str, request: &str, args: &str) -> Result<String, String> {
     let run = || -> Result<String, engine_host::HostError> {
         let sandbox = Sandbox::new(&Limits::FULL_TRACE)?;
         sandbox.eval_script(assets::EXPLAIN_JS)?;
         sandbox.call_function("FinanciaExplain", "explain", (full, request, args))
+    };
+    run().map_err(|e| e.code().to_owned())
+}
+
+/// 計算の前の処理（画面がエンジンへ渡す前に当てる処理と同じ関数。app/src/connector/prepare.ts。0184）を、計算と同じ固めた新しい実行環境で動かす。
+/// request は計算の要求、office は事務所データの defaults.estimates（無ければ null）。戻り値は `{ request, applied }` の JSON の文字
+pub fn prepare(request: &str, office: &str) -> Result<String, String> {
+    let run = || -> Result<String, engine_host::HostError> {
+        let sandbox = Sandbox::new(&Limits::DEFAULT)?;
+        sandbox.eval_script(assets::EXPLAIN_JS)?;
+        sandbox.call_function("FinanciaExplain", "prepare", (request, office, ""))
     };
     run().map_err(|e| e.code().to_owned())
 }
