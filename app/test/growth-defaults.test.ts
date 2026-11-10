@@ -156,6 +156,9 @@ describe("既存の世帯の数字は変わらない", () => {
     expect(g.label).toBe("伸び方");
     expect(g.get(wh)).toMatchObject({ value: "inflation", hint: FLAT_OLD_ROW_HINT });
     expect(groupOf("care", wh, `ev/${allowance.id}`).note ?? "").not.toContain("伸び方");
+    // 見せている「物価に合わせる」を入れ直しても書き換えない。「変えない」を選ぶと書く
+    expect(expenseOf(g.set(wh, "inflation"), allowance.id).growth).toBeUndefined();
+    expect(expenseOf(g.set(wh, "none"), allowance.id).growth).toEqual({ kind: "none" });
   });
 });
 

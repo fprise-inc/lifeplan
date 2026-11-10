@@ -940,7 +940,8 @@ export const FLAT_OLD_ROW_HINT = "伸び方を選んでいない前の行なの�
 
 /**
  * 伸び方の既定が「変えない」の行の伸び方の欄（0044 の追記 2026-11-10）: 「物価に合わせる」を選ぶと、省略でなく明示して書く（省略は、伸び方を
- * 選んでいない前の行の読み方〔物価〕と区別できないため）。伸び方を持たない前の行には、物価で伸ばしていることを添える
+ * 選んでいない前の行の読み方〔物価〕と区別できないため）。伸び方を持たない前の行には、物価で伸ばしていることを添える（その行で「物価に合わせる」を
+ * 入れ直しても書き換えない。見せている値の入れ直しで世帯を変えない）
  */
 function flatGrowthField(base: FieldDef, find: Finder): FieldDef {
   return {
@@ -954,7 +955,8 @@ function flatGrowthField(base: FieldDef, find: Finder): FieldDef {
         ? base.set(wh, v)
         : mutate(wh, (h) => {
             const t = find(h, wh);
-            if (t !== undefined) t.growth = { kind: "inflation" };
+            // 伸び方を持たない前の行は、見せている「物価に合わせる」を入れ直しても書き換えない
+            if (t !== undefined && t.growth !== undefined) t.growth = { kind: "inflation" };
           }),
   };
 }
