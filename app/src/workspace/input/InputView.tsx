@@ -40,16 +40,26 @@ import { sortChildrenByBirth } from "./stages/family.ts";
 import { DocLinks, DocViewContext, ReceivedButton, ReceivedDocs, useReceivedDocs, type ReceivedProps } from "../hearing/ReceivedDocs.tsx";
 import { DocViewer } from "../hearing/DocViewer.tsx";
 import { keepWebLog } from "../hearing/web.ts";
+import { okToast, toastClass, toastMs, warnToast, type Toast } from "../toast.ts";
+
+/**
+ * 入力のパネルで「保存」しても世帯ファイルに保存しないとき（null は保存する）。
+ * paused: ほかの人が開いていて自動保存を止めている間（0023 の7。「編集を始める」まで）
+ * viewOnly: 閲覧だけで開いている（新しい版のアプリで保存された世帯・事務所で閲覧だけの役割。上の帯の「閲覧だけ」の札と同じ条件）
+ */
+export type PanelSaveBlock = "paused" | "viewOnly" | null;
 
 /**
  * 入力のパネルで「保存」した後の知らせ。plan は編集の対象のプランの呼び名（現状なら null）。
- * ほかの人が開いていて自動保存を止めている間（0023 の7）は、パネルの中身は画面の世帯に入るが世帯ファイルには保存しないので、
- * 「保存しました」と言わず、まだ保存していないことと「編集を始める」で保存することを伝える
+ * 保存しないとき（block）は、パネルの中身は画面の世帯に入るが世帯ファイルには保存しないので、
+ * 「保存しました」と言わず、注意の知らせ（✓ を付けない）にする。止めている間は「編集を始める」で保存することを、閲覧だけなら保存しないことを伝える
  */
-export function panelSavedText(label: string | undefined, plan: string | null, paused: boolean): string {
+export function panelSavedToast(label: string | undefined, plan: string | null, block: PanelSaveBlock): Toast {
   const what = label !== undefined ? `「${label}」を` : "";
-  if (paused) return `${what}${plan !== null ? `${plan}で` : ""}直しました。ほかの人が開いているため、まだ保存していません（「編集を始める」を押すと保存します）`;
-  return plan !== null ? `「${label ?? ""}」を${plan}に保存しました` : label !== undefined ? `「${label}」を保存しました` : "保存しました";
+  const fixed = `${what}${plan !== null ? `${plan}で` : ""}直しました。`;
+  if (block === "paused") return warnToast(`${fixed}ほかの人が開いているため、まだ保存していません（「編集を始める」を押すと保存します）`);
+  if (block === "viewOnly") return warnToast(`${fixed}閲覧だけで開いているため、保存しません`);
+  return okToast(plan !== null ? `「${label ?? ""}」を${plan}に保存しました` : label !== undefined ? `「${label}」を保存しました` : "保存しました");
 }
 
 interface Props {
@@ -102,6 +112,8 @@ interface Props {
   hearingNote?: { text: string; onOpen: () => void } | null;
   /** ほかの人が開いていて、自動保存を止めている（「編集を始める」まで世帯に保存しない。0023 の7）。パネルの「保存」の後に「保存しました」と言わない */
   paused?: boolean;
+  /** 閲覧だけで開いている（保存しない。上の帯の「閲覧だけ」の札と同じ条件）。パネルの「保存」の後に「保存しました」と言わない */
+  viewOnly?: boolean;
   /** Web のヒアリングで受け取った書類の保存の口と、依頼の記録の書き換え（見た・保存した・消す。0191）。省くと保存のボタンを出さない */
   received?: ReceivedProps;
 }
@@ -290,7 +302,7 @@ export function ImportMenu({ children, off, initialOpen = false, open: outer, on
   );
 }
 
-export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false, officeItems, findQuery, onReadDoc, received, hearingNote = null, paused = false }: Props) {
+export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen, chooseOpen = false, officeItems, findQuery, onReadDoc, received, hearingNote = null, paused = false, viewOnly = false }: Props) {
   /** 直しているプラン（直せないときは現状） */
   const editing = plans !== undefined && plans.sel !== null && plans.lock === null ? (plans.list.find((x) => x.id === plans.sel) ?? null) : null;
   const pcat = plans?.cat;
@@ -319,7 +331,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   const shownGroups = statusFilter === null ? groups : groups.map((g) => ({ ...g, items: g.items.filter((i) => i.status === statusFilter) })).filter((g) => g.items.length > 0);
   const [openId, setOpenId] = useState<string | null>(initialOpen !== undefined && (allItems.some((i) => i.id === initialOpen) || wh.addedItems.some((a) => a.id === initialOpen)) ? initialOpen : null);
   const [flashId, setFlashId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
   const [statementOpen, setStatementOpen] = useState(statement?.initialOpen === true);
   const [checkOpen, setCheckOpen] = useState(initialOpen === "check");
   /** 確かめの一覧から開いたときに移る欄 */
@@ -380,8 +392,8 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   }, [flashId]);
   useEffect(() => {
     if (toast === null) return;
-    // 自動保存を止めている間の知らせ（panelSavedText）は長いので、少し長く出す
-    const t = setTimeout(() => setToast(null), toast.includes("編集を始める") ? 6000 : 2600);
+    // 注意の知らせ（保存していない。panelSavedToast）は長いので、少し長く出す
+    const t = setTimeout(() => setToast(null), toastMs(toast));
     return () => clearTimeout(t);
   }, [toast]);
 
@@ -440,7 +452,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   const backFromStatement = (approved?: number) => {
     setStatementOpen(false);
     setOpenId("living");
-    if (approved !== undefined) setToast(`明細から${approved}件を入れました`);
+    if (approved !== undefined) setToast(okToast(`明細から${approved}件を入れました`));
   };
   // カードの上の1押し（現状を直す。プランの編集中は出さない）
   const cardActs: CardActions =
@@ -450,17 +462,17 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
           onNa: (id) => {
             onSave(notApplicableCard(wh, id));
             setFlashId(id);
-            setToast(`「${items.find((i) => i.id === id)?.label ?? ""}」を該当なしにしました`);
+            setToast(okToast(`「${items.find((i) => i.id === id)?.label ?? ""}」を該当なしにしました`));
           },
           onFill: (id) => {
             onSave(fillCard(wh, id));
             setFlashId(id);
-            setToast(`「${items.find((i) => i.id === id)?.label ?? ""}」を推定で入れました`);
+            setToast(okToast(`「${items.find((i) => i.id === id)?.label ?? ""}」を推定で入れました`));
           },
         };
   const unpin = (pin: PinItem) => {
     onSave(togglePin(wh, pin.added));
-    setToast(`「${pin.label}」のピンを外しました（物は残ります）`);
+    setToast(okToast(`「${pin.label}」のピンを外しました（物は残ります）`));
   };
   const save = (next0: WorkingHousehold, id: string) => {
     // パネルを開いている間に付けた受け取った書類の印（見た・保存した）を、パネルの下書きの古い依頼の記録で戻さない
@@ -473,7 +485,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
     setOpenId(null);
     setFocusAt(null);
     setFlashId(id);
-    setToast(panelSavedText(label, editing?.label ?? null, paused));
+    setToast(panelSavedToast(label, editing?.label ?? null, paused ? "paused" : viewOnly ? "viewOnly" : null));
   };
 
   const importOff =
@@ -598,7 +610,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
           onOpen={openField}
           onEdit={(next, done) => {
             onSave(next);
-            setToast(done);
+            setToast(okToast(done));
           }}
           {...(editing !== null && pcat !== undefined && plans !== undefined
             ? {
@@ -607,7 +619,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
                   view: shown,
                   onEdit: (next: WorkingHousehold, done: string) => {
                     plans.onSavePlan(recordPlanEdit(wh, pcat, editing.id, shown, next));
-                    setToast(done);
+                    setToast(okToast(done));
                   },
                 },
               }
@@ -670,8 +682,8 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
       ) : null}
       {rd.viewing !== null ? <DocViewer rd={rd} beside={openId !== null} /> : null}
       {statement !== undefined && statementOpen ? statement.render(backFromStatement) : null}
-      <div class={`toast${toast !== null ? " on" : ""}`} role="status" aria-live="polite">
-        {toast ?? ""}
+      <div class={toastClass(toast)} role="status" aria-live="polite">
+        {toast?.text ?? ""}
       </div>
     </div>
     </DocViewContext.Provider>
