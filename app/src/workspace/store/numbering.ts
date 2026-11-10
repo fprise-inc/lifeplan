@@ -42,6 +42,15 @@ export function parseSampleNo(no: string): { family: number; age: number; order:
   return order >= 1 ? { family: Number(m[1]), age: Number(m[2]), order } : null;
 }
 
+/**
+ * 見本を開いていて、動かしても保存しない（見本の帯の「動かしても見本は変わりません」と同じ条件。0033）。
+ * item は見本の棚の今開いている見本（見本でなければ null）、mode は自分で作った見本の開き方（「この見本を直す」で edit）。
+ * アプリに入っている見本は mode が null で、いつも保存しない
+ */
+export function sampleNotSaving(item: ShelfItem | null, mode: null | "view" | "edit"): boolean {
+  return item !== null && mode !== "edit";
+}
+
 /** 見本番号の説明（例: 夫婦と子・40代） */
 export function sampleNoText(no: string): string {
   const p = parseSampleNo(no);
