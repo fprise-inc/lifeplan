@@ -639,7 +639,7 @@ export function InputPanel({ wh, itemId, level, onLevel, onSave, onClose, comput
                         {inheritanceView(shown, inheritance).notIncluded.length > 0 ? (
                           <p class="ip-inherit-note">
                             含めていないもの: {inheritanceView(shown, inheritance).notIncluded.join("・")}
-                            <Help label="含めていないもの">額が分かれば、「詳細」の「相続税の目安の設定」の「税理士などの出した額」で直せます。</Help>
+                            <Help label="含めていないもの">税理士などが試算した額が分かれば、「詳細」の「税理士などが出した相続税の額」に入れると、目安の代わりにその額を出します。</Help>
                           </p>
                         ) : null}
                       </>
