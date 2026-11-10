@@ -29,6 +29,7 @@
 
 - 入口 `app/src/connector/prepare.ts` の `prepare(要求, 事務所データの defaults.estimates)`: 画面と同じく、事務所データを `readOfficeEstimates` で読み、`publishOfficeEstimates` で今の事務所の値にしてから、画面と同じ `forEngine` を当てる。返すのは当てた要求と、当てた物（外した入るお金・受け継ぐ借金・夢の ID、足した事務所の値の値ID と推定で埋めない目安）。画面の関数は1文字も直していない（画面の答えは変わらない）。
   - 0183 の読み方と同じ1つの JS（`crates/lifeplan/dist/explain.js`。グローバル `FinanciaExplain`）に入れる（`explain.ts` から `prepare` も出す）。lint で、接続口の入口が作業の層のうち読めるのを `evidence`・`present`・`office/estimates` だけにした。まとめた JS は約 0.21MB から約 0.30MB になった（推定の目安の統計の写しが入るため）。
+  - 形の違う入力（AI が組み立てた入力の誤りで、画面の関数が読めない物）には何も当てずに返し、今までどおりエンジンの確かめに誤りを答えさせる。
   - 接続口（`crates/lifeplan/src/engine.rs` の `prepare`）は、計算と同じ固めた新しい実行環境で、呼ぶごとに読み込んで呼ぶ（事務所の値はモジュールの中に入れるが、呼び出しをまたいで残らない）。1回およそ 10ms（計算の約 1%）。
 - `calculate`・`explain_value` は、見本の世帯・渡された世帯・AI が組み立てた入力のどれにも、`changes`・`stress_test` を当てた後に `prepare` を当ててから計算する。
   - `explain_value` は、画面の根拠のパネル（`App.tsx` の `showEvidence`）と同じく、根拠の記録「全部」で計算するのは処理の後の要求、根拠の読み方に渡すのは処理の前の要求。
