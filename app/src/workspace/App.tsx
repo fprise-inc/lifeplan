@@ -102,7 +102,7 @@ import { dropNotesOnPersist, stripNotesBeforeSample } from "./store/sampleNotes.
 import { HouseholdPanel, storeMessage, openMessage, copyRequest, defaultCategory, APP_SAMPLE_MEMO_TEXT } from "./store/HouseholdPanel.tsx";
 import { PreviousPanel, offersPrevious } from "./store/PreviousPanel.tsx";
 import { editorsOf, mergeForkBodies, presenceText } from "./store/office.ts";
-import { guessShape, sampleNoText, shelfItems, type Category, type CategoryEdit, type CategorySettings, type SampleInfo, type SampleRequest, type ShelfItem } from "./store/numbering.ts";
+import { guessShape, sampleNoText, sampleNotSaving, shelfItems, type Category, type CategoryEdit, type CategorySettings, type SampleInfo, type SampleRequest, type ShelfItem } from "./store/numbering.ts";
 import { OfficePanel } from "./store/OfficePanel.tsx";
 import { RecoveryPanel, type RecoveryMode } from "./store/RecoveryPanel.tsx";
 import { StoragePanel } from "./store/StoragePanel.tsx";
@@ -2461,6 +2461,8 @@ export function App() {
   const sampleItem: ShelfItem | null = currentSample === null ? null : (shelf.find((i) => i.id === currentSample) ?? null);
   /** 保存している（見本を保存しないで開いているときは、保存していない扱い） */
   const savingStored = storedInfo !== null && sampleMode !== "view";
+  /** 見本を開いていて、動かしても保存しない（見本の帯の文と、入力のパネルの「保存」の後の知らせで同じ条件） */
+  const sampleView = sampleNotSaving(sampleItem, sampleMode);
   const drawer = memoOpen || evidence !== null;
   // 事務所で共有しているときの自分と、メンバーの表示名（メモの行・面談の記録の書いた人。0023 の6・0182）
   const officeMe = storedInfo !== null && officeStatus?.state === "member" ? (officeStatus.members.find((m) => m.isMe)?.memberId ?? null) : null;
@@ -2715,7 +2717,7 @@ export function App() {
               <b>
                 見本 {sampleItem.no}「{sampleItem.name}」
               </b>
-              （{sampleNoText(sampleItem.no)}・架空）を開いています。{sampleMode === "edit" ? "手直しは自動で保存します。" : "動かしても見本は変わりません（閉じれば元どおり。「最初に戻す」も使えます）。"}
+              （{sampleNoText(sampleItem.no)}・架空）を開いています。{!sampleView ? "手直しは自動で保存します。" : "動かしても見本は変わりません（閉じれば元どおり。「最初に戻す」も使えます）。"}
             </span>
             {storeStatus?.state === "ready" && storeUnavailable === null ? (
               <>
@@ -2876,6 +2878,7 @@ export function App() {
               onSave={edit}
               paused={presence !== null && storedInfo !== null}
               viewOnly={viewOnly}
+              sample={sampleView}
               calcNotices={currentNotices}
               layout={layoutOf(officeSettings)}
               plans={{

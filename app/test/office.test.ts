@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { panelSavedToast } from "../src/workspace/input/InputView.tsx";
 import { okToast, toastClass, toastMs } from "../src/workspace/toast.ts";
 import { barAlerts, type BarInputs } from "../src/workspace/header/status.ts";
+import { sampleNotSaving, type ShelfItem } from "../src/workspace/store/numbering.ts";
 import type { ForkInfo, OfficeHost, OfficeStatus, StoredHousehold } from "../src/engine/host.ts";
 import { ForkPanel } from "../src/workspace/store/ForkPanel.tsx";
 import { HouseholdPanel } from "../src/workspace/store/HouseholdPanel.tsx";
@@ -320,7 +321,7 @@ describe("分岐を選ぶ画面", () => {
   });
 });
 
-describe("入力のパネルの「保存」の知らせ（保存を止めている間・閲覧だけ・ふつう。0023 の7 と追記）", () => {
+describe("入力のパネルの「保存」の知らせ（保存を止めている間・閲覧だけ・見本・ふつう。0023 の7 と追記・0033 の追記）", () => {
   it("止めている間は「保存しました」と言わず、まだ保存していないことと「編集を始める」を伝える注意の知らせにする", () => {
     for (const plan of [null, "プランB"]) {
       const paused = panelSavedToast("働き方と収入", plan, "paused");
@@ -332,6 +333,24 @@ describe("入力のパネルの「保存」の知らせ（保存を止めてい�
       if (plan !== null) expect(paused.text).toContain("プランBで直しました");
     }
     expect(panelSavedToast(undefined, null, "paused").text).not.toContain("保存しました");
+  });
+  it("見本を保存しないで開いているときは「保存しました」と言わず、見本のため保存しないことと顧客を作れば保存できることを伝える注意の知らせにする", () => {
+    expect(panelSavedToast("働き方と収入", null, "sample")).toEqual({ tone: "warn", text: "「働き方と収入」を直しました。見本のため保存しません（「この見本をもとに顧客を作る」で保存できます）" });
+    expect(panelSavedToast("働き方と収入", "プランB", "sample")).toEqual({ tone: "warn", text: "「働き方と収入」をプランBで直しました。見本のため保存しません（「この見本をもとに顧客を作る」で保存できます）" });
+    expect(panelSavedToast(undefined, null, "sample").text).not.toContain("保存しました");
+    expect(toastClass(panelSavedToast("働き方と収入", null, "sample"))).toBe("toast on warn");
+    // ボタンの名前は見本の帯のボタンと同じ
+    const app = readFileSync(new URL("../src/workspace/App.tsx", import.meta.url), "utf8");
+    expect(app).toMatch(/data-band-customer>\s*この見本をもとに顧客を作る\s*</);
+  });
+  it("見本かどうかは、見本の帯の「動かしても見本は変わりません」と同じ条件（見本を開いていて、「この見本を直す」で直していない）", () => {
+    const app: ShelfItem = { kind: "app", id: "m", no: "3-4-01", name: "見本", traits: [] };
+    const own: ShelfItem = { kind: "own", id: "h", no: "3-4-10", name: "見本", traits: [] };
+    expect(sampleNotSaving(app, null)).toBe(true);
+    expect(sampleNotSaving(own, "view")).toBe(true);
+    expect(sampleNotSaving(own, "edit")).toBe(false);
+    expect(sampleNotSaving(null, null)).toBe(false);
+    expect(sampleNotSaving(null, "edit")).toBe(false);
   });
   it("閲覧だけのときは「保存しました」と言わず、保存しないことを伝える注意の知らせにする", () => {
     expect(panelSavedToast("働き方と収入", null, "viewOnly")).toEqual({ tone: "warn", text: "「働き方と収入」を直しました。閲覧だけで開いているため、保存しません" });
