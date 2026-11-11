@@ -10,7 +10,8 @@ import type { TableRowModel } from "../src/presentation/model.ts";
 import { fromRequest } from "../src/workspace/input/household.ts";
 import { pensionEstimateRequest, pensionEstimateSummary, pensionLines, type PlanPension } from "../src/workspace/input/pensionEstimate.ts";
 import { compareTable } from "../src/workspace/plans/compare.ts";
-import { cashflowTable, displayYears, eventsOf } from "../src/workspace/present.ts";
+import { cashflowTable, displayYears, eventsOf, familyText, personLabel } from "../src/workspace/present.ts";
+import { roles } from "../src/workspace/roles.ts";
 import { deficitSources, dependentRefRequest, dependentRefRows, outsideName } from "../src/workspace/resultRows.ts";
 import { dependentLimits } from "../../hearing/src/estimates.ts";
 import { modelHousehold, preview } from "./helpers.ts";
@@ -110,6 +111,33 @@ describe("家計を1つにする親の年金の行（0075）", () => {
     expect(outsideName(req, m1)).toBe("ご本人のお母さま");
     expect(outsideName(req, m2)).toBe("配偶者のお母さま");
     expect(outsideName(modelHousehold("parentMoney"), parentOf(modelHousehold("parentMoney")))).toBe("お母さま");
+  });
+
+  it("兄弟姉妹は「ご兄弟姉妹」、孫は「お孫さん」。誰の家族かで見分けられない2人以上は、足した順に番号（入力の画面の「孫1」と同じ決まり）", () => {
+    const req = modelHousehold("salariedCoupleTwoKids");
+    const h0 = req.input.household;
+    const self = h0.members.find((m) => m.kind === "self")!;
+    const spouse = h0.members.find((m) => m.kind === "spouse")!;
+    let n = 0;
+    const add = (kind: Member["kind"], of: string): Member => {
+      const m: Member = { id: `00000000-0000-4000-8000-0000000000${String(++n).padStart(2, "0")}`, kind, birth: { birthYearMonth: "1990-04", bornOnFirst: false }, sex: "male", joins: null, leaves: null, expected: false, outside: { of, periods: [] } };
+      h0.members.push(m);
+      return m;
+    };
+    const one = add("sibling", self.id);
+    const g1 = add("grandchild", self.id);
+    expect([outsideName(req, one), outsideName(req, g1)]).toEqual(["ご兄弟姉妹", "お孫さん"]);
+    const g2 = add("grandchild", self.id);
+    expect([outsideName(req, g1), outsideName(req, g2)]).toEqual(["お孫さん1", "お孫さん2"]);
+    // 誰の家族かで分けられる人は前に付け、同じ人の家族の中で見分けられないときだけ番号
+    const s2 = add("sibling", self.id);
+    const s3 = add("sibling", spouse.id);
+    expect([one, s2, s3].map((m) => outsideName(req, m))).toEqual(["ご本人のご兄弟姉妹1", "ご本人のご兄弟姉妹2", "配偶者のご兄弟姉妹"]);
+    // 表の年齢の行・グラフの家族の文も同じ呼び方。番号の後は年齢と続けないように間を空ける
+    const years = displayYears(req);
+    const labels = cashflowTable(req, preview(req).table, years, "表").rows.filter((r) => r.kind === "age").map((r) => r.label);
+    expect(labels).toEqual(expect.arrayContaining(["お孫さん1", "お孫さん2", "ご本人のご兄弟姉妹1", "配偶者のご兄弟姉妹"]));
+    expect(familyText(roles(req), years[0]!, undefined, (r) => personLabel(req, r))).toContain(`お孫さん1 ${String(years[0]! - 1990)}歳`);
   });
 
   it("世帯の外の家族のお金が尽きるできごとの文も同じ呼び方", () => {

@@ -4,7 +4,7 @@ import { ROW_LABELS } from "../generated/labels.ts";
 import type { AgeAxisRow, CashflowTableModel, ChartModel, Depletion, EventChip, EventIcon, FeeLine, FlowChartModel, GoalCard, GoalsModel, Headline, PresentationModel, ResultVerdict, SeriesNames, StackSeries, TableRowModel, Verdict, VerdictPart, YearDetail } from "../presentation/model.ts";
 import { man } from "../presentation/format.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
-import { ageInYear, leaveYear, presentInYear, roles, type Role } from "./roles.ts";
+import { ageInYear, leaveYear, nameWithAge, presentInYear, roles, type Role } from "./roles.ts";
 import { DEFICIT_NOTE, deficitSources, OUTSIDE_INCOME_NOTE, outsideName } from "./resultRows.ts";
 import { resolveTimepoint } from "./timepoint.ts";
 import { amountText, formatYearMonth } from "./input/units.ts";
@@ -110,7 +110,7 @@ export function personLabel(req: EngineRequest, r: Role): string {
 export function familyText(rs: readonly Role[], y: number, gone?: { key: string; year: number }, nameOf: (r: Role) => string = (r) => r.label): string {
   return rs
     .filter((r) => inHousehold(r, y, gone))
-    .map((r) => `${nameOf(r)}${ageInYear(r.member, y)}歳`)
+    .map((r) => nameWithAge(nameOf(r), ageInYear(r.member, y)))
     .join("・");
 }
 
@@ -321,7 +321,7 @@ export function eventsOf(req: EngineRequest, proposed: readonly TableCell[], yea
     if (m === undefined) continue;
     const { y, m: mo } = parseYm(w.depleted);
     const who = outsideName(req, m);
-    add(y, "親", `${who}のお金が尽きる見込み（${y}年${mo}月・${who}${ageInYear(m, y)}歳。この後の介護の費用は世帯が払います）`);
+    add(y, "親", `${who}のお金が尽きる見込み（${y}年${mo}月・${nameWithAge(who, ageInYear(m, y))}。この後の介護の費用は世帯が払います）`);
   }
   const dep = depletionYear(proposed, years);
   if (dep !== null) add(dep, "！", `資産が尽きる${self !== undefined ? `（${self.label}${ageInYear(self.member, dep)}歳）` : ""}`, true);
