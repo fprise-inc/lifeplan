@@ -198,9 +198,40 @@ async fn standalone_tools_work_without_the_app() {
         "{d}"
     );
 
-    let list = call_ok(&c, "list_sample_households", json!({})).await;
-    assert!(list["households"].as_array().unwrap().len() >= 40);
+    // 見本の世帯の一覧（0199）: 既定はアプリの見本の棚と同じ見本だけで、数KB。開発の試験用は include_test で出る
+    let (_, raw) = call(&c, "list_sample_households", json!({})).await;
+    assert!(raw.len() <= 8 * 1024, "{}", raw.len());
+    let list: Value = serde_json::from_str(&raw).unwrap();
+    let shelf = list["households"].as_array().unwrap();
+    assert!(shelf.len() >= 15 && shelf.len() < model_ids().len());
     assert!(list["notice"].as_str().unwrap().contains("架空"));
+    assert!(shelf.iter().all(|h| h["no"].is_string()
+        && h["tags"].as_array().is_some_and(|t| !t.is_empty())
+        && h["tags"] != json!(["開発の試験用"])));
+    let all = call_ok(
+        &c,
+        "list_sample_households",
+        json!({ "include_test": true }),
+    )
+    .await;
+    assert_eq!(
+        all["households"].as_array().unwrap().len(),
+        model_ids().len()
+    );
+    let kids = call_ok(
+        &c,
+        "list_sample_households",
+        json!({ "tags": ["子育て", "自営業"] }),
+    )
+    .await;
+    let kids: Vec<&str> = kids["households"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|h| h["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(kids, vec!["sampleSelfEmployedFamily"]);
+    check_schema_snapshot(&tools, "list_sample_households");
 
     let sample = call_ok(&c, "get_sample_household", json!({ "id": "single25" })).await;
     let input = sample["input"].clone();
@@ -308,6 +339,180 @@ async fn standalone_tools_work_without_the_app() {
     let (err, msg) = call(&c, "list_shared_households", json!({})).await;
     assert!(err && msg.contains("アプリが起動していません"), "{msg}");
     assert!(call_ok(&c, "list_sample_households", json!({})).await["households"].is_array());
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 使い方の例（MCP のプロンプト。0199）: 一覧に出て、引数が文に入り、文の中の道具は今ある道具だけ
+#[tokio::test(flavor = "multi_thread")]
+async fn prompts_list_and_expand() {
+    use rmcp::model::GetPromptRequestParams;
+    let dir = temp_dir("prompts");
+    let (c, _) = connect(&dir).await;
+    assert!(c.peer_info().unwrap().capabilities.prompts.is_some());
+    let tools: Vec<String> = c
+        .list_all_tools()
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|t| t.name.to_string())
+        .collect();
+    let prompts = c.list_all_prompts().await.unwrap();
+    let names: Vec<&str> = prompts.iter().map(|p| p.name.as_str()).collect();
+    for n in [
+        "what_can_you_do",
+        "compare_households",
+        "compare_measures",
+        "make_seminar_household",
+        "prepare_meeting",
+        "explain_to_client",
+        "check_coverage",
+    ] {
+        assert!(names.contains(&n), "{n} がありません: {names:?}");
+    }
+    for p in &prompts {
+        assert!(p.title.is_some() && p.description.is_some(), "{}", p.name);
+    }
+    let args_of = |name: &str| -> Vec<(String, bool)> {
+        let p = prompts.iter().find(|p| p.name == name).unwrap();
+        p.arguments
+            .iter()
+            .flatten()
+            .map(|a| (a.name.clone(), a.required.unwrap_or(false)))
+            .collect()
+    };
+    assert!(args_of("compare_households").contains(&("household_a".into(), true)));
+    assert!(args_of("compare_households").contains(&("focus".into(), false)));
+    assert!(args_of("compare_measures").contains(&("market_stress".into(), false)));
+    assert!(args_of("prepare_meeting").iter().all(|(_, req)| !req));
+    assert!(args_of("what_can_you_do").is_empty());
+
+    // 引数を入れて中身を取る（空の文字は書かなかったものとして扱う）
+    let cases: Vec<(&str, Value, Vec<&str>)> = vec![
+        ("what_can_you_do", json!({}), vec!["list_sample_households"]),
+        (
+            "compare_households",
+            json!({ "household_a": "sampleSingle20s", "household_b": "sampleCoupleNoKids", "focus": "65歳の時点の資産" }),
+            vec![
+                "sampleSingle20s",
+                "sampleCoupleNoKids",
+                "65歳の時点の資産",
+                "compare",
+                "variants",
+            ],
+        ),
+        (
+            "compare_measures",
+            json!({ "household": "salariedCoupleTwoKids", "measures": "65歳まで働く・NISA 月3万円", "at_ages": "" }),
+            vec![
+                "salariedCoupleTwoKids",
+                "65歳まで働く・NISA 月3万円",
+                "65・90",
+                "list_plan_items",
+                "plan_changes",
+                "compare",
+                "market_stress",
+                "minus1",
+            ],
+        ),
+        (
+            "make_seminar_household",
+            json!({ "profile": "38歳の会社員と扶養のパートの妻・賃貸", "events": "2028年4月に4,000万円の家を買う" }),
+            vec![
+                "38歳の会社員と扶養のパートの妻・賃貸",
+                "2028年4月に4,000万円の家を買う",
+                "get_input_recipe",
+                "get_input_guide",
+                "架空",
+            ],
+        ),
+        (
+            "prepare_meeting",
+            json!({ "topic": "老後資金" }),
+            vec![
+                "老後資金",
+                "list_shared_households",
+                "preparation",
+                "keyFigures.pension",
+                "market_stress",
+            ],
+        ),
+        (
+            "explain_to_client",
+            json!({ "household": "salariedCoupleTwoKids", "number": "2030年の税・社会保険料" }),
+            vec![
+                "2030年の税・社会保険料",
+                "explain_value",
+                "get_regulation_value",
+            ],
+        ),
+        (
+            "check_coverage",
+            json!({ "topic": "ふるさと納税" }),
+            vec![
+                "ふるさと納税",
+                "search_coverage",
+                "get_coverage",
+                "要望・不具合を送る",
+            ],
+        ),
+    ];
+    // 道具の名前の形（英小文字と _）の言葉のうち、道具の引数・入力の鍵として書いた物
+    let not_tools = [
+        "sample_household_id",
+        "share_id",
+        "at_ages",
+        "every_years",
+        "plan_changes",
+        "market_stress",
+        "stress_test",
+    ];
+    for (name, args, wants) in cases {
+        let Value::Object(m) = args else { panic!() };
+        let r = c
+            .get_prompt(GetPromptRequestParams::new(name).with_arguments(m))
+            .await
+            .unwrap();
+        assert_eq!(r.messages.len(), 1, "{name}");
+        let text = r.messages[0].content.as_text().unwrap().text.clone();
+        for w in wants {
+            assert!(text.contains(w), "{name}: {w} がありません: {text}");
+        }
+        for w in text.split(|ch: char| !(ch.is_ascii_lowercase() || ch == '_')) {
+            if w.contains('_') && !w.starts_with('_') && !w.ends_with('_') {
+                assert!(
+                    tools.iter().any(|t| t == w) || not_tools.contains(&w),
+                    "{name}: {w} は今ある道具ではありません"
+                );
+            }
+        }
+        // 機能を有効にするコードの話は出さない
+        assert!(!text.contains("コード"), "{name}: {text}");
+    }
+    // 要る引数が無いときは失敗する
+    assert!(c
+        .get_prompt(
+            GetPromptRequestParams::new("compare_households")
+                .with_arguments(json!({ "household_a": "x" }).as_object().unwrap().clone())
+        )
+        .await
+        .is_err());
+    // 公開に使うときの案内と、ほかのソフトとの違いを推測で断定しないこと（INSTRUCTIONS）
+    let ins = c
+        .peer_info()
+        .unwrap()
+        .instructions
+        .clone()
+        .unwrap_or_default();
+    for w in [
+        "ブログ・セミナー・SNS",
+        "年収は50万円単位",
+        "お客さまに一言ことわる",
+        "推測で断定しない",
+        "プロンプトの一覧",
+    ] {
+        assert!(ins.contains(w), "{w}");
+    }
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -1783,6 +1988,31 @@ async fn plan_changes_match_the_screen() {
     )
     .await;
     assert!(more["count"].as_u64().unwrap() > list["count"].as_u64().unwrap());
+    // 場所だけ違う項目（0201）も、場所（at か lever）と人が読める区別（place）を添えて出す。どの書き方でも決まらない項目は無い
+    assert_eq!(more["unlisted"], 0);
+    let stop = list["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|x| x["lever"] == "investStopAge")
+        .unwrap();
+    assert!(
+        stop["place"].is_string() && stop.get("at").is_none(),
+        "{stop}"
+    );
+    assert!(more["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|x| x["at"].is_array() && x["place"].as_str().unwrap().contains("第1子")));
+    // 場所を外した今までの書き方では、今までどおり1つに決まらないので当てない
+    let (err, msg) = call(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": first["sample"], "plan_changes": [{ "target": stop["target"], "item": stop["item"], "value": 55 }] }),
+    )
+    .await;
+    assert!(err && msg.contains("複数"), "{msg}");
 
     // 当てはまらない変更は、計算せずに理由を返す。JSON Pointer の changes はそのまま動く（plan_changes と一緒にも使える）
     let (err, msg) = call(
@@ -1862,8 +2092,10 @@ async fn plan_items_for_a_shared_household() {
     .unwrap();
     let want = &fx["shared"];
     let id = want["sample"].as_str().unwrap();
-    // 定年後の働き方の条件を持つ世帯（縮約版は数と選択肢だけを渡す。名前・自由文の欄は落とす）
+    // 定年後の働き方の条件を持つ世帯（縮約版は数と選択肢だけを渡す。名前・自由文の欄は落とす）。世帯は、画面で保存した世帯と同じく
+    // 並びの要素の ID を持つ形（世帯ファイルの本文。場所 at の中の要素の ID を元に戻せる。0201）
     let mut src = source(id, false);
+    src.input = want["savedInput"].clone();
     let mut post = want["postRetirement"].clone();
     for (_, c) in post.as_object_mut().unwrap() {
         c["memo"] = json!(MEMO);
@@ -1936,6 +2168,76 @@ async fn plan_items_for_a_shared_household() {
         pending[0].diffs[0].target,
         json!({ "object": sample["target"] })
     );
+    assert!(pending[0].diffs[0].at.is_none() && pending[0].diffs[0].lever.is_none());
+
+    // 場所だけ違う項目（0201）: 一覧（共有の仮の ID）の場所 at・lever をそのまま渡すと、アプリ本体が at の中の ID も元に戻して承認待ちに
+    // 入れる。戻した変更は、画面の「AIからの候補」でその項目に当たる変更（app/test/connector-plan.test.ts の見本）と同じ
+    let all = call_ok(
+        &c,
+        "list_plan_items",
+        json!({ "share_id": g.share_id, "fields": true }),
+    )
+    .await;
+    let mut changes = Vec::new();
+    for p in want["proposal"].as_array().unwrap() {
+        let it = all["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|x| x["label"] == p["label"] && x["place"] == p["place"])
+            .unwrap_or_else(|| panic!("一覧に {} がありません", p["label"]));
+        assert!(it.get("at").is_some() != it.get("lever").is_some(), "{it}");
+        assert_eq!(it["proposable"], true, "{it}");
+        let mut ch = json!({ "target": it["target"], "item": it["item"], "value": p["value"] });
+        for k in ["at", "lever"] {
+            if let Some(v) = it.get(k) {
+                ch[k] = v.clone();
+            }
+        }
+        changes.push(ch);
+    }
+    // 同じ書き方で計算もできる（当てはめは画面の候補と同じ関数）
+    let calc = call_ok(
+        &c,
+        "calculate",
+        json!({ "share_id": g.share_id, "plan_changes": changes, "omit": ["years"] }),
+    )
+    .await;
+    let rows = calc["planChanges"]["changes"].as_array().unwrap();
+    assert!(rows.iter().all(|r| r["status"] == "applied"), "{rows:?}");
+    assert!(rows.iter().all(|r| r["place"].is_string()), "{rows:?}");
+    let r = call_ok(
+        &c,
+        "propose_scenario",
+        json!({ "share_id": g.share_id, "title": "場所だけ違う項目を動かす", "changes": changes }),
+    )
+    .await;
+    assert_eq!(r["status"], "pendingReview");
+    let pending = reg.take_proposals();
+    let got: Vec<Value> = pending[0]
+        .diffs
+        .iter()
+        .map(|d| {
+            let mut v = json!({ "target": d.target, "item": d.item, "value": d.value });
+            if let Some(at) = &d.at {
+                v["at"] = json!(at);
+            }
+            if let Some(l) = &d.lever {
+                v["lever"] = json!(l);
+            }
+            v
+        })
+        .collect();
+    let expected: Vec<Value> = want["proposal"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["diff"].clone())
+        .collect();
+    assert_eq!(
+        got, expected,
+        "元の ID に戻した変更が、画面で当たる変更と違います"
+    );
     reg.revoke(&g.share_id);
     let (err, msg) = call(&c, "list_plan_items", json!({ "share_id": g.share_id })).await;
     assert!(err && msg.contains("REVOKED"), "{msg}");
@@ -2007,7 +2309,13 @@ fn every_plan_item_matches_node() {
         // ファイルの文字のまま渡す（JS が読むと、どちらの実行環境でも同じ並びの物になる）
         let req = std::fs::read_to_string(repo().join(format!("data/modelHouseholds/{id}.json")))
             .unwrap();
-        let sb = Sandbox::new(&Limits::DEFAULT).unwrap();
+        // 世帯ごとに1つの実行環境で全部の項目を当てる（接続口は呼ぶたびに新しい実行環境で、時間の上限も1回ごと。ここは答えを比べるだけなので、
+        // 時間の上限だけ広げる）
+        let sb = Sandbox::new(&Limits {
+            time: std::time::Duration::from_secs(600),
+            ..Limits::DEFAULT
+        })
+        .unwrap();
         sb.eval_script(&js).unwrap();
         let args = json!({ "sampleId": id, "fields": true }).to_string();
         let list = sb
@@ -2020,8 +2328,13 @@ fn every_plan_item_matches_node() {
         let ctx = json!({ "args": { "sampleId": id }, "office": null }).to_string();
         for it in list["items"].as_array().unwrap() {
             let Some(value) = bump(it) else { continue };
-            let changes =
-                json!([{ "target": it["target"], "item": it["item"], "value": value }]).to_string();
+            let mut change = json!({ "target": it["target"], "item": it["item"], "value": value });
+            for k in ["at", "lever"] {
+                if let Some(v) = it.get(k) {
+                    change[k] = v.clone();
+                }
+            }
+            let changes = json!([change]).to_string();
             let out = sb
                 .call_function("FinanciaPlan", "applyPlan", (&req, &changes, &ctx))
                 .unwrap_or_else(|e| panic!("{id} {}: {e:?}", it["label"]));
@@ -2029,7 +2342,8 @@ fn every_plan_item_matches_node() {
             got.push(out);
         }
     }
-    assert!(got.len() > 1000, "{}", got.len());
+    // 場所だけ違う項目（0201）も一覧に出て、1つずつ動かす
+    assert!(got.len() > 3000, "{}", got.len());
     let mut node = std::process::Command::new("node")
         .arg("-e")
         .arg(NODE_PLAN)

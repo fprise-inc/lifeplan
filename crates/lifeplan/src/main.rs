@@ -13,6 +13,7 @@ mod coverage;
 mod engine;
 mod guide;
 mod plan;
+mod prompts;
 mod recipes;
 mod regulation;
 mod samples;

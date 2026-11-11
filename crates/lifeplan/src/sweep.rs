@@ -48,18 +48,24 @@ pub struct Vary {
 }
 
 impl Vary {
-    /// この値を当てるプランの変更1件
+    /// この値を当てるプランの変更1件（場所 at・lever はまだ受けない。0202 の未確定）
     pub fn change(&self, value: Value) -> PlanChange {
         PlanChange {
             target: self.target.clone(),
             item: self.item.clone(),
+            at: None,
+            lever: None,
             value,
         }
     }
 
     /// list_plan_items の一覧の項目がこの項目か
+    /// （場所 at・lever を添えた項目は、vary がまだ場所を受けないので選ばない。0201・0202 の未確定）
     pub fn matches(&self, it: &Value) -> bool {
-        it["target"] == self.target.as_str() && it["item"] == self.item.as_str()
+        it["target"] == self.target.as_str()
+            && it["item"] == self.item.as_str()
+            && it["at"].is_null()
+            && it["lever"].is_null()
     }
 }
 

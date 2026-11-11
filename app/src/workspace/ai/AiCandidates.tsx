@@ -74,7 +74,15 @@ function CandidateCard({ c, wh, catalog, onAccept, onReject }: AiCandidatesProps
         <tbody>
           {rows.map((r) => (
             <tr key={r.diffId} class={r.key !== null && r.reason === null ? "" : "ai-skip"} data-ai-row={r.key !== null && r.reason === null ? "use" : "skip"}>
-              <td>{r.label}</td>
+              <td>
+                {r.place !== null ? (
+                  <>
+                    <span class="pl-sub">{r.place}</span>
+                    <br />
+                  </>
+                ) : null}
+                {r.label}
+              </td>
               <td class="num">{r.from}</td>
               <td class="num">
                 <b>{r.to}</b>
