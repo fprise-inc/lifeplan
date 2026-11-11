@@ -1,6 +1,6 @@
 // 資産と負債のタブ（提示層の部品。家計のバランスシートを図で見せる）。受け取るのは BalanceTabModel と手続きだけ（0016 の2）。
 // 配置（上から）: 見るもの（家計のバランスシート／カスタマイズで足した見るもの。足したものが無ければ行ごと出さない）→ プランの帯（作業の層が渡す）→
-// バランスシートの図（1年ずつ見る／時点を並べる／プランを並べる／前回と比べる）→ 年のつまみ（図のすぐ下。図とつまみが同時に画面に収まるよう、
+// バランスシートの図（1年ずつ見る／時点を並べる／プランを並べる／前回と比較）→ 年のつまみ（図のすぐ下。図とつまみが同時に画面に収まるよう、
 // 窓の高さが低いときは図を縮める）→ 家計の体力の目安（横いっぱいに4つ並べる）→ 表で見る（既定は閉じる）→ 資産と負債の推移のグラフ（押すとその年のバランスシート）。
 // 図の読み方・その年の解説は FP が口頭でする前提で、図の下に要約・解説の文は置かない。
 // このタブの表示の設定（図の見出しの右の「表示の設定」。結果のタブの表示の設定とは別）: 時点を並べるときの既定の時点と、家計の体力の目安の幅
@@ -29,7 +29,7 @@ export interface BalanceTabProps {
   model: BalanceTabModel;
   /** プランの帯（作業の層の部品。結果のタブと同じ） */
   band: ComponentChildren;
-  /** 前回と比べるで控えを選んだ（作業の層が計算する） */
+  /** 前回と比較で控えを選んだ（作業の層が計算する） */
   onPrev: (key: string) => void;
   /** 家計の体力の目安の幅を変えた（このタブの表示の設定） */
   onGuide: (g: BsGuide) => void;
@@ -162,7 +162,7 @@ export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDef
   useEffect(() => {
     if (yi >= n && n > 0) setYi(n - 1);
   }, [n]);
-  // 前回と比べる: 選んだ控え（最初は一番新しい控え）を作業の層に計算してもらう
+  // 前回と比較: 選んだ控え（最初は一番新しい控え）を作業の層に計算してもらう
   const prevChoice = prevKey ?? model.prevChoices[0]?.key ?? null;
   useEffect(() => {
     // 計算中は頼み直さない（同じ控えを二重に計算しない）
@@ -180,7 +180,7 @@ export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDef
     { key: "one", label: "1年ずつ見る" },
     { key: "three", label: `${colsOf(model.columns, model.pointDefaults).length}時点を並べる` },
     ...(model.plans.length > 1 ? [{ key: "plans" as const, label: "プランを比較" }] : []),
-    ...(model.prevChoices.length > 0 ? [{ key: "prev" as const, label: "前回と比べる" }] : []),
+    ...(model.prevChoices.length > 0 ? [{ key: "prev" as const, label: "前回と比較" }] : []),
   ];
   const range = trendRange(model.plans);
   const trendPlan = view === "plans" ? (model.plans.find((p) => p.key === lr.r) ?? plan) : plan;
@@ -351,7 +351,7 @@ function OneYear({ model, plan, year, yi, onPick, onAdjusted, height }: { model:
 
 /**
  * 会社の借入の連帯保証（0105）: 負債の合計には入れず、図の外に点線の箱で見せる。今の年だけ（保証の額は今の額で、先の年は見込まない）。
- * 時点を並べる・プランを比較するときも、今の年の図の下にだけ出す（compact。0107）
+ * 時点を並べる・プランを比較ときも、今の年の図の下にだけ出す（compact。0107）
  */
 function GuaranteeNote({ year, compact = false }: { year: BsYearModel; compact?: boolean }) {
   return (
@@ -1049,7 +1049,7 @@ function PlansView({ model, lr, onLr, yi, height, part }: { model: BalanceTabMod
   );
 }
 
-// ---- 前回と比べる ----
+// ---- 前回と比較 ----
 
 function PrevView({ model, choice, onChoice }: { model: BalanceTabModel; choice: string | null; onChoice: (k: string) => void }) {
   const pm = model.prev.model !== null && model.prev.model.key === choice ? model.prev.model : null;
@@ -1057,8 +1057,8 @@ function PrevView({ model, choice, onChoice }: { model: BalanceTabModel; choice:
   return (
     <div class="bs-prev" data-bs-prev>
       <div class="bs-pick">
-        <span class="k">比べる控え</span>
-        <select value={choice ?? ""} onChange={(e) => onChoice((e.currentTarget as HTMLSelectElement).value)} aria-label="比べる控え" data-bs-prev-select>
+        <span class="k">比較する控え</span>
+        <select value={choice ?? ""} onChange={(e) => onChoice((e.currentTarget as HTMLSelectElement).value)} aria-label="比較する控え" data-bs-prev-select>
           {model.prevChoices.map((c) => (
             <option key={c.key} value={c.key}>
               {c.label}
@@ -1125,7 +1125,7 @@ function PrevView({ model, choice, onChoice }: { model: BalanceTabModel; choice:
                 ))}
               </ul>
             ) : null}
-            <span class="memo">バランスシートを毎年残して比べると、計画とのずれが早めに分かります（キャッシュフロー表は先の見込みですが、今のバランスシートは事実で答え合わせができます）。</span>
+            <span class="memo">バランスシートを毎年残して比較すると、計画とのずれが早めに分かります（キャッシュフロー表は先の見込みですが、今のバランスシートは事実で答え合わせができます）。</span>
           </div>
         </>
       )}

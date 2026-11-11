@@ -147,7 +147,7 @@ describe("世帯の外の家族の欄", () => {
     expect(pension.level).toBe("detail");
     expect(pension.label).toBe("この人の年金（年額）");
     wh = pension.set(wh, 1200000);
-    // 年金を入れると扶養の境目の1行がその額と比べる
+    // 年金を入れると扶養の境目の1行がその額と比較する
     expect(String(fieldOf("care", wh, `ro/care/outside/${p.id}/dependentLimit`)!.get(wh).value)).toBe("年金 年120万円は、税の扶養の範囲です");
     // 年金だけなら親のお金の区画に年金の欄は無く、外すボタンも無い
     const walletSec = () => stage("care", wh).sections.find((s) => s.key === "care/wallet")!;

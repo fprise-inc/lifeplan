@@ -34,7 +34,7 @@ export interface InsuranceNotice {
   id: string;
   label: string;
   detail: string;
-  /** 重なりの中身（重なっている契約の ID。「確認した」の印と比べる。noticeAck.ts） */
+  /** 重なりの中身（重なっている契約の ID。「確認した」の印と比較する。noticeAck.ts） */
   of: string[];
 }
 

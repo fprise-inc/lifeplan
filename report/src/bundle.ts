@@ -215,8 +215,8 @@ export interface ProposalBundle {
   /** 資産運用の計画（0026）: 画面が入力から作る文（入れ方・取り崩しの条件・運用の期間）と、相場が下がった場合の計算（提案に型を重ねたもの） */
   investment?: InvestmentMaterial;
   /**
-   * 収益不動産の売る年を変えた比べ（0082）: 提案の物件ごとに、rentalSale.ts の saleVariants の案と、その案の計算（今の予定の案は提案の計算）。
-   * 収益不動産のまとめの章を載せるときだけ。無ければ比べを載せない
+   * 収益不動産の売る年を変えた比較（0082）: 提案の物件ごとに、rentalSale.ts の saleVariants の案と、その案の計算（今の予定の案は提案の計算）。
+   * 収益不動産のまとめの章を載せるときだけ。無ければ比較を載せない
    */
   rentalSale?: { object: string; variants: { variant: SaleVariant; run: Run }[] }[];
 }

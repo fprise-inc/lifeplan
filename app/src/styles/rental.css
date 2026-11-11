@@ -57,6 +57,6 @@ html.big .rt-chart .rt-loan-line { stroke-width: 3.5; }
 .rt-legend-chart .rt-ev-dot { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 1.3rem; height: 1.3rem; border-radius: 50%; border: 2px solid var(--ink); background: var(--card); }
 .rt-legend-chart .rt-ev-dot .ev-dot-t { font-size: 0.75rem; font-weight: 700; line-height: 1; color: var(--ink); }
 
-/* 売る年を変えた比べの「この売り方でプランを作る」（0128） */
+/* 売る年を変えた比較の「この売り方でプランを作る」（0128） */
 .rt-table td.rt-plan { text-align: right; white-space: nowrap; }
 .rt-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

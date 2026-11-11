@@ -17,7 +17,7 @@ export function niceStep(range: number, count = 5): number {
   if (!(range > 0)) return 1;
   const raw = range / count;
   // 10 のべきの指数（floor(log10(raw))）。AI接続口のグラフ（0203）は結果が OS で変わる Math.log10 を使えない実行環境で描くので、
-  // 10 のべきと比べて整数で求める（10 のべきの値そのものは同じ式 10 ** k。画面の目盛りは変わらない）
+  // 10 のべきと比較して整数で求める（10 のべきの値そのものは同じ式 10 ** k。画面の目盛りは変わらない）
   let k = 0;
   while (10 ** (k + 1) <= raw) k++;
   while (10 ** k > raw) k--;

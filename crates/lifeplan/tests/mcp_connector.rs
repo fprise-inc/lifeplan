@@ -370,6 +370,7 @@ async fn prompts_list_and_expand() {
         "explain_to_client",
         "check_coverage",
         "chart_rate_paths",
+        "chart_three_patterns",
         "find_boundary",
     ] {
         assert!(names.contains(&n), "{n} がありません: {names:?}");
@@ -462,6 +463,26 @@ async fn prompts_list_and_expand() {
                 "chart",
                 "お客さまの名前を書かない",
                 "金額を丸める",
+            ],
+        ),
+        (
+            "chart_three_patterns",
+            json!({ "household": "salariedCoupleTwoKids", "lever": "退職の年齢 60・65・70歳", "show": "" }),
+            vec![
+                "salariedCoupleTwoKids",
+                "退職の年齢 60・65・70歳",
+                "迷えば金融資産と年間収支",
+                "list_plan_items",
+                "compare",
+                "chart",
+                "series",
+                "expenseBreakdown",
+                "employment.to",
+                "pensionRecord.claim",
+                "assumptions.inflation",
+                "buyHome",
+                "credit: true",
+                "お客さまの名前を書かない",
             ],
         ),
         (
@@ -625,7 +646,7 @@ async fn shared_household_flow() {
         json!({
             "share_id": g.share_id,
             "title": "物価の想定を下げる",
-            "summary": "比べるためのプラン",
+            "summary": "比較するためのプラン",
             "changes": [
                 { "target": "assumptions", "item": "assumptions.inflation", "value": "0.005", "note": "低めの想定" },
                 { "target": member_alias, "item": "member.sex", "value": "female" }
@@ -1120,7 +1141,7 @@ async fn propose_inputs_flow() {
     ] {
         assert!(d.contains(must), "{must}: {d}");
     }
-    // 道具の入力の JSON Schema は見本（画面の読み口のテストが上限・種類の一覧を読み比べる）と同じ
+    // 道具の入力の JSON Schema は見本（画面の読み口のテストが上限・種類の一覧を読み比較する）と同じ
     let schema = serde_json::to_value(tool.input_schema.as_ref()).unwrap();
     let snapshot = repo().join("crates/lifeplan/tests/fixtures/propose-inputs/input-schema.json");
     let pretty = format!("{}\n", serde_json::to_string_pretty(&schema).unwrap());
@@ -1265,7 +1286,7 @@ async fn propose_inputs_flow() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// 道具の入力の JSON Schema を見本（tests/fixtures/tools/<道具>.input-schema.json）と比べる（LIFEPLAN_UPDATE_FIXTURES=1 で作り直す）
+/// 道具の入力の JSON Schema を見本（tests/fixtures/tools/<道具>.input-schema.json）と比較する（LIFEPLAN_UPDATE_FIXTURES=1 で作り直す）
 fn check_schema_snapshot(tools: &[rmcp::model::Tool], name: &str) {
     let tool = tools.iter().find(|t| t.name == name).unwrap();
     let schema = serde_json::to_value(tool.input_schema.as_ref()).unwrap();
@@ -1415,7 +1436,7 @@ async fn explain_value_matches_the_screen() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// 計算の答えの主な数字と年齢（0194）: 見本の世帯で、画面の「プランを比べる」の数え方と表の年齢の行の関数（app/test/connector-summary.test.ts が作る見本）と
+/// 計算の答えの主な数字と年齢（0194）: 見本の世帯で、画面の「プランを比較」の数え方と表の年齢の行の関数（app/test/connector-summary.test.ts が作る見本）と
 /// 同じ keyFigures・members・年ごとの ages を、quickjs-ng で動かした接続口が返す。答えの大きさの選択（every_years・fields・omit）と、
 /// 落ちていた必要保障額・相続税の目安。今までの項目は変わらない
 #[tokio::test(flavor = "multi_thread")]
@@ -2362,7 +2383,7 @@ fn every_plan_item_matches_node() {
         // ファイルの文字のまま渡す（JS が読むと、どちらの実行環境でも同じ並びの物になる）
         let req = std::fs::read_to_string(repo().join(format!("data/modelHouseholds/{id}.json")))
             .unwrap();
-        // 世帯ごとに1つの実行環境で全部の項目を当てる（接続口は呼ぶたびに新しい実行環境で、時間の上限も1回ごと。ここは答えを比べるだけなので、
+        // 世帯ごとに1つの実行環境で全部の項目を当てる（接続口は呼ぶたびに新しい実行環境で、時間の上限も1回ごと。ここは答えを比較するだけなので、
         // 時間の上限だけ広げる）
         let sb = Sandbox::new(&Limits {
             time: std::time::Duration::from_secs(600),
@@ -2424,7 +2445,7 @@ fn every_plan_item_matches_node() {
     }
 }
 
-/// 比べる道具の通りの主な数字を、画面の主な数字の見本（app/test/connector-compare.test.ts の keyFigures）と比べる
+/// 比較の道具の通りの主な数字を、画面の主な数字の見本（app/test/connector-compare.test.ts の keyFigures）と比較する
 fn same_figures(got: &Value, want: &Value, what: &str) {
     let at: Vec<Value> = got["assetsAtAge"]
         .as_array()
@@ -2463,7 +2484,7 @@ fn same_series(got: &Value, want: &Value, what: &str) {
     }
 }
 
-/// 比べる道具（compare）: 1回の呼び出しで並べたプランの主な数字・基本との差・系列が、画面の「プランを比べる」で同じプランを並べたときと同じ
+/// 比較の道具（compare）: 1回の呼び出しで並べたプランの主な数字・基本との差・系列が、画面の「プランを比較」で同じプランを並べたときと同じ
 /// （app/test/connector-compare.test.ts の見本）。基本に重ねる通り・見本の世帯どうし・上限・通りごとの理由
 #[tokio::test(flavor = "multi_thread")]
 async fn compare_matches_the_screen() {
@@ -2806,7 +2827,7 @@ async fn compare_matches_the_screen() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// 比べる道具で、渡された世帯どうしを並べる: 世帯はアプリ本体に頼み（同意・期限・縮約を通す）、読んだことが世帯ごとに「AIに渡した記録」に
+/// 比較の道具で、渡された世帯どうしを並べる: 世帯はアプリ本体に頼み（同意・期限・縮約を通す）、読んだことが世帯ごとに「AIに渡した記録」に
 /// 道具の名前 compare で残る。取り消した共有の通りだけ理由を返し、ほかは計算する。縮約版で計算しても見本の世帯と同じ数字
 #[tokio::test(flavor = "multi_thread")]
 async fn compare_shared_households() {
@@ -3456,6 +3477,183 @@ async fn sweep_and_threshold_over_a_placed_item() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// 比較の系列とグラフ（0207）: compare の系列に手取り・公的年金・支出の内訳を選べ、内訳を全部足すと支出、表の期間の合計が主な数字の
+/// 生涯の支出・手取りの合計になること。どの系列も chart の series で折れ線にでき、支出の内訳は expenseBreakdown の棒になること
+#[tokio::test(flavor = "multi_thread")]
+async fn chart_any_series_and_expense_breakdown() {
+    let dir = temp_dir("chart-series");
+    let (c, _) = connect(&dir).await;
+    let id = "salariedCoupleTwoKids";
+    let items = call_ok(&c, "list_plan_items", json!({ "sample_household_id": id })).await;
+    let retire = items["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|it| it["item"] == "employment.to")
+        .unwrap()
+        .clone();
+    let at = |age: i64| json!({ "plan_changes": [change_of(&retire, json!(age))] });
+    let mut args = at(60);
+    args["sample_household_id"] = json!(id);
+    args["label"] = json!("60歳で退職");
+    let mut v65 = at(65);
+    v65["label"] = json!("65歳で退職");
+    let mut v70 = at(70);
+    v70["label"] = json!("70歳で退職");
+    args["variants"] = json!([v65, v70]);
+
+    // compare: 毎年の系列で、内訳の合計と主な数字が合う
+    let expense_keys = [
+        "expenseLiving",
+        "expenseSurplus",
+        "expenseHousing",
+        "expenseEducation",
+        "expenseInsurance",
+        "expenseLumpSum",
+        "expenseCar",
+        "expenseCare",
+        "expenseRealEstate",
+        "expenseOther",
+    ];
+    let mut cmp_args = args.clone();
+    let mut series = vec!["income", "taxSi", "takeHome", "expense", "net", "pension"];
+    series.extend(expense_keys);
+    cmp_args["series"] = json!(series);
+    cmp_args["every_years"] = json!(1);
+    cmp_args["ages"] = json!(false);
+    let cmp = call_ok(&c, "compare", cmp_args).await;
+    assert_eq!(cmp["computed"], 3, "{cmp}");
+    for r in cmp["results"].as_array().unwrap() {
+        let ys = r["series"].as_array().unwrap();
+        let mut take_home = 0;
+        let mut expense = 0;
+        let mut pension = 0;
+        for y in ys {
+            let n = |k: &str| y[k].as_i64().unwrap();
+            assert_eq!(n("takeHome"), n("income") - n("taxSi"), "{y}");
+            let parts: i64 = expense_keys.iter().map(|k| n(k)).sum();
+            assert_eq!(parts, n("expense"), "内訳の合計が支出と違います: {y}");
+            take_home += n("takeHome");
+            expense += n("expense");
+            pension += n("pension");
+        }
+        let kf = &r["keyFigures"];
+        assert_eq!(
+            take_home,
+            kf["lifetimeTakeHome"].as_i64().unwrap(),
+            "{}",
+            r["label"]
+        );
+        assert_eq!(
+            expense,
+            kf["lifetimeExpense"].as_i64().unwrap(),
+            "{}",
+            r["label"]
+        );
+        assert!(pension > 0);
+        // 教育費・住居費・生活費は、この世帯ではどの通りにもある
+        for k in ["expenseEducation", "expenseHousing", "expenseLiving"] {
+            assert!(ys.iter().any(|y| y[k].as_i64().unwrap() > 0), "{k}");
+        }
+    }
+    // 退職が遅いほど、手取りの合計は多い
+    let th = |i: usize| {
+        cmp["results"][i]["keyFigures"]["lifetimeTakeHome"]
+            .as_i64()
+            .unwrap()
+    };
+    assert!(th(0) < th(1) && th(1) < th(2));
+
+    // chart: series の折れ線（金融資産・年間収支・教育費）と支出の内訳の棒
+    let mut chart_args = args.clone();
+    chart_args["series"] = json!(["financialAssets", "net", "expenseEducation"]);
+    chart_args["charts"] = json!(["expenseBreakdown"]);
+    chart_args["format"] = json!("svg");
+    let (err, text, pngs, svgs, _) = call_blocks(&c, "chart", chart_args).await;
+    assert!(!err, "{text}");
+    assert!(pngs.is_empty());
+    assert_eq!(svgs.len(), 4);
+    let head: Value = serde_json::from_str(&text).unwrap();
+    let names: Vec<String> = head["charts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|x| {
+            x["series"]
+                .as_str()
+                .or(x["kind"].as_str())
+                .unwrap()
+                .to_owned()
+        })
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "expenseBreakdown",
+            "financialAssets",
+            "net",
+            "expenseEducation"
+        ]
+    );
+    let titles: Vec<String> = svgs.iter().map(|s| svg_texts(s)[0].clone()).collect();
+    assert_eq!(
+        titles,
+        [
+            "支出の内訳の比較（表の期間の合計）",
+            "金融資産の推移の比較",
+            "年間収支の推移の比較（年額）",
+            "教育費の推移の比較（年額）",
+        ]
+    );
+    assert!(svgs[0].contains("data-chart=\"expenseBreakdown\""));
+    assert!(svgs[2].contains("data-field=\"net\""));
+    for (i, svg) in svgs.iter().enumerate() {
+        let texts = svg_texts(svg);
+        for (k, l) in ["60歳で退職", "65歳で退職", "70歳で退職"]
+            .iter()
+            .enumerate()
+        {
+            assert!(
+                texts.contains(&format!("{}\u{3000}{l}", ["A", "B", "C"][k])),
+                "{i}: 凡例"
+            );
+        }
+        assert!(texts.iter().any(|x| x == "（万円）"), "{i}: 単位");
+        assert!(
+            texts.iter().any(|x| x.starts_with("前提")
+                && x.contains("物価上昇率")
+                && x.contains("運用利回り")),
+            "{i}: 前提の注"
+        );
+        assert!(
+            texts.iter().any(|x| x.starts_with("相場などの想定")),
+            "{i}: 相場の想定"
+        );
+        assert!(
+            texts
+                .iter()
+                .any(|x| x.contains("将来の結果を約束するものではありません")),
+            "{i}"
+        );
+        assert!(
+            !texts.iter().any(|x| x.contains("ファイナンシアで試算")),
+            "{i}: 既定では出典を入れない"
+        );
+    }
+    // 棒は内訳ごと・通りごと（教育費の棒が3本）
+    assert_eq!(svgs[0].matches("data-bar=\"expenseEducation:").count(), 3);
+    assert!(svg_texts(&svgs[0]).contains(&"教育費".to_owned()));
+    // 年間収支は 0 未満の範囲を言葉でも示す
+    assert!(svg_texts(&svgs[2]).iter().any(|x| x == "↓ 0未満は赤字"));
+    // 選べない名前は理由を返す
+    let mut wrong = args.clone();
+    wrong["series"] = json!(["nope"]);
+    let (err, text, _, _, _) = call_blocks(&c, "chart", wrong).await;
+    assert!(err && text.contains("series に選べるのは"), "{text}");
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// 道具を呼んで、答えの中身（文章・PNG・SVG）を分けて返す: (失敗か, 文章, PNG の並び, SVG の並び, 答えの大きさ〔バイト〕)
 async fn call_blocks(
     c: &Client,
@@ -3649,8 +3847,8 @@ async fn loan_interest_and_rate_follow_the_rate_paths() {
     assert!(loans[0]["years"][0]["rate"].is_string());
 }
 
-/// 叶えたい使い方（0203）: 変動金利の住宅ローンのある見本の世帯で、金利の上がり方を3通り（今のまま・10年で+1%・10年で+2%）にして比べ、
-/// グラフにする。金利の見込みは一覧の「金利の見込み（変動金利）」の項目（入力の欄と同じ型・同じ関数）で動かし、グラフの数字が比べる道具と同じこと、
+/// 叶えたい使い方（0203）: 変動金利の住宅ローンのある見本の世帯で、金利の上がり方を3通り（今のまま・10年で+1%・10年で+2%）にして比較し、
+/// グラフにする。金利の見込みは一覧の「金利の見込み（変動金利）」の項目（入力の欄と同じ型・同じ関数）で動かし、グラフの数字が比較の道具と同じこと、
 /// どのグラフにも題・凡例・単位・前提の注・試算の旨と出典が入り、名前・ID が入らないこと、PNG（MCP の image）と SVG が返ること、答えの大きさと時間
 #[tokio::test(flavor = "multi_thread")]
 async fn chart_compares_three_rate_paths() {
@@ -3685,7 +3883,7 @@ async fn chart_compares_three_rate_paths() {
     ]);
     let args = json!({ "sample_household_id": id, "label": "今のまま", "plan_changes": base, "variants": variants });
 
-    // 比べる道具の答え（グラフの数字はこれと同じ）
+    // 比較の道具の答え（グラフの数字はこれと同じ）
     let mut cmp_args = args.clone();
     cmp_args["series"] = json!(["financialAssets", "loanRepayment"]);
     cmp_args["every_years"] = json!(1);
@@ -3764,7 +3962,7 @@ async fn chart_compares_three_rate_paths() {
     let head: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(pngs.len(), 3);
     assert_eq!(svgs.len(), 3);
-    // グラフの数字は、比べる道具と同じ
+    // グラフの数字は、比較の道具と同じ
     for (i, r) in head["results"].as_array().unwrap().iter().enumerate() {
         assert_eq!(r["keyFigures"], results[i]["keyFigures"], "{i}");
         assert_eq!(r["letter"], ["A", "B", "C"][i]);
@@ -3819,9 +4017,20 @@ async fn chart_compares_three_rate_paths() {
                 || texts.iter().any(|x| x.contains("10年で1%上がる")),
             "{k}: 金利の見込みの注"
         );
+        // 出典は既定では入れない（credit。0207）。前提の注・相場の想定・試算の時点はいつも入る
         assert!(
-            texts.iter().any(|x| x.starts_with("ファイナンシアで試算")),
-            "{k}: 試算の旨と出典"
+            !texts.iter().any(|x| x.contains("ファイナンシアで試算")),
+            "{k}: 既定では出典を入れない"
+        );
+        assert!(
+            texts.iter().any(|x| x.starts_with("相場などの想定")),
+            "{k}: 相場の想定の注"
+        );
+        assert!(
+            texts
+                .iter()
+                .any(|x| x.contains("2026年10月時点の入力による試算")),
+            "{k}: 試算の時点"
         );
         assert!(
             texts
@@ -3859,6 +4068,21 @@ async fn chart_compares_three_rate_paths() {
         "変動金利の上がり方と住宅ローンの返済額"
     );
     assert_eq!(head["theme"], "dark");
+    assert_eq!(head["credit"], false);
+
+    // credit: true なら「ファイナンシアで試算」の出典を入れる（0207）
+    let mut credited = args.clone();
+    credited["charts"] = json!(["assets"]);
+    credited["credit"] = json!(true);
+    credited["format"] = json!("svg");
+    let (err, text, _, svgs, _) = call_blocks(&c, "chart", credited).await;
+    assert!(!err, "{text}");
+    let texts = svg_texts(&svgs[0]);
+    assert!(
+        texts.iter().any(|x| x.starts_with("ファイナンシアで試算（")
+            && x.contains("将来の結果を約束するものではありません")),
+        "{texts:?}"
+    );
 
     // 計算できない通りがあれば、グラフを作らずに理由を返す
     let mut bad = args.clone();

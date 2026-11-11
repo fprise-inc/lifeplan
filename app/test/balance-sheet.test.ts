@@ -1,4 +1,4 @@
-// 全資産・全負債のバランスシート: 資産と負債のタブ（4つの分け方・資産の合計＝負債の合計＋純資産・家計の体力の目安・前回と比べる・縮尺）、
+// 全資産・全負債のバランスシート: 資産と負債のタブ（4つの分け方・資産の合計＝負債の合計＋純資産・家計の体力の目安・前回と比較・縮尺）、
 // 結果のタブから資産と負債の推移を外したこと、入力の画面の持ち家の評価・売却・その他の資産
 import { describe, expect, it } from "vitest";
 import { h } from "preact";
@@ -156,7 +156,7 @@ describe("資産と負債のタブ（本物のエンジンの値）", () => {
     expect(html).not.toContain("プランを並べる");
   });
 
-  it("タブの部品: 図・体力の目安・つまみ・推移のグラフ。控えが無ければ「前回と比べる」は出さない", () => {
+  it("タブの部品: 図・体力の目安・つまみ・推移のグラフ。控えが無ければ「前回と比較」は出さない", () => {
     const model = balanceTabModel({ plans: [p], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults: DEFAULT_BS_POINTS, columns: null, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご本人" });
     const html = renderToString(h(BalanceTab, { model, band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop }));
     expect(html).toContain('data-bs-figure="2026"');
@@ -312,7 +312,7 @@ describe("家計の体力の目安", () => {
   });
 });
 
-describe("前回と比べる（控え）", () => {
+describe("前回と比較（控え）", () => {
   const req = modelHousehold("salariedCoupleTwoKids");
   const r = preview(req);
   const actualPlan = bsPlan({ key: "A", letter: "A", name: "プランA", title: "現状", base: true, req, table: r.table });

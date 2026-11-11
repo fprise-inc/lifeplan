@@ -286,7 +286,7 @@ describe("割合を変える時点の年（根拠・説明の文）", () => {
 });
 
 describe("控えから見た実際の割合", () => {
-  it("見本の世帯の1年前の控え: 控えの時点の金融資産＋見込みの黒字と、今の金融資産を比べる（0〜100%・5% の刻み）", async () => {
+  it("見本の世帯の1年前の控え: 控えの時点の金融資産＋見込みの黒字と、今の金融資産を比較する（0〜100%・5% の刻み）", async () => {
     const { seeded } = await withPlanE();
     const snap = (seeded.wh.snapshots ?? []).find((s) => s.createdAt.startsWith("2025-10"))!;
     const t = preview(snap.inputs.request).table;

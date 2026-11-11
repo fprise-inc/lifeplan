@@ -143,7 +143,7 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
   const at: BsAt[] = bsSeries(p.table, years, bsHouseholdOf(h));
   const lineOf = (i: number, key: string) => (at[i] as BsAt).lines.find((l) => l.key === key)?.amount ?? 0;
   const living = byYear(p.table, years, (c) => under(c.row, "cf.expense.living") && c.row !== "cf.expense.living.drawdown" && c.row !== SURPLUS_ROW);
-  // 生活費の行に入る車の費用（燃料・駐車場など）は、家計の体力の目安の文で分けて見せる（基本生活費の欄の額と比べられるように）
+  // 生活費の行に入る車の費用（燃料・駐車場など）は、家計の体力の目安の文で分けて見せる（基本生活費の欄の額と比較できるように）
   const car = carExpense(req);
   const livingCar = byYear(p.table, years, (c) => under(c.row, "cf.expense.living") && c.row !== "cf.expense.living.drawdown" && c.row !== SURPLUS_ROW && car(c));
   const loanPay = byYear(p.table, years, (c) => c.row === "cf.expense.housing.loan");
@@ -263,7 +263,7 @@ export function monthsText(m: number): string {
   return m >= 24 ? `${(m / 12).toFixed(1)}年分` : `${m.toFixed(1)}か月分`;
 }
 
-// ---- 前回と比べる（控え）----
+// ---- 前回と比較（控え）----
 
 /** 控えの見込みの今と今の実際の差の、大きい項目（最大4つ） */
 export function prevItems(expected: BsYearModel, actual: BsYearModel): string[] {
@@ -297,7 +297,7 @@ export function snapshotHasBalance(req: EngineRequest): boolean {
 }
 
 /**
- * 前回と比べる: 控えの現状の入力で計算した、今の年（今の計算基準年）の見込みと、今の実際。
+ * 前回と比較: 控えの現状の入力で計算した、今の年（今の計算基準年）の見込みと、今の実際。
  * expected が出せないとき（計算できない・控えの期間の外・資産と負債の入力が無い）は reason に理由
  */
 export function bsPrev(o: { key: string; label: string; createdAt: string; baseMonth: string; actual: BsYearModel; snapshot: { req: EngineRequest; table: readonly TableCell[] } | { error: string } }): BsPrevModel {

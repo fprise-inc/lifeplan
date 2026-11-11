@@ -1,17 +1,17 @@
 // AI接続口の計算の答えの主な数字と家族の年齢（calculate の keyFigures・ages。0194）: 接続口に同梱する summarize（src/connector/summary.ts）が、
-// 画面の「プランを比べる」の数え方（plans/compare.ts の metricsOf・compareTable）と、キャッシュフロー表の年齢の行（present.ts の ageRows）と同じ答えを返すこと。
+// 画面の「プランを比較」の数え方（plans/compare.ts の metricsOf・compareTable）と、キャッシュフロー表の年齢の行（present.ts の ageRows）と同じ答えを返すこと。
 // 接続口のテスト（crates/lifeplan/tests/mcp_connector.rs の calculate_key_figures_match_the_screen）は、ここで作る見本（画面の関数の答え）と、
-// 本物の接続口が quickjs-ng で動かした答えを比べる。見本を作り直すときは LIFEPLAN_UPDATE_FIXTURES=1 で流す
+// 本物の接続口が quickjs-ng で動かした答えを比較する。見本を作り直すときは LIFEPLAN_UPDATE_FIXTURES=1 で流す
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_AT_AGE, engineLoansOf, pensionRequests, summarize, summaryOf, type Summary, type SummaryArgs } from "../src/connector/summary.ts";
+import { DEFAULT_AT_AGE, engineLoansOf, FLOW_FIELDS, flowYearsOf, pensionRequests, summarize, summaryOf, type Summary, type SummaryArgs } from "../src/connector/summary.ts";
 import { forEngine } from "../src/engine/moneyRows.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
 import { man } from "../src/presentation/format.ts";
 import { pensionEstimateRequest, planPensionOf } from "../src/workspace/input/pensionLines.ts";
 import { compareTable, metricsOf } from "../src/workspace/plans/compare.ts";
-import { ageRows } from "../src/workspace/present.ts";
+import { ageRows, rowDefs } from "../src/workspace/present.ts";
 import { DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
@@ -63,7 +63,7 @@ describe("AI接続口の主な数字と家族の年齢（0194）", () => {
     expect(DEFAULT_AT_AGE).toBe(DEFAULT_DISPLAY_SETTINGS.atAge);
   });
 
-  it("主な数字は、画面の「プランを比べる」と同じ数え方（metricsOf）で、比較の表の文字とも合う", () => {
+  it("主な数字は、画面の「プランを比較」と同じ数え方（metricsOf）で、比較の表の文字とも合う", () => {
     for (const c of CASES) {
       const req = caseRequest(c);
       const result = preview(forEngine(req));
@@ -77,7 +77,7 @@ describe("AI接続口の主な数字と家族の年齢（0194）", () => {
       expect(got.keyFigures.lifetimeTakeHome, c.name).toBe(m.takeHome);
       expect(got.keyFigures.lifetimeExpense, c.name).toBe(m.expense);
       expect(got.keyFigures.loanRepayment, c.name).toBe(m.loan);
-      // 比較の表（画面の「プランを比べる」）の文字と同じ数字
+      // 比較の表（画面の「プランを比較」）の文字と同じ数字
       const table = compareTable(req, [{ name: "現状", table: result.table }], ages[0]!);
       const cell = (key: string) => table.rows.find((r) => r.key === key)?.cells[0]?.text;
       expect(cell("target"), c.name).toBe(`${man(m.target)}万円`);
@@ -176,6 +176,34 @@ describe("AI接続口の主な数字と家族の年齢（0194）", () => {
     expect(pair.loanYears["2030"]?.loanRate).toBeNull();
     // 住宅ローンの無い世帯は 0
     expect(summaryOf(caseRequest({ name: "", sample: "single25" }), preview(forEngine(caseRequest({ name: "", sample: "single25" })))).keyFigures.loanInterest).toBe(0);
+  });
+
+  it("年ごとの収支の内訳: 支出の内訳を全部足すと支出、行ごとには画面の表の支出の行と同じ（0207）", () => {
+    for (const sample of ["salariedCoupleTwoKids", "dualAssetsTwoKids", "rentalSample", "sampleParentsCare", "surplusSaving", "advisoryFeeProposal"]) {
+      const req = caseRequest({ name: "", sample });
+      const res = preview(forEngine(req));
+      const flows = flowYearsOf(req, res.table);
+      const years = [...new Set(res.table.map((c) => c.year))];
+      const sum = (y: number, p: (row: string) => boolean) => res.table.filter((c) => c.year === y && p(c.row)).reduce((a, c) => a + c.amount, 0);
+      for (const y of years) {
+        const f = flows[String(y)];
+        const expense = sum(y, (r) => r === "cf.expense" || r.startsWith("cf.expense."));
+        const parts = FLOW_FIELDS.filter((k) => k !== "pension").reduce((a, k) => a + (f?.[k] ?? 0), 0);
+        expect(parts, `${sample} ${y}`).toBe(expense);
+        expect(f?.pension ?? 0, `${sample} ${y}`).toBe(sum(y, (r) => r === "cf.income.pension" || r.startsWith("cf.income.pension.")));
+      }
+      // 画面の表の行と同じ当て方（生活費・住居費・教育費の行と同じ額）
+      const defs = rowDefs(req);
+      for (const [key, field] of [["living", "expenseLiving"], ["housing", "expenseHousing"], ["education", "expenseEducation"]] as const) {
+        const d = defs.find((x) => x.key === key)!;
+        for (const y of years) expect(flows[String(y)]?.[field] ?? 0, `${sample} ${key} ${y}`).toBe(res.table.filter((c) => c.year === y && d.match(c)).reduce((a, c) => a + c.amount, 0));
+      }
+    }
+    // 車・不動産・医療・介護は分けて数える
+    const car = flowYearsOf(caseRequest({ name: "", sample: "dualAssetsTwoKids" }), preview(forEngine(caseRequest({ name: "", sample: "dualAssetsTwoKids" }))).table);
+    expect(Object.values(car).some((f) => f.expenseCar > 0)).toBe(true);
+    const re = flowYearsOf(caseRequest({ name: "", sample: "rentalSample" }), preview(forEngine(caseRequest({ name: "", sample: "rentalSample" }))).table);
+    expect(Object.values(re).some((f) => f.expenseRealEstate > 0)).toBe(true);
   });
 
   it("接続口のテストの見本（画面の関数の答え）が今の答えと同じ", () => {

@@ -4,7 +4,7 @@
 // - 区画B あげる贈与（出るお金の行）。今ある援助の物（子への援助 goals.education.gifts・住宅資金の援助 residences.purchase.gifts）は物の形を変えず、
 //   子ども・教育／住まい・ローンのカードで入れ、ここには読むだけで並べる。あげる贈与の相手の孫（世帯の外の家族）はこのカードに置く（呼び名・生年月・外す）
 // - 親・祖父母（相続の相手・贈与する人）: 物と欄は介護・親の項目の世帯の外の家族の区画。ここは人ごとに「使っているところ」の1行と「外す」、「＋ 足す」
-// - 区画C 遺したい額（表示だけ。表の最後の年の金融資産と比べる。input.legacy）
+// - 区画C 遺したい額（表示だけ。表の最後の年の金融資産と比較する。input.legacy）
 // - 区画D 相続税の目安: 結果は計算の結果から読む（inheritanceLine.ts。表示だけで、お金の流れには入れない）。ここは目安の計算の前提の欄
 //   （不動産の評価の割合・名義の無い財産の分け方・葬式の費用・養子・法定相続人の数を直す口。input.inheritanceTax。0039・0060）
 // - 区画E 税理士などが出した相続税の額（目安の代わりに出す額。input.inheritanceTax.overrides）。使う世帯が少ないので、ふだんは閉じておき、
@@ -511,7 +511,7 @@ function overrideGroup(wh: WorkingHousehold): GroupDef | null {
   return { key: TAX_OVERRIDE_GROUP, level: "detail", note: lead.join("\n"), fields, actions: [], folded: { name: TAX_OVERRIDE_TITLE, lead, open: TAX_OVERRIDE_OPEN, startOpen } };
 }
 
-/** 遺したい額の欄（表示だけ。表の最後の年の金融資産と比べる） */
+/** 遺したい額の欄（表示だけ。表の最後の年の金融資産と比較する） */
 function legacyField(): FieldDef {
   return {
     ...yenBox({
@@ -524,7 +524,7 @@ function legacyField(): FieldDef {
       ensure: legacyEnsure,
       path: ["amount"],
       optional: true,
-      help: "入れると、表の最後の年の金融資産と比べて、足りるかを出します（計算のお金の流れには入れません）",
+      help: "入れると、表の最後の年の金融資産と比較して、足りるかを出します（計算のお金の流れには入れません）",
     }),
     address: onInput("plan.legacy", ["amount"]),
   };

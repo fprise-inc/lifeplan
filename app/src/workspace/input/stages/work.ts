@@ -1624,7 +1624,7 @@ function claimFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
         key: `${prefix}/unemploymentClaim`,
         item: UNEMPLOYMENT_ITEM,
         label: "辞めた後に失業給付を受け取る",
-        help: "雇用保険の基本手当（65歳以上で辞めたときは高年齢求職者給付金）。おまかせは、65歳未満で辞め、次に働くまで3か月以上あれば受け取ります。受け取る月は65歳前の老齢厚生年金が止まるので、年金のほうが多いときは「受け取らない」と比べてください",
+        help: "雇用保険の基本手当（65歳以上で辞めたときは高年齢求職者給付金）。おまかせは、65歳未満で辞め、次に働くまで3か月以上あれば受け取ります。受け取る月は65歳前の老齢厚生年金が止まるので、年金のほうが多いときは「受け取らない」と比較してください",
         find,
         id: p.id,
         estimate: unemploymentEstimate,

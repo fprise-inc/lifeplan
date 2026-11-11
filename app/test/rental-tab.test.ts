@@ -1,5 +1,5 @@
 // 収益不動産の分析の数字（0082）: 結果の画面の収益不動産のタブ（出す・出さない、指標の書き方、民泊・宿、元金の返済が減価償却費を上回る年の印、
-// 全体と合計）、売る年を変えた比べ（写しの要求の形と、結果からの行）、入力項目の物件の一覧表の利回り・月の手残り、提案書の材料の写しの要求
+// 全体と合計）、売る年を変えた比較（写しの要求の形と、結果からの行）、入力項目の物件の一覧表の利回り・月の手残り、提案書の材料の写しの要求
 import { describe, expect, it } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
@@ -258,7 +258,7 @@ describe("収益不動産のタブ: 民泊・宿と全体", () => {
   });
 });
 
-describe("売る年を変えた比べ", () => {
+describe("売る年を変えた比較", () => {
   const wh = open();
   const req = wh.request;
   const r = preview(req);
@@ -300,12 +300,12 @@ describe("売る年を変えた比べ", () => {
     expect(v.sale.rows[1]!.net).toBe(`${man1(exit.net)}万円`);
     expect(v.sale.rows[1]!.diff).toMatch(/^[+▲±][\d,]+\.\d万円$/);
     const html = renderToString(h(RentalTab, { model: modelOf(req, r, ui(), { object: id, status: "ready", compare: c }), band: null, onView: () => {}, onYear: () => {} }));
-    expect(html).toContain("売る年を変えた比べ");
+    expect(html).toContain("売る年を変えた比較");
     expect(html).toContain(`${req.input.endYear}年の金融資産`);
     // 初めて求めている間
     const loading = renderToString(h(RentalTab, { model: modelOf(req, r, ui(), { object: id, status: "loading" }), band: null, onView: () => {}, onYear: () => {} }));
     expect(loading).toContain("計算しています…");
-    // 別の物件の比べは出さない
+    // 別の物件の比較は出さない
     expect((modelOf(req, r, ui(), { object: "other", status: "loading" }).view as RentalPropertyViewModel).sale).toBeNull();
   });
 
@@ -349,7 +349,7 @@ describe("入力項目の物件の一覧表: 表面利回り・実質利回り�
   });
 });
 
-describe("提案書の材料: 収益不動産のまとめの売る年の比べ", () => {
+describe("提案書の材料: 収益不動産のまとめの売る年の比較", () => {
   function openPlan(id: string) {
     const req = modelHousehold(id);
     const self = roles(req).find((x) => x.key === "self")!.member;

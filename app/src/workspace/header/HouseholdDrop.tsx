@@ -40,7 +40,7 @@ const reduceMotion = () => typeof window !== "undefined" && window.matchMedia?.(
 const hhButton = () => (typeof document === "undefined" ? null : document.querySelector<HTMLElement>("[data-household-button]"));
 
 export function HouseholdDrop({ open, onClose, children }: { open: boolean; onClose: () => void; children?: ComponentChildren }) {
-  // 閉じる動きの間も描いておく（閉じた描画で消してしまわないよう、開いていたかを描くときに比べる）
+  // 閉じる動きの間も描いておく（閉じた描画で消してしまわないよう、開いていたかを描くときに比較する）
   const [prevOpen, setPrevOpen] = useState(open);
   const [leaving, setLeaving] = useState(false);
   const closingNow = prevOpen && !open && !reduceMotion();

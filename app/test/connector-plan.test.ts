@@ -1,7 +1,7 @@
 // AI接続口のプランの動かす項目（0195・0201）: 接続口に同梱する入口（src/connector/plan.ts）が、画面の結果のタブのプランと同じ関数で、
 // プランの候補と同じ書き方（対象・入力項目ID・値）の変更を当て、画面でつまみを動かしたときと同じ計算の要求を作ること。
 // 接続口のテスト（crates/lifeplan/tests/mcp_connector.rs の plan_changes_match_the_screen）は、ここで作る見本（変更と画面の数字・根拠）を、
-// 本物の接続口に MCP で計算させて比べる。見本を作り直すときは LIFEPLAN_UPDATE_FIXTURES=1 で流す
+// 本物の接続口に MCP で計算させて比較する。見本を作り直すときは LIFEPLAN_UPDATE_FIXTURES=1 で流す
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -184,7 +184,7 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
       const got = apply(s.req, changes, c.sample);
       expect(got.status, `${c.name} ${JSON.stringify(got.changes)}`).toBe("ok");
       expect(got.changes.every((r) => r.status === "applied"), c.name).toBe(true);
-      // 当てるときに新しく振る ID（金利の見込みの段など。0203）は、現れる順の印にして比べる（ID は計算に使わない）
+      // 当てるときに新しく振る ID（金利の見込みの段など。0203）は、現れる順の印にして比較する（ID は計算に使わない）
       expect(freshIds(got.request!.input, s.req), c.name).toEqual(freshIds(screenRequest.input, s.req));
       expect(got.request!.trace).toBe(s.req.trace);
     }

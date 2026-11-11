@@ -86,7 +86,7 @@ async fn call_ok(c: &Client, name: &str, args: Value) -> Value {
     serde_json::from_str(&text).unwrap_or_else(|_| panic!("{name}: JSON ではありません: {text}"))
 }
 
-/// 道具の入力の JSON Schema を見本（tests/fixtures/tools/<道具>.input-schema.json）と比べる（LIFEPLAN_UPDATE_FIXTURES=1 で作り直す）
+/// 道具の入力の JSON Schema を見本（tests/fixtures/tools/<道具>.input-schema.json）と比較する（LIFEPLAN_UPDATE_FIXTURES=1 で作り直す）
 fn check_schema_snapshot(tools: &[rmcp::model::Tool], name: &str) {
     let tool = tools.iter().find(|t| t.name == name).unwrap();
     let schema = serde_json::to_value(tool.input_schema.as_ref()).unwrap();

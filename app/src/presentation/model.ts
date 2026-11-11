@@ -620,7 +620,7 @@ export interface BsGuide {
   debt: number;
 }
 
-/** 前回と比べる: 控えで見込んでいた今と、今の実際 */
+/** 前回と比較: 控えで見込んでいた今と、今の実際 */
 export interface BsPrevModel {
   key: string;
   /** 例: 「2025年10月の控え（手動）」 */
@@ -721,7 +721,7 @@ export interface BalanceTabModel {
   columns: BsColumn[] | null;
   /** 既定の時点の候補（選ぶ画面の順。世帯によっては無い時点もある） */
   pointChoices: readonly { key: BsPointKey; label: string; note: string }[];
-  /** 控え（新しい順）。空なら「前回と比べる」を出さない */
+  /** 控え（新しい順）。空なら「前回と比較」を出さない */
   prevChoices: { key: string; label: string }[];
   prev: { status: "idle" | "loading" | "ready"; model: BsPrevModel | null };
   /** カスタマイズで足した見るもの（今は空。空なら「見るもの」の切り替えを出さない） */
@@ -771,7 +771,7 @@ export interface RentalChartModel {
   events: EventChip[];
 }
 
-/** 売る年を変えた比べの1行 */
+/** 売る年を変えた比較の1行 */
 export interface RentalSaleRowModel {
   /** 売り方の鍵（この売り方でプランを作るときに渡す） */
   key: string;
@@ -783,7 +783,7 @@ export interface RentalSaleRowModel {
   equityEnd: string;
 }
 
-/** 売る年を変えた比べ（null は比べる売り方が無い） */
+/** 売る年を変えた比較（null は比較する売り方が無い） */
 export type RentalSaleModel = { status: "loading" } | { status: "ready"; endYear: number; rows: RentalSaleRowModel[] } | { status: "error" };
 
 /** 物件1件の見るもの */

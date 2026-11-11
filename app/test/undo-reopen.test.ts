@@ -35,7 +35,7 @@ describe("開き直したときに、元に戻すの履歴を続けてよいか"
 
   it("見本から作った世帯を保存して開き直す: 本体が欄の並びを変えても、中身が同じなら続ける", () => {
     const loaded = loadedFrom(viaHost(saved));
-    // 文字列としては違う（前はこれで比べていたので、履歴が空になっていた）
+    // 文字列としては違う（前はこれで比較していたので、履歴が空になっていた）
     expect(loaded === saved).toBe(false);
     expect(sameBodyContent(saved, loaded)).toBe(true);
     expect(reopenHistory(saved, loaded)).toBe("continue");

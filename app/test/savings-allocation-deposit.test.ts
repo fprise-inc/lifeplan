@@ -44,7 +44,7 @@ describe("資産配分を計算に渡す（0137）", () => {
     expect(allocationGaps(wh.request)).toEqual([]);
     // 見本はもう期待リターンを持っている種類がある（FP が入れた値は推定にしない）
     for (const c of ["equity.domestic", "equity.global", "bond.global", "reit.global"]) expect(wh.request.input.assumptions?.assetReturns?.[c]).toBeDefined();
-    // 表の組み合わせた期待リターン−信託報酬が、運用する口座の計算の利回り（rateOf は資産配分の当て方の前の値なので、表の値で比べる）
+    // 表の組み合わせた期待リターン−信託報酬が、運用する口座の計算の利回り（rateOf は資産配分の当て方の前の値なので、表の値で比較する）
     const port = portfolioOf(wh.request);
     expect(port.fee).toBeCloseTo(Number(defaultFee()), 10);
     // 計算の結果が変わる（切り替えただけで同じ、を戻さない）

@@ -90,7 +90,7 @@ function freeTextPaths(): string[] {
   return out.sort();
 }
 
-/** 年・行ごとの金額の合計（ID を付け替えても同じ数字になることを比べる） */
+/** 年・行ごとの金額の合計（ID を付け替えても同じ数字になることを比較する） */
 const sums = (table: { year: number; row: string; amount: number }[]) => {
   const m = new Map<string, number>();
   for (const c of table) m.set(`${c.year}|${c.row}`, (m.get(`${c.year}|${c.row}`) ?? 0) + c.amount);

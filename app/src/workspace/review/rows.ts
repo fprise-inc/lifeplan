@@ -3,7 +3,7 @@
 // 同じ行の形と部品（ReviewTable.tsx）を使う（列の名前・どこから決まったかの列は呼ぶ側が選ぶ）。
 // 行は毎回、読み取りの記録と世帯から作る（保存しない）
 
-/** 今の値と読んだ値の比べ: fill（今は空・推定・書類待ちで、読んだ値が入る）・same（今の確定の値と同じ）・conflict（今の確定の値と違う） */
+/** 今の値と読んだ値の比較: fill（今は空・推定・書類待ちで、読んだ値が入る）・same（今の確定の値と同じ）・conflict（今の確定の値と違う） */
 export type Compare = "fill" | "same" | "conflict";
 
 export type RowStatus = "pending" | "accepted" | "corrected" | "rejected";

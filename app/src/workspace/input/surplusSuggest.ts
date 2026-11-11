@@ -1,6 +1,6 @@
 // 基本生活費のカードの「毎年の黒字のうち、貯金に回る割合」の横に出す、控えから見た実際の割合の提案（作業の層。0031）。
 // - 控え（新しい順）のうち、作ってから6か月以上たった最初の控えを、控えの入力で計算する（計算は1回。控えを選び直すまで結果を持つ）
-// - 今の下書きの金融資産と比べて割合を出し、押すと値が入るボタンと根拠を返す（自動では入れない）
+// - 今の下書きの金融資産と比較して割合を出し、押すと値が入るボタンと根拠を返す（自動では入れない）
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import { parseYm } from "../levers.ts";

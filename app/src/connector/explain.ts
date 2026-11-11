@@ -6,8 +6,8 @@
 // - 返すのは根拠の表示の中身（画面と同じ）と、計算式ID・制度の値ID だけ。世帯の物の ID は返さない（行を選ぶときに受け取るだけ）
 // - 同じ1つの JS に、計算の前の処理（prepare.ts。画面がエンジンへ渡す前に当てる処理。0184）も入れる。接続口は計算の前に prepare を、
 //   根拠を読むときは画面と同じく処理の前の要求で explain を呼ぶ
-// - 同じ1つの JS に、計算の答えの主な数字と家族の年齢（summary.ts。画面の「プランを比べる」と表の年齢の行と同じ関数。0194）も入れる
-// - 同じ1つの JS に、比べた答えのグラフ（chart.ts。画面のグラフと同じ座標・色の SVG。0203）も入れる
+// - 同じ1つの JS に、計算の答えの主な数字と家族の年齢（summary.ts。画面の「プランを比較」と表の年齢の行と同じ関数。0194）も入れる
+// - 同じ1つの JS に、比較した答えのグラフ（chart.ts。画面のグラフと同じ座標・色の SVG。0203）も入れる
 import type { EngineRequest, FullResult, TableCell } from "../engine/types.ts";
 import { evidenceDetail } from "../workspace/evidence.ts";
 import { displayYears, rowDefs, type RowDef } from "../workspace/present.ts";

@@ -19,8 +19,8 @@ const seq = () => {
 const noop = () => undefined;
 const save = async () => undefined;
 
-describe("選び方を比べる・事務所の既定だけを置き換える", () => {
-  it("同じ選び方か: 並び・重なり・標準の入れ方・知らない ID は比べる前にそろえる", () => {
+describe("選び方を比較する・事務所の既定だけを置き換える", () => {
+  it("同じ選び方か: 並び・重なり・標準の入れ方・知らない ID は比較する前にそろえる", () => {
     expect(sameChoice(undefined, {})).toBe(true);
     expect(sameChoice({ hidden: ["car", "rental"] }, { hidden: ["rental", "car", "car"] })).toBe(true);
     expect(sameChoice({ levels: { insurance: "simple" } }, {})).toBe(true);

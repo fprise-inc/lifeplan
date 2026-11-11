@@ -266,7 +266,7 @@ export function parseHash(hash: string): {
   compare?: boolean;
   list?: boolean;
   scroll?: "table";
-  /** グラフの比べ方 */
+  /** グラフの比較の仕方 */
   layout?: ChartLayout;
   /** 収益不動産のタブの見るもの（"total" か物件の番号）と指標の年 */
   rental?: string;
@@ -933,7 +933,7 @@ export function App() {
     (o: Opened, w: Work, s: DisplaySettings): EngineRequest | null => {
       if (!shows(s, "feeLine") || !hasAdvisoryFee(o.wh.request) || w.sel === CURRENT) return null;
       const v = valuesOf(o.wh, w, w.sel);
-      // 顧問料を入れている案（今の契約だけを含む）は入れない案と、入れない案は入れる案と比べる
+      // 顧問料を入れている案（今の契約だけを含む）は入れない案と、入れない案は入れる案と比較する
       return reqOf(o, { ...v, "lever:fee": feeOf(o, v) === false });
     },
     [reqOf],
@@ -1088,7 +1088,7 @@ export function App() {
         band = seeded.ids.slice(0, MAX_BAND);
         shownKeys = seeded.keys;
       } else if (o.demo !== null && (o.demo.plans !== undefined || o.demo.snapshots !== undefined)) {
-        // 見本に入れておいたプラン（帯に並べる）と控え（前回と比べるの見本）
+        // 見本に入れておいたプラン（帯に並べる）と控え（前回と比較の見本）
         const seeded = await seedDemo(o.wh, o.catalog, o.demo, { now: nowIso(), appVersion: APP_VERSION });
         o = { ...o, wh: seeded.wh };
         band = seeded.band.slice(0, MAX_BAND);
@@ -1140,7 +1140,7 @@ export function App() {
       setBsSettings(st.display.balance);
       const loaded = bodyFor(o, w, shownKeys, st.display.result, st.display.balance, st.carry);
       // この画面で前に開いて保存したときと同じ中身なら、元に戻すの履歴を続きから使う（違えば空から）。
-      // 本体は本文を読み直して書くので欄の並びが変わる。文字列ではなく中身で比べる（0097）
+      // 本体は本文を読み直して書くので欄の並びが変わる。文字列ではなく中身で比較する（0097）
       const keep = reopenHistory(savedBodies.current.get(r.id), loaded) === "continue";
       savedBodies.current.set(r.id, loaded);
       // ほかのメンバーが開いているときは、自動保存を止めた状態で開く（「編集を始める」で始める。0023 の7）
@@ -1923,7 +1923,7 @@ export function App() {
     placeNew(w, r.wh, r.id, w.drafts, `${planLabel(srcLetter)}を写して ${planLabel(newLetter)} を作りました。下の対策で動かしてください`);
   }, [placeNew]);
   /**
-   * 収益不動産のタブの「売る年を変えた比べ」の行から: 帯の「＋ このプランを元に作る」と同じく見ているプランを写して新しいプランを作り、
+   * 収益不動産のタブの「売る年を変えた比較」の行から: 帯の「＋ このプランを元に作る」と同じく見ているプランを写して新しいプランを作り、
    * そのプランに、その物件の売る年だけを変えた差分を入力画面でプランを直したときと同じ記録で足して、そのまま選ぶ（0128。現状は変えない）
    */
   const salePlan = useCallback(
@@ -2184,7 +2184,7 @@ export function App() {
     });
     return out;
   }, [tab, opened, slots, work, letters, selReq, baseReq, reqOf, ...slotResults]);
-  // 前回と比べる: 控え（新しい順）。選んだ控えだけを、控えの現状の入力で計算する（結果は控えを選び直すまで持つ）
+  // 前回と比較: 控え（新しい順）。選んだ控えだけを、控えの現状の入力で計算する（結果は控えを選び直すまで持つ）
   const bsSnaps = useMemo(() => [...(opened?.wh.snapshots ?? [])].sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0)), [opened?.wh.snapshots]);
   const bsPrevChoices = bsSnaps.map((x, i) => ({ key: `p${i + 1}`, label: `${snapshotDateText(x.createdAt).replace(/ .*$/, "")}の控え（${TRIGGER_TEXT[x.trigger]}）` }));
   const [bsPrevRun, setBsPrevRun] = useState<{ key: string; id: string; result: PreviewResult | null | "loading" } | null>(null);
@@ -2298,7 +2298,7 @@ export function App() {
     const panes = donutPanes({ base: { name: names.base, req: baseReq, table: baseRes.table }, sel: { name: names.selected, req: selReq, table: selRes.table }, same: names.same, year, age, who: model.who, by: donutBy });
     return <DonutCard panes={panes} by={donutBy} onBy={setDonutBy} note={fixed !== null ? "グラフで固定した年の内訳です（もう一度押すと外れます）" : "グラフで年を押して固定すると、その年の内訳になります（いまは取り崩しを始める年）"} />;
   }, [donutOn, model, selReq, selRes, baseReq, baseRes, chartMode, selectedYear, names.base, names.selected, names.same, donutBy]);
-  // 収益不動産のタブ（0082）: 物件のある世帯だけ。見ているプランの結果の分析の数字と、見ている物件の売る年を変えた比べ（写しの要求）
+  // 収益不動産のタブ（0082）: 物件のある世帯だけ。見ているプランの結果の分析の数字と、見ている物件の売る年を変えた比較（写しの要求）
   const hasRental = opened !== null && hasRentalProperty(opened.wh.request);
   const shownTabs = useMemo(() => tabsFor(opened === null ? null : opened.wh.request), [opened]);
   useEffect(() => {
@@ -2644,7 +2644,7 @@ export function App() {
     putDocuments(withSamples(opened.wh).log);
     setDocsOpen(true);
   };
-  /** 照合だけの値と比べる計算の結果の額（現状の計算。その年・その人の分） */
+  /** 照合だけの値と比較する計算の結果の額（現状の計算。その年・その人の分） */
   const docCalc = (row: string, year: number, member: string | null): number | null => {
     const r = resultOf(CURRENT);
     if (r === null) return null;

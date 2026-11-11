@@ -10,10 +10,10 @@ use rmcp::model::{GetPromptResult, PromptMessage, Role};
 use rmcp::{prompt, prompt_router, schemars};
 use serde::Deserialize;
 
-/// 何通りも比べるときの道具の使い方（比べる道具。0198）
+/// 何通りも比較するときの道具の使い方（比較の道具。0198）
 const COMPARE_HOW: &str = "calculate を何度も呼ばず、compare で基本と各通り（8通りまで）を1回で計算する（返るのは通りごとの主な数字・基本との差・選んだ数字の年ごとの系列）";
 
-/// 相場が下がった場合の型（比べる道具の market_stress。画面の資産運用のタブと同じ。0200）
+/// 相場が下がった場合の型（比較の道具の market_stress。画面の資産運用のタブと同じ。0200）
 const MARKET_STRESS_HOW: &str = "相場が下がった場合は、通りに market_stress（drop＝退職の直後に株などが下がる・low＝取り崩しの初めにしばらく利回りが低いまま・minus1＝利回りがずっと想定より1%低い）を書いた通りを足す（stress_test とは1つの通りにどちらか1つ）";
 
 /// 世帯の引数の読み方
@@ -37,7 +37,7 @@ pub struct CompareHouseholdsArgs {
     pub household_a: String,
     /// 2つ目の世帯（同じく。例 sampleCoupleNoKids）
     pub household_b: String,
-    /// 比べたいこと（例「65歳・90歳の時点の資産と、資産が尽きる年」）。省くと主な数字をひととおり
+    /// 比較したいこと（例「65歳・90歳の時点の資産と、資産が尽きる年」）。省くと主な数字をひととおり
     pub focus: Option<String>,
 }
 
@@ -83,8 +83,21 @@ pub struct ExplainForClientArgs {
 pub struct RatePathChartArgs {
     /// 世帯（見本の世帯の id か、FP が渡した世帯の share_id。変動金利の住宅ローンのある世帯。例 salariedCoupleTwoKids）
     pub household: String,
-    /// 比べる金利の上がり方（例「今のまま・10年で+1%・10年で+2%」「5年ごとに+0.25%」）。省くと、今のまま・10年で+1%・10年で+2% の3通り
+    /// 比較する金利の上がり方（例「今のまま・10年で+1%・10年で+2%」「5年ごとに+0.25%」）。省くと、今のまま・10年で+1%・10年で+2% の3通り
     pub paths: Option<String>,
+    /// 使う先（例「セミナーのスライド」「ブログ」）。省くとセミナーの資料
+    pub purpose: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct PatternsChartArgs {
+    /// 世帯（見本の世帯の id か、FP が渡した世帯の share_id。例 salariedCoupleTwoKids）
+    pub household: String,
+    /// 比較したいこと（動かす項目と3つの値。例「退職の年齢 60・65・70歳」「子の進路 公立・今のまま・私立」「物価上昇率 0%・1%・2%」）。
+    /// 省くと、AI がこの世帯で効きそうな項目を1つ選ぶ
+    pub lever: Option<String>,
+    /// グラフにする数字（例「金融資産と年間収支」「教育費」「支出の内訳」）。省くと、動かす項目に合う数字を AI が選ぶ
+    pub show: Option<String>,
     /// 使う先（例「セミナーのスライド」「ブログ」）。省くとセミナーの資料
     pub purpose: Option<String>,
 }
@@ -115,7 +128,7 @@ impl LifeplanMcp {
         result(
             "この接続口でできること",
             "ファイナンシアの AI接続口で何ができるかを、FP 向けに短く紹介してください。\n\
-             - できることを場面ごとに（計算・対策を並べて比べる・境目探し〔何歳まで働けば足りる？〕・数字の根拠の説明・制度の値と出典・計算に入っているかの確認・セミナー用の架空の世帯・面談の準備・プランの候補・保険の書類からの入力の候補）、頼み方の例を1つずつ添えて。\n\
+             - できることを場面ごとに（計算・対策を並べて比較する・境目探し〔何歳まで働けば足りる？〕・数字の根拠の説明・制度の値と出典・計算に入っているかの確認・セミナー用の架空の世帯・面談の準備・プランの候補・保険の書類からの入力の候補）、頼み方の例を1つずつ添えて。\n\
              - アプリが起動していなくても見本の世帯（架空）で試せること、お客さまの世帯は FP がアプリで渡したときだけ読めることを一言。\n\
              - 最後に、list_sample_households で見本を1つ選び、calculate（omit に [\"years\"]）で主な数字を1つ見せて、試し方の例にしてください。"
                 .to_owned(),
@@ -124,8 +137,8 @@ impl LifeplanMcp {
 
     #[prompt(
         name = "compare_households",
-        title = "2つの世帯を比べる",
-        description = "2つの世帯（見本の世帯か FP が渡した世帯）の主な数字を並べて比べる"
+        title = "2つの世帯を比較",
+        description = "2つの世帯（見本の世帯か FP が渡した世帯）の主な数字を並べて比較する"
     )]
     async fn compare_households(
         &self,
@@ -133,10 +146,10 @@ impl LifeplanMcp {
     ) -> GetPromptResult {
         let focus = given(&a.focus).unwrap_or("65歳・90歳の時点の金融資産・資産が尽きる年・金融資産がいちばん少ない年と額・生涯の手取りと支出・住宅ローンの返済の合計・65歳からの年金の月額");
         result(
-            "2つの世帯を比べる",
+            "2つの世帯を比較",
             format!(
-                "ファイナンシアの接続口で、次の2つの世帯を比べてください。\n\
-                 - A: {}\n- B: {}\n- 比べたいこと: {focus}\n\n\
+                "ファイナンシアの接続口で、次の2つの世帯を比較してください。\n\
+                 - A: {}\n- B: {}\n- 比較したいこと: {focus}\n\n\
                  進め方:\n\
                  1. A を基本の世帯に、B を variants の1通り（label と、B の sample_household_id か share_id）にする。{COMPARE_HOW}。年齢の時点は at_ages で渡す。\n\
                  2. 主な数字（年金の月額は keyFigures.pension の monthly。今の水準の額）を1つの表（行が数字、列が A・B）に並べ、違いの大きい所を2〜3行で。家族の形・年齢・計算の期間が違うときは、そのことも書く。\n\
@@ -150,8 +163,8 @@ impl LifeplanMcp {
 
     #[prompt(
         name = "compare_measures",
-        title = "対策をいくつか並べて比べる",
-        description = "1つの世帯で、働く期間・生活費・NISA・年金の受け取り開始などの対策を並べて、どれが効くかを比べる"
+        title = "対策をいくつか並べて比較",
+        description = "1つの世帯で、働く期間・生活費・NISA・年金の受け取り開始などの対策を並べて、どれが効くかを比較する"
     )]
     async fn compare_measures(
         &self,
@@ -165,7 +178,7 @@ impl LifeplanMcp {
         let stress = given(&a.market_stress)
             .unwrap_or("（指定なし。資産運用の多い世帯や、相場に左右される対策なら1つ足す）");
         result(
-            "対策をいくつか並べて比べる",
+            "対策をいくつか並べて比較",
             format!(
                 "ファイナンシアの接続口で、{} に対策をいくつか当てて並べてください。\n\
                  - 対策: {measures}\n- 主な数字を見る本人の年齢: {ages}\n- 相場が下がった場合: {stress}\n\n\
@@ -262,8 +275,8 @@ impl LifeplanMcp {
 
     #[prompt(
         name = "chart_rate_paths",
-        title = "金利の上がり方を3通り比べてグラフにする",
-        description = "変動金利の住宅ローンのある世帯で、金利の上がり方を何通りか（今のまま・10年で+1%・10年で+2% など）にして比べ、資料にそのまま使えるグラフにする"
+        title = "金利の上がり方を3通り比較してグラフにする",
+        description = "変動金利の住宅ローンのある世帯で、金利の上がり方を何通りか（今のまま・10年で+1%・10年で+2% など）にして比較し、資料にそのまま使えるグラフにする"
     )]
     async fn chart_rate_paths(
         &self,
@@ -272,16 +285,55 @@ impl LifeplanMcp {
         let paths = given(&a.paths).unwrap_or("今のまま・10年で+1%・10年で+2%");
         let purpose = given(&a.purpose).unwrap_or("セミナーの資料");
         result(
-            "金利の上がり方を3通り比べてグラフにする",
+            "金利の上がり方を3通り比較してグラフにする",
             format!(
-                "ファイナンシアの接続口で、{} の変動金利の上がり方を比べて、{purpose}に使うグラフにしてください。\n\
-                 - 比べる上がり方: {paths}\n\n\
+                "ファイナンシアの接続口で、{} の変動金利の上がり方を比較して、{purpose}に使うグラフにしてください。\n\
+                 - 比較する上がり方: {paths}\n\n\
                  進め方:\n\
                  1. list_plan_items で、住宅ローンの「金利の見込み（変動金利）」の項目（kind が rateOutlook）を探す。ローンが2本以上あれば、ローンごとの項目を同じ値にする。項目が無ければ、変動金利の住宅ローンが無いと伝えて終える。\n\
                  2. 上がり方ごとに通り（label と plan_changes）を作る。plan_changes は一覧の target・item・lever と value で、value は型の名前（flat＝今の金利のまま・up1＝10年で1%上がる・up2＝10年で2%上がる）か、5年ごとの上乗せ（例 {{\"adds\": [\"0.0025\", \"0.005\"]}}）。いちばん初めの通りを基本にする。stress_test の rateRise は上げ幅を選べないので使わない。\n\
                  3. chart で、charts に assets・repayment・rate・keyFigures、figures に assetsAtAge・minimum・loanRepayment・loanInterest を入れてグラフにする（数字を自分で描かない。rate はその年の金利の推移。format は both にすると SVG も返る）。label には上がり方だけを書き、お客さまの名前を書かない。\n\
                  4. グラフの下に、見どころを2〜3行で（返済の合計の差・利息の合計の差〔keyFigures.loanInterest と diff.loanInterest〕・金融資産がいちばん少ない額・資産が尽きる年の差など。答えの results の数字だけを使う）。変動金利の5年ルール・125%ルールで返済額の上がり方がゆるやかなことにも触れる。\n\
                  5. 実在のお客さまの世帯なら、使う前に金額を丸める・珍しい組み合わせを変える・お客さまに一言ことわる、のどれかが要ると伝える（見本の世帯は架空）。",
+                household(&a.household),
+            ),
+        )
+    }
+
+    #[prompt(
+        name = "chart_three_patterns",
+        title = "3パターンを比較してグラフに",
+        description = "1つの項目（退職の年齢・子の進路・家の値段・物価・運用の利回り・年金の受け取り開始・NISA の積立など）を3通りにして比較し、金融資産・年間収支・教育費などの推移を、資料にそのまま使えるグラフにする"
+    )]
+    async fn chart_three_patterns(
+        &self,
+        Parameters(a): Parameters<PatternsChartArgs>,
+    ) -> GetPromptResult {
+        let lever = given(&a.lever)
+            .unwrap_or("（指定なし。この世帯で結果が大きく変わりそうな項目を1つ選ぶ）");
+        let show = given(&a.show)
+            .unwrap_or("（指定なし。動かす項目に合う数字を選ぶ。迷えば金融資産と年間収支）");
+        let purpose = given(&a.purpose).unwrap_or("セミナーの資料");
+        result(
+            "3パターンを比較してグラフに",
+            format!(
+                "ファイナンシアの接続口で、{} の「{lever}」を3通りにして比較し、{purpose}に使うグラフにしてください。\n\
+                 - グラフにする数字: {show}\n\n\
+                 進め方:\n\
+                 1. list_plan_items で、動かす項目の target・item（一覧が at か lever を添えた項目は、それもそのまま）と、今の値・範囲を確かめる。ID は推測せず、必ず一覧の物を使う。\n\
+                 2. 1つ目の値を基本（label と plan_changes）、残りの2つ（多くても3つ）を variants の通りにする。label には値だけを書き、お客さまの名前を書かない。{COMPARE_HOW}。\n\
+                 3. 先に compare で計算して、3通りとも status が ok か、値が範囲の中かを確かめる（series に、グラフにしたい数字を入れておくと、年ごとの数字も見られる）。\n\
+                 4. chart に同じ基本と通りを渡し、series にグラフにする数字を入れる（compare の series と同じ名前。1つにつき1枚の折れ線）。支出の内訳を並べるなら charts に expenseBreakdown。数字を自分で描かない。\n\
+                 5. グラフの下に、見どころを2〜3行で（答えの results の keyFigures・diff の数字だけを使う）。前提（物価・利回り）しだいで変わることを一言。\n\
+                 6. 実在のお客さまの世帯なら、使う前に金額を丸める・珍しい組み合わせを変える・お客さまに一言ことわる、のどれかが要ると伝える（見本の世帯は架空）。グラフに「ファイナンシアで試算」と入れたいときだけ credit: true。\n\n\
+                 項目と数字の例（項目の ID は list_plan_items の物）:\n\
+                 - 退職の年齢（例 60・65・70歳）: 「ご本人が働く最後の年齢」（item が employment.to）。series は financialAssets・net・takeHome\n\
+                 - 子の進路（例 公立・今のまま・私立）: 進路の項目が一覧に無ければ、get_sample_household・get_shared_household の教育の目標（household.goals の education.stages の sector〔public・private〕）を changes で書き換える。series は expenseEducation、charts に expenseBreakdown\n\
+                 - 家の値段（例 3,500万・4,500万・5,500万円）: get_input_recipe の buyHome を値段ごとに作り、返った changes を通りの changes に入れる。series は financialAssets・loanBalance・expenseHousing\n\
+                 - 物価上昇率（例 0%・1%・2%）: 「経済の前提: 物価上昇率（年）」（item が assumptions.inflation。group に 前提条件）。series は financialAssets・expense\n\
+                 - 運用の利回り（例 2%・4%・6%）: 「運用の利回り（預金を除く）」（item が assumptions.returnShifts）。series は financialAssets\n\
+                 - 年金の受け取り開始（例 65・70・75歳）: 「ご本人の年金の受け取り開始」（item が pensionRecord.claim）。series は pension・financialAssets\n\
+                 - NISA の毎月の積立（例 1万・3万・5万円）: 「NISAの積立額（月）」（item が account.contributions）。series は financialAssets・net",
                 household(&a.household),
             ),
         )

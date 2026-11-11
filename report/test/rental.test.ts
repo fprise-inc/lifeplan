@@ -1,5 +1,5 @@
 // 収益不動産のまとめ（公式の帳票の章。0082）: 帳票の入力の数字がエンジンの分析の数字（asset.realEstateAnalysis）のまま書式だけ当てたものであること、
-// 物件名・種類を載せること（所在地・メモは載せない）、売る年を変えた比べ、収益不動産の無い世帯は章が無いこと、PDF のページ
+// 物件名・種類を載せること（所在地・メモは載せない）、売る年を変えた比較、収益不動産の無い世帯は章が無いこと、PDF のページ
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
@@ -71,7 +71,7 @@ describe("帳票の入力（rental）", () => {
     expect(p?.deadCrossNow).toBe(e?.deadCross !== null && (e?.deadCross ?? 0) <= Number(bundle.proposal.request.input.baseMonth.slice(0, 4)));
   });
 
-  it("今の予定の売却と、売る年を変えた比べ（今の予定・5年前・5年後・持ち続ける）。差は今の予定との金融資産の差", () => {
+  it("今の予定の売却と、売る年を変えた比較（今の予定・5年前・5年後・持ち続ける）。差は今の予定との金融資産の差", () => {
     expect(p?.exit?.net).toBe(e?.exit?.net);
     const rows = p?.saleCompare?.rows ?? [];
     expect(rows.map((x) => x.label)).toEqual(["2033年6月に売る（5年前）", "2038年6月に売る（今の予定）", "2043年6月に売る（5年後）", "持ち続ける"]);
@@ -110,10 +110,10 @@ describe("帳票の入力（rental）", () => {
 const bin = reportPdfBin();
 describe.skipIf(bin === null)("PDF の収益不動産のまとめのページ", () => {
   const res = renderAndExtract(bin as string, input, sampleFrame(bundle, input));
-  const page = res.pages.find((t) => normalize(t).includes(normalize("収益不動産のまとめ")) && normalize(t).includes(normalize("売る年を変えた比べ")));
+  const page = res.pages.find((t) => normalize(t).includes(normalize("収益不動産のまとめ")) && normalize(t).includes(normalize("売る年を変えた比較")));
   const p = input.rental!.properties[0]!;
 
-  it("物件名（種類）・指標・年ごとの数字（万円）・売る年の比べが1枚に載る", () => {
+  it("物件名（種類）・指標・年ごとの数字（万円）・売る年の比較が1枚に載る", () => {
     expect(page).toBeDefined();
     const t = normalize(page as string);
     expect(t).toContain(normalize("見本マンション 301（区分マンション）"));

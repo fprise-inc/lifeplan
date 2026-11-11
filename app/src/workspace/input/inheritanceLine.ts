@@ -73,7 +73,7 @@ export const NOT_INCLUDED_TEXT: Readonly<Record<string, string>> = {
   twentyPercentSurcharge: "2割加算",
   smallLandSpecial: "小規模宅地等の特例",
   landValuationDetail: "土地の評価の細部（路線価・倍率）",
-  primarySecondaryComparison: "一次と二次の相続の分け方の比べ",
+  primarySecondaryComparison: "一次と二次の相続の分け方の比較",
   calendarGiftAddBack: "亡くなる前の暦年課税の贈与の加算",
   successiveInheritanceCredit: "相次相続控除",
   minorCredit: "未成年者控除",
@@ -155,8 +155,8 @@ export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): 
 }
 
 /**
- * 遺したい額と、表の最後の年の金融資産の比べ（相続税の目安を求めた計算の表から読む。お金の流れは同じ）。
- * 遺したい額は今の値段なので、前提の物価上昇率で表の最後の年の値段にして比べる。遺したい額が無い・表が無ければ null
+ * 遺したい額と、表の最後の年の金融資産の比較（相続税の目安を求めた計算の表から読む。お金の流れは同じ）。
+ * 遺したい額は今の値段なので、前提の物価上昇率で表の最後の年の値段にして比較する。遺したい額が無い・表が無ければ null
  */
 export function legacyLine(wh: WorkingHousehold, r: PreviewResult | null): string | null {
   const amount = wh.request.input.legacy?.amount?.value ?? null;

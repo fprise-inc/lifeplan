@@ -204,7 +204,7 @@ describe("介護・親のカード: 世帯の外の家族（区画A）", () => {
     expect(String(line.get(wh).value)).toBe("税の扶養は、年金だけなら年172万円まで");
     expect(line.help).toContain("年172万円まで");
     expect(line.help).toContain("180万円未満");
-    // 年金の額を入れると、その額と比べる
+    // 年金の額を入れると、その額と比較する
     const withPension = mutate(wh, (h) => {
       const x = h.members.find((m) => m.id === p.id)!;
       x.wallet = { pension: { value: 2000000, state: "confirmed", origin: { kind: "manual" } } };

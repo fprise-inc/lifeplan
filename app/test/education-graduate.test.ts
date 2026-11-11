@@ -37,7 +37,7 @@ describe("大学院", () => {
   it("大学がある進路に「＋ 大学院（修士）」「＋ 大学院（博士）」。足すと大学の公立・私立を引き継ぎ、学費は統計の平均の推定、独立は修了の後", () => {
     let wh = fresh();
     expect(actions(wh).map((a) => a.label)).toEqual(expect.arrayContaining(["＋ 大学院（修士）", "＋ 大学院（博士）"]));
-    // 画面は保存のときに変わった物の推定の印を外してから推定を入れ直す（InputPanel の dropStaleRows）。ここでは段を足しただけで比べる
+    // 画面は保存のときに変わった物の推定の印を外してから推定を入れ直す（InputPanel の dropStaleRows）。ここでは段を足しただけで比較する
     wh = actions(wh).find((a) => a.label === "＋ 大学院（修士）")!.run(wh);
     const st = goalOf(wh).education!.stages.find((s) => s.stage === "graduateMaster")!;
     expect(st).toMatchObject({ sector: "private", living: "home" });
