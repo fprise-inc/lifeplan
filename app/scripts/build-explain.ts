@@ -37,7 +37,8 @@ function inputDigest(): string {
 }
 
 /**
- * プランの動かす項目の JS の頭に置く、画面の部品が使う組み込みの代わり（0195）。接続口の固めた実行環境（0005 の3）には、structuredClone が無く、
+ * まとめた JS の頭に置く、画面の部品が使う組み込みの代わり（0195）。Math.round・Math.pow は数字の根拠の JS（explain.js）にも置く
+ * （年金の見込みの世帯の月額の丸めに Math.round を使う。0199）。接続口の固めた実行環境（0005 の3）には、structuredClone が無く、
  * 結果がエンジンや OS で変わる Math の関数（round・pow など）は呼ぶとエラーになる。画面の部品はそれを使うので、まとめた JS の中だけで
  * 同じ名前を、OS に依らず同じ答えになる実装に置き換える（グローバルの組み込みは変えない）:
  * - Math.round: 仕様どおり（x − floor(x) は丸めずに出るので、0.5 以上なら切り上げ。負の数の 0 も仕様どおり）
@@ -50,7 +51,7 @@ function inputDigest(): string {
  *   四捨五入〔0 から遠い方〕・後ろの0を落とす・負の数は "-"）にする。数でない物は String（日時の文は画面だけで、プランを当てる道筋では使わない）
  * 残りの disabled な関数（sqrt・log など）はそのまま呼ぶとエラー（プランを当てる道筋では使わない。使えばテストで止まる）
  */
-export const PLAN_INTRO = `
+export const MATH_INTRO = `
 const Math = Object.create(globalThis.Math, {
   round: { value: (x) => { x = +x; const f = globalThis.Math.floor(x); const r = x - f >= 0.5 ? f + 1 : f; return r === 0 && (x < 0 || Object.is(x, -0)) ? -0 : r; } },
   pow: { value: (a, b) => {
@@ -61,6 +62,12 @@ const Math = Object.create(globalThis.Math, {
     return b < 0 ? 1 / out : out;
   } },
 });
+`;
+
+/**
+ * プランの動かす項目の JS の頭（MATH_INTRO に、structuredClone・数の toLocaleString・crypto.randomUUID・TextEncoder の代わりを足した物）
+ */
+export const PLAN_INTRO = `${MATH_INTRO}
 const structuredClone = (v) => {
   if (typeof v !== "object" || v === null) return v;
   if (Array.isArray(v)) return v.map(structuredClone);
@@ -203,7 +210,7 @@ export async function buildExplain(force = false): Promise<void> {
   if (!force && existsSync(stamp) && readFileSync(stamp, "utf8") === digest && outs.every((f) => existsSync(f))) return;
   rmSync(EXPLAIN_OUT, { recursive: true, force: true });
   mkdirSync(EXPLAIN_OUT, { recursive: true });
-  await bundle("explain.ts", "FinanciaExplain", "explain.js", undefined);
+  await bundle("explain.ts", "FinanciaExplain", "explain.js", MATH_INTRO);
   await bundle("plan.ts", "FinanciaPlan", "plan.js", PLAN_INTRO, [localeCalls()]);
   writeFileSync(join(EXPLAIN_OUT, "samples.json"), `${JSON.stringify(connectorSamples(), null, 1)}\n`);
   writeFileSync(stamp, digest);

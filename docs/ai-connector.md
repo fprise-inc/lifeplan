@@ -106,7 +106,7 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 |---|---|---|
 | `what_can_you_do` | この接続口でできること | なし |
 | `compare_households` | 2つの世帯を比べる | `household_a`*・`household_b`*（見本の id か渡した世帯の share_id）・`focus`（比べたいこと） |
-| `compare_measures` | 対策をいくつか並べて比べる | `household`*・`measures`（並べたい対策。省くと AI が選ぶ）・`at_ages`（例「65・90」） |
+| `compare_measures` | 対策をいくつか並べて比べる | `household`*・`measures`（並べたい対策。省くと AI が選ぶ）・`at_ages`（例「65・90」）・`market_stress`（相場が下がった場合も並べるか。`compare` の `market_stress`。0200） |
 | `make_seminar_household` | セミナー用の架空の世帯を作る | `profile`*（世帯の形）・`events`（起きること）・`output`（欲しい表） |
 | `prepare_meeting` | 面談の準備 | `household`（省くと渡されている世帯を確かめる）・`topic`（面談のテーマ） |
 | `explain_to_client` | 数字の根拠をお客さまに分かる言葉で説明する | `household`*・`number`*（例「2030年の税・社会保険料」） |
@@ -132,17 +132,18 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 
 `calculate` の答えには、年ごとの数字のほかに次が付きます。
 
-- `keyFigures`（主な数字）: アプリの「プランを比べる」と同じ関数で数えた、`at_ages`（既定は95歳）の時点の金融資産・資産が尽きる年・金融資産がいちばん少ない年と額・生涯の手取りの合計・生涯の支出の合計・住宅ローンの返済の合計。
+- `keyFigures`（主な数字）: アプリの「プランを比べる」と同じ関数で数えた、`at_ages`（既定は95歳）の時点の金融資産・資産が尽きる年・金融資産がいちばん少ない年と額・生涯の手取りの合計・生涯の支出の合計・住宅ローンの返済の合計と、65歳からの年金の月額 `pension`（世帯の合計 `monthly`・受け取り開始からの月額 `claimedMonthly`・人ごと `people`。今の水準＝賃金・物価の伸びとマクロ経済スライドを外した額で、アプリの比較の表の年金の行と同じ。0200）。
+- 年ごとの数字・表の行・合計 `totals` は、アプリの画面の表に出す年からです（計算基準月が年の途中なら、数か月分しかない計算の最初の年は入れません。主な数字・数字の根拠と同じ。`totals.income − totals.taxSi` が生涯の手取りと同じになります。0200）。
 - `members` と年ごとの `ages`: 家族の年齢（アプリのキャッシュフロー表の年齢の行と同じ呼び方・同じ「世帯にいる年」）。
 - `protection`・`inheritanceTax`: 入力に必要保障額（`/protection`）・相続税の目安（`/inheritanceTax`。`points` に `now`・`bothAfter`・`contingency` を入れる）があれば、その答え（人に `self`・`spouse` などの鍵を添える）。
 
-答えは次で小さくできます（何も選ばなければ今までどおり）。比べる・振るときは主な数字だけを取ると、1通り 0.5KB ほどです。
+答えは次で小さくできます（何も選ばなければ今までどおり）。比べる・振るときは主な数字だけを取ると、1通り 0.7KB ほどです（年金の見込みは写しをもう1〜2回計算するので、要らなければ `omit` に `pension` を入れると速くなります）。
 
 | 選ぶ物 | 意味 |
 |---|---|
 | `every_years` | 何年おきの年だけ（1〜10。最初と最後の年はいつも入る） |
 | `fields` | summary の年ごとの数字を選ぶ（`income`・`taxSi`・`expense`・`net`・`financialAssets`・`debt`・`shortfall`） |
-| `omit` | 省く物（`notices`・`packs`・`totals`・`insurance`・`ages`・`years`・`keyFigures`・`protection`・`protectionDetail`・`inheritanceTax`） |
+| `omit` | 省く物（`notices`・`packs`・`totals`・`insurance`・`ages`・`years`・`keyFigures`・`protection`・`protectionDetail`・`inheritanceTax`・`pension`） |
 | `at_ages` | 主な数字の「○歳時点」の本人の年齢（5つまで） |
 
 `explain_value` も `omit`（`sources`＝出典の文・`params`＝使った制度の値・`message`＝読み方の案内）で小さくできます。出典は制度の値ID から `get_regulation_value` で引けます。
@@ -162,12 +163,14 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 
 「対策を3つ並べて」「この世帯とこの世帯を比べて」「物価 0%・1%・2% で並べて」のように何通りも並べるときは、`calculate` を何度も呼ばず `compare` を使います。
 
-- 基本の世帯（`sample_household_id`・`share_id`・`input` のどれか1つ）と、基本に当てる `changes`・`plan_changes`・`stress_test` を書き、`variants` に8通りまで並べます。
-- 世帯を書かない通りは基本に重ねます（基本の変更の後に、その通りの `plan_changes`・`changes` を当てる。`stress_test` は書けばその通りの物）。`sample_household_id`・`share_id`・`input` を書いた通りは、その世帯で計算します（見本の世帯どうし・渡された世帯どうしも並べられます）。
+- 基本の世帯（`sample_household_id`・`share_id`・`input` のどれか1つ）と、基本に当てる `changes`・`plan_changes`・`stress_test`（か `market_stress`）を書き、`variants` に8通りまで並べます。
+- 世帯を書かない通りは基本に重ねます（基本の変更の後に、その通りの `plan_changes`・`changes` を当てる。`stress_test`・`market_stress` はどちらかを書けばその通りの物、書かなければ基本の物）。`sample_household_id`・`share_id`・`input` を書いた通りは、その世帯で計算します（見本の世帯どうし・渡された世帯どうしも並べられます）。
 - 答えの `results` の1つ目が基本で、通りごとに主な数字 `keyFigures`（`calculate` と同じ。アプリの「プランを比べる」と同じ数え方）・基本との差 `diff`（この通り − 基本の円。資産が尽きる年は画面の比較の表と同じ文）・選んだ数字の年ごとの系列 `series`（`series` で選ぶ。既定は金融資産を5年ごと・家族の年齢つき。画面の表に出す年から）・当てたプランの変更 `planChanges` が出ます。
+- `market_stress` は、アプリの資産運用のタブの「相場が下がった場合」の型です: `drop`（退職の直後に株などが下がる）・`low`（取り崩しを始めてから、予定が無ければ退職から、しばらく利回りが低いまま）・`minus1`（利回りがずっと想定より1%低い）。画面と同じ関数で、プランの変更を当てた後に重ねます（`stress_test` とは1つの通りにどちらか1つ）。答えの `marketStress` に画面の文が出ます。頼み方の例: 「investmentCouple で、相場が下がった場合の3つを並べて」
+- 主な数字には65歳からの年金の月額が入り、`diff` に `pensionMonthly`・`pensionClaimedMonthly`（基本との月額の差）が出ます。
 - 形の違う通り・当てはまらない変更・読めない共有・計算できない入力・9通り目から後は、その通りだけ `status: "error"` と理由 `reason` を返し、ほかの通りは計算します。
 - 1通りの計算は `calculate` と同じ道（プランの変更 → 計算の前の処理 → 計算 → 主な数字）です。渡された世帯は `calculate` と同じくアプリ本体に頼み、読むたびに道具の名前 `compare` で「AIに渡した記録」に残ります（1回の呼び出しで同じ世帯は1回だけ読みます）。
-- 大きさと時間の目安（見本の世帯）: 基本＋3通りで約 7.6KB・0.4 秒、基本＋8通りで約 16KB・約1秒。`ages: false` で年齢を省くと1通り約 0.7KB 小さくなります。
+- 大きさと時間の目安（見本の世帯）: 基本＋3通りで約 9KB・0.7 秒、基本＋8通りで約 19KB・約 1.8 秒（年金の見込みを含む。0200）。`ages: false` で年齢を省くと1通り約 0.7KB 小さくなります。
 
 ### プランの動かす項目（画面と同じ。0195）
 

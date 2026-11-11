@@ -4,6 +4,8 @@
 // - プランの通り: 画面で見本の世帯を開き、結果のタブのつまみを動かしたプラン（applyValues）を、比較の表に現状と並べたときの数字
 // - 重ねる通り: 基本に1つ動かし、通りでもう1つ動かした物（画面で2つのつまみを動かしたプランと同じ）
 // - 見本の世帯どうし: 世帯ごとの主な数字（画面でその見本を開いて比較の表を出したときの現状の列）
+// - 年金の見込み（0199）: 比較の表の年金の行（usePlanPensions と同じ写しの要求・planPensionOf）の世帯の月額
+// - 相場が下がった場合（0199）: 画面の資産運用のタブの3つの型（invest/present.ts の stressRequests）を重ねたプランの主な数字と型の文
 // 見本を作り直すときは LIFEPLAN_UPDATE_FIXTURES=1 で流す
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -13,6 +15,8 @@ import { forEngine } from "../src/engine/moneyRows.ts";
 import type { EngineRequest, PreviewResult } from "../src/engine/types.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { anyClaimOf, pensionEstimateRequest, planPensionOf, type PlanPension } from "../src/workspace/input/pensionLines.ts";
+import { STRESS_KEYS, stressLabel, stressRequests } from "../src/workspace/invest/present.ts";
 import { compareTable, metricsOf, type PlanMetrics } from "../src/workspace/plans/compare.ts";
 import { buildCatalog, type Catalog, type ItemValue } from "../src/workspace/plans/items.ts";
 import { applyValues } from "../src/workspace/plans/plans.ts";
@@ -67,6 +71,10 @@ const figures = (m: PlanMetrics) => ({
   loanRepayment: m.loan,
 });
 
+/** 画面の比較の表の年金の行の1列（App.tsx の usePlanPensions と同じ写しの要求を、画面の計算〔forEngine〕で求める） */
+const pensionOfPlan = (req: EngineRequest): PlanPension =>
+  planPensionOf(req, preview(forEngine(pensionEstimateRequest(req, false))), anyClaimOf(req) ? preview(forEngine(pensionEstimateRequest(req, true))) : null);
+
 /** 画面の表に出す年の、年末の金融資産（年 → 円） */
 const financial = (req: EngineRequest, r: PreviewResult) => {
   const fin = financialOf(r.table);
@@ -105,6 +113,12 @@ const PLAN_CASES: { name: string; sample: string; base: Moves; variants: { label
   },
 ];
 
+/** 相場が下がった場合を重ねる見本（基本のプランの上に3つの型を重ねる） */
+const MARKET_CASES: { sample: string; base: Moves }[] = [
+  { sample: "investmentCouple", base: {} },
+  { sample: "salariedCoupleTwoKids", base: { "lever:retireAge": () => 63 } },
+];
+
 /** 比べる見本の世帯どうし */
 const SAMPLES = ["dualNoKids", "salariedCoupleTwoKids", "single25", "sampleSeniorCouple"];
 
@@ -122,27 +136,46 @@ describe("AI接続口の比べる道具（compare）", () => {
         }),
       ];
       const results = reqs.map((r) => preview(forEngine(r.req)));
-      // 画面の比較の表（基準は1列目）
+      const pensions = reqs.map((r) => pensionOfPlan(r.req));
+      // 画面の比較の表（基準は1列目。年金の行つき）
       const table = compareTable(
         s.req,
         reqs.map((r, i) => ({ name: r.label, table: results[i]!.table })),
         AGE,
         0,
+        pensions,
       );
       const depletionDiffs = table.rows.find((r) => r.key === "depletion")!.cells.map((x) => x.diff);
       return {
         name: c.name,
         sample: c.sample,
-        columns: reqs.map((r, i) => ({ label: r.label, changes: r.changes, keyFigures: figures(metricsOf(s.req, results[i]!.table, AGE)), financialAssets: financial(s.req, results[i]!) })),
+        columns: reqs.map((r, i) => ({ label: r.label, changes: r.changes, keyFigures: figures(metricsOf(s.req, results[i]!.table, AGE)), pension: pensions[i], financialAssets: financial(s.req, results[i]!) })),
         depletionDiffs,
+        pensionRows: table.rows.filter((r) => r.key.startsWith("pension")).map((r) => ({ key: r.key, cells: r.cells.map((x) => x.text) })),
       };
     });
     const samples = SAMPLES.map((id) => {
       const req = modelHousehold(id);
       const r = preview(forEngine(req));
-      return { sample: id, keyFigures: figures(metricsOf(req, r.table, AGE)), financialAssets: financial(req, r) };
+      return { sample: id, keyFigures: figures(metricsOf(req, r.table, AGE)), pension: pensionOfPlan(req), financialAssets: financial(req, r) };
     });
-    const text = `${JSON.stringify({ atAge: AGE, plans, samples }, null, 2)}\n`;
+    // 相場が下がった場合: 画面で見本を開き、資産運用のタブで「相場が下がった場合」を重ねたとき（選んだプランの要求に重ねる。App.tsx）
+    const market = MARKET_CASES.map((c) => {
+      const s = screen(c.sample);
+      const base = moved(s, c.sample, c.base);
+      const req = applyValues(s.wh, base.values, s.cat);
+      const stress = stressRequests(req);
+      const cols = [{ label: "基本", key: null as string | null, req }, ...STRESS_KEYS.map((k) => ({ label: stressLabel(req, k), key: k as string | null, req: stress[k] }))];
+      return {
+        sample: c.sample,
+        changes: base.changes,
+        columns: cols.map((x) => {
+          const r = preview(forEngine(x.req));
+          return { key: x.key, label: x.label, keyFigures: figures(metricsOf(s.req, r.table, AGE)), financialAssets: financial(s.req, r) };
+        }),
+      };
+    });
+    const text = `${JSON.stringify({ atAge: AGE, plans, samples, market }, null, 2)}\n`;
     if (process.env.LIFEPLAN_UPDATE_FIXTURES !== undefined) {
       mkdirSync(dirname(FIXTURE), { recursive: true });
       writeFileSync(FIXTURE, text);

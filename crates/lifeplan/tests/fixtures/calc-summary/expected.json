@@ -293,7 +293,29 @@
         },
         "lifetimeTakeHome": 251212723,
         "lifetimeExpense": 295476499,
-        "loanRepayment": 25468349
+        "loanRepayment": 25468349,
+        "pension": {
+          "monthly": 286678,
+          "claimedMonthly": 286678,
+          "receiving": false,
+          "anyClaim": false,
+          "people": [
+            {
+              "who": "self",
+              "from": "65歳から",
+              "annual": 2422767,
+              "monthly": 201897,
+              "estimated": false
+            },
+            {
+              "who": "spouse",
+              "from": "65歳から",
+              "annual": 1017373,
+              "monthly": 84781,
+              "estimated": false
+            }
+          ]
+        }
       }
     }
   },
@@ -606,7 +628,29 @@
         },
         "lifetimeTakeHome": 242817699,
         "lifetimeExpense": 267093732,
-        "loanRepayment": 25468349
+        "loanRepayment": 25468349,
+        "pension": {
+          "monthly": 286678,
+          "claimedMonthly": 286678,
+          "receiving": false,
+          "anyClaim": false,
+          "people": [
+            {
+              "who": "self",
+              "from": "65歳から",
+              "annual": 2422767,
+              "monthly": 201897,
+              "estimated": false
+            },
+            {
+              "who": "spouse",
+              "from": "65歳から",
+              "annual": 1017373,
+              "monthly": 84781,
+              "estimated": false
+            }
+          ]
+        }
       }
     }
   },
@@ -853,7 +897,29 @@
         },
         "lifetimeTakeHome": 397099656,
         "lifetimeExpense": 78278061,
-        "loanRepayment": 54116496
+        "loanRepayment": 54116496,
+        "pension": {
+          "monthly": 391811,
+          "claimedMonthly": 391811,
+          "receiving": false,
+          "anyClaim": false,
+          "people": [
+            {
+              "who": "self",
+              "from": "65歳から",
+              "annual": 2754723,
+              "monthly": 229560,
+              "estimated": true
+            },
+            {
+              "who": "spouse",
+              "from": "65歳から",
+              "annual": 1947012,
+              "monthly": 162251,
+              "estimated": true
+            }
+          ]
+        }
       }
     }
   },
@@ -895,7 +961,22 @@
         },
         "lifetimeTakeHome": 3384160,
         "lifetimeExpense": 0,
-        "loanRepayment": 0
+        "loanRepayment": 0,
+        "pension": {
+          "monthly": null,
+          "claimedMonthly": null,
+          "receiving": false,
+          "anyClaim": false,
+          "people": [
+            {
+              "who": "self",
+              "from": "65歳から",
+              "annual": null,
+              "monthly": null,
+              "estimated": true
+            }
+          ]
+        }
       }
     }
   },
@@ -1182,7 +1263,29 @@
         },
         "lifetimeTakeHome": 218192775,
         "lifetimeExpense": 126184105,
-        "loanRepayment": 0
+        "loanRepayment": 0,
+        "pension": {
+          "monthly": 328527,
+          "claimedMonthly": 328527,
+          "receiving": false,
+          "anyClaim": false,
+          "people": [
+            {
+              "who": "self",
+              "from": "65歳から",
+              "annual": 3095026,
+              "monthly": 257919,
+              "estimated": true
+            },
+            {
+              "who": "spouse",
+              "from": "65歳から",
+              "annual": 847297,
+              "monthly": 70608,
+              "estimated": true
+            }
+          ]
+        }
       }
     }
   },
@@ -1440,7 +1543,29 @@
         },
         "lifetimeTakeHome": 182624475,
         "lifetimeExpense": 177450476,
-        "loanRepayment": 33761656
+        "loanRepayment": 33761656,
+        "pension": {
+          "monthly": 324411,
+          "claimedMonthly": 324411,
+          "receiving": false,
+          "anyClaim": false,
+          "people": [
+            {
+              "who": "self",
+              "from": "65歳から",
+              "annual": 3045634,
+              "monthly": 253803,
+              "estimated": true
+            },
+            {
+              "who": "spouse",
+              "from": "65歳から",
+              "annual": 847298,
+              "monthly": 70608,
+              "estimated": true
+            }
+          ]
+        }
       }
     }
   },
@@ -1609,7 +1734,45 @@
         },
         "lifetimeTakeHome": 101942287,
         "lifetimeExpense": 116361980,
-        "loanRepayment": 0
+        "loanRepayment": 0,
+        "pension": {
+          "monthly": 275764,
+          "claimedMonthly": 297496,
+          "receiving": false,
+          "anyClaim": true,
+          "people": [
+            {
+              "who": "self",
+              "from": "今",
+              "annual": 2342669,
+              "monthly": 195222,
+              "estimated": false
+            },
+            {
+              "who": "spouse",
+              "from": "65歳から",
+              "annual": 966496,
+              "monthly": 80541,
+              "estimated": false
+            }
+          ],
+          "claimedPeople": [
+            {
+              "who": "self",
+              "from": "68歳から",
+              "annual": 2603459,
+              "monthly": 216955,
+              "estimated": false
+            },
+            {
+              "who": "spouse",
+              "from": "65歳から",
+              "annual": 966496,
+              "monthly": 80541,
+              "estimated": false
+            }
+          ]
+        }
       }
     }
   }

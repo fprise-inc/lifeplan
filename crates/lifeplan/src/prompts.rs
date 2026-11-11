@@ -13,6 +13,9 @@ use serde::Deserialize;
 /// 何通りも比べるときの道具の使い方（比べる道具。0198）
 const COMPARE_HOW: &str = "calculate を何度も呼ばず、compare で基本と各通り（8通りまで）を1回で計算する（返るのは通りごとの主な数字・基本との差・選んだ数字の年ごとの系列）";
 
+/// 相場が下がった場合の型（比べる道具の market_stress。画面の資産運用のタブと同じ。0200）
+const MARKET_STRESS_HOW: &str = "相場が下がった場合は、通りに market_stress（drop＝退職の直後に株などが下がる・low＝取り崩しの初めにしばらく利回りが低いまま・minus1＝利回りがずっと想定より1%低い）を書いた通りを足す（stress_test とは1つの通りにどちらか1つ）";
+
 /// 世帯の引数の読み方
 fn household(h: &str) -> String {
     format!("世帯「{h}」（見本の世帯の id なら sample_household_id、FP が渡した世帯の share_id なら share_id として使う。どちらか分からなければ list_sample_households・list_shared_households で確かめる）")
@@ -46,6 +49,8 @@ pub struct CompareMeasuresArgs {
     pub measures: Option<String>,
     /// 主な数字を見る本人の年齢（例「65・90」）。省くと 65歳と90歳
     pub at_ages: Option<String>,
+    /// 相場が下がった場合も並べるか（例「退職の直後に下がる」「全部」）。省くと AI が要るか決める
+    pub market_stress: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -107,7 +112,7 @@ impl LifeplanMcp {
         &self,
         Parameters(a): Parameters<CompareHouseholdsArgs>,
     ) -> GetPromptResult {
-        let focus = given(&a.focus).unwrap_or("65歳・90歳の時点の金融資産・資産が尽きる年・金融資産がいちばん少ない年と額・生涯の手取りと支出・住宅ローンの返済の合計");
+        let focus = given(&a.focus).unwrap_or("65歳・90歳の時点の金融資産・資産が尽きる年・金融資産がいちばん少ない年と額・生涯の手取りと支出・住宅ローンの返済の合計・65歳からの年金の月額");
         result(
             "2つの世帯を比べる",
             format!(
@@ -115,7 +120,7 @@ impl LifeplanMcp {
                  - A: {}\n- B: {}\n- 比べたいこと: {focus}\n\n\
                  進め方:\n\
                  1. A を基本の世帯に、B を variants の1通り（label と、B の sample_household_id か share_id）にする。{COMPARE_HOW}。年齢の時点は at_ages で渡す。\n\
-                 2. 主な数字を1つの表（行が数字、列が A・B）に並べ、違いの大きい所を2〜3行で。家族の形・年齢・計算の期間が違うときは、そのことも書く。\n\
+                 2. 主な数字（年金の月額は keyFigures.pension の monthly。今の水準の額）を1つの表（行が数字、列が A・B）に並べ、違いの大きい所を2〜3行で。家族の形・年齢・計算の期間が違うときは、そのことも書く。\n\
                  3. 推移は compare の系列（既定は金融資産を5年ごと・年齢つき）を使う。ほかの数字は series（例 [\"financialAssets\", \"debt\"]）で選ぶ。\n\
                  4. 違いの理由は推測で断定しない。気になる数字は explain_value で根拠を確かめてから書く。",
                 household(&a.household_a),
@@ -138,18 +143,21 @@ impl LifeplanMcp {
             str::to_owned,
         );
         let ages = given(&a.at_ages).unwrap_or("65・90");
+        let stress = given(&a.market_stress)
+            .unwrap_or("（指定なし。資産運用の多い世帯や、相場に左右される対策なら1つ足す）");
         result(
             "対策をいくつか並べて比べる",
             format!(
                 "ファイナンシアの接続口で、{} に対策をいくつか当てて並べてください。\n\
-                 - 対策: {measures}\n- 主な数字を見る本人の年齢: {ages}\n\n\
+                 - 対策: {measures}\n- 主な数字を見る本人の年齢: {ages}\n- 相場が下がった場合: {stress}\n\n\
                  進め方:\n\
                  1. list_plan_items で、この世帯で動かせる項目（対象・入力項目ID・今の値・動かせる範囲）を確かめる。\n\
                  2. 対策ごとに、variants の1通り（label と plan_changes。plan_changes は target・item・value で、画面のプランと同じ書き方）を作る。changes で欄を1つだけ書き換えない（画面と数字がずれる）。\n\
                  3. 基本（今のまま）に、各対策と効きそうな組み合わせ1つを重ねて並べる。{COMPARE_HOW}。年齢の時点は at_ages で渡す。\n\
-                 4. 表にする（行が通り、列が年齢の時点の金融資産・資産が尽きる年・金融資産がいちばん少ない年）。範囲の外などで計算されなかった通りは、返ってきた理由をそのまま書く。\n\
-                 5. どれが効くかを2〜3行で。前提（物価・利回りなど）しだいで変わることを一言添える。\n\
-                 6. FP が渡した世帯なら、FP に頼まれたときだけ、選んだ対策を同じ書き方で propose_scenario に渡してプランの候補にできると伝える。",
+                 4. {MARKET_STRESS_HOW}。効きそうな対策に重ねると、相場が下がっても足りるかが分かる。\n\
+                 5. 表にする（行が通り、列が年齢の時点の金融資産・資産が尽きる年・金融資産がいちばん少ない年。年金の受け取り開始を動かした通りがあれば、65歳からの年金の月額と受け取り開始からの月額〔diff の pensionMonthly・pensionClaimedMonthly〕も）。範囲の外などで計算されなかった通りは、返ってきた理由をそのまま書く。\n\
+                 6. どれが効くかを2〜3行で。前提（物価・利回りなど）しだいで変わることを一言添える。\n\
+                 7. FP が渡した世帯なら、FP に頼まれたときだけ、選んだ対策を同じ書き方で propose_scenario に渡してプランの候補にできると伝える。",
                 household(&a.household),
             ),
         )
@@ -174,7 +182,7 @@ impl LifeplanMcp {
                  進め方:\n\
                  1. 近い見本があれば list_sample_households の tags（例 [\"子育て\"]・[\"賃貸\"]）で探して get_sample_household の input を土台にする。無ければ get_input_guide の計算できる最小の例（skeleton）から組み立てる。\n\
                  2. 家を買う・子が生まれる・退職・繰上返済・NISA と iDeCo を始める・もしもの時は、get_input_recipe の手本（buyHome・newChild・retire・prepayment・startNisaIdeco・contingency）を使う。重ねるときは apply: true で返る input を次の手本に渡す。書かなかった物（頭金・諸費用・教育費など）は計算に入らない。\n\
-                 3. calculate で計算する。表は every_years（例 5）と fields（例 [\"financialAssets\", \"debt\"]）で絞り、年ごとの家族の年齢を添える。計算できなかったときは、答えの「直し方」で直してもう一度。\n\
+                 3. calculate で計算する。表は every_years（例 5）と fields（例 [\"financialAssets\", \"debt\"]）で絞り、年ごとの家族の年齢を添える（表は画面の表と同じ年から始まる。計算基準月が年の途中なら翌年から）。計算できなかったときは、答えの「直し方」で直してもう一度。\n\
                  4. 表と、見どころを2〜3行で。表の下に「架空の世帯です」と、主な前提（物価・利回り・年収など）を書く。",
                 a.profile.trim(),
             ),
@@ -198,11 +206,12 @@ impl LifeplanMcp {
                 "ファイナンシアの接続口で、次の面談の準備をしてください。\n\
                  - 世帯: {who}\n- テーマ: {topic}\n\n\
                  進め方:\n\
-                 1. calculate で、omit に [\"years\"]、at_ages に [65, 90] を入れて主な数字を取る。preparation（計算の前に外した物・事務所の推定の値）と notices も見る。\n\
+                 1. calculate で、omit に [\"years\"]、at_ages に [65, 90] を入れて主な数字を取る。65歳からの年金の月額（keyFigures.pension。今の水準の額）、preparation（計算の前に外した物・事務所の推定の値）と notices も見る。\n\
                  2. 推移は every_years に 5、fields に [\"financialAssets\"] を入れて取る。\n\
                  3. list_plan_items で動かせる項目を見て、テーマに合う対策を2〜3つ選び、variants の通り（label と plan_changes）にして並べる。{COMPARE_HOW}。\n\
-                 4. テーマが保険なら、必要保障額（get_input_recipe の contingency、入力の /protection）を、相続なら相続税の目安（/inheritanceTax）を足して計算する。\n\
-                 5. 1枚にまとめる: 見通しを一言・主な数字の表・話すとよい対策・お客さまに確かめること（推定や既定の値で計算している所、入っていなさそうな物）。\n\
+                 4. テーマが老後資金・資産運用なら、{MARKET_STRESS_HOW}（基本に重ねて、相場が下がっても足りるかを見る）。\n\
+                 5. テーマが保険なら、必要保障額（get_input_recipe の contingency、入力の /protection）を、相続なら相続税の目安（/inheritanceTax）を足して計算する。\n\
+                 6. 1枚にまとめる: 見通しを一言・主な数字の表・話すとよい対策・お客さまに確かめること（推定や既定の値で計算している所、入っていなさそうな物）。\n\
                  お名前・番号は扱わない。数字は計算の前提しだいで変わることを添える。"
             ),
         )

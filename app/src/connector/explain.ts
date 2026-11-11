@@ -12,7 +12,7 @@ import { evidenceDetail } from "../workspace/evidence.ts";
 import { displayYears, rowDefs, type RowDef } from "../workspace/present.ts";
 
 export { prepare } from "./prepare.ts";
-export { summarize } from "./summary.ts";
+export { pensionRequests, summarize } from "./summary.ts";
 
 export interface ExplainArgs {
   /** 表の行の鍵（画面の行。例 taxSi・pension:self）か、キャッシュフロー表の行ID（cf. で始まる。calculate の table の row） */

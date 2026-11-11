@@ -119,3 +119,14 @@ pub fn plan(function: &str, a: &str, b: &str, c: &str) -> Result<String, String>
     };
     run().map_err(|e| e.code().to_owned())
 }
+
+/// 年金の見込みの写しの要求（画面の比較の表の年金の行と同じ。app/src/connector/summary.ts の pensionRequests。0199）を、
+/// 計算と同じ固めた新しい実行環境で作る。request は計算の前の処理を当てる前の要求。戻り値は `{ std, claimed }` の JSON の文字
+pub fn pension_requests(request: &str) -> Result<String, String> {
+    let run = || -> Result<String, engine_host::HostError> {
+        let sandbox = Sandbox::new(&Limits::DEFAULT)?;
+        sandbox.eval_script(assets::EXPLAIN_JS)?;
+        sandbox.call_function("FinanciaExplain", "pensionRequests", (request, "", ""))
+    };
+    run().map_err(|e| e.code().to_owned())
+}

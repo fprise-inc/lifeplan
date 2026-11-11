@@ -19,6 +19,9 @@ pub const MAX_PARALLEL: usize = 4;
 pub const DEFAULT_EVERY_YEARS: u8 = 5;
 /// 系列の既定の数字
 pub const DEFAULT_SERIES: &[&str] = &["financialAssets"];
+/// 画面の資産運用のタブの「相場が下がった場合」の型（app/src/workspace/invest/present.ts の STRESS_KEYS と同じ並び。0199）
+pub const MARKET_STRESSES: &[&str] = &["drop", "low", "minus1"];
+
 /// 1通りの計算では使わない答えの項目（主な数字・年齢・系列だけを取る）
 pub const OMIT: &[&str] = &["notices", "packs", "protection", "inheritanceTax"];
 
@@ -39,8 +42,13 @@ pub struct VariantArgs {
     pub changes: Option<Vec<Change>>,
     /// この通りで動かす画面のプランの動かす項目（calculate の plan_changes と同じ。list_plan_items の target・item と値）
     pub plan_changes: Option<Vec<PlanChange>>,
-    /// この通りのストレステストの型（calculate の stress_test と同じ。基本に重ねる通りで省くと基本と同じ）
+    /// この通りのストレステストの型（calculate の stress_test と同じ。基本に重ねる通りで stress_test も market_stress も省くと基本と同じ）
     pub stress_test: Option<String>,
+    /// この通りに重ねる、アプリの画面の資産運用のタブの「相場が下がった場合」の型: drop（退職の直後に株などが下がる）・low（取り崩しを
+    /// 始めてから〔取り崩しの予定が無ければ退職から〕しばらく利回りが低いまま）・minus1（利回りがずっと想定より1%低い）。画面と同じく、
+    /// プランの変更を当てた後に重ねる（下がる幅・年数は画面と同じ既定）。stress_test とは一緒に使えない
+    #[schemars(extend("enum" = ["drop", "low", "minus1", null]))]
+    pub market_stress: Option<String>,
 }
 
 impl VariantArgs {
@@ -73,6 +81,9 @@ pub struct CompareArgs {
     pub plan_changes: Option<Vec<PlanChange>>,
     /// 基本のストレステストの型（calculate の stress_test と同じ）
     pub stress_test: Option<String>,
+    /// 基本に重ねる、アプリの画面の「相場が下がった場合」の型（通りの market_stress と同じ。stress_test とは一緒に使えない）
+    #[schemars(extend("enum" = ["drop", "low", "minus1", null]))]
+    pub market_stress: Option<String>,
     /// 並べる通り（8通りまで。9通り目から後は計算せず理由を返す）。通りごとに、世帯を書かなければ基本に重ね、書けばその世帯で計算する
     #[schemars(with = "Vec<VariantArgs>")]
     pub variants: Vec<Value>,
@@ -103,6 +114,23 @@ pub fn source_of(v: &VariantArgs, on_base: bool) -> Value {
         json!({ "shareId": id })
     } else {
         json!({ "input": true })
+    }
+}
+
+/// ストレステストの型を確かめる（エンジンの型と画面の「相場が下がった場合」の型は、どちらか1つ）
+pub fn check_stress(stress_test: Option<&str>, market: Option<&str>) -> Result<(), String> {
+    if stress_test.is_some() && market.is_some() {
+        return Err(
+            "stress_test と market_stress は、1つの通りにどちらか1つだけ書いてください。"
+                .to_owned(),
+        );
+    }
+    match market {
+        Some(m) if !MARKET_STRESSES.contains(&m) => Err(format!(
+            "market_stress は {} のどれかです（{m}）。",
+            MARKET_STRESSES.join("・")
+        )),
+        _ => Ok(()),
     }
 }
 
@@ -162,6 +190,22 @@ pub fn diff(this: &Value, base: &Value) -> Value {
         "depletion".into(),
         depletion_change(depletion_year(this), depletion_year(base)),
     );
+    // 年金の見込みの月額の差（どちらかに無ければ null）
+    for (key, field) in [
+        ("pensionMonthly", "monthly"),
+        ("pensionClaimedMonthly", "claimedMonthly"),
+    ] {
+        let v = match (
+            this["pension"][field].as_i64(),
+            base["pension"][field].as_i64(),
+        ) {
+            (Some(t), Some(b)) => json!(t - b),
+            _ => Value::Null,
+        };
+        if this.get("pension").is_some() || base.get("pension").is_some() {
+            d.insert(key.into(), v);
+        }
+    }
     for (key, path) in [
         ("minimumAmount", &["minimum", "amount"][..]),
         ("lifetimeTakeHome", &["lifetimeTakeHome"][..]),
@@ -186,7 +230,7 @@ pub fn plan_rows(rows: &Value) -> Value {
 }
 
 /// 比べる答えに添える説明
-pub const NOTE: &str = "results の1つ目が基本、2つ目からが通りです。keyFigures は calculate の keyFigures と同じ（アプリの「プランを比べる」と同じ数え方）、diff は基本との差（この通り − 基本。円。depletion は画面の比較の表と同じ文）、series は選んだ数字の年ごとの系列（画面の表に出す年から、年末の残高・年額。ages は家族の年齢で、鍵は members）。from.onBase は基本の世帯に基本と通りの変更を重ねた通りです。status が error の通りは計算しておらず、reason に理由と直し方があります（ほかの通りは計算しています）。試したプランの変更は、そのまま propose_scenario の changes に渡せます（渡された世帯のとき）。";
+pub const NOTE: &str = "results の1つ目が基本、2つ目からが通りです。keyFigures は calculate の keyFigures と同じ（アプリの「プランを比べる」と同じ数え方）、diff は基本との差（この通り − 基本。円。depletion は画面の比較の表と同じ文。pensionMonthly は65歳からの年金の世帯の月額の差）、series は選んだ数字の年ごとの系列（画面の表に出す年から、年末の残高・年額。ages は家族の年齢で、鍵は members）。from.onBase は基本の世帯に基本と通りの変更を重ねた通りです。marketStress は重ねた画面の「相場が下がった場合」の型です。keyFigures.pension は65歳からの年金の月額（世帯の合計と人ごと。今の水準＝賃金・物価の伸びとマクロ経済スライドを外した額。画面の比較の表の年金の行と同じ）です。status が error の通りは計算しておらず、reason に理由と直し方があります（ほかの通りは計算しています）。試したプランの変更は、そのまま propose_scenario の changes に渡せます（渡された世帯のとき）。";
 
 #[cfg(test)]
 mod tests {
@@ -203,6 +247,19 @@ mod tests {
         assert_eq!(depletion_change(Some(2050), Some(2050)), json!("±0年"));
         assert_eq!(depletion_change(Some(2072), Some(2050)), json!("+22年"));
         assert_eq!(depletion_change(Some(2048), Some(2050)), json!("▲2年"));
+    }
+
+    #[test]
+    fn stresses_are_one_of_the_kinds() {
+        assert!(check_stress(None, None).is_ok());
+        assert!(check_stress(Some("inflationSpike"), None).is_ok());
+        assert!(check_stress(None, Some("drop")).is_ok());
+        assert!(check_stress(None, Some("x"))
+            .unwrap_err()
+            .contains("drop・low・minus1"));
+        assert!(check_stress(Some("inflationSpike"), Some("low"))
+            .unwrap_err()
+            .contains("どちらか1つ"));
     }
 
     #[test]
