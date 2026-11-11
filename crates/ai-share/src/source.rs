@@ -26,6 +26,9 @@ pub struct SharedHouseholdSource {
     pub post_retirement: Option<Value>,
     /// この世帯の外部AIへの提供の同意の、今の状態（0014 の2。共有の前の確認に使う）
     pub external_ai_consent: Option<ConsentRef>,
+    /// 架空の世帯（AIの候補から「架空」として作った世帯。お客さまの情報を含まないので、同意の記録が無くても渡せる。
+    /// 期限・取り消し・記録・縮約版の決まりは同じ）。印は世帯の一覧の札にアプリ本体だけが書く（画面からは付けられない）
+    pub fictional: bool,
 }
 
 /// 画面の側の文章の1件

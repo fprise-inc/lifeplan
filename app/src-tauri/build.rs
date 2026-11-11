@@ -42,6 +42,8 @@ const COMMANDS: &[&str] = &[
     "store_update_sample",
     "store_categories",
     "store_set_categories",
+    // 架空の世帯をお客さまの世帯にする（一方向。お客さまの世帯を架空にする命令は無い）
+    "store_make_client",
     // 0034: 明細の取り込み（明細のファイルを開く・覚えた辞書と形・確認シートの保存と読み込み。パスもファイル名も受け取らない・返さない）
     "statement_office",
     "statement_learn",
@@ -59,6 +61,10 @@ const COMMANDS: &[&str] = &[
     "ai_candidate_decide",
     // 0151: 画面が読み取りの記録にした書類の候補を、承認待ちから外す
     "ai_documents_taken",
+    // AIが組み立てた新しい世帯の候補（承認待ち）を見る・捨てる・FPが確かめて世帯として作る
+    "ai_household_candidates",
+    "ai_household_candidate_discard",
+    "ai_household_candidate_create",
     // 0023: 事務所での共有（共有フォルダは本体のダイアログで選ばせる。パスも鍵も受け取らない・返さない）
     "office_status",
     "office_start",

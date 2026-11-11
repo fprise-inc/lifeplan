@@ -41,6 +41,9 @@ pub enum Request {
     ProposeDocuments { share_id: String, answer: Value },
     /// 機能を有効にするコードを、アプリの画面に承認待ちの候補として出す（コードは入れない。FPが画面で押したときだけ入る。0015 の追記の2段目）
     ProposeFeatureCode { code: String },
+    /// AIが組み立てた新しい世帯（計算の入力・架空かお客さまか・題・推定したこと）を、アプリの画面に承認待ちの候補として出す
+    /// （世帯は作らない。FPが画面で中身を確かめて「世帯として作る」を押したときだけ作る。世帯を渡していなくてよい）
+    ProposeHousehold { proposal: Value },
 }
 
 /// 失敗のコード（0015 の4）

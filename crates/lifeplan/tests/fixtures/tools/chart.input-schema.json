@@ -160,12 +160,14 @@
       ]
     },
     "charts": {
-      "description": "作るグラフ（既定は3つとも）: assets（通りごとの金融資産の推移。折れ線）・repayment（通りごとの住宅ローンの返済額の推移。年額の折れ線）・\nkeyFigures（主な数字の比べ。棒）",
+      "description": "作るグラフ（既定は assets・repayment・keyFigures）: assets（通りごとの金融資産の推移。折れ線）・repayment（通りごとの住宅ローンの返済額の推移。\n年額の折れ線）・keyFigures（主な数字の比べ。棒）・interest（通りごとの住宅ローンの利息の推移。年額の折れ線）・rate（通りごとの住宅ローンの金利の\n推移。その年の最後の返済に当てた金利の折れ線。縦の目盛りは %。金利の違う住宅ローンを2本以上返している年は描かない）",
       "items": {
         "enum": [
           "assets",
           "repayment",
-          "keyFigures"
+          "keyFigures",
+          "interest",
+          "rate"
         ],
         "type": "string"
       },
@@ -175,12 +177,13 @@
       ]
     },
     "figures": {
-      "description": "keyFigures の棒にする数字（既定 assetsAtAge・minimum・loanRepayment）: assetsAtAge（at_ages の最初の年齢の時点の金融資産）・minimum\n（金融資産がいちばん少ない額）・loanRepayment（住宅ローンの返済の合計）・lifetimeTakeHome（生涯の手取りの合計）・lifetimeExpense（生涯の支出の合計）",
+      "description": "keyFigures の棒にする数字（既定 assetsAtAge・minimum・loanRepayment）: assetsAtAge（at_ages の最初の年齢の時点の金融資産）・minimum\n（金融資産がいちばん少ない額）・loanRepayment（住宅ローンの返済の合計）・loanInterest（住宅ローンの利息の合計）・lifetimeTakeHome（生涯の手取りの合計）・\nlifetimeExpense（生涯の支出の合計）",
       "items": {
         "enum": [
           "assetsAtAge",
           "minimum",
           "loanRepayment",
+          "loanInterest",
           "lifetimeTakeHome",
           "lifetimeExpense"
         ],

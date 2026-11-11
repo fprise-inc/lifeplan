@@ -64,6 +64,14 @@ pub struct SeminarHouseholdArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct HouseholdToAppArgs {
+    /// 世帯の形（例「38歳の会社員と扶養のパートの妻・賃貸・預金500万円」）
+    pub profile: String,
+    /// 使う先（例「来月のセミナー」「新人研修」）。省くとセミナー
+    pub purpose: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct MeetingPrepArgs {
     /// 世帯（FP が渡した世帯の share_id か、見本の世帯の id）。省くと、渡されている世帯を確かめる
     pub household: Option<String>,
@@ -90,6 +98,15 @@ pub struct RatePathChartArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct FindBoundaryArgs {
+    /// 世帯（見本の世帯の id か、FP が渡した世帯の share_id。例 salariedCoupleTwoKids）
+    pub household: String,
+    /// 探したい境目（例「最後まで資産が尽きない、いちばん早い退職の年齢」「90歳の時点で資産がマイナスにならない、毎月の生活費の上限」
+    /// 「積立をやめる年齢を、いつまで早めても足りるか」）。省くと、最後まで資産が尽きない、いちばん早い退職の年齢
+    pub question: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct CheckCoverageArgs {
     /// 調べたい制度や計算（例「高額療養費」「ふるさと納税」「iDeCo の受け取り方」）
     pub topic: String,
@@ -106,7 +123,7 @@ impl LifeplanMcp {
         result(
             "この接続口でできること",
             "ファイナンシアの AI接続口で何ができるかを、FP 向けに短く紹介してください。\n\
-             - できることを場面ごとに（計算・対策を並べて比べる・数字の根拠の説明・制度の値と出典・計算に入っているかの確認・セミナー用の架空の世帯・面談の準備・プランの候補・保険の書類からの入力の候補）、頼み方の例を1つずつ添えて。\n\
+             - できることを場面ごとに（計算・対策を並べて比べる・境目探し〔何歳まで働けば足りる？〕・数字の根拠の説明・制度の値と出典・計算に入っているかの確認・セミナー用の架空の世帯・作った世帯をアプリに入れる・面談の準備・プランの候補・保険の書類からの入力の候補）、頼み方の例を1つずつ添えて。\n\
              - アプリが起動していなくても見本の世帯（架空）で試せること、お客さまの世帯は FP がアプリで渡したときだけ読めることを一言。\n\
              - 最後に、list_sample_households で見本を1つ選び、calculate（omit に [\"years\"]）で主な数字を1つ見せて、試し方の例にしてください。"
                 .to_owned(),
@@ -200,6 +217,33 @@ impl LifeplanMcp {
     }
 
     #[prompt(
+        name = "make_household_in_app",
+        title = "セミナー用の架空の世帯を作ってアプリに入れる",
+        description = "セミナー・研修用の架空の世帯を組み立てて確かめ、アプリに「新しい世帯の候補」として出す（FP がアプリで確かめて作る）"
+    )]
+    async fn make_household_in_app(
+        &self,
+        Parameters(a): Parameters<HouseholdToAppArgs>,
+    ) -> GetPromptResult {
+        let purpose = given(&a.purpose).unwrap_or("セミナー");
+        result(
+            "セミナー用の架空の世帯を作ってアプリに入れる",
+            format!(
+                "ファイナンシアの接続口で、{purpose}に使う架空の世帯を作って、アプリに入れてください（実在のお客さまの数字は使わない）。\n\
+                 - 世帯の形: {}\n\n\
+                 進め方:\n\
+                 1. 近い見本があれば list_sample_households の tags（例 [\"賃貸\"]・[\"片働き\"]）で探して get_sample_household の input を土台にする。無ければ get_input_guide の計算できる最小の例（skeleton）から組み立てる。家を買う・子が生まれるなどは get_input_recipe の手本を使う。\n\
+                 2. 書いていないこと（年収・生活費・家賃・預金の内訳など）は、世帯の形に合う目安で置き、何を推定したかを控えておく。\n\
+                 3. calculate（omit に [\"years\"]）で計算できることと主な数字を確かめる。計算できなかったときは、答えの「直し方」で直してもう一度。\n\
+                 4. propose_household で、kind に fictional、title に短い題（60文字まで。例「{purpose}用 38歳の会社員と扶養のパートの妻」）、note に推定したこと、input に確かめた入力を渡す。アプリが起動していない・AI接続口がオフのときは、そう伝えて終える。\n\
+                 5. FP に、アプリの上の帯の「AIから新しい世帯の候補が届いています」から中身（家族・収入・資産・住まいとローン・推定したこと）を確かめて「世帯として作る」を押すよう伝える。作った世帯には「架空」の印が付き、同意の記録が無くても AI に渡せることも一言。\n\
+                 お客さまの名前・番号は、題・推定したこと・入力の名前の欄のどこにも書かない。",
+                a.profile.trim(),
+            ),
+        )
+    }
+
+    #[prompt(
         name = "prepare_meeting",
         title = "面談の準備",
         description = "面談の前に、世帯の見通し・話すとよい対策・お客さまに確かめることを1枚にまとめる"
@@ -270,9 +314,33 @@ impl LifeplanMcp {
                  進め方:\n\
                  1. list_plan_items で、住宅ローンの「金利の見込み（変動金利）」の項目（kind が rateOutlook）を探す。ローンが2本以上あれば、ローンごとの項目を同じ値にする。項目が無ければ、変動金利の住宅ローンが無いと伝えて終える。\n\
                  2. 上がり方ごとに通り（label と plan_changes）を作る。plan_changes は一覧の target・item・lever と value で、value は型の名前（flat＝今の金利のまま・up1＝10年で1%上がる・up2＝10年で2%上がる）か、5年ごとの上乗せ（例 {{\"adds\": [\"0.0025\", \"0.005\"]}}）。いちばん初めの通りを基本にする。stress_test の rateRise は上げ幅を選べないので使わない。\n\
-                 3. chart で、charts に assets・repayment・keyFigures を入れてグラフにする（数字を自分で描かない。format は both にすると SVG も返る）。label には上がり方だけを書き、お客さまの名前を書かない。\n\
-                 4. グラフの下に、見どころを2〜3行で（返済の合計の差・金融資産がいちばん少ない額・資産が尽きる年の差など。答えの results の数字だけを使う）。変動金利の5年ルール・125%ルールで返済額の上がり方がゆるやかなことにも触れる。\n\
+                 3. chart で、charts に assets・repayment・rate・keyFigures、figures に assetsAtAge・minimum・loanRepayment・loanInterest を入れてグラフにする（数字を自分で描かない。rate はその年の金利の推移。format は both にすると SVG も返る）。label には上がり方だけを書き、お客さまの名前を書かない。\n\
+                 4. グラフの下に、見どころを2〜3行で（返済の合計の差・利息の合計の差〔keyFigures.loanInterest と diff.loanInterest〕・金融資産がいちばん少ない額・資産が尽きる年の差など。答えの results の数字だけを使う）。変動金利の5年ルール・125%ルールで返済額の上がり方がゆるやかなことにも触れる。\n\
                  5. 実在のお客さまの世帯なら、使う前に金額を丸める・珍しい組み合わせを変える・お客さまに一言ことわる、のどれかが要ると伝える（見本の世帯は架空）。",
+                household(&a.household),
+            ),
+        )
+    }
+
+    #[prompt(
+        name = "find_boundary",
+        title = "境目を探す（何歳まで働けば足りる？など）",
+        description = "「最後まで足りる、いちばん早い退職の年齢」「90歳の時点で資産が残る、生活費の上限」のような境目を、接続口の中で探して、境目とその1つ外側の数字を見せる"
+    )]
+    async fn find_boundary(&self, Parameters(a): Parameters<FindBoundaryArgs>) -> GetPromptResult {
+        let question =
+            given(&a.question).unwrap_or("最後まで資産が尽きない、いちばん早い退職の年齢");
+        result(
+            "境目を探す",
+            format!(
+                "ファイナンシアの接続口で、{} の境目を探してください。\n\
+                 - 探したい境目: {question}\n\n\
+                 進め方:\n\
+                 1. list_plan_items で、動かす項目（働く最後の年齢・毎月の生活費・運用の利回り・積立をやめる年齢など）の target・item と、今の値・範囲を確かめる。一覧が at か lever を添えた項目は、それもそのまま使う。\n\
+                 2. calculate を何度も呼ばず、find_threshold で探す。vary に一覧の書き方、from・to・step に探す範囲と答えの細かさ、condition に条件（noDepletion＝資産が最後まで尽きない・assetsAtAge＝○歳の時点で○円以上・minimumAtLeast＝いちばん少ない年でも○円以上）、want に max（いちばん大きい値。例: 生活費の上限）か min（いちばん小さい値。例: いちばん早い退職の年齢）を書く。\n\
+                 3. status が edge なら範囲を広げて探し直す。notFound なら、範囲の中に満たす値が無いと伝える。\n\
+                 4. 答えの message と rows（境目の値と、その1つ外側の値の主な数字）で、境目を一言と小さな表にする。境目の前後を見たいときは、sweep でその近くを振って表にする。\n\
+                 5. 境目は前提（物価・利回り・年収など）しだいで動くことを添える。",
                 household(&a.household),
             ),
         )

@@ -994,7 +994,15 @@ function mixItems(wh: WorkingHousehold): MovableItem[] {
             const x = (hh.accounts ?? []).find((y) => y.id === a.id);
             if (x === undefined) return;
             if (v === null || !Array.isArray(v) || v.length === 0) delete x.assetMix;
-            else x.assetMix = (v as MixPart[]).map((m) => ({ assetClass: m.assetClass, share: m.share }));
+            else {
+              // 行の ID（0206）は、同じ資産の種類の今の行から引き継ぐ（無い種類の行は ID を持たず、開いたときに振る）
+              const left = [...(x.assetMix ?? [])];
+              x.assetMix = (v as MixPart[]).map((m) => {
+                const i = left.findIndex((o) => o.assetClass === m.assetClass && o.id !== undefined);
+                const id = i < 0 ? undefined : left.splice(i, 1)[0]?.id;
+                return { assetClass: m.assetClass, share: m.share, ...(id !== undefined ? { id } : {}) };
+              });
+            }
           }),
         text: (v: ItemValue) => mixText(req, a.kind, Array.isArray(v) ? (v as MixPart[]) : null),
         same: (x: ItemValue, y: ItemValue) => jsonSame(Array.isArray(x) && x.length === 0 ? null : x, Array.isArray(y) && y.length === 0 ? null : y),

@@ -135,6 +135,8 @@ pub struct HouseholdAiView {
     pub fields: Vec<String>,
     /// 保存した世帯か（保存していない見本は渡せない）
     pub saved: bool,
+    /// 架空の世帯（AIの候補から「架空」として作った世帯）か。架空の世帯は同意の記録が無くても渡せる
+    pub fictional: bool,
 }
 
 /// 開いている世帯の帳面
@@ -143,6 +145,8 @@ pub struct HouseholdBook {
     pub household_id: String,
     pub customer_no: Option<String>,
     pub generation: u64,
+    /// 架空の世帯か（世帯の一覧の札の印。アプリ本体が世帯を開いたときに札から入れる。本文には書かない）
+    pub fictional: bool,
     /// 画面から届いた最後の本文（アプリ本体だけが書く区画は外したもの）
     body: Map<String, Value>,
     pub consents: Vec<ConsentRecord>,
@@ -208,6 +212,7 @@ impl HouseholdBook {
                 household_id: household_id.to_owned(),
                 customer_no,
                 generation,
+                fictional: false,
                 body,
                 saved_consents: consents.clone(),
                 consents,
@@ -316,6 +321,7 @@ impl HouseholdBook {
                     .unwrap_or_else(|| Value::Object(serde_json::Map::new())),
             ),
             external_ai_consent: self.consent(),
+            fictional: self.fictional,
         })
     }
 
@@ -420,6 +426,7 @@ impl HouseholdBook {
             allowlist_version: allowlist().version.clone(),
             fields: reduced_items(),
             saved: self.generation > 0,
+            fictional: self.fictional,
         }
     }
 }

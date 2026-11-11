@@ -45,6 +45,7 @@ fn source() -> SharedHouseholdSource {
             record_id: "c".into(),
             documents: true,
         }),
+        fictional: false,
     }
 }
 

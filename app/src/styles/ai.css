@@ -27,7 +27,7 @@
 .ai-limits li { margin: 2px 0; }
 .ai-state { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; border-radius: 10px; padding: 10px 14px; margin: 8px 0; border: 2px solid var(--line); background: var(--base-bg); }
 .ai-state b { font-size: 1.1rem; }
-.ai-state.s-given { border-color: var(--prop); background: var(--prop-bg); }
+.ai-state.s-given, .ai-state.s-fictional { border-color: var(--prop); background: var(--prop-bg); }
 .ai-state.s-sharing { border-color: var(--est); background: var(--est-bg); color: var(--est-ink); }
 .ai-state.s-refused, .ai-state.s-withdrawn { border-color: var(--short); background: var(--short-bg); }
 .ai-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line-2); margin: 6px 0 4px; }
@@ -75,3 +75,17 @@
 .ai-cand-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 8px; }
 .ai-cand-foot label { display: inline-flex; align-items: center; gap: 6px; font-size: 0.88rem; font-weight: 700; }
 .ai-cand-foot input { min-width: 22em; }
+
+/* AIからの新しい世帯の候補（確かめの画面） */
+.ai-hh-kind label { display: block; margin: 4px 0; }
+.ai-hh-kind-note { display: block; margin-left: 1.6em; }
+.ai-hh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 18px; margin: 8px 0; }
+.ai-hh-sec h4 { margin: 8px 0 2px; font-size: 0.92rem; }
+.ai-hh-sec dl { margin: 0; }
+.ai-hh-sec dl > div { display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 2px 0; border-bottom: 1px solid var(--line-2); font-size: 0.9rem; }
+.ai-hh-sec dt { color: var(--ink-2); min-width: 7em; }
+.ai-hh-sec dd { margin: 0; }
+.ai-hh-est { border-color: var(--est); color: var(--est-ink); background: var(--est-bg); }
+
+/* 架空の世帯の印（一覧・上の帯・開いている世帯。お客さまの世帯と見分ける） */
+.hh-fictional-tag { border-color: var(--est); color: var(--est-ink); background: var(--est-bg); font-weight: 700; }

@@ -1,4 +1,5 @@
-// 並びの要素の ID（0035 の5）: 関係・生活費の段と費目・積立・利率の段・繰上げ返済・保険の更新・教育の段など、並びの要素は ID を持つ。
+// 並びの要素の ID（0035 の5・0206）: 関係・生活費の段と費目・積立・利率の段・繰上げ返済・保険の更新・教育の段・資産の配分の行・借り換えなど、
+// 並びの要素は ID を持つ。
 // ID の無い古いデータを読むときは、本体の 0.16 → 0.17 の変換の段と同じ場所から決まった ID を振る。画面で新しく足した要素には乱数の ID。
 // 画面の中の世帯も ID を持つ（開いたとき fromRequest・世帯を置き換えるとき）。番号で当てると、足す・外す・並べ替えで別の要素に当たるため
 import { migrationId } from "./readings.ts";
@@ -9,10 +10,13 @@ const isObj = (v: unknown): v is Json => typeof v === "object" && v !== null && 
 
 // 0.18 から（0040）: 段階と例外の年の並び（周期的な支出・家賃・修繕費・固定資産税・不動産の家賃と経費・器の利回り・資産配分）。
 // 0.18 の形は足すだけで、0.17 以前のファイルにはこの並びが無い（本体の 0.16 → 0.17 の段は振らない）。画面で足すときは乱数の ID を付けて足す
+// 0.76 から（0206）: 資産の配分の行（器 assetMix・器の利回りの段階の assetMix）・旧NISA の買付の年ごとの内訳 lots・借り換え refinance と
+// その新しい金利の段 rateSchedule。本体の 0.75 → 0.76 の段が、前の版の世帯に同じ場所から同じ ID を振る（ID の無い要素を指していた決まった ID と同じ）。
+// 道の "*" は並びの要素ごと（その要素の中の並び）。中の並びは外の並びより先に振る（外の要素に ID が無いときの場所を、決まった ID の作り方とそろえるため）
 const ELEMENT_LISTS: readonly [string, readonly (readonly string[])[]][] = [
   ["livingExpenses", [["stages"], ["categories"]]],
-  ["accounts", [["contributions"], ["returnStages"], ["returnExceptions"], ["property", "rental", "stages"], ["property", "rental", "exceptions"], ["property", "expenses", "stages"], ["property", "expenses", "exceptions"]]],
-  ["debts", [["rateSchedule"], ["prepayments"]]],
+  ["accounts", [["contributions"], ["returnStages", "*", "assetMix"], ["returnStages"], ["returnExceptions"], ["property", "rental", "stages"], ["property", "rental", "exceptions"], ["property", "expenses", "stages"], ["property", "expenses", "exceptions"], ["assetMix"], ["lots"]]],
+  ["debts", [["rateSchedule"], ["prepayments"], ["refinance", "*", "rateSchedule"], ["refinance"]]],
   ["residences", [["purchase", "gifts"], ["purchase", "payments"], ["rent", "stages"], ["rent", "exceptions"], ["maintenance", "stages"], ["maintenance", "exceptions"], ["propertyTax", "stages"], ["propertyTax", "exceptions"]]],
   ["periodicExpenses", [["stages"], ["exceptions"]]],
   // 0.20 から（0044）: 入るお金の行の段階と例外の年（新しい並び。変換の段で振る古い要素は無い）
@@ -55,6 +59,25 @@ function giveIds(list: unknown, place: string, make: MakeId): void {
 }
 
 /**
+ * 道（"*" は並びの要素ごと）の先の並びに ID を振る。場所は、ID を持ついちばん近い物から並びまでの欄の名前と、ID を持たない要素の番号
+ * （readings.ts の決まった ID の場所と同じ。0035 の10 の1）
+ */
+function giveIdsAt(node: unknown, place: string, path: readonly string[], make: MakeId): void {
+  const star = path.indexOf("*");
+  if (star < 0) {
+    giveIds(getPath(node, path), `${place}/${path.join("/")}`, make);
+    return;
+  }
+  const head = path.slice(0, star);
+  const list = getPath(node, head);
+  if (!Array.isArray(list)) return;
+  const at = `${place}/${head.join("/")}`;
+  list.forEach((e, i) => {
+    if (isObj(e)) giveIdsAt(e, typeof e.id === "string" ? e.id : `${at}/${i}`, path.slice(star + 1), make);
+  });
+}
+
+/**
  * 並びの要素に ID を振る（世帯の要求の input を書き換える。0035 の5）。ID の無い古いデータを読むときは場所から決まった ID
  * （変換の段と同じ。既定）、画面で新しく足した要素には乱数の ID（randomId）。もう ID のある要素は変えない
  */
@@ -64,7 +87,7 @@ export function giveElementIds(input: Json, make: MakeId = placeId): void {
     for (const [coll, paths] of ELEMENT_LISTS) {
       for (const obj of Array.isArray(h[coll]) ? (h[coll] as unknown[]) : []) {
         if (!isObj(obj) || typeof obj.id !== "string") continue;
-        for (const p of paths) giveIds(getPath(obj, p), `${obj.id}/${p.join("/")}`, make);
+        for (const p of paths) giveIdsAt(obj, obj.id, p, make);
       }
     }
     const rels = Array.isArray(h.relations) ? h.relations : [];
