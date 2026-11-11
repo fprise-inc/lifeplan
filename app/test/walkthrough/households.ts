@@ -320,7 +320,7 @@ export async function household3(p: Page): Promise<Notes> {
   await p.click("＋ ご本人の親を足す", { within: "panel", exact: true });
   await p.click("母", { within: "panel", exact: true });
   await p.type("生年月", "1937-06");
-  await p.click("＋ 母の介護を推定で入れる", { within: "panel", exact: true });
+  await p.click("＋ 母の介護を入れる", { within: "panel", exact: true });
   await p.choose("払う人", "世帯が払う（ご本人の支出にする）");
   await p.type("月々の費用（自己負担の合計）", "8");
   await save(p, n, "介護・親");

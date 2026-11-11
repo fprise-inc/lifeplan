@@ -290,8 +290,8 @@ describe("介護・親のカード: 介護の費用（区画B）", () => {
     expect(gapsOf(declined).filter((g) => g.card === "care")).toEqual([]);
     // 入れないと決めた印は、もう一度保存しても残る（入力項目の ID でなくても消さない）
     expect(gapsOf(saveItem(declined, "care")).filter((g) => g.card === "care")).toEqual([]);
-    // 区画のボタン「…の介護は入れない」も同じ
-    expect(gapsOf(actionOf(wh, "care/declineAdults").run(wh)).filter((g) => g.card === "care")).toEqual([]);
+    // 区画には「…の介護は入れない」のボタンを置かない（帯・確かめの一覧の「該当なし」か、入力項目の「当てはまらない」で決める。0143 の追記 2026-11-12）
+    expect(() => actionOf(wh, "care/declineAdults")).toThrow();
   });
 
   it("事務所の設定の既定: 既定（warn）は何もせず、「最初から入れる」（fill）なら新しい世帯に目安を入れる", () => {
