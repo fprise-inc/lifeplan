@@ -1,0 +1,120 @@
+// AI接続口の計算の答えの主な数字と家族の年齢（calculate の keyFigures・ages。0194）: 接続口に同梱する summarize（src/connector/summary.ts）が、
+// 画面の「プランを比べる」の数え方（plans/compare.ts の metricsOf・compareTable）と、キャッシュフロー表の年齢の行（present.ts の ageRows）と同じ答えを返すこと。
+// 接続口のテスト（crates/lifeplan/tests/mcp_connector.rs の calculate_key_figures_match_the_screen）は、ここで作る見本（画面の関数の答え）と、
+// 本物の接続口が quickjs-ng で動かした答えを比べる。見本を作り直すときは LIFEPLAN_UPDATE_FIXTURES=1 で流す
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { DEFAULT_AT_AGE, summarize, summaryOf, type Summary } from "../src/connector/summary.ts";
+import { forEngine } from "../src/engine/moneyRows.ts";
+import type { EngineRequest } from "../src/engine/types.ts";
+import { man } from "../src/presentation/format.ts";
+import { compareTable, metricsOf } from "../src/workspace/plans/compare.ts";
+import { ageRows } from "../src/workspace/present.ts";
+import { DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
+import { modelHousehold, preview } from "./helpers.ts";
+
+const REPO = join(import.meta.dirname, "..", "..");
+const FIXTURE = join(REPO, "crates", "lifeplan", "tests", "fixtures", "calc-summary", "expected.json");
+
+/** 接続口のテストと同じ見本の問い（見本の世帯・変更・年齢）。changes は接続口の JSON Patch の replace と同じ場所 */
+const CASES: { name: string; sample: string; changes?: { op: "replace"; path: string; value: unknown }[]; atAges?: number[] }[] = [
+  { name: "会社員の夫婦子2人（尽きる・ローンあり）", sample: "salariedCoupleTwoKids" },
+  { name: "年齢を2つ・物価の想定を変える", sample: "salariedCoupleTwoKids", changes: [{ op: "replace", path: "/assumptions/inflation", value: { default: "0.005" } }], atAges: [65, 90] },
+  { name: "家を買う", sample: "housingPurchase", atAges: [60] },
+  { name: "単身", sample: "single25" },
+  { name: "親の介護（世帯の外の家族）", sample: "sampleParentsCare" },
+  { name: "必要保障額の見本", sample: "protectionNeed" },
+  { name: "今より前の年齢（表の最初の年にする）", sample: "sampleSeniorCouple", atAges: [30, 120] },
+];
+
+/** 接続口と同じ要求（見本の世帯の input に変更を当てた物。trace は none。計算の前の処理を当てる前） */
+function caseRequest(c: (typeof CASES)[number]): EngineRequest {
+  const req = structuredClone(modelHousehold(c.sample));
+  for (const x of c.changes ?? []) {
+    const path = x.path.slice(1).split("/");
+    let o = req.input as unknown as Record<string, unknown>;
+    for (const k of path.slice(0, -1)) o = o[k] as Record<string, unknown>;
+    o[path[path.length - 1]!] = x.value;
+  }
+  return { trace: "none", input: req.input } as EngineRequest;
+}
+
+const ask = (req: EngineRequest, atAges?: number[]): Summary => JSON.parse(summarize(JSON.stringify(preview(forEngine(req))), JSON.stringify(req), JSON.stringify(atAges !== undefined ? { atAges } : {}))) as Summary;
+
+describe("AI接続口の主な数字と家族の年齢（0194）", () => {
+  it("年齢の既定は、画面の表示の設定の既定と同じ", () => {
+    expect(DEFAULT_AT_AGE).toBe(DEFAULT_DISPLAY_SETTINGS.atAge);
+  });
+
+  it("主な数字は、画面の「プランを比べる」と同じ数え方（metricsOf）で、比較の表の文字とも合う", () => {
+    for (const c of CASES) {
+      const req = caseRequest(c);
+      const result = preview(forEngine(req));
+      const got = ask(req, c.atAges);
+      const ages = c.atAges ?? [DEFAULT_DISPLAY_SETTINGS.atAge];
+      const ms = ages.map((a) => metricsOf(req, result.table, a));
+      const m = ms[0]!;
+      expect(got.keyFigures.assetsAtAge, c.name).toEqual(ms.map((x) => ({ age: x.targetAge, year: x.targetYear, amount: x.target })));
+      expect(got.keyFigures.depletion?.year ?? null, c.name).toBe(m.depletion);
+      expect(got.keyFigures.minimum, c.name).toMatchObject({ year: m.min.year, amount: m.min.amount });
+      expect(got.keyFigures.lifetimeTakeHome, c.name).toBe(m.takeHome);
+      expect(got.keyFigures.lifetimeExpense, c.name).toBe(m.expense);
+      expect(got.keyFigures.loanRepayment, c.name).toBe(m.loan);
+      // 比較の表（画面の「プランを比べる」）の文字と同じ数字
+      const table = compareTable(req, [{ name: "現状", table: result.table }], ages[0]!);
+      const cell = (key: string) => table.rows.find((r) => r.key === key)?.cells[0]?.text;
+      expect(cell("target"), c.name).toBe(`${man(m.target)}万円`);
+      expect(cell("depletion"), c.name).toBe(got.keyFigures.depletion === null ? "尽きない" : `${got.keyFigures.depletion.year}年（ご本人${got.keyFigures.depletion.selfAge}歳）`);
+      expect(cell("min"), c.name).toBe(`${man(got.keyFigures.minimum.amount)}万円（${got.keyFigures.minimum.year}年）`);
+    }
+  });
+
+  it("年ごとの年齢は、画面の表の年齢の行と同じ（同じ呼び方・世帯にいる年だけ）。世帯の物の ID は答えの鍵にしない", () => {
+    for (const c of CASES) {
+      const req = caseRequest(c);
+      const result = preview(forEngine(req));
+      const years = [...new Set(result.table.map((x) => x.year))].sort((a, b) => a - b);
+      const got = ask(req, c.atAges);
+      const rows = ageRows(req, years);
+      expect(got.members.map((m) => m.label), c.name).toEqual(rows.map((r) => r.label));
+      rows.forEach((r, i) => {
+        if (r.kind !== "age") throw new Error("年齢の行ではありません");
+        const key = got.members[i]!.key;
+        expect(
+          years.map((y) => got.ages[String(y)]?.[key] ?? null),
+          `${c.name} ${r.label}`,
+        ).toEqual(r.ages);
+      });
+      const text = JSON.stringify({ members: got.members, ages: got.ages, keyFigures: got.keyFigures });
+      for (const m of req.input.household.members) expect(text).not.toContain(m.id);
+      expect(Object.keys(got.memberKeys).sort()).toEqual(req.input.household.members.map((m) => m.id).sort());
+    }
+  });
+
+  it("どのモデル世帯（見本の世帯）でも数えられ、本人の年齢が毎年ある", () => {
+    const ids = readdirSync(join(REPO, "data", "modelHouseholds")).filter((f) => f.endsWith(".json")).map((f) => f.slice(0, -5));
+    expect(ids.length).toBeGreaterThan(10);
+    for (const id of ids) {
+      const req = caseRequest({ name: id, sample: id });
+      const r = summaryOf(req, preview(forEngine(req)));
+      expect(r.keyFigures.years, id).not.toBeNull();
+      expect(r.members[0]?.key, id).toBe("self");
+      const { from, to } = r.keyFigures.years!;
+      for (let y = from; y <= to; y++) expect(r.ages[String(y)]?.self, `${id} ${y}`).toBeTypeOf("number");
+    }
+  });
+
+  it("接続口のテストの見本（画面の関数の答え）が今の答えと同じ", () => {
+    const expected = CASES.map((c) => {
+      const got = ask(caseRequest(c), c.atAges);
+      return { ...c, expected: { members: got.members, ages: got.ages, keyFigures: got.keyFigures } };
+    });
+    const text = `${JSON.stringify(expected, null, 2)}\n`;
+    if (process.env.LIFEPLAN_UPDATE_FIXTURES !== undefined) {
+      mkdirSync(dirname(FIXTURE), { recursive: true });
+      writeFileSync(FIXTURE, text);
+    }
+    expect(readFileSync(FIXTURE, "utf8"), "主な数字か年齢が変わりました。LIFEPLAN_UPDATE_FIXTURES=1 で見本を作り直し、接続口のテスト（cargo test -p lifeplan）も流してください").toBe(text);
+  });
+});

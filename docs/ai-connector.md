@@ -88,6 +88,27 @@ args = ["mcp"]
 - `get_input_recipe` は、場面の手本を、その世帯の ID と配列の位置に合わせた `changes` で返します（関係する欄も一緒に。家なら頭金・諸費用・入居・住宅ローン・住宅ローン控除の住宅の情報、子なら親子の関係・教育の目標・子の生活費）。`params` で時期や額を変えられます。手本を重ねるときは `apply: true` で返る `input` を次の手本に渡します。
 - `calculate`・`explain_value` が入力の形の誤りで止まったときは、エラーの文に「直し方」（足りない欄・知らない欄・選べる値・正しい形）が付きます。同じスキーマで確かめ直した手がかりで、判定はエンジンが正です。入力の値はエラーの文に写しません。
 
+### 計算の答えの主な数字・年齢・大きさ（0194）
+
+`calculate` の答えには、年ごとの数字のほかに次が付きます。
+
+- `keyFigures`（主な数字）: アプリの「プランを比べる」と同じ関数で数えた、`at_ages`（既定は95歳）の時点の金融資産・資産が尽きる年・金融資産がいちばん少ない年と額・生涯の手取りの合計・生涯の支出の合計・住宅ローンの返済の合計。
+- `members` と年ごとの `ages`: 家族の年齢（アプリのキャッシュフロー表の年齢の行と同じ呼び方・同じ「世帯にいる年」）。
+- `protection`・`inheritanceTax`: 入力に必要保障額（`/protection`）・相続税の目安（`/inheritanceTax`。`points` に `now`・`bothAfter`・`contingency` を入れる）があれば、その答え（人に `self`・`spouse` などの鍵を添える）。
+
+答えは次で小さくできます（何も選ばなければ今までどおり）。比べる・振るときは主な数字だけを取ると、1通り 0.5KB ほどです。
+
+| 選ぶ物 | 意味 |
+|---|---|
+| `every_years` | 何年おきの年だけ（1〜10。最初と最後の年はいつも入る） |
+| `fields` | summary の年ごとの数字を選ぶ（`income`・`taxSi`・`expense`・`net`・`financialAssets`・`debt`・`shortfall`） |
+| `omit` | 省く物（`notices`・`packs`・`totals`・`insurance`・`ages`・`years`・`keyFigures`・`protection`・`protectionDetail`・`inheritanceTax`） |
+| `at_ages` | 主な数字の「○歳時点」の本人の年齢（5つまで） |
+
+`explain_value` も `omit`（`sources`＝出典の文・`params`＝使った制度の値・`message`＝読み方の案内）で小さくできます。出典は制度の値ID から `get_regulation_value` で引けます。
+
+頼み方の例: 「salariedCoupleTwoKids と dualNoKids の、資産が尽きる年と65歳・90歳の時点の資産を比べて」「salariedCoupleTwoKids の金融資産の推移を5年ごとに、家族の年齢つきの表にして」
+
 ### 計算の前の処理（画面と同じ。0184）
 
 `calculate`・`explain_value` は、アプリの画面と同じく、計算の前に次を当ててから計算します（画面の関数 `app/src/engine/moneyRows.ts` の `forEngine` を接続口に同梱して動かすので、画面と同じ数字になります）。

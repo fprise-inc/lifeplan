@@ -19,7 +19,7 @@
 
 use crate::calc::{self, Change, OutputMode, TableFilter, STRESS_TESTS};
 use crate::plan::{self, Applied, PlanChange, PlanItemsArgs};
-use crate::{coverage, engine, guide, recipes, regulation, samples};
+use crate::{answer, coverage, engine, guide, recipes, regulation, samples};
 use ai_ipc::client::{call_app, AppError, ClientHello};
 use ai_ipc::{McpClientInfo, Request};
 use rmcp::handler::server::router::tool::ToolRouter;
@@ -34,6 +34,7 @@ use std::time::Instant;
 pub const INSTRUCTIONS: &str = "ファイナンシア（FP向けのライフプランソフト）の AI接続口です。
 - 計算（calculate）・数字の根拠（explain_value）・動かせる項目（list_plan_items）・制度の値（get_regulation_value）・見本の世帯（list_sample_households・get_sample_household）・対応範囲の一覧（search_coverage・get_coverage）は、アプリが起動していなくても使えます。見本の世帯はすべて架空で、実在の顧客ではありません。
 - calculate・explain_value は、アプリの画面と同じく、計算の前に「計算に入れない」物（見込みが「当てにしない」の受け取る相続・遺贈・贈与と、相続で受け継ぐ借金。「計算に入れない」を選んだ夢）を外し、FPが渡した世帯（share_id）では、FPの事務所が既定値の画面で変えた推定の値も当ててから計算します。当てた物は答えの preparation に出ます。世帯の入力にあるのに表に出ない物があっても、計算の誤りではありません。FPがアプリで「確実な分だけ」などの結果の見方を選んでいるとき、FPがまだ保存していない変更があるときは、アプリの画面の数字と違うことがあります（渡されるのは保存した世帯で、見方は当てません）。
+- calculate の答えは大きくなりやすいので、要る物だけを取ってください。比べる・振るときは omit に years を入れて keyFigures（主な数字。アプリの「プランを比べる」と同じ数え方）だけを取り、推移を見るときは every_years（例 5）と fields（例 [\"financialAssets\"]）で絞ります。知らせ（notices）・制度データの版（packs）は要らなければ omit で省きます。
 - 計算の入力（input）を組み立てるときは、get_input_guide で形の決まりと区分ごとの欄・必須・選べる値・例を引き、よくある場面（家を買う・子が生まれる・退職・繰上返済・NISA と iDeCo を始める・万一の想定）は get_input_recipe の手本（その世帯に合わせた changes）を使ってください。書かなかった物（家の頭金・諸費用、子の教育費・生活費など）は計算に入りません。計算できなかったときは、答えの「直し方」に足りない欄・選べる値・正しい形が出ます。
 - FP に「この数字はどんな計算？」と聞かれたら、推測で答えず、explain_value でその数字（キャッシュフロー表の行と年）の根拠を取り出して答えてください。アプリの画面で表の数字を押すと出る「数字の根拠」（内訳・式・使った制度の値と出典）と同じ中身です。制度の値をもっと詳しく見るときは、返ってきた制度の値ID を get_regulation_value に渡します。
 - FP に「退職を62歳にしたら？」「生活費を月25万円にしたら？」のように、アプリの画面のプランで動かす項目（働く最後の年齢・年金の受け取り開始・NISA の積立・生活費・配偶者の働き方と年収・繰上返済・金利の上昇・資産運用の配分など）を動かして試すときは、まず list_plan_items で動かせる項目（対象・入力項目ID・今の値・範囲）を確かめ、calculate・explain_value の plan_changes に、プランの候補（propose_scenario）と同じ書き方（target・item・value）で渡してください。画面のプランと同じ関数で当てるので、関係する欄も画面と同じく一緒に動きます（働く最後の年齢なら、生活費の退職の段階・積立の終わりも）。changes（JSON Pointer）で欄を1つだけ動かすと、画面と違う数字になることがあります。試した変更は、そのまま propose_scenario の changes に渡せます。
@@ -65,7 +66,7 @@ pub struct CalculateArgs {
     /// AIが組み立てた計算の入力（エンジンへの要求の input の形。get_sample_household の input を手本にする）
     pub input: Option<Value>,
     /// 入力に当てる変更（プラン・想定）。JSON Patch の replace・add・remove。例: {"op":"replace","path":"/assumptions/inflation","value":...}。
-    /// 万一の想定は /contingencies（1件まで）、必要保障額は /protection に足す
+    /// 万一の想定は /contingencies（1件まで）、必要保障額は /protection、相続税の目安は /inheritanceTax（points に now・bothAfter・contingency を入れる）に足す
     pub changes: Option<Vec<Change>>,
     /// アプリの画面のプランの動かす項目を動かす変更（プランの候補 propose_scenario の changes と同じ書き方: target・item・value。list_plan_items で
     /// 分かる）。画面のプランと同じ関数で当て、関係する欄も一緒に動く。changes を当てた後に当てる。50件まで
@@ -80,6 +81,20 @@ pub struct CalculateArgs {
     pub from_year: Option<i64>,
     /// この年まで（含む）
     pub to_year: Option<i64>,
+    /// 何年おきの年だけを返すか（1〜10。既定1＝毎年）。from_year・to_year で絞った最初の年と最後の年はいつも入る。
+    /// summary の years・table の行・年齢・必要保障額の年に効く（keyFigures は毎年で数える）
+    #[schemars(range(min = 1, max = 10))]
+    pub every_years: Option<u8>,
+    /// output が summary のとき、years に返す数字（既定は全部）。year はいつも入る
+    #[schemars(extend("items" = { "type": "string", "enum": ["income", "taxSi", "expense", "net", "financialAssets", "debt", "shortfall"] }))]
+    pub fields: Option<Vec<String>>,
+    /// 答えから省く物: notices（計算の知らせ）・packs（制度データの版）・totals（合計）・insurance（table の summary の保険の年ごとの要約）・
+    /// ages（家族の年齢と members）・years（summary の年ごとの数字。主な数字だけにする）・keyFigures（主な数字）・protection（必要保障額）・
+    /// protectionDetail（必要保障額の年ごとの内訳 breakdown・coverageBy だけ）・inheritanceTax（相続税の目安）
+    #[schemars(extend("items" = { "type": "string", "enum": ["notices", "packs", "totals", "insurance", "ages", "years", "keyFigures", "protection", "protectionDetail", "inheritanceTax"] }))]
+    pub omit: Option<Vec<String>>,
+    /// keyFigures の「○歳時点の金融資産」の本人の年齢（5つまで。既定 [95]＝アプリの画面の既定）
+    pub at_ages: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -111,6 +126,9 @@ pub struct ExplainArgs {
     /// 使った制度の値を何件まで返すか（1〜24。既定24＝画面と同じ）
     #[schemars(range(min = 1, max = 24))]
     pub max_params: Option<u8>,
+    /// 答えから省く物: sources（制度の値の出典の文。値ID から get_regulation_value で引ける）・params（使った制度の値と ids.regulation）・message（読み方の案内）
+    #[schemars(extend("items" = { "type": "string", "enum": ["sources", "params", "message"] }))]
+    pub omit: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -669,7 +687,7 @@ impl LifeplanMcp {
     }
 
     #[tool(
-        description = "ライフプランを計算する（ファイナンシアの計算エンジン）。見本の世帯（sample_household_id）、FPが渡した世帯（share_id。アプリが起動していて共有が期限内のときだけ）、AIが組み立てた入力（input）のどれか1つに、plan_changes（アプリの画面のプランの動かす項目。list_plan_items で分かる対象・入力項目ID・値。propose_scenario と同じ書き方で、画面のプランと同じ関数で当て、関係する欄も一緒に動く）・changes（JSON Pointer の変更。万一の想定・必要保障額など）や stress_test を当てて計算し、年ごとの収入・税と社会保険料・支出・収支・金融資産・負債（summary）か、キャッシュフロー表の行（table）を返す。アプリの画面と同じ計算の前の処理（計算に入れない物を外す。渡された世帯ではFPの事務所の推定の値も当てる）を当て、当てた物を preparation に出す。世帯のデータそのものは変えない。",
+        description = "ライフプランを計算する（ファイナンシアの計算エンジン）。見本の世帯（sample_household_id）、FPが渡した世帯（share_id。アプリが起動していて共有が期限内のときだけ）、AIが組み立てた入力（input）のどれか1つに、plan_changes（アプリの画面のプランの動かす項目。list_plan_items で分かる対象・入力項目ID・値。propose_scenario と同じ書き方で、画面のプランと同じ関数で当て、関係する欄も一緒に動く）・changes（JSON Pointer の変更。万一の想定・必要保障額など）や stress_test を当てて計算し、年ごとの収入・税と社会保険料・支出・収支・金融資産・負債（summary）か、キャッシュフロー表の行（table）を返す。どちらにも、年ごとの家族の年齢（members の鍵ごと。アプリの表の年齢の行と同じ）と、主な数字 keyFigures（アプリの「プランを比べる」と同じ数え方: at_ages の年齢の時点の金融資産・資産が尽きる年・金融資産がいちばん少ない年と額・生涯の手取りと支出の合計・住宅ローンの返済の合計）を添え、入力に /protection（必要保障額）・/inheritanceTax（相続税の目安。points を入れる）があれば、その答えも添える。答えは every_years（何年おき）・fields（どの数字だけ）・omit（知らせ・制度データの版・保険の年ごとの要約などを省く）で小さくできる。比べるだけなら omit に years を入れて主な数字だけを取る。アプリの画面と同じ計算の前の処理（計算に入れない物を外す。渡された世帯ではFPの事務所の推定の値も当てる）を当て、当てた物を preparation に出す。世帯のデータそのものは変えない。",
         annotations(
             title = "計算",
             read_only_hint = true,
@@ -716,6 +734,18 @@ impl LifeplanMcp {
                 )));
             }
         };
+        let opts = match answer::Options::new(
+            a.every_years,
+            a.fields.as_deref(),
+            a.omit.as_deref(),
+            a.at_ages.as_deref(),
+        ) {
+            Ok(o) => o,
+            Err(msg) => {
+                log("calculate", t, "INVALID");
+                return Ok(fail(msg));
+            }
+        };
         if let Err(msg) = plan::check_count(a.plan_changes.as_deref()) {
             log("calculate", t, "INVALID");
             return Ok(fail(msg));
@@ -728,7 +758,8 @@ impl LifeplanMcp {
             a.sample_household_id.clone(),
         );
         // プランの変更（画面のプランと同じ関数。0195）→ 計算の前の処理（0184）→ 計算
-        type Run = Result<(Value, Value, Value, Value), Value>;
+        let opts_run = opts.clone();
+        type Run = Result<(Value, Value, Value, Value, Value), Value>;
         let run = tokio::task::spawn_blocking(move || -> Result<Run, String> {
             let (request, rows) =
                 match plan::apply(request, &plan_changes, sample.as_deref(), &office, &post)? {
@@ -737,13 +768,21 @@ impl LifeplanMcp {
                 };
             let p = prepare(&request, &office)?;
             let out = engine::run_preview(&p.request)?;
-            Ok(Ok((out, p.applied, rows, request["input"].clone())))
+            // 主な数字と年齢は、数字の根拠と同じく計算の前の処理を当てる前の要求（プランの変更を当てた後）で数える（0194）
+            let summary = answer::summary(&out, &request, &opts_run)?;
+            Ok(Ok((
+                out,
+                p.applied,
+                rows,
+                request["input"].clone(),
+                summary,
+            )))
         })
         .await;
-        let (out, applied, plan_rows) = match run {
-            Ok(Ok(Ok((out, applied, rows, planned)))) => {
+        let (out, applied, plan_rows, summary) = match run {
+            Ok(Ok(Ok((out, applied, rows, planned, summary)))) => {
                 checked = planned;
-                (out, applied, rows)
+                (out, applied, rows, summary)
             }
             Ok(Ok(Err(rows))) => {
                 log("calculate", t, "INVALID");
@@ -774,6 +813,7 @@ impl LifeplanMcp {
             to_year: a.to_year,
         };
         let mut shaped = calc::shape(&out, mode, &filter);
+        answer::finish(&mut shaped, &out, &summary, mode, &opts);
         if let Some(p) = preparation(&applied, true) {
             shaped["preparation"] = p;
         }
@@ -791,7 +831,7 @@ impl LifeplanMcp {
     }
 
     #[tool(
-        description = "キャッシュフロー表の1つの数字（行と年）が、どんな計算で出たかの根拠を返す。アプリの画面で表の数字を押すと右に出る「数字の根拠」と同じ中身（合計・計算式ごとの内訳・式の説明・使った制度の値と出典と制度データの版・その年の家族の年齢・注記）に、制度の値ID（get_regulation_value に渡せる）を添える。FP に「この数字はどう計算したの？」と聞かれたら、推測で答えずにこれを使う。世帯は calculate と同じく見本の世帯（sample_household_id）・FPが渡した世帯（share_id。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る）・AIが組み立てた入力（input）のどれか1つで、plan_changes（画面のプランの動かす項目）・changes（プラン・万一の想定）・stress_test も当てられる。row は画面の表の行の鍵（例 taxSi・pension:self・education・financial）か、calculate の table の行ID（cf. で始まる）。row を省くと根拠を出せる行の一覧を返す。合計の行（収入合計・支出合計・年間収支）は内訳の行ごとに聞く。計算は calculate と同じく画面と同じ計算の前の処理を当てる（当てた物は preparation。世帯の物は数だけ）。世帯のデータそのものは変えない。",
+        description = "キャッシュフロー表の1つの数字（行と年）が、どんな計算で出たかの根拠を返す。アプリの画面で表の数字を押すと右に出る「数字の根拠」と同じ中身（合計・計算式ごとの内訳・式の説明・使った制度の値と出典と制度データの版・その年の家族の年齢・注記）に、制度の値ID（get_regulation_value に渡せる）を添える。FP に「この数字はどう計算したの？」と聞かれたら、推測で答えずにこれを使う。世帯は calculate と同じく見本の世帯（sample_household_id）・FPが渡した世帯（share_id。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る）・AIが組み立てた入力（input）のどれか1つで、plan_changes（画面のプランの動かす項目）・changes（プラン・万一の想定）・stress_test も当てられる。row は画面の表の行の鍵（例 taxSi・pension:self・education・financial）か、calculate の table の行ID（cf. で始まる）。row を省くと根拠を出せる行の一覧を返す。合計の行（収入合計・支出合計・年間収支）は内訳の行ごとに聞く。計算は calculate と同じく画面と同じ計算の前の処理を当てる（当てた物は preparation。世帯の物は数だけ）。答えは depth・max_params・omit（出典の文 sources・使った制度の値 params・読み方の案内 message を省く）で小さくできる。世帯のデータそのものは変えない。",
         annotations(
             title = "数字の根拠",
             read_only_hint = true,
@@ -832,6 +872,10 @@ impl LifeplanMcp {
         if a.depth.is_some_and(|d| d > 3) || a.max_params.is_some_and(|m| !(1..=24).contains(&m)) {
             log(tool, t, "INVALID");
             return Ok(fail("depth は 0〜3、max_params は 1〜24 にしてください。"));
+        }
+        if let Err(msg) = answer::check_explanation_omit(a.omit.as_deref().unwrap_or(&[])) {
+            log(tool, t, "INVALID");
+            return Ok(fail(msg));
         }
         if let Err(msg) = plan::check_count(a.plan_changes.as_deref()) {
             log(tool, t, "INVALID");
@@ -936,6 +980,7 @@ impl LifeplanMcp {
             _ => ("", true),
         };
         v["message"] = json!(message);
+        answer::trim_explanation(&mut v, a.omit.as_deref().unwrap_or(&[]));
         let out = v.to_string();
         if out.len() > MAX_EXPLAIN_BYTES {
             log(tool, t, "TOO_LARGE");
