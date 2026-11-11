@@ -1,4 +1,4 @@
-// AI接続口のプランの動かす項目（0195・0200）: 接続口に同梱する入口（src/connector/plan.ts）が、画面の結果のタブのプランと同じ関数で、
+// AI接続口のプランの動かす項目（0195・0201）: 接続口に同梱する入口（src/connector/plan.ts）が、画面の結果のタブのプランと同じ関数で、
 // プランの候補と同じ書き方（対象・入力項目ID・値）の変更を当て、画面でつまみを動かしたときと同じ計算の要求を作ること。
 // 接続口のテスト（crates/lifeplan/tests/mcp_connector.rs の plan_changes_match_the_screen）は、ここで作る見本（変更と画面の数字・根拠）を、
 // 本物の接続口に MCP で計算させて比べる。見本を作り直すときは LIFEPLAN_UPDATE_FIXTURES=1 で流す
@@ -75,7 +75,7 @@ function both(id: string, moves: Record<string, (now: ItemValue) => ItemValue>) 
     expect(it, `${id} に ${key} がありません`).toBeDefined();
     const v = f(it!.read(s.wh));
     values[it!.key] = v;
-    // 一覧の同じ項目の選び方（場所だけ違う項目は場所も。0200）で渡す
+    // 一覧の同じ項目の選び方（場所だけ違う項目は場所も。0201）で渡す
     const ref = candidateRefOf(it!, s.wh, s.cat);
     expect(ref, `${id} の ${it!.label} を選べません`).not.toBeNull();
     const l = listed.find((x) => JSON.stringify(refOf(x)) === JSON.stringify(refOf({ ...ref!, item: it!.item })));
@@ -114,7 +114,7 @@ const CASES: { name: string; sample: string; moves: Record<string, (now: ItemVal
   { name: "物価上昇率を1.5%に（入力の欄から作った項目）", sample: "sampleSelfEmployedFamily", moves: { "field:assume/inflation": () => "0.015" } },
   { name: "FP顧問料を入れない", sample: "advisoryFeeProposal", moves: { "lever:fee": () => false } },
   { name: "働く最後の年齢を65歳に（定年後の働き方のある見本）", sample: "reemployment", moves: { "lever:retireAge": () => 65 } },
-  // ここから場所だけ違う項目（0200。場所 at か合成の対策 lever を添えて選ぶ）
+  // ここから場所だけ違う項目（0201。場所 at か合成の対策 lever を添えて選ぶ）
   { name: "資産運用の毎月の積立額を月3万円・積立をやめる年齢を55歳に", sample: "salariedCoupleTwoKids", moves: { "inv:monthly": () => 30000, "inv:stop": () => 55 }, ask: { row: "financial", year: 2045 } },
   { name: "取り崩しを70歳から月10万円に", sample: "salariedCoupleTwoKids", moves: { "inv:wStart": () => 70, "inv:wAmt": () => 100000 } },
   { name: "黒字のうち貯まる割合を8割に", sample: "salariedCoupleTwoKids", moves: { "surplus:ratio": () => "0.8" } },
@@ -134,7 +134,7 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
       const got = list(req, { sampleId: id, fields: true });
       expect(got.status, id).toBe("ok");
       expect(got.count, id).toBe(got.total);
-      // 場所だけ違う項目も、場所を添えてすべて出す（0200）
+      // 場所だけ違う項目も、場所を添えてすべて出す（0201）
       expect(got.unlisted, id).toBe(0);
       for (const it of got.items) {
         expect(ALLOWLIST, `${id} ${it.label}`).toContain(it.item);
@@ -235,7 +235,7 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
     expect(rows[1]!.reason).toContain("範囲");
   });
 
-  it("場所だけ違う項目（0200）: 場所を添えた候補は、画面の「AIからの候補」でもその項目に当たり、場所の無い前の版の候補は今までどおり", () => {
+  it("場所だけ違う項目（0201）: 場所を添えた候補は、画面の「AIからの候補」でもその項目に当たり、場所の無い前の版の候補は今までどおり", () => {
     const s = screen("salariedCoupleTwoKids");
     const self = roles(s.req).find((r) => r.key === "self")!.member.id;
     const pick = (pattern: RegExp) => s.cat.items.find((x) => pattern.test(x.key))!;
@@ -300,7 +300,7 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
       const { changes, screenRequest } = both(c.sample, c.moves);
       const sent = forEngine(screenRequest);
       const r = preview(sent);
-      // 場所だけ違う項目の変更は、どれも数字を動かす（動かない変更では、画面と同じことを確かめられない。0200）
+      // 場所だけ違う項目の変更は、どれも数字を動かす（動かない変更では、画面と同じことを確かめられない。0201）
       if (changes.some((x) => x.at !== undefined || x.lever !== undefined)) expect(r.table, c.name).not.toEqual(preview(forEngine(modelHousehold(c.sample))).table);
       const out: Record<string, unknown> = { name: c.name, sample: c.sample, changes, screen: { years: years(r), totals: totals(r) } };
       if (c.ask !== undefined) {
@@ -319,7 +319,7 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
     const wh = { ...fromRequest(req), postRetirement: { [self]: SHARED_POST } };
     const sharedReq = applyValues(wh, { "lever:retireAge": 65 }, buildCatalog(wh, self, null));
     const sr = preview(forEngine(sharedReq));
-    // 場所を添えたプランの候補（0200）: 接続口のテストは、渡された世帯の一覧（共有の仮の ID）から同じ名前と区別の項目を選んで
+    // 場所を添えたプランの候補（0201）: 接続口のテストは、渡された世帯の一覧（共有の仮の ID）から同じ名前と区別の項目を選んで
     // propose_scenario に出し、アプリ本体が元の ID に戻した変更（diff）がこれと同じことを確かめる。この変更が画面の「AIからの候補」で
     // その項目に当たることは、ここで確かめる
     const scat = buildCatalog(wh, self, null);

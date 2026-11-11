@@ -188,7 +188,7 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(marital.is_none(), "{v}: 婚姻の状態は変換で書き足さない");
         }
-        // 0.75 から: 外から来た候補の変更の場所 at・lever（0200）。変換で中身を変えない。前の版の見本には候補の区画が無い。
+        // 0.75 から: 外から来た候補の変更の場所 at・lever（0201）。変換で中身を変えない。前の版の見本には候補の区画が無い。
         // 場所を添えない候補（前の版と同じ形）と、場所（lever・at）を添えた候補を持つ
         let candidates = now.get("candidates");
         if migrate::parse(v).unwrap() >= (0, 75) {

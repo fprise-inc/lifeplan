@@ -1,4 +1,4 @@
-# 0200. AI接続口で、場所だけ違う「動かす項目」も選べるようにする（場所 at・合成の対策 lever）
+# 0201. AI接続口で、場所だけ違う「動かす項目」も選べるようにする（場所 at・合成の対策 lever）
 
 - 状態: 採用（一部未確定）（2026-11-11）
 - 固定の強さ: 書き方（`list_plan_items` の `at`・`lever`・`place`、`calculate`・`explain_value`・`compare` の `plan_changes` と `propose_scenario` の `changes` の `at`・`lever`）は試験版（0015 と同じ。予告して変えることがある）。候補の変更の場所（世帯ファイルの `candidates[].diffs[].at`・`lever`。形式 0.75）は骨格。作り（候補の当てはめを1か所にする・選び方を画面の関数で作る）は内部

@@ -597,9 +597,9 @@ export interface AiProposedDiff {
   id: string;
   target: { object: string } | { plan: "assumptions" };
   item: string;
-  /** 入力の欄の場所（0200。同じ対象・同じ入力項目ID で場所だけ違う欄を選ぶ。前の版の候補には無い） */
+  /** 入力の欄の場所（0201。同じ対象・同じ入力項目ID で場所だけ違う欄を選ぶ。前の版の候補には無い） */
   at?: string[];
-  /** 合成の対策の名前（0200。前の版の候補には無い） */
+  /** 合成の対策の名前（0201。前の版の候補には無い） */
   lever?: string;
   op: "set";
   value: unknown;

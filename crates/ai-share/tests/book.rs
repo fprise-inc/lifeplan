@@ -527,7 +527,7 @@ fn post_retirement_goes_with_numbers_and_choices_only() {
     assert_eq!(got2["postRetirement"], json!({}));
 }
 
-/// 候補の変更の場所 at・lever（0200。世帯ファイルの形式 0.75）: 世帯ファイルの候補を開いて書き戻すと、場所を添えた候補も添えない候補も
+/// 候補の変更の場所 at・lever（0201。世帯ファイルの形式 0.75）: 世帯ファイルの候補を開いて書き戻すと、場所を添えた候補も添えない候補も
 /// 1文字も変わらない（前の版の候補に欄を書き足さない）。画面に返す本文には候補の区画が無い
 #[test]
 fn candidate_places_survive_open_and_save() {

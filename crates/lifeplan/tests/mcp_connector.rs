@@ -1750,7 +1750,7 @@ async fn plan_changes_match_the_screen() {
     )
     .await;
     assert!(more["count"].as_u64().unwrap() > list["count"].as_u64().unwrap());
-    // 場所だけ違う項目（0200）も、場所（at か lever）と人が読める区別（place）を添えて出す。どの書き方でも決まらない項目は無い
+    // 場所だけ違う項目（0201）も、場所（at か lever）と人が読める区別（place）を添えて出す。どの書き方でも決まらない項目は無い
     assert_eq!(more["unlisted"], 0);
     let stop = list["items"]
         .as_array()
@@ -1855,7 +1855,7 @@ async fn plan_items_for_a_shared_household() {
     let want = &fx["shared"];
     let id = want["sample"].as_str().unwrap();
     // 定年後の働き方の条件を持つ世帯（縮約版は数と選択肢だけを渡す。名前・自由文の欄は落とす）。世帯は、画面で保存した世帯と同じく
-    // 並びの要素の ID を持つ形（世帯ファイルの本文。場所 at の中の要素の ID を元に戻せる。0200）
+    // 並びの要素の ID を持つ形（世帯ファイルの本文。場所 at の中の要素の ID を元に戻せる。0201）
     let mut src = source(id, false);
     src.input = want["savedInput"].clone();
     let mut post = want["postRetirement"].clone();
@@ -1932,7 +1932,7 @@ async fn plan_items_for_a_shared_household() {
     );
     assert!(pending[0].diffs[0].at.is_none() && pending[0].diffs[0].lever.is_none());
 
-    // 場所だけ違う項目（0200）: 一覧（共有の仮の ID）の場所 at・lever をそのまま渡すと、アプリ本体が at の中の ID も元に戻して承認待ちに
+    // 場所だけ違う項目（0201）: 一覧（共有の仮の ID）の場所 at・lever をそのまま渡すと、アプリ本体が at の中の ID も元に戻して承認待ちに
     // 入れる。戻した変更は、画面の「AIからの候補」でその項目に当たる変更（app/test/connector-plan.test.ts の見本）と同じ
     let all = call_ok(
         &c,
@@ -2104,7 +2104,7 @@ fn every_plan_item_matches_node() {
             got.push(out);
         }
     }
-    // 場所だけ違う項目（0200）も一覧に出て、1つずつ動かす
+    // 場所だけ違う項目（0201）も一覧に出て、1つずつ動かす
     assert!(got.len() > 3000, "{}", got.len());
     let mut node = std::process::Command::new("node")
         .arg("-e")

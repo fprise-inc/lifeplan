@@ -41,7 +41,7 @@ type Change = { target: string; item: string; at?: string[]; lever?: string; val
 type Listed = { target: string; item: string; at?: string[]; lever?: string; label: string };
 const refKey = (x: { target: string; item: string; at?: readonly string[]; lever?: string }) => JSON.stringify([x.target, x.item, x.at ?? null, x.lever ?? null]);
 
-/** 動かす項目のキー → 値の作り方 から、画面のつまみの値と、接続口に渡す同じ変更（一覧の対象・入力項目ID と、場所だけ違う項目は場所。0200）を作る */
+/** 動かす項目のキー → 値の作り方 から、画面のつまみの値と、接続口に渡す同じ変更（一覧の対象・入力項目ID と、場所だけ違う項目は場所。0201）を作る */
 function moved(s: ReturnType<typeof screen>, id: string, moves: Moves): { values: Record<string, ItemValue>; changes: Change[] } {
   const listed = (JSON.parse(listPlanItems(JSON.stringify(s.req), JSON.stringify({ sampleId: id, fields: true }), "null")) as { items: Listed[] }).items;
   const values: Record<string, ItemValue> = {};
@@ -109,7 +109,7 @@ const PLAN_CASES: { name: string; sample: string; base: Moves; variants: { label
     ],
   },
   {
-    name: "場所だけ違う項目を並べる（0200。資産運用の積立・取り崩し・教育の段階ごとの欄）",
+    name: "場所だけ違う項目を並べる（0201。資産運用の積立・取り崩し・教育の段階ごとの欄）",
     sample: "salariedCoupleTwoKids",
     base: {},
     variants: [

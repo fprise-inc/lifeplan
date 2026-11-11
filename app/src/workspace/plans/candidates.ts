@@ -5,7 +5,7 @@
 // - 当てはめは対策の固定の項目（働く最後の年齢・年金の受け取り開始・NISA・生活費・FP顧問料）を先に探し、当たらなければ入力の欄の項目を探す
 //   （同じ入力項目ID・同じ向き先の欄より、結果の画面の対策を選ぶ）
 // - 同じ対象・同じ入力項目ID で場所だけが違う項目（資産運用の積立額と積立をやめる年齢・教育の段階ごとの欄など）は、候補に場所を添えて選ぶ
-//   （0200）: 入力の欄の場所 at（プランの差分の当て先の at と同じ。0036 の2）か、合成の対策の名前 lever（差分の向き先 lever と同じ。0036 の3）。
+//   （0201）: 入力の欄の場所 at（プランの差分の当て先の at と同じ。0036 の2）か、合成の対策の名前 lever（差分の向き先 lever と同じ。0036 の3）。
 //   どちらも無い候補は今までどおり対象と入力項目ID だけで当てはめる
 import { ITEM_LABELS } from "../../generated/labels.ts";
 import type { WorkingHousehold } from "../input/household.ts";
@@ -20,7 +20,7 @@ const EXTRA_ITEM_LABELS: Record<string, string> = { postRetirement: "定年後�
 /** 入力項目IDの短い名前。知らない ID はそのまま */
 export const itemName = (id: string): string => ITEM_LABELS[id] || EXTRA_ITEM_LABELS[id] || id;
 
-/** 候補の場所（0200）: 入力の欄の値の中の道 at か、合成の対策の名前 lever のどちらか1つ。無ければ対象と入力項目ID だけで当てはめる */
+/** 候補の場所（0201）: 入力の欄の値の中の道 at か、合成の対策の名前 lever のどちらか1つ。無ければ対象と入力項目ID だけで当てはめる */
 export interface ChangePlace {
   /** 入力の欄の場所（プランの差分の当て先の at と同じ。並びの要素は ID、欄は名前。欄の値そのものなら []） */
   at?: readonly string[];
@@ -43,7 +43,7 @@ export interface CandidateRow {
   label: string;
   from: string;
   to: string;
-  /** 場所を添えた候補（0200）の、人が読める場所の区別（placeText）。場所を添えない候補・当てはまらない候補は null */
+  /** 場所を添えた候補（0201）の、人が読める場所の区別（placeText）。場所を添えない候補・当てはまらない候補は null */
   place: string | null;
   /** AIが書いた理由（信用しない文章） */
   note: string | null;
@@ -157,7 +157,7 @@ export function matchItems(d: Pick<ProposedChange, "target" | "item" | "at" | "l
   const period = memberId !== null && d.item?.startsWith("employment.") === true ? currentPeriodId(input, memberId) : null;
   const hits = (t: DiffTarget) => sameTarget(t, d.target) || (period !== null && sameTarget(t, { object: period }));
   const read = readingsOf(cat, input);
-  // 場所を添えた候補は、その場所の項目だけ（0200）: at は当て先の場所が同じ欄、lever は同じ合成の対策
+  // 場所を添えた候補は、その場所の項目だけ（0201）: at は当て先の場所が同じ欄、lever は同じ合成の対策
   const at = d.at !== undefined ? JSON.stringify(d.at) : null;
   const inPlace = (r: Reading | null): boolean => {
     if (d.lever !== undefined) return r !== null && r.kind === "lever" && r.lever === d.lever;
@@ -211,13 +211,13 @@ export function candidateValues(rows: readonly CandidateRow[]): Values {
   return out;
 }
 
-/** 候補の書き方での、動かす項目の選び方（対象と、要るときだけ場所。0200） */
+/** 候補の書き方での、動かす項目の選び方（対象と、要るときだけ場所。0201） */
 export interface CandidateRef extends ChangePlace {
   target: string;
 }
 
 /**
- * 動かす項目の、候補の書き方での選び方（0200）。対象と入力項目ID だけで1つに決まり、プランの候補にも出せるならそれだけ（今までと同じ書き方）。
+ * 動かす項目の、候補の書き方での選び方（0201）。対象と入力項目ID だけで1つに決まり、プランの候補にも出せるならそれだけ（今までと同じ書き方）。
  * 決まらない（同じ対象・同じ入力項目ID で場所だけが違う）・前提を対象にする前提条件でない入力項目のときは、場所（入力の欄の at か合成の対策の
  * lever）を添えて、その項目自身に1つに決まる選び方を返す。どれでも決まらなければ null（一覧に出さない）
  */
@@ -246,7 +246,7 @@ function targetsOf(it: MovableItem, r: Reading | null): string[] {
 }
 
 /**
- * 人が読める、場所だけ違う項目の区別（0200）: まとまり・欄の区切り・物の名前（例「子ども・教育 › 第1子 › 中学校（12歳から）」「資産運用」）。
+ * 人が読める、場所だけ違う項目の区別（0201）: まとまり・欄の区切り・物の名前（例「子ども・教育 › 第1子 › 中学校（12歳から）」「資産運用」）。
  * 同じ言葉は重ねない
  */
 export function placeText(it: MovableItem): string {
