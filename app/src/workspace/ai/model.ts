@@ -2,15 +2,12 @@
 // - 画面は本体から「同意とAIの記録」（AiHouseholdView）と状態（AiStatus）を受け取って見せるだけ。記録を書くのは本体
 // - AIが書いた題名・説明・理由は、信用しない文章として文字のまま出す（HTML にしない。0016）
 // - 候補の変更は、主画面の「動かす項目」（plans/items.ts）に対応するものだけをプランにする。対応しないものは取り込まない
-import type { AiCandidate, AiConsentMethod, AiHouseholdView, AiProposedDiff, AiShareRecord, AiStatus } from "../../engine/host.ts";
-import { ITEM_LABELS } from "../../generated/labels.ts";
+import type { AiCandidate, AiConsentMethod, AiHouseholdView, AiShareRecord, AiStatus } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
-import type { Catalog, DiffTarget, ItemValue, MovableItem } from "../plans/items.ts";
+import type { Catalog } from "../plans/items.ts";
 import { savePlan, suggestName, type Values } from "../plans/plans.ts";
 import { fromBody } from "../store/body.ts";
-import { currentPeriodId, resolveKey } from "../store/readings.ts";
 import { sameJson } from "../undo/reopen.ts";
-import { rangeText, rateInRange, type PctRange } from "../input/rateRanges.ts";
 
 /** 本体の失敗の符号 → FP に見せる文 */
 export const AI_MESSAGES: Record<string, string> = {
@@ -92,7 +89,7 @@ export function todayText(now: Date = new Date()): string {
 }
 
 /** 入力項目IDの短い名前。知らない ID はそのまま */
-export const itemName = (id: string): string => ITEM_LABELS[id] || id;
+export { itemName } from "../plans/candidates.ts";
 
 /** 世帯の「AIとの共有」の状態（カード・上の帯の印） */
 export type ShareState = "off" | "unsaved" | "none" | "refused" | "withdrawn" | "given" | "sharing";
@@ -142,126 +139,9 @@ export function unsavedForAi(sharing: boolean, savedInput: unknown, input: unkno
 export const readCount = (r: AiShareRecord): number => r.reads.reduce((n, x) => n + x.count, 0);
 
 // ---- AIからの候補 → プラン ----
+// 候補の変更を動かす項目に当てはめる決まりは plans/candidates.ts（AI接続口の計算も同じ関数で当てる。0195）
 
-/** 候補の変更1件の見せ方と、プランにできるか */
-export interface CandidateRow {
-  diffId: string;
-  label: string;
-  from: string;
-  to: string;
-  /** AIが書いた理由（信用しない文章） */
-  note: string | null;
-  /** プランにするときの動かす項目のキー。プランにできないときは null */
-  key: string | null;
-  /** プランにできない理由 */
-  reason: string | null;
-  value: ItemValue;
-}
-
-const sameTarget = (it: DiffTarget, t: AiProposedDiff["target"]): boolean => {
-  if ("plan" in t) return "plan" in it && it.plan === t.plan;
-  return ("object" in it && it.object === t.object) || ("member" in it && it.member === t.object);
-};
-
-const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
-const DECIMAL = /^-?\d+(\.\d+)?$/;
-
-/** 値の箱（{value: …}）・年ごとの列の既定の値だけ（{default: …}）で来たら中身を取り出す */
-const unbox = (v: unknown): unknown => {
-  if (isObj(v) && "value" in v && Object.keys(v).every((k) => ["value", "state", "origin", "estimate"].includes(k))) return v.value;
-  if (isObj(v) && "default" in v && Object.keys(v).length === 1) return v.default;
-  return v;
-};
-
-/** AI の値を、動かす項目の値の形にする（合わなければ undefined） */
-export function coerce(it: MovableItem, raw: unknown): ItemValue | undefined {
-  const v = unbox(raw);
-  const c = it.control;
-  const num = (): number | undefined => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && DECIMAL.test(v) ? Number(v) : undefined);
-  const rate = (): string | undefined => (typeof v === "string" && DECIMAL.test(v) ? v : typeof v === "number" && Number.isFinite(v) ? String(v) : undefined);
-  switch (c.kind) {
-    case "range":
-    case "age":
-      return num();
-    case "rate":
-      return rate();
-    case "toggle":
-      return typeof v === "boolean" ? v : undefined;
-    case "field":
-      return c.field.kind === "pct" || c.field.kind === "decimal" ? rate() : num();
-    case "mix":
-      return Array.isArray(v) && v.every((m) => isObj(m) && typeof m.assetClass === "string" && typeof m.share === "string") ? (v as { assetClass: string; share: string }[]).map((m) => ({ assetClass: m.assetClass, share: m.share })) : undefined;
-    case "shift": {
-      const s = Array.isArray(v) ? v[0] : v;
-      return isObj(s) && typeof s.add === "string" && typeof s.from === "string" && DECIMAL.test(s.add) ? { add: s.add, from: s.from } : undefined;
-    }
-    case "work": {
-      // 働き方の種類（選択肢のどれか）と1年の収入（0〜上限の整数の円）。スライダーと同じ範囲
-      if (!isObj(v) || typeof v.type !== "string" || !c.options.some((o) => o.value === v.type)) return undefined;
-      const a = v.annual;
-      const annual = typeof a === "number" ? a : typeof a === "string" && DECIMAL.test(a) ? Number(a) : undefined;
-      return annual !== undefined && Number.isInteger(annual) && annual >= 0 && annual <= c.max ? { type: v.type, annual } : undefined;
-    }
-  }
-}
-
-const short = (v: unknown): string => {
-  const s = typeof v === "string" ? v : JSON.stringify(v) ?? "—";
-  return s.length > 60 ? `${s.slice(0, 60)}…` : s;
-};
-
-/** 率の項目の入れてよい範囲（割合の欄の min・max か、率のスライダーの limit。0098）。無ければ null */
-function rangeOf(it: MovableItem): PctRange | { min?: number; max?: number } | null {
-  const c = it.control;
-  if (c.kind === "rate") return c.limit ?? null;
-  if (c.kind === "field" && c.field.kind === "pct" && (c.field.min !== undefined || c.field.max !== undefined)) return { ...(c.field.min !== undefined ? { min: c.field.min } : {}), ...(c.field.max !== undefined ? { max: c.field.max } : {}) };
-  return null;
-}
-
-/** 候補の変更を、主画面の動かす項目に当てはめる（当てはまらないものは理由つきで返す） */
-export function candidateRows(c: AiCandidate, wh: WorkingHousehold, cat: Catalog): CandidateRow[] {
-  return c.diffs.map((d) => {
-    const base = { diffId: d.id, note: d.note };
-    // 当て先を正にする（0036 の9）: 欄の当て先の向き先と入力項目ID が候補と同じ欄。今までの向き先（働き方の欄は構成員など、欄の
-    // 一覧の向き先）で送る AI のアプリも当てはまるよう、どちらで合っても当てはめる。候補はまだ場所（at）を持たないので、当てはまる欄が
-    // 1つに決まらなければ取り込まない
-    const input = wh.request.input as unknown as Record<string, unknown>;
-    // 働き方の値を構成員に向けて送る候補は、その人の今の働き方の期間の欄にも当てはめる（今の働き方の年収は標準では年収〔賞与込み〕の1欄で、
-    // 年収・賞与の動かす項目は働き方の期間の欄にある。0078）
-    const tid = "object" in d.target ? d.target.object : null;
-    const memberId = tid !== null && wh.request.input.household.members.some((m) => m.id === tid) ? tid : null;
-    const period = memberId !== null && d.item?.startsWith("employment.") === true ? currentPeriodId(input, memberId) : null;
-    const hits = (t: DiffTarget) => sameTarget(t, d.target) || (period !== null && sameTarget(t, { object: period }));
-    const found = cat.items.filter((it) => {
-      if (it.phase !== "field" || it.item !== d.item) return false;
-      const r = resolveKey(it.key, input);
-      return (r !== null && r.kind === "address" && hits(r.address.target as DiffTarget)) || hits(it.target);
-    });
-    // 同じ値を指す欄（今の働き方の期間の欄と、その期間の欄など）は1つに数える
-    const placeOf = (it: MovableItem) => {
-      const r = resolveKey(it.key, input);
-      return r !== null && r.kind === "address" ? JSON.stringify(r.address) : it.key;
-    };
-    const matches = found.filter((it, i) => found.findIndex((x) => placeOf(x) === placeOf(it)) === i);
-    if (matches.length !== 1) {
-      return { ...base, label: itemName(d.item), from: "—", to: short(unbox(d.value)), key: null, value: null, reason: matches.length === 0 ? "「結果」の画面のプランでは動かせない項目です（取り込みません。必要なら入力で直してください）" : "対応する欄が複数あるため、取り込みません" };
-    }
-    const it = matches[0] as MovableItem;
-    const v = coerce(it, d.value);
-    const now = it.read(wh);
-    if (v === undefined) return { ...base, label: it.label, from: it.text(now), to: short(unbox(d.value)), key: null, value: null, reason: "値の形がこの項目に合わないため、取り込みません" };
-    const range = rangeOf(it);
-    if (range !== null && typeof v === "string" && !rateInRange(v, range)) return { ...base, label: it.label, from: it.text(now), to: short(unbox(d.value)), key: null, value: null, reason: `入れてよい範囲（${rangeText(range)}）の外の値のため、取り込みません` };
-    return { ...base, label: it.label, from: it.text(now), to: it.text(v), key: it.key, value: v, reason: it.same(v, now) ? "今と同じ値です" : null };
-  });
-}
-
-/** プランにする値（当てはまり、今と違うものだけ） */
-export function candidateValues(rows: readonly CandidateRow[]): Values {
-  const out: Values = {};
-  for (const r of rows) if (r.key !== null && r.reason === null) out[r.key] = r.value;
-  return out;
-}
+export { candidateRows, candidateValues, coerce, type CandidateRow } from "../plans/candidates.ts";
 
 /** プランの名前の例（アプリが作る。AI の題名はプランの名前に使わない） */
 export function candidatePlanName(wh: WorkingHousehold, cat: Catalog, values: Values): string {

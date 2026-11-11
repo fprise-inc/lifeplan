@@ -33,6 +33,7 @@ fn source(input: Value) -> SharedHouseholdSource {
         input,
         texts: vec![],
         labels_by_member: None,
+        post_retirement: None,
         external_ai_consent: Some(ConsentRef {
             decision: ConsentDecision::Given,
             record_id: "c-1".into(),

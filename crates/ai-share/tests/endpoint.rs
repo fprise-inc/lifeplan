@@ -39,6 +39,7 @@ fn source() -> SharedHouseholdSource {
         input: v["input"].clone(),
         texts: vec![],
         labels_by_member: None,
+        post_retirement: None,
         external_ai_consent: Some(ai_share::ConsentRef {
             decision: ai_share::ConsentDecision::Given,
             record_id: "c".into(),

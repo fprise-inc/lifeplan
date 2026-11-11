@@ -682,7 +682,7 @@ impl ShareRegistry {
         usable(&mut st, share_id, now)?;
         let share = st.shares.get_mut(share_id).ok_or_else(not_shared)?;
         let reduced = reduce::reduce(&share.source, &share.scope, &mut share.pseudonyms);
-        let payload = json!({
+        let mut payload = json!({
             "shareId": share_id,
             "alias": share.alias,
             "scope": share.scope.name(),
@@ -694,6 +694,10 @@ impl ShareRegistry {
             "input": reduced.input,
             "texts": reduced.texts,
         });
+        // 定年後の働き方の条件（数と選択肢だけ。物の ID は仮名。0195）。元の世帯が条件を持たなければ欄を出さない
+        if let Some(p) = &reduced.post_retirement {
+            payload["postRetirement"] = p.clone();
+        }
         let digest = content_digest(share.scope.name(), &reduced, &share.pseudonyms);
         let household_id = share.source.household_id.clone();
         let index = share.record_index;
@@ -770,14 +774,18 @@ fn content_digest(scope: &str, reduced: &reduce::Reduced, pseudonyms: &Pseudonym
         (Ok(i), Ok(t)) => (i, t),
         _ => (reduced.input.clone(), texts),
     };
-    let content = json!({
+    let mut content = json!({
         "scope": scope,
         "allowlistVersion": allowlist().version,
         "fields": reduced.fields,
         "input": input,
         "texts": texts,
-    })
-    .to_string();
+    });
+    // 定年後の働き方の条件（0195）は渡したときだけ入れる（無い世帯の指紋は前と同じ）
+    if let Some(p) = &reduced.post_retirement {
+        content["postRetirement"] = pseudonyms.restore(p).unwrap_or_else(|_| p.clone());
+    }
+    let content = content.to_string();
     format!("sha256:{:x}", Sha256::digest(content.as_bytes()))
 }
 
