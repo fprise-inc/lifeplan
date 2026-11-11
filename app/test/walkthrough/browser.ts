@@ -7,7 +7,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createServer, type ViteDevServer } from "vite";
-import { launchHeadless, openSocket } from "../../scripts/headless.ts";
+import { launchHeadless, openSocket, type Headless } from "../../scripts/headless.ts";
 import { APP_DIR } from "../../scripts/lib.ts";
 import { AUTOSAVE_MS } from "../../src/workspace/store/autosave.ts";
 import { PAGE_HELPERS } from "./pageHelpers.ts";
@@ -45,24 +45,38 @@ export async function start(): Promise<Session> {
   // 入口を先に読ませ、静的な読み込みが落ち着くまで待つ（初めの依存のまとめを画面を開く前に済ませ、開いた後のまとめ直しを減らす）
   await server.warmupRequest("/src/main.tsx").catch(() => undefined);
   await server.waitForRequestsIdle().catch(() => undefined);
-  const { proc, wsUrl } = await launchHeadless(exe, ["--no-first-run", "--no-default-browser-check", "--disable-background-networking", "--disable-component-update", "--disable-sync", "--lang=ja", ...(process.env.CI !== undefined ? ["--no-sandbox"] : []), "about:blank"], { prefix: "financia-walkthrough-" });
-  const cdp = await connect(wsUrl);
-  const page = await openPage(cdp, url);
-  return {
-    url,
-    page,
-    close: async () => {
-      if (process.env.WALKTHROUGH_TIMING === "1") {
-        const w = [...page.waits].sort((a, b) => b.ms - a.ms);
-        if (page.stuck.length > 0) console.log(`計算しています が出たまま: ${page.stuck.slice(0, 10).join("、")}（${page.stuck.length}回）`);
-        if (page.covered.length > 0) console.log(`隠れていた欄・ボタン: ${page.covered.join("、")}`);
-        console.log(`待ち ${w.length}回・合計 ${Math.round(w.reduce((a, x) => a + x.ms, 0) / 1000)}秒・長い順: ${w.slice(0, 15).map((x) => `${x.what} ${x.ms}ms`).join("、")}`);
-      }
-      cdp.close();
-      proc.kill();
-      await server.close();
-    },
+  // 途中で失敗しても、ブラウザと開発用のサーバーを残さない（ブラウザが終わらずに残る問題。headless.ts）
+  let browser: Headless | null = null;
+  let cdp: Cdp | null = null;
+  const stop = async () => {
+    cdp?.close();
+    await browser?.close();
+    await server.close();
   };
+  try {
+    browser = await launchHeadless(exe, ["--no-first-run", "--no-default-browser-check", "--disable-background-networking", "--disable-component-update", "--disable-sync", "--lang=ja", ...(process.env.CI !== undefined ? ["--no-sandbox"] : []), "about:blank"], { prefix: "financia-walkthrough-" });
+    cdp = await connect(browser.wsUrl);
+    const page = await openPage(cdp, url);
+    return {
+      url,
+      page,
+      close: async () => {
+        try {
+          if (process.env.WALKTHROUGH_TIMING === "1") {
+            const w = [...page.waits].sort((a, b) => b.ms - a.ms);
+            if (page.stuck.length > 0) console.log(`計算しています が出たまま: ${page.stuck.slice(0, 10).join("、")}（${page.stuck.length}回）`);
+            if (page.covered.length > 0) console.log(`隠れていた欄・ボタン: ${page.covered.join("、")}`);
+            console.log(`待ち ${w.length}回・合計 ${Math.round(w.reduce((a, x) => a + x.ms, 0) / 1000)}秒・長い順: ${w.slice(0, 15).map((x) => `${x.what} ${x.ms}ms`).join("、")}`);
+          }
+        } finally {
+          await stop();
+        }
+      },
+    };
+  } catch (e) {
+    await stop().catch(() => undefined);
+    throw e;
+  }
 }
 
 interface Cdp {
