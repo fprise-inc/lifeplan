@@ -30,6 +30,7 @@ pub const OMITS: &[&str] = &[
     "protection",
     "protectionDetail",
     "inheritanceTax",
+    "pension",
 ];
 
 /// 何年おきの上限
@@ -100,6 +101,11 @@ impl Options {
         self.omit.contains(k)
     }
 
+    /// 主な数字に年金の見込み（65歳からの月額）を入れるか（写しの要求をもう1〜2回計算するので、omit の pension で省ける。0199）
+    fn wants_pension(&self) -> bool {
+        !self.omits("keyFigures") && !self.omits("pension")
+    }
+
     /// 同梱した画面の関数（年齢・主な数字）を動かす要るか（年齢も主な数字も、人の鍵を添える物も要らなければ動かさない）
     fn needs_summary(&self, out: &Value) -> bool {
         !self.omits("ages")
@@ -110,18 +116,48 @@ impl Options {
 }
 
 /// 年齢と主な数字（同梱した画面の関数で数える。重いので、呼ぶ側は spawn_blocking の中で）。
-/// out は表示の形の計算の出力、request は計算の前の処理を当てる前の要求。要らないとき・エンジンの誤りのときは Null
-pub fn summary(out: &Value, request: &Value, opts: &Options) -> Result<Value, String> {
+/// out は表示の形の計算の出力、request は計算の前の処理を当てる前の要求、office は計算の前の処理に渡す事務所の推定の値。
+/// 要らないとき・エンジンの誤りのときは Null
+pub fn summary(
+    out: &Value,
+    request: &Value,
+    opts: &Options,
+    office: &Value,
+) -> Result<Value, String> {
     if out.get("error").is_some() || !opts.needs_summary(out) {
         return Ok(Value::Null);
     }
-    let args = if opts.at_ages.is_empty() {
-        json!({})
-    } else {
-        json!({ "atAges": opts.at_ages })
-    };
+    let mut args = Map::new();
+    if !opts.at_ages.is_empty() {
+        args.insert("atAges".into(), json!(opts.at_ages));
+    }
+    if opts.wants_pension() {
+        args.insert("pension".into(), pension_results(request, office)?);
+    }
+    let args = Value::Object(args);
     let s = engine::summarize(&out.to_string(), &request.to_string(), &args.to_string())?;
     serde_json::from_str(&s).map_err(|e| e.to_string())
+}
+
+/// 年金の見込みの写しの要求（画面の比較の表の年金の行と同じ。0075・0199）を、画面と同じく計算の前の処理を当てて計算した結果
+/// （`{ std, claimed }`。写しが無い・計算できないときは null）
+fn pension_results(request: &Value, office: &Value) -> Result<Value, String> {
+    let reqs: Value = serde_json::from_str(&engine::pension_requests(&request.to_string())?)
+        .map_err(|e| e.to_string())?;
+    let run = |r: &Value| -> Result<Value, String> {
+        if r.is_null() {
+            return Ok(Value::Null);
+        }
+        let p: Value = serde_json::from_str(&engine::prepare(&r.to_string(), &office.to_string())?)
+            .map_err(|e| e.to_string())?;
+        let out = engine::run_preview(&p["request"])?;
+        Ok(if out.get("error").is_some() {
+            Value::Null
+        } else {
+            out
+        })
+    };
+    Ok(json!({ "std": run(&reqs["std"])?, "claimed": run(&reqs["claimed"])? }))
 }
 
 /// 何年おきに選ぶ年（最初の年と最後の年はいつも入る）

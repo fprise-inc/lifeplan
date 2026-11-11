@@ -8,11 +8,11 @@ import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { prepare, type Applied } from "../src/connector/prepare.ts";
 import { forEngine } from "../src/engine/moneyRows.ts";
-import type { Debt, EngineRequest, IncomeFlow, PeriodicExpense, PreviewResult } from "../src/engine/types.ts";
+import type { Debt, EngineRequest, IncomeFlow, PeriodicExpense } from "../src/engine/types.ts";
 import { buildEvidence } from "../src/workspace/evidence.ts";
 import { EMPTY_ESTIMATES, withNoFill, withOfficeValue, type OfficeEstimates } from "../src/workspace/office/estimates.ts";
 import { publishOfficeSettings, readOfficeSettings } from "../src/workspace/office/settings.ts";
-import { full, modelHousehold, preview } from "./helpers.ts";
+import { full, modelHousehold, preview, screenTotals, screenYears } from "./helpers.ts";
 
 const REPO = join(import.meta.dirname, "..", "..");
 const FIXTURE = join(REPO, "crates", "lifeplan", "tests", "fixtures", "prepare", "expected.json");
@@ -48,20 +48,7 @@ function fixtureRequest(): EngineRequest {
 
 const prepared = (req: EngineRequest, office: OfficeEstimates | null) => JSON.parse(prepare(JSON.stringify(req), JSON.stringify(office))) as { request: EngineRequest; applied: Applied };
 
-/** 接続口の calculate の summary の years と同じ物（年ごとの年間収支と金融資産） */
-const years = (r: PreviewResult) => {
-  const by = new Map<number, { year: number; net: number; financialAssets: number }>();
-  for (const c of r.table) {
-    const y = by.get(c.year) ?? { year: c.year, net: 0, financialAssets: 0 };
-    if (c.row === "cf.net") y.net += c.amount;
-    if (c.row === "cf.balance.financial") y.financialAssets += c.amount;
-    by.set(c.year, y);
-  }
-  return [...by.values()].sort((a, b) => a.year - b.year);
-};
 
-/** 接続口の calculate の totals と同じ物 */
-const totals = (r: PreviewResult) => (r.summary as { totals: unknown }).totals;
 
 /** 見本に入れる根拠の問い（行と年） */
 const ASKS: { row: string; year: number }[] = [
@@ -81,9 +68,9 @@ describe("AI接続口の計算の前の処理（0184）", () => {
     // 前処理が数字を変える世帯であること（外した相続・夢、事務所の値）
     const raw = preview(req);
     const done = preview(screen);
-    expect(years(done)).not.toEqual(years(raw));
+    expect(screenYears(done, req)).not.toEqual(screenYears(raw, req));
     useOffice(null);
-    expect(years(preview(forEngine(req)))).not.toEqual(years(done));
+    expect(screenYears(preview(forEngine(req)), req)).not.toEqual(screenYears(done, req));
   });
 
   it("事務所の値が無ければ、画面の事務所の値が無いときと同じ（計算に入れない物だけを外す）", () => {
@@ -144,8 +131,8 @@ describe("AI接続口の計算の前の処理（0184）", () => {
     const fixture = {
       input: req.input,
       officeEstimates: OFFICE,
-      screen: { years: years(withOffice), totals: totals(withOffice) },
-      screenWithoutOffice: { years: years(withoutOffice), totals: totals(withoutOffice) },
+      screen: { years: screenYears(withOffice, req), totals: screenTotals(withOffice, req) },
+      screenWithoutOffice: { years: screenYears(withoutOffice, req), totals: screenTotals(withoutOffice, req) },
       evidence,
     };
     const text = `${JSON.stringify(fixture, null, 2)}\n`;

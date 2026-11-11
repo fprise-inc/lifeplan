@@ -212,7 +212,15 @@ async fn standalone_tools_work_without_the_app() {
     .await;
     let b = call_ok(&c, "calculate", json!({ "input": input })).await;
     assert_eq!(a["totals"], b["totals"]);
-    assert!(a["years"].as_array().unwrap().len() >= 2);
+    // single25 は表が 2027年まで。計算基準月が 2026-10 なので、年の途中の 2026年は画面の表と同じく出さない（0200）
+    let ys: Vec<i64> = a["years"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|y| y["year"].as_i64().unwrap())
+        .collect();
+    assert_eq!(ys, [2027]);
+    assert_eq!(a["keyFigures"]["years"]["from"], 2027);
     let higher = call_ok(
         &c,
         "calculate",
@@ -681,6 +689,18 @@ async fn reduced_view_calculates_the_same_for_every_model_household() {
             let b: Value = serde_json::from_str(&sample.1).unwrap();
             assert_eq!(a["totals"], b["totals"], "{id}");
             assert_eq!(a["years"], b["years"], "{id}");
+            assert_eq!(a["keyFigures"], b["keyFigures"], "{id}");
+            // 年ごとの数字と合計は、主な数字と同じく画面の表に出す年から（計算基準月が年の途中なら、計算の最初の年を外す。0199）
+            let k = &b["keyFigures"];
+            assert_eq!(b["years"][0]["year"], k["years"]["from"], "{id}");
+            let t = &b["totals"];
+            let n = |v: &Value| v.as_i64().unwrap();
+            assert_eq!(
+                n(&t["income"]) - n(&t["taxSi"]),
+                n(&k["lifetimeTakeHome"]),
+                "{id}"
+            );
+            assert_eq!(n(&t["expense"]), n(&k["lifetimeExpense"]), "{id}");
         }
         reg.revoke(&g.share_id);
     }
@@ -1251,6 +1271,17 @@ async fn calculate_key_figures_match_the_screen() {
         ]
     );
     assert_eq!(small["keyFigures"]["assetsAtAge"][1]["age"], 90);
+    // 65歳からの年金の月額は既定で入り、omit の pension で省ける（写しの要求の計算もしない。0199）
+    assert!(small["keyFigures"]["pension"]["monthly"].is_number());
+    assert_eq!(small["keyFigures"]["pension"]["people"][0]["who"], "self");
+    let no_pension = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": id, "omit": ["years", "pension"] }),
+    )
+    .await;
+    assert!(no_pension["keyFigures"].get("pension").is_none());
+    assert!(no_pension["keyFigures"]["depletion"].is_object());
 
     // 何年おき・どの数字だけ
     let five = call_ok(
@@ -2096,6 +2127,14 @@ async fn compare_matches_the_screen() {
             assert_eq!(r["label"], col["label"]);
             same_figures(&r["keyFigures"], &col["keyFigures"], &what);
             same_series(&r["series"], &col["financialAssets"], &what);
+            // 65歳からの年金の月額は、画面の比較の表の年金の行と同じ（0199）
+            let pension = &r["keyFigures"]["pension"];
+            assert_eq!(pension["monthly"], col["pension"]["std"], "{what}");
+            assert_eq!(
+                pension["claimedMonthly"], col["pension"]["claimed"],
+                "{what}"
+            );
+            assert_eq!(pension["anyClaim"], col["pension"]["anyClaim"], "{what}");
             if i == 0 {
                 assert!(r.get("diff").is_none());
                 continue;
@@ -2103,6 +2142,14 @@ async fn compare_matches_the_screen() {
             assert_eq!(r["from"], json!({ "onBase": true }));
             // 基本との差は画面の比較の表と同じ（資産が尽きる年の文）
             assert_eq!(r["diff"]["depletion"], case["depletionDiffs"][i], "{what}");
+            assert_eq!(
+                r["diff"]["pensionClaimedMonthly"].as_i64().unwrap(),
+                pension["claimedMonthly"].as_i64().unwrap()
+                    - results[0]["keyFigures"]["pension"]["claimedMonthly"]
+                        .as_i64()
+                        .unwrap(),
+                "{what}"
+            );
             let base = &results[0]["keyFigures"];
             for k in ["lifetimeTakeHome", "lifetimeExpense", "loanRepayment"] {
                 assert_eq!(
@@ -2142,6 +2189,67 @@ async fn compare_matches_the_screen() {
         );
     }
 
+    // 相場が下がった場合（画面の資産運用のタブの3つの型。0199）: 基本のプランの上に重ね、画面と同じ数字と型の文
+    for case in fx["market"].as_array().unwrap() {
+        let cols = case["columns"].as_array().unwrap();
+        let variants: Vec<Value> = cols[1..]
+            .iter()
+            .map(|c| json!({ "market_stress": c["key"] }))
+            .collect();
+        let got = call_ok(
+            &c,
+            "compare",
+            json!({ "sample_household_id": case["sample"], "plan_changes": case["changes"], "variants": variants, "every_years": 1 }),
+        )
+        .await;
+        for (r, col) in got["results"].as_array().unwrap().iter().zip(cols) {
+            let what = format!("{} {}", case["sample"], col["label"]);
+            assert_eq!(r["status"], "ok", "{what}: {r}");
+            same_figures(&r["keyFigures"], &col["keyFigures"], &what);
+            same_series(&r["series"], &col["financialAssets"], &what);
+            if col["key"].is_null() {
+                assert!(r.get("marketStress").is_none());
+            } else {
+                assert_eq!(
+                    r["marketStress"],
+                    json!({ "key": col["key"], "label": col["label"] }),
+                    "{what}"
+                );
+            }
+        }
+    }
+    // 型の誤り・エンジンの型と一緒の通りは、その通りだけ理由を返す
+    let got = call_ok(
+        &c,
+        "compare",
+        json!({ "sample_household_id": "investmentCouple", "market_stress": "drop", "variants": [
+            { "market_stress": "x" }, { "market_stress": "low", "stress_test": "rateRise" }, { "stress_test": "rateRise" }, { "label": "基本と同じ型" },
+        ] }),
+    )
+    .await;
+    let r = got["results"].as_array().unwrap();
+    assert!(
+        r[1]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("drop・low・minus1"),
+        "{}",
+        r[1]
+    );
+    assert!(
+        r[2]["reason"].as_str().unwrap().contains("どちらか1つ"),
+        "{}",
+        r[2]
+    );
+    // 通りにエンジンの型を書けば、基本の画面の型は重ねない。書かなければ基本の型
+    assert!(
+        r[3].get("marketStress").is_none() && r[3]["stressTest"] == "rateRise",
+        "{}",
+        r[3]
+    );
+    assert_eq!(r[4]["marketStress"]["key"], "drop");
+    assert_eq!(r[4]["keyFigures"], r[0]["keyFigures"]);
+
     // 見本の世帯どうし（別の世帯の通り）。既定の系列は5年ごと・年齢つき
     let samples = fx["samples"].as_array().unwrap();
     let variants: Vec<Value> = samples[1..]
@@ -2158,6 +2266,10 @@ async fn compare_matches_the_screen() {
         let what = s["sample"].as_str().unwrap();
         assert_eq!(r["status"], "ok", "{what}: {r}");
         same_figures(&r["keyFigures"], &s["keyFigures"], what);
+        assert_eq!(
+            r["keyFigures"]["pension"]["monthly"], s["pension"]["std"],
+            "{what}"
+        );
         assert_eq!(r["from"]["sampleHouseholdId"], s["sample"]);
         let series = r["series"].as_array().unwrap();
         let screen: Vec<i64> = s["financialAssets"]

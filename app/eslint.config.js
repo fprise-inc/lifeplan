@@ -91,7 +91,7 @@ export default tseslint.config(
         "error",
         {
           patterns: [
-            { regex: "(^|/)workspace/(?!(evidence|present|office/estimates|catalog|roles|input/household|plans/(candidates|items|plans|compare))\\.ts$)", message: "AI接続口の根拠の読み方・計算の前の処理・プランの動かす項目・主な数字は、作業の層のうち evidence・present・office/estimates・catalog・roles・input/household・plans/candidates・plans/items・plans/plans・plans/compare だけを読める（0183・0184・0194・0195）" },
+            { regex: "(^|/)workspace/(?!(evidence|present|office/estimates|catalog|roles|input/(household|pensionLines)|invest/present|plans/(candidates|items|plans|compare))\\.ts$)", message: "AI接続口の根拠の読み方・計算の前の処理・プランの動かす項目・主な数字は、作業の層のうち evidence・present・office/estimates・catalog・roles・input/household・input/pensionLines・invest/present・plans/candidates・plans/items・plans/plans・plans/compare だけを読める（0183・0184・0194・0195・0199）" },
             { regex: "^preact", message: "AI接続口の根拠の読み方は、画面の部品を読めない（0183）" },
             { regex: "(^|/)engine/(host|dual)(\\.ts)?$", message: "AI接続口の根拠の読み方は、本体の命令・二本立ての部品を読めない（0183）" },
             { regex: "(^|/)App(\\.tsx)?$", message: "AI接続口の根拠の読み方は、画面の大枠を読み込めない（0183）" },
