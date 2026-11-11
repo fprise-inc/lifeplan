@@ -204,6 +204,7 @@ export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDef
           {model.customViews.map((c) => (
             <button type="button" key={c.key} class="bs-vbtn" aria-pressed={sub === c.key} onClick={() => setSub(c.key)} data-bs-sub={c.key}>
               {c.label}
+              {c.sample !== undefined ? <span class="tag bs-sample-tag">見本</span> : null}
             </button>
           ))}
         </div>
@@ -1221,6 +1222,12 @@ function CustomView({ model, view: cv, onField }: { model: BalanceTabModel; view
           </span>
         ) : null}
       </div>
+      {cv.sample !== undefined ? (
+        <p class="bs-sample-note" role="note" data-bs-custom-sample>
+          <span class="tag bs-sample-tag">見本</span>
+          {cv.sample}
+        </p>
+      ) : null}
       {cv.lead !== undefined ? <p class="bs-subline">{cv.lead}</p> : null}
       {notices.length > 0 ? (
         <div class="bs-cnotice" role="status" data-bs-custom-notices>
