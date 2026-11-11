@@ -217,6 +217,8 @@ export interface IncomeFlow {
   amount: ValueBox<number>;
   counterparty?: string;
   likelihood?: "certain" | "uncertain";
+  /** 伸び方（援助は「変えない」、相続・遺贈の1回の行は「その時の額のまま」。どちらも growth none。0044 の追記 2026-11-10・2026-11-11） */
+  growth?: { kind: "none" };
 }
 
 /** 出るお金の行（ご両親への仕送り。0044） */
@@ -231,6 +233,8 @@ export interface PeriodicExpense {
   monthly?: boolean;
   amount: ValueBox<number>;
   counterparty?: string;
+  /** 伸び方（仕送りは「変えない」。0044 の追記 2026-11-10） */
+  growth?: { kind: "none" };
 }
 
 export interface EngineRequest {

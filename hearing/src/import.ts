@@ -789,7 +789,8 @@ function importParents(c: Ctx, h: Household, adults: Adults, asOf: string, baseM
 
 /**
  * ご両親への仕送り・ご両親からの援助（毎月）と、介護が始まっているか（詳細版の版3から。0059）。仕送りは相手をこの親にした仕送りの出るお金の行、
- * 援助は入るお金の行（援助・仕送りを受ける）にし、どちらも今の月から毎月（終わりは入れない。相手が亡くなる見込みの月で止まる）。
+ * 援助は入るお金の行（援助・仕送りを受ける）にし、どちらも今の月から毎月（終わりは入れない。相手が亡くなる見込みの月で止まる）。伸び方は、画面で足す
+ * 行と同じく、仕送り・援助の既定の「変えない」（額を決めて送るお金。0044 の追記 2026-11-10）。
  * 介護が始まっていれば、この親の介護の費用を1件（始まりは前の月〔始まった年月はシートで聞かない。仮の値〕・期間は統計の平均・月々の費用は記入の額）
  */
 function importParentMoney(c: Ctx, h: Household, m: Member, n: number, baseMonth: string): void {
@@ -797,7 +798,7 @@ function importParentMoney(c: Ctx, h: Household, m: Member, n: number, baseMonth
   const allowance = c.get<number>(`${P}.allowance`, n);
   if (allowance.status === "value" && allowance.value > 0) {
     const id = c.newId();
-    const row: PeriodicExpense = { id, label: "仕送り", kind: "allowance", row: "cf.expense.other", from: at, to: null, everyYears: 1, monthly: true, amount: c.box(`${P}.allowance`, n, allowance.value), counterparty: m.id };
+    const row: PeriodicExpense = { id, label: "仕送り", kind: "allowance", row: "cf.expense.other", from: at, to: null, everyYears: 1, monthly: true, amount: c.box(`${P}.allowance`, n, allowance.value), counterparty: m.id, growth: { kind: "none" } };
     c.field(id, `${P}.allowance`, n, "periodicExpense.amount", "/amount", "confirmed");
     (h.periodicExpenses ??= []).push(row);
     c.candidate("periodicExpenses", "periodicExpense.amount", row, undefined, "今の月から毎月としました。始まり・終わりは面談で確かめてください");
@@ -805,7 +806,7 @@ function importParentMoney(c: Ctx, h: Household, m: Member, n: number, baseMonth
   const support = c.get<number>(`${P}.support`, n);
   if (support.status === "value" && support.value > 0) {
     const id = c.newId();
-    const flow: IncomeFlow = { id, label: "援助・仕送りを受ける", kind: "support", from: at, to: null, everyYears: 1, monthly: true, amount: c.box(`${P}.support`, n, support.value), counterparty: m.id };
+    const flow: IncomeFlow = { id, label: "援助・仕送りを受ける", kind: "support", from: at, to: null, everyYears: 1, monthly: true, amount: c.box(`${P}.support`, n, support.value), counterparty: m.id, growth: { kind: "none" } };
     c.field(id, `${P}.support`, n, "incomeFlow.amount", "/amount", "confirmed");
     (h.incomeFlows ??= []).push(flow);
     c.candidate("incomeFlows", "incomeFlow.amount", flow, undefined, "今の月から毎月としました。始まり・終わりは面談で確かめてください");
@@ -828,7 +829,7 @@ function importParentMoney(c: Ctx, h: Household, m: Member, n: number, baseMonth
 
 /**
  * 受け取る予定の相続・贈与（詳細版の版3から）: 「ある」なら、相続・遺贈の入るお金の行を1件（時期は記入の年の1月・無ければ1年後、額は目安の額・
- * 無ければ未入力）。見込みは「当てにしない」（基本の計算に入れない。面談で確かめて「確実」にする）。相手（誰から）はシートで聞かない
+ * 無ければ未入力。伸び方は「その時の額のまま」＝入れた額のまま。相続の入力項目の1回の行と同じ。0044 の追記 2026-11-11）。見込みは「当てにしない」（基本の計算に入れない。面談で確かめて「確実」にする）。相手（誰から）はシートで聞かない
  */
 function importInheritance(c: Ctx, h: Household, baseMonth: string): void {
   const I = "hs.inherit";
@@ -844,7 +845,7 @@ function importInheritance(c: Ctx, h: Household, baseMonth: string): void {
   const at = year.status === "value" ? { at: `${String(year.value)}-01` } : { at: addMonths(baseMonth, 12) };
   if (year.status === "value" && ymIndex(at.at) < ymIndex(baseMonth)) c.contradiction(`${I}.year`, undefined, "受け取る時期の見込みが今より前です");
   const box: ValueBox<number> = amount.status === "value" ? c.box(`${I}.amount`, undefined, amount.value) : { value: 0, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "未入力（額を入れてください。0円で計算中）" } };
-  const flow: IncomeFlow = { id, label: "相続・遺贈", kind: "inheritance", from: at, to: at, everyYears: 1, amount: box, likelihood: "uncertain" };
+  const flow: IncomeFlow = { id, label: "相続・遺贈", kind: "inheritance", from: at, to: at, everyYears: 1, amount: box, likelihood: "uncertain", growth: { kind: "none" } };
   c.field(id, `${I}.expected`, undefined, "incomeFlow.kind", "/kind", "confirmed");
   if (year.status === "value") c.field(id, `${I}.year`, undefined, "incomeFlow.from", "/from", "confirmed");
   else c.assume(`in/${id}/from`, "仮の値（受け取る時期の見込みの記入が無いため1年後）", { objectId: id, key: `${I}.year`, item: "incomeFlow.from", path: "/from" });

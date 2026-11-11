@@ -130,6 +130,7 @@ export const SEARCH_WORDS: readonly SearchWord[] = [
   // 相続・贈与
   { words: ["相続", "遺産", "遺贈", "遺言", "遺言書", "そうぞく", "いごん", "ゆいごん"], card: "inheritance", to: ["相続・遺贈", "受け取る予定の相続・贈与"] },
   { words: ["相続税", "路線価"], card: "inheritance", to: ["相続税の目安の設定", "相続税"] },
+  { words: ["相続税の試算", "税理士の試算"], card: "inheritance", to: ["税理士などが出した相続税の額"] },
   { words: ["生前贈与", "暦年贈与", "贈与", "孫への贈与", "ぞうよ"], card: "inheritance", to: ["あげる贈与", "贈与を受ける"] },
   { words: ["住宅資金の援助", "住宅取得資金", "教育資金の一括贈与"], card: "inheritance", to: ["贈与を受ける", "贈与する人"] },
   { words: ["遺したい", "残したい", "遺す"], card: "inheritance", to: ["遺したい額"] },

@@ -8,7 +8,8 @@ import { Help, HelpOf } from "../../presentation/Help.tsx";
 import { PopIcon } from "../../presentation/icons.tsx";
 import { FieldIcon } from "./fieldIcons.tsx";
 import { InfoNote } from "./InfoNote.tsx";
-import { blankLineFor, fittingPlaceholder, textEm } from "./placeholder.ts";
+import { FoldClose, FoldedGroup, useFold } from "./FoldedGroup.tsx";
+import { blankLineFor, fitsIn, fittingPlaceholder, shortBasis, textEm } from "./placeholder.ts";
 import { enterInput, noteRejected, type Settled } from "./pendingInput.ts";
 import type { Timepoint } from "../../engine/types.ts";
 import { groupShown, type ActionDef, type FieldDef, type FieldState, type GroupDef, type Level, type Option, type SectionDef, type TimeView, type Val, type WhenState } from "./form.ts";
@@ -588,6 +589,9 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
   // 事務所の欄の見せ方（カスタム層の隠す・並べ替え。見せ方だけで、世帯の値と計算は変えない。値の入った欄は隠さない）
   const layout = useContext(OfficeFieldsContext);
   const arrange = (fs: readonly FieldDef[]) => arrangeFields(fs, (f) => fieldTextId(f, wh), (f) => hasFieldValue(f, wh), layout);
+  // ふだんは閉じておくまとまり（folded。FoldedGroup.tsx）: 閉じている間は説明と開くボタンだけ
+  const fold = useFold(group, useGroupOpen());
+  if (fold?.open === false) return <FoldedGroup group={group} onOpen={fold.toggle} nested={nested} />;
   // 説明の欄（値ではなく説明の文）は、幅いっぱいの説明として描く（readLines.ts の infoNote）
   if (group.info !== undefined) return <InfoNote title={group.info.title} text={group.info.text} fold={group.info.fold} groupKey={group.key} />;
   // 詳細の欄が見えているとき（詳細、または標準で「▸ 詳しく」を開いたとき）は、標準だけの欄（simpleOnly）を出さない（代わりに詳細の欄を出す）
@@ -644,6 +648,7 @@ export function Group({ group, wh, level, onEdit, more, moreOf, inner = [], sub 
       {group.band === true ? sub : null}
       {actions.some((a) => a.danger !== true) ? <Actions actions={actions.filter((a) => a.danger !== true)} wh={wh} onEdit={onEdit} /> : null}
       {moreLast && group.band !== true ? sub : null}
+      {fold?.closable === true ? <FoldClose groupKey={group.key} label={group.title ?? group.folded?.name ?? "この欄"} onClose={fold.toggle} /> : null}
       {more !== undefined ? <MoreToggle groupKey={group.key} open={more.open} toggle={more.toggle} label={group.title ?? "この欄"} text={group.moreLabel} swapNotes={swapNotesOf(group, more.open)} /> : null}
       {more?.open === true && (extraFields.length > 0 || extraActions.length > 0) ? (
         <div class="grp-more-body" data-more-of={group.key}>
@@ -1185,17 +1190,24 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   let problem: string | null = null;
   /** 空欄の意味が欄に収まらなかったときの、欄の下の1行（「空欄なら: ○○」） */
   let blankLine: string | null = null;
+  /** 空欄の推定の値を欄の中に灰色で見せたか（欄の横は hint の代わりに根拠の短い文。0041 の追記 2026-11-10） */
+  let ghosted = false;
   if (f.time !== undefined && f.readOnly === undefined && (f.kind === "when" || inSection)) {
-    return <WhenField f={f} time={f.time} state={state.when ?? f.time.state(wh)} label={f.label} badge={badge} id={id} wh={wh} onEdit={onEdit} warn={state.warn ?? null} warnFix={state.warnFix ?? null} status={shownStatus} fill={fill(false)} extras={stateLines} />;
+    // 推定の時点（仮の印）の欄は、欄の横に根拠の短い文（FieldState.blankHint）を添える（数の欄の灰色の推定の値と同じ。0041 の追記 2026-11-11）
+    const estNote = shownStatus === "estimated" && state.blankHint != null && state.blankHint !== "" ? state.blankHint : null;
+    return <WhenField f={f} time={f.time} state={state.when ?? f.time.state(wh)} label={f.label} badge={badge} id={id} wh={wh} onEdit={onEdit} warn={state.warn ?? null} warnFix={state.warnFix ?? null} status={shownStatus} fill={fill(false)} note={estNote} extras={stateLines} />;
   }
   if (f.readOnly !== undefined) {
     // 円の欄は万円（か円）の書き方で、月額・年額を添える
     const roYen = (v: number, k: Extract<FieldDef, { kind: "yen" }>) => `${formatYen(v, k.unit ?? "man")}${(k.unit ?? "man") === "man" ? "万円" : "円"}${k.basis === "annual" ? "（年額）" : k.basis === "monthly" ? "（月額）" : ""}`;
     control = <span class="ro">{f.kind === "select" ? (f.options.find((o) => o.value === state.value)?.label ?? "") : state.value === null ? "—" : f.kind === "yen" && typeof state.value === "number" ? roYen(state.value, f) : String(state.value)}</span>;
   } else if (f.kind === "select") {
+    // 空欄のまま推定で計算する選ぶ欄で推定の値を書ける欄（blankEstimate）は、空の選択肢の名前を推定の選択肢にする（「（推定: 一時金）」。
+    // 「（選ぶ）」では空欄でどう計算するか分からない。0041 の追記 2026-11-11）
+    const estOpt = state.value === null && shownStatus === "estimated" && f.blankEstimate !== undefined ? f.options.find((o) => o.value === f.blankEstimate?.(wh)) : undefined;
     control = (
       <select id={id} value={state.value === null ? "" : String(state.value)} onChange={(e) => commit((e.currentTarget as HTMLSelectElement).value)}>
-        {state.value === null || !f.options.some((o) => o.value === state.value) ? <option value="">（選ぶ）</option> : null}
+        {state.value === null || !f.options.some((o) => o.value === state.value) ? <option value="">{estOpt !== undefined ? `（推定: ${estOpt.label}）` : "（選ぶ）"}</option> : null}
         {optionNodes(f.options)}
       </select>
     );
@@ -1204,15 +1216,16 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   } else {
     // 未入力（0円で計算中）の欄は空で見せる（印の0円を見せない。打てば確定になる）
     const missingNow = (status ?? fieldStatus(f, wh)).status === "missing";
-    const shown = (() => {
-      if (state.value === null || missingNow) return "";
+    /** 値を欄の文字にする（円の欄は今の単位・月額か年額で） */
+    const textOf = (val: Val): string => {
       if (f.kind === "yen") {
-        const v = toPeriod(state.value as number, f.basis, period);
-        return v === null ? formatYen(state.value as number, unit) : formatYen(v, unit);
+        const v = toPeriod(val as number, f.basis, period);
+        return v === null ? formatYen(val as number, unit) : formatYen(v, unit);
       }
-      if (f.kind === "pct") return pctFromRate(String(state.value));
-      return String(state.value);
-    })();
+      if (f.kind === "pct") return pctFromRate(String(val));
+      return String(val);
+    };
+    const shown = state.value === null || missingNow ? "" : textOf(state.value);
     const readOpts = { unit, period, baseMonth: wh.request.input.baseMonth };
     /** 読めてもほかの入力と合わず書けない理由（欄の refuse。0161） */
     const refused = (text: string): string | null => {
@@ -1240,7 +1253,12 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
     const bad = draft !== null && parse(draft) === undefined;
     problem = bad ? (refused(draft) ?? rejectReason(f, draft, unit) ?? "この値は入れられません") : rejected;
     const inputClass = f.kind === "text" ? "txt" : f.kind === "ym" ? "ym" : "num";
-    filledInside = canFill && fillInside(inputClass, shown);
+    // 空欄のまま推定で計算する欄で、推定の値を書ける欄（blankEstimate）は、推定の値そのものを欄の中に灰色で見せる（「空欄＝推定」の代わり。
+    // 枠は推定の点線、名前の横に「推定」の印、欄の中か横に「この値にする」。打ち始めると消える。0041 の追記 2026-11-10）
+    const ghostVal = f.kind !== "text" && f.blankMeans === undefined && shownStatus === "estimated" && state.value === null && f.blankEstimate !== undefined ? f.blankEstimate(wh) : null;
+    const ghost = ghostVal === null ? null : textOf(ghostVal);
+    ghosted = ghost !== null && ghost !== "" && fitsIn(inputClass, ghost);
+    filledInside = canFill && fillInside(inputClass, shown !== "" ? shown : ghosted ? (ghost as string) : "");
     // 灰色の入力例: 空欄に意味のある欄は「空欄＝○○」を先に（収まらなければ欄の下の1行）、次に欄ごとの例。年月の欄の共通の例は過去の年月
     const blankMeans = f.blankMeans ?? (state.estimated != null ? "推定" : null);
     const blankText = blankMeans !== null ? `空欄＝${blankMeans}` : null;
@@ -1252,7 +1270,9 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
           ? "該当なし"
           : shownStatus === "missing"
             ? "未入力"
-            : fittingPlaceholder(inputClass, blankText, example);
+            : ghosted
+              ? (ghost as string)
+              : fittingPlaceholder(inputClass, blankText, example);
     blankLine = (draft ?? shown) === "" && f.blankMeans !== undefined ? blankLineFor(inputClass, f.blankMeans) : null;
     const input = (
       <input
@@ -1260,7 +1280,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
         id={id}
         type="text"
         inputMode={f.kind === "text" || f.kind === "ym" ? undefined : "decimal"}
-        class={`${inputClass}${bad ? " bad" : ""}${filledInside ? " has-fill" : ""}`}
+        class={`${inputClass}${bad ? " bad" : ""}${filledInside ? " has-fill" : ""}${ghosted ? " est-ghost" : ""}`}
         value={draft ?? shown}
         placeholder={placeholder}
         aria-invalid={bad ? true : undefined}
@@ -1297,7 +1317,7 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
         }}
       />
     );
-    // 数の欄は、灰色の推定の値の左（欄の中）に「この値にする」を置く。打ち始めると隠れる（app.css）
+    // 数の欄は、灰色の推定の値（入っている推定の値か、空欄の推定の値）の左（欄の中）に「この値にする」を置く。打ち始めると隠れる（app.css）
     control = filledInside ? (
       <span class="fld-box">
         {input}
@@ -1326,7 +1346,12 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
       <span class="suffix">{f.suffix}</span>
     ) : null;
   // 年月の欄は、どれも欄に「2041-06」、横に和暦（今より後なら「今から○年後」も）。欄ごとの読み（生年月の年齢など）があればそちら
-  const hint = state.hint ?? (f.kind === "ym" && typeof state.value === "string" ? readYearMonth(state.value, wh.request.input.baseMonth) : null);
+  // 空欄の推定の値を欄の中に見せたときは、値の繰り返しの hint（「月5.2万円（推定）」）の代わりに根拠の短い文
+  const hint = ghosted
+    ? state.blankHint !== undefined
+      ? state.blankHint
+      : shortBasis(basisText)
+    : (state.hint ?? (f.kind === "ym" && typeof state.value === "string" ? readYearMonth(state.value, wh.request.input.baseMonth) : null));
   return (
     <div class={`fld${shownStatus === "estimated" ? " is-est" : shownStatus !== null && shownStatus !== "confirmed" ? ` is-${STATUS_CLASS[shownStatus]}` : ""}`} data-field={f.key}>
       <div class="fld-l">
@@ -1418,7 +1443,7 @@ function readText(time: TimeView, wh: WorkingHousehold, ctx: WhenCtx, text: stri
  * 横の「入れ方」で見せ方を選び直せる（同じ月のまま形を変える）。読み替えた形と、読めない理由を欄の下に1行で出す。
  * 打っている間は世帯を変えず、欄を離れたとき（Enter）に入れる
  */
-function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, warnFix, status, fill, extras }: { f: FieldDef; time: TimeView; state: WhenState; label: string; badge: ComponentChildren; id: string; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; warn: string | null; warnFix: FieldState["warnFix"]; status: ValueStatus | null; fill: ComponentChildren; extras: ComponentChildren }) {
+function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, warnFix, status, fill, note, extras }: { f: FieldDef; time: TimeView; state: WhenState; label: string; badge: ComponentChildren; id: string; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; warn: string | null; warnFix: FieldState["warnFix"]; status: ValueStatus | null; fill: ComponentChildren; note: string | null; extras: ComponentChildren }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [rejected, setRejected] = useState<string | null>(null);
   const [picked, setPicked] = useState<WhenMode | null>(null);
@@ -1585,6 +1610,11 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, warnFix
           </select>
         ) : null}
         {fill}
+        {note !== null ? (
+          <span class="fld-hint" data-when-note={f.key}>
+            {note}
+          </span>
+        ) : null}
       </div>
       <div class="fld-help when-read" id={`${id}-read`} data-when-read={f.key}>
         {reading}

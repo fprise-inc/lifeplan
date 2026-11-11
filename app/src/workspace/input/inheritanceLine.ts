@@ -2,10 +2,10 @@
 // 今の世帯の要求に相続税の目安（いま亡くなったら・二人とも亡くなった後）を求めて1回だけ計算し、入力項目の要約の下の小さな1行とパネルの1行に出す。
 // 表示だけで、お金の流れ・世帯の物は変えない（求めるのは画面の側の写しの要求）。計算の道が無い所（画面の確かめなど）では出さない
 import { useEffect, useMemo, useState } from "preact/hooks";
-import type { EngineRequest, InheritancePoint, PreviewResult } from "../../engine/types.ts";
+import type { EngineRequest, Household, InheritancePoint, PreviewResult } from "../../engine/types.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { manText } from "./items.ts";
-import { memberLabel } from "./labels.ts";
+import { bothAfterLabel, memberLabel } from "./labels.ts";
 
 /** 相続税の目安を求める要求（今の世帯の写し。万一の想定・必要保障額の推移は外す） */
 export function inheritanceRequest(req: EngineRequest): EngineRequest {
@@ -25,15 +25,15 @@ const pointText = (p: InheritancePoint): string | null => {
 };
 
 /**
- * 入力項目の要約の下の小さな1行（「相続税（二人とも亡くなった後）: かからない見込み」「相続税（二人とも亡くなった後）: 約120万円」）。
- * 二人とも亡くなった後の目安。無ければ、いまの目安の大きい方。主な表示は入れた中身（items.ts。0060 の 2026-10-29 の追記）
+ * 入力項目の要約の下の小さな1行（「相続税（二人とも亡くなった後）: かからない見込み」「相続税（二人とも亡くなった後）: 約120万円」。一人の世帯は「相続税（表の最後の年）: …」）。
+ * 二人とも亡くなった後（一人の世帯は表の最後の年）の目安。無ければ、いまの目安の大きい方。主な表示は入れた中身（items.ts。0060 の 2026-10-29 の追記）
  */
-export function inheritanceTaxNote(r: PreviewResult | null): string | null {
+export function inheritanceTaxNote(r: PreviewResult | null, h: Household): string | null {
   const points = (r?.inheritanceTax?.points ?? []).filter((p) => p.status === "ok");
   const p = points.find((x) => x.point === "bothAfter") ?? [...points].sort((a, b) => b.payable - a.payable)[0];
   if (p === undefined) return null;
   // どの場面の相続税かを書く（二人とも亡くなった後の目安と、いま亡くなったときの目安は額が大きく違う。0041 の追記 2026-11-06）
-  const head = `相続税（${p.point === "bothAfter" ? "二人とも亡くなった後" : "いま亡くなったら"}）`;
+  const head = `相続税（${p.point === "bothAfter" ? bothAfterLabel(h) : "いま亡くなったら"}）`;
   if (p.state === "confirmed") return `${head}: ${manText(p.amount)}万円`;
   return p.noTax ? `${head}: かからない見込み` : `${head}: 約${manText(p.payable)}万円`;
 }
@@ -118,7 +118,7 @@ export function inheritanceView(wh: WorkingHousehold, r: PreviewResult | null): 
     const p = p0 as PointFull;
     const answer = pointText(p);
     if (answer === null) continue;
-    const title = p.point === "bothAfter" ? `二人とも亡くなった後（${p.month.slice(0, 4)}年）` : p.point === "contingency" ? `万一のタブで${memberLabel(wh, p.decedent)}が亡くなったら` : `いま${memberLabel(wh, p.decedent)}が亡くなったら`;
+    const title = p.point === "bothAfter" ? `${bothAfterLabel(wh.request.input.household)}（${p.month.slice(0, 4)}年）` : p.point === "contingency" ? `万一のタブで${memberLabel(wh, p.decedent)}が亡くなったら` : `いま${memberLabel(wh, p.decedent)}が亡くなったら`;
     const details: string[] = [];
     // 相続人がいない（子のいない夫婦の二人とも亡くなった後など）: 兄弟姉妹・甥姪が相続人になる世帯で、何を入れればよいかを添える
     if (p.status === "noHeirs") details.push(NO_HEIRS_HINT);
