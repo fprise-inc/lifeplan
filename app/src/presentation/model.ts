@@ -699,6 +699,8 @@ export interface BsCustomViewModel {
   form?: { title: string; note: string; open: boolean; groups: { title: string; note?: string; fields: BsCustomField[] }[] };
   /** 入力が足りず図を出せないときの文（任意。あれば図の代わりに出す） */
   empty?: string;
+  /** 見本の世帯でだけ見られることの案内（任意。機能を有効にするコードが無く、見本の世帯なので見せているとき。0197） */
+  sample?: string;
 }
 
 export interface BalanceTabModel {

@@ -2,6 +2,8 @@
 // - 見せ方の差し込み口（view.balance・report.chapter）の関数に、自分の入力欄の値と reads に書いた値（balance.now）だけを写して渡す
 // - view.balance の返した値に、鍵（束の id）と入力欄（宣言と今の値から作る）を足して、資産と負債のタブの見るもの（BsCustomViewModel）にする
 // - 有効にする条件: 公式の拡張は機能を有効にするコード（0110）と事務所の設定の印、世帯の条件（activation.households）
+// - アプリの見本の世帯（架空。保存していないもの）では、コードが無くても公式の拡張を見せる（sampleExtensions。見本の印を付ける。0197）。
+//   コードの無い FP にも見える文には、コードのことを書かない（0197 の追記）
 // - 計算の要求・計算の結果には触れない（束の値は計算の要求の外。0114 の4）
 import type { BalanceView, ExtColumn, ExtInput, ExtValue, HouseholdNow } from "../../../../report/src/index.ts";
 import type { BsCustomColumn, BsCustomViewModel, BsYearModel } from "../../presentation/model.ts";
@@ -10,7 +12,7 @@ import { hasExecutive } from "../input/officer.ts";
 import type { FeatureId, FeatureStatus } from "../office/featureCodes.ts";
 import { featureOn } from "../office/featureCodes.ts";
 import type { OfficeFeatures } from "../office/settings.ts";
-import { fieldModel, formModel, withFieldText } from "./fields.ts";
+import { fieldModel, formModel, readExtValue, withFieldText } from "./fields.ts";
 import type { LoadedExtension } from "./manifest.ts";
 
 /** 世帯ごとの束の値（入力欄の key → 値） */
@@ -43,6 +45,56 @@ export function activeExtensions(all: readonly LoadedExtension[], o: { features:
     if (f !== null && (!featureOn(o.features, f) || o.office[f] !== true)) return false;
     return fitsHousehold(x, h);
   });
+}
+
+/**
+ * 見本の世帯でだけ見せているときの案内（資産と負債のタブの見るもの。0197）。
+ * コードの無い FP にも出るので、コード（0110）のことは書かない（コードの無い FP にはコードの存在を出さない。0197 の追記）
+ */
+export const SAMPLE_PREVIEW_TEXT = "見本の世帯でご覧いただいている機能です。数字を変えて試せます（見本は保存されないので、開き直せば元に戻ります）。";
+
+/**
+ * 見本の世帯から世帯・見本を作ったときの知らせ（値は写すが、作った世帯では見られない。0197）。
+ * コードを持っていて事務所の設定の印を外している FP にだけ出す（コードの無い FP には出さない。会社の数字は黙って写す。0197 の追記）
+ */
+export const SAMPLE_SAVED_TEXT = "合算BS の会社の数字も写しました。この世帯で見るには、事務所の既定値の「法人経営者向けの機能」で印を付けてください";
+
+/**
+ * 見本から世帯・見本を作ったときに SAMPLE_SAVED_TEXT を出すか（0197）。見本で見せていた束に値があり、その束のコードが今使える
+ * （印を外しているので見本として見せていた）ときだけ。コードの無い FP には出さない
+ */
+export function savedSampleNotice(all: readonly LoadedExtension[], o: { previews: ReadonlySet<string>; features: FeatureStatus; values: ExtValues | undefined }): boolean {
+  return all.some((x) => {
+    const f = featureOf(x);
+    return o.previews.has(x.manifest.id) && f !== null && featureOn(o.features, f) && hasValues(x, o.values);
+  });
+}
+
+/**
+ * 見本の世帯でだけ見せる公式の拡張（0197）。アプリに入っている見本の世帯（すべて架空。保存していないもの）を開いているときだけ、
+ * コード（0110）・事務所の設定の印が無くても、世帯の条件に合う公式の拡張を見せる。activeExtensions で使える束は含めない（ふつうに使える）。
+ * appSample は「アプリの見本を、保存しないで開いている」こと（保存した世帯・FP が作った見本は false。お客さまの情報が入りうるため）。
+ * activeExtensions（見本でない世帯の扱い）は変えない
+ */
+export function sampleExtensions(all: readonly LoadedExtension[], o: { features: FeatureStatus; office: OfficeFeatures; household: Household | null; appSample: boolean }): LoadedExtension[] {
+  if (!o.appSample || o.household === null) return [];
+  const h = o.household;
+  const active = new Set(activeExtensions(all, o).map((x) => x.manifest.id));
+  return all.filter((x) => featureOf(x) !== null && !active.has(x.manifest.id) && fitsHousehold(x, h));
+}
+
+/**
+ * 見本の世帯に入れておく束の入力欄の値（catalog.ts の extValues）を、束の宣言で確かめて読む（宣言に合わない値・宣言の無いキーは捨てる。
+ * 何も残らなければ undefined）。世帯ファイルを読むとき（store/body.ts）と同じ確かめ。0197
+ */
+export function demoExtValues(exts: readonly LoadedExtension[], raw: Readonly<Record<string, unknown>> | undefined): ExtValues | undefined {
+  if (raw === undefined) return undefined;
+  const out: ExtValues = {};
+  for (const d of exts.flatMap((x) => x.fields)) {
+    const v = readExtValue(d, raw[d.key]);
+    if (v !== null) out[d.key] = v;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /** 束に渡す値（自分の入力欄の値と、reads に書いた値だけ。写しを渡す） */
@@ -81,7 +133,7 @@ const column = (c: ExtColumn): BsCustomColumn => ({ name: c.name, at: yearOf(c.a
 /**
  * 資産と負債のタブの見るもの（差し込み口 view.balance）。now は現状のプランの今の年（無ければ見るものを作らない）
  */
-export function extensionViews(exts: readonly LoadedExtension[], values: ExtValues | undefined, now: BsYearModel | undefined): BsCustomViewModel[] {
+export function extensionViews(exts: readonly LoadedExtension[], values: ExtValues | undefined, now: BsYearModel | undefined, samples: ReadonlySet<string> = new Set()): BsCustomViewModel[] {
   if (now === undefined) return [];
   const home = householdNow(now);
   const out: BsCustomViewModel[] = [];
@@ -119,6 +171,7 @@ export function extensionViews(exts: readonly LoadedExtension[], values: ExtValu
         : {}),
       ...(v.form !== undefined && decl !== undefined ? { form: formModel(decl, value, v.form) } : {}),
       ...(v.empty !== undefined ? { empty: v.empty } : {}),
+      ...(samples.has(x.manifest.id) ? { sample: SAMPLE_PREVIEW_TEXT } : {}),
     });
   }
   return out;
@@ -136,9 +189,14 @@ export function extensionFieldEdit(exts: readonly LoadedExtension[], values: Ext
   return next === undefined ? undefined : { key: d.key, value: next };
 }
 
-/** 提案書の拡張の章（FP が選ぶ一覧に足す） */
-export function extensionChapters(exts: readonly LoadedExtension[]): { id: `ext.${string}`; label: string }[] {
-  return exts.flatMap((x) => x.manifest.provides.flatMap((p) => (p.extensionPoint === "report.chapter" && p.chapter !== undefined ? [{ id: p.chapter.id as `ext.${string}`, label: p.chapter.label }] : [])));
+/** 提案書の拡張の章（FP が選ぶ一覧に足す）。samples の束（見本の世帯でだけ見せる束。0197）の章は、名前に「（見本）」を付ける */
+export function extensionChapters(exts: readonly LoadedExtension[], samples: ReadonlySet<string> = new Set()): { id: `ext.${string}`; label: string }[] {
+  return exts.flatMap((x) => x.manifest.provides.flatMap((p) => (p.extensionPoint === "report.chapter" && p.chapter !== undefined ? [{ id: p.chapter.id as `ext.${string}`, label: samples.has(x.manifest.id) ? `${p.chapter.label}（見本）` : p.chapter.label }] : [])));
+}
+
+/** 束の id の集まりから、その束の提案書の章の id（見本の印を付ける章。0197） */
+export function chapterIdsOf(exts: readonly LoadedExtension[], ids: ReadonlySet<string>): string[] {
+  return extensionChapters(exts.filter((x) => ids.has(x.manifest.id))).map((c) => c.id);
 }
 
 /** 提案書の拡張の章の材料（選んだ章だけ。関数が null を返した章は持たない） */

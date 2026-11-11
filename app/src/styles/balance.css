@@ -459,6 +459,9 @@ html.dark {
 .bs-cnotice b { color: var(--prop-ink); }
 .bs-cnotice ul { margin: 4px 0 0; padding-left: 1.2em; }
 .bs-cnotice li + li { margin-top: 2px; }
+/* 見本の世帯でだけ見られる見るものの案内（0197） */
+.bs-sample-note { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; padding: 6px 10px; border: 1px dashed var(--line); border-radius: 6px; background: var(--card); font-size: 0.86rem; color: var(--ink-2); }
+.bs-sample-tag { color: var(--prop-ink); border-color: var(--prop); font-weight: 700; }
 .bs-cempty { border: 1.5px dashed var(--line); border-radius: 8px; padding: 14px; color: var(--ink-2); margin: 0; }
 .bs-cparts { margin: 2px 0 0; font-size: 0.82rem; color: var(--ink-2); }
 .bs-csec { border-top: 1px solid var(--card-line); padding-top: 8px; }

@@ -47,6 +47,8 @@ interface Props {
   extChapters?: readonly { id: `ext.${string}`; label: string }[];
   /** 今使える拡張の束（拡張の章の材料を作る） */
   extensions?: readonly LoadedExtension[];
+  /** そのうち、見本の世帯でだけ見せている束の id（章に見本の印を付ける。0197） */
+  sampleExtensions?: ReadonlySet<string>;
   /** PDF を保存したときに控えを残す（App が現状とプランの写しを足して世帯に入れる） */
   onSnapshot?: (d: SnapshotDraft) => Promise<void>;
   /** 最初に開く形（提案書の PDF・持ち帰り用のレポート） */
@@ -177,7 +179,7 @@ function ProposalPdf(p: Props) {
     const t0 = performance.now();
     try {
       setStatus({ kind: "busy", step: "計算しています…" });
-      const plan = planReport({ wh: p.wh, catalog: p.catalog, valuesOf: p.valuesOf, letterOf: p.letterOf, ...(p.extensions !== undefined ? { extensions: p.extensions } : {}) }, choice);
+      const plan = planReport({ wh: p.wh, catalog: p.catalog, valuesOf: p.valuesOf, letterOf: p.letterOf, ...(p.extensions !== undefined ? { extensions: p.extensions } : {}), ...(p.sampleExtensions !== undefined ? { sampleExtensions: p.sampleExtensions } : {}) }, choice);
       const names = Object.keys(plan.requests);
       const res = await p.host.compute(names.map((id) => ({ id, rev: 1, request: JSON.stringify(forEngine(plan.requests[id] as NonNullable<(typeof plan.requests)[string]>)) })));
       const results: Record<string, PreviewResult> = {};

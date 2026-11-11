@@ -68,10 +68,20 @@
   if on("insurance") and data.insurance != none { insurance(data) }
   if on("changes") { changes(data) }
   // 提案書の拡張の章（0114 の6。「提案での変更点」の後・「プランの比較」の前）: 選ばれて、材料（帳票の入力の extensions）があるときだけ
+  // 見本の世帯でだけ載せた章（帳票の入力の extensionSamples。0197）は、章の見出しの下に「見本」の印を付ける（束の Typst からは消せない）
   let ext-data = data.at("extensions", default: none)
+  let ext-samples = data.at("extensionSamples", default: none)
   if ext-data != none {
     for (id, ext-page) in ext {
-      if on(id) and ext-data.at(id, default: none) != none { ext-page(ext-data.at(id), data) }
+      if on(id) and ext-data.at(id, default: none) != none {
+        if ext-samples != none and id in ext-samples {
+          show heading.where(level: 1): it => {
+            chapter-style(it)
+            sample-mark
+          }
+          ext-page(ext-data.at(id), data)
+        } else { ext-page(ext-data.at(id), data) }
+      }
     }
   }
   // 案の比較: 以前の形（mixed）では列が多い（4案より多い）ときだけ A4 横にする。縦にそろえるときは、列が多ければ行と列を入れ替える

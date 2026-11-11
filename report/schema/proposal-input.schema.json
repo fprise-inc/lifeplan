@@ -579,6 +579,12 @@
       "propertyNames": { "pattern": "^ext\\.[a-z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$" },
       "additionalProperties": { "type": "object" }
     },
+    "extensionSamples": {
+      "description": "見本の世帯でだけ載せた拡張の章の id（0197）: アプリの見本の世帯（架空）で、機能を有効にするコードが無くても見本として載せた章。帳票はその章の見出しの下に「見本」の印を付ける。extensions に材料のある章だけ。省略・null は印を付けない",
+      "type": ["array", "null"],
+      "items": { "type": "string", "pattern": "^ext\\.[a-z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$" },
+      "uniqueItems": true
+    },
     "comparison": {
       "description": "案の比較のページ（主画面の比較の表と同じ数字）。差はいつも「その案−基準」。省略・null は載せない",
       "type": ["object", "null"],
