@@ -162,6 +162,33 @@ describe("介護・親のカード: 世帯の外の家族（区画A）", () => {
     expect(() => actionOf(wh, "care/add/grandchild")).toThrow();
   });
 
+  it("呼び名の無い兄弟姉妹・祖父母・親が2人以上なら、孫と同じく足した順に番号（兄弟姉妹1・祖父母1・祖父1…）。呼び名のある人はそのまま、1人なら付けない", () => {
+    let wh = blankHousehold(BASE, seq());
+    for (const k of ["sibling", "grandparent", "sibling", "grandparent", "sibling"] as const) wh = addOutside(wh, k);
+    const of = (k: string) => wh.request.input.household.members.filter((m) => m.kind === k);
+    const label = (w: WorkingHousehold, ms: Member[], o?: { nicknames?: boolean }) => ms.map((m) => memberLabel(w, m.id, o));
+    expect(label(wh, of("sibling"))).toEqual(["兄弟姉妹1", "兄弟姉妹2", "兄弟姉妹3"]);
+    // 足したばかりの祖父母は性別が男性（祖父）なので「祖父1」「祖父2」
+    expect(label(wh, of("grandparent"))).toEqual(["祖父1", "祖父2"]);
+    // 呼び名のある人は「兄弟姉妹（兄）」のまま。顧客に渡す文（呼び名を入れない）では全員に番号
+    const sib = of("sibling");
+    const named = { ...wh, labelsByMember: { ...wh.labelsByMember, [sib[0]!.id]: "兄" } };
+    expect(label(named, sib)).toEqual(["兄弟姉妹（兄）", "兄弟姉妹1", "兄弟姉妹2"]);
+    expect(label(named, sib, { nicknames: false })).toEqual(["兄弟姉妹1", "兄弟姉妹2", "兄弟姉妹3"]);
+    // 祖母が1人なら「祖母」のまま。性別が男性・女性でない祖父母・親は「祖父母1」「祖父母2」「親1」「親2」
+    const mixed = addOutside(wh, "grandparent", { sex: "female" });
+    expect(label(mixed, mixed.request.input.household.members.filter((m) => m.kind === "grandparent"))).toEqual(["祖父1", "祖父2", "祖母"]);
+    const noSex = mutate(addOutside(addOutside(wh, "parent"), "parent"), (h) => {
+      for (const m of h.members) if (m.kind === "grandparent" || m.kind === "parent") m.sex = "";
+    });
+    const ofNoSex = (k: string) => noSex.request.input.household.members.filter((m) => m.kind === k);
+    expect(label(noSex, ofNoSex("grandparent"))).toEqual(["祖父母1", "祖父母2"]);
+    expect(label(noSex, ofNoSex("parent"))).toEqual(["親1", "親2"]);
+    // 1人だけなら番号を付けない
+    const one = addOutside(blankHousehold(BASE, seq()), "sibling");
+    expect(label(one, one.request.input.household.members.filter((m) => m.kind === "sibling"))).toEqual(["兄弟姉妹"]);
+  });
+
   it("扶養の境目の1行: 税は年金だけなら合計所得の上限＋公的年金等控除の最低額まで、健康保険は60歳以上180万円未満、75歳からは入れない", () => {
     const wh = addOutside(blankHousehold(BASE, seq()), "parent");
     const p = parents(wh)[0]!;
