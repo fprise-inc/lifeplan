@@ -120,7 +120,8 @@ export interface ReturnStage {
   id: string;
   at: Timepoint;
   expectedReturn?: string;
-  assetMix?: { assetClass: string; share: string }[];
+  /** 資産の配分の行（行の id は 0206。保存した世帯は持つ） */
+  assetMix?: { id?: string; assetClass: string; share: string }[];
   rampYears?: number;
 }
 
@@ -139,7 +140,8 @@ export interface Account {
   /** 暗号資産を売ったときの税の扱い（種類 cryptoAsset だけ。separate 申告分離課税〔2028年から取り崩す〕・miscellaneous 雑所得〔取り崩さない〕。省略は separate。0124） */
   cryptoTaxation?: "separate" | "miscellaneous";
   asOf?: string;
-  assetMix?: { assetClass: string; share: string }[];
+  /** 資産の配分の行（行の id は 0206。保存した世帯は持つ） */
+  assetMix?: { id?: string; assetClass: string; share: string }[];
   contributions?: { from: Timepoint; to: Timepoint | null; monthly: number; tranche?: string; payer?: "self" | "employer"; [key: string]: unknown }[];
   /** 評価額の増減率（年率。不動産・その他の資産だけ） */
   valueGrowth?: string;
@@ -508,8 +510,8 @@ export interface Debt {
   rateSchedule: { id?: string; from: Timepoint; type: string; rate: string }[];
   repayment: { method: string; termMonths: number; bonusShare?: string; variableRules?: { fiveYear?: boolean; cap125?: boolean }; [key: string]: unknown };
   prepayments?: { at: Timepoint; amount: number; mode: string; fee?: number }[];
-  /** 借り換え（その月に残高を新しいローンで返す） */
-  refinance?: { at: Timepoint; rateSchedule: { id?: string; from: Timepoint; type: string; rate: string }[]; termMonths: number; method?: string; costs?: number; costsFinanced?: boolean }[];
+  /** 借り換え（その月に残高を新しいローンで返す。要素の id は 0206。保存した世帯は持つ） */
+  refinance?: { id?: string; at: Timepoint; rateSchedule: { id?: string; from: Timepoint; type: string; rate: string }[]; termMonths: number; method?: string; costs?: number; costsFinanced?: boolean }[];
   creditLife?: { covered: string[]; ratio?: string; events?: string[]; [key: string]: unknown };
   pairWith?: string;
   /** 0052: 名前と種類の細目（表示と推定の元だけ。計算には使わない） */

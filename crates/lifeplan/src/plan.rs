@@ -195,7 +195,7 @@ pub fn error_message(code: &str) -> Option<&'static str> {
 }
 
 /// 動かせる項目の一覧の答えに添える説明
-pub const LIST_NOTE: &str = "items の target・item（at か lever が添えてあれば、それも）と、kind・unit の形の value を、calculate・explain_value の plan_changes（[{target, item, value}]、場所つきは [{target, item, at, value}] か [{target, item, lever, value}]）にそのまま渡すと、アプリの画面のプランと同じ関数で当てて計算します（関係する欄も一緒に動きます）。at・lever は、同じ対象・同じ入力項目ID で場所だけが違う項目を選ぶ印で、place が人の読める区別です（FP に伝えるときは place と label を使ってください）。propose_scenario の changes にも同じ書き方で渡せます（proposable が false の項目は、プランの候補には出せません）。value は今の値、min・max は入れてよい範囲、slider は画面のスライダーの幅です。入力の数の欄から作った項目は fields: true か group で出します。";
+pub const LIST_NOTE: &str = "items の target・item（at か lever が添えてあれば、それも）と、kind・unit の形の value を、calculate・explain_value の plan_changes（[{target, item, value}]、場所つきは [{target, item, at, value}] か [{target, item, lever, value}]）にそのまま渡すと、アプリの画面のプランと同じ関数で当てて計算します（関係する欄も一緒に動きます）。at・lever は、同じ対象・同じ入力項目ID で場所だけが違う項目を選ぶ印で、place が人の読める区別です（FP に伝えるときは place と label を使ってください）。propose_scenario の changes にも同じ書き方で渡せます（at の中の行の ID も一覧のまま。proposable が false の項目は、プランの候補には出せません）。value は今の値、min・max は入れてよい範囲、slider は画面のスライダーの幅です。入力の数の欄から作った項目は fields: true か group で出します。";
 
 /// プランの変更の当てはめを答えに添えるときの説明
 pub const PLAN_NOTE: &str = "plan_changes は、アプリの画面の結果のタブのプランと同じ関数で当てました（関係する欄も画面と同じく一緒に動きます）。status は applied（当てた）・same（今と同じ値なので変わらない）。この変更をそのまま propose_scenario の changes に渡せます（渡された世帯のとき）。";

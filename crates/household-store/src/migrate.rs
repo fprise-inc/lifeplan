@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.75";
+pub const CURRENT: &str = "0.76";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -263,6 +263,12 @@ pub const CURRENT: &str = "0.75";
 ///   （0201。同じ対象・同じ入力項目ID で場所だけが違う欄を選ぶ。足すだけの MINOR）。前の版のアプリは欄を知らずに読み落とし、場所の無い候補として
 ///   別の項目（同じ入力項目ID の対策の固定の項目など）に当てるか書き戻して落とすので、版を上げて閲覧だけにする。変換の段は形式の版だけを
 ///   書き換える（前の版の候補は欄が無い＝場所を添えない候補）。0.74 の段の後に積む
+/// - 0.76: ID を持たなかった並びの要素に、要素の ID `id` を足した（0206）: 器の資産の配分の行 `accounts[].assetMix[]`・器の利回りの段階の
+///   資産の配分の行 `accounts[].returnStages[].assetMix[]`・旧NISA の買付の年ごとの内訳 `accounts[].lots[]`・借り換え `debts[].refinance[]` と
+///   その新しい金利の段 `debts[].refinance[].rateSchedule[]`（AI接続口の場所 at・プランの差分・値の状態の欄が1件ずつ指し、渡された世帯の
+///   共有の仮の ID から元の ID に戻せるように）。変換の段は、ID の無い要素に、画面がその要素を指していた決まった ID（場所
+///   `<ID を持ついちばん近い物>/<欄の名前>/<番号>` から作る。0035 の10 の1）と同じ ID を振る（保存したプランの差分・値の状態の欄は同じ要素を
+///   指したまま）。前の版のアプリは計算の入力の検査で知らない欄を通さないので、版を上げて閲覧だけにする。0.75 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
@@ -270,7 +276,7 @@ pub const KNOWN: &[&str] = &[
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
     "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72", "0.73",
-    "0.74", "0.75",
+    "0.74", "0.75", "0.76",
 ];
 
 /// 1段分の変換
@@ -651,6 +657,11 @@ pub const STEPS: &[Step] = &[
         from: "0.74",
         to: "0.75",
         apply: v0_74_to_0_75,
+    },
+    Step {
+        from: "0.75",
+        to: "0.76",
+        apply: v0_75_to_0_76,
     },
 ];
 
@@ -2424,6 +2435,101 @@ fn v0_74_to_0_75(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.76 で ID を振る並び（物の集まり → その物から並びまでの欄の名前。`*` は並びの要素ごと。0206）。中の並びを外の並びより先に振る
+/// （外の要素に ID が無いときの場所を、画面の決まった ID の作り方とそろえるため。app/src/workspace/store/elementIds.ts と同じ）
+const ELEMENT_LISTS_0_76: &[(&str, &[&[&str]])] = &[
+    (
+        "accounts",
+        &[&["returnStages", "*", "assetMix"], &["assetMix"], &["lots"]],
+    ),
+    (
+        "debts",
+        &[&["refinance", "*", "rateSchedule"], &["refinance"]],
+    ),
+];
+
+/// 場所から決まった ID（app/src/workspace/store/elementIds.ts の placeId と同じ）。同じ並びにもうある ID なら、場所に数を足して作り直す
+fn place_id(place: &str, used: &mut std::collections::HashSet<String>) -> String {
+    let mut id = readings::migration_id(place);
+    let mut n = 1;
+    while used.contains(&id) {
+        id = readings::migration_id(&format!("{place}/{n}"));
+        n += 1;
+    }
+    used.insert(id.clone());
+    id
+}
+
+/// 道（`*` は並びの要素ごと）の先の並びの、ID の無い要素に ID を振る。場所は、ID を持ついちばん近い物から並びまでの欄の名前と、
+/// ID を持たない要素の番号（readings の決まった ID の場所と同じ）
+fn assign_ids_at(node: &mut Value, place: &str, path: &[&str]) {
+    let star = path.iter().position(|k| *k == "*");
+    let head = &path[..star.unwrap_or(path.len())];
+    let Some(list) = get_path_mut(node, head).and_then(Value::as_array_mut) else {
+        return;
+    };
+    let at = format!("{place}/{}", head.join("/"));
+    match star {
+        None => {
+            let mut used: std::collections::HashSet<String> = list
+                .iter()
+                .filter_map(|e| e.get("id").and_then(Value::as_str).map(str::to_owned))
+                .collect();
+            for (i, el) in list.iter_mut().enumerate() {
+                if let Some(o) = el.as_object_mut() {
+                    if !o.get("id").is_some_and(Value::is_string) {
+                        let id = place_id(&format!("{at}/{i}"), &mut used);
+                        o.insert("id".into(), Value::String(id));
+                    }
+                }
+            }
+        }
+        Some(k) => {
+            for (i, el) in list.iter_mut().enumerate() {
+                if !el.is_object() {
+                    continue;
+                }
+                let base = match el.get("id").and_then(Value::as_str) {
+                    Some(id) => id.to_owned(),
+                    None => format!("{at}/{i}"),
+                };
+                assign_ids_at(el, &base, &path[k + 1..]);
+            }
+        }
+    }
+}
+
+/// 0.75 → 0.76: 資産の配分の行・旧NISA の買付の年ごとの内訳・借り換えとその新しい金利の段に、要素の ID を振る（0206）。ID のある要素は
+/// そのまま。控えの中身は変えない（0011 の5）
+fn v0_75_to_0_76(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(h) = obj
+        .get_mut("household")
+        .and_then(|h| h.get_mut("request"))
+        .and_then(|r| r.get_mut("input"))
+        .and_then(|i| i.get_mut("household"))
+        .and_then(Value::as_object_mut)
+    {
+        for (coll, paths) in ELEMENT_LISTS_0_76 {
+            let Some(objs) = h.get_mut(*coll).and_then(Value::as_array_mut) else {
+                continue;
+            };
+            for o in objs.iter_mut() {
+                let Some(id) = o.get("id").and_then(Value::as_str).map(str::to_owned) else {
+                    continue;
+                };
+                for path in *paths {
+                    assign_ids_at(o, &id, path);
+                }
+            }
+        }
+    }
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.76".into());
+    }
+    Ok(body)
+}
+
 /// 預金の利回りの既定の値（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ。0137）
 const DEPOSIT_RETURN_DEFAULT: &str = "0.001";
 
@@ -3406,7 +3512,8 @@ mod tests {
         assert_eq!(access("0.73").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.74").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.75").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.76").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.76").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.77").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -3419,7 +3526,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.75", b.clone()).unwrap(),
+            upgrade("0.77", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -4969,5 +5076,80 @@ mod tests {
             neutral_curve_id("wageStats.curve.regular.other.all.all"),
             None
         );
+    }
+
+    /// 0.75 → 0.76（0206）: ID の無い資産の配分の行・買付の年ごとの内訳・借り換えとその金利の段に、画面が指していた決まった ID と同じ ID を振る
+    #[test]
+    fn element_ids_for_mix_lots_and_refinance() {
+        let acc = "00000000-0000-4000-8000-0000000000a1";
+        let debt = "00000000-0000-4000-8000-0000000000d1";
+        let stage = "00000000-0000-4000-8000-0000000000e1";
+        let kept = "00000000-0000-4000-8000-0000000000f1";
+        let r2 = "00000000-0000-4000-8000-0000000000f2";
+        let snap = serde_json::json!([{"id": "s1", "request": {"input": {"household": {"accounts": [{"id": acc, "assetMix": [{"assetClass": "equity.global", "share": "1"}]}]}}}}]);
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.75"},
+            "household": {"request": {"input": {"household": {
+                "accounts": [{
+                    "id": acc,
+                    "assetMix": [{"assetClass": "equity.global", "share": "0.6"}, {"id": kept, "assetClass": "bond.global", "share": "0.4"}],
+                    "lots": [{"vintageYear": 2020, "regime": "general", "costBasis": 1, "marketValue": 2}],
+                    "returnStages": [{"id": stage, "at": {"at": "2040-01"}, "assetMix": [{"assetClass": "cash.deposit", "share": "1"}]}]
+                }],
+                "debts": [{
+                    "id": debt,
+                    "rateSchedule": [{"id": "x", "from": {"at": "2020-01"}, "type": "fixed", "rate": "0.01"}],
+                    "refinance": [
+                        {"at": {"at": "2030-01"}, "rateSchedule": [{"from": {"at": "2030-01"}, "type": "fixed", "rate": "0.012"}], "termMonths": 240},
+                        {"id": r2, "at": {"at": "2035-01"}, "rateSchedule": [{"from": {"at": "2035-01"}, "type": "fixed", "rate": "0.013"}], "termMonths": 120}
+                    ]
+                }]
+            }}}},
+            "snapshots": snap
+        });
+        let u = upgrade("0.75", b).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.76");
+        let h = &u["household"]["request"]["input"]["household"];
+        let id = |p: &str| Value::String(readings::migration_id(p));
+        let a = &h["accounts"][0];
+        assert_eq!(a["assetMix"][0]["id"], id(&format!("{acc}/assetMix/0")));
+        assert_eq!(a["assetMix"][1]["id"], kept, "ID のある要素はそのまま");
+        assert_eq!(a["lots"][0]["id"], id(&format!("{acc}/lots/0")));
+        assert_eq!(
+            a["returnStages"][0]["assetMix"][0]["id"],
+            id(&format!("{stage}/assetMix/0")),
+            "ID のある段の中の行は、段の ID から"
+        );
+        let d = &h["debts"][0];
+        assert_eq!(d["rateSchedule"][0]["id"], "x");
+        assert_eq!(d["refinance"][0]["id"], id(&format!("{debt}/refinance/0")));
+        assert_eq!(
+            d["refinance"][0]["rateSchedule"][0]["id"],
+            id(&format!("{debt}/refinance/0/rateSchedule/0")),
+            "ID の無かった借り換えの中の段は、借り換えの番号の場所から（画面が指していた ID と同じ）"
+        );
+        assert_eq!(d["refinance"][1]["id"], r2);
+        assert_eq!(
+            d["refinance"][1]["rateSchedule"][0]["id"],
+            id(&format!("{r2}/rateSchedule/0"))
+        );
+        assert_eq!(u["snapshots"], snap, "控えの中身は変えない");
+        // もう一度通しても変わらない（ID のある要素はそのまま）
+        let mut again = u.clone();
+        again["meta"]["formatVersion"] = "0.75".into();
+        let twice = upgrade("0.75", again).unwrap();
+        assert_eq!(twice["household"], u["household"]);
+        // 同じ並びにもうある ID と重なるときは、場所に数を足して作り直す（画面の placeId と同じ）
+        let clash = readings::migration_id(&format!("{acc}/assetMix/0"));
+        let b = serde_json::json!({"meta": {"formatVersion": "0.75"}, "household": {"request": {"input": {"household": {"accounts": [{"id": acc, "assetMix": [{"assetClass": "equity.global", "share": "0.5"}, {"id": clash, "assetClass": "bond.global", "share": "0.5"}]}]}}}}});
+        let u = upgrade("0.75", b).unwrap();
+        assert_eq!(
+            u["household"]["request"]["input"]["household"]["accounts"][0]["assetMix"][0]["id"],
+            id(&format!("{acc}/assetMix/0/1"))
+        );
+        // 並びの無い世帯は版だけ
+        let plain = serde_json::json!({"meta": {"formatVersion": "0.75"}, "household": {"request": {"input": {"household": {"accounts": [{"id": acc, "kind": "deposit"}]}}}}});
+        let u = upgrade("0.75", plain.clone()).unwrap();
+        assert_eq!(u["household"], plain["household"]);
     }
 }

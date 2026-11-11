@@ -125,6 +125,10 @@ const CASES: { name: string; sample: string; moves: Record<string, (now: ItemVal
   // 0203: 変動金利の見込み（入力の「金利の見込み」の欄と同じ型・同じ関数。合成の対策 loanRateOutlook の場所で選ぶ）
   { name: "変動金利の見込みを10年で2%上がるに（金利の見込みの欄と同じ型）", sample: "salariedCoupleTwoKids", moves: { "loan:*:outlook": () => ({ adds: ["0.01", "0.02"] }) }, ask: { row: "housing", year: 2040 } },
   { name: "変動金利の見込みを5年ごとに＋0.25%（15年まで）", sample: "protectionNeed", moves: { "loan:*:outlook": () => ({ adds: ["0.0025", "0.005", "0.0075"] }) } },
+  // 0206: 前は要素の ID を持たなかった並びの要素（資産の配分の行・旧NISA の買付の年ごとの内訳・借り換えとその新しい金利）。場所 at に要素の ID
+  { name: "資産の配分の1行目の割合を3割に（資産の配分の行）", sample: "dualAssetsTwoKids", moves: { "field:sav/*/mix/0/share": () => "0.3" } },
+  { name: "旧NISA の買付の年1の時価を50万円に（買付の年ごとの内訳）", sample: "nisaWithdrawal", moves: { "field:sav/*/lot/0/value": () => 500000 } },
+  { name: "借り換えの新しい金利を1.2%・費用を40万円に（借り換えとその新しい金利の段）", sample: "pairLoan", moves: { "field:housing/debt/*/refinance/0/rate": () => "0.012", "field:housing/debt/*/refinance/0/costs": () => 400000 } },
 ];
 
 describe("AI接続口のプランの動かす項目（0195）", () => {
@@ -146,9 +150,11 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
         // 書かれていない要素の ID（ID を持たない並びの要素に場所から振る ID）がある項目だけ（渡された世帯では元の ID に戻せない）
         expect(it.at !== undefined && it.lever !== undefined, `${id} ${it.label}`).toBe(false);
         expect(it.place !== undefined, `${id} ${it.label}`).toBe(it.at !== undefined || it.lever !== undefined);
+        // 資産の配分の行・旧NISA の買付の年ごとの内訳・借り換えとその金利の段も要素の ID を持つので（0206）、見本の世帯ではどの項目もプランの候補に出せる
         const saved = JSON.stringify(fromRequest(req).request.input);
         const derived = (it.at ?? []).some((a) => /^[0-9a-f-]{36}$/.test(a) && !saved.includes(`"${a}"`));
-        expect(it.proposable, `${id} ${it.label}`).toBe(!derived);
+        expect(derived, `${id} ${it.label}`).toBe(false);
+        expect(it.proposable, `${id} ${it.label}`).toBe(true);
         // 今の値のまま当てると「今と同じ値」で、要求は変わらない
         if (it.value === null) continue;
         const r = apply(req, [{ ...refOf(it), value: it.value }], id);
@@ -370,6 +376,8 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
       [/^field:edu\/.+\/stage\/3\/annual$/, 1500000],
       [/^field:work\/.+\/mainEnd$/, 62],
       [/^field:housing\/debt\/.+\/rate\/1\/rate$/, "0.015"],
+      // 0206: 資産の配分の行（前は要素の ID が無く、渡された世帯では元の ID に戻せなかった）
+      [/^field:sav\/.+\/mix\/0\/share$/, "0.5"],
     ];
     const proposal = picks.map(([re, value]) => {
       const it = scat.items.find((x) => re.test(x.key))!;

@@ -97,7 +97,7 @@ describe("面談の記録の形（0182）", () => {
 
 describe("世帯ファイルの本文の区画 meetings（形式 0.74）", () => {
   it("形式の版は 0.74", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.75");
+    expect(BODY_FORMAT_VERSION).toBe("0.76");
   });
 
   it("保存→読み込みで同じ。household の区画には書かない。記録が無ければ区画を作らない", () => {
