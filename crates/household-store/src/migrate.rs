@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.74";
+pub const CURRENT: &str = "0.75";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -259,6 +259,10 @@ pub const CURRENT: &str = "0.74";
 /// - 0.74: 本文の区画 `meetings`（面談の履歴。面談1回ずつの日・お客さまと見てよい欄・FP だけの欄・保険の意向・つないだ控えの ID・書いた人。
 ///   0182）を足した（足すだけの MINOR）。前の版のアプリは区画を知らずに書き戻すと記録を落とすので、版を上げて閲覧だけにする。
 ///   変換の段は形式の版だけを書き換える（前の版の世帯は記録が無い＝区画を作らない）。0.73 の段の後に積む
+/// - 0.75: 外から来た候補 `candidates[]` の変更 `diffs[]` に、任意の欄 `at`（入力の欄の場所）・`lever`（合成の対策の名前）を足した
+///   （0200。同じ対象・同じ入力項目ID で場所だけが違う欄を選ぶ。足すだけの MINOR）。前の版のアプリは欄を知らずに読み落とし、場所の無い候補として
+///   別の項目（同じ入力項目ID の対策の固定の項目など）に当てるか書き戻して落とすので、版を上げて閲覧だけにする。変換の段は形式の版だけを
+///   書き換える（前の版の候補は欄が無い＝場所を添えない候補）。0.74 の段の後に積む
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
@@ -266,7 +270,7 @@ pub const KNOWN: &[&str] = &[
     "0.38", "0.39", "0.40", "0.41", "0.42", "0.43", "0.44", "0.45", "0.46", "0.47", "0.48", "0.49",
     "0.50", "0.51", "0.52", "0.53", "0.54", "0.55", "0.56", "0.57", "0.58", "0.59", "0.60", "0.61",
     "0.62", "0.63", "0.64", "0.65", "0.66", "0.67", "0.68", "0.69", "0.70", "0.71", "0.72", "0.73",
-    "0.74",
+    "0.74", "0.75",
 ];
 
 /// 1段分の変換
@@ -642,6 +646,11 @@ pub const STEPS: &[Step] = &[
         from: "0.73",
         to: "0.74",
         apply: v0_73_to_0_74,
+    },
+    Step {
+        from: "0.74",
+        to: "0.75",
+        apply: v0_74_to_0_75,
     },
 ];
 
@@ -2406,6 +2415,15 @@ fn v0_73_to_0_74(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.74 → 0.75: 外から来た候補の変更の場所 `at`・`lever`（0200）は任意の欄なので、形式の版だけを書き換える（前の版の候補は欄が無い）
+fn v0_74_to_0_75(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.75".into());
+    }
+    Ok(body)
+}
+
 /// 預金の利回りの既定の値（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ。0137）
 const DEPOSIT_RETURN_DEFAULT: &str = "0.001";
 
@@ -3387,7 +3405,8 @@ mod tests {
         assert_eq!(access("0.72").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.73").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.74").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.75").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.75").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.76").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(

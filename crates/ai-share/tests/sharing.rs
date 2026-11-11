@@ -434,9 +434,12 @@ fn proposals_do_not_change_the_household_and_are_checked() {
         "仮名を元の ID に戻す"
     );
     assert_eq!(pending[0].diffs[0].target, json!({ "plan": "assumptions" }));
-    // 場所を添えない候補は、前の版の候補と同じ形（at・lever の欄を持たない。0199）
+    // 場所を添えない候補は、前の版の候補と同じ形（at・lever の欄を持たない。0200）
     let saved = serde_json::to_value(&pending[0].diffs[0]).unwrap();
-    assert!(saved.get("at").is_none() && saved.get("lever").is_none(), "{saved}");
+    assert!(
+        saved.get("at").is_none() && saved.get("lever").is_none(),
+        "{saved}"
+    );
     assert_eq!(pending[0].origin.kind, "ai");
     assert_eq!(pending[0].origin.connector.as_deref(), Some("Claude 1.0"));
     assert_eq!(pending[0].household_id, HOUSEHOLD_ID);
@@ -447,7 +450,7 @@ fn proposals_do_not_change_the_household_and_are_checked() {
     assert_eq!(rec[0].proposals.len(), 1);
     assert_eq!(rec[0].proposals[0].candidate_id, pending[0].candidate_id);
 
-    // 場所を添えた候補（0199）: at の中の仮名も元の ID に戻す（ID でない段はそのまま）。lever はそのまま。
+    // 場所を添えた候補（0200）: at の中の仮名も元の ID に戻す（ID でない段はそのまま）。lever はそのまま。
     // 場所を添えた変更は、前提を対象にして前提条件でない入力項目を指せる
     let placed = json!({
         "title": "場所を添えた候補",
@@ -462,7 +465,11 @@ fn proposals_do_not_change_the_household_and_are_checked() {
     let d = &pending[0].diffs;
     assert_eq!(
         d[0].at,
-        Some(vec!["stages".to_owned(), member_orig.clone(), "annualOverride".to_owned()])
+        Some(vec![
+            "stages".to_owned(),
+            member_orig.clone(),
+            "annualOverride".to_owned()
+        ])
     );
     assert_eq!(d[0].lever, None);
     assert_eq!(d[1].target, json!({ "plan": "assumptions" }));

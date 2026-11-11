@@ -5,7 +5,7 @@
 //   （workspace/plans/candidates.ts）で動かす項目の値にし、画面のプランと同じ関数（plans.ts の applyValues）で計算の要求に当てる。
 //   関係する欄も画面と同じく一緒に動く（働く最後の年齢なら、生活費の退職の段階・積立の終わり・定年後の働き方も）
 // - 同じ対象・同じ入力項目ID で場所だけが違う項目は、場所（入力の欄の at か合成の対策の lever。プランの差分の当て先と同じ）を添えて
-//   一覧に出し、同じ書き方で当てる（0199）。場所の要らない項目は今までどおり対象と入力項目ID だけ
+//   一覧に出し、同じ書き方で当てる（0200）。場所の要らない項目は今までどおり対象と入力項目ID だけ
 // - 画面の状態（帯・選んだプラン・保存していない変更・小窓）には依らない。世帯の要求から画面と同じく作業中の世帯（fromRequest）と
 //   動かす項目の一覧（buildCatalog）を作るだけ。見本の世帯では、画面と同じく見本の目盛りと定年後の働き方を使う。渡された世帯では、
 //   縮約版の定年後の働き方の条件を、画面で保存した世帯を開いたときと同じくそのまま使う
@@ -37,7 +37,7 @@ export interface PlanArgs {
   postRetirement?: Record<string, PostRetirement>;
 }
 
-/** プランの候補の書き方の1件（propose_scenario の changes の1件と同じ）。場所 at・lever は、一覧が添えた項目だけ（どちらか1つ。0199） */
+/** プランの候補の書き方の1件（propose_scenario の changes の1件と同じ）。場所 at・lever は、一覧が添えた項目だけ（どちらか1つ。0200） */
 export interface PlanChange {
   target: string;
   item: string;
@@ -107,7 +107,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /**
  * 場所 at の中に、世帯のデータに書かれていない要素の ID（ID を持たない並びの要素に、親の物の ID と場所から決めて振る ID。資産配分の割合・
- * 取得の時期ごとの残高・借り換えなど）があるか（0199）。渡された世帯では親の ID が共有の仮の ID なので、アプリ本体が元の ID に戻せず、
+ * 取得の時期ごとの残高・借り換えなど）があるか（0200）。渡された世帯では親の ID が共有の仮の ID なので、アプリ本体が元の ID に戻せず、
  * プランの候補には出せない（計算はできる）
  */
 const derivedAt = (at: readonly string[] | undefined, inputText: string): boolean => at !== undefined && at.some((s) => UUID.test(s) && !inputText.includes(`"${s}"`));
@@ -136,7 +136,7 @@ export function listPlanItems(reqJson: string, argsJson: string, officeJson: str
     return {
       target: ref.target,
       item: it.item,
-      // 場所だけ違う項目は、選ぶための場所（そのまま渡す）と、人が読める区別（0199）
+      // 場所だけ違う項目は、選ぶための場所（そのまま渡す）と、人が読める区別（0200）
       ...(ref.at !== undefined ? { at: ref.at } : {}),
       ...(ref.lever !== undefined ? { lever: ref.lever } : {}),
       ...(placed ? { place: placeText(it) } : {}),
@@ -146,7 +146,7 @@ export function listPlanItems(reqJson: string, argsJson: string, officeJson: str
       valueText: it.text(now),
       ...controlOf(it, now),
       ...(note !== null ? { note } : {}),
-      // プランの候補（propose_scenario）で前提（assumptions）を対象にできるのは、前提条件の入力項目（assumptions.〜）か、場所を添えた変更（0199）。
+      // プランの候補（propose_scenario）で前提（assumptions）を対象にできるのは、前提条件の入力項目（assumptions.〜）か、場所を添えた変更（0200）。
       // 場所に、世帯のデータに書かれていない要素の ID があれば出せない（元の ID に戻せない）
       proposable: (ref.target !== "assumptions" || it.item.startsWith("assumptions.") || placed) && !derivedAt(ref.at, inputText),
     };

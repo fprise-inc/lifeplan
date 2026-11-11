@@ -188,6 +188,28 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(marital.is_none(), "{v}: 婚姻の状態は変換で書き足さない");
         }
+        // 0.75 から: 外から来た候補の変更の場所 at・lever（0200）。変換で中身を変えない。前の版の見本には候補の区画が無い。
+        // 場所を添えない候補（前の版と同じ形）と、場所（lever・at）を添えた候補を持つ
+        let candidates = now.get("candidates");
+        if migrate::parse(v).unwrap() >= (0, 75) {
+            let c = candidates.expect("0.75 からの見本には候補がある");
+            assert_eq!(
+                c, &expected["candidates"],
+                "{v}: 候補の中身は変換で変えない"
+            );
+            let old = &c[0]["diffs"][0];
+            assert!(
+                old.get("at").is_none() && old.get("lever").is_none(),
+                "{v}: 場所を添えない候補"
+            );
+            assert_eq!(
+                c[1]["diffs"][0]["lever"], "investStopAge",
+                "{v}: 合成の対策の名前"
+            );
+            assert!(c[1]["diffs"][1]["at"].is_array(), "{v}: 入力の欄の場所");
+        } else {
+            assert!(candidates.is_none(), "{v}: 候補は変換で書き足さない");
+        }
         // 0.74 から: 面談の履歴（区画 meetings。0182）。変換で中身を変えない。前の版の見本には区画が無い（変換で書き足さない）。
         // お客さまと見てよい欄・FP だけの欄・保険の意向（両方の置き方）・つないだ控え・書いた人を持つ
         let meetings = now.get("meetings");

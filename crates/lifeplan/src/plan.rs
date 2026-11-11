@@ -1,7 +1,7 @@
 //! プランの動かす項目（0195）: 画面の結果のタブのプランと同じ関数（app/src/connector/plan.ts を同梱した JS）で、
 //! - この世帯で動かせる項目の一覧（list_plan_items）を返す
 //! - プランの候補と同じ書き方（対象・入力項目ID・値。propose_scenario の changes）の変更を、calculate・explain_value の計算の要求に当てる
-//! - 同じ対象・同じ入力項目ID で場所だけが違う項目は、一覧が添えた場所（入力の欄の at か合成の対策の lever。0199）も同じく運ぶ
+//! - 同じ対象・同じ入力項目ID で場所だけが違う項目は、一覧が添えた場所（入力の欄の at か合成の対策の lever。0200）も同じく運ぶ
 //!
 //! 接続口の側には当てはめ方・当て方を書かない（画面の関数に任せ、答えを運ぶだけ）。世帯の物の ID は AI に渡した世帯の ID のまま。
 
@@ -129,7 +129,7 @@ pub fn apply(
     }
 }
 
-/// 変更1件を JS に渡す形（場所は添えてあるときだけ。0199）
+/// 変更1件を JS に渡す形（場所は添えてあるときだけ。0200）
 pub fn change_json(c: &PlanChange) -> Value {
     let mut v = json!({ "target": c.target, "item": c.item, "value": c.value });
     if let Some(at) = &c.at {
