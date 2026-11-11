@@ -1387,5 +1387,306 @@
         }
       }
     }
-  ]
+  ],
+  "shared": {
+    "sample": "salariedCoupleTwoKids",
+    "postRetirement": {
+      "109eb62e-eb92-46db-a07e-719f10c7b93a": {
+        "fromAge": 60,
+        "type": "contract",
+        "annualSalary": 3000000
+      }
+    },
+    "retireAge": 65,
+    "screen": {
+      "years": [
+        {
+          "year": 2026,
+          "net": 623302,
+          "financialAssets": 11049526
+        },
+        {
+          "year": 2027,
+          "net": 748899,
+          "financialAssets": 11907900
+        },
+        {
+          "year": 2028,
+          "net": 1006571,
+          "financialAssets": 13033535
+        },
+        {
+          "year": 2029,
+          "net": 1002324,
+          "financialAssets": 14164993
+        },
+        {
+          "year": 2030,
+          "net": 718180,
+          "financialAssets": 15022600
+        },
+        {
+          "year": 2031,
+          "net": -1186393,
+          "financialAssets": 13985215
+        },
+        {
+          "year": 2032,
+          "net": -541427,
+          "financialAssets": 13602145
+        },
+        {
+          "year": 2033,
+          "net": -941706,
+          "financialAssets": 12828679
+        },
+        {
+          "year": 2034,
+          "net": -1690917,
+          "financialAssets": 11315737
+        },
+        {
+          "year": 2035,
+          "net": 872796,
+          "financialAssets": 12377597
+        },
+        {
+          "year": 2036,
+          "net": 691240,
+          "financialAssets": 13270645
+        },
+        {
+          "year": 2037,
+          "net": 1009368,
+          "financialAssets": 14495117
+        },
+        {
+          "year": 2038,
+          "net": 2625532,
+          "financialAssets": 17350519
+        },
+        {
+          "year": 2039,
+          "net": 2523970,
+          "financialAssets": 20120406
+        },
+        {
+          "year": 2040,
+          "net": 2880458,
+          "financialAssets": 23263501
+        },
+        {
+          "year": 2041,
+          "net": 18554794,
+          "financialAssets": 42106235
+        },
+        {
+          "year": 2042,
+          "net": -2248980,
+          "financialAssets": 40168532
+        },
+        {
+          "year": 2043,
+          "net": -1969673,
+          "financialAssets": 38523829
+        },
+        {
+          "year": 2044,
+          "net": -2773271,
+          "financialAssets": 36089594
+        },
+        {
+          "year": 2045,
+          "net": -3145291,
+          "financialAssets": 33297474
+        },
+        {
+          "year": 2046,
+          "net": -3312557,
+          "financialAssets": 30351468
+        },
+        {
+          "year": 2047,
+          "net": -2542047,
+          "financialAssets": 28187978
+        },
+        {
+          "year": 2048,
+          "net": -3042139,
+          "financialAssets": 25535962
+        },
+        {
+          "year": 2049,
+          "net": -2083223,
+          "financialAssets": 23855228
+        },
+        {
+          "year": 2050,
+          "net": -2040736,
+          "financialAssets": 22230440
+        },
+        {
+          "year": 2051,
+          "net": -1696900,
+          "financialAssets": 20963760
+        },
+        {
+          "year": 2052,
+          "net": -984009,
+          "financialAssets": 20425415
+        },
+        {
+          "year": 2053,
+          "net": -1000142,
+          "financialAssets": 19887398
+        },
+        {
+          "year": 2054,
+          "net": -1412727,
+          "financialAssets": 18953740
+        },
+        {
+          "year": 2055,
+          "net": -1034191,
+          "financialAssets": 18416269
+        },
+        {
+          "year": 2056,
+          "net": -1080608,
+          "financialAssets": 17850951
+        },
+        {
+          "year": 2057,
+          "net": -1505679,
+          "financialAssets": 16879681
+        },
+        {
+          "year": 2058,
+          "net": -1111387,
+          "financialAssets": 16322621
+        },
+        {
+          "year": 2059,
+          "net": -1138286,
+          "financialAssets": 15759612
+        },
+        {
+          "year": 2060,
+          "net": -1582896,
+          "financialAssets": 14773589
+        },
+        {
+          "year": 2061,
+          "net": -931565,
+          "financialAssets": 14432502
+        },
+        {
+          "year": 2062,
+          "net": -695003,
+          "financialAssets": 14314452
+        },
+        {
+          "year": 2063,
+          "net": -1147396,
+          "financialAssets": 13739061
+        },
+        {
+          "year": 2064,
+          "net": -733035,
+          "financialAssets": 13555222
+        },
+        {
+          "year": 2065,
+          "net": -752335,
+          "financialAssets": 13344719
+        },
+        {
+          "year": 2066,
+          "net": -1218663,
+          "financialAssets": 12659235
+        },
+        {
+          "year": 2067,
+          "net": -792313,
+          "financialAssets": 12372895
+        },
+        {
+          "year": 2068,
+          "net": -812212,
+          "financialAssets": 12055192
+        },
+        {
+          "year": 2069,
+          "net": -851121,
+          "financialAssets": 11685853
+        },
+        {
+          "year": 2070,
+          "net": -875374,
+          "financialAssets": 11277476
+        },
+        {
+          "year": 2071,
+          "net": -895898,
+          "financialAssets": 10832230
+        },
+        {
+          "year": 2072,
+          "net": -917169,
+          "financialAssets": 10347892
+        },
+        {
+          "year": 2073,
+          "net": -938928,
+          "financialAssets": 9822410
+        },
+        {
+          "year": 2074,
+          "net": -960857,
+          "financialAssets": 9253969
+        },
+        {
+          "year": 2075,
+          "net": -983205,
+          "financialAssets": 8640431
+        },
+        {
+          "year": 2076,
+          "net": -1005857,
+          "financialAssets": 7979689
+        },
+        {
+          "year": 2077,
+          "net": -1028554,
+          "financialAssets": 7269808
+        },
+        {
+          "year": 2078,
+          "net": -1051886,
+          "financialAssets": 6508189
+        },
+        {
+          "year": 2079,
+          "net": -1075565,
+          "financialAssets": 5692414
+        },
+        {
+          "year": 2080,
+          "net": -1099476,
+          "financialAssets": 4820085
+        },
+        {
+          "year": 2081,
+          "net": -1123208,
+          "financialAssets": 3889119
+        }
+      ],
+      "totals": {
+        "income": 322022195,
+        "taxSi": 50604411,
+        "expense": 298115155,
+        "net": -26697371
+      }
+    }
+  }
 }

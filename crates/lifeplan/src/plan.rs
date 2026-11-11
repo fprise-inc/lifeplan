@@ -38,9 +38,12 @@ pub struct PlanItemsArgs {
     pub fields: Option<bool>,
 }
 
-/// JS に渡す見本の世帯の ID などの引数
-fn args_json(sample: Option<&str>, group: Option<&str>, fields: bool) -> Value {
+/// JS に渡す見本の世帯の ID などの引数。post は渡された世帯の定年後の働き方の条件（null なら渡さない。0195）
+fn args_json(sample: Option<&str>, group: Option<&str>, fields: bool, post: &Value) -> Value {
     let mut a = serde_json::Map::new();
+    if !post.is_null() {
+        a.insert("postRetirement".into(), post.clone());
+    }
     if let Some(s) = sample {
         a.insert("sampleId".into(), json!(s));
     }
@@ -60,11 +63,12 @@ pub fn list(
     group: Option<&str>,
     fields: bool,
     office: &Value,
+    post: &Value,
 ) -> Result<Value, String> {
     let out = engine::plan(
         "listPlanItems",
         &request.to_string(),
-        &args_json(sample, group, fields).to_string(),
+        &args_json(sample, group, fields, post).to_string(),
         &office.to_string(),
     )?;
     serde_json::from_str(&out).map_err(|e| e.to_string())
@@ -85,6 +89,7 @@ pub fn apply(
     changes: &[PlanChange],
     sample: Option<&str>,
     office: &Value,
+    post: &Value,
 ) -> Result<Applied, String> {
     if changes.is_empty() {
         return Ok(Applied::Ok {
@@ -96,7 +101,7 @@ pub fn apply(
         .iter()
         .map(|c| json!({ "target": c.target, "item": c.item, "value": c.value }))
         .collect();
-    let ctx = json!({ "args": args_json(sample, None, false), "office": office });
+    let ctx = json!({ "args": args_json(sample, None, false, post), "office": office });
     let out = engine::plan(
         "applyPlan",
         &request.to_string(),
@@ -171,9 +176,13 @@ mod tests {
         assert!(check_count(Some(&vec![one.clone(); MAX_PLAN_CHANGES])).is_ok());
         assert!(check_count(Some(&vec![one; MAX_PLAN_CHANGES + 1])).is_err());
         assert_eq!(
-            args_json(Some("x"), Some("対策"), true),
+            args_json(Some("x"), Some("対策"), true, &Value::Null),
             json!({ "sampleId": "x", "group": "対策", "fields": true })
         );
-        assert_eq!(args_json(None, None, false), json!({}));
+        assert_eq!(args_json(None, None, false, &Value::Null), json!({}));
+        assert_eq!(
+            args_json(None, None, false, &json!({})),
+            json!({ "postRetirement": {} })
+        );
     }
 }

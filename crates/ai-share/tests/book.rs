@@ -472,3 +472,57 @@ fn authors_are_recorded_when_the_office_is_shared() {
     let composed: Value = serde_json::from_str(&c.compose(&[]).unwrap()).unwrap();
     assert!(composed["consents"][0].get("recordedBy").is_none());
 }
+
+/// 定年後の働き方の条件（世帯ファイルの household.postRetirement。0195）は、数と選択肢だけを縮約版に入れる（物の ID は仮名）。
+/// 条件の無い世帯は空の条件として渡す（画面で保存した世帯を開いたときと同じく、推し量らない）。渡した記録の項目にも残る
+#[test]
+fn post_retirement_goes_with_numbers_and_choices_only() {
+    let (reg, _) = registry();
+    let mut v: Value = serde_json::from_str(&body("salariedCoupleTwoKids")).unwrap();
+    let self_id = v["household"]["request"]["input"]["household"]["members"][0]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    v["household"]["postRetirement"] = json!({
+        self_id.clone(): { "fromAge": 60, "type": "contract", "annualSalary": 3000000, "memo": "目印の定年のメモ" },
+    });
+    let (mut b, _) =
+        HouseholdBook::from_opened(HOUSEHOLD_ID, Some(CUSTOMER_NO.into()), 1, &v.to_string())
+            .unwrap();
+    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW, None)
+        .unwrap();
+    let g = reg.grant(b.source().unwrap(), opts()).unwrap();
+    let got: Value = serde_json::from_str(&get(&reg, &g.share_id).unwrap()).unwrap();
+    let post = got["postRetirement"].as_object().unwrap();
+    assert_eq!(post.len(), 1);
+    let (alias, cond) = post.iter().next().unwrap();
+    assert_ne!(alias, &self_id, "物の ID が仮名になっていません");
+    assert_eq!(
+        alias.as_str(),
+        got["input"]["household"]["members"][0]["id"]
+            .as_str()
+            .unwrap()
+    );
+    assert_eq!(
+        cond,
+        &json!({ "fromAge": 60, "type": "contract", "annualSalary": 3000000 })
+    );
+    let text = got.to_string();
+    assert!(!text.contains("目印の定年のメモ") && !text.contains(&self_id));
+    assert!(got["fields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("postRetirement")));
+    assert!(reg.records(HOUSEHOLD_ID)[0]
+        .fields
+        .contains(&"postRetirement".to_owned()));
+
+    // 条件の無い世帯: 空の条件
+    let mut plain = book();
+    plain
+        .record_consent(&consent(ConsentDecision::Given), TODAY, NOW, None)
+        .unwrap();
+    let g2 = reg.grant(plain.source().unwrap(), opts()).unwrap();
+    let got2: Value = serde_json::from_str(&get(&reg, &g2.share_id).unwrap()).unwrap();
+    assert_eq!(got2["postRetirement"], json!({}));
+}

@@ -11,8 +11,11 @@ import { currentPeriodId, resolveKey, type Reading } from "../store/readings.ts"
 import type { Catalog, DiffTarget, ItemValue, MovableItem } from "./items.ts";
 import type { Values } from "./plans.ts";
 
+/** 入力項目の外で縮約版に入る項目の名前（AIに渡した記録・共有の画面の「渡す項目」。0195） */
+const EXTRA_ITEM_LABELS: Record<string, string> = { postRetirement: "定年後の働き方の条件" };
+
 /** 入力項目IDの短い名前。知らない ID はそのまま */
-export const itemName = (id: string): string => ITEM_LABELS[id] || id;
+export const itemName = (id: string): string => ITEM_LABELS[id] || EXTRA_ITEM_LABELS[id] || id;
 
 /** プランの候補の変更1件（propose_scenario の changes の1件と同じ中身。対象は物・構成員の ID か前提） */
 export interface ProposedChange {

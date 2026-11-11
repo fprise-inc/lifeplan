@@ -21,6 +21,9 @@ pub struct SharedHouseholdSource {
     pub texts: Vec<SourceText>,
     /// FPが付ける呼び名（0012 の追記。どの版でも渡さない）
     pub labels_by_member: Option<Value>,
+    /// 定年後の働き方の条件（世帯ファイルの `household.postRetirement`。構成員の ID → 定年の年齢・定年後の働き方・年収・標準報酬月額）。
+    /// 計算の入力の外にある画面の側の値で、縮約の部品が数と選択肢だけを確かめて渡す（0195）
+    pub post_retirement: Option<Value>,
     /// この世帯の外部AIへの提供の同意の、今の状態（0014 の2。共有の前の確認に使う）
     pub external_ai_consent: Option<ConsentRef>,
 }

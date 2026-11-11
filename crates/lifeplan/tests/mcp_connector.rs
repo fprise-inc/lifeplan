@@ -74,6 +74,7 @@ fn source(id: &str, with_texts: bool) -> SharedHouseholdSource {
             object: None,
         }],
         labels_by_member: Some(json!({ "x": "上のお子さん" })),
+        post_retirement: None,
         external_ai_consent: Some(ConsentRef {
             decision: ConsentDecision::Given,
             record_id: "c-9".into(),
@@ -1556,7 +1557,8 @@ async fn plan_changes_match_the_screen() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// プランの動かす項目を、渡された世帯で（0195）: 一覧の対象は共有の仮の ID で、その書き方で計算すると同じ入力（元の ID）と同じ数字。
+/// プランの動かす項目を、渡された世帯で（0195）: 縮約版に定年後の働き方の条件が数と選択肢だけで入り、一覧の対象は共有の仮の ID で、
+/// その書き方で計算すると、画面で保存した世帯を開いて同じ値にしたときと同じ数字。
 /// 同じ書き方を propose_scenario に渡すと、アプリ本体は元の ID に戻して承認待ちに入れる。一覧を読んだこともアプリの「AIに渡した記録」に残る
 #[tokio::test(flavor = "multi_thread")]
 async fn plan_items_for_a_shared_household() {
@@ -1564,8 +1566,32 @@ async fn plan_items_for_a_shared_household() {
     let reg = Arc::new(ShareRegistry::new());
     let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
     let (c, _) = connect(&dir).await;
-    let id = "salariedCoupleTwoKids";
-    let g = reg.grant(source(id, false), grant_opts()).unwrap();
+    let fx: Value = serde_json::from_str(
+        &std::fs::read_to_string(repo().join("crates/lifeplan/tests/fixtures/plan/expected.json"))
+            .unwrap(),
+    )
+    .unwrap();
+    let want = &fx["shared"];
+    let id = want["sample"].as_str().unwrap();
+    // 定年後の働き方の条件を持つ世帯（縮約版は数と選択肢だけを渡す。名前・自由文の欄は落とす）
+    let mut src = source(id, false);
+    let mut post = want["postRetirement"].clone();
+    for (_, c) in post.as_object_mut().unwrap() {
+        c["memo"] = json!(MEMO);
+    }
+    src.post_retirement = Some(post);
+    let g = reg.grant(src, grant_opts()).unwrap();
+    let view = call_ok(
+        &c,
+        "get_shared_household",
+        json!({ "share_id": g.share_id }),
+    )
+    .await;
+    let alias = view["input"]["household"]["members"][0]["id"].clone();
+    let original = want["postRetirement"].as_object().unwrap();
+    let (orig_id, cond) = original.iter().next().unwrap();
+    assert_eq!(view["postRetirement"][alias.as_str().unwrap()], *cond);
+    assert!(!view.to_string().contains(MEMO) && !view.to_string().contains(orig_id.as_str()));
     let pick = |list: &Value| {
         list["items"]
             .as_array()
@@ -1582,26 +1608,29 @@ async fn plan_items_for_a_shared_household() {
         "共有の仮の ID ではありません"
     );
     assert_eq!(shared["item"], sample["item"]);
-    let change = |t: &Value| json!([{ "target": t["target"], "item": t["item"], "value": 63 }]);
+    // 渡された世帯の条件で、画面で保存した世帯を開いて働く最後の年齢を動かしたときと同じ数字（app/test/connector-plan.test.ts の見本）
     let a = call_ok(
         &c,
         "calculate",
-        json!({ "share_id": g.share_id, "plan_changes": change(&shared) }),
+        json!({ "share_id": g.share_id, "plan_changes": [{ "target": shared["target"], "item": shared["item"], "value": want["retireAge"] }] }),
     )
     .await;
-    // 渡された世帯には見本の定年後の働き方（見本の世帯だけの物）が無いので、同じ入力を AI が組み立てた入力として比べる
-    let raw: Value = serde_json::from_str(
-        &std::fs::read_to_string(repo().join(format!("data/modelHouseholds/{id}.json"))).unwrap(),
-    )
-    .unwrap();
-    let b = call_ok(
-        &c,
-        "calculate",
-        json!({ "input": raw["input"], "plan_changes": change(&sample) }),
-    )
-    .await;
-    assert_eq!(a["years"], b["years"]);
-    assert_eq!(a["totals"], b["totals"]);
+    let years: Vec<Value> = a["years"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|y| json!({ "year": y["year"], "net": y["net"], "financialAssets": y["financialAssets"] }))
+        .collect();
+    assert_eq!(
+        Value::Array(years),
+        want["screen"]["years"],
+        "画面の数字と違います"
+    );
+    assert_eq!(a["totals"], want["screen"]["totals"]);
+    assert!(
+        shared["note"].as_str().unwrap().contains("300万円"),
+        "{shared}"
+    );
     let rec = reg.records(HOUSEHOLD_ID);
     assert!(rec[0].reads.iter().any(|r| r.tool == "list_plan_items"));
 
@@ -1609,7 +1638,7 @@ async fn plan_items_for_a_shared_household() {
     let r = call_ok(
         &c,
         "propose_scenario",
-        json!({ "share_id": g.share_id, "title": "働く最後の年齢を63歳に", "changes": [{ "target": shared["target"], "item": shared["item"], "value": 63 }] }),
+        json!({ "share_id": g.share_id, "title": "働く最後の年齢を65歳に", "changes": [{ "target": shared["target"], "item": shared["item"], "value": 65 }] }),
     )
     .await;
     assert_eq!(r["status"], "pendingReview");

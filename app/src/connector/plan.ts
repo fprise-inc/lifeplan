@@ -5,14 +5,15 @@
 //   （workspace/plans/candidates.ts）で動かす項目の値にし、画面のプランと同じ関数（plans.ts の applyValues）で計算の要求に当てる。
 //   関係する欄も画面と同じく一緒に動く（働く最後の年齢なら、生活費の退職の段階・積立の終わり・定年後の働き方も）
 // - 画面の状態（帯・選んだプラン・保存していない変更・小窓）には依らない。世帯の要求から画面と同じく作業中の世帯（fromRequest）と
-//   動かす項目の一覧（buildCatalog）を作るだけ。見本の世帯では、画面と同じく見本の目盛りと定年後の働き方を使う
+//   動かす項目の一覧（buildCatalog）を作るだけ。見本の世帯では、画面と同じく見本の目盛りと定年後の働き方を使う。渡された世帯では、
+//   縮約版の定年後の働き方の条件を、画面で保存した世帯を開いたときと同じくそのまま使う
 // - 事務所の推定の値は、計算の前の処理（prepare.ts）と同じく、渡された世帯のときだけモジュールの中に入れてから当てる（画面が事務所データを
 //   読んでから動かす項目を作るのと同じ。働き方を選び直したときの年収の目安などが読む）。呼び出しをまたいで残らない
 // - 画面の部品（preact）・本体の命令・保存の部品は読まない（lint とまとめる道具が止める）。世帯の物の ID は、AI に渡した世帯の ID
 //   （渡された世帯では共有の仮の ID）のまま返す
 import type { EngineRequest } from "../engine/types.ts";
 import { demoHousehold } from "../workspace/catalog.ts";
-import { fromRequest, type WorkingHousehold } from "../workspace/input/household.ts";
+import { fromRequest, type PostRetirement, type WorkingHousehold } from "../workspace/input/household.ts";
 import { publishOfficeEstimates, readOfficeEstimates } from "../workspace/office/estimates.ts";
 import { candidateRows, candidateTargetOf, candidateValues, type CandidateRow, type ProposedChange } from "../workspace/plans/candidates.ts";
 import { buildCatalog, type Catalog, type ItemValue, type MovableItem } from "../workspace/plans/items.ts";
@@ -27,6 +28,11 @@ export interface PlanArgs {
   group?: string;
   /** 一覧を絞る: 入力の数の欄から作った項目（fields）も入れるか（既定は入れない。対策・資産運用・貯まり方・よく使う項目だけ） */
   fields?: boolean;
+  /**
+   * 渡された世帯の定年後の働き方の条件（縮約版の postRetirement。構成員の ID → 条件）。あれば、画面で保存した世帯を開いたときと同じく
+   * これをそのまま使う（無い構成員は条件なし。入力の働き方の期間から推し量らない）。見本の世帯・AI が組み立てた入力では省く
+   */
+  postRetirement?: Record<string, PostRetirement>;
 }
 
 /** プランの候補の書き方の1件（propose_scenario の changes の1件と同じ） */
@@ -56,7 +62,9 @@ function opened(req: EngineRequest, a: PlanArgs): Opened | null {
   if (self === undefined) return null;
   const demo = a.sampleId === undefined ? null : (demoHousehold(a.sampleId) ?? null);
   const re = demo?.reemployment;
-  const wh = fromRequest(req, re !== undefined ? { postRetirement: { [self.member.id]: { ...re, type: re.type as "contract" } } } : {});
+  const wh0 = fromRequest(req, re !== undefined ? { postRetirement: { [self.member.id]: { ...re, type: re.type as "contract" } } } : {});
+  // 渡された世帯: 保存した条件をそのまま（store/body.ts の fromBody と同じ。0195）
+  const wh = a.postRetirement !== undefined ? { ...wh0, postRetirement: { ...a.postRetirement } } : wh0;
   return { wh, cat: buildCatalog(wh, self.member.id, demo) };
 }
 

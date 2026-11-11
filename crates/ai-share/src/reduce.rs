@@ -115,6 +115,65 @@ pub struct Reduced {
     pub texts: Vec<Value>,
     /// 渡した項目の一覧（入力項目IDと文章の項目。0014 の `fields`）
     pub fields: Vec<String>,
+    /// 定年後の働き方の条件（構成員の仮名 → 数と選択肢だけ。0195）。元の世帯が条件を持たなければ None
+    pub post_retirement: Option<Value>,
+}
+
+/// 定年後の働き方の条件の項目の名前（AIに渡した記録の `fields` と、共有の画面の「渡す項目」。0195）
+pub const POST_RETIREMENT_ITEM: &str = "postRetirement";
+
+/// 定年後の働き方（画面の選択肢と同じ）
+const POST_RETIREMENT_TYPES: &[&str] = &["contract", "partTime", "selfEmployed"];
+
+/// 定年後の働き方の条件を、数と選択肢だけにする（0195）。構成員の ID が世帯の構成員にある物・形の合う物だけを残し、知らない欄は落とす
+/// （名前・自由文の欄は無い。あっても渡さない）。定年の年齢は 0〜120 の整数、年収・標準報酬月額は 0 以上の整数の円（年収は null も可）、
+/// 働き方は選択肢か null。形の合わない構成員の条件は全部落とす
+fn post_retirement(raw: Option<&Value>, input: &Value) -> Option<Value> {
+    let raw = raw?.as_object()?;
+    let members: HashSet<&str> = input["household"]["members"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|m| m["id"].as_str())
+        .collect();
+    let yen = |v: &Value| v.as_i64().filter(|n| (0..=10_000_000_000).contains(n));
+    let mut out = Map::new();
+    for (id, v) in raw {
+        let Some(o) = v.as_object() else { continue };
+        if !is_uuid(id) || !members.contains(id.as_str()) {
+            continue;
+        }
+        let Some(from_age) = o
+            .get("fromAge")
+            .and_then(Value::as_i64)
+            .filter(|n| (0..=120).contains(n))
+        else {
+            continue;
+        };
+        let kind = match o.get("type") {
+            None | Some(Value::Null) => Value::Null,
+            Some(Value::String(s)) if POST_RETIREMENT_TYPES.contains(&s.as_str()) => {
+                Value::String(s.clone())
+            }
+            Some(_) => continue,
+        };
+        let salary = match o.get("annualSalary") {
+            None | Some(Value::Null) => Value::Null,
+            Some(v) => match yen(v) {
+                Some(n) => Value::from(n),
+                None => continue,
+            },
+        };
+        let mut e = Map::new();
+        e.insert("fromAge".into(), Value::from(from_age));
+        e.insert("type".into(), kind);
+        e.insert("annualSalary".into(), salary);
+        if let Some(n) = o.get("standardMonthlyRemuneration").and_then(yen) {
+            e.insert("standardMonthlyRemuneration".into(), Value::from(n));
+        }
+        out.insert(id.clone(), Value::Object(e));
+    }
+    Some(Value::Object(out))
 }
 
 /// 共有ごとの物の ID の仮名（共有の間は同じ）
@@ -393,8 +452,13 @@ fn reduce_with(
     let input = walk
         .value(&source.input, &root, None)
         .unwrap_or_else(|| Value::Object(Map::new()));
+    let post = post_retirement(source.post_retirement.as_ref(), &source.input)
+        .map(|p| pseudonyms.apply(&p));
     let input = pseudonyms.apply(&input);
     let mut fields = walk.fields;
+    if post.is_some() {
+        fields.insert(POST_RETIREMENT_ITEM.to_owned());
+    }
     let mut texts: Vec<Value> = Vec::new();
     for t in walk.texts {
         let mut w = wrap_client_text(&t.author, &t.body);
@@ -423,12 +487,15 @@ fn reduce_with(
         input,
         texts,
         fields: fields.into_iter().collect(),
+        post_retirement: post,
     }
 }
 
-/// 縮約版で渡す項目の一覧（共有の画面の「渡す項目」に見せる。0015 の6）
+/// 縮約版で渡す項目の一覧（共有の画面の「渡す項目」に見せる。0015 の6）。入力項目のほかに、定年後の働き方の条件（0195）
 pub fn reduced_items() -> Vec<String> {
-    allowlist().items.iter().cloned().collect()
+    let mut v: Vec<String> = allowlist().items.iter().cloned().collect();
+    v.push(POST_RETIREMENT_ITEM.to_owned());
+    v
 }
 
 #[cfg(test)]
@@ -458,6 +525,44 @@ mod tests {
         assert_eq!(out["y"]["id"], pb.as_str());
         assert_eq!(p.restore(&json!({"t": pb})).unwrap(), json!({"t": b}));
         assert!(p.restore(&json!(random_uuid_v4())).is_err());
+    }
+
+    #[test]
+    fn post_retirement_keeps_only_numbers_and_choices() {
+        let a = "00000000-0000-4000-8000-000000000001";
+        let b = "00000000-0000-4000-8000-000000000002";
+        let gone = "00000000-0000-4000-8000-000000000009";
+        let input = json!({ "household": { "members": [{ "id": a }, { "id": b }] } });
+        let raw = json!({
+            a: { "fromAge": 60, "type": "contract", "annualSalary": 3000000, "standardMonthlyRemuneration": 260000, "memo": "定年後は地元で働きたい", "employerName": "どこかの会社" },
+            b: { "fromAge": 65, "type": null, "annualSalary": null },
+            gone: { "fromAge": 60, "type": null, "annualSalary": null },
+            "self": { "fromAge": 60, "type": null, "annualSalary": null },
+        });
+        assert_eq!(
+            post_retirement(Some(&raw), &input).unwrap(),
+            json!({
+                a: { "fromAge": 60, "type": "contract", "annualSalary": 3000000, "standardMonthlyRemuneration": 260000 },
+                b: { "fromAge": 65, "type": null, "annualSalary": null },
+            })
+        );
+        // 形の合わない条件（知らない働き方・小数や負の額・年齢の外）は、その人の条件を全部落とす
+        for bad in [
+            json!({ "fromAge": 60, "type": "宇宙飛行士", "annualSalary": 1 }),
+            json!({ "fromAge": 60, "type": "partTime", "annualSalary": -1 }),
+            json!({ "fromAge": 60.5, "type": null, "annualSalary": null }),
+            json!({ "fromAge": 200, "type": null, "annualSalary": null }),
+            json!({ "type": null, "annualSalary": null }),
+            json!("60歳"),
+        ] {
+            assert_eq!(
+                post_retirement(Some(&json!({ a: bad })), &input),
+                Some(json!({})),
+                "{bad}"
+            );
+        }
+        assert_eq!(post_retirement(None, &input), None);
+        assert_eq!(post_retirement(Some(&json!([])), &input), None);
     }
 
     #[test]

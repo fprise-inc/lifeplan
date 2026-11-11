@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { applyPlan, listPlanItems } from "../src/connector/plan.ts";
 import { forEngine } from "../src/engine/moneyRows.ts";
 import type { EngineRequest, PreviewResult } from "../src/engine/types.ts";
-import { candidateRows } from "../src/workspace/ai/model.ts";
+import { candidateRows, itemName } from "../src/workspace/ai/model.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { buildEvidence } from "../src/workspace/evidence.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
@@ -86,6 +86,9 @@ const years = (r: PreviewResult) => {
   return [...by.values()].sort((a, b) => a.year - b.year);
 };
 const totals = (r: PreviewResult) => (r.summary as { totals: unknown }).totals;
+
+/** 渡された世帯の定年後の働き方の条件（60歳で定年・再雇用で年収300万円） */
+const SHARED_POST = { fromAge: 60, type: "contract" as const, annualSalary: 3000000 };
 
 /** 見本に入れる変更（世帯・動かす項目のキー → 値の作り方） */
 const CASES: { name: string; sample: string; moves: Record<string, (now: ItemValue) => ItemValue>; ask?: { row: string; year: number } }[] = [
@@ -197,6 +200,30 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
     expect(rows[1]!.reason).toContain("範囲");
   });
 
+  it("渡された世帯の定年後の働き方の条件（縮約版）を、画面で保存した世帯を開いたときと同じくそのまま使う", () => {
+    const S = "salariedCoupleTwoKids";
+    const req = modelHousehold(S);
+    const self = roles(req).find((r) => r.key === "self")!.member.id;
+    // 画面: 保存した世帯を開くと、保存した条件をそのまま使う（store/body.ts の fromBody）
+    const screenWh = { ...fromRequest(req), postRetirement: { [self]: SHARED_POST } };
+    const cat = buildCatalog(screenWh, self, null);
+    const screenReq = applyValues(screenWh, { "lever:retireAge": 65 }, cat);
+    const withPost = (post: unknown) => JSON.parse(applyPlan(JSON.stringify(req), JSON.stringify([{ target: self, item: "employment.to", value: 65 }]), JSON.stringify({ args: { postRetirement: post }, office: null }))) as { status: string; request: EngineRequest };
+    const got = withPost({ [self]: SHARED_POST });
+    expect(got.status).toBe("ok");
+    expect(got.request.input).toEqual(screenReq.input);
+    // 条件が無い（{}）ときは、入力の働き方の期間から推し量らない（画面で条件の無い保存した世帯を開いたときと同じ）
+    const none = withPost({});
+    const screenNone = { ...fromRequest(req), postRetirement: {} };
+    expect(none.request.input).toEqual(applyValues(screenNone, { "lever:retireAge": 65 }, buildCatalog(screenNone, self, null)).input);
+    expect(none.request.input).not.toEqual(got.request.input);
+    // 共有の画面・記録の「渡す項目」の名前
+    expect(itemName("postRetirement")).toBe("定年後の働き方の条件");
+    // 一覧の補足も同じ条件で書く
+    const items = JSON.parse(listPlanItems(JSON.stringify(req), JSON.stringify({ postRetirement: { [self]: SHARED_POST } }), "null")) as { items: { label: string; note?: string }[] };
+    expect(items.items.find((x) => x.label.includes("働く最後の年齢"))!.note).toContain("300万円");
+  });
+
   it("接続口のテストの見本（変更と画面の数字・根拠）が今の答えと同じ", () => {
     const cases = CASES.map((c) => {
       const { changes, screenRequest } = both(c.sample, c.moves);
@@ -212,7 +239,15 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
       }
       return out;
     });
-    const text = `${JSON.stringify({ cases }, null, 2)}\n`;
+    // 渡された世帯の定年後の働き方の条件（接続口のテストは、この条件を持つ世帯を渡し、縮約版を通して計算させる）
+    const S = "salariedCoupleTwoKids";
+    const req = modelHousehold(S);
+    const self = roles(req).find((r) => r.key === "self")!.member.id;
+    const wh = { ...fromRequest(req), postRetirement: { [self]: SHARED_POST } };
+    const sharedReq = applyValues(wh, { "lever:retireAge": 65 }, buildCatalog(wh, self, null));
+    const sr = preview(forEngine(sharedReq));
+    const shared = { sample: S, postRetirement: { [self]: SHARED_POST }, retireAge: 65, screen: { years: years(sr), totals: totals(sr) } };
+    const text = `${JSON.stringify({ cases, shared }, null, 2)}\n`;
     if (process.env.LIFEPLAN_UPDATE_FIXTURES !== undefined) {
       mkdirSync(dirname(FIXTURE), { recursive: true });
       writeFileSync(FIXTURE, text);
