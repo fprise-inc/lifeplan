@@ -8,7 +8,7 @@
 //   「＋ 項目を追加」はやめた（足せた留学・名前を付けた支出・介護の費用は、どれも元からある入力項目の中で入れられる）。代わりに入力のホームの
 //   「探して開く」（inputSearch.ts）で、入れる入力項目の欄へ案内する。前に足した物とピンは今までどおり読み、計算し、ホームに出す（直す・外すはできる。0045 の 2026-11-04 の追記）
 // FP顧問料は「前提条件」のカードの中の欄のまとまり（stages/assumptions.ts）。車は「車」のカードの中で1台ずつ足す（stages/cars.ts）
-import type { AdvisoryFee, Car, CareExpense, Household, PeriodicExpense } from "../../engine/types.ts";
+import type { AdvisoryFee, Car, CareExpense, Household, Member, PeriodicExpense } from "../../engine/types.ts";
 import { careEstimate } from "../../../../hearing/src/estimates.ts";
 import { addMonths, ageAt } from "../levers.ts";
 import { resolveTimepoint } from "../timepoint.ts";
@@ -339,10 +339,15 @@ function careMonthly(c: CareExpense): number {
   return Math.round((service ?? 0) * CARE_SERVICE_COPAY_FOR_SUMMARY) + (other ?? 0);
 }
 
-/** 介護の費用1件の総額（名目）。期間を入れていなければ null（要約は月の額にする）。はじめの費用が空なら、計算と同じ統計の平均の推定 */
+/**
+ * 介護の費用1件の総額（名目）。期間・はじめの費用が空なら、計算と同じ統計の平均の推定（期間の推定が無ければ null。要約は月の額にする。
+ * 前は期間が空なら null だった。介護の目安の物の期間を空欄＝推定にしたので、推定の期間で数える。0041 の追記 2026-11-10）
+ */
 function careTotal(c: CareExpense): number | null {
-  if (c.months === undefined) return null;
-  return careMonthly(c) * c.months + (c.initial?.value ?? careEstimate(c.place === "facility" ? "facility" : "home")?.initial ?? 0);
+  const est = careEstimate(c.place === "facility" ? "facility" : "home");
+  const months = c.months ?? est?.months;
+  if (months === undefined) return null;
+  return careMonthly(c) * months + (c.initial?.value ?? est?.initial ?? 0);
 }
 
 /**
@@ -462,7 +467,12 @@ function inheritanceSummary(wh: WorkingHousehold): Summary | null {
   const n = g.receive.length + g.give.length;
   if (n > 0) return { main: String(n), unit: "件の援助" };
   const d = (h.donors ?? []).length;
-  return d > 0 ? { main: String(d), unit: "人（贈与する人）" } : null;
+  if (d > 0) return { main: String(d), unit: "人（贈与する人）" };
+  // 行の無いときの、ほかに入れた物（あげる贈与の相手の孫・遺したい額）
+  const kids = h.members.filter(giftGrandchild).length;
+  if (kids > 0) return { main: String(kids), unit: "人（あげる贈与の相手の孫）" };
+  const legacy = wh.request.input.legacy?.amount?.value;
+  return legacy != null ? { pre: "遺したい額 ", main: manText(legacy), unit: "万円" } : null;
 }
 
 function baseSummary(id: StageId, wh: WorkingHousehold, inheritanceTax: string | null | undefined, pension?: Summary | null): Summary | null {
@@ -567,10 +577,13 @@ function baseHasData(id: StageId, wh: WorkingHousehold): boolean {
       // 車・車のカードのお金の行（カーシェアなど）・今返している自動車ローン（0069）
       return (h.cars ?? []).length > 0 || moneyRows(h, "car") > 0 || carDebts(h).length > 0;
     case "care":
-      return (h.careExpenses ?? []).length > 0 || outsideMembers(wh).length > 0 || moneyRows(h, "care") > 0;
+      // あげる贈与の相手の孫は相続・贈与の項目の物（介護・親には読むだけの1行。0060 の追記 2026-11-11）
+      return (h.careExpenses ?? []).length > 0 || outsideMembers(wh).some((m) => !giftGrandchild(m)) || moneyRows(h, "care") > 0;
     case "inheritance": {
       const g = giftLines(wh);
-      return g.receive.length + g.give.length > 0 || (h.donors ?? []).length > 0 || moneyRows(h, "inherit") + inheritedDebts(h) > 0;
+      // この項目で入れる物: 相続・贈与のお金の行・受け継ぐ借金・援助・贈与する人に加え、あげる贈与の相手の孫・遺したい額・相続税の目安の設定（FP が入れた値）。
+      // どれも無いときだけ「物が無い」と読む（保存すると「該当なし」。入れたのに保存で「該当なし」にならないように。0060 の追記 2026-11-11）
+      return g.receive.length + g.give.length > 0 || (h.donors ?? []).length > 0 || moneyRows(h, "inherit") + inheritedDebts(h) > 0 || h.members.some(giftGrandchild) || inheritancePlanEntered(wh);
     }
     case "fee":
       return (h.advisoryFees ?? []).length > 0;
@@ -578,6 +591,24 @@ function baseHasData(id: StageId, wh: WorkingHousehold): boolean {
       // 前提条件は計算に必ず要るので、既定の値（事務所の標準値ができるまでの仮の値）が入っている
       return wh.request.input.assumptions !== undefined;
   }
+}
+
+/** あげる贈与の相手の孫（世帯の外の家族の孫。相続・贈与の項目に置く） */
+const giftGrandchild = (m: Member): boolean => m.kind === "grandchild" && m.outside !== undefined;
+
+/**
+ * 相続・贈与の項目で、世帯の物でない所に FP が入れた値があるか: 遺したい額・相続税の目安の設定（不動産の評価の割合・葬式の費用・相続人の数・税理士などが出した額など）。
+ * 事務所の既定値から写した不動産の評価の割合（推定の印 assumed のあるもの）は入れた値に数えない
+ */
+function inheritancePlanEntered(wh: WorkingHousehold): boolean {
+  const input = wh.request.input;
+  if (input.legacy?.amount?.value != null) return true;
+  const t = input.inheritanceTax ?? {};
+  return Object.entries(t).some(([k, v]) => {
+    if (k === "points" || v === undefined || v === null) return false;
+    if (Array.isArray(v)) return v.length > 0;
+    return k !== "realEstateRatio" || wh.assumed["inherit/tax/realEstateRatio"] === undefined;
+  });
 }
 
 /** 物の単位で推定している数（年金の記録が無い人は、働き方の期間から推計している） */

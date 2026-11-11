@@ -82,6 +82,8 @@ describe("ご両親のお金と介護の取り込み", () => {
     const r = run(...base, a("hs.inherit.expected", "yes"), a("hs.inherit.year", 2035), a("hs.inherit.amount", 10000000));
     const f = r.request.input.household.incomeFlows![0]!;
     expect(f).toMatchObject({ kind: "inheritance", label: "相続・遺贈", from: { at: "2035-01" }, to: { at: "2035-01" }, likelihood: "uncertain", amount: { value: 10000000, state: "confirmed" } });
+    // 伸び方は「その時の額のまま」（入れた額のまま。相続の入力項目の1回の行と同じ）
+    expect(f.growth).toEqual({ kind: "none" });
     expect(f.counterparty).toBeUndefined();
     const noYear = run(...base, a("hs.inherit.expected", "yes"), a("hs.inherit.year", "unknown"));
     const g = noYear.request.input.household.incomeFlows![0]!;

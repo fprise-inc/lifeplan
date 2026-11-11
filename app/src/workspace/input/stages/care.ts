@@ -10,7 +10,7 @@
 import type { CareExpense, Household, Member, Timepoint } from "../../../engine/types.ts";
 import { careEstimate, dependentLimits } from "../../../../../hearing/src/estimates.ts";
 import { masterAmount } from "../../../../../hearing/src/statistics.ts";
-import { adultsCareDeclined, adultsWithoutCare, careTemplate, deathEstimate, declineAdultsCare, fillAdultsCare, fillCareFor, hasBirth } from "../fill.ts";
+import { addCareTemplate, adultsCareDeclined, adultsWithoutCare, careStartKey, deathEstimate, declineAdultsCare, fillAdultsCare, fillCareFor, hasBirth } from "../fill.ts";
 import { addMonths, ageAt } from "../../levers.ts";
 import { byId, field, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type Option, type SectionDef, type StageDef } from "../form.ts";
 import { estimatedBox, mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
@@ -502,16 +502,19 @@ function careTitle(wh: WorkingHousehold, c: CareExpense): string {
   return `${memberLabel(wh, c.member)}の介護`;
 }
 
-/** 介護の物の見出しの下の1行（「在宅・2031年4月から55か月・月5.2万円（推定）」）。入れていない月額・期間は統計の平均の推定 */
+/**
+ * 介護の物の見出しの下の1行（「在宅・2031年4月から55か月（推定）・月5.2万円（推定）」）。入れていない月額・期間は統計の平均の推定で、
+ * 推定の物のすぐ後ろに「（推定）」（期間と月額のどちらが推定か分かるように。0041 の追記 2026-11-10）
+ */
 export function careSpan(wh: WorkingHousehold, c: CareExpense): string {
   const h = wh.request.input.household;
   const from = resolveTimepoint(h, c.from);
   const est = careEstimate(placeOf(c));
   const months = c.months ?? est?.months;
+  const monthsEst = c.months === undefined && est !== null ? "（推定）" : "";
   const monthly = c.otherMonthly?.value ?? null;
-  const money = monthly !== null ? `月${manYen(monthly)}` : est !== null ? `月${manYen(est.monthly)}` : "";
-  // 月額・期間のどちらかが入っていなければ、行の最後に1回「（推定）」
-  const estimated = (monthly === null && c.serviceMonthly === undefined && est !== null) || (c.months === undefined && est !== null);
+  const moneyEst = monthly === null && c.serviceMonthly === undefined && est !== null;
+  const money = monthly !== null ? `月${manYen(monthly)}` : est !== null ? `月${manYen(est.monthly)}${moneyEst ? "（推定）" : ""}` : "";
   // 介護を受ける人の亡くなる見込みが期間の途中なら、その前の月まで（care.expense はその月から出さない）
   const gone = resolveTimepoint(h, h.members.find((m) => m.id === c.member)?.leaves ?? null);
   const last = from !== null && months !== undefined ? addMonths(from, months - 1) : null;
@@ -521,9 +524,8 @@ export function careSpan(wh: WorkingHousehold, c: CareExpense): string {
       ? gone > from
         ? `${start}${formatYearMonth(addMonths(gone, -1))}まで（亡くなる見込みまで）`
         : "亡くなる見込みの後のため0円"
-      : `${start}${months !== undefined ? `${String(months)}か月` : ""}`;
-  const line = [c.place === "facility" ? "施設" : "在宅", span, money].filter((x) => x !== "").join("・");
-  return estimated ? `${line}（推定）` : line;
+      : `${start}${months !== undefined ? `${String(months)}か月${monthsEst}` : ""}`;
+  return [c.place === "facility" ? "施設" : "在宅", span, money].filter((x) => x !== "").join("・");
 }
 
 function shiftAge(t: Timepoint, months: number): Timepoint {
@@ -537,16 +539,21 @@ function addOffset(o: Timepoint["offset"], months: number): NonNullable<Timepoin
   return { years: Math.trunc(total / 12), months: total % 12 };
 }
 
-/** 次の段（施設など）を足す: 始まりはこの段の始まりの形（年齢・出来事・年月）のまま期間だけずらす（年齢で入れた段は、生年月を直すと一緒に動く） */
+/**
+ * 次の段（施設など）を足す: 始まりはこの段の始まりの形（年齢・出来事・年月）のまま期間だけずらす（年齢で入れた段は、生年月を直すと一緒に動く）。
+ * 始まりは推定の印（前の段の終わりの翌月。前の段の期間が空なら統計の平均の期間で。0041 の追記 2026-11-11）
+ */
 export function addNextCareStage(wh: WorkingHousehold, id: string, newStage: string = newId()): WorkingHousehold {
-  return mutate(wh, (h, req) => {
-    const cur = (h.careExpenses ?? []).find((x) => x.id === id);
-    if (cur === undefined) return;
-    const months = cur.months ?? careEstimate(placeOf(cur))?.months ?? masterAmount("care.statistics.months") ?? 0;
+  const cur = (wh.request.input.household.careExpenses ?? []).find((x) => x.id === id);
+  if (cur === undefined) return wh;
+  const months = cur.months ?? careEstimate(placeOf(cur))?.months ?? masterAmount("care.statistics.months") ?? 0;
+  const next = mutate(wh, (h, req) => {
     const from: Timepoint =
       cur.from.memberAge !== undefined ? shiftAge(cur.from, months) : cur.from.event !== undefined ? { event: cur.from.event, offset: addOffset(cur.from.offset, months) } : { at: addMonths(resolveTimepoint(h, cur.from) ?? req.input.baseMonth, months) };
     (h.careExpenses ??= []).push({ id: newStage, member: cur.member, from, place: "facility" });
   });
+  const span = cur.months !== undefined ? `${String(months)}か月` : `${String(months)}か月。期間が空なので統計の平均の推定`;
+  return { ...next, assumed: { ...next.assumed, [careStartKey(newStage)]: `推定（前の段階の終わりの翌月。前の段階の始まりに、その期間（${span}）を足しています）` } };
 }
 
 /** 介護の物1件（events.ts の欄に、見出しの1行と「＋ 次の段階を足す」を足す） */
@@ -699,13 +706,11 @@ export function careStage(wh: WorkingHousehold): StageDef {
           key: "ev/addCare",
           label: "＋ 介護の費用",
           level: "simple",
-          run: (w) =>
-            mutate(w, (hh, req) => {
-              const self = hh.members.find((m) => m.kind === "self");
-              const who = hh.members.find((m) => m.kind === "parent") ?? self;
-              if (who === undefined) return;
-              (hh.careExpenses ??= []).push(careTemplate(hh, who, req.input.baseMonth));
-            }),
+          run: (w) => {
+            const hh = w.request.input.household;
+            const who = hh.members.find((m) => m.kind === "parent") ?? hh.members.find((m) => m.kind === "self");
+            return who === undefined ? w : addCareTemplate(w, who.id);
+          },
         },
       ],
     },

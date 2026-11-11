@@ -351,6 +351,11 @@ html.big .lever input[type="range"] { height: 36px; }
 /* 見出しの横の要約（入れた結果の額など。GroupDef・SectionDef の summary） */
 .in-section h3 .in-sum, .in-group-h h4 .in-sum { margin-left: 10px; font-size: 0.82rem; font-weight: 400; color: var(--ink-2); }
 .in-group-help { margin: 0 0 4px; }
+/* ふだんは閉じておくまとまり（FoldedGroup.tsx）: 説明の段落と「＋ 〇〇を入れる」だけ */
+.in-folded .in-note { margin: 0 0 6px; line-height: 1.6; }
+.in-folded > .in-actions { margin-top: 8px; }
+.in-folded .in-folded-list { padding-left: 1.3em; }
+.in-folded .in-folded-list li + li { margin-top: 2px; }
 .ip-head h2 .help-btn { font-size: 0.78rem; }
 .fld-c { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .fld-c input[type="text"], .fld-c select { border: 1.5px solid var(--line); border-radius: 6px; padding: 5px 8px; background: var(--card); min-width: 0; }
@@ -435,6 +440,8 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-c input.bad { border-color: var(--short); background: var(--short-bg); }
 .fld-c input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--prop); }
 .fld.is-est .fld-c input[type="text"] { border-style: dashed; border-color: var(--base); background: var(--wash, #f7f8fa); color: var(--base-ink); }
+/* 空欄の推定の値を欄の中に灰色で見せる（入っている推定の値と同じ文字の色。打ち始めると消える。0041 の追記 2026-11-10） */
+.fld-c input.est-ghost::placeholder { color: var(--base-ink); opacity: 1; }
 .units { display: inline-flex; gap: 4px; }
 .unit-btn { border: 1.5px solid var(--ink-2); background: var(--card); border-radius: 5px; padding: 2px 7px; font-size: 0.82rem; font-weight: 700; cursor: pointer; }
 .suffix { font-size: 0.88rem; font-weight: 700; }

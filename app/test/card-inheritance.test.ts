@@ -1,16 +1,19 @@
 // 相続・贈与のカード（0060）: 受け取る相続の時期の推定（相手の亡くなる見込みの10か月後）、不確かな行の「計算に入れる」、贈与する人は読むだけ、
 // 遺したい額（表示だけ。表の最後の年の金融資産と比べる）、相続税の目安の設定（世帯に保存し、計算の要求からは外れる）と時点ごとの見せ方
 import { describe, expect, it } from "vitest";
-import type { PreviewResult } from "../src/engine/types.ts";
+import type { Household, Member, PreviewResult } from "../src/engine/types.ts";
 import { forEngine } from "../src/engine/moneyRows.ts";
 import { chartRequests } from "../src/workspace/contingency/requests.ts";
 import { allFields, type FieldDef, type StageDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { CAUTION_TEXT, inheritanceRequest, inheritanceView, legacyLine, NOT_INCLUDED_TEXT } from "../src/workspace/input/inheritanceLine.ts";
+import { inputItems, saveItem } from "../src/workspace/input/items.ts";
+import { memberLabel } from "../src/workspace/input/labels.ts";
+import { addOutsideGrandchild, grandchildBirthYear } from "../src/workspace/input/moneyRows.ts";
 import { addMember } from "../src/workspace/input/stages/family.ts";
 import { addOutside } from "../src/workspace/input/stages/care.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
-import { INHERIT_AFTER_MONTHS } from "../src/workspace/input/stages/inheritance.ts";
+import { INHERIT_AFTER_MONTHS, INHERIT_PENDING_BASIS } from "../src/workspace/input/stages/inheritance.ts";
 import { fieldAddress, fieldStatus } from "../src/workspace/input/valueState.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { planView, recordPlanEdit } from "../src/workspace/plans/planEdit.ts";
@@ -53,6 +56,44 @@ describe("相続・贈与のカード: 受け取る予定（区画A）", () => {
     expect(fieldStatus(fieldOf(wh, `in/${f.id}/amount`), wh).status).toBe("missing");
     // 見込みは簡易（札）
     expect(fieldOf(wh, `in/${f.id}/likelihood`).level).toBe("simple");
+  });
+
+  it("相手が「なし」のまま足した相続の行も、後から相手を選ぶと、受け取る時期を相手の亡くなる見込みの10か月後で入れる", () => {
+    const w0 = blankHousehold(BASE, seq());
+    const w1 = actionOf(w0, "money/inherit/in/add/inheritance").run(w0);
+    const id = w1.request.input.household.incomeFlows![0]!.id;
+    expect(w1.request.input.household.incomeFlows![0]!.counterparty).toBeUndefined();
+    expect(w1.assumed[`in/${id}/from`]).toBe(INHERIT_PENDING_BASIS);
+    const w2 = addOutside(w1, "parent");
+    const parent = w2.request.input.household.members.find((m) => m.kind === "parent")!;
+    const wh = fieldOf(w2, `in/${id}/counterparty`).set(w2, parent.id);
+    const h = wh.request.input.household;
+    const f = h.incomeFlows![0]!;
+    const death = resolveTimepoint(h, parent.leaves!)!;
+    const at = resolveTimepoint(h, f.from)!;
+    expect((Number(at.slice(0, 4)) - Number(death.slice(0, 4))) * 12 + (Number(at.slice(5)) - Number(death.slice(5)))).toBe(INHERIT_AFTER_MONTHS);
+    expect(f.to).toEqual(f.from);
+    expect(fieldStatus(fieldOf(wh, `in/${id}/from`), wh).status).toBe("estimated");
+  });
+
+  it("相手が「なし」のまま足した相続の行でも、FP が時期を入れた後に相手を選んだら時期は動かさない", () => {
+    const w0 = blankHousehold(BASE, seq());
+    const w1 = actionOf(w0, "money/inherit/in/add/inheritance").run(w0);
+    const id = w1.request.input.household.incomeFlows![0]!.id;
+    const fixed = fieldOf(w1, `in/${id}/from`).set(w1, "2040-01");
+    expect(fixed.assumed[`in/${id}/from`]).toBeUndefined();
+    const w2 = addOutside(fixed, "parent");
+    const parent = w2.request.input.household.members.find((m) => m.kind === "parent")!;
+    const wh = fieldOf(w2, `in/${id}/counterparty`).set(w2, parent.id);
+    const f = wh.request.input.household.incomeFlows![0]!;
+    expect(f.counterparty).toBe(parent.id);
+    expect(f.from).toEqual(fixed.request.input.household.incomeFlows![0]!.from);
+  });
+
+  it("贈与を受ける行は相手が「なし」でも時期に仮の印を付けない（相手の亡くなる見込みで時期を決めない）", () => {
+    const w0 = blankHousehold(BASE, seq());
+    const wh = actionOf(w0, "money/inherit/in/add/giftReceived").run(w0);
+    expect(wh.assumed[`in/${wh.request.input.household.incomeFlows![0]!.id}/from`]).toBeUndefined();
   });
 
   it("「不確か」の行は基本の計算に入れず、「この行を計算に入れる」の1押しで入れる（プランでは差分になる）", () => {
@@ -283,5 +324,71 @@ describe("相続・贈与のカード: 相続税の目安（区画D）", () => {
     const one = blankHousehold(BASE, seq());
     expect(allFields(stage(one)).some((f) => f.key === "inherit/tax/unassignedShare")).toBe(false);
     expect(allFields(stage(addMember(one, "spouse"))).some((f) => f.key === "inherit/tax/unassignedShare")).toBe(true);
+  });
+});
+
+describe("相続・贈与のカード: 足す孫の仮の生年月・孫の呼び方・一人の世帯の目安の題名・保存したときの札（0060 の追記 2026-11-11）", () => {
+  const person = (id: string, kind: Member["kind"], ym: string, outside = false): Member =>
+    ({ id, kind, birth: { birthYearMonth: ym, bornOnFirst: false }, joins: null, leaves: null, expected: false, ...(outside ? { outside: { of: "s", periods: [] } } : {}) }) as unknown as Member;
+  const hh = (...members: Member[]) => ({ members }) as unknown as Household;
+
+  it("足す孫の仮の生年: いちばん年上の子が30歳のとき（基準の年より後にしない）、2人目からは前の孫の2年後、子がいなければご本人が60歳のとき", () => {
+    const self = person("s", "self", "1960-05");
+    expect(grandchildBirthYear(hh(self, person("c1", "child", "1993-01"), person("c2", "child", "1990-08", true)), 2026)).toBe(2020);
+    expect(grandchildBirthYear(hh(self, person("c1", "child", "1990-08"), person("g1", "grandchild", "2020-04", true)), 2026)).toBe(2022);
+    // 子が若い（30歳より前）: 基準の年に生まれた孫（0歳。これから生まれる孫にはしない）
+    expect(grandchildBirthYear(hh(self, person("c1", "child", "2000-01")), 2026)).toBe(2026);
+    expect(grandchildBirthYear(hh(person("s", "self", "1955-01")), 2026)).toBe(2015);
+    // ご本人より子の年齢を見る（前はご本人が60歳のときで、1950年生まれ・子が1995年生まれだと、子が15歳のときの孫になっていた）
+    expect(grandchildBirthYear(hh(person("s", "self", "1950-01"), person("c1", "child", "1995-01")), 2026)).toBe(2025);
+    expect(grandchildBirthYear(hh(person("s", "self", "1985-01")), 2026)).toBe(2026);
+  });
+
+  it("「＋ 孫を足す」は子の年齢から仮の生年月を入れる（sampleSeniorRental: 第1子 1992年生まれ → 孫は 2022年4月生まれ・仮の値）", () => {
+    const wh = addOutsideGrandchild(fromRequest(modelHousehold("sampleSeniorRental")), "00000000-0000-4000-8000-00000000aaaa");
+    const g = wh.request.input.household.members.find((m) => m.id === "00000000-0000-4000-8000-00000000aaaa")!;
+    expect(g.birth.birthYearMonth).toBe("2022-04");
+    expect(wh.assumed[`family/${g.id}/birth`]).toBe("仮の値");
+  });
+
+  it("呼び名の無い孫が2人以上なら「孫1」「孫2」（足した順）。呼び名のある孫はそのまま、顧客に渡す文（呼び名を入れない）では全員に番号", () => {
+    let wh = addMember(blankHousehold(BASE, seq()), "child");
+    for (let i = 0; i < 3; i++) wh = addOutsideGrandchild(wh);
+    const kids = wh.request.input.household.members.filter((m) => m.kind === "grandchild");
+    expect(kids.map((m) => memberLabel(wh, m.id))).toEqual(["孫1", "孫2", "孫3"]);
+    const named = { ...wh, labelsByMember: { ...wh.labelsByMember, [kids[1]!.id]: "長男の子" } };
+    expect(kids.map((m) => memberLabel(named, m.id))).toEqual(["孫1", "孫（長男の子）", "孫2"]);
+    expect(kids.map((m) => memberLabel(named, m.id, { nicknames: false }))).toEqual(["孫1", "孫2", "孫3"]);
+    // 1人だけなら番号を付けない
+    const one = addOutsideGrandchild(addMember(blankHousehold(BASE, seq()), "child"));
+    expect(memberLabel(one, one.request.input.household.members.find((m) => m.kind === "grandchild")!.id)).toBe("孫");
+  });
+
+  it("一人の世帯の表の最後の年の目安は「表の最後の年（○年）」「相続税（表の最後の年）」。配偶者のいる世帯は「二人とも亡くなった後」のまま", () => {
+    const single = fromRequest(modelHousehold("sampleSingle40s"));
+    const r = estimate(single);
+    const titles = inheritanceView(single, r).points.map((p) => p.title);
+    expect(titles).toContain(`表の最後の年（${String(single.request.input.endYear)}年）`);
+    expect(titles.some((t) => t.startsWith("二人とも"))).toBe(false);
+    expect(allFields(stage(single)).find((f) => f.key === "inherit/tax/override/bothAfter")!.label).toBe("税理士などが出した額（表の最後の年）");
+    const couple = fromRequest(modelHousehold("housingPurchase"));
+    expect(inheritanceView(couple, estimate(couple)).points.some((p) => p.title.startsWith("二人とも亡くなった後（"))).toBe(true);
+  });
+
+  it("保存したときの札: 何も入れていなければ「該当なし」（ほかの項目と同じ決まり）。孫・遺したい額・相続税の目安の設定を入れて保存しても「該当なし」にしない", () => {
+    const status = (w: WorkingHousehold) => inputItems(w).find((i) => i.id === "inheritance")!.status;
+    const care = (w: WorkingHousehold) => inputItems(w).find((i) => i.id === "care")!.status;
+    const wh = fromRequest(modelHousehold("sampleSingle40s"));
+    expect(status(wh)).toBe("empty");
+    expect(status(saveItem(wh, "inheritance"))).toBe("na");
+    const legacy = fieldOf(wh, "inherit/legacy/amount").set(wh, 10_000_000);
+    expect(status(legacy)).toBe("done");
+    expect(status(saveItem(legacy, "inheritance"))).toBe("done");
+    const ratio = fieldOf(wh, "inherit/tax/realEstateRatio").set(wh, "0.7");
+    expect(status(saveItem(ratio, "inheritance"))).toBe("done");
+    const gc = addOutsideGrandchild(wh);
+    expect(status(saveItem(gc, "inheritance"))).not.toBe("na");
+    // 孫は相続・贈与の物なので、介護・親の項目を入れたことにはしない
+    expect(care(gc)).toBe(care(wh));
   });
 });

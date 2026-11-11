@@ -469,7 +469,7 @@ export function dropStaleEstimates(prev: EducationStage, next: EducationStage, l
 const QUIET_STAT = "学校の種類で決まる統計の平均（進路を確かめれば、ここは数えない）";
 
 /** 空欄のとき推定の値を見せる（印「推定」・根拠・「この値にする」で書ける。0041）。est が null なら元の欄のまま */
-function withEstimate(f: FieldDef, est: (wh: WorkingHousehold) => { value: number; basis: string; hint: string } | null): FieldDef {
+function withEstimate(f: FieldDef, est: (wh: WorkingHousehold) => { value: number; basis: string; hint: string; blankHint?: string } | null): FieldDef {
   return {
     ...f,
     // 学校の種類（進路）を選べば決まる統計の平均なので、入力項目の状態・確かめの一覧では数えない（進路の推定は進路の欄で1つと数える。0062 の追記 2026-10-31）
@@ -478,7 +478,7 @@ function withEstimate(f: FieldDef, est: (wh: WorkingHousehold) => { value: numbe
       const st = f.get(wh);
       if (st.value !== null) return st;
       const e = est(wh);
-      return e === null ? st : { ...st, estimated: e.basis, hint: e.hint };
+      return e === null ? st : { ...st, estimated: e.basis, hint: e.hint, ...(e.blankHint !== undefined ? { blankHint: e.blankHint } : {}) };
     },
     blankEstimate: (wh) => (f.get(wh).value === null ? (est(wh)?.value ?? null) : null),
   };
@@ -691,7 +691,7 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
   // 在学年数: 標準が1つに決まる段はその年数を最初から見せる（省略時の既定）。決まらない段（専門学校）は推定
   const years = plain({ key: `${key}/years`, item: "goal.education", label: "在学年数", level: "detail", kind: "int", suffix: "年", min: 1, max: 6, find, path: ["years"], optional: true, ...(YEARS_VARY[s.stage] === undefined ? { fallback: stageYears({ ...s, years: undefined }) } : {}), help: yearsHelp(s.stage) });
   const vary = YEARS_VARY[s.stage];
-  fields.push(vary === undefined ? years : { ...years, get: (wh) => { const st = years.get(wh); return st.value === null ? { ...st, estimated: vary, hint: `${stageYears({ ...s, years: undefined })}年（推定）` } : st; }, blankEstimate: (wh) => (years.get(wh).value === null ? stageYears({ ...s, years: undefined }) : null) });
+  fields.push(vary === undefined ? years : { ...years, get: (wh) => { const st = years.get(wh); return st.value === null ? { ...st, estimated: vary, hint: `${stageYears({ ...s, years: undefined })}年（推定）`, blankHint: `${stageYears({ ...s, years: undefined })}年制で計算（1〜4年の課程あり）` } : st; }, blankEstimate: (wh) => (years.get(wh).value === null ? stageYears({ ...s, years: undefined }) : null) });
   if (higher) {
     fields.push(
       plain({ key: `${key}/delay`, item: "goal.education", label: "浪人の年数", level: "detail", kind: "int", suffix: "年", min: 0, max: 5, find, path: ["delayYears"], optional: true, fallback: 0, help: DELAY_HELP }),
@@ -835,7 +835,7 @@ function k12Fields(goalId: string, i: number, s: EducationStage, key: string, fi
         (wh) => {
           const st = stageNow(wh);
           if (club === null || st?.annualOverride !== undefined) return null;
-          return { value: club, basis: CLUB_BASIS, hint: `年${manText(club)}（推定・学校の費用に含む）` };
+          return { value: club, basis: CLUB_BASIS, hint: `年${manText(club)}（推定・学校の費用に含む）`, blankHint: "統計の平均（文部科学省の調査）・学校の費用に含む" };
         },
       ),
       ...stageAddress(goalId, sid, "clubAnnual"),

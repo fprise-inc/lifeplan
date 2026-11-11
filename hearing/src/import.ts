@@ -829,7 +829,7 @@ function importParentMoney(c: Ctx, h: Household, m: Member, n: number, baseMonth
 
 /**
  * 受け取る予定の相続・贈与（詳細版の版3から）: 「ある」なら、相続・遺贈の入るお金の行を1件（時期は記入の年の1月・無ければ1年後、額は目安の額・
- * 無ければ未入力）。見込みは「当てにしない」（基本の計算に入れない。面談で確かめて「確実」にする）。相手（誰から）はシートで聞かない
+ * 無ければ未入力。伸び方は「その時の額のまま」＝入れた額のまま。相続の入力項目の1回の行と同じ。0044 の追記 2026-11-11）。見込みは「当てにしない」（基本の計算に入れない。面談で確かめて「確実」にする）。相手（誰から）はシートで聞かない
  */
 function importInheritance(c: Ctx, h: Household, baseMonth: string): void {
   const I = "hs.inherit";
@@ -845,7 +845,7 @@ function importInheritance(c: Ctx, h: Household, baseMonth: string): void {
   const at = year.status === "value" ? { at: `${String(year.value)}-01` } : { at: addMonths(baseMonth, 12) };
   if (year.status === "value" && ymIndex(at.at) < ymIndex(baseMonth)) c.contradiction(`${I}.year`, undefined, "受け取る時期の見込みが今より前です");
   const box: ValueBox<number> = amount.status === "value" ? c.box(`${I}.amount`, undefined, amount.value) : { value: 0, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "未入力（額を入れてください。0円で計算中）" } };
-  const flow: IncomeFlow = { id, label: "相続・遺贈", kind: "inheritance", from: at, to: at, everyYears: 1, amount: box, likelihood: "uncertain" };
+  const flow: IncomeFlow = { id, label: "相続・遺贈", kind: "inheritance", from: at, to: at, everyYears: 1, amount: box, likelihood: "uncertain", growth: { kind: "none" } };
   c.field(id, `${I}.expected`, undefined, "incomeFlow.kind", "/kind", "confirmed");
   if (year.status === "value") c.field(id, `${I}.year`, undefined, "incomeFlow.from", "/from", "confirmed");
   else c.assume(`in/${id}/from`, "仮の値（受け取る時期の見込みの記入が無いため1年後）", { objectId: id, key: `${I}.year`, item: "incomeFlow.from", path: "/from" });
