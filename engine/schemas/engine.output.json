@@ -25,6 +25,7 @@
         "gifts": { "$ref": "#/$defs/gifts" },
         "outsideWallets": { "$ref": "#/$defs/outsideWallets" },
         "childScholarships": { "$ref": "#/$defs/childScholarships" },
+        "loans": { "$ref": "#/$defs/loans" },
         "realEstate": {
           "description": "住まい以外の不動産（中身を入れた不動産の器）の物件ごとの年末の評価額（土地・建物）・不動産所得の内訳（計算基準年の2年前から）・売却。asset.realEstate の出力の properties のまま（plan.cashflow の details から。0009 の追記）。持っていなければ欄が無い",
           "$ref": "urn:financia:schema:component:asset.realEstate.output#/properties/properties"
@@ -325,6 +326,33 @@
               }
             }
           }
+        }
+      }
+    },
+    "loans": {
+      "description": "世帯の負債ごとの、年ごとの返済のうち利息に充てた額（interest。毎月・ボーナス返済の利息と、繰上返済・売ったときの返済で払った未払利息。返済額が利息に足りない月は返済額の全部。借り換えで新しいローンに含めた未払利息は新しいローンの元金として数える）と、その年の最後の返済に当てた金利（rate。変動金利の上乗せを含む）、表の期間の利息の合計（interestTotal）。計算基準月から・返済のある年だけ（年の昇順。0205）。返済のある負債が無ければ欄が無い",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["object", "kind", "years", "interestTotal"],
+        "properties": {
+          "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "kind": { "enum": ["mortgage", "car", "scholarship", "other"] },
+          "years": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["year", "interest", "rate"],
+              "properties": {
+                "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+                "interest": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "rate": { "$ref": "urn:financia:schema:common#/$defs/rate" }
+              }
+            }
+          },
+          "interestTotal": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
         }
       }
     },

@@ -18,7 +18,7 @@ import { demoHousehold } from "../workspace/catalog.ts";
 import { fromRequest, type PostRetirement, type WorkingHousehold } from "../workspace/input/household.ts";
 import { STRESS_KEYS, stressLabel, stressRequests, type StressKey } from "../workspace/invest/present.ts";
 import { publishOfficeEstimates, readOfficeEstimates } from "../workspace/office/estimates.ts";
-import { candidateRefOf, candidateRows, candidateValues, placeText, type CandidateRow, type ProposedChange } from "../workspace/plans/candidates.ts";
+import { candidateRefOf, candidateRows, candidateValues, matchItems, placeText, unmatchedReason, type CandidateRef, type CandidateRow, type ProposedChange } from "../workspace/plans/candidates.ts";
 import { buildCatalog, OUTLOOK_STEP_YEARS, type Catalog, type ItemValue, type MovableItem } from "../workspace/plans/items.ts";
 import { applyValues } from "../workspace/plans/plans.ts";
 import { roles } from "../workspace/roles.ts";
@@ -125,6 +125,37 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
  */
 const derivedAt = (at: readonly string[] | undefined, inputText: string): boolean => at !== undefined && at.some((s) => UUID.test(s) && !inputText.includes(`"${s}"`));
 
+/** 一覧の1件（AI に見せる形）。inputText は世帯のデータの文字（場所の中の要素の ID が書かれているかを見る） */
+function itemOut(it: MovableItem, ref: CandidateRef, wh: WorkingHousehold, inputText: string): Record<string, unknown> {
+  const now = it.read(wh);
+  const note = it.note?.(now) ?? null;
+  const placed = ref.at !== undefined || ref.lever !== undefined;
+  return {
+    target: ref.target,
+    item: it.item,
+    // 場所だけ違う項目は、選ぶための場所（そのまま渡す）と、人が読める区別（0201）
+    ...(ref.at !== undefined ? { at: ref.at } : {}),
+    ...(ref.lever !== undefined ? { lever: ref.lever } : {}),
+    ...(placed ? { place: placeText(it) } : {}),
+    label: it.label,
+    group: it.group,
+    value: now,
+    valueText: it.text(now),
+    ...controlOf(it, now),
+    ...(note !== null ? { note } : {}),
+    // プランの候補（propose_scenario）で前提（assumptions）を対象にできるのは、前提条件の入力項目（assumptions.〜）か、場所を添えた変更（0201）。
+    // 場所に、世帯のデータに書かれていない要素の ID があれば出せない（元の ID に戻せない）
+    proposable: (ref.target !== "assumptions" || it.item.startsWith("assumptions.") || placed) && !derivedAt(ref.at, inputText),
+  };
+}
+
+/** 一覧に出せる項目（選び方が1つに決まる項目）と、その選び方 */
+const usableOf = (o: Opened): { it: MovableItem; ref: CandidateRef }[] =>
+  o.cat.items.flatMap((it) => {
+    const ref = candidateRefOf(it, o.wh, o.cat);
+    return ref !== null ? [{ it, ref }] : [];
+  });
+
 /**
  * この世帯で動かせる項目の一覧。reqJson は計算の要求（input を持つ）、argsJson は PlanArgs、officeJson は事務所データの defaults.estimates
  * （無ければ null）。戻り値は JSON の文字 { status: "ok", items, groups, ... } か { status: "noSelf" } か { status: "badInput" }
@@ -136,35 +167,52 @@ export function listPlanItems(reqJson: string, argsJson: string, officeJson: str
   const o = open(req, a);
   if (o === null) return JSON.stringify({ status: "noSelf" });
   if (o === "badInput") return JSON.stringify({ status: "badInput" });
-  const all = o.cat.items.map((it) => ({ it, ref: candidateRefOf(it, o.wh, o.cat) }));
-  const usable = all.flatMap((x) => (x.ref !== null ? [{ it: x.it, ref: x.ref }] : []));
+  const usable = usableOf(o);
   const groups = [...new Set(usable.map((x) => x.it.group))].map((g) => ({ group: g, count: usable.filter((x) => x.it.group === g).length, fromFields: usable.some((x) => x.it.group === g && fromFields(x.it)) }));
   // 世帯のデータに書かれている要素の ID（画面で開いた世帯と同じく、保存するときに振る並びの要素の ID を含む）
   const inputText = JSON.stringify(o.wh.request.input);
   const shown = usable.filter((x) => (a.group !== undefined ? x.it.group === a.group : a.fields === true || !fromFields(x.it)));
-  const items = shown.map(({ it, ref }) => {
-    const now = it.read(o.wh);
-    const note = it.note?.(now) ?? null;
-    const placed = ref.at !== undefined || ref.lever !== undefined;
-    return {
-      target: ref.target,
-      item: it.item,
-      // 場所だけ違う項目は、選ぶための場所（そのまま渡す）と、人が読める区別（0201）
-      ...(ref.at !== undefined ? { at: ref.at } : {}),
-      ...(ref.lever !== undefined ? { lever: ref.lever } : {}),
-      ...(placed ? { place: placeText(it) } : {}),
-      label: it.label,
-      group: it.group,
-      value: now,
-      valueText: it.text(now),
-      ...controlOf(it, now),
-      ...(note !== null ? { note } : {}),
-      // プランの候補（propose_scenario）で前提（assumptions）を対象にできるのは、前提条件の入力項目（assumptions.〜）か、場所を添えた変更（0201）。
-      // 場所に、世帯のデータに書かれていない要素の ID があれば出せない（元の ID に戻せない）
-      proposable: (ref.target !== "assumptions" || it.item.startsWith("assumptions.") || placed) && !derivedAt(ref.at, inputText),
-    };
-  });
-  return JSON.stringify({ status: "ok", count: items.length, total: usable.length, groups, items, unlisted: all.length - usable.length });
+  const items = shown.map(({ it, ref }) => itemOut(it, ref, o.wh, inputText));
+  return JSON.stringify({ status: "ok", count: items.length, total: usable.length, groups, items, unlisted: o.cat.items.length - usable.length });
+}
+
+/** 場所は at か lever のどちらか1つ（両方を書いた変更は当てない） */
+const BOTH_PLACES = "場所は at か lever のどちらか1つにしてください（list_plan_items が添えた方）";
+
+/**
+ * 感度・境目探しの振る項目（plan_changes の1件から値を外した物。0204）を、plan_changes と同じ当てはめ（candidates.ts の matchItems）で
+ * 1つ選び、一覧と同じ形で返す。場所（at・lever）を書かなければ、今までどおり場所の要らない項目だけを選ぶ（場所の要る項目なら選ばない）。
+ * reqJson は計算の要求、pickJson は {target, item, at?, lever?}、ctxJson は applyPlan と同じ { args, office }。戻り値は JSON の文字
+ * { status: "ok", item }（item は listPlanItems の items の1件と同じ形）か { status: "rejected", reason?, places }（places は同じ対象・
+ * 同じ入力項目ID で場所を添えた一覧の項目の選び方〔at か lever・place・label〕。場所を書かなかったときは reason が無い）か
+ * { status: "noSelf" } か { status: "badInput" }
+ */
+export function pickPlanItem(reqJson: string, pickJson: string, ctxJson: string): string {
+  const req = JSON.parse(reqJson) as EngineRequest;
+  const p = JSON.parse(pickJson) as Omit<PlanChange, "value">;
+  const ctx = JSON.parse(ctxJson) as { args?: PlanArgs; office?: unknown };
+  publishOfficeEstimates(readOfficeEstimates(ctx.office ?? null));
+  const o = open(req, ctx.args ?? {});
+  if (o === null) return JSON.stringify({ status: "noSelf" });
+  if (o === "badInput") return JSON.stringify({ status: "badInput" });
+  const usable = usableOf(o);
+  const placed = p.at !== undefined || p.lever !== undefined;
+  if (p.at !== undefined && p.lever !== undefined) return JSON.stringify({ status: "rejected", reason: BOTH_PLACES, places: [] });
+  const place = { ...(p.at !== undefined ? { at: p.at } : {}), ...(p.lever !== undefined ? { lever: p.lever } : {}) };
+  const target = p.target === "assumptions" ? { plan: "assumptions" as const } : { object: p.target };
+  const matches = matchItems({ target, item: p.item, ...place }, o.wh, o.cat);
+  // 同じ対象・同じ入力項目ID で場所を添えた一覧の項目（場所を書かなかった・当てはまらなかったときに、選べる場所として返す）
+  const places = usable
+    .filter(({ it, ref }) => it.item === p.item && (ref.target === p.target || matches.includes(it)) && (ref.at !== undefined || ref.lever !== undefined))
+    .map(({ it, ref }) => ({ ...(ref.at !== undefined ? { at: ref.at } : {}), ...(ref.lever !== undefined ? { lever: ref.lever } : {}), place: placeText(it), label: it.label }));
+  const rejected = (reason: string | null) => JSON.stringify({ status: "rejected", ...(reason !== null ? { reason } : {}), places });
+  if (matches.length !== 1) return rejected(placed || places.length === 0 ? unmatchedReason(matches.length) : null);
+  const it = matches[0] as MovableItem;
+  // 一覧の選び方（一覧に出ない項目は、渡された対象・場所のまま。plan_changes と同じく当たる）
+  const ref = usable.find((x) => x.it.key === it.key)?.ref ?? { target: p.target, ...place };
+  // 場所を書かなければ、場所の要らない項目だけ（場所の要る項目に、場所を書かずに当たったときも選ばない。0201 より前と同じ）
+  if (!placed && (ref.at !== undefined || ref.lever !== undefined)) return rejected(null);
+  return JSON.stringify({ status: "ok", item: itemOut(it, ref, o.wh, JSON.stringify(o.wh.request.input)) });
 }
 
 /** 当てはめの結果の1件（AI に返す形） */
@@ -198,7 +246,7 @@ export function applyPlan(reqJson: string, changesJson: string, ctxJson: string)
   // 場所は at か lever のどちらか1つ（両方を書いた変更は当てない）
   const rows = candidateRows({ diffs }, o.wh, o.cat).map((r, i): CandidateRow => {
     const c = changes[i] as PlanChange;
-    return c.at !== undefined && c.lever !== undefined ? { ...r, key: null, value: null, reason: "場所は at か lever のどちらか1つにしてください（list_plan_items が添えた方）" } : r;
+    return c.at !== undefined && c.lever !== undefined ? { ...r, key: null, value: null, reason: BOTH_PLACES } : r;
   });
   const out = changes.map((c, i) => rowOut(c, rows[i] as CandidateRow));
   if (rows.some((r) => r.key === null)) return JSON.stringify({ status: "rejected", changes: out });

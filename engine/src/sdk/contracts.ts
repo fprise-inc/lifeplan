@@ -453,6 +453,11 @@ export interface DebtScheduleOutput {
    * （約束の版 1.4 の任意の欄。住宅ローン控除の償還期間10年の判定に使う。tax.housingLoanCredit）
    */
   readonly prepayments?: readonly { readonly ym: string; readonly lastPayment: string }[];
+  /**
+   * 年ごとの、返済のうち利息に充てた額（interestPaid。未払利息を払った分を含む。借り換えで新しいローンに含めた未払利息は入れない）と、
+   * その年の最後の返済に当てた金利（rate。10進の文字。変動金利の上乗せを含む）。計算基準月から・返済のある年だけ・年の昇順（約束の版 1.5 の任意の欄。0205）
+   */
+  readonly byYear?: readonly { readonly year: number; readonly interestPaid: Yen; readonly rate: string }[];
 }
 
 /** housing.residence: 住まいのお金の動きと、購入した持ち家（不動産の残高の計算に使う） */
@@ -1022,6 +1027,11 @@ export interface CashflowDetails {
   realEstateAnalysis?: RealEstateAnalysisOutput;
   /** 子が返す貸与の奨学金（education.cost の childRepaid。約束の版 1.8。0104） */
   childScholarships?: NonNullable<EducationCostOutput["childRepaid"]>;
+  /**
+   * 世帯の負債ごとの、年ごとの返済のうち利息に充てた額（interest）とその年の最後の返済に当てた金利（rate）、表の期間の利息の合計（interestTotal）
+   * （debt.schedule の byYear。計算基準月から・返済のある年だけ。約束の版 1.9。0205）
+   */
+  loans?: readonly { readonly object: string; readonly kind: "mortgage" | "car" | "scholarship" | "other"; readonly years: readonly { readonly year: number; readonly interest: Yen; readonly rate: string }[]; readonly interestTotal: Yen }[];
 }
 
 /** benefit.unemployment: 雇用保険の基本手当・高年齢求職者給付金を受ける日のある月（日数は30日を1か月とみなす近似。日額は基本手当日額） */

@@ -47,7 +47,10 @@ describe("入力: 合計が100%でないときの知らせ", () => {
     const rows = checkList(w).filter((r) => r.id.includes(ACC) && r.kind === "notice");
     expect(rows).toHaveLength(1);
     const fixed = st.warnFix!.run(w);
-    expect(fixed.request.input.household.accounts!.find((x) => x.id === ACC)!.assetMix).toEqual([eq("0.75"), bd("0.25")]);
+    // 直しても行の ID（0206）は変わらない
+    const ids = w.request.input.household.accounts!.find((x) => x.id === ACC)!.assetMix!.map((m) => m.id);
+    expect(ids.every((id) => typeof id === "string")).toBe(true);
+    expect(fixed.request.input.household.accounts!.find((x) => x.id === ACC)!.assetMix).toEqual([{ ...eq("0.75"), id: ids[0] }, { ...bd("0.25"), id: ids[1] }]);
     expect(shareField(fixed).get(fixed).warn ?? null).toBeNull();
   });
   it("1行だけ50%: 知らせを出す（計算は100%）。合計100%なら知らせなし", () => {

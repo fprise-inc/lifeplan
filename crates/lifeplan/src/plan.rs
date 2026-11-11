@@ -83,6 +83,26 @@ pub fn list(
     serde_json::from_str(&out).map_err(|e| e.to_string())
 }
 
+/// 感度・境目探しの振る項目（plan_changes の1件から値を外した物）を、plan_changes と同じ当てはめで1つ選ぶ（画面の関数の pickPlanItem。0204。
+/// 重いので、呼ぶ側は spawn_blocking の中で）。pick は {target, item, at?, lever?}。戻り値は JS の答え
+/// （status が ok なら item に list_plan_items の1件と同じ形、rejected なら reason〔場所の要る項目に場所を書かなかったときは無い〕と places）
+pub fn pick(
+    request: &Value,
+    pick: &Value,
+    sample: Option<&str>,
+    office: &Value,
+    post: &Value,
+) -> Result<Value, String> {
+    let ctx = json!({ "args": args_json(sample, None, false, post), "office": office });
+    let out = engine::plan(
+        "pickPlanItem",
+        &request.to_string(),
+        &pick.to_string(),
+        &ctx.to_string(),
+    )?;
+    serde_json::from_str(&out).map_err(|e| e.to_string())
+}
+
 /// プランの変更を当てた結果
 pub enum Applied {
     /// 当てた要求と、変更ごとの当てはめ（label・from・to・status）
@@ -175,7 +195,7 @@ pub fn error_message(code: &str) -> Option<&'static str> {
 }
 
 /// 動かせる項目の一覧の答えに添える説明
-pub const LIST_NOTE: &str = "items の target・item（at か lever が添えてあれば、それも）と、kind・unit の形の value を、calculate・explain_value の plan_changes（[{target, item, value}]、場所つきは [{target, item, at, value}] か [{target, item, lever, value}]）にそのまま渡すと、アプリの画面のプランと同じ関数で当てて計算します（関係する欄も一緒に動きます）。at・lever は、同じ対象・同じ入力項目ID で場所だけが違う項目を選ぶ印で、place が人の読める区別です（FP に伝えるときは place と label を使ってください）。propose_scenario の changes にも同じ書き方で渡せます（proposable が false の項目は、プランの候補には出せません）。value は今の値、min・max は入れてよい範囲、slider は画面のスライダーの幅です。入力の数の欄から作った項目は fields: true か group で出します。";
+pub const LIST_NOTE: &str = "items の target・item（at か lever が添えてあれば、それも）と、kind・unit の形の value を、calculate・explain_value の plan_changes（[{target, item, value}]、場所つきは [{target, item, at, value}] か [{target, item, lever, value}]）にそのまま渡すと、アプリの画面のプランと同じ関数で当てて計算します（関係する欄も一緒に動きます）。at・lever は、同じ対象・同じ入力項目ID で場所だけが違う項目を選ぶ印で、place が人の読める区別です（FP に伝えるときは place と label を使ってください）。propose_scenario の changes にも同じ書き方で渡せます（at の中の行の ID も一覧のまま。proposable が false の項目は、プランの候補には出せません）。value は今の値、min・max は入れてよい範囲、slider は画面のスライダーの幅です。入力の数の欄から作った項目は fields: true か group で出します。";
 
 /// プランの変更の当てはめを答えに添えるときの説明
 pub const PLAN_NOTE: &str = "plan_changes は、アプリの画面の結果のタブのプランと同じ関数で当てました（関係する欄も画面と同じく一緒に動きます）。status は applied（当てた）・same（今と同じ値なので変わらない）。この変更をそのまま propose_scenario の changes に渡せます（渡された世帯のとき）。";

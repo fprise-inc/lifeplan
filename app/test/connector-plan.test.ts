@@ -5,7 +5,7 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { applyPlan, listPlanItems } from "../src/connector/plan.ts";
+import { applyPlan, listPlanItems, pickPlanItem } from "../src/connector/plan.ts";
 import { forEngine } from "../src/engine/moneyRows.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
 import { candidateRows, itemName } from "../src/workspace/ai/model.ts";
@@ -125,6 +125,10 @@ const CASES: { name: string; sample: string; moves: Record<string, (now: ItemVal
   // 0203: 変動金利の見込み（入力の「金利の見込み」の欄と同じ型・同じ関数。合成の対策 loanRateOutlook の場所で選ぶ）
   { name: "変動金利の見込みを10年で2%上がるに（金利の見込みの欄と同じ型）", sample: "salariedCoupleTwoKids", moves: { "loan:*:outlook": () => ({ adds: ["0.01", "0.02"] }) }, ask: { row: "housing", year: 2040 } },
   { name: "変動金利の見込みを5年ごとに＋0.25%（15年まで）", sample: "protectionNeed", moves: { "loan:*:outlook": () => ({ adds: ["0.0025", "0.005", "0.0075"] }) } },
+  // 0206: 前は要素の ID を持たなかった並びの要素（資産の配分の行・旧NISA の買付の年ごとの内訳・借り換えとその新しい金利）。場所 at に要素の ID
+  { name: "資産の配分の1行目の割合を3割に（資産の配分の行）", sample: "dualAssetsTwoKids", moves: { "field:sav/*/mix/0/share": () => "0.3" } },
+  { name: "旧NISA の買付の年1の時価を50万円に（買付の年ごとの内訳）", sample: "nisaWithdrawal", moves: { "field:sav/*/lot/0/value": () => 500000 } },
+  { name: "借り換えの新しい金利を1.2%・費用を40万円に（借り換えとその新しい金利の段）", sample: "pairLoan", moves: { "field:housing/debt/*/refinance/0/rate": () => "0.012", "field:housing/debt/*/refinance/0/costs": () => 400000 } },
 ];
 
 describe("AI接続口のプランの動かす項目（0195）", () => {
@@ -146,9 +150,11 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
         // 書かれていない要素の ID（ID を持たない並びの要素に場所から振る ID）がある項目だけ（渡された世帯では元の ID に戻せない）
         expect(it.at !== undefined && it.lever !== undefined, `${id} ${it.label}`).toBe(false);
         expect(it.place !== undefined, `${id} ${it.label}`).toBe(it.at !== undefined || it.lever !== undefined);
+        // 資産の配分の行・旧NISA の買付の年ごとの内訳・借り換えとその金利の段も要素の ID を持つので（0206）、見本の世帯ではどの項目もプランの候補に出せる
         const saved = JSON.stringify(fromRequest(req).request.input);
         const derived = (it.at ?? []).some((a) => /^[0-9a-f-]{36}$/.test(a) && !saved.includes(`"${a}"`));
-        expect(it.proposable, `${id} ${it.label}`).toBe(!derived);
+        expect(derived, `${id} ${it.label}`).toBe(false);
+        expect(it.proposable, `${id} ${it.label}`).toBe(true);
         // 今の値のまま当てると「今と同じ値」で、要求は変わらない
         if (it.value === null) continue;
         const r = apply(req, [{ ...refOf(it), value: it.value }], id);
@@ -276,6 +282,43 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
     expect(both.changes[0]!.reason).toContain("どちらか1つ");
   });
 
+  it("感度・境目探しの振る項目（0204）: 一覧の書き方（場所を添えた項目は場所も）で選ぶと一覧と同じ項目、場所の要る項目に場所が無ければ選べる場所を返す", () => {
+    type Picked = { status: string; item?: Listed; reason?: string; places?: { at?: string[]; lever?: string; place: string; label: string }[] };
+    const pick = (req: EngineRequest, p: Omit<Change, "value">, sampleId: string) => JSON.parse(pickPlanItem(JSON.stringify(req), JSON.stringify(p), JSON.stringify({ args: { sampleId }, office: null }))) as Picked;
+    for (const id of ["salariedCoupleTwoKids", "reemployment", "sampleSelfEmployedFamily"]) {
+      const req = modelHousehold(id);
+      const items = list(req, { sampleId: id, fields: true }).items;
+      for (const it of items) {
+        const got = pick(req, refOf(it), id);
+        expect(got.status, `${id} ${it.label} ${JSON.stringify(got)}`).toBe("ok");
+        expect(got.item, `${id} ${it.label}`).toEqual(it);
+        // 場所の要る項目は、場所を外すとその項目を選ばない: 同じ入力項目ID の場所の要らない項目（定年後の予定の定年なら、対策の働く最後の
+        // 年齢）に当たるか、同じ対象・同じ入力項目ID の選べる場所（一覧と同じ at か lever・place・label）を返す
+        if (it.at === undefined && it.lever === undefined) continue;
+        const bare = pick(req, { target: it.target, item: it.item }, id);
+        if (bare.status === "ok") {
+          expect(bare.item!.at === undefined && bare.item!.lever === undefined && bare.item!.label !== it.label, `${id} ${it.label}`).toBe(true);
+          continue;
+        }
+        expect(bare.status, `${id} ${it.label}`).toBe("rejected");
+        expect(bare.reason, `${id} ${it.label}`).toBeUndefined();
+        const same = items.filter((x) => x.target === it.target && x.item === it.item && (x.at !== undefined || x.lever !== undefined));
+        expect(bare.places, `${id} ${it.label}`).toEqual(same.map((x) => ({ ...(x.at !== undefined ? { at: x.at } : {}), ...(x.lever !== undefined ? { lever: x.lever } : {}), place: x.place, label: x.label })));
+      }
+    }
+    // 当てはまらない場所・両方の場所は plan_changes と同じ理由
+    const S = "salariedCoupleTwoKids";
+    const req = modelHousehold(S);
+    const monthly = list(req, { sampleId: S }).items.find((x) => x.lever === "investMonthly")!;
+    const wrong = pick(req, { target: monthly.target, item: monthly.item, lever: "nope" }, S);
+    const r = apply(req, [{ target: monthly.target, item: monthly.item, lever: "nope", value: 1 }], S);
+    expect(wrong.reason).toBe(r.changes[0]!.reason);
+    expect(wrong.places!.map((p) => p.lever)).toContain("investMonthly");
+    const both = pick(req, { target: monthly.target, item: monthly.item, lever: "investMonthly", at: [] }, S);
+    expect(both.reason).toBe(apply(req, [{ target: monthly.target, item: monthly.item, lever: "investMonthly", at: [], value: 1 }], S).changes[0]!.reason);
+    expect(pick(req, { target: "nope", item: "employment.to" }, S)).toEqual({ status: "rejected", reason: apply(req, [{ target: "nope", item: "employment.to", value: 63 }], S).changes[0]!.reason, places: [] });
+  });
+
   it("渡された世帯の定年後の働き方の条件（縮約版）を、画面で保存した世帯を開いたときと同じくそのまま使う", () => {
     const S = "salariedCoupleTwoKids";
     const req = modelHousehold(S);
@@ -333,6 +376,8 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
       [/^field:edu\/.+\/stage\/3\/annual$/, 1500000],
       [/^field:work\/.+\/mainEnd$/, 62],
       [/^field:housing\/debt\/.+\/rate\/1\/rate$/, "0.015"],
+      // 0206: 資産の配分の行（前は要素の ID が無く、渡された世帯では元の ID に戻せなかった）
+      [/^field:sav\/.+\/mix\/0\/share$/, "0.5"],
     ];
     const proposal = picks.map(([re, value]) => {
       const it = scat.items.find((x) => re.test(x.key))!;
