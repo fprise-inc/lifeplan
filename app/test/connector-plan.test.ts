@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { applyPlan, listPlanItems } from "../src/connector/plan.ts";
 import { forEngine } from "../src/engine/moneyRows.ts";
-import type { EngineRequest, PreviewResult } from "../src/engine/types.ts";
+import type { EngineRequest } from "../src/engine/types.ts";
 import { candidateRows, itemName } from "../src/workspace/ai/model.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { buildEvidence } from "../src/workspace/evidence.ts";
@@ -15,7 +15,7 @@ import { fromRequest, type WorkingHousehold } from "../src/workspace/input/house
 import { buildCatalog, type Catalog, type ItemValue } from "../src/workspace/plans/items.ts";
 import { applyValues } from "../src/workspace/plans/plans.ts";
 import { roles } from "../src/workspace/roles.ts";
-import { full, modelHousehold, preview } from "./helpers.ts";
+import { full, modelHousehold, preview, screenTotals, screenYears } from "./helpers.ts";
 
 const REPO = join(import.meta.dirname, "..", "..");
 const FIXTURE = join(REPO, "crates", "lifeplan", "tests", "fixtures", "plan", "expected.json");
@@ -74,18 +74,7 @@ function both(id: string, moves: Record<string, (now: ItemValue) => ItemValue>) 
   return { s, changes, screenRequest: applyValues(s.wh, values, s.cat) };
 }
 
-/** 接続口の calculate の summary の years と同じ物（年ごとの年間収支と金融資産） */
-const years = (r: PreviewResult) => {
-  const by = new Map<number, { year: number; net: number; financialAssets: number }>();
-  for (const c of r.table) {
-    const y = by.get(c.year) ?? { year: c.year, net: 0, financialAssets: 0 };
-    if (c.row === "cf.net") y.net += c.amount;
-    if (c.row === "cf.balance.financial") y.financialAssets += c.amount;
-    by.set(c.year, y);
-  }
-  return [...by.values()].sort((a, b) => a.year - b.year);
-};
-const totals = (r: PreviewResult) => (r.summary as { totals: unknown }).totals;
+
 
 /** 渡された世帯の定年後の働き方の条件（60歳で定年・再雇用で年収300万円） */
 const SHARED_POST = { fromAge: 60, type: "contract" as const, annualSalary: 3000000 };
@@ -229,7 +218,7 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
       const { changes, screenRequest } = both(c.sample, c.moves);
       const sent = forEngine(screenRequest);
       const r = preview(sent);
-      const out: Record<string, unknown> = { name: c.name, sample: c.sample, changes, screen: { years: years(r), totals: totals(r) } };
+      const out: Record<string, unknown> = { name: c.name, sample: c.sample, changes, screen: { years: screenYears(r, screenRequest), totals: screenTotals(r, screenRequest) } };
       if (c.ask !== undefined) {
         // 画面の根拠のパネル: 根拠の記録「全部」で計算するのは前処理の後の要求、読み方に渡すのは前の要求（プランを当てた要求）
         const fullReq = { ...screenRequest, trace: "full" as const };
@@ -246,7 +235,7 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
     const wh = { ...fromRequest(req), postRetirement: { [self]: SHARED_POST } };
     const sharedReq = applyValues(wh, { "lever:retireAge": 65 }, buildCatalog(wh, self, null));
     const sr = preview(forEngine(sharedReq));
-    const shared = { sample: S, postRetirement: { [self]: SHARED_POST }, retireAge: 65, screen: { years: years(sr), totals: totals(sr) } };
+    const shared = { sample: S, postRetirement: { [self]: SHARED_POST }, retireAge: 65, screen: { years: screenYears(sr, sharedReq), totals: screenTotals(sr, sharedReq) } };
     const text = `${JSON.stringify({ cases, shared }, null, 2)}\n`;
     if (process.env.LIFEPLAN_UPDATE_FIXTURES !== undefined) {
       mkdirSync(dirname(FIXTURE), { recursive: true });

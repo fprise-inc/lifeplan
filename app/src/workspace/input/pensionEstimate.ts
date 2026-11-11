@@ -8,72 +8,14 @@
 //   在職中の停止を含む結果の額）。計算の道が無い所（画面の確かめなど）では出さない
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { EngineRequest, PensionRecord, PreviewResult } from "../../engine/types.ts";
-import { addMonths, ageAt, ageReachedMonth } from "../levers.ts";
-import { resolveTimepoint } from "../timepoint.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { manText, type Summary } from "./items.ts";
 import { memberLabel } from "./labels.ts";
-import { claimMonth, modeOf, pensionMembers, statementMonthsMissing } from "./stages/pension.ts";
+import { anyClaimOf, modeOf, pensionEstimateRequest, pensionLines, planPensionOf, type PensionLine, type PlanPension } from "./pensionLines.ts";
+import { statementMonthsMissing } from "./stages/pension.ts";
 
-/** 年金の見込みの写しの要求（keepClaims が false なら受け取り開始を外して65歳からにする） */
-export function pensionEstimateRequest(req: EngineRequest, keepClaims: boolean): EngineRequest {
-  const out = structuredClone(req);
-  delete out.input.contingencies;
-  delete out.input.protection;
-  delete out.input.inheritanceTax;
-  const a = out.input.assumptions as Record<string, unknown> | undefined;
-  if (a !== undefined) for (const k of ["wageGrowth", "inflation", "pensionMacroSlide", "pensionMacroSlideEmployee"]) delete a[k];
-  if (!keepClaims) for (const r of out.input.household.pensionRecords ?? []) delete r.claim;
-  out.trace = "none";
-  return out;
-}
-
-/** 見込みの1行（人ごと） */
-export interface PensionLine {
-  member: string;
-  /** 例: 「65歳から」「基礎70歳・厚生65歳から」「今」 */
-  from: string;
-  /** 年額（円）。結果に無ければ null */
-  annual: number | null;
-  /** もう受け取っている（受け取り開始が計算の基準の月より前） */
-  receiving: boolean;
-}
-
-const year = (ym: string) => Number(ym.slice(0, 4));
-
-/** 結果から、人ごとの老齢年金の年額（受け取り開始の年の次の年）。wh は要求だけを読む（プランの比較の表はプランの要求を渡す） */
-export function pensionLines(wh: Pick<WorkingHousehold, "request">, r: PreviewResult | null, keepClaims: boolean): PensionLine[] {
-  const req = wh.request.input;
-  const h = req.household;
-  const base = req.baseMonth;
-  const out: PensionLine[] = [];
-  for (const m of pensionMembers(h)) {
-    const rec = (h.pensionRecords ?? []).find((x) => x.member === m.id);
-    const std = claimMonth(m, 65);
-    const claimOf = (part: "basic" | "employee") => (keepClaims ? (resolveTimepoint(h, rec?.claim?.[part] ?? null) ?? std) : std);
-    const b = claimOf("basic");
-    const e = claimOf("employee");
-    const last = b > e ? b : e;
-    const receiving = last <= base;
-    const y = Math.max(year(last), year(base)) + 1;
-    // 受け取り開始の月（その年齢に達した月の翌月）→「65歳」「66歳3か月」
-    const age = (ym: string) => {
-      const reach = addMonths(ym, -1);
-      const yrs = ageAt(m, reach);
-      const [ry, rm] = ageReachedMonth(m, yrs).split("-").map(Number) as [number, number];
-      const mo = (year(reach) - ry) * 12 + (Number(reach.slice(5, 7)) - rm);
-      return mo === 0 ? `${String(yrs)}歳` : `${String(yrs)}歳${String(mo)}か月`;
-    };
-    const from = receiving ? "今" : b === e ? `${age(b)}から` : `基礎${age(b)}・厚生${age(e)}から`;
-    let annual: number | null = null;
-    if (r !== null && y <= (req.endYear ?? 9999)) {
-      annual = 0;
-      for (const c of r.table) if (c.row === "cf.income.pension" && c.member === m.id && c.object === undefined && c.year === y) annual += c.amount;
-    }
-    out.push({ member: m.id, from, annual, receiving });
-  }
-  return out;
-}
+// 写しの要求・人ごとの年額・世帯の月額の数え方は、AI接続口（connector/summary.ts）も同じ関数で数えるため pensionLines.ts に置いた
+export { pensionEstimateRequest, pensionLines, type PensionLine, type PlanPension } from "./pensionLines.ts";
 
 /** 年金の見込みの計算（65歳からの写しと、受け取り開始を変えている人がいれば変えたままの写し）。計算の道が無ければ null のまま */
 export function usePensionEstimate(
@@ -166,24 +108,6 @@ export function estimateView(wh: WorkingHousehold, est: { std: PreviewResult | n
   return { people, total };
 }
 
-/** プランの比較の表の年金の行の1列（そのプランの要求の写しから。月額は世帯の合計・今の水準） */
-export interface PlanPension {
-  /** 65歳からの月額（受け取り開始を外した写し）。結果に無ければ null */
-  std: number | null;
-  /** 受け取り開始からの月額（受け取り開始を変えたままの写し。変えた人がいないプランは std と同じ）。結果に無ければ null */
-  claimed: number | null;
-  /** 全員もう受け取っている */
-  receiving: boolean;
-  /** 受け取り開始を変えた人がいる */
-  anyClaim: boolean;
-}
-
-/** 写しの結果から、世帯の合計の月額（年額の合計÷12。年額が出ない人は数えない。誰も出なければ null） */
-function monthlyOf(lines: readonly PensionLine[]): number | null {
-  const got = lines.filter((l) => l.annual !== null);
-  return got.length === 0 ? null : Math.round(got.reduce((s, l) => s + (l.annual ?? 0), 0) / 12);
-}
-
 /**
  * プランの比較の表の年金の見込み（0075）: 帯のプランごとに、年金のカードの「年金の見込み」と同じ写しの要求（今の水準・65歳から、と、
  * 受け取り開始を変えたまま）で求める。比較の表を開いている間だけ。計算の道が無ければ null のまま
@@ -194,8 +118,7 @@ export function usePlanPensions(reqs: readonly EngineRequest[] | null, computeOn
       reqs === null || computeOne === undefined
         ? null
         : reqs.map((req) => {
-            const anyClaim = (req.input.household.pensionRecords ?? []).some((r) => r.claim !== undefined);
-            return { req, anyClaim, std: pensionEstimateRequest(req, false), claimed: anyClaim ? pensionEstimateRequest(req, true) : null };
+            return { req, std: pensionEstimateRequest(req, false), claimed: anyClaimOf(req) ? pensionEstimateRequest(req, true) : null };
           }),
     [reqs, computeOne],
   );
@@ -206,11 +129,8 @@ export function usePlanPensions(reqs: readonly EngineRequest[] | null, computeOn
     void Promise.all(
       jobs.map(async (j): Promise<PlanPension> => {
         const std = await computeOne(j.std);
-        if (std === null) return { std: null, claimed: null, receiving: false, anyClaim: j.anyClaim };
-        const claimed = j.claimed === null ? null : await computeOne(j.claimed);
-        const sl = pensionLines({ request: j.req }, std, false);
-        const cl = j.claimed === null ? sl : claimed === null ? null : pensionLines({ request: j.req }, claimed, true);
-        return { std: monthlyOf(sl), claimed: cl === null ? null : monthlyOf(cl), receiving: sl.length > 0 && sl.every((l) => l.receiving), anyClaim: j.anyClaim };
+        const claimed = std === null || j.claimed === null ? null : await computeOne(j.claimed);
+        return planPensionOf(j.req, std, claimed);
       }),
     ).then(
       (out) => alive && setRes(out),

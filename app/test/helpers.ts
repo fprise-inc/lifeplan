@@ -4,6 +4,7 @@ import { join } from "node:path";
 import vm from "node:vm";
 import type { WebEngine } from "../src/engine/host.ts";
 import type { EngineRequest, FullResult, PreviewResult } from "../src/engine/types.ts";
+import { displayYears } from "../src/workspace/present.ts";
 import { ENGINE_DIST, REPO_DIR } from "../scripts/lib.ts";
 
 let cached: { engine: WebEngine; packs: string } | null = null;
@@ -65,4 +66,36 @@ export function full(req: EngineRequest): FullResult {
   const r = JSON.parse(engine.run(JSON.stringify({ ...req, trace: "full" }), packs, "{}")) as FullResult & { error?: unknown };
   if (r.error !== undefined) throw new Error(JSON.stringify(r.error));
   return r;
+}
+
+/**
+ * 接続口の calculate の summary の years と同じ物（画面の表に出す年〔present.ts の displayYears〕ごとの年間収支と金融資産。計算基準月が
+ * 年の途中なら、計算の最初の年は画面の表に出ないので入れない。0199）
+ */
+export function screenYears(r: PreviewResult, req: EngineRequest): { year: number; net: number; financialAssets: number }[] {
+  const shown = new Set(displayYears(req));
+  const by = new Map<number, { year: number; net: number; financialAssets: number }>();
+  for (const c of r.table) {
+    if (!shown.has(c.year)) continue;
+    const y = by.get(c.year) ?? { year: c.year, net: 0, financialAssets: 0 };
+    if (c.row === "cf.net") y.net += c.amount;
+    if (c.row === "cf.balance.financial") y.financialAssets += c.amount;
+    by.set(c.year, y);
+  }
+  return [...by.values()].sort((a, b) => a.year - b.year);
+}
+
+/** 接続口の calculate の totals と同じ物（エンジンの表の要約の合計と同じ数え方で、画面の表に出す年だけ。0199） */
+export function screenTotals(r: PreviewResult, req: EngineRequest): { income: number; taxSi: number; expense: number; net: number } {
+  const shown = new Set(displayYears(req));
+  const under = (row: string, p: string) => row === p || row.startsWith(`${p}.`);
+  const t = { income: 0, taxSi: 0, expense: 0, net: 0 };
+  for (const c of r.table) {
+    if (!shown.has(c.year)) continue;
+    if (under(c.row, "cf.income")) t.income += c.amount;
+    else if (under(c.row, "cf.taxSi")) t.taxSi += c.amount;
+    else if (under(c.row, "cf.expense")) t.expense += c.amount;
+    else if (c.row === "cf.net") t.net += c.amount;
+  }
+  return t;
 }
