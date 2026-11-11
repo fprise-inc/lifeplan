@@ -612,7 +612,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
     ...(showBenef ? [beneficiaryField(wh, c, find, k), taxField(c, k)] : []),
   );
   if ((c.coverages ?? []).some((x) => x.benefit === "maturity" || x.benefit === "annuity" || x.benefit === "survival"))
-    fields.push(plain({ key: `${k}/annuitant`, item: "insurance.annuitant", label: "満期金・年金・祝金の受取人", level: "detail", kind: "select", options: memberOptions(wh, inHousehold), find, path: ["annuitant"], optional: true, fallback: c.policyholder, help: "入れなければ契約者（契約者が受け取れば一時所得・雑所得、ほかの人なら贈与税）" }));
+    fields.push(plain({ key: `${k}/annuitant`, item: "insurance.annuitant", label: "満期金・年金・祝金の受取人", level: "detail", kind: "select", options: memberOptions(wh, inHousehold), find, path: ["annuitant"], optional: true, fallback: c.policyholder, help: "最初は契約者になっています（契約者が受け取れば一時所得・雑所得、ほかの人なら贈与税）" }));
   fields.push(
     withAddress(plain({ key: `${k}/deduction`, item: "insurance.deductionCategory", label: "保険料控除の区分", level: "detail", kind: "select", options: DEDUCTION_TYPES, find, path: ["deductionCategory", "type"], after: (_h, target, v) => fitRegime(target as unknown as InsuranceContract, String(v)) }), () => at(c.id, "insurance.deductionCategory", ["type"])),
   );

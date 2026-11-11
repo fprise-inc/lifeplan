@@ -440,6 +440,8 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-c input.bad { border-color: var(--short); background: var(--short-bg); }
 .fld-c input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--prop); }
 .fld.is-est .fld-c input[type="text"] { border-style: dashed; border-color: var(--base); background: var(--wash, #f7f8fa); color: var(--base-ink); }
+/* 空欄の推定の値を欄の中に灰色で見せる（入っている推定の値と同じ文字の色。打ち始めると消える。0041 の追記 2026-11-10） */
+.fld-c input.est-ghost::placeholder { color: var(--base-ink); opacity: 1; }
 .units { display: inline-flex; gap: 4px; }
 .unit-btn { border: 1.5px solid var(--ink-2); background: var(--card); border-radius: 5px; padding: 2px 7px; font-size: 0.82rem; font-weight: 700; cursor: pointer; }
 .suffix { font-size: 0.88rem; font-weight: 700; }

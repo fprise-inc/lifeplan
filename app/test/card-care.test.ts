@@ -245,7 +245,8 @@ describe("介護・親のカード: 介護の費用（区画B）", () => {
     const cares = filled.request.input.household.careExpenses!;
     expect(cares).toHaveLength(2);
     const est = careEstimate("home")!;
-    expect(cares.every((c) => c.months === est.months && c.place === "home" && c.otherMonthly === undefined)).toBe(true);
+    // 期間・額は空欄（統計の平均の推定。前は期間に統計の月数を入れた値として書いていて、推定の印が付かなかった。0041 の追記 2026-11-10）
+    expect(cares.every((c) => c.months === undefined && c.place === "home" && c.otherMonthly === undefined && c.initial === undefined)).toBe(true);
     // 始まりは亡くなる見込み（平均余命）の期間の前。年齢の時点で持つ
     const self = filled.request.input.household.members.find((m) => m.kind === "self")!;
     const c = cares.find((x) => x.member === self.id)!;
@@ -301,12 +302,14 @@ describe("介護・親のカード: 介護の費用（区画B）", () => {
     const h = next.request.input.household;
     const a = resolveTimepoint(h, first.from)!;
     const b = resolveTimepoint(h, second.from)!;
-    expect((Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + (Number(b.slice(5)) - Number(a.slice(5)))).toBe(first.months);
-    // 見出しは「父の介護」、その下の1行に「在宅・2027年5月から55か月・月5.2万円（推定）」（左の狭い列で折り返さないように2行に分ける。
-    // 在宅か施設かは見出しに入れず要約の頭に。0150）
+    // 前の段の期間は空欄（推定）なので、統計の平均の期間だけずらす
+    expect(first.months).toBeUndefined();
+    expect((Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + (Number(b.slice(5)) - Number(a.slice(5)))).toBe(careEstimate("home")!.months);
+    // 見出しは「父の介護」、その下の1行に「在宅・2027年5月から55か月（推定）・月5.2万円（推定）」（左の狭い列で折り返さないように2行に分ける。
+    // 在宅か施設かは見出しに入れず要約の頭に。0150。推定の物のすぐ後ろに「（推定）」。0041 の追記 2026-11-10）
     const g0 = stage(next).sections.find((s) => s.key === "care/costs")!.groups[0]!;
     expect(g0.title).toMatch(/^父の介護$/);
-    expect(g0.summary).toMatch(/^在宅・\d{4}年\d{1,2}月から55か月・月5\.2万円（推定）$/);
+    expect(g0.summary).toMatch(/^在宅・\d{4}年\d{1,2}月から55か月（推定）・月5\.2万円（推定）$/);
   });
 
   it("始まり・期間・月々の費用は詳細（もう始まっている介護だけ月々の費用は標準）、伸び方・万一のときの扱いは詳細の欄（当て先つき）", () => {

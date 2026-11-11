@@ -448,14 +448,17 @@ function monthsInto(m: Member, ym: string): number {
   return ((diff % 12) + 12) % 12;
 }
 
-/** 介護の目安の物（統計の期間で、亡くなる見込みの前に置く。今より前なら今の翌月から。額は空欄＝統計の目安で計算） */
+/**
+ * 介護の目安の物（統計の期間で、亡くなる見込みの前に置く。今より前なら今の翌月から）。期間・額は空欄のまま（統計の平均の推定で計算し、
+ * 欄に推定の印と「この値にする」を出す）。前は期間に統計の月数を入れた値として書いていた（推定の印が付かなかった。0041 の追記 2026-11-10）
+ */
 export function careTemplate(h: Household, m: Member, baseMonth: string, id: string = newId()): CareExpense {
-  // 統計の期間（事務所の推定の値があればその値）。統計の写しが読めないとき（無い想定）の予備も同じ値から（直書きしない）
+  // 置く時期を決める統計の期間（事務所の推定の値があればその値）。統計の写しが読めないとき（無い想定）の予備も同じ値から（直書きしない）
   const months = careEstimate("home")?.months ?? masterAmount("care.statistics.months") ?? 0;
   const death = deathMonth(h, m, baseMonth);
   const start = death === null ? addMonths(baseMonth, 12) : addMonths(death, -months);
   const from: Timepoint = start <= baseMonth ? { at: addMonths(baseMonth, 1) } : hasBirth(m) ? { memberAge: { member: m.id, years: Math.max(0, ageAt(m, start)), months: monthsInto(m, start) } } : { at: start };
-  return { id, member: m.id, from, months, place: "home" };
+  return { id, member: m.id, from, place: "home" };
 }
 
 /** この人の介護の目安を入れる（この人の介護がもう有れば同じ世帯） */

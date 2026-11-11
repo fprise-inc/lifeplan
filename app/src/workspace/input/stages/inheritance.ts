@@ -186,6 +186,11 @@ export const outsideGrandchildren = (h: Household): Member[] => h.members.filter
 /** 相続の受け取る時期の推定: 相手の亡くなる見込みの10か月後（申告と納税の期限の目安） */
 export const INHERIT_AFTER_MONTHS = 10;
 const INHERIT_BASIS = "推定（相手の亡くなる見込みの10か月後。相続税の申告と納税の期限の目安）";
+/**
+ * 相手を「なし」のまま足した受け取る相続の行の時期の仮の印: 足したときの仮の時期（今から1年後）。印がある間は推定のままとして、後から相手を選ぶと
+ * 相手の亡くなる見込みの10か月後で入れ直す（FP が時期を入れたら印を外し、その後は動かさない）
+ */
+export const INHERIT_PENDING_BASIS = "仮の時期（亡くなる見込みのある相手を選ぶと、その10か月後にします）";
 
 /** 亡くなる見込みからずらした時点（年齢の時点ならその形のまま・年月なら年月） */
 function after(t: Timepoint, months: number, h: Household): Timepoint | null {
@@ -270,7 +275,11 @@ function receiveActions(actions: readonly ActionDef[]): ActionDef[] {
       const before = new Set((w.request.input.household.incomeFlows ?? []).map((f) => f.id));
       const next = a.run(w);
       const added = (next.request.input.household.incomeFlows ?? []).find((f) => !before.has(f.id));
-      return added === undefined ? next : inheritTimingFromCounterparty(next, added.id);
+      if (added === undefined) return next;
+      const w2 = inheritTimingFromCounterparty(next, added.id);
+      // 相手の亡くなる見込みから推定できなかった受け取る相続の行（相手が「なし」など）は、時期に仮の印を付けて、後から選んだ相手についてこさせる
+      const mark = `in/${added.id}/from`;
+      return added.kind !== "inheritance" || w2.assumed[mark] !== undefined ? w2 : { ...w2, assumed: { ...w2.assumed, [mark]: INHERIT_PENDING_BASIS } };
     },
   }));
 }

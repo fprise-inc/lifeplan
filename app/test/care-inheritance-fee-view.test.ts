@@ -243,7 +243,8 @@ describe("介護の物の見出し", () => {
       const y = x.careExpenses![0]!;
       delete y.months;
     });
-    expect(careSpan(blank, hh(blank).careExpenses![0]!)).toMatch(/（推定）$/);
+    // 推定の物のすぐ後ろに「（推定）」（期間だけが推定。0041 の追記 2026-11-10）
+    expect(careSpan(blank, hh(blank).careExpenses![0]!)).toMatch(/^施設・2027年4月から\d+か月（推定）・月[\d.]+万円$/);
     expect(careSpan(blank, hh(blank).careExpenses![0]!)).not.toContain("目安");
   });
 });
