@@ -20,6 +20,28 @@
         "path"
       ],
       "type": "object"
+    },
+    "PlanChange": {
+      "description": "プランの候補と同じ書き方の変更1件（propose_scenario の changes の1件と同じ。理由 note は要らない）",
+      "properties": {
+        "item": {
+          "description": "入力項目 ID（list_plan_items の item。例: employment.to〔働く最後の年齢〕・pensionRecord.claim・livingExpense.monthly）",
+          "type": "string"
+        },
+        "target": {
+          "description": "対象: list_plan_items の target（世帯の物・構成員の ID か、前提条件なら \"assumptions\"）",
+          "type": "string"
+        },
+        "value": {
+          "description": "新しい値（list_plan_items の kind・unit の形。年齢は整数の歳、金額は円の整数、率は10進の文字列 \"0.02\"）"
+        }
+      },
+      "required": [
+        "target",
+        "item",
+        "value"
+      ],
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -80,6 +102,16 @@
           "message"
         ],
         "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "plan_changes": {
+      "description": "アプリの画面のプランの動かす項目を動かす変更（calculate の plan_changes と同じ）",
+      "items": {
+        "$ref": "#/$defs/PlanChange"
       },
       "type": [
         "array",

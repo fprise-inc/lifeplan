@@ -108,3 +108,14 @@ pub fn summarize(preview: &str, request: &str, args: &str) -> Result<String, Str
     };
     run().map_err(|e| e.code().to_owned())
 }
+
+/// プランの動かす項目（画面の結果のタブのプランと同じ関数。app/src/connector/plan.ts。0195）の1つの関数を、計算と同じ固めた新しい実行環境で動かす。
+/// 入力の欄の定義まで読む大きな JS なので、プランを当てるとき・動かせる項目の一覧を返すときだけ読み込む。戻り値は答え（JSON の文字）
+pub fn plan(function: &str, a: &str, b: &str, c: &str) -> Result<String, String> {
+    let run = || -> Result<String, engine_host::HostError> {
+        let sandbox = Sandbox::new(&Limits::DEFAULT)?;
+        sandbox.eval_script(assets::PLAN_JS)?;
+        sandbox.call_function("FinanciaPlan", function, (a, b, c))
+    };
+    run().map_err(|e| e.code().to_owned())
+}

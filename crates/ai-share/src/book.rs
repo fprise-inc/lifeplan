@@ -307,6 +307,14 @@ impl HouseholdBook {
             input,
             texts: Vec::new(),
             labels_by_member: None,
+            // 画面は保存した条件をそのまま使う（無ければ条件なし）。縮約の部品が数と選択肢だけを確かめて渡す（0195）
+            post_retirement: Some(
+                self.body
+                    .get("household")
+                    .and_then(|h| h.get("postRetirement"))
+                    .cloned()
+                    .unwrap_or_else(|| Value::Object(serde_json::Map::new())),
+            ),
             external_ai_consent: self.consent(),
         })
     }

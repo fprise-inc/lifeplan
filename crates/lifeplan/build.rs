@@ -38,10 +38,11 @@ fn main() {
         );
     }
     let explain_js = manifest_dir.join("dist/explain.js");
+    let plan_js = manifest_dir.join("dist/plan.js");
     let coverage = repo.join("engine/dist/coverage.json");
-    if !explain_js.exists() {
+    if !explain_js.exists() || !plan_js.exists() {
         panic!(
-            "AI接続口の「数字の根拠」の読み方（crates/lifeplan/dist/explain.js）がありません。先に app/ で `npm ci && npm run build:explain` を流してください"
+            "AI接続口の「数字の根拠」の読み方とプランの動かす項目（crates/lifeplan/dist/explain.js・plan.js）がありません。先に app/ で `npm ci && npm run build:explain` を流してください"
         );
     }
     if !coverage.exists() {
@@ -50,6 +51,7 @@ fn main() {
         );
     }
     println!("cargo:rerun-if-changed={}", explain_js.display());
+    println!("cargo:rerun-if-changed={}", plan_js.display());
     println!("cargo:rerun-if-changed={}", coverage.display());
     println!("cargo:rerun-if-changed={}", engine_js.display());
     println!("cargo:rerun-if-changed={}", regulation.display());
@@ -70,6 +72,12 @@ fn main() {
         "/// 「数字の根拠」の読み方（app/src/connector/explain.ts をまとめた JS。0183）\npub const EXPLAIN_JS: &str = include_str!({:?});\n/// 対応範囲の一覧（docs/coverage を確かめて1つにした JSON。0183）\npub const COVERAGE_JSON: &str = include_str!({:?});",
         explain_js.display().to_string(),
         coverage.display().to_string()
+    )
+    .unwrap();
+    writeln!(
+        out,
+        "/// プランの動かす項目（app/src/connector/plan.ts をまとめた JS。画面の結果のタブのプランと同じ関数。0195）\npub const PLAN_JS: &str = include_str!({:?});",
+        plan_js.display().to_string()
     )
     .unwrap();
     out.push_str("/// 制度データ・マスタのパック（engine/dist/regulation/*.json。名前の順）\npub const PACKS: &[&str] = &[\n");
