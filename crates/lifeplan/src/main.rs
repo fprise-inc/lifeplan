@@ -9,6 +9,8 @@
 mod calc;
 mod coverage;
 mod engine;
+mod guide;
+mod recipes;
 mod regulation;
 mod samples;
 mod server;
