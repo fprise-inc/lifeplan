@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "input": {
+      "description": "計算の入力（calculate の input と同じ形。get_input_guide・get_input_recipe で組み立て、calculate で計算できることを確かめた物）"
+    },
+    "kind": {
+      "description": "世帯の種類: fictional（架空。セミナー・研修・ブログに使う、実在しない世帯）か client（お客さまの世帯）。FPがアプリで作る前に変えられる",
+      "enum": [
+        "fictional",
+        "client"
+      ],
+      "type": "string"
+    },
+    "note": {
+      "description": "推定したこと・仮に置いた値（1000文字まで。例「妻のパートの年収は扶養の範囲の100万円と推定」）。FPがアプリで確かめるときの手がかり。名前・番号は書かない",
+      "maxLength": 1000,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "title": {
+      "description": "世帯の短い題（60文字まで。例「セミナー用 38歳の会社員と扶養のパートの妻・賃貸」）。お客さまの名前・番号は書かない",
+      "maxLength": 60,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "title",
+    "input"
+  ],
+  "type": "object"
+}

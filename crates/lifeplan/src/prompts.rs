@@ -64,6 +64,14 @@ pub struct SeminarHouseholdArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct HouseholdToAppArgs {
+    /// 世帯の形（例「38歳の会社員と扶養のパートの妻・賃貸・預金500万円」）
+    pub profile: String,
+    /// 使う先（例「来月のセミナー」「新人研修」）。省くとセミナー
+    pub purpose: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct MeetingPrepArgs {
     /// 世帯（FP が渡した世帯の share_id か、見本の世帯の id）。省くと、渡されている世帯を確かめる
     pub household: Option<String>,
@@ -115,7 +123,7 @@ impl LifeplanMcp {
         result(
             "この接続口でできること",
             "ファイナンシアの AI接続口で何ができるかを、FP 向けに短く紹介してください。\n\
-             - できることを場面ごとに（計算・対策を並べて比べる・境目探し〔何歳まで働けば足りる？〕・数字の根拠の説明・制度の値と出典・計算に入っているかの確認・セミナー用の架空の世帯・面談の準備・プランの候補・保険の書類からの入力の候補）、頼み方の例を1つずつ添えて。\n\
+             - できることを場面ごとに（計算・対策を並べて比べる・境目探し〔何歳まで働けば足りる？〕・数字の根拠の説明・制度の値と出典・計算に入っているかの確認・セミナー用の架空の世帯・作った世帯をアプリに入れる・面談の準備・プランの候補・保険の書類からの入力の候補）、頼み方の例を1つずつ添えて。\n\
              - アプリが起動していなくても見本の世帯（架空）で試せること、お客さまの世帯は FP がアプリで渡したときだけ読めることを一言。\n\
              - 最後に、list_sample_households で見本を1つ選び、calculate（omit に [\"years\"]）で主な数字を1つ見せて、試し方の例にしてください。"
                 .to_owned(),
@@ -203,6 +211,33 @@ impl LifeplanMcp {
                  2. 家を買う・子が生まれる・退職・繰上返済・NISA と iDeCo を始める・もしもの時は、get_input_recipe の手本（buyHome・newChild・retire・prepayment・startNisaIdeco・contingency）を使う。重ねるときは apply: true で返る input を次の手本に渡す。書かなかった物（頭金・諸費用・教育費など）は計算に入らない。\n\
                  3. calculate で計算する。表は every_years（例 5）と fields（例 [\"financialAssets\", \"debt\"]）で絞り、年ごとの家族の年齢を添える（表は画面の表と同じ年から始まる。計算基準月が年の途中なら翌年から）。計算できなかったときは、答えの「直し方」で直してもう一度。\n\
                  4. 表と、見どころを2〜3行で。表の下に「架空の世帯です」と、主な前提（物価・利回り・年収など）を書く。",
+                a.profile.trim(),
+            ),
+        )
+    }
+
+    #[prompt(
+        name = "make_household_in_app",
+        title = "セミナー用の架空の世帯を作ってアプリに入れる",
+        description = "セミナー・研修用の架空の世帯を組み立てて確かめ、アプリに「新しい世帯の候補」として出す（FP がアプリで確かめて作る）"
+    )]
+    async fn make_household_in_app(
+        &self,
+        Parameters(a): Parameters<HouseholdToAppArgs>,
+    ) -> GetPromptResult {
+        let purpose = given(&a.purpose).unwrap_or("セミナー");
+        result(
+            "セミナー用の架空の世帯を作ってアプリに入れる",
+            format!(
+                "ファイナンシアの接続口で、{purpose}に使う架空の世帯を作って、アプリに入れてください（実在のお客さまの数字は使わない）。\n\
+                 - 世帯の形: {}\n\n\
+                 進め方:\n\
+                 1. 近い見本があれば list_sample_households の tags（例 [\"賃貸\"]・[\"片働き\"]）で探して get_sample_household の input を土台にする。無ければ get_input_guide の計算できる最小の例（skeleton）から組み立てる。家を買う・子が生まれるなどは get_input_recipe の手本を使う。\n\
+                 2. 書いていないこと（年収・生活費・家賃・預金の内訳など）は、世帯の形に合う目安で置き、何を推定したかを控えておく。\n\
+                 3. calculate（omit に [\"years\"]）で計算できることと主な数字を確かめる。計算できなかったときは、答えの「直し方」で直してもう一度。\n\
+                 4. propose_household で、kind に fictional、title に短い題（60文字まで。例「{purpose}用 38歳の会社員と扶養のパートの妻」）、note に推定したこと、input に確かめた入力を渡す。アプリが起動していない・AI接続口がオフのときは、そう伝えて終える。\n\
+                 5. FP に、アプリの上の帯の「AIから新しい世帯の候補が届いています」から中身（家族・収入・資産・住まいとローン・推定したこと）を確かめて「世帯として作る」を押すよう伝える。作った世帯には「架空」の印が付き、同意の記録が無くても AI に渡せることも一言。\n\
+                 お客さまの名前・番号は、題・推定したこと・入力の名前の欄のどこにも書かない。",
                 a.profile.trim(),
             ),
         )

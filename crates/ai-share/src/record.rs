@@ -47,7 +47,7 @@ pub enum EndReason {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConsentAtGrant {
-    /// `given`／`refused`／`withdrawn`／`none`
+    /// `given`／`refused`／`withdrawn`／`none`、または `fictional`（架空の世帯。同意の記録が要らない）
     pub state: String,
     /// 参照した同意の記録の `id`
     pub record_id: Option<String>,
