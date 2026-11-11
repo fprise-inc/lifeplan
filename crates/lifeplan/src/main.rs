@@ -10,6 +10,7 @@ mod calc;
 mod coverage;
 mod engine;
 mod guide;
+mod plan;
 mod recipes;
 mod regulation;
 mod samples;

@@ -78,6 +78,7 @@ fn source(id: &str) -> SharedHouseholdSource {
             },
         ],
         labels_by_member: Some(json!({ first_member: "上のお子さん" })),
+        post_retirement: None,
         external_ai_consent: Some(ConsentRef {
             decision: ConsentDecision::Given,
             record_id: "c-1".into(),

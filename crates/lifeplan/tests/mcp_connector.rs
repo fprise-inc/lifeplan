@@ -74,6 +74,7 @@ fn source(id: &str, with_texts: bool) -> SharedHouseholdSource {
             object: None,
         }],
         labels_by_member: Some(json!({ "x": "上のお子さん" })),
+        post_retirement: None,
         external_ai_consent: Some(ConsentRef {
             decision: ConsentDecision::Given,
             record_id: "c-9".into(),
@@ -163,6 +164,9 @@ async fn standalone_tools_work_without_the_app() {
         "get_regulation_value",
         "search_coverage",
         "get_coverage",
+        "list_plan_items",
+        "get_input_guide",
+        "get_input_recipe",
         "list_shared_households",
         "get_shared_household",
         "propose_scenario",
@@ -1424,4 +1428,355 @@ async fn coverage_tools_answer_from_the_bundled_list() {
     assert!(err);
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// プランの動かす項目（0195）: 見本の世帯に、プランの候補と同じ書き方の変更（plan_changes）を当てた計算と根拠が、画面でつまみを動かしたときの
+/// 数字・根拠（app/test/connector-plan.test.ts が画面の関数で作る見本）と同じ。quickjs-ng で動かした画面のプランの関数が、Node と同じ要求を作る
+#[tokio::test(flavor = "multi_thread")]
+async fn plan_changes_match_the_screen() {
+    let p = repo().join("crates/lifeplan/tests/fixtures/plan/expected.json");
+    let fx: Value = serde_json::from_str(&std::fs::read_to_string(p).unwrap()).unwrap();
+    let dir = temp_dir("plan");
+    let (c, _) = connect(&dir).await;
+    let tools = c.list_all_tools().await.unwrap();
+    check_schema_snapshot(&tools, "list_plan_items");
+    for case in fx["cases"].as_array().unwrap() {
+        let name = case["name"].as_str().unwrap();
+        let got = call_ok(
+            &c,
+            "calculate",
+            json!({ "sample_household_id": case["sample"], "plan_changes": case["changes"] }),
+        )
+        .await;
+        let years: Vec<Value> = got["years"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|y| json!({ "year": y["year"], "net": y["net"], "financialAssets": y["financialAssets"] }))
+            .collect();
+        assert_eq!(
+            Value::Array(years),
+            case["screen"]["years"],
+            "{name}: 画面の数字と違います"
+        );
+        assert_eq!(got["totals"], case["screen"]["totals"], "{name}");
+        let rows = got["planChanges"]["changes"].as_array().unwrap();
+        assert_eq!(rows.len(), case["changes"].as_array().unwrap().len());
+        assert!(
+            rows.iter().all(|r| r["status"] == "applied"),
+            "{name}: {rows:?}"
+        );
+        if let Some(e) = case.get("evidence") {
+            let got = call_ok(
+                &c,
+                "explain_value",
+                json!({ "sample_household_id": case["sample"], "plan_changes": case["changes"], "row": e["row"], "year": e["year"] }),
+            )
+            .await;
+            assert_eq!(got["status"], "ok", "{got}");
+            assert_eq!(
+                got["evidence"], e["evidence"],
+                "{name}: 画面の根拠と違います"
+            );
+            assert_eq!(got["planChanges"]["changes"][0]["status"], "applied");
+        }
+    }
+
+    // 動かせる項目の一覧: 対策の項目と、その対象・入力項目ID（見本の変更と同じ書き方）
+    let first = &fx["cases"][0];
+    let list = call_ok(
+        &c,
+        "list_plan_items",
+        json!({ "sample_household_id": first["sample"] }),
+    )
+    .await;
+    let retire = list["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|x| x["label"].as_str().unwrap().contains("働く最後の年齢"))
+        .unwrap();
+    assert_eq!(retire["target"], first["changes"][0]["target"]);
+    assert_eq!(retire["item"], first["changes"][0]["item"]);
+    assert_eq!(retire["kind"], "age");
+    assert!(list["message"].as_str().unwrap().contains("plan_changes"));
+    let more = call_ok(
+        &c,
+        "list_plan_items",
+        json!({ "sample_household_id": first["sample"], "fields": true }),
+    )
+    .await;
+    assert!(more["count"].as_u64().unwrap() > list["count"].as_u64().unwrap());
+
+    // 当てはまらない変更は、計算せずに理由を返す。JSON Pointer の changes はそのまま動く（plan_changes と一緒にも使える）
+    let (err, msg) = call(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": first["sample"], "plan_changes": [{ "target": retire["target"], "item": retire["item"], "value": 40 }] }),
+    )
+    .await;
+    assert!(
+        err && msg.contains("範囲") && msg.contains("list_plan_items"),
+        "{msg}"
+    );
+    let (err, msg) = call(
+        &c,
+        "list_plan_items",
+        json!({ "input": { "household": "x" } }),
+    )
+    .await;
+    assert!(err && msg.contains("入力の形"), "{msg}");
+    // 形の違う入力に plan_changes を付けても、プランを当てる前に止まり、入力の形の直し方（0196）を返す
+    let (err, msg) = call(
+        &c,
+        "calculate",
+        json!({ "input": { "household": "x" }, "plan_changes": first["changes"] }),
+    )
+    .await;
+    assert!(
+        err && msg.contains("入力の形") && msg.contains("get_input_guide"),
+        "{msg}"
+    );
+    let pointer = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": first["sample"], "changes": [{ "op": "replace", "path": "/assumptions/inflation", "value": { "default": "0.025" } }] }),
+    )
+    .await;
+    assert!(pointer.get("planChanges").is_none());
+    let both = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": first["sample"], "changes": [{ "op": "replace", "path": "/assumptions/inflation", "value": { "default": "0.025" } }], "plan_changes": first["changes"] }),
+    )
+    .await;
+    assert_ne!(both["years"], pointer["years"]);
+    let net = |v: &Value| -> Vec<Value> {
+        v["years"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|y| y["net"].clone())
+            .collect()
+    };
+    let screen: Vec<Value> = first["screen"]["years"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|y| y["net"].clone())
+        .collect();
+    assert_ne!(net(&both), screen);
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// プランの動かす項目を、渡された世帯で（0195）: 縮約版に定年後の働き方の条件が数と選択肢だけで入り、一覧の対象は共有の仮の ID で、
+/// その書き方で計算すると、画面で保存した世帯を開いて同じ値にしたときと同じ数字。
+/// 同じ書き方を propose_scenario に渡すと、アプリ本体は元の ID に戻して承認待ちに入れる。一覧を読んだこともアプリの「AIに渡した記録」に残る
+#[tokio::test(flavor = "multi_thread")]
+async fn plan_items_for_a_shared_household() {
+    let dir = temp_dir("plan-share");
+    let reg = Arc::new(ShareRegistry::new());
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    let (c, _) = connect(&dir).await;
+    let fx: Value = serde_json::from_str(
+        &std::fs::read_to_string(repo().join("crates/lifeplan/tests/fixtures/plan/expected.json"))
+            .unwrap(),
+    )
+    .unwrap();
+    let want = &fx["shared"];
+    let id = want["sample"].as_str().unwrap();
+    // 定年後の働き方の条件を持つ世帯（縮約版は数と選択肢だけを渡す。名前・自由文の欄は落とす）
+    let mut src = source(id, false);
+    let mut post = want["postRetirement"].clone();
+    for (_, c) in post.as_object_mut().unwrap() {
+        c["memo"] = json!(MEMO);
+    }
+    src.post_retirement = Some(post);
+    let g = reg.grant(src, grant_opts()).unwrap();
+    let view = call_ok(
+        &c,
+        "get_shared_household",
+        json!({ "share_id": g.share_id }),
+    )
+    .await;
+    let alias = view["input"]["household"]["members"][0]["id"].clone();
+    let original = want["postRetirement"].as_object().unwrap();
+    let (orig_id, cond) = original.iter().next().unwrap();
+    assert_eq!(view["postRetirement"][alias.as_str().unwrap()], *cond);
+    assert!(!view.to_string().contains(MEMO) && !view.to_string().contains(orig_id.as_str()));
+    let pick = |list: &Value| {
+        list["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|x| x["label"].as_str().unwrap().contains("働く最後の年齢"))
+            .cloned()
+            .unwrap()
+    };
+    let shared = pick(&call_ok(&c, "list_plan_items", json!({ "share_id": g.share_id })).await);
+    let sample = pick(&call_ok(&c, "list_plan_items", json!({ "sample_household_id": id })).await);
+    assert_ne!(
+        shared["target"], sample["target"],
+        "共有の仮の ID ではありません"
+    );
+    assert_eq!(shared["item"], sample["item"]);
+    // 渡された世帯の条件で、画面で保存した世帯を開いて働く最後の年齢を動かしたときと同じ数字（app/test/connector-plan.test.ts の見本）
+    let a = call_ok(
+        &c,
+        "calculate",
+        json!({ "share_id": g.share_id, "plan_changes": [{ "target": shared["target"], "item": shared["item"], "value": want["retireAge"] }] }),
+    )
+    .await;
+    let years: Vec<Value> = a["years"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|y| json!({ "year": y["year"], "net": y["net"], "financialAssets": y["financialAssets"] }))
+        .collect();
+    assert_eq!(
+        Value::Array(years),
+        want["screen"]["years"],
+        "画面の数字と違います"
+    );
+    assert_eq!(a["totals"], want["screen"]["totals"]);
+    assert!(
+        shared["note"].as_str().unwrap().contains("300万円"),
+        "{shared}"
+    );
+    let rec = reg.records(HOUSEHOLD_ID);
+    assert!(rec[0].reads.iter().any(|r| r.tool == "list_plan_items"));
+
+    // 同じ書き方をプランの候補に出せる（元の ID に戻る）
+    let r = call_ok(
+        &c,
+        "propose_scenario",
+        json!({ "share_id": g.share_id, "title": "働く最後の年齢を65歳に", "changes": [{ "target": shared["target"], "item": shared["item"], "value": 65 }] }),
+    )
+    .await;
+    assert_eq!(r["status"], "pendingReview");
+    let pending = reg.take_proposals();
+    assert_eq!(
+        pending[0].diffs[0].target,
+        json!({ "object": sample["target"] })
+    );
+    reg.revoke(&g.share_id);
+    let (err, msg) = call(&c, "list_plan_items", json!({ "share_id": g.share_id })).await;
+    assert!(err && msg.contains("REVOKED"), "{msg}");
+    ep.shutdown();
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 一覧の項目の今の値から、動かした値を1つ作る: 年齢は1歳上（上の端なら下）、金額は1万円足す、整数は1足す（上の端なら引く）、率は桁を1つ足す
+/// （"0.02" → "0.021"。小数点が無ければ ".5"）、入れる・入れないは逆、働き方は年収に10万円足す、金利の上昇は幅 "0.005"。配分は作らない
+fn bump(it: &Value) -> Option<Value> {
+    let v = &it["value"];
+    match it["kind"].as_str()? {
+        "age" => {
+            let n = v.as_i64()?;
+            let max = it["max"].as_i64().unwrap_or(n + 1);
+            Some(json!(if n < max { n + 1 } else { n - 1 }))
+        }
+        "amount" => Some(json!(v.as_i64()? + 10000)),
+        "int" => {
+            let n = v.as_i64()?;
+            Some(json!(match it["max"].as_i64() {
+                Some(m) if n + 1 > m => n - 1,
+                _ => n + 1,
+            }))
+        }
+        "rate" | "decimal" => {
+            let s = v.as_str()?;
+            Some(json!(if s.contains('.') {
+                format!("{s}1")
+            } else {
+                format!("{s}.5")
+            }))
+        }
+        "toggle" => Some(json!(!v.as_bool()?)),
+        "work" => {
+            Some(json!({ "type": v["type"].as_str()?, "annual": v["annual"].as_i64()? + 100000 }))
+        }
+        "rateShift" => Some(json!({ "add": "0.005", "from": v["from"].as_str()? })),
+        _ => None,
+    }
+}
+
+/// Node で同じ JS を動かす小さな道具（標準入力の [[関数の名前, 引数1, 引数2, 引数3], …] を呼び、答えの並びを JSON で返す）
+const NODE_PLAN: &str = r#"
+const fs = require("node:fs");
+const vm = require("node:vm");
+const ctx = {};
+vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(process.argv[1], "utf8"), ctx);
+const calls = JSON.parse(fs.readFileSync(0, "utf8"));
+process.stdout.write(JSON.stringify(calls.map(([f, a, b, c]) => ctx.FinanciaPlan[f](a, b, c))));
+"#;
+
+/// プランの動かす項目（0195）を、どの見本の世帯のどの項目でも: 同梱した JS（crates/lifeplan/dist/plan.js）を接続口と同じ固めた実行環境
+/// （quickjs-ng。画面の部品が使う組み込みの代わりを JS の頭に置く）で動かした一覧と、全部の項目を1つずつ動かして当てた答えが、
+/// 同じ JS を Node（V8）で動かした答えと1文字も違わない（並べ替え・正規表現・数の文字などの実行環境の違いで答えが変わらない）。
+/// 画面の関数そのもの（TypeScript）と同じ答えになることは app/test/connector-plan.test.ts が、組み込みの代わりが Node の組み込みと同じ答えに
+/// なることは app/test/connector-plan-intro.test.ts が確かめる。Node が要る（CI の host にもある）
+#[test]
+fn every_plan_item_matches_node() {
+    use engine_host::{Limits, Sandbox};
+    use std::io::Write as _;
+    let plan_js = repo().join("crates/lifeplan/dist/plan.js");
+    let js = std::fs::read_to_string(&plan_js).unwrap();
+    let mut calls: Vec<Value> = Vec::new();
+    let mut got: Vec<String> = Vec::new();
+    for id in model_ids() {
+        // ファイルの文字のまま渡す（JS が読むと、どちらの実行環境でも同じ並びの物になる）
+        let req = std::fs::read_to_string(repo().join(format!("data/modelHouseholds/{id}.json")))
+            .unwrap();
+        let sb = Sandbox::new(&Limits::DEFAULT).unwrap();
+        sb.eval_script(&js).unwrap();
+        let args = json!({ "sampleId": id, "fields": true }).to_string();
+        let list = sb
+            .call_function("FinanciaPlan", "listPlanItems", (&req, &args, "null"))
+            .unwrap();
+        calls.push(json!(["listPlanItems", req, args, "null"]));
+        got.push(list.clone());
+        let list: Value = serde_json::from_str(&list).unwrap();
+        assert_eq!(list["status"], "ok", "{id}");
+        let ctx = json!({ "args": { "sampleId": id }, "office": null }).to_string();
+        for it in list["items"].as_array().unwrap() {
+            let Some(value) = bump(it) else { continue };
+            let changes =
+                json!([{ "target": it["target"], "item": it["item"], "value": value }]).to_string();
+            let out = sb
+                .call_function("FinanciaPlan", "applyPlan", (&req, &changes, &ctx))
+                .unwrap_or_else(|e| panic!("{id} {}: {e:?}", it["label"]));
+            calls.push(json!(["applyPlan", req, changes, ctx]));
+            got.push(out);
+        }
+    }
+    assert!(got.len() > 1000, "{}", got.len());
+    let mut node = std::process::Command::new("node")
+        .arg("-e")
+        .arg(NODE_PLAN)
+        .arg(&plan_js)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("Node が要ります（node を PATH に置いてください）");
+    let input = serde_json::to_vec(&calls).unwrap();
+    let mut stdin = node.stdin.take().unwrap();
+    let writer = std::thread::spawn(move || stdin.write_all(&input));
+    let out = node.wait_with_output().unwrap();
+    writer.join().unwrap().unwrap();
+    assert!(out.status.success(), "Node で動かせませんでした");
+    let want: Vec<String> = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(want.len(), got.len());
+    for (i, (g, w)) in got.iter().zip(&want).enumerate() {
+        assert_eq!(
+            g,
+            w,
+            "{}件目（{}）: quickjs-ng と Node で答えが違います",
+            i + 1,
+            calls[i][0]
+        );
+    }
 }
