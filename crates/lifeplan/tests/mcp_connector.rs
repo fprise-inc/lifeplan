@@ -386,7 +386,8 @@ async fn prompts_list_and_expand() {
                 "sampleSingle20s",
                 "sampleCoupleNoKids",
                 "65歳の時点の資産",
-                "keyFigures",
+                "compare",
+                "variants",
             ],
         ),
         (
@@ -398,6 +399,7 @@ async fn prompts_list_and_expand() {
                 "65・90",
                 "list_plan_items",
                 "plan_changes",
+                "compare",
             ],
         ),
         (
@@ -2214,4 +2216,395 @@ fn every_plan_item_matches_node() {
             calls[i][0]
         );
     }
+}
+
+/// 比べる道具の通りの主な数字を、画面の主な数字の見本（app/test/connector-compare.test.ts の keyFigures）と比べる
+fn same_figures(got: &Value, want: &Value, what: &str) {
+    let at: Vec<Value> = got["assetsAtAge"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|x| json!({ "age": x["age"], "year": x["year"], "amount": x["amount"] }))
+        .collect();
+    assert_eq!(Value::Array(at), want["assetsAtAge"], "{what}");
+    assert_eq!(
+        got["depletion"]["year"].as_i64(),
+        want["depletion"].as_i64(),
+        "{what}"
+    );
+    assert_eq!(got["minimum"]["year"], want["minimum"]["year"], "{what}");
+    assert_eq!(
+        got["minimum"]["amount"], want["minimum"]["amount"],
+        "{what}"
+    );
+    for k in ["lifetimeTakeHome", "lifetimeExpense", "loanRepayment"] {
+        assert_eq!(got[k], want[k], "{what}: {k}");
+    }
+}
+
+/// 系列（毎年）が、画面の表に出す年の金融資産と同じ
+fn same_series(got: &Value, want: &Value, what: &str) {
+    let years: Vec<(String, Value)> = got
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|y| (y["year"].to_string(), y["financialAssets"].clone()))
+        .collect();
+    let screen = want.as_object().unwrap();
+    assert_eq!(years.len(), screen.len(), "{what}: 画面の表の年と違います");
+    for (y, v) in years {
+        assert_eq!(Some(&v), screen.get(&y), "{what}: {y}年");
+    }
+}
+
+/// 比べる道具（compare）: 1回の呼び出しで並べたプランの主な数字・基本との差・系列が、画面の「プランを比べる」で同じプランを並べたときと同じ
+/// （app/test/connector-compare.test.ts の見本）。基本に重ねる通り・見本の世帯どうし・上限・通りごとの理由
+#[tokio::test(flavor = "multi_thread")]
+async fn compare_matches_the_screen() {
+    let p = repo().join("crates/lifeplan/tests/fixtures/compare/expected.json");
+    let fx: Value = serde_json::from_str(&std::fs::read_to_string(p).unwrap()).unwrap();
+    let dir = temp_dir("compare");
+    let (c, _) = connect(&dir).await;
+    let tools = c.list_all_tools().await.unwrap();
+    check_schema_snapshot(&tools, "compare");
+
+    for case in fx["plans"].as_array().unwrap() {
+        let name = case["name"].as_str().unwrap();
+        let cols = case["columns"].as_array().unwrap();
+        let variants: Vec<Value> = cols[1..]
+            .iter()
+            .map(|c| json!({ "label": c["label"], "plan_changes": c["changes"] }))
+            .collect();
+        let got = call_ok(
+            &c,
+            "compare",
+            json!({ "sample_household_id": case["sample"], "plan_changes": cols[0]["changes"], "variants": variants, "every_years": 1 }),
+        )
+        .await;
+        let results = got["results"].as_array().unwrap();
+        assert_eq!(results.len(), cols.len(), "{name}");
+        assert_eq!(got["computed"], cols.len());
+        for (i, (r, col)) in results.iter().zip(cols).enumerate() {
+            let what = format!("{name} {}", col["label"]);
+            assert_eq!(r["status"], "ok", "{what}: {r}");
+            assert_eq!(r["label"], col["label"]);
+            same_figures(&r["keyFigures"], &col["keyFigures"], &what);
+            same_series(&r["series"], &col["financialAssets"], &what);
+            if i == 0 {
+                assert!(r.get("diff").is_none());
+                continue;
+            }
+            assert_eq!(r["from"], json!({ "onBase": true }));
+            // 基本との差は画面の比較の表と同じ（資産が尽きる年の文）
+            assert_eq!(r["diff"]["depletion"], case["depletionDiffs"][i], "{what}");
+            let base = &results[0]["keyFigures"];
+            for k in ["lifetimeTakeHome", "lifetimeExpense", "loanRepayment"] {
+                assert_eq!(
+                    r["diff"][k].as_i64().unwrap(),
+                    r["keyFigures"][k].as_i64().unwrap() - base[k].as_i64().unwrap(),
+                    "{what}"
+                );
+            }
+            // 当てたプランの変更は、基本と通りの両方
+            let applied = r["planChanges"].as_array().unwrap();
+            assert_eq!(
+                applied.len(),
+                cols[0]["changes"].as_array().unwrap().len()
+                    + col["changes"].as_array().unwrap().len()
+            );
+            assert!(applied.iter().all(|x| x["status"] == "applied"), "{what}");
+        }
+        // 基本に重ねる通りは、calculate に基本と通りの変更をつないで渡したときと同じ主な数字
+        let last = cols.last().unwrap();
+        let joined: Vec<Value> = cols[0]["changes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .chain(last["changes"].as_array().unwrap())
+            .cloned()
+            .collect();
+        let one = call_ok(
+            &c,
+            "calculate",
+            json!({ "sample_household_id": case["sample"], "plan_changes": joined, "omit": ["years"] }),
+        )
+        .await;
+        assert_eq!(
+            one["keyFigures"],
+            results.last().unwrap()["keyFigures"],
+            "{name}"
+        );
+    }
+
+    // 見本の世帯どうし（別の世帯の通り）。既定の系列は5年ごと・年齢つき
+    let samples = fx["samples"].as_array().unwrap();
+    let variants: Vec<Value> = samples[1..]
+        .iter()
+        .map(|s| json!({ "label": s["sample"], "sample_household_id": s["sample"] }))
+        .collect();
+    let got = call_ok(
+        &c,
+        "compare",
+        json!({ "sample_household_id": samples[0]["sample"], "variants": variants }),
+    )
+    .await;
+    for (r, s) in got["results"].as_array().unwrap().iter().zip(samples) {
+        let what = s["sample"].as_str().unwrap();
+        assert_eq!(r["status"], "ok", "{what}: {r}");
+        same_figures(&r["keyFigures"], &s["keyFigures"], what);
+        assert_eq!(r["from"]["sampleHouseholdId"], s["sample"]);
+        let series = r["series"].as_array().unwrap();
+        let screen: Vec<i64> = s["financialAssets"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|y| y.parse().unwrap())
+            .collect();
+        // 画面の表の最初の年と最後の年はいつも入り、間は5年ごと
+        assert_eq!(
+            series[0]["year"].as_i64(),
+            screen.iter().min().copied(),
+            "{what}"
+        );
+        assert_eq!(
+            series.last().unwrap()["year"].as_i64(),
+            screen.iter().max().copied(),
+            "{what}"
+        );
+        for y in series {
+            let year = y["year"].to_string();
+            assert_eq!(
+                y["financialAssets"], s["financialAssets"][&year],
+                "{what} {year}"
+            );
+            assert!(y["ages"]["self"].is_number(), "{what}: 年齢がありません");
+            assert_eq!(
+                y.as_object().unwrap().len(),
+                3,
+                "{what}: 系列は year・ages・選んだ数字だけ"
+            );
+        }
+        assert!(r["members"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|m| m["key"] == "self"));
+    }
+    assert!(
+        got["results"][1]["diff"]["depletion"].is_string()
+            || got["results"][1]["diff"]["depletion"].is_null()
+    );
+
+    // 通りごとの理由: 形の違う通り・範囲の外のプランの変更・無い見本・世帯を2つ書いた通り。ほかの通りは計算する
+    let first = &fx["plans"][0];
+    let retire = &first["columns"][1]["changes"][0];
+    let got = call_ok(
+        &c,
+        "compare",
+        json!({ "sample_household_id": first["sample"], "series": ["financialAssets", "net"], "variants": [
+            { "label": "形の違う通り", "plan_changes": "x" },
+            { "label": "範囲の外", "plan_changes": [{ "target": retire["target"], "item": retire["item"], "value": 40 }] },
+            { "label": "無い見本", "sample_household_id": "nope" },
+            { "label": "2つ", "sample_household_id": "single25", "input": {} },
+            { "label": "63歳", "plan_changes": [retire] },
+        ] }),
+    )
+    .await;
+    let r = got["results"].as_array().unwrap();
+    assert_eq!(got["computed"], 2);
+    assert_eq!(r[1]["status"], "error");
+    assert_eq!(r[1]["label"], "形の違う通り");
+    assert!(
+        r[1]["reason"].as_str().unwrap().contains("形が違います"),
+        "{}",
+        r[1]
+    );
+    assert!(
+        r[2]["reason"].as_str().unwrap().contains("list_plan_items"),
+        "{}",
+        r[2]
+    );
+    assert_eq!(r[2]["planChanges"][0]["status"], "rejected");
+    assert!(
+        r[3]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("list_sample_households"),
+        "{}",
+        r[3]
+    );
+    assert!(
+        r[4]["reason"].as_str().unwrap().contains("どれか1つ"),
+        "{}",
+        r[4]
+    );
+    assert_eq!(r[5]["status"], "ok");
+    same_figures(
+        &r[5]["keyFigures"],
+        &first["columns"][1]["keyFigures"],
+        "63歳",
+    );
+    assert!(
+        r[5]["series"][0]["net"].is_number() && r[5]["series"][0]["financialAssets"].is_number()
+    );
+
+    // 上限: 基本のほかに8通りまで。9通り目からは理由を返す
+    let nine: Vec<Value> = (0..9).map(|i| json!({ "label": format!("{i}") })).collect();
+    let got = call_ok(
+        &c,
+        "compare",
+        json!({ "sample_household_id": "single25", "variants": nine }),
+    )
+    .await;
+    let r = got["results"].as_array().unwrap();
+    assert_eq!(r.len(), 10);
+    assert_eq!(got["computed"], 9);
+    assert!(r[1..9].iter().all(|x| x["status"] == "ok"));
+    assert!(
+        r[9]["reason"].as_str().unwrap().contains("8通り"),
+        "{}",
+        r[9]
+    );
+
+    // 答えの大きさ: 3通り（5年ごとの金融資産・年齢つき）でも数KB
+    let (_, text) = call(
+        &c,
+        "compare",
+        json!({ "sample_household_id": first["sample"], "variants": first["columns"].as_array().unwrap()[1..].iter().map(|c| json!({ "label": c["label"], "plan_changes": c["changes"] })).collect::<Vec<_>>() }),
+    )
+    .await;
+    assert!(text.len() < 12 * 1024, "{}", text.len());
+    // 年齢を付けなければ、系列は year と選んだ数字だけ
+    let small = call_ok(
+        &c,
+        "compare",
+        json!({ "sample_household_id": first["sample"], "ages": false, "variants": [{ "label": "63歳", "plan_changes": [retire] }] }),
+    )
+    .await;
+    let r = &small["results"][1];
+    assert!(r.get("members").is_none());
+    assert!(
+        r["series"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|y| y.as_object().unwrap().len() == 2),
+        "{r}"
+    );
+
+    // 引数の誤り: 通りが無い・選べない数字
+    let (err, msg) = call(
+        &c,
+        "compare",
+        json!({ "sample_household_id": "single25", "variants": [] }),
+    )
+    .await;
+    assert!(err && msg.contains("variants"), "{msg}");
+    let (err, msg) = call(
+        &c,
+        "compare",
+        json!({ "sample_household_id": "single25", "variants": [{}], "series": ["x"] }),
+    )
+    .await;
+    assert!(err && msg.contains("series"), "{msg}");
+    // 何も計算できなければ失敗の答え
+    let (err, msg) = call(
+        &c,
+        "compare",
+        json!({ "sample_household_id": "nope", "variants": [{}] }),
+    )
+    .await;
+    assert!(err && msg.contains("基本の世帯を読めない"), "{msg}");
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 比べる道具で、渡された世帯どうしを並べる: 世帯はアプリ本体に頼み（同意・期限・縮約を通す）、読んだことが世帯ごとに「AIに渡した記録」に
+/// 道具の名前 compare で残る。取り消した共有の通りだけ理由を返し、ほかは計算する。縮約版で計算しても見本の世帯と同じ数字
+#[tokio::test(flavor = "multi_thread")]
+async fn compare_shared_households() {
+    let dir = temp_dir("compare-share");
+    let reg = Arc::new(ShareRegistry::new());
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    let (c, _) = connect(&dir).await;
+    let other_id = "7d1f0c2a-3b4c-4d5e-8f60-718293a4b5c6";
+    let a = reg
+        .grant(source("salariedCoupleTwoKids", true), grant_opts())
+        .unwrap();
+    let mut src = source("dualNoKids", false);
+    src.household_id = other_id.into();
+    let b = reg.grant(src, grant_opts()).unwrap();
+    let list = call_ok(&c, "list_plan_items", json!({ "share_id": a.share_id })).await;
+    let retire = list["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|x| x["label"].as_str().unwrap().contains("働く最後の年齢"))
+        .cloned()
+        .unwrap();
+    let args = json!({ "share_id": a.share_id, "variants": [
+        { "label": "もう1つの世帯", "share_id": b.share_id },
+        { "label": "見本（同じ世帯）", "sample_household_id": "salariedCoupleTwoKids" },
+        { "label": "63歳", "plan_changes": [{ "target": retire["target"], "item": retire["item"], "value": 63 }] },
+    ] });
+    let got = call_ok(&c, "compare", args.clone()).await;
+    let r = got["results"].as_array().unwrap();
+    assert!(r.iter().all(|x| x["status"] == "ok"), "{got}");
+    assert_eq!(r[0]["from"]["shareId"], json!(a.share_id));
+    assert_eq!(r[1]["from"]["shareId"], json!(b.share_id));
+    // 縮約版で計算しても、見本の世帯と同じ数字
+    assert_eq!(r[0]["keyFigures"], r[2]["keyFigures"]);
+    let dual = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": "dualNoKids", "omit": ["years"] }),
+    )
+    .await;
+    assert_eq!(r[1]["keyFigures"], dual["keyFigures"]);
+    assert_eq!(r[3]["planChanges"][0]["status"], "applied");
+    assert_ne!(r[3]["keyFigures"], r[0]["keyFigures"]);
+    // 人が書いた文・メモ・元の ID・顧客番号は答えに出ない
+    let text = got.to_string();
+    for s in [INJECTION, MEMO, HOUSEHOLD_ID, other_id, CUSTOMER_NUMBER] {
+        assert!(!text.contains(s), "{s}");
+    }
+    // 読んだことが世帯ごとに記録に残る（同じ世帯は1回の呼び出しで1回だけ読む）
+    let reads = |id: &str| {
+        reg.records(id)[0]
+            .reads
+            .iter()
+            .filter(|x| x.tool == "compare")
+            .count()
+    };
+    assert_eq!(reads(HOUSEHOLD_ID), 1);
+    assert_eq!(reads(other_id), 1);
+    // 取り消した共有の通りだけ理由を返す
+    reg.revoke(&b.share_id);
+    let got = call_ok(&c, "compare", args).await;
+    let r = got["results"].as_array().unwrap();
+    assert_eq!(r[1]["status"], "error");
+    assert!(
+        r[1]["reason"].as_str().unwrap().contains("REVOKED"),
+        "{}",
+        r[1]
+    );
+    assert!([0, 2, 3].iter().all(|i| r[*i]["status"] == "ok"));
+    // 基本の共有を取り消すと、基本に重ねる通りも計算しない（別の世帯の通りは計算する）
+    reg.revoke(&a.share_id);
+    let got = call_ok(
+        &c,
+        "compare",
+        json!({ "share_id": a.share_id, "variants": [{ "label": "重ねる" }, { "sample_household_id": "single25" }] }),
+    )
+    .await;
+    let r = got["results"].as_array().unwrap();
+    assert!(r[0]["reason"].as_str().unwrap().contains("REVOKED"));
+    assert!(r[1]["reason"]
+        .as_str()
+        .unwrap()
+        .contains("基本の世帯を読めない"));
+    assert_eq!(r[2]["status"], "ok");
+    ep.shutdown();
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
 }
