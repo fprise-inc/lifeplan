@@ -1193,16 +1193,21 @@ export function Field({ f: given, wh, onEdit }: { f: FieldDef; wh: WorkingHouseh
   /** 空欄の推定の値を欄の中に灰色で見せたか（欄の横は hint の代わりに根拠の短い文。0041 の追記 2026-11-10） */
   let ghosted = false;
   if (f.time !== undefined && f.readOnly === undefined && (f.kind === "when" || inSection)) {
-    return <WhenField f={f} time={f.time} state={state.when ?? f.time.state(wh)} label={f.label} badge={badge} id={id} wh={wh} onEdit={onEdit} warn={state.warn ?? null} warnFix={state.warnFix ?? null} status={shownStatus} fill={fill(false)} extras={stateLines} />;
+    // 推定の時点（仮の印）の欄は、欄の横に根拠の短い文（FieldState.blankHint）を添える（数の欄の灰色の推定の値と同じ。0041 の追記 2026-11-11）
+    const estNote = shownStatus === "estimated" && state.blankHint != null && state.blankHint !== "" ? state.blankHint : null;
+    return <WhenField f={f} time={f.time} state={state.when ?? f.time.state(wh)} label={f.label} badge={badge} id={id} wh={wh} onEdit={onEdit} warn={state.warn ?? null} warnFix={state.warnFix ?? null} status={shownStatus} fill={fill(false)} note={estNote} extras={stateLines} />;
   }
   if (f.readOnly !== undefined) {
     // 円の欄は万円（か円）の書き方で、月額・年額を添える
     const roYen = (v: number, k: Extract<FieldDef, { kind: "yen" }>) => `${formatYen(v, k.unit ?? "man")}${(k.unit ?? "man") === "man" ? "万円" : "円"}${k.basis === "annual" ? "（年額）" : k.basis === "monthly" ? "（月額）" : ""}`;
     control = <span class="ro">{f.kind === "select" ? (f.options.find((o) => o.value === state.value)?.label ?? "") : state.value === null ? "—" : f.kind === "yen" && typeof state.value === "number" ? roYen(state.value, f) : String(state.value)}</span>;
   } else if (f.kind === "select") {
+    // 空欄のまま推定で計算する選ぶ欄で推定の値を書ける欄（blankEstimate）は、空の選択肢の名前を推定の選択肢にする（「（推定: 一時金）」。
+    // 「（選ぶ）」では空欄でどう計算するか分からない。0041 の追記 2026-11-11）
+    const estOpt = state.value === null && shownStatus === "estimated" && f.blankEstimate !== undefined ? f.options.find((o) => o.value === f.blankEstimate?.(wh)) : undefined;
     control = (
       <select id={id} value={state.value === null ? "" : String(state.value)} onChange={(e) => commit((e.currentTarget as HTMLSelectElement).value)}>
-        {state.value === null || !f.options.some((o) => o.value === state.value) ? <option value="">（選ぶ）</option> : null}
+        {state.value === null || !f.options.some((o) => o.value === state.value) ? <option value="">{estOpt !== undefined ? `（推定: ${estOpt.label}）` : "（選ぶ）"}</option> : null}
         {optionNodes(f.options)}
       </select>
     );
@@ -1438,7 +1443,7 @@ function readText(time: TimeView, wh: WorkingHousehold, ctx: WhenCtx, text: stri
  * 横の「入れ方」で見せ方を選び直せる（同じ月のまま形を変える）。読み替えた形と、読めない理由を欄の下に1行で出す。
  * 打っている間は世帯を変えず、欄を離れたとき（Enter）に入れる
  */
-function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, warnFix, status, fill, extras }: { f: FieldDef; time: TimeView; state: WhenState; label: string; badge: ComponentChildren; id: string; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; warn: string | null; warnFix: FieldState["warnFix"]; status: ValueStatus | null; fill: ComponentChildren; extras: ComponentChildren }) {
+function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, warnFix, status, fill, note, extras }: { f: FieldDef; time: TimeView; state: WhenState; label: string; badge: ComponentChildren; id: string; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; warn: string | null; warnFix: FieldState["warnFix"]; status: ValueStatus | null; fill: ComponentChildren; note: string | null; extras: ComponentChildren }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [rejected, setRejected] = useState<string | null>(null);
   const [picked, setPicked] = useState<WhenMode | null>(null);
@@ -1605,6 +1610,11 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, warnFix
           </select>
         ) : null}
         {fill}
+        {note !== null ? (
+          <span class="fld-hint" data-when-note={f.key}>
+            {note}
+          </span>
+        ) : null}
       </div>
       <div class="fld-help when-read" id={`${id}-read`} data-when-read={f.key}>
         {reading}

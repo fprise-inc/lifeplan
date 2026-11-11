@@ -179,10 +179,14 @@ function setRetireAge(wh: WorkingHousehold, m: Member, age: number): WorkingHous
     const r = reemploymentOf(post);
     return r !== undefined ? { reemployment: r } : {};
   })());
-  // 定年後の年収が推定のままなら、作り直した定年後の期間でも推定の箱のまま（打ち手は確定の箱で作るため）
+  // 定年後の年収が推定のままなら、作り直した定年後の期間でも推定の箱のまま（打ち手は確定の箱で作るため。出し方も前のまま）
   const was = postBox(wh.request.input.household, m, post);
   const next = { ...wh, request };
-  return was !== undefined && isAutoBox(was.box) && was.box.value != null ? markPostSalary(next, m, was.box.value, boxBasis(was.box) ?? "推定") : next;
+  if (was !== undefined) return isAutoBox(was.box) && was.box.value != null ? markPostSalary(next, m, was.box.value, boxBasis(was.box) ?? "推定", estimateMethod(was.box)) : next;
+  // 定年後の期間が無いときに推定で入れた定年後の年収（画面の側の仮の印）は、期間を作ったら期間の推定の箱にする（印は外す）
+  const mark = wh.assumed[postSalaryKey(m)];
+  if (mark === undefined || post?.annualSalary == null || postBox(next.request.input.household, m, post) === undefined) return next;
+  return dropMarks(markPostSalary(next, m, post.annualSalary, mark, "statistic"), [postSalaryKey(m)]);
 }
 
 function setMainEnd(wh: WorkingHousehold, m: Member, age: number): WorkingHousehold {
@@ -298,15 +302,36 @@ export function reemploymentSalary(type: string, mainAnnual: number): { value: n
 
 const estKeys = (m: Member) => ({ mainEnd: `work/${m.id}/mainEnd`, postType: `work/${m.id}/postType`, retireAge: `work/${m.id}/retireAge` });
 
-/** 定年後の期間の年収を推定の箱にする（打ち手が作った期間の箱は確定の箱なので、推定のときは推定の箱に直す） */
-function markPostSalary(wh: WorkingHousehold, m: Member, value: number, basis: string): WorkingHousehold {
+/**
+ * 定年後の期間の年収（自営業は事業所得）を推定の箱にする（打ち手が作った期間の箱は確定の箱なので、推定のときは推定の箱に直す）。
+ * 出し方の既定は derived（定年前の年収からの再雇用の推定。統計の推定〔statistic〕にすると、推定の入れ直しが再雇用の働き方の統計の値に置き換えるため）。
+ * 定年後の働き方を選んだときの統計の推定は statistic（その働き方・定年の年齢の統計の値。推定の入れ直しと同じ値。0041 の追記 2026-11-11）
+ */
+function markPostSalary(wh: WorkingHousehold, m: Member, value: number, basis: string, method: string = "derived"): WorkingHousehold {
   const pp = postPeriod(wh.request.input.household, m, wh.postRetirement[m.id]);
   if (pp === undefined) return wh;
   return mutate(wh, (h) => {
     const x = (h.employmentPeriods ?? []).find((y) => y.id === pp.id);
-    // 出し方は derived（ほかの値からの推定）。統計の推定（statistic）にすると、推定の入れ直しが再雇用の働き方の統計の値に置き換えるため
-    if (x?.salary !== undefined) x.salary = { ...x.salary, annual: { value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis } } as Box<number> };
+    const box = { value, state: "estimated", origin: { kind: "auto" }, estimate: { method, basis } } as Box<number>;
+    if (x?.salary !== undefined) x.salary = { ...x.salary, annual: box };
+    else if (x?.business !== undefined) x.business = { ...x.business, income: box };
   });
+}
+
+/** 推定の箱の出し方（無ければ derived） */
+const estimateMethod = (b: Box<number>): string => (b as { estimate?: { method?: string } }).estimate?.method ?? "derived";
+
+/** 定年後の期間が無いときの定年後の年収の推定の印（画面の側の仮の印。期間を作ると期間の推定の箱にする） */
+const postSalaryKey = (m: Member): string => `work/${m.id}/postSalary`;
+
+/**
+ * 定年後の働き方を選んだときの定年後の年収の推定（その働き方の統計の値。自営業は事業所得の目安）。値の作り方は前のまま（定年の年齢の賃金の統計。
+ * 推定の入れ直し〔estimates.ts の refreshEstimates〕が定年後の期間に使う年齢と同じ）。統計が無い働き方は null
+ */
+function postTypeEstimate(type: NonNullable<PostRetirement["type"]>, fromAge: number): { value: number; basis: string } | null {
+  if (type === "selfEmployed") return businessEstimate();
+  const e = salaryEstimate(type, { age: fromAge });
+  return e === null ? null : { value: e.annual.value, basis: e.annual.basis };
 }
 
 /**
@@ -376,7 +401,8 @@ function followPost(before: WorkingHousehold, after: WorkingHousehold): WorkingH
     }
     // 定年後の年収: 定年前の年収が変わったら
     const pb = postBox(w.request.input.household, m, post);
-    if (pb !== undefined && isAutoBox(pb.box) && post.type === "contract") {
+    // 定年前の年収からの再雇用の推定（derived）だけ。定年後の働き方を選んだときの統計の推定（statistic）は推定の入れ直しが入れ直す
+    if (pb !== undefined && isAutoBox(pb.box) && estimateMethod(pb.box) === "derived" && post.type === "contract") {
       const sal = reemploymentSalary(main.type, main.salary?.annual.value ?? 0);
       if (sal !== null && (sal.value !== pb.box.value || boxBasis(pb.box) !== sal.basis)) {
         w = { ...w, postRetirement: { ...w.postRetirement, [m.id]: { ...post, annualSalary: sal.value } } };
@@ -578,9 +604,11 @@ function postSalaryField(m: Member, type: PostRetirement["type"]): FieldDef {
         const pb = postBox(w.request.input.household, m, w.postRetirement[m.id]);
         const bonus = bonusOf(w).value;
         const base = pb?.box.value ?? w.postRetirement[m.id]?.annualSalary ?? null;
-        return { value: base === null ? null : base + bonus, estimated: boxBasis(pb?.box), ...(bonus > 0 ? { hint: `うち賞与 ${manText(bonus)}${boxBasis(bonusOf(w).box) !== null ? "（推定）" : ""}` } : {}) };
+        // 定年後の期間がまだ無いときの推定は、画面の側の仮の印（定年後の働き方を選んだときの統計の推定）
+        const estimated = pb !== undefined ? boxBasis(pb.box) : base !== null ? (w.assumed[postSalaryKey(m)] ?? null) : null;
+        return { value: base === null ? null : base + bonus, estimated, ...(bonus > 0 ? { hint: `うち賞与 ${manText(bonus)}${boxBasis(bonusOf(w).box) !== null ? "（推定）" : ""}` } : {}) };
       },
-      set: (w, v) => (v === null ? w : setTotal(w, Math.max(0, Math.round(Number(v))))),
+      set: (w, v) => (v === null ? w : dropMarks(setTotal(w, Math.max(0, Math.round(Number(v)))), [postSalaryKey(m)])),
     }),
     boxed: {
       read: (w) => {
@@ -589,7 +617,8 @@ function postSalaryField(m: Member, type: PostRetirement["type"]): FieldDef {
         const bonus = bonusOf(w).value;
         return typeof box.value === "number" && bonus > 0 ? { ...structuredClone(box), value: box.value + bonus } : box;
       },
-      write,
+      // 値の操作（この値にする・推定に戻す）は、画面の側の仮の印も外す（確定は値のまま）
+      write: (w, box) => dropMarks(write(w, box), [postSalaryKey(m)]),
     },
     address: (w) => {
       const pb = postBox(w.request.input.household, m, w.postRetirement[m.id]);
@@ -707,9 +736,25 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
           const cur = w.postRetirement[m.id];
           if (cur === undefined) return w;
           const type = (v === "" || v === null ? null : v) as PostRetirement["type"];
-          const est = type === null ? null : type === "selfEmployed" ? businessEstimate().value : (salaryEstimate(type, { age: cur.fromAge })?.annual.value ?? null);
-          const nextPost: PostRetirement = { ...cur, type, annualSalary: type === null ? null : (cur.annualSalary ?? est) };
-          let next: WorkingHousehold = { ...w, postRetirement: { ...w.postRetirement, [m.id]: nextPost } };
+          const est = type === null ? null : postTypeEstimate(type, cur.fromAge);
+          const nextPost: PostRetirement = { ...cur, type, annualSalary: type === null ? null : (cur.annualSalary ?? est?.value ?? null) };
+          // 定年後の年収の推定の印（0041 の追記 2026-11-11。前は統計の推定・推定のままの年収を確定の箱で書いていた。値の作り方は前のまま）:
+          // 年収が無ければ新しい働き方の統計の推定、推定のままの年収（期間の推定の箱か画面の側の仮の印）はその推定のまま
+          const prevBox = postBox(w.request.input.household, m, cur)?.box;
+          const prevMark = w.assumed[postSalaryKey(m)];
+          const estimate: { method: string; basis: string } | null =
+            type === null || nextPost.annualSalary === null
+              ? null
+              : cur.annualSalary === null
+                ? est !== null
+                  ? { method: "statistic", basis: est.basis }
+                  : null
+                : prevBox !== undefined && isAutoBox(prevBox)
+                  ? { method: estimateMethod(prevBox), basis: boxBasis(prevBox) ?? "推定" }
+                  : prevBox === undefined && prevMark !== undefined
+                    ? { method: "statistic", basis: prevMark }
+                    : null;
+          let next: WorkingHousehold = dropMarks({ ...w, postRetirement: { ...w.postRetirement, [m.id]: nextPost } }, [postSalaryKey(m)]);
           const pp = postPeriod(next.request.input.household, m, nextPost);
           if (pp !== undefined) {
             if (type === null) {
@@ -721,11 +766,15 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
                 const i = list.findIndex((p) => p.id === pp.id);
                 const conv = convertPeriod(list[i] as EmploymentPeriod, type, m, next.request.input.baseMonth);
                 if (nextPost.annualSalary !== null) {
-                  if (conv.salary !== undefined) conv.salary = { ...conv.salary, annual: { value: nextPost.annualSalary, state: "confirmed", origin: { kind: "manual" } } };
-                  if (conv.business !== undefined) conv.business = { income: { value: nextPost.annualSalary, state: "confirmed", origin: { kind: "manual" } } };
+                  const box = (estimate !== null ? { value: nextPost.annualSalary, state: "estimated", origin: { kind: "auto" }, estimate } : { value: nextPost.annualSalary, state: "confirmed", origin: { kind: "manual" } }) as Box<number>;
+                  if (conv.salary !== undefined) conv.salary = { ...conv.salary, annual: box };
+                  if (conv.business !== undefined) conv.business = { income: box };
                 }
                 list[i] = conv;
               });
+          } else if (estimate !== null) {
+            // 定年後の期間がまだ無い（働く最後を定年にしている）: 画面の側の仮の印で持つ（働く最後を延ばして期間を作ると期間の推定の箱にする。setRetireAge）
+            next = { ...next, assumed: { ...next.assumed, [postSalaryKey(m)]: estimate.basis } };
           }
           return next;
         },
