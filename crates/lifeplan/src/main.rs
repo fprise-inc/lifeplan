@@ -8,6 +8,7 @@
 
 mod answer;
 mod calc;
+mod chart;
 mod compare;
 mod coverage;
 mod engine;
@@ -18,6 +19,7 @@ mod recipes;
 mod regulation;
 mod samples;
 mod server;
+mod sweep;
 
 use rmcp::ServiceExt;
 use std::process::ExitCode;

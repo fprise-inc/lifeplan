@@ -27,6 +27,8 @@ import { setSurplusRatio, surplusRatioOf } from "../surplus.ts";
 import { independenceOf } from "../input/livingStages.ts";
 import { accountsOf, drawdownOf, drawdownStartDefault, INVEST_KINDS, methodOf, NOT_FINANCIAL, portfolioOf, rateOf, rateText, setDrawdown, setStopAge, stopAgeOf, stopAgeOrEstimate, stopEstimateOf, totalViewOf, valueOf } from "../input/savings/model.ts";
 import { clampRate, RETURN_RANGE, type PctRange } from "../input/rateRanges.ts";
+import { rateText as loanRateText } from "../input/loanMath.ts";
+import { isVariableNow, outlookBase, OUTLOOK_STEP_MONTHS, rateOutlookAdds, rateOutlooks, setRateOutlook } from "../input/stages/housingLoans.ts";
 
 /** 変動金利の上乗せ（前提の assumptions.loanRateShifts の1件） */
 export interface RateShift {
@@ -36,13 +38,29 @@ export interface RateShift {
   from: string;
 }
 
+/**
+ * 変動金利の見込み（住宅ローン1本の金利の上がり方）: 今の金利（これから借りるなら借入の月の金利）からの上乗せを、今（借入の月）から
+ * 5年ごとに並べた物（10進の文字列。adds[0] が5年後、adds[1] が10年後…）。空なら今の金利のまま。入力の「金利の見込み（変動金利）」の欄と
+ * 同じ関数（input/stages/housingLoans.ts の setRateOutlook）で当てる
+ */
+export interface RateOutlook {
+  adds: string[];
+}
+
+/** 変動金利の見込みの段の間隔（年。入力の欄と同じ） */
+export const OUTLOOK_STEP_YEARS = 5;
+/** 変動金利の見込みの段の数の上限（5年ごとに30年先まで） */
+export const OUTLOOK_MAX_STEPS = 6;
+/** 変動金利の見込みの上乗せの入れてよい範囲（今の金利からの差。下は今の金利まで〔0% を下回らない〕） */
+export const OUTLOOK_ADD_RANGE = { min: "-0.03", max: "0.05" } as const;
+
 /** 働き方と年収（配偶者の働き方と年収。0084）: 働き方の種類と、1年の収入（給与は賞与込みの年収、自営業は事業所得。働いていないは0） */
 export interface WorkValue {
   type: string;
   annual: number;
 }
 
-export type ItemValue = number | string | boolean | MixPart[] | RateShift | WorkValue | null;
+export type ItemValue = number | string | boolean | MixPart[] | RateShift | RateOutlook | WorkValue | null;
 
 /** 差分の向き先（0008 の5）: 物・構成員・プランの前提 */
 export type DiffTarget = { object: string } | { member: string } | { plan: "assumptions" };
@@ -62,6 +80,11 @@ export type Control =
   | { kind: "mix"; accountKind: string }
   /** 変動金利の上昇（幅と始まりの年） */
   | { kind: "shift"; years: number[] }
+  /**
+   * 変動金利の見込み（住宅ローン1本。今の金利からの上乗せを5年ごとに）。presets は入力の欄と同じ型（今の金利のまま・10年で○%上がる）、
+   * current は今（借入の月）の金利、from は見込みの起点の月（今か借入の月）
+   */
+  | { kind: "outlook"; presets: { value: string; label: string; adds: string[] }[]; current: string; from: string; maxSteps: number; range: { min: string; max: string } }
   /** 働き方の種類（選ぶ）と年収（1万円の刻みのスライダーと数値の欄）。estimate は種類を選び直したときの年収の目安 */
   | { kind: "work"; options: Option[]; max: number; estimate: (type: string) => number }
   /** 入力の欄と同じ形の数値の欄（金額の欄は、1万円の刻みのスライダーも付ける） */
@@ -785,6 +808,8 @@ function loanItems(wh: WorkingHousehold): MovableItem[] {
         note: () => `今の残高 ${manText(bal)}。預金から払い、返済の期間を短くします（借入はもう始まっているため、借入額の代わりに繰上返済で減らします）`,
       });
     }
+    const outlook = outlookItem(wh, d, name);
+    if (outlook !== null) out.push(outlook);
     const r0 = d.rateSchedule[0]?.rate;
     if (r0 !== undefined) {
       const later = d.rateSchedule.slice(1).map((s) => `${(resolveTimepoint(h, s.from) ?? "").slice(0, 4)}年から${pctText(s.rate)}`);
@@ -864,6 +889,72 @@ function loanItems(wh: WorkingHousehold): MovableItem[] {
   }
   return out;
 }
+
+/** 上乗せの並びの文（例: 5年後に＋0.5%・10年後に＋1%）。空なら「今の金利のまま」 */
+function addsText(adds: readonly string[]): string {
+  if (adds.length === 0) return "今の金利のまま";
+  return adds.map((a, j) => `${(j + 1) * 5}年後に${cmpRate(a, "0") < 0 ? "▲" : "＋"}${pctText(cmpRate(a, "0") < 0 ? subRate("0", a) : a)}`).join("・");
+}
+
+const sameAdds = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((x, i) => sameRate(x, b[i] as string));
+
+/**
+ * 変動金利の見込み（住宅ローン1本。入力の「金利の見込み（変動金利）」の欄と同じ型・同じ関数）。欄が出るローン（今か借入の月の金利の段が変動金利の
+ * 住宅ローン）にだけ出す。値は今（借入の月）からの上乗せの並び（RateOutlook）。今の段が型にも5年ごとの並びにも当たらなければ null
+ * （金利の段階で入れた見込み。そのままにする）。当てると、今の段より後の段を置き換える（固定期間選択型の段・金利の段階は残らない）
+ */
+function outlookItem(wh: WorkingHousehold, d: Debt, name: string): MovableItem | null {
+  const req = wh.request;
+  const h = req.input.household;
+  if (!isVariableNow(h, d, req.input.baseMonth)) return null;
+  const { ref, index } = outlookBase(h, d, req.input.baseMonth);
+  const current = d.rateSchedule[index]?.rate ?? "0";
+  const presets = rateOutlooks().map((o) => ({ value: o.value, label: o.label, adds: o.adds.map((x) => rateTextOf(x)) }));
+  const read = (w: WorkingHousehold): ItemValue => {
+    const x = (w.request.input.household.debts ?? []).find((y) => y.id === d.id);
+    const adds = x === undefined ? null : rateOutlookAdds(w.request.input.household, x, w.request.input.baseMonth);
+    return adds === null ? null : { adds: adds.map((a) => rateTextOf(a)) };
+  };
+  const addsOf = (v: ItemValue): string[] | null => (v !== null && typeof v === "object" && !Array.isArray(v) && "adds" in v ? v.adds : null);
+  const steps = (adds: readonly string[]) => adds.map((a, j) => `${ymText(addMonths(ref, OUTLOOK_STEP_MONTHS * (j + 1)))}から${pctText(nonNegative(addRate(current, a)))}`);
+  const later = d.rateSchedule.slice(index + 1).map((s) => `${(resolveTimepoint(h, s.from) ?? "").slice(0, 4)}年から${pctText(s.rate)}`);
+  return {
+    key: `loan:${d.id}:outlook`,
+    item: "debt.rateSchedule",
+    target: { object: d.id },
+    label: `${name}の金利の見込み（変動金利）`,
+    short: "金利の見込み",
+    group: "よく使う",
+    builtin: false,
+    phase: "field",
+    control: { kind: "outlook", presets, current, from: ref, maxSteps: OUTLOOK_MAX_STEPS, range: { ...OUTLOOK_ADD_RANGE } },
+    read,
+    apply: (w, v) => {
+      const adds = addsOf(v);
+      return adds === null ? w : setRateOutlook(w, d.id, adds.map((a) => Number(a)));
+    },
+    text: (v) => {
+      const adds = addsOf(v);
+      if (adds === null) return "金利の段階で入れた見込み";
+      const p = presets.find((x) => sameAdds(x.adds, adds));
+      return p !== undefined ? p.label : addsText(adds);
+    },
+    same: (a, b) => {
+      const x = addsOf(a);
+      const y = addsOf(b);
+      return x === null || y === null ? x === y : sameAdds(x, y);
+    },
+    note: (v) => {
+      const adds = addsOf(v);
+      if (adds === null) return later.length > 0 ? `金利の段階: ${later.join("・")}` : null;
+      const base = `今${ref > req.input.baseMonth ? "（借入の月）" : ""}の金利 ${pctText(current)}`;
+      return adds.length === 0 ? `${base}のまま` : `${base} → ${steps(adds).join("・")}（変動金利の段を5年ごとに置きます）`;
+    },
+  };
+}
+
+/** 率の数を10進の文字に（入力の欄の金利と同じ丸め。input/loanMath.ts の rateText） */
+const rateTextOf = (x: number): string => loanRateText(x);
 
 const MIX_KINDS = new Set(["deposit", "taxable", "nisa", "childNisa", "juniorNisa", "legacyNisa", "ideco", "corporateDc", "zaikei", "esop", "fxDeposit"]);
 

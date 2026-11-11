@@ -80,6 +80,16 @@ pub struct ExplainForClientArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct RatePathChartArgs {
+    /// 世帯（見本の世帯の id か、FP が渡した世帯の share_id。変動金利の住宅ローンのある世帯。例 salariedCoupleTwoKids）
+    pub household: String,
+    /// 比べる金利の上がり方（例「今のまま・10年で+1%・10年で+2%」「5年ごとに+0.25%」）。省くと、今のまま・10年で+1%・10年で+2% の3通り
+    pub paths: Option<String>,
+    /// 使う先（例「セミナーのスライド」「ブログ」）。省くとセミナーの資料
+    pub purpose: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct CheckCoverageArgs {
     /// 調べたい制度や計算（例「高額療養費」「ふるさと納税」「iDeCo の受け取り方」）
     pub topic: String,
@@ -237,6 +247,33 @@ impl LifeplanMcp {
                  4. 根拠に無いことを推測で足さない。将来の額を約束する書き方をしない（制度や前提が変われば変わると添える）。",
                 household(&a.household),
                 a.number.trim(),
+            ),
+        )
+    }
+
+    #[prompt(
+        name = "chart_rate_paths",
+        title = "金利の上がり方を3通り比べてグラフにする",
+        description = "変動金利の住宅ローンのある世帯で、金利の上がり方を何通りか（今のまま・10年で+1%・10年で+2% など）にして比べ、資料にそのまま使えるグラフにする"
+    )]
+    async fn chart_rate_paths(
+        &self,
+        Parameters(a): Parameters<RatePathChartArgs>,
+    ) -> GetPromptResult {
+        let paths = given(&a.paths).unwrap_or("今のまま・10年で+1%・10年で+2%");
+        let purpose = given(&a.purpose).unwrap_or("セミナーの資料");
+        result(
+            "金利の上がり方を3通り比べてグラフにする",
+            format!(
+                "ファイナンシアの接続口で、{} の変動金利の上がり方を比べて、{purpose}に使うグラフにしてください。\n\
+                 - 比べる上がり方: {paths}\n\n\
+                 進め方:\n\
+                 1. list_plan_items で、住宅ローンの「金利の見込み（変動金利）」の項目（kind が rateOutlook）を探す。ローンが2本以上あれば、ローンごとの項目を同じ値にする。項目が無ければ、変動金利の住宅ローンが無いと伝えて終える。\n\
+                 2. 上がり方ごとに通り（label と plan_changes）を作る。plan_changes は一覧の target・item・lever と value で、value は型の名前（flat＝今の金利のまま・up1＝10年で1%上がる・up2＝10年で2%上がる）か、5年ごとの上乗せ（例 {{\"adds\": [\"0.0025\", \"0.005\"]}}）。いちばん初めの通りを基本にする。stress_test の rateRise は上げ幅を選べないので使わない。\n\
+                 3. chart で、charts に assets・repayment・keyFigures を入れてグラフにする（数字を自分で描かない。format は both にすると SVG も返る）。label には上がり方だけを書き、お客さまの名前を書かない。\n\
+                 4. グラフの下に、見どころを2〜3行で（返済の合計の差・金融資産がいちばん少ない額・資産が尽きる年の差など。答えの results の数字だけを使う）。変動金利の5年ルール・125%ルールで返済額の上がり方がゆるやかなことにも触れる。\n\
+                 5. 実在のお客さまの世帯なら、使う前に金額を丸める・珍しい組み合わせを変える・お客さまに一言ことわる、のどれかが要ると伝える（見本の世帯は架空）。",
+                household(&a.household),
             ),
         )
     }

@@ -89,6 +89,16 @@ const financial = (req: EngineRequest, r: PreviewResult) => {
 /** 比べるプランの見本（基本の世帯・基本に動かす物・通りごとに動かす物） */
 const PLAN_CASES: { name: string; sample: string; base: Moves; variants: { label: string; moves: Moves }[] }[] = [
   {
+    // 0203: 叶えたい使い方（変動金利の上がり方を3通りにして比べる）。入力の「金利の見込み」の欄と同じ型
+    name: "変動金利の上がり方を3通り（今のまま・10年で+1%・10年で+2%）",
+    sample: "salariedCoupleTwoKids",
+    base: { "loan:*:outlook": () => ({ adds: [] }) },
+    variants: [
+      { label: "10年で+1%", moves: { "loan:*:outlook": () => ({ adds: ["0.005", "0.01"] }) } },
+      { label: "10年で+2%", moves: { "loan:*:outlook": () => ({ adds: ["0.01", "0.02"] }) } },
+    ],
+  },
+  {
     name: "対策を3つ並べる",
     sample: "salariedCoupleTwoKids",
     base: {},
