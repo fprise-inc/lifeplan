@@ -3,13 +3,13 @@
 // 収益不動産は貯蓄・運用の後に足した。0079）。
 // 入力のホームでは、項目ごとのカード（items.ts）になる。並べ替えは事務所の設定の形（items.ts の CardLayout）で受ける。
 // FP顧問料は前提条件の中の欄のまとまり（カードにしない。区画 fee は前提条件のパネルの中身を作るときにだけ使う）
-import type { ActionDef, StageDef, StageId } from "../form.ts";
-import { allFields } from "../form.ts";
+import type { ActionDef, FieldDef, GroupDef, StageDef, StageId } from "../form.ts";
+import { afterWrite, allFields } from "../form.ts";
 import { keepRefs } from "../refs.ts";
 import type { WorkingHousehold } from "../household.ts";
 import { assumptionsStage } from "./assumptions.ts";
 import { carStage } from "./cars.ts";
-import { careStage } from "./care.ts";
+import { careStage, followCareStarts } from "./care.ts";
 import { educationStage } from "./education.ts";
 import { eventsStage, NONE_CLAIMED } from "./events.ts";
 import { familyStage } from "./family.ts";
@@ -71,7 +71,18 @@ const RENTAL_MONEY_NOTE =
   "物件ごとに分けない、不動産にかかる一時的支出です。家計の支出として出ますが、不動産所得の経費には入れません。物件の大規模修繕・原状回復は、物件の「売却・大きな修繕の予定」で入れると、貸している間なら全額をその年の経費にします。毎年かかる経費は物件の「経費」の年額で入れます";
 
 export function buildStage(id: StageId, wh: WorkingHousehold): StageDef {
-  return withRefsKept(buildRaw(id, wh));
+  return withRefsKept(withCareStartsFollowed(buildRaw(id, wh)));
+}
+
+/**
+ * どの項目の欄・ボタンの後にも、推定のままの介護の始まりを元の値（亡くなる見込み・その元の生年月と性別・前の段階など）についてこさせる
+ * （care.ts の followCareStarts。0041 の追記 2026-11-11）。元の値は家族・介護・親など複数の項目にあるので、項目ごとでなくここで包む
+ */
+function withCareStartsFollowed(stage: StageDef): StageDef {
+  const field = (f: FieldDef): FieldDef => afterWrite(f, followCareStarts);
+  const action = (a: ActionDef): ActionDef => ({ ...a, run: (w) => followCareStarts(w, a.run(w)) });
+  const group = (g: GroupDef): GroupDef => ({ ...g, fields: g.fields.map(field), actions: g.actions.map(action), ...(g.openFields !== undefined ? { openFields: g.openFields.map(field) } : {}) });
+  return { ...stage, sections: stage.sections.map((s) => ({ ...s, groups: s.groups.map(group), actions: s.actions.map(action) })) };
 }
 
 /**
