@@ -632,8 +632,8 @@ export function toPresentation(input: PresentInput): PresentationModel {
 
 // ---- キャッシュフロー表（案ごと・2つの案の差）----
 
-/** 年齢の行（世帯にいる年だけ） */
-function ageRows(req: EngineRequest, years: readonly number[]): TableRowModel[] {
+/** 年齢の行（世帯にいる年だけ。家族全員）。AI接続口の calculate の年ごとの年齢も同じ関数（0194） */
+export function ageRows(req: EngineRequest, years: readonly number[]): TableRowModel[] {
   return roles(req).map((r) => ({ kind: "age", key: `age:${r.key}`, label: personLabel(req, r), ages: years.map((y) => (inHousehold(r, y) ? ageInYear(r.member, y) : null)) }));
 }
 

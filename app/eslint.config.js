@@ -81,6 +81,7 @@ export default tseslint.config(
   {
     // 0183: AI接続口に同梱する「数字の根拠」の読み方は、画面の根拠のパネルの関数（evidence）と表の行の決まり（present）だけを読む。
     // 0184: 計算の前の処理（prepare）は、エンジンへ渡す前の処理（engine/moneyRows）と事務所の推定の値の読み方（office/estimates）を読む。
+    // 0194: 計算の答えの主な数字（summary）は、プランを比べる表の数え方（plans/compare）と構成員の呼び方（roles）を読む。
     // 0195: プランの動かす項目（plan）は、画面の結果のタブのプランの部品（plans/candidates・items・plans）と、作業中の世帯を作る所
     // （input/household）・役割（roles）・見本の目盛り（catalog）を読む。画面の状態（帯・選んだプラン）を持つ部品は読まない。
     // 画面の部品（preact）・本体の命令・画面の大枠は読み込めない（まとめる道具 scripts/build-explain.ts も、外の部品が入ったら止める）
@@ -90,7 +91,7 @@ export default tseslint.config(
         "error",
         {
           patterns: [
-            { regex: "(^|/)workspace/(?!(evidence|present|office/estimates|catalog|roles|input/household|plans/(candidates|items|plans))\\.ts$)", message: "AI接続口の根拠の読み方・計算の前の処理・プランの動かす項目は、作業の層のうち evidence・present・office/estimates・catalog・roles・input/household・plans/candidates・plans/items・plans/plans だけを読める（0183・0184・0195）" },
+            { regex: "(^|/)workspace/(?!(evidence|present|office/estimates|catalog|roles|input/household|plans/(candidates|items|plans|compare))\\.ts$)", message: "AI接続口の根拠の読み方・計算の前の処理・プランの動かす項目・主な数字は、作業の層のうち evidence・present・office/estimates・catalog・roles・input/household・plans/candidates・plans/items・plans/plans・plans/compare だけを読める（0183・0184・0194・0195）" },
             { regex: "^preact", message: "AI接続口の根拠の読み方は、画面の部品を読めない（0183）" },
             { regex: "(^|/)engine/(host|dual)(\\.ts)?$", message: "AI接続口の根拠の読み方は、本体の命令・二本立ての部品を読めない（0183）" },
             { regex: "(^|/)App(\\.tsx)?$", message: "AI接続口の根拠の読み方は、画面の大枠を読み込めない（0183）" },

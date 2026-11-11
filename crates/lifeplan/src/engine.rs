@@ -97,6 +97,18 @@ pub fn prepare(request: &str, office: &str) -> Result<String, String> {
     run().map_err(|e| e.code().to_owned())
 }
 
+/// 計算の答えの主な数字と家族の年齢（画面の「プランを比べる」の数え方と表の年齢の行と同じ関数。app/src/connector/summary.ts。0194）を、
+/// 計算と同じ固めた新しい実行環境で動かす。preview は表示の形の計算の出力、request は計算の前の処理を当てる前の要求（数字の根拠と同じ）、
+/// args は年齢など。戻り値は JSON の文字
+pub fn summarize(preview: &str, request: &str, args: &str) -> Result<String, String> {
+    let run = || -> Result<String, engine_host::HostError> {
+        let sandbox = Sandbox::new(&Limits::DEFAULT)?;
+        sandbox.eval_script(assets::EXPLAIN_JS)?;
+        sandbox.call_function("FinanciaExplain", "summarize", (preview, request, args))
+    };
+    run().map_err(|e| e.code().to_owned())
+}
+
 /// プランの動かす項目（画面の結果のタブのプランと同じ関数。app/src/connector/plan.ts。0195）の1つの関数を、計算と同じ固めた新しい実行環境で動かす。
 /// 入力の欄の定義まで読む大きな JS なので、プランを当てるとき・動かせる項目の一覧を返すときだけ読み込む。戻り値は答え（JSON の文字）
 pub fn plan(function: &str, a: &str, b: &str, c: &str) -> Result<String, String> {

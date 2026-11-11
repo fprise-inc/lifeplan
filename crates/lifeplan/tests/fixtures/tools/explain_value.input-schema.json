@@ -93,6 +93,21 @@
         "null"
       ]
     },
+    "omit": {
+      "description": "答えから省く物: sources（制度の値の出典の文。値ID から get_regulation_value で引ける）・params（使った制度の値と ids.regulation）・message（読み方の案内）",
+      "items": {
+        "enum": [
+          "sources",
+          "params",
+          "message"
+        ],
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
     "plan_changes": {
       "description": "アプリの画面のプランの動かす項目を動かす変更（calculate の plan_changes と同じ）",
       "items": {

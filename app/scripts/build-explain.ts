@@ -1,4 +1,4 @@
-// AI接続口（crates/lifeplan）に同梱する「数字の根拠」の読み方（src/connector/explain.ts。0183）と計算の前の処理（src/connector/prepare.ts。0184）を、
+// AI接続口（crates/lifeplan）に同梱する「数字の根拠」の読み方（src/connector/explain.ts。0183）と計算の前の処理（src/connector/prepare.ts。0184）と主な数字（src/connector/summary.ts。0194）を、
 // 1つの JS（crates/lifeplan/dist/explain.js）にまとめる。プランの動かす項目（src/connector/plan.ts。0195）は、入力の欄の定義まで読むので大きく
 // （約2MB）、別の JS（crates/lifeplan/dist/plan.js）にまとめる（プランを当てないときの計算で読み込まない）。
 // - 接続口はこれを計算と同じ固めた実行環境（quickjs-ng）で動かす。画面の根拠のパネルと同じ関数なので、根拠の文が画面とずれない
