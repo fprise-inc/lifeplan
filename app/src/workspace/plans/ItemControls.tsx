@@ -341,7 +341,7 @@ function ShiftRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" 
 }
 
 /**
- * 変動金利の見込み（住宅ローン1本。入力の「金利の見込み（変動金利）」の欄と同じ型を選ぶ。0202）。型にない見込み（AI の候補で入った5年ごとの上乗せ・
+ * 変動金利の見込み（住宅ローン1本。入力の「金利の見込み（変動金利）」の欄と同じ型を選ぶ。0203）。型にない見込み（AI の候補で入った5年ごとの上乗せ・
  * 金利の段階で入れた見込み）は、その値を選べる行として残す（選び直すと型の値になる）
  */
 function OutlookRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" }: ItemRowProps & { item: MovableItem & { control: { kind: "outlook" } } }) {

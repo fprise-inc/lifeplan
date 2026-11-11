@@ -1,4 +1,4 @@
-// AI接続口（crates/lifeplan）に同梱する、比べた答えのグラフ（0202）。比べる道具（compare）と同じ道で計算した通りごとの数字から、
+// AI接続口（crates/lifeplan）に同梱する、比べた答えのグラフ（0203）。比べる道具（compare）と同じ道で計算した通りごとの数字から、
 // 画面のグラフと同じ見た目の SVG を作る:
 // - 座標と目盛りは画面のグラフと同じ関数（presentation/chart.ts の FRAME・domainOf・scaleOf・linePath・spreadX）、線の色は画面の
 //   全部のプランを重ねる表示と同じ色（presentation/planColors.ts。暗い画面の色も同じ）、文字・線の色と大きさは画面の色の決め事（app.css）と同じ
@@ -152,7 +152,10 @@ function rateNote(s: { default: string; byYear?: Record<string, string> } | unde
 export function chartNotes(a: ChartArgs): string[] {
   const notes: string[] = [];
   const changes = a.variants.map((v, i) => {
-    const list = (v.planChanges ?? []).map((c) => `${c.label.replace(/^住宅ローン(\s*\d+（[^）]*）)?の/, "")} ${c.to}`);
+    // 基本に重ねた通りは、基本の変更の後に通りの変更が並ぶ。同じ項目は後の物（その通りの値）だけを書く
+    const all = v.planChanges ?? [];
+    const rows = all.filter((c, k) => !all.slice(k + 1).some((x) => x.label === c.label));
+    const list = rows.map((c) => `${c.label.replace(/^住宅ローン(\s*\d+（[^）]*）)?の/, "")} ${c.to}`);
     return `${letterOf(i)}: ${list.length > 0 ? list.join("・") : "変更なし"}`;
   });
   if (a.variants.some((v) => (v.planChanges ?? []).length > 0)) notes.push(`通りの違い\u3000${changes.join("／")}`);

@@ -87,7 +87,7 @@ export function pensionOf(req: EngineRequest, p: NonNullable<SummaryArgs["pensio
   return out;
 }
 
-/** 年ごとの住宅ローンの数字（0202。比べる道具の系列・グラフの返済額に使う） */
+/** 年ごとの住宅ローンの数字（0203。比べる道具の系列・グラフの返済額に使う） */
 export interface LoanYear {
   /** 住宅ローンの返済（年額。繰上返済・手数料を含む。主な数字の住宅ローンの返済の合計と同じ数え方で、表に出す年の合計がその合計になる） */
   loanRepayment: number;
@@ -117,7 +117,7 @@ export interface Summary {
   ages: Record<string, Record<string, number>>;
   /** 構成員の ID → 年齢の鍵（接続口が必要保障額・相続税の目安の人に鍵を添えるために使う。AI には返さない） */
   memberKeys: Record<string, string>;
-  /** 年ごとの住宅ローンの数字（接続口が年ごとの数字の loanRepayment・loanBalance に写す。0202） */
+  /** 年ごとの住宅ローンの数字（接続口が年ごとの数字の loanRepayment・loanBalance に写す。0203） */
   loanYears: Record<string, LoanYear>;
   keyFigures: {
     /** 数えた年（画面の表に出す年。計算基準月が年の途中なら翌年から） */

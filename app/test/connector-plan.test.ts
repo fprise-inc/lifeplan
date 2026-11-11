@@ -1,4 +1,4 @@
-// AI接続口のプランの動かす項目（0195）: 接続口に同梱する入口（src/connector/plan.ts）が、画面の結果のタブのプランと同じ関数で、
+// AI接続口のプランの動かす項目（0195・0201）: 接続口に同梱する入口（src/connector/plan.ts）が、画面の結果のタブのプランと同じ関数で、
 // プランの候補と同じ書き方（対象・入力項目ID・値）の変更を当て、画面でつまみを動かしたときと同じ計算の要求を作ること。
 // 接続口のテスト（crates/lifeplan/tests/mcp_connector.rs の plan_changes_match_the_screen）は、ここで作る見本（変更と画面の数字・根拠）を、
 // 本物の接続口に MCP で計算させて比べる。見本を作り直すときは LIFEPLAN_UPDATE_FIXTURES=1 で流す
@@ -12,6 +12,7 @@ import { candidateRows, itemName } from "../src/workspace/ai/model.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { buildEvidence } from "../src/workspace/evidence.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { candidateRefOf, type CandidateRef } from "../src/workspace/plans/candidates.ts";
 import { buildCatalog, type Catalog, type ItemValue } from "../src/workspace/plans/items.ts";
 import { applyValues } from "../src/workspace/plans/plans.ts";
 import { roles } from "../src/workspace/roles.ts";
@@ -24,6 +25,9 @@ const ALLOWLIST = (JSON.parse(readFileSync(join(REPO, "crates", "ai-share", "dat
 interface Listed {
   target: string;
   item: string;
+  at?: string[];
+  lever?: string;
+  place?: string;
   label: string;
   group: string;
   value: ItemValue;
@@ -36,12 +40,16 @@ interface Row {
   target: string;
   item: string;
   label: string;
+  place?: string;
   status: "applied" | "same" | "rejected";
   reason?: string;
 }
 
-const list = (req: EngineRequest, args: Record<string, unknown>) => JSON.parse(listPlanItems(JSON.stringify(req), JSON.stringify(args), "null")) as { status: string; items: Listed[]; total: number; count: number };
-const apply = (req: EngineRequest, changes: { target: string; item: string; value: unknown }[], sampleId?: string) =>
+type Change = { target: string; item: string; at?: string[]; lever?: string; value: unknown };
+const list = (req: EngineRequest, args: Record<string, unknown>) => JSON.parse(listPlanItems(JSON.stringify(req), JSON.stringify(args), "null")) as { status: string; items: Listed[]; total: number; count: number; unlisted: number };
+/** 一覧の1件の選び方（対象・入力項目ID と、添えてあれば場所） */
+const refOf = (x: Listed | CandidateRef & { item: string }): Omit<Change, "value"> => ({ target: x.target, item: x.item, ...(x.at !== undefined ? { at: [...x.at] } : {}), ...(x.lever !== undefined ? { lever: x.lever } : {}) });
+const apply = (req: EngineRequest, changes: Change[], sampleId?: string) =>
   JSON.parse(applyPlan(JSON.stringify(req), JSON.stringify(changes), JSON.stringify({ args: sampleId !== undefined ? { sampleId } : {}, office: null }))) as { status: string; request?: EngineRequest; changes: Row[] };
 
 /** 画面と同じく見本の世帯を開いたときの作業中の世帯と動かす項目の一覧（App.tsx の見本を開く所: 見本の定年後の働き方・目盛り） */
@@ -55,11 +63,23 @@ function screen(id: string): { req: EngineRequest; wh: WorkingHousehold; cat: Ca
 }
 
 /** 画面でつまみを動かしたときの要求（結果のタブの動かした値 → applyValues）と、接続口に渡す同じ変更（一覧の対象・入力項目ID） */
+/** 世帯の要求の中の、元の世帯に無い ID（当てるときに新しく振る ID）を、現れる順の印に置き換える */
+function freshIds(input: unknown, original: EngineRequest): unknown {
+  const known = JSON.stringify(original);
+  const seen = new Map<string, string>();
+  const text = JSON.stringify(input).replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, (id) => {
+    if (known.includes(id)) return id;
+    if (!seen.has(id)) seen.set(id, `new-${seen.size + 1}`);
+    return seen.get(id) as string;
+  });
+  return JSON.parse(text) as unknown;
+}
+
 function both(id: string, moves: Record<string, (now: ItemValue) => ItemValue>) {
   const s = screen(id);
   const listed = list(s.req, { sampleId: id, fields: true }).items;
   const values: Record<string, ItemValue> = {};
-  const changes: { target: string; item: string; value: unknown }[] = [];
+  const changes: Change[] = [];
   for (const [key, f] of Object.entries(moves)) {
     // 物の ID の所は * で書く（例 loan:*:prepay）
     const re = new RegExp(`^${key.split("*").map((p) => p.replace(/[.:/]/g, "\\$&")).join("[^:]+")}$`);
@@ -67,9 +87,13 @@ function both(id: string, moves: Record<string, (now: ItemValue) => ItemValue>) 
     expect(it, `${id} に ${key} がありません`).toBeDefined();
     const v = f(it!.read(s.wh));
     values[it!.key] = v;
-    const l = listed.find((x) => x.label === it!.label && x.item === it!.item);
+    // 一覧の同じ項目の選び方（場所だけ違う項目は場所も。0201）で渡す
+    const ref = candidateRefOf(it!, s.wh, s.cat);
+    expect(ref, `${id} の ${it!.label} を選べません`).not.toBeNull();
+    const l = listed.find((x) => JSON.stringify(refOf(x)) === JSON.stringify(refOf({ ...ref!, item: it!.item })));
     expect(l, `${id} の一覧に ${it!.label} がありません`).toBeDefined();
-    changes.push({ target: l!.target, item: l!.item, value: v });
+    expect(l!.label).toBe(it!.label);
+    changes.push({ ...refOf(l!), value: v });
   }
   return { s, changes, screenRequest: applyValues(s.wh, values, s.cat) };
 }
@@ -91,6 +115,16 @@ const CASES: { name: string; sample: string; moves: Record<string, (now: ItemVal
   { name: "物価上昇率を1.5%に（入力の欄から作った項目）", sample: "sampleSelfEmployedFamily", moves: { "field:assume/inflation": () => "0.015" } },
   { name: "FP顧問料を入れない", sample: "advisoryFeeProposal", moves: { "lever:fee": () => false } },
   { name: "働く最後の年齢を65歳に（定年後の働き方のある見本）", sample: "reemployment", moves: { "lever:retireAge": () => 65 } },
+  // ここから場所だけ違う項目（0201。場所 at か合成の対策 lever を添えて選ぶ）
+  { name: "資産運用の毎月の積立額を月3万円・積立をやめる年齢を55歳に", sample: "salariedCoupleTwoKids", moves: { "inv:monthly": () => 30000, "inv:stop": () => 55 }, ask: { row: "financial", year: 2045 } },
+  { name: "取り崩しを70歳から月10万円に", sample: "salariedCoupleTwoKids", moves: { "inv:wStart": () => 70, "inv:wAmt": () => 100000 } },
+  { name: "黒字のうち貯まる割合を8割に", sample: "salariedCoupleTwoKids", moves: { "surplus:ratio": () => "0.8" } },
+  { name: "第2子の大学の学費を年150万円・第1子の塾を月3万円に（教育の段階ごとの欄）", sample: "salariedCoupleTwoKids", moves: { "field:edu/*/stage/3/annual": () => 1500000, "field:edu/*/lesson/0/monthly": () => 30000 } },
+  { name: "退職後の生活費の割合を0.65に・住宅ローンの金利の段階2を1.5%に", sample: "salariedCoupleTwoKids", moves: { "field:living/*/stage/1/ratio": () => "0.65", "field:housing/debt/*/rate/1/rate": () => "0.015" } },
+  { name: "定年後の予定の定年を62歳に（働く最後の年齢とは別の欄）", sample: "salariedCoupleTwoKids", moves: { "field:work/*/mainEnd": () => 62 } },
+  // 0203: 変動金利の見込み（入力の「金利の見込み」の欄と同じ型・同じ関数。合成の対策 loanRateOutlook の場所で選ぶ）
+  { name: "変動金利の見込みを10年で2%上がるに（金利の見込みの欄と同じ型）", sample: "salariedCoupleTwoKids", moves: { "loan:*:outlook": () => ({ adds: ["0.01", "0.02"] }) }, ask: { row: "housing", year: 2040 } },
+  { name: "変動金利の見込みを5年ごとに＋0.25%（15年まで）", sample: "protectionNeed", moves: { "loan:*:outlook": () => ({ adds: ["0.0025", "0.005", "0.0075"] }) } },
 ];
 
 describe("AI接続口のプランの動かす項目（0195）", () => {
@@ -104,15 +138,31 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
       const got = list(req, { sampleId: id, fields: true });
       expect(got.status, id).toBe("ok");
       expect(got.count, id).toBe(got.total);
+      // 場所だけ違う項目も、場所を添えてすべて出す（0201）
+      expect(got.unlisted, id).toBe(0);
       for (const it of got.items) {
         expect(ALLOWLIST, `${id} ${it.label}`).toContain(it.item);
+        // 場所を添えた項目は、人が読める区別も添える。場所は at か lever のどちらか1つ。プランの候補に出せないのは、場所に世帯のデータに
+        // 書かれていない要素の ID（ID を持たない並びの要素に場所から振る ID）がある項目だけ（渡された世帯では元の ID に戻せない）
+        expect(it.at !== undefined && it.lever !== undefined, `${id} ${it.label}`).toBe(false);
+        expect(it.place !== undefined, `${id} ${it.label}`).toBe(it.at !== undefined || it.lever !== undefined);
+        const saved = JSON.stringify(fromRequest(req).request.input);
+        const derived = (it.at ?? []).some((a) => /^[0-9a-f-]{36}$/.test(a) && !saved.includes(`"${a}"`));
+        expect(it.proposable, `${id} ${it.label}`).toBe(!derived);
         // 今の値のまま当てると「今と同じ値」で、要求は変わらない
         if (it.value === null) continue;
-        const r = apply(req, [{ target: it.target, item: it.item, value: it.value }], id);
+        const r = apply(req, [{ ...refOf(it), value: it.value }], id);
         expect(r.status, `${id} ${it.label} ${JSON.stringify(r.changes)}`).toBe("ok");
         expect(r.changes[0]!.label, `${id}`).toBe(it.label);
         expect(r.changes[0]!.status, `${id} ${it.label}`).toBe("same");
         expect(r.request, `${id} ${it.label}`).toEqual(req);
+      }
+      // 場所を添えた項目を、場所を外した今までの書き方で渡すと、今までどおり（1つに決まらず当てないか、同じ入力項目ID の対策の固定の項目に
+      // 当たる）。同じ項目に当たるのは、前提を対象にする前提条件でない入力項目（プランの候補に出せるよう場所を添えた物）だけ
+      for (const it of got.items.filter((x) => x.at !== undefined || x.lever !== undefined)) {
+        if (it.value === null) continue;
+        const r = apply(req, [{ target: it.target, item: it.item, value: it.value }], id);
+        if (r.status === "ok" && r.changes[0]!.label === it.label) expect(it.target === "assumptions" && !it.item.startsWith("assumptions."), `${id} ${it.label}`).toBe(true);
       }
       // 既定の一覧は対策・資産運用・貯まり方・よく使う項目だけ
       const short = list(req, { sampleId: id });
@@ -128,7 +178,8 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
       const got = apply(s.req, changes, c.sample);
       expect(got.status, `${c.name} ${JSON.stringify(got.changes)}`).toBe("ok");
       expect(got.changes.every((r) => r.status === "applied"), c.name).toBe(true);
-      expect(got.request!.input, c.name).toEqual(screenRequest.input);
+      // 当てるときに新しく振る ID（金利の見込みの段など。0203）は、現れる順の印にして比べる（ID は計算に使わない）
+      expect(freshIds(got.request!.input, s.req), c.name).toEqual(freshIds(screenRequest.input, s.req));
       expect(got.request!.trace).toBe(s.req.trace);
     }
     // 働く最後の年齢: 雇用の終わりだけでなく、生活費の退職の段階・積立の終わりも動く（欄を1つだけ動かす JSON Pointer の変更とは違う）
@@ -189,6 +240,42 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
     expect(rows[1]!.reason).toContain("範囲");
   });
 
+  it("場所だけ違う項目（0201）: 場所を添えた候補は、画面の「AIからの候補」でもその項目に当たり、場所の無い前の版の候補は今までどおり", () => {
+    const s = screen("salariedCoupleTwoKids");
+    const self = roles(s.req).find((r) => r.key === "self")!.member.id;
+    const pick = (pattern: RegExp) => s.cat.items.find((x) => pattern.test(x.key))!;
+    const items = [pick(/^inv:stop$/), pick(/^field:edu\/.+\/stage\/3\/annual$/), pick(/^field:work\/.+\/mainEnd$/), pick(/^field:housing\/debt\/.+\/rate\/1\/rate$/)];
+    const values: ItemValue[] = [55, 1500000, 62, "0.015"];
+    const diffs = items.map((it, i) => {
+      const ref = candidateRefOf(it, s.wh, s.cat)!;
+      expect(ref.at !== undefined || ref.lever !== undefined, it.label).toBe(true);
+      return { id: `p${i}`, ...refOf({ ...ref, item: it.item }), target: ref.target === "assumptions" ? { plan: "assumptions" as const } : { object: ref.target }, value: values[i], note: null };
+    });
+    const rows = candidateRows({ diffs }, s.wh, s.cat);
+    expect(rows.map((r) => r.key)).toEqual(items.map((it) => it.key));
+    expect(rows.every((r) => r.reason === null && r.place !== null)).toBe(true);
+    expect(rows[1]!.place).toContain("第2子");
+    // 前の版の候補（場所が無い）: 働く最後の年齢は今までどおり対策の固定の項目に、場所だけ違う項目は1つに決まらず取り込まない
+    const old = candidateRows(
+      {
+        diffs: [
+          { id: "o1", target: { object: self }, item: "employment.to", value: 63, note: null },
+          { id: "o2", target: { plan: "assumptions" }, item: "account.contributions", value: 55, note: null },
+          { id: "o3", target: { object: self }, item: "employment.to", lever: "nope", value: 63, note: null },
+        ],
+      },
+      s.wh,
+      s.cat,
+    );
+    expect(old.map((r) => r.key)).toEqual(["lever:retireAge", null, null]);
+    expect(old[0]!.place).toBeNull();
+    expect(old[1]!.reason).toContain("複数");
+    // 場所は at か lever の片方だけ（接続口の計算）
+    const both = apply(s.req, [{ target: self, item: "employment.to", at: [], lever: "mainEndAge", value: 62 }], "salariedCoupleTwoKids");
+    expect(both.status).toBe("rejected");
+    expect(both.changes[0]!.reason).toContain("どちらか1つ");
+  });
+
   it("渡された世帯の定年後の働き方の条件（縮約版）を、画面で保存した世帯を開いたときと同じくそのまま使う", () => {
     const S = "salariedCoupleTwoKids";
     const req = modelHousehold(S);
@@ -218,6 +305,8 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
       const { changes, screenRequest } = both(c.sample, c.moves);
       const sent = forEngine(screenRequest);
       const r = preview(sent);
+      // 場所だけ違う項目の変更は、どれも数字を動かす（動かない変更では、画面と同じことを確かめられない。0201）
+      if (changes.some((x) => x.at !== undefined || x.lever !== undefined)) expect(r.table, c.name).not.toEqual(preview(forEngine(modelHousehold(c.sample))).table);
       const out: Record<string, unknown> = { name: c.name, sample: c.sample, changes, screen: { years: screenYears(r, screenRequest), totals: screenTotals(r, screenRequest) } };
       if (c.ask !== undefined) {
         // 画面の根拠のパネル: 根拠の記録「全部」で計算するのは前処理の後の要求、読み方に渡すのは前の要求（プランを当てた要求）
@@ -235,7 +324,28 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
     const wh = { ...fromRequest(req), postRetirement: { [self]: SHARED_POST } };
     const sharedReq = applyValues(wh, { "lever:retireAge": 65 }, buildCatalog(wh, self, null));
     const sr = preview(forEngine(sharedReq));
-    const shared = { sample: S, postRetirement: { [self]: SHARED_POST }, retireAge: 65, screen: { years: screenYears(sr, sharedReq), totals: screenTotals(sr, sharedReq) } };
+    // 場所を添えたプランの候補（0201）: 接続口のテストは、渡された世帯の一覧（共有の仮の ID）から同じ名前と区別の項目を選んで
+    // propose_scenario に出し、アプリ本体が元の ID に戻した変更（diff）がこれと同じことを確かめる。この変更が画面の「AIからの候補」で
+    // その項目に当たることは、ここで確かめる
+    const scat = buildCatalog(wh, self, null);
+    const picks: [RegExp, ItemValue][] = [
+      [/^inv:stop$/, 55],
+      [/^field:edu\/.+\/stage\/3\/annual$/, 1500000],
+      [/^field:work\/.+\/mainEnd$/, 62],
+      [/^field:housing\/debt\/.+\/rate\/1\/rate$/, "0.015"],
+    ];
+    const proposal = picks.map(([re, value]) => {
+      const it = scat.items.find((x) => re.test(x.key))!;
+      const ref = candidateRefOf(it, wh, scat)!;
+      const diff = { ...refOf({ ...ref, item: it.item }), target: ref.target === "assumptions" ? { plan: "assumptions" } : { object: ref.target }, value };
+      const row = candidateRows({ diffs: [{ id: "x", ...diff, note: null } as never] }, wh, scat)[0]!;
+      expect(row.key, it.label).toBe(it.key);
+      expect(row.reason, it.label).toBeNull();
+      return { label: it.label, place: row.place, value, diff };
+    });
+    // 渡す世帯は、画面で保存した世帯と同じく並びの要素の ID を持つ（世帯ファイルの本文。store/body.ts）
+    const savedInput = wh.request.input;
+    const shared = { sample: S, postRetirement: { [self]: SHARED_POST }, retireAge: 65, screen: { years: screenYears(sr, sharedReq), totals: screenTotals(sr, sharedReq) }, proposal, savedInput };
     const text = `${JSON.stringify({ cases, shared }, null, 2)}\n`;
     if (process.env.LIFEPLAN_UPDATE_FIXTURES !== undefined) {
       mkdirSync(dirname(FIXTURE), { recursive: true });

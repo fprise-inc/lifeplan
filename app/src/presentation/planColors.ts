@@ -1,4 +1,4 @@
-// プランごとの線の色（提示層の部品。planLines.tsx の全部のプランを重ねる表示と、AI接続口のグラフ〔connector/chart.ts。0202〕で同じ色を使う）。
+// プランごとの線の色（提示層の部品。planLines.tsx の全部のプランを重ねる表示と、AI接続口のグラフ〔connector/chart.ts。0203〕で同じ色を使う）。
 // 画面の部品（preact）を読まない所からも使えるように、色の表だけをここに置く。暗い画面の色は app.css の「グラフの複数のプランの色」と同じ
 // （app/test/chart-colors.test.ts で確かめる）
 export interface PlanStyle {

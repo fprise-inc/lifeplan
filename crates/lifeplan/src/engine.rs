@@ -120,7 +120,7 @@ pub fn plan(function: &str, a: &str, b: &str, c: &str) -> Result<String, String>
     run().map_err(|e| e.code().to_owned())
 }
 
-/// 比べた答えのグラフ（画面のグラフと同じ座標・色の SVG。app/src/connector/chart.ts。0202）を、計算と同じ固めた新しい実行環境で作る。
+/// 比べた答えのグラフ（画面のグラフと同じ座標・色の SVG。app/src/connector/chart.ts。0203）を、計算と同じ固めた新しい実行環境で作る。
 /// args は通りの名前と数字（chart.rs が compare の答えから作る）。戻り値は JSON の文字（status・svg・title・alt・width・height）
 pub fn chart(args: &str) -> Result<String, String> {
     let run = || -> Result<String, engine_host::HostError> {

@@ -4,6 +4,8 @@
 // - applyPlan: プランの候補と同じ書き方（対象・入力項目ID・値。propose_scenario の changes）を、画面の「AIからの候補」と同じ当てはめ
 //   （workspace/plans/candidates.ts）で動かす項目の値にし、画面のプランと同じ関数（plans.ts の applyValues）で計算の要求に当てる。
 //   関係する欄も画面と同じく一緒に動く（働く最後の年齢なら、生活費の退職の段階・積立の終わり・定年後の働き方も）
+// - 同じ対象・同じ入力項目ID で場所だけが違う項目は、場所（入力の欄の at か合成の対策の lever。プランの差分の当て先と同じ）を添えて
+//   一覧に出し、同じ書き方で当てる（0201）。場所の要らない項目は今までどおり対象と入力項目ID だけ
 // - 画面の状態（帯・選んだプラン・保存していない変更・小窓）には依らない。世帯の要求から画面と同じく作業中の世帯（fromRequest）と
 //   動かす項目の一覧（buildCatalog）を作るだけ。見本の世帯では、画面と同じく見本の目盛りと定年後の働き方を使う。渡された世帯では、
 //   縮約版の定年後の働き方の条件を、画面で保存した世帯を開いたときと同じくそのまま使う
@@ -16,7 +18,7 @@ import { demoHousehold } from "../workspace/catalog.ts";
 import { fromRequest, type PostRetirement, type WorkingHousehold } from "../workspace/input/household.ts";
 import { STRESS_KEYS, stressLabel, stressRequests, type StressKey } from "../workspace/invest/present.ts";
 import { publishOfficeEstimates, readOfficeEstimates } from "../workspace/office/estimates.ts";
-import { candidateRows, candidateTargetOf, candidateValues, type CandidateRow, type ProposedChange } from "../workspace/plans/candidates.ts";
+import { candidateRefOf, candidateRows, candidateValues, placeText, type CandidateRow, type ProposedChange } from "../workspace/plans/candidates.ts";
 import { buildCatalog, OUTLOOK_STEP_YEARS, type Catalog, type ItemValue, type MovableItem } from "../workspace/plans/items.ts";
 import { applyValues } from "../workspace/plans/plans.ts";
 import { roles } from "../workspace/roles.ts";
@@ -36,10 +38,12 @@ export interface PlanArgs {
   postRetirement?: Record<string, PostRetirement>;
 }
 
-/** プランの候補の書き方の1件（propose_scenario の changes の1件と同じ） */
+/** プランの候補の書き方の1件（propose_scenario の changes の1件と同じ）。場所 at・lever は、一覧が添えた項目だけ（どちらか1つ。0201） */
 export interface PlanChange {
   target: string;
   item: string;
+  at?: string[];
+  lever?: string;
   value: unknown;
 }
 
@@ -87,7 +91,7 @@ function controlOf(it: MovableItem, now: ItemValue): Record<string, unknown> {
     case "shift":
       return { kind: "rateShift", unit: "{add: 上乗せの幅（10進の文字列）, from: 始まりの月 YYYY-MM}", years: c.years };
     case "outlook":
-      // 住宅ローン1本の金利の見込み（入力の「金利の見込み（変動金利）」の欄と同じ型・同じ関数。0202）
+      // 住宅ローン1本の金利の見込み（入力の「金利の見込み（変動金利）」の欄と同じ型・同じ関数。0203）
       return {
         kind: "rateOutlook",
         unit: "{adds: [5年後の上乗せ, 10年後の上乗せ, …]}（今の金利からの上乗せ。10進の文字列。[] は今の金利のまま）か、型の名前（presets の value）",
@@ -112,6 +116,15 @@ function controlOf(it: MovableItem, now: ItemValue): Record<string, unknown> {
 
 const fromFields = (it: MovableItem): boolean => it.key.startsWith("field:");
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * 場所 at の中に、世帯のデータに書かれていない要素の ID（ID を持たない並びの要素に、親の物の ID と場所から決めて振る ID。資産配分の割合・
+ * 取得の時期ごとの残高・借り換えなど）があるか（0201）。渡された世帯では親の ID が共有の仮の ID なので、アプリ本体が元の ID に戻せず、
+ * プランの候補には出せない（計算はできる）
+ */
+const derivedAt = (at: readonly string[] | undefined, inputText: string): boolean => at !== undefined && at.some((s) => UUID.test(s) && !inputText.includes(`"${s}"`));
+
 /**
  * この世帯で動かせる項目の一覧。reqJson は計算の要求（input を持つ）、argsJson は PlanArgs、officeJson は事務所データの defaults.estimates
  * （無ければ null）。戻り値は JSON の文字 { status: "ok", items, groups, ... } か { status: "noSelf" } か { status: "badInput" }
@@ -123,24 +136,32 @@ export function listPlanItems(reqJson: string, argsJson: string, officeJson: str
   const o = open(req, a);
   if (o === null) return JSON.stringify({ status: "noSelf" });
   if (o === "badInput") return JSON.stringify({ status: "badInput" });
-  const all = o.cat.items.map((it) => ({ it, target: candidateTargetOf(it, o.wh, o.cat) }));
-  const usable = all.filter((x) => x.target !== null);
+  const all = o.cat.items.map((it) => ({ it, ref: candidateRefOf(it, o.wh, o.cat) }));
+  const usable = all.flatMap((x) => (x.ref !== null ? [{ it: x.it, ref: x.ref }] : []));
   const groups = [...new Set(usable.map((x) => x.it.group))].map((g) => ({ group: g, count: usable.filter((x) => x.it.group === g).length, fromFields: usable.some((x) => x.it.group === g && fromFields(x.it)) }));
+  // 世帯のデータに書かれている要素の ID（画面で開いた世帯と同じく、保存するときに振る並びの要素の ID を含む）
+  const inputText = JSON.stringify(o.wh.request.input);
   const shown = usable.filter((x) => (a.group !== undefined ? x.it.group === a.group : a.fields === true || !fromFields(x.it)));
-  const items = shown.map(({ it, target }) => {
+  const items = shown.map(({ it, ref }) => {
     const now = it.read(o.wh);
     const note = it.note?.(now) ?? null;
+    const placed = ref.at !== undefined || ref.lever !== undefined;
     return {
-      target,
+      target: ref.target,
       item: it.item,
+      // 場所だけ違う項目は、選ぶための場所（そのまま渡す）と、人が読める区別（0201）
+      ...(ref.at !== undefined ? { at: ref.at } : {}),
+      ...(ref.lever !== undefined ? { lever: ref.lever } : {}),
+      ...(placed ? { place: placeText(it) } : {}),
       label: it.label,
       group: it.group,
       value: now,
       valueText: it.text(now),
       ...controlOf(it, now),
       ...(note !== null ? { note } : {}),
-      // プランの候補（propose_scenario）で前提（assumptions）を対象にできるのは、前提条件の入力項目（assumptions.〜）だけ
-      proposable: target !== "assumptions" || it.item.startsWith("assumptions."),
+      // プランの候補（propose_scenario）で前提（assumptions）を対象にできるのは、前提条件の入力項目（assumptions.〜）か、場所を添えた変更（0201）。
+      // 場所に、世帯のデータに書かれていない要素の ID があれば出せない（元の ID に戻せない）
+      proposable: (ref.target !== "assumptions" || it.item.startsWith("assumptions.") || placed) && !derivedAt(ref.at, inputText),
     };
   });
   return JSON.stringify({ status: "ok", count: items.length, total: usable.length, groups, items, unlisted: all.length - usable.length });
@@ -148,7 +169,7 @@ export function listPlanItems(reqJson: string, argsJson: string, officeJson: str
 
 /** 当てはめの結果の1件（AI に返す形） */
 function rowOut(c: PlanChange, r: CandidateRow): Record<string, unknown> {
-  return { target: c.target, item: c.item, label: r.label, from: r.from, to: r.to, status: r.key === null ? "rejected" : r.reason === null ? "applied" : "same", ...(r.reason !== null ? { reason: r.reason } : {}) };
+  return { target: c.target, item: c.item, ...(c.at !== undefined ? { at: c.at } : {}), ...(c.lever !== undefined ? { lever: c.lever } : {}), ...(r.place !== null ? { place: r.place } : {}), label: r.label, from: r.from, to: r.to, status: r.key === null ? "rejected" : r.reason === null ? "applied" : "same", ...(r.reason !== null ? { reason: r.reason } : {}) };
 }
 
 /**
@@ -165,8 +186,20 @@ export function applyPlan(reqJson: string, changesJson: string, ctxJson: string)
   const o = open(req, ctx.args ?? {});
   if (o === null) return JSON.stringify({ status: "noSelf" });
   if (o === "badInput") return JSON.stringify({ status: "badInput" });
-  const diffs: ProposedChange[] = changes.map((c, i) => ({ id: `c${i + 1}`, target: c.target === "assumptions" ? { plan: "assumptions" } : { object: c.target }, item: c.item, value: c.value, note: null }));
-  const rows = candidateRows({ diffs }, o.wh, o.cat);
+  const diffs: ProposedChange[] = changes.map((c, i) => ({
+    id: `c${i + 1}`,
+    target: c.target === "assumptions" ? { plan: "assumptions" } : { object: c.target },
+    item: c.item,
+    ...(c.at !== undefined ? { at: c.at } : {}),
+    ...(c.lever !== undefined ? { lever: c.lever } : {}),
+    value: c.value,
+    note: null,
+  }));
+  // 場所は at か lever のどちらか1つ（両方を書いた変更は当てない）
+  const rows = candidateRows({ diffs }, o.wh, o.cat).map((r, i): CandidateRow => {
+    const c = changes[i] as PlanChange;
+    return c.at !== undefined && c.lever !== undefined ? { ...r, key: null, value: null, reason: "場所は at か lever のどちらか1つにしてください（list_plan_items が添えた方）" } : r;
+  });
   const out = changes.map((c, i) => rowOut(c, rows[i] as CandidateRow));
   if (rows.some((r) => r.key === null)) return JSON.stringify({ status: "rejected", changes: out });
   // 同じ項目を2回動かす変更は、後の値が勝つ（画面で同じつまみを2回動かしたのと同じ）

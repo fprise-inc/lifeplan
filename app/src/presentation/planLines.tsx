@@ -7,7 +7,7 @@
 import type { PlanLineModel } from "./model.ts";
 import type { ChartMode } from "./MainChart.tsx";
 
-// 色の表（プランごとの線の色・色の番号）は、画面の部品を読まないところ（AI接続口のグラフ。0202）でも使えるように planColors.ts に置く
+// 色の表（プランごとの線の色・色の番号）は、画面の部品を読まないところ（AI接続口のグラフ。0203）でも使えるように planColors.ts に置く
 import { colorStyle, type PlanStyle } from "./planColors.ts";
 export { colorStyle, PLAN_COLOR_STYLES, PLAN_COLORS, type PlanStyle } from "./planColors.ts";
 

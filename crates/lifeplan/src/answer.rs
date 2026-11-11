@@ -20,7 +20,7 @@ pub const FIELDS: &[&str] = &[
     "loanBalance",
 ];
 
-/// 年ごとの住宅ローンの数字（0202）: fields・series で選んだときだけ返す（既定の答えの大きさは変えない）。同梱した画面の関数（summary.ts の
+/// 年ごとの住宅ローンの数字（0203）: fields・series で選んだときだけ返す（既定の答えの大きさは変えない）。同梱した画面の関数（summary.ts の
 /// loanYearsOf）で数える
 pub const LOAN_FIELDS: &[&str] = &["loanRepayment", "loanBalance"];
 
@@ -112,7 +112,7 @@ impl Options {
         !self.omits("keyFigures") && !self.omits("pension")
     }
 
-    /// 年ごとの住宅ローンの数字を選んだか（0202）
+    /// 年ごとの住宅ローンの数字を選んだか（0203）
     fn wants_loans(&self) -> bool {
         self.fields
             .as_ref()
@@ -278,7 +278,7 @@ pub fn finish(shaped: &mut Value, out: &Value, summary: &Value, mode: OutputMode
                 let loans = &summary["loanYears"];
                 for y in list {
                     let Some(o) = y.as_object_mut() else { continue };
-                    // 年ごとの住宅ローンの数字は、選んだときだけ（0202）
+                    // 年ごとの住宅ローンの数字は、選んだときだけ（0203）
                     if opts.wants_loans() {
                         let year = o.get("year").and_then(Value::as_i64).unwrap_or(0);
                         let l = &loans[year.to_string()];

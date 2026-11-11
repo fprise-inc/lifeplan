@@ -1,4 +1,4 @@
-// AI接続口のグラフ（connector/chart.ts。0202）: 比べた答えの通りごとの数字から、題・凡例・単位・前提の注・試算の旨と出典の入った SVG を作ること。
+// AI接続口のグラフ（connector/chart.ts。0203）: 比べた答えの通りごとの数字から、題・凡例・単位・前提の注・試算の旨と出典の入った SVG を作ること。
 // 接続口のテスト（crates/lifeplan/tests/mcp_connector.rs の chart_compares_three_rate_paths）は、本物の接続口で同じ関数を動かし、PNG にもする
 import { describe, expect, it } from "vitest";
 import { chart, chartNotes, textWidth, wrap, type ChartArgs, type ChartVariant } from "../src/connector/chart.ts";

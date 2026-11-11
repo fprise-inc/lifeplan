@@ -1,4 +1,4 @@
-// AI接続口のグラフ（connector/chart.ts。0202）の色が、画面の色の決め事（app.css）と同じこと: 文字・線・地の色（明るい画面と暗い画面）と、
+// AI接続口のグラフ（connector/chart.ts。0203）の色が、画面の色の決め事（app.css）と同じこと: 文字・線・地の色（明るい画面と暗い画面）と、
 // 全部のプランを重ねる表示の線の色（暗い画面の上書きも）。画面の色を直したら、グラフの色も一緒に直す
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
