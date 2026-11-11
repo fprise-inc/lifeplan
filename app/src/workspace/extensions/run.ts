@@ -2,7 +2,8 @@
 // - 見せ方の差し込み口（view.balance・report.chapter）の関数に、自分の入力欄の値と reads に書いた値（balance.now）だけを写して渡す
 // - view.balance の返した値に、鍵（束の id）と入力欄（宣言と今の値から作る）を足して、資産と負債のタブの見るもの（BsCustomViewModel）にする
 // - 有効にする条件: 公式の拡張は機能を有効にするコード（0110）と事務所の設定の印、世帯の条件（activation.households）
-// - アプリの見本の世帯（架空。保存していないもの）では、コードが無くても公式の拡張を見せる（sampleExtensions。見本の印を付ける。0197）
+// - アプリの見本の世帯（架空。保存していないもの）では、コードが無くても公式の拡張を見せる（sampleExtensions。見本の印を付ける。0197）。
+//   コードの無い FP にも見える文には、コードのことを書かない（0197 の追記）
 // - 計算の要求・計算の結果には触れない（束の値は計算の要求の外。0114 の4）
 import type { BalanceView, ExtColumn, ExtInput, ExtValue, HouseholdNow } from "../../../../report/src/index.ts";
 import type { BsCustomColumn, BsCustomViewModel, BsYearModel } from "../../presentation/model.ts";
@@ -46,11 +47,28 @@ export function activeExtensions(all: readonly LoadedExtension[], o: { features:
   });
 }
 
-/** 見本の世帯で、コードが無くても見られるときの案内（資産と負債のタブの見るもの。0197） */
-export const SAMPLE_PREVIEW_TEXT = "見本の世帯なので、有効にするコードが無くても見られます。お客さまの世帯で使うには、コードが要ります。";
+/**
+ * 見本の世帯でだけ見せているときの案内（資産と負債のタブの見るもの。0197）。
+ * コードの無い FP にも出るので、コード（0110）のことは書かない（コードの無い FP にはコードの存在を出さない。0197 の追記）
+ */
+export const SAMPLE_PREVIEW_TEXT = "見本の世帯でご覧いただいている機能です。数字を変えて試せます（見本は保存されないので、開き直せば元に戻ります）。";
 
-/** 見本の世帯から、コードが無いまま世帯・見本を作ったときの知らせ（値は写すが、作った世帯では見られない。0197） */
-export const SAMPLE_SAVED_TEXT = "合算BS の会社の数字も写しましたが、有効にするコードが無いので、この世帯では見られません（コードを入れると見られます）";
+/**
+ * 見本の世帯から世帯・見本を作ったときの知らせ（値は写すが、作った世帯では見られない。0197）。
+ * コードを持っていて事務所の設定の印を外している FP にだけ出す（コードの無い FP には出さない。会社の数字は黙って写す。0197 の追記）
+ */
+export const SAMPLE_SAVED_TEXT = "合算BS の会社の数字も写しました。この世帯で見るには、事務所の既定値の「法人経営者向けの機能」で印を付けてください";
+
+/**
+ * 見本から世帯・見本を作ったときに SAMPLE_SAVED_TEXT を出すか（0197）。見本で見せていた束に値があり、その束のコードが今使える
+ * （印を外しているので見本として見せていた）ときだけ。コードの無い FP には出さない
+ */
+export function savedSampleNotice(all: readonly LoadedExtension[], o: { previews: ReadonlySet<string>; features: FeatureStatus; values: ExtValues | undefined }): boolean {
+  return all.some((x) => {
+    const f = featureOf(x);
+    return o.previews.has(x.manifest.id) && f !== null && featureOn(o.features, f) && hasValues(x, o.values);
+  });
+}
 
 /**
  * 見本の世帯でだけ見せる公式の拡張（0197）。アプリに入っている見本の世帯（すべて架空。保存していないもの）を開いているときだけ、

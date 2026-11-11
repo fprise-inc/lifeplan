@@ -59,7 +59,7 @@ import { customCenterNotice, estimateCenterNotice } from "./office/customNotice.
 import { previewOfficeChange } from "./office/estimatePreview.ts";
 import type { CustomTextsStatus } from "../engine/host.ts";
 import { OFFICIAL_EXTENSIONS } from "./extensions/official.ts";
-import { activeExtensions, demoExtValues, extensionChapters, extensionFieldEdit, extensionViews, featureOf, fitsHousehold, hasValues, SAMPLE_SAVED_TEXT, sampleExtensions } from "./extensions/run.ts";
+import { activeExtensions, demoExtValues, extensionChapters, extensionFieldEdit, extensionViews, featureOf, fitsHousehold, hasValues, SAMPLE_SAVED_TEXT, sampleExtensions, savedSampleNotice } from "./extensions/run.ts";
 import type { ExtValue } from "../../../report/src/index.ts";
 import { combinedHiddenText, expiredFor, featureOn, NO_FEATURES, type FeatureStatus } from "./office/featureCodes.ts";
 import { FpTools } from "./tools/FpTools.tsx";
@@ -509,6 +509,8 @@ export function App() {
   const [sampleMode, setSampleMode] = useState<null | "view" | "edit">(null);
   /** 見本の世帯でだけ見せている公式の拡張の束の id（保存したときの知らせに使う。0197） */
   const previewRef = useRef<ReadonlySet<string>>(new Set());
+  /** 今のコードの状態（見本から作ったときの知らせを、コードを持つ FP にだけ出すため。0197） */
+  const featuresRef = useRef<FeatureStatus>(NO_FEATURES);
   /** 開いたときに見せる世帯の一覧のタブ */
   const [hhTab, setHhTab] = useState<"customers" | "samples">("customers");
   const [hhOpen, setHhOpen] = useState(false);
@@ -1292,8 +1294,9 @@ export function App() {
       // 見本として作るとき・アプリに入っている見本の世帯から顧客を作るときは、メモ（見本のメモは例の文）と面談の履歴を写さない
       // （0182 の追記）。画面の中身は、作った世帯に切り替えた後で外す（先に外すと、元の世帯の自動保存に外した中身が入る）
       const stripped = dropNotesOnPersist({ toSample: sample !== undefined, stored: storedRef.current !== null, appSample: o0.demo !== null }, o0.wh);
-      // 見本の世帯でだけ見せていた束の値（合算BS の会社の数字など）は写すが、保存した世帯ではコードが無ければ見られない（0197）
-      const keptHidden = storedRef.current === null && OFFICIAL_EXTENSIONS.some((x) => previewRef.current.has(x.manifest.id) && hasValues(x, o0.wh.extValues));
+      // 見本の世帯でだけ見せていた束の値（合算BS の会社の数字など）は写すが、保存した世帯では 0110 の条件のまま。
+      // 知らせは、コードを持ち印を外している FP にだけ出す（コードの無い FP には黙って写す。0197）
+      const keptHidden = storedRef.current === null && savedSampleNotice(OFFICIAL_EXTENSIONS, { previews: previewRef.current, features: featuresRef.current, values: o0.wh.extValues });
       const o: Opened = stripped ? { ...o0, wh: withoutNotes(o0.wh) } : o0;
       const body = bodyFor(o, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, EMPTY_CARRY);
       if (storedRef.current !== null) void host.store.leave().catch(() => undefined);
@@ -2218,6 +2221,7 @@ export function App() {
   const previewExts = useMemo(() => sampleExtensions(OFFICIAL_EXTENSIONS, { features: featureStatus, office: officeSettings.features, household, appSample }), [featureStatus, officeSettings.features, household, appSample]);
   const previewIds = useMemo(() => new Set(previewExts.map((x) => x.manifest.id)), [previewExts]);
   previewRef.current = previewIds;
+  featuresRef.current = featureStatus;
   const activeExts = useMemo(() => (previewExts.length === 0 ? usableExts : [...usableExts, ...previewExts]), [usableExts, previewExts]);
   // コードの期限が切れた・止めた: 束の値の入っている世帯では、見られなくなった旨と入れ直せば戻ることを知らせる（データは消さない。0110 の3）
   const extHidden = (() => {
