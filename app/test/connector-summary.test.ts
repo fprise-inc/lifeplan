@@ -154,7 +154,7 @@ describe("AI接続口の主な数字と家族の年齢（0194）", () => {
     }
   });
 
-  it("住宅ローンの利息の合計と年ごとの利息・金利は、エンジンの要約の住宅ローンの数字を、住宅ローンの返済の合計と同じ年で足した物（0204）", () => {
+  it("住宅ローンの利息の合計と年ごとの利息・金利は、エンジンの要約の住宅ローンの数字を、住宅ローンの返済の合計と同じ年で足した物（0205）", () => {
     for (const sample of ["salariedCoupleTwoKids", "pairLoan", "housingPurchase", "single25"]) {
       const req = caseRequest({ name: sample, sample });
       const result = preview(forEngine(req));

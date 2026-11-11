@@ -1,4 +1,4 @@
-# 0204. ローンごとの年ごとの利息とその年の金利をエンジンの要約に出し、AI接続口の主な数字・系列・グラフに使う（利息の合計・その年の金利）
+# 0205. ローンごとの年ごとの利息とその年の金利をエンジンの要約に出し、AI接続口の主な数字・系列・グラフに使う（利息の合計・その年の金利）
 
 - 状態: 採用（2026-11-11）
 - 固定の強さ: エンジンの要約の欄 `summary.loans`（`object`・`kind`・`years[].interest`・`years[].rate`・`interestTotal`）と、部品の約束の欄（`debt.schedule` 約束の版 1.5 の `byYear`・`plan.cashflow` 約束の版 1.9 の `details.loans`）は足すだけの任意の欄（0005 の出力の形。前の出力を読む物は変わらない）。AI接続口の欄（`keyFigures.loanInterest`・`diff.loanInterest`・系列の `loanInterest`・`loanRate`・`omit` の `loanInterest`・`chart` の `interest`・`rate`・`figures` の `loanInterest`）は試験版（0015 と同じ）

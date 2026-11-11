@@ -1,4 +1,4 @@
-// 負債の年ごとの利息とその年の金利（debt.schedule 約束の版 1.5 の byYear・plan.cashflow 約束の版 1.9 の details.loans・エンジンの summary.loans。0204）のテスト（L1）。
+// 負債の年ごとの利息とその年の金利（debt.schedule 約束の版 1.5 の byYear・plan.cashflow 約束の版 1.9 の details.loans・エンジンの summary.loans。0205）のテスト（L1）。
 // 手計算は別に書き（元利均等の返済額＝残高×月利×(1＋月利)^n÷((1＋月利)^n−1) を円未満切り捨て、利息＝残高×年利÷12 を円未満切り捨て）、エンジンの結果と突き合わせる
 import { describe, expect, it } from "vitest";
 import { runEngine } from "../src/engine/run.ts";

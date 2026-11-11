@@ -75,7 +75,7 @@
 //   お金の動き（取り崩し・譲渡益の税・移し替えなど）と年末の残高の行を、相続する人（死亡の当時の配偶者。いなければ子を等分）の名にする。
 //   亡くなった人の NISA（旧NISA・ジュニアNISA を含む）は、亡くなった年の翌年の初めに相続する人の課税口座になる（取得価額はその時の時価。
 //   相続の時の時価の近似）。亡くなった年の翌年からは、亡くなった人の NISA の枠の行を出さない
-// - 改訂28（約束の版 1.9。0204）: 世帯の負債ごとの、年ごとの返済のうち利息に充てた額・その年の最後の返済に当てた金利と、表の期間の利息の合計
+// - 改訂28（約束の版 1.9。0205）: 世帯の負債ごとの、年ごとの返済のうち利息に充てた額・その年の最後の返済に当てた金利と、表の期間の利息の合計
 //   （debt.schedule の約束の版 1.5 の byYear）を details の loans に写す（エンジンが summary の loans に写す。計算は変えない）
 import {
   inheritanceOf,
@@ -969,7 +969,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     const wallets = members.filter(hasWallet).map((m) => ({ member: m.id, depleted: ctx.call<{ depleted: string | null }>("outside.wallet", { member: m.id }).depleted }));
     if (wallets.length > 0) details.outsideWallets = wallets;
     if (childScholarships.length > 0) details.childScholarships = childScholarships;
-    // 世帯の負債ごとの、年ごとの利息と金利・表の期間の利息の合計（約束の版 1.9。0204。計算は変えない）
+    // 世帯の負債ごとの、年ごとの利息と金利・表の期間の利息の合計（約束の版 1.9。0205。計算は変えない）
     const loans = owned.flatMap(({ d, out }) => {
       const years = (out.byYear ?? []).filter((e) => e.year <= endYear).map((e) => ({ year: e.year, interest: e.interestPaid, rate: e.rate }));
       return years.length === 0 ? [] : [{ object: d.id, kind: d.kind, years, interestTotal: yen(years.reduce((a, e) => a + e.interest, 0)) }];

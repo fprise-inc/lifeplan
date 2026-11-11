@@ -455,7 +455,7 @@ export interface DebtScheduleOutput {
   readonly prepayments?: readonly { readonly ym: string; readonly lastPayment: string }[];
   /**
    * 年ごとの、返済のうち利息に充てた額（interestPaid。未払利息を払った分を含む。借り換えで新しいローンに含めた未払利息は入れない）と、
-   * その年の最後の返済に当てた金利（rate。10進の文字。変動金利の上乗せを含む）。計算基準月から・返済のある年だけ・年の昇順（約束の版 1.5 の任意の欄。0204）
+   * その年の最後の返済に当てた金利（rate。10進の文字。変動金利の上乗せを含む）。計算基準月から・返済のある年だけ・年の昇順（約束の版 1.5 の任意の欄。0205）
    */
   readonly byYear?: readonly { readonly year: number; readonly interestPaid: Yen; readonly rate: string }[];
 }
@@ -1029,7 +1029,7 @@ export interface CashflowDetails {
   childScholarships?: NonNullable<EducationCostOutput["childRepaid"]>;
   /**
    * 世帯の負債ごとの、年ごとの返済のうち利息に充てた額（interest）とその年の最後の返済に当てた金利（rate）、表の期間の利息の合計（interestTotal）
-   * （debt.schedule の byYear。計算基準月から・返済のある年だけ。約束の版 1.9。0204）
+   * （debt.schedule の byYear。計算基準月から・返済のある年だけ。約束の版 1.9。0205）
    */
   loans?: readonly { readonly object: string; readonly kind: "mortgage" | "car" | "scholarship" | "other"; readonly years: readonly { readonly year: number; readonly interest: Yen; readonly rate: string }[]; readonly interestTotal: Yen }[];
 }

@@ -22,7 +22,7 @@ pub const FIELDS: &[&str] = &[
     "loanRate",
 ];
 
-/// 年ごとの住宅ローンの数字（0203。利息と金利は 0204）: fields・series で選んだときだけ返す（既定の答えの大きさは変えない）。同梱した画面の関数
+/// 年ごとの住宅ローンの数字（0203。利息と金利は 0205）: fields・series で選んだときだけ返す（既定の答えの大きさは変えない）。同梱した画面の関数
 /// （summary.ts の loanYearsOf）で数える。loanRate は10進の文字か null（返済の無い年・金利の違う住宅ローンを2本以上返している年）
 pub const LOAN_FIELDS: &[&str] = &["loanRepayment", "loanBalance", "loanInterest", "loanRate"];
 
@@ -328,7 +328,7 @@ pub fn finish(shaped: &mut Value, out: &Value, summary: &Value, mode: OutputMode
                 if opts.omits("insurance") {
                     s.remove("insurance");
                 }
-                // ローンごとの年ごとの利息と金利（エンジンの要約の loans。0204）
+                // ローンごとの年ごとの利息と金利（エンジンの要約の loans。0205）
                 if opts.omits("loanInterest") {
                     s.remove("loans");
                 }
@@ -337,7 +337,7 @@ pub fn finish(shaped: &mut Value, out: &Value, summary: &Value, mode: OutputMode
     }
     if !opts.omits("keyFigures") && summary["keyFigures"].is_object() {
         let mut kf = summary["keyFigures"].clone();
-        // 住宅ローンの利息の合計（0204）は omit の loanInterest で省ける
+        // 住宅ローンの利息の合計（0205）は omit の loanInterest で省ける
         if opts.omits("loanInterest") {
             if let Some(o) = kf.as_object_mut() {
                 o.remove("loanInterest");

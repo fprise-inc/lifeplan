@@ -216,7 +216,7 @@ pub fn diff(this: &Value, base: &Value) -> Value {
     ] {
         d.insert(key.into(), json!(num(this, path) - num(base, path)));
     }
-    // 住宅ローンの利息の合計の差（0204。どちらかにあるときだけ）
+    // 住宅ローンの利息の合計の差（0205。どちらかにあるときだけ）
     if this.get("loanInterest").is_some() || base.get("loanInterest").is_some() {
         d.insert(
             "loanInterest".into(),
@@ -282,7 +282,7 @@ mod tests {
             json!({ "assetsAtAge": [{ "age": 95, "amount": 150 }], "depletion": "尽きなくなる", "minimumAmount": 12,
                 "lifetimeTakeHome": 5, "lifetimeExpense": -2, "loanRepayment": 3 })
         );
-        // 住宅ローンの利息の合計の差（0204）
+        // 住宅ローンの利息の合計の差（0205）
         let mut b = base.clone();
         let mut t = this.clone();
         b["loanInterest"] = json!(2_800_000);

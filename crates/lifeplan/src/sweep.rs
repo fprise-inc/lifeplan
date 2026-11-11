@@ -245,7 +245,7 @@ pub const FIGURES: &[&str] = &[
     "pension",
 ];
 
-/// 選んだときだけ表に入れる主な数字（住宅ローンの利息の合計。0204。既定の表の大きさは変えない）
+/// 選んだときだけ表に入れる主な数字（住宅ローンの利息の合計。0205。既定の表の大きさは変えない）
 pub const OPTIONAL_FIGURES: &[&str] = &["loanInterest"];
 
 /// 表に入れる主な数字を確かめる（既定は OPTIONAL_FIGURES のほか全部）
@@ -1001,7 +1001,7 @@ mod tests {
         );
         let f = figures(Some(&["pension".to_owned(), "depletion".to_owned()])).unwrap();
         assert_eq!(f, vec!["depletion".to_owned(), "pension".to_owned()]);
-        // 住宅ローンの利息の合計は、選んだときだけ（0204）
+        // 住宅ローンの利息の合計は、選んだときだけ（0205）
         assert!(!figures(None).unwrap().contains(&"loanInterest".to_owned()));
         let f = figures(Some(&["loanInterest".to_owned()])).unwrap();
         assert_eq!(

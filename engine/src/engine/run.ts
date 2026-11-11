@@ -1096,7 +1096,7 @@ function summaryOf(table: readonly { row: string; year: number; amount: number; 
   if (details?.outsideWallets !== undefined) out.outsideWallets = details.outsideWallets;
   // 子が返す貸与の奨学金（世帯の収支に入れない返済。0104）
   if (details?.childScholarships !== undefined) out.childScholarships = details.childScholarships;
-  // 世帯の負債ごとの、年ごとの利息と金利・表の期間の利息の合計（AI接続口の利息の合計・その年の金利の材料。0204）
+  // 世帯の負債ごとの、年ごとの利息と金利・表の期間の利息の合計（AI接続口の利息の合計・その年の金利の材料。0205）
   if (details?.loans !== undefined) out.loans = details.loans;
   // 住まい以外の不動産の物件ごとの数字（asset.realEstate の出力。帳票の入力の材料。0009 の追記）
   if (details?.realEstate !== undefined) out.realEstate = details.realEstate;

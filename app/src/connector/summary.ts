@@ -1,7 +1,7 @@
 // AI接続口（crates/lifeplan）に同梱する、計算の答えの「主な数字」と家族の年齢（0194）。
 // - 主な数字は、画面の「プランを比べる」の比較の表と同じ関数（workspace/plans/compare.ts の metricsOf）で数える:
 //   指定した年齢の時点の金融資産・資産が尽きる年・生涯の手取りの合計・生涯の支出の合計・金融資産がいちばん少ない年と額・住宅ローンの返済の合計。
-//   住宅ローンの利息の合計（0204）は、画面に同じ数字が無いので、エンジンの要約の負債ごとの年ごとの利息（summary.loans）を、住宅ローンの返済の合計と
+//   住宅ローンの利息の合計（0205）は、画面に同じ数字が無いので、エンジンの要約の負債ごとの年ごとの利息（summary.loans）を、住宅ローンの返済の合計と
 //   同じ年（画面の表に出す年）で足す
 //   年齢の既定は、画面の表示の設定の既定（「○歳時点」の 95歳。workspace/settings.ts の DEFAULT_DISPLAY_SETTINGS。同じことをテストで確かめる）
 // - 年ごとの家族の年齢は、画面のキャッシュフロー表の年齢の行と同じ関数（workspace/present.ts の ageRows）で、同じ呼び方・同じ「世帯にいる年」で出す
@@ -95,16 +95,16 @@ export interface LoanYear {
   loanRepayment: number;
   /** 住宅ローン残高（年末。画面のキャッシュフロー表の「住宅ローン残高」の行と同じ） */
   loanBalance: number;
-  /** 住宅ローンの利息（年額。返済のうち利息に充てた額。表に出す年の合計が keyFigures.loanInterest。0204） */
+  /** 住宅ローンの利息（年額。返済のうち利息に充てた額。表に出す年の合計が keyFigures.loanInterest。0205） */
   loanInterest: number;
   /**
-   * その年の住宅ローンの金利（その年の最後の返済に当てた金利。10進の文字。変動金利の上乗せを含む。0204）。返済の無い年と、金利の違う
+   * その年の住宅ローンの金利（その年の最後の返済に当てた金利。10進の文字。変動金利の上乗せを含む。0205）。返済の無い年と、金利の違う
    * 住宅ローンを2本以上返している年は null（ローンごとの金利は、エンジンの要約の loans）
    */
   loanRate: string | null;
 }
 
-/** エンジンの要約の、世帯の負債ごとの年ごとの利息と金利（0204。plan.cashflow の details.loans） */
+/** エンジンの要約の、世帯の負債ごとの年ごとの利息と金利（0205。plan.cashflow の details.loans） */
 export interface EngineLoan {
   object: string;
   kind: "mortgage" | "car" | "scholarship" | "other";
@@ -121,7 +121,7 @@ export function engineLoansOf(summary: unknown): EngineLoan[] {
 /**
  * 年ごとの住宅ローンの数字（表の年ごと）。返済は主な数字の住宅ローンの返済の合計（plans/compare.ts の metricsOf）と同じく
  * cf.expense.housing.loan の下の行、残高は画面の表の「住宅ローン残高」の行（present.ts の rowDefs の debt）の数え方。
- * 利息と金利は、エンジンの要約の住宅ローン（kind が mortgage）の年ごとの利息と金利（0204）
+ * 利息と金利は、エンジンの要約の住宅ローン（kind が mortgage）の年ごとの利息と金利（0205）
  */
 export function loanYearsOf(req: EngineRequest, table: PreviewResult["table"], summary?: unknown): Record<string, LoanYear> {
   const debt = rowDefs(req).find((d) => d.key === "debt");
@@ -161,7 +161,7 @@ export interface Summary {
     lifetimeTakeHome: number;
     lifetimeExpense: number;
     loanRepayment: number;
-    /** 住宅ローンの利息の合計（返済のうち利息に充てた額。住宅ローンの返済の合計と同じ年で数える。0204） */
+    /** 住宅ローンの利息の合計（返済のうち利息に充てた額。住宅ローンの返済の合計と同じ年で数える。0205） */
     loanInterest: number;
     /** 年金の見込み（args の pension を渡したときだけ。年金のカードに出す人がいなければ null） */
     pension?: PensionFigures | null;

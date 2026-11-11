@@ -85,7 +85,7 @@ describe("比べた答えのグラフ", () => {
     expect(draw({ ...args("assets"), kind: "pie" as never }).status).toBe("invalid");
   });
 
-  it("住宅ローンの利息の推移（万円）と金利の推移（%）（0204）", () => {
+  it("住宅ローンの利息の推移（万円）と金利の推移（%）（0205）", () => {
     const withLoan = three.map((x, k) => ({
       ...x,
       series: x.series.map((p) => ({ ...p, ...(p.year <= 2050 ? { loanInterest: 150_000 + k * 50_000, loanRate: p.year < 2031 ? "0.0065" : k === 0 ? "0.0065" : k === 1 ? "0.011" : "0.016" } : {}) })),

@@ -5,7 +5,7 @@
 //   （app/test/chart-colors.test.ts で確かめる）。線は実線、線の端に丸と通りの文字（A・B…）を置く（色だけに頼らない。画面と同じ）
 // - 必ず入れる物: 題・凡例（通りの文字と名前）・単位（万円）・前提の短い注（金利の見込み・物価・運用利回り・相場の想定）・試算の旨と出典
 // - お客さまの名前・物の ID は入れない（受け取るのは通りの名前と数字と本人の年齢だけ。家族の呼び方も入れない）
-// - 住宅ローンの利息の推移（interest）と金利の推移（rate）のグラフも作れる（0204）。金利は縦の目盛りを % にする（ほかは万円）
+// - 住宅ローンの利息の推移（interest）と金利の推移（rate）のグラフも作れる（0205）。金利は縦の目盛りを % にする（ほかは万円）
 // - 外へは何も送らない。接続口が PNG にするときは、同梱の字体（BIZ UDゴシック）だけで描く
 // - 画面の部品（preact）・本体の命令は読まない（lint とまとめる道具が止める）。結果が OS で変わる Math の関数は使わない
 import { domainOf, FRAME, linePath, scaleOf, spreadX, type Frame, type Scale } from "../presentation/chart.ts";
@@ -15,7 +15,7 @@ import { mulRate, pctText } from "../workspace/plans/decimal.ts";
 
 /**
  * グラフの種類: 金融資産の推移（折れ線）・住宅ローンの返済額の推移（折れ線）・主な数字の比べ（棒）・住宅ローンの利息の推移（折れ線。年額）・
- * 住宅ローンの金利の推移（折れ線。その年の最後の返済に当てた金利。0204）
+ * 住宅ローンの金利の推移（折れ線。その年の最後の返済に当てた金利。0205）
  */
 export type ChartKind = "assets" | "repayment" | "keyFigures" | "interest" | "rate";
 export const CHART_KINDS: readonly ChartKind[] = ["assets", "repayment", "keyFigures", "interest", "rate"];
@@ -364,7 +364,7 @@ function bars(svg: Svg, a: ChartArgs, figures: readonly FigureKey[], theme: "lig
 function altText(a: ChartArgs, title: string): string {
   const per = a.variants.map((v, i) => {
     const at = v.keyFigures.assetsAtAge?.[0];
-    // 利息・金利のグラフは、利息の合計も書く（0204）
+    // 利息・金利のグラフは、利息の合計も書く（0205）
     const interest = (a.kind === "interest" || a.kind === "rate") && v.keyFigures.loanInterest !== undefined ? `住宅ローンの利息の合計${man(v.keyFigures.loanInterest)}万円` : null;
     const parts = [at !== undefined ? `${at.age}歳時点の金融資産${man(at.amount)}万円` : null, v.keyFigures.loanRepayment !== undefined ? `住宅ローンの返済の合計${man(v.keyFigures.loanRepayment)}万円` : null, interest].filter((x) => x !== null);
     return `${letterOf(i)}（${v.label}）${parts.length > 0 ? `: ${parts.join("・")}` : ""}`;
