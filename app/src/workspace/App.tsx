@@ -29,6 +29,8 @@ import { AiCandidates } from "./ai/AiCandidates.tsx";
 import { AiConnectorPanel } from "./ai/AiConnectorPanel.tsx";
 import { AiShareBand } from "./ai/AiShareBand.tsx";
 import { AiCodeCandidateBand } from "./ai/AiCodeCandidateBand.tsx";
+import { AiHouseholdCandidateBand, AiHouseholdCandidates } from "./ai/AiHouseholdCandidates.tsx";
+import { approvalAt, noteMemo, withAiOrigin, type HouseholdKind, type ReadHousehold } from "./ai/households.ts";
 import { AiSharePanel } from "./ai/AiSharePanel.tsx";
 import { acceptCandidate as acceptAiCandidate, aiMessage, candidatePlanName, candidateRows, candidateValues, savedInputOf, shareState, SHARE_STATE_TEXT, unsavedForAi } from "./ai/model.ts";
 import { AI_POLL_MS, useAi } from "./ai/useAi.ts";
@@ -57,7 +59,7 @@ import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
 import { NO_OFFICE_FIELDS, NO_OFFICE_NAMES, NO_OFFICE_TEXTS, OfficeFieldsContext, officeFieldsFrom, OfficeNamesContext, OfficeTextsContext, officeTextsFrom, rowNamesOf } from "./office/customTexts.ts";
 import { customCenterNotice, estimateCenterNotice } from "./office/customNotice.ts";
 import { previewOfficeChange } from "./office/estimatePreview.ts";
-import type { CustomTextsStatus } from "../engine/host.ts";
+import type { AiHouseholdCandidate, CustomTextsStatus } from "../engine/host.ts";
 import { OFFICIAL_EXTENSIONS } from "./extensions/official.ts";
 import { activeExtensions, demoExtValues, extensionChapters, extensionFieldEdit, extensionViews, featureOf, fitsHousehold, hasValues, SAMPLE_SAVED_TEXT, sampleExtensions, savedSampleNotice } from "./extensions/run.ts";
 import type { ExtValue } from "../../../report/src/index.ts";
@@ -435,6 +437,8 @@ interface StoredRef {
   readOnly: boolean;
   /** 見本の世帯（自分で作った見本。0033） */
   sample?: SampleInfo;
+  /** 架空の世帯（AIの候補から架空として作った世帯。一覧の札の印） */
+  fictional?: boolean;
   /** 読んだ拡張領域（書き戻して失わない。0011 の4） */
   carry: BodyState["carry"];
 }
@@ -518,6 +522,8 @@ export function App() {
   const [recovery, setRecovery] = useState<RecoveryMode | null>(null);
   /** AI接続口の中央のパネル（事務所の設定・世帯の同意と共有） */
   const [aiPanel, setAiPanel] = useState<null | "connector" | "share">(null);
+  /** AIからの新しい世帯の候補を確かめる画面（開いているときは届いている候補。閉じているときは null） */
+  const [hhCands, setHhCands] = useState<AiHouseholdCandidate[] | null>(null);
   // 事務所での共有（0023）
   const [officeStatus, setOfficeStatus] = useState<OfficeStatus | null>(null);
   const [officeOpen, setOfficeOpen] = useState(false);
@@ -1131,8 +1137,9 @@ export function App() {
       const w: Work = { band, base: inBand(st.workspace.base) ? st.workspace.base : CURRENT, sel: inBand(st.workspace.selected) ? st.workspace.selected : (band[0] ?? CURRENT), drafts: {} };
       const shownKeys = st.workspace.shownItems.filter((k) => o.catalog.byKey.has(k));
       const sample = r.sample;
-      storedRef.current = { id: r.id, customerNo: r.customerNo, readOnly: r.readOnly, carry: st.carry, ...(sample !== undefined ? { sample } : {}) };
-      setStoredInfo({ id: r.id, customerNo: r.customerNo, readOnly: r.readOnly, ...(sample !== undefined ? { sample } : {}) });
+      const fictional = r.fictional === true ? { fictional: true } : {};
+      storedRef.current = { id: r.id, customerNo: r.customerNo, readOnly: r.readOnly, carry: st.carry, ...(sample !== undefined ? { sample } : {}), ...fictional };
+      setStoredInfo({ id: r.id, customerNo: r.customerNo, readOnly: r.readOnly, ...(sample !== undefined ? { sample } : {}), ...fictional });
       setFileEditors(editorsOf(r.body));
       settingsRef.current = st.display.result;
       setSettings(st.display.result);
@@ -1797,6 +1804,90 @@ export function App() {
   );
   // ---- AI接続口（0014・0015）: 状態と世帯の記録は本体から読む。AIからの候補は FP が承認したときだけプランになる ----
   const ai = useAi(host?.ai ?? null, storeStatus?.state === "ready", storedInfo?.id ?? null);
+  /** AIからの新しい世帯の候補を確かめる画面を開く（候補は本体から読む） */
+  const openHouseholdCandidates = useCallback(async () => {
+    if (host === null) return;
+    try {
+      setHhCands(await host.ai.householdCandidates());
+    } catch (e) {
+      say(aiMessage(codeOf(e)));
+    }
+  }, [host, say]);
+  /** 候補の入力（番号らしい所を消した後）が、画面と同じ計算エンジンで計算できるか（できれば null） */
+  const checkHouseholdCandidate = useCallback(
+    async (c: ReadHousehold): Promise<string | null> => {
+      if (host === null) return "アプリにつながっていません";
+      const r = await host.compute([{ id: "aiHousehold", rev: 1, request: JSON.stringify({ trace: "none", input: c.input }) }]);
+      const out = r.slots["aiHousehold"]?.result;
+      if (out === undefined) return "計算の答えがありません";
+      return isEngineError(out) ? `計算できませんでした: ${out.error.code}` : null;
+    },
+    [host],
+  );
+  /**
+   * 候補から世帯を作る（FP が確かめて「世帯として作る」を押したときだけ）: 値の出どころを AI にし、FP の承認の記録を付け、推定したことを
+   * FP のメモの1行にして本文を組み立て、本体に作ってもらう。本体が出どころの記録を書き、架空なら一覧の札に印を付ける。作った世帯を開く
+   */
+  const createFromCandidate = useCallback(
+    async (c: ReadHousehold, kind: HouseholdKind): Promise<string | null> => {
+      if (host === null) return "アプリにつながっていません";
+      if (!(await leaveCurrent("switch"))) return null;
+      forgetUnsavedScreen();
+      const input = withAiOrigin(c.input, c.candidateId, c.connector, approvalAt());
+      const o = openedFrom(null, fromRequest({ trace: "none", input }, { memo: noteMemo(c) }));
+      if (o === null) return "ご本人のいない世帯は作れません";
+      const body = bodyFor(o, EMPTY_WORK, [], DEFAULT_DISPLAY_SETTINGS, DEFAULT_BALANCE_SETTINGS, EMPTY_CARRY);
+      try {
+        if (storedRef.current !== null) void host.store.leave().catch(() => undefined);
+        const r = await host.ai.createFromCandidate(c.candidateId, kind, body, summaryOf(o.wh.request));
+        await loadStored(r);
+        setStoredList(await host.store.list());
+        setHhCands(null);
+        void ai.refresh();
+        say(kind === "fictional" ? `架空の世帯 ${r.customerNo} を作りました（同意の記録が無くても AI に渡せます）。これからは自動で保存します` : `世帯 ${r.customerNo} を作りました。AI に渡すときは、外部AIへの提供の同意を記録してください`);
+        return null;
+      } catch (e) {
+        return aiMessage(codeOf(e));
+      }
+    },
+    [host, leaveCurrent, forgetUnsavedScreen, loadStored, say, ai],
+  );
+  const discardHouseholdCandidate = useCallback(
+    async (id: string): Promise<string | null> => {
+      if (host === null) return null;
+      try {
+        const left = await host.ai.discardHouseholdCandidate(id);
+        setHhCands(left.length > 0 ? left : null);
+        void ai.refresh();
+        say("新しい世帯の候補を捨てました（世帯は作っていません）");
+        return null;
+      } catch (e) {
+        return aiMessage(codeOf(e));
+      }
+    },
+    [host, say, ai],
+  );
+  /** 架空の世帯をお客さまの世帯にする（一方向）。開いている世帯なら、AIとの共有の見え方も読み直す */
+  const makeClient = useCallback(
+    async (id: string): Promise<string | null> => {
+      if (host === null) return null;
+      try {
+        await host.store.makeClient(id);
+        const sr = storedRef.current;
+        if (sr !== null && sr.id === id) {
+          delete sr.fictional;
+          setStoredInfo((x) => (x !== null && x.id === id ? { id: x.id, customerNo: x.customerNo, readOnly: x.readOnly } : x));
+        }
+        await refreshStore();
+        void ai.refresh();
+        say("お客さまの世帯にしました。AI に渡すときは、外部AIへの提供の同意を記録してください");
+        return null;
+      } catch (e) {
+        return storeMessage(codeOf(e));
+      }
+    },
+    [host, say, refreshStore, ai],
+  );
   // AI接続口から届いた書類の候補（0151）: 本体はメモリの中に置いているだけ。読み口（番号を落とす決まり）を通して読み取りの記録にし、
   // 世帯ファイルに書けてから本体の承認待ちから外す（書けなければ外さず、次の読み直しでもう一度。同じ候補は2回足さない）
   const docIngesting = useRef(false);
@@ -1904,6 +1995,15 @@ export function App() {
     [host, ai, say],
   );
   const aiShare = shareState(ai.status, storedInfo !== null ? ai.view : null);
+  // 開いている世帯が架空の世帯か（一覧の札が正。一覧にまだ無いときは開いたときの札）
+  const listedNow = storedInfo !== null ? storedList.find((h) => h.id === storedInfo.id) : undefined;
+  const currentFictional = storedInfo !== null && storedInfo.sample === undefined && (listedNow !== undefined ? listedNow.fictional === true : storedInfo.fictional === true);
+  // 新しい世帯の候補が届いた・減ったとき、確かめの画面を開いていれば読み直す
+  const hhCandCount = ai.status?.householdCandidates ?? 0;
+  useEffect(() => {
+    if (host === null || hhCands === null) return;
+    void host.ai.householdCandidates().then((l) => setHhCands(l.length > 0 ? l : null), () => undefined);
+  }, [host, hhCandCount]);
   // この世帯をAIに渡していて、画面の現状の入力が保存した（AIに渡っている）入力と違うか（共有中の帯の一言。0184 の追記）。
   // 保存した本文は、保存した・開いたときに覚えている（savedBodies。保存の後は保存の状態が変わるので描き直る）
   const savedForAi = aiShare === "sharing" && storedInfo !== null ? savedBodies.current.get(storedInfo.id) : undefined;
@@ -2679,6 +2779,7 @@ export function App() {
                 sub: storedInfo?.sample !== undefined ? storedInfo.sample.name : storedInfo !== null ? (opened !== null ? summaryOf(opened.wh.request) : "") : (opened?.demo?.title ?? ""),
                 open: hhOpen,
                 onToggle: toggleHousehold,
+                fictional: currentFictional,
               }
             : null
         }
@@ -2708,6 +2809,7 @@ export function App() {
       />
       <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} unsaved={aiUnsaved} paused={presence !== null && storedInfo !== null} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
       <AiCodeCandidateBand count={officeSettingsOpen ? 0 : (ai.status?.featureCodeCandidates ?? 0)} onOpen={() => setOfficeSettingsOpen(true)} />
+      <AiHouseholdCandidateBand count={hhCands !== null ? 0 : hhCandCount} onOpen={() => void openHouseholdCandidates()} />
       {opened !== null && !docsOpen ? (
         <AiDocumentBand
           wh={opened.wh}
@@ -2766,6 +2868,7 @@ export function App() {
                 opened !== null ? (
                   <HouseholdNow
                     title={storedInfo?.sample !== undefined ? `見本 ${storedInfo.sample.no}` : storedInfo !== null ? `顧客番号 ${storedInfo.customerNo}` : opened.demo !== null ? `見本 ${opened.demo.sampleNo}（${opened.demo.title}）` : "新しい世帯"}
+                    fictional={currentFictional}
                     members={basis?.members ?? null}
                     asOf={basis?.asOf ?? null}
                     save={{ ...save, state: !savingStored ? "unsaved" : presence !== null ? "paused" : saveState.kind }}
@@ -2794,6 +2897,7 @@ export function App() {
               }
               onSaveCurrent={(category) => void guard(() => persistCurrent(category))}
               onRename={renameStored}
+              onMakeClient={makeClient}
               onSetCategory={(id, code) => numberOp(id, () => host.store.setCategory(id, code), (no) => `区分を変えました（${no}）`)}
               onAssignSerial={(id) => numberOp(id, () => host.store.assignSerial(id), (no) => `通し番号を付けました（${no}）`)}
               onMakeSample={async (id, req) => {
@@ -3411,6 +3515,7 @@ export function App() {
         />
       ) : null}
       {evidence !== null ? <EvidencePanel state={evidence} onClose={() => setEvidence(null)} /> : null}
+      {hhCands !== null && host !== null ? <AiHouseholdCandidates candidates={hhCands} check={checkHouseholdCandidate} onCreate={createFromCandidate} onDiscard={discardHouseholdCandidate} onClose={() => setHhCands(null)} /> : null}
       {aiPanel === "connector" && host !== null ? <AiConnectorPanel ai={host.ai} status={ai.status} onStatus={ai.setStatus} onChanged={() => void ai.refresh()} onClose={() => setAiPanel(null)} /> : null}
       {aiPanel === "share" && host !== null && storedInfo !== null ? (
         <AiSharePanel
@@ -3431,7 +3536,7 @@ export function App() {
       {pasteOpen && opened !== null ? (
         <PasteAnswer
           wh={opened.wh}
-          gate={pasteGate({ sample: sampleHousehold, saved: storedInfo !== null, consentState: ai.view?.consentState ?? null, consentDocuments: ai.view?.consentDocuments === true })}
+          gate={pasteGate({ sample: sampleHousehold || currentFictional, saved: storedInfo !== null, consentState: ai.view?.consentState ?? null, consentDocuments: ai.view?.consentDocuments === true })}
           guide={{ options: GUIDE_DOC_TYPES, text: guideText }}
           {...(storedInfo !== null
             ? {

@@ -369,6 +369,9 @@ pub struct CreateOptions {
     /// 見本として作る（顧客番号を持たず、見本番号を振る）
     #[serde(default)]
     pub sample: Option<SampleRequest>,
+    /// 架空の世帯として作る（AIの候補から「架空」で作るときだけ。アプリ本体が付け、画面の新しく作るからは付けない）。見本には付けない
+    #[serde(default)]
+    pub fictional: bool,
 }
 
 struct Session {
@@ -1428,6 +1431,7 @@ impl Store {
                     let label = Label {
                         category: code,
                         serial: Some(serial),
+                        fictional: opts.fictional,
                         ..Label::default()
                     };
                     (label.display().expect("体系の番号"), label)
@@ -1940,6 +1944,7 @@ impl Store {
                     serial: Some(serial),
                     branch,
                     sample: None,
+                    fictional: old.fictional,
                 };
                 (l.display().expect("体系の番号"), l)
             }
@@ -1947,6 +1952,7 @@ impl Store {
                 c.to_owned(),
                 Label {
                     category: old.category.clone(),
+                    fictional: old.fictional,
                     ..Label::default()
                 },
             ),
@@ -2027,6 +2033,7 @@ impl Store {
             serial: Some(serial),
             branch: None,
             sample: None,
+            fictional: label.fictional,
         };
         let no = label.display().expect("体系の番号");
         self.put_label(s, id, &no, label)?;
@@ -2054,6 +2061,23 @@ impl Store {
             customer_no: no,
             duplicate: false,
         })
+    }
+
+    /// 架空の世帯をお客さまの世帯にする（印を外す。一方向: お客さまの世帯を架空にする操作は無い）。番号はそのまま。
+    /// 印の無い世帯では何もしない（false を返す）
+    pub fn make_client(&self, id: &str) -> Result<bool, StoreError> {
+        if !crypto::is_uuid(id) {
+            return Err(StoreError::UNKNOWN_HOUSEHOLD);
+        }
+        let mut g = self.lock();
+        let s = self.ready_session(&mut g)?;
+        let (no, mut label) = Self::label_of(s, id)?;
+        if !label.fictional {
+            return Ok(false);
+        }
+        label.fictional = false;
+        self.put_label(s, id, &no, label)?;
+        Ok(true)
     }
 
     /// 見本の名前と絞り込みの項目を直す（見本番号は変えない。0033）

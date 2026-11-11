@@ -108,6 +108,8 @@ jobs:
     needs: [engine, changes]
     if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
+    # ふだんは11〜18分。止まった手順で既定の6時間まで待たない
+    timeout-minutes: 45
     # Tauri の依存のビルドで実行機の空き容量が尽きることがあるため、デバッグ情報と差分のビルドの置き場を作らない
     env:
       CARGO_INCREMENTAL: 0
@@ -151,10 +153,11 @@ jobs:
         run: npm run build:hearing-form
       - name: ライセンスの検査（npm）
         run: npm run check:licenses
+      # 取得の時間切れ・やり直し・置き場の名前を引けないときの手当ては .github/scripts/apt-install.sh。ふだんは1分かからない
       - name: Tauri が Linux で使うライブラリ
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libgtk-3-dev libxdo-dev librsvg2-dev
+        working-directory: .
+        timeout-minutes: 10
+        run: .github/scripts/apt-install.sh libwebkit2gtk-4.1-dev libgtk-3-dev libxdo-dev librsvg2-dev
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -459,7 +462,8 @@ jobs:
         run: cargo build --locked --release
       - name: 命令の数を数える道具（valgrind。ubuntu だけ。CI の実行環境はハードウェアの数え口が無い）
         if: runner.os == 'Linux'
-        run: sudo apt-get install -y -qq valgrind > /dev/null
+        timeout-minutes: 10
+        run: .github/scripts/apt-install.sh valgrind
       - name: 前の値（直近の毎晩の計測の成果物）を取る
         env:
           GH_TOKEN: ${{ github.token }}

@@ -1,0 +1,251 @@
+{
+  "kind": "fictional",
+  "title": "セミナー用 38歳の会社員と扶養のパートの妻・賃貸",
+  "note": "妻のパートの年収は扶養の範囲の100万円、毎月の生活費（家賃を除く）は2人世帯の平均的な額の25万円と推定。家賃は月10万円、預金は500万円（ご本人名義）で置きました。",
+  "input": {
+    "baseMonth": "2026-10",
+    "endYear": 2083,
+    "calcConventions": {
+      "aggregation": "cash",
+      "investmentTiming": "midYear",
+      "compatibility": null
+    },
+    "household": {
+      "members": [
+        {
+          "id": "146288dc-1daa-42d7-b0d0-89a0d6acfaec",
+          "kind": "self",
+          "birth": {
+            "birthYearMonth": "1988-04",
+            "bornOnFirst": false
+          },
+          "sex": "male",
+          "joins": null,
+          "leaves": null,
+          "expected": false
+        },
+        {
+          "id": "490c7fb0-74f6-4682-b101-fcceb9c87cbb",
+          "kind": "spouse",
+          "birth": {
+            "birthYearMonth": "1990-03",
+            "bornOnFirst": false
+          },
+          "sex": "female",
+          "joins": null,
+          "leaves": null,
+          "expected": false
+        }
+      ],
+      "relations": [
+        {
+          "type": "spouse",
+          "a": "146288dc-1daa-42d7-b0d0-89a0d6acfaec",
+          "b": "490c7fb0-74f6-4682-b101-fcceb9c87cbb",
+          "marriage": "legal",
+          "from": null,
+          "to": null
+        }
+      ],
+      "events": [],
+      "employmentPeriods": [
+        {
+          "id": "ba636c63-592f-4424-91b0-8ffbad5d6b4a",
+          "member": "146288dc-1daa-42d7-b0d0-89a0d6acfaec",
+          "from": {
+            "at": "2011-04"
+          },
+          "to": {
+            "at": "2053-03"
+          },
+          "type": "regular",
+          "healthInsurance": {
+            "kind": "kyokaikenpo",
+            "insurer": "kyokaikenpo.40"
+          },
+          "pensionCategory": "employee1",
+          "employer": {
+            "size": 300,
+            "weeklyHours": "40"
+          },
+          "salary": {
+            "annual": {
+              "value": 5000000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "bonus": {
+              "value": 1000000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          },
+          "standardMonthlyRemuneration": {
+            "health": {
+              "value": 410000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "pension": {
+              "value": 410000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          }
+        },
+        {
+          "id": "2aa2aaf5-d31b-4ae9-b0ee-2b027cfe5693",
+          "member": "490c7fb0-74f6-4682-b101-fcceb9c87cbb",
+          "from": {
+            "at": "2024-04"
+          },
+          "to": {
+            "at": "2055-02"
+          },
+          "type": "partTime",
+          "healthInsurance": {
+            "kind": "dependent"
+          },
+          "pensionCategory": "none",
+          "employer": {
+            "size": 20,
+            "weeklyHours": "25"
+          },
+          "salary": {
+            "annual": {
+              "value": 1000000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "bonus": {
+              "value": 0,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          },
+          "employmentInsuranceCovered": true
+        }
+      ],
+      "accounts": [
+        {
+          "id": "8b7c9475-ce60-4517-8c61-5322ce9fa492",
+          "kind": "deposit",
+          "owner": "146288dc-1daa-42d7-b0d0-89a0d6acfaec",
+          "marketValue": {
+            "value": 5000000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          },
+          "asOf": "2026-09",
+          "contributions": []
+        }
+      ],
+      "insuranceContracts": [],
+      "residentTaxAssessments": [
+        {
+          "id": "e61f75db-1b20-44ca-b7c6-ab7957147493",
+          "member": "146288dc-1daa-42d7-b0d0-89a0d6acfaec",
+          "fiscalYear": 2026,
+          "amount": {
+            "value": 220000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          }
+        },
+        {
+          "id": "7839dee5-1cce-48d0-879a-202a8f045172",
+          "member": "490c7fb0-74f6-4682-b101-fcceb9c87cbb",
+          "fiscalYear": 2026,
+          "amount": {
+            "value": 5000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          }
+        }
+      ],
+      "residences": [
+        {
+          "id": "3f0d6c1a-8b2e-4c5d-9e7f-1a2b3c4d5e6f",
+          "kind": "rent",
+          "from": {
+            "at": "2020-04"
+          },
+          "to": null,
+          "rent": {
+            "monthly": {
+              "value": 100000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "growth": "0.005",
+            "renewalFee": "1",
+            "renewalEveryMonths": 24
+          }
+        }
+      ],
+      "livingExpenses": [
+        {
+          "id": "5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8d",
+          "mode": "total",
+          "monthly": {
+            "value": 250000,
+            "state": "estimated",
+            "origin": {
+              "kind": "manual"
+            },
+            "estimate": {
+              "method": "statistic",
+              "basis": "2人世帯の平均的な生活費（家賃を除く）から推定"
+            }
+          },
+          "stages": [
+            {
+              "at": {
+                "at": "2053-04"
+              },
+              "label": "retirement",
+              "ratio": "0.85"
+            }
+          ]
+        }
+      ]
+    },
+    "assumptions": {
+      "investmentReturn": {
+        "default": "0.01"
+      },
+      "depositReturn": {
+        "default": "0.001"
+      },
+      "wageGrowth": {
+        "default": "0.01"
+      },
+      "inflation": {
+        "default": "0.01"
+      },
+      "pensionMacroSlide": {
+        "default": "0.004"
+      }
+    }
+  }
+}

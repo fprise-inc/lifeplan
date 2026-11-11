@@ -157,6 +157,23 @@ pub fn compute(slots: &[SlotRequest]) -> Result<String, String> {
     ))
 }
 
+/// 計算の入力を、画面と同じ計算エンジンで確かめる（AIの新しい世帯の候補を受けるとき）。計算できなければ AI に見せてよい理由
+/// （エンジンの失敗のコードだけ。値は入れない）
+pub fn check_input(input: &serde_json::Value) -> Result<(), String> {
+    let ready = ready()?;
+    let request = serde_json::json!({ "trace": "none", "input": input }).to_string();
+    let out = run_preview(ready, &request).unwrap_or_else(|e| host_error_json(&e));
+    let v: serde_json::Value = serde_json::from_str(&out)
+        .map_err(|_| "計算エンジンの答えを読めませんでした".to_owned())?;
+    match v.get("error") {
+        None => Ok(()),
+        Some(e) => Err(format!(
+            "アプリの計算エンジンで計算できない入力なので、受け取りませんでした（{}）。calculate で確かめてから出し直してください。",
+            e["code"].as_str().unwrap_or("E_ENGINE")
+        )),
+    }
+}
+
 /// 根拠の記録「全部」での計算（0006 の7）。戻り値はエンジンの出力全体か {"error"}
 pub fn evidence(request: &str) -> Result<String, String> {
     let ready = ready()?;
