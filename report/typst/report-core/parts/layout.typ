@@ -64,11 +64,11 @@
   if sub != none { block(above: 0pt, below: 8pt, text(size: 8.5pt, fill: muted, sub)) }
 }
 
-/// 見本の世帯でだけ載せた拡張の章の印（0197。見出しの下。公式の帳票が付ける）
+/// 見本の世帯でだけ載せた拡張の章の印（0197。見出しの下。公式の帳票が付ける）。コードの無い FP にも出るので、コードのことは書かない
 #let sample-mark = block(width: 100%, above: 0pt, below: 8pt, inset: (x: 8pt, y: 5pt), radius: 3pt, stroke: (paint: muted, thickness: 0.8pt, dash: "dashed"), {
   box(inset: (x: 4pt, y: 1pt), radius: 2pt, stroke: 0.8pt + muted, text(size: 8pt, weight: "bold", fill: muted, "見本"))
   h(6pt)
-  text(size: 8pt, fill: muted, "見本の世帯（架空）なので、機能を有効にするコードが無くても載せています。お客さまの世帯の提案書に載せるには、コードが要ります。")
+  text(size: 8pt, fill: muted, "見本の世帯（架空）の数字で作った章です。")
 })
 
 /// 小見出し

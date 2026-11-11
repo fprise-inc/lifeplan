@@ -164,11 +164,13 @@ describe("提案書の章（会社と合わせたバランスシート）", () =
   it.skipIf(bin === null)("見本の世帯でだけ載せた章は、見出しの下に「見本」の印が付く（0197）。印の無い章には付かない", () => {
     const sample = buildProposalInput({ ...bundle, extensionSamples: [ID] });
     const pages = (b: typeof input) => renderAndExtract(bin as string, b, sampleFrame(bundle, b)).pages.map(normalize);
-    const mark = normalize("機能を有効にするコードが無くても載せています");
+    const mark = normalize("見本の世帯（架空）の数字で作った章です");
     const withMark = pages(sample);
     const start = withMark.findIndex((p) => p.includes(normalize("相殺した4つの組")));
     expect(withMark[start]).toContain(mark);
     expect(withMark.filter((p) => p.includes(mark))).toHaveLength(1);
+    // コードの無い FP にも出る印なので、コードのことは書かない（0197 の追記）
+    expect(withMark[start]).not.toContain(normalize("コード"));
     expect(pages(input).some((p) => p.includes(mark))).toBe(false);
   });
   it.skipIf(bin === null)("PDF に章の見出し・3枚の図・相殺の組・何か月分・段階の1文が載る", () => {

@@ -9,7 +9,7 @@ import type { BsCustomViewModel } from "../src/presentation/model.ts";
 import { balanceTabModel, bsPlan, defaultGuideBasis, DEFAULT_BS_GUIDE, DEFAULT_BS_POINTS } from "../src/workspace/balanceTab.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { COMBINED_BS_EXTENSION, OFFICIAL_EXTENSIONS } from "../src/workspace/extensions/official.ts";
-import { activeExtensions, chapterIdsOf, chapterMaterials, demoExtValues, extensionChapters, extensionViews, SAMPLE_PREVIEW_TEXT, sampleExtensions } from "../src/workspace/extensions/run.ts";
+import { activeExtensions, chapterIdsOf, chapterMaterials, demoExtValues, extensionChapters, extensionViews, SAMPLE_PREVIEW_TEXT, SAMPLE_SAVED_TEXT, sampleExtensions, savedSampleNotice } from "../src/workspace/extensions/run.ts";
 import { hasExecutive } from "../src/workspace/input/officer.ts";
 import { NO_FEATURES } from "../src/workspace/office/featureCodes.ts";
 import { DEFAULT_OFFICE_SETTINGS } from "../src/workspace/office/settings.ts";
@@ -126,6 +126,20 @@ describe("見本の世帯の合算BS の見え方", () => {
     const plain = tab(extensionViews(ext, values, home));
     expect(plain).not.toContain("data-bs-custom-sample");
     expect(plain).not.toContain("bs-sample-tag");
+  });
+
+  it("コードの無い FP にも見える文（見本の案内・章の名前）には、コードのことを書かない（0197 の追記）", () => {
+    expect(SAMPLE_PREVIEW_TEXT).not.toContain("コード");
+    expect(JSON.stringify(v)).not.toContain("コード");
+    expect(JSON.stringify(extensionChapters(ext, samples))).not.toContain("コード");
+    expect(SAMPLE_SAVED_TEXT).not.toContain("コード");
+  });
+
+  it("見本から作ったときの知らせは、コードを持ち印を外している FP にだけ出す。コードの無い FP・値の無いときは出さない", () => {
+    expect(savedSampleNotice(OFFICIAL_EXTENSIONS, { previews: samples, features: NO_FEATURES, values })).toBe(false);
+    expect(savedSampleNotice(OFFICIAL_EXTENSIONS, { previews: samples, features: on, values })).toBe(true);
+    expect(savedSampleNotice(OFFICIAL_EXTENSIONS, { previews: samples, features: on, values: undefined })).toBe(false);
+    expect(savedSampleNotice(OFFICIAL_EXTENSIONS, { previews: new Set(), features: on, values })).toBe(false);
   });
 
   it("提案書の章: 章の名前に「（見本）」を付け、見本の印を付ける章の id を出す。材料は同じ", () => {
