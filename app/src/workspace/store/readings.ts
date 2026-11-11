@@ -64,6 +64,8 @@ export const LATER_ENTRIES: readonly ReadingEntry[] = [
   { from: "field:living/{object}/group/daily", until: "0.35", to: { lever: "livingGroupDaily", object: true } },
   { from: "field:living/{object}/group/misc", until: "0.35", to: { lever: "livingGroupMisc", object: true } },
   { from: "field:work/{member}/postSalary", until: "0.35", to: { lever: "postRetirementSalary", member: true } },
+  // 住宅ローン1本の変動金利の見込み（入力の「金利の見込み（変動金利）」の欄と同じ型・同じ関数。今の段より後の段を置き換える。0036 の追記 2026-11-11・0202）
+  { from: "loan:{object}:outlook", until: "0.74", to: { lever: "loanRateOutlook", object: true } },
 ];
 
 /** 画面が引く表（0.16 の読み替え表と、その後に足した合成の対策と、その後に足した欄の当て先） */

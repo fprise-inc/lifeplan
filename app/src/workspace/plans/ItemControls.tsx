@@ -340,6 +340,44 @@ function ShiftRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" 
   );
 }
 
+/**
+ * 変動金利の見込み（住宅ローン1本。入力の「金利の見込み（変動金利）」の欄と同じ型を選ぶ。0202）。型にない見込み（AI の候補で入った5年ごとの上乗せ・
+ * 金利の段階で入れた見込み）は、その値を選べる行として残す（選び直すと型の値になる）
+ */
+function OutlookRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" }: ItemRowProps & { item: MovableItem & { control: { kind: "outlook" } } }) {
+  const c = item.control;
+  const hit = c.presets.find((p) => item.same(value, { adds: p.adds }));
+  const other = hit === undefined ? "other" : null;
+  return (
+    <div class="shift">
+      <label class="shift-from">
+        金利の上がり方
+        <select
+          value={hit?.value ?? "other"}
+          data-item={item.key}
+          onChange={(e) => {
+            const p = c.presets.find((x) => x.value === (e.currentTarget as HTMLSelectElement).value);
+            if (p === undefined) return;
+            onSlide(item.key, { adds: [...p.adds] });
+            onRelease();
+          }}>
+          {c.presets.map((p) => (
+            <option key={p.value} value={p.value}>
+              {p.label}
+            </option>
+          ))}
+          {other !== null ? <option value="other">{item.text(value)}</option> : null}
+        </select>
+      </label>
+      <div class="range-scale">
+        <span class="base-mark">
+          {baseLabel}: {item.text(base)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /** 年齢のスライダー（1歳ずつ。資産運用の積立をやめる年齢・取り崩しを始める年齢。0026） */
 function AgeRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" }: ItemRowProps & { item: MovableItem & { control: { kind: "age" } } }) {
   const c = item.control;
@@ -441,6 +479,7 @@ export function ItemRow(props: ItemRowProps) {
   else if (c.kind === "rate") control = <RateRow {...props} item={item as MovableItem & { control: typeof c }} />;
   else if (c.kind === "mix") control = <MixRow {...props} item={item as MovableItem & { control: typeof c }} />;
   else if (c.kind === "shift") control = <ShiftRow {...props} item={item as MovableItem & { control: typeof c }} />;
+  else if (c.kind === "outlook") control = <OutlookRow {...props} item={item as MovableItem & { control: typeof c }} />;
   else if (c.kind === "age") control = <AgeRow {...props} item={item as MovableItem & { control: typeof c }} />;
   else if (c.kind === "work") control = <WorkRow {...props} item={item as MovableItem & { control: typeof c }} />;
   else if (c.kind === "field") {

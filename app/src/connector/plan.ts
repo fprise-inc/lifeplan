@@ -17,7 +17,7 @@ import { fromRequest, type PostRetirement, type WorkingHousehold } from "../work
 import { STRESS_KEYS, stressLabel, stressRequests, type StressKey } from "../workspace/invest/present.ts";
 import { publishOfficeEstimates, readOfficeEstimates } from "../workspace/office/estimates.ts";
 import { candidateRows, candidateTargetOf, candidateValues, type CandidateRow, type ProposedChange } from "../workspace/plans/candidates.ts";
-import { buildCatalog, type Catalog, type ItemValue, type MovableItem } from "../workspace/plans/items.ts";
+import { buildCatalog, OUTLOOK_STEP_YEARS, type Catalog, type ItemValue, type MovableItem } from "../workspace/plans/items.ts";
 import { applyValues } from "../workspace/plans/plans.ts";
 import { roles } from "../workspace/roles.ts";
 
@@ -86,6 +86,18 @@ function controlOf(it: MovableItem, now: ItemValue): Record<string, unknown> {
       return { kind: "mix", unit: "配分の並び [{assetClass, share}]（share は10進の文字列の割合。合計 1）", accountKind: c.accountKind };
     case "shift":
       return { kind: "rateShift", unit: "{add: 上乗せの幅（10進の文字列）, from: 始まりの月 YYYY-MM}", years: c.years };
+    case "outlook":
+      // 住宅ローン1本の金利の見込み（入力の「金利の見込み（変動金利）」の欄と同じ型・同じ関数。0202）
+      return {
+        kind: "rateOutlook",
+        unit: "{adds: [5年後の上乗せ, 10年後の上乗せ, …]}（今の金利からの上乗せ。10進の文字列。[] は今の金利のまま）か、型の名前（presets の value）",
+        presets: c.presets,
+        currentRate: c.current,
+        from: c.from,
+        stepYears: OUTLOOK_STEP_YEARS,
+        maxSteps: c.maxSteps,
+        addRange: c.range,
+      };
     case "work":
       return { kind: "work", unit: "{type: 働き方, annual: 1年の収入（円の整数。給与は賞与込みの年収・自営業は事業所得）}", options: c.options.map((o) => ({ value: o.value, label: o.label })), max: c.max };
     case "field": {

@@ -1561,8 +1561,9 @@ export function switchEntry(wh: WorkingHousehold, id: string, e: LoanEntry): Wor
 
 // ---- 変動金利の見込み（標準の1欄。0078） ----
 
-/** 金利の見込みの型: 今の金利からの上乗せ（5年後・10年後。presets.ts の目安）。「今の金利のまま」は今より後の段を持たない */
-function rateOutlooks(): readonly { value: string; label: string; adds: readonly number[] }[] {
+/** 金利の見込みの型: 今の金利からの上乗せ（5年後・10年後。presets.ts の目安）。「今の金利のまま」は今より後の段を持たない。
+ * 結果のタブの動かす項目「金利の見込み（変動金利）」（plans/items.ts）も同じ型を選べる */
+export function rateOutlooks(): readonly { value: string; label: string; adds: readonly number[] }[] {
   const up = (key: "up1" | "up2") => {
     const a5 = presetRate(`preset.loan.outlook.${key}.after5`);
     const a10 = presetRate(`preset.loan.outlook.${key}.after10`);
@@ -1573,10 +1574,10 @@ function rateOutlooks(): readonly { value: string; label: string; adds: readonly
 /** 金利の段階で入れる（選ぶと、標準のままでも金利の段階の欄と「＋ 金利の段階」を出す。型どおりでない段がすでにあれば、この選択になる） */
 const OUTLOOK_CUSTOM = { value: "custom", label: "金利の段階で入れる" };
 /** 見込みの段の間隔（月） */
-const OUTLOOK_STEP_MONTHS = 60;
+export const OUTLOOK_STEP_MONTHS = 60;
 
 /** 見込みの起点（今か、これから借りるなら借入の月）と、その時点の金利の段の番号 */
-function outlookBase(h: Household, d: Debt, baseMonth: string): { ref: string; index: number } {
+export function outlookBase(h: Household, d: Debt, baseMonth: string): { ref: string; index: number } {
   const start = resolveTimepoint(h, d.start);
   const ref = start !== null && start > baseMonth ? start : baseMonth;
   let index = 0;
@@ -1604,6 +1605,43 @@ export function rateOutlookOf(h: Household, d: Debt, baseMonth: string): string 
       later.every((x, j) => x.ym !== null && x.ym > ref && x.type === "variable" && Math.abs(x.rate - (cur + (o.adds[j] as number))) < 1e-9 && (j === 0 || monthsBetween(later[j - 1]?.ym as string, x.ym) === OUTLOOK_STEP_MONTHS)),
   );
   return hit?.value ?? OUTLOOK_CUSTOM.value;
+}
+
+/**
+ * 変動金利の見込みを当てる（見込みの欄で型を選んだときと、結果のタブの動かす項目「金利の見込み（変動金利）」で同じ関数）: 今の金利の段
+ * （これから借りるなら借入の月の段）より後の段を、今（借入の月）から5年ごとの変動金利の段（今の金利＋上乗せ。adds の順に5年後・10年後…）に
+ * 置き換える。adds が空なら「今の金利のまま」（後の段を外す）。ローンが無ければ変えない
+ */
+export function setRateOutlook(w: WorkingHousehold, debtId: string, adds: readonly number[]): WorkingHousehold {
+  return mutate(w, (h, req) => {
+    const x = (h.debts ?? []).find((y) => y.id === debtId);
+    if (x === undefined) return;
+    const { ref, index } = outlookBase(h, x, req.input.baseMonth);
+    const cur = Number(x.rateSchedule[index]?.rate ?? "0");
+    x.rateSchedule = [
+      ...x.rateSchedule.slice(0, index + 1),
+      ...adds.map((add, j) => ({ id: newId(), from: { at: addMonths(ref, OUTLOOK_STEP_MONTHS * (j + 1)) }, type: "variable" as const, rate: rateText(cur + add) })),
+    ];
+  });
+}
+
+/**
+ * 今の金利の段より後の段を、今（借入の月）からの上乗せの並びとして読む（5年後・10年後…の段が、今からちょうど5年ごとの変動金利の段のときだけ）。
+ * 後の段が無ければ []（今の金利のまま）。見込みの欄の型（rateOutlookOf）に当たれば、その型の上乗せ。どちらでもなければ null（金利の段階で入れた見込み）
+ */
+export function rateOutlookAdds(h: Household, d: Debt, baseMonth: string): number[] | null {
+  const o = rateOutlooks().find((x) => x.value === rateOutlookOf(h, d, baseMonth));
+  if (o !== undefined) return [...o.adds];
+  const { ref, index } = outlookBase(h, d, baseMonth);
+  const cur = Number(d.rateSchedule[index]?.rate ?? "0");
+  const later = d.rateSchedule.slice(index + 1);
+  const out: number[] = [];
+  for (const [j, s] of later.entries()) {
+    if (s.type !== "variable" || resolveTimepoint(h, s.from) !== addMonths(ref, OUTLOOK_STEP_MONTHS * (j + 1))) return null;
+    // 上乗せは 0.01% の単位に丸める（10進の文字の差。浮動小数の端を出さない）
+    out.push(Math.round((Number(s.rate) - cur) * 10000) / 10000);
+  }
+  return out;
 }
 
 /**
@@ -1638,16 +1676,7 @@ function rateOutlookField(d: Debt, k: string): FieldDef {
           });
         const o = rateOutlooks().find((x) => x.value === v);
         if (o === undefined) return w;
-        return mutate(w, (h, req) => {
-          const x = (h.debts ?? []).find((y) => y.id === d.id);
-          if (x === undefined) return;
-          const { ref, index } = outlookBase(h, x, req.input.baseMonth);
-          const cur = Number(x.rateSchedule[index]?.rate ?? "0");
-          x.rateSchedule = [
-            ...x.rateSchedule.slice(0, index + 1),
-            ...o.adds.map((add, j) => ({ id: newId(), from: { at: addMonths(ref, OUTLOOK_STEP_MONTHS * (j + 1)) }, type: "variable", rate: rateText(cur + add) })),
-          ];
-        });
+        return setRateOutlook(w, d.id, o.adds);
       },
     }),
     () => at(d.id, "debt.rateSchedule"),

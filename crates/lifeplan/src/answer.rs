@@ -16,7 +16,13 @@ pub const FIELDS: &[&str] = &[
     "financialAssets",
     "debt",
     "shortfall",
+    "loanRepayment",
+    "loanBalance",
 ];
+
+/// 年ごとの住宅ローンの数字（0202）: fields・series で選んだときだけ返す（既定の答えの大きさは変えない）。同梱した画面の関数（summary.ts の
+/// loanYearsOf）で数える
+pub const LOAN_FIELDS: &[&str] = &["loanRepayment", "loanBalance"];
 
 /// 答えから省ける物
 pub const OMITS: &[&str] = &[
@@ -106,9 +112,17 @@ impl Options {
         !self.omits("keyFigures") && !self.omits("pension")
     }
 
+    /// 年ごとの住宅ローンの数字を選んだか（0202）
+    fn wants_loans(&self) -> bool {
+        self.fields
+            .as_ref()
+            .is_some_and(|f| LOAN_FIELDS.iter().any(|k| f.contains(*k)))
+    }
+
     /// 同梱した画面の関数（年齢・主な数字）を動かす要るか（年齢も主な数字も、人の鍵を添える物も要らなければ動かさない）
     fn needs_summary(&self, out: &Value) -> bool {
-        !self.omits("ages")
+        self.wants_loans()
+            || !self.omits("ages")
             || !self.omits("keyFigures")
             || (!self.omits("protection") && out.get("protection").is_some())
             || (!self.omits("inheritanceTax") && out.get("inheritanceTax").is_some())
@@ -261,8 +275,17 @@ pub fn finish(shaped: &mut Value, out: &Value, summary: &Value, mode: OutputMode
     match mode {
         OutputMode::Summary => {
             if let Some(list) = r.get_mut("years").and_then(Value::as_array_mut) {
+                let loans = &summary["loanYears"];
                 for y in list {
                     let Some(o) = y.as_object_mut() else { continue };
+                    // 年ごとの住宅ローンの数字は、選んだときだけ（0202）
+                    if opts.wants_loans() {
+                        let year = o.get("year").and_then(Value::as_i64).unwrap_or(0);
+                        let l = &loans[year.to_string()];
+                        for k in LOAN_FIELDS {
+                            o.insert((*k).into(), json!(l[*k].as_i64().unwrap_or(0)));
+                        }
+                    }
                     if let Some(f) = &opts.fields {
                         o.retain(|k, _| k == "year" || f.contains(k));
                     }

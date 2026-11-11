@@ -16,7 +16,12 @@ export const FRAME: Frame = { width: 760, height: 300, left: 70, right: 16, top:
 export function niceStep(range: number, count = 5): number {
   if (!(range > 0)) return 1;
   const raw = range / count;
-  const p = 10 ** Math.floor(Math.log10(raw));
+  // 10 のべきの指数（floor(log10(raw))）。AI接続口のグラフ（0202）は結果が OS で変わる Math.log10 を使えない実行環境で描くので、
+  // 10 のべきと比べて整数で求める（10 のべきの値そのものは同じ式 10 ** k。画面の目盛りは変わらない）
+  let k = 0;
+  while (10 ** (k + 1) <= raw) k++;
+  while (10 ** k > raw) k--;
+  const p = 10 ** k;
   for (const m of [1, 2, 5, 10]) if (raw <= m * p) return m * p;
   return 10 * p;
 }

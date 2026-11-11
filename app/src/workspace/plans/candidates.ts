@@ -10,6 +10,7 @@ import { rangeText, rateInRange, type PctRange } from "../input/rateRanges.ts";
 import { currentPeriodId, resolveKey, type Reading } from "../store/readings.ts";
 import type { Catalog, DiffTarget, ItemValue, MovableItem } from "./items.ts";
 import type { Values } from "./plans.ts";
+import { addRate, cmpRate } from "./decimal.ts";
 
 /** 入力項目の外で縮約版に入る項目の名前（AIに渡した記録・共有の画面の「渡す項目」。0195） */
 const EXTRA_ITEM_LABELS: Record<string, string> = { postRetirement: "定年後の働き方の条件" };
@@ -78,6 +79,8 @@ export function coerce(it: MovableItem, raw: unknown): ItemValue | undefined {
       const s = Array.isArray(v) ? v[0] : v;
       return isObj(s) && typeof s.add === "string" && typeof s.from === "string" && DECIMAL.test(s.add) ? { add: s.add, from: s.from } : undefined;
     }
+    case "outlook":
+      return outlookValue(c, v);
     case "work": {
       // 働き方の種類（選択肢のどれか）と1年の収入（0〜上限の整数の円）。スライダーと同じ範囲
       if (!isObj(v) || typeof v.type !== "string" || !c.options.some((o) => o.value === v.type)) return undefined;
@@ -86,6 +89,27 @@ export function coerce(it: MovableItem, raw: unknown): ItemValue | undefined {
       return annual !== undefined && Number.isInteger(annual) && annual >= 0 && annual <= c.max ? { type: v.type, annual } : undefined;
     }
   }
+}
+
+/**
+ * 変動金利の見込みの値（0202 で足した動かす項目）: 型の名前（"flat"・"up1"・"up2"。{preset: 名前} でもよい）か、5年ごとの上乗せの並び
+ * （{adds: [...]} か並びそのもの。10進の文字か数）。段の数の上限・上乗せの範囲・今の金利を下回らないことを確かめ、合わなければ undefined
+ */
+function outlookValue(c: Extract<MovableItem["control"], { kind: "outlook" }>, v: unknown): ItemValue | undefined {
+  const name = typeof v === "string" ? v : isObj(v) && typeof v.preset === "string" && Object.keys(v).length === 1 ? v.preset : null;
+  if (name !== null) {
+    const p = c.presets.find((x) => x.value === name);
+    return p !== undefined ? { adds: [...p.adds] } : undefined;
+  }
+  const list = Array.isArray(v) ? v : isObj(v) && Array.isArray(v.adds) && Object.keys(v).length === 1 ? v.adds : null;
+  if (list === null || list.length > c.maxSteps) return undefined;
+  const adds: string[] = [];
+  for (const a of list) {
+    const t = typeof a === "number" && DECIMAL.test(String(a)) ? String(a) : typeof a === "string" && DECIMAL.test(a) ? a : null;
+    if (t === null || cmpRate(t, c.range.min) < 0 || cmpRate(t, c.range.max) > 0 || cmpRate(addRate(c.current, t), "0") < 0) return undefined;
+    adds.push(t);
+  }
+  return { adds };
 }
 
 const short = (v: unknown): string => {

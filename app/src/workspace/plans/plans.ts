@@ -727,6 +727,7 @@ function phrase(it: MovableItem, v: ItemValue, now: ItemValue): string {
   if (it.key === "lever:pensionAge" && typeof v === "number") return `年金を${v}歳から`;
   if (it.key === "lever:fee") return v === true ? "FP顧問料を入れる" : v === false ? "FP顧問料を入れない" : "FP顧問料は今の契約だけ";
   if (it.control.kind === "rate" && typeof v === "string") return `金利${pctText(v)}`;
+  if (it.control.kind === "outlook") return `金利の見込みを${it.text(v)}に`;
   if (it.control.kind === "shift") {
     const s = v as RateShift | null;
     return s === null ? "金利が上がらない" : `金利が${Number(s.from.slice(0, 4))}年から+${pctText(s.add)}`;

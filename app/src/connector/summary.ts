@@ -11,7 +11,7 @@
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import { anyClaimOf, modeOf, pensionEstimateRequest, pensionLines, pensionMembers, planPensionOf, type PensionLine } from "../workspace/input/pensionLines.ts";
 import { metricsOf } from "../workspace/plans/compare.ts";
-import { ageRows, displayYears, yearsWithin } from "../workspace/present.ts";
+import { ageRows, displayYears, rowDefs, yearsWithin } from "../workspace/present.ts";
 import { ageInYear, roles } from "../workspace/roles.ts";
 
 /** 「○歳時点の金融資産」の年齢の既定（画面の表示の設定の既定と同じ） */
@@ -87,6 +87,29 @@ export function pensionOf(req: EngineRequest, p: NonNullable<SummaryArgs["pensio
   return out;
 }
 
+/** 年ごとの住宅ローンの数字（0202。比べる道具の系列・グラフの返済額に使う） */
+export interface LoanYear {
+  /** 住宅ローンの返済（年額。繰上返済・手数料を含む。主な数字の住宅ローンの返済の合計と同じ数え方で、表に出す年の合計がその合計になる） */
+  loanRepayment: number;
+  /** 住宅ローン残高（年末。画面のキャッシュフロー表の「住宅ローン残高」の行と同じ） */
+  loanBalance: number;
+}
+
+/**
+ * 年ごとの住宅ローンの数字（表の年ごと）。返済は主な数字の住宅ローンの返済の合計（plans/compare.ts の metricsOf）と同じく
+ * cf.expense.housing.loan の下の行、残高は画面の表の「住宅ローン残高」の行（present.ts の rowDefs の debt）の数え方
+ */
+export function loanYearsOf(req: EngineRequest, table: PreviewResult["table"]): Record<string, LoanYear> {
+  const debt = rowDefs(req).find((d) => d.key === "debt");
+  const out: Record<string, LoanYear> = {};
+  const at = (y: number) => (out[String(y)] ??= { loanRepayment: 0, loanBalance: 0 });
+  for (const c of table) {
+    if (c.row === "cf.expense.housing.loan" || c.row.startsWith("cf.expense.housing.loan.")) at(c.year).loanRepayment += c.amount;
+    else if (debt !== undefined && debt.match(c)) at(c.year).loanBalance += c.amount;
+  }
+  return out;
+}
+
 export interface Summary {
   /** 家族（年齢の鍵と呼び方。並びは画面の表の年齢の行と同じ） */
   members: { key: string; label: string }[];
@@ -94,6 +117,8 @@ export interface Summary {
   ages: Record<string, Record<string, number>>;
   /** 構成員の ID → 年齢の鍵（接続口が必要保障額・相続税の目安の人に鍵を添えるために使う。AI には返さない） */
   memberKeys: Record<string, string>;
+  /** 年ごとの住宅ローンの数字（接続口が年ごとの数字の loanRepayment・loanBalance に写す。0202） */
+  loanYears: Record<string, LoanYear>;
   keyFigures: {
     /** 数えた年（画面の表に出す年。計算基準月が年の途中なら翌年から） */
     years: { from: number; to: number } | null;
@@ -147,6 +172,7 @@ export function summaryOf(req: EngineRequest, result: PreviewResult, a: SummaryA
     members,
     ages,
     memberKeys,
+    loanYears: loanYearsOf(req, table),
     keyFigures: {
       years: shown,
       assetsAtAge: ms.map((x) => ({ age: x.targetAge, year: x.targetYear, amount: x.target })),
