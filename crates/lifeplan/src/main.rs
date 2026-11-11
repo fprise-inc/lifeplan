@@ -8,6 +8,7 @@
 
 mod answer;
 mod calc;
+mod compare;
 mod coverage;
 mod engine;
 mod guide;

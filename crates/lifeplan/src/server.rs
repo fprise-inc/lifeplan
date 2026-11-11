@@ -4,9 +4,9 @@
 //! - 単体で使える（アプリが起動していなくてよい）: list_sample_households・get_sample_household・calculate・explain_value・get_regulation_value・
 //!   search_coverage・get_coverage（対応範囲の一覧。顧客の情報を含まない。0183）・get_input_guide（入力の形の説明。0196）・
 //!   get_input_recipe（よくある場面の部品の手本。share_id を渡したときだけ、世帯を扱う群と同じくアプリ本体に頼む。0196）・
-//!   list_plan_items（画面のプランの動かす項目。0195）
+//!   list_plan_items（画面のプランの動かす項目。0195）・compare（1回で何通りも計算して並べる。0198）
 //! - 世帯を扱う（アプリが起動していて、FPが渡した世帯が期限内で取り消されていないときだけ）: list_shared_households・get_shared_household・
-//!   propose_scenario・propose_inputs、calculate・explain_value・list_plan_items の share_id
+//!   propose_scenario・propose_inputs、calculate・explain_value・list_plan_items・compare の share_id
 //! - 書類から読んだ値の候補を出す（世帯を扱う群。0151）: propose_inputs（現状の入力の候補を、アプリの「書類の読み取り」に承認待ちで入れるだけ）
 //! - 設定の候補を出す（アプリが起動していて、AI接続口がオンのときだけ。0015 の追記の2段目）: propose_feature_code
 //!   （機能を有効にするコードを、アプリの画面に承認待ちで出すだけ。FPが画面で押したときだけ入る）
@@ -18,6 +18,7 @@
 //! ログは標準エラー出力だけに出し、中身は道具の名前・時間・結果のコードに留める（顧客データを書かない）。
 
 use crate::calc::{self, Change, OutputMode, TableFilter, STRESS_TESTS};
+use crate::compare::{self, CompareArgs, VariantArgs};
 use crate::plan::{self, Applied, PlanChange, PlanItemsArgs};
 use crate::{answer, coverage, engine, guide, recipes, regulation, samples};
 use ai_ipc::client::{call_app, AppError, ClientHello};
@@ -28,6 +29,7 @@ use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabiliti
 use rmcp::service::RequestContext;
 use rmcp::{schemars, tool, tool_handler, tool_router, ErrorData, RoleServer, ServerHandler};
 use serde::{Deserialize, Serialize};
+use serde_json::Map;
 use serde_json::{json, Value};
 use std::time::Instant;
 
@@ -35,6 +37,7 @@ pub const INSTRUCTIONS: &str = "ファイナンシア（FP向けのライフプ�
 - 計算（calculate）・数字の根拠（explain_value）・動かせる項目（list_plan_items）・制度の値（get_regulation_value）・見本の世帯（list_sample_households・get_sample_household）・対応範囲の一覧（search_coverage・get_coverage）は、アプリが起動していなくても使えます。見本の世帯はすべて架空で、実在の顧客ではありません。
 - calculate・explain_value は、アプリの画面と同じく、計算の前に「計算に入れない」物（見込みが「当てにしない」の受け取る相続・遺贈・贈与と、相続で受け継ぐ借金。「計算に入れない」を選んだ夢）を外し、FPが渡した世帯（share_id）では、FPの事務所が既定値の画面で変えた推定の値も当ててから計算します。当てた物は答えの preparation に出ます。世帯の入力にあるのに表に出ない物があっても、計算の誤りではありません。FPがアプリで「確実な分だけ」などの結果の見方を選んでいるとき、FPがまだ保存していない変更があるときは、アプリの画面の数字と違うことがあります（渡されるのは保存した世帯で、見方は当てません）。
 - calculate の答えは大きくなりやすいので、要る物だけを取ってください。比べる・振るときは omit に years を入れて keyFigures（主な数字。アプリの「プランを比べる」と同じ数え方）だけを取り、推移を見るときは every_years（例 5）と fields（例 [\"financialAssets\"]）で絞ります。知らせ（notices）・制度データの版（packs）は要らなければ omit で省きます。
+- 「対策を3つ並べて」「この世帯とこの世帯を比べて」「物価0%・1%・2%で並べて」のように何通りも並べるときは、calculate を何度も呼ばず、compare で基本と最大8通りを1回で計算してください。通りに世帯を書かなければ基本に重ね（plan_changes・changes・stress_test）、sample_household_id・share_id・input を書けばその世帯で計算します。返るのは通りごとの主な数字・基本との差・選んだ数字の年ごとの系列（既定は金融資産を5年ごと・年齢つき）だけです。
 - 計算の入力（input）を組み立てるときは、get_input_guide で形の決まりと区分ごとの欄・必須・選べる値・例を引き、よくある場面（家を買う・子が生まれる・退職・繰上返済・NISA と iDeCo を始める・万一の想定）は get_input_recipe の手本（その世帯に合わせた changes）を使ってください。書かなかった物（家の頭金・諸費用、子の教育費・生活費など）は計算に入りません。計算できなかったときは、答えの「直し方」に足りない欄・選べる値・正しい形が出ます。
 - FP に「この数字はどんな計算？」と聞かれたら、推測で答えず、explain_value でその数字（キャッシュフロー表の行と年）の根拠を取り出して答えてください。アプリの画面で表の数字を押すと出る「数字の根拠」（内訳・式・使った制度の値と出典）と同じ中身です。制度の値をもっと詳しく見るときは、返ってきた制度の値ID を get_regulation_value に渡します。
 - FP に「退職を62歳にしたら？」「生活費を月25万円にしたら？」のように、アプリの画面のプランで動かす項目（働く最後の年齢・年金の受け取り開始・NISA の積立・生活費・配偶者の働き方と年収・繰上返済・金利の上昇・資産運用の配分など）を動かして試すときは、まず list_plan_items で動かせる項目（対象・入力項目ID・今の値・範囲）を確かめ、calculate・explain_value の plan_changes に、プランの候補（propose_scenario）と同じ書き方（target・item・value）で渡してください。画面のプランと同じ関数で当てるので、関係する欄も画面と同じく一緒に動きます（働く最後の年齢なら、生活費の退職の段階・積立の終わりも）。changes（JSON Pointer）で欄を1つだけ動かすと、画面と違う数字になることがあります。試した変更は、そのまま propose_scenario の changes に渡せます。
@@ -574,6 +577,13 @@ fn preparation(applied: &Value, with_ids: bool) -> Option<Value> {
     Some(Value::Object(p))
 }
 
+/// 比べる答えのどれかの通りに、計算の前の処理の印があるか
+fn results_have_preparation(v: &Value) -> bool {
+    v["results"]
+        .as_array()
+        .is_some_and(|l| l.iter().any(|r| r.get("preparation").is_some()))
+}
+
 /// 計算の前の処理の印の説明
 const PREPARATION_NOTE: &str = "アプリの画面と同じく、計算の前に次を当てました（世帯のデータは変えていません）。notInCalculation は計算に入れない物（見込みが「当てにしない」の受け取る相続・遺贈・贈与と、相続で受け継ぐ借金。「計算に入れない」を選んだ夢）で、表の数字に入っていません。officeEstimates は、FPの事務所が既定値の画面で変えた推定の値（values は値ID）と推定で埋めない目安（noFill）です。";
 
@@ -626,6 +636,108 @@ fn plan_bad_input(input: &Value) -> String {
         "{msg}\n{}",
         guide::engine_error_help("E_INPUT_SCHEMA", &Value::Null, input)
     )
+}
+
+/// 1通りの計算の答え（calculate と compare が使う）
+struct Computed {
+    /// エンジンの出力（表示の形）
+    out: Value,
+    /// 当てた計算の前の処理
+    applied: Value,
+    /// プランの変更の当てはめ（当てなければ null）
+    rows: Value,
+    /// 年齢と主な数字（answer::summary）
+    summary: Value,
+}
+
+/// 計算の入力（changes・stress_test を当てた後）に、プランの変更（画面のプランと同じ関数。0195）→ 計算の前の処理（0184）→ 計算 →
+/// 主な数字と年齢（0194）の順で当てて計算する（重いので、呼ぶ側は spawn_blocking の中で）。calculate と compare が同じ道を通る。
+/// Err は道具の答えの文と記録の結果のコード
+fn compute(
+    input: Value,
+    plan_changes: &[PlanChange],
+    sample: Option<&str>,
+    office: &Value,
+    post: &Value,
+    opts: &answer::Options,
+) -> Result<Computed, (String, String)> {
+    let request = json!({ "trace": "none", "input": input });
+    let invalid = |m: String| (m, "INVALID".to_owned());
+    let (request, rows) = match plan::apply(request, plan_changes, sample, office, post) {
+        Ok(Applied::Ok { request, rows }) => (request, rows),
+        Ok(Applied::Rejected { rows }) => return Err(invalid(plan::rejected_message(&rows))),
+        // プランの部品が読めない形の入力: 入力の形の直し方（0196）を返す
+        Err(code) if code == plan::BAD_INPUT => return Err(invalid(plan_bad_input(&input))),
+        Err(code) if plan::error_message(&code).is_some() => {
+            return Err(invalid(
+                plan::error_message(&code).unwrap_or_default().to_owned(),
+            ))
+        }
+        Err(_) => return Err((host_failure(&input), "E_HOST".to_owned())),
+    };
+    // 計算できなかったときの直し方（0196）は、プランの変更を当てた後の入力で作る
+    let planned = &request["input"];
+    let host = || (host_failure(planned), "E_HOST".to_owned());
+    let p = prepare(&request, office).map_err(|_| host())?;
+    let out = engine::run_preview(&p.request).map_err(|_| host())?;
+    if let Some(err) = out.get("error") {
+        let code = err["code"].as_str().unwrap_or("E_ENGINE").to_owned();
+        return Err((engine_failure(&code, &err["ids"], planned), code));
+    }
+    // 主な数字と年齢は、数字の根拠と同じく計算の前の処理を当てる前の要求（プランの変更を当てた後）で数える（0194）
+    let summary = answer::summary(&out, &request, opts).map_err(|_| host())?;
+    Ok(Computed {
+        out,
+        applied: p.applied,
+        rows,
+        summary,
+    })
+}
+
+/// 1通りの計算の結果（Err は道具の答えの文と記録の結果のコード）
+type Outcome = Result<Computed, (String, String)>;
+
+/// 比べる道具の1通りの計算の材料
+struct Job {
+    input: Value,
+    plan_changes: Vec<PlanChange>,
+    sample: Option<String>,
+    office: Value,
+    post: Value,
+}
+
+/// 通りをまとめて計算する（重いので、呼ぶ側は spawn_blocking の中で）。通りごとに新しい固めた実行環境で、CPU の数の半分（アプリ本体の計算の分を空ける）・
+/// compare::MAX_PARALLEL 個まで同時に
+fn compute_all(jobs: &[Option<Job>], opts: &answer::Options) -> Vec<Option<Outcome>> {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Mutex;
+    let next = AtomicUsize::new(0);
+    let out: Mutex<Vec<Option<Outcome>>> = Mutex::new((0..jobs.len()).map(|_| None).collect());
+    let workers = std::thread::available_parallelism()
+        .map_or(1, |n| n.get() / 2)
+        .clamp(1, compare::MAX_PARALLEL)
+        .min(jobs.len().max(1));
+    std::thread::scope(|s| {
+        for _ in 0..workers {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                let Some(slot) = jobs.get(i) else { break };
+                let Some(j) = slot else { continue };
+                let r = compute(
+                    j.input.clone(),
+                    &j.plan_changes,
+                    j.sample.as_deref(),
+                    &j.office,
+                    &j.post,
+                    opts,
+                );
+                if let Ok(mut o) = out.lock() {
+                    o[i] = Some(r);
+                }
+            });
+        }
+    });
+    out.into_inner().unwrap_or_default()
 }
 
 /// 根拠の読み方の答えの最大の大きさ（これを超えたら、制度の値を減らすよう伝える）
@@ -750,63 +862,40 @@ impl LifeplanMcp {
             log("calculate", t, "INVALID");
             return Ok(fail(msg));
         }
-        // 計算できなかったときの直し方（0196）のために、計算に渡す入力を残す（プランの変更を当てたら、当てた後の入力に置き換える）
-        let mut checked = input.clone();
-        let request = json!({ "trace": "none", "input": input });
+        let checked = input.clone();
         let (plan_changes, sample) = (
             a.plan_changes.clone().unwrap_or_default(),
             a.sample_household_id.clone(),
         );
-        // プランの変更（画面のプランと同じ関数。0195）→ 計算の前の処理（0184）→ 計算
+        // プランの変更（画面のプランと同じ関数。0195）→ 計算の前の処理（0184）→ 計算 → 主な数字（0194）
         let opts_run = opts.clone();
-        type Run = Result<(Value, Value, Value, Value, Value), Value>;
-        let run = tokio::task::spawn_blocking(move || -> Result<Run, String> {
-            let (request, rows) =
-                match plan::apply(request, &plan_changes, sample.as_deref(), &office, &post)? {
-                    Applied::Ok { request, rows } => (request, rows),
-                    Applied::Rejected { rows } => return Ok(Err(rows)),
-                };
-            let p = prepare(&request, &office)?;
-            let out = engine::run_preview(&p.request)?;
-            // 主な数字と年齢は、数字の根拠と同じく計算の前の処理を当てる前の要求（プランの変更を当てた後）で数える（0194）
-            let summary = answer::summary(&out, &request, &opts_run)?;
-            Ok(Ok((
-                out,
-                p.applied,
-                rows,
-                request["input"].clone(),
-                summary,
-            )))
+        let run = tokio::task::spawn_blocking(move || {
+            compute(
+                input,
+                &plan_changes,
+                sample.as_deref(),
+                &office,
+                &post,
+                &opts_run,
+            )
         })
         .await;
-        let (out, applied, plan_rows, summary) = match run {
-            Ok(Ok(Ok((out, applied, rows, planned, summary)))) => {
-                checked = planned;
-                (out, applied, rows, summary)
+        let Computed {
+            out,
+            applied,
+            rows: plan_rows,
+            summary,
+        } = match run {
+            Ok(Ok(c)) => c,
+            Ok(Err((msg, code))) => {
+                log("calculate", t, &code);
+                return Ok(fail(msg));
             }
-            Ok(Ok(Err(rows))) => {
-                log("calculate", t, "INVALID");
-                return Ok(fail(plan::rejected_message(&rows)));
-            }
-            // プランの部品が読めない形の入力: 入力の形の直し方（0196）を返す
-            Ok(Err(code)) if code == plan::BAD_INPUT => {
-                log("calculate", t, "INVALID");
-                return Ok(fail(plan_bad_input(&checked)));
-            }
-            Ok(Err(code)) if plan::error_message(&code).is_some() => {
-                log("calculate", t, "INVALID");
-                return Ok(fail(plan::error_message(&code).unwrap_or_default()));
-            }
-            _ => {
+            Err(_) => {
                 log("calculate", t, "E_HOST");
                 return Ok(fail(host_failure(&checked)));
             }
         };
-        if let Some(err) = out.get("error") {
-            let code = err["code"].as_str().unwrap_or("E_ENGINE").to_owned();
-            log("calculate", t, &code);
-            return Ok(fail(engine_failure(&code, &err["ids"], &checked)));
-        }
         let filter = TableFilter {
             rows: a.rows.unwrap_or_default(),
             from_year: a.from_year,
@@ -1074,6 +1163,305 @@ impl LifeplanMcp {
         }
         log(tool, t, "ok");
         Ok(text(&v))
+    }
+
+    #[tool(
+        description = "1回の呼び出しで、基本と最大8通りを計算して並べる（比べる道具）。「対策を3つ並べて」「この世帯とこの世帯を比べて」「物価0%・1%・2%で並べて」のときに、calculate を何度も呼ぶ代わりに使う。基本の世帯は calculate と同じく見本の世帯（sample_household_id）・FPが渡した世帯（share_id。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る）・AIが組み立てた入力（input）のどれか1つで、changes・plan_changes・stress_test も当てられる。variants の通りごとに、世帯を書かなければ基本に重ね（基本の変更の上に、その通りの plan_changes〔list_plan_items の target・item・value〕・changes・stress_test を当てる）、sample_household_id・share_id・input を書けばその世帯で計算する（別の見本の世帯・別の渡された世帯どうしも並べられる）。返すのは通りごとの主な数字 keyFigures（calculate と同じ。アプリの「プランを比べる」と同じ数え方: at_ages の年齢の時点の金融資産・資産が尽きる年・金融資産がいちばん少ない年と額・生涯の手取りと支出の合計・住宅ローンの返済の合計）、基本との差 diff、選んだ数字（series。既定は金融資産）の年ごとの系列（every_years。既定5年ごと、家族の年齢つき）、当てたプランの変更だけ。形の違う通り・当てはまらない変更・計算できない通り・9通り目から後は、その通りだけ理由を返し、ほかは計算する。計算は calculate と同じ道（画面と同じ計算の前の処理を含む）。世帯のデータそのものは変えない。",
+        annotations(
+            title = "比べる",
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    async fn compare(
+        &self,
+        Parameters(a): Parameters<CompareArgs>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let t = Instant::now();
+        let tool = "compare";
+        let series: Vec<String> = a.series.clone().unwrap_or_else(|| {
+            compare::DEFAULT_SERIES
+                .iter()
+                .map(|s| (*s).to_owned())
+                .collect()
+        });
+        let mut omit: Vec<String> = compare::OMIT.iter().map(|s| (*s).to_owned()).collect();
+        if a.ages == Some(false) {
+            omit.push("ages".to_owned());
+        }
+        let opts = match answer::Options::new(
+            Some(a.every_years.unwrap_or(compare::DEFAULT_EVERY_YEARS)),
+            Some(&series),
+            Some(&omit),
+            a.at_ages.as_deref(),
+        ) {
+            Ok(o) => o,
+            Err(msg) => {
+                log(tool, t, "INVALID");
+                return Ok(fail(msg.replace("fields", "series")));
+            }
+        };
+        if a.variants.is_empty() {
+            log(tool, t, "INVALID");
+            return Ok(fail(format!(
+                "variants に、基本と並べる通りを1〜{}通り書いてください。",
+                compare::MAX_VARIANTS
+            )));
+        }
+        let base_spec = VariantArgs {
+            label: Some(a.label.clone().unwrap_or_else(|| "基本".to_owned())),
+            sample_household_id: a.sample_household_id.clone(),
+            share_id: a.share_id.clone(),
+            input: a.input.clone(),
+            changes: a.changes.clone(),
+            plan_changes: a.plan_changes.clone(),
+            stress_test: a.stress_test.clone(),
+        };
+        // 通りの形を確かめる（形の違う通り・上限を超えた通りは、その通りだけ理由を返す）
+        let specs: Vec<Result<VariantArgs, String>> = a
+            .variants
+            .iter()
+            .enumerate()
+            .map(|(i, v)| {
+                if i >= compare::MAX_VARIANTS {
+                    return Err(format!(
+                        "通りは基本のほかに{}通りまでです。この通りは計算していません（分けて呼んでください）。",
+                        compare::MAX_VARIANTS
+                    ));
+                }
+                let mut s: VariantArgs = serde_json::from_value(v.clone()).map_err(|e| {
+                    format!("通りの形が違います（{e}）。通りに書けるのは label・sample_household_id・share_id・input・changes・plan_changes・stress_test です。")
+                })?;
+                if s.households() > 1 {
+                    return Err("通りの世帯は sample_household_id・share_id・input のどれか1つにしてください（書かなければ基本に重ねます）。".to_owned());
+                }
+                s.label.get_or_insert_with(|| format!("通り{}", i + 1));
+                Ok(s)
+            })
+            .collect();
+
+        // 世帯を読む（渡された世帯は calculate と同じくアプリ本体に頼み、同意・期限・縮約・記録を通す。同じ世帯は1回だけ読む）
+        type Household = Result<(Value, Value, Value), String>;
+        let mut cache: Vec<(String, Household)> = Vec::new();
+        let mut fetch = async |s: &VariantArgs| -> Household {
+            let key = if let Some(id) = &s.sample_household_id {
+                Some(format!("sample:{id}"))
+            } else {
+                s.share_id.as_ref().map(|id| format!("share:{id}"))
+            };
+            if let Some(k) = &key {
+                if let Some((_, h)) = cache.iter().find(|(c, _)| c == k) {
+                    return h.clone();
+                }
+            }
+            let h = base_input(
+                &ctx,
+                tool,
+                s.sample_household_id.as_ref(),
+                s.share_id.as_ref(),
+                s.input.as_ref(),
+            )
+            .await
+            .map_err(|(msg, _)| msg);
+            if let Some(k) = key {
+                cache.push((k, h.clone()));
+            }
+            h
+        };
+        let base_household = fetch(&base_spec).await;
+        let mut jobs: Vec<Option<Job>> = Vec::new();
+        // 通りごと: (名前, 出どころ, ストレステスト, 計算の前の理由)
+        let mut rows: Vec<(Value, Value, Value, Option<String>)> = Vec::new();
+        let all: Vec<(Result<VariantArgs, String>, bool)> =
+            std::iter::once((Ok(base_spec.clone()), true))
+                .chain(specs.into_iter().map(|s| (s, false)))
+                .collect();
+        for (n, (spec, is_base)) in all.into_iter().enumerate() {
+            // 形の違う通りでも、名前が読めれば名前を添える
+            let raw_label = n
+                .checked_sub(1)
+                .and_then(|i| a.variants.get(i))
+                .and_then(|v| v.get("label"))
+                .filter(|l| l.is_string())
+                .cloned()
+                .unwrap_or(Value::Null);
+            let s = match spec {
+                Ok(s) => s,
+                Err(reason) => {
+                    rows.push((raw_label, Value::Null, Value::Null, Some(reason)));
+                    jobs.push(None);
+                    continue;
+                }
+            };
+            let on_base = !is_base && s.households() == 0;
+            let (household, changes, plan_changes, stress, sample) = if on_base {
+                (
+                    base_household.clone().map_err(|e| {
+                        format!(
+                            "基本の世帯を読めないため、基本に重ねる通りも計算していません（{e}）"
+                        )
+                    }),
+                    compare::joined(base_spec.changes.as_deref(), s.changes.as_deref()),
+                    compare::joined(base_spec.plan_changes.as_deref(), s.plan_changes.as_deref()),
+                    s.stress_test
+                        .clone()
+                        .or_else(|| base_spec.stress_test.clone()),
+                    base_spec.sample_household_id.clone(),
+                )
+            } else {
+                (
+                    if is_base {
+                        base_household.clone()
+                    } else {
+                        fetch(&s).await
+                    },
+                    s.changes.clone().unwrap_or_default(),
+                    s.plan_changes.clone().unwrap_or_default(),
+                    s.stress_test.clone(),
+                    s.sample_household_id.clone(),
+                )
+            };
+            let label = json!(s.label);
+            let from = compare::source_of(&s, on_base);
+            let stress_v = stress.as_ref().map_or(Value::Null, |x| json!(x));
+            let prepared = household.and_then(|(base, office, post)| {
+                plan::check_count(Some(&plan_changes))?;
+                let input = with_changes(&base, Some(&changes), stress.as_ref())?;
+                Ok(Job {
+                    input,
+                    plan_changes,
+                    sample,
+                    office,
+                    post,
+                })
+            });
+            match prepared {
+                Ok(j) => {
+                    rows.push((label, from, stress_v, None));
+                    jobs.push(Some(j));
+                }
+                Err(reason) => {
+                    rows.push((label, from, stress_v, Some(reason)));
+                    jobs.push(None);
+                }
+            }
+        }
+
+        let opts_run = opts.clone();
+        let computed =
+            match tokio::task::spawn_blocking(move || compute_all(&jobs, &opts_run)).await {
+                Ok(v) => v,
+                Err(_) => {
+                    log(tool, t, "E_HOST");
+                    return Ok(fail("計算エンジンを動かせませんでした。"));
+                }
+            };
+
+        // 答え: 通りごとの主な数字・基本との差・系列
+        let mut results: Vec<Value> = Vec::new();
+        let mut base_figures = Value::Null;
+        let mut done = 0usize;
+        for (i, ((label, from, stress, reason), got)) in rows.into_iter().zip(computed).enumerate()
+        {
+            let key = if i == 0 {
+                "base".to_owned()
+            } else {
+                format!("v{i}")
+            };
+            let mut r = Map::new();
+            r.insert("key".into(), json!(key));
+            if !label.is_null() {
+                r.insert("label".into(), label);
+            }
+            if !from.is_null() {
+                r.insert("from".into(), from);
+            }
+            if !stress.is_null() {
+                r.insert("stressTest".into(), stress);
+            }
+            let c = match (reason, got) {
+                (Some(reason), _) | (None, Some(Err((reason, _)))) => {
+                    r.insert("status".into(), json!("error"));
+                    // 当てはまらないプランの変更は、理由の文と変更ごとの当てはめに分ける
+                    match serde_json::from_str::<Value>(&reason) {
+                        Ok(Value::Object(mut o)) if o.contains_key("message") => {
+                            r.insert("reason".into(), o["message"].take());
+                            if let Some(rows) = o.remove("planChanges") {
+                                r.insert("planChanges".into(), rows);
+                            }
+                        }
+                        _ => {
+                            r.insert("reason".into(), json!(reason));
+                        }
+                    }
+                    results.push(Value::Object(r));
+                    continue;
+                }
+                (None, Some(Ok(c))) => c,
+                (None, None) => {
+                    r.insert("status".into(), json!("error"));
+                    r.insert("reason".into(), json!("計算エンジンを動かせませんでした。"));
+                    results.push(Value::Object(r));
+                    continue;
+                }
+            };
+            done += 1;
+            // 系列は、主な数字と同じく画面の表に出す年から（計算基準月が年の途中なら、計算の最初の年は表に出ない）
+            let shown_from = c.summary["keyFigures"]["years"]["from"].as_i64();
+            let filter = TableFilter {
+                rows: Vec::new(),
+                from_year: match (a.from_year, shown_from) {
+                    (Some(x), Some(y)) => Some(x.max(y)),
+                    (x, y) => x.or(y),
+                },
+                to_year: a.to_year,
+            };
+            let mut shaped = calc::shape(&c.out, OutputMode::Summary, &filter);
+            answer::finish(&mut shaped, &c.out, &c.summary, OutputMode::Summary, &opts);
+            r.insert("status".into(), json!("ok"));
+            let plan_rows = compare::plan_rows(&c.rows);
+            if !plan_rows.is_null() {
+                r.insert("planChanges".into(), plan_rows);
+            }
+            if let Some(mut p) = preparation(&c.applied, false) {
+                if let Some(o) = p.as_object_mut() {
+                    o.remove("note");
+                }
+                r.insert("preparation".into(), p);
+            }
+            let kf = shaped["keyFigures"].take();
+            if i == 0 {
+                base_figures = kf.clone();
+            } else if base_figures.is_object() {
+                r.insert("diff".into(), compare::diff(&kf, &base_figures));
+            }
+            r.insert("keyFigures".into(), kf);
+            if shaped.get("members").is_some() {
+                r.insert("members".into(), shaped["members"].take());
+            }
+            r.insert("series".into(), shaped["years"].take());
+            results.push(Value::Object(r));
+        }
+        let mut v = json!({
+            "note": compare::NOTE,
+            "unit": "円（年額・年末の残高）",
+            "series": series,
+            "everyYears": a.every_years.unwrap_or(compare::DEFAULT_EVERY_YEARS),
+            "computed": done,
+            "results": results,
+        });
+        if results_have_preparation(&v) {
+            v["preparationNote"] = json!(PREPARATION_NOTE);
+        }
+        log(tool, t, if done == 0 { "INVALID" } else { "ok" });
+        Ok(if done == 0 {
+            CallToolResult::error(vec![ContentBlock::text(v.to_string())])
+        } else {
+            text(&v)
+        })
     }
 
     #[tool(
