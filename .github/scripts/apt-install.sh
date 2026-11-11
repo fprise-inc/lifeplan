@@ -3,14 +3,15 @@
 # 使い方: .github/scripts/apt-install.sh 包み...
 #
 # 実行機から Ubuntu の置き場（azure.archive.ubuntu.com・archive.ubuntu.com・security.ubuntu.com）の名前が
-# 引けなくなると、apt-get は包みごとに3つの置き場で20秒ずつ待ち、install が2時間近く止まる（2026-11-11 に起きた。
+# 引けなくなると、apt-get update は警告だけで成功を返し、古い索引のまま install に進む。install は包みごとに
+# 3つの置き場で20秒ずつ待って2時間近く止まるか、古い索引の版が置き場に無く 404 で落ちる（2026-11-11 に起きた。
 # 同じ実行機から packages.microsoft.com や npm・GitHub は引けていた）。その手当て:
 # - 先に置き場の名前が引けるかを確かめ、引けなければ公開の DNS を足して引き直す
 #   （包みの中身は apt が置き場の署名で確かめるので、名前の引き先を変えても入る物は変わらない）
-# - 取得の時間切れと再試行を付け、1回目は索引が1つでも取れなければ update を失敗にする
-#   （取れない索引のまま install に進み、取れない包みを1つずつ待つことをしない）
-# - 1回の試しの update・install に時間の上限を付け、落ちたら1回だけやり直す。2回目は前と同じく、
-#   取れない索引があっても先に進む（Ubuntu の外の置き場だけが一時的に落ちているときに止めない）
+# - update と install は Ubuntu の置き場だけを使う（実行環境が足している別の置き場の索引は要らず、
+#   そこが落ちていても止めない）。Ubuntu の置き場の設定が見つからなければ、すべての置き場を使う
+# - update は索引が1つでも取れなければ失敗にする（--error-on=any）。古い索引のまま install に進まない
+# - 取得の時間切れと再試行を付け、1回の試しの update・install に時間の上限を付けて、落ちたら1回だけやり直す
 # 手順の側でも timeout-minutes を付ける（この手順が止まっても、ジョブを長く待たせない）
 set -uo pipefail
 
@@ -26,6 +27,29 @@ apt_opts=(
   -o Acquire::https::Timeout=30
   -o DPkg::Lock::Timeout=60
 )
+
+# Ubuntu の置き場の設定（ubuntu.com か、実行環境の置き場の一覧 apt-mirrors.txt を指すもの）だけを集めた置き場の設定
+src_dir=$(mktemp -d)
+n=0
+for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+  [ -f "$f" ] || continue
+  if /usr/bin/grep -Eqs '^[^#]*(ubuntu\.com|apt-mirrors\.txt)' "$f"; then
+    base=$(basename "$f")
+    [ "$base" = sources.list ] && base=ubuntu-main.list
+    cp "$f" "$src_dir/$base"
+    echo "使う置き場の設定: $f"
+    n=$((n + 1))
+  else
+    echo "使わない置き場の設定: $f"
+  fi
+done
+if [ "$n" -gt 0 ]; then
+  empty_list=$(mktemp --suffix=.list)
+  apt_opts+=(-o "Dir::Etc::SourceList=$empty_list" -o "Dir::Etc::SourceParts=$src_dir")
+else
+  echo "::warning::Ubuntu の置き場の設定が見つからないため、すべての置き場を使う"
+fi
+[ -f /etc/apt/apt-mirrors.txt ] && echo "置き場の一覧（/etc/apt/apt-mirrors.txt）:" && sed 's/^/  /' /etc/apt/apt-mirrors.txt
 
 resolves_all() {
   local h ok=0
@@ -55,20 +79,21 @@ fi
 
 for attempt in 1 2; do
   echo "::group::apt の試し ${attempt}/2"
-  update_opts=(--error-on=any)
   if [ "$attempt" -gt 1 ]; then
-    update_opts=()
     # 前の試しが install の途中で時間切れになったときのため、途中の設定を済ませておく
     sudo dpkg --configure -a || true
   fi
-  if sudo timeout --kill-after=10 90 apt-get update "${update_opts[@]}" "${apt_opts[@]}" \
-    && sudo timeout --kill-after=10 180 apt-get install -y --no-install-recommends "${apt_opts[@]}" "$@"; then
+  if ! sudo timeout --kill-after=10 90 apt-get update --error-on=any "${apt_opts[@]}"; then
+    echo "::endgroup::"
+    echo "::warning::apt の試し ${attempt}/2: update が失敗した（索引が取れない・時間切れ）"
+  elif ! sudo timeout --kill-after=10 180 apt-get install -y --no-install-recommends "${apt_opts[@]}" "$@"; then
+    echo "::endgroup::"
+    echo "::warning::apt の試し ${attempt}/2: install が失敗した（包みが取れない・時間切れ）"
+  else
     echo "::endgroup::"
     exit 0
   fi
-  echo "::endgroup::"
-  echo "::warning::apt の試し ${attempt}/2 が失敗した（時間切れを含む）"
-  [ "$attempt" -lt 2 ] && sleep 10
+  [ "$attempt" -lt 2 ] && sleep 15
 done
 
 echo "::error::apt で包みを入れられなかった: $*"
