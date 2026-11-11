@@ -20,18 +20,32 @@ const birthOf = (m: Member): string | undefined => (m.birth as Member["birth"] |
 function outsideBase(m: Member): string {
   if (m.kind === "parent") return m.sex === "female" ? "お母さま" : m.sex === "male" ? "お父さま" : "親御さま";
   if (m.kind === "grandparent") return m.sex === "female" ? "おばあさま" : m.sex === "male" ? "おじいさま" : "祖父母さま";
+  if (m.kind === "sibling") return "ご兄弟姉妹";
+  if (m.kind === "grandchild") return "お孫さん";
   return "ご家族";
 }
 
-/** 世帯の外の家族の呼び方（例: お母さま）。同じ呼び方の世帯の外の家族が2人以上いれば、誰の家族かを前に付ける（例: 配偶者のお母さま） */
+/**
+ * 世帯の外の家族の呼び方（例: お母さま）。同じ呼び方の世帯の外の家族が2人以上いれば、誰の家族かを前に付ける（例: 配偶者のお母さま）。
+ * それでも見分けられない人（同じ人の家族で同じ呼び方）は、足した順に番号を付ける（例: ご兄弟姉妹1・ご兄弟姉妹2、ご本人のお孫さん1。
+ * 誰の家族かで見分けられる人がいなければ、前には付けない）。入力の画面の「孫1」「兄弟姉妹1」（labels.ts）と同じ決まり（0060 の追記）
+ */
 export function outsideName(req: EngineRequest, m: Member): string {
   // 世帯の外の子は呼び方（離れて暮らす子・離れて暮らす子1 …。roles.ts）のまま
   if (m.kind === "child") return roles(req).find((r) => r.member.id === m.id)?.label ?? "離れて暮らす子";
   const base = outsideBase(m);
-  const same = req.input.household.members.filter((x) => x.outside !== undefined && outsideBase(x) === base);
+  const same = req.input.household.members.filter((x) => x.outside !== undefined && x.kind !== "child" && outsideBase(x) === base);
   if (same.length < 2) return base;
-  const of = roles(req).find((r) => r.member.id === m.outside?.of);
-  return of !== undefined && (of.key === "self" || of.key === "spouse") ? `${of.label}の${base}` : base;
+  const rs = roles(req);
+  const ofLabel = (x: Member): string | null => {
+    const of = rs.find((r) => r.member.id === x.outside?.of);
+    return of !== undefined && (of.key === "self" || of.key === "spouse") ? of.label : null;
+  };
+  const mine = ofLabel(m);
+  const prefixed = new Set(same.map(ofLabel)).size > 1;
+  const group = prefixed ? same.filter((x) => ofLabel(x) === mine) : same;
+  const name = prefixed && mine !== null ? `${mine}の${base}` : base;
+  return group.length < 2 ? name : `${name}${String(group.findIndex((x) => x.id === m.id) + 1)}`;
 }
 
 /** 世帯の外の家族の収入の行の説明 */

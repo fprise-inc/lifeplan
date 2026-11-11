@@ -27,6 +27,7 @@ import { applyStateOp, availableOps, confirmAll, endedLongAgo, fieldAddress, fie
 import { fieldValueText } from "../plans/planEdit.ts";
 import { PRESET_HEAD } from "./household.ts";
 import { ageAt } from "../levers.ts";
+import { nameWithAge } from "../roles.ts";
 import { memberLabel } from "./labels.ts";
 import type { Household } from "../../engine/types.ts";
 
@@ -263,7 +264,7 @@ function withAge(text: string, f: FieldDef, wh: WorkingHousehold, holder: string
   const at = typeof v === "string" ? v : typeof v === "object" && v !== null && typeof (v as { at?: unknown }).at === "string" ? (v as { at: string }).at : null;
   const m = holder === null ? undefined : wh.request.input.household.members.find((x) => x.id === holder);
   if (m === undefined || at === null || !/^\d{4}-\d{2}$/.test(at) || (m.birth as { birthYearMonth?: string } | undefined)?.birthYearMonth === undefined) return shown;
-  return `${shown}（${memberLabel(wh, m.id)}${ageAt(m, at)}歳）`;
+  return `${shown}（${nameWithAge(memberLabel(wh, m.id), ageAt(m, at))}）`;
 }
 
 /** 入っていない物の無い、まだ入れていない項目の1行（開くだけ） */

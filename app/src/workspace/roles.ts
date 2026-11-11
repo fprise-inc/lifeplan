@@ -40,6 +40,12 @@ function rolesOf(req: EngineRequest): Omit<Role, "leaves" | "joins">[] {
   return out;
 }
 
+/**
+ * 呼び方と年齢の文（例: 「ご本人45歳」）。呼び方が番号で終わる人（離れて暮らす子1・孫1・ご兄弟姉妹1 …）は、
+ * 番号と年齢が続いて読めない（「孫130歳」）ので、間を空ける（「孫1 30歳」）
+ */
+export const nameWithAge = (name: string, age: number): string => `${name}${/\d$/.test(name) ? " " : ""}${String(age)}歳`;
+
 /** 各年12月末時点の年齢 */
 export function ageInYear(m: Member, year: number): number {
   return year - parseYm(m.birth.birthYearMonth).y;
