@@ -66,8 +66,8 @@ args = ["mcp"]
 
 | 群 | 道具 | 使える条件 |
 |---|---|---|
-| 単体で使える | `list_sample_households`（架空の見本の世帯の一覧）・`get_sample_household`（見本の世帯の計算の入力）・`calculate`（見本の世帯・渡された世帯・AIが組み立てた入力に、プランや想定の変更を当てて計算）・`list_plan_items`（その世帯で、画面の結果のタブのプランで動かせる項目を、対象・入力項目ID・今の値・範囲で。0195）・`compare`（基本と最大8通りを1回で計算し、主な数字・基本との差・選んだ数字の系列を並べる。0198）・`explain_value`（キャッシュフロー表の1つの数字の根拠。画面の「数字の根拠」と同じ中身に制度の値ID を添える）・`get_regulation_value`（制度の値を値・適用期間・出典つきで）・`search_coverage`・`get_coverage`（何をどう計算しているか〔入っている・近似している・まだ入っていない〕を、同梱した対応範囲の一覧〔`docs/coverage/`〕から探す。0183）・`get_input_guide`（計算の入力の形の案内: 形の決まり・区分ごとの欄・必須・選べる値・例・計算できる最小の入力の例。0196）・`get_input_recipe`（家を買う・子が生まれる・退職・繰上返済・NISA と iDeCo・万一の想定の手本を、世帯に合わせた changes で。0196） | いつでも（アプリが起動していなくてよい。`list_plan_items`・`get_input_recipe`・`compare` の `share_id` は下の「世帯を扱う」と同じ条件） |
-| 世帯を扱う | `list_shared_households`・`get_shared_household`・`propose_scenario`（プランの候補を承認待ちで出す）・`propose_inputs`（保険の書類から読んだ値を、現状の入力の候補として承認待ちで出す）、`calculate`・`explain_value`・`list_plan_items`・`compare` の `share_id` | アプリが起動していて、FPが「この世帯をAIに渡す」で渡した世帯が期限内で取り消されていないときだけ |
+| 単体で使える | `list_sample_households`（架空の見本の世帯の一覧）・`get_sample_household`（見本の世帯の計算の入力）・`calculate`（見本の世帯・渡された世帯・AIが組み立てた入力に、プランや想定の変更を当てて計算）・`list_plan_items`（その世帯で、画面の結果のタブのプランで動かせる項目を、対象・入力項目ID・今の値・範囲で。0195）・`compare`（基本と最大8通りを1回で計算し、主な数字・基本との差・選んだ数字の系列を並べる。0198）・`sweep`（1つの動かす項目を範囲で振り、値ごとの主な数字を1つの表で返す。0202）・`find_threshold`（「最後まで足りる生活費の上限」「いちばん早い退職の年齢」のような、主な数字の条件を満たす境目を接続口の中で探す。0202）・`explain_value`（キャッシュフロー表の1つの数字の根拠。画面の「数字の根拠」と同じ中身に制度の値ID を添える）・`get_regulation_value`（制度の値を値・適用期間・出典つきで）・`search_coverage`・`get_coverage`（何をどう計算しているか〔入っている・近似している・まだ入っていない〕を、同梱した対応範囲の一覧〔`docs/coverage/`〕から探す。0183）・`get_input_guide`（計算の入力の形の案内: 形の決まり・区分ごとの欄・必須・選べる値・例・計算できる最小の入力の例。0196）・`get_input_recipe`（家を買う・子が生まれる・退職・繰上返済・NISA と iDeCo・万一の想定の手本を、世帯に合わせた changes で。0196） | いつでも（アプリが起動していなくてよい。`list_plan_items`・`get_input_recipe`・`compare`・`sweep`・`find_threshold` の `share_id` は下の「世帯を扱う」と同じ条件） |
+| 世帯を扱う | `list_shared_households`・`get_shared_household`・`propose_scenario`（プランの候補を承認待ちで出す）・`propose_inputs`（保険の書類から読んだ値を、現状の入力の候補として承認待ちで出す）、`calculate`・`explain_value`・`list_plan_items`・`compare`・`sweep`・`find_threshold` の `share_id` | アプリが起動していて、FPが「この世帯をAIに渡す」で渡した世帯が期限内で取り消されていないときだけ |
 | 設定の候補を出す | `propose_feature_code`（FPが渡した「機能を有効にするコード」を、アプリの画面に承認待ちの候補として出す。コードは入らない） | アプリが起動していて、AI接続口がオンのときだけ（世帯を渡していなくてよい） |
 
 道具の名前と入出力は試験版です（予告して変えることがあります。0001・0015）。
@@ -78,6 +78,8 @@ args = ["mcp"]
 - 「salariedCoupleTwoKids で、物価上昇率を 1% にしたら老後の金融資産はどう変わる？」
 - 「salariedCoupleTwoKids で、働く最後の年齢を 60〜65歳で振ったら、金融資産がいちばん少ない年はどう変わる？」（`list_plan_items` → `calculate` の `plan_changes`）
 - 「salariedCoupleTwoKids で、働く最後の年齢を63歳にする・生活費を月25万円にする・NISA を月3万円にする、の3つを並べて」「dualNoKids と salariedCoupleTwoKids と single25 を比べて」（`compare`）
+- 「salariedCoupleTwoKids で、働く最後の年齢を60〜70歳で1歳ずつ変えたら、95歳の時点の資産と資産が尽きる年はどうなる？」（`sweep`）
+- 「salariedCoupleTwoKids で、生活費は月いくらまでなら最後まで足りる？」「何歳まで働けば足りる？」（`find_threshold`）
 - 「所得税の基礎控除の今の額と出典は？」
 - 「salariedCoupleTwoKids の2030年の税・社会保険料は、どんな計算で出ている？」（`explain_value`）
 - 「ファイナンシアに高額療養費は入っている？ iDeCo の受け取り方はどう計算している？」（`search_coverage`・`get_coverage`）
@@ -132,6 +134,18 @@ args = ["mcp"]
 - 形の違う通り・当てはまらない変更・読めない共有・計算できない入力・9通り目から後は、その通りだけ `status: "error"` と理由 `reason` を返し、ほかの通りは計算します。
 - 1通りの計算は `calculate` と同じ道（プランの変更 → 計算の前の処理 → 計算 → 主な数字）です。渡された世帯は `calculate` と同じくアプリ本体に頼み、読むたびに道具の名前 `compare` で「AIに渡した記録」に残ります（1回の呼び出しで同じ世帯は1回だけ読みます）。
 - 大きさと時間の目安（見本の世帯）: 基本＋3通りで約 9KB・0.7 秒、基本＋8通りで約 19KB・約 1.8 秒（年金の見込みを含む。0200）。`ages: false` で年齢を省くと1通り約 0.7KB 小さくなります。
+
+### 感度と境目探し（0202）
+
+「何歳まで働けば足りる？」「生活費は月いくらまでなら使える？」「退職を60〜70歳で1歳ずつ変えたら？」のように、1つの項目を動かして答えを探すときは、`calculate` を何度も呼ばず、次の2つを使います。どちらも、振る項目を `list_plan_items` の `target`・`item`（`plan_changes` の1件から `value` を外した物）で `vary` に書き、値ごとの計算は `calculate` に `plan_changes` でその値を渡したときと同じです（画面のプランと同じ関数で当てるので、働く最後の年齢なら生活費の退職の段階・積立の終わりも一緒に動きます）。基本の世帯の書き方・`changes`・`plan_changes`・`stress_test`・`market_stress` は `compare` の基本と同じで、振る値は基本の変更の後に当てます。渡された世帯は1回の呼び出しで1回だけ読み、道具の名前（`sweep`・`find_threshold`）で「AIに渡した記録」に残ります。
+
+- **`sweep`（感度）**: `from`・`to`・`step` か `values` で値を並べます（21個まで。超えれば計算せず、収まる刻みの目安を返します）。値の形は項目の `kind` に合わせます: 年齢・整数・金額は整数、率は10進の文字列（`"0.01"`）。`step` を省くと、年齢は1歳、金額・率は画面のスライダーの刻みです。配偶者の働き方と年収（`kind` が `work`）は、今の働き方（か `work_type`）のまま1年の収入を振ります。答えは `columns`（列の名前）と `rows`（値ごとの主な数字）の表です。列は `value`・`assetsAt95`（`at_ages` の年齢の時点の金融資産）・`depletionYear`・`depletionAge`・`minimumYear`・`minimumAmount`・`lifetimeTakeHome`・`lifetimeExpense`・`loanRepayment`・`pensionMonthly`・`pensionClaimedMonthly` で、`figures` で選べます（`pension` を省くと年金の見込みの計算をしないので速くなります）。項目の範囲の外の値（例: 働く最後の年齢の45歳）は計算せず、`notComputed` に値と理由を返します。
+- **`find_threshold`（境目探し）**: `from`・`to`・`step`（答えの細かさ）で探す範囲、`condition` で条件、`want` で `max`（満たす、いちばん大きい値。例: 生活費の上限）か `min`（いちばん小さい値。例: いちばん早い退職の年齢・足りる最低の利回り）を書きます。条件は `noDepletion`（資産が最後まで尽きない）・`assetsAtAge`（本人が `age` 歳の時点の金融資産が `at_least` 円以上）・`minimumAtLeast`（金融資産がいちばん少ない年でも `at_least` 円以上）です。
+  - 探し方: 動かすと主な数字が一方向にだけ動くと分かっている項目（毎月の生活費・働く最後の年齢・運用の利回り）は二分探索（範囲の両端を計算し、間を半分ずつ狭める。2,001個の刻みまで）、ほかの項目（年金の受け取り開始・NISA の積立・繰上返済・配偶者の年収など）は刻みで振って、欲しい端から4つずつ確かめます（21個まで）。どちらにしたかと理由が `method`・`methodNote` に出ます。`method` で `bisect`・`scan` を選ぶこともできます。
+  - 答え: `status`（`found`＝範囲の中に境目がある・`edge`＝範囲の端の値でも満たす〔境目は範囲の外かもしれないので、範囲を広げて探し直す〕・`notFound`＝範囲の中に満たす値が無い）・`threshold`（境目の値）・`message`（境目の文）・`rows`（境目の値とその1つ外側の値、`notFound` なら範囲の両端の主な数字。`sweep` と同じ列に、条件を満たすかの `meets`）・`computed`（計算した回数）。探す間は年金の見込みを数えず、答えの行だけ数え直します。範囲の端が項目の範囲の外なら、計算せずに理由を返します。
+- 大きさと時間の目安（見本の世帯 `salariedCoupleTwoKids`。リリースのビルド・ほかの作業と同時に動いている10コアの手元の機械）: 働く最後の年齢を60〜70歳で振ると、`calculate` を11回（答え約152KB・約9〜11秒。主な数字だけでも約16KB）の代わりに `sweep` 1回（約1.5KB・約4秒。列を3つに絞ると約1KB）。生活費の上限を1,000円刻みで探す（15万〜40万円の251個）と、`find_threshold` 1回（10回計算・約1.4KB・約7秒）。
+
+頼み方の例: 「salariedCoupleTwoKids で、生活費は月いくらまでなら最後まで足りる？ 1,000円単位で」「何歳まで働けば、90歳の時点で1,000万円残る？」「配偶者の年収を100万〜160万円で10万円ずつ振って、生涯の手取りを表にして」
 
 ### プランの動かす項目（画面と同じ。0195）
 

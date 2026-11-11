@@ -1,0 +1,235 @@
+{
+  "$defs": {
+    "Change": {
+      "properties": {
+        "op": {
+          "description": "`replace`（今の値を置き換える）・`add`（物の項目を足す／配列に足す。末尾は `-`）・`remove`（消す）",
+          "type": "string"
+        },
+        "path": {
+          "description": "計算の入力（`input`）の中の場所（JSON Pointer。例: `/assumptions/inflation`、`/household/members/0/birth/birthYearMonth`）",
+          "type": "string"
+        },
+        "value": {
+          "default": null,
+          "description": "新しい値（`remove` では使わない）"
+        }
+      },
+      "required": [
+        "op",
+        "path"
+      ],
+      "type": "object"
+    },
+    "Condition": {
+      "additionalProperties": false,
+      "description": "境目探しの条件",
+      "properties": {
+        "age": {
+          "description": "assetsAtAge の本人の年齢（0〜120）",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "at_least": {
+          "description": "assetsAtAge・minimumAtLeast の金額（円。0 なら「マイナスにならない」）",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "type": {
+          "description": "条件の型: noDepletion（資産が最後まで尽きない）・assetsAtAge（本人が age 歳の時点の金融資産が at_least 円以上）・\nminimumAtLeast（金融資産がいちばん少ない年でも at_least 円以上）",
+          "enum": [
+            "noDepletion",
+            "assetsAtAge",
+            "minimumAtLeast"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "PlanChange": {
+      "description": "プランの候補と同じ書き方の変更1件（propose_scenario の changes の1件と同じ。理由 note は要らない）",
+      "properties": {
+        "item": {
+          "description": "入力項目 ID（list_plan_items の item。例: employment.to〔働く最後の年齢〕・pensionRecord.claim・livingExpense.monthly）",
+          "type": "string"
+        },
+        "target": {
+          "description": "対象: list_plan_items の target（世帯の物・構成員の ID か、前提条件なら \"assumptions\"）",
+          "type": "string"
+        },
+        "value": {
+          "description": "新しい値（list_plan_items の kind・unit の形。年齢は整数の歳、金額は円の整数、率は10進の文字列 \"0.02\"）"
+        }
+      },
+      "required": [
+        "target",
+        "item",
+        "value"
+      ],
+      "type": "object"
+    },
+    "Vary": {
+      "additionalProperties": false,
+      "description": "振る項目（plan_changes の1件から値を外した物。list_plan_items の target・item）",
+      "properties": {
+        "item": {
+          "description": "入力項目 ID（list_plan_items の item。例: employment.to〔働く最後の年齢〕・livingExpense.monthly〔毎月の生活費〕・\nassumptions.returnShifts〔運用の利回り〕・employment.type〔配偶者の働き方と年収。年収を振る〕）",
+          "type": "string"
+        },
+        "target": {
+          "description": "対象: list_plan_items の target（世帯の物・構成員の ID か、前提条件なら \"assumptions\"）",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target",
+        "item"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "changes": {
+      "description": "基本に当てる JSON Pointer の変更（calculate の changes と同じ）",
+      "items": {
+        "$ref": "#/$defs/Change"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "condition": {
+      "$ref": "#/$defs/Condition",
+      "description": "満たしたい条件（例: {\"type\": \"noDepletion\"}・{\"type\": \"assetsAtAge\", \"age\": 90, \"at_least\": 10000000}）"
+    },
+    "figures": {
+      "description": "表に入れる主な数字（sweep の figures と同じ。既定は全部）",
+      "items": {
+        "enum": [
+          "assetsAtAge",
+          "depletion",
+          "minimum",
+          "lifetimeTakeHome",
+          "lifetimeExpense",
+          "loanRepayment",
+          "pension"
+        ],
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "from": {
+      "description": "探す範囲の始め（含む。sweep の from と同じ形）"
+    },
+    "input": {
+      "description": "基本の世帯: AIが組み立てた計算の入力（calculate の input と同じ形）"
+    },
+    "market_stress": {
+      "description": "基本に重ねる、アプリの画面の「相場が下がった場合」の型（compare の market_stress と同じ。stress_test とは一緒に使えない）",
+      "enum": [
+        "drop",
+        "low",
+        "minus1",
+        null
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "method": {
+      "description": "探し方: auto（既定。単調と分かる項目は二分探索、ほかは刻みで振る）・bisect（二分探索。単調だと分かっているときだけ）・scan（刻みで振る。21個まで）",
+      "enum": [
+        "auto",
+        "bisect",
+        "scan",
+        null
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "plan_changes": {
+      "description": "基本で動かす画面のプランの動かす項目（calculate の plan_changes と同じ）。探す項目は、この後に当てる",
+      "items": {
+        "$ref": "#/$defs/PlanChange"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "sample_household_id": {
+      "description": "基本の世帯: 見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "share_id": {
+      "description": "基本の世帯: FPが渡した世帯の共有 ID（list_shared_households）。アプリが起動していて、共有が期限内のときだけ使える",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "step": {
+      "description": "刻み（答えの細かさ。正の数）。省くと、年齢・整数は1、金額・率は画面のスライダーの刻み"
+    },
+    "stress_test": {
+      "description": "基本のストレステストの型（calculate の stress_test と同じ）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "to": {
+      "description": "探す範囲の終わり（含む。from より大きい）"
+    },
+    "vary": {
+      "$ref": "#/$defs/Vary",
+      "description": "境目を探す項目（list_plan_items の target・item）"
+    },
+    "want": {
+      "description": "max（条件を満たす、いちばん大きい値。例: 生活費の上限）か min（条件を満たす、いちばん小さい値。例: いちばん早い退職の年齢・足りる最低の利回り）",
+      "enum": [
+        "max",
+        "min"
+      ],
+      "type": "string"
+    },
+    "work_type": {
+      "description": "kind が work の項目で、探す年収の働き方。省くと今の働き方",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "vary",
+    "from",
+    "to",
+    "condition",
+    "want"
+  ],
+  "type": "object"
+}
