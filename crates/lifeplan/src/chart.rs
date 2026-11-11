@@ -117,7 +117,7 @@ pub fn check(a: &ChartArgs) -> Result<(Vec<String>, Vec<String>, String, String)
 }
 
 /// エンジンのストレステストの型の文（エンジンの型の題。engine/src/engine/overlay.ts と同じ）
-fn stress_text(key: &str) -> &'static str {
+pub fn stress_text(key: &str) -> &'static str {
     match key {
         "marketDropAtRetirement" => "退職した年に資産の時価が下がる",
         "inflationSpike" => "インフレが一定期間だけ上振れする",

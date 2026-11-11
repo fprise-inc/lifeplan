@@ -131,6 +131,17 @@ pub fn chart(args: &str) -> Result<String, String> {
     run().map_err(|e| e.code().to_owned())
 }
 
+/// 年ごとの表（CSV・Markdown の文。画面の表と同じ年・年齢・数え方。app/src/connector/table.ts。0209）を、計算と同じ固めた新しい実行環境で作る。
+/// args は通りごとの名前・要求・表（table.rs が compare と同じ道で計算した答えから作る）。戻り値は JSON の文字（status・text・layout・rows・years・notes）
+pub fn table(args: &str) -> Result<String, String> {
+    let run = || -> Result<String, engine_host::HostError> {
+        let sandbox = Sandbox::new(&Limits::DEFAULT)?;
+        sandbox.eval_script(assets::EXPLAIN_JS)?;
+        sandbox.call_function("FinanciaExplain", "table", (args, "", ""))
+    };
+    run().map_err(|e| e.code().to_owned())
+}
+
 /// 年金の見込みの写しの要求（画面の比較の表の年金の行と同じ。app/src/connector/summary.ts の pensionRequests。0199）を、
 /// 計算と同じ固めた新しい実行環境で作る。request は計算の前の処理を当てる前の要求。戻り値は `{ std, claimed }` の JSON の文字
 pub fn pension_requests(request: &str) -> Result<String, String> {
