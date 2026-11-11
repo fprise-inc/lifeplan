@@ -83,6 +83,26 @@ pub fn list(
     serde_json::from_str(&out).map_err(|e| e.to_string())
 }
 
+/// 感度・境目探しの振る項目（plan_changes の1件から値を外した物）を、plan_changes と同じ当てはめで1つ選ぶ（画面の関数の pickPlanItem。0204。
+/// 重いので、呼ぶ側は spawn_blocking の中で）。pick は {target, item, at?, lever?}。戻り値は JS の答え
+/// （status が ok なら item に list_plan_items の1件と同じ形、rejected なら reason〔場所の要る項目に場所を書かなかったときは無い〕と places）
+pub fn pick(
+    request: &Value,
+    pick: &Value,
+    sample: Option<&str>,
+    office: &Value,
+    post: &Value,
+) -> Result<Value, String> {
+    let ctx = json!({ "args": args_json(sample, None, false, post), "office": office });
+    let out = engine::plan(
+        "pickPlanItem",
+        &request.to_string(),
+        &pick.to_string(),
+        &ctx.to_string(),
+    )?;
+    serde_json::from_str(&out).map_err(|e| e.to_string())
+}
+
 /// プランの変更を当てた結果
 pub enum Applied {
     /// 当てた要求と、変更ごとの当てはめ（label・from・to・status）

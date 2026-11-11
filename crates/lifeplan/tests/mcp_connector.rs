@@ -370,6 +370,7 @@ async fn prompts_list_and_expand() {
         "explain_to_client",
         "check_coverage",
         "chart_rate_paths",
+        "find_boundary",
     ] {
         assert!(names.contains(&n), "{n} がありません: {names:?}");
     }
@@ -461,6 +462,20 @@ async fn prompts_list_and_expand() {
                 "chart",
                 "お客さまの名前を書かない",
                 "金額を丸める",
+            ],
+        ),
+        (
+            "find_boundary",
+            json!({ "household": "salariedCoupleTwoKids", "question": "" }),
+            vec![
+                "salariedCoupleTwoKids",
+                "いちばん早い退職の年齢",
+                "list_plan_items",
+                "find_threshold",
+                "noDepletion",
+                "want",
+                "edge",
+                "sweep",
             ],
         ),
         (
@@ -3261,6 +3276,174 @@ async fn sweep_and_threshold_for_a_shared_household() {
     .await;
     assert!(err && msg.contains("REVOKED"), "{msg}");
     ep.shutdown();
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 一覧の1件の選び方（target・item と、添えてあれば場所 at か lever）
+fn plan_ref(x: &Value) -> Value {
+    let mut v = json!({ "target": x["target"], "item": x["item"] });
+    for k in ["at", "lever"] {
+        if !x[k].is_null() {
+            v[k] = x[k].clone();
+        }
+    }
+    v
+}
+
+/// 感度・境目探しで場所だけ違う項目を振る（0204）: vary に一覧の at・lever をそのまま書くと、値ごとの数字が calculate の plan_changes に
+/// 同じ場所で渡したときと同じ。場所の要る項目に場所を書かなければ、計算せずに選べる場所（list_plan_items と同じ at か lever・place・label）を返す
+#[tokio::test(flavor = "multi_thread")]
+async fn sweep_and_threshold_over_a_placed_item() {
+    let dir = temp_dir("sweep-at");
+    let (c, _) = connect(&dir).await;
+    let id = "salariedCoupleTwoKids";
+    let list = call_ok(
+        &c,
+        "list_plan_items",
+        json!({ "sample_household_id": id, "fields": true }),
+    )
+    .await;
+    let items = list["items"].as_array().unwrap();
+    let find = |f: &dyn Fn(&Value) -> bool| items.iter().find(|x| f(x)).cloned().unwrap();
+    // 資産運用の毎月の積立額（合成の対策 lever）・退職後の生活費の割合（入力の欄の場所 at）
+    let monthly = find(&|x| x["lever"] == "investMonthly");
+    let stop = find(&|x| x["lever"] == "investStopAge");
+    let ratio = find(&|x| {
+        x["item"] == "livingExpense.stages" && x["label"].as_str().unwrap().contains("退職後")
+    });
+    assert!(ratio["at"].is_array(), "{ratio}");
+
+    // 感度: 積立額を振る。値ごとに、同じ lever で calculate したときと同じ数字
+    let got = call_ok(
+        &c,
+        "sweep",
+        json!({ "sample_household_id": id, "vary": plan_ref(&monthly), "from": 10000, "to": 50000, "step": 20000, "at_ages": [90], "figures": ["assetsAtAge", "depletion"] }),
+    )
+    .await;
+    assert_eq!(got["computed"], 3, "{got}");
+    assert_eq!(got["vary"]["lever"], "investMonthly");
+    assert_eq!(got["vary"]["place"], monthly["place"]);
+    assert_eq!(got["vary"]["now"], monthly["value"]);
+    let cols = got["columns"].as_array().unwrap();
+    let rows = got["rows"].as_array().unwrap();
+    for (v, r) in [10000, 30000, 50000].into_iter().zip(rows) {
+        let mut change = plan_ref(&monthly);
+        change["value"] = json!(v);
+        let one = call_ok(
+            &c,
+            "calculate",
+            json!({ "sample_household_id": id, "plan_changes": [change], "omit": ["years", "pension"], "at_ages": [90] }),
+        )
+        .await;
+        assert_eq!(
+            r.as_array().unwrap(),
+            &figures_row(&json!(v), &one["keyFigures"], cols),
+            "{v}円"
+        );
+    }
+    assert_ne!(rows[0][1], rows[2][1], "積立額で数字が動く");
+
+    // 境目探し: 90歳の時点で、退職後の生活費の割合が 0.8 のときと同じだけ残る、いちばん高い割合（at で選ぶ。単調と分かっていないので刻みで振る）
+    let range = json!({ "from": "0.5", "to": "1", "step": "0.1" });
+    let mut a = json!({ "sample_household_id": id, "vary": plan_ref(&ratio), "at_ages": [90], "figures": ["assetsAtAge"] });
+    a.as_object_mut()
+        .unwrap()
+        .extend(range.as_object().unwrap().clone());
+    let table = call_ok(&c, "sweep", a).await;
+    let trows = table["rows"].as_array().unwrap();
+    assert_eq!(trows.len(), 6, "{table}");
+    let at_least = trows[3][1].as_i64().unwrap();
+    let mut a = json!({ "sample_household_id": id, "vary": plan_ref(&ratio), "want": "max",
+        "condition": { "type": "assetsAtAge", "age": 90, "at_least": at_least }, "figures": ["assetsAtAge"] });
+    a.as_object_mut()
+        .unwrap()
+        .extend(range.as_object().unwrap().clone());
+    let th = call_ok(&c, "find_threshold", a).await;
+    assert_eq!(th["method"], "scan", "{th}");
+    assert_eq!(th["vary"]["at"], ratio["at"]);
+    // 答えは感度の表の、欲しい端（大きい方）から見て初めて満たす値。その行は感度の表と同じ数字
+    let want = trows
+        .iter()
+        .rev()
+        .find(|r| r[1].as_i64().unwrap() >= at_least)
+        .unwrap();
+    assert_eq!(th["threshold"], want[0], "{th}");
+    let mut row = want.as_array().unwrap().clone();
+    row.push(json!(true));
+    assert_eq!(th["rows"][0], json!(row));
+    // 境目探しの lever の項目（積立をやめる年齢）も同じ書き方で探せる
+    let th = call_ok(
+        &c,
+        "find_threshold",
+        json!({ "sample_household_id": id, "vary": plan_ref(&stop), "from": 50, "to": 70, "step": 5, "want": "min",
+            "condition": { "type": "minimumAtLeast", "at_least": -1_000_000_000 }, "figures": ["minimum"] }),
+    )
+    .await;
+    assert_eq!(th["status"], "edge", "{th}");
+    assert_eq!(th["threshold"], 50);
+    assert_eq!(th["vary"]["lever"], "investStopAge");
+
+    // 場所の要る項目に場所を書かなければ、計算せずに選べる場所を返す（sweep・find_threshold とも）
+    let places: Vec<Value> = [&monthly, &stop]
+        .iter()
+        .map(|x| json!({ "lever": x["lever"], "place": x["place"], "label": x["label"] }))
+        .collect();
+    let bare = json!({ "target": monthly["target"], "item": monthly["item"] });
+    for (tool, more) in [
+        (
+            "sweep",
+            json!({ "from": 10000, "to": 30000, "step": 10000 }),
+        ),
+        (
+            "find_threshold",
+            json!({ "from": 10000, "to": 30000, "step": 10000, "want": "min", "condition": { "type": "noDepletion" } }),
+        ),
+    ] {
+        let mut a = json!({ "sample_household_id": id, "vary": bare });
+        a.as_object_mut()
+            .unwrap()
+            .extend(more.as_object().unwrap().clone());
+        let (err, msg) = call(&c, tool, a).await;
+        assert!(err, "{tool}: {msg}");
+        let v: Value = serde_json::from_str(&msg).unwrap();
+        let m = v["message"].as_str().unwrap();
+        for want in [
+            "at か lever",
+            "lever \"investMonthly\"",
+            "lever \"investStopAge\"",
+            "積立をやめる年齢",
+        ] {
+            assert!(m.contains(want), "{tool} {want}: {m}");
+        }
+        assert_eq!(v["places"], json!(places), "{tool}");
+    }
+    // 当てはまらない場所・両方の場所は、plan_changes と同じ理由（選べる場所も添える）
+    let mut wrong = bare.clone();
+    wrong["lever"] = json!("nope");
+    let (err, msg) = call(
+        &c,
+        "sweep",
+        json!({ "sample_household_id": id, "vary": wrong, "values": [10000] }),
+    )
+    .await;
+    assert!(
+        err && msg.contains("動かせない項目") && msg.contains("list_plan_items"),
+        "{msg}"
+    );
+    assert_eq!(
+        serde_json::from_str::<Value>(&msg).unwrap()["places"],
+        json!(places)
+    );
+    let mut both = plan_ref(&monthly);
+    both["at"] = json!([]);
+    let (err, msg) = call(
+        &c,
+        "sweep",
+        json!({ "sample_household_id": id, "vary": both, "values": [10000] }),
+    )
+    .await;
+    assert!(err && msg.contains("どちらか1つ"), "{msg}");
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);
 }
