@@ -85,6 +85,35 @@ describe("比べた答えのグラフ", () => {
     expect(draw({ ...args("assets"), kind: "pie" as never }).status).toBe("invalid");
   });
 
+  it("住宅ローンの利息の推移（万円）と金利の推移（%）（0204）", () => {
+    const withLoan = three.map((x, k) => ({
+      ...x,
+      series: x.series.map((p) => ({ ...p, ...(p.year <= 2050 ? { loanInterest: 150_000 + k * 50_000, loanRate: p.year < 2031 ? "0.0065" : k === 0 ? "0.0065" : k === 1 ? "0.011" : "0.016" } : {}) })),
+      keyFigures: { ...x.keyFigures, loanInterest: 3_000_000 + k * 1_000_000 },
+    }));
+    const i = draw({ ...args("interest"), variants: withLoan });
+    expect(i.status).toBe("ok");
+    expect(i.title).toBe("住宅ローンの利息の推移の比べ（年額）");
+    expect(texts(i.svg)).toContain("（万円）");
+    expect(texts(i.svg)).not.toContain("2055");
+    expect(texts(i.svg).some((x) => x.startsWith("単位は万円（年額。返済のうち利息に充てた額"))).toBe(true);
+    expect(i.alt).toContain("住宅ローンの利息の合計400万円");
+    const r = draw({ ...args("rate"), variants: withLoan });
+    expect(r.status).toBe("ok");
+    expect(texts(r.svg)).toContain("（%）");
+    // 縦の目盛りは % の数（0〜1.6% を 0.5% ごと）
+    expect(texts(r.svg)).toContain("0.5");
+    expect(texts(r.svg)).toContain("1.5");
+    expect([...r.svg.matchAll(/data-line="([A-Z])"/g)].map((m) => m[1])).toEqual(["A", "B", "C"]);
+    expect(texts(r.svg).some((x) => x.startsWith("単位は%"))).toBe(true);
+    // 棒の数字に利息の合計
+    const b = draw({ ...args("keyFigures", { figures: ["loanInterest"] }), variants: withLoan });
+    expect(texts(b.svg)).toContain("住宅ローンの利息の合計");
+    expect(texts(b.svg)).toContain("500");
+    // 金利が1つに決まらない（null の）通りしか無ければ描かない
+    expect(draw(args("rate")).status).toBe("invalid");
+  });
+
   it("名前・ID は受け取らないので描かない（通りの名前と数字と本人の年齢だけ）", () => {
     const out = draw(args("assets"));
     expect(out.svg).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/);

@@ -14,7 +14,8 @@ entries:
       最初の返済は借入の月の翌月です。ボーナス返済は借入額のその割合を、ボーナスの月（既定は6月・12月）の年2回の元利均等で返します。
       既に借りているローンは、残高の時点の返済の後の残高から計算します。ペアローンは2本のローンとして持ちます。返済は月ごとに計算して年に集計し、
       年末の残高を負債に載せます。借りる人が全員、借入の月より前に万一の想定で亡くなる予定のローンは組めないので、借入の額を借入の月に現金で払います。
-    keywords: [住宅ローン, 元利均等, 元金均等, ボーナス返済, ペアローン, 連帯債務, 毎月の返済額, ローン残高]
+      ローンごとに、年ごとの利息（返済のうち利息に充てた額）とその年の最後の返済の金利、表の期間の利息の合計も数えます（AI接続口の利息の合計・その年の金利）。
+    keywords: [住宅ローン, 元利均等, 元金均等, ボーナス返済, ペアローン, 連帯債務, 毎月の返済額, ローン残高, 利息, 利息の合計, 適用金利]
     items: [debt.principal, debt.start, debt.repayment, debt.balance, debt.balanceAsOf, debt.debtors, debt.pairWith, debt.kind]
     fields:
       - "「住まい・ローン」の入力項目の「＋ 住宅ローン」"
@@ -23,7 +24,7 @@ entries:
       - "「住まい・ローン」の入力項目の「今の残高」"
     rows: [cf.expense.housing.loan, cf.balance.debt.mortgage]
     components:
-      debt.schedule: 9
+      debt.schedule: 10
     related: [housing.variableRate, housing.prepayment, housing.creditLife, tax.housingLoanCredit]
 
   - id: housing.variableRate
@@ -52,7 +53,7 @@ entries:
       - housing.statistics.mortgageRate.fixedPeriod10
     rows: [cf.expense.housing.loan, cf.balance.debt.mortgage, cf.balance.debt.unpaidInterest]
     components:
-      debt.schedule: 9
+      debt.schedule: 10
     related: [housing.mortgageRepayment]
 
   - id: housing.prepayment
@@ -73,7 +74,7 @@ entries:
       - "「住まい・ローン」の入力項目の「借り換えの費用」"
     rows: [cf.expense.housing.loan.prepayment, cf.expense.housing.loan.fees]
     components:
-      debt.schedule: 9
+      debt.schedule: 10
     related: [housing.mortgageRepayment, housing.saleAndMove]
 
   - id: housing.creditLife
@@ -95,7 +96,7 @@ entries:
     rows: [cf.expense.housing.loan, cf.balance.debt.mortgage]
     components:
       debt.creditLifeEvents: 1
-      debt.schedule: 9
+      debt.schedule: 10
     related: [contingency.livingAfterDeath]
 
   - id: housing.propertyTax
@@ -201,7 +202,7 @@ entries:
     rows: [cf.balance.account.realEstate, cf.income.lumpSum.realEstateSale, cf.expense.housing.loan.prepayment]
     components:
       housing.valuation: 4
-      debt.schedule: 9
+      debt.schedule: 10
     related: [housing.saleTax, housing.prepayment]
 
   - id: housing.saleTax

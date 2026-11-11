@@ -3333,6 +3333,131 @@ fn change_of(it: &Value, value: Value) -> Value {
     c
 }
 
+/// 住宅ローンの利息の合計とその年の金利（0204）: 0203 の3通り（今のまま・10年で+1%・10年で+2%）で、主な数字の利息の合計が金利が上がるほど増え、
+/// 差が diff に出ること、年ごとの利息の合計が主な数字と同じこと、その年の金利が見込みの段（今 0.65%・5年後・10年後）と同じこと、
+/// 利息・金利のグラフが作れること。calculate の omit の loanInterest で省けること
+#[tokio::test(flavor = "multi_thread")]
+async fn loan_interest_and_rate_follow_the_rate_paths() {
+    let dir = temp_dir("loan-interest");
+    let (c, _) = connect(&dir).await;
+    let id = "salariedCoupleTwoKids";
+    let items = call_ok(&c, "list_plan_items", json!({ "sample_household_id": id })).await;
+    let outlook = items["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|it| it["kind"] == "rateOutlook")
+        .unwrap()
+        .clone();
+    let args = json!({
+        "sample_household_id": id, "label": "今のまま", "plan_changes": [change_of(&outlook, json!("flat"))],
+        "variants": [
+            { "label": "10年で+1%", "plan_changes": [change_of(&outlook, json!("up1"))] },
+            { "label": "10年で+2%", "plan_changes": [change_of(&outlook, json!("up2"))] },
+        ],
+    });
+    let mut cmp_args = args.clone();
+    cmp_args["series"] = json!(["loanRepayment", "loanInterest", "loanRate"]);
+    cmp_args["every_years"] = json!(1);
+    let cmp = call_ok(&c, "compare", cmp_args).await;
+    let results = cmp["results"].as_array().unwrap();
+    assert_eq!(cmp["computed"], 3, "{cmp}");
+    let interest = |i: usize| results[i]["keyFigures"]["loanInterest"].as_i64().unwrap();
+    assert!(
+        0 < interest(0) && interest(0) < interest(1) && interest(1) < interest(2),
+        "{cmp}"
+    );
+    for (i, r) in results.iter().enumerate().skip(1) {
+        assert_eq!(
+            r["diff"]["loanInterest"].as_i64().unwrap(),
+            interest(i) - interest(0)
+        );
+    }
+    let rate_in = |i: usize, y: i64| {
+        results[i]["series"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|x| x["year"] == y)
+            .map(|x| x["loanRate"].clone())
+            .unwrap_or(Value::Null)
+    };
+    for (i, r) in results.iter().enumerate() {
+        let series = r["series"].as_array().unwrap();
+        let sum: i64 = series
+            .iter()
+            .map(|y| y["loanInterest"].as_i64().unwrap())
+            .sum();
+        assert_eq!(sum, interest(i), "{}", r["label"]);
+        // 利息は返済のうちの一部
+        for y in series {
+            assert!(
+                y["loanInterest"].as_i64().unwrap() <= y["loanRepayment"].as_i64().unwrap(),
+                "{y}"
+            );
+        }
+        eprintln!(
+            "{}: 利息の合計 {} 円・返済の合計 {} 円・2031年 {}・2036年 {}・2041年 {}",
+            r["label"],
+            interest(i),
+            r["keyFigures"]["loanRepayment"],
+            rate_in(i, 2031),
+            rate_in(i, 2036),
+            rate_in(i, 2041)
+        );
+    }
+    // その年の金利: 今 0.65%、5年後（2031年10月）・10年後（2036年10月）の段（その年の最後の返済の金利）
+    assert_eq!(rate_in(0, 2027), "0.0065");
+    assert_eq!(rate_in(0, 2036), "0.0065");
+    assert_eq!(rate_in(1, 2031), "0.0115");
+    assert_eq!(rate_in(1, 2036), "0.0165");
+    assert_eq!(rate_in(2, 2031), "0.0165");
+    assert_eq!(rate_in(2, 2036), "0.0265");
+
+    // 利息と金利のグラフ（PNG と SVG）
+    let mut chart_args = args.clone();
+    chart_args["charts"] = json!(["interest", "rate", "keyFigures"]);
+    chart_args["figures"] = json!(["loanRepayment", "loanInterest"]);
+    chart_args["format"] = json!("both");
+    let (err, text, pngs, svgs, _) = call_blocks(&c, "chart", chart_args).await;
+    assert!(!err, "{text}");
+    assert_eq!((pngs.len(), svgs.len()), (3, 3), "{text}");
+    assert!(svg_texts(&svgs[0]).iter().any(|x| x == "（万円）"));
+    assert!(svg_texts(&svgs[1]).iter().any(|x| x == "（%）"));
+    assert!(svg_texts(&svgs[2])
+        .iter()
+        .any(|x| x == "住宅ローンの利息の合計"));
+
+    // calculate: 主な数字に利息の合計、omit の loanInterest で省ける
+    let calc = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": id, "omit": ["years", "pension"] }),
+    )
+    .await;
+    assert!(
+        calc["keyFigures"]["loanInterest"].as_i64().unwrap() > 0,
+        "{calc}"
+    );
+    let none = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": id, "omit": ["years", "pension", "loanInterest"] }),
+    )
+    .await;
+    assert!(none["keyFigures"].get("loanInterest").is_none(), "{none}");
+    // table の要約には、ローンごとの年ごとの利息と金利
+    let table = call_ok(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": id, "output": "table", "rows": ["cf.balance.financial"], "omit": ["pension"] }),
+    )
+    .await;
+    let loans = table["summary"]["loans"].as_array().unwrap();
+    assert_eq!(loans[0]["kind"], "mortgage");
+    assert!(loans[0]["years"][0]["rate"].is_string());
+}
+
 /// 叶えたい使い方（0203）: 変動金利の住宅ローンのある見本の世帯で、金利の上がり方を3通り（今のまま・10年で+1%・10年で+2%）にして比べ、
 /// グラフにする。金利の見込みは一覧の「金利の見込み（変動金利）」の項目（入力の欄と同じ型・同じ関数）で動かし、グラフの数字が比べる道具と同じこと、
 /// どのグラフにも題・凡例・単位・前提の注・試算の旨と出典が入り、名前・ID が入らないこと、PNG（MCP の image）と SVG が返ること、答えの大きさと時間

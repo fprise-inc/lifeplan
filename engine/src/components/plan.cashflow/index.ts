@@ -75,6 +75,8 @@
 //   お金の動き（取り崩し・譲渡益の税・移し替えなど）と年末の残高の行を、相続する人（死亡の当時の配偶者。いなければ子を等分）の名にする。
 //   亡くなった人の NISA（旧NISA・ジュニアNISA を含む）は、亡くなった年の翌年の初めに相続する人の課税口座になる（取得価額はその時の時価。
 //   相続の時の時価の近似）。亡くなった年の翌年からは、亡くなった人の NISA の枠の行を出さない
+// - 改訂28（約束の版 1.9。0204）: 世帯の負債ごとの、年ごとの返済のうち利息に充てた額・その年の最後の返済に当てた金利と、表の期間の利息の合計
+//   （debt.schedule の約束の版 1.5 の byYear）を details の loans に写す（エンジンが summary の loans に写す。計算は変えない）
 import {
   inheritanceOf,
   splitEqually,
@@ -209,8 +211,8 @@ const under = (row: string, prefix: string) => row === prefix || row.startsWith(
 export default defineComponent<Record<string, never>, { flows: readonly Flow[]; annual: AnnualRow[]; parts: readonly (readonly Flow[])[]; details?: CashflowDetails }>({
   id: "plan.cashflow",
   title: "キャッシュフロー表",
-  contract: "1.8",
-  revision: 27,
+  contract: "1.9",
+  revision: 28,
   requires: {
     "contingency.event": ">=1 <2",
     "plan.flows": ">=1 <2",
@@ -426,7 +428,8 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
       }
     }
     // 負債の年末残高と、購入した持ち家
-    const debts: { d: Pick<DebtInput, "id" | "kind" | "debtors">; out: Pick<DebtScheduleOutput, "yearEnd"> }[] = ctx.list<DebtInput>("debt").map((d) => ({ d, out: ctx.call<DebtScheduleOutput>("debt.schedule", { object: d.id }) }));
+    const owned = ctx.list<DebtInput>("debt").map((d) => ({ d, out: ctx.call<DebtScheduleOutput>("debt.schedule", { object: d.id }) }));
+    const debts: { d: Pick<DebtInput, "id" | "kind" | "debtors">; out: Pick<DebtScheduleOutput, "yearEnd"> }[] = [...owned];
     // ほかの部品が作った負債（自動車ローン・教育ローン・貸与の奨学金）
     for (const m of members) {
       for (const l of ctx.call<{ loans: readonly { object: string; yearEnd: DebtScheduleOutput["yearEnd"] }[] }>("expense.car", { member: m.id }).loans) {
@@ -966,11 +969,17 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     const wallets = members.filter(hasWallet).map((m) => ({ member: m.id, depleted: ctx.call<{ depleted: string | null }>("outside.wallet", { member: m.id }).depleted }));
     if (wallets.length > 0) details.outsideWallets = wallets;
     if (childScholarships.length > 0) details.childScholarships = childScholarships;
+    // 世帯の負債ごとの、年ごとの利息と金利・表の期間の利息の合計（約束の版 1.9。0204。計算は変えない）
+    const loans = owned.flatMap(({ d, out }) => {
+      const years = (out.byYear ?? []).filter((e) => e.year <= endYear).map((e) => ({ year: e.year, interest: e.interestPaid, rate: e.rate }));
+      return years.length === 0 ? [] : [{ object: d.id, kind: d.kind, years, interestTotal: yen(years.reduce((a, e) => a + e.interest, 0)) }];
+    });
+    if (loans.length > 0) details.loans = loans;
     // 住まい以外の不動産の物件ごとの数字（asset.realEstate の出力のまま。帳票の入力の材料）
     if (rentals.length > 0) details.realEstate = rentals.map((p) => ({ object: p.object, owner: p.owner, years: p.years, income: p.income, sale: p.sale, ...(p.incomeKind !== undefined ? { incomeKind: p.incomeKind } : {}), ...(p.units !== undefined ? { units: p.units } : {}) }));
     // 収益不動産の分析の数字（約束の版 1.7。0082。計算は変えない）
     if (rentals.length > 0) details.realEstateAnalysis = ctx.call<RealEstateAnalysisOutput>("asset.realEstateAnalysis", {});
-    const hasDetails = details.insurance !== undefined || details.gifts !== undefined || details.outsideWallets !== undefined || details.realEstate !== undefined || details.childScholarships !== undefined;
+    const hasDetails = details.insurance !== undefined || details.gifts !== undefined || details.outsideWallets !== undefined || details.realEstate !== undefined || details.childScholarships !== undefined || details.loans !== undefined;
     return { flows: own.length === 0 ? collected.flows : [...collected.flows, ...own], annual, parts, ...(hasDetails ? { details } : {}) };
   },
 });

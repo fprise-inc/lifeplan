@@ -136,7 +136,7 @@
       "description": "満たしたい条件（例: {\"type\": \"noDepletion\"}・{\"type\": \"assetsAtAge\", \"age\": 90, \"at_least\": 10000000}）"
     },
     "figures": {
-      "description": "表に入れる主な数字（sweep の figures と同じ。既定は全部）",
+      "description": "表に入れる主な数字（sweep の figures と同じ。既定は loanInterest のほか全部）",
       "items": {
         "enum": [
           "assetsAtAge",
@@ -145,6 +145,7 @@
           "lifetimeTakeHome",
           "lifetimeExpense",
           "loanRepayment",
+          "loanInterest",
           "pension"
         ],
         "type": "string"

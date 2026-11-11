@@ -270,8 +270,8 @@ impl LifeplanMcp {
                  進め方:\n\
                  1. list_plan_items で、住宅ローンの「金利の見込み（変動金利）」の項目（kind が rateOutlook）を探す。ローンが2本以上あれば、ローンごとの項目を同じ値にする。項目が無ければ、変動金利の住宅ローンが無いと伝えて終える。\n\
                  2. 上がり方ごとに通り（label と plan_changes）を作る。plan_changes は一覧の target・item・lever と value で、value は型の名前（flat＝今の金利のまま・up1＝10年で1%上がる・up2＝10年で2%上がる）か、5年ごとの上乗せ（例 {{\"adds\": [\"0.0025\", \"0.005\"]}}）。いちばん初めの通りを基本にする。stress_test の rateRise は上げ幅を選べないので使わない。\n\
-                 3. chart で、charts に assets・repayment・keyFigures を入れてグラフにする（数字を自分で描かない。format は both にすると SVG も返る）。label には上がり方だけを書き、お客さまの名前を書かない。\n\
-                 4. グラフの下に、見どころを2〜3行で（返済の合計の差・金融資産がいちばん少ない額・資産が尽きる年の差など。答えの results の数字だけを使う）。変動金利の5年ルール・125%ルールで返済額の上がり方がゆるやかなことにも触れる。\n\
+                 3. chart で、charts に assets・repayment・rate・keyFigures、figures に assetsAtAge・minimum・loanRepayment・loanInterest を入れてグラフにする（数字を自分で描かない。rate はその年の金利の推移。format は both にすると SVG も返る）。label には上がり方だけを書き、お客さまの名前を書かない。\n\
+                 4. グラフの下に、見どころを2〜3行で（返済の合計の差・利息の合計の差〔keyFigures.loanInterest と diff.loanInterest〕・金融資産がいちばん少ない額・資産が尽きる年の差など。答えの results の数字だけを使う）。変動金利の5年ルール・125%ルールで返済額の上がり方がゆるやかなことにも触れる。\n\
                  5. 実在のお客さまの世帯なら、使う前に金額を丸める・珍しい組み合わせを変える・お客さまに一言ことわる、のどれかが要ると伝える（見本の世帯は架空）。",
                 household(&a.household),
             ),

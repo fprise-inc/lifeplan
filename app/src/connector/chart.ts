@@ -5,32 +5,37 @@
 //   （app/test/chart-colors.test.ts で確かめる）。線は実線、線の端に丸と通りの文字（A・B…）を置く（色だけに頼らない。画面と同じ）
 // - 必ず入れる物: 題・凡例（通りの文字と名前）・単位（万円）・前提の短い注（金利の見込み・物価・運用利回り・相場の想定）・試算の旨と出典
 // - お客さまの名前・物の ID は入れない（受け取るのは通りの名前と数字と本人の年齢だけ。家族の呼び方も入れない）
+// - 住宅ローンの利息の推移（interest）と金利の推移（rate）のグラフも作れる（0204）。金利は縦の目盛りを % にする（ほかは万円）
 // - 外へは何も送らない。接続口が PNG にするときは、同梱の字体（BIZ UDゴシック）だけで描く
 // - 画面の部品（preact）・本体の命令は読まない（lint とまとめる道具が止める）。結果が OS で変わる Math の関数は使わない
 import { domainOf, FRAME, linePath, scaleOf, spreadX, type Frame, type Scale } from "../presentation/chart.ts";
 import { group, man } from "../presentation/format.ts";
 import { colorStyle, PLAN_COLOR_DARK } from "../presentation/planColors.ts";
-import { pctText } from "../workspace/plans/decimal.ts";
+import { mulRate, pctText } from "../workspace/plans/decimal.ts";
 
-/** グラフの種類: 金融資産の推移（折れ線）・住宅ローンの返済額の推移（折れ線）・主な数字の比べ（棒） */
-export type ChartKind = "assets" | "repayment" | "keyFigures";
-export const CHART_KINDS: readonly ChartKind[] = ["assets", "repayment", "keyFigures"];
+/**
+ * グラフの種類: 金融資産の推移（折れ線）・住宅ローンの返済額の推移（折れ線）・主な数字の比べ（棒）・住宅ローンの利息の推移（折れ線。年額）・
+ * 住宅ローンの金利の推移（折れ線。その年の最後の返済に当てた金利。0204）
+ */
+export type ChartKind = "assets" | "repayment" | "keyFigures" | "interest" | "rate";
+export const CHART_KINDS: readonly ChartKind[] = ["assets", "repayment", "keyFigures", "interest", "rate"];
 
 /** 主な数字の比べで選べる数字（compare の keyFigures の項目） */
-export type FigureKey = "assetsAtAge" | "minimum" | "loanRepayment" | "lifetimeTakeHome" | "lifetimeExpense";
-export const FIGURE_KEYS: readonly FigureKey[] = ["assetsAtAge", "minimum", "loanRepayment", "lifetimeTakeHome", "lifetimeExpense"];
+export type FigureKey = "assetsAtAge" | "minimum" | "loanRepayment" | "loanInterest" | "lifetimeTakeHome" | "lifetimeExpense";
+export const FIGURE_KEYS: readonly FigureKey[] = ["assetsAtAge", "minimum", "loanRepayment", "loanInterest", "lifetimeTakeHome", "lifetimeExpense"];
 /** 主な数字の比べの既定の数字 */
 export const DEFAULT_FIGURES: readonly FigureKey[] = ["assetsAtAge", "minimum", "loanRepayment"];
 
 /** 通り1つ（接続口が compare の答えから渡す。名前と数字だけ） */
 export interface ChartVariant {
   label: string;
-  /** 年ごとの数字（compare の series と同じ。金融資産・住宅ローンの返済） */
-  series: { year: number; financialAssets?: number; loanRepayment?: number }[];
+  /** 年ごとの数字（compare の series と同じ。金融資産・住宅ローンの返済・利息・金利〔10進の文字〕） */
+  series: { year: number; financialAssets?: number; loanRepayment?: number; loanInterest?: number; loanRate?: string }[];
   keyFigures: {
     assetsAtAge?: { age: number; amount: number }[];
     minimum?: { year: number; amount: number };
     loanRepayment?: number;
+    loanInterest?: number;
     lifetimeTakeHome?: number;
     lifetimeExpense?: number;
   };
@@ -124,12 +129,15 @@ const DEFAULT_TITLE: Record<ChartKind, string> = {
   assets: "金融資産の推移の比べ",
   repayment: "住宅ローンの返済額の推移の比べ（年額）",
   keyFigures: "主な数字の比べ",
+  interest: "住宅ローンの利息の推移の比べ（年額）",
+  rate: "住宅ローンの金利の推移の比べ",
 };
 
 function figureLabel(k: FigureKey, v: ChartVariant): string {
   if (k === "assetsAtAge") return `${v.keyFigures.assetsAtAge?.[0]?.age ?? 95}歳時点の金融資産`;
   if (k === "minimum") return "金融資産がいちばん少ない額";
   if (k === "loanRepayment") return "住宅ローンの返済の合計";
+  if (k === "loanInterest") return "住宅ローンの利息の合計";
   if (k === "lifetimeTakeHome") return "生涯の手取りの合計";
   return "生涯の支出の合計";
 }
@@ -169,7 +177,17 @@ export function chartNotes(a: ChartArgs): string[] {
   } else notes.push(`前提\u3000${pres.map((p, i) => `${letterOf(i)}: ${p || "—"}`).join("／")}`);
   const stress = a.variants.map((v, i) => (v.stress !== undefined && v.stress !== "" ? `${letterOf(i)}: ${v.stress}` : null)).filter((x) => x !== null);
   if (stress.length > 0) notes.push(`相場などの想定\u3000${stress.join("／")}`);
-  notes.push(a.kind === "keyFigures" ? "単位は万円（万円未満は四捨五入）。生涯の合計は表の期間の合計です。" : a.kind === "repayment" ? "単位は万円（年額。繰上返済・手数料を含む。万円未満は四捨五入）。" : "単位は万円（年末の残高。万円未満は四捨五入）。");
+  notes.push(
+    a.kind === "keyFigures"
+      ? "単位は万円（万円未満は四捨五入）。生涯の合計・利息の合計は表の期間の合計です。"
+      : a.kind === "repayment"
+        ? "単位は万円（年額。繰上返済・手数料を含む。万円未満は四捨五入）。"
+        : a.kind === "interest"
+          ? "単位は万円（年額。返済のうち利息に充てた額。万円未満は四捨五入）。"
+          : a.kind === "rate"
+            ? "単位は%（年率。その年の最後の返済に当てた住宅ローンの金利）。"
+            : "単位は万円（年末の残高。万円未満は四捨五入）。",
+  );
   const [y, m] = a.baseMonth.split("-");
   notes.push(`ファイナンシアで試算（${Number(y)}年${Number(m)}月時点の入力による試算で、将来の結果を約束するものではありません）`);
   return notes;
@@ -212,14 +230,27 @@ function legend(svg: Svg, a: ChartArgs, theme: "light" | "dark", bars: boolean):
   svg.y = y + 12;
 }
 
+/**
+ * 縦の目盛りの単位（万円。金利のグラフは %）。金利は1億分の1（0.000001%）を1円として目盛りの関数に渡すので、目盛り（万の単位）は 0.01% の数
+ */
+interface Unit {
+  label: string;
+  tick: (tk: number) => string;
+}
+const MAN: Unit = { label: "（万円）", tick: (tk) => `${tk < 0 ? "▲" : ""}${group(tk)}` };
+const PCT: Unit = { label: "（%）", tick: (tk) => `${tk < 0 ? "▲" : ""}${String(Math.abs(tk) / 100)}` };
+
+/** 金利（10進の文字）を、目盛りの関数に渡す数（1億分の1＝1。0.0065 → 650,000）にする（浮動小数点を使わない） */
+const rateValue = (r: string | undefined): number | undefined => (r === undefined ? undefined : Number(mulRate(r, "100000000")));
+
 /** 縦の目盛り・格子・単位（画面の MainChart.tsx と同じ形） */
-function axes(svg: Svg, s: Scale, f: Frame, top: number, theme: "light" | "dark"): void {
+function axes(svg: Svg, s: Scale, f: Frame, top: number, theme: "light" | "dark", unit: Unit = MAN): void {
   const t = CHART_THEME[theme];
-  svg.parts.push(text(f.left - 8, top + f.top - 10, "（万円）", `font-size="${FS.unit}" font-weight="700" fill="${t.ink2}" text-anchor="end" data-unit=""`));
+  svg.parts.push(text(f.left - 8, top + f.top - 10, unit.label, `font-size="${FS.unit}" font-weight="700" fill="${t.ink2}" text-anchor="end" data-unit=""`));
   for (const tk of s.ticks) {
     const y = top + s.y(tk * 10000);
     svg.parts.push(`<line x1="${fx(f.left)}" x2="${fx(f.width - f.right)}" y1="${fx(y)}" y2="${fx(y)}" stroke="${tk === 0 ? t.ink : t.line2}" stroke-width="${tk === 0 ? 2 : 1}"/>`);
-    svg.parts.push(text(f.left - 8, y + 4, `${tk < 0 ? "▲" : ""}${group(tk)}`, `font-size="${FS.axis}" fill="${t.ink2}" text-anchor="end"`));
+    svg.parts.push(text(f.left - 8, y + 4, unit.tick(tk), `font-size="${FS.axis}" fill="${t.ink2}" text-anchor="end"`));
   }
 }
 
@@ -239,7 +270,7 @@ function years(svg: Svg, s: Scale, f: Frame, top: number, ys: readonly number[],
 }
 
 /** 折れ線（金融資産・返済額）。値の無い年は 0 にしない（その通りの表の年だけ描く） */
-function lines(svg: Svg, a: ChartArgs, pick: (p: ChartVariant["series"][number]) => number | undefined, theme: "light" | "dark", trimZeroTail: boolean, zone: string | null): boolean {
+function lines(svg: Svg, a: ChartArgs, pick: (p: ChartVariant["series"][number]) => number | undefined, theme: "light" | "dark", trimZeroTail: boolean, zone: string | null, unit: Unit = MAN): boolean {
   const t = CHART_THEME[theme];
   const all = [...new Set(a.variants.flatMap((v) => v.series.map((p) => p.year)))].sort((x, y) => x - y);
   let ys = all;
@@ -253,7 +284,7 @@ function lines(svg: Svg, a: ChartArgs, pick: (p: ChartVariant["series"][number])
   const vals = a.variants.map((v) => ys.map((y) => pick(v.series.find((p) => p.year === y) ?? { year: y })));
   const s = scaleOf(domainOf(vals.map((l) => l.filter((x): x is number => x !== undefined))), ys.length, PLOT);
   const top = svg.y;
-  axes(svg, s, PLOT, top, theme);
+  axes(svg, s, PLOT, top, theme, unit);
   years(svg, s, PLOT, top, ys, a.selfAges, theme);
   svg.parts.push(`<g transform="translate(0 ${fx(top)})">`);
   // 0未満の範囲: 線には塗りを付けず、薄い地と言葉で示す（画面の全部のプランを重ねる表示と同じ。範囲が狭ければ言葉は出さない）
@@ -333,7 +364,9 @@ function bars(svg: Svg, a: ChartArgs, figures: readonly FigureKey[], theme: "lig
 function altText(a: ChartArgs, title: string): string {
   const per = a.variants.map((v, i) => {
     const at = v.keyFigures.assetsAtAge?.[0];
-    const parts = [at !== undefined ? `${at.age}歳時点の金融資産${man(at.amount)}万円` : null, v.keyFigures.loanRepayment !== undefined ? `住宅ローンの返済の合計${man(v.keyFigures.loanRepayment)}万円` : null].filter((x) => x !== null);
+    // 利息・金利のグラフは、利息の合計も書く（0204）
+    const interest = (a.kind === "interest" || a.kind === "rate") && v.keyFigures.loanInterest !== undefined ? `住宅ローンの利息の合計${man(v.keyFigures.loanInterest)}万円` : null;
+    const parts = [at !== undefined ? `${at.age}歳時点の金融資産${man(at.amount)}万円` : null, v.keyFigures.loanRepayment !== undefined ? `住宅ローンの返済の合計${man(v.keyFigures.loanRepayment)}万円` : null, interest].filter((x) => x !== null);
     return `${letterOf(i)}（${v.label}）${parts.length > 0 ? `: ${parts.join("・")}` : ""}`;
   });
   return `${title}。${per.join("。")}。`;
@@ -361,8 +394,21 @@ export function chart(argsJson: string, _a: string, _b: string): string {
       ? lines(svg, a, (p) => p.financialAssets, theme, false, "0未満は不足")
       : a.kind === "repayment"
         ? lines(svg, a, (p) => p.loanRepayment, theme, true, null)
-        : bars(svg, a, a.figures !== undefined && a.figures.length > 0 ? a.figures.filter((k) => FIGURE_KEYS.includes(k)) : DEFAULT_FIGURES, theme);
-  if (!drawn) return out({ status: "invalid", reason: a.kind === "repayment" ? "どの通りにも住宅ローンの返済がありません。" : "描ける数字がありません。" });
+        : a.kind === "interest"
+          ? lines(svg, a, (p) => p.loanInterest, theme, true, null)
+          : a.kind === "rate"
+            ? lines(svg, a, (p) => rateValue(p.loanRate), theme, true, null, PCT)
+            : bars(svg, a, a.figures !== undefined && a.figures.length > 0 ? a.figures.filter((k) => FIGURE_KEYS.includes(k)) : DEFAULT_FIGURES, theme);
+  if (!drawn)
+    return out({
+      status: "invalid",
+      reason:
+        a.kind === "repayment" || a.kind === "interest"
+          ? "どの通りにも住宅ローンの返済がありません。"
+          : a.kind === "rate"
+            ? "どの通りにも、その年の金利が1つに決まる住宅ローンの返済がありません（金利の違う住宅ローンを2本以上返している年は描きません）。"
+            : "描ける数字がありません。",
+    });
   // 注（前提・単位・試算の旨と出典）
   const noteLines = chartNotes(a).flatMap((n) => wrap(n, FS.note, W - PAD * 2));
   svg.y += 6;

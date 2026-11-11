@@ -16,12 +16,13 @@ use serde_json::{json, Value};
 use std::sync::{Arc, OnceLock};
 
 /// グラフの種類（chart.ts の CHART_KINDS と同じ）
-pub const KINDS: &[&str] = &["assets", "repayment", "keyFigures"];
+pub const KINDS: &[&str] = &["assets", "repayment", "keyFigures", "interest", "rate"];
 /// 主な数字の比べで選べる数字（chart.ts の FIGURE_KEYS と同じ）
 pub const FIGURES: &[&str] = &[
     "assetsAtAge",
     "minimum",
     "loanRepayment",
+    "loanInterest",
     "lifetimeTakeHome",
     "lifetimeExpense",
 ];
@@ -54,13 +55,15 @@ pub struct ChartArgs {
     /// 並べる通り（compare の variants と同じ。グラフは基本と5通りまでが見分けやすい。通りの label は凡例に出るので、お客さまの名前を書かない）
     #[schemars(with = "Vec<VariantArgs>")]
     pub variants: Vec<Value>,
-    /// 作るグラフ（既定は3つとも）: assets（通りごとの金融資産の推移。折れ線）・repayment（通りごとの住宅ローンの返済額の推移。年額の折れ線）・
-    /// keyFigures（主な数字の比べ。棒）
-    #[schemars(extend("items" = { "type": "string", "enum": ["assets", "repayment", "keyFigures"] }))]
+    /// 作るグラフ（既定は assets・repayment・keyFigures）: assets（通りごとの金融資産の推移。折れ線）・repayment（通りごとの住宅ローンの返済額の推移。
+    /// 年額の折れ線）・keyFigures（主な数字の比べ。棒）・interest（通りごとの住宅ローンの利息の推移。年額の折れ線）・rate（通りごとの住宅ローンの金利の
+    /// 推移。その年の最後の返済に当てた金利の折れ線。縦の目盛りは %。金利の違う住宅ローンを2本以上返している年は描かない）
+    #[schemars(extend("items" = { "type": "string", "enum": ["assets", "repayment", "keyFigures", "interest", "rate"] }))]
     pub charts: Option<Vec<String>>,
     /// keyFigures の棒にする数字（既定 assetsAtAge・minimum・loanRepayment）: assetsAtAge（at_ages の最初の年齢の時点の金融資産）・minimum
-    /// （金融資産がいちばん少ない額）・loanRepayment（住宅ローンの返済の合計）・lifetimeTakeHome（生涯の手取りの合計）・lifetimeExpense（生涯の支出の合計）
-    #[schemars(extend("items" = { "type": "string", "enum": ["assetsAtAge", "minimum", "loanRepayment", "lifetimeTakeHome", "lifetimeExpense"] }))]
+    /// （金融資産がいちばん少ない額）・loanRepayment（住宅ローンの返済の合計）・loanInterest（住宅ローンの利息の合計）・lifetimeTakeHome（生涯の手取りの合計）・
+    /// lifetimeExpense（生涯の支出の合計）
+    #[schemars(extend("items" = { "type": "string", "enum": ["assetsAtAge", "minimum", "loanRepayment", "loanInterest", "lifetimeTakeHome", "lifetimeExpense"] }))]
     pub figures: Option<Vec<String>>,
     /// 題（グラフの種類が1つのときだけ。省くと種類ごとの既定の題。お客さまの名前を書かない）
     pub title: Option<String>,
@@ -130,7 +133,7 @@ pub fn variant_of(r: &Value, assumptions: &Value) -> Value {
         .as_array()
         .map(|l| {
             l.iter()
-                .map(|y| json!({ "year": y["year"], "financialAssets": y["financialAssets"], "loanRepayment": y["loanRepayment"] }))
+                .map(|y| json!({ "year": y["year"], "financialAssets": y["financialAssets"], "loanRepayment": y["loanRepayment"], "loanInterest": y["loanInterest"], "loanRate": y["loanRate"] }))
                 .collect()
         })
         .unwrap_or_default();
@@ -156,6 +159,7 @@ pub fn variant_of(r: &Value, assumptions: &Value) -> Value {
             "assetsAtAge": k["assetsAtAge"],
             "minimum": k["minimum"],
             "loanRepayment": k["loanRepayment"],
+            "loanInterest": k["loanInterest"],
             "lifetimeTakeHome": k["lifetimeTakeHome"],
             "lifetimeExpense": k["lifetimeExpense"],
         },
@@ -249,7 +253,7 @@ pub fn png(svg: &str, scale: f32) -> Result<Vec<u8>, String> {
 pub const PUBLISH_NOTE: &str = "セミナーの資料・ブログなどに使うときは、実在のお客さまの世帯なら、金額を丸める・珍しい組み合わせ（家族・職業・地域など）を変える・お客さまに一言ことわる、のどれかをしてから使ってください（見本の世帯はすべて架空です）。グラフにはお客さまの名前・ID は入りませんが、通りの名前・題に書いた文字はそのまま入ります。";
 
 /// グラフの答えに添える説明
-pub const NOTE: &str = "グラフは、比べる道具（compare）と同じ道で計算した数字を、アプリの画面のグラフと同じ目盛り・色で描いた物です（数字は AI から受け取っていません）。どのグラフにも、題・凡例（通りの文字と名前）・単位（万円）・前提の短い注・「ファイナンシアで試算」の旨が入っています。PNG は image、SVG は image/svg+xml の埋め込みで返します。figures の数字は keyFigures と同じです。";
+pub const NOTE: &str = "グラフは、比べる道具（compare）と同じ道で計算した数字を、アプリの画面のグラフと同じ目盛り・色で描いた物です（数字は AI から受け取っていません）。どのグラフにも、題・凡例（通りの文字と名前）・単位（万円。金利の推移 rate は %）・前提の短い注・「ファイナンシアで試算」の旨が入っています。PNG は image、SVG は image/svg+xml の埋め込みで返します。figures の数字は keyFigures と同じです。";
 
 #[cfg(test)]
 mod tests {
