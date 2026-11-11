@@ -136,14 +136,14 @@ describe("グラフの札の家族の呼び方", () => {
     expect(m.yearDetail!.members).not.toContain("ご家族");
     const parent = req.input.household.members.find((x) => x.kind === "parent")!;
     expect(m.chart.family[0]).toContain(`お母さま${ageInYear(parent, y)}歳`);
-    // 同じ呼び方の人が2人なら、表と同じく誰の家族かを前に付ける
+    // 同じ呼び方の人が2人なら、表と同じ呼び方（誰の家族かで見分けられなければ番号。番号の後は間を空けて年齢）
     const two = modelHousehold("parentMoney");
     const self = two.input.household.members.find((x) => x.kind === "self")!;
-    const spouse = two.input.household.members.find((x) => x.kind === "spouse");
     const p0 = two.input.household.members.find((x) => x.kind === "parent")!;
-    two.input.household.members.push({ ...p0, id: "00000000-0000-4000-8000-0000000000c1", outside: { of: spouse?.id ?? self.id, periods: [] } });
+    two.input.household.members.push({ ...p0, id: "00000000-0000-4000-8000-0000000000c1", outside: { of: self.id, periods: [] } });
     const text = familyText(roles(two), years[0]!, undefined, (r) => personLabel(two, r));
-    expect(text).toContain(`${roles(two).find((r) => r.key === "self")!.label}のお母さま`);
+    expect(text).toContain(`お母さま1 ${String(ageInYear(p0, y))}歳`);
+    expect(text).toContain(`お母さま2 ${String(ageInYear(p0, y))}歳`);
   });
 });
 

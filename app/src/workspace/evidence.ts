@@ -9,7 +9,7 @@ import { FORMULA_LABELS, INPUT_ONLY_FORMULAS, PROPERTY_LOAN_LABELS } from "./for
 import { rowDefs } from "./present.ts";
 import type { OfficeRowNames } from "../../../report/src/rowNames.ts";
 import { surplusEvidenceNote } from "./surplus.ts";
-import { ageInYear, presentInYear, roles } from "./roles.ts";
+import { ageInYear, nameWithAge, presentInYear, roles } from "./roles.ts";
 
 /** 制度の値を、表に出す文字に（表・段階は「表（n段）」） */
 export function paramValueText(id: string, value: unknown): string {
@@ -150,7 +150,7 @@ export function evidenceDetail(
   const rs = roles(req);
   const context = rs
     .filter((r) => presentInYear(r, year))
-    .map((r) => `${r.label}${ageInYear(r.member, year)}歳`)
+    .map((r) => nameWithAge(r.label, ageInYear(r.member, year)))
     .join("・");
   const view: EvidenceView = {
     title: `${year}年 ${def.label}`,

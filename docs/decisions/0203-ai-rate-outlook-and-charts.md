@@ -51,7 +51,8 @@
 
 ### 4. 使い方の例
 
-- 頼み方の例と手順を `docs/ai-connector.md` と INSTRUCTIONS に書いた（`list_plan_items` で「金利の見込み（変動金利）」を探す → `chart` の通りの `plan_changes` に型の名前か上乗せを入れる）。MCP のプロンプト（0199）への追加は、そのプロンプトの PR が入ってから足す（未確定）。
+- 頼み方の例と手順を `docs/ai-connector.md` と INSTRUCTIONS に書いた（`list_plan_items` で「金利の見込み（変動金利）」を探す → `chart` の通りの `plan_changes` に型の名前か上乗せを入れる）。
+- 使い方の例のプロンプト（0199）に `chart_rate_paths`（金利の上がり方を3通り比べてグラフにする。引数 `household`*・`paths`・`purpose`）を足した。
 
 ### 5. 見本の世帯
 
@@ -78,13 +79,12 @@
 ## 影響
 
 - 新しいファイル: `app/src/connector/chart.ts`・`app/src/presentation/planColors.ts`・`crates/lifeplan/src/chart.rs`・`app/test/plan-rate-outlook.test.ts`・`app/test/connector-chart.test.ts`・`app/test/chart-colors.test.ts`・`crates/lifeplan/tests/fixtures/tools/chart.input-schema.json`。
-- 直したファイル: `app/src/workspace/input/stages/housingLoans.ts`（`setRateOutlook`・`rateOutlookAdds` を切り出した）・`app/src/workspace/plans/{items.ts,candidates.ts,plans.ts,planEdit.ts,ItemControls.tsx}`・`app/src/workspace/store/readings.ts`・`app/src/presentation/{chart.ts,planLines.tsx}`・`app/src/connector/{plan.ts,summary.ts,explain.ts}`・`app/eslint.config.js`（接続口の入口が `plans/decimal` を読める）・`crates/lifeplan/{Cargo.toml,src/server.rs,src/answer.rs,src/compare.rs,src/engine.rs,src/main.rs}`・テスト・`docs/ai-connector.md`・`docs/decisions/0036-plan-diff-types.md`（追記）・`LICENSES.md`。
+- 直したファイル: `app/src/workspace/input/stages/housingLoans.ts`（`setRateOutlook`・`rateOutlookAdds` を切り出した）・`app/src/workspace/plans/{items.ts,candidates.ts,plans.ts,planEdit.ts,ItemControls.tsx}`・`app/src/workspace/store/readings.ts`・`app/src/presentation/{chart.ts,planLines.tsx}`・`app/src/connector/{plan.ts,summary.ts,explain.ts}`・`crates/lifeplan/src/prompts.rs`・`docs/decisions/0199-ai-samples-list-prompts-and-guidance.md`（追記）・`app/eslint.config.js`（接続口の入口が `plans/decimal` を読める）・`crates/lifeplan/{Cargo.toml,src/server.rs,src/answer.rs,src/compare.rs,src/engine.rs,src/main.rs}`・テスト・`docs/ai-connector.md`・`docs/decisions/0036-plan-diff-types.md`（追記）・`LICENSES.md`。
 - 計算エンジン・制度データ・世帯ファイルの形式・縮約版の許可リスト・AIに渡した記録の形・`propose_scenario` の取り決めは変えない。`compare`・`calculate` の既定の答えは今までと同じ（系列の住宅ローンの数字は選んだときだけ）。接続口の実行ファイルは字体の分だけ大きくなる。
 
 ## 未確定
 
 - **適用金利・利息の系列と「利息の合計」**: エンジンの表示の形の出力に年ごとの利息（`debt.schedule` が数えている）と適用金利を足すか（エンジンの出力の形を変える。0005）。
-- **MCP のプロンプト**: 使い方の例のプロンプト（0199）に「金利の上がり方を3通り比べてグラフにする」を足す（0199 が入ってから）。
 - **グラフの種類**: 年間収支・必要保障額・教育費の山などのグラフを足すか。棒の数字に年金の見込みを足すか。
 - **字体**: 接続口に字体を同梱して約 9MB 大きくなる。画面と同じ BIZ UDPGothic（比例の字幅）にするか（npm の字体は woff2 で、PNG を描く部品が読めない）。
 - **前の版のアプリ**: 合成の対策 `loanRateOutlook` を前の版のアプリは当てない（要確認として残す）。世帯ファイルの形式の版を上げて、前の版では閲覧だけにするか。

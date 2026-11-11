@@ -1,5 +1,6 @@
 // ビルドの時に、計算エンジンのまとめた JS・制度データのパック・架空のモデル世帯（と、その説明）を埋め込む一覧を作る（アプリ本体の build.rs と同じもの）。
-// AI接続口だけのものとして、「数字の根拠」の読み方（画面と同じ関数をまとめた JS。dist/explain.js）と対応範囲の一覧（engine/dist/coverage.json）も埋め込む（0183）
+// AI接続口だけのものとして、「数字の根拠」の読み方（画面と同じ関数をまとめた JS。dist/explain.js）と対応範囲の一覧（engine/dist/coverage.json）も埋め込む（0183）。
+// 見本の世帯の一覧の名前と目印（アプリの見本の棚と同じ物。dist/samples.json）も埋め込む（0199）
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -39,10 +40,11 @@ fn main() {
     }
     let explain_js = manifest_dir.join("dist/explain.js");
     let plan_js = manifest_dir.join("dist/plan.js");
+    let samples_json = manifest_dir.join("dist/samples.json");
     let coverage = repo.join("engine/dist/coverage.json");
-    if !explain_js.exists() || !plan_js.exists() {
+    if !explain_js.exists() || !plan_js.exists() || !samples_json.exists() {
         panic!(
-            "AI接続口の「数字の根拠」の読み方とプランの動かす項目（crates/lifeplan/dist/explain.js・plan.js）がありません。先に app/ で `npm ci && npm run build:explain` を流してください"
+            "AI接続口の「数字の根拠」の読み方・プランの動かす項目・見本の世帯の名前と目印（crates/lifeplan/dist/explain.js・plan.js・samples.json）がありません。先に app/ で `npm ci && npm run build:explain` を流してください"
         );
     }
     if !coverage.exists() {
@@ -52,6 +54,7 @@ fn main() {
     }
     println!("cargo:rerun-if-changed={}", explain_js.display());
     println!("cargo:rerun-if-changed={}", plan_js.display());
+    println!("cargo:rerun-if-changed={}", samples_json.display());
     println!("cargo:rerun-if-changed={}", coverage.display());
     println!("cargo:rerun-if-changed={}", engine_js.display());
     println!("cargo:rerun-if-changed={}", regulation.display());
@@ -78,6 +81,12 @@ fn main() {
         out,
         "/// プランの動かす項目（app/src/connector/plan.ts をまとめた JS。画面の結果のタブのプランと同じ関数。0195）\npub const PLAN_JS: &str = include_str!({:?});",
         plan_js.display().to_string()
+    )
+    .unwrap();
+    writeln!(
+        out,
+        "/// アプリの見本の棚と同じ見本の名前と目印（app/src/connector/samples.ts を JSON にした物。0199）\npub const SAMPLES_JSON: &str = include_str!({:?});",
+        samples_json.display().to_string()
     )
     .unwrap();
     out.push_str("/// 制度データ・マスタのパック（engine/dist/regulation/*.json。名前の順）\npub const PACKS: &[&str] = &[\n");

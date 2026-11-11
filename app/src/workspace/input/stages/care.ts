@@ -10,7 +10,8 @@
 import type { CareExpense, Household, Member, Timepoint } from "../../../engine/types.ts";
 import { careEstimate, dependentLimits } from "../../../../../hearing/src/estimates.ts";
 import { masterAmount } from "../../../../../hearing/src/statistics.ts";
-import { addCareTemplate, adultsCareDeclined, adultsWithoutCare, careStartKey, deathEstimate, declineAdultsCare, fillAdultsCare, fillCareFor, hasBirth } from "../fill.ts";
+import { addCareTemplate, adultsCareDeclined, adultsWithoutCare, careStartKey, careTemplateStart, deathEstimate, declineAdultsCare, fillAdultsCare, fillCareFor, hasBirth } from "../fill.ts";
+import { sameWhen } from "../when.ts";
 import { addMonths, ageAt } from "../../levers.ts";
 import { byId, field, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type Option, type SectionDef, type StageDef } from "../form.ts";
 import { estimatedBox, mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
@@ -546,14 +547,87 @@ function addOffset(o: Timepoint["offset"], months: number): NonNullable<Timepoin
 export function addNextCareStage(wh: WorkingHousehold, id: string, newStage: string = newId()): WorkingHousehold {
   const cur = (wh.request.input.household.careExpenses ?? []).find((x) => x.id === id);
   if (cur === undefined) return wh;
+  const { from, basis } = nextCareStart(wh.request.input.household, cur, wh.request.input.baseMonth);
+  const next = mutate(wh, (h) => void (h.careExpenses ??= []).push({ id: newStage, member: cur.member, from, place: "facility" }));
+  return { ...next, assumed: { ...next.assumed, [careStartKey(newStage)]: basis } };
+}
+
+/**
+ * 「＋ 次の段階を足す」の始まりと、その推定の根拠: 前の段（cur）の始まりの形のまま、前の段の期間（空なら統計の平均の期間）だけずらす。
+ * 推定のままの始まりを前の段についてこさせるときも、同じ置き方で作り直す（followCareStarts）
+ */
+export function nextCareStart(h: Household, cur: CareExpense, baseMonth: string): { from: Timepoint; basis: string } {
   const months = cur.months ?? careEstimate(placeOf(cur))?.months ?? masterAmount("care.statistics.months") ?? 0;
-  const next = mutate(wh, (h, req) => {
-    const from: Timepoint =
-      cur.from.memberAge !== undefined ? shiftAge(cur.from, months) : cur.from.event !== undefined ? { event: cur.from.event, offset: addOffset(cur.from.offset, months) } : { at: addMonths(resolveTimepoint(h, cur.from) ?? req.input.baseMonth, months) };
-    (h.careExpenses ??= []).push({ id: newStage, member: cur.member, from, place: "facility" });
-  });
+  const from: Timepoint =
+    cur.from.memberAge !== undefined ? shiftAge(cur.from, months) : cur.from.event !== undefined ? { event: cur.from.event, offset: addOffset(cur.from.offset, months) } : { at: addMonths(resolveTimepoint(h, cur.from) ?? baseMonth, months) };
   const span = cur.months !== undefined ? `${String(months)}か月` : `${String(months)}か月。期間が空なので統計の平均の推定`;
-  return { ...next, assumed: { ...next.assumed, [careStartKey(newStage)]: `推定（前の段階の終わりの翌月。前の段階の始まりに、その期間（${span}）を足しています）` } };
+  return { from, basis: `推定（前の段階の終わりの翌月。前の段階の始まりに、その期間（${span}）を足しています）` };
+}
+
+/** 推定のままの介護の始まりの作り方: 介護の目安の物（亡くなる見込みから）か、次の段階（前の段 prev の終わりの翌月から） */
+type CareStartSource = { kind: "template" } | { kind: "next"; prev: string };
+
+/**
+ * 推定のままの介護の始まりを、どの値から作ったか（今の始まりと根拠が、その作り方で今の世帯から作り直した物と同じときだけ）。
+ * 作り方が分からない物（ヒアリングシートの仮の値など）は null（ついてこさせない）
+ */
+function careStartSource(wh: WorkingHousehold, c: CareExpense, mark: string): CareStartSource | null {
+  const h = wh.request.input.household;
+  const base = wh.request.input.baseMonth;
+  const same = (e: { from: Timepoint; basis: string }) => e.basis === mark && sameWhen(e.from, c.from);
+  const m = h.members.find((x) => x.id === c.member);
+  if (m !== undefined && same(careTemplateStart(h, m, base))) return { kind: "template" };
+  const prev = (h.careExpenses ?? []).find((p) => p.id !== c.id && p.member === c.member && same(nextCareStart(h, p, base)));
+  return prev === undefined ? null : { kind: "next", prev: prev.id };
+}
+
+/**
+ * 推定のままの介護の始まりを、元の値についてこさせる（0041 の追記 2026-11-11）: 欄・ボタンで亡くなる見込み（とその元の生年月・性別）・
+ * 介護を受ける人・前の段階の始まりや期間などを直した後に、推定の印が残っていて、この操作で始まりそのものを書いていない介護の物の始まりを、
+ * 直した後の値から同じ作り方で作り直す（定年後の年収の「定年前の年収が変わったら推定だけ作り直す」〔work.ts の followPost〕と同じ考え方）。
+ * FP が入れた始まり（印が外れた物）と、作り方が分からない印の物は動かさない。次の段階は前の段階を作り直した後に作り直す（続けてついてくる）。
+ * 始まりは今までと同じく、時点と仮の印で持つ（推定の値を「入れた値」として書かない）
+ */
+export function followCareStarts(before: WorkingHousehold, after: WorkingHousehold): WorkingHousehold {
+  if (before === after) return after;
+  const list = before.request.input.household.careExpenses ?? [];
+  const sources = new Map<string, CareStartSource>();
+  for (const c of list) {
+    const key = careStartKey(c.id);
+    const mark = before.assumed[key];
+    if (mark === undefined || after.assumed[key] !== mark) continue;
+    const now = (after.request.input.household.careExpenses ?? []).find((x) => x.id === c.id);
+    // この操作で始まりそのものを書いた物（FP が直した・家族を外して年月に直したなど）は、そのまま
+    if (now === undefined || !sameWhen(now.from, c.from)) continue;
+    const src = careStartSource(before, c, mark);
+    if (src !== null) sources.set(c.id, src);
+  }
+  if (sources.size === 0) return after;
+  let w = after;
+  const done = new Set<string>();
+  const redo = (id: string): void => {
+    if (done.has(id)) return;
+    done.add(id);
+    const src = sources.get(id);
+    if (src === undefined) return;
+    if (src.kind === "next") redo(src.prev);
+    const h = w.request.input.household;
+    const now = (h.careExpenses ?? []).find((x) => x.id === id);
+    if (now === undefined) return;
+    const m = h.members.find((x) => x.id === now.member);
+    const prev = src.kind === "next" ? (h.careExpenses ?? []).find((x) => x.id === src.prev && x.member === now.member) : undefined;
+    const base = w.request.input.baseMonth;
+    const want = src.kind === "template" ? (m === undefined ? null : careTemplateStart(h, m, base)) : prev === undefined ? null : nextCareStart(h, prev, base);
+    const key = careStartKey(id);
+    if (want === null || (sameWhen(want.from, now.from) && want.basis === w.assumed[key])) return;
+    w = mutate(w, (hh) => {
+      const x = (hh.careExpenses ?? []).find((y) => y.id === id);
+      if (x !== undefined) x.from = structuredClone(want.from);
+    });
+    w = { ...w, assumed: { ...w.assumed, [key]: want.basis } };
+  };
+  for (const id of sources.keys()) redo(id);
+  return w;
 }
 
 /** 介護の物1件（events.ts の欄に、見出しの1行と「＋ 次の段階を足す」を足す） */

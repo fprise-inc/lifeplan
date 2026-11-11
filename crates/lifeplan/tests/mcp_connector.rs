@@ -198,9 +198,40 @@ async fn standalone_tools_work_without_the_app() {
         "{d}"
     );
 
-    let list = call_ok(&c, "list_sample_households", json!({})).await;
-    assert!(list["households"].as_array().unwrap().len() >= 40);
+    // 見本の世帯の一覧（0199）: 既定はアプリの見本の棚と同じ見本だけで、数KB。開発の試験用は include_test で出る
+    let (_, raw) = call(&c, "list_sample_households", json!({})).await;
+    assert!(raw.len() <= 8 * 1024, "{}", raw.len());
+    let list: Value = serde_json::from_str(&raw).unwrap();
+    let shelf = list["households"].as_array().unwrap();
+    assert!(shelf.len() >= 15 && shelf.len() < model_ids().len());
     assert!(list["notice"].as_str().unwrap().contains("架空"));
+    assert!(shelf.iter().all(|h| h["no"].is_string()
+        && h["tags"].as_array().is_some_and(|t| !t.is_empty())
+        && h["tags"] != json!(["開発の試験用"])));
+    let all = call_ok(
+        &c,
+        "list_sample_households",
+        json!({ "include_test": true }),
+    )
+    .await;
+    assert_eq!(
+        all["households"].as_array().unwrap().len(),
+        model_ids().len()
+    );
+    let kids = call_ok(
+        &c,
+        "list_sample_households",
+        json!({ "tags": ["子育て", "自営業"] }),
+    )
+    .await;
+    let kids: Vec<&str> = kids["households"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|h| h["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(kids, vec!["sampleSelfEmployedFamily"]);
+    check_schema_snapshot(&tools, "list_sample_households");
 
     let sample = call_ok(&c, "get_sample_household", json!({ "id": "single25" })).await;
     let input = sample["input"].clone();
@@ -308,6 +339,195 @@ async fn standalone_tools_work_without_the_app() {
     let (err, msg) = call(&c, "list_shared_households", json!({})).await;
     assert!(err && msg.contains("アプリが起動していません"), "{msg}");
     assert!(call_ok(&c, "list_sample_households", json!({})).await["households"].is_array());
+    c.cancel().await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 使い方の例（MCP のプロンプト。0199）: 一覧に出て、引数が文に入り、文の中の道具は今ある道具だけ
+#[tokio::test(flavor = "multi_thread")]
+async fn prompts_list_and_expand() {
+    use rmcp::model::GetPromptRequestParams;
+    let dir = temp_dir("prompts");
+    let (c, _) = connect(&dir).await;
+    assert!(c.peer_info().unwrap().capabilities.prompts.is_some());
+    let tools: Vec<String> = c
+        .list_all_tools()
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|t| t.name.to_string())
+        .collect();
+    let prompts = c.list_all_prompts().await.unwrap();
+    let names: Vec<&str> = prompts.iter().map(|p| p.name.as_str()).collect();
+    for n in [
+        "what_can_you_do",
+        "compare_households",
+        "compare_measures",
+        "make_seminar_household",
+        "prepare_meeting",
+        "explain_to_client",
+        "check_coverage",
+        "chart_rate_paths",
+    ] {
+        assert!(names.contains(&n), "{n} がありません: {names:?}");
+    }
+    for p in &prompts {
+        assert!(p.title.is_some() && p.description.is_some(), "{}", p.name);
+    }
+    let args_of = |name: &str| -> Vec<(String, bool)> {
+        let p = prompts.iter().find(|p| p.name == name).unwrap();
+        p.arguments
+            .iter()
+            .flatten()
+            .map(|a| (a.name.clone(), a.required.unwrap_or(false)))
+            .collect()
+    };
+    assert!(args_of("compare_households").contains(&("household_a".into(), true)));
+    assert!(args_of("compare_households").contains(&("focus".into(), false)));
+    assert!(args_of("compare_measures").contains(&("market_stress".into(), false)));
+    assert!(args_of("prepare_meeting").iter().all(|(_, req)| !req));
+    assert!(args_of("what_can_you_do").is_empty());
+
+    // 引数を入れて中身を取る（空の文字は書かなかったものとして扱う）
+    let cases: Vec<(&str, Value, Vec<&str>)> = vec![
+        ("what_can_you_do", json!({}), vec!["list_sample_households"]),
+        (
+            "compare_households",
+            json!({ "household_a": "sampleSingle20s", "household_b": "sampleCoupleNoKids", "focus": "65歳の時点の資産" }),
+            vec![
+                "sampleSingle20s",
+                "sampleCoupleNoKids",
+                "65歳の時点の資産",
+                "compare",
+                "variants",
+            ],
+        ),
+        (
+            "compare_measures",
+            json!({ "household": "salariedCoupleTwoKids", "measures": "65歳まで働く・NISA 月3万円", "at_ages": "" }),
+            vec![
+                "salariedCoupleTwoKids",
+                "65歳まで働く・NISA 月3万円",
+                "65・90",
+                "list_plan_items",
+                "plan_changes",
+                "compare",
+                "market_stress",
+                "minus1",
+            ],
+        ),
+        (
+            "make_seminar_household",
+            json!({ "profile": "38歳の会社員と扶養のパートの妻・賃貸", "events": "2028年4月に4,000万円の家を買う" }),
+            vec![
+                "38歳の会社員と扶養のパートの妻・賃貸",
+                "2028年4月に4,000万円の家を買う",
+                "get_input_recipe",
+                "get_input_guide",
+                "架空",
+            ],
+        ),
+        (
+            "prepare_meeting",
+            json!({ "topic": "老後資金" }),
+            vec![
+                "老後資金",
+                "list_shared_households",
+                "preparation",
+                "keyFigures.pension",
+                "market_stress",
+            ],
+        ),
+        (
+            "explain_to_client",
+            json!({ "household": "salariedCoupleTwoKids", "number": "2030年の税・社会保険料" }),
+            vec![
+                "2030年の税・社会保険料",
+                "explain_value",
+                "get_regulation_value",
+            ],
+        ),
+        (
+            "chart_rate_paths",
+            json!({ "household": "salariedCoupleTwoKids", "paths": "" }),
+            vec![
+                "salariedCoupleTwoKids",
+                "今のまま・10年で+1%・10年で+2%",
+                "list_plan_items",
+                "rateOutlook",
+                "plan_changes",
+                "chart",
+                "お客さまの名前を書かない",
+                "金額を丸める",
+            ],
+        ),
+        (
+            "check_coverage",
+            json!({ "topic": "ふるさと納税" }),
+            vec![
+                "ふるさと納税",
+                "search_coverage",
+                "get_coverage",
+                "要望・不具合を送る",
+            ],
+        ),
+    ];
+    // 道具の名前の形（英小文字と _）の言葉のうち、道具の引数・入力の鍵として書いた物
+    let not_tools = [
+        "sample_household_id",
+        "share_id",
+        "at_ages",
+        "every_years",
+        "plan_changes",
+        "market_stress",
+        "stress_test",
+    ];
+    for (name, args, wants) in cases {
+        let Value::Object(m) = args else { panic!() };
+        let r = c
+            .get_prompt(GetPromptRequestParams::new(name).with_arguments(m))
+            .await
+            .unwrap();
+        assert_eq!(r.messages.len(), 1, "{name}");
+        let text = r.messages[0].content.as_text().unwrap().text.clone();
+        for w in wants {
+            assert!(text.contains(w), "{name}: {w} がありません: {text}");
+        }
+        for w in text.split(|ch: char| !(ch.is_ascii_lowercase() || ch == '_')) {
+            if w.contains('_') && !w.starts_with('_') && !w.ends_with('_') {
+                assert!(
+                    tools.iter().any(|t| t == w) || not_tools.contains(&w),
+                    "{name}: {w} は今ある道具ではありません"
+                );
+            }
+        }
+        // 機能を有効にするコードの話は出さない
+        assert!(!text.contains("コード"), "{name}: {text}");
+    }
+    // 要る引数が無いときは失敗する
+    assert!(c
+        .get_prompt(
+            GetPromptRequestParams::new("compare_households")
+                .with_arguments(json!({ "household_a": "x" }).as_object().unwrap().clone())
+        )
+        .await
+        .is_err());
+    // 公開に使うときの案内と、ほかのソフトとの違いを推測で断定しないこと（INSTRUCTIONS）
+    let ins = c
+        .peer_info()
+        .unwrap()
+        .instructions
+        .clone()
+        .unwrap_or_default();
+    for w in [
+        "ブログ・セミナー・SNS",
+        "年収は50万円単位",
+        "お客さまに一言ことわる",
+        "推測で断定しない",
+        "プロンプトの一覧",
+    ] {
+        assert!(ins.contains(w), "{w}");
+    }
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);
 }
