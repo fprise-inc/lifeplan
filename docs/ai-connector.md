@@ -67,8 +67,8 @@ args = ["mcp"]
 
 | 群 | 道具 | 使える条件 |
 |---|---|---|
-| 単体で使える | `list_sample_households`（架空の見本の世帯の一覧。アプリの見本の棚と同じ名前・目印で、目印で絞れる。0199）・`get_sample_household`（見本の世帯の計算の入力）・`calculate`（見本の世帯・渡された世帯・AIが組み立てた入力に、プランや想定の変更を当てて計算）・`list_plan_items`（その世帯で、画面の結果のタブのプランで動かせる項目を、対象・入力項目ID（場所だけ違う項目は場所も）・今の値・範囲で。0195・0201）・`compare`（基本と最大8通りを1回で計算し、主な数字・基本との差・選んだ数字の系列を並べる。0198）・`sweep`（1つの動かす項目を範囲で振り、値ごとの主な数字を1つの表で返す。0202）・`find_threshold`（「最後まで足りる生活費の上限」「いちばん早い退職の年齢」のような、主な数字の条件を満たす境目を接続口の中で探す。0202）・`explain_value`（キャッシュフロー表の1つの数字の根拠。画面の「数字の根拠」と同じ中身に制度の値ID を添える）・`get_regulation_value`（制度の値を値・適用期間・出典つきで）・`search_coverage`・`get_coverage`（何をどう計算しているか〔入っている・近似している・まだ入っていない〕を、同梱した対応範囲の一覧〔`docs/coverage/`〕から探す。0183）・`get_input_guide`（計算の入力の形の案内: 形の決まり・区分ごとの欄・必須・選べる値・例・計算できる最小の入力の例。0196）・`get_input_recipe`（家を買う・子が生まれる・退職・繰上返済・NISA と iDeCo・万一の想定の手本を、世帯に合わせた changes で。0196） | いつでも（アプリが起動していなくてよい。`list_plan_items`・`get_input_recipe`・`compare`・`sweep`・`find_threshold` の `share_id` は下の「世帯を扱う」と同じ条件） |
-| 世帯を扱う | `list_shared_households`・`get_shared_household`・`propose_scenario`（プランの候補を承認待ちで出す）・`propose_inputs`（保険の書類から読んだ値を、現状の入力の候補として承認待ちで出す）、`calculate`・`explain_value`・`list_plan_items`・`compare`・`sweep`・`find_threshold` の `share_id` | アプリが起動していて、FPが「この世帯をAIに渡す」で渡した世帯が期限内で取り消されていないときだけ |
+| 単体で使える | `list_sample_households`（架空の見本の世帯の一覧。アプリの見本の棚と同じ名前・目印で、目印で絞れる。0199）・`get_sample_household`（見本の世帯の計算の入力）・`calculate`（見本の世帯・渡された世帯・AIが組み立てた入力に、プランや想定の変更を当てて計算）・`list_plan_items`（その世帯で、画面の結果のタブのプランで動かせる項目を、対象・入力項目ID（場所だけ違う項目は場所も）・今の値・範囲で。0195・0201）・`compare`（基本と最大8通りを1回で計算し、主な数字・基本との差・選んだ数字の系列を並べる。0198）・`sweep`（1つの動かす項目を範囲で振り、値ごとの主な数字を1つの表で返す。0202）・`find_threshold`（「最後まで足りる生活費の上限」「いちばん早い退職の年齢」のような、主な数字の条件を満たす境目を接続口の中で探す。0202）・`chart`（`compare` と同じ書き方で計算した答えを、画面のグラフと同じ見た目の PNG・SVG にする。0203）・`explain_value`（キャッシュフロー表の1つの数字の根拠。画面の「数字の根拠」と同じ中身に制度の値ID を添える）・`get_regulation_value`（制度の値を値・適用期間・出典つきで）・`search_coverage`・`get_coverage`（何をどう計算しているか〔入っている・近似している・まだ入っていない〕を、同梱した対応範囲の一覧〔`docs/coverage/`〕から探す。0183）・`get_input_guide`（計算の入力の形の案内: 形の決まり・区分ごとの欄・必須・選べる値・例・計算できる最小の入力の例。0196）・`get_input_recipe`（家を買う・子が生まれる・退職・繰上返済・NISA と iDeCo・万一の想定の手本を、世帯に合わせた changes で。0196） | いつでも（アプリが起動していなくてよい。`list_plan_items`・`get_input_recipe`・`compare`・`sweep`・`find_threshold`・`chart` の `share_id` は下の「世帯を扱う」と同じ条件） |
+| 世帯を扱う | `list_shared_households`・`get_shared_household`・`propose_scenario`（プランの候補を承認待ちで出す）・`propose_inputs`（保険の書類から読んだ値を、現状の入力の候補として承認待ちで出す）、`calculate`・`explain_value`・`list_plan_items`・`compare`・`sweep`・`find_threshold`・`chart` の `share_id` | アプリが起動していて、FPが「この世帯をAIに渡す」で渡した世帯が期限内で取り消されていないときだけ |
 | 設定の候補を出す | `propose_feature_code`（FPが渡した「機能を有効にするコード」を、アプリの画面に承認待ちの候補として出す。コードは入らない） | アプリが起動していて、AI接続口がオンのときだけ（世帯を渡していなくてよい） |
 
 道具の名前と入出力は試験版です（予告して変えることがあります。0001・0015）。
@@ -85,6 +85,7 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 - 「salariedCoupleTwoKids で、働く最後の年齢を63歳にする・生活費を月25万円にする・NISA を月3万円にする、の3つを並べて」「sampleCoupleNoKids と salariedCoupleTwoKids と sampleSingle20s を比べて」（`compare`）
 - 「salariedCoupleTwoKids で、働く最後の年齢を60〜70歳で1歳ずつ変えたら、95歳の時点の資産と資産が尽きる年はどうなる？」（`sweep`）
 - 「salariedCoupleTwoKids で、生活費は月いくらまでなら最後まで足りる？」「何歳まで働けば足りる？」（`find_threshold`）
+- 「salariedCoupleTwoKids で、変動金利の上がり方を3通り（今のまま・10年で+1%・10年で+2%）にして比べ、グラフにして」（`list_plan_items` の「金利の見込み（変動金利）」→ `chart`）
 - 「所得税の基礎控除の今の額と出典は？」
 - 「salariedCoupleTwoKids の2030年の税・社会保険料は、どんな計算で出ている？お客さまに分かる言葉で」（`explain_value`）
 - 「ファイナンシアに高額療養費は入っている？ iDeCo の受け取り方はどう計算している？」（`search_coverage`・`get_coverage`）
@@ -113,6 +114,7 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 | `prepare_meeting` | 面談の準備 | `household`（省くと渡されている世帯を確かめる）・`topic`（面談のテーマ） |
 | `explain_to_client` | 数字の根拠をお客さまに分かる言葉で説明する | `household`*・`number`*（例「2030年の税・社会保険料」） |
 | `check_coverage` | 制度や計算に入っているかを調べる | `topic`*（例「ふるさと納税」） |
+| `chart_rate_paths` | 金利の上がり方を3通り比べてグラフにする（0203） | `household`*（変動金利の住宅ローンのある世帯）・`paths`（比べる上がり方。省くと今のまま・10年で+1%・10年で+2%）・`purpose`（使う先） |
 
 ### 見本の世帯の一覧（0199）
 
@@ -185,6 +187,34 @@ AI に次のように頼みます（道具の名前は書かなくても、AI �
 - 大きさと時間の目安（見本の世帯 `salariedCoupleTwoKids`。リリースのビルド・ほかの作業と同時に動いている10コアの手元の機械）: 働く最後の年齢を60〜70歳で振ると、`calculate` を11回（答え約152KB・約9〜11秒。主な数字だけでも約16KB）の代わりに `sweep` 1回（約1.5KB・約4秒。列を3つに絞ると約1KB）。生活費の上限を1,000円刻みで探す（15万〜40万円の251個）と、`find_threshold` 1回（10回計算・約1.4KB・約7秒）。
 
 頼み方の例: 「salariedCoupleTwoKids で、生活費は月いくらまでなら最後まで足りる？ 1,000円単位で」「何歳まで働けば、90歳の時点で1,000万円残る？」「配偶者の年収を100万〜160万円で10万円ずつ振って、生涯の手取りを表にして」
+
+### 比べた答えをグラフにする（0203）
+
+「変動金利の上がり方を3通りにして比べ、グラフにして」のように、比べた答えをセミナーの資料やブログに使うグラフにするときは、AI のアプリに数字を描かせず `chart` を使います。
+
+1. `list_plan_items` で、住宅ローンの「金利の見込み（変動金利）」の項目（`kind: "rateOutlook"`。変動金利の住宅ローンごとに1つ）を探します。入力の「住まい・ローン」の「金利の見込み（変動金利）」の欄と同じ型（`presets`: `flat`＝今の金利のまま・`up1`＝10年で1%上がる〔5年後に＋0.5%・10年後に＋1%〕・`up2`＝10年で2%上がる〔5年後に＋1%・10年後に＋2%〕）と、今の金利 `currentRate`・起点の月 `from` が出ます。
+2. `chart` の基本と通りの `plan_changes` に、その項目（`target`・`item` と、一覧が添えた場所 `lever`）と値を入れます。値は型の名前か、5年ごとの上乗せ `{"adds": ["0.005", "0.01"]}`（5年後に＋0.5%・10年後に＋1%。6段まで。各段 −3%〜+5%）。入力の欄で型を選んだときと同じ関数で当たるので、画面で同じ型を選んだときと同じ数字になります。
+3. 返るのは、説明と通りごとの主な数字（キャプション用）の文章、続けてグラフの PNG（MCP の image。AI のアプリでそのまま見える）と、`format` が `svg`・`both` なら SVG（`image/svg+xml`）です。
+
+例:
+
+```json
+{ "sample_household_id": "salariedCoupleTwoKids", "label": "今のまま",
+  "plan_changes": [{ "target": "<ローンの ID>", "item": "debt.rateSchedule", "lever": "loanRateOutlook", "value": "flat" }],
+  "variants": [
+    { "label": "10年で+1%", "plan_changes": [{ "target": "<ローンの ID>", "item": "debt.rateSchedule", "lever": "loanRateOutlook", "value": "up1" }] },
+    { "label": "10年で+2%", "plan_changes": [{ "target": "<ローンの ID>", "item": "debt.rateSchedule", "lever": "loanRateOutlook", "value": "up2" }] } ],
+  "charts": ["assets", "repayment", "keyFigures"], "format": "both" }
+```
+
+- グラフの種類（`charts`。既定は3つとも）: `assets`（通りごとの金融資産の推移）・`repayment`（通りごとの住宅ローンの返済額の推移。年額）・`keyFigures`（主な数字の棒。`figures` で `assetsAtAge`・`minimum`・`loanRepayment`・`lifetimeTakeHome`・`lifetimeExpense` から選ぶ）。`title` は1種類だけのときに渡せます。`theme` は `light`（既定。白地・印刷向け）か `dark`。
+- どのグラフにも、題・凡例（通りの文字 A・B… と名前）・単位（万円）・前提の短い注（通りの違い・物価上昇率・運用利回り・相場の想定）・「ファイナンシアで試算」の旨と試算の時点が入ります。線の右端と棒の下にも通りの文字が入り、色だけに頼りません。
+- 数字は `compare` と同じ道で計算した物だけを描きます（AI から数字を受け取りません）。どれかの通りを計算できないときは、グラフを作らずに理由を返します。
+- 見た目は画面と同じです（座標・目盛りの関数、線の色〔色の見分けにくい人にも見分けやすい組み合わせ〕、文字と線の色）。PNG は接続口に同梱した字体（BIZ UDゴシック）で描き、外へは何も送りません。
+- お客さまの名前・ID は描きません。通りの名前（`label`）と題（`title`）に書いた文字はそのまま入るので、お客さまの名前を書かないでください。公開に使うときは、実在のお客さまの世帯なら、金額を丸める・珍しい組み合わせを変える・お客さまに一言ことわる、のどれかをしてから使ってください（見本の世帯はすべて架空です）。
+- 系列の住宅ローンの数字は `compare` の `series`・`calculate` の `fields` でも選べます: `loanRepayment`（住宅ローンの返済。年額。繰上返済・手数料を含み、表に出す年の合計が `keyFigures.loanRepayment`）・`loanBalance`（住宅ローン残高。画面の表の行と同じ）。適用金利と利息はまだ返しません。
+- 変動金利の上がり方は、この項目のほかに、結果のタブの「変動金利の上昇」（前提の `loanRateShifts`。ある年から一律の上乗せ）と、ストレステスト `rateRise`（決まった型。上げ幅を選べない）があります。どちらも今ある後の段に重なるので、入力の欄の型とは当て方が違います。
+- 大きさと時間の目安（見本の世帯で3通り）: 3つのグラフの PNG と SVG で約 420KB・約 1 秒、PNG だけ（既定）で約 400KB、1つだけなら約 130〜150KB（PNG は1枚約 100KB、SVG は約 8KB）。
 
 ### プランの動かす項目（画面と同じ。0195・0201）
 

@@ -87,8 +87,9 @@ pub struct CompareArgs {
     /// 並べる通り（8通りまで。9通り目から後は計算せず理由を返す）。通りごとに、世帯を書かなければ基本に重ね、書けばその世帯で計算する
     #[schemars(with = "Vec<VariantArgs>")]
     pub variants: Vec<Value>,
-    /// 年ごとの系列に返す数字（既定 ["financialAssets"]。calculate の fields と同じ: income・taxSi・expense・net・financialAssets・debt・shortfall）
-    #[schemars(extend("items" = { "type": "string", "enum": ["income", "taxSi", "expense", "net", "financialAssets", "debt", "shortfall"] }))]
+    /// 年ごとの系列に返す数字（既定 ["financialAssets"]。calculate の fields と同じ: income・taxSi・expense・net・financialAssets・debt・shortfall・
+    /// loanRepayment〔住宅ローンの返済。年額〕・loanBalance〔住宅ローン残高〕）
+    #[schemars(extend("items" = { "type": "string", "enum": ["income", "taxSi", "expense", "net", "financialAssets", "debt", "shortfall", "loanRepayment", "loanBalance"] }))]
     pub series: Option<Vec<String>>,
     /// 系列の何年おき（1〜10。既定5）。画面の表の最初の年と最後の年はいつも入る
     #[schemars(range(min = 1, max = 10))]

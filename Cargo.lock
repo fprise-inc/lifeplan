@@ -1914,8 +1914,10 @@ version = "0.1.0"
 dependencies = [
  "ai-ipc",
  "ai-share",
+ "base64 0.22.1",
  "engine-host",
  "regex",
+ "resvg",
  "rmcp",
  "serde",
  "serde_json",

@@ -63,6 +63,18 @@ function screen(id: string): { req: EngineRequest; wh: WorkingHousehold; cat: Ca
 }
 
 /** 画面でつまみを動かしたときの要求（結果のタブの動かした値 → applyValues）と、接続口に渡す同じ変更（一覧の対象・入力項目ID） */
+/** 世帯の要求の中の、元の世帯に無い ID（当てるときに新しく振る ID）を、現れる順の印に置き換える */
+function freshIds(input: unknown, original: EngineRequest): unknown {
+  const known = JSON.stringify(original);
+  const seen = new Map<string, string>();
+  const text = JSON.stringify(input).replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, (id) => {
+    if (known.includes(id)) return id;
+    if (!seen.has(id)) seen.set(id, `new-${seen.size + 1}`);
+    return seen.get(id) as string;
+  });
+  return JSON.parse(text) as unknown;
+}
+
 function both(id: string, moves: Record<string, (now: ItemValue) => ItemValue>) {
   const s = screen(id);
   const listed = list(s.req, { sampleId: id, fields: true }).items;
@@ -110,6 +122,9 @@ const CASES: { name: string; sample: string; moves: Record<string, (now: ItemVal
   { name: "第2子の大学の学費を年150万円・第1子の塾を月3万円に（教育の段階ごとの欄）", sample: "salariedCoupleTwoKids", moves: { "field:edu/*/stage/3/annual": () => 1500000, "field:edu/*/lesson/0/monthly": () => 30000 } },
   { name: "退職後の生活費の割合を0.65に・住宅ローンの金利の段階2を1.5%に", sample: "salariedCoupleTwoKids", moves: { "field:living/*/stage/1/ratio": () => "0.65", "field:housing/debt/*/rate/1/rate": () => "0.015" } },
   { name: "定年後の予定の定年を62歳に（働く最後の年齢とは別の欄）", sample: "salariedCoupleTwoKids", moves: { "field:work/*/mainEnd": () => 62 } },
+  // 0203: 変動金利の見込み（入力の「金利の見込み」の欄と同じ型・同じ関数。合成の対策 loanRateOutlook の場所で選ぶ）
+  { name: "変動金利の見込みを10年で2%上がるに（金利の見込みの欄と同じ型）", sample: "salariedCoupleTwoKids", moves: { "loan:*:outlook": () => ({ adds: ["0.01", "0.02"] }) }, ask: { row: "housing", year: 2040 } },
+  { name: "変動金利の見込みを5年ごとに＋0.25%（15年まで）", sample: "protectionNeed", moves: { "loan:*:outlook": () => ({ adds: ["0.0025", "0.005", "0.0075"] }) } },
 ];
 
 describe("AI接続口のプランの動かす項目（0195）", () => {
@@ -163,7 +178,8 @@ describe("AI接続口のプランの動かす項目（0195）", () => {
       const got = apply(s.req, changes, c.sample);
       expect(got.status, `${c.name} ${JSON.stringify(got.changes)}`).toBe("ok");
       expect(got.changes.every((r) => r.status === "applied"), c.name).toBe(true);
-      expect(got.request!.input, c.name).toEqual(screenRequest.input);
+      // 当てるときに新しく振る ID（金利の見込みの段など。0203）は、現れる順の印にして比べる（ID は計算に使わない）
+      expect(freshIds(got.request!.input, s.req), c.name).toEqual(freshIds(screenRequest.input, s.req));
       expect(got.request!.trace).toBe(s.req.trace);
     }
     // 働く最後の年齢: 雇用の終わりだけでなく、生活費の退職の段階・積立の終わりも動く（欄を1つだけ動かす JSON Pointer の変更とは違う）

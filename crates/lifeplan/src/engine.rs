@@ -120,6 +120,17 @@ pub fn plan(function: &str, a: &str, b: &str, c: &str) -> Result<String, String>
     run().map_err(|e| e.code().to_owned())
 }
 
+/// 比べた答えのグラフ（画面のグラフと同じ座標・色の SVG。app/src/connector/chart.ts。0203）を、計算と同じ固めた新しい実行環境で作る。
+/// args は通りの名前と数字（chart.rs が compare の答えから作る）。戻り値は JSON の文字（status・svg・title・alt・width・height）
+pub fn chart(args: &str) -> Result<String, String> {
+    let run = || -> Result<String, engine_host::HostError> {
+        let sandbox = Sandbox::new(&Limits::DEFAULT)?;
+        sandbox.eval_script(assets::EXPLAIN_JS)?;
+        sandbox.call_function("FinanciaExplain", "chart", (args, "", ""))
+    };
+    run().map_err(|e| e.code().to_owned())
+}
+
 /// 年金の見込みの写しの要求（画面の比較の表の年金の行と同じ。app/src/connector/summary.ts の pensionRequests。0199）を、
 /// 計算と同じ固めた新しい実行環境で作る。request は計算の前の処理を当てる前の要求。戻り値は `{ std, claimed }` の JSON の文字
 pub fn pension_requests(request: &str) -> Result<String, String> {

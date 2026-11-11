@@ -988,6 +988,7 @@ const LEVER_CARDS: Readonly<Record<string, string>> = {
   surplusChangeAge: "living",
   advisoryFee: "fee",
   loanRateShift: "housing",
+  loanRateOutlook: "housing",
   loanPrepay: "housing",
   loanRate: "housing",
   loanTermYears: "housing",
