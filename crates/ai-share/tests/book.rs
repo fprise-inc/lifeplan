@@ -526,3 +526,27 @@ fn post_retirement_goes_with_numbers_and_choices_only() {
     let got2: Value = serde_json::from_str(&get(&reg, &g2.share_id).unwrap()).unwrap();
     assert_eq!(got2["postRetirement"], json!({}));
 }
+
+/// 候補の変更の場所 at・lever（0201。世帯ファイルの形式 0.75）: 世帯ファイルの候補を開いて書き戻すと、場所を添えた候補も添えない候補も
+/// 1文字も変わらない（前の版の候補に欄を書き足さない）。画面に返す本文には候補の区画が無い
+#[test]
+fn candidate_places_survive_open_and_save() {
+    let p = repo().join("crates/household-store/tests/fixtures/household-format/0.75/body.json");
+    let body: Value = serde_json::from_str(&std::fs::read_to_string(p).unwrap()).unwrap();
+    let (b, screen) =
+        HouseholdBook::from_opened(HOUSEHOLD_ID, Some(CUSTOMER_NO.into()), 1, &body.to_string())
+            .unwrap();
+    assert!(serde_json::from_str::<Value>(&screen)
+        .unwrap()
+        .get("candidates")
+        .is_none());
+    assert_eq!(b.candidates.len(), 2);
+    assert!(b.candidates[0].diffs[0].at.is_none() && b.candidates[0].diffs[0].lever.is_none());
+    assert_eq!(
+        b.candidates[1].diffs[0].lever.as_deref(),
+        Some("investStopAge")
+    );
+    assert_eq!(b.candidates[1].diffs[1].at.as_ref().unwrap().len(), 3);
+    let composed: Value = serde_json::from_str(&b.compose(&[]).unwrap()).unwrap();
+    assert_eq!(composed["candidates"], body["candidates"]);
+}

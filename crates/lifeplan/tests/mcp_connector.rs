@@ -1986,6 +1986,31 @@ async fn plan_changes_match_the_screen() {
     )
     .await;
     assert!(more["count"].as_u64().unwrap() > list["count"].as_u64().unwrap());
+    // 場所だけ違う項目（0201）も、場所（at か lever）と人が読める区別（place）を添えて出す。どの書き方でも決まらない項目は無い
+    assert_eq!(more["unlisted"], 0);
+    let stop = list["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|x| x["lever"] == "investStopAge")
+        .unwrap();
+    assert!(
+        stop["place"].is_string() && stop.get("at").is_none(),
+        "{stop}"
+    );
+    assert!(more["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|x| x["at"].is_array() && x["place"].as_str().unwrap().contains("第1子")));
+    // 場所を外した今までの書き方では、今までどおり1つに決まらないので当てない
+    let (err, msg) = call(
+        &c,
+        "calculate",
+        json!({ "sample_household_id": first["sample"], "plan_changes": [{ "target": stop["target"], "item": stop["item"], "value": 55 }] }),
+    )
+    .await;
+    assert!(err && msg.contains("複数"), "{msg}");
 
     // 当てはまらない変更は、計算せずに理由を返す。JSON Pointer の changes はそのまま動く（plan_changes と一緒にも使える）
     let (err, msg) = call(
@@ -2065,8 +2090,10 @@ async fn plan_items_for_a_shared_household() {
     .unwrap();
     let want = &fx["shared"];
     let id = want["sample"].as_str().unwrap();
-    // 定年後の働き方の条件を持つ世帯（縮約版は数と選択肢だけを渡す。名前・自由文の欄は落とす）
+    // 定年後の働き方の条件を持つ世帯（縮約版は数と選択肢だけを渡す。名前・自由文の欄は落とす）。世帯は、画面で保存した世帯と同じく
+    // 並びの要素の ID を持つ形（世帯ファイルの本文。場所 at の中の要素の ID を元に戻せる。0201）
     let mut src = source(id, false);
+    src.input = want["savedInput"].clone();
     let mut post = want["postRetirement"].clone();
     for (_, c) in post.as_object_mut().unwrap() {
         c["memo"] = json!(MEMO);
@@ -2139,6 +2166,76 @@ async fn plan_items_for_a_shared_household() {
         pending[0].diffs[0].target,
         json!({ "object": sample["target"] })
     );
+    assert!(pending[0].diffs[0].at.is_none() && pending[0].diffs[0].lever.is_none());
+
+    // 場所だけ違う項目（0201）: 一覧（共有の仮の ID）の場所 at・lever をそのまま渡すと、アプリ本体が at の中の ID も元に戻して承認待ちに
+    // 入れる。戻した変更は、画面の「AIからの候補」でその項目に当たる変更（app/test/connector-plan.test.ts の見本）と同じ
+    let all = call_ok(
+        &c,
+        "list_plan_items",
+        json!({ "share_id": g.share_id, "fields": true }),
+    )
+    .await;
+    let mut changes = Vec::new();
+    for p in want["proposal"].as_array().unwrap() {
+        let it = all["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|x| x["label"] == p["label"] && x["place"] == p["place"])
+            .unwrap_or_else(|| panic!("一覧に {} がありません", p["label"]));
+        assert!(it.get("at").is_some() != it.get("lever").is_some(), "{it}");
+        assert_eq!(it["proposable"], true, "{it}");
+        let mut ch = json!({ "target": it["target"], "item": it["item"], "value": p["value"] });
+        for k in ["at", "lever"] {
+            if let Some(v) = it.get(k) {
+                ch[k] = v.clone();
+            }
+        }
+        changes.push(ch);
+    }
+    // 同じ書き方で計算もできる（当てはめは画面の候補と同じ関数）
+    let calc = call_ok(
+        &c,
+        "calculate",
+        json!({ "share_id": g.share_id, "plan_changes": changes, "omit": ["years"] }),
+    )
+    .await;
+    let rows = calc["planChanges"]["changes"].as_array().unwrap();
+    assert!(rows.iter().all(|r| r["status"] == "applied"), "{rows:?}");
+    assert!(rows.iter().all(|r| r["place"].is_string()), "{rows:?}");
+    let r = call_ok(
+        &c,
+        "propose_scenario",
+        json!({ "share_id": g.share_id, "title": "場所だけ違う項目を動かす", "changes": changes }),
+    )
+    .await;
+    assert_eq!(r["status"], "pendingReview");
+    let pending = reg.take_proposals();
+    let got: Vec<Value> = pending[0]
+        .diffs
+        .iter()
+        .map(|d| {
+            let mut v = json!({ "target": d.target, "item": d.item, "value": d.value });
+            if let Some(at) = &d.at {
+                v["at"] = json!(at);
+            }
+            if let Some(l) = &d.lever {
+                v["lever"] = json!(l);
+            }
+            v
+        })
+        .collect();
+    let expected: Vec<Value> = want["proposal"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["diff"].clone())
+        .collect();
+    assert_eq!(
+        got, expected,
+        "元の ID に戻した変更が、画面で当たる変更と違います"
+    );
     reg.revoke(&g.share_id);
     let (err, msg) = call(&c, "list_plan_items", json!({ "share_id": g.share_id })).await;
     assert!(err && msg.contains("REVOKED"), "{msg}");
@@ -2210,7 +2307,13 @@ fn every_plan_item_matches_node() {
         // ファイルの文字のまま渡す（JS が読むと、どちらの実行環境でも同じ並びの物になる）
         let req = std::fs::read_to_string(repo().join(format!("data/modelHouseholds/{id}.json")))
             .unwrap();
-        let sb = Sandbox::new(&Limits::DEFAULT).unwrap();
+        // 世帯ごとに1つの実行環境で全部の項目を当てる（接続口は呼ぶたびに新しい実行環境で、時間の上限も1回ごと。ここは答えを比べるだけなので、
+        // 時間の上限だけ広げる）
+        let sb = Sandbox::new(&Limits {
+            time: std::time::Duration::from_secs(600),
+            ..Limits::DEFAULT
+        })
+        .unwrap();
         sb.eval_script(&js).unwrap();
         let args = json!({ "sampleId": id, "fields": true }).to_string();
         let list = sb
@@ -2223,8 +2326,13 @@ fn every_plan_item_matches_node() {
         let ctx = json!({ "args": { "sampleId": id }, "office": null }).to_string();
         for it in list["items"].as_array().unwrap() {
             let Some(value) = bump(it) else { continue };
-            let changes =
-                json!([{ "target": it["target"], "item": it["item"], "value": value }]).to_string();
+            let mut change = json!({ "target": it["target"], "item": it["item"], "value": value });
+            for k in ["at", "lever"] {
+                if let Some(v) = it.get(k) {
+                    change[k] = v.clone();
+                }
+            }
+            let changes = json!([change]).to_string();
             let out = sb
                 .call_function("FinanciaPlan", "applyPlan", (&req, &changes, &ctx))
                 .unwrap_or_else(|e| panic!("{id} {}: {e:?}", it["label"]));
@@ -2232,7 +2340,8 @@ fn every_plan_item_matches_node() {
             got.push(out);
         }
     }
-    assert!(got.len() > 1000, "{}", got.len());
+    // 場所だけ違う項目（0201）も一覧に出て、1つずつ動かす
+    assert!(got.len() > 3000, "{}", got.len());
     let mut node = std::process::Command::new("node")
         .arg("-e")
         .arg(NODE_PLAN)

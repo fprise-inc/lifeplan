@@ -24,9 +24,28 @@
     "PlanChange": {
       "description": "プランの候補と同じ書き方の変更1件（propose_scenario の changes の1件と同じ。理由 note は要らない）",
       "properties": {
+        "at": {
+          "default": null,
+          "description": "場所（list_plan_items が at を添えた項目だけ。そのまま渡す）。同じ対象・同じ入力項目ID で場所だけが違う欄（教育の段階ごとの欄・\n生活費の段階の割合など）を選ぶ。lever とどちらか1つ",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
         "item": {
           "description": "入力項目 ID（list_plan_items の item。例: employment.to〔働く最後の年齢〕・pensionRecord.claim・livingExpense.monthly）",
           "type": "string"
+        },
+        "lever": {
+          "default": null,
+          "description": "合成の対策の名前（list_plan_items が lever を添えた項目だけ。そのまま渡す。例: investMonthly〔資産運用の毎月の積立額〕・\ninvestStopAge〔積立をやめる年齢〕・drawdownStart〔取り崩しを始める年齢〕・mainEndAge〔定年後の予定の定年〕）。at とどちらか1つ",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "target": {
           "description": "対象: list_plan_items の target（世帯の物・構成員の ID か、前提条件なら \"assumptions\"）",

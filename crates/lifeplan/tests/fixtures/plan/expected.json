@@ -1356,6 +1356,2015 @@
           "net": 3141145
         }
       }
+    },
+    {
+      "name": "資産運用の毎月の積立額を月3万円・積立をやめる年齢を55歳に",
+      "sample": "salariedCoupleTwoKids",
+      "changes": [
+        {
+          "target": "assumptions",
+          "item": "account.contributions",
+          "lever": "investMonthly",
+          "value": 30000
+        },
+        {
+          "target": "assumptions",
+          "item": "account.contributions",
+          "lever": "investStopAge",
+          "value": 55
+        }
+      ],
+      "screen": {
+        "years": [
+          {
+            "year": 2027,
+            "net": 748899,
+            "financialAssets": 11915224
+          },
+          {
+            "year": 2028,
+            "net": 1006571,
+            "financialAssets": 13057540
+          },
+          {
+            "year": 2029,
+            "net": 1002324,
+            "financialAssets": 14215721
+          },
+          {
+            "year": 2030,
+            "net": 718180,
+            "financialAssets": 15110507
+          },
+          {
+            "year": 2031,
+            "net": -1186393,
+            "financialAssets": 14121184
+          },
+          {
+            "year": 2032,
+            "net": -541427,
+            "financialAssets": 13797502
+          },
+          {
+            "year": 2033,
+            "net": -941706,
+            "financialAssets": 13095213
+          },
+          {
+            "year": 2034,
+            "net": -1690917,
+            "financialAssets": 11665719
+          },
+          {
+            "year": 2035,
+            "net": 872796,
+            "financialAssets": 12823798
+          },
+          {
+            "year": 2036,
+            "net": 691240,
+            "financialAssets": 13822845
+          },
+          {
+            "year": 2037,
+            "net": 1009368,
+            "financialAssets": 15156474
+          },
+          {
+            "year": 2038,
+            "net": 2625532,
+            "financialAssets": 18120806
+          },
+          {
+            "year": 2039,
+            "net": 2523970,
+            "financialAssets": 20999383
+          },
+          {
+            "year": 2040,
+            "net": 2880458,
+            "financialAssets": 24250914
+          },
+          {
+            "year": 2041,
+            "net": 16579349,
+            "financialAssets": 41225382
+          },
+          {
+            "year": 2042,
+            "net": -4969560,
+            "financialAssets": 36671644
+          },
+          {
+            "year": 2043,
+            "net": -4555937,
+            "financialAssets": 32542266
+          },
+          {
+            "year": 2044,
+            "net": -5103312,
+            "financialAssets": 27876796
+          },
+          {
+            "year": 2045,
+            "net": -5497483,
+            "financialAssets": 22828606
+          },
+          {
+            "year": 2046,
+            "net": -4255484,
+            "financialAssets": 19034955
+          },
+          {
+            "year": 2047,
+            "net": -2470131,
+            "financialAssets": 17041402
+          },
+          {
+            "year": 2048,
+            "net": -3075721,
+            "financialAssets": 14458313
+          },
+          {
+            "year": 2049,
+            "net": -2190365,
+            "financialAssets": 12777525
+          },
+          {
+            "year": 2050,
+            "net": -2160285,
+            "financialAssets": 11127261
+          },
+          {
+            "year": 2051,
+            "net": -1819171,
+            "financialAssets": 9752271
+          },
+          {
+            "year": 2052,
+            "net": -1103406,
+            "financialAssets": 9038404
+          },
+          {
+            "year": 2053,
+            "net": -1124462,
+            "financialAssets": 8274916
+          },
+          {
+            "year": 2054,
+            "net": -1537172,
+            "financialAssets": 7067972
+          },
+          {
+            "year": 2055,
+            "net": -1158775,
+            "financialAssets": 6191336
+          },
+          {
+            "year": 2056,
+            "net": -1205185,
+            "financialAssets": 5233202
+          },
+          {
+            "year": 2057,
+            "net": -1630982,
+            "financialAssets": 3810733
+          },
+          {
+            "year": 2058,
+            "net": -1235890,
+            "financialAssets": 2726655
+          },
+          {
+            "year": 2059,
+            "net": -1261565,
+            "financialAssets": 1573526
+          },
+          {
+            "year": 2060,
+            "net": -1706125,
+            "financialAssets": -70511
+          },
+          {
+            "year": 2061,
+            "net": -1055342,
+            "financialAssets": -1126451
+          },
+          {
+            "year": 2062,
+            "net": -819571,
+            "financialAssets": -1947558
+          },
+          {
+            "year": 2063,
+            "net": -1272545,
+            "financialAssets": -3222686
+          },
+          {
+            "year": 2064,
+            "net": -859063,
+            "financialAssets": -4085401
+          },
+          {
+            "year": 2065,
+            "net": -878976,
+            "financialAssets": -4968901
+          },
+          {
+            "year": 2066,
+            "net": -1346071,
+            "financialAssets": -6320613
+          },
+          {
+            "year": 2067,
+            "net": -920428,
+            "financialAssets": -7247821
+          },
+          {
+            "year": 2068,
+            "net": -941340,
+            "financialAssets": -8196879
+          },
+          {
+            "year": 2069,
+            "net": -962312,
+            "financialAssets": -9167869
+          },
+          {
+            "year": 2070,
+            "net": -984138,
+            "financialAssets": -10161666
+          },
+          {
+            "year": 2071,
+            "net": -1006089,
+            "financialAssets": -11178419
+          },
+          {
+            "year": 2072,
+            "net": -1028096,
+            "financialAssets": -12218207
+          },
+          {
+            "year": 2073,
+            "net": -1050498,
+            "financialAssets": -13281448
+          },
+          {
+            "year": 2074,
+            "net": -1073289,
+            "financialAssets": -14368555
+          },
+          {
+            "year": 2075,
+            "net": -1096358,
+            "financialAssets": -15479829
+          },
+          {
+            "year": 2076,
+            "net": -1138659,
+            "financialAssets": -16634537
+          },
+          {
+            "year": 2077,
+            "net": -1165236,
+            "financialAssets": -17816990
+          },
+          {
+            "year": 2078,
+            "net": -1188688,
+            "financialAssets": -19024089
+          },
+          {
+            "year": 2079,
+            "net": -1213379,
+            "financialAssets": -20257098
+          },
+          {
+            "year": 2080,
+            "net": -1238115,
+            "financialAssets": -21516089
+          },
+          {
+            "year": 2081,
+            "net": -1262816,
+            "financialAssets": -22801052
+          }
+        ],
+        "totals": {
+          "income": 298194967,
+          "taxSi": 46982244,
+          "expense": 295476499,
+          "net": -44263776
+        }
+      },
+      "evidence": {
+        "row": "financial",
+        "year": 2045,
+        "evidence": {
+          "title": "2045年 金融資産残高",
+          "total": 22828606,
+          "context": "ご本人64歳・配偶者62歳",
+          "breakdown": [
+            {
+              "label": "年末の金融資産",
+              "amount": 22828606
+            }
+          ],
+          "formulas": [
+            "年末の金融資産 ＝ 年初の残高 ＋ 年間収支 ＋ 運用益"
+          ],
+          "params": [
+            {
+              "label": "NISA の口座を開ける年齢（その年1月1日に達している年齢）",
+              "value": "18",
+              "source": "租税特別措置法 第37条の14第5項第1号（令和4年4月1日の版）／租税特別措置法 第37条の14第5項第1号（令和6年1月1日の版）",
+              "version": "2026.2.0",
+              "appliesFrom": "2024-01-01"
+            },
+            {
+              "label": "NISA のつみたて投資枠の年間投資枠",
+              "value": "1,200,000",
+              "source": "租税特別措置法 第37条の14第5項第6号イ（令和6年1月1日の版）／金融庁 NISAの抜本的拡充・恒久化のイメージ",
+              "version": "2026.2.0",
+              "appliesFrom": "2024-01-01"
+            },
+            {
+              "label": "NISA の非課税保有限度額（総枠。簿価で管理し、売却した翌年に復活）",
+              "value": "18,000,000",
+              "source": "租税特別措置法 第37条の14（令和6年1月1日の版）／租税特別措置法 第37条の14第5項第6号イ（令和8年10月1日の版）",
+              "version": "2026.2.0",
+              "appliesFrom": "2024-01-01"
+            },
+            {
+              "label": "NISA の成長投資枠の年間投資枠",
+              "value": "2,400,000",
+              "source": "租税特別措置法 第37条の14第5項第6号（令和6年1月1日の版）／租税特別措置法 第37条の14第5項第6号（令和8年10月1日の版）",
+              "version": "2026.2.0",
+              "appliesFrom": "2024-01-01"
+            },
+            {
+              "label": "NISA の非課税保有限度額のうち成長投資枠（内数）",
+              "value": "12,000,000",
+              "source": "租税特別措置法 第37条の14（令和6年1月1日の版）／金融庁 NISAの抜本的拡充・恒久化のイメージ",
+              "version": "2026.2.0",
+              "appliesFrom": "2024-01-01"
+            },
+            {
+              "label": "特定暗号資産の譲渡損失を繰り越して、翌年以後の特定暗号資産の譲渡等の所得から控除できる年数（住民税も同じとみなす。2027年までは制度なし）",
+              "value": "3",
+              "source": "令和8年度税制改正の大綱（令和7年12月26日閣議決定）の暗号資産の譲渡等に係る課税／解説: 特定暗号資産の分離課税（大綱の要約）",
+              "version": "2026.17.0",
+              "appliesFrom": "2028-01-01"
+            },
+            {
+              "label": "学習費総額の年額（公立中学校。子供の学習費調査）",
+              "value": "542,450",
+              "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校教育費",
+              "version": "2026.2.0",
+              "appliesFrom": "2023-04-01"
+            },
+            {
+              "label": "学校外活動費の年額（公立中学校）",
+              "value": "356,018",
+              "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校外活動費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+              "version": "2026.2.0",
+              "appliesFrom": "2023-04-01"
+            },
+            {
+              "label": "学校給食費の年額（公立中学校。子供の学習費調査。学習費総額のうち）",
+              "value": "35,671",
+              "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校給食費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+              "version": "2026.3.0",
+              "appliesFrom": "2023-04-01"
+            },
+            {
+              "label": "学習費総額の年額（公立高等学校（全日制）。子供の学習費調査）",
+              "value": "596,954",
+              "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校教育費",
+              "version": "2026.2.0",
+              "appliesFrom": "2023-04-01"
+            },
+            {
+              "label": "学校外活動費の年額（公立高校）",
+              "value": "245,431",
+              "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校外活動費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+              "version": "2026.2.0",
+              "appliesFrom": "2023-04-01"
+            },
+            {
+              "label": "私立大学の授業料の平均（文科系。令和7年度入学者）",
+              "value": "850,392",
+              "source": "（資料1）令和7年度私立大学入学者に係る初年度学生納付金平均額の調査結果 Ⅱ 調査結果",
+              "version": "2026.2.0",
+              "appliesFrom": "2025-04-01"
+            },
+            {
+              "label": "私立大学の施設設備費の平均（文科系。令和7年度入学者）",
+              "value": "141,892",
+              "source": "（資料1）令和7年度私立大学入学者に係る初年度学生納付金平均額の調査結果 Ⅱ 調査結果",
+              "version": "2026.2.0",
+              "appliesFrom": "2025-04-01"
+            },
+            {
+              "label": "私立大学の入学料の平均（文科系。令和7年度入学者）",
+              "value": "219,951",
+              "source": "（資料1）令和7年度私立大学入学者に係る初年度学生納付金平均額の調査結果 Ⅱ 調査結果",
+              "version": "2026.2.0",
+              "appliesFrom": "2025-04-01"
+            },
+            {
+              "label": "自宅外通学の仕送りの年額（教育費負担の実態調査）",
+              "value": "958,000",
+              "source": "教育費負担の実態調査結果（日本政策金融公庫、2021年12月20日）／教育費負担の実態調査結果（日本政策金融公庫、2021年12月20日）",
+              "version": "2026.2.0",
+              "appliesFrom": "2021-04-01"
+            },
+            {
+              "label": "自宅外通学を始めるための費用（教育費負担の実態調査）",
+              "value": "387,000",
+              "source": "教育費負担の実態調査結果（日本政策金融公庫、2021年12月20日）／教育費負担の実態調査結果（日本政策金融公庫、2021年12月20日）",
+              "version": "2026.2.0",
+              "appliesFrom": "2021-04-01"
+            },
+            {
+              "label": "学習費総額の年額（公立小学校。子供の学習費調査）",
+              "value": "366,599",
+              "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校教育費",
+              "version": "2026.2.0",
+              "appliesFrom": "2023-04-01"
+            },
+            {
+              "label": "学校外活動費の年額（公立小学校）",
+              "value": "256,489",
+              "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校外活動費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+              "version": "2026.2.0",
+              "appliesFrom": "2023-04-01"
+            },
+            {
+              "label": "学校給食費の年額（公立小学校。子供の学習費調査。学習費総額のうち）",
+              "value": "35,774",
+              "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校給食費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+              "version": "2026.3.0",
+              "appliesFrom": "2023-04-01"
+            },
+            {
+              "label": "学校給食費の負担軽減の基準額（公立小学校・完全給食。児童1人の月額。国と都道府県が自治体の食材費を支援）",
+              "value": "5,200",
+              "source": "学校給食費の抜本的な負担軽減（文部科学省）どのくらい負担が軽くなるの？ 基準額／学校給食費の抜本的な負担軽減（文部科学省）どんな取組？",
+              "version": "2026.5.0",
+              "appliesFrom": "2026-04-01"
+            },
+            {
+              "label": "学校給食費の負担軽減の年間の月数（基準額×この月数が1年の支援の上限）",
+              "value": "11",
+              "source": "学校給食費の抜本的な負担軽減（文部科学省）どのくらい負担が軽くなるの？／給食費負担軽減交付金実施要領 3（2）交付金の上限額",
+              "version": "2026.5.0",
+              "appliesFrom": "2026-04-01"
+            },
+            {
+              "label": "学習費総額の年額（私立高等学校（全日制）。子供の学習費調査）",
+              "value": "1,179,261",
+              "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校教育費",
+              "version": "2026.2.0",
+              "appliesFrom": "2023-04-01"
+            },
+            {
+              "label": "学校外活動費の年額（私立高校）",
+              "value": "346,611",
+              "source": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校外活動費／令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額",
+              "version": "2026.2.0",
+              "appliesFrom": "2023-04-01"
+            },
+            {
+              "label": "後期高齢者医療に移る年齢（健康保険の資格を失う年齢）",
+              "value": "75",
+              "source": "高齢者の医療の確保に関する法律 第50条第1号／健康保険法 第3条第1項第7号（後期高齢者医療の被保険者は健康保険の被保険者としない）",
+              "version": "2026.3.0",
+              "appliesFrom": "2025-01-01"
+            }
+          ],
+          "note": "表は受け取った年・支払った年で集計しています（年金は偶数月に前の2か月分を受け取ります）。"
+        }
+      }
+    },
+    {
+      "name": "取り崩しを70歳から月10万円に",
+      "sample": "salariedCoupleTwoKids",
+      "changes": [
+        {
+          "target": "assumptions",
+          "item": "assumptions.investment",
+          "lever": "drawdownStart",
+          "value": 70
+        },
+        {
+          "target": "assumptions",
+          "item": "assumptions.investment",
+          "lever": "drawdownAmount",
+          "value": 100000
+        }
+      ],
+      "screen": {
+        "years": [
+          {
+            "year": 2027,
+            "net": 748899,
+            "financialAssets": 11907900
+          },
+          {
+            "year": 2028,
+            "net": 1006571,
+            "financialAssets": 13033535
+          },
+          {
+            "year": 2029,
+            "net": 1002324,
+            "financialAssets": 14164993
+          },
+          {
+            "year": 2030,
+            "net": 718180,
+            "financialAssets": 15022600
+          },
+          {
+            "year": 2031,
+            "net": -1186393,
+            "financialAssets": 13985215
+          },
+          {
+            "year": 2032,
+            "net": -541427,
+            "financialAssets": 13602145
+          },
+          {
+            "year": 2033,
+            "net": -941706,
+            "financialAssets": 12828679
+          },
+          {
+            "year": 2034,
+            "net": -1690917,
+            "financialAssets": 11315737
+          },
+          {
+            "year": 2035,
+            "net": 872796,
+            "financialAssets": 12377597
+          },
+          {
+            "year": 2036,
+            "net": 691240,
+            "financialAssets": 13270645
+          },
+          {
+            "year": 2037,
+            "net": 1009368,
+            "financialAssets": 14495117
+          },
+          {
+            "year": 2038,
+            "net": 2625532,
+            "financialAssets": 17350519
+          },
+          {
+            "year": 2039,
+            "net": 2523970,
+            "financialAssets": 20120406
+          },
+          {
+            "year": 2040,
+            "net": 2880458,
+            "financialAssets": 23263501
+          },
+          {
+            "year": 2041,
+            "net": 16579349,
+            "financialAssets": 40128632
+          },
+          {
+            "year": 2042,
+            "net": -4969560,
+            "financialAssets": 35462284
+          },
+          {
+            "year": 2043,
+            "net": -4555937,
+            "financialAssets": 31215722
+          },
+          {
+            "year": 2044,
+            "net": -5103312,
+            "financialAssets": 26428312
+          },
+          {
+            "year": 2045,
+            "net": -5497483,
+            "financialAssets": 21253236
+          },
+          {
+            "year": 2046,
+            "net": -4255484,
+            "financialAssets": 17327555
+          },
+          {
+            "year": 2047,
+            "net": -2470131,
+            "financialAssets": 15196621
+          },
+          {
+            "year": 2048,
+            "net": -3075721,
+            "financialAssets": 12470587
+          },
+          {
+            "year": 2049,
+            "net": -2190365,
+            "financialAssets": 10641067
+          },
+          {
+            "year": 2050,
+            "net": -2160285,
+            "financialAssets": 8853791
+          },
+          {
+            "year": 2051,
+            "net": -1819171,
+            "financialAssets": 7387862
+          },
+          {
+            "year": 2052,
+            "net": -1200000,
+            "financialAssets": 6482776
+          },
+          {
+            "year": 2053,
+            "net": -1200000,
+            "financialAssets": 5541487
+          },
+          {
+            "year": 2054,
+            "net": -1537172,
+            "financialAssets": 4225206
+          },
+          {
+            "year": 2055,
+            "net": -1200000,
+            "financialAssets": 3193614
+          },
+          {
+            "year": 2056,
+            "net": -1205185,
+            "financialAssets": 2115571
+          },
+          {
+            "year": 2057,
+            "net": -1630982,
+            "financialAssets": 568396
+          },
+          {
+            "year": 2058,
+            "net": -1235890,
+            "financialAssets": -645376
+          },
+          {
+            "year": 2059,
+            "net": -1261565,
+            "financialAssets": -1908217
+          },
+          {
+            "year": 2060,
+            "net": -1706125,
+            "financialAssets": -3617103
+          },
+          {
+            "year": 2061,
+            "net": -1200000,
+            "financialAssets": -4821320
+          },
+          {
+            "year": 2062,
+            "net": -1200000,
+            "financialAssets": -6026741
+          },
+          {
+            "year": 2063,
+            "net": -1272545,
+            "financialAssets": -7305949
+          },
+          {
+            "year": 2064,
+            "net": -1200000,
+            "financialAssets": -8513854
+          },
+          {
+            "year": 2065,
+            "net": -1200000,
+            "financialAssets": -9722967
+          },
+          {
+            "year": 2066,
+            "net": -1346071,
+            "financialAssets": -11079434
+          },
+          {
+            "year": 2067,
+            "net": -1200000,
+            "financialAssets": -12291113
+          },
+          {
+            "year": 2068,
+            "net": -1200000,
+            "financialAssets": -13504004
+          },
+          {
+            "year": 2069,
+            "net": -1200000,
+            "financialAssets": -14718108
+          },
+          {
+            "year": 2070,
+            "net": -1200000,
+            "financialAssets": -15933426
+          },
+          {
+            "year": 2071,
+            "net": -1200000,
+            "financialAssets": -17149959
+          },
+          {
+            "year": 2072,
+            "net": -1200000,
+            "financialAssets": -18367708
+          },
+          {
+            "year": 2073,
+            "net": -1200000,
+            "financialAssets": -19586675
+          },
+          {
+            "year": 2074,
+            "net": -1200000,
+            "financialAssets": -20806861
+          },
+          {
+            "year": 2075,
+            "net": -1200000,
+            "financialAssets": -22028267
+          },
+          {
+            "year": 2076,
+            "net": -1200000,
+            "financialAssets": -23250895
+          },
+          {
+            "year": 2077,
+            "net": -1200000,
+            "financialAssets": -24474745
+          },
+          {
+            "year": 2078,
+            "net": -1200000,
+            "financialAssets": -25699819
+          },
+          {
+            "year": 2079,
+            "net": -1213379,
+            "financialAssets": -26939504
+          },
+          {
+            "year": 2080,
+            "net": -1238115,
+            "financialAssets": -28205177
+          },
+          {
+            "year": 2081,
+            "net": -1262816,
+            "financialAssets": -29496829
+          }
+        ],
+        "totals": {
+          "income": 298194967,
+          "taxSi": 46982244,
+          "expense": 298721773,
+          "net": -47509050
+        }
+      }
+    },
+    {
+      "name": "黒字のうち貯まる割合を8割に",
+      "sample": "salariedCoupleTwoKids",
+      "changes": [
+        {
+          "target": "assumptions",
+          "item": "assumptions.surplusSaving",
+          "lever": "surplusRatio",
+          "value": "0.8"
+        }
+      ],
+      "screen": {
+        "years": [
+          {
+            "year": 2027,
+            "net": 599119,
+            "financialAssets": 11633244
+          },
+          {
+            "year": 2028,
+            "net": 805256,
+            "financialAssets": 12557189
+          },
+          {
+            "year": 2029,
+            "net": 801859,
+            "financialAssets": 13487606
+          },
+          {
+            "year": 2030,
+            "net": 574544,
+            "financialAssets": 14200828
+          },
+          {
+            "year": 2031,
+            "net": -1186393,
+            "financialAssets": 13162621
+          },
+          {
+            "year": 2032,
+            "net": -541427,
+            "financialAssets": 12778729
+          },
+          {
+            "year": 2033,
+            "net": -941706,
+            "financialAssets": 12004439
+          },
+          {
+            "year": 2034,
+            "net": -1690917,
+            "financialAssets": 10490673
+          },
+          {
+            "year": 2035,
+            "net": 698236,
+            "financialAssets": 11377061
+          },
+          {
+            "year": 2036,
+            "net": 552992,
+            "financialAssets": 12130792
+          },
+          {
+            "year": 2037,
+            "net": 807494,
+            "financialAssets": 13152149
+          },
+          {
+            "year": 2038,
+            "net": 2100425,
+            "financialAssets": 15480838
+          },
+          {
+            "year": 2039,
+            "net": 2019176,
+            "financialAssets": 17743809
+          },
+          {
+            "year": 2040,
+            "net": 2304366,
+            "financialAssets": 20308147
+          },
+          {
+            "year": 2041,
+            "net": 16579349,
+            "financialAssets": 37170323
+          },
+          {
+            "year": 2042,
+            "net": -4969560,
+            "financialAssets": 32501017
+          },
+          {
+            "year": 2043,
+            "net": -4555937,
+            "financialAssets": 28251494
+          },
+          {
+            "year": 2044,
+            "net": -5103312,
+            "financialAssets": 23461120
+          },
+          {
+            "year": 2045,
+            "net": -5497483,
+            "financialAssets": 18283077
+          },
+          {
+            "year": 2046,
+            "net": -4255484,
+            "financialAssets": 14354426
+          },
+          {
+            "year": 2047,
+            "net": -2470131,
+            "financialAssets": 12220519
+          },
+          {
+            "year": 2048,
+            "net": -3075721,
+            "financialAssets": 9491509
+          },
+          {
+            "year": 2049,
+            "net": -2190365,
+            "financialAssets": 7659011
+          },
+          {
+            "year": 2050,
+            "net": -2160285,
+            "financialAssets": 5804006
+          },
+          {
+            "year": 2051,
+            "net": -1819171,
+            "financialAssets": 4216086
+          },
+          {
+            "year": 2052,
+            "net": -1103406,
+            "financialAssets": 3280772
+          },
+          {
+            "year": 2053,
+            "net": -1124462,
+            "financialAssets": 2286978
+          },
+          {
+            "year": 2054,
+            "net": -1537172,
+            "financialAssets": 840517
+          },
+          {
+            "year": 2055,
+            "net": -1158775,
+            "financialAssets": -285217
+          },
+          {
+            "year": 2056,
+            "net": -1205185,
+            "financialAssets": -1491289
+          },
+          {
+            "year": 2057,
+            "net": -1630982,
+            "financialAssets": -3124577
+          },
+          {
+            "year": 2058,
+            "net": -1235890,
+            "financialAssets": -4364209
+          },
+          {
+            "year": 2059,
+            "net": -1261565,
+            "financialAssets": -5630768
+          },
+          {
+            "year": 2060,
+            "net": -1706125,
+            "financialAssets": -7343376
+          },
+          {
+            "year": 2061,
+            "net": -1055342,
+            "financialAssets": -8406589
+          },
+          {
+            "year": 2062,
+            "net": -819571,
+            "financialAssets": -9234976
+          },
+          {
+            "year": 2063,
+            "net": -1272545,
+            "financialAssets": -10517392
+          },
+          {
+            "year": 2064,
+            "net": -859063,
+            "financialAssets": -11387401
+          },
+          {
+            "year": 2065,
+            "net": -878976,
+            "financialAssets": -12278203
+          },
+          {
+            "year": 2066,
+            "net": -1346071,
+            "financialAssets": -13637225
+          },
+          {
+            "year": 2067,
+            "net": -920428,
+            "financialAssets": -14571750
+          },
+          {
+            "year": 2068,
+            "net": -941340,
+            "financialAssets": -15528132
+          },
+          {
+            "year": 2069,
+            "net": -962312,
+            "financialAssets": -16506453
+          },
+          {
+            "year": 2070,
+            "net": -984138,
+            "financialAssets": -17507589
+          },
+          {
+            "year": 2071,
+            "net": -1006089,
+            "financialAssets": -18531688
+          },
+          {
+            "year": 2072,
+            "net": -1028096,
+            "financialAssets": -19578829
+          },
+          {
+            "year": 2073,
+            "net": -1050498,
+            "financialAssets": -20649431
+          },
+          {
+            "year": 2074,
+            "net": -1073289,
+            "financialAssets": -21743906
+          },
+          {
+            "year": 2075,
+            "net": -1096358,
+            "financialAssets": -22862556
+          },
+          {
+            "year": 2076,
+            "net": -1138659,
+            "financialAssets": -24024646
+          },
+          {
+            "year": 2077,
+            "net": -1165236,
+            "financialAssets": -25214489
+          },
+          {
+            "year": 2078,
+            "net": -1188688,
+            "financialAssets": -26428985
+          },
+          {
+            "year": 2079,
+            "net": -1213379,
+            "financialAssets": -27669399
+          },
+          {
+            "year": 2080,
+            "net": -1238115,
+            "financialAssets": -28935802
+          },
+          {
+            "year": 2081,
+            "net": -1262816,
+            "financialAssets": -30228185
+          }
+        ],
+        "totals": {
+          "income": 298194967,
+          "taxSi": 46982244,
+          "expense": 298292370,
+          "net": -47079647
+        }
+      }
+    },
+    {
+      "name": "第2子の大学の学費を年150万円・第1子の塾を月3万円に（教育の段階ごとの欄）",
+      "sample": "salariedCoupleTwoKids",
+      "changes": [
+        {
+          "target": "dc339217-6cbc-41a2-8f25-c992456f227a",
+          "item": "goal.education",
+          "at": [
+            "stages",
+            "0d550cdc-47e7-45b9-b7b4-7a6b48d7e95d",
+            "annualOverride"
+          ],
+          "value": 1500000
+        },
+        {
+          "target": "f0fa145e-9b90-434d-9711-7d6622275ca5",
+          "item": "goal.education",
+          "at": [
+            "lessons",
+            "1c6f99f5-52de-4314-88ca-e5fae3af823c",
+            "monthly"
+          ],
+          "value": 30000
+        }
+      ],
+      "screen": {
+        "years": [
+          {
+            "year": 2027,
+            "net": 688299,
+            "financialAssets": 11832253
+          },
+          {
+            "year": 2028,
+            "net": 945359,
+            "financialAssets": 12896570
+          },
+          {
+            "year": 2029,
+            "net": 940500,
+            "financialAssets": 13966036
+          },
+          {
+            "year": 2030,
+            "net": 655732,
+            "financialAssets": 14760965
+          },
+          {
+            "year": 2031,
+            "net": -1191649,
+            "financialAssets": 13718060
+          },
+          {
+            "year": 2032,
+            "net": -541427,
+            "financialAssets": 13334723
+          },
+          {
+            "year": 2033,
+            "net": -941706,
+            "financialAssets": 12560989
+          },
+          {
+            "year": 2034,
+            "net": -2240703,
+            "financialAssets": 10497719
+          },
+          {
+            "year": 2035,
+            "net": 317512,
+            "financialAssets": 11003199
+          },
+          {
+            "year": 2036,
+            "net": 130403,
+            "financialAssets": 11333756
+          },
+          {
+            "year": 2037,
+            "net": 442922,
+            "financialAssets": 11989561
+          },
+          {
+            "year": 2038,
+            "net": 2625532,
+            "financialAssets": 14842457
+          },
+          {
+            "year": 2039,
+            "net": 2523970,
+            "financialAssets": 17609836
+          },
+          {
+            "year": 2040,
+            "net": 2880458,
+            "financialAssets": 20750420
+          },
+          {
+            "year": 2041,
+            "net": 16579349,
+            "financialAssets": 37613038
+          },
+          {
+            "year": 2042,
+            "net": -4969560,
+            "financialAssets": 32944174
+          },
+          {
+            "year": 2043,
+            "net": -4555937,
+            "financialAssets": 28695094
+          },
+          {
+            "year": 2044,
+            "net": -5103312,
+            "financialAssets": 23905164
+          },
+          {
+            "year": 2045,
+            "net": -5497483,
+            "financialAssets": 18727565
+          },
+          {
+            "year": 2046,
+            "net": -4255484,
+            "financialAssets": 14799358
+          },
+          {
+            "year": 2047,
+            "net": -2470131,
+            "financialAssets": 12665896
+          },
+          {
+            "year": 2048,
+            "net": -3075721,
+            "financialAssets": 9937331
+          },
+          {
+            "year": 2049,
+            "net": -2190365,
+            "financialAssets": 8105279
+          },
+          {
+            "year": 2050,
+            "net": -2160285,
+            "financialAssets": 6268125
+          },
+          {
+            "year": 2051,
+            "net": -1819171,
+            "financialAssets": 4698770
+          },
+          {
+            "year": 2052,
+            "net": -1103406,
+            "financialAssets": 3782763
+          },
+          {
+            "year": 2053,
+            "net": -1124462,
+            "financialAssets": 2809049
+          },
+          {
+            "year": 2054,
+            "net": -1537172,
+            "financialAssets": 1383470
+          },
+          {
+            "year": 2055,
+            "net": -1158775,
+            "financialAssets": 279454
+          },
+          {
+            "year": 2056,
+            "net": -1205185,
+            "financialAssets": -915155
+          },
+          {
+            "year": 2057,
+            "net": -1630982,
+            "financialAssets": -2547867
+          },
+          {
+            "year": 2058,
+            "net": -1235890,
+            "financialAssets": -3786922
+          },
+          {
+            "year": 2059,
+            "net": -1261565,
+            "financialAssets": -5052904
+          },
+          {
+            "year": 2060,
+            "net": -1706125,
+            "financialAssets": -6764934
+          },
+          {
+            "year": 2061,
+            "net": -1055342,
+            "financialAssets": -7827568
+          },
+          {
+            "year": 2062,
+            "net": -819571,
+            "financialAssets": -8655376
+          },
+          {
+            "year": 2063,
+            "net": -1272545,
+            "financialAssets": -9937212
+          },
+          {
+            "year": 2064,
+            "net": -859063,
+            "financialAssets": -10806641
+          },
+          {
+            "year": 2065,
+            "net": -878976,
+            "financialAssets": -11696863
+          },
+          {
+            "year": 2066,
+            "net": -1346071,
+            "financialAssets": -13055303
+          },
+          {
+            "year": 2067,
+            "net": -920428,
+            "financialAssets": -13989246
+          },
+          {
+            "year": 2068,
+            "net": -941340,
+            "financialAssets": -14945045
+          },
+          {
+            "year": 2069,
+            "net": -962312,
+            "financialAssets": -15922783
+          },
+          {
+            "year": 2070,
+            "net": -984138,
+            "financialAssets": -16923335
+          },
+          {
+            "year": 2071,
+            "net": -1006089,
+            "financialAssets": -17946850
+          },
+          {
+            "year": 2072,
+            "net": -1028096,
+            "financialAssets": -18993406
+          },
+          {
+            "year": 2073,
+            "net": -1050498,
+            "financialAssets": -20063422
+          },
+          {
+            "year": 2074,
+            "net": -1073289,
+            "financialAssets": -21157311
+          },
+          {
+            "year": 2075,
+            "net": -1096358,
+            "financialAssets": -22275374
+          },
+          {
+            "year": 2076,
+            "net": -1138659,
+            "financialAssets": -23436877
+          },
+          {
+            "year": 2077,
+            "net": -1165236,
+            "financialAssets": -24626132
+          },
+          {
+            "year": 2078,
+            "net": -1188688,
+            "financialAssets": -25840040
+          },
+          {
+            "year": 2079,
+            "net": -1213379,
+            "financialAssets": -27079865
+          },
+          {
+            "year": 2080,
+            "net": -1238115,
+            "financialAssets": -28345678
+          },
+          {
+            "year": 2081,
+            "net": -1262816,
+            "financialAssets": -29637471
+          }
+        ],
+        "totals": {
+          "income": 298194967,
+          "taxSi": 46982244,
+          "expense": 297960192,
+          "net": -46747469
+        }
+      }
+    },
+    {
+      "name": "退職後の生活費の割合を0.65に・住宅ローンの金利の段階2を1.5%に",
+      "sample": "salariedCoupleTwoKids",
+      "changes": [
+        {
+          "target": "2accb36e-9a44-40b2-9c4f-e5529da038cb",
+          "item": "livingExpense.stages",
+          "at": [
+            "a53c19c9-b807-480f-9b9d-c4f7e2d9101f",
+            "ratio"
+          ],
+          "value": "0.65"
+        },
+        {
+          "target": "61cb56a4-9e49-4845-83b5-179106535631",
+          "item": "debt.rateSchedule",
+          "at": [
+            "55dc6c50-3e0e-4b1f-a0e0-ddb92f5ac057",
+            "rate"
+          ],
+          "value": "0.015"
+        }
+      ],
+      "screen": {
+        "years": [
+          {
+            "year": 2027,
+            "net": 748899,
+            "financialAssets": 11907900
+          },
+          {
+            "year": 2028,
+            "net": 1006571,
+            "financialAssets": 13033535
+          },
+          {
+            "year": 2029,
+            "net": 1002324,
+            "financialAssets": 14164993
+          },
+          {
+            "year": 2030,
+            "net": 718180,
+            "financialAssets": 15022600
+          },
+          {
+            "year": 2031,
+            "net": -1213529,
+            "financialAssets": 13958066
+          },
+          {
+            "year": 2032,
+            "net": -582131,
+            "financialAssets": 13534245
+          },
+          {
+            "year": 2033,
+            "net": -982410,
+            "financialAssets": 12719986
+          },
+          {
+            "year": 2034,
+            "net": -1731621,
+            "financialAssets": 11166211
+          },
+          {
+            "year": 2035,
+            "net": 832092,
+            "financialAssets": 12187197
+          },
+          {
+            "year": 2036,
+            "net": 671056,
+            "financialAssets": 13059861
+          },
+          {
+            "year": 2037,
+            "net": 999444,
+            "financialAssets": 14274193
+          },
+          {
+            "year": 2038,
+            "net": 2615608,
+            "financialAssets": 17119445
+          },
+          {
+            "year": 2039,
+            "net": 2514046,
+            "financialAssets": 19879172
+          },
+          {
+            "year": 2040,
+            "net": 2870534,
+            "financialAssets": 23012096
+          },
+          {
+            "year": 2041,
+            "net": 16882889,
+            "financialAssets": 40180667
+          },
+          {
+            "year": 2042,
+            "net": -4346291,
+            "financialAssets": 36137952
+          },
+          {
+            "year": 2043,
+            "net": -3926336,
+            "financialAssets": 32521981
+          },
+          {
+            "year": 2044,
+            "net": -4467316,
+            "financialAssets": 28372192
+          },
+          {
+            "year": 2045,
+            "net": -4855028,
+            "financialAssets": 23841836
+          },
+          {
+            "year": 2046,
+            "net": -3606497,
+            "financialAssets": 20568055
+          },
+          {
+            "year": 2047,
+            "net": -1814551,
+            "financialAssets": 19096270
+          },
+          {
+            "year": 2048,
+            "net": -2413486,
+            "financialAssets": 17036702
+          },
+          {
+            "year": 2049,
+            "net": -1521409,
+            "financialAssets": 15881039
+          },
+          {
+            "year": 2050,
+            "net": -1484540,
+            "financialAssets": 14775086
+          },
+          {
+            "year": 2051,
+            "net": -1129972,
+            "financialAssets": 14037311
+          },
+          {
+            "year": 2052,
+            "net": -403967,
+            "financialAssets": 14040285
+          },
+          {
+            "year": 2053,
+            "net": -418028,
+            "financialAssets": 14044919
+          },
+          {
+            "year": 2054,
+            "net": -823673,
+            "financialAssets": 13660062
+          },
+          {
+            "year": 2055,
+            "net": -438141,
+            "financialAssets": 13677553
+          },
+          {
+            "year": 2056,
+            "net": -477345,
+            "financialAssets": 13673526
+          },
+          {
+            "year": 2057,
+            "net": -895864,
+            "financialAssets": 13269162
+          },
+          {
+            "year": 2058,
+            "net": -493420,
+            "financialAssets": 13286169
+          },
+          {
+            "year": 2059,
+            "net": -511670,
+            "financialAssets": 13304831
+          },
+          {
+            "year": 2060,
+            "net": -948731,
+            "financialAssets": 12887819
+          },
+          {
+            "year": 2061,
+            "net": -672862,
+            "financialAssets": 12730133
+          },
+          {
+            "year": 2062,
+            "net": -819571,
+            "financialAssets": 12419358
+          },
+          {
+            "year": 2063,
+            "net": -1272545,
+            "financialAssets": 11642951
+          },
+          {
+            "year": 2064,
+            "net": -859063,
+            "financialAssets": 11249177
+          },
+          {
+            "year": 2065,
+            "net": -878976,
+            "financialAssets": 10819729
+          },
+          {
+            "year": 2066,
+            "net": -1346071,
+            "financialAssets": 9905774
+          },
+          {
+            "year": 2067,
+            "net": -920428,
+            "financialAssets": 9381116
+          },
+          {
+            "year": 2068,
+            "net": -941340,
+            "financialAssets": 8814550
+          },
+          {
+            "year": 2069,
+            "net": -962312,
+            "financialAssets": 8204339
+          },
+          {
+            "year": 2070,
+            "net": -984138,
+            "financialAssets": 7547882
+          },
+          {
+            "year": 2071,
+            "net": -1006089,
+            "financialAssets": 6843205
+          },
+          {
+            "year": 2072,
+            "net": -1028096,
+            "financialAssets": 6088323
+          },
+          {
+            "year": 2073,
+            "net": -1050498,
+            "financialAssets": 5280832
+          },
+          {
+            "year": 2074,
+            "net": -1073289,
+            "financialAssets": 4418240
+          },
+          {
+            "year": 2075,
+            "net": -1096358,
+            "financialAssets": 3498063
+          },
+          {
+            "year": 2076,
+            "net": -1138659,
+            "financialAssets": 2498757
+          },
+          {
+            "year": 2077,
+            "net": -1165236,
+            "financialAssets": 1432889
+          },
+          {
+            "year": 2078,
+            "net": -1188688,
+            "financialAssets": 300922
+          },
+          {
+            "year": 2079,
+            "net": -1213379,
+            "financialAssets": -901027
+          },
+          {
+            "year": 2080,
+            "net": -1238115,
+            "financialAssets": -2140662
+          },
+          {
+            "year": 2081,
+            "net": -1262816,
+            "financialAssets": -3406250
+          }
+        ],
+        "totals": {
+          "income": 298194967,
+          "taxSi": 46982244,
+          "expense": 281955565,
+          "net": -30742842
+        }
+      }
+    },
+    {
+      "name": "定年後の予定の定年を62歳に（働く最後の年齢とは別の欄）",
+      "sample": "salariedCoupleTwoKids",
+      "changes": [
+        {
+          "target": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+          "item": "employment.to",
+          "lever": "mainEndAge",
+          "value": 62
+        }
+      ],
+      "screen": {
+        "years": [
+          {
+            "year": 2027,
+            "net": 748899,
+            "financialAssets": 11907900
+          },
+          {
+            "year": 2028,
+            "net": 1006571,
+            "financialAssets": 13033535
+          },
+          {
+            "year": 2029,
+            "net": 1002324,
+            "financialAssets": 14164993
+          },
+          {
+            "year": 2030,
+            "net": 718180,
+            "financialAssets": 15022600
+          },
+          {
+            "year": 2031,
+            "net": -1186393,
+            "financialAssets": 13985215
+          },
+          {
+            "year": 2032,
+            "net": -541427,
+            "financialAssets": 13602145
+          },
+          {
+            "year": 2033,
+            "net": -941706,
+            "financialAssets": 12828679
+          },
+          {
+            "year": 2034,
+            "net": -1690917,
+            "financialAssets": 11315737
+          },
+          {
+            "year": 2035,
+            "net": 872796,
+            "financialAssets": 12377597
+          },
+          {
+            "year": 2036,
+            "net": 691240,
+            "financialAssets": 13270645
+          },
+          {
+            "year": 2037,
+            "net": 1009368,
+            "financialAssets": 14495117
+          },
+          {
+            "year": 2038,
+            "net": 2625532,
+            "financialAssets": 17350519
+          },
+          {
+            "year": 2039,
+            "net": 2523970,
+            "financialAssets": 20120406
+          },
+          {
+            "year": 2040,
+            "net": 2880458,
+            "financialAssets": 23263501
+          },
+          {
+            "year": 2041,
+            "net": 3017753,
+            "financialAssets": 26560255
+          },
+          {
+            "year": 2042,
+            "net": 2804933,
+            "financialAssets": 29658719
+          },
+          {
+            "year": 2043,
+            "net": 16397508,
+            "financialAssets": 46370275
+          },
+          {
+            "year": 2044,
+            "net": -5649387,
+            "financialAssets": 41051672
+          },
+          {
+            "year": 2045,
+            "net": -5667727,
+            "financialAssets": 35720891
+          },
+          {
+            "year": 2046,
+            "net": -4209172,
+            "financialAssets": 31856013
+          },
+          {
+            "year": 2047,
+            "net": -2339744,
+            "financialAssets": 29870060
+          },
+          {
+            "year": 2048,
+            "net": -2988303,
+            "financialAssets": 27246161
+          },
+          {
+            "year": 2049,
+            "net": -2096862,
+            "financialAssets": 25524966
+          },
+          {
+            "year": 2050,
+            "net": -2048330,
+            "financialAssets": 23864585
+          },
+          {
+            "year": 2051,
+            "net": -1704652,
+            "financialAssets": 22560932
+          },
+          {
+            "year": 2052,
+            "net": -991711,
+            "financialAssets": 21984392
+          },
+          {
+            "year": 2053,
+            "net": -1007899,
+            "financialAssets": 21406804
+          },
+          {
+            "year": 2054,
+            "net": -1420537,
+            "financialAssets": 20432147
+          },
+          {
+            "year": 2055,
+            "net": -1041954,
+            "financialAssets": 19852295
+          },
+          {
+            "year": 2056,
+            "net": -1088529,
+            "financialAssets": 19242953
+          },
+          {
+            "year": 2057,
+            "net": -1513684,
+            "financialAssets": 18226029
+          },
+          {
+            "year": 2058,
+            "net": -1119315,
+            "financialAssets": 17621785
+          },
+          {
+            "year": 2059,
+            "net": -1146264,
+            "financialAssets": 17009870
+          },
+          {
+            "year": 2060,
+            "net": -1590852,
+            "financialAssets": 15973225
+          },
+          {
+            "year": 2061,
+            "net": -939548,
+            "financialAssets": 15608693
+          },
+          {
+            "year": 2062,
+            "net": -703171,
+            "financialAssets": 15502672
+          },
+          {
+            "year": 2063,
+            "net": -1155529,
+            "financialAssets": 14966672
+          },
+          {
+            "year": 2064,
+            "net": -741430,
+            "financialAssets": 14823538
+          },
+          {
+            "year": 2065,
+            "net": -760609,
+            "financialAssets": 14655490
+          },
+          {
+            "year": 2066,
+            "net": -1226971,
+            "financialAssets": 14014125
+          },
+          {
+            "year": 2067,
+            "net": -800604,
+            "financialAssets": 13773686
+          },
+          {
+            "year": 2068,
+            "net": -820868,
+            "financialAssets": 13503355
+          },
+          {
+            "year": 2069,
+            "net": -841078,
+            "financialAssets": 13201991
+          },
+          {
+            "year": 2070,
+            "net": -880728,
+            "financialAssets": 12848902
+          },
+          {
+            "year": 2071,
+            "net": -905154,
+            "financialAssets": 12457252
+          },
+          {
+            "year": 2072,
+            "net": -925991,
+            "financialAssets": 12029089
+          },
+          {
+            "year": 2073,
+            "net": -947534,
+            "financialAssets": 11562245
+          },
+          {
+            "year": 2074,
+            "net": -969518,
+            "financialAssets": 11054732
+          },
+          {
+            "year": 2075,
+            "net": -991933,
+            "financialAssets": 10504493
+          },
+          {
+            "year": 2076,
+            "net": -1014752,
+            "financialAssets": 9909413
+          },
+          {
+            "year": 2077,
+            "net": -1037424,
+            "financialAssets": 9267847
+          },
+          {
+            "year": 2078,
+            "net": -1060841,
+            "financialAssets": 8577189
+          },
+          {
+            "year": 2079,
+            "net": -1084753,
+            "financialAssets": 7834981
+          },
+          {
+            "year": 2080,
+            "net": -1108472,
+            "financialAssets": 7039354
+          },
+          {
+            "year": 2081,
+            "net": -1132443,
+            "financialAssets": 6187919
+          }
+        ],
+        "totals": {
+          "income": 322405463,
+          "taxSi": 52664148,
+          "expense": 295476499,
+          "net": -25735184
+        }
+      }
     }
   ],
   "shared": {
@@ -1651,6 +3660,723 @@
         "taxSi": 50035060,
         "expense": 296547799,
         "net": -27320673
+      }
+    },
+    "proposal": [
+      {
+        "label": "積立をやめる年齢",
+        "place": "資産運用",
+        "value": 55,
+        "diff": {
+          "target": {
+            "plan": "assumptions"
+          },
+          "item": "account.contributions",
+          "lever": "investStopAge",
+          "value": 55
+        }
+      },
+      {
+        "label": "大学（18歳から）: 学費（年額）",
+        "place": "子ども・教育 › 第2子 › 大学（18歳から）",
+        "value": 1500000,
+        "diff": {
+          "target": {
+            "object": "dc339217-6cbc-41a2-8f25-c992456f227a"
+          },
+          "item": "goal.education",
+          "at": [
+            "stages",
+            "0d550cdc-47e7-45b9-b7b4-7a6b48d7e95d",
+            "annualOverride"
+          ],
+          "value": 1500000
+        }
+      },
+      {
+        "label": "ご本人の定年後の予定: 定年",
+        "place": "働き方と収入 › ご本人 › ご本人の定年後の予定",
+        "value": 62,
+        "diff": {
+          "target": {
+            "object": "109eb62e-eb92-46db-a07e-719f10c7b93a"
+          },
+          "item": "employment.to",
+          "lever": "mainEndAge",
+          "value": 62
+        }
+      },
+      {
+        "label": "金利の段階 2: 金利（年）",
+        "place": "住まい・ローン › 住宅ローン › 金利の段階 2",
+        "value": "0.015",
+        "diff": {
+          "target": {
+            "object": "61cb56a4-9e49-4845-83b5-179106535631"
+          },
+          "item": "debt.rateSchedule",
+          "at": [
+            "55dc6c50-3e0e-4b1f-a0e0-ddb92f5ac057",
+            "rate"
+          ],
+          "value": "0.015"
+        }
+      }
+    ],
+    "savedInput": {
+      "baseMonth": "2026-10",
+      "endYear": 2081,
+      "calcConventions": {
+        "aggregation": "cash",
+        "investmentTiming": "midYear",
+        "compatibility": null
+      },
+      "household": {
+        "members": [
+          {
+            "id": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+            "kind": "self",
+            "birth": {
+              "birthYearMonth": "1981-07",
+              "bornOnFirst": false
+            },
+            "sex": "male",
+            "joins": null,
+            "leaves": null,
+            "expected": false
+          },
+          {
+            "id": "1ec032cb-73ee-4aca-8c6e-1da62c7c9c08",
+            "kind": "spouse",
+            "birth": {
+              "birthYearMonth": "1983-10",
+              "bornOnFirst": false
+            },
+            "sex": "female",
+            "joins": null,
+            "leaves": null,
+            "expected": false
+          },
+          {
+            "id": "8e88ca7b-8f48-4355-976e-c7cd0fc81138",
+            "kind": "child",
+            "birth": {
+              "birthYearMonth": "2012-05",
+              "bornOnFirst": false
+            },
+            "sex": "male",
+            "joins": null,
+            "leaves": {
+              "at": "2035-04"
+            },
+            "expected": false
+          },
+          {
+            "id": "98db5463-3815-444f-b000-19570c519554",
+            "kind": "child",
+            "birth": {
+              "birthYearMonth": "2015-08",
+              "bornOnFirst": false
+            },
+            "sex": "female",
+            "joins": null,
+            "leaves": {
+              "at": "2038-04"
+            },
+            "expected": false
+          }
+        ],
+        "relations": [
+          {
+            "type": "spouse",
+            "a": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+            "b": "1ec032cb-73ee-4aca-8c6e-1da62c7c9c08",
+            "marriage": "legal",
+            "from": null,
+            "to": null,
+            "id": "039bf0fe-14bf-4f84-bd46-35cd39fbf708"
+          },
+          {
+            "type": "parentOf",
+            "parent": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+            "child": "8e88ca7b-8f48-4355-976e-c7cd0fc81138",
+            "id": "cb44e849-76a2-456a-85a8-a9e6fcc638bf"
+          },
+          {
+            "type": "parentOf",
+            "parent": "1ec032cb-73ee-4aca-8c6e-1da62c7c9c08",
+            "child": "8e88ca7b-8f48-4355-976e-c7cd0fc81138",
+            "id": "6131b0c7-436b-4cc3-a13f-d321a46258f0"
+          },
+          {
+            "type": "parentOf",
+            "parent": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+            "child": "98db5463-3815-444f-b000-19570c519554",
+            "id": "6d3f53d1-7594-4160-8d6d-42ed6ff00887"
+          },
+          {
+            "type": "parentOf",
+            "parent": "1ec032cb-73ee-4aca-8c6e-1da62c7c9c08",
+            "child": "98db5463-3815-444f-b000-19570c519554",
+            "id": "f55cea83-9790-4e14-b7de-e10ae31814f0"
+          }
+        ],
+        "events": [
+          {
+            "id": "88020fd6-de3a-4b7d-a7fd-bdf4c428d944",
+            "kind": "moveIn",
+            "at": {
+              "at": "2016-04"
+            }
+          }
+        ],
+        "employmentPeriods": [
+          {
+            "id": "096d6254-db2f-42ba-9b7d-b4a234d1405e",
+            "member": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+            "from": {
+              "at": "2004-04"
+            },
+            "to": {
+              "at": "2041-06"
+            },
+            "type": "regular",
+            "healthInsurance": {
+              "kind": "kyokaikenpo",
+              "insurer": "kyokaikenpo.11"
+            },
+            "pensionCategory": "employee1",
+            "employer": {
+              "size": 300,
+              "weeklyHours": "40"
+            },
+            "salary": {
+              "annual": {
+                "value": 6200000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "bonus": {
+                "value": 1800000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              }
+            },
+            "standardMonthlyRemuneration": {
+              "health": {
+                "value": 500000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "pension": {
+                "value": 500000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              }
+            },
+            "corporatePension": {
+              "db": false
+            },
+            "unemploymentClaim": false
+          },
+          {
+            "id": "4a688cd5-6857-428a-8032-712450aba248",
+            "member": "1ec032cb-73ee-4aca-8c6e-1da62c7c9c08",
+            "from": {
+              "at": "2020-04"
+            },
+            "to": {
+              "at": "2043-09"
+            },
+            "type": "partTime",
+            "healthInsurance": {
+              "kind": "dependent"
+            },
+            "pensionCategory": "none",
+            "employer": {
+              "size": 20,
+              "weeklyHours": "25"
+            },
+            "salary": {
+              "annual": {
+                "value": 1000000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "bonus": {
+                "value": 0,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              }
+            },
+            "employmentInsuranceCovered": true,
+            "unemploymentClaim": false
+          }
+        ],
+        "accounts": [
+          {
+            "id": "a11e03cf-0568-45a9-8f8b-4698c6a25d5a",
+            "kind": "deposit",
+            "owner": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+            "marketValue": {
+              "value": 8000000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "asOf": "2026-09",
+            "contributions": []
+          },
+          {
+            "id": "67ddce00-82f5-4e75-8c85-3228f60d7030",
+            "kind": "nisa",
+            "owner": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+            "marketValue": {
+              "value": 2400000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "costBasis": {
+              "value": 1800000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "asOf": "2026-09",
+            "assetMix": [
+              {
+                "assetClass": "equity.global",
+                "share": "1"
+              }
+            ],
+            "contributions": [
+              {
+                "from": {
+                  "at": "2026-10"
+                },
+                "to": {
+                  "at": "2041-06"
+                },
+                "monthly": 10000,
+                "id": "e10705ae-eb18-48b6-99ef-6cd19aa9fb57"
+              }
+            ]
+          }
+        ],
+        "insuranceContracts": [
+          {
+            "id": "64286f3e-7cba-4f7f-85c0-0ab25c94ec1b",
+            "template": "insurance.wholeLife",
+            "policyholder": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+            "insured": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+            "contractDate": "2012-06",
+            "currency": "JPY",
+            "premium": {
+              "amount": 15000,
+              "frequency": "monthly",
+              "payUntil": null
+            },
+            "deductionCategory": {
+              "type": "general",
+              "regime": "new"
+            },
+            "coverages": [
+              {
+                "id": "6962ebd1-8ea5-4ac8-91c8-921b20dc6078",
+                "role": "main",
+                "benefit": "death",
+                "amount": 5000000
+              }
+            ],
+            "simple": {
+              "returnRate": "0.85"
+            }
+          }
+        ],
+        "residentTaxAssessments": [
+          {
+            "id": "e4eb9c23-e50d-46b6-a7b9-b288f91fdf59",
+            "member": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+            "fiscalYear": 2026,
+            "amount": {
+              "value": 380000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          }
+        ],
+        "residences": [
+          {
+            "id": "84d2170a-8a4b-41b5-9bfe-3e99fd23dba2",
+            "kind": "own",
+            "from": {
+              "event": "88020fd6-de3a-4b7d-a7fd-bdf4c428d944"
+            },
+            "to": null,
+            "propertyTax": {
+              "annual": {
+                "value": 150000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "growth": "0"
+            },
+            "maintenance": {
+              "monthly": {
+                "value": 15000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "growth": "0.01"
+            },
+            "ownership": [
+              {
+                "member": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+                "share": "1"
+              }
+            ],
+            "valuation": {
+              "value": {
+                "value": 38000000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "asOf": "2016-04",
+              "structure": "wood",
+              "builtYear": 2016,
+              "landShare": "0.35"
+            }
+          }
+        ],
+        "debts": [
+          {
+            "id": "61cb56a4-9e49-4845-83b5-179106535631",
+            "kind": "mortgage",
+            "debtors": [
+              {
+                "member": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+                "role": "primary"
+              }
+            ],
+            "principal": 32000000,
+            "start": {
+              "at": "2016-04"
+            },
+            "balance": {
+              "value": 22400000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "balanceAsOf": "2026-09",
+            "rateSchedule": [
+              {
+                "from": {
+                  "at": "2016-04"
+                },
+                "type": "variable",
+                "rate": "0.0065",
+                "id": "5b97776b-f6c1-4eec-bcee-58d03ee8fff9"
+              },
+              {
+                "from": {
+                  "at": "2031-04"
+                },
+                "type": "variable",
+                "rate": "0.011",
+                "id": "55dc6c50-3e0e-4b1f-a0e0-ddb92f5ac057"
+              },
+              {
+                "from": {
+                  "at": "2036-04"
+                },
+                "type": "variable",
+                "rate": "0.016",
+                "id": "132c3725-9e77-493a-bcdf-09bdb9541740"
+              }
+            ],
+            "repayment": {
+              "method": "equalPayment",
+              "termMonths": 420,
+              "bonusShare": "0",
+              "variableRules": {
+                "fiveYear": true,
+                "cap125": true
+              }
+            },
+            "prepayments": [],
+            "housing": {
+              "residence": "84d2170a-8a4b-41b5-9bfe-3e99fd23dba2",
+              "moveIn": "88020fd6-de3a-4b7d-a7fd-bdf4c428d944",
+              "propertyType": "other",
+              "newBuild": true,
+              "acquisitionCost": 40000000,
+              "ownership": [
+                {
+                  "member": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+                  "share": "1"
+                }
+              ]
+            }
+          }
+        ],
+        "livingExpenses": [
+          {
+            "id": "2accb36e-9a44-40b2-9c4f-e5529da038cb",
+            "mode": "total",
+            "monthly": {
+              "value": 300000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "stages": [
+              {
+                "at": {
+                  "at": "2038-04"
+                },
+                "label": "childIndependence",
+                "ratio": "0.85",
+                "id": "511083ce-b655-4543-a692-49b58c47016a"
+              },
+              {
+                "at": {
+                  "at": "2041-07"
+                },
+                "label": "retirement",
+                "ratio": "0.8",
+                "id": "a53c19c9-b807-480f-9b9d-c4f7e2d9101f"
+              },
+              {
+                "at": {
+                  "memberAge": {
+                    "member": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+                    "years": 80,
+                    "months": 0
+                  }
+                },
+                "label": "age80",
+                "ratio": "0.7",
+                "id": "249f8228-9201-47f8-b2dd-c463dc7ffb67"
+              }
+            ]
+          }
+        ],
+        "periodicExpenses": [
+          {
+            "id": "4569bc22-76a2-4b7a-b56f-609cc7e81a1a",
+            "row": "cf.expense.lumpSum.other",
+            "from": {
+              "at": "2027-08"
+            },
+            "to": {
+              "at": "2066-08"
+            },
+            "everyYears": 3,
+            "amount": {
+              "value": 300000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          }
+        ],
+        "goals": [
+          {
+            "id": "f0fa145e-9b90-434d-9711-7d6622275ca5",
+            "kind": "education",
+            "owner": "8e88ca7b-8f48-4355-976e-c7cd0fc81138",
+            "education": {
+              "stages": [
+                {
+                  "stage": "juniorHigh",
+                  "sector": "public",
+                  "id": "bff20ee8-0603-46a0-981d-1e80d84a8f75"
+                },
+                {
+                  "stage": "highSchool",
+                  "sector": "public",
+                  "id": "8a723f83-20b2-4a7b-ac6e-47c25c2cfd6d"
+                },
+                {
+                  "stage": "university",
+                  "sector": "private",
+                  "field": "humanities",
+                  "living": "away",
+                  "exam": {
+                    "amount": 300000
+                  },
+                  "id": "861b0563-3161-4d64-a92d-aea21a21de6e"
+                }
+              ],
+              "lessons": [
+                {
+                  "from": {
+                    "at": "2026-10"
+                  },
+                  "to": {
+                    "at": "2031-01"
+                  },
+                  "monthly": 25000,
+                  "label": "塾",
+                  "id": "1c6f99f5-52de-4314-88ca-e5fae3af823c"
+                }
+              ]
+            }
+          },
+          {
+            "id": "dc339217-6cbc-41a2-8f25-c992456f227a",
+            "kind": "education",
+            "owner": "98db5463-3815-444f-b000-19570c519554",
+            "education": {
+              "stages": [
+                {
+                  "stage": "elementary",
+                  "sector": "public",
+                  "id": "db4f2c5b-fe39-4fc6-a3d1-807f00a6d5d9"
+                },
+                {
+                  "stage": "juniorHigh",
+                  "sector": "public",
+                  "id": "dfaa714f-a5c4-4b1d-9462-7e7bd4c5a119"
+                },
+                {
+                  "stage": "highSchool",
+                  "sector": "private",
+                  "id": "d086e41a-3e16-4b63-88f7-5f411761c941"
+                },
+                {
+                  "stage": "university",
+                  "sector": "private",
+                  "field": "humanities",
+                  "living": "home",
+                  "exam": {
+                    "amount": 300000
+                  },
+                  "id": "0d550cdc-47e7-45b9-b7b4-7a6b48d7e95d"
+                }
+              ]
+            }
+          }
+        ],
+        "retirementBenefits": [
+          {
+            "id": "ce0ea434-2a39-49e8-bd16-8b219d86ef33",
+            "member": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+            "kind": "lumpSum",
+            "employment": "096d6254-db2f-42ba-9b7d-b4a234d1405e",
+            "amount": {
+              "value": 18000000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          }
+        ],
+        "pensionRecords": [
+          {
+            "id": "602679ca-ae7d-41be-a478-18fbd1f14a3d",
+            "member": "109eb62e-eb92-46db-a07e-719f10c7b93a",
+            "kind": "statementUnder50",
+            "asOf": "2026-07",
+            "months": {
+              "basic": 270,
+              "employee": 270
+            },
+            "amounts": {
+              "basic": {
+                "value": 468000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "employee": {
+                "value": 610000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              }
+            }
+          },
+          {
+            "id": "8bab6a3b-9436-474b-89f1-3dee3b29a191",
+            "member": "1ec032cb-73ee-4aca-8c6e-1da62c7c9c08",
+            "kind": "statementUnder50",
+            "asOf": "2026-09",
+            "months": {
+              "basic": 276,
+              "employee": 96
+            },
+            "amounts": {
+              "basic": {
+                "value": 478000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "employee": {
+                "value": 170000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "assumptions": {
+        "investmentReturn": {
+          "default": "0.01"
+        },
+        "depositReturn": {
+          "default": "0.001"
+        },
+        "wageGrowth": {
+          "default": "0.01"
+        },
+        "inflation": {
+          "default": "0.01"
+        },
+        "pensionMacroSlide": {
+          "default": "0.004"
+        },
+        "assetReturns": {
+          "equity.global": {
+            "default": "0.04"
+          }
+        }
       }
     }
   }

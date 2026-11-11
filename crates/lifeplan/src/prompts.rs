@@ -152,7 +152,7 @@ impl LifeplanMcp {
                  - 対策: {measures}\n- 主な数字を見る本人の年齢: {ages}\n- 相場が下がった場合: {stress}\n\n\
                  進め方:\n\
                  1. list_plan_items で、この世帯で動かせる項目（対象・入力項目ID・今の値・動かせる範囲）を確かめる。\n\
-                 2. 対策ごとに、variants の1通り（label と plan_changes。plan_changes は target・item・value で、画面のプランと同じ書き方）を作る。changes で欄を1つだけ書き換えない（画面と数字がずれる）。\n\
+                 2. 対策ごとに、variants の1通り（label と plan_changes。plan_changes は target・item・value〔一覧が at か lever を添えた項目は、それもそのまま〕で、画面のプランと同じ書き方）を作る。changes で欄を1つだけ書き換えない（画面と数字がずれる）。\n\
                  3. 基本（今のまま）に、各対策と効きそうな組み合わせ1つを重ねて並べる。{COMPARE_HOW}。年齢の時点は at_ages で渡す。\n\
                  4. {MARKET_STRESS_HOW}。効きそうな対策に重ねると、相場が下がっても足りるかが分かる。\n\
                  5. 表にする（行が通り、列が年齢の時点の金融資産・資産が尽きる年・金融資産がいちばん少ない年。年金の受け取り開始を動かした通りがあれば、65歳からの年金の月額と受け取り開始からの月額〔diff の pensionMonthly・pensionClaimedMonthly〕も）。範囲の外などで計算されなかった通りは、返ってきた理由をそのまま書く。\n\

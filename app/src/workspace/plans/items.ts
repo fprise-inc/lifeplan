@@ -78,6 +78,8 @@ export interface MovableItem {
   short: string;
   /** 入力の欄から足した項目の物の名前（例: ご本人の働き方 1（今の働き方））。label は「物の名前: 欄の名前」。画面ではこれを上の段に小さく出し、欄の名前を下の段に出す */
   where?: string;
+  /** 入力の欄から足した項目の、欄の区切りの見出し（例: 第1子・ご本人）。where と同じなら持たない。AI接続口の一覧で、場所だけ違う項目を人が見分ける区別に使う */
+  section?: string;
   /** 追加のメニューの見出し */
   group: string;
   /** 対策の固定の項目（働く最後の年齢・年金の受け取り開始・NISA・生活費・FP顧問料。対策の上に専用の形で出す）。
@@ -956,6 +958,7 @@ function fieldItems(wh: WorkingHousehold, stages: StageDef[], skip: Set<string>)
             label: where !== undefined && where !== f.label ? `${where}: ${f.label}` : f.label,
             short: f.label,
             ...(where !== undefined && where !== f.label ? { where } : {}),
+            ...(section.title !== undefined && section.title !== where ? { section: section.title } : {}),
             group: stageLabel,
             builtin: false,
             phase: "field",

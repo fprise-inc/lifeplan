@@ -15,6 +15,7 @@ import { forEngine } from "../src/engine/moneyRows.ts";
 import type { EngineRequest, PreviewResult } from "../src/engine/types.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { candidateRefOf } from "../src/workspace/plans/candidates.ts";
 import { anyClaimOf, pensionEstimateRequest, planPensionOf, type PlanPension } from "../src/workspace/input/pensionLines.ts";
 import { STRESS_KEYS, stressLabel, stressRequests } from "../src/workspace/invest/present.ts";
 import { compareTable, metricsOf, type PlanMetrics } from "../src/workspace/plans/compare.ts";
@@ -40,11 +41,13 @@ function screen(id: string): { req: EngineRequest; wh: WorkingHousehold; cat: Ca
 }
 
 type Moves = Record<string, (now: ItemValue) => ItemValue>;
-type Change = { target: string; item: string; value: unknown };
+type Change = { target: string; item: string; at?: string[]; lever?: string; value: unknown };
+type Listed = { target: string; item: string; at?: string[]; lever?: string; label: string };
+const refKey = (x: { target: string; item: string; at?: readonly string[]; lever?: string }) => JSON.stringify([x.target, x.item, x.at ?? null, x.lever ?? null]);
 
-/** 動かす項目のキー → 値の作り方 から、画面のつまみの値と、接続口に渡す同じ変更（一覧の対象・入力項目ID）を作る */
+/** 動かす項目のキー → 値の作り方 から、画面のつまみの値と、接続口に渡す同じ変更（一覧の対象・入力項目ID と、場所だけ違う項目は場所。0201）を作る */
 function moved(s: ReturnType<typeof screen>, id: string, moves: Moves): { values: Record<string, ItemValue>; changes: Change[] } {
-  const listed = (JSON.parse(listPlanItems(JSON.stringify(s.req), JSON.stringify({ sampleId: id, fields: true }), "null")) as { items: { target: string; item: string; label: string }[] }).items;
+  const listed = (JSON.parse(listPlanItems(JSON.stringify(s.req), JSON.stringify({ sampleId: id, fields: true }), "null")) as { items: Listed[] }).items;
   const values: Record<string, ItemValue> = {};
   const changes: Change[] = [];
   for (const [key, f] of Object.entries(moves)) {
@@ -54,9 +57,11 @@ function moved(s: ReturnType<typeof screen>, id: string, moves: Moves): { values
     expect(it, `${id} に ${key} がありません`).toBeDefined();
     const v = f(it!.read(s.wh));
     values[it!.key] = v;
-    const l = listed.find((x) => x.label === it!.label && x.item === it!.item);
+    const ref = candidateRefOf(it!, s.wh, s.cat);
+    expect(ref, `${id} の ${it!.label} を選べません`).not.toBeNull();
+    const l = listed.find((x) => refKey(x) === refKey({ ...ref!, item: it!.item }));
     expect(l, `${id} の一覧に ${it!.label} がありません`).toBeDefined();
-    changes.push({ target: l!.target, item: l!.item, value: v });
+    changes.push({ target: l!.target, item: l!.item, ...(l!.at !== undefined ? { at: l!.at } : {}), ...(l!.lever !== undefined ? { lever: l!.lever } : {}), value: v });
   }
   return { values, changes };
 }
@@ -109,6 +114,16 @@ const PLAN_CASES: { name: string; sample: string; base: Moves; variants: { label
     variants: [
       { label: "物価 0%", moves: { "field:assume/inflation": () => "0" } },
       { label: "物価 2%", moves: { "field:assume/inflation": () => "0.02" } },
+    ],
+  },
+  {
+    name: "場所だけ違う項目を並べる（0201。資産運用の積立・取り崩し・教育の段階ごとの欄）",
+    sample: "salariedCoupleTwoKids",
+    base: {},
+    variants: [
+      { label: "積立を月3万円・55歳でやめる", moves: { "inv:monthly": () => 30000, "inv:stop": () => 55 } },
+      { label: "取り崩しを70歳から月10万円", moves: { "inv:wStart": () => 70, "inv:wAmt": () => 100000 } },
+      { label: "第2子の大学の学費を年150万円", moves: { "field:edu/*/stage/3/annual": () => 1500000 } },
     ],
   },
 ];
