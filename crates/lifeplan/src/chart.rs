@@ -92,7 +92,10 @@ pub fn check(a: &ChartArgs) -> Result<(Vec<String>, Vec<String>, String, String)
     }
     let figures = a.figures.clone().unwrap_or_default();
     if figures.iter().any(|k| !FIGURES.contains(&k.as_str())) {
-        return Err(format!("figures に選べるのは {} です。", FIGURES.join("・")));
+        return Err(format!(
+            "figures に選べるのは {} です。",
+            FIGURES.join("・")
+        ));
     }
     let format = a.format.clone().unwrap_or_else(|| "png".to_owned());
     if !FORMATS.contains(&format.as_str()) {
@@ -103,7 +106,9 @@ pub fn check(a: &ChartArgs) -> Result<(Vec<String>, Vec<String>, String, String)
         return Err("theme は light か dark です。".to_owned());
     }
     if a.title.is_some() && kinds.len() > 1 {
-        return Err("title は charts を1つにしたときだけ使えます（種類ごとに呼んでください）。".to_owned());
+        return Err(
+            "title は charts を1つにしたときだけ使えます（種類ごとに呼んでください）。".to_owned(),
+        );
     }
     Ok((kinds, figures, format, theme))
 }
@@ -266,7 +271,10 @@ mod tests {
         assert!(check(&args(json!({ "variants": [], "format": "gif" }))).is_err());
         assert!(check(&args(json!({ "variants": [], "theme": "blue" }))).is_err());
         assert!(check(&args(json!({ "variants": [], "title": "題" }))).is_err());
-        assert!(check(&args(json!({ "variants": [], "title": "題", "charts": ["assets"] }))).is_ok());
+        assert!(check(&args(
+            json!({ "variants": [], "title": "題", "charts": ["assets"] })
+        ))
+        .is_ok());
     }
 
     #[test]

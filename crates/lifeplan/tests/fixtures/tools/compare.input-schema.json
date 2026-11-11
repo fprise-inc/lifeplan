@@ -206,7 +206,7 @@
       ]
     },
     "series": {
-      "description": "年ごとの系列に返す数字（既定 [\"financialAssets\"]。calculate の fields と同じ: income・taxSi・expense・net・financialAssets・debt・shortfall）",
+      "description": "年ごとの系列に返す数字（既定 [\"financialAssets\"]。calculate の fields と同じ: income・taxSi・expense・net・financialAssets・debt・shortfall・\nloanRepayment〔住宅ローンの返済。年額〕・loanBalance〔住宅ローン残高〕）",
       "items": {
         "enum": [
           "income",
@@ -215,7 +215,9 @@
           "net",
           "financialAssets",
           "debt",
-          "shortfall"
+          "shortfall",
+          "loanRepayment",
+          "loanBalance"
         ],
         "type": "string"
       },

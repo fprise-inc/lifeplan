@@ -1,0 +1,289 @@
+{
+  "$defs": {
+    "Change": {
+      "properties": {
+        "op": {
+          "description": "`replace`（今の値を置き換える）・`add`（物の項目を足す／配列に足す。末尾は `-`）・`remove`（消す）",
+          "type": "string"
+        },
+        "path": {
+          "description": "計算の入力（`input`）の中の場所（JSON Pointer。例: `/assumptions/inflation`、`/household/members/0/birth/birthYearMonth`）",
+          "type": "string"
+        },
+        "value": {
+          "default": null,
+          "description": "新しい値（`remove` では使わない）"
+        }
+      },
+      "required": [
+        "op",
+        "path"
+      ],
+      "type": "object"
+    },
+    "PlanChange": {
+      "description": "プランの候補と同じ書き方の変更1件（propose_scenario の changes の1件と同じ。理由 note は要らない）",
+      "properties": {
+        "item": {
+          "description": "入力項目 ID（list_plan_items の item。例: employment.to〔働く最後の年齢〕・pensionRecord.claim・livingExpense.monthly）",
+          "type": "string"
+        },
+        "target": {
+          "description": "対象: list_plan_items の target（世帯の物・構成員の ID か、前提条件なら \"assumptions\"）",
+          "type": "string"
+        },
+        "value": {
+          "description": "新しい値（list_plan_items の kind・unit の形。年齢は整数の歳、金額は円の整数、率は10進の文字列 \"0.02\"）"
+        }
+      },
+      "required": [
+        "target",
+        "item",
+        "value"
+      ],
+      "type": "object"
+    },
+    "VariantArgs": {
+      "additionalProperties": false,
+      "description": "通り1つ（基本に重ねるか、別の世帯か）",
+      "properties": {
+        "changes": {
+          "description": "この通りで当てる JSON Pointer の変更（calculate の changes と同じ）",
+          "items": {
+            "$ref": "#/$defs/Change"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "input": {
+          "description": "別の、AIが組み立てた入力で比べる（calculate の input と同じ形）"
+        },
+        "label": {
+          "description": "通りの名前（答えにそのまま出す。例: 「退職を63歳に」「物価2%」）。省くと「通り1」…",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "market_stress": {
+          "description": "この通りに重ねる、アプリの画面の資産運用のタブの「相場が下がった場合」の型: drop（退職の直後に株などが下がる）・low（取り崩しを\n始めてから〔取り崩しの予定が無ければ退職から〕しばらく利回りが低いまま）・minus1（利回りがずっと想定より1%低い）。画面と同じく、\nプランの変更を当てた後に重ねる（下がる幅・年数は画面と同じ既定）。stress_test とは一緒に使えない",
+          "enum": [
+            "drop",
+            "low",
+            "minus1",
+            null
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "plan_changes": {
+          "description": "この通りで動かす画面のプランの動かす項目（calculate の plan_changes と同じ。list_plan_items の target・item と値）",
+          "items": {
+            "$ref": "#/$defs/PlanChange"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "sample_household_id": {
+          "description": "別の見本の世帯で比べる（list_sample_households の ID）。世帯（sample_household_id・share_id・input）を書かない通りは、基本の世帯に、基本の\nchanges・plan_changes を当てた上に、この通りの changes・plan_changes を重ねる",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "share_id": {
+          "description": "別の、FPが渡した世帯で比べる（list_shared_households の共有 ID。アプリが起動していて共有が期限内のときだけ。読むとアプリの「AIに渡した記録」に残る）",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stress_test": {
+          "description": "この通りのストレステストの型（calculate の stress_test と同じ。基本に重ねる通りで stress_test も market_stress も省くと基本と同じ）",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "at_ages": {
+      "description": "keyFigures の「○歳時点の金融資産」の本人の年齢（compare と同じ。最初の1つを使う。既定 95）",
+      "items": {
+        "format": "uint8",
+        "maximum": 255,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "changes": {
+      "description": "基本に当てる JSON Pointer の変更（compare と同じ）",
+      "items": {
+        "$ref": "#/$defs/Change"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "charts": {
+      "description": "作るグラフ（既定は3つとも）: assets（通りごとの金融資産の推移。折れ線）・repayment（通りごとの住宅ローンの返済額の推移。年額の折れ線）・\nkeyFigures（主な数字の比べ。棒）",
+      "items": {
+        "enum": [
+          "assets",
+          "repayment",
+          "keyFigures"
+        ],
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "figures": {
+      "description": "keyFigures の棒にする数字（既定 assetsAtAge・minimum・loanRepayment）: assetsAtAge（at_ages の最初の年齢の時点の金融資産）・minimum\n（金融資産がいちばん少ない額）・loanRepayment（住宅ローンの返済の合計）・lifetimeTakeHome（生涯の手取りの合計）・lifetimeExpense（生涯の支出の合計）",
+      "items": {
+        "enum": [
+          "assetsAtAge",
+          "minimum",
+          "loanRepayment",
+          "lifetimeTakeHome",
+          "lifetimeExpense"
+        ],
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "format": {
+      "description": "返す形: png（既定。MCP の image。AI のアプリでそのまま見える）・svg（SVG の文字。資料・ブログに貼れる。拡大してもぼやけない）・both",
+      "enum": [
+        "png",
+        "svg",
+        "both",
+        null
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "from_year": {
+      "description": "折れ線のこの年から（含む）",
+      "format": "int64",
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "input": {
+      "description": "基本の世帯: AIが組み立てた計算の入力（calculate の input と同じ形）"
+    },
+    "label": {
+      "description": "基本の名前（既定「基本」。グラフの凡例に出る。お客さまの名前を書かない）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "market_stress": {
+      "description": "基本に重ねる「相場が下がった場合」の型（compare と同じ）",
+      "enum": [
+        "drop",
+        "low",
+        "minus1",
+        null
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "plan_changes": {
+      "description": "基本で動かす画面のプランの動かす項目（compare と同じ）",
+      "items": {
+        "$ref": "#/$defs/PlanChange"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "sample_household_id": {
+      "description": "基本の世帯: 見本の世帯の ID（list_sample_households）。sample_household_id・share_id・input のどれか1つを指定する",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "share_id": {
+      "description": "基本の世帯: FPが渡した世帯の共有 ID（list_shared_households）。アプリが起動していて、共有が期限内のときだけ使える",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "stress_test": {
+      "description": "基本のストレステストの型（compare と同じ）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "theme": {
+      "description": "色の明るさ: light（既定。白地。印刷・資料向け）か dark（暗い地）",
+      "enum": [
+        "light",
+        "dark",
+        null
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "title": {
+      "description": "題（グラフの種類が1つのときだけ。省くと種類ごとの既定の題。お客さまの名前を書かない）",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "to_year": {
+      "description": "折れ線のこの年まで（含む）",
+      "format": "int64",
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "variants": {
+      "description": "並べる通り（compare の variants と同じ。グラフは基本と5通りまでが見分けやすい。通りの label は凡例に出るので、お客さまの名前を書かない）",
+      "items": {
+        "$ref": "#/$defs/VariantArgs"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "variants"
+  ],
+  "type": "object"
+}

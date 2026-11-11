@@ -2536,7 +2536,11 @@ async fn compare_shared_households() {
 }
 
 /// 道具を呼んで、答えの中身（文章・PNG・SVG）を分けて返す: (失敗か, 文章, PNG の並び, SVG の並び, 答えの大きさ〔バイト〕)
-async fn call_blocks(c: &Client, name: &str, args: Value) -> (bool, String, Vec<Vec<u8>>, Vec<String>, usize) {
+async fn call_blocks(
+    c: &Client,
+    name: &str,
+    args: Value,
+) -> (bool, String, Vec<Vec<u8>>, Vec<String>, usize) {
     use base64::Engine as _;
     let mut p = CallToolRequestParams::new(name.to_owned());
     if let Value::Object(m) = args {
@@ -2552,10 +2556,19 @@ async fn call_blocks(c: &Client, name: &str, args: Value) -> (bool, String, Vec<
             text.push_str(&t.text);
         } else if let Some(i) = b.as_image() {
             assert_eq!(i.mime_type, "image/png");
-            pngs.push(base64::engine::general_purpose::STANDARD.decode(&i.data).unwrap());
+            pngs.push(
+                base64::engine::general_purpose::STANDARD
+                    .decode(&i.data)
+                    .unwrap(),
+            );
         } else if let Some(res) = b.as_resource() {
             match &res.resource {
-                rmcp::model::ResourceContents::TextResourceContents { mime_type, text, uri, .. } => {
+                rmcp::model::ResourceContents::TextResourceContents {
+                    mime_type,
+                    text,
+                    uri,
+                    ..
+                } => {
                     assert_eq!(mime_type.as_deref(), Some("image/svg+xml"));
                     assert!(uri.starts_with("financia://chart/"), "{uri}");
                     svgs.push(text.clone());
@@ -2571,7 +2584,11 @@ async fn call_blocks(c: &Client, name: &str, args: Value) -> (bool, String, Vec<
 fn svg_texts(svg: &str) -> Vec<String> {
     let re = regex::Regex::new(r"<text[^>]*>([^<]*)</text>").unwrap();
     re.captures_iter(svg)
-        .map(|c| c[1].replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">"))
+        .map(|c| {
+            c[1].replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+        })
         .collect()
 }
 
@@ -2606,7 +2623,12 @@ async fn chart_compares_three_rate_paths() {
         .clone();
     assert_eq!(outlook["item"], "debt.rateSchedule");
     assert_eq!(
-        outlook["presets"].as_array().unwrap().iter().map(|p| p["value"].clone()).collect::<Vec<_>>(),
+        outlook["presets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| p["value"].clone())
+            .collect::<Vec<_>>(),
         [json!("flat"), json!("up1"), json!("up2")]
     );
     assert_eq!(outlook["stepYears"], 5);
@@ -2626,18 +2648,46 @@ async fn chart_compares_three_rate_paths() {
     assert_eq!(cmp["computed"], 3, "{cmp}");
     // 金利が上がるほど、住宅ローンの返済の合計が増え、95歳時点の金融資産が減る
     let loan = |i: usize| results[i]["keyFigures"]["loanRepayment"].as_i64().unwrap();
-    let at95 = |i: usize| results[i]["keyFigures"]["assetsAtAge"][0]["amount"].as_i64().unwrap();
+    let at95 = |i: usize| {
+        results[i]["keyFigures"]["assetsAtAge"][0]["amount"]
+            .as_i64()
+            .unwrap()
+    };
     assert!(loan(0) < loan(1) && loan(1) < loan(2), "{cmp}");
     assert!(at95(0) > at95(1) && at95(1) > at95(2), "{cmp}");
     // 年ごとの返済額の合計が、主な数字の住宅ローンの返済の合計と同じ（同じ数え方）
     for r in results {
-        let sum: i64 = r["series"].as_array().unwrap().iter().map(|y| y["loanRepayment"].as_i64().unwrap()).sum();
-        assert_eq!(sum, r["keyFigures"]["loanRepayment"].as_i64().unwrap(), "{}", r["label"]);
+        let sum: i64 = r["series"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|y| y["loanRepayment"].as_i64().unwrap())
+            .sum();
+        assert_eq!(
+            sum,
+            r["keyFigures"]["loanRepayment"].as_i64().unwrap(),
+            "{}",
+            r["label"]
+        );
     }
     // 当てた変更は、入力の欄と同じ型の文
     assert_eq!(results[1]["planChanges"][0]["status"], "applied");
-    assert!(results[1]["planChanges"][0]["to"].as_str().unwrap().starts_with("10年で1%上がる"), "{}", results[1]["planChanges"]);
-    assert!(results[2]["planChanges"][0]["to"].as_str().unwrap().starts_with("10年で2%上がる"), "{}", results[2]["planChanges"]);
+    assert!(
+        results[1]["planChanges"][0]["to"]
+            .as_str()
+            .unwrap()
+            .starts_with("10年で1%上がる"),
+        "{}",
+        results[1]["planChanges"]
+    );
+    assert!(
+        results[2]["planChanges"][0]["to"]
+            .as_str()
+            .unwrap()
+            .starts_with("10年で2%上がる"),
+        "{}",
+        results[2]["planChanges"]
+    );
 
     // グラフ（3つとも・PNG と SVG）
     let mut chart_args = args.clone();
@@ -2656,28 +2706,72 @@ async fn chart_compares_three_rate_paths() {
         assert_eq!(r["keyFigures"], results[i]["keyFigures"], "{i}");
         assert_eq!(r["letter"], ["A", "B", "C"][i]);
     }
-    assert!(head["publishNote"].as_str().unwrap().contains("金額を丸める"));
+    assert!(head["publishNote"]
+        .as_str()
+        .unwrap()
+        .contains("金額を丸める"));
     let household: Value = call_ok(&c, "get_sample_household", json!({ "id": id })).await;
-    let uuid = regex::Regex::new(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}").unwrap();
-    for (k, (png, svg)) in ["assets", "repayment", "keyFigures"].iter().zip(pngs.iter().zip(&svgs)) {
+    let uuid =
+        regex::Regex::new(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}").unwrap();
+    for (k, (png, svg)) in ["assets", "repayment", "keyFigures"]
+        .iter()
+        .zip(pngs.iter().zip(&svgs))
+    {
         assert_eq!(&png[..8], b"\x89PNG\r\n\x1a\n", "{k}");
         // PNG は SVG の2倍の幅（1520px）
-        assert_eq!(u32::from_be_bytes(png[16..20].try_into().unwrap()), 1520, "{k}");
+        assert_eq!(
+            u32::from_be_bytes(png[16..20].try_into().unwrap()),
+            1520,
+            "{k}"
+        );
         assert!(svg.contains(&format!("data-chart=\"{k}\"")), "{k}");
         let texts = svg_texts(svg);
-        let title = head["charts"].as_array().unwrap().iter().find(|x| x["kind"] == *k).unwrap()["title"].as_str().unwrap().to_owned();
+        let title = head["charts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|x| x["kind"] == *k)
+            .unwrap()["title"]
+            .as_str()
+            .unwrap()
+            .to_owned();
         assert_eq!(texts[0], title, "{k}: 題");
         for (i, l) in ["今のまま", "10年で+1%", "10年で+2%"].iter().enumerate() {
-            assert!(texts.contains(&format!("{}\u{3000}{l}", ["A", "B", "C"][i])), "{k}: 凡例 {l}");
+            assert!(
+                texts.contains(&format!("{}\u{3000}{l}", ["A", "B", "C"][i])),
+                "{k}: 凡例 {l}"
+            );
         }
         assert!(texts.iter().any(|x| x == "（万円）"), "{k}: 単位");
-        assert!(texts.iter().any(|x| x.starts_with("前提") && x.contains("物価上昇率")), "{k}: 前提の注");
-        assert!(texts.iter().any(|x| x.contains("通りの違い") && x.contains("10年で1%上がる")) || texts.iter().any(|x| x.contains("10年で1%上がる")), "{k}: 金利の見込みの注");
-        assert!(texts.iter().any(|x| x.starts_with("ファイナンシアで試算")), "{k}: 試算の旨と出典");
-        assert!(texts.iter().any(|x| x.contains("将来の結果を約束するものではありません")), "{k}");
+        assert!(
+            texts
+                .iter()
+                .any(|x| x.starts_with("前提") && x.contains("物価上昇率")),
+            "{k}: 前提の注"
+        );
+        assert!(
+            texts
+                .iter()
+                .any(|x| x.contains("通りの違い") && x.contains("10年で1%上がる"))
+                || texts.iter().any(|x| x.contains("10年で1%上がる")),
+            "{k}: 金利の見込みの注"
+        );
+        assert!(
+            texts.iter().any(|x| x.starts_with("ファイナンシアで試算")),
+            "{k}: 試算の旨と出典"
+        );
+        assert!(
+            texts
+                .iter()
+                .any(|x| x.contains("将来の結果を約束するものではありません")),
+            "{k}"
+        );
         // 名前・ID は入らない（世帯の物の ID も、ほかの UUID も）
         assert!(!uuid.is_match(svg), "{k}: ID が入っています");
-        for m in household["input"]["household"]["members"].as_array().unwrap() {
+        for m in household["input"]["household"]["members"]
+            .as_array()
+            .unwrap()
+        {
             assert!(!svg.contains(m["id"].as_str().unwrap()), "{k}");
         }
     }
@@ -2690,11 +2784,17 @@ async fn chart_compares_three_rate_paths() {
     one["title"] = json!("変動金利の上がり方と住宅ローンの返済額");
     let t = std::time::Instant::now();
     let (err, text, pngs, svgs, size) = call_blocks(&c, "chart", one).await;
-    eprintln!("chart（1つ・PNG だけ）: {} ms・{size} バイト", t.elapsed().as_millis());
+    eprintln!(
+        "chart（1つ・PNG だけ）: {} ms・{size} バイト",
+        t.elapsed().as_millis()
+    );
     assert!(!err, "{text}");
     assert_eq!((pngs.len(), svgs.len()), (1, 0));
     let head: Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(head["charts"][0]["title"], "変動金利の上がり方と住宅ローンの返済額");
+    assert_eq!(
+        head["charts"][0]["title"],
+        "変動金利の上がり方と住宅ローンの返済額"
+    );
     assert_eq!(head["theme"], "dark");
 
     // 計算できない通りがあれば、グラフを作らずに理由を返す

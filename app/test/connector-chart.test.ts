@@ -30,7 +30,7 @@ describe("比べた答えのグラフ", () => {
       expect(out.svg).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
       expect(out.svg).toContain(`<title>${out.title}</title>`);
       expect(all[0]).toBe(out.title);
-      for (const [i, l] of ["今のまま", "10年で+1%", "10年で+2%"].entries()) expect(all).toContain(`${"ABC"[i]}　${l}`);
+      for (const [i, l] of ["今のまま", "10年で+1%", "10年で+2%"].entries()) expect(all).toContain(`${"ABC"[i]}\u3000${l}`);
       expect(all).toContain("（万円）");
       const notes = all.filter((x) => x.startsWith("前提") || x.startsWith("単位は万円") || x.startsWith("ファイナンシアで試算") || x.startsWith("通りの違い"));
       expect(notes.some((x) => x.startsWith("通りの違い"))).toBe(true);
@@ -93,8 +93,8 @@ describe("比べた答えのグラフ", () => {
 
   it("前提の注: 通りで違えば通りごと、相場の想定も書く", () => {
     const n = chartNotes({ ...args("assets"), variants: [three[0]!, { ...three[1]!, assumptions: { inflation: { default: "0.02" } }, stress: "退職の直後に株などが下がる" }] });
-    expect(n.find((x) => x.startsWith("前提"))).toBe("前提　A: 物価上昇率 年1%・運用利回り 年1%（資産ごとの指定が無いもの）／B: 物価上昇率 年2%");
-    expect(n).toContain("相場などの想定　B: 退職の直後に株などが下がる");
+    expect(n.find((x) => x.startsWith("前提"))).toBe("前提\u3000A: 物価上昇率 年1%・運用利回り 年1%（資産ごとの指定が無いもの）／B: 物価上昇率 年2%");
+    expect(n).toContain("相場などの想定\u3000B: 退職の直後に株などが下がる");
     expect(n.find((x) => x.startsWith("通りの違い"))).toContain("A: 金利の見込み（変動金利） 今の金利のまま");
   });
 
