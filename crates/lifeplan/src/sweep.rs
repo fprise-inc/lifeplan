@@ -258,10 +258,10 @@ pub struct SweepArgs {
     pub work_type: Option<String>,
     /// 「○歳時点の金融資産」の本人の年齢（5つまで。既定 [95]）
     pub at_ages: Option<Vec<u8>>,
-    /// 表に入れる主な数字（既定は全部）: assetsAtAge（○歳時点の金融資産）・depletion（資産が尽きる年と本人の年齢）・minimum（金融資産が
-    /// いちばん少ない年と額）・lifetimeTakeHome・lifetimeExpense・loanRepayment・pension（65歳からの年金の世帯の月額と、受け取り開始からの
+    /// 表に入れる主な数字（既定は loanInterest のほか全部）: assetsAtAge（○歳時点の金融資産）・depletion（資産が尽きる年と本人の年齢）・minimum（金融資産が
+    /// いちばん少ない年と額）・lifetimeTakeHome・lifetimeExpense・loanRepayment・loanInterest（住宅ローンの利息の合計。選んだときだけ）・pension（65歳からの年金の世帯の月額と、受け取り開始からの
     /// 月額。省くと年金の見込みの計算をしないので速くなる）
-    #[schemars(extend("items" = { "type": "string", "enum": ["assetsAtAge", "depletion", "minimum", "lifetimeTakeHome", "lifetimeExpense", "loanRepayment", "pension"] }))]
+    #[schemars(extend("items" = { "type": "string", "enum": ["assetsAtAge", "depletion", "minimum", "lifetimeTakeHome", "lifetimeExpense", "loanRepayment", "loanInterest", "pension"] }))]
     pub figures: Option<Vec<String>>,
 }
 
@@ -300,8 +300,8 @@ pub struct ThresholdArgs {
     /// 探し方: auto（既定。単調と分かる項目は二分探索、ほかは刻みで振る）・bisect（二分探索。単調だと分かっているときだけ）・scan（刻みで振る。21個まで）
     #[schemars(extend("enum" = ["auto", "bisect", "scan", null]))]
     pub method: Option<String>,
-    /// 表に入れる主な数字（sweep の figures と同じ。既定は全部）
-    #[schemars(extend("items" = { "type": "string", "enum": ["assetsAtAge", "depletion", "minimum", "lifetimeTakeHome", "lifetimeExpense", "loanRepayment", "pension"] }))]
+    /// 表に入れる主な数字（sweep の figures と同じ。既定は loanInterest のほか全部）
+    #[schemars(extend("items" = { "type": "string", "enum": ["assetsAtAge", "depletion", "minimum", "lifetimeTakeHome", "lifetimeExpense", "loanRepayment", "loanInterest", "pension"] }))]
     pub figures: Option<Vec<String>>,
 }
 
@@ -313,13 +313,21 @@ pub const FIGURES: &[&str] = &[
     "lifetimeTakeHome",
     "lifetimeExpense",
     "loanRepayment",
+    "loanInterest",
     "pension",
 ];
 
-/// 表に入れる主な数字を確かめる（既定は全部）
+/// 選んだときだけ表に入れる主な数字（住宅ローンの利息の合計。0205。既定の表の大きさは変えない）
+pub const OPTIONAL_FIGURES: &[&str] = &["loanInterest"];
+
+/// 表に入れる主な数字を確かめる（既定は OPTIONAL_FIGURES のほか全部）
 pub fn figures(list: Option<&[String]>) -> Result<Vec<String>, String> {
     let Some(list) = list else {
-        return Ok(FIGURES.iter().map(|s| (*s).to_owned()).collect());
+        return Ok(FIGURES
+            .iter()
+            .filter(|f| !OPTIONAL_FIGURES.contains(f))
+            .map(|s| (*s).to_owned())
+            .collect());
     };
     let bad: Vec<&str> = list
         .iter()
@@ -1076,6 +1084,17 @@ mod tests {
         );
         let f = figures(Some(&["pension".to_owned(), "depletion".to_owned()])).unwrap();
         assert_eq!(f, vec!["depletion".to_owned(), "pension".to_owned()]);
+        // 住宅ローンの利息の合計は、選んだときだけ（0205）
+        assert!(!figures(None).unwrap().contains(&"loanInterest".to_owned()));
+        let f = figures(Some(&["loanInterest".to_owned()])).unwrap();
+        assert_eq!(
+            columns(&f, &[]),
+            ["value".to_owned(), "loanInterest".to_owned()]
+        );
+        assert_eq!(
+            row(&json!(1), &json!({ "loanInterest": 7807 }), &f),
+            vec![json!(1), json!(7807)]
+        );
         assert!(figures(Some(&["x".to_owned()])).is_err());
         assert!(figures(Some(&[])).is_err());
     }

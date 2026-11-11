@@ -127,7 +127,7 @@
       ]
     },
     "figures": {
-      "description": "表に入れる主な数字（既定は全部）: assetsAtAge（○歳時点の金融資産）・depletion（資産が尽きる年と本人の年齢）・minimum（金融資産が\nいちばん少ない年と額）・lifetimeTakeHome・lifetimeExpense・loanRepayment・pension（65歳からの年金の世帯の月額と、受け取り開始からの\n月額。省くと年金の見込みの計算をしないので速くなる）",
+      "description": "表に入れる主な数字（既定は loanInterest のほか全部）: assetsAtAge（○歳時点の金融資産）・depletion（資産が尽きる年と本人の年齢）・minimum（金融資産が\nいちばん少ない年と額）・lifetimeTakeHome・lifetimeExpense・loanRepayment・loanInterest（住宅ローンの利息の合計。選んだときだけ）・pension（65歳からの年金の世帯の月額と、受け取り開始からの\n月額。省くと年金の見込みの計算をしないので速くなる）",
       "items": {
         "enum": [
           "assetsAtAge",
@@ -136,6 +136,7 @@
           "lifetimeTakeHome",
           "lifetimeExpense",
           "loanRepayment",
+          "loanInterest",
           "pension"
         ],
         "type": "string"
