@@ -28,7 +28,7 @@ import { BS_POINT_CHOICES, bsPlan, DEFAULT_BS_POINTS } from "../balanceTab.ts";
 import { bandOf, donutYear, drawdownText, stressLabel, stressRequests, STRESS_KEYS } from "../invest/present.ts";
 import { displayYears } from "../present.ts";
 import { ageInYear, roles } from "../roles.ts";
-import { chapterMaterials, extensionChapters } from "../extensions/run.ts";
+import { chapterIdsOf, chapterMaterials, extensionChapters } from "../extensions/run.ts";
 import { OFFICIAL_EXTENSIONS } from "../extensions/official.ts";
 import type { LoadedExtension } from "../extensions/manifest.ts";
 
@@ -85,6 +85,8 @@ export interface ReportContext {
   letterOf: (id: string) => { letter: string; name: string };
   /** 今使える拡張の束（提案書の拡張の章の材料を作る。0114 の6。省略は無し） */
   extensions?: readonly LoadedExtension[];
+  /** そのうち、見本の世帯でだけ見せている束の id（その束の章に見本の印を付ける。0197。省略は無し） */
+  sampleExtensions?: ReadonlySet<string>;
 }
 
 /** 運用の前提の変更（打ち手ごとの効果で最後にまとめ、「運用の前提の変更を除いた効果」を出す） */
@@ -223,6 +225,9 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
       const home = bsPlan({ key: "current", letter: "", name: "", title: "", base: true, req: current, table: (results.current as PreviewResult).table }).years[0];
       const ext = chapterMaterials(ctx.extensions ?? [], wh.extValues, home, on);
       if (Object.keys(ext).length > 0) b.extensions = ext;
+      // 見本の世帯でだけ載せる章（コードが無くても見本として載せた章。帳票が「見本」の印を付ける。0197）
+      const samples = chapterIdsOf(ctx.extensions ?? [], ctx.sampleExtensions ?? new Set()).filter((id) => ext[id] !== undefined);
+      if (samples.length > 0) b.extensionSamples = samples;
     }
     if (on.has("cashflow")) b.balancePoints = balancePointsOf(proposal, results.proposal as PreviewResult, choice.bsColumns ?? null, choice.bsPoints ?? DEFAULT_BS_POINTS);
     if (steps.length > 0) b.steps = steps.map((s, i) => ({ label: s.label, investment: s.investment, run: i === steps.length - 1 ? proposalRun : run(s.key) }));

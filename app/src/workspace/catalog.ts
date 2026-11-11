@@ -58,6 +58,11 @@ export interface DemoHousehold {
   plans?: readonly DemoPlan[];
   /** 開いたときに入れておく控え */
   snapshots?: readonly DemoSnapshot[];
+  /**
+   * 開いたときに入れておく拡張の束の入力欄の値（入力欄の値の置き場所 → 値。0114 の4）。合算BS の会社の数字など（0197）。
+   * 世帯ファイルの拡張領域と同じ形で、開くときに束の宣言で確かめて読む（宣言に合わない値は捨てる）
+   */
+  extValues?: Readonly<Record<string, Record<string, unknown>>>;
 }
 
 export const DEMO_HOUSEHOLDS: readonly DemoHousehold[] = [
@@ -304,6 +309,52 @@ export const DEMO_HOUSEHOLDS: readonly DemoHousehold[] = [
     firstProposal: { retireAge: 68, nisaMonthly: 30000 },
     notes: { retireAge: "60歳で定年、今は再雇用（年収350万円）。配偶者はパート（年収100万円）" },
     memo: ["確定給付企業年金を65歳から年60万円・10年で受け取る（架空の例）", "持ち家は完済（1995年築）。区分マンション1室を月7万円で貸している（2010年に1,800万円で取得。架空の例）", "預金2,500万円・課税口座800万円・NISA（月1万円）（架空の例）", "母（89歳）の在宅の介護を月8万円で払う。母からの相続（1,500万円）の見込み（架空の例）"],
+  },
+  // 2026-11-11 に足した見本（架空）: 合算BS（会社と合わせたバランスシート）を見せる世帯。会社の数字も入れておく。
+  // 見本の世帯は、機能を有効にするコードが無くても合算BS を見られる（0197）。会社の名前は出さない（数字だけ）
+  {
+    id: "sampleOwnerCompany",
+    sampleNo: "3-5-03",
+    title: "会社を経営する夫婦と子1人・50代（合算BS の見本）",
+    traits: ["役員", "片働き", "持ち家", "教育費", "資産運用"],
+    targetAge: 95,
+    steps: { retireAge: [65, 68, 70, 72, 75], pensionAge: [65, 68, 70, 72, 75], nisaMonthly: [0, 50000, 100000, 200000], livingMonthly: [480000, 520000, 550000, 600000] },
+    firstProposal: { retireAge: 72, pensionAge: 70, nisaMonthly: 100000, livingMonthly: 520000 },
+    notes: { retireAge: "代表を退く年齢（退くときに役員退職慰労金）", pensionAge: "役員報酬が高い間は、在職老齢年金で止まる分がある", livingMonthly: "子の独立後は85%、退任後は85%、80歳から75%" },
+    memo: [
+      "2010年に自分で作った会社（社員40人ほど）の代表。役員報酬は年1,800万円、自社株は出資額1,000万円で全部を持つ（架空の例）",
+      "会社に500万円を貸している。会社の試算表では「役員からの借入金」が600万円（家計の側の書き漏れの見本。合算BS のお知らせに出る。架空の例）",
+      "会社の長期借入金6,000万円のうち5,000万円を連帯保証。役員退職慰労金（最終報酬月額150万円×在任年数×1.5倍）は、会社の保険積立金などで準備している（架空の例）",
+    ],
+    plans: [
+      { name: "プランB 年金を70歳から受け取る", tags: ["老後"], values: { "lever:pensionAge": 70 } },
+      { name: "プランC 72歳まで代表を続ける", tags: ["老後"], values: { "lever:retireAge": 72 } },
+    ],
+    extValues: {
+      "ext.official.combinedBs": {
+        asOf: "2026-09",
+        amounts: {
+          cash: 40_000_000,
+          receivables: 25_000_000,
+          inventory: 6_000_000,
+          otherCurrent: 4_000_000,
+          land: 25_000_000,
+          buildings: 18_000_000,
+          investments: 30_000_000,
+          otherFixed: 7_000_000,
+          shortDebt: 15_000_000,
+          longDebt: 60_000_000,
+          loanFromOwner: 6_000_000,
+          otherLiabilities: 24_000_000,
+          capital: 10_000_000,
+          retained: 40_000_000,
+          monthlyFixed: 8_000_000,
+          monthlyLoanPay: 1_200_000,
+        },
+        stage: "mature",
+        restated: { inventory: 4_500_000, buildings: 12_000_000, land: 35_000_000 },
+      },
+    },
   },
 ];
 

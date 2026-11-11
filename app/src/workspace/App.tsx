@@ -59,7 +59,7 @@ import { customCenterNotice, estimateCenterNotice } from "./office/customNotice.
 import { previewOfficeChange } from "./office/estimatePreview.ts";
 import type { CustomTextsStatus } from "../engine/host.ts";
 import { OFFICIAL_EXTENSIONS } from "./extensions/official.ts";
-import { activeExtensions, extensionChapters, extensionFieldEdit, extensionViews, featureOf, fitsHousehold, hasValues } from "./extensions/run.ts";
+import { activeExtensions, demoExtValues, extensionChapters, extensionFieldEdit, extensionViews, featureOf, fitsHousehold, hasValues, SAMPLE_SAVED_TEXT, sampleExtensions } from "./extensions/run.ts";
 import type { ExtValue } from "../../../report/src/index.ts";
 import { combinedHiddenText, expiredFor, featureOn, NO_FEATURES, type FeatureStatus } from "./office/featureCodes.ts";
 import { FpTools } from "./tools/FpTools.tsx";
@@ -507,6 +507,8 @@ export function App() {
   const [storedSamples, setStoredSamples] = useState<StoredHousehold[]>([]);
   /** 自分で作った見本を開いている: view＝動かしても保存しない（閉じれば元どおり）、edit＝「この見本を直す」で保存している */
   const [sampleMode, setSampleMode] = useState<null | "view" | "edit">(null);
+  /** 見本の世帯でだけ見せている公式の拡張の束の id（保存したときの知らせに使う。0197） */
+  const previewRef = useRef<ReadonlySet<string>>(new Set());
   /** 開いたときに見せる世帯の一覧のタブ */
   const [hhTab, setHhTab] = useState<"customers" | "samples">("customers");
   const [hhOpen, setHhOpen] = useState(false);
@@ -1053,6 +1055,9 @@ export function App() {
         if (self === undefined) return false;
         const re = demo.reemployment;
         const wh = fromRequest(base, { memo: demo.memo, ...(re !== undefined ? { postRetirement: { [self.member.id]: { ...re, type: re.type as "contract" } } } : {}) });
+        // 見本に入れておいた束の入力欄の値（合算BS の会社の数字など。宣言で確かめて読む。0197）
+        const ext = demoExtValues(OFFICIAL_EXTENSIONS, demo.extValues);
+        if (ext !== undefined) wh.extValues = ext;
         o = openedFrom(demo, wh);
       }
       if (o === null) return false;
@@ -1287,6 +1292,8 @@ export function App() {
       // 見本として作るとき・アプリに入っている見本の世帯から顧客を作るときは、メモ（見本のメモは例の文）と面談の履歴を写さない
       // （0182 の追記）。画面の中身は、作った世帯に切り替えた後で外す（先に外すと、元の世帯の自動保存に外した中身が入る）
       const stripped = dropNotesOnPersist({ toSample: sample !== undefined, stored: storedRef.current !== null, appSample: o0.demo !== null }, o0.wh);
+      // 見本の世帯でだけ見せていた束の値（合算BS の会社の数字など）は写すが、保存した世帯ではコードが無ければ見られない（0197）
+      const keptHidden = storedRef.current === null && OFFICIAL_EXTENSIONS.some((x) => previewRef.current.has(x.manifest.id) && hasValues(x, o0.wh.extValues));
       const o: Opened = stripped ? { ...o0, wh: withoutNotes(o0.wh) } : o0;
       const body = bodyFor(o, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, EMPTY_CARRY);
       if (storedRef.current !== null) void host.store.leave().catch(() => undefined);
@@ -1307,7 +1314,7 @@ export function App() {
       autosaver.current?.reset(body, nowIso());
       setStoredList(await host.store.list());
       void host.store.listSamples().then(setStoredSamples, () => undefined);
-      say(r.sample !== undefined ? `見本 ${r.customerNo} を作りました${stripped ? "（メモと面談の履歴は写していません）" : ""}。手直しは自動で保存します` : `世帯 ${r.customerNo} として保存しました${stripped ? "（見本のメモは写していません）" : ""}。これからは自動で保存します`);
+      say((r.sample !== undefined ? `見本 ${r.customerNo} を作りました${stripped ? "（メモと面談の履歴は写していません）" : ""}。手直しは自動で保存します` : `世帯 ${r.customerNo} として保存しました${stripped ? "（見本のメモは写していません）" : ""}。これからは自動で保存します`) + (keptHidden ? `。${SAMPLE_SAVED_TEXT}` : ""));
     },
     [host, say, history],
   );
@@ -2204,7 +2211,14 @@ export function App() {
   // 拡張の束（0114）: 同梱の公式の拡張のうち、今使えるもの（合算BS は、コードで有効〔0110〕かつ事務所の設定の印かつ役員として働く人のいる世帯のときだけ。
   // 印は、コードが無い・切れたときも残すが、出さない）。家計の側は現状のプランの今の年（入力した値から出した事実）
   const household = opened?.wh.request.input.household ?? null;
-  const activeExts = useMemo(() => activeExtensions(OFFICIAL_EXTENSIONS, { features: featureStatus, office: officeSettings.features, household }), [featureStatus, officeSettings.features, household]);
+  const usableExts = useMemo(() => activeExtensions(OFFICIAL_EXTENSIONS, { features: featureStatus, office: officeSettings.features, household }), [featureStatus, officeSettings.features, household]);
+  // アプリの見本の世帯（架空。保存していないもの）では、コードが無くても公式の拡張を見せる（見本の印を付ける。0197）。
+  // 保存した世帯・FP が作った見本では出さない（お客さまの情報が入りうるため。上の usableExts の条件だけ）
+  const appSample = storedInfo === null && opened?.demo != null;
+  const previewExts = useMemo(() => sampleExtensions(OFFICIAL_EXTENSIONS, { features: featureStatus, office: officeSettings.features, household, appSample }), [featureStatus, officeSettings.features, household, appSample]);
+  const previewIds = useMemo(() => new Set(previewExts.map((x) => x.manifest.id)), [previewExts]);
+  previewRef.current = previewIds;
+  const activeExts = useMemo(() => (previewExts.length === 0 ? usableExts : [...usableExts, ...previewExts]), [usableExts, previewExts]);
   // コードの期限が切れた・止めた: 束の値の入っている世帯では、見られなくなった旨と入れ直せば戻ることを知らせる（データは消さない。0110 の3）
   const extHidden = (() => {
     if (household === null || opened === null) return null;
@@ -2218,9 +2232,9 @@ export function App() {
   const extViews = useMemo(() => {
     if (activeExts.length === 0 || opened === null || bsPlans === null) return [];
     const home = bsPlans.find((p) => p.key === (letters.get(CURRENT)?.letter ?? "A"))?.years[0];
-    return extensionViews(activeExts, opened.wh.extValues, home);
-  }, [activeExts, opened?.wh.extValues, bsPlans, letters]);
-  const extChapters = useMemo(() => extensionChapters(activeExts), [activeExts]);
+    return extensionViews(activeExts, opened.wh.extValues, home, previewIds);
+  }, [activeExts, previewIds, opened?.wh.extValues, bsPlans, letters]);
+  const extChapters = useMemo(() => extensionChapters(activeExts, previewIds), [activeExts, previewIds]);
   const onCustomField = useCallback(
     (view: string, id: string, value: string): boolean => {
       const o = openedRef.current;
@@ -3083,6 +3097,7 @@ export function App() {
             moneyThree={bsSettings.moneyThree}
             extChapters={extChapters}
             extensions={activeExts}
+            sampleExtensions={previewIds}
             onSnapshot={takeSnapshot}
             {...(initial.reportMode !== undefined ? { initialMode: initial.reportMode } : {})}
           />

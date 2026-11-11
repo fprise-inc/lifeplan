@@ -217,3 +217,7 @@
   3. 6・7 の道具: 止めるコードの命令 `feature-code revocations new|open|add|remove|show` は、ふだんは小さな一覧の下書きを直す（`open` は配信元の一覧を確かめて下書きにする。`--draft` に取り下げの一覧の下書きを渡せばそちらを直す）。署名は `dist-keys revocations sign`（下書きの種類に合う鍵）。ふだんの止め方は GitHub の Actions（`.github/workflows/feature-code-revocations.yml`）。手順は `docs/feature-codes-operations.md`。
   4. 取り下げの一覧に知らない欄があると一覧ごと受け付けない作りをやめた（知らない欄は無視する。0117 の追記の2 の5）。
 - **影響**: 開発用のビルドは `FINANCIA_DEV_FEATURE_CODE_REVOCATIONS_URL`、開発用のサーバーの代わりは `FINANCIA_DEV_FEATURE_CODE_REVOCATIONS`（手元のファイル）で小さな一覧を読める。世帯ファイル・事務所データの形式の版、計算エンジン・計算の結果は変わらない。外部送信の一覧（0012 の5）の行に `feature_code_revocations` を足した。
+
+## 追記（2026-11-11）: アプリの見本の世帯だけは、コードが無くても見せる
+
+- アプリに入っている見本の世帯（架空）を保存しないで開いているときだけ、コードが無くても合算BS を「見本」の印つきで見せる（**0197**）。コードの確かめ・事務所の既定値の区画・期限切れや止めたときの知らせ、保存した世帯と FP が作った見本の扱いは変えない（3 の「有効なときだけ」は、見本でない世帯の決まりとして読む）。
