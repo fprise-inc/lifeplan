@@ -1171,17 +1171,17 @@
           {
             "age": 95,
             "year": 2067,
-            "amount": 125555661
+            "amount": 125693332
           }
         ],
         "depletion": null,
         "minimum": {
           "year": 2027,
-          "amount": 29099678,
+          "amount": 29108283,
           "selfAge": 55
         },
         "lifetimeTakeHome": 218192775,
-        "lifetimeExpense": 126316675,
+        "lifetimeExpense": 126184105,
         "loanRepayment": 0
       }
     }
