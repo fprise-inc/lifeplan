@@ -207,6 +207,11 @@ export interface ProposalBundle {
    * 作業の層が、有効な束の章を FP が選んだときだけ作る（合算BS は ext.official.combinedBs）。そのまま帳票の入力の extensions に入る
    */
   extensions?: Record<string, Record<string, unknown>>;
+  /**
+   * 見本の世帯でだけ載せた拡張の章の id（0197）: アプリの見本の世帯で、機能を有効にするコードが無くても見本として載せた章。
+   * 帳票が章の見出しの下に「見本」の印を付ける。そのまま帳票の入力の extensionSamples に入る（extensions に材料のある章だけ）
+   */
+  extensionSamples?: string[];
   /** 資産運用の計画（0026）: 画面が入力から作る文（入れ方・取り崩しの条件・運用の期間）と、相場が下がった場合の計算（提案に型を重ねたもの） */
   investment?: InvestmentMaterial;
   /**

@@ -115,5 +115,8 @@ export function selectChapters(input: ProposalInput, chosen: readonly ChapterId[
   // 拡張の章: 選んだ章の材料だけを渡す
   const kept = Object.entries(input.extensions ?? {}).filter(([id]) => isExtChapterId(id) && on.has(id));
   out.extensions = kept.length > 0 ? Object.fromEntries(kept) : null;
+  // 見本の印（0197）: 載せる拡張の章のものだけ残す
+  const samples = (input.extensionSamples ?? []).filter((id) => out.extensions?.[id] !== undefined);
+  out.extensionSamples = samples.length > 0 ? samples : null;
   return out;
 }

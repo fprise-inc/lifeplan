@@ -924,6 +924,12 @@ function extensionsOf(ctx: Ctx): Record<string, Record<string, unknown>> | null 
   return Object.keys(out).length > 0 ? out : null;
 }
 
+/** 見本の世帯でだけ載せた拡張の章（0197）: 材料のある章の id だけ（無ければ null） */
+function extensionSamplesOf(ctx: Ctx, ext: Record<string, Record<string, unknown>> | null): string[] | null {
+  const ids = (ctx.bundle.extensionSamples ?? []).filter((id, i, a) => ext?.[id] !== undefined && a.indexOf(id) === i);
+  return ids.length > 0 ? ids : null;
+}
+
 function trimYears(maps: Map<number, number>[], years: readonly number[]): number[] {
   const active = years.filter((y) => maps.some((m) => (m.get(y) ?? 0) !== 0));
   if (active.length === 0) return [];
@@ -1738,6 +1744,7 @@ export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
     marketDrop: marketDrop(ctx),
     moneyThree: moneyThreeOf(ctx),
     extensions: extensionsOf(ctx),
+    extensionSamples: extensionSamplesOf(ctx, extensionsOf(ctx)),
     realEstate: realEstate(ctx),
     rental: rental(ctx),
     layout: { ...DEFAULT_LAYOUT, ...bundle.layout },
