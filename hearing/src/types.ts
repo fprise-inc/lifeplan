@@ -217,7 +217,7 @@ export interface IncomeFlow {
   amount: ValueBox<number>;
   counterparty?: string;
   likelihood?: "certain" | "uncertain";
-  /** 伸び方（援助は「変えない」。0044 の追記 2026-11-10） */
+  /** 伸び方（援助は「変えない」、相続・遺贈の1回の行は「その時の額のまま」。どちらも growth none。0044 の追記 2026-11-10・2026-11-11） */
   growth?: { kind: "none" };
 }
 
