@@ -7,6 +7,8 @@ import type { WorkingHousehold } from "./household.ts";
 import { presetRate } from "../../../../hearing/src/presets.ts";
 
 const KIND_LABEL: Record<string, string> = { parent: "親", grandparent: "祖父母", sibling: "兄弟姉妹", grandchild: "孫", other: "ご家族" };
+/** 同じ呼び方が並んだら番号を付ける続柄（ご本人・配偶者・子は roles.ts の呼び方〔第1子・離れて暮らす子1 …〕で見分けられる） */
+const NUMBERED_KINDS: ReadonlySet<string> = new Set(Object.keys(KIND_LABEL));
 
 /** 親・祖父母の呼び方（性別と、配偶者の親か）: 父・母・義父・義母・祖父・祖母。性別の値が無ければ「親」「祖父母」 */
 function elderLabel(wh: WorkingHousehold, m: Member): string | undefined {
@@ -33,14 +35,15 @@ export function memberLabels(wh: WorkingHousehold, o: { nicknames?: boolean } = 
     out.set(r.member.id, nick !== undefined && nick !== "" ? `${base}（${nick}）` : base);
   }
   for (const m of h.members) if (!out.has(m.id)) out.set(m.id, elderLabel(wh, m) ?? KIND_LABEL[m.kind] ?? "ご家族");
-  // 孫は呼び名が無いと「孫」「孫」と並んで見分けられないので、同じ呼び方の孫が2人以上なら、足した順に「孫1」「孫2」…（呼び名のある孫は「孫（長男の子）」のまま）。
-  // 顧客に渡すファイル（呼び名を入れない）では、孫が2人以上なら全員に番号が付く
-  const grandchildren = h.members.filter((m) => m.kind === "grandchild").map((m) => ({ m, label: out.get(m.id) }));
-  for (const g of grandchildren) {
-    const same = grandchildren.filter((x) => x.label === g.label);
+  // 孫・兄弟姉妹・祖父母・親・ほかの家族は、呼び名が無いと「孫」「孫」のように並んで見分けられないので、同じ呼び方の人が2人以上なら、
+  // 足した順に続柄の呼び方へ番号を付ける（「孫1」「孫2」、「兄弟姉妹1」「兄弟姉妹2」、「祖父母1」…。性別を入れた祖父母は「祖父1」「祖父2」）。
+  // 呼び名のある人は「孫（長男の子）」のまま。顧客に渡すファイル（呼び名を入れない）では、同じ続柄の呼び方の人が2人以上なら全員に番号が付く
+  const others = h.members.filter((m) => NUMBERED_KINDS.has(m.kind)).map((m) => ({ m, label: out.get(m.id) }));
+  for (const g of others) {
+    const same = others.filter((x) => x.label === g.label);
     if (same.length < 2) continue;
     const nick = o.nicknames === false ? undefined : wh.labelsByMember[g.m.id];
-    const no = `${KIND_LABEL.grandchild ?? "孫"}${String(same.indexOf(g) + 1)}`;
+    const no = `${elderLabel(wh, g.m) ?? KIND_LABEL[g.m.kind] ?? "ご家族"}${String(same.indexOf(g) + 1)}`;
     out.set(g.m.id, nick !== undefined && nick !== "" ? `${no}（${nick}）` : no);
   }
   return out;
