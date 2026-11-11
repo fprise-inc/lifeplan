@@ -137,9 +137,25 @@ describe("種類ごとの伸び方の既定（足したとき）", () => {
   });
 });
 
+/** 伸び方を持たない前の仕送り・毎年の贈与の行のある世帯（見本の世帯から伸び方を外した形。見本の世帯は 2026-11-11 から「変えない」を持つ） */
+const legacyParentsCare = (): WorkingHousehold => {
+  const req = modelHousehold("sampleParentsCare");
+  for (const p of req.input.household.periodicExpenses ?? []) delete p.growth;
+  return fromRequest(req);
+};
+
+describe("見本の世帯の伸び方", () => {
+  it("仕送り・毎年の贈与の行は「変えない」を持つ（0044 の追記 2026-11-11）", () => {
+    const h = modelHousehold("sampleParentsCare").input.household;
+    const rows = (h.periodicExpenses ?? []).filter((p) => p.kind === "allowance" || p.kind === "gift");
+    expect(rows.map((p) => p.kind).sort()).toEqual(["allowance", "gift"]);
+    for (const p of rows) expect(p.growth).toEqual({ kind: "none" });
+  });
+});
+
 describe("既存の世帯の数字は変わらない", () => {
-  it("見本の世帯（伸び方の無い仕送り・毎年の贈与の行）は、どの入力項目を開いても、額を直しても伸び方を書き換えない", () => {
-    const wh = fromRequest(modelHousehold("sampleParentsCare"));
+  it("伸び方の無い仕送り・毎年の贈与の行は、どの入力項目を開いても、額を直しても伸び方を書き換えない", () => {
+    const wh = legacyParentsCare();
     const before = structuredClone(wh.request.input.household);
     for (const id of ["family", "work", "pension", "living", "education", "housing", "events", "car", "care", "inheritance"] as const) buildStage(id, wh);
     expect(wh.request.input.household).toEqual(before);
@@ -150,7 +166,7 @@ describe("既存の世帯の数字は変わらない", () => {
   });
 
   it("伸び方の無い前の行は「物価に合わせる」と見せ、物価で伸ばしていることを添える。「詳細あり」には数えない", () => {
-    const wh = fromRequest(modelHousehold("sampleParentsCare"));
+    const wh = legacyParentsCare();
     const allowance = (wh.request.input.household.periodicExpenses ?? []).find((p) => p.kind === "allowance")!;
     const g = fieldOf("care", wh, `ev/${allowance.id}/growth`);
     expect(g.label).toBe("伸び方");
